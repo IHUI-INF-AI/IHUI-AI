@@ -73,15 +73,15 @@ inhibit_rules:
   # 明细见 noise-rules.yml(本文件的 inhibit_rules 段为合并后的可用稿,已同步)
   # 根因覆盖则抑制衍生告警,避免"一个故障多条告警":
   # API 宕机 → 其错误率/响应时间随之失效 → 抑制
-  # BUG-22:目标 ApiHighErrorRate 的 expr 是 sum(rate(...))/sum(rate(...)) 聚合后无 instance 标签,
-  # 而源 ApiDown = up{job="api"}==0 带 instance ⇒ equal:['instance'] 永不匹配、抑制永不生效。
-  # 改空标签集:只要 ApiDown(critical)在 firing 即抑制全部 ApiHighErrorRate(衍生告警)。
+  # 2026-11-07 DBG-74 收口:原 equal:['instance'] 恒不命中 —— ApiDown 源自带
+  # instance(来自 up 序列),而 ApiHighErrorRate/ApiSlowResponse 是 sum()/histogram_quantile()
+  # 聚合,标签集里只有 severity,**没有 instance**(alerts.yml 现读坐实);AM 里缺标签按空串比,
+  # 'localhost:8802' != '' ⇒ 抑制永不触发,API 宕机期间错误率/慢响应告警照发(同一故障多封邮件)。
+  # 修法与下方 AiLlmHighFailureRate→LlmProviderErrorBurst 同型:**不写 equal**,靠 alertname 对齐。
   - source_matchers: ['alertname="ApiDown"', 'severity="critical"']
     target_matchers: ['alertname="ApiHighErrorRate"']
-    equal: []
   - source_matchers: ['alertname="ApiDown"', 'severity="critical"']
     target_matchers: ['alertname="ApiSlowResponse"']
-    equal: ['instance']
   # AI 服务宕机 → LLM provider 健康告警属衍生 → 抑制
   - source_matchers: ['alertname="AiServiceDown"', 'severity="critical"']
     target_matchers: ['alertname="LlmProviderUnhealthy"']

@@ -220,4 +220,30 @@ def test_has_cache_signals_non_dict():
     # 嵌套形态坏值(非 dict / 缺内层键)不算信号
     assert has_cache_signals({"prompt_tokens_details": "bad"}) is False
     assert has_cache_signals({"prompt_tokens_details": {}}) is False
+
+
+def test_normalize_gemini_camel_case_usage_metadata():
+    """AIS-009:Gemini 原生 usageMetadata 是 camelCase,旧别名表只认 OpenAI/Anthropic。
+
+    症状:原生 Gemini 路径 prompt/completion/total 全为 0,成本恒 0、指标失真。
+    """
+    raw = {
+        "promptTokenCount": 1200,
+        "candidatesTokenCount": 300,
+        "totalTokenCount": 1500,
+        "cachedContentTokenCount": 400,
+    }
+    out = normalize_usage(raw)
+    assert out["prompt_tokens"] == 1200
+    assert out["completion_tokens"] == 300
+    assert out["total_tokens"] == 1500
+    assert out["cached_tokens"] == 400
+    # 原生字段只增不删
+    assert out["promptTokenCount"] == 1200
+
+
+def test_has_cache_signals_gemini_camel_case():
+    """缓存信号探测同样要认 Gemini 的 cachedContentTokenCount。"""
+    assert has_cache_signals({"cachedContentTokenCount": 0}) is True
+    assert has_cache_signals({"cachedContentTokenCount": 400}) is True
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

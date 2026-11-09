@@ -158,14 +158,21 @@ describe('③ 源码锁:该族失败分支不得回到丢身份写法', () => {
   const read = (rel: string) => readFileSync(join(root, rel), 'utf8')
   const helpersSource = read('helpers.ts')
   const listSource = read('AsksList.tsx')
+  const pageClientSource = read('PageClient.tsx')
   // 说明性文字也会带执行性字符(本仓 stripJsonc 那一课的镜像形态):helpers 的头注逐字写着
   // 旧写法 `throw new Error(r.error)` 作为病灶记录,而源码锁要拦的是**代码**里的它。
   // 所以反向断言必须在剥注释后的代码面上判 —— 否则锁会把"解释自己为什么存在"判成违规。
   const codeOnly = (src: string) =>
     src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
 
-  it('helpers.api() 只此一份且走唯一出口;AsksList 错误分支经 toUserFriendlyMessage', () => {
-    expect(helpersSource).toMatch('export { apiOrThrow as api }')
+  it('首屏取数走共享出口 getAsks;helpers 不再自持 api() 包装;AsksList 错误分支经 toUserFriendlyMessage', () => {
+    // 实现侧变更:首屏取数已收口到 `@ihui/api-client.getAsks` —— 失败身份(status)
+    // 由共享 ApiResult 直接携带,本地 `apiOrThrow` 包装随调用点一并退场。
+    // 反向锁保留原意:不得重新引入"只取 message"的丢身份写法。
+    expect(codeOnly(pageClientSource)).toMatch(
+      /import\s*\{\s*[^}]*\bgetAsks\b[^}]*\}\s*from\s*'@ihui\/api-client'/,
+    )
+    expect(codeOnly(helpersSource)).not.toMatch(/export\s*\{\s*apiOrThrow\s+as\s+api\s*\}/)
     expect(codeOnly(helpersSource)).not.toMatch(/throw new Error\(\s*r\.error\s*\)/)
     expect(listSource).toMatch('toUserFriendlyMessage(error)')
     // 错误分支直读 error.message 上屏 = 守门 135 明言"不判的第二半",在这里必须锁死

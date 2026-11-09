@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { eq, and, or, not, lte, desc, asc, sql, ilike } from 'drizzle-orm'
+import { eq, and, or, not, lte, desc, asc, sql, ilike, inArray } from 'drizzle-orm'
 import type { SQL } from 'drizzle-orm'
 // G-815966:百分比裁剪的具名唯一出口(子路径导入,与 @ihui/shared/utils/redact 同形;
 // HEAD 的 utils barrel 尚未递出该行,不得依赖它)。
@@ -19,6 +19,7 @@ import {
   lessonChapterSections,
   lessonSignUps,
   studyPlans,
+  eduOrders,
   users,
   type LearnCategory,
   type Lesson,
@@ -437,6 +438,36 @@ export async function findLessonSections(chapterId: string): Promise<LessonChapt
     .orderBy(asc(lessonChapterSections.sortOrder), asc(lessonChapterSections.createdAt))
 }
 
+/**
+ * 批量取多个章节的小节(DB-24)。
+ *
+ * 课程详情/章节接口此前为每个 chapter 单独调 findLessonSections,50 章 = 50 条 SQL。
+ * 这里一条 IN 查询取回后按 chapter 分桶,组内顺序与单章查询一致
+ * (sortOrder, createdAt),调用方无需再排序。
+ */
+export async function findLessonSectionsByChapterIds(
+  chapterIds: readonly string[],
+): Promise<Map<string, LessonChapterSection[]>> {
+  const out = new Map<string, LessonChapterSection[]>()
+  const ids = [...new Set(chapterIds)]
+  if (ids.length === 0) return out
+  for (const id of ids) out.set(id, [])
+
+  const rows = await db
+    .select()
+    .from(lessonChapterSections)
+    .where(inArray(lessonChapterSections.chapterId, ids))
+    .orderBy(
+      asc(lessonChapterSections.chapterId),
+      asc(lessonChapterSections.sortOrder),
+      asc(lessonChapterSections.createdAt),
+    )
+  for (const row of rows) {
+    out.get(row.chapterId)?.push(row)
+  }
+  return out
+}
+
 export async function findSectionById(id: string): Promise<LessonChapterSection | undefined> {
   const rows = await db
     .select()
@@ -638,10 +669,7 @@ export async function findLatestStudyPlanId(userId: string): Promise<string | nu
  */
 export async function signUpLesson(lessonId: string, userId: string): Promise<void> {
   const studyPlanId = await findLatestStudyPlanId(userId)
-  await db
-    .insert(lessonSignUps)
-    .values({ lessonId, userId, studyPlanId })
-    .onConflictDoNothing()
+  await db.insert(lessonSignUps).values({ lessonId, userId, studyPlanId }).onConflictDoNothing()
 }
 
 /**
@@ -652,6 +680,38 @@ export async function isSignedUp(lessonId: string, userId: string): Promise<bool
     .select({ id: lessonSignUps.id })
     .from(lessonSignUps)
     .where(and(eq(lessonSignUps.lessonId, lessonId), eq(lessonSignUps.userId, userId)))
+    .limit(1)
+  return rows.length > 0
+}
+
+/**
+ * 课程是否免费(唯一判据):`isFree` 或价格 <= 0。价格非法(NaN/非数字)按付费处理,
+ * 宁可不放行也不白送(F-153)。
+ */
+export function isLessonFree(lesson: Pick<Lesson, 'isFree' | 'price'>): boolean {
+  if (lesson.isFree) return true
+  const price = Number(lesson.price)
+  return Number.isFinite(price) && price <= 0
+}
+
+/**
+ * 用户是否持有该课程的**已支付**订单(F-153)。
+ * 报名记录(`lesson_sign_ups`)可被任意登录用户自助创建,不能作为付费凭证;
+ * 唯一凭证是 `edu_orders` 里 orderType='course' + targetId=课程 + status='paid' 的订单
+ * (余额购买与在线支付两条链路最终都会写它)。
+ */
+export async function hasPaidCourseOrder(userId: string, lessonId: string): Promise<boolean> {
+  const rows = await db
+    .select({ id: eduOrders.id })
+    .from(eduOrders)
+    .where(
+      and(
+        eq(eduOrders.userId, userId),
+        eq(eduOrders.orderType, 'course'),
+        eq(eduOrders.targetId, lessonId),
+        eq(eduOrders.status, 'paid'),
+      ),
+    )
     .limit(1)
   return rows.length > 0
 }
@@ -861,7 +921,7 @@ export async function updateSignupStatus(
   const rows = await db
     .update(lessonSignUps)
     .set({ status })
-  // status-guard-exempt: 通用状态 setter——目标值由调用方传入,终态合法性由服务层/路由层裁决,非固定出向终态写点
+    // status-guard-exempt: 通用状态 setter——目标值由调用方传入,终态合法性由服务层/路由层裁决,非固定出向终态写点
     .where(eq(lessonSignUps.id, id))
     .returning()
   return rows[0]

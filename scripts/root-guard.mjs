@@ -26,6 +26,11 @@
  *   node scripts/root-guard.mjs --check --against-remote origin   # 同上,但由本器现读远端 main 的 sha
  *   node scripts/root-guard.mjs --status
  *   node scripts/root-guard.mjs --seal --reason "人工复核后重新封存"
+ *   node scripts/root-guard.mjs --seal --staged --reason "..."   # 按**索引面**封(改规则文件时唯一能让"清单与规则同枚"成立的一档)
+ *   node scripts/root-guard.mjs --seal --against-rev <40位sha> --reason "..."   # 按指定 rev 面封(取证/回滚复核)
+ *       # 缺省封 HEAD。三面同尺:`git show <rev>:path`,`--staged` 即 `git show :path`。
+ *       # 为什么必须有 --staged:门 267 判"被审面 ↔ 清单",而只认 HEAD 时「改 guardian-runner/AGENTS 须同批 --seal」
+ *       # 做不到(封的还是没改过的 HEAD)⇒ 每次改规则都留下"清单落后自己那一枚"的死结。
  *   node scripts/root-guard.mjs --unlock --target agents-ironlaw --reason "..." [--ttl-min 120]
  *       # 注:默认闸面是 HEAD 而**不是** origin/main —— 生产机上那个嵌套 remote-tracking ref 会被宿主
  *       # 清理层吞掉、永不更新(见 main() 默认面那段的实证),读它就是读"好几次同步前"的那一面。
@@ -385,25 +390,28 @@ export function seal({
   reason,
   manifestPath = MANIFEST_PATH,
   rev = 'HEAD',
+  faceLabel = null,
   faceHash = faceHashOf,
   readFile = (p) => readFileSync(p, 'utf8'),
   root = ROOT,
   now = new Date(),
 } = {}) {
-  if (!reason || !reason.trim())
-    throw new Error('--seal 必须给 --reason(封存是人工动作,空理由拒写)')
+  if (!reason || !reason.trim()) throw new Error('--seal 必须给 --reason(封存是人工动作,空理由拒写)')
+  // `rev=''` 是**索引(staged)面**:`git show :path` 与 `git show HEAD:path` 只差一个面名。
+  // 为什么必须给这一档:门 267 判的是"被审面 ↔ 清单",而本器原先只认 HEAD ⇒
+  // 「改了 guardian-runner / AGENTS.md 就得同批 --seal」这句话在实现上做不到(封的是还没改的 HEAD),
+  // 于是每次改规则文件都掉进"清单永远落后自己那一枚"的死结 —— 与仓内多处「有禁令、没出口」同型。
+  const face = faceLabel ?? (rev === '' ? '索引(staged)' : rev)
   const old = loadManifest(readOrDie(manifestPath, '清单'))
   const faceNotes = []
   const targets = old.targets.map((t) => {
     const h = faceHash(t, rev)
     if (typeof h !== 'string' || !h)
-      throw new Error(
-        `封存失败:${rev} 面上取不到 ${t.path}(未判定不封存;先确认该路径在被审面上真在位)`,
-      )
+      throw new Error(`封存失败:${face} 面上取不到 ${t.path}(未判定不封存;先确认该路径在被审面上真在位)`)
     const wt = hashTarget(t, readFile, root)
     if (wt.ok && wt.sha256 !== h)
       faceNotes.push(
-        `${t.id}:工作树副本 ${wt.sha256.slice(0, 12)} ≠ ${rev} 面 ${h.slice(0, 12)} ⇒ 封的是 ${rev} 面;盘上那份是未提交的在飞改动,要让它进清单必须先提交再重封`,
+        `${t.id}:工作树副本 ${wt.sha256.slice(0, 12)} ≠ ${face} 面 ${h.slice(0, 12)} ⇒ 封的是 ${face} 面;盘上那份是未提交的在飞改动,要让它进清单必须先提交再重封`,
       )
     return { ...t, sha256: h }
   })
@@ -562,6 +570,7 @@ const CLI_SWITCHES = new Set([
   '--check',
   '--json',
   '--seal',
+  '--staged',
   '--unlock',
   '--self-test',
   '--help',
@@ -619,12 +628,20 @@ function main(argv) {
   }
   if (has('--self-test')) return selfTest()
   if (has('--seal')) {
-    const doc = seal({ reason: val('--reason', '') })
+    const againstRev = val('--against-rev', '')
+    const useStaged = has('--staged')
+    if (againstRev && useStaged) {
+      console.error('❌ --staged 与 --against-rev 同给 ⇒ 两面旗同时点名,不猜要封哪一面(§0.4 同面同轮)')
+      process.exitCode = EXIT_UNKNOWN
+      return
+    }
+    const rev = useStaged ? '' : againstRev || 'HEAD'
+    const faceLabel = useStaged ? '索引(staged)' : againstRev ? `rev ${againstRev.slice(0, 11)}` : 'HEAD'
+    const doc = seal({ reason: val('--reason', ''), rev, faceLabel })
     console.log(
-      `✅ 已按 HEAD 面封存 ${doc.targets.length} 条:${doc.targets.map((t) => `${t.id}=${t.sha256.slice(0, 12)}`).join(' / ')}`,
+      `✅ 已按 ${faceLabel} 面封存 ${doc.targets.length} 条:${doc.targets.map((t) => `${t.id}=${t.sha256.slice(0, 12)}`).join(' / ')}`,
     )
-    for (const n of doc.faceNotes ?? [])
-      console.log(`⚠️ 面差点名:${n}`)
+    for (const n of doc.faceNotes ?? []) console.log(`⚠️ 面差点名:${n}`)
     return
   }
   let manifest

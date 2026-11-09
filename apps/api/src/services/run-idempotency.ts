@@ -140,7 +140,12 @@ export function readIdempotencyKey(headers: Record<string, unknown>): string | n
   if (typeof raw !== 'string') return null
   const trimmed = raw.trim()
   if (trimmed.length < MIN_CLIENT_KEY_LEN) return null
-  return trimmed.slice(0, MAX_CLIENT_KEY_LEN)
+  // F-259:超长**原样拒绝**,绝不 slice。截断会让"前 200 字符相同的两个不同逻辑请求"折进
+  // 同一个槽位 —— 后者要么拿回前者的资源,要么得 409,而两次响应看上去都"正常"。
+  // 按本函数契约,超长 = 没带:强制面(`agent-runs`)会据此回 400,可选面(`open-idempotency`)
+  // 会至少不做跨请求的错误回放。
+  if (trimmed.length > MAX_CLIENT_KEY_LEN) return null
+  return trimmed
 }
 
 /**

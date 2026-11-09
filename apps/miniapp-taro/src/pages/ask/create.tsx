@@ -63,6 +63,14 @@ export default function AskCreatePage() {
   const [submitting, setSubmitting] = useState(false)
   const [showCategorySheet, setShowCategorySheet] = useState(false)
   const draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // 发布成功后的延迟返回定时器:存引用以便卸载时取消,否则用户自行返回会多退一层页面
+  const navigateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(
+    () => () => {
+      if (navigateTimerRef.current) clearTimeout(navigateTimerRef.current)
+    },
+    [],
+  )
 
   // 草稿恢复
   useEffect(() => {
@@ -182,7 +190,7 @@ export default function AskCreatePage() {
       )
       Taro.removeStorageSync(DRAFT_KEY)
       onToast(tt('ask.create.published', '问题已发布'), { kind: 'success' })
-      setTimeout(() => Taro.navigateBack(), 1500)
+      navigateTimerRef.current = setTimeout(() => Taro.navigateBack(), 1500)
     } catch (e) {
       logger.error('ask/create', t('ask.create.submit'), e)
       onToast(tt('ask.create.failed', '发布失败,请重试'), { kind: 'error' })

@@ -245,9 +245,23 @@ describe('P1-3 auditLog 与 queryAuditLog 集成', () => {
     // 输入和输出都应被脱敏(Bearer token + password= 模式)
     const inputStr = JSON.stringify(result.entries[0]!.input)
     expect(inputStr).not.toContain('sk-secret-1234567890abcdef')
-    expect(inputStr).toContain('REDACTED')
+    // 键名档(F-006)会把 Authorization 整值遮蔽为 [redacted];形状档为 ***REDACTED*** —— 两者都算脱敏
+    expect(inputStr.toLowerCase()).toContain('redacted')
     expect(result.entries[0]!.output).not.toContain('supersecret12345')
     expect(result.entries[0]!.output).toContain('REDACTED')
+  })
+
+  it('F-006:键名本身即凭据时,不依赖值形状也要整值遮蔽', () => {
+    auditLog({
+      timestamp: '2025-06-01T00:00:00.000Z',
+      tool: 'keyed_redaction',
+      input: { apiKey: 'plain-only-value', nested: { xApiKey: 'nested-plain-value' } },
+      success: true,
+    })
+    const inputStr = JSON.stringify(queryAuditLog({ tool: 'keyed_redaction' }).entries[0]!.input)
+    expect(inputStr).not.toContain('plain-only-value')
+    expect(inputStr).not.toContain('nested-plain-value')
+    expect(inputStr.toLowerCase()).toContain('redacted')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -54,6 +54,7 @@ test.describe('Admin 用户管理', () => {
     if (await searchInput.isVisible({ timeout: 5000 }).catch(() => false)) {
       await searchInput.fill('test')
       await page.keyboard.press('Enter')
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await page.waitForTimeout(1500)
       // 不崩溃即通过
       expect(page.url()).toContain('/admin/users')
@@ -65,7 +66,7 @@ test.describe('Admin 用户管理', () => {
     await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/admin/users')) return
 
-    await page.waitForTimeout(2000)
+    await page.waitForLoadState('load', { timeout: 6000 }).catch(() => {})
     // 操作列常见按钮
     const disableBtn = page.getByRole('button', { name: /禁用|Disable/i }).first()
     const enableBtn = page.getByRole('button', { name: /启用|Enable/i }).first()
@@ -79,7 +80,7 @@ test.describe('Admin 用户管理', () => {
     await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/admin/users')) return
 
-    await page.waitForTimeout(2000)
+    await page.waitForLoadState('load', { timeout: 6000 }).catch(() => {})
     // 用户表格通常有"角色"列标题或角色标签
     const roleHeader = page
       .locator('th, [role="columnheader"]')

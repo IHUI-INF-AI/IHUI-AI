@@ -169,7 +169,9 @@ export function PaymentScreen() {
   const pendingProduct: ConfirmPurchaseProduct | null = pendingPurchase
     ? {
         name: pendingPurchase.subject || t('payment.untitledOrder'),
-        price: (pendingPurchase.amount ?? 0) / 100,
+        // pendingPurchase.amount 来自 /payments/me 的 payAmount，单位已是「元」；
+        // ConfirmPurchasePopUp 的 formatPrice 直接按元渲染，不能再除 100。
+        price: pendingPurchase.amount ?? 0,
         icon: CreditCard,
       }
     : null
@@ -198,7 +200,7 @@ export function PaymentScreen() {
         <ConfirmPurchasePopUp
           visible={pendingPurchase !== null}
           title={t('payment.confirm')}
-          message={t('payment.orderNo', { no: pendingPurchase?.orderNo ?? '' })}
+          message={`${t('payment.orderNo')}: ${pendingPurchase?.orderNo ?? ''}`}
           product={pendingProduct}
           loading={purchaseLoading}
           cancelText={t('payment.later')}

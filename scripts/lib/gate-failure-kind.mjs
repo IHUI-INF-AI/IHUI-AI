@@ -64,6 +64,8 @@ const CRASH_MARKERS = Object.freeze([
 const FALLBACK_KILL_CODES = Object.freeze({
   ETIMEDOUT: '被单门超时看门狗终止(未到点退出,无任何结论)',
   ENOBUFS: '输出超过 20MB 上限被截断(结论可能被截掉,不可采信)',
+  BLOCKED_BY_CONCURRENCY:
+    'blocked-by-concurrency:排队/等锁超限,但持锁方存活且心跳未过期 ⇒ 可重试的未判定,不是代码红',
 })
 
 /**
@@ -154,6 +156,8 @@ export function crashNextStep(reason) {
       return '单独复跑本门看它卡在哪;**不要**靠调大 GUARDIAN_GATE_TIMEOUT_MS 消红(那是削判据)'
     case 'ENOBUFS':
       return '单独复跑本门看它在刷什么输出;**不要**靠调大 20MB 上限消红(那是削判据)'
+    case 'BLOCKED_BY_CONCURRENCY':
+      return '等锁超限但持锁方仍存活:可重试 —— 先等持锁门跑完再复跑本门;**不要**把它记成代码红'
     default:
       if (typeof reason === 'string' && EXPORT_BREAK_RE.test(reason)) {
         return (

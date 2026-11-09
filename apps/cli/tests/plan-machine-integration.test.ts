@@ -25,10 +25,14 @@ describe('PlanMachine 集成:/plan 命令状态管理', () => {
   });
 
   it('/plan off:销毁 PlanMachine(undefined 语义,无阻断)', () => {
-    // 模拟 /plan off 的核心动作:state.planMachine = undefined
-    let machine: PlanMachine | undefined = new PlanMachine('gathering');
-    machine = undefined;
-    expect(machine?.isWriteBlocked() ?? false).toBe(false);
+    // 模拟 /plan off 的核心动作:把状态槽位里的 planMachine 摘掉。
+    // 摘除走一个函数边界 —— 否则 TS 会把槽位窄化成"就是 undefined",可选链那一截就测不到了。
+    const state: { planMachine?: PlanMachine } = { planMachine: new PlanMachine('gathering') };
+    const cleared = ((slot: { planMachine?: PlanMachine }) => {
+      delete slot.planMachine;
+      return slot;
+    })(state);
+    expect(cleared.planMachine?.isWriteBlocked() ?? false).toBe(false);
   });
 
   it('/plan approve:gathering → executing,isWriteBlocked=false', () => {
@@ -118,12 +122,13 @@ describe('PlanMachine 集成:runToolLoop 行为契约', () => {
   });
 
   it('未注入 planMachine(undefined)时 runToolLoop 走原 planFirst 路径(零回归)', () => {
-    const machine: PlanMachine | undefined = undefined;
+    // 形状就是"调用方压根没传这个字段",而不是"传了个类型为 undefined 的值"
+    const opts: { planMachine?: PlanMachine } = {};
     // `opts.planMachine?.isWriteBlocked()` 短路为 undefined → falsy → 不阻断
-    const blocked = machine?.isWriteBlocked() ?? false;
+    const blocked = opts.planMachine?.isWriteBlocked() ?? false;
     expect(blocked).toBe(false);
     // `opts.planMachine?.canTransition(...)` 短路为 undefined → falsy → 不转移
-    const canTransition = machine?.canTransition('gather_complete') ?? false;
+    const canTransition = opts.planMachine?.canTransition('gather_complete') ?? false;
     expect(canTransition).toBe(false);
   });
 });

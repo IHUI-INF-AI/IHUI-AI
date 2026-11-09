@@ -31,9 +31,10 @@ describe('b76-12a 票1:发射侧「任意文本不可破坏语法」', () => {
     const hostileLabel = '他说 "hi" `rm -rf` \n next line #tag';
     const src = emitMermaidGraph([{ id: 'ask#1', label: hostileLabel }]);
     const lines = src.split('\n');
-    expect(lines[0]).toBe('flowchart TD');
-    const nodeLine = lines[1];
-    expect(quoteCountIsEven(nodeLine)).toBe(true, `引号必须成对:${nodeLine}`);
+    const [headerLine, nodeLine] = lines;
+    expect(headerLine).toBe('flowchart TD');
+    if (nodeLine === undefined) throw new Error('未产出节点行');
+    expect(quoteCountIsEven(nodeLine), `引号必须成对:${nodeLine}`).toBe(true);
     expect(nodeLine).not.toContain('\n');
     expect(nodeLine).not.toContain('`');
     expect(nodeLine).toContain('#quot;'); // " 已实体化
@@ -94,7 +95,7 @@ describe('b76-12a 票1:提取侧不得吞 fence', () => {
       '```',
     ].join('\n');
     const blocks = extractMermaidBlocks(text);
-    expect(blocks.length).toBe(2, `不得吞掉后续围栏:${JSON.stringify(blocks)}`);
+    expect(blocks.length, `不得吞掉后续围栏:${JSON.stringify(blocks)}`).toBe(2);
     expect(blocks[0]).toContain('"hi"');
     expect(blocks[1]).toContain('B-->C');
   });

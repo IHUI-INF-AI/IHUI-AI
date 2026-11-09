@@ -183,7 +183,7 @@ test.describe('分享功能验证', () => {
     const sharePage = await context.newPage()
     const shareUrl = `${WEB_URL}/chat/share/${shareToken}`
     await sharePage.goto(shareUrl)
-    await sharePage.waitForTimeout(2000)
+    await sharePage.waitForLoadState('load', { timeout: 6000 }).catch(() => {})
 
     const shareTitle = await sharePage.title()
     const shareContent = await sharePage.evaluate(
@@ -213,6 +213,7 @@ test.describe('分享功能验证', () => {
     console.log('[Step 6] 测试前端分享按钮流程...')
     const mainPage = await context.newPage()
     await mainPage.goto(`${WEB_URL}/chat/${conversationId}`)
+    // WAIT-POLICY:TIMING-0004 视觉/几何采样前动画稳定窗口,先等待再截图
     await mainPage.waitForTimeout(3000)
 
     // 截图 - 对话页面
@@ -220,6 +221,7 @@ test.describe('分享功能验证', () => {
     console.log('    对话页面截图已保存: chat-page.png')
 
     // 等待消息加载
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await mainPage.waitForTimeout(2000)
 
     // 查找消息区域中的分享按钮
@@ -248,6 +250,7 @@ test.describe('分享功能验证', () => {
       }
     }
 
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await mainPage.waitForTimeout(2000)
 
     // 检查 toast

@@ -112,6 +112,15 @@ def memory_reset(*, confirm: bool = False) -> dict[str, Any]:
         # 按 meta_learner 数据结构安全清除(无批量方法,直接清内存索引)。
         meta_learner._lessons.clear()
         meta_learner._title_index.clear()
+        # AIS-104:清空的是**内存缓存**,持久化源(agent_meta_lessons)未动
+        # (dbCleared=False)。若仍把 `_loaded` 留在 True,懒加载永不重来 ——
+        # `memory.status` 会对所有租户一直谎报 0 直到进程重启。落下加载标记 +
+        # 复位失败计数/退避/放弃位,下一次访问才会真的重读持久化源(读失败仍按
+        # `_load_lifecycle` 四态如实报"读不到",不冒充"没有记忆")。
+        meta_learner._loaded = False
+        meta_learner._load_failures = 0
+        meta_learner._load_next_attempt_s = 0.0
+        meta_learner._load_give_up_logged = False
 
         return {
             "confirmed": True,

@@ -191,7 +191,8 @@ export function registerStream(replayKey: string): void {
   if (existing?.releaseTimer) {
     clearTimeout(existing.releaseTimer)
   }
-  evictOldestStreamIfNeeded()
+  // 只有「新 key 占新槽位」才可能超出容量;重注册是原地换代,不得淘汰其他活跃流
+  if (!existing) evictOldestStreamIfNeeded()
   streams.set(replayKey, {
     events: [],
     createdAt: Date.now(),

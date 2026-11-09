@@ -75,6 +75,10 @@ DEPTH_RRF = "rrf-fusion"  # 一阶段融合结果(未跑成二段 / 二段降级
 DEPTH_LLM = "llm-rerank"  # LLM 二段真跑了并改变了名次
 DEPTH_SINGLE = "single-source"  # 只有一路召回,谈不上融合
 
+#: SAG2 第三路召回的墙钟上限。词法多跳是 CPU 活,大库上超时必须具名降级,
+#: 不许把整轮 RAG 挂在一条腿上(与 knowledge_lookup 的 SAG2 源同一纪律)。
+SAG2_RECALL_TIMEOUT_S = 2.0
+
 
 def resolve_rrf_k() -> int:
     """RRF 常数 k(env RAG_RRF_K,默认 60;非法/非正数回退默认)。
@@ -230,6 +234,7 @@ class RAGService:
         score_threshold: float = 0.0,
         max_context_chars: int = 6000,
         model: str | None = None,
+        user_id: str | None = None,
     ) -> RAGResult:
         """完整 RAG 流程:retrieve → rerank → context → generate。
 
@@ -256,7 +261,8 @@ class RAGService:
         retrieve_clock = stages.clock()
         recall_stats: dict[str, Any] = {}
         raw_sources = await self._retrieve(
-            question, top_k=top_k, session_id=session_id, stats=recall_stats
+            question, top_k=top_k, session_id=session_id, stats=recall_stats,
+            user_id=user_id,
         )
         settled = stages.record(
             "retrieve",
@@ -452,6 +458,7 @@ class RAGService:
         query: str,
         top_k: int = 5,
         session_id: str | None = None,
+        user_id: str | None = None,
     ) -> list[RAGSource]:
         """仅检索(不生成),返回 RAGSource 列表。公有 API,替代直接调 _retrieve。
 
@@ -466,7 +473,9 @@ class RAGService:
         Returns:
             list[RAGSource],失败返回 []。
         """
-        return await self._retrieve(query, top_k=top_k, session_id=session_id)
+        return await self._retrieve(
+            query, top_k=top_k, session_id=session_id, user_id=user_id
+        )
 
     # =========================================================================
     # 私有:检索
@@ -478,6 +487,7 @@ class RAGService:
         top_k: int = 5,
         session_id: str | None = None,
         stats: dict[str, Any] | None = None,
+        user_id: str | None = None,
     ) -> list[RAGSource]:
         """双路召回 + RRF 融合(V3 #52「RAG 真重排」)。
 
@@ -496,42 +506,82 @@ class RAGService:
         """
         rrf_k = resolve_rrf_k()
         recall_k = max(top_k * 2, 10)
-        # 双路并行启动:向量成功则两路融合,失败则关键词路独扛(任务已并行,零等待浪费)
+        # 三路并行启动:向量成功则多路融合,失败则关键词/SAG2 独扛(任务已并行,零等待浪费)
         vec_task = asyncio.create_task(
             self._vector_retrieve(
-                query, top_k=recall_k, session_id=session_id, stats=stats
+                query, top_k=recall_k, session_id=session_id, stats=stats,
+                user_id=user_id,
             )
         )
         kw_task = asyncio.create_task(
             self._keyword_fallback(
-                query, top_k=recall_k, session_id=session_id, stats=stats
+                query, top_k=recall_k, session_id=session_id, stats=stats,
+                user_id=user_id,
             )
+        )
+        sag2_task = asyncio.create_task(
+            self._sag2_retrieve(query, top_k=recall_k, stats=stats)
         )
         vec_sources = await vec_task
         kw_sources = await kw_task
+        sag2_sources = await sag2_task
         if stats is not None:
             stats["recall_k"] = recall_k
             stats["rrf_k"] = rrf_k
+            stats["sag2_fused"] = bool(sag2_sources)
 
         if not vec_sources:
-            # 向量单路降级:关键词路结果截到 top_k,行为与旧 fallback 一致
-            for s in kw_sources[:top_k]:
-                # 来源路标注在融合分支才写,这一支必须自己补上 —— 否则
-                # result_to_dict 的 fused_from 是空串,调用方读不出"这轮只有关键词路"
-                # (向量单路那支走 rrf_fuse 拿得到 label,只有这里会漏)。
-                s.fused_from = "keyword"
+            # 向量单路降级:关键词 + SAG2 这两条**不需要 embedding** 的腿仍可融合。
+            # SAG2 的价值恰恰在"没有向量服务也能跨文件多跳",此处不接等于白建。
+            rankings: list[list[RAGSource]] = []
+            labels: list[str] = []
+            for sources, label in ((kw_sources, "keyword"), (sag2_sources, "sag2")):
+                if sources:
+                    rankings.append(sources)
+                    labels.append(label)
+            if not rankings:
+                if stats is not None:
+                    stats["mode"] = "empty"
+                    stats["fused_total"] = 0
+                    stats["returned"] = 0
+                    stats["dropped_by_top_k"] = 0
+                return []
+            if len(rankings) == 1:
+                only, only_label = rankings[0], labels[0]
+                for s in only[:top_k]:
+                    # 来源路标注在融合分支才写,这一支必须自己补上 —— 否则
+                    # result_to_dict 的 fused_from 是空串,调用方读不出"这轮只有一路"
+                    s.fused_from = only_label
+                if stats is not None:
+                    stats["mode"] = f"single-source:{only_label}"
+                    stats["fused_total"] = len(only)
+                    stats["returned"] = min(len(only), top_k)
+                    stats["dropped_by_top_k"] = max(0, len(only) - top_k)
+                return only[:top_k]
+            fused_fallback = reranker.rrf_fuse(rankings, k=rrf_k, labels=labels)
+            out_fallback: list[RAGSource] = []
+            for f in fused_fallback:
+                s = f.item
+                s.fused_from = "+".join(f.fused_from)
+                s.rrf_score = round(f.score, 6)
+                out_fallback.append(s)
+                if len(out_fallback) >= top_k:
+                    break
             if stats is not None:
-                stats["mode"] = "single-source:keyword" if kw_sources else "empty"
-                stats["fused_total"] = len(kw_sources)
-                stats["returned"] = min(len(kw_sources), top_k)
-                stats["dropped_by_top_k"] = max(0, len(kw_sources) - top_k)
-            return kw_sources[:top_k]
+                stats["mode"] = "rrf-fusion"
+                stats["fused_total"] = len(fused_fallback)
+                stats["returned"] = len(out_fallback)
+                stats["dropped_by_top_k"] = max(0, len(fused_fallback) - len(out_fallback))
+            return out_fallback
 
-        rankings: list[list[RAGSource]] = [vec_sources]
-        labels: list[str] = ["vector"]
+        rankings = [vec_sources]
+        labels = ["vector"]
         if kw_sources:
             rankings.append(kw_sources)
             labels.append("keyword")
+        if sag2_sources:
+            rankings.append(sag2_sources)
+            labels.append("sag2")
         fused = reranker.rrf_fuse(rankings, k=rrf_k, labels=labels)
 
         out: list[RAGSource] = []
@@ -550,12 +600,94 @@ class RAGService:
             stats["dropped_by_top_k"] = max(0, len(fused) - len(out))
         return out
 
+    async def _sag2_retrieve(
+        self,
+        query: str,
+        top_k: int = 10,
+        stats: dict[str, Any] | None = None,
+    ) -> list[RAGSource]:
+        """SAG2 词法多跳腿(第三路召回,零模型、零 embedding)。
+
+        三种世界各自具名,绝不都塌成空列表:
+        - 索引未就绪(没登记文档) => ``empty``,零成本短路 —— 没建库不是故障;
+        - 超时 / 抛错 => ``error``(reason 写明原因);有结果 => ``ok``(带跳数与判定模式)。
+        """
+        label = "sag2"
+        try:
+            # 延迟导入:rag 是热点模块,不让 sag2 的存储后端进入模块顶层。
+            from .sag2_lexical import Sag2Options, sag2_lexical_service
+        except Exception as exc:  # noqa: BLE001 - 导入失败也不许把主链路拖崩
+            _record_recall_path(
+                stats, label, status="error", reason=f"import-failed:{type(exc).__name__}"
+            )
+            return []
+        try:
+            ready = bool(sag2_lexical_service.status().get("ready"))
+        except Exception as exc:  # noqa: BLE001
+            _record_recall_path(
+                stats, label, status="error", reason=f"status-failed:{type(exc).__name__}"
+            )
+            return []
+        if not ready:
+            _record_recall_path(
+                stats,
+                label,
+                status="empty",
+                reason="index-not-ready:未登记任何文档",
+            )
+            return []
+        try:
+            result = await asyncio.wait_for(
+                sag2_lexical_service.retrieve(
+                    query, Sag2Options(top_k=top_k, max_hops=2)
+                ),
+                timeout=SAG2_RECALL_TIMEOUT_S,
+            )
+        except TimeoutError:
+            _record_recall_path(
+                stats,
+                label,
+                status="error",
+                reason=f"timeout:{SAG2_RECALL_TIMEOUT_S}s",
+            )
+            return []
+        except Exception as exc:  # noqa: BLE001
+            _record_recall_path(
+                stats, label, status="error", reason=f"{type(exc).__name__}: {exc}"
+            )
+            return []
+
+        sources = [
+            RAGSource(
+                session_id=f"sag2:{citation.get('path', '')}",
+                role="document",
+                content=str(citation.get("passage", "")),
+                score=float(citation.get("score", 0.0)),
+            )
+            for citation in result.citations[:top_k]
+        ]
+        _record_recall_path(
+            stats,
+            label,
+            status="ok",
+            raw_count=len(result.citations),
+            count=len(sources),
+            dropped=max(0, len(result.citations) - len(sources)),
+            extra={
+                "hops": max((int(c.get("hop", 0)) for c in result.citations), default=0),
+                "judge_mode": result.judge_mode,
+                "judge_executed": result.judge_executed,
+            },
+        )
+        return sources
+
     async def _vector_retrieve(
         self,
         query: str,
         top_k: int = 10,
         session_id: str | None = None,
         stats: dict[str, Any] | None = None,
+        user_id: str | None = None,
     ) -> list[RAGSource]:
         """向量路召回(embed/检索失败降级返回 [],不抛,由 _retrieve 决定融合策略)。"""
         try:
@@ -564,6 +696,7 @@ class RAGService:
                 query_embedding=query_embedding,
                 top_k=top_k,
                 threshold=0.0,
+                user_id=user_id,
             )
         except Exception as e:
             logger.warning("rag._vector_retrieve 向量检索失败: %s", e, exc_info=True)
@@ -617,6 +750,7 @@ class RAGService:
         top_k: int = 5,
         session_id: str | None = None,
         stats: dict[str, Any] | None = None,
+        user_id: str | None = None,
     ) -> list[RAGSource]:
         """关键词召回路(V3 #52:从"向量空了才用"的兜底升为**常驻融合源**)。
 
@@ -626,7 +760,7 @@ class RAGService:
         """
         try:
             sessions = (
-                [session_id] if session_id else await memory_store.list_sessions()
+                [session_id] if session_id else await memory_store.list_sessions(user_id=user_id)
             )
         except Exception as e:
             logger.warning("rag._keyword_fallback 加载会话列表失败: %s", e, exc_info=True)
@@ -640,7 +774,11 @@ class RAGService:
         first_failure = ""
         for sid in sessions:
             try:
-                msgs = await memory_store.get(sid, limit=200)
+                msgs = await memory_store.get(
+                    sid,
+                    limit=200,
+                    user_id=memory_store.scope_user_id(sid, user_id),
+                )
             except Exception as e:
                 logger.warning("rag._keyword_fallback 加载会话消息失败(sid=%s): %s", sid, e, exc_info=True)
                 failed_sessions += 1

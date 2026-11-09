@@ -135,6 +135,17 @@ const menus: ReadonlyArray<{ icon: string; key: string; path: string; fallback?:
     key: 'userFans.title',
     path: '/pkg-user/fans/index',
   },
+  // 家长端(票 B72 移动端入口腿,2026-11-06):`pkg-user/edu-parent/index` 此前只在
+  // app.config 注册、全端无任何跳转 ⇒ 页在、链断,而它内部那条指向
+  // `pkg-user/edu-my-attendance/index`(学生自签页)的跳转因此也永远走不到。
+  // 与 RN 侧同一条入口(RN 挂 navigation/domain-hub 教育域,对齐 web nav-data 的 /edu/parent);
+  // 图标复用既有 LineIcon 'users'(web 同条用 UsersRound,本端图标集无该档,不新开素材),
+  // 文案复用五语言已有的 eduParent.title ⇒ 零 i18n 增量。
+  {
+    icon: 'users',
+    key: 'eduParent.title',
+    path: '/pkg-user/edu-parent/index',
+  },
   // 扫一扫:PC 端「App 扫码登录」的移动端一半(扫 ticket → /auth/qr/confirm)。
   // path 用伪协议 'scan-login' 走本页 handler,不新开页面;ticket 判据走 @ihui/shared。
   {
@@ -886,7 +897,8 @@ export default function UserIndex() {
                   onWallet={() =>
                     Taro.navigateTo({
                       url: '/pkg-shop/token/balance',
-                      fail: () => Taro.navigateTo({ url: '/pagesA/top-up/index' }),
+                      // 同型根因B:XUI-018 后 /pagesA/* 分包已不存在,备用入口改指在册的充值页。
+                      fail: () => Taro.navigateTo({ url: '/pkg-shop/wallet/top-up/index' }),
                     })
                   }
                   onUnsubscribe={() =>

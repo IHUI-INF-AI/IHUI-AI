@@ -484,5 +484,88 @@ export const mcpExtendedRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(502).send(error(502, '清除 MCP 凭据服务暂不可用'))
     }
   })
+
+  // ==========================================================================
+  // 14. POST /mcp/external/servers/:name/reconnect — 控制帧 `mcp_reconnect`
+  // ==========================================================================
+  // 上游 connect 端点自述"(重)连接":对已注册的 external server 走一次连接协商,
+  // 已连则原子重连。本层只透传 + 状态码映射,连接语义不在网关重造。
+  server.post('/mcp/external/servers/:name/reconnect', async (request, reply) => {
+    await authenticate(request)
+    const { name } = request.params as { name: string }
+    try {
+      const resp = await aiServiceFetch(
+        request,
+        `/api/mcp/external/servers/${encodeURIComponent(name)}/connect`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(request.body ?? {}),
+        },
+      )
+      const raw = await resp.text()
+      let payload: unknown = raw
+      try {
+        payload = JSON.parse(raw)
+      } catch {
+        // 保留原始 text
+      }
+      if (!resp.ok) {
+        const detail =
+          payload !== null && typeof payload === 'object' && 'error' in payload
+            ? String((payload as { error: unknown }).error)
+            : null
+        return reply
+          .status(resp.status)
+          .send(error(resp.status, detail ?? '重连 MCP Server 失败'))
+      }
+      return reply.send(success(payload))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(502).send(error(502, 'MCP Server 连接服务暂不可用'))
+    }
+  })
+
+  // ==========================================================================
+  // 15. POST /mcp/store/:name/toggle — 控制帧 `mcp_toggle`
+  // ==========================================================================
+  // 上游是 store 的两条既有端点(enable / disable),本层按 body.enabled 分支转发,
+  // 不新造启停逻辑。enabled 非布尔 ⇒ 400,不允许"猜默认开"。
+  server.post('/mcp/store/:name/toggle', async (request, reply) => {
+    await authenticate(request)
+    const { name } = request.params as { name: string }
+    const body = request.body as { enabled?: unknown } | null
+    if (!body || typeof body.enabled !== 'boolean') {
+      return reply.status(400).send(error(400, 'enabled 须为布尔值'))
+    }
+    const upstream = `/api/mcp/store/${encodeURIComponent(name)}/${body.enabled ? 'enable' : 'disable'}`
+    try {
+      const resp = await aiServiceFetch(request, upstream, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      const raw = await resp.text()
+      let payload: unknown = raw
+      try {
+        payload = JSON.parse(raw)
+      } catch {
+        // 保留原始 text
+      }
+      if (!resp.ok) {
+        const detail =
+          payload !== null && typeof payload === 'object' && 'error' in payload
+            ? String((payload as { error: unknown }).error)
+            : null
+        return reply
+          .status(resp.status)
+          .send(error(resp.status, detail ?? `切换 MCP Server 开关失败: ${name}`))
+      }
+      return reply.send(success(payload))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(502).send(error(502, 'MCP Server 开关服务暂不可用'))
+    }
+  })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

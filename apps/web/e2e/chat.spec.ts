@@ -40,7 +40,7 @@ test.describe('Chat 页面', () => {
     await page.waitForLoadState('domcontentloaded')
     if (page.url().includes('/chat')) {
       // 模型选择器可能是 select 或 button,等待 5s
-      await page.waitForTimeout(2000)
+      await page.waitForLoadState('load', { timeout: 6000 }).catch(() => {})
       // 页面不崩溃即通过
       expect(page.url()).toBeTruthy()
     }

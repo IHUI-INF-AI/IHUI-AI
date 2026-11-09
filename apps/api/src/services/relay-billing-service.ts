@@ -64,6 +64,7 @@ import { apiKeyGroups } from '@ihui/database'
 //    所以不为此新增第三套上下文传递。
 import { traceIdFromRequest } from '../utils/trace-context.js'
 import { currentPrincipalScope } from '../plugins/principal.js'
+import { incrementUsage } from './api-key-share-service.js'
 
 // =============================================================================
 // 类型定义
@@ -96,7 +97,11 @@ export interface RecordCallInput {
   completionTokens: number
   totalTokens: number
   latencyMs: number
-  status: 'success' | 'error'
+  /**
+   * F-89(2026-11-08):流式中断但已产出 token 记 'partial',按实际 token 结算;
+   * 仅 'error'(上游 4xx/5xx 或零产出)免计费。
+   */
+  status: 'success' | 'error' | 'partial'
   errorMessage?: string | null
   conversationId?: string | null
   /** 额外 metadata(如 upstream_model / provider_code / key_pool_id) */
@@ -1064,7 +1069,20 @@ export async function recordCall(input: RecordCallInput): Promise<RecordCallResu
   // 大量调用方使用 `void recordCall({...})` 模式(fire-and-forget),若内部 db 操作抛错
   // 会导致 unhandledRejection(Node 15+ 默认退出进程)。billing 埋点失败不应影响主链路。
   try {
-    return await recordCallInternal(input)
+    const result = await recordCallInternal(input)
+    // F-185:share token 的真实 token 消耗按同一份 usage 回写 used_total_tokens,
+    // 否则 maxTotalTokens 恒不生效。仅 share 凭据触发,普通 Key 零额外查询。
+    const shareId = currentPrincipalScope()?.request?.apiKey?.shareId
+    if (shareId && input.totalTokens > 0) {
+      void incrementUsage(shareId, input.totalTokens).catch((err) => {
+        logger.warn('[billing] share usage increment failed', {
+          shareId,
+          tokens: input.totalTokens,
+          error: err instanceof Error ? err.message : String(err),
+        })
+      })
+    }
+    return result
   } catch (err) {
     logger.error('[billing] recordCall failed', {
       apiKeyId: input.apiKeyId,
@@ -1083,6 +1101,13 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
   // P0 第二批次(2026-07-31 立):响应缓存命中时成本为 0(未调用上游,无大厂成本)
   // metadata.cacheHit === true 时跳过成本计算,只记录流水(供统计缓存节省金额)
   const isCacheHit = input.metadata?.cacheHit === true
+  // F-181(2026-11-08)缓存命中计费口径(用户裁定,勿改):
+  // - token 配额按 0 计:命中未调用上游,按全价扣 token 等于收没有发生过的成本;
+  // - 请求次数照计:命中仍消耗平台带宽/存储/调度,次数配额继续计以防滥用;
+  // - 真实 usage 不丢弃,写入 metadata.cacheSavedTokens 供统计,与真实上游调用分开。
+  // 因此所有"扣 token / 累计用量 / 结算"表达式统一用 billableTokens;llm_call_logs 的
+  // token 列在命中时写 0,避免与真实调用混成一个数。
+  const billableTokens = isCacheHit ? 0 : input.totalTokens
 
   // 中转站模式:全额成本(上游 × 中转站倍率),平台扣全额
   // BYOK 模式:平台只收 platformFeeCents(上游原价 × 抽成率),不碰大厂成本 upstreamCostCents
@@ -1160,6 +1185,14 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
     pricingSource,
     ...(input.metadata ?? {}),
   }
+  if (isCacheHit) {
+    // F-181 台账字段(覆盖入参同名键,防止调用方漏标/错标):
+    // cacheSavedTokens=被省下的真实 usage;quotaBilledTokens=本次实际计 token 配额;
+    // requestCounted=请求次数是否已计入(命中恒为 true)。
+    metadata.cacheSavedTokens = input.totalTokens
+    metadata.quotaBilledTokens = 0
+    metadata.requestCounted = true
+  }
   if (input.callType && input.callType !== 'chat') {
     // 多模态计费审计(2026-09-13):记录计费模式与单位数,结算/退款依赖 task_id
     metadata.callType = input.callType
@@ -1182,7 +1215,9 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
   // per_call/per_image/per_video 与 token 数无关、失败仍有价,必须置 0,
   // 否则上游一抖动用户就被扣钱(token 模式失败调用 tokens=0 本就为 0,语义统一)。
   // 两段式计费下 settlePreDeduction 会按 0 退还预扣额。
-  if (input.status && input.status !== 'success') {
+  // F-89(2026-11-08):只对 'error'(零产出)免单;'partial'(流中断但已产出 token)
+  // 按实际 token 计费,不能被误清零。
+  if (input.status === 'error') {
     if (costCentsToDeduct > 0) metadata.noChargeReason = `status=${input.status}`
     costCentsToDeduct = 0
   }
@@ -1199,11 +1234,13 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
       response: rawCols.response,
       // 原文是否仍在表内:入口侧关闭留存时为 false(本行从未写过原文)
       rawRetained: rawCols.rawRetained,
-      promptTokens: input.promptTokens,
-      completionTokens: input.completionTokens,
-      totalTokens: input.totalTokens,
-      cacheReadTokens: input.cacheReadTokens ?? 0,
-      cacheCreationTokens: input.cacheCreationTokens ?? 0,
+      // F-181:缓存命中时 token 列写 0,与真实上游调用分开;被省下的真实 usage
+      // 已写入 metadata.cacheSavedTokens,不会丢量。
+      promptTokens: isCacheHit ? 0 : input.promptTokens,
+      completionTokens: isCacheHit ? 0 : input.completionTokens,
+      totalTokens: billableTokens,
+      cacheReadTokens: isCacheHit ? 0 : (input.cacheReadTokens ?? 0),
+      cacheCreationTokens: isCacheHit ? 0 : (input.cacheCreationTokens ?? 0),
       latencyMs: input.latencyMs,
       status: input.status,
       errorMessage: input.errorMessage ?? null,
@@ -1214,7 +1251,8 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
       configId: input.configId ?? null,
       keyPoolId: input.keyPoolId ?? null,
       clientIp: input.clientIp ?? null,
-      costCents: input.costCents ?? costCentsToDeduct,
+      // F-181:命中恒为 0,不接受调用方传值(否则台账与扣减不一致)
+      costCents: isCacheHit ? 0 : (input.costCents ?? costCentsToDeduct),
       httpStatus: input.httpStatus ?? null,
       ttftMs: input.ttftMs ?? null,
       callType: input.callType ?? 'chat',
@@ -1243,7 +1281,7 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
     await db
       .update(developerApiKeys)
       .set({
-        tokenUsedTotal: sql`${developerApiKeys.tokenUsedTotal} + ${input.totalTokens}`,
+        tokenUsedTotal: sql`${developerApiKeys.tokenUsedTotal} + ${billableTokens}`,
         costUsedTotalCents: sql`${developerApiKeys.costUsedTotalCents} + ${costCentsToDeduct}`,
         updatedAt: new Date(),
       })
@@ -1254,7 +1292,8 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
           error: err instanceof Error ? err.message : String(err),
         })
       })
-    await settlePreDeduction(pre, input.totalTokens, costCentsToDeduct)
+    // F-181:命中的 billableTokens=0 / 成本=0,结算把预扣全额退回,订阅窗口也不按缓存用量消费
+    await settlePreDeduction(pre, billableTokens, costCentsToDeduct)
     // Key 级限流窗口计数(B,2026-09-16):成功调用后窗口请求数 +1。
     // fire-and-forget(不 await 不阻塞返回),内部自查限额配置,全 NULL 零写入;
     // 失败静默(仅告警)——窗口是附加约束,余额/熔断已兜底,计数丢失只影响精度。
@@ -1292,7 +1331,8 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
       const groupRows = await db
         .update(apiKeyGroups)
         .set({
-          sharedTokenBalance: sql`CASE WHEN ${apiKeyGroups.sharedTokenBalance} = -1 THEN -1 WHEN ${apiKeyGroups.sharedTokenBalance} >= ${input.totalTokens} THEN ${apiKeyGroups.sharedTokenBalance} - ${input.totalTokens} ELSE ${apiKeyGroups.sharedTokenBalance} END`,
+          // F-181:命中缓存时 billableTokens=0,不占组池 token 配额
+          sharedTokenBalance: sql`CASE WHEN ${apiKeyGroups.sharedTokenBalance} = -1 THEN -1 WHEN ${apiKeyGroups.sharedTokenBalance} >= ${billableTokens} THEN ${apiKeyGroups.sharedTokenBalance} - ${billableTokens} ELSE ${apiKeyGroups.sharedTokenBalance} END`,
           sharedCostBalanceCents: sql`CASE WHEN ${apiKeyGroups.sharedCostBalanceCents} = -1 THEN -1 WHEN ${apiKeyGroups.sharedCostBalanceCents} >= ${costCentsToDeduct} THEN ${apiKeyGroups.sharedCostBalanceCents} - ${costCentsToDeduct} ELSE ${apiKeyGroups.sharedCostBalanceCents} END`,
           updatedAt: new Date(),
         })
@@ -1316,7 +1356,7 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
     await db
       .update(developerApiKeys)
       .set({
-        tokenUsedTotal: sql`${developerApiKeys.tokenUsedTotal} + ${input.totalTokens}`,
+        tokenUsedTotal: sql`${developerApiKeys.tokenUsedTotal} + ${billableTokens}`,
         costUsedTotalCents: sql`${developerApiKeys.costUsedTotalCents} + ${costCentsToDeduct}`,
         updatedAt: new Date(),
       })
@@ -1337,10 +1377,11 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
         .update(developerApiKeys)
         .set({
           // -1(无限额度)保持 -1;余额 >= 扣减量时扣减;否则保持不变(拒绝扣减,防负数)
-          tokenBalance: sql`CASE WHEN ${developerApiKeys.tokenBalance} = -1 THEN -1 WHEN ${developerApiKeys.tokenBalance} >= ${input.totalTokens} THEN ${developerApiKeys.tokenBalance} - ${input.totalTokens} ELSE ${developerApiKeys.tokenBalance} END`,
+          // F-181:命中缓存时 billableTokens=0,个人 token 配额不扣
+          tokenBalance: sql`CASE WHEN ${developerApiKeys.tokenBalance} = -1 THEN -1 WHEN ${developerApiKeys.tokenBalance} >= ${billableTokens} THEN ${developerApiKeys.tokenBalance} - ${billableTokens} ELSE ${developerApiKeys.tokenBalance} END`,
           costBalanceCents: sql`CASE WHEN ${developerApiKeys.costBalanceCents} = -1 THEN -1 WHEN ${developerApiKeys.costBalanceCents} >= ${costCentsToDeduct} THEN ${developerApiKeys.costBalanceCents} - ${costCentsToDeduct} ELSE ${developerApiKeys.costBalanceCents} END`,
           // 累计已用统计(总是累加,即使余额无限)
-          tokenUsedTotal: sql`${developerApiKeys.tokenUsedTotal} + ${input.totalTokens}`,
+          tokenUsedTotal: sql`${developerApiKeys.tokenUsedTotal} + ${billableTokens}`,
           costUsedTotalCents: sql`${developerApiKeys.costUsedTotalCents} + ${costCentsToDeduct}`,
           updatedAt: new Date(),
         })
@@ -1355,12 +1396,18 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
       logger.error('[billing] 余额扣减失败', {
         apiKeyId: input.apiKeyId,
         error: err instanceof Error ? err.message : String(err),
-        tokenCost: input.totalTokens,
+        tokenCost: billableTokens,
         costCents: costCentsToDeduct,
       })
     }
     newTokenBalance = updated?.tokenBalance ?? -1
     newCostBalanceCents = updated?.costBalanceCents ?? -1
+  }
+
+  // F-181:请求次数照计。有预扣的命中已在上面计过(不会双计);无预扣(无限额度/BYOK)
+  // 的命中走组池/个人分支,需要在这里补一次,否则"缓存命中不计 token"会变成"连次数也不计"。
+  if (isCacheHit && !hasPreDeduction) {
+    void incrKeyRateWindows(input.apiKeyId).catch(() => {})
   }
 
   // 4. 异步触发 relay 返佣(2026-07-31 立,被邀请人消费 → 邀请人返佣)

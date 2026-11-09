@@ -28,6 +28,7 @@ RUN pnpm install --frozen-lockfile
 
 # 复制 database 包源码 + 迁移文件
 COPY packages/database/src ./packages/database/src
+COPY packages/database/scripts ./packages/database/scripts
 COPY packages/database/tsconfig.json ./packages/database/
 COPY packages/database/drizzle ./packages/database/drizzle
 COPY packages/database/drizzle.config.ts ./packages/database/
@@ -48,6 +49,8 @@ USER migratejs
 
 # 使用 tini 处理信号,确保迁移完成后容器正确退出
 ENTRYPOINT ["/sbin/tini", "--"]
-# drizzle-kit migrate 读取 drizzle.config.ts + DATABASE_URL 环境变量
-CMD ["pnpm", "run", "db:migrate"]
+# DB-08:全新库首启必须走「两遍 migrate + fresh-db 形状守卫」链路,不能裸跑 drizzle-kit migrate
+# (从零库第一遍会在 journal idx 325 失败);存量库第一遍直接通过,守卫不介入。三步均幂等。
+# drizzle-kit migrate / 守卫都读取 drizzle.config.ts + DATABASE_URL 环境变量
+CMD ["pnpm", "run", "db:migrate:fresh"]
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

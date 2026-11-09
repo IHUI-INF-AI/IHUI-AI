@@ -141,6 +141,8 @@ import engineVoiceRoutes from './engine-voice.js'
 // 签到助手网关代理(2026-10-23 立):/api/checkin/* 透传 ai-service,移动端/桌面端共用
 import checkinProxyRoutes from './checkin-proxy.js'
 import { mcpExtendedRoutes } from './mcp-extended.js'
+// 控制帧 get_context_usage / stop_task / seed_read_state 的引擎 RPC 代理(方法白名单)
+import engineControlFrameRoutes from './engine-control-frames.js'
 import miscExtendedRoutes from './misc-extended.js'
 import aiGenerationRoutes from './ai-generation.js'
 import { aiChatStreamRoutes } from './ai-chat-stream.js'
@@ -865,6 +867,8 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(checkinProxyRoutes)
   // MCP 项目管理与集成扩展（projects/integrations）
   server.register(mcpExtendedRoutes, { prefix: '/api' })
+  // 引擎控制帧代理（/api/engine/rpc，仅白名单方法透传 ai-service）
+  server.register(engineControlFrameRoutes, { prefix: '/api' })
   // 其他扩展（remote/user_agent_context/docs）
   server.register(miscExtendedRoutes, { prefix: '/api/misc-ext' })
   // AI 生成队列：enqueue/status/cancel/list/stats

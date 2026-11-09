@@ -8,6 +8,7 @@
 import type { ApiResult } from '@ihui/types'
 
 import { fetchApi } from '../client.js'
+import { fetchArrayApi } from '../payload-shape.js'
 import { buildQs, type PageData, type PageQuery } from '../utils.js'
 
 // ===================== 类型定义 =====================
@@ -294,7 +295,7 @@ export async function updateAuthRole(
 }
 
 export async function deptTreeSelect(): Promise<ApiResult<SysDept[]>> {
-  return fetchApi<SysDept[]>('/api/admin/dept/list')
+  return fetchArrayApi<SysDept>('/api/admin/dept/list')
 }
 
 // ===================== role 模块 =====================

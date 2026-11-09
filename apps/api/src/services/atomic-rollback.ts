@@ -47,7 +47,7 @@ export async function classifyWorkspacePath(
   }
 }
 import type { Dirent } from 'node:fs'
-import { join, relative, resolve, sep } from 'node:path'
+import { join, relative, resolve, sep, isAbsolute } from 'node:path'
 import { agentLoop } from './workspace-ai-service.js'
 
 // =============================================================================
@@ -195,6 +195,32 @@ function snapshotRoot(workspacePath: string): string {
   return join(resolve(workspacePath), SNAPSHOT_DIR)
 }
 
+/**
+ * checkpointId 只允许字母/数字/下划线/连字符(F-27)。
+ * 快照目录名由本服务生成(`ac-<秒>-<随机>`),任何 `/`、`\`、`..` 都只能是越界企图。
+ */
+const CHECKPOINT_ID_PATTERN = /^[A-Za-z0-9_-]+$/
+
+export function isSafeCheckpointId(id: string): boolean {
+  return (
+    typeof id === 'string' && id.length > 0 && id.length <= 64 && CHECKPOINT_ID_PATTERN.test(id)
+  )
+}
+
+/**
+ * 把「根内相对路径」归一为绝对路径;越界(含 `..`、绝对路径、跨盘符)返回 null。
+ * F-27:checkpointId 与 meta.files[].path 都曾直接 join 后使用,`../` 可越出工作区任意读写。
+ */
+function resolveInsideRoot(rootAbs: string, rel: string): string | null {
+  if (typeof rel !== 'string' || rel.length === 0) return null
+  const abs = resolve(rootAbs, rel)
+  const back = relative(rootAbs, abs)
+  // 空串 = 指向根本身:文件记录/快照 id 都不允许,拒绝以免把目录当文件读写
+  if (back === '') return null
+  if (isAbsolute(back) || back.startsWith(`..${sep}`) || back === '..') return null
+  return abs
+}
+
 /** 创建原子快照:全量有界文件备份到 .ihui/atomic-checkpoints/<id>/files/ */
 export async function createAtomicCheckpoint(
   workspacePath: string,
@@ -237,7 +263,10 @@ async function loadMeta(
   workspacePath: string,
   checkpointId: string,
 ): Promise<AtomicCheckpointMeta | null> {
-  const file = join(snapshotRoot(workspacePath), checkpointId, 'meta.json')
+  if (!isSafeCheckpointId(checkpointId)) return null
+  const dir = resolveInsideRoot(snapshotRoot(workspacePath), checkpointId)
+  if (!dir) return null
+  const file = join(dir, 'meta.json')
   if (!existsSync(file)) return null
   try {
     return JSON.parse(await readFile(file, 'utf-8')) as AtomicCheckpointMeta
@@ -282,8 +311,13 @@ export async function planAtomicRollback(
   let restoreBytes = 0
 
   for (const rec of meta.files) {
+    const abs = resolveInsideRoot(wsAbs, rec.path)
+    if (!abs) {
+      // 越界条目:不改工作区、不按快照覆盖,只在 uncovered 里明示拒绝
+      unread.push({ path: rec.path, reason: '路径越出工作区,已拒绝回滚' })
+      continue
+    }
     snapshotPaths.add(rec.path)
-    const abs = join(wsAbs, rec.path)
     const presence = await classifyWorkspacePath(abs)
     if (presence === 'unreadable') {
       unread.push({ path: rec.path, reason: '当前文件读不到,不能按快照覆盖' })
@@ -308,7 +342,9 @@ export async function planAtomicRollback(
   const held = new Set((meta.skipped ?? []).map((item) => item.path))
   for (const rel of currentFiles) {
     if (snapshotPaths.has(rel) || held.has(rel)) continue
-    remove.push({ path: rel, currentHash: sha256(await readFile(join(wsAbs, rel))) })
+    const abs = resolveInsideRoot(wsAbs, rel)
+    if (!abs) continue
+    remove.push({ path: rel, currentHash: sha256(await readFile(abs)) })
   }
 
   const uncovered = [...(meta.skipped ?? []), ...unread]
@@ -364,13 +400,26 @@ export async function executeAtomicRollback(
   const plan = await planAtomicRollback(workspacePath, checkpointId)
   if (!plan) return null
 
-  const filesDir = join(snapshotRoot(wsAbs), checkpointId, 'files')
+  const checkpointDir = resolveInsideRoot(snapshotRoot(wsAbs), checkpointId)
+  if (!checkpointDir) return null
+  const filesDir = join(checkpointDir, 'files')
 
   for (const item of plan.restore) {
     const t0 = Date.now()
-    const abs = join(wsAbs, item.path)
+    const abs = resolveInsideRoot(wsAbs, item.path)
+    const snapshotAbs = resolveInsideRoot(filesDir, item.path)
+    if (!abs || !snapshotAbs) {
+      steps.push({
+        step: '恢复文件',
+        path: item.path,
+        status: 'skipped',
+        output: '路径越出工作区,已拒绝',
+        durationMs: Date.now() - t0,
+      })
+      continue
+    }
     try {
-      const content = await readFile(join(filesDir, item.path))
+      const content = await readFile(snapshotAbs)
       await mkdir(join(abs, '..'), { recursive: true })
       await writeFile(abs, content)
       steps.push({
@@ -393,7 +442,17 @@ export async function executeAtomicRollback(
 
   for (const item of plan.remove) {
     const t0 = Date.now()
-    const abs = join(wsAbs, item.path)
+    const abs = resolveInsideRoot(wsAbs, item.path)
+    if (!abs) {
+      steps.push({
+        step: '删除快照后新增文件',
+        path: item.path,
+        status: 'skipped',
+        output: '路径越出工作区,已拒绝',
+        durationMs: Date.now() - t0,
+      })
+      continue
+    }
     try {
       await rm(abs, { force: true })
       steps.push({

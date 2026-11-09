@@ -16,6 +16,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { tryParseJson, isRecord } from '../util/json.js';
+import { writeFileAtomicSync } from '../util/atomic-write.js';
 
 export type DiscoveredHookType =
   | 'pre_tool'
@@ -50,16 +51,13 @@ export interface HooksDirs {
  * 发现诊断判别码(封闭集,与 plugins/types.ts 的 PLUGIN_DIAGNOSTIC_CODES 同一形态)。
  * 三处都是 scanDir/parseFrontmatter 里原本 `catch { 静默跳过 }` 的吞错点 —— 现在编码成数据。
  */
-export const HOOK_DISCOVERY_DIAGNOSTIC_CODES = [
+type HookDiscoveryDiagnosticCode =
   /** 整个 hooks 目录读不出(readdirSync 失败,ENOENT 除外=正常缺席):该目录下 hooks 全部缺席 */
-  'hooks-dir-unreadable',
+  | 'hooks-dir-unreadable'
   /** 扩展名命中的 hook 文件 stat 失败:该文件缺席(计入 totalDiscovered,不计入 hooks) */
-  'hook-file-stat-failed',
+  | 'hook-file-stat-failed'
   /** hook 文件本体读不出:仍按"无 frontmatter 默认值"装载,但 frontmatter 内容被忽略 */
-  'hook-frontmatter-unreadable',
-] as const;
-
-type HookDiscoveryDiagnosticCode = (typeof HOOK_DISCOVERY_DIAGNOSTIC_CODES)[number];
+  | 'hook-frontmatter-unreadable';
 
 /** 诊断严重级:`error` = 发现了却没装载;`warning` = 装载了但有内容被忽略 */
 type HookDiscoveryDiagnosticSeverity = 'error' | 'warning';
@@ -346,11 +344,8 @@ export class HooksDiscovery {
         throw new Error(`钩子状态读不到,不能把它覆盖成新状态 (${code})`);
       }
     }
-    const dir = path.dirname(this.stateFile);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    fs.writeFileSync(this.stateFile, JSON.stringify(state, null, 2), 'utf-8');
+    // 统一走 util/atomic-write:目标本身是符号链接时抛 SymlinkTargetError(DBG-46)。
+    writeFileAtomicSync(this.stateFile, JSON.stringify(state, null, 2));
   }
 }
 

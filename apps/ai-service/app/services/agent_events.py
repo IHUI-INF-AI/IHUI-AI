@@ -70,6 +70,10 @@ SSE_TOOL_CALL_START = "tool-call-start"  # 工具调用开始 {"toolName", "args
 SSE_TOOL_RESULT = "tool-result"          # 工具结果 {"toolCallId", "result", ...}
 SSE_TOOL_DELEGATE = "tool-delegate"      # 前端工具委托(session_id + 工具参数)
 SSE_TOOL_SUMMARY = "tool-summary"        # 工具汇总(_build_tool_summary 产物)
+# 2026-11-05 立:工具调用 arguments 逐分片直推(生产点 llm_gateway.astream,
+# 载荷 index/id/name/args/argsComplete/argsPartial;契约见 sse_contract.py)。
+# 与 tool-delta 不同:后者是工具执行期的 diff 正文增量,本帧是工具**入参**的构建过程。
+SSE_TOOL_CALL_ARGS_DELTA = "tool-call-args-delta"
 SSE_TERMINAL_START = "terminal_start"    # 终端命令开始(前端 TerminalSection)
 SSE_TERMINAL_END = "terminal_end"        # 终端命令结束(exitCode/duration)
 SSE_TERMINAL_DELTA = "terminal_delta"    # 终端命令逐行增量(实时 stdout/stderr)
@@ -211,6 +215,10 @@ HOOK_AGENT_STATUS = "agent.status"  # W9#6(2026-09-18):pause/cancel 过渡事件
 # 本事件是**hook 动作自己执行失败**的六字段证据(hookName/event/command/stderr/
 # exitCode/durationMs),必须走独立的 SSE 名,否则前端的 `onError` 会把它读成"回答失败"。
 HOOK_FAILED = "hook.failed"
+# 2026-11-08 立:AskUserQuestion 闭环。工作台 agent 侧的提问帧与结局帧都经 hook 总线
+# 转发(agent_engine 以 hook 事件名作为 SSE 事件名),与主对话流 SSE 同名同形。
+HOOK_QUESTION = "question"
+HOOK_QUESTION_RESOLVED = "question-resolved"
 
 # ---------------------------------------------------------------------------
 # hook 事件 → SSE 事件映射
@@ -242,6 +250,9 @@ HOOK_EVENT_TO_SSE: dict[str, str] = {
     # (挂到某条 assistant 消息的 meta.hookFailures),与 LLM 主线错误是两件事,
     # 混到 `error` 会让前端把"某个 hook 挂了"读成"这条回答失败了"。
     HOOK_FAILED: "hook-failed",
+    # 2026-11-08:AskUserQuestion 闭环 —— 问题帧与结局帧原样落到同名的两个 SSE 事件。
+    HOOK_QUESTION: "question",
+    HOOK_QUESTION_RESOLVED: "question-resolved",
 }
 
 
@@ -280,5 +291,8 @@ AGENT_SUBSCRIBE_EVENTS: tuple[str, ...] = (
     # 没有"hook 动作自己失败了" ⇒ 前端六态卡零数据源(判定层 2026-09-24 交付后一直空转)。
     # 三个 SSE 端点(execute/stream、tasks/stream、{agent_id}/stream)共用本元组,故一处补齐三处生效。
     HOOK_FAILED,
+    # 2026-11-08:AskUserQuestion 闭环(问题帧 + 结局帧)
+    HOOK_QUESTION,
+    HOOK_QUESTION_RESOLVED,
 )
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

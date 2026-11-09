@@ -55,6 +55,7 @@ import { noteRuntimeCapabilities } from './runtime-capabilities'
 import {
   clearCompactionPreview,
   createToolCallHandler,
+  createOpenAiToolCallHandler,
   createToolSummaryHandler,
   createReviewFindingHandler,
   createUsageHandler,
@@ -79,6 +80,15 @@ import {
 // 每条续答一个稳定 inputId;回执缺席时凭正文增量或流尾定性。响应头不算收下。
 // 收场时零证据落 `unconfirmed` —— 绝不把"不知道送没送到"渲染成"已收下"。
 import { createInputId, createSendAdmissionTracker } from '@ihui/shared/chat'
+// 2026-11-08 立:内联提问卡的阻塞式答复上行(404/失败回退旧链路)
+import {
+  buildLegacyAnswerText,
+  postQuestionResponse,
+  type QuestionAnswerPayload,
+  type QuestionResponseStatus,
+} from './question-response'
+import { applyQuestionResolvedEvent, parseQuestionResolvedPayload } from './question-resolved'
+import { persistQuestionSafe } from './persistence'
 
 export function createSendAnswer(
   ctx: ChatActionContext,
@@ -268,7 +278,9 @@ export function createSendAnswer(
       // P1-7(2026-09-13 立):续答同样应用会话级高级参数(与 sendMessage 对称)
       const samplingParams = getSamplingParams(store.conversationId)
 
-      const streamOpts: StreamChatOptions = {
+      const streamOpts: StreamChatOptions & {
+        onQuestionResolved?: (frame: unknown) => void
+      } = {
         model: effectiveModel,
         messages: history,
         path: '/ai/chat/answer',
@@ -431,6 +443,37 @@ export function createSendAnswer(
           clearCompactionPreview()
           // 响应头不记准入,与主发送链同一条:连接建立不等于服务端收下这一轮。
         },
+        // 2026-11-08 立:续答流里模型再次提问(阻塞式工具可在同一轮多次调用)——
+        // 与首答(send-message.ts 的 onQuestion)同形落地,内联卡在续答面上同样可见。
+        onQuestion: (q) => {
+          if (q.sessionId) chatStore.getState().noteStreamSessionId(q.sessionId)
+          const ext = q as typeof q & { expiresAt?: string | number; header?: string }
+          chatStore.getState().setPendingQuestion({
+            questionId: q.questionId,
+            prompt: q.prompt,
+            options: q.options,
+            allowCustom: q.allowCustom,
+            allowMultiple: q.allowMultiple,
+            ...(ext.header ? { header: ext.header } : {}),
+            ...(ext.expiresAt !== undefined ? { expiresAt: ext.expiresAt } : {}),
+            assistantMessageId: assistantId,
+          })
+          const convId = chatStore.getState().conversationId
+          if (convId) {
+            void persistQuestionSafe(convId, {
+              questionId: q.questionId,
+              prompt: q.prompt,
+              options: q.options,
+              allowCustom: q.allowCustom,
+              allowMultiple: q.allowMultiple,
+            })
+          }
+        },
+        // 2026-11-08 立:`question-resolved` 结算帧(与 send-message 对称;api-client 补解析后生效)
+        onQuestionResolved: (frame) => {
+          const resolved = parseQuestionResolvedPayload(frame)
+          if (resolved) applyQuestionResolvedEvent(chatStore, resolved)
+        },
         onUsage: (usage) => {
           // 流尾帧:与 sendMessage 同一姿势落 Runtime 插话能力声明(读不到不写)。
           noteRuntimeCapabilities(usage)
@@ -467,6 +510,9 @@ export function createSendAnswer(
           reasoningBatcher.batch(delta)
         },
         onToolCall: createToolCallHandler(assistantId),
+        // 2026-11-05 立:续流同样订阅工具入参逐分片态(与 sendMessage 对称)。
+        // 该链路本就没有 onToolDelta 腿,不要顺带改动既有 Vercel 回调表。
+        onOpenAiToolCall: createOpenAiToolCallHandler(assistantId, chatStore),
         // Subagent 自动派发(2026-07-28 立,与 sendMessage 对称):
         // sendAnswer 续流同样可能触发 dispatch_subagent 工具,需写入 store。
         // 2026-07-29 Phase 21:补齐 onSubagentProgress + 同步写入 timeline-store。
@@ -579,7 +625,7 @@ export function createSendAnswer(
         ...(() => {
           const agentTools = [
             ...new Set([
-              ...mergeAgentTools(chatStore),
+              ...mergeAgentTools(chatStore, modeStore.getState().currentMode),
               ...eduToolsFor(answer),
               ...fileToolsFor(answer),
               ...videoToolsFor(answer),
@@ -704,6 +750,9 @@ export function createSendAnswer(
         // (各一行),上行寻址凭据没人管,于是上一轮的 sessionId 会活到下一轮。
         chatStore.getState().clearRunScopedState()
         chatStore.getState().markAllAgentStreamsDone()
+        // #23 续答路径对称(2026-11-05 补):流收尾时把仍处 running 的工具卡(含
+        // tool-call-args-delta 半构建入参的卡)置为 cancelled,避免续答断流时卡死在 running 预览。
+        chatStore.getState().revokePendingToolCalls(assistantId)
       }
       // P1-6:流已收尾(正常/报错/超时/主动 stop)→ 标记完成,刷新后不再续接。
       // 与 sendMessage 同理,必须放在代际守卫之外:被切会话 abort 的旧流同样已终止。
@@ -712,5 +761,65 @@ export function createSendAnswer(
     return
   }
   return sendAnswer
+}
+
+/**
+ * 阻塞式答复编排(2026-11-08 立)。
+ *
+ * 优先打 `POST /llm/complete/stream/:sessionId/question-response`:
+ * - accepted / duplicate / 终态 → 只让内联卡进入只读终态,**不新增用户消息、不发起新一轮**
+ *   (模型侧还挂在那条流上等这一答,再开一轮就是同一条提问被答两遍)
+ * - HTTP 404(旧 marker 式提问,服务端没有阻塞等待)→ 走原有「新增用户答复消息 + 新一轮」
+ *   链路(sendAnswer),行为与旧弹窗完全一致
+ * - 网络/5xx → 保留旧链路回退**一次**,并 toast 一条可重试提示
+ *
+ * 拿不到 `aiStreamSessionId`(提问帧太早,流里还没出现工具/委派帧)时同样按旧链路处理:
+ * 阻塞端点的路径里没有会话 ID 可用,只能退回旧链路。
+ */
+export function createSubmitQuestionResponse(
+  ctx: ChatActionContext,
+  chatStore: ChatStore = useChatStore,
+): (response: QuestionAnswerPayload) => Promise<QuestionResponseStatus | void> {
+  const sendLegacyAnswer = createSendAnswer(ctx, chatStore)
+  const { t } = ctx
+  return async (response) => {
+    const store = chatStore.getState()
+    const pending = store.pendingQuestion
+    // 只认当前这一问:卡片已被结算/换成新提问时,迟到的提交直接丢弃
+    if (!pending || pending.questionId !== response.questionId) return
+
+    const legacy = async (): Promise<void> => {
+      // 撤回在旧链路里等价于「跳过提问」:不产用户消息,只收回挂起态
+      if (response.action === 'withdraw') {
+        chatStore.getState().clearPendingQuestion()
+        return
+      }
+      await sendLegacyAnswer(buildLegacyAnswerText(pending, response))
+    }
+
+    const sessionId = store.aiStreamSessionId
+    if (!sessionId) {
+      await legacy()
+      return
+    }
+
+    const outcome = await postQuestionResponse(sessionId, response)
+    if (outcome.kind === 'blocking') return outcome.status
+    if (outcome.kind === 'legacy') {
+      await legacy()
+      return
+    }
+
+    // 网络/5xx:先给重试提示,再保留一次旧链路回退(旧链路自身有"流式中不重入"守卫,
+    // 阻塞流仍挂着时不会并发开第二轮;此时只能等用户主动停止后再重试)
+    toast.error(t('question.responseFailed'), { description: outcome.message })
+    await legacy()
+    // 旧链路也没接管(阻塞流仍挂着,被 sendAnswer 的流式守卫拦下)→ 卡片保住输入态,
+    // 抛回给内联卡显示"可重试"提示;若旧链路已开新一轮,卡片已随流移除,无需再抛。
+    const stillPending = chatStore.getState().pendingQuestion
+    if (stillPending && stillPending.questionId === response.questionId) {
+      throw new Error(outcome.message)
+    }
+  }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

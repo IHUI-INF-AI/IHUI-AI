@@ -14,6 +14,7 @@ import { createAnswer, getAnswers, getAskById } from '@ihui/api-client'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { generateArticleSchema } from '@/lib/seo/schema-article'
+import { jsonLdHtml } from '@/lib/seo/json-ld'
 
 interface AskDetail {
   id: string
@@ -157,7 +158,7 @@ export default function AskDetailPage() {
         <script
           type="application/ld+json"
           // 安全转义:JSON.stringify 不转义 `<`,含 `</script>` 的用户输入会提前闭合脚本标签导致存储型 XSS
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(askJsonLd).replace(/</g, '\\u003c') }}
+          dangerouslySetInnerHTML={{ __html: jsonLdHtml(askJsonLd) }}
         />
       ) : null}
       <Button variant="ghost" size="sm" onClick={() => router.back()}>

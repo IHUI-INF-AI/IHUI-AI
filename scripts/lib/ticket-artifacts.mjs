@@ -28,6 +28,13 @@ export function manifestPathOf(ticketKey) {
 }
 
 /**
+ * `parseArtifactManifest` 的 state 值并集(唯一一份;`auto-evolve.mjs` 用它拼
+ * `artifact-manifest-${state}` 动作串,空转阶梯的覆盖锁按这一份展开对账 —— 加一个 state
+ * 而忘了分档,锁会当场判红,不会再出现"发射了 23 种动作而计数器只认 13 种"那种静默漏计)。
+ */
+export const ARTIFACT_MANIFEST_STATES = Object.freeze(['missing', 'invalid', 'ok'])
+
+/**
  * 清单解析 + 形状校验。
  *
  * 返回值刻意不用布尔:`missing` 与 `invalid` 是两档不同的事故(前者=会话没写清单,后者=写了但
@@ -35,7 +42,11 @@ export function manifestPathOf(ticketKey) {
  */
 export function parseArtifactManifest(text, ticketKey) {
   if (text === null || text === undefined || String(text).trim() === '') {
-    return { state: 'missing', files: [], why: `会话未写产物清单(${manifestPathOf(ticketKey)})⇒ 本轮不提交` }
+    return {
+      state: 'missing',
+      files: [],
+      why: `会话未写产物清单(${manifestPathOf(ticketKey)})⇒ 本轮不提交`,
+    }
   }
   let doc
   try {
@@ -50,7 +61,11 @@ export function parseArtifactManifest(text, ticketKey) {
   const want = String(ticketKey ?? '')
   if (got !== want) {
     // 票键不符 = 这份清单可能是上一轮/另一张票留下的:按它提交就是把别人的活记到这张票头上。
-    return { state: 'invalid', files: [], why: `清单票键不匹配(清单 ${JSON.stringify(got)} ≠ 本轮 ${JSON.stringify(want)})` }
+    return {
+      state: 'invalid',
+      files: [],
+      why: `清单票键不匹配(清单 ${JSON.stringify(got)} ≠ 本轮 ${JSON.stringify(want)})`,
+    }
   }
   if (!Array.isArray(doc.files)) {
     return { state: 'invalid', files: [], why: 'files 必须是数组' }
@@ -93,7 +108,9 @@ export function sanitizeArtifactPaths(paths) {
   const accepted = []
   const rejected = []
   for (const raw of Array.isArray(paths) ? paths : []) {
-    const p = String(raw ?? '').trim().replace(/\\/g, '/')
+    const p = String(raw ?? '')
+      .trim()
+      .replace(/\\/g, '/')
     if (!p) {
       rejected.push({ path: String(raw ?? ''), why: '空路径' })
       continue
@@ -115,7 +132,10 @@ export function sanitizeArtifactPaths(paths) {
     const base = segs[segs.length - 1]
     if (base.toLowerCase() === 'project_plan.md') {
       // 活文档由人/live-doc-edit 改:自动提交它会把并发的翻勾/注记冲掉,且它自己就是并发写面。
-      rejected.push({ path: p, why: 'PROJECT_PLAN.md 是活文档(并发冲突风险太高),一律不由会话后落账提交' })
+      rejected.push({
+        path: p,
+        why: 'PROJECT_PLAN.md 是活文档(并发冲突风险太高),一律不由会话后落账提交',
+      })
       continue
     }
     if (segs[0] !== '.ihui-agent') {
@@ -152,11 +172,17 @@ export function selectDirtyPaths(paths, statusFn) {
       continue
     }
     if (typeof out === 'string' && out.trim() !== '') dirty.push(p)
-    else if (typeof out === 'string') stale.push({ path: p, why: 'git status --porcelain 为空(该文件在本工作区没有改动)' })
+    else if (typeof out === 'string')
+      stale.push({ path: p, why: 'git status --porcelain 为空(该文件在本工作区没有改动)' })
     else stale.push({ path: p, why: 'git status 未判定(返回值不是字符串)' })
   }
   return { dirty, stale }
 }
 
-export const __test__ = { parseArtifactManifest, sanitizeArtifactPaths, selectDirtyPaths, manifestPathOf }
+export const __test__ = {
+  parseArtifactManifest,
+  sanitizeArtifactPaths,
+  selectDirtyPaths,
+  manifestPathOf,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

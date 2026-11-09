@@ -170,6 +170,33 @@ const wsNotificationsPlugin: FastifyPluginAsync = async (server) => {
   // 暴露给其他模块的推送函数
   // 修复重复推送 Bug:多实例模式下只 publish,由 subscriber 统一推送(含本机);
   // 单实例降级模式(subscriber 不可用)下直接本机推送。
+  /**
+   * 本机直推。多实例 publish 失败时同样走这里(F-113):
+   * 否则 Redis 故障期间通知会被静默吞掉,客户端一帧都收不到。
+   */
+  function deliverLocally(userId: string, payload: unknown): void {
+    const conns = connections.get(userId)
+    if (!conns || conns.size === 0) return
+    const msg = JSON.stringify({ type: 'notification', data: payload })
+    try {
+      server.recordWsRoomBroadcast(userId)
+    } catch {
+      /* 指标采集失败不影响业务 */
+    }
+    for (const ws of conns) {
+      try {
+        ws.send(msg)
+        try {
+          server.recordNoticeDelivered(userId)
+        } catch {
+          /* 指标采集失败不影响业务 */
+        }
+      } catch {
+        dropConnection(userId, ws)
+      }
+    }
+  }
+
   server.decorate('pushNotification', (userId: string, payload: unknown) => {
     // 上报通知推送（fire-and-forget）
     try {
@@ -182,37 +209,22 @@ const wsNotificationsPlugin: FastifyPluginAsync = async (server) => {
       try {
         const publisher = (server as unknown as { redis?: Redis }).redis
         if (publisher) {
-          void publisher.publish(channelFor(userId), JSON.stringify(payload))
+          // F-113: publish 返回 Promise,同步 try/catch 抓不到拒绝;
+          // 失败必须回落本机直推,不能 void 掉了事。
+          void Promise.resolve(publisher.publish(channelFor(userId), JSON.stringify(payload))).catch(
+            (err) => {
+              server.log.warn({ err, userId }, 'ws notification publish failed, fallback to local delivery')
+              deliverLocally(userId, payload)
+            },
+          )
           return
         }
       } catch {
-        /* Redis publish 失败,降级到本机直推 */
+        /* 同步抛错,降级到本机直推 */
       }
     }
-    // 单实例降级模式(无 Redis):直接本机推送
-    const conns = connections.get(userId)
-    if (conns && conns.size > 0) {
-      const msg = JSON.stringify({ type: 'notification', data: payload })
-      // 上报房间广播（单实例降级模式）
-      try {
-        server.recordWsRoomBroadcast(userId)
-      } catch {
-        /* 指标采集失败不影响业务 */
-      }
-      for (const ws of conns) {
-        try {
-          ws.send(msg)
-          // 上报通知送达（单实例降级模式）
-          try {
-            server.recordNoticeDelivered(userId)
-          } catch {
-            /* 指标采集失败不影响业务 */
-          }
-        } catch {
-          dropConnection(userId, ws)
-        }
-      }
-    }
+    // 单实例降级模式(无 Redis)或 publish 同步失败:直接本机推送
+    deliverLocally(userId, payload)
   })
 
   // POST /ws/ticket — 用 access token 换取短期 WS 专用 token(5 分钟 TTL)

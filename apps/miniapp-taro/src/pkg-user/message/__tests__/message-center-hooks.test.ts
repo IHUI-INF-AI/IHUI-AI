@@ -65,7 +65,8 @@ describe('消息中心数据钩子接线锁', () => {
     expect(pageSrc).toContain('deleteMessage(room.id)')
   })
   it('C spec 四键由端内消费并带无障碍标签', () => {
-    expect(pageSrc).toContain(norm("t('messageCenter.searchPh')"))
+    // 搜索占位词改走 sharedT(2026-11 五语言同源),markRead/deleteConv 仍是端内 t 键。
+    expect(pageSrc).toContain(norm("sharedT('messageCenter.searchPh')"))
     expect(pageSrc).toContain(norm("markReadLabel={t('messageCenter.markRead')}"))
     expect(pageSrc).toContain(norm("deleteLabel={t('messageCenter.deleteConv')}"))
     expect(paneSrc).toContain(norm("t('messageCenter.loadMore')"))

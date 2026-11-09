@@ -341,6 +341,11 @@ const LOCALES: Locale[] = ['zh-CN', 'en', 'ja', 'ko', 'zh-TW']
 // I18nProvider 挂载时从 storage 同步,setLocale 时同步更新
 let currentLocale: Locale = 'zh-CN'
 
+/** 2026-11-07 DBG-33: 组件树外读取当前语言的唯一入口(工具函数等非 React 上下文用)。 */
+export function getCurrentLocale(): Locale {
+  return currentLocale
+}
+
 /**
  * 组件树外的 locale 切换入口(2026-09-21 立,供 AI 操控桥调用)。
  *

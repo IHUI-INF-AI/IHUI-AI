@@ -82,7 +82,7 @@ test('② 真仓:HEAD 实测与台账精确一致(判据在真数据上为绿)',
   const hit = collectHitMap(data, callbacks)
   const result = evaluateDispatchParity({ hit, callbacks, known, data })
   assert.deepEqual(result.errors, [], '真仓判定不应有红项')
-  assert.deepEqual(result.warnings, [], '真仓不应留 baseline 待上调的警告(增长后必须同票上调)')
+  assert.deepEqual(result.warnings, [], '真仓不应留派生基线不自洽的警告')
   assert.equal(result.ok, true)
 })
 
@@ -140,16 +140,69 @@ test('③ 注入违规:抽走一个端的一个命中必须判红(红因是"静�
   )
 })
 
-test('④ 注入违规:baseline 抬高 1 必须判红(ratchet 真的咬住)', () => {
+test('④ 台账手填 baseline 必须判红(派生基线只能由帧集合 - missing 现算)', () => {
   const data = realData()
+  assert.equal(Object.hasOwn(data, 'baseline'), false, '真台账仍在手填 baseline 字段')
   const { source } = readFrameSource()
   const known = extractCallbackNames(source)
   const callbacks = resolveFrameCallbacks(source, data.toolCallbacks)
   const hit = collectHitMap(data, callbacks)
-  const bumped = { ...data, baseline: { ...data.baseline, web: data.baseline.web + 1 } }
-  const result = evaluateDispatchParity({ hit, callbacks, known, data: bumped })
-  assert.equal(result.ok, false, 'baseline 抬高一格仍判绿 ⇒ ratchet 未生效')
-  assert.ok(result.errors.some((e) => e.includes('低于 baseline')))
+  const manual = { ...data, baseline: { web: 1 } }
+  const result = evaluateDispatchParity({ hit, callbacks, known, data: manual })
+  assert.equal(result.ok, false, '手填 baseline 仍判绿 ⇒ 派生基线自检未生效')
+  assert.ok(result.errors.some((e) => e.includes('手填 baseline')))
+  assert.ok(result.errors.some((e) => e.includes('派生基线')))
+})
+
+/**
+ * BUG-0022 的改前 / 改后双样本。
+ * 改前样本不是"报告里抄一行",而是构造面重放旧台账:toolCallbacks 不含两个派生回调,
+ * 帧清单因此把它们当成协议帧 ⇒ 5 个端各报一条「静默丢弃」。改后样本只改 toolCallbacks,
+ * 同一组命中必须转绿 —— 红/绿归因唯一,不依赖仓库瞬时状态。
+ */
+test('④b BUG-0022 改前必红:派生回调被误当帧时五端各报静默丢弃;登记后转绿', () => {
+  const endpoints = {
+    web: ['apps/web/src'],
+    extension: ['apps/extension'],
+    'miniapp-taro': ['apps/miniapp-taro/src'],
+    'mobile-rn': ['apps/mobile-rn'],
+    cli: ['apps/cli'],
+  }
+  const derived = ['onOpenAiContent', 'onOpenAiToolCall']
+  const realFrame = 'onRealFrame'
+  const hit = Object.fromEntries(
+    Object.keys(endpoints).map((ep) => [ep, new Set([realFrame])]),
+  )
+  const oldLedger = {
+    toolCallbacks: ['onAbort'],
+    endpoints,
+    groups: {},
+    missing: Object.fromEntries(Object.keys(endpoints).map((ep) => [ep, {}])),
+  }
+  const oldResult = evaluateDispatchParity({
+    hit,
+    callbacks: [realFrame, ...derived],
+    known: new Set([realFrame, ...derived, 'onAbort']),
+    data: oldLedger,
+  })
+  assert.equal(oldResult.ok, false, '旧台账形态必须判红(改前样本失守)')
+  const silent = oldResult.errors.filter((e) => e.includes('静默丢弃'))
+  assert.equal(silent.length, 5, `改前样本应恰有 5 条静默丢弃,实得 ${silent.length}`)
+  assert.ok(silent.every((e) => e.includes('onOpenAiContent')))
+
+  const fixedLedger = { ...oldLedger, toolCallbacks: ['onAbort', ...derived] }
+  const fixedResult = evaluateDispatchParity({
+    hit,
+    callbacks: [realFrame],
+    known: new Set([realFrame, ...derived, 'onAbort']),
+    data: fixedLedger,
+  })
+  assert.equal(fixedResult.ok, true, `登记派生回调后仍判红:${fixedResult.errors.join('; ')}`)
+  assert.deepEqual(fixedResult.errors, [])
+
+  const real = realData()
+  assert.ok(real.toolCallbacks.includes('onOpenAiContent'), '真台账未登记 onOpenAiContent')
+  assert.ok(real.toolCallbacks.includes('onOpenAiToolCall'), '真台账未登记 onOpenAiToolCall')
 })
 
 test('⑤ 取材基准是提交树,不是工作树(pre-commit 须切暂存区,否则同票推进被自己卡死)', () => {
@@ -196,8 +249,8 @@ test('⑤ 取材基准是提交树,不是工作树(pre-commit 须切暂存区,�
 
 test('⑤b 暂存区口径实跑:budget 一族的端内接线 + 台账一起进临时索引必须判绿(代码与台账同票)', () => {
   // 清单 = 本族"端内注册层"改动的全集。**少列一个端不会让本例假绿** —— 该端按 HEAD 的
-  // 旧命中数进入临时索引,低于台账 baseline 即判红,失效方式是响的。
-  // 再有端接入 budget 时把它加进来(以及 --staged 的 baseline 同票上调)。
+  // 旧命中数进入临时索引,与「帧集合 - missing」派生基线不自治即判红,失效方式是响的。
+  // 再有端接入 budget 时把它加进来(派生基线随 missing 删除自动跟随)。
   //
   // 取材基准一律 **HEAD blob**,不是工作树(2026-09-25 实测改的):原写法 `git add -- <码文件>`
   // 把并行会话的在途编辑一起收进临时索引 —— 当天 `apps/cli/src/commands/agent.ts` 正被别人的
@@ -269,8 +322,8 @@ test('⑥ 台账卫生:groups 里不得留无人引用的分组(登记项不得�
  * ("登记表与用量必须同面"),本例是它在门 90 上的对应锁。
  *
  * 两臂都是**条件式**的,不赌仓库此刻的内容:
- *  A 臂 索引放"人为回退的台账"(把 onTerminalDelta 塞回 miniapp-taro 的 missing 并把 baseline
- *      降一格),磁盘保持修好的那份 ⇒ --staged 必须红并点名 onTerminalDelta。
+ *  A 臂 索引放"人为回退的台账"(把 onTerminalDelta 塞回 miniapp-taro 的 missing),
+ *      磁盘保持修好的那份 ⇒ --staged 必须红并点名 onTerminalDelta。
  *      **旧实现(readFileSync 磁盘)在这一臂会判绿**,所以这条不是恒真式。
  *  B 臂 索引放与 HEAD 代码一致的台账 ⇒ --staged 必须绿(证明 A 臂的红来自面,不是"永远红")。
  */
@@ -280,13 +333,11 @@ test('⑩ 台账判定面:索引与磁盘不一致时按索引出结论(旧磁�
   // 自足地构造"回退版"台账:不依赖 HEAD 此刻装的是哪一份,免得本例随仓库推进失去意义。
   const regressed = {
     ...good,
-    baseline: { ...good.baseline, 'miniapp-taro': good.baseline['miniapp-taro'] - 1 },
     missing: {
       ...good.missing,
       'miniapp-taro': { ...good.missing['miniapp-taro'], onTerminalDelta: 'no-terminal-delta-ui' },
     },
   }
-  if (good.baseline['miniapp-taro'] <= 0) throw new Error('夹具前提不成立:baseline 已为 0,无法回退')
   if (
     !good.missing['miniapp-taro'] ||
     Object.hasOwn(good.missing['miniapp-taro'], 'onTerminalDelta')
@@ -573,12 +624,11 @@ const FIXTURE_CLIENT_TS =
   '  onAbort: () => void\n' +
   '}\n'
 
-const fixtureLedger = ({ wired, declared }) =>
+const fixtureLedger = ({ declared }) =>
   JSON.stringify(
     {
       toolCallbacks: ['onAbort'],
       endpoints: { demo: ['apps/demo/src'] },
-      baseline: { demo: wired ? 2 : 1 },
       groups: { 'no-ui': '演示端无对应展示位。' },
       missing: { demo: declared ? { onUndeclared: 'no-ui' } : {} },
     },

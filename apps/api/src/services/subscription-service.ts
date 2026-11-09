@@ -237,16 +237,6 @@ export async function chargeOneContractNow(
   if (!contract) throw new Error('签约不存在或未激活')
   if (!contract.contractId) throw new Error('签约缺少微信侧 contractId')
 
-  // P1 修复(2026-08-06):上一笔扣款仍在受理(pending)且未超时 → 拒绝重复发起,
-  // 防止用户连续点击/前端重试造成同一周期重复扣款。
-  if (
-    contract.lastChargeStatus === 'pending' &&
-    contract.lastChargeTime &&
-    Date.now() - contract.lastChargeTime.getTime() < PENDING_CHARGE_TIMEOUT_MS
-  ) {
-    throw new Error('上一笔扣款仍在处理中,请稍后重试')
-  }
-
   const plan = contract.planId ? await getPlanSafe(contract.planId) : null
   const amount = plan?.price ?? 0
   if (amount <= 0) throw new Error('签约方案价格异常')
@@ -254,6 +244,37 @@ export async function chargeOneContractNow(
   const outTradeNo = generateOutTradeNo('IM')
   const notifyUrl = env.WX_PAY_RECURRING_NOTIFY_URL ?? env.WX_PAY_NOTIFY_URL ?? ''
   const appid = env.WX_MINI_APPID ?? env.WX_APP_APPID ?? ''
+  const now = new Date()
+
+  // P1 修复(F-229):原来的「先 SELECT 判断 pending,再直接扣款」是 check-then-act,
+  // 用户连点两次/前端重试时两个请求都会读到旧的 lastChargeStatus,双双走到 deductRecurring,
+  // 同一计费周期被扣两次。这里复用批量扫描路径(chargeOne)的条件 UPDATE 占位:
+  // 先原子抢占本期扣款权,0 行影响 = 已有一次在途(或刚成功)的扣款,直接拒绝。
+  const claimed = await db
+    .update(wechatPayContracts)
+    .set({
+      lastChargeStatus: 'pending',
+      lastChargeTime: now,
+      outTradeNo,
+      updatedAt: now,
+    })
+    .where(
+      and(
+        eq(wechatPayContracts.id, contractId),
+        eq(wechatPayContracts.userId, userId),
+        eq(wechatPayContracts.status, 'active'),
+        or(
+          isNull(wechatPayContracts.lastChargeStatus),
+          ne(wechatPayContracts.lastChargeStatus, 'pending'),
+          lt(
+            wechatPayContracts.lastChargeTime,
+            new Date(now.getTime() - PENDING_CHARGE_TIMEOUT_MS),
+          ),
+        ),
+      ),
+    )
+    .returning({ id: wechatPayContracts.id })
+  if (claimed.length === 0) throw new Error('上一笔扣款仍在处理中,请稍后重试')
 
   const result = await deductRecurring({
     appid,
@@ -265,16 +286,24 @@ export async function chargeOneContractNow(
     settleMode: 'wait',
   })
 
-  const now = new Date()
+  // 收尾 UPDATE 必须带 outTradeNo 条件:占位后若已超时并被新一轮扣款覆盖,
+  // 本次结果不得回写到新的那一笔上(否则会把新尝试的 pending 改成旧结果)。
+  // tradeState 按微信语义映射:SUCCESS=成功;CLOSED/PAYERROR/REVOKED/REFUND 是终态失败,
+  // 写 failed 让后续可重新发起;NOTPAY/USERPAYING 等非终态才保持 pending(等 webhook/超时)。
   await db
     .update(wechatPayContracts)
     .set({
       lastChargeTime: now,
-      lastChargeStatus: result.tradeState === 'SUCCESS' ? 'success' : 'pending',
+      lastChargeStatus: mapDeductChargeStatus(result.tradeState),
       outTradeNo: result.outTradeNo,
-      updatedAt: now,
+      updatedAt: new Date(),
     })
-    .where(eq(wechatPayContracts.id, contractId))
+    .where(
+      and(
+        eq(wechatPayContracts.id, contractId),
+        eq(wechatPayContracts.outTradeNo, result.outTradeNo),
+      ),
+    )
 
   return { ...result, contractId }
 }
@@ -282,6 +311,20 @@ export async function chargeOneContractNow(
 // =============================================================================
 // 内部工具函数
 // =============================================================================
+
+/** 微信委托扣款终态失败集合(见 wechat-pay.ts pollDeductTradeState 注释)。 */
+const DEDUCT_FAILED_STATES = new Set(['CLOSED', 'PAYERROR', 'REVOKED', 'REFUND'])
+
+/**
+ * 把委托扣款 tradeState 映射为签约的 lastChargeStatus。
+ * F-229:非 SUCCESS 一律写 pending 会让 CLOSED/PAYERROR 在本期 1 小时窗口内被
+ * 当成"仍在途"而无法重试;终态失败必须落 failed。
+ */
+function mapDeductChargeStatus(tradeState: string | undefined): 'success' | 'failed' | 'pending' {
+  if (tradeState === 'SUCCESS') return 'success'
+  if (tradeState && DEDUCT_FAILED_STATES.has(tradeState)) return 'failed'
+  return 'pending'
+}
 
 function clampConcurrency(input: number | undefined): number {
   const raw = input ?? DEFAULT_CONCURRENCY

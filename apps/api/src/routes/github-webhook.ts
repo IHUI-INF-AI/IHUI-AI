@@ -23,11 +23,22 @@
  * handleUnattendedIntake —— 同一条 HMAC 鉴权链(不新造匿名端点),入队前再经
  * 服务层 4h 风暴闸 intakeStormGuard;GitHub 事件白名单 WATCHED_EVENTS 不含这两个 kind,
  * 故必须显式分流,否则投递会被判 unsupported_event 丢弃。
+ *
+ * Y-13 追加(2026-11-06):
+ * - 本端点对 sqli-guard 显式豁免(`config.sqliGuard.enabled=false`,与
+ *   routes/github-app.ts 那条腿一字同源的判据):守卫是 preHandler,跑在验签**之前**,
+ *   判据 = 字符门(`' " ;`)∧ SQL 结构签名;提供方正文(PR 标题、job 名、提交说明)天然带
+ *   引号/分号,不豁免就先把合法投递判成 400,签名与事件分流根本没机会跑。准入靠 HMAC,
+ *   正文只进 JSON.parse 与 Drizzle 参数化查询,不拼 SQL(同型先例:/api/ai/callback、
+ *   internal-tool-invocation-ledger)。对照用例见 tests/github-webhook-ci-events.test.ts。
+ * - check_suite / workflow_run / check_run 这三类 CI 事件在本腿没有处理分支,但改为
+ *   **显式 2xx 忽略 + info 日志**(名单复用 services/github-app/events.ts 的单源出口,
+ *   本文件不抄第二份);reason 仍写 unsupported_event —— 那条既有契约由测试钉着,不改词。
  */
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify'
 import { and, eq } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { agentEventTriggers } from '@ihui/database'
+import { agentEventTriggers, type AgentEventTrigger } from '@ihui/database'
 import { config } from '../config/index.js'
 import { success, error } from '../utils/response.js'
 import {
@@ -43,6 +54,90 @@ import {
   type GitHubEventName,
   type UnattendedIntakeKind,
 } from '../services/agent-event-trigger.js'
+// CI 三件套的名单只有一份(§0.6):判定复用 GitHub App 腿的出口,本腿不另抄一遍事件名。
+import { isObservedCiEvent } from '../services/github-app/events.js'
+import {
+  resolveGithubAppStore,
+  type DeliveryClaimState,
+  type GithubAppStore,
+} from '../services/github-app/store.js'
+
+/** 路由选项:生产缺省惰性解析 DB store;单测可注入内存账本;null 表示显式无持久层 */
+export interface GithubWebhookRouteOptions {
+  deliveryStore?: GithubAppStore | null
+}
+
+/**
+ * F-346:先持久认领再派发。
+ *
+ * - 无 X-GitHub-Delivery 头 → 无可幂等键,保持既有"直接派发"语义(不落持久面);
+ * - 持久层缺失/写失败 → 'unavailable',调用方必须回 503(不回 200,
+ *   否则 GitHub 认为已送达不再重投,事件永久丢失);
+ * - duplicate → 调用方回 duplicate_delivery,不再执行;
+ * - claimed / reclaimed(崩溃后接管) → 记一级缓存并异步执行,结束后落终态。
+ */
+async function claimDelivery(
+  store: GithubAppStore | null,
+  deliveryId: string,
+  eventType: string,
+  payload: Record<string, unknown>,
+  log: FastifyRequest['log'],
+): Promise<DeliveryClaimState | 'no-delivery-id'> {
+  if (!deliveryId) return 'no-delivery-id'
+  if (!store) return 'unavailable'
+  try {
+    const state = await store.claimDelivery({ deliveryId, eventType, payload })
+    // 认领成功后才记进程内一级缓存:持久面失败时不能让重投被内存层误吞。
+    if (state === 'claimed' || state === 'reclaimed') deliveryDedup.record(deliveryId)
+    return state
+  } catch (err) {
+    log.warn(
+      { deliveryId, eventType, err: String(err) },
+      '[github-webhook] 持久认领失败,拒绝确认投递(等待 GitHub 重投)',
+    )
+    return 'unavailable'
+  }
+}
+
+/** 认领成功后的异步派发;结束后把 processing 行落 processed/failed */
+function dispatchClaimed(
+  store: GithubAppStore | null,
+  deliveryId: string,
+  rendered: AgentEventTrigger[],
+  request: FastifyRequest,
+  log: FastifyRequest['log'],
+): void {
+  void Promise.all(rendered.map((t) => fireEventTriggerAsync(t, request, log))).then(
+    async (outcomes) => {
+      if (!deliveryId || !store) return
+      const failed = outcomes.some((ok) => ok !== true)
+      try {
+        await store.settleDelivery(deliveryId, failed ? 'failed' : 'processed')
+      } catch (err) {
+        log.warn(
+          { deliveryId, status: failed ? 'failed' : 'processed', err: String(err) },
+          '[github-webhook] 投递终态落库失败',
+        )
+      }
+    },
+  )
+}
+
+/** 持久认领的非成功态 → 统一响应(503 明确要求提供方重投) */
+function rejectClaim(
+  reply: FastifyReply,
+  state: Exclude<DeliveryClaimState, 'claimed' | 'reclaimed'>,
+  deliveryId: string,
+) {
+  if (state === 'duplicate') {
+    return reply.send(
+      success({ accepted: false, reason: 'duplicate_delivery', delivery: deliveryId }),
+    )
+  }
+  return reply
+    .status(503)
+    .send(error(503, '投递持久层不可用,拒绝确认(防止事件丢失后不再重投)'))
+}
 
 /** GitHub 支持的事件名(本服务订阅子集) */
 const WATCHED_EVENTS: GitHubEventName[] = ['pull_request', 'issues', 'push', 'code_scanning_alert']
@@ -84,6 +179,7 @@ async function handleUnattendedIntake(
   payload: unknown,
   request: FastifyRequest,
   reply: FastifyReply,
+  store: GithubAppStore | null,
 ) {
   const parsed = parseUnattendedIntake(kind, payload)
   if (!parsed.ok) {
@@ -94,7 +190,8 @@ async function handleUnattendedIntake(
   const { data, dedupKey } = parsed
 
   const delivery = (request.headers['x-github-delivery'] as string | undefined) ?? ''
-  if (delivery && !deliveryDedup.record(delivery)) {
+  // 一级缓存只读判定;是否"成功确认"由持久认领决定(见 claimAndDispatch)。
+  if (delivery && deliveryDedup.has(delivery)) {
     request.log.info({ delivery }, '[github-webhook] 重复投递,跳过')
     return reply.send(success({ accepted: false, reason: 'duplicate_delivery', delivery }))
   }
@@ -110,19 +207,33 @@ async function handleUnattendedIntake(
     )
   }
 
-  if (!intakeStormGuard.accept(dedupKey)) {
+  const ctx = buildIntakePromptCtx(data)
+  const rendered = matched.map((trigger) => ({
+    ...trigger,
+    action: { ...trigger.action, prompt: buildTriggerPrompt(trigger.action, ctx) },
+  }))
+
+  // 先持久认领:崩溃后重投可接管 failed / 超时 processing 行,不被 4h 风暴窗口误吞。
+  const claim = await claimDelivery(
+    store,
+    delivery,
+    kind,
+    { source: 'github_webhook', event: kind, repo: data.repo, commitSha: data.commitSha, triggers: rendered },
+    request.log,
+  )
+  if (claim === 'duplicate' || claim === 'unavailable') return rejectClaim(reply, claim, delivery)
+
+  // 首次认领才受风暴窗口约束;接管(崩溃重投)必须放行,否则持久恢复路径被窗口挡死。
+  if (claim !== 'reclaimed' && !intakeStormGuard.accept(dedupKey)) {
     request.log.info({ dedupKey }, '[github-webhook] 窗口内重复信源,跳过入队')
+    if (delivery && store) {
+      // 认领行落终态,避免留下无主的 processing 行。
+      void store.settleDelivery(delivery, 'processed').catch(() => {})
+    }
     return reply.send(success({ accepted: false, reason: 'intake_window_dedup', dedupKey }))
   }
 
-  const ctx = buildIntakePromptCtx(data)
-  for (const trigger of matched) {
-    const rendered = {
-      ...trigger,
-      action: { ...trigger.action, prompt: buildTriggerPrompt(trigger.action, ctx) },
-    }
-    fireEventTriggerAsync(rendered, request, request.log)
-  }
+  dispatchClaimed(store, delivery, rendered, request, request.log)
 
   request.log.info(
     { repo: data.repo, event: kind, fired: matched.length, commitSha: data.commitSha },
@@ -133,7 +244,16 @@ async function handleUnattendedIntake(
   )
 }
 
-const githubWebhookRoutes: FastifyPluginAsync = async (server) => {
+const githubWebhookRoutes: FastifyPluginAsync<GithubWebhookRouteOptions> = async (
+  server,
+  options,
+) => {
+  // F-346:投递幂等/认领的持久层。undefined=未注入 → 生产惰性解析 DB;null=显式无持久层。
+  const deliveryStore =
+    options.deliveryStore === undefined
+      ? await resolveGithubAppStore({ warn: (message) => server.log.warn(message) })
+      : options.deliveryStore
+
   // 本插件作用域内覆盖 application/json 解析器,使 request.body 保留原始字符串
   // (HMAC 基于原始字节,不能先被 Fastify 解析成对象再 JSON.stringify —— 空白/键序可能不一致)。
   // 根实例已有自定义 application/json(server.ts)⇒ 先 remove 再 add,否则抛 ALREADY_PRESENT。
@@ -142,7 +262,7 @@ const githubWebhookRoutes: FastifyPluginAsync = async (server) => {
     done(null, body)
   })
 
-  server.post('/github', async (request, reply) => {
+  server.post('/github', { config: { sqliGuard: { enabled: false } } }, async (request, reply) => {
     // 1) secret 未配置 → 503 拒绝(安全底线,绝不降级放行)
     const secret = config.GITHUB_WEBHOOK_SECRET
     if (!secret) {
@@ -177,7 +297,25 @@ const githubWebhookRoutes: FastifyPluginAsync = async (server) => {
     // 4b) D30① 信源分支:ci_failed / gate_failed 不经 GitHub 事件白名单,
     //     单独走"无人值守修复入队"(位置在 HMAC 之后 ⇒ 鉴权面与既有事件完全一致)。
     if (isUnattendedIntakeKind(eventName)) {
-      return handleUnattendedIntake(eventName, payload, request, reply)
+      return handleUnattendedIntake(eventName, payload, request, reply, deliveryStore)
+    }
+
+    // 4c) Y-13(2026-11-06)CI 三件套:本腿**没有** CI 处理分支(订阅面由 WATCHED_EVENTS
+    //     单点决定,把这三枚塞进去会让 DB 规则匹配去追一个没有规则来源的事件族),但必须留
+    //     可读日志 —— 没有日志时"收到了并判它不订阅"与"投递根本没到这里"在提供方读数上是
+    //     同一条 200,现场无从分辨。reason 保持 `unsupported_event` 逐字不变:
+    //     github-webhook-unattended-intake.test.ts 钉着这条契约,不顺手改词。
+    if (isObservedCiEvent(eventName)) {
+      request.log.info(
+        {
+          event: eventName,
+          action: (payload.action as string | undefined) ?? '',
+          repo: (payload.repository as { full_name?: string } | undefined)?.full_name ?? '',
+          delivery: (request.headers['x-github-delivery'] as string | undefined) ?? '',
+        },
+        '[github-webhook] CI 事件到达本腿(无订阅分支)→ 显式忽略,不判 400/500',
+      )
+      return reply.send(success({ accepted: false, reason: 'unsupported_event', event: eventName }))
     }
 
     if (!WATCHED_EVENTS.includes(eventName as GitHubEventName)) {
@@ -196,9 +334,10 @@ const githubWebhookRoutes: FastifyPluginAsync = async (server) => {
       )
     }
 
-    // 5) 幂等去重:X-GitHub-Delivery 头(每次投递唯一)
+    // 5) 幂等去重:X-GitHub-Delivery 头(每次投递唯一)。
+    //    一级缓存只读;真正"已确认"由持久认领(claimAndDispatch)判定。
     const delivery = (request.headers['x-github-delivery'] as string | undefined) ?? ''
-    if (delivery && !deliveryDedup.record(delivery)) {
+    if (delivery && deliveryDedup.has(delivery)) {
       request.log.info({ delivery }, '[github-webhook] 重复投递,跳过')
       return reply.send(success({ accepted: false, reason: 'duplicate_delivery', delivery }))
     }
@@ -234,13 +373,21 @@ const githubWebhookRoutes: FastifyPluginAsync = async (server) => {
       ctx.title = desc || (alert?.rule ? 'code scanning alert' : '')
       ctx.url = alert?.html_url ?? ''
     }
-    for (const trigger of matched) {
-      const rendered = {
-        ...trigger,
-        action: { ...trigger.action, prompt: buildTriggerPrompt(trigger.action, ctx) },
-      }
-      fireEventTriggerAsync(rendered, request as FastifyRequest, request.log)
+    const rendered = matched.map((trigger) => ({
+      ...trigger,
+      action: { ...trigger.action, prompt: buildTriggerPrompt(trigger.action, ctx) },
+    }))
+    const claim = await claimDelivery(
+      deliveryStore,
+      delivery,
+      eventName,
+      { source: 'github_webhook', event: eventName, repo, action, triggers: rendered },
+      request.log,
+    )
+    if (claim === 'duplicate' || claim === 'unavailable') {
+      return rejectClaim(reply, claim, delivery)
     }
+    dispatchClaimed(deliveryStore, delivery, rendered, request as FastifyRequest, request.log)
 
     request.log.info(
       { repo, event: eventName, action, fired: matched.length },

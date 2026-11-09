@@ -64,6 +64,26 @@
  * 裸认领标记配多条同前缀行⇒0 的**误咬反证** + 剥括注后正文够长仍读得出 1 的**阳性对照**、
  * 变多判红、折并判绿)。
  *
+ * 维⑤(2026-11-08 立)「同一文件内整行逐字重复的登记行」差值棘轮:
+ * 立因(本票现读):`PROJECT_PLAN.md` 号段租约区 P89 两条**逐字相同**的登记行(同一段被登记了两次),
+ * 现有门一道都拦不住 —— 守门 71 只判「已入库 G-/D-/P-/W- 编号行**整行消失**」(重复不在射程),
+ * 维②只折「同题不同编号」、维④只认「短行是长行前缀」,三把尺子都量不到"两行一模一样"。
+ * 这不是租约区独有的特例:任何自动登记路径在不含既有行的旧底稿上重算,都会 append 出第二条
+ * 逐字相同的行(实测 `aec3023ba2` 在父提交已有 1 条的面上追加了第 2 条,`ae829e51df` 同型)。
+ * 判据(**逐行键棘轮**,不是"整份重复总数"的差值):`--staged` 面 vs HEAD 面,**按每个
+ * 逐字相同的行文本各自比计数** —— 只要有一族的份数变多就判红,哪怕别族同时少了同样多份
+ * (总份数不变/总行数不变都拦得住),也**与文件总行数差值无关**。为什么不是一刀切零容忍:
+ * HEAD 面现读还有 relay admin 两族 7 份逐字副本作存量,按存量判红就是与提交无关的恒红门(§12e)。
+ * 存量不担责;新增才担责。登记行口径复用 `isRow`(复选框行,排除 `<!--` 占位注释),逐字比较
+ * 只剥 `\r`(CRLF),**不做空白归一化** —— 空白差异不是"逐字相同"。
+ * 与守门 245 的边界(2026-11-08 实测判定):245 判的是**形态副本总数**相对锚点的差值
+ * (`dedupe-live-doc.mjs` 的 `planCollapse`,数字归一 + 空白折叠、短行 <24 与代码围栏除外),
+ * 因此(a)新增一份副本同时折掉另一族一份副本 ⇒ 总数不变 ⇒ 245 判不出;(b)短行逐字副本
+ * (<24)245 结构上不参与;(c)近形不同字(只换数字)245 会折,本维按"逐字"不碰。
+ * 本维只补 (a)(b) 两块:同一文件内整行逐字相同的**逐行键份数**变多即红,不做形近折叠。
+ * 全量档默认只报数,`--strict` 才问责存量。口径边界:整行逐字归本维,同题不同号归维②,
+ * 前缀副本归维④,三处互不顶账。
+ *
  * 用法:
  *   node scripts/check-plan-dup-pointer-ratchet.mjs --staged  (pre-commit, 阻塞)
  *   node scripts/check-plan-dup-pointer-ratchet.mjs           (全量审计,exit 0/1)
@@ -369,6 +389,55 @@ export function prefixTwinVerdict(headText, newText) {
 }
 
 /**
+ * 维⑤(2026-11-08 立)「同一文件内整行逐字重复的登记行」读数。
+ *
+ * 群 = 同一文本面内**逐字相同**(只剥 `\r`,不做空白归一化)的登记行;逐字用 `isRow` 口径,
+ * `<!-- -->` 占位注释不参与。返回 `{ raw, count, lines }`;`lines` 从 1 起。
+ * 这一维只认"整行一模一样":空白差异、同题不同号、前缀关系都不归它,免得与维②/维④顶账。
+ */
+export function identicalRowGroups(text) {
+  const map = new Map()
+  String(text ?? '')
+    .split(/\r?\n/)
+    .forEach((l, i) => {
+      if (!isRow(l)) return
+      const g = map.get(l) ?? { raw: l, lines: [] }
+      g.lines.push(i + 1)
+      map.set(l, g)
+    })
+  const out = []
+  for (const g of map.values()) if (g.lines.length > 1) out.push({ ...g, count: g.lines.length })
+  return out
+}
+
+/** 维⑤读数(纯函数):一面上逐字相同的登记行**多出来的份数**;`null` = 输入取不到(未判定)。 */
+export function identicalRowExtraCount(text) {
+  if (text === null || text === undefined) return null
+  let total = 0
+  for (const g of identicalRowGroups(text)) total += g.count - 1
+  return total
+}
+
+/**
+ * 维⑤判定(纯函数,**逐行键棘轮**):按每个逐字相同的行文本各自比"份数",
+ * 任一族份数变多 ⇒ 红。这样"新增一族副本、同时折掉另一族一份"的总数抵消也拦得住,
+ * 且完全不看文件总行数差。
+ * 任一面取不到(HEAD 缺失/索引缺失)⇒ `undetermined`,既不判绿也不冒红。
+ */
+export function identicalRowVerdict(headText, newText) {
+  const before = identicalRowExtraCount(headText)
+  const after = identicalRowExtraCount(newText)
+  if (before === null || after === null) return { before, after, grew: false, grewGroups: [], undetermined: true }
+  const headCounts = new Map()
+  for (const l of String(headText).split(/\r?\n/)) {
+    if (!isRow(l)) continue
+    headCounts.set(l, (headCounts.get(l) ?? 0) + 1)
+  }
+  const grewGroups = identicalRowGroups(newText).filter((g) => g.count > (headCounts.get(g.raw) ?? 0))
+  return { before, after, grew: grewGroups.length > 0, grewGroups, undetermined: false }
+}
+
+/**
  * 维③ `--self-test` 成对反证(2026-10-22 票面取证要求:叠两份即红 / 只有一份不红)。
  * 与主判定共用 redundantNoteCount / noteRedundancyVerdict,不在夹具里复写判据。
  */
@@ -544,12 +613,17 @@ function main(argv) {
 
   let oldContent = ''
   let parentTexts = []
+  // HEAD 面取不到时,维⑤必须记成"未判定"而不是把空串当初值 —— 否则存量重复会被读成
+  // "0 → N 新增"冒红,或反过来把缺失当成"干净"判绿。旧维①②③④的 '' 回落一字不动。
+  let headFaceMissing = false
   if (staged) {
     try {
       const got = catBatch(root, ['HEAD:' + FILE], { timeout: 60000 })
       oldContent = got.get('HEAD:' + FILE) ?? ''
+      if (!oldContent) headFaceMissing = true
     } catch {
       oldContent = ''
+      headFaceMissing = true
     }
     // 维③的合并感知基准:父集 = HEAD + MERGE_HEAD(非合并提交只有 HEAD ⇒ 与旧行为等价)
     try {
@@ -632,6 +706,49 @@ function main(argv) {
     }
     console.log(
       `${C.cyan}📊 前缀型副本对:${pt.after} 对(短行逐字是长行前缀的未勾登记行;全量档默认只报数,--strict 才问责)${C.reset}`,
+    )
+  }
+
+  // 维⑤(2026-11-08 立):同一文件内整行逐字重复的登记行。逐行键棘轮 —— 任一族份数变多即红,
+  // 总份数/总行数差值抵消也拦得住;全量档默认只报数,--strict 才问责存量(HEAD 面 relay admin
+  // 两族逐字副本是存量,不得恒红)。
+  const idv = staged
+    ? headFaceMissing
+      ? { before: null, after: identicalRowExtraCount(newContent), grew: false, grewGroups: [], undetermined: true }
+      : identicalRowVerdict(oldContent, newContent)
+    : { before: 0, after: identicalRowExtraCount(newContent), grew: false, grewGroups: [], undetermined: false }
+  if (staged) {
+    if (idv.undetermined) {
+      console.log(
+        `${C.yellow}⏭ 逐字重复差值未判定(HEAD 面取不到)${C.reset} —— 不冒充通过也不冒红,点名即走`,
+      )
+    } else if (idv.grew) {
+      console.error(
+        `${C.red}❌ 整行逐字重复棘轮:${C.reset}本次提交让同一文件内某族"逐字相同的登记行"份数变多(${idv.grewGroups.length} 族;总多余份数 ${idv.before} → ${idv.after})`,
+      )
+      for (const g of idv.grewGroups.slice(0, 10))
+        console.error(`  ${C.red}· L${g.lines.join(',L')} ×${g.count} ${g.raw.slice(0, 100)}${C.reset}`)
+      console.error(
+        `${C.yellow}出路:${C.reset} 同一编号/同一段在本文件里只登记一行:保留首次出现的那条,删掉后追加的逐字副本(已勾行同样适用 —— 重复即错账,不因已勾就豁免)。\n` +
+          `       若来自自动登记在旧底稿上重算(取号器重租同一段),先对齐底稿再重跑;不得靠事后手删了事(union 不传播删除,手清是消耗品)。`,
+      )
+      return 1
+    } else {
+      console.log(
+        `${C.green}✅ 整行逐字重复差值:${C.reset}逐行键各族份数均未变多(总多余份数 ${idv.before} → ${idv.after};本维与总行数差值无关)`,
+      )
+    }
+  } else {
+    if (idv.after > 0 && strict) {
+      console.error(
+        `${C.red}❌ 整行逐字重复存量:${C.reset}当前面有 ${idv.after} 份逐字相同的登记行副本(--strict 问责)`,
+      )
+      for (const g of identicalRowGroups(newContent).slice(0, 10))
+        console.error(`  ${C.red}· L${g.lines.join(',L')} ×${g.count} ${g.raw.slice(0, 100)}${C.reset}`)
+      return 1
+    }
+    console.log(
+      `${C.cyan}📊 整行逐字重复存量:${idv.after} 份多余(同一文件内逐字相同的登记行;全量档默认只报数,--strict 才问责)${C.reset}`,
     )
   }
 
@@ -723,5 +840,8 @@ export const __test__ = {
   noteOccurrenceCounts,
   mergeAwareNoteVerdict,
   NOTE_TOKEN_SRC,
+  identicalRowGroups,
+  identicalRowExtraCount,
+  identicalRowVerdict,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -118,6 +118,7 @@ describe('③ 取源顺序:契约压过登记表,契约缺席才退回旧面', (
   it('登记表里已有条目的工具,声明了契约 ⇒ 以契约为准(否则声明永远比不过手抄表)', () => {
     const declared = listToolOutputBudgets()[0];
     expect(declared, '登记表非空是本组前提').toBeTruthy();
+    if (declared === undefined) throw new Error('登记表非空是本组前提');
     const tableBudgetMax = declared.budget.maxChars;
     const out = envelopeToolResult({
       call: { name: declared.toolName, arguments: {} },
@@ -132,7 +133,9 @@ describe('③ 取源顺序:契约压过登记表,契约缺席才退回旧面', (
   });
 
   it('反向对照:不传契约 ⇒ 必须走登记表 / 默认档,不得凭空调用方就判成 contract', () => {
-    const registered = listToolOutputBudgets()[0].toolName;
+    const firstRegistered = listToolOutputBudgets()[0];
+    if (firstRegistered === undefined) throw new Error('登记表非空是本组前提');
+    const registered = firstRegistered.toolName;
     expect(hasDeclaredToolBudget(registered)).toBe(true);
     const viaTable = envelopeToolResult({
       ...baseOpts,

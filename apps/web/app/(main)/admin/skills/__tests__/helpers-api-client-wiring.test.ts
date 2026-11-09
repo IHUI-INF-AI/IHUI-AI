@@ -103,8 +103,11 @@ describe('三处迁移的装车断言(端内一律经出口)', () => {
 
   it('401 弹窗通路在位:web 端把包装层同一个函数注册给共享包', () => {
     const web = readFileSync(webApiFile, 'utf8')
+    // BUG-69(2026-11-06 实现侧变更):共享包回调成为 401 唯一出口,语义从
+    // 「只弹窗」收敛为「先清本地会话凭据(expireSession,被动失效不落主动登出标记),
+    // 再引导登录」;RN/小程序的 expireAuth 同口径。两条语句顺序也是契约的一部分。
     expect(web).toMatch(
-      /setUnauthorizedHandler\(\(ctx\)\s*=>\s*requestLoginDialogForUnauthorized\(ctx\.method\)\)/,
+      /setUnauthorizedHandler\(\(ctx\)\s*=>\s*\{[\s\S]*?expireSession\(\)[\s\S]*?requestLoginDialogForUnauthorized\(ctx\.method\)/,
     )
     // 包装层与钩子共用一份实现(不得复制第二份判断)
     expect(web.match(/requestLoginDialogForUnauthorized/g)!.length).toBeGreaterThanOrEqual(3)

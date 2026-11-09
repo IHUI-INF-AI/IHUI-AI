@@ -30,11 +30,13 @@
  *     代价如实登记:GitHub 偶发 RPC/recv timeout 落在 `status=128` 这一档,本实现**不会**为它自动重试
  *     —— 要覆盖它需要结构化信号(git 侧或 Node 侧新增),而不是回到文案正则。
  */
-import { execFileSync } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 // G-786 的形状拒绝错误:它是"安全拒绝类",必须原样上抛、绝不退避(G-809 点名的面)。
 import { GitCloneInputRejectedError } from './url-shape.js';
+// BUG-0040:取消要走**进程树**回收(Windows 用 taskkill /T),不在本文件另抄一份。
+import { killProcessTree } from '../util/spawn-isolated.js';
 
 /** 默认封顶:单趟 git 派生的墙上时间上限 */
 export const DEFAULT_GIT_TIMEOUT_MS = 90_000;
@@ -578,6 +580,97 @@ export function execGitCapped(args: readonly string[], opts: GitSpawnOptions = {
   }
 }
 
+/** BUG-0040:异步派生的额外一档 —— 取消通道 */
+export interface GitCappedAsyncOptions extends GitSpawnOptions {
+  /** abort ⇒ 立刻用 killSignal 杀掉子进程;不会等 timeoutMs 到点 */
+  readonly signal?: AbortSignal;
+}
+
+/**
+ * BUG-0040:异步 + 可取消的 git 派生出口。
+ *
+ * `execGitCapped` 走 `execFileSync`,在 TUI 交互路径上会**阻塞事件循环**最长
+ * `timeoutMs`(默认 90s,网络档 120s):这期间按键/取消/渲染全部停摆,abort 也无从插队。
+ * 交互路径(plugin install / update)必须走本函数;同步版保留给非交互场景
+ * (启动期探测、测试夹具、进程退出那一帧)以免改变既有调用面。
+ *
+ * 语义与同步版对齐:同一套 timeout / maxBuffer / env 净化 / killSignal,
+ * 失败仍由 `toGitError` 归一成同一族结构化错误。唯一差异是 abort 的落点是
+ * `GitOperationAbortedError`(与 `execGitCloneWithRetry` 的取消口径一致)。
+ */
+export function execGitCappedAsync(args: readonly string[], opts: GitCappedAsyncOptions = {}): Promise<string> {
+  const resolved = resolveGitSpawnOptions(opts);
+  const verb = gitVerbOf(args);
+  if (opts.signal?.aborted) {
+    return Promise.reject(new GitOperationAbortedError('git 操作已被取消(未发起派生)'));
+  }
+  return new Promise<string>((resolve, reject) => {
+    const child = execFile(
+      resolved.binary,
+      [...args],
+      {
+        cwd: resolved.cwd,
+        env: resolved.env,
+        encoding: resolved.encoding,
+        maxBuffer: resolved.maxBufferBytes,
+        timeout: resolved.timeoutMs,
+        killSignal: resolved.killSignal,
+        windowsHide: resolved.windowsHide,
+      },
+      (raw, stdout) => {
+        opts.signal?.removeEventListener('abort', onAbort);
+        if (raw) {
+          reject(toAsyncGitError(raw, opts.signal, verb, resolved));
+          return;
+        }
+        resolve(String(stdout));
+      },
+    );
+    // 不把 signal 直接交给 execFile:Node 只会杀直接子进程,git 在 Windows 上还会派生
+    // 传输层子进程(残留会占住仓库锁)。这里统一走 killProcessTree(/T 团灭)。
+    function onAbort(): void {
+      try {
+        killProcessTree(child);
+      } catch {
+        try { child.kill('SIGKILL'); } catch { /* 已退出 */ }
+      }
+    }
+    if (opts.signal?.aborted) onAbort();
+    else opts.signal?.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
+/**
+ * 把 `execFile` 的回调错误归一到与同步版同族的错误类型。
+ * `execFile` 与 `spawnSync` 的结构码并不全同:
+ *  - timeout 只给 `killed + signal`,没有 `code=ETIMEDOUT`;
+ *  - maxBuffer 给 `ERR_CHILD_PROCESS_STDIO_MAXBUFFER`,不是 `ENOBUFS`。
+ * 不补齐这两格,异步版会把"超时"读成普通非零退出(不再重试),把"超限"读成可打印失败。
+ */
+function toAsyncGitError(
+  raw: unknown,
+  signal: AbortSignal | undefined,
+  verb: string,
+  resolved: ResolvedGitSpawnOptions,
+): Error {
+  const cause = raw instanceof Error ? raw : undefined;
+  if (signal?.aborted) return new GitOperationAbortedError(undefined, { cause });
+  const record = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
+  if (record.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER') {
+    return new GitOutputTooLargeError(verb, resolved.maxBufferBytes, { cause });
+  }
+  if (record.killed === true && record.signal === GIT_KILL_SIGNAL) {
+    return new GitCommandTimeoutError(verb, resolved.timeoutMs, { cause });
+  }
+  // execFile 把"非零退出"写在 `code`(number)上,而 `spawnSync` 写在 `status` 上。
+  // 不补这一格,调用方读 `status` 会永远拿到 null(无法区分 128 与"没跑到 git")。
+  if (typeof record.code === 'number') record.status = record.code;
+  return toGitError(raw, verb, {
+    timeoutMs: resolved.timeoutMs,
+    maxBufferBytes: resolved.maxBufferBytes,
+  });
+}
+
 export interface GitCloneRetryOptions extends GitSpawnOptions {
   /** 含首轮的总尝试数上限 */
   readonly attempts?: number;
@@ -649,7 +742,9 @@ export async function execGitCloneWithRetry(
     throwIfAborted(opts.signal);
     if (attempt > 1) resetTargetDirectory(targetDir);
     try {
-      execGitCapped(cloneArgs, spawnOpts);
+      // BUG-0040:clone 是交互路径上最长的 git 派生(网络档 120s)⇒ 走异步可取消出口,
+      // abort 能立刻杀子进程,而不是等 spawnSync 返回后在下一轮才看信号。
+      await execGitCappedAsync(cloneArgs, { ...spawnOpts, signal: opts.signal });
       return;
     } catch (raw) {
       if (raw instanceof GitCloneInputRejectedError) throw raw;

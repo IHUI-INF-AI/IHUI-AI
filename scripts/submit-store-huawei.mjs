@@ -295,22 +295,30 @@ export async function phaseUpload({ fetchImpl = fetch, creds, appId, plan, fileP
     .then(async (r) => classifyRet(r.status, await r.text()))
     .catch((e) => ({ status: STATUS.UNJUDGED, verdict: 'fetch-error', detail: String(e?.cause?.code ?? e?.name), data: null }))
   const d = u.data ?? {}
-  const uploadUrl = d.uploadUrl ?? d.data?.uploadUrl ?? null
+  // 现场实测(2026-11-09):for-obs 回体是 {ret,urlInfo:{objectId,url,method,headers}},
+  // 不是 uploadUrl/uploadHeaders ⇒ 两种形态都要认,否则 ret.code=0 却被读成 no-upload-url。
+  const info = d.urlInfo ?? null
+  const uploadUrl = d.uploadUrl ?? d.data?.uploadUrl ?? info?.url ?? null
   if (!uploadUrl) return { phase: 'upload', status: u.status, verdict: 'no-upload-url', detail: u.detail, objectId: null }
-  const put = await fetchImpl(uploadUrl, {
-    method: 'PUT',
-    headers: { 'content-type': 'application/octet-stream', ...(d.uploadHeaders ?? d.authHeaders ?? {}) },
+  const sent = await fetchImpl(uploadUrl, {
+    method: info?.method ?? 'PUT',
+    // urlInfo.headers 就是签名覆盖的那一套头:再叠一个大写的 Content-Type 会变成两个同名头,
+    // OBS 按逗号拼接后与签名不符 ⇒ SignatureDoesNotMatch(2026-11-09 实测)。
+    headers: info?.headers ? { ...info.headers } : { 'content-type': 'application/octet-stream', ...(d.uploadHeaders ?? d.authHeaders ?? {}) },
     body: readFileSync(filePath),
     signal: AbortSignal.timeout(timeoutMs),
   })
-    .then(async (r) => classifyRet(r.status, await r.text()))
-    .catch((e) => ({ status: STATUS.UNJUDGED, verdict: 'fetch-error', detail: String(e?.cause?.code ?? e?.name), data: null }))
+    .then(async (r) => ({ httpStatus: r.status, ...(await classifyRet(r.status, await r.text())) }))
+    .catch((e) => ({ httpStatus: null, status: STATUS.UNJUDGED, verdict: 'fetch-error', detail: String(e?.cause?.code ?? e?.name), data: null }))
+  // OBS/S3 预签名 PUT 成功回体常为空 ⇒ 空体不是「路径未证」,2xx 即视为已受理(回执以 urlInfo.objectId 为准)。
+  const putAccepted = sent.status === STATUS.FOUND || (sent.verdict === 'non-json-response' && sent.httpStatus >= 200 && sent.httpStatus < 300)
+  const put = putAccepted ? { ...sent, status: STATUS.FOUND } : sent
   return {
     phase: 'upload',
     status: put.status,
     verdict: put.status === STATUS.FOUND ? 'obs-put-accepted' : put.verdict,
     detail: `预签名地址 ok;PUT ${put.detail}`,
-    objectId: put.data?.objectId ?? d.objectId ?? null,
+    objectId: sent.data?.objectId ?? info?.objectId ?? d.objectId ?? null,
     fileMd5: plan.fileMd5,
   }
 }

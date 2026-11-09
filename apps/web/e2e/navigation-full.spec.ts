@@ -88,7 +88,6 @@ test.describe('全站导航 - 导航元素', () => {
       const href = await navLink.getAttribute('href')
       if (href && href.startsWith('/')) {
         await navLink.click().catch(() => {})
-        await page.waitForTimeout(1000)
         expect(page.url()).toBeTruthy()
       }
     }
@@ -168,6 +167,7 @@ test.describe('全站导航 - 导航元素', () => {
     // 采样跨越"导航进行中"窗口:任何一帧都不允许出现两个激活项(aria-current="page")
     for (let i = 0; i < 6; i++) {
       expect((await activeHrefs()).length).toBeLessThanOrEqual(1)
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await page.waitForTimeout(25)
     }
 

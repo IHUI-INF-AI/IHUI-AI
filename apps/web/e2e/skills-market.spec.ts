@@ -69,6 +69,7 @@ test.describe('技能市场页', () => {
 
     // 输入关键词过滤
     await searchInput.fill('code')
+    // WAIT-POLICY:TIMING-0002 输入去抖/节流窗口,需完整覆盖阈值后才采样
     await page.waitForTimeout(600) // 等待 debounce (300ms) + 请求
 
     // 验证页面无 500 错误
@@ -79,6 +80,7 @@ test.describe('技能市场页', () => {
 
     // 清空搜索,恢复全部
     await searchInput.fill('')
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(600)
     const restoredCards = page.locator('h3').filter({ hasText: /.+/ })
     const restoredCount = await restoredCards.count().catch(() => 0)
@@ -101,6 +103,7 @@ test.describe('技能市场页', () => {
       if (!isVisible) continue
 
       await tagBtn.click()
+      // WAIT-POLICY:TIMING-0002 输入去抖/节流窗口,需完整覆盖阈值后才采样
       await page.waitForTimeout(600) // 等待 debounce + 请求
 
       // 验证页面无 500
@@ -119,6 +122,7 @@ test.describe('技能市场页', () => {
     const allVisible = await allBtn.isVisible({ timeout: 3000 }).catch(() => false)
     if (allVisible) {
       await allBtn.click()
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await page.waitForTimeout(600)
     }
   })
@@ -142,7 +146,6 @@ test.describe('技能市场页', () => {
 
     // 点击下一页
     await nextBtn.click()
-    await page.waitForTimeout(600)
     expect(
       serverErrors.filter(
         (e) => !e.includes('favicon') && !/\/api\/skills\/market\b.*\b5\d{2}\b/.test(e),
@@ -157,7 +160,6 @@ test.describe('技能市场页', () => {
     const prevEnabled = await prevBtn.isEnabled({ timeout: 3000 }).catch(() => false)
     if (prevEnabled) {
       await prevBtn.click()
-      await page.waitForTimeout(600)
       expect(
         serverErrors.filter(
           (e) => !e.includes('favicon') && !/\/api\/skills\/market\b.*\b5\d{2}\b/.test(e),

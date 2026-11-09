@@ -2095,6 +2095,8 @@ class AgentEngine:
             "thread.start": self._handle_thread_start,
             "thread.prompt": self._handle_thread_prompt,
             "thread.interrupt": self._handle_thread_interrupt,
+            "thread.contextUsage": self._handle_thread_context_usage,
+            "thread.seedReadState": self._handle_thread_seed_read_state,
             "thread.resume": self._handle_thread_resume,
             "thread.state": self._handle_thread_state,
             "thread.close": self._handle_thread_close,
@@ -3550,7 +3552,11 @@ class AgentEngine:
             path = Path(base_dir) / INSTALLATION_ID_FILENAME
             if not path.is_file():
                 return
-            raw = path.read_text(encoding="utf-8", errors="replace").strip()
+            raw = (
+                await asyncio.to_thread(
+                    path.read_text, encoding="utf-8", errors="replace"
+                )
+            ).strip()
             try:
                 inst_id = str(uuid.UUID(raw))
             except (ValueError, AttributeError):
@@ -4079,6 +4085,105 @@ class AgentEngine:
             "checkpointId": thread.checkpoint_id,
         }
 
+    async def _handle_thread_context_usage(
+        self, params: dict[str, Any], emit: Emitter
+    ) -> dict[str, Any]:
+        """控制帧 get_context_usage:按账本口径返回七类真实占用(不估算、不猜窗口)。
+
+        数据面只有线程已落定的历史消息 + 模型窗口解析;system 文本与工具 schema
+        不保存在线程快照里,按 build_context_ledger 契约传空/None ⇒ 计 0(不伪造
+        那两类占用)。live loop 不暴露消息缓冲,故 source 恒为 thread_history ——
+        不把"读历史"说成"读实时";status 一并回传,让调用方知道账本是否落后于在飞轮次。
+        """
+        from app.core.model_context_window import resolve_with_env_priority
+        from app.services.context_ledger import build_context_ledger
+
+        thread = self._require_thread(params)
+        limit = resolve_with_env_priority(thread.model)
+        history = list(thread.messages)
+        # system 消息从历史里拆出来单独计(账本第 1 类),不重复计入 messages
+        system_text = ""
+        if history and isinstance(history[0], dict) and history[0].get("role") == "system":
+            system_text = str(history[0].get("content") or "")
+            history = history[1:]
+        usage = build_context_ledger(
+            system_text,
+            None,
+            None,
+            history,
+            "",
+            limit,
+            thread.model,
+        )
+        return {
+            "threadId": thread.thread_id,
+            "usage": usage,
+            "source": "thread_history",
+            "status": thread.status,
+            "capturedAt": usage["capturedAt"],
+        }
+
+    async def _handle_thread_seed_read_state(
+        self, params: dict[str, Any], emit: Emitter
+    ) -> dict[str, Any]:
+        """控制帧 seed_read_state:把一批文件登记为该线程会话的"已读"。
+
+        逐路径返回结果:越界(outside_workspace)、不存在(not_found)、登记失败
+        (register_failed:*)都有明确 reason,不做整批静默成功;参数本身非法
+        (非数组 / 空项 / 超量)直接 INVALID_PARAMS。
+        """
+        from app.core.file_read_state import record_read
+
+        thread = self._require_thread(params)
+        raw_paths = params.get("paths")
+        if not isinstance(raw_paths, list) or not raw_paths:
+            raise JsonRpcError(INVALID_PARAMS, "paths 须为非空字符串数组")
+        if len(raw_paths) > 200:
+            raise JsonRpcError(INVALID_PARAMS, "paths 最多 200 条")
+        paths: list[str] = []
+        for entry in raw_paths:
+            if not isinstance(entry, str) or not entry.strip():
+                raise JsonRpcError(INVALID_PARAMS, "paths 每项须为非空字符串")
+            paths.append(entry)
+        root = thread.workspace
+        if not isinstance(root, str) or not root:
+            raise JsonRpcError(
+                INVALID_PARAMS, f"线程无工作区,无法种子化读取状态: {thread.thread_id}"
+            )
+        resolved_root = os.path.normcase(os.path.realpath(root))
+        results: list[dict[str, Any]] = []
+        seeded = 0
+        for raw in paths:
+            target = os.path.normcase(os.path.realpath(os.path.join(root, raw)))
+            try:
+                inside = os.path.commonpath([resolved_root, target]) == resolved_root
+            except ValueError:
+                inside = False
+            if not inside:
+                results.append({"path": raw, "ok": False, "reason": "outside_workspace"})
+                continue
+            if not os.path.isfile(target):
+                results.append({"path": raw, "ok": False, "reason": "not_found"})
+                continue
+            outcome = record_read(thread.session_id, target)
+            ok = bool(outcome.get("ok"))
+            if ok:
+                seeded += 1
+                results.append({"path": raw, "ok": True})
+            else:
+                results.append(
+                    {
+                        "path": raw,
+                        "ok": False,
+                        "reason": str(outcome.get("reason") or "register_failed"),
+                    }
+                )
+        return {
+            "threadId": thread.thread_id,
+            "seededCount": seeded,
+            "results": results,
+        }
+
     async def _handle_thread_resume(
         self, params: dict[str, Any], emit: Emitter
     ) -> dict[str, Any]:
@@ -4437,7 +4542,9 @@ class AgentEngine:
         if isinstance(path, str) and path.strip():
             target = Path(path.strip())
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text("\n".join(lines) + "\n", encoding="utf-8")
+            await asyncio.to_thread(
+                target.write_text, "\n".join(lines) + "\n", encoding="utf-8"
+            )
             written = str(target)
             # 批58:导出后对同目录冷导出做 gzip 归档(仅 on 时)
             if _engine_rollout_archive_enabled_from_env():
@@ -4950,9 +5057,22 @@ class AgentEngine:
 
         双确认语义:confirm 缺省 False → 只返回确认提示不动数据;显式
         confirm=true 才清空(facade 层同样兜底)。
+
+        AIS-104:meta_learner 的 lessons 是**全局**(非用户维度),清空会影响全体租户,
+        因此本帧限管理员 `roleId>=1`。角色只取承载层(`routers/engine.py::
+        _bind_principal`)在鉴权后覆盖写的 `params["roleId"]`,不认请求自述值;
+        取不到即 0(fail-closed)。
         """
         from .memory_facade import memory_reset
 
+        if _coerce_role_id(params.get("roleId")) < 1:
+            return {
+                "result": {
+                    "confirmed": False,
+                    "error": "forbidden",
+                    "hint": "memory.reset 会清空全体租户共用的引擎记忆,仅管理员可用。",
+                }
+            }
         confirm = bool(params.get("confirm", False))
         return {"result": memory_reset(confirm=confirm)}
 
@@ -6124,9 +6244,12 @@ class AgentEngine:
             if size > _MAX_VIEW_IMAGE_BYTES:
                 return {"error": f"图片超过大小上限({_MAX_VIEW_IMAGE_BYTES} 字节)"}
             try:
-                data = base64.b64encode(target.read_bytes()).decode("ascii")
+                raw = await asyncio.to_thread(target.read_bytes)
             except OSError as e:
                 return {"error": f"图片读取失败: {e}"}
+            if not isinstance(raw, bytes):
+                return {"error": "图片读取失败: 非字节内容"}
+            data = base64.b64encode(raw).decode("ascii")
             raw_data_url = f"data:{mime};base64,{data}"
             # 批 38 接线:经 image_preparation 按提示图像预算降采样
             # (对标 codex-rs load_data_url_for_prompt,high 档 2048px/2500 patch)。
@@ -6438,7 +6561,9 @@ class AgentEngine:
                         target.parent.mkdir(parents=True, exist_ok=True)
                         style = file_style.get(rel)
                         if style is None:
-                            target.write_text(target_content, encoding="utf-8")
+                            await asyncio.to_thread(
+                                target.write_text, target_content, encoding="utf-8"
+                            )
                         else:
                             _write_text_preserving(
                                 target, target_content, style[0], style[1]

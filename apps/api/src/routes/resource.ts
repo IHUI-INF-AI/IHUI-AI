@@ -16,7 +16,6 @@ import {
   updateResourceCategory,
   deleteResourceCategory,
   findResources,
-  findResourceByIdAndIncrementView,
   findResourceById,
   findResourcesByIds,
   createResource,
@@ -42,6 +41,17 @@ import {
 } from '../db/resource-queries.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { booleanStringSchemaOptional } from '../utils/parse-boolean.js'
+
+/**
+ * F-568:公开资源接口(列表/批量/详情)一律剔除 `fileUrl`。
+ * 下载地址只能经 `GET /resources/:id/download` 的 `checkDownloadPermission` 通过后
+ * 以 302 下发;DB 行里保留 fileUrl 供该端点使用,但不得随公开 JSON 泄露。
+ */
+function toPublicResource<T extends { fileUrl?: unknown }>(row: T): Omit<T, 'fileUrl'> {
+  const clone = { ...row }
+  delete clone.fileUrl
+  return clone
+}
 
 // 通用响应 schema(data 透传)
 const responseSchema = {
@@ -279,7 +289,9 @@ export const resourceRoutes: FastifyPluginAsync = async (server) => {
         isPublished: true,
         status: 1,
       })
-      return reply.send(success(result))
+      return reply.send(
+        success({ ...result, list: result.list.map((row) => toPublicResource(row)) }),
+      )
     },
   )
 
@@ -296,12 +308,12 @@ export const resourceRoutes: FastifyPluginAsync = async (server) => {
         .split(',')
         .map((s) => s.trim())
         .filter(Boolean)
-      const list = await findResourcesByIds(ids)
+      const list = (await findResourcesByIds(ids)).map((row) => toPublicResource(row))
       return reply.send(success({ list }))
     },
   )
 
-  // GET /resources/:id - 资源详情(自增浏览量)
+  // GET /resources/:id - 资源详情(浏览量由 plugins/watch-aspect 统一自增)
   server.get(
     '/resources/:id',
     { schema: { response: { ...responseSchema } } },
@@ -310,9 +322,11 @@ export const resourceRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const resource = await findResourceByIdAndIncrementView(parsed.data.id)
+      // F-206:浏览量统一由 watch-aspect(onResponse + Redis 去重)计数,
+      // 路由侧只读详情,避免同一请求被两处各 +1。
+      const resource = await findResourceById(parsed.data.id)
       if (!resource) return reply.status(404).send(error(404, '资源不存在'))
-      return reply.send(success({ resource }))
+      return reply.send(success({ resource: toPublicResource(resource) }))
     },
   )
 

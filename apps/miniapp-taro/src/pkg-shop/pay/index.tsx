@@ -275,7 +275,9 @@ export default function PayIndex() {
       }
       if (payMethod === 'alipay') {
         const res = await createAlipayMiniappPayment({
-          amount: finalAmount,
+          // 服务端 /payments/alipay/miniapp/create 收「元」（payment-gateway.ts 内 round(元*100)），
+          // 而 finalAmount 是 orders.amount（分），此处必须转元，否则实付放大 100 倍。
+          amount: finalAmount / 100,
           subject: orderDetail.goodsName || tt('pay.vipSubscription', '会员订阅'),
         })
         if (!res.tradeNo) {

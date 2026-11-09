@@ -32,6 +32,8 @@ export interface WorkerAssignment {
   constraints: string
   deliverables: string
   role: 'worker'
+  /** 归属的登录主体；宿主派发与心跳反查都以它为准，禁止另建第二份账。 */
+  ownerUserId?: string
 }
 
 export function workerAssignment(ticket: {
@@ -45,6 +47,7 @@ export function workerAssignment(ticket: {
     directory: ticket.execution.directory,
     goal: ticket.scope,
     role: 'worker',
+    ownerUserId: ticket.ownerUserId,
     constraints: [
       `只在目录 ${ticket.execution.directory} 里改文件。`,
       `会话 ${ticket.execution.sessionId} 不与其他工单混用。`,
@@ -54,6 +57,9 @@ export function workerAssignment(ticket: {
   }
 }
 
+/** 工人会话 id 前缀；下游（api 派发服务）据此识别「宿主已占执行槽」的派单。 */
+export const WORKER_SESSION_PREFIX = 'worker-'
+
 export function executionFor(
   ticketId: string,
   ownerUserId: string,
@@ -62,7 +68,7 @@ export function executionFor(
   directory: string
 } {
   return {
-    sessionId: `worker-${ticketId}`,
+    sessionId: `${WORKER_SESSION_PREFIX}${ticketId}`,
     directory: `super-agent/${ownerUserId}/${ticketId}`,
   }
 }

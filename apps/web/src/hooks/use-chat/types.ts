@@ -9,6 +9,7 @@ import type { FallbackEvent } from '@ihui/api-client'
 import type { useChatStore } from '@/stores/chat'
 import type { InlineDiffInfo } from '@/components/ai/types'
 import type { StreamErrorLabelSet } from '@/lib/stream-error-view'
+import type { QuestionAnswerPayload, QuestionResponseStatus } from './question-response'
 
 /** 自媒体斜杠命令 API 返回数据 */
 export interface SlashCommandData {
@@ -44,6 +45,15 @@ export interface UseChatReturn {
   sendMessage: (content: string) => Promise<boolean>
   /** 用户回答 AI 主动提问,触发 /chat/answer 续流 */
   sendAnswer: (answer: string) => Promise<void>
+  /**
+   * 内联提问卡的结构化答复(2026-11-08 立)。
+   * 阻塞式:`POST /llm/complete/stream/:sessionId/question-response`,只让卡片置终态;
+   * 旧 marker 式(404/拿不到 sessionId):自动回退 `sendAnswer` 的「新增消息 + 新一轮」链路。
+   * 返回服务端终态(answered/timeout/withdrawn);旧链路/失败回退时返回 void(卡片已随流移除)。
+   */
+  submitQuestionResponse: (
+    response: QuestionAnswerPayload,
+  ) => Promise<QuestionResponseStatus | void>
   /** 跳过当前挂起的提问(不续流,允许用户继续发新消息) */
   skipQuestion: () => void
   stop: () => void

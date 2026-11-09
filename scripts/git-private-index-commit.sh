@@ -32,6 +32,25 @@ export GIT_INDEX_FILE="$(git rev-parse --absolute-git-dir)/ihui-bypass-idx"
 TREE=""
 OLD=""
 NEW=""
+# 2026-11-04 门 30a 根因票(会话 10b5dcce 实测):CAS 输家臂此前**一个都不备份** ——
+# 每次「重来」都会把上一枚 commit-tree 对象丢成无引用,5 轮全败则一次红跑最多留 5 枚无 tag 孤儿。
+# 与 object-space-land 同一条判据:每轮 `read-tree` 的都是**当时 HEAD** + 同一份声明集,中间轮次
+# 被下一轮结构上取代(内容不丢、丢的只是 commit 对象)⇒ 中间轮次不打 tag;
+# **最终失败的那一枚必须照打**,否则门 30a 逐枚判红,§12e 的结局是全仓被逼跳门。
+# 用 EXIT trap 兜住所有退出路径(含 read-tree/add/write-tree/commit-tree 失败),成功落地时清空。
+LAST_NEW=""
+# 目标 ref 从当前 HEAD 推导(2026-11-09 票):本脚本只在 `cd /d/IHUI-AI` 里跑(入口定位另票),
+# 但**不许再硬编码 refs/heads/main** —— detached 就停手,不把 main 当默认落点。
+TARGET_REF=$(git symbolic-ref -q HEAD) || {
+  echo "❌ HEAD 处于 detached(推导不出目标 ref)⇒ 不写 ref;先 checkout 到目标分支"
+  exit 2
+}
+backup_last_orphan() {
+  [ -n "${LAST_NEW:-}" ] || return 0
+  node -e "import('./scripts/lib/orphan-backup.mjs').then((m) => m.backupOrphanCommit({ sha: process.argv[1], why: 'git-private-index-commit.sh 5 轮均未抢到 CAS(末枚兜底)', kind: 'priv', root: process.cwd(), logger: (s) => console.error(s) })).catch((e) => console.error('⚠️ 孤儿备份腿异常:' + e.message))" "$LAST_NEW" || true
+  LAST_NEW=""
+}
+trap backup_last_orphan EXIT
 for attempt in 1 2 3 4 5; do
   OLD=$(git rev-parse HEAD)
   git read-tree "$OLD" || { echo "read-tree 失败"; exit 1; }
@@ -44,9 +63,12 @@ for attempt in 1 2 3 4 5; do
     exit 1
   fi
   TREE=$(git write-tree) || { echo "write-tree 失败"; exit 1; }
+  # commit-tree 直接吃内存里的 -m,全程不写 `.git/COMMIT_EDITMSG` —— 并发提交拿不到别人的消息。
   NEW=$(git commit-tree "$TREE" -p "$OLD" -m "$SUBJ" -m "$BODY") || { echo "commit-tree 失败"; exit 1; }
-  if git update-ref refs/heads/main "$NEW" "$OLD" 2>/dev/null; then
+  LAST_NEW="$NEW"
+  if git update-ref "$TARGET_REF" "$NEW" "$OLD" 2>/dev/null; then
     echo "CAS_OK attempt=$attempt new=$NEW old=$OLD"
+    LAST_NEW=""
     break
   fi
   echo "⟳ HEAD 在第 $attempt 轮被并发推进,重来(不硬写)"
@@ -54,6 +76,30 @@ for attempt in 1 2 3 4 5; do
   sleep 2
 done
 [ -n "$NEW" ] || { echo "❌ 5 轮都没抢到 CAS,停手"; exit 1; }
+
+# ── ③ 后置:把本次提交动过的路径在**共享索引**里推进到新提交树 ────────────────────────
+# 裸私有索引提交只推进 HEAD,不推进共享索引 ⇒ 这些路径在共享索引里停在父树(`MM`),
+# 谁下一条裸 `git commit` 就把旧 blob 带回去(本仓「已删件复活 / 半成品被夹带回滚」的同一个根)。
+# 唯一实现 = scripts/lib/shared-index-advance.mjs:它只写本席路径、拿不到 index.lock 就原样不动、
+# 共享索引与父树不一致的条目只报数不覆盖(红线 C)。路径表取自本枚提交本身,与上面
+# "暂存集 == 声明集"的校验结果逐字一致。
+# 失败只喊不阻断:提交已在 refs 上,后置推进失败由下一条 safe-commit 自愈(判据是提交,不是它)。
+ADV_PATHS=$(git -c core.quotePath=false diff-tree --no-commit-id --name-only -r --no-renames "$NEW" | tr '\n' ',' | sed 's/,$//')
+if [ -n "$ADV_PATHS" ]; then
+  node scripts/lib/shared-index-advance.mjs --sha "$NEW" --paths "$ADV_PATHS" \
+    || echo "⚠️ 共享索引后置推进失败($ADV_PATHS)—— 已落地的 $NEW 不受影响,下一条 safe-commit 会自愈"
+fi
+
+# 提交后自证:回读 %s 与本席写入的 SUBJ 逐字比对。不一致 ⇒ 立即上报,**不许 amend**
+# (多会话共享工作树,改写在途提交会丢别人的工作)。
+GOT_SUBJ=$(git log -1 --format=%s "$NEW")
+if [ "$GOT_SUBJ" != "$SUBJ" ]; then
+  echo "❌ subject 回读与本席写入不一致(疑似并发消息串号):"
+  printf '  want=%s\n  got =%s\n' "$SUBJ" "$GOT_SUBJ"
+  echo "  提交 $NEW 已落地;按硬线不改写,请登记勘误台账后上报。"
+  exit 1
+fi
+echo "✅ subject 回读一致: $GOT_SUBJ"
 
 # ⚠️ 2026-10-18 修两处会把结论带偏的缺陷(此前守门批的"红"不可信):
 #   缺陷 A(要命):原来在这里就 `unset GIT_INDEX_FILE` + `rm` 私有索引,然后才跑
@@ -79,18 +125,21 @@ if [ "$REPLAY_TREE" != "$NEW_TREE" ]; then
   exit 1
 fi
 echo "判定面已重建并与本次提交树逐字节等价: $REPLAY_TREE"
-node scripts/guardian-runner.mjs --staged > /tmp/batch.out 2>&1
+# 2026-11-07 DBG-98 收口:/tmp/batch.out 是共享路径,多会话并行提交(本仓常态)会互相覆盖
+# 批处理结果 ⇒ 误判/漏判。改为每调用用 mktemp 取唯一临时文件(PID 兜底)。
+BATCH_OUT=$(mktemp /tmp/ihui-git-priv-commit.XXXXXX.out 2>/dev/null || echo "/tmp/ihui-git-priv-commit.$$.out")
+node scripts/guardian-runner.mjs --staged > "$BATCH_OUT" 2>&1
 BATCH_RC=$?
-grep -E "总检查数|blocking 失败|失败门清单" /tmp/batch.out | tail -4
+grep -E "总检查数|blocking 失败|失败门清单" "$BATCH_OUT" | tail -4
 # 从批输出的**❌ 行**里抓真实被点名的路径,再与本次声明集求交集。
 # ⚠️ 只抓 ❌ 行,不能抓全文: mypy 那类门会把"判定面内的文件清单"整份打印出来,
 #    抓全文会把清单里本次的文件误判成"被点名"(实测 15/17 假阳性)。
-BATCH_PATHS=$(grep -a "❌" /tmp/batch.out | grep -aoE '(apps|packages|monitoring|scripts|docs|deploy)/[A-Za-z0-9_./-]+' | sort -u)
+BATCH_PATHS=$(grep -a "❌" "$BATCH_OUT" | grep -aoE '(apps|packages|monitoring|scripts|docs|deploy)/[A-Za-z0-9_./-]+' | sort -u)
 MINE=$(printf '%s\n' "${PATHS[@]}" | sort -u)
 HIT=$(comm -12 <(echo "$BATCH_PATHS") <(echo "$MINE"))
 if [ "$BATCH_RC" != "0" ]; then
-  echo "⚠️ 守门批非零(详见 /tmp/batch.out)。逐道复跑,点名本次文件的必须自己修:"
-  grep -E "❌" /tmp/batch.out | tail -8
+  echo "⚠️ 守门批非零(详见 $BATCH_OUT)。逐道复跑,点名本次文件的必须自己修:"
+  grep -E "❌" "$BATCH_OUT" | tail -8
   if [ -n "$HIT" ]; then
     echo "❌ 批内结论点名了本次声明的文件 ⇒ 这是本任务自己的红:"
     echo "$HIT" | sed 's/^/    /'

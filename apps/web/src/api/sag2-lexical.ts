@@ -1,0 +1,417 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * SAG2 词法多跳检索通道 · web API 封装（本仓自有实现）。
+ *
+ * 能力面对齐对照程序 SAG Wiki：索引状态、文档登记/移除、离线 BM25 快速搜索、
+ * 查询时多跳检索、以及与本仓既有 rag.py 向量/关键词通道的 RRF 融合。
+ *
+ * 后端统一信封 {code,message,data} 由 apiOrThrow 解包；任何失败都抛错，
+ * 不把「空结果」伪装成「已判定」，与后端的诚实降级约定保持一致。
+ */
+
+import { apiOrThrow } from '@/lib/api'
+
+/** 单个抽取能力的探测结果（后端如实上报，不做美化）。 */
+export interface Sag2ExtractorProbe {
+  engine: string
+  installed: boolean
+  /** 不可用时的具名原因：missing-dep:* / missing-binary:* / no-ocr-engine ... */
+  reason?: string
+}
+
+export interface Sag2Status {
+  version: number
+  documents: number
+  chunks: number
+  terms: number
+  avg_chunk_length: number
+  ready: boolean
+  backend: string
+  judge_provider: string
+  /**
+   * 各类文件的抽取能力。`pdf_rasterizer` 与 `ocr` 是**两件事**：
+   * 扫描件要先把页渲成位图（栅格化），再交给 OCR 引擎识别；缺哪个报哪个。
+   */
+  extractors?: {
+    asr?: Sag2ExtractorProbe & { model_dir?: string; suffixes?: string[] }
+    ocr?: Sag2ExtractorProbe & {
+      engines?: string[]
+      pdf_rasterizer?: string
+      min_score?: number
+      max_pages?: number
+    }
+    pdf_rasterizer?: Sag2ExtractorProbe & {
+      version?: string
+      max_pages?: number
+      max_dpi?: number
+    }
+  }
+}
+
+export interface Sag2Citation {
+  path: string
+  title: string
+  heading: string
+  doc_hash: string
+  byte_range: [number, number]
+  start_line: number
+  end_line: number
+  passage: string
+  score: number
+  bm25: number
+  hop: number
+}
+
+export interface Sag2DocumentOutcome {
+  changed: boolean
+  reason: string
+  doc_hash: string
+  chunk_count: number
+  version: number
+  model_calls: number
+}
+
+export interface Sag2RemoveOutcome {
+  removed: number
+  version: number
+}
+
+export interface Sag2SearchItem {
+  path: string
+  title: string
+  snippet: string
+  bm25: number
+  citation: Sag2Citation
+  /** 片段内的命中区间（字符下标，左闭右开）；highlight=false 时后端不下发。 */
+  highlights?: Array<[number, number]>
+}
+
+/** 路径级筛选（与查询词 AND 生效）。 */
+export interface Sag2SearchFilters {
+  ext?: string[]
+  prefix?: string[]
+  contains?: string
+}
+
+export interface Sag2SearchResult {
+  query: string
+  mode: string
+  model_calls: number
+  total_files: number
+  page: number
+  per_page: number
+  filters?: Sag2SearchFilters
+  items: Sag2SearchItem[]
+  duration_ms: number
+}
+
+export interface Sag2ExpansionTerm {
+  term: string
+  score: number
+  kind: string
+}
+
+export interface Sag2TraceHop {
+  hop: number
+  candidates: string[]
+  terms: Sag2ExpansionTerm[]
+  evidence: string[]
+  pool_size: number
+  judge_mode: string
+  judge_executed: boolean
+  judge_reason: string
+}
+
+export interface Sag2ResultRow {
+  key: string
+  path: string
+  content: string
+  score: number
+  bm25: number
+  hop: number
+}
+
+export interface Sag2Judge {
+  mode: string
+  executed: boolean
+  reason: string
+}
+
+export interface Sag2RetrieveResult {
+  query: string
+  status: string
+  degraded: boolean
+  version: number
+  duration_ms: number
+  results: Sag2ResultRow[]
+  source_count: number
+  citations: Sag2Citation[]
+  trace: Sag2TraceHop[]
+  judge: Sag2Judge
+  paths: Record<string, unknown>
+}
+
+export interface Sag2FusedRow {
+  path?: string
+  key?: string
+  rrf_score?: number
+  fused_from?: string
+  [field: string]: unknown
+}
+
+export interface Sag2FuseResult {
+  results: Sag2FusedRow[]
+  channels: string[]
+  rrf_k: number
+}
+
+export interface Sag2RetrieveOptions {
+  candidate_k?: number
+  seed_k?: number
+  expansion_term_limit?: number
+  max_hops?: number
+  top_k?: number
+  file_limit?: number | null
+  /** 跨语言术语桥（词典 + 语料括号对照）。默认开后端为 true。 */
+  cross_lingual?: boolean
+  /** 桥接候选配额，0 等于关闭桥接。 */
+  bridge_limit?: number
+}
+
+/** 单个文件落桶的具名原因（unsupported / missing-dep / binary / parse-error / too-large）。 */
+export interface Sag2ScanError {
+  path: string
+  reason: string
+}
+
+/** 一轮扫描的算术自证：changed + unchanged + unsupported + failed + too_large = scanned。 */
+export interface Sag2ScanStats {
+  scanned: number
+  changed: number
+  unchanged: number
+  unsupported: number
+  failed: number
+  too_large: number
+  chunks: number
+  duration_ms: number
+  errors: Sag2ScanError[]
+  buckets_sum: number
+}
+
+export interface Sag2ScanResult extends Sag2ScanStats {
+  scanned_roots: number
+  roots: Array<Sag2ScanStats & { root: string }>
+  index: Sag2Status
+  reason?: string
+}
+
+export interface Sag2Folder {
+  root: string
+  include: string[]
+  exclude: string[]
+  recursive: boolean
+  added_at: number
+  last_scan_at: number
+  last_scan: Partial<Sag2ScanStats>
+}
+
+export interface Sag2FolderList {
+  folders: Sag2Folder[]
+  persisted: boolean
+  state_path: string
+  watching: string[]
+  /** 每个根实际生效的监听模式：win32-rdc / linux-inotify / polling（后端如实上报）。 */
+  watch_modes?: Record<string, string>
+}
+
+export interface Sag2WatchOutcome {
+  watching: boolean
+  root?: string
+  interval_s?: number
+  stopped?: boolean
+  reason?: string
+  /** 实际生效的模式；polling 表示操作系统事件不可用，已如实退化。 */
+  mode?: string
+  debounce_ms?: number
+}
+
+export interface Sag2AddFolderOutcome {
+  registered: boolean
+  reason?: string
+  folder?: Sag2Folder
+  persisted?: boolean
+  scan: Sag2ScanResult | null
+  watch: Sag2WatchOutcome | null
+}
+
+const JSON_HEADERS: HeadersInit = { 'Content-Type': 'application/json' }
+
+function postJson<T>(url: string, body: unknown): Promise<T> {
+  return apiOrThrow<T>(url, {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify(body),
+  })
+}
+
+export function sag2Status(): Promise<Sag2Status> {
+  return apiOrThrow<Sag2Status>('/api/v1/ai/sag2/status')
+}
+
+export function sag2AddDocument(input: {
+  path: string
+  content: string
+  title?: string | null
+  heading?: string
+  chunk_size?: number
+  overlap?: number
+}): Promise<Sag2DocumentOutcome> {
+  return postJson<Sag2DocumentOutcome>('/api/v1/ai/sag2/documents', input)
+}
+
+export function sag2RemoveDocument(path: string): Promise<Sag2RemoveOutcome> {
+  return apiOrThrow<Sag2RemoveOutcome>('/api/v1/ai/sag2/documents', {
+    method: 'DELETE',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ path }),
+  })
+}
+
+export interface Sag2SearchOptions {
+  filters?: Sag2SearchFilters
+  /** 不传则用后端默认（true）；显式 false 可省掉高亮计算。 */
+  highlight?: boolean
+}
+
+export function sag2Search(
+  query: string,
+  page = 1,
+  perPage = 20,
+  options: Sag2SearchOptions = {},
+): Promise<Sag2SearchResult> {
+  // 只在调用方真的给了才写进 body：既有两参调用的请求体必须逐字不变
+  // （回归测试断言了 {query,page,per_page} 的精确形状）。
+  const body: Record<string, unknown> = { query, page, per_page: perPage }
+  if (options.filters) body.filters = options.filters
+  if (options.highlight !== undefined) body.highlight = options.highlight
+  return postJson<Sag2SearchResult>('/api/v1/ai/sag2/search', body)
+}
+
+/** 跨语言桥接扩展预览（可解释性：这句查询会扩展出哪些另一种写法）。 */
+export interface Sag2BridgeTerm {
+  term: string
+  source_term: string
+  kind: string
+  score: number
+}
+
+export interface Sag2BridgeExpandResult {
+  query: string
+  candidate_keys: string[]
+  expanded: Sag2BridgeTerm[]
+  count: number
+  reason: string
+}
+
+export function sag2BridgeExpand(query: string): Promise<Sag2BridgeExpandResult> {
+  return postJson<Sag2BridgeExpandResult>('/api/v1/ai/sag2/bridge/expand', { query })
+}
+
+/** 持久化状态（重启后索引还在不在）。 */
+export interface Sag2PersistenceStatus {
+  backend: string
+  durable: boolean
+  available: boolean
+  reason: string
+  pending: number
+  saved: number
+  failed: number
+  dropped: number
+  last_error: string
+  restored_documents: number
+  restored_chunks: number
+  restoring: boolean
+  restore_error: string
+  restore_ms: number
+  schema_ready: boolean
+  pg?: { documents?: number; chunks?: number; error?: string } | null
+  memory_documents?: number
+  aligned?: boolean
+}
+
+export function sag2Persistence(): Promise<Sag2PersistenceStatus> {
+  return apiOrThrow<Sag2PersistenceStatus>('/api/v1/ai/sag2/persistence')
+}
+
+export function sag2Retrieve(
+  query: string,
+  options: Sag2RetrieveOptions = {},
+): Promise<Sag2RetrieveResult> {
+  return postJson<Sag2RetrieveResult>('/api/v1/ai/sag2/retrieve', {
+    query,
+    ...options,
+  })
+}
+
+export function sag2Fuse(
+  sag2Results: Sag2ResultRow[],
+  ragSources: Array<Record<string, unknown>> = [],
+  k = 60,
+): Promise<Sag2FuseResult> {
+  return postJson<Sag2FuseResult>('/api/v1/ai/sag2/fuse', {
+    sag2_results: sag2Results,
+    rag_sources: ragSources,
+    k,
+  })
+}
+
+// -- 本地文件夹登记 / 增量扫描（对照的「Add a local folder」） ----------------
+
+export function sag2ListFolders(): Promise<Sag2FolderList> {
+  return apiOrThrow<Sag2FolderList>('/api/v1/ai/sag2/folders')
+}
+
+export function sag2AddFolder(input: {
+  root: string
+  include?: string[] | null
+  exclude?: string[] | null
+  recursive?: boolean
+  scan?: boolean
+  watch?: boolean
+  watch_interval_s?: number
+}): Promise<Sag2AddFolderOutcome> {
+  return postJson<Sag2AddFolderOutcome>('/api/v1/ai/sag2/folders', input)
+}
+
+export function sag2ScanFolders(root?: string | null, force = false): Promise<Sag2ScanResult> {
+  return postJson<Sag2ScanResult>('/api/v1/ai/sag2/folders/scan', {
+    root: root ?? null,
+    force,
+  })
+}
+
+export function sag2RemoveFolder(root: string): Promise<{
+  unregistered: boolean
+  removed: number
+  reason?: string
+}> {
+  return apiOrThrow(`/api/v1/ai/sag2/folders?root=${encodeURIComponent(root)}`, {
+    method: 'DELETE',
+  })
+}
+
+export function sag2WatchFolder(
+  root: string,
+  enabled: boolean,
+  intervalS = 30,
+): Promise<Sag2WatchOutcome> {
+  return postJson<Sag2WatchOutcome>('/api/v1/ai/sag2/folders/watch', {
+    root,
+    enabled,
+    interval_s: intervalS,
+  })
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

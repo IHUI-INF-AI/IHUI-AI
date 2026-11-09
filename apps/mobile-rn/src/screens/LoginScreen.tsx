@@ -95,6 +95,7 @@ import {
   loginWithGoogleRedirect,
 } from '../lib/google'
 import { rnAuthStore } from '../stores/auth-store'
+import { WEB_BASE_URL } from '../lib/webview-portal-config'
 
 // 顶层类型导入(用于 navigation 类型推断)
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -113,7 +114,7 @@ import { Tappable } from '@ihui/ui-native'
  *   + linuxdo;linuxdo 无原生 SDK,按下方「引导走网页端 SSO」那一档处理),
  *   apple forceDisabled(对齐 web use-third-party-config)
  * - 协议同意:onAgreedChange + onOpenTerms(onNavigate('Agreement')) + onOpenPrivacy(navigate('Privacy'))
- * - 忘记密码:navigate('ChangePwd')(对齐 uniapp onForgotPassword → changePwd 页)
+ * - 忘记密码:WebView 复用 web `/forgot-password`(XUI-068 起不再跳改密屏 —— 改密屏要旧密码,是死环)
  * - 注册链接:navigate('Register')
  * - 保留现有 SSO 跳转链路(复用 useLoginForm.ssoLogin + lib/sso)
  * - 登录成功回跳:AuthContext.returnUrl 机制(对齐 uniapp setStorageSync('returnUrl'))
@@ -1135,10 +1136,13 @@ export function LoginScreen() {
   }, [navigation])
 
   // ===== 忘记密码回调 =====
-  // 对齐 uniapp onForgotPassword:navigateTo('/pages/login-app-other/changePwd')
+  // XUI-068:未登录用户没有旧密码,不能跳改密屏(那会成环);复用 web 的找回密码页。
   const handleForgotPassword = useCallback(() => {
-    navigation.navigate('ChangePwd')
-  }, [navigation])
+    navigation.navigate('WebView', {
+      url: `${WEB_BASE_URL}/forgot-password`,
+      title: t('auth.forgotPassword'),
+    })
+  }, [navigation, t])
 
   // ===== 注册回调 =====
   const handleRegister = useCallback(() => {

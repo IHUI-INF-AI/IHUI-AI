@@ -23,8 +23,15 @@ import * as os from 'node:os';
 const SENSITIVE_PATTERNS: ReadonlyArray<{ pattern: RegExp; replacement: string }> = [
   // 1. OpenAI / Anthropic / StepFun / Agnes API key: sk-xxx (20+ 字符)
   { pattern: /\b(sk-[A-Za-z0-9_\-]{8})[A-Za-z0-9_\-]{12,}\b/g, replacement: '$1***REDACTED***' },
-  // 2. Bearer token: Bearer xxx
-  { pattern: /(Bearer\s+[A-Za-z0-9_\-\.]{4})[A-Za-z0-9_\-\.]{8,}/gi, replacement: '$1***REDACTED***' },
+  // 1b. 下划线形态的 sk_ key(部分代理/国产网关用 sk_ 前缀;旧表只认 sk-,整类漏印)
+  { pattern: /\b(sk_[A-Za-z0-9_\-]{8})[A-Za-z0-9_\-]{8,}\b/g, replacement: '$1***REDACTED***' },
+  // 2. Bearer token: Bearer xxx(短 token 阈值对齐 password:前缀 4 + 后缀至少 4,
+  //    `Bearer abcd1234` 这类 8 字符 token 不得再整段漏过)
+  { pattern: /(Bearer\s+[A-Za-z0-9_\-\.]{4})[A-Za-z0-9_\-\.]{4,}/gi, replacement: '$1***REDACTED***' },
+  // 2b. Authorization: <scheme> <token>(Basic 走第 6 类、Bearer 走第 2 类,这里只兜其余 scheme)
+  { pattern: /(Authorization\s*:\s*(?!(?:Basic|Bearer)\b)[A-Za-z0-9_\-]+\s+)([A-Za-z0-9_\-\.]{4})[A-Za-z0-9_\-\.]{4,}/gi, replacement: '$1$2***REDACTED***' },
+  // 2c. x-api-key / x-api-secret 头赋值(旧表完全没有这两类头)
+  { pattern: /(x-api-(?:key|secret)\s*[:=]\s*"?)([A-Za-z0-9_\-]{2})[A-Za-z0-9_\-]{4,}/gi, replacement: '$1$2***REDACTED***' },
   // 3. password=xxx / password: xxx / "password":"xxx"
   { pattern: /(password\s*[:=]\s*"?)([^\s"',]{2})[^\s"',]{4,}/gi, replacement: '$1$2***REDACTED***' },
   // 4. api_key=xxx / api_key: xxx(与 password 阈值一致:前缀 2 字符 + 后缀至少 4 字符)

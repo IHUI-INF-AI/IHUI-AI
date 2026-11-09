@@ -594,13 +594,17 @@ async def test_kill_switch_tool_approval_beats_user_mode(
 class _FakeRecorder:
     def __init__(self) -> None:
         self.steps: list[tuple[str, dict[str, Any]]] = []
+        self.owners: list[str | None] = []
 
     @property
     def run_id(self) -> str:
         return ""
 
-    def append_step(self, run_id: str, step: dict[str, Any]) -> dict[str, Any]:
+    def append_step(
+        self, run_id: str, step: dict[str, Any], *, owner_user_id: str | None = None
+    ) -> dict[str, Any]:
         self.steps.append((run_id, step))
+        self.owners.append(owner_user_id)
         return {"step_index": len(self.steps) - 1}
 
 

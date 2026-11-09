@@ -11,6 +11,7 @@ export * from './endpoints/invitations.js'
 export * from './endpoints/circles-post.js'
 export * from './endpoints/news-category.js'
 export * from './endpoints/search-history.js'
+export * from './endpoints/super-agent.js'
 export * from './endpoints/sign-ups.js'
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
@@ -218,6 +219,32 @@ export {
 
 export { CircuitBreaker, CircuitOpenError, serverPreset, clientPreset } from './circuit-breaker.js'
 export type { CircuitState, CircuitBreakerOptions, CircuitBreakerStats } from './circuit-breaker.js'
+
+// 流式感知 JSON 修复（2026-11-05 立,对标 Qoder/Trae 的 jsonrepair 依赖并超越其「只能吃完整串」的流式轴）
+export { repairJson, StreamingJsonRepair, createStreamingJsonRepair } from './json-repair.js'
+export type { RepairResult, StreamingRepairSnapshot } from './json-repair.js'
+// 工具调用入参解析（2026-11-05 立）:归一化任意上游 args 形态 + 增量 function.arguments 流式解析
+export {
+  normalizeToolCallArgs,
+  ToolCallArgsStreamer,
+  createToolCallArgsStreamer,
+} from './tool-call-args.js'
+export type { ToolCallArgsState } from './tool-call-args.js'
+// OpenAI 兼容流式工具调用解析（2026-11-05 立,逆向-复现-超越:按 call index 增量累积 function.arguments,
+// 每片即出 partial/complete 态,残缺片经 json-repair 修复后解析,卡片不因截断崩）
+export {
+  parseOpenAiStreamLine,
+  OpenAiToolCallAccumulator,
+  createOpenAiToolCallAccumulator,
+  parseToolCallArgsDeltaFrame,
+  TOOL_CALL_ARGS_DELTA_EVENT,
+} from './openai-tool-stream.js'
+export type {
+  OpenAiToolCallFragment,
+  OpenAiToolCallDelta,
+  OpenAiStreamFrame,
+} from './openai-tool-stream.js'
+
 export { eduApi, buildQs } from './utils.js'
 export type { PageData, PageQuery } from './utils.js'
 

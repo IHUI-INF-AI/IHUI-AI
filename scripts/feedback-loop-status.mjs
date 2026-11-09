@@ -95,7 +95,15 @@ export const VERIFIED_ACTIONS = Object.freeze(['pass', 'canary-pass'])
 export const ROLLED_BACK_ACTIONS = Object.freeze(['rollback', 'manual-rollback', 'canary-rollback'])
 export const UNPROVEN_ACTIONS = Object.freeze(['pass-unproven', 'pass-entry-broken', 'canary-unproven'])
 /** auto-evolve 台账里"本轮没派"的记账 action:出现它们不能算作派单证据。 */
-export const NON_DISPATCH_ACTIONS = Object.freeze(['no-ticket', 'no-whitelist-hit', 'budget-exhausted', 'decision-undetermined'])
+export const NON_DISPATCH_ACTIONS = Object.freeze([
+  'no-ticket',
+  'no-whitelist-hit',
+  'budget-exhausted',
+  // 2026-11-06:成本熔断停转此前发的是 `budget-exhausted`(与日预算同一字面量),现拆为独立档;
+  // 两种都是轮级停转、都没占任何一张票的班次,所以这一侧必须同时认新的那枚。
+  'cost-breaker-stop',
+  'decision-undetermined',
+])
 
 const MAX_TEXT = 400
 const FULL_SHA_RE = /^[0-9a-f]{7,40}$/

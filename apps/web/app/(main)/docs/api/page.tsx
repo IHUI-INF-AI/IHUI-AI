@@ -5,6 +5,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { CodeBlock } from '@/components/docs/code-block'
+import { jsonLdHtml } from '@/lib/seo/json-ld'
 
 const SITE_URL = 'https://aizhs.top'
 
@@ -58,7 +59,7 @@ export default function ApiDocsPage() {
     <div className="px-4 space-y-4 py-4">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(apiJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdHtml(apiJsonLd) }}
       />
 
       {/* Base URL + 认证 */}

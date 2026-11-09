@@ -16,6 +16,8 @@ from typing import Any
 import httpx
 import pytest
 
+from app.core.config import settings
+from app.core.internal_ticket import InternalServiceCredentialError
 from app.services import api_tools_bridge as bridge
 
 _USER = "00000000-0000-4000-8000-00000000000a"
@@ -428,9 +430,13 @@ async def test_default_mode_is_all(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 async def test_long_tail_endpoint_callable_despite_cap(
-    monkeypatch: pytest.MonkeyPatch, captured: list[dict[str, Any]]
+    monkeypatch: pytest.MonkeyPatch, captured: list[dict[str, Any]], _env: None
 ) -> None:
-    """API_TOOLS_MAX 只约束"进工具表的条数",不削弱可调用面(实测 spec 有 4471 端点)。"""
+    """API_TOOLS_MAX 只约束"进工具表的条数",不削弱可调用面(实测 spec 有 4471 端点)。
+
+    2026-11-05(F-03 收尾):出站必须带凭据,补 `_env` 夹具(旧密钥) ——
+    断言不变,只是让"成功调用"用例具备真实凭据环境。
+    """
     monkeypatch.setenv("API_TOOLS_MODE", "all")
     monkeypatch.setenv("API_TOOLS_MAX", "1")
 
@@ -538,8 +544,17 @@ async def test_fetch_spec_cached_and_force_refetch(monkeypatch: pytest.MonkeyPat
     assert len(hits) == 2
 
 
-def test_internal_headers_omit_missing_token(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_internal_headers_reject_when_no_credential(monkeypatch: pytest.MonkeyPatch) -> None:
+    """无票、无旧密钥 ⇒ **拒绝**(不是退化成只带 x-user-id 的未鉴权请求)。
+
+    2026-11-05(F-03 收尾):过去这里断言 ``{"x-user-id": _USER}``,等于把"零凭据"
+    伪装成"有身份头";验票方 ticket 档只会回 401。现在必须显式抛
+    ``InternalServiceCredentialError``,调用方据此明确失败。
+    """
     monkeypatch.delenv("AI_CALLBACK_SECRET", raising=False)
     monkeypatch.delenv("INTERNAL_SERVICE_TOKEN", raising=False)
-    assert bridge.internal_headers(_USER) == {"x-user-id": _USER}
+    monkeypatch.delenv("JWT_SECRET", raising=False)
+    monkeypatch.setattr(settings, "jwt_secret", "", raising=False)
+    with pytest.raises(InternalServiceCredentialError):
+        bridge.internal_headers(_USER)
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

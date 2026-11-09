@@ -23,6 +23,7 @@ import {
 } from '@/lib/ai-news-api'
 import { BackButton } from '@/components/common'
 import { generateArticleSchema, type ArticleSchema } from '@/lib/seo/schema-article'
+import { jsonLdHtml } from '@/lib/seo/json-ld'
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations('aiNews')
@@ -76,9 +77,9 @@ export default async function AiNewsPage() {
       {articleJsonLd ? (
         <script
           type="application/ld+json"
-          // 安全转义:JSON.stringify 不转义 `<`,防止内容含 `</script>` 提前闭合脚本标签(Google/Next.js 官方推荐做法)
+          // 安全转义:走唯一出口 jsonLdHtml(`<` → \u003c);裸 JSON.stringify 不转义 `<`,含 `</script>` 的用户输入会提前闭合脚本导致 XSS
           dangerouslySetInnerHTML={{
-            __html: JSON.stringify(articleJsonLd).replace(/</g, '\\u003c'),
+            __html: jsonLdHtml(articleJsonLd),
           }}
         />
       ) : null}

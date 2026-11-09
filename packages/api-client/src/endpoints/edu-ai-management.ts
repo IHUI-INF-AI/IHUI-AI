@@ -63,6 +63,16 @@ export async function eduAttendanceSelfCheckIn<T = unknown>(
   })
 }
 
+/** 本人签退 — POST /api/edu-ai-management/attendance/self-check-out */
+export async function eduAttendanceSelfCheckOut<T = unknown>(
+  body: unknown,
+): Promise<ApiResult<T>> {
+  return fetchApi<T>('/api/edu-ai-management/attendance/self-check-out', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+}
+
 /** 整班点名 — POST /api/edu-ai-management/attendance/batch-check-in */
 export async function eduAttendanceBatchCheckIn<T = unknown>(
   body: unknown,

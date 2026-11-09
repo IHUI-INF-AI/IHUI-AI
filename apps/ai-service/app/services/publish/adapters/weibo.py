@@ -18,6 +18,7 @@
 """
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 from typing import Any
 
@@ -138,15 +139,15 @@ class WeiboAdapter(BasePlatformAdapter):
                         success=False, platform=self.platform_id,
                         error_message=f"image not found: {content.file_path}",
                     )
-                with open(p, "rb") as f:
-                    files = {"pic": (p.name, f, "image/jpeg")}
-                    async with httpx.AsyncClient(timeout=60.0) as client:
-                        # 上传图片到 Pic API
-                        pic_resp = await client.post(
-                            f"{_API_BASE}/2/statuses/uploadPic.json",
-                            data={"access_token": access_token},
-                            files=files,
-                        )
+                image_bytes = await asyncio.to_thread(p.read_bytes)
+                files = {"pic": (p.name, image_bytes, "image/jpeg")}
+                async with httpx.AsyncClient(timeout=60.0) as client:
+                    # 上传图片到 Pic API
+                    pic_resp = await client.post(
+                        f"{_API_BASE}/2/statuses/uploadPic.json",
+                        data={"access_token": access_token},
+                        files=files,
+                    )
                 if pic_resp.status_code != 200:
                     return PublishResult(
                         success=False, platform=self.platform_id,

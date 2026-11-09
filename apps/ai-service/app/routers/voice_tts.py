@@ -39,6 +39,8 @@ from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
 
+from ..core.jwt_auth import require_request_user_id
+
 if TYPE_CHECKING:
     from ..providers.token6688_provider import Token6688Provider
 
@@ -135,9 +137,57 @@ async def _tts_via_token6688(text: str, voice: str) -> tuple[bytes, str]:
         raise HTTPException(status_code=502, detail=f"token6688 TTS 失败: {e}") from None
 
 
+def _official_tts_voices() -> frozenset[str]:
+    """官方音色白名单唯一来源:复用 mcp_server 的 _TTS_OPENAI_VOICES,不复制第二份判据。"""
+    from ..services.mcp_server import _TTS_OPENAI_VOICES
+
+    return _TTS_OPENAI_VOICES
+
+
+async def _assert_paid_voice_allowed(voice: str) -> None:
+    """付费引擎 voice 闸门(AIS-092):官方音色或平台声纹库在册 voice_id,其余 403。
+
+    付费分支曾把客户端 voice 原样透传给上游(可直通平台声纹库);JWT 收权后仍要
+    挡住"已登录用户拿任意 voice_id 试探/盗用"。仓内声纹库是平台共享账号、无属主
+    概念,故判据 = 官方音色白名单 ∪ 平台声纹库当前在册 voice_id(与 GET
+    /api/voice/voices 同一数据源);查库失败 fail-closed,绝不落到合成。
+    """
+    normalized = (voice or "").strip()
+    if not normalized:
+        raise HTTPException(status_code=403, detail="token6688 引擎 voice 不能为空")
+    if normalized.lower() in _official_tts_voices():
+        return
+    try:
+        voices = await _token6688_provider().list_voices()
+    except HTTPException:
+        raise
+    except Exception as e:  # noqa: BLE001 — 查库失败按 fail-closed 拒绝,不落合成
+        logger.warning("token6688 声纹库校验失败: %s", e)
+        raise HTTPException(
+            status_code=502, detail=f"声纹库校验失败,拒绝非官方 voice: {e}",
+        ) from None
+    known = {
+        str(item.get("voice_id") or item.get("id") or "").strip()
+        for item in voices or []
+        if isinstance(item, dict)
+    }
+    if normalized not in known:
+        raise HTTPException(
+            status_code=403,
+            detail=f"voice 不在官方音色或平台声纹库白名单: {normalized}",
+        )
+
+
 @router.post("/voice/tts")
-async def synthesize_tts(req: TTSRequest) -> Response:
-    """免费 TTS 合成(edge-tts,零 key)。返回 audio/mpeg 音频流。"""
+async def synthesize_tts(
+    req: TTSRequest,
+    _user_id: str = Depends(require_request_user_id),
+) -> Response:
+    """免费 TTS 合成(edge-tts,零 key)。返回 audio/mpeg 音频流。
+
+    AIS-092:本端点不再匿名可达(已移出 jwt_public_paths),并加端点级身份依赖
+    双保险 —— 即便部署 .env 又把路径写回白名单,无已验证主体仍 401。
+    """
     text = req.text.strip()
     if not text:
         raise HTTPException(status_code=400, detail="text 不能为空")
@@ -170,6 +220,7 @@ async def synthesize_tts(req: TTSRequest) -> Response:
     if req.engine != "token6688":
         raise HTTPException(status_code=400, detail=f"未知 engine: {req.engine}(允许 edge/token6688)")
 
+    await _assert_paid_voice_allowed(req.voice)
     audio, content_type = await _tts_via_token6688(text, req.voice)
     return Response(
         content=audio,

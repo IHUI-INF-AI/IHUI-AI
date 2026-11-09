@@ -19,6 +19,8 @@ import {
 
 import { requireAdmin } from '../../plugins/require-permission.js'
 import { isUuidString } from '../../utils/uuid.js'
+import { isSystemAdminUser } from '../../db/queries.js'
+import { findThirdPartyAccount } from '../../db/oauth-queries.js'
 const authAccountsRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', requireAdmin)
   server.get('/auth-accounts', async (request, reply) => {
@@ -62,6 +64,18 @@ const authAccountsRoutes: FastifyPluginAsync = async (server) => {
   server.post('/auth-accounts', async (request, reply) => {
     const b = createAuthAccountSchema.safeParse(request.body)
     if (!b.success) return reply.status(400).send(error(400, b.error.message))
+    // F-126:第三方账号绑定不得指向系统内置管理员 —— 否则绑上攻击者 openId 后
+    // 走第三方登录即可直接接管 root。默认一律 403,不存在"他人代绑"的合法路径。
+    if (await isSystemAdminUser(b.data.userId)) {
+      return reply.status(403).send(error(403, '系统内置管理员不可绑定第三方账号'))
+    }
+    // 同一 (platform, openId) 已绑定到另一用户时拒绝改绑,不得覆盖既有绑定。
+    if (b.data.openId) {
+      const existing = await findThirdPartyAccount(b.data.platform, b.data.openId)
+      if (existing && existing.userId !== b.data.userId) {
+        return reply.status(409).send(error(409, '该第三方账号已绑定到其他用户'))
+      }
+    }
     request.skipResponseSanitization = true
     const [row] = await db
       .insert(userThirdPartyAccounts)
@@ -83,6 +97,22 @@ const authAccountsRoutes: FastifyPluginAsync = async (server) => {
     if (!isUuidString(p.data.id)) return reply.status(400).send(error(400, 'id 格式不正确'))
     const b = updateAuthAccountSchema.safeParse(request.body)
     if (!b.success) return reply.status(400).send(error(400, b.error.message))
+    const [existing] = await db
+      .select()
+      .from(userThirdPartyAccounts)
+      .where(eq(userThirdPartyAccounts.id, p.data.id))
+      .limit(1)
+    if (!existing) return reply.status(404).send(error(404, '记录不存在'))
+    // F-126:同上,内置管理员的第三方绑定既不可新建也不可改写到攻击者可控的 openId。
+    if (await isSystemAdminUser(existing.userId)) {
+      return reply.status(403).send(error(403, '系统内置管理员不可绑定第三方账号'))
+    }
+    if (b.data.openId !== undefined && b.data.openId !== existing.openId) {
+      const other = await findThirdPartyAccount(b.data.platform ?? existing.platform, b.data.openId)
+      if (other && other.userId !== existing.userId) {
+        return reply.status(409).send(error(409, '该第三方账号已绑定到其他用户'))
+      }
+    }
     const [row] = await db
       .update(userThirdPartyAccounts)
       .set({

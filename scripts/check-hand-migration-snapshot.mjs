@@ -52,6 +52,8 @@
  * ## 用法
  *   node scripts/check-hand-migration-snapshot.mjs                  # 默认 --check(HEAD 面,只读)
  *   node scripts/check-hand-migration-snapshot.mjs --check --staged   # pre-commit / 索引面
+ *   node scripts/check-hand-migration-snapshot.mjs --check --strict   # 全量:缺同号快照即 exit 1
+ *   node scripts/check-hand-migration-snapshot.mjs --check --strict-changed --base <ref>  # 仅新增/改动
  *   node scripts/check-hand-migration-snapshot.mjs --write-baseline   # 人核后认账存量(写基线)
  *   node scripts/check-hand-migration-snapshot.mjs --list-stock       # 连存量逐条列出
  *   node scripts/check-hand-migration-snapshot.mjs --json             # 末行追加机读结论
@@ -59,6 +61,7 @@
  *   --baseline <path> 基线路径(默认 <repo>/scripts/data/hand-migration-snapshot-baseline.json)
  * 退出码:0=ok;1=有新增违规;2=未判定。
  */
+import { spawnSync } from 'node:child_process'
 import { readdirSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -284,6 +287,81 @@ export function resolveSnapshotIdx(snapshotIdxs, migrationIdx) {
   let best = null
   for (const idx of sorted) if (idx < migrationIdx) best = idx
   return best
+}
+
+/** DB-09:从 `git diff --name-only` 输出里只取 drizzle 顶层的 .sql(meta/ 与子目录不算)。 */
+export function changedMigrationFiles(diffText) {
+  const out = []
+  for (const raw of String(diffText ?? '').split(/\r?\n/)) {
+    const line = raw.trim().replace(/^\.\//, '')
+    const m = /^packages\/database\/drizzle\/([^/]+\.sql)$/.exec(line)
+    if (m && !out.includes(m[1])) out.push(m[1])
+  }
+  return out
+}
+
+/** DB-09:全量 strict —— 任一 journal 迁移缺「同号」snapshot 即违规(不看基线认账)。 */
+export function strictMissingSnapshotViolations({ journalEntries, snapshotIdxs }) {
+  const have = new Set(snapshotIdxs ?? [])
+  const out = []
+  for (const e of journalEntries ?? []) {
+    const n = migrationNumberOf(e?.tag, e?.idx)
+    if (have.has(n)) continue
+    out.push({
+      tag: e.tag,
+      expectedSnapshot: n,
+      reason: `缺少同号快照 meta/${String(n).padStart(4, '0')}_snapshot.json`,
+    })
+  }
+  return out
+}
+
+/** DB-09:changed 档 —— 只对新增/改动的迁移强制同号快照,存量缺号不在此档射程。 */
+export function evaluateStrictChanged({ journalEntries, changedSqlNames, snapshotIdxs }) {
+  const changed = new Set(changedSqlNames ?? [])
+  const have = new Set(snapshotIdxs ?? [])
+  const violations = []
+  for (const e of journalEntries ?? []) {
+    const sqlName = `${e.tag}.sql`
+    if (!changed.has(sqlName)) continue
+    const n = migrationNumberOf(e.tag, e.idx)
+    if (have.has(n)) continue
+    violations.push({
+      tag: e.tag,
+      expectedSnapshot: n,
+      reason: `改动/新增的 ${sqlName} 缺少同号快照 meta/${String(n).padStart(4, '0')}_snapshot.json`,
+    })
+  }
+  return { ok: violations.length === 0, violations }
+}
+
+function gitDiffNames(args) {
+  const r = spawnSync('git', args, {
+    cwd: ROOT,
+    encoding: 'utf8',
+    timeout: 60_000,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+  })
+  if (r.status !== 0) throw new Unjudged(`git diff 失败:${String(r.stderr ?? '').trim().slice(0, 160)}`)
+  return r.stdout ?? ''
+}
+
+/**
+ * DB-09:取「新增/改动」的迁移 .sql 列表。CI 用 `--base <ref>`(PR base / push before);
+ * 本地不带 base 时合并 索引面 + 工作树面 + 未跟踪文件,避免新增迁移漏审。
+ */
+export function changedMigrationsFromGit({ base = '' } = {}) {
+  if (base)
+    return changedMigrationFiles(
+      gitDiffNames(['diff', '--name-only', '--diff-filter=AM', '--no-renames', `${base}...HEAD`]),
+    )
+  const names = [
+    gitDiffNames(['diff', '--name-only', '--diff-filter=AM', '--no-renames', '--cached']),
+    gitDiffNames(['diff', '--name-only', '--diff-filter=AM', '--no-renames']),
+    gitDiffNames(['ls-files', '--others', '--exclude-standard']),
+  ].join('\n')
+  return changedMigrationFiles(names)
 }
 
 function tableKeyOf(keys, table, schema) {
@@ -551,6 +629,9 @@ export function judgeMigrations({ journalText, sqlTexts, snapshotTexts }) {
     snapshots: snapIdxs.length,
     handWritten,
     violations,
+    journalEntries,
+    snapshotIdxs: snapIdxs,
+    missingSnapshotTags: strictMissingSnapshotViolations({ journalEntries, snapshotIdxs: snapIdxs }),
   }
 }
 
@@ -627,13 +708,22 @@ function parseArgs(argv) {
     json: false,
     staged: false,
     worktree: false,
+    strict: false,
+    strictChanged: false,
+    base: '',
     root: ROOT,
     baseline: join(ROOT, DEFAULT_BASELINE_REL),
   }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     if (a === '--check') opts.check = true
-    else if (a === '--write-baseline') {
+    else if (a === '--strict') opts.strict = true
+    else if (a === '--strict-changed') opts.strictChanged = true
+    else if (a === '--base') {
+      const v = argv[++i]
+      if (!v) throw new Unjudged('--base 缺少 git ref 值')
+      opts.base = v
+    } else if (a === '--write-baseline') {
       opts.writeBaseline = true
       opts.check = false
     } else if (a === '--list-stock') opts.listStock = true
@@ -652,6 +742,8 @@ function parseArgs(argv) {
       throw new Unjudged(`未知参数:${a}`)
     }
   }
+  if ((opts.strict || opts.strictChanged) && opts.writeBaseline)
+    throw new Unjudged('--strict/--strict-changed 是门禁档,不能与 --write-baseline 同用')
   return opts
 }
 
@@ -714,6 +806,61 @@ function main(argv) {
       )
     console.info(formatStateLine(result))
     return 2
+  }
+
+  if (opts.strict || opts.strictChanged) {
+    let violations
+    try {
+      if (opts.strict) {
+        violations = strictMissingSnapshotViolations({
+          journalEntries: judged.journalEntries,
+          snapshotIdxs: judged.snapshotIdxs,
+        })
+      } else {
+        if (fixture) throw new Unjudged('夹具无 git 面,不支持 --strict-changed(--root 仅单测)')
+        const changedSqlNames = changedMigrationsFromGit({ base: opts.base })
+        violations = evaluateStrictChanged({
+          journalEntries: judged.journalEntries,
+          changedSqlNames,
+          snapshotIdxs: judged.snapshotIdxs,
+        }).violations
+      }
+    } catch (e) {
+      if (!(e instanceof Undetermined)) throw e
+      console.error(`  未判定[${faceNote}]:${e.message}`)
+      const result = {
+        state: 'unjudged',
+        migrations: judged.migrations,
+        snapshots: judged.snapshots,
+        handWritten: judged.handWritten,
+        violations: judged.violations.length,
+        stock: 0,
+        new: 0,
+        baselineState: 'unread',
+      }
+      if (opts.json)
+        console.info(
+          JSON.stringify({ gate: GATE, gateId: GATE_ID, face, reason: e.message, ...result }),
+        )
+      console.info(formatStateLine(result))
+      return 2
+    }
+    for (const v of violations)
+      console.warn(`  ❌ strict: ${v.tag} ${v.reason}(期望快照号 ${v.expectedSnapshot})`)
+    const result = {
+      state: violations.length > 0 ? 'red' : 'ok',
+      migrations: judged.migrations,
+      snapshots: judged.snapshots,
+      handWritten: judged.handWritten,
+      violations: judged.violations.length,
+      stock: 0,
+      new: violations.length,
+      baselineState: opts.strict ? 'strict' : 'strict-changed',
+    }
+    if (opts.json)
+      console.info(JSON.stringify({ gate: GATE, gateId: GATE_ID, face, ...result, strict: violations }))
+    console.info(formatStateLine(result))
+    return violations.length > 0 ? 1 : 0
   }
 
   if (opts.writeBaseline) {
@@ -841,6 +988,10 @@ export const __test__ = {
   resolveSnapshotIdx,
   snapshotHasObject,
   judgeMigrations,
+  changedMigrationFiles,
+  strictMissingSnapshotViolations,
+  evaluateStrictChanged,
+  changedMigrationsFromGit,
   baselineKeyOf,
   parseBaseline,
   serializeBaseline,

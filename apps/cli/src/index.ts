@@ -209,6 +209,8 @@ program
   .option('--permission-lease-turns <n>', t('cliEntry.permissionLeaseTurnsDesc'))
   .option('--permission-lease-digest', t('cliEntry.permissionLeaseDigestDesc'))
   .option('--plan', t('cliEntry.planDesc'))
+  .option('--welcome-mode <mode>', '欢迎模式: code|work|design(缺省 code)')
+  .option('--interaction-mode <mode>', '交互模式: ask|craft|plan|expert|quick(缺省 craft)')
   .option('--auto-approve-plan', t('cliEntry.autoApprovePlanDesc'))
   .option('--temperature <num>', t('cliEntry.temperatureDesc'))
   .option('--max-tokens <num>', t('cliEntry.maxTokensDesc'))
@@ -488,6 +490,9 @@ async function runAgentAndExit(
         session,
         signal: abort.signal,
         planFirst: cfg.planFirst,
+        // 模式参数只作用于提示面与工具面,不改变权限链;非法值由 agent 侧 fail-closed 抛错。
+        welcomeMode: typeof opts.welcomeMode === 'string' ? opts.welcomeMode : undefined,
+        interactionMode: typeof opts.interactionMode === 'string' ? opts.interactionMode : undefined,
         // P0-C:plan 审批门 — --auto-approve-plan / settings.autoApprovePlan 显式开启才放行(默认 fail-fast)
         autoApprovePlan: cfg.autoApprovePlan,
         sampler: cfg.sampler,
@@ -745,7 +750,7 @@ program
       console.info(chalk.yellow(t('cli.agentsMdExists')));
       process.exit(1);
     }
-    writeAgentsMd(workspace);
+    await writeAgentsMd(workspace);
     console.info(chalk.green(t('cli.agentsMdCreated', { path: join(workspace, 'AGENTS.md') })));
   });
 
@@ -1405,7 +1410,18 @@ if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) 
     console.error(renderStartupLine(startupTracker.reading()));
     if (prewarmReading) console.error(renderPrewarmLine(prewarmReading));
   });
-  program.parse();
-  startupTracker.mark('commandParsed');
+  // F-002:commander 的 `parse()` 是同步 API,它把 `_parseCommand` 返回的 Promise
+  // 直接丢弃 —— async action 内抛错就只剩 unhandledRejection,旧代码又只在
+  // uncaughtException 分支落 exitCode,CI/脚本于是把失败读成成功。改 `parseAsync`
+  // 并把拒绝显式钉成非零退出码;错误仍重抛给 crash-handler 统一落盘/打印。
+  void (async () => {
+    try {
+      await program.parseAsync();
+      startupTracker.mark('commandParsed');
+    } catch (err) {
+      if (!process.exitCode) process.exitCode = 1;
+      throw err;
+    }
+  })();
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -284,6 +284,11 @@ export interface ApiKeyQuotaInfo {
 export interface AuthenticatedApiKey {
   id: string
   userId: string
+  /**
+   * F-185:当凭据是 api_key_shares 的 share token 时,记录分享记录 ID(否则为空)。
+   * 用于把真实 token 消耗回写到 used_total_tokens,让 maxTotalTokens 真正生效。
+   */
+  shareId?: string
   key: string
   permissions: ApiKeyPermission[]
   rateLimit: number

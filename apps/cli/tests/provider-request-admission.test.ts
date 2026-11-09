@@ -450,7 +450,11 @@ describe('排队期间 abort', () => {
     await flush();
     expect(waiter.done).toBe(true);
     expect(isAdmissionAbortError(waiter.error)).toBe(true);
-    expect((waiter.error as Error).code).toBe(ADMISSION_ABORTED_CODE);
+    expect(waiter.error, '中止必须带回可归因的错误').toBeInstanceOf(Error);
+    if (!(waiter.error instanceof Error) || !('code' in waiter.error)) {
+      throw new Error(`中止错误缺 code:${String(waiter.error)}`);
+    }
+    expect(waiter.error.code).toBe(ADMISSION_ABORTED_CODE);
     expect(admission.snapshot(KEY)?.queuedWaiters).toBe(0);
 
     // 名额结算后闸门仍能用,没被幽灵等待者卡住

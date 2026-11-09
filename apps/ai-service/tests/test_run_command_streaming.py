@@ -23,9 +23,18 @@
 from __future__ import annotations
 
 import os
+import sys
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+
+# 2026-11-07(BUG-0034 时序根治):不要用裸 `python` —— Windows 上它可能是
+# App Execution Alias(启动要穿过 Store 存根,常达数百毫秒),而 pytest 默认
+# `-n auto` 按 20 核满载时,PATH 解析 + 解释器启动 + 首行 flush 合计会吃掉
+# 固定的 1s 超时预算,于是 `print('start')` 还没 drain 到 child 就被 kill,
+# 断言 `start in partial_output` 随机红(单跑恒绿、整批偶红)。
+# 用 `sys.executable` 直连当前解释器 + `-u` 关掉 stdio 缓冲,把时序变量降到只剩调度抖动。
+_PY = sys.executable
 
 from app.services.mcp_server import (
     _build_subprocess_env,
@@ -280,6 +289,32 @@ async def test_error_code_dangerous_chain():
 
 
 # =============================================================================
+# AIS-081:cmd /c 内建分支的剩余串联/转义元字符
+# =============================================================================
+
+
+async def test_error_code_dangerous_single_ampersand():
+    """单 & 会把一条白名单命令串成两条(后台/顺序执行),必须闭锁。"""
+    out = await _tool_run_command({"command": "echo safe & echo pwned"})
+    assert out["errorCode"] == "DANGEROUS_COMMAND"
+    assert out["ok"] is False
+
+
+async def test_error_code_dangerous_caret_escape():
+    """^ 是 cmd 的转义符(可用它把 & 拼出来),必须闭锁。"""
+    out = await _tool_run_command({"command": "echo safe ^& echo pwned"})
+    assert out["errorCode"] == "DANGEROUS_COMMAND"
+    assert out["ok"] is False
+
+
+async def test_error_code_dangerous_newline_chain():
+    """换行是新的一条命令,不能借白名单首命令夹带。"""
+    out = await _tool_run_command({"command": "echo safe\necho pwned"})
+    assert out["errorCode"] == "DANGEROUS_COMMAND"
+    assert out["ok"] is False
+
+
+# =============================================================================
 # 超时:proc.kill + partial_output + errorCode=TIMEOUT
 # =============================================================================
 
@@ -287,14 +322,16 @@ async def test_error_code_dangerous_chain():
 async def test_timeout_returns_partial_output_and_error_code(allow_any_cwd, tmp_path):
     """超时返回 partial_output + errorCode=TIMEOUT + streamed=True。"""
     # 写一个 sleep 脚本(避免命令行中包含 ; 被 dangerous pattern 拦截)
+    # 超时预算 3s / sleep 15s:5:1 的比例留足了解释器冷启动与首行 flush 的余量,
+    # 同时保证超时一定会触发(原 1s/5s 在 `-n auto` 满载下启动开销就能吃掉整个预算)。
     script = tmp_path / "slow_script.py"
     script.write_text(
-        "import time\nprint('start', flush=True)\ntime.sleep(5)\nprint('end')\n",
+        "import time\nprint('start', flush=True)\ntime.sleep(15)\nprint('end')\n",
         encoding="utf-8",
     )
     out = await _tool_run_command({
-        "command": f"python {script}",
-        "timeout": 1,
+        "command": f"{_PY} -u {script}",
+        "timeout": 3,
         "cwd": str(tmp_path),
     })
     assert out["streamed"] is True
@@ -319,7 +356,7 @@ async def test_timeout_max_timeout_clamping():
 
     try:
         out = await _tool_run_command({
-            "command": f"python {script_path}",
+            "command": f"{_PY} -u {script_path}",
             "timeout": 9999,
             "max_timeout": 2,
         })
@@ -343,7 +380,7 @@ async def test_max_timeout_minimum_one():
 
     try:
         out = await _tool_run_command({
-            "command": f"python {script_path}",
+            "command": f"{_PY} -u {script_path}",
             "timeout": 0,  # 会被钳为 max(1, ...)
             "max_timeout": 1,
         })
@@ -367,7 +404,7 @@ async def test_stdout_and_stderr_captured_separately(allow_any_cwd, tmp_path):
         encoding="utf-8",
     )
     out = await _tool_run_command({
-        "command": f"python {script}",
+        "command": f"{_PY} -u {script}",
         "cwd": str(tmp_path),
     })
     assert out["ok"] is True
@@ -384,7 +421,7 @@ async def test_multi_line_stdout_accumulated(allow_any_cwd, tmp_path):
         encoding="utf-8",
     )
     out = await _tool_run_command({
-        "command": f"python {script}",
+        "command": f"{_PY} -u {script}",
         "cwd": str(tmp_path),
     })
     assert out["ok"] is True
@@ -407,7 +444,7 @@ async def test_large_output_truncated(allow_any_cwd, tmp_path):
         encoding="utf-8",
     )
     out = await _tool_run_command({
-        "command": f"python {script}",
+        "command": f"{_PY} -u {script}",
         "cwd": str(tmp_path),
     })
     assert out["ok"] is True
@@ -429,7 +466,7 @@ async def test_env_param_passed_to_subprocess(allow_any_cwd, tmp_path):
         encoding="utf-8",
     )
     out = await _tool_run_command({
-        "command": f"python {script}",
+        "command": f"{_PY} -u {script}",
         "cwd": str(tmp_path),
         "env": {"IHUI_TEST_ENV_VAR": "env_value_123"},
     })
@@ -446,7 +483,7 @@ async def test_env_param_does_not_override_path(allow_any_cwd, tmp_path):
     )
     # 尝试用 env 覆盖 PATH → 应被拒绝,子进程仍用系统 PATH
     out = await _tool_run_command({
-        "command": f"python {script}",
+        "command": f"{_PY} -u {script}",
         "cwd": str(tmp_path),
         "env": {"PATH": "/malicious/empty/path"},
     })
@@ -471,7 +508,7 @@ async def test_exit_code_nonzero_on_failure(allow_any_cwd, tmp_path):
     script = tmp_path / "fail.py"
     script.write_text("import sys\nsys.exit(1)\n", encoding="utf-8")
     out = await _tool_run_command({
-        "command": f"python {script}",
+        "command": f"{_PY} -u {script}",
         "cwd": str(tmp_path),
     })
     assert out["exit_code"] == 1

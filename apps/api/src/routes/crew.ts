@@ -187,19 +187,9 @@ export const crewRoutes: FastifyPluginAsync = async (server) => {
       if (!(await accessibleSession(req, id)))
         return reply.status(404).send(error(404, '会话不存在'))
       const result = await crewOrchestrator.executeSession(id)
-      // G7: 集中扣费(幂等键 crew:<sessionId>,重复执行不重复扣)
-      if (result.success && result.usage && result.usage.totalTokens > 0 && result.userId) {
-        try {
-          await server.tokenBalance.deductTokens(
-            result.userId,
-            result.usage.totalTokens,
-            `crew_session:${id}`,
-            `crew:${id}`,
-          )
-        } catch (e) {
-          req.log.error({ err: e }, '[crew] 扣费失败(不阻塞响应)')
-        }
-      }
+      // F-203(口径 B):计费已由 crew-llm-adapter 在每次 callRealLlm 内按真实成本结算
+      // (orchestrator 的所有调用都传了 userId)。路由不再按 run 的 totalTokens 扣一次,
+      // 否则同一 run 会「逐次成本 + run token 数」双扣。
       if (!result.success) {
         return reply.status(400).send(error(400, result.error ?? '执行失败'))
       }
@@ -256,20 +246,9 @@ export const crewRoutes: FastifyPluginAsync = async (server) => {
 
     try {
       for await (const evt of crewOrchestrator.executeSessionStreaming(id)) {
+        // F-203(口径 B):流式同样不在此结算 —— crew-llm-adapter 已按每次调用的真实成本
+        // 扣费,这里再按 run 扣 totalTokens 就是双扣(error/cancelled 的 usage 也已被逐次结算)。
         send(evt.type, evt)
-        // G7: complete 事件集中扣费(幂等键 crew:<sessionId>,重连不重复扣)
-        if (evt.type === 'complete' && evt.usage && evt.usage.totalTokens > 0 && evt.userId) {
-          try {
-            await server.tokenBalance.deductTokens(
-              evt.userId,
-              evt.usage.totalTokens,
-              `crew_session:${id}`,
-              `crew:${id}`,
-            )
-          } catch (e) {
-            req.log.error({ err: e }, '[crew] 流式扣费失败(不阻塞)')
-          }
-        }
         if (evt.type === 'complete' || evt.type === 'error') break
       }
     } catch (e) {

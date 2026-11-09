@@ -1009,7 +1009,7 @@ class MemoryService:
             params: dict[str, str] = {"scope": scope}
             if session_id and scope == "session":
                 params["sessionId"] = session_id
-            # 内部服务鉴权:走 internal_service_headers 唯一出口(默认 dual 档)。
+            # 内部服务鉴权:走 internal_service_headers 唯一出口(默认 ticket 档发票)。
             # 零凭据 ⇒ 不发请求(2026-11-01):判据见 `_memory_outbound_headers`。
             headers = _memory_outbound_headers(subject)
             if headers is None:
@@ -1202,7 +1202,7 @@ class MemoryService:
             # 4. 批量保存到 API
             import httpx
 
-            # 内部服务鉴权:走 internal_service_headers 唯一出口(默认 dual 档)。
+            # 内部服务鉴权:走 internal_service_headers 唯一出口(默认 ticket 档发票)。
             # 零凭据 ⇒ 不发请求(2026-11-01):判据见 `_memory_outbound_headers`。
             headers = _memory_outbound_headers(
                 subject, extra={"Content-Type": "application/json"}

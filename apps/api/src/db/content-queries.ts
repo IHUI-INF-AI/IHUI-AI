@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { eq, and, desc, asc, sql, or, isNull, gt } from 'drizzle-orm'
+import { eq, and, desc, asc, sql, or, isNull, gt, lte } from 'drizzle-orm'
 import { db, dbRead } from './index.js'
 import {
   announcements,
@@ -21,20 +21,79 @@ import {
 // =============================================================================
 
 /**
- * 公开查询公告列表：仅已发布、未过期，置顶在前、published_at 在后。
+ * 公告对外可见性判据（唯一一份）：已发布 + 已到发布时间 + 未过期。
+ * 列表 SQL 谓词（announcementVisibilityWhere）与两个详情路由都以此为准。
+ */
+export function isAnnouncementVisible(
+  a: Pick<Announcement, 'isPublished' | 'publishedAt' | 'expiresAt'>,
+  now: Date = new Date(),
+): boolean {
+  return (
+    a.isPublished === true &&
+    (a.publishedAt === null || a.publishedAt.getTime() <= now.getTime()) &&
+    (a.expiresAt === null || a.expiresAt.getTime() > now.getTime())
+  )
+}
+
+/** isAnnouncementVisible 的 SQL 对应谓词：is_published + published_at <= now + expires_at > now。 */
+function announcementVisibilityWhere(now: Date) {
+  return and(
+    eq(announcements.isPublished, true),
+    or(isNull(announcements.publishedAt), lte(announcements.publishedAt, now)),
+    or(isNull(announcements.expiresAt), gt(announcements.expiresAt, now)),
+  )
+}
+
+/**
+ * 公开查询公告列表：仅已发布、已到发布时间、未过期，置顶在前、published_at 在后。
  */
 export async function findAnnouncements(): Promise<Announcement[]> {
   const now = new Date()
   return dbRead
     .select()
     .from(announcements)
-    .where(
-      and(
-        eq(announcements.isPublished, true),
-        or(isNull(announcements.expiresAt), gt(announcements.expiresAt, now)),
-      ),
-    )
+    .where(announcementVisibilityWhere(now))
     .orderBy(desc(announcements.isPinned), desc(announcements.publishedAt))
+}
+
+/**
+ * CLI 轻量列表：同一可见性谓词 + 置顶/发布时间排序 + SQL 层 LIMIT。
+ * 只取 id/title/type/isPinned/publishedAt 与正文前 100 字符的 summary，不拉整段 content。
+ */
+export async function findAnnouncementsLimited(limit: number) {
+  const now = new Date()
+  return dbRead
+    .select({
+      id: announcements.id,
+      title: announcements.title,
+      type: announcements.type,
+      isPinned: announcements.isPinned,
+      publishedAt: announcements.publishedAt,
+      summary: sql<string | null>`left(${announcements.content}, 100)`.as('summary'),
+    })
+    .from(announcements)
+    .where(announcementVisibilityWhere(now))
+    .orderBy(desc(announcements.isPinned), desc(announcements.publishedAt))
+    .limit(limit)
+}
+
+/**
+ * CLI 版本探测：单次聚合 max(published_at) + count(*)，不拉取任何行。
+ */
+export async function findAnnouncementsVersion(): Promise<{
+  latestAt: Date | null
+  count: number
+}> {
+  const now = new Date()
+  const rows = await dbRead
+    .select({
+      latestAt: sql<Date | null>`max(${announcements.publishedAt})`,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(announcements)
+    .where(announcementVisibilityWhere(now))
+  const row = rows[0]
+  return { latestAt: row?.latestAt ?? null, count: row?.count ?? 0 }
 }
 
 export async function findAnnouncementById(id: string): Promise<Announcement | undefined> {

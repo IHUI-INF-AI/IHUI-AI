@@ -672,12 +672,16 @@ class TestFormatters:
 
 class TestConstants:
     def test_default_priority_order(self):
-        """默认 priority: codebase → knowledge_cards → rag → graph → long_term_memory
-        (2-1c-3 接入 knowledge_cards 第五源)。"""
+        """默认 priority: codebase → knowledge_cards → rag → sag2 → graph → long_term_memory。
+
+        2026-11-09 立:sag2(词法多跳)紧跟 rag,同为文档检索腿 —— 它比图谱的
+        实体关系补充更贴近「答案在哪份文档里」,故排在 graph 之前。
+        """
         assert DEFAULT_PRIORITY == [
             "codebase",
             "knowledge_cards",
             "rag",
+            "sag2",
             "graph",
             "long_term_memory",
         ]

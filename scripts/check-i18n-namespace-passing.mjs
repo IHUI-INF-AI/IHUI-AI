@@ -31,20 +31,23 @@
  *
  * 退出码:
  *   0  无 bug
- *   1  发现 bug(warn 级别,guardian-runner 不阻塞 commit)
+ *   1  发现 bug(blocking,guardian-runner 阻塞 commit)
+ *   2  取材面取不到(未判定)
  *
  * 已知限制:
  *   - JSX 检测用正则,不能解析 `{cond ? <A /> : <B />}` 表达式内的 `<` `>` 符号;
  *     若共享组件的 t prop 出现在含嵌套 JSX 的表达式之后,可能漏报(实际登录组件 props 不含嵌套 JSX,影响可忽略)。
  *   - 仅检测字面量命名空间 useTranslations('xxx'),不检测动态命名空间 useTranslations(varName)。
  *
- * 守门集成:guardian-runner.mjs id=2g-web(warn 模式)
+ * 守门集成:guardian-runner.mjs id=2g-web(blocking 模式)
+ *
+ * 取材面(2026-11-08 修):--staged 档正文读**索引 blob**(与 staged 清单同面),不读工作树。
  */
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { isExcludedDirName } from './lib/exclude-dirs.mjs'
-import { gitRaw } from './lib/face-reader.mjs'
+import { catBatch, gitRaw } from './lib/face-reader.mjs'
 import { COLORS as C } from './lib/logger.mjs'
 
 const ROOT = path.resolve(import.meta.dirname, '..')
@@ -141,13 +144,7 @@ function findTPropUsage(src, compName, varName) {
   return re.test(src)
 }
 
-function scanFile(filePath) {
-  let src
-  try {
-    src = readFileSync(filePath, 'utf8')
-  } catch {
-    return []
-  }
+function scanContent(src) {
   const hooks = extractNamespaceHooks(src)
   if (hooks.length === 0) return []
   const imports = parseUiReactImports(src)
@@ -175,7 +172,7 @@ function main() {
       "检测 useTranslations('xxx') 限定命名空间 + 把 t 传给 @ihui/ui-react 共享登录组件的 bug",
     )
     console.log('共享组件清单:' + [...SHARED_LOGIN_COMPONENTS].join(' / '))
-    console.log('退出码:0 无 bug / 1 发现 bug(warn 级别,不阻塞 commit)')
+    console.log('退出码:0 无 bug / 1 发现 bug(blocking,阻塞 commit) / 2 取材面取不到')
     process.exit(0)
   }
 
@@ -188,7 +185,7 @@ function main() {
     files = staged
       .filter((f) => f.startsWith('apps/web/src/') && f.endsWith('.tsx'))
       .map((f) => path.join(ROOT, f))
-      .filter((f) => existsSync(f))
+    // 不按工作树存在性过滤:staged 档的真相在索引 blob
   } else if (positional) {
     const target = path.resolve(positional)
     if (!existsSync(target)) {
@@ -211,9 +208,36 @@ function main() {
     process.exit(0)
   }
 
+  // 清单与内容同面:--staged 读索引 blob,不读工作树。
+  let stagedTexts = null
+  if (isStaged) {
+    const rels = files.map((f) => path.relative(ROOT, f).replace(/\\/g, '/'))
+    try {
+      stagedTexts = catBatch(ROOT, rels.map((r) => `:${r}`))
+    } catch (e) {
+      console.error(`${C.red}⚠️  索引 blob 取不到,无法判定:${C.reset}${e?.message ?? e}`)
+      process.exit(2)
+    }
+  }
+
   const violations = []
   for (const f of files) {
-    const bugs = scanFile(f)
+    let src
+    if (isStaged) {
+      const rel = path.relative(ROOT, f).replace(/\\/g, '/')
+      src = stagedTexts.get(`:${rel}`)
+      if (src === null || src === undefined) {
+        console.error(`${C.red}⚠️  索引里取不到 ${rel},无法判定${C.reset}`)
+        process.exit(2)
+      }
+    } else {
+      try {
+        src = readFileSync(f, 'utf8')
+      } catch {
+        continue
+      }
+    }
+    const bugs = scanContent(src)
     if (bugs.length > 0) {
       violations.push({ file: path.relative(ROOT, f), bugs })
     }

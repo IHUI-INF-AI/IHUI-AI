@@ -288,7 +288,7 @@ function createStyles(tk: AppThemeTokens) {
       alignSelf: 'flex-start',
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: rnSpacing['2xs'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.bg,
       marginBottom: rnSpacing.sm,
     },

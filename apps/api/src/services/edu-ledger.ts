@@ -33,16 +33,22 @@
  * 让机构看得见"有几笔钱归不到期次",而不是让它在两个期次里各出现一次。
  */
 
-import { and, asc, count, eq, inArray, isNull, or, sql } from 'drizzle-orm'
+import { and, asc, count, eq, inArray, isNull, or, sql, type SQL } from 'drizzle-orm'
 import { eduEnrollment, eduFeeSchedule, eduPaymentRecord, eduRefundRecord } from '@ihui/database'
 import { db } from '../db/index.js'
+import { AppError } from '../errors/AppError.js'
 import { logger } from '../utils/logger.js'
 import { bizDayKey } from '../utils/biz-day.js'
+
+/** 同一事务内可执行的连接/事务句柄(读与写必须落在同一个 tx 上才不会读到旧快照)。 */
+type LedgerExecutor = Pick<typeof db, 'select' | 'update' | 'insert' | 'delete' | 'execute'>
 
 /** 计入"已收"的流水状态。pending/refunded/cancelled 一律不算已缴。 */
 export const PAYMENT_CREDIT_STATUSES: readonly string[] = ['paid']
 /** 已经真金白银退出去的退费状态。 */
 export const REFUND_SETTLED_STATUSES: readonly string[] = ['approved', 'completed']
+/** 计算"该流水还能退多少"时要扣掉的退费状态:驳回/撤销不算占用额度。 */
+export const REFUND_COUNTED_STATUSES: readonly string[] = ['pending', 'approved', 'completed']
 /** 到期前多少天算「即将到期」,与 edu_fee_schedule.grace_days 无关(那是逾期宽限)。 */
 export const DUE_SOON_LEAD_DAYS = 7
 /**
@@ -354,8 +360,11 @@ function todayIso(): string {
  * 把一个报名的原始行读齐后算账。
  * 退费经 payment_id 关联到流水,再取其 schedule_id;关联不上的按"未归属退费"处理。
  */
-export async function loadEnrollmentLedger(enrollmentId: string): Promise<EnrollmentLedger | null> {
-  const [enrollment] = await db
+export async function loadEnrollmentLedger(
+  enrollmentId: string,
+  executor: LedgerExecutor = db,
+): Promise<EnrollmentLedger | null> {
+  const [enrollment] = await executor
     .select({
       totalFee: eduEnrollment.totalFee,
       studentId: eduEnrollment.studentId,
@@ -374,7 +383,7 @@ export async function loadEnrollmentLedger(enrollmentId: string): Promise<Enroll
    * 而顶部注释写的是"仍计入报名级" —— 注释与实现分叉比两处都缺更坏,因为读代码的人会信注释)。
    * 两种情形都由 loadUnattributedPayments 点名,不静默。
    */
-  const [sibling] = await db
+  const [sibling] = await executor
     .select({ n: count() })
     .from(eduEnrollment)
     .where(
@@ -410,7 +419,7 @@ export async function loadEnrollmentLedger(enrollmentId: string): Promise<Enroll
     : eq(eduRefundRecord.enrollmentId, enrollmentId)
 
   const [payments, refunds, schedules] = await Promise.all([
-    db
+    executor
       .select({
         id: eduPaymentRecord.id,
         amount: eduPaymentRecord.amount,
@@ -419,7 +428,7 @@ export async function loadEnrollmentLedger(enrollmentId: string): Promise<Enroll
       })
       .from(eduPaymentRecord)
       .where(and(payOwner, isNull(eduPaymentRecord.deletedAt))),
-    db
+    executor
       .select({
         amount: eduRefundRecord.amount,
         status: eduRefundRecord.status,
@@ -428,7 +437,7 @@ export async function loadEnrollmentLedger(enrollmentId: string): Promise<Enroll
       .from(eduRefundRecord)
       .leftJoin(eduPaymentRecord, eq(eduRefundRecord.paymentId, eduPaymentRecord.id))
       .where(and(refundOwner, isNull(eduRefundRecord.deletedAt))),
-    db
+    executor
       .select({
         id: eduFeeSchedule.id,
         dueDate: eduFeeSchedule.dueDate,
@@ -451,36 +460,66 @@ export async function loadEnrollmentLedger(enrollmentId: string): Promise<Enroll
 }
 
 /**
+ * 批量读取多个报名的账目(DB-20)。
+ *
+ * 口径只保留单条路径一份实现;本函数退化为薄包装,按 id 循环调用单条并透传 executor,
+ * 事务内复用同一 executor,避免嵌套事务/快照分叉。
+ */
+export async function loadEnrollmentLedgers(
+  enrollmentIds: readonly string[],
+  executor: LedgerExecutor = db,
+): Promise<Map<string, EnrollmentLedger>> {
+  const out = new Map<string, EnrollmentLedger>()
+  for (const id of new Set(enrollmentIds)) {
+    const ledger = await loadEnrollmentLedger(id, executor)
+    if (ledger) out.set(id, ledger)
+  }
+  return out
+}
+
+/**
  * 重算并写回派生缓存:enrollment.paid_amount / next_due_date + 各账期摊派值。
  * 这是这两列**唯一的写入口**。读不到报名就返回 null 并留一行日志(不静默成功)。
+ *
+ * 原子性:先在同一事务内对报名行加 FOR UPDATE 行锁,再读账、再写回。
+ * 这样并发重算不会各自拿着旧快照互相覆盖(绝对值写回只有串行化后才安全)。
  */
 export async function recomputeEnrollment(enrollmentId: string): Promise<EnrollmentLedger | null> {
-  const ledger = await loadEnrollmentLedger(enrollmentId)
+  return db.transaction((tx) => recomputeEnrollmentTx(tx, enrollmentId))
+}
+
+/** 事务内版本:调用方已有 tx(如收退款)时复用它,避免嵌套事务/快照分叉。 */
+async function recomputeEnrollmentTx(
+  tx: LedgerExecutor,
+  enrollmentId: string,
+): Promise<EnrollmentLedger | null> {
+  await tx.execute(
+    sql`select id from edu_enrollment where id = ${enrollmentId} and deleted_at is null for update`,
+  )
+  const ledger = await loadEnrollmentLedger(enrollmentId, tx)
   if (!ledger) {
     logger.warn('账目重算跳过:报名不存在或已删除', { enrollmentId })
     return null
   }
-  await db.transaction(async (tx) => {
+  await tx
+    .update(eduEnrollment)
+    .set({
+      paidAmount: ledger.paidAmount,
+      nextDueDate: ledger.nextDueDate,
+      updatedAt: new Date(),
+    })
+    .where(eq(eduEnrollment.id, enrollmentId))
+  for (const o of ledger.schedules) {
     await tx
-      .update(eduEnrollment)
+      .update(eduFeeSchedule)
       .set({
-        paidAmount: ledger.paidAmount,
-        nextDueDate: ledger.nextDueDate,
+        paidAmount: o.paidAmount,
+        refundAmount: o.refundAmount,
+        status: o.status,
         updatedAt: new Date(),
       })
-      .where(eq(eduEnrollment.id, enrollmentId))
-    for (const o of ledger.schedules) {
-      await tx
-        .update(eduFeeSchedule)
-        .set({
-          paidAmount: o.paidAmount,
-          refundAmount: o.refundAmount,
-          status: o.status,
-          updatedAt: new Date(),
-        })
-        .where(eq(eduFeeSchedule.id, o.id))
-    }
-  })
+      .where(eq(eduFeeSchedule.id, o.id))
+  }
   return { ...ledger, enrollmentId }
 }
 
@@ -514,30 +553,33 @@ export async function recordPayment(input: {
   remark?: string | null
   operatorId?: string | null
 }): Promise<{ paymentId: string; ledger: EnrollmentLedger | null }> {
-  const [row] = await db
-    .insert(eduPaymentRecord)
-    .values({
-      studentId: input.studentId,
-      classId: input.classId,
-      enrollmentId: input.enrollmentId,
-      feeId: input.feeId ?? null,
-      scheduleId: input.scheduleId ?? null,
-      amount: input.amount,
-      paymentDate: input.paymentDate,
-      paymentMethod: input.paymentMethod,
-      status: input.status ?? 'paid',
-      receiptNo: input.receiptNo ?? null,
-      remark: input.remark ?? null,
-      operatorId: input.operatorId ?? null,
-    })
-    .returning({ id: eduPaymentRecord.id })
-  if (!row) {
-    // insert...returning 取不到行 = 写没落地,必须抛而不是继续算账
-    // (继续算会产出一个"已重算"的假结论,而那条缴费其实不存在)
-    throw new Error(`缴费写入未返回记录:报名 ${input.enrollmentId}`)
-  }
-  const ledger = await recomputeEnrollment(input.enrollmentId)
-  return { paymentId: row.id, ledger }
+  // 缴费落库与派生账目重算必须在同一事务:任一步失败整体回滚,重试才是可重放的。
+  return db.transaction(async (tx) => {
+    const [row] = await tx
+      .insert(eduPaymentRecord)
+      .values({
+        studentId: input.studentId,
+        classId: input.classId,
+        enrollmentId: input.enrollmentId,
+        feeId: input.feeId ?? null,
+        scheduleId: input.scheduleId ?? null,
+        amount: input.amount,
+        paymentDate: input.paymentDate,
+        paymentMethod: input.paymentMethod,
+        status: input.status ?? 'paid',
+        receiptNo: input.receiptNo ?? null,
+        remark: input.remark ?? null,
+        operatorId: input.operatorId ?? null,
+      })
+      .returning({ id: eduPaymentRecord.id })
+    if (!row) {
+      // insert...returning 取不到行 = 写没落地,必须抛而不是继续算账
+      // (继续算会产出一个"已重算"的假结论,而那条缴费其实不存在)
+      throw new Error(`缴费写入未返回记录:报名 ${input.enrollmentId}`)
+    }
+    const ledger = await recomputeEnrollmentTx(tx, input.enrollmentId)
+    return { paymentId: row.id, ledger }
+  })
 }
 
 /** 撤销一笔缴费(软删)后必须重算,否则欠费永远回不来。 */
@@ -589,46 +631,134 @@ export async function recordRefund(input: {
   enrollmentId: string | null
   ledger: EnrollmentLedger | null
 }> {
-  let ownerEnrollmentId: string | null = null
-  if (input.paymentId) {
-    const [pay] = await db
-      .select({ enrollmentId: eduPaymentRecord.enrollmentId })
-      .from(eduPaymentRecord)
-      .where(and(eq(eduPaymentRecord.id, input.paymentId), isNull(eduPaymentRecord.deletedAt)))
-      .limit(1)
-    ownerEnrollmentId = pay?.enrollmentId ?? null
-  }
-  if (!ownerEnrollmentId) {
-    const siblings = await db
-      .select({ id: eduEnrollment.id })
-      .from(eduEnrollment)
-      .where(
-        and(
-          eq(eduEnrollment.studentId, input.studentId),
-          eq(eduEnrollment.classId, input.classId),
-          isNull(eduEnrollment.deletedAt),
-        ),
+  return db.transaction(async (tx) => {
+    let ownerEnrollmentId: string | null = null
+    if (input.paymentId) {
+      // 锁流水行:并发退费必须串行做额度校验,否则两笔各看剩 1000 都能退 1000
+      await tx.execute(
+        sql`select id from edu_payment_record where id = ${input.paymentId} for update`,
       )
-      .limit(2)
-    if (shouldAdoptUnattributed(siblings.length)) ownerEnrollmentId = siblings[0]?.id ?? null
+      const [pay] = await tx
+        .select({
+          enrollmentId: eduPaymentRecord.enrollmentId,
+          studentId: eduPaymentRecord.studentId,
+          classId: eduPaymentRecord.classId,
+          amount: eduPaymentRecord.amount,
+        })
+        .from(eduPaymentRecord)
+        .where(and(eq(eduPaymentRecord.id, input.paymentId), isNull(eduPaymentRecord.deletedAt)))
+        .limit(1)
+      if (!pay) {
+        throw new AppError('退费关联的缴费流水不存在或已删除', 400, 'EDU_REFUND_PAYMENT_NOT_FOUND')
+      }
+      if (pay.studentId !== input.studentId || pay.classId !== input.classId) {
+        throw new AppError('退费学员/班级与关联缴费流水不一致', 400, 'EDU_REFUND_OWNER_MISMATCH')
+      }
+      const [refunded] = await tx
+        .select({ sum: sql<number>`COALESCE(SUM(${eduRefundRecord.amount}), 0)` })
+        .from(eduRefundRecord)
+        .where(
+          and(
+            eq(eduRefundRecord.paymentId, input.paymentId),
+            isNull(eduRefundRecord.deletedAt),
+            inArray(eduRefundRecord.status, REFUND_COUNTED_STATUSES),
+          ),
+        )
+      const already = Number(refunded?.sum ?? 0)
+      const remaining = Number(pay.amount) - already
+      if (input.amount > remaining) {
+        throw new AppError(
+          `退费金额超限:该缴费流水剩余可退 ${Math.max(0, remaining).toFixed(2)} 元`,
+          400,
+          'EDU_REFUND_OVER_LIMIT',
+        )
+      }
+      ownerEnrollmentId = pay.enrollmentId ?? null
+    }
+    if (!ownerEnrollmentId) {
+      const siblings = await tx
+        .select({ id: eduEnrollment.id })
+        .from(eduEnrollment)
+        .where(
+          and(
+            eq(eduEnrollment.studentId, input.studentId),
+            eq(eduEnrollment.classId, input.classId),
+            isNull(eduEnrollment.deletedAt),
+          ),
+        )
+        .limit(2)
+      if (shouldAdoptUnattributed(siblings.length)) ownerEnrollmentId = siblings[0]?.id ?? null
+    }
+    const [row] = await tx
+      .insert(eduRefundRecord)
+      .values({
+        studentId: input.studentId,
+        classId: input.classId,
+        paymentId: input.paymentId ?? null,
+        enrollmentId: ownerEnrollmentId,
+        amount: input.amount,
+        refundDate: input.refundDate,
+        refundMethod: input.refundMethod ?? null,
+        reason: input.reason,
+        operatorId: input.operatorId ?? null,
+      })
+      .returning()
+    if (!row) throw new Error(`退费写入未返回记录:学员 ${input.studentId}`)
+    const ledger = ownerEnrollmentId ? await recomputeEnrollmentTx(tx, ownerEnrollmentId) : null
+    return { refund: row, enrollmentId: ownerEnrollmentId, ledger }
+  })
+}
+
+/**
+ * 缴费汇总:总收入按「已缴流水 − 已退费」计,已缴人数按学员净缴额 > 0 计。
+ * 退出去的钱必须冲减收入,否则汇总把退款仍算作收入(运营据此扩大投放)。
+ */
+export async function loadPaymentIncomeSummary(
+  executor: LedgerExecutor,
+  classId?: string | null,
+): Promise<{ totalIncome: number; paidStudentCount: number }> {
+  const payConds: SQL[] = [isNull(eduPaymentRecord.deletedAt), eq(eduPaymentRecord.status, 'paid')]
+  const refundConds: SQL[] = [
+    isNull(eduRefundRecord.deletedAt),
+    inArray(eduRefundRecord.status, REFUND_SETTLED_STATUSES),
+  ]
+  if (classId) {
+    payConds.push(eq(eduPaymentRecord.classId, classId))
+    refundConds.push(eq(eduRefundRecord.classId, classId))
   }
-  const [row] = await db
-    .insert(eduRefundRecord)
-    .values({
-      studentId: input.studentId,
-      classId: input.classId,
-      paymentId: input.paymentId ?? null,
-      enrollmentId: ownerEnrollmentId,
-      amount: input.amount,
-      refundDate: input.refundDate,
-      refundMethod: input.refundMethod ?? null,
-      reason: input.reason,
-      operatorId: input.operatorId ?? null,
+
+  const [payment] = await executor
+    .select({ total: sql<number>`COALESCE(SUM(${eduPaymentRecord.amount}), 0)` })
+    .from(eduPaymentRecord)
+    .where(and(...payConds))
+  const [refund] = await executor
+    .select({ total: sql<number>`COALESCE(SUM(${eduRefundRecord.amount}), 0)` })
+    .from(eduRefundRecord)
+    .where(and(...refundConds))
+  const totalIncome = Math.max(0, Number(payment?.total ?? 0) - Number(refund?.total ?? 0))
+
+  const paidRows = await executor
+    .select({
+      studentId: eduPaymentRecord.studentId,
+      total: sql<number>`COALESCE(SUM(${eduPaymentRecord.amount}), 0)`,
     })
-    .returning()
-  if (!row) throw new Error(`退费写入未返回记录:学员 ${input.studentId}`)
-  const ledger = ownerEnrollmentId ? await recomputeEnrollment(ownerEnrollmentId) : null
-  return { refund: row, enrollmentId: ownerEnrollmentId, ledger }
+    .from(eduPaymentRecord)
+    .where(and(...payConds))
+    .groupBy(eduPaymentRecord.studentId)
+  const refundRows = await executor
+    .select({
+      studentId: eduRefundRecord.studentId,
+      total: sql<number>`COALESCE(SUM(${eduRefundRecord.amount}), 0)`,
+    })
+    .from(eduRefundRecord)
+    .where(and(...refundConds))
+    .groupBy(eduRefundRecord.studentId)
+  const refundByStudent = new Map(refundRows.map((r) => [r.studentId, Number(r.total)]))
+  const paidStudentCount = paidRows.filter(
+    (r) => Number(r.total) - (refundByStudent.get(r.studentId) ?? 0) > 0,
+  ).length
+
+  return { totalIncome, paidStudentCount }
 }
 
 /**
@@ -641,29 +771,66 @@ export async function settleRefund(input: {
   approverId?: string | null
   approveRemark?: string | null
 }): Promise<{ enrollmentId: string | null; ledger: EnrollmentLedger | null }> {
-  const [existing] = await db
-    .select({ enrollmentId: eduRefundRecord.enrollmentId })
-    .from(eduRefundRecord)
-    .where(and(eq(eduRefundRecord.id, input.refundId), isNull(eduRefundRecord.deletedAt)))
-    .limit(1)
-  await db
-    .update(eduRefundRecord)
-    .set({
-      status: input.status,
-      approverId: input.approverId ?? null,
-      approveRemark: input.approveRemark ?? null,
-      approveAt: REFUND_SETTLED_STATUSES.includes(input.status) ? new Date() : null,
-      updatedAt: new Date(),
-    })
-    .where(eq(eduRefundRecord.id, input.refundId))
-  if (!existing?.enrollmentId) {
-    logger.warn('退费审批后无法重算账目:该退费记录没有报名归属', { refundId: input.refundId })
-    return { enrollmentId: null, ledger: null }
-  }
-  return {
-    enrollmentId: existing.enrollmentId,
-    ledger: await recomputeEnrollment(existing.enrollmentId),
-  }
+  return db.transaction(async (tx) => {
+    const [existing] = await tx
+      .select({
+        enrollmentId: eduRefundRecord.enrollmentId,
+        paymentId: eduRefundRecord.paymentId,
+      })
+      .from(eduRefundRecord)
+      .where(and(eq(eduRefundRecord.id, input.refundId), isNull(eduRefundRecord.deletedAt)))
+      .limit(1)
+    await tx
+      .update(eduRefundRecord)
+      .set({
+        status: input.status,
+        approverId: input.approverId ?? null,
+        approveRemark: input.approveRemark ?? null,
+        approveAt: REFUND_SETTLED_STATUSES.includes(input.status) ? new Date() : null,
+        updatedAt: new Date(),
+      })
+      .where(eq(eduRefundRecord.id, input.refundId))
+
+    // F-315:该流水累计已退满额后必须推离 'paid',否则汇总/榜单仍把它当已收。
+    // 部分退费不翻状态(流水仍在账上,由退费合计冲减),避免把未退部分也抹掉。
+    if (REFUND_SETTLED_STATUSES.includes(input.status) && existing?.paymentId) {
+      await tx.execute(
+        sql`select id from edu_payment_record where id = ${existing.paymentId} for update`,
+      )
+      const [pay] = await tx
+        .select({ amount: eduPaymentRecord.amount, status: eduPaymentRecord.status })
+        .from(eduPaymentRecord)
+        .where(and(eq(eduPaymentRecord.id, existing.paymentId), isNull(eduPaymentRecord.deletedAt)))
+        .limit(1)
+      if (pay && pay.status === 'paid') {
+        const [total] = await tx
+          .select({ sum: sql<number>`COALESCE(SUM(${eduRefundRecord.amount}), 0)` })
+          .from(eduRefundRecord)
+          .where(
+            and(
+              eq(eduRefundRecord.paymentId, existing.paymentId),
+              isNull(eduRefundRecord.deletedAt),
+              inArray(eduRefundRecord.status, REFUND_SETTLED_STATUSES),
+            ),
+          )
+        if (Number(total?.sum ?? 0) >= Number(pay.amount)) {
+          await tx
+            .update(eduPaymentRecord)
+            .set({ status: 'refunded', updatedAt: new Date() })
+            .where(eq(eduPaymentRecord.id, existing.paymentId))
+        }
+      }
+    }
+
+    if (!existing?.enrollmentId) {
+      logger.warn('退费审批后无法重算账目:该退费记录没有报名归属', { refundId: input.refundId })
+      return { enrollmentId: null, ledger: null }
+    }
+    return {
+      enrollmentId: existing.enrollmentId,
+      ledger: await recomputeEnrollmentTx(tx, existing.enrollmentId),
+    }
+  })
 }
 
 /**

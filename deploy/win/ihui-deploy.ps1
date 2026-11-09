@@ -1455,15 +1455,50 @@ function Get-WebActiveBuildDir {
     return (Join-Path $WebDir '.next')
 }
 function Get-BuildStale {
+    $script:BuildStaleReason = 'build-missing'
     $marker = Join-Path (Get-WebActiveBuildDir) 'IHUI_BUILD_SHA'
     if (-not (Test-Path $marker)) { return $true }                     # 无标记 → 无法证明新鲜 → 重建
     $built = (Get-Content $marker -Raw -ErrorAction SilentlyContinue).Trim()
-    if ($built -notmatch '^[0-9a-f]{7,40}$') { return $true }
+    if ($built -notmatch '^[0-9a-f]{7,40}$') { $script:BuildStaleReason = 'marker-malformed'; return $true }
     & git -C $Root cat-file -e "$built^{commit}" 2>$null
-    if ($LASTEXITCODE -ne 0) { return $true }                          # 标记提交不可达(强推/rebase)→ 重建
+    if ($LASTEXITCODE -ne 0) { $script:BuildStaleReason = 'marker-unreachable'; return $true }  # 标记提交不可达(强推/rebase)→ 重建
     $head = (& git -C $Root rev-parse HEAD 2>&1 | Out-String).Trim()
-    if ($head -notmatch '^[0-9a-f]{7,40}$') { return $true }           # HEAD 不可得 → 保守重建
-    return ($built -ne $head)
+    if ($head -notmatch '^[0-9a-f]{7,40}$') { $script:BuildStaleReason = 'head-unreadable'; return $true }  # HEAD 不可得 → 保守重建
+    if ($built -ne $head) { $script:BuildStaleReason = 'head-advanced'; return $true }
+    # DG-08:构建=HEAD 还不够 —— 必须有一份"健康门禁出过结论"的标记。被杀的轮次会在交换+写
+    # 构建标记之后、门禁出结论之前退出,旧口径下一轮命中"无需部署"直接跳过 ⇒ 未证明健康的
+    # 构建长期在线。这里把「built 但未 healthy」判成"需重建"(重建顺带把门禁完整重跑一遍)。
+    if (Get-HealthUnproven) { $script:BuildStaleReason = 'health-unproven'; return $true }
+    $script:BuildStaleReason = 'fresh'
+    return $false
+}
+function Get-HealthUnproven {
+    # DG-08:"健康是否出过结论"的标记与构建标记同目录(Get-WebActiveBuildDir 同一把尺子)。
+    # 缺失 / 读不出 / sha 不等于当前构建 ⇒ 未证明,返回 $true 由 Get-BuildStale 升级为"需重建"。
+    # 取值方向刻意保守:任何读不出都按"未证明"处理,绝不把"没判"当成"判过"(§0.3)。
+    $dir = Get-WebActiveBuildDir
+    $health = Join-Path $dir 'IHUI_HEALTH_SHA'
+    $builtFile = Join-Path $dir 'IHUI_BUILD_SHA'
+    if (-not (Test-Path $builtFile) -or -not (Test-Path $health)) { return $true }
+    $built = (Get-Content $builtFile -Raw -ErrorAction SilentlyContinue).Trim()
+    $hSha = ''
+    foreach ($line in @(Get-Content $health -ErrorAction SilentlyContinue)) {
+        if ("$line" -match '^\s*sha\s*=\s*([0-9a-f]{7,40})\s*$') { $hSha = $Matches[1] }
+    }
+    if ($built -notmatch '^[0-9a-f]{7,40}$' -or $hSha -notmatch '^[0-9a-f]{7,40}$') { return $true }
+    return ($hSha -ne $built)
+}
+function Set-HealthMarker {
+    param([string]$Verdict = 'pass')
+    # DG-08:只在门禁**出过结论并已放行**时写。verdict 落盘(含既有 pass-unproven / entry-broken
+    # 这两种"放行≠通过"语义 —— 它们各有独立日志与告警登记),让下一轮能区分"结论=false 的
+    # 未证明"与"门禁根本没跑到"(后者标记缺失 ⇒ 重建重跑),同时避免每轮白付整包重建。
+    $dir = Get-WebActiveBuildDir
+    if (-not (Test-Path $dir)) { return }
+    $sha = (& git -C $Root rev-parse HEAD 2>&1 | Out-String).Trim()
+    if ($sha -notmatch '^[0-9a-f]{7,40}$') { return }
+    $text = "sha=$sha`nverdict=$Verdict`nat=$((Get-Date).ToString('o'))"
+    Set-Content -Path "$dir\IHUI_HEALTH_SHA" -Value $text -NoNewline -ErrorAction SilentlyContinue
 }
 function Set-BuildMarker {
     # 标记必须写进「当前活跃色」的构建目录(与 Get-BuildStale 同一把尺子),见 Get-WebActiveBuildDir。
@@ -2701,6 +2736,33 @@ function Get-PendingMigrationCount {
     } catch { $script:PendingMigrationReason = "psql 调用异常:$_"; return $null }
 }
 
+function Invoke-PreMigrateConcurrentIndexes {
+    # DB-11:大表索引必须在 drizzle 单事务迁移**之前**用 CONCURRENTLY 建好。
+    # 迁移里的 CREATE INDEX IF NOT EXISTS 只是兜底:一旦真走到它,会持
+    # SHARE ROW EXCLUSIVE 锁 chat_messages 到 migrate 结束(阻塞在线写入)。
+    # 脚本幂等(只重建 INVALID 索引,正常索引不动),pending 轮次执行安全;
+    # 建索引耗时落在迁移预算(默认 180s)之外。
+    $scriptPath = Join-Path $Root 'packages\database\scripts\manual-sql\20261003103000_chat_messages_created_at_idx_CONCURRENTLY.sql'
+    if (-not (Test-Path $scriptPath)) {
+        Log "WARN  迁移前 CONCURRENTLY 索引脚本缺失,跳过(迁移内 IF NOT EXISTS 兜底可能锁写):$scriptPath"
+        return
+    }
+    $psql = Get-PsqlExe
+    if (-not $psql -or -not $env:DATABASE_URL) {
+        Log 'WARN  psql.exe 或 DATABASE_URL 不可用,跳过迁移前 CONCURRENTLY 索引(迁移内兜底可能锁写)'
+        return
+    }
+    Log 'MIG   迁移前先建大表索引(CONCURRENTLY,不阻塞写入):chat_messages / conversation_message_archives'
+    $out = (& $psql $env:DATABASE_URL -v ON_ERROR_STOP=1 -f $scriptPath 2>&1 | Out-String)
+    $code = $LASTEXITCODE
+    ($out -replace '\s+$', '') | Write-Host
+    if ($code -eq 0) {
+        Log 'MIG   大表索引已就绪(迁移内 IF NOT EXISTS 将转为 no-op)'
+    } else {
+        Log "WARN  迁移前 CONCURRENTLY 索引失败(exit=$code),继续 migrate;兜底语句可能持锁建索引"
+    }
+}
+
 function Test-MigrateOrphans {
     # 孤儿迁移记录检测(2026-09-21 加,实测教训):DB 里出现 created_at > journal 最大 when 的
     # 记录(如孤儿行 created_at=1790006400000 未来时间戳)时,drizzle 按「created_at desc limit 1」
@@ -3057,6 +3119,8 @@ function Invoke-DbMigrate {
             }
             $script:LastMigrationSnapshot = $snap.Path
             Log "MIG   快照可校验:$($snap.Path)($($snap.Detail))"
+            # DB-11:有 pending 才先建大表索引;迁移内 IF NOT EXISTS 仅兜底。
+            Invoke-PreMigrateConcurrentIndexes
         } else {
             Log "MIG   无待应用迁移 ⇒ 跳过迁移前快照(pg_dump 不在无变更轮次制造无用磁盘)"
         }
@@ -3400,7 +3464,7 @@ if ($behind -eq 0 -and -not $deployLatest) {
         Release-DeployLock
         exit 0
     }
-    Log "WARN  触发原因=构建新鲜度:源码未落后但 web 构建非当前提交产物 → 强制重建"
+    Log ("WARN  触发原因={0}:源码未落后但 web 构建不可直接复用 → 强制重建(重建会完整重跑健康门禁)" -f $(if ($script:BuildStaleReason) { $script:BuildStaleReason } else { '构建新鲜度' }))
 }
 if ($dryrun) { Ok "dryrun 模式: behind=$behind,即将部署到本轮远端 tip=$($remoteTip.Substring(0,10))"; Release-DeployLock; exit 0 }
 
@@ -3690,13 +3754,18 @@ if ($webBg) {
     # .next-canary,灰度只认那一份(deploy/win/ihui-canary-gray.ps1 的 $GrayDist)。
     # robocopy 的 0-7 都是成功档(1=有复制),>=8 才是真失败;真失败**不阻断部署**,只让灰度
     # 如实进"未判定"——那一格由 ihui-deploy-loop.ps1 折算成 unknown,不记判定通过。
+    # [GRAY-SLOT-3STATE] 产物在位 ≠ 灰度实例在位(票 L31441):镜像成功只证明「候选产物已在位」,
+    # 灰度实例本身另有「在位 / 不在位 / 未判定」三档。后两档一律是「未判定」,单独出声:
+    # 不折成判定通过、不折成失败、不 advance、不阻断部署(§12e 存量未归零不升 blocking)。
+    # 本段只改这一档的措辞与终态,不动整轮红绿;判据链见 ihui-canary-artifact.mjs /
+    # ihui-canary-stage.mjs,镜像锁 scripts/tests/gray-slot-three-state-lock.test.mjs。
     $grayCanaryDist = Join-Path $WebDir '.next-canary'
     & robocopy.exe "$WebDir\.next-staging" $grayCanaryDist /MIR /R:1 /W:1 /NFL /NDL /NJH /NJS /NP | Out-Null
     $rcRc = $LASTEXITCODE
     if ($rcRc -ge 8) {
-        Log "WARN  灰度产物镜像失败(robocopy exit=$rcRc)⇒ 本轮灰度无产物,档位将按 unknown 处理(不阻断部署)"
+        Log "WARN  [GRAY-SLOT-3STATE] 灰度产物镜像失败(robocopy exit=$rcRc)⇒ 产物不在位这一档:未判定(灰度实例无产物可服务),不折成判定通过、不折成失败、不 advance、不阻断部署(§12e)"
     } else {
-        Log "OK    灰度产物已镜像 .next-staging → .next-canary(robocopy exit=$rcRc;0-7 为成功档)"
+        Log "OK    [GRAY-SLOT-3STATE] 灰度产物已镜像 .next-staging → .next-canary(robocopy exit=$rcRc;0-7 为成功档);产物在位 ≠ 灰度实例在位,灰度实例「不在位 / 未判定」这一档仍单独记为未判定,不折成判定通过、不 advance"
     }
     Remove-Item "$WebDir\$webTargetDist" -Recurse -Force -ErrorAction SilentlyContinue
     Move-Item "$WebDir\.next-staging" "$WebDir\$webTargetDist"
@@ -3962,13 +4031,11 @@ try {
 #   ① 构建失败在交换**之前**就已 exit 1(见上方 catch 段),失败的构建永远走不到这里 ⇒ 不落标记;
 #   ② 门禁未过 → Do-Rollback 用 .rollback 整份副本替换 .next,而 .rollback 自带上一份成功标记
 #      (实测两文件同为 bed001c83c…)⇒ 回滚后标记 = 上一个成功 sha,既没消失也没假指 HEAD。
-# 如实登记新残余:被杀的轮次现在会留下"标记=HEAD 但健康未经证明"。且**下一轮不会重新走门禁**
-# —— behind=0 且 marker==HEAD 会命中主流程那条 `if ($behind -eq 0 -and -not $deployLatest
-#    -and -not (Get-BuildStale))` 的"无需部署"跳过判定,整轮不跑。这与旧行为的差别是:
-# 旧的要付一次 7–13 分钟整包重建(重建顺带把门禁重跑了一遍),新的不付,代价是那段时间
-# 没有人证明过这个构建活着。要闭掉这一格需要第二份 .next/IHUI_INSTALLED_SHA 并把
-# Get-BuildStale 拆成"需重建 / 只需重新验证 / 跳过"三态(改上面那条跳过判定),属更大的
-# 控制流改动,已作为补丁提案单独登记,未随本票写入。
+# DG-08(2026-11-08 闭合):被杀的轮次会留下"标记=HEAD 但健康未出结论"。现在另写一份
+# .next/IHUI_HEALTH_SHA(sha + verdict + at),由 Get-BuildStale 在"构建=HEAD"之后再复核:
+# 健康标记缺失 / 读不出 / sha 不等于当前构建 ⇒ 判"需重建"(重建顺带把健康门禁完整重跑一遍),
+# 下一轮不会再命中"无需部署"跳过判定。门禁一旦出过结论(含既有 pass-unproven / entry-broken
+# 的放行语义,它们各自有独立日志与告警)就写标记,避免每轮白付 7–13 分钟整包重建。
 Set-BuildMarker
 
 # ── G-204 独立构建证明(拍板@2026-10-07 机主选 B,2026-10-13 落地)──────────────
@@ -4009,7 +4076,12 @@ if ($script:DeployWindowEnabled -and $script:DeployWindowRunId) {
 }
 Log "健康门禁检查"
 if (-not (Test-HealthGate)) {
-    if ($force) { Log "force=true,忽略门禁直接切流(违规操作,请确认)" }
+    if ($force) {
+        Log "force=true,忽略门禁直接切流(违规操作,请确认)"
+        # DG-08:强制切流也是"本轮已有结论"(虽然是否决被豁免),必须落健康标记,否则下一轮会
+        # 因"built 但未 healthy"每轮白付一次整包重建。verdict=forced 供事后定论。
+        Set-HealthMarker -Verdict 'forced'
+    }
     else {
         # 2026-09-21 根治:回滚属于失败轮,不再 Set-BuildMarker(旧逻辑导致 marker=HEAD
         # 误判新鲜永久跳过);改记冷却,30 分钟后自动重试。
@@ -4049,6 +4121,12 @@ if (-not (Test-HealthGate)) {
         exit 0
     }
 } else {
+    # DG-08:门禁已返回结论 ⇒ 立刻落健康标记(built/healthy 两态同目录同 sha)。
+    # 这里刻意放在逐维结论分支之前:即使本轮是 pass-unproven / entry-broken(放行≠通过,
+    # 各自在下方有独立日志与告警),结论确实跑过了,下一轮不应再把它当"没判"重复重建。
+    if ($script:HealthGateUnproven) { Set-HealthMarker -Verdict 'pass-unproven' }
+    elseif ($script:HealthGateEntryBroken) { Set-HealthMarker -Verdict 'entry-broken' }
+    else { Set-HealthMarker -Verdict 'pass' }
     # 放行 ≠ 通过(2026-10-19):门禁从未拿到过一次三项全绿时,本轮发布"是否活着"没人证明过。
     # 旧写法在这里无条件打印「健康门禁通过,部署成功」,把 §0.3 禁的"没判"记成了"判过"——
     # 现读一次真实发布:8 轮里 web pass=0 / fail=5 / unknown=3,末轮只剩 unknown 就够走到这一行。
@@ -4281,6 +4359,35 @@ if (-not (Test-HealthGate)) {
         Where-Object { $null -ne (Get-Service -Name $_ -ErrorAction SilentlyContinue) } |
         Select-Object -First 1
     if ($aiName) {
+        # ── 签到批次节流(2026-11-04 立;范围只此一处)───────────────────────────────
+        # 立因:08:05 主窗口批次跑到 08:06:58,08:06:59 本轮部署重启 ai-service 把进程
+        # 优雅关闭 ⇒ 第 6 个号之后的账号当天不再有人管(部署环不知道批次在跑)。
+        # 只做一件事:批次执行中(含错峰等待)推迟重启,等待上限 900s;超限或状态读
+        # 不到时**照常部署并显式告警**,不无限拖、不静默跳过。蓝绿/健康门禁/快照/
+        # 验收等语义一律不动;节流只发生在重启这一行之前。
+        # 判据、fail-closed 口径与 900s 依据见 deploy/win/lib/checkin-batch-gate.ps1 头注。
+        $checkinGateLib = Join-Path $PSScriptRoot 'lib\checkin-batch-gate.ps1'
+        if (Test-Path -LiteralPath $checkinGateLib) {
+            . $checkinGateLib
+            $markerPath = Get-IhuiCheckinBatchMarkerPath -Root $Root
+            $preGate = Read-IhuiCheckinBatchMarker -Path $markerPath -StaleSeconds 180
+            if ($preGate.State -eq 'fresh') {
+                Log ("[CHECKIN-GATE] 签到批次执行中(batch={0} 心跳年龄 {1}s)⇒ 推迟重启,上限 900s(marker={2})" -f `
+                        $preGate.Batch, $preGate.AgeSeconds, $markerPath)
+            }
+            $gate = Wait-IhuiCheckinBatchIdle -Path $markerPath -MaxWaitSeconds 900 -PollSeconds 10 -StaleSeconds 180 `
+                -HeartbeatCallback { Update-DeployLockHeartbeat } `
+                -ProgressCallback { param($w) Log ("[CHECKIN-GATE] 等待签到批次结束:已等 {0}s / 上限 900s(marker=$markerPath)" -f $w) }
+            if ($gate.Severity -eq 'alert') {
+                Log ("[CHECKIN-GATE] ALERT " + $gate.Message)
+            } elseif ($gate.Severity -eq 'warn') {
+                Log ("[CHECKIN-GATE] WARN  " + $gate.Message)
+            } else {
+                Log ("[CHECKIN-GATE] " + $gate.Message)
+            }
+        } else {
+            Log ("[CHECKIN-GATE] WARN  缺 deploy\win\lib\checkin-batch-gate.ps1 ⇒ 批次节流未启用,照常重启 ai-service")
+        }
         Log "重启 ai-service 服务($aiName)使 AI 新代码生效"
         # 给部署后验收用的「重启锚点」:验收断言 a) 要求 checkin 注册行出现在这个时刻之后。
         $script:AiRestartIso = (Get-Date).ToString('o')

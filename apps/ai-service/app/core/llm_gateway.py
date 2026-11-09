@@ -1395,7 +1395,9 @@ async def _resolve_auto_model(
         all_models: list[dict[str, Any]] = []
         if default_file.exists():
             try:
-                raw = json.loads(default_file.read_text(encoding="utf-8"))
+                raw = json.loads(
+                    await asyncio.to_thread(default_file.read_text, encoding="utf-8")
+                )
                 for m in raw.get("models", []):
                     if isinstance(m, dict) and m.get("id"):
                         all_models.append(m)
@@ -2596,6 +2598,16 @@ class LLMGateway:
                         used_model,
                         e,
                     )
+                except Exception as e:  # noqa: BLE001 - 原生适配器异常统一降级
+                    # AIS-065:原生适配器不只抛 ProviderError(httpx/JSON/取值错误
+                    # 会直接冒到路由成 500),旧实现只捕 ProviderError ⇒ fallback 失效。
+                    # 这里统一降级;CancelledError 属 BaseException 不会被吞。
+                    logger.warning(
+                        "厂商适配器异常(model=%s, %s): %s, fallback LiteLLM",
+                        used_model,
+                        type(e).__name__,
+                        e,
+                    )
 
         if self._is_stub_mode():
             db_result = await _resolve_from_db(used_model, owner_uuid)
@@ -3188,25 +3200,25 @@ class LLMGateway:
     # litellm 路径直接忽略 delta.tool_calls,导致调用方拿不到完整工具参数。
     # 统一改为按 index 累积,由 astream 在流结束前以完整 tool_calls 事件产出。
     @staticmethod
-    def _accumulate_tool_calls(
+    def _normalize_tool_call_fragments(
         acc: dict[int, dict[str, Any]],
         fragments: list[Any],
-    ) -> None:
-        """累积流式 tool_calls 分片为完整工具调用列表。
+    ) -> list[tuple[int, dict[str, Any]]]:
+        """把单批 tool_calls 分片归一为 `(index, dict)` 序列。
 
-        OpenAI 流式 function calling 分片规则:
-        - 同一 index 的首个分片携带 id/type/function.name,arguments 从首段开始;
-        - 后续分片仅含该 index 的 arguments 增量片段(可能跨多个 chunk);
-        - 因此同 index 的 id/type 直接覆盖,function.name 直接覆盖,function.arguments 字符串拼接。
+        2026-11-05 立(逐分片直推):index 分配判据**只有这一份** —— `_accumulate_tool_calls`
+        与 `tool_call_args_stream` 逐片腿共用,避免两处对「缺 index 的分片」分配出不同下标,
+        导致前端按 index 建的卡片与完整 tool_calls 终态错配。返回的 dict 必带 index 键。
 
         支持两种分片形态:
         - provider 适配器产出的 dict 列表(openai_provider/stepfun_provider 的 tool_call 事件);
         - litellm delta.tool_calls 对象列表(遍历时归一化为 dict 再处理)。
 
         Args:
-            acc: 累积字典 {index: 已合并的工具调用 dict},调用方在流开始时初始化。
+            acc: 累积字典 {index: 已合并的工具调用 dict},用于缺 index 时分配递增序号。
             fragments: 单个 chunk 内的 tool_calls 分片列表。
         """
+        out: list[tuple[int, dict[str, Any]]] = []
         for frag in fragments:
             if frag is None:
                 continue
@@ -3231,6 +3243,92 @@ class LLMGateway:
             # arguments 被错误拼接),故缺 index 时自动分配递增序号。
             if "index" not in frag or frag.get("index") is None:
                 idx = max(acc.keys()) + 1 if acc else 0
+                frag = {**frag, "index": idx}
+            out.append((idx, frag))
+        return out
+
+    @staticmethod
+    def _tool_call_args_delta_frames(
+        store: dict[int, Any],
+        normalized: list[tuple[int, dict[str, Any]]],
+        *,
+        provider: str = '',
+        model: str = '',
+        start_ts: float | None = None,
+    ) -> list[dict[str, Any]]:
+        """逐片直推腿:每片 arguments 到达即产一条 `tool-call-args-delta` 事件。
+
+        复用 app/utils/tool_call_args.py 的 `accumulate_tool_call_arguments`(标准库自研的
+        流式 JSON 修复),残缺/截断的 arguments 也能给出当前最好可用的部分对象,前端
+        ToolCallCard 因此可在流未结束时渐进渲染入参。store 按本次 astream 调用独立持有,
+        绝不跨会话共享。事件名与 payload 字段由 sse_contract.py 的契约看护。
+
+        2026-11-05 可观测性:每批帧产出后上报埋点(分片数 + 首片时延),让生产可见
+        "渐进渲染是否真在发生"。provider/model 由调用点透传,start_ts 取本轮 astream 开启时刻。
+        """
+        # 函数级 import:core 不模块级依赖 utils 之外的应用层,且与本仓既有
+        # 「函数级 import 防环」写法同形。
+        from app.utils.tool_call_args import accumulate_tool_call_arguments
+
+        frames: list[dict[str, Any]] = []
+        for idx, frag in normalized:
+            fn = frag.get("function") or {}
+            fn = fn if isinstance(fn, dict) else {}
+            name = fn.get("name") or ""
+            piece = fn.get("arguments") or ""
+            if not isinstance(piece, str):
+                # 与 _accumulate_tool_calls 同款:gemini/ollama 等形态 arguments 为 dict
+                try:
+                    piece = json.dumps(piece, ensure_ascii=False)
+                except (TypeError, ValueError):
+                    piece = ""
+            state = accumulate_tool_call_arguments(store, idx, name, piece)
+            frames.append({
+                "type": "tool-call-args-delta",
+                "index": idx,
+                "id": frag.get("id") or "",
+                "name": name,
+                "args": state.get("args"),
+                "argsComplete": bool(state.get("complete")),
+                "argsPartial": bool(state.get("partial")),
+            })
+        # 2026-11-05 可观测性:分片数 + 首片时延(从流开启到本批首片;单批时首片≈末片)。
+        if frames:
+            try:
+                from app.middleware.llm_metrics import record_tool_call_args_delta
+
+                _first_byte = (
+                    time.perf_counter() - start_ts
+                    if start_ts is not None
+                    else 0.0
+                )
+                record_tool_call_args_delta(
+                    provider=provider,
+                    model=model,
+                    frame_count=len(frames),
+                    first_byte_seconds=_first_byte,
+                )
+            except Exception:  # 埋点失败绝不阻断主链路(与 llm_metrics 其他埋点同纪律)
+                logger.debug("tool-call-args-delta 指标上报失败(已忽略)")
+        return frames
+
+    @staticmethod
+    def _accumulate_tool_calls(
+        acc: dict[int, dict[str, Any]],
+        fragments: list[Any],
+    ) -> None:
+        """累积流式 tool_calls 分片为完整工具调用列表。
+
+        OpenAI 流式 function calling 分片规则:
+        - 同一 index 的首个分片携带 id/type/function.name,arguments 从首段开始;
+        - 后续分片仅含该 index 的 arguments 增量片段(可能跨多个 chunk);
+        - 因此同 index 的 id/type 直接覆盖,function.name 直接覆盖,function.arguments 字符串拼接。
+
+        Args:
+            acc: 累积字典 {index: 已合并的工具调用 dict},调用方在流开始时初始化。
+            fragments: 单个 chunk 内的 tool_calls 分片列表。
+        """
+        for idx, frag in LLMGateway._normalize_tool_call_fragments(acc, fragments):
             entry = acc.setdefault(idx, {
                 "index": idx,
                 "id": "",
@@ -3263,6 +3361,10 @@ class LLMGateway:
         owner_uuid: str | None = None,
         billing_user_id: str | None = None,
         conversation_id: str | None = None,
+        # 2026-11-05 立(逐分片直推):默认 False ⇒ 逐片事件一帧不产,既有 astream
+        # 消费方与断言零行为变化。需要渐进渲染的通道(llm.py generic 原生 FC 转发)
+        # 显式置 True,每片 arguments 到达即多产一条 tool-call-args-delta。
+        tool_call_args_stream: bool = False,
         _call_route: str = "direct",
         _call_route_primary: str | None = None,
         _combo_name: str | None = None,
@@ -3336,6 +3438,8 @@ class LLMGateway:
                 # 2026-08-29 修复:tool_calls 分片累积(此前把分片事件直接透传,
                 # 调用方拿不到完整参数)。分片不透传,循环结束后统一 yield。
                 native_tool_acc: dict[int, dict[str, Any]] = {}
+                # 逐分片直推腿:按本次 astream 调用独立持有,不跨会话共享。
+                native_tool_args_store: dict[int, Any] = {}
                 # 观测收口(2026-10-18):原生流式路径此前零埋点(调用/token/成本
                 # 全不入 ihui_llm_*,与 LiteLLM 流式路径双标)。usage 由厂商适配器
                 # 的 done 事件携带(如 alibaba_dashscope yield {"type":"done","usage":...}),
@@ -3349,6 +3453,11 @@ class LLMGateway:
                 # 未测量首 token 耗时,导致 ihui_llm_ttft_seconds 在 stepfun/工具
                 # 原生路径上永不产出(与 LiteLLM 分支双标)。首个内容事件即记 TTFT。
                 _native_ttft: float | None = None
+                # AIS-002/003:终态信号显式记录。上游"已发内容后再报 error"与
+                # "从未发 done"都不是成功,不能按正常耗尽记账/落 success 流水。
+                _native_errored = False
+                _native_error_message = ""
+                _native_saw_done = False
                 # 借来的异步生成器必须"谁借谁关":下面 error→fallback 分支那句
                 # `yield …; return` 就是把 astream_iter 弃在半路的一型 —— 它此刻仍停在
                 # provider 的 `async with client.stream(...)` 内部(见
@@ -3377,6 +3486,10 @@ class LLMGateway:
                                     native_sent_content,
                                     str(evt.get("message", ""))[:300],
                                 )
+                                _native_errored = True
+                                _native_error_message = str(
+                                    evt.get("message", "") or ""
+                                )[:2000]
                             if (
                                 isinstance(evt, dict)
                                 and evt.get("type") == "error"
@@ -3418,17 +3531,37 @@ class LLMGateway:
                                     yield fb_evt
                                 return
                             if isinstance(evt, dict) and evt.get("type") == "tool_call":
-                                # 2026-08-29 修复:tool_call 分片按 index 累积,不透传
-                                self._accumulate_tool_calls(
-                                    native_tool_acc, evt.get("tool_calls") or []
-                                )
+                                # 2026-08-29 修复:tool_call 分片按 index 累积,不透传。
+                                # 2026-11-05:开启逐分片直推时,先按同一份归一化判据取
+                                # (index, frag),逐片产 args 态帧,再用**带 index 的同一批
+                                # frag** 累积 —— 两腿下标恒一致,前端卡片不会错配。
+                                _native_frags = evt.get("tool_calls") or []
+                                if tool_call_args_stream:
+                                    _normalized = self._normalize_tool_call_fragments(
+                                        native_tool_acc, _native_frags
+                                    )
+                                    for _delta in self._tool_call_args_delta_frames(
+                                        native_tool_args_store,
+                                        _normalized,
+                                        provider=_metrics_provider(used_model),
+                                        model=used_model,
+                                        start_ts=_native_metrics_t0,
+                                    ):
+                                        yield _delta
+                                    self._accumulate_tool_calls(
+                                        native_tool_acc, [f for _, f in _normalized]
+                                    )
+                                else:
+                                    self._accumulate_tool_calls(native_tool_acc, _native_frags)
                                 continue
                             if isinstance(evt, dict) and evt.get("type") in ("chunk", "reasoning"):
                                 native_sent_content = True
                                 if _native_ttft is None:
                                     _native_ttft = time.perf_counter() - _native_metrics_t0
+                            if isinstance(evt, dict) and evt.get("type") == "done":
+                                _native_saw_done = True
                             if isinstance(evt, dict) and evt.get("usage"):
-                                _native_final_usage = evt["usage"]
+                                _native_final_usage = normalize_usage(evt["usage"])
                                 _native_usage_from_upstream = True
                             yield evt
                 finally:
@@ -3440,6 +3573,49 @@ class LLMGateway:
                 # 观测收口(2026-10-18):正常耗尽的出口统一补埋点(错误出口已由
                 # fallback/外层 except 各自记账,不在此重复);usage 取不到时
                 # litellm.token_counter 估算兜底,成本走 _estimate_cost_usd 同口径。
+                if _native_errored:
+                    # AIS-002:已发内容后上游报 error 仍是失败 —— 旧实现无条件按
+                    # "正常耗尽"记 status=ok 并落 success 流水,把失败请求计入
+                    # 可用性/健康度与成本口径。这里改为 error,且不再写 success 行。
+                    _native_err_usage = _native_final_usage or {}
+                    record_llm_outcome(
+                        _metrics_provider(used_model),
+                        used_model,
+                        status='error',
+                        usage=_native_err_usage,
+                        duration_seconds=time.perf_counter() - _native_metrics_t0,
+                        ttft_seconds=_native_ttft,
+                        cost_usd=_estimate_cost_usd(used_model, _native_err_usage),
+                    )
+                    _emit_llm_call_log(
+                        billing_user_id=billing_user_id,
+                        model=used_model,
+                        provider=_metrics_provider(used_model),
+                        status="error",
+                        messages=trimmed_messages,
+                        response_text=None,
+                        usage=_native_err_usage,
+                        duration_seconds=time.perf_counter() - _native_metrics_t0,
+                        ttft_seconds=_native_ttft,
+                        cost_usd=_estimate_cost_usd(used_model, _native_err_usage),
+                        cost_source="price_table",
+                        attempt=_pool_retry,
+                        call_route="native",
+                        leg_primary=_call_route_primary,
+                        combo_name=_combo_name,
+                        native_adapter=True,
+                        model_requested=model,
+                        conversation_id=conversation_id,
+                        error_message=_native_error_message or "native stream error",
+                    )
+                    if native_tool_acc:
+                        yield {
+                            "type": "tool_calls",
+                            "tool_calls": [
+                                native_tool_acc[k] for k in sorted(native_tool_acc)
+                            ],
+                        }
+                    return
                 if _native_final_usage is None:
                     try:
                         import litellm as _litellm_for_counter
@@ -3592,6 +3768,8 @@ class LLMGateway:
             # 2026-08-29 修复:litellm 流式 tool_calls 分片累积器(带 tools 的 astream 用),
             # 循环内累积 delta.tool_calls,流结束前统一以 tool_calls 事件产出。
             litellm_tool_acc: dict[int, dict[str, Any]] = {}
+            # 逐分片直推腿:与 native 路径同形,按本次调用独立持有。
+            litellm_tool_args_store: dict[int, Any] = {}
             _guard_fallback = False
             # G-425(2026-10-07 立,默认档"只提示"):最后一个非空 finish_reason(litellm
             # 在最终 chunk 的 choices[0].finish_reason 上给 length/stop/tool_calls/…),
@@ -3643,7 +3821,24 @@ class LLMGateway:
                         # 带 tools 的 astream 拿不到 LLM 工具决策。分片按 index 累积。
                         delta_tool_calls = getattr(delta, "tool_calls", None)
                         if delta_tool_calls:
-                            self._accumulate_tool_calls(litellm_tool_acc, delta_tool_calls)
+                            if tool_call_args_stream:
+                                # litellm 分片是对象列表,归一化判据与累积腿共用一份
+                                _normalized = self._normalize_tool_call_fragments(
+                                    litellm_tool_acc, delta_tool_calls
+                                )
+                                for _delta in self._tool_call_args_delta_frames(
+                                    litellm_tool_args_store,
+                                    _normalized,
+                                    provider=_metrics_provider(used_model),
+                                    model=used_model,
+                                    start_ts=_metrics_t0,
+                                ):
+                                    yield _delta
+                                self._accumulate_tool_calls(
+                                    litellm_tool_acc, [f for _, f in _normalized]
+                                )
+                            else:
+                                self._accumulate_tool_calls(litellm_tool_acc, delta_tool_calls)
                     if hasattr(chunk, "usage") and chunk.usage:
                         try:
                             final_usage = (

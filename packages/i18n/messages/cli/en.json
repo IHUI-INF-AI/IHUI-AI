@@ -325,6 +325,7 @@
     "sourceDirs": "      Common export directories: {dirs}",
     "backendDoesParsing": "\n  Parsing and storage happen on the backend; the CLI only uploads files and shows metadata.",
     "noneDiscovered": "  No export files found (scanned {scanned})",
+    "scanIncomplete": "  Scan did not complete (cannot read {source} directory; this is not \"no export files\"); check permissions and retry.",
     "hintParse": "\n  Import: ihui import sessions parse <source> <file path>",
     "hintCommit": "  Commit: ihui import sessions commit {source} \"{abs}\" --all (or --only 1,3)",
     "scopeRequired": "Specify the import scope explicitly: --all or --only <index>.",

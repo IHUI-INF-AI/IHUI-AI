@@ -2,6 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 import { Image, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { ChevronDown, Maximize2, Scissors, Settings, Sparkles } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { rnGeometry, rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import type { TFunction } from '@ihui/types'
@@ -141,7 +142,7 @@ export function ChatActionBar({
             <Text style={styles.modelName} numberOfLines={1}>
               {modelLabel}
             </Text>
-            {onShowModelList ? <Text style={styles.modelChevron}>▾</Text> : null}
+            {onShowModelList ? <ChevronDown size={12} color={tk.text.tertiary} /> : null}
           </Pressable>
           {onShowModelConfig ? (
             <TouchableOpacity
@@ -150,7 +151,7 @@ export function ChatActionBar({
               hitSlop={4}
               accessibilityLabel={t('bab.modelConfig')}
             >
-              <Text style={styles.configGlyph}>⚙</Text>
+              <Settings size={14} color={tk.text.tertiary} />
             </TouchableOpacity>
           ) : null}
         </View>
@@ -223,7 +224,7 @@ export function ChatActionBar({
             onPress={onCompactContext}
             accessibilityLabel={t('messageInput.compactButton')}
           >
-            <Text style={styles.actionGlyph}>✂</Text>
+            <Scissors size={16} color={tk.text.secondary} />
             <Text style={styles.actionText} numberOfLines={1}>
               {t('messageInput.compactButton')}
             </Text>
@@ -258,7 +259,7 @@ export function ChatActionBar({
               onPress={onFangda}
               accessibilityLabel={t('bab.enlarge')}
             >
-              <Text style={styles.iconGlyph}>⛶</Text>
+              <Maximize2 size={16} color={tk.text.secondary} />
             </TouchableOpacity>
           ) : null}
           {onShowMyCreation ? (
@@ -267,7 +268,7 @@ export function ChatActionBar({
               onPress={onShowMyCreation}
               accessibilityLabel={t('common.myCreation')}
             >
-              <Text style={styles.iconGlyph}>✦</Text>
+              <Sparkles size={16} color={tk.text.secondary} />
             </TouchableOpacity>
           ) : null}
         </View>
@@ -318,21 +319,11 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.tertiary,
       flexShrink: 1,
     },
-    modelChevron: {
-      fontSize: rnType.badge.size,
-      lineHeight: rnType.badge.lineHeight,
-      color: tk.text.tertiary,
-    },
     configBtn: {
       width: rnGeometry.tapBox,
       height: rnGeometry.tapBox,
       alignItems: 'center',
       justifyContent: 'center',
-    },
-    configGlyph: {
-      fontSize: rnType.label.size,
-      lineHeight: rnType.label.lineHeight,
-      color: tk.text.tertiary,
     },
     imageRow: {
       flexDirection: 'row',
@@ -378,7 +369,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       gap: rnSpacing.xs,
       paddingHorizontal: rnSpacing.lg,
-      borderRadius: rnRadius.lg,
+      borderRadius: rnRadiusFor.control,
       backgroundColor: tk.surface.light,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -402,7 +393,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.light,
     },
     toggleChipActive: {
-      borderColor: tk.brand.DEFAULT,
+      borderColor: tk.brandAccent.DEFAULT,
       backgroundColor: tk.surface.muted,
     },
     toggleText: {

@@ -24,6 +24,7 @@ from __future__ import (
     annotations,  # 2026-07-23:SkillRegistry.list() 方法名 shadow 内置 list,注解 lazy 化避免 class body 内 list[Skill] 求值失败
 )
 
+import asyncio
 import json
 import logging
 import os
@@ -33,7 +34,10 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
+from app.utils.atomic_io import write_text_atomic
+
 from .skill_md import parse_skill_md
+from .skill_scope import parse_allowed_tools
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +68,10 @@ class Skill:
     source: str = "builtin"  # builtin / auto / ai-top
     source_url: str = ""  # GitHub 链接(ai-top 类别)
     available: bool = True  # True=真集成可调用,False=元数据占位
+    # Qoder 行为对齐(2026-11-08):SKILL.md frontmatter 的 allowed-tools 声明由此
+    # 进入运行期,由 app/services/skill_scope.py 转成会话级收窄条件。
+    # 空元组 = 不产生任何收窄(内置 6 + AI TOP 19 个技能均为空,接线前后零差异)。
+    allowed_tools: tuple[str, ...] = ()
 
     def render(self, variables: dict[str, Any] | None = None) -> str:
         """使用 variables 渲染 prompt_template(简单 {key} 替换)。"""
@@ -795,17 +803,28 @@ class SkillRegistry:
             except OSError as e:
                 logger.warning("skills._load_auto_skills 读取 skill 文件失败(path=%s): %s", path, e, exc_info=True)
                 continue
-            name, desc, instructions = self._parse_skill_md(content)
+            _parsed = parse_skill_md(content)
+            name, desc, instructions = (
+                _parsed.name,
+                _parsed.description,
+                _parsed.instructions,
+            )
             if not name:
                 logger.warning("skills._load_auto_skills 跳过无 name 的 skill(path=%s)", path)
                 self._auto_files.pop(path, None)
                 continue
+            # 2026-11-08:frontmatter 的 allowed-tools 不再丢弃。auto 技能是
+            # 唯一可能带这一声明的来源;内置/ai-top 技能没有该字段,保持空元组。
+            allowed_tools = parse_allowed_tools(
+                _parsed.extra.get("allowed-tools") or _parsed.extra.get("allowed_tools")
+            )
             self._skills[name] = Skill(
                 name=name,
                 description=desc,
                 prompt_template=instructions,
                 source="auto",
                 category="auto",
+                allowed_tools=allowed_tools,
             )
             self._auto_names.add(name)
             self._auto_files[path] = (mtime, name)
@@ -1009,8 +1028,11 @@ class SkillEvolutionService:
                 task_id=str(request.get("taskId", "")),
                 related=parsed.get("relatedSkills", []),
             )
-            with open(os.path.join(auto_dir, f"{skill_name}.md"), "w", encoding="utf-8") as f:
-                f.write(md)
+            await asyncio.to_thread(
+                write_text_atomic,
+                os.path.join(auto_dir, f"{skill_name}.md"),
+                md,
+            )
             skill_registry.reload_auto()
             # P3-2:落盘后初始化反馈追踪(SkillFeedbackTracker 单例,空统计,
             # 等待首次使用记录;get_stats 对未知 skill 返回零值统计)

@@ -1,0 +1,102 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+name: Agent Capability Eval
+
+# =============================================================================
+# Agent 能力评测基线门禁
+#
+# 跑 benchmarks/agent-capability/run.mjs：固定任务集 + 录制回放，不访问真实模型。
+# 与仓库基线机械比较：退化 exit 1，口径变化 exit 2（需人工刷新基线）。
+# 同一代码重复运行结果逐字节相同（快照 sha256 打在日志里）。
+# =============================================================================
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'benchmarks/agent-capability/**'
+      - 'apps/cli/src/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'knip.jsonc'
+      - '.github/workflows/agent-capability-eval.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'benchmarks/agent-capability/**'
+      - 'apps/cli/src/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'knip.jsonc'
+      - '.github/workflows/agent-capability-eval.yml'
+
+concurrency:
+  # 与 ci.yml 同口径：main 上不取消（required check 不接受 cancelled），非 main 收敛陈旧 run。
+  group: "agent-capability-eval-${{ github.ref == 'refs/heads/main' && github.run_id || github.ref }}"
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  eval:
+    name: Agent 能力评测基线
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        id: checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup pnpm
+        id: setup-pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+
+      - name: Setup Node
+        id: setup-node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          # 不吃 cache: 'pnpm'：仓内 storeDir 是 Windows 绝对路径，Linux 上会被当相对路径
+          # 造出 `D:` 未跟踪目录（同 knip.yml 立因）。缓存路径由下面显式钉在检出之外。
+      - name: Cache pnpm store (outside checkout)
+        id: store-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ runner.temp }}/pnpm-store
+          key: pnpm-store-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            pnpm-store-${{ runner.os }}-
+
+      - name: Install dependencies
+        id: install
+        run: pnpm install --frozen-lockfile --store-dir="${{ runner.temp }}/pnpm-store"
+
+      # runner 自己会把 vitest 解析到 apps/cli/node_modules（不提升到根 node_modules）。
+      # 退出码就是判据：0 无退化 / 1 退化 / 2 口径变化，不额外加 continue-on-error。
+      - name: Run agent capability eval
+        id: eval
+        run: node benchmarks/agent-capability/run.mjs
+
+      - name: Failure triage (public annotations)
+        id: failure-triage
+        if: failure()
+        env:
+          TRIAGE_WORKFLOW_FILE: .github/workflows/agent-capability-eval.yml
+          TRIAGE_IDS: checkout setup-pnpm setup-node store-cache install eval
+          O_CHECKOUT: ${{ steps.checkout.outcome }}
+          O_SETUP_PNPM: ${{ steps.setup-pnpm.outcome }}
+          O_SETUP_NODE: ${{ steps.setup-node.outcome }}
+          O_STORE_CACHE: ${{ steps.store-cache.outcome }}
+          O_INSTALL: ${{ steps.install.outcome }}
+          O_EVAL: ${{ steps.eval.outcome }}
+        run: bash scripts/ci-failure-triage.sh
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

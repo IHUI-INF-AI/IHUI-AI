@@ -10,6 +10,7 @@
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { writeFileAtomicSync } from '../util/atomic-write.js';
 
 export interface LongTermEntry {
   text: string;
@@ -19,6 +20,11 @@ export interface LongTermEntry {
 
 export class LongTermMemory {
   private readonly filePath: string;
+
+  /** MEMORY.md 的绝对路径(只读,供 CLI 预览/诊断展示用)。 */
+  get path(): string {
+    return this.filePath;
+  }
 
   constructor(workspacePath: string) {
     this.filePath = path.join(workspacePath, '.ihui-agent', 'memory', 'MEMORY.md');
@@ -32,6 +38,10 @@ export class LongTermMemory {
     }
     let content = this.readContentOrNew();
     const sectionHeader = `## ${category}`;
+    // 去重:dream 中途失败后重试会重放同一批条目,不判重会让同一行无限累积。
+    if (content.split('\n').some((line) => line.trim() === `- ${text}`)) {
+      return { text, category, ts: Date.now() };
+    }
     if (content.includes(sectionHeader)) {
       const lines = content.split('\n');
       let insertIdx = lines.length;
@@ -59,7 +69,7 @@ export class LongTermMemory {
       }
       content += `${sectionHeader}\n\n- ${text}\n`;
     }
-    fs.writeFileSync(this.filePath, content, 'utf-8');
+    writeFileAtomicSync(this.filePath, content);
     return { text, category, ts: Date.now() };
   }
 
@@ -110,11 +120,6 @@ export class LongTermMemory {
       }
     }
     return entries;
-  }
-
-  /** 文件路径(供 dream / 外部诊断使用)。 */
-  get path(): string {
-    return this.filePath;
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

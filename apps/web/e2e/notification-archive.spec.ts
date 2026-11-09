@@ -30,7 +30,7 @@ async function onNotificationsPage(page: Page): Promise<boolean> {
   await page.goto('/notifications')
   await page.waitForLoadState('domcontentloaded')
   if (!page.url().includes('/notifications')) return false
-  await page.waitForTimeout(1500)
+  await page.waitForLoadState('load', { timeout: 5000 }).catch(() => {})
   return true
 }
 
@@ -43,11 +43,12 @@ test.describe('D195 通知隐藏→归档→恢复流', () => {
   test('隐藏:active 分区的通知隐藏后离开 active,且 API 复核 archived_at 非空', async ({
     authenticatedPage: page,
   }) => {
-    if (!(await onNotificationsPage(page))) test.skip(true, '未登录或页面不可达,graceful skip')
+    if (!(await onNotificationsPage(page)))
+      test.skip(true, '未登录或页面不可达,graceful skip [SKIP:SKIP-0055]')
 
     const row = seedRow(page, ACTIVE_SEED)
     if (!(await row.isVisible({ timeout: 8000 }).catch(() => false))) {
-      test.skip(true, '种子通知不在场(seed 未跑),graceful skip')
+      test.skip(true, '种子通知不在场(seed 未跑),graceful skip [SKIP:SKIP-0056]')
     }
     await expect(row).toBeVisible()
 
@@ -69,7 +70,8 @@ test.describe('D195 通知隐藏→归档→恢复流', () => {
   test('恢复:已归档分区的通知恢复后回到 active,且 API 复核 archived_at 为空', async ({
     authenticatedPage: page,
   }) => {
-    if (!(await onNotificationsPage(page))) test.skip(true, '未登录或页面不可达,graceful skip')
+    if (!(await onNotificationsPage(page)))
+      test.skip(true, '未登录或页面不可达,graceful skip [SKIP:SKIP-0057]')
 
     // 切「已归档」分区(tab 文案来自 i18n:已归档/Archived)
     await page
@@ -78,7 +80,7 @@ test.describe('D195 通知隐藏→归档→恢复流', () => {
       .click()
     const row = seedRow(page, ARCHIVED_SEED)
     if (!(await row.isVisible({ timeout: 8000 }).catch(() => false))) {
-      test.skip(true, '预置归档种子不在场(seed 未跑),graceful skip')
+      test.skip(true, '预置归档种子不在场(seed 未跑),graceful skip [SKIP:SKIP-0058]')
     }
     await expect(row).toBeVisible()
 
@@ -101,7 +103,8 @@ test.describe('D195 通知隐藏→归档→恢复流', () => {
   test('分区互斥:同一条通知不得同时在 active 与 archived 两个分区', async ({
     authenticatedPage: page,
   }) => {
-    if (!(await onNotificationsPage(page))) test.skip(true, '未登录或页面不可达,graceful skip')
+    if (!(await onNotificationsPage(page)))
+      test.skip(true, '未登录或页面不可达,graceful skip [SKIP:SKIP-0059]')
 
     // 分区判据在后端(archived_at 空与非空),API 面直接断言两份返回集不相交
     const activeResp = await page.request.get(

@@ -25,12 +25,25 @@
  *   ⇒ 判据在这里,装车在 guard 里,两侧都由 `scripts/tests/git-push-guard.test.mjs` 钉住
  *      (含一条"分诊函数被摘线/不调用"的反向锁 —— 本仓最高频失效型:函数在、判据过、主流程没用它)。
  *
- * 判据取向(本仓惯例:**宁窄不误**):认不出的一律落 `other`,而 `other` 的行为与改动前
- *   逐字相同(marker 重试 + --no-verify 兜底)。新增分类只会**减少**跳门,绝不因为
- *   "分类不确定"把一次真钩子失败洗成不跳门,也绝不反过来。
- *   (2026-09-27 补:`credentials-unavailable` 是唯一的**不减少跳门**的新增档 —— 它的
- *   allow* 与 other 完全相同,只换取"分类名 + 出路文案"更准;当时的 --no-verify 重试
- *   对凭据断点无害也无用,行为不变是为了不动 §5b push-gate 链,出路文案负责教人对因。)
+ * 判据取向(本仓惯例:**宁窄不误**):认不出的一律落 `other`。新增分类只会**减少**跳门,
+ *   绝不因为"分类不确定"把一次真钩子失败洗成不跳门,也绝不反过来。
+ *   (2026-09-27 补:`credentials-unavailable` 曾是唯一的**不减少跳门**的新增档;当时的
+ *   --no-verify 重试对凭据断点无害也无用,行为不变是为了不动 §5b push-gate 链,出路文案负责教人对因。)
+ *   **2026-11-02 P4 更正(`--no-verify` 不再 blanket 放行)**:旧取向把 `hook-failed` / `other`
+ *   的 `allowNoVerifyRetry` 一律设 true ⇒ 只要钩子回显里带一句钩子痕迹,in-scope 类型错误也能
+ *   被 --no-verify 跳门推上去(全链最危险的假绿)。现判据:**只有**本次 push 自身的输出里出现
+ *   `全部报错文件均不在本次(改动|推送)范围 … 降级为警告`,或出现 `[IHUI-SCOPE-DEGRADE]` 显式
+ *   签名行,才进入下一道门(证据是否**够格**由 DG-03 决定,见下)。
+ *
+ *   **2026-11-08 DG-03 更正(`--no-verify` 不再是"任何钩子失败"的通行证)**:P4 只问"有没有降级
+ *   签名",却没问"这句话是哪道门说的"。DG-03 报告的现场:T1(check-typecheck)因报错文件全在
+ *   推送范围外而 exit 0 并打印降级签名,同一批里 47p(水印)/ IG(不可变护栏) 真红 ⇒ 整条 push
+ *   失败;旧判据只看签名 ⇒ `allowNoVerifyRetry=true` ⇒ 后台改推 `--no-verify`,把 47p/IG 在内的
+ *   全部 push 门一起跳过。**证据的语义是「类型检查的失败与本轮无关」,不是「钩子失败与本轮无关」**。
+ *   现判据:签名只对 `check-typecheck` 自己有效 —— 必须先从 guardian-runner 的 blocking 失败清单
+ *   归因出**失败门集合**,且该集合**仅为** T1(check-typecheck),才允许 --no-verify;清单取不到 /
+ *   含任何非 T1 门一律 deny(不可归因 ≠ 放行)。归因解析单源在 `lib/commit-gate-attribution.mjs`
+ *   的 `parseGateSummary`,本模块不再抄第二份格式正则。
  *
  * 2026-09-28 补第三档(`remote-ref-race`)的立因 —— 同一型误判当天实测两次(05:23Z / 06:2xZ):
  *   管理员凭据直推被 GitHub **放行**时,远端会先打一句信息行
@@ -44,6 +57,9 @@
  *   ⇒ **竞态必须排在策略之前**:两档的出路是相反的,合并或错序就等于把人引到死路上。
  */
 import { pathToFileURL } from 'node:url'
+
+// DG-03:blocking 失败门清单的解析单源(不得在本模块再抄一份 `· [id] … / 单独复现:` 格式正则)
+import { parseGateSummary } from './commit-gate-attribution.mjs'
 
 /** 分类封闭集(镜像测试按它逐条造输入,不得出现集合外的 kind)。 */
 export const PUSH_TRIAGE_KINDS = Object.freeze([
@@ -155,6 +171,84 @@ export const HOOK_TRACE_RE =
   /道 blocking 门失败|push 门校验失败|push 门被中断|守门脚本批量检查汇总|单独复现:node scripts\/|Cannot find module|pre-push hook/i
 
 /**
+ * **允许 --no-verify 的唯一证据**(2026-11-02 P4)。
+ * 两条形态同源,只由 `check-typecheck.mjs` 在降级判据成立(全部报错文件都在本次推送范围外、
+ * 且已被降级为警告 exit 0)时打印:
+ *   ① 人类可读:全量 `ℹ️ 全部报错文件均不在本次改动范围(…),降级为警告` /
+ *      快通道 `… N 个报错文件均不在本次改动范围(…),降级为警告`;
+ *   ② 机器签名:`[IHUI-SCOPE-DEGRADE] …`(打印在降级块**末尾**,保证 `.husky/pre-push`
+ *      的 `tail -40` 不把它截掉)。
+ * ⚠ 只认这两串,不认 guard 自己写的"本任务代码已自验通过"—— 那句是**无证据的自述**,
+ *   旧形态正是拿它当根据,于是 in-scope 类型错误也被跳门推走。
+ */
+export const SCOPE_DEGRADE_EVIDENCE_RE =
+  /报错文件均不在本次(?:改动|推送)范围[\s\S]{0,160}?降级为警告|\[IHUI-SCOPE-DEGRADE\]/
+
+/** 降级证据的产出者:push 门注册表里唯一一道 `check-typecheck.mjs`(id `T1`)。 */
+export const TYPE_CHECK_GATE_ID = 'T1'
+export const TYPE_CHECK_GATE_SCRIPT = 'check-typecheck.mjs'
+
+/**
+ * DG-03:`--no-verify` 资格的**完整**判据 —— 证据 + 失败门归因,缺一不可。
+ *
+ * 立因见文件头 2026-11-08 段:降级签名只证明「**类型检查**的报错全在推送范围外」,
+ * 而触发这一趟失败的可能是任意一门(47p 水印 / IG 不可变护栏 / 193 …)。
+ * 旧判据只测签名 ⇒ 后台自动 `--no-verify` 会把那些真红一并跳过(全链最危险的假绿)。
+ *
+ * 判据取向(宁窄不误):
+ *   ① 无签名 ⇒ 直接 deny(与 P4 一致);
+ *   ② 有签名但**解析不出** blocking 失败门清单 ⇒ deny(不可归因 ≠ 放行);
+ *   ③ 失败门集合里出现任何非 T1(check-typecheck)的成员 ⇒ deny
+ *      (证据的语义边界就是 typecheck 自己,不得外溢到别的门);
+ *   ④ 仅当集合**仅由** T1(check-typecheck)构成 ⇒ allow(§12 原语义:类型检查的范围外噪音可兜底)。
+ *
+ * @param {string} text 本次 push 的完整输出(stdout+stderr)
+ * @param {boolean} scopeDegradeEvidence 是否命中 SCOPE_DEGRADE_EVIDENCE_RE
+ * @returns {{allowed:boolean, failedGateIds:string[], why:string}}
+ */
+export function noVerifyEligibility(text, scopeDegradeEvidence) {
+  if (!scopeDegradeEvidence) {
+    return {
+      allowed: false,
+      failedGateIds: [],
+      why: '输出里没有「全部报错文件均不在本次推送范围…降级为警告」的显式证据',
+    }
+  }
+  const summary = parseGateSummary(text)
+  if (!summary.batchReported || summary.failed.length === 0) {
+    return {
+      allowed: false,
+      failedGateIds: [],
+      why:
+        '有范围外降级证据,但输出里取不到 blocking 失败门清单(格式未命中或清单为空)' +
+        ' ⇒ 不可归因,不得 --no-verify',
+    }
+  }
+  const ids = summary.failed.map((g) => g.id)
+  const foreign = summary.failed.filter(
+    (g) => g.id !== TYPE_CHECK_GATE_ID || g.script !== TYPE_CHECK_GATE_SCRIPT,
+  )
+  if (foreign.length > 0) {
+    return {
+      allowed: false,
+      failedGateIds: ids,
+      why:
+        `有范围外降级证据,但失败门集合(${ids.map((id) => `[${id}]`).join(' ')})` +
+        `含 ${foreign.length} 道非 T1(check-typecheck.mjs)的门(` +
+        `${foreign.map((g) => `[${g.id}] ${g.script}`).join(' , ')})` +
+        ' ⇒ 证据只覆盖类型检查,不得拿它跳其余门',
+    }
+  }
+  return {
+    allowed: true,
+    failedGateIds: ids,
+    why:
+      '失败门集合仅有 T1(check-typecheck.mjs),且输出里有「全部报错文件均不在本次推送范围…' +
+      '降级为警告」的显式证据 ⇒ 允许 --no-verify 兜底(§12 原语义,证据不外溢)',
+  }
+}
+
+/**
  * 一趟 push 的分诊结果。
  * @typedef {Object} PushAttemptVerdict
  * @property {typeof PUSH_TRIAGE_KINDS[number]} kind      分类
@@ -162,6 +256,8 @@ export const HOOK_TRACE_RE =
  * @property {boolean}        pushedNothing     什么都没推(up-to-date)
  * @property {boolean}        allowHookRetry    是否允许"带 hook 重试"(exit 75 中断链)
  * @property {boolean}        allowNoVerifyRetry是否允许 --no-verify 兜底
+ *   **默认 false**:只有输出里出现 SCOPE_DEGRADE_EVIDENCE_RE 的显式证据才置 true
+ *   (2026-11-02 P4;旧默认 true 等于把 in-scope 类型错误也放行)。
  * @property {'done'|'failed'|'diverged'|null} terminalStatus push-state 该写的终态(null=继续流程)
  * @property {string|null}    nextCommand       指向性出路
  * @property {string}         why               一句话依据(报告里原样打印,便于复核分诊对不对)
@@ -173,10 +269,12 @@ function verdict(v) {
     failed: true,
     pushedNothing: false,
     allowHookRetry: true,
-    allowNoVerifyRetry: true,
+    // 2026-11-02 P4:默认**不允许** --no-verify。认不出原因的失败没有资格跳门;
+    // 只有 hook-failed/other 分支拿到 SCOPE_DEGRADE_EVIDENCE_RE 显式证据时才置 true。
+    allowNoVerifyRetry: false,
     terminalStatus: null,
     nextCommand: null,
-    why: '输出里没有可辨认的失败特征 ⇒ 判 other(保持改动前行为)',
+    why: '输出里没有可辨认的失败特征 ⇒ 判 other;无「范围外降级」显式证据,不得 --no-verify',
     ...v,
   }
 }
@@ -206,6 +304,9 @@ export function triagePushAttempt({
 } = {}) {
   const text = `${stdout ?? ''}\n${stderr ?? ''}`
   const failed = status !== 0
+  // 2026-11-02 P4:`--no-verify` 的唯一通行证。只认 check-typecheck 降级时打印的那两串
+  // (人类可读行 / [IHUI-SCOPE-DEGRADE] 签名行),见 SCOPE_DEGRADE_EVIDENCE_RE 注释。
+  const scopeDegradeEvidence = SCOPE_DEGRADE_EVIDENCE_RE.test(text)
 
   // ── 成功侧 ──
   if (!failed) {
@@ -305,14 +406,16 @@ export function triagePushAttempt({
   }
   if (CREDENTIALS_UNAVAILABLE_RE.test(text)) {
     // 处置动作与出路写在 guard 的失败分支文案里(本判据只负责认出这一型并给问责入口)。
-    // ⚠️ allow* 一律沿用 verdict() 默认(与 other 相同)—— 本次修复**只**改分类与出路,
-    //    不改重试策略与退出码(§5b push-gate 链依赖 other 档的既有行为逐字不变)。
+    // 2026-11-02 P4:--no-verify **不再**给凭据档放行 —— 凭据链根本没拿到值,跳本地钩子
+    // 既修不了它、也不满足"只有显式范围外降级证据才跳门"的必要条件(旧行为:与 other 同旗 true)。
     return verdict({
       kind: 'credentials-unavailable',
+      allowNoVerifyRetry: false,
       nextCommand: 'node scripts/check-credential-health.mjs',
       why:
         'git 原话回显 could not read Username/Password / failed to execute prompt script ⇒ ' +
-        '发起进程的身份下**没有任何凭据 helper 交出值**(与"凭据已失效被远端拒绝"不同,是未取得)',
+        '发起进程的身份下**没有任何凭据 helper 交出值**(与"凭据已失效被远端拒绝"不同,是未取得);' +
+        '--no-verify 对凭据链无作用,不得用它兜底',
     })
   }
   if (UP_TO_DATE_RE.test(text)) {
@@ -327,13 +430,23 @@ export function triagePushAttempt({
     })
   }
   if (HOOK_TRACE_RE.test(text)) {
+    // 2026-11-02 P4 + 2026-11-08 DG-03:钩子失败**本身**不是跳门理由;降级签名也只对产出者
+    // (T1 check-typecheck)有效。资格 = 证据 ∧ 失败门集合仅为 T1,由 noVerifyEligibility 单点判。
+    const eligibility = noVerifyEligibility(text, scopeDegradeEvidence)
     return verdict({
       kind: 'hook-failed',
-      why: '输出里解析到守门批/钩子痕迹 ⇒ 走原有"带 hook 重试 → --no-verify 兜底"链(§5b ⑤ 不动)',
+      allowNoVerifyRetry: eligibility.allowed,
+      why: `钩子失败;${eligibility.why}${eligibility.allowed ? '' : ' ⇒ 拒绝 --no-verify'}`,
     })
   }
+  const eligibility = noVerifyEligibility(text, scopeDegradeEvidence)
   return verdict({
-    why: `退出码 ${status} 且无可辨认特征(网络/凭据/分支保护等)⇒ 保持改动前行为`,
+    // 2026-11-02 P4 + 2026-11-08 DG-03:认不出原因的失败同样要过同一道资格判据
+    // (网络断/超时都属这一档;没有归因就一律不得跳门)。
+    allowNoVerifyRetry: eligibility.allowed,
+    why: `退出码 ${status} 且无可辨认特征(网络/凭据/分支保护等)⇒ ${eligibility.why}${
+      eligibility.allowed ? '' : ',保持失败,不得假绿'
+    }`,
   })
 }
 
@@ -548,9 +661,9 @@ if (isDirectRun && process.argv.includes('--self-test')) {
       'failed',
     ],
     [
-      'other(网络类)保持原行为:仍允许 --no-verify 兜底',
+      '2026-11-02 P4:other(网络类)不再 blanket 允许 --no-verify',
       triagePushAttempt({ status: 1, stderr: 'fatal: unable to access' }).allowNoVerifyRetry,
-      true,
+      false,
     ],
     [
       'kind: pushed-ok',
@@ -567,19 +680,83 @@ if (isDirectRun && process.argv.includes('--self-test')) {
       'credentials-unavailable',
     ],
     [
-      'credentials-unavailable 不改重试策略(与 other 同旗)',
+      '2026-11-02 P4:credentials 不再借 other 的旧旗允许 --no-verify',
       triagePushAttempt({ status: 128, stderr: "fatal: could not read Username for 'x'" })
         .allowNoVerifyRetry,
+      false,
+    ],
+    [
+      // 2026-11-02 P4 反向验证 ①:hook 因 **in-scope 类型错误**失败。
+      // 钩子痕迹在、但没有"全部报错文件均不在本次推送范围…降级为警告"的证据 ⇒ 必须拒绝跳门。
+      'P4-① hook 因 in-scope 类型错误失败 ⇒ 拒绝 --no-verify',
+      triagePushAttempt({
+        status: 1,
+        stderr: [
+          '❌ 全量 typecheck 失败,推送已阻止(exit 1)',
+          'ℹ️ 1/1 个报错文件在本次改动范围内,维持失败(样例前 20 个):',
+          '   - scripts/lib/push-attempt-triage.mjs',
+          '❌ push 门校验失败,推送已阻止(完整日志: .ihui-agent/state/hook-logs/pre-push-gate.log)',
+        ].join('\n'),
+      }).allowNoVerifyRetry,
+      false,
+    ],
+    [
+      // 2026-11-02 P4 + 2026-11-08 DG-03:证据在 **且** 失败门集合仅为 T1(check-typecheck)
+      // ⇒ 仍允许 --no-verify 兜底(§12 原语义)。
+      'P4-② 证据在且失败门仅为 T1 ⇒ 仍放行 --no-verify',
+      triagePushAttempt({
+        status: 1,
+        stderr: [
+          'ℹ️ 全部报错文件均不在本次改动范围(push-scope(本次推送改动范围),属并行会话工作区噪音),降级为警告',
+          'ℹ️ 判定:本次 push 放行(exit 0);报错文件的类型修复由其所属会话负责',
+          '[IHUI-SCOPE-DEGRADE] 全部报错文件均不在本次推送范围,降级为警告(exit 0)',
+          '🚫 1 道 blocking 门失败 —— 本轮已跑完全部 152 项,未提前中止:',
+          '   · [T1] 🔍 push 门全量 typecheck(staged-scope 降级)',
+          '     单独复现:node scripts/check-typecheck.mjs',
+        ].join('\n'),
+      }).allowNoVerifyRetry,
       true,
     ],
     [
-      '成对反向:另一型 exit 128(网络断)仍落 other',
+      'P4-②b 快通道降级行 + T1 失败清单同样算证据',
       triagePushAttempt({
-        status: 128,
-        stderr:
-          'fatal: unable to access https://github.com/: Failed to connect to 127.0.0.1 port 7897',
-      }).kind,
-      'other',
+        status: 1,
+        stderr: [
+          'ℹ️ apps/api 定向 typecheck 的 3 个报错文件均不在本次改动范围(staged-scope(暂存区),属并行会话噪音),降级为警告',
+          '🚫 1 道 blocking 门失败 —— 本轮已跑完全部 152 项,未提前中止:',
+          '   · [T1] 🔍 push 门全量 typecheck(staged-scope 降级)',
+          '     单独复现:node scripts/check-typecheck.mjs',
+        ].join('\n'),
+      }).allowNoVerifyRetry,
+      true,
+    ],
+    [
+      // DG-03 核心反证:同一份降级签名 + **别门真红**(47p 水印 / IG 不可变护栏) ⇒ 证据不得外溢。
+      'DG-03 证据 + 47p/IG 真红 ⇒ 拒绝 --no-verify(证据只覆盖 typecheck)',
+      triagePushAttempt({
+        status: 1,
+        stderr: [
+          '[IHUI-SCOPE-DEGRADE] 全部报错文件均不在本次推送范围,降级为警告(exit 0)',
+          '🚫 2 道 blocking 门失败 —— 本轮已跑完全部 152 项,未提前中止:',
+          '   · [47p] 💧 溯源水印覆盖守门(push scope:只判本次推送涉及文件的 HEAD blob)',
+          '     单独复现:node scripts/check-watermark-coverage.mjs --push-scope',
+          '   · [IG] 🧊  判据面不可变护栏(push 区间 origin/main..HEAD 逐枚判)',
+          '     单独复现:node scripts/check-immutable-guard.mjs --range origin/main..HEAD',
+        ].join('\n'),
+      }).allowNoVerifyRetry,
+      false,
+    ],
+    [
+      // DG-03 第二条反证:有签名但解析不出失败门清单 ⇒ 不可归因 ⇒ 不放行。
+      'DG-03 证据在但失败门清单不可解析 ⇒ 拒绝 --no-verify(不可归因 ≠ 放行)',
+      triagePushAttempt({
+        status: 1,
+        stderr: [
+          '[IHUI-SCOPE-DEGRADE] 全部报错文件均不在本次推送范围,降级为警告(exit 0)',
+          '🚫 1 道 blocking 门失败 —— 本轮已跑完全部 152 项',
+        ].join('\n'),
+      }).allowNoVerifyRetry,
+      false,
     ],
     // ── 2026-09-28:竞态 / 策略 / 分叉 三档的成对反证(任务要求的 (a)(b)(c) 三条,退化一条即红) ──
     [
@@ -704,6 +881,9 @@ export const __test__ = {
   triagePushAttempt,
   describeVerdict,
   pushStateProvenance,
+  noVerifyEligibility,
+  TYPE_CHECK_GATE_ID,
+  TYPE_CHECK_GATE_SCRIPT,
   PUSH_TRIAGE_KINDS,
   CONVERGE_COMMAND,
   RACE_RECHECK_COMMAND,
@@ -715,6 +895,7 @@ export const __test__ = {
   NON_FAST_FORWARD_RE,
   CREDENTIALS_UNAVAILABLE_RE,
   HOOK_TRACE_RE,
+  SCOPE_DEGRADE_EVIDENCE_RE,
   PUSH_STATE_FRESH_MS,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -32,6 +32,8 @@ export const USER_PREFERENCE_GROUPS = {
   // 审批授权记忆(2026-11-04):`grants` 键存 ApprovalGrant[];与 agent group 存默认权限档
   // 同一套路,复用本表避免为一个可变长度的授权列表新开表/新迁移。
   permission: 'permission',
+  // 超级智能体控制面快照(2026-11-07):同一套路 —— 存算分离用,key='state' 单行 JSON。
+  superAgent: 'super_agent',
 } as const
 
 export type UserPreferenceGroup =

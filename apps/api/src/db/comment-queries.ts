@@ -80,11 +80,11 @@ export async function findComments(
         createdAt: comments.createdAt,
         updatedAt: comments.updatedAt,
         repliesCount:
-          sql<number>`(SELECT COUNT(*) FROM comments c2 WHERE c2.parent_id = ${sql.raw('comments.id')})`.as(
+          sql<number>`(SELECT COUNT(*)::int FROM comments c2 WHERE c2.parent_id = ${sql.raw('comments.id')})`.as(
             'replies_count',
           ),
         likeCount:
-          sql<number>`(SELECT COUNT(*) FROM comment_likes cl WHERE cl.comment_id = ${sql.raw('comments.id')})`.as(
+          sql<number>`(SELECT COUNT(*)::int FROM comment_likes cl WHERE cl.comment_id = ${sql.raw('comments.id')})`.as(
             'like_count',
           ),
         likedByMe: likedByMeExpr.as('liked_by_me'),
@@ -147,11 +147,11 @@ export async function findCommentById(
       createdAt: comments.createdAt,
       updatedAt: comments.updatedAt,
       repliesCount:
-        sql<number>`(SELECT COUNT(*) FROM comments c2 WHERE c2.parent_id = ${sql.raw('comments.id')})`.as(
+        sql<number>`(SELECT COUNT(*)::int FROM comments c2 WHERE c2.parent_id = ${sql.raw('comments.id')})`.as(
           'replies_count',
         ),
       likeCount:
-        sql<number>`(SELECT COUNT(*) FROM comment_likes cl WHERE cl.comment_id = ${sql.raw('comments.id')})`.as(
+        sql<number>`(SELECT COUNT(*)::int FROM comment_likes cl WHERE cl.comment_id = ${sql.raw('comments.id')})`.as(
           'like_count',
         ),
       likedByMe: likedByMeExpr.as('liked_by_me'),
@@ -234,11 +234,11 @@ export async function findReplies(
         createdAt: comments.createdAt,
         updatedAt: comments.updatedAt,
         repliesCount:
-          sql<number>`(SELECT COUNT(*) FROM comments c2 WHERE c2.parent_id = ${sql.raw('comments.id')})`.as(
+          sql<number>`(SELECT COUNT(*)::int FROM comments c2 WHERE c2.parent_id = ${sql.raw('comments.id')})`.as(
             'replies_count',
           ),
         likeCount:
-          sql<number>`(SELECT COUNT(*) FROM comment_likes cl WHERE cl.comment_id = ${sql.raw('comments.id')})`.as(
+          sql<number>`(SELECT COUNT(*)::int FROM comment_likes cl WHERE cl.comment_id = ${sql.raw('comments.id')})`.as(
             'like_count',
           ),
         likedByMe: likedByMeExpr.as('liked_by_me'),

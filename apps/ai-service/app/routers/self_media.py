@@ -24,11 +24,12 @@ import time
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from app.core.config import settings
 from app.core.db import get_db_conn
+from app.core.jwt_auth import resolve_request_role_id
 from app.core.llm_gateway import llm_gateway
 from app.services.koubo_workflow import koubo_workflow_service
 
@@ -255,8 +256,12 @@ async def _fetch_history(category: str, limit: int = 50) -> list[dict[str, Any]]
     try:
         conn = await get_db_conn()
     except Exception as e:
-        logger.warning("self_media._fetch_history db pool acquire 失败: %s", e, exc_info=True)
-        return []
+        # AIS-049:连接池拿不到连接是 DB 故障,不能吞成"没有历史"。
+        logger.warning(
+            "self_media._fetch_history db pool acquire 失败(category=%s, limit=%s): %s",
+            category, limit, e, exc_info=True,
+        )
+        raise
     try:
         rows = await conn.fetch(
             """
@@ -272,9 +277,21 @@ async def _fetch_history(category: str, limit: int = 50) -> list[dict[str, Any]]
         )
         return [dict(r) for r in rows]
     except Exception as e:
-        logger.warning("self_media._fetch_history query 失败: %s", e, exc_info=True)
-        # 表不存在 / 列不匹配 → 降级返回空(不阻塞 ai-service 启动)
-        return []
+        import asyncpg
+
+        if isinstance(e, asyncpg.exceptions.UndefinedTableError):
+            # 表还没建(首次部署)才允许降级为空,不阻塞 ai-service 启动。
+            logger.warning(
+                "self_media._fetch_history 表缺失(category=%s, limit=%s),降级返回空: %s",
+                category, limit, e, exc_info=True,
+            )
+            return []
+        # 列不匹配/权限/DB 故障等必须冒泡成 500,否则前端把故障读成"无发布记录"。
+        logger.warning(
+            "self_media._fetch_history query 失败(category=%s, limit=%s): %s",
+            category, limit, e, exc_info=True,
+        )
+        raise
     finally:
         await conn.close()
 
@@ -515,7 +532,7 @@ async def wechat_generate(req: WechatGenerateRequest) -> dict[str, Any]:
             return {"ok": False, "error": f"mdPath 不存在: {req.mdPath}"}
     elif req.mdContent:
         # 用户上传/在线编辑的 md 内容,直接落盘
-        md_path.write_text(req.mdContent, encoding="utf-8")
+        await asyncio.to_thread(md_path.write_text, req.mdContent, encoding="utf-8")
     elif not md_path.is_file():
         # 走 LLM 生成
         ok, md_content, err_msg = await _generate_md_with_llm(
@@ -523,7 +540,7 @@ async def wechat_generate(req: WechatGenerateRequest) -> dict[str, Any]:
         )
         if not ok:
             return {"ok": False, "error": err_msg, "stage": "llm_generate"}
-        md_path.write_text(md_content, encoding="utf-8")
+        await asyncio.to_thread(md_path.write_text, md_content, encoding="utf-8")
 
     args = ["--md", str(md_path), "--title", req.title, "--dry-run"]
     if req.digest:
@@ -730,6 +747,18 @@ class TaskConfigUpdate(BaseModel):
     title_template: str | None = None
 
 
+def _require_automation_admin(request: Request) -> None:
+    """AIS-040:自动化任务的写端点仅管理员可用。
+
+    `self_media_scheduler` 是进程级单例、任务无 owner(固定两条全局任务)。普通
+    用户此前可 trigger/toggle/config —— 即直接对外发布或停用全站定时任务,
+    且审计里没有操作主体。读端点(list/get/history)不含操作用,保持开放。
+    角色只走 jwt_auth 单源(fail-closed,取不到按 0)。
+    """
+    if resolve_request_role_id(request) < 1:
+        raise HTTPException(status_code=403, detail="自助媒体定时任务仅管理员可操作")
+
+
 @router.get("/automation/tasks")
 async def automation_list_tasks() -> dict[str, Any]:
     """列出所有定时任务(含运行时配置 + 最后执行信息)。"""
@@ -750,8 +779,11 @@ async def automation_get_task(task_id: str) -> dict[str, Any]:
 
 
 @router.post("/automation/tasks/{task_id}/toggle")
-async def automation_toggle_task(task_id: str, enabled: bool = True) -> dict[str, Any]:
+async def automation_toggle_task(
+    task_id: str, request: Request, enabled: bool = True
+) -> dict[str, Any]:
     """启用/禁用任务。"""
+    _require_automation_admin(request)
     from app.services.self_media_scheduler import self_media_scheduler
 
     ok = self_media_scheduler.set_task_enabled(task_id, enabled)
@@ -762,9 +794,10 @@ async def automation_toggle_task(task_id: str, enabled: bool = True) -> dict[str
 
 @router.post("/automation/tasks/{task_id}/config")
 async def automation_update_config(
-    task_id: str, body: TaskConfigUpdate
+    task_id: str, body: TaskConfigUpdate, request: Request
 ) -> dict[str, Any]:
     """修改任务配置(hour/minute/dry_run/title_template/enabled)。"""
+    _require_automation_admin(request)
     from app.services.self_media_scheduler import self_media_scheduler
 
     ok = self_media_scheduler.set_task_config(
@@ -782,8 +815,9 @@ async def automation_update_config(
 
 
 @router.post("/automation/tasks/{task_id}/trigger")
-async def automation_trigger_task(task_id: str) -> dict[str, Any]:
+async def automation_trigger_task(task_id: str, request: Request) -> dict[str, Any]:
     """立即触发任务(异步执行,立即返回)。"""
+    _require_automation_admin(request)
     from app.services.self_media_scheduler import self_media_scheduler
 
     result = await self_media_scheduler.trigger_task(task_id)

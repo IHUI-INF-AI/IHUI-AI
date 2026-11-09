@@ -13,9 +13,31 @@
  *   db/config 模块链只在第一次真正需要时加载,加载失败降级为 null store,
  *   webhook 面绝不因为存储不可用而 5xx(签名准入语义不变)。
  */
-import { desc, eq } from 'drizzle-orm'
+import { and, desc, eq, lt, or } from 'drizzle-orm'
 
 import { githubAppDeliveries, githubAppInstallations, type Database } from '@ihui/database'
+
+/**
+ * 认领结果:
+ * - claimed=首次认领,本实例负责执行;
+ * - reclaimed=接管 failed / 超时 processing(崩溃遗留),仍由本实例负责执行;
+ * - duplicate=已处理或另有实例在执行;
+ * - unavailable=持久层不可用(调用方必须 fail-closed)。
+ */
+export type DeliveryClaimState = 'claimed' | 'reclaimed' | 'duplicate' | 'unavailable'
+
+/** 认领入参:payload 是可恢复载荷(渲染后的触发规则),崩溃后据此重放 */
+export interface DeliveryClaimInput {
+  deliveryId: string
+  eventType: string
+  payload: Record<string, unknown>
+}
+
+/**
+ * processing 行超过该时长视为"认领者已崩溃",允许重投接管。
+ * GitHub 自身重投窗口通常为分钟级;10 分钟足以避开正常执行的并发重叠。
+ */
+export const DELIVERY_STALE_MS = 10 * 60 * 1000
 
 /** installation 事件落表后的行状态(GitHub 语义:装了/卸了;权限更新不换状态,只刷 updated_at) */
 export type GithubAppInstallationStatus = 'active' | 'removed'
@@ -47,6 +69,14 @@ export interface GithubAppStore {
   hasDelivery(deliveryId: string): Promise<boolean>
   /** 落一条已处理投递;同 delivery 重落静默忽略(onConflictDoNothing) */
   recordDelivery(deliveryId: string, eventType: string): Promise<void>
+  /**
+   * F-346 持久认领:先落库再回 200。
+   * 新 delivery → claimed;已 processed 或仍在 processing → duplicate;
+   * failed / 超过 DELIVERY_STALE_MS 的 processing(崩溃遗留) → 原子接管后 claimed。
+   */
+  claimDelivery(input: DeliveryClaimInput): Promise<DeliveryClaimState>
+  /** 执行结束后落终态;写失败不影响已发出的 200,由日志告警 */
+  settleDelivery(deliveryId: string, status: 'processed' | 'failed'): Promise<void>
   /** installation 事件驱动 upsert:同 installation_id 只保留一行最新状态 */
   applyInstallationEvent(input: InstallationEventInput): Promise<void>
   /** admin 列表:按 updated_at 倒序,有上限防全表拖垮 */
@@ -73,6 +103,45 @@ export function createDbGithubAppStore(db: Database): GithubAppStore {
         .insert(githubAppDeliveries)
         .values({ deliveryId, eventType, status: 'processed' })
         .onConflictDoNothing({ target: githubAppDeliveries.deliveryId })
+    },
+
+    async claimDelivery({ deliveryId, eventType, payload }) {
+      const now = new Date()
+      // 先尝试插入 processing 认领行;唯一索引保证多实例只有一个赢家。
+      const inserted = await db
+        .insert(githubAppDeliveries)
+        .values({ deliveryId, eventType, status: 'processing', payload, processedAt: now })
+        .onConflictDoNothing({ target: githubAppDeliveries.deliveryId })
+        .returning({ id: githubAppDeliveries.id })
+      if (inserted.length > 0) return 'claimed'
+
+      // 冲突:仅 failed 或超时 processing(崩溃遗留)可原子接管;
+      // processed 与新鲜 processing 一律判重复,避免并发双执行。
+      const staleBefore = new Date(now.getTime() - DELIVERY_STALE_MS)
+      const takenOver = await db
+        .update(githubAppDeliveries)
+        .set({ status: 'processing', payload, processedAt: now })
+        .where(
+          and(
+            eq(githubAppDeliveries.deliveryId, deliveryId),
+            or(
+              eq(githubAppDeliveries.status, 'failed'),
+              and(
+                eq(githubAppDeliveries.status, 'processing'),
+                lt(githubAppDeliveries.processedAt, staleBefore),
+              ),
+            ),
+          ),
+        )
+        .returning({ id: githubAppDeliveries.id })
+      return takenOver.length > 0 ? 'reclaimed' : 'duplicate'
+    },
+
+    async settleDelivery(deliveryId, status) {
+      await db
+        .update(githubAppDeliveries)
+        .set({ status, processedAt: new Date() })
+        .where(eq(githubAppDeliveries.deliveryId, deliveryId))
     },
 
     async applyInstallationEvent(input) {
@@ -124,6 +193,13 @@ export function createNullGithubAppStore(): GithubAppStore {
     },
     async recordDelivery() {
       /* 降级:无持久层,写入丢弃 */
+    },
+    async claimDelivery() {
+      // 降级面必须显式不可用:调用方据此 fail-closed(不回 200,避免事件丢失)
+      return 'unavailable'
+    },
+    async settleDelivery() {
+      /* 降级:无持久层,状态无处可落 */
     },
     async applyInstallationEvent() {
       /* 降级:无持久层,写入丢弃 */

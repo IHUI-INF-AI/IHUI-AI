@@ -6,11 +6,43 @@ export {
   DEFAULT_SUPER_AGENT_POLICY,
   SuperAgentHost,
   canRetry,
+  observationTier,
   ticketStage,
   waitsForPerson,
 } from './engine'
+export { DEFAULT_SLOW_JUDGE_INTERVAL_MS, SuperAgentPump } from './pump'
+export type { PumpLogRow, TriggerSourcePort, WorkerDispatch } from './pump'
+export {
+  DECISION_VALUES,
+  DEFAULT_MIN_CONFIDENCE,
+  DEFAULT_SLOW_PATH_RULES,
+  MAX_SLOW_JUDGE_ATTEMPTS,
+  SLOW_PATH_RULE_ID,
+  TARGET_BASIS_VALUES,
+  classifyDecisions,
+  isSlowDecision,
+  isSlowDecisionKind,
+  isTargetBasis,
+  pickDecisions,
+} from './slow-path'
+export type {
+  RuleAssessment,
+  SlowDecision,
+  SlowDecisionKind,
+  SlowDirection,
+  SlowGate,
+  SlowJudgeCall,
+  SlowJudgeInput,
+  SlowRelatedTicket,
+  SlowThreadMessage,
+  SlowUnjudgedReason,
+  TargetBasis,
+} from './slow-path'
+export { SNAPSHOT_VERSION } from './persist'
+export type { OwnerSlice, RestoreReport, SuperAgentSnapshot } from './persist'
 export {
   ROUTER_TOOLS,
+  WORKER_SESSION_PREFIX,
   WORKER_TOOLS,
   executionFor,
   scopeFromRequest,
@@ -22,13 +54,19 @@ export type {
   AssignmentState,
   Disposition,
   IncomingTrigger,
+  MandateBasis,
+  MandateRoute,
+  ObservationTier,
   PanelView,
+  PolicyEvent,
+  PolicyEventKind,
   ReceiveResult,
   ReportState,
   SpeakPurpose,
   Speech,
   Strength,
   SuperAgentPolicy,
+  SuperAgentRule,
   SuperTicket,
   TicketStage,
 } from './engine'

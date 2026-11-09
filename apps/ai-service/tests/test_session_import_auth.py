@@ -62,12 +62,14 @@ KNOWN_PUBLIC_PATHS = (
     "/metrics",
     "/api/admin/news/status",
     "/api/voice/stt",
-    "/api/voice/tts",
     "/api/video/token6688-callback",
     "/api/media/tasks/callback",
     "/api/legacy/agents-v1",
     "/api/artifacts/f/chart-1.html",
 )
+# AIS-092(2026-11-08):/api/voice/tts 匿名可达可付费合成,已从公开白名单移除;
+# 旧口径下它在 KNOWN_PUBLIC_PATHS 内,现改钉"必须 401"。
+AIS092_PROTECTED_PATHS = ("/api/voice/tts",)
 
 
 def _effective_whitelist() -> tuple[str, ...]:
@@ -152,6 +154,16 @@ async def test_known_public_paths_still_pass(probe_client: AsyncClient, path: st
     resp = await probe_client.get(path)
     assert resp.status_code == 200, f"{path} 应在免鉴权白名单内"
     assert resp.json()["reached_handler"] is True
+
+
+@pytest.mark.parametrize("path", AIS092_PROTECTED_PATHS)
+async def test_ais092_paid_tts_not_anonymous(
+    probe_client: AsyncClient, path: str
+) -> None:
+    """AIS-092:付费 TTS 端点必须走 JWT(旧口径下它被当作公开路径放行)。"""
+    resp = await probe_client.post(path, json={"text": "你好"})
+    assert resp.status_code == 401, f"{path} 必须走 JWT 鉴权(实得 {resp.status_code})"
+    assert "reached_handler" not in resp.json()
 
 
 async def test_middleware_behavior_matches_reference_rule(

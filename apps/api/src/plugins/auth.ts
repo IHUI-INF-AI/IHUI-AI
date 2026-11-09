@@ -62,7 +62,12 @@ declare module '@fastify/jwt' {
 let tokenBlacklist: ReturnType<typeof createBlacklist> | null = null
 let tokenBlacklistInitFailed = false
 
-function getTokenBlacklist(): ReturnType<typeof createBlacklist> | null {
+/**
+ * 供 logout / OAuth 授权面等共享吊销视图。
+ * F-56:OAuth authorize/userinfo 过去只做 introspect(纯验签+过期),登出后仍能换新牌;
+ * 这里把同一份 Redis 黑名单出口暴露出去,避免第二套实现漂移。
+ */
+export function getTokenBlacklist(): ReturnType<typeof createBlacklist> | null {
   if (tokenBlacklist) return tokenBlacklist
   if (tokenBlacklistInitFailed) return null
   try {
@@ -88,6 +93,18 @@ export async function revokeAccessToken(token: string, expiresAt: Date): Promise
   } catch (e) {
     logger.error('[auth] 写 access 黑名单失败', { err: (e as Error).message })
   }
+}
+
+/**
+ * F-56(2026-11-08):OAuth 授权面(userinfo / authorize 的 Bearer 推断)只做 JWT 验签,
+ * 不经过 authenticate(),因此登出/踢下线后的 access token 仍能换 code、拉 userinfo。
+ * 这里复用同一份 Redis 黑名单做吊销判定,语义与 authenticate() 的内联检查一致。
+ */
+export async function isAccessTokenRevoked(token: string): Promise<boolean> {
+  if (!token) return false
+  const blacklist = getTokenBlacklist()
+  if (!blacklist) return false
+  return blacklist.has(token)
 }
 
 /**

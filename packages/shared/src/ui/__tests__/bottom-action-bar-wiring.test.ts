@@ -486,7 +486,7 @@ describe('⑤ 该族只剩一份源(两端壳 import 同一枚核心)', () => {
  * 所以在这里补成可机器复核的三张账:
  *  · ⑥ spec 的每一枚 `_PX` 档只许落进三种归属之一 —— 两端直引 / 经 core 投影 / 仅小程序
  *    经 core;新档不登记 = 红(幻影档),RN 腿引用单端档 = 红(补引用凑平);
- *  · ⑦ 门 128 现读的 12 几何档 + 3 半径档逐条落成"值 + 归属端 + A/B/C + 出处锚点"的事实表,
+ *  · ⑦ 门 128 现读的 13 几何档 + 3 半径档逐条落成"值 + 归属端 + A/B/C + 出处锚点"的事实表,
  *    表长与台账 `counts` / `radiusCounts` **同批对账** —— 台账下调而事实表没同步 = 红;
  *  · ⑧ 对侧一旦出现该单端元素的身份(典型动机 = 让 diffCount 变小)⇒ 红;owner 侧出处改值
  *    ⇒ 红(事实表过期)。
@@ -550,7 +550,7 @@ const SPEC_TIER_SCOPES: ReadonlyArray<{ tier: string; scope: TierScope; why: str
   {
     tier: 'BOTTOM_ACTION_BAR_CHIP_ROW_GAP_PX',
     scope: 'miniapp-core-only',
-    why: 'B 条内行距 8:小程序经 core InlineRow 取;RN 的 toggle 钮行距走 rnSpacing.xs(4),是另一个元素而非同值档',
+    why: '行距:RN 的 toggle chip 行已作为死腿删除(ca5429d33a),该档现只经 core 供小程序',
   },
   {
     tier: 'BOTTOM_ACTION_BAR_ICON_GLYPH_PX',
@@ -708,7 +708,7 @@ const ONE_SIDED_FACTS: ReadonlyArray<OneSidedFact> = [
     kind: 'A',
     anchor: /configEmoji:\s*\{[^}]*\blineHeight:\s*rnType\.body\.lineHeight,/,
     otherAnchor: /configEmoji/,
-    why: 'A 旧模式配置钮/辅助行行高:小程序模型条没有配置钮',
+    why: 'A 旧模式配置钮/辅助行行高(rnType.body.lineHeight = 20,ba9f30fb4c 由裸值改 token):小程序模型条没有配置钮',
   },
   {
     value: 24,
@@ -780,7 +780,7 @@ const ONE_SIDED_FACTS: ReadonlyArray<OneSidedFact> = [
     owner: 'miniapp-taro',
     kind: 'A',
     anchor: /borderRadius:\s*rnRadius\.lg,/,
-    otherAnchor: /BottomActionBarIconCardRow/,
+    otherAnchor: /rnRadius\.lg/,
     why: 'A 图标卡圆角:RN 同功能走共享 AddPanel(另一枚组件)',
   },
   {
@@ -800,6 +800,25 @@ const ONE_SIDED_FACTS: ReadonlyArray<OneSidedFact> = [
     anchor: /const INPUT_BORDER_RADIUS = rnRadius\['2xl'\]/,
     otherAnchor: /rnRadius\['2xl'\]/,
     why: 'B 输入框/发送钮圆角 16 vs 小程序同元素 rounded-sm(4),产品裁决面',
+  },
+]
+
+/**
+ * 门计数口径之外的人工事实(BUG-0039)。
+ * `counts.BottomActionBar` = 12,是 `check-cross-end-ui-parity` 对 **RN 侧几何**的实测差异;
+ * 下面这条是小程序侧 token 派生内衬(12rpx=6),门不把它计入几何差异,但它仍是真实单端事实。
+ * 单独校验、单独断言,不塞进 `ONE_SIDED_FACTS`,避免把"表长 13"误当成门口径 13。
+ */
+const MINIAPP_ONLY_FACTS: ReadonlyArray<OneSidedFact> = [
+  {
+    value: 6,
+    dimension: 'geometry',
+    owner: 'miniapp-taro',
+    kind: 'C',
+    // 0ea20bbe01 把 rpx 字面量收编进 taroSpacing 档(weapp 像素零变化):出处形态变了、事实未变。
+    anchor: /padding:\s*`\$\{rpx\(taroSpacing\['xs-loose'\]\)\}(?: 0)?`/,
+    otherAnchor: /taroSpacing\['xs-loose'\]/,
+    why: 'C chip 纵向内衬 taroSpacing xs-loose(12rpx=6) vs RN 固定高 TOGGLE_CHIP_HEIGHT=32,两端落屏高都约 32',
   },
 ]
 
@@ -892,7 +911,7 @@ describe('⑥ spec 档三分且逐档归属(两端直引 / 经 core 投影 / 仅
   })
 })
 
-describe('⑦ 差异档事实表与台账同批对账(12 几何 + 3 半径)', () => {
+describe('⑦ 差异档事实表与台账同批对账(12 门计数几何 + 1 小程序 C 事实 + 3 半径)', () => {
   it('现态:每条事实出处仍在 owner 侧、对侧无该元素、表长与台账 counts 一致', () => {
     expect(
       oneSidedFactProblems(ONE_SIDED_FACTS, {
@@ -901,12 +920,27 @@ describe('⑦ 差异档事实表与台账同批对账(12 几何 + 3 半径)', ()
       }),
       '差异档归属与源码现状脱节(出处消失 / 对侧出现该元素)',
     ).toEqual([])
+    expect(
+      oneSidedFactProblems(MINIAPP_ONLY_FACTS, {
+        'miniapp-taro': TARO_SRC,
+        'mobile-rn': RN_SRC,
+      }),
+      '小程序侧门计数外事实的出处/对侧归属已漂开',
+    ).toEqual([])
     const geometry = ONE_SIDED_FACTS.filter((f) => f.dimension === 'geometry')
     const radius = ONE_SIDED_FACTS.filter((f) => f.dimension === 'radius')
     expect(
       geometry.length,
-      '几何事实表 ≠ 台账 counts.BottomActionBar ⇒ 台账/结论已漂开,必须同批重裁',
+      '门计数几何事实表 ≠ 台账 counts.BottomActionBar ⇒ 台账/结论已漂开,必须同批重裁',
     ).toBe(PARITY_BASELINE.counts?.['BottomActionBar'])
+    // 门 counts 是 RN 侧几何口径;小程序这条 token 派生内衬是真实事实,但必须显式在口径外。
+    expect(MINIAPP_ONLY_FACTS).toHaveLength(1)
+    expect(MINIAPP_ONLY_FACTS[0]).toMatchObject({
+      value: 6,
+      dimension: 'geometry',
+      owner: 'miniapp-taro',
+      kind: 'C',
+    })
     expect(
       radius.length,
       '半径事实表 ≠ 台账 radiusCounts.BottomActionBar ⇒ 台账/结论已漂开,必须同批重裁',

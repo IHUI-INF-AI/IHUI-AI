@@ -43,17 +43,16 @@ async function waitForChatReady(page: Page): Promise<boolean> {
   // 允许未登录跳转到 /login,只要当前 URL 不含 /chat 就跳过
   if (!page.url().includes('/chat')) return false
   // 2026-08-27 修复:受保护页未登录不再跳转,而是原地弹 LoginDialog 遮罩(登录弹窗懒触发策略)。
-  // 遮罩会拦截 trigger 点击导致 30s 超时,按软跳过设计返回 false。等 2s 覆盖 401 异步触发。
-  await page.waitForTimeout(2000)
-  if (
-    await page
-      .getByTestId('login-dialog')
-      .isVisible()
-      .catch(() => false)
-  )
-    return false
-  // 等待 trigger 出现(最多 8s,沿用 Phase 13 规范)
+  // 遮罩会拦截 trigger 点击导致 30s 超时,按软跳过设计返回 false。
+  // 用「登录弹窗 / trigger 先到者」条件等待替代固定 2s,避免慢启动被固定等待掩盖。
+  const loginDialog = page.getByTestId('login-dialog')
   const trigger = page.locator(TRIGGER_TESTID)
+  await Promise.race([
+    loginDialog.waitFor({ state: 'visible', timeout: 8000 }).catch(() => {}),
+    trigger.waitFor({ state: 'visible', timeout: 8000 }).catch(() => {}),
+  ])
+  if (await loginDialog.isVisible().catch(() => false)) return false
+  // 等待 trigger 出现(最多 8s,沿用 Phase 13 规范)
   if (!(await trigger.isVisible({ timeout: 8000 }).catch(() => false))) return false
   return true
 }
@@ -80,7 +79,7 @@ test.describe('Phase 19 AI 工作台 4 大招牌交互', () => {
     // 至少存在一个 plan step
     const planStep = pane.locator(PLAN_STEP_PREFIX).first()
     if (!(await planStep.isVisible({ timeout: 5000 }).catch(() => false))) {
-      test.skip(true, '当前无 plan step(未触发 agent 任务),跳过交互验证')
+      test.skip(true, '当前无 plan step(未触发 agent 任务),跳过交互验证 [SKIP:SKIP-0060]')
       return
     }
 
@@ -91,6 +90,7 @@ test.describe('Phase 19 AI 工作台 4 大招牌交互', () => {
 
     await planStep.click().catch(() => {})
     // 等待消息滚动 + flashHighlight(1.5s 内高亮类)
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(500)
 
     // 软断言:页面或消息列表区域发生了滚动(允许 scrollY 没变时跳过)
@@ -119,6 +119,7 @@ test.describe('Phase 19 AI 工作台 4 大招牌交互', () => {
     const aiMessage = page.locator('[data-message-id]').last()
     if (await aiMessage.isVisible({ timeout: 2000 }).catch(() => false)) {
       await aiMessage.hover().catch(() => {})
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await page.waitForTimeout(300)
       // 软断言:相关 plan step 应有 hover 高亮类(此处用 backgroundColor 变化判定)
       const stepBg = await pane
@@ -141,7 +142,10 @@ test.describe('Phase 19 AI 工作台 4 大招牌交互', () => {
     // 1) 验证 timeline tab 容器存在
     const tab = page.locator(TIMELINE_TAB_TESTID)
     if (!(await tab.isVisible({ timeout: 5000 }).catch(() => false))) {
-      test.skip(true, 'timeline-tab 容器不可见(可能 showTabs=false 或 pane 未挂载),跳过')
+      test.skip(
+        true,
+        'timeline-tab 容器不可见(可能 showTabs=false 或 pane 未挂载),跳过 [SKIP:SKIP-0061]',
+      )
       return
     }
 
@@ -153,7 +157,7 @@ test.describe('Phase 19 AI 工作台 4 大招牌交互', () => {
       !(await inlineBtn.isVisible({ timeout: 3000 }).catch(() => false)) ||
       !(await timelineBtn.isVisible({ timeout: 3000 }).catch(() => false))
     ) {
-      test.skip(true, 'tab 切换按钮不可见,跳过')
+      test.skip(true, 'tab 切换按钮不可见,跳过 [SKIP:SKIP-0062]')
       return
     }
 
@@ -163,7 +167,6 @@ test.describe('Phase 19 AI 工作台 4 大招牌交互', () => {
 
     // 3) 切换到 timeline tab
     await timelineBtn.click()
-    await page.waitForTimeout(300)
 
     await expect(timelineBtn).toHaveAttribute('aria-selected', 'true')
     await expect(inlineBtn).toHaveAttribute('aria-selected', 'false')
@@ -214,7 +217,6 @@ test.describe('Phase 19 AI 工作台 4 大招牌交互', () => {
 
     // 5) 切回 inline tab(确保双向切换可用)
     await inlineBtn.click()
-    await page.waitForTimeout(200)
     await expect(inlineBtn).toHaveAttribute('aria-selected', 'true')
   })
 
@@ -225,12 +227,13 @@ test.describe('Phase 19 AI 工作台 4 大招牌交互', () => {
     const pane = page.locator(PANE_TESTID)
     const planStep = pane.locator(PLAN_STEP_PREFIX).first()
     if (!(await planStep.isVisible({ timeout: 5000 }).catch(() => false))) {
-      test.skip(true, '无 plan step 可触发 hover preview,跳过')
+      test.skip(true, '无 plan step 可触发 hover preview,跳过 [SKIP:SKIP-0063]')
       return
     }
 
     // 1) 鼠标移入,等待 250ms 延迟
     await planStep.hover().catch(() => {})
+    // WAIT-POLICY:TIMING-0002 输入去抖/节流窗口,需完整覆盖阈值后才采样
     await page.waitForTimeout(350) // 略大于 250ms 阈值
 
     // 2) 验证 hover-preview-card 出现
@@ -254,19 +257,24 @@ test.describe('Phase 19 AI 工作台 4 大招牌交互', () => {
       }
     } else {
       // 软断言:可能因 dataRef.current === null 而未触发(组件实现细节)
-      test.skip(true, 'hover preview 未在 350ms 内出现(可能无关联数据),跳过内容验证')
+      test.skip(
+        true,
+        'hover preview 未在 350ms 内出现(可能无关联数据),跳过内容验证 [SKIP:SKIP-0064]',
+      )
       return
     }
 
     // 5) 边界检测:移动到 viewport 右上角附近的 plan step,验证 preview 朝内显示
     //    由于 plan step 位置不可控,这里仅模拟 mouseleave 后再 hover 另一个 step
     await planStep.dispatchEvent('mouseleave').catch(() => {})
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(200)
 
     const planStepsCount = await pane.locator(PLAN_STEP_PREFIX).count()
     if (planStepsCount > 1) {
       const secondStep = pane.locator(PLAN_STEP_PREFIX).nth(1)
       await secondStep.hover().catch(() => {})
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await page.waitForTimeout(350)
       const preview2 = page.locator(HOVER_PREVIEW_PREFIX).first()
       const visible2 = await preview2.isVisible({ timeout: 1500 }).catch(() => false)
@@ -282,19 +290,20 @@ test.describe('Phase 19 AI 工作台 4 大招牌交互', () => {
     // 1) 找到 AI 消息区域(数据消息元素)
     const aiMessage = page.locator('[data-message-id]').last()
     if (!(await aiMessage.isVisible({ timeout: 5000 }).catch(() => false))) {
-      test.skip(true, '无 AI 消息可触发右键菜单,跳过')
+      test.skip(true, '无 AI 消息可触发右键菜单,跳过 [SKIP:SKIP-0065]')
       return
     }
 
     // 2) 右键触发
     await aiMessage.click({ button: 'right' }).catch(() => {})
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(300)
 
     // 3) 验证菜单出现
     const menu = page.locator(MESSAGE_CONTEXT_MENU)
     const menuVisible = await menu.isVisible({ timeout: 2000 }).catch(() => false)
     if (!menuVisible) {
-      test.skip(true, '右键菜单未出现(可能消息未挂 onContextMenu),跳过')
+      test.skip(true, '右键菜单未出现(可能消息未挂 onContextMenu),跳过 [SKIP:SKIP-0066]')
       return
     }
 
@@ -335,6 +344,7 @@ test.describe('Phase 19 AI 工作台 4 大招牌交互', () => {
 
     // 7) Esc 键关闭
     await page.keyboard.press('Escape')
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(200)
     const stillVisible = await menu.isVisible({ timeout: 500 }).catch(() => false)
     expect(stillVisible).toBe(false)
@@ -351,6 +361,7 @@ test.describe('Phase 19 AI 工作台 4 大招牌交互', () => {
           position: { x: 5, y: 5 }, // 元素内靠近 (0,0) 位置
         })
         .catch(() => {})
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await page.waitForTimeout(300)
 
       const cornerMenu = page.locator(MESSAGE_CONTEXT_MENU)
@@ -387,8 +398,10 @@ test.describe('Phase 19 AI 工作台 4 大招牌交互', () => {
     if (await planStep.isVisible({ timeout: 2000 }).catch(() => false)) {
       // 1) plan step click + hover
       await planStep.click().catch(() => {})
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await page.waitForTimeout(200)
       await planStep.hover().catch(() => {})
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await page.waitForTimeout(400)
     }
 
@@ -396,6 +409,7 @@ test.describe('Phase 19 AI 工作台 4 大招牌交互', () => {
     const timelineBtn = page.locator(TIMELINE_TAB_BTN('timeline'))
     if (await timelineBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
       await timelineBtn.click().catch(() => {})
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await page.waitForTimeout(200)
     }
 
@@ -403,6 +417,7 @@ test.describe('Phase 19 AI 工作台 4 大招牌交互', () => {
     const msg = page.locator('[data-message-id]').last()
     if (await msg.isVisible({ timeout: 1000 }).catch(() => false)) {
       await msg.click({ button: 'right' }).catch(() => {})
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await page.waitForTimeout(200)
       await page.keyboard.press('Escape').catch(() => {})
     }
@@ -434,7 +449,7 @@ test.describe('Phase 19 v15 UX 优化补充(8 个测试)', () => {
     // 1) 验证 pane-drag-grip 存在
     const grip = page.locator('[data-testid="pane-drag-grip"]').first()
     if (!(await grip.isVisible({ timeout: 3000 }).catch(() => false))) {
-      test.skip(true, 'pane-drag-grip 不存在,跳过')
+      test.skip(true, 'pane-drag-grip 不存在,跳过 [SKIP:SKIP-0067]')
       return
     }
 
@@ -453,7 +468,7 @@ test.describe('Phase 19 v15 UX 优化补充(8 个测试)', () => {
     const headerBox = await header.boundingBox()
     const paneBox = await pane.boundingBox()
     if (!headerBox || !paneBox) {
-      test.skip(true, '无法获取 header/pane boundingBox,跳过')
+      test.skip(true, '无法获取 header/pane boundingBox,跳过 [SKIP:SKIP-0068]')
       return
     }
 
@@ -463,6 +478,7 @@ test.describe('Phase 19 v15 UX 优化补充(8 个测试)', () => {
     await page.mouse.down()
     await page.mouse.move(startX + 60, startY + 40, { steps: 5 })
     await page.mouse.up()
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(300)
 
     // 4) 验证位置已持久化到 localStorage(真实键名 agent-progress-pane-position-v2)
@@ -492,7 +508,7 @@ test.describe('Phase 19 v15 UX 优化补充(8 个测试)', () => {
     // 1) 验证 help toggle 按钮存在
     const toggleBtn = page.locator('[data-testid="pane-help-toggle"]').first()
     if (!(await toggleBtn.isVisible({ timeout: 3000 }).catch(() => false))) {
-      test.skip(true, 'pane-help-toggle 不存在,跳过')
+      test.skip(true, 'pane-help-toggle 不存在,跳过 [SKIP:SKIP-0069]')
       return
     }
 
@@ -501,12 +517,10 @@ test.describe('Phase 19 v15 UX 优化补充(8 个测试)', () => {
 
     // 3) 点击 toggle → 打开 help panel
     await toggleBtn.click()
-    await page.waitForTimeout(200)
     await expect(page.locator('[data-testid="pane-help-panel"]')).toHaveCount(1)
 
     // 4) 再点击 → 关闭
     await toggleBtn.click()
-    await page.waitForTimeout(200)
     await expect(page.locator('[data-testid="pane-help-panel"]')).toHaveCount(0)
   })
 
@@ -519,16 +533,20 @@ test.describe('Phase 19 v15 UX 优化补充(8 个测试)', () => {
     // 1) 切到 timeline tab
     const timelineBtn = page.locator('[data-testid="pane-tab-timeline"]').first()
     if (!(await timelineBtn.isVisible({ timeout: 3000 }).catch(() => false))) {
-      test.skip(true, 'pane-tab-timeline 不存在,跳过')
+      test.skip(true, 'pane-tab-timeline 不存在,跳过 [SKIP:SKIP-0070]')
       return
     }
     await timelineBtn.click()
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(200)
 
     // 2) 验证 timeline-filter-all 存在(必出)
     const allChip = page.locator('[data-testid="timeline-filter-all"]').first()
     if (!(await allChip.isVisible({ timeout: 2000 }).catch(() => false))) {
-      test.skip(true, 'timeline-filter-all 不存在(timeline 过滤 chip 尚未实现),跳过')
+      test.skip(
+        true,
+        'timeline-filter-all 不存在(timeline 过滤 chip 尚未实现),跳过 [SKIP:SKIP-0071]',
+      )
       return
     }
     // 初始 all 应为 selected
@@ -543,18 +561,16 @@ test.describe('Phase 19 v15 UX 优化补充(8 个测试)', () => {
         foundOther = true
         // 点击 → 切换 aria-pressed
         await chip.click()
-        await page.waitForTimeout(150)
         await expect(chip).toHaveAttribute('aria-pressed', 'true')
         // 切回 all
         await allChip.click()
-        await page.waitForTimeout(150)
         await expect(allChip).toHaveAttribute('aria-pressed', 'true')
         break
       }
     }
     if (!foundOther) {
       // 软断言:允许只实现 all chip,跳过
-      test.skip(true, '其他 timeline-filter-* chip 未实现,仅验证 all 存在')
+      test.skip(true, '其他 timeline-filter-* chip 未实现,仅验证 all 存在 [SKIP:SKIP-0072]')
       return
     }
   })
@@ -568,21 +584,23 @@ test.describe('Phase 19 v15 UX 优化补充(8 个测试)', () => {
     // 1) 切到 timeline tab
     const timelineBtn = page.locator('[data-testid="pane-tab-timeline"]').first()
     if (!(await timelineBtn.isVisible({ timeout: 3000 }).catch(() => false))) {
-      test.skip(true, 'pane-tab-timeline 不存在,跳过')
+      test.skip(true, 'pane-tab-timeline 不存在,跳过 [SKIP:SKIP-0073]')
       return
     }
     await timelineBtn.click()
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(200)
 
     // 2) 验证搜索框存在
     const searchInput = page.locator('[data-testid="timeline-search-input"]').first()
     if (!(await searchInput.isVisible({ timeout: 2000 }).catch(() => false))) {
-      test.skip(true, 'timeline-search-input 不存在,跳过')
+      test.skip(true, 'timeline-search-input 不存在,跳过 [SKIP:SKIP-0074]')
       return
     }
 
     // 3) 输入关键词
     await searchInput.fill('test-keyword')
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(200)
     const value = await searchInput.inputValue()
     expect(value).toBe('test-keyword')
@@ -591,6 +609,7 @@ test.describe('Phase 19 v15 UX 优化补充(8 个测试)', () => {
     const clearBtn = page.locator('[data-testid="timeline-search-clear"]').first()
     if (await clearBtn.isVisible({ timeout: 500 }).catch(() => false)) {
       await clearBtn.click()
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await page.waitForTimeout(150)
       const cleared = await searchInput.inputValue()
       expect(cleared).toBe('')
@@ -606,16 +625,17 @@ test.describe('Phase 19 v15 UX 优化补充(8 个测试)', () => {
     // 1) 切到 timeline tab
     const timelineBtn = page.locator('[data-testid="pane-tab-timeline"]').first()
     if (!(await timelineBtn.isVisible({ timeout: 3000 }).catch(() => false))) {
-      test.skip(true, 'pane-tab-timeline 不存在,跳过')
+      test.skip(true, 'pane-tab-timeline 不存在,跳过 [SKIP:SKIP-0075]')
       return
     }
     await timelineBtn.click()
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(200)
 
     // 2) 验证 timeline-status-counts 容器存在
     const countsContainer = page.locator('[data-testid="timeline-status-counts"]').first()
     if (!(await countsContainer.isVisible({ timeout: 2000 }).catch(() => false))) {
-      test.skip(true, 'timeline-status-counts 不存在(尚未实现),跳过')
+      test.skip(true, 'timeline-status-counts 不存在(尚未实现),跳过 [SKIP:SKIP-0076]')
       return
     }
     expect(await countsContainer.count()).toBeGreaterThan(0)
@@ -635,7 +655,10 @@ test.describe('Phase 19 v15 UX 优化补充(8 个测试)', () => {
     }
     if (!foundAny) {
       // 软断言:容器存在但 chip 未实现
-      test.skip(true, 'timeline-count-{done|failed|running} chip 未实现,仅验证容器存在')
+      test.skip(
+        true,
+        'timeline-count-{done|failed|running} chip 未实现,仅验证容器存在 [SKIP:SKIP-0077]',
+      )
       return
     }
   })
@@ -651,7 +674,10 @@ test.describe('Phase 19 v15 UX 优化补充(8 个测试)', () => {
     const visible = await banner.isVisible({ timeout: 2000 }).catch(() => false)
     if (!visible) {
       // 横幅可能仅在全部 plan step 完成时短暂出现,这里软跳过
-      test.skip(true, 'pane-celebration-banner 未在初始状态显示(可能需触发完成),跳过')
+      test.skip(
+        true,
+        'pane-celebration-banner 未在初始状态显示(可能需触发完成),跳过 [SKIP:SKIP-0078]',
+      )
       return
     }
     await expect(banner).toHaveAttribute('role', 'status')
@@ -666,16 +692,17 @@ test.describe('Phase 19 v15 UX 优化补充(8 个测试)', () => {
     // 1) 显式 openPane 但不设置 threadId(默认空状态)
     const trigger = page.locator(TRIGGER_TESTID)
     if (!(await trigger.isVisible({ timeout: 3000 }).catch(() => false))) {
-      test.skip(true, 'trigger 不存在,跳过')
+      test.skip(true, 'trigger 不存在,跳过 [SKIP:SKIP-0079]')
       return
     }
     await trigger.click()
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(300)
 
     // 2) 验证 pane-empty-state 渲染
     const emptyState = page.locator('[data-testid="pane-empty-state"]').first()
     if (!(await emptyState.isVisible({ timeout: 2000 }).catch(() => false))) {
-      test.skip(true, 'pane-empty-state 未渲染(可能有 active threadId),跳过')
+      test.skip(true, 'pane-empty-state 未渲染(可能有 active threadId),跳过 [SKIP:SKIP-0080]')
       return
     }
     expect(await emptyState.count()).toBeGreaterThan(0)
@@ -699,7 +726,7 @@ test.describe('Phase 19 v15 UX 优化补充(8 个测试)', () => {
     const count = await items.count()
     if (count === 0) {
       // 无 subagent 时,验证至少空场景;允许跳过(v15 主要关注失败状态定位)
-      test.skip(true, '当前无 subagent,跳过 data-status 验证')
+      test.skip(true, '当前无 subagent,跳过 data-status 验证 [SKIP:SKIP-0081]')
       return
     }
 
@@ -740,7 +767,7 @@ test.describe('Phase 19 v15 深度化(14 个测试)', () => {
     const pane = page.locator(PANE_TESTID)
     const planStep = pane.locator(PLAN_STEP_PREFIX).first()
     if (!(await planStep.isVisible({ timeout: 5000 }).catch(() => false))) {
-      test.skip(true, '无 plan step 可点击,跳过')
+      test.skip(true, '无 plan step 可点击,跳过 [SKIP:SKIP-0082]')
       return
     }
 
@@ -777,7 +804,7 @@ test.describe('Phase 19 v15 深度化(14 个测试)', () => {
     const pane = page.locator(PANE_TESTID)
     const planStep = pane.locator(PLAN_STEP_PREFIX).first()
     if (!(await planStep.isVisible({ timeout: 5000 }).catch(() => false))) {
-      test.skip(true, '无 plan step 可 hover,跳过')
+      test.skip(true, '无 plan step 可 hover,跳过 [SKIP:SKIP-0083]')
       return
     }
 
@@ -792,6 +819,7 @@ test.describe('Phase 19 v15 深度化(14 个测试)', () => {
 
     // hover 触发
     await planStep.hover().catch(() => {})
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(300)
 
     const afterClass = await page.evaluate(() => {
@@ -810,7 +838,7 @@ test.describe('Phase 19 v15 深度化(14 个测试)', () => {
 
     const pinBtn = page.locator('[data-testid="pane-pin"]').first()
     if (!(await pinBtn.isVisible({ timeout: 3000 }).catch(() => false))) {
-      test.skip(true, 'pane-pin 不存在,跳过')
+      test.skip(true, 'pane-pin 不存在,跳过 [SKIP:SKIP-0084]')
       return
     }
 
@@ -820,6 +848,7 @@ test.describe('Phase 19 v15 深度化(14 个测试)', () => {
 
     // 2) 点击 → 切换状态
     await pinBtn.click()
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(150)
     const toggledLabel = await pinBtn.getAttribute('aria-label')
     expect(toggledLabel).toBeTruthy()
@@ -828,6 +857,7 @@ test.describe('Phase 19 v15 深度化(14 个测试)', () => {
 
     // 3) 再点击 → 切回
     await pinBtn.click()
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(150)
     const finalLabel = await pinBtn.getAttribute('aria-label')
     expect(finalLabel).toBe(initialLabel)
@@ -839,12 +869,13 @@ test.describe('Phase 19 v15 深度化(14 个测试)', () => {
 
     const minimizeBtn = page.locator('[data-testid="pane-minimize"]').first()
     if (!(await minimizeBtn.isVisible({ timeout: 3000 }).catch(() => false))) {
-      test.skip(true, 'pane-minimize 不存在,跳过')
+      test.skip(true, 'pane-minimize 不存在,跳过 [SKIP:SKIP-0085]')
       return
     }
 
     // 1) 点击 minimize
     await minimizeBtn.click()
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(200)
 
     // 2) pane 应消失
@@ -858,6 +889,7 @@ test.describe('Phase 19 v15 深度化(14 个测试)', () => {
     const trigger = page.locator(TRIGGER_TESTID)
     if (await trigger.isVisible({ timeout: 1000 }).catch(() => false)) {
       await trigger.click()
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await page.waitForTimeout(200)
       const restored = await page
         .locator(PANE_TESTID)
@@ -873,12 +905,13 @@ test.describe('Phase 19 v15 深度化(14 个测试)', () => {
 
     const expandBtn = page.locator('[data-testid="pane-expand-all"]').first()
     if (!(await expandBtn.isVisible({ timeout: 3000 }).catch(() => false))) {
-      test.skip(true, 'pane-expand-all 不存在,跳过')
+      test.skip(true, 'pane-expand-all 不存在,跳过 [SKIP:SKIP-0086]')
       return
     }
 
     const initialLabel = await expandBtn.getAttribute('aria-label')
     await expandBtn.click()
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(150)
     const afterLabel = await expandBtn.getAttribute('aria-label')
     expect(afterLabel).toBeTruthy()
@@ -893,13 +926,12 @@ test.describe('Phase 19 v15 深度化(14 个测试)', () => {
 
     const toggleBtn = page.locator('[data-testid="pane-help-toggle"]').first()
     if (!(await toggleBtn.isVisible({ timeout: 3000 }).catch(() => false))) {
-      test.skip(true, 'pane-help-toggle 不存在,跳过')
+      test.skip(true, 'pane-help-toggle 不存在,跳过 [SKIP:SKIP-0087]')
       return
     }
 
     // 1) 打开 help panel
     await toggleBtn.click()
-    await page.waitForTimeout(200)
     await expect(page.locator('[data-testid="pane-help-panel"]')).toHaveCount(1)
     await expect(toggleBtn).toHaveAttribute('aria-expanded', 'true')
 
@@ -907,7 +939,6 @@ test.describe('Phase 19 v15 深度化(14 个测试)', () => {
     const closeBtn = page.locator('[data-testid="pane-help-close"]').first()
     if (await closeBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
       await closeBtn.click()
-      await page.waitForTimeout(150)
       await expect(page.locator('[data-testid="pane-help-panel"]')).toHaveCount(0)
       await expect(toggleBtn).toHaveAttribute('aria-expanded', 'false')
     }
@@ -922,10 +953,11 @@ test.describe('Phase 19 v15 深度化(14 个测试)', () => {
     // 切到 timeline tab
     const timelineBtn = page.locator('[data-testid="pane-tab-timeline"]').first()
     if (!(await timelineBtn.isVisible({ timeout: 3000 }).catch(() => false))) {
-      test.skip(true, 'pane-tab-timeline 不存在,跳过')
+      test.skip(true, 'pane-tab-timeline 不存在,跳过 [SKIP:SKIP-0088]')
       return
     }
     await timelineBtn.click()
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(200)
 
     // 查找有 children 的 event(subagent 通常带 children)
@@ -934,12 +966,11 @@ test.describe('Phase 19 v15 深度化(14 个测试)', () => {
       .first()
     const hasChildEvent = await eventRow.isVisible({ timeout: 1000 }).catch(() => false)
     if (!hasChildEvent) {
-      test.skip(true, '无有 children 的 event,跳过')
+      test.skip(true, '无有 children 的 event,跳过 [SKIP:SKIP-0089]')
       return
     }
     const initialExpanded = await eventRow.locator('button').first().getAttribute('aria-expanded')
     await eventRow.locator('button').first().click()
-    await page.waitForTimeout(150)
     const afterExpanded = await eventRow.locator('button').first().getAttribute('aria-expanded')
     expect(afterExpanded).not.toBe(initialExpanded)
   })
@@ -953,16 +984,17 @@ test.describe('Phase 19 v15 深度化(14 个测试)', () => {
     // 切到 timeline tab
     const timelineBtn = page.locator('[data-testid="pane-tab-timeline"]').first()
     if (!(await timelineBtn.isVisible({ timeout: 3000 }).catch(() => false))) {
-      test.skip(true, 'pane-tab-timeline 不存在,跳过')
+      test.skip(true, 'pane-tab-timeline 不存在,跳过 [SKIP:SKIP-0090]')
       return
     }
     await timelineBtn.click()
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(200)
 
     // 1) 验证 all filter
     const allChip = page.locator('[data-testid="timeline-filter-all"]').first()
     if (!(await allChip.isVisible({ timeout: 2000 }).catch(() => false))) {
-      test.skip(true, 'timeline-filter-all 不存在,跳过')
+      test.skip(true, 'timeline-filter-all 不存在,跳过 [SKIP:SKIP-0091]')
       return
     }
     await expect(allChip).toHaveAttribute('aria-pressed', 'true')
@@ -971,7 +1003,6 @@ test.describe('Phase 19 v15 深度化(14 个测试)', () => {
     const planChip = page.locator('[data-testid="timeline-filter-plan"]').first()
     if (await planChip.isVisible({ timeout: 500 }).catch(() => false)) {
       await planChip.click()
-      await page.waitForTimeout(150)
       await expect(planChip).toHaveAttribute('aria-pressed', 'true')
       await expect(allChip).toHaveAttribute('aria-pressed', 'false')
     }
@@ -980,13 +1011,11 @@ test.describe('Phase 19 v15 深度化(14 个测试)', () => {
     const toolChip = page.locator('[data-testid="timeline-filter-tool"]').first()
     if (await toolChip.isVisible({ timeout: 500 }).catch(() => false)) {
       await toolChip.click()
-      await page.waitForTimeout(150)
       await expect(toolChip).toHaveAttribute('aria-pressed', 'true')
     }
 
     // 4) 切回 all
     await allChip.click()
-    await page.waitForTimeout(150)
     await expect(allChip).toHaveAttribute('aria-pressed', 'true')
   })
 
@@ -998,15 +1027,16 @@ test.describe('Phase 19 v15 深度化(14 个测试)', () => {
 
     const timelineBtn = page.locator('[data-testid="pane-tab-timeline"]').first()
     if (!(await timelineBtn.isVisible({ timeout: 3000 }).catch(() => false))) {
-      test.skip(true, 'pane-tab-timeline 不存在,跳过')
+      test.skip(true, 'pane-tab-timeline 不存在,跳过 [SKIP:SKIP-0092]')
       return
     }
     await timelineBtn.click()
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(200)
 
     const searchInput = page.locator('[data-testid="timeline-search-input"]').first()
     if (!(await searchInput.isVisible({ timeout: 2000 }).catch(() => false))) {
-      test.skip(true, 'timeline-search-input 不存在,跳过')
+      test.skip(true, 'timeline-search-input 不存在,跳过 [SKIP:SKIP-0093]')
       return
     }
 
@@ -1016,12 +1046,10 @@ test.describe('Phase 19 v15 深度化(14 个测试)', () => {
 
     // 2) 输入 → clear 按钮出现
     await searchInput.fill('abc')
-    await page.waitForTimeout(150)
     await expect(page.locator('[data-testid="timeline-search-clear"]')).toHaveCount(1)
 
     // 3) 点击 clear → 输入框清空 + clear 按钮消失
     await page.locator('[data-testid="timeline-search-clear"]').first().click()
-    await page.waitForTimeout(150)
     expect(await searchInput.inputValue()).toBe('')
     await expect(page.locator('[data-testid="timeline-search-clear"]')).toHaveCount(0)
   })
@@ -1036,13 +1064,14 @@ test.describe('Phase 19 v15 深度化(14 个测试)', () => {
     const bannerCount = await page.locator('[data-testid="pane-failure-banner"]').count()
     if (bannerCount === 0) {
       // 无失败项:跳过(可能任务正常完成)
-      test.skip(true, '无失败项,failure banner 未渲染(预期)')
+      test.skip(true, '无失败项,failure banner 未渲染(预期) [SKIP:SKIP-0094]')
       return
     }
     // 有 failure banner 时:点击应触发滚动 + 短暂高亮
     const banner = page.locator('[data-testid="pane-failure-banner"]').first()
     if (await banner.isVisible({ timeout: 1000 }).catch(() => false)) {
       await banner.click()
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await page.waitForTimeout(200)
       // 不强制断言(可能无失败项,只是无操作)
       void true
@@ -1056,7 +1085,7 @@ test.describe('Phase 19 v15 深度化(14 个测试)', () => {
     const ring = page.locator('[data-testid="progress-ring"]').first()
     if (!(await ring.isVisible({ timeout: 3000 }).catch(() => false))) {
       // 无 plan steps 时不渲染进度环(空状态)
-      test.skip(true, 'progress-ring 未渲染(无 plan steps),跳过')
+      test.skip(true, 'progress-ring 未渲染(无 plan steps),跳过 [SKIP:SKIP-0095]')
       return
     }
 
@@ -1084,7 +1113,7 @@ test.describe('Phase 19 v15 深度化(14 个测试)', () => {
     const count = await toolLists.count()
     if (count === 0) {
       // 无 in_progress 步骤的 tool 关联:跳过
-      test.skip(true, '无 in_progress step 关联 tool,跳过')
+      test.skip(true, '无 in_progress step 关联 tool,跳过 [SKIP:SKIP-0096]')
       return
     }
     expect(count).toBeGreaterThan(0)
@@ -1096,18 +1125,16 @@ test.describe('Phase 19 v15 深度化(14 个测试)', () => {
 
     const toggleBtn = page.locator('[data-testid="pane-help-toggle"]').first()
     if (!(await toggleBtn.isVisible({ timeout: 3000 }).catch(() => false))) {
-      test.skip(true, 'pane-help-toggle 不存在,跳过')
+      test.skip(true, 'pane-help-toggle 不存在,跳过 [SKIP:SKIP-0097]')
       return
     }
 
     // 1) 打开 help panel
     await toggleBtn.click()
-    await page.waitForTimeout(200)
     await expect(page.locator('[data-testid="pane-help-panel"]')).toHaveCount(1)
 
     // 2) 按 Esc → 帮助面板关闭,pane 仍存在
     await page.keyboard.press('Escape')
-    await page.waitForTimeout(200)
     await expect(page.locator('[data-testid="pane-help-panel"]')).toHaveCount(0)
     // pane 仍应可见
     await expect(page.locator(PANE_TESTID)).toBeVisible()
@@ -1125,7 +1152,7 @@ test.describe('Phase 19 v15 深度化(14 个测试)', () => {
       !(await inlineTab.isVisible({ timeout: 3000 }).catch(() => false)) ||
       !(await timelineTab.isVisible({ timeout: 3000 }).catch(() => false))
     ) {
-      test.skip(true, 'pane tab 不可见,跳过')
+      test.skip(true, 'pane tab 不可见,跳过 [SKIP:SKIP-0098]')
       return
     }
 
@@ -1135,13 +1162,11 @@ test.describe('Phase 19 v15 深度化(14 个测试)', () => {
 
     // 2) 切到 timeline
     await timelineTab.click()
-    await page.waitForTimeout(200)
     await expect(timelineTab).toHaveAttribute('aria-selected', 'true')
     await expect(inlineTab).toHaveAttribute('aria-selected', 'false')
 
     // 3) 切回 inline
     await inlineTab.click()
-    await page.waitForTimeout(200)
     await expect(inlineTab).toHaveAttribute('aria-selected', 'true')
     await expect(timelineTab).toHaveAttribute('aria-selected', 'false')
   })
@@ -1166,7 +1191,7 @@ test.describe('Phase 19 v16 拖拽 + 快捷键 + 庆祝横幅深度补充(12 个
     const header = page.locator('[data-testid="pane-header"]').first()
     const pane = page.locator(PANE_TESTID).first()
     if (!(await header.isVisible({ timeout: 2000 }).catch(() => false))) {
-      test.skip(true, 'pane-header 不可见,跳过')
+      test.skip(true, 'pane-header 不可见,跳过 [SKIP:SKIP-0099]')
       return
     }
 
@@ -1178,7 +1203,7 @@ test.describe('Phase 19 v16 拖拽 + 快捷键 + 庆祝横幅深度补充(12 个
     // 2) 模拟拖拽 mousedown → mousemove(中段)→ mouseup
     const box = await header.boundingBox().catch(() => null)
     if (!box) {
-      test.skip(true, '无法获取 header boundingBox,跳过')
+      test.skip(true, '无法获取 header boundingBox,跳过 [SKIP:SKIP-0100]')
       return
     }
     // 命中 header 中心空白区(避免点到 button/tab 子元素)
@@ -1195,7 +1220,6 @@ test.describe('Phase 19 v16 拖拽 + 快捷键 + 庆祝横幅深度补充(12 个
 
     // 4) 释放:data-dragging 恢复为 null
     await page.mouse.up()
-    await page.waitForTimeout(200)
     expect(await pane.getAttribute('data-dragging')).toBeNull()
   })
 
@@ -1208,7 +1232,7 @@ test.describe('Phase 19 v16 拖拽 + 快捷键 + 庆祝横幅深度补充(12 个
     const helpToggle = page.locator('[data-testid="pane-help-toggle"]').first()
     const pane = page.locator(PANE_TESTID).first()
     if (!(await helpToggle.isVisible({ timeout: 2000 }).catch(() => false))) {
-      test.skip(true, 'pane-help-toggle 不可见,跳过')
+      test.skip(true, 'pane-help-toggle 不可见,跳过 [SKIP:SKIP-0101]')
       return
     }
 
@@ -1218,7 +1242,7 @@ test.describe('Phase 19 v16 拖拽 + 快捷键 + 庆祝横幅深度补充(12 个
     // 2) 在 help-toggle 上 mousedown(应被排除,data-no-drag="true")
     const toggleBox = await helpToggle.boundingBox().catch(() => null)
     if (!toggleBox) {
-      test.skip(true, '无法获取 helpToggle boundingBox,跳过')
+      test.skip(true, '无法获取 helpToggle boundingBox,跳过 [SKIP:SKIP-0102]')
       return
     }
     const tx = toggleBox.x + toggleBox.width / 2
@@ -1232,7 +1256,6 @@ test.describe('Phase 19 v16 拖拽 + 快捷键 + 庆祝横幅深度补充(12 个
 
     // 4) 释放
     await page.mouse.up()
-    await page.waitForTimeout(150)
     expect(await pane.getAttribute('data-dragging')).toBeNull()
   })
 
@@ -1258,15 +1281,16 @@ test.describe('Phase 19 v16 拖拽 + 快捷键 + 庆祝横幅深度补充(12 个
     await page.reload().catch(() => {})
     await page.waitForLoadState('domcontentloaded').catch(() => {})
     if (!page.url().includes('/chat')) {
-      test.skip(true, '刷新后跳走,跳过')
+      test.skip(true, '刷新后跳走,跳过 [SKIP:SKIP-0103]')
       return
     }
     const trigger = page.locator(TRIGGER_TESTID)
     if (!(await trigger.isVisible({ timeout: 5000 }).catch(() => false))) {
-      test.skip(true, '刷新后 trigger 不可见,跳过')
+      test.skip(true, '刷新后 trigger 不可见,跳过 [SKIP:SKIP-0104]')
       return
     }
     await trigger.click()
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(300)
 
     // 3) 验证 pane 实际 style.left/top 与 localStorage 一致
@@ -1294,7 +1318,7 @@ test.describe('Phase 19 v16 拖拽 + 快捷键 + 庆祝横幅深度补充(12 个
     const header = page.locator('[data-testid="pane-header"]').first()
     const headerBox = await header.boundingBox().catch(() => null)
     if (!headerBox) {
-      test.skip(true, '无法获取 header boundingBox,跳过')
+      test.skip(true, '无法获取 header boundingBox,跳过 [SKIP:SKIP-0105]')
       return
     }
     const startX = headerBox.x + headerBox.width / 2
@@ -1305,6 +1329,7 @@ test.describe('Phase 19 v16 拖拽 + 快捷键 + 庆祝横幅深度补充(12 个
     await page.mouse.down()
     await page.mouse.move(startX + 20, startY + 10, { steps: 2 })
     await page.mouse.up()
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(150)
 
     const saved1 = await page.evaluate(() => {
@@ -1321,6 +1346,7 @@ test.describe('Phase 19 v16 拖拽 + 快捷键 + 庆祝横幅深度补充(12 个
     await page.mouse.down()
     await page.mouse.move(startX + 60, startY + 40, { steps: 3 })
     await page.mouse.up()
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(150)
 
     const saved2 = await page.evaluate(() => {
@@ -1352,19 +1378,20 @@ test.describe('Phase 19 v16 拖拽 + 快捷键 + 庆祝横幅深度补充(12 个
     // 1) 初始:help panel 不存在
     const initialHelp = await page.locator('[data-testid="pane-help-panel"]').count()
     if (initialHelp > 0) {
-      test.skip(true, 'help panel 初始已打开(异常状态),跳过')
+      test.skip(true, 'help panel 初始已打开(异常状态),跳过 [SKIP:SKIP-0106]')
       return
     }
 
     // 2) 按 ? 键 → 打开
     await page.keyboard.press('Shift+/')
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(200)
     const helpVisible = await page
       .locator('[data-testid="pane-help-panel"]')
       .isVisible({ timeout: 1000 })
       .catch(() => false)
     if (!helpVisible) {
-      test.skip(true, '? 键未触发 help panel(快捷键未挂载),跳过')
+      test.skip(true, '? 键未触发 help panel(快捷键未挂载),跳过 [SKIP:SKIP-0107]')
       return
     }
 
@@ -1374,7 +1401,6 @@ test.describe('Phase 19 v16 拖拽 + 快捷键 + 庆祝横幅深度补充(12 个
 
     // 4) 再按 ? → 关闭
     await page.keyboard.press('Shift+/')
-    await page.waitForTimeout(200)
     await expect(page.locator('[data-testid="pane-help-panel"]')).toHaveCount(0)
     await expect(toggle).toHaveAttribute('aria-expanded', 'false')
   })
@@ -1386,14 +1412,16 @@ test.describe('Phase 19 v16 拖拽 + 快捷键 + 庆祝横幅深度补充(12 个
     // 1) 找页面中的 input/textarea(可能在 chat input 中)
     const inputCandidates = page.locator('input[type="text"], textarea').first()
     if (!(await inputCandidates.isVisible({ timeout: 2000 }).catch(() => false))) {
-      test.skip(true, '无 input/textarea 可触发(资源不在),跳过')
+      test.skip(true, '无 input/textarea 可触发(资源不在),跳过 [SKIP:SKIP-0108]')
       return
     }
 
     // 2) 聚焦到 input → 按 ? 键
     await inputCandidates.focus().catch(() => {})
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(100)
     await page.keyboard.press('Shift+/')
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(200)
 
     // 3) help panel 应不出现(onKey 内 e.target.tagName === 'INPUT' 时直接 return)
@@ -1402,7 +1430,10 @@ test.describe('Phase 19 v16 拖拽 + 快捷键 + 庆祝横幅深度补充(12 个
       .isVisible({ timeout: 500 })
       .catch(() => false)
     if (helpInInput) {
-      test.skip(true, 'input 中 ? 键也触发了 help panel(实现与预期不符,允许记录),跳过')
+      test.skip(
+        true,
+        'input 中 ? 键也触发了 help panel(实现与预期不符,允许记录),跳过 [SKIP:SKIP-0109]',
+      )
       return
     }
     // 软断言:help panel 不应在 input 中打开
@@ -1415,17 +1446,17 @@ test.describe('Phase 19 v16 拖拽 + 快捷键 + 庆祝横幅深度补充(12 个
 
     const toggle = page.locator('[data-testid="pane-help-toggle"]').first()
     if (!(await toggle.isVisible({ timeout: 2000 }).catch(() => false))) {
-      test.skip(true, 'pane-help-toggle 不可见,跳过')
+      test.skip(true, 'pane-help-toggle 不可见,跳过 [SKIP:SKIP-0110]')
       return
     }
 
     // 1) 打开 help
     await toggle.click()
-    await page.waitForTimeout(200)
     await expect(page.locator('[data-testid="pane-help-panel"]')).toHaveCount(1)
 
     // 2) 按 Esc
     await page.keyboard.press('Escape')
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(200)
 
     // 3) help 关闭,但 pane 仍可见(Esc 在 help 打开时被 stopPropagation,不冒泡到 closePane)
@@ -1441,17 +1472,18 @@ test.describe('Phase 19 v16 拖拽 + 快捷键 + 庆祝横幅深度补充(12 个
 
     const toggle = page.locator('[data-testid="pane-help-toggle"]').first()
     if (!(await toggle.isVisible({ timeout: 2000 }).catch(() => false))) {
-      test.skip(true, 'pane-help-toggle 不可见,跳过')
+      test.skip(true, 'pane-help-toggle 不可见,跳过 [SKIP:SKIP-0111]')
       return
     }
 
     // 1) 打开 help
     await toggle.click()
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(200)
 
     const groupsContainer = page.locator('[data-testid="pane-help-groups"]').first()
     if (!(await groupsContainer.isVisible({ timeout: 1000 }).catch(() => false))) {
-      test.skip(true, 'pane-help-groups 不存在,跳过')
+      test.skip(true, 'pane-help-groups 不存在,跳过 [SKIP:SKIP-0112]')
       return
     }
 
@@ -1475,7 +1507,10 @@ test.describe('Phase 19 v16 拖拽 + 快捷键 + 庆祝横幅深度补充(12 个
 
     const banner = page.locator('[data-testid="pane-celebration-banner"]').first()
     if (!(await banner.isVisible({ timeout: 2000 }).catch(() => false))) {
-      test.skip(true, 'pane-celebration-banner 未渲染(需等任务全部完成才显示),跳过')
+      test.skip(
+        true,
+        'pane-celebration-banner 未渲染(需等任务全部完成才显示),跳过 [SKIP:SKIP-0113]',
+      )
       return
     }
 
@@ -1490,7 +1525,7 @@ test.describe('Phase 19 v16 拖拽 + 快捷键 + 庆祝横幅深度补充(12 个
       expect(hasSparkles).toBeTruthy()
     } else {
       // 软断言:banner 内可能不直接挂 svg(实现细节)
-      test.skip(true, 'banner 内 SVG 不可见,跳过')
+      test.skip(true, 'banner 内 SVG 不可见,跳过 [SKIP:SKIP-0114]')
     }
   })
 
@@ -1500,7 +1535,7 @@ test.describe('Phase 19 v16 拖拽 + 快捷键 + 庆祝横幅深度补充(12 个
 
     const banner = page.locator('[data-testid="pane-celebration-banner"]').first()
     if (!(await banner.isVisible({ timeout: 2000 }).catch(() => false))) {
-      test.skip(true, 'pane-celebration-banner 未渲染,跳过')
+      test.skip(true, 'pane-celebration-banner 未渲染,跳过 [SKIP:SKIP-0115]')
       return
     }
 
@@ -1518,7 +1553,7 @@ test.describe('Phase 19 v16 拖拽 + 快捷键 + 庆祝横幅深度补充(12 个
 
     const banner = page.locator('[data-testid="pane-celebration-banner"]').first()
     if (!(await banner.isVisible({ timeout: 2000 }).catch(() => false))) {
-      test.skip(true, 'pane-celebration-banner 未渲染,跳过')
+      test.skip(true, 'pane-celebration-banner 未渲染,跳过 [SKIP:SKIP-0116]')
       return
     }
 
@@ -1539,11 +1574,12 @@ test.describe('Phase 19 v16 拖拽 + 快捷键 + 庆祝横幅深度补充(12 个
     const initialVisible = await banner.isVisible({ timeout: 1500 }).catch(() => false)
     if (!initialVisible) {
       // 横幅仅在 planSteps 全部 completed 时显示,初始可能不在该状态
-      test.skip(true, '庆祝横幅初始未渲染(任务未全部完成),跳过 3s 计时验证')
+      test.skip(true, '庆祝横幅初始未渲染(任务未全部完成),跳过 3s 计时验证 [SKIP:SKIP-0117]')
       return
     }
 
     // 等待 3.3s(略大于 CELEBRATION_DURATION_MS=3000)+ happy-dom/浏览器节拍延迟
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(3300)
 
     // 3s 后应消失
@@ -1569,7 +1605,7 @@ adminTest.describe('Phase 19 v17 adminPage 深度化(20 个测试)', () => {
     await page.waitForLoadState('domcontentloaded').catch(() => {})
     // 等待 React hydration + I18nProvider 从 useLanguageStore 读 locale(persist 中间件异步恢复)
     // 1.8s 经验值:在 dev HMR 模式下足够 Provider 挂载并读完 persist
-    await page.waitForTimeout(1800)
+    await page.waitForLoadState('load', { timeout: 5400 }).catch(() => {})
     if (!page.url().includes('/chat')) return false
     const trigger = page.locator(TRIGGER_TESTID).first()
     if (!(await trigger.isVisible({ timeout: 6000 }).catch(() => false))) return false
@@ -1607,6 +1643,7 @@ adminTest.describe('Phase 19 v17 adminPage 深度化(20 个测试)', () => {
       }
     }, locale)
     // 给 React 一帧重新渲染 + I18nProvider 切换 messages
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(500)
   }
 
@@ -1641,7 +1678,7 @@ adminTest.describe('Phase 19 v17 adminPage 深度化(20 个测试)', () => {
 
       const pt = await getDragStartPoint(adminPage)
       if (!pt.isAvailable) {
-        test.skip(true, 'pane-drag-grip 不可见,跳过')
+        test.skip(true, 'pane-drag-grip 不可见,跳过 [SKIP:SKIP-0118]')
         return
       }
 
@@ -1649,6 +1686,7 @@ adminTest.describe('Phase 19 v17 adminPage 深度化(20 个测试)', () => {
       await adminPage.mouse.down()
       await adminPage.mouse.move(pt.startX + 60, pt.startY, { steps: 5 })
       await adminPage.mouse.up()
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await adminPage.waitForTimeout(200)
 
       const saved = await adminPage.evaluate(() => {
@@ -1677,7 +1715,7 @@ adminTest.describe('Phase 19 v17 adminPage 深度化(20 个测试)', () => {
 
       const pt = await getDragStartPoint(adminPage)
       if (!pt.isAvailable) {
-        test.skip(true, 'pane-drag-grip 不可见,跳过')
+        test.skip(true, 'pane-drag-grip 不可见,跳过 [SKIP:SKIP-0119]')
         return
       }
       await adminPage.mouse.move(pt.startX, pt.startY)
@@ -1689,6 +1727,7 @@ adminTest.describe('Phase 19 v17 adminPage 深度化(20 个测试)', () => {
       adminExpect(bodyCursorDrag).toBe('grabbing')
 
       await adminPage.mouse.up()
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await adminPage.waitForTimeout(150)
 
       // 释放后:body cursor 还原为空(由 useEffect cleanup 清除)
@@ -1705,7 +1744,7 @@ adminTest.describe('Phase 19 v17 adminPage 深度化(20 个测试)', () => {
 
       const pt = await getDragStartPoint(adminPage)
       if (!pt.isAvailable) {
-        test.skip(true, 'pane-drag-grip 不可见,跳过')
+        test.skip(true, 'pane-drag-grip 不可见,跳过 [SKIP:SKIP-0120]')
         return
       }
       await adminPage.mouse.move(pt.startX, pt.startY)
@@ -1716,6 +1755,7 @@ adminTest.describe('Phase 19 v17 adminPage 深度化(20 个测试)', () => {
       adminExpect(userSelectDuring).toBe('none')
 
       await adminPage.mouse.up()
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await adminPage.waitForTimeout(150)
 
       const userSelectAfter = await adminPage.evaluate(() => document.body.style.userSelect)
@@ -1732,12 +1772,12 @@ adminTest.describe('Phase 19 v17 adminPage 深度化(20 个测试)', () => {
       const minimize = adminPage.locator('[data-testid="pane-minimize"]').first()
       const pane = adminPage.locator(PANE_TESTID).first()
       if (!(await minimize.isVisible({ timeout: 2000 }).catch(() => false))) {
-        test.skip(true, 'pane-minimize 不存在,跳过')
+        test.skip(true, 'pane-minimize 不存在,跳过 [SKIP:SKIP-0121]')
         return
       }
       const box = await minimize.boundingBox().catch(() => null)
       if (!box) {
-        test.skip(true, 'minimize boundingBox 不可用,跳过')
+        test.skip(true, 'minimize boundingBox 不可用,跳过 [SKIP:SKIP-0122]')
         return
       }
       const cx = box.x + box.width / 2
@@ -1750,6 +1790,7 @@ adminTest.describe('Phase 19 v17 adminPage 深度化(20 个测试)', () => {
       adminExpect(await pane.getAttribute('data-dragging')).toBeNull()
 
       await adminPage.mouse.up()
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await adminPage.waitForTimeout(100)
     },
   )
@@ -1765,14 +1806,16 @@ adminTest.describe('Phase 19 v17 adminPage 深度化(20 个测试)', () => {
         .locator('textarea, input[type="text"], [contenteditable="true"]')
         .first()
       if (!(await input.isVisible({ timeout: 2000 }).catch(() => false))) {
-        test.skip(true, '无 chat 输入框可聚焦,跳过')
+        test.skip(true, '无 chat 输入框可聚焦,跳过 [SKIP:SKIP-0123]')
         return
       }
       await input.focus().catch(() => {})
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await adminPage.waitForTimeout(100)
 
       const initialHelpCount = await adminPage.locator('[data-testid="pane-help-panel"]').count()
       await adminPage.keyboard.press('Shift+/')
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await adminPage.waitForTimeout(200)
       const afterHelpCount = await adminPage.locator('[data-testid="pane-help-panel"]').count()
 
@@ -1789,17 +1832,19 @@ adminTest.describe('Phase 19 v17 adminPage 深度化(20 个测试)', () => {
 
       const toggle = adminPage.locator('[data-testid="pane-help-toggle"]').first()
       if (!(await toggle.isVisible({ timeout: 2000 }).catch(() => false))) {
-        test.skip(true, 'pane-help-toggle 不可见,跳过')
+        test.skip(true, 'pane-help-toggle 不可见,跳过 [SKIP:SKIP-0124]')
         return
       }
 
       // 1) 打开 help
       await toggle.click()
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await adminPage.waitForTimeout(200)
       adminExpect(await adminPage.locator('[data-testid="pane-help-panel"]').count()).toBe(1)
 
       // 2) 按 Esc
       await adminPage.keyboard.press('Escape')
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await adminPage.waitForTimeout(200)
 
       // 3) help 关闭
@@ -1822,12 +1867,14 @@ adminTest.describe('Phase 19 v17 adminPage 深度化(20 个测试)', () => {
         if (pinAria && /取消|unpin/i.test(pinAria)) {
           // 当前为 pinned → 取消 pin
           await pin.click()
+          // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
           await adminPage.waitForTimeout(100)
         }
       }
 
       // 按一次 Esc(unpin 状态且 help 关闭)→ closePane
       await adminPage.keyboard.press('Escape')
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await adminPage.waitForTimeout(300)
 
       // pane 应已关闭
@@ -1838,7 +1885,7 @@ adminTest.describe('Phase 19 v17 adminPage 深度化(20 个测试)', () => {
         .catch(() => false)
       // 软断言:可能因 click-outside 已关闭,或 pinned 未解除;记录即可
       if (paneVisible) {
-        test.skip(true, 'pane 未被 Esc 关闭(可能仍为 pinned 状态),跳过')
+        test.skip(true, 'pane 未被 Esc 关闭(可能仍为 pinned 状态),跳过 [SKIP:SKIP-0125]')
       }
     },
   )
@@ -1852,7 +1899,7 @@ adminTest.describe('Phase 19 v17 adminPage 深度化(20 个测试)', () => {
       const headers = adminPage.locator('[data-section-header]')
       const count = await headers.count()
       if (count < 2) {
-        test.skip(true, '折叠子区 header 数量 < 2,无法验证导航,跳过')
+        test.skip(true, '折叠子区 header 数量 < 2,无法验证导航,跳过 [SKIP:SKIP-0126]')
         return
       }
       // 聚焦第一个
@@ -1860,6 +1907,7 @@ adminTest.describe('Phase 19 v17 adminPage 深度化(20 个测试)', () => {
         .first()
         .focus()
         .catch(() => {})
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await adminPage.waitForTimeout(100)
 
       const before = await adminPage.evaluate(
@@ -1869,6 +1917,7 @@ adminTest.describe('Phase 19 v17 adminPage 深度化(20 个测试)', () => {
 
       // 按 ArrowDown → 应聚焦第二个(或循环到第一个)
       await adminPage.keyboard.press('ArrowDown')
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await adminPage.waitForTimeout(150)
 
       const after = await adminPage.evaluate(
@@ -1887,7 +1936,7 @@ adminTest.describe('Phase 19 v17 adminPage 深度化(20 个测试)', () => {
 
       const banner = adminPage.locator('[data-testid="pane-celebration-banner"]').first()
       if (!(await banner.isVisible({ timeout: 2000 }).catch(() => false))) {
-        test.skip(true, 'pane-celebration-banner 未渲染(任务未全部完成),跳过')
+        test.skip(true, 'pane-celebration-banner 未渲染(任务未全部完成),跳过 [SKIP:SKIP-0127]')
         return
       }
 
@@ -1913,14 +1962,14 @@ adminTest.describe('Phase 19 v17 adminPage 深度化(20 个测试)', () => {
 
       const banner = adminPage.locator('[data-testid="pane-celebration-banner"]').first()
       if (!(await banner.isVisible({ timeout: 2000 }).catch(() => false))) {
-        test.skip(true, 'pane-celebration-banner 未渲染,跳过')
+        test.skip(true, 'pane-celebration-banner 未渲染,跳过 [SKIP:SKIP-0128]')
         return
       }
 
       const svg = banner.locator('svg').first()
       const svgVisible = await svg.isVisible({ timeout: 500 }).catch(() => false)
       if (!svgVisible) {
-        test.skip(true, 'banner 内 SVG 不可见,跳过')
+        test.skip(true, 'banner 内 SVG 不可见,跳过 [SKIP:SKIP-0129]')
         return
       }
       const svgClass = (await svg.getAttribute('class')) ?? ''
@@ -1940,10 +1989,11 @@ adminTest.describe('Phase 19 v17 adminPage 深度化(20 个测试)', () => {
       // 切到 timeline tab
       const tab = adminPage.locator('[data-testid="pane-tab-timeline"]').first()
       if (!(await tab.isVisible({ timeout: 2000 }).catch(() => false))) {
-        test.skip(true, 'pane-tab-timeline 不可见,跳过')
+        test.skip(true, 'pane-tab-timeline 不可见,跳过 [SKIP:SKIP-0130]')
         return
       }
       await tab.click()
+      // WAIT-POLICY:TIMING-0006 为构造卡顿/超时场景保留的显式停顿
       await adminPage.waitForTimeout(200)
 
       // 直接同步注册监听 + dispatch 目标事件(短超时,避免 page.evaluate 长时间挂起)
@@ -2049,17 +2099,18 @@ adminTest.describe('Phase 19 v17 adminPage 深度化(20 个测试)', () => {
 
       const tab = adminPage.locator('[data-testid="pane-tab-timeline"]').first()
       if (!(await tab.isVisible({ timeout: 2000 }).catch(() => false))) {
-        test.skip(true, 'pane-tab-timeline 不可见,跳过')
+        test.skip(true, 'pane-tab-timeline 不可见,跳过 [SKIP:SKIP-0131]')
         return
       }
       await tab.click()
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await adminPage.waitForTimeout(300)
 
       // 找所有 timeline event row(无 children 时 button 应 disabled)
       const rows = adminPage.locator('[data-testid="timeline-event-row"]')
       const count = await rows.count()
       if (count === 0) {
-        test.skip(true, '无 timeline event 可验证,跳过')
+        test.skip(true, '无 timeline event 可验证,跳过 [SKIP:SKIP-0132]')
         return
       }
       let disabledCount = 0
@@ -2088,7 +2139,7 @@ adminTest.describe('Phase 19 v17 adminPage 深度化(20 个测试)', () => {
       const messages = adminPage.locator('[data-message-id]')
       const msgCount = await messages.count()
       if (msgCount === 0) {
-        test.skip(true, '无 AI 消息可 hover,跳过')
+        test.skip(true, '无 AI 消息可 hover,跳过 [SKIP:SKIP-0133]')
         return
       }
       const targetMsg = messages.last()
@@ -2096,6 +2147,7 @@ adminTest.describe('Phase 19 v17 adminPage 深度化(20 个测试)', () => {
       void targetId
 
       await targetMsg.hover().catch(() => {})
+      // WAIT-POLICY:TIMING-0004 视觉/几何采样前动画稳定窗口,先等待再截图
       await adminPage.waitForTimeout(300)
 
       // 通过 window 全局访问 zustand store(zustand 不主动挂到 window,这里用 page.evaluate 探测)
@@ -2114,10 +2166,11 @@ adminTest.describe('Phase 19 v17 adminPage 深度化(20 个测试)', () => {
 
       const tab = adminPage.locator('[data-testid="pane-tab-timeline"]').first()
       if (!(await tab.isVisible({ timeout: 2000 }).catch(() => false))) {
-        test.skip(true, 'pane-tab-timeline 不可见,跳过')
+        test.skip(true, 'pane-tab-timeline 不可见,跳过 [SKIP:SKIP-0134]')
         return
       }
       await tab.click()
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await adminPage.waitForTimeout(300)
 
       // 拿当前事件数
@@ -2152,7 +2205,7 @@ adminTest.describe('Phase 19 v17 adminPage 深度化(20 个测试)', () => {
       !(await inlineTab.isVisible({ timeout: 2000 }).catch(() => false)) ||
       !(await timelineTab.isVisible({ timeout: 2000 }).catch(() => false))
     ) {
-      test.skip(true, 'tab 不可见,跳过')
+      test.skip(true, 'tab 不可见,跳过 [SKIP:SKIP-0135]')
       return
     }
 
@@ -2170,10 +2223,11 @@ adminTest.describe('Phase 19 v17 adminPage 深度化(20 个测试)', () => {
     await adminPage.goto(CHAT_URL).catch(() => {})
     // domcontentloaded 替代 networkidle(dev HMR 模式下 networkidle 永不 resolve)
     await adminPage.waitForLoadState('domcontentloaded').catch(() => {})
-    await adminPage.waitForTimeout(2500)
+    await adminPage.waitForLoadState('load', { timeout: 7500 }).catch(() => {})
     // 直接通过 store setLocale(同步)
     await switchLocale(adminPage, 'en')
     // 多等一些时间,确保 React 重渲染完成
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await adminPage.waitForTimeout(1500)
 
     const inlineTab = adminPage.locator('[data-testid="pane-tab-inline"]').first()
@@ -2182,7 +2236,7 @@ adminTest.describe('Phase 19 v17 adminPage 深度化(20 个测试)', () => {
       !(await inlineTab.isVisible({ timeout: 3000 }).catch(() => false)) ||
       !(await timelineTab.isVisible({ timeout: 3000 }).catch(() => false))
     ) {
-      test.skip(true, 'en 状态下 tab 不可见,跳过')
+      test.skip(true, 'en 状态下 tab 不可见,跳过 [SKIP:SKIP-0136]')
       return
     }
 
@@ -2200,9 +2254,9 @@ adminTest.describe('Phase 19 v17 adminPage 深度化(20 个测试)', () => {
     async ({ adminPage }) => {
       await adminPage.goto(CHAT_URL).catch(() => {})
       await adminPage.waitForLoadState('domcontentloaded').catch(() => {})
-      await adminPage.waitForTimeout(3000)
+      await adminPage.waitForLoadState('load', { timeout: 9000 }).catch(() => {})
       await switchLocale(adminPage, 'ja')
-      await adminPage.waitForTimeout(1500)
+      await adminPage.waitForLoadState('load', { timeout: 5000 }).catch(() => {})
 
       const inlineTab = adminPage.locator('[data-testid="pane-tab-inline"]').first()
       const timelineTab = adminPage.locator('[data-testid="pane-tab-timeline"]').first()
@@ -2210,7 +2264,7 @@ adminTest.describe('Phase 19 v17 adminPage 深度化(20 个测试)', () => {
         !(await inlineTab.isVisible({ timeout: 3000 }).catch(() => false)) ||
         !(await timelineTab.isVisible({ timeout: 3000 }).catch(() => false))
       ) {
-        test.skip(true, 'ja 状态下 tab 不可见,跳过')
+        test.skip(true, 'ja 状态下 tab 不可见,跳过 [SKIP:SKIP-0137]')
         return
       }
 
@@ -2228,13 +2282,13 @@ adminTest.describe('Phase 19 v17 adminPage 深度化(20 个测试)', () => {
     async ({ adminPage }) => {
       await adminPage.goto(CHAT_URL).catch(() => {})
       await adminPage.waitForLoadState('domcontentloaded').catch(() => {})
-      await adminPage.waitForTimeout(2500)
+      await adminPage.waitForLoadState('load', { timeout: 7500 }).catch(() => {})
       await switchLocale(adminPage, 'zh-TW')
-      await adminPage.waitForTimeout(1500)
+      await adminPage.waitForLoadState('load', { timeout: 5000 }).catch(() => {})
 
       const pane = adminPage.locator(PANE_TESTID).first()
       if (!(await pane.isVisible({ timeout: 2000 }).catch(() => false))) {
-        test.skip(true, 'zh-TW 状态下 pane 不可见,跳过')
+        test.skip(true, 'zh-TW 状态下 pane 不可见,跳过 [SKIP:SKIP-0138]')
         return
       }
       const ariaLabel = (await pane.getAttribute('aria-label')) ?? ''

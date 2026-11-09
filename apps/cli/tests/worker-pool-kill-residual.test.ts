@@ -45,6 +45,13 @@ class FakeProc extends EventEmitter {
 
 const REQ: SubagentSpawnRequest = { persona: 'coder', task: '夹具任务', workspacePath: '.' } as unknown as SubagentSpawnRequest;
 
+/** 索引访问 + 运行时越界检查(noUncheckedIndexedAccess 下数组元素天然是 T | undefined) */
+function at<T>(items: readonly T[], index: number): T {
+  const item = items[index];
+  if (item === undefined) throw new Error(`数组索引越界: ${index}`);
+  return item;
+}
+
 function makePool(forkImpl: WorkerPoolDeps['forkImpl'], killExitBudgetMs?: number) {
   return new SubagentWorkerPool(
     defaultWorkerPoolConfig({ maxWorkers: 2, taskTimeoutSeconds: 60, heartbeatTimeoutSeconds: 60 }),
@@ -56,7 +63,7 @@ function makePool(forkImpl: WorkerPoolDeps['forkImpl'], killExitBudgetMs?: numbe
 async function waitForStart(pool: SubagentWorkerPool): Promise<string> {
   for (let i = 0; i < 100; i += 1) {
     const ids = pool.activeSubagentIds();
-    if (ids.length > 0) return ids[0];
+    if (ids.length > 0) return at(ids, 0);
     await new Promise((r) => setTimeout(r, 5));
   }
   throw new Error('夹具:worker 未启动');
@@ -77,7 +84,7 @@ describe('G-998112 kill 证据化(killImpl 抛错 ⇒ residualPid + failed)', ()
     expect(resp.error).toContain('EPERM');
     expect(pool.getResidualPid(id)).toBe(4242);
     expect(pool.getResidualKills()).toHaveLength(1);
-    expect(pool.getResidualKills()[0].detail).toContain('EPERM');
+    expect(at(pool.getResidualKills(), 0).detail).toContain('EPERM');
   });
 
   it('(b) 正常 kill(exit 如约到达)⇒ 残留记录为空,终态按 exit 事件结算', async () => {
@@ -108,7 +115,7 @@ describe('G-998112 kill 证据化(killImpl 抛错 ⇒ residualPid + failed)', ()
     expect(resp.error).toContain('residualPid=4242');
     expect(resp.error).toContain('exit 事件超过 30ms 未到');
     expect(pool.getResidualPid(id)).toBe(4242);
-    const rec = pool.getResidualKills()[0];
+    const rec = at(pool.getResidualKills(), 0);
     expect(rec.signal).toBe('SIGKILL'); // SIGTERM 超预算后升级 SIGKILL 再超 ⇒ 留下最后一轮证据
     expect(rec.reason).toBe('pool-shutdown-escalation');
   });
@@ -128,9 +135,9 @@ describe('G-998112 心跳 watchdog 路径', () => {
       const pending = pool.spawn(REQ);
       // 心跳轮询每 5s 一跳;推进到第一跳触发 watchdog
       await vi.advanceTimersByTimeAsync(5_100);
-      const id = pool.activeSubagentIds()[0];
+      const id = at(pool.activeSubagentIds(), 0);
       expect(pool.getResidualPid(id)).toBe(4242);
-      expect(pool.getResidualKills()[0].reason).toBe('heartbeat-watchdog');
+      expect(at(pool.getResidualKills(), 0).reason).toBe('heartbeat-watchdog');
       // 残留路径必须把 spawn 响应收口成 failed + 结构化原因(经 resolver 或 awaitResult 可取)
       const resp = await pending;
       expect(resp.status).toBe('failed');

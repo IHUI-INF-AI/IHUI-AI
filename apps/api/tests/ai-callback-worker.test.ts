@@ -19,29 +19,44 @@ vi.mock('../src/db/chat-queries.js', () => ({
   updateMessage: vi.fn().mockResolvedValue({ id: 'msg-1' }),
 }))
 
+// F-203 口径 B:worker 必须按「真实成本(分)」结算,不是拿 token 当分。
+vi.mock('../src/plugins/ai-cost.js', () => ({
+  resolveAiCost: vi.fn(),
+}))
+
+vi.mock('../src/plugins/token-balance-service.js', () => ({
+  settleWalletUsage: vi.fn(),
+}))
+
 import { startAiCallbackWorker } from '../src/workers/ai-callback-worker'
 import type { AICallbackJobData } from '../src/plugins/queue.js'
 import { createWorker } from '../src/plugins/queue.js'
 import { createMessage, findMessageById, updateMessage } from '../src/db/chat-queries.js'
+import { resolveAiCost } from '../src/plugins/ai-cost.js'
+import { settleWalletUsage } from '../src/plugins/token-balance-service.js'
 import type { ChatMessage } from '@ihui/database'
 
 const mockedCreateWorker = vi.mocked(createWorker)
 const mockedFind = vi.mocked(findMessageById)
 const mockedUpdate = vi.mocked(updateMessage)
 const mockedCreate = vi.mocked(createMessage)
+const mockedResolveCost = vi.mocked(resolveAiCost)
+const mockedSettle = vi.mocked(settleWalletUsage)
 
 function makeServer(): FastifyInstance {
   return {
     log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
-    aiCost: { record: vi.fn().mockResolvedValue(undefined) },
+    aiCost: { record: vi.fn().mockResolvedValue({ cost: 0, currency: 'CNY' }) },
     tokenBalance: { deductTokens: vi.fn().mockResolvedValue({ success: true }) },
     pushNotification: vi.fn(),
   } as unknown as FastifyInstance
 }
 
-function startWorker(): void {
+function startWorker(): FastifyInstance {
   mockedCreateWorker.mockClear()
-  startAiCallbackWorker(makeServer())
+  const server = makeServer()
+  startAiCallbackWorker(server)
+  return server
 }
 
 function getProcessor(): (job: { id?: string; data: AICallbackJobData }) => Promise<unknown> {
@@ -191,6 +206,106 @@ describe('AI callback worker metadata merge (D24)', () => {
     await getProcessor()(makeJob({ metadata: undefined }))
 
     expect(getUpdateMetadata()).toEqual({ pendingQuestion: { question: 'q1' } })
+  })
+})
+
+/**
+ * F-203 口径 B:异步回调 worker 也必须按真实成本(分)结算。
+ * 旧实现把 usage.totalTokens 直接当分扣,成本与 ai_cost_records 两套数必然对不上。
+ */
+describe('AI callback worker billing (F-203 口径 B)', () => {
+  const billingJob = (overrides: Partial<AICallbackJobData> = {}): AICallbackJobData => ({
+    conversationId: 'conv-1',
+    userId: 'user-1',
+    messageId: 'msg-1',
+    content: 'AI 回复',
+    tokens: 5000,
+    model: 'gpt-x',
+    provider: 'openai',
+    promptTokens: 3000,
+    completionTokens: 2000,
+    idempotencyKey: 'idem-1',
+    ...overrides,
+  })
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockedUpdate.mockResolvedValue(messageRow())
+    mockedCreate.mockResolvedValue(messageRow({ id: 'msg-new' }))
+    mockedFind.mockResolvedValue(undefined)
+    mockedResolveCost.mockResolvedValue({ cost: 48, currency: 'CNY', pricing: null })
+    mockedSettle.mockResolvedValue({ deducted: 48, remaining: 952, shortfall: 0 })
+  })
+
+  it('按定价折算成本扣 48 分,不是把 5000 token 当 5000 分', async () => {
+    const server = startWorker()
+    await getProcessor()({
+      id: 'job-1',
+      data: billingJob(),
+    })
+
+    expect(mockedResolveCost).toHaveBeenCalledWith({
+      model: 'gpt-x',
+      promptTokens: 3000,
+      completionTokens: 2000,
+    })
+    expect(mockedSettle).toHaveBeenCalledWith({
+      userId: 'user-1',
+      amount: 48,
+      reason: 'llm_chat:gpt-x',
+      idempotencyKey: 'idem-1',
+    })
+    // 旧链路(deductTokens 按 token 数)不得再被调用
+    expect(
+      (server.tokenBalance as unknown as { deductTokens: ReturnType<typeof vi.fn> }).deductTokens,
+    ).not.toHaveBeenCalled()
+
+    expect(server.aiCost.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        model: 'gpt-x',
+        promptTokens: 3000,
+        completionTokens: 2000,
+        totalTokens: 5000,
+        cost: 48,
+        currency: 'CNY',
+      }),
+    )
+    const recorded = vi.mocked(server.aiCost.record).mock.calls[0]![0] as { metadata: string }
+    expect(JSON.parse(recorded.metadata)).toEqual({
+      walletDeductedCents: 48,
+      walletBalanceAfterCents: 952,
+      billingShortfallCents: 0,
+    })
+  })
+
+  it('余额不足时扣到 0,欠额落 ai_cost_records.metadata 可审计', async () => {
+    mockedSettle.mockResolvedValue({ deducted: 20, remaining: 0, shortfall: 28 })
+    const server = startWorker()
+    await getProcessor()({ id: 'job-1', data: billingJob() })
+
+    expect(mockedSettle).toHaveBeenCalledWith(expect.objectContaining({ amount: 48 }))
+    const recorded = vi.mocked(server.aiCost.record).mock.calls[0]![0] as {
+      cost: number
+      metadata: string
+    }
+    expect(recorded.cost).toBe(48)
+    expect(JSON.parse(recorded.metadata)).toEqual({
+      walletDeductedCents: 20,
+      walletBalanceAfterCents: 0,
+      billingShortfallCents: 28,
+    })
+    expect(server.log.warn).toHaveBeenCalled()
+  })
+
+  it('缺 model 时无法定价,不扣费也不写成本记录', async () => {
+    const server = startWorker()
+    await getProcessor()({ id: 'job-1', data: billingJob({ model: undefined }) })
+
+    expect(mockedResolveCost).not.toHaveBeenCalled()
+    expect(mockedSettle).not.toHaveBeenCalled()
+    expect(server.aiCost.record).not.toHaveBeenCalled()
+    expect(server.log.warn).toHaveBeenCalled()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

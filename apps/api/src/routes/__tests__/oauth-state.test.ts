@@ -39,7 +39,7 @@ vi.mock('../../db/oauth-queries.js', () => ({
   deleteOAuthApp: vi.fn().mockResolvedValue({ id: 'app-1' }),
   createOAuthSession: vi.fn().mockResolvedValue({ id: 'session-1' }),
   findSessionByCode: vi.fn().mockResolvedValue(null),
-  markSessionUsed: vi.fn().mockResolvedValue(undefined),
+  markSessionUsed: vi.fn().mockResolvedValue(true),
   listUserSessions: vi.fn().mockResolvedValue([]),
   deleteSession: vi.fn().mockResolvedValue(undefined),
   listActiveScopeMeta: vi.fn().mockResolvedValue([]),

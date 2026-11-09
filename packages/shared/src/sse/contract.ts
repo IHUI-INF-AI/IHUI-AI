@@ -97,6 +97,10 @@ export const SSE_EVENTS = {
   // D113(2026-09-27,G-227):文件写类工具流中 diff 预览帧(llm.py 执行前纯参数推导,
   // 载荷 {toolCallId, seq, partialText, truncated?},tool-result 到达即清;不入库)。
   TOOL_DELTA: 'tool-delta',
+  // 2026-11-05 立:工具调用 arguments 逐分片直推帧(生产点 llm_gateway.astream,
+  // 经 llm.py generic 通道上 wire)。载荷 {index,id,name,args,argsComplete,argsPartial};
+  // 与 apps/ai-service/app/core/sse_contract.py 的 SSE_EVENTS 由 parity 门看护。
+  TOOL_CALL_ARGS_DELTA: 'tool-call-args-delta',
   // V3 #63(2026-09-27 落地生产者,解阻前置三条已在 ai-service 面收口):对话流业务
   // 表单**下行**帧。此前它单列在下方 FORM_FRAME_EVENTS 一段里,理由只有一条 ——
   // 「契约 ⊆ 生产」(llm.py 零生产点 ⇒ 并进 SSE_EVENTS 会让
@@ -137,6 +141,13 @@ export const SSE_EVENTS = {
   // 的 `SSE_ADMISSION_EVENT` 同值,由 `__tests__/contract.test.ts` 对账。
   // 必须与 apps/ai-service/app/core/sse_contract.py 同步。
   ADMISSION: 'admission',
+  // AskUserQuestion 闭环(2026-11-08 立):问题结局帧。生产点 = ai-service 主对话流
+  // 工具循环与工作台 agent_loop_v2 的 ask_user_question 拦截位;每个出口(answered /
+  // timeout / withdrawn / interrupted)发一帧,answered 帧即"答复作为一个 part 回到同一
+  // 会话"的流内表现。上行答复是 REST `question-response`,不是 SSE 事件,不进本集合。
+  // 载荷必需键 questionId/status,可再带 selectedOptionIds/customText。
+  // 必须与 apps/ai-service/app/core/sse_contract.py 同步。
+  QUESTION_RESOLVED: 'question-resolved',
 } as const
 
 /**
@@ -486,7 +497,16 @@ export interface CompactBoundary {
     head: PreservedSegmentAnchor | null
     anchor: PreservedSegmentAnchor | null
     tail: PreservedSegmentAnchor | null
+    /**
+     * 2026-11-06 起:被**原文保留**(未折进摘要)的锚点消息,`index` 为压缩前下标。
+     * · task_anchor = head 首个 user 组(会话任务陈述,受窗口 10%/2000 token 预算约束)
+     * · pinned      = 显式钉住(pinned=true 或 metadata.pinned=true)的整组(含工具配对)
+     * 缺席 = 本轮没有任何锚点(旧版服务端不回传该字段,不是"未知")。
+     */
+    anchors?: Array<PreservedSegmentAnchor & { reason: 'task_anchor' | 'pinned' }>
   }
+  /** 与原 `messagesSummarized` 并列的锚点条数(可选;缺席按 0 读) */
+  anchorsCount?: number
   removedRange: { startIndex: number; endIndex: number } | null
 }
 
@@ -508,6 +528,18 @@ export type SSEEventPayload =
       toolCallId: string
       name: string
       args?: unknown
+    }>
+  // 2026-11-05 立:工具入参逐分片直推(生产点 llm_gateway.astream)。args 允许 null
+  // (残缺到连部分对象都抽不出),argsComplete 为原始缓冲已可完整解析,argsPartial 为
+  // 流未闭合但已尽力修复出可用部分对象;消费侧按 index 关联同一工具调用。
+  | SSEEventWithMeta<{
+      type: 'tool-call-args-delta'
+      index: number
+      id: string
+      name: string
+      args: Record<string, unknown> | null
+      argsComplete: boolean
+      argsPartial: boolean
     }>
   // 工具执行结果
   | SSEEventWithMeta<{
@@ -1055,6 +1087,20 @@ export type SSEEventPayload =
   // accepted/queued/rejected/duplicate);可选 `messageId`/`queuedTurnId`/`reason`
   // 缺席读作"服务端没说明",不得据此编造。解析纪律见该文件头注三条。
   | SSEEventWithMeta<{ type: 'admission' } & SendAdmissionReceipt>
+  // AskUserQuestion 闭环(2026-11-08 立):问题结局帧。字段与 ai-service
+  // `services/ask_user_question.py::AskUserQuestionItem.resolved_payload` 逐字一致:
+  // questionId/status 恒在,selectedOptionIds/customText 为空时是 []/''(不是缺席)。
+  | SSEEventWithMeta<{
+      type: 'question-resolved'
+      /** 对应的 question 帧里的 questionId */
+      questionId: string
+      /** 结局四档:answered / timeout / withdrawn / interrupted */
+      status: 'answered' | 'timeout' | 'withdrawn' | 'interrupted'
+      /** 用户选中的选项 id(未答时为空数组) */
+      selectedOptionIds: string[]
+      /** 用户自由文本答复(未填/不被允许时为空串) */
+      customText: string
+    }>
 
 /** 事件名数组(去重,用于契约对账/测试)。 */
 export const SSE_EVENT_NAMES: readonly SSEEventName[] = Object.values(SSE_EVENTS)
@@ -1427,6 +1473,9 @@ export function classifyHttpFailureKind(status: number, errorCode?: string): Sse
   }
   if (status === 401 || status === 403) return 'credentials_rejected'
   if (status === 429) return 'rate_limited'
+  // XUI-027:408(Request Timeout)是可重试的瞬时失败,旧实现落进最后的
+  // contract_mismatch,会被当成"契约不符"直接放弃而不是退避重试。
+  if (status === 408) return 'transient'
   if (status === 404 || status === 502 || status === 503 || status === 504) {
     return 'endpoint_unavailable'
   }

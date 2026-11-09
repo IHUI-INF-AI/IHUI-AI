@@ -99,6 +99,7 @@ import {
 import {
   clearCompactionPreview,
   createToolCallHandler,
+  createOpenAiToolCallHandler,
   createToolDeltaHandler,
   createToolSummaryHandler,
   createReviewFindingHandler,
@@ -141,6 +142,8 @@ import {
   tryHandleToolSlash,
 } from './slash-commands'
 import { persistMessageSafe, persistQuestionSafe } from './persistence'
+// 2026-11-08 立:SSE `question-resolved` 结算帧解析与落地(按 questionId 匹配清挂起态)
+import { applyQuestionResolvedEvent, parseQuestionResolvedPayload } from './question-resolved'
 // Runtime 插话能力声明落库口(帧载荷 → store;D69 runtimeSupportsInterjection 的数据源)
 import { noteRuntimeCapabilities } from './runtime-capabilities'
 import type { PlanStep, TerminalTask } from '@ihui/types/ai'
@@ -894,7 +897,12 @@ export function createSendMessage(
       //  terminalInteractions / steer 提示条都按同一条清过)。
       chatStore.getState().setReasoningEffortNotice(null)
 
-      const streamOpts: StreamChatOptions = {
+      // 2026-11-08 立:额外的 `onQuestionResolved` 是 web 侧对 `question-resolved` 结算帧的
+      // 前向兼容入口 —— 当前 api-client 的 StreamChatOptions 尚无该回调(帧由 window 事件桥落地),
+      // 这里先按同一签名声明,api-client 补解析后无需再改本文件。
+      const streamOpts: StreamChatOptions & {
+        onQuestionResolved?: (frame: unknown) => void
+      } = {
         model: effectiveModel,
         // W25:#Rule 展开后的文本发给 LLM(重新生成模式:用户消息已在 store/历史中,直接作为完整上下文发送,不重复追加)
         messages: isRegenerate ? history : [...history, { role: 'user', content: llmText }],
@@ -1062,19 +1070,33 @@ export function createSendMessage(
           }
         },
         onQuestion: (q) => {
-          // AI 主动提问:挂起对话,弹窗阻塞输入,等用户回答后 sendAnswer 续流
-          chatStore.getState().setPendingQuestion({
+          // AI 主动提问:挂起对话,内联卡非模态展示,等用户提交后走 question-response 阻塞式答复
+          // (2026-11-08 立:header/description/expiresAt 为可选扩展字段,旧帧没有则不外传)
+          // 阻塞式提问帧带 sessionId:登记成上行寻址凭据,答复才能投回同一条流
+          if (q.sessionId) chatStore.getState().noteStreamSessionId(q.sessionId)
+          const extended = q as typeof q & {
+            header?: string
+            expiresAt?: string | number
+            options: Array<{ id: string; label: string; description?: string }>
+          }
+          const questionPayload = {
             questionId: q.questionId,
             prompt: q.prompt,
-            options: q.options,
+            options: extended.options,
             allowCustom: q.allowCustom,
             allowMultiple: q.allowMultiple,
+            ...(extended.header ? { header: extended.header } : {}),
+            ...(extended.expiresAt !== undefined ? { expiresAt: extended.expiresAt } : {}),
+          }
+          chatStore.getState().setPendingQuestion({
+            ...questionPayload,
             assistantMessageId: assistantId,
           })
           // P2 多端同步:持久化挂起状态到 conversation.metadata + WS 广播 ai_question 给其他端
-          // fire-and-forget,失败仅日志(当前端弹窗仍正常,只是其他端不会同步)
+          // fire-and-forget,失败仅日志(当前端卡片仍正常,只是其他端不会同步)
           const convId = chatStore.getState().conversationId
           if (convId) {
+            // 落库只走旧字段(metadata/WS 契约未扩 header/description/expiresAt,多传会被严格校验拒收)
             void persistQuestionSafe(convId, {
               questionId: q.questionId,
               prompt: q.prompt,
@@ -1083,6 +1105,11 @@ export function createSendMessage(
               allowMultiple: q.allowMultiple,
             })
           }
+        },
+        // 2026-11-08 立:`question-resolved` 结算帧 → 按 questionId 匹配清挂起态(不匹配忽略)
+        onQuestionResolved: (frame) => {
+          const resolved = parseQuestionResolvedPayload(frame)
+          if (resolved) applyQuestionResolvedEvent(chatStore, resolved)
         },
         // P4-2: 后端 fallback 触发时设置通知状态,UI 展示"已切换到备用模型"横幅
         onFallback: (event) => setFallbackNotice(event),
@@ -1169,6 +1196,10 @@ export function createSendMessage(
           }
           createToolCallHandler(assistantId, chatStore)(event)
         },
+        // 2026-11-05 立:工具入参逐分片渐进渲染。只订阅 onOpenAiToolCall,
+        // 不开 openAiCompat(Vercel 协议解析路径一行不动);回调只吃 ai-service
+        // 的 tool-call-args-delta 帧,旧服务端不发该帧 ⇒ 零行为变化。
+        onOpenAiToolCall: createOpenAiToolCallHandler(assistantId, chatStore),
         // Subagent 自动派发(2026-07-28 立,对标 AI 工作台):
         // 后端 dispatch_subagent 工具执行前后发 subagent_spawn/end SSE 事件,
         // 前端通过回调写入 chat store.subAgentActivities,UI 自动展示生命周期。
@@ -1574,7 +1605,7 @@ export function createSendMessage(
         ...(() => {
           const agentTools = [
             ...new Set([
-              ...mergeAgentTools(chatStore),
+              ...mergeAgentTools(chatStore, modeStore.getState().currentMode),
               ...eduToolsFor(content),
               ...uiControlToolsFor(content),
               ...fileToolsFor(content),

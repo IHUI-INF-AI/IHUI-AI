@@ -28,8 +28,22 @@ const MAX_TOTAL_SIZE_MB = 1024
 const MAX_AGE_MS = MAX_AGE_HOURS * 60 * 60 * 1000
 const MAX_TOTAL_SIZE_BYTES = MAX_TOTAL_SIZE_MB * 1024 * 1024
 
-/** 待清理的目录列表。 */
-const TARGET_DIRS = ['uploads', 'outputs']
+/**
+ * 待清理的目录列表(2026-11-08,修 F-549):只收临时/中间产物。
+ * `uploads/public`(合并成品,静态白名单对外)与 `uploads/private` 是已持久化、
+ * 被 files 表引用的交付物,绝不能被"过期/超容量"扫描误删。
+ */
+const TARGET_DIRS = ['uploads/chunks', 'uploads/tmp', 'outputs']
+
+/** 持久化目录保护前缀(相对 cwd):即使未来误把 uploads 根加入扫描,也不得删这两处。 */
+const PROTECTED_PREFIXES = ['uploads/public', 'uploads/private']
+
+function isProtectedPath(filePath: string): boolean {
+  const normalized = filePath.replace(/\\/g, '/')
+  return PROTECTED_PREFIXES.some(
+    (prefix) => normalized === prefix || normalized.startsWith(`${prefix}/`),
+  )
+}
 
 export interface CleanupStats {
   uploadDir: string
@@ -129,6 +143,7 @@ export async function runFileCleanup(): Promise<CleanupResult> {
 
     // 1. 按时间清理过期文件
     for (const f of files) {
+      if (isProtectedPath(f.path)) continue
       if (f.mtime < ageCutoff) {
         if (safeDelete(f.path, result.errors)) {
           result.deletedByAge += 1
@@ -145,6 +160,7 @@ export async function runFileCleanup(): Promise<CleanupResult> {
       remaining.sort((a, b) => a.mtime - b.mtime)
       for (const f of remaining) {
         if (totalSize <= MAX_TOTAL_SIZE_BYTES) break
+        if (isProtectedPath(f.path)) continue
         if (safeDelete(f.path, result.errors)) {
           totalSize -= f.size
           result.deletedBySize += 1

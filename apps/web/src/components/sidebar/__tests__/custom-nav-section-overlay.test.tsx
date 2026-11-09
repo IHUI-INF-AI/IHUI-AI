@@ -130,8 +130,10 @@ describe('CustomNavSection 右侧浮层命中契约(P0)', () => {
   it('移除按钮语义完整(可聚焦、有可读名、点了就回传 href)', async () => {
     const { findByTestId } = renderSection()
     const remove = await findByTestId('nav-custom-remove-/models')
+    // 实现侧变更:移除按钮的可读名改由 `aria-label` + `<Tooltip content>` 承担
+    // (2026-11 a11y 统一,原先的 title 属性已从按钮上移除;Tooltip 在壳层统一挂 Provider)。
+    // 「有可读名」的判据不变 —— 读屏仍拿到同一串词,只是载体从 title 换成 aria-label/悬浮提示。
     expect(remove.getAttribute('aria-label')).toBe('nav.customRemove')
-    expect(remove.getAttribute('title')).toBe('nav.customRemove')
     // 原生 button ⇒ 天然可聚焦,且不会触发导航
     expect(remove.tagName).toBe('BUTTON')
   })

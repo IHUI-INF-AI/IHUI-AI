@@ -19,7 +19,11 @@ import { generateCompactId } from '../../utils/crypto-random.js'
 // utils/n8n-env.ts 顶部三条不可漂的写法)。
 // 禁止在本文件再直接写 process.env.N8N_DOMAIN / N8N_BASE_URL。
 import { readN8nBaseUrl, n8nBaseHint } from '../../utils/n8n-env.js'
+// F-117:webhookPath 只允许站内相对路径;构造与复核住在唯一出口,禁止本文件再拼基址。
+import { buildN8nWebhookUrl, isSafeN8nWebhookPath } from '../../utils/n8n-webhook-url.js'
 import { db } from '../../db/index.js'
+import { resolveAiCost } from '../../plugins/ai-cost.js'
+import { resolveDefaultChatModel } from '../../utils/retired-providers.js'
 import {
   createVideoTask,
   findVideoTasksByUser,
@@ -120,7 +124,11 @@ const N8N_ENV_PRIMARY = 'N8N_BASE_URL' as const
 
 const n8nWorkflowRunBody = z.object({
   workflowId: z.string().optional(),
-  webhookPath: z.string().optional(),
+  webhookPath: z
+    .string()
+    .max(2048)
+    .refine(isSafeN8nWebhookPath, 'webhookPath 必须是以 / 开头的站内相对路径')
+    .optional(),
   inputData: z.record(z.string(), z.unknown()).optional(),
 })
 
@@ -841,9 +849,14 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
       // origin 已在唯一出口里去过尾斜杠并补好 scheme,这里不得再各自 replace。
       const key = requireVendorKey('n8n', reply)
       if (!key) return
-      const url = body.workflowId
-        ? `${base.origin}/api/v1/workflows/${encodeURIComponent(body.workflowId)}/activate`
-        : `${base.origin}${body.webhookPath ?? '/webhook'}`
+      let url: string
+      try {
+        url = body.workflowId
+          ? `${base.origin}/api/v1/workflows/${encodeURIComponent(body.workflowId)}/activate`
+          : buildN8nWebhookUrl(base.origin, body.webhookPath)
+      } catch (e) {
+        return reply.status(400).send(error(400, (e as Error).message))
+      }
       try {
         const resp = await fetchWithTimeout(
           url,
@@ -985,15 +998,24 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
         } catch {
           /* ignore */
         }
-        const estimatedTokens = body.text.length + answerContent.length
+        // F-203(口径 B):按定价把字符估算折算成成本(分),不再用 ceil(chars/1000) 当分。
+        // 费率来源:ai_pricing / pricing_rules(经 resolveAiCost);模型取 COZE_PRICING_MODEL,
+        // 未配置时沿用平台默认对话模型(与 crew 计费同一解析入口)。
+        const promptTokens = Math.ceil(body.text.length / 4)
+        const completionTokens = Math.ceil(answerContent.length / 4)
         try {
           const tokenBalance = server.tokenBalance
           if (tokenBalance) {
-            await tokenBalance.deductTokens(
-              userId,
-              Math.max(1, Math.ceil(estimatedTokens / 1000)),
-              'coze_workflow_chat',
-            )
+            const pricingModel = process.env.COZE_PRICING_MODEL?.trim() || resolveDefaultChatModel()
+            const actual = await resolveAiCost({
+              model: pricingModel,
+              promptTokens,
+              completionTokens,
+            })
+            const costCents = Math.ceil(actual.cost)
+            if (costCents > 0) {
+              await tokenBalance.deductTokens(userId, costCents, 'coze_workflow_chat')
+            }
           }
         } catch {
           /* 扣费失败不阻塞 */
@@ -1021,6 +1043,25 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
   // ==========================================================================
 
   const KLING_BASE_URL = 'https://api-beijing.klingai.com'
+
+  // F-119:Kling 任务归属 + 按任务幂等扣费(与 taskStore 同进程生命周期)。
+  const klingTaskOwners = new Map<string, { userId: string; createdAt: number; charged: boolean }>()
+  const KLING_TASK_TTL_MS = 24 * 60 * 60_000
+  const KLING_TASK_MAX = 2_000
+
+  function rememberKlingTask(taskId: string, userId: string): void {
+    const now = Date.now()
+    for (const [id, rec] of klingTaskOwners) {
+      if (now - rec.createdAt > KLING_TASK_TTL_MS) klingTaskOwners.delete(id)
+    }
+    if (klingTaskOwners.size >= KLING_TASK_MAX) {
+      const oldest = [...klingTaskOwners.entries()].sort(
+        (a, b) => a[1].createdAt - b[1].createdAt,
+      )[0]
+      if (oldest) klingTaskOwners.delete(oldest[0])
+    }
+    klingTaskOwners.set(taskId, { userId, createdAt: now, charged: false })
+  }
 
   async function klingJwt(): Promise<string | null> {
     const ak = process.env.KLING_ACCESS_KEY
@@ -1131,6 +1172,7 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
         const taskId = taskData.task_id as string | undefined
         if (!taskId) return reply.status(502).send(error(502, 'Kling 未返回 task_id'))
         const task = createTask(request.userId!, 'kling', 'lip-sync', { taskId })
+        rememberKlingTask(taskId, request.userId!)
         recordUsage(request.userId!, 'kling')
         return reply.send(success({ taskId, internalTaskId: task.taskId, status: 'pending' }))
       } catch (e) {
@@ -1153,6 +1195,10 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const { taskId } = taskIdParam.parse(request.params)
+      const owner = klingTaskOwners.get(taskId)
+      if (!owner || owner.userId !== request.userId) {
+        return reply.status(404).send(error(404, '任务不存在或不属于当前用户'))
+      }
       const jwt = await klingJwt()
       if (!jwt) return reply.status(503).send(error(503, 'Kling 服务未配置'))
       try {
@@ -1173,13 +1219,14 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
             ((taskData.task_result as Record<string, unknown> | undefined)?.videos as
               Array<Record<string, unknown>> | undefined) ?? []
           const videoUrl = videos[0]?.url as string | undefined
-          if (videoUrl) {
+          if (videoUrl && !owner.charged) {
+            owner.charged = true // 先占位,避免并发轮询重复扣费
             try {
               const tokenBalance = server.tokenBalance
               if (tokenBalance)
                 await tokenBalance.deductTokens(request.userId!, 1500, 'kling_lip_sync')
             } catch {
-              /* 扣费失败不阻塞 */
+              owner.charged = false // 扣费失败允许下次重试
             }
           }
         }

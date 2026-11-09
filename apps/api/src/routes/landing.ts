@@ -31,6 +31,8 @@ export const landingRoutes: FastifyPluginAsync = async (server) => {
   })
 }
 
+// 常量 JSON-LD:全部字面量、无任何变量插值 ⇒ 无注入面。
+// 若将来改成动态注入,必须先转义 `<`(web 端唯一出口 apps/web/src/lib/seo/json-ld.ts 的 jsonLdHtml)。
 const LANDING_HTML = `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>

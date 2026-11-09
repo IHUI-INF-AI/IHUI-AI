@@ -153,6 +153,28 @@ describe('egress/env-inject — env 出口形态 + 留痕形状', () => {
     append: () => null,
   };
 
+  it('F-075:enforce + addressProof 下 unjudged 必须阻断;解析成功则照放行', () => {
+    const base = {
+      commandLine: 'curl https://cold.example/x',
+      cwd: process.cwd(),
+      policy: policyOf(
+        [{ id: 'fixture-allow-cold', domain: 'cold.example', effect: 'allow', enforcement: 'enforce', why: 'fixture' }],
+        { enforcement: 'enforce', addressProof: true },
+      ),
+      env: {},
+      append: () => null,
+    };
+    // 反证:解析不出地址 ⇒ unjudged,enforce 档必须 blocked(旧实现只统计 deny,会 fail-open)
+    const cold = buildEgressEnvExit({ ...base, resolver: () => null });
+    expect(cold.aggregate).toBe('unjudged');
+    expect(cold.blocked).toBe(true);
+    expect(cold.blockReason).toContain('cold.example');
+    // 正证:证据拿得到、公网地址 ⇒ 放行,不误挡
+    const warm = buildEgressEnvExit({ ...base, resolver: () => ['93.184.216.34'] });
+    expect(warm.aggregate).toBe('allow');
+    expect(warm.blocked).toBe(false);
+  });
+
   it('⑥ 出口键形态:决策聚合、拒绝主机名、代理只在声明时点腿', () => {
     const exit = buildEgressEnvExit(twoTargets);
     expect(exit.aggregate).toBe('deny');

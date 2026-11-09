@@ -308,3 +308,26 @@ sweep worker 每轮顺带执行(现成 sweepAccountPool 之后,复用同分布�
 | 小程序 | `pkg-user/account-pool`(`app.config.ts` 注册+入口)调端内 `api.*('/account-pool')` | 对齐 Web |
 
 **文案**: 新增 `accountPool` 命名空间(RN/miniapp 各 5 语言同批;两端共用 zh-CN/en/ja/ko/zh-TW)。小程序运行时读 `gen-i18n-compressed.mjs` 派生产物,改完 `packages/i18n/.../miniapp-taro/*.json` 须 `pnpm --filter @ihui/miniapp-taro gen:i18n` 重算 `zh-cn-pack.gen.ts`/`remote-locale-manifest.gen.ts` 才进端内首屏回落包。
+
+## 17. 部署环 · 签到批次执行期不重启 ai-service(2026-11-04 立)
+
+**要解决的一件事(且只解决这一件)**:`IHUI-DEPLOYLOOP` 每次部署都会重启 `IHUI-AI-SERVICE`。2026-11-04 实测 08:05 主窗口批次 08:05:08 起批,08:06:58 打到第 6 个号的「错峰延迟 29s 后签到」时,08:06:59 本轮部署重启把进程优雅关闭 ⇒ 本轮总结行没打出、剩余账号当天不再有人管(调度器没有「本轮跑到第几个」的持久账本)。**修法:批次执行中(含错峰等待)推迟重启,等待有上限;超限照常部署并显式告警。蓝绿切换 / 健康门禁 / 快照 / 部署后验收等语义一律不动。**
+
+**状态来源**:`apps/ai-service/app/services/checkin_batch_marker.py` 在 `_run_batch` 进入时写 `<仓库根>/deploy/run/checkin-batch.json`(`schema/pid/batch/startedAt/heartbeatAt/host`,原子写,心跳 20s),批次结束在 `finally` 删除。只在 `CHECKIN_CRON_ENABLED=true` 时写:cron 关闭时调度器不会起批,同时避免单测/裸跑在工作树里留状态文件。marker 写失败只 WARN,绝不阻断批次。
+
+**部署侧判据**(`deploy/win/lib/checkin-batch-gate.ps1`,唯一实现):
+
+| marker 状态 | 判定 | 部署行为 |
+|---|---|---|
+| 不存在(`absent`) | 明确空闲 | 立即重启 ai-service(0 秒等待) |
+| 心跳年龄 < 180s(`fresh`) | 正在执行 | 每 10s 轮询,等批次结束再重启 |
+| 心跳年龄 ≥ 180s(`stale`) | 硬杀残留(进程被 Force 杀掉时 `finally` 不执行) | **立即部署 + WARN**;靠时间戳判过期,绝不允许一次硬杀永久阻塞部署 |
+| 读不到 / 坏 JSON / 缺时间戳(`unknown`) | **fail-closed:视为「可能在执行」** | 等待到上限 900s 后照常部署 + ALERT |
+
+**fail-closed 选型的理由**(任务书要求二选一并写清):读错的两种代价不对称。等错最多晚部署 900s(下一轮仍在 30 分钟最小间隔内,完全可逆);判错(把读不到当空闲)会切断一批签到,而 08:05 主窗口每天只跑一次,启动补偿只在「节拍后 120 分钟宽限内 ∧ 今日无 ok 记录」才补,过窗即不再补 —— 不可逆。因此「读不到」按「可能在执行」处理,与「读不到当空闲」相反。
+
+**上限 900s(15 分钟)的依据**:今日实测最长批次为 08:05 主窗口 ≈110s(14 个号含错峰)、Qoder 10:05 轮 ≈221s(8 个号);900s ≈ 实测最长的 4 倍余量,同时 < 部署环最小部署间隔 30 分钟、< 部署锁心跳上限 45 分钟(等待期每轮轮询都会续部署锁与部署窗口心跳,不会因长等待被判失联)。极端批次(Qoder 补跑上限 200 号 × 错峰 ≤45s)会超过 900s:此时按「超限必须照常部署并显式告警」执行,不无限期拖延、也不静默跳过部署。
+
+**自检**:`deploy/win/tests/checkin-batch-gate.test.ps1`(六态走向 + 伪造 30 分钟前心跳判过期 + 与 pid 存活无关 + 读不到 fail-closed 等满上限 + 装车证明:节流在重启行之前、`AiRestartIso` 仍在重启之后);`apps/ai-service/tests/test_checkin_batch_marker.py`(写/刷/删、原子写、写失败不抛、`_run_batch` 真的写并清 marker)。
+
+**生效条件**:本改动只改了源码;要真生效需要一次部署窗口(把提交推上 origin/main 后由部署环/人工执行一次部署)。部署完成后验证读数:① `deploy/win/deploy-loop.log` 出现 `[CHECKIN-GATE]` 行;② 下一轮 08:05 批次期间若有部署,日志应出现「推迟重启」而不是「重启 ai-service」;③ 批次结束后 `D:\DevEnv\ihui-prod\deploy\run\checkin-batch.json` 不存在;④ 08:05 轮 `本轮签到完成` 总结行完整打出、覆盖全部 enabled 账号。

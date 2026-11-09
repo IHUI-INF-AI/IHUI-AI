@@ -38,17 +38,73 @@ _RETRYABLE_TOOLS: frozenset[str] = frozenset({
 })
 
 
-async def _execute_tool_call(tool_name: str, args: dict[str, Any]) -> tuple[str, str]:
+def _approval_gated_names(names: list[str]) -> list[str]:
+    """返回需要审批的工具名(唯一真相 = agent_loop_v2 的高危名单,懒加载避免循环导入)。"""
+    from .agent_loop_v2 import _matches_high_risk_name
+
+    return [n for n in names if _matches_high_risk_name(n)]
+
+
+def _build_tools_payload(tools: list[str] | None) -> list[dict[str, Any]]:
+    """V1 的 OpenAI tools 面:白名单 ∩ 注册表 − 需审批工具。
+
+    V1 没有审批投递通道(非流式端点亦无),因此**绝不暴露需审批的工具**:
+    宁可不给模型这个能力,也不做无人审批的写盘/起 shell。
+    """
+    if not tools:
+        return []
+    # 归一化与 call_tool 未命中时的归一共用同一份别名表(唯一真相在 mcp_server)。
+    from .mcp_server import _normalize_tool_name as normalize
+
+    candidates = [normalize(n) for n in tools]
+    gated = set(_approval_gated_names(candidates))
+    available = {t.name: t for t in mcp_server.list_tools()}
+    payload: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for name in candidates:
+        if name in seen or name in gated:
+            continue
+        t = available.get(name)
+        if t is None:
+            continue
+        seen.add(name)
+        payload.append({
+            "type": "function",
+            "function": {
+                "name": t.name,
+                "description": t.description,
+                "parameters": t.input_schema,
+            },
+        })
+    return payload
+
+
+async def _execute_tool_call(
+    tool_name: str,
+    args: dict[str, Any],
+    *,
+    user_role: int = 0,
+    user_id: str | None = None,
+) -> tuple[str, str]:
     """执行单个工具调用,返回 (content, status)。
 
     行为与串行版一致:call_tool 返回 ok=False 也序列化为 content(status="ok"),
     仅异常时 status="error" 并把错误回填;幂等只读工具失败/异常时重试 1 次。
     异常归一化不向外抛 —— 保证并行批次中单工具失败不中断整体。
+
+    user_role / user_id 只在真值时才透传给 call_tool:默认值下不多传 kwarg,
+    既有测试替身(只接 name/args 两参)才不会被 TypeError 打红。
     """
+
+    call_kwargs: dict[str, Any] = {}
+    if user_role:
+        call_kwargs["user_role"] = user_role
+    if user_id:
+        call_kwargs["user_id"] = user_id
 
     async def _once() -> tuple[dict[str, Any] | None, str]:
         try:
-            return await mcp_server.call_tool(tool_name, args), "ok"
+            return await mcp_server.call_tool(tool_name, args, **call_kwargs), "ok"
         except Exception as e:
             return None, f"工具 {tool_name} 执行失败: {e}"
 
@@ -162,7 +218,9 @@ class AgentExecutor:
 
         优先 OpenAI function calling 原生格式(llm_gateway 已提取 tool_calls 字段),
         降级解析 ```tool_call\\n{"name":...,"arguments":{...}}\\n``` 文本块。
-        返回 [{"name": str, "arguments": dict}] 列表。
+        返回 [{"id": str, "name": str, "arguments": dict}] 列表。
+        调用 id 必须保留 —— 下一轮 messages 里 assistant.tool_calls 与 tool.tool_call_id
+        靠它配对,丢了上游会直接以协议不合法拒掉请求。
         """
         calls: list[dict[str, Any]] = []
         # 1. OpenAI function calling 原生格式
@@ -177,16 +235,24 @@ class AgentExecutor:
                 except (json.JSONDecodeError, TypeError):
                     args = {}
                 if name:
-                    calls.append({"name": name, "arguments": args})
+                    calls.append({
+                        "id": str(tc.get("id", "")),
+                        "name": name,
+                        "arguments": args,
+                    })
             if calls:
                 return calls
-        # 2. 降级:解析 ```tool_call``` 文本块
+        # 2. 降级:解析 ```tool_call``` 文本块(无原生 id,本地生成一个)
         for m in re.finditer(r"```tool_call\s*(\{.*?\})\s*```", content, re.DOTALL):
             try:
                 obj = json.loads(m.group(1))
                 name = obj.get("name", "")
                 if name:
-                    calls.append({"name": name, "arguments": obj.get("arguments", {}) or {}})
+                    calls.append({
+                        "id": f"call_{uuid.uuid4().hex[:8]}",
+                        "name": name,
+                        "arguments": obj.get("arguments", {}) or {},
+                    })
             except (json.JSONDecodeError, TypeError):
                 continue
         return calls
@@ -200,6 +266,7 @@ class AgentExecutor:
         tools: list[str] | None = None,
         user_id: str | None = None,
         repo_name: str | None = None,
+        user_role: int = 0,
     ) -> dict[str, Any]:
         """执行 agent 循环。
 
@@ -217,6 +284,8 @@ class AgentExecutor:
                 部署级默认 `knowledge_card_default_repo`;仍为空则**跳过蒸馏**并打日志,
                 不从工作区路径或工具入参猜仓库 —— 猜错会把 A 仓的踩坑记录写进 B 仓的
                 知识库,那比不沉淀更坏。
+            user_role: 调用者角色 ID(0=普通用户,>=1=admin),透传给 mcp_server.call_tool,
+                否则 admin 专属工具会被权限矩阵一律判 PERMISSION_DENIED。
 
         Returns:
             包含 task_id/session_id/status/iterations/steps/result 的字典。
@@ -256,6 +325,13 @@ class AgentExecutor:
             memory_context = await self._load_memory_context(user_id, sid)
             # 循环外声明,供完成后记忆闭环(保存洞察)使用
             messages: list[dict[str, Any]] = []
+            # V1 tools 面:白名单 ∩ 注册表 − 需审批工具(空时**不带** tools 键,
+            # 无工具路径与历史逐字节等价)。_tools_kwargs 复用到每一轮请求。
+            tools_payload = _build_tools_payload(tools)
+            _tools_kwargs: dict[str, Any] = {"tools": tools_payload} if tools_payload else {}
+            # 首轮播种 + 逐轮追加:history 只播种一次,之后 system 刷新 + assistant/
+            # tool 逐条入列,保证 tool_calls 与 tool_call_id 的协议配对不被重建抹掉。
+            seeded = False
 
             for i in range(max_iter):
                 # 检查是否被取消
@@ -282,15 +358,23 @@ class AgentExecutor:
                     system_prompt_content = f"{system_prompt_content}\n\n{profile_snippet}"
                 if memory_context:
                     system_prompt_content = f"{system_prompt_content}\n\n{memory_context}"
-                messages = [
-                    {"role": "system", "content": system_prompt_content}
-                ]
-                messages.extend(
-                    {"role": m["role"], "content": m["content"]} for m in history
-                )
+                if not seeded:
+                    # 只在首轮把会话历史播种进 messages(含本轮刚写入的 user 消息)
+                    messages = [
+                        {"role": "system", "content": system_prompt_content}
+                    ]
+                    messages.extend(
+                        {"role": m["role"], "content": m["content"]} for m in history
+                    )
+                    seeded = True
+                else:
+                    # 后续轮次只刷新 system 内容,绝不用 memory 重建整条链
+                    messages[0] = {"role": "system", "content": system_prompt_content}
 
-                # 调用 LLM
-                llm_result = await llm_gateway.complete(messages, model=model)
+                # 调用 LLM(tools 为空时 kwargs 里不出现 tools 键)
+                llm_result = await llm_gateway.complete(
+                    messages, model=model, **_tools_kwargs
+                )
                 assistant_content = str(llm_result.get("content", ""))
                 await memory_store.add(
                     sid, "assistant", assistant_content, {"iteration": i + 1},
@@ -317,6 +401,31 @@ class AgentExecutor:
                     final_content = assistant_content
                     break
 
+                # assistant 消息入列:带 tool_calls 时协议要求下一轮能看到它;
+                # 文本块降级路径上游没给原生 tool_calls,按解析结果合成同形条目。
+                assistant_tool_calls = llm_result.get("tool_calls")
+                if not (isinstance(assistant_tool_calls, list) and assistant_tool_calls):
+                    assistant_tool_calls = [
+                        {
+                            "id": tc["id"],
+                            "type": "function",
+                            "function": {
+                                "name": tc["name"],
+                                "arguments": json.dumps(
+                                    tc["arguments"], ensure_ascii=False, default=str
+                                ),
+                            },
+                        }
+                        for tc in tool_calls
+                    ]
+                assistant_message: dict[str, Any] = {
+                    "role": "assistant",
+                    "content": assistant_content,
+                }
+                if assistant_tool_calls:
+                    assistant_message["tool_calls"] = assistant_tool_calls
+                messages.append(assistant_message)
+
                 # 执行工具(白名单过滤),结果回填 memory,继续下一轮迭代
                 # P1-2:白名单内工具同轮并行执行(单轮最大 5,超出分批),
                 # steps/memory 回填顺序保持与 tool_calls 一致,单工具失败不中断整体。
@@ -334,7 +443,12 @@ class AgentExecutor:
                 for b in range(0, len(pending), MAX_PARALLEL_TOOL_CALLS):
                     batch = pending[b:b + MAX_PARALLEL_TOOL_CALLS]
                     gathered = await asyncio.gather(
-                        *(_execute_tool_call(name, args) for _, name, args in batch),
+                        *(
+                            _execute_tool_call(
+                                name, args, user_role=user_role, user_id=user_id
+                            )
+                            for _, name, args in batch
+                        ),
                         return_exceptions=True,
                     )
                     for (_idx, name, _args), outcome in zip(batch, gathered, strict=True):
@@ -352,6 +466,9 @@ class AgentExecutor:
                     for i in range(len(pending))
                 }
                 for idx, tc in enumerate(tool_calls):
+                    # 每个 tool_call 都必须有一条 role=tool 回执(含跳过),否则
+                    # 下一轮 assistant.tool_calls 与 tool_call_id 配不上,上游直接拒。
+                    tool_call_id = str(tc.get("id", ""))
                     if idx in skipped:
                         tool_name = tc["name"]
                         tool_args = tc["arguments"]
@@ -369,6 +486,12 @@ class AgentExecutor:
                             {"tool_name": tool_name, "tool_args": tool_args},
                             user_id=user_id,
                         )
+                        messages.append({
+                            "role": "tool",
+                            "tool_call_id": tool_call_id,
+                            "name": tool_name,
+                            "content": skip_msg,
+                        })
                     else:
                         tool_name, tool_args, (tool_content, step_status) = exec_by_idx[idx]
                         steps.append({
@@ -384,10 +507,33 @@ class AgentExecutor:
                             {"tool_name": tool_name, "tool_args": tool_args},
                             user_id=user_id,
                         )
+                        messages.append({
+                            "role": "tool",
+                            "tool_call_id": tool_call_id,
+                            "name": tool_name,
+                            "content": tool_content,
+                        })
                 # 有 tool_call 已执行,继续下一轮迭代(让 LLM 基于工具结果决定下一步)
 
             if self._running[task_id]["status"] != "canceled":
-                self._running[task_id]["status"] = "completed"
+                # 诚实状态:配了工具、全程无 stub、却一条 tool 步骤都没跑出来 ——
+                # 这说明模型侧没有 function calling 可用(或工具面被审批门清空),
+                # 不能无条件报 completed。stub 是测试/无 key 降级,必须排除。
+                has_stub = any(s.get("stub") for s in steps)
+                has_tool_step = any(s.get("type") == "tool" for s in steps)
+                if tools and not has_stub and not has_tool_step:
+                    gated = _approval_gated_names(tools)
+                    zero_msg = (
+                        "zero_tool_calls: 已配置工具但全程零工具执行"
+                        "(模型无 function calling 或工具面被审批门清空)"
+                    )
+                    if gated:
+                        zero_msg += f";需审批工具未暴露(审批门):{', '.join(gated)}"
+                    error = zero_msg
+                    self._running[task_id]["status"] = "failed"
+                    self._running[task_id]["error"] = error
+                else:
+                    self._running[task_id]["status"] = "completed"
 
         except Exception as e:
             error = str(e)

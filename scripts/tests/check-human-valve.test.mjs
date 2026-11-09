@@ -283,6 +283,48 @@ test('CLI 三档 RC:stop 判定仍是 0、用法错 1、数据坏 2(未判定)',
   }
 })
 
+/**
+ * V5–V7 判据面工作族(2026-11-04 立)。
+ * 立因:A6 的覆盖率复算把历史 25 条 unknown 重算成 7 自决 / 5 具名停机 / **2 仍无规则**,
+ * 那两枚都是"改判据面本身"的票(门 173×89×207 互锁解耦、union-converge 期望集改写)。
+ * 给它们一个**具名停机**而不是 unknown:方向不变严(unknown 本来就停),但读数从
+ * "分类器没规则"变成"这一族归能签名的一方",而且不再拿 25 这个大数掩住真盲区。
+ */
+const judge = (t) => LIB.classifyAction(t, { rules: RULES, now: new Date('2026-11-04T08:00:00Z') })
+
+test('V5 判据面两型真票面 ⇒ 具名停机 judgement-surface-work(不再是 unknown)', () => {
+  for (const t of [
+    '〔归:L28868 正身持有人〕 G-07 **活文档行 union 会把"本侧已让号删掉的旧形态"从 base/对侧补回来 ⇒ union-converge 期望集要改',
+    '（登记@2026-10-31/大屏号池席） {{NEXT_ID:G-}} **门 173 × 门 89 R4 × 门 207 三门互锁 ⇒ README 实际不可改**:173 的判责面',
+    '把受保护面清单增删一条登记',
+  ]) {
+    const v = judge(t)
+    assert.equal(v.bucket, 'stop-for-human', `应归停机:${t.slice(0, 30)}`)
+    assert.notEqual(v.ruleId, LIB.UNKNOWN_RULE_ID, `应具名而不是没规则:${t.slice(0, 30)}`)
+  }
+})
+
+test('V6 反向锁:普通工程票不许被吞进判据面族(过宽即等于把自决面缩回去)', () => {
+  for (const t of [
+    'P85 代码检索改名检测:在 codebase_indexer 的快照差集上补一枚纯函数改名候选',
+    'B3 小程序 NavBar 属性对齐 RN(门 285 存量收敛)',
+    '给大屏加一个刷新按钮并补 e2e',
+  ]) {
+    const v = judge(t)
+    assert.equal(v.bucket, 'self-serve', `普通工程票必须仍可自决,现判 ${v.bucket}/${v.ruleId}:${t.slice(0, 30)}`)
+  }
+  // 新加的 UI 形态不许变成危险语序的入口:同一句里带对外发布口径时,停机类必须赢(判定顺序保证)。
+  const riding = judge('给对外公告加一个按钮文案')
+  assert.equal(riding.bucket, 'stop-for-human', `危险语序不许搭新自决形态的车,现判 ${riding.bucket}/${riding.ruleId}`)
+  assert.notEqual(riding.ruleId, LIB.UNKNOWN_RULE_ID, '接住的必须是具名停机类,不是 fail-closed 兜底')
+})
+
+test('V7 危险语序仍归更具体的 guardrail-loosen(两条停机类同时命中时取更窄的那句)', () => {
+  const v = judge('把落地闸 F5 的并集少带行判据放宽一档')
+  assert.equal(v.bucket, 'stop-for-human')
+  assert.equal(v.ruleId, 'guardrail-loosen', '停机侧同时命中两条时,读数要说"放宽判据"这件更具体的事,而不是泛泛的"判据面工作"')
+})
+
 test('自检本身在本数据上全绿(CLI 与测试同一实现)', () => {
   const report = CLI.runSelfTest({ data: valveList })
   assert.deepEqual(report.failures, [])

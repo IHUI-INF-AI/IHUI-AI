@@ -1,6 +1,6 @@
 {
   "$comment": "尺子①(D139 / V4 #97)的端能力档案表:逐端声明该端**已接**哪些 SSE 下行帧(events),并把该端**已知缺口**(后端生产、该端未消费)显式登记进 knownGaps(每条带 reason + 未过期 until)。门(scripts/check-agent-event-parity.mjs 2c,判据住 scripts/lib/agent-event-coverage.mjs)按本表判:已登记缺口放行(棘轮基线 = 各端 HEAD 自身存量),档案外缺口必红,\"声明已接却测不到消费\"必红(摘掉监听必红),until 过期必红。登记不等于生效:到期要续或删,不得静默续命。",
-  "$measurement": "2026-09-30 现读(HEAD 面,提及口径 = 剥注释后字符串中出现 + AGENT_TASK_EVENTS 常量解析;后端事件 49 个):web 42/49、miniapp-taro 24/49、mobile-rn 4/49、app 5/49、extension 10/49、desktop 0/49、cli 17/49。棘轮基线 = 各端 HEAD 自身存量,本表由实测生成(scripts 生成器一次性产出),门对已登记缺口不红、档案外丢失必红。",
+  "$measurement": "2026-11-08 现读(HEAD 面,提及口径 = 剥注释后字符串中出现 + AGENT_TASK_EVENTS 常量解析;后端事件 50 个,新增 question-resolved):web 42/50、miniapp-taro 24/50、mobile-rn 4/50、app 5/50、extension 10/50、desktop 0/50、cli 17/50。棘轮基线 = 各端 HEAD 自身存量,本表由实测生成(scripts 生成器一次性产出),门对已登记缺口不红、档案外丢失必红。",
   "$schema": {
     "profiles": "每端一条:app(仓库相对目录)|label|reason(本端覆盖范围为何如此)|until(声明有效期,过期门红)|events(声明已接的 wire 事件名)|knownGaps{reason,until,events}(已知缺口,门放行但台账可见)"
   },
@@ -61,6 +61,7 @@
           "goal_updated",
           "hook-failed",
           "memory_context",
+          "question-resolved",
           "step_done",
           "step_start",
           "subagent_progress",
@@ -100,7 +101,7 @@
         "usage"
       ],
       "knownGaps": {
-        "reason": "小程序存量未接(D138 续传层逐步补齐),补齐前显式登记,不得静默。",
+        "reason": "小程序存量未接(D138 续传层逐步补齐),补齐前显式登记,不得静默。permission 单列:产品的消费链是完整的 —— AgentRuntimePanel 经 useAgentRuntime 解构 permission,shared 的 use-agent-runtime.ts 用 onPermission 回调落 state,api-client 的 agent-runtime.ts 以 case 'permission' 分发。但本门是字面量提及口径(带引号的事件名 或 AGENT_TASK_EVENTS 常量),扫不到「解构 hook 返回值」这一形态,故从 events 移到 knownGaps 如实登记,与 Web 端 knownGaps 里「消费面在 packages/api-client 分发器」的既有口径一致。到期日与同组一致,补齐门判据或补显式锚点后清账。",
         "until": "2026-12-31",
         "events": [
           "agent-status",
@@ -113,6 +114,7 @@
           "permission-mode",
           "plan-step",
           "question",
+          "question-resolved",
           "self-heal",
           "session",
           "session_end",
@@ -162,6 +164,7 @@
           "plan-step",
           "plan_updated",
           "question",
+          "question-resolved",
           "reasoning",
           "self-heal",
           "session",
@@ -221,6 +224,7 @@
           "plan",
           "plan-step",
           "plan_updated",
+          "question-resolved",
           "reasoning",
           "self-heal",
           "session_end",
@@ -289,6 +293,7 @@
           "plan-step",
           "plan_updated",
           "question",
+          "question-resolved",
           "self-heal",
           "session_end",
           "step_done",
@@ -348,6 +353,7 @@
           "plan-step",
           "plan_updated",
           "question",
+          "question-resolved",
           "reasoning",
           "self-heal",
           "session",
@@ -421,6 +427,7 @@
           "message_send",
           "plan-step",
           "plan_updated",
+          "question-resolved",
           "reasoning",
           "self-heal",
           "step_done",

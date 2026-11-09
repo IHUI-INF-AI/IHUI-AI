@@ -26,7 +26,7 @@ function regAt(dir) {
   return join(dir, 'dev-db-rotation-pending.json')
 }
 
-test('正常登记 ⇒ 文件生成、字段齐全、只含 fp 与出处(不含任何值形态)', () => {
+test('正常登记 ⇒ 文件生成、字段齐全、只含 fp 与出处(不含任何值形态)', async () => {
   const dir = mkScratch('o68-reg-')
   const file = regAt(dir)
   const logs = []
@@ -45,7 +45,7 @@ test('正常登记 ⇒ 文件生成、字段齐全、只含 fp 与出处(不含�
   assert.match(logs.join('\n'), /已登记/)
 })
 
-test('重复登记同 fp ⇒ 幂等条数不涨;成对正向对照:不同 fp 会加一条', () => {
+test('重复登记同 fp ⇒ 幂等条数不涨;成对正向对照:不同 fp 会加一条', async () => {
   const dir = mkScratch('o68-idem-')
   const file = regAt(dir)
   const logs = []
@@ -59,7 +59,7 @@ test('重复登记同 fp ⇒ 幂等条数不涨;成对正向对照:不同 fp 会
   assert.equal(R.readPendingState(file).entries.length, 2)
 })
 
-test('坏输入 ⇒ 拒写并点名原因,且原文件一字节未动(先写好一笔,再喂坏的)', () => {
+test('坏输入 ⇒ 拒写并点名原因,且原文件一字节未动(先写好一笔,再喂坏的)', async () => {
   const dir = mkScratch('o68-reject-')
   const file = regAt(dir)
   assert.equal(R.register({ fp: FP_A, source: SRC, pendingFile: file, now: NOW, logger: () => {} }), 0)
@@ -82,7 +82,7 @@ test('坏输入 ⇒ 拒写并点名原因,且原文件一字节未动(先写好�
   }
 })
 
-test('登记面坏(JSON 烂/空)⇒ 未判定且原字节保留,不静默洗面', () => {
+test('登记面坏(JSON 烂/空)⇒ 未判定且原字节保留,不静默洗面', async () => {
   const dir = mkScratch('o68-corrupt-')
   const file = regAt(dir)
   writeFileSync(file, '{"这": "不是合法条目面', 'utf8')
@@ -93,7 +93,7 @@ test('登记面坏(JSON 烂/空)⇒ 未判定且原字节保留,不静默洗面'
   assert.equal(readFileSync(file, 'utf8'), before)
 })
 
-test('stdout 脱敏:输出面只出键名+fp+出处,任何疑似凭据片段都不出现', () => {
+test('stdout 脱敏:输出面只出键名+fp+出处,任何疑似凭据片段都不出现', async () => {
   const dir = mkScratch('o68-mask-')
   const file = regAt(dir)
   const out = []
@@ -110,7 +110,7 @@ test('stdout 脱敏:输出面只出键名+fp+出处,任何疑似凭据片段都�
   assert.match(all, /DATABASE_URL/, '点名到键名')
 })
 
-test('派发侧形状兼容:register 写出的账能被 guardian 真读取腿解析成"有欠账"(只 import 不改它)', () => {
+test('派发侧形状兼容:register 写出的账能被 guardian 真读取腿解析成"有欠账"(只 import 不改它)', async () => {
   const dir = mkScratch('o68-shape-')
   const pendingFile = regAt(dir)
   const tickFile = join(dir, 'dev-db-rotation-last.json')
@@ -118,7 +118,7 @@ test('派发侧形状兼容:register 写出的账能被 guardian 真读取腿解
   // 窗口注入"活服务在场" ⇒ 必然零派生;能落到 window-busy 而非 pending-unreadable/no-pending,
   // 即证明本器写的数组形态被派发腿读成了"存在未结清条目"。
   const logsBusy = []
-  const busy = sweepLocalDevDbRotation({
+  const busy = await sweepLocalDevDbRotation({
     pendingFile,
     tickFile,
     now: Date.now(),
@@ -129,7 +129,7 @@ test('派发侧形状兼容:register 写出的账能被 guardian 真读取腿解
   assert.equal(busy.state, 'window-busy', `登记面必须被读成有欠账,实得=${busy.state}`)
   // 负对照:登记面不在位 ⇒ no-pending(零派生),证明上面的 window-busy 不是无条件态
   const logsEmpty = []
-  const none = sweepLocalDevDbRotation({
+  const none = await sweepLocalDevDbRotation({
     pendingFile: join(dir, 'no-such-pending.json'),
     tickFile: join(dir, 'tick2.json'),
     now: Date.now(),
@@ -140,7 +140,7 @@ test('派发侧形状兼容:register 写出的账能被 guardian 真读取腿解
   assert.equal(none.spawned, false)
 })
 
-test('旧人工手写形({reason,registeredAt})⇒ 归一可读、source 取 reason、重归一不丢交代', () => {
+test('旧人工手写形({reason,registeredAt})⇒ 归一可读、source 取 reason、重归一不丢交代', async () => {
   const dir = mkScratch('o68-legacy-')
   const file = regAt(dir)
   writeFileSync(file, JSON.stringify({ reason: SRC, registeredAt: '2026-11-01T00:00:00.000Z' }), 'utf8')
@@ -157,7 +157,7 @@ test('旧人工手写形({reason,registeredAt})⇒ 归一可读、source 取 rea
   assert.equal(after.entries[0].source, SRC)
 })
 
-test('--verify-registered 只读复算:命中现值 ⇒ 1(欠账还在);全部不命中 ⇒ 0;坏账 ⇒ 2', () => {
+test('--verify-registered 只读复算:命中现值 ⇒ 1(欠账还在);全部不命中 ⇒ 0;坏账 ⇒ 2', async () => {
   const dir = mkScratch('o68-verify-')
   const root = join(dir, 'repo')
   mkdirRootWithEnv(root, 'postgres://ihui_user:secretA@localhost:5432/ihui')

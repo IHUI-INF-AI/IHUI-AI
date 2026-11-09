@@ -103,7 +103,7 @@ describe('miniapp-taro SSO 流程', () => {
       const result = await exchangeSsoCode('valid-code')
       expect(result).toEqual(mockTokenData)
       expect(mockFetch).toHaveBeenCalledWith(
-        'http://localhost:8802/api/auth/sso/exchange',
+        'https://api.aizhs.top/api/auth/sso/exchange',
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -152,7 +152,7 @@ describe('miniapp-taro SSO 流程', () => {
       const result = await validateToken('valid-token')
       expect(result).toBe(true)
       expect(mockFetch).toHaveBeenCalledWith(
-        'http://localhost:8802/api/auth/sso/validate',
+        'https://api.aizhs.top/api/auth/sso/validate',
         expect.objectContaining({
           headers: { Authorization: 'Bearer valid-token' },
         }),
@@ -196,7 +196,7 @@ describe('miniapp-taro SSO 流程', () => {
       const result = await ssoLogout('valid-token')
       expect(result).toBe(true)
       expect(mockFetch).toHaveBeenCalledWith(
-        'http://localhost:8802/api/auth/sso/logout',
+        'https://api.aizhs.top/api/auth/sso/logout',
         expect.objectContaining({
           method: 'POST',
           headers: { Authorization: 'Bearer valid-token' },

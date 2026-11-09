@@ -102,6 +102,10 @@ const TOOL_DISPLAY_KEYS: Readonly<Record<string, string>> = {
   browser_screenshot: 'toolBrowserScreenshot',
   browser_switch_tab: 'toolBrowserSwitchTab',
   browser_close_tab: 'toolBrowserCloseTab',
+  // 运行时可观测 + 语言诊断(2026-11-08):读取面,与上面 12 个动作面并列
+  browser_console_messages: 'toolBrowserConsoleMessages',
+  browser_network_requests: 'toolBrowserNetworkRequests',
+  get_diagnostics: 'toolGetDiagnostics',
   browser_selfcheck: 'toolBrowserSelfcheck',
   browser_selfcheck_screenshot: 'toolBrowserSelfcheckScreenshot',
   // 页面语义快照句柄族(ai-service 声明、浏览器扩展执行;与上面选择器族并列但不同族)
@@ -422,8 +426,7 @@ export interface DescribeToolCallInput {
  */
 export function describeToolCall(input: DescribeToolCallInput): ToolCallView {
   const { toolName, args, result, status } = input
-  const kind =
-    (TOOL_SUBJECT_KINDS[toolName] as ToolSubjectKind | undefined) ?? 'none'
+  const kind = (TOOL_SUBJECT_KINDS[toolName] as ToolSubjectKind | undefined) ?? 'none'
   let subject = kind === 'none' ? '' : normalizeSubject(readArg(args, SUBJECT_KEYS[kind]))
   if (kind === 'none') {
     // 未登记的工具(插件 / MCP 动态名):按 path → url → query → command → name 试探

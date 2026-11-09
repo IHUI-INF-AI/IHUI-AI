@@ -13,19 +13,41 @@ import { buildQs, type PageData, type PageQuery } from '../utils.js'
 
 // ===================== 类型定义 =====================
 
-/** 应用版本 */
+/**
+ * 应用版本行(GET /api/app-version* 的 data 投影)。
+ * platform 取值面 = 服务端 `apps/api/src/routes/app-version.ts` 的 platformSchema
+ * (ios/android/web/harmony/cli)再加 'miniapp' 一格:后者是 web 端 app-version-gate 的
+ * 既有入参形态(其本地 opts 声明含 'miniapp'),服务端并不接受该值(回 400)。
+ * 这里保留它只为不破坏既有调用方的编译,新增消费方**不得**再传 'miniapp'。
+ * store = 分发渠道(google_play / huawei / xiaomi / yingyongbao / honor / website …),
+ * 可空;NULL = 加列前那一格(官网 APK 等无渠道发布腿)。渠道不做枚举(渠道名单在变)。
+ */
 export interface AppVersion {
   id: string
   version: string
-  platform: 'web' | 'android' | 'ios' | 'miniapp'
+  platform: 'web' | 'android' | 'ios' | 'harmony' | 'cli' | 'miniapp'
+  /** 分发渠道;null/缺省 = 无渠道(与加列前逐字同形) */
+  store?: string | null
+  buildNumber?: number
   downloadUrl?: string
   forceUpdate?: boolean
   description?: string
   releaseNotes?: string
-  status?: number
+  status?: number | 'latest' | 'history' | 'disabled'
   createdAt: string
   [key: string]: unknown
 }
+
+/** GET /latest 的 data 形状:服务端把行包在 `latest` 键里;取不到行时该键整体缺失(响应 data 为 {}) */
+export interface LatestVersionResult {
+  latest?: AppVersion | null
+}
+
+/** check-update / latest 的 platform 入参(同 AppVersion.platform 的注释) */
+export type AppVersionPlatformInput = AppVersion['platform']
+
+/** store 入参约束与服务端 storeSchema 同形:1–32 字符;undefined/'' 一律按"不带渠道"处理 */
+export type AppVersionStoreInput = string | undefined
 
 /** 版本检查结*/
 export interface VersionCheckResult {
@@ -174,26 +196,40 @@ export interface VisitRecord {
 
 // ===================== app-version（应用版本） =====================
 
-/** 检查应用版本更*/
+/**
+ * 检查应用版本更新。
+ * store 可选:带渠道 ⇒ 只比该渠道的 latest;不带 ⇒ 服务端不加任何 store 谓词
+ * (与加列前逐字同形,app_versio 旧发布腿不带渠道也能命中)。
+ */
 export async function checkAppVersion(input: {
   version: string
-  platform: AppVersion['platform']
+  platform: AppVersionPlatformInput
+  store?: AppVersionStoreInput
 }): Promise<ApiResult<VersionCheckResult>> {
   return fetchApi<VersionCheckResult>(`/api/app-version/check-update${buildQs(input)}`)
 }
 
-/** 获取应用版本列表 */
+/** 获取应用版本列表(admin;platform/store 为可选筛选项) */
 export async function getAppVersions(
-  query: PageQuery = {},
+  query: PageQuery & { platform?: AppVersionPlatformInput; store?: AppVersionStoreInput } = {},
 ): Promise<ApiResult<PageData<AppVersion>>> {
   return fetchApi<PageData<AppVersion>>(`/api/app-version${buildQs(query)}`)
 }
 
-/** 获取最新版*/
+/**
+ * 获取最新版本。
+ * 返回形状与服务端逐字对齐:`data.latest`(取不到行时 latest 键整体缺失 ⇒
+ * 消费方必须判 `res.data?.latest`,不得把 data 本身当行对象读 —— 旧声明正是这么
+ * 错的,线上"安卓更新卡取不到包"时 data 就是空对象,读哪都是 undefined)。
+ * store 可选:同一 platform 下不同分发渠道各有一条 latest(2026-11 加列,迁移 0364)。
+ */
 export async function getLatestVersion(
-  platform: AppVersion['platform'],
-): Promise<ApiResult<AppVersion>> {
-  return fetchApi<AppVersion>(`/api/app-version/latest${buildQs({ platform })}`)
+  platform: AppVersionPlatformInput,
+  store?: AppVersionStoreInput,
+): Promise<ApiResult<LatestVersionResult>> {
+  return fetchApi<LatestVersionResult>(
+    `/api/app-version/latest${buildQs({ platform, store })}`,
+  )
 }
 
 /** 创建应用版本 */

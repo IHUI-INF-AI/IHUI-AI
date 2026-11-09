@@ -7,6 +7,8 @@
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 
+import { useTheme } from '@/hooks/use-theme'
+
 import { ExamIntroScreen } from '@ihui/rn-app/features/exam-intro/ExamIntroScreen'
 
 import type { PaperDetail } from './types'
@@ -26,6 +28,7 @@ interface Props {
 export function ExamIntro({ paper, isPending, isError, error, onStart }: Props) {
   const t = useTranslations('exam')
   const router = useRouter()
+  const { resolvedTheme } = useTheme()
 
   return (
     <ExamIntroScreen
@@ -46,7 +49,7 @@ export function ExamIntro({ paper, isPending, isError, error, onStart }: Props) 
       onStart={onStart}
       onRetry={onStart}
       onBack={() => router.push('/exam')}
-      colorScheme="light"
+      colorScheme={resolvedTheme === 'dark' ? 'dark' : 'light'}
     />
   )
 }
