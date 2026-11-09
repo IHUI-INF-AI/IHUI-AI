@@ -9,6 +9,16 @@
     "chunks": "청크",
     "terms": "용어",
     "judgeProvider": "판정기",
+    "foldersTitle": "로컬 폴더",
+    "folderPath": "폴더 경로",
+    "folderPlaceholder": "예: D://docs 또는 /Users/me/docs",
+    "registerFolder": "등록 후 스캔",
+    "scanFolders": "전체 스캔",
+    "foldersList": "등록됨",
+    "noFolders": "등록된 폴더가 없습니다",
+    "removeFolder": "등록 해제",
+    "watchFolder": "자동 감시",
+    "scanSummary": "{changed} 추가 · {unchanged} 변경 없음 · {unsupported} 미지원 · {failed} 실패",
     "docsTitle": "문서 등록",
     "docsPath": "경로",
     "docsContent": "본문",
@@ -9526,6 +9536,22 @@
         "WORKFLOW_NOT_TRIGGERABLE": {
           "title": "이 워크플로는 현재 실행할 수 없습니다",
           "action": "존재 여부와 사용 설정, 실행 중인 인스턴스가 없음을 확인한 후 다시 실행"
+        },
+        "ADD_JOB_FAILED": {
+          "title": "예약 작업 등록에 실패했습니다",
+          "action": "나중에 다시 시도하고, 계속 실패하면 관리자에게 스케줄러 점검을 요청"
+        },
+        "INVALID_CALLBACK": {
+          "title": "작업 콜백 설정이 잘못되었습니다",
+          "action": "콜백 유형과 매개변수를 확인한 후 재시도"
+        },
+        "SCHEDULER_UNAVAILABLE": {
+          "title": "스케줄러가 실행 중이 아닙니다",
+          "action": "나중에 다시 시도하고, 계속 실패하면 관리자에게 스케줄러 시작을 요청"
+        },
+        "UNREADABLE": {
+          "title": "파일을 읽을 수 없습니다",
+          "action": "파일 권한과 잠금을 확인한 후 재시도"
         }
       },
       "worktree": {
@@ -13667,6 +13693,7 @@
     "show": "표시",
     "delete": "삭제",
     "save": "저장",
+    "saveFailed": "저장 실패",
     "ok": "확인",
     "create": "생성",
     "agentKanban": "칸반 요원",
@@ -20459,7 +20486,7 @@
     "wizardAuditEntries": "전체 스캔 상세 보기",
     "wizardAuditScope": "스캔 범위: {cn} 및 {roaming}, 총 {files}개 파일."
   },
-  "checkin": {
+  "checkinAssistant": {
     "taskPanelTitle": "작업 자동 실행",
     "taskPanelAutoTitle": "자동 순회",
     "taskPanelAutoLoading": "불러오는 중…",
@@ -21534,9 +21561,12 @@
     "status": {
       "all": "전체",
       "cancelled": "취소됨",
+      "completed": "완료됨",
+      "failed": "실패",
       "paid": "결제 완료",
       "pending": "결제 대기",
       "refunded": "환불됨",
+      "refunding": "환불 처리 중",
       "unknown": "알 수 없음"
     },
     "statusLabel": "상태",
@@ -25357,6 +25387,14 @@
     "empty": "내역 없음",
     "flowAmount": "금액",
     "flowBalance": "잔액",
+    "flowDeduct": "차감",
+    "flowExpire": "만료",
+    "flowOther": "기타",
+    "flowRecharge": "충전",
+    "flowRefund": "환불 회수",
+    "flowRelayRecharge": "API 키 이체",
+    "flowAdminAdjust": "관리자 조정",
+    "flowQuota": "할당량 변동",
     "flowRemark": "비고",
     "flowTime": "시간",
     "flowType": "유형",

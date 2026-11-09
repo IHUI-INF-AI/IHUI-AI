@@ -258,6 +258,14 @@ class LexicalIndex:
     def document_count(self) -> int:
         return len(self._doc_hashes)
 
+    def document_hash(self, path: str) -> str:
+        """该路径已入索引的正文 hash；未登记返回空串。
+
+        供文件夹增量扫描做「mtime/size 未变 + 索引 hash 仍是这一份」的联合判定，
+        防止「登记表说没变、索引已被 remove_document 删掉」的假跳过。
+        """
+        return self._doc_hashes.get(path, "")
+
     def frequency(self, term: str) -> int:
         """含该词的块数 df。"""
         return len(self._postings.get(term, {}))

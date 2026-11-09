@@ -2381,7 +2381,7 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
 
 
 async def _tool_knowledge_lookup(arguments: dict[str, Any]) -> dict[str, Any]:
-    """knowledge_lookup: 统一知识查询(三源并发,代码库 + RAG + 跨会话历史)。
+    """knowledge_lookup: 统一知识查询(多源并发,代码库 + RAG + 词法多跳 + 图谱 + 跨会话历史)。
 
     包装 app.services.knowledge_lookup.knowledge_lookup(),供 LLM 通过 MCP 协议
     查外部知识,减少 hallucination + 重复 token 消耗。
@@ -12027,7 +12027,7 @@ _TOOLS: list[MCPTool] = [
     ),
     MCPTool(
         name="knowledge_lookup",
-        description="统一知识查询(三源并发:代码库语义检索 + RAG 向量检索 + 跨会话历史摘要)。用于查找代码实现/历史对话/相关文档,减少 hallucination。返回 hits 列表,每个含 source/score/content。",
+        description="统一知识查询(多源并发:代码库语义检索 + RAG 向量检索 + 本地知识库词法多跳 + 知识图谱 + 跨会话历史摘要)。用于查找代码实现/历史对话/相关文档,减少 hallucination。返回 hits 列表,每个含 source/score/content;source 为 sag2 时 content 自带字节区间与行号引用。",
         input_schema={
             "type": "object",
             "properties": {
