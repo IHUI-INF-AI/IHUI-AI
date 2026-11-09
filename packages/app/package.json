@@ -46,7 +46,7 @@
     "@types/react": "^19.0.0",
     "jsdom": "^30.0.1",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0",
+    "react-dom": "^19.3.1",
     "react-native": "^0.86.0",
     "typescript": "catalog:",
     "vitest": "catalog:"
