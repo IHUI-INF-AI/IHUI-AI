@@ -470,6 +470,10 @@ class PgTsVectorStore:
     def document_count(self) -> int:
         return self._mirror.document_count()
 
+    def document_hash(self, path: str) -> str:
+        """该路径已入索引的正文 hash（与 LexicalIndex 同一判据，走 mirror）。"""
+        return self._mirror.document_hash(path)
+
     def frequency(self, term: str) -> int:
         return self._mirror.frequency(term)
 

@@ -54,15 +54,29 @@ vi.mock('next-intl', () => {
     score: '得分',
     bm25: 'BM25',
     hop: '跳',
+    foldersTitle: '本地文件夹',
+    folderPath: '文件夹路径',
+    folderPlaceholder: '例如 C:/kb/docs',
+    registerFolder: '登记并扫描',
+    scanFolders: '扫描全部',
+    foldersList: '已登记',
+    noFolders: '还没有登记文件夹',
+    removeFolder: '注销',
+    watchFolder: '自动监听',
+    scanSummary: '扫描摘要',
   }
   return { useTranslations: () => (key: string) => dict[key] ?? key }
 })
 
 vi.mock('@ihui/ui-react', () => ({
   Button: ({ variant: _variant, children, ...rest }: Record<string, unknown>) => (
-    <button {...(rest as React.ButtonHTMLAttributes<HTMLButtonElement>)}>{children as React.ReactNode}</button>
+    <button {...(rest as React.ButtonHTMLAttributes<HTMLButtonElement>)}>
+      {children as React.ReactNode}
+    </button>
   ),
-  Input: (props: Record<string, unknown>) => <input {...(props as React.InputHTMLAttributes<HTMLInputElement>)} />,
+  Input: (props: Record<string, unknown>) => (
+    <input {...(props as React.InputHTMLAttributes<HTMLInputElement>)} />
+  ),
 }))
 
 import PageClient from './PageClient'
@@ -87,11 +101,12 @@ function installFetch(replies: Reply[]) {
     calls.push({ url, init: init ?? {} })
     const picked = replies[Math.min(index, replies.length - 1)]!
     index += 1
-    const reply: SettledReply = 'pending' in picked
-      ? await new Promise<SettledReply>((resolve) => {
-          pendingResolvers.push(resolve)
-        })
-      : picked
+    const reply: SettledReply =
+      'pending' in picked
+        ? await new Promise<SettledReply>((resolve) => {
+            pendingResolvers.push(resolve)
+          })
+        : picked
     if ('reject' in reply) throw reply.reject
     const status = reply.status ?? 200
     return {
@@ -392,7 +407,9 @@ describe('SAG2 PageClient · 六端点交互（fetch 端计数证明）', () => 
     const quickButton = screen.getByRole('button', { name: '快速搜索' })
     fireEvent.click(quickButton)
     await waitFor(() => expect(screen.getByText('处理中…')).toBeTruthy())
-    expect((screen.getByRole('button', { name: '快速搜索' }) as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByRole('button', { name: '快速搜索' }) as HTMLButtonElement).disabled).toBe(
+      true,
+    )
     expect(fn).toHaveBeenCalledTimes(2)
     expectCall(calls, 1, '/api/v1/ai/sag2/search', 'POST', { query: '收购', page: 1, per_page: 20 })
 
@@ -430,7 +447,9 @@ describe('SAG2 PageClient · 六端点交互（fetch 端计数证明）', () => 
     const executed = {
       ...DEEP_RESULT,
       judge: { mode: 'model', executed: true, reason: 'ok' },
-      trace: [{ ...DEEP_RESULT.trace[0]!, judge_mode: 'model', judge_executed: true, judge_reason: 'ok' }],
+      trace: [
+        { ...DEEP_RESULT.trace[0]!, judge_mode: 'model', judge_executed: true, judge_reason: 'ok' },
+      ],
     }
     const { calls, fn } = installFetch([ok(STATUS), ok(executed)])
     render(<PageClient />)
@@ -469,12 +488,20 @@ describe('SAG2 PageClient · 六端点交互（fetch 端计数证明）', () => 
 
   it('addDocument：登记含中文的正文 → 真实 POST /documents → notice + 再次 GET /status', async () => {
     const content = 'A公司收购了B公司，CTO 是张三。'
-    const { calls, fn } = installFetch([ok(STATUS), ok(ADD_OUTCOME), ok({ ...STATUS, documents: 3 })])
+    const { calls, fn } = installFetch([
+      ok(STATUS),
+      ok(ADD_OUTCOME),
+      ok({ ...STATUS, documents: 3 }),
+    ])
     render(<PageClient />)
     await waitFor(() => expect(screen.getByText('索引就绪')).toBeTruthy())
 
-    fireEvent.change(screen.getByPlaceholderText(PATH_PLACEHOLDER), { target: { value: 'kb/a.txt' } })
-    fireEvent.change(screen.getByPlaceholderText(CONTENT_PLACEHOLDER), { target: { value: content } })
+    fireEvent.change(screen.getByPlaceholderText(PATH_PLACEHOLDER), {
+      target: { value: 'kb/a.txt' },
+    })
+    fireEvent.change(screen.getByPlaceholderText(CONTENT_PLACEHOLDER), {
+      target: { value: content },
+    })
     fireEvent.click(screen.getByRole('button', { name: '登记 / 更新' }))
     await waitFor(() => expect(screen.getByText(/已登记（建库零模型调用）/)).toBeTruthy())
 
@@ -489,11 +516,17 @@ describe('SAG2 PageClient · 六端点交互（fetch 端计数证明）', () => 
   })
 
   it('removeDocument：移除 → 真实 DELETE /documents（path 进 body）→ notice + 再次 GET /status', async () => {
-    const { calls, fn } = installFetch([ok(STATUS), ok(REMOVE_OUTCOME), ok({ ...STATUS, documents: 1 })])
+    const { calls, fn } = installFetch([
+      ok(STATUS),
+      ok(REMOVE_OUTCOME),
+      ok({ ...STATUS, documents: 1 }),
+    ])
     render(<PageClient />)
     await waitFor(() => expect(screen.getByText('索引就绪')).toBeTruthy())
 
-    fireEvent.change(screen.getByPlaceholderText(PATH_PLACEHOLDER), { target: { value: 'kb/a.txt' } })
+    fireEvent.change(screen.getByPlaceholderText(PATH_PLACEHOLDER), {
+      target: { value: 'kb/a.txt' },
+    })
     fireEvent.click(screen.getByRole('button', { name: '移除' }))
     await waitFor(() => expect(screen.getByText(/已移除块数 3/)).toBeTruthy())
 
@@ -501,6 +534,118 @@ describe('SAG2 PageClient · 六端点交互（fetch 端计数证明）', () => 
     expectCall(calls, 0, '/api/v1/ai/sag2/status', 'GET')
     expectCall(calls, 1, '/api/v1/ai/sag2/documents', 'DELETE', { path: 'kb/a.txt' })
     expectCall(calls, 2, '/api/v1/ai/sag2/status', 'GET')
+  })
+})
+
+describe('SAG2 PageClient · 本地文件夹面板', () => {
+  const FOLDER = {
+    root: 'C:/kb/docs',
+    include: ['.md', '.txt'],
+    exclude: [],
+    recursive: true,
+    added_at: 1,
+    last_scan_at: 2,
+    last_scan: {
+      scanned: 3,
+      changed: 2,
+      unchanged: 1,
+      unsupported: 0,
+      failed: 0,
+      too_large: 0,
+      chunks: 12,
+      duration_ms: 9.5,
+      errors: [],
+      buckets_sum: 3,
+    },
+  }
+
+  const FOLDER_LIST = { folders: [FOLDER], persisted: false, state_path: '', watching: [] }
+  const EMPTY_LIST = { folders: [], persisted: false, state_path: '', watching: [] }
+
+  const SCAN_STATS = {
+    ...FOLDER.last_scan,
+    scanned_roots: 1,
+    roots: [],
+    index: STATUS,
+  }
+
+  const ADD_FOLDER_OUTCOME = {
+    registered: true,
+    folder: FOLDER,
+    persisted: false,
+    scan: SCAN_STATS,
+    watch: null,
+  }
+
+  it('折叠时不请求：展开才 GET /folders，并渲染已登记项', async () => {
+    const { calls, fn } = installFetch([ok(STATUS), ok(FOLDER_LIST)])
+    render(<PageClient />)
+    await waitFor(() => expect(screen.getByText('索引就绪')).toBeTruthy())
+
+    // 首屏只拉 status，折叠状态不多发请求。
+    expect(fn).toHaveBeenCalledTimes(1)
+    expectCall(calls, 0, '/api/v1/ai/sag2/status', 'GET')
+
+    fireEvent.click(screen.getByRole('button', { name: /本地文件夹/ }))
+    await waitFor(() => expect(screen.getByText('C:/kb/docs')).toBeTruthy())
+
+    expect(fn).toHaveBeenCalledTimes(2)
+    expectCall(calls, 1, '/api/v1/ai/sag2/folders', 'GET')
+    // 最近一轮扫描的 changed/scanned 直接上屏（2/3）。
+    expect(screen.getByText('2/3')).toBeTruthy()
+  })
+
+  it('登记文件夹：POST /folders(scan=true) → 扫描摘要 → 刷新 status 与列表', async () => {
+    const { calls, fn } = installFetch([
+      ok(STATUS),
+      ok(EMPTY_LIST),
+      ok(ADD_FOLDER_OUTCOME),
+      ok(STATUS),
+      ok(FOLDER_LIST),
+    ])
+    render(<PageClient />)
+    await waitFor(() => expect(screen.getByText('索引就绪')).toBeTruthy())
+
+    fireEvent.click(screen.getByRole('button', { name: /本地文件夹/ }))
+    await waitFor(() => expect(screen.getByText('还没有登记文件夹')).toBeTruthy())
+
+    fireEvent.change(screen.getByPlaceholderText('例如 C:/kb/docs'), {
+      target: { value: 'C:/kb/docs' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: '登记并扫描' }))
+    // notice 与扫描摘要同文案（mock 忽略插值），用请求计数作为「本轮动作完成」的信号。
+    await waitFor(() => expect(fn).toHaveBeenCalledTimes(5))
+    expect(screen.getAllByText(/扫描摘要/).length).toBeGreaterThan(0)
+
+    expectCall(calls, 2, '/api/v1/ai/sag2/folders', 'POST', {
+      root: 'C:/kb/docs',
+      scan: true,
+    })
+    expectCall(calls, 3, '/api/v1/ai/sag2/status', 'GET')
+    expectCall(calls, 4, '/api/v1/ai/sag2/folders', 'GET')
+  })
+
+  it('注销文件夹：DELETE 带 urlencoded root → 刷新 status 与列表', async () => {
+    const { calls, fn } = installFetch([
+      ok(STATUS),
+      ok(FOLDER_LIST),
+      ok({ unregistered: true, removed: 3 }),
+      ok(STATUS),
+      ok(EMPTY_LIST),
+    ])
+    render(<PageClient />)
+    await waitFor(() => expect(screen.getByText('索引就绪')).toBeTruthy())
+
+    fireEvent.click(screen.getByRole('button', { name: /本地文件夹/ }))
+    await waitFor(() => expect(screen.getByText('C:/kb/docs')).toBeTruthy())
+
+    fireEvent.click(screen.getByRole('button', { name: '注销' }))
+    await waitFor(() => expect(screen.getByText(/注销 3/)).toBeTruthy())
+
+    expect(fn).toHaveBeenCalledTimes(5)
+    expectCall(calls, 2, '/api/v1/ai/sag2/folders?root=C%3A%2Fkb%2Fdocs', 'DELETE')
+    expectCall(calls, 3, '/api/v1/ai/sag2/status', 'GET')
+    expectCall(calls, 4, '/api/v1/ai/sag2/folders', 'GET')
   })
 })
 
@@ -517,6 +662,10 @@ describe('SAG2 PageClient · 交互态错误不静默', () => {
     expect(alert.textContent).toContain('查询被拒绝')
 
     expect(fn).toHaveBeenCalledTimes(2)
-    expectCall(calls, 1, '/api/v1/ai/sag2/search', 'POST', { query: '敏感词', page: 1, per_page: 20 })
+    expectCall(calls, 1, '/api/v1/ai/sag2/search', 'POST', {
+      query: '敏感词',
+      page: 1,
+      per_page: 20,
+    })
   })
 })

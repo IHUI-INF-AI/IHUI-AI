@@ -158,6 +158,17 @@ class Sag2LexicalService:
         self.index: Any = index or LexicalIndex()
         self.judge = resolve_judge_from_settings(gateway, judge_model)
         self._store_status = store_status
+        self._folders: Any | None = None
+
+    # -- 文件夹登记 / 增量扫描（懒加载，避免与 folder_ingest 循环导入） --------
+
+    @property
+    def folders(self) -> Any:
+        if self._folders is None:
+            from .folder_ingest import FolderIngest
+
+            self._folders = FolderIngest(self)
+        return self._folders
 
     # -- 索引 ---------------------------------------------------------------
 

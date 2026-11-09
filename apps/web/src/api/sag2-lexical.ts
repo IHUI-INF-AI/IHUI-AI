@@ -141,6 +141,67 @@ export interface Sag2RetrieveOptions {
   file_limit?: number | null
 }
 
+/** 单个文件落桶的具名原因（unsupported / missing-dep / binary / parse-error / too-large）。 */
+export interface Sag2ScanError {
+  path: string
+  reason: string
+}
+
+/** 一轮扫描的算术自证：changed + unchanged + unsupported + failed + too_large = scanned。 */
+export interface Sag2ScanStats {
+  scanned: number
+  changed: number
+  unchanged: number
+  unsupported: number
+  failed: number
+  too_large: number
+  chunks: number
+  duration_ms: number
+  errors: Sag2ScanError[]
+  buckets_sum: number
+}
+
+export interface Sag2ScanResult extends Sag2ScanStats {
+  scanned_roots: number
+  roots: Array<Sag2ScanStats & { root: string }>
+  index: Sag2Status
+  reason?: string
+}
+
+export interface Sag2Folder {
+  root: string
+  include: string[]
+  exclude: string[]
+  recursive: boolean
+  added_at: number
+  last_scan_at: number
+  last_scan: Partial<Sag2ScanStats>
+}
+
+export interface Sag2FolderList {
+  folders: Sag2Folder[]
+  persisted: boolean
+  state_path: string
+  watching: string[]
+}
+
+export interface Sag2WatchOutcome {
+  watching: boolean
+  root?: string
+  interval_s?: number
+  stopped?: boolean
+  reason?: string
+}
+
+export interface Sag2AddFolderOutcome {
+  registered: boolean
+  reason?: string
+  folder?: Sag2Folder
+  persisted?: boolean
+  scan: Sag2ScanResult | null
+  watch: Sag2WatchOutcome | null
+}
+
 const JSON_HEADERS: HeadersInit = { 'Content-Type': 'application/json' }
 
 function postJson<T>(url: string, body: unknown): Promise<T> {
@@ -201,6 +262,53 @@ export function sag2Fuse(
     sag2_results: sag2Results,
     rag_sources: ragSources,
     k,
+  })
+}
+
+// -- 本地文件夹登记 / 增量扫描（对照的「Add a local folder」） ----------------
+
+export function sag2ListFolders(): Promise<Sag2FolderList> {
+  return apiOrThrow<Sag2FolderList>('/api/v1/ai/sag2/folders')
+}
+
+export function sag2AddFolder(input: {
+  root: string
+  include?: string[] | null
+  exclude?: string[] | null
+  recursive?: boolean
+  scan?: boolean
+  watch?: boolean
+  watch_interval_s?: number
+}): Promise<Sag2AddFolderOutcome> {
+  return postJson<Sag2AddFolderOutcome>('/api/v1/ai/sag2/folders', input)
+}
+
+export function sag2ScanFolders(root?: string | null, force = false): Promise<Sag2ScanResult> {
+  return postJson<Sag2ScanResult>('/api/v1/ai/sag2/folders/scan', {
+    root: root ?? null,
+    force,
+  })
+}
+
+export function sag2RemoveFolder(root: string): Promise<{
+  unregistered: boolean
+  removed: number
+  reason?: string
+}> {
+  return apiOrThrow(`/api/v1/ai/sag2/folders?root=${encodeURIComponent(root)}`, {
+    method: 'DELETE',
+  })
+}
+
+export function sag2WatchFolder(
+  root: string,
+  enabled: boolean,
+  intervalS = 30,
+): Promise<Sag2WatchOutcome> {
+  return postJson<Sag2WatchOutcome>('/api/v1/ai/sag2/folders/watch', {
+    root,
+    enabled,
+    interval_s: intervalS,
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
