@@ -104,10 +104,8 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | — blocking | 327 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
 | 跟踪文件 | 20606 | `trackedFiles` |
-
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-09。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
-
 <!-- END GENERATED NUMBERS -->
 **一句话口径**:数字一律现读,文档里不写「约 N 个」——那种写法必然腐烂。
 ---
@@ -5459,11 +5457,9 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-08**
 - 📚 文档:同步 RECENT UPDATES 生成块与 doc-autoupdate 基线 (2485323c91)
-
 **2026-11-08**
 - 🔧 工程/其他:补齐门 47 自愈注入留下的隐形载荷缺口，无业务改动 (f3ae170b31)
 - 📚 文档:同步 RECENT UPDATES 生成块与 doc-autoupdate 基线 (8063d609f5)
-
 **2026-11-08**
 - 📚 文档:同步 README 正文的测试文件现算数(4446) (eb11488487)
 - 📚 文档:同步 F-38 夹具后的 README 现算数字(testFiles 4446 / trackedFiles 20184) (82bd61611f)
@@ -5481,10 +5477,8 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:F-291 SSE 重放缓冲容量满时重注册不再误淘汰其他活跃流 (461bbae68a)
 - 📚 文档:同步 README 文档数字与最近提交面（testFiles/apiRoutes/trackedFiles 与现算对齐） (e179987387)
 - 🔧 工程/其他:补门 193 存量违规 —— check-hand-migration-snapshot 的 git diff 派生显式接管 stdio (3eba6c71fd)
-
 **2026-11-08**
 - 🔧 工程/其他:补门 193 存量违规 —— check-hand-migration-snapshot 的 git diff 派生显式接管 stdio (02d2f85062)
-
 **2026-11-08**
 - 🐞 修复:F-290 WS 限流删除 BURST 死分支，30 条/秒为硬上限 (5828640196)
 - 🐞 修复:F-188 统一 skills:<uid> 为 JSON 数组，识别并救回历史 Hash，install 不再吞掉写入失败 (6a087b84c9)
@@ -5613,7 +5607,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:CLI 根推导退一级修正(scripts/ 入口不能复用 scripts/lib/ 的 ../..) (d365b725b3)
 - 🐞 修复:钥配置按 KeyPath 语义读取文件内容(不得把路径当密钥) (bab82b2299)
 - 🚀 新功能/改进:提交侧求值 + 推送侧凭据校验(13 门/文档数字/i18n 后台真跑, fail-closed 回落) (a78bee7f3d)
-
 **2026-11-07**
 - 🚀 新功能/改进:验证码复制按钮改为右侧细描边胶囊并上线落地页 (578c4caf4e)
 - 🚀 新功能/改进:门结果缓存 + 后台预跑(新增 gate-cache/gate-worker/夹具/注册表) (a49fd06f05)
@@ -5872,7 +5865,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:site-apk 增判 downloadUrl 指向自有站点腿,行在位不再当端内更新卡可用 (bddf6e5a59)
 - 🐞 修复:渠道登记面改为实读 0364+schema+路由,store 维度已落地不再长期报缺 (c53ddd7dbe)
 - 🔧 工程/其他:补 GitHub App CI 三类事件忽略应答与零 IO 判据 (7fab2d4079)
-
 **2026-11-06**
 - 🔧 工程/其他:rebase 到现读尖后重封根护栏 + 写入基线刷新规程 (3533025249)
 - 🐞 修复:固化生成器裁决与 S3 扫描面口径 (6a4edbdc3a)
@@ -5968,7 +5960,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🚀 新功能/改进:出站体序列化那一刻的自查仪器 —— 把 400 的射程推到 CLI 之外 (3540974b85)
 - 🐞 修复:出站清洗补上射程第三格 —— 零宽藏在工具调用参数里时仪器全程报绿 (1b62d16ce2)
 - 🐞 修复:逃生邮件从来没发出去过 —— resolveMailTo 的正则少一个 m 档,还反指控"缺键" (fdc0253f83)
-
 **2026-11-05**
 - 🐞 修复:相对路径逃逸用例切盘根执行,消除 DevEnv 下假红 (2a333988c7)
 - 🐞 修复:内部票优先收尾 —— 清掉最后一处旧密钥开关并加配置矩阵 (3b14d759f9)
@@ -6137,7 +6128,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:门299 的面名从 selectFace 的 .face 取 —— 读数里那个 [object Object] 其实是 --staged 失效 (95a7653212)
 - 🐞 修复:密钥句柄不再可枚举 —— 一次整对象打印就会把签发钥送进记录 (85d1d00dd9)
 - 🐞 修复:事后核验与索引推进挪到放锁之后,并输出锁排队读数 (5c3465f85c)
-
 **2026-11-04**
 - 🔧 工程/其他:补齐 8 枚 HEAD 面缺载荷的溯源水印(门47 push scope 欠账) (86958e1b20)
 - 🐞 修复:同秒并列的删除判定改为未判定——git log 先到者不是拓扑结论 (ad8bf319a0)
@@ -6260,7 +6250,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🚀 新功能/改进:自动臂按需加密(环开 4 分钟/轮,环合即回落) (0061164cdb)
 - 🐞 修复:判据面护栏在 commit-msg 加只报不拦的预警档 —— 未声明要在"还改得动"那一刻报出来 (facba1ab6a)
 - 🔧 工程/其他:再摘 plugins-data 死副本 14 枚并登记退役锁(逐字节同 @ihui/shared;9fdbc207ba 带回) (180c244014)
-
 **2026-11-06**
 - 🐞 修复:落地悬空副本里的两枚判据 fail-closed 与跳门降级证据(RP-67) (b7aa56e7f6)
 - 🐞 修复:派发前闸的"瞬时不在位"先复核再停派 —— 别席 install 重挂 tsx 不该烧掉一班 (0be42c4124)
@@ -43373,3 +43362,4 @@ A: Yes. Test file and case counts: see the generated table / 67 e2e spec / 4719 
 - **规模**:624 张表 · 4721 API 路由 · 测试文件数与用例数见生成块
 - **API(Fastify 5)**:4721 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 A: Yes. Test file and case counts: see the generated table / 67 e2e spec / 4721 API 路由 / 624 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
+| 测试文件 | 4766 | `testFiles` |
