@@ -931,6 +931,18 @@ CAPABILITY_MATRIX: list[dict[str, str]] = [
         "reason_if_off": "行为规划驱动器默认关:关闭即 reporter=None,行为任务只登记不动作;开启后 growth 族走默认行为计分回调——只有代发事件后重读列表确认 progress/status 确已前进才算自动完成(2026-11-05 真机:合成事件 200 code:0 但 progress 零变化),否则如实登记为待用户在客户端实操",
         "settings_field": "workbuddy_tasks_behavior_driver_enabled",
     },
+    {
+        # 2026-11-09 补登记:fdf457bd9a(AIS-053)把外部 MCP 落点收成 settings 字段且默认关,
+        # J4 判「settings 族台账逃逸」——能力矩阵门在 main 存量面恒红。
+        "key": "mcp_allow_private_endpoints",
+        "env": "MCP_ALLOW_PRIVATE_ENDPOINTS",
+        "default": "false",
+        "category": "开关类",
+        "owner_module": "app.services.mcp_endpoint_policy",
+        "doc_ref": "app/services/mcp_endpoint_policy.py:allow_private_endpoints",
+        "reason_if_off": "外部 MCP 私网落点默认 fail-closed:关闭时私网/RFC1918/回环/云元数据地址一律拒绝(仅 admin 可注册外部 MCP);开启即放行私网端点,须显式评估 SSRF 面",
+        "settings_field": "mcp_allow_private_endpoints",
+    },
     # ============ 工具面能力门(缺口表 #7,2026-11-01 立)============
     # 这两枚的**读取点就是本台账**(current_for_entry):声明面(env 字面量)住在
     # app/services/tool_surface.py,取数只有这一条通道 ⇒ 列表面与执行面不可能一把尺读

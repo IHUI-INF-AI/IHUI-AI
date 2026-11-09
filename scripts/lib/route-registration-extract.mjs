@@ -1419,6 +1419,10 @@ const PY_MOUNT_SRC = /\.mount\(\s*(['"][^'"]*['"])/g.source
 // prefix 组可缺省(无参挂载 ⇒ 自有前缀即终形,不得登记)。
 const PY_INCLUDE_A_SRC = /app\.include_router\(\s*([\w.]+)\.router\s*(?:,[^)]*?prefix\s*=\s*['"]([^'"]+)['"])?/g.source
 const PY_INCLUDE_B_SRC = /app\.include_router\(\s*([A-Za-z0-9_]+)\s*(?:,[^)]*?prefix\s*=\s*['"]([^'"]+)['"])?/g.source
+// 通用 include 边(2026-11-08 P2):接收者不限 app,可为任意聚合对象(如 api_v1_router)。
+// 口径与 A/B 同(前缀组可缺省),只供 buildPyIncludeMaps 的多级聚合累加前缀使用;
+// A/B 仍负责 put 既有登记,此正则不直接产出条目 —— 两处算同一件事,不另起一份真相。
+const PY_INCLUDE_EDGE_SRC = /\b([A-Za-z_][\w]*)\.include_router\(\s*([\w.]+)\s*(?:,[^)]*?prefix\s*=\s*['"]([^'"]+)['"])?/g.source
 // import 统一解析:括号多行形与单行形一把吃(`[^\n#]` 截注释,括号组允许跨行)
 const PY_IMPORT_SRC = /from\s+([.\w]+)\s+import\s*(\(([^)]*)\)|([^\n#]+))/g.source
 
@@ -1463,9 +1467,11 @@ function resolvePyModule(spec, parentPkg) {
  * 无别名导入若 `mod.name` 不在面上而 `mod` 在面上 ⇒ 按对象定义解到 mod
  * (`from app.api.v1.router import api_v1_router` 型,api_v1_router 是对象不是模块)。
  * 注释先遮(agent_memory.py:9 的假 include 行是这一锁的真实形态)。
- * 已知边界:`api_v1_router.include_router(chat.router, prefix="/ai")` 这一**二级聚合**
- * (挂载对象非 app)不解析 —— 当前未判定桶里该族(/api/v1/ai/*)零前端调用,补图无裁决需求;
- * 真出现时再按 Fastify 侧 walk 同法扩,并保留未判定出口。
+ * 二级/多级聚合(2026-11-08 P2 已补):`api_v1_router.include_router(chat.router, prefix="/ai")`
+ * 这类**挂载对象非 app** 的 include 行按边逐层累加前缀(与 Fastify 侧 walkFastifyGraph 同构,
+ * 见 buildPyIncludeMaps 内的多级聚合段)。A/B 的既有登记一字不动,只补图里新走到的节点。
+ * 仍保留的边界:挂载对象前缀解不出(对象没被任何 app.include_router 挂到根)、或 include 前缀是
+ * 运行时表达式 ⇒ 该子树落未判定出口,不猜也不冒判。
  * @returns {{byModule: Map<string,string>, byFile: Map<string,string>}}
  */
 export function buildPyIncludeMaps(pyInfos) {
@@ -1478,6 +1484,20 @@ export function buildPyIncludeMaps(pyInfos) {
     const seg = modKey.split('.').pop()
     if (seg && !byFile.has(seg)) byFile.set(seg, prefix)
   }
+  /** 只补既有登记里**没有**的节点:多级聚合不得覆盖 A/B 已判定的前缀(默认档逐字不变)。 */
+  const putAgg = (modKey, prefix) => {
+    const seg = modKey.split('.').pop()
+    if (byModule.has(modKey) || (seg && byFile.has(seg))) return false
+    put(modKey, prefix)
+    return true
+  }
+  const bareIdent = (expr) => (/^[A-Za-z_][\w]*$/.test(expr) ? expr : null)
+  const targetModule = (expr, aliases) => {
+    const head = expr.split('.')[0]
+    return aliases.get(head) ?? head
+  }
+  /** include 边(接收者可为 app 或任意聚合对象),在逐文件扫描时收集,循环结束后统一走图 */
+  const aggEdges = []
   for (const [rel, raw] of pyInfos) {
     const src = maskComments(raw, 'py')
     const moduleKey = rel.replace(/\.py$/, '').replaceAll('/', '.')
@@ -1520,6 +1540,52 @@ export function buildPyIncludeMaps(pyInfos) {
         put(resolved, m[2])
       }
     }
+    // 同一份遮噪后的 src 上收边:接收者不限 app,聚合对象(如 api_v1_router)也在其中。
+    const edgeRe = g(PY_INCLUDE_EDGE_SRC)
+    while ((m = edgeRe.exec(src)) !== null) {
+      aggEdges.push({
+        recv: m[1],
+        target: m[2],
+        prefix: m[3] || '',
+        aliases: aliasToModule,
+      })
+    }
+  }
+
+  /**
+   * 多级聚合累加(2026-11-08 P2,与 Fastify 侧 walkFastifyGraph 同构):
+   * 把 `OBJ.include_router(TARGET, prefix=P)` 看成一条边,对象前缀沿边逐层累加。
+   * 种子 = `app.include_router(...)` 挂到根的**裸别名对象**(其前缀即该边 prefix);
+   * 之后每轮把 `objectPrefix[recv] + P` 记到 TARGET 模块上,TARGET 若是裸标识符还登记为
+   * 新对象(支持三级及以上),`X.router` 的首段也登记(支持 `X.include_router` 形态的下一级)。
+   * 既有 A/B 登记一字不动(putAgg 不覆盖),只补图里新走到的节点;对象前缀解不出的边
+   * 直接跳过 ⇒ 仍是「未判定」,不猜、不冒判。环/深链由 8 轮上限兜住(与 extraPrefix 同口径)。
+   */
+  const objectPrefix = new Map()
+  for (const e of aggEdges) {
+    if (e.recv !== 'app') continue
+    const name = bareIdent(e.target)
+    if (name && !objectPrefix.has(name)) objectPrefix.set(name, e.prefix)
+  }
+  for (let hop = 0; hop < 8; hop++) {
+    let grew = false
+    for (const e of aggEdges) {
+      if (e.recv === 'app' || !objectPrefix.has(e.recv)) continue
+      const full = joinPrefix(objectPrefix.get(e.recv), e.prefix)
+      const modKey = targetModule(e.target, e.aliases)
+      if (putAgg(modKey, full)) grew = true
+      const bare = bareIdent(e.target)
+      if (bare && !objectPrefix.has(bare)) {
+        objectPrefix.set(bare, full)
+        grew = true
+      }
+      const memberHead = e.target.includes('.') ? e.target.split('.')[0] : null
+      if (memberHead && !objectPrefix.has(memberHead)) {
+        objectPrefix.set(memberHead, full)
+        grew = true
+      }
+    }
+    if (!grew) break
   }
   return { byModule, byFile }
 }

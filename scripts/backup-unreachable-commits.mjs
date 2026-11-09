@@ -6,18 +6,69 @@
 // 用法: node scripts/backup-unreachable-commits.mjs
 // 背景: stash 链整体悬空时守门 tree/hash/subject 三路放行失效,
 //       显式 tag 是唯一可靠出口(详见 STATE.md 2026-09-04 守门加固轮).
-// 命名: unreachable-commits-backup/<yyyymmdd-HHMMSS>-<hash12>
+// 命名: 默认 unreachable-commits-backup/<yyyymmdd-HHMMSS>-<hash12>;
+//       可用 IHUI_UNREACHABLE_BACKUP_PREFIX 覆盖命名空间(2026-11-08):
+//       守门 30a 只把 `<prefix>lost-commit/*` + `backup/*` 认作"已备份",存量债清偿时
+//       传 `IHUI_UNREACHABLE_BACKUP_PREFIX=lost-commit/auto-` 才能被门直接读成 backed。
 import { execSync, spawnSync } from 'node:child_process'
 
+import { gitBinary } from './lib/face-reader.mjs'
+
+/**
+ * git 取源(2026-11-06 改造,根因是一枚**崩溃**不是慢):
+ *  旧写法在**模块顶层** `execSync('where git')`,本机当次实测该派生直接以
+ *  `status=3221225773`(0xC0000409 fastfail)、stdout/stderr 皆空 死掉 ⇒ 整个器物在 import 阶段
+ *  抛裸栈退出。后果比"这次没跑成"重:守门 30a 点名"待处置 109 枚悬空 commit"时,唯一的批量出口
+ *  其实一跑就崩,而崩掉的栈被当成"运维工具的一次失败",账面看起来仍然"有人管"。
+ *
+ * 现在:① 取源走仓里唯一实现 `lib/face-reader.gitBinary()`(§0.6 —— 第二份 `where git` 必然漂移,
+ *  本机服务身份 PATH 是死目录时它给不出东西);② 取不到 ⇒ **显式未判定退出 2 并点名原因**,
+ *  不在顶层抛栈,也绝不带着空 GIT_BIN 往下跑一堆 tag;③ 仍保留 `where git` 作次名兜底,
+ *  但它现在包在 try 里 —— 兜底失败只是少一条来源,不是整枚器物炸在 import 上。
+ */
 const GIT_BIN = (() => {
-  // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
-  const w = execSync('where git', { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', windowsHide: true })
-  for (const raw of w.split('\n')) {
-    const p = raw.trim()
-    if (/\\cmd\\git\.exe$/i.test(p)) return p
+  const fromLib = gitBinary()
+  if (typeof fromLib === 'string' && fromLib !== '') return fromLib
+  try {
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    const w = execSync('where git', {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 30_000,
+    })
+    for (const raw of String(w).split('\n')) {
+      const p = raw.trim()
+      if (/\\cmd\\git\.exe$/i.test(p)) return p
+    }
+  } catch {
+    // 取不到就是取不到:交给下面的统一出口,不在这里冒充"那就用裸 git 试试"
   }
-  return 'git'
+  return ''
 })()
+if (GIT_BIN === '') {
+  console.error(
+    '❌ 未判定:本器取不到 git 可执行体(lib/face-reader.gitBinary() 与 `where git` 两档皆空)⇒ 一行 tag 都不打。' +
+      '这是"没判成",不是"没有悬空 commit 要备份";请按 AGENTS §12g 先让 git 可寻址再重跑本器。',
+  )
+  process.exit(2)
+}
+// tag 命名空间(2026-11-08 可覆盖):守门 30a 的 backed 集 = `lost-commit/*` + `backup/*`。
+// 一次性清偿仓级存量债时传 `lost-commit/auto-`,让本器新增的 ref 直接被门读成"已备份";
+// 不传则沿用原命名。只改命名空间,**不删任何 ref**。
+const PREFIX = (() => {
+  const raw = String(process.env.IHUI_UNREACHABLE_BACKUP_PREFIX || 'unreachable-commits-backup/').trim()
+  // 允许以 `/` 或 `-` 结尾:`lost-commit/auto-` 应打出 `lost-commit/auto-20261108-<hash12>`
+  // (而不是多一级 `auto-/`);不带分隔符的旧值 `unreachable-commits-backup` 仍补成 `…/`。
+  const norm = /[/-]$/.test(raw) ? raw : `${raw}/`
+  // 只接受常规 ref 名段(含嵌套);非法值 ⇒ 未判定退出,不带着坏前缀往下打一堆 tag。
+  if (!/^[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*[/-]$/.test(norm)) {
+    console.error(`❌ 未判定:IHUI_UNREACHABLE_BACKUP_PREFIX=${JSON.stringify(raw)} 不是合法 ref 命名空间`)
+    process.exit(2)
+  }
+  return norm
+})()
+
 function runGit(args) {
   const r = spawnSync(GIT_BIN, args, { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', maxBuffer: 64e6, windowsHide: true })
   if (r.status !== 0) throw new Error(`git ${args[0]} exit=${r.status}: ${(r.stderr || '').slice(0, 150)}`)
@@ -45,7 +96,9 @@ for (const l of refOut.split('\n').filter(Boolean)) {
 console.log('backed hashes:', backed.size)
 
 // ② 悬空 commit 全量(fsck 发现任何丢失对象即 exit 1/2,属预期,取 stdout)
-const fsck = runGitSoft(['fsck', '--unreachable', '--no-progress'])
+// 参数与守门 30a 的 detectUnreachable 逐字对齐(--connectivity-only --unreachable --no-reflogs):
+// 否则"只经 reflog 可达"的提交会被本器当成已可达而漏备,门却仍判悬空(集合不等 ⇒ 债清不干净)。
+const fsck = runGitSoft(['fsck', '--connectivity-only', '--unreachable', '--no-reflogs', '--no-progress'])
 const unreach = []
 for (const l of fsck.split('\n')) {
   const m = l.match(/^unreachable commit ([0-9a-f]{40})/)
@@ -55,14 +108,14 @@ console.log('to backup:', unreach.length)
 
 // ③ 逐个打轻量 tag(git tag 本身很快;幂等:ref 已存在则跳过)
 const existingRefs = new Set(
-  runGit(['for-each-ref', 'refs/tags/unreachable-commits-backup', '--format=%(refname)']).split('\n'),
+  runGit(['for-each-ref', `refs/tags/${PREFIX.replace(/[/-]$/, '')}`, '--format=%(refname)']).split('\n'),
 )
 const ts = new Date()
 const pad = (n) => String(n).padStart(2, '0')
 const stamp = `${ts.getFullYear()}${pad(ts.getMonth() + 1)}${pad(ts.getDate())}-${pad(ts.getHours())}${pad(ts.getMinutes())}${pad(ts.getSeconds())}`
 let created = 0
 for (const h of unreach) {
-  const name = `unreachable-commits-backup/${stamp}-${h.slice(0, 12)}`
+  const name = `${PREFIX}${stamp}-${h.slice(0, 12)}`
   if (existingRefs.has(`refs/tags/${name}`)) continue
   runGit(['tag', name, h])
   created++

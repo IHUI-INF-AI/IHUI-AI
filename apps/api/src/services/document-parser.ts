@@ -69,11 +69,10 @@ interface AnydocError extends Error {
 }
 
 let anydocModule: AnydocModule | null = null
-let anydocLoadAttempted = false
 
 async function loadAnydoc(): Promise<AnydocModule | null> {
-  if (anydocLoadAttempted) return anydocModule
-  anydocLoadAttempted = true
+  // 只在加载成功后缓存:失败(依赖未就绪/ABI)不得把本进程永久钉成"anydoc 不可用"
+  if (anydocModule) return anydocModule
   try {
     const mod = (await import('@firecrawl/anydoc')) as unknown as AnydocModule
     if (typeof mod.toMarkdownBytes !== 'function') throw new Error('toMarkdownBytes 导出缺失')

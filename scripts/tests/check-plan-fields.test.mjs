@@ -16,11 +16,11 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { __test__ as G, idNorm, judge, verdict } from '../check-plan-fields.mjs'
+import { __test__ as G, idNorm, judge, readFaces, verdict } from '../check-plan-fields.mjs'
 import { __test__ as H } from '../lib/plan-field-line.mjs'
 import { leaseDupGroupsOf } from '../lib/plan-id-lease.mjs'
 import { compositeKeyOf, dispositionOfV2 } from '../lib/plan-task-index.mjs'
@@ -271,6 +271,176 @@ describe('租约绝对唯一:--strict 判红、默认只报数、换族/换段�
       assert.equal(relaxed, 0, '默认档必须仍 exit 0(只报数)')
       const strict = G.run({ root: dir, face: 'worktree', strict: true })
       assert.equal(strict, 1, '--strict 必须非零')
+    } finally {
+      rmScratch(dir)
+    }
+  })
+})
+
+/**
+ * 合并态「新增行」的相对面(2026-11-07 票:merge 提交的「新增行」判据只对第一父)。
+ * 红线:
+ *  ① 第二父带来的行 ⇒ 不算本次新增(任一父里已存在就排除);
+ *  ② 合并时我们自己新写、两个父里都没有的行 ⇒ 仍算新增,A1 仍须红;
+ *  ③ 单亲提交 ⇒ 与改前逐字节一致(基准面恰为 HEAD 的开行集合,不多不少);
+ *  ④ 父提交取不到(坏对象 / 空 MERGE_HEAD)⇒ fail-closed 判未判定(exit 2),
+ *    绝不允许退化成「没有新增」而放行。
+ * 官司一律真跑生产出口 `readFaces` / `run`,本文件零复算(§22c)。
+ */
+describe('A1 合并态:新增行的相对面 = 全部父提交求并集排除', () => {
+  const BASE = '- [ ] G-1 基线行 细节'
+  const OURS = '- [ ] G-2 我方分支带来的行 细节'
+  const THEIRS = '- [ ] G-3 第二父带来的历史欠账 细节'
+  const FRESH = '- [ ] G-4 合并时我们自己新写的行 细节'
+
+  const g = (dir, args) =>
+    execFileSync(
+      'git',
+      [
+        '-c',
+        'user.name=fixture',
+        '-c',
+        'user.email=fixture@local',
+        '-c',
+        'commit.gpgsign=false',
+        '-c',
+        `core.hooksPath=${path.join(dir, '.nohooks')}`,
+        ...args,
+      ],
+      { cwd: dir, stdio: ['ignore', 'pipe', 'pipe'] },
+    )
+  const mergeHead = (dir) => path.join(dir, '.git', 'MERGE_HEAD')
+
+  /**
+   * 造真二父现场:两侧各自在文件尾追加不同行 ⇒ ort 必冲突;解成并集后 `git add`,
+   * 此时 MERGE_HEAD 在、索引面 = 解完的合并结果 —— 正是本门 `--staged` 档面对的那一态。
+   * `extra` 用来追加「两个父里都没有」的自写行。
+   */
+  function makeMergeRepo(dir, extra = []) {
+    mkdirSync(path.join(dir, 'scripts', 'data'), { recursive: true })
+    mkdirSync(path.join(dir, '.nohooks'), { recursive: true })
+    g(dir, ['init', '-q'])
+    const base = String(g(dir, ['symbolic-ref', '--short', 'HEAD'])).trim()
+    const put = (lines) =>
+      writeFileSync(path.join(dir, 'PROJECT_PLAN.md'), ['# 计划', '', ...lines, ''].join('\n'), 'utf8')
+    writeFileSync(path.join(dir, 'scripts', 'data', 'plan-fields.jsonl'), '', 'utf8')
+    put([BASE])
+    g(dir, ['add', 'PROJECT_PLAN.md', 'scripts/data/plan-fields.jsonl'])
+    g(dir, ['commit', '-q', '-m', 'base'])
+    g(dir, ['checkout', '-q', '-b', 'theirs'])
+    put([BASE, THEIRS])
+    g(dir, ['add', 'PROJECT_PLAN.md'])
+    g(dir, ['commit', '-q', '-m', 'theirs'])
+    g(dir, ['checkout', '-q', base])
+    put([BASE, OURS])
+    g(dir, ['add', 'PROJECT_PLAN.md'])
+    g(dir, ['commit', '-q', '-m', 'ours'])
+    try {
+      g(dir, ['merge', '--no-commit', '--no-ff', 'theirs'])
+    } catch {
+      // 冲突是预期:两侧都在尾部追加,解按「两侧独有行全保留」
+    }
+    assert.ok(existsSync(mergeHead(dir)), '造场失败:MERGE_HEAD 不在,后面的臂会变成单亲口径')
+    put([BASE, OURS, THEIRS, ...extra])
+    g(dir, ['add', 'PROJECT_PLAN.md'])
+    return dir
+  }
+
+  it('① 第二父带来的行不算新增:A1=0,退出码 0', () => {
+    const dir = mkScratch('check-plan-fields-merge-p2')
+    try {
+      makeMergeRepo(dir)
+      const f = readFaces(dir, 'staged')
+      assert.equal(f.ok, true, f.why)
+      assert.ok(f.baseRowTexts.has(OURS), '第一父(HEAD)里的行必须在基准面里')
+      assert.ok(f.baseRowTexts.has(THEIRS), '第二父里的行必须进并集 —— 否则它就是「合并方新增」')
+      const v = judge(f.rows, { baseRowTexts: f.baseRowTexts, map: f.map, allRecords: f.allRecords })
+      assert.equal(v.a1, 0, `A1 必须为 0,实得 ${v.a1}:${v.a1List.join(' | ')}`)
+      assert.equal(G.run({ root: dir, face: 'staged' }), 0)
+    } finally {
+      rmScratch(dir)
+    }
+  })
+
+  it('② 合并时自写的新行(两个父都没有)仍算新增 ⇒ A1 红并点名', () => {
+    const dir = mkScratch('check-plan-fields-merge-fresh')
+    try {
+      makeMergeRepo(dir, [FRESH])
+      const f = readFaces(dir, 'staged')
+      assert.equal(f.ok, true, f.why)
+      const v = judge(f.rows, { baseRowTexts: f.baseRowTexts, map: f.map, allRecords: f.allRecords })
+      assert.equal(v.a1, 1, `只有自写行算新增,实得 ${v.a1}`)
+      assert.match(v.a1List.join('\n'), /G-4/, 'A1 必须点名自写的那一行')
+      assert.equal(G.run({ root: dir, face: 'staged' }), 1, '合并态的自写新增仍必须拦红')
+    } finally {
+      rmScratch(dir)
+    }
+  })
+
+  it('③ 回归:两个父都没有的行不得被并集整面放行(只排父里已有的)', () => {
+    const dir = mkScratch('check-plan-fields-merge-regress')
+    try {
+      makeMergeRepo(dir, [FRESH])
+      const f = readFaces(dir, 'staged')
+      assert.equal(f.baseRowTexts.has(FRESH), false, '自写行不在任何父里 ⇒ 不得进基准面')
+      assert.ok(
+        f.rows.some((r) => r.raw === FRESH),
+        '自写行确实在被审面(索引)上 —— 它必须被看见',
+      )
+      assert.equal(f.baseRowTexts.has(THEIRS), true, '对照:第二父的行必须被排除')
+    } finally {
+      rmScratch(dir)
+    }
+  })
+
+  it('④ 单亲提交行为不变:基准面 === HEAD 的开行集合(逐字)', () => {
+    const dir = mkScratch('check-plan-fields-single-parent')
+    try {
+      mkdirSync(path.join(dir, 'scripts', 'data'), { recursive: true })
+      mkdirSync(path.join(dir, '.nohooks'), { recursive: true })
+      g(dir, ['init', '-q'])
+      writeFileSync(path.join(dir, 'PROJECT_PLAN.md'), ['# 计划', '', BASE, ''].join('\n'), 'utf8')
+      writeFileSync(path.join(dir, 'scripts', 'data', 'plan-fields.jsonl'), '', 'utf8')
+      g(dir, ['add', 'PROJECT_PLAN.md', 'scripts/data/plan-fields.jsonl'])
+      g(dir, ['commit', '-q', '-m', 'base'])
+      // 索引面追加一行(未提交)⇒ 单亲口径下只有这一行算新增
+      writeFileSync(path.join(dir, 'PROJECT_PLAN.md'), ['# 计划', '', BASE, FRESH, ''].join('\n'), 'utf8')
+      g(dir, ['add', 'PROJECT_PLAN.md'])
+      assert.equal(existsSync(mergeHead(dir)), false, '本臂必须是非合并态')
+      const f = readFaces(dir, 'staged')
+      assert.equal(f.ok, true, f.why)
+      assert.deepEqual([...f.baseRowTexts].sort(), [BASE].sort(), '单亲基准面必须就是 HEAD 的开行集合')
+      const v = judge(f.rows, { baseRowTexts: f.baseRowTexts, map: f.map, allRecords: f.allRecords })
+      assert.equal(v.a1, 1)
+      assert.match(v.a1List.join('\n'), /G-4/)
+    } finally {
+      rmScratch(dir)
+    }
+  })
+
+  it('⑤ 父提交取不到(坏对象)⇒ 判未判定 exit 2,不许当成「没有新增」放行', () => {
+    const dir = mkScratch('check-plan-fields-merge-badparent')
+    try {
+      makeMergeRepo(dir, [FRESH])
+      writeFileSync(mergeHead(dir), `${'0'.repeat(40)}\n`, 'utf8')
+      const f = readFaces(dir, 'staged')
+      assert.equal(f.ok, false, '父提交读不出时 readFaces 必须 fail-closed')
+      assert.match(f.why, /未判定/)
+      assert.equal(G.run({ root: dir, face: 'staged' }), 2, '未判定必须是 exit 2,不是 exit 0')
+    } finally {
+      rmScratch(dir)
+    }
+  })
+
+  it('⑥ 合并态但 MERGE_HEAD 为空 ⇒ 同样判未判定(不得退化成「父只有一个」)', () => {
+    const dir = mkScratch('check-plan-fields-merge-empty')
+    try {
+      makeMergeRepo(dir)
+      writeFileSync(mergeHead(dir), '', 'utf8')
+      const f = readFaces(dir, 'staged')
+      assert.equal(f.ok, false)
+      assert.match(f.why, /未判定/)
+      assert.equal(G.run({ root: dir, face: 'staged' }), 2)
     } finally {
       rmScratch(dir)
     }

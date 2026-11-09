@@ -700,4 +700,250 @@ async def test_resume_while_running_is_409_not_second_concurrent_run() -> None:
 
 async def _unused_loader(sid: str) -> AgentLoopCheckpoint:
     raise AssertionError("running 态应在触达存储之前就被拒")
+
+
+async def test_concurrent_resume_only_one_claims_the_paused_session() -> None:
+    """AIS-022:并发 resume 只允许一个真正续跑;第二次必须在慢 I/O 之前被拒。
+
+    旧实现把"置 running"放在 loader 之后:两个请求都能在慢 I/O 前通过
+    ``not rec.paused``,各自跑一遍 runner ⇒ 同一份消息历史跑两次(带副作用的工具
+    真的执行两次)。修复后第二个请求要么在临界区直接得到 NOT_PAUSED,
+    要么在占位后、慢 I/O 前被拒 —— 两种情况下 loader 都只应被调用 1 次。
+    """
+    session_id = "sess-65-resume-race"
+    fake = _FakeLoop(checkpoint_id="ck-65-race")
+    await run_control.register_run(session_id, owner_user_id=USER_A, loop=fake)  # type: ignore[arg-type]
+    run_ownership.record_ownership(session_id, USER_A)
+    paused = await run_control.pause_session(session_id, USER_A)
+    assert paused.outcome is run_control.PauseOutcome.PAUSED
+
+    checkpoint = AgentLoopCheckpoint(
+        checkpoint_id="ck-65-race",
+        session_id=session_id,
+        iteration=1,
+        messages=[{"role": "user", "content": "hi"}],
+        tool_state={},
+        status="paused",
+        created_at=time.time(),
+        expires_at=time.time() + 600,
+        metadata={"owner_user_id": USER_A},
+    )
+
+    entered = asyncio.Event()
+    loader_calls = {"n": 0}
+    runner_calls = {"n": 0}
+
+    async def slow_loader(sid: str) -> AgentLoopCheckpoint:
+        loader_calls["n"] += 1
+        entered.set()
+        await asyncio.sleep(0.2)
+        return checkpoint
+
+    class _CountingRunner:
+        async def __call__(
+            self, cp: AgentLoopCheckpoint, requester: str
+        ) -> dict[str, Any]:
+            runner_calls["n"] += 1
+            return {"stop_reason": "completed", "checkpoint_id": None}
+
+    first = asyncio.create_task(
+        run_control.resume_session(  # type: ignore[arg-type]
+            session_id, USER_A, load_latest=slow_loader, runner=_CountingRunner()
+        )
+    )
+    await asyncio.wait_for(entered.wait(), timeout=5)
+    # 第一次已占位且卡在慢 I/O;此时第二次并发 resume 必须直接 NOT_PAUSED
+    second = await run_control.resume_session(
+        session_id, USER_A, load_latest=slow_loader, runner=_CountingRunner()  # type: ignore[arg-type]
+    )
+    first_result = await first
+
+    assert first_result.outcome is run_control.ResumeOutcome.RESUMED
+    assert second.outcome is run_control.ResumeOutcome.NOT_PAUSED, (
+        f"并发第二次 resume 进了续跑(实得 {second.outcome})⇒ 同会话双跑"
+    )
+    assert loader_calls["n"] == 1, "第二次 resume 不应触达慢 I/O"
+    assert runner_calls["n"] == 1, "runner 只能起一次(否则副作用加倍)"
+
+
+# ===========================================================================
+# ⑥ 跨进程续跑:崩溃轮判不出 ⇒ 409 + 处置清单(会话仍暂停,处置后可再 resume)
+# ===========================================================================
+
+_BLOCKED_PAYLOAD: dict[str, Any] = {
+    "code": "AGENT_RESUME_REQUIRES_CONFIRMATION",
+    "checkpoint_id": "ck-65-blocked",
+    "iteration": 2,
+    "blocked": [
+        {
+            "tool_call_id": "call-1",
+            "tool_name": "write_file",
+            "scope": "fs_write",
+            "mutating": True,
+            "action": "block_confirm",
+            "reason_code": "UNCERTAIN",
+            "args_summary": "path=out.txt",
+            "evidence": "回执停在 attempting:工具可能已产生副作用但没走完",
+        }
+    ],
+    "allowed_decisions": ["retry", "skip", "accept", "abort"],
+}
+
+
+async def test_needs_confirmation_keeps_session_paused_and_is_retryable() -> None:
+    """判不出 ⇒ NEEDS_CONFIRMATION:载荷原样带回,且**会话仍停在暂停点**。
+
+    第二条断言(处置后可再 resume)是这一格的核心:若拦下时把控制面记录
+    吞掉/翻成 running,用户拿 409 里的清单处置完就再也续不上了。
+    """
+    from app.services.agent_resume_semantics import ResumeBlockedError
+
+    session_id = "sess-65-needs-confirm"
+    checkpoint = AgentLoopCheckpoint(
+        checkpoint_id="ck-65-blocked",
+        session_id=session_id,
+        iteration=2,
+        messages=[{"role": "user", "content": "hi"}],
+        tool_state={},
+        status="paused",
+        created_at=time.time(),
+        expires_at=time.time() + 600,
+        metadata={"owner_user_id": USER_A},
+    )
+
+    class _Blocked:
+        async def __call__(
+            self, cp: AgentLoopCheckpoint, requester: str
+        ) -> dict[str, Any]:
+            raise ResumeBlockedError(_BLOCKED_PAYLOAD)
+
+    async def loader(sid: str) -> AgentLoopCheckpoint:
+        return checkpoint
+
+    first = await run_control.resume_session(
+        session_id, USER_A, load_latest=loader, runner=_Blocked()  # type: ignore[arg-type]
+    )
+    assert first.outcome is run_control.ResumeOutcome.NEEDS_CONFIRMATION
+    assert first.changed is False
+    assert first.result == _BLOCKED_PAYLOAD, "409 载荷必须原样带回,不得在控制面重拼"
+    assert first.checkpoint_id == checkpoint.checkpoint_id
+
+    again = await run_control.resume_session(
+        session_id, USER_A, load_latest=loader, runner=_NoopRunner()  # type: ignore[arg-type]
+    )
+    assert again.outcome is run_control.ResumeOutcome.RESUMED, (
+        f"拦下后会话无法再续跑(实得 {again.outcome})= 处置清单成了一次性死路"
+    )
+
+
+async def test_execute_resume_needs_confirmation_is_409_with_payload(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """HTTP 面:ResumeBlockedError → 409,detail 就是 semantics 造的那份载荷。"""
+    from app.routers import agents as agents_mod
+    from app.services.agent_resume_semantics import ResumeBlockedError
+
+    class _NoCheckpoint:
+        async def load_checkpoint(self, cid: str) -> None:
+            return None
+
+    monkeypatch.setattr(ckpt_mod, "get_agent_checkpoint_manager", lambda: _NoCheckpoint())
+
+    async def _boom(*args: Any, **kwargs: Any) -> Any:
+        raise ResumeBlockedError(_BLOCKED_PAYLOAD)
+
+    monkeypatch.setattr(agents_mod, "_resume_run_from_checkpoint", _boom)
+
+    app = FastAPI()
+    app.add_middleware(jwt_auth.JWTAuthMiddleware)
+    app.include_router(agents_mod.router, prefix="/api")
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://pause65.test"
+    ) as ac:
+        resp = await ac.post(
+            "/api/agents/execute/resume",
+            json={"checkpoint_id": "ck-65-blocked"},
+            headers=_auth(USER_A),
+        )
+
+    assert resp.status_code == 409, resp.text
+    assert resp.json()["detail"] == _BLOCKED_PAYLOAD
+
+
+async def test_execute_resume_unknown_confirmation_id_is_400(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """清单外的 tool_call_id 是客户端写错(400),不得伪装成"checkpoint 没了"的 404。"""
+    from app.routers import agents as agents_mod
+    from app.services.agent_resume_semantics import UnknownConfirmationError
+
+    class _NoCheckpoint:
+        async def load_checkpoint(self, cid: str) -> None:
+            return None
+
+    monkeypatch.setattr(ckpt_mod, "get_agent_checkpoint_manager", lambda: _NoCheckpoint())
+
+    async def _boom(*args: Any, **kwargs: Any) -> Any:
+        raise UnknownConfirmationError(["call-typo"])
+
+    monkeypatch.setattr(agents_mod, "_resume_run_from_checkpoint", _boom)
+
+    app = FastAPI()
+    app.add_middleware(jwt_auth.JWTAuthMiddleware)
+    app.include_router(agents_mod.router, prefix="/api")
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://pause65.test"
+    ) as ac:
+        resp = await ac.post(
+            "/api/agents/execute/resume",
+            json={
+                "checkpoint_id": "ck-65-blocked",
+                "resume_confirmations": {"call-typo": "retry"},
+            },
+            headers=_auth(USER_A),
+        )
+
+    assert resp.status_code == 400, resp.text
+    detail = resp.json()["detail"]
+    assert detail["errorCode"] == "AGENT_RESUME_CONFIRMATION_UNKNOWN_ID"
+    assert detail["tool_call_ids"] == ["call-typo"]
+
+
+async def test_session_resume_needs_confirmation_is_409_with_payload(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """按会话续跑:控制面判 NEEDS_CONFIRMATION → 409,detail 透传同一份载荷。"""
+    from app.routers import agents as agents_mod
+
+    async def _fake_resume_session(
+        session_id: str,
+        requester: str,
+        *,
+        load_latest: Any = None,
+        runner: Any = None,
+    ) -> run_control.ResumeResult:
+        return run_control.ResumeResult(
+            outcome=run_control.ResumeOutcome.NEEDS_CONFIRMATION,
+            changed=False,
+            checkpoint_id="ck-65-blocked",
+            result=dict(_BLOCKED_PAYLOAD),
+            detail="续跑需要人工确认",
+        )
+
+    monkeypatch.setattr(agents_mod, "resume_session", _fake_resume_session)
+
+    app = FastAPI()
+    app.add_middleware(jwt_auth.JWTAuthMiddleware)
+    app.include_router(agents_mod.router, prefix="/api")
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://pause65.test"
+    ) as ac:
+        resp = await ac.post(
+            "/api/agents/sess-65-needs-confirm/resume",
+            json={},
+            headers=_auth(USER_A),
+        )
+
+    assert resp.status_code == 409, resp.text
+    assert resp.json()["detail"] == _BLOCKED_PAYLOAD
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

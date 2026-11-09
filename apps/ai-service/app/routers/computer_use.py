@@ -65,6 +65,7 @@ from pydantic import BaseModel, Field
 from ..core.jwt_auth import get_current_user_id
 from ..services.browser_replay import PageDriver, classify_error, replay_trace
 from ..services.browser_trace import browser_trace_store, new_trace_id
+from ..services.screenshot_service import _validate_url_ssrf
 
 logger = logging.getLogger(__name__)
 
@@ -202,6 +203,8 @@ async def _start_browser(sess: _UserBrowser) -> Any:
         timezone_id="Asia/Shanghai",
     )
     sess.page = await sess.context.new_page()
+    # AIS-035:打开后的每次网络请求(含重定向与子资源)都过 SSRF 尺子。
+    await sess.context.route("**/*", _ssrf_route_guard)
     logger.info("[computer_use] Chromium 已启动(user=%s)", sess.user_id)
     return sess.page
 
@@ -554,12 +557,36 @@ class TypeRequest(BaseModel):
 # ============ 端点 ============
 
 
+def _assert_url_allowed(url: str) -> None:
+    """URL 入口闸(AIS-035):非 http(s)/回环/内网/云元数据一律 400。
+
+    服务端 Chromium 打开的页面 = 服务端自己发起的出站请求,与浏览器代理同风险;
+    不校验就能 file:/// 读服务器文本、127.0.0.1 探内网、169.254 取元数据。
+    """
+    ok, reason = _validate_url_ssrf(url)
+    if not ok:
+        raise HTTPException(status_code=400, detail=f"URL 不允许打开: {reason}")
+
+
+async def _ssrf_route_guard(route: Any) -> None:
+    """逐请求闸:重定向后的第二跳、页面子资源同样过同一把 SSRF 尺子。"""
+    try:
+        ok, _reason = _validate_url_ssrf(route.request.url)
+    except Exception:
+        ok = False
+    if ok:
+        await route.continue_()
+    else:
+        await route.abort("blockedbyclient")
+
+
 @router.post("/open")
 async def computer_use_open(
     body: OpenRequest,
     user_id: str = Depends(get_current_user_id),
 ) -> dict[str, Any]:
     """打开指定 URL(在**调用人自己**的浏览器里),返回最终 url + title。"""
+    _assert_url_allowed(body.url)
     page = await _ensure_page(user_id)
     sess = _require_session(user_id)
     started = time.monotonic()
@@ -574,6 +601,8 @@ async def computer_use_open(
             duration_ms=(time.monotonic() - started) * 1000,
         )
         return {"url": page.url, "title": title, "status": "opened"}
+    except HTTPException:
+        raise
     except Exception as e:
         _record_step(
             sess,

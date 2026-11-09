@@ -20,6 +20,7 @@ import {
   registerByEmail,
 } from '@ihui/api-client'
 import { PasswordInput, PasswordStrengthIndicator } from '@/components/login'
+import { useDeadlineCountdown } from '@/hooks/use-deadline-countdown'
 import { useTurnstile } from './LoginWithTurnstile'
 import { emailSchema } from '@/components/login/login-schemas'
 import { AgreementCheckbox } from '@/components/auth/AgreementCheckbox'
@@ -94,7 +95,9 @@ export function RegisterAccountForm({
   const [serverError, setServerError] = React.useState<string | null>(null)
   const [serverInfo, setServerInfo] = React.useState<string | null>(null)
 
-  const [countdown, setCountdown] = React.useState(0)
+  // 同型根因 S-01:发码冷却改为截止时间戳派生
+  const [codeDeadline, setCodeDeadline] = React.useState<number | null>(null)
+  const countdown = useDeadlineCountdown(codeDeadline)
   const [sendingCode, setSendingCode] = React.useState(false)
 
   const {
@@ -121,12 +124,6 @@ export function RegisterAccountForm({
     return map[key] ?? key
   }
 
-  React.useEffect(() => {
-    if (countdown <= 0) return
-    const timer = setTimeout(() => setCountdown((c) => c - 1), 1000)
-    return () => clearTimeout(timer)
-  }, [countdown])
-
   const handleSendCode = async () => {
     const account = getValues('account')
     if (!(isPhone ? PHONE_RE : EMAIL_RE).test(account)) {
@@ -149,7 +146,7 @@ export function RegisterAccountForm({
         : { success: false, error: r.error }
       if (sendCodeResult.success) {
         setServerInfo(t('codeSent'))
-        setCountdown(60)
+        setCodeDeadline(Date.now() + 60_000)
       } else {
         // email 版原实现展示 sendCodeResult.error,phone 版展示 registerFailed,保持各自行为
         setServerError(isPhone ? t('registerFailed') : sendCodeResult.error || t('registerFailed'))

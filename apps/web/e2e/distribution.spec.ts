@@ -40,7 +40,7 @@ test.describe('分销完整流程', () => {
     await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/distribution')) return
 
-    await page.waitForTimeout(2000)
+    await page.waitForLoadState('load', { timeout: 6000 }).catch(() => {})
     const applyBtn = page
       .getByRole('button')
       .filter({
@@ -56,7 +56,7 @@ test.describe('分销完整流程', () => {
     await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/distribution')) return
 
-    await page.waitForTimeout(2000)
+    await page.waitForLoadState('load', { timeout: 6000 }).catch(() => {})
     const promoElement = page.locator('text=/推广|邀请|分享|Promote|Invite|二维码|QR/i').first()
     const hasPromo = await promoElement.isVisible({ timeout: 3000 }).catch(() => false)
     expect(hasPromo || true).toBeTruthy()
@@ -67,7 +67,7 @@ test.describe('分销完整流程', () => {
     await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/distribution')) return
 
-    await page.waitForTimeout(2000)
+    await page.waitForLoadState('load', { timeout: 6000 }).catch(() => {})
     const commissionText = page.locator('text=/佣金|提成|Commission/i').first()
     const hasCommission = await commissionText.isVisible({ timeout: 3000 }).catch(() => false)
     expect(hasCommission || true).toBeTruthy()
@@ -78,7 +78,7 @@ test.describe('分销完整流程', () => {
     await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/distribution')) return
 
-    await page.waitForTimeout(2000)
+    await page.waitForLoadState('load', { timeout: 6000 }).catch(() => {})
     const withdrawBtn = page
       .getByRole('button')
       .filter({
@@ -94,7 +94,7 @@ test.describe('分销完整流程', () => {
     await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/distribution')) return
 
-    await page.waitForTimeout(2000)
+    await page.waitForLoadState('load', { timeout: 6000 }).catch(() => {})
     const table = page.locator('table, [role="table"], [role="list"], ul').first()
     const hasTable = await table.isVisible({ timeout: 3000 }).catch(() => false)
     expect(hasTable || true).toBeTruthy()

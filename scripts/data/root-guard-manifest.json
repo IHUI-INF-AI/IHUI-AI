@@ -1,9 +1,9 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-07T12:40:20.512Z",
+  "sealedAt": "2026-11-09T16:16:54.258Z",
   "sealedBy": "root-guard --seal",
-  "reason": "接 e69651e43f(guardian-runner)与 47a298fc78(git-guardian)之后的脚本改动,按 HEAD 面重封清单;工作树另有未提交改动不进清单",
+  "reason": "merge: origin/main 合入 feat/hr-department 后重封根护栏清单",
   "targets": [
     {
       "id": "guardian-runner",
@@ -29,6 +29,42 @@
       "path": "scripts/git-guardian.mjs",
       "mode": "file",
       "sha256": "aff4105489583c34bfa189ccd80fa774407006c325ec91e46b2adf0b7aec644b"
+    },
+    {
+      "id": "gate-scope",
+      "path": "scripts/lib/gate-scope.mjs",
+      "mode": "file",
+      "sha256": "34c404545d489061633f08cc0a2964d491679adb9fec32a0104e3db55680b110"
+    },
+    {
+      "id": "guardian-executor",
+      "path": "scripts/lib/guardian-executor.mjs",
+      "mode": "file",
+      "sha256": "2f1d19c964e73f42248a3fbad5de222883e8f45923c3817fdc5ea6c25dcfb807"
+    },
+    {
+      "id": "gate-failure-kind",
+      "path": "scripts/lib/gate-failure-kind.mjs",
+      "mode": "file",
+      "sha256": "54417b7dc571de922853788ae878bf53689ad8daa7b91d9a6467324d4a3e7b22"
+    },
+    {
+      "id": "land-gate-rerun",
+      "path": "scripts/lib/land-gate-rerun.mjs",
+      "mode": "file",
+      "sha256": "1dfdbae21b36b6973fc86f664929bffd10d887444194c0c4fb1fb953b5f09e42"
+    },
+    {
+      "id": "guardian-pushgate-cache",
+      "path": "scripts/lib/guardian-pushgate-cache.mjs",
+      "mode": "file",
+      "sha256": "604f3e48c9d2f61b24ae51293e49c8ce8d7a9d371ad723a06b4361c977ed93b8"
+    },
+    {
+      "id": "push-attempt-triage",
+      "path": "scripts/lib/push-attempt-triage.mjs",
+      "mode": "file",
+      "sha256": "910878a134890d9d1076716e4521365240239fe552d3ed08afeb70c68f06a7ab"
     }
   ]
 }

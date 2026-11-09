@@ -10,6 +10,7 @@ import { View, Text, ScrollView, Image } from '@tarojs/components'
 import type { TtFn } from '@/i18n'
 import { FocusInput, FocusTextarea } from '@/components/FocusField'
 import ThemeRoot from '@/components/ThemeRoot'
+import { useUiField } from '@/lib/ui-field-registry'
 
 type ParamType = 'string' | 'number' | 'boolean' | 'file' | 'select' | 'json'
 
@@ -59,6 +60,44 @@ export interface CreateViewProps {
   onAddParam: (which: 'in' | 'out') => void
   onRemoveParam: (which: 'in' | 'out', index: number) => void
   onSubmit: () => void
+}
+
+/**
+ * 创建表单的登记壳(2026-11 从 n8n-model/index.tsx 逐字迁入):三个文本字段交出
+ * 与输入事件同源的 setter;提交动作不可撤回 ⇒ 不注册 submit,由用户自己点。
+ */
+export function CreateView(props: CreateViewProps): ReactNode {
+  const {
+    tt,
+    name,
+    description,
+    n8nUrl,
+    onNameChange: setName,
+    onDescriptionChange: setDescription,
+    onN8nUrlChange: setN8nUrl,
+  } = props
+  useUiField({
+    kind: 'input',
+    label: tt('devEnter.n8nModel.nameLabel', '智能体名称'),
+    placeholder: tt('devEnter.n8nModel.namePlaceholder', '请输入智能体名称'),
+    readValue: () => name,
+    setValue: setName,
+  })
+  useUiField({
+    kind: 'textarea',
+    label: tt('devEnter.n8nModel.descLabel', '智能体描述'),
+    placeholder: tt('devEnter.n8nModel.descPlaceholder', '请输入智能体描述'),
+    readValue: () => description,
+    setValue: setDescription,
+  })
+  useUiField({
+    kind: 'input',
+    label: tt('devEnter.n8nModel.n8nUrlLabel', 'n8n 地址'),
+    placeholder: tt('devEnter.n8nModel.n8nUrlPlaceholder', '请输入 n8n 地址'),
+    readValue: () => n8nUrl,
+    setValue: setN8nUrl,
+  })
+  return renderCreateView(props)
 }
 
 export function renderCreateView(props: CreateViewProps): ReactNode {

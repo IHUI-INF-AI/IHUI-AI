@@ -15,6 +15,7 @@ import type { AgentTask } from '../workspace-ai-service'
 function seedTask(taskId: string, status: 'running' | 'completed'): AgentTask {
   const task: AgentTask = {
     taskId,
+    userId: 'test-user',
     sessionId: 's',
     goal: 'g',
     status,
@@ -43,18 +44,18 @@ afterEach(() => {
 
 describe('injectMessage(#44 阶段3 中途插话)', () => {
   it('不存在的 taskId → false', () => {
-    expect(agentLoop.injectMessage('no-such-task', 'hello')).toBe(false)
+    expect(agentLoop.injectMessage('no-such-task', 'test-user', 'hello')).toBe(false)
   })
 
   it('终态(completed)任务 → false(拒绝插话)', () => {
     seedTask('done-task', 'completed')
-    expect(agentLoop.injectMessage('done-task', 'hello')).toBe(false)
+    expect(agentLoop.injectMessage('done-task', 'test-user', 'hello')).toBe(false)
   })
 
   it('running 任务:接受注入;drain 一次性取走并清空', () => {
     seedTask('run-task', 'running')
-    expect(agentLoop.injectMessage('run-task', '  第一条  ')).toBe(true)
-    expect(agentLoop.injectMessage('run-task', '第二条')).toBe(true)
+    expect(agentLoop.injectMessage('run-task', 'test-user', '  第一条  ')).toBe(true)
+    expect(agentLoop.injectMessage('run-task', 'test-user', '第二条')).toBe(true)
     const drain = agentLoop as unknown as { drainInjections: (id: string) => string[] }
     expect(drain.drainInjections('run-task')).toEqual(['第一条', '第二条'])
     // 二次 drain → 空(消费后不重复)
@@ -63,7 +64,7 @@ describe('injectMessage(#44 阶段3 中途插话)', () => {
 
   it('空白内容 → false 且不产生空队列记录', () => {
     seedTask('blank-task', 'running')
-    expect(agentLoop.injectMessage('blank-task', '   ')).toBe(false)
+    expect(agentLoop.injectMessage('blank-task', 'test-user', '   ')).toBe(false)
     const injections = (agentLoop as unknown as { injections: Map<string, string[]> }).injections
     expect(injections.get('blank-task')).toBeUndefined()
   })

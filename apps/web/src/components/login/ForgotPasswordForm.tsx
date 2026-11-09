@@ -12,6 +12,7 @@ import { z } from 'zod'
 
 import { Button, Input, Label, Tabs, TabsList, TabsTrigger, TabsContent } from '@ihui/ui-react'
 import { sendCode, resetPassword } from '@ihui/api-client'
+import { useDeadlineCountdown } from '@/hooks/use-deadline-countdown'
 import { useTurnstile } from './LoginWithTurnstile'
 import { PasswordInput, PasswordStrengthIndicator } from '@/components/login'
 import { useLoginDialogStore } from '@/stores/login-dialog'
@@ -36,14 +37,10 @@ export function ForgotPasswordForm() {
 
   const [submitting, setSubmitting] = React.useState(false)
   const [sending, setSending] = React.useState(false)
-  const [countdown, setCountdown] = React.useState(0)
+  // 同型根因 S-01:发码冷却改为截止时间戳派生
+  const [codeDeadline, setCodeDeadline] = React.useState<number | null>(null)
+  const countdown = useDeadlineCountdown(codeDeadline)
   const [error, setError] = React.useState<string | null>(null)
-
-  React.useEffect(() => {
-    if (countdown <= 0) return
-    const timer = setTimeout(() => setCountdown((c) => c - 1), 1000)
-    return () => clearTimeout(timer)
-  }, [countdown])
 
   const target = method === 'phone' ? phone : email
 
@@ -68,7 +65,7 @@ export function ForgotPasswordForm() {
         return
       }
       toast.success(t('codeSent'))
-      setCountdown(60)
+      setCodeDeadline(Date.now() + 60_000)
     } catch {
       setError(t('registerFailed'))
     } finally {

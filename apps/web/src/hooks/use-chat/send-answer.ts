@@ -55,6 +55,7 @@ import { noteRuntimeCapabilities } from './runtime-capabilities'
 import {
   clearCompactionPreview,
   createToolCallHandler,
+  createOpenAiToolCallHandler,
   createToolSummaryHandler,
   createReviewFindingHandler,
   createUsageHandler,
@@ -467,6 +468,9 @@ export function createSendAnswer(
           reasoningBatcher.batch(delta)
         },
         onToolCall: createToolCallHandler(assistantId),
+        // 2026-11-05 立:续流同样订阅工具入参逐分片态(与 sendMessage 对称)。
+        // 该链路本就没有 onToolDelta 腿,不要顺带改动既有 Vercel 回调表。
+        onOpenAiToolCall: createOpenAiToolCallHandler(assistantId, chatStore),
         // Subagent 自动派发(2026-07-28 立,与 sendMessage 对称):
         // sendAnswer 续流同样可能触发 dispatch_subagent 工具,需写入 store。
         // 2026-07-29 Phase 21:补齐 onSubagentProgress + 同步写入 timeline-store。
@@ -579,7 +583,7 @@ export function createSendAnswer(
         ...(() => {
           const agentTools = [
             ...new Set([
-              ...mergeAgentTools(chatStore),
+              ...mergeAgentTools(chatStore, modeStore.getState().currentMode),
               ...eduToolsFor(answer),
               ...fileToolsFor(answer),
               ...videoToolsFor(answer),
@@ -704,6 +708,9 @@ export function createSendAnswer(
         // (各一行),上行寻址凭据没人管,于是上一轮的 sessionId 会活到下一轮。
         chatStore.getState().clearRunScopedState()
         chatStore.getState().markAllAgentStreamsDone()
+        // #23 续答路径对称(2026-11-05 补):流收尾时把仍处 running 的工具卡(含
+        // tool-call-args-delta 半构建入参的卡)置为 cancelled,避免续答断流时卡死在 running 预览。
+        chatStore.getState().revokePendingToolCalls(assistantId)
       }
       // P1-6:流已收尾(正常/报错/超时/主动 stop)→ 标记完成,刷新后不再续接。
       // 与 sendMessage 同理,必须放在代际守卫之外:被切会话 abort 的旧流同样已终止。

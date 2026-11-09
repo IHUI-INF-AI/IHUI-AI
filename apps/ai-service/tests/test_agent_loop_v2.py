@@ -566,12 +566,54 @@ async def test_run_appends_messages_in_place():
     loop = AgentLoopV2(mock_llm, [_weather_tool()], max_iterations=5)
     await loop.run(messages)
 
-    # 最终 messages:system + user + assistant + tool = 4
-    assert len(messages) == 4
+    # AIS-112 后最终 messages:system + user + assistant(tool_calls) + tool +
+    # assistant(最终答复) = 5。旧实现只在工具轮写 assistant,普通收尾的答案不进历史。
+    assert len(messages) == 5
     assert messages[2]["role"] == "assistant"
     assert messages[2]["tool_calls"][0]["name"] == "get_weather"
     assert messages[3]["role"] == "tool"
     assert messages[3]["tool_call_id"] == "m1"
+    assert messages[4]["role"] == "assistant"
+    assert messages[4]["content"] == "完成"
+
+
+async def test_run_appends_final_assistant_message():
+    """AIS-112:普通收尾(无 tool_calls)也必须把最终回答写回 messages。
+
+    旧实现只在 tool-call 轮追加 assistant 消息,普通收尾整轮答案不进历史 ⇒
+    thread.messages 缺每轮答复、checkpoint 恢复与在线不一致。
+    """
+    messages = _default_messages()
+
+    async def mock_llm(msgs, tools):
+        return {"content": "最终回答", "tool_calls": None}
+
+    loop = AgentLoopV2(mock_llm, [], max_iterations=5)
+    await loop.run(messages)
+
+    assert messages[-1] == {"role": "assistant", "content": "最终回答"}
+    assert [m["role"] for m in messages] == ["system", "user", "assistant"]
+
+
+async def test_compaction_new_list_does_not_lose_caller_messages():
+    """AIS-111:压缩返回新列表时不能重绑局部变量,否则调用方/引擎持旧引用丢消息。"""
+    messages = _default_messages()
+
+    async def mock_llm(msgs, tools):
+        return {"content": "压缩后的回答", "tool_calls": None}
+
+    loop = AgentLoopV2(mock_llm, [], max_iterations=5)
+
+    async def fake_compact(msgs):
+        # 模拟真实压缩:返回**新**列表(而不是原地改)
+        return [msgs[0], {"role": "assistant", "content": "[历史摘要]"}]
+
+    loop._maybe_compact_context = fake_compact  # type: ignore[method-assign]
+    await loop.run(messages)
+
+    # 调用方持有的原列表必须看到压缩结果与最终回答(旧实现两者都丢)
+    assert any(m.get("content") == "[历史摘要]" for m in messages)
+    assert messages[-1] == {"role": "assistant", "content": "压缩后的回答"}
 
 
 # =============================================================================
@@ -839,6 +881,54 @@ async def test_tool_retry_zero_disabled():
     assert exec_count == 1  # 不重试
     tr = result.iterations[0].tool_results[0]
     assert tr.retry_count == 0
+
+
+async def test_tool_retry_gets_fresh_cancel_event():
+    """AIS-058:超时一次后重试必须拿到**新的、未置位**的 cancel_event。
+
+    旧实现整轮复用同一个 event;外层 wait_for 超时取消 ``_wait_interruptible`` 时
+    其 finally 会 set 该 event,下一次 run_command 的 ``_kill_on_cancel`` 立刻等到它
+    并 kill 新进程 ⇒ 一次超时后所有重试秒失败,超时永不恢复。
+    """
+    from app.services.mcp_server import _TOOL_CANCEL_EVENT
+
+    seen: list[bool] = []
+
+    async def probe_executor(args):
+        ev = _TOOL_CANCEL_EVENT.get()
+        seen.append(bool(ev and ev.is_set()))
+        if len(seen) == 1:
+            await asyncio.sleep(3600)  # 第一次故意挂住,由 tool_timeout 取消
+        return {"city": args["city"], "weather": "晴", "temp": 25}
+
+    call_count = 0
+
+    async def mock_llm(messages, tools):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return {
+                "content": "查天气",
+                "tool_calls": [
+                    {"id": "t58", "name": "get_weather", "args": {"city": "北京"}}
+                ],
+            }
+        return {"content": "完成", "tool_calls": None}
+
+    loop = AgentLoopV2(
+        mock_llm,
+        [_weather_tool(probe_executor)],
+        max_iterations=5,
+        tool_timeout=0.1,
+        tool_retry_max=1,
+        tool_retry_backoff=0.01,
+    )
+    result = await loop.run(_default_messages())
+
+    assert result.success is True
+    assert len(seen) == 2, f"应发生一次超时重试,实得 {len(seen)} 次执行"
+    assert seen[0] is False, "首次执行不应拿到已置位 event"
+    assert seen[1] is False, "重试拿到上一轮置位的 event ⇒ 新进程会被 _kill_on_cancel 立即杀掉"
 
 
 # =============================================================================

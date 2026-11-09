@@ -100,6 +100,9 @@ _MAX_SESSIONS = 1000
 # 2026-07-22 P1 鲁棒性加固:30 分钟未访问的 session 自动淘汰
 _SESSION_TTL_SEC = 1800
 _sessions: dict[str, SessionState] = {}
+# AIS-086:cancel 必须能真正停掉在途 graph;仅改 Redis 状态会让 SSE 继续跑到
+# summarize 并把 session 覆盖回 completed(取消的计费照跑)。
+_run_tasks: dict[str, asyncio.Task[Any]] = {}
 
 
 def _evict_if_needed() -> None:
@@ -294,6 +297,9 @@ async def execute_stream(req: ExecuteRequest, request: Request) -> StreamingResp
     _save_session_redis(session)
 
     async def event_stream() -> AsyncIterator[str]:
+        current_task = asyncio.current_task()
+        if current_task is not None:
+            _run_tasks[session.id] = current_task
         yield _sse_frame("session", {"sessionId": session.id})
 
         if req.mode == "plan":
@@ -310,6 +316,10 @@ async def execute_stream(req: ExecuteRequest, request: Request) -> StreamingResp
             try:
                 _graph_stream = graph.astream(_graph_input(req, session, user_id))
                 async for event in _graph_stream:
+                    # AIS-086:cancel 已把状态置 cancelled ⇒ 立即停,不再跑后续节点。
+                    if session.status == "cancelled":
+                        logger.info("agent_runtime session cancelled, stopping stream")
+                        break
                     if await request.is_disconnected():
                         logger.info("agent_runtime SSE client disconnected, stopping stream")
                         # 被弃路径就地关停:break 之后本流还要走完外层 except 的收尾,
@@ -346,6 +356,9 @@ async def execute_stream(req: ExecuteRequest, request: Request) -> StreamingResp
                                 "delta", {"content": node_output["execution_result"]}
                             )
                         elif node_name == "summarize" and node_output.get("summary"):
+                            # 取消后绝不能再写 completed(否则 cancel 被覆盖,计费照跑)。
+                            if session.status == "cancelled":
+                                break
                             session.messages.append(
                                 SessionMessage(
                                     role="assistant", content=node_output["summary"]
@@ -391,6 +404,9 @@ async def execute_stream(req: ExecuteRequest, request: Request) -> StreamingResp
             session.status = "failed"
             _save_session_redis(session)
             yield _sse_frame("error", {"message": f"graph execution failed: {e}"})
+        finally:
+            if _run_tasks.get(session.id) is current_task:
+                _run_tasks.pop(session.id, None)
 
     return StreamingResponse(
         event_stream(),
@@ -420,6 +436,10 @@ async def cancel_session(
     session = _require_session(session_id, user_id, is_admin)
     session.status = "cancelled"
     _save_session_redis(session)
+    # AIS-086:真正取消在途 graph 任务(是否当前用户/admin 已由 _require_session 判定)。
+    run_task = _run_tasks.get(session_id)
+    if run_task is not None and not run_task.done():
+        run_task.cancel()
     return {"sessionId": session_id, "status": "cancelled"}
 
 

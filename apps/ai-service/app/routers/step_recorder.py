@@ -42,8 +42,14 @@ async def list_run_steps(
     page_size: int = 20,
     user_id: str = Depends(get_current_user_id),
 ) -> dict[str, Any]:
-    """该运行的 step 序列(时间序分页)。空运行返回 0 条。"""
-    data = agent_step_recorder.get_run_steps(run_id, page=page, page_size=page_size)
+    """该运行的 step 序列(时间序分页)。空运行返回 0 条。
+
+    AIS-101:`user_id` 不再只进日志 —— 录制记录按主体过滤,异主体/未盖章的记录
+    返回与"run 不存在"同形的空结果(不泄漏存在性,也不泄漏步骤内容)。
+    """
+    data = agent_step_recorder.get_run_steps(
+        run_id, page=page, page_size=page_size, owner_user_id=user_id
+    )
     logger.info(
         "agent-recorder steps user=%s run=%s total=%s", user_id, run_id, data["total"]
     )
@@ -57,7 +63,7 @@ async def replay_run(
     user_id: str = Depends(get_current_user_id),
 ) -> dict[str, Any]:
     """回放:缺省全量(时间序),step_index 给定则单步回看(越界 found=false)。"""
-    data = agent_step_recorder.replay(run_id, step_index=step_index)
+    data = agent_step_recorder.replay(run_id, step_index=step_index, owner_user_id=user_id)
     logger.info(
         "agent-recorder replay user=%s run=%s step_index=%s",
         user_id, run_id, step_index,
@@ -77,7 +83,9 @@ async def find_steps_by_invocation(
     全按 run_id 寻址,编号写进 `step_records.json` 后没有读路径,"可追溯"缺最后一跳。
     未命中返回 found=false(空编号同样 false,不扫全表)。
     """
-    data = agent_step_recorder.get_steps_by_invocation_id(invocation_id, limit=limit)
+    data = agent_step_recorder.get_steps_by_invocation_id(
+        invocation_id, limit=limit, owner_user_id=user_id
+    )
     logger.info(
         "agent-recorder by-invocation user=%s invocation=%s found=%s total=%s",
         user_id,
@@ -94,7 +102,7 @@ async def run_metrics(
     user_id: str = Depends(get_current_user_id),
 ) -> dict[str, Any]:
     """单运行聚合指标:步数 / 成败 / 总 token / 总耗时 / 总成本。"""
-    data = agent_step_recorder.get_run_metrics(run_id)
+    data = agent_step_recorder.get_run_metrics(run_id, owner_user_id=user_id)
     logger.info(
         "agent-recorder metrics user=%s run=%s steps=%s",
         user_id, run_id, data["step_count"],

@@ -54,6 +54,25 @@ import type {
 /** 跨服务调用超时(ms) */
 const AI_SERVICE_TIMEOUT_MS = 30_000
 
+/**
+ * F-255(2026-11-08)进程内终态记录保留上限。
+ *
+ * `runtimes` 原先只增不减(终态记录永久留在进程里)⇒ 长期运行必然无界。上限口径:
+ * 单进程同时只有 6 条活任务(DEFAULT_MAX_CONCURRENT),终态记录只需覆盖「刚结束看详情」
+ * 与看板翻页,200 条足够;超出按 LRU 淘汰,淘汰后的按 id 读取从 Redis 重建。
+ */
+const MAX_TERMINAL_RETAINED = 200
+
+/**
+ * F-255 终态记录保留时长(ms)。
+ * 与 `TERMINAL_REDIS_TTL_SEC` 同窗口:内存与 Redis 一起过期,不会出现
+ * 「内存有界、Redis 无界」或「Redis 已过期、内存还能读」两种错位。
+ */
+const TERMINAL_RETENTION_MS = 30 * 60 * 1000
+
+/** F-255 Redis 终态键 TTL(秒):dispatch hash 与 logs list 同时设置 */
+const TERMINAL_REDIS_TTL_SEC = TERMINAL_RETENTION_MS / 1000
+
 /** Redis 键前缀 */
 const REDIS_KEY_DISPATCH = 'subagent:dispatch:' // hash
 const REDIS_KEY_LOGS = 'subagent:logs:' // list
@@ -556,6 +575,12 @@ interface DispatchRuntime {
   agentTaskId?: string
   /** ai-service 编排原始结果(D27 交付清单聚合数据源,仅成功分支赋值;DAG/多轮通信无单一编排结果时为 null) */
   orchestration?: AiOrchestrationResult | null
+  /** F-255:进入终态的时刻(ms);TTL 淘汰的唯一时间依据,非终态记录无此字段 */
+  terminalAt?: number
+  /** F-255:终态已落盘(terminal 状态写 Redis 成功后才置位)—— 淘汰候选的必要条件 */
+  terminalPersisted?: boolean
+  /** F-255:最近一次被读/写的时刻(ms);LRU 淘汰依据(读命中保活) */
+  lastUsedAt?: number
 }
 
 /** ai-service 返回的 OrchestrationResult 形状(子集,含 token 用量) */
@@ -1501,6 +1526,10 @@ export class SubagentDispatchService {
   private _loading = false
   /** 防止排队出队并发重入(槽位释放与启动恢复可能同时触发) */
   private _draining = false
+  /** F-255:累计淘汰的终态记录数(只作观测,不参与判据) */
+  private _evictedTotal = 0
+  /** F-255:累计 `eviction_skipped`(想淘汰但候选仍在飞/未落盘) */
+  private _evictionSkippedTotal = 0
 
   constructor(redisClient?: Redis | null) {
     if (redisClient) {
@@ -1520,13 +1549,14 @@ export class SubagentDispatchService {
   // ---------- Redis 持久化(降级内存) ----------
 
   /** dispatch 状态变更时写入 Redis hash(字段必须覆盖「重启后能重建执行」的粒度) */
-  private async _persistDispatch(id: string): Promise<void> {
+  private async _persistDispatch(id: string): Promise<boolean> {
     const runtime = this.runtimes.get(id)
-    if (!runtime) return
+    if (!runtime) return false
     // 2026-08-06: agent_tasks 联动同步(带 agentId 的派单在状态终态时写回轨迹)
     await this._syncAgentTask(runtime)
     const d = runtime.dispatch
-    if (!this.redisClient) return
+    // 无 Redis = 纯内存降级:没有外部落点需要同步,视为已落盘(否则降级模式永远不可淘汰)
+    if (!this.redisClient) return true
     try {
       const key = `${REDIS_KEY_DISPATCH}${id}`
       await this.redisClient.hset(key, {
@@ -1572,6 +1602,8 @@ export class SubagentDispatchService {
         // F3(2026-11-02):thread 归属 + 人工注意力,与 prompt 同属「重启后可重建的语义」
         parentDispatchId: d.parentDispatchId ?? '',
         attention: d.attention ?? '',
+        // F-255:终态时刻随 hash 落盘 —— 淘汰后从 Redis 恢复重建时仍能按同一 TTL 口径参与淘汰
+        terminalAt: runtime.terminalAt !== undefined ? String(runtime.terminalAt) : '',
       })
       await this.redisClient.sadd(REDIS_KEY_IDS, id)
       // F3:会话索引(跨重启仍能把后续派单挂回既有 thread)。score=createdAt ⇒ zrevrange 即「最近一条」
@@ -1591,10 +1623,12 @@ export class SubagentDispatchService {
         await this.redisClient.zrem(REDIS_KEY_QUEUE, id)
       }
     } catch {
-      // Redis 不可用 → 降级内存,不抛异常
+      // Redis 不可用 → 降级内存,不抛异常;返回 false ⇒ 该条终态暂不可淘汰
+      return false
     }
     // 终态释放槽位 ⇒ 触发真队列出队(异步,不阻塞状态写回;重入由 _draining 挡)
     if (isTerminalDispatchStatus(d.status)) void this._drainQueue()
+    return true
   }
 
   /** 队列分数:priority 主序 + createdAt 先来后到(数值越大越先出队) */
@@ -1602,6 +1636,159 @@ export class SubagentDispatchService {
     const created = Date.parse(runtime.dispatch.createdAt)
     const ts = Number.isFinite(created) ? created : Date.now()
     return PRIORITY_SCORE[runtime.priority] * QUEUE_PRIORITY_SCORE_UNIT - ts
+  }
+
+  // ---------- F-255(2026-11-08)终态收尾与有界保留 ----------
+
+  /**
+   * **所有终态出口的唯一收尾点**。
+   *
+   * 调用方只负责把 `status` / `result` / `completedAt` / `outbox` 写好,然后调本方法:
+   *  ① 记 `terminalAt`(TTL 与淘汰的时间依据)→ ② 落盘(成功才允许之后被淘汰)→
+   *  ③ 写终态日志 → ④ 给 Redis 终态键补 TTL → ⑤ 按 LRU/上限淘汰。
+   *
+   * 为什么收成一个方法:旧实现 13 处终态出口各自 `_persistDispatch + _persistLog`,
+   * 任何一处漏写都不会被任何判据发现 —— 漏一处等于漏一条记录永久留在内存里的泄漏路径。
+   * 现在「进入终态」这件事只有一个入口,新增出口不可能再绕过保留策略。
+   */
+  private async _finalize(
+    id: string,
+    log?: { level: 'info' | 'warn' | 'error'; event: string; data?: Record<string, unknown> },
+  ): Promise<void> {
+    const runtime = this.runtimes.get(id)
+    if (!runtime) return
+    runtime.terminalAt = Date.now()
+    runtime.lastUsedAt = runtime.terminalAt
+    runtime.dispatch.updatedAt = nowIso()
+    // 落盘结果决定「是否属于可淘汰候选」:写失败则宁可短暂超上限,也不把唯一副本删掉
+    runtime.terminalPersisted = await this._persistDispatch(id)
+    if (log) {
+      await this._persistLog(id, { ts: nowIso(), level: log.level, event: log.event, data: log.data })
+    }
+    await this._expireTerminalRedisKeys(id)
+    this._pruneTerminalRuntimes()
+  }
+
+  /**
+   * 终态键 TTL:dispatch hash 与 logs list 同窗口过期。
+   * 只给内存保留窗口(30 分钟)对齐 —— Redis 侧无界同样是一泄漏面,补 TTL 才算两头有界。
+   */
+  private async _expireTerminalRedisKeys(id: string): Promise<void> {
+    if (!this.redisClient) return
+    try {
+      await this.redisClient.expire(`${REDIS_KEY_DISPATCH}${id}`, TERMINAL_REDIS_TTL_SEC)
+      await this.redisClient.expire(`${REDIS_KEY_LOGS}${id}`, TERMINAL_REDIS_TTL_SEC)
+    } catch {
+      // Redis 不可用 → 降级内存,不抛异常(TTL 在下次终态写入时再补)
+    }
+  }
+
+  /** 读命中即保活(LRU):只更新时间戳,不改变集合语义 */
+  private _touchRuntime(id: string): void {
+    const runtime = this.runtimes.get(id)
+    if (runtime) runtime.lastUsedAt = Date.now()
+  }
+
+  /**
+   * 终态记录淘汰(纯内存动作)。
+   *
+   * 三条不可妥协的不变量:
+   *  ① 候选必须**同时**满足:终态 + `!inFlight` + 已落盘 —— 任何情况下不淘汰活跃记录
+   *     (刚 `_finalize` 但执行器还没退出 `.finally` 的记录仍算在飞,淘汰它会让仍在执行的
+   *     任务丢运行时);无候选时宁可短暂超上限,并记 `eviction_skipped`。
+   *  ② 只 `runtimes.delete` —— 不发 abort、不碰执行器、不删 Redis(Redis 走 TTL)。
+   *  ③ 先 TTL(超过 30 分钟)再上限(超过 200 条),两者都按 lastUsedAt/terminalAt 从旧到新。
+   */
+  private _pruneTerminalRuntimes(now = Date.now()): void {
+    const isTerminal = (r: DispatchRuntime): boolean =>
+      isTerminalDispatchStatus(String(r.dispatch.status))
+    const evictable = (id: string, r: DispatchRuntime): boolean =>
+      !this.inFlight.has(id) && r.terminalPersisted === true && r.terminalAt !== undefined
+
+    let skipped = 0
+
+    // ① TTL
+    for (const [id, r] of Array.from(this.runtimes)) {
+      if (!isTerminal(r) || r.terminalAt === undefined) continue
+      if (now - r.terminalAt <= TERMINAL_RETENTION_MS) continue
+      if (!evictable(id, r)) {
+        skipped += 1
+        continue
+      }
+      this.runtimes.delete(id)
+      this._evictedTotal += 1
+    }
+
+    // ② 上限(按 lastUsedAt 从旧到新淘汰;读命中过的记录排在后面,不会被先淘汰)
+    let terminals = Array.from(this.runtimes.entries()).filter(([, r]) => isTerminal(r))
+    while (terminals.length > MAX_TERMINAL_RETAINED) {
+      const candidates = terminals
+        .filter(([id, r]) => evictable(id, r))
+        .sort((a, b) => (a[1].lastUsedAt ?? 0) - (b[1].lastUsedAt ?? 0))
+      if (candidates.length === 0) {
+        skipped += terminals.length - MAX_TERMINAL_RETAINED
+        break
+      }
+      const victim = candidates[0]![0]
+      this.runtimes.delete(victim)
+      this._evictedTotal += 1
+      terminals = terminals.filter(([id]) => id !== victim)
+    }
+
+    if (skipped > 0) {
+      this._evictionSkippedTotal += skipped
+      logger.warn(
+        `[subagent-dispatch] 终态记录暂超上限(无可淘汰候选): retained=${terminals.length} ` +
+          `cap=${MAX_TERMINAL_RETAINED} eviction_skipped=${skipped}`,
+      )
+    }
+  }
+
+  /**
+   * F-255 Redis 回退读:内存没有该记录时,**终态记录**从 Redis hash 重建最小运行时。
+   *
+   * 为什么要回退:终态记录被 LRU 淘汰后,归属闸仍要能判「这条记录是谁的」——
+   * 直接 404 等于用「内存有界」换「归属校验失效」,把漏洞换个形状。
+   * 为什么只重建终态:非终态记录若不在本进程内存,说明执行属于**另一个进程**,
+   * 本进程既不能接管执行,也不该把它据为己有(重建会让下一次启动装载跳过它)。
+   */
+  async findByIdOrRestore(id: string): Promise<SubagentDispatch | null> {
+    const existing = this.runtimes.get(id)
+    if (existing) {
+      this._touchRuntime(id)
+      return existing.dispatch
+    }
+    if (!this.redisClient) return null
+    let raw: Record<string, string>
+    try {
+      raw = await this.redisClient.hgetall(`${REDIS_KEY_DISPATCH}${id}`)
+    } catch {
+      return null
+    }
+    if (!raw || !raw.id) return null
+    if (!isTerminalDispatchStatus(raw.status ?? '')) return null
+    const runtime = this._runtimeFromHash(raw)
+    runtime.checkpoints = await this._loadCheckpoints(id)
+    this.runtimes.set(id, runtime)
+    this._pruneTerminalRuntimes()
+    return runtime.dispatch
+  }
+
+  /** F-255 保留读数(测试与运维可观察):终态条数、累计淘汰、累计跳过 */
+  getRetentionStats(): {
+    terminalRetained: number
+    evictedTotal: number
+    evictionSkippedTotal: number
+  } {
+    this._pruneTerminalRuntimes()
+    const terminalRetained = Array.from(this.runtimes.values()).filter((r) =>
+      isTerminalDispatchStatus(String(r.dispatch.status)),
+    ).length
+    return {
+      terminalRetained,
+      evictedTotal: this._evictedTotal,
+      evictionSkippedTotal: this._evictionSkippedTotal,
+    }
   }
 
   // ---------- F3(2026-11-02)Thread/Ticket:会话连续 ----------
@@ -1880,21 +2067,23 @@ export class SubagentDispatchService {
     const taskId = runtime.agentTaskId
     if (!taskId) return
     try {
-      // 先取现值、按键比较:attention 未变就不发 UPDATE(守门 161 出口形态)。
-      // 该列是 varchar(20) 可空串,直接全等比较成立;空白写会把 updatedAt 推成假变化。
-      const next = runtime.dispatch.attention ?? null
+      // G-998153:先取现值再比。attention 是派生镜像,同一值会被重复同步 ——
+      // 同值不发 UPDATE、不盖 updatedAt(该列是增量读的消费源,tasks.ts since 补拉会误读成"变过")。
       const [current] = await db
         .select({ attention: agentTasks.attention })
         .from(agentTasks)
         .where(eq(agentTasks.id, taskId))
         .limit(1)
-      const changed = current?.attention === next ? {} : { attention: next }
-      if (Object.keys(changed).length > 0) {
-        await db
-          .update(agentTasks)
-          .set({ ...changed, updatedAt: new Date() })
-          .where(eq(agentTasks.id, taskId))
-      }
+      // 镜像行尚未建立(_createAgentTask 失败 / 无 agentId):原语义就是 0 行受影响,这里不新建
+      if (!current) return
+      const desired = runtime.dispatch.attention ?? null
+      const changed: { attention?: DispatchAttention | null } = {}
+      if (current.attention !== desired) changed.attention = desired
+      if (Object.keys(changed).length === 0) return
+      await db
+        .update(agentTasks)
+        .set({ ...changed, updatedAt: new Date() })
+        .where(eq(agentTasks.id, taskId))
     } catch (err) {
       logger.warn(`[subagent-dispatch] _syncAttentionToAgentTask 失败(不阻塞): ${String(err)}`)
     }
@@ -2113,6 +2302,74 @@ export class SubagentDispatchService {
   }
 
   /**
+   * F-255:Redis hash → 最小运行时(启动装载与「淘汰后回退读」共用一份构造,避免两处漂移)。
+   * 只负责形状还原,不做归属回填、不触发执行 —— 这两件事仍由调用方按各自语义决定。
+   */
+  private _runtimeFromHash(raw: Record<string, string>): DispatchRuntime {
+    const status = raw.status as ExtendedDispatchStatus
+    const dispatch: SubagentDispatch = {
+      id: raw.id!,
+      goal: raw.goal || '',
+      affectedFiles: parseJsonOr<string[]>(raw.affectedFiles, []),
+      forbidden: parseJsonOr<string[]>(raw.forbidden, []),
+      verifyCommands: parseJsonOr<string[]>(raw.verifyCommands, []),
+      constraints: raw.constraints || '',
+      deliverables: raw.deliverables || '',
+      agentRole: (raw.agentRole || 'coder') as SubagentRole,
+      orchestration: (raw.orchestration || 'parallel') as OrchestrationMode,
+      // 声明面只容基础档;真正的扩展档经写侧视图落回同一个对象(见 statusWriteView 注释)
+      status: status === 'running' ? 'running' : 'pending',
+      result: raw.result || undefined,
+      createdAt: raw.createdAt || nowIso(),
+      updatedAt: raw.updatedAt || nowIso(),
+      // 旧 hash 没有该字段 ⇒ undefined ⇒ 「未标注」,不塞常量顶替
+      ownerUserId: raw.ownerUserId || undefined,
+      // 回填标记:只有"无 owner 且已判定 orphan"的记录才带;有 owner 的记录不保留 orphan
+      ownership: raw.ownership === 'orphan' && !raw.ownerUserId ? 'orphan' : undefined,
+      // conversationId 同理:旧 hash 没有就保持未归属
+      conversationId: raw.conversationId || undefined,
+      // F3:旧 hash 没有这两项 ⇒ undefined = 无父 / 不需要人(不塞常量顶替)
+      parentDispatchId: raw.parentDispatchId || undefined,
+      attention:
+        raw.attention === 'awaiting_answer' || raw.attention === 'awaiting_review'
+          ? raw.attention
+          : undefined,
+    }
+    statusWriteView(dispatch).status = status
+    const terminalAt = raw.terminalAt ? Number(raw.terminalAt) : undefined
+    const usedAt =
+      terminalAt ??
+      (Number.isFinite(Date.parse(raw.updatedAt || '')) ? Date.parse(raw.updatedAt!) : Date.now())
+    return {
+      dispatch,
+      retry: raw.retry ? parseJsonOr<RetryConfig | undefined>(raw.retry, undefined) : undefined,
+      dag: raw.dag ? parseJsonOr<DagConfig | undefined>(raw.dag, undefined) : undefined,
+      priority: (raw.priority as DispatchPriority) || 'normal',
+      quotas: raw.quotas ? parseJsonOr<QuotaConfig | undefined>(raw.quotas, undefined) : undefined,
+      prompt: raw.prompt || undefined,
+      outbox: raw.outbox
+        ? parseJsonOr<RetryJournal | undefined>(raw.outbox, undefined)
+        : undefined,
+      steps: parseJsonOr<DispatchRuntime['steps']>(raw.steps, []),
+      logs: [],
+      startedAt: raw.startedAt ? Number(raw.startedAt) : undefined,
+      completedAt: raw.completedAt ? Number(raw.completedAt) : undefined,
+      hasFailed: false,
+      checkpoints: new Map(),
+      messages: parseJsonOr<CommunicationMessage[]>(raw.messages, []),
+      dagNodeStatus: new Map(
+        parseJsonOr<Array<[string, ExtendedDispatchStatus]>>(raw.dagNodeStatus, []),
+      ),
+      // F4:产物不随 hash 恢复 —— 全文在独立的 artifact 键里,getArtifact 按需读 Redis
+      artifacts: new Map(),
+      agentTaskId: raw.agentTaskId || undefined,
+      terminalAt,
+      terminalPersisted: isTerminalDispatchStatus(status),
+      lastUsedAt: usedAt,
+    }
+  }
+
+  /**
    * 初始化时从 Redis 加载所有活跃 dispatch,并把「中断的 running」重新入队。
    *
    * F1(2026-11-02)崩溃自愈:旧实现只把 pending/running 装回内存,不重新执行;
@@ -2161,67 +2418,8 @@ export class SubagentDispatchService {
         ) {
           continue
         }
-        const dispatch: SubagentDispatch = {
-          id: raw.id,
-          goal: raw.goal || '',
-          affectedFiles: parseJsonOr<string[]>(raw.affectedFiles, []),
-          forbidden: parseJsonOr<string[]>(raw.forbidden, []),
-          verifyCommands: parseJsonOr<string[]>(raw.verifyCommands, []),
-          constraints: raw.constraints || '',
-          deliverables: raw.deliverables || '',
-          agentRole: (raw.agentRole || 'coder') as SubagentRole,
-          orchestration: (raw.orchestration || 'parallel') as OrchestrationMode,
-          // 声明面只容基础档;真正的扩展档经写侧视图落回同一个对象(见 statusWriteView 注释)
-          status: status === 'running' ? 'running' : 'pending',
-          result: raw.result || undefined,
-          createdAt: raw.createdAt || nowIso(),
-          updatedAt: raw.updatedAt || nowIso(),
-          // 旧 hash 没有该字段 ⇒ undefined ⇒ 「未标注」,不塞常量顶替
-          ownerUserId: raw.ownerUserId || undefined,
-          // 回填标记:只有"无 owner 且已判定 orphan"的记录才带;有 owner 的记录不保留 orphan
-          ownership: raw.ownership === 'orphan' && !raw.ownerUserId ? 'orphan' : undefined,
-          // conversationId 同理:旧 hash 没有就保持未归属
-          conversationId: raw.conversationId || undefined,
-          // F3:旧 hash 没有这两项 ⇒ undefined = 无父 / 不需要人(不塞常量顶替)
-          parentDispatchId: raw.parentDispatchId || undefined,
-          attention:
-            raw.attention === 'awaiting_answer' || raw.attention === 'awaiting_review'
-              ? raw.attention
-              : undefined,
-        }
-        statusWriteView(dispatch).status = status
-        const retry = raw.retry
-          ? parseJsonOr<RetryConfig | undefined>(raw.retry, undefined)
-          : undefined
-        const dag = raw.dag ? parseJsonOr<DagConfig | undefined>(raw.dag, undefined) : undefined
-        const priority = (raw.priority as DispatchPriority) || 'normal'
-        const quotas = raw.quotas
-          ? parseJsonOr<QuotaConfig | undefined>(raw.quotas, undefined)
-          : undefined
-        const runtime: DispatchRuntime = {
-          dispatch,
-          retry,
-          dag,
-          priority,
-          quotas,
-          prompt: raw.prompt || undefined,
-          outbox: raw.outbox
-            ? parseJsonOr<RetryJournal | undefined>(raw.outbox, undefined)
-            : undefined,
-          steps: parseJsonOr<DispatchRuntime['steps']>(raw.steps, []),
-          logs: [],
-          startedAt: raw.startedAt ? Number(raw.startedAt) : undefined,
-          completedAt: raw.completedAt ? Number(raw.completedAt) : undefined,
-          hasFailed: false,
-          checkpoints: new Map(),
-          messages: parseJsonOr<CommunicationMessage[]>(raw.messages, []),
-          dagNodeStatus: new Map(
-            parseJsonOr<Array<[string, ExtendedDispatchStatus]>>(raw.dagNodeStatus, []),
-          ),
-          // F4:产物不随 hash 恢复 —— 全文在独立的 artifact 键里,getArtifact 按需读 Redis
-          artifacts: new Map(),
-          agentTaskId: raw.agentTaskId || undefined,
-        }
+        const runtime = this._runtimeFromHash(raw)
+        const dispatch = runtime.dispatch
         // 归属回填(2026-11-02):必须在 runtimes.set **之前**完成 ——
         // 推导成功 ⇒ 本人可见;三源都推不出 ⇒ orphan(仅管理面),不再回落「未标注公开」。
         backfill.scanned += 1
@@ -2609,11 +2807,9 @@ export class SubagentDispatchService {
     const target = candidates[0]!
     // 'preempted' 不在 DispatchStatus 内,真实域是 ExtendedDispatchStatus ⇒ 经扩展域视图写回
     statusWriteView(target.dispatch).status = 'preempted'
-    target.dispatch.updatedAt = nowIso()
     target.completedAt = Date.now()
-    void this._persistDispatch(target.dispatch.id)
-    void this._persistLog(target.dispatch.id, {
-      ts: nowIso(),
+    // F-255:抢占也是终态出口,必须走统一收尾(否则该记录永久留在内存)
+    void this._finalize(target.dispatch.id, {
       level: 'warn',
       event: 'dispatch_preempted',
       data: { originalPriority: target.priority },
@@ -2644,13 +2840,10 @@ export class SubagentDispatchService {
     if (completedCheckpoint) {
       dispatch.status = 'completed'
       dispatch.result = completedCheckpoint.result ?? ''
-      dispatch.updatedAt = nowIso()
       runtime.completedAt = runtime.completedAt ?? Date.now()
       runtime.hasFailed = false
       runtime.outbox = undefined
-      await this._persistDispatch(id)
-      await this._persistLog(id, {
-        ts: nowIso(),
+      await this._finalize(id, {
         level: 'info',
         event: 'dispatch_recovered_from_checkpoint',
         data: { stepId: completedCheckpoint.stepId, resumedFrom: 'checkpoint' },
@@ -2755,9 +2948,7 @@ export class SubagentDispatchService {
         runtime.completedAt = Date.now()
         runtime.hasFailed = true
         runtime.outbox = undefined
-        await this._persistDispatch(id)
-        await this._persistLog(id, {
-          ts: nowIso(),
+        await this._finalize(id, {
           level: 'error',
           event: 'dispatch_quota_exceeded',
           data: { attempt, error: quotaError, tokens: tokenUsage.total, durationMs: stepDuration },
@@ -2794,9 +2985,7 @@ export class SubagentDispatchService {
         runtime.completedAt = Date.now()
         runtime.hasFailed = false
         runtime.outbox = undefined
-        await this._persistDispatch(id)
-        await this._persistLog(id, {
-          ts: nowIso(),
+        await this._finalize(id, {
           level: 'info',
           event: 'dispatch_completed',
           data: {
@@ -2815,9 +3004,7 @@ export class SubagentDispatchService {
         runtime.completedAt = Date.now()
         runtime.hasFailed = true
         runtime.outbox = undefined
-        await this._persistDispatch(id)
-        await this._persistLog(id, {
-          ts: nowIso(),
+        await this._finalize(id, {
           level: 'error',
           event: 'dispatch_not_implemented',
           data: { message: result.message },
@@ -2857,9 +3044,7 @@ export class SubagentDispatchService {
         dispatch.result = result.message
         runtime.completedAt = Date.now()
         runtime.outbox = undefined
-        await this._persistDispatch(id)
-        await this._persistLog(id, {
-          ts: nowIso(),
+        await this._finalize(id, {
           level: 'error',
           event: 'dispatch_failed',
           data: { attempt, error: result.message, maxAttempts: effectiveMaxAttempts },
@@ -2873,8 +3058,8 @@ export class SubagentDispatchService {
   private async runDispatchDag(
     id: string,
     prompt: string,
-    _retry?: RetryConfig,
-    _quotas?: QuotaConfig,
+    retry?: RetryConfig,
+    quotas?: QuotaConfig,
   ): Promise<void> {
     const runtime = this.runtimes.get(id)
     if (!runtime || !runtime.dag) return
@@ -2903,7 +3088,7 @@ export class SubagentDispatchService {
       dispatch.result = 'DAG 存在循环依赖'
       runtime.completedAt = Date.now()
       runtime.outbox = undefined
-      await this._persistDispatch(id)
+      await this._finalize(id)
       return
     }
 
@@ -2911,6 +3096,7 @@ export class SubagentDispatchService {
     const checkpoints = await this._loadCheckpoints(id)
     const nodeMap = new Map(dag.nodes.map((n) => [n.id, n]))
     const results = new Map<string, string>()
+    let quotaErrorInDag: string | undefined
 
     for (let layerIdx = 0; layerIdx < layers.length; layerIdx++) {
       const layer = layers[layerIdx]!
@@ -2918,6 +3104,36 @@ export class SubagentDispatchService {
       const layerPromises = layer.map(async (nodeId) => {
         const node = nodeMap.get(nodeId)
         if (!node) return
+
+        // SDB-37:条件边在上层评估时已把本节点标记为 cancelled ⇒ 跳过执行并向下游传播。
+        // 旧实现只在 map 里写标记、层执行从不读,导致被跳过的节点照常调模型并进入最终结果。
+        if (runtime.dagNodeStatus.get(nodeId) === 'cancelled') {
+          for (const edge of dag.edges.filter((e) => e.from === nodeId)) {
+            runtime.dagNodeStatus.set(edge.to, 'cancelled')
+          }
+          await this._persistLog(id, {
+            ts: nowIso(),
+            level: 'info',
+            event: 'dag_node_skipped',
+            data: { nodeId, reason: 'edge_condition_false' },
+          })
+          return
+        }
+
+        // 上游已配额/超时收口 ⇒ 下游不再发起新调用(同单链:配额超限即终止本次派发)
+        if (quotaErrorInDag) {
+          runtime.dagNodeStatus.set(nodeId, 'cancelled')
+          for (const edge of dag.edges.filter((e) => e.from === nodeId)) {
+            runtime.dagNodeStatus.set(edge.to, 'cancelled')
+          }
+          await this._persistLog(id, {
+            ts: nowIso(),
+            level: 'warn',
+            event: 'dag_node_skipped',
+            data: { nodeId, reason: 'quota_aborted' },
+          })
+          return
+        }
 
         // checkpoint 命中 → 跳过
         const cp = checkpoints.get(nodeId)
@@ -2958,14 +3174,88 @@ export class SubagentDispatchService {
           ? `${prompt}\n\n${upstreamContext}\n\n请处理当前节点任务: ${node.task}`
           : `${prompt}\n\n请处理当前节点任务: ${node.task}`
 
-        const stepStart = Date.now()
-        const callResult = await callAiService('parallel', node.agentRole, nodePrompt)
-        const stepDuration = Date.now() - stepStart
-        const tokenUsage = callResult.ok
-          ? extractTokenUsage(callResult.data, callResult.finalOutput)
-          : emptyTokenUsage()
+        // SDB-38:与单链执行器同口径消费 retry / quotas(token 上限 + 超时 + 指数退避)。
+        // 旧实现形参改名 `_retry/_quotas` 后从不读取,DAG 会话配额与重试整体失效。
+        const maxAttempts =
+          (retry?.maxAttempts ?? quotas?.maxRetries)
+            ? Math.max(retry?.maxAttempts ?? 1, (quotas?.maxRetries ?? 0) + 1)
+            : 1
+        const delayMs = retry?.delayMs ?? 1000
+        const timeoutMs = quotas?.timeoutMs ?? 0
+        const tokenQuota = quotas?.tokenQuota ?? 0
 
-        if (callResult.ok) {
+        let attempt = 0
+        let callResult: AiCallResult | undefined
+        let tokenUsage = emptyTokenUsage()
+        let stepDuration = 0
+        while (attempt < maxAttempts) {
+          attempt++
+          const stepStart = Date.now()
+          const callPromise = callAiService('parallel', node.agentRole, nodePrompt)
+          callResult =
+            timeoutMs > 0
+              ? await Promise.race([
+                  callPromise,
+                  new Promise<AiCallResult>((resolve) =>
+                    setTimeout(
+                      () =>
+                        resolve({
+                          ok: false,
+                          reason: 'failed',
+                          message: `agent 超时(> ${timeoutMs}ms)`,
+                        }),
+                      timeoutMs,
+                    ),
+                  ),
+                ])
+              : await callPromise
+          stepDuration = Date.now() - stepStart
+          tokenUsage = callResult.ok
+            ? extractTokenUsage(callResult.data, callResult.finalOutput)
+            : emptyTokenUsage()
+
+          const tokenExceeded = tokenQuota > 0 && tokenUsage.total > tokenQuota
+          const timeoutExceeded = timeoutMs > 0 && stepDuration > timeoutMs
+          if (tokenExceeded || timeoutExceeded) {
+            const quotaError = tokenExceeded
+              ? `token 超限(${tokenUsage.total} > ${tokenQuota})`
+              : `超时(${stepDuration}ms > ${timeoutMs}ms)`
+            quotaErrorInDag = quotaError
+            runtime.dagNodeStatus.set(nodeId, 'quota_exceeded')
+            runtime.steps.push({
+              agent: node.agentRole,
+              durationMs: stepDuration,
+              tokenUsage,
+              attempt,
+              status: 'quota_exceeded',
+              error: quotaError,
+            })
+            await this._writeCheckpoint(id, {
+              stepId: nodeId,
+              agentRole: node.agentRole,
+              status: 'quota_exceeded',
+              timestamp: nowIso(),
+              tokenUsage: tokenUsage.total,
+              durationMs: stepDuration,
+            })
+            await this._persistLog(id, {
+              ts: nowIso(),
+              level: 'error',
+              event: 'dag_node_quota_exceeded',
+              data: { nodeId, attempt, error: quotaError },
+            })
+            return
+          }
+
+          if (callResult.ok) break
+          // not_implemented 与单链一致:不重试,直接记 failed
+          if (callResult.reason === 'not_implemented') break
+          if (attempt < maxAttempts) {
+            await sleep(delayMs * 2 ** (attempt - 1))
+          }
+        }
+
+        if (callResult?.ok) {
           results.set(nodeId, callResult.finalOutput)
           runtime.dagNodeStatus.set(nodeId, 'completed')
           // 写 checkpoint
@@ -2982,7 +3272,7 @@ export class SubagentDispatchService {
             agent: node.agentRole,
             durationMs: stepDuration,
             tokenUsage,
-            attempt: 1,
+            attempt,
             status: 'ok',
           })
         } else {
@@ -2999,9 +3289,9 @@ export class SubagentDispatchService {
             agent: node.agentRole,
             durationMs: stepDuration,
             tokenUsage,
-            attempt: 1,
+            attempt,
             status: 'failed',
-            error: callResult.message,
+            error: callResult?.message,
           })
         }
       })
@@ -3033,18 +3323,26 @@ export class SubagentDispatchService {
       .map(([nid, output]) => `[${nid}]: ${output}`)
       .join('\n')
     const hasFailed = Array.from(runtime.dagNodeStatus.values()).some((s) => s === 'failed')
+    const hasQuotaExceeded = Array.from(runtime.dagNodeStatus.values()).some(
+      (s) => s === 'quota_exceeded',
+    )
 
-    dispatch.status = hasFailed ? 'failed' : 'completed'
-    dispatch.result = allResults
+    // quota_exceeded 不在 DispatchStatus 内 ⇒ 经扩展域视图写回(同单链执行器);
+    // 结果面也取配额错误本身(空结果串会让调用方看不出是「超限」而不是「跑完了但没产出」)
+    if (hasQuotaExceeded) {
+      statusWriteView(dispatch).status = 'quota_exceeded'
+      dispatch.result = quotaErrorInDag ?? allResults
+    } else {
+      dispatch.status = hasFailed ? 'failed' : 'completed'
+      dispatch.result = allResults
+    }
     runtime.completedAt = Date.now()
-    runtime.hasFailed = hasFailed
+    runtime.hasFailed = hasFailed || hasQuotaExceeded
     runtime.outbox = undefined
-    await this._persistDispatch(id)
-    await this._persistLog(id, {
-      ts: nowIso(),
+    await this._finalize(id, {
       level: hasFailed ? 'error' : 'info',
       event: 'dag_completed',
-      data: { layers: layers.length, nodes: dag.nodes.length, hasFailed },
+      data: { layers: layers.length, nodes: dag.nodes.length, hasFailed, hasQuotaExceeded },
     })
   }
 
@@ -3068,13 +3366,10 @@ export class SubagentDispatchService {
     if (completedCheckpoint) {
       dispatch.status = 'completed'
       dispatch.result = completedCheckpoint.result ?? ''
-      dispatch.updatedAt = nowIso()
       runtime.completedAt = runtime.completedAt ?? Date.now()
       runtime.hasFailed = false
       runtime.outbox = undefined
-      await this._persistDispatch(id)
-      await this._persistLog(id, {
-        ts: nowIso(),
+      await this._finalize(id, {
         level: 'info',
         event: 'dispatch_recovered_from_checkpoint',
         data: { stepId: completedCheckpoint.stepId, resumedFrom: 'checkpoint' },
@@ -3155,9 +3450,7 @@ export class SubagentDispatchService {
         runtime.completedAt = Date.now()
         runtime.hasFailed = false
         runtime.outbox = undefined
-        await this._persistDispatch(id)
-        await this._persistLog(id, {
-          ts: nowIso(),
+        await this._finalize(id, {
           level: 'info',
           event: 'with_communication_completed',
           data: { durationMs: stepDuration, tokens: tokenUsage.total },
@@ -3171,9 +3464,7 @@ export class SubagentDispatchService {
         runtime.completedAt = Date.now()
         runtime.hasFailed = true
         runtime.outbox = undefined
-        await this._persistDispatch(id)
-        await this._persistLog(id, {
-          ts: nowIso(),
+        await this._finalize(id, {
           level: 'error',
           event: 'dispatch_not_implemented',
           data: { message: result.message },
@@ -3203,9 +3494,7 @@ export class SubagentDispatchService {
         dispatch.result = result.message
         runtime.completedAt = Date.now()
         runtime.outbox = undefined
-        await this._persistDispatch(id)
-        await this._persistLog(id, {
-          ts: nowIso(),
+        await this._finalize(id, {
           level: 'error',
           event: 'dispatch_failed',
           data: { attempt, error: result.message, maxAttempts: effectiveMaxAttempts },
@@ -3254,16 +3543,11 @@ export class SubagentDispatchService {
       return false
     }
     d.status = 'cancelled'
-    d.updatedAt = nowIso()
     runtime.completedAt = Date.now()
     // 终态:清掉 outbox 重试意图(否则下轮启动会把已取消的派单当"待重试"恢复)
     runtime.outbox = undefined
-    void this._persistDispatch(id)
-    void this._persistLog(id, {
-      ts: nowIso(),
-      level: 'info',
-      event: 'dispatch_cancelled',
-    })
+    // F-255:取消是终态出口,统一走 _finalize(该方法内部落盘+日志+TTL+淘汰)
+    void this._finalize(id, { level: 'info', event: 'dispatch_cancelled' })
     return true
   }
 
@@ -3277,6 +3561,8 @@ export class SubagentDispatchService {
 
   /** 列出全部派单(供拓扑推导) */
   listAll(): SubagentDispatch[] {
+    // F-255:读取时补一次淘汰(长进程里没有定时器,读点是唯一稳定的收敛时机)
+    this._pruneTerminalRuntimes()
     return Array.from(this.runtimes.values())
       .map((r) => r.dispatch)
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
@@ -3291,7 +3577,12 @@ export class SubagentDispatchService {
    * **不**给 cancel/resume 塞 owner 参数 —— 那两个方法还背着并发上限与状态机语义。
    */
   findById(id: string): SubagentDispatch | null {
-    return this.runtimes.get(id)?.dispatch ?? null
+    const runtime = this.runtimes.get(id)
+    if (!runtime) return null
+    // F-255:读命中保活(LRU),并按保留窗口补一次淘汰
+    this._touchRuntime(id)
+    this._pruneTerminalRuntimes()
+    return runtime.dispatch
   }
 
   /**
@@ -3309,10 +3600,13 @@ export class SubagentDispatchService {
    *  - 分桶累加还要在 3 个写点上各带 owner,任何一处漏带就静默落进别人的桶;
    *    按需聚合没有写点,只有一处读口径。
    *
-   * 口径与旧实现对齐:total = 记录数(旧 `totalDispatches` 在创建时 +1,而 runtimes 只增不减 ⇒ 等价);
+   * 口径与旧实现对齐:total = 记录数。F-255 起 `runtimes` 不再只增不减(终态按 LRU/上限淘汰),
+   * 因此 total 是「当前进程内保留的终态记录 + 活跃记录」,不是历史累计;要看累计请走审计日志。
    * avgDurationMs 的分母仍是 total(未终态记录按 0 时长参与分母,与旧实现一致)。
    */
   getStats(visible?: (dispatch: SubagentDispatch) => boolean): DispatchStats {
+    // F-255:读点补淘汰,保证统计不会把即将淘汰的记录算进保留面
+    this._pruneTerminalRuntimes()
     const runtimes = Array.from(this.runtimes.values()).filter(
       (r) => !visible || visible(r.dispatch),
     )

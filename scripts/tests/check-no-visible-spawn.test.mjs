@@ -23,6 +23,7 @@ test('导入源模块不得触发 main() 副作用(§22d isDirectRun)', () => {
     'skipQuoted',
     'firstArg',
     'isConsoleTarget',
+    'optionsVarDeclaresHide',
     'listCandidates',
     'CONSOLE_LITERALS',
     'stripSelfTestRegions',
@@ -34,6 +35,28 @@ test('导入源模块不得触发 main() 副作用(§22d isDirectRun)', () => {
     'passesFilter',
   ]) {
     assert.ok(key in src, `__test__ 缺少导出键 ${key}`)
+  }
+})
+
+/**
+ * options 收进变量再传的那一维(2026-11-04)。
+ * 为什么这把锁必须住在**测试层**而不是只住门体 self-test:门 52 是 blocking + 触发面全仓通配,
+ * 而 `guardian-executor.mjs:908` 那种"变量里明明写着 windowsHide"被报成红之后,
+ * **每个人每一枚提交**都被咬(§12e)—— 回归必须跑在每次提交都跑的那一层才叫锁。
+ * 六向都过 `scanSource` 端到端(不另抄一份判据,§22c)。
+ */
+test('optionsVar 维:带/不带/找不到/多绑定/夹具串/后置赋值 六向端到端', () => {
+  const cases = [
+    ['变量带 windowsHide ⇒ 不判', `const o = { windowsHide: true, stdio: 'pipe' }\nspawnSync('git', ['x'], o)`, 0],
+    ['反向:变量不带 ⇒ 仍判', `const o = { stdio: 'pipe' }\nspawnSync('git', ['x'], o)`, 1],
+    ['反向:同文件找不到定义 ⇒ 仍判(保守多报)', `spawnSync('git', ['x'], elsewhere)`, 1],
+    ['反向:同名多绑定 ⇒ 不豁免(取第一处就是猜)', `const o = { windowsHide: true }\nconst o = { stdio: 'pipe' }\nspawnSync('git', ['x'], o)`, 1],
+    ['反向:夹具串里的假声明不得免检(必须走遮罩文本)', `const note = 'const o = { windowsHide: true }'\nspawnSync('git', ['x'], o)`, 1],
+    ['后置赋值 <id>.windowsHide = true ⇒ 算声明', `const o = { stdio: 'pipe' }\no.windowsHide = true\nspawnSync('git', ['x'], o)`, 0],
+  ]
+  for (const [label, fixture, want] of cases) {
+    assert.ok(fixture.includes('spawnSync'), `夹具必须真含一个派生调用点(空夹具会让 want:0 假过):${label}`)
+    assert.equal(src.scanSource(fixture, 'prod/sample.mjs').length, want, `${label} ⇒ 期望 ${want} 处,实得 ${src.scanSource(fixture, 'prod/sample.mjs').length} 处`)
   }
 })
 
@@ -339,7 +362,6 @@ test('真实源文件必须恰好含 1 组成对 self-test 标记(缺失即豁�
   assert.equal(self.split('\n').filter((l) => l.trim() === src.SELFTEST_END).length, 1)
   assert.equal(src.scanSource(self, 'scripts/check-no-visible-spawn.mjs').length, 0, '自我扫描必须 0 违规(全量恒红回归的直接判据)')
 })
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // --- N1(2026-09-27 立):按镜像名杀进程 taskkill /IM ---
 test('isNameBasedKillCall: 命中与放过成对(含"带 windowsHide 仍命中"与三条反向对照)', () => {
@@ -537,15 +559,18 @@ test('G-1058602 ③ 端到端(临时仓真跑 CLI):未入库件命中 ⇒ [未�
     const patched = orig
       .replaceAll("'./lib/face-reader.mjs'", lib('face-reader.mjs'))
       .replaceAll("'./lib/code-mask.mjs'", lib('code-mask.mjs'))
+      // 门体现在还依赖同目录那把配平尺(splitArgs/objectLiteralFor 只有一个实现,§0.6 不另写一份);
+      // 仓外跑同样解析不了 ⇒ 一并改指真仓 file: URL。
+      .replaceAll("'./check-git-stdio-discipline.mjs'", JSON.stringify(new URL('../check-git-stdio-discipline.mjs', import.meta.url).href))
     const a = orig.split('\n')
     const b = patched.split('\n')
     assert.equal(a.length, b.length, '夹具与真门行数必须相等')
     const changed = a.map((l, i) => (l !== b[i] ? i : -1)).filter((i) => i >= 0)
-    assert.equal(changed.length, 2, `只允许两条 lib import 行有差异(实得 ${changed.length} 行)`)
+    assert.equal(changed.length, 3, `只允许三条 import 行有差异(实得 ${changed.length} 行)`)
     assert.deepEqual(
-      changed.filter((i) => !a[i].includes("'./lib/")),
+      changed.filter((i) => !/^import .* from '\.\//.test(a[i].trim())),
       [],
-      '有差异的行必须全是 lib import 行',
+      '有差异的行必须全是相对 import 行(判定/取材/输出/rc 都必须是真代码,不是重写副本)',
     )
     // 门脚本与基线一起入库(在真仓里它也是 tracked);违规件保持未跟踪 —— 与真仓在飞形态同构
     writeFileSync(join(tmp, 'scripts', 'check-no-visible-spawn.mjs'), patched)
@@ -608,3 +633,4 @@ test('G-1058602 ③ 端到端(临时仓真跑 CLI):未入库件命中 ⇒ [未�
     }
   }
 })
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

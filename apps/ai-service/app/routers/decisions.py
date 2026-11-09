@@ -97,14 +97,25 @@ def _engine_pending_snapshots() -> list[dict[str, Any]]:
 @router.get("/agent/decisions/pending")
 async def list_pending_decisions(
     user_id: str = Depends(get_current_user_id),
+    session_id: str | None = None,
 ) -> dict[str, object]:
-    """「我的待决策」聚合(只读)。身份只取承载层令牌主体,属主过滤走 owner_scoped_allows。"""
+    """「我的待决策」聚合(只读)。身份只取承载层令牌主体,属主过滤走 owner_scoped_allows。
+
+    `session_id`(可选查询参数,2026-11-09 立):按 `thread_id == session_id` **精确
+    相等**收窄,供"审批投递地址"这一条链在 run 进行中就地取件 —— 非流式
+    `POST /agents/execute` 的审批条目 thread_id 就是请求里的 session_id。
+    不传 = 全量(行为与接线前逐字一致);传空串也不算"全量",只匹配 thread_id
+    恰为空串的条目(精确相等,不做前缀/模糊匹配,也不把 None 与 "" 并成一档)。
+    收窄只作用在**已过属主过滤之后**:属主判据一字未改,不得借本参数放宽可见面。
+    """
     # 延迟导入:让"聚合端点存在"不等于"主循环模块被端点 import 链拉起"(测试可整体替换)。
     from app.services.agent_loop_v2 import list_pending_approvals
 
     items: list[dict[str, object]] = []
     for entry in list_pending_approvals():
         if not owner_scoped_allows(user_id, _owner_str(entry.get("owner_user_id"))):
+            continue
+        if session_id is not None and entry.get("thread_id") != session_id:
             continue
         items.append(
             {
@@ -117,6 +128,8 @@ async def list_pending_decisions(
         )
     for entry in _engine_pending_snapshots():
         if not owner_scoped_allows(user_id, entry["owner_user_id"]):
+            continue
+        if session_id is not None and entry["thread_id"] != session_id:
             continue
         items.append(
             {

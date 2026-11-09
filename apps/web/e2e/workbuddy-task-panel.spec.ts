@@ -635,7 +635,7 @@ test.describe('签到页 · 自动做任务面板(全桩,零第三方出站)', (
     await openPanel(page, { status: statusBody(wbTasks()) })
     await expect(page.getByTestId(STATUS_TESTID)).toContainText('已启用')
     const html = await page.content()
-    expect(html).not.toContain('checkin.taskPanel')
+    expect(html).not.toContain('checkinAssistant.taskPanel')
     expect(pageErrors, pageErrors.join(' | ')).toEqual([])
     expect(consoleErrors, consoleErrors.join(' | ')).toEqual([])
   })

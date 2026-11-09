@@ -83,8 +83,12 @@ vi.mock('@/utils/taro-websocket-adapter', () => ({
   },
 }))
 
-// 只替换 createNotificationClient / fetchApi 两个出口,保留真实的 buildNotificationWsUrl
-// (用于对照证明"微信无 URL 构造器"这个坑被绕开)
+// 只替换 createNotificationClient / fetchApi / 两个上报出口,保留真实的 buildNotificationWsUrl
+// (用于对照证明"微信无 URL 构造器"这个坑被绕开)。
+// 2026-11 桥层改直呼 reportAgentControlCapability / reportAgentControlResult(api-client 的
+// 端点函数):真实函数内部走自己的 fetchApi 绑定,模块级 mock 拦不到,必须同时替换这两个出口,
+// 否则 fetchCalls 恒空(旧夹具只 mock fetchApi 是过时的)。
+vi.mock('@/utils/api-config', () => ({ BASE_URL: 'http://localhost:8802/api' }))
 vi.mock('@ihui/api-client', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>
   return {
@@ -92,6 +96,14 @@ vi.mock('@ihui/api-client', async (importOriginal) => {
     fetchApi: (url: string, options?: { body?: string }) => {
       const body = options?.body ? (JSON.parse(options.body) as Record<string, unknown>) : {}
       mocks.fetchCalls.push({ url, body })
+      return Promise.resolve({ success: true, data: { registered: true, accepted: true } })
+    },
+    reportAgentControlCapability: (payload: Record<string, unknown>) => {
+      mocks.fetchCalls.push({ url: '/api/agent-control/capability', body: payload })
+      return Promise.resolve({ success: true, data: { registered: true, accepted: true } })
+    },
+    reportAgentControlResult: (payload: Record<string, unknown>) => {
+      mocks.fetchCalls.push({ url: '/api/agent-control/result', body: payload })
       return Promise.resolve({ success: true, data: { registered: true, accepted: true } })
     },
     createNotificationClient: (

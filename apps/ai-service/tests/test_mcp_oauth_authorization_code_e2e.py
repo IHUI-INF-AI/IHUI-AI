@@ -44,6 +44,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, RedirectResponse
 from starlette.routing import Route
 
+from app.core.config import settings
 from app.services.mcp_client import (
     TRANSPORT_STREAMABLE_HTTP,
     MCPClient,
@@ -54,6 +55,13 @@ from app.services.mcp_oauth import (
     MCPOAuthConfig,
     MCPOAuthToken,
 )
+
+
+@pytest.fixture(autouse=True)
+def _allow_loopback_endpoints(monkeypatch: pytest.MonkeyPatch) -> None:
+    """AIS-053 落点策略默认 fail-closed;本文件走 127.0.0.1 loopback 真网,显式开开关。"""
+    monkeypatch.setattr(settings, "mcp_allow_private_endpoints", True, raising=False)
+
 
 DEFAULT_TIMEOUT = 10.0
 

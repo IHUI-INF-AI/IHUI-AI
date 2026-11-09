@@ -38,9 +38,16 @@ vi.mock('node:fs', async (importOriginal) => {
 import * as fs from 'node:fs';
 import { installCrashHandler, uninstallCrashHandler } from '../src/crash-handler.js';
 
+/** 索引访问 + 运行时越界检查(noUncheckedIndexedAccess 下数组元素天然是 T | undefined) */
+function at<T>(items: readonly T[], index: number): T {
+  const item = items[index];
+  if (item === undefined) throw new Error(`数组索引越界: ${index}`);
+  return item;
+}
+
 describe('crash-handler', () => {
   let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
-  let initialExitCode: number | undefined;
+  let initialExitCode: typeof process.exitCode;
   let initialUncaughtListeners: Array<(...args: unknown[]) => void>;
   let initialUnhandledListeners: Array<(...args: unknown[]) => void>;
 
@@ -109,7 +116,7 @@ describe('crash-handler', () => {
     installCrashHandler();
     process.emit('uncaughtException', new Error('test uncaught'));
     expect(fs.writeFileSync).toHaveBeenCalledTimes(1);
-    const call = vi.mocked(fs.writeFileSync).mock.calls[0];
+    const call = at(vi.mocked(fs.writeFileSync).mock.calls, 0);
     expect(String(call[0])).toContain('crash-logs');
     expect(String(call[0])).toMatch(/crash-\d+\.log$/);
   });
@@ -118,7 +125,7 @@ describe('crash-handler', () => {
     installCrashHandler();
     process.emit('unhandledRejection', new Error('test rejection'));
     expect(fs.writeFileSync).toHaveBeenCalledTimes(1);
-    const call = vi.mocked(fs.writeFileSync).mock.calls[0];
+    const call = at(vi.mocked(fs.writeFileSync).mock.calls, 0);
     expect(String(call[0])).toContain('crash-logs');
     expect(String(call[0])).toMatch(/crash-\d+\.log$/);
   });
@@ -129,10 +136,15 @@ describe('crash-handler', () => {
     expect(process.exitCode).toBe(1);
   });
 
-  it('handleCrash unhandledRejection 不设置 exitCode', () => {
+  // F-002:改前这里的断言是 `expect(process.exitCode).toBeUndefined()` —— 它把缺陷本身
+  // 钉成了期望值:未处理 rejection 不设退出码,正是"所有子命令失败被 CI/脚本当成成功"
+  // 的成因,旧断言等于为该行为背书。正确判据是两通道对称:崩溃即退出码 1。
+  // 实测旧源码:本用例报 `expected undefined to be 1`(断言级红),新源码绿。
+  it('handleCrash unhandledRejection 也设置 process.exitCode = 1(F-002:两通道对称)', () => {
+    process.exitCode = undefined;
     installCrashHandler();
     process.emit('unhandledRejection', new Error('rejected'));
-    expect(process.exitCode).toBeUndefined();
+    expect(process.exitCode).toBe(1);
   });
 
   it('crash log LRU prune:保留最近 10 个,删除最旧的 2 个', () => {
@@ -153,7 +165,7 @@ describe('crash-handler', () => {
     const err = new Error('my error message');
     err.stack = 'Error: my error message\n    at foo:1:1';
     process.emit('uncaughtException', err);
-    const content = String(vi.mocked(fs.writeFileSync).mock.calls[0][1]);
+    const content = String(at(at(vi.mocked(fs.writeFileSync).mock.calls, 0), 1));
     expect(content).toContain('my error message');
     expect(content).toContain('Error: my error message');
     expect(content).toContain('at foo:1:1');
@@ -164,7 +176,7 @@ describe('crash-handler', () => {
     installCrashHandler();
     process.emit('uncaughtException', new Error('mkdir test'));
     expect(fs.mkdirSync).toHaveBeenCalledTimes(1);
-    const call = vi.mocked(fs.mkdirSync).mock.calls[0];
+    const call = at(vi.mocked(fs.mkdirSync).mock.calls, 0);
     expect(String(call[0])).toContain('crash-logs');
     expect(call[1]).toEqual({ recursive: true });
   });

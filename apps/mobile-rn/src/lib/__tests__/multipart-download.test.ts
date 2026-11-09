@@ -68,6 +68,8 @@ vi.mock('expo-file-system', () => ({
 
 import {
   downloadApkParts,
+  MAX_PART_BYTES,
+  MAX_TOTAL_BYTES,
   PARTS_MANIFEST_SCHEMA,
   parsePartsManifest,
   PartsUnavailableError,
@@ -176,6 +178,36 @@ describe('parsePartsManifest:残缺/冒名清单一律判不可用', () => {
   it('schema 不是本协议 ⇒ 抛错,不猜旧格式', () => {
     const raw = JSON.stringify({ version: VERSION, totalBytes: TOTAL, parts: [] })
     expect(() => parsePartsManifest(raw, VERSION, 1)).toThrow(PartsUnavailableError)
+  })
+
+  // XUI-071:分片腿是"整片 ArrayBuffer 驻留内存",清单体积必须有界;超界判不可用,退回单文件腿。
+  it('单片体积越过内存上限 ⇒ 判不可用并给 ERR_PARTS_OVER_LIMIT', () => {
+    const size = MAX_PART_BYTES + 1
+    const parts = [{ name: NAME_A, size }]
+    let caught: unknown
+    try {
+      parsePartsManifest(manifestText({ totalBytes: size, parts }), VERSION, 1)
+    } catch (e) {
+      caught = e
+    }
+    expect(caught).toBeInstanceOf(PartsUnavailableError)
+    expect((caught as PartsUnavailableError).code).toBe('ERR_PARTS_OVER_LIMIT')
+  })
+
+  it('整包体积越过内存上限 ⇒ 判不可用(每片都在单片界内也不行)', () => {
+    const parts = Array.from({ length: 5 }, (_, i) => ({
+      name: `ihui-ai-${VERSION}-part-0${i}.bin`,
+      size: MAX_PART_BYTES,
+    }))
+    expect(() =>
+      parsePartsManifest(manifestText({ totalBytes: MAX_TOTAL_BYTES + MAX_PART_BYTES, parts }), VERSION, 1),
+    ).toThrow(/超过内存上限/)
+  })
+
+  it('边界:恰好等于单片上限仍可解析(上限不能写成下限)', () => {
+    const parts = [{ name: NAME_A, size: MAX_PART_BYTES }]
+    const m = parsePartsManifest(manifestText({ totalBytes: MAX_PART_BYTES, parts }), VERSION, 1)
+    expect(m.parts[0]!.size).toBe(MAX_PART_BYTES)
   })
 })
 

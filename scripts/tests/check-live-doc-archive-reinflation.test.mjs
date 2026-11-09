@@ -100,3 +100,22 @@ test('T8 对照面取归档目录下全部 .md,不再限定 AGENTS 族(限族=�
   for (const n of ['README.md.bak', 'ledger.jsonl', 'run.log', '.md']) assert.ok(!G.ARCHIVE_FILE_RE.test(n), `${n} 不是 .md,不得进对照面`)
   assert.ok(!G.ARCHIVE_FILE_RE.test('dir/'), '目录名本身不算件')
 })
+
+test('T9 前像里已在位的同文段不判回灌(整份快照对照面的结构性假阳反证)', () => {
+  const f = face(G.RUN_MIN)
+  assert.equal(G.findReinflation('AGENTS.md', f.text, f.set).length, 1, '无前像时旧语义仍是"命中即报"(向后兼容)')
+  assert.equal(G.findReinflation('AGENTS.md', f.text, f.set, f.text).length, 0, '同一段本来就留在活文档里 ⇒ 是"留着",不是"抄回"')
+})
+
+test('T10 前像里没有的新增同文段仍判红(换判据不得放过真回灌)', () => {
+  const f = face(G.RUN_MIN)
+  assert.equal(G.findReinflation('AGENTS.md', f.text, f.set, '另起一行与归档无关的新正文\n').length, 1, '新增 12 行逐字命中归档面 = 回灌事故形态')
+  const big = face(G.RUN_MIN * 2)
+  assert.equal(G.findReinflation('AGENTS.md', big.text, big.set, big.text.split('\n').slice(0, 10).join('\n')).length, 1, '前像只覆盖前 10 行时,本次新增 14 行仍够 RUN_MIN ⇒ 红')
+})
+
+test('T11 真仓前像规格与判面同源:head 档比 HEAD^,staged/worktree 档比 HEAD', () => {
+  assert.equal(G.preImageSpec('head', 'AGENTS.md'), 'HEAD^:AGENTS.md')
+  assert.equal(G.preImageSpec('staged', 'AGENTS.md'), 'HEAD:AGENTS.md')
+  assert.equal(G.preImageSpec('worktree', 'AGENTS.md'), 'HEAD:AGENTS.md')
+})

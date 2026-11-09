@@ -5,8 +5,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execSync, execFileSync, spawnSync } from 'node:child_process'
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { isAbsolute, join, resolve } from 'node:path'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { __test__ } from '../check-commit-loss-guard.mjs'
 import { fileURLToPath } from 'node:url'
@@ -41,7 +41,9 @@ function runScript(args = [], opts = {}) {
     encoding: 'utf8',
     // 2026-10-04:子进程必须给 stdio(留管道取输出),否则本机报 spawnSync EBUSY
     stdio: ['ignore', 'pipe', 'pipe'],
-    env: { ...process.env, ...opts.env },
+    // 默认关掉门内自动备份:存量用例断言的是"未备份 ⇒ 判红"的修前语义;
+    // 自动备份的独立夹具显式传 IHUI_COMMIT_LOSS_AUTO_BACKUP=1。
+    env: { ...process.env, IHUI_COMMIT_LOSS_AUTO_BACKUP: '0', ...opts.env },
   })
 }
 
@@ -92,7 +94,11 @@ test('门体判据: On fix/<branch>: → 识别为 stash subject(非 main 分支
 test('门体判据: 分支名含空格(detached HEAD 的 "(no branch)")→ 必须识别得出且取得出原 hash', () => {
   const subject = 'index on (no branch): 5ef36e59d wip'
   assert.ok(isStash(subject), '识别侧失配 = 该提交在备份核对里被当成普通 commit')
-  assert.equal(originalHash(subject), '5ef36e59d', '只改识别侧不改取 hash 侧 = 认得出却追不回原提交')
+  assert.equal(
+    originalHash(subject),
+    '5ef36e59d',
+    '只改识别侧不改取 hash 侧 = 认得出却追不回原提交',
+  )
 })
 
 test('门体判据: 普通提交 subject → 不识别为 stash', () => {
@@ -214,13 +220,21 @@ test('检测: reset 丢掉的那一枚已打 lost-commit tag ⇒ blocking 放行
   try {
     // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
     execSync('git commit --allow-empty -m "temp-dropped"', { cwd: dir, stdio: 'ignore' })
-    const dropped = execSync('git rev-parse HEAD', { cwd: dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
+    const dropped = execSync('git rev-parse HEAD', {
+      cwd: dir,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim()
     // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
     execSync('git reset HEAD~1', { cwd: dir, stdio: 'ignore' })
     // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
     execSync(`git tag lost-commit/test-dropped ${dropped}`, { cwd: dir, stdio: 'ignore' })
     const r = runScript(['--blocking'], { cwd: dir })
-    assert.equal(r.status, 0, `被丢的那枚已备份 ⇒ 应放行,实际 ${r.status}\n${r.stdout}\n${r.stderr}`)
+    assert.equal(
+      r.status,
+      0,
+      `被丢的那枚已备份 ⇒ 应放行,实际 ${r.status}\n${r.stdout}\n${r.stderr}`,
+    )
     assert.match(r.stdout, /未检测到 reset|无 commit 丢失风险/)
   } finally {
     rmScratch(dir)
@@ -230,7 +244,10 @@ test('检测: reset 丢掉的那一枚已打 lost-commit tag ⇒ blocking 放行
 test('判据单元: dropBackedResets 看被丢的那枚,不看 reset 后的 HEAD', () => {
   const line = 'bbbbbbb HEAD@{0}: reset: moving to HEAD~1'
   // beforeHash(被丢的 aaaaaaa)已备份、行首 bbbbbbb 未备份 ⇒ 放行
-  assert.deepEqual(__test__.dropBackedResets([line], new Set(['aaaaaaa']), () => 'aaaaaaa'), [])
+  assert.deepEqual(
+    __test__.dropBackedResets([line], new Set(['aaaaaaa']), () => 'aaaaaaa'),
+    [],
+  )
   // 两枚都未备份 ⇒ 保留
   assert.equal(__test__.dropBackedResets([line], new Set(['ccccccc']), () => 'aaaaaaa').length, 1)
   // 取不到 beforeHash 时退回旧行为(行首已备份 ⇒ 放行)
@@ -238,8 +255,16 @@ test('判据单元: dropBackedResets 看被丢的那枚,不看 reset 后的 HEAD
 })
 
 test('判据单元: reflogRefOf 从 ref@{} 前缀取 ref 名', () => {
-  assert.equal(__test__.reflogRefOf('abc1234 refs/heads/main@{2026-10-21 16:50:22 +0800}: reset: moving to HEAD~1'), 'refs/heads/main')
-  assert.equal(__test__.reflogRefOf('abc1234 HEAD@{2026-10-21 16:50:22 +0800}: reset: moving to HEAD~1'), 'HEAD')
+  assert.equal(
+    __test__.reflogRefOf(
+      'abc1234 refs/heads/main@{2026-10-21 16:50:22 +0800}: reset: moving to HEAD~1',
+    ),
+    'refs/heads/main',
+  )
+  assert.equal(
+    __test__.reflogRefOf('abc1234 HEAD@{2026-10-21 16:50:22 +0800}: reset: moving to HEAD~1'),
+    'HEAD',
+  )
   assert.equal(__test__.reflogRefOf(''), '')
 })
 
@@ -313,7 +338,11 @@ test('纯函数: splitReachableSameContent 三档(树+题 / 仅树 / 待处置)'
   // fail-safe:索引为空(取不到)⇒ 三枚全落待处置,绝不按等价放行
   const noIdx = __test__.splitReachableSameContent({
     candidates: ['c-same', 'c-tree-only', 'c-lost'],
-    treeByCommit: new Map([['c-same', 'T1'], ['c-tree-only', 'T2'], ['c-lost', 'T9']]),
+    treeByCommit: new Map([
+      ['c-same', 'T1'],
+      ['c-tree-only', 'T2'],
+      ['c-lost', 'T9'],
+    ]),
     subjectByHash: new Map(),
     reachableKeys: new Set(),
     reachableTrees: new Set(),
@@ -392,6 +421,787 @@ test('真丢失对照: 树不在可达历史里 → 仍 blocking(判据没被摘
     assert.equal(r.status, 1, `真丢失必须判红,应 exit 1,实际 ${r.status}\nstdout: ${r.stdout}`)
     assert.doesNotMatch(r.stdout, /等价残留 1 个/, '树不在可达历史里不得按等价残留放行')
     assert.match(r.stdout, /未备份/, '真丢失须落"未备份"档')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// ─── 逐路径覆盖判据(2026-11-04,取代「整树相等」)────────────────
+
+test('逐路径覆盖解析: raw -z 记录解析(A/M/D)且 old blob 必须保留、截断/坏头必须抛', () => {
+  const A = 'a'.repeat(40)
+  const B = 'b'.repeat(40)
+  const Z = '0'.repeat(40)
+  const meta = (oldSha, newSha, status) => `:100644 100644 ${oldSha} ${newSha} ${status}`
+  const entries = __test__.parseRawDiffZ(
+    `${meta(Z, A, 'A')}\0add.txt\0${meta(A, B, 'M')}\0mod.txt\0${meta(B, Z, 'D')}\0del.txt\0`,
+  )
+  // oldBlob 是收紧后 D 类判据的**唯一内容凭据**("删的确实是同一内容"),必须逐条保留;
+  // A / root 的全零 old sha 折成空串,免得把"没有旧内容"当成一个真实 blob。
+  assert.deepEqual(
+    entries.map((e) => [e.status, e.path, e.blob, e.oldBlob]),
+    [
+      ['A', 'add.txt', A, ''],
+      ['M', 'mod.txt', B, A],
+      ['D', 'del.txt', Z, B],
+    ],
+  )
+  assert.throws(() => __test__.parseRawDiffZ(`:badheader\0x.txt\0`), /raw diff/)
+  // 只有记录头、没有路径段 = 输出被截断 ⇒ 必须抛(不得读成"没有改动")
+  assert.throws(() => __test__.parseRawDiffZ(meta(A, B, 'M')), /缺路径段/)
+})
+
+test('逐路径覆盖解析: 可达面 commit 段必须带 committer 时刻(IHUI:<sha>:<ct>),缺时刻判"取不到"', () => {
+  const A = 'a'.repeat(40)
+  const B = 'b'.repeat(40)
+  const sha = 'c'.repeat(40)
+  const meta = `:100644 100644 ${A} ${B} M`
+  const parsed = __test__.parseRawDiffZ(`IHUI:${sha}:1700000000\0\0${meta}\0f.txt\0`, {
+    withCommit: true,
+  })
+  assert.equal(parsed[0].commit, sha, 'commit 段必须解析出完整 sha')
+  assert.equal(parsed[0].ct, 1700000000, 'committer 时刻用于跨面判"最新",取不到就无从判最新')
+  // 旧形态(只有 sha、没有时刻)不得继续被接受:否则"最新状态"无从确定,判定会静默降级。
+  assert.throws(
+    () => __test__.parseRawDiffZ(`IHUI:${sha}\0\0${meta}\0f.txt\0`, { withCommit: true }),
+    /commit 段非法/,
+  )
+})
+
+test('逐路径覆盖判定: 全覆盖放行 / 任一未覆盖点名 / 同内容不同路径不算 / D 类只认"最新且同 old blob"', () => {
+  const A = 'a'.repeat(40)
+  const B = 'b'.repeat(40)
+  const C = 'c'.repeat(40)
+  const Z = '0'.repeat(40)
+  const entriesByCommit = new Map([
+    [
+      'c-full',
+      [
+        { status: 'M', path: 'x.txt', blob: A, oldBlob: B },
+        { status: 'A', path: 'y.txt', blob: B, oldBlob: '' },
+      ],
+    ],
+    [
+      'c-part',
+      [
+        { status: 'M', path: 'x.txt', blob: A, oldBlob: B },
+        { status: 'A', path: 'z.txt', blob: C, oldBlob: '' },
+      ],
+    ],
+    ['c-same-content-other-path', [{ status: 'A', path: 'new.txt', blob: B, oldBlob: '' }]],
+    ['c-del-ok', [{ status: 'D', path: 'gone.txt', blob: Z, oldBlob: A }]],
+    ['c-del-no-record', [{ status: 'D', path: 'keep.txt', blob: Z, oldBlob: A }]],
+    ['c-del-present-latest', [{ status: 'D', path: 'rebuild.txt', blob: Z, oldBlob: A }]],
+    ['c-del-other-old', [{ status: 'D', path: 'other.txt', blob: Z, oldBlob: A }]],
+    ['c-null', null],
+  ])
+  const coverage = new Map([
+    [`x.txt\0${A}`, { commit: 'c1', surface: 'ref' }],
+    [`y.txt\0${B}`, { commit: 'c2', surface: 'reflog' }],
+  ])
+  // 每路径**最新一次可达改动**:只有 gone.txt 的最新记录正好是"删 A"这一条 ⇒ 放行;
+  // 另外三条各差一个条件(无记录 / 最新是存在 / 最新删的是别的 old blob)⇒ 都必须判红。
+  const latestByPath = new Map([
+    ['gone.txt', { commit: 'c3', surface: 'ref', status: 'D', oldBlob: A, blob: Z, ct: 3 }],
+    ['rebuild.txt', { commit: 'c4', surface: 'ref', status: 'A', oldBlob: '', blob: A, ct: 4 }],
+    ['other.txt', { commit: 'c5', surface: 'ref', status: 'D', oldBlob: B, blob: Z, ct: 5 }],
+  ])
+  const split = __test__.splitByPathCoverage({
+    candidates: [...entriesByCommit.keys()],
+    entriesByCommit,
+    coverage,
+    latestByPath,
+    problemsByCommit: new Map([['c-null', 'diff-tree 取不到:boom']]),
+  })
+  assert.deepEqual(
+    split.covered.map((x) => x.hash),
+    ['c-full', 'c-del-ok'],
+    '每条路径都有同路径同 blob / 最新且同 old blob 的删除记录,才放行',
+  )
+  const gap = new Map(split.uncovered.map((u) => [u.hash, u]))
+  assert.equal(gap.get('c-part').missing[0].path, 'z.txt', '未覆盖路径必须点名')
+  assert.equal(
+    gap.get('c-same-content-other-path').missing[0].path,
+    'new.txt',
+    '同内容只在别处文件名 ⇒ 不得放行(防重命名误判)',
+  )
+  assert.equal(
+    gap.get('c-del-no-record').missing[0].reason,
+    '删除意图未在可达面生效(该路径在可达面无任何改动记录)',
+    '可达面从没改过该路径 ⇒ 本次删除无出处,必须判红',
+  )
+  // 删→重建之后最新状态是"存在":即便可达面确实有更早的删除记录,也不能为本次删除作证。
+  assert.match(
+    gap.get('c-del-present-latest').missing[0].reason,
+    /最新状态仍是"存在"[\s\S]*更早的删除记录不能为新删除作证/,
+    '旧删除记录不得给重建后的再次删除搭便车',
+  )
+  // 最新删除记录删的是另一份内容 ⇒ 本次删的那份从未入可达面,必须判红。
+  assert.match(
+    gap.get('c-del-other-old').missing[0].reason,
+    /另一份内容[\s\S]*旧删除不能为新删除作证/,
+    'old blob 不同 = 删的不是同一内容,旧删除记录不得作证',
+  )
+  assert.equal(gap.get('c-null').reason, 'diff-tree 取不到:boom', '取材失败必须朝红')
+  assert.equal(split.covered[0].evidence[0].surface, 'ref', '证据必须记录覆盖面')
+  assert.equal(split.covered[0].evidence[1].surface, 'reflog', '证据必须记录覆盖面')
+  // D 类证据必须把"被删掉的那份内容"也带上,判绿时才能复核"删的确实是同一 blob"。
+  const delEvidence = split.covered.find((x) => x.hash === 'c-del-ok').evidence[0]
+  assert.equal(delEvidence.blob, A, 'D 证据的 blob 应为本次 old blob(被删内容)')
+  assert.equal(delEvidence.commit, 'c3', 'D 证据必须指向那条最新删除记录')
+})
+
+test('逐路径覆盖判定: 同秒并列(D vs M)⇒ 未判定档,既不判绿也不判红;另有真缺口时仍判红', () => {
+  const A = 'a'.repeat(40)
+  const B = 'b'.repeat(40)
+  const Z = '0'.repeat(40)
+  const entriesByCommit = new Map([
+    ['c-tie', [{ status: 'D', path: 'gone.txt', blob: Z, oldBlob: A }]],
+    [
+      'c-tie-plus-gap',
+      [
+        { status: 'D', path: 'gone.txt', blob: Z, oldBlob: A },
+        { status: 'A', path: 'new.txt', blob: B, oldBlob: '' },
+      ],
+    ],
+  ])
+  const split = __test__.splitByPathCoverage({
+    candidates: [...entriesByCommit.keys()],
+    entriesByCommit,
+    coverage: new Map(),
+    // 即便 latestByPath 里有一条"最新是删 A"的记录,它的来源是 same-ct 并列的先到者 ⇒ 不可信。
+    latestByPath: new Map([
+      ['gone.txt', { commit: 'c1', surface: 'ref', status: 'D', oldBlob: A, blob: Z, ct: 7 }],
+    ]),
+    ambiguousPaths: new Set(['gone.txt']),
+  })
+  assert.deepEqual(split.covered, [], '并列歧义的 D 路径不得判绿(先到者不是拓扑结论)')
+  assert.deepEqual(
+    split.undetermined.map((u) => u.hash),
+    ['c-tie'],
+    '只有并列歧义、没有别的真缺口 ⇒ 落未判定档(→ exit 2),不得折成判红或放行',
+  )
+  assert.deepEqual(split.undetermined[0].paths, ['gone.txt'], '未判定必须点名是哪条路径并列')
+  assert.deepEqual(
+    split.uncovered.map((u) => u.hash),
+    ['c-tie-plus-gap'],
+    '另有确定的未覆盖路径 ⇒ 仍是判红(判红比未判定更确定,不得被未判定吞掉)',
+  )
+})
+
+test('逐路径覆盖·端到端: 两条可达分支同秒改同一路径(一枚 D 一枚 M)⇒ exit 2 未判定', () => {
+  const dir = createTempRepo()
+  const git = (cmd, extraEnv) =>
+    execSync(cmd, {
+      cwd: dir,
+      stdio: 'ignore',
+      env: { ...process.env, ...(extraEnv || {}) },
+    })
+  // 两条并列改动必须落在 30 天窗内(窗档只报数不拦,而本用例要走到 exit 2 那一档);
+  // 同时它们必须比 base 更新 —— 否则侧支的提交时刻比主线还旧,latestByPath 会选到 base。
+  // 2026-11-05:主链日期必须**显式**早于 T。原先用墙钟默认值:一旦 base 的提交秒与 T 跨过
+  // 同一秒边界,base 的 A 记录就会排在两条侧支之前并挡住 D/M 的并列比较 ⇒ 用例偶发 exit 1。
+  const now = Date.now()
+  let clock = now - 7_200_000
+  const olderDate = () => {
+    clock += 1000
+    return new Date(clock).toISOString()
+  }
+  const dated = () => {
+    const d = olderDate()
+    return { GIT_AUTHOR_DATE: d, GIT_COMMITTER_DATE: d }
+  }
+  const T = new Date(now - 60_000).toISOString()
+  try {
+    // base:{README, f=v1, k=k1};main 先让 k=v2 的 blob 可达,再删掉 k(让"删 k"有出处)。
+    writeFileSync(join(dir, 'f.txt'), 'v1\n')
+    writeFileSync(join(dir, 'k.txt'), 'k1\n')
+    git('git add f.txt k.txt')
+    git('git commit -m "base"', dated())
+    writeFileSync(join(dir, 'k.txt'), 'k2\n')
+    git('git add k.txt')
+    git('git commit -m "k-v2"', dated())
+    git('git rm -q k.txt')
+    git('git commit -m "del-k"', dated())
+    // 两条**可达**分支同秒改同一路径:一枚 D(side-del)、一枚 M(side-mod)。
+    git('git checkout -b side-del')
+    git('git rm -q f.txt')
+    git('git commit -m "side-del"', { GIT_AUTHOR_DATE: T, GIT_COMMITTER_DATE: T })
+    git('git checkout main')
+    git('git checkout -b side-mod')
+    writeFileSync(join(dir, 'f.txt'), 'v2\n')
+    git('git add f.txt')
+    git('git commit -m "side-mod"', { GIT_AUTHOR_DATE: T, GIT_COMMITTER_DATE: T })
+    git('git checkout main')
+    // 悬空候选:从 base 删 f、把 k 改成可达的 k2(避免整树等价档把它提前放行)。
+    git('git checkout -b tmp-dangling')
+    git('git rm -q f.txt')
+    writeFileSync(join(dir, 'k.txt'), 'k2\n')
+    git('git add k.txt')
+    git('git commit -m "dangling-del-f"', { GIT_AUTHOR_DATE: T, GIT_COMMITTER_DATE: T })
+    git('git checkout main')
+    git('git branch -D tmp-dangling')
+    const r = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(
+      r.status,
+      2,
+      `同秒并列的删除判定不可判定 ⇒ 必须 exit 2,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
+    )
+    assert.match(r.stdout, /UNDETERMINED/, '未判定必须显式报出,不得静默')
+    assert.match(r.stdout, /同秒并列/, '必须点名原因')
+    assert.match(r.stdout, /f\.txt/, '必须点名是哪条路径并列')
+    assert.doesNotMatch(r.stdout, /无 commit 丢失风险/, '未判定绝不许打印通过句')
+
+    // 反向用例①(2026-11-05 裁决):把两条并列分支改名 = 换 `git log --all` 的并列入场
+    // 顺序。D vs M 是真翻转档(取 D ⇒ 最新即删除;取 M ⇒ 最新仍是存在),换序后必须仍是
+    // UNDETERMINED ⇒ exit 2;判据细化不得把"真判不了"放行。
+    git('git branch -m side-del zzz-tie-del')
+    git('git branch -m side-mod aaa-tie-mod')
+    const r2 = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(
+      r2.status,
+      2,
+      `换 ref 名后同秒 D/M 并列仍须 exit 2,实际 ${r2.status}\nstdout: ${r2.stdout}\nstderr: ${r2.stderr}`,
+    )
+    assert.match(r2.stdout, /UNDETERMINED/, '换序后仍必须显式报未判定')
+    assert.match(r2.stdout, /f\.txt/, '换序后仍必须点名并列路径')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('逐路径覆盖·端到端: 同秒并列两枚 D(删不同 old blob)⇒ 可判定落未清偿,不进未判定桶', () => {
+  const dir = createTempRepo()
+  // 每个主链提交错开一秒,只让两条侧支落在同一秒;避免顺手造出别的并列。
+  let clock = Date.now() - 3_600_000
+  const git = (cmd, dateOverride) => {
+    clock += 1000
+    const d = dateOverride || new Date(clock).toISOString()
+    return execSync(cmd, {
+      cwd: dir,
+      stdio: 'ignore',
+      env: { ...process.env, GIT_AUTHOR_DATE: d, GIT_COMMITTER_DATE: d },
+    })
+  }
+  const head = () =>
+    execSync('git rev-parse HEAD', {
+      cwd: dir,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    }).trim()
+  const T = new Date().toISOString()
+  try {
+    writeFileSync(join(dir, 'f.txt'), 'v1\n')
+    git('git add f.txt')
+    git('git commit -m "f-v1"')
+    const c1 = head()
+    writeFileSync(join(dir, 'f.txt'), 'v2\n')
+    git('git add f.txt')
+    git('git commit -m "f-v2"')
+    const c2 = head()
+    writeFileSync(join(dir, 'f.txt'), 'v3\n')
+    git('git add f.txt')
+    git('git commit -m "f-v3"')
+    const c3 = head()
+    // 两条**可达**分支同秒各删一个不同版本:side-v2 删 v2、side-v3 删 v3。
+    // 候选删的是 v1 —— 与两枚并列 D 的 old blob 都不相同 ⇒ 两种顺序都只能落"未清偿"。
+    git(`git checkout -b side-v2 ${c2}`)
+    git('git rm -q f.txt')
+    git('git commit -m "side-del-v2"', T)
+    git('git checkout main')
+    git(`git checkout -b side-v3 ${c3}`)
+    git('git rm -q f.txt')
+    git('git commit -m "side-del-v3"', T)
+    git('git checkout main')
+    // tag 直指候选:从 c1 删 f(v1),随后删分支、打 lost-commit tag。
+    git(`git checkout -b temp-tag ${c1}`)
+    git('git rm -q f.txt')
+    git('git commit -m "tag-del-v1"')
+    const candidate = head()
+    git('git checkout main')
+    git('git branch -D temp-tag')
+    git(`git tag lost-commit/tie-diff ${candidate}`)
+
+    const r = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(
+      r.status,
+      0,
+      `同秒并列两枚 D 且两序结论一致 ⇒ 可判定,不得进未判定桶;实际 exit ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
+    )
+    assert.doesNotMatch(r.stdout, /UNDETERMINED/, '可判定项不得进未判定桶')
+    // 可判定后仍按 D 的真判据核对 old blob:两枚并列删的都不是 v1 ⇒ 落未清偿 1 枚。
+    assert.match(
+      r.stdout,
+      /逐路径覆盖:已清偿 0 \/ 未清偿 1/,
+      `必须落未清偿并点名枚数,实际未命中\nstdout: ${r.stdout}`,
+    )
+    assert.match(r.stdout, new RegExp(candidate.slice(0, 7)), '未清偿清单必须点名该 tag 直指提交')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('逐路径覆盖·端到端: 3b 未判定项不得被悬空档整体赋值覆盖(点名出现,不折成已备份)', () => {
+  const dir = createTempRepo()
+  let clock = Date.now() - 3_600_000
+  const git = (cmd, dateOverride) => {
+    clock += 1000
+    const d = dateOverride || new Date(clock).toISOString()
+    return execSync(cmd, {
+      cwd: dir,
+      stdio: 'ignore',
+      env: { ...process.env, GIT_AUTHOR_DATE: d, GIT_COMMITTER_DATE: d },
+    })
+  }
+  const head = () =>
+    execSync('git rev-parse HEAD', {
+      cwd: dir,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    }).trim()
+  const T = new Date().toISOString()
+  try {
+    writeFileSync(join(dir, 'f.txt'), 'v1\n')
+    git('git add f.txt')
+    git('git commit -m "f-v1"')
+    // 可达面:f 同秒被删(side-del)与被改(side-mod)⇒ 3b 该路径真翻转 ⇒ 3b「未判定 1」。
+    git('git checkout -b side-del')
+    git('git rm -q f.txt')
+    git('git commit -m "side-del"', T)
+    git('git checkout main')
+    git('git checkout -b side-mod')
+    writeFileSync(join(dir, 'f.txt'), 'v2\n')
+    git('git add f.txt')
+    git('git commit -m "side-mod"', T)
+    git('git checkout main')
+    // tag 直指候选:与 side-del 同样删 f(v1)。它同时是 3b 的未判定项。
+    git('git checkout -b temp-tag')
+    git('git rm -q f.txt')
+    git('git commit -m "tag-del-f"')
+    const candidate = head()
+    git('git checkout main')
+    git('git branch -D temp-tag')
+    git(`git tag lost-commit/tie-3b ${candidate}`)
+    // 另造一枚**未被 tag**的悬空提交,让 `unreachable.length > 0` 这个块真的执行
+    // (第 2882 行整体赋值就在块内)。它的路径 uniq.txt 不并列 ⇒ 悬空档未判定 0。
+    git('git checkout -b temp-dangle')
+    writeFileSync(join(dir, 'uniq.txt'), 'only-in-dangle\n')
+    git('git add uniq.txt')
+    git('git commit -m "dangle-uniq"')
+    git('git checkout main')
+    git('git branch -D temp-dangle')
+
+    const r = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(
+      r.status,
+      2,
+      `3b 未判定项必须存活到出口并 exit 2(修前会被整体赋值抹成 exit 1);实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
+    )
+    assert.match(r.stdout, /UNDETERMINED/, '必须显式报未判定')
+    assert.match(r.stdout, new RegExp(candidate.slice(0, 7)), '3b 未判定项必须点名出现,不许被吞')
+    // 悬空档只扣悬空维自己的未判定:已备份 0 / 未判定 1 / 待处置 1,不得把 3b 项算成已备份。
+    const bucket = r.stdout.split('\n').find((l) => l.includes('悬空分档:'))
+    assert.ok(bucket, '必须打印悬空分档行')
+    assert.match(bucket, /已备份 0/, `3b 未判定项不许折成已备份: ${bucket}`)
+    assert.match(bucket, /未判定 1/, `悬空分档必须显示未判定 1: ${bucket}`)
+    assert.match(bucket, /待处置 1/, `悬空分档必须显示待处置 1: ${bucket}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('逐路径覆盖·端到端: 树与任何可达提交都不同,但每条改动路径同路径同 blob ⇒ 放行并逐条给证据', () => {
+  const dir = createTempRepo()
+  const git = (cmd) => execSync(cmd, { cwd: dir, stdio: 'ignore' })
+  try {
+    // 两个可达提交分别覆盖 a.txt / b.txt 的新 blob;没有任何可达树同时含两者。
+    git('git checkout -b side-a')
+    writeFileSync(join(dir, 'a.txt'), 'vA\n')
+    git('git add a.txt')
+    git('git commit -m "land-a"')
+    git('git checkout main')
+    git('git checkout -b side-b')
+    writeFileSync(join(dir, 'b.txt'), 'vB\n')
+    git('git add b.txt')
+    git('git commit -m "land-b"')
+    git('git checkout main')
+    // 悬空提交的树 = {README, a:vA, b:vB};与 side-a/side-b/main 的树都不同(并发夹带形态)
+    git('git checkout -b temp-concurrency')
+    writeFileSync(join(dir, 'a.txt'), 'vA\n')
+    writeFileSync(join(dir, 'b.txt'), 'vB\n')
+    git('git add a.txt b.txt')
+    git('git commit -m "concurrency-dangling"')
+    git('git checkout main')
+    git('git branch -D temp-concurrency')
+    const r = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(
+      r.status,
+      0,
+      `逐路径全覆盖应放行 exit 0,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
+    )
+    assert.match(r.stdout, /逐路径覆盖放行 1 个/, '放行必须点名,不得静默')
+    assert.match(r.stdout, /a\.txt/, '证据应逐条列出被覆盖的路径')
+    assert.match(r.stdout, /b\.txt/, '证据应逐条列出被覆盖的路径')
+    assert.match(r.stdout, /\(ref\)/, '证据应标明覆盖面')
+    assert.match(r.stdout, /悬空分档:.*逐路径覆盖 1/, '分档行必须报数')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('逐路径覆盖·端到端: 有一条路径未覆盖 ⇒ 判红并点名该路径与 blob + 复核命令', () => {
+  const dir = createTempRepo()
+  const git = (cmd) => execSync(cmd, { cwd: dir, stdio: 'ignore' })
+  try {
+    git('git checkout -b side-a')
+    writeFileSync(join(dir, 'a.txt'), 'vA\n')
+    git('git add a.txt')
+    git('git commit -m "land-a"')
+    git('git checkout main')
+    // a.txt 的 blob 已被 side-a 覆盖;lost-unique.txt 只存在于悬空提交里
+    git('git checkout -b temp-partial')
+    writeFileSync(join(dir, 'a.txt'), 'vA\n')
+    writeFileSync(join(dir, 'lost-unique.txt'), 'never-landed\n')
+    git('git add a.txt lost-unique.txt')
+    git('git commit -m "partial-dangling"')
+    git('git checkout main')
+    git('git branch -D temp-partial')
+    const r = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(
+      r.status,
+      1,
+      `有路径未覆盖必须判红,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
+    )
+    assert.match(r.stdout, /未覆盖:A lost-unique\.txt blob=/, '判红必须点名未覆盖路径与 blob')
+    assert.match(
+      r.stdout,
+      /复核:git log --all --raw --no-renames -- "lost-unique\.txt"/,
+      '判红必须给出可直接执行的复核命令',
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('逐路径覆盖·端到端: 新增路径只有"同内容不同路径" ⇒ 判红(防重命名误判成已覆盖)', () => {
+  const dir = createTempRepo()
+  const git = (cmd) => execSync(cmd, { cwd: dir, stdio: 'ignore' })
+  try {
+    writeFileSync(join(dir, 'other.txt'), 'shared-content\n')
+    git('git add other.txt')
+    git('git commit -m "add-other"')
+    git('git checkout -b temp-renamed')
+    writeFileSync(join(dir, 'new-name.txt'), 'shared-content\n')
+    git('git add new-name.txt')
+    git('git commit -m "add-new-name"')
+    git('git checkout main')
+    git('git branch -D temp-renamed')
+    const r = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(
+      r.status,
+      1,
+      `同内容不同路径不得放行,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
+    )
+    assert.match(r.stdout, /未覆盖:A new-name\.txt/, '未覆盖的新增路径必须点名')
+    assert.doesNotMatch(r.stdout, /逐路径覆盖放行 1 个/, '不得按"别处有同内容"放行')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('逐路径覆盖·端到端: 删除路径的意图未在可达面生效 ⇒ 判红并点名该路径', () => {
+  const dir = createTempRepo()
+  const git = (cmd) => execSync(cmd, { cwd: dir, stdio: 'ignore' })
+  try {
+    // keep.txt 在可达面一直存在(没有任何可达提交删过它)
+    writeFileSync(join(dir, 'keep.txt'), 'keep-me\n')
+    git('git add keep.txt')
+    git('git commit -m "add-keep"')
+    // 另两条可达路径各自覆盖 a.txt / b.txt,保证悬空树不等于任何可达树(否则会先落"等价残留")
+    git('git checkout -b side-a')
+    writeFileSync(join(dir, 'a.txt'), 'vA\n')
+    git('git add a.txt')
+    git('git commit -m "land-a"')
+    git('git checkout main')
+    git('git checkout -b side-b')
+    writeFileSync(join(dir, 'b.txt'), 'vB\n')
+    git('git add b.txt')
+    git('git commit -m "land-b"')
+    git('git checkout main')
+    // 悬空提交:删除 keep.txt,同时带上 a:vA / b:vB(树 = {README,a,b},不可达)
+    git('git checkout -b temp-del')
+    execFileSync('git', ['rm', 'keep.txt'], { cwd: dir, stdio: 'ignore' })
+    writeFileSync(join(dir, 'a.txt'), 'vA\n')
+    writeFileSync(join(dir, 'b.txt'), 'vB\n')
+    git('git add a.txt b.txt')
+    git('git commit -m "delete-keep-dangling"')
+    git('git checkout main')
+    git('git branch -D temp-del')
+    const r = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(
+      r.status,
+      1,
+      `删除意图未在可达面生效必须判红,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
+    )
+    // keep.txt 在可达面最新状态仍是"存在"(只被 add 过、从没被删过)⇒ 本次删除没有出处。
+    assert.match(
+      r.stdout,
+      /未覆盖:D keep\.txt blob=.*最新状态仍是"存在"/,
+      '必须点名删除路径,并说明"更早的删除记录不能作证"的判红依据',
+    )
+    assert.doesNotMatch(r.stdout, /已覆盖:D keep\.txt/, '不得把"可达面从没删过它"读成覆盖')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// ─── D 类收紧(2026-11-04):删的必须是同一内容、且是该路径最新状态 ───────────
+
+test('D 类收紧①: 删 → 重建 → 再删 ⇒ 判红(旧删除记录不得为新的删除意图作证)', () => {
+  const dir = createTempRepo()
+  // 夹具时钟:每次 git 调用推进 1 秒 ⇒ 同一路径的连续改动不会落在同一秒。
+  // (2026-11-04 起「同秒并列且状态不同」判未判定 → exit 2;夹具必须把"谁更新"钉死,
+  //  否则测到的是并列歧义,而不是本用例要证的 D 收紧判据。)
+  let clock = Date.now() - 3_600_000
+  const git = (cmd) => {
+    clock += 1000
+    const d = new Date(clock).toISOString()
+    return execSync(cmd, {
+      cwd: dir,
+      stdio: 'ignore',
+      env: { ...process.env, GIT_AUTHOR_DATE: d, GIT_COMMITTER_DATE: d },
+    })
+  }
+  try {
+    // 旁支提供 q.txt 的同路径同 blob 覆盖,并让悬空枚的树不等于任何可达树(否则会先落等价残留)
+    git('git checkout -b side')
+    writeFileSync(join(dir, 'q.txt'), 'q-content\n')
+    writeFileSync(join(dir, 'r.txt'), 'r-content\n')
+    git('git add q.txt r.txt')
+    git('git commit -m "side-q-r"')
+    git('git checkout main')
+    // 可达历史:p.txt 先落地 → 删掉(留下一条最早的删除记录)→ 用**同内容**重建
+    writeFileSync(join(dir, 'p.txt'), 'p-v1\n')
+    git('git add p.txt')
+    git('git commit -m "add-p"')
+    git('git rm p.txt')
+    git('git commit -m "delete-p-first"')
+    writeFileSync(join(dir, 'p.txt'), 'p-v1\n')
+    git('git add p.txt')
+    git('git commit -m "rebuild-p-same-content"')
+    // 悬空枚:删掉重建后的 p.txt。它的 old blob 与最早那次删除完全相同 ⇒ 宽判据会放行。
+    git('git checkout -b temp-dangle')
+    git('git rm p.txt')
+    writeFileSync(join(dir, 'q.txt'), 'q-content\n')
+    git('git add q.txt')
+    git('git commit -m "dangle-delete-p-after-rebuild"')
+    git('git checkout main')
+    git('git branch -D temp-dangle')
+    const r = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    // 为什么正确:该路径在可达面的**最新状态是"存在"**(重建后的那份),删除这件事从未落地;
+    // 最早那次删除的 old blob 虽然相同,但它早于重建,不能给本次删除作证。
+    assert.equal(
+      r.status,
+      1,
+      `删→重建→再删必须判红,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
+    )
+    assert.match(r.stdout, /未覆盖:D p\.txt blob=[0-9a-f]{12}/, '必须点名删除路径与被删内容')
+    assert.match(r.stdout, /最新状态仍是"存在"/, '判红理由必须指出"最新状态是存在"')
+    assert.match(r.stdout, /更早的删除记录不能为新删除作证/, '必须写明搭便车被挡住的原因')
+    assert.doesNotMatch(r.stdout, /已覆盖:D p\.txt/, '旧删除记录不得被当成覆盖证据')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('D 类收紧②: 可达面最新改动就是删掉同一 old blob ⇒ 放行并给出该删除记录', () => {
+  const dir = createTempRepo()
+  // 夹具时钟:每次 git 调用推进 1 秒(否则同一秒的 D/M 并列会被判未判定)。
+  let clock = Date.now() - 3_600_000
+  const git = (cmd) => {
+    clock += 1000
+    const d = new Date(clock).toISOString()
+    return execSync(cmd, {
+      cwd: dir,
+      stdio: 'ignore',
+      env: { ...process.env, GIT_AUTHOR_DATE: d, GIT_COMMITTER_DATE: d },
+    })
+  }
+  const rev = () =>
+    execSync('git rev-parse HEAD', {
+      cwd: dir,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim()
+  try {
+    git('git checkout -b side')
+    writeFileSync(join(dir, 'q.txt'), 'q-content\n')
+    writeFileSync(join(dir, 'r.txt'), 'r-content\n')
+    git('git add q.txt r.txt')
+    git('git commit -m "side-q-r"')
+    git('git checkout main')
+    writeFileSync(join(dir, 'p.txt'), 'p-v1\n')
+    git('git add p.txt')
+    git('git commit -m "add-p"')
+    const withP = rev()
+    git('git rm p.txt')
+    git('git commit -m "delete-p-latest"')
+    const deleteP = rev()
+    // 悬空枚从 add-p 分出(那时 p.txt 还在),删的正是同一份内容
+    git(`git checkout -b temp-dangle ${withP}`)
+    git('git rm p.txt')
+    writeFileSync(join(dir, 'q.txt'), 'q-content\n')
+    git('git add q.txt')
+    git('git commit -m "dangle-delete-p-same-old-blob"')
+    git('git checkout main')
+    git('git branch -D temp-dangle')
+    const r = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    // 为什么正确:可达面最新一次改动就是"删掉同一份内容",之后没有任何重建把该路径复活
+    // ⇒ 这次删除的意图已经在可达历史里原样发生过,放行不是降低标准。
+    assert.equal(
+      r.status,
+      0,
+      `最新状态即同内容删除应放行,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
+    )
+    assert.match(r.stdout, /逐路径覆盖放行 1 个/, '放行必须点名,不得静默')
+    const line = (r.stdout.split('\n').find((l) => l.includes('D p.txt')) || '').trim()
+    assert.match(line, /D p\.txt blob=[0-9a-f]{12}/, '证据必须写明"被删掉的那份内容"(old blob)')
+    assert.ok(
+      line.includes(deleteP.slice(0, 12)),
+      `证据必须指向可达面那条最新删除记录 ${deleteP.slice(0, 12)},实际行: ${line}`,
+    )
+    assert.doesNotMatch(r.stdout, /未覆盖:D p\.txt/, '已证明的删除不得再判红')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('D 类收紧③: 最新删除记录删的 old blob 不同 ⇒ 判红(删的不是同一内容)', () => {
+  const dir = createTempRepo()
+  // 夹具时钟:每次 git 调用推进 1 秒(否则同一秒的 D/M 并列会被判未判定)。
+  let clock = Date.now() - 3_600_000
+  const git = (cmd) => {
+    clock += 1000
+    const d = new Date(clock).toISOString()
+    return execSync(cmd, {
+      cwd: dir,
+      stdio: 'ignore',
+      env: { ...process.env, GIT_AUTHOR_DATE: d, GIT_COMMITTER_DATE: d },
+    })
+  }
+  try {
+    git('git checkout -b side')
+    writeFileSync(join(dir, 'q.txt'), 'q-content\n')
+    writeFileSync(join(dir, 'r.txt'), 'r-content\n')
+    git('git add q.txt r.txt')
+    git('git commit -m "side-q-r"')
+    git('git checkout main')
+    writeFileSync(join(dir, 'p.txt'), 'p-v1\n')
+    git('git add p.txt')
+    git('git commit -m "add-p-v1"')
+    const v1Commit = execSync('git rev-parse HEAD', {
+      cwd: dir,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim()
+    writeFileSync(join(dir, 'p.txt'), 'p-v2\n')
+    git('git add p.txt')
+    git('git commit -m "modify-p-v2"')
+    git('git rm p.txt')
+    git('git commit -m "delete-p-latest-v2"')
+    // 悬空枚从 v1 那个提交分出:它删的是 p-v1,而可达面最新那条删除删的是 p-v2
+    git(`git checkout -b temp-dangle ${v1Commit}`)
+    git('git rm p.txt')
+    writeFileSync(join(dir, 'q.txt'), 'q-content\n')
+    git('git add q.txt')
+    git('git commit -m "dangle-delete-p-old-v1"')
+    git('git checkout main')
+    git('git branch -D temp-dangle')
+    const r = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    // 为什么正确:悬空枚删掉的 v1 那版内容在"被删"这件事上从未进入可达面(可达面删的是 v2),
+    // 最新删除记录的 old blob 与本次不同 ⇒ 旧记录不能作证,必须判红。
+    assert.equal(
+      r.status,
+      1,
+      `old blob 不同的删除必须判红,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
+    )
+    assert.match(r.stdout, /未覆盖:D p\.txt blob=[0-9a-f]{12}/, '必须点名删除路径与被删内容')
+    assert.match(r.stdout, /可达面最新删除记录删的是另一份内容/, '判红理由必须指出 old blob 不同')
+    assert.match(r.stdout, /旧删除不能为新删除作证/, '必须写明为什么旧记录不作证')
+    assert.doesNotMatch(r.stdout, /已覆盖:D p\.txt/, 'old blob 不同的旧记录不得被当成覆盖证据')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('D 类收紧④: 多次删除中只有最后一次同 old blob ⇒ 放行,且证据只指向最后一次', () => {
+  const dir = createTempRepo()
+  // 夹具时钟:每次 git 调用推进 1 秒(否则同一秒的 D/M 并列会被判未判定)。
+  let clock = Date.now() - 3_600_000
+  const git = (cmd) => {
+    clock += 1000
+    const d = new Date(clock).toISOString()
+    return execSync(cmd, {
+      cwd: dir,
+      stdio: 'ignore',
+      env: { ...process.env, GIT_AUTHOR_DATE: d, GIT_COMMITTER_DATE: d },
+    })
+  }
+  const rev = () =>
+    execSync('git rev-parse HEAD', {
+      cwd: dir,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim()
+  try {
+    git('git checkout -b side')
+    writeFileSync(join(dir, 'q.txt'), 'q-content\n')
+    writeFileSync(join(dir, 'r.txt'), 'r-content\n')
+    git('git add q.txt r.txt')
+    git('git commit -m "side-q-r"')
+    git('git checkout main')
+    writeFileSync(join(dir, 'p.txt'), 'p-v1\n')
+    git('git add p.txt')
+    git('git commit -m "add-p-v1"')
+    git('git rm p.txt')
+    git('git commit -m "delete-p-v1"')
+    const firstDelete = rev()
+    writeFileSync(join(dir, 'p.txt'), 'p-v2\n')
+    git('git add p.txt')
+    git('git commit -m "rebuild-p-v2"')
+    const withV2 = rev()
+    git('git rm p.txt')
+    git('git commit -m "delete-p-v2"')
+    const lastDelete = rev()
+    // 悬空枚从 rebuild-p-v2 分出:删的也正是 p-v2(与最后一次删除同 old blob)
+    git(`git checkout -b temp-dangle ${withV2}`)
+    git('git rm p.txt')
+    writeFileSync(join(dir, 'q.txt'), 'q-content\n')
+    git('git add q.txt')
+    git('git commit -m "dangle-delete-p-v2"')
+    git('git checkout main')
+    git('git branch -D temp-dangle')
+    const r = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    // 为什么正确:第一次删除删的是 v1(既非最新状态、old blob 也不同),不作证;
+    // 最后一次删除既是该路径最新改动、old blob 又与本次逐字相同 ⇒ 本次删除意图已在可达面落地。
+    assert.equal(
+      r.status,
+      0,
+      `最新那次同内容删除应放行,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
+    )
+    assert.match(r.stdout, /逐路径覆盖放行 1 个/, '放行必须点名')
+    const line = (r.stdout.split('\n').find((l) => l.includes('D p.txt')) || '').trim()
+    assert.ok(
+      line.includes(lastDelete.slice(0, 12)),
+      `证据必须指向最后一次删除 ${lastDelete.slice(0, 12)},实际行: ${line}`,
+    )
+    assert.ok(
+      !line.includes(firstDelete.slice(0, 12)),
+      `证据不得指向那次 old blob 不同的旧删除 ${firstDelete.slice(0, 12)}`,
+    )
+    assert.doesNotMatch(r.stdout, /未覆盖:D p\.txt/, '最新同内容删除已作证,不得判红')
   } finally {
     rmScratch(dir)
   }
@@ -512,7 +1322,8 @@ test('filter-stash: stash-like 悬空 commit 被过滤(不报告为丢失)', () 
 
 // ─── 无 origin remote 场景(不 crash) ────────────────────
 
-test('鲁棒性: 无 origin remote → 不 crash(远程 tag 校验跳过)', () => {  const dir = createTempRepo()
+test('鲁棒性: 无 origin remote → 不 crash(远程 tag 校验跳过)', () => {
+  const dir = createTempRepo()
   try {
     // 临时仓库无 origin,git ls-remote origin 会失败
     // 脚本应 allowFail 处理,不 crash
@@ -632,7 +1443,6 @@ test('自愈: 另一台机推来的 lost-commit tag → 本门自己 fetch 回�
     const gitDir = G(local, ['rev-parse', '--absolute-git-dir']).trim()
     const packed = readFileSync(join(gitDir, 'packed-refs'), 'utf8')
     assert.match(packed, /refs\/tags\/lost-commit\/only-on-remote/, '自愈后必须固化进 packed-refs')
-
   } finally {
     rmScratch(base)
   }
@@ -879,7 +1689,9 @@ test('清单出口·超窗: --list-out-of-window 逐枚交完整 oid,行形状�
   const dir = createTempRepo()
   try {
     const ancient = makeDangling(dir, 'e2e-list-outwise-XYZ', '2020-01-01T00:00:00 +08:00')
-    const r = runScript(['--blocking', '--filter-stash', __test__.FLAGS.listOutOfWindow], { cwd: dir })
+    const r = runScript(['--blocking', '--filter-stash', __test__.FLAGS.listOutOfWindow], {
+      cwd: dir,
+    })
     assert.equal(r.status, 0, `超窗不得拦,实际 ${r.status}:\n${String(r.stdout).slice(-700)}`)
     const listed = oidsAfterHeader(r.stdout, '--list-out-of-window:')
     assert.deepEqual(listed, [ancient], `超窗清单必须恰含那一枚 ${ancient},实际 ${listed}`)
@@ -919,7 +1731,150 @@ test('清单出口·全量档契约: --window-days 0 时 --list-unbacked 必须�
     )
     assert.equal(full.status, 1, `窗维关闭必须照拦,实际 ${full.status}`)
     const listed = oidsAfterHeader(full.stdout, '--list-unbacked:')
-    assert.ok(listed.includes(ancient), `全量档的未备份清单必须含超窗那枚 ${ancient},实际 ${listed}`)
+    assert.ok(
+      listed.includes(ancient),
+      `全量档的未备份清单必须含超窗那枚 ${ancient},实际 ${listed}`,
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// ─── 逐路径覆盖全量落盘(--list-covered <file>,2026-11-05)────────────────────
+// 立因:展示行只打 `pathCovered.slice(0, 10)`,前 10 名之外的差异(典型"26→24 被移出的
+// 2 枚")无法命名,对账人只能改脚本或重算判据(重算那份必然与源漂开 §22c)。本开关只把
+// **已有的** pathCovered 全量落盘,不改任何判据。三条用例分别钉:默认零副作用 / 条数等于
+// pathCovered 且与 missing 集合互补 / 空集合也产出 0 条文件。
+function readCoveredJsonl(path) {
+  const text = readFileSync(path, 'utf8')
+  if (text === '') return []
+  return text
+    .replace(/\n$/, '')
+    .split('\n')
+    .map((l) => JSON.parse(l))
+}
+
+test('--list-covered·反向①: 不给开关 ⇒ 不落盘、无新增输出(去掉开关横幅后与默认逐字一致)', () => {
+  const dir = createTempRepo()
+  const git = (cmd) => execSync(cmd, { cwd: dir, stdio: 'ignore' })
+  try {
+    // 同一份夹具先跑默认档,再跑开关档:两者 stdout 除新增的单行横幅外必须逐字一致。
+    git('git checkout -b side-a')
+    writeFileSync(join(dir, 'a.txt'), 'vA\n')
+    git('git add a.txt')
+    git('git commit -m "land-a"')
+    git('git checkout main')
+    git('git checkout -b side-b')
+    writeFileSync(join(dir, 'b.txt'), 'vB\n')
+    git('git add b.txt')
+    git('git commit -m "land-b"')
+    git('git checkout main')
+    git('git checkout -b temp-cov')
+    writeFileSync(join(dir, 'a.txt'), 'vA\n')
+    writeFileSync(join(dir, 'b.txt'), 'vB\n')
+    git('git add a.txt b.txt')
+    git('git commit -m "covered-dangling"')
+    git('git checkout main')
+    git('git branch -D temp-cov')
+
+    const target = join(dir, 'covered-list.jsonl')
+    const off = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(off.status, 0, `逐路径全覆盖应放行,实际 ${off.status}:\n${off.stdout}`)
+    assert.ok(!existsSync(target), '不给 --list-covered 时不得落盘')
+    assert.doesNotMatch(off.stdout, /--list-covered:/, '默认输出不得出现开关横幅')
+
+    const on = runScript(['--blocking', '--filter-stash', __test__.FLAGS.listCovered, target], {
+      cwd: dir,
+    })
+    assert.equal(on.status, 0, `开关只加落盘,不得改判定,实际 ${on.status}:\n${on.stdout}`)
+    const stripped = String(on.stdout)
+      .split('\n')
+      .filter((l) => !l.includes('--list-covered:'))
+      .join('\n')
+    assert.equal(stripped, off.stdout, '开关的唯一输出增量是那行横幅,其余必须逐字一致')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('--list-covered·反向②: 开关开 ⇒ 落盘条数 == pathCovered.size,且与 missing 集合互补', () => {
+  const dir = createTempRepo()
+  const git = (cmd) => execSync(cmd, { cwd: dir, stdio: 'ignore' })
+  try {
+    // 两条可达分支各落一条路径:让悬空提交的树不等于任何单条可达树(否则会先被
+    // 「等价残留」档放行,pathCovered 恒 0,用例就测不到本开关)。
+    git('git checkout -b side-a')
+    writeFileSync(join(dir, 'a.txt'), 'vA\n')
+    git('git add a.txt')
+    git('git commit -m "land-a"')
+    git('git checkout main')
+    git('git checkout -b side-b')
+    writeFileSync(join(dir, 'b.txt'), 'vB\n')
+    git('git add b.txt')
+    git('git commit -m "land-b"')
+    git('git checkout main')
+    // ① 逐路径全覆盖的悬空提交(每路径的同路径同 blob 在 side-a/side-b 上)
+    git('git checkout -b temp-cov')
+    writeFileSync(join(dir, 'a.txt'), 'vA\n')
+    writeFileSync(join(dir, 'b.txt'), 'vB\n')
+    git('git add a.txt b.txt')
+    git('git commit -m "covered-dangling"')
+    const coveredOid = execFileSync('git', ['rev-parse', 'HEAD'], {
+      cwd: dir,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    }).trim()
+    git('git checkout main')
+    git('git branch -D temp-cov')
+    // ② 真有缺口的悬空提交(lost-unique.txt 从未在可达面出现)
+    git('git checkout -b temp-gap')
+    writeFileSync(join(dir, 'lost-unique.txt'), 'never-landed\n')
+    git('git add lost-unique.txt')
+    git('git commit -m "gap-dangling"')
+    const gapOid = execFileSync('git', ['rev-parse', 'HEAD'], {
+      cwd: dir,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    }).trim()
+    git('git checkout main')
+    git('git branch -D temp-gap')
+
+    const target = join(dir, 'covered-list.jsonl')
+    const r = runScript(['--blocking', '--filter-stash', __test__.FLAGS.listCovered, target], {
+      cwd: dir,
+    })
+    assert.equal(r.status, 1, `有缺口必须判红,实际 ${r.status}:\n${r.stdout}`)
+    assert.ok(existsSync(target), '开关开时必须落盘')
+    const recs = readCoveredJsonl(target)
+    // 条数必须等于门自己报的 pathCovered 枚数(不是展示行的前 10 枚)
+    const shown = String(r.stdout).match(/逐路径覆盖放行 (\d+) 个/)
+    assert.ok(shown, '门必须仍在报告里给出 pathCovered 条数')
+    assert.equal(recs.length, Number(shown[1]), '落盘条数必须等于 pathCovered.size')
+    assert.equal(recs.length, 1, '本夹具的 pathCovered 应恰为 1 枚')
+    assert.equal(recs[0].hash, coveredOid, '落盘的必须是那枚被逐路径覆盖放行的提交')
+    assert.match(String(r.stdout), /--list-covered:1 条/, '横幅必须给出条数')
+    // 与 missing 集合对上:缺口那枚在 stdout 的「未覆盖」清单里,且**不得**出现在落盘里
+    assert.match(String(r.stdout), /未覆盖:A lost-unique\.txt/, '缺口必须被门点名')
+    assert.ok(!recs.some((x) => x.hash === gapOid), '有缺口的提交不得混进 pathCovered 落盘')
+    // evidence 必须带同路径证据(否则"哪条路径被谁覆盖"仍无法对账)
+    const evPaths = (recs[0].evidence || []).map((e) => e.path).sort()
+    assert.deepEqual(evPaths, ['a.txt', 'b.txt'], `证据应逐条列出被覆盖路径,实际 ${evPaths}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('--list-covered·反向③: 空集合 ⇒ 落盘文件存在、条数 0、exit 0', () => {
+  const dir = createTempRepo()
+  try {
+    const target = join(dir, 'covered-empty.jsonl')
+    const r = runScript(['--blocking', __test__.FLAGS.listCovered, target], { cwd: dir })
+    assert.equal(r.status, 0, `干净仓库无覆盖项应 exit 0,实际 ${r.status}:\n${r.stdout}`)
+    assert.ok(existsSync(target), '空集合也必须产出文件(否则"0 条"与"没落盘"无从区分)')
+    assert.equal(readCoveredJsonl(target).length, 0, '空集合的落盘条数必须为 0')
+    assert.match(String(r.stdout), /--list-covered:0 条/, '横幅必须报 0 条')
   } finally {
     rmScratch(dir)
   }
@@ -929,11 +1884,17 @@ test('装车证明: 超窗清单旗标必须①在 FLAGS 唯一源头里②被 a
   const src = readFileSync(SCRIPT_PATH, 'utf8')
   const flag = __test__.FLAGS.listOutOfWindow
   assert.ok(/listOutOfWindow:\s*'--list-out-of-window'/.test(src), 'FLAGS 必须声明该旗标(唯一源头)')
-  assert.ok(src.includes(`process.argv.includes(FLAGS.listOutOfWindow)`), 'main 必须从 FLAGS 读,不得写死字面量')
+  assert.ok(
+    src.includes(`process.argv.includes(FLAGS.listOutOfWindow)`),
+    'main 必须从 FLAGS 读,不得写死字面量',
+  )
   assert.ok(/if \(isListOutOfWindow\)/.test(src), '读取点之后必须有真判定点')
-  assert.ok(/for \(const o of win\.outOfWeek\) console\.log\(o\.hash\)/.test(src), '判定必须落到逐枚打印')
+  assert.ok(
+    /for \(const o of win\.outOfWeek\) console\.log\(o\.hash\)/.test(src),
+    '判定必须落到逐枚打印',
+  )
   // 顺序锁:清单打印必须排在 if/else 分桶链**之后**,否则窗内有债时超窗名单会被 else 吞掉
-  const chain = src.lastIndexOf('} else if (unreachable.length > 0) {')
+  const chain = src.lastIndexOf('} else if (unreachable.length > 0')
   const print = src.indexOf('if (isListOutOfWindow)')
   assert.ok(chain >= 0 && print > chain, `清单打印必须在分桶链之后(chain=${chain}, print=${print})`)
   assert.ok(
@@ -964,5 +1925,519 @@ test('装车证明: 窗维判据必须真挂在 main 的判定链上(函数在�
       assert.match(src, exportRe, `${name} 必须进 __test__ 导出面,供镜像直接消费而非另抄判据`)
   }
   assert.match(src, /wholeWalkFailed/, '整批派生失败那一支必须有实现,不得只写在注释里')
+})
+
+/**
+ * 2026-11-04:远程 tag 完整性档「显式发起但取不到」必须显式未判定(exit 2),不得折成通过。
+ * 夹具用**必然取不到**的 origin(指向不存在的本地路径):它与真超时同走 remoteTagScan 的
+ * catch 分支(parsed=null ⇒ attempted/failed=true),但不需要真等 60s。
+ * 为什么不注入假 git:PATH 注入在本门不成立 —— 派生走共用层的绝对路径 `GIT_BIN`,不经 PATH;
+ * 且 Windows 下 `execFileSync` 不能直接起 `.cmd`(实测 EINVAL)。故采用等价可控的"取不到"夹具。
+ */
+test('远程 tag 完整性·显式发起但 ls-remote 取不到 ⇒ UNDETERMINED + exit 2,不得记通过', () => {
+  const dir = createTempRepo()
+  // 不存在的远端路径 ⇒ ls-remote 必然失败(与超时同一分支:catch ⇒ null ⇒ 未判定)
+  execFileSync('git', ['remote', 'add', 'origin', join(dir, 'no-such-remote')], {
+    cwd: dir,
+    stdio: 'ignore',
+  })
+  const r = runScript(['--blocking', '--filter-stash'], {
+    cwd: dir,
+    env: { IHUI_COMMIT_LOSS_REMOTE: '1', IHUI_COMMIT_LOSS_NO_CACHE: '1' },
+  })
+  const out = `${r.stdout || ''}${r.stderr || ''}`
+  // ① 输出必须出现未判定标记
+  assert.match(out, /UNDETERMINED/, `显式发起却没取到,输出必须标未判定,实际:\n${out.slice(-600)}`)
+  // ② 退码必须是 2(0=通过 / 1=判红 / 2=没判成)
+  assert.equal(r.status, 2, `未判定必须 exit 2,实际 ${r.status}:\n${out.slice(-600)}`)
+  // ③ 不得出现"通过"字样(尤其不得打印成功句)
+  assert.ok(!out.includes('通过'), `未判定不得写成通过,实际输出:\n${out.slice(-600)}`)
+  assert.ok(!out.includes(__test__.GREEN_MARKERS.noRisk), '未判定不得打印"无 commit 丢失风险"')
+})
+
+// ─── 3b 维(2026-11-05):lost-commit/* tag 直接指向的提交也纳入逐路径覆盖 ───
+// 盲区:tag 让提交可达 ⇒ fsck --unreachable 看不到它 ⇒ 旧判据完全失明。
+// 这四条用例把「新维度会不会恒红 / 缺口报不报 / 会不会误扩 / 会不会重复计数」分别钉住。
+
+test('3b·判据单元: tag 直接指向 ∧ 交付面不可达 ∧ 不在 fsck 悬空集 才进候选(④ 去重)', () => {
+  const tagPointed = new Set(['aa', 'bb', 'cc'])
+  const deliveryReachable = new Set(['bb'])
+  const rawUnreachable = new Set(['cc'])
+  assert.deepEqual(
+    __test__.selectTagCoverageCandidates({ tagPointed, deliveryReachable, rawUnreachable }),
+    ['aa'],
+    'bb 已在交付面、cc 已被 fsck 档处理 ⇒ 只剩 aa;cc 若再进候选就是两桶重复计数',
+  )
+})
+
+test('3b·判据单元: tagPointedCommitSet 只认 lost-commit/* 名集(③ 防误扩)', () => {
+  const reachability = [
+    { tag: 'lost-commit/auto-1', hash: 'a1' },
+    { tag: 'lost-commit/auto-2', hash: 'a2' },
+    { tag: 'release/v1', hash: 'r1' },
+    { tag: 'backup/snapshot', hash: 'b1' },
+  ]
+  assert.deepEqual(
+    [
+      ...__test__.tagPointedCommitSet(
+        reachability,
+        new Set(['lost-commit/auto-1', 'lost-commit/auto-2']),
+      ),
+    ].sort(),
+    ['a1', 'a2'],
+    '普通 tag / backup tag 不承担"悬空提交备份"语义,纳进来是误扩',
+  )
+})
+
+test('3b·端到端①: tag 指向的提交全部路径已在交付面覆盖 ⇒ 不得报红(证明不是恒红)', () => {
+  const dir = createTempRepo()
+  const git = (cmd) => execSync(cmd, { cwd: dir, stdio: 'ignore' })
+  try {
+    // 先在 temp 上造一枚"待备份"提交:新增 shared.txt=T
+    git('git checkout -b temp-covered')
+    writeFileSync(join(dir, 'shared.txt'), 'T\n')
+    git('git add shared.txt')
+    git('git commit -m "covered-dangling"')
+    git('git checkout main')
+    git('git branch -D temp-covered')
+    const oid = execSync('git rev-parse HEAD@{1}', {
+      cwd: dir,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim()
+    // 再在主线上落地同样内容(同路径同 blob)⇒ 该提交"已备份且已清偿"
+    writeFileSync(join(dir, 'shared.txt'), 'T\n')
+    git('git add shared.txt')
+    git('git commit -m "land-shared"')
+    git(`git tag lost-commit/covered ${oid}`)
+    const r = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(
+      r.status,
+      0,
+      `已清偿必须 exit 0(否则新维度恒红),实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
+    )
+    assert.match(r.stdout, /↳ 逐路径覆盖:已清偿 1 \/ 未清偿 0/, '必须点名"已清偿 1"')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('3b·端到端②: tag 指向的提交有路径无覆盖 ⇒ 必须点名报出来(即 b96a9dc2 形态)', () => {
+  const dir = createTempRepo()
+  const git = (cmd) => execSync(cmd, { cwd: dir, stdio: 'ignore' })
+  try {
+    git('git checkout -b temp-unpledged')
+    writeFileSync(join(dir, 'lost-unique-3b.txt'), 'never-landed\n')
+    git('git add lost-unique-3b.txt')
+    git('git commit -m "unpledged-dangling"')
+    const oid = execSync('git rev-parse HEAD', {
+      cwd: dir,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim()
+    git('git checkout main')
+    git('git branch -D temp-unpledged')
+    git(`git tag lost-commit/unpledged ${oid}`)
+    const r = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    // 报告口径:本单不把 3b 未清偿转 blocking(属用户级决定),但必须**报出来**且不得记绿。
+    assert.equal(r.status, 0, `3b 未清偿本轮不拦(exit 0),实际 ${r.status}:\n${r.stdout}`)
+    assert.match(r.stdout, /↳ 逐路径覆盖:已清偿 0 \/ 未清偿 1/, '缺口必须计入"未清偿"')
+    assert.match(
+      r.stdout,
+      /其中有未覆盖路径 1 \/ 无改动路径 merge或空提交 0/,
+      '必须把"真有未覆盖路径"与 merge/空提交分开计数(后者没有路径可清偿)',
+    )
+    assert.match(r.stdout, /已备份但缺口仍在/, '必须明确这是"已备份但未落地",不是"已保护"')
+    assert.match(r.stdout, new RegExp(oid.slice(0, 7)), `必须点名该提交 ${oid}`)
+    assert.match(r.stdout, /lost-unique-3b\.txt/, '必须点名未覆盖路径')
+    assert.ok(
+      !r.stdout.includes(__test__.GREEN_MARKERS.noRisk),
+      '有未清偿缺口时不得打印"无 commit 丢失风险"(那正是盲区原形)',
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('3b·端到端③: 非 lost-commit/* 的普通 tag ⇒ 不纳入新维度(防误扩)', () => {
+  const dir = createTempRepo()
+  const git = (cmd) => execSync(cmd, { cwd: dir, stdio: 'ignore' })
+  try {
+    git('git checkout -b temp-normal-tag')
+    writeFileSync(join(dir, 'normal-only.txt'), 'never-landed\n')
+    git('git add normal-only.txt')
+    git('git commit -m "normal-tag-dangling"')
+    const oid = execSync('git rev-parse HEAD', {
+      cwd: dir,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim()
+    git('git checkout main')
+    git('git branch -D temp-normal-tag')
+    git(`git tag release/3b-normal ${oid}`)
+    const r = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(r.status, 0, `普通 tag 不应触发任何新债,实际 ${r.status}:\n${r.stdout}`)
+    assert.match(
+      r.stdout,
+      /(无 lost-commit\/\* tag 指向的提交|↳ 逐路径覆盖:已清偿 0 \/ 未清偿 0)/,
+      '普通 tag 不得进入 3b 候选',
+    )
+    assert.doesNotMatch(r.stdout, new RegExp(oid.slice(0, 7)), '普通 tag 指向的提交不得被点名')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// ─── 30a 结论缓存(2026-11-08):根因是"3b 有未清偿项 ⇒ 一律不写缓存",而本仓该条件恒假 ───
+// 三件套:①红/带缺口结论也必须落缓存且命中后同数同点名;②未清偿集合一变(路径被交付面补齐)
+// 指纹必变、缓存必失效、结论必须翻绿;③指纹本身要能区分"条数相同但成员不同"。
+
+test('30a 结论缓存·命中: 3b 有未清偿项也落缓存,第二轮复用同数同点名', () => {
+  const dir = createTempRepo()
+  const git = (cmd) => execSync(cmd, { cwd: dir, stdio: 'ignore' })
+  try {
+    git('git checkout -b temp-cache-gap')
+    writeFileSync(join(dir, 'cache-gap.txt'), 'never-landed\n')
+    git('git add cache-gap.txt')
+    git('git commit -m "cache-gap-dangling"')
+    const oid = execSync('git rev-parse HEAD', {
+      cwd: dir,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim()
+    git('git checkout main')
+    git('git branch -D temp-cache-gap')
+    git(`git tag lost-commit/cache-gap ${oid}`)
+
+    const first = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(first.status, 0, first.stdout)
+    assert.doesNotMatch(first.stdout, /复用 \d+ 分钟前的结论/, '首轮没有缓存件,不得显示复用')
+    assert.match(first.stdout, /↳ 逐路径覆盖:已清偿 0 \/ 未清偿 1/)
+    assert.match(first.stdout, new RegExp(oid.slice(0, 7)), '冷跑必须点名缺口')
+    assert.ok(
+      existsSync(join(dir, '.git', 'ihui-commit-loss-cache.json')),
+      '3b 有未清偿项时也必须落结论缓存(否则每次提交都全量重算 = 本单根因)',
+    )
+
+    const second = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(second.status, 0, second.stdout)
+    assert.match(second.stdout, /复用 \d+ 分钟前的结论/, '判据输入面未变 ⇒ 必须命中缓存')
+    assert.match(second.stdout, /3b 逐路径覆盖\(复用\):已清偿 0 \/ 未清偿 1/)
+    assert.match(second.stdout, /其中有未覆盖路径 1 \/ 无改动路径 merge或空提交 0/)
+    assert.match(second.stdout, new RegExp(oid.slice(0, 7)), '命中路径也必须点名同一枚缺口')
+    assert.match(second.stdout, /⚠/, '带缺口的结论命中时不得打印通过句')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('30a 结论缓存·失效: 未覆盖路径被交付面补齐 ⇒ 必重算且结论翻绿', () => {
+  const dir = createTempRepo()
+  const git = (cmd) => execSync(cmd, { cwd: dir, stdio: 'ignore' })
+  try {
+    git('git checkout -b temp-cache-flip')
+    writeFileSync(join(dir, 'cache-flip.txt'), 'never-landed\n')
+    git('git add cache-flip.txt')
+    git('git commit -m "cache-flip-dangling"')
+    const oid = execSync('git rev-parse HEAD', {
+      cwd: dir,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim()
+    git('git checkout main')
+    git('git branch -D temp-cache-flip')
+    git(`git tag lost-commit/cache-flip ${oid}`)
+
+    const warm = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(warm.status, 0, warm.stdout)
+    assert.match(warm.stdout, /↳ 逐路径覆盖:已清偿 0 \/ 未清偿 1/)
+
+    // 变异:把那条未覆盖路径以同路径同 blob 落到交付面 ⇒ 未清偿集合变了
+    writeFileSync(join(dir, 'cache-flip.txt'), 'never-landed\n')
+    git('git add cache-flip.txt')
+    git('git commit -m "land-cache-flip"')
+
+    const after = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(after.status, 0, after.stdout)
+    assert.doesNotMatch(
+      after.stdout,
+      /复用 \d+ 分钟前的结论/,
+      '交付面变了 ⇒ 输入面指纹必变 ⇒ 不得复用旧红结论',
+    )
+    assert.match(after.stdout, /↳ 逐路径覆盖:已清偿 1 \/ 未清偿 0/, '补齐后结论必须翻绿')
+    assert.match(after.stdout, /✅/, '全部清偿时必须仍判绿')
+
+    const hit = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.match(hit.stdout, /复用 \d+ 分钟前的结论/, '翻绿后的结论同样要能命中')
+    assert.match(hit.stdout, /3b 逐路径覆盖\(复用\):已清偿 1 \/ 未清偿 0/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('30a 缓存键·输入面指纹: 顺序无关、成员一一对应、tag 重指必变', () => {
+  const fp = __test__.sortedFingerprint
+  assert.equal(fp(['b', 'a']), fp(['a', 'b']), '同一集合换个顺序不得换指纹')
+  assert.notEqual(fp(['a', 'b']), fp(['a', 'c']), '成员不同必须换指纹')
+  // 条数相同、成员不同(一进一出)也必须不同 —— 否则"改过"会被读成"没改"
+  assert.notEqual(fp(['a', 'b']), fp(['b', 'c']))
+  const t = (hash) => __test__.tagTargetFingerprint([{ tag: 'lost-commit/x', hash }])
+  assert.notEqual(
+    t('a'.repeat(40)),
+    t('b'.repeat(40)),
+    'tag 名单不变但目标被重指 ⇒ 指纹必须变(否则 3b 会复用旧红)',
+  )
+})
+
+// ─── 门内自动备份(2026-11-08 防复发):窗内新悬空 ⇒ 门自己打 lost-commit/auto-* ───
+// 成对语义:修前(AUTO_BACKUP=0)必须仍判红;修后(=1)才允许转绿,且 tag 必须真指向该提交。
+// 反向用例(撞名失败)是"自动化不得把判据变成永远绿"的牙:备份不成 ⇒ 该枚继续留在 blocking。
+
+function revParse(dir, rev) {
+  return execFileSync('git', ['rev-parse', rev], {
+    cwd: dir,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+  }).trim()
+}
+
+test('门内自动备份·成功: 窗内新悬空 AUTO_BACKUP=0 判红,=1 打 tag 后转绿且 tag 指向该提交', () => {
+  const dir = createTempRepo()
+  try {
+    const oid = makeDangling(dir, 'auto-backup-success-XYZ')
+    const off = runScript(['--blocking', '--filter-stash'], {
+      cwd: dir,
+      env: { IHUI_COMMIT_LOSS_AUTO_BACKUP: '0', IHUI_COMMIT_LOSS_NO_CACHE: '1' },
+    })
+    assert.equal(
+      off.status,
+      1,
+      `修前语义(不自动备份)必须判红,实际 ${off.status}\nstdout: ${off.stdout}\nstderr: ${off.stderr}`,
+    )
+    assert.match(off.stdout, /未备份/, '修前语义必须落在"未备份"档')
+
+    const on = runScript(['--blocking', '--filter-stash'], {
+      cwd: dir,
+      env: { IHUI_COMMIT_LOSS_AUTO_BACKUP: '1', IHUI_COMMIT_LOSS_NO_CACHE: '1' },
+    })
+    assert.equal(
+      on.status,
+      0,
+      `门内自动备份成功后应放行,实际 ${on.status}\nstdout: ${on.stdout}\nstderr: ${on.stderr}`,
+    )
+    assert.match(on.stdout, /门内自动备份:已打 tag 1 枚/, '自动备份必须点名,不得静默')
+    const tag = `lost-commit/auto-${oid.slice(0, 7)}`
+    // 只证明"退出码变绿"不够:必须证明门真的新增了指向该提交的 ref(内容被 ref 保住)。
+    assert.equal(
+      revParse(dir, `refs/tags/${tag}^{commit}`),
+      oid,
+      `自动备份 tag ${tag} 必须指向该悬空提交`,
+    )
+    assert.equal(
+      execFileSync('git', ['tag', '-l', 'lost-commit/auto-*'], {
+        cwd: dir,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+        windowsHide: true,
+      }).trim(),
+      tag,
+      '本轮只应新增这一枚自动备份 tag',
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('门内自动备份·失败仍红: 同名 tag 已指向别的提交(截断碰撞) ⇒ 不改写既有 ref,仍 exit 1', () => {
+  const dir = createTempRepo()
+  try {
+    const oid = makeDangling(dir, 'auto-backup-collision-XYZ')
+    const head = revParse(dir, 'HEAD')
+    const tag = `lost-commit/auto-${oid.slice(0, 7)}`
+    execFileSync('git', ['tag', tag, head], {
+      cwd: dir,
+      stdio: 'ignore',
+      windowsHide: true,
+    })
+    const r = runScript(['--blocking', '--filter-stash'], {
+      cwd: dir,
+      env: { IHUI_COMMIT_LOSS_AUTO_BACKUP: '1', IHUI_COMMIT_LOSS_NO_CACHE: '1' },
+    })
+    assert.equal(
+      r.status,
+      1,
+      `备份失败必须仍判红(fail-closed),实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
+    )
+    assert.match(r.stdout, /门内自动备份失败 1 枚\(仍判红\)/, '失败必须点名,且必须写明仍判红')
+    assert.match(r.stdout, /同名 tag 已指向/, '必须点名失败原因(撞名指向了哪一枚)')
+    assert.equal(revParse(dir, `refs/tags/${tag}^{commit}`), head, '撞名时不得改写既有 tag')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('门内自动备份·名单出口只读: --list-unbacked 即使 AUTO_BACKUP=1 也不落 tag(下游要吃这份名单)', () => {
+  const dir = createTempRepo()
+  try {
+    const oid = makeDangling(dir, 'auto-backup-list-readonly-XYZ')
+    const r = runScript(['--blocking', '--filter-stash', __test__.FLAGS.listUnbacked], {
+      cwd: dir,
+      env: { IHUI_COMMIT_LOSS_AUTO_BACKUP: '1', IHUI_COMMIT_LOSS_NO_CACHE: '1' },
+    })
+    assert.equal(r.status, 1, `名单档仍应判红,实际 ${r.status}\nstdout: ${r.stdout}`)
+    assert.match(r.stdout, new RegExp(oid), '名单档必须交出完整 oid(否则下游无从处置)')
+    assert.equal(
+      execFileSync('git', ['tag', '-l', 'lost-commit/auto-*'], {
+        cwd: dir,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+        windowsHide: true,
+      }).trim(),
+      '',
+      '名单出口必须只读:门抢先落 tag 会把下游的处置动作变成空操作',
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// ─── reflog 面等价(2026-11-08 提速改造)────────────────────────
+// 新实现把 `git log -g --all --raw`(116s)换成"直接解析 reflog 文件 + 只批取交付面之外的
+// 提交"。本条证明换实现后**没有少查到**判定会变的那一类:只经 reflog 留痕的 tag 备份提交,
+// 仍能为悬空提交的同路径同 blob 作证(覆盖面必须标 (reflog))。
+test('reflog 面等价: 只经 reflog 留痕的 lost-commit 备份提交仍能为悬空提交作证', () => {
+  const dir = createTempRepo()
+  const git = (cmd) => execSync(cmd, { cwd: dir, stdio: 'ignore' })
+  try {
+    // C 在 keep 分支上贡献 x.txt(B) / y.txt(Y),随后用 branch -f 把 keep 拉回 main:
+    // refs/heads/keep 的 reflog 仍留着"new=C"那条,但 C 只在 reflog 面可见(交付面看不到)。
+    git('git checkout -b keep')
+    writeFileSync(join(dir, 'x.txt'), 'B\n')
+    writeFileSync(join(dir, 'y.txt'), 'Y\n')
+    git('git add x.txt y.txt')
+    git('git commit -m "reflog-cover-C"')
+    const c = revParse(dir, 'HEAD')
+    git('git checkout main')
+    git('git branch -f keep main')
+    git(`git tag lost-commit/reflog-cover ${c}`)
+    // 悬空 A 只新增 x.txt=B:树 = {README,x} ≠ C 的 {README,x,y} ⇒ 不落"等价残留"提前放行。
+    git('git checkout -b temp-a')
+    writeFileSync(join(dir, 'x.txt'), 'B\n')
+    git('git add x.txt')
+    git('git commit -m "dangling-cover-a"')
+    git('git checkout main')
+    git('git branch -D temp-a')
+
+    const r = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(
+      r.status,
+      0,
+      `reflog 面应作证放行,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
+    )
+    assert.match(r.stdout, /逐路径覆盖放行 1 个/, '放行必须点名(不得靠"没报红"暗示)')
+    // 证据行形状:`A x.txt blob=… ← <commit12> (reflog)`;3b 的缺口明细也会带 x.txt,
+    // 故必须按"同一条里既有 x.txt 又有 (reflog)"来找,不能取第一个含 x.txt 的行。
+    const line = r.stdout
+      .split('\n')
+      .find((l) => l.includes('x.txt') && l.includes('(reflog)'))
+    assert.ok(line, `证据必须标明覆盖面是 reflog,实际输出:\n${r.stdout}`)
+    assert.ok(
+      line.includes(c.slice(0, 12)),
+      `证据必须指向 reflog 面上那枚备份提交 ${c.slice(0, 12)},实际:${line}`,
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// ─── 缓存 v2 分槽(2026-11-08):提交链档与巡检档不得互相顶掉 ─────────────────
+test('30a 缓存 v2 分槽: filterStash=1 与 0 各占一槽,后跑者不得顶掉前者的结论', () => {
+  const dir = createTempRepo()
+  try {
+    const chain = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(chain.status, 0, `干净仓应 exit 0,实际 ${chain.status}\n${chain.stdout}`)
+    const patrol = runScript(['--blocking'], { cwd: dir })
+    assert.equal(patrol.status, 0, `干净仓应 exit 0,实际 ${patrol.status}\n${patrol.stdout}`)
+
+    const j = JSON.parse(readFileSync(join(dir, '.git', 'ihui-commit-loss-cache.json'), 'utf8'))
+    assert.equal(j.version, 3, '缓存件必须是 v3 共享分槽结构(单槽版会让两档互相覆盖;v2 无 reset 窗口)')
+    const keys = Object.keys(j.slots || {}).sort()
+    assert.ok(keys.length >= 2, `两次不同档必须留下两个槽,实际 ${keys}`)
+    // 槽键形状 windowDays|strict|filterStash|coverageVersion ⇒ 第 3 段就是 filterStash。
+    assert.ok(keys.some((k) => k.split('|')[2] === '1'), `必须保留提交链档槽,实际 ${keys}`)
+    assert.ok(keys.some((k) => k.split('|')[2] === '0'), `必须保留巡检档槽,实际 ${keys}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// ─── 缓存共享(2026-11-08):结论缓存落共享 gitdir,不是各 worktree 的私有 gitdir ───
+// 取证:linked worktree 的 `--git-dir` 是 `…/worktrees/<name>`(私有),refs/objects/reflog
+// 都在 `--git-common-dir`(共享) ⇒ 原缓存件每条修复线各一份、彼此不可见,全部冷跑。
+test('30a 缓存共享: linked worktree 的结论缓存落共享 gitdir,私有目录不得再留缓存件', () => {
+  const parent = mkScratch('ihui-loss-wt-')
+  const dir = createTempRepo()
+  const wtDir = join(parent, 'wt')
+  try {
+    execFileSync('git', ['worktree', 'add', '-b', 'wt2-branch', wtDir, 'HEAD'], {
+      cwd: dir,
+      stdio: 'ignore',
+      windowsHide: true,
+    })
+    const gd = execFileSync('git', ['rev-parse', '--git-dir'], {
+      cwd: wtDir,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    }).trim()
+    const privateGd = isAbsolute(gd) ? gd : resolve(wtDir, gd)
+    const privateCache = join(privateGd, 'ihui-commit-loss-cache.json')
+    const sharedCache = join(dir, '.git', 'ihui-commit-loss-cache.json')
+
+    const first = runScript(['--blocking', '--filter-stash'], { cwd: wtDir })
+    assert.equal(first.status, 0, `worktree 档应 exit 0,实际 ${first.status}\n${first.stdout}`)
+    assert.ok(existsSync(sharedCache), `缓存件必须落在共享 gitdir:${sharedCache}`)
+    assert.ok(!existsSync(privateCache), `私有 gitdir 不得再留缓存件:${privateCache}`)
+
+    // 同一 worktree 立刻再跑必须命中(证明共享路径的读回也通了,不是只写不读)。
+    const second = runScript(['--blocking', '--filter-stash'], { cwd: wtDir })
+    assert.equal(second.status, 0, second.stdout)
+    assert.match(second.stdout, /复用 \d+ 分钟前的结论/, '共享缓存必须真正被读回')
+  } finally {
+    rmScratch(dir)
+    rmScratch(parent)
+  }
+})
+
+// ─── 版本隔离(2026-11-08):旧 schema/旧 coverageVersion 必须显式失效,绝不误命中 ───
+test('30a 缓存版本隔离: v2 件即使槽内容"看起来匹配"也绝不误命中,并被显式重写成 v3', () => {
+  const dir = createTempRepo()
+  try {
+    const p = join(dir, '.git', 'ihui-commit-loss-cache.json')
+    const first = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(first.status, 0, first.stdout)
+    const good = JSON.parse(readFileSync(p, 'utf8'))
+    assert.equal(good.version, 3, good.version)
+    // 降级为 v2,并把每个槽伪造成"判红":若门误认旧 schema/旧 coverageVersion,会直接撞红。
+    good.version = 2
+    for (const k of Object.keys(good.slots || {})) good.slots[k].blocking = true
+    writeFileSync(p, JSON.stringify(good))
+
+    const second = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(second.status, 0, `旧件必须失效、重新判绿,实际 ${second.status}\n${second.stdout}`)
+    assert.doesNotMatch(second.stdout, /复用 \d+ 分钟前的结论/, '版本不匹配必须显式失效(不得误命中)')
+    const after = JSON.parse(readFileSync(p, 'utf8'))
+    assert.equal(after.version, 3, '失效后必须按新 schema 重写,否则下一轮还会踩旧件')
+    assert.ok(
+      Object.values(after.slots || {}).every((v) => v && v.blocking === false),
+      '被伪造的 v2 结论不得被继承进新槽',
+    )
+    // 重写后的 v3 必须真能命中(证明"失效"不是靠 disabling 缓存换来的)。
+    const third = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.match(third.stdout, /复用 \d+ 分钟前的结论/, '重写后的 v3 必须可复用')
+  } finally {
+    rmScratch(dir)
+  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

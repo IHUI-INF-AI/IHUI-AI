@@ -11,6 +11,13 @@ export default [
   ...nextConfig,
   {
     ignores: [
+      // A 席 2026-11-08 根治 ESLint RC=124:.ihui-agent/tmp/ 存着 HEAD 整仓副本
+      // (实测 18G / 52317 文件 / 29802 个 ts|js),而 nextConfig 展开的
+      // files: ['**/*.{ts,tsx,js,jsx,mjs,cjs}'] 会把它们全收进 FileEnumerator。
+      // 旧写法 '.ihui-agent/**' 缺 '**/' 前缀,flat config 全局 ignores 下不能对该
+      // 目录做剪枝 ⇒ 全量与单文件 eslint 都卡在巨型树枚举(超时 124)。
+      // 只排除非源码临时副本,不改任何判据、不降低规则强度。
+      '**/.ihui-agent/**',
       '.next/**',
       // 2026-09-14 加:.next-* 覆盖 e2e 隔离栈(.next-e2e)/静态导出(.next-static)/
       // 全量验证隔离构建(.next-h12,IHUI_BUILD_DIST)等产物目录,

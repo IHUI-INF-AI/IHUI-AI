@@ -20,6 +20,7 @@
 """
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 from typing import Any
 
@@ -32,6 +33,13 @@ from ..base_adapter import BasePlatformAdapter, PublishContent, PublishResult
 logger = get_logger(__name__)
 
 _API_BASE = "https://api.bilibili.com"
+
+
+def _read_chunk_sync(path: Path, offset: int, size: int) -> bytes:
+    """单个工作线程内完成 open+seek+read+close,避免 fd 跨线程存活。"""
+    with open(path, "rb") as f:
+        f.seek(offset)
+        return f.read(size)
 
 
 class BilibiliAdapter(BasePlatformAdapter):
@@ -205,34 +213,38 @@ class BilibiliAdapter(BasePlatformAdapter):
             logger.warning("bilibili.publish upload_id parse 失败: %s", e, exc_info=True)
 
         try:
-            with open(video_path, "rb") as f:
-                for i in range(n_chunks):
-                    chunk = f.read(chunk_size)
-                    async with httpx.AsyncClient(timeout=300.0) as client:
-                        part_resp = await client.put(
-                            f"{upload_url}",
-                            params={
-                                "partNumber": i + 1,
-                                "uploadId": upload_id,
-                                "chunk": i,
-                                "chunks": n_chunks,
-                                "size": len(chunk),
-                                "start": i * chunk_size,
-                                "end": i * chunk_size + len(chunk),
-                                "total": file_size,
-                            },
-                            headers={
-                                "X-Upos-Auth": auth,
-                                "Content-Type": "application/octet-stream",
-                            },
-                            content=chunk,
-                        )
-                    if part_resp.status_code != 200:
-                        return PublishResult(
-                            success=False, platform=self.platform_id,
-                            error_message=f"chunk {i+1}/{n_chunks} upload failed: "
-                                          f"{part_resp.status_code} {part_resp.text[:200]}",
-                        )
+            for i in range(n_chunks):
+                # 2026-11-05:每个分片在**同一个工作线程**内 open+seek+read+close,
+                # fd 不再跨线程存活(旧实现 open 在 A 线程、read 在 B 线程、
+                # 取消时 close 在事件循环线程,存在 close 与在飞 read 竞争)。
+                chunk = await asyncio.to_thread(
+                    _read_chunk_sync, video_path, i * chunk_size, chunk_size
+                )
+                async with httpx.AsyncClient(timeout=300.0) as client:
+                    part_resp = await client.put(
+                        f"{upload_url}",
+                        params={
+                            "partNumber": i + 1,
+                            "uploadId": upload_id,
+                            "chunk": i,
+                            "chunks": n_chunks,
+                            "size": len(chunk),
+                            "start": i * chunk_size,
+                            "end": i * chunk_size + len(chunk),
+                            "total": file_size,
+                        },
+                        headers={
+                            "X-Upos-Auth": auth,
+                            "Content-Type": "application/octet-stream",
+                        },
+                        content=chunk,
+                    )
+                if part_resp.status_code != 200:
+                    return PublishResult(
+                        success=False, platform=self.platform_id,
+                        error_message=f"chunk {i+1}/{n_chunks} upload failed: "
+                                      f"{part_resp.status_code} {part_resp.text[:200]}",
+                    )
         except Exception as e:
             return PublishResult(
                 success=False, platform=self.platform_id,

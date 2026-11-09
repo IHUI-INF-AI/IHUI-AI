@@ -95,7 +95,7 @@ test.describe('8 端关键路径 · 认证登录流程 (SSO)', () => {
       requireEnv('E2E_USER_PASSWORD'),
     )
     if (!result.ok && result.code === null) {
-      test.skip(true, '后端 API 不可用,跳过')
+      test.skip(true, '后端 API 不可用,跳过 [SKIP:SKIP-0025]')
     }
     // 后端存在但账号错误时 code != 0,允许;账号正确时 token 必须存在
     if (result.ok) {
@@ -139,7 +139,7 @@ test.describe('8 端关键路径 · 认证登录流程 (SSO)', () => {
       requireEnv('E2E_USER_PASSWORD'),
     )
     if (!result.ok) {
-      test.skip(true, '后端不可用或测试账号未 seed,跳过')
+      test.skip(true, '后端不可用或测试账号未 seed,跳过 [SKIP:SKIP-0026]')
     }
     // 写入 cookie + localStorage,模拟已登录态
     await page.context().addCookies([

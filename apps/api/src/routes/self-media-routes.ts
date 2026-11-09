@@ -24,7 +24,7 @@
  * - /record 是 api 唯一自实现端点(直接写数据库,因为 ai-service 不写库)
  */
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
-import { and, desc, eq } from 'drizzle-orm'
+import { and, desc, eq, type SQL } from 'drizzle-orm'
 import { z } from 'zod'
 
 import { selfMediaPublished } from '@ihui/database'
@@ -216,17 +216,24 @@ export const selfMediaRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // GET /self-media/records — 直接读库查历史(备用,不走 ai-service)
+  // F-170(P1,数据外泄):读侧必须与写侧(authorId=request.userId)同口径,
+  // 只返回当前登录用户自己的记录;本路由无管理员全量路径,管理员亦仅见自己。
   server.get('/self-media/records', async (request, reply) => {
+    const userId = request.userId
+    if (!userId) return reply.status(401).send(error(401, '未登录'))
     const { category, limit } = request.query as { category?: string; limit?: string }
     const cat = category === 'wechat' || category === 'koubo' ? category : undefined
-    const lim = Math.min(Number(limit) || 50, HISTORY_LIMIT)
+    // F-170:limit 允许负数会导致 SQL LIMIT 负数 500,夹到 [1, HISTORY_LIMIT]。
+    const lim = Math.max(1, Math.min(Number(limit) || 50, HISTORY_LIMIT))
 
-    const conds = []
+    // F-170(2026-11-08):写入时盖了 authorId,读侧却只过滤 category,
+    // 任意登录用户可拉全站他人标题/关键词/payload。按本人收敛。
+    const conds: SQL[] = [eq(selfMediaPublished.authorId, userId)]
     if (cat) conds.push(eq(selfMediaPublished.category, cat))
     const rows = await db
       .select()
       .from(selfMediaPublished)
-      .where(conds.length ? and(...conds) : undefined)
+      .where(and(...conds))
       .orderBy(desc(selfMediaPublished.createdAt))
       .limit(lim)
 

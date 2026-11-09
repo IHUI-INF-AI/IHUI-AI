@@ -14,6 +14,7 @@ import { ExamIntro } from './ExamIntro'
 import { ExamResult } from './ExamResult'
 import { ExamAnswering } from './ExamAnswering'
 import { getExamById, getExamPaper, startExam, submitExamRecord } from '@ihui/api-client'
+import { useDeadlineCountdown } from '@/hooks/use-deadline-countdown'
 import type { PaperDetail, Question, SubmitResult } from './types'
 
 export default function ExamTakePage() {
@@ -41,7 +42,8 @@ export default function ExamTakePage() {
   const [recordId, setRecordId] = React.useState<string | null>(null)
   const [answers, setAnswers] = React.useState<Record<string, string | string[]>>({})
   const [result, setResult] = React.useState<SubmitResult | null>(null)
-  const [leftSec, setLeftSec] = React.useState(0)
+  // W-01:以截止时间戳建模,剩余秒数由墙钟派生(见 useDeadlineCountdown)
+  const [deadline, setDeadline] = React.useState<number | null>(null)
 
   const startMut = useMutation({
     mutationFn: async () => {
@@ -51,15 +53,11 @@ export default function ExamTakePage() {
     },
     onSuccess: (d: { record: { id: string } }) => {
       setRecordId(d.record.id)
+      autoSubmitRef.current = false
       setPhase('answering')
       const duration = data?.duration ?? 0
-      if (duration > 0) {
-        setLeftSec(duration * 60)
-        hasTimerRef.current = true
-      } else {
-        // 无限制时长,不启动倒计时
-        hasTimerRef.current = false
-      }
+      // 无限制时长时 deadline=null,不启动倒计时
+      setDeadline(duration > 0 ? Date.now() + duration * 60_000 : null)
     },
   })
 
@@ -84,25 +82,17 @@ export default function ExamTakePage() {
   submitMutRef.current = submitMut
   const answersRef = React.useRef(answers)
   answersRef.current = answers
-  const hasTimerRef = React.useRef(false)
+  // 自动交卷一次性锁:倒计时归零的那次渲染只提交一次,避免重复提交
+  const autoSubmitRef = React.useRef(false)
+
+  const leftSec = useDeadlineCountdown(deadline)
 
   React.useEffect(() => {
-    if (phase !== 'answering' || !hasTimerRef.current || leftSec <= 0) return
-    const tm = setInterval(() => setLeftSec((s) => s - 1), 1000)
-    return () => clearInterval(tm)
-  }, [phase, leftSec])
-
-  React.useEffect(() => {
-    if (
-      phase === 'answering' &&
-      hasTimerRef.current &&
-      leftSec === 0 &&
-      recordId &&
-      !submitMutRef.current.isPending
-    ) {
-      submitMutRef.current.mutate({ answers: answersRef.current })
-    }
-  }, [leftSec, phase, recordId])
+    if (phase !== 'answering' || deadline === null || leftSec > 0 || !recordId) return
+    if (autoSubmitRef.current || submitMutRef.current.isPending) return
+    autoSubmitRef.current = true
+    submitMutRef.current.mutate({ answers: answersRef.current })
+  }, [leftSec, phase, deadline, recordId])
 
   const handleAnswer = (qid: string, val: string | string[]) =>
     setAnswers((a) => ({ ...a, [qid]: val }))

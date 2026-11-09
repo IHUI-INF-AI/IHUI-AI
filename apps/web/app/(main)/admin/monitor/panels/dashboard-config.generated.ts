@@ -6,7 +6,7 @@
  * 监控面板原生配置(自动生成,请勿手改)。
  *
  * 由 scripts/generate-monitor-panels.mjs 从 monitoring/panel-defs/panels/*.json 转译;
- * 表达式与 Grafana 盘逐条同源(355 条),模板变量已归一为 All 档(.*)。
+ * 表达式与 Grafana 盘逐条同源(361 条),模板变量已归一为 All 档(.*)。
  * $__interval / $__range 为占位符,由 /admin/monitor/panels 页面按时间窗替换。
  */
 export interface PanelTarget {
@@ -63,6 +63,46 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
             "ref": "A",
             "expr": "sum by (status) (rate(ihui_agent_loop_runs_total{job=\"ai-service\"}[1h]))",
             "legend": "{{status}}"
+          }
+        ]
+      },
+      {
+        "id": "340",
+        "title": "工具入参逐分片直推速率(渐进渲染信号)",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          }
+        ],
+        "span": "full",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum by (provider, model) (rate(ihui_tool_call_args_delta_frames_total{job=\"ai-service\"}[5m]))",
+            "legend": "{{provider}}/{{model}}"
+          }
+        ]
+      },
+      {
+        "id": "341",
+        "title": "工具入参首片时延(从流开启到首个分片,p95)",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          }
+        ],
+        "span": "full",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "histogram_quantile(0.95, sum by (le, provider, model) (rate(ihui_tool_call_args_delta_first_byte_seconds_bucket{job=\"ai-service\"}[5m])))",
+            "legend": "{{provider}}/{{model}} p95"
           }
         ]
       },
@@ -1173,6 +1213,89 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
             "ref": "D",
             "expr": "sum(increase(ihui_relay_account_pool_label_collisions_total{job=\"business-metrics\"}[$__range]))",
             "legend": "账号标签撞车"
+          }
+        ]
+      },
+      {
+        "id": "timeseries-25",
+        "title": "账号池可调度账号数(按 provider;与 key 族同节拍,5 分钟一轮)",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "short",
+        "min": 0,
+        "thresholds": [
+          {
+            "color": "red",
+            "value": null
+          },
+          {
+            "color": "green",
+            "value": 1
+          }
+        ],
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "ihui_relay_account_pool_schedulable_accounts{job=\"business-metrics\"}",
+            "legend": "{{provider_code}}·可调度"
+          },
+          {
+            "ref": "B",
+            "expr": "ihui_relay_account_pool_enabled_accounts{job=\"business-metrics\"}",
+            "legend": "{{provider_code}}·启用"
+          }
+        ]
+      },
+      {
+        "id": "stat-26",
+        "title": "账号池容量归零的 provider 数(有启用号但可调度=0 ⇒ 回落正在静默发生)",
+        "kind": "stat",
+        "backend": "prometheus",
+        "unit": "short",
+        "min": 0,
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "red",
+            "value": 1
+          }
+        ],
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum(ihui_relay_account_pool_zero_capacity{job=\"business-metrics\"})",
+            "legend": "容量归零 provider"
+          }
+        ]
+      },
+      {
+        "id": "timeseries-27",
+        "title": "上游静默回落(窗口增量,按原因四档)",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "short",
+        "min": 0,
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "orange",
+            "value": 1
+          }
+        ],
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum by (reason) (increase(ihui_relay_upstream_fallback_total{job=\"business-metrics\"}[$__range]))",
+            "legend": "{{reason}}"
           }
         ]
       }

@@ -12,8 +12,9 @@
  *     而同一实例上机器凭据的 scoped 能力照样 503 —— 证明 503 是"按主体分流",
  *     不是全局放行也不是全局拦截;并证清"未挂 principal 插件 = 闸门完全不参与"
  *     (因此 principal 插件的注册位置是硬前提,见 src/server.ts 的 registerPlugins);
- *  P3 每请求开销恒定:N 次请求 = set_config 恰 N 次(四个变量合并成**一条**语句)
- *     + 超级用户探测**恰 1 次**(结果缓存,不给每请求加一次打库);
+ *  P3 每请求开销恒定:已鉴权 scoped 请求 = **2 条** set_config 语句(写入 + 出口复位,
+ *     每条形如一次往返、四个变量合并成一条) + 超级用户探测**恰 1 次**(结果缓存);
+ *     未鉴权 scoped 请求只写一条空值,出口不再补第二条(不白加往返)。
  *  P4 能力判定自洽性:`config/open-capability-registry.ts` 是 `/api` 面机器入口的唯一事实源,
  *     命中即必然同时具备 capability + apiKey ⇒ 数据闸自动接管,无需逐路由再接线一次。
  *
@@ -423,7 +424,7 @@ describe('O4-P2 /api 人登录路径零回归,机器路径按主体分流', () =
 // P3 每请求开销恒定(否则"闸门"= 每请求多两次往返)
 // ============================================================================
 describe('O4-P3 每请求开销恒定', () => {
-  it('四条会话变量合并为**一条**语句,每请求恰一次往返,值取自鉴权后的 principal', async () => {
+  it('四条会话变量合并为**一条**写入语句;已鉴权请求在出口再打一条复位语句', async () => {
     const app = await buildWiredApp()
     app.get('/api/me', { preHandler: [authAsHuman()] }, async () => ({ ok: true }))
     const res = await app.inject({ method: 'GET', url: '/api/me' })
@@ -431,7 +432,8 @@ describe('O4-P3 每请求开销恒定', () => {
 
     expect(res.statusCode).toBe(200)
     const statements = capture.contextQueries.map(compiledStatement)
-    expect(statements).toHaveLength(1)
+    // F-02:写入 + 出口复位各一条,每条都是"四个变量合并成一条语句"
+    expect(statements).toHaveLength(2)
     const statement = statements[0]
     if (!statement) throw new Error('未捕获到上下文语句')
     expect(statement.sql).toContain('set_config')
@@ -446,6 +448,46 @@ describe('O4-P3 每请求开销恒定', () => {
     }
     expect(statement.params).toContain(USER_ID)
     expect(statement.params).toContain(String(HUMAN_ROLE_ID))
+
+    // 出口复位:同一语句形态,四个值全为空串(role 残值也被清掉,不是只清 user_id)
+    const reset = statements[1]
+    if (!reset) throw new Error('未捕获到出口复位语句')
+    expect(reset.sql).toContain('set_config')
+    for (const name of [
+      'app.user_id',
+      'app.api_key_id',
+      'app.current_user_id',
+      'app.current_user_role',
+    ]) {
+      expect(reset.sql).toContain(name)
+    }
+    expect(reset.params).toEqual(['', '', '', ''])
+  })
+
+  it('未鉴权 scoped 请求:只写空值,出口不补第二条(不给匿名流量白加往返)', async () => {
+    const app = await buildWiredApp()
+    app.get('/api/anonymous', async () => ({ ok: true }))
+    const res = await app.inject({ method: 'GET', url: '/api/anonymous' })
+    await app.close()
+
+    expect(res.statusCode).toBe(200)
+    const statements = capture.contextQueries.map(compiledStatement)
+    expect(statements).toHaveLength(1)
+    expect(statements[0]?.params).toEqual(['', '', '', '0'])
+  })
+
+  it('handler 抛错:onError 也复位,且与 onResponse 去重(仍只补一条)', async () => {
+    const app = await buildWiredApp()
+    app.get('/api/boom', { preHandler: [authAsHuman()] }, async () => {
+      throw new Error('boom')
+    })
+    const res = await app.inject({ method: 'GET', url: '/api/boom' })
+    await app.close()
+
+    expect(res.statusCode).toBe(500)
+    const statements = capture.contextQueries.map(compiledStatement)
+    expect(statements).toHaveLength(2)
+    expect(statements[1]?.params).toEqual(['', '', '', ''])
   })
 
   it('机器请求:app.api_key_id 与 app.user_id 都落真值(可被策略函数消费)', async () => {
@@ -457,11 +499,12 @@ describe('O4-P3 每请求开销恒定', () => {
     await app.close()
 
     expect(res.statusCode).toBe(200)
-    const statement = capture.contextQueries.map(compiledStatement).at(-1)
+    // 第 0 条是写入(第 1 条是出口复位,值全空)
+    const statement = capture.contextQueries.map(compiledStatement)[0]
     expect(statement?.params).toEqual([USER_ID, API_KEY_ID, USER_ID, '0'])
   })
 
-  it('N 次请求:N 次上下文写入 + 超级用户探测**恰 1 次**', async () => {
+  it('N 次请求:N 次写入 + N 次复位 + 超级用户探测**恰 1 次**', async () => {
     let localProbes = 0
     configureDataScopeGuard({
       probeSuperuser: async (): Promise<boolean> => {
@@ -480,7 +523,8 @@ describe('O4-P3 每请求开销恒定', () => {
     }
     await app.close()
 
-    expect(capture.contextQueries).toHaveLength(5)
+    // 5 次写入 + 5 次出口复位;探测结果进程内缓存,只打 1 次库
+    expect(capture.contextQueries).toHaveLength(10)
     expect(localProbes).toBe(1)
   })
 

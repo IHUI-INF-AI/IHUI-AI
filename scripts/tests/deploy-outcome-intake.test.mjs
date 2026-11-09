@@ -14,6 +14,9 @@
 //  ⑦ 0 信号仍 exit 0 并打印机器行;
 //  ⑧ 演练绝缘(B69):synthetic/旧 reason 前缀不产告警,同形真实回滚仍产 error,计数分离;
 //  ⑨ build-fail 跨 retry 换 TS 码 ⇒ 同 route 只产 1 条信号(B87/B88/B91),旧行仍能去重。
+//  ⑩ 十种 action(2026-11-04 补 swap-fail)由单一真源派生,PS1 发射面 ⊆ 闭集。
+//  ⑪ 单行坏不拖垮整趟 + 并发撕裂行剔除:CLI 级反向锁(旧实现会整趟零产出)。
+//  ⑫ 跨桶链式决策连跑三轮不重复写盘(2026-11-04 实测:滑窗去重 + 同批替换每轮追加 2 条)。
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
@@ -65,7 +68,7 @@ const lastLine = (s) =>
     .filter(Boolean)
     .pop() ?? ''
 
-test('① 九种 action 映射全覆盖(不产出的三种也不冒充失败)', () => {
+test('① 十种 action 映射全覆盖(含 2026-11-04 补回的 swap-fail;不产出的三种也不冒充失败)', () => {
   const contract = loadContract()
   const expected = {
     pass: null,
@@ -76,6 +79,7 @@ test('① 九种 action 映射全覆盖(不产出的三种也不冒充失败)', 
     rollback: { kind: 'alert_firing', severity: 'error' },
     'manual-rollback': { kind: 'alert_firing', severity: 'warn' },
     'build-fail': { kind: 'alert_firing', severity: 'error' },
+    'swap-fail': { kind: 'alert_firing', severity: 'error' },
     'canary-rollback': { kind: 'perf_degradation', severity: 'error' },
   }
   for (const [action, exp] of Object.entries(expected)) {
@@ -145,11 +149,11 @@ test('④ 追加幂等:同一份输入跑两次,第二次 0 新行且 --out 只�
 
     const first = runCli(['--in', input, '--out', out])
     assert.equal(first.status, 0, first.stderr)
-    assert.equal(lastLine(first.stdout), `${RESULT_PREFIX} signals=1 skipped=0 synthetic=0 undetermined=0`)
+    assert.equal(lastLine(first.stdout), `${RESULT_PREFIX} signals=1 skipped=0 synthetic=0 badRows=0 torn=0 undetermined=0`)
 
     const second = runCli(['--in', input, '--out', out])
     assert.equal(second.status, 0, second.stderr)
-    assert.equal(lastLine(second.stdout), `${RESULT_PREFIX} signals=0 skipped=1 synthetic=0 undetermined=0`)
+    assert.equal(lastLine(second.stdout), `${RESULT_PREFIX} signals=0 skipped=1 synthetic=0 badRows=0 torn=0 undetermined=0`)
 
     const lines = readFileSync(out, 'utf8').trim().split(/\r?\n/)
     assert.equal(lines.length, 1, `幂等失败,台账被重复追加:${lines.length} 行`)
@@ -159,6 +163,90 @@ test('④ 追加幂等:同一份输入跑两次,第二次 0 新行且 --out 只�
   } finally {
     rmScratch(dir)
   }
+})
+
+test('⑫ 跨桶链式决策连跑三轮不重复写盘(滑窗去重 + 同批替换的回归锁)', () => {
+  const dir = mkScratch('deploy-intake-chain-')
+  try {
+    const input = join(dir, 'deploy-decisions.jsonl')
+    const out = join(dir, 'state', 'incident-signals.jsonl')
+    // 相邻间隔 <24h、首尾跨度 >24h:旧滑窗会把整串压成 1 条(at 落串尾),
+    // 下一轮串首重新漏出 ⇒ 又产出同一条并再次写盘,每轮重复追加。
+    const chainTs = [
+      '2026-10-26T10:00:00.000Z',
+      '2026-10-27T08:00:00.000Z',
+      '2026-10-27T22:00:00.000Z',
+      '2026-10-28T18:00:00.000Z',
+    ]
+    writeFileSync(input, `${chainTs.map((ts) => JSON.stringify(decision({ action: 'build-fail', ts }))).join('\n')}\n`, 'utf8')
+
+    const first = runCli(['--in', input, '--out', out])
+    assert.equal(first.status, 0, first.stderr)
+    const linesAfterFirst = readFileSync(out, 'utf8').trim().split(/\r?\n/).length
+    assert.equal(linesAfterFirst, 3, `固定桶应按 3 个 UTC 天桶产 3 条,实得 ${linesAfterFirst}`)
+
+    for (let round = 2; round <= 3; round += 1) {
+      const r = runCli(['--in', input, '--out', out])
+      assert.equal(r.status, 0, r.stderr)
+      assert.equal(
+        lastLine(r.stdout),
+        `${RESULT_PREFIX} signals=0 skipped=4 synthetic=0 badRows=0 torn=0 undetermined=0`,
+        `第 ${round} 轮不得再产出信号(旧实现会重复追加)`,
+      )
+      assert.equal(
+        readFileSync(out, 'utf8').trim().split(/\r?\n/).length,
+        linesAfterFirst,
+        `第 ${round} 轮重复写盘 ⇒ 派发戳每 20min 一刷就会灌水信号账`,
+      )
+    }
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('⑫b 反向锁:同一夹具喂修复前的滑窗判据必然重复产出(证明 ⑫ 不是恒真锁)', () => {
+  const contract = loadContract()
+  const W = DEFAULT_MINUTES * 60_000
+  // 刻意复刻 2026-11-04 之前的错误实现:滑窗判重 + 同批替换 + seen.find 改锚点。
+  // 只作反向锁用,绝不进生产判据;删掉它就等于把 ⑫ 降级成一条恒真断言。
+  const legacy = (rows, existing) => {
+    const seen = existing.map((e) => ({ identity: identityOf(e), atMs: Date.parse(e.at) }))
+    const pending = new Map()
+    const signals = []
+    for (const row of rows) {
+      const s = decisionToSignal(row.object, contract).signal
+      const t = Date.parse(s.at)
+      const key = identityOf(s)
+      if (seen.some((x) => x.identity === key && Math.abs(t - x.atMs) <= W)) {
+        const at = pending.get(key)
+        if (at !== undefined && t > Date.parse(signals[at].at)) {
+          signals[at] = s
+          const hit = seen.find((x) => x.identity === key)
+          if (hit) hit.atMs = t
+        }
+        continue
+      }
+      seen.push({ identity: key, atMs: t })
+      pending.set(key, signals.length)
+      signals.push(s)
+    }
+    return signals
+  }
+  const chainTs = [
+    '2026-10-26T10:00:00.000Z',
+    '2026-10-27T08:00:00.000Z',
+    '2026-10-27T22:00:00.000Z',
+    '2026-10-28T18:00:00.000Z',
+  ]
+  const rows = chainTs.map((ts, i) => ({ line: i + 1, object: decision({ action: 'build-fail', ts }) }))
+  const legacyFirst = legacy(rows, [])
+  const legacySecond = legacy(rows, legacyFirst)
+  assert.equal(legacyFirst.length, 1, '夹具自检:旧滑窗把整串压成 1 条(at 落串尾)')
+  assert.ok(legacySecond.length > 0, '反向锁失效:旧判据第二轮没重复产出 ⇒ ⑫ 可能是恒真锁')
+  assert.equal(legacySecond[0].at, legacyFirst[0].at, '旧判据第二轮产出的是逐字重复行')
+  const fixedFirst = planIntake({ decisions: rows, contract, minutes: DEFAULT_MINUTES, existing: [] })
+  const fixedSecond = planIntake({ decisions: rows, contract, minutes: DEFAULT_MINUTES, existing: fixedFirst.signals })
+  assert.equal(fixedSecond.signals.length, 0, '新固定桶判据在同一夹具下第二轮必须 0 新行')
 })
 
 test('⑤ 输入缺失 ⇒ exit 2,末行点名「未判定」,不写 --out', () => {
@@ -195,7 +283,7 @@ test('⑦ 0 信号(只有 pass)仍 exit 0 并打印机器行', () => {
     writeFileSync(input, `${JSON.stringify(decision({ action: 'pass' }))}\n`, 'utf8')
     const r = runCli(['--in', input, '--out', out])
     assert.equal(r.status, 0, r.stderr)
-    assert.equal(lastLine(r.stdout), `${RESULT_PREFIX} signals=0 skipped=1 synthetic=0 undetermined=0`)
+    assert.equal(lastLine(r.stdout), `${RESULT_PREFIX} signals=0 skipped=1 synthetic=0 badRows=0 torn=0 undetermined=0`)
     assert.equal(existsSync(out), false, '0 信号不应落空文件')
   } finally {
     rmScratch(dir)
@@ -283,4 +371,51 @@ test('⑧ 演练绝缘:synthetic 与旧 reason 前缀不产告警,同形真实�
   assert.equal(plan.synthetic, 2, '两条演练必须单列')
   assert.equal(plan.skipped, 0, '演练不得混进 skipped')
   assert.equal(plan.undetermined, 0)
+})
+
+// 2026-11-04 断链修复的 CLI 级反向锁:旧实现遇 1 行坏即 `return 2` 且不写任何信号,
+// 生产实测「swap-fail 未登记」这一行让下游 incident-signals 静默 6 天。
+test('⑪ 单行形状坏不拖垮整趟:好行照常落盘 + 未判定如实 exit 2', () => {
+  const dir = mkScratch('deploy-intake-badrow-')
+  try {
+    const input = join(dir, 'deploy-decisions.jsonl')
+    const out = join(dir, 'state', 'incident-signals.jsonl')
+    const bad = JSON.stringify(decision({ action: 'not-a-real-action', ts: '2026-11-04T09:01:00.000Z' }))
+    const good = JSON.stringify(decision({ action: 'build-fail', ts: '2026-11-04T09:00:00.000Z' }))
+    writeFileSync(input, `${bad}\n${good}\n`, 'utf8')
+    const r = runCli(['--in', input, '--out', out])
+    assert.equal(r.status, 2, '有一行没判 ⇒ 必须如实落未判定,不得冒充全判过')
+    assert.equal(
+      lastLine(r.stdout),
+      `${RESULT_PREFIX} signals=1 skipped=0 synthetic=0 badRows=1 torn=0 undetermined=1`,
+    )
+    const lines = readFileSync(out, 'utf8').trim().split(/\r?\n/)
+    assert.equal(lines.length, 1, '好行信号必须落盘,不能被坏行一起丢掉')
+    assert.equal(JSON.parse(lines[0]).route, 'deploy/build-fail')
+    assert.match(r.stderr, /BAD-ROW/)
+    assert.match(r.stderr, /未判定/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('⑫ 并发撕裂行(末段半条、无尾换行)剔除:不算未判定且好行照产', () => {
+  const dir = mkScratch('deploy-intake-torn-')
+  try {
+    const input = join(dir, 'deploy-decisions.jsonl')
+    const out = join(dir, 'state', 'incident-signals.jsonl')
+    const good = JSON.stringify(decision({ action: 'rollback' }))
+    // 末段半条:文件刻意不以 \n 结尾,模拟 appendFileSync 被读到一半。
+    writeFileSync(input, `${good}\n{"v":1,"ts":"2026-11-04T09:02:00.000Z","action":"roll`, 'utf8')
+    const r = runCli(['--in', input, '--out', out])
+    assert.equal(r.status, 0, '半条记录不是一条完整输入 ⇒ 不该把整趟判成未判定')
+    assert.equal(
+      lastLine(r.stdout),
+      `${RESULT_PREFIX} signals=1 skipped=0 synthetic=0 badRows=0 torn=1 undetermined=0`,
+    )
+    assert.equal(readFileSync(out, 'utf8').trim().split(/\r?\n/).length, 1, '好行信号照常落盘')
+    assert.match(r.stderr, /TORN-LINE/)
+  } finally {
+    rmScratch(dir)
+  }
 })

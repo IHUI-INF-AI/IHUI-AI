@@ -23,6 +23,7 @@ import {
   useDesktopCaptionTheme,
 } from '@/hooks/use-desktop'
 import { useAgentControl } from '@/hooks/use-agent-control'
+import { useImeCompositionGuard } from '@/hooks/use-ime-composition-guard'
 import { useUiControlBridge } from '@/hooks/use-ui-control-bridge'
 import { useNativePushRegister } from '@/hooks/use-native-push'
 import { CommandPalette } from '@/components/layout/CommandPalette'
@@ -123,6 +124,8 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
   // 性能修复(2026-07-25):useRouteAnalytics 现在是纯副作用 hook,不再返回 currentPath,
   // 避免本 Provider 因路由变化重渲染导致 <CommandPalette> + help panel 连锁重渲染。
   useRouteAnalytics()
+  // 同型根因 S-02:组合态 Enter/逗号在捕获阶段统一拦截,避免各输入框逐个漏判
+  useImeCompositionGuard()
   // 客户端 RUM（默认关闭，显式同意后才采集/上报）：首屏 + 未捕获异常 + 页面隐藏时 flush。
   // 接入说明见 apps/web/src/lib/rum/index.ts 与 hooks/use-rum.ts。
   useRum()

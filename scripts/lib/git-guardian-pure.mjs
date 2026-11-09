@@ -77,7 +77,7 @@ export function judgeRefsHealth({ manifestCount, visibleNestedCount, missingCoun
  *  2026-09-27 实测到后果:同一失败项 12 秒刷一条告警、两小时 1.3 万行。
  *  冷却表(修复器自己写)已能拦住**已知失败项**,这一层拦的是"任何一轮的整体重抄",两者不互替:
  *  判红原因落在项之外时(例如登记表被过滤空)冷却表是空的,只有墙钟间隔兜得住。 */
-const HOME_HEAL_MIN_INTERVAL_MS = 10 * 60 * 1000
+export const HOME_HEAL_MIN_INTERVAL_MS = 10 * 60 * 1000
 
 /** 纯函数:本轮该不该叫自愈。时间戳读不到/为 0/为负 ⇒ 视为到期(宁跑一轮,不因为一个坏文件永久静默)。 */
 export function homeHealDue(raw, now, minIntervalMs = HOME_HEAL_MIN_INTERVAL_MS) {

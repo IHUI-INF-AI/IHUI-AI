@@ -135,6 +135,48 @@ interface ForwardFailure {
  */
 export type ForwardResult = ForwardSuccess | ForwardFailure | null
 
+// ── F-616:上游「响应头阶段」业务超时 ──
+// 原实现只把 req.signal 原样透传,非流式调用点连 signal 都不传 ⇒ 上游建连后不回响应头时
+// 只能吃 undici 默认 300s。这里给每次候选尝试加一个头阶段 deadline,拿到响应头即撤掉,
+// 流式正文不受影响(长流不会被中途掐断)。可用 RELAY_UPSTREAM_HEADERS_TIMEOUT_MS 收紧(排障/测试)。
+const DEFAULT_RELAY_UPSTREAM_HEADERS_TIMEOUT_MS = 120_000
+
+function relayUpstreamHeadersTimeoutMs(): number {
+  const raw = Number(process.env.RELAY_UPSTREAM_HEADERS_TIMEOUT_MS)
+  return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_RELAY_UPSTREAM_HEADERS_TIMEOUT_MS
+}
+
+/**
+ * 头阶段超时 + 客户端断开双信号。clear() 只撤定时器与 parent 监听:
+ * 头阶段结束后正文由调用方(流式管道)自行处理 abort。
+ */
+function withHeadersTimeout(parent: AbortSignal | undefined): {
+  signal: AbortSignal
+  timedOut: () => boolean
+  clear: () => void
+} {
+  const controller = new AbortController()
+  let fired = false
+  const timer = setTimeout(() => {
+    fired = true
+    controller.abort()
+  }, relayUpstreamHeadersTimeoutMs())
+  timer.unref?.()
+  const onParentAbort = (): void => controller.abort()
+  if (parent) {
+    if (parent.aborted) controller.abort()
+    else parent.addEventListener('abort', onParentAbort, { once: true })
+  }
+  return {
+    signal: controller.signal,
+    timedOut: () => fired,
+    clear: () => {
+      clearTimeout(timer)
+      parent?.removeEventListener('abort', onParentAbort)
+    },
+  }
+}
+
 // =============================================================================
 // 内部工具
 // =============================================================================
@@ -347,6 +389,7 @@ export async function forwardToChannel(req: UpstreamForwardRequest): Promise<For
 
   for (const channel of candidates) {
     const started = startStopwatch()
+    const headersTimeout = withHeadersTimeout(req.signal)
     try {
       const targetUrl = upstreamEndpointUrl(channel.baseUrl, endpoint)
       // 出网复检(SSRF 硬化):不安全的上游地址直接抛错,由下方 catch 走 failover 试下一候选;
@@ -360,7 +403,8 @@ export async function forwardToChannel(req: UpstreamForwardRequest): Promise<For
           Accept: req.stream ? 'text/event-stream' : 'application/json',
         }),
         body: JSON.stringify(body),
-        signal: req.signal,
+        // F-616:头阶段 deadline + 客户端断开;拿到响应头后 clear 只撤定时器,正文不受限
+        signal: headersTimeout.signal,
       }
       // 守卫② 接线点(2026-10-29):①只问了一次解析,建连时 fetch 会再问一次,TTL=0 的 A 记录
       // 能让"校验时公网、连接时内网"。直连分支交带 connect.lookup 钩子的 dispatcher 才堵得住。
@@ -371,6 +415,7 @@ export async function forwardToChannel(req: UpstreamForwardRequest): Promise<For
             ...init,
             dispatcher: directEgressDispatcher(),
           })) as unknown as Response)
+      headersTimeout.clear()
       // 格②：到达即停表并交叉校验;不可信样本 elapsedMs=null,不喂熔断(计数在 elapsed-ms 与 router 两侧留痕)
       const sample = started.stop()
       const breakerLatency: number | null = sample.trustworthy ? sample.elapsedMs : null
@@ -379,10 +424,23 @@ export async function forwardToChannel(req: UpstreamForwardRequest): Promise<For
       if (!resp.ok || !resp.body) {
         lastHttpStatus = resp.status
         lastError = `upstream ${resp.status}`
-        await recordChannelResult(channel.keyPoolId, false, breakerLatency).catch(() => {})
-        continue // failover:下一候选
+        // F-618:非 2xx 的 body 必须消费/取消,否则 undici 不归还 socket(失败风暴下连接池耗尽)
+        await resp.body?.cancel().catch(() => {})
+        // F-617:只有 5xx / 429 / 网络错误才是渠道故障;4xx 是请求本身的问题,
+        // 一律计进熔断 ⇒ 3 个坏参数请求就能把全部候选打掉(自伤式熔断)。
+        const isClientError = resp.status >= 400 && resp.status < 500 && resp.status !== 429
+        if (!isClientError) {
+          await recordChannelResult(channel.keyPoolId, false, breakerLatency).catch(() => {})
+          continue // failover:下一候选
+        }
+        // 401/403:该 key 凭据异常 ⇒ 换下一候选,但不计渠道熔断(不是渠道挂了)
+        if (resp.status === 401 || resp.status === 403) continue
+        // 其余 4xx(参数/未知模型/上下文超限):同样的请求换候选也不会变好 ⇒ fail-fast
+        lastError = `upstream ${resp.status} (client error)`
+        break
       }
 
+      // F-617:成功只认 2xx;上面 4xx 分支不记成功也不记失败
       await recordChannelResult(channel.keyPoolId, true, breakerLatency).catch(() => {})
       return {
         ok: true,
@@ -392,12 +450,15 @@ export async function forwardToChannel(req: UpstreamForwardRequest): Promise<For
         latencyTrusted: sample.trustworthy,
       }
     } catch (e) {
-      // 网络错误/DNS/超时 → 记熔断失败,尝试下一候选
-      lastError = (e as Error)?.message || 'upstream network error'
+      headersTimeout.clear()
+      // F-670:客户端断开不算渠道故障 ⇒ 不计失败直接 break;仅头超时才计失败。
+      if ((e as Error)?.name === 'AbortError' && !headersTimeout.timedOut()) break
+      lastError = headersTimeout.timedOut()
+        ? `upstream headers timeout (${relayUpstreamHeadersTimeoutMs()}ms)`
+        : (e as Error)?.message || 'upstream network error'
       const errSample = started.stop()
-      const errBreakerLatency: number | null = errSample.trustworthy ? errSample.elapsedMs : null
+      const errBreakerLatency = errSample.trustworthy ? errSample.elapsedMs : null
       await recordChannelResult(channel.keyPoolId, false, errBreakerLatency).catch(() => {})
-      if ((e as Error)?.name === 'AbortError') break // 客户端已断开,不再尝试
       continue
     }
   }

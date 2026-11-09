@@ -52,6 +52,8 @@ vi.mock('../src/config/index.js', () => ({
     DATABASE_URL: 'postgres://localhost:5432/test',
     REDIS_URL: 'redis://localhost:6379',
     AI_CALLBACK_SECRET: INTERNAL_SECRET,
+    // 历史夹具只带旧密钥 ⇒ 显式兼容档;默认 ticket 档的拒绝由 internal-secret-auth.test.ts 覆盖
+    INTERNAL_SECRET_AUTH_MODE: 'dual',
   },
 }))
 
@@ -188,9 +190,7 @@ function entryByName(entries: SkillMarketEntry[], name: string): SkillMarketEntr
 
 /** 设定 users 行返回什么(dbb.execute 的返回值);传 null 表示"查不到行" */
 function stubUsersRow(row: { nickname?: string | null; username?: string | null } | null): void {
-  vi.mocked(db.execute).mockResolvedValue(
-    row === null ? (undefined as never) : ([row] as never),
-  )
+  vi.mocked(db.execute).mockResolvedValue(row === null ? (undefined as never) : ([row] as never))
 }
 
 interface As {

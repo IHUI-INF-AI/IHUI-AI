@@ -61,7 +61,7 @@ const src = {
 async function requireLoggedIn(page: Page) {
   if (page.url().includes('login')) {
     // 过期登录态属机器态,不是页面缺陷:用 skip 而不是让它红(与邻居 spec 同口径)。
-    test.skip(true, `LOGIN_STATE_EXPIRED:被重定向到 ${page.url()}`)
+    test.skip(true, `LOGIN_STATE_EXPIRED:被重定向到 ${page.url()} [SKIP:SKIP-0047]`)
   }
 }
 

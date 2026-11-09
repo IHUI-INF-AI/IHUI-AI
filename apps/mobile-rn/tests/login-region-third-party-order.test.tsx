@@ -199,28 +199,10 @@ async function renderLogin(): Promise<void> {
   })
 }
 
-// 成员集 = LoginScreen 当前实际提供的 8 项(linuxdo 于 2026-11-07 加入,表外 ⇒ 恒排末尾);
-// 这里钉的是「只改顺序不改成员」,不是把某个平台写死进判据。
-const DOMESTIC = [
-  'wechat',
-  'enterpriseWechat',
-  'dingtalk',
-  'feishu',
-  'alipay',
-  'google',
-  'github',
-  'linuxdo',
-]
-const OVERSEAS = [
-  'google',
-  'github',
-  'wechat',
-  'feishu',
-  'dingtalk',
-  'enterpriseWechat',
-  'alipay',
-  'linuxdo',
-]
+// linuxdo 于 2026-11-07 追加在两个排序档位末尾：它没有原生 SDK，走网页端 SSO 闭环，
+// 所以不参与「国内优先 / 海外优先」的原生渠道排序，恒落表尾。
+const DOMESTIC = ['wechat', 'enterpriseWechat', 'dingtalk', 'feishu', 'alipay', 'google', 'github', 'linuxdo']
+const OVERSEAS = ['google', 'github', 'wechat', 'feishu', 'dingtalk', 'enterpriseWechat', 'alipay', 'linuxdo']
 
 describe('票 L28754 RN 端第三方登录优先级(共享判据)', () => {
   beforeEach(() => {

@@ -31,14 +31,19 @@
  *
  * 退出码:
  *   0  无新增 @ts-ignore(或仅有白名单文件)
- *   1  发现新增 @ts-ignore(warn 级别,guardian-runner 会继续执行不阻塞)
+ *   1  发现新增 @ts-ignore(blocking,阻塞 commit)
+ *   2  取材面取不到(未判定)
  *
- * 守门集成:guardian-runner.mjs(warn 模式,不阻塞 commit)
+ * 守门集成:guardian-runner.mjs(blocking 模式,阻塞 commit)
+ *
+ * 取材面(2026-11-08 修):--staged 档正文读**索引 blob**且只判本次新增行
+ * (addedLineNumbers),不再整文件读工作树 —— 否则「暂存旧态、盘上新态」时按盘上内容判,
+ * 既会漏掉索引里的新增压制,也会把文件里历史的 @ts-ignore 算到本次提交头上。
  */
-import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { gitRaw } from './lib/face-reader.mjs'
+import { catBatch, gitRaw } from './lib/face-reader.mjs'
+import { addedLineNumbers } from './lib/face-scan.mjs'
 
 const C = {
   red: '\x1b[31m',
@@ -87,23 +92,17 @@ function isTargetExt(filePath) {
   return /\.(ts|tsx|mjs|js|cjs)$/.test(filePath)
 }
 
-function scanFile(filePath) {
-  const abs = path.join(ROOT, filePath)
-  let content
-  try {
-    content = readFileSync(abs, 'utf8')
-  } catch {
-    return []
-  }
+function scanContent(content, allowed) {
   const hits = []
   const lines = content.split(/\r?\n/)
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
     // 仅检测"压制性"注释:行首 // 或 /* 紧跟 @ts-ignore / @ts-nocheck
     // 不检测 JSDoc 块注释内的描述性提及(以 * 开头),也不检测行中提及 @ts-ignore 的普通注释
-    if (TS_IGNORE_REGEX.test(line)) {
-      hits.push({ line: i + 1, content: line.trim() })
-    }
+    if (!TS_IGNORE_REGEX.test(line)) continue
+    // 只判本次新增行:历史压制不属于本次提交的责任(存量实测 0,但不靠"恰好为 0"成立)
+    if (allowed && !allowed.has(i + 1)) continue
+    hits.push({ line: i + 1, content: line.trim() })
   }
   return hits
 }
@@ -113,7 +112,7 @@ async function main() {
   if (args.includes('--help')) {
     console.log('用法: node scripts/check-ts-ignore.mjs [--staged] [--help]')
     console.log('')
-    console.log('检测 staged 文件中新增的 @ts-ignore / @ts-nocheck 注释(warn 级别)。')
+    console.log('检测 staged 文件中新增的 @ts-ignore / @ts-nocheck 注释(blocking,阻塞 commit)。')
     console.log('跳过白名单:e2e/ / node_modules/ / dist/ / .next/ / build/')
     return 0
   }
@@ -131,8 +130,22 @@ async function main() {
   }
 
   const violations = []
+  let texts
+  let added
+  try {
+    texts = catBatch(ROOT, targets.map((f) => `:${f}`))
+    added = addedLineNumbers(ROOT)
+  } catch (e) {
+    console.error(`${C.red}⚠️  取材面取不到,无法判定:${C.reset}${e?.message ?? e}`)
+    return 2
+  }
   for (const f of targets) {
-    const hits = scanFile(f)
+    const text = texts.get(`:${f}`)
+    if (text === null || text === undefined) {
+      console.error(`${C.red}⚠️  索引里取不到 ${f},无法判定${C.reset}`)
+      return 2
+    }
+    const hits = scanContent(text, added.get(f) ?? new Set())
     if (hits.length > 0) {
       violations.push({ file: f, hits })
     }
@@ -145,7 +158,7 @@ async function main() {
 
   const totalHits = violations.reduce((s, v) => s + v.hits.length, 0)
   console.log(`${C.yellow}⚠️  check-ts-ignore: 发现 ${C.bold}${totalHits}${C.reset}${C.yellow} 处 @ts-ignore(共 ${violations.length} 个文件)${C.reset}`)
-  console.log(`   ${C.dim}@ts-ignore 是类型安全压制,请审视是否真的需要(warn 级别,不阻塞 commit)${C.reset}`)
+  console.log(`   ${C.dim}@ts-ignore 是类型安全压制,请审视是否真的需要(blocking,阻塞 commit)${C.reset}`)
   console.log('')
   for (const v of violations) {
     console.log(`   ${C.bold}${v.file}${C.reset}:`)

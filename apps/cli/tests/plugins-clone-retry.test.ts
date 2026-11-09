@@ -87,7 +87,10 @@ describe('G-816 execGitCloneWithRetry —— 只重试可重试类别', () => {
       const body = fakeGit({ count: true, leftover: false, outcome: 'hang-first-only' });
       await execGitCloneWithRetry(cloneArgs(target, dir, body), target, {
         binary: process.execPath,
-        timeoutMs: 200,
+        // BUG-0037:Windows 上 node 冷启动实测可超过 200ms,原来的 200ms 会把"还没写完计数"
+        // 的子进程当成挂起杀掉 ⇒ 计数永远读到 0。阈值必须是"足以覆盖冷启动"的量级,
+        // 否则量的不是重试逻辑,而是机器负载。
+        timeoutMs: 1_000,
         baseDelayMs: 30,
         attempts: 3,
       });
@@ -105,7 +108,7 @@ describe('G-816 execGitCloneWithRetry —— 只重试可重试类别', () => {
       const body = fakeGit({ count: true, leftover: true, outcome: 'hang-first-only' });
       await execGitCloneWithRetry(cloneArgs(target, dir, body), target, {
         binary: process.execPath,
-        timeoutMs: 200,
+        timeoutMs: 1_000,
         baseDelayMs: 30,
         attempts: 3,
       });
@@ -156,7 +159,7 @@ describe('G-816 execGitCloneWithRetry —— 只重试可重试类别', () => {
       try {
         await execGitCloneWithRetry(cloneArgs(target, dir, body), target, {
           binary: process.execPath,
-          timeoutMs: 150,
+          timeoutMs: 800,
           baseDelayMs: 20,
           attempts: 2,
         });
@@ -183,13 +186,16 @@ describe('G-816 execGitCloneWithRetry —— 只重试可重试类别', () => {
     try {
       const target = path.join(dir, 'staging');
       const body = fakeGit({ count: true, leftover: false, outcome: 'hang' });
-      setTimeout(() => controller.abort(), 400);
+      // 取消必须落在退避窗口里(而不是子进程冷启动之前):先让第一轮把计数写完、
+      // 于 timeoutMs 被杀,再在 baseDelayMs(6s)期间 abort。Windows 冷启动实测 >200ms,
+      // 故 timeout 抬到 1s、abort 定在 1.5s —— 仍远小于 3s 的"立刻结束"上限。
+      setTimeout(() => controller.abort(), 1_500);
       const t0 = Date.now();
       let thrown: unknown;
       try {
         await execGitCloneWithRetry(cloneArgs(target, dir, body), target, {
           binary: process.execPath,
-          timeoutMs: 150,
+          timeoutMs: 1_000,
           baseDelayMs: 6_000, // 刻意给一个远超测试窗口的退避:能被 abort 打断才算"可取消退避"
           attempts: 5,
           signal: controller.signal,

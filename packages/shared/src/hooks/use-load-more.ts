@@ -10,9 +10,13 @@ export function useLoadMore(fetch: (page: number) => Promise<boolean>) {
   const loadMore = useCallback(async () => {
     if (loadingRef.current) return
     loadingRef.current = true
-    const hasMore = await fetch(pageRef.current)
-    if (hasMore) pageRef.current++
-    loadingRef.current = false
+    // XUI-025:fetch 抛错时必须走 finally 解锁,否则一次失败会把后续加载永久卡在"加载中"。
+    try {
+      const hasMore = await fetch(pageRef.current)
+      if (hasMore) pageRef.current++
+    } finally {
+      loadingRef.current = false
+    }
   }, [fetch])
   const reset = useCallback(() => {
     pageRef.current = 1

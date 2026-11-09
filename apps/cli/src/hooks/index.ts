@@ -60,6 +60,7 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import { spawn } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { createHash } from 'node:crypto';
 // 规范化器唯一实现(见下方摘要口径处的说明)
 import { canonicalizeArgs } from '../stream-tool-ledger.js';
@@ -737,11 +738,13 @@ function stampConfigSource(
   for (const key of HOOK_EVENT_KEYS) {
     const entries = config[key];
     if (!entries) continue;
-    // 已带 source 的条目不覆盖:允许调用方(或再上一层生成器)显式声明来源
+    // 2026-11-08 P0(F-096):来源只能是"这份配置落在哪",不能由配置自己声明。
+    // 旧实现 `e.source ?? source` 让仓库内 hooks.json 写 source:"user" 即可自证免检,
+    // 直接把信任门整条绕过;这里改为无条件覆盖,派生字段永远由加载侧接管。
     stamped[key] = entries.map((e) => ({
       ...e,
-      source: e.source ?? source,
-      sourceFolder: e.sourceFolder ?? sourceFolder,
+      source,
+      sourceFolder,
     })) as never;
   }
   return stamped;
@@ -752,6 +755,47 @@ interface HooksSourceBundle {
   configFile: string;
   config: HooksConfig;
   raw: Record<string, unknown>;
+}
+
+/** 磁盘声明的合法字段全集。`source` / `sourceFolder` 是派发侧派生字段,不属于磁盘契约。 */
+const HOOK_ENTRY_DISK_FIELDS = new Set<string>([
+  'name',
+  'command',
+  'webhook',
+  'method',
+  'headers',
+  'body',
+  'matchTool',
+  'blockOnError',
+  'timeout',
+  'async',
+  'rewakeMessage',
+  'rewakeSummary',
+]);
+
+/**
+ * 2026-11-08 P0(F-096):只保留磁盘契约内的字段,把 `source`/`sourceFolder` 等
+ * 派发侧派生字段从配置文件里彻底剥掉 —— 否则仓库自带的 hooks.json 只要写
+ * `"source":"user"` 就能在加载阶段自证"用户配置",绕过目录信任门执行任意 shell。
+ * 这是单一入口:loadHooksConfig 与内容摘要都经 readHooksConfigBundle。
+ */
+function sanitizeDiskHooksConfig(parsed: Record<string, unknown>): HooksConfig {
+  const config: HooksConfig = {};
+  for (const key of HOOK_EVENT_KEYS) {
+    const entries = parsed[key];
+    if (!Array.isArray(entries)) continue;
+    config[key] = entries
+      .filter((entry): entry is Record<string, unknown> => isRecord(entry))
+      .map((entry) => {
+        const clean: Record<string, unknown> = {};
+        for (const field of HOOK_ENTRY_DISK_FIELDS) {
+          if (field in entry) clean[field] = entry[field];
+        }
+        return clean as unknown as HookEntry;
+      })
+      .filter((entry) => typeof entry.name === 'string' && entry.name.trim().length > 0) as never;
+  }
+  return config;
 }
 
 function readHooksConfigBundle(p: string, stat?: (path: string) => fs.Stats): HooksSourceBundle | null {
@@ -774,7 +818,7 @@ function readHooksConfigBundle(p: string, stat?: (path: string) => fs.Stats): Ho
   const parsed = tryParseJson(text);
   // 损坏文件返回 null,由调用方继续下一源(与旧行为一致)
   if (!isRecord(parsed)) return null;
-  return { configFile: p, config: parsed as unknown as HooksConfig, raw: parsed };
+  return { configFile: p, config: sanitizeDiskHooksConfig(parsed), raw: parsed };
 }
 
 function readHooksConfigFile(p: string, stat?: (path: string) => fs.Stats): HooksConfig | null {
@@ -1996,7 +2040,38 @@ function feedbackForEntry(
   });
 }
 
+// F-097:工具钩子必须"全工具覆盖",而不是靠各工具体内自觉调用(runPreToolCall 曾只被
+// 20 来个模块手工接线,read/list/grep/glob/skill/MCP/subagent 等面全裸奔)。
+// 统一入口 tools/index.ts 的 executeToolCall 已经在每个调用外层包 scope:
+//  - pre:中央闸先派发一次,工具体内的第二次调用只回"已派发"空结果(阻断语义仍由中央结果承载);
+//  - post:工具体内若已派发(记数>0),中央不再补发;未派发的工具由中央补一次。
+// 无 scope 时(测试直接调 runPreToolCall / 直接 tool.execute)行为与旧实现逐字相同。
+interface ToolHookDispatchScope {
+  preClaimed: boolean;
+  postDispatched: number;
+}
+
+const toolHookScope = new AsyncLocalStorage<ToolHookDispatchScope>();
+
+/** executeToolCall 的唯一包装点:一次工具调用的钩子派发作用域。 */
+export function runWithToolHookScope<T>(fn: () => Promise<T>): Promise<T> {
+  // 嵌套 executeToolCall(工具内部再调工具)必须是**新**作用域:复用外层会把内层
+  // 当成"已派发"而静默漏掉它的 pre 钩子。
+  return toolHookScope.run({ preClaimed: false, postDispatched: 0 }, fn);
+}
+
+/** 中央 post 闸:仅当工具体内一次都没派发过 postToolCall 时才补发。 */
+export function shouldDispatchCentralPostHook(): boolean {
+  const scope = toolHookScope.getStore();
+  return scope !== undefined && scope.postDispatched === 0;
+}
+
 export async function runPreToolCall(toolName: string, input: unknown, signal?: AbortSignal): Promise<HookResult> {
+  const scope = toolHookScope.getStore();
+  if (scope?.preClaimed) {
+    return { proceed: true, terminal: 'succeeded', feedback: '' };
+  }
+  if (scope) scope.preClaimed = true;
   const config = loadHooks();
   const hooks = config.preToolCall ?? [];
   const feedbackLines: string[] = [];
@@ -2194,6 +2269,8 @@ export async function runPermissionRequest(
 }
 
 export async function runPostToolCall(toolName: string, output: unknown, signal?: AbortSignal): Promise<HookResult> {
+  const scope = toolHookScope.getStore();
+  if (scope) scope.postDispatched += 1;
   const config = loadHooks();
   const hooks = config.postToolCall ?? [];
   const feedbackLines: string[] = [];
@@ -2392,6 +2469,18 @@ function buildHookEnv(event: HookEvent, ctx: HookContext): Record<string, string
 export interface RunHookOptions {
   /** 父级取消信号:取消后余下条目不再派发,被打断的钩子落事件层 'Cancelled'。 */
   signal?: AbortSignal;
+}
+
+/**
+ * 新增派发点的可见性出口:runHook 的非成功反馈只有被调用方消费才看得见,
+ * 而本批新增的事件源(初始化 / 征询 / 工具终态)没有返回值通道 —— 不在这里喊一声,
+ * "钩子坏了"就又回到静默(§30)。成功终态不刷屏。
+ */
+export function surfaceHookOutcome(event: HookEvent, result: HookResult): void {
+  if (result.terminal === 'succeeded') return;
+  const detail = (result.feedback ?? result.reason ?? '').trim();
+  const terminal = describeHookTerminal(result.terminal ?? 'result_unknown');
+  warnOnce(`⚠ ${event} 钩子非成功终态=${terminal}${detail ? `: ${detail}` : ''}`);
 }
 
 export async function runHook(event: HookEvent, ctx: HookContext, options?: RunHookOptions): Promise<HookResult> {

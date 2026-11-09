@@ -26,8 +26,12 @@ import { createHash, createSign, createVerify } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
 import { env } from 'node:process'
 import { canonicalStringify } from '@ihui/shared'
-import type { AuditLogChainRow, AuditLogFilters } from '../db/audit-queries.js'
-import { selectAuditLogs } from '../db/audit-queries.js'
+import type {
+  AuditLogChainRow,
+  AuditLogExportCursor,
+  AuditLogFilters,
+} from '../db/audit-queries.js'
+import { selectAuditLogsForExport } from '../db/audit-queries.js'
 // 86G-2:按 kid 查表的登记表与它的装载/解析出口。kid 的推导算法也住在那边 —— 签名侧与
 // 验签侧各写一遍必然漂移(本仓记过最多次的失败型),所以这里只 import,不再抄一份。
 import {
@@ -202,20 +206,24 @@ export async function* streamExportRows(
   maxItems = 10000,
 ): AsyncGenerator<AuditLogChainRow> {
   const PAGE_SIZE = 500
-  let page = 1
+  let cursor: AuditLogExportCursor | null = null
   let emitted = 0
 
   while (emitted < maxItems) {
     const need = Math.min(PAGE_SIZE, maxItems - emitted)
-    const { list } = await selectAuditLogs(filters, page, need)
+    // 导出面必须是 ASC + 键集游标:`selectAuditLogs` 的 DESC + OFFSET 既产不出
+    // hash 链锚,又会在导出期间写入时把偏移窗口错开而静默跳行。
+    const list = await selectAuditLogsForExport(filters, cursor, need)
     if (list.length === 0) break
     for (const row of list) {
       if (emitted >= maxItems) break
       yield row
       emitted++
     }
+    const last = list[list.length - 1]
+    if (!last) break
+    cursor = { timestamp: last.timestamp, id: last.id }
     if (list.length < need) break // 已到末页
-    page++
   }
 }
 

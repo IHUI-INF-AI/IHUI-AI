@@ -9,11 +9,14 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { authenticate } from '../../plugins/auth.js'
+import { requireAdmin } from '../../plugins/require-permission.js'
 import { success, error } from '../../utils/response.js'
 import { and, desc, eq } from 'drizzle-orm'
 import { db } from '../../db/index.js'
 import { circleCategoryRelation, circleCircleCategoryRelation, circleDynamic } from '@ihui/database'
 import { sanitizeUgcInput } from '../../db/sensitive-words-queries.js'
+import { getLegacyId } from '../../db/id-mapping-queries.js'
+import { ADMIN_ROLE_ID } from './_shared.js'
 import {
   countSubscribers,
   findTagById,
@@ -28,6 +31,15 @@ import {
  * 话题实体即 tags 行(见 GET /api/circles/topics/hot 的取源理由)。
  */
 const TOPIC_TARGET_TYPE = 'tag'
+
+/**
+ * F-155:circle_dynamic.member_id 是旧 Java 整数会员号(无外键),JWT 主体 users.id 是 uuid。
+ * 两套 ID 空间唯一的可信映射来自 id_mapping 表(new_id → legacy_id);查不到时 fail-close,
+ * 绝不采信 body/query 自报的 memberId。
+ */
+async function resolveLegacyMemberId(userId: string): Promise<number | null> {
+  return getLegacyId('member', userId)
+}
 
 const topicsRoutes: FastifyPluginAsync = async (server) => {
   // 统一鉴权：所有 circles / asks 路由均需登录
@@ -93,12 +105,15 @@ const topicsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /circles/topic - 创建话题
-  server.post('/circles/topic', async (request, reply) => {
+  //
+  // F-155(2026-11-08):circle_dynamic.member_id 是旧会员号(integer),与 JWT 主体
+  // users.id(uuid)之间没有映射表,无法判定/盖章属主 ⇒ 写接口收紧为管理员专用。
+  // 普通用户的发帖走 uuid 域(/circles/topics/hot → tags)的既有链路,两条不混用。
+  server.post('/circles/topic', { preHandler: requireAdmin }, async (request, reply) => {
     const body = z
       .object({
         content: z.string().min(1),
         circleId: z.number().int().positive(),
-        memberId: z.number().int().positive(),
         image: z.string().max(3000).optional().default(''),
         status: z.string().max(100).optional().default('published'),
       })
@@ -120,12 +135,17 @@ const topicsRoutes: FastifyPluginAsync = async (server) => {
     if (!filtered.ok) {
       return reply.status(400).send(error(400, '内容含违规词,发布失败'))
     }
+    // F-155 归属只认服务端解析:body.memberId 一律不采信(zod 未声明即被剥离)
+    const memberId = await resolveLegacyMemberId(request.userId!)
+    if (memberId === null) {
+      return reply.status(403).send(error(403, '当前账号未建立会员映射,无法发布话题'))
+    }
     const [created] = await db
       .insert(circleDynamic)
       .values({
         content: filtered.fields.content!.text,
         circleId: body.data.circleId,
-        memberId: body.data.memberId,
+        memberId,
         image: body.data.image,
         status: body.data.status,
       })
@@ -134,8 +154,8 @@ const topicsRoutes: FastifyPluginAsync = async (server) => {
     return reply.status(201).send(success({ topic: created }))
   })
 
-  // PUT /circles/topic/:tid - 修改话题
-  server.put('/circles/topic/:tid', async (request, reply) => {
+  // PUT /circles/topic/:tid - 修改话题(F-155:同因收紧为管理员,见上)
+  server.put('/circles/topic/:tid', { preHandler: requireAdmin }, async (request, reply) => {
     const { tid } = z.object({ tid: z.string() }).parse(request.params)
     const tidNum = Number(tid)
     if (!Number.isInteger(tidNum) || tidNum <= 0) {
@@ -150,6 +170,18 @@ const topicsRoutes: FastifyPluginAsync = async (server) => {
       .safeParse(request.body)
     if (!body.success) {
       return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    }
+    // F-155 归属校验:作者为用户本人;管理员例外(沿用 community/_shared 的 ADMIN_ROLE_ID)
+    const [existing] = await db
+      .select()
+      .from(circleDynamic)
+      .where(eq(circleDynamic.id, tidNum))
+      .limit(1)
+    if (!existing) return reply.status(404).send(error(404, '话题不存在'))
+    const isAdmin = (request.jwtPayload?.roleId ?? 0) >= ADMIN_ROLE_ID
+    const myMemberId = await resolveLegacyMemberId(request.userId!)
+    if (!isAdmin && (myMemberId === null || existing.memberId !== myMemberId)) {
+      return reply.status(403).send(error(403, '只能修改自己的话题'))
     }
     // P0 合规:修改话题内容过滤
     if (body.data.content !== undefined) {
@@ -175,22 +207,42 @@ const topicsRoutes: FastifyPluginAsync = async (server) => {
     const [updated] = await db
       .update(circleDynamic)
       .set(updateData)
-      .where(eq(circleDynamic.id, tidNum))
+      .where(
+        isAdmin
+          ? eq(circleDynamic.id, tidNum)
+          : and(eq(circleDynamic.id, tidNum), eq(circleDynamic.memberId, myMemberId!)),
+      )
       .returning()
     if (!updated) return reply.status(404).send(error(404, '话题不存在'))
     return reply.send(success({ topic: updated }))
   })
 
-  // DELETE /circles/topic/:tid - 删除话题
-  server.delete('/circles/topic/:tid', async (request, reply) => {
+  // DELETE /circles/topic/:tid - 删除话题(F-155:同因收紧为管理员,见上)
+  server.delete('/circles/topic/:tid', { preHandler: requireAdmin }, async (request, reply) => {
     const { tid } = z.object({ tid: z.string() }).parse(request.params)
     const tidNum = Number(tid)
     if (!Number.isInteger(tidNum) || tidNum <= 0) {
       return reply.status(400).send(error(400, '无效的话题 ID'))
     }
+    // F-155 归属校验:作者为用户本人;管理员例外
+    const [existing] = await db
+      .select()
+      .from(circleDynamic)
+      .where(eq(circleDynamic.id, tidNum))
+      .limit(1)
+    if (!existing) return reply.status(404).send(error(404, '话题不存在'))
+    const isAdmin = (request.jwtPayload?.roleId ?? 0) >= ADMIN_ROLE_ID
+    const myMemberId = await resolveLegacyMemberId(request.userId!)
+    if (!isAdmin && (myMemberId === null || existing.memberId !== myMemberId)) {
+      return reply.status(403).send(error(403, '只能删除自己的话题'))
+    }
     const removed = await db
       .delete(circleDynamic)
-      .where(eq(circleDynamic.id, tidNum))
+      .where(
+        isAdmin
+          ? eq(circleDynamic.id, tidNum)
+          : and(eq(circleDynamic.id, tidNum), eq(circleDynamic.memberId, myMemberId!)),
+      )
       .returning({ id: circleDynamic.id })
     if (removed.length === 0) return reply.status(404).send(error(404, '话题不存在'))
     return reply.send(success({ id: tidNum, deleted: removed.length > 0 }))
@@ -267,46 +319,54 @@ const topicsRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ list, total: list.length }))
   })
 
-  // POST /circles/category-relation - 创建分类关系
-  server.post('/circles/category-relation', async (request, reply) => {
-    const body = z
-      .object({
-        childCategoryId: z.number().int().positive(),
-        fatherCategoryId: z.number().int().positive(),
-        directFatherCategoryId: z.number().int().positive(),
-        isSub: z.boolean().default(false),
-      })
-      .safeParse(request.body)
-    if (!body.success) {
-      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
-    }
-    const [created] = await db
-      .insert(circleCategoryRelation)
-      .values({
-        childCategoryId: body.data.childCategoryId,
-        fatherCategoryId: body.data.fatherCategoryId,
-        directFatherCategoryId: body.data.directFatherCategoryId,
-        isSub: body.data.isSub,
-      })
-      .returning()
-    if (!created) return reply.status(500).send(error(500, '创建分类关系失败'))
-    return reply.status(201).send(success({ relation: created }))
-  })
+  // POST /circles/category-relation - 创建分类关系(全局类目树配置,仅管理员)
+  server.post(
+    '/circles/category-relation',
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const body = z
+        .object({
+          childCategoryId: z.number().int().positive(),
+          fatherCategoryId: z.number().int().positive(),
+          directFatherCategoryId: z.number().int().positive(),
+          isSub: z.boolean().default(false),
+        })
+        .safeParse(request.body)
+      if (!body.success) {
+        return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+      }
+      const [created] = await db
+        .insert(circleCategoryRelation)
+        .values({
+          childCategoryId: body.data.childCategoryId,
+          fatherCategoryId: body.data.fatherCategoryId,
+          directFatherCategoryId: body.data.directFatherCategoryId,
+          isSub: body.data.isSub,
+        })
+        .returning()
+      if (!created) return reply.status(500).send(error(500, '创建分类关系失败'))
+      return reply.status(201).send(success({ relation: created }))
+    },
+  )
 
-  // DELETE /circles/category-relation/:rid - 删除分类关系
-  server.delete('/circles/category-relation/:rid', async (request, reply) => {
-    const { rid } = z.object({ rid: z.string() }).parse(request.params)
-    const ridNum = Number(rid)
-    if (!Number.isInteger(ridNum) || ridNum <= 0) {
-      return reply.status(400).send(error(400, '无效的关系 ID'))
-    }
-    const removed = await db
-      .delete(circleCategoryRelation)
-      .where(eq(circleCategoryRelation.id, ridNum))
-      .returning({ id: circleCategoryRelation.id })
-    if (removed.length === 0) return reply.status(404).send(error(404, '分类关系不存在'))
-    return reply.send(success({ id: ridNum, deleted: removed.length > 0 }))
-  })
+  // DELETE /circles/category-relation/:rid - 删除分类关系(全局类目树配置,仅管理员)
+  server.delete(
+    '/circles/category-relation/:rid',
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const { rid } = z.object({ rid: z.string() }).parse(request.params)
+      const ridNum = Number(rid)
+      if (!Number.isInteger(ridNum) || ridNum <= 0) {
+        return reply.status(400).send(error(400, '无效的关系 ID'))
+      }
+      const removed = await db
+        .delete(circleCategoryRelation)
+        .where(eq(circleCategoryRelation.id, ridNum))
+        .returning({ id: circleCategoryRelation.id })
+      if (removed.length === 0) return reply.status(404).send(error(404, '分类关系不存在'))
+      return reply.send(success({ id: ridNum, deleted: removed.length > 0 }))
+    },
+  )
 
   // ===== 圈子类目关系（历史 circle_circle_category_relation，integer id） =====
 

@@ -20,6 +20,7 @@ import {
   submitExamRecord,
 } from '@ihui/api-client'
 import { cn } from '@/lib/utils'
+import { useDeadlineCountdown } from '@/hooks/use-deadline-countdown'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { AnswerInput } from './AnswerInput'
 import { PaperSelectCard } from './PaperSelectCard'
@@ -33,7 +34,8 @@ function AnswerOnlineContent() {
   const [paperId, setPaperId] = React.useState('')
   const [recordId, setRecordId] = React.useState<string | null>(null)
   const [answers, setAnswers] = React.useState<Record<string, unknown>>({})
-  const [remaining, setRemaining] = React.useState<number>(0)
+  // W-02:与考试端同型修复,以截止时间戳建模,剩余秒数由墙钟派生
+  const [deadline, setDeadline] = React.useState<number | null>(null)
 
   const { data: papersData } = useQuery({
     queryKey: ['edu', 'answer', 'papers'],
@@ -74,7 +76,9 @@ function AnswerOnlineContent() {
     },
     onSuccess: (d) => {
       setRecordId(d.record.id)
-      if (paper) setRemaining(paper.duration * 60)
+      autoSubmitRef.current = false
+      const duration = paper?.duration ?? 0
+      setDeadline(duration > 0 ? Date.now() + duration * 60_000 : null)
       toast.success(t('started'))
     },
     onError: (e: Error) => toast.error(e.message),
@@ -91,7 +95,7 @@ function AnswerOnlineContent() {
       toast.success(t('submitSuccess'))
       setRecordId(null)
       setAnswers({})
-      setRemaining(0)
+      setDeadline(null)
       router.push('/admin/edu/answer/card')
       void d
     },
@@ -100,19 +104,18 @@ function AnswerOnlineContent() {
 
   const submitMutRef = React.useRef(submitMut)
   submitMutRef.current = submitMut
+  // 自动交卷一次性锁:避免归零后每次重渲染都重复提交
+  const autoSubmitRef = React.useRef(false)
+
+  const remaining = useDeadlineCountdown(deadline)
 
   React.useEffect(() => {
-    if (!recordId || remaining <= 0) return
-    const tc = setInterval(() => setRemaining((s) => Math.max(0, s - 1)), 1000)
-    return () => clearInterval(tc)
-  }, [recordId, remaining])
-
-  React.useEffect(() => {
-    if (recordId && remaining === 0 && questions.length > 0) {
-      toast.warning(t('timeUpAutoSubmit'))
-      submitMutRef.current.mutate()
-    }
-  }, [remaining, recordId, questions.length, t])
+    if (!recordId || deadline === null || remaining > 0 || questions.length === 0) return
+    if (autoSubmitRef.current || submitMutRef.current.isPending) return
+    autoSubmitRef.current = true
+    toast.warning(t('timeUpAutoSubmit'))
+    submitMutRef.current.mutate()
+  }, [remaining, recordId, deadline, questions.length, t])
 
   const mins = Math.floor(remaining / 60)
   const secs = remaining % 60

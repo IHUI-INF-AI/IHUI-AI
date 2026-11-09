@@ -19,6 +19,8 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as os from 'node:os'
 import { spawnSync } from 'node:child_process'
+import { assertPathInside } from './util/path-guard.js'
+import { writeFileAtomicSync, SymlinkTargetError } from './util/atomic-write.js'
 
 // ============ 类型定义 ============
 
@@ -258,15 +260,19 @@ function loadCachedCowKind(cachePath: string): CowKind | undefined {
   if (typeof kind === 'string' && (VALID_COW_KINDS as readonly string[]).includes(kind)) {
     return kind as CowKind
   }
-  throw new Error('CoW 缓存读不到,不能把它覆盖成新结论 (corrupt)')
+  // JSON 可解析但 kind 不在合法集合内 ⇒ 视为无缓存(旧版/手改留下的值),允许重新检测并回写;
+  // 只有读不到或 JSON 损坏才拒绝覆盖(见上方抛错分支)。
+  return undefined
 }
 
 function saveCachedCowKind(kind: CowKind, cachePath: string): void {
   try {
-    fs.mkdirSync(path.dirname(cachePath), { recursive: true })
-    fs.writeFileSync(cachePath, JSON.stringify({ kind, ts: Date.now() }), 'utf-8')
-  } catch {
-    // 持久化失败不抛异常
+    writeFileAtomicSync(cachePath, JSON.stringify({ kind, ts: Date.now() }))
+  } catch (error) {
+    // 持久化失败不抛异常,但必须留痕 —— 吞掉写失败会让 CoW 结论无从追问(DBG-49)。
+    const code = error instanceof SymlinkTargetError ? error.code : (error as { code?: unknown })?.code
+    const reason = typeof code === 'string' ? code : error instanceof Error ? error.message : String(error)
+    console.warn(`[worktree] CoW 缓存写失败,已跳过(${cachePath}): ${reason}`)
   }
 }
 
@@ -731,18 +737,34 @@ async function readModifiedFiles(repoDir: string): Promise<string[]> {
   }
 }
 
+/** 低层删除参数:withinRoot 必填,拒绝在无根约束下递归删除。 */
+export interface RemoveWorktreeOptions {
+  /** 删除目标必须严格位于该根内(缺省 fail-closed) */
+  withinRoot: string
+  /** stat 注入(测试用);默认 fs.statSync */
+  stat?: (target: string) => unknown
+}
+
 /**
  * 删除 worktree。
  * - linked worktree(.git 是文件)→ 调 git worktree remove --force,失败 fallback 到 rm -rf
  * - standalone worktree(.git 是目录)→ 直接 rm -rf
  * - 路径不存在 → 直接返回(不抛错)
  * - 删除失败记录到 stderr 但返回成功,避免阻塞清理流程
+ * - 删除前必须过 withinRoot 根内/realpath 断言;`..`、根外绝对路径、指向根外的符号链接一律拒绝。
+ * - 兼容旧函数形第二参:仅注入 stat(不带根约束,仅供旧测试使用)。
  */
 export async function removeWorktree(
   wtPath: string,
-  stat?: (target: string) => unknown,
+  optsOrStat?: RemoveWorktreeOptions | ((target: string) => unknown),
 ): Promise<void> {
-  const look = stat ?? fs.statSync
+  const legacyStat = typeof optsOrStat === 'function' ? optsOrStat : undefined
+  const opts = typeof optsOrStat === 'function' ? undefined : optsOrStat
+  if (legacyStat === undefined) {
+    if (!opts?.withinRoot) throw new Error('removeWorktree 需要显式 withinRoot,拒绝在无根约束下删除')
+    assertPathInside(opts.withinRoot, wtPath, 'worktree 删除目录')
+  }
+  const look = legacyStat ?? opts?.stat ?? fs.statSync
   try {
     look(wtPath)
   } catch (error) {

@@ -24,8 +24,10 @@
  *   返回:{ "selected": ["蓝绿"] } 或 { "selected": ["蓝绿","滚动"], "custom": "..." }
  */
 
+import { randomUUID } from 'node:crypto';
 import chalk from 'chalk';
-import type { Tool, ToolResult } from './index.js';
+import type { Tool, ToolContext, ToolResult } from './index.js';
+import { runHook, surfaceHookOutcome } from '../hooks/index.js';
 
 interface AskOption {
   label: string;
@@ -42,6 +44,26 @@ interface AskUserArgs {
 /** 检测是否在交互式终端(非 headless) */
 function isInteractive(): boolean {
   return process.stdin.isTTY === true && process.stdout.isTTY === true;
+}
+
+/**
+ * elicitationResult 的唯一派发口:与 elicitation 用同一个 elicitationId 配对。
+ * 三档 action 与上游 elicitation 收口语义对齐(accept / decline / cancel);
+ * 非成功终态喊到 stderr —— 这是"钩子坏了"的唯一可见通道。
+ */
+async function fireElicitationResult(params: {
+  workspacePath: string;
+  elicitationId: string;
+  action: 'accept' | 'decline' | 'cancel';
+  content?: string;
+}): Promise<void> {
+  const res = await runHook('elicitationResult', {
+    workspacePath: params.workspacePath,
+    elicitationId: params.elicitationId,
+    elicitationAction: params.action,
+    ...(params.content !== undefined ? { elicitationContent: params.content } : {}),
+  });
+  surfaceHookOutcome('elicitationResult', res);
 }
 
 // ───────────────── escalation budget (mechanism twin of upstream escalate) ─────────────────
@@ -111,7 +133,7 @@ export const ask_user_question: Tool = {
     },
   },
   required: ['question', 'options'],
-  async execute(args): Promise<ToolResult> {
+  async execute(args: Record<string, unknown>, ctx: ToolContext): Promise<ToolResult> {
     const opts = args as unknown as AskUserArgs;
     if (!opts.question || typeof opts.question !== 'string') {
       return { success: false, output: '', error: 'question 参数必须为非空字符串' };
@@ -147,6 +169,16 @@ export const ask_user_question: Tool = {
         };
       }
     }
+    // elicitation 的真实事件源:校验 / 预算都通过、真正把问题弹给人**之前**派发一次,
+    // elicitationId 与随后的 elicitationResult 成对配对。headless 与预算耗尽两档已经
+    // 在此之前返回 —— 没弹窗就不存在一次征询,不许报成事件。
+    const elicitationId = randomUUID();
+    const elicitRes = await runHook('elicitation', {
+      workspacePath: ctx.workspacePath,
+      elicitationId,
+      elicitationMessage: opts.question,
+    });
+    surfaceHookOutcome('elicitation', elicitRes);
     // 动态导入 inquirer(避免 headless 模式启动时也加载)
     const inquirer = (await import('inquirer')).default;
     const headerPrefix = opts.header ? chalk.cyan(`[${opts.header}] `) : '';
@@ -155,50 +187,80 @@ export const ask_user_question: Tool = {
       const desc = o.description ? chalk.dim(` — ${o.description}`) : '';
       return { name: `${o.label}${desc}`, value: o.label, short: o.label };
     });
-    if (multiSelect) {
+    try {
+      if (multiSelect) {
+        const answers = await inquirer.prompt([
+          {
+            type: 'checkbox',
+            name: 'selected',
+            message: `${headerPrefix}${opts.question}`,
+            choices,
+            validate: (val: unknown) => Array.isArray(val) && val.length > 0 ? true : '至少选择一项',
+          },
+        ]);
+        const selected = answers.selected as string[];
+        await fireElicitationResult({
+          workspacePath: ctx.workspacePath,
+          elicitationId,
+          action: 'accept',
+          content: JSON.stringify({ selected }),
+        });
+        return {
+          success: true,
+          output: `用户选择(多选): ${selected.join(', ')}\n继续基于这些选择执行。`,
+        };
+      }
+      // 单选 + "Other(自定义输入)" 选项(对齐 AI 工作台 AskUserQuestion 行为)
+      const otherChoice = { name: chalk.dim('Other(自定义输入)'), value: '__OTHER__', short: 'Other' };
       const answers = await inquirer.prompt([
         {
-          type: 'checkbox',
+          type: 'select',
           name: 'selected',
           message: `${headerPrefix}${opts.question}`,
-          choices,
-          validate: (val: unknown) => Array.isArray(val) && val.length > 0 ? true : '至少选择一项',
+          choices: [...choices, otherChoice],
         },
       ]);
-      const selected = answers.selected as string[];
+      if (answers.selected === '__OTHER__') {
+        const custom = await inquirer.prompt([
+          {
+            type: 'input',
+            name: 'value',
+            message: '输入自定义答案:',
+            validate: (v: string) => v.trim().length > 0 ? true : '不能为空',
+          },
+        ]);
+        await fireElicitationResult({
+          workspacePath: ctx.workspacePath,
+          elicitationId,
+          action: 'accept',
+          content: JSON.stringify({ selected: '__OTHER__', custom: custom.value as string }),
+        });
+        return {
+          success: true,
+          output: `用户自定义输入: ${custom.value as string}\n继续基于该输入执行。`,
+        };
+      }
+      await fireElicitationResult({
+        workspacePath: ctx.workspacePath,
+        elicitationId,
+        action: 'accept',
+        content: JSON.stringify({ selected: answers.selected as string }),
+      });
       return {
         success: true,
-        output: `用户选择(多选): ${selected.join(', ')}\n继续基于这些选择执行。`,
+        output: `用户选择: ${answers.selected as string}\n继续基于该选择执行。`,
       };
+    } catch (error) {
+      // 用户在 prompt 里取消(Ctrl+C / prompt 被拆):先落 cancel 收口,再把**原始错误**
+      // 原样抛给调用链 —— hook 侧的异常由 runHook/surfaceHookOutcome 自身兜住,绝不覆盖它。
+      await fireElicitationResult({
+        workspacePath: ctx.workspacePath,
+        elicitationId,
+        action: 'cancel',
+        content: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
     }
-    // 单选 + "Other(自定义输入)" 选项(对齐 AI 工作台 AskUserQuestion 行为)
-    const otherChoice = { name: chalk.dim('Other(自定义输入)'), value: '__OTHER__', short: 'Other' };
-    const answers = await inquirer.prompt([
-      {
-        type: 'select',
-        name: 'selected',
-        message: `${headerPrefix}${opts.question}`,
-        choices: [...choices, otherChoice],
-      },
-    ]);
-    if (answers.selected === '__OTHER__') {
-      const custom = await inquirer.prompt([
-        {
-          type: 'input',
-          name: 'value',
-          message: '输入自定义答案:',
-          validate: (v: string) => v.trim().length > 0 ? true : '不能为空',
-        },
-      ]);
-      return {
-        success: true,
-        output: `用户自定义输入: ${custom.value as string}\n继续基于该输入执行。`,
-      };
-    }
-    return {
-      success: true,
-      output: `用户选择: ${answers.selected as string}\n继续基于该选择执行。`,
-    };
   },
 };
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

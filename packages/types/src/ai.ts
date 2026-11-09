@@ -228,8 +228,8 @@ export interface SubagentSpawnEvent {
 export interface SubagentEndEvent {
   /** subagent 唯一 ID */
   id: string
-  /** 最终状态:done=成功 / failed=失败 */
-  status: 'done' | 'failed'
+  /** 最终状态:done=成功 / failed=失败 / stub=密钥未配置的模拟结果,不是完成 */
+  status: 'done' | 'failed' | 'stub'
   /** 失败原因(status='failed' 时存在) */
   failureReason?: string
   /** 事件时间戳(ISO 8601) */
@@ -414,6 +414,7 @@ export type SubAgentStatus =
   | 'completed'
   | 'failed'
   | 'cancelled'
+  | 'stub'
 
 /** 子智能体单步执行结果(用于 SubAgentActivity.completedSteps) */
 export interface SubAgentStep {

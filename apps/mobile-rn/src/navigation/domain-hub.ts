@@ -215,6 +215,16 @@ export const DOMAIN_HUBS: Record<DomainKey, HubDomain> = {
         route: 'CourseQAList',
         target: { type: 'route', name: 'CourseQAList' },
       },
+      {
+        // web /edu/parent(家长端入口,nav-data.ts 同一条)——票 B72 移动端入口腿。
+        // 该屏本身早就在 RootNavigator 注册好(且其内有唯一一条指向 EduMyAttendance 的
+        // navigate),但全仓没有任何 navigate('EduParent'):屏在、链断,学生自签页因此不可达。
+        // 本条就是把这一格接上,图标与 web 同源 UsersRound。
+        labelKey: 'eduParent.title',
+        Icon: UsersRound,
+        route: 'EduParent',
+        target: { type: 'route', name: 'EduParent' },
+      },
     ],
   },
   /**

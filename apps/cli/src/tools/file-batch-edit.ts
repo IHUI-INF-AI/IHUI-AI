@@ -22,6 +22,7 @@ import { type Tool, type ToolResult, checkPathWritePermission } from './index.js
 import { computeUnifiedDiff, type EditToolContext } from './file-edit.js';
 import type { BatchEditOperation, BatchEditResult } from '@ihui/types';
 import { tryParseJson, isRecord, isJsonArray } from '../util/json.js';
+import { isInsideDir } from './trash-prune-io.js';
 // 删除保护链判据唯一真相源(goal-b49 W1-① 复现+超越:回收站 + 批量两阶段护栏 check/approve)
 // —— 本端只补 IO adapter(摘要/搬运/状态目录/报告),阈值与对账判据全在 @ihui/shared/delete-guard(§0.6)。
 import {
@@ -264,6 +265,18 @@ export function restoreTrashEntry(
   }
   const entry = findTrashEntry(manifest, originalPath);
   if (!entry) throw new Error(`恢复拒绝:该 trashId(${trashId})下无 ${originalPath} 的条目`);
+  // 清单文本可被改写:`relativeTrashPath` 必须仍在本次 trashId 目录内,
+  // `originalPath` 必须仍在工作区内 —— 否则恢复出口就是"按清单写的任意路径
+  // 复制/改名"(F-095 的越界路径)。两条都在任何 fs 调用之前判。
+  if (!isInsideDir(dir, entry.relativeTrashPath)) {
+    throw new Error(`恢复拒绝:回收站条目路径越界 ${String(entry.relativeTrashPath).slice(0, 80)}`);
+  }
+  const wsAbs = path.resolve(workspacePath);
+  const origAbs = path.resolve(entry.originalPath);
+  const relOrig = path.relative(wsAbs, origAbs);
+  if (relOrig === '' || relOrig.startsWith('..') || path.isAbsolute(relOrig)) {
+    throw new Error(`恢复拒绝:原路径不在工作区内 ${String(entry.originalPath).slice(0, 120)}`);
+  }
   const trashPath = path.join(dir, entry.relativeTrashPath);
   const look = stat ?? ((target: string) => fs.statSync(target));
   try {

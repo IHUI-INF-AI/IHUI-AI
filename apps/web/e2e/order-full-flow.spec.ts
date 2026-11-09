@@ -50,6 +50,7 @@ test.describe('完整订单流程', () => {
     const buyBtn = page.getByRole('link', { name: /订阅|购买|Subscribe|立即|Get Started/i }).first()
     if (await buyBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
       await buyBtn.click().catch(() => {})
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await page.waitForTimeout(2000)
       // 应跳转到结账页或购物车
       expect(page.url()).toBeTruthy()
@@ -80,7 +81,7 @@ test.describe('完整订单流程', () => {
     await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/payment/checkout')) return
 
-    await page.waitForTimeout(2000)
+    await page.waitForLoadState('load', { timeout: 6000 }).catch(() => {})
     // 支付方式:微信/支付宝等
     const wechatPay = page.locator('text=/微信|wechat/i').first()
     const alipay = page.locator('text=/支付宝|alipay/i').first()
@@ -94,7 +95,7 @@ test.describe('完整订单流程', () => {
     await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/orders')) return
 
-    await page.waitForTimeout(2000)
+    await page.waitForLoadState('load', { timeout: 6000 }).catch(() => {})
     const refundBtn = page.getByRole('button', { name: /退款|退订|Refund/i }).first()
     const hasRefund = await refundBtn.isVisible({ timeout: 3000 }).catch(() => false)
     expect(hasRefund || true).toBeTruthy()

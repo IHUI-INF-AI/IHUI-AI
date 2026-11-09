@@ -273,7 +273,7 @@ export default function AgentDetailPage() {
                         agent.isFree ? 'text-emerald-600 dark:text-emerald-500' : 'text-primary',
                       )}
                     >
-                      {agent.isFree ? t('free') : priceFmt.format(agent.price)}
+                      {agent.isFree ? t('free') : priceFmt.format(agent.price / 100)}
                     </span>
                   </div>
                   {/* VIP 权限校验状态（调用 getAgentPermission 实时显示） */}
@@ -313,7 +313,7 @@ export default function AgentDetailPage() {
                     { label: t('fieldStatus'), value: t(statusKey) },
                     {
                       label: t('fieldPrice'),
-                      value: agent.isFree ? t('free') : priceFmt.format(agent.price),
+                      value: agent.isFree ? t('free') : priceFmt.format(agent.price / 100),
                     },
                     { label: t('fieldSort'), value: agent.sort },
                     {

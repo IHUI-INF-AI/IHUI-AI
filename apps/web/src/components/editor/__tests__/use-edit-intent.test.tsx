@@ -19,6 +19,7 @@ import {
   useEditorEditIntent,
   EDITOR_EDIT_INTENT_DEBOUNCE_MS,
 } from '@/components/editor/use-edit-intent'
+import { usePredictiveEditPrefsStore } from '@/stores/predictive-edit'
 
 function envelope(data: unknown) {
   return { code: 0, message: 'ok', data }
@@ -59,6 +60,7 @@ function stubFetch(editIntentBody: unknown) {
 
 afterEach(() => {
   cleanup()
+  usePredictiveEditPrefsStore.setState({ enabled: true })
   vi.unstubAllGlobals()
   vi.restoreAllMocks()
 })
@@ -80,6 +82,15 @@ describe('useEditorEditIntent — 编辑器内编辑意图预测', () => {
   it('enabled=false ⇒ 零请求(readOnly 链路静默停转)', async () => {
     const { editIntentRequests } = stubFetch(SUGGESTED_BODY)
     const { result } = renderIntent('const a = 1', false)
+    await new Promise((r) => setTimeout(r, EDITOR_EDIT_INTENT_DEBOUNCE_MS + 400))
+    expect(editIntentRequests).toHaveLength(0)
+    expect(result.current.prediction).toBeNull()
+  })
+
+  it('总开关关闭 ⇒ 编辑器链路零请求(用户意志与 readOnly 独立)', async () => {
+    usePredictiveEditPrefsStore.setState({ enabled: false })
+    const { editIntentRequests } = stubFetch(SUGGESTED_BODY)
+    const { result } = renderIntent('const a = 1')
     await new Promise((r) => setTimeout(r, EDITOR_EDIT_INTENT_DEBOUNCE_MS + 400))
     expect(editIntentRequests).toHaveLength(0)
     expect(result.current.prediction).toBeNull()

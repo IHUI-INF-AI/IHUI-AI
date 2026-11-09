@@ -90,7 +90,7 @@ describe('overlay-stack 水位', () => {
         `\n3) 注册监听前 pushOverlay(XXX_OVERLAY_ID),cleanup 里 popOverlay(XXX_OVERLAY_ID)` +
         `\n4) Escape 分支首行 if (!isTopOverlay(XXX_OVERLAY_ID)) return`,
     ).toEqual([])
-  })
+  }, 30_000)
 
   it('例外清单里的路径必须真含全局 Escape 监听(防清单腐烂)', () => {
     const rotted = Object.keys(ALLOWLIST).filter((rel) => {

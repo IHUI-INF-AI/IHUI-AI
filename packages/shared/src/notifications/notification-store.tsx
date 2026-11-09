@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { createContext, useContext, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
 import type { WSNotification } from '@ihui/api-client'
 import {
   transformWsNotification,
@@ -187,63 +187,88 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
   const unreadCount = notifications.filter((n) => !n.isRead).length
 
-  const addFromWs = (msg: WSNotification | null) => {
+  // XUI-022:addFromWs 必须保持引用稳定(订阅 effect 依赖它),否则"收通知→setState→重渲染→
+  // addFromWs 新引用→effect 重跑→再 setState"会形成无限更新环;并做 id 去重,避免同一条 WS
+  // 通知因重连重放被重复插入。
+  const addFromWs = useCallback((msg: WSNotification | null) => {
     const entry = transformWsNotification(msg as unknown as WsNotificationLike)
-    if (entry) {
-      setNotifications((prev) => [entry, ...prev].slice(0, 100))
-    }
-  }
+    if (!entry) return
+    setNotifications((prev) => {
+      if (prev.some((n) => n.id === entry.id)) return prev
+      return [entry, ...prev].slice(0, 100)
+    })
+  }, [])
 
-  const markAllRead = () => setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })))
+  const markAllRead = useCallback(
+    () => setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true }))),
+    [],
+  )
 
-  const markAsRead = (id: string) =>
-    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)))
+  const markAsRead = useCallback(
+    (id: string) =>
+      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))),
+    [],
+  )
 
-  const clearAll = () => setNotifications([])
+  const clearAll = useCallback(() => setNotifications([]), [])
 
-  const setSoundEnabled = (v: boolean) => {
+  const setSoundEnabled = useCallback((v: boolean) => {
     setSoundNotificationEnabled(v)
     setSoundEnabledState(v)
-  }
+  }, [])
 
-  const requestDesktopPermission = async (): Promise<boolean> => {
+  const requestDesktopPermission = useCallback(async (): Promise<boolean> => {
     const ok = await requestDesktopNotificationPermission()
     setDesktopPermission(getDesktopPermission())
     return ok
-  }
+  }, [])
 
-  const triggerDesktopNotification = (title: string, body?: string, icon?: string) => {
+  const triggerDesktopNotification = useCallback((title: string, body?: string, icon?: string) => {
     showDesktopNotification(title, body, icon)
-  }
+  }, [])
 
-  const playSound = () => {
+  const playSound = useCallback(() => {
     if (isSoundNotificationEnabled()) playNotificationSound()
-  }
+  }, [])
 
-  return (
-    <NotificationContext.Provider
-      value={{
-        connected,
-        notifications,
-        unreadCount,
-        visible,
-        desktopPermission,
-        soundEnabled,
-        setConnected,
-        addFromWs,
-        markAllRead,
-        markAsRead,
-        setVisible,
-        clearAll,
-        setSoundEnabled,
-        requestDesktopPermission,
-        triggerDesktopNotification,
-        playSound,
-      }}
-    >
-      {children}
-    </NotificationContext.Provider>
+  const value = useMemo(
+    () => ({
+      connected,
+      notifications,
+      unreadCount,
+      visible,
+      desktopPermission,
+      soundEnabled,
+      setConnected,
+      addFromWs,
+      markAllRead,
+      markAsRead,
+      setVisible,
+      clearAll,
+      setSoundEnabled,
+      requestDesktopPermission,
+      triggerDesktopNotification,
+      playSound,
+    }),
+    [
+      connected,
+      notifications,
+      unreadCount,
+      visible,
+      desktopPermission,
+      soundEnabled,
+      addFromWs,
+      markAllRead,
+      markAsRead,
+      clearAll,
+      setSoundEnabled,
+      requestDesktopPermission,
+      triggerDesktopNotification,
+      playSound,
+    ],
   )
+
+  return <NotificationContext.Provider value={value}>{children}</NotificationContext.Provider>
 }
 
 export function useNotificationStore(): NotificationState {

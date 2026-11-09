@@ -104,11 +104,9 @@ export function buildTriggerPrompt(
 /**
  * 内存 LRU 去重器(进程生命周期内有效)。
  *
- * 取舍说明:选用内存 LRU 而非 DB 字段,
- * 理由① webhook 重投发生在秒级~分钟级窗口内,进程内去重足够拦掉 99% 重复;
- * 理由② 避免为去重专门加一张投递记录表 / 唯一索引,迁移与维护成本更低;
- * 代价:进程重启后去重窗口清空,此时由"一次触发仅创建一次 agent 运行 + GitHub
- * 重投天然低频"共同兜底,业务可承受。
+ * F-346 后仅作一级缓存:L2 是 github_app_deliveries 持久认领(见
+ * routes/github-webhook.ts 的 claimDelivery),重启/多实例不丢事件。
+ * 本类不再单独承担"回 200 前必须落盘"的职责。
  * 容量上限保护内存,超出后淘汰最旧条目。
  */
 export class DeliveryDedup {
@@ -128,6 +126,11 @@ export class DeliveryDedup {
     }
     this.store.set(deliveryId, Date.now())
     return true
+  }
+
+  /** 已见过该投递(只读;持久认领成功后由调用方 record) */
+  has(deliveryId: string): boolean {
+    return Boolean(deliveryId) && this.store.has(deliveryId)
   }
 
   /** 测试用:清空 */
@@ -187,16 +190,20 @@ export async function fireEventTrigger(
 
 /**
  * 触发但不等待执行完成(webhook 立即 200 返回,执行异步进行)。
- * 内部已 catch,不会因执行异常导致 unhandledRejection。
+ * 内部已 catch,不会因执行异常导致 unhandledRejection;
+ * 返回 Promise<boolean> 供调用方落终态:true=成功,false=失败(不抛)。
  */
 export function fireEventTriggerAsync(
   trigger: AgentEventTrigger,
   request: FastifyRequest | null,
   logger?: { warn: (obj: unknown, msg: string) => void },
-): void {
-  void fireEventTrigger(trigger, request).catch((err) => {
-    logger?.warn({ triggerId: trigger.id, err: String(err) }, '[event-trigger] 触发执行失败')
-  })
+): Promise<boolean> {
+  return fireEventTrigger(trigger, request)
+    .then(() => true)
+    .catch((err) => {
+      logger?.warn({ triggerId: trigger.id, err: String(err) }, '[event-trigger] 触发执行失败')
+      return false
+    })
 }
 
 // =============================================================================

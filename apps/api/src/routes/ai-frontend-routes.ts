@@ -20,6 +20,7 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply, FastifyInstance 
 import { z } from 'zod'
 import { and, count, desc, eq } from 'drizzle-orm'
 import { authenticate } from '../plugins/auth.js'
+import { requireAdmin, isSystemAdmin } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
 import { config } from '../config/index.js'
 import { db } from '../db/index.js'
@@ -198,6 +199,8 @@ async function proxyToAiService(
         Authorization: request.headers.authorization ?? '',
       },
       body: JSON.stringify(body),
+      // F-472:上游无响应时按时收口(超时后由 catch 统一转 502)
+      signal: AbortSignal.timeout(20_000),
     })
     const data = (await resp.json().catch(() => ({}))) as unknown
     if (!resp.ok) {
@@ -314,10 +317,15 @@ export const aiFrontendRoutes: FastifyPluginAsync = async (server) => {
   // 表为空时返回 [] 而非 404;ai-service 不可达时降级为无连接状态。
   server.get('/ai/mcp/servers', async (request, reply) => {
     try {
-      const rows = await db.select().from(mcpServers).orderBy(desc(mcpServers.createdAt))
+      // F-101(P1):mcp_servers 是全局表(无 owner 列),全局 MCP 配置只归管理员管理。
+      // 普通用户不再读全量行,避免跨租户读取端点 —— deny-by-default 返回空列表而非 404。
+      const rows = isSystemAdmin(request, { includeInternalChannel: false })
+        ? await db.select().from(mcpServers).orderBy(desc(mcpServers.createdAt))
+        : []
       try {
         const resp = await fetch(`${config.AI_SERVICE_URL}/api/mcp/external/servers`, {
           headers: { Authorization: request.headers.authorization ?? '' },
+          signal: AbortSignal.timeout(15_000),
         })
         if (resp.ok) {
           const data = (await resp.json().catch(() => ({}))) as {
@@ -341,7 +349,9 @@ export const aiFrontendRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /ai/mcp/servers — 创建 MCP 服务器
-  server.post('/ai/mcp/servers', async (request, reply) => {
+  // F-101(2026-11-08):mcp_servers 是无属主的平台级表,写入 = 改全站共享配置,
+  // 且 endpoint 可指向任意内网/恶意服务(SSRF 面)。写接口收为管理员。
+  server.post('/ai/mcp/servers', { preHandler: requireAdmin }, async (request, reply) => {
     const parsed = mcpServerBody.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -372,7 +382,8 @@ export const aiFrontendRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // DELETE /ai/mcp/servers/:id — 删除 MCP 服务器
-  server.delete('/ai/mcp/servers/:id', async (request, reply) => {
+  // F-101:同 POST,全局配置的删除只允许管理员。
+  server.delete('/ai/mcp/servers/:id', { preHandler: requireAdmin }, async (request, reply) => {
     const parsed = idParam.safeParse(request.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
     // 形状闸(2026-09-28 普查收口):下面这些 :id 最终会被喂进 uuid 列,非 uuid 字面量让 Postgres
@@ -400,6 +411,7 @@ export const aiFrontendRoutes: FastifyPluginAsync = async (server) => {
     try {
       const resp = await fetch(`${config.AI_SERVICE_URL}/api/mcp/tools`, {
         headers: { Authorization: request.headers.authorization ?? '' },
+        signal: AbortSignal.timeout(15_000),
       })
       if (!resp.ok) {
         return reply.status(502).send(error(502, `ai-service 调用失败: ${resp.status}`))
@@ -434,6 +446,7 @@ export const aiFrontendRoutes: FastifyPluginAsync = async (server) => {
     try {
       const resp = await fetch(`${config.AI_SERVICE_URL}/api/mcp/resources`, {
         headers: { Authorization: request.headers.authorization ?? '' },
+        signal: AbortSignal.timeout(15_000),
       })
       if (!resp.ok) {
         return reply.status(502).send(error(502, `ai-service 调用失败: ${resp.status}`))
@@ -455,6 +468,7 @@ export const aiFrontendRoutes: FastifyPluginAsync = async (server) => {
     try {
       const resp = await fetch(`${config.AI_SERVICE_URL}/api/mcp/prompts`, {
         headers: { Authorization: request.headers.authorization ?? '' },
+        signal: AbortSignal.timeout(15_000),
       })
       if (!resp.ok) {
         return reply.status(502).send(error(502, `ai-service 调用失败: ${resp.status}`))
@@ -493,7 +507,9 @@ export const aiFrontendRoutes: FastifyPluginAsync = async (server) => {
     const body = {
       messages: parsed.data.messages,
       ...(parsed.data.model !== undefined ? { model: parsed.data.model } : {}),
-      metadata: { userId: request.userId, ...(parsed.data.metadata ?? {}) },
+      // F-102(2026-11-08):服务端主体必须最后展开,客户端 metadata.userId 不得覆盖
+      // (否则 ai-service 会拿伪造 userId 签回调票,替他人扣费/写他人会话)。
+      metadata: { ...(parsed.data.metadata ?? {}), userId: request.userId },
     }
     return proxyToAiService('/api/llm/complete', request, reply, body)
   })

@@ -987,7 +987,7 @@ export const DRAWER_NAV_GROUPS: readonly DrawerNavGroup[] = [
         target: { type: 'route', name: 'AiCareer' },
       },
       {
-        labelKey: 'businessCard.title',
+        labelKey: 'businesscard.title',
         Icon: IdCard,
         route: 'BusinessCard',
         target: { type: 'route', name: 'BusinessCard' },

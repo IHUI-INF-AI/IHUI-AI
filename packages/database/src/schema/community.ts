@@ -42,6 +42,7 @@ export const circles = pgTable('circles', {
  * - images: URL 数组(jsonb)。
  * - status: 1=正常, 0=隐藏, -1=删除。
  * - isPinned: 是否置顶。
+ * - visibility: public=所有人可见, followers=关注者与作者可见, private=仅作者(管理员全见)。
  */
 export const circlePosts = pgTable('circle_posts', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -59,6 +60,7 @@ export const circlePosts = pgTable('circle_posts', {
   replyCount: integer('reply_count').default(0).notNull(),
   isPinned: boolean('is_pinned').default(false).notNull(),
   status: integer('status').default(1).notNull(),
+  visibility: varchar('visibility', { length: 16 }).default('public').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 })

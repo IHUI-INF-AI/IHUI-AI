@@ -19,6 +19,7 @@
 """
 from __future__ import annotations
 
+import asyncio
 import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -336,7 +337,7 @@ class CsdnAdapter(BasePlatformAdapter):
                             error_message="markdown import entry not found (editor layout changed)",
                         )
                     md_tmp = _tmp_md_path()
-                    md_tmp.write_text(md_text, encoding="utf-8")
+                    await asyncio.to_thread(md_tmp.write_text, md_text, encoding="utf-8")
                     try:
                         await page.set_input_files(import_selector, str(md_tmp))
                         # 导入是异步解析:等编辑器内容真的换上我们的文本,而不是等固定时长

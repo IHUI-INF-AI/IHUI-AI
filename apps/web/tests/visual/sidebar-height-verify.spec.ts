@@ -36,10 +36,12 @@ async function gotoHome(page: Page) {
           localStorage.removeItem('theme')
         } catch {}
       })
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await page.waitForTimeout(800)
       return
     } catch (e) {
       if (attempt === 2) throw e
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await page.waitForTimeout(1500)
     }
   }
@@ -63,6 +65,7 @@ test.describe('侧边栏按钮高度统一验证', () => {
     await gotoHome(page)
     await expect(page.locator(DESKTOP_ASIDE)).toBeVisible()
     // 等 sidebar 渲染稳定
+    // WAIT-POLICY:TIMING-0004 视觉/几何采样前动画稳定窗口,先等待再截图
     await page.waitForTimeout(1000)
 
     // 默认态截图
@@ -138,11 +141,13 @@ test.describe('侧边栏按钮高度统一验证', () => {
   test('hover 态', async ({ page }) => {
     await gotoHome(page)
     await expect(page.locator(DESKTOP_ASIDE)).toBeVisible()
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(800)
 
     // 悬停第一个导航项
     const firstNavLink = page.locator(`${DESKTOP_ASIDE} nav a[href]`).first()
     await firstNavLink.hover()
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(500)
 
     await page.screenshot({
@@ -162,6 +167,7 @@ test.describe('侧边栏按钮高度统一验证', () => {
   test('active 态(点击导航项)', async ({ page }) => {
     await gotoHome(page)
     await expect(page.locator(DESKTOP_ASIDE)).toBeVisible()
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(800)
 
     // 点击侧边栏第二个导航项(避免点 / 已在 /)
@@ -176,6 +182,7 @@ test.describe('侧边栏按钮高度统一验证', () => {
         break
       }
     }
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(1500)
 
     await page.screenshot({
@@ -205,6 +212,7 @@ test.describe('侧边栏按钮高度统一验证', () => {
   test('dark mode 态', async ({ page }) => {
     await gotoHome(page)
     await expect(page.locator(DESKTOP_ASIDE)).toBeVisible()
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(1500) // 等 useMounted + next-themes hydrate
 
     // 初始 html class
@@ -238,8 +246,10 @@ test.describe('侧边栏按钮高度统一验证', () => {
         // 触发 next-themes 重新读取
         window.dispatchEvent(new StorageEvent('storage', { key: 'theme', newValue: 'dark' }))
       })
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await page.waitForTimeout(800)
     }
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(500)
 
     const htmlClass = await page.evaluate(() => document.documentElement.className)
@@ -262,6 +272,7 @@ test.describe('侧边栏按钮高度统一验证', () => {
       document.documentElement.classList.remove('dark')
       document.documentElement.classList.add('light')
     })
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(300)
   })
 })

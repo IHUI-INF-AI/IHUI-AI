@@ -104,6 +104,19 @@ export function loadPolicy(rawText) {
     throw new CanaryShapeError('策略形状坏:thresholds.maxP95Ratio 必须 >= 1')
   }
   if (th.minSamples < 2) throw new CanaryShapeError('策略形状坏:minSamples 至少为 2(单样本算不出错误率)')
+  // 可选:绝对 P95 维最少要几枚超阈样本才准判死。缺省 2 ⇒ 既有策略文件不写这一项时口径不变
+  // (仍不会因为"没写"而退化成 1 枚即死)。写 1 = 显式要回到"单枚即判死"的旧行为,必须是人的决定。
+  if (th.minAbsP95OverSamples !== undefined) {
+    if (!Number.isInteger(th.minAbsP95OverSamples) || th.minAbsP95OverSamples < 1) {
+      throw new CanaryShapeError('策略形状坏:thresholds.minAbsP95OverSamples 必须是 ≥1 的整数')
+    }
+    if (th.minAbsP95OverSamples > win.ticks) {
+      throw new CanaryShapeError(
+        `策略形状坏:minAbsP95OverSamples(${th.minAbsP95OverSamples})不得大于 window.ticks(${win.ticks})——` +
+          '否则绝对 P95 维永远不会判死,那是把判据改成没有牙齿,而不是在调阈值',
+      )
+    }
+  }
 
   const eps = doc.endpoints
   if (!Array.isArray(eps) || eps.length === 0) throw new CanaryShapeError('策略形状坏:endpoints 必须是非空数组')
@@ -216,12 +229,18 @@ export function summarizeSamples(records) {
       measured,
       errorRate: measured > 0 ? s.fail / measured : 0,
       p95Ms: percentile95(s.pass),
+      // 单枚样本判死的成因面(2026-11-06 实测,见 judgeEndpoint 内 B 档注释):最近秩 P95 在
+      // n≤20 时恒等于最大值 ⇒ 光看 p95Ms 分不出"整体变慢"与"一枚离群"。这里把超阈样本数
+      // 显式量出来交给调用方,不在本层做任何阈值判断(阈值仍只有 th 一份)。
+      passMs: s.pass.slice(),
     })
   }
   return out
 }
 
 function judgeEndpoint({ id, kind, cand, base, th }) {
+  // 单枚离群的读数槽(只在"超绝对阈但样本数不足"时被填,末行必须把它说出来)
+  let candSingleOutlier = null
   if (!cand) {
     return { id, kind, verdict: 'unknown', reason: `${id}:候选无样本(未判定)` }
   }
@@ -251,12 +270,27 @@ function judgeEndpoint({ id, kind, cand, base, th }) {
     }
   }
   if (cand.p95Ms !== null && cand.p95Ms > th.maxP95Ms) {
-    return {
-      id,
-      kind,
-      verdict: 'fail',
-      reason: `${id}:P95 ${Math.round(cand.p95Ms)}ms > 绝对阈值 ${th.maxP95Ms}ms`,
+    // B 档(2026-11-06 实测立案,B37):最近秩 P95 在 n≤20 时**恒等于最大值**
+    // (`percentile95` 取 ceil(0.95n);n=8 ⇒ 索引 7 ⇒ 就是最慢那一拍)。于是"一枚离群"与
+    // "整体变慢"在 p95Ms 这一个数上**不可区分**,而 8 拍的观察窗等于对单枚样本零容忍。
+    // 现读近 5 枚 canary-rollback 里 4 枚是 `err=0.0%` 的单枚 P95 触发(1582/2938/3158/2977ms),
+    // 其中被判定的是 api-origin,而回滚腿撤的却是 web 构建 ⇒ 一次与失败维无关的自动回滚。
+    //
+    // 修法只补**输入侧**条件,不抬阈值也不拉长窗口(那两处一字未动):超阈样本数 < 下限时
+    // 不判 fail,但**必须出声**(reason 里点名样本数与最慢值),不得静默当"判过且干净"。
+    // 真劣化仍会被判死:≥2 枚超阈即 fail,且错误率维与相对维一字未改。
+    const minOver = Number.isInteger(th.minAbsP95OverSamples) ? th.minAbsP95OverSamples : 2
+    const overCount = (cand.passMs || []).filter((m) => Number.isFinite(m) && m > th.maxP95Ms).length
+    if (overCount >= minOver) {
+      return {
+        id,
+        kind,
+        verdict: 'fail',
+        reason: `${id}:P95 ${Math.round(cand.p95Ms)}ms > 绝对阈值 ${th.maxP95Ms}ms(超阈样本 ${overCount} 枚 ≥ ${minOver})`,
+      }
     }
+    // 落到这里 = 单枚离群 ⇒ 不判死,但把这一格挂进末行读数(调用方原样落台账,不是吞掉)。
+    candSingleOutlier = { id, p95Ms: Math.round(cand.p95Ms), overCount, minOver }
   }
   const baseUsable = base && base.measured >= th.minSamples
   if (baseUsable && cand.errorRate - base.errorRate > th.maxErrorRateDelta) {
@@ -282,11 +316,14 @@ function judgeEndpoint({ id, kind, cand, base, th }) {
       reason: `${id}:P95 ${Math.round(cand.p95Ms)}ms 较基线 ${Math.round(base.p95Ms)}ms 放大 > ${th.maxP95Ratio}x 且增量 > ${th.maxP95DeltaMs}ms`,
     }
   }
+  const outlierNote = candSingleOutlier
+    ? ` ⚠️ 单枚离群未判死:P95 ${candSingleOutlier.p95Ms}ms > ${th.maxP95Ms}ms 但超阈样本仅 ${candSingleOutlier.overCount} 枚(< ${candSingleOutlier.minOver})⇒ 进队列并出声,不自动回滚`
+    : ''
   return {
     id,
     kind,
     verdict: 'pass',
-    reason: `${id}:错误率 ${pct(cand.errorRate)} / P95 ${cand.p95Ms === null ? 'n/a' : Math.round(cand.p95Ms) + 'ms'}(基线 ${baseUsable ? pct(base.errorRate) + ' / ' + (base.p95Ms === null ? 'n/a' : Math.round(base.p95Ms) + 'ms') : '无可用基线'})`,
+    reason: `${id}:错误率 ${pct(cand.errorRate)} / P95 ${cand.p95Ms === null ? 'n/a' : Math.round(cand.p95Ms) + 'ms'}(基线 ${baseUsable ? pct(base.errorRate) + ' / ' + (base.p95Ms === null ? 'n/a' : Math.round(base.p95Ms) + 'ms') : '无可用基线'})${outlierNote}`,
   }
 }
 
@@ -525,6 +562,40 @@ async function selfTest() {
     const c = [rec('a', 'pass', 600), rec('a', 'pass', 700), rec('a', 'pass', 800)]
     const r = decideCanary({ policy, candidate: c })
     if (r.verdict !== 'fail') throw new Error(`实得 ${r.verdict}`)
+  })
+  // —— B 档成对用例(2026-11-06,B37:最近秩 P95 在 n≤20 恒等于最大值 ⇒ 一枚离群即判死)——
+  t('B1 单枚超阈 + 其余快 ⇒ 不 fail,但 reason 必须出声点名"单枚离群未判死"', () => {
+    const c = [rec('a', 'pass', 600), rec('a', 'pass', 10), rec('a', 'pass', 12)]
+    const r = decideCanary({ policy, candidate: c })
+    if (r.verdict !== 'pass') throw new Error(`实得 ${r.verdict}(期望 pass:超阈样本只有 1 枚)`)
+    const line = JSON.stringify(r)
+    if (!line.includes('单枚离群未判死')) throw new Error(`没出声就是静默放行(§0.3):${line.slice(0, 260)}`)
+    if (!line.includes('超阈样本仅 1 枚')) throw new Error(`读数没给样本数:${line.slice(0, 260)}`)
+  })
+  t('B2 两枚超阈 ⇒ 仍 fail(证明 B 档不是把真劣化洗白)', () => {
+    const c = [rec('a', 'pass', 600), rec('a', 'pass', 700), rec('a', 'pass', 12)]
+    const r = decideCanary({ policy, candidate: c })
+    if (r.verdict !== 'fail' || r.exitCode !== 3) throw new Error(`实得 ${r.verdict}/${r.exitCode}`)
+  })
+  t('B3 变异自证:minAbsP95OverSamples=1 时单枚立刻翻回 fail(证明确实是这个字段在起作用)', () => {
+    const one = { ...policy, thresholds: { ...th, minAbsP95OverSamples: 1 }, window: { ticks: 3, gapMs: 1, timeoutMs: 1 } }
+    const c = [rec('a', 'pass', 600), rec('a', 'pass', 10), rec('a', 'pass', 12)]
+    const r = decideCanary({ policy: one, candidate: c })
+    if (r.verdict !== 'fail') throw new Error(`摘掉下限后仍 ${r.verdict} ⇒ B1 是被别的档顺手接住的,不是本档的功劳`)
+  })
+  t('B4 反证:下限写成非整数 / 大于 ticks ⇒ 抛形状错(不许把档位改成永远不会判死)', () => {
+    const bad1 = { ...policy, thresholds: { ...th, minAbsP95OverSamples: 1.5 } }
+    const bad2 = { ...policy, thresholds: { ...th, minAbsP95OverSamples: 9 }, window: { ticks: 3, gapMs: 1, timeoutMs: 1 } }
+    let n = 0
+    for (const p of [bad1, bad2]) {
+      try {
+        loadPolicy(JSON.stringify(p))
+      } catch (e) {
+        if (!(e instanceof CanaryShapeError)) throw new Error(`抛错类型不对:${e?.message ?? e}`)
+        n += 1
+      }
+    }
+    if (n !== 2) throw new Error(`两条形状坏只有 ${n} 条被拦住`)
   })
   t('相对基线错误率抬升 ⇒ fail', () => {
     const base = [rec('a', 'pass', 10), rec('a', 'pass', 10), rec('a', 'pass', 10)]

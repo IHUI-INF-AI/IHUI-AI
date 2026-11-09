@@ -4,7 +4,14 @@
 
 import postgres from 'postgres';
 
-const sql = postgres('postgresql://ihui:ihui_dev_d6412937d5e397bc@127.0.0.1:5432/ihui');
+// DB-32:凭据只从环境变量读取，不得把口令写进仓库；缺失即退出，避免误用旧密。
+const databaseUrl = process.env.DATABASE_URL;
+if (!databaseUrl) {
+  console.error('ERROR: DATABASE_URL 未设置，verify-schema 拒绝启动（不要回退到内置连接串）');
+  process.exit(1);
+}
+
+const sql = postgres(databaseUrl);
 
 try {
   // Check all columns

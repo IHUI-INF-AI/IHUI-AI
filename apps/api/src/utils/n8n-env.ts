@@ -105,4 +105,31 @@ export const n8nBaseHint = (primary: N8nBaseEnvName): string => {
 /** 未配置时对运维说话的那句话(两个面共用,免得一处列全名、另一处只列一个)。 */
 export const n8nNotConfiguredHint = (primary: N8nBaseEnvName): string =>
   `未配置 ${n8nBaseHint(primary)}/N8N_API_KEY`
+
+/**
+ * F-117:把用户可控的 `webhookPath` 解析为与基址**同源**的绝对 URL。
+ *
+ * 病灶:`${origin}${webhookPath}` 直接拼接,`https://n8n.internal@evil.com/x` 被 URL
+ * 解析成 host=evil.com,请求头里的 `X-N8N-API-KEY` 就发给了攻击者;`//evil.com/x`
+ * 同理。越界一律返回 null,由调用方按 400 处理,绝不把带密钥的请求打出去。
+ */
+export function resolveN8nWebhookUrl(origin: string, webhookPath: string): string | null {
+  // 反斜杠在部分解析器里等价于 '/',先拒掉,避免 //host 绕过。
+  if (webhookPath.includes('\\')) return null
+  let base: URL
+  try {
+    base = new URL(origin)
+  } catch {
+    return null
+  }
+  let url: URL
+  try {
+    url = new URL(webhookPath, base.origin)
+  } catch {
+    return null
+  }
+  // 同源 + 无 userinfo:任一不满足都可能是把密钥送往第三方。
+  if (url.origin !== base.origin || url.username || url.password) return null
+  return url.toString()
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

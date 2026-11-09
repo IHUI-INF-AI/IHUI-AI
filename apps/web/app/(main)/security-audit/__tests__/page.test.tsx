@@ -22,15 +22,34 @@
  * 反向判据(防"测试自己绿"):T4/T5 的期望值取自 schema 真实列名
  * (`security_logs.action`),不是把当前实现输出抄进断言。
  */
+import { readFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import React from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, waitFor, cleanup } from '@testing-library/react'
 import SecurityAuditPage from '../page'
 
-const { fetchApiMock } = vi.hoisted(() => ({ fetchApiMock: vi.fn() }))
+// 实现侧变更(2026-10):页面已收口到共享出口 `@ihui/api-client.getSecurityAudit`,
+// 不再经 web 包装层 `@/lib/api.fetchApi`。URL 字面量与 `{list}` 形状改由共享出口持有,
+// 语义未变 —— 夹具必须跟着出口走,而不是继续 mock 一条页面已不走的通道。
+const { getSecurityAuditMock } = vi.hoisted(() => ({ getSecurityAuditMock: vi.fn() }))
 
-vi.mock('@/lib/api', () => ({ fetchApi: fetchApiMock }))
+vi.mock('@ihui/api-client', () => ({ getSecurityAudit: getSecurityAuditMock }))
+
+const here = dirname(fileURLToPath(import.meta.url))
+// here = apps/web/app/(main)/security-audit/__tests__ → 上溯 6 级到仓库根
+const securityEndpointFile = resolve(
+  here,
+  ...Array.from({ length: 6 }, () => '..'),
+  'packages',
+  'api-client',
+  'src',
+  'endpoints',
+  'security.ts',
+)
 
 vi.mock('next-intl', () => ({
   useTranslations: () => (key: string) => key,
@@ -98,7 +117,7 @@ function logRow(over: Record<string, unknown> = {}) {
 
 /** 后端真实响应形状:{list,total,page,pageSize} —— 不是裸数组。 */
 function respondWith(list: unknown[]) {
-  fetchApiMock.mockResolvedValue({
+  getSecurityAuditMock.mockResolvedValue({
     success: true,
     status: 200,
     data: { list, total: list.length, page: 1, pageSize: 20 },
@@ -121,21 +140,19 @@ describe('安全审计页 · 请求路径与响应解包', () => {
   })
   afterEach(() => cleanup())
 
-  // T1
-  it('T1 请求打到存在的 /api/security/audit(斜杠,不是连字符形态)', async () => {
+  // T1:页面经共享出口取数,不再自持 URL(实现侧 2026-10 收口)。
+  it('T1 页面经共享出口 getSecurityAudit 取数(URL 唯一持有者是 api-client)', async () => {
     renderPage()
-    await waitFor(() => expect(fetchApiMock).toHaveBeenCalled())
-    const url = String(fetchApiMock.mock.calls[0]?.[0])
-    expect(url).toBe('/api/security/audit')
+    await waitFor(() => expect(getSecurityAuditMock).toHaveBeenCalledTimes(1))
   })
 
-  // T2
-  it('T2 不再请求 /api/security-audit(连字符形态)', async () => {
-    renderPage()
-    await waitFor(() => expect(fetchApiMock).toHaveBeenCalled())
-    const url = String(fetchApiMock.mock.calls[0]?.[0])
-    expect(url).not.toBe('/api/security-audit')
-    expect(url).not.toContain('security-audit')
+  // T2:URL 契约在共享出口本身上钉死 —— 斜杠形态,不许回退连字符死路径。
+  it('T2 共享出口打 /api/security/audit(斜杠),不出现 security-audit(连字符)', () => {
+    const src = readFileSync(securityEndpointFile, 'utf8')
+    expect(src).toMatch(
+      /export async function getSecurityAudit[\s\S]*?fetchApi<SecurityAuditData>\('\/api\/security\/audit'\)/,
+    )
+    expect(src).not.toContain('/api/security-audit')
   })
 
   // T3

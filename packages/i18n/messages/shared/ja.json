@@ -1175,6 +1175,14 @@
     "totalWithdraw": "累計出金",
     "recharge": "入金",
     "withdraw": "出金",
+    "flowRecharge": "チャージ",
+    "flowDeduct": "減算",
+    "flowExpire": "期限切れ",
+    "flowRefund": "返金取消",
+    "flowRelayRecharge": "APIキーへ振替",
+    "flowAdminAdjust": "管理者調整",
+    "flowQuota": "クォータ変更",
+    "flowOther": "その他",
     "loadFailed": "ウォレットの読み込みに失敗しました"
   },
   "courseCatalog": {
@@ -3122,6 +3130,7 @@
     "copyHint": "番号をクリックしてコピー",
     "footer": "MIIT登録システムより",
     "label0": "備案番号",
+    "labelPublicSecurity": "公安届出番号",
     "label1": "備案主体",
     "label2": "主体タイプ",
     "label3": "備案時間",

@@ -15,7 +15,7 @@ import json
 import logging
 import os
 import re
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Mapping
 from typing import TYPE_CHECKING, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -55,6 +55,10 @@ from ..services.agent_events import (
 )
 from ..services.agent_loop import agent_executor
 from ..services.agent_orchestrator import AgentOrchestrator, agent_orchestrator
+from ..services.agent_resume_semantics import (
+    ResumeBlockedError,
+    UnknownConfirmationError,
+)
 from ..services.agent_run_control import (
     PauseOutcome,
     ResumeOutcome,
@@ -79,6 +83,7 @@ from ..services.memory import memory_store
 from ..services.run_ownership import owner_of, record_ownership, release_ownership
 from ..services.skills import skill_evolution_service
 from ..services.vector_memory import vector_memory
+from ..utils.tool_call_args import normalize_tool_call_args
 
 if TYPE_CHECKING:
     # 仅类型注解使用(运行时在函数内延迟导入,避免循环依赖)
@@ -155,12 +160,14 @@ def _convert_openai_tool_calls(
         if not isinstance(tc, dict):
             continue
         fn = tc.get("function") or {}
-        args_raw = fn.get("arguments") or "{}"
-        if isinstance(args_raw, str):
-            try:
-                args = json.loads(args_raw)
-            except (ValueError, TypeError):
-                args = {}
+        args_raw = fn.get("arguments")
+        # 单一真相源：字符串形态的 args（含残缺/截断/裸键名/单引号）走 normalize_tool_call_args
+        # 修复解析（对标 Qoder/Trae 的 jsonrepair 用法；并超越其只能吃完整串的限制），使 LLM
+        # 产出的残缺 arguments 不再静默丢成 {}。非字符串（已是对象等）保持原样透传，维持契约不变。
+        if args_raw is None:
+            args = {}
+        elif isinstance(args_raw, str):
+            args = normalize_tool_call_args(args_raw) or {}
         else:
             args = args_raw
         result.append(
@@ -185,8 +192,10 @@ def _shorten_description(desc: str, limit: int = 80) -> str:
     first_line = desc.split("\n", 1)[0].strip()
     # 去除行首 markdown 前缀符号
     cleaned = re.sub(r"^[\s#*>`\-]+", "", first_line)
-    # 去除行内 ` * _ 包裹符号
-    cleaned = re.sub(r"[`*_]{1,2}", "", cleaned).strip()
+    # 去除行内 ` * 包裹符号。**保留下划线**:工具描述里 run_command / read_file /
+    # CONCURRENT_MODIFICATION 这类标识符极常见,把 _ 当 markdown 强调符号清掉会让
+    # 模型读不到真实工具名,反而削弱"什么时候该用它"。
+    cleaned = re.sub(r"[`*]{1,2}", "", cleaned).strip()
     if not cleaned:
         return placeholder[:limit]
     if len(cleaned) <= limit:
@@ -194,15 +203,60 @@ def _shorten_description(desc: str, limit: int = 80) -> str:
     return cleaned[: max(1, limit - 1)].rstrip() + "…"
 
 
-# deferral 模式下,精简工具描述尾部统一追加的"取完整参数"提示(配合内置
-# get_tool_schema 工具)。长度固定,供 _build_loop_v2_tools 预留尾部空间。
-_TOOL_DEFERRAL_SUFFIX = " 〔完整参数用 get_tool_schema 查询〕"
+# deferral 描述压缩上限(字符)。旧值是 80 - len(suffix) ≈ 63,模型只读得到半句话;
+# 放到 120 后「什么时候该用它」仍然读得出来,而首行截断保证了不成段展开。
+_TOOL_DEFERRAL_DESC_LIMIT = 120
+
+# api_tools_bridge 注册的 OpenAPI 长尾端点统一前缀(302 条那批机械名 api_*)。
+_API_TOOL_PREFIX = "api_"
+
+
+def _strip_param_descriptions(schema: dict[str, Any]) -> dict[str, Any]:
+    """递归删掉参数 schema 里的 description 文本,其余结构一律原样保留。
+
+    只用于 api_* 长尾:它们的每个字段 description 是 "path 参数 xxx" 这类由 OpenAPI
+    展开生成的模板文本,对"何时该用这个工具"没有增量信息,却占了参数面主要字节。
+    properties 键名 / type / required / items / enum **全部不动**,因此不会出现
+    "有 required 却没有对应 properties" 的畸形 schema。
+    """
+    if isinstance(schema, dict):
+        return {
+            k: _strip_param_descriptions(v)
+            for k, v in schema.items()
+            if k != "description"
+        }
+    if isinstance(schema, list):
+        return [_strip_param_descriptions(v) for v in schema]
+    return schema
+
+
+def _deferral_tool_parameters(
+    name: str, schema: dict[str, Any] | None
+) -> dict[str, Any]:
+    """deferral 下的分层参数策略(本函数的存在理由见 _build_loop_v2_tools 头注)。
+
+    - 内置 `_TOOLS` 与 UI/页面句柄桥接:**原样返回同一个对象,一条不裁** —— 模型必须
+      看得到 run_command 需要 `command`、write_file 需要 `path/content`,否则它会直接
+      判"我没有这个工具"并退化成纯文本。
+    - `api_*` 长尾:保留 properties/type/required,仅删字段级 description。
+    """
+    if not isinstance(schema, dict) or not schema:
+        return {"type": "object", "properties": {}}
+    if name.startswith(_API_TOOL_PREFIX):
+        return _strip_param_descriptions(schema)
+    return schema
+
+
+def _deferral_tool_description(desc: str) -> str:
+    """deferral 下的描述压缩:取首行并压到上限内,保留"何时使用"语义。"""
+    return _shorten_description(desc, limit=_TOOL_DEFERRAL_DESC_LIMIT)
 
 
 def _is_tool_deferral_enabled() -> bool:
     """工具定义 deferral 开关(env TOOL_DEFERRAL,默认 on)。
 
-    on/1/true/yes → 启用(只把短描述+占位参数放进上下文,完整 schema 按需反查);
+    on/1/true/yes → 启用:描述压到一行,参数面按分层策略瘦身
+    (内置/桥接保留完整 parameters;api_* 长尾只删字段 description);
     其他值(如 off)→ 关闭,行为与历史完全一致(完整 description + 完整 parameters)。
     """
     return os.environ.get("TOOL_DEFERRAL", "on").strip().lower() in (
@@ -350,14 +404,11 @@ def _supertool_tools_from_pool(
             return await agg.call_forward(pool, _key, args, invoke_fn=_invoke)
 
         if defer and key != "get_tool_schema":
-            short = _shorten_description(
-                pt.description, limit=80 - len(_TOOL_DEFERRAL_SUFFIX)
-            )
             tools.append(
                 ToolDefinition(
                     name=key,
-                    description=short + _TOOL_DEFERRAL_SUFFIX,
-                    parameters={"type": "object"},
+                    description=_deferral_tool_description(pt.description),
+                    parameters=_deferral_tool_parameters(key, pt.schema),
                     executor=_exec,
                     mcp_annotations=pt.annotations,
                 )
@@ -396,12 +447,15 @@ async def _build_loop_v2_tools(
     时,内置 _TOOLS 与外部工具经 MCPSuperToolAggregator 去重/仲裁后以统一 manifest
     暴露;无外部 server 或聚合异常时降级到下方现有路径(工具清单逐字节等价)。
 
-    工具定义 deferral(瘦身,默认开启):当 TOOL_DEFERRAL=on 时,除 get_tool_schema
-    自身外,所有工具的 description 替换为 ≤limit 的短描述、parameters 置为最小占位
-    ("type": "object"),并在描述尾部追加"用 get_tool_schema 查询完整参数"的提示,
-    从而大幅压低进入上下文的工具定义 token 占用(对标 Claude Code 的 deferral)。
+    工具定义 deferral(瘦身,默认开启):当 TOOL_DEFERRAL=on 时,描述压缩为一行 ≤120
+    字符(保留"何时使用"语义);参数面**分层**处理 —— 内置 `_TOOLS` 与 UI/页面桥接
+    **保留原始 parameters 一条不裁**,api_* 长尾保留 properties/type/required、仅删
+    字段级 description。此前一刀切把 parameters 置为最小占位("type": "object"),模型
+    看不到 run_command 需要 `command`,于是判"没有这个工具"退化成纯文本 —— 这是本
+    策略要修的病灶(注意:该病灶此前**不可观测**,因为 tools 从未进入模型请求,见
+    `_make_loop_v2_llm` 那条根因;两边都修好,瘦身才真正成立)。
     get_tool_schema 必须保持完整 schema 且无论 tool_names 过滤如何都强制纳入,
-    否则模型无法反查其他工具的完整参数。env 关闭时行为与历史完全一致。
+    模型仍可反查 api_* 被删掉的字段说明。env 关闭时行为与历史完全一致。
     """
     pool = await _build_supertool_pool(tool_names, user_id)
     if pool is not None:
@@ -434,14 +488,11 @@ async def _build_loop_v2_tools(
             )
 
         if defer and mt.name != "get_tool_schema":
-            short = _shorten_description(
-                mt.description, limit=80 - len(_TOOL_DEFERRAL_SUFFIX)
-            )
             tools.append(
                 ToolDefinition(
                     name=mt.name,
-                    description=short + _TOOL_DEFERRAL_SUFFIX,
-                    parameters={"type": "object"},
+                    description=_deferral_tool_description(mt.description),
+                    parameters=_deferral_tool_parameters(mt.name, mt.input_schema),
                     executor=_exec,
                 )
             )
@@ -547,9 +598,30 @@ def _make_loop_v2_llm(model: str | None) -> Any:
         # 行为与旧闭包逐零差异。
         _finish_sink = model_kwargs.pop("_finish_reason_sink", None)
 
+        # 【根因修复 2026-11-09】此前 `tools` 形参在本闭包**收了不用**:两条转发分支
+        # 都只带 messages/model,工具 schema 从未进入模型请求。后果是模型侧根本没有
+        # function calling 可用,于是它按训练习惯把调用写成**纯文本**的 tool_name /
+        # tool_args 片段,而 AgentLoopV2 只认结果里的 `tool_calls` 字段 ⇒ 一轮即止、
+        # status=completed、零工具执行、exitCode 永远取不到 —— 且这条失败**不报错**。
+        # 观察事实(2026-11-09 现读):同期在飞的另一支改动面落在 llm_gateway /
+        # key_pool_selector / model_sync / subagent-dispatch 上,而那支的 agents.py 里
+        # 本行这段转发**同样不存在** —— 即两侧都在绕着这根断线找原因;推断部分(他们
+        # 为何选那些文件)本注释不作答。本条与工具个数、schema 形态**无关**:全量 451
+        # 条与白名单 4 条两种实验都必然复现同一结果,因为线是断的。
+        #
+        # 判序:tools 为空 ⇒ **不注入该键**,无工具路径与历史逐字节等价(不因本修复顺带
+        # 改变网关的压缩/选路行为);非空 ⇒ 只透传 OpenAI function 形状的条目,网关据
+        # `has_tools=True` 自动跳过消息压缩并走厂商原生适配器分支。
+        tools_payload = [
+            t
+            for t in (tools or [])
+            if isinstance(t, dict) and isinstance(t.get("function"), dict)
+        ]
+        tools_kwargs: dict[str, Any] = {"tools": tools_payload} if tools_payload else {}
+
         if on_chunk is None:
             result = await llm_gateway.complete(
-                messages, model=model, **model_kwargs
+                messages, model=model, **tools_kwargs, **model_kwargs
             )
             _raise_if_gateway_error(result, stream=False)
             if _finish_sink is not None:
@@ -569,7 +641,9 @@ def _make_loop_v2_llm(model: str | None) -> Any:
         raw_tool_calls: list[dict[str, Any]] = []
         usage: dict[str, Any] | None = None
         model_used = ""
-        async for evt in llm_gateway.astream(messages, model=model, **model_kwargs):
+        async for evt in llm_gateway.astream(
+            messages, model=model, **tools_kwargs, **model_kwargs
+        ):
             evt_type = evt.get("type")
             if evt_type == "chunk":
                 text = evt.get("content") or ""
@@ -1240,6 +1314,20 @@ class AgentResumeRequest(BaseModel):
         le=int(DURABLE_HORIZON_MAX_SECONDS),
         description="耐久任务视野声明(秒,1 ~ 7天);续跑重建的循环落盘时携带,省略 = 非耐久",
     )
+    # 跨进程续跑:仅当崩溃落在"工具执行中"那一轮且存在无法判定的副作用调用时使用。
+    # 409 响应的 blocked[].tool_call_id 是唯一合法键;缺一项则该项继续待确认(再回 409),
+    # 不得默认放行。skip/accept 只写真实标记("崩溃后未执行,结果未知"/"已完成但输出丢失"),
+    # 绝不伪造工具成功结果。
+    resume_confirmations: dict[str, Literal["retry", "skip", "accept", "abort"]] | None = (
+        Field(
+            None,
+            description=(
+                "按 tool_call_id 给出的续跑处置:retry=重新执行 / skip=确认未执行并跳过 / "
+                "accept=确认已完成(输出丢失)/ abort=放弃本次续跑;省略则对无法判定的"
+                "副作用调用返回 HTTP 409 AGENT_RESUME_REQUIRES_CONFIRMATION"
+            ),
+        )
+    )
 
 
 class MemorySearchRequest(BaseModel):
@@ -1350,6 +1438,16 @@ async def update_agent_security_config(
 # ---------------------------------------------------------------------------
 
 
+# 结算"已发生但没(再)写进去"的三态 → 409 说明。键 = `ApprovalOutcome` 的字面值
+# (与 approval_generation_cas 的 REASON_* 逐字同形):本模块对执行内核只用函数内
+# 延迟导入,故这里收字面量而不是 import 枚举成员,免得把主循环拉进模块导入期。
+_APPROVAL_CONFLICT_MESSAGES: dict[str, str] = {
+    "already_settled": "该审批已被第一次应答结算(本次未回写任何状态)",
+    "superseded": "该审批已换代/已终态,旧弹窗作废,应重新发起审批",
+    "snapshot_mismatch": "审批快照与盖章时不一致(决策对象不是当前快照)",
+}
+
+
 @router.post("/agents/approval-response")
 async def agent_approval_response(
     req: ApprovalResponseRequest,
@@ -1364,13 +1462,18 @@ async def agent_approval_response(
     O19 前的缺口:本端点零鉴权 —— 任何拿到 approval_id 的人(或盲猜)都能替他人
     批准高危工具,人工审批门形同虚设。现在决策只在**属主==当前请求者**时写入。
 
-    返回:
+    返回(与 `ApprovalOutcome` 六态一一对应,不再让"未闭环"落到 200):
       200 code=0  accepted=true  → 决策已写入,工具按决策继续/跳过
       404                        → approval_id 不存在(已超时清理或从未发起)
       403                        → 审批存在但属主不符;**以及属主为 None 的审批**
         (由非 HTTP 上下文创建,如引擎线程/直接库调用)。后者刻意不给 HTTP 侧结算:
         无法证明它属于谁,就不能让任何登录用户点头 —— 这类审批只应由其创建通道
         (agent_engine 的 approval.respond)按自己的 principal 回填。
+      409                        → 条目存在、属主也符,但**本次没有写进任何东西**:
+        `already_settled`(结算名额已被第一次应答取走)/ `superseded`(持章结算
+        被路由代锁拒:条目缺失/已终态/换代)/ `snapshot_mismatch`(代际相符但内容
+        摘要与盖章时不一致)。三者语义各异故逐码返回 `code`,不并码;写入/结算
+        语义本身一字未改 —— 本端点只是在既有只读判定上补一个诚实的 HTTP 形状。
     """
     from ..services.agent_loop_v2 import (
         ApprovalOutcome,
@@ -1393,6 +1496,16 @@ async def agent_approval_response(
     if outcome is ApprovalOutcome.FORBIDDEN:
         raise HTTPException(
             status_code=403, detail="该审批请求不属于当前用户(或无可证明的属主)"
+        )
+    # G-637 第四态 + G-816004 第五/六态的 HTTP 形状(此前 fall-through 成
+    # 200 accepted=true,状态虽未被第二次改写,回执读起来却像改写成功)。
+    # 三码各自携带原 code:它们**不是**同一个结论(superseded 要重问,
+    # snapshot_mismatch 要丢弃,already_settled 是重复点击),并码会让客户端猜。
+    conflict_message = _APPROVAL_CONFLICT_MESSAGES.get(outcome.value)
+    if conflict_message is not None:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": outcome.value, "message": conflict_message},
         )
     logger.info(
         "工具审批响应: approval_id=%s decision=%s user=%s",
@@ -1424,41 +1537,46 @@ async def execute_agent(
     `_new_v2_loop` 这一份构造 —— 此前本端点**无条件**调用 V1 的 `agent_executor.run`,
     于是"同一个 agent 有两种跑法"由入口决定而不是由部署档位决定:V1 从不构造 V2,
     所以 G-161 的审批门、V3 #55 的压缩上限、V3 #65 的 checkpoint/暂停控制面在这里
-    全部缺席(上面那两条 400 拒答就是为了不把"发了≠生效"卖给调用方)。
-    V1 只保留为**显式**回退档(env `AGENT_EXECUTOR=v1|legacy|langgraph`),灰度出口
-    一字未改;响应键集逐字不变(见 `_v2_result_to_execute_payload`)。
+    全部缺席。V1 只保留为**显式**回退档(env `AGENT_EXECUTOR=v1|legacy|langgraph`),
+    灰度出口一字未改;响应键集逐字不变(见 `_v2_result_to_execute_payload`)。
+
+    本次(2026-11-09 非流式审批投递通道):审批投递通道已接进本端点 —— 带
+    `session_id` 时审批条目以 thread_id=session_id 登记,可由
+    `GET /api/agent/decisions/pending?session_id=…` 取件、
+    `POST /api/agents/approval-response` 回执。因此权限档/审批轴的 400 判据
+    收窄为**只拒"没有投递地址"的请求**(见下方 delivery_address),有地址即放行。
     """
     owned: list[str] = []
     # G-161:本端点过去走的是已弃用的单轮执行器(AgentExecutor),它从不构造 AgentLoopV2,
     # 因此权限档在此**无法生效**。此前 permission_mode 字段干脆不存在 → 被静默丢弃,
     # 客户端以为自己设了 bypassPermissions。宁可拒 400,也不允许"发了≠生效"。
-    # ⚠️ D144③ 归一后本条拒答**继续成立且理由换了**:非流式响应里没有任何通道能把
-    # 高危审批送到人面前(V2 的审批要经 SSE/hook 帧下发,再由 POST /agents/approvals
-    # 回执),所以"选了 acceptEdits/bypassPermissions 却没人能批"仍是"发了≠生效"。
-    # default 档下若真撞到高危工具,由 V2 自带的 approval_timeout(默认 60s)判**不执行**
-    # —— 失效方向是拒绝,不是放行。把审批投递通道接进本端点属另一票,不得顺手做。
+    # D144③ 归一后本端点已接上 V2 内核,拒答的判据随之从"有没有通道"收窄为
+    # **"有没有可寻址的回执地址"**:V2 的审批条目以 thread_id=session_id 登记
+    # (D193 收件箱按它收窄,`GET /api/agent/decisions/pending?session_id=…` 才取得到),
+    # 用户决策经 `POST /api/agents/approval-response` 回执。没有 session_id ⇒
+    # 审批窗口内没有任何可寻址的回执出口 ⇒ 仍是"发了≠生效",继续拒 400;有则放行。
+    # 地址判据只有一条:**strip 后非空**(空串/空白等于没给)。
     resolved_mode = _resolved_permission_mode(req.permission_mode)
-    if resolved_mode is not None and resolved_mode != "default":
+    delivery_address = (req.session_id or "").strip()
+    if resolved_mode is not None and resolved_mode != "default" and not delivery_address:
         raise HTTPException(
             status_code=400,
             detail=(
-                "permissionMode=%s 仅在 POST /agents/execute/stream 生效"
-                "(非流式端点没有审批投递通道,选了也没人能够得着)"
+                "permissionMode=%s 需要 session_id 作为审批投递地址(thread_id=session_id),"
+                "否则审批窗口内无法回执"
             )
             % resolved_mode,
         )
-    # 79 号票(2026-10-18 立):同一条拒答对双轴的**审批轴**继续成立且只针对一档 ——
-    # approval_policy=untrusted 是双轴里唯一会产出 REQUIRE_APPROVAL 的档,本端点
-    # 没有审批投递通道 ⇒ 选了它就只会撞 approval_timeout 判**不执行**,
-    # 用户在界面上只看到"工具没跑",看不出是被自己选的档卡住的(G-161 同型)。
+    # 79 号票(2026-10-18 立):双轴的**审批轴**同一条规矩,且只针对一档 ——
+    # approval_policy=untrusted 是双轴里唯一会产出 REQUIRE_APPROVAL 的档。
     # 沙箱轴**不拒**:read-only 只产出 FORBID(直接拒绝,不需要人在场),
-    # 在本端点同样成立且语义完整。失效方向一律是拒绝,不是放行。
-    if (req.approval_policy or "").strip().lower() == "untrusted":
+    # 在本端点同样成立且语义完整。缺地址时失效方向一律是拒绝,不是放行。
+    if (req.approval_policy or "").strip().lower() == "untrusted" and not delivery_address:
         raise HTTPException(
             status_code=400,
             detail=(
-                "approvalPolicy=untrusted 仅在 POST /agents/execute/stream 生效"
-                "(非流式端点没有审批投递通道,选了也没人能够得着)"
+                "approvalPolicy=untrusted 需要 session_id 作为审批投递地址(thread_id=session_id),"
+                "否则审批窗口内无法回执"
             ),
         )
     # 同一条"发了≠生效就不许发"的规矩(§8 第 3 步):独立校验闸门只接在流式端点上,
@@ -1519,6 +1637,9 @@ async def execute_agent(
             max_iterations=req.max_iterations,
             tools=req.tools,
             user_id=current_user,
+            # V3 #47 第二格:admin 专属工具的判定需要调用者角色;不传则一律按 0 处理,
+            # 管理员经 V1 回退档也永远拿不到 admin 工具(与流式分支 1613 行同源)。
+            user_role=resolve_request_role_id(request),
             repo_name=req.repo_name,
         )
         # 未显式传 session_id 时由执行器生成,补登记(此后同进程订阅者可判定属主)
@@ -1587,6 +1708,10 @@ async def execute_agent_stream(
         owned_sessions: list[str] = []
         # V3 #65:登记进 run 控制面(agent_run_control)的会话标识,与上面同生命周期
         registered_sessions: list[str] = []
+        # AIS-005:后台 run 句柄必须在 finally 可见 —— 断线时只有生成器被 aclose,
+        # 不取消 run_task 的话 LLM/工具会在后台继续执行(改文件、发消息、耗额度),
+        # 客户端重连再起一轮即同会话双跑。
+        run_task: asyncio.Task[Any] | None = None
 
         # 断线重连: 先按**三态**判定续传(2026-09-27 修;病灶全文见 core/sse_buffer.py 头注)
         #   hit            ⇒ 锚点在缓冲内,只发其后的事件(与旧行为一致)
@@ -1979,6 +2104,12 @@ async def execute_agent_stream(
             eid = sse_buffer.append(task_id, err_event)
             yield _format_sse(eid, err_event)
         finally:
+            # AIS-005:断开/收尾都必须收敛后台 run。取消后 await 等它真正退出
+            # (return_exceptions 吃掉 CancelledError),避免取消信号滞后到
+            # detach_run 之后还在跑的窗口。
+            if run_task is not None and not run_task.done():
+                run_task.cancel()
+                await asyncio.gather(run_task, return_exceptions=True)
             # G9: 立即清理缓冲区,避免已完成会话的过期事件占内存(TTL 仍兜底重连场景)
             sse_buffer.clear(task_id)
             # V3 #65:解绑控制面里的 loop 引用。paused 记录**故意保留**
@@ -2012,6 +2143,7 @@ async def _resume_run_from_checkpoint(
     permission_mode: str | None = None,
     axis_resolution: "_AxisResolution | None" = None,
     durable_horizon_seconds: int | None = None,
+    resume_confirmations: "Mapping[str, str] | None" = None,
 ) -> "AgentLoopResult":
     """构造与 execute/stream 同参的 AgentLoopV2 并从 checkpoint 续跑(**全仓唯一实现**)。
 
@@ -2023,10 +2155,14 @@ async def _resume_run_from_checkpoint(
         axis_resolution: 79 号票双轴解析结果;None = 调用方未提供 ⇒ 按 config
             profiles 的选中档案接管(冷恢复直调路径),仍无档案 ⇒ None(裁决门
             整段跳过,与接线前逐字节同)。**必须经由本函数传入 `_new_v2_loop`**。
+        resume_confirmations: 崩溃轮"无法判定"调用的处置(见 AgentResumeRequest)。
+            省略 ⇒ 有副作用且判不出时抛 `ResumeBlockedError`,由调用方映射成 409。
 
     Raises:
         ValueError: checkpoint 不存在 / 已过期,由 `resume_from_checkpoint` 抛出;
             调用方各自映射成自己的响应形态(不在此层决定 HTTP 语义)。
+        ResumeBlockedError: 崩溃轮需要人工确认(载荷原样向上,不在此层改写)。
+        UnknownConfirmationError: resume_confirmations 含不在待确认清单内的 id。
     """
     # V3 #47 第二格:角色在此取一次,下面两处(工具装配 + 循环构造)共用同一个值,
     # 不允许各取各的 —— 两次读取之间若身份被改,就会出现"工具按 A 角色装配、
@@ -2059,7 +2195,9 @@ async def _resume_run_from_checkpoint(
         # V3 #84 生产者侧:耐久视野声明透传(省略 = None = 非耐久,零差异)。
         durable_horizon_seconds=durable_horizon_seconds,
     )
-    return await loop.resume_from_checkpoint(checkpoint_id)
+    return await loop.resume_from_checkpoint(
+        checkpoint_id, resume_confirmations=resume_confirmations
+    )
 
 
 def _resume_result_payload(
@@ -2096,6 +2234,11 @@ async def resume_agent_execute(
           checkpoint_id, error, total_iterations, total_duration_ms}}
 
     checkpoint 不存在 / 已过期 → code=404(与 v2 的 ValueError 语义对齐)。
+
+    崩溃落在"工具执行中"那一轮且有副作用调用判不出结果时 → **HTTP 409**
+    `{code:"AGENT_RESUME_REQUIRES_CONFIRMATION", checkpoint_id, iteration, blocked[],
+    allowed_decisions:["retry","skip","accept","abort"]}`;带上 `resume_confirmations`
+    再调一次即可。`resume_confirmations` 里出现本次清单外的 id → HTTP 400。
 
     b76-11(2026-09-30):body 新增 permission_mode?—— 冷恢复重建 runtime 时沿用
     create 的权限面(此前请求档位被静默丢弃,永远回落 env 默认档)。注意本链仍是
@@ -2174,7 +2317,24 @@ async def resume_agent_execute(
             axis_resolution=axis_resolution,
             # V3 #84 生产者侧:耐久视野声明透传(省略 = None = 非耐久,零差异)。
             durable_horizon_seconds=req.durable_horizon_seconds,
+            # 跨进程续跑:崩溃轮"无法判定"调用的处置(省略 ⇒ 需要时回 409)。
+            resume_confirmations=req.resume_confirmations,
         )
+    except ResumeBlockedError as e:
+        # 崩溃轮有副作用调用无法判定(或用户选择 abort):续跑**没有**发生,
+        # checkpoint 仍停在原处。载荷由 semantics 唯一构造,这里只做 HTTP 映射。
+        raise HTTPException(status_code=409, detail=dict(e.payload)) from e
+    except UnknownConfirmationError as e:
+        # ValueError 子类,必须排在 ValueError 之前 —— 否则客户端写错 id 会被
+        # 伪装成 404 "checkpoint 不存在"。
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "errorCode": "AGENT_RESUME_CONFIRMATION_UNKNOWN_ID",
+                "message": str(e),
+                "tool_call_ids": e.tool_call_ids,
+            },
+        ) from e
     except ValueError as e:
         return {
             "code": 404,
@@ -2245,6 +2405,18 @@ class AgentSessionResumeRequest(BaseModel):
         le=int(DURABLE_HORIZON_MAX_SECONDS),
         description="耐久任务视野声明(秒,1 ~ 7天);续跑重建的循环落盘时携带,省略 = 非耐久",
     )
+    # 跨进程续跑:与 AgentResumeRequest 同格,同因 —— 两条 resume 出口共用
+    # `_resume_run_from_checkpoint`,处置面也必须同形。省略 ⇒ 无法判定的副作用调用
+    # 回 409(该会话仍停在暂停点,处置后可以再 resume)。
+    resume_confirmations: dict[str, Literal["retry", "skip", "accept", "abort"]] | None = (
+        Field(
+            None,
+            description=(
+                "按 tool_call_id 给出的续跑处置:retry=重新执行 / skip=确认未执行并跳过 / "
+                "accept=确认已完成(输出丢失)/ abort=放弃本次续跑"
+            ),
+        )
+    )
 
 
 _PAUSE_STATUS_BY_OUTCOME: dict[PauseOutcome, int] = {
@@ -2259,6 +2431,7 @@ _RESUME_STATUS_BY_OUTCOME: dict[ResumeOutcome, int] = {
     ResumeOutcome.NO_CHECKPOINT: 404,
     ResumeOutcome.NOT_PAUSED: 409,
     ResumeOutcome.OWNER_UNVERIFIABLE: 409,
+    ResumeOutcome.NEEDS_CONFIRMATION: 409,
     ResumeOutcome.RESUME_FAILED: 503,
 }
 
@@ -2364,6 +2537,9 @@ async def resume_agent_session(
       403 AGENT_RESUME_FORBIDDEN        会话/检查点属于别人
       404 AGENT_RESUME_NO_CHECKPOINT    没有可续跑的暂停点
       409 AGENT_RESUME_NOT_PAUSED       它正在跑(或最新检查点已不是 paused 态)
+      409 AGENT_RESUME_REQUIRES_CONFIRMATION  崩溃轮有副作用调用判不出结果,载荷为
+                                        blocked[] + allowed_decisions(处置后会话仍暂停,
+                                        带 resume_confirmations 再调本端点即可)
       503 AGENT_RESUME_RESUME_FAILED    存储/循环不可用(含"查不了"不等于"查不到")
     """
 
@@ -2394,6 +2570,8 @@ async def resume_agent_session(
                 axis_resolution=axis_resolution,
                 # V3 #84 生产者侧:耐久视野声明透传(省略 = None = 非耐久,零差异)。
                 durable_horizon_seconds=req.durable_horizon_seconds,
+                # 跨进程续跑:崩溃轮"无法判定"调用的处置(省略 ⇒ 需要时回 409)。
+                resume_confirmations=req.resume_confirmations,
             )
         except ValueError as exc:
             # resume_from_checkpoint 的"这个 checkpoint 没了"在这里是**取用前的竞态失效**
@@ -2403,6 +2581,10 @@ async def resume_agent_session(
         return dict(_resume_result_payload(result, checkpoint.checkpoint_id))
 
     verdict = await resume_session(session_id, current_user, runner=_runner)
+    if verdict.outcome is ResumeOutcome.NEEDS_CONFIRMATION:
+        # 控制面已把 `ResumeBlockedError` 收成结论并保留暂停记录(处置后可再 resume);
+        # 载荷原样交给调用方,不再套一层 errorCode。
+        raise HTTPException(status_code=409, detail=verdict.result)
     if verdict.outcome is not ResumeOutcome.RESUMED:
         raise HTTPException(
             status_code=_RESUME_STATUS_BY_OUTCOME[verdict.outcome],

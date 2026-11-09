@@ -15,6 +15,7 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import { repairMessages, type RepairableMessage, type ChatMessage } from '@ihui/types';
 import { tryParseJson, isRecord } from '../util/json.js';
+import { writeFileAtomicSync } from '../util/atomic-write.js';
 export type { ChatMessage };
 
 export interface Session {
@@ -41,7 +42,7 @@ function sessionReadCode(error: unknown): string {
 function ensureSessionsDir(): void {
   const dir = getSessionsDir();
   if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
+    fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
   }
 }
 
@@ -68,7 +69,7 @@ export function saveSession(session: Session): void {
   }
   ensureSessionsDir();
   session.updatedAt = new Date().toISOString();
-  fs.writeFileSync(filePath, JSON.stringify(session, null, 2), 'utf-8');
+  writeFileAtomicSync(filePath, JSON.stringify(session, null, 2), { mode: 0o600 });
 }
 
 export function loadSession(id: string): Session | null {

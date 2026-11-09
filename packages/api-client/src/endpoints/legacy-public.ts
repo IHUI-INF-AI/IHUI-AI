@@ -27,6 +27,7 @@ import type {
 } from '@ihui/types'
 
 import { fetchApi } from '../client.js'
+import { fetchArrayApi } from '../payload-shape.js'
 import { buildQs, type PageData } from '../utils.js'
 
 // ===================== 类型定义 =====================
@@ -82,7 +83,7 @@ export interface SearchResult {
 
 /** 获取活跃轮播图(公开端点,可选 position 过滤) */
 export async function getActiveCarousels(position?: string): Promise<ApiResult<Carousel[]>> {
-  return fetchApi<Carousel[]>(`/api/carousels${buildQs(position ? { position } : {})}`)
+  return fetchArrayApi<Carousel>(`/api/carousels${buildQs(position ? { position } : {})}`)
 }
 
 // ===================== agreements（协议） =====================

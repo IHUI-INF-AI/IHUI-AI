@@ -89,6 +89,8 @@ export default function MessageIndex() {
   const gate = useAuthReadyGate()
   const [list, setList] = useState<Room[]>([])
   const [loading, setLoading] = useState(true)
+  // XUI-066:四个取数请求都在 catch 里静默忽略,失败只剩空列表;现在如实上抛给共享屏。
+  const [loadError, setLoadError] = useState('')
   const [keyword, setKeyword] = useState('')
   const [bannerClosed, setBannerClosed] = useState(false)
   const [activeTab, setActiveTab] = useState('all')
@@ -181,7 +183,7 @@ export default function MessageIndex() {
         { key: 'private', label: t('message.tabs.private'), unread: res.unreadCount?.private || 0 },
       ])
     } catch {
-      // ignore
+      setLoadError(t('common.loadFailed'))
     } finally {
       setLoading(false)
     }
@@ -201,9 +203,9 @@ export default function MessageIndex() {
       }))
       setSystemList(items)
     } catch {
-      // ignore
+      setLoadError(t('common.loadFailed'))
     }
-  }, [])
+  }, [t])
 
   const loadPrivateMessages = useCallback(async () => {
     try {
@@ -219,9 +221,9 @@ export default function MessageIndex() {
       }))
       setPrivateList(items)
     } catch {
-      // ignore
+      setLoadError(t('common.loadFailed'))
     }
-  }, [])
+  }, [t])
 
   const loadPreferences = useCallback(async () => {
     try {
@@ -254,11 +256,12 @@ export default function MessageIndex() {
       ]
       setSettings(items)
     } catch {
-      // ignore - keep defaults
+      setLoadError(t('common.loadFailed'))
     }
   }, [t])
 
   const load = useCallback(async () => {
+    setLoadError('')
     await Promise.all([
       loadAggregate(),
       loadSystemNotices(),
@@ -518,7 +521,7 @@ export default function MessageIndex() {
         tabs={tabs}
         loading={loading}
         refreshing={false}
-        error=""
+        error={loadError}
         onRefresh={() => void load()}
         search={
           activeTab === 'all'

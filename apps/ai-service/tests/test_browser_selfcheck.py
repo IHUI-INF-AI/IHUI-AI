@@ -218,16 +218,17 @@ async def test_tool_handler_dispatch(monkeypatch):
     """mcp handler 调用 capture_screenshot 并把结果映射成统一工具返回格式。"""
     from app.services.mcp_server import _tool_browser_selfcheck_screenshot
 
+    # AIS-051:handler 入口过 SSRF 判据;用公网 IP 字面量避免真实 DNS。
     monkeypatch.setattr(bs, "_sync_capture", _fake_capture_ok)
     result = await _tool_browser_selfcheck_screenshot(
-        {"url": "https://example.com", "wait_ms": 100}
+        {"url": "https://8.8.8.8/", "wait_ms": 100}
     )
     assert result["tool"] == "browser_selfcheck_screenshot"
     assert result["ok"] is True
     assert result["width"] == 1280
     assert result["consoleErrors"]
-    # 协议非法的输入走 handler 的入口校验
+    # 协议非法的输入在 handler 的 SSRF 入口校验即被拒(非 http(s) 判据)
     bad = await _tool_browser_selfcheck_screenshot({"url": "file:///etc/passwd"})
     assert bad["ok"] is False
-    assert bad["errorCode"] == "SCHEME_REJECTED"
+    assert bad["errorCode"] == "SSRF_BLOCKED"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

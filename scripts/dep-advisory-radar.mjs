@@ -205,8 +205,23 @@ export function formatSummary(picked, counts, { suppressed = 0 } = {}) {
   return lines.slice(0, MAX_SUMMARY_LINES).join('\n')
 }
 
+/**
+ * 采集输入面净化:守护进程常驻的 HTTP(S)_PROXY 会掐断 pnpm audit 的 stdout
+ * (连续 5 天「Unexpected end of JSON input」的真因),故 spawn 显式传净化后的 env,
+ * 不再继承 process.env。只删 8 个代理键,其余(PATH/PNPM_HOME/registry token)全保留;
+ * 确需代理的机器设 IHUI_DEP_AUDIT_KEEP_PROXY=1 走逃生舱。
+ */
+export function auditSpawnEnv(base = process.env) {
+  const env = { ...base }
+  if (base.IHUI_DEP_AUDIT_KEEP_PROXY === '1') return env
+  for (const k of ['HTTP_PROXY', 'HTTPS_PROXY', 'ALL_PROXY', 'NO_PROXY', 'http_proxy', 'https_proxy', 'all_proxy', 'no_proxy']) {
+    delete env[k]
+  }
+  return env
+}
+
 /** 采集:优先用离线读数(--audit-json),否则现场跑 pnpm audit。 */
-export function collectAudit({ auditJsonPath = '', registry = DEFAULT_REGISTRY, timeoutMs = 180_000, spawn = (...a) => spawnSync(...a) } = {}) {
+export function collectAudit({ auditJsonPath = '', registry = DEFAULT_REGISTRY, timeoutMs = 180_000, env = auditSpawnEnv(), spawn = (...a) => spawnSync(...a) } = {}) {
   if (auditJsonPath) {
     try {
       return { status: 'ok', text: readFileSync(auditJsonPath, 'utf8'), source: auditJsonPath }
@@ -219,6 +234,7 @@ export function collectAudit({ auditJsonPath = '', registry = DEFAULT_REGISTRY, 
   const r = spawn('pnpm', args, {
     stdio: ['ignore', 'pipe', 'pipe'],
     cwd: ROOT,
+    env,
     windowsHide: true,
     timeout: timeoutMs,
     encoding: 'utf8',
@@ -230,6 +246,9 @@ export function collectAudit({ auditJsonPath = '', registry = DEFAULT_REGISTRY, 
   if (r.status !== 0 && r.status !== 1) {
     const err = String(r.stderr ?? '').split(/\r?\n/).filter(Boolean).slice(-2).join(' ')
     return { status: 'undetermined', why: `pnpm audit rc=${r.status}:${err.slice(0, 200)}` }
+  }
+  if (!out.trim()) {
+    return { status: 'undetermined', why: 'pnpm audit stdout 为空(采集输入面可能被继承的代理变量掐断)⇒ 不解析、不冒充零漏洞' }
   }
   return { status: 'ok', text: out, source: `pnpm audit(${registry || '配置 registry'})` }
 }

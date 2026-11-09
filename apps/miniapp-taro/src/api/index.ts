@@ -5,6 +5,9 @@
 /**
  * API 接口定义 - 对接新架构后端 http://localhost:8801/api
  */
+import { normalizeVipMine, type VipMineRow } from './vip-mine'
+import { normalizeOrderDetail, type OrderDetailRow } from './order-normalize'
+import { normalizeDistributionOverview } from './distribution-normalize'
 import { BASE_URL } from '../utils/api-config'
 import { getMiniappVersion } from '../utils/app-version'
 import { t } from '../i18n'
@@ -295,8 +298,15 @@ export type Order = Pick<ApiOrder, 'orderNo' | 'amount'> & {
 }
 
 /** 我的订单列表 — 对接后端 GET /orders/me(返回 { list, total, page, pageSize }) */
-export const getOrderList = (params?: { page?: number; pageSize?: number; status?: string }) =>
-  get<{ list: Order[]; total: number; page?: number; pageSize?: number }>('/orders/me', params)
+export const getOrderList = async (params?: { page?: number; pageSize?: number; status?: string }) => {
+  const res = await get<{ list: OrderDetailRow[]; total: number; page?: number; pageSize?: number }>(
+    '/orders/me',
+    params,
+  )
+  // XUI-042:列表返回的是 edu_orders 原始行(payAmount/targetTitle/createdAt),
+  // 必须与详情同口径归一,否则标题空、时间 undefined、金额 0.00(金额另由 rawAmountRef 兜底)。
+  return { ...res, list: (res.list ?? []).map((row) => normalizeOrderDetail(row)) }
+}
 
 /* ============ AI 对话 ============ */
 
@@ -893,7 +903,11 @@ export interface VipInfo {
   originalPrice?: number
 }
 
-export const getVipInfo = () => get<VipInfo>('/vip/my')
+/** 后端 user_vips 行(字段名与端内 VipInfo 不同,统一在此归一)。 */
+export const getVipInfo = async (): Promise<VipInfo | null> => {
+  const res = await get<{ vip: VipMineRow | null }>('/vip/my')
+  return normalizeVipMine(res?.vip)
+}
 export const getVipLevels = () => get<{ items: VipLevel[] }>('/vip/levels')
 /**
  * 会员权益清单 —— 打的是在册路由 GET /api/vip/benefits(misc-routes.ts 直出 vip_levels)。
@@ -1052,25 +1066,43 @@ export const getPayResult = async (orderNo: string) => {
  * 后端响应 `{ order: EduOrder }`,此处解包返回 Order 本体,保持调用方签名不变。
  */
 export const getOrderDetail = (id: string | number) =>
-  get<{ order: Order }>(`/orders/${id}`).then((r) => (r.order ?? (r as unknown as Order)) as Order)
+  get<{ order: Order }>(`/orders/${id}`).then((r) =>
+    normalizeOrderDetail((r.order ?? r) as unknown as Record<string, unknown>),
+  )
 /**
  * 申请退款 — 对接后端 POST /orders/:id/refund(参数 :id 必须是 UUID)。
  * 后端响应 `{ refund: EduRefund }`,此处仅返回 void(调用方不读取返回值)。
+ * refundAmount 以订单金额显式回传,保证与页面展示一致(后端另按订单金额封顶)。
  */
-export const refund = (data: { orderId: string; reason: string }) =>
-  post(`/orders/${data.orderId}/refund`, { reason: data.reason })
+export const refund = (data: { orderId: string; reason: string; refundAmount?: string }) =>
+  post(`/orders/${data.orderId}/refund`, {
+    reason: data.reason,
+    ...(data.refundAmount ? { refundAmount: data.refundAmount } : {}),
+  })
 /** 我的退款记录列表 — 对接后端 GET /refunds/me(返回 { list, total, page, pageSize }) */
 export const getRefundList = (params?: { page?: number; pageSize?: number; status?: string }) =>
   get<{ list: Order[]; total: number; page?: number; pageSize?: number }>('/refunds/me', params)
 
-/** 创建充值订单（对接 payments/wechat|alipay/create） */
+/**
+ * 创建充值订单（对接 payments/wechat/create）。
+ * 后端返回**扁平** JSAPI 签名字段,没有 `payParams` 包络;`amount` 单位为分。
+ * 充值固定 `orderType=2`(后端缺省会落 0 ⇒ 代币不入账)。
+ */
 export interface RechargeCreateResult {
   outTradeNo: string
+  amount?: number
   mock?: boolean
-  payParams?: Record<string, unknown>
+  timeStamp?: string
+  nonceStr?: string
+  package?: string
+  signType?: string
+  paySign?: string
 }
-export const createRecharge = (amount: number, payMethod: 'wechat' | 'alipay' = 'wechat') =>
-  post<RechargeCreateResult>(`/payments/${payMethod}/create?amount=${amount}`, {})
+export const createRecharge = (amountCents: number, payMethod: 'wechat' = 'wechat') =>
+  post<RechargeCreateResult>(
+    `/payments/${payMethod}/create?amount=${amountCents}&orderType=2&description=${encodeURIComponent('充值')}`,
+    {},
+  )
 
 /** 创建支付宝小程序支付订单 — POST /payments/alipay/miniapp/create (已迁移到 @ihui/api-client 共享端点) */
 export const createAlipayMiniappPayment = (params: {
@@ -1090,23 +1122,21 @@ export interface DistributionInfo {
   level: number
   totalCommission: number
   available: number
+  pendingCommission: number
   withdrawn: number
   teamCount: number
+  inviteCode: string | null
 }
 export const getDistributionInfo = () =>
   get<{
     totalCommission: number
+    availableCommission: number
     pendingCommission: number
     withdrawnCommission: number
     inviteCode: string | null
-  }>('/distribution/overview').then((res) => ({
-    level: 0,
-    totalCommission: res.totalCommission,
-    available: res.pendingCommission,
-    withdrawn: res.withdrawnCommission,
-    teamCount: 0,
-    inviteCode: res.inviteCode,
-  })) as Promise<DistributionInfo & { inviteCode: string | null }>
+    level: number
+    invitedCount: number
+  }>('/distribution/overview').then((res) => normalizeDistributionOverview(res))
 export const getDistributionTeam = (params?: { page?: number; pageSize?: number }) =>
   get<{
     list: Array<{

@@ -7,6 +7,8 @@ import type { Worker } from 'bullmq'
 import { createWorker, QUEUE_NAMES, type AICallbackJobData, type Job } from '../plugins/queue.js'
 import { createMessage, findMessageById, updateMessage } from '../db/chat-queries.js'
 import { consumeElementPackFrames } from '../db/element-pack-queries.js'
+import { resolveAiCost } from '../plugins/ai-cost.js'
+import { settleWalletUsage } from '../plugins/token-balance-service.js'
 // D64⑤:元素包 metadata 形状的唯一构造出口(空数组返回 null ⇒ 不写 key)。
 // parseElementPackFrames 是读侧守卫:暂存表 jsonb 读回的帧是宽类型,
 // 落 metadata 前必须收窄成 ElementPackFrame(形态不合的帧被丢弃)。
@@ -137,42 +139,70 @@ export function startAiCallbackWorker(server: FastifyInstance): Worker {
         })
       }
 
-      // G3: LLM 扣费链路接通 - 集中扣费 + 记成本联动
-      // 设计:消息持久化成功后才扣费;扣费失败不 rethrow(避免 BullMQ 重试导致重复扣费,idempotencyKey 兜底)
+      // G3 + F-203(口径 B): 扣费必须按真实成本折算成分,不能拿 token 数当分。
+      // 设计:消息持久化成功后才结算;结算失败不 rethrow(BullMQ 重试会重复扣费,idempotencyKey 兜底)。
       if (tokens && tokens > 0 && userId) {
-        try {
-          // 1. 记成本到 ai_cost_records(纯审计,不扣余额,失败不阻塞扣费)
-          if (model) {
-            try {
-              await server.aiCost.record({
-                userId,
-                model,
-                provider: provider ?? 'unknown',
-                promptTokens: promptTokens ?? 0,
-                completionTokens: completionTokens ?? 0,
-                totalTokens: tokens,
-                requestType: 'chat',
-              })
-            } catch (err) {
-              server.log.warn({ err, userId, model }, 'recordAiCost failed (non-blocking)')
-            }
-          }
-          // 2. 扣用户 token 余额(联动,带幂等键防重试重复扣)
-          const result = await server.tokenBalance.deductTokens(
-            userId,
-            tokens,
-            `llm_chat:${model ?? 'unknown'}`,
-            idempotencyKey,
+        if (!model) {
+          server.log.warn(
+            { userId, tokens },
+            'ai callback job 缺 model,无法按成本计价,跳过扣费与成本记录',
           )
-          if (!result.success) {
-            server.log.warn(
-              { userId, tokens, model, remaining: result.remaining },
-              'token balance insufficient, message persisted but not charged',
-            )
+        } else {
+          try {
+            // 1. 单次定价解析:同一结果既用于钱包结算,也用于 ai_cost_records,禁止两处各算一遍
+            const actual = await resolveAiCost({
+              model,
+              promptTokens: promptTokens ?? 0,
+              completionTokens: completionTokens ?? 0,
+            })
+            const costCents = Math.ceil(actual.cost)
+
+            // 2. 结算钱包:上游已发生成本,能扣多少扣多少,差额落 metadata 形成欠额审计
+            let settlement: { deducted: number; remaining: number; shortfall: number } | null = null
+            if (costCents > 0) {
+              settlement = await settleWalletUsage({
+                userId,
+                amount: costCents,
+                reason: `llm_chat:${model}`,
+                idempotencyKey,
+              })
+              if (settlement.shortfall > 0) {
+                server.log.warn(
+                  {
+                    userId,
+                    costCents,
+                    deducted: settlement.deducted,
+                    shortfall: settlement.shortfall,
+                    model,
+                  },
+                  'token balance insufficient, message persisted but partially charged',
+                )
+              }
+            }
+
+            const billing = {
+              walletDeductedCents: settlement?.deducted ?? 0,
+              walletBalanceAfterCents: settlement?.remaining ?? null,
+              billingShortfallCents: settlement?.shortfall ?? 0,
+            }
+
+            // 3. 记成本到 ai_cost_records:cost 直接取上面同一个数
+            await server.aiCost.record({
+              userId,
+              model,
+              provider: provider ?? 'unknown',
+              promptTokens: promptTokens ?? 0,
+              completionTokens: completionTokens ?? 0,
+              totalTokens: tokens,
+              requestType: 'chat',
+              cost: costCents,
+              currency: actual.currency,
+              metadata: JSON.stringify(billing),
+            })
+          } catch (e) {
+            server.log.error({ err: e, userId, tokens, model }, 'settleWalletUsage/recordAiCost failed')
+            // 不 rethrow:避免 BullMQ 重试导致重复扣费(idempotencyKey 兜底)
           }
-        } catch (e) {
-          server.log.error({ err: e, userId, tokens, model }, 'deductTokens/recordAiCost failed')
-          // 不 rethrow:避免 BullMQ 重试导致重复扣费(idempotencyKey 兜底)
         }
       }
 

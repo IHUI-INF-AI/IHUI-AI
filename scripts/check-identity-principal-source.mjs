@@ -62,7 +62,7 @@ import path from 'node:path'
 // 异步懒加载曾在镜像测试里当场暴露过这一型。
 import { maskCommentsAndStrings } from './lib/code-mask.mjs'
 // 被审面取材一律走面读取层(§0.4/§5b:绝对路径 git + 显式 stdio + quotepath + 数字 timeout)
-import { gitRaw, gitErrText } from './lib/face-reader.mjs'
+import { gitRaw, gitErrText, catBatch } from './lib/face-reader.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const SCOPE = 'apps/api/src'
@@ -179,14 +179,26 @@ function faceSpecs(face) {
   return { files: r.stdout.split('\n').filter((f) => f.endsWith('.ts')), worktree: true }
 }
 
-function readFace(face, file) {
-  if (face === 'worktree') {
-    const p = path.join(ROOT, file)
-    return existsSync(p) ? readFileSync(p, 'utf8') : null
-  }
-  const rev = face === 'staged' ? ':' : 'HEAD:'
-  const r = git(['show', `${rev}${file}`])
-  return r.status === 0 ? r.stdout : null
+/** 工作树面取正文(人工逃生舱);git 面一律走 `revTexts` 整面批取。取不到返回 null。 */
+function readWorktree(file) {
+  const p = path.join(ROOT, file)
+  return existsSync(p) ? readFileSync(p, 'utf8') : null
+}
+
+// 整面批取(2026-11-04):此前对每枚候选各派生一次 `git show <rev>:<path>`(全量面 1,397 枚
+// = 1,397 次派生)。改为层内一次枚举 + 折叠 oid + `cat-file --batch` 分块读取。块上限沿用
+// 层默认 CAT_BATCH_CHUNK=2500 枚 / BATCH_BLOCK_BYTES=48MB、maxBuffer=64MB(本面实测 1,397 枚
+// / 21.19MB / 单枚最大 243.4KB ⇒ 一块吃完)。硬超时同门 244:默认 120s,`IHUI_BATCH_TIMEOUT_MS`
+// 可调;批取抛错 ⇒ main 落 exit 2(未判定),不折成「取不到 ⇒ 判绿」或「取不到 ⇒ 判红」。
+const SUBPROC_TIMEOUT_MS = Number(process.env.IHUI_BATCH_TIMEOUT_MS) || 120000
+/** 把一批文件在某一面上的正文整面批取回 Map<file, text|null>(null = 该面不存在)。 */
+function revTexts(rev, files) {
+  const out = new Map()
+  if (!files.length) return out
+  const specs = files.map((f) => (rev === ':' ? `:${f}` : `${rev}:${f}`))
+  const got = catBatch(ROOT, specs, { timeout: SUBPROC_TIMEOUT_MS })
+  for (let i = 0; i < files.length; i++) out.set(files[i], got.get(specs[i]) ?? null)
+  return out
 }
 
 async function collect(face, files) {
@@ -194,47 +206,69 @@ async function collect(face, files) {
   const stock = []
   const undetermined = []
   let unreadable = 0
+  // 正文整面批取:head → HEAD blob,staged → 索引 blob;worktree 仍读磁盘(人工逃生舱)。
+  let faceTexts = null
+  if (face !== 'worktree') {
+    const rev = face === 'staged' ? ':' : 'HEAD'
+    try {
+      faceTexts = revTexts(rev, files)
+    } catch (e) {
+      throw new Error(`被审面(${face})正文批取失败:${gitErrText(e)}`)
+    }
+  }
+  // 两段式(同门 243):第一段只取当前面正文并算 W1/W2/W3 的 current 命中;需要锚点的文件
+  // 记下来;第二段按文件顺序才回填锚点面 W2 数并落 findings/stock/undetermined —— 与改造前
+  // 逐文件处理同序(锚点面仍只对「当前面确有 W2 命中」的文件取,不多派生)。
+  const pending = []
+  const anchorFiles = []
   for (const file of files) {
-    const src = readFace(face, file)
+    const src = face === 'worktree' ? readWorktree(file) : (faceTexts.get(file) ?? null)
     if (src === null) {
       unreadable++
       continue
     }
     const isTest = /[\\/]__tests__[\\/]|\.test\.ts$/.test(file)
-    if (!isTest) {
-      for (const h of judgeW1(src))
-        findings.push({ dim: 'W1', file, line: lineOf(src, h.at), text: h.text })
-      // W2 差值棘轮:锚点 = 该文件在锚点面自身的 W2 数(§0.5)。
-      // 变多 ⇒ 本枚把新违规带进来 ⇒ 判红(逐条点名);持平或减少 ⇒ 存量只报数(§12e)。
-      const cur = judgeW2(src)
-      if (cur.length) {
-        const anchor = await countW2AtAnchor(file)
-        if (anchor.count === null) undetermined.push({ dim: 'W2', file, reason: `锚点面(${anchor.face})取不到` })
-        else if (cur.length > anchor.count)
-          for (const h of cur)
-            findings.push({ dim: 'W2', file, line: h.line, text: h.text, anchor: anchor.count })
-        else for (const h of cur) stock.push({ dim: 'W2', file, line: h.line, text: h.text, anchor: anchor.count })
-      }
-    } else {
+    if (isTest) {
+      pending.push({ file, src, isTest: true })
+      continue
+    }
+    const w1 = judgeW1(src)
+    const cur = judgeW2(src)
+    pending.push({ file, src, isTest: false, w1, cur })
+    if (cur.length) anchorFiles.push(file)
+  }
+  const anchorFace = process.argv.includes('--staged') ? 'HEAD' : 'HEAD^'
+  let anchorTexts = new Map()
+  if (anchorFiles.length) {
+    try {
+      anchorTexts = revTexts(anchorFace, anchorFiles)
+    } catch (e) {
+      throw new Error(`锚点面(${anchorFace})正文批取失败:${gitErrText(e)}`)
+    }
+  }
+  for (const rec of pending) {
+    const { file, src, isTest } = rec
+    if (isTest) {
       for (const h of judgeW3(src))
         findings.push({ dim: 'W3', file, line: lineOf(src, h.at), text: h.text })
+      continue
+    }
+    for (const h of rec.w1)
+      findings.push({ dim: 'W1', file, line: lineOf(src, h.at), text: h.text })
+    // W2 差值棘轮:锚点 = 该文件在锚点面自身的 W2 数(§0.5)。
+    // 变多 ⇒ 本枚把新违规带进来 ⇒ 判红(逐条点名);持平或减少 ⇒ 存量只报数(§12e)。
+    if (rec.cur.length) {
+      const aSrc = anchorTexts.get(file) ?? null
+      const anchor =
+        aSrc === null ? { face: null, count: null } : { face: anchorFace, count: judgeW2(aSrc).length }
+      if (anchor.count === null) undetermined.push({ dim: 'W2', file, reason: `锚点面(${anchor.face})取不到` })
+      else if (rec.cur.length > anchor.count)
+        for (const h of rec.cur)
+          findings.push({ dim: 'W2', file, line: h.line, text: h.text, anchor: anchor.count })
+      else for (const h of rec.cur) stock.push({ dim: 'W2', file, line: h.line, text: h.text, anchor: anchor.count })
     }
   }
   return { findings, stock, undetermined, unreadable }
-}
-
-/** 棘轮锚点:该文件在锚点面(HEAD 面判 HEAD^,索引面判 HEAD)上的 W2 数。取不到 ⇒ 未判定。 */
-const anchorCache = new Map()
-async function countW2AtAnchor(file) {
-  const anchorFace = process.argv.includes('--staged') ? 'HEAD' : 'HEAD^'
-  const key = `${anchorFace}:${file}`
-  if (anchorCache.has(key)) return anchorCache.get(key)
-  const rev = anchorFace === 'HEAD' ? 'HEAD:' : 'HEAD^:'
-  const r = git(['show', `${rev}${file}`])
-  const out =
-    r.status === 0 ? { face: anchorFace, count: judgeW2(r.stdout).length } : { face: null, count: null }
-  anchorCache.set(key, out)
-  return out
 }
 
 async function main() {
@@ -261,7 +295,14 @@ async function main() {
     return 2
   }
 
-  const { findings, stock, undetermined, unreadable } = await collect(face, listed.files)
+  let collected
+  try {
+    collected = await collect(face, listed.files)
+  } catch (e) {
+    console.error(`❌ ${e?.message ?? e} ⇒ 未判定(exit 2),既不记绿也不冒红`)
+    return 2
+  }
+  const { findings, stock, undetermined, unreadable } = collected
   const label = { head: 'HEAD blob', staged: '索引 blob', worktree: '工作树(人工逃生舱)' }[face]
   const w2Files = new Set(stock.map((s) => s.file))
   console.log(`[identity-principal] 面=${label} 候选 ${listed.files.length} 个 / 取材失败 ${unreadable} 个`)

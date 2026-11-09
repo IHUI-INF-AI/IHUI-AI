@@ -51,8 +51,9 @@ import type { FastifyReply, FastifyRequest, preHandlerAsyncHookHandler } from 'f
 import { eq } from 'drizzle-orm'
 import IORedis, { type Redis } from 'ioredis'
 import { db } from '../db/index.js'
-import { developerApiKeys } from '@ihui/database'
+import { developerApiKeys, users } from '@ihui/database'
 import type { AuthenticatedApiKey, ApiKeyPermission } from '@ihui/types'
+import { verifyAccessToken } from '@ihui/auth'
 import { CAPABILITY_CATALOG, getCapability, isM2MAllowed, type CapabilityEntry } from '@ihui/types'
 import { verifySecret } from '../utils/api-key-hash.js'
 import { parseApiCredential } from '../utils/api-key-credential.js'
@@ -797,12 +798,45 @@ async function authenticateShareToken(
 
   // 源 Key 必须活跃
   if (share.sourceKey.status !== 'active') throw unauthorized('Source API key inactive')
+  // SDB-29:源 Key 所属账号注销/禁用后,分享 token 必须同步失效
+  if (share.ownerStatus !== 1) throw unauthorized('Source API key inactive')
 
   // P1 修复(2026-08-06):源 Key 过期检查。原 share 鉴权只校验了源 Key 的
   // status 与 IP 白名单,未继承源 Key 的 expiresAt — 源 Key 过期后 share token
   // 仍可继续调用(绕过主 Key 鉴权链路的过期检查),此处与主链路保持一致。
   const sourceExpiryCheck = checkExpiresAt(share.sourceKey.expiresAt)
   if (!sourceExpiryCheck.ok) throw unauthorized('Source API key expired')
+
+  // F-185:受众绑定。share token 本身是单因子凭据,声明了 sharedWithUserId 时必须
+  // 额外出示该用户的 access token(X-Share-User-Token),否则拿到链接的任何人都能用。
+  // 缺省(null)= 公开分享,保持历史行为。
+  if (share.sharedWithUserId) {
+    const audienceHeader = request.headers['x-share-user-token']
+    const audienceToken = Array.isArray(audienceHeader) ? audienceHeader[0] : audienceHeader
+    if (!audienceToken) {
+      throw forbidden('Share token requires the shared user access token')
+    }
+    let audienceUserId: string
+    try {
+      const payload = await verifyAccessToken(audienceToken)
+      audienceUserId = payload.userId
+    } catch {
+      throw forbidden('Invalid shared user token')
+    }
+    if (audienceUserId !== share.sharedWithUserId) {
+      throw forbidden('Share token not shared with this user')
+    }
+  }
+
+  // F-185:总额度前置判断。usedTotalTokens 由 recordCall 按真实 usage 原子累加,
+  // 到这里说明此前的消耗已达到上限就不再放行(并发在途请求可能有小幅超出)。
+  if (share.maxTotalTokens != null && share.usedTotalTokens >= share.maxTotalTokens) {
+    throw apiKeyAuthError(429, 'Share total token quota exceeded', {
+      code: 1008,
+      errorCode: 'SHARE_QUOTA_EXCEEDED',
+      retryAfter: 60,
+    })
+  }
 
   // P1 修复(2026-08-06):原实现未校验源 Key 的 IP 白名单,
   // 源 Key 的 IP 约束可被 share token 绕过。
@@ -875,6 +909,7 @@ async function authenticateShareToken(
   const ctx: AuthenticatedApiKey = {
     id: share.sourceApiKeyId,
     userId: share.sourceKey.userId,
+    shareId: share.id,
     key: share.sourceKey.key,
     permissions: narrowSharePermissions(
       (share.sourceKey.permissions as unknown[] | null as string[] | null) ?? [],
@@ -916,13 +951,21 @@ export async function authenticateApiKey(request: FastifyRequest): Promise<Authe
 
   // P1-3 修复(2026-08-06):鉴权关键路径改走主库 db(原用 dbRead 查 key,
   // 新建 key 后立即鉴权可能因复制延迟查不到,且副本故障时鉴权雪崩)。
-  const [row] = await db
-    .select()
+  //
+  // SDB-29 修复(2026-11-08):必须 join users 校验账号状态。原实现只查
+  // developer_api_keys.status,注销(status=3)/禁用(status=0)用户的 Key
+  // 仍能长期调用并产生计费,注销清理也从未吊销这些 Key。
+  const [joined] = await db
+    .select({ key: developerApiKeys, userStatus: users.status })
     .from(developerApiKeys)
+    .innerJoin(users, eq(developerApiKeys.userId, users.id))
     .where(eq(developerApiKeys.key, key))
     .limit(1)
 
-  if (!row || row.status !== 'active') throw unauthorized('Invalid or revoked API key')
+  if (!joined || joined.key.status !== 'active') throw unauthorized('Invalid or revoked API key')
+  const row = joined.key
+  // users.status: 0=禁用 1=正常 3=注销;非正常状态一律按 Key 失效处理
+  if (joined.userStatus !== 1) throw unauthorized('Invalid or revoked API key')
 
   // --- 凭据形态收紧(O2 2026-09-21)---
   // `API_KEY_REQUIRE_SECRET=true`(默认):secret 必须携带,缺失 → 401 SECRET_REQUIRED。
@@ -936,8 +979,7 @@ export async function authenticateApiKey(request: FastifyRequest): Promise<Authe
   // 因此不可能用内联段去"覆盖"一个错误的头。任一来源都必须过 verifySecret 哈希比对。
   const inlineSecret = parseApiCredential(rawCredential(request)).secret
   const xSecret = request.headers['x-api-secret']
-  const providedSecret =
-    typeof xSecret === 'string' && xSecret.length > 0 ? xSecret : inlineSecret
+  const providedSecret = typeof xSecret === 'string' && xSecret.length > 0 ? xSecret : inlineSecret
   if (providedSecret) {
     if (!verifySecret(providedSecret, row.secret)) throw unauthorized('Invalid API key secret')
   } else if (config.API_KEY_REQUIRE_SECRET) {

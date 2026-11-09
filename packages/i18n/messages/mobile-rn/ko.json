@@ -325,6 +325,7 @@
     }
   },
   "login": {
+    "platformLinuxdo": "LinuxDo",
     "platformWechat": "위챗",
     "platformLark": "페이스부(Lark)",
     "platformDingTalk": "딩톡",
@@ -634,6 +635,7 @@
     "later": "나중에"
   },
   "order": {
+    "pay": "설정즉시결제",
     "title": "주문",
     "searchPlaceholder": "주문 검색",
     "tab": {
@@ -1935,6 +1937,33 @@
     "loadFailed": "고객센터 불러오기 실패"
   },
   "artifacts": {
+    "navEntry": "산출물",
+    "title": "산출물",
+    "desc": "AI가 생성한 보고서, 슬라이드, 표, 문서를 다운로드하거나 미리 볼 수 있습니다.",
+    "empty": "아직 산출물이 없습니다. AI에게 보고서나 슬라이드를 생성하면 여기에 표시됩니다.",
+    "loginRequired": "로그인하면 산출물 목록을 볼 수 있습니다",
+    "colName": "이름",
+    "colKind": "유형",
+    "colVersion": "버전",
+    "colCreated": "생성 시간",
+    "colSession": "원본 세션",
+    "colActions": "작업",
+    "download": "다운로드",
+    "preview": "미리보기",
+    "viewSession": "세션 보기",
+    "kind_html_report": "HTML 보고서",
+    "kind_slides": "슬라이드",
+    "kind_sheet": "스프레드시트",
+    "kind_doc": "문서",
+    "kind_video_ref": "동영상 참조",
+    "justNow": "방금",
+    "secondsAgo": "{n}초 전",
+    "minutesAgo": "{n}분 전",
+    "hoursAgo": "{n}시간 전",
+    "daysAgo": "{n}일 전",
+    "loadMore": "더 불러오기",
+    "refresh": "새로고침",
+    "countSummary": "산출물 {total}개 중 {loaded}개 불러옴",
     "previewFailed": "미리보기 링크를 가져오지 못했습니다. 잠시 후 다시 시도하세요",
     "loading": "불러오는 중…",
     "loadFailed": "산출물 목록을 불러오지 못했습니다"
@@ -3260,9 +3289,6 @@
     "submit": "의뢰 등록",
     "contactLabel": "연락처"
   },
-  "businessCard": {
-    "title": "내 명함"
-  },
   "businessCardEdit": {
     "pageTitleCreate": "명함 만들기",
     "pageTitleEdit": "명함 편집",
@@ -3587,7 +3613,7 @@
     "benefitsCount": "{count}개 전용 혜택",
     "daysRemaining": "{count}일 남음",
     "loadFailed": "회원 불러오기 실패",
-    "orderCreated": "주문이 생성되었습니다",
+    "orderCreated": "주문 생성: {orderNo}",
     "purchase": "회원 가입",
     "purchaseFailed": "구매 실패",
     "title": "회원 센터",
@@ -3631,7 +3657,20 @@
     "lifetime": "평생 유효",
     "openNow": "지금 개통",
     "opened": "개통 완료",
-    "loadFailed": "트레이더 불러오기 실패"
+    "loadFailed": "트레이더 불러오기 실패",
+    "productName": "VIP 트레이더",
+    "teamCount": "팀 규모",
+    "activeTrend": "활성 {n}",
+    "totalCommission": "누적 커미션",
+    "rankTrend": "순위 #{n}",
+    "monthIncome": "이번 달 수익",
+    "withdrawnTrend": "출금 {v}",
+    "pendingIncome": "정산 대기",
+    "frozenTrend": "동결 {v}",
+    "myInviteCode": "내 초대 코드",
+    "invitedTrend": "초대 {n}명",
+    "distLevel": "총판 등급",
+    "rateTrend": "수수료 {n}%"
   },
   "wallet": {
     "points": "포인트",
@@ -3651,11 +3690,6 @@
     "flowsLoading": "불러오는 중...",
     "flowBalanceAfter": "잔액",
     "flowRemarkEmpty": "메모 없음",
-    "opType1": "충전",
-    "opType2": "차감",
-    "opType3": "만료",
-    "opType4": "환불",
-    "opType5": "커미션",
     "loginRequiredHint": "로그인 후 자금 내역을 확인하세요",
     "goLogin": "로그인",
     "rechargeFail": "충전실패",
@@ -3802,7 +3836,7 @@
     "registerFailed": "회원가입 실패",
     "registerNow": "지금 가입",
     "registerSuccess": "가입되었습니다",
-    "resendCode": "재전송",
+    "resendCode": "{seconds}s 후 재전송",
     "termsOfService": "이용약관",
     "thirdPartyLogin": "다른 방식으로 로그인",
     "ssoFailed": "웹 인증 로그인에 실패했습니다. 재시도하거나 계정과 비밀번호로 로그인하세요.",
@@ -3818,6 +3852,8 @@
   "bookmark": {
     "empty": "북마크가 없습니다",
     "loadFailed": "불러오기 실패",
+    "loadMore": "더 보기",
+    "loadingMore": "불러오는 중...",
     "remove": "삭제",
     "title": "내 북마크",
     "type": {
@@ -6041,7 +6077,8 @@
     "uploadFail": "이미지 업로드 실패",
     "updated": "명함 업데이트됨",
     "submitFail": "제출 실패",
-    "customFail": "명함 제작 실패, 재시도"
+    "customFail": "명함 제작 실패, 재시도",
+    "title": "내 명함"
   },
   "model": {
     "type0": "만능",
@@ -6066,21 +6103,6 @@
     "officialFallback": "IHUI 커뮤니티-공식",
     "buyTime": "구매 시점: {t0}",
     "expireTime": "　만료: {t1}"
-  },
-  "viptrader": {
-    "productName": "VIP 트레이더",
-    "teamCount": "팀 규모",
-    "activeTrend": "활성 {n}",
-    "totalCommission": "누적 커미션",
-    "rankTrend": "순위 #{n}",
-    "monthIncome": "이번 달 수익",
-    "withdrawnTrend": "출금 {v}",
-    "pendingIncome": "정산 대기",
-    "frozenTrend": "동결 {v}",
-    "myInviteCode": "내 초대 코드",
-    "invitedTrend": "초대 {n}명",
-    "distLevel": "총판 등급",
-    "rateTrend": "수수료 {n}%"
   },
   "contact": {
     "phoneLabel": "전화: ",
@@ -7608,10 +7630,6 @@
   "businessCardEditPage": {
     "editTitle": "명함 편집",
     "bioLabel": "소개"
-  },
-  "checkin": {
-    "colEnabled": "활성화",
-    "addAccount": "계정 추가"
   },
   "circles": {
     "title": "커뮤니티"

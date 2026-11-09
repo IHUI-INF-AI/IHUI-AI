@@ -54,6 +54,9 @@ import { catBatch, gitRaw, readWorktreeFile } from './lib/face-reader.mjs'
 // 喂错不报错,只会永远返回空,于是门对着同一个文件继续报绿。所以汇点由本门从源码自己派生,
 // 不留给调用方手传(2026-10-09 接线前置实测 ② 的原文)。
 import { traceKeyFlow, deriveStatePairs, translationVarsOf, translationConsumesReader } from './lib/i18n-key-flow.mjs'
+// 票 B(2026-11-07):顶层键「只差大小写」冲突。JSON.parse 后 checkIn / checkin 是两个合法键,
+// 重复键门与 parity 门都不会响,但写错一个字母就会在 UI 上回显裸键名 —— 按字节级原文判。
+import { describeCaseConflict, findCaseConflictsInText } from './lib/i18n-top-level-keys.mjs'
 
 const ROOT = process.cwd()
 // 2026-09:解析端内 lib/*.ts 的 messagesZhCN TS 对象字面量。
@@ -1550,6 +1553,8 @@ const dottedKeyIssues = []
 // 同日实测:把含点键改成嵌套时,若同层已有真身嵌套块,就会造出重复 key —— 5 个 web
 // 语言包各中一处,而 flatten 式 parity 检查按"路径集合"比对,完全看不出值被谁覆盖。
 const dupKeyIssues = []
+// 顶层键大小写冲突:与 dupKeyIssues 同面读取(readMessageRaw),仅判据不同。
+const caseKeyIssues = []
 function findDuplicateKeys(text) {
   const dups = []
   let i = 0
@@ -1676,6 +1681,9 @@ function findDuplicateKeys(text) {
     } catch {
       // 词法解析失败(异常格式)不臆断,交由既有 JSON.parse 通路兜底
     }
+    for (const conflict of findCaseConflictsInText(text)) {
+      caseKeyIssues.push(`${entry}: ${describeCaseConflict(conflict)}`)
+    }
   }
 }
 
@@ -1700,6 +1708,18 @@ if (dupKeyIssues.length > 0) {
     console.log(`  ${C.yellow}… 还有 ${dupKeyIssues.length - 20} 处${C.reset}`)
   }
   console.log(`${C.yellow}修复方法: 合并同名 key,或改成分支里的不同键名${C.reset}`)
+  console.log('')
+}
+
+if (caseKeyIssues.length > 0) {
+  console.log(
+    `${C.red}[i18n 键检查] ❌ 发现 ${caseKeyIssues.length} 处顶层键只差大小写 —— 两键都合法但人/代码分不清,写错一个字母就回显裸键名${C.reset}`,
+  )
+  for (const line of caseKeyIssues.slice(0, 20)) console.log(`  ${C.yellow}${line}${C.reset}`)
+  if (caseKeyIssues.length > 20) {
+    console.log(`  ${C.yellow}… 还有 ${caseKeyIssues.length - 20} 处${C.reset}`)
+  }
+  console.log(`${C.yellow}修复方法: 合并到一个规范大小写下;语义确实不同的命名空间改成不撞名的名字${C.reset}`)
   console.log('')
 }
 
@@ -1880,6 +1900,7 @@ const shouldBlock =
   missingKeyIssues.length > 0 ||
   dottedKeyIssues.length > 0 ||
   dupKeyIssues.length > 0 ||
+  caseKeyIssues.length > 0 ||
   dynamicPrefixIssues.length > 0
 
 if (shouldBlock) {
@@ -1909,7 +1930,9 @@ if (shouldBlock) {
             ? '含点键问题'
             : dupKeyIssues.length > 0
               ? '同层重复 key 问题'
-              : '动态键前缀不可达问题'
+              : caseKeyIssues.length > 0
+                ? '顶层键大小写冲突问题'
+                : '动态键前缀不可达问题'
     },拒绝提交/CI失败!${C.reset}`,
   )
   console.log(`${C.yellow}修复方法:${C.reset}`)

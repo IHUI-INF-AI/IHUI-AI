@@ -29,7 +29,16 @@
 //   判据 2(目录级 CJK = 0):扫描面**只含** EBWebView/*/Local Storage/ 与 roaming 顶层 *.json;
 //     禁扫 Cache_Data / Code Cache / GPUCache(无正文且体积大)。必须打印实际扫描文件清单。
 //   判据 3(密钥不入仓):git ls-files 里不得出现 vault 数据文件;vault 文件名落点字符串
-//     在跟踪源码(非测试、非文档)中只允许 local-vault.ts 一处。
+//     在跟踪源码(非测试、非文档)中只允许两处:local-vault.ts(web 消费)与 store_path.rs
+//     (Rust 远程面白名单)。2026-11-05 桌面 store 越权 P0 修复后 Rust 边界必须独立持名,
+//     故由"唯一一处"升级为"两点",但**不放宽**,改用更严形态(判据抽成纯函数
+//     `judgeVaultPlacement`,运行期/自检/镜像测试共用同一份):
+//       * 命中面恰为这两处,多一处/少一处都红;
+//       * 第二落点必须是 `pub const REMOTE_STORE_ALLOWLIST` 的真实声明(先剥注释再锚定),
+//         仅注释里出现该名不算;
+//       * 白名单去重排序后必须**全集相等** ["auth.json", VAULT_STORE_FILE],多一条即红
+//         (不做 includes 式"含即过")。
+//     任一条件不满足 ⇒ 违规(不放行)。
 //
 // 硬约束:
 // - 路径一律 realpathSync 解析 junction 真身(数据目录在本仓有"改道"历史),禁止写死盘符;
@@ -152,6 +161,15 @@ export function compactView(buf) {
 }
 
 /** 从 '{' 起取花括号配平的 JSON 子串(信封值是 base64url,不含花括号,朴素的数括号够用) */
+/**
+ * 配平器能走多远 = 调用方必须**至少**给多远的窗口(2026-11-04 同族实测:本门旧写法只喂 400 字符,
+ * 而 sealed 信封的 `ct`/真会话明文远超 400 ⇒ 括号永不配平 ⇒ `extractBalancedJson` 返回 null ⇒
+ * 那条记录既不记 plain 也不记 sealed-bad,直接从台账里消失 = 明文泄漏漏报)。
+ * 两个数必须同源,否则窗口又会长成自己的第二套判据。
+ */
+export const JSON_BALANCE_MAX = 200_000
+export const RECORD_WINDOW = JSON_BALANCE_MAX + 64
+
 export function extractBalancedJson(text) {
   let depth = 0
   for (let i = 0; i < text.length; i++) {
@@ -160,7 +178,7 @@ export function extractBalancedJson(text) {
       depth -= 1
       if (depth === 0) return text.slice(0, i + 1)
     }
-    if (i > 200000) break
+    if (i > JSON_BALANCE_MAX) break
   }
   return null
 }
@@ -203,19 +221,27 @@ export function classifyPersistRecords(compact, key, consts) {
   const hits = []
   let idx = compact.indexOf(key)
   while (idx !== -1) {
-    const after = compact.slice(idx + key.length, idx + key.length + 400)
+    const after = compact.slice(idx + key.length, idx + key.length + RECORD_WINDOW)
     const brace = after.indexOf('{')
-    if (brace >= 0 && brace <= 8) {
+    if (brace < 0) {
+      hits.push({ at: idx, kind: 'absent', why: '键后整段窗口里没有 `{` ⇒ 本条未判定(旧写法在此静默跳过)' })
+    } else if (brace > 8) {
+      hits.push({ at: idx, kind: 'unknown', why: `{ 距键 ${brace} 字符(>8)⇒ 形态不认识` })
+    } else {
       const json = extractBalancedJson(after.slice(brace))
-      if (json) {
-        if (json.startsWith(`{"${consts.envelopeField}"`)) {
-          const s = checkEnvelopeStructure(json, consts)
-          hits.push({ at: idx, kind: s.ok ? 'sealed-ok' : 'sealed-bad', why: s.why })
-        } else if (json.startsWith('{"state"')) {
-          hits.push({ at: idx, kind: 'plain', why: 'persist 值以 {"state" 明文形态落盘' })
-        } else {
-          hits.push({ at: idx, kind: 'unknown', why: '' })
-        }
+      if (!json) {
+        hits.push({
+          at: idx,
+          kind: 'unjudged',
+          why: `配平取不到(JSON 起点后 ${RECORD_WINDOW} 字符内没等到闭合括号)⇒ 不记绿`,
+        })
+      } else if (json.startsWith(`{"${consts.envelopeField}"`)) {
+        const s = checkEnvelopeStructure(json, consts)
+        hits.push({ at: idx, kind: s.ok ? 'sealed-ok' : 'sealed-bad', why: s.why })
+      } else if (json.startsWith('{"state"')) {
+        hits.push({ at: idx, kind: 'plain', why: 'persist 值以 {"state" 明文形态落盘' })
+      } else {
+        hits.push({ at: idx, kind: 'unknown', why: '' })
       }
     }
     idx = compact.indexOf(key, idx + key.length)
@@ -308,6 +334,7 @@ export function listScanFiles(localAppDir, roamAppDir) {
 /** 对一组文件跑判据 1+2,返回结构化结果(不直接打控制台,供 main 与 self-test 共用) */
 export function evaluateFiles(scanList, consts, persistKeys) {
   const violations = []
+  const undetermined = []
   const perFile = []
   for (const { file, face } of scanList) {
     const size = fs.statSync(file).size
@@ -325,13 +352,16 @@ export function evaluateFiles(scanList, consts, persistKeys) {
         recordKinds.push(`${key}:${h.kind}${h.why ? `(${h.why})` : ''}`)
         if (h.kind === 'plain') violations.push(`明文 persist 记录: ${key} @ ${path.basename(file)} (${face})`)
         if (h.kind === 'sealed-bad') violations.push(`信封结构位不对: ${key} @ ${path.basename(file)}: ${h.why}`)
+        // 读到键却没判出形态 ⇒ 这条记录等于"没判",必须喊,不得静默少一条(§0.3)
+        if (h.kind === 'unjudged' || h.kind === 'absent')
+          undetermined.push(`${key} @ ${path.basename(file)} (${face}) 记录读不出:${h.why}`)
       }
     }
     if (cjk.utf8 > 0) violations.push(`CJK 明文命中(utf8 视图)×${cjk.utf8}: ${file}`)
     if (cjk.utf16 > 0) violations.push(`CJK 明文命中(utf16 字节形态)×${cjk.utf16}: ${file}`)
     perFile.push({ file, face, size, cjk, recordKinds })
   }
-  return { violations, perFile }
+  return { violations, undetermined, perFile }
 }
 
 // ==================== 判据 3:密钥不入仓(git 只读) ====================
@@ -348,6 +378,231 @@ export function runGit(args, timeoutMs = GIT_TIMEOUT_MS) {
 }
 
 const SOURCE_EXT = /\.(ts|tsx|js|mjs|cjs|py|rs|go|java|kt|swift)$/
+// 2026-11-05(桌面 store 越权 P0):vault 文件名的第二处合法落点 —— Rust 远程面白名单。
+// 两处必须同值;这里只解析,不复制字面量(值仍以 local-vault.ts 的 VAULT_STORE_FILE 为准尺)。
+const RUST_STORE_GUARD = 'apps/desktop/src-tauri/src/store_path.rs'
+const VAULT_NAME_SOURCE = 'apps/web/src/lib/local-vault.ts'
+// 锚点必须落在**真实声明**上:文档注释里也会出现该词,不能从注释起算。
+const RUST_ALLOWLIST_DECL = /pub\s+const\s+REMOTE_STORE_ALLOWLIST\b/
+const RUST_CHAR_LITERAL = /^'(?:\\.|[^'\\\n\r])'/
+// 白名单条目只能长这样:数组**顶层**的 `("文件名", &[权限...])`。
+// 必须带 ^ 锚点并在顶层位置匹配 —— 字符串里的同名片段不算条目(反例见 --self-test)。
+const RUST_ENTRY = /^\(\s*"([^"\\\n]+)"\s*,\s*&\[/
+
+function skipEscapedString(src, quote) {
+  let i = quote + 1
+  while (i < src.length) {
+    if (src[i] === '\\') {
+      i += 2
+      continue
+    }
+    if (src[i] === '"') return i + 1
+    i += 1
+  }
+  return src.length
+}
+
+function skipRawString(src, quote, hashes) {
+  const term = `"${'#'.repeat(hashes)}`
+  const close = src.indexOf(term, quote + 1)
+  return close < 0 ? src.length : close + term.length
+}
+
+/** 从 i 起的 Rust 字面量结束位置(不是字面量返回 -1);raw/byte 串一并识别,避免把串内 `"` 当边界 */
+function skipRustLiteralAt(src, i) {
+  const ch = src[i]
+  if (ch === '"') return skipEscapedString(src, i)
+  if (ch === 'b' && src[i + 1] === '"') return skipEscapedString(src, i + 1)
+  if (ch === 'r') {
+    let h = i + 1
+    while (src[h] === '#') h += 1
+    if (src[h] === '"') return skipRawString(src, h, h - i - 1)
+    return -1
+  }
+  if (ch === 'b' && src[i + 1] === 'r') {
+    let h = i + 2
+    while (src[h] === '#') h += 1
+    if (src[h] === '"') return skipRawString(src, h, h - i - 2)
+    return -1
+  }
+  if (ch === "'") {
+    const charLiteral = src.slice(i).match(RUST_CHAR_LITERAL)
+    return charLiteral ? i + charLiteral[0].length : -1
+  }
+  return -1
+}
+
+/**
+ * 剥 Rust 注释(尊重字符串/字符/raw/byte 字面量,避免把字面量里的 `//` 当注释)。
+ * 块注释替换为一个空格而非删除 —— 否则名字被块注释切开的两段会被拼成合法锚点。
+ * 只用于本门的声明解析,不做通用 Rust 词法。
+ */
+export function stripRustComments(source) {
+  let out = ''
+  let i = 0
+  while (i < source.length) {
+    const ch = source[i]
+    const next = source[i + 1]
+    if (ch === '/' && next === '/') {
+      const nl = source.indexOf('\n', i + 2)
+      if (nl < 0) break
+      i = nl
+      continue
+    }
+    if (ch === '/' && next === '*') {
+      const close = source.indexOf('*/', i + 2)
+      out += ' '
+      if (close < 0) break
+      i = close + 2
+      continue
+    }
+    const literal = skipRustLiteralAt(source, i)
+    if (literal > i) {
+      out += source.slice(i, literal)
+      i = literal
+      continue
+    }
+    out += ch
+    i += 1
+  }
+  return out
+}
+
+/** 从 `&[` 之后的位置找配平的 `]`,字符串字面量内的括号不计数 */
+function findArrayEnd(code, from) {
+  let depth = 1
+  let i = from
+  while (i < code.length) {
+    const literal = skipRustLiteralAt(code, i)
+    if (literal > i) {
+      i = literal
+      continue
+    }
+    const ch = code[i]
+    if (ch === '[') {
+      depth += 1
+    } else if (ch === ']') {
+      depth -= 1
+      if (depth === 0) return i
+    }
+    i += 1
+  }
+  return -1
+}
+
+/**
+ * 只收**数组顶层**的元组条目(depth === 1 且 `(` 后紧跟 `"文件名", &[`):
+ * 权限列表内部的字符串、raw/byte 串里形似元组的片段一律不收。
+ */
+export function parseAllowlistEntries(code, from, end) {
+  const files = []
+  let depth = 1
+  let i = from
+  while (i < end) {
+    const literal = skipRustLiteralAt(code, i)
+    if (literal > i) {
+      i = literal
+      continue
+    }
+    const ch = code[i]
+    if (ch === '[') {
+      depth += 1
+      i += 1
+      continue
+    }
+    if (ch === ']') {
+      depth -= 1
+      i += 1
+      continue
+    }
+    if (ch === '(' && depth === 1) {
+      const entry = code.slice(i, end).match(RUST_ENTRY)
+      if (entry) {
+        files.push(entry[1])
+        // 留给下一轮处理条目末尾的 `[`,让 depth 自然 +1
+        i += entry[0].length - 1
+        continue
+      }
+    }
+    i += 1
+  }
+  return files
+}
+
+/**
+ * 从 store_path.rs 解析远程白名单。
+ * 返回 `{ files, body }`(解析不到返回 null):
+ *   * 锚点 = `pub const REMOTE_STORE_ALLOWLIST` 声明本身(先剥注释再匹配,
+ *     文档注释里的同名提及不会把切片起点拉到注释里);
+ *   * 切片边界由 `&[` 的配平扫描决定,不由 `];` 字面搜索决定(字符串里塞 `];` 不能截断);
+ *   * 注释里的诱饵元组与字符串里的诱饵片段均不参与匹配;
+ *   * body 供判据证明"第二落点"是声明而非注释。
+ */
+export function parseRustStoreAllowlist(source) {
+  const code = stripRustComments(source)
+  const declaration = code.match(RUST_ALLOWLIST_DECL)
+  if (!declaration) return null
+  const start = declaration.index
+  const eq = code.indexOf('=', start + declaration[0].length)
+  if (eq < 0) return null
+  const arrayStart = code.indexOf('&[', eq)
+  if (arrayStart < 0) return null
+  const end = findArrayEnd(code, arrayStart + 2)
+  if (end < 0) return null
+  const files = parseAllowlistEntries(code, arrayStart + 2, end)
+  if (files.length === 0) return null
+  return { files, body: code.slice(start, end + 1) }
+}
+
+/**
+ * 判据 3 的纯函数判定面(运行期 `checkKeyHygiene` 与自检/镜像测试共用同一份,不复制判据)。
+ *
+ * 输入:
+ *   * refFiles:git grep 命中的跟踪源码(非测试/非文档);
+ *   * rustAllowlist:parseRustStoreAllowlist().files,解析不到传 null;
+ *   * vaultStoreFile:VAULT_STORE_FILE 的解析值(唯一准尺);
+ *   * declarationBodies:真实 `pub const REMOTE_STORE_ALLOWLIST` 声明体(解析不到传 [])。
+ * 规则:
+ *   * 命中面恰为 {local-vault.ts, store_path.rs},多一处/少一处都红;
+ *   * 第二落点必须有真实声明体,仅注释持名 ⇒ 红;
+ *   * 白名单去重排序后必须**全集相等** `["auth.json", vaultStoreFile]`;
+ *     多一条、少一条、漂移一条都红(不做 includes 式的"含即过")。
+ */
+export function judgeVaultPlacement({ refFiles, rustAllowlist, vaultStoreFile, declarationBodies }) {
+  const violations = []
+  const refs = Array.isArray(refFiles) ? refFiles : []
+  const allowedSources = [VAULT_NAME_SOURCE, RUST_STORE_GUARD]
+  const unexpected = refs.filter((p) => !allowedSources.includes(p))
+  if (unexpected.length > 0) {
+    violations.push(`vault 落点字符串出现在未授权源码(单一真相源被破坏): ${unexpected.join(', ')}`)
+  }
+  if (!refs.includes(VAULT_NAME_SOURCE)) {
+    violations.push(`vault 落点字符串在 ${VAULT_NAME_SOURCE} 里反而找不到(常量被搬走?本门判据失效,须人工复核)`)
+  }
+  if (!refs.includes(RUST_STORE_GUARD)) {
+    violations.push(`vault 落点字符串在 ${RUST_STORE_GUARD} 里找不到(Rust 远程面白名单被搬走?须人工复核)`)
+  }
+  const bodies = (Array.isArray(declarationBodies) ? declarationBodies : []).filter(
+    (body) => typeof body === 'string' && body.trim().length > 0,
+  )
+  if (bodies.length === 0) {
+    violations.push(
+      `${RUST_STORE_GUARD} 未以 pub const REMOTE_STORE_ALLOWLIST 声明形态持名(仅注释出现不算第二落点)`,
+    )
+  }
+  if (!Array.isArray(rustAllowlist)) {
+    violations.push(`${RUST_STORE_GUARD} 的 REMOTE_STORE_ALLOWLIST 解析不到(判据 3 失效)`)
+    return violations
+  }
+  const unique = [...new Set(rustAllowlist.map((name) => String(name).trim()))].sort()
+  const expectedFiles = ['auth.json', String(vaultStoreFile)].sort()
+  if (JSON.stringify(unique) !== JSON.stringify(expectedFiles)) {
+    violations.push(
+      `Rust 白名单必须恰为 [${expectedFiles.join(', ')}](多一条/少一条/漂移都违规),实为 [${unique.join(', ')}]`,
+    )
+  }
+  return violations
+}
 
 export function checkKeyHygiene(consts) {
   const violations = []
@@ -375,15 +630,23 @@ export function checkKeyHygiene(consts) {
     .filter(Boolean)
     .filter((p) => SOURCE_EXT.test(p))
     .filter((p) => !/\.test\.|[/\\]tests?[/\\]|[/\\]__tests__[/\\]/.test(p))
-  const expected = 'apps/web/src/lib/local-vault.ts'
-  const unexpected = refFiles.filter((p) => p !== expected)
-  if (unexpected.length > 0) {
-    violations.push(`vault 落点字符串出现在第二处源码(单一真相源被破坏): ${unexpected.join(', ')}`)
+  let parsed
+  try {
+    parsed = parseRustStoreAllowlist(readRepoFile(RUST_STORE_GUARD))
+  } catch (e) {
+    return { violations, undetermined: `读取 ${RUST_STORE_GUARD} 失败: ${e.message}` }
   }
-  if (!refFiles.includes(expected)) {
-    violations.push(`vault 落点字符串在 ${expected} 里反而找不到(常量被搬走?本门判据失效,须人工复核)`)
-  }
-  return { violations, trackedCount: tracked.length, refFiles }
+  const rustAllowlist = parsed ? parsed.files : null
+  const declarationBodies = parsed ? [parsed.body] : []
+  violations.push(
+    ...judgeVaultPlacement({
+      refFiles,
+      rustAllowlist,
+      vaultStoreFile: consts.vaultStoreFile,
+      declarationBodies,
+    }),
+  )
+  return { violations, trackedCount: tracked.length, refFiles, rustAllowlist, declarationBodies }
 }
 
 // ==================== 路径解析(junction 真身) ====================
@@ -440,6 +703,7 @@ export function runInspection(identifierOverride) {
     return { status: 'undetermined', reasons: [`常量解析失败: ${e.message}`] }
   }
   const { consts, persistKeys, unparsedPersistFiles, identifier, devIdentifier, devIdentifierNote } = loaded
+  const extraUnjudged = []
   const identifiers =
     typeof identifierOverride === 'string'
       ? [identifierOverride]
@@ -473,8 +737,8 @@ export function runInspection(identifierOverride) {
       violations: ev.violations,
       perFile: ev.perFile,
     })
+    for (const u of ev.undetermined) extraUnjudged.push(`标识 ${id} 面:${u}`)
   }
-  const extraUnjudged = []
   if (devIdentifierNote) extraUnjudged.push(`dev 标识面未判定: ${devIdentifierNote}`)
   if (persistKeys.length === 0) {
     extraUnjudged.push(`persist 键名两形(旧 name: 'ihui-*' 行 / 工厂默认参数)都解析不到(全体 store 源码无命中),判据 1 未判定 ≠ 通过`)
@@ -597,6 +861,22 @@ export function selfTest() {
       'sealed-ok 结构位通过')
     A('判据0-Cache_Data 的中文不参与判定', !ev.violations.some((v) => v.includes('Cache_Data')))
     A('判据0-纯 ASCII json 不触发 utf16 噪声', !ev.violations.some((v) => v.includes('auth.json')))
+    // —— 同族回归锁(2026-11-04):窗口不得短于配平器,长记录不许静默消失 ——
+    const longPlain = '{"state":{"recentMessages":[{"content":"' + nonce + 'x'.repeat(3000) + '"}]},"version":5}'
+    const lpHits = classifyPersistRecords('k ' + persistKeys[0] + ' = ' + longPlain, persistKeys[0], consts)
+    A('判据0-长明文记录(>400 字符)仍判 plain(旧 400 窗口整条丢掉=漏报)', lpHits.some((h) => h.kind === 'plain'), `len=${longPlain.length}`)
+    const longEnv = JSON.stringify({ [consts.envelopeField]: { alg: consts.alg, kid: '0123456789abcdef', iv: 'aGVsbG8', ct: 'A'.repeat(5000) } })
+    const leHits = classifyPersistRecords('k ' + persistKeys[0] + ' = ' + longEnv, persistKeys[0], consts)
+    A('判据0-长信封(ct 5000)仍判 sealed-ok(同一窗口同一成因)', leHits.some((h) => h.kind === 'sealed-ok'), `len=${longEnv.length}`)
+    const truncText = 'k ' + persistKeys[0] + ' = ' + '{"state":{"a":"unterminated'
+    const truncHits = classifyPersistRecords(truncText, persistKeys[0], consts)
+    A('判据0-读不出形态的记录落 unjudged(绝不静默少一条;§0.3)', truncHits.length === 1 && truncHits[0].kind === 'unjudged', JSON.stringify(truncHits.map((h) => h.kind)))
+    const badDir = path.join(scratch, 'undetermined-face')
+    fs.mkdirSync(badDir, { recursive: true })
+    fs.writeFileSync(path.join(badDir, 'x.log'), truncText)
+    const evBad = evaluateFiles([{ file: path.join(badDir, 'x.log'), face: 'leveldb' }], consts, persistKeys)
+    A('判据0-evaluateFiles 把读不出的记录计入 undetermined(不记绿)', evBad.undetermined.length === 1 && evBad.violations.length === 0, JSON.stringify(evBad.undetermined))
+    A('判据0-反向锁:窗口常量必须 ≥ 配平器上限(两者同源)', RECORD_WINDOW >= JSON_BALANCE_MAX, `RECORD_WINDOW=${RECORD_WINDOW} JSON_BALANCE_MAX=${JSON_BALANCE_MAX}`)
     // 结构位负例:多一个字段就判坏
     const badEnv = JSON.stringify({ [consts.envelopeField]: { alg: consts.alg, kid: 'a', iv: 'b', ct: 'c', extra: 1 } })
     const s = checkEnvelopeStructure(badEnv, consts)
@@ -609,9 +889,94 @@ export function selfTest() {
     const hygiene = checkKeyHygiene(consts)
     A('判据3-git ls-files 不跟踪 vault 数据文件', hygiene.violations.length === 0 && !hygiene.undetermined,
       hygiene.undetermined || '')
-    A('判据3-vault 字符串单源在 local-vault.ts',
-      (hygiene.refFiles || []).length === 1 && hygiene.refFiles[0] === 'apps/web/src/lib/local-vault.ts',
-      JSON.stringify(hygiene.refFiles))
+    A('判据3-真仓两点持名且白名单全集相等(运行期同一份 judgeVaultPlacement)',
+      judgeVaultPlacement({
+        refFiles: hygiene.refFiles || [],
+        rustAllowlist: hygiene.rustAllowlist,
+        vaultStoreFile: consts.vaultStoreFile,
+        declarationBodies: hygiene.declarationBodies || [],
+      }).length === 0,
+      JSON.stringify({ files: hygiene.refFiles, rustAllowlist: hygiene.rustAllowlist }))
+    // —— 判据 3 纯函数直接正/反例(与运行期共用同一份 judgeVaultPlacement,不复制判据) ——
+    const judgeRefs = [VAULT_NAME_SOURCE, RUST_STORE_GUARD]
+    const goodJudge = judgeVaultPlacement({
+      refFiles: judgeRefs,
+      rustAllowlist: ['auth.json', consts.vaultStoreFile],
+      vaultStoreFile: consts.vaultStoreFile,
+      declarationBodies: ['pub const REMOTE_STORE_ALLOWLIST: &[(&str, &[&str])] = &[ ... ];'],
+    })
+    A('判据3-正向样本不误杀', goodJudge.length === 0, JSON.stringify(goodJudge))
+    const caseDrift = judgeVaultPlacement({
+      refFiles: judgeRefs,
+      rustAllowlist: ['auth.json', 'other-vault.json'],
+      vaultStoreFile: consts.vaultStoreFile,
+      declarationBodies: ['pub const REMOTE_STORE_ALLOWLIST ...'],
+    })
+    A('判据3反例-取值漂移必红', caseDrift.length > 0, JSON.stringify(caseDrift))
+    const caseMissingSecond = judgeVaultPlacement({
+      refFiles: judgeRefs,
+      rustAllowlist: null,
+      vaultStoreFile: consts.vaultStoreFile,
+      declarationBodies: [],
+    })
+    A('判据3反例-缺第二落点(仅注释持名)必红', caseMissingSecond.length > 0, JSON.stringify(caseMissingSecond))
+    const caseExtra = judgeVaultPlacement({
+      refFiles: judgeRefs,
+      rustAllowlist: ['auth.json', consts.vaultStoreFile, 'evil-backup.json'],
+      vaultStoreFile: consts.vaultStoreFile,
+      declarationBodies: ['pub const REMOTE_STORE_ALLOWLIST ...'],
+    })
+    A('判据3反例-白名单多一条必红(不做 includes 式含即过)', caseExtra.length > 0, JSON.stringify(caseExtra))
+    const decoyVault = ['ihui', 'vault'].join('-') + '.json'
+    const decoySource = [
+      `// 文档提及:pub const REMOTE_STORE_ALLOWLIST 与 ("${decoyVault}", &["master_key"])`,
+      'pub const REMOTE_STORE_ALLOWLIST: &[(&str, &[&str])] = &[',
+      '    ("auth.json", &["refresh_token"]),',
+      `    // ("${decoyVault}", &["master_key"])`,
+      '];',
+    ].join('\n')
+    const decoyParsed = parseRustStoreAllowlist(decoySource)
+    const caseDecoy = judgeVaultPlacement({
+      refFiles: judgeRefs,
+      rustAllowlist: decoyParsed ? decoyParsed.files : null,
+      vaultStoreFile: consts.vaultStoreFile,
+      declarationBodies: decoyParsed ? [decoyParsed.body] : [],
+    })
+    A('判据3反例-注释诱饵不参与解析且必红',
+      !!decoyParsed && !decoyParsed.files.includes(consts.vaultStoreFile) && caseDecoy.length > 0,
+      JSON.stringify({ parsed: decoyParsed?.files, violations: caseDecoy }))
+    A('判据3反例-仅注释无声明 ⇒ 解析不到', parseRustStoreAllowlist(
+      `// pub const REMOTE_STORE_ALLOWLIST = &[("${['ihui', 'vault'].join('-') + '.json'}", &["master_key"])];`,
+    ) === null)
+    // 反例 5:raw 字符串诱饵 —— 权限列表里塞 `r#"(...)"#`,旧正则会把串内片段当成白名单条目
+    const rawDecoySource = [
+      'pub const REMOTE_STORE_ALLOWLIST: &[(&str, &[&str])] = &[',
+      `    ("auth.json", &["refresh_token", r#"("${decoyVault}", &["#]),`,
+      '];',
+    ].join('\n')
+    const rawDecoyParsed = parseRustStoreAllowlist(rawDecoySource)
+    const caseRawDecoy = judgeVaultPlacement({
+      refFiles: judgeRefs,
+      rustAllowlist: rawDecoyParsed ? rawDecoyParsed.files : null,
+      vaultStoreFile: consts.vaultStoreFile,
+      declarationBodies: rawDecoyParsed ? [rawDecoyParsed.body] : [],
+    })
+    A('判据3反例-raw 字符串诱饵不参与解析且必红',
+      !!rawDecoyParsed && rawDecoyParsed.files.length === 1 && rawDecoyParsed.files[0] === 'auth.json' &&
+        caseRawDecoy.length > 0,
+      JSON.stringify({ parsed: rawDecoyParsed?.files, violations: caseRawDecoy }))
+    // 正向:同样的 raw 串存在于权限列表时,真实条目仍须完整解析(不误杀)
+    const rawRealSource = [
+      'pub const REMOTE_STORE_ALLOWLIST: &[(&str, &[&str])] = &[',
+      `    ("auth.json", &["refresh_token", r#"("${decoyVault}", &["#]),`,
+      `    ("${decoyVault}", &["master_key"]),`,
+      '];',
+    ].join('\n')
+    const rawRealParsed = parseRustStoreAllowlist(rawRealSource)
+    A('判据3-raw 串在场时真实条目仍完整解析(不误杀)',
+      !!rawRealParsed && rawRealParsed.files.length === 2 && rawRealParsed.files.includes('auth.json') &&
+        rawRealParsed.files.includes(consts.vaultStoreFile),
+      JSON.stringify(rawRealParsed?.files))
   } finally {
     rmScratch(scratch)
   }
@@ -652,6 +1017,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
 export const __test__ = {
   parseVaultConstants,
   parsePersistKey,
+  parseRustStoreAllowlist,
+  stripRustComments,
+  judgeVaultPlacement,
   parseAppIdentifier,
   aggregateFaces,
   compactView,

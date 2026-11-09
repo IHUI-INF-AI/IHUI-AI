@@ -33,7 +33,8 @@
  *   amountCents(用户充值金额,分) → USDT amount = amountCents / 100 / rate
  *   amountPaid(实收 USDT) → tokens credited = round(amountPaid × rate × 100)
  */
-import { eq, and, not, sql, desc, gt, type SQL } from 'drizzle-orm'
+import { eq, and, not, sql, desc, gt, inArray, type SQL } from 'drizzle-orm'
+import { randomInt } from 'node:crypto'
 import { db, dbRead } from '../db/index.js'
 import { usdtPayments, systemConfigs, userMargins, tokenFlows } from '@ihui/database'
 import type { UsdtPayment } from '@ihui/database'
@@ -73,6 +74,21 @@ const FLOW_OP_RECHARGE = 0
 
 /** 金额精确匹配容差(USDT 6-8 位小数,浮点比较误差容限) */
 const AMOUNT_EPS = 1e-4
+
+/**
+ * SDB-27:全站共用一个收款地址时,只能靠「金额唯一」把付款归属到具体订单。
+ * 每笔 pending 订单在应收金额上叠加一个 0.00025 USDT 的整数倍尾差(1..39 档,
+ * 最大 +0.00975 USDT,约 0.1%)。相邻两档相差 0.00025 > AMOUNT_EPS(0.0001),
+ * 因此「精确金额匹配」不可能同时命中两笔不同订单。
+ * 同一 (network, amount) 只允许一个 pending 订单由数据库部分唯一索引兜底,
+ * 冲突时换下一档重试(见 createUsdtPayment)。
+ */
+const AMOUNT_TAIL_SLOT = 0.00025
+const AMOUNT_TAIL_SLOTS = 39
+
+/** 链上交易扫描分页上限(SDB-28):覆盖「下单至今」的全部转入,不许只看第一页 */
+const DETECT_PAGE_SIZE = 100
+const DETECT_MAX_PAGES = 8
 
 // =============================================================================
 // 充值地址格式校验
@@ -234,6 +250,8 @@ interface TronGridTrc20Tx {
 interface TronGridResponse {
   data: TronGridTrc20Tx[]
   success: boolean
+  /** 分页游标:有值表示还有下一页 */
+  meta?: { fingerprint?: string }
 }
 
 interface EtherscanTokenTx {
@@ -406,26 +424,74 @@ export async function createUsdtPayment(
   const now = new Date()
   const expiresAt = new Date(now.getTime() + ORDER_EXPIRY_MINUTES * 60 * 1000)
 
-  await db.insert(usdtPayments).values({
-    orderId,
-    userId,
-    address,
-    network: upperNetwork,
-    amount: usdtAmount.toFixed(8),
-    amountPaid: '0',
-    status: 'pending',
-    expiresAt,
-    createdAt: now,
-  })
+  // SDB-27:叠加尾差让「同一收款地址下的 pending 订单金额两两可区分」。
+  // 并发唯一性由 usdt_payments_pending_amount_uniq(network, amount) WHERE pending
+  // 保证:两笔并发创建撞到同一档时,后者 insert 抛 23505,换下一档重试。
+  // 档位打乱后逐个试,避免所有人从同一档起步互相顶掉。
+  const baseAmount = roundTo6(usdtAmount)
+  const slots = shuffledSlots()
+  let settled: number | null = null
+  for (const slot of slots) {
+    const candidate = roundTo6(baseAmount + slot * AMOUNT_TAIL_SLOT)
+    try {
+      await db.insert(usdtPayments).values({
+        orderId,
+        userId,
+        address,
+        network: upperNetwork,
+        amount: candidate.toFixed(8),
+        amountPaid: '0',
+        status: 'pending',
+        expiresAt,
+        createdAt: now,
+      })
+      settled = candidate
+      break
+    } catch (err) {
+      // 只对「pending 金额槽位被占」重试;其它错误(含 order_id 冲突)直接上抛
+      if (isPendingAmountConflict(err)) continue
+      throw err
+    }
+  }
+  if (settled === null) {
+    // 39 档全被占满 ⇒ 当前网络同额 pending 订单过多,明确拒绝而不是接受模糊金额
+    throw Object.assign(
+      new Error(`当前 ${upperNetwork} 同额充值订单过多(槽位已满),请稍后重试或改用其它金额`),
+      { statusCode: 503 },
+    )
+  }
 
   return {
     orderId,
     address,
     network: upperNetwork,
-    amount: usdtAmount,
+    amount: settled,
     expiresAt,
     rate: config.rate,
   }
+}
+
+/** 保留 6 位小数(USDT 的最小单位是 1e-6,尾差也落在这一量级) */
+function roundTo6(n: number): number {
+  return Math.round(n * 1e6) / 1e6
+}
+
+/** 1..AMOUNT_TAIL_SLOTS 的随机排列(密码学随机,避免固定顺序互相顶档) */
+function shuffledSlots(): number[] {
+  const slots = Array.from({ length: AMOUNT_TAIL_SLOTS }, (_, i) => i + 1)
+  for (let i = slots.length - 1; i > 0; i--) {
+    const j = randomInt(i + 1)
+    ;[slots[i], slots[j]] = [slots[j]!, slots[i]!]
+  }
+  return slots
+}
+
+/** PostgreSQL 唯一约束冲突(code 23505),且命中 pending 金额槽位索引时返回 true */
+function isPendingAmountConflict(err: unknown): boolean {
+  if (typeof err !== 'object' || err === null) return false
+  const code = (err as { code?: string }).code
+  const constraint = (err as { constraint?: string }).constraint ?? ''
+  return code === '23505' && constraint === 'usdt_payments_pending_amount_uniq'
 }
 
 // =============================================================================
@@ -497,7 +563,7 @@ export async function checkUsdtPaymentStatus(orderId: string): Promise<UsdtPayme
     return { orderId, status: 'pending', detected: false, txHash: null, amountPaid: null }
   }
 
-  if (detection && detection.amountPaid >= expectedAmount) {
+  if (detection && isExactAmount(detection.amountPaid, expectedAmount)) {
     return {
       orderId,
       status: 'pending',
@@ -512,6 +578,13 @@ export async function checkUsdtPaymentStatus(orderId: string): Promise<UsdtPayme
 
 /**
  * 查询 TronGrid TRC20 转入交易,匹配应收金额。
+ *
+ * SDB-27/28 修复:
+ * - 金额必须**精确相等**(容差 AMOUNT_EPS),不再接受「收得比应收多」——
+ *   原 `amount >= expected` 会让同一收款地址上任何一笔更大额的转入命中任一订单;
+ * - 已被其它订单绑定的 txHash 一律跳过;
+ * - 以 `min_timestamp` + fingerprint 分页覆盖「下单至今」全部转入,不再只看第一页,
+ *   页面预算耗尽仍没扫完则抛错告警(不允许静默漏单)。
  */
 async function checkTrc20Payment(
   address: string,
@@ -519,43 +592,66 @@ async function checkTrc20Payment(
   sinceTimestamp: number,
 ): Promise<BlockchainDetection | null> {
   const apiKey = process.env.TRONGRID_API_KEY
-  const params = new URLSearchParams({
-    limit: '50',
-    order_by: 'block_timestamp,desc',
-    contract_address: TRC20_USDT_CONTRACT,
-    only_to: 'true',
-  })
-  const url = `https://api.trongrid.io/v1/accounts/${address}/transactions/trc20?${params}`
   const headers: Record<string, string> = {}
   if (apiKey) headers['TRON-PRO-API-KEY'] = apiKey
 
-  const response = await fetch(url, { headers })
-  if (!response.ok) {
-    throw new Error(`TronGrid API 返回 ${response.status}`)
-  }
+  const candidates: BlockchainDetection[] = []
+  let fingerprint: string | undefined
 
-  const data = (await response.json()) as TronGridResponse
-  if (!data.success || !data.data) return null
+  for (let page = 0; page < DETECT_MAX_PAGES; page++) {
+    const params = new URLSearchParams({
+      limit: String(DETECT_PAGE_SIZE),
+      order_by: 'block_timestamp,desc',
+      min_timestamp: String(sinceTimestamp),
+      contract_address: TRC20_USDT_CONTRACT,
+      only_to: 'true',
+    })
+    if (fingerprint) params.set('fingerprint', fingerprint)
+    const url = `https://api.trongrid.io/v1/accounts/${address}/transactions/trc20?${params}`
 
-  for (const tx of data.data) {
-    if (tx.to !== address) continue
-    if (tx.block_timestamp < sinceTimestamp) continue
-    const amount = Number(tx.value) / Math.pow(10, USDT_DECIMALS)
-    if (amount >= expectedAmount) {
-      // 2026-09-06 P0:返回 blockNumber(确认数计算),null 表示接口未提供
-      return {
+    const response = await fetch(url, { headers })
+    if (!response.ok) {
+      throw new Error(`TronGrid API 返回 ${response.status}`)
+    }
+
+    const data = (await response.json()) as TronGridResponse
+    if (!data.success || !Array.isArray(data.data)) break
+
+    for (const tx of data.data) {
+      if (tx.to !== address) continue
+      if (tx.block_timestamp < sinceTimestamp) continue
+      const amount = Number(tx.value) / Math.pow(10, USDT_DECIMALS)
+      if (!isExactAmount(amount, expectedAmount)) continue
+      // 2026-09-06 P0:带上 blockNumber(确认数计算),null 表示接口未提供
+      candidates.push({
         txHash: tx.transaction_id,
         amountPaid: amount,
         blockNumber: tx.block_number ?? null,
-      }
+      })
+    }
+
+    fingerprint = data.meta?.fingerprint
+    if (!fingerprint || data.data.length < DETECT_PAGE_SIZE) {
+      fingerprint = undefined
+      break
     }
   }
 
-  return null
+  if (fingerprint) {
+    // 还没扫到「下单时间」之前就被页数预算截断:继续轮询也永远看不到老交易,
+    // 必须让上层看到这条异常(轮询会记 error 日志),而不是静默返回未到账。
+    throw new Error(
+      `TronGrid 转入超过 ${DETECT_MAX_PAGES} 页仍未覆盖订单创建时间,存在漏单风险,需人工核对`,
+    )
+  }
+
+  return pickUnclaimedCandidate(candidates)
 }
 
 /**
  * 查询 Etherscan ERC20 转入交易,匹配应收金额。
+ *
+ * SDB-27/28 修复同 TRC20:精确金额 + 跳过已绑定 txHash + 向后翻页直到覆盖下单时间。
  */
 async function checkErc20Payment(
   address: string,
@@ -563,42 +659,90 @@ async function checkErc20Payment(
   sinceTimestamp: number,
 ): Promise<BlockchainDetection | null> {
   const apiKey = process.env.ETHERSCAN_API_KEY
-  const params = new URLSearchParams({
-    module: 'account',
-    action: 'tokentx',
-    address,
-    contractaddress: ERC20_USDT_CONTRACT,
-    page: '1',
-    offset: '50',
-    sort: 'desc',
-  })
-  if (apiKey) params.set('apikey', apiKey)
-  const url = `https://api.etherscan.io/api?${params}`
+  const candidates: BlockchainDetection[] = []
+  let covered = false
 
-  const response = await fetch(url)
-  if (!response.ok) {
-    throw new Error(`Etherscan API 返回 ${response.status}`)
-  }
+  for (let page = 1; page <= DETECT_MAX_PAGES; page++) {
+    const params = new URLSearchParams({
+      module: 'account',
+      action: 'tokentx',
+      address,
+      contractaddress: ERC20_USDT_CONTRACT,
+      page: String(page),
+      offset: String(DETECT_PAGE_SIZE),
+      sort: 'desc',
+    })
+    if (apiKey) params.set('apikey', apiKey)
+    const url = `https://api.etherscan.io/api?${params}`
 
-  const data = (await response.json()) as EtherscanResponse
-  if (data.status !== '1' || !Array.isArray(data.result)) return null
+    const response = await fetch(url)
+    if (!response.ok) {
+      throw new Error(`Etherscan API 返回 ${response.status}`)
+    }
 
-  for (const tx of data.result) {
-    if (tx.to.toLowerCase() !== address.toLowerCase()) continue
-    if (Number(tx.timeStamp) * 1000 < sinceTimestamp) continue
-    const decimals = Number(tx.tokenDecimal) || USDT_DECIMALS
-    const amount = Number(tx.value) / Math.pow(10, decimals)
-    if (amount >= expectedAmount) {
-      // 2026-09-06 P0:返回 blockNumber(确认数计算),null 表示接口未提供
-      return {
+    const data = (await response.json()) as EtherscanResponse
+    // Etherscan 无结果时 status=0 + "No transactions found",按「已扫到底」处理
+    if (data.status !== '1' || !Array.isArray(data.result)) {
+      if (data.status === '0' && /No transactions found/i.test(data.message ?? '')) {
+        covered = true
+      }
+      break
+    }
+
+    let oldestTimestamp = Number.POSITIVE_INFINITY
+    for (const tx of data.result) {
+      const tsMs = Number(tx.timeStamp) * 1000
+      oldestTimestamp = Math.min(oldestTimestamp, tsMs)
+      if (tsMs < sinceTimestamp) continue
+      if (tx.to.toLowerCase() !== address.toLowerCase()) continue
+      const decimals = Number(tx.tokenDecimal) || USDT_DECIMALS
+      const amount = Number(tx.value) / Math.pow(10, decimals)
+      if (!isExactAmount(amount, expectedAmount)) continue
+      candidates.push({
         txHash: tx.hash,
         amountPaid: amount,
         blockNumber: tx.blockNumber ? Number(tx.blockNumber) : null,
-      }
+      })
+    }
+
+    // 本页已翻到下单元之前 / 条数不足一页 ⇒ 已完整覆盖下单至今
+    if (data.result.length < DETECT_PAGE_SIZE || oldestTimestamp < sinceTimestamp) {
+      covered = true
+      break
     }
   }
 
-  return null
+  if (!covered) {
+    throw new Error(
+      `Etherscan 转入超过 ${DETECT_MAX_PAGES} 页仍未覆盖订单创建时间,存在漏单风险,需人工核对`,
+    )
+  }
+
+  return pickUnclaimedCandidate(candidates)
+}
+
+/** 链上金额与订单金额是否精确相等(浮点误差容限内) */
+function isExactAmount(actual: number, expected: number): boolean {
+  return Math.abs(actual - expected) <= AMOUNT_EPS
+}
+
+/**
+ * 从候选中挑一笔**未被任何订单绑定**的交易。
+ * 同一收款地址下,已绑定 txHash 说明那笔钱已经记过账;再拿它入账就是重复入账。
+ */
+async function pickUnclaimedCandidate(
+  candidates: BlockchainDetection[],
+): Promise<BlockchainDetection | null> {
+  if (candidates.length === 0) return null
+  const hashes = candidates.map((c) => c.txHash)
+  const bound = await dbRead
+    .select({ txHash: usdtPayments.txHash })
+    .from(usdtPayments)
+    .where(inArray(usdtPayments.txHash, hashes))
+  const claimed = new Set(
+    bound.map((r) => (r.txHash ?? '').toLowerCase()).filter((h) => h.length > 0),
+  )
+  return candidates.find((c) => !claimed.has(c.txHash.toLowerCase())) ?? null
 }
 
 // =============================================================================
@@ -984,27 +1128,34 @@ export async function confirmUsdtPayment(
       return { confirmed: false, userId: null as string | null, tokensCredited: 0 }
     }
 
-    // 2. 更新 wallet 余额(user_margins.tokenQuantity += tokens)
-    const [margin] = await tx
-      .select()
-      .from(userMargins)
-      .where(eq(userMargins.userId, updated.userId))
-      .limit(1)
-
-    const newBalance = (margin?.tokenQuantity ?? 0) + tokensCredited
-    if (margin) {
-      await tx
-        .update(userMargins)
-        .set({ tokenQuantity: newBalance, updatedAt: now })
-        .where(eq(userMargins.userId, updated.userId))
-    } else {
-      await tx.insert(userMargins).values({
+    // 2. 更新 wallet 余额(user_margins.token_quantity += tokens)
+    //    DB-03 P1 / F-10:原实现「事务内 SELECT 读快照 → 应用层相加 → UPDATE 写回」。
+    //    PostgreSQL 默认 READ COMMITTED 下两个并发入账事务会读到同一份旧余额,
+    //    后写者覆盖先写者 ⇒ 丢一笔充值。改为单条 INSERT ... ON CONFLICT DO UPDATE:
+    //    冲突时 PostgreSQL 对该行加锁并**基于最新行版本**重新计算 `token_quantity + n`,
+    //    并发入账因此串行化,后到者在前者结果上累加,不丢账。
+    //    balanceAfter 一律取 RETURNING 的落库值,不再用应用层算出的数。
+    const [credited] = await tx
+      .insert(userMargins)
+      .values({
         userId: updated.userId,
-        tokenQuantity: newBalance,
+        tokenQuantity: tokensCredited,
         frozenQuantity: 0,
         updatedAt: now,
       })
+      .onConflictDoUpdate({
+        target: userMargins.userId,
+        set: {
+          tokenQuantity: sql`${userMargins.tokenQuantity} + ${tokensCredited}`,
+          updatedAt: now,
+        },
+      })
+      .returning({ tokenQuantity: userMargins.tokenQuantity })
+    if (!credited) {
+      // 落库没回读到余额 ⇒ 流水上的 balanceAfter 不可信,整笔回滚(fail-closed)
+      throw new Error(`USDT 入账后未能回读用户 ${updated.userId} 的余额,拒绝写半截流水`)
     }
+    const newBalance = Number(credited.tokenQuantity)
 
     // 3. 记录流水(token_flows,opType=0 充值,幂等键 relatedOrderNo + opType)
     await tx.insert(tokenFlows).values({

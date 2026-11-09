@@ -402,10 +402,12 @@ describe('A13 投影等价性(AGENTS.md:235 的可重跑载体)', () => {
     async () => {
       const { runtime } = await loadOnce()
       // 取一个确定有多参数的工具做靶子,按名排序保证可复现
-      const victim = [...runtime.tools.values()]
+      const candidates = [...runtime.tools.values()]
         .filter((t) => Object.keys(t.parameters).length >= 2)
-        .sort((a, b) => a.name.localeCompare(b.name))[0]
+        .sort((a, b) => a.name.localeCompare(b.name))
+      const victim = candidates[0]
       expect(victim, '没有任何 ≥2 参数的工具 ⇒ 变异对照无法进行,判据失效').toBeDefined()
+      if (victim === undefined) throw new Error('没有任何 ≥2 参数的工具 ⇒ 变异对照无法进行,判据失效')
 
       const droppedKey = Object.keys(victim.parameters).sort()[0] as string
       const mutated = { ...projectSide(victim) } as SchemaNode

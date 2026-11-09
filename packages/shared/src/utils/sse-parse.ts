@@ -26,6 +26,7 @@ import type {
   FormRequestEvent,
 } from '@ihui/api-client'
 import type { PlanUpdateEvent, TerminalStartEvent, TerminalEndEvent } from '@ihui/types'
+import { normalizeToolCallArgs } from './tool-call-args'
 // 预算档位合法值的唯一判据(单源 = @ihui/types/orchestration.ts 的 BUDGET_LEVELS):
 // 本解析器不再自持一份 `=== 'warning' || === 'critical' || === 'stopped'` 字面量副本
 // (§0.6 第二份必然漂移;漂开的表现是终态帧被静默丢弃)。表外档位整帧不产出,不猜档。
@@ -513,7 +514,7 @@ function parseLineEvent(line: string): SSEEvent | null {
             type: 'tool-call-start',
             toolCallId: String(parsed.toolCallId),
             toolName: String(parsed.toolName),
-            args: parsed.args as Record<string, unknown> | undefined,
+            args: normalizeToolCallArgs(parsed.args),
           },
         }
       }
@@ -873,7 +874,7 @@ function parseLineEvent(line: string): SSEEvent | null {
           type: 'tool-result',
           toolCallId: String(json.toolCallId),
           toolName: typeof json.toolName === 'string' ? json.toolName : '',
-          args: json.args as Record<string, unknown> | undefined,
+          args: normalizeToolCallArgs(json.args),
           result: json.result,
           isError: json.isError === true,
           ...pickServerMeta(json),
@@ -893,7 +894,7 @@ function parseLineEvent(line: string): SSEEvent | null {
           type: 'tool-call-start',
           toolCallId: String(json.toolCallId),
           toolName: typeof json.toolName === 'string' ? json.toolName : '',
-          args: json.args as Record<string, unknown> | undefined,
+          args: normalizeToolCallArgs(json.args),
           ...pickServerMeta(json),
         },
       }
@@ -944,7 +945,7 @@ function parseLineEvent(line: string): SSEEvent | null {
         type: 'subagent_end',
         subagentEnd: {
           id: String(json.id),
-          status: json.status === 'failed' ? 'failed' : 'done',
+          status: json.status === 'failed' ? 'failed' : json.status === 'stub' ? 'stub' : 'done',
           failureReason: typeof json.failureReason === 'string' ? json.failureReason : undefined,
           timestamp: typeof json.timestamp === 'string' ? json.timestamp : new Date().toISOString(),
           messageId: typeof json.messageId === 'string' ? json.messageId : undefined,

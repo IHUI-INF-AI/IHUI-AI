@@ -43,6 +43,8 @@ import {
 } from '@/lib/tauri-bridge'
 import type { DockedBrowserStore, DockedBrowserTab } from '@/lib/tauri-bridge'
 import { ADD_TEXT_REFERENCE_EVENT } from '@/components/chat/annotation-anchor'
+import { parseEmbedMessage } from '@/lib/embed-message-trust'
+import { Tooltip } from '@/components/feedback'
 import { useTauriIpcReady } from '@/hooks/use-desktop'
 
 import { CdpBrowserView } from './cdp-browser-view'
@@ -74,16 +76,6 @@ function dockTabsEqual(a: DockedBrowserTab[], b: DockedBrowserTab[]): boolean {
  * - 新:absolute inset-0 覆盖 GlobalShell work-area 的 children 区域(替换展示,非独立窗口)
  *   用户规则:"不允许额外出来一个窗口,所有内容必须在工作内容展示区内展示"
  */
-/** 代理页 postMessage 携带的 URL 只允许 http/https（iframe 为 opaque origin，无法做同源校验）。 */
-function isHttpUrl(raw: string): boolean {
-  try {
-    const protocol = new URL(raw).protocol
-    return protocol === 'http:' || protocol === 'https:'
-  } catch {
-    return false
-  }
-}
-
 export function WebWorkPanel() {
   const mounted = useMounted()
   const tw = useTranslations('workPanel')
@@ -550,39 +542,37 @@ export function WebWorkPanel() {
     }
   }, [])
 
+  // 代理 iframe 宿主容器(仅用于来源闸比对 iframe.contentWindow;WebViewFrame 的 ref 指向外层 div)
+  const proxyFrameHostRef = React.useRef<HTMLDivElement | null>(null)
+
   // 代理 iframe 桥接(2026-09-02):监听代理页 postMessage
   // - ihui-embed-nav:页内导航 → 同步 tab url + 地址栏
+  // - ihui-embed-loaded:文档就绪/重定向落点 → 只修正当前历史条目
+  // - ihui-embed-newtab:Ctrl/Cmd+点击 → 应用内新开 WorkPanel 标签页
   // - ihui-embed-proxy-error:代理取回失败 → 降级链(onFailed → CDP → 截图)
-  // 代理页为 opaque origin(iframe sandbox 无 allow-same-origin),e.origin 为 'null',
-  // 无法做同源校验;以消息 type 前缀白名单 + 字段类型校验兜底(影响面:仅地址栏显示/降级触发)
+  //
+  // 来源闸(2026-11-08):代理页是 opaque origin(sandbox 无 allow-same-origin),
+  // e.origin 恒为 'null' 不能用于同源校验;改以 e.source === 本面板 iframe.contentWindow
+  // 精确比对。来源不匹配的消息一律丢弃 —— 不导航、不开新标签、不触发降级(零副作用)。
   React.useEffect(() => {
     if (!isProxyMode) return
     const onMessage = (e: MessageEvent) => {
-      const d = e.data as {
-        type?: unknown
-        url?: unknown
-        message?: unknown
-        title?: unknown
-      } | null
-      if (!d || typeof d.type !== 'string' || !d.type.startsWith('ihui-embed-')) return
-      const title = typeof d.title === 'string' && d.title ? d.title : undefined
-      if (d.type === 'ihui-embed-nav' && typeof d.url === 'string' && d.url) {
+      const frameWindow =
+        proxyFrameHostRef.current?.querySelector('iframe')?.contentWindow ?? null
+      const action = parseEmbedMessage(e.data, e.source, frameWindow)
+      if (!action) return
+      if (action.kind === 'nav') {
         // 用户发起导航(链接点击 / pushState,桥接在跳转前广播)→ 压入历史栈
-        onEmbedNavigation(d.url, title, 'nav')
-      } else if (d.type === 'ihui-embed-loaded' && typeof d.url === 'string' && d.url) {
-        // 文档就绪 / 重定向落点广播(每次代理文档加载都会发,url=最终落点)
+        onEmbedNavigation(action.url, action.title, 'nav')
+      } else if (action.kind === 'loaded') {
+        // 每次代理文档加载都会发,url=最终落点
         // → 只修正当前历史条目,绝不压栈(否则 302 落点二次压栈 + 后退弹回)
-        onEmbedNavigation(d.url, title, 'loaded')
-      } else if (
-        d.type === 'ihui-embed-newtab' &&
-        typeof d.url === 'string' &&
-        d.url &&
-        isHttpUrl(d.url)
-      ) {
+        onEmbedNavigation(action.url, action.title, 'loaded')
+      } else if (action.kind === 'newtab') {
         // Ctrl/Cmd+点击代理链接 → 应用内新开 WorkPanel 标签页(对标 主流 AI IDE 浏览器)
-        newTab(d.url)
-      } else if (d.type === 'ihui-embed-proxy-error') {
-        onFailed(typeof d.message === 'string' ? d.message : tw('embedProxyFailed'))
+        newTab(action.url)
+      } else {
+        onFailed(action.message || tw('embedProxyFailed'))
       }
     }
     window.addEventListener('message', onMessage)
@@ -759,6 +749,7 @@ export function WebWorkPanel() {
       >
         {isProxyMode && proxyUrl ? (
           <WebViewFrame
+            ref={proxyFrameHostRef}
             url={proxyUrl}
             mode="iframe"
             status={status}
@@ -798,14 +789,15 @@ export function WebWorkPanel() {
                       : 'font-[weight:inherit] flex min-w-0 max-w-[180px] items-center gap-1 rounded-md px-2 py-1 text-label text-muted-foreground hover:bg-background/60'
                   }
                 >
-                  <button
-                    type="button"
-                    onClick={() => handleDockTabSelect(t.id)}
-                    title={t.title || t.url}
-                    className="min-w-0 flex-1 truncate text-left"
-                  >
-                    {t.title || t.url}
-                  </button>
+                  <Tooltip content={t.title || t.url}>
+                    <button
+                      type="button"
+                      onClick={() => handleDockTabSelect(t.id)}
+                      className="min-w-0 flex-1 truncate text-left"
+                    >
+                      {t.title || t.url}
+                    </button>
+                  </Tooltip>
                   <button
                     type="button"
                     aria-label={workPanelLabels.closeTab}

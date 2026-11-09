@@ -33,6 +33,9 @@
  *
  * 取材面纪律(§0.4):全量档判 HEAD blob、--staged 判索引 blob、--worktree 仅人工逃生舱;
  * 两面旗同给 ⇒ exit 2;取不到 ⇒ 未判定(不记绿也不冒红);枚举到 0 份被审文档 ⇒ 判死。
+ * 枚举出口:索引面用 `ls-files --cached`(`--error-unmatch` 的 exit 1 才是"该路径不在索引"),
+ * HEAD 面用 `ls-tree HEAD -- <path>`;裸 `:` 不是合法 tree-ish(git 2.56 实测
+ * `fatal: Not a valid object name :`),旧写法会把"读不到"折成"文档不存在"。
  *
  * 用法:node scripts/check-live-doc-duplicates.mjs [--staged|--worktree] [--self-test] [--json]
  * 退出码:0 无新增副本 / 1 判红 / 2 未判定
@@ -142,6 +145,58 @@ function readFaceAt(ref, root = ROOT) {
   return gitShowBlob(ref, root)
 }
 
+/**
+ * 枚举被审面**实际存在**的文档。三态,绝不把"取不到"折成"这份不存在":
+ *  - `{status:'ok', docs:[...]}`      面读得到;docs 为空 ⇒ 真的没有一份在面(判死);
+ *  - `{status:'undetermined', reason}` 面读不到(索引不可读/被清空、HEAD 不可解析、
+ *                                      逐份探测真失败)⇒ 未判定,不记绿也不冒红。
+ *
+ * 为什么不是 `ls-tree :`:裸 `:` 不是合法 tree-ish(实测 git 2.56 报
+ * `fatal: Not a valid object name :`);索引面的清单出口是 `ls-files --cached`,
+ * 且只有 `--error-unmatch` 的 exit 1 才是"该路径不在索引"这个正常结论。
+ */
+export function scanFaceDocs({ root = ROOT, face, docs = AUDITED_DOCS } = {}) {
+  if (face === 'worktree') {
+    return { status: 'ok', docs: docs.filter((d) => existsSync(path.join(root, d))) }
+  }
+  if (face === 'staged') {
+    let listed
+    try {
+      listed = String(gitRaw(['ls-files', '--cached', '-z'], root))
+    } catch (e) {
+      return { status: 'undetermined', reason: `索引面清单读取失败(${e?.message ?? e})` }
+    }
+    if (listed.split('\0').filter(Boolean).length === 0)
+      return { status: 'undetermined', reason: '索引面枚举到 0 条(索引可能被清空,不等于六份文档都不存在)' }
+  } else {
+    try {
+      gitRaw(['rev-parse', '--verify', '-q', 'HEAD'], root)
+    } catch (e) {
+      return { status: 'undetermined', reason: `HEAD 不可解析(${e?.message ?? e})` }
+    }
+  }
+  const present = []
+  for (const d of docs) {
+    if (face === 'staged') {
+      try {
+        gitRaw(['ls-files', '--cached', '--error-unmatch', '--', d], root)
+        present.push(d)
+      } catch (e) {
+        // exit 1 = git 的正常结论"该路径不在索引";其余退出码(含派生失败)一律未判定
+        if (typeof e?.status === 'number' && e.status === 1) continue
+        return { status: 'undetermined', reason: `${d} 存在性探测失败(${e?.message ?? e})` }
+      }
+      continue
+    }
+    try {
+      if (String(gitRaw(['ls-tree', '--name-only', 'HEAD', '--', d], root) ?? '').trim() !== '') present.push(d)
+    } catch (e) {
+      return { status: 'undetermined', reason: `${d} 存在性探测失败(${e?.message ?? e})` }
+    }
+  }
+  return { status: 'ok', docs: present }
+}
+
 export function selfTest() {
   const cases = []
   const ok = (name, cond) => cases.push({ name, pass: Boolean(cond) })
@@ -181,16 +236,12 @@ function main(argv) {
     return 2
   }
   const face = argv.includes('--staged') ? 'staged' : argv.includes('--worktree') ? 'worktree' : 'head'
-  const { docs, failures } = enumerateDocs({ root, face })
-  // 枚举失败 ≠ 枚举成功但 0 份:前者是取数面不可用(报「枚举面取不到」),
-  // 后者才是"这一面确实没有被审文档"⇒ 判死。两种输出必须能分辨。
-  if (failures.length > 0) {
-    console.error(
-      `❌ 枚举面取不到:${failures.length} 份被审文档的存在性探测失败 ⇒ 未判定,不出具合格证(§0.3)`,
-    )
-    for (const f of failures.slice(0, 3)) console.error(`  · ${f.doc}: ${f.why}`)
+  const scan = scanFaceDocs({ face })
+  if (scan.status !== 'ok') {
+    console.error(`❌ ${face} 面读取失败 ⇒ 未判定(不记绿也不冒红):${scan.reason}`)
     return 2
   }
+  const docs = scan.docs
   if (docs.length === 0) {
     console.error('❌ 枚举成功但被审文档确实 0 份 ⇒ 判死,不出具合格证(§0.3)')
     return 2
@@ -245,5 +296,5 @@ function main(argv) {
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) process.exit(main(process.argv.slice(2)))
 
-export const __test__ = { duplicateCount, AUDITED_DOCS, readFace, enumerateDocs }
+export const __test__ = { duplicateCount, AUDITED_DOCS, readFace, enumerateDocs, scanFaceDocs }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

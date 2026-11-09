@@ -85,6 +85,26 @@ def _validate_ssrf(url: str) -> str | None:
         return f"SSRF 校验异常: {type(e).__name__}: {e}"
 
 
+def _network_gate_reason(url: str, tool: str) -> str | None:
+    """AIS-084:抓取族与 fetch_url 同过网络审批门(SSRF 硬防线之外的第二层)。
+
+    此前只有 fetch_url / webhook 走审批门,新抓取族仅做 SSRF 校验 —— 用户拒绝了
+    ``fetch_url`` 的出站后,改用 ``fetch_readable`` / ``map_site`` / ``crawl_site`` /
+    ``extract_web`` 访问同一 URL 仍是同一个出站,策略被同能力工具旁路。
+    审批门自身故障不改变既有放行行为(与 ``mcp_server._tool_fetch_url`` 同语义);
+    判定 deny 时返回可读拒绝文案,由调用方以 ``NETWORK_APPROVAL_DENIED`` 收口。
+    """
+    try:
+        from ..services.network_approval import evaluate_network_access_detailed
+
+        verdict, denial = evaluate_network_access_detailed(url, reason=f"tool:{tool}")
+    except Exception:  # noqa: BLE001 - 审批门故障不改变既有放行行为
+        return None
+    if verdict != "deny":
+        return None
+    return f"网络访问未授权(审批拒绝/无审批通道): {denial or 'denied'}"
+
+
 def _is_http_html(url: str, content_type: str = "") -> bool:
     """判断目标是否为可抓取的 http/https HTML 页面(排除 pdf/图片/zip 等二进制)。"""
     scheme = urlsplit(url).scheme.lower()
@@ -492,6 +512,9 @@ async def fetch_readable(arguments: dict[str, Any]) -> dict[str, Any]:
     ssrf_reason = _validate_ssrf(url)
     if ssrf_reason:
         return _fail("fetch_readable", ssrf_reason, "SSRF_BLOCKED")
+    net_reason = _network_gate_reason(url, "fetch_readable")
+    if net_reason:
+        return _fail("fetch_readable", net_reason, "NETWORK_APPROVAL_DENIED")
     if not _HTTPX_OK:
         return _fail("fetch_readable", "httpx 未安装, 无法抓取网页", "DEP_MISSING")
 
@@ -547,6 +570,9 @@ async def map_site(arguments: dict[str, Any]) -> dict[str, Any]:
     ssrf_reason = _validate_ssrf(url)
     if ssrf_reason:
         return _fail("map_site", ssrf_reason, "SSRF_BLOCKED")
+    net_reason = _network_gate_reason(url, "map_site")
+    if net_reason:
+        return _fail("map_site", net_reason, "NETWORK_APPROVAL_DENIED")
     if not _HTTPX_OK:
         return _fail("map_site", "httpx 未安装, 无法抓取网页", "DEP_MISSING")
 
@@ -611,6 +637,9 @@ async def crawl_site(arguments: dict[str, Any]) -> dict[str, Any]:
     ssrf_reason = _validate_ssrf(url)
     if ssrf_reason:
         return _fail("crawl_site", ssrf_reason, "SSRF_BLOCKED")
+    net_reason = _network_gate_reason(url, "crawl_site")
+    if net_reason:
+        return _fail("crawl_site", net_reason, "NETWORK_APPROVAL_DENIED")
     if not _HTTPX_OK:
         return _fail("crawl_site", "httpx 未安装, 无法抓取网页", "DEP_MISSING")
 
@@ -915,6 +944,9 @@ async def extract_web(arguments: dict[str, Any]) -> dict[str, Any]:
     ssrf_reason = _validate_ssrf(url)
     if ssrf_reason:
         return _fail("extract_web", ssrf_reason, "SSRF_BLOCKED")
+    net_reason = _network_gate_reason(url, "extract_web")
+    if net_reason:
+        return _fail("extract_web", net_reason, "NETWORK_APPROVAL_DENIED")
     if not _HTTPX_OK:
         return _fail("extract_web", "httpx 未安装, 无法抓取网页", "DEP_MISSING")
 

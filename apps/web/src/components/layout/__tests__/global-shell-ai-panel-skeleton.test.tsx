@@ -36,14 +36,21 @@ import { render, cleanup } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 // —— 与 MainShell.test.tsx 同一套 mock(照抄,保证 GlobalShell 能被轻量渲染)——
-vi.mock('@/components/sidebar', () => ({
-  Sidebar: (props: { mobileOpen: boolean; onCloseMobile: () => void }) => (
-    <div data-testid="sidebar" data-open={String(props.mobileOpen)} />
-  ),
-  FLAT_NAV_ITEMS: [],
-  ALL_NAV_HREFS: [],
-  NAV_GROUPS: [],
-}))
+// 2026-11-07 实现侧变更:GlobalShell 的侧栏 fallback 宽度改为引用 `SIDEBAR_WIDTH`
+// (几何档 rnGeometry.drawerWidth,不再写字面量 160px) —— mock 必须保留真实导出,
+// 否则渲染期取不到常量为 undefined 直接炸。用 importOriginal 部分 mock 钉住同源几何档。
+vi.mock('@/components/sidebar', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>
+  return {
+    ...actual,
+    Sidebar: (props: { mobileOpen: boolean; onCloseMobile: () => void }) => (
+      <div data-testid="sidebar" data-open={String(props.mobileOpen)} />
+    ),
+    FLAT_NAV_ITEMS: [],
+    ALL_NAV_HREFS: [],
+    NAV_GROUPS: [],
+  }
+})
 vi.mock('@/components/common/PageSkeleton', () => ({
   PageSkeleton: () => null,
 }))

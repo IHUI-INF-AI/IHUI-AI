@@ -24,7 +24,7 @@
  *   import v1ProtocolCompletenessRoutes from './v1-protocol-completeness.js'
  *   server.register(v1ProtocolCompletenessRoutes, { prefix: '/v1' })
  */
-import type { FastifyPluginAsync, FastifyRequest } from 'fastify'
+import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify'
 import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import type { Redis } from 'ioredis'
@@ -462,12 +462,28 @@ function getRedis(request: FastifyRequest): Redis | null {
 
 // ----- 微调任务元数据 -----
 
-/** 持久化微调任务元数据到 Redis(TTL 90 天)。 */
-async function persistFineTuningJob(request: FastifyRequest, job: FineTuningJob): Promise<void> {
+/** 微调任务元数据(含属主,Redis 内记录;单独包一层避免污染 OpenAI 兼容响应)。 */
+interface FineTuningJobRecord {
+  ownerUserId: string
+  job: FineTuningJob
+}
+
+/** 持久化微调任务元数据到 Redis(TTL 90 天),并盖章属主。 */
+async function persistFineTuningJob(
+  request: FastifyRequest,
+  job: FineTuningJob,
+  ownerUserId: string,
+): Promise<void> {
   const redis = getRedis(request)
   if (!redis) return
   try {
-    await redis.set(`${FT_JOB_KEY_PREFIX}${job.id}`, JSON.stringify(job), 'EX', FT_JOB_TTL_SECONDS)
+    const record: FineTuningJobRecord = { ownerUserId, job }
+    await redis.set(
+      `${FT_JOB_KEY_PREFIX}${job.id}`,
+      JSON.stringify(record),
+      'EX',
+      FT_JOB_TTL_SECONDS,
+    )
   } catch {
     // Redis 故障静默(不阻塞主响应)
   }
@@ -477,16 +493,44 @@ async function persistFineTuningJob(request: FastifyRequest, job: FineTuningJob)
 async function loadFineTuningJob(
   request: FastifyRequest,
   jobId: string,
-): Promise<FineTuningJob | null> {
+): Promise<FineTuningJobRecord | null> {
   const redis = getRedis(request)
   if (!redis) return null
   try {
     const raw = await redis.get(`${FT_JOB_KEY_PREFIX}${jobId}`)
     if (!raw) return null
-    return JSON.parse(raw) as FineTuningJob
+    const parsed = JSON.parse(raw) as unknown
+    if (
+      parsed &&
+      typeof parsed === 'object' &&
+      typeof (parsed as FineTuningJobRecord).ownerUserId === 'string' &&
+      (parsed as FineTuningJobRecord).job &&
+      typeof (parsed as FineTuningJobRecord).job === 'object'
+    ) {
+      return parsed as FineTuningJobRecord
+    }
+    // F-190:历史缓存没有属主,无法证明归属 ⇒ 视为不可访问(不再按 jobId 放行)
+    return null
   } catch {
     return null
   }
+}
+
+/**
+ * F-190(2026-11-08):微调任务按 API Key 创建者隔离。
+ * 任务由平台 Key 代训,但归属必须落到发起调用的用户;列表/详情/取消/事件
+ * 只允许操作本人任务,他人任务一律 403(与 F-04/F-05/F-07/F-08 口径一致)。
+ */
+async function denyIfNotOwner(
+  request: FastifyRequest,
+  reply: FastifyReply,
+  jobId: string,
+  userId: string,
+): Promise<boolean> {
+  const cached = await loadFineTuningJob(request, jobId)
+  if (cached && cached.ownerUserId === userId) return false
+  reply.status(403).send(error(403, '无权访问该微调任务'))
+  return true
 }
 
 // ----- 文件元数据 + 内容 -----
@@ -964,8 +1008,8 @@ const v1ProtocolCompletenessRoutes: FastifyPluginAsync = async (server) => {
           metadata: (data.metadata as Record<string, unknown>) ?? {},
         }
 
-        // 本地 Redis 持久化元数据(TTL 90 天,上游不可达时兜底)
-        await persistFineTuningJob(request, job)
+        // 本地 Redis 持久化元数据(TTL 90 天,上游不可达时兜底),并盖章发起者属主
+        await persistFineTuningJob(request, job, ctx.userId)
 
         // 计费:预扣 1000 token(完成时由主 agent 按实际用量结算)
         recordFineTuningCall(ctx.id, ctx.userId, model, job.id, request.ip, resp.status)
@@ -1026,9 +1070,16 @@ const v1ProtocolCompletenessRoutes: FastifyPluginAsync = async (server) => {
             .send(error(502, `上游 fine_tuning 列表查询失败 (${resp.status}): ${errText}`))
         }
         const data = (await resp.json()) as Partial<FineTuningJobListResponse>
+        const upstreamJobs = Array.isArray(data.data) ? (data.data as FineTuningJob[]) : []
+        // F-190:上游用平台 Key 列全账号任务,这里只保留当前调用者创建的任务。
+        const visible: FineTuningJob[] = []
+        for (const j of upstreamJobs) {
+          const cached = j && typeof j.id === 'string' ? await loadFineTuningJob(request, j.id) : null
+          if (cached && cached.ownerUserId === ctx.userId) visible.push(j)
+        }
         const result: FineTuningJobListResponse = {
           object: 'list',
-          data: Array.isArray(data.data) ? (data.data as FineTuningJob[]) : [],
+          data: visible,
           has_more: Boolean(data.has_more),
         }
         return reply.send(result)
@@ -1064,11 +1115,14 @@ const v1ProtocolCompletenessRoutes: FastifyPluginAsync = async (server) => {
       }
       const { id } = p.data
 
+      // F-190:先验属主(创建时已盖章),他人任务 403
+      if (await denyIfNotOwner(request, reply, id, ctx.userId)) return
+
       const upstream = getFineTuningUpstream()
       if (!upstream) {
         // 上游不可达时尝试本地 Redis 兜底
         const cached = await loadFineTuningJob(request, id)
-        if (cached) return reply.send(cached)
+        if (cached) return reply.send(cached.job)
         return reply
           .status(502)
           .send(error(FINE_TUNING_NOT_CONFIGURED_CODE, '上游 fine_tuning 渠道未配置'))
@@ -1082,7 +1136,7 @@ const v1ProtocolCompletenessRoutes: FastifyPluginAsync = async (server) => {
         if (resp.status === 404) {
           // 上游 404 时尝试本地缓存(任务可能已过期但本地仍存)
           const cached = await loadFineTuningJob(request, id)
-          if (cached) return reply.send(cached)
+          if (cached) return reply.send(cached.job)
           return reply.status(404).send(error(404, `微调任务不存在: ${id}`))
         }
         if (!resp.ok) {
@@ -1093,7 +1147,7 @@ const v1ProtocolCompletenessRoutes: FastifyPluginAsync = async (server) => {
         }
         const data = (await resp.json()) as FineTuningJob
         // 刷新本地缓存
-        await persistFineTuningJob(request, data)
+        await persistFineTuningJob(request, data, ctx.userId)
         return reply.send(data)
       } catch (e) {
         request.log.error(e)
@@ -1127,15 +1181,18 @@ const v1ProtocolCompletenessRoutes: FastifyPluginAsync = async (server) => {
       }
       const { id } = p.data
 
+      // F-190:取消他人任务一律 403
+      if (await denyIfNotOwner(request, reply, id, ctx.userId)) return
+
       const upstream = getFineTuningUpstream()
       if (!upstream) {
         // 上游不可达时尝试本地缓存更新状态
         const cached = await loadFineTuningJob(request, id)
         if (cached) {
-          cached.status = 'cancelled'
-          cached.updated_at = Math.floor(Date.now() / 1000)
-          await persistFineTuningJob(request, cached)
-          return reply.send(cached)
+          cached.job.status = 'cancelled'
+          cached.job.updated_at = Math.floor(Date.now() / 1000)
+          await persistFineTuningJob(request, cached.job, ctx.userId)
+          return reply.send(cached.job)
         }
         return reply
           .status(502)
@@ -1163,7 +1220,7 @@ const v1ProtocolCompletenessRoutes: FastifyPluginAsync = async (server) => {
             .send(error(502, `上游 fine_tuning 取消失败 (${resp.status}): ${errText}`))
         }
         const data = (await resp.json()) as FineTuningJob
-        await persistFineTuningJob(request, data)
+        await persistFineTuningJob(request, data, ctx.userId)
         return reply.send(data)
       } catch (e) {
         request.log.error(e)
@@ -1203,6 +1260,8 @@ const v1ProtocolCompletenessRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, p.error.issues[0]?.message ?? '参数错误'))
       }
       const { id } = p.data
+      // F-190:事件列表同属任务子资源,先验属主
+      if (await denyIfNotOwner(request, reply, id, ctx.userId)) return
       const q = fineTuningEventsQuerySchema.safeParse(request.query)
       if (!q.success) {
         return reply.status(400).send(error(400, q.error.issues[0]?.message ?? '参数错误'))

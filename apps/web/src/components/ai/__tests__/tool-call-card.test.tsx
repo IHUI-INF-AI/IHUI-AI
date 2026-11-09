@@ -506,4 +506,54 @@ describe('ToolCallCard effect summary (D134 两族结构化摘要)', () => {
     expect(screen.getByText('将删除的目标')).toBeTruthy()
   })
 })
+
+describe('ToolCallCard 工具入参逐分片渐进渲染(2026-11-05)', () => {
+  // 本文件多个 render 之间 DOM 会累积(既有用例即如此),一律在**本次 render 的
+  // container 内**局部查找:既避免 "Found multiple elements",也避免上一条用例
+  // 残留的预览块让「不渲染」断言假红。预览块与既有 D113 diff 预览同在展开区,
+  // 三条用例都先展开,否则「找不到」测的是「没展开」而不是「条件不满足」。
+  const clickRow = (container: HTMLElement) => {
+    const row = container.querySelector('[data-testid="tool-call-row-web_search"]')
+    if (!row) throw new Error('工具行未渲染')
+    fireEvent.click(row)
+  }
+  const partialArgsNode = (container: HTMLElement) =>
+    container.querySelector('[data-testid="tool-call-partial-args"]')
+
+  it('running + argsStreaming:渲染部分参数预览块', () => {
+    const { container } = render(
+      <ToolCallCard
+        toolName="web_search"
+        args={{}}
+        status="running"
+        partialArgs={{ q: 'te' }}
+        argsStreaming
+      />,
+    )
+    clickRow(container)
+    expect(partialArgsNode(container)?.textContent).toContain('"q"')
+  })
+
+  it('非 running:不渲染预览块(正式 args 路径零变化)', () => {
+    const { container } = render(
+      <ToolCallCard
+        toolName="web_search"
+        args={{ q: 'test' }}
+        status="success"
+        partialArgs={{ q: 'te' }}
+        argsStreaming
+      />,
+    )
+    clickRow(container)
+    expect(partialArgsNode(container)).toBeNull()
+  })
+
+  it('running 但未开流式态:不渲染预览块', () => {
+    const { container } = render(
+      <ToolCallCard toolName="web_search" args={{}} status="running" partialArgs={{ q: 'te' }} />,
+    )
+    clickRow(container)
+    expect(partialArgsNode(container)).toBeNull()
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

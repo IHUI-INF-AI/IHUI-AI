@@ -544,17 +544,55 @@ class TestBehaviorDriver:
         lighthouse = wbb.classify_growth_task_automation("Expert_lighthouse")
         assert lighthouse is not None
         assert "expert_actual_use" in lighthouse.events
-        # 全部行为规划项都不得声称「可自动」(真实行为才计分)
-        for code, p in wbb.BEHAVIOR_PLANS.items():
-            assert p.can_automate is False, code
+        # 2026-11-09 语义收口:can_automate 不再恒为 False,改为集合精确比对
+        plans = wbb.BEHAVIOR_PLANS
+        automatable = {c for c, p in plans.items() if p.can_automate}
+        manual = {c for c, p in plans.items() if not p.can_automate}
+        # 2026-11-09 22:00 desktop 口径计分链打通后,5 项实测点亮(can_automate 升 True);
+        # 2026-11-09 深夜 Sequential 族 2..7 直连链登记(与实测点亮码同构)后升 True ⇒ 14 码
+        assert automatable == {
+            "Expert_lighthouse",
+            "Sequential_Tasks_1",
+            "Sequential_Tasks_2",
+            "Sequential_Tasks_3",
+            "Sequential_Tasks_4",
+            "Sequential_Tasks_5",
+            "Sequential_Tasks_6",
+            "Sequential_Tasks_7",
+            "expert_use_maidehao",
+            "expert_use_douyinyin",
+            "expert_use_shangjia_xuanchuan",
+            "expert_use_bowangwang",
+            "WorkBuddy_Valorant",
+        }
+        # 其余仍为 False(逐码精确列出)
+        assert manual == {
+            "first_chat",
+            "skill_installed",
+            "wechat_linked",
+            "expert_summoned",
+            "template_used",
+            "wb_wechat_oa_subscribe_task",
+        }
+        # 全表恰为两集合之并 ⇒ 无「裸 can_automate=True 却无依据」的漏网项
+        assert set(plans) == automatable | manual
+        for code in automatable:
+            assert plans[code].can_automate is True
+            assert plans[code].instruction and plans[code].evidence
 
     def test_human_action_checklist_dedups_and_skips_automatable(self):
-        # 重复 code 应去重;当前所有规划项均 can_automate=False,故全部保留
+        # 重复 code 应去重;这三项仍不可自动(can_automate=False),故全部保留在待实操清单
         items = wbb.human_action_checklist(["first_chat", "first_chat", "skill_installed"])
         codes = [i["code"] for i in items]
         assert codes == ["first_chat", "skill_installed"]
         for it in items:
             assert it["instruction"] and it["title"]
+
+    def test_human_action_checklist_excludes_automatable_codes(self):
+        """2026-11-09 收口:可自动项(Expert_lighthouse)不进待实操清单,
+        仍需实操项(wechat_linked)保留 —— 验证 checklist 显式判 can_automate。"""
+        items = wbb.human_action_checklist(["Expert_lighthouse", "wechat_linked"])
+        assert [i["code"] for i in items] == ["wechat_linked"]
 
     async def test_default_reporter_tracks_user_action(self):
         tracker: list[str] = []
@@ -868,9 +906,11 @@ class TestBehaviorDriver:
             "expert_summoned",
             "template_used",
             "wb_wechat_oa_subscribe_task",
-            "WorkBuddy_Valorant",
         ):
             assert expected in uar, f"缺少待实操项: {expected}"
+        # 2026-11-09 22:00 起 WorkBuddy_Valorant 已 can_automate=True(desktop 链实测点亮),
+        # 不再出现在待实操清单
+        assert "WorkBuddy_Valorant" not in uar
         # WEB 域已 claimed 的 Expert_lighthouse 不得误报为待实操
         assert "Expert_lighthouse" not in uar
         assert out["unjudged"] is False

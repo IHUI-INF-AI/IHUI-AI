@@ -49,6 +49,9 @@ mod window_chrome;
 // 2026-10-26 立:屏幕即手(Hands)operator——截屏 → 界面状态 → 纯决策 → 键鼠执行的最小可用回路。
 // 判据纯函数(decide_actions)可独立单测,执行层才碰 enigo/screenshots;Tauri 胶水只注册两条命令。
 mod operator;
+// plugin-store 路径越权修复:远程面只保留 store_read_entry/store_write_entry,
+// 路径经 resolve_store_path 拒绝对路径/`..` 并 canonicalize 断言落在 app_data_dir(见模块文档)。
+mod store_path;
 
 use serde::{Deserialize, Serialize};
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
@@ -1573,6 +1576,64 @@ async fn read_binary_file(app: tauri::AppHandle, path: String) -> Result<ReadBin
 }
 
 /// 写入文本文件(覆盖)。父目录不存在时自动创建。路径仅允许 app_data_dir 内。
+/// 2026-11-08 加固(F-080):补 50MB 上限 + 同目录 tmp/rename 原子替换。
+/// 旧实现 `fs::write` 无上限、且直接截断目标 —— 一次超大写入或中途崩溃会把
+/// 现有配置文件留成半截/空文件(对 settings.json 这类文件等于数据损坏)。
+fn write_text_atomic(path: &std::path::Path, content: &str) -> std::io::Result<()> {
+    // 同进程并发写入同一目标时,pid 不足以保证 tmp 唯一(两次 invoke 可同时发生)。
+    static TMP_SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let seq = TMP_SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let tmp = path.with_file_name(format!(
+        "{}.{}.{}.tmp",
+        path.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default(),
+        std::process::id(),
+        seq
+    ));
+    let write_result = (|| -> std::io::Result<()> {
+        let mut file = std::fs::File::create(&tmp)?;
+        std::io::Write::write_all(&mut file, content.as_bytes())?;
+        file.sync_all()?;
+        drop(file);
+        // Windows 的 std::fs::rename 走 MOVEFILE_REPLACE_EXISTING,可直接替换已存在目标;
+        // rename 失败时保留原文件(不先删目标 —— 那会把"失败"变成"目标没了")。
+        std::fs::rename(&tmp, path)
+    })();
+    if write_result.is_err() {
+        let _ = std::fs::remove_file(&tmp);
+    }
+    write_result
+}
+
+#[cfg(test)]
+mod write_text_atomic_tests {
+    use super::write_text_atomic;
+
+    #[test]
+    fn replaces_existing_content_without_leaving_tmp() {
+        let dir = std::env::temp_dir().join(format!(
+            "ihui-write-text-atomic-{}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&dir).expect("mkdir");
+        let f = dir.join("settings.json");
+        std::fs::write(&f, "old").expect("seed");
+        write_text_atomic(&f, "new").expect("atomic replace");
+        assert_eq!(std::fs::read_to_string(&f).expect("read"), "new");
+        let leftovers: Vec<_> = std::fs::read_dir(&dir)
+            .expect("read_dir")
+            .filter_map(|e| e.ok())
+            .filter(|e| e.file_name().to_string_lossy().ends_with(".tmp"))
+            .collect();
+        assert!(leftovers.is_empty(), "tmp 残留: {leftovers:?}");
+        std::fs::remove_dir_all(&dir).expect("cleanup");
+    }
+
+    #[test]
+    fn write_size_limit_is_50mb() {
+        assert_eq!(super::MAX_TEXT_FILE_SIZE, 50 * 1024 * 1024);
+    }
+}
+
 #[tauri::command]
 async fn write_text_file(
     app: tauri::AppHandle,
@@ -1580,10 +1641,17 @@ async fn write_text_file(
     content: String,
 ) -> Result<OkResult, IpcError> {
     let path = ensure_in_app_data(&app, &path)?;
+    if content.len() as u64 > MAX_TEXT_FILE_SIZE {
+        return Err(IpcError::permission(format!(
+            "file too large: max {}MB, got {} bytes",
+            MAX_TEXT_FILE_SIZE / 1024 / 1024,
+            content.len()
+        )));
+    }
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).map_err(|e| IpcError::from_io("create_dir_all", parent, e))?;
     }
-    std::fs::write(&path, content).map_err(|e| IpcError::from_io("write", &path, e))?;
+    write_text_atomic(&path, &content).map_err(|e| IpcError::from_io("write", &path, e))?;
     Ok(OkResult { ok: true })
 }
 
@@ -3968,6 +4036,23 @@ pub fn run() {
             #[cfg(any(target_os = "linux", windows))]
             {
                 let _ = app.deep_link().register_all();
+                // F-046:冷启动深链补投。Windows/Linux 上插件在 setup 阶段就已 emit
+                // `deep-link://new-url`,而此刻前端必然还没订阅 —— 旧实现只挂了
+                // on_open_url,于是"点链接拉起未运行 App"这一整条冷启动路径被静默丢掉。
+                // 插件的 current 槽保留本次启动 URL,这里主动取一次交给同一道投递闸门
+                // (未就绪仍入 pending,由前端 take 取回;不会与后续 on_open_url 双投)。
+                match app.deep_link().get_current() {
+                    Ok(Some(urls)) => {
+                        let urls: Vec<String> =
+                            urls.iter().map(|url| url.as_str().to_string()).collect();
+                        if !urls.is_empty() {
+                            log::info!("[deep-link] 冷启动补投 {} 条(get_current)", urls.len());
+                            dispatch_deep_links(app.handle(), &urls);
+                        }
+                    }
+                    Ok(None) => {}
+                    Err(e) => log::warn!("[deep-link] 读取冷启动 URL 失败(不拦启动): {e}"),
+                }
             }
             app.deep_link().on_open_url({
                 let app = app.handle().clone();
@@ -4257,7 +4342,11 @@ pub fn run() {
     // 2026-10-26 立:屏幕即手 operator。operator_decide=纯决策预览(不碰屏幕);
     // operator_execute=真实截屏→决策→键鼠执行。判据纯函数见 operator.rs。
     operator::operator_decide,
-    operator::operator_execute
+    operator::operator_execute,
+    // 2026-11-05 立(桌面 store 越权 P0):远程面唯一的两条 store 通道,
+    // 文件/key 白名单 + 路径守卫,替代此前的 store:default 全局授权。
+    store_path::store_read_entry,
+    store_path::store_write_entry
         ])
         .run(context)
         .unwrap_or_else(|e| {

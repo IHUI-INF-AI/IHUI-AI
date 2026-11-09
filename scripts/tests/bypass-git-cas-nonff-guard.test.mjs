@@ -107,12 +107,37 @@ test('N4 空白理由不构成放行:空串/纯空格/非字符串 ⇒ 照拒', 
   assert.equal(bg.git(['rev-parse', 'HEAD'], { root: dir }), B, '全部拒写后 ref 仍原样')
 })
 
-test('N5 守卫跳过臂:new==old 的 no-op 与创建档(oldSha 空)⇒ 不误伤', (t) => {
+test('N5 守卫跳过臂:new==old 的 no-op 与首建档 ⇒ 不误伤,但空串 old 必须拒(2026-11-09 契约)', (t) => {
   const { dir, B } = makeRelayScene(t)
   assert.equal(bg.casUpdateRef(B, B, { root: dir }), true, '同枚 CAS 是 no-op,不得触发祖先性判定')
   const { commit: C } = bg.commitTreeWithIndex({ root: dir, parent: B, message: 'obj: fresh ref', treePath: 'a.txt', text: 'C\n' })
-  assert.equal(bg.casUpdateRef(C, '', { root: dir, ref: 'refs/heads/fresh-branch' }), true, '首建分支无 old ⇒ 守卫跳过')
+  // 无旧值只有两种合法形态:(a) 全 0 的 old(必须不存在),(b) undefined + 显式豁免 + 非空 reason。
+  assert.throws(
+    () => bg.casUpdateRef(C, '', { root: dir, ref: 'refs/heads/fresh-branch' }),
+    /空串/,
+    '空串不是"没有旧值" ⇒ 必须拒(它让 update-ref 退化成盲写)',
+  )
+  assert.equal(
+    bg.casUpdateRef(C, '0'.repeat(40), { root: dir, ref: 'refs/heads/fresh-branch' }),
+    true,
+    '首建 ref 的 CAS 形态 = old 全 0(必须不存在)',
+  )
   assert.equal(bg.git(['rev-parse', 'refs/heads/fresh-branch'], { root: dir }), C)
+  assert.throws(
+    () => bg.casUpdateRef(C, undefined, { root: dir, ref: 'refs/heads/another' }),
+    /缺 oldSha/,
+    'undefined 不给显式豁免 ⇒ 拒',
+  )
+  assert.throws(
+    () => bg.casUpdateRef(C, undefined, { root: dir, ref: 'refs/heads/another', allowUnconditional: true }),
+    /非空 reason/,
+    '显式豁免必须配非空 reason',
+  )
+  assert.equal(
+    bg.casUpdateRef(C, undefined, { root: dir, ref: 'refs/heads/another', allowUnconditional: true, reason: '救援工具:重建 ref' }),
+    true,
+    '显式豁免 + 非空 reason ⇒ 放行(该行即留痕)',
+  )
 })
 
 test('N6 祖先关系问不到 ⇒ fail-closed 照抛,绝不折叠成"不是祖先"后走放行/拒绝臂', (t) => {

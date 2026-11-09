@@ -99,7 +99,11 @@ function assistants(pane: ChatStore) {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  mockStreamChat.mockImplementation(async () => {})
+  // G-816008(2026-10-29 起):onDone 是「本轮走完」的权威回执;静默 return 只代表"没回音",
+  // 收尾会把本轮按未确认撤回。夹具必须补一帧 onDone 才等价于"流正常结束"。
+  mockStreamChat.mockImplementation(async (opts: unknown) => {
+    ;(opts as { onDone?: () => void }).onDone?.()
+  })
   useAuthStore.setState({ isAuthenticated: true, user: { id: 'user-g8161' } as never })
   window.localStorage.clear()
   pendingTest.resetLedgerSingleton()
@@ -143,8 +147,9 @@ describe('② 有内容 + 流结束 ⇒ 不补(幂等),气泡数不变', () => {
     const pane = makePane('content')
     const send = createSendMessage(makeCtx(), pane)
     mockStreamChat.mockImplementationOnce(async (opts: unknown) => {
-      const o = opts as { onDelta: (d: string) => void }
+      const o = opts as { onDelta: (d: string) => void; onDone?: () => void }
       o.onDelta('这是完整回答')
+      o.onDone?.()
     })
 
     await send('有内容测试')
@@ -234,20 +239,22 @@ describe('③ 同一轮重复收尾(重连后再收尾)⇒ 仍只有一条', () 
 })
 
 describe('④ 用户主动停止不算"失败"(不把用户的选择说成故障)', () => {
-  it('空内容 + 用户停止 ⇒ 不落失败卡', async () => {
+  it('空内容 + 用户停止 ⇒ 不落失败卡;零证据轮按静默撤回(气泡不留)', async () => {
     const pane = makePane('stopped')
     const send = createSendMessage(makeCtx(), pane)
-    // 发送期间把该占位行标成"用户中断"再让流空收尾
+    // 发送期间把该占位行标成"用户中断"再让流空收尾(不补 onDone:abort 路径不算回执)
     mockStreamChat.mockImplementationOnce(async (opts: unknown) => {
       const o = opts as { onDelta: (d: string) => void }
       void o
       const streamingId = pane.getState().streamingAssistantId
       if (streamingId) pane.getState().setInterruptedMessage(streamingId)
     })
-    await send('用户停止测试')
-    const rows = assistants(pane)
-    expect(rows).toHaveLength(1)
-    expect(rows[0]!.error ?? false).toBe(false)
+    // 2026-10-30 起:零证据 + 主动停止 ⇒ admission 判 aborted 而非 admitted,
+    // 乐观 user/assistant 两行随静默撤回一起删除(见 send-message.ts finally)。
+    await expect(send('用户停止测试')).resolves.toBe(false)
+    expect(pane.getState().messages).toHaveLength(0)
+    expect(assistants(pane)).toHaveLength(0)
+    expect(pane.getState().messages.some((m) => m.error === true)).toBe(false)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
