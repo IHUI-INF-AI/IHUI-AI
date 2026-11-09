@@ -1,7 +1,19 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { and, eq, inArray, isNull, sql, count, gte, lte, between, desc } from 'drizzle-orm'
+import {
+  and,
+  eq,
+  inArray,
+  isNull,
+  sql,
+  count,
+  gte,
+  lte,
+  between,
+  desc,
+  type SQL,
+} from 'drizzle-orm'
 import {
   hrAttendanceRule,
   hrAttendanceRecord,
@@ -88,7 +100,8 @@ export async function hrCheckIn(params: {
   checkInTimeRaw?: string | undefined
   remark?: string | undefined
 }): Promise<HrCheckInResult> {
-  const { employeeId, departmentId, date, checkInMethod, operatedBy, checkInTimeRaw, remark } = params
+  const { employeeId, departmentId, date, checkInMethod, operatedBy, checkInTimeRaw, remark } =
+    params
 
   const [emp] = await db
     .select({ id: hrEmployee.id })
@@ -106,8 +119,7 @@ export async function hrCheckIn(params: {
 
   let checkInTime: Date
   if (checkInTimeRaw === undefined) {
-    if (bizDayKey(new Date()) !== date)
-      return { ok: false, reason: 'bad_date' }
+    if (bizDayKey(new Date()) !== date) return { ok: false, reason: 'bad_date' }
     checkInTime = new Date()
   } else {
     const d = new Date(checkInTimeRaw)
@@ -171,7 +183,9 @@ export async function hrCheckOut(params: {
   date: string
   checkOutTimeRaw: string
   operatedBy: string
-}): Promise<{ ok: true; record: typeof hrAttendanceRecord.$inferSelect } | { ok: false; reason: string }> {
+}): Promise<
+  { ok: true; record: typeof hrAttendanceRecord.$inferSelect } | { ok: false; reason: string }
+> {
   const { employeeId, departmentId, date, checkOutTimeRaw, operatedBy } = params
   const checkOutTime = new Date(checkOutTimeRaw)
   if (Number.isNaN(checkOutTime.getTime())) return { ok: false, reason: 'bad_time' }
@@ -197,6 +211,7 @@ export async function hrCheckOut(params: {
       .set({ checkOutTime, checkOutMethod: 'manual', operatedBy, updatedAt: new Date() })
       .where(eq(hrAttendanceRecord.id, row.id))
       .returning()
+    if (!updated) throw new AppError('签退写入后回读失败', 500, 'INTERNAL')
     return { ok: true, record: updated }
   }
 
@@ -212,6 +227,7 @@ export async function hrCheckOut(params: {
     .set({ checkOutTime, checkOutMethod: 'manual', status, operatedBy, updatedAt: new Date() })
     .where(eq(hrAttendanceRecord.id, row.id))
     .returning()
+  if (!updated) throw new AppError('签退写入后回读失败', 500, 'INTERNAL')
   return { ok: true, record: updated }
 }
 
@@ -337,7 +353,12 @@ export async function runHrAbsentAttendance(
     created: createdTotal,
     skipped: skippedTotal,
   })
-  return { rules: rulesCount, employees: employeesTotal, created: createdTotal, skipped: skippedTotal }
+  return {
+    rules: rulesCount,
+    employees: employeesTotal,
+    created: createdTotal,
+    skipped: skippedTotal,
+  }
 }
 
 // isPastHm 已在顶部 import(单源在 @ihui/attendance-core)
@@ -409,9 +430,7 @@ export async function getHrAttendanceRule(departmentId: string) {
   const [row] = await db
     .select()
     .from(hrAttendanceRule)
-    .where(
-      and(eq(hrAttendanceRule.departmentId, departmentId), isNull(hrAttendanceRule.deletedAt)),
-    )
+    .where(and(eq(hrAttendanceRule.departmentId, departmentId), isNull(hrAttendanceRule.deletedAt)))
     .limit(1)
   if (!row) return null
   return {
@@ -439,7 +458,7 @@ export async function listHrAttendanceRecords(params: {
   endDate?: string
   limit?: number
   offset?: number
-}): Promise<{ list: typeof hrAttendanceRecord.$inferSelect[]; total: number }> {
+}): Promise<{ list: (typeof hrAttendanceRecord.$inferSelect)[]; total: number }> {
   const conds: SQL[] = [isNull(hrAttendanceRecord.deletedAt)]
   if (params.employeeId) conds.push(eq(hrAttendanceRecord.employeeId, params.employeeId))
   if (params.departmentId) conds.push(eq(hrAttendanceRecord.departmentId, params.departmentId))
@@ -449,10 +468,7 @@ export async function listHrAttendanceRecords(params: {
   else if (params.startDate) conds.push(gte(hrAttendanceRecord.date, params.startDate))
   else if (params.endDate) conds.push(lte(hrAttendanceRecord.date, params.endDate))
   const where = and(...conds)
-  const [totalRow] = await db
-    .select({ c: count() })
-    .from(hrAttendanceRecord)
-    .where(where)
+  const [totalRow] = await db.select({ c: count() }).from(hrAttendanceRecord).where(where)
   const list = await db
     .select()
     .from(hrAttendanceRecord)
@@ -487,13 +503,9 @@ export async function getHrAttendanceStats(params: {
   return { total, byStatus }
 }
 
-/** 部门列表(树形自引用,按 sortOrder 升序)。 */
-export async function listHrDepartments(): Promise<typeof hrDepartment.$inferSelect[]> {
-  return db
-    .select()
-    .from(hrDepartment)
-    .where(isNull(hrDepartment.deletedAt))
-    .orderBy(hrDepartment.sortOrder, hrDepartment.createdAt)
+/** 部门列表(树形自引用,按 sortOrder 升序)。部门表无软删列(无删除端点),不做 deletedAt 过滤。 */
+export async function listHrDepartments(): Promise<(typeof hrDepartment.$inferSelect)[]> {
+  return db.select().from(hrDepartment).orderBy(hrDepartment.sortOrder, hrDepartment.createdAt)
 }
 
 /** 新建部门。name 必填,parentId/leaderEmployeeId 可选;重复名校验交给唯一约束兜底。 */
@@ -516,10 +528,12 @@ export async function createHrDepartment(params: {
 }
 
 /** 员工列表(按部门/状态过滤)。 */
-export async function listHrEmployees(params: {
-  departmentId?: string
-  status?: string
-} = {}): Promise<typeof hrEmployee.$inferSelect[]> {
+export async function listHrEmployees(
+  params: {
+    departmentId?: string
+    status?: string
+  } = {},
+): Promise<(typeof hrEmployee.$inferSelect)[]> {
   const conds: SQL[] = [isNull(hrEmployee.deletedAt)]
   if (params.departmentId) conds.push(eq(hrEmployee.departmentId, params.departmentId))
   if (params.status) conds.push(eq(hrEmployee.status, params.status))
@@ -567,7 +581,11 @@ export async function upsertHrAttendanceRule(params: {
   enabled?: boolean
   qrSecret?: string | null
 }): Promise<HrAttendanceRuleDto> {
-  const thresholds: { lateAfter?: string | null; earlyBefore?: string | null; absentAfter?: string | null } = {}
+  const thresholds: {
+    lateAfter?: string | null
+    earlyBefore?: string | null
+    absentAfter?: string | null
+  } = {}
   for (const field of ['lateAfter', 'earlyBefore', 'absentAfter'] as const) {
     const raw = params[field]
     if (raw === undefined) continue
@@ -584,7 +602,10 @@ export async function upsertHrAttendanceRule(params: {
       )
     thresholds[field] = hm
   }
-  const values: Record<string, unknown> = { departmentId: params.departmentId, ...thresholds }
+  const values: typeof hrAttendanceRule.$inferInsert = {
+    departmentId: params.departmentId,
+    ...thresholds,
+  }
   if (params.workdays !== undefined) values.workdays = params.workdays
   if (params.enabled !== undefined) values.enabled = params.enabled
   if (params.qrSecret !== undefined) values.qrSecret = params.qrSecret
@@ -606,13 +627,15 @@ export async function upsertHrAttendanceRule(params: {
 }
 
 /** 请假单列表(员工/部门/状态/区间过滤)。 */
-export async function listHrLeaves(params: {
-  employeeId?: string
-  departmentId?: string
-  status?: string
-  startDate?: string
-  endDate?: string
-} = {}): Promise<typeof hrLeaveRequest.$inferSelect[]> {
+export async function listHrLeaves(
+  params: {
+    employeeId?: string
+    departmentId?: string
+    status?: string
+    startDate?: string
+    endDate?: string
+  } = {},
+): Promise<(typeof hrLeaveRequest.$inferSelect)[]> {
   const conds: SQL[] = [isNull(hrLeaveRequest.deletedAt)]
   if (params.employeeId) conds.push(eq(hrLeaveRequest.employeeId, params.employeeId))
   if (params.departmentId) conds.push(eq(hrLeaveRequest.departmentId, params.departmentId))
