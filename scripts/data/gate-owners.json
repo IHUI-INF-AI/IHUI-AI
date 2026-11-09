@@ -1,0 +1,1931 @@
+{
+  "version": 1,
+  "generatedAt": "2026-11-07",
+  "note": "门脚本属主登记表。owned 之外的脚本一律显式列在 unowned(值为 null 的含义),供人工裁决;禁止把未登记的门批量填成公共。本表由 2026-11-07 的 scripts/ 清单生成,新增/删除门脚本时必须同步维护。",
+  "owners": {
+    "reading-trust-defense-2026-11-07": {
+      "since": "2026-11-07",
+      "scope": "本线新增的元门(面规格静态扫描 / 空输入盘点 / 派生钉面一致性 / 属主声明)",
+      "scripts": [
+        "check-face-spec-hardcode.mjs",
+        "check-face-empty-guard-coverage.mjs",
+        "check-generated-pin-face.mjs",
+        "check-gate-owner-declaration.mjs"
+      ]
+    }
+  },
+  "unowned": [
+    {
+      "script": "check-aasa-public-health.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-absorption-read-naming.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-adapter-style-parity.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-adapter-wiring.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-admin-gate-consistency.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-agent-engine-parity.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-agent-event-parity.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-agent-failure-vocabulary-parity.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-agent-status-vocabulary-parity.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-agents-doc-size.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-agents.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-ai-panel-mount-guards.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-ai-task-background-reference.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-alert-identity-volatility.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-alertmanager-live-config.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-allowed-diffs-expiry.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-analytics-page-coverage.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-api-client-utf8.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-api-credential-prefix.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-api-endpoint-delta.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-api-failure-throw.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-api-key-leak.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-api-key-permission-labels.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-api-migration-completeness.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-api-route-uniqueness.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-api-routes.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-app-version-latest.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-architecture-policy.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-artifact-budget.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-asset-path-health.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-auth-cookie-domain-scope.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-auth-handler-registration-parity.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-auth-refresh-singleton.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-authorization-column-isolation.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-autonomy-leg-health.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-background-task-type-parity.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-bare-decode-uri.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-baseline-freshness.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-batch-write-count-honesty.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-batch-write-count-probe.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-biz-day-single-source.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-board-name-legacy.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-bpe-encoding-parity.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-brand-email-channel.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-brand-foreground.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-button-height.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-button-text-wrap.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-bypass-landing-scope.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-c-drive-paths.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-c-drive-pollution.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-capability-catalog.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-capability-field-not-client-supplied.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-capability-matrix.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-chat-element-coverage.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-ci-failure-triage-wiring.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-cli-i18n-parity.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-commit-loss-guard.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-commit-scope-consistency.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-compaction-denominator.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-config-source-shape.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-config-table-existence.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-crash-report-redaction.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-credential-health.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-credential-leak-in-message.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-credential-presence-bypass.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-cross-end-component-props-parity.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-cross-end-parity-drift.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-cross-end-screen-coverage.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-cross-end-spec-coverage.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-cross-end-tokens.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-cross-end-ui-parity.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-cross-store-parity.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-csrf-exemption-shape.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-dangling-local-imports.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-db-blind-updatedat-set.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-db-migration-gaps.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-db-row-narrow-cas.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-db-schema-drift.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-ddos-guard-wiring.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-declared-carriage.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-declared-outbound-routes.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-declared-policy-has-consumer.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-declared-shortcuts.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-dedupe.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-delivery-report-consistency.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-design-tokens-sync.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-desktop-cache-plaintext.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-desktop-event-wiring.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-desktop-release-discovery-budget.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-dev-db-rotation-window.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-dev-env-consistency.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-diagnostic-redaction.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-digest-name-reality.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-direct-backend-calls.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-direct-run-guard.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-disk-root-hygiene.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-disk-root-write.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-dispatch-key-coverage.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-dispatch-premise.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-dist-encoding.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-doc-numbers.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-dockerfile-copy-paths.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-docs-public-health.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-doom-loop-parity.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-downloads-config.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-downloads-live-health.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-drizzle-journal-sync.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-duplicate-policy-literals.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-e2e-coverage-gap.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-edu-arrears-single-source.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-egress-builtin-list-sync.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-egress-facts.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-egress-ip-drift.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-enum-default-widening.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-enum-fallback-terminal.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-env-drift.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-error-attribution-single-source.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-error-code-coverage.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-error-code-not-text-matching.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-error-message-bounded.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-event-closure-leak.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-exemption-expiry.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-file-size.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-file-write-safety.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-fixture-tmpdir.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-flag-value-discipline.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-format-changed.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-format-support-parity.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-gate-face-discipline.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-gate-presence-exemption.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-gate-rot.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-gate-triggers.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-gate-wiring.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-generator-resource-release.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-git-probe-headroom.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-git-read-timeout.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-git-stdio-discipline.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-glyph-arrow-icon.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-grafana-datasource-wiring.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-grafana-metric-exists.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-guarded-write-affected.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-guardian-review-wired.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-hairline-separator.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-hand-migration-snapshot.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-head-recall-stock.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-head-typecheck.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-home-junctions.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-host-port-equivalence.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-host-timezone.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-hover-lift-single-source.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-human-valve.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-husky-hook-form.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-i18n-broken-en.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-i18n-cross-end-wording.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-i18n-duplicate-namespaces.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-i18n-keys.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-i18n-locale-content-language.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-i18n-messages-exist.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-i18n-namespace-passing.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-i18n-parity.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-icu-locale-support.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-identity-principal-source.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-ignore-todos.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-image-placeholders.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-image-source-domains.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-immutable-guard.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-inbound-schema-strict.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-index-unmerged-age.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-inline-back-button.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-inline-suppression-reason.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-input-border-var.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-input-focus-feedback.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-installed-asset-catalog.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-installer-assets.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-ip-attribution-trust.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-ipc-channel-consumers.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-killer-parity-ends.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-knip-ratchet.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-landed-reverts.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-learn-video-mount.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-ledger-eaten-rows.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-ledger-verifiable.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-lesson-draft.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-like-wildcard-escape.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-line-split-parity.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-lint-staged-stdio-pin.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-list-cap-honesty.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-list-predicate-has-positive-proof.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-live-doc-archive-reinflation.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-live-doc-duplicates.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-live-doc-merge-recall.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-live-doc-pathspec.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-live-doc-references.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-llm-provider-schema.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-load-state-loaded-marks.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-load-state-projection-parity.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-lock-manifest-consistency.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-lock.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-lsp-language-table.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-mass-deletion.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-memory-owner-binding.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-mention-engine-wired.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-merge-addition-loss.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-merge-content-loss.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-merge-deletion-resurrection.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-messages-dev-restart.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-metric-existence.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-migrated-api-response-unwrapping.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-migration-bookkeeping.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-migration-from-zero.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-migration-immutable.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-migration-ledger-drift.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-migrations-landed.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-miniapp-build-artifacts.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-miniapp-chrome.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-miniapp-css-landing.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-miniapp-generated.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-miniapp-interaction-hygiene.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-miniapp-mirror-fidelity.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-miniapp-replace-antipattern.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-miniapp-shell-form.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-miniapp-style-tiers.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-miniapp-taro-design-tokens.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-miniapp-taro-style-parity.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-miniapp-tokens-sync.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-mirror-purge-intact.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-mjs-export-resolution.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-mjs-syntax.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-mobile-api-base-bake.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-mobile-download-leg-cn.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-mobile-download-leg.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-mobile-rn-style-parity.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-mobile-version-code.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-modal-keyboard-avoid.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-mode-permission-matrix.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-model-capacity-parity.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-money-display-single-source.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-monitor-alert-vocabulary.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-monitor-runtime-parity.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-mrn-vitest-mock-alias-surface.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-multi-end-sync.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-mypy.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-native-title-tooltip.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-nativewind-status.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-nav-dead-links.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-nested-additional-properties.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-next-env-dist.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-no-conflict-markers.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-no-divider.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-no-emoji-icons.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-no-important.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-no-mask-image.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-no-native-dialog.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-no-nested-git-sites-durability.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-no-nested-git.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-no-visible-spawn.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-no-warm-border.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-ops-patrol.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-origin-guard-liveness.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-orphan-deletion-refs.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-overlay-zindex.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-p2-3-acceptance.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-package-barrel-export.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-panel-datasource-wiring.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-panel-metric-exists.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-parent-pollution.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-percent-clamp-single-source.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-permission-lease-bounded.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-permission-mode-vocabulary.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-pkg-installable.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-plan-archive-monotonic.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-plan-claims-vs-head.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-plan-closed-stock.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-plan-deferred-expiry.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-plan-dup-pointer-ratchet.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-plan-fields.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-plan-fragment-rows.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-plan-id-pool.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-plan-line-loss.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-plan-row-length.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-plan-sha-form.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-plan-sha-resolvable.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-plan-task-duplicates.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-plan-truncated-rows.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-plugin-manifest-integrity.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-pool-isolation.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-popover-trigger-data-state.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-port-registry.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-portal-fixed.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-principal-consumed.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-process-exit-attribution.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-prod-bundle-shadow.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-prod-checkout-foreign-work.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-prod-dep-advisories.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-project-plan-size.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-projection-replay-equality.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-prompt-injection-registry.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-provider-health-vocabulary.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-ps1-bom.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-public-admin-default.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-public-exposure-list.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-public-path-probe.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-push-sync.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-pwsh-version.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-python-import-landed.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-python-import-resolvable.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-qoder-session-sync-task.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-radius-role-conformance.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-radius-single-source.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-readme-sync.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-readme-table-integrity.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-readout-and-timer-hygiene.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-readout-no-break.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-redirect-target-origin-pinned.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-redline-path-naming.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-redundant-discriminator-predicate.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-registry-sync-health.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-registry-worktree-superset.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-relay-capacity-zero.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-relay-model-dual-writers.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-relay-queue-db-isolation.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-replacement-chars.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-retrieval-quality.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-retry-aliases.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-rich-anchor-renderer-single-source.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-rn-app-migration.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-rn-compat-coverage.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-rn-double-header.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-rn-global-css-sync.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-rn-host-shell-coverage.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-rn-interaction-hygiene.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-rn-interop-fn-style.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-rn-readout-cell.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-rn-type-floor.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-root-dir-clean.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-root-guard-consistency.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-root-guard-manifest-sync.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-rounded-full.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-rounded-overflow.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-ruff-python.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-safe-parse.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-sanitizer-bypass.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-scratch-root-no-nesting.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-sdk-release-channels.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-selftest-registrant-evaluates.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-sequence-lag.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-sequence-null-bucket.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-service-binary-paths.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-service-inventory.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-shared-layer-duplication.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-shared-nonde-node-purity.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-shared-type-not-redeclared.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-sheet-flex-contract.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-shrinkable-text-button.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-sidebar-width-consistency.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-single-branch.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-site-footer.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-skip-env-promise.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-slash-command-wired.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-sms-channel-health.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-snapshot-backlog.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-solito-residue.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-spawn-output-channel.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-spawn-stdio.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-sse-dispatch-parity.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-sse-frame-watermark.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-sse-no-blind-merge.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-sse-parser-parity.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-staged-deletions.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-staged-downgrade.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-staged-files-count.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-staged-files.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-staged-pollution.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-staged-resurrection.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-staged-typecheck-mirror-sync.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-staged-typecheck.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-stale-copy.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-stale-dist.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-stale-revert.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-stale-stashes.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-state-text-contrast.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-state-transition-guard.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-statusbar-single-source.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-style-key-consumption.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-style-verification.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-subagent-permission-inherited.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-sweeper-liveness.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-switch-continuity.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-tagsview-visual.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-tailwind-class-conflict.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-task-claims.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-temp-landing.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-test-collection-runs.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-test-judge-not-replicated.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-test-paths.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-theme-prop-wiring.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-token-literal-debt.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-token-sync-registry.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-tool-activity-coverage.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-tool-arg-routing-identity.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-tool-arg-validation-wired.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-tool-contract-declared.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-tool-display-resolvable.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-tool-exec-budget.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-tool-family-registered.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-tool-name-display-coverage.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-tool-registry-integrity.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-tool-schema-projection.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-tracked-ignored.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-transcript-addressability.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-truncation-accounting.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-truncation-boundary.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-ts-ignore.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-tunnel-leg-health.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-turn-ordinal-lock.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-txn-cancel-boundary.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-typecheck.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-ui-react-usage.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-ui-spec-mirror.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-uncommitted-age.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-upload-budget.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-v3-62-conversation-mount.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-verbatim-resurrection.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-verify-tmp-files.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-version-drift.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-wal-collector-state.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-watermark-coverage.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-watermark-syntax.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-web-mp-route-carriers.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-web-portal-label-keys.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-web-preview-live-reload.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-web-rn-copy-parity.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-web-rn-gap-ratchet.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-web-rn-parity.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-web-rn-screen-parity.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-web-rn-style-tiers.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-web-tokens-import.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-web-tokens-sync.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-wire-strictness.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-word-table-resolvable.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-workflow-step-order.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-workspace-dep-links.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-workspace-hygiene.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-worktree-link-integrity.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-worktree-status.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-write-owner-predicate.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-z-index-guard.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-zh-term-quality.mjs",
+      "owner": null
+    },
+    {
+      "script": "guard-push-other-agent-changes.mjs",
+      "owner": null
+    },
+    {
+      "script": "guard-status-where.mjs",
+      "owner": null
+    },
+    {
+      "script": "scan-dead-i18n-keys.mjs",
+      "owner": null
+    },
+    {
+      "script": "scan-desktop-dead-i18n-keys.mjs",
+      "owner": null
+    },
+    {
+      "script": "scan-extension-dead-i18n-keys.mjs",
+      "owner": null
+    },
+    {
+      "script": "scan-hardcoded-zh.mjs",
+      "owner": null
+    },
+    {
+      "script": "scan-i18n-zh-residue.mjs",
+      "owner": null
+    },
+    {
+      "script": "scan-miniapp-taro-dead-i18n-keys.mjs",
+      "owner": null
+    },
+    {
+      "script": "scan-mobile-rn-dead-i18n-keys.mjs",
+      "owner": null
+    },
+    {
+      "script": "scan-upstream-models.mjs",
+      "owner": null
+    },
+    {
+      "script": "scan-web-dead-i18n-keys.mjs",
+      "owner": null
+    },
+    {
+      "script": "verify-byok-e2e.mjs",
+      "owner": null
+    },
+    {
+      "script": "verify-cli-acp-launch.mjs",
+      "owner": null
+    },
+    {
+      "script": "verify-cli-settings-init.mjs",
+      "owner": null
+    },
+    {
+      "script": "verify-cli-stepfun-llm.mjs",
+      "owner": null
+    },
+    {
+      "script": "verify-free-providers.mjs",
+      "owner": null
+    },
+    {
+      "script": "verify-github-login.mjs",
+      "owner": null
+    },
+    {
+      "script": "verify-grafana-logql-panels.mjs",
+      "owner": null
+    },
+    {
+      "script": "verify-grafana-panel-data.mjs",
+      "owner": null
+    },
+    {
+      "script": "verify-guardian-mutex.mjs",
+      "owner": null
+    },
+    {
+      "script": "verify-i18n.mjs",
+      "owner": null
+    },
+    {
+      "script": "verify-model-catalog.mjs",
+      "owner": null
+    },
+    {
+      "script": "verify-oidc-self-idp.mjs",
+      "owner": null
+    },
+    {
+      "script": "verify-panel-data.mjs",
+      "owner": null
+    },
+    {
+      "script": "verify-panel-logql.mjs",
+      "owner": null
+    },
+    {
+      "script": "verify-publish-adapters.mjs",
+      "owner": null
+    },
+    {
+      "script": "verify-relay-free-models.mjs",
+      "owner": null
+    },
+    {
+      "script": "verify-shared-auth.mjs",
+      "owner": null
+    },
+    {
+      "script": "verify-ui.mjs",
+      "owner": null
+    },
+    {
+      "script": "verify-wallboard-readout.mjs",
+      "owner": null
+    }
+  ]
+}

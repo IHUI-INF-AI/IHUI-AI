@@ -427,11 +427,13 @@ const SERVICES = [
     port: 8801,
     required: false,
     probe: 'http',
-    // 2026-11-07:探活路径 '/'→'/favicon.ico'。'/' 会触发 turbopack 编译整套工作区首页,
-    // 实测 1.6s~8.2s(288KB 响应),两次越过探针上限 ⇒ 把健康的 web 判成掉线并重拉,
-    // 新 next dev 抢不到 8801(EADDRINUSE)退出,旧进程继续监听,launcher 越堆越多。
-    // favicon 是 public 静态资源,实测 95ms/200,足以证明 Next server 活着。
-    path: '/favicon.ico',
+    // 2026-11-07:探针改打 /health(零依赖静态出口),不再打 '/'。
+    // 原 path:'/' 探的是营销首页整页 SSR,CPU 被并发门禁打满时实测 2.0–24.8s,而
+    // httpProbe 的超时是 2500ms ⇒ isUp 判假死 ⇒ watcher 每 60–90s 杀一次重拉,
+    // 实例永远热不起来(活锁,当日 11:0x–11:5x 实测)。探活要判"服务活着、路由能命中",
+    // 不是"首页渲染多快";同 api 腿,补 healthExpect 免得占位的 200 桩被当成 web 本体。
+    path: '/health',
+    healthExpect: '@ihui/web',
     describe: 'Next.js Web(OAuth 回调宿主,可选)',
     start: () => {
       // pnpm install 会重链 next dist、抹掉 dev 预取补丁(unlock-dev-prefetch.mjs 头注),

@@ -428,6 +428,7 @@
         "src/pkg-content/topic/detail.tsx",
         "src/pkg-content/topic/list.config.ts",
         "src/pkg-content/topic/list.tsx",
+        "src/pkg-hr/hr-attendance/index.tsx",
         "src/pkg-learn/course-planet/index.tsx",
         "src/pkg-learn/course/detail.config.ts",
         "src/pkg-learn/course/detail.tsx",

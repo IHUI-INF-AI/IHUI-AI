@@ -237,6 +237,18 @@ export function toolFamilyOf(tool: string): ApprovalToolFamily {
   if (EXEC_TOOL_NAMES.has(t)) return 'exec'
   // computer_use.* 统一按 exec 族:它驱动的是操作系统级输入
   if (t.startsWith('computer_use.') || t.startsWith('computer.')) return 'exec'
+  // 人事考勤(HR)工具族(2026-11-09 立):写类动词(建/改/签到签退/补录/审批)归 edit,其余归 read。
+  // 真实鉴权仍由后端路由的 RBAC(hr:attendance:view|manage)把关,本族只决定 agent 侧预执行审批语义。
+  if (t.startsWith('hr_')) {
+    return /_(create|upsert|check_in|check_out|backfill|approve)$/.test(t) ? 'edit' : 'read'
+  }
+  // API 桥工具族(2026-11-09 立):目录检索与 GET 调用是只读;api_write 归 edit;
+  // api_delete 属破坏性写,归 exec(与 exec 族里 delete/remove 那一档同判据)。
+  // 这里只决定 agent 侧预执行审批语义,真实鉴权仍由目标端点 RBAC 判定。
+  if (t.startsWith('api_')) {
+    if (t === 'api_delete') return 'exec'
+    return t === 'api_write' ? 'edit' : 'read'
+  }
   return 'unknown'
 }
 

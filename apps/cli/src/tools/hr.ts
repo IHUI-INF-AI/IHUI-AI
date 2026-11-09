@@ -1,0 +1,447 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+/**
+ * hr 工具族 —— 由 scripts/gen-ai-tools-from-routes.mjs 从清单自动生成。
+ * 手工修改请改清单后重跑生成器,不要直接改本文件。
+ */
+import { createRouteTools, type RouteToolSpec } from './route-tools.js'
+
+const HR_SPECS: RouteToolSpec[] = [
+  {
+    "name": "hr_department_list",
+    "description": "列出所有人事部门(只读)。无需参数。",
+    "method": "GET",
+    "path": "/api/hr-attendance/departments"
+  },
+  {
+    "name": "hr_department_create",
+    "description": "新建人事部门(需 hr:attendance:manage)。",
+    "method": "POST",
+    "path": "/api/hr-attendance/departments",
+    "params": [
+      {
+        "name": "name",
+        "type": "string",
+        "description": "部门名称",
+        "required": true
+      },
+      {
+        "name": "parentId",
+        "type": "string",
+        "description": "上级部门 ID(uuid,可选)"
+      },
+      {
+        "name": "leaderEmployeeId",
+        "type": "string",
+        "description": "负责人员工 ID(uuid,可选)"
+      },
+      {
+        "name": "sortOrder",
+        "type": "number",
+        "description": "排序序号(可选)"
+      }
+    ]
+  },
+  {
+    "name": "hr_employee_list",
+    "description": "查询员工列表(只读),可按部门/状态筛选。",
+    "method": "GET",
+    "path": "/api/hr-attendance/employees",
+    "params": [
+      {
+        "name": "departmentId",
+        "type": "string",
+        "description": "部门 ID(uuid,可选)"
+      },
+      {
+        "name": "status",
+        "type": "string",
+        "description": "员工状态筛选(可选)"
+      }
+    ]
+  },
+  {
+    "name": "hr_employee_create",
+    "description": "新建员工档案(需 hr:attendance:manage)。",
+    "method": "POST",
+    "path": "/api/hr-attendance/employees",
+    "params": [
+      {
+        "name": "userId",
+        "type": "string",
+        "description": "关联用户 ID(uuid,可选)"
+      },
+      {
+        "name": "employeeNo",
+        "type": "string",
+        "description": "工号",
+        "required": true
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "description": "姓名",
+        "required": true
+      },
+      {
+        "name": "departmentId",
+        "type": "string",
+        "description": "所属部门 ID(uuid)",
+        "required": true
+      },
+      {
+        "name": "position",
+        "type": "string",
+        "description": "岗位(可选)"
+      },
+      {
+        "name": "hireDate",
+        "type": "string",
+        "description": "入职日期 YYYY-MM-DD(可选)"
+      },
+      {
+        "name": "phone",
+        "type": "string",
+        "description": "手机号(可选)"
+      },
+      {
+        "name": "idNumber",
+        "type": "string",
+        "description": "证件号(可选)"
+      }
+    ]
+  },
+  {
+    "name": "hr_attendance_rule_get",
+    "description": "读取某部门的考勤规则(只读),departmentId 必填。",
+    "method": "GET",
+    "path": "/api/hr-attendance/attendance/rule",
+    "params": [
+      {
+        "name": "departmentId",
+        "type": "string",
+        "description": "部门 ID(uuid)",
+        "required": true
+      }
+    ]
+  },
+  {
+    "name": "hr_attendance_rule_upsert",
+    "description": "新建/更新部门考勤规则(需 hr:attendance:manage)。",
+    "method": "PUT",
+    "path": "/api/hr-attendance/attendance/rule",
+    "params": [
+      {
+        "name": "departmentId",
+        "type": "string",
+        "description": "部门 ID(uuid)",
+        "required": true
+      },
+      {
+        "name": "lateAfter",
+        "type": "string",
+        "description": "迟到阈值 HH:MM(可选)"
+      },
+      {
+        "name": "earlyBefore",
+        "type": "string",
+        "description": "早退阈值 HH:MM(可选)"
+      },
+      {
+        "name": "absentAfter",
+        "type": "string",
+        "description": "缺勤阈值 HH:MM(可选)"
+      },
+      {
+        "name": "workdays",
+        "type": "number",
+        "description": "工作日掩码 1..127(可选)"
+      },
+      {
+        "name": "enabled",
+        "type": "boolean",
+        "description": "是否启用(可选)"
+      }
+    ]
+  },
+  {
+    "name": "hr_attendance_check_in",
+    "description": "员工签到(需登录)。",
+    "method": "POST",
+    "path": "/api/hr-attendance/attendance/check-in",
+    "params": [
+      {
+        "name": "employeeId",
+        "type": "string",
+        "description": "员工 ID(uuid)",
+        "required": true
+      },
+      {
+        "name": "departmentId",
+        "type": "string",
+        "description": "部门 ID(uuid)",
+        "required": true
+      },
+      {
+        "name": "date",
+        "type": "string",
+        "description": "签到日期 YYYY-MM-DD",
+        "required": true
+      },
+      {
+        "name": "checkInMethod",
+        "type": "string",
+        "description": "签到方式",
+        "required": true,
+        "enum": [
+          "self",
+          "qrcode",
+          "manual"
+        ]
+      },
+      {
+        "name": "checkInTimeRaw",
+        "type": "string",
+        "description": "签到时刻 HH:MM:SS(可选)"
+      },
+      {
+        "name": "remark",
+        "type": "string",
+        "description": "备注(可选)"
+      }
+    ]
+  },
+  {
+    "name": "hr_attendance_check_out",
+    "description": "员工签退(需登录)。",
+    "method": "POST",
+    "path": "/api/hr-attendance/attendance/check-out",
+    "params": [
+      {
+        "name": "employeeId",
+        "type": "string",
+        "description": "员工 ID(uuid)",
+        "required": true
+      },
+      {
+        "name": "departmentId",
+        "type": "string",
+        "description": "部门 ID(uuid)",
+        "required": true
+      },
+      {
+        "name": "date",
+        "type": "string",
+        "description": "签退日期 YYYY-MM-DD",
+        "required": true
+      },
+      {
+        "name": "checkOutTimeRaw",
+        "type": "string",
+        "description": "签退时刻 HH:MM:SS",
+        "required": true
+      }
+    ]
+  },
+  {
+    "name": "hr_attendance_backfill",
+    "description": "手动触发缺勤补录(等价于定时任务一轮,需 hr:attendance:manage)。",
+    "method": "POST",
+    "path": "/api/hr-attendance/attendance/backfill",
+    "params": [
+      {
+        "name": "backfillDays",
+        "type": "number",
+        "description": "补录天数 1..30(可选,默认见后端)"
+      }
+    ]
+  },
+  {
+    "name": "hr_attendance_records",
+    "description": "查询考勤记录列表(只读),支持员工/部门/日期区间/分页筛选。",
+    "method": "GET",
+    "path": "/api/hr-attendance/attendance/records",
+    "params": [
+      {
+        "name": "employeeId",
+        "type": "string",
+        "description": "员工 ID(uuid,可选)"
+      },
+      {
+        "name": "departmentId",
+        "type": "string",
+        "description": "部门 ID(uuid,可选)"
+      },
+      {
+        "name": "date",
+        "type": "string",
+        "description": "具体日期 YYYY-MM-DD(可选)"
+      },
+      {
+        "name": "startDate",
+        "type": "string",
+        "description": "起始日期 YYYY-MM-DD(可选)"
+      },
+      {
+        "name": "endDate",
+        "type": "string",
+        "description": "结束日期 YYYY-MM-DD(可选)"
+      },
+      {
+        "name": "limit",
+        "type": "number",
+        "description": "每页条数(可选,默认 50)"
+      },
+      {
+        "name": "offset",
+        "type": "number",
+        "description": "偏移量(可选)"
+      }
+    ]
+  },
+  {
+    "name": "hr_attendance_stats",
+    "description": "获取考勤统计(只读),可按部门与日期区间聚合。",
+    "method": "GET",
+    "path": "/api/hr-attendance/attendance/stats",
+    "params": [
+      {
+        "name": "departmentId",
+        "type": "string",
+        "description": "部门 ID(uuid,可选)"
+      },
+      {
+        "name": "startDate",
+        "type": "string",
+        "description": "起始日期 YYYY-MM-DD(可选)"
+      },
+      {
+        "name": "endDate",
+        "type": "string",
+        "description": "结束日期 YYYY-MM-DD(可选)"
+      }
+    ]
+  },
+  {
+    "name": "hr_leave_list",
+    "description": "查询请假单列表(只读),支持员工/部门/状态/日期区间筛选。",
+    "method": "GET",
+    "path": "/api/hr-attendance/leave",
+    "params": [
+      {
+        "name": "employeeId",
+        "type": "string",
+        "description": "员工 ID(uuid,可选)"
+      },
+      {
+        "name": "departmentId",
+        "type": "string",
+        "description": "部门 ID(uuid,可选)"
+      },
+      {
+        "name": "status",
+        "type": "string",
+        "description": "状态筛选 pending/approved/rejected/cancelled(可选)"
+      },
+      {
+        "name": "startDate",
+        "type": "string",
+        "description": "起始日期 YYYY-MM-DD(可选)"
+      },
+      {
+        "name": "endDate",
+        "type": "string",
+        "description": "结束日期 YYYY-MM-DD(可选)"
+      }
+    ]
+  },
+  {
+    "name": "hr_leave_create",
+    "description": "提交请假申请(需登录)。",
+    "method": "POST",
+    "path": "/api/hr-attendance/leave",
+    "params": [
+      {
+        "name": "employeeId",
+        "type": "string",
+        "description": "员工 ID(uuid)",
+        "required": true
+      },
+      {
+        "name": "departmentId",
+        "type": "string",
+        "description": "部门 ID(uuid)",
+        "required": true
+      },
+      {
+        "name": "leaveType",
+        "type": "string",
+        "description": "请假类型",
+        "required": true
+      },
+      {
+        "name": "startDate",
+        "type": "string",
+        "description": "起始日期 YYYY-MM-DD",
+        "required": true
+      },
+      {
+        "name": "endDate",
+        "type": "string",
+        "description": "结束日期 YYYY-MM-DD",
+        "required": true
+      },
+      {
+        "name": "totalDays",
+        "type": "number",
+        "description": "请假总天数",
+        "required": true
+      },
+      {
+        "name": "reason",
+        "type": "string",
+        "description": "请假事由",
+        "required": true
+      },
+      {
+        "name": "attachment",
+        "type": "string",
+        "description": "附件地址(可选)"
+      }
+    ]
+  },
+  {
+    "name": "hr_leave_approve",
+    "description": "审批请假单(需 hr:attendance:manage):批准或驳回。",
+    "method": "PUT",
+    "path": "/api/hr-attendance/leave/:id/approve",
+    "pathParams": [
+      {
+        "name": "id",
+        "type": "string",
+        "description": "请假单 ID(uuid)",
+        "required": true
+      }
+    ],
+    "params": [
+      {
+        "name": "decision",
+        "type": "string",
+        "description": "审批决定",
+        "required": true,
+        "enum": [
+          "approved",
+          "rejected"
+        ]
+      },
+      {
+        "name": "approveRemark",
+        "type": "string",
+        "description": "审批意见(可选)"
+      }
+    ]
+  }
+]
+
+export const HR_TOOLS = createRouteTools(HR_SPECS)

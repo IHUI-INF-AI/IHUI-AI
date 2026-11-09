@@ -19,13 +19,15 @@
  * 凭据层是 `scripts/lib/rn-release-credentials.mjs`(§5d 密钥目录单源)⇒ 本客户端与它们同侧同形:
  * 不新增公开端点(矩阵不需要服务面)、默认 dry-run、凭据三态、结论恒脱敏。
  *
- * ## 三段射程(行为,不是猜)
+ * ## 四段射程(行为,不是猜)
  *   status  取产物状态:token → `GET /api/publish/v2/app-info`(+ v3 版本列表)
  *   upload  上传产物:`GET /api/publish/v2/upload-url/for-obs` → `PUT <uploadUrl>`(OBS)
- *   verify  校验:本地 MD5/字节数 ⇄ 申报值 ⇄ 回读的 releaseState,三者对齐才算绿
- *   submit  **刻意不做**:提交发布是写端点且形态未从官方文档核实 ⇒ 一律 endpoint-unverified、零调用。
+ *   submit  提审:`POST /api/publish/v2/app-submit?appId=&releaseType=`(client_id 头 + Bearer,
+ *           ret.code=0 才算受理);AGC 论坛口径:Publishing API 的提审主要面向 HarmonyOS/元服务,
+ *           Android 包能否经此提审**以实测 ret.code 为准** ⇒ 绿只代表"对方受理",不等于已上架。
+ *   verify  校验:本地 MD5/字节数 ⇄ 申报值 ⇄ 回读 releaseState ⇄ 提审回执,四者对齐才算绿
  *
- * 端点纪律与 `probe-store-channel.mjs` 同一条:**只打已核实形态的只读/上传端点**;
+ * 端点纪律与 `probe-store-channel.mjs` 同一条:**只打已核实形态的只读/上传/提审端点**;
  * 非 JSON/HTML 一律 unjudged(把"我路径错"读成"对方拒绝"本票真踩过一次)。
  *
  * ## 离线可测(红线:测试里绝不发生真实出网)
@@ -40,7 +42,7 @@
  *   默认 **dry-run**(零网络);`--execute` 才发请求(HUAWEI_PROXY_* 由调用方在 spawn 时注入)。
  * 退出码:0 三段全绿 / 1 缺凭据或对方拒绝(点名缺哪一枚) / 2 未判定(形态取不到、网络不可达、产物缺失)
  */
-import { createHash } from 'node:crypto'
+import { createHash, createSign, createVerify, generateKeyPairSync, constants as cryptoConstants } from 'node:crypto'
 import { readFileSync, statSync } from 'node:fs'
 import path from 'node:path'
 import { spawnSync } from 'node:child_process'
@@ -59,8 +61,11 @@ export const ENDPOINTS = Object.freeze({
   appInfo: { method: 'GET', path: '/api/publish/v2/app-info', verified: true, doc: 'agcapi-app-info-query-0000001158365045' },
   versionList: { method: 'POST', path: '/api/publish/v3/version/brief-info/list', verified: true, doc: 'agc-help-publish-api-query-brief-info-list-0000002236201254' },
   uploadUrl: { method: 'GET', path: '/api/publish/v2/upload-url/for-obs', verified: true, doc: 'Publishing API「获取上传文件地址」' },
-  submit: { method: 'POST', path: null, verified: false, doc: '「提交发布」正文需登录 AGC 文档站核形态 ⇒ 本器零调用' },
+  submit: { method: 'POST', path: '/api/publish/v2/app-submit', verified: true, doc: 'Publishing API「提交发布」app-submit(appId + releaseType)' },
 })
+
+/** AGC 论坛口径的诚实边界:app-submit 主要面向 HarmonyOS/元服务,Android 是否开放以实测为准。 */
+export const SUBMIT_CAVEAT = 'AGC 论坛口径:app-submit 主要面向 HarmonyOS/元服务,Android 包能否经此提审以 ret.code 实测为准;ret.code=0 只代表对方受理,不等于已上架'
 
 /** 华为 ret.code 的判读表:两类"凭据类型不对"与"通道可达"必须分开(§0.3)。 */
 export const RET_CODES = Object.freeze({
@@ -78,6 +83,7 @@ export function buildPaths({ baseUrl = 'https://connect-api.cloud.huawei.com', c
     appInfo: (appId, releaseType) => `${baseUrl}${ENDPOINTS.appInfo.path}?${q({ appId, releaseType })}`,
     versionList: (body = {}) => ({ url: `${baseUrl}${ENDPOINTS.versionList.path}`, headers: { client_id: clientId, 'content-type': 'application/json' }, body: JSON.stringify(body) }),
     uploadUrl: ({ appId, fileName, contentLength, releaseType = 1 }) => `${baseUrl}${ENDPOINTS.uploadUrl.path}?${q({ appId, fileName, contentLength, releaseType })}`,
+    submit: ({ appId, releaseType = 1 }) => `${baseUrl}${ENDPOINTS.submit.path}?${q({ appId, releaseType })}`,
     authHeaders: (token) => ({ Authorization: `Bearer ${token}`, client_id: clientId ?? '' }),
   }
 }
@@ -105,6 +111,44 @@ export function parseCredentialText(text) {
 }
 
 /**
+ * AGC「服务账号凭证」JSON 解析(纯函数)。
+ * 官方《Connect API 使用入门》2026-10-29 版把 Service Account 标为推荐方式:
+ * 文件字段 key_id / private_key / sub_account / token_uri;鉴权令牌是**本地签发的 PS256 JWT**,
+ * 直接放 `Authorization: Bearer`,不走 client_credentials 换 token。
+ * 三态:字段齐 ⇒ service-account;非 JSON 或缺字段 ⇒ none(交给文本解析器,不误判)。
+ */
+export function parseServiceAccountJson(text) {
+  let j = null
+  try {
+    j = JSON.parse(String(text ?? ''))
+  } catch {
+    return { kind: 'none' }
+  }
+  if (!j || typeof j !== 'object') return { kind: 'none' }
+  const keyId = j.key_id
+  const privateKey = j.private_key
+  const subAccount = j.sub_account
+  if (!keyId || !privateKey || !subAccount) return { kind: 'none' }
+  return {
+    kind: 'service-account',
+    keyId: String(keyId),
+    privateKey: String(privateKey),
+    subAccount: String(subAccount),
+    tokenUri: String(j.token_uri ?? 'https://oauth-login.cloud.huawei.com/oauth2/v3/token'),
+  }
+}
+
+/** 服务账号 JWT:header {kid,typ:JWT,alg:PS256};payload {aud:token_uri,iss:sub_account,iat,exp=iat+3600}。 */
+export function buildServiceAccountJwt(creds, { now = Math.floor(Date.now() / 1000), ttlSec = 3600 } = {}) {
+  const b64u = (obj) => Buffer.from(JSON.stringify(obj)).toString('base64url')
+  const unsigned = `${b64u({ kid: creds.keyId, typ: 'JWT', alg: 'PS256' })}.${b64u({ aud: creds.tokenUri, iss: creds.subAccount, exp: now + ttlSec, iat: now })}`
+  const signature = createSign('sha256')
+    .update(unsigned)
+    .sign({ key: creds.privateKey, padding: cryptoConstants.RSA_PKCS1_PSS_PADDING, saltLength: cryptoConstants.RSA_PSS_SALTLEN_DIGEST })
+  return `${unsigned}.${Buffer.from(signature).toString('base64url')}`
+}
+
+/**
  * 凭据解析单出口:env 优先,其次密钥目录(§5d,原文不出仓、不进 stdout)。
  * 返回 {status, detail, value:{clientId,clientSecret,appId,kind}};value 只在 found 时给。
  */
@@ -120,16 +164,30 @@ export function resolveCredentials({ env = process.env, read = readFileSync, roo
   const cred = storeCredential(HUAWEI_VENDOR, { root })
   if (cred.status !== STATUS.FOUND) return { status: cred.status, detail: `密钥目录:${cred.detail}`, value: null }
   let parsed = null
-  try {
-    parsed = parseCredentialText(read(cred.value[0].path, 'utf8'))
-  } catch (e) {
-    return { status: STATUS.UNJUDGED, detail: `凭据件读不到(${e?.code ?? e?.name})⇒ 不判"无凭据"`, value: null }
+  let sa = null
+  let readErr = null
+  for (const f of cred.value) {
+    let text = null
+    try {
+      text = read(f.path, 'utf8')
+    } catch (e) {
+      readErr = e
+      continue
+    }
+    const s = parseServiceAccountJson(text)
+    if (s.kind === 'service-account') {
+      sa = s
+      break
+    }
+    if (!parsed) parsed = parseCredentialText(text)
   }
+  if (sa) return { status: STATUS.FOUND, detail: `服务账号凭证在位(key_id=${sa.keyId.slice(0, 6)}***, sub_account=${sa.subAccount}, private_key sha8=${fp(sa.privateKey)};JWT PS256 本地签发)`, value: sa }
+  if (!parsed) return { status: STATUS.UNJUDGED, detail: `凭据件读不到(${readErr?.code ?? readErr?.name})⇒ 不判"无凭据"`, value: null }
   if (parsed.kind === 'none') return { status: STATUS.UNJUDGED, detail: `凭据件字段形态认不出(字段=${parsed.fields.join('/')})`, value: null }
   if (parsed.kind === 'hms-legacy')
     return {
       status: STATUS.MISSING,
-      detail: `密钥目录那枚是 HMS 客户端凭据(字段=${parsed.fields.join('/')}, secret sha8=${parsed.secretFp}),Publishing API 不认 ⇒ 缺 AGC「用户与权限→Connect API」的 client_id/client_secret`,
+      detail: `密钥目录那枚是 HMS 客户端凭据(字段=${parsed.fields.join('/')}, secret sha8=${parsed.secretFp}),Publishing API 不认 ⇒ 需要 AGC 的「服务账号凭证(官方推荐)」或「API客户端凭证」`,
       value: null,
     }
   return { status: STATUS.FOUND, detail: `Connect API 客户端在位(client_id=${String(parsed.clientId).slice(0, 4)}***, secret sha8=${parsed.secretFp})`, value: parsed }
@@ -156,6 +214,14 @@ export function classifyRet(httpStatus, rawBody) {
 
 /** 换 token:失败即三分(拿到 token / 对方拒绝 / 网络不可达),绝不把拒绝读成可达。 */
 export async function fetchToken({ fetchImpl, P, creds, timeoutMs = 20000 }) {
+  if (creds?.kind === 'service-account') {
+    try {
+      const token = buildServiceAccountJwt(creds)
+      return { status: STATUS.FOUND, verdict: 'service-account-jwt', code: 0, detail: `服务账号 JWT 本地签发(PS256,kid=${creds.keyId.slice(0, 6)}***,TTL=3600s)⇒ 作 Bearer 直用,零换 token 网络`, token }
+    } catch (e) {
+      return { status: STATUS.UNJUDGED, verdict: 'jwt-sign-error', code: null, detail: `JWT 签发失败(${e?.code ?? e?.name})⇒ 不判凭据无效`, token: null }
+    }
+  }
   try {
     const r = await fetchImpl(P.token, {
       method: ENDPOINTS.token.method,
@@ -250,23 +316,44 @@ export async function phaseUpload({ fetchImpl = fetch, creds, appId, plan, fileP
 }
 
 /**
- * ③ 校验(纯函数,可离线跑):申报 MD5 ⇄ 本地实测 MD5 ⇄ 上传回执 ⇄ 回读 releaseState。
- * 任何一格取不到 ⇒ unjudged;只有四格齐且自洽才 found。绝不因"PUT 返回 200"就报"已上架"。
+ * ③ 提审:app-submit(appId + releaseType)。**必须已有上传回执**才发,否则 MISSING 不冒充提审。
+ * ret.code=0 才算对方受理;返回里恒带 SUBMIT_CAVEAT(Android 是否开放以实测为准)。
  */
-export function mergeVerify({ plan, upload, status } = {}) {
+export async function phaseSubmit({ fetchImpl = fetch, creds, appId, releaseType = 1, upload = null, timeoutMs = 30000 } = {}) {
+  if (!upload || upload.objectId === null || upload.objectId === undefined) {
+    return { phase: 'submit', status: upload?.status === STATUS.UNJUDGED ? STATUS.UNJUDGED : STATUS.MISSING, verdict: 'no-upload-receipt', detail: '上传回执(objectId)未成立 ⇒ 缺前置,不冒充提审' }
+  }
+  const P = buildPaths({ clientId: creds?.clientId })
+  const t = await fetchToken({ fetchImpl, P, creds, timeoutMs })
+  if (!t.token) return { phase: 'submit', ...t }
+  const r = await fetchImpl(P.submit({ appId, releaseType }), { method: ENDPOINTS.submit.method, headers: P.authHeaders(t.token), signal: AbortSignal.timeout(timeoutMs) })
+    .then(async (x) => classifyRet(x.status, await x.text()))
+    .catch((e) => ({ status: STATUS.UNJUDGED, verdict: 'fetch-error', detail: String(e?.cause?.code ?? e?.name), data: null }))
+  if (r.status !== STATUS.FOUND) return { phase: 'submit', ...r }
+  return { phase: 'submit', status: STATUS.FOUND, verdict: 'submitted-for-review', detail: `app-submit ret.code=0(releaseType=${releaseType})⇒ 已递交提审;${SUBMIT_CAVEAT}`, data: r.data }
+}
+
+/**
+ * ④ 校验(纯函数,可离线跑):申报 MD5 ⇄ 本地实测 MD5 ⇄ 上传回执 ⇄ 回读 releaseState ⇄ 提审回执。
+ * 任何一格取不到 ⇒ unjudged/MISSING;只有齐且自洽才 found。绝不因"PUT 返回 200"就报"已上架"。
+ */
+export function mergeVerify({ plan, upload, status, submit = null } = {}) {
   const gaps = []
   if (!plan) gaps.push('申报单')
   if (!upload || upload.objectId === null || upload.objectId === undefined) gaps.push('上传回执(objectId)')
   if (!status || status.status !== STATUS.FOUND) gaps.push('回读 releaseState')
   if (plan && upload?.fileMd5 && plan.fileMd5 !== upload.fileMd5) gaps.push('MD5 申报与回执不一致')
   if (gaps.length) return { phase: 'verify', status: gaps.length === 3 ? STATUS.UNJUDGED : STATUS.MISSING, verdict: 'verify-incomplete', gaps, detail: `取不到:${gaps.join(' / ')}` }
+  if (!submit || submit.status !== STATUS.FOUND) {
+    return { phase: 'verify', status: STATUS.MISSING, verdict: 'uploaded-partial', detail: `文件已落华为(objectId=${upload.objectId}),但提审回执未成立(${submit?.detail ?? '未执行'})⇒ uploaded-partial`, submit: 'not-submitted' }
+  }
   return {
     phase: 'verify',
     status: STATUS.FOUND,
-    verdict: `md5-consistent-releaseState-${status.releaseState}`,
-    detail: `objectId=${upload.objectId} md5=${plan.fileMd5} 申报=${plan.contentLength}B 一致;回读 releaseState=${status.releaseState}`,
+    verdict: `submitted-for-review-releaseState-${status.releaseState}`,
+    detail: `objectId=${upload.objectId} md5=${plan.fileMd5} 申报=${plan.contentLength}B 一致;回读 releaseState=${status.releaseState};提审 receipt=ret.code 0 ⇒ 对方受理,不等于已上架`,
     releaseState: status.releaseState,
-    submit: ENDPOINTS.submit.verified ? 'allowed' : 'endpoint-unverified-zero-call',
+    submit: 'submitted-for-review',
   }
 }
 
@@ -282,13 +369,15 @@ export function buildRegisterArgv({ version, buildNumber, downloadUrl, apply } =
 
 export const HELP = `华为 AppGallery Connect「Publishing API」客户端
 用法:
-  node scripts/submit-store-huawei.mjs [--phase status|upload|verify|all] [--file <apk|aab>]
-       [--app-id <AGC appId>] [--execute] [--json] [--register --version <v> --build-number <n> --download-url <url>]
+  node scripts/submit-store-huawei.mjs [--phase status|upload|submit|verify|all] [--file <apk|aab>]
+       [--app-id <AGC appId>] [--release-type 1|3] [--execute] [--json]
+       [--register --version <v> --build-number <n> --download-url <url>]
   node scripts/submit-store-huawei.mjs --self-test
 开关:
   --phase        阶段(status 默认)
   --file         提交物路径(用于 upload/verify 段)
   --app-id       AGC appId(缺省读 env HUAWEI_CONNECT_APP_ID)
+  --release-type 1=全网发布 / 3=分阶段发布(缺省 1)
   --execute      真出网(缺省 dry-run 零请求)
   --json         JSON 输出
   --register     校验通过后登记 store=huawei 的 latest(带 --apply 才真写)
@@ -298,10 +387,10 @@ export const HELP = `华为 AppGallery Connect「Publishing API」客户端
   --self-test    离线自检
   --help, -h     显示本帮助
 凭据优先级:env HUAWEI_CONNECT_CLIENT_ID / _CLIENT_SECRET / _APP_ID > 密钥目录文件
-退出码:0 三段全绿 / 1 缺凭据或对方拒绝 / 2 未判定`
+退出码:0 全绿 / 1 缺凭据或对方拒绝 / 2 未判定`
 
 export function parseArgs(argv) {
-  const out = { phase: 'status', file: null, appId: process.env.HUAWEI_CONNECT_APP_ID ?? null, execute: false, json: false, register: false, selfTest: false, help: false, version: null, buildNumber: null, downloadUrl: null }
+  const out = { phase: 'status', file: null, appId: process.env.HUAWEI_CONNECT_APP_ID ?? null, releaseType: 1, execute: false, json: false, register: false, selfTest: false, help: false, version: null, buildNumber: null, downloadUrl: null }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     if (a === '--help' || a === '-h') out.help = true
@@ -309,6 +398,7 @@ export function parseArgs(argv) {
     else if (a === '--phase') out.phase = argv[++i]
     else if (a === '--file') out.file = argv[++i]
     else if (a === '--app-id') out.appId = argv[++i]
+    else if (a === '--release-type') out.releaseType = Number(argv[++i])
     else if (a === '--execute') out.execute = true
     else if (a === '--json') out.json = true
     else if (a === '--register') out.register = true
@@ -317,11 +407,12 @@ export function parseArgs(argv) {
     else if (a === '--download-url') out.downloadUrl = argv[++i]
     else throw new Error(`未知参数: ${a}`)
   }
-  if (!['status', 'upload', 'verify', 'all'].includes(out.phase)) throw new Error(`--phase 只接受 status|upload|verify|all,收到 ${out.phase}`)
+  if (!['status', 'upload', 'submit', 'verify', 'all'].includes(out.phase)) throw new Error(`--phase 只接受 status|upload|submit|verify|all,收到 ${out.phase}`)
+  if (![1, 3].includes(out.releaseType)) throw new Error(`--release-type 只接受 1(全网)|3(分阶段),收到 ${out.releaseType}`)
   return out
 }
 
-/** 网络出口只在 --execute 时打开;默认 dry-run 把"要打哪三个端点、用什么凭据"先摆出来。 */
+/** 网络出口只在 --execute 时打开;默认 dry-run 把"要打哪几个端点、用什么凭据"先摆出来。 */
 export function dryRunPlan({ args, creds, plan }) {
   const P = buildPaths({ clientId: creds?.value?.clientId ?? '<client_id>' })
   return {
@@ -329,11 +420,15 @@ export function dryRunPlan({ args, creds, plan }) {
     verdict: 'dry-run',
     detail: '未发任何请求(加 --execute 才出网)',
     calls: [
-      creds?.status === STATUS.FOUND ? `${ENDPOINTS.token.method} ${P.token}` : `token 段跳过:凭据未成立(${creds?.detail ?? ''})`,
-      args.phase !== 'upload' ? `${ENDPOINTS.appInfo.method} ${P.appInfo(args.appId ?? '<appId>')}` : `${ENDPOINTS.appInfo.method} ${P.appInfo(args.appId ?? '<appId>')} 跳过(phase=upload)`,
-      `${ENDPOINTS.uploadUrl.method} ${P.uploadUrl({ appId: args.appId ?? '<appId>', fileName: plan?.fileName ?? '<file>', contentLength: plan?.contentLength ?? '<bytes>', releaseType: 1 })}`,
+      creds?.status !== STATUS.FOUND
+        ? `token 段跳过:凭据未成立(${creds?.detail ?? ''})`
+        : creds?.value?.kind === 'service-account'
+          ? '服务账号 JWT 本地签发(PS256,零出网)⇒ Authorization: Bearer 直用'
+          : `${ENDPOINTS.token.method} ${P.token}`,
+      args.phase !== 'upload' && args.phase !== 'submit' ? `${ENDPOINTS.appInfo.method} ${P.appInfo(args.appId ?? '<appId>')}` : `${ENDPOINTS.appInfo.method} ${P.appInfo(args.appId ?? '<appId>')} 跳过(phase=${args.phase})`,
+      `${ENDPOINTS.uploadUrl.method} ${P.uploadUrl({ appId: args.appId ?? '<appId>', fileName: plan?.fileName ?? '<file>', contentLength: plan?.contentLength ?? '<bytes>', releaseType: args.releaseType ?? 1 })}`,
       'PUT <uploadUrl>(OBS 文件流)',
-      `提交发布:${ENDPOINTS.submit.verified ? '允许' : 'endpoint-unverified ⇒ 零调用'}`,
+      `${ENDPOINTS.submit.method} ${P.submit({ appId: args.appId ?? '<appId>', releaseType: args.releaseType ?? 1 })}(${SUBMIT_CAVEAT})`,
     ],
     register: args.register ? buildRegisterArgv({ ...args, apply: false }).join(' ').replace(ROOT, '<repo>') : null,
   }
@@ -346,13 +441,17 @@ export function dryRunPlan({ args, creds, plan }) {
 function selfTest() {
   return runSelfTest([
     { name: 'H1 凭据件三形态:connect-api / hms-legacy / none 分得开', fn: () => { const c = parseCredentialText('client_id：1234567890\nclient_secret:SECRET-X\n应用ID:98765'); const l = parseCredentialText('应用ID:100000\n密钥:SECRET-X'); const n = parseCredentialText('乱七八糟一行'); return c.kind === 'connect-api' && c.clientId === '1234567890' && c.appId === '98765' && l.kind === 'hms-legacy' && n.kind === 'none' } },
-    { name: 'H2 buildPaths 端点形态逐字钉住,submit 段结构上无 path', fn: () => { const P = buildPaths({ clientId: 'cid-1' }); return P.token === 'https://connect-api.cloud.huawei.com/api/oauth2/v1/token' && P.appInfo('100000') === 'https://connect-api.cloud.huawei.com/api/publish/v2/app-info?appId=100000' && /upload-url\/for-obs\?appId=1&fileName=a\.apk&contentLength=2048&releaseType=1$/.test(P.uploadUrl({ appId: '1', fileName: 'a.apk', contentLength: '2048' })) && P.authHeaders('tok').Authorization === 'Bearer tok' && ENDPOINTS.submit.verified === false && ENDPOINTS.submit.path === null } },
+    { name: 'H2 buildPaths 端点形态逐字钉住,submit 段有 app-submit 路径', fn: () => { const P = buildPaths({ clientId: 'cid-1' }); return P.token === 'https://connect-api.cloud.huawei.com/api/oauth2/v1/token' && P.appInfo('100000') === 'https://connect-api.cloud.huawei.com/api/publish/v2/app-info?appId=100000' && /upload-url\/for-obs\?appId=1&fileName=a\.apk&contentLength=2048&releaseType=1$/.test(P.uploadUrl({ appId: '1', fileName: 'a.apk', contentLength: '2048' })) && P.submit({ appId: '1' }) === 'https://connect-api.cloud.huawei.com/api/publish/v2/app-submit?appId=1&releaseType=1' && P.authHeaders('tok').Authorization === 'Bearer tok' && ENDPOINTS.submit.verified === true && ENDPOINTS.submit.path === '/api/publish/v2/app-submit' } },
     { name: 'H3 classifyRet:0/凭据类型错/非 JSON/5xx 四态不并桶', fn: () => classifyRet(200, '{"ret":{"code":0,"msg":"success"}}').status === STATUS.FOUND && classifyRet(200, '{"ret":{"code":205524993,"msg":"client token auth failed"}}').status === STATUS.MISSING && classifyRet(200, '{"ret":{"code":205524993}}').verdict === 'endpoint-ok-wrong-credential-type' && classifyRet(404, '<html>404</html>').status === STATUS.UNJUDGED && classifyRet(500, '{"ret":{"code":1,"msg":"boom"}}').status === STATUS.UNJUDGED },
-    { name: 'H4 mergeVerify 四格齐才绿;MD5 不一致 ⇒ MISSING;不顺手提交发布', fn: () => { const plan = { fileName: 'a.apk', contentLength: '1024', fileMd5: 'm1' }; const up = { status: STATUS.FOUND, objectId: 'OBJ', fileMd5: 'm1' }; const st = { status: STATUS.FOUND, releaseState: 4 }; const ok = mergeVerify({ plan, upload: up, status: st }); const bad = mergeVerify({ plan, upload: { status: STATUS.FOUND, objectId: 'O', fileMd5: 'other' }, status: st }); return ok.status === STATUS.FOUND && ok.submit === 'endpoint-unverified-zero-call' && bad.status === STATUS.MISSING && mergeVerify({ plan, upload: { status: STATUS.UNJUDGED }, status: null }).gaps.length === 2 } },
+    { name: 'H4 mergeVerify 上传+回读+提审齐才绿;只有上传 ⇒ uploaded-partial', fn: () => { const plan = { fileName: 'a.apk', contentLength: '1024', fileMd5: 'm1' }; const up = { status: STATUS.FOUND, objectId: 'OBJ', fileMd5: 'm1' }; const st = { status: STATUS.FOUND, releaseState: 4 }; const sub = { status: STATUS.FOUND }; const ok = mergeVerify({ plan, upload: up, status: st, submit: sub }); const partial = mergeVerify({ plan, upload: up, status: st }); const bad = mergeVerify({ plan, upload: { status: STATUS.FOUND, objectId: 'O', fileMd5: 'other' }, status: st, submit: sub }); return ok.status === STATUS.FOUND && ok.submit === 'submitted-for-review' && partial.status === STATUS.MISSING && partial.verdict === 'uploaded-partial' && bad.status === STATUS.MISSING && mergeVerify({ plan, upload: { status: STATUS.UNJUDGED }, status: null }).gaps.length === 2 } },
     { name: 'H5 登记腿 argv:store=huawei 恒在,dry-run 不带 --apply', fn: () => { const a = buildRegisterArgv({ version: '0.0.9', buildNumber: 26102816, downloadUrl: 'https://x/a.apk', apply: false }); return /--platform android --store huawei/.test(a.join(' ')) && !a.includes('--apply') && /--apply$/.test(buildRegisterArgv({ version: '1', apply: true }).join(' ')) } },
-    { name: 'H6 parseArgs:未知参数/非法 phase 抛错,--help 与 --self-test 被识别', fn: () => { try { parseArgs(['--nope']); return false } catch {} try { parseArgs(['--phase', 'submit']); return false } catch {} return parseArgs(['--help']).help === true && parseArgs(['--self-test']).selfTest === true } },
-    { name: 'H7 dry-run 五条计划且默认零出网,提交段明写零调用', fn: () => { const touched = globalThis.fetch; let n = 0; globalThis.fetch = async () => { n++; throw new Error('不该出网') }; try { const d = dryRunPlan({ args: { phase: 'status', appId: '1' }, creds: { status: STATUS.MISSING, detail: 'x', value: null }, plan: null }); return d.calls.length === 5 && /app-info\?appId=1$/.test(d.calls[1]) && /endpoint-unverified ⇒ 零调用/.test(d.calls[4]) && n === 0 } finally { globalThis.fetch = touched } } },
+    { name: 'H6 parseArgs:未知参数/非法 phase/非法 release-type 抛错,--help 与 --self-test 被识别', fn: () => { try { parseArgs(['--nope']); return false } catch {} try { parseArgs(['--phase', 'bogus']); return false } catch {} try { parseArgs(['--release-type', '2']); return false } catch {} return parseArgs(['--help']).help === true && parseArgs(['--self-test']).selfTest === true && parseArgs(['--phase', 'submit']).phase === 'submit' && parseArgs(['--release-type', '3']).releaseType === 3 } },
+    { name: 'H7 dry-run 五条计划且默认零出网,提审段已核实在册', fn: () => { const touched = globalThis.fetch; let n = 0; globalThis.fetch = async () => { n++; throw new Error('不该出网') }; try { const d = dryRunPlan({ args: { phase: 'status', appId: '1' }, creds: { status: STATUS.MISSING, detail: 'x', value: null }, plan: null }); return d.calls.length === 5 && /app-info\?appId=1$/.test(d.calls[1]) && /app-submit\?appId=1&releaseType=1/.test(d.calls[4]) && n === 0 } finally { globalThis.fetch = touched } } },
     { name: 'H8 凭据 env 形态脱敏:结论不含 secret 原文', fn: () => { const r = resolveCredentials({ env: { HUAWEI_CONNECT_CLIENT_ID: 'cid', HUAWEI_CONNECT_CLIENT_SECRET: 'SECRET-X', HUAWEI_CONNECT_APP_ID: 'aid' } }); return r.status === STATUS.FOUND && /sha8=/.test(r.detail) && !r.detail.includes('SECRET-X') } },
+    { name: 'H9 无上传回执 ⇒ 提审段 MISSING 且零出网', fn: async () => { let n = 0; const r = await phaseSubmit({ fetchImpl: async () => { n++; throw new Error('不应出网') }, creds: { clientId: 'I', clientSecret: 'S' }, appId: '1', upload: null }); return n === 0 && r.status === STATUS.MISSING && r.verdict === 'no-upload-receipt' } },
+    { name: 'H10 app-submit 打对端点且 ret.code=0 才算受理(不等于已上架)', fn: async () => { const seen = []; const fetchImpl = async (url, init) => { seen.push({ url, init }); if (url.includes('/oauth2/v1/token')) return { status: 200, text: async () => '{"access_token":"T1","expires_in":3600}' }; return { status: 200, text: async () => '{"ret":{"code":0,"msg":"success"}}' } }; const r = await phaseSubmit({ fetchImpl, creds: { clientId: 'I', clientSecret: 'S' }, appId: '100000', releaseType: 1, upload: { status: STATUS.FOUND, objectId: 'OBJ' } }); return r.status === STATUS.FOUND && r.verdict === 'submitted-for-review' && /app-submit\?appId=100000&releaseType=1$/.test(seen[1].url) && seen[1].init.headers.Authorization === 'Bearer T1' && /不等于已上架/.test(r.detail) } },
+    { name: 'H11 服务账号 JSON 三态:齐字段/缺字段/非 JSON', fn: () => { const sa = parseServiceAccountJson('{"key_id":"k1","private_key":"PEM","sub_account":"100000001","token_uri":"https://oauth-login.cloud.huawei.com/oauth2/v3/token"}'); const miss = parseServiceAccountJson('{"key_id":"k1"}'); const txt = parseServiceAccountJson('client_id:1'); return sa.kind === 'service-account' && sa.keyId === 'k1' && sa.subAccount === '100000001' && sa.tokenUri === 'https://oauth-login.cloud.huawei.com/oauth2/v3/token' && miss.kind === 'none' && txt.kind === 'none' } },
+    { name: 'H12 服务账号 JWT:header/payload 逐字 + PS256 签名可验', fn: () => { const kp = generateKeyPairSync('rsa', { modulusLength: 2048 }); const pem = kp.privateKey.export({ type: 'pkcs8', format: 'pem' }); const c = { kind: 'service-account', keyId: 'kid1', subAccount: '100000001', tokenUri: 'https://oauth-login.cloud.huawei.com/oauth2/v3/token', privateKey: pem }; const jwt = buildServiceAccountJwt(c, { now: 1700000000 }); const [h, p, s] = jwt.split('.'); const H = JSON.parse(Buffer.from(h, 'base64url')); const PL = JSON.parse(Buffer.from(p, 'base64url')); const ok = createVerify('sha256').update(`${h}.${p}`).verify({ key: kp.publicKey, padding: cryptoConstants.RSA_PKCS1_PSS_PADDING, saltLength: cryptoConstants.RSA_PSS_SALTLEN_DIGEST }, Buffer.from(s, 'base64url')); return H.alg === 'PS256' && H.kid === 'kid1' && H.typ === 'JWT' && PL.iss === '100000001' && PL.aud === c.tokenUri && PL.iat === 1700000000 && PL.exp === 1700003600 && ok === true } },
   ])
 }
 
@@ -376,12 +475,28 @@ async function main() {
     return 2
   }
   const steps = []
-  const statusRes = args.phase === 'upload' ? null : await phaseStatus({ creds: creds.value, appId: args.appId })
-  if (statusRes) steps.push(statusRes)
-  const up = ['upload', 'all', 'verify'].includes(args.phase) ? await phaseUpload({ creds: creds.value, appId: args.appId, plan, filePath: args.file }) : { phase: 'upload', status: STATUS.UNJUDGED, verdict: 'skipped', detail: '未跑 upload 段', objectId: null }
-  steps.push(up)
-  const v = args.phase === 'status' ? { phase: 'verify', status: STATUS.UNJUDGED, verdict: 'skipped', detail: '未跑 verify 段', gaps: ['verify'] } : mergeVerify({ plan, upload: up, status: statusRes })
-  steps.push(v)
+  const releaseType = args.releaseType ?? 1
+  let last = null
+  if (args.phase === 'status') {
+    last = await phaseStatus({ creds: creds.value, appId: args.appId })
+    steps.push(last)
+  } else if (args.phase === 'upload') {
+    last = await phaseUpload({ creds: creds.value, appId: args.appId, plan, filePath: args.file })
+    steps.push(last)
+  } else {
+    const statusRes = ['verify', 'all'].includes(args.phase) ? await phaseStatus({ creds: creds.value, appId: args.appId }) : null
+    if (statusRes) steps.push(statusRes)
+    const up = await phaseUpload({ creds: creds.value, appId: args.appId, plan, filePath: args.file })
+    steps.push(up)
+    const sub = await phaseSubmit({ creds: creds.value, appId: args.appId, releaseType, upload: up })
+    steps.push(sub)
+    if (args.phase === 'submit') last = sub
+    else {
+      last = mergeVerify({ plan, upload: up, status: statusRes ?? { status: STATUS.UNJUDGED }, submit: sub })
+      steps.push(last)
+    }
+  }
+  const v = last
   const verdicts = { found: 0, missing: 0, unjudged: 0 }
   for (const s of steps) verdicts[s.status === STATUS.FOUND ? 'found' : s.status === STATUS.MISSING ? 'missing' : 'unjudged']++
   console.log(args.json ? JSON.stringify({ steps, verdicts }, null, 2) : steps.map((s) => `[${s.status}] ${s.phase}: ${s.verdict} — ${s.detail ?? ''}`).join('\n'))
@@ -396,12 +511,17 @@ async function main() {
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) {
   main()
-    .then((code) => process.exit(code))
+    // Windows 上 undici keep-alive + AbortSignal.timeout 在 process.exit 瞬间会撞
+    // libuv 的 UV_HANDLE_CLOSING 断言(输出已完整,纯退出期故障);留一拍让句柄收敛。
+    .then(async (code) => {
+      await new Promise((r) => setTimeout(r, 150))
+      process.exit(code)
+    })
     .catch((e) => {
       console.error(`❌ ${e?.message ?? e}\n${e?.stack ?? ''}`)
       process.exit(2)
     })
 }
 
-export const __test__ = { ENDPOINTS, RET_CODES, buildPaths, parseCredentialText, resolveCredentials, classifyRet, fetchToken, phaseStatus, planUpload, phaseUpload, mergeVerify, buildRegisterArgv, parseArgs, dryRunPlan, STATUS }
+export const __test__ = { ENDPOINTS, RET_CODES, SUBMIT_CAVEAT, buildPaths, parseCredentialText, parseServiceAccountJson, buildServiceAccountJwt, resolveCredentials, classifyRet, fetchToken, phaseStatus, planUpload, phaseUpload, phaseSubmit, mergeVerify, buildRegisterArgv, parseArgs, dryRunPlan, STATUS }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -62,6 +62,7 @@
     "@ihui/auth": "workspace:*",
     "@ihui/context-compaction": "workspace:*",
     "@ihui/database": "workspace:*",
+    "@ihui/attendance-core": "workspace:*",
     "@ihui/design-tokens": "workspace:*",
     "@ihui/shared": "workspace:*",
     "@ihui/types": "workspace:*",

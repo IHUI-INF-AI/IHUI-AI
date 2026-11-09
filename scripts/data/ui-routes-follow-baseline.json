@@ -1,0 +1,25 @@
+{
+  "comment": "三端路由跟随差集基线:棘轮只允许差集变小;任何一项变大 = 新增路由未回填,必须人工裁决后再更新本文件。",
+  "reason": "路由跟随格首建:三端路由标识不同构,存量缺口如实落账(RN 屏无小程序对应 / 小程序页无 RN 对应 / route-map 单条未登录屏 Register / Web→RN pending),棘轮只拦新增不逼改判据不改路由",
+  "face": "head",
+  "updatedAt": "2026-11-06T19:50:39.215Z",
+  "entries": {
+    "webRoutes": 913,
+    "rnScreens": 347,
+    "taroPages": 329,
+    "extRoutes": 51,
+    "routeMapEntries": 254,
+    "registryEntries": 251,
+    "routeMapSupplementEntries": 2,
+    "webRnMapRows": 484
+  },
+  "gaps": {
+    "rnScreensWithoutRouteMap": 94,
+    "routeMapNamesNotInRn": 1,
+    "routeMapPathsNotInTaro": 0,
+    "taroPagesWithoutRouteMap": 80,
+    "registryPagesNotInTaro": 0,
+    "registryRnFilesMissing": 0,
+    "webRnMapPending": 1
+  }
+}

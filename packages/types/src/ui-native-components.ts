@@ -65,9 +65,32 @@ export interface AgentRuntimePermissionEvent {
   decision: string
 }
 
+/** AgentRuntimePanel 文案字典(端侧解析后传入,共享层不 import 任何端 i18n) */
+export interface AgentRuntimePanelLabels {
+  title: string
+  clear: string
+  plan: string
+  permission: string
+  permissionTool: string
+  permissionLevel: string
+  permissionMode: string
+  output: string
+  error: string
+  empty: string
+  placeholder: string
+  stop: string
+  send: string
+}
+
 /** AgentRuntimePanel Props(两端完全相同) */
 export interface AgentRuntimePanelProps {
   sessionId?: string
+  /** 文案字典(端侧按 i18n 解析后传入) */
+  labels: AgentRuntimePanelLabels
+  /** 取词函数(共享层只用它解析 taskStatus.* / 其他动态键) */
+  t: (key: string) => string
+  /** 主题色板选择,默认 light */
+  colorScheme?: 'light' | 'dark'
 }
 
 // ===== ModelConfigDialog =====

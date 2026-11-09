@@ -46,6 +46,13 @@ import { fileURLToPath } from 'node:url'
 // 现在一律经 scripts/lib/face-reader.mjs:绝对 git + stdio[0]=pipe + **一次 cat-file --batch 读完整批**
 // + maxBuffer 给足 + 取不到 ⇒ 抛 Undetermined ⇒ 对外 exit 2「无法判定」。
 import { Undetermined, catBatch, gitRaw, readWorktreeFile } from './lib/face-reader.mjs'
+import {
+  deltaParents,
+  effectiveAnchorCount,
+  lineKey,
+  newOccurrences,
+  readParentTexts,
+} from './lib/merge-delta.mjs'
 import { describeFlagToken, flagValue as libFlagValue } from './lib/flag-value.mjs'
 // ROOT 由脚本自身位置推导:守门链偶发从子包 cwd 调用,写死 process.cwd() 会静默扫不到文件而"恒绿"
 // 唯一例外是集成测试:--root 显式注入临时夹具根(测试只改 cwd 时,脚本仍会去扫真仓,
@@ -525,11 +532,48 @@ function headCountOf(rel) {
 }
 prefetchHeadAnchor(fileHits.map((h) => h.file))
 if (headFaceNotice) notice(`⚠️  [scan-hardcoded-zh] ${headFaceNotice}`)
+
+// ── 合并面的第二维:父集 = HEAD ∪ MERGE_HEAD(见 lib/merge-delta.mjs) ─────────────
+// 合并未收口时,`HEAD → 索引` 的 diff 里混着上游几十个提交的全部命中;只用 HEAD 当额度
+// 会把这些**上游既有行**判成"本次新增"。这里把额度折成「结果读数 − 本次真正新增」,
+// 判据 `读数 > 额度 ⇔ 本次新增 > 0` 一个字不动。非合并 / 无 git ⇒ mergeParents=null ⇒
+// 下面取 `headCountOf` 那一支,与改前逐字同形。
+let mergeParents = null
+if (headFaceAvailable(ROOT)) {
+  try {
+    const d = deltaParents({ root: ROOT, face })
+    if (d.merge) mergeParents = d.parents
+  } catch (e) {
+    dieUndetermined(e)
+  }
+}
+const newHitCache = new Map()
+if (mergeParents) {
+  try {
+    const texts = readParentTexts({ root: ROOT, rels: fileHits.map((h) => h.file), parents: mergeParents })
+    for (const h of fileHits) {
+      const resultKeys = h.samples.map((s) => lineKey(h.file, s.text))
+      const parentLists = mergeParents.map((p) => {
+        const t = texts.get(p.label)?.get(h.file)
+        return typeof t === 'string' ? scanSource(t).map((s) => lineKey(h.file, s.text)) : []
+      })
+      newHitCache.set(h.file, newOccurrences(resultKeys, parentLists).length)
+    }
+  } catch (e) {
+    dieUndetermined(e)
+  }
+}
+function mergeAnchorCountOf(rel, resultCount) {
+  return effectiveAnchorCount(resultCount, newHitCache.get(rel) ?? 0)
+}
+
 const violations = fileHits
   .map((h) => ({
     file: h.file,
     count: h.count,
-    allowed: Math.max(baseline[h.file] ?? 0, headCountOf(h.file)),
+    allowed: mergeParents
+      ? Math.max(baseline[h.file] ?? 0, mergeAnchorCountOf(h.file, h.count))
+      : Math.max(baseline[h.file] ?? 0, headCountOf(h.file)),
   }))
   .filter((v) => v.count > v.allowed)
   .sort((a, b) => b.count - b.allowed - (a.count - a.allowed))

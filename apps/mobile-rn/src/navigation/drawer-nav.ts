@@ -248,6 +248,7 @@ type DrawerNavRouteName =
   | 'Cart'
   | 'RefundHistory'
   | 'AIMultimodal'
+  | 'HrAttendance'
   // ── 第六批(2026-10-21)web 侧边栏对账补挂 + RN 独立入口 ─────────────────────
   // 口径:均有原生路由,且 ui-routes.generated.ts 标 requiresParams=false(无必参),
   // 逐个现读 RootNavigator 注册对后落表。同批清两处存量:LivePlayback 死声明
@@ -1182,6 +1183,12 @@ export const DRAWER_NAV_GROUPS: readonly DrawerNavGroup[] = [
         Icon: ScanLine,
         route: 'Patrol',
         target: { type: 'route', name: 'Patrol' },
+      },
+      {
+        labelKey: 'hrAttendance.title',
+        Icon: Users,
+        route: 'HrAttendance',
+        target: { type: 'route', name: 'HrAttendance' },
       },
     ],
   },

@@ -45,6 +45,7 @@ export function FollowScreen() {
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
+  const { onNavigate, onToast } = useHostPorts()
   const [tab, setTab] = useState<FollowTab>('following')
 
   // t 包装:缺失 key 的中文兜底优先,其余回落 i18n
@@ -88,6 +89,9 @@ export function FollowScreen() {
           const res = await unfollowUser(item.id)
           if (res.success) {
             removeItem((i) => i.id === item.id)
+            // 成功回执走宿主端口(与小程序 following/index.tsx 的 common.success 同口径):
+            // 端内不再自建 toast 态,时长/通道都由宿主单源决定。
+            onToast(uniappT('common.success'), { kind: 'success' })
           } else {
             appAlert(uniappT('common.failed'), res.error || uniappT('follow.unfollowFailed'))
           }
@@ -95,8 +99,6 @@ export function FollowScreen() {
       },
     ])
   }
-
-  const { onNavigate, onToast } = useHostPorts()
 
   return (
     <SharedFollowScreen

@@ -1,0 +1,604 @@
+﻿# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+#requires -Version 7
+<#
+.SYNOPSIS
+  mobile-rn 全自动发版(检测代码更新 → 出包 → 双腿发布),供 Windows 计划任务无人值守调用。
+
+.DESCRIPTION
+  机主 2026-11-05 的口径:「从此之后任何代码更新都完全自动推送到 App,点一下就能装」。
+
+  这条脚本负责"完全自动"里除"用户确认安装"以外的全部环节:
+    1. 拉取 origin/main(生产部署环轮询的同一支);
+    2. 只在这个提交里**移动端真正会进包**的路径变化(或覆盖层本身变化)时才继续
+       —— 纯 web/miniapp/文档改动不出包;
+    3. 产出每次严格递增的 4 段显示版本 `<base>.<UTC yyyyMMddHHmm>` 与不降级的 versionCode;
+    4. 构建面 = origin/main + 覆盖层(`mobile-auto-overlay` 分支:0.0.12 多分片下载器等移动端改动);
+    5. expo prebuild(--clean)+ build-mobile-rn-release.ps1(门链 → 签名 → 出包 → Gitee 分片腿 →
+       站点腿 + app_versions latest 登记,两条腿都以公网 latest 切到本次版本收尾);
+    6. 把"已发到哪个主干提交"写进 state,同一次提交不会重复出包。
+
+  为什么是"重置 + 叠加"而不是"合并分支":
+    README.md / README.en.md 里有非手写的生成数字块(trackedFiles 等),两边每次都会改同一行;
+    把它们带进合并 = 每小时都可能撞一次无意义冲突,而冲突只会让自动化停摆。
+    覆盖层里只保留**会进 APK 的文件**(apps/mobile-rn/**、packages/**、出包/发布脚本),
+    每轮用 `git apply --3way` 三路叠加到最新主干 —— 主干对同一文件的其它改动会被保留,不会整文件覆盖。
+
+  边界(写进脚本而不是留给下一个人重新发现):
+    · 只在**专用工作树** `D:\IHUI-AI\.worktrees\mobile-auto` 跑。它每轮会 reset --hard 到 origin/main,
+      所以这里不能放人工未提交的改动 —— 这条路径有且仅有 origin/main + 覆盖层这一个真相源。
+    · 机器关机 / 休眠时不会跑,`-StartWhenAvailable` 会在下次开机/登录后补一次;不会补 N 次。
+    · App 端仍是"打开 App 才检查"(冷启动 + 回前台且距上次 >30 分钟),所以"发版完成"到
+      "用户看到弹窗"最多差一次冷启动;Android 安装仍需用户在系统安装器上确认一次
+      (系统安全边界,应用无法静默绕过)。
+    · 版本号必须是 4 段且严格大于线上 latest(compareVersions 只认 1~4 段纯数字)。
+      线上 buildNumber 若已超过本机 UTC 时钟(+1 容差),本轮主动拒绝而不是发一个未来号
+      —— 未来号会让后续所有构建都成降级(check-mobile-version-code 的同一条判据)。
+
+.PARAMETER RegisterTask
+  注册/覆盖 Windows 计划任务 `IHUI-Mobile-AutoRelease`(登录后每 $IntervalMinutes 分钟跑一次),
+  注册完即退出,不执行构建。
+.PARAMETER DryRun
+  只做"拉取 → 判定要不要出包 → 算版本号",不重置工作树、不预构建、不构建、不发布。
+.PARAMETER Force
+  即使本次提交没有移动端相关改动也出包(用于验证链路)。
+.PARAMETER IntervalMinutes
+  计划任务的重复间隔(分钟),默认 60。
+.PARAMETER Worktree
+  专用构建工作树路径,默认为 `D:\IHUI-AI\.worktrees\mobile-auto`。
+.PARAMETER OverlayRef
+  覆盖层引用,默认 `mobile-auto-overlay` 分支。
+
+  用法:
+    pwsh -File scripts/mobile-auto-release.ps1 -RegisterTask      # 一次性:注册计划任务
+    pwsh -File scripts/mobile-auto-release.ps1 -DryRun            # 人工先看会发什么
+    pwsh -File scripts/mobile-auto-release.ps1                   # 计划任务实际调用的一轮
+#>
+[CmdletBinding()]
+param(
+  [switch]$RegisterTask,
+  [switch]$DryRun,
+  [switch]$Force,
+  [int]$IntervalMinutes = 60,
+  [string]$Worktree = 'D:\IHUI-AI\.worktrees\mobile-auto',
+  [string]$OverlayRef = 'mobile-auto-overlay'
+)
+
+$ErrorActionPreference = 'Stop'
+$RepoRoot = $Worktree
+$TaskName = 'IHUI-Mobile-AutoRelease'
+
+# ---- 计划任务注册档 ---------------------------------------------------------------
+# 为什么用 Interactive 登录态:构建要读 ~/.gradle/gradle.properties 与 keystore,发布要读
+# 用户级 git 凭据(gitee.com)与 ~/.ssh 里的部署密钥 —— 这些都在用户配置文件里,换成
+# SYSTEM/服务账户会全部取不到。代价是"用户没登录时不跑",已写进头注边界。
+if ($RegisterTask) {
+  if (-not (Test-Path -LiteralPath $RepoRoot)) { throw "工作树不存在: $RepoRoot" }
+  $pwshPath = (Get-Command pwsh.exe -ErrorAction Stop).Source
+  $arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`""
+  $action = New-ScheduledTaskAction -Execute $pwshPath -Argument $arguments -WorkingDirectory $PSScriptRoot
+  $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(3) `
+    -RepetitionInterval (New-TimeSpan -Minutes $IntervalMinutes)
+  $settings = New-ScheduledTaskSettingsSet `
+    -MultipleInstances IgnoreNew `
+    -StartWhenAvailable `
+    -AllowStartIfOnBatteries `
+    -DontStopIfGoingOnBatteries `
+    -ExecutionTimeLimit (New-TimeSpan -Hours 4)
+  $principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive
+  Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Settings $settings `
+    -Principal $principal -Force `
+    -Description 'IHUI mobile-rn 全自动发版:检测 origin/main 移动端改动 → 出正式签名包 → Gitee 分片腿 + 站点腿 + app_versions 登记' | Out-Null
+  Write-Host "[register] 已注册计划任务 $TaskName(每 $IntervalMinutes 分钟;登录后生效;单实例)" -ForegroundColor Green
+  Write-Host "[register] 查看: Get-ScheduledTask -TaskName $TaskName | Get-ScheduledTaskInfo"
+  return
+}
+
+# ---- 运行日志与单实例锁 ------------------------------------------------------------
+$StateDir = Join-Path $RepoRoot '.ihui-agent/state/mobile-auto-release'
+$LogDir = Join-Path $StateDir 'logs'
+$StateFile = Join-Path $StateDir 'state.json'
+$LastRunFile = Join-Path $StateDir 'last-run.json'
+$LockFile = Join-Path $StateDir 'run.lock'
+New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
+$RunId = (Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmssZ')
+$LogFile = Join-Path $LogDir "$RunId.log"
+Start-Transcript -Path $LogFile -Append | Out-Null
+
+$LockStream = $null
+try {
+  # FileShare.None 是"单实例"的判据:上一轮构建还没结束时,这一轮直接退出(不是失败)。
+  $LockStream = [System.IO.File]::Open($LockFile, [System.IO.FileMode]::OpenOrCreate,
+    [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
+} catch {
+  Write-Host '[auto] 上一轮仍在运行(锁被占用),本轮跳过。' -ForegroundColor Yellow
+  Stop-Transcript | Out-Null
+  exit 0
+}
+
+$Result = 'failed'
+$ErrorMessage = ''
+$ChosenVersion = ''
+$ChosenVersionCode = 0
+
+function Read-State {
+  if (-not (Test-Path -LiteralPath $StateFile)) { return $null }
+  try { return (Get-Content -LiteralPath $StateFile -Raw | ConvertFrom-Json) } catch { return $null }
+}
+
+function Write-State {
+  param([hashtable]$Values)
+  $state = Read-State
+  $merged = @{}
+  if ($state) { foreach ($p in $state.PSObject.Properties) { $merged[$p.Name] = $p.Value } }
+  foreach ($k in $Values.Keys) { $merged[$k] = $Values[$k] }
+  $merged['lastRunLog'] = $LogFile
+  $merged['lastRunUtc'] = (Get-Date).ToUniversalTime().ToString('o')
+  ($merged | ConvertTo-Json -Depth 6) + "`n" | Set-Content -LiteralPath $StateFile -Encoding UTF8
+  ($merged | ConvertTo-Json -Depth 6) + "`n" | Set-Content -LiteralPath $LastRunFile -Encoding UTF8
+}
+
+function Invoke-Git {
+  param([string[]]$GitArgs)
+  $output = & git -C $RepoRoot @GitArgs 2>&1
+  if ($LASTEXITCODE -ne 0) {
+    throw ("git " + ($GitArgs -join ' ') + " 失败(exit=$LASTEXITCODE)`n" + ($output -join "`n"))
+  }
+  return $output
+}
+
+function Get-GitText {
+  param([string[]]$GitArgs)
+  return ((Invoke-Git $GitArgs) -join "`n").Trim()
+}
+
+function Compare-Version {
+  <#
+    与 apps/mobile-rn/src/lib/apk-update.ts 的 compareVersions 同语义:1~4 段数字补齐到 4 段逐段比。
+    返回 1 / -1 / 0;任一方不是 1~4 段纯数字返回 $null(调用方必须显式处理,不许当成相等)。
+  #>
+  param([string]$A, [string]$B)
+  $rx = '^\d+(\.\d+){0,3}$'
+  if ($A -notmatch $rx -or $B -notmatch $rx) { return $null }
+  $pa = @($A.Split('.') | ForEach-Object { [int64]$_ })
+  $pb = @($B.Split('.') | ForEach-Object { [int64]$_ })
+  while ($pa.Count -lt 4) { $pa += 0 }
+  while ($pb.Count -lt 4) { $pb += 0 }
+  for ($i = 0; $i -lt 4; $i += 1) {
+    if ($pa[$i] -gt $pb[$i]) { return 1 }
+    if ($pa[$i] -lt $pb[$i]) { return -1 }
+  }
+  return 0
+}
+
+# 哪些路径的变化值得出一个新 APK。按"会进 JS bundle / 原生面"的闭包取,宁可多出一次包,
+# 也不许漏(漏一次 = 用户装了旧代码却不自知,而这正是"完全自动"要消灭的形态)。
+$MobilePathPatterns = @(
+  '^apps/mobile-rn/',
+  '^packages/',
+  '^pnpm-lock\.yaml$',
+  '^pnpm-workspace\.yaml$',
+  '^patches/',
+  '^scripts/(patch-rn-|build-mobile-rn-release|publish-mobile-apk|check-mobile|mobile-auto-release|register-app-version|resolve-mobile-version|mobile-release)',
+  '^scripts/data/mobile-',
+  '^deploy/server-root/remote-images/download/'
+)
+
+function Test-MobileRelevant {
+  param([string]$Path)
+  foreach ($rx in $MobilePathPatterns) { if ($Path -match $rx) { return $true } }
+  return $false
+}
+
+# 覆盖层是否已完整落在盘上。用它兜住两种情形:
+#   ① `git apply --3way` 失败但主干其实已经自带这些改动(例如 0.0.12 被并进 origin/main);
+#   ② 补丁只打了一半 —— 这时宁可停一轮,也不许拿半套代码出包。
+function Test-OverlayMarkers {
+  $multipart = Join-Path $RepoRoot 'apps/mobile-rn/src/lib/multipart-download.ts'
+  $apkUpdate = Join-Path $RepoRoot 'apps/mobile-rn/src/lib/apk-update.ts'
+  $metroConfig = Join-Path $RepoRoot 'apps/mobile-rn/metro.config.cjs'
+  $buildScript = Join-Path $RepoRoot 'scripts/build-mobile-rn-release.ps1'
+  if (-not (Test-Path -LiteralPath $multipart)) { return $false }
+  if (-not (Select-String -LiteralPath $apkUpdate -Pattern 'multipart-download' -SimpleMatch -Quiet)) { return $false }
+  if (-not (Select-String -LiteralPath $metroConfig -Pattern 'stripped' -SimpleMatch -Quiet)) { return $false }
+  if (-not (Select-String -LiteralPath $buildScript -Pattern 'VersionName' -SimpleMatch -Quiet)) { return $false }
+  return $true
+}
+
+try {
+  Write-Host "`n===== [auto] mobile-rn 全自动发版 $RunId =====" -ForegroundColor Cyan
+  if (-not (Test-Path -LiteralPath $RepoRoot)) { throw "工作树不存在: $RepoRoot" }
+
+  # 专用工作树自检:本脚本允许 reset --hard,因此必须先证明"这里不是人或别的会话在用的树"。
+  if ($RepoRoot -notlike '*\.worktrees\mobile-auto') {
+    throw "拒绝在 '$RepoRoot' 运行:本脚本会 reset --hard,只允许在专用工作树 .worktrees\mobile-auto 里跑。"
+  }
+  Set-Location $RepoRoot
+
+  Write-Host '[auto] fetch origin main ...'
+  try {
+    Invoke-Git @('fetch', '--prune', 'origin', 'main') | Out-Null
+  } catch {
+    # 网络不可用不是"发版失败",也不是"可以静默跳过"——本轮结束,下一轮自动重试。
+    Write-Host "[auto] fetch 失败,本轮跳过(下一轮重试):$($_.Exception.Message)" -ForegroundColor Yellow
+    Write-State @{ lastResult = 'skipped-fetch-failed'; lastError = '' }
+    $Result = 'skipped-fetch-failed'
+    exit 0
+  }
+
+  $mainSha = Get-GitText @('rev-parse', 'origin/main')
+  $overlaySha = Get-GitText @('rev-parse', $OverlayRef)
+  Write-Host "[auto] origin/main = $mainSha / 覆盖层 $OverlayRef = $overlaySha"
+
+  # ---- 判定是否需要出包 ---------------------------------------------------------
+  $state = Read-State
+  $prevSha = if ($state -and $state.lastBuiltSha) { [string]$state.lastBuiltSha } else { '' }
+  $prevOverlay = if ($state -and $state.lastOverlaySha) { [string]$state.lastOverlaySha } else { '' }
+  $changed = @()
+  if ($prevSha) {
+    $verified = & git -C $RepoRoot rev-parse --verify --quiet "$prevSha^{commit}" 2>&1
+    if ($LASTEXITCODE -eq 0) {
+      $changed = @(& git -C $RepoRoot diff --name-only "$prevSha..$mainSha" 2>&1)
+    }
+  }
+  $relevant = @($changed | Where-Object { $_ -ne '' -and (Test-MobileRelevant $_) })
+  $overlayChanged = $prevOverlay -ne $overlaySha
+  $hasBaseline = $prevSha -ne '' -and $changed.Count -gt 0
+
+  if ($hasBaseline -and $relevant.Count -eq 0 -and -not $overlayChanged -and -not $Force) {
+    Write-Host "[auto] 自 $prevSha 起无移动端相关改动($($changed.Count) 个文件),不出包。" -ForegroundColor Green
+    Write-State @{ lastCheckedSha = $mainSha }
+    $Result = 'no-mobile-change'
+    exit 0
+  }
+
+  # ---- 版本号:严格大于线上 latest,且 versionCode 不许超前于本机 UTC 时钟 ----------
+  # 判定基座必须读**覆盖层里**的 package.json:出包版本以覆盖层为准(主干基线 0.0.5 是另一个号)。
+  # 旧实现直接读工作树 —— 上一轮成功构建留下的叠加态恰好是 0.0.12,一旦工作树被重置到
+  # origin/main(2026-11-06 实测),基座就退回 0.0.5,叠加后的一致性校验必红。
+  $pkgRaw = & git -C $RepoRoot show "$($overlaySha):apps/mobile-rn/package.json" 2>&1
+  if ($LASTEXITCODE -ne 0) {
+    throw "读取覆盖层 package.json 失败(overlay=$overlaySha):`n" + ($pkgRaw -join "`n")
+  }
+  $pkg = ($pkgRaw -join "`n") | ConvertFrom-Json
+  # 版本名必须是 X.Y.Z 三段:站点腿/登记链(publish-mobile-apk.mjs → validateDesired →
+  # register-app-version-latest.mjs)只收三段,第 4 段时间戳会被它判成"做不出合法登记行"
+  # 而在落包前拒绝(2026-11-05 实测:0.0.12.202611051218 在远程腿 exit 2)。
+  # 所以"严格递增"改由 patch 位承担:取 max(包基线, 线上 latest 前三位) 的 patch+1。
+  $baseShape = [string]$pkg.version
+  $baseMatch = [regex]::Match($baseShape, '^(\d+)\.(\d+)\.(\d+)$')
+  if (-not $baseMatch.Success) {
+    throw "package.json 的 version '$baseShape' 不能作为自动发版基座(须为 X.Y.Z 三段纯数字)。"
+  }
+  $nowUtc = (Get-Date).ToUniversalTime()
+  $nowCode = [int64]($nowUtc.ToString('yyMMddHH'))
+
+  $latestUrl = 'https://www.aizhs.top/api/app-version/latest?platform=android'
+  try {
+    $latest = (Invoke-RestMethod -Uri $latestUrl -TimeoutSec 25).data.latest
+  } catch {
+    throw "读线上 latest 失败($latestUrl):$($_.Exception.Message) —— 无法证明本次版本严格递增,拒绝盲发。"
+  }
+  $latestVersion = if ($latest -and $latest.version) { [string]$latest.version } else { '' }
+  $latestBuild = if ($latest -and $latest.buildNumber) { [int64]$latest.buildNumber } else { 0 }
+
+  $vMaj = [int]$baseMatch.Groups[1].Value
+  $vMin = [int]$baseMatch.Groups[2].Value
+  $vPat = [int]$baseMatch.Groups[3].Value
+  $latestMatch = [regex]::Match($latestVersion, '^(\d+)\.(\d+)\.(\d+)(?:\.[0-9]+)?$')
+  if ($latestMatch.Success) {
+    $lmaj = [int]$latestMatch.Groups[1].Value
+    $lmin = [int]$latestMatch.Groups[2].Value
+    $lpat = [int]$latestMatch.Groups[3].Value
+    $latestHigher = ($lmaj -gt $vMaj) -or
+      ($lmaj -eq $vMaj -and $lmin -gt $vMin) -or
+      ($lmaj -eq $vMaj -and $lmin -eq $vMin -and $lpat -gt $vPat)
+    if ($latestHigher) {
+      $vMaj = $lmaj
+      $vMin = $lmin
+      $vPat = $lpat
+    }
+  }
+  $version = "$vMaj.$vMin.$($vPat + 1)"
+
+  $cmp = if ($latestVersion) { Compare-Version $version $latestVersion } else { 1 }
+  if ($cmp -eq $null) { throw "版本比较失败:本次 '$version' / 线上 '$latestVersion'(线上版本不是 1~4 段纯数字)。" }
+  if ($cmp -le 0) {
+    # 时间戳与基座都在本地生成,撞上的唯一现实来源是"线上已有人用同一分钟发了版"。
+    throw "本次版本 $version 不高于线上 latest $latestVersion —— 同号发版不会触发任何 App 弹窗,拒绝。"
+  }
+
+  $versionCode = [int64][Math]::Max($nowCode, ($latestBuild + 1))
+  if ($versionCode -gt ($nowCode + 1)) {
+    throw ("线上 buildNumber=$latestBuild 已超过本机 UTC 号段 $nowCode(+1 容差)。" +
+      '再发只会造出"未来号"并把后续所有构建打成降级;请先核对线上版本与本机时钟。')
+  }
+  if ($versionCode -gt 2100000000) { throw "versionCode=$versionCode 超过 Android 上限 2100000000。" }
+
+  $ChosenVersion = $version
+  $ChosenVersionCode = $versionCode
+  Write-Host "[auto] 本次发版: version=$version  versionCode=$versionCode  (线上 latest=$latestVersion/$latestBuild)" -ForegroundColor Green
+  Write-Host "[auto] 触发改动($($relevant.Count) 个):" -ForegroundColor Gray
+  $relevant | Select-Object -First 15 | ForEach-Object { Write-Host "        $_" -ForegroundColor DarkGray }
+  if ($relevant.Count -gt 15) { Write-Host "        ...(+$($relevant.Count - 15))" -ForegroundColor DarkGray }
+
+  if ($DryRun) {
+    Write-Host '[auto] DryRun:到此为止,未重置工作树 / 未 prebuild / 未构建 / 未发布。' -ForegroundColor Yellow
+    Write-State @{ lastResult = 'dry-run'; lastCheckedSha = $mainSha }
+    $Result = 'dry-run'
+    exit 0
+  }
+
+  # ---- 组装构建面:origin/main + 覆盖层 -------------------------------------------
+  Write-Host '[auto] 重置到 origin/main 并叠加移动端覆盖层 ...'
+  Invoke-Git @('reset', '--hard', $mainSha) | Out-Null
+  Invoke-Git @('clean', '-fd') | Out-Null
+
+  $overlayBase = Get-GitText @('merge-base', $mainSha, $OverlayRef)
+  $patchFile = Join-Path $StateDir 'overlay.patch'
+  # 覆盖层只作用在这十几个"会进 APK / 会进发布链"的文件上。为什么不用 ".":
+  # 本仓主干会被并行会话整谱系重写,merge-base 一旦挪位,全树 diff 会把主干的改动当成
+  # 待应用补丁(等于回滚主干)。显式清单把作用面钉死在移动端,漏了也只影响出包不会伤主干。
+  # README* 不在清单里:那些数字块是生成物,与主干同文件必然冲突,且与 APK 无关。
+  $overlayPaths = @(
+    'apps/mobile-rn/src/lib/multipart-download.ts',
+    'apps/mobile-rn/src/lib/__tests__/multipart-download.test.ts',
+    'apps/mobile-rn/src/lib/apk-update.ts',
+    'apps/mobile-rn/src/lib/__tests__/apk-update.test.ts',
+    'apps/mobile-rn/src/lib/apk-download-legs.ts',
+    # 免点击安装(2026-11-05):JS 编排 + 无障碍服务插件 + 配置接线 + 自动触发点
+    'apps/mobile-rn/src/lib/auto-install.ts',
+    'apps/mobile-rn/src/components/AutoInstallGuide.tsx',
+    'apps/mobile-rn/src/components/UpdatePrompt.tsx',
+    'apps/mobile-rn/plugins/withAutoInstaller.cjs',
+    'apps/mobile-rn/app.config.js',
+    # 主干自身红:端内页已改壳承载,这条判据还要求页内自带 useUiField(2026-11-05 修正)
+    'packages/app/tests/post-create-screen-ui-fields.test.tsx',
+    # 出包门链并发下 git 子进程打穿默认 5s 时限(2026-11-06 实测 5.9s 超时,单跑 1.8s 绿)
+    'packages/app/tests/login-screen-hardcoded-zh.test.tsx',
+    # 主干 rn-tests 自身红的三处判据/替身同步(2026-11-06):
+    # 桥接上报已收口成 api-client 具名端口、替身缺 SecuritySettingsScreen、忠实度解析器漏读对象字面量键。
+    # 不带进覆盖层 ⇒ 门链在 worktree 面必红,整包与 OTA 两条腿都发不出去。
+    'apps/mobile-rn/tests/use-ui-control-bridge.test.ts',
+    'apps/mobile-rn/tests/use-ui-control-bridge-addressing.test.ts',
+    'apps/mobile-rn/tests/rn-app-mock-export-fidelity.test.ts',
+    'apps/mobile-rn/tests/__mocks__/ihui-rn-app.ts',
+    # 主干自身红:SecuritySettingsScreenProps 的逐项可写性注记被薄壳化提交冲掉,
+    # app-account-security-doc-truth 的 ① 判红(2026-11-06)。只补注记,不动类型形状。
+    'packages/types/src/app-account.ts',
+    # 设置页「自动安装权限」常驻入口(2026-11-06):纯 JS + 词条,本应只走 OTA。
+    # 覆盖层只带 SettingsScreen.tsx 与 5 份 locale 的**单键插入**;主 checkout 的同名 JSON
+    # 还含其他未提交改动(examResult 等),绝不能整份拷入。
+    'apps/mobile-rn/src/screens/SettingsScreen.tsx',
+    'packages/i18n/messages/mobile-rn/zh-CN.json',
+    'packages/i18n/messages/mobile-rn/zh-TW.json',
+    'packages/i18n/messages/mobile-rn/en.json',
+    'packages/i18n/messages/mobile-rn/ja.json',
+    'packages/i18n/messages/mobile-rn/ko.json',
+    # 主干自身红:`packages/shared` 的返回键/更多入口改为字体缩放取档后,两份 RN 套件的
+    # react-native 替身缺 PixelRatio 出口(收集期即抛);plaza 用例仍断在旧的一步跳转上。
+    'apps/mobile-rn/tests/message-center.test.tsx',
+    'apps/mobile-rn/tests/conversation-pin-unpin-index.test.tsx',
+    'apps/mobile-rn/tests/plaza-screen.test.tsx',
+    # 主干自身红:devSpace.opened/notOpened/enterPlaza 被 i18n 对账当成孤儿键,而
+    # apps/mobile-rn/src/screens/DeveloperScreen.tsx:170/173 正在消费它们 —— 删词条
+    # 会让 developer-screen-render 的「无裸键上屏」判红。白名单补这三枚(词条保留)。
+    'apps/mobile-rn/tests/developer-space-i18n.test.ts',
+    'apps/mobile-rn/metro.config.cjs',
+    'apps/mobile-rn/package.json',
+    'scripts/patch-rn-okhttp-http1.mjs',
+    # 2026-11-06:显示版本与原生基座解耦(versionName 跟 -P,package.json 只管 runtimeVersion)
+    'scripts/patch-rn-release-signing.mjs',
+    'scripts/build-mobile-rn-release.ps1',
+    'scripts/publish-mobile-apk-remote.ps1',
+    'scripts/publish-mobile-apk-gitee.py',
+    # OTA 腿"真落地"判据(2026-11-06):发前/发后回读最新 update 组,组没变即判未落地;
+    # 不带进覆盖层 ⇒ 每轮 reset 后这条判据消失,eas update 一 exit=0 就冒绿(已实测误判两次)
+    'scripts/release-mobile-rn.mjs',
+    # AutoInstallGuide 钩子顺序回归锁:早退必须晚于全部 React.useXxx(真机崩溃事故的判据)
+    'apps/mobile-rn/tests/auto-install-guide-hooks.test.ts'
+  )
+  # 补丁由 git 直接写盘(--output),不经 PowerShell 字符串中转:
+  # 2026-11-06 定时任务实测,中文注释的 UTF-8 字节经控制台编码往返后行结构被打断,
+  # git apply 报 "corrupt patch at ...:20"(整轮直接红)。--output 是字节到字节。
+  $diffArgs = @('diff', '--binary', '--full-index', "--output=$patchFile", "$overlayBase..$OverlayRef", '--') + $overlayPaths
+  $diffOut = & git -C $RepoRoot @diffArgs 2>&1
+  if ($LASTEXITCODE -ne 0) {
+    throw ("生成覆盖层补丁失败(exit=$LASTEXITCODE):`n" + ($diffOut -join "`n"))
+  }
+
+  $applyOut = & git -C $RepoRoot apply --3way --whitespace=nowarn $patchFile 2>&1
+  $applyExit = $LASTEXITCODE
+  if ($applyExit -ne 0) {
+    if (Test-OverlayMarkers) {
+      Write-Host '[auto] 覆盖层补丁未整段应用,但四个关键标记都在盘上(主干已自带改动),继续。' -ForegroundColor Yellow
+    } else {
+      throw ("覆盖层叠加失败(exit=$applyExit),且关键标记缺失:拒绝拿半套代码出包。`n" + ($applyOut -join "`n"))
+    }
+  } elseif (-not (Test-OverlayMarkers)) {
+    throw '覆盖层叠加后关键标记仍缺失(multipart-download / metro stripped / -VersionName):拒绝出包。'
+  }
+
+  # 用一次本地提交把构建面钉住(git status 干净,门链与人工排查都看到同一份内容)。
+  # --no-verify 是有意的:这是**只用于构建的临时分支**,代码门链由下面的出包脚本
+  # mobile-release-gate.mjs 在 --worktree 面上重跑;提交钩子在这里只会因 README 数字块
+  # (我们刻意不带)而必然拦红,拦的是账本,不是代码。
+  $dirty = @((& git -C $RepoRoot status --porcelain 2>&1) | Where-Object { $_ -ne '' })
+  if ($dirty.Count -gt 0) {
+    Invoke-Git @('add', '-A') | Out-Null
+    Invoke-Git @('commit', '--no-verify', '-m', "build(mobile-auto): origin/main $mainSha + mobile overlay $overlaySha") | Out-Null
+  }
+  $baseAfterOverlay = [string]((Get-Content (Join-Path $RepoRoot 'apps/mobile-rn/package.json') -Raw | ConvertFrom-Json).version)
+  if ($baseAfterOverlay -ne $baseShape) {
+    throw "覆盖层叠加后 package.json 版本($baseAfterOverlay)与判定基座($baseShape)不一致,拒绝出包。"
+  }
+
+  # ---- 依赖:锁文件变了或没装过才 install(每轮 install 会把自动化变成小时级) ----------
+  $lockChanged = $changed -contains 'pnpm-lock.yaml' -or $changed -contains 'pnpm-workspace.yaml'
+  if (-not (Test-Path (Join-Path $RepoRoot 'node_modules')) -or $lockChanged) {
+    Write-Host '[auto] pnpm install --frozen-lockfile ...'
+    & pnpm install --frozen-lockfile --prefer-offline
+    if ($LASTEXITCODE -ne 0) { throw "pnpm install 失败(exit=$LASTEXITCODE)" }
+  }
+
+  # 工作区包的 dist/*.d.ts 不进仓,pnpm install 也不产出;而门链的 typecheck 读的是
+  # `@ihui/api-client` 的 types 指向 dist/index.d.ts —— 没先构建就是 "Cannot find module"。
+  $needPackageBuild = $lockChanged -or
+    (-not (Test-Path (Join-Path $RepoRoot 'packages/api-client/dist/index.d.ts'))) -or
+    (@($relevant | Where-Object { $_ -like 'packages/*' }).Count -gt 0)
+  if ($needPackageBuild) {
+    Write-Host '[auto] 构建 mobile-rn 依赖闭包(packages/* 的 dist) ...'
+    & pnpm --filter '@ihui/mobile-rn^...' build
+    if ($LASTEXITCODE -ne 0) { throw "工作区包构建失败(exit=$LASTEXITCODE)" }
+  }
+
+  # ---- JS-only 轮次:只发 OTA,不出整包(2026-11-06 立) -------------------------
+  # 机主要求「其他变更都走内置 OTA」:只改 JS/资源的轮次没必要再走 25 分钟 gradle +
+  # 80MB 整包下载。判据是"本轮触及的路径里有没有原生面";没有就走 EAS Update,
+  # 已装用户下次冷启动自动生效,连安装器都不出现。原生面有改动仍走整包。
+  # -Force / 首轮(无基线)不走这条 —— 它们要的是"完整出一版可安装包"。
+  $nativePatterns = @(
+    '^apps/mobile-rn/app\.config\.js$',
+    '^apps/mobile-rn/app\.json$',
+    '^apps/mobile-rn/plugins/',
+    '^apps/mobile-rn/package\.json$',
+    '^apps/mobile-rn/android/',
+    '^patches/',
+    '^pnpm-lock\.yaml$',
+    '^scripts/patch-rn-'
+  )
+  # 判定口径必须是"本轮覆盖层**新增**了什么",不能是 merge-base..overlay 的整叠 diff ——
+  # 后者永远包含覆盖层里的原生文件(app.config.js / plugins/ / package.json),于是
+  # nativeTouched 恒为真,JS-only 轮次永远走不到 OTA(2026-11-06 实测)。无基线时按原生面处理。
+  $overlayDiff = @()
+  if ($prevOverlay -and $prevOverlay -ne $overlaySha) {
+    $verifiedOverlay = & git -C $RepoRoot rev-parse --verify --quiet "$prevOverlay^{commit}" 2>&1
+    if ($LASTEXITCODE -eq 0) {
+      $overlayDiff = @(& git -C $RepoRoot diff --name-only "$prevOverlay..$overlaySha" 2>&1 | Where-Object { $_ -ne '' })
+    } else {
+      # 用一条**必中原生面**的路径表达"基线丢失 ⇒ 保守走整包",而不是静默判 JS-only
+      $overlayDiff = @('apps/mobile-rn/android/__overlay-baseline-lost__')
+    }
+  } elseif (-not $prevOverlay) {
+    $overlayDiff = @('apps/mobile-rn/android/__no-overlay-baseline__')
+  }
+  $touchedPaths = @(@($changed) + @($overlayDiff) | Where-Object { $_ -ne '' })
+  $nativeTouched = @($touchedPaths | Where-Object { $p = $_; @($nativePatterns | Where-Object { $p -match $_ }).Count -gt 0 }).Count -gt 0
+  if ($nativeTouched) { Write-Host '[auto] 本轮触及原生面 ⇒ 走整包(APK)。' -ForegroundColor Yellow }
+
+  # ---- 发布环境(两条腿共用) ---------------------------------------------------------
+  # 机主要求「其他变更都走内置 OTA」后,OTA 轮次也要构建 JS bundle;若此时 EXPO_PUBLIC_* 未设,
+  # config.ts 会回退 http://localhost:8802 ⇒ 发出去的 OTA 让全量用户断网(P0)。
+  # 所以这组值必须在 OTA 分支之前就位,而不是原来那样只属于 gradle 路径。
+  if (-not $env:JAVA_HOME) { $env:JAVA_HOME = 'D:\IHUI-AI\.android-toolchain\extract21\jdk-21.0.2' }
+  if (-not $env:ANDROID_HOME) { $env:ANDROID_HOME = 'D:\IHUI-AI\.android-toolchain\android-sdk' }
+  $env:ANDROID_SDK_ROOT = $env:ANDROID_HOME
+  # 生产臂(REST 走 www 快臂、WS 钉 api 臂):与 0.0.12 手工发布的同一组值,禁止在这里换臂。
+  $apiBase = 'https://www.aizhs.top'
+  $webBase = 'https://www.aizhs.top'
+  $wsBase = 'https://api.aizhs.top'
+  $env:EXPO_PUBLIC_API_BASE_URL = $apiBase
+  $env:EXPO_PUBLIC_WEB_URL = $webBase
+  $env:EXPO_PUBLIC_WS_BASE_URL = $wsBase
+  $env:CI = '1'
+  # OTA 轮次的显示版本必须与**已装包**同号(= 线上 latest):旧 JS 若自报更低,
+  # 冷启就会弹整包更新,OTA 静默生效的意义被抵消。整包路径在下面会覆盖成新号。
+  $otaDisplayVersion = if ($latestVersion) { $latestVersion } else { $baseShape }
+  $env:IHUI_MOBILE_VERSION = $otaDisplayVersion
+  $env:EXPO_PUBLIC_IHUI_MOBILE_VERSION = $otaDisplayVersion
+
+  if ($hasBaseline -and -not $Force -and -not $nativeTouched) {
+    Write-Host '[auto] 本轮只改 JS ⇒ 只发 OTA(EAS Update → production),不出整包' -ForegroundColor Cyan
+    $otaOut = & node (Join-Path $RepoRoot 'scripts/release-mobile-rn.mjs') --leg ota-production --execute -m "auto-ota $mainSha"
+    $otaCode = $LASTEXITCODE
+    $otaOut | Select-Object -Last 8 | ForEach-Object { Write-Host "  $_" }
+    if ($otaCode -ne 0) { throw "OTA 发布失败(exit=$otaCode)—— 本轮不记成功,下一轮会重试同一提交。" }
+    Write-State @{
+      lastBuiltSha    = $mainSha
+      lastOverlaySha  = $overlaySha
+      lastBuiltUtc    = (Get-Date).ToUniversalTime().ToString('o')
+      lastOta         = 'ok'
+      lastResult      = 'success-ota'
+      lastError       = ''
+    }
+    $Result = 'success-ota'
+    Write-Host "[auto] ✓ 已发布 OTA(origin/main $mainSha + 覆盖层 $overlaySha),整包版本不变" -ForegroundColor Green
+    exit 0
+  }
+
+  # ---- 整包路径:显示版本/versionCode 切成本次新号 -------------------------------------
+  $env:IHUI_MOBILE_VERSION = $version
+  $env:EXPO_PUBLIC_IHUI_MOBILE_VERSION = $version
+  # 让出包门链审计的就是本次真正要用的号(而不是"缺省时钟号也能过"的另一份值)。
+  $env:IHUI_VERSION_CODE = "$versionCode"
+
+  Write-Host '[auto] expo prebuild --clean(把显示版本写进原生 versionName)' -ForegroundColor Cyan
+  Push-Location (Join-Path $RepoRoot 'apps/mobile-rn')
+  try {
+    & npx expo prebuild --platform android --clean --no-install
+    if ($LASTEXITCODE -ne 0) { throw "expo prebuild 失败(exit=$LASTEXITCODE)" }
+  } finally { Pop-Location }
+
+  Write-Host '[auto] build-mobile-rn-release.ps1(门链 → 签名 → 出包 → 双腿发布)' -ForegroundColor Cyan
+  # 子进程 stderr 落盘再回放(2026-11-06 立):嵌套 pwsh 在 stderr 被重定向时会把错误记录
+  # 序列化成 CLIXML,父进程解析失败就只剩 "Cannot process the XML from the 'Error' stream …
+  # Data at the root level is invalid",真正的失败原因(例如公网终检超时)整段丢失,
+  # 日志看起来像"构建失败"其实发布早已完成。2> 走文件句柄,拿到的是可读原文。
+  $buildErrFile = Join-Path $StateDir 'build-stderr.txt'
+  Remove-Item -LiteralPath $buildErrFile -ErrorAction SilentlyContinue
+  & pwsh -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoRoot 'scripts/build-mobile-rn-release.ps1') `
+    -VersionName $version -VersionCode $versionCode -Abi 'arm64-v8a' `
+    -ApiBaseUrl $apiBase -WebBaseUrl $webBase -WsBaseUrl $wsBase 2> $buildErrFile
+  $buildExit = $LASTEXITCODE
+  if ($buildExit -ne 0) {
+    if (Test-Path -LiteralPath $buildErrFile) {
+      $errText = (Get-Content -LiteralPath $buildErrFile -Raw).Trim()
+      if ($errText) { Write-Host "[auto] 子进程 stderr(原文):`n$errText" -ForegroundColor Yellow }
+    }
+    throw "build-mobile-rn-release.ps1 失败(exit=$buildExit)—— 本次不记成功,下一轮会重试同一提交。"
+  }
+
+  # ---- OTA 腿(2026-11-05 立)----------------------------------------------------
+  # 走到这里说明本轮是整包路径(首轮/Force/原生面改动)。JS-only 轮次在上面已提前 exit。
+  # Force 且只改 JS 时顺带补一条 OTA,让已装旧包的用户也能少下一次 80MB。
+  $otaResult = 'skipped-native'
+  if (-not $nativeTouched) {
+    Write-Host '[auto] 发布 OTA(EAS Update → production,JS-only 轮次) ...' -ForegroundColor Cyan
+    $otaOut = & node (Join-Path $RepoRoot 'scripts/release-mobile-rn.mjs') --leg ota-production --execute -m "auto $version @ $mainSha" 2>&1
+    $otaCode = $LASTEXITCODE
+    $otaOut | Select-Object -Last 6 | ForEach-Object { Write-Host "  $_" }
+    if ($otaCode -eq 0) {
+      $otaResult = 'ok'
+      Write-Host '[auto] ✓ OTA 已发布(已装用户下次冷启动自动生效)' -ForegroundColor Green
+    } else {
+      $otaResult = 'failed'
+      Write-Host "[auto] ⚠ OTA 未成功(exit=$otaCode)。整包已发布,用户仍能收到更新;下一轮会重试。" -ForegroundColor Yellow
+    }
+  } else {
+    Write-Host '[auto] 本轮触及原生面(插件/依赖/版本桶) ⇒ 跳过 OTA,只走整包。' -ForegroundColor Yellow
+  }
+
+  Write-State @{
+    lastBuiltSha    = $mainSha
+    lastOverlaySha  = $overlaySha
+    lastVersion     = $version
+    lastVersionCode = $versionCode
+    lastBuiltUtc    = (Get-Date).ToUniversalTime().ToString('o')
+    lastOta         = $otaResult
+    lastResult      = 'success'
+    lastError       = ''
+  }
+  $Result = 'success'
+  Write-Host "[auto] ✓ 已发布 $version / $versionCode(origin/main $mainSha + 覆盖层 $overlaySha)" -ForegroundColor Green
+} catch {
+  $ErrorMessage = $_.Exception.Message
+  Write-Host "[auto] ✗ 本轮失败:$ErrorMessage" -ForegroundColor Red
+  Write-State @{ lastResult = 'failed'; lastError = $ErrorMessage }
+  exit 1
+} finally {
+  if ($LockStream) { $LockStream.Dispose() }
+  try { Stop-Transcript | Out-Null } catch { }
+}
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

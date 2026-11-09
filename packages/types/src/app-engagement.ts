@@ -282,10 +282,12 @@ export interface CertListScreenProps {
 /** 证书验证结果 */
 export interface CertVerifyResult {
   valid: boolean
-  certNo: string
+  /** 证书编号(可选;缺省不渲染该行) */
+  certNo?: string
   title: string
   holder: string
-  issuer: string
+  /** 颁发机构(可选;缺省不渲染来源行,不占位) */
+  issuer?: string
   issuedAt: string
 }
 

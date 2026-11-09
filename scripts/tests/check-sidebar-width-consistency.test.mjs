@@ -5,9 +5,10 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync, execSync } from 'node:child_process'
-import { writeFileSync, mkdirSync } from 'node:fs'
+import { writeFileSync, mkdirSync, existsSync, readFileSync, unlinkSync } from 'node:fs'
 import { join } from 'node:path'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+import { planAssets } from '../../packages/design-tokens/scripts/copy-assets.mjs'
 import { fileURLToPath } from 'node:url'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
@@ -730,6 +731,151 @@ test('staged 面判**索引** blob:索引合规、工作树是字面量 → exit
     writeFileSync(join(dir, BARREL_PATH), TSX_OK.replace('rnGeometry.drawerWidth', '160'))
     const r = runScript(dir, ['--staged'])
     assertPass(r)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// ============================================================
+// 11. §6 src/dist 派生资源一致性(§22c 镜像同步义务)
+// ============================================================
+// 清单不在测试里另抄一份 —— 直接 import 门体同一份真源 `planAssets()`,
+// 注入夹具的 src 目录(styles/ 自动发现面跟着 ROOT 走),据此构造 dist 镜像。
+const DT_SRC_ROOT = 'packages/design-tokens/src'
+const DT_DIST_ROOT = 'packages/design-tokens/dist'
+
+function assetRels(dir) {
+  return planAssets(join(dir, DT_SRC_ROOT))
+}
+
+/** 补齐 planAssets 清单里夹具默认没造的 src 占位文件(内容随意,不与其它判据相干) */
+function ensureSrcAssets(dir) {
+  for (const rel of assetRels(dir)) {
+    const p = join(dir, DT_SRC_ROOT, rel)
+    if (!existsSync(p)) {
+      mkdirSync(join(p, '..'), { recursive: true })
+      writeFileSync(p, `// fixture ${rel}\n`)
+    }
+  }
+}
+
+/** 造一次「已构建」的 dist:index.js + 每个 rel 的 src→dist 原字节副本(机器态,不进 git) */
+function buildDistMirror(dir) {
+  ensureSrcAssets(dir)
+  const distDir = join(dir, DT_DIST_ROOT)
+  mkdirSync(distDir, { recursive: true })
+  writeFileSync(join(distDir, 'index.js'), 'export {}\n')
+  for (const rel of assetRels(dir)) {
+    const from = join(dir, DT_SRC_ROOT, rel)
+    const to = join(distDir, rel)
+    mkdirSync(join(to, '..'), { recursive: true })
+    writeFileSync(to, readFileSync(from))
+  }
+}
+
+test('§6 一致: planAssets 全清单 src 与 dist 逐字节相同 → exit 0 + 每文件一行 ✅', () => {
+  const dir = createTempProject()
+  try {
+    buildDistMirror(dir)
+    const r = runScript(dir)
+    assertPass(r)
+    assert.match(r.stdout, /radius\.js src === dist/, `stdout 应含新判据 ✅ 行\nstdout: ${r.stdout}`)
+    assert.match(r.stdout, /styles\/tokens\.css src === dist/, `styles/ 自动发现项也要对账\nstdout: ${r.stdout}`)
+    assert.doesNotMatch(r.stdout, /dist 未构建/, `dist 已构建时不得走未构建分支\nstdout: ${r.stdout}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('§6 判红: dist/geometry.js 被改回旧值 → exit 1 + 点名该文件 + 成因/修复命令', () => {
+  const dir = createTempProject()
+  try {
+    buildDistMirror(dir)
+    writeFileSync(
+      join(dir, DT_DIST_ROOT, 'geometry.js'),
+      `export const GEOMETRY_PX = { drawerWidth: 250 } // 陈旧副本\n`,
+    )
+    const r = runScript(dir)
+    assertFail(r, /src\/dist 字节不等:geometry\.js/)
+    assert.match(r.stdout, /geometry\.js/, `stdout 应逐文件点名\nstdout: ${r.stdout}`)
+    assert.match(r.stdout, /pnpm --filter @ihui\/design-tokens build/, `stdout 应含修复命令\nstdout: ${r.stdout}`)
+    assert.match(r.stdout, /只改 src 运行时不生效/, `stdout 应写成因\nstdout: ${r.stdout}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('§6 判红: dist 已构建但缺一份派生资源 → exit 1 + 点名缺失', () => {
+  const dir = createTempProject()
+  try {
+    buildDistMirror(dir)
+    unlinkSync(join(dir, DT_DIST_ROOT, 'radius.js'))
+    const r = runScript(dir)
+    assertFail(r, /派生资源缺失:packages\/design-tokens\/dist\/radius\.js/)
+    assert.match(r.stdout, /pnpm --filter @ihui\/design-tokens build/, `判红应给修复命令\nstdout: ${r.stdout}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('§6 跳过: dist 目录不存在(干净克隆/CI)→ 不判红、不记未判定 exit 0', () => {
+  const dir = createTempProject()
+  try {
+    const r = runScript(dir)
+    assertPass(r)
+    assert.match(r.stdout, /dist 未构建/, `stdout 应说明未构建\nstdout: ${r.stdout}`)
+    assert.doesNotMatch(r.stdout, /src\/dist 字节不等|派生资源缺失/, `未构建时不得进入对账分支\nstdout: ${r.stdout}`)
+    assert.doesNotMatch(r.stderr, /未判定/, `未构建不得写 stderr 未判定(否则提交链判红)\nstderr: ${r.stderr}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('§6 跳过: dist/ 存在但 index.js 缺失 → 按未构建处理 exit 0', () => {
+  const dir = createTempProject()
+  try {
+    const distDir = join(dir, DT_DIST_ROOT)
+    mkdirSync(distDir, { recursive: true })
+    writeFileSync(join(distDir, 'geometry.js'), '// 陈旧但包没构建完\n')
+    const r = runScript(dir)
+    assertPass(r)
+    assert.match(r.stdout, /dist 未构建/)
+    assert.doesNotMatch(r.stdout, /src\/dist 字节不等|派生资源缺失/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('§6 未判定: dist 已构建但某 src 派生资源在该面取不到 → exit 2', () => {
+  const dir = createTempProject()
+  try {
+    buildDistMirror(dir)
+    // 删掉 src 侧一份(该 rel 仍在 planAssets 清单里)⇒ readFace 取不到,不得洗成通过
+    unlinkSync(join(dir, DT_SRC_ROOT, 'radius.js'))
+    const r = runScript(dir)
+    assertUndetermined(r, /radius\.js 取不到|取不到内容/)
+    assert.match(r.stderr, /未判定/, `未判定必须同时写 stderr\nstderr: ${r.stderr}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('§6 staged 面: src 取索引 blob(索引合规、工作树被改陈旧)→ exit 0', () => {
+  const dir = createTempProject()
+  try {
+    ensureSrcAssets(dir) // commit 前补齐清单,让每个 rel 都进索引
+    initGitRepo(dir)
+    execSync('git add -A && git commit -q -m base', { cwd: dir, encoding: 'utf8', stdio: 'ignore' })
+    buildDistMirror(dir) // dist 是磁盘机器态,不进 git(模拟 gitignored)
+    // 制造「相关 staged 改动」避免 --staged 早退;选不在 planAssets 清单里的文件,不污染对账
+    writeFileSync(join(dir, GLOBALS_CSS_PATH), `${GLOBALS_CSS_OK}\n/* staged */\n`)
+    execSync(`git add ${GLOBALS_CSS_PATH}`, { cwd: dir, encoding: 'utf8', stdio: 'ignore' })
+    // 工作树把某派生资源改陈旧(不 add)⇒ 索引里仍是合规值,dist 也是合规副本
+    writeFileSync(join(dir, DT_SRC_ROOT, 'radius.js'), '// stale worktree only\n')
+    const r = runScript(dir, ['--staged'])
+    assertPass(r)
+    assert.doesNotMatch(r.stdout, /跳过/, `相关文件 staged 时不得早退\nstdout: ${r.stdout}`)
+    assert.match(r.stdout, /radius\.js src === dist/, `src 必须按索引判绿(而非工作树)\nstdout: ${r.stdout}`)
   } finally {
     rmScratch(dir)
   }

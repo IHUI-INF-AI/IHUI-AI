@@ -54,6 +54,18 @@ const VENDOR = STORE_VENDORS.find((v) => v.id === 'xiaomi')
 const PUSH_URL = 'https://api.developer.xiaomi.com/devupload/dev/push'
 const PACKAGE_NAME = 'zh.ai.sq'
 
+/**
+ * synchroType 语义(官方正文):0=新增应用,1=更新应用包,2=内容更新。
+ * **三种都会进入审核**(官方明写所有提交均进审核)⇒ result=0 只代表"已递交",不等于已上架。
+ * 默认 1(本仓是已上线应用的常规发版;首包仍需后台完成认领后走 0)。
+ */
+export const SYNCHRO_TYPES = Object.freeze({
+  0: { label: '新增应用', note: '首包形态;包名须先由开发者站在册/认领' },
+  1: { label: '更新应用包', note: '常规发版默认' },
+  2: { label: '内容更新', note: '仅改素材/文案,不动包' },
+})
+export const DEFAULT_SYNCHRO_TYPE = 1
+
 /** 凭据件字段别名(实测形态:网盘里各家都是「键：值」行式文本,冒号可能全角)。 */
 export const FIELD_ALIASES = Object.freeze({
   email: [/小米\s*账号|用户\s*名|user_?name|email/i],
@@ -114,19 +126,22 @@ export function signRequestData({ requestData, privateKey, algorithm = 'RSA-SHA1
 }
 
 /** 申报单(纯函数):文件名/字节/md5 一次算全,upload 与 verify 共用同一份。 */
-export function buildRequestData({ creds, plan, listing, versionName, versionCode, synchroType = 0 }) {
+export function buildRequestData({ creds, plan, listing, versionName, versionCode, synchroType = DEFAULT_SYNCHRO_TYPE, onlineTime = null }) {
+  const appInfo = {
+    packageName: listing?.packageName ?? PACKAGE_NAME,
+    appName: listing?.appName ?? null,
+    versionName: versionName ?? listing?.versionName ?? null,
+    versionCode: versionCode ?? listing?.versionCode ?? null,
+    brief: listing?.brief ?? null,
+    desc: listing?.fullDescription ?? null,
+    privacyUrl: listing?.privacyUrl ?? null,
+  }
+  // onlineTime 官方语义:定时上线时刻;不给则由平台按审核通过即发。空串不塞(避免"1970"型误读)。
+  if (onlineTime !== null && String(onlineTime).trim() !== '') appInfo.onlineTime = String(onlineTime).trim()
   return {
     userName: creds.email,
-    appInfo: {
-      packageName: listing?.packageName ?? PACKAGE_NAME,
-      appName: listing?.appName ?? null,
-      versionName: versionName ?? listing?.versionName ?? null,
-      versionCode: versionCode ?? listing?.versionCode ?? null,
-      brief: listing?.brief ?? null,
-      desc: listing?.fullDescription ?? null,
-      privacyUrl: listing?.privacyUrl ?? null,
-    },
-    apkInfo: { fileName: plan.path.split('/').pop(), md5: plan.md5 ?? null, fileSize: plan.bytes },
+    appInfo,
+    apkInfo: { fileName: String(plan.path).split(/[\\/]/).pop(), md5: plan.md5 ?? null, fileSize: plan.bytes },
     synchroType,
   }
 }
@@ -197,12 +212,13 @@ export function mergeVerify({ requestData, pushed, readback }) {
   if (!pushed || pushed.verdict !== 'result-0') gaps.push('上传回执(result=0)')
   if (!readback || readback.status !== STATUS.FOUND) gaps.push('回读 dev/query')
   if (gaps.length) return { phase: 'verify', status: gaps.length === 3 ? STATUS.UNJUDGED : STATUS.MISSING, verdict: 'verify-incomplete', gaps, detail: `取不到:${gaps.join(' / ')}` }
-  return { phase: 'verify', status: STATUS.FOUND, verdict: 'declared-version-pushed-and-queryable', detail: `申报 ${requestData.appInfo.versionName}/${requestData.appInfo.versionCode} result=0;回读 ${readback.detail}` }
+  return { phase: 'verify', status: STATUS.FOUND, verdict: 'declared-version-pushed-and-queryable', detail: `申报 ${requestData.appInfo.versionName}/${requestData.appInfo.versionCode} result=0(已递交);回读 ${readback.detail};synchroType=${requestData.synchroType}(${SYNCHRO_TYPES[requestData.synchroType]?.label ?? '?'})⇒ 三种均进审核,不等于已上架` }
 }
 
-export const HELP = `小米应用商店提交器(上传/发布段未核实 ⇒ 恒零调用)
+export const HELP = `小米应用商店提交器(dev/push 已核实在册;默认 synchroType=1 更新包)
 用法:
-  node scripts/submit-store-xiaomi.mjs [--phase status|upload|verify|all] [--file <apk>] [--package <包名>] [--version-name <名>] [--version-code <码>] [--execute] [--json]
+  node scripts/submit-store-xiaomi.mjs [--phase status|upload|verify|all] [--file <apk>] [--package <包名>]
+       [--version-name <名>] [--version-code <码>] [--synchro-type 0|1|2] [--online-time <时刻>] [--execute] [--json]
   node scripts/submit-store-xiaomi.mjs --self-test
 开关:
   --phase          阶段(status 默认)
@@ -210,6 +226,8 @@ export const HELP = `小米应用商店提交器(上传/发布段未核实 ⇒ �
   --package        包名(默认取 app.json)
   --version-name   申报 versionName
   --version-code   申报 versionCode
+  --synchro-type   0=新增应用 / 1=更新应用包(默认)/ 2=内容更新;三种均进审核
+  --online-time    定时上线时刻(不填=审核通过即发)
   --execute        真出网(缺省 dry-run 零请求)
   --json           JSON 输出
   --self-test      离线自检
@@ -217,7 +235,7 @@ export const HELP = `小米应用商店提交器(上传/发布段未核实 ⇒ �
 退出码:0 全绿 / 1 缺件点名 / 2 未判定`
 
 export function parseArgs(argv) {
-  const o = { phase: 'status', file: null, execute: false, json: false, selfTest: false, help: false, versionName: null, versionCode: null, packageName: PACKAGE_NAME }
+  const o = { phase: 'status', file: null, execute: false, json: false, selfTest: false, help: false, versionName: null, versionCode: null, packageName: PACKAGE_NAME, synchroType: Number(process.env.XIAOMI_SYNCHRO_TYPE ?? DEFAULT_SYNCHRO_TYPE), onlineTime: process.env.XIAOMI_ONLINE_TIME ?? null }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     if (a === '--help' || a === '-h') o.help = true
@@ -226,12 +244,15 @@ export function parseArgs(argv) {
     else if (a === '--package') o.packageName = argv[++i]
     else if (a === '--version-name') o.versionName = argv[++i]
     else if (a === '--version-code') o.versionCode = argv[++i]
+    else if (a === '--synchro-type') o.synchroType = Number(argv[++i])
+    else if (a === '--online-time') o.onlineTime = argv[++i]
     else if (a === '--execute') o.execute = true
     else if (a === '--json') o.json = true
     else if (a === '--self-test') o.selfTest = true
     else throw new Error(`未知参数: ${a}`)
   }
   if (!['status', 'upload', 'verify', 'all'].includes(o.phase)) throw new Error(`--phase 只接受 status|upload|verify|all,收到 ${o.phase}`)
+  if (![0, 1, 2].includes(o.synchroType)) throw new Error(`--synchro-type 只接受 0|1|2,收到 ${o.synchroType}`)
   return o
 }
 
@@ -254,7 +275,7 @@ async function main() {
       calls: [
         { verified: !!ch.channel?.label, intent: '查询回读', method: 'POST', url: queryCall({ creds }).url ?? '<dev/query>' },
         { verified: true, intent: '上传并申报', method: 'POST', url: PUSH_URL },
-        { verified: false, intent: '定时/立即以外的 synchroType 语义 ⇒ 官方正文未证,零调用' },
+        { verified: true, intent: `synchroType=${args.synchroType}(${SYNCHRO_TYPES[args.synchroType]?.label ?? '?'})⇒ 提交后进入审核,不等于已上架`, method: 'POST', url: PUSH_URL },
       ],
     })
     console.log(args.json ? JSON.stringify({ ...d, gates: gates.rows }, null, 2) : `DRY-RUN xiaomi(默认零网络)\n${d.calls.map((c) => `  - ${c}`).join('\n')}\n${gates.rows.map((r) => `  [${r.status}] ${r.k}: ${r.detail}`).join('\n')}`)
@@ -265,7 +286,7 @@ async function main() {
 
   const listing = bundle.files?.listing ?? null
   const plan = { path: artifact.value.path, bytes: artifact.value.bytes, md5: artifact.value.md5 ?? null }
-  const requestData = buildRequestData({ creds: creds.value, plan, listing, versionName: args.versionName, versionCode: args.versionCode, synchroType: 0 })
+  const requestData = buildRequestData({ creds: creds.value, plan, listing, versionName: args.versionName, versionCode: args.versionCode, synchroType: args.synchroType, onlineTime: args.onlineTime })
   const sig = signRequestData({ requestData: JSON.stringify(requestData), privateKey: creds.value.privateKey })
   const readback = args.phase === 'upload' ? null : await phaseStatus({ creds: creds.value, packageName: requestData.appInfo.packageName })
   const pushed = ['upload', 'all', 'verify'].includes(args.phase) ? await phaseUpload({ creds: creds.value, requestData, sig }) : { phase: 'upload', status: STATUS.UNJUDGED, verdict: 'skipped', detail: '未跑 upload 段' }
@@ -295,12 +316,13 @@ function selfTest() {
     { name: 'X9 buildRequestData 取 listing 字段,包名兜底 zh.ai.sq', fn: () => { const rd = buildRequestData({ creds: { email: 'd@e.f' }, plan: { path: 'a/b-release.apk', bytes: 10, md5: 'm' }, listing: { packageName: 'com.x', appName: '智汇AI', versionName: '0.0.12', versionCode: 120, brief: 'b', fullDescription: 'f', privacyUrl: 'https://aizhs.top/privacy' }, synchroType: 0 }); return rd.appInfo.packageName === 'com.x' && rd.apkInfo.fileName === 'b-release.apk' && rd.userName === 'd@e.f' && buildRequestData({ creds: { email: 'd@e.f' }, plan: { path: 'x.apk', bytes: 1 }, listing: null, synchroType: 0 }).appInfo.packageName === PACKAGE_NAME } },
     { name: 'X10 mergeVerify 三格全齐才 FOUND;缺回执 ⇒ MISSING 不记绿', fn: () => { const ok = { appInfo: { versionName: '1' } }; const r = mergeVerify({ requestData: ok, pushed: { verdict: 'result-0' }, readback: { status: STATUS.FOUND, detail: '' } }); const bad = mergeVerify({ requestData: ok, pushed: null, readback: null }); return r.status === STATUS.FOUND && bad.status === STATUS.MISSING && bad.gaps.includes('上传回执(result=0)') } },
     { name: 'X11 默认档不发请求:无 --execute 时 main 走 dry-run', fn: () => { const c = channelOf('xiaomi'); return c.status === STATUS.FOUND && c.channel.probe().url === 'https://api.developer.xiaomi.com/devupload/dev/query' } },
-    { name: 'X12 未知参数与非法 --phase 都抛(不静默接受)', fn: () => { let a = 0, b = 0; try { parseArgs(['--nope']) } catch { a = 1 } try { parseArgs(['--phase', 'submit']) } catch { b = 1 } return a === 1 && b === 1 } },
+    { name: 'X12 未知参数与非法 --phase/--synchro-type 都抛(不静默接受)', fn: () => { let a = 0, b = 0, c = 0; try { parseArgs(['--nope']) } catch { a = 1 } try { parseArgs(['--phase', 'submit']) } catch { b = 1 } try { parseArgs(['--synchro-type', '3']) } catch { c = 1 } return a === 1 && b === 1 && c === 1 } },
     { name: 'X13 mask 供出口脱敏:不回原文', fn: () => mask('PRIVATE-DO-NOT-LEAK') === 'PRIV***AK(len=19)' },
+    { name: 'X14 默认 synchroType=1(更新包),Windows 路径取基名,onlineTime 只在给了才塞', fn: () => { const base = buildRequestData({ creds: { email: 'd@e.f' }, plan: { path: 'C:\\tmp\\a.apk', bytes: 1 }, listing: null }); const timed = buildRequestData({ creds: { email: 'd@e.f' }, plan: { path: 'a.apk', bytes: 1 }, listing: null, onlineTime: '2026-11-09 10:00:00' }); return base.synchroType === 1 && base.apkInfo.fileName === 'a.apk' && !('onlineTime' in base.appInfo) && timed.appInfo.onlineTime === '2026-11-09 10:00:00' && SYNCHRO_TYPES[1].label === '更新应用包' } },
   ])
 }
 
-export const __test__ = { FIELD_ALIASES, PUSH_URL, PACKAGE_NAME, parseCredentialText, resolveCredentials, toPem, signRequestData, buildRequestData, classifyXiaomi, buildMultipart, queryCall, phaseStatus, phaseUpload, mergeVerify, parseArgs, STATUS }
+export const __test__ = { FIELD_ALIASES, PUSH_URL, PACKAGE_NAME, SYNCHRO_TYPES, DEFAULT_SYNCHRO_TYPE, parseCredentialText, resolveCredentials, toPem, signRequestData, buildRequestData, classifyXiaomi, buildMultipart, queryCall, phaseStatus, phaseUpload, mergeVerify, parseArgs, STATUS }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) {
