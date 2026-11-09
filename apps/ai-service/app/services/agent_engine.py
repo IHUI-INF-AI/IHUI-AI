@@ -6245,9 +6245,11 @@ class AgentEngine:
                 return {"error": f"图片超过大小上限({_MAX_VIEW_IMAGE_BYTES} 字节)"}
             try:
                 raw = await asyncio.to_thread(target.read_bytes)
-                data = base64.b64encode(raw).decode("ascii")
             except OSError as e:
                 return {"error": f"图片读取失败: {e}"}
+            if not isinstance(raw, bytes):
+                return {"error": "图片读取失败: 非字节内容"}
+            data = base64.b64encode(raw).decode("ascii")
             raw_data_url = f"data:{mime};base64,{data}"
             # 批 38 接线:经 image_preparation 按提示图像预算降采样
             # (对标 codex-rs load_data_url_for_prompt,high 档 2048px/2500 patch)。
