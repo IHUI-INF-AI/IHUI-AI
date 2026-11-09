@@ -47,7 +47,7 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { catBatch, gitRaw, gitErrText } from './lib/face-reader.mjs'
+import { catBatch, catBatchOids, gitRaw, gitErrText } from './lib/face-reader.mjs'
 import { maskComments as maskJsComments, maskCommentsStringsAndRegex as maskJsCommentsAndStrings } from './lib/code-mask.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -667,6 +667,12 @@ export function auditFace(files) {
 
 const ENUM_GLOBS = ['apps/ai-service/app', 'apps/api/src']
 
+/** 取材根:默认按脚本位置推导;`--root=` 只服务面规格的镜像测试。 */
+export function pickRoot(argv) {
+  const a = argv.find((x) => x.startsWith('--root='))
+  return a ? path.resolve(String(a).split('=').slice(1).join('=')) : ROOT
+}
+
 export function listCandidatesFor(face, root) {
   const split = (out) => String(out ?? '').split('\0').filter(Boolean)
   let paths
@@ -685,27 +691,89 @@ export function listCandidatesFor(face, root) {
   return paths.filter((p) => (p.endsWith('.py') || p.endsWith('.ts')) && !p.endsWith('.d.ts'))
 }
 
-export function readFace(face, root, paths) {
-  const map = new Map()
-  if (paths.length === 0) return map
+/**
+ * 面内 blob 规格(2026-11-07 修面):索引面 = `:路径`(stage 0 的合法 rev),HEAD 面 = `HEAD:路径`。
+ *
+ * 旧写法 `face === 'staged' ? '' : 'HEAD:' + p` 在索引面拼出的是**裸路径**,`cat-file --batch`
+ * 把裸路径当 rev 解 ⇒ 每个 spec 都回 missing ⇒ 12–14 个候选正文全部取不到 ⇒ exit 2。
+ * 实测:`:p` 与 `HEAD:p` 都回 blob oid,裸路径与 `:!0:p` 都回 missing。
+ */
+export function faceBlobSpec(face, p) {
+  return `${face === 'staged' ? ':' : 'HEAD:'}${p}`
+}
+
+/**
+ * 取被审面正文。**三种结论必须分开**(2026-11-07 修面):
+ *   · 读到 ⇒ `files`;
+ *   · 该面确实没有这一路径(staged 面被删除的候选)⇒ `absent`(不是取数失败);
+ *   · 该面有这一 blob 却读不出正文,或取数命令本身失败 ⇒ `failures`(取数面不可用 ⇒ exit 2)。
+ * `specOf` 只服务镜像测试的阴性对照(用事故原始写法注入),生产路径不传。
+ * @returns {{files:Map<string,string>, absent:string[], failures:Array<{path:string,why:string}>}}
+ */
+export function readFace(face, root, paths, specOf = faceBlobSpec) {
+  const files = new Map()
+  const absent = []
+  const failures = []
+  if (paths.length === 0) return { files, absent, failures }
   if (face === 'worktree') {
     // 人工逃生舱:磁盘副本常年滞后 HEAD ⇒ 这一档的读数不是问责面,报告行会明写
     for (const p of paths) {
       try {
-        map.set(p, readFileSync(path.join(root, p), 'utf8'))
-      } catch {
-        map.set(p, null)
+        files.set(p, readFileSync(path.join(root, p), 'utf8'))
+      } catch (e) {
+        failures.push({ path: p, why: `工作树读取失败:${e?.message ?? e}` })
       }
     }
-    return map
+    return { files, absent, failures }
   }
-  const specs = paths.map((p) => `${face === 'staged' ? '' : 'HEAD:'}${p}`)
-  const got = catBatch(root, specs)
+  const specs = paths.map((p) => specOf(face, p))
+  let oids
+  try {
+    oids = catBatchOids(root, specs)
+  } catch (e) {
+    for (const p of paths) failures.push({ path: p, why: `取数面不可用(存在性探测失败):${gitErrText(e)}` })
+    return { files, absent, failures }
+  }
+  const present = []
+  // spec 解不到 blob 的路径才需要"再问一遍存在性":用枚举面本身(另一条通道)判断,
+  // 这样「该面确实没有这一路径(被删除)」与「路径在册但 spec 解不到(取数面不可用)」
+  // 才是两种结论。只对缺失的那几个路径发问(head 面候选可达 2125 枚,全量当 pathspec 会超命令行上限)。
+  const missingSpec = []
   for (let i = 0; i < paths.length; i += 1) {
-    const v = got.get(specs[i])
-    map.set(paths[i], typeof v === 'string' ? v : null)
+    if (oids.get(specs[i]) !== null && oids.get(specs[i]) !== undefined) present.push(i)
+    else missingSpec.push(paths[i])
   }
-  return map
+  if (missingSpec.length > 0) {
+    let listed
+    try {
+      const out =
+        face === 'staged'
+          ? gitRaw(['ls-files', '-z', '--', ...missingSpec], root, { timeout: 15000 })
+          : gitRaw(['ls-tree', '-r', '--name-only', '-z', 'HEAD', '--', ...missingSpec], root, { timeout: 15000 })
+      listed = new Set(String(out).split('\0').map((s) => s.replace(/\\/g, '/').trim()).filter(Boolean))
+    } catch (e) {
+      for (const p of missingSpec) failures.push({ path: p, why: `取数面不可用(存在性探测失败):${gitErrText(e)}` })
+      return { files, absent, failures }
+    }
+    for (const p of missingSpec) {
+      if (listed.has(p)) failures.push({ path: p, why: '该面在册但 spec 解不到 blob(取数面不可用)' })
+      else absent.push(p)
+    }
+  }
+  if (present.length === 0) return { files, absent, failures }
+  let got
+  try {
+    got = catBatch(root, present.map((i) => specs[i]))
+  } catch (e) {
+    for (const i of present) failures.push({ path: paths[i], why: `正文取不到:${gitErrText(e)}` })
+    return { files, absent, failures }
+  }
+  for (const i of present) {
+    const v = got.get(specs[i])
+    if (typeof v === 'string') files.set(paths[i], v)
+    else failures.push({ path: paths[i], why: '该面有这一 blob 但正文取不到' })
+  }
+  return { files, absent, failures }
 }
 
 export function decide({ counts, strict, enumerated }) {
@@ -715,6 +783,62 @@ export function decide({ counts, strict, enumerated }) {
 }
 
 // ==================== main ====================
+
+/**
+ * 跑一门并返回读数与退出码(不直接 process.exit),`main` 只是它的 argv 绑定。
+ * `specOf` 供镜像测试注入"事故原始写法"做阴性对照;生产路径不传。
+ */
+export function runGate({ root = ROOT, face = 'head', strict = false, asJson = false, specOf = faceBlobSpec } = {}) {
+  let paths
+  try {
+    paths = listCandidatesFor(face, root)
+  } catch (e) {
+    console.log(`❌ 无法判定:清单取不到(${gitErrText(e)})`)
+    return { rc: 2, stage: 'enumeration' }
+  }
+  if (paths.length === 0) {
+    console.log('❌ 无法判定:被审面枚举到 0 个候选文件 ⇒ 判死,不记绿')
+    return { rc: 2, stage: 'enumeration' }
+  }
+  const { files, absent, failures } = readFace(face, root, paths, specOf)
+  if (failures.length > 0) {
+    // 取数面不可用 ≠ 该面确实没有这一路径:前者 exit 2 并点名,后者进 absent 只报数。
+    console.log(`❌ 取数面不可用:${failures.length} 个路径正文取不到 ⇒ 未判定,不回落另一个面、不记绿`)
+    for (const f of failures.slice(0, 3)) console.log(`   · ${f.path}: ${f.why}`)
+    return { rc: 2, stage: 'read', absent: absent.length, failures: failures.length }
+  }
+  if (files.size === 0) {
+    console.log(`❌ 枚举成功但被审面 0 份(${absent.length} 个路径在该面确实不存在,如被删除)⇒ 判死,不记绿`)
+    return { rc: 2, stage: 'empty', absent: absent.length }
+  }
+  const res = auditFace(files)
+  const rc = decide({ counts: res.counts, strict, enumerated: true })
+  if (asJson) {
+    console.log(JSON.stringify({ face, absentFromFace: absent.length, ...res }, null, 2))
+  } else {
+    console.log(`取材面=${face} · 扫描 ${res.scannedFiles} 文件 · 资源持有型生成器候选 ${res.candidates}`)
+    for (const r of res.rows) {
+      const tag = { passed: '✅ 已关停', violation: '❌ 无关停', undetermined: '⚠️ 未判定' }[r.verdict]
+      console.log(`${tag} ${r.file}:${r.line} ${r.name}${r.wrapped ? '(contextmanager 包装)' : ''}`)
+      for (const e of r.evidence) console.log(`      ${e}`)
+    }
+    console.log(
+      `汇总:passed=${res.counts.passed} violation=${res.counts.violation} undetermined=${res.counts.undetermined}` +
+        ` · 框架 sink 站点 ${res.sinkSiteCount}` +
+        (absent.length ? ` · 该面不存在 ${absent.length}` : '') +
+        (rc === 1 ? ' ⇒ --strict 问责' : rc === 0 ? ' ⇒ 默认档只报数' : ''),
+    )
+    if (absent.length > 0) {
+      console.log('该面确实不存在的路径(不是取数失败,已按删除处理):')
+      for (const p of absent.slice(0, 5)) console.log(`  · ${p}`)
+    }
+    if (res.undeterminedSites.length > 0) {
+      console.log('未判定站点(逐条点名,不得被读成"这一格不存在"):')
+      for (const s of res.undeterminedSites) console.log(`  ⚠️ ${s.site} ${s.name} — ${s.why.join(' / ') || '见上方证据行'}`)
+    }
+  }
+  return { rc, stage: 'audit', absent: absent.length, scanned: res.scannedFiles, candidates: res.candidates, counts: res.counts }
+}
 
 async function main() {
   const argv = process.argv.slice(2)
@@ -728,47 +852,7 @@ async function main() {
     process.exit(2)
   }
   const face = wantStaged ? 'staged' : wantWorktree ? 'worktree' : 'head'
-  let paths
-  try {
-    paths = listCandidatesFor(face, ROOT)
-  } catch (e) {
-    console.log(`❌ 无法判定:清单取不到(${gitErrText(e)})`)
-    process.exit(2)
-  }
-  if (paths.length === 0) {
-    console.log('❌ 无法判定:被审面枚举到 0 个候选文件 ⇒ 判死,不记绿')
-    process.exit(2)
-  }
-  const files = readFace(face, ROOT, paths)
-  let missing = 0
-  for (const [, v] of files) if (v === null) missing += 1
-  if (missing === files.size) {
-    console.log(`❌ 无法判定:${missing} 个路径正文全部取不到 ⇒ 不回落另一个面、不记绿`)
-    process.exit(2)
-  }
-  const res = auditFace(files)
-  const rc = decide({ counts: res.counts, strict, enumerated: true })
-  if (asJson) {
-    console.log(JSON.stringify({ face, missingFromFace: missing, ...res }, null, 2))
-  } else {
-    console.log(`取材面=${face} · 扫描 ${res.scannedFiles} 文件 · 资源持有型生成器候选 ${res.candidates}`)
-    for (const r of res.rows) {
-      const tag = { passed: '✅ 已关停', violation: '❌ 无关停', undetermined: '⚠️ 未判定' }[r.verdict]
-      console.log(`${tag} ${r.file}:${r.line} ${r.name}${r.wrapped ? '(contextmanager 包装)' : ''}`)
-      for (const e of r.evidence) console.log(`      ${e}`)
-    }
-    console.log(
-      `汇总:passed=${res.counts.passed} violation=${res.counts.violation} undetermined=${res.counts.undetermined}` +
-        ` · 框架 sink 站点 ${res.sinkSiteCount}` +
-        (missing ? ` · 取不到 ${missing}` : '') +
-        (rc === 1 ? ' ⇒ --strict 问责' : rc === 0 ? ' ⇒ 默认档只报数' : ''),
-    )
-    if (res.undeterminedSites.length > 0) {
-      console.log('未判定站点(逐条点名,不得被读成"这一格不存在"):')
-      for (const s of res.undeterminedSites) console.log(`  ⚠️ ${s.site} ${s.name} — ${s.why.join(' / ') || '见上方证据行'}`)
-    }
-  }
-  process.exit(rc)
+  process.exit(runGate({ root: pickRoot(argv), face, strict, asJson }).rc)
 }
 
 // ==================== 自检(构造面成对正反例 + 真仓样本) ====================
@@ -846,7 +930,7 @@ function selfTest() {
   const numCons = consOf('async def c9():\n    it = (\n        g()\n    )\n')
   t('归因③: 站点行号 = 真实行号(窗口起点对齐,不把别的行报成站点)', numCons.length === 1 && numCons[0].outcome.sites[0]?.line === 3)
    // 真仓样本:跑在被审面上(不是夹具自证);面取不到 ⇒ 这几条红,不出合格证
-  const HR = (() => { try { return auditFace(readFace('head', ROOT, listCandidatesFor('head', ROOT))).rows } catch { return [] } })()
+  const HR = (() => { try { return auditFace(readFace('head', ROOT, listCandidatesFor('head', ROOT)).files).rows } catch { return [] } })()
   // 真仓臂一律**不钉行号**(§1 同一教训:行号一次 append 就挪位)。判据形状=「该文件里存在这样一处判定」,
   // 站点身份由文件名 + 判定档 + 证据关键词承载;数量下限保住"这不是空面自证"。
   const evHit = (r, re) => {
@@ -905,5 +989,6 @@ export const __test__ = {
   judgeFunction, findConsumers, consumerOutcome, classifySites, auditFace,
   blockWindow, statementGroups, statementStart, tryFinallyWraps, decide,
   RESOURCE_RES, CLOSE_RES,
+  runGate, readFace, faceBlobSpec, listCandidatesFor, pickRoot,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

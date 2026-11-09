@@ -16,20 +16,26 @@
  * 跑法:cd apps/api && node node_modules/vitest/vitest.mjs run --config vitest.real.config.ts tests/webhook-claim-stale.real.test.ts
  */
 import { describe, it, expect, beforeEach } from 'vitest'
-import { randomUUID } from 'node:crypto'
 import { sql, eq } from 'drizzle-orm'
 import { db } from '../src/db/index.js'
+import { createRealDbUser } from './helpers/test-db.js'
 import { webhookSubscriptions, webhookDeliveryLogs } from '@ihui/database'
-import { retryPendingWebhooks, WEBHOOK_CLAIM_STALE_MS } from '../src/services/webhook-relay-notifier.js'
+import {
+  retryPendingWebhooks,
+  WEBHOOK_CLAIM_STALE_MS,
+} from '../src/services/webhook-relay-notifier.js'
 
 /** 快速失败 URL(discard 端口,连接即拒),避免测试触真网。 */
 const DEAD_URL = 'http://127.0.0.1:9/webhook'
 
 async function insertSub(): Promise<string> {
+  // 2026-11-06 迁移为 webhook_subscriptions 补了 fk_webhook_subscriptions_user_id_users,
+  // 必须用真实 users 行,不能再拿 randomUUID() 写孤儿 user_id(否则 23503)。
+  const user = await createRealDbUser()
   const rows = await db
     .insert(webhookSubscriptions)
     .values({
-      userId: randomUUID(),
+      userId: user.id,
       url: DEAD_URL,
       secret: 'test-secret',
       events: ['relay.call.completed'],
@@ -54,10 +60,7 @@ async function insertLog(subId: string, status: string, nextRetryAt: Date | null
 }
 
 async function readLog(id: string): Promise<webhookDeliveryLogsRow> {
-  const rows = await db
-    .select()
-    .from(webhookDeliveryLogs)
-    .where(eq(webhookDeliveryLogs.id, id))
+  const rows = await db.select().from(webhookDeliveryLogs).where(eq(webhookDeliveryLogs.id, id))
   return rows[0]!
 }
 type webhookDeliveryLogsRow = typeof webhookDeliveryLogs.$inferSelect

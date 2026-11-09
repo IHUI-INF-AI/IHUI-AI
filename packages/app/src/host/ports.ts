@@ -25,6 +25,7 @@ import type {
   SessionPort,
   UiPort,
   KvPort,
+  AsyncKvPort,
 } from '@ihui/types'
 
 export type {
@@ -38,6 +39,7 @@ export type {
   SessionPort,
   UiPort,
   KvPort,
+  AsyncKvPort,
 }
 
 /** 可选端口缺省时唯一合法取值:能力关(调用方必须显式分支)。 */

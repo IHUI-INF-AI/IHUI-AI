@@ -127,6 +127,20 @@ export function isDefinitePathAbsence(err: unknown): boolean {
   return verdict.kind === 'missing' && verdict.errno !== 'EISDIR';
 }
 
+/**
+ * **目录枚举**层面的"明确不存在"。
+ *
+ * 与 `isDefinitePathAbsence` 不是同一件事,所以单列而不是给它加开关:上一条回答"这份**路径**在不在",
+ * 本条回答"这个**目录**里有没有条目"。后者在被读路径**自身类型不对**时都答不了 —— EISDIR(它是目录)
+ * 与 ENOTDIR(末段是普通文件)只证明"读不成",不证明"里面是空的"。故这里只认唯一一种:ENOENT。
+ * 名单仍只在本文件点名(AGENTS §4);调用方(如 cache.ts 的遗留现场处置)只消费结论,
+ * 不得自己写 `code !== 'ENOTDIR'` 这类第二份名单。
+ */
+export function isDefiniteDirectoryAbsence(err: unknown): boolean {
+  const verdict = classifyRealpathFailure(err);
+  return verdict.kind === 'missing' && verdict.errno === 'ENOENT';
+}
+
 // ==================== 符号链接可达性判定 ====================
 
 /** 失败发生在哪一步(两处的点名信息不同,所以 stage 是一等字段)。 */

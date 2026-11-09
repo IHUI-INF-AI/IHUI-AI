@@ -133,7 +133,8 @@
     "getPhoneFail": "获取手机号失败",
     "loginFailed": "登录失败,请重试",
     "wechatOneClick": "微信一键登录",
-    "webAuthLogin": "网页授权登录"
+    "webAuthLogin": "网页授权登录",
+    "agreement": "登录即代表同意《用户协议》和《隐私政策》"
   },
   "forgot": {
     "step1": "第一步:验证手机号",
@@ -1241,11 +1242,9 @@
       "rewardLabel": "悬赏积分",
       "submit": "发布问题",
       "draftRestored": "草稿已恢复",
-      "maxImages": "最多 3 张",
       "contentRequired": "请输入问题描述",
       "contentTooShort": "描述至少 5 个字",
       "categoryPlaceholder": "选择分类",
-      "imageLabel": "配图",
       "anonymousLabel": "匿名发布",
       "anonymousDesc": "不显示你的昵称",
       "categoryLabel": "分类",
@@ -2730,7 +2729,8 @@
     "payFailed": "支付失败,请重试",
     "paying": "支付中...",
     "purchaseContent": "购买内容",
-    "userAgreement": "《用户协议》"
+    "userAgreement": "《用户协议》",
+    "activateDelayed": "权益发放延迟，请联系客服"
   },
   "study": {
     "todayMinutes": "今日 {n} 分钟",
@@ -3028,7 +3028,8 @@
     "security": {
       "code": "验证码",
       "sendCode": "发送验证码"
-    }
+    },
+    "bindPhone": "绑定手机"
   },
   "vipScreen": {
     "qr": {
@@ -3446,7 +3447,11 @@
       "permanentMemory": "永久记忆"
     },
     "toast": {
-      "loginRequired": "请先登录"
+      "loginRequired": "请先登录",
+      "compactDone": "上下文已压缩",
+      "compactFailed": "压缩失败",
+      "compactNoSession": "请先发送一条消息",
+      "compactSkipped": "暂无可压缩的上下文"
     },
     "title": "智汇AI社区",
     "chatError": "发送失败,请重试",
@@ -3664,7 +3669,9 @@
     "d3": "本地文件",
     "d4": "微信文件",
     "p1": "语音输入中",
-    "p2": "语音输入"
+    "p2": "语音输入",
+    "compact": "压缩上下文",
+    "compacting": "压缩中..."
   },
   "DrawerComponent": {
     "empty1": "暂无历史对话",
@@ -6587,6 +6594,7 @@
     "noTask": "无任务描述"
   },
   "aigcPublish": {
+    "errorMaxFiles": "最多上传 {max} 个文件",
     "typeText": "文案",
     "fileAddText": "点击添加文件",
     "labelTextContent": "文本内容",
@@ -7153,5 +7161,104 @@
     "submitSuccess": "发布任务已创建",
     "submitFailed": "提交失败",
     "taskCreated": "任务 ID：{taskId}"
+  },
+  "hrAttendance": {
+    "title": "人事部 · 考勤",
+    "tabDepartments": "部门",
+    "tabEmployees": "员工",
+    "tabRule": "考勤规则",
+    "tabRecords": "考勤记录",
+    "tabStats": "出勤统计",
+    "tabLeave": "请假审批",
+    "createSuccess": "创建成功",
+    "updateSuccess": "保存成功",
+    "add": "新增",
+    "save": "保存",
+    "loading": "加载中…",
+    "noData": "暂无数据",
+    "colName": "名称",
+    "colId": "ID",
+    "colDepartment": "部门",
+    "colEmployeeNo": "工号",
+    "colPosition": "岗位",
+    "colDate": "日期",
+    "colCheckIn": "签到",
+    "colCheckOut": "签退",
+    "colStatus": "状态",
+    "colStart": "开始",
+    "colEnd": "结束",
+    "colReason": "事由",
+    "colActions": "操作",
+    "ruleLateAfter": "迟到阈值",
+    "ruleEarlyBefore": "早退阈值",
+    "ruleAbsentAfter": "缺勤阈值",
+    "ruleWorkdays": "工作日后(周掩码 1–127)",
+    "ruleEnabled": "启用",
+    "approve": "通过",
+    "reject": "驳回",
+    "statusPresent": "正常",
+    "statusLate": "迟到",
+    "statusEarly": "早退",
+    "statusAbsent": "缺勤",
+    "statusLeave": "请假",
+    "statusPending": "待审批",
+    "statusApproved": "已通过",
+    "statusRejected": "已驳回"
+  },
+  "hrAttendance": {
+    "title": "人事部 · 考勤",
+    "tabDepartments": "部门",
+    "tabEmployees": "员工",
+    "tabRule": "考勤规则",
+    "tabRecords": "考勤记录",
+    "tabStats": "出勤统计",
+    "tabLeave": "请假审批",
+    "createSuccess": "创建成功",
+    "updateSuccess": "保存成功",
+    "add": "新增",
+    "save": "保存",
+    "loading": "加载中…",
+    "noData": "暂无数据",
+    "colName": "名称",
+    "colId": "ID",
+    "colDepartment": "部门",
+    "colEmployeeNo": "工号",
+    "colPosition": "岗位",
+    "colDate": "日期",
+    "colCheckIn": "签到",
+    "colCheckOut": "签退",
+    "colStatus": "状态",
+    "colStart": "开始",
+    "colEnd": "结束",
+    "colReason": "事由",
+    "colActions": "操作",
+    "ruleLateAfter": "迟到阈值",
+    "ruleEarlyBefore": "早退阈值",
+    "ruleAbsentAfter": "缺勤阈值",
+    "ruleWorkdays": "工作日后(周掩码 1–127)",
+    "ruleEnabled": "启用",
+    "approve": "通过",
+    "reject": "驳回",
+    "statusPresent": "正常",
+    "statusLate": "迟到",
+    "statusEarly": "早退",
+    "statusAbsent": "缺勤",
+    "statusLeave": "请假",
+    "statusPending": "待审批",
+    "statusApproved": "已通过",
+    "statusRejected": "已驳回"
   }
-}
+,
+  "level": {
+    "0": "新手",
+    "1": "青铜",
+    "2": "白银",
+    "3": "黄金",
+    "4": "铂金",
+    "5": "钻石",
+    "6": "王者",
+    "distance": "距"
+  },
+  "TagInput": {
+    "p2": "已达上限"
+  }}

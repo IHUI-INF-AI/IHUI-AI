@@ -13,10 +13,14 @@
  */
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import { __test__ as src } from '../check-declared-carriage.mjs'
+import { gitRaw } from '../lib/face-reader.mjs'
 
 const { pageCarriesShell, declaredPairs, classify, judge, ratchet, REGISTRY_REL } = src
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 
 const SHELL =
   "import ThemeRoot from '@/components/ThemeRoot'\nimport { WalletScreen as W } from '@rn-shells/WalletScreen'\n"
@@ -117,5 +121,18 @@ test('M6 基线自证:判 HEAD 时审面与基线同面 ⇒ 差值恒 0(本门�
 
 test('M7 取材面纪律:registry 路径写进判据,回落磁盘要当场看得见', () => {
   assert.equal(REGISTRY_REL, 'scripts/data/cross-end-screen-registry.json')
+})
+
+test('M8 staged 面:清单/正文同面可读;改前 ls-tree 缺 tree-ish 的写法必 fatal(阴性对照)', () => {
+  const r = judge('staged')
+  assert.ok(!r.error, `staged 面判定异常(不再回落 head/磁盘):${r.error}`)
+  assert.ok(r.declared > 0, 'staged 面 registry 必须真读到')
+  assert.ok(r.carried > 0, 'staged 面真承载读到 0 ⇒ 阳性对照不成立')
+  // 阴性对照:把改前的参数原样当夹具 —— `ls-tree -r --name-only -- <path>` 无 tree-ish,
+  // git 必报 "Not a valid object name",不能被当成"本面没有文件"或"面为空"。
+  assert.throws(
+    () => gitRaw(['ls-tree', '-r', '--name-only', '--', 'apps/miniapp-taro/src'], ROOT),
+    /not a valid object name|fatal/i,
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

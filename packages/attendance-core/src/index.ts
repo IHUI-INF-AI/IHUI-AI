@@ -1,0 +1,138 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+import { normalizeHm } from './normalize.js'
+
+/** 考勤四档封闭集(与 *_attendance_record.status 词表对齐;leave 属请假流,不在本判据射程) */
+export type AttendanceStatus = 'present' | 'late' | 'early' | 'absent'
+
+/** judgeStatus 入参(阈值 = 规则档,时刻 = 记录档) */
+export interface AttendanceJudgeInput {
+  /** 迟到阈值 HH:MM;晚于此点算迟到。空串/null/undefined ⇒ 该维不判 */
+  lateAfter?: string | null
+  /** 早退阈值 HH:MM;早于此点算早退。空串/null/undefined ⇒ 该维不判 */
+  earlyBefore?: string | null
+  /** 签到时刻(带时区的 Date);null/undefined ⇒ 判 absent */
+  checkInTime?: Date | null
+  /** 签退时刻;null/undefined ⇒ 早退维不判 */
+  checkOutTime?: Date | null
+}
+
+/** 判定明细;status 是契约封闭集,reason 让调用方区分"真判过"与"判不出" */
+export interface AttendanceJudgeResult {
+  status: AttendanceStatus
+  /** 'ok' | 'no-check-in' | 'late:...' | 'early:...' | 'unjudged:<子因>' */
+  reason: string
+}
+
+/**
+ * 业务墙钟时区:考勤按北京时间判定,与宿主 TZ 无关(容器/CI 多为 UTC)。
+ * 用 `getHours()` 读服务器本地墙钟会让同一时间戳在 UTC 机器上判成凌晨 ⇒ 迟到漏判,
+ * 见 docs/tickets/2026-11/findings-api.md:3271。
+ */
+const BIZ_TIME_ZONE = 'Asia/Shanghai'
+
+const BIZ_HM_FORMATTER = new Intl.DateTimeFormat('en-GB', {
+  timeZone: BIZ_TIME_ZONE,
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+})
+
+/**
+ * Date → 业务墙钟(Asia/Shanghai)`HH:MM`(补零);非法 Date 返回 null,不猜。
+ * 与 normalizeHm 配对使用:比较前两侧都必须归一化(§0.4 单源)。
+ */
+export function hmOfLocalDate(d: Date | null | undefined): string | null {
+  if (!(d instanceof Date)) return null
+  const t = d.getTime()
+  if (!Number.isFinite(t)) return null
+  return BIZ_HM_FORMATTER.format(d)
+}
+
+/** 阈值档是否"给了值":null / undefined / 空串 三态一律视为该维不判(列默认即 null) */
+function hasThreshold(v: string | null | undefined): v is string {
+  return v !== null && v !== undefined && v !== ''
+}
+
+/**
+ * 考勤状态判定(纯函数,零 IO)。
+ *  - 无 checkIn ⇒ absent(不依赖 rule 是否存在,没签到就是没签到)
+ *  - 有 checkIn + lateAfter ⇒ HH:MM 严格大于 ⇒ late
+ *  - 有 checkOut + earlyBefore ⇒ HH:MM 严格小于 ⇒ early
+ *  - 阈值给了但归一化失败 ⇒ 未判定,不冒充判过(AGENTS §0.3):
+ *      status 落到 'present',reason 前缀 `unjudged:` 可区分
+ *  - 阈值缺失 / 无对应时刻 ⇒ 该维不参与判定,继续下一维
+ */
+export function judgeStatusDetailed(input: AttendanceJudgeInput): AttendanceJudgeResult {
+  const { lateAfter, earlyBefore, checkInTime, checkOutTime } = input
+
+  // ① 无签到 = 缺勤:这一档不需要阈值,和"未判定"无关
+  if (!checkInTime) return { status: 'absent', reason: 'no-check-in' }
+
+  // ② 迟到维:阈值给定时才判;归一化任一侧拿不到 ⇒ 未判定(§0.3 不冒充"判过")
+  if (hasThreshold(lateAfter)) {
+    const threshold = normalizeHm(lateAfter)
+    const actual = hmOfLocalDate(checkInTime)
+    if (!threshold || !actual) {
+      return { status: 'present', reason: 'unjudged:malformed-late-window' }
+    }
+    if (actual > threshold) {
+      return { status: 'late', reason: `late:${actual}>${threshold}` }
+    }
+  }
+
+  // ③ 早退维:同 ②;缺 checkOutTime 时该维不参与(没签退 ≠ 早退)
+  if (hasThreshold(earlyBefore) && checkOutTime) {
+    const threshold = normalizeHm(earlyBefore)
+    const actual = hmOfLocalDate(checkOutTime)
+    if (!threshold || !actual) {
+      return { status: 'present', reason: 'unjudged:malformed-early-window' }
+    }
+    if (actual < threshold) {
+      return { status: 'early', reason: `early:${actual}<${threshold}` }
+    }
+  }
+
+  return { status: 'present', reason: 'ok' }
+}
+
+/** 契约出口:名字与签名逐字为 `judgeStatus(input): status` */
+export function judgeStatus(input: AttendanceJudgeInput): AttendanceStatus {
+  return judgeStatusDetailed(input).status
+}
+
+// AGENTS §22c:源脚本必须 export `__test__`,镜像测试直接 import 它、不得复制判据。
+export const __test__ = {
+  judgeStatus,
+  judgeStatusDetailed,
+  hmOfLocalDate,
+}
+
+// 单源导出:normalizeHm 的唯一实现在此包,edu-schedule-conflict 改为 re-export 本符号。
+export { normalizeHm }
+
+// algorithm 面单源 re-export:services/hr-attendance.ts 按符号消费 buildBizDayWindow /
+// dayFloorOf / absentCandidatePairsForRule / resolveBackfillDays / weekdayOfBizDayKey / isPastHm;
+// barrel 漏 export 时它们在运行时是 not a function(2026-11-10 契约锁抓到的真缺陷)。
+export {
+  BIZ_TIMEZONE,
+  DEFAULT_BACKFILL_DAYS,
+  MAX_BACKFILL_DAYS,
+  isPastHm,
+  resolveBackfillDays,
+  buildBizDayWindow,
+  dayFloorOf,
+  absentCandidatePairsForRule,
+  weekdayOfBizDayKey,
+  buildScopeScheduleGates,
+  gateDueDates,
+} from './algorithm.js'
+export type {
+  AbsentRunOptions,
+  AbsentCandidate,
+  ScheduleGateState,
+  ScheduleScopeGate,
+  ScheduleGateSummary,
+  GatedDueDates,
+} from './algorithm.js'

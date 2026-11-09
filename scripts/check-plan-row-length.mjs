@@ -30,11 +30,11 @@
  *   人工逃生舱:`--worktree`(不得作为提交门禁)
  * 应急跳门:以 runner 注册条目的 skipEnv 现值为准,本文件不复制一份变量名。
  */
-import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { parseTaskRows, keyOfRow } from './lib/plan-task-index.mjs'
-import { selectFace, gitRaw, readWorktreeFile } from './lib/face-reader.mjs'
+import { Undetermined, selectFace, gitRaw, readWorktreeFile } from './lib/face-reader.mjs'
+import { deltaParents, readParentTexts } from './lib/merge-delta.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const FILE = 'PROJECT_PLAN.md'
@@ -96,11 +96,18 @@ export function pickFace(argv) {
   return selectFace({ staged: argv.includes('--staged'), worktree: argv.includes('--worktree') })
 }
 
+/** 取材根:默认按脚本位置推导;`--root=` 只服务镜像测试(合并夹具在临时仓里)。 */
+export function pickRoot(argv) {
+  const a = argv.find((x) => x.startsWith('--root='))
+  return a ? path.resolve(String(a).split('=').slice(1).join('=')) : ROOT
+}
+
 function run(argv, nowMs = Date.now()) {
   void nowMs
   if (argv.includes('--self-test')) return selfTest()
   const maxFlag = argv.find((a) => a.startsWith('--max-chars'))
   const maxChars = resolveMax(maxFlag ? Number(String(maxFlag).split('=')[1]) : undefined)
+  const root = pickRoot(argv)
   const face = pickFace(argv)
   if (face.error) {
     console.log(`❌ ${face.error}`)
@@ -108,7 +115,7 @@ function run(argv, nowMs = Date.now()) {
   }
   let headText = null
   try {
-    headText = gitRaw(['show', `HEAD:${FILE}`], ROOT, { timeout: 120000 })
+    headText = gitRaw(['show', `HEAD:${FILE}`], root, { timeout: 120000 })
   } catch {
     headText = null
   }
@@ -116,20 +123,38 @@ function run(argv, nowMs = Date.now()) {
   if (face.face === 'head') subjectText = headText
   else if (face.face === 'staged') {
     try {
-      subjectText = gitRaw(['show', `:${FILE}`], ROOT, { timeout: 120000 })
+      subjectText = gitRaw(['show', `:${FILE}`], root, { timeout: 120000 })
     } catch {
       subjectText = null
     }
-  } else subjectText = readWorktreeFile(ROOT, FILE)
+  } else subjectText = readWorktreeFile(root, FILE)
 
   if (typeof subjectText !== 'string' || subjectText === '') {
     console.log(`❌ 未判定:被审面(${face.face})取不到 ${FILE} ⇒ 不记绿也不冒红(§0.3)`)
     return 2
   }
   const subject = findOverLength(subjectText, maxChars)
-  const stockHit = headText === null ? null : findOverLength(headText, maxChars).over.map((o) => o.key)
-  // 索引档的锚点是 HEAD;HEAD 档自己判自己 ⇒ 锚点即同一集(全量档只报数)
-  const stock = face.face === 'head' ? subject.over.map((o) => o.key) : stockHit
+  // 锚点 = **每一枚父提交**的超阈登记行(合并未收口时是 HEAD + MERGE_HEAD)。
+  // 合并把上游几十个提交的改动摊进「HEAD → 索引」,只看 HEAD 会把上游早已超阈的行判成本次新增;
+  // 两父都没有的才是本次真正新增(非合并提交父集只有 HEAD ⇒ 与旧行为逐字等价)。
+  let stock
+  if (face.face === 'head') stock = subject.over.map((o) => o.key) // 全量档只报数
+  else {
+    try {
+      const dp = deltaParents({ root, face: face.face })
+      const texts = readParentTexts({ root, rels: [FILE], parents: dp.parents })
+      stock = []
+      for (const p of dp.parents) {
+        const t = texts.get(p.label)?.get(FILE)
+        if (typeof t === 'string')
+          stock.push(...findOverLength(t, maxChars).over.map((o) => o.key))
+      }
+    } catch (e) {
+      if (!(e instanceof Undetermined)) throw e
+      console.log(`❓ 未判定:${e.message} —— 既不记绿也不冒红,请先修取材面`)
+      return 2
+    }
+  }
   const v = judge(subject.over, stock, maxChars)
   console.log(
     `[台账行长] 阈值 ${maxChars} 字 · 未勾登记行 ${subject.counts.rows} · 超阈 ${subject.counts.over} 处 · 判定面:${face.face} blob`,

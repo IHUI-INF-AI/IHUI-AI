@@ -42,6 +42,9 @@ PRESSURE_KEYS = {
 }
 #: 批次 3:真正压缩成功时追加的边界字段(未压缩/不压缩的路径不带该键)
 BOUNDARY_KEYS = {"boundary"}
+#: 批次 4(锚点保留):真正压缩成功时另外报被原样保留的锚点条数
+#: (task_anchor / pinned,见 core/context_compaction._split_anchor_groups)
+ANCHOR_KEYS = {"anchored_count"}
 #: 改动前 compress_messages_if_needed 的 info 键集(legacy 形态,一个都不许少/改名)
 LEGACY_INFO_KEYS = {
     "compressed",
@@ -164,10 +167,10 @@ def _head_heavy_messages() -> list[dict[str, Any]]:
 
 
 def test_compress_info_only_adds_pressure_keys():
-    """触发压缩:info 键集 = 旧六键 + 五判据 + boundary,一个不多一个不少。"""
+    """触发压缩:info 键集 = 旧六键 + 五判据 + boundary + 锚点计数,一个不多一个不少。"""
     msgs = _head_heavy_messages()
     out, info = compress_messages_if_needed(msgs, context_limit=1000)
-    assert set(info) == LEGACY_INFO_KEYS | PRESSURE_KEYS | BOUNDARY_KEYS
+    assert set(info) == LEGACY_INFO_KEYS | PRESSURE_KEYS | BOUNDARY_KEYS | ANCHOR_KEYS
     assert isinstance(out, list)
     assert info["compressed"] is True
     assert info["trigger"] == "ratio"

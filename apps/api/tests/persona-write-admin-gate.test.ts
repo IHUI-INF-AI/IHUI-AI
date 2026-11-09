@@ -52,7 +52,9 @@ let customId: string
 let seedSeq = 0
 
 function totalRegistryWrites(): number {
-  return spies.update.mock.calls.length + spies.create.mock.calls.length + spies.delete.mock.calls.length
+  return (
+    spies.update.mock.calls.length + spies.create.mock.calls.length + spies.delete.mock.calls.length
+  )
 }
 
 /** 按请求头构造调用者;x-probe-user 缺省即未登录 */
@@ -74,17 +76,6 @@ async function injectPersona(
     headers,
     ...(payload ? { payload } : {}),
   })
-}
-
-function customPayload(overrides: Record<string, unknown> = {}) {
-  return {
-    id: customId,
-    name: 'F-364 自建人格',
-    category: 'test',
-    description: '仅用于管理员闸回归',
-    systemPrompt: 'base prompt',
-    ...overrides,
-  }
 }
 
 describe('workspace-ai Persona 写操作管理员闸(F-364)', () => {

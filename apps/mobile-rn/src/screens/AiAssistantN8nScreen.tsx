@@ -90,6 +90,7 @@ import {
   branchConversation,
   deleteConversation,
   fetchModels,
+  fetchPoolChatModels,
   formatSSEError,
   getMessages,
   getTokenBalance,
@@ -1136,12 +1137,26 @@ export default function AiAssistantN8nScreen() {
   const [showModelPicker, setShowModelPicker] = useState(false)
 
   // 模型列表加载(后端 /llm/models 已按可用性+配额过滤,与 ChatScreen 同源)
+  // 2026-11-10:并发拉个人号池模型并追加 —— 号池 id 原样可被后端反查
+  // (`<平台>/<上游模型名>` 或平台登记行),选中即可用;号池接口失败返回 [] 不拖垮主列表。
   useEffect(() => {
     let cancelled = false
-    fetchModels()
-      .then((res) => {
+    Promise.all([fetchModels().catch(() => null), fetchPoolChatModels()])
+      .then(([res, pool]) => {
         if (cancelled) return
-        if (res?.models?.length) setModelList(res.models)
+        const base = res?.models ?? []
+        const seen = new Set(base.map((m) => m.id))
+        const extra: LlmModel[] = pool
+          .filter((p) => !seen.has(p.id))
+          .map((p) => ({
+            id: p.id,
+            name: p.name,
+            provider: p.provider,
+            context_length: 0,
+            input_price: 0,
+          }))
+        const merged = [...base, ...extra]
+        if (merged.length) setModelList(merged)
       })
       .catch(() => {
         // 静默:保持 null,展示 FALLBACK_MODELS 降级

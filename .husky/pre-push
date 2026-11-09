@@ -136,6 +136,28 @@ if [ -n "$PUSH_REFS" ]; then
 fi
 # <<< push-receipt-gate (end)
 
+# ─── 跨分支推送告警(纯告警:不改退出码/不阻断/不 export)─────────────────
+# 背景(2026-11-09 实测):从 HEAD=别的分支的检出推 feat/* 时,push 门按「当前 HEAD+工作树」
+#   取材(guardian-runner.mjs 的 IG 门 args 硬编码 origin/main..HEAD;gate-face.mjs:48
+#   ls-tree HEAD;knip/parity 门 readFileSync 磁盘)—— PUSH_REFS 在本钩子里只被折算成
+#   文件名单(PUSH_SCOPE_FILES),被推 ref 的 sha 从未传给下游 ⇒ 跨分支推送必审错树。
+#   实测:289s 全量门误红 5 道,同一棵树在正确检出复跑全绿。此处只告警指路,不动任何判据。
+_cur_head="$(git rev-parse --verify -q HEAD 2>/dev/null)"
+_cur_branch="$(git symbolic-ref -q --short HEAD 2>/dev/null)"
+while IFS=' ' read -r _w_lref _w_lsha _w_rref _w_rsha; do
+  [ -z "$_w_rref" ] && continue
+  case "$_w_lref" in refs/heads/*) : ;; *) continue ;; esac   # 推 tag/其他 ref 跳过
+  case "$_w_lsha" in ''|*[!0]*) : ;; *) continue ;; esac      # 删分支(local sha 全 0)跳过
+  [ "$_w_lsha" = "$_cur_head" ] && continue                   # 推的就是当前检出分支,不告警
+  printf '\n%s\n' "⚠️  跨分支推送:被推 ${_w_lref#refs/heads/} = ${_w_lsha}" >&2
+  printf '%s\n' "    当前检出 HEAD = ${_cur_head} (${_cur_branch:-detached HEAD})" >&2
+  printf '%s\n' "    push 门审的是【当前 HEAD + 工作树】面,不是被推 ref 的内容 —— 本次门的红/绿都不属于该分支。" >&2
+  printf '%s\n' "    正确做法:env -C <该分支 worktree> git push origin ${_w_lref#refs/heads/}" >&2
+done <<EOF
+$PUSH_REFS
+EOF
+: # 显式收口为 0,不改变后续判据与退出码
+
 # ─── 全量 typecheck 强制门 ────────────────────────────────────────────
 # 背景:第 11-12 轮发现 subagent 报告"全绿"靠 .tsbuildinfo 缓存假象
 #      pre-push 强制清缓存 + 串行全量 typecheck 修复该问题
