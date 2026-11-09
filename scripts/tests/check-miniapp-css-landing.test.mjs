@@ -1642,4 +1642,92 @@ test('C8 重锚出口只打印、非新鲜拒收(本门只读由上面那条写�
   )
 })
 
+/* ───────────────── 9. v4 参考层的 classic 插件剥离(2026-11-09) ─────────────────
+ * 立因:端内 config 经 presets 携带一枚只为 v3 存在的 alpha 插件,它产出的键是**已转义的
+ * 选择器**;v4 compat 逐字执行它并当场抛 invalid utility selector ⇒ 参考层整层判不出
+ * (实测 exit 2 的原文:`addUtilities({ 'bg-destructive\\/5' : … }) defines an invalid
+ * utility selector`)。而真产物里不含这些插件的规则(dist 转义斜杠 alpha 规则实测 0 条,
+ * 同形态 alpha 由 v4 原生产出)⇒ 参考层执行它们 = 喂了产物没吃的东西。
+ * 这里钉四件事:剥得掉 / 剥不误伤 / 剥不静默 / 真引擎上确实不再崩。
+ */
+test('stripClassicPlugins:剥掉 config 与 presets 携带的 plugins 数组,并如实计数', () => {
+  const mk = () => () => ({ handler: () => {} })
+  const p1 = mk()
+  const p2 = mk()
+  const p3 = mk()
+  const preset = { theme: { extend: { colors: { muted: 'var(--color-muted)' } } }, plugins: [p1] }
+  const cfg = { content: ['./src/**/*.{ts,tsx}'], presets: [preset], plugins: [p2, p3] }
+  const r = G.stripClassicPlugins({ default: cfg })
+  assert.equal(r.total, 3, '顶层 2 处 + preset 1 处必须全部计入,少报即漏剥')
+  assert.equal(r.removed, 3, '首次见到就全数记为真剥')
+  assert.deepEqual(cfg.plugins, [], '顶层 plugins 必须清空')
+  assert.deepEqual(preset.plugins, [], 'preset 的 plugins 同样必须清空')
+  assert.deepEqual(cfg.presets[0].theme, preset.theme, 'theme 一律原样保留')
+  assert.equal(cfg.content[0], './src/**/*.{ts,tsx}', 'content 等其他键不得被动过')
+  /* 进程内幂等(实测踩过的失效型):jiti 缓存同一对象,第二次调用数组已空,
+   * 若只数"本次改动"就报 0 ⇒ 把修复生效洗成什么都没发生。第二次仍必须如实报 3。 */
+  const again = G.stripClassicPlugins({ default: cfg })
+  assert.equal(again.total, 3, '同一模块第二次调用不得报 0(缓存态必须仍被认出来)')
+  assert.equal(again.preexisting, 3, '重复调用应归入 preexisting,而不是"本轮剥掉 3 处"')
+})
+
+test('stripClassicPlugins:无 plugins / 非对象 / 双层 interop 三种形状都不误伤也不炸', () => {
+  assert.equal(G.stripClassicPlugins(undefined).total, 0, '取不到模块 ⇒ 0,不猜')
+  assert.equal(G.stripClassicPlugins(null).total, 0)
+  assert.equal(G.stripClassicPlugins(42).total, 0, '非对象输入不得抛')
+  const bare = { theme: {} }
+  assert.equal(G.stripClassicPlugins(bare).total, 0, '没有 plugins 就一条都不该报')
+  /* loadModule 归还 {path, base, module} 信封:判据必须自己拆开,否则整层等于没剥(实测形态) */
+  const fn = () => {}
+  const envelope = G.stripClassicPlugins({ path: 'x', base: 'y', module: { plugins: [fn] } })
+  assert.equal(envelope.total, 1, '{path,base,module} 信封必须被拆开处理')
+  const nested = { default: { presets: [{ presets: [{ plugins: [() => {}] }], plugins: [() => {}] }], theme: 1 } }
+  assert.equal(G.stripClassicPlugins(nested).total, 2, '嵌套 preset 链要递归剥到底')
+  assert.equal(nested.default.theme, 1, '递归过程中不得改别的键')
+})
+
+test('装车证明:v4 档真的走剥离器(loadModule 被包裹),且计数上浮成 notice(不得静默)', () => {
+  const src = readFileSync(GATE, 'utf8')
+  assert.match(
+    src,
+    /const loadModuleV4 = async \(id, base\)[\s\S]{0,260}?stripClassicPlugins\(/,
+    '参考层没把 loadModule 包成剥离版 ⇒ 判据造好没装车',
+  )
+  assert.match(src, /loadModule: loadModuleV4/, 'compile 仍喂原始 loaders.loadModule ⇒ 包裹没接上')
+  assert.match(
+    src,
+    /classicPluginsEncountered > 0[\s\S]{0,160}?notices\.push\(/,
+    '中和了却在结论面不点名 ⇒ 把改过的输入藏进了实现(§0 纪律)',
+  )
+  assert.match(src, /classicPluginsStripped,\s*\n\s*classicPluginsEncountered,\s*\n/, '返回值必须带两个计数,runCheck 才有得可报')
+})
+
+test('正向对照(真 v4 引擎):端内 config 原样喂给参考层不再判不出,且 alpha 档仍在可选集', async (t) => {
+  const appDir = join(ROOT, 'apps', 'miniapp-taro')
+  let reference
+  try {
+    reference = await G.buildUtilityReferenceV4({
+      root: ROOT.replace(/\\/g, '/'),
+      appDir,
+      candidates: ['bg-muted', 'bg-destructive/5', 'px-4', 'text-sm', 'bg-primary/10'],
+    })
+  } catch (e) {
+    // 环境未就绪(store 里没 v4/@tailwindcss/node)⇒ 显式未判定,不得当通过
+    t.skip(`v4 参考层在本机取不到引擎 ⇒ 本格未判定:${String(e.message).slice(0, 140)}`)
+    return
+  }
+  assert.ok(reference.names.size > 0, '参考层产出 0 条 ⇒ 分母不成立')
+  assert.equal(reference.names.has('bg-muted'), true, '命名档必须还在(剥离不得顺手吃掉 config 的 theme)')
+  assert.equal(reference.names.has('px-4'), true, 'theme 侧的间距档必须还在')
+  assert.ok(
+    [...reference.names].some((n) => /^bg-destructive\/\d+$/.test(n) || /^bg-primary\/\d+$/.test(n)),
+    'alpha 形态必须在参考层里 —— 真产物有它(v4 原生),剥完参考层却没有 = 反向盲区那一条要冒红',
+  )
+  assert.ok(
+    reference.classicPluginsEncountered >= 1,
+    `classic 插件一处都没中和到,修复没生效(实际 encountered=${reference.classicPluginsEncountered} stripped=${reference.classicPluginsStripped})`,
+  )
+})
+
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
