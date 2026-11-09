@@ -305,6 +305,96 @@ main 祖先分支重跑 `merge-base --is-ancestor`，A∩B=∅ 分支重跑两�
 
 本票与 `cross-end-sync.yml` 修复随同枚提交落地，提交 SHA 见 `git log -1`。
 
+## 6. 第二轮:器件化与收尾闭环(2026-11-09 晚)
+
+> 触发:李总问「是没开发好的吗,那要开发完整啊」。先给结论 —— **没开发好的是收尾机制,不是功能代码**。
+
+### 6.1 为什么「84 支未合并」不等于「84 个半成品」
+
+用当前真远端 main 重新取证并加三层更硬的判据,结果如下:
+
+| 判据 | 口径 | 结果 |
+| --- | --- | --- |
+| 对象可用性 | `git fetch --no-tags origin refs/heads/<name>` 补齐缺失对象(只加对象,不动本地 ref/工作树) | 5 支补齐 ⇒ **未判定归零** |
+| patch-id 等价 | 一次性算 main 最近 4000 笔 `--stable` patch-id(3914 枚,71s),逐支比 `BASE..tip` | **84 支全有独有 patch**,0 支等价已落地 |
+| 新增行落地率 | 三点 diff 的新增行(排除 README/生成块/锁文件)逐条在 main 对应文件查 | 71 支 <0.50,仅 **2 支 100% 落地** |
+| 三方合并试算 | `git merge-tree --write-tree BASE tip` 只读试算(84 支并行 16.3s) | 零冲突 30 支 / 有冲突 54 支 |
+
+结论:这些分支**每支都有完整提交、测试与改动文件**,是 11-06～11-09 多会话并行「一任务一 worktree 一分支」的
+**已完成但未收尾**的任务线,不是写了一半的功能。主线 main 本身是完整可部署的。
+
+**不把 84 支批量合进 main** 是刻意的:它们基于不同旧基线、大量互相重叠(defect-mining 系列、README 生成块、i18n)、
+独有 patch 全未落地且多为重复劳动。三方合并零冲突不等于语义正确 —— 把 11-06 的旧树合回 11-09 主线正是
+AGENTS/历史事故里的「旧快照回退」(判伪看 numstat 方向,−800 行级即回滚)。机器不替业务做这个裁决。
+
+### 6.2 真正的工具链缺陷:README 生成块造成 36 支假冲突
+
+54 支有冲突的分支里,冲突文件频次 `README.md` 36 次、`README.en.md` 34 次,**7 支冲突面只含生成块/文档**。
+根因:每个任务分支各自把 `trackedFiles/testFiles/apiRoutes` 数字写死进两份 README,合并时 trivially 冲突。
+这不是代码分歧,是「生成块数字由各分支各自写」的机制问题;修法方向是合并后由唯一写入口重算,不在此轮擅自改门禁体系。
+
+### 6.3 已开发完整的收尾闭环
+
+| 交付 | 内容 | 验证 |
+| --- | --- | --- |
+| `scripts/remote-branch-triage.mjs` | 权威 tip(`ls-remote`)→ 补齐对象 → 四重判据 → 安全闸 → 三态报告 → 默认 dry-run 的可复用器件;带 `--from-json` 秒级执行通道 | 真仓 110 支全判 7m52s;镜像测试 12/12 |
+| `scripts/tests/remote-branch-triage.test.mjs` | 取材层 / classify 全闸 / safetyCheck 六种不符 / 报告层,逐条带反向牙 | `node --test` 12 pass 0 fail |
+| `cross-end-auto-cleanup.yml` 第 ② 组 | 补清「PR 已 merged 但 head ref 仍在」的历史残留:纯 GitHub 原生数据,要求无 open PR ∧ `compare.ahead_by=0`,保护前缀与 Dependabot 排除 | PyYAML 解析 OK,5 steps |
+| 仓库设置(上轮) | `delete_branch_on_merge=True` | 回读 True |
+
+器件的安全口径与官方清理器一致:**Dependabot PR 一律 HOLD_PR**(它曾把 `dependabot[bot]` 误列为可覆盖 bot,已收紧并补反向牙);
+独有提交 >200 笔的分支(如 `ihui-backup/main-20260927-r1`,7778 笔)一律 UNJUDGED,绝不写成判过 —— 首次真仓自验正是被这种巨型补丁拖到 SIGTERM。
+
+### 6.4 本轮执行读数
+
+| 项 | 值 |
+| --- | --- |
+| 判定基线 | `9a73536db8b9cb05411b352140788e0176e5d276`(运行时的真远端 main) |
+| 真远端分支(判定前 / 删除后) | 110 / **108** |
+| 三态 | {"HOLD_PROTECT": 3, "NEEDS_WORK": 56, "HOLD_PR": 25, "DISCARDABLE": 2, "HOLD_WORKTREE": 23, "MAIN": 1} |
+| 删除 | **2 支成功 / 0 失败 / 0 跳过** |
+| main | 删除前后未动 |
+
+删除前逐条留痕(器件输出):
+
+```text
+DELETE-CANDIDATE feat/rn-compat-primitives-20261106|be3612acff19|新增行 100% 落地
+DELETE-CANDIDATE fix/miniapp-distribution-spacing-1106|c54b094cef83|A∩B=∅
+```
+
+二次校验口径:`--from-json` 复用报告但**不跳过复验** —— 重新 `ls-remote` 校权威 tip、重拉 open PR、重跑落地判据,
+任一不符整支跳过。`--from-json` 耗时 0.28s(对比全量重判 7m52s)。
+
+### 6.5 一键复现 / 收敛队列
+
+```bash
+# 全量判定(默认 dry-run,绝不删)
+GH_TOKEN=<token> node scripts/remote-branch-triage.mjs --repo D:/IHUI-AI \
+  --with-merge-probe --json report.json --markdown report.md
+
+# 复核报告后执行(仍逐支二次校验)
+GH_TOKEN=<token> node scripts/remote-branch-triage.mjs --repo D:/IHUI-AI \
+  --from-json report.json --apply --max-delete 100
+
+# 定时档(CI)自动清:快照组 + 已合并残留组
+# 仓库变量 CROSS_END_CLEANUP_ENABLED=true 已生效
+```
+
+收敛队列按合并试算排序:**30 支零冲突**(其中 23 支 Dependabot/固定分支有 open PR,不动;7 支任务线可被业务挑选合并)、
+**54 支有冲突**(36 支仅 README 生成块噪声,可先重算生成块再合;余下需人工)。
+
+### 6.6 有意保留(不是遗漏)
+
+| 组 | 数量 | 理由 |
+| --- | --- | --- |
+| HOLD_WORKTREE | 23 | tip 已是 main 祖先(内容零风险),但删远端 ref 会断他席 upstream;待其收工后由器件自动清 |
+| HOLD_PR | 25 | Dependabot 依赖升级线,删后会重开,无收敛收益 |
+| NEEDS_WORK | 56 | 仍有未落地独有内容,需业务裁决「合 / 弃」,机器不代决 |
+| HOLD_PROTECT / MAIN | 4 | 备份线与主干 |
+
+约 2.4 万枚 `lost-commit*` tag 仍按 §29 人工 GC,未纳入本器件射程。
+
+
 ## 5. 复现命令
 
 ```bash
