@@ -29,6 +29,8 @@ import { currentRnTheme, tokens } from '../../theme/active-tokens'
 import { useI18n } from '../../i18n'
 import { rpx } from '../../utils/rpx'
 import { Tappable } from '@ihui/ui-native'
+import { DIALOG_HEIGHT_RATIOS } from '../../lib/dialog-geometry'
+import { useDialogMaxHeightStyle } from '../../lib/use-dialog-height'
 
 /**
  * D136(2026-10-01 立,承 V4 #94 / D84):RN 端工具审批。
@@ -171,6 +173,9 @@ function isDangerousCommand(argv: readonly string[]): boolean {
 
 export function useToolApprovalQueue(): UseToolApprovalQueueResult {
   const { t } = useI18n()
+  // 整卡限高原为 85% 百分比,Fabric 下百分比不给子节点确定测量边界 ⇒
+  // 改用 lib/dialog-geometry 数值档 extraTall(0.85,与原比例同值)。
+  const cardMaxHeightStyle = useDialogMaxHeightStyle(DIALOG_HEIGHT_RATIOS.extraTall)
   const [entries, setEntries] = useState<ApprovalEntry[]>([])
   const [panelOpen, setPanelOpen] = useState(false)
   const [scope, setScope] = useState<ToolApprovalScope>('once')
@@ -335,7 +340,7 @@ export function useToolApprovalQueue(): UseToolApprovalQueueResult {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
           <ScrollView
-            style={styles.card}
+            style={[styles.card, cardMaxHeightStyle]}
             contentContainerStyle={styles.cardContent}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
@@ -621,7 +626,10 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: tokens.surface.card,
     borderRadius: rnRadius.xl,
-    maxHeight: '85%',
+    // 高度不写百分比上限(RN 0.86 Fabric 下百分比不给子节点确定测量边界):
+    // 保留 maxHeight 键(undefined)供门 217 识别 bounded 容器,真正数值由
+    // useDialogMaxHeightStyle(extraTall) 在调用处叠加(见 lib/dialog-geometry.ts)。
+    maxHeight: undefined,
     // 小屏/多工具参数时整卡滚动,按钮与原因输入不会被挤出屏幕
     overflow: 'hidden',
   },

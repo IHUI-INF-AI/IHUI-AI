@@ -48,7 +48,7 @@ export const PAYMENT_CREDIT_STATUSES: readonly string[] = ['paid']
 /** 已经真金白银退出去的退费状态。 */
 export const REFUND_SETTLED_STATUSES: readonly string[] = ['approved', 'completed']
 /** 计算"该流水还能退多少"时要扣掉的退费状态:驳回/撤销不算占用额度。 */
-export const REFUND_COUNTED_STATUSES: readonly string[] = ['pending', 'approved', 'completed']
+const REFUND_COUNTED_STATUSES: readonly string[] = ['pending', 'approved', 'completed']
 /** 到期前多少天算「即将到期」,与 edu_fee_schedule.grace_days 无关(那是逾期宽限)。 */
 export const DUE_SOON_LEAD_DAYS = 7
 /**
@@ -462,17 +462,181 @@ export async function loadEnrollmentLedger(
 /**
  * 批量读取多个报名的账目(DB-20)。
  *
- * 口径只保留单条路径一份实现;本函数退化为薄包装,按 id 循环调用单条并透传 executor,
- * 事务内复用同一 executor,避免嵌套事务/快照分叉。
+ * 固定 5 条 SQL,与报名条数无关:报名行 / 兄弟计数(group by)/ 支付 / 退费 / 账期。
+ * 口径仍只有 `deriveEnrollmentLedger` 一份实现,批量路径只负责把五行原始数据
+ * 按"归属 + 唯一报名才认领无归属流水"的规则分桶,逐条结果与单条路径一致。
  */
 export async function loadEnrollmentLedgers(
   enrollmentIds: readonly string[],
   executor: LedgerExecutor = db,
 ): Promise<Map<string, EnrollmentLedger>> {
+  const ids = [...new Set(enrollmentIds)]
   const out = new Map<string, EnrollmentLedger>()
-  for (const id of new Set(enrollmentIds)) {
-    const ledger = await loadEnrollmentLedger(id, executor)
-    if (ledger) out.set(id, ledger)
+  if (ids.length === 0) return out
+
+  // 1) 报名行
+  const enrollments = await executor
+    .select({
+      id: eduEnrollment.id,
+      totalFee: eduEnrollment.totalFee,
+      studentId: eduEnrollment.studentId,
+      classId: eduEnrollment.classId,
+    })
+    .from(eduEnrollment)
+    .where(and(inArray(eduEnrollment.id, ids), isNull(eduEnrollment.deletedAt)))
+  if (enrollments.length === 0) return out
+  const byId = new Map(enrollments.map((e) => [e.id, e] as const))
+
+  const pairKey = (studentId: string, classId: string): string => `${studentId}\u0000${classId}`
+
+  // 2) 兄弟计数:同一 student×class 的有效报名数,决定无归属流水能否被认领
+  const siblingRows = await executor
+    .select({
+      studentId: eduEnrollment.studentId,
+      classId: eduEnrollment.classId,
+      n: count(),
+    })
+    .from(eduEnrollment)
+    .where(
+      and(
+        inArray(eduEnrollment.studentId, [...new Set(enrollments.map((e) => e.studentId))]),
+        inArray(eduEnrollment.classId, [...new Set(enrollments.map((e) => e.classId))]),
+        isNull(eduEnrollment.deletedAt),
+      ),
+    )
+    .groupBy(eduEnrollment.studentId, eduEnrollment.classId)
+
+  const adoptTargetByPair = new Map<string, string>()
+  const adoptablePairs = new Set<string>()
+  for (const row of siblingRows) {
+    const key = pairKey(row.studentId, row.classId)
+    if (shouldAdoptUnattributed(Number(row.n ?? 0))) adoptablePairs.add(key)
+  }
+  // 只有"唯一报名"的 pair 才能确定认领无归属流水(多条报名时两边都不算,避免重复计钱)
+  for (const e of enrollments) {
+    const key = pairKey(e.studentId, e.classId)
+    if (adoptablePairs.has(key)) adoptTargetByPair.set(key, e.id)
+  }
+
+  // 3~5) 支付 / 退费 / 账期:各一条,属主条件按报名集合一次拼出
+  const payOwner = or(
+    ...enrollments.map((e) => {
+      if (adoptTargetByPair.get(pairKey(e.studentId, e.classId)) !== e.id) {
+        return eq(eduPaymentRecord.enrollmentId, e.id)
+      }
+      return or(
+        eq(eduPaymentRecord.enrollmentId, e.id),
+        and(
+          isNull(eduPaymentRecord.enrollmentId),
+          eq(eduPaymentRecord.studentId, e.studentId),
+          eq(eduPaymentRecord.classId, e.classId),
+        ),
+      )
+    }),
+  )
+  const refundOwner = or(
+    ...enrollments.map((e) => {
+      if (adoptTargetByPair.get(pairKey(e.studentId, e.classId)) !== e.id) {
+        return eq(eduRefundRecord.enrollmentId, e.id)
+      }
+      return or(
+        eq(eduRefundRecord.enrollmentId, e.id),
+        and(
+          isNull(eduRefundRecord.enrollmentId),
+          eq(eduRefundRecord.studentId, e.studentId),
+          eq(eduRefundRecord.classId, e.classId),
+        ),
+      )
+    }),
+  )
+
+  const [payments, refunds, schedules] = await Promise.all([
+    executor
+      .select({
+        id: eduPaymentRecord.id,
+        amount: eduPaymentRecord.amount,
+        status: eduPaymentRecord.status,
+        scheduleId: eduPaymentRecord.scheduleId,
+        enrollmentId: eduPaymentRecord.enrollmentId,
+        studentId: eduPaymentRecord.studentId,
+        classId: eduPaymentRecord.classId,
+      })
+      .from(eduPaymentRecord)
+      .where(and(payOwner, isNull(eduPaymentRecord.deletedAt))),
+    executor
+      .select({
+        amount: eduRefundRecord.amount,
+        status: eduRefundRecord.status,
+        scheduleId: eduPaymentRecord.scheduleId,
+        enrollmentId: eduRefundRecord.enrollmentId,
+        studentId: eduRefundRecord.studentId,
+        classId: eduRefundRecord.classId,
+      })
+      .from(eduRefundRecord)
+      .leftJoin(eduPaymentRecord, eq(eduRefundRecord.paymentId, eduPaymentRecord.id))
+      .where(and(refundOwner, isNull(eduRefundRecord.deletedAt))),
+    executor
+      .select({
+        id: eduFeeSchedule.id,
+        enrollmentId: eduFeeSchedule.enrollmentId,
+        dueDate: eduFeeSchedule.dueDate,
+        graceDays: eduFeeSchedule.graceDays,
+        amountDue: eduFeeSchedule.amountDue,
+        status: eduFeeSchedule.status,
+      })
+      .from(eduFeeSchedule)
+      .where(and(inArray(eduFeeSchedule.enrollmentId, ids), isNull(eduFeeSchedule.deletedAt)))
+      .orderBy(asc(eduFeeSchedule.dueDate)),
+  ])
+
+  /** 行 → 认领到的报名 id;enrollment_id 指向批次外时不得改判给同 pair 的报名。 */
+  const targetOf = (row: {
+    enrollmentId?: string | null
+    studentId?: string | null
+    classId?: string | null
+  }): string | null => {
+    if (row.enrollmentId && byId.has(row.enrollmentId)) return row.enrollmentId
+    if (row.enrollmentId) return null
+    if (row.studentId && row.classId) {
+      return adoptTargetByPair.get(pairKey(row.studentId, row.classId)) ?? null
+    }
+    return null
+  }
+
+  const groupByEnrollment = <
+    T extends {
+      enrollmentId?: string | null
+      studentId?: string | null
+      classId?: string | null
+    },
+  >(
+    rows: T[],
+  ): Map<string, T[]> => {
+    const grouped = new Map<string, T[]>()
+    for (const row of rows) {
+      const id = targetOf(row)
+      if (!id) continue
+      const bucket = grouped.get(id)
+      if (bucket) bucket.push(row)
+      else grouped.set(id, [row])
+    }
+    return grouped
+  }
+
+  const paymentsById = groupByEnrollment(payments)
+  const refundsById = groupByEnrollment(refunds)
+  const schedulesById = groupByEnrollment(schedules)
+  const today = todayIso()
+
+  for (const e of enrollments) {
+    const ledger = deriveEnrollmentLedger({
+      totalFee: e.totalFee,
+      schedules: schedulesById.get(e.id) ?? [],
+      payments: paymentsById.get(e.id) ?? [],
+      refunds: refundsById.get(e.id) ?? [],
+      today,
+    })
+    if (ledger) out.set(e.id, ledger)
   }
   return out
 }

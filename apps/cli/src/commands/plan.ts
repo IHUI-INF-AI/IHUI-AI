@@ -140,7 +140,7 @@ export function planOverwriteBlock(
   }
 }
 
-export function planLookup(
+function planLookup(
   filePath: string,
   stat: (file: string) => unknown = statSync,
 ): 'missing' | 'unread' | 'present' {
