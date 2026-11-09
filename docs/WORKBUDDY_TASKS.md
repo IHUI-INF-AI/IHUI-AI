@@ -849,6 +849,25 @@ POST /api/checkin/accounts/{account_id}/autopilot   body {"dry_run": false, "cla
 端点与 CLI 共用服务层单源 `workbuddy_autopilot.run_autopilot`;新增 4 例端点测试
 (`test_checkin_task_run_record.py` 12 例全绿:留痕字段映射/早退/非 workbuddy 拒绝/摘要截断)。
 
+**MCP Server 化(2026-11-09 深夜补:任何支持 MCP 的 AI 客户端可即插即用接走)**——
+`apps/ai-service/mcp_server/wb_autopilot_mcp.py`(stdio JSON-RPC 2.0,**零第三方依赖**):
+
+| 工具 | 语义 |
+| --- | --- |
+| `wb_autopilot_run(account_id?, dry_run?, claim?)` | 全量自动驾驶一轮(写侧,与 CLI/端点/调度器同引擎单源) |
+| `wb_tasks_list(account_id?)` | 只读现读任务全表(零写侧) |
+| `wb_action_routes()` | 只读选路图(desktop / generic / 零出站登记) |
+
+- 接入:客户端 mcp.json 加一条 command 指向本文件(见文件 docstring 模板);本机
+  WorkBuddy 已注册(`wb-autopilot`)。凭据只在本机 checkin_store 解密,jwt/token
+  永不出 MCP 返回体;写侧工具只应接入可信本机客户端。
+- 用户级 Skill `~/.workbuddy/skills/wb-autopilot/SKILL.md` 同步封装三入口配方
+  (任何 WorkBuddy 会话按 skill 指引调用,不再读源码写脚本)。
+- 协议单测 `tests/test_wb_autopilot_mcp.py` 9 例全绿(握手/工具清单/通知静默/
+  -32601/-32602/-32603/坏行 -32700 不崩/EOF 退出/真动作表选路冒烟);
+  真进程 stdio 端到端 smoke 通过(initialize + tools/list)。
+
+
 
 
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
