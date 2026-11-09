@@ -5458,6 +5458,12 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-09**
+- 📚 文档:合并面 0d503a4 数字按唯一写入口现算刷新(trackedFiles 20612/testFiles 4768) (1c27bda99a)
+- 🔧 工程/其他:perf(sag2)+feat(sag2): 扫描件 OCR 四级链落地；多跳检索等价提速 4.4×（召回结果逐条不变） (abd73298e4)
+- 📚 文档:trackedFiles 20577->20578 / testFiles 4753->4754(上一枚新增 tests/test_agent_loop_tools_wire.py) (fd62c925ce)
+- 🐞 修复:派工 tools 从未进入模型请求 —— 接上转发并把参数面改成分层瘦身 (fd5f2a1243)
+
+**2026-11-09**
 - 🔧 工程/其他:入库11-08远端分支只读清点工单+防火墙禁用滚动留痕(README数字块DN5同源刷新) (0646e1d290)
 - 🚀 新功能/改进:真文件监听 + 音视频转写 + 图片OCR，并修掉建库平方级开销（229×） (7d2e787bcf)
 - 🚀 新功能/改进:本地文件夹登记/增量扫描 + 7 类格式抽取 + 接入 RAG 第三路与 Agent 门面 (8ed115c505)
@@ -5504,6 +5510,7 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - ♻️ 重构:opType 展示语义收成全仓唯一表 (26122d8cfa)
 - 🐞 修复:API 套餐价格量纲收成唯一换算点并补首尾相等夹具 (97e1d135dc)
 - 🐞 修复:收口全部如实登记遗留项——真实PG/HTTP端到端、UI真测试、判定状态形状锁、工具链与门红根治 (29489c1165)
+
 **2026-11-08**
 - 📚 文档:收口 web/RN ui-routes 补生成——终态钉、输入条数与已变来源；定论为源码改了未重生成，非生成器缺陷 (09ddb6c586)
 - 🐞 修复:重生成 ui-routes 白名单（2 输入，1 条已变：RootNavigator.tsx ← XUI-004 0ba309d2f7 + XUI-068 d6306a65b3；终态钉 fd754397…；349 条路由未变，仅 skipped 7→8） (23bfb6ca86)
@@ -5882,6 +5889,7 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 📚 文档:auto-triage 自动登记(api-logs;第 1 期感知层产线动作,O65) (616fb59a5a)
 - 📚 文档:auto-triage 自动登记(api-logs;第 1 期感知层产线动作,O65) (aec3023ba2)
 - 📚 文档:auto-triage 自动登记(api-logs;第 1 期感知层产线动作,O65) (d400a0e35b)
+
 **2026-11-07**
 - 🐞 修复:签到按钮同 tick 互斥与失败复位(票 F),并发两次只发一次请求 (125d3b1f3f)
 - 🐞 修复:签到助手回屏只刷新一次(票 D),复用 screen-reappear-adapter (29085fdd48)
@@ -5893,6 +5901,7 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:T1 预算棘轮补 margin 证据链,自包含复核判据入库 (6013b5e151)
 - 🐞 修复:T1 改并发4+LPT 派发(300s 让位于实测基线),门251 修 staged 参数序+批量取面并补夹具,worktree 自有 node_modules (a8ff738ce2)
 - 🐞 修复:提现状态五语言包补齐 processing(web 管理端映射同步) (7b95c067b2)
+
 **2026-11-06**
 - 🐞 修复:收口 push 门 typecheck 基线 —— 补齐测得出的契约缺口 (16d9e7721a)
 - 🐞 修复:skill_list 注入登记与生产出口对齐,补齐 frontmatter 三字段契约 (01f9dc5075)
@@ -5917,11 +5926,14 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 📚 文档:用 sync-readme-numbers 刷新 README 生成块(apiRoutes 4700 / testFiles 4226 / trackedFiles 19496) (9a8e6fb3e7)
 - 🔧 工程/其他:chat 页(BUG-67 浮层)按复制页重新在册,门 299 判绿 (5130247253)
 - 🐞 修复:rn-shell-types 派生件接入提交链,251 触发面补 types/ (5cc02e6c39)
+
 **2026-11-08**
 - 📚 文档:同步 RECENT UPDATES 生成块与 doc-autoupdate 基线 (2485323c91)
+
 **2026-11-08**
 - 🔧 工程/其他:补齐门 47 自愈注入留下的隐形载荷缺口，无业务改动 (f3ae170b31)
 - 📚 文档:同步 RECENT UPDATES 生成块与 doc-autoupdate 基线 (8063d609f5)
+
 **2026-11-08**
 - 📚 文档:同步 README 正文的测试文件现算数(4446) (eb11488487)
 - 📚 文档:同步 F-38 夹具后的 README 现算数字(testFiles 4446 / trackedFiles 20184) (82bd61611f)
@@ -5939,8 +5951,10 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:F-291 SSE 重放缓冲容量满时重注册不再误淘汰其他活跃流 (461bbae68a)
 - 📚 文档:同步 README 文档数字与最近提交面（testFiles/apiRoutes/trackedFiles 与现算对齐） (e179987387)
 - 🔧 工程/其他:补门 193 存量违规 —— check-hand-migration-snapshot 的 git diff 派生显式接管 stdio (3eba6c71fd)
+
 **2026-11-08**
 - 🔧 工程/其他:补门 193 存量违规 —— check-hand-migration-snapshot 的 git diff 派生显式接管 stdio (02d2f85062)
+
 **2026-11-08**
 - 🐞 修复:F-290 WS 限流删除 BURST 死分支，30 条/秒为硬上限 (5828640196)
 - 🐞 修复:F-188 统一 skills:<uid> 为 JSON 数组，识别并救回历史 Hash，install 不再吞掉写入失败 (6a087b84c9)
@@ -6069,6 +6083,7 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:CLI 根推导退一级修正(scripts/ 入口不能复用 scripts/lib/ 的 ../..) (d365b725b3)
 - 🐞 修复:钥配置按 KeyPath 语义读取文件内容(不得把路径当密钥) (bab82b2299)
 - 🚀 新功能/改进:提交侧求值 + 推送侧凭据校验(13 门/文档数字/i18n 后台真跑, fail-closed 回落) (a78bee7f3d)
+
 **2026-11-07**
 - 🚀 新功能/改进:验证码复制按钮改为右侧细描边胶囊并上线落地页 (578c4caf4e)
 - 🚀 新功能/改进:门结果缓存 + 后台预跑(新增 gate-cache/gate-worker/夹具/注册表) (a49fd06f05)
@@ -6327,6 +6342,7 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:site-apk 增判 downloadUrl 指向自有站点腿,行在位不再当端内更新卡可用 (bddf6e5a59)
 - 🐞 修复:渠道登记面改为实读 0364+schema+路由,store 维度已落地不再长期报缺 (c53ddd7dbe)
 - 🔧 工程/其他:补 GitHub App CI 三类事件忽略应答与零 IO 判据 (7fab2d4079)
+
 **2026-11-06**
 - 🔧 工程/其他:rebase 到现读尖后重封根护栏 + 写入基线刷新规程 (3533025249)
 - 🐞 修复:固化生成器裁决与 S3 扫描面口径 (6a4edbdc3a)
@@ -6422,6 +6438,7 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🚀 新功能/改进:出站体序列化那一刻的自查仪器 —— 把 400 的射程推到 CLI 之外 (3540974b85)
 - 🐞 修复:出站清洗补上射程第三格 —— 零宽藏在工具调用参数里时仪器全程报绿 (1b62d16ce2)
 - 🐞 修复:逃生邮件从来没发出去过 —— resolveMailTo 的正则少一个 m 档,还反指控"缺键" (fdc0253f83)
+
 **2026-11-05**
 - 🐞 修复:相对路径逃逸用例切盘根执行,消除 DevEnv 下假红 (2a333988c7)
 - 🐞 修复:内部票优先收尾 —— 清掉最后一处旧密钥开关并加配置矩阵 (3b14d759f9)
@@ -6590,6 +6607,7 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:门299 的面名从 selectFace 的 .face 取 —— 读数里那个 [object Object] 其实是 --staged 失效 (95a7653212)
 - 🐞 修复:密钥句柄不再可枚举 —— 一次整对象打印就会把签发钥送进记录 (85d1d00dd9)
 - 🐞 修复:事后核验与索引推进挪到放锁之后,并输出锁排队读数 (5c3465f85c)
+
 **2026-11-04**
 - 🔧 工程/其他:补齐 8 枚 HEAD 面缺载荷的溯源水印(门47 push scope 欠账) (86958e1b20)
 - 🐞 修复:同秒并列的删除判定改为未判定——git log 先到者不是拓扑结论 (ad8bf319a0)
@@ -6712,6 +6730,7 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🚀 新功能/改进:自动臂按需加密(环开 4 分钟/轮,环合即回落) (0061164cdb)
 - 🐞 修复:判据面护栏在 commit-msg 加只报不拦的预警档 —— 未声明要在"还改得动"那一刻报出来 (facba1ab6a)
 - 🔧 工程/其他:再摘 plugins-data 死副本 14 枚并登记退役锁(逐字节同 @ihui/shared;9fdbc207ba 带回) (180c244014)
+
 **2026-11-06**
 - 🐞 修复:落地悬空副本里的两枚判据 fail-closed 与跳门降级证据(RP-67) (b7aa56e7f6)
 - 🐞 修复:派发前闸的"瞬时不在位"先复核再停派 —— 别席 install 重挂 tsx 不该烧掉一班 (0be42c4124)
@@ -43824,4 +43843,3 @@ A: Yes. Test file and case counts: see the generated table / 67 e2e spec / 4719 
 - **规模**:624 张表 · 4721 API 路由 · 测试文件数与用例数见生成块
 - **API(Fastify 5)**:4721 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 A: Yes. Test file and case counts: see the generated table / 67 e2e spec / 4721 API 路由 / 624 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
-| 跟踪文件 | 20611 | `trackedFiles` |
