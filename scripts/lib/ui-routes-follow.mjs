@@ -74,7 +74,7 @@ const WEB_RN_MAP = 'scripts/data/web-rn-screen-map.jsonl'
 export function readRepoFile(rel, face = 'worktree') {
   if (face === 'head') {
     try {
-      return execFileSync('git', ['show', `HEAD:${rel}`], { cwd: repoRoot, encoding: 'utf8', windowsHide: true })
+      return execFileSync('git', ['show', `HEAD:${rel}`], { cwd: repoRoot, encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
     } catch {
       return null
     }
