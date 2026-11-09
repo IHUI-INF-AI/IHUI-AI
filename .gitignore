@@ -668,3 +668,6 @@ apps/web/e2e/tagsview-debug.ts
 .worktrees-archive/
 apps/web/e2e/screenshots/**/*.png
 *.log.old
+
+# 商店凭据元数据(运行时矩阵;真值含绝对路径与字节数)——仓库内只保留脱敏模板 app-store-credentials.example.json(236 PROTECTED)
+scripts/data/app-store-credentials.json
