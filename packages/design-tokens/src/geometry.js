@@ -67,13 +67,18 @@ export const GEOMETRY_PX = {
   /** 昵称等强调文字 15:RN 抽屉昵称现值,小程序由 14 收到此档 */
   textStrong: 15,
   /**
-   * 侧栏/抽屉展开宽度 160(三端唯一数字):2026-11-07 机主定档「三端侧栏/抽屉同一数字」
+   * 侧栏/抽屉展开宽度 160(三端唯一数字)—— **2026-11-07 19:57 机主最终定档,此后不再改动**。
+   * 三端契约:web 常驻侧栏 160px / RN 左抽屉 160dp / 小程序左抽屉 320rpx,改档只改本处。
+   * 当日经过:上午由 250 收到 160 并定「三端侧栏/抽屉同一数字」;19:13 曾试收 120(240rpx)
+   * 作中间档,19:57 机主明令收回并锁定 160 —— 120/240rpx 已废止,不得再当作依据或参照。
    * —— web 常驻侧栏、RN 左抽屉、小程序左抽屉**全部消费本档**,端内不得再写
    * `const *_WIDTH = 160` 这种第二份真相(web 侧由守门 check-sidebar-width-consistency 拦死)。
    * 小程序经 `taroGeometry.drawerWidth` 折出 320rpx;RN 侧保留 `0.66 × 屏宽` 的比例
    * 收缩 —— 比例是窄屏自适应机制,封顶值才是档。收到 160 后该比例只在屏宽 < 243dp 的极窄
    * 设备上生效(0.66×243 ≈ 160),常态恒取本档,与 web 常驻侧栏同宽。
    * 下限恒等于本档(两端"最小宽 = 默认宽"),不为它另列一档:同一个数拆成两档必然漂。
+   * 消费提醒:web 首屏脚本经 `@ihui/design-tokens` 的 **dist** 求本档值(不是 src),改档后
+   * 必须 `pnpm --filter @ihui/design-tokens build` 重建包,否则运行时仍吃旧 dist 的旧宽度。
    */
   drawerWidth: 160,
   /**
@@ -100,6 +105,14 @@ export const GEOMETRY_PX = {
    * taroGeometry 会同步折出 860rpx,无副作用 —— 小程序端不渲染 web 预览壳,该档无小程序消费者。
    */
   previewShellWidth: 430,
+  /**
+   * Agent 运行时面板输出区滚动封顶高 320:共享实现
+   * (`packages/app/src/features/agent-runtime/AgentRuntimePanel.tsx`)的 ScrollView `maxHeight`
+   * 此前只在端内写裸数字,小程序孪生另写 `40vh`,同一块面板两端封顶几何不同值。
+   * 取 320 = 常见手机视口高(≈800px)的 40%,即小程序原 `40vh` 在基准视口下的整档值;
+   * 与同面板 `minHeight` 的 120 同族(两端都在同一段几何内)。taroGeometry 自动折 640rpx。
+   */
+  runtimePanelScrollMaxHeight: 320,
 }
 
 /** RN / 共享包侧消费入口:StyleSheet 与内联 style 里写 `width: rnGeometry.tapBox` */

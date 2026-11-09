@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useMemo } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import { ScrollView, Text, View, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { ExamResultItem, ExamResultReviewItem, ExamResultScreenProps } from '../../types'
@@ -29,7 +29,8 @@ export function ExamResultScreen({
   onRetryExam,
   onViewList,
   onShare,
-}: ExamResultScreenProps & { onRetry?: () => void }) {
+  shareAction,
+}: ExamResultScreenProps & { onRetry?: () => void; shareAction?: ReactNode }) {
   assertRequiredPort('onNavigate', onNavigate)
 
   const tk = getTokens(colorScheme)
@@ -45,12 +46,15 @@ export function ExamResultScreen({
   }
   if (error || !item) {
     return (
-      <ErrorState
-        message={error || t('examResult.loadFailed')}
-        onRetry={onRetry}
-        retryLabel={t('common.back')}
-        colorScheme={colorScheme}
-      />
+      <View style={styles.container}>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
+        <ErrorState
+          message={error || t('examResult.loadFailed')}
+          onRetry={onRetry}
+          retryLabel={t('common.retry')}
+          colorScheme={colorScheme}
+        />
+      </View>
     )
   }
 
@@ -65,6 +69,15 @@ export function ExamResultScreen({
         isCorrect: false,
         score: 0,
       }))
+
+  // 再考一次/查看列表优先用宿主显式回调;未注入时走逻辑路由,没有 examId 就退回 onBack(不造死按钮)
+  const handleRetryExam =
+    onRetryExam ??
+    (() => {
+      if (item.examId) onNavigate('ExamQuestion', { examId: item.examId })
+      else onBack()
+    })
+  const handleViewList = onViewList ?? (() => onNavigate('Exam'))
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -96,9 +109,10 @@ export function ExamResultScreen({
       <ExamResultActions
         t={t}
         colorScheme={colorScheme}
-        onRetryExam={onRetryExam}
-        onViewList={onViewList}
+        onRetryExam={handleRetryExam}
+        onViewList={handleViewList}
         onShare={onShare}
+        shareAction={shareAction}
       />
     </ScrollView>
   )

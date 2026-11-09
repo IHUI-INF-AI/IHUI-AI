@@ -249,24 +249,31 @@ export function r8Delta(baselineText, faceText) {
   return { status: 'red', before, after, added: after - before }
 }
 
-function gitShow(rev, p) {
+/**
+ * 面内 rev 前缀(2026-11-07 修面):索引面必须是 `:`(stage 0),不是 `:!0`。
+ * `:!0` 不是合法 rev ⇒ `git show ':!0:<path>'` 当场 fatal ⇒ 被审面恒取不到 ⇒ exit 2。
+ * 实测:`:p` 回正文,`:!0:p` 报 missing。
+ */
+export const FACE_REV = { staged: ':', head: 'HEAD:' }
+
+function gitShow(revPrefix, p, root = REPO_ROOT) {
   try {
-    return gitRaw(['show', `${rev}:${p}`], REPO_ROOT, { maxBuffer: 64 * 1024 * 1024 })
+    return gitRaw(['show', `${revPrefix}${p}`], root, { maxBuffer: 64 * 1024 * 1024 })
   } catch {
     return null
   }
 }
-function existsAt(rev, p) {
+function existsAt(revPrefix, p, root = REPO_ROOT) {
   try {
-    gitRaw(['cat-file', '-e', `${rev}:${p}`], REPO_ROOT)
+    gitRaw(['cat-file', '-e', `${revPrefix}${p}`], root)
     return true
   } catch {
     return false
   }
 }
-function stagedChanged() {
+function stagedChanged(root = REPO_ROOT) {
   try {
-    return gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACMR'], REPO_ROOT, {
+    return gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACMR'], root, {
       maxBuffer: 64 * 1024 * 1024,
     })
       .split('\n')
@@ -277,21 +284,21 @@ function stagedChanged() {
 }
 
 /** R8:只在 --staged 档生效(差值棘轮的"本次"只存在于提交链);其余档显式说明而非静默跳过。 */
-export function runR8(face, readAt) {
+export function runR8(face, readAt, root = REPO_ROOT) {
   if (face !== 'staged') return { violations: [], notes: ['R8 差值棘轮只在 --staged 档生效(全量档无「本次改动」可言)'] }
-  const changed = stagedChanged()
-  if (changed === null) return { violations: [], unjudged: ['R8 取不到索引改动清单 ⇒ 未判定'] }
+  const changed = stagedChanged(root)
+  if (changed === null) return { violations: [], unjudged: ['R8 取数面不可用:取不到索引改动清单 ⇒ 未判定'] }
   const inScope = changed.filter(inR8Scope)
   const violations = []
   const unjudged = []
   for (const p of inScope) {
-    const faceText = readAt(':!0', p)
+    const faceText = readAt(FACE_REV.staged, p)
     if (faceText === null) {
-      unjudged.push(`R8 取不到 ${p} 的索引面 ⇒ 未判定`)
+      unjudged.push(`R8 取数面不可用:${p} 的索引正文取不到 ⇒ 未判定`)
       continue
     }
     // 新文件 HEAD 里没有 ⇒ 基线取空串,文件里的违规按"新增"计
-    const baseline = existsAt('HEAD', p) ? gitShow('HEAD', p) : ''
+    const baseline = existsAt(FACE_REV.head, p, root) ? gitShow(FACE_REV.head, p, root) : ''
     if (baseline === null) {
       unjudged.push(`R8 取不到 ${p} 的 HEAD 基线 ⇒ 未判定`)
       continue
@@ -311,20 +318,56 @@ export function runR8(face, readAt) {
 }
 
 // ─── 取材面(§0.4 同面同轮)──────────────────────────────────
-function readFace(face) {
+function readFace(face, root = REPO_ROOT) {
   if (face === 'worktree') {
     try {
-      return readFileSync(resolve(REPO_ROOT, TARGET_REL), 'utf8')
+      return readFileSync(resolve(root, TARGET_REL), 'utf8')
     } catch {
       return null
     }
   }
-  const rev = face === 'staged' ? ':!0' : 'HEAD'
   try {
-    return gitRaw(['show', `${rev}:${TARGET_REL}`], REPO_ROOT, { maxBuffer: 64 * 1024 * 1024 })
+    return gitRaw(['show', `${FACE_REV[face]}${TARGET_REL}`], root, { maxBuffer: 64 * 1024 * 1024 })
   } catch {
     return null
   }
+}
+
+/**
+ * 跑一门并返回退出码(不直接 process.exit),`main` 只是它的 argv 绑定。
+ * `faceReader` 供镜像测试注入"事故原始写法"(`:!0`)做阴性对照;生产路径不传。
+ */
+export function runGate({ root = REPO_ROOT, face = 'head', faceReader = readFace } = {}) {
+  const text = faceReader(face, root)
+  if (text === null) {
+    if (face === 'head') {
+      // 目标页只存在于某条合并分支的索引面时,HEAD 面本来就没有这一份 ⇒ 不适用,不是红。
+      console.log(`⚪ [读数不断行 240] HEAD 面不含 ${TARGET_REL} ⇒ 本面不适用(NA),不判红也不记绿`)
+      return 0
+    }
+    console.log(`❌ [读数不断行 240] 取数面不可用(${face}:${TARGET_REL})⇒ 未判定,不记绿也不冒红`)
+    return 2
+  }
+  const { violations, unjudged } = judge(text)
+  const r8 = runR8(face, (rev, p) => gitShow(rev, p, root), root)
+  const all = [...violations, ...r8.violations]
+  const allU = [...unjudged, ...(r8.unjudged ?? [])]
+  const prefix = `[读数不断行 240]`
+  for (const n of r8.notes ?? []) console.log(`   ${prefix} ${n}`)
+  for (const m of allU) console.log(`⚠️  ${prefix} 未判定:${m}`)
+  if (all.length === 0) {
+    if (allU.length > 0) {
+      // §0.3:判据的输入集空了 ⇒ 既不记绿也不冒红(修复被整块删掉时不得静默通过)
+      console.log(`⚪ ${prefix} ${face} 面未判定(${allU.length} 条判据无输入)`)
+      return 2
+    }
+    console.log(`✅ ${prefix} ${face} 面通过(R1-R8 全绿)`)
+    return 0
+  }
+  console.error(`\n❌ ${prefix} ${face} 面判出 ${all.length} 处缺口:`)
+  for (const x of all) console.error(`   · ${x.rule} ${x.msg}`)
+  console.error(`   修法见 docs/UI_GUIDELINES.md「读数不得断行」与门体头注:列宽不足时该减的是栏数/列数,不是把读数折断。`)
+  return 1
 }
 
 // §22c 镜像常量出口:测试 import 这些判据单元,不得在测试里重抄一份。
@@ -342,6 +385,10 @@ export const __test__ = {
   parseGapPx,
   expectedSplitThreshold,
   judge,
+  runGate,
+  runR8,
+  FACE_REV,
+  pickRoot,
 }
 
 // ─── 自检:每条判据都要能单独翻红(摘掉新字段即红),且真文件必须绿 ───
@@ -393,6 +440,12 @@ function selfTest() {
   return fail === 0 ? 0 : 1
 }
 
+/** 取材根:默认按脚本位置推导;`--root=` 只服务面规格的镜像测试。 */
+export function pickRoot(argv) {
+  const a = argv.find((x) => x.startsWith('--root='))
+  return a ? resolve(String(a).split('=').slice(1).join('=')) : REPO_ROOT
+}
+
 async function main() {
   const args = process.argv.slice(2)
   if (args.includes('--self-test')) {
@@ -405,31 +458,7 @@ async function main() {
     process.exit(2)
   }
   const face = staged ? 'staged' : worktree ? 'worktree' : 'head'
-  const text = readFace(face)
-  if (text === null) {
-    console.log(`⚪ [读数不断行] 取不到被审面(${face}:${TARGET_REL})⇒ 未判定,不记绿也不冒红`)
-    process.exit(2)
-  }
-  const { violations, unjudged } = judge(text)
-  const r8 = runR8(face, (rev, p) => (rev === ':!0' ? gitShow(':!0', p) : gitShow('HEAD', p)))
-  const all = [...violations, ...r8.violations]
-  const allU = [...unjudged, ...(r8.unjudged ?? [])]
-  const prefix = `[读数不断行 240]`
-  for (const n of r8.notes ?? []) console.log(`   ${prefix} ${n}`)
-  for (const m of allU) console.log(`⚠️  ${prefix} 未判定:${m}`)
-  if (all.length === 0) {
-    if (allU.length > 0) {
-      // §0.3:判据的输入集空了 ⇒ 既不记绿也不冒红(修复被整块删掉时不得静默通过)
-      console.log(`⚪ ${prefix} ${face} 面未判定(${allU.length} 条判据无输入)`)
-      process.exit(2)
-    }
-    console.log(`✅ ${prefix} ${face} 面通过(R1-R8 全绿)`)
-    process.exit(0)
-  }
-  console.error(`\n❌ ${prefix} ${face} 面判出 ${all.length} 处缺口:`)
-  for (const x of all) console.error(`   · ${x.rule} ${x.msg}`)
-  console.error(`   修法见 docs/UI_GUIDELINES.md「读数不得断行」与门体头注:列宽不足时该减的是栏数/列数,不是把读数折断。`)
-  process.exit(1)
+  process.exit(runGate({ root: pickRoot(args), face }))
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href

@@ -44,4 +44,24 @@ export {
 } from './features/exam-result/exam-result-sections'
 export type { ExamResultReviewItem } from './types'
 export type { AnnouncementDetailItem } from './types'
+// web 收编规模化第一批(2026-11-07):安全审计 / Token 用量 / 应用权限三屏
+export { SecurityAuditScreen, auditTypeOf } from './features/security-audit/SecurityAuditScreen'
+export type {
+  SecurityAuditItem,
+  SecurityAuditScreenProps,
+  SecurityAuditType,
+} from './features/security-audit/SecurityAuditScreen'
+export { UsageScreen, formatTokens, usageBarWidth } from './features/usage/UsageScreen'
+export type {
+  UsageBreakdownRow,
+  UsageStats,
+  UsageQuota,
+  UsageScreenProps,
+} from './features/usage/UsageScreen'
+export { AppPermissionScreen } from './features/app-permission/AppPermissionScreen'
+export type { AppPermissionScreenProps } from './features/app-permission/AppPermissionScreen'
+// web 收编第二批(2026-11-07):ICP 备案 / 证书验证 —— 两屏各加"有值才渲染"的可选展示位后由 web 承载
+export { CertVerifyScreen } from './features/cert-verify/CertVerifyScreen'
+export type { CertVerifyResult, CertVerifyScreenProps } from '@ihui/types'
+export type { IcpRecordScreenProps } from '@ihui/types'
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

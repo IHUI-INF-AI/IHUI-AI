@@ -99,6 +99,7 @@ from ..core.review_findings import (
     REVIEW_FINDING_INSTRUCTION,
     build_review_finding_frames,
 )
+from ..core.sse_contract import SSE_QUESTION_RESOLVED
 
 # D174:帧级 traceId 注入点只有一份实现,住在 `core/sse_frames.py`(取值经 core/trace_context
 # 的那份投影,载体仍是 middleware 那一个 ContextVar);本路由不解析 traceparent、不自建 trace 上下文。
@@ -131,7 +132,6 @@ from ..core.tool_name_sets import (
 # G-403(2026-10-07):usage 帧补发缓存读/写两维 —— 归一层已产出统一键,
 # 发射面此前只写 prompt/completion/total/reasoning 四键,缓存两维断在帧构造。
 from ..core.usage_cache import extract_cache_metrics, has_cache_signals
-from ..core.sse_contract import SSE_QUESTION_RESOLVED
 from ..services.agent_events import (
     SSE_ADMISSION,
     SSE_CHUNK,
@@ -161,7 +161,6 @@ from ..services.agent_events import (
     SSE_TOOL_RESULT,
     SSE_USAGE,
 )
-from ..services.async_gen_close import aclose_async_gen
 from ..services.ask_user_question import (
     cancel_session_questions,
     create_question,
@@ -169,6 +168,7 @@ from ..services.ask_user_question import (
     wait_for_answer,
     withdraw_question,
 )
+from ..services.async_gen_close import aclose_async_gen
 from ..services.context_recall import context_recall
 from ..services.decision_chain import apply_decision_chain
 from ..services.expert_route import frame_payload as _expert_frame_payload

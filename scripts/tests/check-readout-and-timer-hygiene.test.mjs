@@ -17,6 +17,8 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { __test__ as G } from '../check-readout-and-timer-hygiene.mjs'
 import { maskCommentsAndStrings } from '../lib/code-mask.mjs'
+import { catBatch } from '../lib/face-reader.mjs'
+import { faceList, readFaceBatch } from '../lib/gate-face.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
 const cases = []
@@ -113,6 +115,17 @@ const loopBound = `  for (let i = 0; i < nodes.length; i++) {
   }`
 ok('D2 认得出循环边界守卫', G.findUnguardedLengthDivisors(loopBound).length === 0)
 ok('D2 循环头不再量同一个 length 即翻红', G.findUnguardedLengthDivisors(loopBound.replace('i < nodes.length', 'i < 10')).length === 1)
+
+// —— FA-1:索引面必须真读到(改前 `::<path>` 把 4781 份里的 4584 份读成"取不到") ——
+const probeFile = 'apps/web/app/(main)/edu/parent/children/[childId]/grades/PageClient.tsx'
+ok('FA-1 staged 清单经统一层可读', faceList(ROOT, 'staged', 'apps/web/app').length > 0)
+ok('FA-1 staged 正文经统一层可读', typeof readFaceBatch(ROOT, 'staged', [probeFile]).get(probeFile) === 'string')
+// 阴性对照:把改前写法原样当夹具 —— `FACE_REV.staged=':'` 再拼 `${rev}:${file}` = `::<path>`,
+// catBatch 解不出该 spec,只能返回 null(整门据此计成"取材失败",永远 exit 2)。
+ok(
+  'FA-1 阴性对照:旧 `::<path>` spec 取不到(不是"文件不存在")',
+  catBatch(ROOT, [`::${probeFile}`]).get(`::${probeFile}`) === null,
+)
 
 // —— 形状锁:装车证明读 runner 现值 ——
 const runner = readFileSync(path.join(ROOT, 'scripts', 'guardian-runner.mjs'), 'utf8')

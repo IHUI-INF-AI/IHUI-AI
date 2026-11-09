@@ -1845,6 +1845,13 @@ function auditInner(repoRoot, opts = {}) {
 
   const exempt = inRevertContext(repoRoot)
   const mergeHead = exempt ? mergeHeadSha(repoRoot) : null
+  // MERGE_HEAD 存在但 rev-parse 解不出来 ⇒ 这是"合并父取不到",不是"没有合并"。
+  // 改前会落到下面的 `else` 分支,按 cherry-pick/revert/rebase 整轮豁免并判绿 ——
+  // 把"没读到合并面"写成"病人不是这型病"(§0.3/§0.4)。
+  if (exempt && existsSync(join(gitDirOf(repoRoot), 'MERGE_HEAD')) && !mergeHead) {
+    lines.push('⏭ 未判定:MERGE_HEAD 存在但取不到合并父 ⇒ 不得按 cherry-pick/revert/rebase 豁免')
+    return { code: 2, lines }
+  }
   const src = staged ? 'index' : 'worktree'
   let violations = []
   /**

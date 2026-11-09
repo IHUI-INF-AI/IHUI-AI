@@ -235,10 +235,12 @@ test('T5 真仓 HEAD 阳性对照:看不见存量不算通过,而全量档不得
   )
 })
 
-test('T6 棘轮锚点写法:锚点是该文件 HEAD 自身存量,不是静态清单也不是常量 0', () => {
+test('T6 棘轮锚点写法:锚点是每一枚父提交(HEAD ∪ MERGE_HEAD)的存量,不是静态清单也不是常量 0', () => {
   const src = readFileSync(SRC, 'utf8')
-  assert.match(src, /readFace\(\[f\],\s*'head'\)/, '暂存档的锚点必须现取 HEAD 面该文件的正文')
-  assert.match(src, /bareInbound > cap/, '锚点比较必须是"多于该文件自身存量才红"')
+  assert.match(src, /from '\.\/lib\/merge-delta\.mjs'/, '合并感知基准必须走共享工具,不得本门自造')
+  assert.match(src, /readParentTexts\(\{[\s\S]*parents\b/, '锚点必须现取每一枚父提交该文件的正文')
+  assert.match(src, /inboundAnchors\(/, '锚点必须由结果读数 − 本次真正新增数折出')
+  assert.match(src, /bareInbound > cap/, '锚点比较必须是"多于每一枚父提交的存量才红"')
   assert.ok(
     !/-batch-write|-baseline\.json/.test(src),
     '本门刻意不落基线清单文件:清单必然腐烂(§4 对 RN_ONLY_BRAND_KEYS 的教训)',

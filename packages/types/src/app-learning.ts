@@ -867,6 +867,12 @@ export interface IcpRecordScreenProps {
   onCopy?: (text: string) => void
   /** 前往工信部备案查询(平台 webview 由壳注入) */
   onQuery?: () => void
+  /** 备案范围(可选;缺省不渲染该行,不占位) */
+  scope?: string
+  /** 备案查询/公示链接(可选;缺省不渲染该行) */
+  recordUrl?: string
+  /** 打开备案链接(可选;与 recordUrl 同时存在时该行可点;缺省按纯文本渲染) */
+  onOpenRecordUrl?: (url: string) => void
   colorScheme?: 'light' | 'dark'
 }
 

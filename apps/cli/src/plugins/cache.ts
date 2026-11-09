@@ -48,7 +48,12 @@ import { captureWriteBaseline, commitAtomicWrite, sleepSync } from '../util/atom
 import { assertGitCloneInputs } from './url-shape.js';
 // G-747:符号链接可达性判定的**唯一**实现(G-705 落地)。本文件只消费它的四态结论 ——
 // 不得在此再抄一份可降级错误码名单,也不得自己包一层真实路径解析(两处实现必漂移,AGENTS §4/守门 131)。
-import { checkSymlinkContainment, isDefinitePathAbsence, type ContainmentStage } from './path-safety.js';
+import {
+  checkSymlinkContainment,
+  isDefiniteDirectoryAbsence,
+  isDefinitePathAbsence,
+  type ContainmentStage,
+} from './path-safety.js';
 // 只取**类型**(编译期擦除):installer.js 在运行期 import 本文件,值边会成环,类型边不会。
 import type { PluginPathUnsafeReason } from './installer.js';
 
@@ -1270,7 +1275,9 @@ export async function recoverStaleSwapArtifacts(
       error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string'
         ? (error as { code: string }).code
         : 'unknown';
-    if (isDefinitePathAbsence(error)) return [];
+    // 这里问的是"父目录能不能枚举",不是"某个路径存不存在" —— 判据走 `isDefiniteDirectoryAbsence`
+    // (只有"该目录确实不存在"才算;被读路径自身类型不对时只证明"读不成",不证明"里面是空的")。
+    if (isDefiniteDirectoryAbsence(error)) return [];
     return [
       {
         archive: parent,

@@ -42,17 +42,54 @@ vi.mock('@ihui/api-client', () => ({ getSecurityAudit: getSecurityAuditMock }))
 const here = dirname(fileURLToPath(import.meta.url))
 // here = apps/web/app/(main)/security-audit/__tests__ → 上溯 6 级到仓库根
 const securityEndpointFile = resolve(
-  here, ...Array.from({ length: 6 }, () => '..'),
-  'packages', 'api-client', 'src', 'endpoints', 'security.ts',
+  here,
+  ...Array.from({ length: 6 }, () => '..'),
+  'packages',
+  'api-client',
+  'src',
+  'endpoints',
+  'security.ts',
 )
 
 vi.mock('next-intl', () => ({
   useTranslations: () => (key: string) => key,
 }))
 
-vi.mock('lucide-react', () => {
-  const Icon = () => <span data-testid="icon" />
-  return { Loader2: Icon, ShieldAlert: Icon, KeyRound: Icon, LogIn: Icon, Settings: Icon }
+vi.mock('next/navigation', () => ({ useRouter: () => ({ back: vi.fn() }) }))
+vi.mock('next-themes', () => ({ useTheme: () => ({ resolvedTheme: 'light' }) }))
+
+// 共享屏本体走 RNW,单测只钉「适配层交给共享屏的条目」:桩按共享屏同口径
+// 把 action 归类成词条并渲染 action/ip/时间,库内 RN 渲染不在本测范围。
+vi.mock('@ihui/rn-app/pilot', () => {
+  const typeOf = (action: string) => {
+    const a = action.toLowerCase()
+    if (a.includes('login') || a.includes('logout') || a.includes('auth')) return 'login'
+    if (a.includes('permission') || a.includes('role') || a.includes('password'))
+      return 'permission'
+    if (a.includes('sensitive') || a.includes('delete') || a.includes('transfer'))
+      return 'sensitive'
+    return 'other'
+  }
+  return {
+    SecurityAuditScreen: ({
+      items,
+      t,
+    }: {
+      items: Array<{ id: string; action: string; ip: string | null; createdAt: string }>
+      t: (key: string) => string
+    }) => (
+      <div>
+        {items.map((item) => (
+          <div key={item.id} data-testid="audit-row">
+            <span>{t(`securityAudit.type.${typeOf(item.action)}`)}</span>
+            <span>{item.action}</span>
+            <span>{item.ip ?? '-'}</span>
+            <span>{item.createdAt}</span>
+          </div>
+        ))}
+      </div>
+    ),
+  }
 })
 
 vi.mock('@/lib/date-utils', () => ({ formatDate: (d: Date) => d.toISOString().slice(0, 10) }))
@@ -63,25 +100,6 @@ vi.mock('@/components/common', () => ({
 }))
 
 vi.mock('@/hooks/use-auth-gate', () => ({ useAuthGate: () => ({ ready: true, allow: true }) }))
-
-// 表格原语透传(不引入真实 UI 包的重依赖)
-vi.mock('@ihui/ui-react', () => {
-  const Passthrough =
-    (_tag: string) =>
-    function Passthrough({ children }: React.PropsWithChildren<Record<string, unknown>>) {
-      return <div>{children}</div>
-    }
-  return {
-    Card: Passthrough('card'),
-    CardContent: Passthrough('card-content'),
-    Table: Passthrough('table'),
-    TableHeader: Passthrough('thead'),
-    TableBody: Passthrough('tbody'),
-    TableRow: Passthrough('tr'),
-    TableHead: Passthrough('th'),
-    TableCell: Passthrough('td'),
-  }
-})
 
 /** 一条 `security_logs` 行(列名与 schema/security-logs.ts 一致)。 */
 function logRow(over: Record<string, unknown> = {}) {

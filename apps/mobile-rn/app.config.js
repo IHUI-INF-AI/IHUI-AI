@@ -179,7 +179,14 @@ module.exports = ({ config }) => {
       // 自带,原生意图由 expo-intent-launcher 提供,只有这条权限需要我们自己声明。
       // 刻意排在 withPermissionPruning 之后:那条只管摘除,本条的"增"要落在最后一步,
       // 万一将来有人误把 REQUEST_INSTALL_PACKAGES 加进摘除集,插件会显式告警而不是静默失效。
-      './plugins/withApkInstaller.cjs',
+      [
+        './plugins/withApkInstaller.cjs',
+        {
+          // 商店材料对账直接读这一键(scripts/prepare-store-bundle.mjs 的 PERMISSION_EVIDENCE_KEYS);
+          // 用途事实与插件头注/预构建回执同源,不在这里另写一份不同的说法
+          installPackagesPermission: '应用内更新:下载新版本 APK 后拉起系统安装器',
+        },
+      ],
       // 免点击安装(2026-11-05 立):系统安装器的确认键没有 API 可绕过(除 Device Owner/root/ADB),
       // 唯一合法自动化手段是 AccessibilityService —— 由用户一次性在系统设置启用,之后代点确认。
       // 服务只认安装器包名 + 界面出现本应用名,装别的 App 一律不碰(见插件头注的安全边界)。
