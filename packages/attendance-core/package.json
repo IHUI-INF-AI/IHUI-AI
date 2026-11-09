@@ -44,7 +44,6 @@
     "clean": "rimraf dist .turbo node_modules"
   },
   "devDependencies": {
-    "@ihui/eslint-config": "workspace:*",
     "typescript": "catalog:",
     "rimraf": "catalog:",
     "vitest": "catalog:"

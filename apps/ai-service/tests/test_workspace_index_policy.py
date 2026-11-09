@@ -69,8 +69,11 @@ async def test_lazy_index_stops_before_reading_the_repo(tmp_path: object) -> Non
     assert indexer.calls == 0
 
 
-async def test_index_tool_switch_does_not_start_an_index(tmp_path: object) -> None:
+async def test_index_tool_switch_does_not_start_an_index(tmp_path, monkeypatch) -> None:
+    # 2026-11-08 AIS-080 之后索引根必须先过工作区闸(与其它代码工具同一把尺),
+    # 本用例测的是开关语义,故按同文件其余用例的约定把 tmp 登记成白名单根。
     path = str(tmp_path)
+    monkeypatch.setattr(mcp_server_mod, "_get_workspace_roots", lambda: [path])
     turned_off = await _tool_index_codebase({"path": path, "index_control": "set_off"})
     assert turned_off["phase"] == "explicit-off"
     assert turned_off["allowIndex"] is False
