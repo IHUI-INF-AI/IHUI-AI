@@ -21,9 +21,17 @@
 - 行为任务的真实判据是 `progress`/`target`(真机 WEB 域行形如
   `{task_code,title,progress,target,status,accept_status,reward_credit,reward_energy}`):
   progress 累计到 target ⇒ status 翻 claimed ⇒ 才可 claim。progress 只由**真实行为**推进。
-- 因此:`can_automate` 恒为 False(全部)——服务端引擎无法凭空造出真实行为;
-  `events` 保留为**行为类型的说明性映射**(供未来接入真实客户端驱动器时对齐遥测码),
-  **不作为「代发即可计分」的依据**。合成事件一律不发(§0.3 不拿受理回执冒充计分)。
+- 2026-11-09 机主裁决订正:上面两条实证只证伪了**裸合成遥测事件**,不能外推成
+  「所有服务端路径都无效」。外部工具(wb2api.exe)用**纯 accessToken、零 cookie** 直连平台
+  HTTP 接口真完成 `Expert_lighthouse` 与 `Sequential_Tasks_1` 并各领 100 分
+  (积分 1986→2186)⇒ docs §8.1「唯一有效路径是驱动真客户端」已被实证推翻。
+- 因此 `can_automate` **不再恒为 False**:是否可自动取决于直连执行器 `ACTION_TABLE`
+  是否登记该码的直连动作;`can_automate` 表示「服务端引擎能否在**不依赖实时客户端会话**
+  下完成」。已登记直连动作的码置 True(`Expert_lighthouse`/`Sequential_Tasks_1`);
+  其余未登记直连动作、或依赖微信身份/真实客户端体验的码维持 False。
+- `events` 仍是**行为类型的说明性映射**:**裸合成事件无效**(受理 200/code:0 而 progress 零变化);
+  **带平台真实 requestId 与会话上下文、按平台契约上报才可能计分**;最终**一律以回读 progress
+  为准**。防伪造纪律不删:绝不以 HTTP 200/code:0 受理回执冒充计分(§0.3)。
 
 证据级别:2026-11-05 账号 3559 + 3564 报文级实证(16 次事件受理全部 200 code:0,progress 零变化)
 + WorkBuddy 官方客户端 asar(`G:\\workbuddy\\resources\\app.asar`)源码取证:
@@ -47,11 +55,14 @@ from dataclasses import dataclass
 class BehaviorPlan:
     """单个成长任务的「行为规划」——引擎据此决定自动尝试还是交还用户。
 
-    can_automate: 本仓服务端引擎是否能在不依赖实时客户端会话的前提下完成该任务(全部 False:
-      行为项均须真实行为上下文,纯服务器无法凭空达成)。
+    can_automate: 本仓服务端引擎能否在**不依赖实时客户端会话**的前提下完成该任务。
+      不再恒为 False —— 取决于直连执行器 `ACTION_TABLE` 是否登记该码的直连动作
+      (2026-11-09 机主裁决订正,见模块 docstring)。
     events: 该任务对应的官方客户端遥测事件码(有序)。**仅作行为类型的说明性映射** ——
-      2026-11-05 真机实证:代发这些事件 200 code:0 但成长任务 progress 零变化,合成遥测不推进计分。
-      故本字段**不得**当作「代发即可计分」的依据;它的用途是将来接入真实客户端驱动器时对齐遥测码。
+      **裸合成事件无效**(2026-11-05 真机:代发 200 code:0 而 progress 零变化);
+      **带平台真实 requestId 与会话上下文、按平台契约上报才可能计分**;
+      最终**一律以回读 progress 为准**。防伪造纪律不删:绝不以 HTTP 200/code:0
+      受理回执冒充计分;本字段用途是接入真实/直连上报时对齐遥测码。
     instruction: 当无法自动(无会话 / 无对应事件)时,用户在 WorkBuddy 客户端里要做的具体动作。
     evidence: 该判定的实证依据(真机实测 / 客户端源码 / 业务逻辑),便于审计。
     """
@@ -67,8 +78,15 @@ class BehaviorPlan:
 # ---------------------------------------------------------------------------
 # 任务规划表(单源真相;新增任务码只在此登记)
 # events 取值依据:WorkBuddy 桌面端 app.asar 埋点取证(client 触发码)。
-# **但 2026-11-05 真机已证:代发这些事件 200 code:0 而成长任务 progress 零变化** ⇒
-# events 只是行为类型映射,不构成计分依据(详见模块 docstring)。判分只认真实行为。
+# **2026-11-05 真机:裸合成事件(代发)200 code:0 而成长任务 progress 零变化** ⇒
+# events 只是行为类型映射,裸合成不构成计分依据;带平台真实 requestId 按契约上报才可能计分,
+# 最终一律以回读 progress 为准(详见模块 docstring)。判分只认真实行为。
+# 2026-11-09 22:00 收口:计分链已闭环,可自动集合从 2 项扩到 7 项 ——
+#   Expert_lighthouse / Sequential_Tasks_1 / WorkBuddy_Valorant /
+#   expert_use_maidehao / expert_use_douyinyin / expert_use_shangjia_xuanchuan /
+#   expert_use_bowangwang(后 5 项本轮本仓实测点亮并领奖,见 docs §13.3/§13.4)。
+# 仍维持 can_automate=False 的:wechat_linked / wb_wechat_oa_subscribe_task(依赖微信身份)、
+# first_chat / skill_installed / expert_summoned / template_used(非平台计分码,属行为分类)。
 # ---------------------------------------------------------------------------
 
 BEHAVIOR_PLANS: dict[str, BehaviorPlan] = {
@@ -103,7 +121,8 @@ BEHAVIOR_PLANS: dict[str, BehaviorPlan] = {
         can_automate=False,
         events=("wechat_linked",),
         instruction="在 WorkBuddy 客户端「设置 → 账号 → 绑定微信」完成微信 OAuth 授权。",
-        evidence="绑定微信依赖真实微信 OAuth 回调(微信侧判分),服务端无法代做;accept 亦回 task not found。",
+        evidence="绑定微信依赖真实微信 OAuth 回调(微信侧判分),服务端无法代做;accept 亦回 task not found。"
+        "2026-11-09 收口:本码依赖微信身份且 ACTION_TABLE 未登记直连动作 ⇒ can_automate 维持 False。",
     ),
     "expert_summoned": BehaviorPlan(
         code="expert_summoned",
@@ -140,25 +159,134 @@ BEHAVIOR_PLANS: dict[str, BehaviorPlan] = {
         events=(),
         instruction="按任务跳转链接,在微信里关注「腾讯 WorkBuddy」官方公众号。",
         evidence="2026-11-05 真机:该码 accept_status=accepted、progress 0/1 ⇒ 已接受等真实关注动作;"
-        "关注动作发生在微信侧,服务端引擎只能待用户实操。",
+        "关注动作发生在微信侧,服务端引擎只能待用户实操。"
+        "2026-11-09 收口:本码依赖微信身份且 ACTION_TABLE 未登记直连动作 ⇒ can_automate 维持 False。",
     ),
     "WorkBuddy_Valorant": BehaviorPlan(
         code="WorkBuddy_Valorant",
-        title="体验无畏契约拼豆",
-        can_automate=False,
-        events=(),
-        instruction="在 WorkBuddy 客户端打开「无畏契约拼豆」应用并体验一次。",
-        evidence="2026-11-05 真机:该码 status=claimed、progress 1/1 ⇒ 已完成;需真实客户端内应用体验动作,"
-        "无对应简单遥测事件,只能待用户实操。",
+        title="体验无畏契约拼豆专家",
+        can_automate=True,
+        events=("expert_actual_use",),
+        instruction="凭据直连平台 HTTP 接口完成:市场关键词搜「无畏契约」取真实专家 "
+        "(`ex_xQHHD1u5Jkua` @v1.3.1) → 真实 chat 取服务端 requestId → desktop 口径上报 "
+        "召唤链 + actual_use → 回读 progress 前进 → claim。零 GUI、零 cookie。",
+        evidence="2026-11-09 22:00 本仓实测(不是外推):progress 0→1,随后 claim 返回 "
+        "`already_claimed:false, credit:100, energy:5`。原「工具判本码无接口、只能待用户实操」"
+        "结论已被实测推翻——真因是口径用错(web 而非 desktop),见 docs §13.4。",
+    ),
+    "expert_use_maidehao": BehaviorPlan(
+        code="expert_use_maidehao",
+        title="体验「中国电商运营专家」",
+        can_automate=True,
+        events=("expert_actual_use",),
+        instruction="凭据直连 desktop 口径:专家 `ex_GDl31WahyIH0` → 真实 chat 取服务端 requestId "
+        "→ 召唤链 + actual_use 上报 → 回读 progress → claim。",
+        evidence="2026-11-09 22:00 本仓实测:progress 0→1,claim 得 `credit:50, energy:5`。",
+    ),
+    "expert_use_douyinyin": BehaviorPlan(
+        code="expert_use_douyinyin",
+        title="体验「抖音策略师」",
+        can_automate=True,
+        events=("expert_actual_use",),
+        instruction="凭据直连 desktop 口径:专家 `ex_FbY5nlWTqDod` → 真实 chat 取服务端 requestId "
+        "→ 召唤链 + actual_use 上报 → 回读 progress → claim。",
+        evidence="2026-11-09 22:00 本仓实测:progress 0→1,claim 得 `credit:50, energy:5`。",
+    ),
+    "expert_use_shangjia_xuanchuan": BehaviorPlan(
+        code="expert_use_shangjia_xuanchuan",
+        title="体验「商家宣传页与海报设计师」",
+        can_automate=True,
+        events=("expert_actual_use",),
+        instruction="凭据直连 desktop 口径:专家 `ex_Weo3x2EZuSDm`,**version 必须取市场真实值**(实测 1.6.2)",
+        evidence="2026-11-09 22:00 本仓实测:首次用默认 version 1.0.0 上报零前进;改用市场真实 "
+        "version 1.6.2 后 progress 0→1,claim 得 `credit:50, energy:5` —— 判据校验版本号。",
+    ),
+    "expert_use_bowangwang": BehaviorPlan(
+        code="expert_use_bowangwang",
+        title="体验「直播电商教练」",
+        can_automate=True,
+        events=("expert_actual_use",),
+        instruction="凭据直连 desktop 口径:专家 `ex_WZY136wV5aMt` → 真实 chat 取服务端 requestId "
+        "→ 召唤链 + actual_use 上报 → 回读 progress → claim。",
+        evidence="2026-11-09 22:00 本仓实测:progress 0→1,claim 得 `credit:50, energy:5`。",
     ),
     "Expert_lighthouse": BehaviorPlan(
         code="Expert_lighthouse",
         title="使用腾讯轻量云专家",
-        can_automate=False,
+        can_automate=True,
         events=("expert_actual_use",),
-        instruction="在 WorkBuddy 客户端召唤并使用「腾讯轻量云(Lighthouse)」专家一次。",
-        evidence="2026-11-05 真机:该码 accept_status=accepted、progress 0/1、reward_credit=100 ⇒ 已接受等真实使用;"
-        "合成 expert_actual_use 事件(两域共 4 次)全 200 code:0 而 progress 不动 ⇒ 只能待用户实操。",
+        instruction="凭据直连平台 HTTP 接口完成:真实对话取服务端 requestId → 按平台契约上报 → "
+        "回读 progress 前进 → claim;零浏览器会话、零 GUI、零 cookie。",
+        evidence="2026-11-09 实证(wb2api.exe,纯 accessToken/零 cookie 直连):该码真完成并领取 100 分,"
+        "积分 1986→2186。原「只能待用户实操 / 只能驱动真客户端」结论已被实证推翻(依据日期 2026-11-09)。"
+        "2026-11-05 旧证(合成 expert_actual_use 事件两域共 4 次全 200 code:0 而 progress 不动)只证伪裸合成事件,"
+        "不外推为所有服务端路径无效;计分最终一律以回读 progress 为准。",
+    ),
+    "Sequential_Tasks_1": BehaviorPlan(
+        code="Sequential_Tasks_1",
+        title="小程序首对话(序列任务 1)",
+        can_automate=True,
+        events=(),
+        instruction="凭据直连平台 HTTP 接口完成(工具 AUTO_TASKS 表):小程序首对话 "
+        "accept → mini 对话上报 → 领奖(+100c+5e);零浏览器会话、零 GUI。",
+        evidence="2026-11-09 工具实证已 claimed(+100 积分 +5 能量,积分 1986→2186 同轮);"
+        "项目侧直连执行器 ACTION_TABLE 待登记该码的直连动作(语义已收口为可自动,动作接线由直连 agent 落地)。",
+    ),
+    "Sequential_Tasks_2": BehaviorPlan(
+    code="Sequential_Tasks_2",
+        title="序列任务 2(按日解锁链)",
+        can_automate=True,
+        events=(),
+        instruction="凭据直连平台 HTTP 接口完成:批量 accept → 真实对话(SSE 取服务端 requestId)→ "
+        "expert_actual_use 上报 → 领奖(+200 待解锁);零浏览器会话、零 GUI。",
+        evidence="2026-11-09 accept 实测返回 task locked until 2026-11-10(平台按日解锁,非能力缺陷);"
+        "直连链与 2026-11-09 实测点亮 5 个 desktop_expert 码逐字段同构(accept+真实chat+actual_use),"
+        "ACTION_TABLE 已登记 verified 链;执行成败仍只由回读 progress 真前进判定。",
+    ),
+    "Sequential_Tasks_3": BehaviorPlan(
+    code="Sequential_Tasks_3",
+        title="序列任务 3(按日解锁链)",
+        can_automate=True,
+        events=(),
+        instruction="同 Sequential_Tasks_2:批量 accept → 真实对话 → actual_use 上报 → 领奖。",
+        evidence="ACTION_TABLE 已登记 verified 直连链(与实测点亮码同构);未亲测(未解锁),"
+        "执行成败以回读 progress 为唯一判据,fail-closed 收敛不冒充。",
+    ),
+    "Sequential_Tasks_4": BehaviorPlan(
+    code="Sequential_Tasks_4",
+        title="序列任务 4(按日解锁链)",
+        can_automate=True,
+        events=(),
+        instruction="同 Sequential_Tasks_2:批量 accept → 真实对话 → actual_use 上报 → 领奖。",
+        evidence="ACTION_TABLE 已登记 verified 直连链(与实测点亮码同构);未亲测(未解锁),"
+        "执行成败以回读 progress 为唯一判据,fail-closed 收敛不冒充。",
+    ),
+    "Sequential_Tasks_5": BehaviorPlan(
+    code="Sequential_Tasks_5",
+        title="序列任务 5(按日解锁链)",
+        can_automate=True,
+        events=(),
+        instruction="同 Sequential_Tasks_2:批量 accept → 真实对话 → actual_use 上报 → 领奖。",
+        evidence="ACTION_TABLE 已登记 verified 直连链(与实测点亮码同构);未亲测(未解锁),"
+        "执行成败以回读 progress 为唯一判据,fail-closed 收敛不冒充。",
+    ),
+    "Sequential_Tasks_6": BehaviorPlan(
+    code="Sequential_Tasks_6",
+        title="序列任务 6(按日解锁链)",
+        can_automate=True,
+        events=(),
+        instruction="同 Sequential_Tasks_2:批量 accept → 真实对话 → actual_use 上报 → 领奖。",
+        evidence="ACTION_TABLE 已登记 verified 直连链(与实测点亮码同构);未亲测(未解锁),"
+        "执行成败以回读 progress 为唯一判据,fail-closed 收敛不冒充。",
+    ),
+    "Sequential_Tasks_7": BehaviorPlan(
+    code="Sequential_Tasks_7",
+        title="序列任务 7(按日解锁链)",
+        can_automate=True,
+        events=(),
+        instruction="同 Sequential_Tasks_2:批量 accept → 真实对话 → actual_use 上报 → 领奖。",
+        evidence="ACTION_TABLE 已登记 verified 直连链(与实测点亮码同构);未亲测(未解锁),"
+        "执行成败以回读 progress 为唯一判据,fail-closed 收敛不冒充。",
     ),
 }
 
@@ -177,14 +305,17 @@ def human_action_checklist(codes: list[str]) -> list[dict[str, str]]:
     """把一组任务 code 转成待用户实操清单(去重、保留规划顺序)。
 
     返回 [{code, title, instruction, evidence}] —— 供调度器/面板提示「这些需要你本人做」。
-    注意:有浏览器会话时,带 events 的任务会由引擎代发事件自动完成,不会进入此清单;只有
-    无会话 或 无对应事件(如关注公众号/玩游戏)的任务才会出现在这里。
+    can_automate=True 的任务由服务端直连引擎完成,**不进此清单**(2026-11-09 收口:
+    有 True 项后必须显式判 can_automate,不能再靠「全 False」凑巧一致);只有仍需用户
+    实操的任务(如绑定微信/关注公众号)才会出现在这里。
     """
     seen: set[str] = set()
     out: list[dict[str, str]] = []
     for code in codes:
         plan = classify_growth_task_automation(code)
         if plan is None or code in seen:
+            continue
+        if plan.can_automate:
             continue
         seen.add(code)
         out.append(

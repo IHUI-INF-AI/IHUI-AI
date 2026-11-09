@@ -35,6 +35,7 @@ import json
 import logging
 import os
 import re
+import shutil
 import stat
 import subprocess
 import time
@@ -91,6 +92,7 @@ ERR_UNDECLARED_REMOTE_TOOL = "UNDECLARED_REMOTE_TOOL"
 ERR_SECRET_IN_REPO_CONFIG = "SECRET_IN_REPO_CONFIG"
 ERR_ENV_REF_MISSING = "ENV_REF_MISSING"
 ERR_CONNECT_FAILED = "CONNECT_FAILED"
+ERR_COMMAND_NOT_FOUND = "COMMAND_NOT_FOUND"
 ERR_EMPTY_REMOTE = "EMPTY_REMOTE_TOOLS"
 ERR_TRANSPORT_INVALID = "TRANSPORT_INVALID"
 ERR_INTERNAL = "INTERNAL_ERROR"
@@ -156,13 +158,18 @@ class ServerManifest:
     env: tuple[tuple[str, str], ...] = ()
     url: str = ""
     description: str = ""
+    command_env: str = ""
 
     def tool_tiers(self) -> dict[str, Tier]:
         return {t.name: t.tier for t in self.tools}
 
     def fingerprint(self) -> str:
-        """内容指纹:文件 sha + 来源类型。文件内容变即视为变更,需重新激活。"""
-        return f"{self.source_kind}:{self.source_sha256}"
+        """内容指纹:文件 sha + 来源类型 + 实际命令。
+
+        命令纳入指纹,环境变量覆盖(commandEnv)变更时 reload 才会重新激活,
+        不会出现"文件没变但换了二进制路径仍用旧连接"。
+        """
+        return f"{self.source_kind}:{self.source_sha256}:{self.command}"
 
     def env_dict(self) -> dict[str, str]:
         return dict(self.env)
@@ -236,6 +243,44 @@ def _coerce_role(value: Any) -> int:
 
 def _visible_args(args: Mapping[str, Any] | None) -> dict[str, Any]:
     return {k: v for k, v in (args or {}).items() if not str(k).startswith(_INTERNAL_ARG_PREFIX)}
+
+
+def _which_command(command: str) -> str | None:
+    """解析可执行文件(独立 seam,测试可替换,避免依赖本机安装)。"""
+    try:
+        return shutil.which(command)
+    except OSError:
+        return None
+
+
+_CRAFT_ANYTHING_INSTALL_HINT = (
+    "从 https://github.com/storytold/craft-anything/releases 下载 Windows x64 portable 包,"
+    "解压到 %LOCALAPPDATA%\\craft-anything\\<版本>\\ 并把该目录加入用户 PATH"
+)
+
+
+def _command_not_found_message(manifest: ServerManifest) -> str:
+    """可诊断的"二进制缺失"说明:缺什么、查过哪里、怎么装、如何覆盖。"""
+    path_dirs = [p for p in os.environ.get("PATH", "").split(os.pathsep) if p]
+    env_name = manifest.command_env
+    if os.path.isabs(manifest.command):
+        searched = f"指定路径 '{manifest.command}' 不存在或不可执行"
+    else:
+        searched = f"已检查 PATH 的 {len(path_dirs)} 个目录"
+        if path_dirs:
+            searched += ": " + "; ".join(path_dirs)
+    if manifest.command == "craft-anything-cli":
+        install = _CRAFT_ANYTHING_INSTALL_HINT
+    else:
+        install = f"把 '{manifest.command}' 放入 PATH 中的任一目录"
+    env_hint = ""
+    if env_name:
+        env_hint = f";或设置环境变量 {env_name} 指向可执行文件完整路径"
+    return (
+        f"stdio server '{manifest.namespace}' 的可执行文件未找到: '{manifest.command}'。"
+        f"{searched}。安装途径: {install}{env_hint}。"
+        f"排查: 在命令行执行 `where {manifest.command}` 确认解析结果。"
+    )
 
 
 def write_tool_approval_key(tool_name: str, args: dict[str, Any]) -> str:
@@ -513,6 +558,7 @@ class McpRegistry:
             "transport",
             "description",
             "command",
+            "commandEnv",
             "args",
             "env",
             "url",
@@ -596,6 +642,26 @@ class McpRegistry:
                 raise McpRegistryError(
                     ERR_UNKNOWN_KEY, "stdio 配置不允许 url(传输方式冲突)", path=str(path)
                 )
+            # 可选命令覆盖:commandEnv 指定环境变量,存在非空值时优先于 command。
+            # 只存环境变量名,不把值写进清单;值仍在加载期解析,换机器/换版本无需改清单。
+            command_env = data.get("commandEnv", "")
+            if command_env != "":
+                if not isinstance(command_env, str) or not ENV_KEY_RE.match(command_env):
+                    raise McpRegistryError(
+                        ERR_MANIFEST_INVALID,
+                        f"commandEnv 必须是合法环境变量名: {command_env!r}",
+                        path=str(path),
+                    )
+                override = os.environ.get(command_env, "").strip()
+                if override:
+                    for ch in SHELL_META:
+                        if ch in override:
+                            raise McpRegistryError(
+                                ERR_MANIFEST_INVALID,
+                                f"环境变量 {command_env} 指定的 command 含非法字符: {ch!r}",
+                                path=str(path),
+                            )
+                    command = override
             args = data.get("args", [])
             if not isinstance(args, list) or len(args) > MAX_ARGS:
                 raise McpRegistryError(
@@ -616,7 +682,7 @@ class McpRegistry:
                 raise McpRegistryError(
                     ERR_MANIFEST_INVALID, f"url 必须是 http(s) 绝对地址: {url_raw!r}", path=str(path)
                 )
-            for key in ("command", "args", "env"):
+            for key in ("command", "commandEnv", "args", "env"):
                 if key in data:
                     raise McpRegistryError(
                         ERR_UNKNOWN_KEY,
@@ -624,6 +690,7 @@ class McpRegistry:
                         path=str(path),
                     )
             command = ""
+            command_env = ""
             args = []
             url = url_raw
         env_resolved = self._validate_env(data.get("env"), source_kind, path)
@@ -639,6 +706,7 @@ class McpRegistry:
             env=tuple(sorted(env_resolved.items())),
             url=url,
             description=description,
+            command_env=command_env,
         )
 
     def _validate_env(
@@ -705,6 +773,10 @@ class McpRegistry:
             raise McpRegistryError(
                 ERR_DUPLICATE_SERVER, f"stdio server 标识已被占用: {bridge_name}"
             )
+        # 二进制缺失必须在 spawn 之前给出可诊断错误(含期望名/查过位置/安装途径/
+        # 环境变量覆盖),不要把裸的 WinError 2 / ENOENT 抛给上层。
+        if _which_command(manifest.command) is None:
+            raise McpRegistryError(ERR_COMMAND_NOT_FOUND, _command_not_found_message(manifest))
         tiers = manifest.tool_tiers()
 
         def resolve_tier(remote_name: str, tool: Any) -> str:

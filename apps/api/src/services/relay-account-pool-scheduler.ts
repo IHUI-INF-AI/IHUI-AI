@@ -37,8 +37,13 @@ import { logger } from '../utils/logger.js'
 import { getRelayAdapter, type AdapterAccountContext } from './relay-upstream-adapters.js'
 import { purgeAccountUsage } from './relay-account-usage.js'
 import { pickProxyForAccount } from './relay-proxy-pool.js'
-import { reconcileCheckinSync } from './relay-account-pool-reconcile.js'
-import { retryPendingCheckinSyncs } from './relay-account-pool-checkin-sync.js'
+import { reconcileCheckinSync, fetchPoolAccounts } from './relay-account-pool-reconcile.js'
+import {
+  CHECKIN_RECONCILE_MAX_PER_ROUND,
+  checkinReconcileIntervalMs,
+  reconcileCheckinEnabledState,
+  retryPendingCheckinSyncs,
+} from './relay-account-pool-checkin-sync.js'
 import { ACCOUNT_SCHEDULABLE_HEALTH_STATES } from './relay-pool-stats-service.js'
 
 /** 临期刷新窗口:距过期 15 分钟内触发(上游 token 寿命 ~14 天,窗口足够宽) */
@@ -516,6 +521,67 @@ export const __test__ = {
   resetUsagePurgeThrottle(): void {
     lastUsagePurgeAt = 0
   },
+  resetCheckinReconcileThrottle(): void {
+    lastCheckinStateReconcileAt = 0
+  },
+}
+
+// ── 低频签到对账腿(2026-11-09 立) ─────────────────────────────────────────
+/**
+ * 上次对账时刻(模块级节流,照 maybePurgeUsageLedger 的范式;多实例由 sweep 分布式锁串行化)。
+ * 缺陷背景:推送侧是变更驱动的,号池侧「从没变过」⇒ 初始态不一致会永久留存。本腿按
+ * 身份键周期性复核 enabled,不一致才补推,单轮上限 CHECKIN_RECONCILE_MAX_PER_ROUND。
+ */
+let lastCheckinStateReconcileAt = 0
+
+/**
+ * 是否该跑对账腿:间隔由 `RELAY_CHECKIN_STATE_RECONCILE_MINUTES` 控制(缺省 360 分钟,
+ * `0`/`off` ⇒ 关闭)。判据留在这里,执行在 checkin-sync 的 reconcileCheckinEnabledState。
+ * 任何失败只 warn,绝不向上抛、绝不阻塞主 sweep。
+ */
+async function maybeReconcileCheckinEnabledState(now: Date): Promise<void> {
+  const intervalMs = checkinReconcileIntervalMs()
+  if (intervalMs === null) return
+  if (lastCheckinStateReconcileAt > 0 && now.getTime() - lastCheckinStateReconcileAt < intervalMs)
+    return
+  lastCheckinStateReconcileAt = now.getTime()
+  try {
+    const side = await fetchPoolAccounts()
+    if (!side.ok) {
+      logger.warn('[relay-account-pool] 签到 enabled 对账腿跳过:签到侧全量拉取失败', {
+        error: side.error,
+      })
+      return
+    }
+    // 号池侧候选:workbuddy 行全量(provider_code 命中 checkinPlatformFor 的范围内;
+    // 单轮上限在 plan 内截断)。停用行也要比对 —— 反向不一致同样要补推。
+    const rows = await dbRead
+      .select({
+        id: aiRelayAccountPool.id,
+        ownerUserId: aiRelayAccountPool.ownerUserId,
+        providerCode: aiRelayAccountPool.providerCode,
+        uid: aiRelayAccountPool.uid,
+        name: aiRelayAccountPool.name,
+        isEnabled: aiRelayAccountPool.isEnabled,
+        credVersion: aiRelayAccountPool.credVersion,
+        extraMetadata: aiRelayAccountPool.extraMetadata,
+      })
+      .from(aiRelayAccountPool)
+      .where(eq(aiRelayAccountPool.providerCode, 'workbuddy'))
+      .limit(CHECKIN_RECONCILE_MAX_PER_ROUND)
+    const result = await reconcileCheckinEnabledState({
+      poolRows: rows.map((r) => ({ ...r, uid: r.uid ?? '', name: r.name ?? '' })),
+      checkinRows: side.accounts,
+    })
+    logger.info(
+      '[relay-account-pool] 签到 enabled 对账腿完成',
+      result as unknown as Record<string, unknown>,
+    )
+  } catch (e) {
+    logger.warn('[relay-account-pool] 签到 enabled 对账腿异常(不影响巡检)', {
+      error: e instanceof Error ? e.message.slice(0, 200) : '未知错误',
+    })
+  }
 }
 
 /**
@@ -1098,6 +1164,11 @@ async function runSweepOnce(
       direct: egress.direct,
     })
   }
+
+  // ── 6. 低频签到 enabled 对账腿(2026-11-09 立;按间隔自节流,内部自吞异常) ──
+  // 与每轮的 4/4.5 两条腿互补:那两条按 poolAccountId + 版本差收敛,本腿按
+  // derive_account_identity 同一身份键复核 enabled,专治「号池侧从未变化」的初始态漂移。
+  await maybeReconcileCheckinEnabledState(now)
 
   // ── 5. refresh 绝对寿命预警(60 天):池内最早 refresh_expires_at < 7 天即告急 ──
   // 该列只在适配器真实回传 refreshExpiresIn 时写入;null 行不参与统计(未知 ≠ 永不失效)。

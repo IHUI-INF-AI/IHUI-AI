@@ -2227,6 +2227,27 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-09**
+- 🐞 修正:lint:strict 全包零告警 —— api 25 error/1 warning + database/rn/miniapp 收口 (694cc51d1f)
+- 🔧 その他:收编守护落档产出(2 件,凭落点账本) (9a73536db8)
+- 🐞 修正:V1 工具闭环 + 非流式审批投递 + 退出码/状态诚实化 + 默认执行器纠正 (#217) (e6b7227099)
+- 📚 ドキュメント:trackedFiles 生成块 20612→20613 对齐新增三态判定票 (a533cb36e7)
+- 🐞 修正:跨端同步不再污染 bot PR 源分支并补远端分支逐支三态判定票 (fdcad5b70d)
+- 🐞 修正:清理工作流补 GH_REPO 使无 checkout 的 job 能跑 gh 命令 (55c417f202)
+- 🔧 その他:README 生成块数字按合并后索引面现算刷新 (5d20008277)
+- 🔧 その他:任务账本登记 HR-1 人事考勤板块 —— 一行一件事,编号 HR 前缀此前未占用 (9c167c8884)
+- 🐞 修正:撤销 build 面排除测试,改用 vitest 收集面收窄 —— T1 产物面复核要求 dist 与 src 逐产物对账 (0d3b73eb16)
+- 🐞 修正:消 11 处类型缺陷 —— apps/api 9 处 + RN 2 处(T1 全量档此前未判定,故逐包实跑才发现) (e3c70e8557)
+- 🐞 修正:段级豁免自述计数按现读刷新 336→337 —— 本票新增 apps/web/app/(main)/admin/hr-attendance/page.tsx 把 admin/** 页数推高一页 (9f93d1bedd)
+- 🐞 修正:补 sag2_lexical 顶层 Chunk 导出并修 CLI 测试 lint 两处 (6be381a784)
+- 🐞 修正:route-tools.ts 补溯源水印头 —— 本票新增文件唯一水印缺口(生成器配套文件漏注入),字节级对齐 design-tokens 源 (3be93a4da0)
+- 🐞 修正:四端 ui-routes 产物按 HEAD 面重算 —— 纳入 HR 新增页面/路由(web admin/hr-attendance、miniapp pkg-hr、RN RootNavigator、app.config),消门 105 G5 stale (c8ec556d80)
+- 🔧 その他:结构锁改用 TypeScript AST，并让门 89 夹具取材面对齐 DOC_FILES (4b08fae461)
+- 🐞 修正:i18n 压缩产物按 HEAD 面重生成 —— 7 份产物纳入 hrAttendance 41 键(生成器 15 输入/承载层补 656 键/水印注入),消移植时取新基线版导致的 HR 文案缺失 (7d90730389)
+- 🚀 機能/改善:人事考勤模块移植到最新 origin/main —— i18n 源已合并含 HR 键; 7 个 i18n 压缩产物取新基线版、待 pnpm 环境重生成以纳入 HR 键 (47324160a0)
+- 📚 ドキュメント:落自动腿 2026-11-09 维护区刷新与关键数字块空行,同步 last-sha 指针 (571e21be66)
+- 🐞 修正:C6 结构锁改为判函数体层级,并合流远端 tip 重算 README 生成块 (08d6cd408b)
+
+**2026-11-09**
 - 📚 ドキュメント:合并面 0d503a4 数字按唯一写入口现算刷新(trackedFiles 20612/testFiles 4768) (1c27bda99a)
 - 🔧 その他:perf(sag2)+feat(sag2): 扫描件 OCR 四级链落地；多跳检索等价提速 4.4×（召回结果逐条不变） (abd73298e4)
 - 📚 ドキュメント:trackedFiles 20577->20578 / testFiles 4753->4754(上一枚新增 tests/test_agent_loop_tools_wire.py) (fd62c925ce)
@@ -3499,12 +3520,6 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 - 🚀 機能/改善:自动臂按需加密(环开 4 分钟/轮,环合即回落) (0061164cdb)
 - 🐞 修正:判据面护栏在 commit-msg 加只报不拦的预警档 —— 未声明要在"还改得动"那一刻报出来 (facba1ab6a)
 - 🔧 その他:再摘 plugins-data 死副本 14 枚并登记退役锁(逐字节同 @ihui/shared;9fdbc207ba 带回) (180c244014)
-
-**2026-11-06**
-- 🐞 修正:落地悬空副本里的两枚判据 fail-closed 与跳门降级证据(RP-67) (b7aa56e7f6)
-- 🐞 修正:派发前闸的"瞬时不在位"先复核再停派 —— 别席 install 重挂 tsx 不该烧掉一班 (0be42c4124)
-- 🐞 修正:取票腿被击穿时的可证复用 —— 三条安全条件缺一即拒绝,且必须说出是哪一条 (43bdd603e5)
-- 📚 ドキュメント:22 枚在飞票挂完整租约(HEAD 面⊕挂牌,不代他席落地) (1c4f42c0c6)
 <!-- END RECENT UPDATES -->
 
 <p align="center">

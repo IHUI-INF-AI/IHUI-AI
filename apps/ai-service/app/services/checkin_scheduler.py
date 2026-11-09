@@ -61,6 +61,7 @@ from app.services import (
     checkin_store,
     checkin_workbuddy,
     checkin_workbuddy_local,
+    workbuddy_autopilot,
     workbuddy_tasks,
 )
 from app.services.checkin_batch_marker import CheckinBatchMarker
@@ -371,13 +372,25 @@ def _cn_day_start(day: date) -> datetime:
     return datetime.combine(day, time.min, tzinfo=_CN_TZ)
 
 
+# task-run 执行留痕记录的 action 前缀(见 checkin.py run_account_task)。
+# 这类记录的 ok 反映的是「任务族执行结果」,不是签到结算结果,不得顶替签到。
+_TASK_RUN_ACTION_PREFIX = "task-run"
+
+
 def _settled_today(record: dict[str, Any], today: date) -> bool:
     """该记录是否构成「今日已有确定结果」:同一北京自然日 ∧ ok=true。
 
     ok=true 同时覆盖 claim/checkin(本次真领到)与 skip_already(平台侧今日
     已签)—— 两者都表示"这个号今天不用再打了"。失败记录、昨天的成功记录、
     created_at 读不出来的脏行,一律不算(宁可补一次,不可漏签)。
+
+    action 以 "task-run" 开头的是**执行留痕**而非签到结果(ok 表示任务族跑
+    成功与否),即便 ok=true 也不能算「今日已结算」—— 否则该账号会被跳过
+    当日签到与启动补偿,造成真业务破坏。
     """
+    action = record.get("action")
+    if isinstance(action, str) and action.startswith(_TASK_RUN_ACTION_PREFIX):
+        return False
     if record.get("ok") is not True:
         return False
     created = record.get("created_at")
@@ -1600,6 +1613,32 @@ class CheckinScheduler:
                         result.get("reason"),
                     )
                 await asyncio.sleep(random.uniform(2.0, 8.0))
+            # O68+ 全量自动驾驶腿(2026-11-09):六族巡检只覆盖服务端可判定项(签到/兑换/
+            # 抽奖/旅行等);真行为项(desktop_expert / Sequential 族)由 workbuddy_autopilot
+            # 全量选路完成(verified 链才执行,无链码零出站只登记,防伪造纪律不删)。
+            # 幂等:accept_status=='claimed' 秒跳过 ⇒ 全表已领时等价一次只读扫表,可复跑。
+            try:
+                auto = await workbuddy_autopilot.run_autopilot(
+                    acc["jwt"], device_map, dry_run=dry_run
+                )
+                if auto.get("read_failed"):
+                    stats["unjudged"] += 1
+                if auto.get("claimed"):
+                    stats["claimed"] += len(auto["claimed"])
+                if auto.get("undone") or auto.get("unregistered"):
+                    stats["unjudged"] += 1
+                summary.append(
+                    f"{acc['id']}/autopilot:claimed_already={len(auto.get('claimed_already') or [])} "
+                    f"executed={len(auto.get('executed') or [])} "
+                    f"claimed={len(auto.get('claimed') or [])} "
+                    f"credits=+{auto.get('credits', 0)} "
+                    f"unregistered={len(auto.get('unregistered') or [])}"
+                )
+            except Exception as e:  # noqa: BLE001 — 单账号 autopilot 异常不中断整轮
+                logger.warning(
+                    "[checkin_scheduler] WB autopilot 异常 account=%s: %s", acc["id"], e
+                )
+                stats["errors"] += 1
         self._record_wb_sweep(
             started_at, dry_run, stats, None if stats["families"] else "无可用账号(全部冷却)"
         )
