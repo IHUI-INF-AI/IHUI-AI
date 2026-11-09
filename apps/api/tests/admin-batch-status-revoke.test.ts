@@ -17,28 +17,28 @@
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
-import { PgDialect } from 'drizzle-orm/pg-core'
+import type * as PgCore from 'drizzle-orm/pg-core'
 
-const { mockAuthenticate, mockRevoke, mockIsSystemAdmin, mockLogAction, state } = vi.hoisted(() => ({
-  mockAuthenticate: vi.fn(),
-  mockRevoke: vi.fn(),
-  mockIsSystemAdmin: vi.fn(),
-  mockLogAction: vi.fn(),
-  state: {
-    existingIds: [] as string[],
-    userRows: {} as Record<string, Record<string, unknown>>,
-  },
-}))
+const { mockAuthenticate, mockRevoke, mockIsSystemAdmin, mockLogAction, state } = vi.hoisted(
+  () => ({
+    mockAuthenticate: vi.fn(),
+    mockRevoke: vi.fn(),
+    mockIsSystemAdmin: vi.fn(),
+    mockLogAction: vi.fn(),
+    state: {
+      existingIds: [] as string[],
+      userRows: {} as Record<string, Record<string, unknown>>,
+    },
+  }),
+)
 
 vi.mock('../src/db/index.js', async () => {
-  const { PgDialect } = await vi.importActual<typeof import('drizzle-orm/pg-core')>(
-    'drizzle-orm/pg-core',
-  )
+  const { PgDialect } = await vi.importActual<typeof PgCore>('drizzle-orm/pg-core')
   const dialect = new PgDialect()
 
   function idFromWhere(whereArg: unknown): string | undefined {
     if (!whereArg) return undefined
-    const q = dialect.sqlToQuery(whereArg as Parameters<PgDialect['sqlToQuery']>[0])
+    const q = dialect.sqlToQuery(whereArg as Parameters<PgCore.PgDialect['sqlToQuery']>[0])
     return q.params[0] as string | undefined
   }
 

@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from 'vitest'
 // 测试隔离铁律:service 静态 import 链上的 db/派单出口一律 mock
 vi.mock('../src/services/subagent-dispatch-service.js', () => ({
   subagentDispatchService: { dispatch: vi.fn() },
+  setTenantConcurrencyLimitResolver: vi.fn(),
 }))
 vi.mock('../src/db/user-preferences-queries.js', () => ({
   USER_PREFERENCE_GROUPS: { superAgent: 'super_agent' },
