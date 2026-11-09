@@ -812,5 +812,24 @@ POST {webBase}/activity/growth/tasks/{code}/claim               ← 领奖(+cred
 
 > **P3 的关键陷阱(已挡住)**:`_settled_today` 只判 `ok=True` + 是今天,不看 `action`。若不早退,`task-run` 落的 `ok=True` 会让该号被判「今日已结算」而**跳过签到与启动补偿** —— 这是会造成真业务损失的反向风险,已补 3 条回归用例锁住原判据。
 
+### 13.8 全量自动驾驶闭环(2026-11-09 深夜交付:固定流程一键完成,不再依赖 AI 会话)
+
+回应「程序自己不是都开发好了这些功能吗,为什么没有固定流程直接一键完成」——此前自动化分散在
+「六族巡检(growth 族只 accept/claim)+ desktop 链专用脚本」两层,真行为项(desktop_expert /
+Sequential 族)不在服务端巡检射程内,只能靠 AI 会话逐次驱动。本轮把**全量选路**下沉为服务层单源:
+
+| 交付物 | 内容 | 验证 |
+| --- | --- | --- |
+| `app/services/workbuddy_autopilot.py`(新) | 全量选路引擎:扫任务全表 → 每条未 claimed 任务自动选路(**verified desktop_expert ⇒ desktop 链;全 verified http 链 ⇒ 通用直连执行器;其余 ⇒ 零出站只登记**)→ 回读裁决 → 领奖 → 终态表。两口径分离:runner 判据用 `parse_task_snapshot` 快照形状,计划/领奖用原始行(有 target),不混用 | **14 例单测全绿**(选路/幂等跳过/dry-run 零写侧/generic 执行+领奖/无前进不领奖/claim-only/防伪造零出站/fail-closed) |
+| `workbuddy_direct_actions.json` | `Sequential_Tasks_1..7` 全 21 步补 `verified:true` + 同构依据(与 2026-11-09 实测点亮 5 码逐字段同构:批量 accept + 真实 chat SSE requestId + expert_actual_use;`Sequential_Tasks_2` accept 实测 `task locked until 2026-11-10` 按日解锁) | `route_of` 冒烟:7 码全 `generic` |
+| `workbuddy_behaviors.py` | `BEHAVIOR_PLANS` 扩容:`Sequential_Tasks_2..7` 置 `can_automate=True`(evidence 写明同构依据与「成败只由回读 progress 判定」) | 可自动集合 **7→14 码**;`pending_manual` 只剩 6 个已证伪裸遥测/微信身份码(维持 False 是实证正确) |
+| `scripts/wb_autopilot.py` | 改薄壳(核心单源服务层);CLI `--dry-run` / `--account-id` / `--no-claim` | 实测:任务表 18 条、全 claimed 幂等秒回、dry-run 零出站 |
+| `checkin_scheduler.py` | `_workbuddy_task_sweep` 每账号六族巡检后追加 **autopilot 腿**(同 live_run 门控、异常不中断、统计并入 sweep 摘要) | import + 源码断言接线在位 |
+
+**无人值守语义**:调度器每轮 sweep 自动跑同一引擎;`accept_status=='claimed'` 秒跳过 ⇒
+全表已领时等价一次只读扫表,180 分钟轮询频率安全。明天(2026-11-10)`Sequential_Tasks_2`
+按日解锁后,**下一轮巡检自动 accept → 真实对话 → actual_use 上报 → 领奖(+200)**,
+全程零人工、零 AI 会话。
+
 
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
