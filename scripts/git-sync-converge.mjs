@@ -22,7 +22,7 @@
  *   7. 重复至多 --rounds 轮(默认 3)
  *
  * 用法:
- *   node scripts/git-sync-converge.mjs [--branch main] [--rounds 3] [--dry-run]
+ *   node scripts/git-sync-converge.mjs [--branch <name>] [--rounds 3] [--dry-run]
  *   node scripts/git-sync-converge.mjs --self-test   # 回归自检(含 db6c455d6 静默回退复现,见下)
  *
  * 只读核验(不写任何东西)仍用 git-push-converge.mjs。
@@ -48,7 +48,7 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { dirname, resolve } from 'node:path'
-import { pathToFileURL } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { gitRaw, resolveRemoteHead } from './lib/face-reader.mjs'
 import { judgeRunningState } from './lib/push-state-liveness.mjs'
 import { postMergeLedgerSync } from './lib/post-merge-ledger-sync.mjs'
@@ -756,7 +756,7 @@ export const KNOWN_FLAGS = Object.freeze([
 ])
 
 export const USAGE = [
-  '用法: node scripts/git-sync-converge.mjs [--branch main] [--rounds 3] [--dry-run]',
+  '用法: node scripts/git-sync-converge.mjs [--branch <name>] [--rounds 3] [--dry-run]',
   '      node scripts/git-sync-converge.mjs --status        # 只读看对齐停摆台账,零副作用',
   '      node scripts/git-sync-converge.mjs --align-only    # 只补对齐态,不做合并',
   '      node scripts/git-sync-converge.mjs --no-proxy      # 本轮 git 网络走直连(临时,不改配置)',
@@ -1657,6 +1657,20 @@ function selfTest() {
     results.push(cond)
     console.log(`${cond ? '✅' : '❌'} ${name}${cond || !extra ? '' : ` (${extra})`}`)
   }
+  // ── resolveConvergeTarget 五臂(P0-1 封口票 2026-11-09,④ 通道)── 纯函数,零 git 派生。
+  ok('④ 目标分支:无 --branch ⇒ 从 symbolic-ref HEAD 推导(不再默认 main)', (() => {
+    const r = resolveConvergeTarget({ explicitBranch: null, symbolicRef: 'refs/heads/wip/main-wt-dirty-20261109' })
+    return r.ok === true && r.branch === 'wip/main-wt-dirty-20261109' && r.source === 'derived'
+  })())
+  ok('④ 目标分支:显式且与 HEAD 一致 ⇒ explicit 放行', (() => {
+    const r = resolveConvergeTarget({ explicitBranch: 'main', symbolicRef: 'refs/heads/main' })
+    return r.ok === true && r.branch === 'main' && r.source === 'explicit'
+  })())
+  ok('④ 目标分支:显式 main 而 HEAD 在别支 ⇒ 拒(代别支写 main 正是封口要拦的型)', resolveConvergeTarget({ explicitBranch: 'main', symbolicRef: 'refs/heads/wip' }).ok === false)
+  ok('④ 目标分支:detached 无显式 ⇒ 拒,绝不默认落点', resolveConvergeTarget({ explicitBranch: null, symbolicRef: null }).ok === false)
+  ok('④ 目标分支:detached + 显式 ⇒ 也拒(本地侧无从核验)', resolveConvergeTarget({ explicitBranch: 'main', symbolicRef: null }).ok === false)
+  // 搜索串必须拼接而成 —— 直接写全串会命中"这一行自己"(自指假红,2026-11-09 实测)。
+  ok('④ 目标分支:源码里不得再出现 `getOpt(\'--branch\', \'main\')` 默认值', !readFileSync(fileURLToPath(import.meta.url), 'utf8').includes(`getOpt('--branch', 'ma` + `in'`))
   let tmp = null
   try {
     // 2026-10-26 迁 gitRaw(bootstrap:取 root 前尚无仓库,显式传 process.cwd(),与旧无 -C 同形)。
@@ -2081,6 +2095,31 @@ function selfTest() {
 }
 
 // ─── 主流程(§22d:仅 direct-run 执行,被 import 时零副作用) ──
+/**
+ * 纯函数(P0-1 封口票 2026-11-09,④ 通道):定本器的目标分支。
+ * 旧口径 `--branch` 默认 'main' 且不读当前分支 ⇒ HEAD 在别支时,合并 HEAD 的内容
+ * 却推进 refs/heads/main —— 这正是封口期间"自动化直写 main"的那一型。
+ * 新口径:
+ *   - 未传 --branch ⇒ 从 symbolic-ref HEAD 推导(detached ⇒ 拒,绝不默认落点);
+ *   - 传了 --branch ⇒ 必须等于 HEAD 所在分支(本器全程以 HEAD 为本地侧,"把 HEAD 的
+ *     内容合进别支"不是它的语义;显式代别支写 main 同样拒);
+ *   - detached + 显式 ⇒ 也拒(本地侧无从核验)。
+ * 返回 {ok:true, branch, source:'explicit'|'derived'} 或 {ok:false, why}。
+ */
+export function resolveConvergeTarget({ explicitBranch = null, symbolicRef = null } = {}) {
+  const HEAD_PREFIX = 'refs/heads/'
+  const headBranch = typeof symbolicRef === 'string' && symbolicRef.startsWith(HEAD_PREFIX) ? symbolicRef.slice(HEAD_PREFIX.length) : null
+  if (!headBranch) {
+    return { ok: false, why: 'HEAD 游离(detached)或 symbolic-ref 未命中,本地侧无从核验' }
+  }
+  if (explicitBranch && explicitBranch !== headBranch) {
+    return { ok: false, why: `--branch ${explicitBranch} 与 HEAD 所在分支 ${headBranch} 不一致 —— 本器只推进 HEAD 所在支` }
+  }
+  return explicitBranch
+    ? { ok: true, branch: explicitBranch, source: 'explicit' }
+    : { ok: true, branch: headBranch, source: 'derived' }
+}
+
 function main() {
   const argv = process.argv.slice(2)
   // 旗标闸排在**一切动作之前**(含 --self-test 与默认档收敛):未知旗必须由它裁,
@@ -2105,7 +2144,14 @@ function main() {
     }
     return rf.present ? rf.value : dflt
   }
-  const branch = getOpt('--branch', 'main', '分支名参数')
+  // `--branch` 不再默认 'main'(P0-1 封口票 2026-11-09,④ 通道)—— 落点由
+  // resolveConvergeTarget 在 repoRoot 之后依 HEAD 所在支推导/核验。
+  const brReq = requireFlagValue(argv, '--branch', { noun: '分支名参数' })
+  if (brReq.error) {
+    console.error(`❌ ${brReq.error}`)
+    process.exit(2)
+  }
+  const explicitBranch = brReq.present ? brReq.value : null
   const maxRounds = Number(getOpt('--rounds', 3, '轮数参数'))
   const dryRun = argv.includes('--dry-run')
   // `--no-proxy`(2026-10-26 立):显式临时绕开仓库配的代理。
@@ -2121,6 +2167,25 @@ function main() {
   const repoRoot = git(['rev-parse', '--show-toplevel'], { allowFail: true })
   if (!repoRoot) {
     log(C.red, '❌ 不在 git 仓库中')
+    process.exit(2)
+  }
+
+  // ── 目标分支定夺(P0-1 封口票 2026-11-09,④ 通道)──────────────────────────
+  // 写档必须拿到"HEAD 所在支"的核验结果;读档(--status/--dry-run)零副作用,
+  // 定夺失败时退回旧口径并点名,不得把只读查询也拦死(告警链路还在调 --status)。
+  const readOnlyMode = dryRun || argv.includes('--status')
+  const headRef = git(['symbolic-ref', '-q', 'HEAD'], { allowFail: true })
+  const target = resolveConvergeTarget({ explicitBranch, symbolicRef: headRef })
+  let branch
+  if (target.ok) {
+    branch = target.branch
+    if (target.source === 'derived') log(C.dim, `  ℹ️ 目标分支从 HEAD 所在支推导:${branch}(不再默认 main)`)
+  } else if (readOnlyMode) {
+    branch = explicitBranch || 'main'
+    log(C.yellow, `⚠️ 目标分支定夺失败(${target.why})⇒ 只读档按 ${branch} 查询,零副作用`)
+  } else {
+    log(C.red, `❌ 拒绝执行:④ 通道的目标分支定夺失败 —— ${target.why}`)
+    log(C.red, '   本器全程以 HEAD 为本地侧、只推进 HEAD 所在支。先切到目标分支再跑,或核对 --branch 拼写。')
     process.exit(2)
   }
 
