@@ -168,17 +168,15 @@ const walletRoutes: FastifyPluginAsync = async (server) => {
         )
         return reply.status(201).send(success(flow))
       } catch (e) {
-        const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 500
-        // 异常原文只进服务端日志;对外一律通用文案,DB/内部异常文本不出仓。
+        const err = e as Error & { statusCode?: number }
+        const statusCode = err.statusCode ?? 500
+        // 异常原文只进服务端日志;5xx/未知异常对外统一兜底,DB/内部异常文本不出仓。
+        // 4xx 只可能来自本服务显式抛出的业务错误(如 applyWithdrawal 的"可提现余额不足"),
+        // 保留业务文案,与 finance.ts / user/withdrawal-routes.ts 等既有提现入口口径一致。
         request.log.error({ err: e }, 'wallet operation failed')
-        return reply
-          .status(statusCode)
-          .send(
-            error(
-              statusCode,
-              statusCode < 500 ? '操作失败,请稍后重试' : '服务暂时不可用,请稍后重试',
-            ),
-          )
+        const message =
+          statusCode < 500 ? err.message || '操作失败,请稍后重试' : '服务暂时不可用,请稍后重试'
+        return reply.status(statusCode).send(error(statusCode, message))
       }
     },
   )
@@ -541,17 +539,15 @@ export const adminWalletRoutes: FastifyPluginAsync = async (server) => {
 
         return reply.status(201).send(success(result))
       } catch (e) {
-        const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 500
-        // 异常原文只进服务端日志;对外一律通用文案,DB/内部异常文本不出仓。
+        const err = e as Error & { statusCode?: number }
+        const statusCode = err.statusCode ?? 500
+        // 异常原文只进服务端日志;5xx/未知异常对外统一兜底,DB/内部异常文本不出仓。
+        // 4xx 只可能来自本服务显式抛出的业务错误(如 applyWithdrawal 的"可提现余额不足"),
+        // 保留业务文案,与 finance.ts / user/withdrawal-routes.ts 等既有提现入口口径一致。
         request.log.error({ err: e }, 'wallet operation failed')
-        return reply
-          .status(statusCode)
-          .send(
-            error(
-              statusCode,
-              statusCode < 500 ? '操作失败,请稍后重试' : '服务暂时不可用,请稍后重试',
-            ),
-          )
+        const message =
+          statusCode < 500 ? err.message || '操作失败,请稍后重试' : '服务暂时不可用,请稍后重试'
+        return reply.status(statusCode).send(error(statusCode, message))
       }
     },
   )
