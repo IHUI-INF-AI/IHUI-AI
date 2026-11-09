@@ -147,14 +147,29 @@ jobs:
           while IFS= read -r BR; do
             [[ -z "${BR}" ]] && continue
             case "${BR}" in
-              main|main/*|backup/*|ihui-backup/*|cross-end-auto*) continue ;;
+              main|main/*|backup/*|ihui-backup/*|cross-end-auto*|dependabot/*) continue ;;
             esac
+            # ① 与 scripts/remote-branch-triage.mjs 同口径:Dependabot 依赖升级线一律不进射程
+            #   (删掉只会让 Dependabot 重开);此前注释写了排除但 case 漏了这一支。
             SHA="$(gh api "repos/${REPO}/git/ref/heads/${BR}" --jq '.object.sha' 2>/dev/null || true)"
-            [[ -z "${SHA}" ]] && continue
-            OPEN="$(gh pr list --head "${BR}" --state open --json number --jq 'length' 2>/dev/null || echo 0)"
-            [[ "${OPEN}" != "0" ]] && continue
-            # ahead_by=0 ⇒ 分支没有独有提交 ⇒ 删 ref 零内容损失。取不到就当 999,绝不猜绿。
-            AHEAD="$(gh api "repos/${REPO}/compare/main...${BR}" --jq '.ahead_by' 2>/dev/null || echo 999)"
+            # ② 取数失败不许拼进后续变量:必须逐字是 40 位 sha,否则整支跳过(fail-closed)。
+            if [[ ! "${SHA}" =~ ^[0-9a-f]{40}$ ]]; then
+              echo "skip ${BR}(head ref 取数失败,按未判定处理)"
+              continue
+            fi
+            OPEN="$(gh pr list --head "${BR}" --state open --json number --jq 'length' 2>/dev/null || true)"
+            if [[ "${OPEN}" != "0" ]]; then
+              echo "skip ${BR}(open PR 数=${OPEN:-未取到},按不为零处理)"
+              continue
+            fi
+            # ③ compare 的 head 用不可变 sha,不用分支名:含斜杠的分支名放在 REST 路径里会 404,
+            #    实测 22 个候选全被 404 拼成 {"message":"Not Found"}999 而误判「有独有内容」⇒ 整组空转。
+            #    ahead_by=0 ⇒ 分支没有独有提交 ⇒ 删 ref 零内容损失;取不到或非纯数字一律跳过,绝不猜绿。
+            AHEAD="$(gh api "repos/${REPO}/compare/main...${SHA}" --jq '.ahead_by' 2>/dev/null || true)"
+            if [[ ! "${AHEAD}" =~ ^[0-9]+$ ]]; then
+              echo "skip ${BR}(compare 取数失败:${AHEAD:-空},按未判定处理)"
+              continue
+            fi
             if [[ "${AHEAD}" != "0" ]]; then
               echo "skip ${BR}(ahead_by=${AHEAD},有独有内容)"
               continue
