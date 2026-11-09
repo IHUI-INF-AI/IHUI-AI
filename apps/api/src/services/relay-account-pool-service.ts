@@ -18,8 +18,13 @@
  * 的可被调度器续期;没有的直接标 down + 摘除),是否可用交给健康检查/转发链路判定。
  */
 import { createHash } from 'node:crypto'
-import { and, eq, inArray, isNull, like, sql } from 'drizzle-orm'
-import { aiRelayAccountPool, type AiRelayAccountPool } from '@ihui/database'
+import { and, eq, inArray, isNull, like, or, sql } from 'drizzle-orm'
+import {
+  aiModelConfig,
+  aiModelConfigModels,
+  aiRelayAccountPool,
+  type AiRelayAccountPool,
+} from '@ihui/database'
 import { db, dbRead } from '../db/index.js'
 import { encryptField, decryptField } from '../utils/crypto.js'
 import { logger } from '../utils/logger.js'
@@ -41,6 +46,7 @@ import {
   resolveOverwriteRefresh,
   resolveRelayAccountName,
   resolveRelayCredentialSlots,
+  isRelayProviderCode,
   type RelayAccountNameDecision,
   type RelayAccountNameFallback,
   type RelayAccountNameSource,
@@ -1737,5 +1743,206 @@ export function decryptAccountCredentials(row: AiRelayAccountPool): AccountCrede
     cookies,
     secrets,
   }
+}
+
+// =============================================================================
+// 个人号池 → 对话模型清单(2026-11-10 立)
+// =============================================================================
+
+/**
+ * 模型选择器「我的号池」分组的一条模型。
+ *
+ * id 的定义是硬约束:它会被原样当作 /v1/chat/completions 的 model 发回,
+ * 因此必须能被转发器反查(全局登记行 model_id 逐字节相等,或 `<平台>/<上游模型名>` 形态)。
+ * 前者的路线是 ai_model_config 命中,后者靠 resolvePoolProviders 的前缀兜底 —— 两条都在
+ * relay-account-forwarder 里落判据,这里只负责给出合法 id(不另立规则)。
+ */
+export interface UserPoolModelItem {
+  id: string
+  name: string
+  /** 平台 code(trae / workbuddy / …),前端据此分组与打标 */
+  provider: string
+  /** 该平台下当前可调度的账号数(选号面同源判据,不是行数) */
+  accountCount: number
+  /** preset = 全局登记行(有展示名/定价);upstream = 上游模型清单现拉 */
+  source: 'preset' | 'upstream'
+}
+
+interface UserPoolModelCacheEntry {
+  expiresAt: number
+  /** 上游原始模型 id(不带平台前缀;拼前缀在输出时统一做) */
+  upstreamIds: string[]
+}
+
+/** 清单缓存 10 分钟:模型目录变化慢,而选择器每次开面板都会问 */
+const POOL_MODEL_CACHE_TTL_MS = 10 * 60 * 1000
+/** 缓存键帽:键含 userId,不封顶就是一条按用户增长的内存泄漏 */
+const POOL_MODEL_CACHE_MAX = 500
+/** 单平台上游清单超时:拉清单不该把选择器拖到十几秒 */
+const POOL_MODEL_UPSTREAM_TIMEOUT_MS = 8_000
+const poolModelCache = new Map<string, UserPoolModelCacheEntry>()
+
+/** 上游模型 id → 选择器 id:`<平台>/<上游名>`(已带同前缀则不重复拼,qoder 的登记形态即如此) */
+function toPoolModelId(providerCode: string, upstreamId: string): string {
+  const id = upstreamId.trim()
+  if (id.startsWith(`${providerCode}/`)) return id
+  return `${providerCode}/${id}`
+}
+
+/**
+ * 单平台上游清单。永不抛:无 listModels / 超时 / 上游拒收一律归空数组,
+ * 由预置登记行兜底(取不到 ≠ 没模型,只是这一轮没拿到)。
+ */
+async function fetchUpstreamModelIds(
+  providerCode: RelayProviderCode,
+  row: AiRelayAccountPool,
+): Promise<string[]> {
+  try {
+    // 注册是幂等的;这里自己兜一次 —— 清单接口可能在 worker 之外(仅 API 进程)被首次调用,
+    // 不依赖「worker 已启动」这个隐含前提,否则适配器表为空会静默返回零模型。
+    const [{ getRelayAdapter }, { registerAllRelayAdapters }] = await Promise.all([
+      import('./relay-upstream-adapters.js'),
+      import('./upstream-adapters/index.js'),
+    ])
+    registerAllRelayAdapters()
+    const adapter = getRelayAdapter(providerCode)
+    if (!adapter) return []
+    const ctx = { row, credentials: decryptAccountCredentials(row) }
+    // 生命周期调用与 chat 同出口 IP(同号同代理,避免 IP 漂移触发风控)
+    const opts = { proxyUrl: row.proxyUrl ? resolveAccountProxyUrl(row.proxyUrl) : null }
+    const task = async (): Promise<string[]> => {
+      if (adapter.listModelsDetailed) {
+        const detailed = await adapter.listModelsDetailed(ctx, opts)
+        if (detailed.ok && Array.isArray(detailed.models)) {
+          const ids = detailed.models
+            .map((m) => m.id ?? m.name)
+            .map((s) => (typeof s === 'string' ? s.trim() : ''))
+            .filter((s) => s !== '')
+          if (ids.length > 0) return ids
+        }
+      }
+      if (adapter.listModels) return await adapter.listModels(ctx, opts)
+      return []
+    }
+    const timeout = new Promise<string[]>((resolve) => {
+      const timer = setTimeout(() => resolve([]), POOL_MODEL_UPSTREAM_TIMEOUT_MS)
+      timer.unref?.()
+    })
+    const ids = await Promise.race([task().catch(() => []), timeout])
+    return [...new Set(ids.map((s) => s.trim()).filter((s) => s !== ''))]
+  } catch {
+    return []
+  }
+}
+
+/**
+ * 当前登录用户个人号池能被对话链路用到的模型清单。
+ *
+ * 口径(用户 2026-11-10 定档):预置为主 + 上游刷新为辅 ——
+ * 预置 = 该平台在 ai_model_config 的启用模型行(有展示名、有定价,请求天然命中反查);
+ * 上游 = 适配器 listModels 现拉(补上尚未登记的模型,靠 `<平台>/<名>` 前缀反查)。
+ * 同 id 预置优先(展示名/定价更可信),上游只补缺。
+ *
+ * 只读 + 不抛:任何一段失败都退化为"少几条模型",绝不让选择器打不开。
+ */
+export async function listUserPoolModels(
+  userId: string,
+  opts: { refresh?: boolean } = {},
+): Promise<UserPoolModelItem[]> {
+  const { accountSchedulableCondition } = await import('./relay-account-pool-scheduler.js')
+  const accounts = await dbRead
+    .select()
+    .from(aiRelayAccountPool)
+    .where(and(eq(aiRelayAccountPool.ownerUserId, userId), accountSchedulableCondition()))
+    .orderBy(aiRelayAccountPool.providerCode)
+  if (accounts.length === 0) return []
+
+  // 每平台只留一枚代表号去拉清单:清单语义是「这平台有哪些模型」,与具体哪枚号无关
+  const byProvider = new Map<string, { row: AiRelayAccountPool; count: number }>()
+  for (const row of accounts) {
+    const hit = byProvider.get(row.providerCode)
+    if (hit) hit.count += 1
+    else byProvider.set(row.providerCode, { row, count: 1 })
+  }
+
+  const providers = [...byProvider.keys()]
+  // 预置:一次查全(避免 12 次往返),按平台+模型名排序保证输出稳定
+  const presetRows = await dbRead
+    .select({
+      providerCode: aiModelConfig.providerCode,
+      modelId: aiModelConfigModels.modelId,
+      displayName: aiModelConfigModels.displayName,
+    })
+    .from(aiModelConfigModels)
+    .innerJoin(aiModelConfig, eq(aiModelConfigModels.configId, aiModelConfig.id))
+    .where(
+      and(
+        inArray(aiModelConfig.providerCode, providers),
+        eq(aiModelConfig.enabled, true),
+        or(isNull(aiModelConfigModels.enabled), eq(aiModelConfigModels.enabled, true)),
+      ),
+    )
+    .orderBy(aiModelConfig.providerCode, aiModelConfigModels.modelId)
+
+  const presetByProvider = new Map<string, Array<{ id: string; name: string }>>()
+  for (const row of presetRows) {
+    if (!row.modelId) continue
+    const list = presetByProvider.get(row.providerCode) ?? []
+    list.push({ id: row.modelId, name: row.displayName || row.modelId })
+    presetByProvider.set(row.providerCode, list)
+  }
+
+  const upstreamByProvider = new Map<string, string[]>()
+  await Promise.all(
+    [...byProvider.entries()].map(async ([code, hit]) => {
+      const cacheKey = `${userId}:${code}`
+      const cached = poolModelCache.get(cacheKey)
+      if (!opts.refresh && cached && cached.expiresAt > Date.now()) {
+        upstreamByProvider.set(code, cached.upstreamIds)
+        return
+      }
+      const ids = isRelayProviderCode(code) ? await fetchUpstreamModelIds(code, hit.row) : []
+      upstreamByProvider.set(code, ids)
+    }),
+  )
+
+  const items: UserPoolModelItem[] = []
+  for (const [code, hit] of byProvider) {
+    const seen = new Set<string>()
+    for (const preset of presetByProvider.get(code) ?? []) {
+      if (seen.has(preset.id)) continue
+      seen.add(preset.id)
+      items.push({
+        id: preset.id,
+        name: preset.name,
+        provider: code,
+        accountCount: hit.count,
+        source: 'preset',
+      })
+    }
+    for (const upstreamId of upstreamByProvider.get(code) ?? []) {
+      const id = toPoolModelId(code, upstreamId)
+      // 裸名与带前缀名都算重复:平台登记行可能就用裸名(trae 系),上游清单再报一次不该出两条
+      if (seen.has(id) || seen.has(upstreamId)) continue
+      seen.add(id)
+      items.push({
+        id,
+        name: upstreamId,
+        provider: code,
+        accountCount: hit.count,
+        source: 'upstream',
+      })
+    }
+    // 回写缓存:只存上游那一半(预置每次现读,登记变更立即生效)
+    if (poolModelCache.size >= POOL_MODEL_CACHE_MAX && !poolModelCache.has(`${userId}:${code}`)) {
+      const oldestKey = poolModelCache.keys().next().value
+      if (oldestKey !== undefined) poolModelCache.delete(oldestKey)
+    }
+    poolModelCache.set(`${userId}:${code}`, {
+      expiresAt: Date.now() + POOL_MODEL_CACHE_TTL_MS,
+      upstreamIds: upstreamByProvider.get(code) ?? [],
+    })
+  }
+  return items
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
