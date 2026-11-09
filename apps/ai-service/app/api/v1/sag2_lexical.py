@@ -11,6 +11,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 from fastapi import APIRouter
@@ -125,4 +126,84 @@ async def sag2_fuse(req: FuseRequest) -> dict[str, Any]:
             "channels": ["sag2-lexical-multihop", "rag-vector-keyword"],
             "rrf_k": req.k,
         }
+    )
+
+
+# -- 本地文件夹登记 / 增量扫描（对照的「Add a local folder」） ----------------
+
+
+class AddFolderRequest(BaseModel):
+    """登记一个本地文件夹：文件留在原处，只建词法索引。"""
+
+    root: str = Field(..., min_length=1, description="文件夹绝对路径")
+    include: list[str] | None = Field(
+        None, description="扩展名白名单（默认 md/txt/html/docx/xlsx/epub/pdf 等）"
+    )
+    exclude: list[str] | None = Field(None, description="路径子串排除项")
+    recursive: bool = Field(True, description="是否递归子目录")
+    scan: bool = Field(True, description="登记后立刻跑一轮增量扫描")
+    watch: bool = Field(False, description="是否启动轮询 watcher（默认关）")
+    watch_interval_s: float = Field(30.0, ge=5.0, le=3600.0)
+
+
+class ScanFolderRequest(BaseModel):
+    root: str | None = Field(None, description="只扫这个根；为空扫全部登记项")
+    force: bool = Field(False, description="忽略 mtime/size 预筛，强制重读重算")
+
+
+class WatchFolderRequest(BaseModel):
+    root: str = Field(..., min_length=1)
+    enabled: bool = True
+    interval_s: float = Field(30.0, ge=5.0, le=3600.0)
+
+
+@router.post("/folders")
+async def sag2_add_folder(req: AddFolderRequest) -> dict[str, Any]:
+    """登记本地文件夹；``scan=true`` 时立刻跑一轮增量扫描。
+
+    扫描是同步 IO/CPU 活，放线程池里跑，不阻塞事件循环。
+    """
+    folders = sag2_lexical_service.folders
+    registered = folders.register(
+        req.root,
+        include=req.include,
+        exclude=req.exclude,
+        recursive=req.recursive,
+    )
+    if not registered.get("registered"):
+        return _ok({**registered, "scan": None})
+    scan = await asyncio.to_thread(folders.scan, registered["folder"]["root"])
+    watch = (
+        folders.start_watch(registered["folder"]["root"], interval_s=req.watch_interval_s)
+        if req.watch
+        else None
+    )
+    return _ok({**registered, "scan": scan, "watch": watch})
+
+
+@router.get("/folders")
+async def sag2_list_folders() -> dict[str, Any]:
+    """已登记的文件夹 + 各自最近一轮扫描读数 + watcher 状态。"""
+    return _ok(sag2_lexical_service.folders.list_folders())
+
+
+@router.post("/folders/scan")
+async def sag2_scan_folders(req: ScanFolderRequest) -> dict[str, Any]:
+    """幂等增量扫描：mtime/size 未变且索引 hash 一致的文件**不读盘**。"""
+    return _ok(await asyncio.to_thread(sag2_lexical_service.folders.scan, req.root, force=req.force))
+
+
+@router.delete("/folders")
+async def sag2_remove_folder(root: str) -> dict[str, Any]:
+    """注销登记，并把该根下已入索引的文档一并移除（不留孤儿片）。"""
+    return _ok(sag2_lexical_service.folders.unregister(root))
+
+
+@router.post("/folders/watch")
+async def sag2_watch_folder(req: WatchFolderRequest) -> dict[str, Any]:
+    """启停轮询 watcher（对照是常驻文件监听；本仓默认关闭，显式开启才跑）。"""
+    if not req.enabled:
+        return _ok(sag2_lexical_service.folders.stop_watch(req.root))
+    return _ok(
+        sag2_lexical_service.folders.start_watch(req.root, interval_s=req.interval_s)
     )

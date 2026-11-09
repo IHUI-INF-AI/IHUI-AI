@@ -18,13 +18,20 @@ import { Button, Input } from '@ihui/ui-react'
 
 import {
   sag2AddDocument,
+  sag2AddFolder,
   sag2Fuse,
+  sag2ListFolders,
   sag2RemoveDocument,
+  sag2RemoveFolder,
   sag2Retrieve,
+  sag2ScanFolders,
   sag2Search,
   sag2Status,
+  sag2WatchFolder,
+  type Sag2FolderList,
   type Sag2FuseResult,
   type Sag2RetrieveResult,
+  type Sag2ScanStats,
   type Sag2SearchResult,
   type Sag2Status as Sag2StatusData,
 } from '@/api/sag2-lexical'
@@ -55,6 +62,11 @@ export default function PageClient() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
+  // 文件夹面板默认折叠：展开时才拉列表，避免首屏多发一个请求。
+  const [foldersOpen, setFoldersOpen] = useState(false)
+  const [folderRoot, setFolderRoot] = useState('')
+  const [folders, setFolders] = useState<Sag2FolderList | null>(null)
+  const [scanStats, setScanStats] = useState<Sag2ScanStats | null>(null)
 
   const refresh = useCallback(async () => {
     try {
@@ -64,25 +76,35 @@ export default function PageClient() {
     }
   }, [])
 
+  const refreshFolders = useCallback(async () => {
+    try {
+      setFolders(await sag2ListFolders())
+    } catch (e) {
+      setError(errorMessage(e))
+    }
+  }, [])
+
   useEffect(() => {
     void refresh()
   }, [refresh])
 
-  const run = useCallback(
-    async (action: () => Promise<void>) => {
-      setBusy(true)
-      setError('')
-      setNotice('')
-      try {
-        await action()
-      } catch (e) {
-        setError(errorMessage(e))
-      } finally {
-        setBusy(false)
-      }
-    },
-    [],
-  )
+  // 折叠面板展开时才拉文件夹列表：首屏不多发请求，展开前后数据一致。
+  useEffect(() => {
+    if (foldersOpen) void refreshFolders()
+  }, [foldersOpen, refreshFolders])
+
+  const run = useCallback(async (action: () => Promise<void>) => {
+    setBusy(true)
+    setError('')
+    setNotice('')
+    try {
+      await action()
+    } catch (e) {
+      setError(errorMessage(e))
+    } finally {
+      setBusy(false)
+    }
+  }, [])
 
   const addDocument = () =>
     run(async () => {
@@ -97,6 +119,55 @@ export default function PageClient() {
       const outcome = await sag2RemoveDocument(docPath.trim())
       setNotice(`${t('removed')} ${outcome.removed}`)
       await refresh()
+    })
+
+  // -- 本地文件夹：登记 / 扫描 / 监听 / 注销 ---------------------------------
+
+  const summaryOf = (stats: Sag2ScanStats | null): string =>
+    stats
+      ? t('scanSummary', {
+          changed: stats.changed,
+          unchanged: stats.unchanged,
+          unsupported: stats.unsupported,
+          failed: stats.failed,
+        })
+      : ''
+
+  const addFolder = () =>
+    run(async () => {
+      const outcome = await sag2AddFolder({ root: folderRoot.trim(), scan: true })
+      if (!outcome.registered) {
+        setError(outcome.reason ?? t('error'))
+        return
+      }
+      setScanStats(outcome.scan ?? null)
+      setNotice(summaryOf(outcome.scan ?? null))
+      setFolderRoot('')
+      await refresh()
+      await refreshFolders()
+    })
+
+  const scanAllFolders = () =>
+    run(async () => {
+      const stats = await sag2ScanFolders()
+      setScanStats(stats)
+      setNotice(stats.reason ?? summaryOf(stats))
+      await refresh()
+      await refreshFolders()
+    })
+
+  const removeFolder = (root: string) =>
+    run(async () => {
+      const outcome = await sag2RemoveFolder(root)
+      setNotice(`${t('removeFolder')} ${outcome.removed}`)
+      await refresh()
+      await refreshFolders()
+    })
+
+  const toggleWatch = (root: string, enabled: boolean) =>
+    run(async () => {
+      await sag2WatchFolder(root, enabled)
+      await refreshFolders()
     })
 
   const runQuick = () =>
@@ -121,7 +192,7 @@ export default function PageClient() {
       setFused(await sag2Fuse(deep.results))
     })
 
-  const rows = mode === 'quick' ? quick?.items ?? [] : deep?.results ?? []
+  const rows = mode === 'quick' ? (quick?.items ?? []) : (deep?.results ?? [])
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-4 p-4">
@@ -139,21 +210,127 @@ export default function PageClient() {
         >
           {status?.ready ? t('ready') : t('empty')}
         </span>
-        <span className={META_CLASS}>{t('version')} {status?.version ?? '—'}</span>
-        <span className={META_CLASS}>{t('documents')} {status?.documents ?? '—'}</span>
-        <span className={META_CLASS}>{t('chunks')} {status?.chunks ?? '—'}</span>
-        <span className={META_CLASS}>{t('terms')} {status?.terms ?? '—'}</span>
-        <span className={META_CLASS}>{t('judgeProvider')} {status?.judge_provider ?? '—'}</span>
+        <span className={META_CLASS}>
+          {t('version')} {status?.version ?? '—'}
+        </span>
+        <span className={META_CLASS}>
+          {t('documents')} {status?.documents ?? '—'}
+        </span>
+        <span className={META_CLASS}>
+          {t('chunks')} {status?.chunks ?? '—'}
+        </span>
+        <span className={META_CLASS}>
+          {t('terms')} {status?.terms ?? '—'}
+        </span>
+        <span className={META_CLASS}>
+          {t('judgeProvider')} {status?.judge_provider ?? '—'}
+        </span>
       </header>
 
       {error ? (
-        <div role="alert" className="rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground">
+        <div
+          role="alert"
+          className="rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground"
+        >
           {t('error')}: {error}
         </div>
       ) : null}
 
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[minmax(280px,1fr)_minmax(0,2fr)]">
         <section className={`${CARD_CLASS} gap-3 p-4`}>
+          <div className="flex flex-col gap-2 rounded-md border border-border bg-muted/30 p-3">
+            <button
+              type="button"
+              onClick={() => setFoldersOpen((value) => !value)}
+              className="flex items-center justify-between text-sm font-semibold text-foreground transition-colors hover:text-foreground/80"
+            >
+              <span>{t('foldersTitle')}</span>
+              <span className="rounded bg-muted px-1.5 py-0.5 text-xs font-normal text-muted-foreground">
+                {folders?.folders.length ?? 0}
+              </span>
+            </button>
+
+            {foldersOpen ? (
+              <div className="flex flex-col gap-2">
+                <Input
+                  value={folderRoot}
+                  onChange={(e) => setFolderRoot(e.target.value)}
+                  placeholder={t('folderPlaceholder')}
+                  aria-label={t('folderPath')}
+                  className={FIELD_CLASS}
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    variant="primary"
+                    disabled={busy || !folderRoot.trim()}
+                    onClick={() => void addFolder()}
+                    className="rounded-md px-3 py-2 text-sm"
+                  >
+                    {t('registerFolder')}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    disabled={busy || !(folders?.folders.length ?? 0)}
+                    onClick={() => void scanAllFolders()}
+                    className="rounded-md px-3 py-2 text-sm transition-colors hover:bg-accent"
+                  >
+                    {t('scanFolders')}
+                  </Button>
+                </div>
+
+                {scanStats ? (
+                  <p className="text-xs leading-relaxed text-muted-foreground">
+                    {summaryOf(scanStats)} · {scanStats.duration_ms}ms
+                  </p>
+                ) : null}
+
+                <p className="text-xs text-muted-foreground">{t('foldersList')}</p>
+                <div className="max-h-40 space-y-1 overflow-y-auto pr-1">
+                  {(folders?.folders ?? []).length === 0 ? (
+                    <p className="rounded border border-dashed border-border px-2 py-1.5 text-xs text-muted-foreground">
+                      {t('noFolders')}
+                    </p>
+                  ) : null}
+                  {(folders?.folders ?? []).map((folder) => {
+                    const watching = (folders?.watching ?? []).includes(folder.root)
+                    return (
+                      <div
+                        key={folder.root}
+                        className="flex flex-wrap items-center gap-1.5 rounded border border-border bg-background px-2 py-1.5"
+                      >
+                        <span
+                          className="mr-auto truncate text-xs text-foreground"
+                          title={folder.root}
+                        >
+                          {folder.root}
+                        </span>
+                        <span className={META_CLASS}>
+                          {folder.last_scan.changed ?? 0}/{folder.last_scan.scanned ?? 0}
+                        </span>
+                        <Button
+                          variant={watching ? 'primary' : 'outline'}
+                          disabled={busy}
+                          onClick={() => void toggleWatch(folder.root, !watching)}
+                          className="rounded px-2 py-0.5 text-xs transition-colors hover:bg-accent"
+                        >
+                          {t('watchFolder')}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          disabled={busy}
+                          onClick={() => void removeFolder(folder.root)}
+                          className="rounded px-2 py-0.5 text-xs transition-colors hover:bg-accent"
+                        >
+                          {t('removeFolder')}
+                        </Button>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            ) : null}
+          </div>
+
           <h2 className="text-sm font-semibold text-foreground">{t('docsTitle')}</h2>
 
           <label className="flex flex-col gap-1 text-xs text-muted-foreground">
@@ -269,10 +446,14 @@ export default function PageClient() {
                   >
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-sm font-medium text-foreground">{item.path}</span>
-                      <span className={META_CLASS}>{t('bm25')} {item.bm25}</span>
+                      <span className={META_CLASS}>
+                        {t('bm25')} {item.bm25}
+                      </span>
                       <span className={META_CLASS}>{item.citation.doc_hash.slice(0, 12)}</span>
                     </div>
-                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{item.snippet}</p>
+                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                      {item.snippet}
+                    </p>
                   </article>
                 ))
               : deep?.results.map((row) => (
@@ -282,18 +463,28 @@ export default function PageClient() {
                   >
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-sm font-medium text-foreground">{row.path}</span>
-                      <span className={META_CLASS}>{t('score')} {row.score}</span>
-                      <span className={META_CLASS}>{t('bm25')} {row.bm25}</span>
-                      <span className={META_CLASS}>{t('hop')} {row.hop}</span>
+                      <span className={META_CLASS}>
+                        {t('score')} {row.score}
+                      </span>
+                      <span className={META_CLASS}>
+                        {t('bm25')} {row.bm25}
+                      </span>
+                      <span className={META_CLASS}>
+                        {t('hop')} {row.hop}
+                      </span>
                     </div>
-                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{row.content}</p>
+                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                      {row.content}
+                    </p>
                   </article>
                 ))}
           </div>
 
           {deep ? (
             <div className="max-h-40 shrink-0 space-y-1 overflow-y-auto rounded-md border border-border bg-muted px-3 py-2 text-xs text-foreground">
-              <p className="font-medium">{t('trace')} · {deep.status} · {deep.duration_ms}ms</p>
+              <p className="font-medium">
+                {t('trace')} · {deep.status} · {deep.duration_ms}ms
+              </p>
               {deep.trace.map((hop) => (
                 <p key={hop.hop} className="text-muted-foreground">
                   #{hop.hop} · {t('tracePool')} {hop.pool_size} · {t('traceTerms')}{' '}
@@ -303,7 +494,11 @@ export default function PageClient() {
               ))}
               {deep.citations.length ? (
                 <p className="text-muted-foreground">
-                  {t('citations')}: {deep.citations.slice(0, 3).map((c) => `${c.path} [${c.byte_range.join('-')}]`).join(' · ')}
+                  {t('citations')}:{' '}
+                  {deep.citations
+                    .slice(0, 3)
+                    .map((c) => `${c.path} [${c.byte_range.join('-')}]`)
+                    .join(' · ')}
                 </p>
               ) : null}
             </div>
