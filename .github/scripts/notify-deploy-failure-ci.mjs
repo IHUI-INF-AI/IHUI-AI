@@ -59,7 +59,7 @@ const portRaw = (process.env.SMTP_PORT || '587').trim()
 const port = Number.parseInt(portRaw, 10)
 const user = process.env.SMTP_USER || ''
 const pass = process.env.SMTP_PASS || ''
-const fromRaw = (process.env.SMTP_FROM || '智汇AI官方 <IHUI-AI@aizhs.top>').trim()
+const fromRaw = (process.env.SMTP_FROM || '智汇AI <IHUI-AI@aizhs.top>').trim()
 const recipients = (takeOpt('--to') || process.env.ALERT_EMAIL_TO || '')
   .split(',')
   .map((s) => s.trim())
@@ -79,10 +79,19 @@ if (!Number.isFinite(port) || port <= 0) {
 
 const fromMatch = fromRaw.match(/<([^>]+)>/)
 const fromAddr = (fromMatch ? fromMatch[1] : fromRaw).trim()
-const fromName = fromMatch ? fromRaw.slice(0, fromMatch.index).trim() : ''
 if (!fromAddr.includes('@')) {
   failOrExit(`SMTP_FROM 缺少合法地址: ${fromAddr}`)
 }
+
+/**
+ * 发件人显示名恒为品牌名(2026-11-10 机主定案)。
+ *
+ * 根因:显示名原先取自 SMTP_FROM —— 而 CI 的 secrets 是**不可审计**的,
+ * 实测生产收件箱里就出现过「502319984」这种把邮箱账号当发件人的形态(裸地址 ⇒ 旧代码
+ * fromName 为空 ⇒ From 头只剩地址),同时另有「智汇AI」「智汇AI官方」两版。
+ * 显示名不允许交给 secret 决定,secret 只能决定地址段。
+ */
+const BRAND_FROM_NAME = '智汇AI'
 
 const escapeHtml = (s) =>
   String(s).replace(
@@ -112,7 +121,7 @@ const encodeHeader = (value) => `=?UTF-8?B?${Buffer.from(value, 'utf8').toString
 
 const date = new Date().toUTCString()
 const messageId = `<${randomBytes(12).toString('hex')}@aizhs.top>`
-const fromHeader = fromName ? `${encodeHeader(fromName)} <${fromAddr}>` : fromAddr
+const fromHeader = `${encodeHeader(BRAND_FROM_NAME)} <${fromAddr}>`
 const bodyBase64 = Buffer.from(html, 'utf8').toString('base64')
 const wrappedBody = bodyBase64.replace(/(.{76})/g, '$1\r\n')
 

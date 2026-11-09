@@ -109,11 +109,11 @@ function fullSmtpCfg(over?: { smtpAvailable?: boolean; smtpMissing?: string[] })
       port: 465,
       user: 'u',
       pass: 'p',
-      from: '"智汇AI官方" <u>',
+      from: '"智汇AI" <u>',
       available: over?.smtpAvailable ?? true,
       missing: over?.smtpMissing ?? [],
     },
-    resend: { apiKey: 'key', from: '智汇AI官方 <IHUI-AI@aizhs.top>', available: true, missing: [] },
+    resend: { apiKey: 'key', from: '智汇AI <IHUI-AI@aizhs.top>', available: true, missing: [] },
   }
 }
 
@@ -260,31 +260,41 @@ describe('composeMessage', () => {
 })
 
 describe('resolveSmtpFrom', () => {
-  it('SMTP_FROM 未设 → "智汇AI官方" <SMTP_USER>', () => {
-    expect(t.resolveSmtpFrom(undefined, 'bot@qq.com')).toBe('"智汇AI官方" <bot@qq.com>')
-    expect(t.resolveSmtpFrom('   ', 'bot@qq.com')).toBe('"智汇AI官方" <bot@qq.com>')
+  it('SMTP_FROM 未设 → "智汇AI" <SMTP_USER>', () => {
+    expect(t.resolveSmtpFrom(undefined, 'bot@qq.com')).toBe('"智汇AI" <bot@qq.com>')
+    expect(t.resolveSmtpFrom('   ', 'bot@qq.com')).toBe('"智汇AI" <bot@qq.com>')
   })
 
-  it('<...> 邮箱段大小写不敏感匹配登录账号且含显示名 → 整串采用', () => {
-    expect(t.resolveSmtpFrom('"自定义" <Bot@QQ.com>', 'bot@qq.com')).toBe('"自定义" <Bot@QQ.com>')
+  it('<...> 地址段大小写不敏感匹配登录账号 → 地址保留、显示名恒为品牌名', () => {
+    // 2026-11-10:显示名不再允许被配置覆盖 —— 它正是收件箱里三种名字的漂移源
+    expect(t.resolveSmtpFrom('"自定义" <Bot@QQ.com>', 'bot@qq.com')).toBe('"智汇AI" <Bot@QQ.com>')
   })
 
   it('裸地址(无显示名可保留)→ 仍走默认带显示名构造,中继同样安全', () => {
-    expect(t.resolveSmtpFrom('bot@qq.com', 'bot@qq.com')).toBe('"智汇AI官方" <bot@qq.com>')
-    expect(t.resolveSmtpFrom('<bot@qq.com>', 'bot@qq.com')).toBe('"智汇AI官方" <bot@qq.com>')
+    expect(t.resolveSmtpFrom('bot@qq.com', 'bot@qq.com')).toBe('"智汇AI" <bot@qq.com>')
+    expect(t.resolveSmtpFrom('<bot@qq.com>', 'bot@qq.com')).toBe('"智汇AI" <bot@qq.com>')
   })
 
-  it('邮箱段不匹配 → 回落默认(防 smtp.qq.com 550)', () => {
+  it('邮箱段不匹配 → 回落登录账号(防 smtp.qq.com 550)', () => {
     expect(t.resolveSmtpFrom('"其他" <other@qq.com>', 'bot@qq.com')).toBe(
-      '"智汇AI官方" <bot@qq.com>',
+      '"智汇AI" <bot@qq.com>',
+    )
+  })
+
+  it('机主实际配置形态:智汇AI <502319984@qq.com> → 显示名与地址双双稳定', () => {
+    expect(t.resolveSmtpFrom('智汇AI <502319984@qq.com>', '502319984@qq.com')).toBe(
+      '"智汇AI" <502319984@qq.com>',
     )
   })
 })
 
 describe('resolveResendFrom', () => {
-  it('RESEND_FROM 优先;缺省用 aizhs.top 已验证域', () => {
-    expect(t.resolveResendFrom({ RESEND_FROM: 'X <x@aizhs.top>' })).toBe('X <x@aizhs.top>')
-    expect(t.resolveResendFrom({})).toBe('智汇AI官方 <IHUI-AI@aizhs.top>')
+  it('地址段沿用配置,显示名恒为「智汇AI」;缺省用 aizhs.top 已验证域', () => {
+    expect(t.resolveResendFrom({ RESEND_FROM: 'X <x@aizhs.top>' })).toBe('智汇AI <x@aizhs.top>')
+    expect(t.resolveResendFrom({ RESEND_FROM: '智汇AI官方 <noreply@aizhs.top>' })).toBe(
+      '智汇AI <noreply@aizhs.top>',
+    )
+    expect(t.resolveResendFrom({})).toBe('智汇AI <IHUI-AI@aizhs.top>')
   })
 })
 
@@ -309,7 +319,7 @@ describe('planChannels', () => {
 })
 
 describe('renderAlertEmail', () => {
-  it('品牌通道:subject 带 [SEVERITY] 前缀,html 命中机械风横幅且逐行渲染', () => {
+  it('品牌通道(缺省中文):subject 带 [严重] 前缀,html 命中品牌刊头且逐行渲染', () => {
     const r = t.renderAlertEmail({
       severity: 'critical',
       source: 'ihui-deployloop',
@@ -318,14 +328,29 @@ describe('renderAlertEmail', () => {
       plain: false,
       time: '2026-09-24 10:00:00',
     })
-    expect(r.subject).toBe('[CRITICAL] 部署失败 — production')
-    expect(r.html).toContain('MECHANICAL')
+    expect(r.subject).toBe('[严重] 部署失败 — production')
+    expect(r.html).toContain('IHUI-CORE')
+    expect(r.html).toContain('严重级别')
     expect(r.html).toContain('第一行')
     expect(r.html).toContain('第二行')
     expect(r.text).toContain('第一行')
   })
 
-  it('info 徽章为 [INFO]', () => {
+  it('海外收件人(locale=en)拿英文版面', () => {
+    const r = t.renderAlertEmail({
+      severity: 'critical',
+      source: 'ihui-deployloop',
+      title: 'deploy failed',
+      message: 'boom',
+      plain: false,
+      time: '2026-09-24 10:00:00',
+      locale: 'en',
+    })
+    expect(r.subject).toBe('[CRITICAL] deploy failed')
+    expect(r.html).toContain('SEVERITY')
+  })
+
+  it('info 徽章为 [提示]', () => {
     const r = t.renderAlertEmail({
       severity: 'info',
       source: 's',
@@ -334,7 +359,7 @@ describe('renderAlertEmail', () => {
       plain: false,
       time: 't',
     })
-    expect(r.subject).toBe('[INFO] T')
+    expect(r.subject).toBe('[提示] T')
   })
 
   it('--plain:subject 不加前缀,正文就是 message,无品牌版式', () => {
@@ -397,7 +422,7 @@ describe('dispatchMail', () => {
     expect(body.html).toBe('<html>H</html>')
     expect(body.text).toBe('T')
     expect(body.to).toEqual(['a@x.com', 'b@y.com'])
-    expect(body.from).toBe('智汇AI官方 <IHUI-AI@aizhs.top>')
+    expect(body.from).toBe('智汇AI <IHUI-AI@aizhs.top>')
   })
 
   it('SMTP 未配置直接跳过(不尝试),走 Resend', async () => {
@@ -520,6 +545,52 @@ describe('runCore(端到端,零网络)', () => {
     expect(o2.warnings).toEqual([])
   })
 
+  it('混合收件人:国内收中文、海外收英文,分两封;全部成功才落去重账', async () => {
+    const { deps, smtpCalls, writes } = makeDeps()
+    const o = await t.runCore(
+      ['--message', 'm', '--alert-id', 'mixed-locale'],
+      { ...SMTP_ENV, ALERT_EMAIL_TO: 'a@qq.com,b@example.com' },
+      deps,
+    )
+    expect(smtpCalls).toHaveLength(2)
+    // zh 组在前:国内收件人拿全中文版面
+    expect(must(smtpCalls[0], 'smtpCalls[0]').mail.to).toBe('a@qq.com')
+    expect(must(smtpCalls[0], 'smtpCalls[0]').mail.subject).toBe('[严重] 部署失败 — production')
+    expect(must(smtpCalls[0], 'smtpCalls[0]').mail.html).toContain('严重级别')
+    // 海外收件人拿全英文版面
+    expect(must(smtpCalls[1], 'smtpCalls[1]').mail.to).toBe('b@example.com')
+    expect(must(smtpCalls[1], 'smtpCalls[1]').mail.subject).toBe('[CRITICAL] 部署失败 — production')
+    expect(must(smtpCalls[1], 'smtpCalls[1]').mail.html).toContain('SEVERITY')
+    expect(o.sent).toBe(true)
+    expect(o.localeGroups).toEqual([
+      { locale: 'zh', count: 1 },
+      { locale: 'en', count: 1 },
+    ])
+    expect(writes).toHaveLength(1)
+  })
+
+  it('混合收件人只成功一半 → 不落去重账(下一轮仍要重试那半边)', async () => {
+    const { deps: baseDeps, smtpCalls, writes } = makeDeps()
+    const deps = {
+      ...baseDeps,
+      // 中文那批(qq.com)被拒,英文那批正常;两条通道对第一批都失败
+      sendSmtp: async (o: SmtpCall['opts'], mail: SmtpCall['mail']) => {
+        smtpCalls.push({ opts: o, mail })
+        if (mail.to === 'a@qq.com') throw new Error('qq 段拒收')
+      },
+      fetchResend: async () => ({ ok: false, status: 500, text: async () => 'nope' }),
+    }
+    const o = await t.runCore(
+      ['--message', 'm', '--alert-id', 'half-ok'],
+      { ...SMTP_ENV, ALERT_EMAIL_TO: 'a@qq.com,b@example.com' },
+      deps,
+    )
+    expect(smtpCalls).toHaveLength(2)
+    expect(o.sent).toBe(true) // 英文那批已到人
+    expect(writes).toHaveLength(0) // 但未全成功 ⇒ 不记账,下一轮重试
+    expect(o.reasons.join('\n')).toContain('[zh]')
+  })
+
   it('severity 白名单外 → [WARNING];默认标题 = 部署失败 — <environment>', async () => {
     const { deps, smtpCalls } = makeDeps()
     const o = await t.runCore(['--severity', 'emergency', '--message', 'm'], SMTP_ENV, deps)
@@ -539,7 +610,8 @@ describe('runCore(端到端,零网络)', () => {
       deps,
     )
     expect(o2.subject).toBe('[CRITICAL] 磁盘告警')
-    expect(must(smtpCalls[1], 'smtpCalls[1]').mail.text).toContain('来源:ihui-deployloop')
+    // 该用例收件人是 example.com(海外)⇒ 英文兜底文本的字段名
+    expect(must(smtpCalls[1], 'smtpCalls[1]').mail.text).toContain('Source:ihui-deployloop')
   })
 
   it('--plain 端到端:subject 无前缀,正文即 message', async () => {
