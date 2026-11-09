@@ -3691,9 +3691,30 @@ async def llm_complete(req: LLMCompleteRequest, request: Request) -> dict[str, A
         if _billing_uid
         else {}
     )
-    result = await llm_gateway.complete(
-        messages, model=req.model, owner_uuid=owner_uuid, **_billing_kwargs, **kwargs
-    )
+    try:
+        result = await llm_gateway.complete(
+            messages, model=req.model, owner_uuid=owner_uuid, **_billing_kwargs, **kwargs
+        )
+    except Exception as exc:
+        # 网关直接抛异常时同样要把测试失败写进健康状态,否则该模型不会从列表消失
+        if isinstance(req.metadata, dict) and req.metadata.get("testOnly"):
+            from ..services.model_health import model_health
+
+            model_health.record_test_result(
+                req.model or "", False, f"{type(exc).__name__}: {exc}"
+            )
+        raise
+    # 单模型"测试连通"结果即时同步到模型级健康状态(2026-11-07 立):
+    # 测试失败 => 该模型立刻从 /llm/models 列表消失,不必等 30 分钟自动复测。
+    if isinstance(req.metadata, dict) and req.metadata.get("testOnly"):
+        from ..services.model_health import model_health
+
+        if result.get("error"):
+            model_health.record_test_result(
+                req.model or "", False, str(result.get("error_message") or "")
+            )
+        else:
+            model_health.record_test_result(req.model or "", True)
     # 错误前置返回(P1 错误标准化,2026-07-22 立):
     # 之前 LLM 错误一律 HTTP 200 + result.error:True,网关/监控层无法通过状态码识别失败,
     # 必须在调用方解析 result 字段才能区分成功/失败,影响 ELK/Prometheus 错误率统计。
@@ -3769,6 +3790,14 @@ async def llm_complete(req: LLMCompleteRequest, request: Request) -> dict[str, A
 
 
 @router.get("/llm/models")
+async def build_model_catalog() -> list[dict[str, Any]]:
+    """构建完整模型目录(data/default_models.json + ai_model_config_models 表合并)。
+
+    2026-11-07 抽出:模型级健康探测服务需要与 /llm/models 同源的候选清单,进程启动
+    时自举目录(否则要等页面首次访问才登记目录,重启后死模型会短暂重现)。
+    """
+    default_models = await build_model_catalog()
+    return default_models
 async def list_models(request: Request) -> dict[str, Any]:
     """返回可用模型列表(已按 provider 健康状态自动过滤)。
 
@@ -3890,6 +3919,18 @@ async def list_models(request: Request) -> dict[str, Any]:
         logger.info(
             "[llm/models] availability filter: %d → %d (filtered out %d unavailable)",
             total_before, len(default_models), filtered_out,
+        )
+        # 2026-11-07 立:模型级健康过滤 —— provider 整体健康时,单个坏死模型也要消失
+        from ..services.model_health import model_health
+
+        model_health.observe_catalog(default_models)
+        before_model_health = len(default_models)
+        default_models = model_health.filter_available(default_models)
+        logger.info(
+            "[llm/models] model-health filter: %d → %d (down %d)",
+            before_model_health,
+            len(default_models),
+            before_model_health - len(default_models),
         )
     # H5(Phase C,2026-08-01):为每个模型附加 caps 字段(provider capability 声明)。
     # 优先用 default_models.json 中已静态声明的 caps(H5 已给每个模型条目加 caps),
@@ -9674,4 +9715,26 @@ async def revoke_approval_grant(request: Request) -> dict[str, Any] | JSONRespon
         return {"ok": False, "error": "revoke failed"}
     logger.info("D158 放行规则已撤销(kind=%s, key=%s)", kind, cache_key[:64])
     return {"ok": True}
+
+
+@router.post("/llm/models/refresh")
+async def refresh_model_health() -> dict[str, Any]:
+    """手动触发一轮模型级连通复测 + 上游模型清单同步。
+
+    探测与上游同步在后台异步执行,立即返回当前进度;前端轮询 /llm/models/refresh/status
+    等待 running 落 false 后再重拉 /llm/models(避免清单尚未落库就提前刷新)。
+    2026-11-08 扩展:复测前先拉一次上游模型清单,下架的从库里清掉、新增的补进来。
+    """
+    from ..services.model_health import model_health
+
+    return model_health.trigger_refresh()
+
+
+@router.get("/llm/models/refresh/status")
+async def model_health_refresh_status() -> dict[str, Any]:
+    """供前端手动刷新轮询:running=false 且 checked_at 已更新时才重拉列表。"""
+    from ..services.model_health import model_health
+
+    return model_health.get_status()
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
