@@ -36,6 +36,7 @@ WP-E(2026-10-10)增:PATCH /accounts/{id}/device_map(手动更新设备态,
 from __future__ import annotations
 
 import json
+import logging
 import time
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
@@ -57,6 +58,8 @@ from app.services import (
 from app.services import checkin_scheduler as checkin_scheduler_mod
 from app.services.checkin_engine import client_for, extract_user_id, get_jwt_exp
 from app.services.checkin_outbound import OutboundPaused, checkin_outbound_gate
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/checkin", tags=["checkin"])
 
@@ -496,6 +499,63 @@ async def list_account_tasks(
             await client.aclose()
 
 
+_TASK_RUN_MESSAGE_MAX = 500
+
+
+def _task_run_families_summary(families: Any) -> str:
+    """把 all 族的明细压成 `growth=ok,task=fail` 形式;结构读不懂就留空。"""
+    if not isinstance(families, dict) or not families:
+        return ""
+    parts: list[str] = []
+    for kind, res in families.items():
+        ok = bool(res.get("ok")) if isinstance(res, dict) else False
+        parts.append(f"{kind}={'ok' if ok else 'fail'}")
+    return ",".join(parts)
+
+
+def _task_run_message(kind: str, dry_run: bool, result: dict[str, Any]) -> str:
+    """人可读摘要:kind / dry_run / unjudged / credit_delta / 各族 ok 摘要,≤500 字符。"""
+    text = (
+        f"task-run kind={kind} dry_run={dry_run} "
+        f"unjudged={bool(result.get('unjudged'))} "
+        f"credit_delta={result.get('credit_delta')}"
+    )
+    families = _task_run_families_summary(result.get("families"))
+    if families:
+        text += f" families=[{families}]"
+    if len(text) > _TASK_RUN_MESSAGE_MAX:
+        text = text[: _TASK_RUN_MESSAGE_MAX - 1] + "…"
+    return text
+
+
+async def _record_task_run(
+    account_id: int, kind: str, dry_run: bool, result: dict[str, Any]
+) -> None:
+    """task-run 执行留痕(旁路):落一条 summary 记录。
+
+    credits_delta 恒为 None —— 否则会污染 credits_history 的积分流水聚合;
+    ok 原样透传(不篡改语义),调度器侧由 _settled_today 的 task-run 早退排除。
+    落库失败只告警,绝不改变路由返回(留痕不能成为新的故障点)。
+    """
+    try:
+        await checkin_store.insert_record(
+            account_id,
+            ok=result.get("ok"),
+            action="task-run:dry" if dry_run else "task-run",
+            http_status=200,
+            code=kind,
+            message=_task_run_message(kind, dry_run, result),
+            classified_error="unjudged" if result.get("unjudged") else None,
+            cooldown_until=None,
+            credits=None,
+            credits_delta=None,
+        )
+    except Exception as e:  # noqa: BLE001 — 留痕是旁路,不能变成新的故障点
+        logger.warning(
+            "[checkin] task-run 留痕落库失败 account=%s kind=%s: %s", account_id, kind, e
+        )
+
+
 @router.post("/accounts/{account_id}/task-run")
 async def run_account_task(
     account_id: int,
@@ -523,11 +583,15 @@ async def run_account_task(
     await _outbound_risk_precheck(account_id)
     device_map = dict(account.get("device_map") or {})
     try:
-        return await workbuddy_tasks.run_family(
+        result = await workbuddy_tasks.run_family(
             body.kind, account["jwt"], device_map, dry_run=body.dry_run
         )
     except OutboundPaused as e:
         raise HTTPException(status_code=429, detail=str(e)) from e
+    # 执行留痕(2026-11-09):真跑/预演都落一条 summary,事后可查「何时跑了哪一族、
+    # 结果如何」。留痕是旁路,失败绝不影响路由返回。
+    await _record_task_run(account_id, body.kind, body.dry_run, result)
+    return result
 
 
 @router.get("/records")

@@ -21,7 +21,7 @@
  * 接收侧契约:apps/ai-service/app/routers/internal_checkin_pool.py —— 其平台白名单文字与
  * 本文件 PROVIDER_TO_CHECKIN 值域一致,新增签到平台需两侧同步。
  */
-import { inArray, sql } from 'drizzle-orm'
+import { eq, inArray, sql } from 'drizzle-orm'
 import { aiRelayAccountPool } from '@ihui/database'
 import { db, dbRead } from '../db/index.js'
 import { config } from '../config/index.js'
@@ -904,4 +904,309 @@ export async function postPoolRun(
     const msg = e instanceof Error ? e.message.slice(0, 200) : '未知错误'
     return { ok: false, httpStatus: 502, record: null, error: `pool-run 网络错误: ${msg}` }
   }
+}
+
+// =============================================================================
+// 周期对账腿(2026-11-09 立):按身份键核对 enabled / pool_cred_version
+// =============================================================================
+/**
+ * 立因(现患):推送侧是**变更驱动** —— 只有 cred_version / is_enabled 变化才 push。
+ * 若签到侧一开始就与号池不一致(例如历史遗留的 enabled=false),号池这一侧「从来没有
+ * 变过」⇒ 推送器永远认为无事可做,该号被签到巡检整体跳过且无人发现(实测三周)。
+ *
+ * 本腿是状态维的**周期性复核**(低频,不跟每轮 sweep):按 `derive_account_identity`
+ * 同一身份键(platform + identityKey;workbuddy 侧即 pool_uid / JWT sub)比对两侧,
+ * 不一致就补推一次。语义选择:
+ *  - enabled 不一致 ⇒ `pushPoolState`(状态端点,幂等置位,不动凭证);
+ *  - cred_version 落后 ⇒ `pushPoolSync`(凭证端点,载荷自带 enabled)。
+ * 对账**只读** cred_version,绝不改写它(那是凭证版本语义,不是状态版本)。
+ * 推失败一律交给既有 `markCheckinSyncPending` 落 pending,由重推腿清偿,绝不新造一套。
+ */
+
+/** 单轮对账上限(照 KEEPALIVE_MAX_PER_SWEEP 范式;余量下轮继续,对账幂等) */
+export const CHECKIN_RECONCILE_MAX_PER_ROUND = 20
+/** 默认对账间隔(分钟):6 小时。低频是刻意的 —— 它是长尾兜底,不是实时同步 */
+export const CHECKIN_RECONCILE_DEFAULT_INTERVAL_MINUTES = 360
+/** 开关 + 间隔(分钟):`0`/`off`/`false` ⇒ 整腿关闭;缺省 = 6h(见下方缺省开的理由) */
+export const CHECKIN_RECONCILE_INTERVAL_ENV = 'RELAY_CHECKIN_STATE_RECONCILE_MINUTES'
+
+/**
+ * 对账间隔(毫秒);null = 关闭。
+ * 缺省**开**(6h):本腿治的正是「静默长尾不一致」,默认关掉等于把盲区保留下来;
+ * 单轮上限 20 + 只读比对,开销可忽略,故缺省开。
+ */
+export function checkinReconcileIntervalMs(env: NodeJS.ProcessEnv = process.env): number | null {
+  const raw = (env[CHECKIN_RECONCILE_INTERVAL_ENV] ?? '').trim().toLowerCase()
+  if (raw === '') return CHECKIN_RECONCILE_DEFAULT_INTERVAL_MINUTES * 60_000
+  if (['0', 'off', 'false', 'disabled', 'disable'].includes(raw)) return null
+  const n = Number(raw)
+  return Number.isFinite(n) && n > 0
+    ? n * 60_000
+    : CHECKIN_RECONCILE_DEFAULT_INTERVAL_MINUTES * 60_000
+}
+
+/** 号池侧对账投影(只读;凭证列不入选) */
+export interface CheckinReconcilePoolRow {
+  id: string
+  ownerUserId: string | null
+  providerCode: string
+  uid: string
+  name: string
+  isEnabled: boolean
+  credVersion: number
+  /** 只为取 checkinSync.state:该行已有 state 类 pending ⇒ 让重推腿处理,本腿不重复推 */
+  extraMetadata?: unknown
+}
+
+/** 签到侧对账投影(与 ai-service list_pool_accounts 同构) */
+export interface CheckinReconcilePeer {
+  platform: string
+  identityKey: string
+  enabled: boolean
+  poolCredVersion: number | null
+  poolAccountId: string | null
+}
+
+export type CheckinReconcileAction =
+  | { kind: 'state'; row: CheckinReconcilePoolRow; state: 'enabled' | 'disabled' }
+  | { kind: 'cred'; row: CheckinReconcilePoolRow }
+
+export interface CheckinReconcilePlan {
+  actions: CheckinReconcileAction[]
+  /** 参与比对的行数(映射域内且身份键非空) */
+  checked: number
+  /** 两侧一致(零出站) */
+  consistent: number
+  /** 签到侧无同身份键账号(缺行由 push 腿负责,不在本腿补) */
+  unmatched: number
+  /** 映射域外(codearts 等无签到引擎) */
+  outOfScope: number
+  /** 已有 state 类 pending ⇒ 让重推腿处理 */
+  pendingSkip: number
+  /** 被单轮上限挤掉的动作数 */
+  truncated: number
+}
+
+/** 身份键 = platform + identityKey;跨平台同名是正常形态,绝不合并(见 derive_account_identity) */
+function reconcileIdentityKey(platform: string, identityKey: string): string {
+  const p = platform.trim()
+  const k = identityKey.trim()
+  return p && k ? `${p}\u0000${k}` : ''
+}
+
+/**
+ * 对账计划(纯函数):号池行 × 签到侧全量 → 动作列表。
+ * 一致行零动作;每行最多一个动作(state 优先于 cred —— state 载荷不动凭证版本)。
+ */
+export function planCheckinEnabledReconcile(
+  poolRows: readonly CheckinReconcilePoolRow[],
+  checkinRows: readonly CheckinReconcilePeer[],
+  limit: number = CHECKIN_RECONCILE_MAX_PER_ROUND,
+): CheckinReconcilePlan {
+  const peers = new Map<string, CheckinReconcilePeer>()
+  for (const c of checkinRows) {
+    const key = reconcileIdentityKey(c.platform, c.identityKey)
+    if (!key || peers.has(key)) continue
+    peers.set(key, c)
+  }
+  const out: CheckinReconcilePlan = {
+    actions: [],
+    checked: 0,
+    consistent: 0,
+    unmatched: 0,
+    outOfScope: 0,
+    pendingSkip: 0,
+    truncated: 0,
+  }
+  const quota = Math.max(1, limit)
+  for (const row of poolRows) {
+    const platform = checkinPlatformFor(row.providerCode)
+    if (!platform) {
+      out.outOfScope++
+      continue
+    }
+    const key = reconcileIdentityKey(platform, row.uid)
+    if (!key) {
+      out.unmatched++
+      continue
+    }
+    out.checked++
+    const peer = peers.get(key)
+    if (!peer) {
+      // 缺行 = 另一条腿(missing 补链)的活;本腿只管「两边都在却对不上」
+      out.unmatched++
+      continue
+    }
+    const meta = parseCheckinSyncMeta(row.extraMetadata)
+    if (meta.pending && meta.pendingKind === 'state') {
+      out.pendingSkip++
+      continue
+    }
+    const desired: 'enabled' | 'disabled' = row.isEnabled ? 'enabled' : 'disabled'
+    if (peer.enabled !== row.isEnabled) {
+      if (out.actions.length >= quota) out.truncated++
+      else out.actions.push({ kind: 'state', row, state: desired })
+      continue
+    }
+    if (row.credVersion > (peer.poolCredVersion ?? 0)) {
+      if (out.actions.length >= quota) out.truncated++
+      else out.actions.push({ kind: 'cred', row })
+      continue
+    }
+    out.consistent++
+  }
+  return out
+}
+
+/** 执行面结果(全标量,日志直接消费) */
+export interface CheckinReconcileResult {
+  checked: number
+  consistent: number
+  unmatched: number
+  outOfScope: number
+  pendingSkip: number
+  truncated: number
+  statePushed: number
+  stateFailed: number
+  credPushed: number
+  credFailed: number
+}
+
+/** 可注入的执行面(单测零网络/零 DB:三个函数全换桩) */
+export interface CheckinReconcileIo {
+  pushState?: typeof pushPoolState
+  pushSync?: typeof pushPoolSync
+  markPending?: typeof markCheckinSyncPending
+  loadSyncAccount?: (id: string) => Promise<PoolSyncAccount | null>
+}
+
+/** 号池现值 → 推送载荷(与重推腿同一份解密口径;不另造第二种) */
+async function loadPoolSyncAccountById(id: string): Promise<PoolSyncAccount | null> {
+  const rows = await dbRead
+    .select()
+    .from(aiRelayAccountPool)
+    .where(eq(aiRelayAccountPool.id, id))
+    .limit(1)
+  const row = rows[0]
+  if (!row) return null
+  const secretsForPem = parseSecretsEnc(row.secretsEnc)
+  return buildPoolSyncAccount({
+    id: row.id,
+    ownerUserId: row.ownerUserId,
+    uid: row.uid ?? '',
+    name: (row.name ?? '').slice(0, 128),
+    token: decryptField(row.tokenEnc),
+    refreshToken: row.refreshTokenEnc ? decryptField(row.refreshTokenEnc) : null,
+    credVersion: row.credVersion,
+    enabled: row.isEnabled,
+    proxyUrl: resolveAccountProxyUrl(row.proxyUrl),
+    deviceId: row.deviceId,
+    machineId: row.machineId,
+    cosy: extractCosy(row.extraMetadata),
+    deviceKeyPem: pemFromSecrets(secretsForPem, 'deviceKeyPem'),
+    devicePubPem: pemFromSecrets(secretsForPem, 'devicePubPem'),
+    tokenExpiresAt: row.tokenExpiresAt,
+  })
+}
+
+/**
+ * 对账腿执行:sweep 末尾低频调用。**绝不向上抛**(任何失败都转成计数 + pending)。
+ * 一致行零出站;每行最多一次补推;日志只带 id/平台,不带凭据。
+ */
+export async function reconcileCheckinEnabledState(opts: {
+  poolRows: readonly CheckinReconcilePoolRow[]
+  checkinRows: readonly CheckinReconcilePeer[]
+  limit?: number
+  fetchImpl?: typeof fetch
+  io?: CheckinReconcileIo
+}): Promise<CheckinReconcileResult> {
+  const limit = opts.limit ?? CHECKIN_RECONCILE_MAX_PER_ROUND
+  const fetchImpl = opts.fetchImpl ?? fetch
+  const pushState = opts.io?.pushState ?? pushPoolState
+  const pushSync = opts.io?.pushSync ?? pushPoolSync
+  const markPending = opts.io?.markPending ?? markCheckinSyncPending
+  const loadSyncAccount = opts.io?.loadSyncAccount ?? loadPoolSyncAccountById
+  const plan = planCheckinEnabledReconcile(opts.poolRows, opts.checkinRows, limit)
+  const out: CheckinReconcileResult = {
+    checked: plan.checked,
+    consistent: plan.consistent,
+    unmatched: plan.unmatched,
+    outOfScope: plan.outOfScope,
+    pendingSkip: plan.pendingSkip,
+    truncated: plan.truncated,
+    statePushed: 0,
+    stateFailed: 0,
+    credPushed: 0,
+    credFailed: 0,
+  }
+  const safeMark = async (
+    id: string,
+    kind: CheckinSyncPendingKind,
+    state: PoolAccountState | null,
+    error: string,
+  ): Promise<void> => {
+    try {
+      await markPending([id], kind, state, error)
+    } catch (e) {
+      logger.warn('[checkin-reconcile-leg] 落 pending 失败(下轮重试)', {
+        accountId: id,
+        err: e instanceof Error ? e.message.slice(0, 200) : '未知错误',
+      })
+    }
+  }
+  for (const action of plan.actions) {
+    const platform = checkinPlatformFor(action.row.providerCode)
+    if (!platform) continue
+    if (action.kind === 'state') {
+      try {
+        const r = await pushState(
+          platform,
+          {
+            poolAccountId: action.row.id,
+            ownerUserId: action.row.ownerUserId,
+            uid: action.row.uid,
+          },
+          action.state,
+          fetchImpl,
+        )
+        if (r.ok) out.statePushed++
+        else {
+          out.stateFailed++
+          await safeMark(action.row.id, 'state', action.state, r.error ?? '对账状态校准失败')
+        }
+      } catch (e) {
+        out.stateFailed++
+        await safeMark(
+          action.row.id,
+          'state',
+          action.state,
+          `对账状态补推异常: ${e instanceof Error ? e.message.slice(0, 200) : '未知错误'}`,
+        )
+      }
+      continue
+    }
+    try {
+      const account = await loadSyncAccount(action.row.id)
+      if (!account) {
+        out.credFailed++
+        await safeMark(action.row.id, 'cred', null, '对账补推:号池行已消失或凭证不可读')
+        continue
+      }
+      const r = await pushSync(platform, [account], fetchImpl)
+      if (r.ok && r.failed === 0 && r.pushed === 1) out.credPushed++
+      else {
+        out.credFailed++
+        await safeMark(action.row.id, 'cred', null, r.error ?? '对账凭证补推失败')
+      }
+    } catch (e) {
+      out.credFailed++
+      await safeMark(
+        action.row.id,
+        'cred',
+        null,
+        `对账凭证补推异常: ${e instanceof Error ? e.message.slice(0, 200) : '未知错误'}`,
+      )
+    }
+  }
+  return out
 }

@@ -1,0 +1,3039 @@
+{
+  "chat": [
+    {
+      "method": "POST",
+      "url_template": "{host}/v2/chat/completions",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "x-user-id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Conversation-Request-ID": "{request_id}",
+        "X-Conversation-Message-ID": "{message_id}",
+        "User-Agent": "WorkBuddy/5.5.6",
+        "Accept": "application/json, text/event-stream"
+      },
+      "body_template": {
+        "model": "hy3-x",
+        "messages": [
+          {
+            "role": "user",
+            "content": "你好，请用一句话介绍你自己。"
+          }
+        ],
+        "stream": true,
+        "max_tokens": 16
+      },
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": true,
+        "done_marker": "[DONE]"
+      },
+      "verified": true,
+      "_evidence": "workbuddy_direct_api.py CHAT_ACTION 基线（连通性，非 AUTO_TASKS 项；契约 §1.2/§1.3）"
+    }
+  ],
+  "chat_5": [
+    {
+      "method": "POST",
+      "url_template": "https://www.workbuddy.cn/v2/activity/growth/tasks/accept",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1"
+      },
+      "body_template": {
+        "task_codes": [
+          "{task_code}"
+        ]
+      },
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": false,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1229 / action-table.md §1 #1 @0x7fbc58 / §3.4 五个 chat 事件码 / §6 STEP4 一次性 5 元素"
+    },
+    {
+      "method": "POST",
+      "url_template": "https://copilot.tencent.com/v2/chat/completions",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "CLI/2.63.2 CodeBuddy/2.63.2",
+        "Accept": "application/json, text/event-stream",
+        "X-Conversation-Request-ID": "{request_id}",
+        "X-Conversation-Message-ID": "{message_id}",
+        "X-CodeBuddy-Request": "1",
+        "X-No-Department-Info": "1"
+      },
+      "body_template": {
+        "model": "hy3-x",
+        "messages": [
+          {
+            "role": "user",
+            "content": "1+1等于几？直接回答。"
+          }
+        ],
+        "stream": true,
+        "parentConversationId": "{conversation_id}",
+        "codebuddy.session_id": "{request_id}",
+        "codebuddy.conversation_request_id": "{request_id}",
+        "sub_product_code": "workbuddy-desktop"
+      },
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": true,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1229 / action-table.md §1 #1 @0x7fbc58 / §3.4 五个 chat 事件码 / §6 STEP4 一次性 5 元素"
+    },
+    {
+      "method": "POST",
+      "url_template": "https://www.codebuddy.cn/v2/report",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1",
+        "X-IDE-Name": "workbuddy-desktop",
+        "X-IDE-Type": "desktop"
+      },
+      "body_template": [
+        {
+          "eventCode": "chat_message_send",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        },
+        {
+          "eventCode": "chat_request_send",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        },
+        {
+          "eventCode": "chat_message_status",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        },
+        {
+          "eventCode": "chat_message_response",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        },
+        {
+          "eventCode": "chat_request_response",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        }
+      ],
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": false,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1229 / action-table.md §1 #1 @0x7fbc58 / §3.4 五个 chat 事件码 / §6 STEP4 一次性 5 元素"
+    }
+  ],
+  "first_buddy": [
+    {
+      "method": "POST",
+      "url_template": "https://www.workbuddy.cn/v2/activity/growth/tasks/accept",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1"
+      },
+      "body_template": {
+        "task_codes": [
+          "{task_code}"
+        ]
+      },
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": false,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1230 / §1 #2 @0x7fbc9e / §3.4 buddy 链 / wb2api-contract.md §3 first_buddy 专属链"
+    },
+    {
+      "method": "POST",
+      "url_template": "https://copilot.tencent.com/v2/chat/completions",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "CLI/2.63.2 CodeBuddy/2.63.2",
+        "Accept": "application/json, text/event-stream",
+        "X-Conversation-Request-ID": "{request_id}",
+        "X-Conversation-Message-ID": "{message_id}",
+        "X-CodeBuddy-Request": "1",
+        "X-No-Department-Info": "1"
+      },
+      "body_template": {
+        "model": "hy3-x",
+        "messages": [
+          {
+            "role": "user",
+            "content": "1+1等于几？直接回答。"
+          }
+        ],
+        "stream": true,
+        "parentConversationId": "{conversation_id}",
+        "codebuddy.session_id": "{request_id}",
+        "codebuddy.conversation_request_id": "{request_id}",
+        "sub_product_code": "workbuddy-desktop"
+      },
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": true,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1230 / §1 #2 @0x7fbc9e / §3.4 buddy 链 / wb2api-contract.md §3 first_buddy 专属链"
+    },
+    {
+      "method": "POST",
+      "url_template": "https://www.workbuddy.cn/v2/report",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1",
+        "X-IDE-Name": "workbuddy-desktop",
+        "X-IDE-Type": "desktop"
+      },
+      "body_template": [
+        {
+          "eventCode": "buddyapp_show",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        },
+        {
+          "eventCode": "buddyapp_auth_confirm_click",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        },
+        {
+          "eventCode": "buddyapp_bindaccount_skip_click",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        }
+      ],
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": false,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1230 / §1 #2 @0x7fbc9e / §3.4 buddy 链 / wb2api-contract.md §3 first_buddy 专属链"
+    }
+  ],
+  "Model_chat_GLM5.2": [
+    {
+      "method": "POST",
+      "url_template": "https://www.workbuddy.cn/v2/activity/growth/tasks/accept",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1"
+      },
+      "body_template": {
+        "task_codes": [
+          "{task_code}"
+        ]
+      },
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": false,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1231 / §1 #3 @0x7fbcea / §3.3 ReportChatActivityModel 对齐模型上报"
+    },
+    {
+      "method": "POST",
+      "url_template": "https://copilot.tencent.com/v2/chat/completions",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "CLI/2.63.2 CodeBuddy/2.63.2",
+        "Accept": "application/json, text/event-stream",
+        "X-Conversation-Request-ID": "{request_id}",
+        "X-Conversation-Message-ID": "{message_id}",
+        "X-CodeBuddy-Request": "1",
+        "X-No-Department-Info": "1"
+      },
+      "body_template": {
+        "model": "glm-5.2",
+        "messages": [
+          {
+            "role": "user",
+            "content": "1+1等于几？直接回答。"
+          }
+        ],
+        "stream": true,
+        "parentConversationId": "{conversation_id}",
+        "codebuddy.session_id": "{request_id}",
+        "codebuddy.conversation_request_id": "{request_id}",
+        "sub_product_code": "workbuddy-desktop"
+      },
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": true,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1231 / §1 #3 @0x7fbcea / §3.3 ReportChatActivityModel 对齐模型上报"
+    },
+    {
+      "method": "POST",
+      "url_template": "https://www.codebuddy.cn/v2/report",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1",
+        "X-IDE-Name": "workbuddy-desktop",
+        "X-IDE-Type": "desktop"
+      },
+      "body_template": [
+        {
+          "eventCode": "chat_message_send",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        }
+      ],
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": false,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1231 / §1 #3 @0x7fbcea / §3.3 ReportChatActivityModel 对齐模型上报"
+    }
+  ],
+  "RichMeow_Chat": [
+    {
+      "method": "POST",
+      "url_template": "https://www.workbuddy.cn/v2/activity/growth/tasks/accept",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1"
+      },
+      "body_template": {
+        "task_codes": [
+          "{task_code}"
+        ]
+      },
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": false,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1232 / §3.4 桌面指纹完整对话事件链 agent_task_created→chat_response @0x4c6052"
+    },
+    {
+      "method": "POST",
+      "url_template": "https://copilot.tencent.com/v2/chat/completions",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "CLI/2.63.2 CodeBuddy/2.63.2",
+        "Accept": "application/json, text/event-stream",
+        "X-Conversation-Request-ID": "{request_id}",
+        "X-Conversation-Message-ID": "{message_id}",
+        "X-CodeBuddy-Request": "1",
+        "X-No-Department-Info": "1"
+      },
+      "body_template": {
+        "model": "hy3-x",
+        "messages": [
+          {
+            "role": "user",
+            "content": "1+1等于几？直接回答。"
+          }
+        ],
+        "stream": true,
+        "parentConversationId": "{conversation_id}",
+        "codebuddy.session_id": "{request_id}",
+        "codebuddy.conversation_request_id": "{request_id}",
+        "sub_product_code": "workbuddy-desktop"
+      },
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": true,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1232 / §3.4 桌面指纹完整对话事件链 agent_task_created→chat_response @0x4c6052"
+    },
+    {
+      "method": "POST",
+      "url_template": "https://www.codebuddy.cn/v2/report",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1",
+        "X-IDE-Name": "workbuddy-desktop",
+        "X-IDE-Type": "desktop"
+      },
+      "body_template": [
+        {
+          "eventCode": "agent_task_created",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        },
+        {
+          "eventCode": "chat_request_send",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        },
+        {
+          "eventCode": "chat_message_send",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        },
+        {
+          "eventCode": "chat_response",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        }
+      ],
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": false,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1232 / §3.4 桌面指纹完整对话事件链 agent_task_created→chat_response @0x4c6052"
+    }
+  ],
+  "Buddy_App": [
+    {
+      "method": "POST",
+      "url_template": "https://www.workbuddy.cn/v2/activity/growth/tasks/accept",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1"
+      },
+      "body_template": {
+        "task_codes": [
+          "{task_code}"
+        ]
+      },
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": false,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1233 / §1 #5 @0x7fbd91 / §3.4 buddyapp_enter_click @0x4acd52"
+    },
+    {
+      "method": "POST",
+      "url_template": "https://copilot.tencent.com/v2/chat/completions",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "CLI/2.63.2 CodeBuddy/2.63.2",
+        "Accept": "application/json, text/event-stream",
+        "X-Conversation-Request-ID": "{request_id}",
+        "X-Conversation-Message-ID": "{message_id}",
+        "X-CodeBuddy-Request": "1",
+        "X-No-Department-Info": "1"
+      },
+      "body_template": {
+        "model": "hy3-x",
+        "messages": [
+          {
+            "role": "user",
+            "content": "1+1等于几？直接回答。"
+          }
+        ],
+        "stream": true,
+        "parentConversationId": "{conversation_id}",
+        "codebuddy.session_id": "{request_id}",
+        "codebuddy.conversation_request_id": "{request_id}",
+        "sub_product_code": "workbuddy-desktop"
+      },
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": true,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1233 / §1 #5 @0x7fbd91 / §3.4 buddyapp_enter_click @0x4acd52"
+    },
+    {
+      "method": "POST",
+      "url_template": "https://www.workbuddy.cn/v2/report",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1",
+        "X-IDE-Name": "workbuddy-desktop",
+        "X-IDE-Type": "desktop"
+      },
+      "body_template": [
+        {
+          "eventCode": "buddyapp_enter_click",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        },
+        {
+          "eventCode": "buddyapp_discover_click",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        },
+        {
+          "eventCode": "buddyapp_show",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        }
+      ],
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": false,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1233 / §1 #5 @0x7fbd91 / §3.4 buddyapp_enter_click @0x4acd52"
+    }
+  ],
+  "Buddy_App_QQ": [
+    {
+      "method": "POST",
+      "url_template": "https://www.workbuddy.cn/v2/activity/growth/tasks/accept",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1"
+      },
+      "body_template": {
+        "task_codes": [
+          "{task_code}"
+        ]
+      },
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": false,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1234 / §1 #6 @0x7fbde4（企鹅教师助手，同 Buddy 链）"
+    },
+    {
+      "method": "POST",
+      "url_template": "https://copilot.tencent.com/v2/chat/completions",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "CLI/2.63.2 CodeBuddy/2.63.2",
+        "Accept": "application/json, text/event-stream",
+        "X-Conversation-Request-ID": "{request_id}",
+        "X-Conversation-Message-ID": "{message_id}",
+        "X-CodeBuddy-Request": "1",
+        "X-No-Department-Info": "1"
+      },
+      "body_template": {
+        "model": "hy3-x",
+        "messages": [
+          {
+            "role": "user",
+            "content": "1+1等于几？直接回答。"
+          }
+        ],
+        "stream": true,
+        "parentConversationId": "{conversation_id}",
+        "codebuddy.session_id": "{request_id}",
+        "codebuddy.conversation_request_id": "{request_id}",
+        "sub_product_code": "workbuddy-desktop"
+      },
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": true,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1234 / §1 #6 @0x7fbde4（企鹅教师助手，同 Buddy 链）"
+    },
+    {
+      "method": "POST",
+      "url_template": "https://www.workbuddy.cn/v2/report",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1",
+        "X-IDE-Name": "workbuddy-desktop",
+        "X-IDE-Type": "desktop"
+      },
+      "body_template": [
+        {
+          "eventCode": "buddyapp_enter_click",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        },
+        {
+          "eventCode": "buddyapp_discover_click",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        },
+        {
+          "eventCode": "buddyapp_show",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        }
+      ],
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": false,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1234 / §1 #6 @0x7fbde4（企鹅教师助手，同 Buddy 链）"
+    }
+  ],
+  "automation_1": [
+    {
+      "method": "POST",
+      "url_template": "https://www.workbuddy.cn/v2/activity/growth/tasks/accept",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1"
+      },
+      "body_template": {
+        "task_codes": [
+          "{task_code}"
+        ]
+      },
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": false,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1235 / §1 #7 @0x7fbe3f / §3.4 automated_task_create_suc @0x4b06b8"
+    },
+    {
+      "method": "POST",
+      "url_template": "https://copilot.tencent.com/v2/chat/completions",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "CLI/2.63.2 CodeBuddy/2.63.2",
+        "Accept": "application/json, text/event-stream",
+        "X-Conversation-Request-ID": "{request_id}",
+        "X-Conversation-Message-ID": "{message_id}",
+        "X-CodeBuddy-Request": "1",
+        "X-No-Department-Info": "1"
+      },
+      "body_template": {
+        "model": "hy3-x",
+        "messages": [
+          {
+            "role": "user",
+            "content": "1+1等于几？直接回答。"
+          }
+        ],
+        "stream": true,
+        "parentConversationId": "{conversation_id}",
+        "codebuddy.session_id": "{request_id}",
+        "codebuddy.conversation_request_id": "{request_id}",
+        "sub_product_code": "workbuddy-desktop"
+      },
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": true,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1235 / §1 #7 @0x7fbe3f / §3.4 automated_task_create_suc @0x4b06b8"
+    },
+    {
+      "method": "POST",
+      "url_template": "https://www.codebuddy.cn/v2/report",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1",
+        "X-IDE-Name": "workbuddy-desktop",
+        "X-IDE-Type": "desktop"
+      },
+      "body_template": [
+        {
+          "eventCode": "automated_task_create_suc",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        }
+      ],
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": false,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1235 / §1 #7 @0x7fbe3f / §3.4 automated_task_create_suc @0x4b06b8"
+    }
+  ],
+  "Library_read": [
+    {
+      "method": "POST",
+      "url_template": "https://www.workbuddy.cn/v2/activity/growth/tasks/accept",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1"
+      },
+      "body_template": {
+        "task_codes": [
+          "{task_code}"
+        ]
+      },
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": false,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1236 / §1 #8 @0x7fbe91 / §3.4 library_doc_intro_click @0x4aef43"
+    },
+    {
+      "method": "POST",
+      "url_template": "https://copilot.tencent.com/v2/chat/completions",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "CLI/2.63.2 CodeBuddy/2.63.2",
+        "Accept": "application/json, text/event-stream",
+        "X-Conversation-Request-ID": "{request_id}",
+        "X-Conversation-Message-ID": "{message_id}",
+        "X-CodeBuddy-Request": "1",
+        "X-No-Department-Info": "1"
+      },
+      "body_template": {
+        "model": "hy3-x",
+        "messages": [
+          {
+            "role": "user",
+            "content": "1+1等于几？直接回答。"
+          }
+        ],
+        "stream": true,
+        "parentConversationId": "{conversation_id}",
+        "codebuddy.session_id": "{request_id}",
+        "codebuddy.conversation_request_id": "{request_id}",
+        "sub_product_code": "workbuddy-desktop"
+      },
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": true,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1236 / §1 #8 @0x7fbe91 / §3.4 library_doc_intro_click @0x4aef43"
+    },
+    {
+      "method": "POST",
+      "url_template": "https://www.codebuddy.cn/v2/report",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1",
+        "X-IDE-Name": "workbuddy-desktop",
+        "X-IDE-Type": "desktop"
+      },
+      "body_template": [
+        {
+          "eventCode": "library_doc_intro_click",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        }
+      ],
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": false,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1236 / §1 #8 @0x7fbe91 / §3.4 library_doc_intro_click @0x4aef43"
+    }
+  ],
+  "template_5": [
+    {
+      "method": "POST",
+      "url_template": "https://www.workbuddy.cn/v2/activity/growth/tasks/accept",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1"
+      },
+      "body_template": {
+        "task_codes": [
+          "{task_code}"
+        ]
+      },
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": false,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1237 / §1 #9 @0x7fbee3 / §3.4 template_used ×5 @0x4b1be7 / §6 STEP4"
+    },
+    {
+      "method": "POST",
+      "url_template": "https://copilot.tencent.com/v2/chat/completions",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "CLI/2.63.2 CodeBuddy/2.63.2",
+        "Accept": "application/json, text/event-stream",
+        "X-Conversation-Request-ID": "{request_id}",
+        "X-Conversation-Message-ID": "{message_id}",
+        "X-CodeBuddy-Request": "1",
+        "X-No-Department-Info": "1"
+      },
+      "body_template": {
+        "model": "hy3-x",
+        "messages": [
+          {
+            "role": "user",
+            "content": "1+1等于几？直接回答。"
+          }
+        ],
+        "stream": true,
+        "parentConversationId": "{conversation_id}",
+        "codebuddy.session_id": "{request_id}",
+        "codebuddy.conversation_request_id": "{request_id}",
+        "sub_product_code": "workbuddy-desktop"
+      },
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": true,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1237 / §1 #9 @0x7fbee3 / §3.4 template_used ×5 @0x4b1be7 / §6 STEP4"
+    },
+    {
+      "method": "POST",
+      "url_template": "https://www.codebuddy.cn/v2/report",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1",
+        "X-IDE-Name": "workbuddy-desktop",
+        "X-IDE-Type": "desktop"
+      },
+      "body_template": [
+        {
+          "eventCode": "template_used",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        },
+        {
+          "eventCode": "template_used",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        },
+        {
+          "eventCode": "template_used",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        },
+        {
+          "eventCode": "template_used",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        },
+        {
+          "eventCode": "template_used",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        }
+      ],
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": false,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1237 / §1 #9 @0x7fbee3 / §3.4 template_used ×5 @0x4b1be7 / §6 STEP4"
+    }
+  ],
+  "playbook_prompt": [
+    {
+      "method": "POST",
+      "url_template": "https://www.workbuddy.cn/v2/activity/growth/tasks/accept",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1"
+      },
+      "body_template": {
+        "task_codes": [
+          "{task_code}"
+        ]
+      },
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": false,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1238 / §1 #10 @0x7fbf43 / §3.4 日志 已上报 playbook_cta_click + playbook_prompt_send @0x4bf1f5"
+    },
+    {
+      "method": "POST",
+      "url_template": "https://copilot.tencent.com/v2/chat/completions",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "CLI/2.63.2 CodeBuddy/2.63.2",
+        "Accept": "application/json, text/event-stream",
+        "X-Conversation-Request-ID": "{request_id}",
+        "X-Conversation-Message-ID": "{message_id}",
+        "X-CodeBuddy-Request": "1",
+        "X-No-Department-Info": "1"
+      },
+      "body_template": {
+        "model": "hy3-x",
+        "messages": [
+          {
+            "role": "user",
+            "content": "1+1等于几？直接回答。"
+          }
+        ],
+        "stream": true,
+        "parentConversationId": "{conversation_id}",
+        "codebuddy.session_id": "{request_id}",
+        "codebuddy.conversation_request_id": "{request_id}",
+        "sub_product_code": "workbuddy-desktop"
+      },
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": true,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1238 / §1 #10 @0x7fbf43 / §3.4 日志 已上报 playbook_cta_click + playbook_prompt_send @0x4bf1f5"
+    },
+    {
+      "method": "POST",
+      "url_template": "https://www.codebuddy.cn/v2/report",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1",
+        "X-IDE-Name": "workbuddy-desktop",
+        "X-IDE-Type": "desktop"
+      },
+      "body_template": [
+        {
+          "eventCode": "playbook_cta_click",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        },
+        {
+          "eventCode": "playbook_prompt_send",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        }
+      ],
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": false,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1238 / §1 #10 @0x7fbf43 / §3.4 日志 已上报 playbook_cta_click + playbook_prompt_send @0x4bf1f5"
+    }
+  ],
+  "create_canvas": [
+    {
+      "method": "POST",
+      "url_template": "https://www.workbuddy.cn/v2/activity/growth/tasks/accept",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1"
+      },
+      "body_template": {
+        "task_codes": [
+          "{task_code}"
+        ]
+      },
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": false,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1239 / §1 #11 @0x7fbfae(+300 分) / §3.4 日志 @0x4bc409"
+    },
+    {
+      "method": "POST",
+      "url_template": "https://copilot.tencent.com/v2/chat/completions",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "CLI/2.63.2 CodeBuddy/2.63.2",
+        "Accept": "application/json, text/event-stream",
+        "X-Conversation-Request-ID": "{request_id}",
+        "X-Conversation-Message-ID": "{message_id}",
+        "X-CodeBuddy-Request": "1",
+        "X-No-Department-Info": "1"
+      },
+      "body_template": {
+        "model": "hy3-x",
+        "messages": [
+          {
+            "role": "user",
+            "content": "1+1等于几？直接回答。"
+          }
+        ],
+        "stream": true,
+        "parentConversationId": "{conversation_id}",
+        "codebuddy.session_id": "{request_id}",
+        "codebuddy.conversation_request_id": "{request_id}",
+        "sub_product_code": "workbuddy-desktop"
+      },
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": true,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1239 / §1 #11 @0x7fbfae(+300 分) / §3.4 日志 @0x4bc409"
+    },
+    {
+      "method": "POST",
+      "url_template": "https://www.codebuddy.cn/v2/report",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1",
+        "X-IDE-Name": "workbuddy-desktop",
+        "X-IDE-Type": "desktop"
+      },
+      "body_template": [
+        {
+          "eventCode": "wbx_design_canvas_open",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        },
+        {
+          "eventCode": "wbx_design_canvas_task_create",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        }
+      ],
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": false,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1239 / §1 #11 @0x7fbfae(+300 分) / §3.4 日志 @0x4bc409"
+    }
+  ],
+  "expert_5": [
+    {
+      "method": "POST",
+      "url_template": "https://www.workbuddy.cn/v2/activity/growth/tasks/accept",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1"
+      },
+      "body_template": {
+        "task_codes": [
+          "{task_code}"
+        ]
+      },
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": false,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1240 / §1 #12 @0x7fc018 / §4 专家召唤+使用链 ×5 / §3.4"
+    },
+    {
+      "method": "POST",
+      "url_template": "https://copilot.tencent.com/v2/chat/completions",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "CLI/2.63.2 CodeBuddy/2.63.2",
+        "Accept": "application/json, text/event-stream",
+        "X-Conversation-Request-ID": "{request_id}",
+        "X-Conversation-Message-ID": "{message_id}",
+        "X-CodeBuddy-Request": "1",
+        "X-No-Department-Info": "1"
+      },
+      "body_template": {
+        "model": "hy3-x",
+        "messages": [
+          {
+            "role": "user",
+            "content": "1+1等于几？直接回答。"
+          }
+        ],
+        "stream": true,
+        "parentConversationId": "{conversation_id}",
+        "codebuddy.session_id": "{request_id}",
+        "codebuddy.conversation_request_id": "{request_id}",
+        "sub_product_code": "workbuddy-desktop",
+        "expertId": "{expert_id}"
+      },
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": true,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1240 / §1 #12 @0x7fc018 / §4 专家召唤+使用链 ×5 / §3.4"
+    },
+    {
+      "method": "POST",
+      "url_template": "https://copilot.tencent.com/v2/report",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1",
+        "X-IDE-Name": "workbuddy-desktop",
+        "X-IDE-Type": "desktop"
+      },
+      "body_template": [
+        {
+          "eventCode": "expert_summon_click",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        },
+        {
+          "eventCode": "expert_summoned",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        },
+        {
+          "eventCode": "expert_actual_use",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        }
+      ],
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": false,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1240 / §1 #12 @0x7fc018 / §4 专家召唤+使用链 ×5 / §3.4"
+    }
+  ],
+  "Expert_team_use_3": [
+    {
+      "method": "POST",
+      "url_template": "https://www.workbuddy.cn/v2/activity/growth/tasks/accept",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1"
+      },
+      "body_template": {
+        "task_codes": [
+          "{task_code}"
+        ]
+      },
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": false,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1241 / §1 #13 @0x7fc080 / §4 专家团召唤+使用链 ×3"
+    },
+    {
+      "method": "POST",
+      "url_template": "https://copilot.tencent.com/v2/chat/completions",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "CLI/2.63.2 CodeBuddy/2.63.2",
+        "Accept": "application/json, text/event-stream",
+        "X-Conversation-Request-ID": "{request_id}",
+        "X-Conversation-Message-ID": "{message_id}",
+        "X-CodeBuddy-Request": "1",
+        "X-No-Department-Info": "1"
+      },
+      "body_template": {
+        "model": "hy3-x",
+        "messages": [
+          {
+            "role": "user",
+            "content": "1+1等于几？直接回答。"
+          }
+        ],
+        "stream": true,
+        "parentConversationId": "{conversation_id}",
+        "codebuddy.session_id": "{request_id}",
+        "codebuddy.conversation_request_id": "{request_id}",
+        "sub_product_code": "workbuddy-desktop",
+        "expertId": "{expert_id}"
+      },
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": true,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1241 / §1 #13 @0x7fc080 / §4 专家团召唤+使用链 ×3"
+    },
+    {
+      "method": "POST",
+      "url_template": "https://copilot.tencent.com/v2/report",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1",
+        "X-IDE-Name": "workbuddy-desktop",
+        "X-IDE-Type": "desktop"
+      },
+      "body_template": [
+        {
+          "eventCode": "expert_summon_click",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        },
+        {
+          "eventCode": "expert_summoned",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        },
+        {
+          "eventCode": "expert_actual_use",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        }
+      ],
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": false,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1241 / §1 #13 @0x7fc080 / §4 专家团召唤+使用链 ×3"
+    }
+  ],
+  "Hp_Appearance": [
+    {
+      "method": "POST",
+      "url_template": "https://www.workbuddy.cn/v2/activity/growth/tasks/accept",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1"
+      },
+      "body_template": {
+        "task_codes": [
+          "{task_code}"
+        ]
+      },
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": false,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1242 / §1 #14 @0x7fc0d9 / §3.4 appearance_skin_apply @0x4ad806 / §6.3 set appearance 端点为待补 step"
+    },
+    {
+      "method": "POST",
+      "url_template": "https://copilot.tencent.com/v2/chat/completions",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "CLI/2.63.2 CodeBuddy/2.63.2",
+        "Accept": "application/json, text/event-stream",
+        "X-Conversation-Request-ID": "{request_id}",
+        "X-Conversation-Message-ID": "{message_id}",
+        "X-CodeBuddy-Request": "1",
+        "X-No-Department-Info": "1"
+      },
+      "body_template": {
+        "model": "hy3-x",
+        "messages": [
+          {
+            "role": "user",
+            "content": "1+1等于几？直接回答。"
+          }
+        ],
+        "stream": true,
+        "parentConversationId": "{conversation_id}",
+        "codebuddy.session_id": "{request_id}",
+        "codebuddy.conversation_request_id": "{request_id}",
+        "sub_product_code": "workbuddy-desktop"
+      },
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": true,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1242 / §1 #14 @0x7fc0d9 / §3.4 appearance_skin_apply @0x4ad806 / §6.3 set appearance 端点为待补 step"
+    },
+    {
+      "method": "POST",
+      "url_template": "https://www.codebuddy.cn/v2/report",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1",
+        "X-IDE-Name": "workbuddy-desktop",
+        "X-IDE-Type": "desktop"
+      },
+      "body_template": [
+        {
+          "eventCode": "appearance_skin_apply",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        }
+      ],
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": false,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1242 / §1 #14 @0x7fc0d9 / §3.4 appearance_skin_apply @0x4ad806 / §6.3 set appearance 端点为待补 step"
+    }
+  ],
+  "black_cat": [
+    {
+      "method": "POST",
+      "url_template": "https://www.workbuddy.cn/v2/activity/growth/tasks/accept",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1"
+      },
+      "body_template": {
+        "task_codes": [
+          "{task_code}"
+        ]
+      },
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": false,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1243 / §1 #15 @0x7fc130 / §3.4 夜间对话 @0x4b86bb / config.py:378 blackcat_model=glm-5.2"
+    },
+    {
+      "method": "POST",
+      "url_template": "https://copilot.tencent.com/v2/chat/completions",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "CLI/2.63.2 CodeBuddy/2.63.2",
+        "Accept": "application/json, text/event-stream",
+        "X-Conversation-Request-ID": "{request_id}",
+        "X-Conversation-Message-ID": "{message_id}",
+        "X-CodeBuddy-Request": "1",
+        "X-No-Department-Info": "1"
+      },
+      "body_template": {
+        "model": "glm-5.2",
+        "messages": [
+          {
+            "role": "user",
+            "content": "1+1等于几？直接回答。"
+          }
+        ],
+        "stream": true,
+        "parentConversationId": "{conversation_id}",
+        "codebuddy.session_id": "{request_id}",
+        "codebuddy.conversation_request_id": "{request_id}",
+        "sub_product_code": "workbuddy-desktop"
+      },
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": true,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1243 / §1 #15 @0x7fc130 / §3.4 夜间对话 @0x4b86bb / config.py:378 blackcat_model=glm-5.2"
+    },
+    {
+      "method": "POST",
+      "url_template": "https://www.codebuddy.cn/v2/report",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1",
+        "X-IDE-Name": "workbuddy-desktop",
+        "X-IDE-Type": "desktop"
+      },
+      "body_template": [
+        {
+          "eventCode": "chat_message_send",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        }
+      ],
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": false,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1243 / §1 #15 @0x7fc130 / §3.4 夜间对话 @0x4b86bb / config.py:378 blackcat_model=glm-5.2"
+    }
+  ],
+  "Expert_lighthouse": [
+    {
+      "method": "POST",
+      "url_template": "https://www.workbuddy.cn/v2/activity/growth/tasks/accept",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1"
+      },
+      "body_template": {
+        "task_codes": [
+          "{task_code}"
+        ]
+      },
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": false,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1244 / §1 #16 @0x7fc1a0 / wb2api-contract.md §2.3 / §5 真实对话 requestId @0x4c371e"
+    },
+    {
+      "method": "POST",
+      "url_template": "https://copilot.tencent.com/v2/chat/completions",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "CLI/2.63.2 CodeBuddy/2.63.2",
+        "Accept": "application/json, text/event-stream",
+        "X-Conversation-Request-ID": "{request_id}",
+        "X-Conversation-Message-ID": "{message_id}",
+        "X-CodeBuddy-Request": "1",
+        "X-No-Department-Info": "1"
+      },
+      "body_template": {
+        "model": "hy3-x",
+        "messages": [
+          {
+            "role": "user",
+            "content": "1+1等于几？直接回答。"
+          }
+        ],
+        "stream": true,
+        "parentConversationId": "{conversation_id}",
+        "codebuddy.session_id": "{request_id}",
+        "codebuddy.conversation_request_id": "{request_id}",
+        "sub_product_code": "workbuddy-desktop",
+        "expertId": "{expert_id}"
+      },
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": true,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1244 / §1 #16 @0x7fc1a0 / wb2api-contract.md §2.3 / §5 真实对话 requestId @0x4c371e"
+    },
+    {
+      "method": "POST",
+      "url_template": "https://copilot.tencent.com/v2/report",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1",
+        "X-IDE-Name": "workbuddy-desktop",
+        "X-IDE-Type": "desktop"
+      },
+      "body_template": [
+        {
+          "eventCode": "expert_summon_click",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        },
+        {
+          "eventCode": "expert_summoned",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        },
+        {
+          "eventCode": "expert_actual_use",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        }
+      ],
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": false,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1244 / §1 #16 @0x7fc1a0 / wb2api-contract.md §2.3 / §5 真实对话 requestId @0x4c371e"
+    }
+  ],
+  "skill_1": [
+    {
+      "method": "POST",
+      "url_template": "https://www.workbuddy.cn/v2/activity/growth/tasks/accept",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1"
+      },
+      "body_template": {
+        "task_codes": [
+          "{task_code}"
+        ]
+      },
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": false,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1245 / §1 #17 @0x7fc214 / §3.4 skill_info @0x4a63a2 / 日志 @0x4bfc86"
+    },
+    {
+      "method": "POST",
+      "url_template": "https://copilot.tencent.com/v2/chat/completions",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "CLI/2.63.2 CodeBuddy/2.63.2",
+        "Accept": "application/json, text/event-stream",
+        "X-Conversation-Request-ID": "{request_id}",
+        "X-Conversation-Message-ID": "{message_id}",
+        "X-CodeBuddy-Request": "1",
+        "X-No-Department-Info": "1"
+      },
+      "body_template": {
+        "model": "hy3-x",
+        "messages": [
+          {
+            "role": "user",
+            "content": "1+1等于几？直接回答。"
+          }
+        ],
+        "stream": true,
+        "parentConversationId": "{conversation_id}",
+        "codebuddy.session_id": "{request_id}",
+        "codebuddy.conversation_request_id": "{request_id}",
+        "sub_product_code": "workbuddy-desktop"
+      },
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": true,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1245 / §1 #17 @0x7fc214 / §3.4 skill_info @0x4a63a2 / 日志 @0x4bfc86"
+    },
+    {
+      "method": "POST",
+      "url_template": "https://www.codebuddy.cn/v2/report",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1",
+        "X-IDE-Name": "workbuddy-desktop",
+        "X-IDE-Type": "desktop"
+      },
+      "body_template": [
+        {
+          "eventCode": "skill_info",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        },
+        {
+          "eventCode": "chat_message_send",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        }
+      ],
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": false,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1245 / §1 #17 @0x7fc214 / §3.4 skill_info @0x4a63a2 / 日志 @0x4bfc86"
+    }
+  ],
+  "school_season": [
+    {
+      "method": "POST",
+      "url_template": "https://www.workbuddy.cn/v2/activity/growth/tasks/accept",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1"
+      },
+      "body_template": {
+        "task_codes": [
+          "{task_code}"
+        ]
+      },
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": false,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1246 / §1 #18 @0x7fc263 / §3.5 school_open_day_2026 @0x4acc12 / config.py:374"
+    },
+    {
+      "method": "POST",
+      "url_template": "https://copilot.tencent.com/v2/chat/completions",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "CLI/2.63.2 CodeBuddy/2.63.2",
+        "Accept": "application/json, text/event-stream",
+        "X-Conversation-Request-ID": "{request_id}",
+        "X-Conversation-Message-ID": "{message_id}",
+        "X-CodeBuddy-Request": "1",
+        "X-No-Department-Info": "1"
+      },
+      "body_template": {
+        "model": "hy3-x",
+        "messages": [
+          {
+            "role": "user",
+            "content": "1+1等于几？直接回答。"
+          }
+        ],
+        "stream": true,
+        "parentConversationId": "{conversation_id}",
+        "codebuddy.session_id": "{request_id}",
+        "codebuddy.conversation_request_id": "{request_id}",
+        "sub_product_code": "workbuddy-desktop"
+      },
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": true,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1246 / §1 #18 @0x7fc263 / §3.5 school_open_day_2026 @0x4acc12 / config.py:374"
+    },
+    {
+      "method": "POST",
+      "url_template": "https://www.workbuddy.cn/v2/report",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1",
+        "X-IDE-Name": "workbuddy-desktop",
+        "X-IDE-Type": "desktop"
+      },
+      "body_template": [
+        {
+          "eventCode": "chat_message_send",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0,
+          "activityId": "school_open_day_2026"
+        }
+      ],
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": false,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1246 / §1 #18 @0x7fc263 / §3.5 school_open_day_2026 @0x4acc12 / config.py:374"
+    }
+  ],
+  "Sequential_Tasks_1": [
+    {
+      "method": "POST",
+      "url_template": "https://www.workbuddy.cn/v2/activity/growth/tasks/accept",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1"
+      },
+      "body_template": {
+        "task_codes": [
+          "{task_code}"
+        ]
+      },
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": false,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1247 / §1 #19 @0x7fc2dc / §3.5 mini 首对话上报 / wb2api-contract.md §2.2"
+    },
+    {
+      "method": "POST",
+      "url_template": "https://copilot.tencent.com/v2/chat/completions",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "CLI/2.63.2 CodeBuddy/2.63.2",
+        "Accept": "application/json, text/event-stream",
+        "X-Conversation-Request-ID": "{request_id}",
+        "X-Conversation-Message-ID": "{message_id}",
+        "X-CodeBuddy-Request": "1",
+        "X-No-Department-Info": "1"
+      },
+      "body_template": {
+        "model": "hy3-x",
+        "messages": [
+          {
+            "role": "user",
+            "content": "1+1等于几？直接回答。"
+          }
+        ],
+        "stream": true,
+        "parentConversationId": "{conversation_id}",
+        "codebuddy.session_id": "{request_id}",
+        "codebuddy.conversation_request_id": "{request_id}",
+        "sub_product_code": "workbuddy-desktop"
+      },
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": true,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1247 / §1 #19 @0x7fc2dc / §3.5 mini 首对话上报 / wb2api-contract.md §2.2"
+    },
+    {
+      "method": "POST",
+      "url_template": "https://www.codebuddy.cn/v2/report",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1",
+        "X-IDE-Name": "workbuddy-desktop",
+        "X-IDE-Type": "desktop"
+      },
+      "body_template": [
+        {
+          "eventCode": "chat_message_send",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        }
+      ],
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": false,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1247 / §1 #19 @0x7fc2dc / §3.5 mini 首对话上报 / wb2api-contract.md §2.2"
+    }
+  ],
+  "Sequential_Tasks_2": [
+    {
+      "method": "POST",
+      "url_template": "https://www.workbuddy.cn/v2/activity/growth/tasks/accept",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1"
+      },
+      "body_template": {
+        "task_codes": [
+          "{task_code}"
+        ]
+      },
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": false,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1248 / §1 #20 @0x7fc357 / §3.5 MiniExpertUseEvent / config.py:370"
+    },
+    {
+      "method": "POST",
+      "url_template": "https://copilot.tencent.com/v2/chat/completions",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "CLI/2.63.2 CodeBuddy/2.63.2",
+        "Accept": "application/json, text/event-stream",
+        "X-Conversation-Request-ID": "{request_id}",
+        "X-Conversation-Message-ID": "{message_id}",
+        "X-CodeBuddy-Request": "1",
+        "X-No-Department-Info": "1"
+      },
+      "body_template": {
+        "model": "hy3-x",
+        "messages": [
+          {
+            "role": "user",
+            "content": "1+1等于几？直接回答。"
+          }
+        ],
+        "stream": true,
+        "parentConversationId": "{conversation_id}",
+        "codebuddy.session_id": "{request_id}",
+        "codebuddy.conversation_request_id": "{request_id}",
+        "sub_product_code": "workbuddy-desktop",
+        "expertId": "{expert_id}"
+      },
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": true,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1248 / §1 #20 @0x7fc357 / §3.5 MiniExpertUseEvent / config.py:370"
+    },
+    {
+      "method": "POST",
+      "url_template": "https://copilot.tencent.com/v2/report",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1",
+        "X-IDE-Name": "workbuddy-desktop",
+        "X-IDE-Type": "desktop"
+      },
+      "body_template": [
+        {
+          "eventCode": "expert_actual_use",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        }
+      ],
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": false,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1248 / §1 #20 @0x7fc357 / §3.5 MiniExpertUseEvent / config.py:370"
+    }
+  ],
+  "Sequential_Tasks_3": [
+    {
+      "method": "POST",
+      "url_template": "https://www.workbuddy.cn/v2/activity/growth/tasks/accept",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1"
+      },
+      "body_template": {
+        "task_codes": [
+          "{task_code}"
+        ]
+      },
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": false,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1249 / §1 #21 @0x7fc3f3 / §3.5 SchoolChatTimesEvents ×5"
+    },
+    {
+      "method": "POST",
+      "url_template": "https://copilot.tencent.com/v2/chat/completions",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "CLI/2.63.2 CodeBuddy/2.63.2",
+        "Accept": "application/json, text/event-stream",
+        "X-Conversation-Request-ID": "{request_id}",
+        "X-Conversation-Message-ID": "{message_id}",
+        "X-CodeBuddy-Request": "1",
+        "X-No-Department-Info": "1"
+      },
+      "body_template": {
+        "model": "hy3-x",
+        "messages": [
+          {
+            "role": "user",
+            "content": "1+1等于几？直接回答。"
+          }
+        ],
+        "stream": true,
+        "parentConversationId": "{conversation_id}",
+        "codebuddy.session_id": "{request_id}",
+        "codebuddy.conversation_request_id": "{request_id}",
+        "sub_product_code": "workbuddy-desktop"
+      },
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": true,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1249 / §1 #21 @0x7fc3f3 / §3.5 SchoolChatTimesEvents ×5"
+    },
+    {
+      "method": "POST",
+      "url_template": "https://www.codebuddy.cn/v2/report",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1",
+        "X-IDE-Name": "workbuddy-desktop",
+        "X-IDE-Type": "desktop"
+      },
+      "body_template": [
+        {
+          "eventCode": "chat_message_send",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        },
+        {
+          "eventCode": "chat_message_send",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        },
+        {
+          "eventCode": "chat_message_send",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        },
+        {
+          "eventCode": "chat_message_send",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        },
+        {
+          "eventCode": "chat_message_send",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        }
+      ],
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": false,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1249 / §1 #21 @0x7fc3f3 / §3.5 SchoolChatTimesEvents ×5"
+    }
+  ],
+  "Sequential_Tasks_4": [
+    {
+      "method": "POST",
+      "url_template": "https://www.workbuddy.cn/v2/activity/growth/tasks/accept",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1"
+      },
+      "body_template": {
+        "task_codes": [
+          "{task_code}"
+        ]
+      },
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": false,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1250 / §1 #22 @0x7fc489 / §3.5 DesktopAutomationCreateEvent（预留，判据待解锁）"
+    },
+    {
+      "method": "POST",
+      "url_template": "https://copilot.tencent.com/v2/chat/completions",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "CLI/2.63.2 CodeBuddy/2.63.2",
+        "Accept": "application/json, text/event-stream",
+        "X-Conversation-Request-ID": "{request_id}",
+        "X-Conversation-Message-ID": "{message_id}",
+        "X-CodeBuddy-Request": "1",
+        "X-No-Department-Info": "1"
+      },
+      "body_template": {
+        "model": "hy3-x",
+        "messages": [
+          {
+            "role": "user",
+            "content": "1+1等于几？直接回答。"
+          }
+        ],
+        "stream": true,
+        "parentConversationId": "{conversation_id}",
+        "codebuddy.session_id": "{request_id}",
+        "codebuddy.conversation_request_id": "{request_id}",
+        "sub_product_code": "workbuddy-desktop"
+      },
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": true,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1250 / §1 #22 @0x7fc489 / §3.5 DesktopAutomationCreateEvent（预留，判据待解锁）"
+    },
+    {
+      "method": "POST",
+      "url_template": "https://www.codebuddy.cn/v2/report",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1",
+        "X-IDE-Name": "workbuddy-desktop",
+        "X-IDE-Type": "desktop"
+      },
+      "body_template": [
+        {
+          "eventCode": "automated_task_create_suc",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        }
+      ],
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": false,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1250 / §1 #22 @0x7fc489 / §3.5 DesktopAutomationCreateEvent（预留，判据待解锁）"
+    }
+  ],
+  "Sequential_Tasks_5": [
+    {
+      "method": "POST",
+      "url_template": "https://www.workbuddy.cn/v2/activity/growth/tasks/accept",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1"
+      },
+      "body_template": {
+        "task_codes": [
+          "{task_code}"
+        ]
+      },
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": false,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1251 / §1 #23 @0x7fc52d / §3.5 MiniChatModelEvent GLM5.2（预留）"
+    },
+    {
+      "method": "POST",
+      "url_template": "https://copilot.tencent.com/v2/chat/completions",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "CLI/2.63.2 CodeBuddy/2.63.2",
+        "Accept": "application/json, text/event-stream",
+        "X-Conversation-Request-ID": "{request_id}",
+        "X-Conversation-Message-ID": "{message_id}",
+        "X-CodeBuddy-Request": "1",
+        "X-No-Department-Info": "1"
+      },
+      "body_template": {
+        "model": "glm-5.2",
+        "messages": [
+          {
+            "role": "user",
+            "content": "1+1等于几？直接回答。"
+          }
+        ],
+        "stream": true,
+        "parentConversationId": "{conversation_id}",
+        "codebuddy.session_id": "{request_id}",
+        "codebuddy.conversation_request_id": "{request_id}",
+        "sub_product_code": "workbuddy-desktop"
+      },
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": true,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1251 / §1 #23 @0x7fc52d / §3.5 MiniChatModelEvent GLM5.2（预留）"
+    },
+    {
+      "method": "POST",
+      "url_template": "https://www.codebuddy.cn/v2/report",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1",
+        "X-IDE-Name": "workbuddy-desktop",
+        "X-IDE-Type": "desktop"
+      },
+      "body_template": [
+        {
+          "eventCode": "chat_message_send",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        }
+      ],
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": false,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1251 / §1 #23 @0x7fc52d / §3.5 MiniChatModelEvent GLM5.2（预留）"
+    }
+  ],
+  "Sequential_Tasks_6": [
+    {
+      "method": "POST",
+      "url_template": "https://www.workbuddy.cn/v2/activity/growth/tasks/accept",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1"
+      },
+      "body_template": {
+        "task_codes": [
+          "{task_code}"
+        ]
+      },
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": false,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1252 / §1 #24 @0x7fc5c3 / §3.5 十次对话 ×target（预留）"
+    },
+    {
+      "method": "POST",
+      "url_template": "https://copilot.tencent.com/v2/chat/completions",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "CLI/2.63.2 CodeBuddy/2.63.2",
+        "Accept": "application/json, text/event-stream",
+        "X-Conversation-Request-ID": "{request_id}",
+        "X-Conversation-Message-ID": "{message_id}",
+        "X-CodeBuddy-Request": "1",
+        "X-No-Department-Info": "1"
+      },
+      "body_template": {
+        "model": "hy3-x",
+        "messages": [
+          {
+            "role": "user",
+            "content": "1+1等于几？直接回答。"
+          }
+        ],
+        "stream": true,
+        "parentConversationId": "{conversation_id}",
+        "codebuddy.session_id": "{request_id}",
+        "codebuddy.conversation_request_id": "{request_id}",
+        "sub_product_code": "workbuddy-desktop"
+      },
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": true,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1252 / §1 #24 @0x7fc5c3 / §3.5 十次对话 ×target（预留）"
+    },
+    {
+      "method": "POST",
+      "url_template": "https://www.codebuddy.cn/v2/report",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1",
+        "X-IDE-Name": "workbuddy-desktop",
+        "X-IDE-Type": "desktop"
+      },
+      "body_template": [
+        {
+          "eventCode": "chat_message_send",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        },
+        {
+          "eventCode": "chat_message_send",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        },
+        {
+          "eventCode": "chat_message_send",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        },
+        {
+          "eventCode": "chat_message_send",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        },
+        {
+          "eventCode": "chat_message_send",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        },
+        {
+          "eventCode": "chat_message_send",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        },
+        {
+          "eventCode": "chat_message_send",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        },
+        {
+          "eventCode": "chat_message_send",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        },
+        {
+          "eventCode": "chat_message_send",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        },
+        {
+          "eventCode": "chat_message_send",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        }
+      ],
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": false,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1252 / §1 #24 @0x7fc5c3 / §3.5 十次对话 ×target（预留）"
+    }
+  ],
+  "Sequential_Tasks_7": [
+    {
+      "method": "POST",
+      "url_template": "https://www.workbuddy.cn/v2/activity/growth/tasks/accept",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1"
+      },
+      "body_template": {
+        "task_codes": [
+          "{task_code}"
+        ]
+      },
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": false,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1253 / §1 #25 @0x7fc647 / §3.5 MiniPlaybookEvents PC+mp 双形态（预留）"
+    },
+    {
+      "method": "POST",
+      "url_template": "https://copilot.tencent.com/v2/chat/completions",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "CLI/2.63.2 CodeBuddy/2.63.2",
+        "Accept": "application/json, text/event-stream",
+        "X-Conversation-Request-ID": "{request_id}",
+        "X-Conversation-Message-ID": "{message_id}",
+        "X-CodeBuddy-Request": "1",
+        "X-No-Department-Info": "1"
+      },
+      "body_template": {
+        "model": "hy3-x",
+        "messages": [
+          {
+            "role": "user",
+            "content": "1+1等于几？直接回答。"
+          }
+        ],
+        "stream": true,
+        "parentConversationId": "{conversation_id}",
+        "codebuddy.session_id": "{request_id}",
+        "codebuddy.conversation_request_id": "{request_id}",
+        "sub_product_code": "workbuddy-desktop"
+      },
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": true,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1253 / §1 #25 @0x7fc647 / §3.5 MiniPlaybookEvents PC+mp 双形态（预留）"
+    },
+    {
+      "method": "POST",
+      "url_template": "https://www.codebuddy.cn/v2/report",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Content-Type": "application/json",
+        "X-User-Id": "{uid}",
+        "X-Domain": "{domain}",
+        "X-Product": "WorkBuddy",
+        "User-Agent": "WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1",
+        "X-IDE-Name": "workbuddy-desktop",
+        "X-IDE-Type": "desktop"
+      },
+      "body_template": [
+        {
+          "eventCode": "playbook_cta_click",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        },
+        {
+          "eventCode": "playbook_prompt_send",
+          "timestamp": "{uuid}",
+          "requestId": "{sse_request_id}",
+          "presentAt": "{uuid}",
+          "agentName": "workbuddy-desktop",
+          "agentType": "desktop",
+          "reportDelay": 0
+        }
+      ],
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": false,
+        "done_marker": "[DONE]"
+      },
+      "_evidence": "frontend.txt:1253 / §1 #25 @0x7fc647 / §3.5 MiniPlaybookEvents PC+mp 双形态（预留）"
+    }
+  ],
+  "expert_use_maidehao": [
+    {
+      "kind": "desktop_expert",
+      "runner": "run_desktop_expert_task",
+      "expert_id": "ex_GDl31WahyIH0",
+      "display_name_zh": "中国电商运营专家",
+      "expert_type": "agent",
+      "market_keyword": "中国电商运营专家",
+      "version_source": "market",
+      "mode": "craft",
+      "verified": true,
+      "verified_evidence": {
+        "date": "2026-11-09",
+        "method": "真实 chat 取服务端 requestId → summon×3 + actual_use 同批 POST /v2/report",
+        "criterion": "回读成长任务 progress 真前进，受理回执不认",
+        "claim_receipt": "accept_status=claimed；本轮 5 项合计 +300 credit / +25 energy（web 领奖端点回执）",
+        "scope": "本轮实测点亮 5 项之一（默认 18 项任务 18/18 claimed）"
+      },
+      "_evidence": "2026-11-09 实测；version 必须用市场返回值，默认 1.0.0 上报零前进"
+    }
+  ],
+  "expert_use_douyinyin": [
+    {
+      "kind": "desktop_expert",
+      "runner": "run_desktop_expert_task",
+      "expert_id": "ex_FbY5nlWTqDod",
+      "display_name_zh": "抖音策略师",
+      "expert_type": "agent",
+      "market_keyword": "抖音策略师",
+      "version_source": "market",
+      "mode": "craft",
+      "verified": true,
+      "verified_evidence": {
+        "date": "2026-11-09",
+        "method": "真实 chat 取服务端 requestId → summon×3 + actual_use 同批 POST /v2/report",
+        "criterion": "回读成长任务 progress 真前进，受理回执不认",
+        "claim_receipt": "accept_status=claimed；本轮 5 项合计 +300 credit / +25 energy（web 领奖端点回执）",
+        "scope": "本轮实测点亮 5 项之一（默认 18 项任务 18/18 claimed）"
+      },
+      "_evidence": "2026-11-09 实测；version 必须用市场返回值，默认 1.0.0 上报零前进"
+    }
+  ],
+  "expert_use_shangjia_xuanchuan": [
+    {
+      "kind": "desktop_expert",
+      "runner": "run_desktop_expert_task",
+      "expert_id": "ex_Weo3x2EZuSDm",
+      "display_name_zh": "商家宣传设计师",
+      "expert_type": "agent",
+      "market_keyword": "商家宣传设计师",
+      "version_source": "market",
+      "version_note": "市场版本会变动，禁止写死；每次运行由 fetch_market_experts 取真实 version",
+      "mode": "craft",
+      "verified": true,
+      "verified_evidence": {
+        "date": "2026-11-09",
+        "method": "真实 chat 取服务端 requestId → summon×3 + actual_use 同批 POST /v2/report",
+        "criterion": "回读成长任务 progress 真前进，受理回执不认",
+        "claim_receipt": "accept_status=claimed；本轮 5 项合计 +300 credit / +25 energy（web 领奖端点回执）",
+        "scope": "本轮实测点亮 5 项之一（默认 18 项任务 18/18 claimed）"
+      },
+      "_evidence": "2026-11-09 实测；本条 version 必须动态取（写死会零前进）"
+    }
+  ],
+  "expert_use_bowangwang": [
+    {
+      "kind": "desktop_expert",
+      "runner": "run_desktop_expert_task",
+      "expert_id": "ex_WZY136wV5aMt",
+      "display_name_zh": "直播电商教练",
+      "expert_type": "agent",
+      "market_keyword": "直播电商教练",
+      "version_source": "market",
+      "mode": "craft",
+      "verified": true,
+      "verified_evidence": {
+        "date": "2026-11-09",
+        "method": "真实 chat 取服务端 requestId → summon×3 + actual_use 同批 POST /v2/report",
+        "criterion": "回读成长任务 progress 真前进，受理回执不认",
+        "claim_receipt": "accept_status=claimed；本轮 5 项合计 +300 credit / +25 energy（web 领奖端点回执）",
+        "scope": "本轮实测点亮 5 项之一（默认 18 项任务 18/18 claimed）"
+      },
+      "_evidence": "2026-11-09 实测；version 必须用市场返回值，默认 1.0.0 上报零前进"
+    }
+  ],
+  "WorkBuddy_Valorant": [
+    {
+      "kind": "desktop_expert",
+      "runner": "run_desktop_expert_task",
+      "expert_id": "ex_xQHHD1u5Jkua",
+      "display_name_zh": "无畏契约拼豆专家",
+      "expert_type": "agent",
+      "market_keyword": "无畏契约",
+      "version_source": "market",
+      "version_observed": "1.3.1",
+      "mode": "craft",
+      "verified": true,
+      "verified_evidence": {
+        "date": "2026-11-09",
+        "method": "真实 chat 取服务端 requestId → summon×3 + actual_use 同批 POST /v2/report",
+        "criterion": "回读成长任务 progress 真前进，受理回执不认",
+        "claim_receipt": "accept_status=claimed；本轮 5 项合计 +300 credit / +25 energy（web 领奖端点回执）",
+        "scope": "本轮实测点亮 5 项之一（默认 18 项任务 18/18 claimed）"
+      },
+      "_evidence": "2026-11-09 实测；keyword 搜索「无畏契约」命中，市场 version 实测 1.3.1（仍动态取）"
+    }
+  ],
+  "__claim__": [
+    {
+      "kind": "claim",
+      "transport": "web",
+      "auto_claim": false,
+      "method": "POST",
+      "url_template": "https://www.workbuddy.cn/activity/growth/tasks/{task_code}/claim",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Accept": "application/json, text/plain, */*",
+        "Content-Type": "application/json;charset=UTF-8",
+        "Origin": "https://www.workbuddy.cn",
+        "Referer": "https://www.workbuddy.cn/profile/growth-center",
+        "x-client-platform": "web",
+        "X-User-Id": "{uid}",
+        "User-Agent": "WorkBuddy/5.5.6"
+      },
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": false,
+        "done_marker": "[DONE]"
+      },
+      "verified": false,
+      "_evidence": "2026-11-09 实测领奖端点（web 口径）；默认 auto_claim=false，必须显式开才允许调用"
+    },
+    {
+      "kind": "claim",
+      "transport": "miniprogram",
+      "auto_claim": false,
+      "method": "POST",
+      "url_template": "https://copilot.tencent.com/activity/growth/tasks/{task_code}/claim",
+      "headers_extra": {
+        "Authorization": "Bearer {access_token}",
+        "Accept": "application/json, text/plain, */*",
+        "Content-Type": "application/json;charset=UTF-8",
+        "X-Client-Platform": "miniprogram",
+        "X-User-Id": "{uid}",
+        "User-Agent": "WorkBuddy/5.5.6"
+      },
+      "expect": {
+        "ok_status": [
+          200
+        ],
+        "sse": false,
+        "done_marker": "[DONE]"
+      },
+      "verified": false,
+      "_evidence": "2026-11-09 实测 mp 领奖端点（chatBase + X-Client-Platform: miniprogram）；默认 auto_claim=false"
+    }
+  ],
+  "__fallback__": []
+}
