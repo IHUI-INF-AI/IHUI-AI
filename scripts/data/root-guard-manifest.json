@@ -1,9 +1,9 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-09T04:46:23.957Z",
+  "sealedAt": "2026-11-09T06:29:45.288Z",
   "sealedBy": "root-guard --seal",
-  "reason": "批次3-2 钩子链引用完整性门(305/305p)落地:runner 两档注册+AGENTS.md 点名均为清单目标,按 merged 树重封",
+  "reason": "汇流枚 eafe4c7 向 scripts/ 带入本线独有规则面(商店族主线版+读准元门+共享屏工具),manifest 按合并树重封",
   "targets": [
     {
       "id": "guardian-runner",
