@@ -409,6 +409,26 @@ async def lifespan(app: FastAPI) -> Any:
     except Exception as e:
         logger.warning("[media_tasks] 建表异常(忽略,落库降级为不持久化): %s", e)
 
+    # SAG2 词法索引持久化回灌(2026-11-09 立):内存倒排是 SAG2 的性能来源,也是
+    # 它的单点 —— 进程重启即归零,用户登记的文件夹白扫(20k 文档重建约 850s)。
+    # 这里把 PG 里的「原文 + 分块快照」灌回内存;后台跑,不阻塞启动,进度与失败
+    # 原因经 /api/v1/ai/sag2/status 的 restore/persistence 两段可读。
+    # 没配 DATABASE_URL 时持久化对象根本不会挂载,status 如实报「未启用」。
+    try:
+        from app.services.sag2_lexical import sag2_lexical_service as _sag2
+
+        if _sag2.start_restore_background():
+            logger.info("[sag2] 已后台启动索引回灌(持久化后端已挂载)")
+        else:
+            logger.info(
+                "[sag2] 未启动回灌: %s",
+                "未配置 DATABASE_URL,索引仅在内存"
+                if _sag2.persistence is None
+                else "已恢复或正在恢复中",
+            )
+    except Exception as e:  # noqa: BLE001 - 回灌坏了不阻塞启动,但要出声
+        logger.warning("[sag2] 启动回灌异常(忽略,检索仍可用空索引): %s", e)
+
     # G-244(2026-10-26 立):后台任务 run 状态 journal 回放 —— 重启后 bg_task_status
     # 从行派生终态,不再"查无此任务"。失败只告警不阻塞启动;journal 真不可写时
     # manager 会在第一次接单处显式禁用(禁用而非伪装)。

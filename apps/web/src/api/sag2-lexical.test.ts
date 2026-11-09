@@ -257,7 +257,12 @@ describe('sag2-lexical API 封装 · 4 端点成功返回值逐字段透传', ()
       model_calls: 0,
     })
     expect(Object.keys(result).sort()).toEqual([
-      'changed', 'chunk_count', 'doc_hash', 'model_calls', 'reason', 'version',
+      'changed',
+      'chunk_count',
+      'doc_hash',
+      'model_calls',
+      'reason',
+      'version',
     ])
   })
 
@@ -278,7 +283,14 @@ describe('sag2-lexical API 封装 · 4 端点成功返回值逐字段透传', ()
       version: 12,
       duration_ms: 37.5,
       results: [
-        { key: 'kb/a.txt#L1', path: 'kb/a.txt', content: 'CTO 是张三', score: 0.91, bm25: 4.2, hop: 1 },
+        {
+          key: 'kb/a.txt#L1',
+          path: 'kb/a.txt',
+          content: 'CTO 是张三',
+          score: 0.91,
+          bm25: 4.2,
+          hop: 1,
+        },
       ],
       source_count: 1,
       citations: [
@@ -321,7 +333,14 @@ describe('sag2-lexical API 封装 · 4 端点成功返回值逐字段透传', ()
       version: 12,
       duration_ms: 37.5,
       results: [
-        { key: 'kb/a.txt#L1', path: 'kb/a.txt', content: 'CTO 是张三', score: 0.91, bm25: 4.2, hop: 1 },
+        {
+          key: 'kb/a.txt#L1',
+          path: 'kb/a.txt',
+          content: 'CTO 是张三',
+          score: 0.91,
+          bm25: 4.2,
+          hop: 1,
+        },
       ],
       source_count: 1,
       citations: [
@@ -355,11 +374,25 @@ describe('sag2-lexical API 封装 · 4 端点成功返回值逐字段透传', ()
       paths: { 'kb/a.txt': { chunks: 5 } },
     })
     expect(Object.keys(result).sort()).toEqual([
-      'citations', 'degraded', 'duration_ms', 'judge', 'paths', 'query',
-      'results', 'source_count', 'status', 'trace', 'version',
+      'citations',
+      'degraded',
+      'duration_ms',
+      'judge',
+      'paths',
+      'query',
+      'results',
+      'source_count',
+      'status',
+      'trace',
+      'version',
     ])
     expect(result.results[0]).toEqual({
-      key: 'kb/a.txt#L1', path: 'kb/a.txt', content: 'CTO 是张三', score: 0.91, bm25: 4.2, hop: 1,
+      key: 'kb/a.txt#L1',
+      path: 'kb/a.txt',
+      content: 'CTO 是张三',
+      score: 0.91,
+      bm25: 4.2,
+      hop: 1,
     })
     expect(result.citations[0]!.byte_range).toEqual([0, 128])
     expect(result.trace[0]!.terms[0]).toEqual({ term: 'CTO', score: 1.5, kind: 'seed' })
@@ -388,7 +421,11 @@ describe('sag2-lexical API 封装 · 4 端点成功返回值逐字段透传', ()
     })
     expect(Object.keys(result).sort()).toEqual(['channels', 'results', 'rrf_k'])
     expect(result.results[0]).toEqual({
-      path: 'kb/a.txt', key: 'a', rrf_score: 0.032, fused_from: 'sag2+rag', extra: 7,
+      path: 'kb/a.txt',
+      key: 'a',
+      rrf_score: 0.032,
+      fused_from: 'sag2+rag',
+      extra: 7,
     })
   })
 })
@@ -458,7 +495,12 @@ describe('sag2-lexical API 封装 · Sag2RetrieveOptions 6 字段透传', () => 
     const body = jsonBody(firstCall()[1])
     expect(body).toEqual({ query: 'q', ...options })
     for (const key of [
-      'candidate_k', 'seed_k', 'expansion_term_limit', 'max_hops', 'top_k', 'file_limit',
+      'candidate_k',
+      'seed_k',
+      'expansion_term_limit',
+      'max_hops',
+      'top_k',
+      'file_limit',
     ] as const) {
       expect(body).toHaveProperty(key, options[key])
     }
@@ -533,8 +575,14 @@ describe('sag2-lexical API 封装 · GET /status 请求形态', () => {
 describe('sag2-lexical API 封装 · 信封对象透传（封装层零解包契约）', () => {
   it('/status 面对完整 {code,message,data} 信封：原样返回整个对象、不把 data 解出来当返回值', async () => {
     const payload: Sag2Status = {
-      version: 3, documents: 10, chunks: 42, terms: 500,
-      avg_chunk_length: 120.5, ready: true, backend: 'bm25', judge_provider: 'none',
+      version: 3,
+      documents: 10,
+      chunks: 42,
+      terms: 500,
+      avg_chunk_length: 120.5,
+      ready: true,
+      backend: 'bm25',
+      judge_provider: 'none',
     }
     const envelope = { code: 0, message: 'ok', data: payload }
     mocked.mockResolvedValue(envelope as never)
@@ -547,8 +595,14 @@ describe('sag2-lexical API 封装 · 信封对象透传（封装层零解包契�
 
   it('/search 面对完整信封：code/message/data 三字段不丢不加、逐字段不改值', async () => {
     const payload: Sag2SearchResult = {
-      query: 'q', mode: 'bm25', model_calls: 0, total_files: 0,
-      page: 1, per_page: 20, items: [], duration_ms: 2,
+      query: 'q',
+      mode: 'bm25',
+      model_calls: 0,
+      total_files: 0,
+      page: 1,
+      per_page: 20,
+      items: [],
+      duration_ms: 2,
     }
     const envelope = { code: 200, message: 'success', data: payload }
     mocked.mockResolvedValue(envelope as never)

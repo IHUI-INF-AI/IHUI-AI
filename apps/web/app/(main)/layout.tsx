@@ -6,6 +6,7 @@ import * as React from 'react'
 import type { Metadata } from 'next'
 import { getTranslations } from 'next-intl/server'
 import { MainShell } from '@/components/layout/MainShell'
+import { GlobalSearchPalette } from '@/components/search/global-search-palette'
 
 // 2026-07-28 P1-4 SEO 资产补全:
 // (main) 路由组下没有 page.tsx,根页面由 (marketing) 路由组提供。
@@ -83,6 +84,8 @@ export default async function MainLayout({ children }: { children: React.ReactNo
         {t('skipToMain')}
       </a>
       <MainShell>{children}</MainShell>
+      {/* 全局快捷检索：任何 (main) 页面 Ctrl/Cmd+K 唤起，只读离线 BM25。 */}
+      <GlobalSearchPalette />
     </>
   )
 }

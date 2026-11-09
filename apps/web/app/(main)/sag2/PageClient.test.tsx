@@ -64,6 +64,10 @@ vi.mock('next-intl', () => {
     removeFolder: '注销',
     watchFolder: '自动监听',
     scanSummary: '扫描摘要',
+    filter_all: '全部',
+    filter_text: '文本',
+    filter_office: '文档',
+    fromPalette: '来自全局检索',
   }
   return { useTranslations: () => (key: string) => dict[key] ?? key }
 })
@@ -133,6 +137,30 @@ const ok = (data: unknown): OkReply => ({
   status: 200,
   body: JSON.stringify({ code: 0, message: 'ok', data }),
 })
+/**
+ * 按 URL 后缀路由的 fetch 桩：用于「挂载时同时发 status + search」这类
+ * 顺序不确定的并发首发，避免靠调用下标赌顺序。
+ */
+function installRoutedFetch(routes: Array<{ suffix: string; data: unknown }>) {
+  const calls: FetchCall[] = []
+  const fn = vi.fn(async (input: unknown, init?: RequestInit) => {
+    const url = typeof input === 'string' ? input : String(input)
+    calls.push({ url, init: init ?? {} })
+    const hit = routes.find((r) => url.endsWith(r.suffix))
+    if (!hit) throw new Error(`未预期的请求: ${url}`)
+    const body = JSON.stringify({ code: 0, message: 'ok', data: hit.data })
+    return {
+      ok: true,
+      status: 200,
+      headers: { get: () => null },
+      text: async () => body,
+      json: async () => JSON.parse(body),
+    } as unknown as Response
+  })
+  vi.stubGlobal('fetch', fn)
+  return { calls, fn, call: (suffix: string) => calls.find((c) => c.url.endsWith(suffix)) }
+}
+
 function expectCall(
   calls: FetchCall[],
   index: number,
@@ -646,6 +674,85 @@ describe('SAG2 PageClient · 本地文件夹面板', () => {
     expectCall(calls, 2, '/api/v1/ai/sag2/folders?root=C%3A%2Fkb%2Fdocs', 'DELETE')
     expectCall(calls, 3, '/api/v1/ai/sag2/status', 'GET')
     expectCall(calls, 4, '/api/v1/ai/sag2/folders', 'GET')
+  })
+})
+
+describe('SAG2 PageClient · 扩展名筛选 / 全局检索接管 / 片段高亮', () => {
+  it('选「文档」筛选后快速搜索：请求体带 filters.ext 且 all 档不写 filters', async () => {
+    const { calls, fn } = installFetch([ok(STATUS), ok(SEARCH_RESULT), ok(SEARCH_RESULT)])
+    render(<PageClient />)
+    await waitFor(() => expect(screen.getByText('索引就绪')).toBeTruthy())
+
+    // all 档：body 保持 {query,page,per_page} 原形状，不注入空 filters。
+    typeQuery('收购')
+    fireEvent.click(screen.getByRole('button', { name: '快速搜索' }))
+    await waitFor(() => expect(fn).toHaveBeenCalledTimes(2))
+    expectCall(calls, 1, '/api/v1/ai/sag2/search', 'POST', {
+      query: '收购',
+      page: 1,
+      per_page: 20,
+    })
+
+    // 切到「文档」档：真实请求体里必须出现 filters.ext（后端据此做路径级 AND 过滤）。
+    fireEvent.click(screen.getByRole('button', { name: '文档' }))
+    expect(screen.getByRole('button', { name: '文档' }).getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(screen.getByRole('button', { name: '快速搜索' }))
+    await waitFor(() => expect(fn).toHaveBeenCalledTimes(3))
+    expectCall(calls, 2, '/api/v1/ai/sag2/search', 'POST', {
+      query: '收购',
+      page: 1,
+      per_page: 20,
+      filters: { ext: ['.pdf', '.docx', '.xlsx', '.epub', '.html'] },
+    })
+  })
+
+  it('从全局检索跳转：initialQuery 首挂载自动跑一次快速搜索，用户不必重打', async () => {
+    const { fn, call } = installRoutedFetch([
+      { suffix: '/sag2/status', data: STATUS },
+      { suffix: '/sag2/search', data: SEARCH_RESULT },
+    ])
+    render(<PageClient initialQuery="谁收购了B公司？" initialPath="kb/a.txt" />)
+
+    await waitFor(() => expect(screen.getByText('kb/a.txt')).toBeTruthy())
+    const search = call('/sag2/search')
+    expect(search).toBeTruthy()
+    expect(JSON.parse(String(search!.init.body)) as unknown).toEqual({
+      query: '谁收购了B公司？',
+      page: 1,
+      per_page: 20,
+    })
+    // 只自动跑一次：后续不再自增请求（autoRan 守卫）。
+    await waitFor(() => expect(screen.getByText('索引就绪')).toBeTruthy())
+    expect(fn.mock.calls.filter(([u]) => String(u).endsWith('/sag2/search')).length).toBe(1)
+    // 点选的具体文件在页内可见，不让用户失去上下文。
+    expect(screen.getByText('来自全局检索', { exact: false })).toBeTruthy()
+  })
+
+  it('后端下发 highlights：片段按区间渲染 <mark>，未命中部分保持纯文本', async () => {
+    const highlighted = {
+      ...SEARCH_RESULT,
+      items: [
+        {
+          ...SEARCH_RESULT.items[0]!,
+          snippet: 'A公司收购了B公司',
+          // 下标口径与后端一致（UTF-16 码元）：'收购' 落在 [3,5)。
+          highlights: [[3, 5]] as Array<[number, number]>,
+        },
+      ],
+    }
+    const { fn } = installFetch([ok(STATUS), ok(highlighted)])
+    const { container } = render(<PageClient />)
+    await waitFor(() => expect(screen.getByText('索引就绪')).toBeTruthy())
+
+    typeQuery('收购')
+    fireEvent.click(screen.getByRole('button', { name: '快速搜索' }))
+    await waitFor(() => expect(fn).toHaveBeenCalledTimes(2))
+
+    const mark = container.querySelector('mark')
+    expect(mark).toBeTruthy()
+    expect(mark!.textContent).toBe('收购')
+    // 高亮只切分不改写：整段文本与后端 snippet 逐字一致。
+    expect(mark!.closest('p')!.textContent).toBe('A公司收购了B公司')
   })
 })
 
