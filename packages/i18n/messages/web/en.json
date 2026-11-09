@@ -11575,6 +11575,8 @@
     "duplicatePendingTitle": "Previous identical request is still unconfirmed",
     "duplicatePendingDesc": "It may already have run on the server; only the acknowledgement has not arrived. Sending it again may repeat the action.",
     "emptyAnswerFallback": "This turn returned no content",
+    "modelRefresh": "Refresh model list",
+    "modelRefreshRunning": "Refreshing model list…",
     "favorite": "Add bookmark",
     "unfavorite": "Remove bookmark",
     "activityExpandMore": "Show {n} more",

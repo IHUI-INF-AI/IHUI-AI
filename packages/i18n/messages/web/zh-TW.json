@@ -11575,6 +11575,8 @@
     "duplicatePendingTitle": "上一條相同指令尚未確認",
     "duplicatePendingDesc": "它可能已在服務端執行,只是確認還沒回來。重複發送可能造成重複操作。",
     "emptyAnswerFallback": "本輪沒有返回任何內容",
+    "modelRefresh": "重新整理模型清單",
+    "modelRefreshRunning": "正在重新整理模型清單…",
     "favorite": "加入收藏",
     "unfavorite": "取消收藏",
     "activityExpandMore": "展開其餘 {n} 項",
