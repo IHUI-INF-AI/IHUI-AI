@@ -25,6 +25,8 @@ import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { resolveTsxCli } from './lib/tsx-cli.mjs'
+// 产物陈旧自检(2026-11-09):本脚本经 tsx 消费 @ihui/api-client 的新导出,先提示 dist 陈旧
+import { assertDistFresh } from './lib/dist-freshness.mjs'
 // 进程探测单源在两条回灌腿里(§0.6):这里复用同两把,不在本文件重抄 tasklist 判据
 import { probeClientActive as probeTraeClientActive } from './sync-trae-client-session.mjs'
 import { __test__ as qoderSessionSync } from './sync-qoder-client-session.mjs'
@@ -33,6 +35,7 @@ const probeQoderClientActive = qoderSessionSync.probeQoderClientActive
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(HERE, '..')
+assertDistFresh(path.join(ROOT, 'packages', 'api-client'))
 const API_DIR = path.join(ROOT, 'apps', 'api')
 const KEEPALIVE_TS = path.join(API_DIR, 'scripts', 'relay-account-keepalive.ts')
 const MAIL_SCRIPT = path.join(API_DIR, 'scripts', 'notify-deploy-failure.ts')
