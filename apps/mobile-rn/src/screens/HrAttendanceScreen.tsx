@@ -22,7 +22,6 @@ import { NavBar } from '../components/NavBar'
 import { NavChrome } from '../components/NavChrome'
 import { appAlert } from '../components/BottomPops'
 import { useI18n } from '../i18n'
-import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -44,9 +43,8 @@ const STATUS_OK = new Set(['present', 'leave'])
  * 当前为骨架:签到所需的 employeeId / departmentId 由本地输入提供;
  * 正式接入时改为取登录态对应的在职员工上下文(operatedBy 已由后端取 userId)。
  */
-export default function HrAttendanceScreen() {
+export function HrAttendanceScreen() {
   const { t } = useI18n()
-  const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
   const [records, setRecords] = useState<HrRecord[]>([])
   const [loading, setLoading] = useState(true)
