@@ -33,6 +33,10 @@ schema 最小示例(真实接入时新增 `{namespace}.json`):
 - 远端 annotations 只能升级(read → write),不能降级。
 - 本目录的 `env` 只允许 `${ENV}` 引用,禁止字面量值(含密钥);用户私密配置请放
   `~/.ihui/mcp-servers/`(该目录同样按本次架构的信任模型校验)。
+- 可选 `commandEnv`:声明一个环境变量名;该变量存在非空值时覆盖 `command`,
+  否则回落到 `command`。换机器/换安装路径无需改清单。
+- stdio 二进制缺失在激活前即拒绝,错误码 `COMMAND_NOT_FOUND`,消息含期望可执行名、
+  已查 PATH 目录、安装途径与环境变量覆盖方式,不抛裸 spawn/ENOENT。
 - `namespace` 为服务器身份,重复即拒绝,绝不覆盖。
 - 生效时机:进程启动时自动加载;管理员可 `POST /api/mcp/registry/reload` 重扫
   (无 body 路径参数),`GET /api/mcp/registry/status` 查看已加载来源/哈希/分级。

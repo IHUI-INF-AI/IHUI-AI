@@ -178,3 +178,4 @@
 {"path":"scripts/tests/check-grafana-metric-exists.test.mjs","reason":"HEAD 删除历史重建:scripts/tests/check-grafana-metric-exists.test.mjs 在 2026-11-01 起的提交历史中被删除,且当前 HEAD 树无此文件","until":null}
 {"path":"scripts/verify-grafana-logql-panels.mjs","reason":"HEAD 删除历史重建:scripts/verify-grafana-logql-panels.mjs 在 2026-11-01 起的提交历史中被删除,且当前 HEAD 树无此文件","until":null}
 {"path":"scripts/verify-grafana-panel-data.mjs","reason":"HEAD 删除历史重建:scripts/verify-grafana-panel-data.mjs 在 2026-11-01 起的提交历史中被删除,且当前 HEAD 树无此文件","until":null}
+{"path":"packages/database/drizzle/20261106213000_agent_meta_lessons_indexes.sql","reason":"2026-11-10 远端收敛裁决:origin/main 213ce88545 整文件删除该迁移件(理由=其 3 个索引已被 prod 件 20261106150000_fix_missing_indexes_fks.sql 逐条等价覆盖,无差异可留);本侧 blob 与共同基底 1a4f328008 逐字同一即从未改动,删除随合并传播按 git 三方语义不丢内容;合并树内 0 处运行时引用(旁路删除门逐路径实测)","until":null}

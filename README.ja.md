@@ -2226,6 +2226,12 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 ## 最近の更新 (自動維持)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-10**
+- 🔧 その他:合并收口补 AGENTS 点名 scan-api-routes 并按新 HEAD 重封根护栏清单 (f2261133d5)
+
+**2026-11-09**
+- 🚀 機能/改善:autopilot 公网远程 MCP 端点 —— 对外曝光,任何 AI 一行 URL 接入 (225bbcec27)
+
 **2026-11-09**
 - 📚 ドキュメント:按对照实验钉死第 ② 组根因并补线上复验读数 (e3ab29982f)
 - 🐞 修正:第 ② 组改用不可变 sha 做 compare 并补 Dependabot 排除 (fb3283c6f2)
@@ -3918,34 +3924,6 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 - 🐞 修正:T1 预算棘轮补 margin 证据链,自包含复核判据入库 (6013b5e151)
 - 🐞 修正:T1 改并发4+LPT 派发(300s 让位于实测基线),门251 修 staged 参数序+批量取面并补夹具,worktree 自有 node_modules (a8ff738ce2)
 - 🐞 修正:提现状态五语言包补齐 processing(web 管理端映射同步) (7b95c067b2)
-
-**2026-11-06**
-- 🐞 修正:收口 push 门 typecheck 基线 —— 补齐测得出的契约缺口 (16d9e7721a)
-- 🐞 修正:skill_list 注入登记与生产出口对齐,补齐 frontmatter 三字段契约 (01f9dc5075)
-- 🐞 修正:修正 staged 面 git grep 选项顺序,让提交链能真正取到候选清单 (587d320556)
-- 🐞 修正:同步 Maximize2 生成图标(11h 图标替换的派生产物) (80d8b059dd)
-- 🔧 その他:删除 miniapp dispatch 已实际注册帧的过期 missing 登记 (5382b67330)
-- 🐞 修正:补对话流锚点、圆角档位与真重试,重跑 ui-routes 生成物 (f34b4130c3)
-- 🐞 修正:补 read_tool_output 工具名映射与五语言 taskStatus 键 (8fcbd2354b)
-- 🐞 修正:跨端共享屏与 RN 深色前景/圆角角色档收敛到基线内 (3828fdd41b)
-- 🐞 修正:图标位 emoji 换 lucide 组件,同笔收敛品牌前景与圆角角色档 (dc4c471aa2)
-- 📚 ドキュメント:同步生成块计数到当前 HEAD (d4094d7efd)
-- 🐞 修正:门 260 升级 joi 17.13.9 修二次时间 DoS (26d5a88216)
-- 🐞 修正:门 94 补录 4 个未登记 errorCode (571fde5fbd)
-- 🐞 修正:修复 21:05 批改写引入的语法与默认值缺陷，保证空库可从零跑到 370 (523405c8c0)
-- 🐞 修正:清 5 道门红点(173 文档数字 / 207 AGENTS 体积 / 265 ps1 BOM / 267 根护栏重封 / 47 溯源水印) (7c6aff5993)
-- 🐞 修正:门 52 补 windowsHide 防桌面黑窗 (014e9d62fa)
-- 🐞 修正:门 197 截断声明块补计数/总量兄弟键 (56da828293)
-- 🐞 修正:门 263 清零 ruff 欠账 (365722208f)
-- 🐞 修正:隔离必失败的 20261106150000 迁移件并补齐 369/370,解除生产部署阻塞 (93bdb57389)
-- 🔧 その他:sync-readme-numbers 覆盖活性区散文(同门 173 判据)+ 双夹具;README 跟踪数 19496→19498 (8322e79960)
-- 📚 ドキュメント:散文数字同步(apiRoutes 4699→4700,scrub --scope=active 共 11 行) (dcd9eaf10c)
-- 📚 ドキュメント:用 sync-readme-numbers 刷新 README 生成块(apiRoutes 4700 / testFiles 4226 / trackedFiles 19496) (9a8e6fb3e7)
-- 🔧 その他:chat 页(BUG-67 浮层)按复制页重新在册,门 299 判绿 (5130247253)
-- 🐞 修正:rn-shell-types 派生件接入提交链,251 触发面补 types/ (5cc02e6c39)
-
-**2026-11-08**
-- 📚 ドキュメント:同步 RECENT UPDATES 生成块与 doc-autoupdate 基线 (2485323c91)
 <!-- END RECENT UPDATES -->
 
 <p align="center">

@@ -19,11 +19,17 @@
 
 from __future__ import annotations
 
+from contextlib import AbstractContextManager
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
+from ...core.worker_exec_context import (
+    WorkerExecContextError,
+    build_worker_exec_context,
+    worker_exec_scope,
+)
 from ...services.agent_orchestrator import (
     AgentDefinition,
     agent_orchestrator,
@@ -31,6 +37,21 @@ from ...services.agent_orchestrator import (
 from ...services.task_decomposer import task_decomposer
 
 router = APIRouter()
+
+
+def _worker_scope(cwd: str | None, env: dict[str, str] | None) -> AbstractContextManager[None]:
+    """校验请求级 cwd/env 并返回执行作用域;非法值 400,绝不放行。
+
+    注意:这是**护栏不是沙箱** —— 同一 OS 用户下绝对路径仍可绕过,
+    详见 app/core/worker_exec_context.py 模块说明。
+    """
+    try:
+        return worker_exec_scope(build_worker_exec_context(cwd, env))
+    except WorkerExecContextError as e:
+        raise HTTPException(
+            status_code=400,
+            detail={"errorCode": "WORKER_EXEC_CONTEXT_INVALID", "message": str(e)},
+        ) from e
 
 
 class AgentInvokeRequest(BaseModel):
@@ -58,6 +79,14 @@ class PipelineRequest(BaseModel):
     steps: list[PipelineStep] = Field(..., description="步骤列表")
     initial_input: str = Field(..., description="初始输入")
     session_id: str | None = Field(None, description="共享 session id")
+    cwd: str | None = Field(
+        None,
+        description="工人执行目录(绝对路径,须在 MCP_WORKSPACE_ROOTS 内;护栏非沙箱)",
+    )
+    env: dict[str, str] | None = Field(
+        None,
+        description="工人环境覆盖(仅白名单键,非法键直接拒绝)",
+    )
 
 
 class ParallelRequest(BaseModel):
@@ -65,6 +94,14 @@ class ParallelRequest(BaseModel):
 
     items: list[dict[str, Any]] = Field(..., description="[{agent, input}, ...]")
     session_id: str | None = Field(None, description="共享 session id")
+    cwd: str | None = Field(
+        None,
+        description="工人执行目录(绝对路径,须在 MCP_WORKSPACE_ROOTS 内;护栏非沙箱)",
+    )
+    env: dict[str, str] | None = Field(
+        None,
+        description="工人环境覆盖(仅白名单键,非法键直接拒绝)",
+    )
 
 
 class RegisterAgentRequest(BaseModel):
@@ -110,13 +147,15 @@ async def agent_invoke(req: AgentInvokeRequest) -> dict[str, Any]:
 @router.post("/agent/pipeline")
 async def agent_pipeline(req: PipelineRequest) -> dict[str, Any]:
     """串行 pipeline 编排。"""
+    scope = _worker_scope(req.cwd, req.env)
     try:
         steps_dict = [s.model_dump() for s in req.steps]
-        result = await agent_orchestrator.run_pipeline(
-            steps=steps_dict,
-            initial_input=req.initial_input,
-            session_id=req.session_id,
-        )
+        with scope:
+            result = await agent_orchestrator.run_pipeline(
+                steps=steps_dict,
+                initial_input=req.initial_input,
+                session_id=req.session_id,
+            )
         return {
             "code": 0 if result.status == "completed" else 1,
             "message": "ok" if result.status == "completed" else "pipeline failed",
@@ -133,11 +172,13 @@ async def agent_pipeline(req: PipelineRequest) -> dict[str, Any]:
 @router.post("/agent/parallel")
 async def agent_parallel(req: ParallelRequest) -> dict[str, Any]:
     """并行多 agent 编排。"""
+    scope = _worker_scope(req.cwd, req.env)
     try:
-        result = await agent_orchestrator.run_parallel(
-            agent_inputs=req.items,
-            session_id=req.session_id,
-        )
+        with scope:
+            result = await agent_orchestrator.run_parallel(
+                agent_inputs=req.items,
+                session_id=req.session_id,
+            )
         return {
             "code": 0 if result.status == "completed" else 1,
             "message": "ok" if result.status == "completed" else "partial failed",
@@ -210,6 +251,14 @@ class RunDecomposedRequest(BaseModel):
     task: str = Field(..., description="任务描述")
     strategy: str = Field("dag", description="分解策略:sequential/parallel/dag/recursive")
     session_id: str | None = Field(None, description="会话 ID")
+    cwd: str | None = Field(
+        None,
+        description="工人执行目录(绝对路径,须在 MCP_WORKSPACE_ROOTS 内;护栏非沙箱)",
+    )
+    env: dict[str, str] | None = Field(
+        None,
+        description="工人环境覆盖(仅白名单键,非法键直接拒绝)",
+    )
 
 
 @router.post("/agent/decompose")
@@ -244,12 +293,14 @@ async def agent_run_decomposed(req: RunDecomposedRequest) -> dict[str, Any]:
 
     返回 OrchestrationResult(steps / finalOutput / status / totalDurationMs / trace)。
     """
+    scope = _worker_scope(req.cwd, req.env)
     try:
-        result = await agent_orchestrator.run_decomposed(
-            task=req.task,
-            strategy=req.strategy,
-            session_id=req.session_id,
-        )
+        with scope:
+            result = await agent_orchestrator.run_decomposed(
+                task=req.task,
+                strategy=req.strategy,
+                session_id=req.session_id,
+            )
         return {
             "code": 0 if result.status == "completed" else 1,
             "message": "ok" if result.status == "completed" else "decomposed run failed",

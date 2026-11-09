@@ -101,6 +101,8 @@ import { CostEstimateBar } from '@/components/ai/cost-estimate-bar'
 // D73 多任务窗格(G-100,2026-09-24):布局壳 + 窗格 store + 判定层类型/纯函数
 import { PaneSplitContainer } from '@/components/ai/pane-split-container'
 import { ChatPaneBody } from '@/components/ai/chat-pane-body'
+// 2026-11-08 立:提问改为消息流内联卡(原 QuestionDialog 弹窗退场)
+import { InlineQuestionCard } from '@/components/ai/inline-question-card'
 import { ChatPaneProvider } from '@/stores/chat-pane-context'
 import { usePaneSplitStore, rehydratePaneSplitLayout } from '@/stores/pane-split'
 import {
@@ -165,11 +167,6 @@ const WorkspacePermissionDialog = dynamic(
     import('@/components/workspace/workspace-permission-dialog').then(
       (m) => m.WorkspacePermissionDialog,
     ),
-  { ssr: false },
-)
-/** AI 主动提问弹窗(173 行):仅 pendingQuestion 非空时可见 */
-const QuestionDialog = dynamic(
-  () => import('@/components/chat/question-dialog').then((m) => m.QuestionDialog),
   { ssr: false },
 )
 /** 压缩状态栏(338 行):仅压缩进行中可见 */
@@ -376,8 +373,7 @@ export function AISidePanel() {
     isStreaming,
     pendingQuestion,
     sendMessage,
-    sendAnswer,
-    skipQuestion,
+    submitQuestionResponse,
     stop,
     clearMessages,
     setModel,
@@ -1567,6 +1563,14 @@ export function AISidePanel() {
                 }
               : undefined
           }
+          // 2026-11-08 立:提问内联卡跟随最后一条消息,处于滚动区内(非模态浮层)
+          trailing={
+            <InlineQuestionCard
+              question={pendingQuestion}
+              onSubmit={submitQuestionResponse}
+              className="mb-2 px-1"
+            />
+          }
         />
         {/* Agent 任务进度 popover(v14:absolute 锚定到本容器右上角,不再 fixed 到视口)
                 由 store.open 联动显隐,trigger 在 MessageInput 上方居中切换 store
@@ -1608,8 +1612,7 @@ export function AISidePanel() {
         modelLabel={t('model')}
       />
 
-      {/* AI 主动提问弹窗:挂起对话,等用户回答后续流 */}
-      <QuestionDialog question={pendingQuestion} onSubmit={sendAnswer} onSkip={skipQuestion} />
+      {/* AI 主动提问已改为消息流内联卡(MessageList trailing 插槽),不再渲染弹窗 */}
       {/* D28 补齐层:「用场景分析」弹窗。自建会话永不挂载(没有可选的来源族,
           场景推荐也无从判断),避免挂一个点开就是"无推荐"的空壳。 */}
       {importProvenance && (

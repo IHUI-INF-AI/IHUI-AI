@@ -379,10 +379,7 @@ export async function scanAndRemindArrears(options?: {
     .select({ enrollmentId: eduFeeReminder.enrollmentId })
     .from(eduFeeReminder)
     .where(
-      and(
-        gte(eduFeeReminder.createdAt, beijingMidnightUtc()),
-        eq(eduFeeReminder.status, 'sent'),
-      ),
+      and(gte(eduFeeReminder.createdAt, beijingMidnightUtc()), eq(eduFeeReminder.status, 'sent')),
     )
   const sentToday = new Set(
     sentTodayRows.map((r) => r.enrollmentId).filter((id): id is string => id !== null),

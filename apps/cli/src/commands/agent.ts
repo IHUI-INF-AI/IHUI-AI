@@ -36,7 +36,6 @@ import {
   registerTools,
   registerBrowserTools,
   listTools,
-  buildSystemPrompt,
   parsePlanBlock,
   executeToolCall,
   formatToolResult,
@@ -53,6 +52,9 @@ import {
   type Tool,
   type ToolContext,
 } from '../tools/index.js';
+import { createToolSearchTool } from '../tools/tool-search.js';
+import { composeSystemPrompt } from '../prompts/compose.js';
+import { parseWelcomeMode, parseInteractionMode } from '../prompts/mode-matrix.js';
 import { BUILTIN_TOOLS } from '../tools/builtins.js';
 // 人事考勤(HR)工具族:AI 对话框可调用操作考勤/部门/员工/请假(复用 @ihui/attendance-core 判定内核)。
 import { HR_TOOLS } from '../tools/hr.js';
@@ -160,10 +162,12 @@ import {
   declarationDiagnosticsOf,
   dispatchPluginCommandContributors,
   loadPluginsWithContributionAudit,
+  loadPluginsWithVersionPolicy,
   type PluginDiagnostic,
   type PluginHookContext,
   type PluginHookEvent,
   type PluginLogger,
+  type PluginVersionPolicy,
 } from '../plugins/index.js';
 // 宿主在册命令名面(对账用):只读注册表出口,不在这里另立第二份命令名单。
 import { getAllSlashNames } from './slash-registry.js';
@@ -259,6 +263,10 @@ export interface AgentOptions {
   signal?: AbortSignal;
   /** 强制 LLM 先输出 plan 块再执行工具 */
   planFirst?: boolean;
+  /** 欢迎模式(--welcome-mode;缺省 code)。 */
+  welcomeMode?: string;
+  /** 交互模式(--interaction-mode;缺省按 planFirst → plan,否则 craft)。 */
+  interactionMode?: string;
   /**
    * P0-C(2026-09-17 立):自动批准 LLM 提出的 plan 块(危险)。
    * 仅在 --auto-approve-plan 显式开启或 bypassPermissions 模式下生效;
@@ -383,6 +391,10 @@ export interface SetupAgentToolsOptions {
   allowDangerous?: boolean;
   /** 强制 LLM 先输出 plan 块再执行工具 */
   planFirst?: boolean;
+  /** 欢迎模式(CLI 参数优先;缺省 code)。非法值 fail-closed 抛错。 */
+  welcomeMode?: string;
+  /** 交互模式(CLI 参数优先;缺省按 planFirst → plan,否则 craft)。非法值 fail-closed 抛错。 */
+  interactionMode?: string;
   /** 子 agent 父配置(提供则注册 dispatch_subagent 工具) */
   subagentParent?: {
     modelId: string;
@@ -494,6 +506,16 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
     agentId: opts.agentId,
   }));
   const settings = loadSettings();
+  // ==== 模式矩阵 + 延迟工具装载(2026-11) ====
+  // 模式优先取 CLI 参数;缺省向后兼容:planFirst 开启 ⇒ plan(强制规划),否则 craft。
+  // 非法值由 parse* 抛错(fail-closed):拼错的模式名绝不允许静默回落成 all。
+  const welcomeMode = parseWelcomeMode(opts.welcomeMode) ?? 'code';
+  const interactionMode = parseInteractionMode(opts.interactionMode)
+    ?? (opts.planFirst === true || settings.planFirst === true ? 'plan' : 'craft');
+  // revealed 必须是**会话局部**:tool_search 命中后写入,新会话重新开始,且不落盘。
+  // 放模块级 Set 会让同进程两个会话互相污染工具面。
+  const revealedTools = new Set<string>();
+  registerTools([createToolSearchTool({ revealed: revealedTools })]);
   // 会话级 worktree 隔离(enter_worktree / exit_worktree):与子代理隔离腿同一套创建/回收实现。
   // 无条件注册:是否真的需要隔离由模型按任务决定,注册面不能替它预判(与 git 族同档)。
   registerTools(WORKTREE_TOOLS);
@@ -569,7 +591,22 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
       // goal-b49/W2:换成带贡献审计的同一族出口。装载器对每份清单的 `contributes` 逐档裁决,
       // declined(本宿主无落点 / 默认拒)与 unknown-kind(不在词表内)**各占 diagnostics 一条**,
       // 所以人前可见靠的还是下面这条既有派发,不另开通道、不新增环境变量、不升任何档。
-      const { plugins: defs, diagnostics } = loadPluginsWithContributionAudit({ pluginsDir });
+      // #12 多版本共存:只有显式配置(multiVersion / versionPins / disabledVersions)才走共存通道,
+      // 否则保持原严格出口 —— 同名多份不分版本仍弃权,零回归。
+      const pins = settings.plugins.versionPins;
+      const disabledVersions = settings.plugins.disabledVersions;
+      const multiVersion =
+        settings.plugins.multiVersion === true ||
+        (pins !== undefined && Object.keys(pins).length > 0) ||
+        (disabledVersions !== undefined && disabledVersions.length > 0);
+      const policy: PluginVersionPolicy = {};
+      if (pins !== undefined) policy.pins = pins;
+      if (disabledVersions !== undefined) policy.disabled = disabledVersions;
+      const loaded = multiVersion
+        ? loadPluginsWithVersionPolicy({ pluginsDir, policy })
+        : loadPluginsWithContributionAudit({ pluginsDir });
+      const defs = loaded.plugins;
+      const diagnostics = loaded.diagnostics;
       // 派发放在 defs.length 判据**之前**:全部清单都坏时 defs 为空,旧形态下"一个都没装上"
       // 反而零行日志,那正是本票要消灭的静默。装载继续(永不抛穿),诊断逐条点名到 logger。
       if (!opts.silent) {
@@ -632,7 +669,16 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
     ? injectHostSection('context_memory', memoryText, { kind: 'reference_data' })
     : '';
   const extraContext = [agentsMdSection, skillsText, memorySection].filter(Boolean).join('\n\n');
-  const systemPrompt = buildSystemPrompt(tools, extraContext, opts.planFirst);
+  // 唯一装配路径:模式矩阵过滤工具 → 片段经登记出口注入 → buildSystemPrompt 拼装。
+  // revealed 随会话传入(会话局部 Set),命中工具的完整 schema 由 tool_search 直接返回给模型;
+  // 本函数的 systemPrompt 只装配一次,不在轮间重建。
+  const systemPrompt = composeSystemPrompt({
+    welcome: welcomeMode,
+    interaction: interactionMode,
+    tools,
+    extraContext,
+    revealed: revealedTools,
+  });
   const resolvedSandbox = resolveSandboxOptions(
     settings.sandbox?.profile,
     settings.sandbox ?? {},
@@ -734,6 +780,10 @@ export interface RunToolLoopOptions {
   contextLimit?: number;
   /** 是否启用 plan 强制阻断(配合 planApproved 控制) */
   planFirst?: boolean;
+  /** 欢迎模式(--welcome-mode;缺省 code)。仅影响 system prompt 片段与工具面,不影响权限链。 */
+  welcomeMode?: string;
+  /** 交互模式(--interaction-mode;缺省按 planFirst → plan,否则 craft)。同上,只管提示面。 */
+  interactionMode?: string;
   /** plan 是否已被批准;true 时跳过阻断,允许工具执行。P0-C 修复后仅由真实审批来源置 true */
   planApproved?: boolean;
   /**
@@ -3098,6 +3148,8 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
     enableMcp: opts.enableMcp,
     silent,
     planFirst: opts.planFirst,
+    welcomeMode: opts.welcomeMode,
+    interactionMode: opts.interactionMode,
     subagentParent: {
       modelId: opts.modelId,
       apiUrl: opts.apiUrl,
@@ -3281,6 +3333,8 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
       signal: opts.signal,
       sessionId: opts.session?.id,
       planFirst: opts.planFirst,
+      welcomeMode: opts.welcomeMode,
+      interactionMode: opts.interactionMode,
       // P0-C:plan 审批门 — 透传显式 auto 标志(headless 非交互无回调时由 runToolLoop fail-fast)
       autoApprovePlan: opts.autoApprovePlan,
       // 零推进闸:只有无头单次执行才把"什么都没做"判成失败(交互式 REPL 不走本函数)

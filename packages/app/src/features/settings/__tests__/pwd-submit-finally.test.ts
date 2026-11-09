@@ -10,10 +10,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-const SRC = readFileSync(
-  join(__dirname, '..', '..', 'settings', 'SettingsScreen.tsx'),
-  'utf8',
-)
+const SRC = readFileSync(join(__dirname, '..', '..', 'settings', 'SettingsScreen.tsx'), 'utf8')
 
 describe('XUI-020 修改密码失败不得卡死按钮', () => {
   it('onChangePassword 调用被 try 包住,并带 catch 兜底', () => {

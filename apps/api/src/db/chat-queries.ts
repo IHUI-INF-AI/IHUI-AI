@@ -1962,7 +1962,12 @@ export async function replaceMessages(
       const [owned] = await tx
         .select({ id: chatConversations.id })
         .from(chatConversations)
-        .where(and(eq(chatConversations.id, conversationId), eq(chatConversations.userId, expectedUserId)))
+        .where(
+          and(
+            eq(chatConversations.id, conversationId),
+            eq(chatConversations.userId, expectedUserId),
+          ),
+        )
         .limit(1)
       if (!owned) return
     }

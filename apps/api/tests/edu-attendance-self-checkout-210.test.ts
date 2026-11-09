@@ -71,7 +71,8 @@ vi.mock('../src/db/index.js', () => {
       if (kind === 'select') H.selectCalls += 1
       if (kind === 'update') H.updateCalls += 1
       if (kind === 'insert') H.insertCalls += 1
-      const q = kind === 'select' ? H.selectQueue : kind === 'update' ? H.updateQueue : H.insertQueue
+      const q =
+        kind === 'select' ? H.selectQueue : kind === 'update' ? H.updateQueue : H.insertQueue
       return Promise.resolve(q.length > 0 ? (q.shift() ?? []) : []).then(resolve, reject)
     }
     return step
@@ -98,13 +99,15 @@ vi.mock('../src/plugins/require-permission.js', () => ({
 
 /** 鉴权桩:学生端点只认承载层注入的 request.userId;未登录时模拟真实插件"已发 401 再返回 false"。 */
 vi.mock('../src/plugins/auth.js', () => ({
-  checkAuthOrInternalService: vi.fn(async (_request: unknown, reply: { status: (n: number) => { send: (b: unknown) => void } }) => {
-    if (!H.authed) {
-      reply.status(401).send({ code: 401, message: 'Authentication required' })
-      return false
-    }
-    return { valid: true, userId: STUDENT }
-  }),
+  checkAuthOrInternalService: vi.fn(
+    async (_request: unknown, reply: { status: (n: number) => { send: (b: unknown) => void } }) => {
+      if (!H.authed) {
+        reply.status(401).send({ code: 401, message: 'Authentication required' })
+        return false
+      }
+      return { valid: true, userId: STUDENT }
+    },
+  ),
 }))
 
 vi.mock('../src/utils/logger.js', () => ({

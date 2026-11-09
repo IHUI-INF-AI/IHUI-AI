@@ -15,7 +15,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 const store = vi.hoisted(() => ({
   wallet: 0,
   flows: [] as Array<{ amount: number; balanceAfter: number }>,
-  costs: [] as Array<{ userId: string; totalTokens: number; requestType: string; cost?: number; metadata?: string }>,
+  costs: [] as Array<{
+    userId: string
+    totalTokens: number
+    requestType: string
+    cost?: number
+    metadata?: string
+  }>,
   usageQueue: [] as number[],
 }))
 
@@ -115,11 +121,13 @@ beforeEach(() => {
   store.usageQueue = [100, 150, 50]
   // 定价:prompt 300 分/千 token,completion 600 分/千 token
   mocks.resolveAiCost.mockReset()
-  mocks.resolveAiCost.mockImplementation(async (input: { promptTokens: number; completionTokens: number }) => ({
-    cost: (input.promptTokens / 1000) * 300 + (input.completionTokens / 1000) * 600,
-    currency: 'CNY',
-    pricing: null,
-  }))
+  mocks.resolveAiCost.mockImplementation(
+    async (input: { promptTokens: number; completionTokens: number }) => ({
+      cost: (input.promptTokens / 1000) * 300 + (input.completionTokens / 1000) * 600,
+      currency: 'CNY',
+      pricing: null,
+    }),
+  )
   mocks.recordAiCost.mockReset()
   mocks.recordAiCost.mockImplementation(async (input) => {
     store.costs.push(input)
@@ -143,7 +151,11 @@ beforeEach(() => {
 describe('F-203 Crew 子 LLM 计费(按成本折算,单位分)', () => {
   it('3 次调用:按 ai_pricing 折算成本扣钱包,流水与 ai_cost_records 同一个数', async () => {
     for (let i = 0; i < 3; i++) {
-      await callRealLlm({ messages: [{ role: 'user', content: `第${i}次` }], userId: 'u1', sessionId: 's1' })
+      await callRealLlm({
+        messages: [{ role: 'user', content: `第${i}次` }],
+        userId: 'u1',
+        sessionId: 's1',
+      })
     }
 
     // 100/150/50 token ⇒ 48/72/24 分(不再是 100/150/50)
@@ -154,16 +166,20 @@ describe('F-203 Crew 子 LLM 计费(按成本折算,单位分)', () => {
     expect(store.costs.map((c) => c.cost)).toEqual([48, 72, 24])
     expect(store.costs.map((c) => c.cost)).toEqual(store.flows.map((f) => f.amount))
     expect(store.costs.map((c) => c.totalTokens)).toEqual([100, 150, 50])
-    expect(
-      store.costs.map((c) => JSON.parse(c.metadata!).billing.billingShortfallCents),
-    ).toEqual([0, 0, 0])
+    expect(store.costs.map((c) => JSON.parse(c.metadata!).billing.billingShortfallCents)).toEqual([
+      0, 0, 0,
+    ])
   })
 
   it('零余额:预检 402,不发起上游调用、不落成本/流水', async () => {
     store.wallet = 0
 
     await expect(
-      callRealLlm({ messages: [{ role: 'user', content: '零余额' }], userId: 'u1', sessionId: 's1' }),
+      callRealLlm({
+        messages: [{ role: 'user', content: '零余额' }],
+        userId: 'u1',
+        sessionId: 's1',
+      }),
     ).rejects.toMatchObject({ statusCode: 402, errorCode: 'INSUFFICIENT_BALANCE' })
 
     expect(mocks.aiServiceFetch).not.toHaveBeenCalled()
@@ -176,7 +192,11 @@ describe('F-203 Crew 子 LLM 计费(按成本折算,单位分)', () => {
     const longMessage = '长'.repeat(100)
 
     await expect(
-      callRealLlm({ messages: [{ role: 'user', content: longMessage }], userId: 'u1', sessionId: 's1' }),
+      callRealLlm({
+        messages: [{ role: 'user', content: longMessage }],
+        userId: 'u1',
+        sessionId: 's1',
+      }),
     ).rejects.toMatchObject({ statusCode: 402, errorCode: 'INSUFFICIENT_BALANCE' })
 
     expect(mocks.aiServiceFetch).not.toHaveBeenCalled()
@@ -211,7 +231,11 @@ describe('F-203 Crew 子 LLM 计费(按成本折算,单位分)', () => {
     // 第二次:余额 0,预检 402,上游调用数仍为 1
     store.usageQueue = [10]
     await expect(
-      callRealLlm({ messages: [{ role: 'user', content: '再来一次' }], userId: 'u1', sessionId: 's1' }),
+      callRealLlm({
+        messages: [{ role: 'user', content: '再来一次' }],
+        userId: 'u1',
+        sessionId: 's1',
+      }),
     ).rejects.toMatchObject({ statusCode: 402, errorCode: 'INSUFFICIENT_BALANCE' })
     expect(mocks.aiServiceFetch).toHaveBeenCalledTimes(1)
   })

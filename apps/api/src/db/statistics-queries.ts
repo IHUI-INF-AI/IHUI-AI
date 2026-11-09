@@ -390,7 +390,9 @@ export interface UserCenterStatistics {
  *  - studyHours  = watchDuration 秒数聚合成小时,保留 1 位小数(与 edu-frontend-routes
  *    的学习时长算法同式,不另立第二套舍入)
  */
-export async function getUserCenterStats(userId: string): Promise<{ courseCount: number; studyHours: number }> {
+export async function getUserCenterStats(
+  userId: string,
+): Promise<{ courseCount: number; studyHours: number }> {
   const [lessonRows, durationRows] = await Promise.all([
     db
       .select({ n: sql<number>`COUNT(DISTINCT ${lessonRecords.lessonId})::int` })

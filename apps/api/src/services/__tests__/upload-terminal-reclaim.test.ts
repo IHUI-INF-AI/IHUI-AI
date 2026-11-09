@@ -52,12 +52,12 @@ describe('F-381 终态会话短 TTL 回收', () => {
     expect(
       isUploadSessionExpired(row(UPLOAD_SESSION_STATUS.contentRejected, TWO_HOURS_AGO), NOW),
     ).toBe(true)
-    expect(
-      isUploadSessionExpired(row(UPLOAD_SESSION_STATUS.completed, TWO_HOURS_AGO), NOW),
-    ).toBe(false)
-    expect(
-      isUploadSessionExpired(row(UPLOAD_SESSION_STATUS.cancelled, TWO_HOURS_AGO), NOW),
-    ).toBe(false)
+    expect(isUploadSessionExpired(row(UPLOAD_SESSION_STATUS.completed, TWO_HOURS_AGO), NOW)).toBe(
+      false,
+    )
+    expect(isUploadSessionExpired(row(UPLOAD_SESSION_STATUS.cancelled, TWO_HOURS_AGO), NOW)).toBe(
+      false,
+    )
     expect(PROTOCOL_UPLOAD_LIMITS.terminalTtlMs).toBeGreaterThan(0)
     expect(PROTOCOL_UPLOAD_LIMITS.terminalTtlMs).toBeLessThan(PROTOCOL_UPLOAD_LIMITS.ttlMs)
   })

@@ -164,6 +164,8 @@ export interface MessageUsage {
 export interface QuestionOption {
   id: string
   label: string
+  /** 选项的一句话说明(新帧可选;旧数据没有) */
+  description?: string
 }
 
 /** AI 主动提问(挂起对话,等用户回答后继续) */
@@ -173,6 +175,10 @@ export interface PendingQuestion {
   options: QuestionOption[]
   allowCustom: boolean
   allowMultiple: boolean
+  /** 卡片小标题(新帧可选;旧数据没有) */
+  header?: string
+  /** 答复截止时间(ISO 字符串或毫秒时间戳,新帧可选;有则卡片走倒计时/超时只读) */
+  expiresAt?: string | number
   /** 关联的 assistant 消息 ID,用户回答后追加到该消息上下文 */
   assistantMessageId?: string
 }
@@ -615,6 +621,8 @@ export interface ChatState {
   setPendingQuestion: (q: PendingQuestion | null) => void
   /** 清空挂起的提问(用户回答后或续流开始时调用) */
   clearPendingQuestion: () => void
+  /** 仅当 questionId 与当前挂起提问匹配时清空(SSE question-resolved 结算帧用,避免误抹别的提问) */
+  clearPendingQuestionFor: (questionId: string) => void
   /** 追加 token 到指定 sub-agent 的流式内容;agentId 不存在时自动创建新活动条目 */
   appendToAgentStream: (agentId: string, delta: string, name?: string) => void
   /** 标记所有 sub-agent 流式结束(stream 结束时调用,UI 切换为已完成态) */
@@ -1578,6 +1586,13 @@ const buildChatState: ChatStateCreator = (set, get) => ({
   setPendingQuestion: (q) => set({ pendingQuestion: q }),
 
   clearPendingQuestion: () => set({ pendingQuestion: null }),
+
+  clearPendingQuestionFor: (questionId) =>
+    set((s) =>
+      s.pendingQuestion && s.pendingQuestion.questionId === questionId
+        ? { pendingQuestion: null }
+        : {},
+    ),
 
   appendToAgentStream: (agentId, delta, name) =>
     set((s) => {

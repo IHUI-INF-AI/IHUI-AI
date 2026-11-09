@@ -51,7 +51,16 @@ vi.mock('../src/plugins/require-permission.js', () => ({
 vi.mock('../src/db/index.js', () => {
   const chain = (rows: unknown[]) => {
     const b: Record<string, unknown> = {}
-    for (const m of ['from', 'where', 'orderBy', 'limit', 'offset', 'innerJoin', 'leftJoin', 'groupBy']) {
+    for (const m of [
+      'from',
+      'where',
+      'orderBy',
+      'limit',
+      'offset',
+      'innerJoin',
+      'leftJoin',
+      'groupBy',
+    ]) {
       b[m] = () => b
     }
     b.then = (res: (v: unknown) => unknown, rej?: (e: unknown) => unknown) =>
@@ -172,7 +181,8 @@ describe('F-693 自动重判路由状态方向', () => {
 
   beforeAll(async () => {
     server.setErrorHandler((err: FastifyError, _req, reply) => {
-      const code = err.statusCode && err.statusCode >= 400 && err.statusCode < 600 ? err.statusCode : 500
+      const code =
+        err.statusCode && err.statusCode >= 400 && err.statusCode < 600 ? err.statusCode : 500
       reply.status(code).send({ code, message: code >= 500 ? '服务器错误' : err.message })
     })
     server.decorate('recordExamStarted', () => {})

@@ -1074,7 +1074,8 @@ const v1ProtocolCompletenessRoutes: FastifyPluginAsync = async (server) => {
         // F-190:上游用平台 Key 列全账号任务,这里只保留当前调用者创建的任务。
         const visible: FineTuningJob[] = []
         for (const j of upstreamJobs) {
-          const cached = j && typeof j.id === 'string' ? await loadFineTuningJob(request, j.id) : null
+          const cached =
+            j && typeof j.id === 'string' ? await loadFineTuningJob(request, j.id) : null
           if (cached && cached.ownerUserId === ctx.userId) visible.push(j)
         }
         const result: FineTuningJobListResponse = {

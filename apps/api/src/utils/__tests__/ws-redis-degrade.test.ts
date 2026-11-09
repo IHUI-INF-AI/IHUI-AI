@@ -16,14 +16,30 @@ const fake = vi.hoisted(() => {
   const capturedOptions: Array<Record<string, unknown>> = []
   class FakePipeline {
     constructor(private readonly client: FakeRedis) {}
-    zremrangebyscore(): this { return this }
-    zadd(): this { return this }
-    zcard(): this { return this }
-    pexpire(): this { return this }
-    rpush(): this { return this }
-    ltrim(): this { return this }
-    expire(): this { return this }
-    exec(): Promise<unknown> { return this.client.command() }
+    zremrangebyscore(): this {
+      return this
+    }
+    zadd(): this {
+      return this
+    }
+    zcard(): this {
+      return this
+    }
+    pexpire(): this {
+      return this
+    }
+    rpush(): this {
+      return this
+    }
+    ltrim(): this {
+      return this
+    }
+    expire(): this {
+      return this
+    }
+    exec(): Promise<unknown> {
+      return this.client.command()
+    }
   }
   class FakeRedis {
     private readonly options: Record<string, unknown>
@@ -31,11 +47,21 @@ const fake = vi.hoisted(() => {
       this.options = options
       capturedOptions.push(options)
     }
-    on(): this { return this }
-    once(): this { return this }
-    quit(): Promise<'OK'> { return Promise.resolve('OK') }
-    duplicate(): FakeRedis { return new FakeRedis('dup', this.options) }
-    subscribe(): Promise<number> { return Promise.resolve(1) }
+    on(): this {
+      return this
+    }
+    once(): this {
+      return this
+    }
+    quit(): Promise<'OK'> {
+      return Promise.resolve('OK')
+    }
+    duplicate(): FakeRedis {
+      return new FakeRedis('dup', this.options)
+    }
+    subscribe(): Promise<number> {
+      return Promise.resolve(1)
+    }
     command<T>(): Promise<T> {
       // 新实现必须关离线队列:未连接时立即 reject,走各工具的 catch 降级分支。
       if ((this.options as { enableOfflineQueue?: boolean }).enableOfflineQueue === false) {
@@ -44,13 +70,27 @@ const fake = vi.hoisted(() => {
       // 旧实现:命令进离线队列后永不 settle。
       return new Promise<T>(() => {})
     }
-    set(): Promise<'OK'> { return this.command() }
-    get(): Promise<string | null> { return this.command() }
-    lrange(): Promise<string[]> { return this.command() }
-    del(): Promise<number> { return this.command() }
-    expire(): Promise<number> { return this.command() }
-    publish(): Promise<number> { return this.command() }
-    pipeline(): FakePipeline { return new FakePipeline(this) }
+    set(): Promise<'OK'> {
+      return this.command()
+    }
+    get(): Promise<string | null> {
+      return this.command()
+    }
+    lrange(): Promise<string[]> {
+      return this.command()
+    }
+    del(): Promise<number> {
+      return this.command()
+    }
+    expire(): Promise<number> {
+      return this.command()
+    }
+    publish(): Promise<number> {
+      return this.command()
+    }
+    pipeline(): FakePipeline {
+      return new FakePipeline(this)
+    }
   }
   return { FakeRedis, capturedOptions }
 })

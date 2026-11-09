@@ -36,6 +36,8 @@ import { logger } from '../utils/logger.js'
 import { aiServiceSystemFetch } from '../utils/ai-service-fetch.js'
 import { releaseTaskLockByTaskId, toLockReleaseOutcome } from './workspace-lock-heartbeat.js'
 import { broadcastSSEEvent } from './agent-sse-bus.js'
+import { buildWorkerDispatchEnv } from './worker-dispatch-env.js'
+import { WORKER_SESSION_PREFIX } from '@ihui/shared/super-agent'
 // 活跃状态判据的唯一出口(2026-11-01,S-ACTIVE):listActive 与并发计数共用一份
 import { isActiveDispatchStatus } from '../utils/dispatch-status.js'
 // 归属回填只处理 uuid 形态的关联 id(非 uuid 直接跳过,避免 Postgres 22P02 把整批装载打断)
@@ -135,6 +137,41 @@ const DEFAULT_MAX_CONCURRENT = 6
 
 /** 单租户在跑上限(与全局上限取小,是「单租户打满不影响他人」的关键保护) */
 const DEFAULT_TENANT_MAX_CONCURRENT = 3
+
+/**
+ * 单租户在跑上限的外部真相源(2026-11-07 收敛,替代「两套各写一份默认值」)。
+ *
+ * 通用派单入口仍落到 DEFAULT_TENANT_MAX_CONCURRENT;超级智能体宿主在进程启动时把解析器
+ * 注册成 `host.maxWorkersFor(owner)` —— 引擎接收/开工判据读的是同一个 policy.maxWorkers,
+ * 因此「引擎认为还有槽」与「下游判不超限」不再各算一套账。
+ * 解析器返回非法值(<1 / 非有限数)一律回落默认值,不得静默放大限额。
+ */
+let tenantConcurrencyLimitResolver:
+  ((ownerUserId: string | undefined) => number | undefined) | null = null
+
+/** 注入/清空租户上限解析器(null = 回到默认值)。只由宿主接线层调用。 */
+export function setTenantConcurrencyLimitResolver(
+  resolver: ((ownerUserId: string | undefined) => number | undefined) | null,
+): void {
+  tenantConcurrencyLimitResolver = resolver
+}
+
+function tenantConcurrencyLimit(ownerUserId: string | undefined): number {
+  const resolved = tenantConcurrencyLimitResolver?.(ownerUserId)
+  if (typeof resolved !== 'number' || !Number.isFinite(resolved) || resolved < 1) {
+    return DEFAULT_TENANT_MAX_CONCURRENT
+  }
+  return Math.floor(resolved)
+}
+
+/**
+ * 宿主工人派单判定：会话 id 前缀与 shared/super-agent roles.executionFor 同一常量。
+ * 恢复/排空时 runtime 可能没有内存字段，靠派单记录里的 sessionId 还原「宿主已占槽」语义，
+ * 避免重启后第 maxWorkers 个工人又被优先级档拦成 queued。
+ */
+function isHostWorkerSession(sessionId: string | undefined): boolean {
+  return typeof sessionId === 'string' && sessionId.startsWith(WORKER_SESSION_PREFIX)
+}
 
 /**
  * 单租户单优先级在跑上限(仍需同时满足租户总上限)。
@@ -308,6 +345,12 @@ export interface ExtendedDispatchInput extends DispatchInput {
    * 落在派单记录上并随 Redis 持久化,供 GET /subagents/all 按租户口径过滤。
    */
   ownerUserId?: string
+  /**
+   * 宿主已为该任务占槽(超级智能体 worker 专用,服务端注入)。
+   * 准入时跳过「同租户同优先级」这一档二次拦截 —— 否则引擎按 maxWorkers 放行 3 个工人,
+   * 下游却按 normal=2 把第 3 个落 queued,两套判定自相矛盾;租户/全局硬上限仍然生效。
+   */
+  capacityReserved?: boolean
 }
 
 /** 全局统计 */
@@ -581,6 +624,8 @@ interface DispatchRuntime {
   terminalPersisted?: boolean
   /** F-255:最近一次被读/写的时刻(ms);LRU 淘汰依据(读命中保活) */
   lastUsedAt?: number
+  /** 宿主已占槽的任务(见 ExtendedDispatchInput.capacityReserved);排空/恢复判据沿用同一语义 */
+  capacityReserved?: boolean
 }
 
 /** ai-service 返回的 OrchestrationResult 形状(子集,含 token 用量) */
@@ -852,6 +897,10 @@ function buildDispatch(
     // 租户归属随派单记录一起落库(同 conversationId:落点唯一 = 派单记录本身)。
     // 入口没带(非路由入口 / 旧调用)⇒ undefined ⇒ 记录不带该字段 ⇒ 列表按「未标注」处理。
     ownerUserId: input.ownerUserId,
+    // 工人隔离身份随派单记录落库(与 conversationId/ownerUserId 同一落点):恢复、列表、排空
+    // 都读记录本身,不依赖 prompt 里那句口头约束(§0.3)。
+    sessionId: input.sessionId,
+    directory: input.directory,
     createdAt: nowIso(),
     updatedAt: nowIso(),
   }
@@ -861,7 +910,14 @@ function buildDispatch(
 function buildAgentPrompt(
   input: Pick<
     SubagentDispatch,
-    'goal' | 'affectedFiles' | 'forbidden' | 'verifyCommands' | 'constraints' | 'deliverables'
+    | 'goal'
+    | 'affectedFiles'
+    | 'forbidden'
+    | 'verifyCommands'
+    | 'constraints'
+    | 'deliverables'
+    | 'sessionId'
+    | 'directory'
   >,
 ): string {
   const forbidden: string[] =
@@ -869,6 +925,11 @@ function buildAgentPrompt(
   return [
     '## 任务目标',
     input.goal,
+    // 宿主工人的实际工作目录(服务端已落地):执行器按绝对路径落盘,不靠口头约束猜位置。
+    ...(input.directory
+      ? ['', '## 工作目录(服务端绝对路径,只允许在此目录内落盘)', input.directory]
+      : []),
+    ...(input.sessionId ? ['', `会话: ${input.sessionId}(不与其他工单混用)`] : []),
     '',
     '## 受影响文件(绝对路径,只允许以下文件)',
     ...input.affectedFiles.map((f: string) => `- ${f}`),
@@ -991,6 +1052,19 @@ function evaluateCondition(condition: string | undefined, result: string): boole
 // ai-service 调用
 // ---------------------------------------------------------------------------
 
+/**
+ * 每次派发注入的工人执行上下文：cwd + 清理过的白名单 env。
+ *
+ * 环境现算不落盘（派单记录里不存环境快照）；cwd 来自已落地的绝对工人目录。
+ * 这是**护栏不是沙箱**：同 OS 用户下工人仍可绕过，详见 worker-dispatch-env.ts。
+ */
+function workerExecFields(cwd?: string): Record<string, unknown> {
+  return {
+    ...(cwd ? { cwd } : {}),
+    env: buildWorkerDispatchEnv(),
+  }
+}
+
 type AiCallResult =
   | { ok: true; finalOutput: string; data: AiOrchestrationResult | null }
   | { ok: false; reason: 'not_implemented'; message: string }
@@ -1012,29 +1086,38 @@ async function callAiService(
   mode: OrchestrationMode,
   agentRole: SubagentRole,
   prompt: string,
+  sessionId?: string,
+  cwd?: string,
 ): Promise<AiCallResult> {
   let path = ''
   let body: Record<string, unknown> = {}
+  // sessionId 只在宿主派发的工人上有值;有值就随编排请求下传(ai-service 三个入口都接受
+  // session_id,用于执行会话/记忆归属),不再「收下就丢」。
+  const withSession = (extra: Record<string, unknown>): Record<string, unknown> => ({
+    ...extra,
+    ...(sessionId ? { session_id: sessionId } : {}),
+    ...workerExecFields(cwd),
+  })
   if (mode === 'pipeline') {
     path = '/api/v1/ai/agent/pipeline'
-    body = {
+    body = withSession({
       steps: [{ agent: agentRole, input_template: '{input}' }],
       initial_input: prompt,
-    }
+    })
   } else if (mode === 'parallel') {
     path = '/api/v1/ai/agent/parallel'
-    body = { items: [{ agent: agentRole, input: prompt }] }
+    body = withSession({ items: [{ agent: agentRole, input: prompt }] })
   } else if (mode === 'decomposed') {
     path = '/api/v1/ai/agent/run-decomposed'
-    body = { task: prompt, strategy: 'dag' }
+    body = withSession({ task: prompt, strategy: 'dag' })
   } else if (mode === 'debate') {
-    return callAiServiceDebate(agentRole, prompt)
+    return callAiServiceDebate(agentRole, prompt, sessionId, cwd)
   } else if (mode === 'vote') {
-    return callAiServiceVote(agentRole, prompt)
+    return callAiServiceVote(agentRole, prompt, sessionId, cwd)
   } else if (mode === 'critique') {
-    return callAiServiceCritique(agentRole, prompt)
+    return callAiServiceCritique(agentRole, prompt, cwd)
   } else if (mode === 'with_communication') {
-    return callAiServiceWithCommunication(agentRole, prompt)
+    return callAiServiceWithCommunication(agentRole, prompt, undefined, sessionId, cwd)
   } else {
     return {
       ok: false,
@@ -1108,9 +1191,13 @@ async function callAiServiceEndpoint(
 async function callAiServiceDebate(
   primaryRole: SubagentRole,
   prompt: string,
+  sessionId?: string,
+  cwd?: string,
 ): Promise<AiCallResult> {
   const parallelBody = {
     items: ALL_ROLES.map((r) => ({ agent: r, input: prompt })),
+    ...(sessionId ? { session_id: sessionId } : {}),
+    ...workerExecFields(cwd),
   }
   const parallelRes = await callAiServiceEndpoint('/api/v1/ai/agent/parallel', parallelBody)
   if (!parallelRes.ok) return parallelRes
@@ -1140,6 +1227,8 @@ async function callAiServiceDebate(
   const arbiterRes = await callAiServiceEndpoint('/api/v1/ai/agent/run-decomposed', {
     task: arbitrationPrompt,
     strategy: 'dag',
+    ...(sessionId ? { session_id: sessionId } : {}),
+    ...workerExecFields(cwd),
   })
   if (!arbiterRes.ok) return arbiterRes
 
@@ -1167,9 +1256,16 @@ async function callAiServiceDebate(
 /**
  * vote 模式:多 agent 处理同一任务 → 每个 agent 对其他结果投票(1-5 分)→ 最高分胜出。
  */
-async function callAiServiceVote(primaryRole: SubagentRole, prompt: string): Promise<AiCallResult> {
+async function callAiServiceVote(
+  primaryRole: SubagentRole,
+  prompt: string,
+  sessionId?: string,
+  cwd?: string,
+): Promise<AiCallResult> {
   const parallelBody = {
     items: ALL_ROLES.map((r) => ({ agent: r, input: prompt })),
+    ...(sessionId ? { session_id: sessionId } : {}),
+    ...workerExecFields(cwd),
   }
   const parallelRes = await callAiServiceEndpoint('/api/v1/ai/agent/parallel', parallelBody)
   if (!parallelRes.ok) return parallelRes
@@ -1199,6 +1295,8 @@ async function callAiServiceVote(primaryRole: SubagentRole, prompt: string): Pro
 
   const voteBody = {
     items: ALL_ROLES.map((r) => ({ agent: r, input: votePromptBase })),
+    ...(sessionId ? { session_id: sessionId } : {}),
+    ...workerExecFields(cwd),
   }
   const voteRes = await callAiServiceEndpoint('/api/v1/ai/agent/parallel', voteBody)
   if (!voteRes.ok) return voteRes
@@ -1264,6 +1362,7 @@ async function callAiServiceVote(primaryRole: SubagentRole, prompt: string): Pro
 async function callAiServiceCritique(
   primaryRole: SubagentRole,
   prompt: string,
+  cwd?: string,
 ): Promise<AiCallResult> {
   // 尝试调 ai-service /agents/debate with mode=critique
   const debatePath = '/api/v1/ai/agents/debate'
@@ -1272,6 +1371,7 @@ async function callAiServiceCritique(
     agents: ALL_ROLES,
     topic: prompt,
     maxRounds: 3,
+    ...workerExecFields(cwd),
   }
 
   const controller = new AbortController()
@@ -1396,6 +1496,8 @@ async function callAiServiceWithCommunication(
   primaryRole: SubagentRole,
   prompt: string,
   redisClient?: Redis | null,
+  sessionId?: string,
+  cwd?: string,
 ): Promise<AiCallResult> {
   const roles = ALL_ROLES
   const messages: CommunicationMessage[] = []
@@ -1443,6 +1545,8 @@ async function callAiServiceWithCommunication(
     // 并行调 ai-service
     const parallelRes = await callAiServiceEndpoint('/api/v1/ai/agent/parallel', {
       items: agentInputs,
+      ...(sessionId ? { session_id: sessionId } : {}),
+      ...workerExecFields(cwd),
     })
 
     if (!parallelRes.ok) {
@@ -1663,7 +1767,12 @@ export class SubagentDispatchService {
     // 落盘结果决定「是否属于可淘汰候选」:写失败则宁可短暂超上限,也不把唯一副本删掉
     runtime.terminalPersisted = await this._persistDispatch(id)
     if (log) {
-      await this._persistLog(id, { ts: nowIso(), level: log.level, event: log.event, data: log.data })
+      await this._persistLog(id, {
+        ts: nowIso(),
+        level: log.level,
+        event: log.event,
+        data: log.data,
+      })
     }
     await this._expireTerminalRedisKeys(id)
     this._pruneTerminalRuntimes()
@@ -2347,9 +2456,7 @@ export class SubagentDispatchService {
       priority: (raw.priority as DispatchPriority) || 'normal',
       quotas: raw.quotas ? parseJsonOr<QuotaConfig | undefined>(raw.quotas, undefined) : undefined,
       prompt: raw.prompt || undefined,
-      outbox: raw.outbox
-        ? parseJsonOr<RetryJournal | undefined>(raw.outbox, undefined)
-        : undefined,
+      outbox: raw.outbox ? parseJsonOr<RetryJournal | undefined>(raw.outbox, undefined) : undefined,
       steps: parseJsonOr<DispatchRuntime['steps']>(raw.steps, []),
       logs: [],
       startedAt: raw.startedAt ? Number(raw.startedAt) : undefined,
@@ -2512,7 +2619,12 @@ export class SubagentDispatchService {
 
     // F2:恢复也要走同一份容量判据 —— 不能因为「重启」就把全局/租户上限撑破;
     // 放不下的落 queued,等槽位释放后按真队列顺序续跑(仍然满足 F1「自动续跑」)。
-    const blocked = this._capacityBlocked(runtime.priority, runtime.dispatch.ownerUserId, id)
+    const blocked = this._capacityBlocked(
+      runtime.priority,
+      runtime.dispatch.ownerUserId,
+      id,
+      runtime.capacityReserved,
+    )
     if (blocked) {
       statusWriteView(runtime.dispatch).status = 'queued'
       runtime.dispatch.updatedAt = nowIso()
@@ -2550,6 +2662,7 @@ export class SubagentDispatchService {
     priority: DispatchPriority,
     ownerUserId: string | undefined,
     excludeId?: string,
+    capacityReserved = false,
   ): 'global' | 'tenant' | 'priority' | null {
     // 判「有没有槽位」时必须排除正在申请的那条记录(它已先入 Map,状态为 pending/queued):
     // 不排除 ⇒ 申请人把自己算进占用,租户优先级上限为 1 时任何单都进不来(自锁)。
@@ -2558,7 +2671,10 @@ export class SubagentDispatchService {
     )
     if (active.length >= this._maxConcurrent) return 'global'
     const tenantActive = active.filter((r) => r.dispatch.ownerUserId === ownerUserId)
-    if (tenantActive.length >= DEFAULT_TENANT_MAX_CONCURRENT) return 'tenant'
+    if (tenantActive.length >= tenantConcurrencyLimit(ownerUserId)) return 'tenant'
+    // 宿主已占槽的 worker 不再过优先级档:引擎侧已按 maxWorkers 放行,下游只守租户/全局硬上限,
+    // 否则第 maxWorkers 个工人会被 normal 档(2)落 queued,两侧判定不一致。
+    if (capacityReserved) return null
     const tenantPriorityActive = tenantActive.filter((r) => r.priority === priority)
     if (tenantPriorityActive.length >= TENANT_PRIORITY_MAX_CONCURRENT[priority]) return 'priority'
     return null
@@ -2617,7 +2733,16 @@ export class SubagentDispatchService {
           await this._removeFromQueue(id)
           continue
         }
-        if (this._capacityBlocked(runtime.priority, runtime.dispatch.ownerUserId, id)) continue
+        if (
+          this._capacityBlocked(
+            runtime.priority,
+            runtime.dispatch.ownerUserId,
+            id,
+            runtime.capacityReserved ?? isHostWorkerSession(runtime.dispatch.sessionId),
+          )
+        ) {
+          continue
+        }
         runtime.dispatch.status = 'pending'
         runtime.dispatch.updatedAt = nowIso()
         await this._persistDispatch(id)
@@ -2739,6 +2864,7 @@ export class SubagentDispatchService {
       messages: [],
       dagNodeStatus: new Map(),
       artifacts: new Map(),
+      capacityReserved: input.capacityReserved,
     }
     this.runtimes.set(pending.id, runtime)
     // 2026-08-06: 派单轨迹持久化 — 带 agentId 的派单写入 agent_tasks(agents 详情页 5 Tab 运行时数据源)
@@ -2746,9 +2872,19 @@ export class SubagentDispatchService {
 
     // F2 准入(唯一判据):全局硬上限 → 租户总上限 → 租户内优先级上限。
     // urgent 可先尝试同租户抢占自己的低优任务;仍无槽位则落 queued —— 不返回 concurrent_limit/429。
-    let blocked = this._capacityBlocked(priority, input.ownerUserId, pending.id)
+    let blocked = this._capacityBlocked(
+      priority,
+      input.ownerUserId,
+      pending.id,
+      input.capacityReserved,
+    )
     if (blocked && priority === 'urgent' && this._tryPreempt(input.ownerUserId)) {
-      blocked = this._capacityBlocked(priority, input.ownerUserId, pending.id)
+      blocked = this._capacityBlocked(
+        priority,
+        input.ownerUserId,
+        pending.id,
+        input.capacityReserved,
+      )
     }
     if (blocked) {
       statusWriteView(pending).status = 'queued'
@@ -2893,7 +3029,7 @@ export class SubagentDispatchService {
       const stepStart = Date.now()
 
       // 超时监控(用 Promise.race)
-      const callPromise = callAiService(mode, role, prompt)
+      const callPromise = callAiService(mode, role, prompt, dispatch.sessionId, dispatch.directory)
       const result =
         timeoutMs > 0
           ? await Promise.race([
@@ -3410,7 +3546,12 @@ export class SubagentDispatchService {
       attempt++
       const stepStart = Date.now()
 
-      const result = await callAiServiceWithCommunication(role, prompt, this.redisClient)
+      const result = await callAiServiceWithCommunication(
+        role,
+        prompt,
+        this.redisClient,
+        dispatch.sessionId,
+      )
       const stepDuration = Date.now() - stepStart
       const tokenUsage = result.ok
         ? extractTokenUsage(result.data, result.finalOutput)
@@ -3764,7 +3905,12 @@ export class SubagentDispatchService {
     const resumedFromStep = failedStep?.[0]
 
     // F2:resume 也要占槽位。没有槽位时落 queued(不是绕过上限直接跑),等 _drainQueue 补位。
-    const blocked = this._capacityBlocked(runtime.priority, dispatch.ownerUserId, id)
+    const blocked = this._capacityBlocked(
+      runtime.priority,
+      dispatch.ownerUserId,
+      id,
+      runtime.capacityReserved ?? isHostWorkerSession(dispatch.sessionId),
+    )
     if (blocked) {
       statusWriteView(dispatch).status = 'queued'
       dispatch.updatedAt = nowIso()

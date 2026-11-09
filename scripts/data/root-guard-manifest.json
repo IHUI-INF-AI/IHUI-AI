@@ -1,9 +1,9 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-09T17:04:44.460Z",
+  "sealedAt": "2026-11-09T16:00:37.778Z",
   "sealedBy": "root-guard --seal",
-  "reason": "合并收口:AGENTS.md 补 API 端点扫描点名后重封",
+  "reason": "合入 fix/gate-193-168-1108:该分支修复 land-gate-rerun.mjs 门未判定分支引用未定义常量致旁路落地器崩溃(两处文件级兜底常量,行为不变;分支提交 e20e5b4100 已带 immutable-exempt 声明)。按 [267] 门指引重封清单,判据行为零改动。",
   "targets": [
     {
       "id": "guardian-runner",
