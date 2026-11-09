@@ -36,7 +36,7 @@
     "directory": "packages/attendance-core"
   },
   "scripts": {
-    "build": "node ../../scripts/lib/atomic-build.mjs -p tsconfig.json",
+    "build": "node ../../scripts/lib/atomic-build.mjs -p tsconfig.build.json",
     "lint": "eslint src/",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit",
@@ -44,7 +44,6 @@
     "clean": "rimraf dist .turbo node_modules"
   },
   "devDependencies": {
-    "@ihui/eslint-config": "workspace:*",
     "typescript": "catalog:",
     "rimraf": "catalog:",
     "vitest": "catalog:"
