@@ -95,7 +95,9 @@ import { mkdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSyn
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import {
   batchExecFileSync,
+  catBatchCheck,
   catBatchOids,
+  catBatchTypes,
   gitBinary,
   gitErrText,
   gitRaw,
@@ -1033,6 +1035,148 @@ function writeLossCache(obj) {
     // 避免读到半截 JSON。rename 失败(Windows 上目标被短暂占用)⇒ 退回直写;都失败只是下次重算。
     const path = lossCachePath()
     const body = JSON.stringify({ version: 3, slots })
+    const tmp = `${path}.${process.pid}.tmp`
+    try {
+      writeFileSync(tmp, body)
+      renameSync(tmp, path)
+    } catch {
+      try {
+        writeFileSync(path, body)
+      } catch {
+        /* 写不进去只是下次重算 */
+      }
+      try {
+        unlinkSync(tmp)
+      } catch {
+        /* 临时件可能已被 rename 或本就不存在 */
+      }
+    }
+  } catch {
+    /* 写不进去只是下次重算,不影响本次判定 */
+  }
+}
+
+// ── fsck 悬空集合缓存(2026-11-10 立,提交链提速的正主)──────────────────────────
+// 病灶(本机实测,非推测):本门单跑 100s,其中
+//   `git fsck --connectivity-only --unreachable --no-reflogs` = 37s(与其余 18 道门并发时被放大到 80s+),
+// 而结论缓存的读取点排在 fsck **之后**(缓存键里装着 fsck 结果本身)⇒ 缓存再准也救不了 fsck。
+// 现把 fsck 这一层单独落缓存,**先读缓存、未命中才 fsck**。
+//
+// 判定面(为什么这几项就够):`fsck --no-reflogs` 的悬空 commit 只由 **refs 的可达面**决定
+// (reflog 明确不参与)。所以只要证明"缓存那轮之后没有任何 ref 丢掉过可达性",悬空集合就
+// 只可能**变小**(新提交 / 新 tag 让旧悬空变可达),不可能变大。证明方式 = 把当轮**全部 ref 的
+// tip** 存进缓存,复用前逐条核对:ref 没了或换了 tip ⇒ 旧 tip 必须仍可达,否则作废重算。
+// 交付面(`rev-list --all`)本身**不进键**:每枚提交都会让它变,进键就等于"永不命中"(老问题)。
+// 反过来"ref 变多 / tip 前移"不作废 —— 本仓门内自动备份每轮都会新增 lost-commit/auto-* tag
+// (实测 +2 枚/轮),把它们当失效条件等于让自愈动作打死自己的缓存(2026-11-10 三连 miss 实测)。
+// 变小的那一档当场剪掉(与本轮可达面取交集剔除),不留假红;对象已被 gc 清掉的同样剔除
+// (不存在 ⇒ 谈不上"丢失")。
+// 仍看不见的一档(明说,不当作看不见):`git stash create` / `git commit-tree` 这类**不写任何
+// ref** 造出的孤儿 commit 不触发上述任一条 ⇒ TTL 30 分钟内看不见。失效方向与结论缓存一致
+// (由 IHUI-GIT-GUARD 巡检与 post-commit 的 lost-commit 同步兜底);要当场重算:
+// IHUI_COMMIT_LOSS_NO_CACHE=1。
+const LOSS_FSCK_CACHE_VERSION = 2
+const lossFsckCachePath = () => join(commonGitDir(), 'ihui-commit-loss-fsck-cache.json')
+
+/** 两套缓存共用的启用条件(档位/名单出口/显式远程档一律现算,见 readLossCache 头注)。 */
+function lossCacheEnabled() {
+  if (!isBlocking || process.env.IHUI_COMMIT_LOSS_NO_CACHE === '1') return false
+  if (isListUnbacked || isListOutOfWindow || isListCovered) return false
+  return process.env.IHUI_COMMIT_LOSS_REMOTE !== '1'
+}
+
+/** 全部 ref 的 tip 快照(`fsck` 的可达面就是"全部 refs",一个都不能漏)。 */
+function allRefTips() {
+  const out = gitText(['for-each-ref', '--format=%(refname) %(objectname)'], {
+    timeout: SPAWN_DEFAULT_TIMEOUT_MS,
+  })
+  const tips = []
+  for (const line of String(out || '').split('\n')) {
+    const [name, oid] = line.trim().split(' ')
+    if (!name || !oid) continue
+    tips.push([name, oid])
+  }
+  return tips
+}
+
+/**
+ * 交付面(含 lost-commit/backup tag)= `rev-list --all`:fsck 的"可达"就是这个集合。
+ * 取不到(与本门其余 18 道门并发争用时可能超时/被 git 报错截断)⇒ 返回 null,
+ * **只让缓存失效、照旧真跑 fsck**,绝不把缓存读不到升级成「未判定」(§0.3:缓存是旁路,
+ * 旁路出问题只能退回精确路径,不能反过来把判据面判成"没判")。
+ */
+function allReachableCommits() {
+  let raw
+  try {
+    raw = gitText(['rev-list', '--all'], { timeout: SPAWN_DEFAULT_TIMEOUT_MS })
+  } catch {
+    return null
+  }
+  const out = new Set()
+  for (const line of String(raw || '').split('\n')) {
+    const h = line.trim()
+    if (h) out.add(h)
+  }
+  return out
+}
+
+/**
+ * 读 fsck 悬空集合缓存。命中返回 `{ list, ageMs }`,未命中/不可信返回 null。
+ * 取不到/坏件/过期/面不符一律 null(= 老老实实跑 fsck),读失败绝不影响判据。
+ *
+ * 判据 = **"缓存那轮之后没有任何 ref 丢掉可达性"**,逐条核对缓存里的每个 ref:
+ *   - ref 还在且没动 ⇒ 通过;
+ *   - ref 没了或换了 tip ⇒ 旧 tip 必须仍可达(在 `rev-list --all` 里),否则作废重算。
+ * 反过来,**ref 变多/tip 前移**不需要作废:那只会让悬空集合变小,变小的部分由 ②/③ 当场剪掉。
+ * 这一条是本仓的关键:门内自动备份每次都会新增 lost-commit/auto-* tag(实测每轮 +2 枚),
+ * 若把"tag 集合指纹"当键,缓存就会被自己的自愈动作打死(2026-11-10 实测三连 miss)。
+ */
+function readFsckCache(reachable) {
+  if (!lossCacheEnabled() || !reachable) return null
+  try {
+    const j = JSON.parse(readFileSync(lossFsckCachePath(), 'utf8'))
+    if (!j || j.version !== LOSS_FSCK_CACHE_VERSION) return null
+    if (typeof j.ts !== 'number' || Date.now() - j.ts > LOSS_CACHE_TTL_MS) return null
+    if (!Array.isArray(j.refs) || !Array.isArray(j.unreachable)) return null
+    // ① ref 面:丢了 tip 的可达性 ⇒ 作废。
+    //    只对 **commit** tip 这么要求:本仓 refs/hold/* 按设计指向 tree(索引/树快照),
+    //    那类对象本来就不在 `rev-list --all` 的提交面上 ⇒ 拿"不在交付面"判作废会让缓存永不命中。
+    const lostTips = []
+    for (const tip of j.refs) {
+      const oid = Array.isArray(tip) ? tip[1] : ''
+      if (!oid) return null
+      if (!reachable.has(oid)) lostTips.push(oid)
+    }
+    if (lostTips.length > 0) {
+      const types = catBatchTypes(ROOT, lostTips)
+      for (const oid of lostTips) {
+        if (types.get(oid.toLowerCase()) === 'commit') return null
+      }
+    }
+    // ② 交付面只增 ⇒ 旧悬空里已变可达的当场剪掉(那枚不该再算悬空;含"刚被 auto tag 备份"的)
+    let list = j.unreachable.filter((h) => !reachable.has(h))
+    // ③ 已被 gc 清掉的对象不存在,谈不上"丢";剔除后保留其余。
+    if (list.length > 0) {
+      const { missing } = catBatchCheck(ROOT, list)
+      if (missing.size > 0) list = list.filter((h) => !missing.has(h))
+    }
+    return { list, ageMs: Date.now() - j.ts, refCount: j.refs.length }
+  } catch {
+    return null
+  }
+}
+
+function writeFsckCache(unreachable) {
+  if (!lossCacheEnabled()) return
+  try {
+    const path = lossFsckCachePath()
+    const body = JSON.stringify({
+      version: LOSS_FSCK_CACHE_VERSION,
+      ts: Date.now(),
+      refs: allRefTips(),
+      unreachable: [...unreachable].sort(),
+    })
+    // 共享 gitdir 下多个 worktree 并发写同一份缓存件:先写临时件再 rename,避免读到半截 JSON。
     const tmp = `${path}.${process.pid}.tmp`
     try {
       writeFileSync(tmp, body)
@@ -2798,10 +2942,9 @@ async function main() {
   const lossCacheInputs = collectLossCacheInputs(reachability)
   mark(`lossCacheInputs(${lossCacheInputs ? 'ok' : 'unavailable'})`)
 
-  const rawUnreachable = detectUnreachable()
-  mark(`detectUnreachable(${rawUnreachable.length})`)
-
-  // 登记本轮判据面(缓存键的另一半,见 lossCacheFace 头注)
+  // 登记本轮判据面(缓存键的另一半,见 lossCacheFace 头注)。
+  // **先登记不含 unreachable 的那一份**:fsck 结果本身要由 fsck 缓存给出,而它的键只有
+  // tag 面 + 非 tag ref tip(见 readFsckCache 头注)—— 否则就是"要读缓存先得有缓存结论"的死结。
   setLossCacheFace({
     windowDays: winDim.days,
     winSource: winDim.source,
@@ -2813,6 +2956,34 @@ async function main() {
     delivery: lossCacheInputs ? lossCacheInputs.deliveryFingerprint : '',
     reflog: lossCacheInputs ? lossCacheInputs.reflog : '',
     // 本 worktree 的 reset 窗口(缓存命中会跳过 detectResets,见 collectLossCacheInputs)。
+    resetWindow: lossCacheInputs ? lossCacheInputs.resetWindow : '',
+  })
+
+  // fsck 悬空集合:先读缓存,未命中才真跑(本机实测 fsck 单跑 37s、并发争用下 80s+,是本门最大头)。
+  const fsckReachable = lossCacheEnabled() ? allReachableCommits() : null
+  const fsckCached = readFsckCache(fsckReachable)
+  const rawUnreachable = fsckCached ? fsckCached.list : detectUnreachable()
+  mark(`detectUnreachable(${rawUnreachable.length}${fsckCached ? ',复用' : ''})`)
+  if (fsckCached) {
+    console.log(
+      `  ${C.dim}fsck 悬空集合复用 ${Math.max(1, Math.round(fsckCached.ageMs / 60000))} 分钟前的读数` +
+        `(判定面:缓存里那 ${fsckCached.refCount} 个 ref 没有任何一个丢掉可达性;强制重算:IHUI_COMMIT_LOSS_NO_CACHE=1)${C.reset}`,
+    )
+  } else {
+    writeFsckCache(rawUnreachable)
+  }
+
+  // 登记含 fsck 结果的完整判据面(结论缓存 readLossCache/writeLossCache 用)。
+  setLossCacheFace({
+    windowDays: winDim.days,
+    winSource: winDim.source,
+    strict: isStrict ? 1 : 0,
+    filterStash: isFilterStash ? 1 : 0,
+    tagFingerprint: backupTagFingerprint(lostTags, backups),
+    coverageVersion: COVERAGE_FACE_VERSION,
+    tagTargets: lossCacheInputs ? lossCacheInputs.tagTargets : '',
+    delivery: lossCacheInputs ? lossCacheInputs.deliveryFingerprint : '',
+    reflog: lossCacheInputs ? lossCacheInputs.reflog : '',
     resetWindow: lossCacheInputs ? lossCacheInputs.resetWindow : '',
     unreachable: lossCacheInputs ? sortedFingerprint(rawUnreachable) : '',
   })
