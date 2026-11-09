@@ -12,7 +12,7 @@
  *     本路由无管理员全量路径,管理员亦只能看到自己的记录;
  *  ② limit 夹到 [1, 100](HISTORY_LIMIT),负数 / 超大值都返回 200 且行数有界。
  */
-import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
 
 const h = vi.hoisted(() => ({

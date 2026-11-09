@@ -66,12 +66,12 @@ def _auth_headers(secret: str, owner_user_id: str) -> dict[str, str]:
     票的 sub(另附 X-User-Id),请求体里没有任何自报主体位**(2026-11-06 摘除 body
     ownerUserId:api 侧早已改由承载层注入主体,body 那一位再无权威)。
     X-Internal-Secret 是本端点的机机凭据,与内部票两回事,经 extra 原样带上。
-    scope 取封闭集里"ai-service 回调写入 apps/api"那一档(ai-callback);若后续 api 侧
-    为 relay user-pool 端点声明更细的用途,须两侧同笔换档。
+    scope 取封闭集里的 ``relay-user-pool``(2026-11-06 与 api 侧端点声明同笔换档,
+    apps/api/src/plugins/internal-service-ticket.ts 的 INTERNAL_TICKET_SCOPES 同值)。
     """
     return internal_service_headers(
         owner_user_id,
-        "ai-callback",
+        "relay-user-pool",
         legacy_token=secret,
         extra={"Content-Type": "application/json", "X-Internal-Secret": secret},
     )

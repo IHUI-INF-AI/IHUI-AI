@@ -47,16 +47,17 @@ afterAll(async () => {
 describe('agent_team 真库约束', () => {
   it('幂等键重放:库里计数仍为 1', async () => {
     const owner = await makeUser()
-    const member = await makeUser()
+    // F-350:人类收件箱只允许投递给本人 ⇒ 幂等重放用例改投 agent 收件箱
+    const agent = `agent-${randomUUID()}`
     const { team } = await service.createTeam(owner, 'DB Team')
     await service.addMember(owner, team.id, {
-      memberKind: 'human',
-      memberId: member,
+      memberKind: 'agent',
+      memberId: agent,
       role: 'member',
     })
     const input = {
       fromMember: { memberKind: 'human' as const, memberId: owner },
-      toMember: { memberKind: 'human' as const, memberId: member },
+      toMember: { memberKind: 'agent' as const, memberId: agent },
       kind: 'message' as const,
       payload: { text: 'persist once' },
       idempotencyKey: 'db-idem-1',
@@ -140,23 +141,19 @@ describe('agent_team 真库约束', () => {
 
   it('反向例④:跨租户读收件箱为 404', async () => {
     const owner = await makeUser()
-    const member = await makeUser()
     const outsider = await makeUser()
     const { team } = await service.createTeam(owner, 'Tenant Team')
-    await service.addMember(owner, team.id, {
-      memberKind: 'human',
-      memberId: member,
-      role: 'member',
-    })
+    // F-350:人类收件箱只允许投递给本人 ⇒ 夹具改为 owner 投给自己(收件箱里确有 1 条)
     await service.sendInbox(owner, team.id, {
       fromMember: { memberKind: 'human', memberId: owner },
-      toMember: { memberKind: 'human', memberId: member },
+      toMember: { memberKind: 'human', memberId: owner },
       kind: 'message',
       payload: {},
       idempotencyKey: 'db-tenant-1',
     })
+    // 越权者读该收件箱必须按"团队不存在"404,不能是查询后过滤成空数组
     await expect(
-      service.listInbox(outsider, team.id, { memberKind: 'human', memberId: member }),
+      service.listInbox(outsider, team.id, { memberKind: 'human', memberId: owner }),
     ).rejects.toMatchObject({ statusCode: 404, code: 'TEAM_NOT_FOUND' })
   })
 
