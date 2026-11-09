@@ -67,6 +67,8 @@ import type { TerminalDeltaEvent } from '@ihui/api-client'
 import type { ToolDeltaEvent } from '@ihui/api-client'
 // 模型列表统一接口:共享端点 fetchModels 与后端 /api/llm/models 同口径,端内不再直拼裸路径。
 import { fetchModels as fetchModelsShared } from '@ihui/api-client'
+// 2026-11-10 立:个人号池模型(「我的号池」)与平台模型合并下发,对话页与 pkg-ai 页零改动
+import { fetchPoolChatModels } from '@ihui/api-client'
 // D151:terminal_interaction(命令在等键盘输入)同一纪律;本端**只渲染降级文案**,不接输入口。
 import type { TerminalInteractionEvent } from '@ihui/api-client'
 // D152(2026-09-29 立):goal_updated(会话目标的服务端主副本变了)同一纪律 —— 载荷类型复用
@@ -1676,8 +1678,29 @@ export const getModelPlazaList = () => get('/models/plaza')
 /**
  * 获取可用模型列表 — GET /llm/models (代理到 AI-service)
  * 类型复用 @ihui/api-client FetchModelsResult(单一来源)
+ *
+ * 2026-11-10:并发拉个人号池模型并追加。号池模型的 id 原样可被后端反查
+ * (`<平台>/<上游模型名>` 或平台登记行),故直接作为可选项下发,页面层零改动。
+ * 号池接口自身吞错返回 [] —— 不会拖垮平台模型列表。
  */
-export const fetchModels = () => get<FetchModelsResult>('/llm/models')
+export const fetchModels = async (): Promise<FetchModelsResult> => {
+  const [res, pool] = await Promise.all([
+    get<FetchModelsResult>('/llm/models'),
+    fetchPoolChatModels(),
+  ])
+  if (pool.length === 0) return res
+  const seen = new Set((res.models ?? []).map((m) => m.id))
+  const extra = pool
+    .filter((p) => !seen.has(p.id))
+    .map((p) => ({
+      id: p.id,
+      name: p.name,
+      provider: p.provider,
+      context_length: 0,
+      input_price: 0,
+    }))
+  return { ...res, models: [...(res.models ?? []), ...extra] }
+}
 
 /* ============ 排行榜 ============ */
 export const getRankingList = (type?: string) => get('/ranking', { type })
