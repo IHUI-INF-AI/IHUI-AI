@@ -642,6 +642,11 @@ open PR 闸四道 fail-closed 全在，结构性零风险。
 纪律：`--full-face` 是显式整面检查（会自愈写盘）、`--worktree` 是人工逃生舱（不得作提交门禁）、
 push 门禁判 `--push-scope`、只有 `--staged` 允许 `git add`。只读代理不得跑带副作用的判定面。
 
+**追加（同一轮全量面终检）**：推送后跑 `watermark.mjs list-uncovered` 全量面只读盘点，
+又点名 `smithery.yaml` —— 他席本轮新增的 Smithery / MCP 收录配置，HEAD 与工作树两面都干净但同样漏了载荷。
+该文件不在任何在途脏区，按同一受控口径 `inject` 补全、`verify RC=0`、改动仅为 YAML 注释。
+补全后全量面 `list-uncovered` 输出为空 ⇒ **HEAD 面水印覆盖 0 缺口**。
+
 ### 8.9 终态与「无后续待办」
 
 | 项 | 终态 |
