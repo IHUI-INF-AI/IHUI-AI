@@ -133,7 +133,8 @@
     "getPhoneFail": "获取手机号失败",
     "loginFailed": "登录失败,请重试",
     "wechatOneClick": "微信一键登录",
-    "webAuthLogin": "网页授权登录"
+    "webAuthLogin": "网页授权登录",
+    "agreement": "登录即代表同意《用户协议》和《隐私政策》"
   },
   "forgot": {
     "step1": "第一步:验证手机号",
@@ -2730,7 +2731,8 @@
     "payFailed": "支付失败,请重试",
     "paying": "支付中...",
     "purchaseContent": "购买内容",
-    "userAgreement": "《用户协议》"
+    "userAgreement": "《用户协议》",
+    "activateDelayed": "权益发放延迟，请联系客服"
   },
   "study": {
     "todayMinutes": "今日 {n} 分钟",
@@ -3028,7 +3030,8 @@
     "security": {
       "code": "验证码",
       "sendCode": "发送验证码"
-    }
+    },
+    "bindPhone": "绑定手机"
   },
   "vipScreen": {
     "qr": {
@@ -3446,7 +3449,11 @@
       "permanentMemory": "永久记忆"
     },
     "toast": {
-      "loginRequired": "请先登录"
+      "loginRequired": "请先登录",
+      "compactDone": "上下文已压缩",
+      "compactFailed": "压缩失败",
+      "compactNoSession": "请先发送一条消息",
+      "compactSkipped": "暂无可压缩的上下文"
     },
     "title": "智汇AI社区",
     "chatError": "发送失败,请重试",
@@ -3664,7 +3671,9 @@
     "d3": "本地文件",
     "d4": "微信文件",
     "p1": "语音输入中",
-    "p2": "语音输入"
+    "p2": "语音输入",
+    "compact": "压缩上下文",
+    "compacting": "压缩中..."
   },
   "DrawerComponent": {
     "empty1": "暂无历史对话",
@@ -7240,4 +7249,17 @@
     "statusApproved": "已通过",
     "statusRejected": "已驳回"
   }
-}
+,
+  "level": {
+    "0": "新手",
+    "1": "青铜",
+    "2": "白银",
+    "3": "黄金",
+    "4": "铂金",
+    "5": "钻石",
+    "6": "王者",
+    "distance": "距"
+  },
+  "TagInput": {
+    "p2": "已达上限"
+  }}
