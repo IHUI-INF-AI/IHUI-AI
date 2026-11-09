@@ -242,6 +242,13 @@ export function toolFamilyOf(tool: string): ApprovalToolFamily {
   if (t.startsWith('hr_')) {
     return /_(create|upsert|check_in|check_out|backfill|approve)$/.test(t) ? 'edit' : 'read'
   }
+  // API 桥工具族(2026-11-09 立):目录检索与 GET 调用是只读;api_write 归 edit;
+  // api_delete 属破坏性写,归 exec(与 exec 族里 delete/remove 那一档同判据)。
+  // 这里只决定 agent 侧预执行审批语义,真实鉴权仍由目标端点 RBAC 判定。
+  if (t.startsWith('api_')) {
+    if (t === 'api_delete') return 'exec'
+    return t === 'api_write' ? 'edit' : 'read'
+  }
   return 'unknown'
 }
 

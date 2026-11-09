@@ -270,20 +270,23 @@ export function loadInstallRegistry(): InstallRegistry {
     throw new Error(`插件登记表读不到,不能把它说成没有已装插件 (${code})`);
   }
   if (raw.trim() === '') return { records: [] };
+  // 解析失败与"结构不对"分开判。改前是 `catch (error) { if (error.message.includes('插件登记表读不到'))
+  // throw error; … }` —— 拿**自己的文案**当控制流信号:同一句话改一个字就会静默失配,把"解析器语法错"
+  // 和"结构损坏"读成两回事,而两者对用户是同一件事(登记表坏了)。门 204 禁的正是这种文案判定。
+  const CORRUPT = '插件登记表读不到,不能把它说成没有已装插件 (corrupt)';
+  let parsed: unknown;
   try {
-    const parsed = JSON.parse(raw) as unknown;
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      throw new Error('插件登记表读不到,不能把它说成没有已装插件 (corrupt)');
-    }
-    const obj = parsed as Record<string, unknown>;
-    if (!Array.isArray(obj.records)) {
-      throw new Error('插件登记表读不到,不能把它说成没有已装插件 (corrupt)');
-    }
-    return parsed as InstallRegistry;
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('插件登记表读不到')) throw error;
-    throw new Error('插件登记表读不到,不能把它说成没有已装插件 (corrupt)');
+    parsed = JSON.parse(raw) as unknown;
+  } catch {
+    throw new Error(CORRUPT);
   }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error(CORRUPT);
+  }
+  if (!Array.isArray((parsed as Record<string, unknown>).records)) {
+    throw new Error(CORRUPT);
+  }
+  return parsed as InstallRegistry;
 }
 
 /**

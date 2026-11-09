@@ -133,16 +133,21 @@ function loadInstalledSkills(filePath = getInstalledSkillsPath()): Set<string> {
     if (code === 'ENOENT' || code === 'ENOTDIR') return new Set();
     throw new Error(`已安装技能名单读不到,不能把它覆盖成只剩新的一项 (${code})`);
   }
+  // 解析失败与"结构不对"分开判。改前是 `if (error instanceof Error && error.message.includes('已安装技能
+  // 名单读不到')) throw error;` —— 把自己刚抛的那条从 JSON.parse 的语法错里靠**文案**认出来:改一个字
+  // 就静默失配,而两种失败对用户是同一件事(名单坏了,不能覆盖)。门 204 禁的正是这种判定。
+  const CORRUPT = '已安装技能名单读不到,不能把它覆盖成只剩新的一项 (corrupt)';
+  let parsed: unknown;
   try {
-    const parsed = JSON.parse(raw) as InstalledSkillsData;
-    if (!parsed || !Array.isArray(parsed.installed)) {
-      throw new Error('已安装技能名单读不到,不能把它覆盖成只剩新的一项 (corrupt)');
-    }
-    return new Set(parsed.installed.filter((s): s is string => typeof s === 'string'));
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('已安装技能名单读不到')) throw error;
-    throw new Error('已安装技能名单读不到,不能把它覆盖成只剩新的一项 (corrupt)');
+    parsed = JSON.parse(raw) as unknown;
+  } catch {
+    throw new Error(CORRUPT);
   }
+  const installed = (parsed as { installed?: unknown } | null)?.installed;
+  if (!parsed || !Array.isArray(installed)) {
+    throw new Error(CORRUPT);
+  }
+  return new Set(installed.filter((s): s is string => typeof s === 'string'));
 }
 
 function saveInstalledSkills(ids: Set<string>, filePath = getInstalledSkillsPath()): void {

@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
 'use client'
 
 import * as React from 'react'
@@ -55,8 +56,10 @@ export default function HrAttendancePage() {
           <button
             key={tb.key}
             onClick={() => setTab(tb.key)}
-            className={`flex items-center gap-1 px-3 py-2 text-sm ${
-              tab === tb.key ? 'border-b-2 border-primary font-medium text-primary' : 'text-muted-foreground'
+            className={`flex items-center gap-1 px-3 py-2 text-body ${
+              tab === tb.key
+                ? 'border-b-2 border-primary font-medium text-primary'
+                : 'text-muted-foreground'
             }`}
           >
             {tb.icon}
@@ -92,7 +95,8 @@ function DepartmentsTab({ t }: { t: ReturnType<typeof useTranslations> }) {
   })
   const [name, setName] = React.useState('')
   const createMut = useMutation({
-    mutationFn: () => api(`${RESOURCE}/departments`, { method: 'POST', body: JSON.stringify({ name }) }),
+    mutationFn: () =>
+      api(`${RESOURCE}/departments`, { method: 'POST', body: JSON.stringify({ name }) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['hr', 'departments'] })
       toast.success(t('createSuccess'))
@@ -104,24 +108,39 @@ function DepartmentsTab({ t }: { t: ReturnType<typeof useTranslations> }) {
   return (
     <Section title={t('tabDepartments')}>
       <div className="flex items-end gap-2">
-        <label className="text-sm">{t('colName')}
+        <label className="font-[weight:inherit] text-body">
+          {t('colName')}
           <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} />
         </label>
         <HasPermi code={`${PERM}:manage`}>
-          <Button size="sm" disabled={!name || createMut.isPending} onClick={() => createMut.mutate()}>
-            <Plus className="h-4 w-4" />{t('add')}
+          <Button
+            size="sm"
+            disabled={!name || createMut.isPending}
+            onClick={() => createMut.mutate()}
+          >
+            <Plus className="h-4 w-4" />
+            {t('add')}
           </Button>
         </HasPermi>
       </div>
-      {isLoading ? <p className="text-muted-foreground">{t('loading')}</p> :
-        list.length === 0 ? <p className="text-muted-foreground">{t('noData')}</p> : (
-        <table className="w-full text-sm">
-          <thead><tr className="text-left text-muted-foreground">
-            <th className="px-2 py-1">{t('colName')}</th><th className="px-2 py-1">{t('colId')}</th>
-          </tr></thead>
+      {isLoading ? (
+        <p className="text-muted-foreground">{t('loading')}</p>
+      ) : list.length === 0 ? (
+        <p className="text-muted-foreground">{t('noData')}</p>
+      ) : (
+        <table className="font-[weight:inherit] w-full text-body">
+          <thead>
+            <tr className="text-left text-muted-foreground">
+              <th className="px-2 py-1">{t('colName')}</th>
+              <th className="px-2 py-1">{t('colId')}</th>
+            </tr>
+          </thead>
           <tbody>
             {list.map((d) => (
-              <tr key={d.id} className="border-t"><td className="px-2 py-1">{d.name}</td><td className="px-2 py-1">{d.id}</td></tr>
+              <tr key={d.id} className="border-t">
+                <td className="px-2 py-1">{d.name}</td>
+                <td className="px-2 py-1">{d.id}</td>
+              </tr>
             ))}
           </tbody>
         </table>
@@ -136,10 +155,14 @@ function EmployeesTab({ t }: { t: ReturnType<typeof useTranslations> }) {
     queryKey: ['hr', 'employees'],
     queryFn: () => api<ListData<HrEmployee>>(`${RESOURCE}/employees`),
   })
-  const [form, setForm] = React.useState({ employeeNo: '', name: '', departmentId: '', position: '' })
+  const [form, setForm] = React.useState({
+    employeeNo: '',
+    name: '',
+    departmentId: '',
+    position: '',
+  })
   const createMut = useMutation({
-    mutationFn: () =>
-      api(`${RESOURCE}/employees`, { method: 'POST', body: JSON.stringify(form) }),
+    mutationFn: () => api(`${RESOURCE}/employees`, { method: 'POST', body: JSON.stringify(form) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['hr', 'employees'] })
       toast.success(t('createSuccess'))
@@ -151,26 +174,65 @@ function EmployeesTab({ t }: { t: ReturnType<typeof useTranslations> }) {
   return (
     <Section title={t('tabEmployees')}>
       <div className="flex flex-wrap items-end gap-2">
-        <label className="text-sm">{t('colEmployeeNo')}<input className={inputCls} value={form.employeeNo} onChange={(e) => setForm({ ...form, employeeNo: e.target.value })} /></label>
-        <label className="text-sm">{t('colName')}<input className={inputCls} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
-        <label className="text-sm">{t('colDepartment')}<input className={inputCls} value={form.departmentId} onChange={(e) => setForm({ ...form, departmentId: e.target.value })} /></label>
-        <label className="text-sm">{t('colPosition')}<input className={inputCls} value={form.position} onChange={(e) => setForm({ ...form, position: e.target.value })} /></label>
+        <label className="font-[weight:inherit] text-body">
+          {t('colEmployeeNo')}
+          <input
+            className={inputCls}
+            value={form.employeeNo}
+            onChange={(e) => setForm({ ...form, employeeNo: e.target.value })}
+          />
+        </label>
+        <label className="font-[weight:inherit] text-body">
+          {t('colName')}
+          <input
+            className={inputCls}
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+          />
+        </label>
+        <label className="font-[weight:inherit] text-body">
+          {t('colDepartment')}
+          <input
+            className={inputCls}
+            value={form.departmentId}
+            onChange={(e) => setForm({ ...form, departmentId: e.target.value })}
+          />
+        </label>
+        <label className="font-[weight:inherit] text-body">
+          {t('colPosition')}
+          <input
+            className={inputCls}
+            value={form.position}
+            onChange={(e) => setForm({ ...form, position: e.target.value })}
+          />
+        </label>
         <HasPermi code={`${PERM}:manage`}>
-          <Button size="sm" disabled={createMut.isPending} onClick={() => createMut.mutate()}>{t('add')}</Button>
+          <Button size="sm" disabled={createMut.isPending} onClick={() => createMut.mutate()}>
+            {t('add')}
+          </Button>
         </HasPermi>
       </div>
-      {isLoading ? <p className="text-muted-foreground">{t('loading')}</p> :
-        list.length === 0 ? <p className="text-muted-foreground">{t('noData')}</p> : (
-        <table className="w-full text-sm">
-          <thead><tr className="text-left text-muted-foreground">
-            <th className="px-2 py-1">{t('colEmployeeNo')}</th><th className="px-2 py-1">{t('colName')}</th>
-            <th className="px-2 py-1">{t('colDepartment')}</th><th className="px-2 py-1">{t('colPosition')}</th>
-          </tr></thead>
+      {isLoading ? (
+        <p className="text-muted-foreground">{t('loading')}</p>
+      ) : list.length === 0 ? (
+        <p className="text-muted-foreground">{t('noData')}</p>
+      ) : (
+        <table className="font-[weight:inherit] w-full text-body">
+          <thead>
+            <tr className="text-left text-muted-foreground">
+              <th className="px-2 py-1">{t('colEmployeeNo')}</th>
+              <th className="px-2 py-1">{t('colName')}</th>
+              <th className="px-2 py-1">{t('colDepartment')}</th>
+              <th className="px-2 py-1">{t('colPosition')}</th>
+            </tr>
+          </thead>
           <tbody>
             {list.map((e) => (
               <tr key={e.id} className="border-t">
-                <td className="px-2 py-1">{e.employeeNo}</td><td className="px-2 py-1">{e.name}</td>
-                <td className="px-2 py-1">{e.departmentId}</td><td className="px-2 py-1">{e.position ?? '-'}</td>
+                <td className="px-2 py-1">{e.employeeNo}</td>
+                <td className="px-2 py-1">{e.name}</td>
+                <td className="px-2 py-1">{e.departmentId}</td>
+                <td className="px-2 py-1">{e.position ?? '-'}</td>
               </tr>
             ))}
           </tbody>
@@ -180,17 +242,41 @@ function EmployeesTab({ t }: { t: ReturnType<typeof useTranslations> }) {
   )
 }
 
-function RuleTab({ t, deptId, setDeptId }: { t: ReturnType<typeof useTranslations>; deptId: string; setDeptId: (v: string) => void }) {
+function RuleTab({
+  t,
+  deptId,
+  setDeptId,
+}: {
+  t: ReturnType<typeof useTranslations>
+  deptId: string
+  setDeptId: (v: string) => void
+}) {
   const qc = useQueryClient()
   const { data, isLoading } = useQuery({
     queryKey: ['hr', 'rule', deptId],
     enabled: Boolean(deptId),
-    queryFn: () => api<{ rule: HrAttendanceRuleDto | null }>(`${RESOURCE}/attendance/rule?departmentId=${deptId}`),
+    queryFn: () =>
+      api<{ rule: HrAttendanceRuleDto | null }>(
+        `${RESOURCE}/attendance/rule?departmentId=${deptId}`,
+      ),
   })
   const rule = data?.rule ?? null
-  const [form, setForm] = React.useState({ lateAfter: '', earlyBefore: '', absentAfter: '', workdays: '127', enabled: true })
+  const [form, setForm] = React.useState({
+    lateAfter: '',
+    earlyBefore: '',
+    absentAfter: '',
+    workdays: '127',
+    enabled: true,
+  })
   React.useEffect(() => {
-    if (rule) setForm({ lateAfter: rule.lateAfter ?? '', earlyBefore: rule.earlyBefore ?? '', absentAfter: rule.absentAfter ?? '', workdays: String(rule.workdays), enabled: rule.enabled })
+    if (rule)
+      setForm({
+        lateAfter: rule.lateAfter ?? '',
+        earlyBefore: rule.earlyBefore ?? '',
+        absentAfter: rule.absentAfter ?? '',
+        workdays: String(rule.workdays),
+        enabled: rule.enabled,
+      })
   }, [rule])
   const upsertMut = useMutation({
     mutationFn: () =>
@@ -205,23 +291,73 @@ function RuleTab({ t, deptId, setDeptId }: { t: ReturnType<typeof useTranslation
           enabled: form.enabled,
         }),
       }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['hr', 'rule', deptId] }); toast.success(t('updateSuccess')) },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['hr', 'rule', deptId] })
+      toast.success(t('updateSuccess'))
+    },
     onError: (e: Error) => toast.error(e.message),
   })
   return (
     <Section title={t('tabRule')}>
       <div className="flex items-end gap-2">
-        <label className="text-sm">{t('colDepartment')}<input className={inputCls} value={deptId} onChange={(e) => setDeptId(e.target.value)} /></label>
+        <label className="font-[weight:inherit] text-body">
+          {t('colDepartment')}
+          <input className={inputCls} value={deptId} onChange={(e) => setDeptId(e.target.value)} />
+        </label>
       </div>
-      {!deptId ? <p className="text-muted-foreground">{t('noData')}</p> : isLoading ? <p className="text-muted-foreground">{t('loading')}</p> : (
+      {!deptId ? (
+        <p className="text-muted-foreground">{t('noData')}</p>
+      ) : isLoading ? (
+        <p className="text-muted-foreground">{t('loading')}</p>
+      ) : (
         <div className="flex flex-wrap items-end gap-2">
-          <label className="text-sm">{t('ruleLateAfter')}<input className={inputCls} value={form.lateAfter} placeholder="HH:MM" onChange={(e) => setForm({ ...form, lateAfter: e.target.value })} /></label>
-          <label className="text-sm">{t('ruleEarlyBefore')}<input className={inputCls} value={form.earlyBefore} placeholder="HH:MM" onChange={(e) => setForm({ ...form, earlyBefore: e.target.value })} /></label>
-          <label className="text-sm">{t('ruleAbsentAfter')}<input className={inputCls} value={form.absentAfter} placeholder="HH:MM" onChange={(e) => setForm({ ...form, absentAfter: e.target.value })} /></label>
-          <label className="text-sm">{t('ruleWorkdays')}<input className={inputCls} value={form.workdays} onChange={(e) => setForm({ ...form, workdays: e.target.value })} /></label>
-          <label className="text-sm flex items-center gap-1"><input type="checkbox" checked={form.enabled} onChange={(e) => setForm({ ...form, enabled: e.target.checked })} />{t('ruleEnabled')}</label>
+          <label className="font-[weight:inherit] text-body">
+            {t('ruleLateAfter')}
+            <input
+              className={inputCls}
+              value={form.lateAfter}
+              placeholder="HH:MM"
+              onChange={(e) => setForm({ ...form, lateAfter: e.target.value })}
+            />
+          </label>
+          <label className="font-[weight:inherit] text-body">
+            {t('ruleEarlyBefore')}
+            <input
+              className={inputCls}
+              value={form.earlyBefore}
+              placeholder="HH:MM"
+              onChange={(e) => setForm({ ...form, earlyBefore: e.target.value })}
+            />
+          </label>
+          <label className="font-[weight:inherit] text-body">
+            {t('ruleAbsentAfter')}
+            <input
+              className={inputCls}
+              value={form.absentAfter}
+              placeholder="HH:MM"
+              onChange={(e) => setForm({ ...form, absentAfter: e.target.value })}
+            />
+          </label>
+          <label className="font-[weight:inherit] text-body">
+            {t('ruleWorkdays')}
+            <input
+              className={inputCls}
+              value={form.workdays}
+              onChange={(e) => setForm({ ...form, workdays: e.target.value })}
+            />
+          </label>
+          <label className="font-[weight:inherit] text-body flex items-center gap-1">
+            <input
+              type="checkbox"
+              checked={form.enabled}
+              onChange={(e) => setForm({ ...form, enabled: e.target.checked })}
+            />
+            {t('ruleEnabled')}
+          </label>
           <HasPermi code={`${PERM}:manage`}>
-            <Button size="sm" disabled={upsertMut.isPending} onClick={() => upsertMut.mutate()}>{t('save')}</Button>
+            <Button size="sm" disabled={upsertMut.isPending} onClick={() => upsertMut.mutate()}>
+              {t('save')}
+            </Button>
           </HasPermi>
         </div>
       )}
@@ -229,29 +365,56 @@ function RuleTab({ t, deptId, setDeptId }: { t: ReturnType<typeof useTranslation
   )
 }
 
-function RecordsTab({ t, deptId, setDeptId }: { t: ReturnType<typeof useTranslations>; deptId: string; setDeptId: (v: string) => void }) {
+function RecordsTab({
+  t,
+  deptId,
+  setDeptId,
+}: {
+  t: ReturnType<typeof useTranslations>
+  deptId: string
+  setDeptId: (v: string) => void
+}) {
   const { data, isLoading } = useQuery({
     queryKey: ['hr', 'records', deptId],
-    queryFn: () => api<ListData<HrAttendanceRecord>>(`${RESOURCE}/attendance/records?departmentId=${deptId}`),
+    queryFn: () =>
+      api<ListData<HrAttendanceRecord>>(`${RESOURCE}/attendance/records?departmentId=${deptId}`),
   })
   const list = data?.list ?? []
   return (
     <Section title={t('tabRecords')}>
-      <label className="text-sm">{t('colDepartment')}<input className={inputCls} value={deptId} onChange={(e) => setDeptId(e.target.value)} /></label>
-      {!deptId ? <p className="text-muted-foreground">{t('noData')}</p> : isLoading ? <p className="text-muted-foreground">{t('loading')}</p> :
-        list.length === 0 ? <p className="text-muted-foreground">{t('noData')}</p> : (
-        <table className="w-full text-sm">
-          <thead><tr className="text-left text-muted-foreground">
-            <th className="px-2 py-1">{t('colDate')}</th><th className="px-2 py-1">{t('colEmployeeNo')}</th>
-            <th className="px-2 py-1">{t('colCheckIn')}</th><th className="px-2 py-1">{t('colCheckOut')}</th>
-            <th className="px-2 py-1">{t('colStatus')}</th>
-          </tr></thead>
+      <label className="font-[weight:inherit] text-body">
+        {t('colDepartment')}
+        <input className={inputCls} value={deptId} onChange={(e) => setDeptId(e.target.value)} />
+      </label>
+      {!deptId ? (
+        <p className="text-muted-foreground">{t('noData')}</p>
+      ) : isLoading ? (
+        <p className="text-muted-foreground">{t('loading')}</p>
+      ) : list.length === 0 ? (
+        <p className="text-muted-foreground">{t('noData')}</p>
+      ) : (
+        <table className="font-[weight:inherit] w-full text-body">
+          <thead>
+            <tr className="text-left text-muted-foreground">
+              <th className="px-2 py-1">{t('colDate')}</th>
+              <th className="px-2 py-1">{t('colEmployeeNo')}</th>
+              <th className="px-2 py-1">{t('colCheckIn')}</th>
+              <th className="px-2 py-1">{t('colCheckOut')}</th>
+              <th className="px-2 py-1">{t('colStatus')}</th>
+            </tr>
+          </thead>
           <tbody>
             {list.map((r) => (
               <tr key={r.id} className="border-t">
-                <td className="px-2 py-1">{r.date}</td><td className="px-2 py-1">{r.employeeId}</td>
-                <td className="px-2 py-1">{r.checkInTime ?? '-'}</td><td className="px-2 py-1">{r.checkOutTime ?? '-'}</td>
-                <td className="px-2 py-1">{t(`status${r.status.charAt(0).toUpperCase()}${r.status.slice(1)}` as 'statusPresent')}</td>
+                <td className="px-2 py-1">{r.date}</td>
+                <td className="px-2 py-1">{r.employeeId}</td>
+                <td className="px-2 py-1">{r.checkInTime ?? '-'}</td>
+                <td className="px-2 py-1">{r.checkOutTime ?? '-'}</td>
+                <td className="px-2 py-1">
+                  {t(
+                    `status${r.status.charAt(0).toUpperCase()}${r.status.slice(1)}` as 'statusPresent',
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -261,23 +424,44 @@ function RecordsTab({ t, deptId, setDeptId }: { t: ReturnType<typeof useTranslat
   )
 }
 
-function StatsTab({ t, deptId, setDeptId }: { t: ReturnType<typeof useTranslations>; deptId: string; setDeptId: (v: string) => void }) {
+function StatsTab({
+  t,
+  deptId,
+  setDeptId,
+}: {
+  t: ReturnType<typeof useTranslations>
+  deptId: string
+  setDeptId: (v: string) => void
+}) {
   const { data, isLoading } = useQuery({
     queryKey: ['hr', 'stats', deptId],
-    queryFn: () => api<{ stats: { total: number; byStatus: Record<string, number> } }>(`${RESOURCE}/attendance/stats?departmentId=${deptId}`),
+    queryFn: () =>
+      api<{ stats: { total: number; byStatus: Record<string, number> } }>(
+        `${RESOURCE}/attendance/stats?departmentId=${deptId}`,
+      ),
   })
   return (
     <Section title={t('tabStats')}>
-      <label className="text-sm">{t('colDepartment')}<input className={inputCls} value={deptId} onChange={(e) => setDeptId(e.target.value)} /></label>
-      {!deptId ? <p className="text-muted-foreground">{t('noData')}</p> : isLoading ? <p className="text-muted-foreground">{t('loading')}</p> :
+      <label className="font-[weight:inherit] text-body">
+        {t('colDepartment')}
+        <input className={inputCls} value={deptId} onChange={(e) => setDeptId(e.target.value)} />
+      </label>
+      {!deptId ? (
+        <p className="text-muted-foreground">{t('noData')}</p>
+      ) : isLoading ? (
+        <p className="text-muted-foreground">{t('loading')}</p>
+      ) : (
         <div className="flex gap-3">
           {Object.entries(data?.stats.byStatus ?? {}).map(([k, v]) => (
             <div key={k} className="rounded-lg border px-3 py-2 text-center">
               <div className="text-lg font-bold">{v}</div>
-              <div className="text-xs text-muted-foreground">{t(`status${k.charAt(0).toUpperCase()}${k.slice(1)}` as 'statusPresent')}</div>
+              <div className="font-[weight:inherit] text-label text-muted-foreground">
+                {t(`status${k.charAt(0).toUpperCase()}${k.slice(1)}` as 'statusPresent')}
+              </div>
             </div>
           ))}
-        </div>}
+        </div>
+      )}
     </Section>
   )
 }
@@ -290,31 +474,61 @@ function LeaveTab({ t }: { t: ReturnType<typeof useTranslations> }) {
   })
   const decide = useMutation({
     mutationFn: (p: { id: string; decision: 'approved' | 'rejected' }) =>
-      api(`${RESOURCE}/leave/${p.id}/approve`, { method: 'PUT', body: JSON.stringify({ decision: p.decision }) }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['hr', 'leave'] }); toast.success(t('updateSuccess')) },
+      api(`${RESOURCE}/leave/${p.id}/approve`, {
+        method: 'PUT',
+        body: JSON.stringify({ decision: p.decision }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['hr', 'leave'] })
+      toast.success(t('updateSuccess'))
+    },
     onError: (e: Error) => toast.error(e.message),
   })
   const list = data?.list ?? []
   return (
     <Section title={t('tabLeave')}>
-      {isLoading ? <p className="text-muted-foreground">{t('loading')}</p> :
-        list.length === 0 ? <p className="text-muted-foreground">{t('noData')}</p> : (
-        <table className="w-full text-sm">
-          <thead><tr className="text-left text-muted-foreground">
-            <th className="px-2 py-1">{t('colEmployeeNo')}</th><th className="px-2 py-1">{t('colStart')}</th>
-            <th className="px-2 py-1">{t('colEnd')}</th><th className="px-2 py-1">{t('colReason')}</th>
-            <th className="px-2 py-1">{t('colStatus')}</th><th className="px-2 py-1">{t('colActions')}</th>
-          </tr></thead>
+      {isLoading ? (
+        <p className="text-muted-foreground">{t('loading')}</p>
+      ) : list.length === 0 ? (
+        <p className="text-muted-foreground">{t('noData')}</p>
+      ) : (
+        <table className="font-[weight:inherit] w-full text-body">
+          <thead>
+            <tr className="text-left text-muted-foreground">
+              <th className="px-2 py-1">{t('colEmployeeNo')}</th>
+              <th className="px-2 py-1">{t('colStart')}</th>
+              <th className="px-2 py-1">{t('colEnd')}</th>
+              <th className="px-2 py-1">{t('colReason')}</th>
+              <th className="px-2 py-1">{t('colStatus')}</th>
+              <th className="px-2 py-1">{t('colActions')}</th>
+            </tr>
+          </thead>
           <tbody>
             {list.map((l) => (
               <tr key={l.id} className="border-t">
-                <td className="px-2 py-1">{l.employeeId}</td><td className="px-2 py-1">{l.startDate}</td>
-                <td className="px-2 py-1">{l.endDate}</td><td className="px-2 py-1">{l.reason}</td>
-                <td className="px-2 py-1">{t(`status${l.status.charAt(0).toUpperCase()}${l.status.slice(1)}` as 'statusPending')}</td>
+                <td className="px-2 py-1">{l.employeeId}</td>
+                <td className="px-2 py-1">{l.startDate}</td>
+                <td className="px-2 py-1">{l.endDate}</td>
+                <td className="px-2 py-1">{l.reason}</td>
+                <td className="px-2 py-1">
+                  {t(
+                    `status${l.status.charAt(0).toUpperCase()}${l.status.slice(1)}` as 'statusPending',
+                  )}
+                </td>
                 <td className="px-2 py-1 space-x-2">
                   <HasPermi code={`${PERM}:manage`}>
-                    <button className="text-primary hover:underline" onClick={() => decide.mutate({ id: l.id, decision: 'approved' })}>{t('approve')}</button>
-                    <button className="text-destructive hover:underline" onClick={() => decide.mutate({ id: l.id, decision: 'rejected' })}>{t('reject')}</button>
+                    <button
+                      className="text-primary hover:underline"
+                      onClick={() => decide.mutate({ id: l.id, decision: 'approved' })}
+                    >
+                      {t('approve')}
+                    </button>
+                    <button
+                      className="text-destructive hover:underline"
+                      onClick={() => decide.mutate({ id: l.id, decision: 'rejected' })}
+                    >
+                      {t('reject')}
+                    </button>
                   </HasPermi>
                 </td>
               </tr>
@@ -325,3 +539,4 @@ function LeaveTab({ t }: { t: ReturnType<typeof useTranslations> }) {
     </Section>
   )
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
