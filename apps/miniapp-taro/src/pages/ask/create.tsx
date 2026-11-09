@@ -12,7 +12,7 @@ import { FocusInput, FocusTextarea } from '@/components/FocusField'
 import LineIcon from '@/components/LineIcon'
 import Taro from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { AskImageField } from '@ihui/rn-app/features/ask-create/AskImageField'
+import { AskImageField, ASK_IMAGE_MAX } from '@ihui/rn-app/features/ask-create/AskImageField'
 import { useAskDraft } from '@ihui/rn-app/features/ask-create/ask-draft'
 import { createAskDraftPort, createAskMediaPort } from '@/host/ask-create-ports'
 import { createAsk } from '@ihui/api-client'
@@ -260,13 +260,17 @@ export default function AskCreatePage() {
 
           {/* 配图 */}
           <View className="ask-create-card">
-            <Text className="ask-create-label">{tt('ask.create.imageLabel', '配图')}</Text>
+            {/* 标签与满额提示都取共享屏同名的键(RN AskCreateScreen 用同两枚),
+                端内不再另造 ask.create.imageLabel / maxImages ⇒ 两端读同一句话 */}
+            <Text className="ask-create-label">{tt('publishNew.formatImage', '图片')}</Text>
             {/* 配图段与 RN 共用:剩余张数、满额 toast 文案都来自共享逻辑,端内只接状态 */}
             <AskImageField
               colorScheme={resolved}
               images={form.images}
               media={media}
-              maxToast={tt('ask.create.maxImages', '最多 3 张')}
+              maxToast={tt('aigcPublish.errorMaxFiles', '最多 {max} 个文件', {
+                max: ASK_IMAGE_MAX,
+              })}
               onToast={onToast}
               onAdd={(uris) => updateForm({ images: [...form.images, ...uris] })}
               onRemove={(index) =>
