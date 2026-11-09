@@ -4,6 +4,7 @@
 
 import type { Metadata } from 'next'
 import { FaqContent } from './FaqContent'
+import { jsonLdHtml } from '@/lib/seo/json-ld'
 
 // FAQPage JSON-LD(2026-07-26 立,GEO 优化):
 // - FAQPage schema 是 AI 引擎和 Google Rich Results 最高优先引用的格式之一
@@ -141,7 +142,7 @@ export default function FaqPage() {
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdHtml(faqJsonLd) }}
       />
       <FaqContent />
     </>

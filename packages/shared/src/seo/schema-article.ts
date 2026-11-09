@@ -19,7 +19,10 @@
  *   keywords: ['GPT-5', 'OpenAI', '大模型'],
  *   articleBody: '...',
  * })
- * // 注入: <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(article) }} />
+ * // 注入(web 端,唯一出口): `jsonLdHtml(article)`
+ * //   <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdHtml(article) }} />
+ * //   jsonLdHtml 见 apps/web/src/lib/seo/json-ld.ts:把 `<` 转成 \u003c。
+ * //   **禁止**直接 `JSON.stringify(article)` —— 数据里的 `</script>` 会让标签提前闭合(注入面)。
  * ```
  */
 export interface ArticleData {

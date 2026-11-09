@@ -7,6 +7,7 @@ import { getTranslations } from 'next-intl/server'
 import Link from 'next/link'
 import { Smartphone, Coins } from 'lucide-react'
 import { CodeBlock } from '@/components/docs/code-block'
+import { jsonLdHtml } from '@/lib/seo/json-ld'
 
 const SITE_URL = 'https://aizhs.top'
 
@@ -68,7 +69,7 @@ export default function AgentDocsPage() {
     <div className="px-4 space-y-4 py-4">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(agentJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdHtml(agentJsonLd) }}
       />
 
       {/* Agent 结构 */}
