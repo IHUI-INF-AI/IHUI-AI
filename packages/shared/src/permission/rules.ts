@@ -237,6 +237,11 @@ export function toolFamilyOf(tool: string): ApprovalToolFamily {
   if (EXEC_TOOL_NAMES.has(t)) return 'exec'
   // computer_use.* 统一按 exec 族:它驱动的是操作系统级输入
   if (t.startsWith('computer_use.') || t.startsWith('computer.')) return 'exec'
+  // 人事考勤(HR)工具族(2026-11-09 立):写类动词(建/改/签到签退/补录/审批)归 edit,其余归 read。
+  // 真实鉴权仍由后端路由的 RBAC(hr:attendance:view|manage)把关,本族只决定 agent 侧预执行审批语义。
+  if (t.startsWith('hr_')) {
+    return /_(create|upsert|check_in|check_out|backfill|approve)$/.test(t) ? 'edit' : 'read'
+  }
   return 'unknown'
 }
 
