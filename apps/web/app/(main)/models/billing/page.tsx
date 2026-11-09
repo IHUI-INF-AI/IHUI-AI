@@ -6,6 +6,7 @@ import { getTranslations } from 'next-intl/server'
 import { ArrowUpRight, Check, DollarSign, Wallet } from 'lucide-react'
 
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
+import { jsonLdHtml } from '@/lib/seo/json-ld'
 import { generateProductSchema, type ProductSchema } from '@/lib/seo/schema-product'
 import { BackButton } from '@/components/common'
 
@@ -137,7 +138,7 @@ export default async function BillingPage() {
       {productJsonLd ? (
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
+          dangerouslySetInnerHTML={{ __html: jsonLdHtml(productJsonLd) }}
         />
       ) : null}
       <div className="px-4 py-4 space-y-4">
