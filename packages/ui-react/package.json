@@ -28,7 +28,7 @@
   },
   "peerDependencies": {
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.3.1"
   },
   "dependencies": {
     "@ihui/design-tokens": "workspace:*",
@@ -49,12 +49,12 @@
   "devDependencies": {
     "@ihui/eslint-config": "workspace:*",
     "@types/react": "19.2.18",
-    "@types/react-dom": "19.2.4",
+    "@types/react-dom": "19.3.0",
     "typescript": "catalog:",
     "eslint": "catalog:",
     "happy-dom": "^20.11.1",
     "rimraf": "catalog:",
-    "react-dom": "^19.0.0",
+    "react-dom": "^19.3.1",
     "vitest": "catalog:"
   },
   "author": "李春川 (Li Chunchuan) <IHUI AI (智汇AI)>",
