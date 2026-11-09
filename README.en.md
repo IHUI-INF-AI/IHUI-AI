@@ -77,7 +77,7 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 | 端应用包 | 9 | `appPackages` |
 | 共享包 | 16 | `sharedPackages` |
 | CLI 命令文件 | 75 | `cliCommandFiles` |
-| CLI 工具文件 | 95 | `cliToolFiles` |
+| CLI 工具文件 | 98 | `cliToolFiles` |
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
