@@ -2153,7 +2153,7 @@ function Build-Web {
     #    design-tokens/types,ui-react→design-tokens,api-client→types,实测 2026-09-21:
     #    shared 排在 api-client 前会对其旧 dist 报 TS2305 CitationsEvent),单包失败即
     #    中止并定位到包;未来新增 dist 型 workspace 依赖时须同步调整清单与顺序。
-    foreach ($pkg in @('@ihui/types','@ihui/i18n','@ihui/dom-actions','@ihui/context-compaction','@ihui/api-client','@ihui/design-tokens','@ihui/shared','@ihui/auth','@ihui/ui-react')) {
+    foreach ($pkg in @('@ihui/types','@ihui/i18n','@ihui/dom-actions','@ihui/context-compaction','@ihui/api-client','@ihui/design-tokens','@ihui/shared','@ihui/auth','@ihui/ui-react','@ihui/attendance-core')) {
         Log "重建 $pkg dist ..."
         & (Join-Path $DevEnvRoot 'tools\npm-global\pnpm.cmd') --filter $pkg run build
         if ($LASTEXITCODE -ne 0) { throw "workspace 包 $pkg dist 重建失败(exit $LASTEXITCODE)" }
@@ -2197,7 +2197,7 @@ function Build-Web {
                 catch { Log "WARN 主仓依赖指纹未落盘(下一轮会再装一次):$_" }
             }
         }
-        foreach ($pkg in @('@ihui/types','@ihui/i18n','@ihui/dom-actions','@ihui/context-compaction','@ihui/api-client','@ihui/design-tokens','@ihui/shared','@ihui/auth','@ihui/ui-react')) {
+        foreach ($pkg in @('@ihui/types','@ihui/i18n','@ihui/dom-actions','@ihui/context-compaction','@ihui/api-client','@ihui/design-tokens','@ihui/shared','@ihui/auth','@ihui/ui-react','@ihui/attendance-core')) {
             Log "主仓重建 $pkg dist ..."
             & (Join-Path $DevEnvRoot 'tools\npm-global\pnpm.cmd') --filter $pkg run build
             if ($LASTEXITCODE -ne 0) { Log "WARN  主仓 $pkg dist 重建失败(exit $LASTEXITCODE),api 可能滞留旧 dist,需人工核查" }

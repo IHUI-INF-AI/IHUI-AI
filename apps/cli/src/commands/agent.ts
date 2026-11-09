@@ -58,6 +58,8 @@ import { parseWelcomeMode, parseInteractionMode } from '../prompts/mode-matrix.j
 import { BUILTIN_TOOLS } from '../tools/builtins.js';
 // 人事考勤(HR)工具族:AI 对话框可调用操作考勤/部门/员工/请假(复用 @ihui/attendance-core 判定内核)。
 import { HR_TOOLS } from '../tools/hr.js';
+// relay 号池工具族(2026-11-09 立):号池查询/巡检/任务/重认证/策略的 AI 工具化(清单生成器产出)。
+import { RELAY_TOOLS } from '../tools/relay.js';
 // API 桥工具族(2026-11-09 立):目录检索 + 通用调用,让对话能触达全仓 5514 个端点。
 import { API_BRIDGE_TOOLS } from '../tools/api-bridge.js';
 import { createFileEditTools } from '../tools/file-edit.js';
@@ -474,6 +476,8 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
   registerTools(BUILTIN_TOOLS);
   // 人事考勤(HR)工具族:2026-11-09 立,API 路由 → AI 工具模板域。
   registerTools(HR_TOOLS);
+  // relay 号池工具族(2026-11-09 立):号池列表/详情/巡检/任务/重认证/策略。
+  registerTools(RELAY_TOOLS);
   // API 桥(5 枚):api_list_endpoints / api_describe_endpoint / api_read / api_write / api_delete
   // —— 任意端点的检索与调用入口,补上"手写工具没覆盖到的那些业务域"。
   registerTools(API_BRIDGE_TOOLS);

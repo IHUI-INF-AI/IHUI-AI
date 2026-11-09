@@ -34,7 +34,11 @@ import { decryptAccountCredentials, type AccountCredentials } from './relay-acco
 import { tryAcquireSharedLock } from './relay-account-shared-state.js'
 import { encryptField } from '../utils/crypto.js'
 import { logger } from '../utils/logger.js'
-import { getRelayAdapter, type AdapterAccountContext } from './relay-upstream-adapters.js'
+import {
+  getRelayAdapter,
+  isRefreshableProviderCode,
+  type AdapterAccountContext,
+} from './relay-upstream-adapters.js'
 import { purgeAccountUsage } from './relay-account-usage.js'
 import { pickProxyForAccount } from './relay-proxy-pool.js'
 import { reconcileCheckinSync, fetchPoolAccounts } from './relay-account-pool-reconcile.js'
@@ -975,8 +979,10 @@ async function runSweepOnce(
       }
       return
     }
-    const adapter = getRelayAdapter(row.providerCode)
-    if (!adapter?.refreshToken) {
+    // 能力判据必须走 isRefreshableProviderCode(方法存在 ≠ 真能刷新):
+    // doubao/loomy 的 refreshToken 是恒 null 空壳,若按"方法存在"去刷,每轮记一次失败,
+    // 3 次即把好号自动摘除。口径单源见 relay-upstream-adapters 的同名函数头注。
+    if (!isRefreshableProviderCode(row.providerCode)) {
       out.refreshSkipped++
       return
     }
@@ -1124,8 +1130,7 @@ async function runSweepOnce(
       }
       continue
     }
-    const adapter = getRelayAdapter(row.providerCode)
-    if (!adapter?.refreshToken) continue
+    if (!isRefreshableProviderCode(row.providerCode)) continue
     if (await refreshOne(row, egress)) out.healthRecovered++
   }
 
