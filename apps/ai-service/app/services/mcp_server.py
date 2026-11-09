@@ -9761,7 +9761,7 @@ def _remember_voice_owner(voice_id: str, user_id: str) -> None:
         )
 
 
-def _voice_identity_denial(action: str) -> dict[str, Any] | None:
+def _voice_identity_denial(action: str) -> dict[str, Any]:
     """列表/读/删/克隆都必须有宿主注入的身份;缺失按 fail-closed 拒。"""
     logger.warning(
         "[mcp] voice_clone 缺少宿主注入身份(AIS-050 归属闸): action=%s code=IDENTITY_REQUIRED",
