@@ -1,0 +1,6 @@
+{
+  "extends": "./tsconfig.json",
+  "//": "发布产物专用构建配置(与 typecheck 分开,同 packages/types 口径):tsconfig.json 的 typecheck 面仍覆盖 src 内 *.test.ts,本配置只产出可发布的 dist —— 排除测试面,避免 vitest 把 dist 里的旧编译副本再跑一遍(重复计数 + 拿旧产物假绿)。",
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist", "src/**/*.test.ts", "src/**/__tests__/**"]
+}
