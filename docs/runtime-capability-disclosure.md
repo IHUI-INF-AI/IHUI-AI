@@ -796,10 +796,12 @@ Ollama `http://localhost:11434`、LM Studio `http://localhost:1234`、llama.cpp
 
 - **到人运维只有一条通道：邮件**。发信一律经
   `apps/api/scripts/notify-deploy-failure.ts`：Resend 端点常量
-  `https://api.resend.com/emails`（`:36`），默认 From
-  `智汇AI官方 <IHUI-AI@aizhs.top>`（`:35`），环境变量清单 `:40-46`；
-  回落链 SMTP → Resend（`:389-396`），且经 `smtp.qq.com` 中继时 From 邮箱段必须等于登录账号
-  （`:248` 注释）。
+  `https://api.resend.com/emails`，默认 From
+  `智汇AI <IHUI-AI@aizhs.top>`（`DEFAULT_RESEND_FROM`；显示名由
+  `email-templates.ts` 的 `BRAND_MAIL_DISPLAY_NAME` 单点决定，配置只能改地址段）；
+  回落链 SMTP → Resend，且经 `smtp.qq.com` 中继时 From 邮箱段必须等于登录账号
+  （`resolveSmtpFrom` 注释）。**邮件语言按收件域名分流**：国内主流邮箱（`qq.com` / `163.com` 等
+  `DOMESTIC_EMAIL_DOMAINS`）收中文，其余收英文；混合收件人按语言分组各发一封。
 - 运维告警收件人由 `apps/api/.env` 的 `ALERT_EMAIL_TO` 控制（AGENTS.md §5e）。
 - **无第三方产品遥测**：实测在 `apps/web/app`、`apps/web/src`、`apps/ai-service/app`、
   `apps/desktop/src`、`packages/shared/src` 检索

@@ -45,14 +45,17 @@ config({ path: resolvePath(API_DIR, '.env') })
 
 const { eq, and } = await import('drizzle-orm')
 const { aiRelayAccountPool } = await import('@ihui/database')
-const { isRelayProviderCode, RELAY_PROVIDERS, validateAccountExport } =
+const { isRelayProviderCode, RELAY_PROVIDERS, validateAccountExport, resolveRelayCredentialSlots } =
   await import('../src/services/relay-account-format.js')
 const { importAccounts, decryptAccountCredentials, resolveImportAccountUidProbe } =
   await import('../src/services/relay-account-pool-service.js')
-const { db, dbRead } = await import('../src/db/index.js')
+const { db, dbRead, closeDbPools } = await import('../src/db/index.js')
 const { registerAllRelayAdapters } = await import('../src/services/upstream-adapters/index.js')
 const { getRelayAdapter } = await import('../src/services/relay-upstream-adapters.js')
 const { healthStatusOf } = await import('../src/services/relay-account-pool-scheduler.js')
+const { fetchCodeartsAccountPhone } =
+  await import('../src/services/upstream-adapters/codearts-adapter.js')
+const { pickProxyForAccount } = await import('../src/services/relay-proxy-pool.js')
 
 interface CliOptions {
   stdin: boolean
@@ -210,10 +213,17 @@ export async function runHealth(providerCode: string, uid: string): Promise<Heal
     }
   let outcome: { ok: boolean; error?: string; indeterminate?: boolean }
   try {
+    /**
+     * 出口必须与转发链路同源:`proxy_url` 列可能存的是 `encryptField` 信封
+     * (`{"iv","ciphertext","tag"}`),直接把原文当代理 URL 喂给 ProxyAgent 会抛
+     * `Invalid URL`(检出 3 枚账号被误判未判定)。`pickProxyForAccount` 负责解密
+     * 账号级代理并回退池内轮换,与调度器 sweep 同一口径。
+     */
+    const proxyUrl = await pickProxyForAccount({ id: row.id, proxyUrl: row.proxyUrl })
     outcome = await Promise.race([
       adapter.checkHealth(
         { row, credentials: decryptAccountCredentials(row) },
-        { proxyUrl: row.proxyUrl ?? undefined },
+        { proxyUrl: proxyUrl ?? undefined },
       ),
       new Promise<{ ok: boolean; error: string; indeterminate: boolean }>((resolve) =>
         setTimeout(() => resolve({ ok: false, error: 'timeout 30s', indeterminate: true }), 30000),
@@ -292,6 +302,58 @@ async function main(argv: string[]): Promise<number> {
     return 2
   }
 
+  // CodeArts 会话里没有手机号(2026-11-10 实证:state.vscdb 解出的只有 id/accessKey/
+  // secretKey/securitytoken/refresh_token/domainId/account{id,label}),但上游 IAM 有:
+  // 用同一份 AK/SK+STS 签名点查 `GET /v3.0/OS-USER/users/{account.id}` 可拿到 phone。
+  // 拿到就补进载荷的 `phone`(format 层 codearts 的 PHONE_KEYS 本就认 phone/account.phone),
+  // 命名随即走"手机号优先";取不到只记未判定,不阻断导入(凡未取到一律如实回显枚数)。
+  const rawAccounts = (
+    Array.isArray(raw)
+      ? raw
+      : raw && typeof raw === 'object' && Array.isArray((raw as Record<string, unknown>).accounts)
+        ? ((raw as Record<string, unknown>).accounts as unknown[])
+        : []
+  ) as ImportAccountInput[]
+  if (providerCode === 'codearts' && rawAccounts.length > 0) {
+    let filled = 0
+    let missed = 0
+    for (const acc of rawAccounts) {
+      const a = acc as Record<string, unknown>
+      const account = (a['account'] ?? null) as Record<string, unknown> | null
+      const existing = String(account?.['phone'] ?? a['phone'] ?? '').trim()
+      if (existing) continue
+      const { hits } = resolveRelayCredentialSlots(a, 'codearts')
+      const sts = hits[0]
+      const ak = hits[1]
+      const sk = hits[2]
+      const userId = String(account?.['id'] ?? a['user_id'] ?? '').trim()
+      if (!sts || !ak || !sk || !userId) {
+        missed++
+        continue
+      }
+      try {
+        const phone = await fetchCodeartsAccountPhone({
+          accessKeyId: ak.value,
+          secretAccessKey: sk.value,
+          securityToken: sts.value,
+          userId,
+        })
+        if (phone) {
+          a['phone'] = phone
+          if (account && typeof account === 'object') account['phone'] = phone
+          filled++
+        } else {
+          missed++
+        }
+      } catch {
+        missed++
+      }
+    }
+    if (filled || missed) {
+      process.stderr.write(`ℹ️ codearts 手机号点查:取到 ${filled} 枚,未取到 ${missed} 枚\n`)
+    }
+  }
+
   const report = validateAccountExport(raw, { providerCode })
   const accounts = report.accounts.length
 
@@ -303,13 +365,7 @@ async function main(argv: string[]): Promise<number> {
   // 收口口径 = **调用侧复用落库那枚键源**(`resolveImportAccountUidProbe` → 同一个
   // `mapImportedAccount` 分派 + 同一句 `uidFromImportPayload`),四个 `auto:` 生成点与
   // relay-account-format 的既有函数语义一字未改,号池身份键三下游(转发选号/保活/签到)零影响。
-  const importInput = (
-    Array.isArray(raw)
-      ? raw
-      : raw && typeof raw === 'object' && Array.isArray((raw as Record<string, unknown>).accounts)
-        ? ((raw as Record<string, unknown>).accounts as unknown[])
-        : []
-  ) as ImportAccountInput[]
+  const importInput = rawAccounts
   const probes = resolveImportAccountUidProbe(providerCode, importInput)
   const uidOf = (index: number): string | null => probes[index]?.uid ?? null
   /** 批内重复枚数(按落库口径键计;口径 = importAccounts 的 seenInBatch) */
@@ -446,11 +502,22 @@ async function main(argv: string[]): Promise<number> {
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) {
+  /**
+   * Windows/libuv:体检走全局 fetch,响应体读完后 socket 的 async handle 仍在关闭途中;
+   * 此时立刻 process.exit() 会撞 `ASSERT(handle->flags & UV_HANDLE_CLOSING)`(exit -1073740791,
+   * 2026-11-10 本机 5 连跑 4 次复现)。改成"先关连接池 → 置 exitCode 让事件循环自然排空",
+   * 既保退出码语义,也不再硬断正在关闭的句柄。fetch 的 keep-alive socket 不挂住事件循环
+   * (同机实测无 process.exit 时 0.27s 退出),真正需要收尾的是 DB 池。
+   */
+  const finish = async (code: number) => {
+    await closeDbPools()
+    process.exitCode = code
+  }
   main(process.argv.slice(2))
-    .then((code) => process.exit(code))
-    .catch((e) => {
+    .then(finish)
+    .catch(async (e) => {
       process.stderr.write(`❌ ${e instanceof Error ? e.message : String(e)}\n`)
-      process.exit(2)
+      await finish(2)
     })
 }
 
