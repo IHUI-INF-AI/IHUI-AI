@@ -238,9 +238,9 @@ test('镜像：EXPECTED_GATES 与 guardian-runner pushGateChecks 逐项一致', 
       .map((s) => s.replace(/^'|'$/g, ''))
     rows.push({ id: m[1] || m[2], script: m[3], args, mode: m[5] })
   }
-  assert.equal(rows.length, 13, `注册表解析到 ${rows.length} 条`)
+  assert.equal(rows.length, 14, `注册表解析到 ${rows.length} 条`)
   const expected = EXPECTED_GATES.filter((g) => g.id !== '173p' && g.id !== 'i18n')
-  assert.equal(expected.length, 13)
+  assert.equal(expected.length, 14)
   for (const [i, exp] of expected.entries()) {
     assert.deepEqual(rows[i], { id: exp.id, script: exp.script, args: exp.args, mode: exp.mode })
   }
