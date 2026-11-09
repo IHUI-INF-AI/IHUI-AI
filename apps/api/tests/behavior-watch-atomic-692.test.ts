@@ -88,7 +88,9 @@ vi.mock('../src/db/index.js', () => {
       },
       returning: () => b,
       then: (res: (v: unknown) => unknown, rej?: (e: unknown) => unknown) =>
-        Promise.resolve().then(() => execInsert(values, set)).then(res, rej),
+        Promise.resolve()
+          .then(() => execInsert(values, set))
+          .then(res, rej),
     }
     return b
   }

@@ -50,7 +50,8 @@ describe('F-692 记录浏览失败返回业务 500', () => {
 
   beforeAll(async () => {
     server.setErrorHandler((err: FastifyError, _req, reply) => {
-      const code = err.statusCode && err.statusCode >= 400 && err.statusCode < 600 ? err.statusCode : 500
+      const code =
+        err.statusCode && err.statusCode >= 400 && err.statusCode < 600 ? err.statusCode : 500
       reply.status(code).send({ code, message: code >= 500 ? '服务器错误' : err.message })
     })
     await server.register(behaviorRoutes, { prefix: '/api' })
@@ -59,7 +60,9 @@ describe('F-692 记录浏览失败返回业务 500', () => {
 
   it('并发唯一冲突等底层错误 ⇒ 500 且为业务错误体(不是裸冒泡的「服务器错误」)', async () => {
     queries.recordWatch.mockRejectedValueOnce(
-      new Error('duplicate key value violates unique constraint "behavior_watch_records_user_topic_unique"'),
+      new Error(
+        'duplicate key value violates unique constraint "behavior_watch_records_user_topic_unique"',
+      ),
     )
 
     const res = await server.inject({

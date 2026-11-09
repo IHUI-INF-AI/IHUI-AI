@@ -12397,11 +12397,18 @@
     "providerHealthTip": "지연 {latency}ms · {count}개 모델 사용 가능",
     "question": {
       "customPlaceholder": "또는 직접 입력...",
+      "expiresIn": "{seconds}초 남음",
       "multiSelectHint": "여러 개 선택 후 제출을 누르세요",
+      "responseFailed": "답변 전송에 실패하여 기존 경로로 대체했습니다. 반영되지 않았다면 다시 시도해 주세요",
       "selectHint": "하나를 선택하세요",
       "skip": "건너뛰기",
+      "statusAnswered": "답변 완료",
+      "statusTimeout": "시간 초과, 제출할 수 없음",
+      "statusWithdrawn": "철회됨",
       "submit": "답변 제출",
-      "title": "AI가 답변을 기다립니다"
+      "submitting": "제출 중...",
+      "title": "AI가 답변을 기다립니다",
+      "withdraw": "질문 철회"
     },
     "quotaExhaustedNotice": "해당 모델의 제공사 계정 한도가 모두 소진되었습니다(고객님의 계정 문제가 아닙니다). 플랫폼이 다른 경로를 통한 자동 전환을 시도했으나 모두 실패했습니다. 잠시 후 다시 시도하시거나 무료 표시가 있는 모델을 선택해 주세요.",
     "quotaExhaustedTitle": "모델 제공사 계정 한도를 모두 소진했습니다",

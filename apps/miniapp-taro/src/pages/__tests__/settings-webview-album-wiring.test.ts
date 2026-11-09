@@ -42,7 +42,9 @@ describe('XUI-037 保存相册 loading 必须 finally 关闭', () => {
 
 describe('XUI-044 webview reLaunch 定时器必须可取消', () => {
   it('定时器 id 落到 ref,并在卸载 cleanup 中 clearTimeout', () => {
-    expect(WEBVIEW).toContain('const reLaunchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)')
+    expect(WEBVIEW).toContain(
+      'const reLaunchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)',
+    )
     expect(WEBVIEW).toMatch(/clearTimeout\(reLaunchTimerRef\.current\)/)
   })
 

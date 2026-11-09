@@ -11,11 +11,7 @@ import { success, error } from '../utils/response.js'
 import { authenticate } from '../plugins/auth.js'
 import { directEgressFetch, boundedOptionsFromRequestInit } from '../utils/proxy-dispatcher.js'
 import { MEDIA_BASE64_BODY_LIMIT } from '../config/body-limits.js'
-import {
-  ensurePointsAvailable,
-  chargeFlatPoints,
-  FLAT_POINTS,
-} from '../services/points-guard.js'
+import { ensurePointsAvailable, chargeFlatPoints, FLAT_POINTS } from '../services/points-guard.js'
 
 const DASHSCOPE_BASE = process.env.DASHSCOPE_BASE ?? 'https://dashscope.aliyuncs.com/api/v1'
 

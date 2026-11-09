@@ -12397,11 +12397,18 @@
     "providerHealthTip": "延迟 {latency}ms · {count} 个模型可用",
     "question": {
       "customPlaceholder": "或输入自定义回答...",
+      "expiresIn": "剩余 {seconds} 秒",
       "multiSelectHint": "可多选,完成后点击提交",
+      "responseFailed": "答复发送失败,已尝试回退旧链路;若未生效请重试",
       "selectHint": "选择一项继续",
       "skip": "跳过提问",
+      "statusAnswered": "已回答",
+      "statusTimeout": "已超时,无法再提交",
+      "statusWithdrawn": "已撤回",
       "submit": "提交回答",
-      "title": "AI 需要你的回答"
+      "submitting": "提交中...",
+      "title": "AI 需要你的回答",
+      "withdraw": "撤回提问"
     },
     "quotaExhaustedNotice": "该模型所属厂商的账号额度已用完(不是你的账户问题),平台已自动尝试改道其他通道仍未成功。请稍后再试,或改选带「免费」标识的模型。",
     "quotaExhaustedTitle": "厂商账号额度已用尽",

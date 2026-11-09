@@ -115,6 +115,10 @@ HOOK_EVENTS: tuple[str, ...] = (
     # Codex PreCompactHook/PostCompactHook;payload 含 trigger/strategy)
     "context.pre_compact",
     "context.post_compact",
+    # 2026-11-08:AskUserQuestion 闭环(工作台 agent 侧阻塞提问与结局帧,
+    # agent_loop_v2 发出,agents.py 三端点经 AGENT_SUBSCRIBE_EVENTS 订阅)
+    "question",
+    "question-resolved",
 )
 
 HOOK_ACTION_TYPES: tuple[str, ...] = ("webhook", "script", "log", "notify")

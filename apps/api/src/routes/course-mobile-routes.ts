@@ -11,7 +11,11 @@ import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import { checkAuth } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
-import { findLessonById, findLessonChapters, findLessonSectionsByChapterIds } from '../db/learn-queries.js'
+import {
+  findLessonById,
+  findLessonChapters,
+  findLessonSectionsByChapterIds,
+} from '../db/learn-queries.js'
 import { findRateList } from '../db/learn-extended-queries.js'
 
 const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })

@@ -110,25 +110,27 @@ vi.mock('../src/db/index.js', async () => {
       onConflictDoNothing: () => b,
       returning: () => b,
       then: (res: (v: unknown) => unknown, rej?: (e: unknown) => unknown) =>
-        Promise.resolve().then(() => {
-          const name = tableName(table)
-          state.events.push(`insert:${name}`)
-          if (name !== 'edu_fee_reminder') return []
-          const row = {
-            id: `r${++state.seq}`,
-            enrollmentId: (values.enrollmentId as string) ?? '',
-            studentId: (values.studentId as string) ?? '',
-            status: (values.status as string) ?? 'sent',
-            channel: (values.channel as string) ?? 'in_app',
-            dueAmount: Number(values.dueAmount ?? 0),
-            message: (values.message as string | null) ?? null,
-            delivery: values.delivery ?? null,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          }
-          state.reminders.push(row)
-          return [{ id: row.id }]
-        }).then(res, rej),
+        Promise.resolve()
+          .then(() => {
+            const name = tableName(table)
+            state.events.push(`insert:${name}`)
+            if (name !== 'edu_fee_reminder') return []
+            const row = {
+              id: `r${++state.seq}`,
+              enrollmentId: (values.enrollmentId as string) ?? '',
+              studentId: (values.studentId as string) ?? '',
+              status: (values.status as string) ?? 'sent',
+              channel: (values.channel as string) ?? 'in_app',
+              dueAmount: Number(values.dueAmount ?? 0),
+              message: (values.message as string | null) ?? null,
+              delivery: values.delivery ?? null,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            }
+            state.reminders.push(row)
+            return [{ id: row.id }]
+          })
+          .then(res, rej),
     }
     return b
   }
@@ -146,15 +148,17 @@ vi.mock('../src/db/index.js', async () => {
         return b
       },
       then: (res: (v: unknown) => unknown, rej?: (e: unknown) => unknown) =>
-        Promise.resolve().then(() => {
-          const name = tableName(table)
-          state.events.push(`update:${name}`)
-          const q = render(cond)
-          const id = String(q.params[0] ?? '')
-          const row = state.reminders.find((r) => r.id === id)
-          if (row) Object.assign(row, set)
-          return undefined
-        }).then(res, rej),
+        Promise.resolve()
+          .then(() => {
+            const name = tableName(table)
+            state.events.push(`update:${name}`)
+            const q = render(cond)
+            const id = String(q.params[0] ?? '')
+            const row = state.reminders.find((r) => r.id === id)
+            if (row) Object.assign(row, set)
+            return undefined
+          })
+          .then(res, rej),
     }
     return b
   }

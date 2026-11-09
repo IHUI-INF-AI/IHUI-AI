@@ -27,7 +27,9 @@ const mocks = vi.hoisted(() => ({
   recordUsage: vi.fn(),
 }))
 
-vi.mock('../src/plugins/ws-helpers.js', () => ({ wsUpgradeRequiresCredential: () => () => undefined }))
+vi.mock('../src/plugins/ws-helpers.js', () => ({
+  wsUpgradeRequiresCredential: () => () => undefined,
+}))
 vi.mock('@ihui/auth', () => ({ verifyAccessToken: vi.fn() }))
 vi.mock('jose', () => ({
   SignJWT: class {

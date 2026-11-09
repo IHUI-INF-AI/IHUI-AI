@@ -33,7 +33,7 @@ describe('AI 思考进度不得伪造百分比', () => {
   })
 
   it('反向对照:旧实现(随机递增 + 百分比)必须判红', () => {
-    const oldChat = "setThinkingProgress((p) => (p < 99 ? p + Math.random() * 1 : p))"
+    const oldChat = 'setThinkingProgress((p) => (p < 99 ? p + Math.random() * 1 : p))'
     const oldList = `
 style={{ width: \`\${Math.floor(progress)}%\` }}
 <View className="thinking-progress-bar" />

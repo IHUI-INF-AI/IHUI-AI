@@ -55,7 +55,12 @@ export function canWithdraw(
   info: Pick<DistributionInfo, 'availableCommission' | 'withdrawMin'> | null,
   withdrawing: boolean,
 ): boolean {
-  return !!info && info.availableCommission > 0 && info.availableCommission >= (info.withdrawMin ?? 0) && !withdrawing
+  return (
+    !!info &&
+    info.availableCommission > 0 &&
+    info.availableCommission >= (info.withdrawMin ?? 0) &&
+    !withdrawing
+  )
 }
 
 /**

@@ -1235,9 +1235,7 @@ describe('F-671 上游正文阶段断连取消', () => {
     const enc = new TextEncoder()
     const stream = new ReadableStream<Uint8Array>({
       start(c) {
-        c.enqueue(
-          enc.encode('data: {"usage":{"prompt_tokens":1,"completion_tokens":2}}\n\n'),
-        )
+        c.enqueue(enc.encode('data: {"usage":{"prompt_tokens":1,"completion_tokens":2}}\n\n'))
       },
       pull() {
         /* 永不 close:模拟上游长流 */
