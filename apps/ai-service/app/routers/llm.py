@@ -131,6 +131,7 @@ from ..core.tool_name_sets import (
 # G-403(2026-10-07):usage 帧补发缓存读/写两维 —— 归一层已产出统一键,
 # 发射面此前只写 prompt/completion/total/reasoning 四键,缓存两维断在帧构造。
 from ..core.usage_cache import extract_cache_metrics, has_cache_signals
+from ..core.sse_contract import SSE_QUESTION_RESOLVED
 from ..services.agent_events import (
     SSE_ADMISSION,
     SSE_CHUNK,
@@ -161,6 +162,13 @@ from ..services.agent_events import (
     SSE_USAGE,
 )
 from ..services.async_gen_close import aclose_async_gen
+from ..services.ask_user_question import (
+    cancel_session_questions,
+    create_question,
+    resolve_question,
+    wait_for_answer,
+    withdraw_question,
+)
 from ..services.context_recall import context_recall
 from ..services.decision_chain import apply_decision_chain
 from ..services.expert_route import frame_payload as _expert_frame_payload
@@ -1393,6 +1401,7 @@ def _grant_drop_if_turn_scoped(bucket: str) -> bool:
 _SSE_FORM_REQUEST = "form_request"
 _FORM_WAIT_TIMEOUT = 300  # 秒:填表要读要想要,比审批的 120s 宽;超时按未答处理
 _FORM_KEEPALIVE_INTERVAL = 15  # 秒:同 _APPROVAL_KEEPALIVE_INTERVAL,防前端 30s 读超时掐流
+_ASK_KEEPALIVE_INTERVAL = 5  # 秒:AskUserQuestion 阻塞等待的分段保活间隔
 # session_id -> request_id -> {event, action, values, reject_reason, user_id, kind}
 # 与 _approval_sessions 同生命周期:仅在等待用户应答的窗口内存在,结算/超时后由等待方 pop。
 _form_sessions: dict[str, dict[str, dict[str, Any]]] = {}
@@ -5764,6 +5773,184 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 })
                                 continue
 
+                            # ===== 2026-11-08 立:AskUserQuestion 阻塞闭环(主对话流) =====
+                            # 位置语义:与 request_business_form 同一拦截位、且在审批门之前 ——
+                            # 提问没有副作用,不能让用户先答"允许吗"再答问题。
+                            # 一个 questionId 只认一次答复:上行端点 resolve_question 幂等忽略
+                            # 重复提交,本处只等第一个结局;每个结局都发 question-resolved 帧。
+                            if tool_name == "ask_user_question":
+                                if session_id is None:
+                                    session_id = str(uuid.uuid4())
+                                _q_args = args if isinstance(args, dict) else {}
+                                q_item = create_question(
+                                    session_id=session_id,
+                                    user_id=owner_uuid,
+                                    prompt=_q_args.get("question", ""),
+                                    header=_q_args.get("header"),
+                                    options=_q_args.get("options"),
+                                    allow_custom=bool(_q_args.get("allowCustom", True)),
+                                    allow_multiple=bool(_q_args.get("multiSelect", False)),
+                                )
+                                if isinstance(q_item, dict):
+                                    # 参数非法:结构化失败回灌,不向用户发半帧(前端解析层会整帧丢弃)
+                                    exec_result = {
+                                        "tool": tool_name,
+                                        **q_item,
+                                        "status": "invalid",
+                                        "message": "提问参数非法,未下发问题",
+                                    }
+                                    ok = False
+                                    _q_explanation = f"工具 {tool_name} 参数非法,未下发问题"
+                                else:
+                                    yield _sse(
+                                        SSE_QUESTION,
+                                        {"type": "question", "question": q_item.to_dict()},
+                                    )
+                                    _q_status = "timeout"
+                                    try:
+                                        # 分段等待 + keepalive 注释行:与表单/审批同一理由 ——
+                                        # 前端 streamChat 有 30s 读超时,静默超窗会被掐断重连。
+                                        while True:
+                                            _q_remain = (
+                                                q_item.expires_at - datetime.now(UTC)
+                                            ).total_seconds()
+                                            if _q_remain <= 0:
+                                                break
+                                            try:
+                                                await asyncio.wait_for(
+                                                    q_item.event.wait(),
+                                                    timeout=min(
+                                                        _ASK_KEEPALIVE_INTERVAL, _q_remain
+                                                    ),
+                                                )
+                                            except TimeoutError:
+                                                if _q_remain <= _ASK_KEEPALIVE_INTERVAL:
+                                                    break
+                                                yield ": keep-alive (waiting question response)\n\n"
+                                                continue
+                                            break
+                                        _q_status = (
+                                            q_item.status
+                                            if q_item.status != "pending"
+                                            else await wait_for_answer(q_item, timeout_s=0.0)
+                                        )
+                                    except asyncio.CancelledError:
+                                        # 会话中断/连接取消:先把该会话所有 pending 一律置
+                                        # interrupted(别处等待方也一起醒),再沿用既有中断语义。
+                                        cancel_session_questions(
+                                            session_id, reason="session_interrupted"
+                                        )
+                                        yield _sse(
+                                            SSE_QUESTION_RESOLVED,
+                                            {
+                                                "type": "question-resolved",
+                                                **q_item.resolved_payload("interrupted"),
+                                            },
+                                        )
+                                        raise
+                                    except GeneratorExit:
+                                        # 生成器关闭路径禁止 yield(PEP 525:否则 RuntimeError:
+                                        # async generator ignored GeneratorExit)。只结算状态、不推帧。
+                                        cancel_session_questions(
+                                            session_id, reason="session_interrupted"
+                                        )
+                                        raise
+                                    yield _sse(
+                                        SSE_QUESTION_RESOLVED,
+                                        {
+                                            "type": "question-resolved",
+                                            **q_item.resolved_payload(_q_status),
+                                        },
+                                    )
+                                    # 会话历史落库:本路由没有独立的"question-answer part"落盘槽位
+                                    # (对话落库由端上 assistant 消息/工具消息承担),答复 part 由
+                                    # 上面的 question-resolved 帧在流内承载 —— 不另造一套存储。
+                                    _q_labels = [
+                                        opt["label"]
+                                        for opt in q_item.options
+                                        if opt["id"] in q_item.selected_ids
+                                    ]
+                                    if _q_status == "answered":
+                                        exec_result = {
+                                            "tool": tool_name,
+                                            "ok": True,
+                                            "status": "answered",
+                                            "selectedOptionIds": list(q_item.selected_ids),
+                                            "labels": _q_labels,
+                                            "customText": q_item.custom_text,
+                                        }
+                                        ok = True
+                                        _q_explanation = "用户已答复提问"
+                                    elif _q_status == "withdrawn":
+                                        exec_result = {
+                                            "tool": tool_name,
+                                            "ok": False,
+                                            "status": "withdrawn",
+                                            "errorCode": "question_withdrawn",
+                                            "error": "问题已被撤回,未得到用户答复",
+                                            "message": "不要重试同一问题;确有必要请另起一次提问",
+                                        }
+                                        ok = False
+                                        _q_explanation = "提问已被撤回"
+                                    elif _q_status == "interrupted":
+                                        exec_result = {
+                                            "tool": tool_name,
+                                            "ok": False,
+                                            "status": "interrupted",
+                                            "errorCode": "question_interrupted",
+                                            "error": "会话中断,问题未得到用户答复",
+                                        }
+                                        ok = False
+                                        _q_explanation = "提问因会话中断结束"
+                                    else:
+                                        _q_timeout_s = int(
+                                            (
+                                                q_item.expires_at - q_item.created_at
+                                            ).total_seconds()
+                                        )
+                                        exec_result = {
+                                            "tool": tool_name,
+                                            "ok": False,
+                                            "status": "timeout",
+                                            "errorCode": "question_timeout",
+                                            "error": f"用户未在 {_q_timeout_s}s 内答复",
+                                            "message": "用户没有答复;不要自行假设答案,按未答继续",
+                                        }
+                                        ok = False
+                                        _q_explanation = "提问等待答复超时"
+                                tool_exec_tracker.append(ok)
+                                _q_src, _q_sid, _q_sname = resolve_tool_source(tool_name)
+                                yield _sse(
+                                    SSE_TOOL_RESULT,
+                                    {
+                                        "type": "tool-result",
+                                        "toolCallId": tc.get("id", ""),
+                                        "toolName": tool_name,
+                                        "args": args,
+                                        "result": exec_result,
+                                        "isError": not ok,
+                                        "iteration": _tool_iter + 1,
+                                        "serverSource": _q_src,
+                                        "serverId": _q_sid,
+                                        "serverName": _q_sname,
+                                    },
+                                )
+                                yield _format_plan_updated_event(
+                                    tool_calls_history,
+                                    explanation=_q_explanation,
+                                    message_id=message_id,
+                                )
+                                messages.append({
+                                    "role": "tool",
+                                    "tool_call_id": tc.get("id", ""),
+                                    "name": tool_name,
+                                    "content": scan_and_frame_tool_result(
+                                        json.dumps(exec_result, ensure_ascii=False)[:4000],
+                                        tool_name=tool_name,
+                                    ),  # 2026-10-31 安全强化第 10 批:宿主定界单源
+                                })
+                                continue
+
                             # ===== V3 #63(2026-09-27 立):主对话流业务表单请求 =====
                             # 位置语义:与 tool-approval 同一拦截位、且在其**之前** ——
                             # 本工具不产生副作用(它只是请用户填一张表),再走一遍审批门
@@ -7634,6 +7821,82 @@ async def post_form_response(
     if persist.error:
         result["persistError"] = persist.error
     return result
+
+
+@router.post(
+    "/llm/complete/stream/{session_id}/question-response", response_model=None
+)
+async def post_question_response(
+    request: Request,
+    session_id: str,
+    body: dict[str, Any] = Body(...),
+) -> dict[str, Any]:
+    """2026-11-08 立:AskUserQuestion 上行答复端点。
+
+    前端把用户在问题卡上的选择/自由文本/撤回答复回传到这里,唤醒 llm.py 工具循环
+    里等待答复的 asyncio.Event。**一个 questionId 只认一次答复**:重复 answer 返回
+    duplicate 且原答案原样保留(不覆盖、不二次唤醒模型)。
+
+    线格式采用 camelCase(questionId/selectedOptionIds/customText),与下行 question 帧
+    同族;会话归属与令牌主体都从服务端记录取,body 里的任何身份字段一律不读。
+    不存在与越权**同形**回 404(避免端点变成 questionId 存在性探针)。
+    """
+    question_id = str(body.get("questionId") or body.get("question_id") or "").strip()
+    if not question_id:
+        raise HTTPException(status_code=404, detail="question not found")
+
+    action = str(body.get("action", "")).strip().lower()
+    if action not in ("answer", "withdraw"):
+        raise HTTPException(status_code=400, detail="action must be answer/withdraw")
+
+    caller_uid = _resolve_owner_uuid(request)
+    selected_ids = body.get("selectedOptionIds")
+    if selected_ids is None:
+        selected_ids = body.get("selected_option_ids")
+    custom_text = body.get("customText")
+    if custom_text is None:
+        custom_text = body.get("custom_text")
+
+    if action == "answer":
+        status, _ = resolve_question(
+            question_id,
+            session_id=session_id,
+            user_id=caller_uid,
+            selected_ids=selected_ids,
+            custom_text=custom_text,
+        )
+        if status in ("not_found", "forbidden"):
+            logger.warning(
+                "question-response 未知/越权(session=%s, question=%s):未结算",
+                session_id,
+                question_id,
+            )
+            raise HTTPException(status_code=404, detail="question not found")
+        if status == "invalid":
+            raise HTTPException(status_code=400, detail="invalid selection")
+        if status == "duplicate":
+            return {"accepted": False, "status": "answered", "duplicate": True}
+        if status == "answered":
+            return {"accepted": True, "status": "answered", "duplicate": False}
+        # timeout / withdrawn / interrupted:答复不再被接受,原结局保持不变
+        return {"accepted": False, "status": status, "duplicate": False}
+
+    status, _ = withdraw_question(
+        question_id,
+        session_id=session_id,
+        user_id=caller_uid,
+        reason=str(body.get("reason") or "withdrawn_by_user")[:200],
+    )
+    if status in ("not_found", "forbidden"):
+        logger.warning(
+            "question-response 撤回未知/越权(session=%s, question=%s):未结算",
+            session_id,
+            question_id,
+        )
+        raise HTTPException(status_code=404, detail="question not found")
+    if status == "withdrawn":
+        return {"accepted": True, "status": "withdrawn"}
+    return {"accepted": False, "status": status}
 
 
 def _form_response_card(row: dict[str, Any]) -> dict[str, Any]:

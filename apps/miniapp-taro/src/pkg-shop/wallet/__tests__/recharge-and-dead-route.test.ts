@@ -35,7 +35,10 @@ describe('XUI-073 充值失败不得跳空单号结果页', () => {
 
   it('反向对照:旧实现必须判红', () => {
     const oldImpl = `Taro.redirectTo({ url: '/pkg-shop/pay/result/index?orderNo=&status=failed' })`
-    expect(detectRechargeFailure(oldImpl)).toEqual(['empty orderNo redirect', 'inline failure toast'])
+    expect(detectRechargeFailure(oldImpl)).toEqual([
+      'empty orderNo redirect',
+      'inline failure toast',
+    ])
   })
 
   it('新提示键在 5 个语言包中均存在', () => {

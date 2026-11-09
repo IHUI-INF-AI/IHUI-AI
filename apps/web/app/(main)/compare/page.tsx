@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { Layers, ArrowRight, Check, X, Sparkles, Code } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
+import { jsonLdHtml } from '@/lib/seo/json-ld'
 
 const compareJsonLd = {
   '@context': 'https://schema.org',
@@ -336,7 +337,7 @@ export default function CompareIndexPage() {
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(compareJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdHtml(compareJsonLd) }}
       />
       <main className="py-4 mx-auto w-full max-w-6xl px-4">
         <BackButton />

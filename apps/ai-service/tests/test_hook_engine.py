@@ -115,8 +115,11 @@ class TestConstants:
         assert "agent.status" in HOOK_EVENTS
         assert "context.pre_compact" in HOOK_EVENTS
         assert "context.post_compact" in HOOK_EVENTS
-        # 25 个事件(2026-09-19 同步:上述批次入列后本断言未同步)
-        assert len(HOOK_EVENTS) == 25
+        # 2026-11-08:AskUserQuestion 闭环(工作台 agent 侧问题帧 + 结局帧)
+        assert "question" in HOOK_EVENTS
+        assert "question-resolved" in HOOK_EVENTS
+        # 27 个事件(2026-11-08 同步:AskUserQuestion 两个事件入列)
+        assert len(HOOK_EVENTS) == 27
 
     def test_action_types(self):
         assert "webhook" in HOOK_ACTION_TYPES

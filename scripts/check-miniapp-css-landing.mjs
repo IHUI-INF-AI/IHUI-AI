@@ -1348,6 +1348,63 @@ export async function resolveV4Loaders({ root, appDir, twPkgDir, wantMajor = 'v4
 }
 
 /**
+ * **v4 参考层专用:剥离 classic(v3-era)plugins 家族**（2026-11-09 立）。
+ *
+ * 立因(实测,不是猜):v4 compat 会**逐字执行**config/preset 里的 plugins,而本仓那份
+ * alpha 兼容插件产出的键是**已转义的选择器**(`bg-destructive\/5`)。v4 的选择器校验只认
+ * 单个类名,当场抛 `addUtilities({ 'bg-destructive\/5' : … }) defines an invalid utility
+ * selector` ⇒ **整层直出失败**,C1/C2/C5/C6/C7/C8 全部失去判据(门自己退化成 exit 2)。
+ *
+ * 而真产物里根本没有这些插件的规则:实测 dist `*.wxss` 中"转义斜杠 alpha 规则 0 条",
+ * 同形态的 alpha 由 **v4 原生**产出(`.bg-destructive_f5` = weapp 对 `.bg-destructive\/5`
+ * 的转写;用同一份 config 剥掉插件后 v4 直出的正是同一条 alpha 规则,实测可比)。
+ * ⇒ 参考层执行它们 = 喂了产物没吃的东西 = 错输入;剥掉才是同形。
+ *
+ * 纪律:
+ *  - 只动 `plugins` 数组;`theme`/`content`/`presets` 其余键一律原样保留(浅拷贝到对象层，
+ *    嵌套 preset 递归同处理)。
+ *  - **计数必须回报并在结论面打印**,不得静默剥 —— 静默剥等于把"输入被改过"藏进实现。
+ *  - 万一将来某个 classic 插件真的承载了产物需要的规则,漏认的名字会被本门既有的
+ *    **参考层反向盲区**维逮住(产物有规则 + 源码用了 + 参考层不认 ⇒ 点名),不需要额外加锁。
+ *
+ *  - **计数必须进程内幂等**:同一次直出会 compile 两遍(theme / theme+utilities),而 config 模块对象
+ *    是被缓存的 ⇒ 若只数"数组里现在有几条",第二遍看到的就是 0,把"确实中和过"报成"什么都没发生"
+ *    (2026-11-09 实测踩到)。故按 config 节点记台账(WeakMap),第二遍仍如实报"遇到几处",
+ *    并把 `removed`(本轮真从数组里摘掉的条数) 与 `preexisting`(台账已认出的条数) 分开给。
+ *
+ * @param {unknown} module loadModule 归还的模块(实测形态 `{path, base, module}`;另兼容 `{default: config}` / 裸对象)
+ * @returns {{removed:number, preexisting:number, total:number}} total=0 表示这条输入里本来就没有 classic 插件
+ */
+/** 台账:key = 承载 config/preset 的对象,value = 首次见到时其 plugins 的条数 */
+const classicPluginLedger = new WeakMap()
+export function stripClassicPlugins(module) {
+  let removed = 0
+  let preexisting = 0
+  const raw = module && typeof module === 'object' && 'module' in module ? module.module : module
+  const cfg = raw && typeof raw === 'object' ? (raw.default ?? raw) : null
+  if (!cfg || typeof cfg !== 'object') return { removed, preexisting, total: 0 }
+  const seen = new Set()
+  const clean = (node) => {
+    if (!node || typeof node !== 'object' || seen.has(node)) return
+    seen.add(node)
+    if (Array.isArray(node.plugins)) {
+      const known = classicPluginLedger.get(node)
+      if (node.plugins.length > 0) {
+        removed += node.plugins.length
+        classicPluginLedger.set(node, node.plugins.length)
+        node.plugins = []
+      } else if (known) {
+        preexisting += known
+      }
+    }
+    if (Array.isArray(node.presets))
+      for (const p of node.presets) clean(p && typeof p === 'object' ? (p.default ?? p) : p)
+  }
+  clean(cfg)
+  return { removed, preexisting, total: removed + preexisting }
+}
+
+/**
  * **v4 档参考层**:与产物同引擎,输入与构建一致 ——
  *  - `@config '<端内 tailwind.config.ts>'`:构建侧(weapp-tailwindcss 自带 config 加载器)就是拿这份 config 喂 v4 的;
  *    实测少了它 `bg-muted` / `text-card` 一类命名档整类不产出。
@@ -1394,12 +1451,22 @@ export async function buildUtilityReferenceV4({ root, appDir, candidates }) {
     }
   }
   const head = `@config '${configPath.replace(/\\/g, '/')}';\n@import 'tailwindcss/theme.css';\n`
+  /* classic 插件中和:见 stripClassicPlugins 的立因。两个计数都上浮到结论面(不得静默)。 */
+  let classicPluginsStripped = 0
+  let classicPluginsEncountered = 0
+  const loadModuleV4 = async (id, base) => {
+    const mod = await loaders.loadModule(id, base)
+    const r = stripClassicPlugins(mod)
+    classicPluginsStripped += r.removed
+    classicPluginsEncountered += r.total
+    return mod
+  }
   const run = async (cssIn) => {
     const compiler = await engine.compile(cssIn, {
       base: join(appDir, 'src'),
       from: join(appDir, 'src', 'app.css'),
       loadStylesheet,
-      loadModule: loaders.loadModule,
+      loadModule: loadModuleV4,
     })
     return compiler.build(candidates)
   }
@@ -1434,6 +1501,10 @@ export async function buildUtilityReferenceV4({ root, appDir, candidates }) {
     engine: 'v4',
     resolvedVia: `tailwindcss@${tw.version} ← ${tw.anchor};loadModule ← ${loaders.via}`,
     candidateKinds: candidates.length,
+    // 本层中和的 classic 插件计数:encountered=直出链路上遇到的条目数(含第二遍 compile 的台账),
+    // stripped=本轮真从数组里摘掉的条数。两个都要上浮,不得静默。
+    classicPluginsStripped,
+    classicPluginsEncountered,
   }
 }
 
@@ -2207,6 +2278,12 @@ export async function runCheck(opts) {
           : `${face}(生成器读 content globs;仅 worktree 面下同面)`
       referenceJudged = facePlan.judged
       if (!facePlan.judged) notices.push(facePlan.reason)
+      // 剥离动作必须上浮到结论面(§0 纪律:改了输入不得藏在实现里)
+      if (picked.engine === 'v4' && reference.classicPluginsEncountered > 0) {
+        notices.push(
+          `v4 参考层中和 classic(v3-era)插件 ${reference.classicPluginsEncountered} 处直出取用(本轮新摘 ${reference.classicPluginsStripped} 条):真产物里不含它们的规则(dist 转义斜杠 alpha 规则实测 0 条,同形态由 v4 原生产出),而 v4 compat 会把它们的选择器判成非法并拖垮整层 ⇒ 摘掉才是与产物同形的输入`,
+        )
+      }
     } catch (e) {
       if (!(e instanceof Undetermined)) throw e
       reference = null
@@ -4388,6 +4465,7 @@ export const __test__ = {
   computeCoverage,
   buildUtilityReference,
   buildUtilityReferenceV4,
+  stripClassicPlugins,
   pickReferenceEngine,
   planReferenceFace,
   resolveTailwindInstall,

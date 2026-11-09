@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { generateCourseSchema, type CourseSchema } from '@/lib/seo/schema-course'
 import { BackButton } from '@/components/common'
+import { jsonLdHtml } from '@/lib/seo/json-ld'
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations('useCasesAiEdu')
@@ -104,7 +105,7 @@ export default async function AiEduPage() {
       {courseJsonLd ? (
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(courseJsonLd) }}
+          dangerouslySetInnerHTML={{ __html: jsonLdHtml(courseJsonLd) }}
         />
       ) : null}
       <main className="py-4 mx-auto w-full max-w-6xl px-4">

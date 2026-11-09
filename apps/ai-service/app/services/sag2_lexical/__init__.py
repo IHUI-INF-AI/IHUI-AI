@@ -36,6 +36,7 @@ from .service import Sag2LexicalService, sag2_lexical_service
 from .text import casefold_tokens, match_query, name_phrases, sentence_spans
 
 __all__ = [
+    "Chunk",
     "LexicalIndex",
     "Chunk", "ScoredChunk",
     "DEFAULT_INCLUDE",

@@ -96,6 +96,9 @@ export const SSE_FAMILY_CROSS_REFERENCES: {
   'tool-summary': null,
   citations: null,
   question: null,
+  // 2026-11-08:提问结算帧是对话流独有的阻塞式问答结局(timeout/withdrawn/
+  // interrupted 由交互宿主决定),agent 任务流没有同生命周期事件,如实标 null。
+  'question-resolved': null,
   subagent_spawn: null,
   subagent_progress: null,
   subagent_end: null,

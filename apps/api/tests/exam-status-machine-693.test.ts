@@ -26,7 +26,16 @@ const state = vi.hoisted(() => ({
 vi.mock('../src/db/index.js', () => {
   const selectChain = (rows: unknown[]) => {
     const b: Record<string, unknown> = {}
-    for (const m of ['from', 'where', 'orderBy', 'limit', 'offset', 'groupBy', 'leftJoin', 'innerJoin']) {
+    for (const m of [
+      'from',
+      'where',
+      'orderBy',
+      'limit',
+      'offset',
+      'groupBy',
+      'leftJoin',
+      'innerJoin',
+    ]) {
       b[m] = () => b
     }
     b.then = (res: (v: unknown) => unknown, rej?: (e: unknown) => unknown) =>
@@ -107,11 +116,7 @@ beforeEach(() => {
 
 describe('F-693 提交判分:有主观题待阅(submitted),否则判完(graded)', () => {
   it('含主观题 ⇒ status=submitted(旧实现写 graded,导致永远进不了阅卷队列)', async () => {
-    state.selectQueue = [
-      [makeRecord()],
-      [subjectiveQ, objectiveQ],
-      [paper],
-    ]
+    state.selectQueue = [[makeRecord()], [subjectiveQ, objectiveQ], [paper]]
     const result = await submitExamRecord(RECORD_ID, USER_ID, [
       { questionId: SUBJECTIVE_ID, answer: '论述内容' },
       { questionId: OBJECTIVE_ID, answer: 'A' },
@@ -140,7 +145,9 @@ describe('F-693 阅卷完成:状态落到 graded,不复写 submitted', () => {
     })
     state.selectQueue = [[record], [subjectiveQ], [paper]]
 
-    const result = await gradeSubjectiveAnswers(RECORD_ID, [{ questionId: SUBJECTIVE_ID, score: 15 }])
+    const result = await gradeSubjectiveAnswers(RECORD_ID, [
+      { questionId: SUBJECTIVE_ID, score: 15 },
+    ])
 
     expect(result.status).toBe('graded')
     expect(state.updateSets.at(-1)?.status).toBe('graded')

@@ -208,4 +208,105 @@ def test_task_run_message_truncated() -> None:
     message = checkin_router._task_run_message("all", False, result)
     assert len(message) <= 500
     assert message.endswith("…")
+
+
+# ---------------------------------------------------------------------------
+# autopilot 端点(2026-11-09 深夜):AI 会话可编程入口 + 留痕
+# ---------------------------------------------------------------------------
+
+
+def test_settled_today_autopilot_true_is_not_settled() -> None:
+    """task-run:autopilot + ok=True + 今天 ⇒ 不算结算(复用 task-run 前缀早退)。"""
+    now = datetime.now(UTC)
+    today = cs._cn_day(now)
+    assert cs._settled_today(_rec("task-run:autopilot", True, now), today) is False
+    assert cs._settled_today(_rec("task-run:autopilot:dry", True, now), today) is False
+
+
+def _fake_autopilot_summary() -> dict[str, Any]:
+    return {
+        "ok": True,
+        "dry_run": False,
+        "total_tasks": 18,
+        "claimed_already": ["t1", "t2"],
+        "executed": [{"code": "Sequential_Tasks_2", "route": "generic", "ok": True}],
+        "claimed": ["Sequential_Tasks_2"],
+        "credits": 200,
+        "undone": [],
+        "unregistered": ["chat_5"],
+        "read_failed": False,
+    }
+
+
+async def test_run_account_autopilot_records_summary(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """autopilot 端点:调引擎 + 落记录(action=task-run:autopilot,credits_delta=None)。"""
+    captured: dict[str, Any] = {}
+
+    async def _fake_account(account_id: int, current_user: str) -> dict[str, Any]:
+        return {"id": account_id, "platform": "workbuddy", "jwt": "jwt", "device_map": {}}
+
+    async def _noop_precheck(account_id: int) -> None:
+        return None
+
+    async def _fake_run_autopilot(jwt: str, device_map: dict[str, Any], *, dry_run: bool = False, claim: bool = True) -> dict[str, Any]:
+        captured["dry_run"] = dry_run
+        captured["claim"] = claim
+        return _fake_autopilot_summary()
+
+    async def _fake_insert_record(account_id: int, **kwargs: Any) -> dict[str, Any]:
+        captured["account_id"] = account_id
+        captured.update(kwargs)
+        return {"id": 1}
+
+    monkeypatch.setattr(checkin_router, "_wb_tasks_account_or_404", _fake_account)
+    monkeypatch.setattr(checkin_router, "_outbound_risk_precheck", _noop_precheck)
+    monkeypatch.setattr(checkin_router.workbuddy_autopilot, "run_autopilot", _fake_run_autopilot)
+    monkeypatch.setattr(checkin_router.checkin_store, "insert_record", _fake_insert_record)
+
+    result = await checkin_router.run_account_autopilot(
+        20, checkin_router.AutopilotIn(dry_run=False, claim=True), "user-1"
+    )
+
+    assert result["ok"] is True
+    assert result["credits"] == 200
+    assert captured["dry_run"] is False and captured["claim"] is True
+    assert captured["account_id"] == 20
+    assert captured["action"] == "task-run:autopilot"
+    assert captured["credits_delta"] is None
+    assert "claimed=1" in captured["message"]
+    assert "credits=+200" in captured["message"]
+
+
+async def test_run_account_autopilot_non_workbuddy_rejected(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """非 workbuddy 账号 ⇒ ok=False,零出站零留痕。"""
+    called = False
+
+    async def _fake_account(account_id: int, current_user: str) -> dict[str, Any]:
+        return {"id": account_id, "platform": "trae"}
+
+    async def _fake_insert_record(account_id: int, **kwargs: Any) -> dict[str, Any]:
+        nonlocal called
+        called = True
+        return {"id": 1}
+
+    monkeypatch.setattr(checkin_router, "_wb_tasks_account_or_404", _fake_account)
+    monkeypatch.setattr(checkin_router.checkin_store, "insert_record", _fake_insert_record)
+
+    result = await checkin_router.run_account_autopilot(
+        21, checkin_router.AutopilotIn(), "user-1"
+    )
+    assert result["ok"] is False
+    assert called is False
+
+
+def test_autopilot_message_truncated() -> None:
+    """摘要超长截断并加 …(≤500 字符)。"""
+    summary = _fake_autopilot_summary()
+    summary["executed"] = [{"code": f"code{i}", "route": "generic", "ok": True} for i in range(200)]
+    message = checkin_router._autopilot_message(False, summary)
+    assert len(message) <= 500
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

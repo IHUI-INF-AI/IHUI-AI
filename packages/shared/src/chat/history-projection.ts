@@ -552,7 +552,8 @@ export function advanceHistoryPagingCursors(input: {
   /** 服务端断点结论(`isHistoryCursorStale(page.cursorState)`);缺省 = 未给结论 ⇒ 不拦。 */
   cursorStale?: boolean
 }): { cursors: HistoryPagingCursors; discardFolded: boolean } {
-  const discardFolded = input.cursorStale === true || (input.seed.rewritten && input.direction !== 'newest')
+  const discardFolded =
+    input.cursorStale === true || (input.seed.rewritten && input.direction !== 'newest')
   if (discardFolded) return { cursors: { older: null, newer: null }, discardFolded: true }
   // 整段重建('newest')后,右缘就是本页最大轮:此时"上一次的 newer"已无对应物
   // (rewritten 时序号全变;未 rewritten 时它至多等于本页某轮,断点种子更权威),

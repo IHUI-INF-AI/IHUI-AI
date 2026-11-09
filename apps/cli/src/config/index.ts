@@ -35,6 +35,11 @@ import { collectLayerContributions, deepMergeAll, type ConfigSourceEntry } from 
 import { parseEnvOverrides } from './env.js'
 import { parseCliOverrides } from './cli.js'
 import { filterProjectLayerSettings } from './layer-policy.js'
+import {
+  applyStoredMainCredentials,
+  migratePlaintextCredentials,
+  withoutMainCredentialFields,
+} from '../lib/main-credential-store.js'
 import { validateSettingsValues } from './validate.js'
 
 export interface LoadConfigOptions {
@@ -177,9 +182,14 @@ function resolveLayers(opts: LoadConfigOptions): ResolvedLayer[] {
 
   // Layer 1: defaults(内置默认值,最低优先级)
   const defaults = DEFAULT_SETTINGS
-  // Layer 2: global(~/.ihui/settings.json)—— BUG-0042:用户全局层此前只断言 isRecord,
-  // 非法类型/越界数值会原样进主循环。这里过运行时类型校验:非法键回落默认层并点名。
-  const globalRaw = loadSettingsFile(globalPath, opts.stat)
+  // Layer 2: global(~/.ihui/settings.json)
+  // 2026-11-06 安全债:主凭据只从安全存储回填到 **global 层**(这样 env/cli 仍可覆盖),
+  // 且回填前先剥离文件里的明文;迁移在读之前完成,旧明文不会被合进内存。
+  // BUG-0042(origin/main):global 层此前只断言 isRecord,非法类型/越界数值会原样进主循环,
+  // 这里过运行时类型校验:非法键回落默认层并点名。校验对象是"剥掉凭据后的文件内容",
+  // 从安全存储回填的凭据不参与校验(它们不是用户可编辑的配置项)。
+  migratePlaintextCredentials([globalPath])
+  const globalRaw = withoutMainCredentialFields(loadSettingsFile(globalPath, opts.stat))
   const globalCheck = validateSettingsValues(globalRaw)
   if (globalCheck.warnings.length > 0) {
     console.warn(
@@ -187,7 +197,7 @@ function resolveLayers(opts: LoadConfigOptions): ResolvedLayer[] {
         globalCheck.warnings.map((w) => `  - ${w}`).join('\n'),
     )
   }
-  const globalConfig = globalCheck.value
+  const globalConfig = applyStoredMainCredentials(globalCheck.value)
   // Layer 3: project(<cwd>/.ihui/settings.json)—— G-408①:这一层是**仓库内容**,必须过
   // 可写键封闭表(config/layer-policy.ts):安全敏感键/未知键/非法枚举一律拒绝并点名。
   // 此前它零键过滤,防线只剩 .gitignore 的 `.ihui/*` 一行 —— ignore 不是判据。

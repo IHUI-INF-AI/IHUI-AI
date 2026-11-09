@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any
+from typing import Any, TypedDict
 
 __all__ = [
     "repair_json",
@@ -80,8 +80,12 @@ def repair_json(text: str) -> RepairResult:
     return {"ok": False, "value": None, "recovered": False, "error": "unrepairable JSON"}
 
 
-class RepairResult(dict[str, Any]):
+class RepairResult(TypedDict):
     """修复结果（dict 形态以保持与 TS 侧 ``RepairResult`` 字段一致）。"""
+    ok: bool
+    value: Any
+    recovered: bool
+    error: str | None
 
 
 def _reject_constant(token: str) -> Any:

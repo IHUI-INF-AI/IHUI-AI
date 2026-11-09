@@ -21,7 +21,7 @@ describe('XUI-066 组2:壳必须把失败上抛', () => {
   it('作品发布:submitError 状态 + 透传,不再写死空串', () => {
     expect(PUBLISH).not.toContain('error=""')
     expect(PUBLISH).toContain('const [submitError, setSubmitError] = useState(')
-    expect(PUBLISH).toContain('setSubmitError(t(\'aigc.publish.publishFail\'))')
+    expect(PUBLISH).toContain("setSubmitError(t('aigc.publish.publishFail'))")
     expect(PUBLISH).toContain('error={submitError}')
     expect(PUBLISH.match(/setSubmitError\(/g)?.length).toBe(2)
   })

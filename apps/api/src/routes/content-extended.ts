@@ -349,26 +349,30 @@ export const contentExtendedRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // DELETE /content/file-storage/:id - 删除文件
-  server.delete('/content/file-storage/:id', { preHandler: requireAdmin }, async (request, reply) => {
-    const parsed = idParamSchema.safeParse(request.params)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, '无效的 ID'))
-    }
-    const { id } = parsed.data
-    try {
-      const rows = await db.execute(
-        sql`DELETE FROM content_file_storage WHERE "id"::text = ${id} RETURNING id, file_path, file_url`,
-      )
-      const row = (rows as Record<string, unknown>[])[0]
-      if (!row) return reply.status(404).send(error(404, '文件不存在'))
-      return reply.send(
-        success({ id, deleted: (rows as Record<string, unknown>[]).length > 0, ...row }),
-      )
-    } catch (e) {
-      request.log.error(e)
-      return reply.status(500).send(error(500, '删除文件失败'))
-    }
-  })
+  server.delete(
+    '/content/file-storage/:id',
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const parsed = idParamSchema.safeParse(request.params)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, '无效的 ID'))
+      }
+      const { id } = parsed.data
+      try {
+        const rows = await db.execute(
+          sql`DELETE FROM content_file_storage WHERE "id"::text = ${id} RETURNING id, file_path, file_url`,
+        )
+        const row = (rows as Record<string, unknown>[])[0]
+        if (!row) return reply.status(404).send(error(404, '文件不存在'))
+        return reply.send(
+          success({ id, deleted: (rows as Record<string, unknown>[]).length > 0, ...row }),
+        )
+      } catch (e) {
+        request.log.error(e)
+        return reply.status(500).send(error(500, '删除文件失败'))
+      }
+    },
+  )
 
   // ==========================================================================
   // aigc — AIGC 内容管理（使用 Drizzle schema: aiGcContent）

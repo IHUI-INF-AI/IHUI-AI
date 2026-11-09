@@ -194,6 +194,22 @@ export const PLUGIN_DIAGNOSTIC_CODES = [
    * 两条都在 `warning`:装载成功是事实,吃不下是另一回事,升档会把提示变成启动红旗(§12e)。
    */
   'plugin-declaration-unconsumed',
+  /**
+   * 版本被压掉(#12 多版本共存):同名插件的另一个版本成为 active,本版本目录保留在盘但不装载。
+   * 与 `plugin_ambiguous_name` **语义不同、文案不得复用** —— 那一条判的是"同名**同版本**两份抢一个身份"
+   * (要改名或删一份),这一条判的是"版本选择的结果"(要改的是 pin 或禁用清单)。
+   */
+  'plugin-version-shadowed',
+  /**
+   * pin 落空(#12):`settings.plugins.versionPins` 点名的版本不在盘上(或已被禁用),
+   * 装载已确定性退回"序最高"的可用版本。装载仍成功,所以是 warning 而不是 error。
+   */
+  'plugin-version-pin-missing',
+  /**
+   * 一个名字下没有可用版本(#12):盘上该名的所有版本都被禁用,或全部因同版本歧义退出,
+   * 该名不装载。这是配置意图的结果,不是清单坏了,所以是 warning。
+   */
+  'plugin-version-all-disabled',
 ] as const;
 
 export type PluginDiagnosticCode = (typeof PLUGIN_DIAGNOSTIC_CODES)[number];

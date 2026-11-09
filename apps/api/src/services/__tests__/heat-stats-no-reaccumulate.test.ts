@@ -30,7 +30,7 @@ describe('F-262 热度同步口径', () => {
   it('服务日键走 bizDayKey（上海），不再用 UTC slice', () => {
     const src = readFileSync(SERVICE, 'utf-8')
     expect(src).toContain('bizDayKey(')
-    expect(src).not.toContain(".toISOString().slice(0, 10)")
+    expect(src).not.toContain('.toISOString().slice(0, 10)')
   })
 
   it('手动 refresh 写入同一 date_str 口径（上海）', () => {
@@ -39,7 +39,7 @@ describe('F-262 热度同步口径', () => {
     expect(at).toBeGreaterThan(-1)
     const section = src.slice(at, at + 1200)
     expect(section).toContain('bizDayKey(')
-    expect(section).not.toContain(".toISOString().slice(0, 10)")
+    expect(section).not.toContain('.toISOString().slice(0, 10)')
   })
 
   it('行为：UTC 17:30 归到上海次日（旧 UTC 口径会错一天）', () => {

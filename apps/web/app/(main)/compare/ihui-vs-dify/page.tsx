@@ -4,6 +4,7 @@
 
 import type { Metadata } from 'next'
 import { CompareContent } from './CompareContent'
+import { jsonLdHtml } from '@/lib/seo/json-ld'
 
 // IHUI AI vs Dify — 对比页 JSON-LD(2026-07-26 立,GEO 优化):
 // - WebPage schema 标记页面语义
@@ -104,7 +105,7 @@ export default function CompareDifyPage() {
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(compareJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdHtml(compareJsonLd) }}
       />
       <CompareContent competitor="dify" />
     </>
