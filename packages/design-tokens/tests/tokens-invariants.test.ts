@@ -95,7 +95,7 @@ describe('圆角档位表:档位取值 + 表内派生算术', () => {
 })
 
 describe('几何档投影:dp 与 rpx 必须由同一张表派生', () => {
-  it('取值冻结:全十四档(tapBox 36 / fabBox 56 / glyphMd 20 / controlBox 32 / controlGlyph 14 / glyphSm 16 / textCaption 11 / textLabel 12 / textBody 14 / textStrong 15 / drawerWidth 160(2026-11-07 与 web SIDEBAR_WIDTH 同值)/ sidebarMaxWidth 180 / sidebarCollapsedWidth 60 / previewShellWidth 430)', () => {
+  it('取值冻结:全十五档(tapBox 36 / fabBox 56 / glyphMd 20 / controlBox 32 / controlGlyph 14 / glyphSm 16 / textCaption 11 / textLabel 12 / textBody 14 / textStrong 15 / drawerWidth 160(2026-11-07 与 web SIDEBAR_WIDTH 同值)/ sidebarMaxWidth 180 / sidebarCollapsedWidth 60 / previewShellWidth 430 / runtimePanelScrollMaxHeight 320)', () => {
     // 2026-09-27:controlBox/controlGlyph 是几何收敛(a464b7d9c)按"先在本表落一档(带取值依据)"
     // 规程新增的档;2026-09-29 再随 O81 票(ca3f2cff31 补 glyphSm、8f24ec85f7 补 textCaption/
     // textLabel/textBody/textStrong/drawerWidth)钉全**十档**;2026-10-15 补 previewShellWidth
@@ -123,6 +123,9 @@ describe('几何档投影:dp 与 rpx 必须由同一张表派生', () => {
       sidebarMaxWidth: 180,
       sidebarCollapsedWidth: 60,
       previewShellWidth: 430,
+      // 2026-11-10 补 runtimePanelScrollMaxHeight 320(RN 运行面板滚动上限入档,本行未跟随 ⇒
+      // mobile-release-gate 的 design-tokens 用例红):表里有几档就钉几档。
+      runtimePanelScrollMaxHeight: 320,
     })
   })
 

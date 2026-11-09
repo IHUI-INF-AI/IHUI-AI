@@ -6,6 +6,7 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 
 vi.mock('../src/services/subagent-dispatch-service.js', () => ({
   subagentDispatchService: { dispatch: vi.fn() },
+  setTenantConcurrencyLimitResolver: vi.fn(),
 }))
 vi.mock('../src/db/user-preferences-queries.js', () => ({
   USER_PREFERENCE_GROUPS: { superAgent: 'super_agent' },

@@ -18,6 +18,7 @@
  */
 import { describe, it, expect, afterAll, beforeAll, beforeEach, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
+import type * as Jose from 'jose'
 
 /** 注入响应信封(两路由的 data 形状都用键值面读,断言逐键核对) */
 interface Envelope {
@@ -30,7 +31,7 @@ interface Envelope {
 // buildInternalCallHeaders 因此 fail-closed 返回 null(转发面恒 502)。
 // 只替换 decodeJwt,签名/验签走真实实现。
 vi.mock('jose', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('jose')>()
+  const actual = await importOriginal<typeof Jose>()
   return { ...actual, decodeJwt: () => ({}) }
 })
 vi.mock('../src/config/index.js', () => ({

@@ -23,7 +23,9 @@
 ``def h(uid): return {"x-user-id": uid}``,本测试必须失败;删掉后恢复绿。
 
 扫描范围说明:只扫生产代码 `app/`(出站面);`tests/` 里的夹具可以合法地构造
-"坏形态"用于验证本门,不算生产出站。
+"坏形态"用于验证本门,不算生产出站。第三方厂商直连模块另列豁免(见
+`THIRD_PARTY_CLIENT_MODULES`):它们发的是终端用户自己的厂商 access token,且目标
+主机不是 apps/api,不属于内部服务鉴权面。
 """
 
 from __future__ import annotations
@@ -53,6 +55,19 @@ CREDENTIAL_HEADERS = {
     INTERNAL_TOKEN_HEADER,
     "x-internal-secret",
 }
+
+# 第三方厂商直连模块(整模块豁免,2026-11-10):这两处 `x-user-id` 是 WorkBuddy /
+# CodeBuddy **自家协议**的账号位,与它同发的是终端用户自己的厂商 access token
+# (`Authorization: Bearer …`),目标主机是 copilot.tencent.com / www.workbuddy.cn,
+# 不通向 apps/api —— 不属于内部服务票/旧密钥的授权面,本门不得把它们算成裸身份头。
+# 新增第三方直连模块须在此登记,并写明"目标主机 + 凭据来源";凡调用 apps/api 的
+# 模块一律不在豁免之列。
+THIRD_PARTY_CLIENT_MODULES: frozenset[str] = frozenset(
+    {
+        "app/services/workbuddy_autopilot.py",  # www.workbuddy.cn,用户自己的 WorkBuddy token
+        "app/services/workbuddy_direct_api.py",  # copilot.tencent.com,同上
+    }
+)
 
 
 def _clear_all_secrets(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -149,6 +164,13 @@ def _scan_bare_identity_headers() -> list[str]:
     offenders: list[str] = []
     for path in sorted(APP_ROOT.rglob("*.py")):
         rel = path.relative_to(APP_ROOT.parent).as_posix()
+        if rel in THIRD_PARTY_CLIENT_MODULES:
+            # 豁免只对"第三方厂商直连"成立:一旦它开始走内部票据出口就失去了豁免前提。
+            if "internal_ticket" in path.read_text(encoding="utf-8"):
+                offenders.append(
+                    f"{rel}: 已登记为第三方直连豁免,却又引用 internal_ticket(豁免失效)"
+                )
+            continue
         try:
             tree = ast.parse(path.read_text(encoding="utf-8"))
         except SyntaxError as exc:  # 语法坏文件不静默跳过

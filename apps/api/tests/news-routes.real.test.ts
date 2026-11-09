@@ -2,12 +2,13 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import Fastify from 'fastify'
 import { eq, sql } from 'drizzle-orm'
 import { db } from '../src/db/index.js'
 import { newsCategories, newsArticles, newsTops, newsRecommends } from '@ihui/database'
 import { newsRoutes } from '../src/routes/news.js'
+import watchAspectPlugin from '../src/plugins/watch-aspect.js'
 
 async function createCategory(data: { name: string; sort?: number; status?: number }) {
   const [row] = await db
@@ -99,6 +100,11 @@ describe('news-routes — 路由层真实 DB 集成测试', () => {
         lastUndecided: null,
       }),
     })
+    // F-206:viewCount 自增已从路由迁到 watch-aspect 的 onResponse 钩子(plugins/watch-aspect.ts),
+    // 裸 Fastify 只注册 newsRoutes 时不会计数 ⇒ 必须装插件本体。
+    // 插件用 server.redis 做 5 分钟去重;本实例未装 Redis(server.redis undefined),
+    // 插件内部 try/catch 降级为每次都计数,不影响本用例要验证的 +1。
+    await server.register(watchAspectPlugin)
     await server.register(newsRoutes, { prefix: '/api' })
     await server.ready()
   })
@@ -390,12 +396,18 @@ describe('news-routes — 路由层真实 DB 集成测试', () => {
     const before = article.viewCount
     const res = await server.inject({ method: 'GET', url: `/api/news/articles/${article.id}` })
     expect(res.statusCode).toBe(200)
-    const [updated] = await db
-      .select({ viewCount: newsArticles.viewCount })
-      .from(newsArticles)
-      .where(eq(newsArticles.id, article.id))
-      .limit(1)
-    expect(updated!.viewCount).toBe(before + 1)
+    // onResponse 钩子在 inject 返回之后才异步执行 ⇒ 轮询等待自增落库(20ms/次,最多 1s)
+    await vi.waitFor(
+      async () => {
+        const [updated] = await db
+          .select({ viewCount: newsArticles.viewCount })
+          .from(newsArticles)
+          .where(eq(newsArticles.id, article.id))
+          .limit(1)
+        expect(updated!.viewCount).toBe(before + 1)
+      },
+      { timeout: 1000, interval: 20 },
+    )
   })
 
   it('GET /api/news/articles/:id — 非法 UUID 返回 400', async () => {
