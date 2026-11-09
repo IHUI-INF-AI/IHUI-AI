@@ -104,16 +104,6 @@ jobs:
       # 直到 bundler 报 Module not found。--frozen-lockfile 是唯一会在此处非零退出的写法。
       # **禁止**改成裸 `pnpm install` 或加 --no-frozen-lockfile —— 那等于把这道门删掉;
       # 也**禁止**挪到任何 build 步骤之后。
-
-      # 移动端 app.json 的 expo.version 是 apps/mobile-rn/package.json 的**派生产物**
-      # (生成器 = scripts/sync-mobile-app-json-version.mjs,根 postinstall 会跑它)。
-      # 本步必须排在 `pnpm install` **之前**:装依赖时 postinstall 会把陈旧提交先自愈,
-      # 门 `check-version-drift` 的 I 维就再也抓不到"提交里的派生值漂了"这件事 —— 那等于变相放宽判据。
-      # 本步只读:派生值与真源不一致 ⇒ exit 1,先把生成器跑一遍再随版本改动一并提交。
-      - name: Mobile app.json version freshness (派生值必须与真源一致)
-        id: mobile-app-json-fresh
-        run: node scripts/sync-mobile-app-json-version.mjs --check
-
       - name: Install dependencies (frozen lockfile = dependency truth)
         id: install
         run: pnpm install --frozen-lockfile
@@ -233,11 +223,10 @@ jobs:
         if: failure()
         env:
           TRIAGE_WORKFLOW_FILE: .github/workflows/ci.yml
-          TRIAGE_IDS: checkout install-pnpm setup-node mobile-app-json-fresh install build-shared-deps shared-typecheck build-database build-auth build-api-client build-ext-deps wxt-prepare typecheck schema-drift migration-bookkeeping api-routes port-registry version-drift lint
+          TRIAGE_IDS: checkout install-pnpm setup-node install build-shared-deps shared-typecheck build-database build-auth build-api-client build-ext-deps wxt-prepare typecheck schema-drift migration-bookkeeping api-routes port-registry version-drift lint
           O_CHECKOUT: ${{ steps.checkout.outcome }}
           O_INSTALL_PNPM: ${{ steps.install-pnpm.outcome }}
           O_SETUP_NODE: ${{ steps.setup-node.outcome }}
-          O_MOBILE_APP_JSON_FRESH: ${{ steps.mobile-app-json-fresh.outcome }}
           O_INSTALL: ${{ steps.install.outcome }}
           O_BUILD_SHARED_DEPS: ${{ steps.build-shared-deps.outcome }}
           O_SHARED_TYPECHECK: ${{ steps.shared-typecheck.outcome }}

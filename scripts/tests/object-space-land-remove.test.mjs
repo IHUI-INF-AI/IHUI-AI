@@ -94,14 +94,7 @@ function makeRepo(t) {
  * 门 98(树不是本仓 HEAD)。**暖色描边门不跳** —— G-929 起门体支持 `--root`,
  * 落地器把它透传给门,临时仓的真树真判(射程外 ⇒ 本门不适用 ⇒ 放行)。
  */
-// 缺省正文同 conflict-gate 那档:旧 `e2e` 从 2026-11-04 正文形状档立项起让本档 6 枚用例整片红,
-// 死因与删除档无关(先被形状档拒成 exit 2)。改夹具不改判据。
-function land(dir, {
-  paths = '',
-  remove = '',
-  msg = 'test(land): 删除档夹具正文 —— 需过落地器的正文形状档',
-  extra = {},
-}) {
+function land(dir, { paths = '', remove = '', msg = 'e2e', extra = {} }) {
   const r = spawnSync(process.execPath, [SCRIPT], {
     env: {
       ...process.env,

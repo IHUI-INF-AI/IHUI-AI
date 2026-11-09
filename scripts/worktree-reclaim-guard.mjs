@@ -46,7 +46,6 @@ import {
 } from 'node:fs'
 import { join, dirname, resolve, isAbsolute } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { gitBinary } from './lib/face-reader.mjs'
 import { tmpdir } from 'node:os'
 
 const ROOT = resolve(join(dirname(fileURLToPath(import.meta.url)), '..'))
@@ -55,7 +54,7 @@ const ACTIVITY_WINDOW_MS = 60 * 60 * 1000
 const CACHE_DIR_NAMES = new Set(['.next', '.next-ct', '.next-ct-v', '.turbo', 'coverage', 'dist'])
 
 function git(args, cwd = ROOT) {
-  const r = spawnSync(gitBinary(), ['-c', 'safe.directory=*', ...args], {
+  const r = spawnSync('git', ['-c', 'safe.directory=*', ...args], {
     cwd,
     encoding: 'utf8',
     windowsHide: true,

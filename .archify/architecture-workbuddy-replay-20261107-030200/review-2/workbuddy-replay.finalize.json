@@ -1,0 +1,379 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "finalize",
+  "status": "fail",
+  "type": "architecture",
+  "quality": "showcase",
+  "startedAt": "2026-11-06T19:01:12.440Z",
+  "specification": {
+    "path": "G:\\IHUI-AI\\.archify\\architecture-workbuddy-replay-20261107-030200\\candidate.json",
+    "sha256": "fd577a472f8c3d19bfc12cffb9a65ef52dbf50e936714e1486987daad8fec61f",
+    "bytes": 2767
+  },
+  "artifact": {
+    "path": "G:\\IHUI-AI\\.archify\\architecture-workbuddy-replay-20261107-030200\\workbuddy-replay.html",
+    "sha256": "6a7708707fac97291fa709f944999f6fc6b1dc5785f41173580529deed056946",
+    "bytes": 842282
+  },
+  "stages": {
+    "validate": {
+      "status": "pass",
+      "exitCode": 0,
+      "durationMs": null,
+      "execution": "embedded-in-deliver",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "G:\\IHUI-AI\\.ihui\\skills\\archify\\bin\\archify.mjs",
+        "deliver",
+        "architecture",
+        "G:\\IHUI-AI\\.archify\\architecture-workbuddy-replay-20261107-030200\\candidate.json",
+        "G:\\IHUI-AI\\.archify\\architecture-workbuddy-replay-20261107-030200\\workbuddy-replay.html",
+        "--quality",
+        "showcase",
+        "--json"
+      ],
+      "receipt": {
+        "schemaVersion": 1,
+        "ok": true,
+        "command": "validate",
+        "specification": {
+          "sha256": "fd577a472f8c3d19bfc12cffb9a65ef52dbf50e936714e1486987daad8fec61f",
+          "bytes": 2767
+        },
+        "validation": {
+          "checksPassed": 9,
+          "checkCount": 9,
+          "compositionProfile": "showcase",
+          "compositionStatus": "pass",
+          "errors": 0,
+          "warnings": 0
+        }
+      }
+    },
+    "deliver": {
+      "status": "pass",
+      "exitCode": 0,
+      "durationMs": 894,
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "G:\\IHUI-AI\\.ihui\\skills\\archify\\bin\\archify.mjs",
+        "deliver",
+        "architecture",
+        "G:\\IHUI-AI\\.archify\\architecture-workbuddy-replay-20261107-030200\\candidate.json",
+        "G:\\IHUI-AI\\.archify\\architecture-workbuddy-replay-20261107-030200\\workbuddy-replay.html",
+        "--quality",
+        "showcase",
+        "--json"
+      ],
+      "receipt": {
+        "schemaVersion": 1,
+        "receiptId": "be81267b-b7b4-44e5-a671-e919fb05d169",
+        "ok": true,
+        "command": "deliver",
+        "type": "architecture",
+        "input": "G:\\IHUI-AI\\.archify\\architecture-workbuddy-replay-20261107-030200\\candidate.json",
+        "output": "G:\\IHUI-AI\\.archify\\architecture-workbuddy-replay-20261107-030200\\workbuddy-replay.html",
+        "specification": {
+          "sha256": "fd577a472f8c3d19bfc12cffb9a65ef52dbf50e936714e1486987daad8fec61f",
+          "bytes": 2767
+        },
+        "artifact": {
+          "sha256": "6a7708707fac97291fa709f944999f6fc6b1dc5785f41173580529deed056946",
+          "bytes": 842282
+        },
+        "validation": {
+          "checksPassed": 9,
+          "checkCount": 9,
+          "compositionProfile": "showcase",
+          "compositionStatus": "pass",
+          "errors": 0,
+          "warnings": 0
+        },
+        "update": {
+          "status": "unavailable",
+          "installedVersion": null,
+          "availableVersion": null,
+          "releaseNotes": null,
+          "checkedAt": null,
+          "source": null,
+          "noticeRequired": false,
+          "noticeText": null,
+          "reason": "disabled"
+        }
+      }
+    },
+    "check": {
+      "status": "pass",
+      "exitCode": 0,
+      "durationMs": 433,
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "G:\\IHUI-AI\\.ihui\\skills\\archify\\bin\\archify.mjs",
+        "check",
+        "G:\\IHUI-AI\\.archify\\architecture-workbuddy-replay-20261107-030200\\workbuddy-replay.html",
+        "--require-provenance"
+      ],
+      "receipt": {
+        "ok": true,
+        "file": "G:\\IHUI-AI\\.archify\\architecture-workbuddy-replay-20261107-030200\\workbuddy-replay.html",
+        "artifact": {
+          "sha256": "6a7708707fac97291fa709f944999f6fc6b1dc5785f41173580529deed056946",
+          "bytes": 842282
+        },
+        "checks": [
+          {
+            "name": "single_svg",
+            "ok": true,
+            "details": [
+              "found 1 <svg> block(s)"
+            ]
+          },
+          {
+            "name": "finite_svg",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "orthogonal_arrows",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "label_route_clearance",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "relationship_crossings",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "relationship_corridors",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "container_border_runs",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "route_rhythm",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "legend_clearance",
+            "ok": true,
+            "details": []
+          }
+        ],
+        "composition": {
+          "schemaVersion": 1,
+          "profile": "showcase",
+          "status": "pass",
+          "summary": {
+            "errors": 0,
+            "warnings": 0
+          },
+          "metrics": {
+            "properCrossings": 0,
+            "resolvedCrossovers": 0,
+            "ambiguousCorridors": 0,
+            "arrowheadCollisions": 0,
+            "containerBorderRuns": 0,
+            "labelRouteClearanceIssues": 0,
+            "labelCanvasOverflowIssues": 0,
+            "minLabelRouteClearance": 92.2,
+            "desktopReadabilityIssues": 0,
+            "viewportHeightIssues": 0,
+            "minProjectedNodeTextPx": 7.5,
+            "maxBends": 0,
+            "routesOverSuggestedBends": 0,
+            "maxStretch": 1,
+            "routesOverSuggestedStretch": 0,
+            "minSegmentPx": 80,
+            "minInteriorSegmentPx": null,
+            "shortSegmentCount": 0,
+            "shortEndpointSegmentCount": 0,
+            "shortInteriorSegmentCount": 0,
+            "microSegmentCount": 0
+          },
+          "suggestedLimits": {
+            "bendsPerRelationship": 2,
+            "stretch": 1.35,
+            "segmentPx": 16,
+            "microSegmentPx": 8
+          },
+          "routeReview": {
+            "crossings": [],
+            "detours": []
+          },
+          "leadingSpace": {
+            "measured": true,
+            "emptyTopPx": 36,
+            "emptyTopRatio": 0.072,
+            "occupiedTop": 36,
+            "viewBoxTop": 0,
+            "canvasHeight": 500,
+            "typicalNodeHeight": 72,
+            "reviewSuggested": false
+          },
+          "desktopReadability": {
+            "budgetBasis": "recognized-declared-wide",
+            "readerContract": "declared-wide-v1",
+            "availableDiagramWidth": 956.25,
+            "actualBudgetPx": 956.25,
+            "actualReaderWidth": 986.25,
+            "desiredReaderWidth": 986.25,
+            "viewportCap": 1376,
+            "limit": "source-size",
+            "requestedTargetPx": 7.5,
+            "requestedTargetMet": true,
+            "hardFloorPx": 6,
+            "hardFloorMet": true,
+            "minimumOwner": {
+              "kind": "edge",
+              "id": "open-session",
+              "from": "reader",
+              "to": "history-hook"
+            },
+            "minimumSourceTextPx": 8,
+            "minimumProjectedTextPx": 7.5,
+            "semanticTextCount": 17
+          },
+          "issues": []
+        },
+        "provenance": "current",
+        "deliveryReceiptId": "be81267b-b7b4-44e5-a671-e919fb05d169"
+      }
+    },
+    "browser-check": {
+      "status": "fail",
+      "exitCode": 1,
+      "durationMs": 13683,
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "G:\\IHUI-AI\\.ihui\\skills\\archify\\bin\\archify.mjs",
+        "browser-check",
+        "G:\\IHUI-AI\\.archify\\architecture-workbuddy-replay-20261107-030200\\workbuddy-replay.html",
+        "--json",
+        "--require-provenance",
+        "--out-dir",
+        "G:\\IHUI-AI\\.archify\\architecture-workbuddy-replay-20261107-030200\\review-2"
+      ],
+      "execution": "in-process",
+      "receipt": {
+        "schemaVersion": 1,
+        "ok": false,
+        "command": "browser-check",
+        "evidenceKind": "automated-browser",
+        "status": "fail",
+        "visualReview": "not-requested",
+        "provenance": "current",
+        "deliveryReceiptId": "be81267b-b7b4-44e5-a671-e919fb05d169",
+        "artifact": {
+          "path": "G:\\IHUI-AI\\.archify\\architecture-workbuddy-replay-20261107-030200\\workbuddy-replay.html",
+          "sha256": "6a7708707fac97291fa709f944999f6fc6b1dc5785f41173580529deed056946",
+          "bytes": 842282
+        },
+        "state": {
+          "detail": "read",
+          "motion": "still"
+        },
+        "chrome": {
+          "status": "available",
+          "executable": "C:\\Users\\Administrator\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe"
+        },
+        "diagnostics": [
+          {
+            "code": "viewer/temp-cleanup-incomplete",
+            "severity": "error",
+            "message": "Browser cleanup could not safely finish; inspect the reported retained path.",
+            "subject": {
+              "artifact": "G:\\IHUI-AI\\.archify\\architecture-workbuddy-replay-20261107-030200\\workbuddy-replay.html"
+            },
+            "evidence": {
+              "reason": "Chrome did not exit; retained temporary profile \"D:\\DevEnv\\Temp\\archify-visual-check-profile-go32DY\".",
+              "retainedDirectory": "D:\\DevEnv\\Temp\\archify-visual-check-profile-go32DY"
+            },
+            "supportedFixes": [
+              "resolve the reported process or filesystem failure; verify directory ownership before manual cleanup"
+            ]
+          }
+        ],
+        "containment": {
+          "status": "fail",
+          "policy": "fit-or-reader-declared-readable-vertical-scroll",
+          "viewports": []
+        },
+        "themeStates": {
+          "status": "fail",
+          "viewports": []
+        },
+        "readability": {
+          "status": "fail",
+          "minimumProjectedNodeTextPx": 6,
+          "viewports": []
+        },
+        "viewerChrome": {
+          "status": "fail",
+          "viewports": []
+        },
+        "captures": {
+          "status": "not-requested",
+          "screenshots": [],
+          "contactSheet": null
+        },
+        "sidecars": {
+          "directory": "G:\\IHUI-AI\\.archify\\architecture-workbuddy-replay-20261107-030200\\review-2",
+          "receipt": "workbuddy-replay.browser-check.json",
+          "files": []
+        },
+        "error": "Chrome did not exit; retained temporary profile \"D:\\DevEnv\\Temp\\archify-visual-check-profile-go32DY\"."
+      }
+    }
+  },
+  "browserCheck": {
+    "requested": true,
+    "ran": false
+  },
+  "diagnostics": [
+    {
+      "code": "viewer/temp-cleanup-incomplete",
+      "severity": "error",
+      "message": "Browser cleanup could not safely finish; inspect the reported retained path.",
+      "subject": {
+        "artifact": "G:\\IHUI-AI\\.archify\\architecture-workbuddy-replay-20261107-030200\\workbuddy-replay.html"
+      },
+      "evidence": {
+        "reason": "Chrome did not exit; retained temporary profile \"D:\\DevEnv\\Temp\\archify-visual-check-profile-go32DY\".",
+        "retainedDirectory": "D:\\DevEnv\\Temp\\archify-visual-check-profile-go32DY"
+      },
+      "supportedFixes": [
+        "resolve the reported process or filesystem failure; verify directory ownership before manual cleanup"
+      ]
+    }
+  ],
+  "evidence": {
+    "receipt": "G:\\IHUI-AI\\.archify\\architecture-workbuddy-replay-20261107-030200\\review-2\\workbuddy-replay.finalize.json",
+    "summaryReceipt": "G:\\IHUI-AI\\.archify\\architecture-workbuddy-replay-20261107-030200\\review-2\\workbuddy-replay.finalize-summary.json",
+    "browserCheckReceipt": "G:\\IHUI-AI\\.archify\\architecture-workbuddy-replay-20261107-030200\\review-2\\workbuddy-replay.browser-check.json"
+  },
+  "visualReview": "not-requested",
+  "failedStage": "browser-check",
+  "finishedAt": "2026-11-06T19:01:27.894Z",
+  "durationMs": 15454,
+  "update": {
+    "status": "current",
+    "installedVersion": "3.2.0",
+    "availableVersion": "3.2.0",
+    "releaseNotes": null,
+    "checkedAt": "2026-11-06T18:59:46.239Z",
+    "source": "cache",
+    "noticeRequired": false,
+    "noticeText": null
+  }
+}

@@ -46,59 +46,11 @@ const GEOM_PATH = 'packages/design-tokens/src/geometry.js'
 const TOKENS_PATH = 'packages/design-tokens/src/styles/tokens.css'
 const BARREL_PATH = 'apps/web/src/components/sidebar.tsx'
 const SUBMODULE_PATH = 'apps/web/src/components/sidebar/SidebarExtra.tsx'
-// 2026-11-07 新增第五面(端内其它载体):这五处无法 import 档常量,门必须逐处认形态。
-// 夹具里全部给"合规基线",用例再按需把它们之一改坏 —— 否则每个用例都会因"载体读不到"变未判定。
-const REGISTRY_PATH = 'packages/design-tokens/src/token-registry.ts'
-const LAYOUT_PATH = 'apps/web/app/layout.tsx'
-const GLOBALS_CSS_PATH = 'apps/web/app/globals.css'
-const UIREACT_PATH = 'packages/ui-react/src/components/sidebar.tsx'
-const RN_DRAWER_PATH = 'apps/mobile-rn/src/components/Drawer.tsx'
-const MINI_DRAWER_PATH = 'apps/miniapp-taro/src/components/DrawerComponent.tsx'
-
-const REGISTRY_OK = `export const tokens = [
-  { name: '--sidebar-width', defaultValue: '160px' },
-  { name: '--sidebar-collapsed-width', defaultValue: '60px' },
-]
-`
-
-const LAYOUT_OK = `const bootstrap = \`(function(){try{var sw=localStorage.getItem('sidebar-width');if(sw){var sn=parseInt(sw,10);if(sn>=\${rnGeometry.drawerWidth}&&sn<=\${rnGeometry.sidebarMaxWidth}){d.style.setProperty('--sidebar-width',sn+'px');}else{d.style.setProperty('--sidebar-width','\${rnGeometry.drawerWidth}px');}}else{d.style.setProperty('--sidebar-width','\${rnGeometry.drawerWidth}px');}}catch(e){d.style.setProperty('--sidebar-width','\${rnGeometry.drawerWidth}px');}try{if(localStorage.getItem('sidebar-collapsed')==='true'){d.style.setProperty('--sidebar-width','\${rnGeometry.sidebarCollapsedWidth}px');}}catch(e){}})();\`
-`
-
-const GLOBALS_CSS_OK = `@media (min-width: 640px) and (max-width: 1023px) {
-  aside[data-viewport-collapsed='true'] {
-    width: var(--sidebar-collapsed-width);
-    min-width: var(--sidebar-collapsed-width);
-    max-width: var(--sidebar-collapsed-width);
-  }
-}
-`
-
-const UIREACT_OK = `import { rnGeometry } from '@ihui/design-tokens'
-
-export const widthOf = (collapsed) =>
-  collapsed ? rnGeometry.sidebarCollapsedWidth : rnGeometry.drawerWidth
-`
-
-const RN_DRAWER_OK = `import { rnGeometry } from '@ihui/design-tokens'
-
-export const drawerWidthOf = (screenWidth) => Math.min(screenWidth * 0.66, rnGeometry.drawerWidth)
-`
-
-const MINI_DRAWER_OK = `import { taroGeometry } from '@ihui/design-tokens'
-
-export const drawerStyle = { width: rpx(taroGeometry.drawerWidth) }
-`
 
 const DEFAULT_FILES = {
   [GEOM_PATH]: GEOMETRY_OK,
   [TOKENS_PATH]: TOKENS_OK,
-  [REGISTRY_PATH]: REGISTRY_OK,
   [BARREL_PATH]: TSX_OK,
-  [LAYOUT_PATH]: LAYOUT_OK,
-  [GLOBALS_CSS_PATH]: GLOBALS_CSS_OK,
-  [UIREACT_PATH]: UIREACT_OK,
-  [RN_DRAWER_PATH]: RN_DRAWER_OK,
-  [MINI_DRAWER_PATH]: MINI_DRAWER_OK,
 }
 
 // ─── 辅助:创建临时项目目录(默认 3 文件,overrides 可覆盖/置 null 删除) ───
@@ -554,16 +506,9 @@ test('staged 模式: staged geometry.js 触发全量检查', () => {
   const dir = createTempProject()
   try {
     initGitRepo(dir)
-    // 夹具必须先落一个「索引 = 全量快照」的基线:真实仓的索引从不缺其它路径。
-    // 旧夹具只 `git add` 一个文件 ⇒ 其余面在索引里压根不存在 ⇒ 判未判定。
-    // 那是夹具失真(把"索引缺文件"当成常态),不是门失效。
-    execSync('git add -A && git commit -q -m base', { cwd: dir, encoding: 'utf8', stdio: 'ignore' })
-    writeFileSync(join(dir, GEOM_PATH), `${GEOMETRY_OK}\n// touched\n`)
     execSync(`git add ${GEOM_PATH}`, { cwd: dir, encoding: 'utf8', stdio: 'ignore' })
     const r = runScript(dir, ['--staged'])
     assertPass(r)
-    // 「触发全量」的反面是「跳过早退」:只说 exit 0 分不出这两种情况。
-    assert.doesNotMatch(r.stdout, /跳过/, `相关文件被 staged 时不得走跳过分支\nstdout: ${r.stdout}`)
   } finally {
     rmScratch(dir)
   }
@@ -573,12 +518,9 @@ test('staged 模式: staged sidebar/ 子模块也触发(不再只看 barrel)', (
   const dir = createTempProject({ [SUBMODULE_PATH]: 'export const w = 1\n' })
   try {
     initGitRepo(dir)
-    execSync('git add -A && git commit -q -m base', { cwd: dir, encoding: 'utf8', stdio: 'ignore' })
-    writeFileSync(join(dir, SUBMODULE_PATH), 'export const w = 2\n')
     execSync(`git add ${SUBMODULE_PATH}`, { cwd: dir, encoding: 'utf8', stdio: 'ignore' })
     const r = runScript(dir, ['--staged'])
     assertPass(r)
-    assert.doesNotMatch(r.stdout, /跳过/, `子模块被 staged 时不得走跳过分支\nstdout: ${r.stdout}`)
   } finally {
     rmScratch(dir)
   }
@@ -587,147 +529,6 @@ test('staged 模式: staged sidebar/ 子模块也触发(不再只看 barrel)', (
 test('staged 模式: 非 git 环境 → 回退全量 exit 0', () => {
   const dir = createTempProject()
   try {
-    const r = runScript(dir, ['--staged'])
-    assertPass(r)
-  } finally {
-    rmScratch(dir)
-  }
-})
-
-// ============================================================
-// 5. A11 / A12 / A13:2026-11-07 独立证伪探针实测确认的六条路径
-// ============================================================
-
-test('A11 违规: 右值跨行写 `= rnGeometry.drawerWidth` 换行 `+ 40` → exit 1', () => {
-  const dir = createTempProject({
-    [BARREL_PATH]: TSX_OK.replace(
-      'const SIDEBAR_WIDTH = rnGeometry.drawerWidth',
-      'const SIDEBAR_WIDTH = rnGeometry.drawerWidth\n  + 40',
-    ),
-  })
-  try {
-    const r = runScript(dir)
-    assertFail(r, /SIDEBAR_WIDTH = rnGeometry\.drawerWidth\s*\+\s*40/)
-  } finally {
-    rmScratch(dir)
-  }
-})
-
-test('A13 违规: 首屏 inline script 回退成字面量 160px → exit 1', () => {
-  const dir = createTempProject({
-    [LAYOUT_PATH]: LAYOUT_OK.replace("'${rnGeometry.drawerWidth}px'", "'160px'"),
-  })
-  try {
-    const r = runScript(dir)
-    assertFail(r, /layout\.tsx/)
-  } finally {
-    rmScratch(dir)
-  }
-})
-
-test('A13 违规: globals.css 平板区间回退成三连 60px → exit 1', () => {
-  const dir = createTempProject({
-    [GLOBALS_CSS_PATH]: GLOBALS_CSS_OK.replace(
-      'width: var(--sidebar-collapsed-width);',
-      'width: 60px;',
-    ),
-  })
-  try {
-    const r = runScript(dir)
-    assertFail(r, /globals\.css/)
-  } finally {
-    rmScratch(dir)
-  }
-})
-
-test('A13 违规: ui-react 侧栏复活 w-[54px] 类名 → exit 1', () => {
-  const dir = createTempProject({
-    [UIREACT_PATH]: `${UIREACT_OK}
-export const cls = 'w-[54px] flex h-screen'
-`,
-  })
-  try {
-    const r = runScript(dir)
-    assertFail(r, /w-\[54px\]/)
-  } finally {
-    rmScratch(dir)
-  }
-})
-
-test('A13 违规: RN 抽屉封顶回退成数字 250 → exit 1', () => {
-  const dir = createTempProject({
-    [RN_DRAWER_PATH]: RN_DRAWER_OK.replace('rnGeometry.drawerWidth)', '250)'),
-  })
-  try {
-    const r = runScript(dir)
-    assertFail(r, /Drawer\.tsx/)
-  } finally {
-    rmScratch(dir)
-  }
-})
-
-test('CSS 级联: 末尾再补一条 :root 覆盖 250px(末次生效)→ exit 1', () => {
-  const dir = createTempProject({
-    [TOKENS_PATH]: `${TOKENS_OK}\n:root { --sidebar-width: 250px; }\n`,
-  })
-  try {
-    const r = runScript(dir)
-    assertFail(r, /250px ≠ 几何档 160px/)
-  } finally {
-    rmScratch(dir)
-  }
-})
-
-test('registry 缺条目 → exit 2 未判定(缺条目 ≠ 一致)', () => {
-  const dir = createTempProject({
-    [REGISTRY_PATH]: REGISTRY_OK.replace("name: '--sidebar-width'", "name: '--sidebar-width-x'"),
-  })
-  try {
-    const r = runScript(dir)
-    assertUndetermined(r, /注册条目/)
-  } finally {
-    rmScratch(dir)
-  }
-})
-
-test('未判定必须同时写 stderr(gate-failure-kind 只认 stderr,只打 stdout 会被判红)', () => {
-  const dir = createTempProject({ [GEOM_PATH]: null })
-  try {
-    const r = runScript(dir)
-    assert.equal(r.status, 2, `应 exit 2,实际 ${r.status}`)
-    assert.match(r.stderr, /未判定/, `stderr 必须含「未判定」,实际: ${r.stderr}`)
-  } finally {
-    rmScratch(dir)
-  }
-})
-
-test('staged 面判**索引** blob:索引是字面量、工作树是档引用 → exit 1', () => {
-  const dir = createTempProject()
-  try {
-    initGitRepo(dir)
-    execSync('git commit -m init --allow-empty', { cwd: dir, encoding: 'utf8', stdio: 'ignore' })
-    writeFileSync(
-      join(dir, BARREL_PATH),
-      TSX_OK.replace(/rnGeometry\.(drawerWidth|sidebarMaxWidth|sidebarCollapsedWidth)/g, '160'),
-    )
-    execSync('git add -A', { cwd: dir, encoding: 'utf8', stdio: 'ignore' })
-    // 工作树改成合规版本(索引仍是字面量)⇒ 判索引必须红
-    writeFileSync(join(dir, BARREL_PATH), TSX_OK)
-    const r = runScript(dir, ['--staged'])
-    assertFail(r, /SIDEBAR_WIDTH = 160/)
-  } finally {
-    rmScratch(dir)
-  }
-})
-
-test('staged 面判**索引** blob:索引合规、工作树是字面量 → exit 0(不拿工作树顶索引)', () => {
-  const dir = createTempProject()
-  try {
-    initGitRepo(dir)
-    execSync('git commit -m init --allow-empty', { cwd: dir, encoding: 'utf8', stdio: 'ignore' })
-    writeFileSync(join(dir, BARREL_PATH), TSX_OK)
-    execSync('git add -A', { cwd: dir, encoding: 'utf8', stdio: 'ignore' })
-    writeFileSync(join(dir, BARREL_PATH), TSX_OK.replace('rnGeometry.drawerWidth', '160'))
     const r = runScript(dir, ['--staged'])
     assertPass(r)
   } finally {

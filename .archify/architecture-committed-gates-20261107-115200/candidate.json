@@ -1,0 +1,104 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "已提交的入口与工具闸",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "output": ".archify/architecture-committed-gates-20261107-115200/committed-gates.html",
+    "repository": {
+      "url": "https://github.com/IHUI-INF-AI/IHUI-AI.git",
+      "provider": "github",
+      "link_mode": "web",
+      "revision": "4fb33f60c88396e8462a279a05980496c848167e"
+    }
+  },
+  "components": [
+    {
+      "id": "low-memory",
+      "type": "backend",
+      "label": "低内存入口",
+      "sublabel": "短生命周期才套用",
+      "pos": [40, 80],
+      "size": [180, 72],
+      "sources": [
+        {
+          "path": "apps/cli/src/startup/profile.ts",
+          "line": 205,
+          "end_line": 256,
+          "label": "省内存旗标规划"
+        }
+      ]
+    },
+    {
+      "id": "extensions",
+      "type": "backend",
+      "label": "扩展贡献词表",
+      "sublabel": "只声明不执行",
+      "pos": [340, 80],
+      "size": [180, 72],
+      "sources": [
+        {
+          "path": "packages/types/src/capability-extensions.ts",
+          "line": 51,
+          "end_line": 63,
+          "label": "贡献类型"
+        }
+      ]
+    },
+    {
+      "id": "identity",
+      "type": "security",
+      "label": "路由身份键",
+      "sublabel": "宿主绑定不进工具入参",
+      "pos": [640, 80],
+      "size": [200, 72],
+      "sources": [
+        {
+          "path": "packages/types/src/tool-contract.ts",
+          "line": 210,
+          "end_line": 240,
+          "label": "身份键禁入模型参数"
+        }
+      ]
+    },
+    {
+      "id": "hooks",
+      "type": "backend",
+      "label": "生命周期钩子",
+      "sublabel": "工具前可拒绝",
+      "pos": [640, 240],
+      "size": [180, 72],
+      "sources": [
+        {
+          "path": "apps/ai-service/app/core/hook_runtime.py",
+          "line": 40,
+          "end_line": 48,
+          "label": "钩子阶段"
+        }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "memory-to-ext",
+      "from": "low-memory",
+      "to": "extensions",
+      "label": "再装扩展"
+    },
+    {
+      "id": "ext-to-identity",
+      "from": "extensions",
+      "to": "identity",
+      "label": "不含身份键"
+    },
+    {
+      "id": "identity-to-hooks",
+      "from": "identity",
+      "to": "hooks",
+      "label": "调用前拒绝",
+      "fromSide": "bottom",
+      "toSide": "top"
+    }
+  ]
+}

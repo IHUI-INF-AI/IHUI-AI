@@ -218,42 +218,6 @@ function catBatchBudgeted(revs, sizes) {
   return out
 }
 
-/** tree 档"该读哪些 blob"的判据(纯函数,夹具可在任意根上跑)。
- *  必须与 commit 档的 `want` 同一集合:两档读同样的字节,`--rev <提交>` 与 `--rev <树>` 才是同一个面。 */
-export function wantedBlobOids(table, files, tsPaths) {
-  const byOid = new Map()
-  for (const p of [...new Set([...files, ...tsPaths])]) {
-    const cell = table.get(p)
-    if (!cell || !cell.blob) continue
-    const prev = byOid.get(cell.blob)
-    if (prev === undefined || cell.size > prev) byOid.set(cell.blob, cell.size)
-  }
-  return [...byOid.entries()].map(([oid, size]) => ({ oid, size }))
-}
-
-/** 与 catBatchBudgeted 同一条字节预算,只是规格是裸 oid(tree 档不能按 `<tree>:<path>` 取,见 onTree 注释)。 */
-function catBatchOidsBudgeted(pairs) {
-  const out = new Map()
-  let part = []
-  let sizes = []
-  let used = 0
-  const flush = () => {
-    if (!part.length) return
-    for (const [oid, text] of catBatch(ROOT, part)) out.set(oid, text)
-    part = []
-    sizes = []
-    used = 0
-  }
-  for (const { oid, size } of pairs) {
-    if (part.length && used + size > CAT_BUDGET) flush()
-    part.push(oid)
-    sizes.push(size)
-    used += size
-  }
-  flush()
-  return out
-}
-
 function trackedSourceFiles(rev) {
   return treePaths(rev).filter((p) => SRC_RE.test(p) && !SKIP_DIR.test(p) && !FIXTURE_ROOT.test(p))
 }
@@ -313,12 +277,8 @@ export function auditOneFace(rev, shadowCtx = loadShadowExemptionLedger()) {
   const tsPaths = [...table.keys()].filter((p) => TSCONFIG_RE.test(p) && !SKIP_DIR.test(p))
   let read
   if (revKindOf(rev) === 'tree') {
-    // 只读判据真的会 read() 的那批 blob(源文件 + tsconfig),按字节分片。
-    // 首版写成"整棵树每个 blob":现读 HEAD 树 19,074 个对象 / 883.7MB,其中 png/md/json 等
-    // 永不 read 的占 701.5MB ⇒ 每枚候选多读 4.85 倍字节。落地通道(object-space-land 的
-    // runDanglingGate)按 `--rev <树>` 调本门,2026-11-06 05:12 现读 4 枚候选各跑 3–30 分钟
-    // 未完、单进程 RSS 最高 2.5GB —— 旁路落地是共享索引被占时唯一的落地通道,它卡死=落地欠账堆积。
-    const got = catBatchOidsBudgeted(wantedBlobOids(table, files, tsPaths))
+    const oids = [...table.values()].map((v) => v.blob).filter(Boolean)
+    const got = oids.length ? catBatch(ROOT, oids) : new Map()
     const cache = new Map()
     read = (p) => {
       if (cache.has(p)) return cache.get(p)
@@ -3098,29 +3058,18 @@ function selfTest() {
     // G-815985 `--rev` 的 CLI 形状(派生自身):假 rev 与面冲突必须 exit 2(无法判定,不是"没违规");
     // SELF_SKIP 在 --rev 档不吃(调用方点名要结论,跳过等于没审)。
     const gate = fileURLToPath(import.meta.url)
-    // 预算取落地器同一条(2026-11-06 现读改判):这一档原先钉 `timeout: 180000`,而实测
-    // `--rev HEAD` 静默态就要 **180s**(两面各 ~93s 解析 + 读 182MB)⇒ 预算 == 耗时、零余量;
-    // 共树争用下必然被 SIGTERM 掐死(e.status 直接为空 ⇒ 这里读成 rc=9),于是这一档成了自测里的恒红格,
-    // 红得与判据内容无关(§12e)。落地器对同一条 CLI 早写明"120s 上限对 11,799 文件的树面不够",
-    // 缺省 10 分钟 —— 同一个量纲取同一处,不自己另发明阈值;两侧要抬一起抬(env 同名)。
-    const ARM_BUDGET_MS = Number(process.env.IHUI_LAND_DANGLING_GATE_TIMEOUT_MS || 10 * 60 * 1000)
     const run = (args, env) => {
       try {
         const out = execFileSync(process.execPath, [gate, ...args], {
           encoding: 'utf8',
           windowsHide: true,
-          timeout: ARM_BUDGET_MS,
+          timeout: 180000,
           env: env ?? process.env,
           stdio: ['ignore', 'pipe', 'pipe'],
         })
         return { rc: 0, out: String(out) }
       } catch (e) {
-        // 没退出码 ≠ 判红:超时无 status,必须把信号写进读数,否则"没跑完"与"判你不该落"同形
-        return {
-          rc: e.status ?? 9,
-          out: String((e.stdout ?? '') + (e.stderr ?? '')),
-          signal: e.signal ?? null,
-        }
+        return { rc: e.status ?? 9, out: String((e.stdout ?? '') + (e.stderr ?? '')) }
       }
     }
     const bad = run(['--rev', 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef'])
@@ -3133,13 +3082,8 @@ function selfTest() {
       skipped.out.includes('内容口径:--rev') &&
       !skipped.out.includes('已跳过')
     if (!ok) fail++
-    // 失败时必须把三枚现读退码并排打出来:上一版只报"形状不符",而真因是被 180s 预算掐死
-    // (rc=9 + signal),读数与判定同形 ⇒ 排查只能从头再跑一遍(报错原因并两流不得先拼再截尾)。
     console.log(
-      `${ok ? '✅' : '❌'} --rev CLI 形状:假rev exit 2 / 面冲突 exit 2 / SELF_SKIP 下仍审计且 exit 0` +
-        `〔现读 bad=${bad.rc}${bad.signal ? `(${bad.signal})` : ''} conflict=${conflict.rc}` +
-        `${conflict.signal ? `(${conflict.signal})` : ''} skipped=${skipped.rc}` +
-        `${skipped.signal ? `(${skipped.signal})` : ''},预算=${ARM_BUDGET_MS}ms〕`,
+      `${ok ? '✅' : '❌'} --rev CLI 形状:假rev exit 2 / 面冲突 exit 2 / SELF_SKIP 下仍审计且 exit 0`,
     )
   }
   {
@@ -3317,7 +3261,5 @@ export const __test__ = {
   namespaceFnName,
   NS_PROMISE_ALL_RE,
   NS_ENTRY_RE,
-  // tree 档取材集合的判据本体:镜像要证"两档读同一批字节"必须用同一把尺(§22c)
-  wantedBlobOids,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

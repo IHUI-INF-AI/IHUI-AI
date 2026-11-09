@@ -238,6 +238,8 @@ import {
 // 旧实现只调 alignSharedIndex,于是"索引已对齐、磁盘仍缺"会留下假 `D ` / 编译缺文件;本层在索引
 // 对齐后按"磁盘仍缺才 checkout HEAD -- <path>"补最后一格,判据不在这里另抄第二份。
 import { alignLandingPaths } from './lib/landing-worktree-align.mjs'
+// 重写孪生闸的判据单源(守门 302 的落地侧腿;本器零复算,§0.6/§22c)
+import { describeTwinRefusal, judgeRewriteTwin } from './lib/commit-rewrite-safety.mjs'
 import {
   analyze as staleAncestorAnalysis,
   ancestorCommits,
@@ -3193,6 +3195,10 @@ async function main() {
   let importGaps = { scanned: 0, missing: [], undetermined: [] }
   let danglingGate = null
   let warmBorderGate = null
+  // 重写孪生闸(2026-11-06 立,判据单源 `lib/commit-rewrite-safety.mjs`):本轮将要写进树的那份内容,
+  // 若在同一个父提交下已经存在**同父同树**的既有提交,那一枚就是"被重写的旧枚"。旧枚带着在飞后代时,
+  // 落地(或事后把 ref 顶回旧链)就把别席的父链甩成孤儿 —— 2026-11-06 事故正是这一型。
+  let rewriteTwinGate = null
 
   const head0 = git(['rev-parse', 'HEAD'], { root })
   const base = new Map(paths.map((p) => [p, headBlobOf(baseRef, p, { root })]))
@@ -3669,6 +3675,18 @@ async function main() {
       // 校验放在 write-tree 之后、commit-tree 之前:被拒时不产生任何 commit 对象,
       // 因此不会给守门 30a 留"unreachable commit"地雷(它只数 commit 行)。
       onTree: (tree) => {
+        // 重写孪生闸(2026-11-06 立,守门 302 的落地侧腿):同一父下已有同树孪生、而孪生带着在飞后代
+        // ⇒ 本轮这枚就是「重写提交信息而内容不变」的那一型 ⇒ 拒落。位置在 write-tree 之后、
+        // commit-tree 之前 ⇒ 拒落时不产生 commit 对象,不给守门 30a 留"不可达孤儿"地雷(与上面几道同格)。
+        // 判据全在 lib/commit-rewrite-safety.mjs,本器零复算(§0.6/§22c);未判定一律拒(§0.3/§0.10)。
+        {
+          const r = judgeRewriteTwin({ root, parentSha: head, treeSha: tree })
+          rewriteTwinGate = { ...r, tree }
+          if (r.state === 'danger')
+            return `重写孪生:父 ${head.slice(0, 12)} 下已有同树提交,且它带着在飞后代`
+          if (r.state === 'undetermined')
+            return `重写孪生闸未判定:${r.reasons.join(' / ')}`
+        }
         if (!skipImportCheck) {
           const g = relativeImportGaps({
             root,
@@ -3697,6 +3715,26 @@ async function main() {
       },
     })
     if (made.rejected) {
+      if (rewriteTwinGate && rewriteTwinGate.state !== 'ok') {
+        console.error(
+          `❌ 重写孪生闸拒落(未创建任何 commit 对象,HEAD、ref、主索引、工作树均未动):`,
+        )
+        for (const line of
+          rewriteTwinGate.state === 'danger'
+            ? describeTwinRefusal({
+                parentSha: head,
+                treeSha: rewriteTwinGate.tree,
+                twins: rewriteTwinGate.twins,
+              })
+            : [`   未判定原因:${rewriteTwinGate.reasons.join(' / ')}`])
+          console.error(line)
+        console.error(
+          rewriteTwinGate.state === 'danger'
+            ? '   拒落的这一枚**没有**进入任何 ref;重落请把新内容叠在链尾,而不是重做同一棵树的另一份说明。'
+            : '   出路:修好取材(成图 / 树标识)再来 —— §0.3:未判定不是"判过了",也不是"可以落"。',
+        )
+        process.exit(rewriteTwinGate.state === 'danger' ? RC.REFUSED : 2)
+      }
       if (danglingGate && !danglingGate.pass) {
         console.error(`❌ ${danglingGate.why}(未创建任何 commit、HEAD 与主索引均未动):`)
         for (const line of String(danglingGate.out ?? '')
@@ -3767,6 +3805,14 @@ async function main() {
     } else if (warmBorderGate) {
       console.log('✅ 暖色描边涉事判据(门 231 --rev <tree>):通过,落盘树无输入框暖色描边')
     }
+    // 重写孪生闸的放行也要出声(与上面几道同格):有孪生但都没有在飞后代 ⇒ 如实报数,不冒充"零命中"。
+    if (rewriteTwinGate && rewriteTwinGate.twins.length > 0)
+      console.log(
+        `ℹ️ 重写孪生闸:同父同树的既有提交 ${rewriteTwinGate.twins.length} 枚(${rewriteTwinGate.twins
+          .map((x) => x.sha.slice(0, 9))
+          .join(', ')}),逐枚问过后代 ⇒ 均无在飞后代 ⇒ 放行`,
+      )
+    else console.log('✅ 重写孪生闸:本轮那枚在同一个父下没有同树孪生')
     const commit = made.commit
     lastMadeCommit = commit
     // 先验后落(2026-11-09):回读两把尺子**在 CAS 之前**跑完。判红 ⇒ 一个 ref 都不动,

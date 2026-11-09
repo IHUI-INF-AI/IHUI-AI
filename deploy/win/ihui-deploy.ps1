@@ -3754,18 +3754,13 @@ if ($webBg) {
     # .next-canary,灰度只认那一份(deploy/win/ihui-canary-gray.ps1 的 $GrayDist)。
     # robocopy 的 0-7 都是成功档(1=有复制),>=8 才是真失败;真失败**不阻断部署**,只让灰度
     # 如实进"未判定"——那一格由 ihui-deploy-loop.ps1 折算成 unknown,不记判定通过。
-    # [GRAY-SLOT-3STATE] 产物在位 ≠ 灰度实例在位(票 L31441):镜像成功只证明「候选产物已在位」,
-    # 灰度实例本身另有「在位 / 不在位 / 未判定」三档。后两档一律是「未判定」,单独出声:
-    # 不折成判定通过、不折成失败、不 advance、不阻断部署(§12e 存量未归零不升 blocking)。
-    # 本段只改这一档的措辞与终态,不动整轮红绿;判据链见 ihui-canary-artifact.mjs /
-    # ihui-canary-stage.mjs,镜像锁 scripts/tests/gray-slot-three-state-lock.test.mjs。
     $grayCanaryDist = Join-Path $WebDir '.next-canary'
     & robocopy.exe "$WebDir\.next-staging" $grayCanaryDist /MIR /R:1 /W:1 /NFL /NDL /NJH /NJS /NP | Out-Null
     $rcRc = $LASTEXITCODE
     if ($rcRc -ge 8) {
-        Log "WARN  [GRAY-SLOT-3STATE] 灰度产物镜像失败(robocopy exit=$rcRc)⇒ 产物不在位这一档:未判定(灰度实例无产物可服务),不折成判定通过、不折成失败、不 advance、不阻断部署(§12e)"
+        Log "WARN  灰度产物镜像失败(robocopy exit=$rcRc)⇒ 本轮灰度无产物,档位将按 unknown 处理(不阻断部署)"
     } else {
-        Log "OK    [GRAY-SLOT-3STATE] 灰度产物已镜像 .next-staging → .next-canary(robocopy exit=$rcRc;0-7 为成功档);产物在位 ≠ 灰度实例在位,灰度实例「不在位 / 未判定」这一档仍单独记为未判定,不折成判定通过、不 advance"
+        Log "OK    灰度产物已镜像 .next-staging → .next-canary(robocopy exit=$rcRc;0-7 为成功档)"
     }
     Remove-Item "$WebDir\$webTargetDist" -Recurse -Force -ErrorAction SilentlyContinue
     Move-Item "$WebDir\.next-staging" "$WebDir\$webTargetDist"
@@ -4359,35 +4354,6 @@ if (-not (Test-HealthGate)) {
         Where-Object { $null -ne (Get-Service -Name $_ -ErrorAction SilentlyContinue) } |
         Select-Object -First 1
     if ($aiName) {
-        # ── 签到批次节流(2026-11-04 立;范围只此一处)───────────────────────────────
-        # 立因:08:05 主窗口批次跑到 08:06:58,08:06:59 本轮部署重启 ai-service 把进程
-        # 优雅关闭 ⇒ 第 6 个号之后的账号当天不再有人管(部署环不知道批次在跑)。
-        # 只做一件事:批次执行中(含错峰等待)推迟重启,等待上限 900s;超限或状态读
-        # 不到时**照常部署并显式告警**,不无限拖、不静默跳过。蓝绿/健康门禁/快照/
-        # 验收等语义一律不动;节流只发生在重启这一行之前。
-        # 判据、fail-closed 口径与 900s 依据见 deploy/win/lib/checkin-batch-gate.ps1 头注。
-        $checkinGateLib = Join-Path $PSScriptRoot 'lib\checkin-batch-gate.ps1'
-        if (Test-Path -LiteralPath $checkinGateLib) {
-            . $checkinGateLib
-            $markerPath = Get-IhuiCheckinBatchMarkerPath -Root $Root
-            $preGate = Read-IhuiCheckinBatchMarker -Path $markerPath -StaleSeconds 180
-            if ($preGate.State -eq 'fresh') {
-                Log ("[CHECKIN-GATE] 签到批次执行中(batch={0} 心跳年龄 {1}s)⇒ 推迟重启,上限 900s(marker={2})" -f `
-                        $preGate.Batch, $preGate.AgeSeconds, $markerPath)
-            }
-            $gate = Wait-IhuiCheckinBatchIdle -Path $markerPath -MaxWaitSeconds 900 -PollSeconds 10 -StaleSeconds 180 `
-                -HeartbeatCallback { Update-DeployLockHeartbeat } `
-                -ProgressCallback { param($w) Log ("[CHECKIN-GATE] 等待签到批次结束:已等 {0}s / 上限 900s(marker=$markerPath)" -f $w) }
-            if ($gate.Severity -eq 'alert') {
-                Log ("[CHECKIN-GATE] ALERT " + $gate.Message)
-            } elseif ($gate.Severity -eq 'warn') {
-                Log ("[CHECKIN-GATE] WARN  " + $gate.Message)
-            } else {
-                Log ("[CHECKIN-GATE] " + $gate.Message)
-            }
-        } else {
-            Log ("[CHECKIN-GATE] WARN  缺 deploy\win\lib\checkin-batch-gate.ps1 ⇒ 批次节流未启用,照常重启 ai-service")
-        }
         Log "重启 ai-service 服务($aiName)使 AI 新代码生效"
         # 给部署后验收用的「重启锚点」:验收断言 a) 要求 checkin 注册行出现在这个时刻之后。
         $script:AiRestartIso = (Get-Date).ToString('o')

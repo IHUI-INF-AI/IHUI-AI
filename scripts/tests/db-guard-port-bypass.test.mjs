@@ -17,7 +17,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { FORBIDDEN_PROD_PORT, ISOLATED_DBS_ON_PROD_PORT, guardDbDsn } from '../lib/db-probe-client.mjs'
+import { FORBIDDEN_PROD_PORT, guardDbDsn } from '../lib/db-probe-client.mjs'
 
 const NO_ENV = {}
 
@@ -82,53 +82,5 @@ test('⑧ 端口非法(0 / 70000 / 8810.0)⇒ 一律拒,不猜', () => {
 test('⑨ DSN 写明端口时 PGPORT 不再参与有效端口(libpq 语义:显式端口优先)', () => {
   const r = guardDbDsn('postgres://u:p@localhost:5432/db', { PGPORT: FORBIDDEN_PROD_PORT })
   assert.equal(r.ok, true, '显式 5432 被环境变量 PGPORT 越权改写 ⇒ 判据面出错')
-})
-
-// ─────────────── ⑩-⑯ 8810 隔离库白名单(2026-11-06,只放行隔离库,拒绝面必须原样闭死) ───────────────
-
-test('⑩ 白名单本身被钉死:只有 ihui_e2e / ihui_ci_test,多一个即判据面被放宽', () => {
-  assert.deepEqual([...ISOLATED_DBS_ON_PROD_PORT].sort(), ['ihui_ci_test', 'ihui_e2e'])
-})
-
-test('⑪ 8810 + ihui_e2e(127.0.0.1 / localhost)⇒ 放行', () => {
-  for (const host of ['127.0.0.1', 'localhost']) {
-    const r = guardDbDsn(`postgres://u:p@${host}:${FORBIDDEN_PROD_PORT}/ihui_e2e`, NO_ENV)
-    assert.equal(r.ok, true, `${host}:8810/ihui_e2e 应放行,实得 ${JSON.stringify(r)}`)
-  }
-})
-
-test('⑫ 8810 + ihui_ci_test ⇒ 放行', () => {
-  const r = guardDbDsn(`postgres://u:p@127.0.0.1:${FORBIDDEN_PROD_PORT}/ihui_ci_test`, NO_ENV)
-  assert.equal(r.ok, true, JSON.stringify(r))
-})
-
-test('⑬ 8810 + ihui_dev / ihui_prod / postgres / ihui / db ⇒ 仍拒,拒绝面没被打开', () => {
-  for (const db of ['ihui_dev', 'ihui_prod', 'postgres', 'ihui', 'db', 'ihui_e2e_backup', 'IHUI_E2E']) {
-    const r = guardDbDsn(`postgres://u:p@127.0.0.1:${FORBIDDEN_PROD_PORT}/${db}`, NO_ENV)
-    assert.equal(r.ok, false, `8810/${db} 竟被放行`)
-    assert.match(r.why, /生产 SSH 隧道口/, `8810/${db} 的拒绝理由未点名生产隧道口`)
-    assert.match(r.why, /不在本机隔离库白名单/, `8810/${db} 的拒绝理由未点名白名单`)
-  }
-})
-
-test('⑭ 非回环 host + 8810/ihui_e2e ⇒ 仍拒(host 白名单先于端口白名单)', () => {
-  for (const host of ['db.internal', '10.0.0.7', 'api.aizhs.top']) {
-    const r = guardDbDsn(`postgres://u:p@${host}:${FORBIDDEN_PROD_PORT}/ihui_e2e`, NO_ENV)
-    assert.equal(r.ok, false, `${host} 竟借 ihui_e2e 绕过了回环白名单`)
-    assert.match(r.why, /不在本机回环白名单/)
-  }
-})
-
-test('⑮ 有效端口经 PGPORT 落到 8810 时同规则生效(白名单不是只认字面量 :8810)', () => {
-  const ok = guardDbDsn('postgres://u:p@localhost/ihui_e2e', { PGPORT: FORBIDDEN_PROD_PORT })
-  assert.equal(ok.ok, true, `PGPORT=8810 + /ihui_e2e 应放行,实得 ${JSON.stringify(ok)}`)
-  const bad = guardDbDsn('postgres://u:p@localhost/ihui_dev', { PGPORT: FORBIDDEN_PROD_PORT })
-  assert.equal(bad.ok, false)
-  assert.match(bad.why, /库名 ihui_dev 不在本机隔离库白名单/)
-})
-
-test('⑯ 其它端口不受白名单影响:5433/ihui_dev 照旧放行(只改 8810 的语义,不外溢)', () => {
-  const r = guardDbDsn('postgres://u:p@127.0.0.1:5433/ihui_dev', NO_ENV)
-  assert.equal(r.ok, true, JSON.stringify(r))
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "browser-check",
+  "evidenceKind": "automated-browser",
+  "status": "fail",
+  "visualReview": "not-requested",
+  "provenance": "current",
+  "deliveryReceiptId": "b2bd70a4-86a9-40ad-86dd-d8474f74ed0a",
+  "artifact": {
+    "path": "G:\\IHUI-AI\\.archify\\architecture-workbuddy-replay-20261107-030200\\workbuddy-replay.html",
+    "sha256": "6a7708707fac97291fa709f944999f6fc6b1dc5785f41173580529deed056946",
+    "bytes": 842282
+  },
+  "state": {
+    "detail": "read",
+    "motion": "still"
+  },
+  "chrome": {
+    "status": "available",
+    "executable": "C:\\Users\\Administrator\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe"
+  },
+  "diagnostics": [
+    {
+      "code": "viewer/temp-cleanup-incomplete",
+      "severity": "error",
+      "message": "Browser cleanup could not safely finish; inspect the reported retained path.",
+      "subject": {
+        "artifact": "G:\\IHUI-AI\\.archify\\architecture-workbuddy-replay-20261107-030200\\workbuddy-replay.html"
+      },
+      "evidence": {
+        "reason": "Chrome did not exit; retained temporary profile \"D:\\DevEnv\\Temp\\archify-visual-check-profile-B3Wiqp\".",
+        "retainedDirectory": "D:\\DevEnv\\Temp\\archify-visual-check-profile-B3Wiqp"
+      },
+      "supportedFixes": [
+        "resolve the reported process or filesystem failure; verify directory ownership before manual cleanup"
+      ]
+    }
+  ],
+  "containment": {
+    "status": "fail",
+    "policy": "fit-or-reader-declared-readable-vertical-scroll",
+    "viewports": []
+  },
+  "themeStates": {
+    "status": "fail",
+    "viewports": []
+  },
+  "readability": {
+    "status": "fail",
+    "minimumProjectedNodeTextPx": 6,
+    "viewports": []
+  },
+  "viewerChrome": {
+    "status": "fail",
+    "viewports": []
+  },
+  "captures": {
+    "status": "not-requested",
+    "screenshots": [],
+    "contactSheet": null
+  },
+  "sidecars": {
+    "receipt": "workbuddy-replay.browser-check.json",
+    "files": []
+  },
+  "error": "Chrome did not exit; retained temporary profile \"D:\\DevEnv\\Temp\\archify-visual-check-profile-B3Wiqp\"."
+}

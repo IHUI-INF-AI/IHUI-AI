@@ -8,13 +8,6 @@
  *
  * 判三维,取材一律同面同轮(§0.4:全量档 HEAD blob、`--staged` 索引 blob、`--worktree` 只作人工逃生舱):
  *  A1 **本次提交新带入**的未勾登记行里,既没有行内租约、也没有侧车记录的枚数。
- *     "新增"的相对面(2026-11-07,票:merge 提交的「新增行」判据只对第一父):
- *       · 单亲提交 ⇒ 仍只对 HEAD 一个父算 diff(行为与改前逐字节一致);
- *       · 合并提交 ⇒ 对**全部父提交求并集排除**:某行只要在任一父的 PROJECT_PLAN.md 里
- *         逐字已存在,就不算本次新增(第二父带来的历史欠账不得算成合并方新增);
- *       · 合并提交里我们自己新写的行(两个父里都没有)仍算新增,仍受 A1 约束;
- *       · 父提交取不到(浅克隆 / 坏对象 / MERGE_HEAD 为空)⇒ fail-closed 判**未判定**,
- *         绝不当成「没有新增」放行。
  *     租约算交代(它已机器可读地指名持有者),侧车记录算交代(它结构化地指名持有者或等待条件),
  *     两者皆无才是 P1 要收的那种"靠散文猜"的新账 —— 存量一律只报数(下面 stock),
  *     因为 237 行历史账不可能在上线当天补齐:那是一台与任何提交都无关的恒红门(§12e)。
@@ -63,11 +56,9 @@
  * (仍只报数),这样别的腿不会被存量 dup 打断;strict 档是给清偿/写盘器的判据,不是新的恒红门。
  * `orphan`(侧车记录在台账里找不到对应行)与 `midform`(语义同、形态未收敛)都只报数、不进 verdict。
  */
-import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-import { catBatch, gitRaw } from './lib/face-reader.mjs'
 import { MAX as HEADER_MAX } from './lib/plan-field-line.mjs'
 import {
   HEADER_KIND,
@@ -344,37 +335,6 @@ export function idNorm(line) {
     .replace(ID_TOKEN_RE, '<ID>')
 }
 
-/**
- * 合并态的其余父提交(MERGE_HEAD 的每一行;八爪鱼逐行都在)。
- * 非合并态返回 `[]` —— 单亲提交因此走**与改前完全相同**的那条分支。
- * MERGE_HEAD 在、但读不出 / 为空 ⇒ 抛错:调用方转「未判定」,绝不退化成「没有新增」。
- */
-function mergeParentRevs(root) {
-  let gitDir
-  try {
-    // 取的是**提交图位置**而不是 blob 正文:走取材层 gitRaw(禁裸派生 git,门 118 判据)。
-    gitDir = String(gitRaw(['rev-parse', '--absolute-git-dir'], root)).trim()
-  } catch (e) {
-    throw new Error(`git rev-parse --absolute-git-dir 失败:${String(e?.message ?? e).split('\n')[0]}`)
-  }
-  const mergeHead = path.join(gitDir, 'MERGE_HEAD')
-  if (!existsSync(mergeHead)) return []
-  const revs = readFileSync(mergeHead, 'utf8')
-    .split(/\r?\n/)
-    .map((s) => s.trim())
-    .filter(Boolean)
-  if (!revs.length) throw new Error('MERGE_HEAD 存在但为空 ⇒ 父提交不可确定')
-  return revs
-}
-
-/** 按 rev 读同一份 PROJECT_PLAN.md;读不到 / 空串 ⇒ 抛错(调用方转未判定,不回落别的面)。 */
-function readPlanAtRev(root, rev) {
-  const spec = `${rev}:PROJECT_PLAN.md`
-  const text = catBatch(root, [spec], { maxBuffer: 1 << 28 }).get(spec)
-  if (typeof text !== 'string' || text === '') throw new Error(`${spec} 取不到或为空`)
-  return text
-}
-
 /** 取两面(台账 + 侧车)。任一面取不到 ⇒ 未判定,绝不回落另一个面(§0.4)。 */
 export function readFaces(root = ROOT, face = 'head') {
   let content
@@ -397,30 +357,15 @@ export function readFaces(root = ROOT, face = 'head') {
     try {
       // 纪元面:基准身份按抹号后的正文比;无纪元 ⇒ 逐字旧行为(镜像测试锁住这一条)
       const identity = epochMark ? idNorm : (s) => s
-      const otherParents = mergeParentRevs(root)
-      if (!otherParents.length) {
-        // 单亲:与改前**逐字节相同**的那一条(不得因合并支持而漂移)
-        base = new Set(
-          parseTaskRows(readPlan(root, 'head'))
-            .filter(isOpenRow)
-            .map((r) => identity(r.raw)),
-        )
-      } else {
-        // 合并态:全部父提交求并集排除 —— 任一父里逐字已有的行不算本次新增
-        const union = new Set(
-          parseTaskRows(readPlan(root, 'head'))
-            .filter(isOpenRow)
-            .map((r) => identity(r.raw)),
-        )
-        for (const rev of otherParents)
-          for (const r of parseTaskRows(readPlanAtRev(root, rev)))
-            if (isOpenRow(r)) union.add(identity(r.raw))
-        base = union
-      }
+      base = new Set(
+        parseTaskRows(readPlan(root, 'head'))
+          .filter(isOpenRow)
+          .map((r) => identity(r.raw)),
+      )
     } catch (e) {
       return {
         ok: false,
-        why: `基准面(HEAD/父提交)取不到 ⇒ A1 未判定:${String(e?.message ?? e).split('\n')[0]}`,
+        why: `基准面(HEAD)取不到 ⇒ A1 未判定:${String(e?.message ?? e).split('\n')[0]}`,
       }
     }
     const bs = readFieldsFace(root, 'head')

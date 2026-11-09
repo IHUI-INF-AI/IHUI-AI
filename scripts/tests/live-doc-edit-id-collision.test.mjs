@@ -13,8 +13,12 @@
 // ⇒ 结果:两席按同一个号领同一张票,派单面虚高,这正是"打架重复做"的机器成因。
 //
 // ⚠ 本闸的成组口径**不是本器自算的**,而是台账层 F9 那一把尺(`auditPlan().f9Declared` 声明位档
-//   + `narrowF9Face` 的全已勾降档),与合并落地闸 / `plan-tasks.mjs --gate` 同一个面。
-//   所以下面 C5 / C5b / C6 三条钉的都是"与那把尺一致",不是本器自己的偏好:
+//   + `narrowF9Face` 的「同号 ≥2 个仍有未勾活行」定级档),与合并落地闸 / `plan-tasks.mjs --gate`
+//   同一个面。定级口径 2026-10-29 由 G-455(枚 d09c9d2bc7,`scripts/lib/plan-collision.mjs`)收窄:
+//   旧口径(2026-10-06)是「组内每一行都 `- [x]` 才降档」,新口径是「只剩一个活题面也降档」,
+//   因为「同号下挂一个已完成历史行」这一型改不掉(改号=改历史、删行=抹掉发生过的事),
+//   留着它判红就是 §12e 点名的"与任何提交无关的恒红门"。降档不等于放过:仍必须逐组报名。
+//   所以下面 C5 / C5b / C5c / C6 四条钉的都是"与那把尺一致",不是本器自己的偏好:
 //   第一版在本器按 `r.key` 当编号自算分组,把 F1 的夹具(同号同题)也判成本闸射程,当场抢在 F1
 //   前面把 DU-7 的装车证明顶掉(症状:rc 仍为 1,但拒绝理由点错名)。
 
@@ -26,6 +30,10 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
 import { __test__ } from '../live-doc-edit.mjs'
+// 与源脚本逐字同路的两把尺(§22c:测试 import 源实现,禁止在本文件复算"什么算撞号"):
+// live-doc-edit.mjs 的 judgeNewIdCollisions 吃的就是 `narrowF9Face(auditPlan(text), text)`。
+import { narrowF9Face } from '../plan-tasks.mjs'
+import { auditPlan } from '../lib/plan-task-index.mjs'
 import { resolveGitBin } from '../lib/gitdir.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -33,6 +41,8 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 const OPEN = (id, title) => `- [ ] ${id} **${title}** 正文`
 const DONE = (id, title) => `- [x] ✅(2026-10-22) ${id} **${title}** 正文`
 const doc = (...lines) => lines.join('\n')
+/** 同一把面走一遍判定链,与源脚本 judgeNewIdCollisions 内部的 face() 逐字同路。 */
+const f9Face = (content) => narrowF9Face(auditPlan(content), content)
 
 test('形状锁:判据从源脚本出口拿,且成组口径必须委托 F9(禁止第四把尺)', () => {
   assert.equal(typeof __test__.judgeNewIdCollisions, 'function')
@@ -90,11 +100,37 @@ test('C4 存量只报数不拦:撞号在底稿里已在、本次没再加', () =
   assert.equal(r.preexisting.length, 1)
 })
 
-test('C5 口径对账(与 F9 一致,不是本器偏好):同号一未勾一已勾仍算一组', () => {
+test('C5 口径对账(与 F9 一致,不是本器偏好):同号只剩一个活题面 ⇒ 退出本闸,但不得静默消失', () => {
+  // 一未勾 + 一已勾:题面确实撞在同一个号上,但按 G-455 的定级,已完成那一行是历史快照,
+  // 活着的题面没有竞争者 ⇒ 不是"两件事抢一个号"。旧口径(2026-10-06「组内全已勾才降档」)
+  // 在这一型上判红,而那一红结构上不可清偿,故 2026-10-29 收窄。
   const t = doc(OPEN('G-900815', '待办题的完整标题'), DONE('G-900815', '另一道已结清的题'))
+  // 先向台账层那把尺取证:这一组**被量到了**,只是被定级成历史档 ⇒ 本闸读到 0 不是"没看见"。
+  const f9 = f9Face(t)
+  assert.equal(f9.counts.f9DeclaredGroups, 1, '声明位上确实存在同号两组题面(取不到就没得对账)')
+  assert.equal(f9.collisions.length, 0, 'G-455:单活题面组不进判红面')
+  assert.equal(f9.counts.f9SettledGroups, 1, '降档必须报名 —— 挪出红路与"没人看过"不得同形')
+  assert.equal(f9.counts.f9SettledAllDone, 0, '这一型是 one-live-title,不得被算成"整组已完成"')
+  assert.equal(f9.f9Settled[0].key, 'G-900815', '降档名单必须可定位到号')
+  // 再核本闸与那把尺同面:既不得拦,也不得把它念成存量。
   const r = __test__.judgeNewIdCollisions({ baseText: t, nextText: t })
-  assert.equal(r.preexisting.length, 1, 'F9 只在"组内全已勾"时降档;混一未勾就仍是一组')
-  assert.equal(r.blocked.length, 0)
+  assert.equal(r.undetermined, false)
+  assert.equal(r.blocked.length, 0, '历史行不参与"两席按同一个号各领一张票",本闸不得抢拦')
+  assert.equal(r.preexisting.length, 0, '降档组不进判定面 ⇒ 本闸也不该把它念成存量')
+})
+
+test('C5c 反向牙(成对):同一段插入只改勾选框 ⇒ 活题面那臂必须翻红,历史题面那臂必须不翻', () => {
+  // 这一条是 C5 的变异自证:C5 单独看是"两个桶都空",谁把判据改成恒空也能过。
+  // 两臂除勾选框外逐字同形 ⇒ "把活行也算历史"(过窄)与"把历史行仍算撞号"(过宽)各撞一臂。
+  const base = doc(OPEN('G-900818', '本次要登记的题'))
+  const nextLive = doc(OPEN('G-900818', '本次要登记的题'), OPEN('G-900818', '别席的既存题'))
+  const nextHistory = doc(OPEN('G-900818', '本次要登记的题'), DONE('G-900818', '别席的既存题'))
+  const live = __test__.judgeNewIdCollisions({ baseText: base, nextText: nextLive })
+  const history = __test__.judgeNewIdCollisions({ baseText: base, nextText: nextHistory })
+  assert.equal(live.blocked.length, 1, '两个活题面抢一个号 = 立案现场那一型,必须拦')
+  assert.equal(live.blocked[0].key, 'G-900818')
+  assert.equal(history.blocked.length, 0, '对手行是历史快照 ⇒ 不构成竞争者(旧口径在这一臂恒红)')
+  assert.equal(history.preexisting.length, 0)
 })
 
 test('C5b 全已勾组降档只报数(F9 定级 2026-10-06 那一档必须一起继承)', () => {

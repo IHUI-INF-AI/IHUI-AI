@@ -48,7 +48,6 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { STATUS, STORE_VENDORS, storeCredential, fp } from './lib/rn-release-credentials.mjs'
 import { resolveSecretsRoot } from './lib/key-dir.mjs'
-import { runSelfTest } from './lib/store-uploader-core.mjs'
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
 const HUAWEI_VENDOR = STORE_VENDORS.find((v) => v.id === 'huawei')
@@ -280,33 +279,11 @@ export function buildRegisterArgv({ version, buildNumber, downloadUrl, apply } =
   return argv
 }
 
-export const HELP = `华为 AppGallery Connect「Publishing API」客户端
-用法:
-  node scripts/submit-store-huawei.mjs [--phase status|upload|verify|all] [--file <apk|aab>]
-       [--app-id <AGC appId>] [--execute] [--json] [--register --version <v> --build-number <n> --download-url <url>]
-  node scripts/submit-store-huawei.mjs --self-test
-开关:
-  --phase        阶段(status 默认)
-  --file         提交物路径(用于 upload/verify 段)
-  --app-id       AGC appId(缺省读 env HUAWEI_CONNECT_APP_ID)
-  --execute      真出网(缺省 dry-run 零请求)
-  --json         JSON 输出
-  --register     校验通过后登记 store=huawei 的 latest(带 --apply 才真写)
-  --version      登记版本号
-  --build-number 登记 buildNumber
-  --download-url 登记下载地址
-  --self-test    离线自检
-  --help, -h     显示本帮助
-凭据优先级:env HUAWEI_CONNECT_CLIENT_ID / _CLIENT_SECRET / _APP_ID > 密钥目录文件
-退出码:0 三段全绿 / 1 缺凭据或对方拒绝 / 2 未判定`
-
 export function parseArgs(argv) {
-  const out = { phase: 'status', file: null, appId: process.env.HUAWEI_CONNECT_APP_ID ?? null, execute: false, json: false, register: false, selfTest: false, help: false, version: null, buildNumber: null, downloadUrl: null }
+  const out = { phase: 'status', file: null, appId: process.env.HUAWEI_CONNECT_APP_ID ?? null, execute: false, json: false, register: false, version: null, buildNumber: null, downloadUrl: null }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
-    if (a === '--help' || a === '-h') out.help = true
-    else if (a === '--self-test') out.selfTest = true
-    else if (a === '--phase') out.phase = argv[++i]
+    if (a === '--phase') out.phase = argv[++i]
     else if (a === '--file') out.file = argv[++i]
     else if (a === '--app-id') out.appId = argv[++i]
     else if (a === '--execute') out.execute = true
@@ -339,27 +316,8 @@ export function dryRunPlan({ args, creds, plan }) {
   }
 }
 
-/**
- * 离线自检:只判纯函数与 dry-run 形态,零出网、零写盘。
- * 与 scripts/tests/submit-store-huawei.test.mjs 的用例同源(判据 import 自本文件,不复制)。
- */
-function selfTest() {
-  return runSelfTest([
-    { name: 'H1 凭据件三形态:connect-api / hms-legacy / none 分得开', fn: () => { const c = parseCredentialText('client_id：1234567890\nclient_secret:SECRET-X\n应用ID:98765'); const l = parseCredentialText('应用ID:100000\n密钥:SECRET-X'); const n = parseCredentialText('乱七八糟一行'); return c.kind === 'connect-api' && c.clientId === '1234567890' && c.appId === '98765' && l.kind === 'hms-legacy' && n.kind === 'none' } },
-    { name: 'H2 buildPaths 端点形态逐字钉住,submit 段结构上无 path', fn: () => { const P = buildPaths({ clientId: 'cid-1' }); return P.token === 'https://connect-api.cloud.huawei.com/api/oauth2/v1/token' && P.appInfo('100000') === 'https://connect-api.cloud.huawei.com/api/publish/v2/app-info?appId=100000' && /upload-url\/for-obs\?appId=1&fileName=a\.apk&contentLength=2048&releaseType=1$/.test(P.uploadUrl({ appId: '1', fileName: 'a.apk', contentLength: '2048' })) && P.authHeaders('tok').Authorization === 'Bearer tok' && ENDPOINTS.submit.verified === false && ENDPOINTS.submit.path === null } },
-    { name: 'H3 classifyRet:0/凭据类型错/非 JSON/5xx 四态不并桶', fn: () => classifyRet(200, '{"ret":{"code":0,"msg":"success"}}').status === STATUS.FOUND && classifyRet(200, '{"ret":{"code":205524993,"msg":"client token auth failed"}}').status === STATUS.MISSING && classifyRet(200, '{"ret":{"code":205524993}}').verdict === 'endpoint-ok-wrong-credential-type' && classifyRet(404, '<html>404</html>').status === STATUS.UNJUDGED && classifyRet(500, '{"ret":{"code":1,"msg":"boom"}}').status === STATUS.UNJUDGED },
-    { name: 'H4 mergeVerify 四格齐才绿;MD5 不一致 ⇒ MISSING;不顺手提交发布', fn: () => { const plan = { fileName: 'a.apk', contentLength: '1024', fileMd5: 'm1' }; const up = { status: STATUS.FOUND, objectId: 'OBJ', fileMd5: 'm1' }; const st = { status: STATUS.FOUND, releaseState: 4 }; const ok = mergeVerify({ plan, upload: up, status: st }); const bad = mergeVerify({ plan, upload: { status: STATUS.FOUND, objectId: 'O', fileMd5: 'other' }, status: st }); return ok.status === STATUS.FOUND && ok.submit === 'endpoint-unverified-zero-call' && bad.status === STATUS.MISSING && mergeVerify({ plan, upload: { status: STATUS.UNJUDGED }, status: null }).gaps.length === 2 } },
-    { name: 'H5 登记腿 argv:store=huawei 恒在,dry-run 不带 --apply', fn: () => { const a = buildRegisterArgv({ version: '0.0.9', buildNumber: 26102816, downloadUrl: 'https://x/a.apk', apply: false }); return /--platform android --store huawei/.test(a.join(' ')) && !a.includes('--apply') && /--apply$/.test(buildRegisterArgv({ version: '1', apply: true }).join(' ')) } },
-    { name: 'H6 parseArgs:未知参数/非法 phase 抛错,--help 与 --self-test 被识别', fn: () => { try { parseArgs(['--nope']); return false } catch {} try { parseArgs(['--phase', 'submit']); return false } catch {} return parseArgs(['--help']).help === true && parseArgs(['--self-test']).selfTest === true } },
-    { name: 'H7 dry-run 五条计划且默认零出网,提交段明写零调用', fn: () => { const touched = globalThis.fetch; let n = 0; globalThis.fetch = async () => { n++; throw new Error('不该出网') }; try { const d = dryRunPlan({ args: { phase: 'status', appId: '1' }, creds: { status: STATUS.MISSING, detail: 'x', value: null }, plan: null }); return d.calls.length === 5 && /app-info\?appId=1$/.test(d.calls[1]) && /endpoint-unverified ⇒ 零调用/.test(d.calls[4]) && n === 0 } finally { globalThis.fetch = touched } } },
-    { name: 'H8 凭据 env 形态脱敏:结论不含 secret 原文', fn: () => { const r = resolveCredentials({ env: { HUAWEI_CONNECT_CLIENT_ID: 'cid', HUAWEI_CONNECT_CLIENT_SECRET: 'SECRET-X', HUAWEI_CONNECT_APP_ID: 'aid' } }); return r.status === STATUS.FOUND && /sha8=/.test(r.detail) && !r.detail.includes('SECRET-X') } },
-  ])
-}
-
 async function main() {
   const args = parseArgs(process.argv.slice(2))
-  if (args.help) { console.log(HELP); return 0 }
-  if (args.selfTest) return selfTest()
   const creds = resolveCredentials()
   const plan = args.file ? planUpload({ filePath: args.file }).plan : null
   if (!args.execute) {

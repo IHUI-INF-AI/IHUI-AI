@@ -986,6 +986,7 @@ export function judgeService(rec) {
   }
   const state = rec.state
   if (state.kind === 'unmeasured') hard('STATE', state.reason)
+  else if (state.value !== 'RUNNING') problems.push(`STATE=${state.value}`)
   else {
     // 档位分岔的唯一书写处 = stateProblemOf(Running/Stopped/Paused/过渡/未知各给各的话,绝不并桶)
     const sp = stateProblemOf(state.value)
@@ -2678,13 +2679,11 @@ export function renderText(meta) {
 // ---------------------------------------------------------------------------
 function selfTest(opts) {
   const out = []
-  const failedNames = []
   let fail = 0
   const ok = (name, cond) => {
     if (cond) out.push(`  ✔ ${name}`)
     else {
       fail++
-      failedNames.push(name)
       out.push(`  ✘ ${name}`)
     }
   }
@@ -3600,8 +3599,8 @@ function selfTest(opts) {
 
   return {
     exitCode: fail > 0 ? 1 : 0,
-    text: `自检 ${out.length} 条,失败 ${fail} 条${fail > 0 ? `(失败用例: ${failedNames.join(' / ')})` : ''}(构造面 + 临时夹具,零派生):\n${out.join('\n')}${fixtureNote}\n${fail === 0 ? '✅ 自检全绿' : '❌ 自检有红 —— 判据本身有问题,先修尺子,不要去放宽判据'}`,
-    json: opts.json ? JSON.stringify({ selfTest: { total: out.length, failed: fail, failedNames } }, null, 2) : null,
+    text: `自检 ${out.length} 条,失败 ${fail} 条(构造面 + 临时夹具,零派生):\n${out.join('\n')}${fixtureNote}\n${fail === 0 ? '✅ 自检全绿' : '❌ 自检有红 —— 判据本身有问题,先修尺子,不要去放宽判据'}`,
+    json: opts.json ? JSON.stringify({ selfTest: { total: out.length, failed: fail } }, null, 2) : null,
   }
 }
 

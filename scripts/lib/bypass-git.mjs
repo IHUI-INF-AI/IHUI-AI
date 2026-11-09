@@ -31,12 +31,6 @@
  * 本层加的只是"这次落地是否含台账"那条触发条件与大声点名 —— 两台落地器各写一份条件必然漂开
  * (本文件头注那三条漂移实例之一正是"同一规矩两份实现")。
  *
- * RP-71 / §0.3 起本层再装**第三条落地契约**:`landingExitWithHeal(baseCode, heal)` 把落地器原有
- * 结论与就地补跑自愈的结果折成最终退出码 —— `heal` 缺失 / `triggered=false` / `baseCode!==0` 一律
- * 原样返回 baseCode;baseCode===0 且自愈已触发时,跑成(`ran && ok`)⇒ 0,自愈未跑成 ⇒ **2 未判定**
- * (拒绝报绿,但落地内容不回滚、不判红)。各落地器必须消费 `rerunLedgerHeal()` 的返回值再走这里折算,
- * 不得再让末尾 process.exit 把自愈软设的退出码洗掉。
- *
  * 纪律(与本仓既有共用层同规):
  *  - git 一律**绝对路径**候选解析(AGENTS §5b"git 调用不得依赖环境";2026-10-08 起二进制取数走
  *    scripts/lib/face-reader.mjs 的 gitBinary(),与其同一条兜底链,不再抄第三份候选表)。
@@ -75,6 +69,8 @@ import { gitBinary, gitRaw } from './face-reader.mjs'
 import { mkScratch, rmScratch } from './scratch-dir.mjs'
 // 旁路留痕的写口只有一份(lib/commit-attestation.mjs);这里不另开一本台账、不自己拼 JSONL 行。
 import { readLedgerRecords, recordBypassLanding } from './commit-attestation.mjs'
+// 重写后代维的判据单源(2026-11-06 立,与守门 302 / object-space-land 的重写孪生闸同一份尺子,§0.6)
+import { describeNextSteps, judgeRewriteSafety } from './commit-rewrite-safety.mjs'
 import { gitCommitPaths } from './git-paths.mjs'
 // G-816708:旁路落地后补跑台账自愈的**唯一派生出口**(命令行形状、派生参数、失败臂措辞都在那一份里,
 // 与 git-sync-converge / union-converge 用的是同一个器物 —— 不另发明第二套调用协议)。
@@ -304,6 +300,17 @@ export function resolveHeadRef({ root }) {
  * 它拦的正是"重落到旧基底/把 ref 往回搬"这一型。**有意回退**(如 plan-tasks-merge 复验不过回退
  * 自家刚落的那枚)必须显式传 `allowNonFastForward: '<非空理由>'`,理由随 ⚠️ 行打印留痕;
  * 空串/纯空白不构成理由。方向与收敛器一致:判不出不当"判过了",拦下喊话不当静默放行。
+ *
+ * **2026-11-06 补的第二格(后代维)**:上面那条守卫答的是"old 里有哪些枚够不到 new",它不看
+ * `oldSha` **此刻还有没有在飞后代** —— 而那正是"重写一枚提交"伤到别人的机制本体(当天实测事故:
+ * `commit-tree <同树> -p <同父>` + `update-ref` 重写一枚未推送的本地提交,别席已基于旧枚继续提交,
+ * 结果 11 枚未推提交被一枚未声明的旧枚永久挡住)。这里接的是**同一份判据出口**
+ * (`lib/commit-rewrite-safety.mjs`,与守门 302 的查询出口、object-space-land 的重写孪生闸同源),
+ * 不在本层重抄任何尺子(§0.6/§22c)。三档接法:
+ *   · `danger`       ⇒ 把在飞后代逐枚点名写进拒绝消息(有具名理由时 also 写进 ⚠️ 留痕,放行但绝不静默);
+ *   · `undetermined` ⇒ **具名理由也救不了**:后代面判不出 ⇒ 照抛(与 `anc === null` 的 fail-closed 同取向;
+ *                       这一格是 §0.10 的硬要求 —— 失效方向恒为"多要一次定向说明",绝不是"多放一次跳门");
+ *   · `safe`         ⇒ 如实带上"现读 0 枚在飞后代"的证据,让留痕可复核。
  */
 /**
  * 存量「给不出 oldSha」的调用方白名单(票 2026-11-09「没 CAS 的 update-ref 不许存在」)。
@@ -365,11 +372,33 @@ export function casUpdateRef(
       const lines = (dropped ?? '').split(/\r?\n/).filter(Boolean)
       const shown = lines.length ? `\n  丢失集(${lines.length}${lines.length >= 50 ? '+' : ''} 枚,可达 old 不可达 new):\n${lines.map((l) => `    ${l}`).join('\n')}` : '\n  (丢失集枚举取不到 ⇒ 按非空对待)'
       const reason = String(allowNonFastForward ?? '').trim()
+      // 后代维:判据单源在 lib/commit-rewrite-safety.mjs(与本文件同一层,零复算)。
+      const safety = judgeRewriteSafety([oldSha], { root })
+      const kidLines = (safety.items?.[0]?.active ?? []).map(
+        (k) =>
+          `    · 在飞后代 ${k.sha} —— ${
+            k.ancestorOfHead === true
+              ? `距 HEAD ${k.distance === null ? '未判定' : `${k.distance} 枚`}`
+              : '不在 HEAD 祖先闭包内'
+          };ref:${k.refs.length ? k.refs.join(', ') : '(无直接指向,躺在某条链中段)'}`,
+      )
+      const kidBlock = kidLines.length ? `\n  被弃枚的在飞后代(${kidLines.length} 枚):\n${kidLines.join('\n')}` : ''
+      const nextBlock = `\n  ${describeNextSteps().join('\n  ')}`
+      if (safety.state === 'undetermined')
+        throw new Error(
+          `casUpdateRef:${oldSha.slice(0, 11)} 的后代面判不出(${(safety.reasons ?? []).join(' / ') || '成图取不到'})` +
+            ` ⇒ fail-closed,拒绝写(带 allowNonFastForward 也不放行:理由只豁免"确认非快进",不豁免"判不出")` +
+            `${shown}`,
+        )
       if (!reason)
         throw new Error(
-          `casUpdateRef:非快进重写 ⇒ 拒(G-939 丢失集守卫;CAS 只保原子性不保祖先性,这一型曾整枚吞掉 12898ccd9b)${shown}\n  有意回退请显式带 allowNonFastForward 理由;重落请先让被丢的提交回到 new 的祖先链(merge/rebase 现读 HEAD),不要把别人已入库的现场抹掉。`,
+          `casUpdateRef:非快进重写 ⇒ 拒(G-939 丢失集守卫 + 2026-11-06 后代维;CAS 只保原子性不保祖先性,这一型曾整枚吞掉 12898ccd9b,又曾把一枚未声明的旧枚永久留在 push 区间挡住 11 枚)${shown}${kidBlock}${nextBlock}\n  有意回退请显式带 allowNonFastForward 理由;重落请先让被丢的提交回到 new 的祖先链(merge/rebase 现读 HEAD),不要把别人已入库的现场抹掉。`,
         )
-      console.log(`⚠️ casUpdateRef 非快进重写被显式放行(allowNonFastForward="${reason}")${shown}`)
+      console.log(
+        safety.state === 'danger'
+          ? `⚠️ casUpdateRef 非快进重写被显式放行(allowNonFastForward="${reason}")${shown}${kidBlock}\n  ⚠️ 上面这些后代**不在** new 的祖先链上:放行之后它们只挂在各自 ref 上,而 main 不再含它们 —— 请按 §12h 与归属会话协调,或在 new 里把它们并回来。\n  ${describeNextSteps().join('\n  ')}`
+          : `⚠️ casUpdateRef 非快进重写被显式放行(allowNonFastForward="${reason}")${shown}\n  后代维现读:${oldSha.slice(0, 11)} 无在飞后代(备份引用上的已按 §9b/§22 排除)⇒ 回退只摘自家这一枚`,
+      )
     }
   }
   try {
@@ -574,17 +603,17 @@ export function landsLedger(paths) {
  *  给落地器同一个逃生舱等于把本票要闭的那个洞重新开一条(旁路落地不跑钩子,那面旗在钩子里才有意义)。
  *
  * 谁在调用本出口(逐台点名,少一台就是该型缺陷没兜住):
- *  · 已接补跑并折算:`object-space-land.mjs` · `live-doc-edit.mjs` ·
- *    `plan-tasks-merge.mjs`(方案 A:9 站收返回值 + landingExitWithHeal 折算)
+ *  · 已接:`object-space-land.mjs`(本票) · `live-doc-edit.mjs`(本票)
  *  · 早已接(先例,走的是同一个器物):`git-sync-converge.mjs` / `union-converge.mjs`
- *    (收敛器刻意"失败不阻断收敛,下一枚走钩子的提交仍会再兜一次",不改本轮结论)
+ *  · **未接,本票动不了**:`scripts/plan-tasks-merge.mjs` —— 它是第四台旁路落地器
+ *    (`--heal --commit` / `--fold-twins --commit` 都走 commit-tree + CAS,同样不跑钩子,
+ *    而它落的内容正是台账行)。它同样必须自带补跑,否则本票的洞在它那一台上原地复活。
+ *    未做的原因是硬约束而不是遗漏:该文件本票开工时是 ` M`(他人持有),票面明令禁止改动;
+ *    镜像测试 `post-merge-ledger-sync.test.mjs` 的 L2 装车锁目前只钉两台收敛器,把它扩到
+ *    落地器三台(object-space-land / live-doc-edit / plan-tasks-merge)是那一票的收口动作。
  *
- * 失败仍一律**大声点名**,但按 RP-71 / §0.3 的新契约:**落地内容不回滚、不判红,调用方却必须以
- * exit 2 记未判定、拒绝报绿**(与 lib/post-merge-ledger-sync.mjs 第 2 条同规:零丢失自证已经通过的
- * 落地,不该被一次补跑没跑成判成失败;但"没跑成"必须被喊出来,且不得静默报绿 —— 静默的自愈等于
- * 没有自愈)。退出码折算统一走下方 `landingExitWithHeal`,本函数只如实返回 `ran/ok`、不改退出码本身
- * —— 这**不等于**"失败也不影响退出码":折算统一交给 `landingExitWithHeal`,调用方**必须消费返回值**
- * 去折最终退出码,否则自愈跑而未成会被静默吞成报绿。
+ * 失败一律**大声点名且不改变落地成败**(与 lib/post-merge-ledger-sync.mjs 第 2 条同规:零丢失自证
+ * 已经通过的落地,不该被一次补跑没跑成判成失败;但"没跑成"必须被喊出来,静默的自愈等于没有自愈)。
  *
  * @param {{root:string, paths:string[], log?:Function, loud?:Function}} a
  * @returns {{triggered:boolean, ran:boolean, ok:boolean, why:string}}

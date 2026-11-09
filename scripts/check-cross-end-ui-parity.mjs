@@ -49,10 +49,7 @@ import { geometryItemsInSrc, lengthConstsOf, cssVarItemsInSrc } from './lib/radi
 import { collectVars } from './lib/design-token-blocks.mjs'
 // web 腿工具类 → 声明体/px 的**唯一取源**(票 O67):类名到声明的映射由 Tailwind 编译器算,
 // 主题值取自编译产物,本门不手敲第二份类名字典(否则两张表必然漂开成"这张认得、那张不认")。
-import {
-  WEB_UTILITY_CLOSURE_EXTRA,
-  webUtilityDeclarations,
-} from './lib/web-utility-classes.mjs'
+import { WEB_UTILITY_CLOSURE_EXTRA, webUtilityDeclarations } from './lib/web-utility-classes.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -153,14 +150,9 @@ const GEO_KEY =
  * 而小程序 CSS 里的无单位倍数 `line-height: 1` 会被 `toPx` 当作 rpx 折半成 **0.5**
  * (实测 `IntelligentAssistant` 的"仅小程序档 0.5"就是这么来的 —— 两端源码里都没有 0.5 这个数)。
  * 行高是排版量、不是盒档,按属性名排除,不做值域猜测(猜"1 太小"会把真实的 1px 边框一起放过)。
- * `byte` 是 2026-11-06 D3 票补的第二型:字节数(`PREVIEW_MAX_BYTES` / `MAX_FILE_BYTES`)永远不是长度。
- * 这一族**只**收 `byte` 一个词,没有顺手收 `*_SIZE` / `MAX_*`,理由是现读的:
- * `maxWidth` / `maxHeight` 是合法长度档(本文件"连字符属性"那一格实测过 `max-width: 320rpx`,
- * 跳掉它凭空造出"仅 RN 档 160"),`iconSize` / `size={24}` 同样是合法盒档 —— 按这两个名字族一刀切
- * 会把真读数一起抹掉(§12e「修红不得顺手削判据」)。字节型的正解在算式那一侧,见 `isUnitScaleProduct`。
  */
 const NON_GEO_KEY =
-  /(weight|letter|line-height|lineheight|opacity|zindex|z-index|duration|delay|easing|alpha|percent|ratio|count|index|version|iteration|order|priority|limit|timeout|timestamp|revision|level|depth|page|byte)/i
+  /(weight|letter|line-height|lineheight|opacity|zindex|z-index|duration|delay|easing|alpha|percent|ratio|count|index|version|iteration|order|priority|limit|timeout|timestamp|revision|level|depth|page)/i
 const TW_SPACING_PX = (n) => n * 4
 const TW_FONT_PX = { xs: 12, sm: 14, base: 16, lg: 18, xl: 20, '2xl': 24, '3xl': 30 }
 /** 超过此值的"尺寸"不是组件几何(屏宽 / 动画毫秒 / 密度),不判。 */
@@ -333,73 +325,23 @@ export function cssVarTiers(sources) {
  * 不得读成"该侧没有变量取用")。
  */
 /**
- * 列表**分隔线对象**的键名(2026-11-06 D3 票):`separator: { height: 12 }` 是
- * `ItemSeparatorComponent` 用来占位的那一条**条目间距**,不是任何元素的宽高。
- * 真仓现读同形 38 个文件(`git grep -l -F "separator: {" | wc -l`),其中
- * `packages/app/src/features/search/SearchScreen.tsx` 与 `.../activity/ActivityScreen.tsx` 的
- * `widthHeight` 读数**整族**就是这一型 —— 键名含 `height` 被 `dimOfKey` 收进盒档维,
- * web↔RN 五维腿于是把"两端列表间距的写法不同"读成"两端宽高不同档"。
- * 前缀(item/list/cell/row/grid/header/footer)与单复数一并认。
- *
- * 为什么按**上下文**改道而不是按键名排除:`height` 在同屏的 `card: { height: 80 }` 里就是真盒档,
- * 按键名一刀切会把真读数一起抹掉(§12e)。改道只换维、不丢读数 —— 该值照旧进 `values`,
- * 主腿的 V1 档集合口径与圆角维一字不动。
- */
-const SEP_OBJECT_KEY_RE = /^(?:item|list|cell|row|grid|header|footer)?separators?$/i
-/**
- * 数字字面量之后**紧邻**是否为量纲换算乘积(`× 1024` 字节档 / `× 1000` 毫秒·千分度档)。
- * 命中即"这一格写的是字节数,不是长度":`const MAX_SIZE = 10 * 1024 * 1024`(10MB 上传上限)
- * 的 `10` 因键名含 `size` 被收进 `widthHeight`,实测 `apps/mobile-rn/src/screens/PdfToolsHubScreen.tsx`
- * 的 widthHeight 整族 = `[10]`;同形还在 `packages/ui-react/src/components/Upload.tsx`
- * (`DEFAULT_MAX_SIZE = 10 * 1024 * 1024`)、`apps/web/src/components/form/AttachmentsUpload.tsx`
- * (`50 * 1024`)等 —— 判据看的是**算式形状**,与键名无关,所以 `maxWidth: 320` 这类合法档不受影响。
- * `× 1024` 在样式语义里没有任何合法用法(长度不会用千分度写),因此这一条不是放宽,是纠错。
- */
-const UNIT_SCALE_PRODUCT_RE = /^\s*\*\s*10(?:24|00)\b/
-/**
- * 取遮罩纪律:两个位置判据都只在**遮罩文本**(`stripComments` 的输出,剥注释、留字符串)上运行,
- * 绝不回原始 src 截行 —— 正则截到右花括号会读错后半段(本仓记过),而逐条 `slice` 一个 ≤16 字符
- * 窗口 / 一次 `lastIndexOf` 是 O(1),不整文件切列。
- *
- * 单位乘积判定: `at` = 数字字面量**之后**的下标。
- */
-export function isUnitScaleProduct(code, at) {
-  if (typeof code !== 'string' || !(at > 0)) return false
-  return UNIT_SCALE_PRODUCT_RE.test(code.slice(at, at + 16))
-}
-/**
- * 取值位置**所处对象字面量**的键名:从该位置向前找最近的 `{`,再取紧邻其前的 `key:`。
- * 找不到(函数体、CSS 规则体、模块顶层)⇒ null ⇒ 调用方按"无上下文"判,不猜。
- * `at` = 键名(不是数字)的下标。引号键(`'separator': {`)一并认。
- */
-export function enclosingObjectKeyOf(code, at) {
-  if (typeof code !== 'string' || !(at > 0)) return null
-  const brace = code.lastIndexOf('{', at - 1)
-  if (brace <= 0) return null
-  const m = /(['"`]?)([A-Za-z_$][\w$]*)\1\s*:\s*$/.exec(code.slice(Math.max(0, brace - 80), brace))
-  return m ? m[2] : null
-}
-
-/**
  * 键名 → 五类几何维之一;判不出返回 null(该值仍进 values,但不参与分类对账 ——
  * "没分类"不得冒充"这一类没有档")。
  * 顺序有意:font 先于 size(textSize 是字号不是盒宽)、padding 先于 spacing、
  * margin/gap 归「间距」、top/right/bottom/left/inset 也归「间距」(它们是偏移量,不是宽高)。
- * `ctxKey`(可选)= 该取值所处**外层对象**的键名,只用于分隔线那一型改道(见 `SEP_OBJECT_KEY_RE`);
- * 不传或传 null 时判据与旧版逐字相同,四维其余取用形态一字未动。
  */
-export function dimOfKey(raw, ctxKey = null) {
-  const camel = (v) =>
-    String(v ?? '')
-      .replace(/-([a-z])/g, (_, c) => c.toUpperCase())
-      .toLowerCase()
-  const s = camel(raw)
+export function dimOfKey(raw) {
+  const s = String(raw ?? '')
+    .replace(/-([a-z])/g, (_, c) => c.toUpperCase())
+    .toLowerCase()
   if (!s) return null
-  const ctx = camel(ctxKey)
-  if (ctx && SEP_OBJECT_KEY_RE.test(ctx) && /width|height/.test(s)) return 'spacing'
   if (/font|textsize|^text$/i.test(s)) return 'fontSize'
   if (/padding|^pad|^p$|^(px|py|pt|pb|pl|pr)$/i.test(s)) return 'padding'
-  if (/margin|gap|spacing|space|inset|^m$|^mt$|^mb$|^ml$|^mr$|^mx$|^my$|^top$|^bottom$|^left$|^right$|offset/i.test(s))
+  if (
+    /margin|gap|spacing|space|inset|^m$|^mt$|^mb$|^ml$|^mr$|^mx$|^my$|^top$|^bottom$|^left$|^right$|offset/i.test(
+      s,
+    )
+  )
     return 'spacing'
   if (/width|height|size|box|icon|glyph|thickness|dimension|diameter|^w$|^h$|^wh$/i.test(s))
     return 'widthHeight'
@@ -411,7 +353,12 @@ export function readGeometry(src, side, tiers = {}, cssVars = null) {
   const named = {}
   const values = new Set()
   // 分类集与 values 同批生长:同一次提取,不在第二处再扫一遍(两处算同一件事必漂)。
-  const dims = { widthHeight: new Set(), padding: new Set(), spacing: new Set(), fontSize: new Set() }
+  const dims = {
+    widthHeight: new Set(),
+    padding: new Set(),
+    spacing: new Set(),
+    fontSize: new Set(),
+  }
   const push = (px, dim) => {
     if (px === null || px === undefined) return
     values.add(px)
@@ -433,10 +380,6 @@ export function readGeometry(src, side, tiers = {}, cssVars = null) {
     /\b(?:const|let)\s+([A-Za-z_$][\w$]*)\s*=\s*(\d+(?:\.\d+)?)(?![\w.])/g,
   )) {
     if (!keyed(m[1])) continue
-    // 量纲换算乘积(`N * 1024` / `N * 1000`)= 字节数·毫秒数,不是长度:整条不采,
-    // 连 `named` 表一起不记 —— 记进去就是拿 10MB 上传上限当盒档做跨端对账(同一条洞的第二格:
-    // 具名常量冲突维 N 会把"两端各自的上限不同"读成"两端同名几何常量不同值")。
-    if (isUnitScaleProduct(code, m.index + m[0].length)) continue
     const px = toPx(m[2], undefined, side)
     named[m[1]] = px
     push(px, dimOfKey(m[1]))
@@ -454,11 +397,10 @@ export function readGeometry(src, side, tiers = {}, cssVars = null) {
   )) {
     const key = m[1].replace(/-([a-z])/g, (_, c) => c.toUpperCase())
     if (!keyed(key)) continue
-    if (isUnitScaleProduct(code, m.index + m[0].length)) continue
-    push(toPx(m[2], m[3], side), dimOfKey(key, enclosingObjectKeyOf(code, m.index)))
+    push(toPx(m[2], m[3], side), dimOfKey(key))
   }
   for (const m of code.matchAll(/\brpx\(\s*(\d+(?:\.\d+)?)\s*\)/g))
-    push(toPx(m[1], 'rpx', side), dimOfKey(keyBefore(m.index), enclosingObjectKeyOf(code, m.index)))
+    push(toPx(m[1], 'rpx', side), dimOfKey(keyBefore(m.index)))
   /**
    * **内联引号串里的长度**(2026-09-27 三路并行取证各自独立指到同一格):
    * 小程序端把档写成 `style={{ padding: '0 20rpx 10rpx' }}` 或 `'20rpx'`,而下面的简写循环
@@ -579,7 +521,10 @@ export function readGeometry(src, side, tiers = {}, cssVars = null) {
     for (const m of code.matchAll(TW_ANY_VAR_PREFIX)) {
       const at = m.index + m[0].lastIndexOf('var(')
       arbitraryAt.add(at)
-      const pre = /(?:^|[\s"'`])(size|gap|p|m|px|py|pt|pb|pl|pr|mx|my|mt|mb|ml|mr|w|h|top|bottom|left|right|inset)-\[var/.exec(m[0])
+      const pre =
+        /(?:^|[\s"'`])(size|gap|p|m|px|py|pt|pb|pl|pr|mx|my|mt|mb|ml|mr|w|h|top|bottom|left|right|inset)-\[var/.exec(
+          m[0],
+        )
       arbitraryDim.set(at, pre ? dimOfKey(pre[1]) : null)
     }
     for (const it of cssVarItemsInSrc(code, cssVars)) {
@@ -714,7 +659,12 @@ export function readGeometry(src, side, tiers = {}, cssVars = null) {
       if (!(px > 0) || px > MAX_GEO_PX) continue
       const rawKey = keyBefore(m.index)
       const key = rawKey ? rawKey.replace(/-([a-z])/g, (_, c) => c.toUpperCase()) : null
-      const dim = key && keyed(key) ? dimOfKey(key) : m[4] === undefined || field === sizeField ? 'fontSize' : null
+      const dim =
+        key && keyed(key)
+          ? dimOfKey(key)
+          : m[4] === undefined || field === sizeField
+            ? 'fontSize'
+            : null
       if (dim) push(px, dim)
       if (named[memberName] === undefined) named[memberName] = px
     }
@@ -1682,20 +1632,52 @@ export function specLegAudit(pairs, text, tiers, opts = {}) {
  * 判据两侧都判(JS 有而 d.ts 无 / d.ts 有而 JS 无),因为反向漂移同样致命:类型承认一档、
  * 表里没有 ⇒ 消费方写 `rnGeometry.<那档>` 编译过而运行时取到 `undefined`。
  */
+/**
+ * 取 `export type GeometryStep = …` 的联合体(2026-11-04 立)。
+ *
+ * 为什么不复用旧那条 `/=([^;]*?)(?:;|$)/m`:带 `m` 时 `$` 是**行尾**,而 lint-staged 的 prettier
+ * 一旦把这个超 100 列的长联合折成多行,旧正则只截到第一段(`'tapBox'`),后面 11 档在它眼里
+ * 等于"类型没承认" ⇒ 本门在**干净 HEAD** 上恒红(实测 2026-11-04:geometry.d.ts 盘上与 HEAD 都
+ * 齐档,门仍报"表里有档而类型不认:fabBox/glyphMd/…")。判据跟着格式化器的心情翻红 = §12e 禁的那件事。
+ *
+ * 现在按 TS 的真实形态逐行收:首段(=后同行)之后,只继续吃以 `|` 开头的行,遇空行/注释/非 `|`
+ * 行/带 `;` 的行即止。取不到声明 ⇒ 返回 null,调用方折成「未判定」(不冒红也不记绿,§0.3)。
+ */
+export function geometryUnionText(dtsSrc) {
+  const m = /export\s+type\s+GeometryStep\s*=/.exec(dtsSrc)
+  if (!m) return null
+  const rest = dtsSrc.slice(m.index + m[0].length)
+  const lines = rest.split('\n')
+  const collected = []
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i]
+    const t = raw.trim()
+    if (i === 0) {
+      collected.push(raw)
+      if (t.includes(';')) break
+      continue
+    }
+    if (t === '' || t.startsWith('//') || t.startsWith('/*') || !t.startsWith('|')) break
+    collected.push(raw)
+    if (t.includes(';')) break
+  }
+  return collected.join('\n')
+}
+
 export function geometryDeclCheck(jsSrc, dtsSrc) {
   if (typeof jsSrc !== 'string' || typeof dtsSrc !== 'string')
     return { problem: '取不到几何表或其类型声明 ⇒ 未判定', undetermined: true }
   const body = jsSrc.match(/GEOMETRY_PX\s*=\s*\{([\s\S]*?)\n\}/)
-  const union = dtsSrc.match(/export\s+type\s+GeometryStep\s*=\s*([^;]*?)(?:;|$)/m)
-  if (!body || !union)
+  const unionText = geometryUnionText(dtsSrc)
+  if (!body || unionText === null)
     return {
-      problem: `解析不出几何表${body ? '' : '(GEOMETRY_PX 体)'}或 GeometryStep 联合${union ? '' : '(声明式)'} ⇒ 未判定`,
+      problem: `解析不出几何表${body ? '' : '(GEOMETRY_PX 体)'}或 GeometryStep 联合${unionText === null ? '' : '(声明式)'} ⇒ 未判定`,
       undetermined: true,
     }
   const steps = [...body[1].matchAll(/^\s*([A-Za-z_$][\w$]*)\s*:\s*\d+(?:\.\d+)?\s*,?\s*$/gm)].map(
     (m) => m[1],
   )
-  const declared = [...union[1].matchAll(/'([^']+)'/g)].map((m) => m[1])
+  const declared = [...unionText.matchAll(/'([^']+)'/g)].map((m) => m[1])
   const missingInDts = steps.filter((s) => !declared.includes(s))
   const missingInJs = declared.filter((s) => !steps.includes(s))
   if (missingInDts.length + missingInJs.length === 0) return { steps, declared }
@@ -2640,7 +2622,8 @@ export function collect(
     const got = catBatch(repoRoot, [spec], { maxBuffer: 1 << 24 })
     const ledgerText = got.get(spec)
     if (webPageList === null) webRnProblem = `${FACE_TXT[face]}取不到 apps/web/app 清单`
-    else if (typeof ledgerText !== 'string') webRnProblem = `${FACE_TXT[face]}取不到 ${WEB_RN_LEDGER_REL}`
+    else if (typeof ledgerText !== 'string')
+      webRnProblem = `${FACE_TXT[face]}取不到 ${WEB_RN_LEDGER_REL}`
     else {
       const built = buildWebRnPairs(ledgerText, webPageList, rnAll, webEvidenceFiles)
       webRnPairs = built.pairs
@@ -2917,7 +2900,15 @@ export function collect(
     map.set(n, cur)
   }
   const mergeDefs = (list) => {
-    const acc = { count: 0, base: 0, parts: 0, important: false, complex: 0, bodies: [], baseBodies: [] }
+    const acc = {
+      count: 0,
+      base: 0,
+      parts: 0,
+      important: false,
+      complex: 0,
+      bodies: [],
+      baseBodies: [],
+    }
     for (const d of list) {
       acc.count += d.count
       acc.base += d.base ?? 0
@@ -2949,13 +2940,20 @@ export function collect(
   }
   {
     const webWantedSet = new Set()
-    for (const l of classRefs) if (l.side === 'web') for (const k of l.refs.keys()) webWantedSet.add(k)
+    for (const l of classRefs)
+      if (l.side === 'web') for (const k of l.refs.keys()) webWantedSet.add(k)
     if (webWantedSet.size) {
       const utilFiles = Object.fromEntries(cssBySide.web)
-      const missingExtra = WEB_UTILITY_CLOSURE_EXTRA.filter((rel) => typeof utilFiles[rel] !== 'string')
+      const missingExtra = WEB_UTILITY_CLOSURE_EXTRA.filter(
+        (rel) => typeof utilFiles[rel] !== 'string',
+      )
       if (missingExtra.length) {
         const preU = face === 'staged' ? ':' : 'HEAD:'
-        const gotU = catBatch(repoRoot, missingExtra.map((rel) => preU + rel), { maxBuffer: 1 << 26 })
+        const gotU = catBatch(
+          repoRoot,
+          missingExtra.map((rel) => preU + rel),
+          { maxBuffer: 1 << 26 },
+        )
         for (const rel of missingExtra) {
           const t = gotU.get(preU + rel)
           if (typeof t === 'string') utilFiles[rel] = t
@@ -3012,7 +3010,7 @@ export function collect(
       const bodies = []
       for (const r of ok) {
         const d = own.get(r.class) ?? glob.get(r.class)
-        const body = r.body ?? (d?.bodies ?? [])
+        const body = r.body ?? d?.bodies ?? []
         if (body.length) bodies.push(...body)
       }
       if (bodies.length) classArmCss[l.file] = bodies.join('\n')
@@ -4023,18 +4021,12 @@ const ALLOWED_DIFF_KEYS = ['geometry', 'radius', 'elementRadius', 'webRnGeometry
 const ALLOWED_DIFF_PLATFORMS = new Set(['miniapp', 'rn', 'web', 'both'])
 const ALLOWED_PLATFORM_KEY_RE = /^platform:[a-z0-9]+(?:-[a-z0-9]+)*$/
 /**
- * 跨端 props 提案的登记键(`platform:props:<side>:<prop>`,2026-11-03 由 props 对账腿登记)。
- * 本门不吃 props 维,但这些条目与平台能力差异同住在 `cross-end-allowed-diffs.json`,
- * 只管记账(不带 count;核销在门 288)。2026-11-04 复核补:原正则只认 `platform:<capability>`,
- * 141 条 `platform:props:*` 被当"key 非法"整表判红 ⇒ 同一本账两把尺子对不上。
- */
-const ALLOWED_PROPS_PLATFORM_KEY_RE = /^platform:props:(?:mini|rn):[A-Za-z][A-Za-z0-9]*$/
-/**
  * 非色档允许差异(`styleTier:<kind>:<prop>:<value>`,2026-11-02 Phase 4 立)。
  * 本门只核**到期**(消费方是 `check-web-rn-style-tiers.mjs` 的分叉桶);样式档分叉不是本门
  * 的 findings,所以不参与 component×key 计数核销,但**到期必须回红**(白名单不得腐化)。
  */
-const STYLE_TIER_KEY_RE = /^styleTier:(?:spacing|fontSize|radius):[A-Za-z][A-Za-z0-9]*:\d+(?:\.\d+)?$/
+const STYLE_TIER_KEY_RE =
+  /^styleTier:(?:spacing|fontSize|radius):[A-Za-z][A-Za-z0-9]*:\d+(?:\.\d+)?$/
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
 function allowedDiffTodayISO() {
@@ -4057,7 +4049,6 @@ export function allowedDiffProblem(e) {
     !(
       ALLOWED_DIFF_KEYS.includes(e.key) ||
       ALLOWED_PLATFORM_KEY_RE.test(e.key) ||
-      ALLOWED_PROPS_PLATFORM_KEY_RE.test(e.key) ||
       STYLE_TIER_KEY_RE.test(e.key)
     )
   )
@@ -4138,7 +4129,13 @@ export function allowedDiffVerdict(findings, entries = [], { today = allowedDiff
         continue
       }
       if (count > e.count) {
-        over.push({ component: f.name, key, count, allowed: e.count, why: `差异 ${count} > 登记额度 ${e.count}` })
+        over.push({
+          component: f.name,
+          key,
+          count,
+          allowed: e.count,
+          why: `差异 ${count} > 登记额度 ${e.count}`,
+        })
         continue
       }
       if (count < e.count) shrunk.push({ component: f.name, key, count, allowed: e.count })
@@ -4159,10 +4156,9 @@ export function allowedDiffVerdict(findings, entries = [], { today = allowedDiff
         key: e.key,
         expires: e.expires,
         ...(e.key.startsWith('platform:') ? { platform: e.platform } : {}),
-        why:
-          e.key.startsWith('platform:')
-            ? `平台差异登记已到期(${e.expires}),必须重新复核`
-            : `非色档允许差异登记已到期(${e.expires}),必须重新复核或续期`,
+        why: e.key.startsWith('platform:')
+          ? `平台差异登记已到期(${e.expires}),必须重新复核`
+          : `非色档允许差异登记已到期(${e.expires}),必须重新复核或续期`,
       })
     } else if (e.key.startsWith('platform:')) {
       platform.push({
@@ -4390,7 +4386,7 @@ export function classArmVerdicts(
        */
       const base = (own?.base ?? 0) + (glob?.base ?? 0)
       const parts = (own?.parts ?? 0) + (glob?.parts ?? 0)
-      const baseBody = (own?.baseBodies?.[0] ?? glob?.baseBodies?.[0] ?? null)
+      const baseBody = own?.baseBodies?.[0] ?? glob?.baseBodies?.[0] ?? null
       if (base === 1 && count - base === parts && !important && !meta?.conditional)
         rows.push({
           class: name,
@@ -4425,7 +4421,11 @@ export function classArmVerdicts(
  * "判过、不产生盒档"说成"没判"。
  */
 export function webUtilityRow(name, webUtility, meta) {
-  const unavailable = (why) => ({ class: name, verdict: 'undetermined', reason: `web 工具类模型未生效(${why})` })
+  const unavailable = (why) => ({
+    class: name,
+    verdict: 'undetermined',
+    reason: `web 工具类模型未生效(${why})`,
+  })
   if (!webUtility?.available) return unavailable(webUtility?.why ?? '本轮未建模型')
   const body = webUtility.decls?.get(name)
   // 模型可用但编译器没产出这个类:它不是"该侧无档",也不是"写错了"(插件/任意值都可能),
@@ -4445,9 +4445,7 @@ export function webUtilityRow(name, webUtility, meta) {
     return {
       class: name,
       verdict: 'modeled',
-      reason: zero
-        ? '工具类已建模:盒档为 0(按 C4 纪律不入比对集)'
-        : '工具类已建模:不产生盒档',
+      reason: zero ? '工具类已建模:盒档为 0(按 C4 纪律不入比对集)' : '工具类已建模:不产生盒档',
       source: 'tailwind',
     }
   }
@@ -5112,7 +5110,8 @@ export function buildWebRnPairs(ledgerText, webFiles = [], rnFiles = [], webEvid
   if (typeof ledgerText !== 'string' || !ledgerText.trim())
     return { pairs, pending, problems: [{ line: 0, why: '配对账本取不到或为空' }] }
   const { map: routeMap, duplicates } = webRouteIndex(webFiles)
-  for (const d of duplicates) pending.push({ web: d.route, rn: '', why: `同一路由多份 page:${d.first} / ${d.duplicate}` })
+  for (const d of duplicates)
+    pending.push({ web: d.route, rn: '', why: `同一路由多份 page:${d.first} / ${d.duplicate}` })
   const rnSet = new Set(rnFiles)
   const evidenceSet =
     webEvidenceFiles instanceof Set ? webEvidenceFiles : new Set(webEvidenceFiles ?? [])
@@ -5158,7 +5157,11 @@ export function buildWebRnPairs(ledgerText, webFiles = [], rnFiles = [], webEvid
     if (webEvidenceRaw !== undefined && webEvidenceRaw !== null) {
       const anchored = /^(.+):(\d+)$/.exec(String(webEvidenceRaw))
       if (!anchored) {
-        pending.push({ web: route, rn, why: `data.webEvidence 不是 <web 路径>:<行> 形态:${webEvidenceRaw}` })
+        pending.push({
+          web: route,
+          rn,
+          why: `data.webEvidence 不是 <web 路径>:<行> 形态:${webEvidenceRaw}`,
+        })
         continue
       }
       const webFile = anchored[1]
@@ -5216,7 +5219,8 @@ export function webRnGeometryAudit(pairRows, text, radiusTable, tiers = {}, cssV
     }
     const ga = readGeometry(a, 'rn', tiers, cssVars)
     const gb = readGeometry(b, 'rn', tiers, cssVars)
-    const ge = p.webEvidence && p.webEvidence !== p.web ? readGeometry(ev, 'rn', tiers, cssVars) : null
+    const ge =
+      p.webEvidence && p.webEvidence !== p.web ? readGeometry(ev, 'rn', tiers, cssVars) : null
     const webDims = {
       widthHeight: new Set(ga.dims.widthHeight),
       padding: new Set(ga.dims.padding),
@@ -5288,7 +5292,11 @@ export function webRnGeometryAudit(pairRows, text, radiusTable, tiers = {}, cssV
  * web↔RN 差异的登记核销(**advisory**):只认 `key=webRnGeometry` 的条目。
  * 未登记只报数**不进退出码** —— 新判据先以 advisory 上线,误报由登记表承接后才可能转判红。
  */
-export function webRnAllowedVerdict(findings, entries = [], { today = allowedDiffTodayISO() } = {}) {
+export function webRnAllowedVerdict(
+  findings,
+  entries = [],
+  { today = allowedDiffTodayISO() } = {},
+) {
   const invalid = []
   const expired = []
   const over = []
@@ -5419,7 +5427,8 @@ export function main(argv, repoRoot = ROOT) {
    * `present:false` 也计一条红:登记表缺席时"所有差异都未登记",不能读成"没有任何差异"。
    */
   const allowed = allowedDiffVerdict(res.findings, allowedDoc.entries)
-  const allowedRed = allowed.red.length + (allowedDoc.problem ? 1 : 0) + (allowedDoc.present ? 0 : 1)
+  const allowedRed =
+    allowed.red.length + (allowedDoc.problem ? 1 : 0) + (allowedDoc.present ? 0 : 1)
   /**
    * 台账里"被 web 腿钉过"的族名单。**在 JSON 分支之前算**:`--json` 那一支也在同一块作用域里,
    * 放到函数末尾会让它读到 TDZ 中的 const(症状是崩溃,不是"少一个字段")。
@@ -6384,7 +6393,9 @@ export function main(argv, repoRoot = ROOT) {
   // AD(允许差异登记)独立先判支:与 CS/WD 同形,刻意不并入下面那条被自检锁钉住的求和行。
   if (allowedRed > 0) {
     if (!argv.includes('--json'))
-      console.log(`  × AD 折进退出码:未放行差异 ${allowedRed} 条(未登记/到期/超量/条目坏/登记表缺席)`)
+      console.log(
+        `  × AD 折进退出码:未放行差异 ${allowedRed} 条(未登记/到期/超量/条目坏/登记表缺席)`,
+      )
     return 1
   }
   return rotRed +
@@ -6431,6 +6442,8 @@ export const __test__ = {
   stripComments,
   toPx,
   readGeometry,
+  geometryDeclCheck,
+  geometryUnionText,
   specTiers,
   cssVarTiers,
   TOKENS_CSS_PATH,

@@ -42,18 +42,7 @@
  */
 import { pathToFileURL } from 'node:url'
 
-import {
-  DEFAULT_MOBILE_DOWNLOAD_URL,
-  SITE_LEG_PUBLIC_BASE,
-  SITE_LEG_URL_PREFIX,
-} from './lib/mobile-download-leg.mjs'
-
-/** 站点腿基址与固定地址取自 `scripts/data/mobile-download-leg.json` 单源。 */
-export const DEFAULT_BASE_URL = SITE_LEG_PUBLIC_BASE
-
-const siteLegUrl = (key) => `${SITE_LEG_PUBLIC_BASE}${SITE_LEG_URL_PREFIX}/${key}`
-/** iOS 固定文件名不在 Android 下载腿单源内;基址与路径前缀仍走单源,只有文件名是 iOS 自有。 */
-const IOS_LATEST_KEY = 'ihui-ai-latest.ipa'
+export const DEFAULT_BASE_URL = 'https://www.aizhs.top'
 /**
  * 每端的"票面固定地址 + 该当返回什么类型"档案。
  * 为什么必须有这张表而不是把 android 的常量到处判 `platform ===`:iOS 也上了自有站点腿
@@ -64,13 +53,13 @@ const IOS_LATEST_KEY = 'ihui-ai-latest.ipa'
 export const PLATFORM_PROFILES = {
   android: {
     label: 'apk',
-    pinned: DEFAULT_MOBILE_DOWNLOAD_URL,
+    pinned: 'https://www.aizhs.top/remote-images/download/ihui-ai-latest.apk',
     contentType: 'vnd.android.package-archive',
     typeLabel: 'apk',
   },
   ios: {
     label: 'ipa',
-    pinned: siteLegUrl(IOS_LATEST_KEY),
+    pinned: 'https://www.aizhs.top/remote-images/download/ihui-ai-latest.ipa',
     contentType: 'octet-stream',
     typeLabel: 'ipa',
   },
@@ -89,9 +78,8 @@ const probeId = (platform) => `${probePrefix(platform)}-downloadable`
 const versionId = (platform) => `${probePrefix(platform)}-matches-row`
 export const EXPECTED_PLATFORM = 'android'
 /** 自有站点腿(与 publish-mobile-apk.mjs 的 SITE_LEG.PublicBase 同源) */
-const OWN_LEG_HOSTNAME = new URL(SITE_LEG_PUBLIC_BASE).hostname
-export const OWN_LEG_HOSTS = [...new Set([OWN_LEG_HOSTNAME, OWN_LEG_HOSTNAME.replace(/^www\./, '')])]
-export const OWN_LEG_PATH_PREFIX = `${SITE_LEG_URL_PREFIX}/`
+export const OWN_LEG_HOSTS = ['www.aizhs.top', 'aizhs.top']
+export const OWN_LEG_PATH_PREFIX = '/remote-images/download/'
 /** 票面指定的固定下载地址(与网页按钮同一个源;iOS 见 PLATFORM_PROFILES) */
 export const PINNED_DOWNLOAD_URL = PLATFORM_PROFILES.android.pinned
 
