@@ -102,6 +102,12 @@ dev = [
 #   uv pip install -e ".[ocr]"        # 首选：纯 pip + onnxruntime，模型随包
 #   # 或装系统 tesseract + pip install pytesseract，代码会自动探测
 # 未安装时 /status 的 extractors.ocr 如实报 no-ocr-engine，不会假装读过。
+# 实测坑（2026-11-09）：uv 在 --index-url + --extra-index-url 混合源下解析这棵树
+# 3 分钟仍未收敛（依赖回溯），而精确装只要 3 秒。慢时可改用（依赖清单照抄
+# rapidocr 自身 METADATA，不猜）：
+#   uv pip install --no-deps opencv-python-headless shapely pyclipper
+# headless 版即可跑通（代码只用 cv2 的读图/缩放，不需要 GUI），比
+# opencv-python 少一堆系统图形库依赖。
 ocr = [
     "rapidocr-onnxruntime>=1.4.0",
 ]

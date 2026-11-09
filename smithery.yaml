@@ -1,0 +1,29 @@
+# Smithery / MCP 目录收录配置 —— WorkBuddy autopilot(智汇AI IHUI-AI)
+# https://smithery.ai/docs · server: wb-autopilot · Apache-2.0 · https://aizhs.top
+#
+# 本配置描述 **stdio 本地部署**(全量工具,含写侧;凭据由部署方本机 checkin_store 管理)。
+# 只读公网演示端点(无需部署):POST https://aizhs.top/api/mcp-public/wb-autopilot
+#   工具:wb_server_info / wb_action_routes(零凭据、零写侧)。
+
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    title: WorkBuddy Autopilot
+    description: WorkBuddy 成长任务全量自动驾驶(全量选路 + 回读裁决;成功只由回读 progress 真前进判定)
+    properties:
+      accountId:
+        type: number
+        default: 20
+        description: 签到号池账号 id(部署方自己的 WorkBuddy 账号)
+      pythonPath:
+        type: string
+        default: python
+        description: Python 3.11+ 解释器路径(需可 import app.services.*)
+    required: []
+  commandFunction: |-
+    (config) => ({
+      command: config.pythonPath || 'python',
+      args: ['apps/ai-service/mcp_server/wb_autopilot_mcp.py'],
+      env: { WB_AUTOPILOT_ACCOUNT_ID: String(config.accountId ?? 20) }
+    })

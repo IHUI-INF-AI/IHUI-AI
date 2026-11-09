@@ -68,6 +68,7 @@ from app.routers import (
     llm,
     mcp,
     mcp_official,
+    mcp_public,
     memory_graph,
     opencompass,
     orchestration,
@@ -1203,6 +1204,7 @@ def create_app() -> FastAPI:
     app.include_router(web_tools.router, prefix="/api", tags=["web-tools"])
     app.include_router(mcp.router, prefix="/api", tags=["mcp"])
     app.include_router(mcp_official.router, prefix="/api", tags=["mcp-official"])
+    app.include_router(mcp_public.router, prefix="/api", tags=["mcp-public"])
     app.include_router(connectors.router, prefix="/api", tags=["connectors"])
     app.include_router(agents.router, prefix="/api", tags=["agents"])
     app.include_router(a2a.router, prefix="/api", tags=["a2a"])

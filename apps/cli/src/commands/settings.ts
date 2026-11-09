@@ -277,6 +277,15 @@ export interface Settings {
     enabled?: boolean;
     /** 插件目录(默认 <workspace>/.ihui/plugins) */
     pluginsDir?: string;
+    /**
+     * 多版本共存(#12,默认 false):同名插件的不同版本可同时在盘,只装载选中的那一版。
+     * 关闭时沿用严格通道 —— 同名多份(不分版本)一律弃权(G-684/G-658 判据不变)。
+     */
+    multiVersion?: boolean;
+    /** 版本 pin:`插件名` → 期望版本;命中即该版 active,落空则退回序最高的可用版本并留诊断 */
+    versionPins?: Record<string, string>;
+    /** 被禁用的版本:`插件名@版本` 列表;目录保留在盘,但不装载、不参选 */
+    disabledVersions?: string[];
   };
   /**
    * W4-2 Qwen3.5 本地主打 LLM 配置(OpenClaw 对标)。

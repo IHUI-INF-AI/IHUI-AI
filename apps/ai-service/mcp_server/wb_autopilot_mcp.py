@@ -59,6 +59,14 @@ DEFAULT_OWNER = os.environ.get(
 
 TOOLS_SPEC: list[dict[str, Any]] = [
     {
+        "name": "wb_server_info",
+        "description": (
+            "智汇AI(IHUI-AI)WorkBuddy autopilot 引擎介绍:能力边界、防伪造纪律、"
+            "Apache-2.0 开源仓库、自托管指引(自托管可解锁全量写侧工具)。只读、零凭据。"
+        ),
+        "inputSchema": {"type": "object", "properties": {}},
+    },
+    {
         "name": "wb_autopilot_run",
         "description": (
             "WorkBuddy 成长任务全量自动驾驶一轮:扫任务全表 → 每条未完成任务自动选路"
@@ -164,15 +172,57 @@ async def _tool_action_routes(_args: dict[str, Any]) -> str:
     return json.dumps({"routes": routes}, ensure_ascii=False, indent=2)
 
 
+async def _tool_server_info(_args: dict[str, Any]) -> str:
+    table = ap.load_raw_action_table()
+    routes = {
+        code: (ap_route[0] or "unregistered")
+        for code in sorted(table)
+        if code != "__fallback__" and isinstance(table.get(code), list)
+        for ap_route in [ap.route_of(code, table)]
+    }
+    return json.dumps(
+        {
+            "server": SERVER_INFO,
+            "project": "IHUI-AI(智汇AI)· https://aizhs.top · Apache-2.0",
+            "engine": "WorkBuddy 成长任务全量自动驾驶(全量选路 + 回读裁决)",
+            "safety": (
+                "防伪造纪律:成功只由回读 progress 真前进判定,受理回执一律不算;"
+                "无 verified 链的任务码零出站只登记。"
+            ),
+            "routes": routes,
+            "verified_task_codes": sorted(c for c, r in routes.items() if r != "unregistered"),
+            "self_host": (
+                "本公开端点只读。自托管拿全量写侧工具:git clone 仓库后,把 "
+                "apps/ai-service/mcp_server/wb_autopilot_mcp.py 以 stdio 方式接入你的 "
+                "MCP 客户端(模板见文件 docstring),凭据由你本机 checkin_store 管理。"
+            ),
+        },
+        ensure_ascii=False,
+        indent=2,
+    )
+
+
 _TOOL_HANDLERS = {
+    "wb_server_info": _tool_server_info,
     "wb_autopilot_run": _tool_autopilot_run,
     "wb_tasks_list": _tool_tasks_list,
     "wb_action_routes": _tool_action_routes,
 }
 
+# 公网远程面只读白名单(2026-11-09 机主裁决:对外曝光但凭据与写侧永不出境):
+# 写侧工具(wb_autopilot_run / wb_tasks_list)只在本地 stdio 部署可用。
+PUBLIC_READ_ONLY_TOOLS: frozenset[str] = frozenset({"wb_server_info", "wb_action_routes"})
 
-def _dispatch(msg: dict[str, Any]) -> dict[str, Any] | None:
-    """单条请求 → 响应;通知(notifications/*)返回 None。任何异常收敛为 JSON-RPC error。"""
+
+def _dispatch(
+    msg: dict[str, Any], *, allowed_tools: frozenset[str] | set[str] | None = None
+) -> dict[str, Any] | None:
+    """单条请求 → 响应;通知(notifications/*)返回 None。任何异常收敛为 JSON-RPC error。
+
+    ``allowed_tools``:工具白名单(None = 全量,stdio 本地部署)。远程公开面传
+    ``PUBLIC_READ_ONLY_TOOLS`` —— tools/list 只回白名单,tools/call 拒绝白名单外
+    工具(-32602),写侧能力对外不可达。
+    """
     method = str(msg.get("method") or "")
     req_id = msg.get("id")
     if method.startswith("notifications/"):
@@ -187,10 +237,21 @@ def _dispatch(msg: dict[str, Any]) -> dict[str, Any] | None:
         elif method == "ping":
             result = {}
         elif method == "tools/list":
-            result = {"tools": TOOLS_SPEC}
+            tools = (
+                [t for t in TOOLS_SPEC if t["name"] in allowed_tools]
+                if allowed_tools is not None
+                else TOOLS_SPEC
+            )
+            result = {"tools": tools}
         elif method == "tools/call":
             params = msg.get("params") or {}
             name = str(params.get("name") or "")
+            if allowed_tools is not None and name not in allowed_tools:
+                return {
+                    "jsonrpc": "2.0",
+                    "id": req_id,
+                    "error": _err(-32602, f"tool not available on public endpoint: {name}"),
+                }
             handler = _TOOL_HANDLERS.get(name)
             if handler is None:
                 return {"jsonrpc": "2.0", "id": req_id, "error": _err(-32602, f"unknown tool: {name}")}
