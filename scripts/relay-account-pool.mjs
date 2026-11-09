@@ -43,8 +43,11 @@ import {
   renderEntryMapLines,
   renderNoteLines,
 } from './lib/relay-account-tokens-text.mjs'
+// 产物陈旧自检(2026-11-09):dist/ 不入库,增量构建可能漏编导出聚合文件 ⇒ 启动先提示重建
+import { assertDistFresh } from './lib/dist-freshness.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+assertDistFresh(path.join(ROOT, 'packages', 'api-client'))
 const API_DIR = path.join(ROOT, 'apps', 'api')
 const IMPORTER = path.join(API_DIR, 'scripts', 'relay-account-import.ts')
 
