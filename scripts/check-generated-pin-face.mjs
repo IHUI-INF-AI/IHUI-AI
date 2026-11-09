@@ -64,7 +64,7 @@ function pinnedFilesOnFace(face) {
       : face === 'head'
         ? [...common, 'HEAD', '--', ...PIN_PATHS]
         : [...common, '--', ...PIN_PATHS]
-  const r = spawnSync(gitBinary(), ['-C', ROOT, ...args], { encoding: 'utf8', timeout: 120000, maxBuffer: 64 * 1024 * 1024 })
+  const r = spawnSync(gitBinary(), ['-C', ROOT, ...args], { encoding: 'utf8', timeout: 120000, maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] })
   if (r.error) throw new Undetermined(`在 ${face} 面枚举带钉产物失败(${r.error.message})`)
   if (r.status === 1) return []
   if (r.status !== 0) throw new Undetermined(`git grep 在 ${face} 面退出 ${r.status}:${(r.stderr || '').trim().slice(0, 200)}`)

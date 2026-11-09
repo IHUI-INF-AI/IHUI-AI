@@ -36,6 +36,7 @@ function git(root, args) {
   return execFileSync('git', ['-c', 'safe.directory=*', '-C', root, ...args], {
     encoding: 'utf8',
     windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 }
 

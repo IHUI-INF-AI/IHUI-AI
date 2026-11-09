@@ -121,6 +121,7 @@ export function listScanRoots(repoRoot = ROOT) {
     encoding: 'utf8',
     windowsHide: true,
     timeout: 30_000,
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   const entries = parseWorktreePorcelain(text)
   const seen = new Set(entries.map((e) => normalizePath(e.path)))
