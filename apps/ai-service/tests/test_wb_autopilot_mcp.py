@@ -42,10 +42,10 @@ def test_initialize_handshake() -> None:
     assert result["serverInfo"]["name"] == "wb-autopilot"
 
 
-def test_tools_list_has_three_tools() -> None:
+def test_tools_list_has_four_tools() -> None:
     resp = m._dispatch(_rpc("tools/list"))
     names = [t["name"] for t in resp["result"]["tools"]]
-    assert names == ["wb_autopilot_run", "wb_tasks_list", "wb_action_routes"]
+    assert names == ["wb_server_info", "wb_autopilot_run", "wb_tasks_list", "wb_action_routes"]
     for tool in resp["result"]["tools"]:
         assert "description" in tool and "inputSchema" in tool
 
