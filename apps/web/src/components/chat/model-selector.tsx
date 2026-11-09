@@ -37,6 +37,8 @@ import {
   type ProviderHealth,
   type SelectorModel,
 } from '@/lib/models-api'
+// 2026-11-10 立:个人号池模型(「我的号池」分组)与平台模型并行拉取,失败静默降级为空
+import { fetchPoolChatModels, type PoolChatModel } from '@ihui/api-client'
 // 2026-10-21 首屏瘦身:图标全集与纯函数分家(同 ai-side-panel.tsx:15-17 的既有口径)。
 // 本文件此前静态 `import { BrandIcon }`,而 message-input → AISidePanel → GlobalShell →
 // 根 layout 全是静态边,于是纯展示的营销页(/、/en、/pricing)也被迫下载整包
@@ -655,6 +657,31 @@ function buildOptionsFromApi(models: SelectorModel[]): ModelOption[] {
   return Array.from(merged.values())
 }
 
+/**
+ * 平台模型 + 个人号池模型合并(2026-11-10 立)。
+ *
+ * 平台登记行优先(带展示名/定价/代次,可参与折叠与筛选);号池独有的模型
+ * (未登记,id 形如 `<平台>/<上游模型名>`)才追加到末尾。pointsMultiplier=0:
+ * 走的是用户自己的平台账号,不产生平台积分消耗,显示为免费档。
+ */
+function withPoolModels(base: ModelOption[], pool: PoolChatModel[]): ModelOption[] {
+  if (pool.length === 0) return base
+  const seen = new Set(base.map((o) => o.value))
+  for (const m of pool) {
+    if (seen.has(m.id)) continue
+    seen.add(m.id)
+    base.push({
+      value: m.id,
+      label: m.name || m.id,
+      // 用平台 code 当 vendor:命中 VENDOR_LABEL 的(豆包/MiniMax 等)显示中文名,
+      // 其余按品牌 code 原样分组,语义就是「这是我名下某个平台的号」
+      vendor: m.provider,
+      pointsMultiplier: 0,
+    })
+  }
+  return base
+}
+
 /** vendor 是否视为"已配置/有配额"(降级列表过滤 + ⚠/✅ 徽章判定用)
  *  - 后端内置免费 provider(无需配置 key)直接豁免
  *  - 其余:vendor 映射到平台模板且模板在已配置集合内 */
@@ -732,18 +759,19 @@ export function ModelSelector({ value, onChange, disabled, label, footer }: Mode
     }
     let cancelled = false
     setLoading(true)
-    fetchSelectorModels()
-      .then((models) => {
+    // 平台模型 + 我的号池并行拉:两条腿各自吞错返回 [],谁空都不影响另一条
+    Promise.all([fetchSelectorModels(), fetchPoolChatModels()])
+      .then(([models, poolModels]) => {
         if (cancelled) return
-        if (models.length === 0) {
+        if (models.length === 0 && poolModels.length === 0) {
           // API 空/失败:恢复 FALLBACK + DEMO 降级列表(由 grouped 按真实配置过滤)
           setUseApiOnly(false)
           setOptions(createSeedOptions())
           return
         }
-        // 2026-08-27 修复:API 成功(后端已按可用性+配额过滤)→ 只展示后端返回的模型。
+        // 2026-08-27:API 成功(后端已按可用性+配额过滤)→ 只展示后端返回的模型。
         // 2026-11-07:映射逻辑抽到 buildOptionsFromApi,手动刷新复用同一套。
-        const next = buildOptionsFromApi(models)
+        const next = withPoolModels(buildOptionsFromApi(models), poolModels)
         setOptions(next)
         setUseApiOnly(true)
         // 当前选中模型已不可用(不在 API 列表)→ 自动切回 auto,避免 trigger 指向死模型
@@ -790,9 +818,9 @@ export function ModelSelector({ value, onChange, disabled, label, footer }: Mode
   /** 重拉模型列表(手动刷新 / 打开菜单节流复用) */
   const reloadModels = React.useCallback(async () => {
     try {
-      const models = await fetchSelectorModels()
-      if (models.length === 0) return
-      const next = buildOptionsFromApi(models)
+      const [models, poolModels] = await Promise.all([fetchSelectorModels(), fetchPoolChatModels()])
+      if (models.length === 0 && poolModels.length === 0) return
+      const next = withPoolModels(buildOptionsFromApi(models), poolModels)
       setOptions(next)
       setUseApiOnly(true)
       // 刷新后当前模型若已被判死 → 自动切回 auto
