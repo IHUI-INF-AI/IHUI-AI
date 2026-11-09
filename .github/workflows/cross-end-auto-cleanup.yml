@@ -4,18 +4,23 @@
 
 name: cross-end-auto-cleanup
 
-# 作用:清理 cross-end-sync 旧实现留下的自动快照(分支 cross-end-auto-<run_id> + 对应 PR)。
+# 作用:① 清理 cross-end-sync 旧实现留下的自动快照(分支 cross-end-auto-<run_id> + 对应 PR);
+#       ② 补做 delete_branch_on_merge=False 时期的历史残留(PR 已 merged 但 head ref 仍在)。
 # 背景:旧实现「直推 main 失败 ⇒ 每次 run 新建分支 + 新 PR」,46.8h 内长出 58 支快照 / 58 个 PR,
 #       而派生件一条都没进 main。2026-11-08 已把生成侧改成「固定分支 cross-end-auto + 复用同一 PR」
 #       (见 cross-end-sync.yml),本工作流只负责清理历史快照与后续可能出现的孤儿分支。
+#       2026-11-09 仓库设置已开 delete_branch_on_merge,但只对新合并生效,存量靠第 ② 组收口。
 #
 # 安全口径:
 #   · 默认 dry-run:定时档只有在仓库变量 CROSS_END_CLEANUP_ENABLED=true 时才真删;
 #     手动 workflow_dispatch 也必须显式传 mode=delete。
 #   · 删前先把清单(分支 / sha / 最后提交时间 / open PR)写成 manifest.json + manifest.tsv 并作为 artifact 留档。
-#   · 只处理 cross-end-auto* 前缀;有 open PR 但作者不是 github-actions[bot] 或带 keep 标签的,整支跳过。
+#   · 第 ① 组只处理 cross-end-auto* 前缀;有 open PR 但作者不是 github-actions[bot] 或带 keep 标签的,整支跳过。
+#   · 第 ② 组只取 **已 merged 的 PR 的 head ref**,且要求该 ref 当前无 open PR、compare 的 ahead_by=0
+#     (零独有提交 = 零内容损失)。纯 GitHub 原生数据判定,无需 checkout;在飞检出(通常无 PR 或 PR 仍 open)
+#     结构性不进射程,不会断他席 upstream。Dependabot / 保护前缀同样排除。
 #   · 固定落地分支 cross-end-auto 默认不动(需 include_fixed=true 且无 open PR 才清)。
-#   · 单轮最多删 100 条,超过直接中止,避免一次误删过猛。
+#   · 两组合计单轮最多删 100 条,超过直接中止,避免一次误删过猛。
 
 on:
   schedule:
@@ -124,8 +129,54 @@ jobs:
             done < manifest.tsv
           } >> "$GITHUB_STEP_SUMMARY"
           jq -R -s 'split("\n") | map(select(length > 0) | split("\t") | {branch: .[0], sha: .[1], last_commit: .[2], open_pr: (if .[3] == "" then null else (.[3] | tonumber) end)})' manifest.tsv > manifest.json
-          if [[ "${{ steps.mode.outputs.mode }}" == "delete" && "${COUNT}" -gt "${MAX_DELETE}" ]]; then
-            echo "::error::候选 ${COUNT} 条 > 单轮上限 ${MAX_DELETE},中止(防止一次误删过猛)"
+
+      - name: 导出已合并残留清单(第 ② 组)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          : > merged-stale.tsv
+          : > merged-heads.txt
+          # 只取「已 merged 的 PR 的 head ref」:GitHub 原生数据,CI 无需 checkout,也看不到本地 worktree。
+          # 在飞检出通常没有已合并 PR(或 PR 仍 open),因此结构性不进射程,不会断他席 upstream。
+          gh api --paginate "repos/${REPO}/pulls?state=closed&per_page=100&sort=updated&direction=desc" \
+            --jq '.[] | select(.merged_at != null) | .head.ref' 2>/dev/null \
+            | sort -u > merged-heads.txt || true
+          echo "历史已合并 PR 的 head ref 共 $(wc -l < merged-heads.txt) 个"
+          while IFS= read -r BR; do
+            [[ -z "${BR}" ]] && continue
+            case "${BR}" in
+              main|main/*|backup/*|ihui-backup/*|cross-end-auto*) continue ;;
+            esac
+            SHA="$(gh api "repos/${REPO}/git/ref/heads/${BR}" --jq '.object.sha' 2>/dev/null || true)"
+            [[ -z "${SHA}" ]] && continue
+            OPEN="$(gh pr list --head "${BR}" --state open --json number --jq 'length' 2>/dev/null || echo 0)"
+            [[ "${OPEN}" != "0" ]] && continue
+            # ahead_by=0 ⇒ 分支没有独有提交 ⇒ 删 ref 零内容损失。取不到就当 999,绝不猜绿。
+            AHEAD="$(gh api "repos/${REPO}/compare/main...${BR}" --jq '.ahead_by' 2>/dev/null || echo 999)"
+            if [[ "${AHEAD}" != "0" ]]; then
+              echo "skip ${BR}(ahead_by=${AHEAD},有独有内容)"
+              continue
+            fi
+            printf '%s\t%s\t%s\t\n' "${BR}" "${SHA}" "$(date -u +%FT%TZ)" >> merged-stale.tsv
+          done < merged-heads.txt
+          SNAP_COUNT="$(wc -l < manifest.tsv)"
+          MERGED_COUNT="$(wc -l < merged-stale.tsv)"
+          TOTAL=$(( SNAP_COUNT + MERGED_COUNT ))
+          echo "快照候选 ${SNAP_COUNT} + 已合并残留 ${MERGED_COUNT} = ${TOTAL}"
+          {
+            echo "### 已合并残留清单(mode=${{ steps.mode.outputs.mode }})"
+            echo ""
+            echo "| 分支 | sha | 导出时间 |"
+            echo "| --- | --- | --- |"
+            while IFS=$'\t' read -r BR SHA DATE; do
+              [[ -z "${BR}" ]] && continue
+              echo "| ${BR} | ${SHA:0:12} | ${DATE} |"
+            done < merged-stale.tsv
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [[ "${{ steps.mode.outputs.mode }}" == "delete" && "${TOTAL}" -gt "${MAX_DELETE}" ]]; then
+            echo "::error::两组合计 ${TOTAL} 条 > 单轮上限 ${MAX_DELETE},中止(防止一次误删过猛)"
             exit 1
           fi
 
@@ -136,6 +187,7 @@ jobs:
           path: |
             manifest.tsv
             manifest.json
+            merged-stale.tsv
           if-no-files-found: error
 
       - name: 关闭 PR + 删除分支(dry-run 只打印)
@@ -162,4 +214,15 @@ jobs:
               echo "[dry-run] would delete branch ${BR} (sha=${SHA})"
             fi
           done < manifest.tsv
+          # 第 ② 组:已合并残留。导出步已判「PR 已 merged ∧ 无 open PR ∧ ahead_by=0」,
+          # 这里只做删除,不重新放宽任何一闸。
+          while IFS=$'\t' read -r BR SHA DATE; do
+            [[ -z "${BR}" ]] && continue
+            if [[ "${MODE}" == "delete" ]]; then
+              gh api -X DELETE "repos/${REPO}/git/refs/heads/${BR}" >/dev/null \
+                && echo "deleted merged-stale branch ${BR} (sha=${SHA})"
+            else
+              echo "[dry-run] would delete merged-stale branch ${BR} (sha=${SHA})"
+            fi
+          done < merged-stale.tsv
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
