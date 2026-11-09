@@ -61,7 +61,35 @@ export function expoToken({ root = resolveSecretsRoot(), prefer = /个人/, env 
  * 返回 { path, clientEmail, projectId }:clientEmail 是 Play Console 里要授权的那枚邮箱,
  * 属于身份标识而非秘密,可以进报告。
  */
-export function playServiceKey({ root = resolveSecretsRoot() } = {}) {
+export function playServiceKey({ root = resolveSecretsRoot(), env = process.env } = {}) {
+  // ① CI/云端形态:JSON 全文走 env(私钥只在进程内存里,不要求落盘)
+  if (env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON) {
+    let j
+    try {
+      j = JSON.parse(env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON)
+    } catch {
+      return outcome(STATUS.UNJUDGED, 'GOOGLE_PLAY_SERVICE_ACCOUNT_JSON 不是合法 JSON ⇒ 形态认不出,不判"无凭据"')
+    }
+    if (j?.type === 'service_account' && j.private_key && j.client_email) {
+      return outcome(STATUS.FOUND, `clientEmail=${j.client_email}(source=env-json)`, { source: 'env-json', clientEmail: j.client_email, projectId: j.project_id ?? null })
+    }
+    return outcome(STATUS.UNJUDGED, 'env JSON 不是 type=service_account ⇒ 形态认不出,不判"无凭据"')
+  }
+  // ② 路径形态:JSON 文件路径走 env(内容仍现读)
+  if (env.GOOGLE_PLAY_SERVICE_ACCOUNT_PATH) {
+    const p = env.GOOGLE_PLAY_SERVICE_ACCOUNT_PATH
+    let j
+    try {
+      j = JSON.parse(readFileSync(p, 'utf8'))
+    } catch (e) {
+      return outcome(STATUS.UNJUDGED, `${p} 读不到(${e?.code ?? e?.name})⇒ 不判"无凭据"`)
+    }
+    if (j?.type === 'service_account' && j.private_key && j.client_email) {
+      return outcome(STATUS.FOUND, `clientEmail=${j.client_email}(source=env-path)`, { source: 'env-path', path: p.replace(/\\/g, '/'), clientEmail: j.client_email, projectId: j.project_id ?? null })
+    }
+    return outcome(STATUS.UNJUDGED, `${p} 不是 type=service_account ⇒ 形态认不出,不判"无凭据"`)
+  }
+  // ③ 密钥目录形态(本机日常)
   if (!root) return outcome(STATUS.UNJUDGED, '密钥根解析不出')
   const names = readdirSync(root, { withFileTypes: true })
     .filter((d) => d.isFile() && d.name.endsWith('.json'))
@@ -75,12 +103,28 @@ export function playServiceKey({ root = resolveSecretsRoot() } = {}) {
       continue
     }
     if (j?.type === 'service_account' && j.private_key && j.client_email) {
-      found.push({ path: join(root, name).replace(/\\/g, '/'), clientEmail: j.client_email, projectId: j.project_id })
+      found.push({ path: join(root, name).replace(/\\/g, '/'), clientEmail: j.client_email, projectId: j.project_id, source: 'key-dir' })
     }
   }
   if (found.length === 0) return outcome(STATUS.MISSING, `${root} 下无 type=service_account 的 JSON`)
   if (found.length > 1) return outcome(STATUS.UNJUDGED, `${root} 下有 ${found.length} 枚 SA key,需显式指定`, found)
   return outcome(STATUS.FOUND, `clientEmail=${found[0].clientEmail}`, found[0])
+}
+
+/**
+ * CI 签名四键桥:Gradle 在 CI 里只认 `ORG_GRADLE_PROJECT_` 前缀的 env(或不带前缀的直传)。
+ * 只报"齐不齐",不打印值;缺项按**去前缀名**列出,方便照着补 Secrets。
+ */
+export function signingEnvBridge({ env = process.env } = {}) {
+  const keys = ['IHUI_RELEASE_STORE_FILE', 'IHUI_RELEASE_STORE_PASSWORD', 'IHUI_RELEASE_KEY_ALIAS', 'IHUI_RELEASE_KEY_PASSWORD']
+  const values = {}
+  const missing = []
+  for (const k of keys) {
+    const v = env[`ORG_GRADLE_PROJECT_${k}`] ?? env[k]
+    if (v !== undefined && v !== null && String(v).trim() !== '') values[k] = String(v).trim()
+    else missing.push(k)
+  }
+  return { complete: missing.length === 0, missing, values }
 }
 
 /** Android 正式签名件:keystore 落点 + gradle.properties 的 IHUI_RELEASE_* 四键。 */
@@ -178,20 +222,54 @@ export function storeCredential(vendor, { root = resolveSecretsRoot() } = {}) {
   return outcome(STATUS.FOUND, `${vendor.label}:${digest.map((d) => `${d.path.split('/').pop()}(${d.bytes}B,字段=${d.fields.join('/')})`).join(' | ')}`, digest)
 }
 
+/**
+ * 产物元数据(versionName/versionCode)只认 Gradle 自己写的 output-metadata.json。
+ * 为什么不能读 app.json:CI/本地构建由 IHUI_MOBILE_VERSION 覆盖 displayVersion(见 app.config.js),
+ * 实测本机 APK 为 0.0.19/26110713 而 app.json 仍写 0.0.12 —— 用 app.json 会把提交函的
+ * Version 写成与包内不一致的值,商店按包内 versionName 判,等于自报错误版本。
+ */
+function readArtifactMetadata(p) {
+  try {
+    const j = JSON.parse(readFileSync(p, 'utf8'))
+    const el = Array.isArray(j?.elements) ? j.elements[0] : null
+    if (!el) return null
+    return {
+      versionName: el.versionName ? String(el.versionName) : null,
+      versionCode: Number.isInteger(el.versionCode) ? el.versionCode : null,
+    }
+  } catch {
+    return null
+  }
+}
+
 /** 本机是否已产出可提交的 Android 包(AAB 优先;各商店基本都收 APK,华为/Google 收 AAB)。 */
 export function androidArtifacts({ dir = join(process.cwd(), 'apps', 'mobile-rn', 'android', 'app', 'build', 'outputs') } = {}) {
   const found = []
-  for (const [kind, rel] of [
-    ['aab', 'bundle/release/app-release.aab'],
-    ['apk', 'apk/release/app-release.apk'],
+  for (const [kind, rel, metaRel] of [
+    ['aab', 'bundle/release/app-release.aab', 'bundle/release/output-metadata.json'],
+    ['apk', 'apk/release/app-release.apk', 'apk/release/output-metadata.json'],
   ]) {
     const p = join(dir, rel).replace(/\\/g, '/')
     if (existsSync(p)) {
-      found.push({ kind, path: p, bytes: statSyncSize(p) })
+      const meta = readArtifactMetadata(join(dir, metaRel).replace(/\\/g, '/'))
+      found.push({
+        kind,
+        path: p,
+        bytes: statSyncSize(p),
+        versionName: meta?.versionName ?? null,
+        versionCode: meta?.versionCode ?? null,
+        metadataPath: meta ? join(dir, metaRel).replace(/\\/g, '/') : null,
+      })
     }
   }
   if (!found.length) return outcome(STATUS.MISSING, `${dir.replace(/\\/g, '/')} 下无 release aab/apk ⇒ 各商店腿都还拿不出提交物`, found)
-  return outcome(STATUS.FOUND, found.map((f) => `${f.kind}=${f.bytes}B`).join(' '), found)
+  return outcome(
+    STATUS.FOUND,
+    found
+      .map((f) => `${f.kind}=${f.bytes}B${f.versionName ? `(v${f.versionName}/vc${f.versionCode ?? '?'})` : ''}`)
+      .join(' '),
+    found,
+  )
 }
 
 function statSyncSize(p) {
@@ -202,5 +280,5 @@ function statSyncSize(p) {
   }
 }
 
-export const __test__ = { STATUS, fp, expoToken, playServiceKey, androidSigning, easEntry, outcome, STORE_VENDORS, storeCredential, statSyncSize }
+export const __test__ = { STATUS, fp, expoToken, playServiceKey, signingEnvBridge, androidSigning, easEntry, outcome, STORE_VENDORS, storeCredential, statSyncSize }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

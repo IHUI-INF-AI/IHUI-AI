@@ -1,4 +1,4 @@
-﻿# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+﻿﻿# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
@@ -498,6 +498,30 @@ if ($AllowLocalBackend) { Write-Warning 'AllowLocalBackend:本次包的基址含
 Write-Host "`n===== [3/5] gradlew assembleRelease + bundleRelease (versionName=$VersionName versionCode=$VersionCode) =====" -ForegroundColor Cyan
 Write-Host "  ABI: $($abiArg -replace '^.*=','')"
 if (-not (Test-Path $Gradle)) { throw "gradlew 不存在: $Gradle (请先 expo prebuild)" }
+
+# ---- 工具链元数据自愈(2026-11-08) ---------------------------------------------------
+# 外部"溯源水印"批量盖章会把注释行插进 Android SDK 的 source.properties 与 JDK 的 lib/jvm.cfg。
+# 这两类文件是机器可读清单:NDK 的 CMake 工具链逐行解析 Pkg.Revision,插进水印直接
+# `Failed to parse Android NDK revision`(0.0.20 首次构建实测失败);JVM 启动刷 No leading - 警告。
+# 只保留清单行(properties: `key = value`;jvm.cfg: `-vm TYPE`),其余水印/空行一律剔除。
+function Repair-ToolchainMetadata([string]$Path, [scriptblock]$Keep) {
+  if (-not (Test-Path -LiteralPath $Path)) { return }
+  $raw = Get-Content -LiteralPath $Path
+  if (-not ($raw | Where-Object { $_ -match 'IHUI-AI-PROVENANCE|Provenance-watermarked|aizhs\.top' })) { return }
+  Set-Content -LiteralPath $Path -Value ($raw | Where-Object { & $Keep $_ }) -Encoding ascii
+  Write-Warning "已剔除工具链元数据里的水印行: $Path"
+}
+$sdkRoot = if ($env:ANDROID_HOME) { $env:ANDROID_HOME } elseif (Test-Path (Join-Path $RepoRoot '.android-toolchain/android-sdk')) { Join-Path $RepoRoot '.android-toolchain/android-sdk' } else { $null }
+if ($sdkRoot) {
+  foreach ($sub in @('ndk', 'cmake')) {
+    Get-ChildItem -Path (Join-Path $sdkRoot $sub) -Directory -ErrorAction SilentlyContinue | ForEach-Object {
+      Repair-ToolchainMetadata (Join-Path $_.FullName 'source.properties') { param($l) $l -match '^[A-Za-z][A-Za-z0-9_.]*\s*=' }
+    }
+  }
+}
+if ($env:JAVA_HOME) {
+  Repair-ToolchainMetadata (Join-Path $env:JAVA_HOME 'lib/jvm.cfg') { param($l) $l -match '^-\w+' }
+}
 
 Push-Location $AndroidDir
 try {
