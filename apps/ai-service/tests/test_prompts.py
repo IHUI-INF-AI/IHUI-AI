@@ -27,7 +27,7 @@ from app.routers.prompts import (
     rollback_prompt,
     update_prompt,
 )
-from app.services.prompt_registry import PromptEntry, PromptVersion
+from app.services.prompt_registry import PromptEntry, PromptVersion, select_prompt_cell
 
 # ---------------------------------------------------------------------------
 # 辅助
@@ -275,4 +275,42 @@ async def test_delete_prompt_404(registry):
     with pytest.raises(HTTPException) as exc:
         await delete_prompt("nope")
     assert exc.value.status_code == 404
+
+
+def test_prompt_cell_unused_or_unlisted_is_not_a_default():
+    """没人用的格子不能用，清单没量到也不退回 {item}。"""
+    cells = [
+        {
+            "mode": "brief",
+            "domain": "code",
+            "role": "body",
+            "consumed": False,
+            "template": "按领域写",
+        }
+    ]
+    unused = select_prompt_cell(mode="brief", domain="code", role="body", cells=cells)
+    assert unused["reason"] == "cell-unused"
+    assert unused["template"] is None
+    missing = select_prompt_cell(mode="brief", domain="code", role="body", cells=None)
+    assert missing["reason"] == "cells-unmeasured"
+    assert missing["template"] is None
+
+
+async def test_batch_llm_refuses_unmeasured_prompt_cell():
+    from app.services.task_executors import Checkpoint, TaskContext, TaskExecutionError, _exec_batch_llm
+
+    ctx = TaskContext(
+        task_id="t",
+        task_type="batch_llm",
+        arguments={
+            "items": ["a"],
+            "mode": "brief",
+            "domain": "code",
+            "prompt_role": "body",
+            "prompt_cells": None,
+        },
+        checkpoint=Checkpoint(key="k"),
+    )
+    with pytest.raises(TaskExecutionError, match="cells-unmeasured"):
+        await _exec_batch_llm(ctx)
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

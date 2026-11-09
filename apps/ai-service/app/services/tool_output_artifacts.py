@@ -172,16 +172,20 @@ def read_tool_output_page(
     """按字符 offset 读一页工件正文;返回 `content/next/complete` 与摘要元数据。
 
     失败一律返回 `ok=false` + 稳定 `error` 词(不让模型靠异常文本猜原因):
-      - unknown_artifact: id 形状非法或元数据不存在(含已过期清理);
-      - artifact_unreadable: 文件读取失败(磁盘/权限)。
+      - unknown_artifact: id 形状非法、元数据不存在,或元数据内容损坏;
+      - artifact_unreadable: 元数据或正文读失败(磁盘/权限/目标是目录),不能说成没有这份工件。
     """
     if not ARTIFACT_ID_RE.match(artifact_id or ""):
         return {"ok": False, "error": "unknown_artifact", "artifactId": ""}
 
     try:
         meta = json.loads(_meta_path(artifact_id).read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+    except FileNotFoundError:
         return {"ok": False, "error": "unknown_artifact", "artifactId": artifact_id}
+    except ValueError:
+        return {"ok": False, "error": "unknown_artifact", "artifactId": artifact_id}
+    except OSError:
+        return {"ok": False, "error": "artifact_unreadable", "artifactId": artifact_id}
 
     try:
         stored = _text_path(artifact_id).read_text(encoding="utf-8")

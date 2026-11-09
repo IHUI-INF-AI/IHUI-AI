@@ -83,12 +83,6 @@ SSE_EVENTS: frozenset[str] = frozenset(
         # tool-result 到达即清预览(最终 diff 以 tool-result 落库面为准,本帧不入库)。
         # 必须与 packages/shared/src/sse/contract.ts 同步(两份集合由 parity 断言看护)。
         "tool-delta",
-        # 2026-11-05 立:工具调用 arguments 逐分片直推帧。生产点 llm_gateway.astream
-        # (tool_call_args_stream=True 时),经 llm.py generic 通道 6793 原样上 wire;
-        # 载荷 {index,id,name,args,argsComplete,argsPartial},残缺分片由
-        # app/utils/tool_call_args.py 的流式修复给出当前最好可用部分对象。
-        # 必须与 packages/shared/src/sse/contract.ts 同步(两份集合由 parity 断言看护)。
-        "tool-call-args-delta",
         # V3 #63(2026-09-27 落地生产者):对话流业务表单**下行**帧。
         # 生产点 app/routers/llm.py 工具循环内的 request_business_form 拦截位,载荷
         # {type, requestId, sessionId, kind, fields, actions, messageId}
@@ -287,12 +281,6 @@ SSE_EVENT_CONTRACTS: tuple[SSEEventContract, ...] = (
     SSEEventContract("reasoning", ("content",)),
     SSEEventContract("thinking", ("content",)),
     SSEEventContract("tool-call-start", ("toolCallId", "toolName", "args")),
-    # 2026-11-05:工具入参逐分片直推。字段与 llm_gateway._tool_call_args_delta_frames
-    # 恒产出的键逐字一致(args 允许为 None、id/name 允许空串,但键恒在)。
-    SSEEventContract(
-        "tool-call-args-delta",
-        ("index", "id", "name", "args", "argsComplete", "argsPartial"),
-    ),
     SSEEventContract("tool-result", ("toolCallId", "result")),
     SSEEventContract("tool-delegate", ("session_id", "tool_call_id", "tool_name", "args", "iteration")),
     # 2026-11-04(sse-event-parity 口径收口):原声明 ("summary",) 与真实帧不符 ——
@@ -390,13 +378,10 @@ SSE_EVENT_CONTRACTS: tuple[SSEEventContract, ...] = (
     # 它是**每轮恒在**字段(不像 finishReason/reasoningEffort 那样"缺席不带键"):
     # 端上缺这一格就只剩猜,而猜的默认正是今天写死的 false —— 那就等于没声明。
     SSEEventContract("done", ("usage", "model", "stub", "capabilities")),
-    # 消息级计量帧(D7/D1 全链路,2026-09-19 立):llm.py 流结束前发出。
-    # 批次 3(2026-11-06):新增 contextLedger(七类上下文账本,形状见 contract.ts)。
-    # 唯一生产点是 llm.py 流收尾,正常路径恒在;仅账本构造异常时降级缺席(那时
-    # `_sse()` 诊断会告警,属于真实故障信号,不是合法帧的常态)。
+    # 消息级计量帧(D7/D1 全链路,2026-09-19 立):llm.py 流结束前发出
     SSEEventContract(
         "usage",
-        ("messageId", "usage", "timing", "model", "costUsd", "contextLedger"),
+        ("messageId", "usage", "timing", "model", "costUsd"),
     ),
     SSEEventContract("error", ("message", "errorCode")),
     # 模型降级通知(P4-2,2026-09-19 入契约):llm_gateway 主模型失败切换备用模型时
@@ -666,6 +651,31 @@ def take_admission(conversation_id: str | None, input_id: str, *, limit: int) ->
 ADMISSION_CONVERSATIONS_LIMIT: int = 1024
 #: 逐出计数:上限必须量得到,否则"有上限"只是口头承诺。
 admission_conversation_evictions: int = 0
+#: 驱逐告警与恢复必须成对。只有告警没有恢复不算结束;没有告警的恢复是未判定。
+_EVICTION_WARNINGS: dict[str, None] = {}
+EVICTION_WARNING_LIMIT: int = 256
+
+
+def open_eviction_warning(identity: object) -> dict[str, str]:
+    """记下一次驱逐告警。同一身份已经开着就不另开一条。账本满了不假装已经记下。"""
+    if not isinstance(identity, str) or not identity:
+        return {"disposition": "unjudged", "reason": "identity-absent"}
+    if identity in _EVICTION_WARNINGS:
+        return {"disposition": "open", "reason": "already-warning"}
+    if len(_EVICTION_WARNINGS) >= EVICTION_WARNING_LIMIT:
+        return {"disposition": "unjudged", "reason": "ledger-full"}
+    _EVICTION_WARNINGS[identity] = None
+    return {"disposition": "open", "reason": "warning"}
+
+
+def close_eviction_warning(identity: object) -> dict[str, str]:
+    """恢复必须对着一条还开着的告警。没有告警就恢复,不算已经好了。"""
+    if not isinstance(identity, str) or not identity:
+        return {"disposition": "unjudged", "reason": "identity-absent"}
+    if identity not in _EVICTION_WARNINGS:
+        return {"disposition": "unjudged", "reason": "recovery-without-warning"}
+    del _EVICTION_WARNINGS[identity]
+    return {"disposition": "recovered", "reason": "paired"}
 
 
 def _note_admission_conversation(conversation_id: str) -> None:
@@ -673,11 +683,33 @@ def _note_admission_conversation(conversation_id: str) -> None:
     global admission_conversation_evictions
     if conversation_id in ADMISSION_SEEN:
         return
+    if conversation_id in _EVICTION_WARNINGS:
+        close_eviction_warning(conversation_id)
     while len(ADMISSION_SEEN) >= ADMISSION_CONVERSATIONS_LIMIT:
         oldest = next(iter(ADMISSION_SEEN))
         ADMISSION_SEEN.pop(oldest, None)
         admission_conversation_evictions += 1
+        open_eviction_warning(oldest)
     ADMISSION_SEEN[conversation_id] = {}
+
+
+def measured_queue_ahead(waiting: object, queued_turn_id: object) -> int | None:
+    """本条在本仓等待队列里排第几。0 表示下一位。
+
+    对照程序有一条容量队列更新通道,载荷整包转发,字段表不在解开的生产者里。
+    这里只报我们自己队列量到的下标。队列不是列表、标识对不上、或同一标识出现两次,
+    都返回 None,调用方不得补 0。
+    """
+    if not isinstance(waiting, list) or not isinstance(queued_turn_id, str) or not queued_turn_id:
+        return None
+    found: int | None = None
+    for index, entry in enumerate(waiting):
+        if not isinstance(entry, dict) or entry.get("queuedTurnId") != queued_turn_id:
+            continue
+        if found is not None:
+            return None
+        found = index
+    return found
 
 
 def release_admission(conversation_id: str | None, input_id: str) -> None:
@@ -1008,6 +1040,18 @@ def sse_frame_schema_fault(event: str, payload: object) -> list[str]:
         input_id = payload.get("inputId")
         if not isinstance(input_id, str) or not input_id:
             issues.append(f"admission.inputId: 必须是非空字符串,实得 {input_id!r}")
+        if "ahead" in payload:
+            ahead = payload.get("ahead")
+            ahead_ok = (
+                payload.get("disposition") == "queued"
+                and isinstance(ahead, int)
+                and not isinstance(ahead, bool)
+                and ahead >= 0
+            )
+            if not ahead_ok:
+                issues.append(
+                    f"admission.ahead: 只在 queued 且为非负整数时成立,实得 {ahead!r}"
+                )
 
     if event == "form_response":
         action = payload.get("action")

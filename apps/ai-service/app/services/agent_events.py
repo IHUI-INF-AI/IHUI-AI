@@ -70,10 +70,6 @@ SSE_TOOL_CALL_START = "tool-call-start"  # 工具调用开始 {"toolName", "args
 SSE_TOOL_RESULT = "tool-result"          # 工具结果 {"toolCallId", "result", ...}
 SSE_TOOL_DELEGATE = "tool-delegate"      # 前端工具委托(session_id + 工具参数)
 SSE_TOOL_SUMMARY = "tool-summary"        # 工具汇总(_build_tool_summary 产物)
-# 2026-11-05 立:工具调用 arguments 逐分片直推(生产点 llm_gateway.astream,
-# 载荷 index/id/name/args/argsComplete/argsPartial;契约见 sse_contract.py)。
-# 与 tool-delta 不同:后者是工具执行期的 diff 正文增量,本帧是工具**入参**的构建过程。
-SSE_TOOL_CALL_ARGS_DELTA = "tool-call-args-delta"
 SSE_TERMINAL_START = "terminal_start"    # 终端命令开始(前端 TerminalSection)
 SSE_TERMINAL_END = "terminal_end"        # 终端命令结束(exitCode/duration)
 SSE_TERMINAL_DELTA = "terminal_delta"    # 终端命令逐行增量(实时 stdout/stderr)

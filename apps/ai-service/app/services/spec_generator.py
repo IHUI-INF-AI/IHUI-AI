@@ -40,7 +40,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from ..core.background_tasks import spawn
-from ..utils.atomic_io import write_text_atomic
 from .codebase_indexer import (
     _EXT_TO_LANG,
     _IGNORED_DIRS,
@@ -991,9 +990,7 @@ class SpecGenerator:
 
         for file_path, language in files:
             try:
-                content = await asyncio.to_thread(
-                    file_path.read_text, encoding="utf-8", errors="replace"
-                )
+                content = file_path.read_text(encoding="utf-8", errors="replace")
                 if len(content) > MAX_FILE_CHARS:
                     content = content[:MAX_FILE_CHARS]
                 if not content.strip():
@@ -1993,7 +1990,7 @@ class SpecGenerator:
             root = Path(workspace_path).resolve()
             scope_hash = self._compute_scope_hash(scope)
             target = root / ".ihui-agent" / "specs" / f"{scope_hash}.md"
-            await asyncio.to_thread(write_text_atomic, target, new_content)
+            target.write_text(new_content, encoding="utf-8")
         except Exception as e:
             logger.warning("增强 spec 持久化失败: %s", e)
 

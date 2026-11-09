@@ -41,7 +41,6 @@ import os
 import random
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
-from pathlib import Path
 from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
@@ -63,7 +62,6 @@ from app.services import (
     checkin_workbuddy_local,
     workbuddy_tasks,
 )
-from app.services.checkin_batch_marker import CheckinBatchMarker
 from app.services.checkin_engine import client_for, status_check
 from app.services.checkin_outbound import (
     OutboundPaused,
@@ -1065,12 +1063,6 @@ class CheckinScheduler:
         批互斥(2026-11-04):同一时刻只允许一批 —— 启动补偿与正常 cron 批在
         窗口补位边界可能并发,两批会对着同一批尚未落记录的号各打一次。撞上
         互斥直接跳过并告警(不排队,排队只会把错峰窗口拖长)。
-
-        批次执行标记(2026-11-04):进入本批时写 deploy/run/checkin-batch.json
-        (pid/批次名/时间戳 + 20s 心跳),结束在 finally 删。部署环据此推迟
-        「重启 ai-service」(上限 15 分钟),避免像 08:06:59 那样把批次从中间
-        切断。marker 只在本函数内维护,与签到业务逻辑零耦合:写失败只 WARN、
-        绝不阻断批次(判据与过期语义见 app/services/checkin_batch_marker.py)。
         """
         if self._batch_running:
             logger.warning(
@@ -1085,12 +1077,6 @@ class CheckinScheduler:
                 "abort_reason": "batch_busy",
             }
         self._batch_running = True
-        # 只在调度器真启用时落 marker:代码缺省 false(单测/裸跑),避免测试在
-        # 工作树里留 untracked 状态文件;cron 关闭时调度器不会起批,不会漏判。
-        marker: CheckinBatchMarker | None = None
-        if _cron_enabled():
-            marker = CheckinBatchMarker(label)
-            await marker.start()
         now = datetime.now(UTC)
         claimed = 0
         skipped = 0
@@ -1167,8 +1153,6 @@ class CheckinScheduler:
                 "abort_reason": abort_reason,
             }
         finally:
-            if marker is not None:
-                await marker.stop()
             self._batch_running = False
 
     async def _probe_platform(
@@ -1264,9 +1248,8 @@ class CheckinScheduler:
         if not os.path.exists(path):
             return
         try:
-            data = json.loads(
-                await asyncio.to_thread(Path(path).read_text, encoding="utf-8")
-            )
+            with open(path, encoding="utf-8") as f:
+                data = json.load(f)
         except (OSError, ValueError):
             return
         records = data.get("records") or {}
@@ -1297,10 +1280,8 @@ class CheckinScheduler:
                     else exp
                 )
                 try:
-                    payload = json.dumps(data, ensure_ascii=False, indent=2)
-                    await asyncio.to_thread(
-                        Path(path).write_text, payload, encoding="utf-8"
-                    )
+                    with open(path, "w", encoding="utf-8") as f:
+                        json.dump(data, f, ensure_ascii=False, indent=2)
                     logger.info(
                         "[checkin_scheduler] MiniMax 令牌已服务端续期并写回 auth.json(exp=%s)",
                         exp,

@@ -17,7 +17,7 @@
 
 约定:
 - `source` 不在 `SOURCES` 内 → 抛 `ValueError`(路由映射为 400)
-- `parsed` 只含 `conversations` 一个键;单条会话形如
+- `parsed` 默认只含 `conversations` 一个键;运行时分维导出额外带 `runtime`。单条会话形如
   `{title?, source, model?, sourceCreatedAt?, sourceUpdatedAt?,
   messages:[{role,content,createdAt?}]}`
   —— 与 api 侧 commitSchema、web 预览消费的字段一一对应
@@ -34,6 +34,7 @@ from typing import Any
 
 from . import aider, chatgpt, claude_ai, claude_code, codex, cursor, wechat
 from .ir import ParseResult, finalize
+from .runtime_bundle import classify_runtime_bundle
 
 __all__ = ["SOURCES", "parse_conversation_file"]
 
@@ -63,5 +64,13 @@ def parse_conversation_file(
         raise ValueError(f"不支持的数据源: {source}(允许: {', '.join(SOURCES)})")
     if not data or data.isspace():
         raise ValueError("上传的文件内容为空")
+    bundle = classify_runtime_bundle(data)
+    if bundle is not None:
+        parsed, warnings, truncated = finalize(
+            ParseResult(conversations=bundle.conversations, warnings=list(bundle.warnings)),
+            source=source,
+        )
+        parsed["runtime"] = bundle.as_runtime()
+        return parsed, warnings, truncated or bundle.truncated
     return finalize(parser(data, filename), source=source)
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -17,6 +17,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 import sys
 from pathlib import Path
@@ -146,6 +147,33 @@ async def test_semantic_off_marks_skipped_explicitly(
     assert got["semantic_leg"]["result"] == "skipped"
     assert got["lazy_index"]["result"] == "skipped"
     assert out["mode"] == "single-source:keyword"
+
+
+async def test_unreadable_directory_is_not_an_empty_search(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """子目录列不出来、关键词又不在可读文件里时,不能报成 empty。"""
+    root = tmp_path / "repo"
+    root.mkdir()
+    (root / "keep.py").write_text("other = 1\n", encoding="utf-8")
+    blocked = root / "blocked"
+    blocked.mkdir()
+    hidden = blocked / "hidden.py"
+    hidden.write_text("needle_token = 1\n", encoding="utf-8")
+    real_scandir = os.scandir
+
+    def deny(path: str) -> object:
+        if Path(path).name == "blocked":
+            raise PermissionError(13, "denied", str(path))
+        return real_scandir(path)
+
+    monkeypatch.setattr(os, "scandir", deny)
+    out = await _tool_search_codebase(
+        {"query": "needle_token", "path": str(root), "use_semantic": False}
+    )
+    assert out["mode"] != "empty"
+    assert any("不能把检索说成完整" in str(item.get("detail")) for item in out["reasons"])
+    assert hidden.read_text(encoding="utf-8") == "needle_token = 1\n"
 
 
 # ③ 没走到的段 = unjudged,不许从册里消失

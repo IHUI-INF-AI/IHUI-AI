@@ -67,7 +67,6 @@
     "ripgrep": "file_search",
     "run_command": "command",
     "run_skill": "skill",
-    "sandbox_session": "command",
     "search_codebase": "file_search",
     "search_web": "web_search",
     "setup_environment": "env_init",
@@ -94,7 +93,6 @@
     "exec",
     "execute_command",
     "run_command",
-    "sandbox_session",
     "shell",
     "terminal"
   ],

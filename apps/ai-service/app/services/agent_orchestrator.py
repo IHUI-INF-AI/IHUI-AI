@@ -1389,12 +1389,14 @@ class AgentOrchestrator:
         progress_callback: Callable[[dict[str, Any]], None] | None = None,
         tool_allow: list[str] | None = None,
         tool_deny: list[str] | None = None,
+        model_override: str | None = None,
     ) -> dict[str, Any]:
         """并行派发多个 subagent,每个 task 独立执行,互不污染上下文。
 
         Args:
             tasks: [{"name": "agent-name", "task": "任务描述", "context": {...可选}}, ...]
             max_concurrency: 最大并发数(默认 5,防止资源耗尽)。
+            model_override: 主对话选定的模型;不传则每个 persona 走 agent.model/auto。
             progress_callback: 可选进度回调,每个 task 的进度事件都会调用(含 task_index 用于区分)。
 
         Returns:
@@ -1456,6 +1458,7 @@ class AgentOrchestrator:
                         progress_callback=task_cb,
                         tool_allow=tool_allow,
                         tool_deny=tool_deny,
+                        model_override=model_override,
                     )
                     return {
                         "name": name,
@@ -1815,6 +1818,72 @@ class AgentOrchestrator:
             "total_duration_ms": r.total_duration_ms,
             "trace": r.trace,
         }
+
+
+def admit_utility_role(
+    catalog: object,
+    name: object,
+    requested_tools: object = None,
+) -> dict[str, object]:
+    """效用代理只按登记名放行,工具表必须为空。
+
+    认不出的名字不会改派给通用代理。目录里同名两份是未判定,不取后写的那份。
+    调用方附加工具,或目录本身给了工具,都拒绝。
+    """
+    empty: dict[str, object] = {
+        "disposition": "unjudged",
+        "reason": "catalog-invalid",
+        "instruction_id": "",
+        "tools": (),
+    }
+    if not isinstance(catalog, list):
+        return empty
+    seen: dict[str, dict[str, object]] = {}
+    for item in catalog:
+        if not isinstance(item, dict):
+            return empty
+        role = item.get("name")
+        instruction = item.get("instruction_id")
+        tools = item.get("tools", [])
+        if not isinstance(role, str) or not role.strip():
+            return empty
+        if not isinstance(instruction, str):
+            return {**empty, "reason": "instruction-absent"}
+        if not isinstance(tools, list) or any(not isinstance(tool, str) for tool in tools):
+            return empty
+        if role in seen:
+            return {**empty, "reason": "catalog-duplicate"}
+        seen[role] = {"instruction_id": instruction.strip(), "tools": list(tools)}
+    if not isinstance(name, str) or not name.strip():
+        return {**empty, "reason": "name-absent"}
+    if requested_tools is None:
+        requested: list[str] = []
+    elif isinstance(requested_tools, list) and all(isinstance(tool, str) for tool in requested_tools):
+        requested = requested_tools
+    else:
+        return {**empty, "reason": "tools-invalid"}
+    entry = seen.get(name.strip())
+    if entry is None:
+        return {**empty, "reason": "role-unrecognized"}
+    instruction_id = entry["instruction_id"]
+    catalog_tools = entry["tools"]
+    if not isinstance(instruction_id, str) or not instruction_id:
+        return {**empty, "reason": "instruction-absent"}
+    if not isinstance(catalog_tools, list):
+        return empty
+    if catalog_tools or requested:
+        return {
+            "disposition": "refused",
+            "reason": "tools-forbidden",
+            "instruction_id": "",
+            "tools": (),
+        }
+    return {
+        "disposition": "admitted",
+        "reason": "named",
+        "instruction_id": instruction_id,
+        "tools": (),
+    }
 
 
 agent_orchestrator = AgentOrchestrator()

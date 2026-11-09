@@ -111,6 +111,24 @@ class TestLoadProjectInstructions:
         _mk_tree(tmp_path, {".git/HEAD": "", "AGENTS.md": "ROOT"})
         assert load_project_instructions(tmp_path, max_bytes=0).content == ""
 
+    def test_unreadable_doc_is_not_missing(self, tmp_path, monkeypatch):
+        """文件在但读失败时,不能把它说成没有项目文档。"""
+        _mk_tree(tmp_path, {".git/HEAD": "", "AGENTS.md": "ROOT"})
+        target = tmp_path / "AGENTS.md"
+        real_read = Path.read_bytes
+
+        def deny(self: Path) -> bytes:
+            if self.resolve() == target.resolve():
+                raise PermissionError(13, "denied", str(self))
+            return real_read(self)
+
+        monkeypatch.setattr(Path, "read_bytes", deny)
+        loaded = load_project_instructions(tmp_path)
+        assert loaded.content == ""
+        assert loaded.files == []
+        assert loaded.unread_files == [str(target.resolve())]
+        assert target.read_text(encoding="utf-8") == "ROOT"
+
     def test_missing_docs_empty(self, tmp_path):
         _mk_tree(tmp_path, {".git/HEAD": ""})
         loaded = load_project_instructions(tmp_path)

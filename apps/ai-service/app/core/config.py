@@ -107,8 +107,6 @@ class Settings(BaseSettings):
     api_service_url: str = "http://localhost:8802"
     # AI 回调共享密钥(可选,与后端 AI_CALLBACK_SECRET 一致;为空则不发送 X-Internal-Secret 头)
     ai_callback_secret: str = ""
-    # X-Internal-Secret 族鉴权档位(2026-11-06):ticket 默认只认短期票;dual/legacy 仅显式兼容
-    internal_secret_auth_mode: str = "ticket"
 
     # 凭据加密密钥(与 apps/api 的 CREDENTIALS_ENCRYPTION_KEY 共享,
     # 用于解密 ai_model_config.api_key_enc)

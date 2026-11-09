@@ -21,7 +21,10 @@ from app.core.schema_check import (
     _SCHEMA_DIR,
     _SQL_TABLE_RE,
     _SQLITE_DRIVER_RE,
+    admit_boundary_message,
+    audit_install_manifest,
     diff_columns,
+    diff_form_manifest,
     parse_ts_table_fields,
     scan_ai_service_sql_tables,
 )
@@ -518,5 +521,57 @@ class TestBorrowedConnectionOwnership:
             encoding="utf-8",
         )
         assert _find_borrowed_connection_offenders(tmp_path, self.SQLITE_OWNED_TABLES) == {}
+
+
+def test_form_manifest_drift_is_not_filled_with_defaults():
+    """形态清单缺键是漂移,形状坏了是未判定,都不补默认键。"""
+    base = {"endpoint": "local", "auth": "session"}
+    assert diff_form_manifest(base, {"endpoint": "local", "auth": "token"})["disposition"] == "match"
+    drifted = diff_form_manifest(base, {"endpoint": "local", "telemetry": "off"})
+    assert drifted["disposition"] == "drift"
+    assert drifted["missing"] == ("auth",)
+    assert drifted["extra"] == ("telemetry",)
+    unknown = diff_form_manifest(base, ["endpoint"])
+    assert unknown["disposition"] == "unjudged"
+    assert unknown["missing"] == ()
+
+
+def test_boundary_response_without_an_answer_is_unjudged():
+    """跨进程响应不能既带结果又带错误,也不能什么都没有却算答完。"""
+    allowed = ["wb:http:get", "wb:http:post"]
+    got = admit_boundary_message(
+        {"type": "wb:invoke:request", "requestId": "r1", "channel": "wb:http:get", "args": ["https://example.test"]},
+        allowed,
+    )
+    assert got == {"disposition": "admitted", "reason": "request"}
+    denied = admit_boundary_message(
+        {"type": "wb:invoke:request", "requestId": "r1", "channel": "wb:http:put", "args": []},
+        allowed,
+    )
+    assert denied["reason"] == "channel-denied"
+    both = admit_boundary_message(
+        {"type": "wb:invoke:response", "requestId": "r1", "result": 1, "error": {"message": "x"}},
+        allowed,
+    )
+    assert both["reason"] == "both-set"
+    empty = admit_boundary_message({"type": "wb:invoke:response", "requestId": "r1"}, allowed)
+    assert empty["reason"] == "answer-absent"
+    event = admit_boundary_message({"type": "wb:event", "event": "network.changed"}, allowed)
+    assert event["reason"] == "event"
+
+
+def test_install_manifest_count_mismatch_is_not_complete():
+    manifest = {"fileCount": 2, "files": ["app.exe", "resources/app.asar"]}
+    assert audit_install_manifest(manifest, ["app.exe", "resources/app.asar"])["disposition"] == "complete"
+    short = audit_install_manifest({"fileCount": 2, "files": ["app.exe"]}, ["app.exe"])
+    assert short["reason"] == "count-mismatch"
+    assert short["missing"] == ()
+    unmeasured = audit_install_manifest(manifest, None)
+    assert unmeasured["reason"] == "presence-unmeasured"
+    missing = audit_install_manifest(manifest, ["app.exe"])
+    assert missing["disposition"] == "incomplete"
+    assert missing["missing"] == ("resources/app.asar",)
+    escaped = audit_install_manifest({"fileCount": 1, "files": ["../secret.txt"]}, [])
+    assert escaped["reason"] == "path-invalid"
 
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -33,6 +33,15 @@ async def test_path_outside_workspace_is_refused_not_emptied(monkeypatch):
     assert "text" not in out
 
 
+async def test_unreadable_directory_is_not_refused_as_a_file(monkeypatch, tmp_path):
+    monkeypatch.setattr(m, "_validate_path_in_workspace", lambda _p: (True, str(tmp_path)))
+    monkeypatch.setattr(m, "_classify_path", lambda _p: ("unread", None))
+    out = await m._tool_render_repo_tree({"path": str(tmp_path)})
+    assert out["ok"] is False
+    assert out["errorCode"] == "UNREADABLE"
+    assert "text" not in out
+
+
 async def test_non_directory_is_refused(monkeypatch):
     monkeypatch.setattr(m, "_validate_path_in_workspace", lambda _p: (True, "G:/IHUI-AI/README.md"))
     out = await m._tool_render_repo_tree({"path": "README.md"})

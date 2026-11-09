@@ -358,11 +358,51 @@ class TestCapabilityHonesty:
             "resources/unsubscribe",
             "logging/setLevel",
             "subscriptions/listen",
-            "resources/templates/list",
         ):
             r = _send(method, {"uri": MEMORY_URI}, msg_id=7, headers=_headers([cg.ALL_SCOPES]))
             assert r.status_code == 404, method
             assert r.json()["error"]["code"] == mcp_official.ERR_METHOD_NOT_FOUND
+
+    def test_resource_templates_follow_caller_scope(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """模板列表与读取共用 scope;变量按字面量拒绝,百分号编码不会被解成路径。"""
+        seen: dict[str, object] = {}
+
+        async def fake_get(
+            session_id: str, limit: int = 100, *, user_id: str | None = None
+        ) -> list[dict[str, str]]:
+            seen["session_id"] = session_id
+            seen["user_id"] = user_id
+            seen["limit"] = limit
+            return [{"role": "user", "content": "hi"}]
+
+        monkeypatch.setattr("app.services.memory.memory_store.get", fake_get)
+        listed = _send("resources/templates/list", {}, headers=_headers([MEMORY_SCOPE]))
+        assert listed.status_code == 200
+        templates = listed.json()["result"]["resourceTemplates"]
+        assert [item["uriTemplate"] for item in templates] == ["memory://sessions/{sessionId}"]
+        read = _send(
+            "resources/read",
+            {"uri": "memory://sessions/sess-1"},
+            headers=_headers([MEMORY_SCOPE]),
+        )
+        assert read.status_code == 200
+        payload = json.loads(read.json()["result"]["contents"][0]["text"])
+        assert payload["sessionId"] == "sess-1"
+        assert payload["messages"] == [{"role": "user", "content": "hi"}]
+        assert seen == {"session_id": "sess-1", "user_id": "user-42", "limit": 10}
+        rejected = _send(
+            "resources/read",
+            {"uri": "memory://sessions/%2e%2e"},
+            headers=_headers([MEMORY_SCOPE]),
+        )
+        assert rejected.status_code == 400
+        assert seen["session_id"] == "sess-1"
+        hidden = _send(
+            "resources/read",
+            {"uri": "skills://items/demo"},
+            headers=_headers([MEMORY_SCOPE]),
+        )
+        assert hidden.status_code == 403
 
     def test_initialized_notification_is_accepted(self) -> None:
         assert _send("notifications/initialized", msg_id=None).status_code == 200

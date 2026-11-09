@@ -28,6 +28,7 @@ from app.services.artifacts_store import (
     delete_artifacts,
     load_artifacts,
     reset_for_testing,
+    project_artifact_index,
     save_artifacts,
 )
 
@@ -588,6 +589,33 @@ class TestArtifactsStoreDegradation:
         got = await s.get("c1", r["artifact_id"])
         assert got["ok"] is True
         assert got["artifact"]["title"] == "p"
+
+    def test_artifact_index_keeps_uri_not_body(self):
+        """索引不带正文；清单没量到不能说成没有产物。"""
+        projected = project_artifact_index(
+            {
+                "version": 1,
+                "last_updated": "2026-11-06T05:00:00+00:00",
+                "artifacts": [{"id": "a1", "uri": "out/a.txt", "content": "secret-body"}],
+            }
+        )
+        assert projected["disposition"] == "projected"
+        assert projected["rows"] == [{"id": "a1", "uri": "out/a.txt"}]
+        assert "content" not in projected["rows"][0]
+        missing = project_artifact_index(
+            {"version": 1, "last_updated": "2026-11-06T05:00:00+00:00", "artifacts": None}
+        )
+        assert missing["reason"] == "artifacts-unmeasured"
+        assert missing["rows"] is None
+        bad = project_artifact_index(
+            {
+                "version": 1,
+                "last_updated": "2026-11-06T05:00:00+00:00",
+                "artifacts": [{"id": "a1", "uri": "../secret.txt"}],
+            }
+        )
+        assert bad["disposition"] == "refused"
+        assert bad["rows"] is None
 
     def test_singleton_importable(self):
         """模块级单例 artifacts_store 可用且为 ArtifactsStore 实例。"""

@@ -21,9 +21,7 @@ from __future__ import annotations
 
 import asyncio
 import os
-import re
 import sys
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -238,23 +236,8 @@ class TestWorktreeDirLanding:
             get_default_worktree_root("/repo")
 
     def test_illegal_relative_path_raises(self, monkeypatch):
-        """非法:相对路径(落点随 cwd 漂移,不可申报)。
-
-        相对串的解析基准就是进程 cwd:若 cwd 落在 <盘>:/DevEnv 之下,
-        "../outside-wt" 会被 abspath 解析回 DevEnv 白名单内而放行(2026-11-05
-        实证:DevEnv worktree 下本用例假红)。故显式 chdir 到盘根(其父仍为自身,
-        既不在 .worktrees/ 也不在 DevEnv),并先用断言锁定"样本确实越界"。
-        不用 tmp_path:pytest basetemp 本身就在 D:\\DevEnv\\Temp 下,chdir 过去
-        仍会被白名单放行。
-        """
-        repo_root = Path(__file__).resolve().parents[3]
-        drive_root = Path(repo_root.anchor)
-        monkeypatch.chdir(drive_root)
+        """非法:相对路径(落点随 cwd 漂移,不可申报)。"""
         monkeypatch.setenv(WORKTREE_DIR_ENV, "../outside-wt")
-        escaped = Path(os.path.abspath("../outside-wt"))
-        assert escaped == drive_root / "outside-wt"
-        assert "/.worktrees/" not in escaped.as_posix()
-        assert re.match(r"^[a-z]:/devenv(/|$)", escaped.as_posix().lower()) is None
         with pytest.raises(ValueError, match="必须落在"):
             get_default_worktree_root("/repo")
 

@@ -28,7 +28,7 @@ from starlette.responses import JSONResponse
 from starlette.routing import Route
 
 from app.core.config import settings
-from app.core.jwt_auth import JWTAuthMiddleware, get_current_user_id
+from app.core.jwt_auth import JWTAuthMiddleware, admit_collab_attempt, get_current_user_id
 
 JWT_SECRET = "test-jwt-secret-for-testing-only"
 JWT_ISSUER = "ihui-ai"
@@ -197,4 +197,19 @@ class TestGetCurrentUserId:
         with pytest.raises(HTTPException) as exc:
             await get_current_user_id(request)
         assert exc.value.status_code == 401
+
+
+def test_collab_denial_cannot_switch_identity():
+    admitted = admit_collab_attempt("RuntimeAgent", None, None, 1, 0, 0)
+    assert admitted == {"disposition": "admitted", "reason": "host-identity"}
+    inferred = admit_collab_attempt("User", "RuntimeOwner", None, 1, 0, 0)
+    assert inferred["reason"] == "identity-inferred"
+    switched = admit_collab_attempt("RuntimeOwner", None, "User", 1, 0, 0)
+    assert switched["reason"] == "identity-switch"
+    stands = admit_collab_attempt("User", None, "User", 1, 0, 0)
+    assert stands["reason"] == "denial-stands"
+    unknown = admit_collab_attempt("guest", None, None, 1, 0, 0)
+    assert unknown["reason"] == "identity-unrecognized"
+    over = admit_collab_attempt("User", None, None, 101, 0, 0)
+    assert over["reason"] == "batch-over"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

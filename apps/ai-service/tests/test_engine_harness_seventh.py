@@ -13,6 +13,8 @@
 """
 
 import asyncio
+import os
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -398,6 +400,35 @@ async def test_remote_compact_validates_params():
         {"threadId": tid, "strategy": "llm_summary", "summary": "   "},
     )
     assert err2["code"] == -32602
+
+
+def test_unreadable_workspace_scan_is_not_a_deletion(tmp_path, monkeypatch):
+    """子目录列不出来时快照是未判定,不能拿来和上一轮做删除差集。"""
+    root = tmp_path / "ws"
+    root.mkdir()
+    (root / "keep.py").write_text("x = 1\n", encoding="utf-8")
+    blocked = root / "blocked"
+    blocked.mkdir()
+    hidden = blocked / "hidden.py"
+    hidden.write_text("secret = 1\n", encoding="utf-8")
+    first = AgentEngine._scan_workspace(root)
+    assert first is not None
+    assert "keep.py" in first
+    assert "blocked/hidden.py" in first
+    real_scandir = os.scandir
+
+    def deny(path):
+        if Path(path).name == "blocked":
+            raise PermissionError(13, "denied", str(path))
+        return real_scandir(path)
+
+    monkeypatch.setattr(os, "scandir", deny)
+    second = AgentEngine._scan_workspace(root)
+    assert second is None
+    assert hidden.read_text(encoding="utf-8") == "secret = 1\n"
+    removed = sorted(set(first) - set(second or {}))
+    assert "blocked/hidden.py" in removed
+    assert second is None
 
 
 # =============================================================================

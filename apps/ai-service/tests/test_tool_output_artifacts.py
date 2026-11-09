@@ -142,6 +142,24 @@ def test_d2_missing_file_is_unreadable(tmp_artifact_dir: Path) -> None:
     assert page["error"] == "artifact_unreadable"
 
 
+def test_d2b_unreadable_meta_is_not_unknown(tmp_artifact_dir: Path) -> None:
+    """元数据路径是目录时,不能说成没有这份工件,也不能把目录换成新文件。"""
+    artifact = toa.maybe_spill_tool_output(
+        "abc", tool_name="read_file", keep_chars=0, force=True
+    )
+    assert artifact is not None
+    meta = tmp_artifact_dir / f"{artifact['artifactId']}.json"
+    meta.unlink()
+    meta.mkdir()
+    marker = meta / "keep.txt"
+    marker.write_text("keep", encoding="utf-8")
+    page = toa.read_tool_output_page(artifact["artifactId"])
+    assert page["ok"] is False
+    assert page["error"] == "artifact_unreadable"
+    assert meta.is_dir()
+    assert marker.read_text(encoding="utf-8") == "keep"
+
+
 def test_d3_spill_failure_returns_none(
     tmp_artifact_dir: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

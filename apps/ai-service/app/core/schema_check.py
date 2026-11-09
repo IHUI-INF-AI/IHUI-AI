@@ -618,6 +618,125 @@ def diff_columns(
     return missing, extra, mismatched
 
 
+def diff_form_manifest(canonical: object, variant: object) -> dict[str, object]:
+    """两份产品形态清单的顶层键是否同一套。
+
+    观察:对照程序用五份 JSON 换部署形态,键集合外置,不把缺键补成默认值。
+    任一侧不是对象、或键不是字符串,都是未判定,缺键清单留空,避免把「没读懂」写成「没有差异」。
+    """
+    empty: dict[str, object] = {
+        "disposition": "unjudged",
+        "reason": "shape-invalid",
+        "missing": (),
+        "extra": (),
+    }
+    if not isinstance(canonical, dict) or not isinstance(variant, dict):
+        return empty
+    if any(not isinstance(key, str) for key in canonical) or any(not isinstance(key, str) for key in variant):
+        return {**empty, "reason": "key-invalid"}
+    missing = tuple(sorted(set(canonical) - set(variant)))
+    extra = tuple(sorted(set(variant) - set(canonical)))
+    if missing or extra:
+        return {"disposition": "drift", "reason": "key-set", "missing": missing, "extra": extra}
+    return {"disposition": "match", "reason": "key-set", "missing": (), "extra": ()}
+
+
+def admit_boundary_message(message: object, allowed_channels: object) -> dict[str, str]:
+    """渲染层跨进程信封。请求、响应、事件三态分开。
+
+    请求的通道必须在允许表里,否则拒绝,不代发。
+    响应同时带结果和错误是未判定。两者都没有也是未判定,不当成已经答完。
+    """
+    blank = {"disposition": "unjudged", "reason": "shape-invalid"}
+    if not isinstance(message, dict):
+        return blank
+    kind = message.get("type")
+    if kind == "wb:invoke:request":
+        request_id = message.get("requestId")
+        channel = message.get("channel")
+        args = message.get("args")
+        if not isinstance(request_id, str) or not request_id.strip():
+            return blank
+        if not isinstance(channel, str) or not channel.strip():
+            return blank
+        if not isinstance(args, list):
+            return blank
+        if not isinstance(allowed_channels, (list, tuple, set, frozenset)):
+            return {"disposition": "unjudged", "reason": "allowlist-invalid"}
+        if any(not isinstance(item, str) or not item.strip() for item in allowed_channels):
+            return {"disposition": "unjudged", "reason": "allowlist-invalid"}
+        if channel not in set(allowed_channels):
+            return {"disposition": "refused", "reason": "channel-denied"}
+        return {"disposition": "admitted", "reason": "request"}
+    if kind == "wb:invoke:response":
+        request_id = message.get("requestId")
+        if not isinstance(request_id, str) or not request_id.strip():
+            return blank
+        has_result = "result" in message
+        has_error = "error" in message
+        if has_result and has_error:
+            return {"disposition": "unjudged", "reason": "both-set"}
+        if not has_result and not has_error:
+            return {"disposition": "unjudged", "reason": "answer-absent"}
+        if has_error:
+            error = message.get("error")
+            if not isinstance(error, dict) or not isinstance(error.get("message"), str) or not error["message"]:
+                return blank
+            code = error.get("code", None)
+            if "code" in error and not isinstance(code, (str, int)):
+                return blank
+        return {"disposition": "admitted", "reason": "response"}
+    if kind == "wb:event":
+        event = message.get("event")
+        if not isinstance(event, str) or not event.strip():
+            return blank
+        return {"disposition": "admitted", "reason": "event"}
+    return {"disposition": "unjudged", "reason": "type-unrecognized"}
+
+
+def _install_path_ok(path: str) -> bool:
+    if not path or path.strip() != path or "\x00" in path or "\\" in path:
+        return False
+    if path.startswith("/") or (len(path) >= 2 and path[1] == ":"):
+        return False
+    return all(part and part != ".." for part in path.split("/"))
+
+
+def audit_install_manifest(manifest: object, present: object) -> dict[str, object]:
+    """安装清单只核对它点名的相对路径。
+
+    fileCount 必须等于 files 的条数,对不上是未判定,不按被截断的列表报齐全。
+    没量到文件在不在,不把清单写成全缺。越出根目录的路径不拿去对盘。
+    """
+    empty: dict[str, object] = {"disposition": "unjudged", "reason": "shape-invalid", "missing": ()}
+    if not isinstance(manifest, dict):
+        return empty
+    files = manifest.get("files")
+    count = manifest.get("fileCount")
+    if not isinstance(files, list) or isinstance(count, bool) or not isinstance(count, int):
+        return empty
+    if count != len(files):
+        return {"disposition": "unjudged", "reason": "count-mismatch", "missing": ()}
+    names: list[str] = []
+    seen: set[str] = set()
+    for item in files:
+        if not isinstance(item, str) or not _install_path_ok(item):
+            return {"disposition": "unjudged", "reason": "path-invalid", "missing": ()}
+        if item in seen:
+            return {"disposition": "unjudged", "reason": "path-duplicate", "missing": ()}
+        seen.add(item)
+        names.append(item)
+    if present is None:
+        return {"disposition": "unjudged", "reason": "presence-unmeasured", "missing": ()}
+    if not isinstance(present, (list, tuple, set, frozenset)) or any(not isinstance(item, str) for item in present):
+        return empty
+    have = set(present)
+    missing = tuple(name for name in names if name not in have)
+    if missing:
+        return {"disposition": "incomplete", "reason": "listed-absent", "missing": missing}
+    return {"disposition": "complete", "reason": "listed-present", "missing": ()}
+
+
 async def check_schema(
     pool: asyncpg.Pool | None = None,
 ) -> dict[str, Any]:

@@ -24,6 +24,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
 import uuid
 from datetime import UTC, datetime
 from typing import Any, cast
@@ -233,6 +234,62 @@ def payload_sha256_of(artifact: dict[str, Any]) -> str:
         separators=(",", ":"),
     )
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+_ARTIFACT_URI_REL = re.compile(r"^(?!/)(?!.*(?:^|/)\.\.(?:/|$))[A-Za-z0-9_./-]+$")
+
+
+def _artifact_instant_ok(value: object) -> bool:
+    if not isinstance(value, str) or value.strip() == "":
+        return False
+    try:
+        datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    return True
+
+
+def _artifact_uri_ok(value: object) -> bool:
+    if not isinstance(value, str) or value == "" or any(ch.isspace() for ch in value):
+        return False
+    if value.startswith("https://"):
+        return True
+    if value.startswith("http://") or "\\" in value or value.startswith("/"):
+        return False
+    return _ARTIFACT_URI_REL.fullmatch(value) is not None
+
+
+def project_artifact_index(index: object) -> dict[str, Any]:
+    """产物索引只留编号和地址，不带正文。
+
+    更新时刻或清单没量到就不投影成空列表。任一产物没有合法地址，整份索引不投影。
+    """
+
+    def blank(reason: str, disposition: str = "unjudged") -> dict[str, Any]:
+        return {"disposition": disposition, "reason": reason, "rows": None}
+
+    if not isinstance(index, dict):
+        return blank("index-unmeasured")
+    if index.get("version") != 1:
+        return blank("version-unrecognized")
+    if not _artifact_instant_ok(index.get("last_updated")):
+        return blank("clock-unmeasured")
+    artifacts = index.get("artifacts")
+    if artifacts is None:
+        return blank("artifacts-unmeasured")
+    if not isinstance(artifacts, list):
+        return blank("artifacts-unmeasured")
+    rows: list[dict[str, str]] = []
+    for item in artifacts:
+        if not isinstance(item, dict):
+            return blank("row-unreadable")
+        artifact_id = item.get("id")
+        if not isinstance(artifact_id, str) or artifact_id.strip() == "":
+            return blank("row-unreadable")
+        if not _artifact_uri_ok(item.get("uri")):
+            return blank("uri-invalid", "refused")
+        rows.append({"id": artifact_id, "uri": item["uri"]})
+    return {"disposition": "projected", "reason": "projected", "rows": rows}
 
 
 class ArtifactsStore:

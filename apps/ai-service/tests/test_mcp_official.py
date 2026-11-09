@@ -57,6 +57,7 @@ class TestDispatch:
     def test_resources_prompts_are_handlers(self):
         """resources/list 与 prompts/list 已是真实现(非降级)。"""
         assert _dispatch_method("resources/list")[0] == "handler"
+        assert _dispatch_method("resources/templates/list")[0] == "handler"
         assert _dispatch_method("prompts/list")[0] == "handler"
 
 

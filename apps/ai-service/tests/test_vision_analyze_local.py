@@ -63,6 +63,17 @@ async def test_image_path_jpeg_mime(tmp_path):
     assert img_url.startswith("data:image/jpeg;base64,")
 
 
+async def test_image_path_unreadable_is_not_missing(tmp_path):
+    img = tmp_path / "keep.png"
+    img.write_bytes(b"\x89PNG\r\n\x1a\n")
+    with patch("app.services.mcp_server._validate_path_in_workspace", return_value=(True, str(img))), \
+         patch("app.services.mcp_server._classify_path", return_value=("unread", None)):
+        out = await _tool_vision_analyze({"image_path": str(img), "task": "describe"})
+    assert out["ok"] is False
+    assert out["errorCode"] == "UNREADABLE"
+    assert img.read_bytes() == b"\x89PNG\r\n\x1a\n"
+
+
 async def test_image_path_file_not_found(tmp_path):
     """image_path 文件不存在 → FILE_NOT_FOUND。"""
     missing = tmp_path / "nope.png"

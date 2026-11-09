@@ -588,8 +588,8 @@ def scope_denied_for_channel(
 ) -> bool:
     """机器凭据通道(API key)对 `dataClass=platform` / `thirdPartyEligible=false` 的 scope 一律拒。
 
-    这是**唯一**一份该判定:`check_tool_access`(tools/call)、`enforce_scope`(resources/read)、
-    `visible_export_resources`(resources/list)三处共用。分两处写必然漂移,而漂移的表现是
+    这是**唯一**一份该判定:tools/call、resources/read、resources/list 与资源模板列表都调用它。
+    分两处写必然漂移,而漂移的表现是
     "列表里广告着一个一读就 403 的资源" —— 本文件对 `RESOURCE_SCOPES` 的承诺是"视图与裁决同源"
     (见该表头注),只判读侧就是自己打破自己写的不变量。
 

@@ -62,7 +62,7 @@ def test_正向_出站头同带主体绑定的一次性短期票(with_secrets: N
     assert claims["sub"] == OWNER
     assert claims["type"] == INTERNAL_TICKET_TYPE
     assert claims["aud"] == INTERNAL_TICKET_AUDIENCE
-    assert claims["scope"] == "relay-user-pool"
+    assert claims["scope"] == "ai-callback"
     assert claims["exp"] > claims["iat"]
 
 

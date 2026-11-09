@@ -592,6 +592,79 @@ def _reset_caches_for_tests() -> None:
     _policy_state_cache = None
 
 
+class CollectionSlot:
+    """一次采集。调度在调用方,这里没有定时器。
+
+    观察:对照采集器的完成回调是 (error, sample),两者恰有一个;
+    cancel 之后回调两者都空,那是正在退出,不是失败,也不是采到了样本。
+    已经在采时再 begin 会被拒绝,不把上一次换成新的。
+    没取消却两者都空,或两者都有,是未判定。
+    """
+
+    def __init__(self) -> None:
+        self._inflight = False
+        self._cancelled = False
+
+    def begin(self) -> dict[str, str]:
+        if self._inflight:
+            return {"disposition": "refused", "reason": "already-in-flight"}
+        self._inflight = True
+        self._cancelled = False
+        return {"disposition": "started", "reason": "idle"}
+
+    def cancel(self) -> dict[str, str]:
+        if not self._inflight:
+            return {"disposition": "idle", "reason": "nothing-in-flight"}
+        self._cancelled = True
+        return {"disposition": "cancel-requested", "reason": "in-flight"}
+
+    def finish(self, error: object, sample: object) -> dict[str, str]:
+        if not self._inflight:
+            return {"disposition": "unjudged", "reason": "not-in-flight"}
+        self._inflight = False
+        if self._cancelled:
+            self._cancelled = False
+            return {"disposition": "quit", "reason": "cancelled"}
+        has_error = error is not None
+        has_sample = sample is not None
+        if has_error and has_sample:
+            return {"disposition": "unjudged", "reason": "both-set"}
+        if has_error:
+            return {"disposition": "failed", "reason": "error"}
+        if has_sample:
+            return {"disposition": "sampled", "reason": "sample"}
+        return {"disposition": "unjudged", "reason": "neither-set"}
+
+
+def optional_binding_status(
+    platform_supported: object,
+    loaded: object,
+    load_error: object,
+) -> dict[str, str]:
+    """可选原生模块的加载结果。导入时不抛。
+
+    平台不支持时没有加载错误。支持但没载入、又没有错误原文,是未判定。
+    已经载入却还带着错误,或平台不支持却标成已载入,也是未判定。
+    """
+    blank = {"disposition": "unjudged", "reason": "status-contradictory", "detail": ""}
+    if not isinstance(platform_supported, bool) or not isinstance(loaded, bool):
+        return blank
+    if load_error is not None and not isinstance(load_error, str):
+        return blank
+    detail = "" if load_error is None else load_error.strip()
+    if not platform_supported:
+        if loaded or detail:
+            return blank
+        return {"disposition": "unavailable", "reason": "unsupported-platform", "detail": ""}
+    if loaded:
+        if detail:
+            return blank
+        return {"disposition": "ready", "reason": "loaded", "detail": ""}
+    if not detail:
+        return {"disposition": "unjudged", "reason": "error-absent", "detail": ""}
+    return {"disposition": "unavailable", "reason": "load-failed", "detail": detail}
+
+
 # 镜像测试唯一入口(§22c:禁止在测试里复制判据常量,一律 import 源模块 __test__)。
 __test__ = {
     "classify_acl": classify_acl,
@@ -609,5 +682,7 @@ __test__ = {
     "decisions": SANDBOX_DECISIONS,
     "projection": POLICY_PROJECTION,
     "schema_version": POLICY_SCHEMA_VERSION,
+    "CollectionSlot": CollectionSlot,
+    "optional_binding_status": optional_binding_status,
 }
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

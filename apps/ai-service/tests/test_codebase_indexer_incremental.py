@@ -113,6 +113,41 @@ class TestIncrementalIndex:
         assert "a.py" not in deleted_args
 
     @pytest.mark.asyncio
+    async def test_unreadable_directory_is_not_a_deleted_file(self, tmp_path, monkeypatch):
+        """子目录列不出来时,里面的文件不能被当成已删除去清切片。"""
+        import os
+        from pathlib import Path
+
+        monkeypatch.setenv("IHUI_DISABLE_RIPGREP_ENUMERATION", "1")
+        (tmp_path / "keep.py").write_text("def keep():\n    return 1\n", encoding="utf-8")
+        blocked = tmp_path / "blocked"
+        blocked.mkdir()
+        hidden = blocked / "hidden.py"
+        hidden.write_text("def hidden():\n    return 1\n", encoding="utf-8")
+        idx = _make_indexer()
+        with patch.object(idx, "_generate_embeddings_batch", new=AsyncMock(return_value=2)):
+            with patch.object(idx, "_write_to_api", new=AsyncMock(return_value={})):
+                first = await idx.index_repository(str(tmp_path), "repo-unread")
+        assert first.files_indexed == 2
+        real_scandir = os.scandir
+
+        def deny(path: str) -> object:
+            if Path(path).name == "blocked":
+                raise PermissionError(13, "denied", str(path))
+            return real_scandir(path)
+
+        monkeypatch.setattr(os, "scandir", deny)
+        delete_mock = AsyncMock(return_value=1)
+        with patch.object(idx, "_delete_files_from_api", new=delete_mock):
+            with patch.object(idx, "_generate_embeddings_batch", new=AsyncMock(return_value=0)):
+                with patch.object(idx, "_write_to_api", new=AsyncMock(return_value={})):
+                    second = await idx.index_repository(str(tmp_path), "repo-unread")
+        assert second.files_deleted == 0
+        delete_mock.assert_not_called()
+        assert any("不能把没列到的文件当成已删除" in err for err in second.errors)
+        assert hidden.read_text(encoding="utf-8") == "def hidden():\n    return 1\n"
+
+    @pytest.mark.asyncio
     async def test_incremental_false_forces_full(self, tmp_path):
         (tmp_path / "main.py").write_text("def foo():\n    return 1\n")
         idx = _make_indexer()

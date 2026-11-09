@@ -592,4 +592,32 @@ async def test_apply_patch_wiring_unchanged_when_metering_off(monkeypatch, tmp_p
     assert result.get("protected") == ".git"
     assert "受保护路径不可被补丁修改" in result["error"]
     assert not (tmp_path / ".git" / "config").exists()
+
+
+def test_cancelled_collection_is_a_quit_not_a_failure():
+    """取消后的空回调是正在退出。两者都有或都没有,且没取消,是未判定。"""
+    slot = SM["CollectionSlot"]()
+    assert slot.begin()["disposition"] == "started"
+    assert slot.begin()["reason"] == "already-in-flight"
+    assert slot.cancel()["disposition"] == "cancel-requested"
+    assert slot.finish(None, {"cpu": 1})["disposition"] == "quit"
+    idle = SM["CollectionSlot"]()
+    assert idle.cancel()["reason"] == "nothing-in-flight"
+    assert idle.begin()["disposition"] == "started"
+    assert idle.finish(None, None)["reason"] == "neither-set"
+    assert idle.begin()["disposition"] == "started"
+    assert idle.finish("boom", {"cpu": 1})["reason"] == "both-set"
+
+
+def test_optional_binding_load_failure_is_not_an_import_crash():
+    """导入期不抛。没载入又没错误原文是未判定,不写成平台不支持。"""
+    status = SM["optional_binding_status"]
+    assert status(True, True, None)["reason"] == "loaded"
+    failed = status(True, False, "missing module")
+    assert failed["disposition"] == "unavailable"
+    assert failed["detail"] == "missing module"
+    assert status(False, False, None)["reason"] == "unsupported-platform"
+    assert status(True, False, None)["reason"] == "error-absent"
+    assert status(True, True, "stale")["reason"] == "status-contradictory"
+    assert status(False, True, None)["reason"] == "status-contradictory"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

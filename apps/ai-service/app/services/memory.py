@@ -11,6 +11,7 @@ P1-6 修复(2026-08-06):key 增加 user_id 前缀 —— 原 key=`memory:{sessio
 配置 redis_url 后优先使用 Redis 持久化,连接失败或未安装 redis 包时降级为内存。
 """
 
+import asyncio
 import json
 import logging
 import time
@@ -35,19 +36,42 @@ class MemoryStore:
         self._store: dict[str, list[dict[str, Any]]] = {}
         self._redis: Any = None
         self._use_redis = bool(settings.redis_url) and aioredis is not None
+        self._init_lock = asyncio.Lock()
 
     async def _get_redis(self) -> Any:
-        """获取 Redis 客户端,连接失败时降级为内存模式。"""
-        if self._redis is None and self._use_redis:
+        """获取 Redis 客户端,连接失败时降级为内存模式。
+
+        2026-11-07 修复:并发子代理同时首次触发初始化时,原实现先把未 ping
+        通过的 client 赋给 self._redis,其他协程跳过探测直接 rpush → 连接
+        超时变成子代理失败(实测 researcher 成功、coder/reviewer 报
+        redis TimeoutError)。初始化改为持锁双检,只有 ping 通过的 client
+        才对外可见。
+        """
+        if not self._use_redis:
+            return None
+        if self._redis is not None:
+            return self._redis
+        async with self._init_lock:
+            if not self._use_redis:
+                return None
+            if self._redis is not None:
+                return self._redis
+            client = None
             try:
                 # protocol=2 强制 RESP2:redis-py 8.x 默认 RESP3(HELLO 3 协商),
                 # 老 Redis/Memurai 4.x 不支持会 unknown command HELLO(同 im_bridge)
-                self._redis = aioredis.from_url(settings.redis_url, decode_responses=True, protocol=2, socket_connect_timeout=2)
-                await self._redis.ping()
+                client = aioredis.from_url(settings.redis_url, decode_responses=True, protocol=2, socket_connect_timeout=2)
+                await client.ping()
+                self._redis = client
             except Exception as e:
                 logger.warning("memory._get_redis 失败: %s", e, exc_info=True)
                 self._use_redis = False
                 self._redis = None
+                if client is not None:
+                    try:
+                        await client.aclose()
+                    except Exception:
+                        pass
         return self._redis
 
     @staticmethod

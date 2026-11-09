@@ -82,6 +82,27 @@ async def test_receiver_detects_create_modify_delete(tmp_path):
     assert await rx.recv() is None  # 关闭后 recv 返回 None
 
 
+def test_unreadable_directory_is_not_reported_deleted(tmp_path, monkeypatch):
+    """列目录失败不能把已有文件报成删除。"""
+    watched = tmp_path / "proj"
+    watched.mkdir()
+    kept = watched / "keep.txt"
+    kept.write_text("keep", encoding="utf-8")
+    resolved = watched.resolve()
+    rx = Receiver([watched], poll_interval=0.01)
+    assert rx.poll() is None
+    real_iterdir = Path.iterdir
+
+    def deny(self):
+        if Path(self).resolve() == resolved:
+            raise PermissionError(13, "denied", str(self))
+        return real_iterdir(self)
+
+    monkeypatch.setattr(Path, "iterdir", deny)
+    assert rx.poll() is None
+    assert kept.read_text(encoding="utf-8") == "keep"
+
+
 @pytest.mark.asyncio
 async def test_throttled_receiver_enforces_min_interval(tmp_path):
     """限流:首个事件后,间隔未到前的产出被推迟。"""

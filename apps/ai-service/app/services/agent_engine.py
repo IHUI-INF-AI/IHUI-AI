@@ -3552,11 +3552,7 @@ class AgentEngine:
             path = Path(base_dir) / INSTALLATION_ID_FILENAME
             if not path.is_file():
                 return
-            raw = (
-                await asyncio.to_thread(
-                    path.read_text, encoding="utf-8", errors="replace"
-                )
-            ).strip()
+            raw = path.read_text(encoding="utf-8", errors="replace").strip()
             try:
                 inst_id = str(uuid.UUID(raw))
             except (ValueError, AttributeError):
@@ -4542,9 +4538,7 @@ class AgentEngine:
         if isinstance(path, str) and path.strip():
             target = Path(path.strip())
             target.parent.mkdir(parents=True, exist_ok=True)
-            await asyncio.to_thread(
-                target.write_text, "\n".join(lines) + "\n", encoding="utf-8"
-            )
+            target.write_text("\n".join(lines) + "\n", encoding="utf-8")
             written = str(target)
             # 批58:导出后对同目录冷导出做 gzip 归档(仅 on 时)
             if _engine_rollout_archive_enabled_from_env():
@@ -5142,6 +5136,22 @@ class AgentEngine:
             or auto_compact_threshold <= 0
         ):
             raise JsonRpcError(INVALID_PARAMS, "autoCompactThreshold 须为正整数")
+        from app.core.token_budget_config import (
+            apply_pre_message_compact_pct,
+            pre_message_compact_pct_of,
+        )
+
+        pre_message_table = None
+        if "preMessageCompactPct" in settings:
+            preview = apply_pre_message_compact_pct(
+                thread.usage_thresholds, settings.get("preMessageCompactPct")
+            )
+            if not preview["ok"]:
+                raise JsonRpcError(
+                    INVALID_PARAMS,
+                    "preMessageCompactPct 必须是低于已有告警线的 0 到 1 比例",
+                )
+            pre_message_table = preview["table"]
         permission_mode_raw = settings.get("permissionMode")
         permission_mode = (
             None if permission_mode_raw is None else _require_permission_mode(permission_mode_raw)
@@ -5178,6 +5188,9 @@ class AgentEngine:
         if auto_compact_threshold is not None:
             thread.auto_compact_threshold = auto_compact_threshold
             applied.append("autoCompactThreshold")
+        if pre_message_table is not None:
+            thread.usage_thresholds = pre_message_table
+            applied.append("preMessageCompactPct")
         if permission_mode is not None:
             thread.permission_mode = permission_mode
             applied.append("permissionMode")
@@ -5210,6 +5223,7 @@ class AgentEngine:
                 "tokenBudget": thread.token_budget,
                 "autoCompact": thread.auto_compact,
                 "autoCompactThreshold": thread.auto_compact_threshold,
+                "preMessageCompactPct": pre_message_compact_pct_of(thread.usage_thresholds),
                 "permissionMode": thread.permission_mode,
                 "modelParams": thread.model_params,
                 "additionalDirectories": list(thread.additional_directories),
@@ -6244,8 +6258,7 @@ class AgentEngine:
             if size > _MAX_VIEW_IMAGE_BYTES:
                 return {"error": f"图片超过大小上限({_MAX_VIEW_IMAGE_BYTES} 字节)"}
             try:
-                raw = await asyncio.to_thread(target.read_bytes)
-                data = base64.b64encode(raw).decode("ascii")
+                data = base64.b64encode(target.read_bytes()).decode("ascii")
             except OSError as e:
                 return {"error": f"图片读取失败: {e}"}
             raw_data_url = f"data:{mime};base64,{data}"
@@ -6559,9 +6572,7 @@ class AgentEngine:
                         target.parent.mkdir(parents=True, exist_ok=True)
                         style = file_style.get(rel)
                         if style is None:
-                            await asyncio.to_thread(
-                                target.write_text, target_content, encoding="utf-8"
-                            )
+                            target.write_text(target_content, encoding="utf-8")
                         else:
                             _write_text_preserving(
                                 target, target_content, style[0], style[1]

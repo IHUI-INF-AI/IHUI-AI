@@ -574,6 +574,17 @@ class TestAudioTranscriptionTool:
         assert out["ok"] is False
         assert out["errorCode"] == "BAD_PARAMS"
 
+    async def test_local_file_unreadable_is_not_missing(self, tmp_path, monkeypatch):
+        wav = tmp_path / "keep.wav"
+        wav.write_bytes(b"RIFF-keep")
+        monkeypatch.setattr(
+            mcp_server, "_classify_path", lambda _path: ("unread", None)
+        )
+        out = await mcp_server._tool_audio_transcription({"audio": str(wav)})
+        assert out["ok"] is False
+        assert out["errorCode"] == "UNREADABLE"
+        assert wav.read_bytes() == b"RIFF-keep"
+
     async def test_local_file_not_found(self, tmp_path):
         out = await mcp_server._tool_audio_transcription(
             {"audio": str(tmp_path / "nope.wav")},
@@ -687,6 +698,20 @@ class TestImageEditTool:
         assert out["ok"] is False
         assert out["errorCode"] == "PROVIDER_NOT_CONFIGURED"
         assert "TOKEN6688_API_KEY" in out["error"]
+
+    async def test_unreadable_local_image_is_not_invalid_source(self, tmp_path, monkeypatch):
+        img = tmp_path / "keep.png"
+        img.write_bytes(b"keep")
+        source = str(img)
+        if len(source) <= 40:
+            source = source + ("\\" + ("k" * 40))
+        monkeypatch.setattr(
+            mcp_server, "_validate_path_in_workspace", lambda _path: (True, str(img))
+        )
+        monkeypatch.setattr(mcp_server, "_classify_path", lambda _path: ("unread", None))
+        raw, err = await mcp_server._resolve_image_source_bytes(source)
+        assert raw is None and err == "FILE_READ_FAILED"
+        assert img.read_bytes() == b"keep"
 
     async def test_invalid_source_rejected(self, monkeypatch):
         """无法解析的图片来源 → 明确错误码,不触网。"""

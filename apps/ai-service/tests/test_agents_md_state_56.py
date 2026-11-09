@@ -150,6 +150,15 @@ def test_maybe_deletion_returns_removal() -> None:
     assert " for " not in text.split("<INSTRUCTIONS>")[0]
 
 
+def test_unreadable_keeps_previous_instead_of_removal() -> None:
+    """读失败不是删除:快照不动,也不发「指令不再适用」。"""
+    state = AgentsMdState()
+    state.maybe_fragment("/repo", "rules")
+    assert state.maybe_fragment("/repo", None, unreadable=True) is None
+    again = state.maybe_fragment("/repo", "rules")
+    assert again is None
+
+
 def test_maybe_first_empty_returns_none() -> None:
     state = AgentsMdState()
     assert state.maybe_fragment(None, None) is None

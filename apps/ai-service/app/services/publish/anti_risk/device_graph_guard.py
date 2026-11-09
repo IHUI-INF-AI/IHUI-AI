@@ -274,15 +274,12 @@ class DeviceGraphGuard:
                 return  # 退避窗口内:本次调用不打 IO
             try:
                 if _GRAPH_FILE.exists():
-                    raw = json.loads(
-                        await asyncio.to_thread(_GRAPH_FILE.read_text, encoding="utf-8")
-                    )
+                    raw = json.loads(_GRAPH_FILE.read_text(encoding="utf-8"))
                     # 迁移在**原始结构**上做、只回写改动的字段值:见 `_migrate_raw` 的理由。
                     migrated = _migrate_raw(raw if isinstance(raw, dict) else {})
                     if migrated:
                         try:
-                            await asyncio.to_thread(
-                                _GRAPH_FILE.write_text,
+                            _GRAPH_FILE.write_text(
                                 json.dumps(raw, ensure_ascii=False, indent=2),
                                 encoding="utf-8",
                             )
@@ -318,8 +315,7 @@ class DeviceGraphGuard:
                 "bindings": [b.to_dict() for b in self._bindings.values()],
                 "updated_at": time.time(),
             }
-            await asyncio.to_thread(
-                _GRAPH_FILE.write_text,
+            _GRAPH_FILE.write_text(
                 json.dumps(data, ensure_ascii=False, indent=2),
                 encoding="utf-8",
             )

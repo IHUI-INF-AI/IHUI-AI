@@ -54,7 +54,7 @@ def _parse_sse_events(raw: str) -> list[dict[str, Any]]:
 async def _fake_gateway(monkeypatch):
     from app.routers import llm as llm_router
 
-    async def fake_astream(messages, model=None, owner_uuid=None, **kwargs):
+    async def fake_astream(messages, model=None, owner_uuid=None):
         yield {"type": "chunk", "content": "好的"}
         yield {"type": "done", "model": "test-model", "usage": {}, "stub": True}
 
@@ -123,6 +123,27 @@ class TestAdmissionContractRegistration:
         assert sse_frame_schema_fault("admission", {"inputId": "", "disposition": "accepted"})
         assert sse_frame_schema_fault("admission", {"inputId": "i1", "disposition": "bogus"})
         assert sse_frame_schema_fault("admission", {"inputId": "i1"})  # disposition 缺席也判坏
+        assert (
+            sse_frame_schema_fault(
+                "admission",
+                {"inputId": "i1", "disposition": "queued", "ahead": 0},
+            )
+            == []
+        )
+        assert sse_frame_schema_fault(
+            "admission", {"inputId": "i1", "disposition": "accepted", "ahead": 0}
+        )
+        assert sse_frame_schema_fault(
+            "admission", {"inputId": "i1", "disposition": "queued", "ahead": True}
+        )
+
+    def test_queue_ahead_is_measured_or_absent(self):
+        from app.core.sse_contract import measured_queue_ahead
+
+        waiting = [{"queuedTurnId": "a"}, {"queuedTurnId": "b"}]
+        assert measured_queue_ahead(waiting, "b") == 1
+        assert measured_queue_ahead(waiting, "missing") is None
+        assert measured_queue_ahead([{"queuedTurnId": "a"}, {"queuedTurnId": "a"}], "a") is None
 
 
 class TestAdmissionFrameOnTheWire:

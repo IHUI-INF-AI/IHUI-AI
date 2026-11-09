@@ -380,4 +380,57 @@ def verify_access_token(token: str) -> dict[str, Any] | None:
     except jwt.InvalidTokenError as e:
         logger.debug("JWT invalid: %s", e)
         return None
+
+
+_COLLAB_IDENTITIES = frozenset({"User", "RuntimeOwner", "RuntimeAgent"})
+_COLLAB_BATCH_LIMIT = 100
+_COLLAB_ATTACHMENT_LIMIT = 10
+_COLLAB_ATTACHMENT_BYTES = 50 * 1024 * 1024
+
+
+def admit_collab_attempt(
+    host_identity: object,
+    resource_identity: object,
+    prior_denial_identity: object,
+    item_count: object,
+    attachment_count: object,
+    largest_attachment_bytes: object,
+) -> dict[str, str]:
+    """协作动作的身份只认宿主给的那一档。
+
+    资源上自报的身份不能改写宿主。上一次已经被拒绝之后,换一个身份再试也拒绝。
+    批次超过 100,或附件超过 10 个 / 单件超过 50MB,同样拒绝。
+    """
+    blank = {"disposition": "unjudged", "reason": "identity-unrecognized"}
+    if not isinstance(host_identity, str) or host_identity not in _COLLAB_IDENTITIES:
+        return blank
+    if resource_identity is not None and resource_identity != host_identity:
+        return {"disposition": "unjudged", "reason": "identity-inferred"}
+    if prior_denial_identity is not None:
+        if prior_denial_identity not in _COLLAB_IDENTITIES:
+            return {"disposition": "unjudged", "reason": "denial-unreadable"}
+        if prior_denial_identity != host_identity:
+            return {"disposition": "refused", "reason": "identity-switch"}
+        return {"disposition": "refused", "reason": "denial-stands"}
+    if (
+        isinstance(item_count, bool)
+        or isinstance(attachment_count, bool)
+        or isinstance(largest_attachment_bytes, bool)
+        or not isinstance(item_count, int)
+        or not isinstance(attachment_count, int)
+        or not isinstance(largest_attachment_bytes, int)
+        or item_count < 0
+        or attachment_count < 0
+        or largest_attachment_bytes < 0
+    ):
+        return {"disposition": "unjudged", "reason": "count-invalid"}
+    if attachment_count == 0 and largest_attachment_bytes != 0:
+        return {"disposition": "unjudged", "reason": "attachment-contradictory"}
+    if item_count > _COLLAB_BATCH_LIMIT:
+        return {"disposition": "refused", "reason": "batch-over"}
+    if attachment_count > _COLLAB_ATTACHMENT_LIMIT:
+        return {"disposition": "refused", "reason": "attachment-count"}
+    if largest_attachment_bytes > _COLLAB_ATTACHMENT_BYTES:
+        return {"disposition": "refused", "reason": "attachment-size"}
+    return {"disposition": "admitted", "reason": "host-identity"}
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

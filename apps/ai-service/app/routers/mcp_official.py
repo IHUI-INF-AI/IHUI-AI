@@ -21,6 +21,7 @@ O9「MCP server 协议完整化」(2026-09-21)把"能连上"推进到"协议语�
    ``/api/mcp/export/*``(SSE / streamable 长连接)由 ``mcp_export`` 承担。
 3. **resources 完整化**:实现 ``resources/read``(按 ``RESOURCE_SCOPES`` 逐资源要 scope,
    走 ``enforce_scope``);``resources/list`` 视图与裁决同源(读不到的资源不列);
+   ``resources/templates/list`` 只列出调用者读得到的模板,模板变量非法时 -32602。
    未在 MCP 面登记的 URI(含引擎内部实现用的 ``sampling://handler``)一律 -32602 拒绝。
 4. **batching**:接受 JSON-RPC 数组批量请求,逐元素独立派发、逐元素结果(授权/限流失败
    以该元素的 JSON-RPC error 表达,不牵连其他元素);纯通知批 → 202 空体。
@@ -41,7 +42,7 @@ O9「MCP server 协议完整化」(2026-09-21)把"能连上"推进到"协议语�
 方法与分发:
 - initialize / notifications/* / ping
 - tools/list / tools/call
-- resources/list / resources/read
+- resources/list / resources/read / resources/templates/list
 - prompts/list / prompts/get(get 同时回标准 messages 与历史 prompt 定义字段)
 - 其他 → JSON-RPC -32601 Method not found
 
@@ -80,6 +81,11 @@ from ..services.capability_gate import (
     scope_denied_for_channel,
     scope_of_resource,
     tools_revision,
+)
+from ..services.mcp_resource_templates import (
+    read_resource_template,
+    resolve_resource_template,
+    visible_resource_templates,
 )
 from ..services.mcp_server import _PROMPTS, _RESOURCES, _TOOLS, MCPResource, mcp_server
 
@@ -252,6 +258,21 @@ def _handle_resources_list(principal: Principal | None = None) -> dict[str, Any]
     }
 
 
+def _handle_resources_templates_list(principal: Principal | None = None) -> dict[str, Any]:
+    """resources/templates/list:只列出该调用者按 scope 真能读的模板。"""
+    return {
+        "resourceTemplates": [
+            {
+                "uriTemplate": item.uri_template,
+                "name": item.name,
+                "description": item.description,
+                "mimeType": item.mime_type,
+            }
+            for item in visible_resource_templates(principal)
+        ]
+    }
+
+
 class UnknownResourceError(ValueError):
     """未登记资源:按 JSON-RPC INVALID_PARAMS(-32602)回,与 export 侧 SDK 映射同码。"""
 
@@ -266,6 +287,29 @@ async def _handle_resources_read(params: dict[str, Any], *, principal: Principal
     if not isinstance(uri_raw, str) or not uri_raw.strip():
         raise ValueError("uri 不能为空")
     uri = uri_raw.strip()
+    resolved = resolve_resource_template(uri)
+    if resolved.status == "rejected":
+        raise ValueError(resolved.message)
+    if resolved.status == "match" and resolved.template is not None:
+        template = resolved.template
+        enforce_scope(principal, template.scope, resource_label=f"资源 {uri}")
+        release = enforce_rate_limit(principal, template.scope, resource_label=f"资源 {uri}")
+        try:
+            read = await read_resource_template(resolved, user_id=principal.sub)
+        finally:
+            release()
+        if not isinstance(read, dict) or read.get("ok") is False:
+            error = read.get("error") if isinstance(read, dict) else None
+            raise ValueError(str(error or f"资源 {uri} 读取失败"))
+        return {
+            "contents": [
+                {
+                    "uri": uri,
+                    "mimeType": template.mime_type,
+                    "text": json.dumps(read.get("content"), ensure_ascii=False, default=str),
+                }
+            ]
+        }
     resource = next((r for r in _RESOURCES if r.uri == uri), None)
     scope = scope_of_resource(uri)
     if resource is None or scope is None:
@@ -397,6 +441,7 @@ _HANDLED_METHODS: Final[frozenset[str]] = frozenset(
         "ping",
         "resources/list",
         "resources/read",
+        "resources/templates/list",
         "prompts/list",
         "prompts/get",
     }
@@ -443,6 +488,8 @@ async def _dispatch_message(payload: dict[str, Any], principal: Principal) -> tu
             result = _handle_tools_list(principal)
         elif method == "resources/list":
             result = _handle_resources_list(principal)
+        elif method == "resources/templates/list":
+            result = _handle_resources_templates_list(principal)
         elif method == "resources/read":
             result = await _handle_resources_read(params, principal=principal)
         elif method == "prompts/list":

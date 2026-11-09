@@ -25,6 +25,7 @@ from app.services.agent_orchestrator import (
     AgentRegistry,
     AgentStepResult,
     OrchestrationResult,
+    admit_utility_role,
     agent_orchestrator,
 )
 from app.services.memory import memory_store
@@ -490,4 +491,34 @@ class TestInvokeParallel:
         assert max_seen <= 3
         assert result["ok"] is True
         assert result["succeeded"] == 8
+
+
+def test_utility_role_unknown_name_is_not_reassigned():
+    """认不出的效用代理不改派。同名两份未判定。带工具的登记拒绝。"""
+    catalog = [
+        {"name": "compact", "instruction_id": "compact-local", "tools": []},
+        {"name": "title", "instruction_id": "title-local", "tools": []},
+    ]
+    admitted = admit_utility_role(catalog, "compact")
+    assert admitted["disposition"] == "admitted"
+    assert admitted["instruction_id"] == "compact-local"
+    assert admitted["tools"] == ()
+    unknown = admit_utility_role(catalog, "general-purpose")
+    assert unknown["reason"] == "role-unrecognized"
+    assert unknown["instruction_id"] == ""
+    duplicated = admit_utility_role(
+        [
+            {"name": "compact", "instruction_id": "first", "tools": []},
+            {"name": "compact", "instruction_id": "second", "tools": []},
+        ],
+        "compact",
+    )
+    assert duplicated["reason"] == "catalog-duplicate"
+    tooled = admit_utility_role(
+        [{"name": "compact", "instruction_id": "compact-local", "tools": ["Bash"]}],
+        "compact",
+    )
+    assert tooled["disposition"] == "refused"
+    attached = admit_utility_role(catalog, "title", ["read_file"])
+    assert attached["reason"] == "tools-forbidden"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

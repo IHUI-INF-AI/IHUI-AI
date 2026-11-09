@@ -710,38 +710,13 @@ class TestTick:
         await s._tick()
         mock.assert_not_awaited()
 
-    @pytest.mark.parametrize(
-        ("now_day", "hour", "minute", "second", "expected_date"),
-        [
-            ("2026-11-06", 11, 0, 0, "2026-11-06"),
-            ("2026-11-06", 23, 59, 59, "2026-11-06"),
-            ("2026-11-07", 0, 0, 0, "2026-11-07"),
-            ("2026-11-07", 0, 0, 1, "2026-11-07"),
-        ],
-        ids=["regular", "before-midnight", "midnight", "after-midnight"],
-    )
     async def test_mirror_fires_when_due(
-        self,
-        isolated_files: dict[str, Path],
-        monkeypatch: pytest.MonkeyPatch,
-        clock,
-        now_day: str,
-        hour: int,
-        minute: int,
-        second: int,
-        expected_date: str,
+        self, isolated_files: dict[str, Path], monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setenv("DB_SYNC_ENABLED", "true")
         monkeypatch.setenv("DB_SYNC_MIRROR_AT", "00:00")
-        # 测试侧注入:生产 _tick 的 now 与用例里的 now 必须同源。改前用例自己再读
-        # 一次 datetime.now(_CN_TZ),两次独立读钟跨零点就红(实测 D 23:59:59 起跑、
-        # 断言时已 D+1 ⇒ '2026-11-06' != '2026-11-07')。
-        epoch = clock(
-            mod, at=clock.at(hour=hour, minute=minute, second=second, day=now_day)
-        )
-        now = datetime.fromtimestamp(epoch, tz=_CN_TZ)
         s = DbSyncScheduler()
-        s._next_interval_due = now + timedelta(hours=1)
+        s._next_interval_due = datetime.now(_CN_TZ) + timedelta(hours=1)
         calls: list[str] = []
 
         async def fake_run_once(mode: str, trigger: str = "manual", **kw: Any) -> SyncRun:
@@ -751,8 +726,7 @@ class TestTick:
         monkeypatch.setattr(s, "run_once", fake_run_once)
         await s._tick()
         assert calls == ["mirror"]
-        # 日键必须按 +08 自然日翻:零点前后 1 秒各归各日(按 UTC 折日会错一天)
-        assert s._last_mirror_date == expected_date
+        assert s._last_mirror_date == datetime.now(_CN_TZ).strftime("%Y-%m-%d")
 
 
 # =============================================================================

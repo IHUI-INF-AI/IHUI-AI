@@ -234,4 +234,33 @@ def test_directory_register_missing_env_skips_resolution(tmp_path, monkeypatch):
     assert cfg["_missing_env"] == ["DATABASE_URL"]
     assert cfg["command"] == "npx", "未解析路径原样交还,由调用方 400 裁决"
     assert calls == [], "缺 env 早退不得触发命令解析"
+
+
+def test_runtime_guard_does_not_invent_a_missing_hook():
+    env, verdict = exec_env.apply_child_runtime_guard(
+        {}, "bash", {"bash": "/no/such.sh"}, lambda _path: False
+    )
+    assert verdict == {"disposition": "unjudged", "reason": "hook-missing"}
+    assert "BASH_ENV" not in env
+    plain, skipped = exec_env.apply_child_runtime_guard({}, "curl", {}, lambda _path: True)
+    assert skipped["reason"] == "runtime-not-guarded"
+    assert plain == {}
+
+
+def test_runtime_guard_attaches_proven_hook_and_keeps_a_different_one():
+    env, verdict = exec_env.apply_child_runtime_guard(
+        {}, "node", {"node": "C:/hooks/guard.cjs"}, lambda _path: True
+    )
+    assert verdict["disposition"] == "attached"
+    assert env["NODE_OPTIONS"] == "--require C:/hooks/guard.cjs"
+    kept, blocked = exec_env.apply_child_runtime_guard(
+        {"BASH_ENV": "/other.sh"}, "bash", {"bash": "/ours.sh"}, lambda _path: True
+    )
+    assert blocked["reason"] == "existing-hook"
+    assert kept["BASH_ENV"] == "/other.sh"
+    shaped, bad = exec_env.apply_child_runtime_guard(
+        {}, "python.exe", {"python": "/hooks/other.py"}, lambda _path: True
+    )
+    assert bad["reason"] == "hook-shape"
+    assert "PYTHONPATH" not in shaped
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

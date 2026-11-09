@@ -181,6 +181,33 @@ async def test_file_not_found(_workspace_root):
     assert res["errorCode"] == "FILE_NOT_FOUND"
 
 
+async def test_unreadable_file_is_not_missing(_workspace_root, monkeypatch):
+    """文件在但 stat 失败时,不能说文件不存在,也不能改掉它。"""
+    p = _workspace_root / "keep.txt"
+    p.write_text("keep\n", encoding="utf-8")
+    real_file = mcp_server._classify_existing_file
+    real_path = mcp_server._classify_path
+    monkeypatch.setattr(
+        mcp_server, "_classify_existing_file", lambda _path: ("unread", None)
+    )
+    res = await _edit(p, "keep", "gone")
+    assert res["ok"] is False
+    assert res["errorCode"] == "UNREADABLE"
+    assert p.read_text(encoding="utf-8") == "keep\n"
+    real_stat = os.stat
+
+    def deny(path, *args, **kwargs):
+        if os.path.normcase(os.path.abspath(path)) == os.path.normcase(str(p)):
+            raise PermissionError(13, "denied", str(path))
+        return real_stat(path, *args, **kwargs)
+
+    monkeypatch.setattr(os, "stat", deny)
+    kind, st = real_file(str(p))
+    assert kind == "unread" and st is None
+    kind, st = real_path(str(p))
+    assert kind == "unread" and st is None
+
+
 async def test_empty_old_string(_workspace_root):
     p = _workspace_root / "i.txt"
     p.write_text("content\n", encoding="utf-8")

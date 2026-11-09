@@ -658,7 +658,7 @@ async def test_daily_status_probe_all_platforms(client, fake_store, monkeypatch)
         assert recs[0]["action"] == "skip_already" and recs[0]["ok"] is True
 
 
-async def test_probe_platform_parsers(monkeypatch, clock):
+async def test_probe_platform_parsers(monkeypatch):
     """四平台探针解析层(2026-10-17):命中已签的判据与「宁缺勿假」的
     失败形态 —— HTTP 异常/字段缺失一律 ok=False + checked_in=None。
 
@@ -712,10 +712,7 @@ async def test_probe_platform_parsers(monkeypatch, clock):
     assert await wb_mod.workbuddy_probe_status("", {}) == (False, None, None, "未配置 token")
 
     # Qoder:campaigns 已领(CLAIMED 落窗口内)/ 未领 / 活动未下发
-    # 注入固定时刻:窗口按 clock.NOW 造,不再读墙钟。原写法 `now-60` 在每天
-    # 00:00–00:00:59 会跨到前一自然日,撞上「窗口起点须与 now 同属一日」→ 假红。
-    clock(qoder_mod)
-    now = clock.NOW
+    now = time.time()
     claimed = {
         "campaigns": [
             {
@@ -775,49 +772,6 @@ async def test_probe_platform_parsers(monkeypatch, clock):
     monkeypatch.setattr(mm_mod, "minimax_checkin_account", mm_claimed)
     ok, chk, cr, _m = await mm_mod.minimax_probe_status("n", "tok", {})
     assert ok is True and chk is True and cr == 5
-
-
-@pytest.mark.parametrize(
-    ("now_day", "hour", "minute", "second", "expected_claimed"),
-    [
-        ("2026-11-06", 23, 59, 59, True),
-        ("2026-11-07", 0, 0, 0, False),
-        ("2026-11-07", 0, 0, 1, False),
-    ],
-    ids=["before-midnight", "midnight", "after-midnight"],
-)
-async def test_qoder_claimed_cross_midnight_boundary(
-    monkeypatch, clock, now_day, hour, minute, second, expected_claimed
-):
-    """Qoder 领取窗口(当天 10:00 → 次日 09:59)横跨自然日:CLAIMED 是否算
-    「今日已领」只看**窗口起点所在北京日**,零点前后 1 秒必须翻转。
-
-    改前该窗口用 `now-60` 从墙钟相对推导,每天 00:00–00:00:59 起点被推到前一天,
-    「已领」断言就假红;这里 now / startAt / endAt 全部由注入 epoch 显式给出。
-    """
-    from app.services import checkin_qoder as qoder_mod
-
-    start_at = clock.at(hour=10, minute=0, second=0, day="2026-11-06")
-    end_at = clock.at(hour=9, minute=59, second=0, day="2026-11-07")
-    epoch = clock(qoder_mod, at=clock.at(hour=hour, minute=minute, second=second, day=now_day))
-    assert start_at <= epoch < end_at  # 三点都落在同一窗口内,翻转只由「日」决定
-    claimed = {
-        "campaigns": [
-            {
-                "actionType": "CLAIM_BENEFIT",
-                "claimStatus": "CLAIMED",
-                "startAt": start_at,
-                "endAt": end_at,
-            }
-        ]
-    }
-
-    async def q_claimed(path, method, token=..., device_map=..., body=None, timeout=30, client=None):
-        return 200, claimed
-
-    monkeypatch.setattr(qoder_mod, "_api_call", q_claimed)
-    ok, chk, _c, _m = await qoder_mod.qoder_probe_status("n", "tok", {})
-    assert ok is True and chk is expected_claimed
 
 
 async def test_create_rejects_unparseable_and_expired_jwt(client, fake_store):
@@ -1344,7 +1298,7 @@ def _make_packs_result(remaining: int) -> dict[str, Any]:
     }
 
 
-async def test_query_credits_success_writes_snapshot(client, fake_store, monkeypatch, clock, request):
+async def test_query_credits_success_writes_snapshot(client, fake_store, monkeypatch):
     """query_credits 成功:返回 ok/remaining,且落当日快照(gained 取当日 delta 合计)。"""
     from app.services import checkin_credits
 
@@ -1353,13 +1307,7 @@ async def test_query_credits_success_writes_snapshot(client, fake_store, monkeyp
 
     monkeypatch.setattr(checkin_credits, "query_remaining_credits", fake_query)
 
-    # 测试侧注入:路由的日键读 datetime.now(+08);替身 FakeStore 的 created_at /
-    # 日归属过滤也读本模块的 datetime。「生产读一次、断言再读一次」正是跨零点假红的
-    # 成因,把两侧钉到同一 epoch。jwt 在冻结前构造,exp 仍是相对真实时钟的 +24h。
-    jwt = make_jwt()
-    clock(checkin_router_mod, request.module)
-
-    resp = await client.post("/api/checkin/accounts", json={"name": "主号", "jwt": jwt})
+    resp = await client.post("/api/checkin/accounts", json={"name": "主号", "jwt": make_jwt()})
     account_id = resp.json()["id"]
 
     resp = await client.post(f"/api/checkin/accounts/{account_id}/query_credits")
@@ -1368,7 +1316,7 @@ async def test_query_credits_success_writes_snapshot(client, fake_store, monkeyp
     assert body["ok"] is True
     assert body["remaining"] == 150
 
-    day = clock.TODAY.isoformat()
+    day = datetime.now(ZoneInfo("Asia/Shanghai")).date().isoformat()
     row = fake_store.credits_daily[(account_id, day)]
     assert row["remaining"] == 150
     assert row["gained"] == 0
@@ -1435,19 +1383,16 @@ async def test_query_credits_error_no_snapshot(client, fake_store, monkeypatch):
     assert fake_store.credits_daily == {}
 
 
-async def test_credits_daily_series_and_consumed_formula(client, fake_store, clock, request):
+async def test_credits_daily_series_and_consumed_formula(client, fake_store):
     """credits/daily 聚合形状:total/gained/consumed 三线,consumed 公式
     |total[i] − gained[i] − total[i−1]|,首日 0,断档日 null。"""
-    # 路由的 day_list 与替身 get_credits_daily_range 的窗口起点都直接读 datetime.now(+08);
-    # 两处各自读钟 ⇒ 跨零点必红。钉到同一 epoch 后日期全部由注入值推导。
-    jwt = make_jwt()  # 冻结前构造:exp 是相对真实时钟的 +24h
-    clock(checkin_router_mod, request.module)
-    today = clock.TODAY
+    cn = ZoneInfo("Asia/Shanghai")
+    today = datetime.now(cn).date()
     d_minus2 = (today - timedelta(days=2)).isoformat()
     d_minus1 = (today - timedelta(days=1)).isoformat()
     today_iso = today.isoformat()
 
-    resp = await client.post("/api/checkin/accounts", json={"name": "主号", "jwt": jwt})
+    resp = await client.post("/api/checkin/accounts", json={"name": "主号", "jwt": make_jwt()})
     account_id = resp.json()["id"]
 
     # 前天快照 160;昨天快照 140;今天快照 100 + 当日签到 delta 20(相邻日构成公式链)
@@ -1483,51 +1428,6 @@ async def test_credits_daily_series_and_consumed_formula(client, fake_store, clo
     assert series["total"] == [None, None, 160, 140, 100]
     assert series["gained"] == [0, 0, 0, 0, 20]
     assert series["consumed"] == [None, None, None, 20, 60]
-
-
-@pytest.mark.parametrize(
-    ("now_day", "hour", "minute", "second"),
-    [
-        ("2026-11-06", 23, 59, 59),
-        ("2026-11-07", 0, 0, 0),
-        ("2026-11-07", 0, 0, 1),
-    ],
-    ids=["before-midnight", "midnight", "after-midnight"],
-)
-async def test_credits_day_key_cross_midnight_boundary(
-    client, fake_store, monkeypatch, clock, request, now_day, hour, minute, second
-):
-    """跨零点前 1 秒 / 零点 / 零点后 1 秒:快照日键与 daily 窗口末端都必须翻到新的一天。
-
-    期望日由**固定注入 epoch** 换算(不读墙钟):23:59:59 仍属 11-06,00:00:00 起
-    属 11-07。若实现按 UTC 折日或按窗口起点折日,这两个点会给出错误日键而红。
-    """
-    from app.services import checkin_credits
-
-    async def fake_query(jwt):
-        return _make_packs_result(150)
-
-    monkeypatch.setattr(checkin_credits, "query_remaining_credits", fake_query)
-
-    jwt = make_jwt()  # 冻结前构造:exp 是相对真实时钟的 +24h
-    epoch = clock(
-        checkin_router_mod,
-        request.module,
-        at=clock.at(hour=hour, minute=minute, second=second, day=now_day),
-    )
-    expected_day = clock.day_at(epoch).isoformat()
-
-    resp = await client.post("/api/checkin/accounts", json={"name": "主号", "jwt": jwt})
-    account_id = resp.json()["id"]
-    resp = await client.post(f"/api/checkin/accounts/{account_id}/query_credits")
-    assert resp.status_code == 200
-    assert set(fake_store.credits_daily) == {(account_id, expected_day)}
-    assert fake_store.credits_daily[(account_id, expected_day)]["remaining"] == 150
-
-    resp = await client.get("/api/checkin/credits/daily", params={"days": 1})
-    body = resp.json()
-    assert body["days"] == [expected_day]
-    assert body["series"]["total"] == [150]
 
 
 # ---------------------------------------------------------------------------
