@@ -812,5 +812,101 @@ POST {webBase}/activity/growth/tasks/{code}/claim               ← 领奖(+cred
 
 > **P3 的关键陷阱(已挡住)**:`_settled_today` 只判 `ok=True` + 是今天,不看 `action`。若不早退,`task-run` 落的 `ok=True` 会让该号被判「今日已结算」而**跳过签到与启动补偿** —— 这是会造成真业务损失的反向风险,已补 3 条回归用例锁住原判据。
 
+### 13.8 全量自动驾驶闭环(2026-11-09 深夜交付:固定流程一键完成,不再依赖 AI 会话)
+
+回应「程序自己不是都开发好了这些功能吗,为什么没有固定流程直接一键完成」——此前自动化分散在
+「六族巡检(growth 族只 accept/claim)+ desktop 链专用脚本」两层,真行为项(desktop_expert /
+Sequential 族)不在服务端巡检射程内,只能靠 AI 会话逐次驱动。本轮把**全量选路**下沉为服务层单源:
+
+| 交付物 | 内容 | 验证 |
+| --- | --- | --- |
+| `app/services/workbuddy_autopilot.py`(新) | 全量选路引擎:扫任务全表 → 每条未 claimed 任务自动选路(**verified desktop_expert ⇒ desktop 链;全 verified http 链 ⇒ 通用直连执行器;其余 ⇒ 零出站只登记**)→ 回读裁决 → 领奖 → 终态表。两口径分离:runner 判据用 `parse_task_snapshot` 快照形状,计划/领奖用原始行(有 target),不混用 | **14 例单测全绿**(选路/幂等跳过/dry-run 零写侧/generic 执行+领奖/无前进不领奖/claim-only/防伪造零出站/fail-closed) |
+| `workbuddy_direct_actions.json` | `Sequential_Tasks_1..7` 全 21 步补 `verified:true` + 同构依据(与 2026-11-09 实测点亮 5 码逐字段同构:批量 accept + 真实 chat SSE requestId + expert_actual_use;`Sequential_Tasks_2` accept 实测 `task locked until 2026-11-10` 按日解锁) | `route_of` 冒烟:7 码全 `generic` |
+| `workbuddy_behaviors.py` | `BEHAVIOR_PLANS` 扩容:`Sequential_Tasks_2..7` 置 `can_automate=True`(evidence 写明同构依据与「成败只由回读 progress 判定」) | 可自动集合 **7→14 码**;`pending_manual` 只剩 6 个已证伪裸遥测/微信身份码(维持 False 是实证正确) |
+| `scripts/wb_autopilot.py` | 改薄壳(核心单源服务层);CLI `--dry-run` / `--account-id` / `--no-claim` | 实测:任务表 18 条、全 claimed 幂等秒回、dry-run 零出站 |
+| `checkin_scheduler.py` | `_workbuddy_task_sweep` 每账号六族巡检后追加 **autopilot 腿**(同 live_run 门控、异常不中断、统计并入 sweep 摘要) | import + 源码断言接线在位 |
+
+**无人值守语义**:调度器每轮 sweep 自动跑同一引擎;`accept_status=='claimed'` 秒跳过 ⇒
+全表已领时等价一次只读扫表,180 分钟轮询频率安全。明天(2026-11-10)`Sequential_Tasks_2`
+按日解锁后,**下一轮巡检自动 accept → 真实对话 → actual_use 上报 → 领奖(+200)**,
+全程零人工、零 AI 会话。
+
+**AI 自主调用配方(2026-11-09 深夜补)**——AI 会话要触发同一引擎时,**固定流程二选一,
+禁止再读代码/写临时脚本/逐任务手工编排**:
+
+```bash
+# 路 A(推荐,本地 CLI 一条命令):
+cd apps/ai-service && .venv/Scripts/python.exe scripts/wb_autopilot.py            # 真跑+领奖
+cd apps/ai-service && .venv/Scripts/python.exe scripts/wb_autopilot.py --dry-run  # 只出计划零出站
+
+# 路 B(HTTP,服务在跑时):
+POST /api/checkin/accounts/{account_id}/autopilot   body {"dry_run": false, "claim": true}
+# 认证同 checkin 路由族(require_request_user_id);返回引擎终态 summary 全量 JSON;
+# 留痕 action=task-run:autopilot(复用 task-run 早退,不构成「今日已签到」);
+# 出站风控预检与手动签到同口径(冷却/限流命中 429)。
+```
+
+端点与 CLI 共用服务层单源 `workbuddy_autopilot.run_autopilot`;新增 4 例端点测试
+(`test_checkin_task_run_record.py` 12 例全绿:留痕字段映射/早退/非 workbuddy 拒绝/摘要截断)。
+
+**MCP Server 化(2026-11-09 深夜补:任何支持 MCP 的 AI 客户端可即插即用接走)**——
+`apps/ai-service/mcp_server/wb_autopilot_mcp.py`(stdio JSON-RPC 2.0,**零第三方依赖**):
+
+| 工具 | 语义 |
+| --- | --- |
+| `wb_autopilot_run(account_id?, dry_run?, claim?)` | 全量自动驾驶一轮(写侧,与 CLI/端点/调度器同引擎单源) |
+| `wb_tasks_list(account_id?)` | 只读现读任务全表(零写侧) |
+| `wb_action_routes()` | 只读选路图(desktop / generic / 零出站登记) |
+
+- 接入(项目自主定位):MCP server 是本功能**仓库内的标准导出形态**——本项目的
+  agent/桌面端/CLI 面走 HTTP 端点或 CLI;任何外部 MCP 客户端在**其自己的** mcp.json
+  加一条 command 指向本文件即接走(模板见文件 docstring)。凭据只在本机
+  checkin_store 解密,jwt/token 永不出 MCP 返回体;写侧工具只应接入可信本机客户端。
+  **不注册到任何 AI 宿主的配置**(2026-11-09 机主裁决:这是项目功能,不是某个
+  AI 客户端的插件;此前误注册 ~/.workbuddy/mcp.json 已撤销恢复原状)。
+
+**公网远程 MCP 端点(2026-11-09 深夜:对外曝光面,任何 AI 一行 URL 接入)**——
+`app/routers/mcp_public.py` ⇒ `POST /api/mcp-public/wb-autopilot`(公网经 Cloudflared
+即 `https://ai.aizhs.top/api/mcp-public/wb-autopilot`,零认证):
+
+- **只读白名单**:仅 `wb_server_info`(项目/引擎/纪律/自托管指引)与
+  `wb_action_routes`(选路图);写侧工具远程面 -32602 不可达(安全边界,测试锁定);
+- **限流**:内存滑动窗口 30 次/分/IP(env `WB_MCP_PUBLIC_RATE` 可调,0 关);
+- 新增 `wb_server_info` 工具(stdio 全量面也有,共 4 工具);`_dispatch` 增
+  `allowed_tools` 白名单参数(传 None = stdio 全量,语义不变);
+- 目录收录:`smithery.yaml`(stdio 自托管配置模板)已入库;
+- 测试 `test_mcp_public.py` 6 例 + MCP 协议面 9 例全绿;TestClient 端到端
+  (tools/list 只回白名单 / 写侧 -32602)实证通过。
+- **曝光待办(需人工/账号,非代码)**:提交 Smithery / Glama / mcp.so / PulseMCP
+  收录(仓库须公开);README 徽章与公众号宣发材料可基于 `wb_server_info` 输出生成。
+- 协议单测 `tests/test_wb_autopilot_mcp.py` 9 例全绿(握手/工具清单/通知静默/
+  -32601/-32602/-32603/坏行 -32700 不崩/EOF 退出/真动作表选路冒烟);
+  真进程 stdio 端到端 smoke 通过(initialize + tools/list)。
+
+**公网真上线实录(2026-11-10 凌晨:生产部署 + 四面终验全通)**——
+
+- **正式对外 URL(以实测定准)**:`https://ai.aizhs.top/api/mcp-public/wb-autopilot`
+  (ai-service 专用子域;`aizhs.top`/`www.aizhs.top` 的 `/api/*` 实际由 web(8801)
+  承载,不达 ai-service——上一行 aizhs.top 写法作废)。
+- **JWT 放行**:`/api/mcp-public/wb-autopilot` 入 `jwt_auth._ALWAYS_PUBLIC`
+  (精确路径非目录前缀;代码级权威,不依赖部署 .env)。
+- **生产部署配方(实证)**:`ssh ssh.aizhs.top`(cloudflared access 隧道)→
+  `git -C D:/DevEnv/ihui-prod fetch origin main` → `git checkout FETCH_HEAD --
+  apps/ai-service/app apps/ai-service/mcp_server` → `sc stop` + `sc start
+  IHUI-AI-SERVICE`(NSSM;PAUSED 态=应用崩溃节流,查
+  `D:/DevEnv/logs/svc-ai-nssm-err.log`)。串行纪律:只动 AI-SERVICE,
+  不碰 IHUI-WEB/IHUI-API。
+- **部署教训(两坑)**:①`app/` 与 `mcp_server/` 必须同面更新(漏后者 ⇒
+  `AttributeError: PUBLIC_READ_ONLY_TOOLS` 启动即崩);②改动必须**先推 main
+  再部署**——jwt 白名单改动滞留工作树未提交,生产(=main 面)401、本地(=工作树
+  面)200,两面分叉白白耗一轮排障。
+- **终验四面全绿**:health 200 / tools/list 只回只读白名单 / 写侧 -32602 /
+  `wb_server_info` 宣传位正常。
+- **Sequential_Tasks_2 观察(2026-11-10 00:15 实测)**:解锁日远程任务表并未
+  出现该码(18 条全 claimed 且无它,非 locked/404)——上游未即时下发,非引擎
+  缺陷;调度器每轮自动扫,上游下发后下一轮自动 accept+执行+领奖(+200)。
+
+
+
 
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

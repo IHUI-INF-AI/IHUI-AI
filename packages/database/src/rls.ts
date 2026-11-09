@@ -74,7 +74,13 @@ export async function withTenant<T>(
  * (迁移 20261108170000_rls_bypass_scope_ihui_app.sql)。本函数设置的 `app.bypass_rls`
  * 只在 ihui_app 会话上生效;其它角色即使 SET 同一 GUC 也不会绕过 RLS。
  */
-const BYPASS_RLS_REASON_WHITELIST = new Set(['migration', 'seed', 'cleanup', 'test-cleanup', 'background'])
+const BYPASS_RLS_REASON_WHITELIST = new Set([
+  'migration',
+  'seed',
+  'cleanup',
+  'test-cleanup',
+  'background',
+])
 
 export async function withBypassRls<T>(
   db: Database,

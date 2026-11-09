@@ -17,6 +17,10 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { getSettingsPath } from '../src/commands/settings.js';
 import {
+  MAIN_CRED_BACKEND_ENV,
+  readMainCredentials,
+} from '../src/lib/main-credential-store.js';
+import {
   ensureFreshAccessToken,
   readRefreshFailure,
 } from '../src/commands/token-manager.js';
@@ -68,6 +72,8 @@ describe('token 续期:失败固化台账', () => {
     process.env.IHUI_API_KEY = '';
     process.env.IHUI_API_SECRET = '';
     process.env.IHUI_CREDENTIAL_KIND = '';
+    // 主凭据落安全存储:钉机器绑定档,免去每个用例一次 DPAPI 探针冷启动
+    process.env[MAIN_CRED_BACKEND_ENV] = 'encrypted-file';
   });
 
   afterEach(() => {
@@ -88,7 +94,11 @@ describe('token 续期:失败固化台账', () => {
     const ledger = freshLedger();
     await expect(ensureFreshAccessToken(API, { ledger })).resolves.toBe(fresh);
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(readSettingsFile().apiKey).toBe(fresh);
+    // 新 token 落**安全存储**,不再明文写回 settings.json
+    const stored = readMainCredentials();
+    expect(stored.state).toBe('ok');
+    expect(stored.credentials.apiKey).toBe(fresh);
+    expect(readSettingsFile()).not.toHaveProperty('apiKey');
     expect(readRefreshFailure(API, ledger)).toBeNull();
   });
 

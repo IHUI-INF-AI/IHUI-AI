@@ -34,7 +34,17 @@ logger = logging.getLogger(__name__)
 #    第三方自行批准) ③ 订阅 /api/agents/tasks/stream 收到他人会话实时工具事件。
 #  · 兜底条目(/ 与 /api)会让整条鉴权链失效,同样剔除。
 # 确需公开其中某个端点:改下面这份清单并走 code review,不得靠 .env 静默重开。
-_ALWAYS_PUBLIC: tuple[str, ...] = ("/.well-known/agent.json", "/.well-known/agent-card.json")
+# `/api/mcp-public/wb-autopilot` 于 2026-11-10 入列(机主决策"对外曝光,任何 AI 可调用"):
+# 对外远程 MCP 端点(app/routers/mcp_public.py)。与 /api/mcp(_NEVER_PUBLIC_ROOTS)不同,
+# 该 router 是**专用只读白名单面**:tools/list 只回 wb_server_info/wb_action_routes 两个
+# 只读工具(纯仓库数据,零凭据零 PII),写侧工具在远程面一律 -32602 不可达
+# (tests/test_mcp_public.py 安全边界用例锁定),并自带 30 次/分/IP 内存限流。
+# 精确路径(非目录前缀),不随 router 未来扩端点而放行。
+_ALWAYS_PUBLIC: tuple[str, ...] = (
+    "/.well-known/agent.json",
+    "/.well-known/agent-card.json",
+    "/api/mcp-public/wb-autopilot",
+)
 
 # router 根:该前缀下的任何条目(含精确到端点的写法)都不允许匿名可达
 _NEVER_PUBLIC_ROOTS: tuple[str, ...] = ("/api/mcp", "/api/agents", "/api/rules", "/api/context")

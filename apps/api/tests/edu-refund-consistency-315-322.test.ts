@@ -162,23 +162,25 @@ vi.mock('../src/db/index.js', () => {
       },
       returning: () => b,
       then: (res: (v: unknown) => unknown, rej?: (e: unknown) => unknown) =>
-        Promise.resolve().then(() => {
-          const name = tableName(table)
-          state.events.push(`insert:${name}`)
-          const row: FakeRefund = {
-            id: `r${state.refunds.length + 1}`,
-            enrollmentId: (values.enrollmentId as string) ?? 'e1',
-            paymentId: (values.paymentId as string | null) ?? null,
-            studentId: values.studentId as string,
-            classId: values.classId as string,
-            amount: Number(values.amount),
-            status: (values.status as string) ?? 'pending',
-            scheduleId: null,
-            deletedAt: null,
-          }
-          state.refunds.push(row)
-          return [row]
-        }).then(res, rej),
+        Promise.resolve()
+          .then(() => {
+            const name = tableName(table)
+            state.events.push(`insert:${name}`)
+            const row: FakeRefund = {
+              id: `r${state.refunds.length + 1}`,
+              enrollmentId: (values.enrollmentId as string) ?? 'e1',
+              paymentId: (values.paymentId as string | null) ?? null,
+              studentId: values.studentId as string,
+              classId: values.classId as string,
+              amount: Number(values.amount),
+              status: (values.status as string) ?? 'pending',
+              scheduleId: null,
+              deletedAt: null,
+            }
+            state.refunds.push(row)
+            return [row]
+          })
+          .then(res, rej),
     }
     return b
   }
@@ -192,21 +194,23 @@ vi.mock('../src/db/index.js', () => {
       },
       where: () => b,
       then: (res: (v: unknown) => unknown, rej?: (e: unknown) => unknown) =>
-        Promise.resolve().then(() => {
-          const name = tableName(table)
-          state.events.push(`update:${name}`)
-          if (name === 'edu_refund_record') {
-            for (const r of state.refunds) Object.assign(r, set)
-          }
-          if (name === 'edu_payment_record') {
-            for (const p of state.payments) if ('status' in set) p.status = set.status as string
-          }
-          if (name === 'edu_enrollment') {
-            state.enrollment.paidAmount = Number(set.paidAmount)
-            state.enrollment.nextDueDate = (set.nextDueDate as string | null) ?? null
-          }
-          return []
-        }).then(res, rej),
+        Promise.resolve()
+          .then(() => {
+            const name = tableName(table)
+            state.events.push(`update:${name}`)
+            if (name === 'edu_refund_record') {
+              for (const r of state.refunds) Object.assign(r, set)
+            }
+            if (name === 'edu_payment_record') {
+              for (const p of state.payments) if ('status' in set) p.status = set.status as string
+            }
+            if (name === 'edu_enrollment') {
+              state.enrollment.paidAmount = Number(set.paidAmount)
+              state.enrollment.nextDueDate = (set.nextDueDate as string | null) ?? null
+            }
+            return []
+          })
+          .then(res, rej),
     }
     return b
   }
@@ -245,11 +249,7 @@ vi.mock('../src/db/index.js', () => {
   return { db: fakeDb }
 })
 
-import {
-  loadPaymentIncomeSummary,
-  recordRefund,
-  settleRefund,
-} from '../src/services/edu-ledger.js'
+import { loadPaymentIncomeSummary, recordRefund, settleRefund } from '../src/services/edu-ledger.js'
 import { db } from '../src/db/index.js'
 
 const refundBase = {
@@ -412,7 +412,6 @@ describe('F-315 汇总冲减退费', () => {
       },
     )
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const summary = await loadPaymentIncomeSummary(db as any)
 
     expect(summary.totalIncome).toBe(400)

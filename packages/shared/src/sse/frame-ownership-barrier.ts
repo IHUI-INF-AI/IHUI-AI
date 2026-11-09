@@ -135,10 +135,7 @@ export function createFrameOwnershipBarrier<TFrame = unknown>(options?: {
   let bytes = 0
   // XUI-031:溢出状态与清理必须按订阅隔离。旧实现只有一个全局 overflow + 整表 clear,
   // 订阅 A 越界会把订阅 B 已暂存的帧一起清空(数据静默丢失),且 B 的 ACK 拿到空批。
-  const overflowBySub = new Map<
-    string,
-    { reason: 'frames' | 'bytes'; droppedCount: number }
-  >()
+  const overflowBySub = new Map<string, { reason: 'frames' | 'bytes'; droppedCount: number }>()
   // G-276:屏障当前代际。activate(ACK)是唯一推进出口,单向只升(reset 归零除外);
   // 携带更早代际的帧/ACK 一律按迟到处理。
   let currentGeneration = 0

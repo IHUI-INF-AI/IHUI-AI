@@ -33,9 +33,9 @@ describe('XUI-069 请求竞态:过期响应必须丢弃', () => {
     expect(DIST).toContain('const reqSeqRef = useRef(0)')
     expect(DIST).toContain('const seq = (reqSeqRef.current += 1)')
     expect(DIST).toContain('if (seq !== reqSeqRef.current) return')
-    expect(
-      DIST.indexOf('if (seq !== reqSeqRef.current) return'),
-    ).toBeLessThan(DIST.indexOf('setOrders('))
+    expect(DIST.indexOf('if (seq !== reqSeqRef.current) return')).toBeLessThan(
+      DIST.indexOf('setOrders('),
+    )
   })
 })
 

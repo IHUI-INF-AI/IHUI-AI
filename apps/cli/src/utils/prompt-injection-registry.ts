@@ -115,6 +115,24 @@ export const PROMPT_INJECTION_ENTRIES: readonly PromptInjectionEntry[] = [
     title: '强制任务规划指令段',
   },
   {
+    // 延迟工具目录只列「名字 — 一句话描述」,不含参数 schema;由 tool_search 命中后才
+    // 把完整 schema 补进常驻面。目录是宿主自己编的,不是第三方内容 ⇒ host_directive。
+    id: 'tool_catalogue_deferred',
+    kind: 'host_directive',
+    producer: 'apps/cli/src/tools/index.ts#buildSystemPrompt',
+    consumer: 'apps/cli/src/commands/agent.ts#setupAgentTools',
+    title: '延迟工具目录段',
+  },
+  {
+    // 模式片段(任务推进/结果呈现/工具纪律/交互风格)由 mode-matrix 选段、compose 拼装;
+    // 它同样是宿主指令,按 host_directive 档过 neutralizeBoundaries。
+    id: 'directive_mode_fragments',
+    kind: 'host_directive',
+    producer: 'apps/cli/src/prompts/compose.ts#composeSystemPrompt',
+    consumer: 'apps/cli/src/commands/agent.ts#setupAgentTools',
+    title: '模式行为片段段',
+  },
+  {
     id: 'subagent_persona',
     kind: 'host_directive',
     producer: 'apps/cli/src/tools/subagent.ts#createSubagentTool',

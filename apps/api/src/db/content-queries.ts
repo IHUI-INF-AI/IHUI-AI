@@ -30,8 +30,8 @@ export function isAnnouncementVisible(
 ): boolean {
   return (
     a.isPublished === true &&
-    (a.publishedAt == null || a.publishedAt.getTime() <= now.getTime()) &&
-    (a.expiresAt == null || a.expiresAt.getTime() > now.getTime())
+    (a.publishedAt === null || a.publishedAt.getTime() <= now.getTime()) &&
+    (a.expiresAt === null || a.expiresAt.getTime() > now.getTime())
   )
 }
 

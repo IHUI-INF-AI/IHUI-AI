@@ -51,13 +51,9 @@ vi.mock('../src/db/index.js', async () => {
     if (eqPairs.length === 0 && inGroups.length === 0) {
       throw new Error(`fake-db: 无法解析 where ${rendered.sql}`)
     }
-    const eqOk = eqPairs.every(
-      ([, col, idx]) => row[camel(col!)] === params[Number(idx) - 1],
-    )
+    const eqOk = eqPairs.every(([, col, idx]) => row[camel(col!)] === params[Number(idx) - 1])
     const inOk = inGroups.every(([, col, group]) => {
-      const values = [...(group ?? '').matchAll(/\$(\d+)/g)].map(
-        (m) => params[Number(m[1]) - 1],
-      )
+      const values = [...(group ?? '').matchAll(/\$(\d+)/g)].map((m) => params[Number(m[1]) - 1])
       return values.includes(row[camel(col!)])
     })
     return eqOk && inOk

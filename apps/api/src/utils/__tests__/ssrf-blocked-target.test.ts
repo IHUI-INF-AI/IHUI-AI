@@ -47,7 +47,10 @@ describe('F-215 isBlockedTargetIp 危险地址族', () => {
       RELAY_EGRESS_GUARD,
     )
     expect(aliyun.safe).toBe(false)
-    const awsV6 = await assertSafeFetchUrl('http://[fd00:ec2::254]/latest/meta-data/', RELAY_EGRESS_GUARD)
+    const awsV6 = await assertSafeFetchUrl(
+      'http://[fd00:ec2::254]/latest/meta-data/',
+      RELAY_EGRESS_GUARD,
+    )
     expect(awsV6.safe).toBe(false)
     const awsV4 = await assertSafeFetchUrl(
       'http://169.254.169.254/latest/meta-data/',

@@ -548,10 +548,17 @@ class TestBehaviorDriver:
         plans = wbb.BEHAVIOR_PLANS
         automatable = {c for c, p in plans.items() if p.can_automate}
         manual = {c for c, p in plans.items() if not p.can_automate}
-        # 2026-11-09 22:00 desktop 口径计分链打通后,5 项实测点亮(can_automate 升 True)
+        # 2026-11-09 22:00 desktop 口径计分链打通后,5 项实测点亮(can_automate 升 True);
+        # 2026-11-09 深夜 Sequential 族 2..7 直连链登记(与实测点亮码同构)后升 True ⇒ 14 码
         assert automatable == {
             "Expert_lighthouse",
             "Sequential_Tasks_1",
+            "Sequential_Tasks_2",
+            "Sequential_Tasks_3",
+            "Sequential_Tasks_4",
+            "Sequential_Tasks_5",
+            "Sequential_Tasks_6",
+            "Sequential_Tasks_7",
             "expert_use_maidehao",
             "expert_use_douyinyin",
             "expert_use_shangjia_xuanchuan",

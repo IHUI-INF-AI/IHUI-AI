@@ -6,6 +6,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Sparkles, MessageSquare, Database, Code, FileText, ArrowRight } from 'lucide-react'
 import { BackButton } from '@/components/common'
+import { jsonLdHtml } from '@/lib/seo/json-ld'
 
 const jsonLd = {
   '@context': 'https://schema.org',
@@ -78,10 +79,7 @@ const USE_CASES = [
 export default function UseCasesIndexPage() {
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdHtml(jsonLd) }} />
       <main className="py-4 mx-auto w-full max-w-6xl px-4">
         <BackButton />
         <section className="space-y-5 text-center">
