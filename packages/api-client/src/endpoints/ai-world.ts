@@ -18,6 +18,7 @@
 import type { ApiResult } from '@ihui/types'
 
 import { fetchApi } from '../client.js'
+import { fetchArrayApi } from '../payload-shape.js'
 
 /** 条目详情(对齐后端 ai_world_items 行 DTO;config 字段后端 zod 不存在,不声明)。 */
 export interface AiWorldDetailItem {
@@ -94,7 +95,7 @@ export async function updateAiWorldItem(
 
 /** 获取全部分类 — GET /api/ai-world/categories(data 为数组本身)。 */
 export async function getAiWorldCategories(): Promise<ApiResult<AiWorldCategoryRow[]>> {
-  return fetchApi<AiWorldCategoryRow[]>('/api/ai-world/categories')
+  return fetchArrayApi<AiWorldCategoryRow>('/api/ai-world/categories')
 }
 
 /** 我的收藏 AI 世界条目 — GET /api/ai-world/favorites(需登录)。 */

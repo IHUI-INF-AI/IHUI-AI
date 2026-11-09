@@ -13,13 +13,17 @@
  * 数据窃取(单元格内容可被公式外带)。
  *
  * 修复:对所有以这些字符开头的单元格值前缀 `'`(单引号),Excel 将其视为纯文本而非公式。
+ * F-288 补强:前导空白/控制字符(TAB/CR/LF/NUL…)会被 Excel 忽略后再解析首字符,
+ * 所以判断时要先越过它们;而"以控制字符开头"本身也可能被 DDE 利用 ⇒ 同样前缀单引号。
  *
  * 注意:数字字段(金额/计数等)由程序生成、非用户可控,不属于注入面;但本函数对任何
- * 以 `=`/`+`/`-`/`@` 开头的字符串统一处理,不影响数字显示以外的正常文本。
+ * 命中形态的字符串统一处理,不影响数字显示以外的正常文本。
  */
+const LEADING_CONTROL_CHAR = /^[\u0000-\u001f\u007f]/
+const FORMULA_AFTER_PADDING = /^[\s\u0000-\u001f]*[=+\-@]/
+
 export function sanitizeCsvCell(v: string): string {
-  const first = v.charAt(0)
-  if (first === '=' || first === '+' || first === '-' || first === '@') {
+  if (LEADING_CONTROL_CHAR.test(v) || FORMULA_AFTER_PADDING.test(v)) {
     return `'${v}`
   }
   return v

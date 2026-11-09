@@ -36,7 +36,9 @@
 // CLI 解析与 help。执行语义逐字未动,镜像测试同票改取材面(见该 lib 头注)。
 // 2026-10-25(GOAL-合入票):第 5 轮合并 c8fee04806ea 的「人工归并回灌」把本文件的门注册段截断 —— checks 数组里 240-249 十门注册整体消失、bare-decode-uri/token-literal-debt/rn-readout-cell 三条只剩尾巴、pushGateChecks 追加 68 行缺头缺尾的残骸 ⇒ 本文件语法错误 ⇒ push 门编排器(.husky/pre-push → guardian-runner --push-gate)整个跑不起来,本地 ahead 的提交一律推不动。
 // 本次以 origin/main 当前面为基线逐字复原(§0.6 单一真相源下对侧的完整形态);判据面一字未改,只复原被截断的注册段。
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawn } from 'node:child_process'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { runGuardianBatch } from './lib/guardian-executor.mjs'
 import { resolveGateScope, isMetaGate } from './lib/gate-scope.mjs'
 // BUG-55:档位判定的 git 派生此前用裸 'git',全仓已收口 resolveGitBin();PATH 不通时
@@ -1181,6 +1183,9 @@ const checks = [
     label: '💧 溯源水印覆盖守门(自愈式: 缺失/损坏自动补齐并回暂存区)',
     script: 'check-watermark-coverage.mjs',
     args: [],
+    // 显式全量面档(post-commit 补跑/显式整面检查):47 的门没有"隐式面"了,
+    // 由 runner --full-face 下发该面旗;不声明 fullFaceArgs 的门不受影响。
+    fullFaceArgs: ['--full-face'],
     mode: 'blocking',
     stagedTriggers: ["**/*"],
     onFailHint: [
@@ -3500,6 +3505,8 @@ const checks = [
       'apps/miniapp-taro/config/',
       'packages/app/src/',
       'apps/mobile-rn/src/',
+      // 2026-11-06:C9 判的就是这份编译期契约派生件;它自己变了却不触发 = 门在而判不到。
+      'apps/miniapp-taro/types/',
       'scripts/gen-rn-compat.mjs',
       'scripts/check-rn-compat-coverage.mjs',
     ],
@@ -4542,7 +4549,7 @@ const checks = [
     stagedTriggers: ['**/*'],
     onFailHint: [
       '',
-      '刷新块: node scripts/gen-doc-numbers.mjs --markdown 替换 README 的 GENERATED NUMBERS 块(务必在 README 已在被审面上的那份面生成,否则 trackedFiles 天生差数);逐数来源: node scripts/gen-doc-numbers.mjs;连仓库简介一起问责: node scripts/check-doc-numbers.mjs --strict --description -',
+      '刷新块: node scripts/sync-readme-numbers.mjs —— 生成块的唯一写入口(只按索引面 staged 取数、持独占锁、写盘前后 CAS 复核;直接跑 gen-doc-numbers.mjs --markdown 会被拒绝并 exit 2)。逐数来源: node scripts/gen-doc-numbers.mjs;连仓库简介一起问责: node scripts/check-doc-numbers.mjs --strict --description -',
       '本门只在触及 README.md/README.en.md 的轮次判红;未触及轮次打印的"漂移只报数"是"下次改 README 必须重跑生成块"的前置提醒,不构成跳门理由。',
       '例外(DN5):本轮引入新增/删除/改名/复制文件时,生成块 trackedFiles 必须同步,与是否触及 README 无关 —— 改清单的那枚会直接红。',
       '红点绝大多数落在 README 的 END RECENT UPDATES 标记之后的旧版全文快照副本(现读 --strict 61098 条:标记之后占 61048,活性声明只占 45,另 5 条是生成块):那些副本记的是当时的账,批量按现算值逐行改写=把历史改成今天,不是结清(2026-10-31 实测一席的手写"收敛到绿"循环改了 23900 行,其中历史区 7217 行)。正解=先跑配套清偿器 node scripts/scrub-doc-numbers.mjs(默认 dry-run,--apply 才写盘),它复用本门自己的 CLAIMS 与生成块同源取值;整片快照的清偿属全仓维护债,不在逐行手改。',
@@ -5252,11 +5259,26 @@ const checks = [
     id: '220',
     label:
       '监控大屏指标名对账(大屏查询的每个指标必须有代码发射点或台账登记)',
-    script: 'check-grafana-metric-exists.mjs',
+    // 2026-11-04 改道:旧 `scripts/check-grafana-metric-exists.mjs` 读的是已退役的
+    // `<root>/grafana/dashboards` 三棵树与旧台账,现读实测三树全空 ⇒ 每次跑都是 exit 2
+    // 「枚举到 0 个大屏」,门在扫一个不存在的目录、实际永不判定。判据本体在改名契约
+    // (a7ced7411c)下早已落在 `check-panel-metric-exists.mjs` + `panel-defs/` 真值面,
+    // 本门改指那一份;触发器同步收到真值面,不再靠宽前缀 `monitoring`/`deploy` 兜。
+    script: 'check-panel-metric-exists.mjs',
     args: [],
     mode: 'blocking',
-    skipEnv: 'HUSKY_SKIP_GRAFANA_METRIC_EXISTS',
-    stagedTriggers: ['monitoring', 'deploy', 'apps/ai-service/app', 'apps/api/src', 'packages', 'scripts/'],
+    skipEnv: 'HUSKY_SKIP_PANEL_METRIC_EXISTS',
+    stagedTriggers: [
+      'monitoring/panel-defs/',
+      'deploy/observability/panel-defs/',
+      'deploy/saas/panel-defs/',
+      'apps/ai-service/app/',
+      'apps/api/src/',
+      'packages/',
+      'monitoring/alertbridge/',
+      'scripts/check-panel-metric-exists.mjs',
+      'scripts/data/panel-external-metrics.json',
+    ],
     onFailHint: [
       '',
       '',
@@ -5268,15 +5290,27 @@ const checks = [
     id: '222',
     label:
       '监控大屏 ↔ 数据源 接线对账(面板引用的 uid 必须在 provisioning 里;声明了却零面板使用的源只报数不判红——未部署的基建是合法状态)',
-    script: 'check-grafana-datasource-wiring.mjs',
+    // 2026-11-04 改道:旧 `scripts/check-grafana-datasource-wiring.mjs` 的三棵树
+    // `monitoring/grafana/dashboards` / `deploy/{observability,saas}/grafana/dashboards`
+    // 已按改名契约退役(3778408c 删 38 枚、a7ced7411c 搬进 panel-defs),旧门现读实测
+    // 三棵树全部「取不到 provisioning ⇒ 未判定」⇒ 一道只报未判定、从不判红的空门。
+    // 真值面消费方 = `sync-panel-live-provisioning.mjs` 的 splitBlocks,判据本体在
+    // `check-panel-datasource-wiring.mjs`;触发器按三棵 panel-defs 树逐棵登记。
+    script: 'check-panel-datasource-wiring.mjs',
     args: [],
     mode: 'blocking',
-    skipEnv: 'HUSKY_SKIP_GRAFANA_DATASOURCE_WIRING',
-    stagedTriggers: ['monitoring', 'scripts/sync-grafana-live-provisioning.mjs'],
+    skipEnv: 'HUSKY_SKIP_PANEL_DATASOURCE_WIRING',
+    stagedTriggers: [
+      'monitoring/panel-defs/',
+      'deploy/observability/panel-defs/',
+      'deploy/saas/panel-defs/',
+      'scripts/check-panel-datasource-wiring.mjs',
+      'scripts/sync-panel-live-provisioning.mjs',
+    ],
     onFailHint: [
       '面板引用的数据源 uid 不在 monitoring/panel-defs/provisioning/datasources/datasources.yml 里 ——',
       '这样的面板只会静静显示 "Datasource not found",和"这业务本来没流量"长得一模一样。',
-      '要么把 uid 改成已声明的源,要么先在 provisioning 里声明这个源(并跑 sync-grafana-live-provisioning.mjs 派生到线上副本)。',
+      '要么把 uid 改成已声明的源,要么先在 provisioning 里声明这个源(并跑 sync-panel-live-provisioning.mjs 派生到线上副本)。',
     ].join('\n'),
   },
 
@@ -6118,8 +6152,10 @@ const checks = [
     // 下一个人不会读。票族存在而源头空转,与 O65 第 0 期「派单白名单预留依赖族却没人看」同型。
     //
     // 两档刻意分开,因为它们的成本与失效方向完全不同:
-    //   · --staged(提交链):只判 scripts/data/dep-audit-policy.json 的形态(waiver 三要素 + 未过期),
-    //     毫秒级、不跑网络。它拦的是「有人写一枚永不到期的豁免」;
+    //   · --staged(提交链):政策形态 + **暂存依赖面真判**(2026-11-08 补)。锁文件被暂存时
+    //     读索引里的 pnpm-lock.yaml blob,与审计快照记录的锁文件指纹比对:一致才用快照真判,
+    //     不一致/缺失/过期 ⇒ exit 2 未判定(提示 pnpm install 后 --refresh)。毫秒级、不跑网络。
+    //     它拦的是「有人写一枚永不到期的豁免」与「拿旧快照给新依赖树判绿」;
     //   · 全量档:读 .ihui-agent/state/dep-audit-cache.json 判「生产可达 critical/high 是否全被覆盖」,
     //     快照过期先自动刷新一次(实测 pnpm audit --registry 6.8s),刷新失败 ⇒ exit 2 未判定。
     //
@@ -6133,6 +6169,8 @@ const checks = [
     // 均无 image-size)。混为一谈的门会恒红,恒红门的唯一结局是被 --no-verify 连带废掉(§0.2)。
     skipEnv: 'HUSKY_SKIP_PROD_DEP_ADVISORIES',
     stagedTriggers: [
+      'pnpm-lock.yaml',
+      '**/package.json',
       'scripts/data/dep-audit-policy.json',
       'scripts/check-prod-dep-advisories.mjs',
       'scripts/dep-advisory-radar.mjs',
@@ -6301,6 +6339,117 @@ const checks = [
       '     取证:node scripts/check-staged-downgrade.mjs --self-test(17 例:四档判据、工作树正反例、诚实边界、空口声明)',
       '     镜像:node --test scripts/tests/check-staged-downgrade.test.mjs',
       '     应急放行:HUSKY_SKIP_STALE_DOWNGRADE=1 git commit ...(不推荐;跳过会留痕)',
+  ].join('\n'),
+  },
+  // --- 工作流/部署脚本引用不存在的脚本(只读门,298)---
+  {
+    id: '309',
+    label: '🔗 工作流/部署脚本引用不存在的脚本(死引用)',
+    script: 'check-dead-script-refs.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_DEAD_SCRIPT_REFS',
+    stagedTriggers: [
+      'deploy/',
+      '.github/workflows/',
+      'scripts/data/',
+      'scripts/check-dead-script-refs.mjs',
+    ],
+    onFailHint: [
+      '',
+      '  💡 deploy/** 与 .github/workflows/** 里 `scripts/*.{ts,mjs}` 的引用必须能解析到真实文件。',
+      '     cwd 语义已内置:GitHub Actions working-directory(步骤级 > job 级 defaults)、',
+      '     pnpm --filter <pkg> exec、shell 的 cd、Dockerfile WORKDIR、相对路径。',
+      '     解析不出来时:能定 cwd 的判真死(exit 1);定不了 cwd 的记未判定(exit 2,不折绿)。',
+      '     回滚态(HEAD 有、工作树缺)只报数,不算真死引用。',
+      '     复验:node scripts/check-dead-script-refs.mjs --staged',
+      '     自检:node scripts/check-dead-script-refs.mjs --self-test',
+      '     跳过:HUSKY_SKIP_DEAD_SCRIPT_REFS=1',
+      '',
+    ].join('\n'),
+  },
+  {
+    id: '310',
+    label: '🧬 自主环判据不变量守卫(并发旧基线整片回写即红)',
+    script: 'check-autonomy-invariants.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_AUTONOMY_INVARIANTS',
+    stagedTriggers: [
+      'scripts/auto-evolve.mjs',
+      'scripts/lib/autonomy-nonprogress.mjs',
+      'scripts/check-autonomy-leg-health.mjs',
+      'scripts/data/autonomy-invariants.json',
+      'scripts/check-autonomy-invariants.mjs',
+    ],
+    onFailHint: [
+      '',
+      '  💡 立因(2026-11-05 实测):多会话共树下,一席的在飞副本可能从**旧基线**长出来,',
+      '     它提交时是整文件回写 —— 当天刚落进 HEAD 的判据会被静默抹掉,',
+      '     而门 84 R1 要"暂存 blob == 某祖先"、immutable-guard 不管非受保护面、',
+      '     分档对账测试住在 CI/nightly 层 ⇒ 提交链上原本没人抓得住这一型。',
+      '     判据绝对要求(非差值棘轮):清单里每条锚点都必须在被审面逐字实有;',
+      '     这里失效型就是"悄悄少一条",拿该文件自己的历史违规数当锚点会自我豁免。',
+      '     出路只有把消失的判据带回来(通常是先合并今天的改动再提交),不许跳门。',
+      '     真要解禁某条锚点(判据被合法改名/迁户)⇒ 改清单并在同一枚提交里带上改名后的新锚点。',
+      '     复验:node scripts/check-autonomy-invariants.mjs --staged',
+      '     自检:node scripts/check-autonomy-invariants.mjs --self-test',
+      '     跳过:HUSKY_SKIP_AUTONOMY_INVARIANTS=1(须人工确认并附定向说明)',
+      '',
+    ].join('\n'),
+  },
+  {
+    id: '311',
+    label: '🚦 e2e skip 制度化 + 固定等待条件化(无理由/无编号 skip 即红)',
+    script: 'check-e2e-skip-wait-policy.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_E2E_SKIP_WAIT_POLICY',
+    stagedTriggers: [
+      'apps/web/e2e/',
+      'apps/web/tests/visual/',
+      'scripts/lib/e2e-skip-wait-policy.mjs',
+      'scripts/check-e2e-skip-wait-policy.mjs',
+      'apps/web/e2e/skip-register.json',
+      'apps/web/e2e/SKIP-WAIT-POLICY.md',
+    ],
+    onFailHint: [
+      '',
+      '  💡 允许 skip 的条件写在 apps/web/e2e/SKIP-WAIT-POLICY.md,台账是 apps/web/e2e/skip-register.json。',
+      '     skip 必须同时带 ≥8 字理由 + [SKIP:<id>];编号要在台账里,ENV 引用要在 envRefs,',
+      '     BUG 引用要指向 status=open 的缺陷;裸 skip / 元素缺失即 skip 一律红。',
+      '     固定等待只能用于不可观察的计时窗口,且紧邻 // WAIT-POLICY:TIMING-id 理由;',
+      '     等加载/等登录/等接口/等元素一律改 expect.poll / locator.waitFor / 自动重试断言。',
+      '     台账 reviewBy 过期或出现孤儿条目同样红。',
+      '     复验:node scripts/check-e2e-skip-wait-policy.mjs --staged',
+      '     自检:node scripts/check-e2e-skip-wait-policy.mjs --self-test',
+      '     跳过:HUSKY_SKIP_E2E_SKIP_WAIT_POLICY=1(须人工确认并附定向说明)',
+      '',
+    ].join('\n'),
+  },
+  // --- 直跑面判面层覆盖 ratchet(1 项,blocking)---
+  {
+    id: '312',
+    label: '🧬 直跑面判面层覆盖 ratchet(注册门不接判面层且不在台账即红)',
+    script: 'check-gate-body-direct-run-coverage.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_GATE_BODY_DIRECT_RUN_COVERAGE',
+    stagedTriggers: ['scripts/'],
+    onFailHint: [
+      '',
+      '  💡 立因:门体同代自检只覆盖「派发面」;人手 node scripts/check-x.mjs 直跑时,',
+      '     只有 import 判面层(face-reader / gate-body-provenance)的门才会触发自检。',
+      '     本门把存量 48 道变成可数的债,并让新增门再也长不进这条缝:',
+      '       R1 注册门未接判面层且不在 scripts/data/gate-body-direct-run-allowlist.json ⇒ 红',
+      '       R2 台账条目越出硬基线(新增抵账)⇒ 红;清单只许缩短',
+      '       R3 台账条目对应的门已接判面层 ⇒ 红(删条目 = 已迁移证据)',
+      '       R4 reviewBy 到期 ⇒ 红',
+      '     修复:新门加 import { selectFace } from \'./lib/face-reader.mjs\';',
+      '           手跑单门改走 node scripts/guardian-runner.mjs --only=<id|script>',
+      '     复验:node scripts/check-gate-body-direct-run-coverage.mjs --staged',
+      '     跳过:HUSKY_SKIP_GATE_BODY_DIRECT_RUN_COVERAGE=1(须人工确认并附定向说明)',
+      '',
     ].join('\n'),
   },
   // --- info (1 项) ---
@@ -7214,19 +7363,19 @@ const checks = [
       '     应急放行:HUSKY_SKIP_PLAN_DEFERRED_EXPIRY=1 git commit ...(不推荐;跳过会留痕)',
     ].join('\n'),
   },
-  // --- 跨端漂移回归制(2026-11-06 立)------------------------------------------------------
+  // --- 跨端漂移回归制(2026-11-06 立 / 2026-11-08 接提交期登记门)-------------------------
   // 立因:漂移尺/文案尺此前只有"只读体检"形态(存量非 0 ⇒ 恒 exit 1),只能靠人想起来跑,
   // 结构上不在提交链上 —— 于是"攒新漂移"是无人工区。改法不是把存量一次性洗白(§12e 禁止),
-  // 而是存量固化进 scripts/data/cross-end-drift-gate-baseline.json,commit 面只 advisory、
-  // push 面只对"相对基线新增/恶化"blocking。判据可复算:同一现读 + 同一基线 ⇒ 同一结论。
+  // 而是存量固化进 scripts/data/cross-end-drift-gate-baseline.json,提交面只让承载削减面阻断、
+  // push 面仍对"相对基线新增/恶化"全维 blocking。判据可复算:同一现读 + 同一基线 ⇒ 同一结论。
   // 取不到输入面(基线缺失/子对账器未判定/词包读不到)⇒ exit 2 未判定,不折 0、不记绿。
   {
     id: '302',
     label:
-      '🧪 跨端漂移回归门(commit advisory:存量只报数;相对基线新增/恶化才报。实际只覆盖 6 把子尺:页面覆盖 237·跨端几何 128·镜像保真 283·升级落地·RN↔web 样式档·小程序样式档,另报矩阵文档 doc-stale;不含 token 93·props 288·文案 291·薄壳 299·承载 301·生成物 105·文档数字 173)',
+      '🧪 跨端漂移回归门(commit blocking:只拦承载削减面 —— 镜像/登记行/aligned/承载面/壳承载/既有承载键被登记成 gap;登记新屏与其余维只报数不阻断。实际只覆盖 6 把子尺:页面覆盖 237·跨端几何 128·镜像保真 283·升级落地·RN↔web 样式档·小程序样式档,另报矩阵文档 doc-stale;不含 token 93·props 288·文案 291·薄壳 299·承载 301·生成物 105·文档数字 173)',
     script: 'check-cross-end-parity-drift.mjs',
     args: ['--gate'],
-    mode: 'warn',
+    mode: 'blocking',
     stagedTriggers: [
       'packages/app/src/',
       'apps/mobile-rn/src/',
@@ -7241,10 +7390,39 @@ const checks = [
     ],
     skipEnv: 'HUSKY_SKIP_CROSS_END_DRIFT',
     onFailHint: [
-      '  💡 红 = 本轮把某条跨端数字比基线做坏了(丢镜像/多腐烂/多未还原键/多非档值/多重复键)。',
-      '     先看点名维:掉下去的补回来,涨上去的查根因;确属新存量须改基线并在 PR 说明为何接受。',
-      '     取证:node scripts/check-cross-end-parity-drift.mjs --gate --json',
+      '  💡 红 = 承载削减面真的少了(镜像/登记行/aligned/承载面/壳承载,或既有承载键被登记成 gap)。',
+      '     先把承载补回来;「新增未登记屏」与「如实登记 gap」只会出现在 · [只报数] 行,不会拦提交。',
+      '     取证:node scripts/check-cross-end-parity-drift.mjs --gate --staged --json',
       '     应急放行:HUSKY_SKIP_CROSS_END_DRIFT=1 git commit ...(不推荐;跳过会留痕)',
+    ].join('\n'),
+  },
+  // --- 提交期屏/路由登记同步(2026-11-08 接)-----------------------------------------------
+  // 302p 只在 push 面兜"新增未登记屏";302 的 unmapped 维在提交面按「登记只报数」降为 advisory。
+  // 本门把登记检测本身挂进提交链(warn 档):失败时门自己的点名行走 stderr,原样出现在提交输出里,
+  // 不阻断、不写进日志了事。
+  {
+    id: '302r',
+    label:
+      '🧾 屏/路由登记同步(commit 只报数:新增 web page / RN 屏 / 小程序页必须在 web-rn-screen-map.jsonl 或 app.config.ts 有据可查)',
+    script: 'check-screen-registration-sync.mjs',
+    args: [],
+    mode: 'warn',
+    stagedTriggers: [
+      'apps/web/app/',
+      'packages/app/src/features/',
+      'apps/mobile-rn/src/screens/',
+      'apps/miniapp-taro/src/',
+      'scripts/data/web-rn-screen-map.jsonl',
+      'scripts/check-screen-registration-sync.mjs',
+      'scripts/check-web-rn-screen-parity.mjs',
+      'scripts/check-cross-end-screen-coverage.mjs',
+    ],
+    skipEnv: 'HUSKY_SKIP_SCREEN_REGISTRATION_SYNC',
+    onFailHint: [
+      '  💡 报数行 = 本笔新增的屏/路由还没登记:web page 要进 web-rn-screen-map.jsonl(rn 或 gap:原因),',
+      '     新增 RN *Screen.tsx 要被某行 rn 认领,小程序页要与 app.config.ts pages 双向一致。',
+      '     本门只报数不拦提交(push 面由 302p 兜底);取证:node scripts/check-screen-registration-sync.mjs --staged',
+      '     静音:HUSKY_SKIP_SCREEN_REGISTRATION_SYNC=1 git commit ...(不推荐;跳过会留痕)',
     ].join('\n'),
   },
   {
@@ -7287,6 +7465,23 @@ const checks = [
       '     scripts/data/shared-layer-platform-purity.jsonl(需 consumption 证据 file:line + owner + expires + why)。',
       '     取证:node scripts/check-shared-layer-duplication.mjs --platform-purity --json',
       '     应急放行:HUSKY_SKIP_SHARED_LAYER_PURITY=1 git commit ...(不推荐;跳过会留痕)',
+    ].join('\n'),
+  },
+  // --- 钩子链引用完整性(2026-11-08,瘦身波甄别后落地;批次3-2 移植,号 312→305)--------------
+  // 病灶:单父提交只挑"调用方"不挑"被调用物",钩子一 require 就崩;全树静态扫描区分不了注释/夹具字符串,
+  // 本门只判真的会被加载的那条链(钩子 require → spawn 入口 → 入口 import 闭包)。
+  {
+    id: '305',
+    label: '🪝 钩子链引用完整性(--strict:钩子 require/spawn 入口/import 闭包有缺失即红)',
+    script: 'check-hook-chain-refs.mjs',
+    args: ['--strict'],
+    mode: 'blocking',
+    stagedTriggers: ['scripts/', '.husky/'],
+    skipEnv: 'HUSKY_SKIP_HOOK_CHAIN_REFS',
+    onFailHint: [
+      '  💡 钩子链里有入口缺失:先补齐被调用物,别只挑调用方提交。',
+      '     取证:node scripts/check-hook-chain-refs.mjs(只报数);本门参数即 --strict。',
+      '     应急放行:HUSKY_SKIP_HOOK_CHAIN_REFS=1 git commit ...(不推荐;跳过会留痕)',
     ].join('\n'),
   },
   // --- 空转生成器接成 --check/预演硬门(2026-11-06)------------------------------------------
@@ -7335,6 +7530,31 @@ const checks = [
       '  💡 新共享屏缺 RN 壳或 props 契约取不到:先补契约/壳,或按 scripts/data/rn-host-shell-manual.json 登记判决。',
       '     预演取证:node scripts/gen-rn-shell-scaffold.mjs --all(默认不落盘)',
       '     应急放行:HUSKY_SKIP_GEN_RN_SHELL_SCAFFOLD=1 git commit ...(不推荐;跳过会留痕)',
+    ].join('\n'),
+  },
+  // 2026-11-08 DG-05:判据面不可变护栏的**全量腿**注册。push 门里已有同判据的 `IG`
+  // (id 不能重复,check-gate-wiring R5;push-receipt 的 EXPECTED_GATES 也逐项钉着 push 块),
+  // 但全量腿(CI guardian-full / 无钩子落地)原先一步都不判 —— 于是带 evil merge 的 PR 在
+  // 合并前没有任何门看判据面。这里用独立 id `IGf`,判同一个区间 origin/main..HEAD
+  // (与 push 门同面同尺:合并提交按逐父交集判,见 check-immutable-guard 2026-11-08 段)。
+  {
+    id: 'IGf',
+    label: '🧊  判据面不可变护栏(全量腿:origin/main..HEAD 逐枚判,合并按逐父交集)',
+    script: 'check-immutable-guard.mjs',
+    args: ['--range', 'origin/main..HEAD'],
+    mode: 'blocking',
+    // 射程 = 受保护面本身(immutable-guard.json entries 的路径前缀):本笔碰到它们才需要在提交时判区间
+    stagedTriggers: ['scripts/', 'AGENTS.md', '.husky/'],
+    skipEnv: 'HUSKY_SKIP_IMMUTABLE_GUARD',
+    onFailHint: [
+      '',
+      '  💡 全量腿这一档补的是 push 门管不到的面(CI / 无钩子落地);判红形态与 push 档 IG 相同:',
+      '     ① 没有 immutable-exempt 理由;② 有理由但缺/验不过签名;③ 清单 reviewBy 到期。',
+      '  合法改法:先 `node scripts/check-immutable-guard.mjs --sign-staged --subject "<提交标题>"',
+      '     --reason "<同一句>" --paths <a,b,c>` 取签名行,再重写提交信息(会改 sha)。',
+      '  区间取不到(origin/main 未 fetch)⇒ exit 2 未判定,不记绿。',
+      '  单独复验:node scripts/check-immutable-guard.mjs --range origin/main..HEAD',
+      '',
     ].join('\n'),
   },
 ]
@@ -7403,8 +7623,9 @@ const pushGateChecks = [
       '  💡 本次推送携带的某个文件在 HEAD blob 里水印缺失/损坏(常见于 commit-tree/私有索引落地绕过 pre-commit)。',
       '     修复:node scripts/watermark.mjs inject <file> → 随一枚新提交带进 HEAD → 重新 push。',
       '     push 档只写工作区、不碰索引:inject 完仍红属正常(HEAD 面欠账只能由真正的提交销账)。',
-      '     列出缺口:node scripts/watermark.mjs list-uncovered --files-from <清单>(清单即 PUSH_SCOPE_FILES)。',
-      '     退出码 2 = 取不到判定面或 push scope 不可得时退回全量面,不是"没水印"。',
+      '     列出缺口:node scripts/watermark.mjs list-uncovered --files-from <清单>(清单即 PUSH_SCOPE_FILES 或 PUSH_SCOPE_MANIFEST)。',
+      '     退出码 2 = 未判定(范围凭据缺失/面不明),不是"没水印":本门不再退回整张 HEAD 面。',
+      '     补范围:正常走 .husky/pre-push(>300 文件它会写 PUSH_SCOPE_MANIFEST);确实要整面检查请显式 --full-face。',
       '',
     ].join('\n'),
   },
@@ -7560,23 +7781,288 @@ const pushGateChecks = [
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_GEN_RN_SHELL_SCAFFOLD',
   },
+  {
+    id: '305p',
+    label: '🪝 钩子链引用完整性(push blocking:钩子链入口/闭包缺失即拦)',
+    script: 'check-hook-chain-refs.mjs',
+    args: ['--strict'],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_HOOK_CHAIN_REFS',
+  },
 ]
 
 // === CLI 解析 ===
 
 const cliArgs = process.argv.slice(2)
+
+// ── 未知参数必须当场失败(2026-11-04 立) ────────────────────────────────────
+// 旧实现只认 --staged/--timing/--push-gate/--help,其余参数原样透传后被忽略:
+// `--self-test` 被静默当成"没写" ⇒ 实际跑全量 332 门(实测 41.2 分钟),调用者却以为在跑门自检。
+// 失效方向只能是"当场报错",不能是"照默认跑一遍还让人觉得跑的是别的东西"。
+const KNOWN_CLI_FLAGS = new Set([
+  '--staged',
+  '--full-face',
+  '--timing',
+  '--push-gate',
+  '--no-cache',
+  '--self-test',
+  '--help',
+  '-h',
+])
+const unknownCliArgs = cliArgs.filter(
+  (a) => !KNOWN_CLI_FLAGS.has(a) && !a.startsWith('--only='),
+)
+if (unknownCliArgs.length) {
+  console.error(`❌ 未知参数:${unknownCliArgs.join(' ')}`)
+  console.error('   本器只认:--staged / --full-face / --timing / --push-gate / --no-cache / --self-test / --only=<id|script> / --help / -h')
+  console.error('   未知参数不再被忽略,也不会跑任何门(exit 2)。')
+  process.exit(2)
+}
+
 const passStaged = cliArgs.includes('--staged')
+/** 显式全量面档(2026-11-09):把面旗下发给声明了 fullFaceArgs 的门(目前仅 47);
+ *  post-commit 补跑用这一档 —— 它刻意不带 --staged(否则 stagedTriggers 在空集上全跳)。 */
+const fullFacePass = cliArgs.includes('--full-face')
 const showTiming = cliArgs.includes('--timing')
 const showHelp = cliArgs.includes('--help') || cliArgs.includes('-h')
 const pushGate = cliArgs.includes('--push-gate')
+const selfTest = cliArgs.includes('--self-test')
+// `--only=<id|script>`:单门直跑的唯一入口。走派发层 ⇒ 带门体同代自检(preflight),
+// 避免人手 `node scripts/check-x.mjs` 绕过自检(见 AGENTS.md「单门直跑」条)。
+const onlyList = (cliArgs.find((a) => a.startsWith('--only=')) || '')
+  .slice('--only='.length)
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean)
+if (selfTest && (passStaged || pushGate || fullFacePass)) {
+  console.error('❌ --self-test 不能与 --staged / --push-gate / --full-face 组合(自检不读暂存面、不跑判据)')
+  process.exit(2)
+}
+if (fullFacePass && (passStaged || pushGate)) {
+  console.error('❌ --full-face 不得与 --staged / --push-gate 组合(一个是显式整面,另一个已有更窄的面)')
+  process.exit(2)
+}
+if (selfTest && onlyList.length > 0) {
+  console.error('❌ --self-test 不能与 --only 组合(自检不跑判据,单门筛选请去掉 --self-test)')
+  process.exit(2)
+}
+
+// ── --self-test:只跑每门脚本自带的自检入口,不跑任何门的判据 ─────────────────
+// 没有自检入口的门逐条标"无自检档",绝不记成通过(§0.3:没判绝不写成判过)。
+// 覆盖率分母 = 注册条目;执行单位 = 去重后的脚本;超时/非零退出都记失败。
+const SELF_TEST_ARG = '--self-test'
+const SELF_TEST_ENTRY_RE =
+  /includes\('--self-test'\)|has\('--self-test'\)|=={1,2}\s*'--self-test'|'--self-test'\s*=={1,2}|case\s+'--self-test'|selfTest\s*[:=][^\n]*'--self-test'/
+const selfTestSourceCache = new Map()
+
+function scriptPathOf(script) {
+  return fileURLToPath(new URL(`./${script}`, import.meta.url))
+}
+
+/** 只认代码里的参数分支;注释与用法文案里的字样不算"有自检入口"。 */
+function declaresSelfTestEntry(script) {
+  if (selfTestSourceCache.has(script)) return selfTestSourceCache.get(script)
+  let ok = false
+  try {
+    ok = readFileSync(scriptPathOf(script), 'utf8')
+      .split(/\r?\n/)
+      .some((line) => {
+        const t = line.trim()
+        if (t.startsWith('//') || t.startsWith('*') || t.startsWith('/*')) return false
+        return line.includes("'--self-test'") && SELF_TEST_ENTRY_RE.test(line)
+      })
+  } catch {
+    ok = false
+  }
+  selfTestSourceCache.set(script, ok)
+  return ok
+}
+
+function groupChecksByScript(checkList) {
+  const byScript = new Map()
+  for (const c of checkList) {
+    if (!c?.script) continue
+    if (!byScript.has(c.script)) byScript.set(c.script, { script: c.script, ids: [] })
+    byScript.get(c.script).ids.push(c.id)
+  }
+  return [...byScript.values()]
+}
+
+function runOneSelfTest(group, timeoutMs) {
+  return new Promise((resolve) => {
+    const startedAt = Date.now()
+    let stdout = ''
+    let stderr = ''
+    let timedOut = false
+    let settled = false
+    const child = spawn(process.execPath, [scriptPathOf(group.script), SELF_TEST_ARG], {
+      cwd: process.cwd(),
+      env: process.env,
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    const timer = setTimeout(() => {
+      timedOut = true
+      child.kill()
+    }, timeoutMs)
+    const finish = (extra) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      resolve({ ...group, elapsedMs: Date.now() - startedAt, ...extra })
+    }
+    child.stdout?.on('data', (d) => {
+      stdout = (stdout + d).slice(-4000)
+    })
+    child.stderr?.on('data', (d) => {
+      stderr = (stderr + d).slice(-4000)
+    })
+    child.on('error', (e) => finish({ kind: 'fail', reason: `spawn 失败:${e.message}` }))
+    child.on('close', (code, signal) => {
+      if (timedOut) return finish({ kind: 'timeout', reason: `超时 ${timeoutMs}ms(已杀)` })
+      if (signal) return finish({ kind: 'fail', reason: `被信号 ${signal} 终止` })
+      if (code === 0) return finish({ kind: 'pass' })
+      const tail = (stderr.trim() || stdout.trim()).replace(/\s+/g, ' ').slice(0, 200)
+      finish({ kind: 'fail', reason: `exit ${code}${tail ? ` — ${tail}` : ''}` })
+    })
+  })
+}
+
+async function runGateSelfTests(checkList) {
+  const onlyRaw = String(process.env.GUARDIAN_SELFTEST_ONLY || '').trim()
+  const only = onlyRaw
+    ? new Set(
+        onlyRaw
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean),
+      )
+    : null
+  const selected = only ? checkList.filter((c) => only.has(String(c.id)) || only.has(c.script)) : checkList
+  if (!selected.length) {
+    console.error(`❌ --self-test:GUARDIAN_SELFTEST_ONLY=${onlyRaw} 没有命中任何已注册门(未判定,exit 2)`)
+    return 2
+  }
+
+  const groups = groupChecksByScript(selected)
+  const runnable = groups.filter((g) => declaresSelfTestEntry(g.script))
+  const missing = groups.filter((g) => !declaresSelfTestEntry(g.script))
+  const entryTotal = selected.length
+  const entryCovered = runnable.reduce((n, g) => n + g.ids.length, 0)
+  const entryMissing = entryTotal - entryCovered
+
+  console.log('🧪 门自检档 --self-test:只跑各门脚本自带的自检入口,不跑任何门的判据')
+  console.log(
+    `   覆盖:${entryCovered}/${entryTotal} 条注册有自检入口;${entryMissing} 条无自检档` +
+      `(不同脚本:${runnable.length} 有自检 / ${missing.length} 无自检)`,
+  )
+
+  if (!runnable.length) {
+    for (const m of missing) console.log(`⚪ [${m.ids.join(',')}] ${m.script}  无自检档`)
+    console.log('⚠️ 0 门有自检入口 ⇒ 本轮未判定(exit 2;"没有自检"不等于"通过",§0.3)')
+    return 2
+  }
+
+  const rawConcurrency = Number(process.env.GUARDIAN_SELFTEST_CONCURRENCY)
+  const concurrency = Number.isFinite(rawConcurrency) && rawConcurrency > 0 ? Math.floor(rawConcurrency) : 6
+  const rawTimeout = Number(process.env.GUARDIAN_SELFTEST_TIMEOUT_MS)
+  const timeoutMs = Number.isFinite(rawTimeout) && rawTimeout > 0 ? Math.floor(rawTimeout) : 300_000
+  console.log(`   并发:${concurrency} 单门超时:${timeoutMs}ms`)
+
+  const startedAt = Date.now()
+  const results = new Array(runnable.length)
+  let cursor = 0
+  const worker = async () => {
+    while (cursor < runnable.length) {
+      const i = cursor++
+      results[i] = await runOneSelfTest(runnable[i], timeoutMs)
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, runnable.length) }, worker))
+
+  for (const r of results) {
+    const icon = r.kind === 'pass' ? '✅' : r.kind === 'timeout' ? '⏱ ' : '❌'
+    console.log(`${icon} [${r.ids.join(',')}] ${r.script}  ${(r.elapsedMs / 1000).toFixed(1)}s${r.reason ? ` — ${r.reason}` : ''}`)
+  }
+  for (const m of missing) console.log(`⚪ [${m.ids.join(',')}] ${m.script}  无自检档`)
+
+  const passed = results.filter((r) => r.kind === 'pass').length
+  const failed = results.filter((r) => r.kind !== 'pass').length
+  const totalSec = ((Date.now() - startedAt) / 1000).toFixed(1)
+  console.log('\n🧪 自检档汇总')
+  console.log(`   通过: ${passed} / 失败: ${failed} / 无自检档: ${entryMissing} 条(${missing.length} 个脚本)`)
+  console.log(`   覆盖: ${entryCovered}/${entryTotal} 条注册有自检入口;其余未判定,不计通过(§0.3)`)
+  console.log(`   自检墙钟: ${totalSec}s`)
+  return failed ? 1 : 0
+}
 
 // --push-gate 模式:仅执行 push 门检查集(不跑 pre-commit 的全部检查)
 let effectiveChecks = pushGate ? pushGateChecks : checks
 
+// ── --only=<id|script>:单门直跑走派发层(2026-11-08 立)───────────────────────
+// 直跑 `node scripts/check-x.mjs` 会绕过判面层自检(只有 import 判面层的门例外)。
+// 这里把"只跑这道门"落到派发层:argv 仍带 --staged/--timing,spawn 仍走 gateSpawnPlan,
+// 因此门体同代自检照常生效。命中 0 道 ⇒ exit 2,绝不静默跑成"跑了但没跑"。
+if (onlyList.length > 0) {
+  const before = effectiveChecks.length
+  effectiveChecks = effectiveChecks.filter((c) => onlyList.includes(c.id) || onlyList.includes(c.script))
+  if (effectiveChecks.length === 0) {
+    console.error(`❌ --only=${onlyList.join(',')} 未命中任何注册门(${before} 道在册);按 id 或 script 名给`)
+    process.exit(2)
+  }
+  console.log(`🎯 --only:只跑 ${effectiveChecks.length}/${before} 道门(${onlyList.join(',')});仍走派发层与门体自检`)
+}
+
+// ── 显式跳过指定 push 门(DG-09:让 HUSKY_SKIP_TYPECHECK 名副其实)──────────────
+// 旧版 .husky/pre-push 把 `HUSKY_SKIP_TYPECHECK=1` 用作「整条 push 门链不跑」的开关,
+// 文案却说只跳过 typecheck ⇒ 47p/IG/299~308 等 12 道 blocking 门被静默放行。
+// 现由 hook 只导出 `IHUI_PUSH_GATE_SKIP_IDS=T1`,本器逐 id 过滤,其余门照跑。
+// 失效方向一律失败而非静默:未知/畸形 id、过滤后清单为空 ⇒ exit 2(绝不当作全绿)。
+if (pushGate) {
+  const skipEnvRaw = process.env.IHUI_PUSH_GATE_SKIP_IDS
+  if (typeof skipEnvRaw === 'string' && skipEnvRaw.trim() !== '') {
+    const skippedGates = [
+      ...new Set(
+        skipEnvRaw
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean),
+      ),
+    ]
+    if (skippedGates.length === 0) {
+      console.error('❌ IHUI_PUSH_GATE_SKIP_IDS 已设置但解析不出任何门 id(畸形式空值,拒绝静默生效)')
+      process.exit(2)
+    }
+    const knownIds = new Set(effectiveChecks.map((c) => String(c.id)))
+    const unknownIds = skippedGates.filter((id) => !knownIds.has(id))
+    if (unknownIds.length > 0) {
+      console.error(
+        `❌ IHUI_PUSH_GATE_SKIP_IDS 含未知/畸形门 id:${unknownIds.join(',')}` +
+          `(在册 push 门:${[...knownIds].join(', ')})`,
+      )
+      process.exit(2)
+    }
+    effectiveChecks = effectiveChecks.filter((c) => !skippedGates.includes(String(c.id)))
+    if (effectiveChecks.length === 0) {
+      console.error(
+        `❌ IHUI_PUSH_GATE_SKIP_IDS 过滤后 push 门清单为空(skippedGates=[${skippedGates.join(',')}])` +
+          ' —— 拒绝把它当作「全部通过」',
+      )
+      process.exit(2)
+    }
+    // 跳过态必须禁用 push-gate 结果缓存(--no-cache 既有实现):否则旧缓存命中会把其余门一并短路。
+    if (!cliArgs.includes('--no-cache')) cliArgs.push('--no-cache')
+    console.warn(
+      `⚠️ 显式跳过 push 门:skippedGates=[${skippedGates.join(',')}];` +
+        `其余 ${effectiveChecks.length} 道照跑(--no-cache 已强制启用)`,
+    )
+  }
+}
+
 // ── 档位裁剪(2026-10-22 立,判据与理由全在 scripts/lib/gate-scope.mjs 头注)──────────
 // 只决定"这次改动该跑哪些门",**不碰任何门的判据**。含业务路径 / 含判据库 / 判不出
 // 一律回落全量 —— 失效方向永远是"多跑",不是"少跑"。
-if (passStaged && !pushGate) {
+if (passStaged && !pushGate && onlyList.length === 0) {
   try {
     const stagedPaths = String(
       execFileSync(resolveGitBin(), ['-c', 'safe.directory=*', 'diff', '--cached', '--name-only'], {
@@ -7637,13 +8123,28 @@ if (showHelp) {
 guardian-runner.mjs — 守门脚本批量执行器
 
 用法:
-  node scripts/guardian-runner.mjs [--staged] [--timing] [--push-gate] [--help]
+  node scripts/guardian-runner.mjs [模式] [选项]
+
+模式(不带模式 = 全量档,跑全部 ${checks.length} 门):
+  --staged      传 --staged 给所有门(按暂存面判定,pre-commit 用)
+  --push-gate   仅执行 push 门检查集(T1 全量 typecheck,staged-scope 降级)
+  --self-test   只跑各门脚本自带的自检入口(--self-test),不跑任何判据;
+                无自检入口的门逐条标"无自检档",不计通过(§0.3)
+                (不可与 --staged / --push-gate 组合)
 
 选项:
-  --staged      传递 --staged 给所有脚本(pre-commit 模式)
   --timing      打印每个检查的耗时
-  --push-gate   仅执行 push 门检查集(T1 全量 typecheck,staged-scope 降级)
-  --help        打印此帮助
+  --no-cache    仅 --push-gate:跳过 push 门结果缓存
+  --help, -h    打印此帮助(不跑任何门)
+  未知参数      当场 exit 2,不跑任何门(不再静默忽略)
+
+--self-test 专用环境变量:
+  GUARDIAN_SELFTEST_ONLY=<id或脚本名,逗号分隔>  只跑指定门(调试/抽样;不改变其余门的"无自检档"口径)
+  GUARDIAN_SELFTEST_CONCURRENCY=<n>             并发数,默认 6
+  GUARDIAN_SELFTEST_TIMEOUT_MS=<ms>             单门自检超时,默认 300000(与串行门 300s 兜底同口径)
+
+退出码:
+  0 全绿 / 1 有门失败 / 2 用法错误(未知参数等)或 --self-test 0 门可跑(未判定)
 
 检查清单(${effectiveChecks.length} 项):
   blocking (${blocking.length} 项): ${blocking.map((c) => c.id).join(', ')}
@@ -7660,6 +8161,10 @@ guardian-runner.mjs — 守门脚本批量执行器
   process.exit(0)
 }
 
+// --self-test:只跑门脚本自带的自检入口,绝不落到 runGuardianBatch(不跑任何判据)。
+if (selfTest) {
+  process.exit(await runGateSelfTests(checks))
+}
 
-await runGuardianBatch({ checks, pushGateChecks, effectiveChecks, passStaged, pushGate, showTiming, cliArgs })
+await runGuardianBatch({ checks, pushGateChecks, effectiveChecks, passStaged, fullFace: fullFacePass, pushGate, showTiming, cliArgs })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

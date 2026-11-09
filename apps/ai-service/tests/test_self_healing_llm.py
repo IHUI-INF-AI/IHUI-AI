@@ -26,9 +26,9 @@ from app.routers.self_healing import router as self_healing_router
 from app.services.self_healing_llm import (
     PytestSubprocessRunner,
     apply_patch_descriptor,
+    list_workspace_files,
     llm_gen_fn,
     llm_patch_and_apply,
-    list_workspace_files,
     llm_patch_fn,
     read_failure_sources,
 )
@@ -364,11 +364,27 @@ def test_parse_junit_attribute_only_failure(tmp_path: Any) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _make_client(monkeypatch: pytest.MonkeyPatch, *, enabled: bool) -> TestClient:
+def _make_client(
+    monkeypatch: pytest.MonkeyPatch, *, enabled: bool, role_id: int = 1
+) -> TestClient:
     app = FastAPI()
+
+    # AIS-102 起端点挂管理员门(角色只从 request.state.role_id 读,与生产鉴权中间件同源)
+    @app.middleware("http")
+    async def _inject_role(request: Any, call_next: Any) -> Any:
+        request.state.role_id = role_id
+        return await call_next(request)
+
     app.include_router(self_healing_router, prefix="/api/v1")
     monkeypatch.setenv(ENV_ENABLED, "true" if enabled else "false")
     return TestClient(app, raise_server_exceptions=False)
+
+
+def test_route_requires_admin(monkeypatch: pytest.MonkeyPatch) -> None:
+    """普通用户(role=0):即便自愈开关打开也不许进 —— 该端点会改源码。"""
+    client = _make_client(monkeypatch, enabled=True, role_id=0)
+    resp = client.post("/api/v1/self-healing/run", json={"task": "t", "target_path": "."})
+    assert resp.status_code == 403
 
 
 def test_route_disabled_envelope(monkeypatch: pytest.MonkeyPatch) -> None:

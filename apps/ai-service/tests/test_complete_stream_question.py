@@ -73,7 +73,7 @@ class TestCompleteStreamQuestionEvents:
         """LLM 输出含提问标记 → SSE 推送 question 事件,且 chunk 内容已剥离标记。"""
         from app.routers import llm as llm_router
 
-        async def fake_astream(messages, model=None, owner_uuid=None):
+        async def fake_astream(messages, model=None, owner_uuid=None, **kwargs):
             """模拟 LLM 输出含标记的内容。"""
             yield {"type": "chunk", "content": "正在处理您的请求[[ASK_USER:{\"prompt\":\"选择语言\",\"options\":[{\"id\":\"py\",\"label\":\"Python\"}]}]]"}
             yield {"type": "done", "model": "test-model", "usage": {}, "stub": True}
@@ -101,7 +101,7 @@ class TestCompleteStreamQuestionEvents:
         """跨 chunk 分片的标记能正确累积解析。"""
         from app.routers import llm as llm_router
 
-        async def fake_astream(messages, model=None, owner_uuid=None):
+        async def fake_astream(messages, model=None, owner_uuid=None, **kwargs):
             yield {"type": "chunk", "content": "开头[[ASK_USER:{\"prompt\":"}
             yield {"type": "chunk", "content": "\"确认继续?\"}]]结尾"}
             yield {"type": "done", "model": "test", "usage": {}, "stub": True}
@@ -125,7 +125,7 @@ class TestCompleteStreamQuestionEvents:
         """单个流中多个提问标记全部解析。"""
         from app.routers import llm as llm_router
 
-        async def fake_astream(messages, model=None, owner_uuid=None):
+        async def fake_astream(messages, model=None, owner_uuid=None, **kwargs):
             yield {"type": "chunk", "content": "[[ASK_USER:{\"prompt\":\"Q1\"}]]中间[[ASK_USER:{\"prompt\":\"Q2\"}]]"}
             yield {"type": "done", "model": "test", "usage": {}, "stub": True}
 
@@ -143,7 +143,7 @@ class TestCompleteStreamQuestionEvents:
         """无标记时不产生 question 事件。"""
         from app.routers import llm as llm_router
 
-        async def fake_astream(messages, model=None, owner_uuid=None):
+        async def fake_astream(messages, model=None, owner_uuid=None, **kwargs):
             yield {"type": "chunk", "content": "普通文本无标记"}
             yield {"type": "done", "model": "test", "usage": {}, "stub": True}
 
@@ -162,7 +162,7 @@ class TestCompleteStreamQuestionEvents:
         """标记内 JSON 非法 → 标记被丢弃,不推送 question 事件,不阻塞流。"""
         from app.routers import llm as llm_router
 
-        async def fake_astream(messages, model=None, owner_uuid=None):
+        async def fake_astream(messages, model=None, owner_uuid=None, **kwargs):
             yield {"type": "chunk", "content": "before[[ASK_USER:not-json]]after"}
             yield {"type": "done", "model": "test", "usage": {}, "stub": True}
 
@@ -185,7 +185,7 @@ class TestCompleteStreamQuestionEvents:
         """流结束时未闭合的标记 → flush 时作为普通文本输出(不吞内容)。"""
         from app.routers import llm as llm_router
 
-        async def fake_astream(messages, model=None, owner_uuid=None):
+        async def fake_astream(messages, model=None, owner_uuid=None, **kwargs):
             yield {"type": "chunk", "content": "正常文本[[ASK_USER:未闭合"}
             yield {"type": "done", "model": "test", "usage": {}, "stub": True}
 

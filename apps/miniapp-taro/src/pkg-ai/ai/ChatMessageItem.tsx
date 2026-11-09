@@ -4,9 +4,10 @@
 
 import { aizhsUrl } from '@/constants/icon-urls'
 import { useI18n } from '@/i18n'
-import { Button, Image, Video, View } from '@tarojs/components'
+import { Button, Image, Text, Video, View } from '@tarojs/components'
 import type { ReactNode } from 'react'
 import LineIcon, { type LineIconProps } from '@/components/LineIcon'
+import { isErrorTurn } from '@ihui/shared/chat'
 import { StreamActivityCards, SteerNoticeCard } from './cards/ai-cards'
 import { taroPreviewChatImages, taroSaveChatImageToAlbum } from '@/lib/image-preview-pack'
 import Taro from '@tarojs/taro'
@@ -145,6 +146,54 @@ export default function ChatMessageItem({
       data: text,
       success: () => onToast(t('success.copied'), { kind: 'info' }),
     })
+  }
+
+  // 失败轮 → 错误卡片(警示头 + 正文 + 重试出口),整块替换正文:失败不产出内容。
+  // 与共享屏 packages/app/src/features/chat/ChatMessageItem.tsx 的 isFailed 分支
+  // 同一条件(isErrorTurn)、同一样式类;此处由端内适配器渲染,避免共享件重复出卡。
+  if (msg.role !== 'user' && isErrorTurn(msg)) {
+    return (
+      <View onLongPress={onLongPress}>
+        <View className="agent-content-item">
+          <View className="w-full overflow-hidden rounded-lg border border-destructive/40 bg-destructive/5">
+            <View className="flex items-center bg-destructive/10 px-md py-sm">
+              <LineIcon
+                name="triangle-alert"
+                size={28}
+                color="var(--color-destructive)"
+                style={{ marginRight: 'var(--spacing-xs)' }}
+              />
+              <Text className="text-label font-medium text-destructive">
+                {t('ai.chatMessageItem.errorCardTitle')}
+              </Text>
+            </View>
+            <Text className="block whitespace-pre-wrap break-words px-md py-sm text-body text-destructive">
+              {msg.content}
+            </Text>
+            {onRegenerate ? (
+              <View className="px-md pb-sm">
+                <View
+                  className="inline-flex items-center"
+                  onClick={() => onRegenerate(msg)}
+                  hoverClass="opacity-60"
+                >
+                  <LineIcon
+                    name="refresh-cw"
+                    size={24}
+                    color="var(--color-destructive)"
+                    style={{ marginRight: '6rpx' }}
+                  />
+                  <Text className="text-label text-destructive">
+                    {t('ai.chatMessageItem.retry')}
+                  </Text>
+                </View>
+              </View>
+            ) : null}
+          </View>
+        </View>
+        {versionMenuSlot ?? null}
+      </View>
+    )
   }
 
   const cardsCount =

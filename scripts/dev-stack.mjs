@@ -331,10 +331,25 @@ function healthMatches(body, expect) {
 // 树的孤儿占着 ⇒ 新树绑不上 ⇒ 每轮 start-timeout,而 killStale 还"看不见"它。
 const STALE_ROOT_NAMES = ['wscript.exe', 'cmd.exe', path.basename(process.execPath)];
 
+// 读 pid 文件里「本次受管树根」是否仍存活:返回 pid,无文件/已死返回 0。
+// pid 文件在 pipe 形态下记的是服务本体(node --import tsx),降级形态记 wscript/cmd,
+// 三种形态都要认(与 STALE_ROOT_NAMES 同一份白名单,§0.6 不抄第二份判定)。
+function supervisedRootPid(svc) {
+  const pidFile = path.join(LOG_DIR, `dev-stack-${svc.name}.pid`);
+  try {
+    const pid = Number(fs.readFileSync(pidFile, 'utf8').trim());
+    if (STALE_ROOT_NAMES.some((n) => pidAlive(pid, n))) return pid;
+  } catch {
+    /* 无 pid 文件 = 旧启动方式拉起的,无从判定 */
+  }
+  return 0;
+}
+
 function killStale(svc) {
   const pidFile = path.join(LOG_DIR, `dev-stack-${svc.name}.pid`);
   try {
     const pid = Number(fs.readFileSync(pidFile, 'utf8').trim());
+    // 判据与 supervisedRootPid 同一份白名单常量(STALE_ROOT_NAMES),不另立第二份表
     if (STALE_ROOT_NAMES.some((n) => pidAlive(pid, n))) killTree(pid);
     fs.rmSync(pidFile, { force: true });
   } catch {
@@ -578,7 +593,10 @@ function tcpOpen(port, timeout = 1200) {
 // 对任何请求回 200)占用 ⇒ 旧 httpOk 只看 statusCode<500 ⇒ dev-stack 判 api「up」,
 // 真 API 早已死掉却无人知道(号池巡检随之停摆)。凡是"端口有人占着就算健康"的探活,
 // 都会把占位者当成服务本体 —— 所以声明了 healthExpect 的服务必须校验应答体身份标记。
-function httpProbe(host, port, urlPath = '/health', timeout = 2500) {
+// 2026-11-07:超时 2500→8000。api /health 每次实时 ping Redis,实测 2.2s(Redis 抖动时更久),
+// 紧贴 2.5s 上限 ⇒ 巡检把健康的 api 判成「掉线」并重拉,旧进程不死、新进程抢不到端口,
+// 于是 launcher 越堆越多(21:05/21:40 两轮实测)。放宽到 8s,只影响「判死」延迟,不影响正常巡检。
+function httpProbe(host, port, urlPath = '/health', timeout = 8000) {
   return new Promise((resolve) => {
     const req = http.get({ host, port, path: urlPath, timeout }, (res) => {
       let body = '';
@@ -718,6 +736,23 @@ async function ensure(svc, results) {
   if (checkOnly) {
     results.push({ name: svc.name, port: svc.port, status: 'down', action: 'skipped(check)', hint: svc.hint });
     return false;
+  }
+  // 2026-11-08 根因修复:受管树还活着就不杀。旧实现这里无条件 startSvc→killStale,
+  // 「守护被 watchdog 复活」的窗口里会把仍在首编译的 API 树 taskkill 掉(实测 10:07
+  // 计划任务重拉守护后的第 1 分钟,api 就以 code=1/signal=null、无 stderr 退出)。
+  const livePid = supervisedRootPid(svc);
+  if (livePid) {
+    const ok = await waitReady(svc);
+    results.push({
+      name: svc.name,
+      port: svc.port,
+      status: ok ? 'up' : 'down',
+      action: ok ? 'started' : 'booting',
+      hint: ok
+        ? ''
+        : `受管进程仍在(pid=${livePid})但已超过 readyTimeoutMs=${Math.round(readyTimeoutMs / 1000)}s 未就绪:按判据不杀(杀掉只会让慢启动从零重来),继续交给 watch 复核;若确认卡死请人工排查`,
+    });
+    return ok;
   }
   if (!canStart(svc)) {
     results.push({ name: svc.name, port: svc.port, status: 'down', action: 'cannot-start', hint: svc.hint });
@@ -875,16 +910,22 @@ if (watchMode) {
             continue;
           }
           cannotStartNotified.delete(svc.name);
-          // 2026-10-29: 重拉冷却。就绪等待最长 45s 而 tick 间隔 30s,上一轮刚 spawn 的树
-          // 还没监听时下一轮就会判它 down 再拉一棵 ⇒ 两棵树抢同一个端口,双双失败。
-          // 冷却期内的"掉线"只记录不重拉(startedAt 由本轮写入,与重入锁配合兜底)。
-          //
-          // 2026-11-07:等待窗口 45s → readyTimeoutMs(默认 120s,--timeout 可调)。
-          // 45s 是给 next/web 量级的腿定的,而 ai-service 冷启实测 53–88s、api
-          // (`node --import tsx src/index.ts`)约 75s ⇒ 必然在"还没监听"时被判
-          // 重拉失败并杀掉,重拉永远跑不完(同日 api 12:15 掉线后反复失败的实测)。
-          // 双拉风险由上面那段冷却期 + 本轮 await(阻塞到 waitReady 结束)兜住,
-          // 与 45s 时同构,不因加长而变差。
+          // 2026-11-08 根因修复:受管树还活着 = 在启动推进中,绝不重拉。
+          // 旧逻辑只在 RELAUNCH_COOLDOWN_MS(120s)内宽限,冷却一过就 startSvc→killStale
+          // 用 taskkill /T /F 强杀仍在首编译的旧树;被杀的 node 以 code=1/signal=null、
+          // 无 stderr 退出(正是上一轮独立端口抓到的退出签名),新树又从零编译 ⇒
+          // api 冷启动一旦 >120s 就进入「掉线→重拉→失败」死循环(17:33–17:49 的 watcher
+          // 日志逐轮如此、间隔恰为 120s 冷却;而同一份代码在独立端口能正常监听)。
+          const livePid = supervisedRootPid(svc);
+          if (livePid) {
+            console.log(
+              `[${new Date().toLocaleTimeString()}] ${svc.name}(:${svc.port}) 进程仍在(pid=${livePid}),判为启动推进中,本轮不重拉`,
+            );
+            continue;
+          }
+          // 2026-10-29: 重拉冷却(只对"树已死"的崩溃循环生效)。就绪等待最长 45s 而 tick
+          // 间隔 30s,上一轮刚 spawn 的树若秒退,下一轮会立刻再拉 ⇒ 打爆 spawn;冷却期内的
+          // "掉线"只记录不重拉(startedAt 由本轮写入,与重入锁配合兜底)。
           const nowMs = Date.now();
           if (nowMs - (lastStartAt.get(svc.name) ?? 0) < RELAUNCH_COOLDOWN_MS) {
             console.log(
@@ -896,8 +937,12 @@ if (watchMode) {
           console.log(`[${new Date().toLocaleTimeString()}] ${svc.name}(:${svc.port}) 掉线,重拉中...`);
           const child = startSvc(svc);
           if (child && typeof child.unref === 'function') child.unref();
-          const ok = await waitReady(svc, readyTimeoutMs);
-          console.log(`  ${svc.name} 重拉${ok ? '成功 ✅' : '失败 ❌(日志见 .tmp-sync)'}`);
+          const ok = await waitReady(svc, 45000);
+          // 45s 只是"本轮看得到就绪"的观测窗口,不是判死:新树即使 45s 内没监听也继续跑,
+          // 下一轮 tick 靠 supervisedRootPid 认出它还活着(不杀),直到它自己就绪。
+          console.log(
+            `  ${svc.name} 新树已拉起(pid=${supervisedRootPid(svc) || '?'}),${ok ? '45s 内已就绪 ✅' : '45s 内未就绪,继续等下一轮回核(本轮不杀 ❎)'}`,
+          );
         } catch (e) {
           console.error(`  重拉失败: ${e instanceof Error ? e.message : String(e)}`);
         }

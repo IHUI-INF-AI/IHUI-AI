@@ -179,7 +179,7 @@ export default function AgentCategoryDetailPage() {
                               : 'text-primary',
                           )}
                         >
-                          {agent.isFree ? t('free') : `¥${agent.price}`}
+                          {agent.isFree ? t('free') : `¥${(agent.price / 100).toFixed(2)}`}
                         </span>
                       </div>
                     </div>

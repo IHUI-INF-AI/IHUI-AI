@@ -22,9 +22,19 @@ vi.mock('@/hooks/use-auth-gate', () => ({
   useAuthGate: () => authGate.state,
 }))
 
-const fetchApi = vi.hoisted(() => vi.fn())
-vi.mock('@/lib/api', () => ({
-  fetchApi: fetchApi,
+// 2026-11-05 实现侧变更(门 300 A 类):页面改走共享出口
+// `@ihui/api-client.{exportGdprData,getGdprPortabilityData,eraseGdprAccount}`,
+// 与 RN 同语义,401 弹窗由端侧 handler 注入。URL/动词唯一持有者是 api-client,
+// 本页职责只剩「门上才发、擦除后 logout」—— 夹具跟着出口走。
+const gdpr = vi.hoisted(() => ({
+  exportGdprData: vi.fn(),
+  getGdprPortabilityData: vi.fn(),
+  eraseGdprAccount: vi.fn(),
+}))
+vi.mock('@ihui/api-client', () => ({
+  exportGdprData: gdpr.exportGdprData,
+  getGdprPortabilityData: gdpr.getGdprPortabilityData,
+  eraseGdprAccount: gdpr.eraseGdprAccount,
 }))
 
 const logout = vi.hoisted(() => vi.fn())
@@ -119,7 +129,8 @@ describe('数据权利页 · 登录态门三态', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     authGate.state = { ready: true, allow: true }
-    fetchApi.mockResolvedValue(EXPORT_OK)
+    gdpr.exportGdprData.mockResolvedValue(EXPORT_OK)
+    gdpr.eraseGdprAccount.mockResolvedValue({ success: true, data: null })
   })
 
   afterEach(() => {
@@ -136,7 +147,7 @@ describe('数据权利页 · 登录态门三态', () => {
     expect(screen.queryByText('eraseBtn')).toBeNull()
     expect(screen.queryByText('portabilityBtn')).toBeNull()
     expect(screen.queryByText('exportBtn')).toBeNull()
-    expect(fetchApi).not.toHaveBeenCalled()
+    expect(gdpr.exportGdprData).not.toHaveBeenCalled()
   })
 
   it('确未登录(ready=true ∧ allow=false)显登录引导,破坏性入口随卡一并收起', () => {
@@ -147,7 +158,7 @@ describe('数据权利页 · 登录态门三态', () => {
     expect(screen.queryByText('eraseBtn')).toBeNull()
     expect(screen.queryByText('portabilityBtn')).toBeNull()
     expect(screen.queryByText('exportBtn')).toBeNull()
-    expect(fetchApi).not.toHaveBeenCalled()
+    expect(gdpr.exportGdprData).not.toHaveBeenCalled()
   })
 
   it('门开(allow 由假翻真)后入口才出现,点导出才发请求', async () => {
@@ -159,8 +170,7 @@ describe('数据权利页 · 登录态门三态', () => {
     rerender(<DataRightsPage />)
     fireEvent.click(screen.getByText('exportBtn'))
 
-    await waitFor(() => expect(fetchApi).toHaveBeenCalledTimes(1))
-    expect(fetchApi).toHaveBeenCalledWith('/api/gdpr/export', { method: 'POST' })
+    await waitFor(() => expect(gdpr.exportGdprData).toHaveBeenCalledTimes(1))
   })
 
   it('擦除成功 → logout() 把 allow 翻假后,回执仍在(不得被自己的登录引导顶掉)', async () => {
@@ -170,9 +180,7 @@ describe('数据权利页 · 登录态门三态', () => {
     fireEvent.change(screen.getByLabelText('eraseConfirmText'), { target: { value: 'DELETE' } })
     fireEvent.click(screen.getByText('confirm'))
 
-    await waitFor(() =>
-      expect(fetchApi).toHaveBeenCalledWith('/api/gdpr/erase', { method: 'POST' }),
-    )
+    await waitFor(() => expect(gdpr.eraseGdprAccount).toHaveBeenCalledTimes(1))
     await waitFor(() => expect(logout).toHaveBeenCalledTimes(1))
     expect(screen.getByText('eraseSuccess')).toBeTruthy()
 

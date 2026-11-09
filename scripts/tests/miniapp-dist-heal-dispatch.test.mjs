@@ -51,9 +51,9 @@ const logsOf = () => {
 }
 const runnerOf = (obj) => () => JSON.stringify(obj)
 
-test('M1 would-heal ⇒ 判过并点名 C0(预演不当成"已修好")', () => {
+test('M1 would-heal ⇒ 判过并点名 C0(预演不当成"已修好")', async () => {
   const { logs, logger } = logsOf()
-  const r = healStaleMiniappDist({
+  const r = await healStaleMiniappDist({
     ...fixture(),
     logger,
     runner: runnerOf({ state: 'would-heal', c0: 'stale', why: '产物陈旧' }),
@@ -64,9 +64,9 @@ test('M1 would-heal ⇒ 判过并点名 C0(预演不当成"已修好")', () => {
   assert.match(logs.join('\n'), /c0=stale/)
 })
 
-test('M1b healed / still 各自出账(构建秒数与仍不新鲜的原因都要进日志)', () => {
+test('M1b healed / still 各自出账(构建秒数与仍不新鲜的原因都要进日志)', async () => {
   const a = logsOf()
-  const r1 = healStaleMiniappDist({
+  const r1 = await healStaleMiniappDist({
     ...fixture(),
     logger: a.logger,
     runner: runnerOf({ state: 'healed', c0: 'stale', after: 'fresh', buildMs: 183000 }),
@@ -75,7 +75,7 @@ test('M1b healed / still 各自出账(构建秒数与仍不新鲜的原因都要
   assert.match(a.logs.join('\n'), /构建=183s/)
 
   const b = logsOf()
-  const r2 = healStaleMiniappDist({
+  const r2 = await healStaleMiniappDist({
     ...fixture(),
     logger: b.logger,
     runner: runnerOf({ state: 'still', c0: 'stale', after: 'stale', why: '构建失败:x' }),
@@ -84,9 +84,9 @@ test('M1b healed / still 各自出账(构建秒数与仍不新鲜的原因都要
   assert.match(b.logs.join('\n'), /after=stale/)
 })
 
-test('M2 未判定 ⇒ ok=false,不记绿(§0.3)', () => {
+test('M2 未判定 ⇒ ok=false,不记绿(§0.3)', async () => {
   const { logs, logger } = logsOf()
-  const r = healStaleMiniappDist({
+  const r = await healStaleMiniappDist({
     ...fixture(),
     logger,
     runner: runnerOf({ state: 'undetermined', why: 'C0 判词解析不出' }),
@@ -96,10 +96,10 @@ test('M2 未判定 ⇒ ok=false,不记绿(§0.3)', () => {
   assert.match(logs.join('\n'), /state=undetermined/)
 })
 
-test('M2b 结论行不是 JSON / 缺 state ⇒ 同样未判定(形状漂移不许冒绿)', () => {
-  const r1 = healStaleMiniappDist({ ...fixture(), logger: () => {}, runner: () => 'boom' })
+test('M2b 结论行不是 JSON / 缺 state ⇒ 同样未判定(形状漂移不许冒绿)', async () => {
+  const r1 = await healStaleMiniappDist({ ...fixture(), logger: () => {}, runner: () => 'boom' })
   assert.equal(r1.ok, false)
-  const r2 = healStaleMiniappDist({
+  const r2 = await healStaleMiniappDist({
     ...fixture(),
     logger: () => {},
     runner: runnerOf({ c0: 'fresh' }),
@@ -107,7 +107,7 @@ test('M2b 结论行不是 JSON / 缺 state ⇒ 同样未判定(形状漂移不�
   assert.equal(r2.ok, false)
 })
 
-test('M3 节流窗口内第二轮不派生(一轮 = 一次完整 Taro 构建)', () => {
+test('M3 节流窗口内第二轮不派生(一轮 = 一次完整 Taro 构建)', async () => {
   const f = fixture()
   let calls = 0
   const runner = () => {
@@ -116,23 +116,23 @@ test('M3 节流窗口内第二轮不派生(一轮 = 一次完整 Taro 构建)', 
   }
   const now = Date.now()
   const iv = 6 * 60 * 60 * 1000
-  assert.equal(healStaleMiniappDist({ ...f, now, runner, logger: () => {}, intervalMs: iv }).ran, true)
+  assert.equal((await healStaleMiniappDist({ ...f, now, runner, logger: () => {}, intervalMs: iv })).ran, true)
   assert.equal(
-    healStaleMiniappDist({ ...f, now: now + 60 * 1000, runner, logger: () => {}, intervalMs: iv }).ran,
+    (await healStaleMiniappDist({ ...f, now: now + 60 * 1000, runner, logger: () => {}, intervalMs: iv })).ran,
     false,
   )
   assert.equal(calls, 1)
   assert.equal(
-    healStaleMiniappDist({ ...f, now: now + iv + 1, runner, logger: () => {}, intervalMs: iv }).ran,
+    (await healStaleMiniappDist({ ...f, now: now + iv + 1, runner, logger: () => {}, intervalMs: iv })).ran,
     true,
   )
   assert.equal(calls, 2)
 })
 
-test('M4 器物不在位 ⇒ 跳过且不写节流台账(补回后下一轮立刻能跑)', () => {
+test('M4 器物不在位 ⇒ 跳过且不写节流台账(补回后下一轮立刻能跑)', async () => {
   const f = fixture()
   const { logs, logger } = logsOf()
-  const r = healStaleMiniappDist({
+  const r = await healStaleMiniappDist({
     ...f,
     logger,
     scriptFile: join(mkScratch('miniapp-dist-missing-'), 'nope.mjs'),
@@ -151,7 +151,7 @@ function hasTick(p) {
   }
 }
 
-test('M6 判词归类是判据本体:判不出必须 null(不许猜一个)', () => {
+test('M6 判词归类是判据本体:判不出必须 null(不许猜一个)', async () => {
   // 这一格锁的是器物出口与调度侧读的同一份判词 —— 调度侧不重算新鲜度(§0.6)
   assert.equal(c0Verdict('C0 产物新鲜度:**旧产物** —— dist 停在 X'), 'stale')
   assert.equal(c0Verdict('C0 产物新鲜度:新鲜(相差 7 ms)'), 'fresh')
@@ -166,7 +166,7 @@ test('M5 装车锁:定义 + 调用挂巡检轮(排在 dist 腿之后)+ __test__ 
     t.skip('HEAD 面取不到 git-guardian.mjs ⇒ 未判定')
     return
   }
-  if (!/export function healStaleMiniappDist\b/.test(src)) {
+  if (!/export (?:async )?function healStaleMiniappDist\b/.test(src)) {
     // 尚未入库(本枚提交的同一批里才接上)⇒ 报"待落地"而不是判坏;落地后 HEAD 有它,判据照常生效
     t.skip('healStaleMiniappDist 尚未进 HEAD(落地后本锁自动生效)')
     return
@@ -176,9 +176,9 @@ test('M5 装车锁:定义 + 调用挂巡检轮(排在 dist 腿之后)+ __test__ 
   }
   has(/healStaleMiniappDist,/, '必须进 __test__ 出口,否则镜像测试取不到本体')
   has(/IHUI_MINIAPP_DIST_HEAL_INTERVAL_MS/, '节流必须可由 env 覆盖')
-  const call = src.match(/^\s*if \(!CHECK_ONLY\) healStaleMiniappDist\(\)$/m)
+  const call = src.match(/^\s*if \(!CHECK_ONLY\) (?:await )?healStaleMiniappDist\(\)$/m)
   assert.ok(call, '派发必须挂在 !CHECK_ONLY 分支(--check 档不跑构建)')
-  const anchor = src.match(/^\s*if \(!CHECK_ONLY\) healStaleDistLeg\(\)$/m)
+  const anchor = src.match(/^\s*if \(!CHECK_ONLY\) (?:await )?healStaleDistLeg\(\)$/m)
   assert.ok(anchor, 'workspace dist 腿的调用锚点必须还在(它没了本锁就该重写,而不是静默失配)')
   const fnStarts = [...src.matchAll(/^(?:export )?(?:async )?function\s+(\w+)/gm)].map((m) => m.index)
   const enclosing = (idx) => {

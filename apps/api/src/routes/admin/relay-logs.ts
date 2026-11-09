@@ -33,7 +33,8 @@ import { buildSensitiveKeySet, sanitizeData } from '../../plugins/response-sanit
 const listQuerySchema = paginationSchema.extend({
   userId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
   model: z.transform(emptyToUndefined).pipe(z.string().max(100).optional()),
-  status: z.transform(emptyToUndefined).pipe(z.enum(['success', 'error']).optional()),
+  // F-89:partial=流中断但已产出 token(按实际计费),需可筛选
+  status: z.transform(emptyToUndefined).pipe(z.enum(['success', 'error', 'partial']).optional()),
   apiKeyId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
   /** 渠道筛选,精确匹配 provider_code */
   provider: z.transform(emptyToUndefined).pipe(z.string().max(100).optional()),

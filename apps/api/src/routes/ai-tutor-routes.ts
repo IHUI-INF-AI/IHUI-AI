@@ -55,6 +55,8 @@ async function proxyToAiService(
       method: 'POST',
       headers,
       body: bodyText,
+      // F-472:ai-service 无响应时必须按时收口,不能把请求线程永久挂住
+      signal: AbortSignal.timeout(20_000),
     })
     const text = await upstream.text()
     let payload: unknown = text

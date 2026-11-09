@@ -11,7 +11,7 @@
  * 定长再 `timingSafeEqual`,既有长度泄漏也没有前缀计时分叉;由镜像测试
  * internal-service-token-constant-time.test.ts 钉住,不得另抄第二份)。
  *
- * 两族内部凭据(来源与消费点):
+ * 三族内部凭据(来源与消费点):
  *  - `X-Internal-Service-Token` == `config.AI_CALLBACK_SECRET`
  *    (消费方:plugins/internal-service-token.ts 的 checkInternalServiceToken,
  *     ai-service 等内部服务调 /api/memory 一类端点;路由侧还会继续校验 X-User-Id 与
@@ -21,6 +21,11 @@
  *     非 `ihui_` 前缀 ⇒ 不满足 csrf 的 isPlausibleBearerCredential 形态豁免,
  *     旧现场即:CSRF 钩子(onRequest,csrf.ts:204)抢在 handler 内的密钥校验之前 403,
  *     合法内部调用永远走不到自己的鉴权分支。)
+ *  - `X-Internal-Service-Ticket: <短期票>`
+ *    (消费方:路由侧 checkInternalServiceToken;票的 jti **单次使用**只在那里登记。
+ *     本出口**只验签 + 判时效,绝不消费** —— 若在这里 consume,CSRF 会抢在路由鉴权前
+ *     把票吃掉,合法调用方在路由层只会读到 replayed ⇒ 纯票部署下 POST 写接口全 401。
+ *     重放窗口由"签名 + exp≤300s"封顶,真正的单次使用仍由路由鉴权那一次 consume 保证。)
  *
  * fail-closed 是判据的一半:密钥未配置 / 凭据缺失 / 比较实现不可达 ⇒ 一律 false
  * (拒绝),绝不因为"看起来像内部端点"而放行。豁免的根据是**密钥验真**,不是路径、
@@ -30,6 +35,10 @@
 import type { FastifyRequest } from 'fastify'
 import { config } from '../config/index.js'
 import { normalizeHeader } from './http-normalize.js'
+import {
+  INTERNAL_TICKET_HEADER,
+  verifyInternalServiceTicketSignature,
+} from '../plugins/internal-service-ticket.js'
 
 /** 与 plugins/internal-service-token.ts / plugins/principal.ts 同一头名(值同步由用例钉住)。 */
 const INTERNAL_SERVICE_TOKEN_HEADER = 'x-internal-service-token'
@@ -95,9 +104,33 @@ export async function isVerifiedAgentControlInternalCall(
   return constantTimeEquals(bearer, secret)
 }
 
+/**
+ * 内部短期票是否签真、未过期、用途合法 —— **非消耗式验签**。
+ *
+ * 只判票面(`verifyInternalServiceTicketSignature`),**不登记、不消费 jti**:
+ * CSRF 钩子跑在路由鉴权之前,若在这一层消费,合法调用方的票会被吃光 ⇒ 路由层
+ * 读到 `replayed` ⇒ 纯票部署下写接口全 401。单次使用仍由路由侧
+ * `checkInternalServiceToken` 那一次 consume 保证。
+ *
+ * 直接静态引用验签函数:internal-service-ticket.ts 只依赖 jose (密钥经 `@ihui/auth`
+ * 延迟读取),不进 db 加载图,没有上面 `constantTimeEquals` 那类加载成本问题。
+ * 失败方向恒为 false —— 密钥/验签实现不可达 ⇒ 不豁免(fail-closed)。
+ */
+export async function isVerifiedInternalTicketCall(request: FastifyRequest): Promise<boolean> {
+  const ticket = normalizeHeader(request.headers[INTERNAL_TICKET_HEADER])
+  if (!ticket) return false
+  try {
+    return (await verifyInternalServiceTicketSignature(ticket)).ok
+  } catch {
+    return false
+  }
+}
+
 /** 任一内部凭据族验真通过 ⇒ 这是机器自证调用(CSRF 钩子的豁免判据)。 */
 export async function isVerifiedInternalMachineCall(request: FastifyRequest): Promise<boolean> {
   if (await isVerifiedInternalServiceCall(request)) return true
-  return isVerifiedAgentControlInternalCall(request)
+  if (await isVerifiedAgentControlInternalCall(request)) return true
+  // 第三族:短期票。只验签不消费 —— 消费必须留给路由鉴权那一次(见上一函数注释)。
+  return isVerifiedInternalTicketCall(request)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

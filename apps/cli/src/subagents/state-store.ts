@@ -23,6 +23,10 @@ import { sessionStatusFromInstance, type AgentInstanceState } from '@ihui/types'
 // G-719(2026-10-03):会话水合读侧唯一入口 —— 落库工具结果元数据的版本分账/剥后校验收敛在这一份。
 import { hydrateToolStateMap } from '../sessions/tool-part-hydration.js';
 import { isRecord } from '../util/json.js';
+// subagent 状态行文件名由 id 拼出:收敛 + 根内/realpath 断言统一走 util/path-guard。
+import { segmentFilePathInside } from '../util/path-guard.js';
+// BUG-0010:subagent 状态行落盘统一走唯一原子写出口(tmp+fsync+rename;Windows EPERM 有界重试)。
+import { writeFileAtomicSync } from '../util/atomic-write.js';
 import type { SubagentLifecycleStatus } from './types.js';
 import { SUBAGENT_LIFECYCLE_STATUSES, isSubagentTerminalStatus } from './types.js';
 
@@ -75,11 +79,13 @@ export function getSubagentStateDir(): string {
 }
 
 export function getSubagentStatePath(id: string): string {
-  return path.join(getSubagentStateDir(), `${id}.json`);
+  // id 可能来自 resumeFrom 入参:收敛成单段名并断言落在状态目录内(与会话/检查点同一判据)。
+  return segmentFilePathInside(getSubagentStateDir(), id, '.json', 'subagent 状态行');
 }
 
 function ensureStateDir(): void {
-  fs.mkdirSync(getSubagentStateDir(), { recursive: true });
+  // F-005:子代理状态含任务提示/结果,同样按私有目录落盘。
+  fs.mkdirSync(getSubagentStateDir(), { recursive: true, mode: 0o700 });
 }
 
 export function newSubagentId(): string {
@@ -120,7 +126,7 @@ export function saveSubagentState(state: SubagentState): void {
 function writeStateRow(state: SubagentState): void {
   ensureStateDir();
   const p = getSubagentStatePath(state.id);
-  fs.writeFileSync(p, JSON.stringify(state, null, 2), 'utf-8');
+  writeFileAtomicSync(p, JSON.stringify(state, null, 2), { mode: 0o600 });
 }
 
 /**

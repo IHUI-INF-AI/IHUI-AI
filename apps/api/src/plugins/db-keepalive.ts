@@ -7,6 +7,7 @@ import fp from 'fastify-plugin'
 import { sql } from 'drizzle-orm'
 import { db, dbClient } from '../db/index.js'
 import { startStopwatch, type ClockSource, type ElapsedSample } from '../utils/elapsed-ms.js'
+import { reportPoolMetricsToSink } from '../utils/pool-metrics.js'
 import {
   poolLeakDetector,
   type PoolLeakStats,
@@ -143,32 +144,26 @@ const dbKeepalivePlugin: FastifyPluginAsync = async (server: FastifyInstance) =>
 
   timer?.unref()
 
-  // 定时采样 postgres.js 连接池状态并上报 Gauge 指标
-  // postgres.js 的 options.max 为连接池最大容量；内部连接状态通过尝试访问内部属性获取
+  // 定时采样 postgres.js 连接池状态并上报 Gauge 指标。
+  // F-324:不可采样时显式报 available=0 / NaN,不再静默上报 in_use=0。
+  let poolUnavailableLogged = false
   const poolSampler = isTestEnv
     ? undefined
     : setInterval(() => {
         try {
-          const poolSize = dbClient.options?.max ?? 0
-          let inUse = 0
-          let checkedOut = 0
-          // postgres.js 不公开 pool 内部状态，尝试读取内部属性（兼容不同版本）
-          const internal = dbClient as unknown as {
-            state?: { connections?: unknown[]; idle?: unknown[]; active?: unknown[] }
+          const sample = reportPoolMetricsToSink(
+            (opts) => server.setDbPoolMetrics(opts),
+            dbClient,
+          )
+          if (sample.available) {
+            poolUnavailableLogged = false
+          } else if (!poolUnavailableLogged) {
+            poolUnavailableLogged = true
+            server.log.warn(
+              { reason: sample.reason, max: sample.size },
+              '连接池 usage 指标不可用(显式 NaN,不再伪造 0)',
+            )
           }
-          if (internal.state) {
-            const allConns = internal.state.connections ?? []
-            const idleConns = internal.state.idle ?? []
-            const activeConns = internal.state.active ?? []
-            inUse = activeConns.length
-            checkedOut = allConns.length - idleConns.length
-          }
-          server.setDbPoolMetrics({
-            size: poolSize,
-            inUse,
-            checkedOut,
-            overflow: 0,
-          })
         } catch (err) {
           server.log.warn({ err }, 'pool metrics sample failed')
         }

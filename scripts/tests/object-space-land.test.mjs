@@ -1262,9 +1262,13 @@ test('T-G801-4 形状锁:回读走 cat-file -e 探针且 --name-only 只作混�
   const src = readFileSync(TOOL, 'utf8')
   assert.match(
     src,
-    /commitFacePresence\(\{ root, commit: landed, paths \}\)/,
-    'main 必须真调用探针(判据在而无人调 = 判据不存在,守门 70/76/81 同型)',
+    /verifyMadeCommitFace\(\{ root, commit, paths, removePaths \}\)[\s\S]*?if \(!pre\.ok\)/,
+    'main 必须在 CAS **之前**跑先验后落(判据在而无人前置调 = 判据不存在;2026-11-09 顺序票)',
   )
+  const casAt = src.indexOf('casUpdateRef(commit, head')
+  const verifyAt = src.indexOf('const pre = verifyMadeCommitFace(')
+  assert.ok(verifyAt !== -1 && casAt !== -1, '先验后落两段都必须在位')
+  assert.ok(verifyAt < casAt, `自检必须排在 CAS 之前(实测 verify@${verifyAt} / cas@${casAt})`)
   assert.match(src, /'cat-file', '-e'/, '探针必须问 git 的存在性结论')
   // D171(2026-09-30):混提辅助清单从"show --name-only + -c core.quotePath=false"统一到
   // lib/git-paths 的 diff-tree -z 出口(-z 分帧在 git 侧本就不做 quotePath 转写),与

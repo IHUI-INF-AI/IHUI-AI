@@ -28,12 +28,14 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import logging as _logging
 import os
 import stat
 import time
+from pathlib import Path
 from typing import Any
 
 logger = _logging.getLogger("repo_wiki_engine")
@@ -401,8 +403,9 @@ async def ensure_wiki(
                 continue
             # 新增/变更:读取内容并(重)生成摘要
             try:
-                with open(abs_path, encoding="utf-8", errors="replace") as fh:
-                    content = fh.read()
+                content = await asyncio.to_thread(
+                    Path(abs_path).read_text, encoding="utf-8", errors="replace"
+                )
             except OSError:
                 if isinstance(old, dict) and old.get("summary"):
                     new_files[rel] = {

@@ -31,10 +31,21 @@ export function formatMoney(amount: number): string {
 }
 
 /**
- * 手机号脱敏:13812345678 → 138****4567
+ * 手机号脱敏:13812345678 → 138****4567。
+ * XUI-036:先归一化(+86 / 空格 / 短横线都剥掉)再脱敏;非 11 位本地号保持原串,
+ * 不把 `+86 138...` 这种常见写法整串透出。
  */
 export function formatPhone(phone: string): string {
-  return String(phone || '').replace(/(\d{3})\d{4}(\d{4})/, '$1****$2')
+  const raw = String(phone ?? '')
+  const digits = raw.replace(/\D/g, '')
+  const local =
+    digits.length === 13 && digits.startsWith('86')
+      ? digits.slice(2)
+      : digits.length === 11
+        ? digits
+        : ''
+  if (!local) return raw
+  return `${local.slice(0, 3)}****${local.slice(7)}`
 }
 
 /**
@@ -70,6 +81,10 @@ export function formatTokenCount(tokens: number): string {
  * IncomeScreen 等需空值返回 '0.00' 的场景,传 fallback = '0.00'。
  */
 export function formatAmount(n: number | string | undefined | null, fallback = '—'): string {
+  // XUI-036:空串不是 0。旧实现 `Number('') === 0` 会把"没有金额"渲染成 0.00,
+  // 和"实付 0 元"混为一体;空值一律走 fallback。
+  if (n === undefined || n === null) return fallback
+  if (typeof n === 'string' && n.trim() === '') return fallback
   const num = typeof n === 'string' ? Number(n) : n
   if (typeof num !== 'number' || isNaN(num)) return fallback
   return num.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })

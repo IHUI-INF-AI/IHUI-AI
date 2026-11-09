@@ -73,33 +73,62 @@ export function subsetMissing(haveRoots, keys, rnPack) {
 }
 
 /** packages/app 桶口:名字 → 特性文件(仓库相对)。星号再导出单独记,遇到就整支入图。 */
-export function buildBarrelMap(readFile, barrelRel = 'packages/app/src/index.ts') {
+export function buildBarrelMap(readFile, barrelRel = 'packages/app/src/index.ts', readBatch = null, has = null) {
   const ts = getTs()
   const text = readFile(barrelRel) ?? ''
   const named = new Map()
   const stars = []
   const src = ts.createSourceFile('barrel', text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS)
-  const resolveSpec = (fromDir, spec) => {
-    const base = normalizeRepoRel(fromDir + '/' + spec)
-    if (!base) return null
-    for (const e of TS_EXTS) if (readFile(base + e) !== null && readFile(base + e) !== undefined) return base + e
-    for (const e of TS_EXTS) if (readFile(base + '/index' + e) !== null && readFile(base + '/index' + e) !== undefined) return base + '/index' + e
-    return null
-  }
   const dirOf = (p) => p.split('/').slice(0, -1).join('/')
+  /** 一条说明符的全部候选(与原逐枚探测同序:先 base+ext,再 base/index+ext)。 */
+  const candsOf = (base) => {
+    if (!base) return []
+    const out = []
+    for (const e of TS_EXTS) out.push(base + e)
+    for (const e of TS_EXTS) out.push(`${base}/index${e}`)
+    return out
+  }
+  // 两遍:先把相对说明符收齐,再一次性解析。立因(2026-11-07 实测):逐候选 `readBatch([one])`
+  // 是每枚一个 cat-file 派生,137 条说明符 × 9 候选 ⇒ 1200+ 进程,head 面 50 分钟不收敛;
+  // 跑不完的门等于不存在(§0.9)。收齐后:有路径集合就纯内存查表,否则一条 cat-file --batch 全解。
+  const entries = []
   const visit = (node) => {
     if ((ts.isExportDeclaration(node) || ts.isImportDeclaration(node)) && node.moduleSpecifier?.text?.startsWith('.')) {
       const spec = node.moduleSpecifier.text
-      const target = resolveSpec(dirOf(barrelRel), spec)
       const names = []
       if (ts.isNamedExports?.(node.exportClause)) for (const el of node.exportClause.elements) names.push(el.propertyName?.text ?? el.name.text)
       if (ts.isImportClause(node) && ts.isNamedImports(node.namedBindings)) for (const el of node.namedBindings.elements) names.push(el.propertyName?.text ?? el.name.text)
-      if (target) for (const n of names) named.set(n, target)
-      if (ts.isExportDeclaration(node) && !node.exportClause) stars.push(target)
+      entries.push({ base: normalizeRepoRel(dirOf(barrelRel) + '/' + spec), names, isStar: Boolean(ts.isExportDeclaration(node) && !node.exportClause) })
     }
     node.forEachChild(visit)
   }
   src.statements.forEach(visit)
+  let got = null
+  if (!has && readBatch && entries.length > 0) {
+    const all = [...new Set(entries.flatMap((e) => candsOf(e.base)))]
+    try {
+      got = readBatch(all)
+    } catch {
+      got = null
+    }
+  }
+  const exists = has ?? ((p) => { const v = readFile(p); return v !== null && v !== undefined })
+  const resolveOne = (base) => {
+    for (const c of candsOf(base)) {
+      if (got) {
+        const v = got.get(c)
+        if (v !== null && v !== undefined) return c
+        continue
+      }
+      if (exists(c)) return c
+    }
+    return null
+  }
+  for (const e of entries) {
+    const target = resolveOne(e.base)
+    if (target) for (const n of e.names) named.set(n, target)
+    if (e.isStar) stars.push(target)
+  }
   return { named, stars: stars.filter(Boolean) }
 }
 
@@ -107,7 +136,7 @@ export function buildBarrelMap(readFile, barrelRel = 'packages/app/src/index.ts'
  * 从"承载页清单"算出可达文件集与可达键集。
  * carriers = [{rel, text}](小程序端 import 了 @rn-shells/* 或 @ihui/rn-app/* 的那些页)。
  */
-export function carriedKeys({ carriers, readFile: readFileRaw = null, readBatch: readBatchRaw = null, resolveRel, mpSrc = 'apps/miniapp-taro/src' }) {
+export function carriedKeys({ carriers, readFile: readFileRaw = null, readBatch: readBatchRaw = null, resolveRel, mpSrc = 'apps/miniapp-taro/src', has = null }) {
   // 注入进来的读取器可能是"门/生成器那把面尺"—— 它们对目录、对特殊文件是**抛错**的
   // (readWorktreeFile 遇 EISDIR 抛 Undetermined)。闭包解析本来就要反复探路,
   // 所以这里统一折算成 null:取不到正文 = 这一支不走,而不是整轮崩。
@@ -122,8 +151,15 @@ export function carriedKeys({ carriers, readFile: readFileRaw = null, readBatch:
   const safeBatch =
     readBatchRaw ??
     ((rels) => new Map(rels.map((r) => [r, safeOne(r)])))
+  const readBatchSafe = (rels) => {
+    try {
+      return safeBatch(rels)
+    } catch {
+      return new Map()
+    }
+  }
   const readFile = safeOne
-  const barrel = buildBarrelMap(readFile)
+  const barrel = buildBarrelMap(readFile, 'packages/app/src/index.ts', readBatchRaw, has)
   const RN_ROOT = 'apps/mobile-rn/src'
   const toRel = (fromFile, spec) => {
     if (spec.startsWith('@rn-shells/')) return `${RN_ROOT}/screens/${spec.slice('@rn-shells/'.length)}.tsx`
@@ -133,9 +169,11 @@ export function carriedKeys({ carriers, readFile: readFileRaw = null, readBatch:
     if (spec.startsWith('.')) return resolveRel(fromFile.split('/').slice(0, -1).join('/') + '/' + spec)
     return null
   }
+  // 星号再导出的正文与闭包正文都**整批**取(逐枚 safeOne 在 git 面等于每文件一个派生进程)。
+  const starTexts = barrel.stars.length > 0 ? readBatchSafe(barrel.stars) : new Map()
   const roots = carriers.flatMap((c) => [
     { file: c.rel, text: c.text },
-    ...barrel.stars.map((s) => ({ file: s, text: readFile(s) })),
+    ...barrel.stars.map((s) => ({ file: s, text: starTexts.get(s) ?? null })),
   ])
   const walk = walkClosure({
     roots,
@@ -146,7 +184,11 @@ export function carriedKeys({ carriers, readFile: readFileRaw = null, readBatch:
     barrelOf: (file, spec, names) => (spec === '@ihui/rn-app' ? names.map((n) => barrel.named.get(n)).filter(Boolean) : null),
   })
   const keys = new Set()
-  for (const rel of walk.files) for (const k of extractTKeys(readFile(rel))) keys.add(k)
+  // walk.files 可能是 Set 也可能是数组(闭包实现两处都在用),统一先摊平成数组再判空:
+  // 写 `walk.files.size > 0` 在数组形态下永远是 false ⇒ keys 恒空 ⇒ C10 误判红。
+  const walkList = Array.from(walk.files)
+  const walkTexts = walkList.length > 0 ? readBatchSafe(walkList) : new Map()
+  for (const rel of walkList) for (const k of extractTKeys(walkTexts.get(rel) ?? '')) keys.add(k)
   for (const c of carriers) for (const k of extractTKeys(c.text)) keys.add(k)
   return { keys, files: [...walk.files], unresolved: walk.unresolved, walk }
 }
@@ -192,22 +234,44 @@ export function makeResolver(readFile, tsExts = TS_EXTS) {
 }
 
 /**
+ * 路径集合解析器:调用方已一次性把该面的全部路径喂进来(`git ls-tree -r --name-only HEAD`
+ * 或 `git ls-files --cached`),这里只在内存里查表 ⇒ 零子进程(2026-11-07 加)。
+ * 立因:闭包里每条相对说明符都走 `makeBatchResolver` 就是每说明符一轮 cat-file,600+ 说明符
+ * 仍是 1200+ 进程;一次列全路径则把「探路」从 N 次派生降到 1 次。
+ */
+export function makePathSetResolver(has) {
+  return (baseRaw) => {
+    const base = normalizeRepoRel(baseRaw)
+    if (!base) return null
+    if (has(base)) return base
+    for (const e of TS_EXTS) if (has(base + e)) return base + e
+    for (const e of TS_EXTS) if (has(`${base}/index${e}`)) return `${base}/index${e}`
+    return null
+  }
+}
+
+/**
  * 同一套探路的批量版:一条说明符的 9 个候选**一次问完**。
  * 磁盘面用不上(逐文件读很便宜),git 面必须用它 —— 否则 122 个文件的闭包要起 1000 次 git 进程,
  * 门慢到没人跑就等于没装(§0.9)。
  */
 export function makeBatchResolver(readBatch, tsExts = TS_EXTS) {
+  const memo = new Map()
   return (baseRaw) => {
     const base = normalizeRepoRel(baseRaw)
     if (!base) return null
+    if (memo.has(base)) return memo.get(base)
     const cands = [base, ...tsExts.map((e) => base + e), ...tsExts.map((e) => `${base}/index${e}`)]
     let got
     try {
       got = readBatch(cands)
     } catch {
+      memo.set(base, null)
       return null
     }
-    return cands.find((r) => got.get(r) !== null && got.get(r) !== undefined) ?? null
+    const hit = cands.find((r) => got.get(r) !== null && got.get(r) !== undefined) ?? null
+    memo.set(base, hit)
+    return hit
   }
 }
 
@@ -215,7 +279,7 @@ export function makeBatchResolver(readBatch, tsExts = TS_EXTS) {
  * 从"仓库现状"算可达键:承载页 = 端内 import 了 `@rn-shells/*` 或 `@ihui/rn-app/*` 的那些 .tsx。
  * 文件枚举与读取都由调用方注入 ⇒ 同一份算式可跑工作树面,也可跑 HEAD/索引面(守门 118 同面同轮)。
  */
-export function carriedKeysFromRepo({ readFile: readFileRaw = null, readBatch: readBatchRaw = null, listFiles, mpSrc = 'apps/miniapp-taro/src' }) {
+export function carriedKeysFromRepo({ readFile: readFileRaw = null, readBatch: readBatchRaw = null, listFiles, mpSrc = 'apps/miniapp-taro/src', has = null }) {
   const safeOne = (rel) => {
     try {
       if (readBatchRaw) return readBatchRaw([rel]).get(rel) ?? null
@@ -231,7 +295,7 @@ export function carriedKeysFromRepo({ readFile: readFileRaw = null, readBatch: r
       for (const r of rels) out.set(r, safeOne(r))
       return out
     })
-  const resolveRel = readBatchRaw ? makeBatchResolver(safeBatch) : makeResolver(safeOne)
+  const resolveRel = has ? makePathSetResolver(has) : readBatchRaw ? makeBatchResolver(safeBatch) : makeResolver(safeOne)
   const rels = listFiles(mpSrc).filter((p) => p.endsWith('.tsx'))
   const texts = safeBatch(rels)
   const carriers = []
@@ -239,7 +303,7 @@ export function carriedKeysFromRepo({ readFile: readFileRaw = null, readBatch: r
     const text = texts.get(rel) ?? null
     if (text && /@rn-shells\/|@ihui\/rn-app\//.test(text)) carriers.push({ rel, text })
   }
-  const r = carriedKeys({ carriers, readFile: safeOne, readBatch: safeBatch, resolveRel, mpSrc })
+  const r = carriedKeys({ carriers, readFile: safeOne, readBatch: safeBatch, resolveRel, mpSrc, has })
   // 第二格:共享特性屏**整片**纳入(2026-10-28 立,治"页面上出现原始键")。
   // 为什么不只靠上面那条 import 闭包:闭包在 HEAD 面上有断链(现读承载页 141 枚 → 可达文件 294 枚 /
   // 可达键 432 个,而 259 枚 `packages/app/src/features/**` 屏自述消费 1994 个键),漏掉的那批屏

@@ -60,7 +60,7 @@
 
 import { spawnSync } from 'node:child_process'
 // 取材面纪律(§0.4/门 118):取 blob 正文一律经统一取材层,不在本门内自起 git show。
-import { catBatch } from './lib/face-reader.mjs'
+import { catBatch, gitBinary } from './lib/face-reader.mjs'
 import { createHash } from 'node:crypto'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
@@ -331,7 +331,7 @@ function gitShow(rel, repoRoot = ROOT) {
 }
 
 function currentHead(repoRoot = ROOT) {
-  const proc = spawnSync('git', ['rev-parse', 'HEAD'], {
+  const proc = spawnSync(gitBinary(), ['rev-parse', 'HEAD'], {
     cwd: repoRoot,
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -1523,7 +1523,8 @@ async function selfTest({ repoRoot = ROOT, usePython = true }) {
       'silent-degrade',
   )
 
-  // 3. 真实现场(默认 HEAD 面):必须判出 mcp 那一枚 silent-degrade,或如实报未判定 —— 不许冒绿
+  // 3. 真实现场(默认 HEAD 面):票#10 已把 mcp 改为双路融合并显式降级信号,故这里钉住"健康档"实况;
+  //    silent-degrade 的猎杀能力由上面 MCP_SAMPLE 合成样本继续锁住(判据本身未放宽)
   const live = runAll({ repoRoot, usePython })
   const liveMcpJ1 = live.J1.items.find((i) => i.exit === 'mcp.search_codebase')
   const liveMcpJ2 = live.J2.items.find((i) => i.exit === 'mcp.search_codebase')
@@ -1534,16 +1535,21 @@ async function selfTest({ repoRoot = ROOT, usePython = true }) {
     liveRagJ1?.shape ?? 'undetermined',
   )
   ok(
-    '现场 J1 mcp ⇒ serial-fallback(HEAD 面)',
-    liveMcpJ1?.shape === 'serial-fallback',
+    '现场 J1 mcp ⇒ dual-leg-fused 且两腿锚点+融合调用齐备(HEAD 面;票#10 已修,旧串行回落实况过期)',
+    liveMcpJ1?.shape === 'dual-leg-fused' &&
+      Boolean(liveMcpJ1?.legs?.vector && liveMcpJ1?.legs?.text && liveMcpJ1?.fusion) &&
+      (liveMcpJ1?.concurrent ?? 0) >= 2,
     liveMcpJ1?.shape ?? 'undetermined',
   )
   ok(
-    '现场 J2 mcp ⇒ silent-degrade 或未判定(两档之外即判据失灵)',
-    liveMcpJ2 ? liveMcpJ2.verdict === 'silent-degrade' || liveMcpJ2.verdict === 'unjudged' : false,
-    liveMcpJ2?.verdict ??
+    '现场 J2 mcp ⇒ signaled,且出声证据是显式降级键或遥测(不得只剩 carrier-only)',
+    liveMcpJ2
+      ? liveMcpJ2.verdict === 'signaled' &&
+        ((liveMcpJ2.signalKeys?.length ?? 0) > 0 || (liveMcpJ2.telemetry?.length ?? 0) > 0)
+      : false,
+    (liveMcpJ2?.detail ??
       live.J2.unjudged.find((u) => u.exit === 'mcp.search_codebase')?.reason ??
-      'n/a',
+      'n/a'),
   )
 
   // 4. 判据零复制锁:本文件代码面(注释/字符串/正则遮罩后)不得出现 RRF 公式形态

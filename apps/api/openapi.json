@@ -2031,8 +2031,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -2162,8 +2161,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -2293,8 +2291,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -2434,8 +2431,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -2575,8 +2571,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -13460,6 +13455,24 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "summary": "发票申请列表",
@@ -13569,6 +13582,24 @@
             }
           },
           "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
             "description": "Default Response",
             "content": {
               "application/json": {
@@ -29120,6 +29151,24 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "summary": "订单列表",
@@ -29206,6 +29255,24 @@
             }
           },
           "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
             "description": "Default Response",
             "content": {
               "application/json": {
@@ -29337,6 +29404,24 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "summary": "批量取消订单",
@@ -29452,6 +29537,24 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "summary": "Saga 编排订单完成",
@@ -29540,6 +29643,24 @@
             }
           },
           "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
             "description": "Default Response",
             "content": {
               "application/json": {
@@ -30311,6 +30432,24 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "summary": "支付记录列表",
@@ -30339,8 +30478,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -30470,8 +30608,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -30601,8 +30738,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -31861,6 +31997,24 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "summary": "退款列表",
@@ -32046,6 +32200,24 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "summary": "处理退款",
@@ -32155,6 +32327,24 @@
             }
           },
           "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
             "description": "Default Response",
             "content": {
               "application/json": {
@@ -32556,6 +32746,25 @@
         }
       }
     },
+    "/api/admin/relay/accounts/{id}/share": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/admin/relay/accounts/{id}/task-run": {
       "post": {
         "parameters": [
@@ -32595,6 +32804,25 @@
       }
     },
     "/api/admin/relay/accounts/{id}/toggle": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/admin/relay/accounts/{id}/unshare": {
       "post": {
         "parameters": [
           {
@@ -33078,8 +33306,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -47029,8 +47256,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -47189,8 +47415,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -47349,8 +47574,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -47962,8 +48186,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -48123,8 +48346,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -48254,8 +48476,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -48429,8 +48650,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -48570,8 +48790,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -48901,8 +49120,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -49033,8 +49251,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -49365,8 +49582,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -49497,8 +49713,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -49654,8 +49869,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -49800,8 +50014,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -49940,8 +50153,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -50196,8 +50408,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -50328,8 +50539,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -50470,8 +50680,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -50657,8 +50866,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -50911,8 +51119,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -51260,8 +51467,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -51449,8 +51655,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -51638,8 +51843,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -51790,8 +51994,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -51968,8 +52171,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -52143,8 +52345,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -52475,8 +52676,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -52607,8 +52807,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -52939,8 +53138,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -53112,8 +53310,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -53244,8 +53441,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -53463,8 +53659,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -53794,8 +53989,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -53926,8 +54120,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -54258,8 +54451,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -54390,8 +54582,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -54572,8 +54763,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -54904,8 +55094,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -55036,8 +55225,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -55266,8 +55454,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -55598,8 +55785,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -55730,8 +55916,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -55897,6 +56082,87 @@
     "/api/ai/chat/conversations/{id}": {
       "delete": {
         "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/ai/chat/conversations/{id}/budget-stops": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/ai/chat/conversations/{id}/compaction-boundaries": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/ai/chat/conversations/{id}/context-ledger": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          },
           {
             "schema": {
               "type": "string"
@@ -56215,8 +56481,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -56347,8 +56612,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -56679,8 +56943,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -56852,8 +57115,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -56984,8 +57246,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -57186,8 +57447,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -57317,8 +57577,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -57458,8 +57717,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -57641,8 +57899,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -57772,8 +58029,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -57903,8 +58159,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -58063,8 +58318,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -58227,8 +58481,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -58358,8 +58611,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -58529,8 +58781,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -58721,8 +58972,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -59059,8 +59309,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -59233,8 +59482,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -59432,8 +59680,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -59605,8 +59852,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -59745,8 +59991,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -59941,8 +60186,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -60154,8 +60398,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -60357,8 +60600,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -60697,8 +60939,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -60829,8 +61070,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -61016,8 +61256,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -61187,8 +61426,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -61519,8 +61757,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -61692,8 +61929,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -61824,8 +62060,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -62156,8 +62391,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -62288,8 +62522,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -62481,8 +62714,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -62812,8 +63044,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -62986,8 +63217,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -63185,8 +63415,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -63356,8 +63585,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -63487,8 +63715,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -63683,8 +63910,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -63896,8 +64122,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -64092,8 +64317,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -64251,8 +64475,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -64409,8 +64632,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -64577,8 +64799,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -64750,8 +64971,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -64882,8 +65102,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -65061,8 +65280,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -65251,8 +65469,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -65409,8 +65626,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -65741,8 +65957,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -65873,8 +66088,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -66051,8 +66265,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -66383,8 +66596,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -66556,8 +66768,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -66688,8 +66899,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -66860,8 +67070,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -67050,8 +67259,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -67192,8 +67400,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -67377,8 +67584,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -67535,8 +67741,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -67867,8 +68072,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -67999,8 +68203,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -68192,8 +68395,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -68388,8 +68590,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -68562,8 +68763,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -68754,8 +68954,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -68885,8 +69084,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -69081,8 +69279,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -69303,8 +69500,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -69499,8 +69695,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -69759,8 +69954,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -69937,8 +70131,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -70269,8 +70462,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -70401,8 +70593,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -70742,8 +70933,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -70874,8 +71064,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -71206,8 +71395,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -71338,8 +71526,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -71513,8 +71700,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -71645,8 +71831,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -71986,8 +72171,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -72159,8 +72343,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -72291,8 +72474,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -72623,8 +72805,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -72796,8 +72977,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -72928,8 +73108,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -73107,8 +73286,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -73448,8 +73626,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -73580,8 +73757,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -73912,8 +74088,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -74044,8 +74219,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -74376,8 +74550,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -74508,8 +74681,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -74669,8 +74841,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -74870,8 +75041,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -75078,8 +75248,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -75233,8 +75402,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -75374,8 +75542,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -75546,8 +75713,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -75678,8 +75844,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -75848,8 +76013,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -76042,8 +76206,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -76196,8 +76359,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -76384,8 +76546,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -76525,8 +76686,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -76666,8 +76826,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -77007,8 +77166,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -77139,8 +77297,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -77471,8 +77628,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -77603,8 +77759,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -77809,8 +77964,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -77951,8 +78105,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -78283,8 +78436,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -78415,8 +78567,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -78765,8 +78916,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -78897,8 +79047,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -79229,8 +79378,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -79361,8 +79509,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -79530,8 +79677,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -79672,8 +79818,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -80113,8 +80258,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -80245,8 +80389,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -80577,8 +80720,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -80709,8 +80851,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -81041,8 +81182,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -81173,8 +81313,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -81340,8 +81479,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -81523,8 +81661,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -81683,8 +81820,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -81825,8 +81961,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -82157,8 +82292,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -82289,8 +82423,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -82621,8 +82754,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -82794,8 +82926,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -82926,8 +83057,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -83327,8 +83457,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -83459,8 +83588,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -83791,8 +83919,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -83923,8 +84050,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -84095,8 +84221,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -84237,8 +84362,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -84410,8 +84534,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -84583,8 +84706,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -84708,7 +84830,8 @@
                     "type": "string"
                   },
                   "webhookPath": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 2048
                   },
                   "inputData": {
                     "type": "object",
@@ -84737,8 +84860,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -85122,8 +85244,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -85295,8 +85416,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -85427,8 +85547,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -85759,8 +85878,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -85932,8 +86050,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -86064,8 +86181,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -86396,8 +86512,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -86528,8 +86643,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -86860,8 +86974,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -87033,8 +87146,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -87165,8 +87277,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -87497,8 +87608,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -87670,8 +87780,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -87802,8 +87911,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -88134,8 +88242,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -88307,8 +88414,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -88500,8 +88606,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -88632,8 +88737,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -88855,8 +88959,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -88998,8 +89101,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -89165,8 +89267,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -89337,8 +89438,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -89669,8 +89769,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -89801,8 +89900,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -90133,8 +90231,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -90265,8 +90362,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -90597,8 +90693,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -90729,8 +90824,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -91061,8 +91155,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -91193,8 +91286,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -91525,8 +91617,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -91657,8 +91748,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -91989,8 +92079,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -92121,8 +92210,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -92300,8 +92388,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -92442,8 +92529,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -92774,8 +92860,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -92947,8 +93032,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -93079,8 +93163,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -93231,8 +93314,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -93414,8 +93496,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -93578,8 +93659,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -93720,8 +93800,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -93887,8 +93966,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -94029,8 +94107,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -94361,8 +94438,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -94534,8 +94610,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -94666,8 +94741,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -94998,8 +95072,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -95130,8 +95203,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -95462,8 +95534,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -95635,8 +95706,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -95767,8 +95837,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -96099,8 +96168,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -96272,8 +96340,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -96465,8 +96532,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -96597,8 +96663,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -96929,8 +96994,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -97061,8 +97125,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -97233,8 +97296,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -97426,8 +97488,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -97557,8 +97618,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -97688,8 +97748,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -97829,8 +97888,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -98160,8 +98218,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -98292,8 +98349,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -98506,8 +98562,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -98678,8 +98733,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -98843,8 +98897,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -98985,8 +99038,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -99317,8 +99369,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -99449,8 +99500,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -99643,8 +99693,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -99802,8 +99851,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -99933,8 +99981,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -100064,8 +100111,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -100205,8 +100251,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -100354,8 +100399,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -100494,8 +100538,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -100632,8 +100675,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -100790,8 +100832,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -100937,8 +100978,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -101103,8 +101143,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -101244,8 +101283,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -101397,8 +101435,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -101527,8 +101564,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -101667,8 +101703,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -101832,8 +101867,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -102162,8 +102196,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -102335,8 +102368,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -102467,8 +102499,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -102799,8 +102830,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -102931,8 +102961,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -103263,8 +103292,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -103436,8 +103464,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -103568,8 +103595,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -103700,8 +103726,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -103840,8 +103865,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -104119,8 +104143,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -104450,8 +104473,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -104642,8 +104664,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -104855,8 +104876,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -105186,8 +105206,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -105382,8 +105401,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -105513,8 +105531,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -105653,8 +105670,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -105983,8 +105999,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -106115,8 +106130,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -106295,8 +106309,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -106437,8 +106450,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -106769,8 +106781,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -106901,8 +106912,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -107061,8 +107071,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -107254,8 +107263,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -107401,8 +107409,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -107532,8 +107539,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -107696,8 +107702,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -107868,8 +107873,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -108000,8 +108004,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -108154,8 +108157,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -108306,8 +108308,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -108636,8 +108637,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -108809,8 +108809,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -108941,8 +108940,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -109273,8 +109271,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -109466,8 +109463,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -109598,8 +109594,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -109930,8 +109925,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -110062,8 +110056,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -110394,8 +110387,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -110526,8 +110518,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -110858,8 +110849,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -111031,8 +111021,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -111224,8 +111213,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -111356,8 +111344,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -111535,8 +111522,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -111677,8 +111663,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -115162,6 +115147,15 @@
         }
       }
     },
+    "/api/auth/oauth/linuxdo/callback": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/auth/oauth/my-authorized": {
       "get": {
         "responses": {
@@ -117309,6 +117303,24 @@
             }
           },
           "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
             "description": "Default Response",
             "content": {
               "application/json": {
@@ -120441,6 +120453,23 @@
       }
     },
     "/api/chat/conversations/{id}/share": {
+      "delete": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
       "post": {
         "parameters": [
           {
@@ -129093,6 +129122,15 @@
         }
       }
     },
+    "/api/edu-ai-management/attendance/self-check-out": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/edu-ai-management/attendance/stats": {
       "get": {
         "responses": {
@@ -133016,6 +133054,15 @@
         }
       }
     },
+    "/api/engine/rpc": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/engine/voice/sessions": {
       "post": {
         "responses": {
@@ -134916,8 +134963,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -135086,8 +135132,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -135227,8 +135272,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -135312,8 +135356,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -135474,8 +135517,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -135604,8 +135646,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -135732,8 +135773,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -135862,8 +135902,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -136004,8 +136043,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -136146,8 +136184,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -136322,8 +136359,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -136464,8 +136500,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -136630,8 +136665,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -136782,8 +136816,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -137387,6 +137420,28 @@
           }
         ],
         "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            }
+          },
           "201": {
             "description": "Default Response",
             "content": {
@@ -139031,6 +139086,24 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "summary": "我的发票申请",
@@ -139240,6 +139313,24 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "summary": "删除发票申请",
@@ -139363,6 +139454,24 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "summary": "更新发票申请",
@@ -139461,6 +139570,24 @@
             }
           },
           "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
             "description": "Default Response",
             "content": {
               "application/json": {
@@ -139686,6 +139813,24 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "summary": "删除发票抬头",
@@ -139793,6 +139938,24 @@
             }
           },
           "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
             "description": "Default Response",
             "content": {
               "application/json": {
@@ -143610,6 +143773,25 @@
         }
       }
     },
+    "/api/mcp/external/servers/{name}/reconnect": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "name",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/mcp/integrations": {
       "get": {
         "responses": {
@@ -143773,6 +143955,25 @@
     },
     "/api/mcp/slash-commands/reload": {
       "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/mcp/store/{name}/toggle": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "name",
+            "required": true
+          }
+        ],
         "responses": {
           "200": {
             "description": "Default Response"
@@ -150367,6 +150568,24 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "summary": "订单操作日志",
@@ -150455,6 +150674,24 @@
             }
           },
           "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
             "description": "Default Response",
             "content": {
               "application/json": {
@@ -150711,6 +150948,24 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "summary": "我的订单",
@@ -150809,6 +151064,24 @@
             }
           },
           "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
             "description": "Default Response",
             "content": {
               "application/json": {
@@ -150950,6 +151223,24 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "summary": "创建支付",
@@ -151075,6 +151366,24 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "summary": "申请退款",
@@ -151173,6 +151482,24 @@
             }
           },
           "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
             "description": "Default Response",
             "content": {
               "application/json": {
@@ -152510,8 +152837,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -152640,8 +152966,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -152770,8 +153095,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -152900,8 +153224,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -152973,8 +153296,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -153046,8 +153368,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -153176,8 +153497,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -153306,8 +153626,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -153436,8 +153755,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -153616,6 +153934,24 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "summary": "我的支付记录",
@@ -153644,8 +153980,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -153774,8 +154109,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -153904,8 +154238,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -154034,8 +154367,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -154164,8 +154496,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -154237,8 +154568,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -154367,8 +154697,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -154497,8 +154826,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -154647,8 +154975,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -154804,8 +155131,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -154944,8 +155270,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -155099,8 +155424,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -155256,8 +155580,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -155486,8 +155809,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -155616,8 +155938,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -155746,8 +156067,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -155819,8 +156139,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -155892,8 +156211,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -156022,8 +156340,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -156152,8 +156469,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -156282,8 +156598,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -156412,8 +156727,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -156542,8 +156856,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -156672,8 +156985,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -156944,8 +157256,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -157074,8 +157385,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -157214,8 +157524,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -157344,8 +157653,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -157474,8 +157782,7 @@
                       "example": "ok"
                     },
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true
+                      "description": "响应数据（任意 JSON：对象、数组、标量）"
                     }
                   }
                 }
@@ -157761,6 +158068,24 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "summary": "支付状态",
@@ -157859,6 +158184,24 @@
             }
           },
           "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
             "description": "Default Response",
             "content": {
               "application/json": {
@@ -160532,6 +160875,24 @@
             }
           },
           "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
             "description": "Default Response",
             "content": {
               "application/json": {
@@ -167405,6 +167766,232 @@
         }
       }
     },
+    "/api/super-agent/panel": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/super-agent/policy": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/super-agent/recorded/{id}/accept": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/super-agent/replies": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/super-agent/tickets/{id}/assignment": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/super-agent/tickets/{id}/attach": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/super-agent/tickets/{id}/context": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/super-agent/tickets/{id}/delivery-failed": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/super-agent/tickets/{id}/handback": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/super-agent/tickets/{id}/heartbeat": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/super-agent/tickets/{id}/lease": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/super-agent/tickets/{id}/report": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/super-agent/tickets/{id}/stop": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/super-agent/triggers": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/system-ext/bot-sites": {
       "post": {
         "responses": {
@@ -169629,6 +170216,15 @@
       }
     },
     "/api/user/conversation-import/commit": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/user/conversation-import/commit-runtime": {
       "post": {
         "responses": {
           "200": {
@@ -172396,8 +172992,17 @@
     "/api/workspace/agent/run": {
       "post": {
         "responses": {
-          "200": {
-            "description": "Default Response"
+          "501": {
+            "description": "该端点暂未接入执行层",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "description": "该端点暂未接入执行层"
+                }
+              }
+            }
           }
         }
       }

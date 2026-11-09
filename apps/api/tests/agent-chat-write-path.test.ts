@@ -370,7 +370,7 @@ describe('B1 agent 会话写路径(只追加、不截断)', () => {
     return server.inject({ method: 'GET', url: URL_AGENT })
   }
 
-  it('30 轮 POST 后 60 条仍在,seq 连续且只建一条会话', async () => {
+  it('30 轮 POST 后 60 条仍在,历史首屏受 HISTORY_LIMIT=50 约束,seq 连续且只建一条会话', async () => {
     for (let round = 1; round <= 30; round += 1) {
       const res = await post(`第${round}轮`)
       expect(res.statusCode).toBe(200)
@@ -386,9 +386,15 @@ describe('B1 agent 会话写路径(只追加、不截断)', () => {
     expect(messages[0]!.content).toBe('第1轮')
     expect(messages[messages.length - 2]!.content).toBe('第30轮')
 
+    // 2026-11 移动端历史契约:GET 首屏显式封顶 HISTORY_LIMIT=50(mobile-chat.ts:384),
+    // 旧断言要求 60 条一次全量返回,钉的是封顶前的契约。落库 60 条与首屏 50 条是两件事:
+    // 上面已断言库内 60 条完整,这里断言首屏拿到最近连续 50 条(seq 10..59)。
     const history = await getHistory()
-    const body = history.json() as { data: unknown[] }
-    expect(body.data).toHaveLength(60)
+    // v1 信封只回 id/role/content(不含 seq),所以用内容判断截取窗口:最近 50 条 = 第 6..30 轮。
+    const body = history.json() as { data: Array<{ role: string; content: string }> }
+    expect(body.data).toHaveLength(50)
+    expect(body.data[0]).toMatchObject({ role: 'user', content: '第6轮' })
+    expect(body.data[49]).toMatchObject({ role: 'assistant' })
   })
 
   it('并发两次 POST 不丢消息,且只建一条会话', async () => {

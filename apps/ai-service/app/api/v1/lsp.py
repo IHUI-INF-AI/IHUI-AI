@@ -523,8 +523,9 @@ class LspClient:
         if uri in self._opened:
             return uri
         try:
-            with open(file_path, encoding="utf-8") as f:
-                content = f.read()
+            content = await asyncio.to_thread(
+                Path(file_path).read_text, encoding="utf-8"
+            )
         except OSError as e:
             raise HTTPException(status_code=500, detail=f"读取文件失败: {e}")
         await self._notify(

@@ -22,6 +22,7 @@ import {
   stableSerializeSafe,
   DOOM_LOOP_HASH_ALGORITHM,
   type DoomLoopCallFact,
+  type DoomLoopWindowOptions,
   type DoomLoopWindowStats,
   type ToolCallSignatureInput,
 } from '@ihui/shared/utils/doom-loop-detector'
@@ -74,7 +75,12 @@ export function hashInput(input: unknown): string {
  * 只负责「算摘要 + 组合用户文案」。判据/阈值全部在共享层。
  */
 export class DoomLoopDetector {
-  private readonly window = createDoomLoopWindow()
+  private readonly window: ReturnType<typeof createDoomLoopWindow>
+
+  /** 阈值仍只在共享层(本类不重抄数字);这里只是把窗口参数如实转交,缺省全走共享层默认。 */
+  constructor(options: DoomLoopWindowOptions = {}) {
+    this.window = createDoomLoopWindow(options)
+  }
 
   record(toolName: string, input: unknown): DoomLoopAlert | null {
     const fact: DoomLoopCallFact | null = this.window.record(toolName, hashInput(input))

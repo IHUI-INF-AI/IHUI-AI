@@ -39,11 +39,13 @@
  *   node scripts/check-plan-deferred-expiry.mjs --file=... --fields-file=...  # 夹具/演练
  *   镜像:node --test scripts/tests/check-plan-deferred-expiry.test.mjs
  */
-import { readFileSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
+import { readFileSync, writeFileSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { Undetermined, catBatch, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
+import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 import { fieldsFor, loadFields } from './lib/plan-fields.mjs'
 import { compositeKeyOf } from './lib/plan-task-index.mjs'
 import { readFieldsFace } from './plan-tasks.mjs'
@@ -75,7 +77,9 @@ export function todayInShanghai(now = new Date()) {
 }
 
 export function daysBetween(fromISO, toISO) {
-  return Math.round((Date.parse(`${toISO}T00:00:00Z`) - Date.parse(`${fromISO}T00:00:00Z`)) / 86_400_000)
+  return Math.round(
+    (Date.parse(`${toISO}T00:00:00Z`) - Date.parse(`${fromISO}T00:00:00Z`)) / 86_400_000,
+  )
 }
 
 /**
@@ -96,7 +100,9 @@ export function scanDeferredRows(content) {
       continue
     }
     const ck = compositeKeyOf(raw)
-    const id = ck ? ck.split('#')[0] : ((raw.match(/\b[A-Z]{1,3}-?\d{1,6}\b/) || [])[0] ?? '(无编号)')
+    const id = ck
+      ? ck.split('#')[0]
+      : ((raw.match(/\b[A-Z]{1,3}-?\d{1,6}\b/) || [])[0] ?? '(无编号)')
     rows.push({ line: i + 1, id, deferred: m[1], raw })
   }
   return { rows, malformed }
@@ -140,14 +146,16 @@ export function parseArgs(argv) {
     else if (a === '--worktree') out.worktree = true
     else if (a === '--as-of' || a.startsWith('--as-of=')) out.asOf = take('--as-of')
     else if (a === '--grace' || a.startsWith('--grace=')) out.graceRaw = take('--grace')
-    else if (a === '--fields-file' || a.startsWith('--fields-file=')) out.fieldsFile = take('--fields-file')
+    else if (a === '--fields-file' || a.startsWith('--fields-file='))
+      out.fieldsFile = take('--fields-file')
     else if (a === '--file' || a.startsWith('--file=')) out.file = take('--file')
     else throw new UsageError(`未知参数 ${a}(见头注用法)`)
   }
   if (out.asOf !== null && !isValidISODate(out.asOf))
     throw new UsageError(`--as-of 必须是合法 YYYY-MM-DD,收到 ${out.asOf}`)
   if (out.graceRaw !== null) {
-    if (!/^\d+$/.test(out.graceRaw)) throw new UsageError(`--grace 必须是非负整数天数,收到 ${out.graceRaw}`)
+    if (!/^\d+$/.test(out.graceRaw))
+      throw new UsageError(`--grace 必须是非负整数天数,收到 ${out.graceRaw}`)
     out.grace = Number(out.graceRaw)
   } else {
     out.grace = 0
@@ -172,7 +180,8 @@ function readPlanText({ root, file, face }) {
   }
   const spec = face === 'staged' ? `:${PLAN_REL}` : `HEAD:${PLAN_REL}`
   const text = catBatch(root, [spec], { maxBuffer: 1 << 26 }).get(spec)
-  if (text === null || text === undefined) throw new Undetermined(`${FACE_LABEL[face] ?? face} 取不到 ${PLAN_REL}`)
+  if (text === null || text === undefined)
+    throw new Undetermined(`${FACE_LABEL[face] ?? face} 取不到 ${PLAN_REL}`)
   return text
 }
 
@@ -181,13 +190,102 @@ function readSidecar({ root, file, face }) {
     try {
       return loadFields(root, readFileSync(resolve(file), 'utf8'))
     } catch (e) {
-      return { ...loadFields(root, null), why: `--fields-file 读不到 ${file}(${e?.code ?? e?.message ?? e})` }
+      return {
+        ...loadFields(root, null),
+        why: `--fields-file 读不到 ${file}(${e?.code ?? e?.message ?? e})`,
+      }
     }
   }
   return readFieldsFace(root, face)
 }
 
+/** 自检期间吞掉判据本体的正常输出,只留断言需要的读数。 */
+function captureConsole(fn) {
+  const orig = console.log
+  const lines = []
+  console.log = (...a) => lines.push(a.join(' '))
+  try {
+    return { code: fn(), text: lines.join('\n') }
+  } finally {
+    console.log = orig
+  }
+}
+
+/**
+ * `--self-test`:全部落在 mkScratch 夹具里,读 `--file` / `--fields-file` 显式输入,
+ * 不读仓库活面、不联网、不写生产路径。正例证明"未到期 ⇒ 绿",反例证明"到期 ⇒ 红"
+ * 与"格式坏 ⇒ 未判定(exit 2)"。判据本体一行未改,只是从同一 `main()` 入口真跑。
+ */
+export function runSelfTest() {
+  const { t, report } = makeRegistrar()
+  const dir = mkScratch('plan-deferred-selftest-')
+  try {
+    const plan = (name, body) => {
+      const p = join(dir, name)
+      writeFileSync(p, body.endsWith('\n') ? body : body + '\n', 'utf8')
+      return p
+    }
+    const fieldsPath = join(dir, 'plan-fields.jsonl')
+    writeFileSync(fieldsPath, '', 'utf8')
+
+    const okPath = plan('ok.md', '- [ ] G-999 暂缓实施 deferred@2099-01-01(到期复评)')
+    const expiredPath = plan('expired.md', '- [ ] G-999 暂缓实施 deferred@2025-01-01(到期复评)')
+    const gracePath = plan('grace.md', '- [ ] G-999 暂缓实施 deferred@2027-01-01(到期复评)')
+    const malformedPath = plan('malformed.md', '- [ ] G-999 暂缓实施 deferred@2025-13-45')
+
+    const run = (file, extra = []) =>
+      captureConsole(() =>
+        main(['--file', file, '--fields-file', fieldsPath, ...extra], { root: dir }),
+      )
+
+    const ok = run(okPath, ['--as-of', '2027-01-01'])
+    const expired = run(expiredPath, ['--as-of', '2027-01-01'])
+    const inGrace = run(gracePath, ['--as-of', '2027-01-02', '--grace', '3'])
+    const malformed = run(malformedPath, ['--as-of', '2027-01-01'])
+    const missing = run(join(dir, 'not-exist.md'))
+
+    t(
+      '①正例:未到期的 deferred@ ⇒ exit 0,汇总 rows=1 expired=0',
+      () => ok.code === 0 && /rows=1 expired=0/.test(ok.text),
+      ok.text.slice(0, 160),
+    )
+    t(
+      '②反例:已到期未复评 ⇒ exit 1 且逐条点名超期天数',
+      () => expired.code === 1 && /超期 \d+ 天/.test(expired.text),
+      expired.text.slice(0, 160),
+    )
+    t(
+      '③正例:--grace 3 覆盖 2027-01-01 后的次天 ⇒ 仍 exit 0',
+      () => inGrace.code === 0 && /expired=0/.test(inGrace.text),
+      inGrace.text.slice(0, 160),
+    )
+    t(
+      '④反例:日期写不成合法 YYYY-MM-DD ⇒ exit 2 未判定(不记绿)',
+      () => malformed.code === 2 && /无法判定/.test(malformed.text),
+      malformed.text.slice(0, 160),
+    )
+    t(
+      '⑤反例:输入文件取不到 ⇒ exit 2 未判定',
+      () => missing.code === 2 && /无法判定/.test(missing.text),
+      missing.text.slice(0, 160),
+    )
+
+    const { fail, cases } = report()
+    for (const c of cases)
+      console.log(`${c.pass ? '✅' : '❌'} ${c.name}${c.pass ? '' : ` —— 实得:${c.got}`}`)
+    console.log(
+      fail
+        ? `self-test: 未通过(${fail}/${cases.length} 组失败)`
+        : `self-test: 全绿(${cases.length} 组)`,
+    )
+    return fail ? 1 : 0
+  } finally {
+    rmScratch(dir)
+  }
+}
+
 export function main(argv = process.argv.slice(2), { root = ROOT } = {}) {
+  if (argv.includes('--self-test')) return runSelfTest()
   let opt
   try {
     opt = parseArgs(argv)
@@ -256,14 +354,21 @@ export function main(argv = process.argv.slice(2), { root = ROOT } = {}) {
   )
   console.log(`   ${summary}`)
   if (verdict.expired.length === 0) {
-    const earliest = [...rows].sort((a, b) => (a.deferred < b.deferred ? -1 : a.deferred > b.deferred ? 1 : 0))[0]
-    if (earliest) console.log(`   ✅ 最近一次到期 ${earliest.deferred}(${earliest.id},还剩 ${daysBetween(asOf, earliest.deferred)} 天)`)
+    const earliest = [...rows].sort((a, b) =>
+      a.deferred < b.deferred ? -1 : a.deferred > b.deferred ? 1 : 0,
+    )[0]
+    if (earliest)
+      console.log(
+        `   ✅ 最近一次到期 ${earliest.deferred}(${earliest.id},还剩 ${daysBetween(asOf, earliest.deferred)} 天)`,
+      )
     return 0
   }
   console.log(`🔴 到期未复评 ${verdict.expired.length} 条:`)
   for (const r of verdict.expired)
     console.log(`   · L${r.line} | ${r.id} | ${r.deferred} | ${r.owner} | 超期 ${r.overdueDays} 天`)
-  console.log('   💡 出路:复评后改 deferred@ 续期(写明为什么还要挂、何时再评),或结清并摘行;不许只删标记。')
+  console.log(
+    '   💡 出路:复评后改 deferred@ 续期(写明为什么还要挂、何时再评),或结清并摘行;不许只删标记。',
+  )
   return 1
 }
 

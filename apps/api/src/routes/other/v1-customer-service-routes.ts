@@ -123,6 +123,10 @@ export const v1CustomerServiceRoutes: FastifyPluginAsync = async (server) => {
   server.get('/v1/customer_service/ticket/:id/rate', async (request, reply) => {
     const id = parseIdParam(request, reply)
     if (id === null) return
+    const ticket = await findTicketById(id)
+    if (!ticket) return reply.status(404).send(error(404, '工单不存在'))
+    if (ticket.userId !== request.userId)
+      return reply.status(403).send(error(403, '无权查看此工单'))
     const rating = await findRatingByTicket(id)
     return reply.send(success({ rating: rating ?? null }))
   })

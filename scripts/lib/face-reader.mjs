@@ -37,8 +37,16 @@ import {
   writeFileSync,
 } from 'node:fs'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import { resolveGitBin } from './gitdir.mjs'
+import {
+  GATE_FACE_ENV,
+  assertGateBodyProvenance,
+  declaredFaceFromRegistry,
+  findRepoRoot,
+  parseFaceFromArgv,
+} from './gate-body-provenance.mjs'
 
 export const FACES = ['staged', 'head', 'worktree']
 
@@ -1101,6 +1109,24 @@ function parseZLsFilesTable(out, { unmergedAsNull = true } = {}) {
 }
 
 /**
+ * 单轮只读扫描的面快照:同一进程里 HEAD 树表只物化一次。
+ * 为什么是 opt-in(`IHUI_FACE_TREE_SNAPSHOT=1`):face-reader 的镜像测试会在**同一进程**里
+ * 连续造提交并移动 HEAD,默认缓存会让第二次读拿到上一棵树的 oid。门/尺子这类"一轮一面"
+ * 的短命进程由调用方显式开启 —— 2026-11-07 302p 提速:六把尺各自重复跑 2~7 次全树 ls-tree,
+ * 开启后每把尺只跑 1 次,读数不变(树在轮内是静止的,§0.4 同面同轮)。
+ */
+const headTreeSnapshot = new Map()
+function headTableOf(root, timeout) {
+  if (process.env.IHUI_FACE_TREE_SNAPSHOT !== '1') {
+    return parseZPathOidTable(gitRaw(['ls-tree', '-r', '-z', 'HEAD'], root, { timeout }))
+  }
+  if (!headTreeSnapshot.has(root)) {
+    headTreeSnapshot.set(root, parseZPathOidTable(gitRaw(['ls-tree', '-r', '-z', 'HEAD'], root, { timeout })))
+  }
+  return headTreeSnapshot.get(root)
+}
+
+/**
  * 把一批 rev 规格解析成 oid。返回 `Map<spec, oid|null>`(null = 被审面上不存在)。
  * 无法离线解析的形态原样映射到自身,由 cat-file 自己去解释。
  */
@@ -1135,8 +1161,7 @@ export function resolveSpecOids(root, specs, opts = {}) {
   const timeout = opts.timeout ?? BATCH_TIMEOUT
   try {
     if (headPaths.length) {
-      const out = gitRaw(['ls-tree', '-r', '-z', 'HEAD'], root, { timeout })
-      const table = parseZPathOidTable(out)
+      const table = headTableOf(root, timeout)
       for (const [spec, rel] of headPaths) result.set(spec, table.has(rel) ? table.get(rel) : null)
     }
     if (indexPaths.length) {
@@ -1291,11 +1316,66 @@ export function catBatchBinary(root, revs, opts = {}) {
   return catBatchRaw(root, revs, opts)
 }
 
+/**
+ * **纯 oid 直达分支**(2026-11-04 立,治迁移带来的 oid 面 2× 回退)。
+ *
+ * 立因(同机实测,`check-installed-asset-catalog` 的 192 条 / 5,004,711 字节资产面):
+ * 收口到本层后每次多出一次 `cat-file --batch-check`(尺寸探测,只为按字节装箱),而本机
+ * 单次 git 派生 ≈ 400ms(28 个 node 守门进程并行)—— 同一批 192 条小样本 455ms → 638~893ms。
+ * 输入本身就是完整 oid 时,这一步**没换到任何判定**:`--batch` 的头行自带 `<oid> blob <size>`,
+ * 正文一次就能读回;`resolveSpecOids` 对 oid 也只是原样映射(零派生、零 rev-parse)。
+ * 于是这一支只发**一次** `cat-file --batch`,跳过预解析与尺寸折返。
+ *
+ * 语义逐字不变(硬门槛是等价性,见 face-reader.test.mjs 的 oid 面/路径面差分):
+ *  - missing / unmerged / 非 blob ⇒ null,与 `parseBatchBuffers` 老路同构;
+ *  - 同一 oid 出现多次 ⇒ 只读一次再回填每个规格;
+ *  - 输出截断 ⇒ 抛 `Undetermined`(绝不静默少扫)。
+ *
+ * 安全边界:本支按**条数**单块(`maxCount`),不再知道字节量 ⇒ 单块可能撑爆 maxBuffer。
+ * 那一刻只认 `ENOBUFS` 并**交回老路**(按尺寸装箱的主体),绝不把"缓冲不足"降级成"取不到";
+ * 超过条数护栏的清单同样交回老路。其它派生故障一律原样抛,不吞。
+ * @returns {Map<string,Buffer|null>|null} null = 本支不适用/缓冲不足,由调用方走老路
+ */
+function catBatchPureOids(root, list, opts, maxCount) {
+  for (const s of list) if (!OID_SPEC_RE.test(s)) return null
+  const uniq = [...new Set(list)]
+  if (uniq.length > maxCount) return null
+  let raw
+  try {
+    raw = batchExecFileSync(GIT, ['-c', 'safe.directory=*', '-C', root, 'cat-file', '--batch'], {
+      cwd: root,
+      input: Buffer.from(uniq.join('\n') + '\n', 'utf8'),
+      windowsHide: true,
+      maxBuffer: opts.maxBuffer ?? GIT_MAX_BUFFER,
+      timeout: opts.timeout ?? BATCH_TIMEOUT,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    })
+  } catch (e) {
+    if (e?.code === 'ENOBUFS' || e?.code === 'ERR_CHILD_PROCESS_STDOUT_MAXBUFFER') return null
+    throw new Undetermined(
+      `git cat-file --batch 失败,${root} 的判定面无法取材(纯 oid 直达,${list.length} 个 oid): ${spawnCauseText(e, opts.maxBuffer ?? GIT_MAX_BUFFER, '纯 oid 直达')}`,
+    )
+  }
+  const byOid = parseBatchBuffers(raw, uniq)
+  const out = new Map()
+  for (const s of list) out.set(s, byOid.get(s) ?? null)
+  return out
+}
+
 /** `catBatch` / `catBatchBinary` 共用的派生与装箱实现;返回字节面,解码交给出口。 */
 function catBatchRaw(root, revs, opts = {}) {
   const list = [...revs]
   if (list.length === 0) return new Map()
   const maxBuffer = opts.maxBuffer ?? GIT_MAX_BUFFER
+  const maxCount = opts.chunkSize ?? CAT_BATCH_CHUNK
+  // 纯 oid 输入直达(见 `catBatchPureOids` 头注):必须在 `resolveSpecOids` 之前 ——
+  // 放到后面就等于先折返再直取,回退原样还在。
+  // 逃生舱 `IHUI_FACE_OID_DIRECT=0` 强制走老路(与 `IHUI_FACE_SPEC_FASTPATH=0` 同口径,对照/排障用)。
+  const direct =
+    process.env.IHUI_FACE_OID_DIRECT === '0'
+      ? null
+      : catBatchPureOids(root, list, { ...opts, maxBuffer }, maxCount)
+  if (direct) return direct
   // 单块预算取 min(默认块上限, 调用方给的缓冲区) —— 调用方把 maxBuffer 调大只该让它
   // **更敢读**,不该反过来把块撑大到一个 blob 就能顶爆的量。
   const maxBytes = opts.maxBytes ?? Math.min(BATCH_BLOCK_BYTES, maxBuffer)
@@ -1306,10 +1386,7 @@ function catBatchRaw(root, revs, opts = {}) {
   if (query.length === 0) return new Map(list.map((s) => [s, null]))
   const sizes = query.length > 1 ? catBatchSizesByOid(root, query, opts, list.length) : new Map()
   const bytesOf = (o) => sizes.get(o) ?? 0
-  const blocks = packByBytes(query, bytesOf, {
-    maxBytes,
-    maxCount: opts.chunkSize ?? CAT_BATCH_CHUNK,
-  })
+  const blocks = packByBytes(query, bytesOf, { maxBytes, maxCount })
   const byOid = new Map()
   let seen = 0
   for (let c = 0; c < blocks.length; c++) {
@@ -1394,9 +1471,60 @@ export function selectFace({ staged, worktree, def = 'head' }) {
   if (staged && worktree) {
     return { face: null, error: '--staged 与 --worktree 不得同用(两个判定面互斥)' }
   }
+  const face = staged ? 'staged' : worktree ? 'worktree' : def
+  // 2026-11-08:门在判定**之前**先自检"正在执行的这份门体 == 被判修订里那一份"。
+  // 这是直跑单门(`node scripts/check-x.mjs`)的唯一入口 —— 不走 selectFace 的门由派发层
+  // (guardian-executor / gate-worker)兜住。不同代 ⇒ exit 2,绝不以 0/1 作答。
+  enforceGateBodyForFace(face)
   if (staged) return { face: 'staged', error: null }
   if (worktree) return { face: 'worktree', error: null }
   return { face: def, error: null }
+}
+
+let gateBodyChecked = null
+
+function enforceGateBodyForFace(face) {
+  if (gateBodyChecked) return
+  const entry = process.argv[1]
+  // 只对门脚本(self-run)生效;测试/工具/被 import 的 lib 一律不拦。
+  if (!entry || !/[\\/]scripts[\\/]check-[^\\/]+\.mjs$/i.test(entry)) return
+  if (/[\\/]scripts[\\/](tests|lib)[\\/]/i.test(entry)) return
+  if (!face) return
+  let root
+  let selfRoot
+  try {
+    root = findRepoRoot(entry)
+    selfRoot = findRepoRoot(fileURLToPath(import.meta.url))
+  } catch {
+    return
+  }
+  // 只判"执行门体所在仓库"的判面;夹具/异仓(门拿 --root 去判别的树)不适用本层。
+  if (!root || !selfRoot || path.resolve(root) !== path.resolve(selfRoot)) return
+  const entryRel = path.relative(root, path.resolve(entry)).replace(/\\/g, '/')
+  // 本层管的是"门在哪个面上作答",而"门"的定义就是声明表里在册的那 321 道。
+  // scripts/check-*.mjs 里还有一批**不是门**的尺子(如被门 302p spawn 的
+  // check-web-rn-style-tiers.mjs):它们不为判面负责、也没有声明义务,只要没给显式判面旗,
+  // 就照原样走自己的缺省面 —— 否则"子尺被另一道门按缺省面调用"会被读成门体事故。
+  // 在册门一律有声明(实测 321 注册 = 321 声明),所以这条不会给在册门开口子。
+  if (!declaredFaceFromRegistry(root, entryRel) && !parseFaceFromArgv(process.argv.slice(2))) {
+    if (!process.env[GATE_FACE_ENV]) return
+  }
+  try {
+    const result = assertGateBodyProvenance({
+      root,
+      entryRel,
+      argv: process.argv.slice(2),
+      env: process.env,
+    })
+    gateBodyChecked = result
+    if (result.escaped && result.note) process.stderr.write(`[gate-body] ${result.note}\n`)
+  } catch (e) {
+    if (e?.exitCode === 2) {
+      process.stderr.write(`${e.message}\n`)
+      process.exit(2)
+    }
+    throw e
+  }
 }
 
 /**

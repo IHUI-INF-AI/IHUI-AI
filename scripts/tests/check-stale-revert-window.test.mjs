@@ -12,8 +12,10 @@
  * 两维处置各有成对用例,缺一边判据就无牙:
  *  ① 热档(三本活文档)走深窗口 ANCESTOR_WINDOW_HOT —— W1:回写点深度 > 旧窗口、≤ 深窗口
  *     ⇒ 必须**判红**(旧实现看不见这一格);
- *  ② 窗口确证用尽而未命中 ⇒ 显式点名「未判定/窗口不足」,不判红也不记绿 —— W2:同一深度
- *     的普通路径(浅窗口按设计)必须 code 0 **且**点名 + 结论行带尾注;W3:浅历史路径的
+ *  ② 窗口确证用尽而未命中:2026-10-25 起 R1 升级为深档(窗口用尽回落全历史)⇒ 窗外回写可
+ *     取证并照判红 —— W2:浅窗口外、全历史内的普通路径回写必须判红并点名,且不得再喊
+ *     「窗口不足」;同一深路径上的真新编辑必须 code 0,而 R1r(读祖先正文、仍保持窗口)的
+ *     「未覆盖/窗口用尽」报名与结论行尾注照旧在场(未覆盖 ≠ 通过);W3:浅历史路径的
  *     真新编辑必须**连点名都没有**(证明点名吃证据,不是恒喊);
  *  W4:窗口用尽判据的边界恰是 "> window" —— 恰好 window 枚历史时**不得**喊"不足",
  *     且窗口内可命中 ⇒ 判红(哨兵取 window+1 枚的 off-by-one 锁);
@@ -113,45 +115,55 @@ test('W1 ① 的阳性对照:热档回写到旧窗口之外、深窗口之内 �
   }
 })
 
-test('W2 ② 的阳性对照:同一深度回写落在普通浅窗口之外 ⇒ 不判红(无从取证),但必须点名「窗口不足」且不得读成通过', () => {
+test('W2 深档对照:浅窗口外的普通路径回写 ⇒ 深档取证后必须判红(旧期望「无从取证」已被 2026-10-25 深档升级推翻)', () => {
   const { dir, run } = repo()
   try {
     const d = DEPTH()
     const first9 = buildDepthHistory({ dir, run }, 'notes/data.txt', d)
+    // 夹具前提必须**量**出来:浅窗口确凿用尽(40 枚取满 + truncated)。否则下面证明的就不是深档
+    // 救回的那一格,而是"本来就在窗口里"(W4 那种边界)。旧 W2 的错在于只量了"深度 > 窗口",
+    // 没量 analyze 走的是深档 —— 2026-10-25 起 analyze 的祖先取材带 deep:true(窗口用尽回落全历史),
+    // 所以"窗外无从取证"这个前提已经不成立。
+    const shallow = G.ancestorWindow(dir, 'notes/data.txt')
+    assert.equal(G.windowFor('notes/data.txt'), G.ANCESTOR_WINDOW, '普通路径必须走浅窗口')
+    assert.equal(shallow.shas.length, G.ANCESTOR_WINDOW)
+    assert.equal(shallow.truncated, true, '夹具前提:该路径动过的提交必须深于浅窗口')
+    // 深档在窗口用尽时回落全历史 —— v1 因此可被取证(这不是放宽,是把"没判"变成"判过")。
+    const deep = G.ancestorWindow(dir, 'notes/data.txt', { deep: true })
+    assert.equal(deep.truncated, false, '全历史取得 ⇒ 已不是"窗口不足"')
+    assert.equal(deep.shas.length, d)
+    assert.equal(deep.shas[d - 1].slice(0, 9), first9, '全历史必须把最老那枚(v1)也取到')
+
     put(dir, 'notes/data.txt', 'v1\n')
     run('add', '--', 'notes/data.txt')
     const loss = []
     const v = G.analyze(dir, ['notes/data.txt'], { windowLoss: loss })
-    assert.deepEqual(v, [], '浅窗口外无从比中 ⇒ 不凭空定罪(判红要有字节证据)')
-    assert.equal(
-      loss.length,
-      1,
-      `窗口确证用尽而未命中,必须落成"窗口不足"点名,实得 ${JSON.stringify(loss)}`,
-    )
-    assert.equal(loss[0].path, 'notes/data.txt')
-    assert.equal(loss[0].window, G.ANCESTOR_WINDOW)
-    assert.equal(loss[0].seen, G.ANCESTOR_WINDOW, '点名必须写清"取满了几枚"')
+    assert.equal(v.length, 1, `深档已取证 ⇒ 必须判红,实得 ${JSON.stringify(v)}`)
+    assert.equal(v[0].path, 'notes/data.txt')
+    assert.equal(v[0].commit, first9, '必须点名回到的正是最老那枚(v1)')
+    assert.deepEqual(loss, [], '深档真把它判出来了 ⇒ 不得再喊"窗口不足"(② 不许替 ① 兜底冒充)')
     const r = G.audit(dir, { staged: true })
     const out = r.lines.join('\n')
-    assert.equal(r.code, 0, '② 不是判红通道(红要有证据);但绿必须带着点名')
-    assert.match(out, /\[R1 未判定\]/)
-    assert.ok(out.includes('notes/data.txt'), '必须点名到路径')
-    assert.ok(!out.includes(first9) || !/==/.test(out), '没命中就不许编一个"等于某提交"的结论')
-    assert.match(
-      out,
-      /✅.*窗口不足未判定\(R1\)/,
-      '结论行必须把这型未判带进尾注,不得给光秃秃的"通过"',
-    )
-    // 同一夹具的第二臂:该深路径上的**真新编辑**同样吃 ② 点名(窗口用尽是路径属性,与结论无关),
-    // 但仍不得判红 —— 点名跟着证据走,不跟着"像不像事故"走。
+    assert.equal(r.code, 1, `浅窗口外的陈旧回写在深档下必须拦,实得 exit ${r.code}:${out.slice(0, 300)}`)
+    assert.ok(r.lines.some((l) => l.includes('notes/data.txt') && l.includes(first9)))
+    assert.doesNotMatch(out, /\[R1 未判定\]/, '深档已判 ⇒ 不得再挂"窗口不足"的虚账')
+    // 第二臂:同一深路径上的**真新编辑** —— 命中与否只看字节,不看"路径深度像不像事故"。
+    // R1 深档也判不出命中 ⇒ 不红;但 R1r(读祖先正文、仍保持浅窗口)必须把"窗口用尽"如实报名,
+    // 结论行尾注同样带着它 —— 诚实面从 R1 的 windowLoss 转到了 R1r 这一侧(未覆盖 ≠ 通过)。
     put(dir, 'notes/data.txt', 'brand-new-content-line-never-committed\n')
     run('add', '--', 'notes/data.txt')
     const r2 = G.audit(dir, { staged: true })
+    const out2 = r2.lines.join('\n')
     assert.equal(r2.code, 0, '真新编辑即使在深路径上也不得判红')
-    assert.match(
-      r2.lines.join('\n'),
-      /\[R1 未判定\]/,
-      '深路径上"窗口用尽"这一事实不因内容而变,如实报',
+    assert.doesNotMatch(out2, /\[R1 未判定\]/, '深档可判 ⇒ R1 不再出"未判定"')
+    assert.match(out2, /\[R1r 未覆盖\]/, 'R1r 仍走浅窗口:窗口用尽必须逐条报名,不得静默')
+    assert.ok(
+      out2.includes(`祖先窗口(${G.ANCESTOR_WINDOW} 枚)已用尽`),
+      'R1r 的点名必须写清窗口枚数与该路径更早版本未取',
+    )
+    assert.ok(
+      r2.lines.some((l) => l.startsWith('✅') && l.includes('未覆盖')),
+      `通过结论必须带"未覆盖"尾注,不得给光秃秃的"通过":${out2.slice(-260)}`,
     )
   } finally {
     rmScratch(dir)
@@ -203,7 +215,7 @@ test('W4 边界锁(哨兵 off-by-one):动过的提交恰好 = 窗口枚数 ⇒ t
   }
 })
 
-test('W5 源码形状反向锁:窗口不得改小、探针哨兵不得拆、"未判定"分支与结论尾注不得删、ancestorCommits 仍是投影', () => {
+test('W5 源码形状反向锁:窗口不得改小、探针哨兵不得拆、未判定必须落 exit 2(不得以 ✅ 尾注代偿)、ancestorCommits 仍是投影', () => {
   // 值锁:改小 ANCESTOR_WINDOW 或把深窗口调回 ≤ 浅窗口,这一条先红(行为分支由 W1–W4 的构造面证)。
   assert.ok(G.ANCESTOR_WINDOW >= 40, `ANCESTOR_WINDOW 不得低于 40(现读 ${G.ANCESTOR_WINDOW})`)
   assert.ok(
@@ -231,11 +243,21 @@ test('W5 源码形状反向锁:窗口不得改小、探针哨兵不得拆、"未
     /\[R1 未判定\]/,
     'audit 的 ❓ 点名块不得被删 —— 删掉它就回到"窗口外回写静默通过"',
   )
+  // 2026-11-05(本票授权改控制流):R1 未判定(含深档取材失败)一律落 exit 2 并只打 ❓ 汇总,
+  // 未判定**不得**以 ✅ 结论行的"窗口不足"尾注代偿 —— 旧尾注只改措辞、不改退出码,正是
+  // 把"没判"记成"判过"的那一型。锁因此从"尾注不得删"改锚到更强的"三桶相加进 exit 2"。
   assert.match(
-    src,
-    /窗口不足未判定\(R1\)/,
-    '结论行尾注不得被删 —— 尾注是"没判"与"判过"在账面上的唯一区别',
+    code,
+    /\(rr\?\.undetermined\?\.length \?\? 0\) \+ \(ms\?\.undetermined\?\.length \?\? 0\) \+ windowLoss\.length/,
+    '未判定三桶必须相加进 exit 2 账面 —— 只算 R1r/R1s 会把 R1 取材失败折回绿',
   )
+  assert.match(code, /code: failed \? 1 : undeterminedCount > 0 \? 2 : 0/, '未判定必须 exit 2')
+  assert.match(
+    code,
+    /if \(!failed && undeterminedCount > 0\)/,
+    '有未判定时只走 ❓ 汇总分支(与 ✅ 结论行互斥),不得两者同时打',
+  )
+  assert.doesNotMatch(code, /r1WindowLoss/, '结论行不得再留 R1 窗口尾注的死参数(那条尾注已不可达)')
   assert.match(src, /深于窗口/, 'R1r 侧的窗口用尽报名措辞不得被删')
   // 形状锁在**原文面**判 max-count:模板串 `` `--max-count=${window + 1}` `` 在遮罩面会被抹白
   // (它是字符串),拿遮罩面判会把锁做成恒假;代码调用形状的锁仍走遮罩面(防注释假接线)。
@@ -250,11 +272,31 @@ test('W5 源码形状反向锁:窗口不得改小、探针哨兵不得拆、"未
     /const truncated = shas\.length > window/,
     '用尽判据必须按"探针拿满"算(改成 >= 会把恰好等于窗口的浅历史误报成"不足",见 W4)',
   )
-  assert.equal(
-    (code.match(/windowLoss\.push\(/g) ?? []).length,
-    2,
-    'analyze 与 analyzeMerge 两条通道都必须真 push(少一条 = 该通道回到静默)',
+  // 两条通道各有两处落账(深档取材失败 / 窗口用尽):按函数体分别数,防止"总数凑够 4"
+  // 却把某一条通道整条落回静默(这正是旧锁 ==2 时代要防的那件事,只换了形状不放松)。
+  const analyzeBody = code.slice(
+    code.indexOf('export function analyze('),
+    code.indexOf('export function analyzeMerge('),
   )
+  const mergeBody = code.slice(
+    code.indexOf('export function analyzeMerge('),
+    code.indexOf('function firstLine('),
+  )
+  for (const [name, body] of [
+    ['analyze', analyzeBody],
+    ['analyzeMerge', mergeBody],
+  ]) {
+    assert.equal(
+      (body.match(/windowLoss\.push\(/g) ?? []).length,
+      2,
+      `${name} 必须两处落账(深档取材失败 + 窗口用尽),少一处 = 那一格回到静默`,
+    )
+    assert.match(
+      body,
+      /windowLoss\.push\(\{\s*path:\s*p,\s*window:\s*windowFor\(p\),\s*seen:\s*0,\s*undetermined:/,
+      `${name} 的深档取材失败落账必须带可读原因(undetermined),不得只记数不点名`,
+    )
+  }
   // 2026-10-21:枚 9085a780baf(G-926)给 analyze / analyzeMerge / verdictLine 各加了
   // `watermarkPass` 一路 —— 三处形状锁仍停在旧形(红的就是这三条)。锁仍是**形状锁**
   // (钉"必须把收集口传进去"),只把新增的那一路按现役调用形状补上,不放松。
@@ -272,7 +314,7 @@ test('W5 源码形状反向锁:窗口不得改小、探针哨兵不得拆、"未
   // 不放松:多出来的那一维正是"结论行必须带着未判定/存量尾注"的新落点,锁在它上面才有意义。
   assert.match(
     code,
-    /verdictLine\(\s*modified\.length,\s*rr,\s*windowLoss\.length,\s*watermarkPass\.length,\s*staged \? 0 : violations\.length,\s*ms,?\s*\)/,
+    /verdictLine\(\s*modified\.length,\s*rr,\s*watermarkPass\.length,\s*staged \? 0 : violations\.length,\s*ms,?\s*\)/,
     '尾注数字必须现算现传,不得写 0(且 R1s 的桶必须一并传入)',
   )
   assert.match(

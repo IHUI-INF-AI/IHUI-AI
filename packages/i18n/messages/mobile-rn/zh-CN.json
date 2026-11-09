@@ -325,6 +325,7 @@
     }
   },
   "login": {
+    "platformLinuxdo": "LinuxDo",
     "platformWechat": "微信",
     "platformLark": "飞书",
     "platformDingTalk": "钉钉",
@@ -634,6 +635,7 @@
     "later": "再看看"
   },
   "order": {
+    "pay": "去支付",
     "title": "订单",
     "searchPlaceholder": "搜索我的订单",
     "tab": {
@@ -1935,6 +1937,33 @@
     "loadFailed": "加载客服失败"
   },
   "artifacts": {
+    "navEntry": "产物中心",
+    "title": "产物中心",
+    "desc": "AI 交付的报告、演示、表格与文档,可下载或在线预览。",
+    "empty": "还没有产物。让 AI 生成报告、演示或表格后,它们会出现在这里。",
+    "loginRequired": "登录后查看你的产物列表",
+    "colName": "名称",
+    "colKind": "类型",
+    "colVersion": "版本",
+    "colCreated": "创建时间",
+    "colSession": "来源会话",
+    "colActions": "操作",
+    "download": "下载",
+    "preview": "预览",
+    "viewSession": "查看会话",
+    "kind_html_report": "HTML 报告",
+    "kind_slides": "演示文稿",
+    "kind_sheet": "数据表格",
+    "kind_doc": "文档",
+    "kind_video_ref": "视频引用",
+    "justNow": "刚刚",
+    "secondsAgo": "{n} 秒前",
+    "minutesAgo": "{n} 分钟前",
+    "hoursAgo": "{n} 小时前",
+    "daysAgo": "{n} 天前",
+    "loadMore": "加载更多",
+    "refresh": "刷新",
+    "countSummary": "已加载 {loaded}/{total} 个产物",
     "previewFailed": "预览链接获取失败,请稍后重试",
     "loading": "加载中…",
     "loadFailed": "产物列表加载失败"
@@ -3260,9 +3289,6 @@
     "submit": "发布需求",
     "contactLabel": "联系方式"
   },
-  "businessCard": {
-    "title": "我的名片"
-  },
   "businessCardEdit": {
     "pageTitleCreate": "创建名片",
     "pageTitleEdit": "编辑名片",
@@ -3587,7 +3613,7 @@
     "benefitsCount": "{count} 项专属权益",
     "daysRemaining": "剩余 {count} 天",
     "loadFailed": "加载会员失败",
-    "orderCreated": "订单已创建",
+    "orderCreated": "订单已创建:{orderNo}",
     "purchase": "开通会员",
     "purchaseFailed": "开通失败",
     "title": "会员中心",
@@ -3631,7 +3657,20 @@
     "lifetime": "终身有效",
     "openNow": "立即开通",
     "opened": "已开通",
-    "loadFailed": "加载交易者失败"
+    "loadFailed": "加载交易者失败",
+    "productName": "VIP 操盘手",
+    "teamCount": "团队人数",
+    "activeTrend": "活跃 {n}",
+    "totalCommission": "累计佣金",
+    "rankTrend": "排名 #{n}",
+    "monthIncome": "本月收益",
+    "withdrawnTrend": "已提现 {v}",
+    "pendingIncome": "待结算",
+    "frozenTrend": "冻结 {v}",
+    "myInviteCode": "我的邀请码",
+    "invitedTrend": "已邀请 {n} 人",
+    "distLevel": "分销等级",
+    "rateTrend": "佣金比例 {n}%"
   },
   "wallet": {
     "points": "智汇值",
@@ -3651,11 +3690,6 @@
     "flowsLoading": "加载中...",
     "flowBalanceAfter": "余额",
     "flowRemarkEmpty": "无备注",
-    "opType1": "充值",
-    "opType2": "扣减",
-    "opType3": "过期",
-    "opType4": "退款",
-    "opType5": "佣金",
     "loginRequiredHint": "登录后查看资金流水",
     "goLogin": "去登录",
     "rechargeFail": "充值失败",
@@ -3802,7 +3836,7 @@
     "registerFailed": "注册失败",
     "registerNow": "立即注册",
     "registerSuccess": "注册成功",
-    "resendCode": "重新发送",
+    "resendCode": "{seconds}s 后重发",
     "termsOfService": "服务条款",
     "thirdPartyLogin": "第三方登录",
     "ssoFailed": "网页授权登录失败,请重试或使用账密登录",
@@ -3818,6 +3852,8 @@
   "bookmark": {
     "empty": "暂无收藏",
     "loadFailed": "加载失败",
+    "loadMore": "加载更多",
+    "loadingMore": "加载中...",
     "remove": "移除",
     "title": "我的收藏",
     "type": {
@@ -6041,7 +6077,8 @@
     "uploadFail": "名片图片上传失败",
     "updated": "名片已更新",
     "submitFail": "名片提交失败",
-    "customFail": "名片定制失败，请重试"
+    "customFail": "名片定制失败，请重试",
+    "title": "我的名片"
   },
   "model": {
     "type0": "全能",
@@ -6066,21 +6103,6 @@
     "officialFallback": "智汇社区-官方",
     "buyTime": "购买时间：{t0}",
     "expireTime": "　到期时间：{t1}"
-  },
-  "viptrader": {
-    "productName": "VIP 操盘手",
-    "teamCount": "团队人数",
-    "activeTrend": "活跃 {n}",
-    "totalCommission": "累计佣金",
-    "rankTrend": "排名 #{n}",
-    "monthIncome": "本月收益",
-    "withdrawnTrend": "已提现 {v}",
-    "pendingIncome": "待结算",
-    "frozenTrend": "冻结 {v}",
-    "myInviteCode": "我的邀请码",
-    "invitedTrend": "已邀请 {n} 人",
-    "distLevel": "分销等级",
-    "rateTrend": "佣金比例 {n}%"
   },
   "contact": {
     "phoneLabel": "电话：",
@@ -7608,10 +7630,6 @@
   "businessCardEditPage": {
     "editTitle": "编辑名片",
     "bioLabel": "简介"
-  },
-  "checkin": {
-    "colEnabled": "启用",
-    "addAccount": "添加账号"
   },
   "circles": {
     "title": "圈子"

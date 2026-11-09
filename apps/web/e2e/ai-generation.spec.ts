@@ -61,7 +61,7 @@ test.describe('AI 内容生成', () => {
     await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/ai-generation')) return
 
-    await page.waitForTimeout(2000)
+    await page.waitForLoadState('load', { timeout: 6000 }).catch(() => {})
     // 切换按钮或 tab
     const typeBtn = page
       .getByRole('button', { name: /图片|image|音频|audio|视频|video|文本|text/i })
@@ -69,6 +69,7 @@ test.describe('AI 内容生成', () => {
     const hasType = await typeBtn.isVisible({ timeout: 3000 }).catch(() => false)
     if (hasType) {
       await typeBtn.click().catch(() => {})
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await page.waitForTimeout(1000)
     }
     expect(page.url()).toBeTruthy()

@@ -20,6 +20,20 @@
 --    换言之:**仓内先例是在迁移文件里写普通 CREATE INDEX**(把锁的取舍留给运维),
 --    本份是机主要求走 CONCURRENTLY 的例外,所以做成手工脚本而非迁移。
 --
+-- ── DB-11:部署顺序(与 20261106150000 迁移的关系)──────────────────────
+-- 迁移 20261106150000_fix_missing_indexes_fks.sql 里仍保留这两条
+-- `CREATE INDEX IF NOT EXISTS ...` 作为 **from-zero 兜底**(已入库的字节不能改,
+-- 否则已应用环境的账本 sha256 会判 hash 冲突),但兜底一旦真执行会持
+-- SHARE ROW EXCLUSIVE 锁 chat_messages 直到整份 migrate 事务结束。
+-- 因此 deploy/win/ihui-deploy.ps1 在 `Invoke-MigrateWithBudget` **之前**、且仅有
+-- pending 迁移时调用 `Invoke-PreMigrateConcurrentIndexes` 先跑本脚本:
+--     · 本脚本幂等(步骤 1 只重建 INVALID 索引,正常索引不动),每次 pending 轮次
+--       执行都是 no-op 或一次 CONCURRENTLY 建索引;
+--     · 索引就绪后迁移里的 IF NOT EXISTS 变成 no-op,不再持锁建索引;
+--     · 建索引耗时落在 180s 迁移预算之外。
+-- psql 缺失 / DATABASE_URL 不可用时部署只告警并继续,迁移内兜底仍会保证索引存在
+-- (代价是该轮 migrate 会阻塞写入,需按维护窗口评估)。
+--
 -- ── 为什么需要这两个索引 ──────────────────────────────────────────────
 -- `data-archive-daily`(每日 04:30)新增了两个删除分支,判据是**纯时间范围**:
 --     chat_messages:                DELETE WHERE created_at < now() - 365 天
@@ -52,22 +66,24 @@
 -- 执行方式(整段复制执行,不要拆)
 --
 --   cd D:/IHUI-AI
---   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f packages/database/drizzle/20261003103000_chat_messages_created_at_idx_CONCURRENTLY.sql
+--   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f packages/database/scripts/manual-sql/20261003103000_chat_messages_created_at_idx_CONCURRENTLY.sql
 --
 --   \gexec 是 **psql 元命令**,不是 SQL,只能经 psql 执行 —— 这正是本脚本
 --   不能交给 drizzle-kit 的第二个原因(除了事务还有它不认 psql 元命令)。
 --   绝对不要用 pgAdmin/某些 GUI 的"运行 SQL"按钮跑它:那些客户端不认 \gexec。
 -- ---------------------------------------------------------------------------
 
--- 步骤 1) 清理:同名索引若存在(尤其是上次中断留下的 INVALID 索引)先 CONCURRENTLY 删掉。
---          用 pg_indexes 查而不是无条件 DROP,是为了让"索引已存在"这种正常情形
---          也能安全重复执行(本脚本幂等的前提)。
-SELECT format('DROP INDEX CONCURRENTLY IF EXISTS %I;', indexname)
-FROM pg_indexes
-WHERE indexname IN (
+-- 步骤 1) 清理:只 CONCURRENTLY 删掉 **INVALID** 索引(上次中断遗留)。
+--          正常索引不动 —— 旧写法按 pg_indexes 无条件 DROP 会让每次部署前的
+--          幂等执行都重建一遍全表索引;只删 indisvalid=f 才能安全重复执行。
+SELECT format('DROP INDEX CONCURRENTLY IF EXISTS %I;', c.relname)
+FROM pg_class c
+JOIN pg_index i ON i.indexrelid = c.oid
+WHERE c.relname IN (
   'ix_chat_messages_created_at',
   'ix_conversation_message_archives_created_at'
 )
+AND NOT i.indisvalid
 \gexec
 
 -- 步骤 2) 建 chat_messages 索引(不存在才建)

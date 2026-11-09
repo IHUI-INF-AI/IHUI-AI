@@ -1175,6 +1175,14 @@
     "totalWithdraw": "Total Withdraw",
     "recharge": "Recharge",
     "withdraw": "Withdraw",
+    "flowRecharge": "Recharge",
+    "flowDeduct": "Deduct",
+    "flowExpire": "Expired",
+    "flowRefund": "Refund clawback",
+    "flowRelayRecharge": "Transfer to API key",
+    "flowAdminAdjust": "Admin adjustment",
+    "flowQuota": "Quota change",
+    "flowOther": "Other",
     "loadFailed": "Failed to load wallet"
   },
   "courseCatalog": {
@@ -3122,6 +3130,7 @@
     "copyHint": "Click the number to copy",
     "footer": "Sourced from MIIT filing system",
     "label0": "Filing Number",
+    "labelPublicSecurity": "Public security filing No.",
     "label1": "Filing Entity",
     "label2": "Entity Type",
     "label3": "Filing Time",

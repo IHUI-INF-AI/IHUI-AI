@@ -530,6 +530,21 @@ class TestWindowsJobObject:
         with pytest.raises(SandboxError):
             h.run([PY, "C:\\forbidden\\script.py"])
 
+    def test_nested_job_fallback_does_not_treat_winerror_as_phrase(self) -> None:
+        """错误码不是那句原话。只有原话才允许脱离,两边都没量到是未判定。"""
+        assert sb.plan_nested_job_fallback(phrase=None, winerror=5)["disposition"] == "refused"
+        assert sb.plan_nested_job_fallback(phrase=None, winerror=None)["disposition"] == "unjudged"
+        assert sb.plan_nested_job_fallback(phrase=True, winerror=5)["disposition"] == "unjudged"
+        breakaway = sb.plan_nested_job_fallback(
+            phrase="parent Job denied nested assignment",
+            winerror=5,
+        )
+        assert breakaway == {"disposition": "breakaway", "reason": "nested-denied"}
+        assert sb.plan_nested_job_fallback(phrase="other failure", winerror=5)["reason"] == "assign-failed"
+        assert sb.admit_engine_path(None)["reason"] == "engine-path-unmeasured"
+        assert sb.admit_engine_path("git")["disposition"] == "refused"
+        assert sb.admit_engine_path(os.path.abspath("engine.exe"))["disposition"] == "admitted"
+
     def test_command_line_quoting(self) -> None:
         assert build_windows_command_line(["a", "b c"]) == 'a "b c"'
         assert build_windows_command_line(['x"y']) == '"x\\"y"'
@@ -554,7 +569,7 @@ class TestWindowsJobObject:
 @pytest.mark.skipif(not IS_WIN, reason="非 Windows 平台 Job Object 不可用")
 class TestWindowsApiErrors:
     def test_assign_bad_handle_raises(self) -> None:
-        with WinJob.create() as job, pytest.raises(sb.WinApiError):
+        with WinJob.create() as job, pytest.raises(sb.WinApiError, match="不脱离父作业重试"):
             job.assign(0)
 
     def test_winapi_error_carries_winerror(self) -> None:

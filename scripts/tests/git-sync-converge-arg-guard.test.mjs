@@ -114,7 +114,9 @@ test('装车锁：闸排在一切动作之前（源码形状：必须先于 --se
   const src = readFileSync(SCRIPT, 'utf8')
   const iBad = src.indexOf('const badFlag = findUnknownFlag(process.argv)')
   const iSelf = src.indexOf("if (argv.includes('--self-test'))")
-  const iBranch = src.indexOf("const branch = getOpt('--branch', 'main')")
+  // 锚只认到 `getOpt('--branch'` 为止:第三参 noun 是 G-322 后补的,写死全句会随签名漂移
+  // (装车锁自己的失效型:锚烂了 ⇒ indexOf=-1 ⇒ 断言恒假,红得莫名其妙)。
+  const iBranch = src.indexOf("const branch = getOpt('--branch'")
   assert.ok(iBad > 0, 'main 里没有接上闸 ⇒ 清单只是注释（§0.9 造好没装车=没有）')
   assert.ok(iSelf > iBad, '闸必须排在 --self-test 之前')
   assert.ok(iBranch > iBad, '闸必须排在任何取值/动作之前')

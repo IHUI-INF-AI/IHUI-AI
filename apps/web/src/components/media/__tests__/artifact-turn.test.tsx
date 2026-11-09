@@ -8,6 +8,7 @@ import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 import path from 'node:path'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
+import { TooltipProvider } from '@/components/feedback'
 
 /**
  * D76 产物归属 turn 与产物面板分型(G-103/G-105,2026-09-24 立)。
@@ -131,13 +132,19 @@ describe('collectArtifactTurns originating turn 派生(G-103)', () => {
 
 describe('ArtifactTurnBadge / ArtifactKindBadge', () => {
   it('徽章渲染"第 N 轮",点击 scrollIntoView 到 [data-message-id] 锚点并派发既有事件', () => {
+    // 实现侧变更:徽章外层包 <Tooltip content={jumpToOrigin}>(2026-11 a11y 统一),
+    // 真实应用由页面壳统一挂 TooltipProvider;单测独立渲染必须自带 Provider,
+    // 否则 Radix 直接抛 "`Tooltip` must be used within `TooltipProvider`"
+    // (同 task-kanban.test.tsx 的既有先例)。断言语义未变。
     render(
-      <div>
-        <div data-message-id="a1">
-          <ArtifactKindBadge nameOrPath="报告.docx" />
+      <TooltipProvider>
+        <div>
+          <div data-message-id="a1">
+            <ArtifactKindBadge nameOrPath="报告.docx" />
+          </div>
+          <ArtifactTurnBadge turn={3} messageId="a1" />
         </div>
-        <ArtifactTurnBadge turn={3} messageId="a1" />
-      </div>,
+      </TooltipProvider>,
     )
     const badge = screen.getByTestId('artifact-turn-badge')
     expect(badge.textContent).toContain('TURN_3')

@@ -20,6 +20,10 @@
  *  E. 唯一实现形状锁:钩子与路由都经 utils/internal-principal,旧 presence-only
  *     豁免与路由本地密钥比较不得回来(行为断言对"换回旧写法"照样全绿的那一维,
  *     只能靠源码面钉 —— §22c 同型)。
+ *  F. **第三族凭据(内部短期票)**:CSRF 也必须认它,否则纯票部署(无旧密钥)下
+ *     写接口在钩子层就 403。判据是"验签通过",且这一层**只验签不消费** jti
+ *     (消费留给路由鉴权);伪造/过期票不得豁免。
+ *     既有断言口径同步放宽为「认旧密钥**或**有效票」—— 不是删除既有断言。
  *
  * 夹具形态:mock 鉴权(不触真 JWT/DB)、mock config(显式密钥,不读 .env)、
  * mock db(internal-service-token.ts 静态依赖),与 internal-service-token-constant-time
@@ -130,8 +134,13 @@ vi.mock('../src/config/index.js', () => ({
 import csrfPlugin, { isPlausibleBearerCredential } from '../src/plugins/csrf.js'
 import { agentControlRoutes, __test__ } from '../src/routes/agent-control.js'
 import {
+  INTERNAL_TICKET_HEADER,
+  mintInternalServiceTicket,
+} from '../src/plugins/internal-service-ticket.js'
+import {
   isVerifiedAgentControlInternalCall,
   isVerifiedInternalServiceCall,
+  isVerifiedInternalTicketCall,
 } from '../src/utils/internal-principal.js'
 
 const PREFIX = '/api/agent-control'
@@ -398,6 +407,102 @@ describe('D. 授权先于写:未鉴权时不得触碰任何状态(不得"先改�
   })
 })
 
+describe('F. 第三族:内部短期票也被 CSRF 认(纯票部署前提),但只验签不消费', () => {
+  it('有效票、无旧密钥、无 CSRF 对 ⇒ 200(不必再靠常驻密钥过钩子)', async () => {
+    const ticket = await mintInternalServiceTicket({
+      userId: '6b8cd0f6-546f-44c8-853a-5f96edbe08be',
+      scope: 'ai-callback',
+      jti: 'jti-csrf-f-valid',
+    })
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/protected',
+      headers: { [INTERNAL_TICKET_HEADER]: ticket },
+    })
+    expect(res.statusCode).toBe(200)
+    expect(res.json().ok).toBe(true)
+  })
+
+  it('同一张票连发两次都过 CSRF:本钩子没有重放登记表也不拒 ⇒ 证明它不消费 jti', async () => {
+    // app 未 decorate redis ⇒ 若 CSRF 走消费路径,resolveReplayStore 为 null,
+    // 验票会返回 replay_store_unavailable ⇒ 403。两发都 200 才说明钩子只验签。
+    const ticket = await mintInternalServiceTicket({
+      userId: '6b8cd0f6-546f-44c8-853a-5f96edbe08be',
+      scope: 'ai-callback',
+      jti: 'jti-csrf-f-nonconsume',
+    })
+    for (let i = 0; i < 2; i += 1) {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/protected',
+        headers: { [INTERNAL_TICKET_HEADER]: ticket },
+      })
+      expect(res.statusCode).toBe(200)
+    }
+  })
+
+  it('伪造签名的同形票 ⇒ CSRF 403(验签而非形态豁免)', async () => {
+    const now = Math.floor(Date.now() / 1000)
+    const { SignJWT } = await import('jose')
+    const forged = await new SignJWT({
+      type: 'internal-service-ticket',
+      scope: 'ai-callback',
+      jti: 'jti-csrf-f-forged',
+    })
+      .setProtectedHeader({ alg: 'HS256' })
+      .setSubject('6b8cd0f6-546f-44c8-853a-5f96edbe08be')
+      .setAudience('ihui-internal-service')
+      .setIssuedAt(now)
+      .setExpirationTime(now + 60)
+      .sign(new TextEncoder().encode(TEST_JWT_SECRET.replace(/0123456789$/, '9876543210')))
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/protected',
+      headers: { [INTERNAL_TICKET_HEADER]: forged },
+    })
+    expect(res.statusCode).toBe(403)
+    expect(res.json().message).toContain('CSRF')
+  })
+
+  it('签名正确但已过期 ⇒ CSRF 403', async () => {
+    const now = Math.floor(Date.now() / 1000)
+    const { SignJWT } = await import('jose')
+    const expired = await new SignJWT({
+      type: 'internal-service-ticket',
+      scope: 'ai-callback',
+      jti: 'jti-csrf-f-expired',
+    })
+      .setProtectedHeader({ alg: 'HS256' })
+      .setSubject('6b8cd0f6-546f-44c8-853a-5f96edbe08be')
+      .setAudience('ihui-internal-service')
+      .setIssuedAt(now - 600)
+      .setExpirationTime(now - 300)
+      .sign(new TextEncoder().encode(TEST_JWT_SECRET))
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/protected',
+      headers: { [INTERNAL_TICKET_HEADER]: expired },
+    })
+    expect(res.statusCode).toBe(403)
+    expect(res.json().message).toContain('CSRF')
+  })
+
+  it('出口函数:票真 ⇒ true;用户 access token 冒充票 ⇒ false;无头 ⇒ false', async () => {
+    const ticket = await mintInternalServiceTicket({
+      userId: '6b8cd0f6-546f-44c8-853a-5f96edbe08be',
+      scope: 'ai-callback',
+      jti: 'jti-csrf-f-exit',
+    })
+    await expect(
+      isVerifiedInternalTicketCall(asRequest({ [INTERNAL_TICKET_HEADER]: ticket })),
+    ).resolves.toBe(true)
+    await expect(
+      isVerifiedInternalTicketCall(asRequest({ [INTERNAL_TICKET_HEADER]: await signRealJwt() })),
+    ).resolves.toBe(false)
+    await expect(isVerifiedInternalTicketCall(asRequest({}))).resolves.toBe(false)
+  })
+})
+
 describe('E. 唯一出口 + 形状锁(行为断言测不到的那一维只能钉源码面)', () => {
   const apiRoot = resolve(__dirname, '..')
   const csrfSrc = readFileSync(resolve(apiRoot, 'src/plugins/csrf.ts'), 'utf8')
@@ -434,6 +539,14 @@ describe('E. 唯一出口 + 形状锁(行为断言测不到的那一维只能钉
     expect(isPlausibleBearerCredential(`Bearer ${CTRL_SECRET}`)).toBe(false)
     // 而 JWT 形态仍为 true(判据没被反向收紧误伤既有豁免):
     expect(isPlausibleBearerCredential(`Bearer ${JWT_SHAPED_TOKEN}`)).toBe(true)
+  })
+
+  it('第三族只走非消耗式验签:出口不得出现 consume / 消费式验票函数', () => {
+    // CSRF 前哨一旦消费 jti,路由鉴权就没票可用(纯票部署写接口全 401)。
+    expect(utilSrc).toContain('isVerifiedInternalTicketCall')
+    expect(utilSrc).toContain('verifyInternalServiceTicketSignature')
+    expect(utilSrc).not.toMatch(/\.consume\(/)
+    expect(utilSrc).not.toMatch(/\bverifyInternalServiceTicket\(/)
   })
 
   it('出口函数本体:对/错/缺/未配置四臂逐项判定(fail-closed)', async () => {

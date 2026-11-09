@@ -32,12 +32,14 @@ from app.services.deep_research import (
     _extract_headings,
     _fallback_synthesize,
     adjudicate_claim,
+    admit_positive_count,
     admit_request_step,
     admit_research_phase,
     cross_check,
     extract_model_json,
     grade_source,
     ledger_row,
+    plan_phase_fetches,
     run_deep_research,
 )
 
@@ -660,6 +662,47 @@ def test_request_step_budget_absent_is_unjudged():
     assert admit_request_step(True)[0] == "unjudged"
 
 
+class _CountingSource(FakeSource):
+    def __init__(self) -> None:
+        self.searches = 0
+        self.fetches = 0
+
+    async def search(self, query, k=6):
+        self.searches += 1
+        return await super().search(query, k)
+
+    async def fetch(self, url, max_chars=6000):
+        self.fetches += 1
+        return await super().fetch(url, max_chars)
+
+
+async def test_request_step_budget_stops_before_the_next_outbound():
+    """步数用完后不再搜索、不再抓取。上限认不出时一次外呼都不发。"""
+    spent = _CountingSource()
+    spent_report = await run_deep_research(
+        "预算",
+        sources=[spent],
+        llm_complete_fn=_make_llm(["子问题1"], []),
+        max_iterations=4,
+        request_step_budget=1,
+    )
+    assert spent.searches == 1
+    assert spent.fetches == 0
+    assert spent_report.step_stop == "budget-spent"
+
+    blocked = _CountingSource()
+    blocked_report = await run_deep_research(
+        "预算无效",
+        sources=[blocked],
+        llm_complete_fn=_make_llm(["子问题1"], []),
+        max_iterations=4,
+        request_step_budget=0,
+    )
+    assert blocked.searches == 0
+    assert blocked.fetches == 0
+    assert blocked_report.step_stop == "budget-invalid"
+
+
 def test_research_phase_refuses_skipping_verify():
     """没核验不能成稿;Fetch 之后可以再搜,也可以核验。认不出的阶段名是未判定。"""
     done = ["Scope", "Search", "Fetch"]
@@ -668,6 +711,97 @@ def test_research_phase_refuses_skipping_verify():
     assert admit_research_phase(done, "Search")["disposition"] == "entered"
     assert admit_research_phase(["Scope", "Fetch"], "Verify")["reason"] == "history-invalid"
     assert admit_research_phase([], "Warmup")["reason"] == "title-unrecognized"
+
+
+def test_phase_fetch_keep_is_measured_deduped_and_capped():
+    """去重后最多留下上限条。名单或上限没量到时一条都不抓,缺地址不占名额。"""
+    rows = [{"url": f"https://example.com/p/{i}"} for i in range(16)]
+    rows.append({"title": "缺地址"})
+    capped = plan_phase_fetches(rows, keep=15, seen=set())
+    assert capped["reason"] == "capped"
+    assert len(capped["rows"]) == 15
+    assert capped["unjudged"] == 0
+
+    partial = plan_phase_fetches(
+        [
+            {"title": "缺地址"},
+            {"url": ""},
+            {"url": "https://example.com/a/"},
+            {"url": "https://example.com/a"},
+            {"url": "https://example.com/b"},
+        ],
+        keep=15,
+        seen=set(),
+        known={"https://example.com/b"},
+    )
+    assert partial["disposition"] == "partial"
+    assert partial["unjudged"] == 2
+    assert [row["url"] for row in partial["rows"]] == ["https://example.com/a"]
+    assert plan_phase_fetches(None, keep=15, seen=set())["reason"] == "rows-unmeasured"
+    assert plan_phase_fetches([], keep=15, seen=set())["reason"] == "empty"
+    absent = plan_phase_fetches([{"url": "https://example.com/a"}], keep=None, seen=set())
+    assert absent["rows"] == []
+    flagged = plan_phase_fetches([{"url": "https://example.com/a"}], keep=True, seen=set())
+    assert flagged["reason"] == "keep-unmeasured"
+    assert admit_positive_count(0)["disposition"] == "unjudged"
+    assert admit_positive_count(5)["disposition"] == "admitted"
+
+
+async def test_shared_fetch_keep_and_unmeasured_width():
+    """三题各 6 条时整段只抓 15 条。并发宽度没量到时一次搜索都不发。"""
+
+    class Wide(FakeSource):
+        def __init__(self) -> None:
+            self.fetches = 0
+            self.searches = 0
+
+        async def search(self, query, k=6):
+            self.searches += 1
+            return [
+                {"url": f"https://example.com/{query}/{i}", "title": "t", "snippet": "s"}
+                for i in range(6)
+            ]
+
+        async def fetch(self, url, max_chars=6000):
+            self.fetches += 1
+            return "body"
+
+    wide = Wide()
+    report = await run_deep_research(
+        "名额",
+        sources=[wide],
+        llm_complete_fn=_make_llm(["问一", "问二", "问三"], []),
+        max_iterations=0,
+    )
+    assert wide.fetches == 15
+    assert report.fetch_unjudged == 0
+
+    blind = Wide()
+
+    async def no_url(query, k=6):
+        blind.searches += 1
+        return [{"title": "缺地址"}]
+
+    blind.search = no_url
+    blind_report = await run_deep_research(
+        "缺地址",
+        sources=[blind],
+        llm_complete_fn=_make_llm(["问一"], []),
+        max_iterations=0,
+    )
+    assert blind.fetches == 0
+    assert blind_report.fetch_unjudged == 1
+
+    closed = Wide()
+    closed_report = await run_deep_research(
+        "宽度没量到",
+        sources=[closed],
+        llm_complete_fn=_make_llm(["问一"], []),
+        max_iterations=0,
+        concurrency=0,
+    )
+    assert closed.searches == 0
+    assert closed_report.step_stop == "width-unmeasured"
 
 
 def test_ledger_row_has_no_model_text():

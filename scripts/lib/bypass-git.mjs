@@ -31,6 +31,12 @@
  * 本层加的只是"这次落地是否含台账"那条触发条件与大声点名 —— 两台落地器各写一份条件必然漂开
  * (本文件头注那三条漂移实例之一正是"同一规矩两份实现")。
  *
+ * RP-71 / §0.3 起本层再装**第三条落地契约**:`landingExitWithHeal(baseCode, heal)` 把落地器原有
+ * 结论与就地补跑自愈的结果折成最终退出码 —— `heal` 缺失 / `triggered=false` / `baseCode!==0` 一律
+ * 原样返回 baseCode;baseCode===0 且自愈已触发时,跑成(`ran && ok`)⇒ 0,自愈未跑成 ⇒ **2 未判定**
+ * (拒绝报绿,但落地内容不回滚、不判红)。各落地器必须消费 `rerunLedgerHeal()` 的返回值再走这里折算,
+ * 不得再让末尾 process.exit 把自愈软设的退出码洗掉。
+ *
  * 纪律(与本仓既有共用层同规):
  *  - git 一律**绝对路径**候选解析(AGENTS §5b"git 调用不得依赖环境";2026-10-08 起二进制取数走
  *    scripts/lib/face-reader.mjs 的 gitBinary(),与其同一条兜底链,不再抄第三份候选表)。
@@ -299,10 +305,56 @@ export function resolveHeadRef({ root }) {
  * 自家刚落的那枚)必须显式传 `allowNonFastForward: '<非空理由>'`,理由随 ⚠️ 行打印留痕;
  * 空串/纯空白不构成理由。方向与收敛器一致:判不出不当"判过了",拦下喊话不当静默放行。
  */
-export function casUpdateRef(newSha, oldSha, { root, ref, allowNonFastForward = '' } = {}) {
+/**
+ * 存量「给不出 oldSha」的调用方白名单(票 2026-11-09「没 CAS 的 update-ref 不许存在」)。
+ *
+ * 逐条必须写明 file:line / 谁在用 / 为什么暂时免 / 迁移计划 —— 白名单不是免死金牌,
+ * 迁移计划过期不还的条目由 `scripts/tests/landing-ref-cas.test.mjs` 侧的形状锁逼人看。
+ * 现读结论:本仓生产调用方**全部**能现读 oldSha(现读 HEAD / 父提交 / CAS 前像),
+ * 因此这里刻意留空。新增调用方请直接传 oldSha;首建 ref 用 40 个 `0`(git 语义 = 必须不存在)。
+ */
+export const CAS_OLD_ALLOWLIST = []
+
+const OID_RE = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/
+
+/**
+ * CAS 参数校验(实测语义,不是建议):**oldSha 一旦给了就必须是完整 oid**。
+ * 空串 / `HEAD` / 短 sha 一律 throw —— 它们要么让 `update-ref` 退化成无 CAS 的盲写
+ * (`git update-ref <ref> <new> ""` 会把 "" 当"必须不存在"以外的宽松语义),
+ * 要么根本判不出"抢没抢到"。只有 `undefined`(真没有旧值)才允许走显式豁免。
+ */
+function assertCasArgs(newSha, oldSha, { allowUnconditional, reason }) {
+  if (oldSha === undefined) {
+    if (allowUnconditional !== true)
+      throw new Error(
+        'casUpdateRef:缺 oldSha ⇒ 拒绝盲写(update-ref 无旧值 = 无 CAS,06:25 那类非快进改写正是这条路)。' +
+          '确有"无旧值"的合法场景请显式传 allowUnconditional:true 并给非空 reason(该行即留痕)。',
+      )
+    if (String(reason ?? '').trim() === '')
+      throw new Error('casUpdateRef:allowUnconditional 必须配非空 reason(空理由不构成豁免)')
+    return
+  }
+  const old = String(oldSha)
+  if (old.trim() === '')
+    throw new Error('casUpdateRef:oldSha 传了空串 ⇒ 拒绝(空串不是"没有旧值";要用无旧值请传 undefined 并显式豁免)')
+  if (!OID_RE.test(old))
+    throw new Error(
+      `casUpdateRef:oldSha 必须是完整 oid(40/64 位小写十六进制),收到 "${old.slice(0, 20)}" ⇒ 拒绝(` +
+        '短 sha / HEAD / 分支名都判不出"抢没抢到",等于无 CAS)',
+    )
+}
+
+export function casUpdateRef(
+  newSha,
+  oldSha,
+  { root, ref, allowNonFastForward = '', allowUnconditional = false, reason = '' } = {},
+) {
+  assertCasArgs(newSha, oldSha, { allowUnconditional, reason })
   const target = ref ?? resolveHeadRef({ root })
   if (!target) throw new Error('HEAD 处于 detached 状态 ⇒ 无法 CAS,拒绝盲写')
-  if (oldSha && newSha && newSha !== oldSha) {
+  // 全 0 的 old 是 git 的"必须不存在"语义(首建 ref):它不是祖先,不能进 G-939 的祖先性判定。
+  const zeroOld = typeof oldSha === 'string' && /^0+$/.test(oldSha)
+  if (oldSha && newSha && newSha !== oldSha && !zeroOld) {
     const anc = isAncestor(oldSha, newSha, { root })
     if (anc === null)
       throw new Error(
@@ -321,7 +373,15 @@ export function casUpdateRef(newSha, oldSha, { root, ref, allowNonFastForward = 
     }
   }
   try {
-    git(['update-ref', target, newSha, oldSha], { root })
+    if (oldSha === undefined) {
+      // 显式豁免档(必须由调用方举 allowUnconditional:true + 非空 reason):这一行即留痕。
+      console.log(
+        `⚠️ casUpdateRef 无旧值写入被显式放行(ref=${target},reason="${String(reason).trim()}")—— 无 CAS,事后靠这一行归因`,
+      )
+      git(['update-ref', target, newSha], { root })
+    } else {
+      git(['update-ref', target, newSha, oldSha], { root })
+    }
     return true
   } catch (e) {
     const t = gitErrText(e)
@@ -514,17 +574,17 @@ export function landsLedger(paths) {
  *  给落地器同一个逃生舱等于把本票要闭的那个洞重新开一条(旁路落地不跑钩子,那面旗在钩子里才有意义)。
  *
  * 谁在调用本出口(逐台点名,少一台就是该型缺陷没兜住):
- *  · 已接:`object-space-land.mjs`(本票) · `live-doc-edit.mjs`(本票)
+ *  · 已接补跑并折算:`object-space-land.mjs` · `live-doc-edit.mjs` ·
+ *    `plan-tasks-merge.mjs`(方案 A:9 站收返回值 + landingExitWithHeal 折算)
  *  · 早已接(先例,走的是同一个器物):`git-sync-converge.mjs` / `union-converge.mjs`
- *  · **未接,本票动不了**:`scripts/plan-tasks-merge.mjs` —— 它是第四台旁路落地器
- *    (`--heal --commit` / `--fold-twins --commit` 都走 commit-tree + CAS,同样不跑钩子,
- *    而它落的内容正是台账行)。它同样必须自带补跑,否则本票的洞在它那一台上原地复活。
- *    未做的原因是硬约束而不是遗漏:该文件本票开工时是 ` M`(他人持有),票面明令禁止改动;
- *    镜像测试 `post-merge-ledger-sync.test.mjs` 的 L2 装车锁目前只钉两台收敛器,把它扩到
- *    落地器三台(object-space-land / live-doc-edit / plan-tasks-merge)是那一票的收口动作。
+ *    (收敛器刻意"失败不阻断收敛,下一枚走钩子的提交仍会再兜一次",不改本轮结论)
  *
- * 失败一律**大声点名且不改变落地成败**(与 lib/post-merge-ledger-sync.mjs 第 2 条同规:零丢失自证
- * 已经通过的落地,不该被一次补跑没跑成判成失败;但"没跑成"必须被喊出来,静默的自愈等于没有自愈)。
+ * 失败仍一律**大声点名**,但按 RP-71 / §0.3 的新契约:**落地内容不回滚、不判红,调用方却必须以
+ * exit 2 记未判定、拒绝报绿**(与 lib/post-merge-ledger-sync.mjs 第 2 条同规:零丢失自证已经通过的
+ * 落地,不该被一次补跑没跑成判成失败;但"没跑成"必须被喊出来,且不得静默报绿 —— 静默的自愈等于
+ * 没有自愈)。退出码折算统一走下方 `landingExitWithHeal`,本函数只如实返回 `ran/ok`、不改退出码本身
+ * —— 这**不等于**"失败也不影响退出码":折算统一交给 `landingExitWithHeal`,调用方**必须消费返回值**
+ * 去折最终退出码,否则自愈跑而未成会被静默吞成报绿。
  *
  * @param {{root:string, paths:string[], log?:Function, loud?:Function}} a
  * @returns {{triggered:boolean, ran:boolean, ok:boolean, why:string}}
@@ -554,5 +614,20 @@ export function rerunLedgerHeal({
         `   这一轮的"缺不缺登记行"没有任何一面得出过结论 ⇒ 不得当成"什么都没缺";手工补跑:node scripts/check-plan-line-loss.mjs --heal --commit`,
     )
   return { triggered: true, ran: r.ran, ok: r.ok, why: r.why }
+}
+
+/**
+ * RP-71 / §0.3:把落地器原有结论与「就地补跑台账自愈」的结果折成最终退出码(纯函数,不写盘不打日志)。
+ *  - `heal` 缺失或 `triggered=false`(本次落地不含台账)、`baseCode!==0`(落地器自己已有结论)⇒ 原样返回;
+ *  - 自愈跑成(`ran && ok`)⇒ 0;
+ *  - 自愈跑而未成 / 未派生成功 ⇒ **2 未判定**(不是 1:不判红、不回滚,只拒绝报绿)。
+ * @param {number} baseCode
+ * @param {{triggered:boolean, ran:boolean, ok:boolean, why:string}|null|undefined} heal
+ * @returns {number}
+ */
+export function landingExitWithHeal(baseCode, heal) {
+  if (!heal || !heal.triggered) return baseCode
+  if (baseCode !== 0) return baseCode
+  return heal.ran && heal.ok ? 0 : 2
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

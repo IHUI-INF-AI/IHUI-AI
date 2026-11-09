@@ -103,6 +103,9 @@ from app.routers import prompts as prompts_router
 # D176 任务回顾→移交新任务(2026-09-30 用户拍板立项):交接文档生成出口
 from app.routers import recap as recap_router
 
+# RP-42 超工慢路径判定(2026-11-07):recorded 积压的"该不该动手"模型判断端点
+from app.routers import super_agent_slow as super_agent_slow_router
+
 # Harness 能力补齐:Token 用量统计(2026-08-11 立)
 from app.routers import usage as usage_router
 
@@ -405,6 +408,26 @@ async def lifespan(app: FastAPI) -> Any:
         logger.info("[media_tasks] media_tasks 表确认/创建完成")
     except Exception as e:
         logger.warning("[media_tasks] 建表异常(忽略,落库降级为不持久化): %s", e)
+
+    # SAG2 词法索引持久化回灌(2026-11-09 立):内存倒排是 SAG2 的性能来源,也是
+    # 它的单点 —— 进程重启即归零,用户登记的文件夹白扫(20k 文档重建约 850s)。
+    # 这里把 PG 里的「原文 + 分块快照」灌回内存;后台跑,不阻塞启动,进度与失败
+    # 原因经 /api/v1/ai/sag2/status 的 restore/persistence 两段可读。
+    # 没配 DATABASE_URL 时持久化对象根本不会挂载,status 如实报「未启用」。
+    try:
+        from app.services.sag2_lexical import sag2_lexical_service as _sag2
+
+        if _sag2.start_restore_background():
+            logger.info("[sag2] 已后台启动索引回灌(持久化后端已挂载)")
+        else:
+            logger.info(
+                "[sag2] 未启动回灌: %s",
+                "未配置 DATABASE_URL,索引仅在内存"
+                if _sag2.persistence is None
+                else "已恢复或正在恢复中",
+            )
+    except Exception as e:  # noqa: BLE001 - 回灌坏了不阻塞启动,但要出声
+        logger.warning("[sag2] 启动回灌异常(忽略,检索仍可用空索引): %s", e)
 
     # G-244(2026-10-26 立):后台任务 run 状态 journal 回放 —— 重启后 bg_task_status
     # 从行派生终态,不再"查无此任务"。失败只告警不阻塞启动;journal 真不可写时
@@ -745,6 +768,15 @@ async def lifespan(app: FastAPI) -> Any:
     except Exception as e:
         logger.warning("[mcp_client] 启动初始化失败(忽略): %s", e)
 
+    # 模型级连通探测(2026-11-07 立):每 30 分钟复测目录内每个模型,
+    # 探测失败的模型由 /llm/models 过滤掉(不显示接不通的模型)。
+    try:
+        from app.services.model_health import model_health
+
+        await model_health.initialize()
+    except Exception as e:
+        logger.warning("[model_health] 启动初始化失败(忽略): %s", e)
+
     # stdio MCP Server 工具接入(2026-09-01 立,P1-4):官方 MCP Python SDK(stdio 子进程
     # 传输)启动本机 MCP server,把 list_tools 暴露的工具注册进内部工具表,即"本机
     # stdio MCP server 作为内部工具"。配置来源 settings.mcp_stdio_servers(JSON 数组,
@@ -810,6 +842,22 @@ async def lifespan(app: FastAPI) -> Any:
                 mcp_store.set_enabled(_rname, False)
     except Exception as e:
         logger.warning("[mcp_store] 启动恢复初始化失败(忽略): %s", e)
+
+    # MCP 动态注册表(2026-11-07 立,trust-gated):只从两份白名单来源加载
+    # - 仓库受版本控制: apps/ai-service/config/mcp/servers/*.json
+    # - 用户显式配置目录: ~/.ihui/mcp-servers/*.json(IHUI_MCP_USER_DIR 可覆盖)
+    # 不接受请求体路径/网络拉取/模型自注册;单文件不可信只拒绝该文件,不阻塞启动。
+    try:
+        from app.services.mcp_registry import get_mcp_registry
+
+        _registry_status = await get_mcp_registry().reload(actor="system")
+        logger.info(
+            "[mcp_registry] 启动加载完成: loaded=%d rejected=%d",
+            len(_registry_status.get("loaded", [])),
+            len(_registry_status.get("rejected", [])),
+        )
+    except Exception as e:  # noqa: BLE001 - 注册表异常不阻塞启动(已 fail-closed 拒绝)
+        logger.warning("[mcp_registry] 启动加载异常(忽略): %s", e)
 
     # AI 全量操控桥接(2026-09-20 立):拉取 apps/api OpenAPI 转为 MCP 工具 + 注册前端 UI 动作工具
     try:
@@ -987,10 +1035,20 @@ async def lifespan(app: FastAPI) -> Any:
 
         await close_api_client()
 
+    async def _s_mcp_registry() -> None:
+        from app.services.mcp_registry import get_mcp_registry
+
+        await get_mcp_registry().shutdown()
+
     async def _s_mcp_client() -> None:
         from app.services.mcp_client import get_mcp_client_manager
 
         await get_mcp_client_manager().disconnect_all()
+
+    async def _s_model_health() -> None:
+        from app.services.model_health import model_health
+
+        await model_health.shutdown()
 
     async def _s_mcp_stdio() -> None:
         from app.services.mcp_stdio_bridge import shutdown_all
@@ -1028,7 +1086,8 @@ async def lifespan(app: FastAPI) -> Any:
 
     steps = [
         ("model_availability", _s_model_availability),
-        ("model_sync", _s_model_sync),
+        ("model_sync", _s_model_sync),        ("model_health", _s_model_health),
+
         # 关闭 IM 桥接服务(取消消费任务 + 关闭 Redis 连接,2026-07-31 立)
         ("im_bridge_service", lambda: im_bridge_service.shutdown()),
         ("dream_scheduler", _s_dream_scheduler),
@@ -1055,6 +1114,8 @@ async def lifespan(app: FastAPI) -> Any:
         ("lsp_clients", _s_lsp),
         ("llm_gateway_http", _s_llm_http),
         ("api_client_http", _s_api_client),
+        # 动态注册表必须先于 mcp_client/mcp_stdio 卸载(其 _deactivate 要调用两者)
+        ("mcp_registry", _s_mcp_registry),
         ("mcp_client", _s_mcp_client),
         ("mcp_stdio_bridge", _s_mcp_stdio),
         # Z35 接线(2026-11-06):进程退出的引擎侧文件监控排空腿(Z32 遗留的唯一一行)。
@@ -1147,6 +1208,8 @@ def create_app() -> FastAPI:
     app.include_router(a2a.router, prefix="/api", tags=["a2a"])
     # D176(2026-09-30 用户拍板立项):交接文档生成出口
     app.include_router(recap_router.router, prefix="/api", tags=["recap"])
+    # RP-42:超工慢路径判定端点(POST /api/super-agent/slow-path/judge)
+    app.include_router(super_agent_slow_router.router, prefix="/api", tags=["super-agent-slow"])
     # D193(2026-09-30 用户拍板,小切口):「我的待决策」聚合查询(GET /api/agent/decisions/pending)
     app.include_router(decisions_router.router, prefix="/api", tags=["decisions"])
     # G5(2026-10-30 立项):编译式知识引擎(POST /api/knowledge/compile + GET /api/knowledge/cards)
@@ -1412,7 +1475,9 @@ def create_app() -> FastAPI:
             )
         from app.services.audit_service import audit_service
         return {
-            "code": 200,
+            # AIS-046:成功码必须与 /api/audit/logs 及全站 code:0 约定一致。
+            # 原值 200 会让按 code===0 判成功的前端把"查到了"误判成失败。
+            "code": 0,
             "message": "ok",
             "data": audit_service.get_recent(limit=limit),
         }

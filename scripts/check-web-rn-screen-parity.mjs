@@ -949,6 +949,13 @@ function run() {
     // 行数 301 / 去重 293,差 8 枚全在 8 组同键重复 aligned 上)。下游比承载面请读本键,
     // 不许在下游自己再实现一遍去重(§0.6 单一真相源:去重只此一份)。
     alignedUnique,
+    // ── 键级集合(2026-11-08 立;键全为新增,既有键名与类型一个未动) ──
+    // 计数只能回答"多了几条",回答不了"多的是诚实登记还是把既有承载拆了"。
+    // 下游(302p 漂移门)按这三组键做差集:judgedGapKeys ∩ (上轮 alignedKeys ∪ portalKeys)
+    // = 同一 web 键从承载退化为 gap(承载被拆);其余新增 gap 只算登记动作。
+    alignedKeys: [...new Set(aligned.map((r) => r.web))],
+    portalKeys: portalRows.map((r) => r.web),
+    judgedGapKeys: judgedGap.map((r) => r.web),
     excluded: excluded.length,
     judgedGap: judgedGap.length,
     contradicted: contradicted.length,

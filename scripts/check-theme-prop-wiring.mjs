@@ -95,8 +95,10 @@ import {
 const COMPONENT_DIR = 'packages/app/src'
 /** 共享包在盘上的根(说明符解析的落点) */
 const SHARED_PKG = '@ihui/rn-app'
-/** 渲染点扫描范围(4 端;web/miniapp 不用 packages/app 的 RN 组件) */
-const RENDER_DIRS = ['packages/app/src', 'apps/mobile-rn/src', 'apps/desktop/src', 'apps/cli/src']
+/** 渲染点扫描范围(3 端;web/miniapp 不用 packages/app 的 RN 组件) */
+// 渲染端源码根(2026-11-08 收敛:删掉 apps/desktop/src —— 该目录已不存在,列在这里只是死维度;
+// 存活的三根见文件内 RENDER_DIRS 实测,空面会由下面的「扫描面为空」判红而不是静默绿)。
+const RENDER_DIRS = ['packages/app/src', 'apps/mobile-rn/src', 'apps/cli/src']
 const THEME_PROP = 'colorScheme'
 const LITERAL_ARCHIVES = new Set(['light', 'dark'])
 

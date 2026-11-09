@@ -40,7 +40,7 @@ export type DomainResolver = (host: string) => readonly string[] | null;
 /** 取词注入面:命令行 → 带"是否含变量展开"标记的参数序列。 */
 export type CommandLineTokenizer = (commandLine: string) => readonly ArgToken[];
 
-export type TargetOrigin = 'url' | 'ip-literal' | 'dynamic' | 'bare-host';
+type TargetOrigin = 'url' | 'ip-literal' | 'dynamic' | 'bare-host';
 
 export interface ExtractedTarget {
   readonly raw: string;
@@ -48,7 +48,7 @@ export interface ExtractedTarget {
 }
 
 /** 默认分词:取所有分段的 argv(含重定向目标之外的普通参数)。 */
-export const defaultCommandLineTokenizer: CommandLineTokenizer = (commandLine) => {
+const defaultCommandLineTokenizer: CommandLineTokenizer = (commandLine) => {
   const result: TokenizeResult = tokenizeCommand(commandLine);
   const out: ArgToken[] = [];
   for (const segment of result.segments) out.push(...segment.argv);
@@ -101,7 +101,7 @@ export function extractEgressTargets(
  * 认得出但值取不到 ⇒ 交裁决层落 `target-unexpandable`(与 command-policy 求值器
  * 把"命令名是变量"钉在 unknown 同一口径:不知道 ≠ 可以)。
  */
-export function looksLikeNetworkArgument(value: string): boolean {
+function looksLikeNetworkArgument(value: string): boolean {
   if (value.includes('://') || /\bhttps?:/i.test(value)) return true;
   return (/(^|[^a-z])(url|uri|proxy)([^a-z]|$)/i.test(value));
 }

@@ -221,7 +221,15 @@ export function redactUrl(input: string): string {
         const eq = kv.indexOf('=')
         if (eq === -1) return kv
         const key = kv.slice(0, eq)
-        if (SENSITIVE_QUERY_PARAMS.has(decodeURIComponent(key).toLowerCase())) {
+        // XUI-034:query 里出现裸 `%`(畸形转义)时 decodeURIComponent 会抛 URIError,
+        // 整个脱敏调用随之失败、日志直接落不了盘。解码失败就按原串匹配,不能让脱敏变成崩溃点。
+        let decoded = key
+        try {
+          decoded = decodeURIComponent(key)
+        } catch {
+          decoded = key
+        }
+        if (SENSITIVE_QUERY_PARAMS.has(decoded.toLowerCase())) {
           return `${key}=${REDACT_QUERY_MARKER}`
         }
         return kv

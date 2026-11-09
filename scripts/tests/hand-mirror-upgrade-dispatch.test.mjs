@@ -22,7 +22,7 @@ const tickIn = (dir) => join(dir, 'hand-upgrade.json')
 // .ihui-agent/state/cross-end-hand-upgrade-undetermined-first.json 当对象,把别人正在累计的连击账清掉。
 const undetIn = (dir) => join(dir, 'undet-hand-upgrade.json')
 
-test('D1 未到节流窗口 ⇒ 不派发(第一轮建台账,第二轮窗口内不跑)', () => {
+test('D1 未到节流窗口 ⇒ 不派发(第一轮建台账,第二轮窗口内不跑)', async () => {
   const dir = mkScratch('hand-upgrade-')
   let calls = 0
   const runner = () => {
@@ -36,14 +36,14 @@ test('D1 未到节流窗口 ⇒ 不派发(第一轮建台账,第二轮窗口内�
     logger: () => {},
     runner,
   }
-  const first = sweepHandMirrorUpgrades({ ...opts, now: 1_000_000 })
+  const first = await sweepHandMirrorUpgrades({ ...opts, now: 1_000_000 })
   assert.equal(first.ran, true, '首轮应派发并建台账')
-  const second = sweepHandMirrorUpgrades({ ...opts, now: 1_000_000 + 30_000 })
+  const second = await sweepHandMirrorUpgrades({ ...opts, now: 1_000_000 + 30_000 })
   assert.equal(second.ran, false, '窗口内不得再派发')
   assert.equal(calls, 1)
 })
 
-test('D2 到点 ⇒ 派发一次并报出可落地/落地枚数', () => {
+test('D2 到点 ⇒ 派发一次并报出可落地/落地枚数', async () => {
   const dir = mkScratch('hand-upgrade-')
   const logs = []
   const payload = {
@@ -52,7 +52,7 @@ test('D2 到点 ⇒ 派发一次并报出可落地/落地枚数', () => {
     batch: [{ route: 'pkg-a/index', shell: 'AScreen', saved: 96 }],
     landed: { ok: true, pages: 1, declLanded: true },
   }
-  const r = sweepHandMirrorUpgrades({
+  const r = await sweepHandMirrorUpgrades({
     now: 2_000_000,
     intervalMs: 60_000,
     tickFile: tickIn(dir),
@@ -70,10 +70,10 @@ test('D2 到点 ⇒ 派发一次并报出可落地/落地枚数', () => {
   assert.equal(existsSync(undetIn(dir)), false, '确定结论仍留连击账 ⇒ 到人升级永远起算不了')
 })
 
-test('D3 结论行解析不出 ⇒ 记未判定(不静默成功)', () => {
+test('D3 结论行解析不出 ⇒ 记未判定(不静默成功)', async () => {
   const dir = mkScratch('hand-upgrade-')
   const logs = []
-  const r = sweepHandMirrorUpgrades({
+  const r = await sweepHandMirrorUpgrades({
     now: 3_000_000,
     intervalMs: 60_000,
     tickFile: tickIn(dir),
@@ -88,10 +88,10 @@ test('D3 结论行解析不出 ⇒ 记未判定(不静默成功)', () => {
   assert.equal(existsSync(undetIn(dir)), true, '未判定却没建起点账 ⇒ 180 分钟到人这条腿是空的')
 })
 
-test('D4 落地失败(err)⇒ 日志点名,不冒充成功', () => {
+test('D4 落地失败(err)⇒ 日志点名,不冒充成功', async () => {
   const dir = mkScratch('hand-upgrade-')
   const logs = []
-  const r = sweepHandMirrorUpgrades({
+  const r = await sweepHandMirrorUpgrades({
     now: 4_000_000,
     intervalMs: 60_000,
     tickFile: tickIn(dir),

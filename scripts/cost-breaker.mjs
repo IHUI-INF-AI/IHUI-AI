@@ -28,11 +28,18 @@
  * 留在 minutesWall、口径记在 outcome/chargeCapped;成功轮与未给 --outcome 的旧调用方保持旧口径。
  * perDay / perHour / minutesPerDay 这些**数值一个字没改** —— 连败照样撞次数闸,红了有得整改(§5e-1)。
  */
-import { readFileSync, mkdirSync, appendFileSync, existsSync } from 'node:fs'
+import { readFileSync, writeFileSync, mkdirSync, appendFileSync, existsSync } from 'node:fs'
 import { join, dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
+// 分型判据一律 import 单一真源(§0.6):改桶不许在记账层再写一份"什么算腿断"。
+import {
+  ENV_FAILURE_SIGNS,
+  TRANSPORT_FAILURE_SIGNS,
+  isLaunchFailureText,
+} from './lib/autonomy-runner.mjs'
+
 export const CAPS_PATH = join(ROOT, 'scripts', 'data', 'cost-caps.json')
 export const LEDGER_PATH = join(ROOT, '.ihui-agent', 'state', 'cost-ledger.jsonl')
 
@@ -127,7 +134,10 @@ export function parseLedger(rawText) {
       tokens,
       note: typeof e.note === 'string' ? e.note : '',
       // 记账口径(2026-11-01 立):旧行没有这个字段 ⇒ 'unknown',不冒充"成功轮"也不冒充"失败轮"。
-      outcome: typeof e.outcome === 'string' && CHARGE_OUTCOMES.includes(e.outcome) ? e.outcome : 'unknown',
+      outcome:
+        typeof e.outcome === 'string' && CHARGE_OUTCOMES.includes(e.outcome)
+          ? e.outcome
+          : 'unknown',
     })
   }
   return out
@@ -298,15 +308,32 @@ function selfTest() {
   // 旧口径:失败轮按整轮墙钟全额记账 ⇒ 实测近 24h 31 枚 rc=1 吃掉 472 分钟,熔断把发布黑一整天。
   // 新口径:失败轮按封顶记账,实墙钟逐字留在 minutesWall(诚实),成功轮完全不变,未给 outcome 一律旧口径。
   const capFail = JSON.parse(
-    chargeLine({ kind: 'deploy', minutes: 15.2, note: 'rc=1', now, outcome: 'fail', failureCapMinutes: 5 }),
+    chargeLine({
+      kind: 'deploy',
+      minutes: 15.2,
+      note: 'rc=1',
+      now,
+      outcome: 'fail',
+      failureCapMinutes: 5,
+    }),
   )
   assert(capFail.minutes === 5, `失败轮必须按封顶记账(实得 ${capFail.minutes})`)
   assert(capFail.minutesWall === 15.2, '实墙钟必须留在账上(封顶 ≠ 免单,更不是谎报耗时)')
   assert(capFail.outcome === 'fail' && capFail.chargeCapped, '口径必须可追溯(读侧能认出这是封顶点)')
   const capOk = JSON.parse(
-    chargeLine({ kind: 'deploy', minutes: 15.2, note: 'rc=0', now, outcome: 'ok', failureCapMinutes: 5 }),
+    chargeLine({
+      kind: 'deploy',
+      minutes: 15.2,
+      note: 'rc=0',
+      now,
+      outcome: 'ok',
+      failureCapMinutes: 5,
+    }),
   )
-  assert(capOk.minutes === 15.2 && !('chargeCapped' in capOk), '成功轮口径一个字不许动(否则把真实耗时洗掉)')
+  assert(
+    capOk.minutes === 15.2 && !('chargeCapped' in capOk),
+    '成功轮口径一个字不许动(否则把真实耗时洗掉)',
+  )
   const capLegacy = JSON.parse(chargeLine({ kind: 'deploy', minutes: 15.2, note: '旧调用方', now }))
   assert(
     capLegacy.minutes === 15.2 && capLegacy.outcome === 'unknown',
@@ -325,13 +352,17 @@ function selfTest() {
   assert(capThrew, '非法 --outcome 必须抛(记账器不替调用方猜这一轮成没成)')
   assert(failureChargeCap(caps, 'deploy') === null, '未配置该键 ⇒ null(旧口径,不是 0)')
   const capped = loadCaps(
-    JSON.stringify({ kinds: { deploy: { perDay: 5, minutesPerDay: 30, failChargeCapMinutes: 5 } } }),
+    JSON.stringify({
+      kinds: { deploy: { perDay: 5, minutesPerDay: 30, failChargeCapMinutes: 5 } },
+    }),
   )
   assert(failureChargeCap(capped, 'deploy') === 5, '配置了封顶就要读得出封顶')
   let escThrew = false
   try {
     loadCaps(
-      JSON.stringify({ kinds: { deploy: { perDay: 5, minutesPerDay: 30, failChargeCapMinutes: 30 } } }),
+      JSON.stringify({
+        kinds: { deploy: { perDay: 5, minutesPerDay: 30, failChargeCapMinutes: 30 } },
+      }),
     )
   } catch {
     escThrew = true
@@ -346,7 +377,10 @@ function selfTest() {
     kind: 'deploy',
     now,
   })
-  assert(rFail.used.failDay === 1 && rFail.used.minutesDay === 10, '失败轮要数得出来(可整改性判据的输入)')
+  assert(
+    rFail.used.failDay === 1 && rFail.used.minutesDay === 10,
+    '失败轮要数得出来(可整改性判据的输入)',
+  )
   let legacyOutcome = false
   try {
     const parsedLegacy = parseLedger('{"ts":"2026-11-01T11:00:00Z","kind":"deploy","minutes":3}')
@@ -376,6 +410,96 @@ function selfTest() {
   console.log(`self-test: 全绿(${assertionCount} 组断言)`)
 }
 
+/**
+ * 台账 `why` 的形态归一(只在配对前用一次,不改判据本体)。
+ * 调度台账存的是**合成后**的 why(`exit=1 stderr='node' …`),而派发调用处喂给分型器的是**原始**
+ * stderr —— 两者形态不同这件事,我在 `d13019e` 的提交信息里已写明(审计者回放台账须先剥前缀)。
+ * 这里就是那次"剥前缀":正则只吃行首的 `exit=<码> [stderr=]` 这一段,不吃内容,也不放宽结构判据本身。
+ */
+export function stripLedgerWhyPrefix(why) {
+  return String(why ?? '').replace(/^exit=\S+\s+(stderr=|stdout=)?/i, '')
+}
+
+/**
+ * 历史记账改桶(2026-11-05 立;纯函数,零 IO,交镜像测试钉住)。
+ * 立因(现读实测):近 24h 的 24 条 session 记账里 21 条是失败班次,其中多数是"cmd.exe 解不出
+ * 可执行文件"这类**派发通路自身断裂** ⇒ 墙钟约 0.3 秒、零 token、零产出。旧口径把它们与真跑完的
+ * 班次等值计费 ⇒ 环境故障吃光生产额度,环自我饿死。改判据后新班次已分桶,但历史那批仍写着
+ * kind='session',不处理就等于让旧缺陷继续惩罚今天。
+ * 只改**机器证得出**的行,四条同时成立才动(缺一律留原样,宁少改不多改):
+ *  ① kind==='session' 且未被改过桶;② note 是 `auto-evolve <腿断类动作>`;
+ *  ③ 记账墙钟 ≤ 0.02 分钟(≈1.2 秒,结构上跑不出任何东西);
+ *  ④ 同刻(≤5 秒)能在调度台账里配到同一动作的行,且其 why 满足**发起腿断裂结构判据**
+ *     或含既有 ENV/TRANSPORT 签名 —— 判据一律 import `lib/autonomy-runner.mjs`,本层零复算(§0.6)。
+ * @param {{costRows:Array<object>,dispatchRows:Array<object>,now?:number}} p
+ * @returns {{plan:Array<{i:number,ts:string,rule:string}>,kept:number,reasons:object}}
+ */
+export const RECLASS_MAX_MINUTES = 0.02
+export const RECLASS_PAIR_WINDOW_MS = 5_000
+export const RECLASS_BLOCKED_ACTIONS = [
+  'session-failed',
+  'runner-unavailable',
+  'runner-undetermined',
+]
+
+export function planBlockedReclass({ costRows, dispatchRows, now = Date.now() } = {}) {
+  const CR = Array.isArray(costRows) ? costRows : []
+  const DR = Array.isArray(dispatchRows) ? dispatchRows : []
+  const plan = []
+  const reasons = { notSession: 0, noteMismatch: 0, tooLong: 0, unpaired: 0, already: 0 }
+  const dispatchByTs = DR.map((d) => ({ ts: Date.parse(String(d.ts ?? '')), d })).filter((x) =>
+    Number.isFinite(x.ts),
+  )
+  CR.forEach((r, i) => {
+    if (r.kind !== 'session') {
+      reasons.notSession += 1
+      return
+    }
+    if (r.reclassifiedAt) {
+      reasons.already += 1
+      return
+    }
+    const m = /^auto-evolve ([a-z-]+)(.*)$/.exec(String(r.note ?? ''))
+    const action = m ? m[1] : ''
+    if (!m || !RECLASS_BLOCKED_ACTIONS.includes(action)) {
+      reasons.noteMismatch += 1
+      return
+    }
+    if (!(Number(r.minutes) <= RECLASS_MAX_MINUTES)) {
+      reasons.tooLong += 1
+      return
+    }
+    const at = Date.parse(String(r.ts ?? ''))
+    if (!Number.isFinite(at)) {
+      reasons.unpaired += 1
+      return
+    }
+    const pair = dispatchByTs.find(
+      (x) =>
+        Math.abs(x.ts - at) <= RECLASS_PAIR_WINDOW_MS &&
+        x.d.action === action &&
+        (() => {
+          const why = stripLedgerWhyPrefix(x.d.why)
+          return (
+            isLaunchFailureText(why) ||
+            ENV_FAILURE_SIGNS.some((s) => String(x.d.why ?? '').includes(s)) ||
+            TRANSPORT_FAILURE_SIGNS.some((s) => String(x.d.why ?? '').includes(s))
+          )
+        })(),
+    )
+    if (!pair) {
+      reasons.unpaired += 1
+      return
+    }
+    plan.push({
+      i,
+      ts: String(r.ts),
+      rule: 'launch/env/transport 配对成立(墙钟≤' + RECLASS_MAX_MINUTES + ' 分钟)',
+    })
+  })
+  return { plan, kept: CR.length - plan.length, reasons, now }
+}
+
 function main(argv) {
   const has = (f) => argv.includes(f)
   const val = (f, d = null) => {
@@ -394,6 +518,92 @@ function main(argv) {
     return
   }
   const events = existsSync(ledgerPath) ? parseLedger(readFileSync(ledgerPath, 'utf8')) : []
+  if (has('--reclassify-blocked')) {
+    const apply = has('--apply')
+    const dispPath = val(
+      '--dispatch-ledger',
+      join(ROOT, '.ihui-agent', 'state', 'auto-evolve-ledger.jsonl'),
+    )
+    if (!caps.kinds['session-blocked']) {
+      console.error('❌ 未判定:成本表里没有 session-blocked 这一桶 ⇒ 不改桶(不静默新建)')
+      process.exitCode = EXIT_UNKNOWN
+      return
+    }
+    const raw = existsSync(ledgerPath) ? readFileSync(ledgerPath, 'utf8') : ''
+    const lines = raw.split(/\r?\n/).filter((l) => l.trim())
+    // 按**原行序**解析(坏行留占位),否则 plan 的下标与文件行号会错位 —— 那正是"改桶改到别人身上"的一型。
+    const rows = lines.map((l) => {
+      try {
+        return JSON.parse(l)
+      } catch {
+        return { __badLine: l }
+      }
+    })
+    const disp = existsSync(dispPath)
+      ? readFileSync(dispPath, 'utf8')
+          .trim()
+          .split(/\r?\n/)
+          .map((l) => {
+            try {
+              return JSON.parse(l)
+            } catch {
+              return null
+            }
+          })
+          .filter(Boolean)
+      : []
+    const { plan, reasons } = planBlockedReclass({ costRows: rows, dispatchRows: disp })
+    console.log(
+      `[reclassify] 记账行数=${rows.length} 调度台账行数=${disp.length} 拟改桶=${plan.length} 保持原样=${rows.length - plan.length} 分档理由=${JSON.stringify(reasons)}`,
+    )
+    for (const p of plan.slice(0, 8)) console.log(`   · ${p.ts} 行 #${p.i} 规则=${p.rule}`)
+    if (plan.length > 8) console.log(`   … 另 ${plan.length - 8} 行(全列加 --verbose)`)
+    if (!apply) {
+      console.log('ℹ 预演档:未写盘。确认无误后加 --apply(写盘前自动备份原账本)')
+      process.exitCode = EXIT_ALLOW
+      return
+    }
+    if (plan.length === 0) {
+      console.log('ℹ 零行可证 ⇒ 不写盘(没有"顺手重写一遍账本"这档)')
+      process.exitCode = EXIT_ALLOW
+      return
+    }
+    const nowIso = new Date().toISOString()
+    const outLines = lines.slice()
+    const marks = []
+    for (const p of plan) {
+      const row = rows[p.i]
+      const next = {
+        ...row,
+        kindWas: row.kind,
+        kind: 'session-blocked',
+        reclassifiedAt: nowIso,
+        reclassRule: p.rule,
+      }
+      outLines[p.i] = JSON.stringify(next)
+      marks.push({
+        at: nowIso,
+        lineIndex: p.i,
+        ts: row.ts,
+        kindWas: 'session',
+        kindNow: 'session-blocked',
+        rule: p.rule,
+      })
+    }
+    const bak = ledgerPath + '.pre-reclass-' + String(Date.now()).replace(/\D/g, '')
+    writeFileSync(bak, raw, 'utf8')
+    writeFileSync(ledgerPath, outLines.join('\n') + '\n', 'utf8')
+    appendFileSync(
+      join(ROOT, '.ihui-agent', 'state', 'cost-ledger-reclass.jsonl'),
+      marks.map((m) => JSON.stringify(m) + '\n').join(''),
+      'utf8',
+    )
+    console.log(
+      `✅ 已改桶 ${marks.length} 行(原账本备份=${bak.split(/[\\/]/).pop()};逐行留痕=.ihui-agent/state/cost-ledger-reclass.jsonl)`,
+    )
+    process.exitCode = EXIT_ALLOW
+    return
+  }
   if (has('--charge')) {
     try {
       const tokensRaw = val('--tokens')
@@ -464,6 +674,11 @@ function main(argv) {
 }
 
 export const __test__ = {
+  planBlockedReclass,
+  stripLedgerWhyPrefix,
+  RECLASS_MAX_MINUTES,
+  RECLASS_BLOCKED_ACTIONS,
+  RECLASS_PAIR_WINDOW_MS,
   loadCaps,
   parseLedger,
   evaluate,

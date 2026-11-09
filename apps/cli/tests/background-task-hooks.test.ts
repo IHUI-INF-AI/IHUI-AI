@@ -42,6 +42,13 @@ import {
 type Ctx = Record<string, unknown>;
 type Call = { event: string; ctx: Ctx };
 
+/** 索引访问 + 运行时越界检查(noUncheckedIndexedAccess 下数组元素天然是 T | undefined) */
+function at<T>(items: readonly T[], index: number): T {
+  const item = items[index];
+  if (item === undefined) throw new Error(`数组索引越界: ${index}`);
+  return item;
+}
+
 /** 取某事件的派发记录(按发生顺序)。 */
 function callsFor(event: string): Call[] {
   return runHookSpy.mock.calls
@@ -77,14 +84,14 @@ describe('taskCreated —— 登记即出声', () => {
 
     const created = callsFor('taskCreated');
     expect(created).toHaveLength(1);
-    expect(created[0].ctx.taskId).toBe(id);
-    expect(created[0].ctx.taskCommand).toBe('echo hello');
-    expect(created[0].ctx.taskStatus).toBe('running');
+    expect(at(created, 0).ctx.taskId).toBe(id);
+    expect(at(created, 0).ctx.taskCommand).toBe('echo hello');
+    expect(at(created, 0).ctx.taskStatus).toBe('running');
   });
 
   it('② 登记档不得塞退出码:undefined(还没结束)与 null(被信号终止)是两件事', () => {
     registerTask(null, 'echo x');
-    const ctx = callsFor('taskCreated')[0].ctx;
+    const ctx = at(callsFor('taskCreated'), 0).ctx;
     expect('taskExitCode' in ctx).toBe(false);
   });
 
@@ -93,7 +100,7 @@ describe('taskCreated —— 登记即出声', () => {
       ownerAgentId: 'agent-9',
       worktreePath: 'G:/IHUI-AI/.worktrees/wt-demo',
     });
-    const ctx = callsFor('taskCreated')[0].ctx;
+    const ctx = at(callsFor('taskCreated'), 0).ctx;
     expect(ctx.taskOwnerAgentId).toBe('agent-9');
     expect(ctx.taskWorktreePath).toBe('G:/IHUI-AI/.worktrees/wt-demo');
     expect(getTask(id)?.ownerAgentId).toBe('agent-9');
@@ -122,7 +129,7 @@ describe('taskCompleted —— 派发位置是本册的牙', () => {
 
   it('⑤ 终态载荷读的是已落定的状态,不是登记时的 running', () => {
     settleWithoutWaiters('killed', null);
-    const ctx = callsFor('taskCompleted')[0].ctx;
+    const ctx = at(callsFor('taskCompleted'), 0).ctx;
     expect(ctx.taskStatus).toBe('killed');
     expect(ctx.taskExitCode).toBeNull(); // 被信号终止:确实没有码
   });
@@ -143,10 +150,10 @@ describe('taskCompleted —— 派发位置是本册的牙', () => {
     const completed = callsFor('taskCompleted');
     expect(created).toHaveLength(1);
     expect(completed).toHaveLength(1);
-    expect(created[0].ctx.taskId).toBe(id);
-    expect(completed[0].ctx.taskId).toBe(id);
+    expect(at(created, 0).ctx.taskId).toBe(id);
+    expect(at(completed, 0).ctx.taskId).toBe(id);
     // 成对而不是一枚:只发 created 会让下游把"沙盒拒绝"记成永久在跑
-    expect(completed[0].ctx.taskStatus).toBe(getTask(id)?.status);
+    expect(at(completed, 0).ctx.taskStatus).toBe(getTask(id)?.status);
   });
 });
 

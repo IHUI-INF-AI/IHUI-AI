@@ -372,6 +372,7 @@ test.describe('D04 · 消息串内富文本动作锚点(浏览器级验收)', ()
     await openConversation(page, 'a3')
 
     // 等一帧让 onerror 有机会点火,再取全局标记
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(1_200)
     const flags = await page.evaluate(() => ({
       anchor: (window as unknown as Record<string, unknown>).__xssAnchor,

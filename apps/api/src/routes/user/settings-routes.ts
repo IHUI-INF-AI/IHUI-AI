@@ -36,7 +36,14 @@ import { parsePagination } from './_shared.js'
 import { isUuidString } from '../../utils/uuid.js'
 
 /** 内存导出内容缓存(taskId → content + 过期时间),进程重启后失效。 */
-const exportContentStore = new Map<string, { content: string; expiresAt: Date }>()
+export const exportContentStore = new Map<string, { content: string; expiresAt: Date }>()
+
+/** F-41: 清理已过期且未被下载的导出正文。 */
+function sweepExpiredExportContent(now = Date.now()): void {
+  for (const [taskId, entry] of exportContentStore) {
+    if (entry.expiresAt.getTime() <= now) exportContentStore.delete(taskId)
+  }
+}
 
 const settingsRoutes: FastifyPluginAsync = async (server) => {
   server.get('/settings/notifications', async (request, reply) => {
@@ -322,6 +329,9 @@ const settingsRoutes: FastifyPluginAsync = async (server) => {
     }
     const content = JSON.stringify(exportData, null, 2)
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000)
+    // F-41: 下载端点只会删「被下载的那一条」,未下载的过期正文会一直占内存;
+    // 写入前顺手清扫,避免导出正文无界驻留。
+    sweepExpiredExportContent()
     exportContentStore.set(task.id, { content, expiresAt })
 
     const downloadUrl = `/api/settings/export/${task.id}/download`

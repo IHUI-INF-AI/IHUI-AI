@@ -29,6 +29,7 @@
 import { execFileSync } from 'node:child_process'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
+import { gitBinary } from './lib/face-reader.mjs'
 
 export const LEDGER_ROW_RE = /^- \[[ x]\] /
 
@@ -121,7 +122,7 @@ export function capMergedLines({ merged, ours, theirs, anchorLedgerRows = true }
 }
 
 function run(argv, opts = {}) {
-  return execFileSync('git', argv, {
+  return execFileSync(gitBinary(), argv, {
     cwd: process.cwd(),
     encoding: 'utf8',
     maxBuffer: 1 << 28,
@@ -251,8 +252,21 @@ function main() {
       `每行重数 = max(本侧, 对侧);落地前四条零丢失断言全过(重数配平 ∧ 零冲突标记 ∧ 本侧独有行零丢失 ∧ 对侧独有行零丢失),` +
       `补回被 git 三方合并吞掉的登记行 ${r.restored.length} 条。全程 object-space,零触碰工作树。现场备份 tag ${backupTag}`
     const commit = run(['commit-tree', newTree, '-p', OURS, '-p', THEIRS, '-m', msg]).trim()
-    run(['update-ref', 'refs/heads/main', commit, OURS])
-    console.log(`✅ 已推进 main → ${commit.slice(0, 11)}(CAS 前像=${OURS.slice(0, 11)})`)
+    // 目标 ref 从当前 HEAD 推导(2026-11-09 票);detached ⇒ 不落,且这枚 commit 是悬空,
+    // 就地打 backup tag(与 CAS 失败同一口径,防守门 30a)。
+    let targetRef = ''
+    try {
+      targetRef = run(['symbolic-ref', '-q', 'HEAD']).trim()
+    } catch {
+      targetRef = ''
+    }
+    if (!targetRef) {
+      run(['tag', `backup/detached-merge-cap-${stamp}`, commit])
+      console.log('❌ HEAD 处于 detached(推导不出目标 ref)⇒ 不写 ref;已把产物打 backup tag')
+      return 2
+    }
+    run(['update-ref', targetRef, commit, OURS])
+    console.log(`✅ 已推进 ${targetRef} → ${commit.slice(0, 11)}(CAS 前像=${OURS.slice(0, 11)})`)
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }

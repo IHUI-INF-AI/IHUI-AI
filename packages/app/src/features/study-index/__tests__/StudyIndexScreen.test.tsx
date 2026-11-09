@@ -6,6 +6,12 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { StudyIndexScreen, type StudyIndexScreenProps } from '../StudyIndexScreen'
 
+/**
+ * 测试桩:共享屏只消费调用方解析好的明暗档案(真机值来自 ThemeContext.resolvedTheme);
+ * 单测固定浅色,避免组件静默落回形参默认值。
+ */
+const TEST_COLOR_SCHEME: 'light' | 'dark' = 'light'
+
 const baseProps: StudyIndexScreenProps = {
   items: [],
   refreshing: false,
@@ -32,6 +38,7 @@ const baseProps: StudyIndexScreenProps = {
   noMoreText: '没有更多',
   loadingText: '加载中',
   loadingMoreText: '加载更多',
+  colorScheme: TEST_COLOR_SCHEME,
 }
 
 afterEach(cleanup)

@@ -40,6 +40,7 @@ function subagentStatusToTimelineStatus(s: string): TimelineEventStatus {
   if (s === 'spawned' || s === 'running') return 'running'
   if (s === 'done') return 'done'
   if (s === 'failed' || s === 'dead') return 'failed'
+  if (s === 'stub') return 'stub'
   return 'pending'
 }
 
@@ -136,8 +137,9 @@ function countByStatus(events: TimelineEvent[]): {
   failed: number
   running: number
   pending: number
+  stub: number
 } {
-  const c = { done: 0, failed: 0, running: 0, pending: 0 }
+  const c = { done: 0, failed: 0, running: 0, pending: 0, stub: 0 }
   for (const e of events) c[e.status]++
   return c
 }
@@ -160,6 +162,7 @@ const STATUS_EMOJI: Record<TimelineEventStatus, string> = {
   running: '▶️',
   done: '✅',
   failed: '❌',
+  stub: '…',
 }
 
 /**

@@ -33,6 +33,31 @@ function toCount(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }
 
+/**
+ * 2026-11-08 P0(F-001):Windows 上 Node ≥20.12 对 `.cmd`/`.bat` 直接 spawnSync 恒返回
+ * EINVAL(CVE-2024-27980 后的显式拒绝,必须显式要求 shell)。这里**不启用 shell**
+ * —— 否则用户可控的 filter 会被 cmd.exe 二次解释,把一个 EINVAL 换成命令注入。
+ * 改为用当前 node 直接执行 npm-cli.js(standard Node/npm 安装布局),保持无 shell 执行。
+ * 找不到 npm 入口时抛明确错误,而不是把 EINVAL/postInstall 失败当成测试失败。
+ */
+export function resolveNpmSpawn(extraArgs: string[]): { command: string; args: string[] } {
+  if (process.platform !== 'win32') return { command: 'npm', args: extraArgs };
+  const nodeDir = path.dirname(process.execPath);
+  const candidates: string[] = [];
+  const execPathHint = process.env.npm_execpath;
+  if (execPathHint && /npm-cli\.js$/i.test(execPathHint)) candidates.push(execPathHint);
+  candidates.push(
+    path.join(nodeDir, 'node_modules', 'npm', 'bin', 'npm-cli.js'),
+    path.join(nodeDir, '..', 'lib', 'node_modules', 'npm', 'bin', 'npm-cli.js'),
+  );
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      return { command: process.execPath, args: [candidate, ...extraArgs] };
+    }
+  }
+  throw new Error('未找到 npm-cli.js(已检查 Node 安装目录与 npm_execpath),无法在 Windows 上安全执行 npm test');
+}
+
 function detectTestFramework(workspacePath: string): 'jest' | 'vitest' | 'unknown' {
   try {
     const pkgPath = path.join(workspacePath, 'package.json');
@@ -146,7 +171,18 @@ export const run_tests: Tool = {
     }
 
     // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-    const result = spawnSync(process.platform === 'win32' ? 'npm.cmd' : 'npm', cmdArgs, {
+    // 2026-11-08 P0(F-001):Windows 的 npm.cmd 直呼会被 Node 拒绝(EINVAL),见 resolveNpmSpawn。
+    let spawnPlan: { command: string; args: string[] };
+    try {
+      spawnPlan = resolveNpmSpawn(cmdArgs);
+    } catch (err) {
+      return {
+        success: false,
+        output: '',
+        error: `无法启动 npm test:${err instanceof Error ? err.message : String(err)}`,
+      };
+    }
+    const result = spawnSync(spawnPlan.command, spawnPlan.args, {
       cwd: ctx.workspacePath,
       encoding: 'utf-8',
       timeout: 120_000,
@@ -160,6 +196,17 @@ export const run_tests: Tool = {
     const exitCode = result.status;
 
     await runPostToolCall('run_tests', { exitCode, framework }, ctx.signal);
+
+    // 启动失败(result.error)与"测试真的失败"必须区分:旧代码把 status=null 折成
+    // `npm 退出码 null`,让环境故障伪装成业务结论。
+    if (result.error) {
+      const detail = stderr.trim() ? `\n[stderr] ${stderr.trimEnd().slice(0, 2000)}` : '';
+      return {
+        success: false,
+        output: `框架: ${framework}(未能启动 npm test)${detail}`,
+        error: `启动 npm test 失败:${result.error.message}`,
+      };
+    }
 
     const summary = framework === 'vitest'
       ? parseVitestJson(stdout)

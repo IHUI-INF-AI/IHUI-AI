@@ -55,7 +55,8 @@ function runScript(args = [], opts = {}) {
     encoding: 'utf8',
     // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
     stdio: ['ignore', 'pipe', 'pipe'],
-    env: { ...process.env, ...opts.env },
+    // 2026-11-05 增长产线默认停用:既有正向用例逐条显式打开;反向用例单独传 '' 覆盖。
+    env: { IHUI_TAG_AUTOPUSH_ENABLED: '1', ...process.env, ...opts.env },
   })
 }
 
@@ -655,6 +656,24 @@ test('fetch: origin 有 tag 本地缺失 → fetch 后本地有 tag + exit 0', (
     const r = runScript(['--fetch'], { cwd: work })
     assert.equal(r.status, 0, `fetch 后应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
     assert.ok(localHasTag(work, 'lost-commit/fetch-test'), 'fetch 后本地应有 tag')
+  } finally {
+    rmScratch(work)
+    rmScratch(origin)
+  }
+})
+
+test('增长产线停用: --auto-push 未显式开启 ⇒ exit 0 且一枚 tag 都不推;显式开启 ⇒ 仍能推(反向对照)', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  try {
+    gitAt(work, 'git tag lost-commit/pending-push HEAD')
+    const off = runScript(['--auto-push'], { cwd: work, env: { IHUI_TAG_AUTOPUSH_ENABLED: '' } })
+    assert.equal(off.status, 0, `关闸必须 exit 0(不是失败),实际 ${off.status}\nstdout: ${off.stdout}`)
+    assert.match(off.stdout, /增长产线停用/, '关闸要说人话点名开关,不许静默')
+    assert.ok(!remoteHasTag(work, 'lost-commit/pending-push'), '关闸后一枚 tag 都不许推到远端')
+    // 反向对照:显式开闸 ⇒ 同一条路径仍能推(证明开关不是把推送功能删了)
+    const on = runScript(['--auto-push'], { cwd: work, env: { IHUI_TAG_AUTOPUSH_ENABLED: '1' } })
+    assert.equal(on.status, 0, `开闸应 exit 0,实际 ${on.status}\nstdout: ${on.stdout}`)
+    assert.ok(remoteHasTag(work, 'lost-commit/pending-push'), '开闸后该 tag 必须推上去')
   } finally {
     rmScratch(work)
     rmScratch(origin)

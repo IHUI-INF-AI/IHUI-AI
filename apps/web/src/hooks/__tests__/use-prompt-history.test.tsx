@@ -48,18 +48,19 @@ const SECRET = '请帮我总结这一段代码的架构'
 
 /** 内存 Tauri store:让通道底下真跑 WebCrypto,而不用真 Tauri 运行时 */
 const storeCells = new Map<string, unknown>()
-/** 置 true 时 load() 抛错 ⇒ 通道拿不到密钥 ⇒ seal 返回 null ⇒ 应退回明文兜底 */
+/** 置 true 时 IPC 抛错 ⇒ 通道拿不到密钥 ⇒ seal 返回 null ⇒ 应退回明文兜底 */
 let pluginStoreBroken = false
 
-vi.mock('@tauri-apps/plugin-store', () => ({
-  load: async () => {
+vi.mock('@tauri-apps/api/core', () => ({
+  invoke: async (command: string, args: { key: string; value?: string | null }) => {
     if (pluginStoreBroken) throw new Error('plugin-store unavailable')
-    return {
-      get: async (k: string) => storeCells.get(k),
-      set: async (k: string, v: unknown) => void storeCells.set(k, v),
-      delete: async (k: string) => storeCells.delete(k),
-      save: async () => {},
+    if (command === 'store_read_entry') return storeCells.get(args.key) ?? null
+    if (command === 'store_write_entry') {
+      if (args.value === null || args.value === undefined) storeCells.delete(args.key)
+      else storeCells.set(args.key, args.value)
+      return true
     }
+    throw new Error(`unexpected store command: ${command}`)
   },
 }))
 

@@ -96,6 +96,7 @@ from app.core.config import settings
 from app.core.tunables import SUPPORTED_PROTOCOL_VERSIONS as _TUN_SPV
 from app.services import capability_gate as _gate
 from app.services import mcp_client as _mcp_client
+from app.services import mcp_resource_templates as _templates
 from app.services import mcp_server as _internal_mcp
 
 logger = logging.getLogger(__name__)
@@ -266,6 +267,35 @@ async def read_exported_resource(
 
     资源内容按 JSON 文本返回(内部资源本身就是结构化数据),mime_type 沿用登记表声明。
     """
+    # 模板读取与精确登记读取走同一道 scope + 限流闸,但取值实现分开:
+    # 模板 URI(如 memory://sessions/{sessionId})不在 _RESOURCES 登记表里,
+    # 先判模板,避免把"按模板可读"的 URI 误报成"未登记"。
+    resolved = _templates.resolve_resource_template(uri)
+    if resolved.status == "match":
+        template = resolved.template
+        if template is None:  # pragma: no cover - resolve 已保证 match 必有 template
+            raise ResourceNotFoundError(f"资源模板解析失败: {uri}")
+        _gate.enforce_scope(principal, template.scope, resource_label=f"资源 {uri}")
+        release = _gate.enforce_rate_limit(
+            principal, template.scope, resource_label=f"资源 {uri}"
+        )
+        try:
+            read = await _templates.read_resource_template(resolved, user_id=principal.sub)
+        finally:
+            release()
+        if not isinstance(read, dict) or read.get("ok") is False:
+            error = read.get("error") if isinstance(read, dict) else None
+            raise ResourceNotFoundError(str(error or f"资源 {uri} 读取失败"))
+        content = read.get("content")
+        return [
+            ReadResourceContents(
+                content=json.dumps(content, ensure_ascii=False, default=str),
+                mime_type=template.mime_type,
+            )
+        ]
+    if resolved.status == "rejected":
+        raise ResourceNotFoundError(resolved.message or f"未登记的资源 URI: {uri}")
+
     scope = _gate.scope_of_resource(uri)
     resource = _registered_resource(uri)
     if scope is None or resource is None:

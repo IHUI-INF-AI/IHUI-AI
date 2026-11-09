@@ -63,6 +63,8 @@ vi.mock('../src/compaction-v2.js', () => ({
 
 vi.mock('../src/context.js', () => ({
   compressContextIfNeeded: compressContextIfNeededMock,
+  // agent.ts 新增的阈值校验面:原样返回,保持 V2 分支可走到
+  measuredCompactRatio: (value: number) => value,
   estimateTokens: (s: string) => Math.ceil(s.length / 4),
   estimateMessagesTokens: (msgs: Array<{ content: string }>) =>
     msgs.reduce((s, m) => s + Math.ceil(m.content.length / 4) + 4, 0),

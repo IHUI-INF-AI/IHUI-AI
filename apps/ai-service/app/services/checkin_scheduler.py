@@ -41,6 +41,7 @@ import os
 import random
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
+from pathlib import Path
 from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
@@ -60,8 +61,10 @@ from app.services import (
     checkin_store,
     checkin_workbuddy,
     checkin_workbuddy_local,
+    workbuddy_autopilot,
     workbuddy_tasks,
 )
+from app.services.checkin_batch_marker import CheckinBatchMarker
 from app.services.checkin_engine import client_for, status_check
 from app.services.checkin_outbound import (
     OutboundPaused,
@@ -369,13 +372,25 @@ def _cn_day_start(day: date) -> datetime:
     return datetime.combine(day, time.min, tzinfo=_CN_TZ)
 
 
+# task-run 执行留痕记录的 action 前缀(见 checkin.py run_account_task)。
+# 这类记录的 ok 反映的是「任务族执行结果」,不是签到结算结果,不得顶替签到。
+_TASK_RUN_ACTION_PREFIX = "task-run"
+
+
 def _settled_today(record: dict[str, Any], today: date) -> bool:
     """该记录是否构成「今日已有确定结果」:同一北京自然日 ∧ ok=true。
 
     ok=true 同时覆盖 claim/checkin(本次真领到)与 skip_already(平台侧今日
     已签)—— 两者都表示"这个号今天不用再打了"。失败记录、昨天的成功记录、
     created_at 读不出来的脏行,一律不算(宁可补一次,不可漏签)。
+
+    action 以 "task-run" 开头的是**执行留痕**而非签到结果(ok 表示任务族跑
+    成功与否),即便 ok=true 也不能算「今日已结算」—— 否则该账号会被跳过
+    当日签到与启动补偿,造成真业务破坏。
     """
+    action = record.get("action")
+    if isinstance(action, str) and action.startswith(_TASK_RUN_ACTION_PREFIX):
+        return False
     if record.get("ok") is not True:
         return False
     created = record.get("created_at")
@@ -1063,6 +1078,12 @@ class CheckinScheduler:
         批互斥(2026-11-04):同一时刻只允许一批 —— 启动补偿与正常 cron 批在
         窗口补位边界可能并发,两批会对着同一批尚未落记录的号各打一次。撞上
         互斥直接跳过并告警(不排队,排队只会把错峰窗口拖长)。
+
+        批次执行标记(2026-11-04):进入本批时写 deploy/run/checkin-batch.json
+        (pid/批次名/时间戳 + 20s 心跳),结束在 finally 删。部署环据此推迟
+        「重启 ai-service」(上限 15 分钟),避免像 08:06:59 那样把批次从中间
+        切断。marker 只在本函数内维护,与签到业务逻辑零耦合:写失败只 WARN、
+        绝不阻断批次(判据与过期语义见 app/services/checkin_batch_marker.py)。
         """
         if self._batch_running:
             logger.warning(
@@ -1077,6 +1098,12 @@ class CheckinScheduler:
                 "abort_reason": "batch_busy",
             }
         self._batch_running = True
+        # 只在调度器真启用时落 marker:代码缺省 false(单测/裸跑),避免测试在
+        # 工作树里留 untracked 状态文件;cron 关闭时调度器不会起批,不会漏判。
+        marker: CheckinBatchMarker | None = None
+        if _cron_enabled():
+            marker = CheckinBatchMarker(label)
+            await marker.start()
         now = datetime.now(UTC)
         claimed = 0
         skipped = 0
@@ -1153,6 +1180,8 @@ class CheckinScheduler:
                 "abort_reason": abort_reason,
             }
         finally:
+            if marker is not None:
+                await marker.stop()
             self._batch_running = False
 
     async def _probe_platform(
@@ -1248,8 +1277,9 @@ class CheckinScheduler:
         if not os.path.exists(path):
             return
         try:
-            with open(path, encoding="utf-8") as f:
-                data = json.load(f)
+            data = json.loads(
+                await asyncio.to_thread(Path(path).read_text, encoding="utf-8")
+            )
         except (OSError, ValueError):
             return
         records = data.get("records") or {}
@@ -1280,8 +1310,10 @@ class CheckinScheduler:
                     else exp
                 )
                 try:
-                    with open(path, "w", encoding="utf-8") as f:
-                        json.dump(data, f, ensure_ascii=False, indent=2)
+                    payload = json.dumps(data, ensure_ascii=False, indent=2)
+                    await asyncio.to_thread(
+                        Path(path).write_text, payload, encoding="utf-8"
+                    )
                     logger.info(
                         "[checkin_scheduler] MiniMax 令牌已服务端续期并写回 auth.json(exp=%s)",
                         exp,
@@ -1581,6 +1613,32 @@ class CheckinScheduler:
                         result.get("reason"),
                     )
                 await asyncio.sleep(random.uniform(2.0, 8.0))
+            # O68+ 全量自动驾驶腿(2026-11-09):六族巡检只覆盖服务端可判定项(签到/兑换/
+            # 抽奖/旅行等);真行为项(desktop_expert / Sequential 族)由 workbuddy_autopilot
+            # 全量选路完成(verified 链才执行,无链码零出站只登记,防伪造纪律不删)。
+            # 幂等:accept_status=='claimed' 秒跳过 ⇒ 全表已领时等价一次只读扫表,可复跑。
+            try:
+                auto = await workbuddy_autopilot.run_autopilot(
+                    acc["jwt"], device_map, dry_run=dry_run
+                )
+                if auto.get("read_failed"):
+                    stats["unjudged"] += 1
+                if auto.get("claimed"):
+                    stats["claimed"] += len(auto["claimed"])
+                if auto.get("undone") or auto.get("unregistered"):
+                    stats["unjudged"] += 1
+                summary.append(
+                    f"{acc['id']}/autopilot:claimed_already={len(auto.get('claimed_already') or [])} "
+                    f"executed={len(auto.get('executed') or [])} "
+                    f"claimed={len(auto.get('claimed') or [])} "
+                    f"credits=+{auto.get('credits', 0)} "
+                    f"unregistered={len(auto.get('unregistered') or [])}"
+                )
+            except Exception as e:  # noqa: BLE001 — 单账号 autopilot 异常不中断整轮
+                logger.warning(
+                    "[checkin_scheduler] WB autopilot 异常 account=%s: %s", acc["id"], e
+                )
+                stats["errors"] += 1
         self._record_wb_sweep(
             started_at, dry_run, stats, None if stats["families"] else "无可用账号(全部冷却)"
         )

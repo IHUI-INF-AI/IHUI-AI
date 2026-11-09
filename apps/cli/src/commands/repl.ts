@@ -377,8 +377,13 @@ export function projectToolArgsForScreen(args: Record<string, unknown>): ToolArg
   return { redacted, display: truncated ? `${clipped}…` : clipped, truncated };
 }
 
+/**
+ * BUG-0015:本函数只读 `role` / `content` 两个字段做统计与展示,声明成完整
+ * `ChatMessage[](必带 id)` 属于过度约束 —— 调用方(含测试)手里只有 role+content
+ * 的等价消息时被迫伪造 id。入参收敛到最小结构,与 repairSessionHistory 同一口径。
+ */
 export function formatContextStats(
-  history: ChatMessage[],
+  history: readonly { role: string; content: string }[],
   opts?: {
     planFirst?: boolean;
     planApproved?: boolean;
@@ -2080,7 +2085,7 @@ async function handleInit(state: ReplState): Promise<void> {
     console.info(chalk.yellow('AGENTS.md 已存在'));
     return;
   }
-  writeAgentsMd(wsPath);
+  await writeAgentsMd(wsPath);
   console.info(chalk.green(`已创建: ${path.join(wsPath, 'AGENTS.md')}`));
 }
 

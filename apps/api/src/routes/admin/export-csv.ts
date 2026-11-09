@@ -75,7 +75,8 @@ const exportRateLimiter = new Map<string, number[]>()
 function escapeCsvField(value: string): string {
   const safe = sanitizeCsvCell(value)
   if (safe === '') return ''
-  if (/[",\r\n]/.test(safe)) {
+  // F-288:TAB 也要进引号集 —— 它是分隔符候选,裸 TAB 在某些表格软件里会错列。
+  if (/[\t",\r\n]/.test(safe)) {
     return `"${safe.replace(/"/g, '""')}"`
   }
   return safe
@@ -220,7 +221,7 @@ const ordersExportQuerySchema = z.object({
 const relayLogsExportQuerySchema = z.object({
   userId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
   model: z.transform(emptyToUndefined).pipe(z.string().max(100).optional()),
-  status: z.transform(emptyToUndefined).pipe(z.enum(['success', 'error']).optional()),
+  status: z.transform(emptyToUndefined).pipe(z.enum(['success', 'error', 'partial']).optional()),
   apiKeyId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
   provider: z.transform(emptyToUndefined).pipe(z.string().max(100).optional()),
   clientIp: z.transform(emptyToUndefined).pipe(z.string().max(100).optional()),

@@ -34,6 +34,7 @@ const STATUS_CLASS: Record<AgentStatus, string> = {
   completed: 'bg-emerald-500/10 text-emerald-600',
   failed: 'bg-red-500/10 text-red-600',
   cancelled: 'bg-muted text-muted-foreground',
+  stub: 'bg-amber-500/10 text-amber-600',
 }
 
 /**

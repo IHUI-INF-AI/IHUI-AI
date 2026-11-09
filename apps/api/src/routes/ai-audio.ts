@@ -21,6 +21,11 @@ import { checkAuth } from '../plugins/auth.js'
 import { verifyAccessToken } from '@ihui/auth'
 import { success, error } from '../utils/response.js'
 import { fetchWithinDeadline, isDeadlineAbort } from '../utils/fetch-deadline.js'
+import {
+  ensurePointsAvailable,
+  chargeFlatPoints,
+  FLAT_POINTS,
+} from '../services/points-guard.js'
 
 // ============================================================================
 // 通用工具
@@ -275,6 +280,7 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
   // 使 zod 校验先于 Fastify 413 生效。
   server.post('/audio/speech', { bodyLimit: 34 * 1024 * 1024 }, async (request, reply) => {
     if (!requireDsKey(reply)) return
+    if (!(await ensurePointsAvailable(request, reply))) return
     const parsed = ttsBody.safeParse(request.body)
     if (!parsed.success || !parsed.data.text) {
       reply.status(400).send(error(400, '请提供 text'))
@@ -304,6 +310,7 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
       // 音频二进制直返
       if (contentType.includes('audio') || contentType.includes('octet-stream')) {
         const buf = Buffer.from(await resp.arrayBuffer())
+        await chargeFlatPoints(request, FLAT_POINTS.audio, 'TTS 语音合成扣分', request.id)
         reply.header('Content-Type', `audio/${fmt}`)
         reply.header('Content-Disposition', `attachment; filename="speech.${fmt}"`)
         reply.send(buf)
@@ -321,6 +328,7 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
       const data = await readOutboundJson(resp)
       const output = (data as { output?: { task_id?: string; task_status?: string } }).output ?? {}
       if (output.task_id) {
+        await chargeFlatPoints(request, FLAT_POINTS.audio, 'TTS 语音合成扣分', request.id)
         reply.send(success({ task_id: output.task_id, status: output.task_status ?? 'PENDING' }))
         return
       }
@@ -340,6 +348,7 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
   // 使 zod 校验先于 Fastify 413 生效。
   server.post('/audio/recognize', { bodyLimit: 34 * 1024 * 1024 }, async (request, reply) => {
     if (!requireDsKey(reply)) return
+    if (!(await ensurePointsAvailable(request, reply))) return
     const parsed = asrBody.safeParse(request.body)
     if (!parsed.success || (!parsed.data.audio_url && !parsed.data.audio_base64)) {
       reply.status(400).send(error(400, '请提供 audio_url 或 audio_base64'))
@@ -392,6 +401,7 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
             if (item.text) transcription += item.text
           }
         }
+        await chargeFlatPoints(request, FLAT_POINTS.audio, '语音识别扣分', request.id)
         reply.send(
           success({
             transcription,
@@ -444,6 +454,7 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
       const results = output.results ?? []
       if (results.length > 0) {
         const transcripts = results.map((r) => ({ transcription: r.transcription_text ?? '' }))
+        await chargeFlatPoints(request, FLAT_POINTS.audio, '语音识别扣分', request.id)
         reply.send(
           success({
             results: transcripts,
@@ -486,6 +497,7 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
             const transcripts = (pollOutput.results ?? []).map((r) => ({
               transcription: r.transcription_text ?? '',
             }))
+            await chargeFlatPoints(request, FLAT_POINTS.audio, '语音识别扣分', request.id)
             reply.send(
               success({
                 task_id: taskId,
@@ -500,6 +512,7 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
             reply.status(502).send(error(502, `语音识别失败: ${pollOutput.message ?? '未知错误'}`))
             return
           }
+          await chargeFlatPoints(request, FLAT_POINTS.audio, '语音识别扣分', request.id)
           reply.send(
             success({ task_id: taskId, status, msg: '任务处理中,请稍后使用 task_id 查询结果' }),
           )
@@ -535,6 +548,7 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
   // 使 zod 校验先于 Fastify 413 生效。
   server.post('/audio/chat', { bodyLimit: 34 * 1024 * 1024 }, async (request, reply) => {
     if (!requireDsKey(reply)) return
+    if (!(await ensurePointsAvailable(request, reply))) return
     const parsed = chatBody.safeParse(request.body)
     const body = parsed.success ? parsed.data : {}
     let userText = body?.text
@@ -634,6 +648,7 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
     }
 
     // 3) 返回文本回复(客户端可再调用 /audio/speech 合成语音)
+    await chargeFlatPoints(request, FLAT_POINTS.audio, '语音对话扣分', request.id)
     reply.send(
       success({
         user_text: userText,
@@ -808,6 +823,7 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
   // 使 zod 校验先于 Fastify 413 生效。
   server.post('/speaker/register', { bodyLimit: 34 * 1024 * 1024 }, async (request, reply) => {
     if (!requireDsKey(reply)) return
+    if (!(await ensurePointsAvailable(request, reply))) return
     const parsed = cloneBody.safeParse(request.body)
     if (!parsed.success || !parsed.data.voice_id) {
       reply.status(400).send(error(400, '请提供 voice_id'))
@@ -843,6 +859,7 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
       }
       const data = await readOutboundJson(resp)
       const output = (data as { output?: { voice_id?: string; status?: string } }).output ?? {}
+      await chargeFlatPoints(request, FLAT_POINTS.voiceprint, '声纹注册扣分', request.id)
       reply.send(
         success({
           voice_id: output.voice_id ?? body.voice_id,
@@ -861,6 +878,7 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
   // 使 zod 校验先于 Fastify 413 生效。
   server.post('/speaker/compare', { bodyLimit: 34 * 1024 * 1024 }, async (request, reply) => {
     if (!requireDsKey(reply)) return
+    if (!(await ensurePointsAvailable(request, reply))) return
     const parsed = cloneBody.safeParse(request.body)
     if (!parsed.success || !parsed.data.voice_id) {
       reply.status(400).send(error(400, '请提供 voice_id'))
@@ -898,6 +916,7 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
       const output =
         (data as { output?: { matched?: boolean; confidence?: number; score?: number } }).output ??
         {}
+      await chargeFlatPoints(request, FLAT_POINTS.voiceprint, '声纹比对扣分', request.id)
       reply.send(
         success({
           voice_id: body.voice_id,

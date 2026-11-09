@@ -61,6 +61,7 @@ import {
   estimateReadTokens,
 } from './read-text-budget.js';
 import { MAX_LINE_SCAN_BYTES, readLineWindow } from './line-window-reader.js';
+import { resolveRipgrepBin, RG_PATH_ENV } from './ripgrep-bin.js';
 import {
   terminal_open,
   terminal_send,
@@ -261,8 +262,8 @@ export function selectBundledTool(input: {
 const ENGINE_RIPGREP = 'ripgrep';
 const ENGINE_JS_WALK = 'js-walk';
 
-/** rg 的退出码约定(与 Python 侧同一份注释):0=有匹配,1=无匹配(合法结论),>=2=真失败。 */
-const RG_EXIT_OK = 0;
+/** rg 的退出码约定(与 Python 侧同一份注释):0=有匹配,1=无匹配(合法结论),>=2=真失败。
+ *  `0` 那一档已不由本文件判 —— 可用性探测交给 `ripgrep-bin.ts` 的 `--version` 真跑。 */
 const RG_EXIT_NO_MATCH = 1;
 
 /**
@@ -306,25 +307,18 @@ let ripgrepProbe: RipgrepProbe | null = null;
  */
 function probeRipgrep(): RipgrepProbe {
   if (ripgrepProbe) return ripgrepProbe;
-  try {
-    const result = spawnSync('rg', ['--version'], {
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      stdio: ['ignore', 'pipe', 'pipe'],
-      encoding: 'utf-8',
-      windowsHide: true,
-      timeout: 5000,
-    });
-    if (result.status === RG_EXIT_OK) {
-      ripgrepProbe = { available: true, reason: null };
-    } else {
-      const detail = result.error instanceof Error ? result.error.message : oneLine(String(result.stderr ?? ''));
-      ripgrepProbe = {
-        available: false,
-        reason: `rg --version did not succeed (exit code ${result.status ?? 'null'}${detail ? `: ${detail}` : ''})`,
-      };
-    }
-  } catch (err) {
-    ripgrepProbe = { available: false, reason: `rg probe threw: ${err instanceof Error ? err.message : String(err)}` };
+  // 2026-11-05:命令不再写死裸名 'rg'。本机 rg 不在 PATH 但 ripgrep 15.1.0 就在盘上,
+  // 写死裸名的后果是 grep 工具整年降级 js-walk ⇒ 检索假阴性(见 tools/ripgrep-bin.ts 头注)。
+  const rg = resolveRipgrepBin();
+  if (rg.verified) {
+    ripgrepProbe = { available: true, reason: null };
+  } else {
+    ripgrepProbe = {
+      available: false,
+      reason:
+        `ripgrep not resolvable (tried: ${rg.tried.slice(0, 6).join(' | ') || 'no candidates'}); ` +
+        `set ${RG_PATH_ENV} to an absolute rg path to pin it`,
+    };
   }
   return ripgrepProbe;
 }
@@ -361,7 +355,7 @@ function execRipgrep(pattern: string, opts: { cwd: string; searchPath: string; t
   // `--` 收掉另一条同类入口:以 `-` 开头的 pattern 会被 rg 当成命令行选项解析而退出码 2,
   // 在旧实现里那同样表现为"没有匹配"。Python 侧 search_file_contents 也带这个分隔符。
   args.push('--', pattern, opts.searchPath);
-  const result = spawnSync('rg', args, {
+  const result = spawnSync(resolveRipgrepBin().cmd, args, {
     // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
     stdio: ['ignore', 'pipe', 'pipe'],
     cwd: opts.cwd,
@@ -436,6 +430,30 @@ function resolvePath(ctx: ToolContext, filePath: string): string {
 
 function relativePath(ctx: ToolContext, absPath: string): string {
   return path.relative(ctx.workspacePath, absPath);
+}
+
+/** realpath 存在即解析(用于目录/文件搜索根的容器性判定;不存在返回原路径)。 */
+function realpathOrSelf(target: string): string {
+  try {
+    return fs.realpathSync(target);
+  } catch {
+    return path.resolve(target);
+  }
+}
+
+/** target 是否严格落在 root 之下(root 自身也算在内)。 */
+function isWithinRootPath(root: string, target: string): boolean {
+  const rel = path.relative(path.resolve(root), path.resolve(target));
+  return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
+}
+
+/**
+ * 读侧 ACL 的"这条路径能不能把正文交出去"单点判据(供 grep 通道逐文件复用)。
+ * 与 read_file 走同一份 `evaluateFileAccess`;此处只回答 enforce-deny 与否。
+ */
+function isReadAclBlocked(ctx: ToolContext, filePath: string): boolean {
+  const verdict = evaluateFileAccess('read', toAclPath(ctx.workspacePath, filePath), ctx.workspacePath);
+  return verdict.blocked;
 }
 
 const TYPE_EXT_MAP: Record<string, string[]> = {
@@ -1001,6 +1019,7 @@ export const list_dir: Tool = {
  * 属另一票的范围(已登记)。
  */
 function execJsWalkGrep(
+  ctx: ToolContext,
   pattern: string,
   opts: { cwd: string; searchPath: string; type?: string; glob?: string; max: number },
 ): { state: 'hits'; results: string[] } | { state: 'no-match' } | { state: 'incomplete'; results: string[] } | { state: 'failed'; reason: string } {
@@ -1013,6 +1032,8 @@ function execJsWalkGrep(
   const results: string[] = [];
   let scanComplete = true;
   function readMatchedFile(entryPath: string): void {
+    // 与 read_file 同一份读侧 ACL:凭据件不得经搜索通道把正文漏进结果。
+    if (isReadAclBlocked(ctx, entryPath)) return;
     try {
       const content = fs.readFileSync(entryPath, 'utf-8');
       const lines = content.split('\n');
@@ -1077,14 +1098,27 @@ export const grep: Tool = {
     if (!pattern) return { success: false, output: '', error: '缺少 pattern 参数' };
     const searchPath = (args.path as string) || '.';
     const abs = resolvePath(ctx, searchPath);
+
+    // 搜索根容器性断言(与 read_file 的凭据裁决互补):绝对路径 / `../../` 能把搜索
+    // 目标带到工作区外(如 ~/.ssh、别的项目),ACL 的根层单列族对越界形态打不中。
+    // 判定放在任何 fs 调用之前,越界即拒(fail closed;实路径解析封掉符号链接绕行)。
+    const wsReal = realpathOrSelf(ctx.workspacePath);
+    if (!isWithinRootPath(wsReal, realpathOrSelf(abs))) {
+      return { success: false, output: '', error: `搜索根必须位于工作区内: ${searchPath}` };
+    }
+    // 搜索根本身是文件时,先过读侧 ACL(目录根由逐文件过滤覆盖)。
+    let rootStat: fs.Stats;
     try {
-      fs.statSync(abs);
+      rootStat = fs.statSync(abs);
     } catch (err) {
       const code = (err as NodeJS.ErrnoException).code;
       if (code === 'ENOENT' || code === 'ENOTDIR') {
         return { success: false, output: '', error: `路径不存在: ${searchPath}` };
       }
       return { success: false, output: '', error: '路径读不到,不能把结果说成没有匹配' };
+    }
+    if (rootStat.isFile() && isReadAclBlocked(ctx, abs)) {
+      return { success: false, output: '', error: `按文件访问裁决禁止读取 ${searchPath}` };
     }
 
     const rgOpts = {
@@ -1099,7 +1133,12 @@ export const grep: Tool = {
     if (rg.state !== 'failed') {
       const note = engineNote(ENGINE_RIPGREP, null) + (rg.state === 'hits' && rg.warning ? `\n[ripgrep warning] ${rg.warning}` : '');
       if (rg.state === 'no-match') return { success: true, output: `未找到匹配${note}` };
-      const results = rg.matches.map((m) => `${m.file}:${m.line} ${m.text}`);
+      // 搜索命中的每个文件与 read_file 走同一份读侧 ACL:凭据件命中不得把正文漏进结果。
+      const visible = rg.matches.filter((m) => !isReadAclBlocked(ctx, m.file));
+      if (visible.length === 0) {
+        return { success: true, output: `未找到匹配${note}` };
+      }
+      const results = visible.map((m) => `${m.file}:${m.line} ${m.text}`);
       const truncated = results.length >= MAX_GREP_RESULTS ? `\n...(仅显示前 ${MAX_GREP_RESULTS} 条,用 rg)` : '';
       return { success: true, output: results.join('\n') + truncated + note };
     }
@@ -1110,7 +1149,7 @@ export const grep: Tool = {
     //   真能给出正确答案的;直接 success:false 会把一个本可服务的需求推回给用户。
     // 但降级不是无条件出路 —— 两条通道都答不上来时**必须如实失败**(见下面 failed 分支),
     // 否则就是"谁都没答,却回一句没有匹配",与本票立门的原病同形。
-    const walk = execJsWalkGrep(pattern, rgOpts);
+    const walk = execJsWalkGrep(ctx, pattern, rgOpts);
     if (walk.state === 'failed') {
       return {
         success: false,
@@ -1159,26 +1198,46 @@ export const glob: Tool = {
       return options.flatMap((opt) => expandBraces(prefix + opt + suffix))
     }
     const patterns = expandBraces(pattern)
-    // 2026-09-03 修复: 原 impl 只用纯文件名匹配 pattern,导致 **/stats.mjs 这类含路径的 pattern 永远失配。
-    // 新语义: pattern 含 '/' → 按相对路径匹配(**/ 可匹配零目录, * 不跨目录段); 不含 '/' → 沿用任意深度文件名匹配。
+    // 2026-11-05 重写:旧实现把整条 pattern 做**链式字符串替换**,后一步会再吃掉前一步刚插进
+    // 正则里的产物 —— `(?:.*/)?` 里的 `?` 被 `?`→`[^/]` 改掉、`*` 被 `*`→`[^/]*` 改掉,
+    // 于是 `**/*attendance*` 编译成 `^([^/]:.[^/]*/)[^/][^/]*attendance[^/]*$`
+    // (要求路径里有一个 `X:` 冒号段)⇒ **凡带 `**/` 的 pattern 恒不匹配**,而工具仍回
+    // success:true + "未找到匹配文件"。现按段编译:先 split('/') 再把每段单独编译成
+    // "不跨目录"的片段,`**` 只在段这一层解释,插进正则的东西不再参与后续替换。
+    const compileSegment = (seg: string): string =>
+      seg
+        .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+        .replace(/\*/g, '[^/]*')
+        .replace(/\?/g, '[^/]');
+    const compilePathPattern = (p: string): string => {
+      const segs = p.split('/');
+      const body: string[] = [];
+      let slashPending = false;
+      segs.forEach((seg, i) => {
+        if (seg === '**' && i < segs.length - 1) {
+          body.push('(?:[^/]+/)*'); // 零或多目录:自带尾斜杠,故下一段前不再补 '/'
+          slashPending = false;
+          return;
+        }
+        if (slashPending) body.push('/');
+        // 末段 `**` 收全部剩余(含"什么都没有");其余段按不跨目录编译
+        body.push(seg === '**' ? '.*' : compileSegment(seg));
+        slashPending = true;
+      });
+      return '^' + body.join('') + '$';
+    };
     const matchers = patterns.map((p) => {
       if (!p.includes('/')) {
-        const re = new RegExp('^' + p.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.') + '$');
+        const re = new RegExp('^' + compileSegment(p) + '$');
         return (_relPath: string, fileName: string) => re.test(fileName);
       }
-      const re = new RegExp(
-        '^' +
-          p
-            .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-            .replace(/\*\*\//g, '(?:.*/)?') // **/ 可匹配零目录(**/stats.mjs 命中根目录 stats.mjs)
-            .replace(/\*\*/g, '.*')
-            .replace(/\*/g, '[^/]*')
-            .replace(/\?/g, '[^/]') +
-          '$',
-      );
+      const re = new RegExp(compilePathPattern(p));
       return (relPath: string, _fileName: string) => re.test(relPath);
     });
     const results: string[] = [];
+    // 结果一律以 `/` 形态呈现:匹配本来就在 `/` 形态上做,若把 Windows 反斜杠原样吐给模型,
+    // 模型下一次把它当 pattern 传回来就必然失配(同一件文件两种写法,检索面因此自锁)。
+    const relOf = (abs: string): string => relativePath(ctx, abs).replace(/\\/g, '/');
     let scanComplete = true;
     function walk(dir: string): void {
       if (results.length >= MAX_GLOB_RESULTS) return;
@@ -1189,8 +1248,8 @@ export const glob: Tool = {
         if (entry.isDirectory()) {
           if (IGNORED_DIRS.has(entry.name)) continue;
           walk(path.join(dir, entry.name));
-        } else if (matchers.some((m) => m(relativePath(ctx, path.join(dir, entry.name)).replace(/\\/g, '/'), entry.name))) {
-          results.push(relativePath(ctx, path.join(dir, entry.name)));
+        } else if (matchers.some((m) => m(relOf(path.join(dir, entry.name)), entry.name))) {
+          results.push(relOf(path.join(dir, entry.name)));
         }
       }
     }

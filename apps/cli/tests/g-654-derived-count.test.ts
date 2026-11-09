@@ -137,6 +137,13 @@ const REQ = { persona: 'coder', task: '派生计数夹具', workspacePath: '.' }
 /** 无 workspacePath + 无 config.workspaceSourcePath + isolation=worktree ⇒ 走 startWorker 早退路径 */
 const REQ_WORKTREE_EARLY = { persona: 'coder', task: '早退夹具', isolation: 'worktree' } as unknown as SubagentSpawnRequest;
 
+/** 索引访问 + 运行时越界检查(noUncheckedIndexedAccess 下数组元素天然是 T | undefined) */
+function at<T>(items: readonly T[], index: number): T {
+  const item = items[index];
+  if (item === undefined) throw new Error(`数组索引越界: ${index}`);
+  return item;
+}
+
 const tick = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
 
 /** 分叉白名单:只有这三档允许旧值 ≠ 派生值(且旧值必须是负数 = 旧计数器自己减错了)。 */
@@ -178,7 +185,7 @@ describe('G-654① 派生计数与旧计数器逐状态对拍', () => {
     // 结算一格 ⇒ drainQueue 同步补位(旧: -- 之后 drain 再 ++;新: 出集合之后占位再入集合)
     const beforeStarts = h.procs.length;
     h.legacy.settle();
-    h.procs[0].emitExit(0);
+    at(h.procs, 0).emitExit(0);
     if (h.procs.length > beforeStarts) h.legacy.launch();
     await tick();
     checkRow('结算 1 ⇒ 队列补位(交接那一拍两集合之和不变)', h);
@@ -268,7 +275,7 @@ describe('G-654① 派生计数与旧计数器逐状态对拍', () => {
     const p = h.pool.spawn(REQ);
     h.legacy.launch();
     checkRow('error 之前(占着一格)', h);
-    h.procs[0].emit('error', new Error('spawn ENOENT'));
+    at(h.procs, 0).emit('error', new Error('spawn ENOENT'));
     h.legacy.settle();
     await expect(p).resolves.toMatchObject({ status: 'failed' });
     await tick();
@@ -296,7 +303,7 @@ describe('G-654① 派生计数与旧计数器逐状态对拍', () => {
     expect(h.pool.getResidualKills()).toHaveLength(1);
     expect(h.pool.activeWorkerCount()).toBe(0);
     // 残留之后再来一发迟到的 exit:OS 若真退了才由 exit 事件收口,计数不许再往下走
-    h.procs[0].emitExit(1, 'SIGKILL');
+    at(h.procs, 0).emitExit(1, 'SIGKILL');
     h.legacy.settle();
     await tick();
     checkRow('残留 + 迟到 exit ⇒ 旧值变负,派生值钉在 0', h, '残留条目收口后的迟到 exit ⇒ 旧计数器多减一格');
@@ -309,14 +316,14 @@ describe('G-654① 派生计数与旧计数器逐状态对拍', () => {
     h.legacy.launch();
     expect(h.events).toEqual([{ next: 1, prev: 0 }]); // 起一格:恰一发(交接那一拍没出声)
 
-    h.procs[0].emitExit(0);
+    at(h.procs, 0).emitExit(0);
     h.legacy.settle();
     await tick();
     checkRow('第一次结算(1→0,恰第二发)', h);
     expect(h.events).toHaveLength(2);
 
     // 同一批状态上再发一次 exit(旧写法靠"resolver 已被消费"挡住通知,却挡不住 --)
-    h.procs[0].emitExit(0);
+    at(h.procs, 0).emitExit(0);
     h.legacy.settle();
     await tick();
     checkRow('重复 exit(迟到的第二次结算)⇒ 旧计数器多减一格', h, '重复 exit(迟到的第二次结算)⇒ 旧计数器多减一格');
@@ -337,7 +344,7 @@ describe('G-654① 派生计数与旧计数器逐状态对拍', () => {
     h.legacy.shutdownReset();
     checkRow('shutdown 收口(旧值归零 / 派生值随集合归零)', h);
     // 迟到的再一发 exit(宿主补发 / 假 proc 重放):旧写法照减不误 ⇒ 负数
-    h.procs[0].emitExit(0);
+    at(h.procs, 0).emitExit(0);
     h.legacy.settle();
     await tick();
     checkRow('shutdown 之后迟到的 exit ⇒ 旧计数器被减成负数', h, 'shutdown 之后迟到的 exit ⇒ 旧计数器被减成负数');
@@ -356,11 +363,11 @@ describe('G-654① 派生计数与旧计数器逐状态对拍', () => {
     expect(h.events).toHaveLength(1);
 
     // 重复的无害调用面:同值上再来一次清理,不许产生第二声
-    h.procs[0].emitExit(0);
+    at(h.procs, 0).emitExit(0);
     h.legacy.settle();
     await tick();
     expect(h.events.map((e) => [e.next, e.prev])).toEqual([[1, 0], [0, 1], [1, 0]]);
-    h.procs[0].emitExit(0);
+    at(h.procs, 0).emitExit(0);
     h.legacy.settle();
     await tick();
     expect(h.events, '同一值上重复结算 ⇒ 不重复通知').toHaveLength(3);
@@ -382,7 +389,7 @@ describe('G-654① 派生计数与旧计数器逐状态对拍', () => {
       const p = h.pool.spawn(REQ);
       h.legacy.launch();
       await vi.advanceTimersByTimeAsync(5_100); // 第一跳 5s 的轮询:无活动超阈 ⇒ 转后台
-      const id = h.pool.activeSubagentIds()[0];
+      const id = at(h.pool.activeSubagentIds(), 0);
       expect(id).toBeDefined();
       expect(h.pool.getLifecycleStatus(id)).toBe('detached_idle');
       await expect(p).resolves.toMatchObject({ status: 'running' });

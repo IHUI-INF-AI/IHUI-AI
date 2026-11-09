@@ -188,7 +188,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
     },
     cellBtnActive: {
-      borderColor: tk.brand.DEFAULT,
+      borderColor: tk.brandAccent.DEFAULT,
       backgroundColor: tk.surface.muted,
     },
     cellBtnDisabled: { opacity: 0.4 },

@@ -24,6 +24,8 @@ import {
   calculateHeatScore,
   calculateQualityScore,
   computePayloadHash,
+  type RawRegistryItem,
+  type RegistryFetchFailure,
 } from '../services/registry-sync/index.js'
 import {
   batchUpsertRegistryItems,
@@ -43,6 +45,11 @@ declare module 'fastify' {
   interface FastifyInstance {
     registryWorkerStats?: RegistryWorkerStats
   }
+}
+
+/** 把拉取失败明细压成一行,供 sync_log / 抛错信息使用。 */
+function formatFetchFailures(failures: readonly RegistryFetchFailure[]): string {
+  return failures.map((f) => `${f.source}/${f.type}: ${f.error}`).join('; ')
 }
 
 export function startRegistrySyncWorker(server: FastifyInstance): Worker {
@@ -83,13 +90,16 @@ export function startRegistrySyncWorker(server: FastifyInstance): Worker {
       )
 
       // fetchAllRawItems 整体失败时写 sync_log 兜底,再 rethrow 让 BullMQ failed 也能捕获
-      let items
+      let items: RawRegistryItem[] = []
+      let fetchFailures: RegistryFetchFailure[] = []
       try {
-        items = await fetchAllRawItems(sourceType ?? undefined, source ?? undefined, {
+        const fetched = await fetchAllRawItems(sourceType ?? undefined, source ?? undefined, {
           githubToken,
           customRegistryUrl,
           force,
         })
+        items = fetched.items
+        fetchFailures = fetched.failures
       } catch (err) {
         const errMsg = err instanceof Error ? err.message : String(err)
         await insertSyncLog({
@@ -102,6 +112,22 @@ export function startRegistrySyncWorker(server: FastifyInstance): Worker {
           finishedAt: new Date(),
         })
         throw err
+      }
+
+      // 所有来源都拉取失败(而非上游确实无数据)⇒ 记 fail 并抛出,让 BullMQ/触发记录看到失败,
+      // 不能以 items.length===0 落成 skipped + trigger processed。
+      if (items.length === 0 && fetchFailures.length > 0) {
+        const errMsg = formatFetchFailures(fetchFailures)
+        await insertSyncLog({
+          sourceType: sourceType ?? 'mcp',
+          sourceName: source ?? 'all',
+          status: 'fail',
+          errorMessage: `所有来源拉取失败: ${errMsg.slice(0, 300)}`,
+          durationMs: Date.now() - startedAt.getTime(),
+          startedAt,
+          finishedAt: new Date(),
+        })
+        throw new Error(`registry-sync: 所有来源拉取失败: ${errMsg}`)
       }
 
       let synced = 0
@@ -153,9 +179,26 @@ export function startRegistrySyncWorker(server: FastifyInstance): Worker {
         server.log.warn({ err: upsertErr }, 'registry-sync: 批量 upsert 失败')
       }
 
-      // 三态判定 — skipped(空结果)/ fail(全部失败)/ success(有成功)
+      // 三态判定 — skipped(空结果)/ fail(全部失败或部分来源失败)/ success(有成功)
       const status: 'success' | 'fail' | 'skipped' =
-        failed > 0 ? (synced > 0 ? 'success' : 'fail') : items.length === 0 ? 'skipped' : 'success'
+        fetchFailures.length > 0
+          ? 'fail'
+          : failed > 0
+            ? synced > 0
+              ? 'success'
+              : 'fail'
+            : items.length === 0
+              ? 'skipped'
+              : 'success'
+
+      const errorParts: string[] = []
+      if (fetchFailures.length > 0) {
+        errorParts.push(`来源拉取失败 ${fetchFailures.length} 项: ${formatFetchFailures(fetchFailures)}`)
+      }
+      if (failed > 0) {
+        errorParts.push(`${failed} 个条目 upsert 失败${upsertErr ? `: ${upsertErr}` : ''}`)
+      }
+      const errorMessage = errorParts.length > 0 ? errorParts.join('; ').slice(0, 300) : null
 
       // hash 复用:用已计算的 per-item hash 聚合 sync_log payloadHash,避免重复 JSON.stringify + SHA-256
       const payloadHash = hashList.length > 0 ? await computePayloadHash({ items: hashList }) : null
@@ -164,10 +207,7 @@ export function startRegistrySyncWorker(server: FastifyInstance): Worker {
         sourceType: sourceType ?? 'mcp',
         sourceName: source ?? 'all',
         status,
-        errorMessage:
-          failed > 0
-            ? `${failed} 个条目 upsert 失败${upsertErr ? `: ${upsertErr.slice(0, 300)}` : ''}`
-            : null,
+        errorMessage,
         payloadHash,
         oldVersion,
         newVersion,
@@ -176,14 +216,16 @@ export function startRegistrySyncWorker(server: FastifyInstance): Worker {
         finishedAt: new Date(),
       })
 
-      // webhook trigger 状态回写 — 成功时标记 processed
+      // webhook trigger 状态回写 — 只有真正完成(无来源失败)才标记 processed
       // 注:job 未配 attempts,failed 事件即最终失败,无需检查是否已被前次重试标记
       if (triggerId) {
         try {
           await markWebhookTriggerProcessed(
             triggerId,
-            'processed',
-            `同步完成: synced=${synced} failed=${failed} skipped=${skipped}`,
+            status === 'fail' ? 'failed' : 'processed',
+            `同步完成: synced=${synced} failed=${failed} skipped=${skipped}${
+              fetchFailures.length > 0 ? ` fetchFailed=${fetchFailures.length}` : ''
+            }`,
           )
         } catch (err) {
           server.log.warn(

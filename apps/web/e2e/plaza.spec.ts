@@ -22,13 +22,14 @@ test.describe('社区广场页 /plaza', () => {
     const asksTab = page.getByRole('button', { name: /问答|Q&A/i })
     await expect(asksTab).toBeVisible()
     await asksTab.click()
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(500)
   })
 
   test('查看全部链接可导航', async ({ page }) => {
     await page.goto('/plaza')
     // 等待内容加载
-    await page.waitForTimeout(2000)
+    await page.waitForLoadState('load', { timeout: 6000 }).catch(() => {})
     // 查找"查看全部"链接
     const viewAllLink = page.getByRole('link', { name: /查看全部|View all/i }).first()
     if (await viewAllLink.isVisible()) {

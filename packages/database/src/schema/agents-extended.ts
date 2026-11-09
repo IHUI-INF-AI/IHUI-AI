@@ -14,6 +14,7 @@ import {
   decimal,
   index,
   unique,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core'
 
 /**
@@ -110,6 +111,8 @@ export const agentSettlements = pgTable(
     agentId: uuid('agent_id'),
     buyRecordId: uuid('buy_record_id'),
     orderNo: varchar('order_no', { length: 100 }),
+    /** 结算账期(YYYY-MM)。与 orderNo 组成唯一键,保证同一订单每期只落一条。 */
+    period: varchar('period', { length: 7 }),
     amount: integer('amount').default(0).notNull(),
     commissionRate: integer('commission_rate').default(0).notNull(),
     commissionAmount: integer('commission_amount').default(0).notNull(),
@@ -122,6 +125,7 @@ export const agentSettlements = pgTable(
     agentIdx: index('agent_settlements_agent_idx').on(t.agentId),
     statusIdx: index('agent_settlements_status_idx').on(t.status),
     orderNoIdx: index('agent_settlements_order_no_idx').on(t.orderNo),
+    orderPeriodUniq: uniqueIndex('agent_settlements_order_period_uniq').on(t.orderNo, t.period),
   }),
 )
 

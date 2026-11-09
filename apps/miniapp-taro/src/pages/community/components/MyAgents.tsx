@@ -12,6 +12,7 @@ import { useTt } from '@/i18n'
 import { useTheme } from '@/rn-compat/theme'
 import Taro from '@tarojs/taro'
 import { onToast } from '@/host/on-toast'
+import { getUserInfo } from '@/utils/auth'
 import { AgentMyApps } from '@ihui/rn-app/features/agent-screen/AgentMyApps'
 
 export interface MyAgent {
@@ -34,11 +35,12 @@ export default function MyAgents({ myAgents }: MyAgentsProps) {
   const { resolvedTheme } = useTheme()
 
   function goToTeam() {
-    Taro.navigateTo({ url: '/pages/tools/ai_group/index' })
+    // XUI-018:/pages/tools/* 已随分包迁移删除,现行在册路径为 pkg-ai。
+    Taro.navigateTo({ url: '/pkg-ai/ai-group/index' })
   }
 
   function navigateTo(agent: MyAgent, idx: number) {
-    const userData = Taro.getStorageSync('data') as Record<string, unknown> | null
+    const userData = getUserInfo()
     if (!userData) {
       onToast(tt('ai.aiAssistant.pleaseLogin', '请先登录'), { kind: 'error' })
       return
@@ -47,7 +49,7 @@ export default function MyAgents({ myAgents }: MyAgentsProps) {
       return
     }
     const targetUrl =
-      agent.source === 'n8n' ? '/pages/tools/ai_assistant_n8n' : '/pages/tools/ai_assistant'
+      agent.source === 'n8n' ? '/pkg-ai/ai-assistant-n8n/index' : '/pkg-ai/ai-assistant/index'
     const agentId = agent.agentId || agent.id
     Taro.navigateTo({
       url: `${targetUrl}?modelNamea=${encodeURIComponent(agent.agentName)}&pitcha=${idx}&agentId=${encodeURIComponent(agentId)}&type=${agent.type ?? ''}`,

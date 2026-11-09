@@ -79,6 +79,7 @@ describe('mermaid 渲染模块', () => {
             const args = calls[0]?.[1] as string[];
             const inputPath = args[args.indexOf('-i') + 1];
             const outputPath = args[args.indexOf('-o') + 1];
+            if (inputPath === undefined || outputPath === undefined) return;
             if (fs.existsSync(inputPath)) {
               clearInterval(checkInterval);
               // 模拟 mmdc 写入输出文件
@@ -110,6 +111,7 @@ describe('mermaid 渲染模块', () => {
           if (calls.length > 0) {
             const args = calls[0]?.[1] as string[];
             const inputPath = args[args.indexOf('-i') + 1];
+            if (inputPath === undefined) return;
             if (fs.existsSync(inputPath)) {
               clearInterval(checkInterval);
               proc.stderr.emit('data', Buffer.from('render error'));
@@ -159,6 +161,7 @@ describe('mermaid 渲染模块', () => {
           if (calls.length > 0) {
             const args = calls[0]?.[1] as string[];
             const inputPath = args[args.indexOf('-i') + 1];
+            if (inputPath === undefined) return;
             if (fs.existsSync(inputPath)) {
               clearInterval(checkInterval);
               resolve();

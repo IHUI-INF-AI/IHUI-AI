@@ -5,7 +5,12 @@
 //
 // 充值壳页的纯映射(无 Taro/RN 依赖,供页面与单测共用)。
 
-import type { AppTopupRateTier, AppTopupScreenTexts, AppTopupUserInfo } from '@ihui/types'
+import type {
+  AnyPayParams,
+  AppTopupRateTier,
+  AppTopupScreenTexts,
+  AppTopupUserInfo,
+} from '@ihui/types'
 
 export const PRESET_AMOUNTS = [10, 50, 100, 500, 1000]
 export const TOKEN_RATE = 10
@@ -61,6 +66,39 @@ export function buildRechargeTexts(tt: Tt): AppTopupScreenTexts {
     gotIt: tt('common.gotIt', '我知道了'),
     guest: tt('wallet.recharge.guest', '游客'),
   }
+}
+
+/** 元 → 分。后端 `/payments/wechat/create` 的 amount 单位是分(页面输入/展示是元)。 */
+export function yuanToCents(yuan: number): number {
+  return Math.round(yuan * 100)
+}
+
+/**
+ * 后端 `/payments/wechat/create` 的真实响应形制(XUI-009):
+ * 扁平的 JSAPI 签名字段,没有 `payParams` 包络;mock=true 时无签名。
+ */
+export interface WechatJsapiSign {
+  outTradeNo?: string
+  mock?: boolean
+  timeStamp?: string
+  nonceStr?: string
+  package?: string
+  signType?: string
+  paySign?: string
+}
+
+/**
+ * 扁平签名 → `requestWxPayment` 参数。
+ * 缺任一必需字段 / DEV mock ⇒ 返回 null:没有签名就不可能发起支付,
+ * 更不能把「未支付」直接当成功。
+ */
+export function buildWechatPayParams(res: WechatJsapiSign): AnyPayParams | null {
+  if (res.mock) return null
+  const { timeStamp, nonceStr, package: pkg, signType, paySign } = res
+  if (!timeStamp || !nonceStr || !pkg || !paySign) return null
+  const resolvedSignType: NonNullable<AnyPayParams['signType']> =
+    signType === 'MD5' || signType === 'HMAC-SHA256' || signType === 'RSA' ? signType : 'RSA'
+  return { timeStamp, nonceStr, package: pkg, signType: resolvedSignType, paySign }
 }
 
 /** 档位与自定义互斥:选中档位用档位值,否则解析自定义输入 */

@@ -323,7 +323,7 @@ describe('OAuth2 Server 路由 — /auth/oauth/authorize + /auth/oauth/token', (
     mockFindOAuthAppByClientId.mockResolvedValue(mockOAuthApp)
     mockCreateOAuthSession.mockResolvedValue(mockSession)
     mockFindSessionByCode.mockResolvedValue(mockSession)
-    mockMarkSessionUsed.mockResolvedValue(undefined)
+    mockMarkSessionUsed.mockResolvedValue(true)
     mockCreateAuditLog.mockResolvedValue(undefined)
     mockFindUserById.mockResolvedValue(mockUser)
     mockSaveRefreshToken.mockResolvedValue(undefined)

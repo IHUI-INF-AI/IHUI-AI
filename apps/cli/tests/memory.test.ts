@@ -566,6 +566,30 @@ describe('长期记忆和用户画像读不到', () => {
       fs.writeFileSync(skills, skillBody);
       expect(() => addInstalledSkill('new', skills)).toThrow(/不能把它覆盖成只剩新的一项/);
       expect(fs.readFileSync(skills, 'utf-8')).toBe(skillBody);
+      // 合法 JSON 但形状不对(installed 不是数组)与半截 JSON 同等 fail-closed:不得被改写成只剩新增项
+      const skillsShape = path.join(dir, 'ai-skills-shape.json');
+      const skillShapeBody = '{"installed":{}}';
+      fs.writeFileSync(skillsShape, skillShapeBody);
+      expect(() => addInstalledSkill('new', skillsShape)).toThrow(/不能把它覆盖成只剩新的一项 \(corrupt\)/);
+      expect(fs.readFileSync(skillsShape, 'utf-8')).toBe(skillShapeBody);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('F-088 长期记忆原子落盘与去重', () => {
+  it('重复 dream 条目不再累积,落盘后无 tmp 残留,正常条目不被误挡', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-long-memory-atomic-'));
+    try {
+      const memory = new LongTermMemory(dir);
+      memory.append('同一件事', '项目');
+      memory.append('同一件事', '项目');
+      expect(memory.load().filter((e) => e.text === '同一件事')).toHaveLength(1);
+      const memoryDir = path.join(dir, '.ihui-agent', 'memory');
+      expect(fs.readdirSync(memoryDir).filter((f) => f.endsWith('.tmp'))).toEqual([]);
+      memory.append('另一件事', '偏好');
+      expect(memory.load().map((e) => e.text).sort()).toEqual(['另一件事', '同一件事'].sort());
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }

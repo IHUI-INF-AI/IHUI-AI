@@ -27,7 +27,10 @@ const TSX = resolve(API_DIR, 'node_modules/tsx/dist/cli.mjs')
 const SCRIPTS = ['scripts/relay-trae-session-sync.ts', 'scripts/relay-qoder-session-sync.ts']
 
 for (const rel of SCRIPTS) {
-  test(`${rel} 必须能被 tsx 转译(合并型重复声明是唯一打不到的形态)`, () => {
+  // BUG-0035:本用例真起 tsx 转译(单跑 ~7s),全量并行时会被 1095 个文件的负载压过
+  // vitest 默认 15s ⇒ 全量红、单跑绿。超时预算必须覆盖 spawnSync 自己的 120s 上限,
+  // 否则量到的是机器负载,不是"能不能转译"。
+  test(`${rel} 必须能被 tsx 转译(合并型重复声明是唯一打不到的形态)`, { timeout: 130_000 }, () => {
     const r = spawnSync(process.execPath, [TSX, rel, '--json'], {
       cwd: API_DIR,
       encoding: 'utf8',

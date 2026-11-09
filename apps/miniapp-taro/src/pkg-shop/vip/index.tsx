@@ -71,6 +71,9 @@ function toVipInfo(raw: VipInfo): VipInfo {
   }
 }
 
+/** /vip/my 无会员记录时返回 null(XUI-003 拆包后),页面必须落空态而非读 undefined 字段。 */
+const EMPTY_VIP_INFO: VipInfo = { level: 0, name: '' }
+
 function daysUntil(expire: string): number | null {
   const at = Date.parse(expire)
   if (!Number.isFinite(at)) return null
@@ -106,10 +109,12 @@ export default function VipIndexPage() {
     [tt],
   )
 
-  const [info, setInfo] = useState<VipInfo>({} as VipInfo)
+  const [info, setInfo] = useState<VipInfo>(EMPTY_VIP_INFO)
   const [levels, setLevels] = useState<VipLevel[]>([])
   const [levelsLoaded, setLevelsLoaded] = useState(false)
   const [loadFailed, setLoadFailed] = useState(false)
+  // XUI-066:加载失败曾被静默成空列表,现在如实上抛给共享屏。
+  const [loadError, setLoadError] = useState('')
   const [benefits, setBenefits] = useState<VipBenefit[]>([])
   const [priceOptions, setPriceOptions] = useState<PriceOption[]>(defaultPlans)
   const [selectedPlan, setSelectedPlan] = useState<PriceOption | null>(defaultPlans[0] ?? null)
@@ -156,9 +161,10 @@ export default function VipIndexPage() {
 
   const load = useCallback(async () => {
     Taro.showLoading({ title: t('common.loading'), mask: true })
+    setLoadError('')
     try {
       const [i, p, lv] = await Promise.all([getVipInfo(), getVipPrivilege(), getVipLevels()])
-      setInfo(toVipInfo(i))
+      setInfo(i ? toVipInfo(i) : EMPTY_VIP_INFO)
       setLevels(lv.items || [])
       setLevelsLoaded(true)
       const list = (p.list || []).map((item) => ({
@@ -182,6 +188,7 @@ export default function VipIndexPage() {
       setPriceOptions(defaultPlans)
       setSelectedPlan((prev) => prev ?? defaultPlans[0] ?? null)
       setLoadFailed(true)
+      setLoadError(t('common.loadFailed'))
       onToast(t('common.failed'), { kind: 'error' })
     } finally {
       Taro.hideLoading()
@@ -262,8 +269,9 @@ export default function VipIndexPage() {
   }, [noticeAgreed, t])
   const onPayMethodConfirm = useCallback(() => {
     setShowPayMethod(false)
-    setShowSuccess(true)
-  }, [])
+    // XUI-038:选完支付方式必须走真实下单+requestPayment 链路,不能在本地直接置成功态。
+    void onConfirmPay()
+  }, [onConfirmPay])
   const onSuccessViewBenefits = useCallback(() => {
     setShowSuccess(false)
     setShowBenefits(true)
@@ -343,7 +351,7 @@ export default function VipIndexPage() {
         }
         loading={!levelsLoaded && !loadFailed}
         refreshing={false}
-        error=""
+        error={loadError}
         toast={loadFailed ? t('common.failed') : ''}
         purchasingId={null}
         onRefresh={() => void load()}
@@ -353,7 +361,6 @@ export default function VipIndexPage() {
         }}
         colorScheme={resolvedTheme}
         benefitItems={benefitItems}
-        onNavigate={() => {}}
         onToast={onToast}
         headerPrice={currentPrice}
         introduce={{ label: t('vip.index.introduce'), onPress: onIntroduceClick }}

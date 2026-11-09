@@ -833,7 +833,7 @@ const asksRoutes: FastifyPluginAsync = async (server) => {
     const list = await dbRead
       .select()
       .from(asks)
-      .where(inArray(asks.id, ids))
+      .where(and(inArray(asks.id, ids), eq(asks.status, 1)))
       .orderBy(desc(asks.createdAt))
     return reply.send(success({ list }))
   })
@@ -922,7 +922,7 @@ const asksRoutes: FastifyPluginAsync = async (server) => {
     const list = await dbRead
       .select()
       .from(askAnswers)
-      .where(inArray(askAnswers.id, ids))
+      .where(and(inArray(askAnswers.id, ids), eq(askAnswers.status, 1)))
       .orderBy(desc(askAnswers.createdAt))
     return reply.send(success({ list }))
   })
@@ -987,7 +987,7 @@ const asksRoutes: FastifyPluginAsync = async (server) => {
     const list = await dbRead
       .select()
       .from(circlePosts)
-      .where(inArray(circlePosts.id, ids))
+      .where(and(inArray(circlePosts.id, ids), eq(circlePosts.status, 1)))
       .orderBy(desc(circlePosts.createdAt))
     return reply.send(success({ list }))
   })

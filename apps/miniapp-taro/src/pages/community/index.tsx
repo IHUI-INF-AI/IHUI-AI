@@ -23,6 +23,7 @@ import InputArea from '@/components/InputArea'
 import TitleSwitchScrollTitle from '@/components/TitleSwitchScrollTitle'
 import AgentListPanel from '@/components/AgentListPanel'
 import ThemeRoot from '@/components/ThemeRoot'
+import { getUserInfo } from '@/utils/auth'
 import { FloatBox, EmptyState, PayPopup } from '@/components'
 import type { PayInfo } from '@/components'
 import { requestPayment } from '@/platform/pay'
@@ -331,8 +332,7 @@ export default function Community() {
       void loadMyAgents()
     })
     try {
-      const userData = Taro.getStorageSync('data') as
-        { avatar?: string; userName?: string; nickname?: string } | undefined
+      const userData = getUserInfo()
       if (userData) {
         setDrawerUserinfo({
           avatar: userData.avatar || '',
@@ -461,8 +461,9 @@ export default function Community() {
   )
 
   function onAgentListSelect(agent: AgentInfo) {
+    // XUI-018:/pages/tools/ai_assistant 已删除,现行在册路径为 pkg-ai 分包。
     Taro.navigateTo({
-      url: `/pages/tools/ai_assistant?agentId=${agent.id}&modelNamea=${encodeURIComponent(agent.name)}`,
+      url: `/pkg-ai/ai-assistant/index?agentId=${agent.id}&modelNamea=${encodeURIComponent(agent.name)}`,
     })
   }
 

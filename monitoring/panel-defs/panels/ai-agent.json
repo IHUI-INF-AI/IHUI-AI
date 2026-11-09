@@ -91,6 +91,90 @@
       }
     },
     {
+      "id": 340,
+      "type": "timeseries",
+      "title": "工具入参逐分片直推速率(渐进渲染信号)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 99
+      },
+      "targets": [
+        {
+          "expr": "sum by (provider, model) (rate(ihui_tool_call_args_delta_frames_total{job=\"ai-service\"}[5m]))",
+          "legendFormat": "{{provider}}/{{model}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      }
+    },
+    {
+      "id": 341,
+      "type": "timeseries",
+      "title": "工具入参首片时延(从流开启到首个分片,p95)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 99
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, provider, model) (rate(ihui_tool_call_args_delta_first_byte_seconds_bucket{job=\"ai-service\"}[5m])))",
+          "legendFormat": "{{provider}}/{{model}} p95",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      }
+    },
+    {
       "id": 302,
       "type": "timeseries",
       "title": "循环错误速率(按错误类型)",

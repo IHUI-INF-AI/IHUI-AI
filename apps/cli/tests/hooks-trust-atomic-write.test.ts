@@ -142,8 +142,9 @@ describe('A 源码级反向锁:裸写盘不得回来,唯一出口必须真被引
 
   it('A2 唯一出口既被 import 也被真调用(半个接线 = 造好没装车)', () => {
     const src = readText(TRUST_SOURCE_PATH);
-    const code = writeSafety.maskComments(src).join('\n');
-    expect(writeSafety.EXIT_IMPORT_RE.test(code)).toBe(true);
+    // import 判据只允许一份(`EXIT_IMPORT_RE`),这里经 analyzeFile 观测它的**结果**
+    // (该字段就是脚本里 `EXIT_IMPORT_RE.test(遮注释后的 src)` 的产物)。不在测试里
+    // 再摸正则对象本身:那等于在用例侧复制判据用法,而 TS 对 .mjs 的导出推断只覆盖函数面。
     const facts = analyzeFile(TRUST_SOURCE_REL, src);
     expect(facts.importsAtomicExit).toBe(true);
     expect(facts.callsCaptureBaseline).toBeGreaterThan(0);
@@ -197,8 +198,8 @@ describe('B 读后写冲突:拒绝覆盖并点名,不是后写赢', () => {
     expect(after).not.toContain('sha-mine');
     // 磁盘仍是"别人"最后写进去的那一份(注入器写的),我们的记录没有落上
     expect(after.startsWith('CONCURRENT#')).toBe(true);
-    const named = warnSpy.mock.calls.map((c) => String(c[0]));
-    expect(named.some((c) => c.includes('拒绝写入信任清单') && c.includes(trustPath))).toBe(true);
+    const named = warnSpy.mock.calls.map((c: unknown[]) => String(c[0]));
+    expect(named.some((c: string) => c.includes('拒绝写入信任清单') && c.includes(trustPath))).toBe(true);
     expect(fs.readdirSync(scratch).filter((n: string) => n.includes('.tmp-'))).toEqual([]);
   });
 
@@ -261,7 +262,9 @@ describe('C 清单损坏:改名留证 + 不放行任何钩子', () => {
 
     const evidences = evidenceFiles();
     expect(evidences.length).toBe(1);
-    const evidencePath = path.join(scratch, evidences[0]);
+    const [evidenceName] = evidences;
+    if (evidenceName === undefined) throw new Error('未产出隔离件');
+    const evidencePath = path.join(scratch, evidenceName);
     expect(Buffer.compare(Buffer.from(readText(evidencePath), 'utf-8'), Buffer.from(original, 'utf-8'))).toBe(0);
   });
 
@@ -295,8 +298,10 @@ describe('C 清单损坏:改名留证 + 不放行任何钩子', () => {
     expect(g.overridden).toBeUndefined();
     expect(g.detail).toContain('不参与');
     expect(readText(overridesPath)).toBe(overridesText);
-    expect(evidenceFiles().length).toBe(1);
-    expect(readText(path.join(scratch, evidenceFiles()[0]))).toBe(original);
+    const [evidenceName] = evidenceFiles();
+    expect(evidenceName).toBeDefined();
+    if (evidenceName === undefined) throw new Error('未产出隔离件');
+    expect(readText(path.join(scratch, evidenceName))).toBe(original);
   });
 
   it('C4 成对对照:同一份清单没有坏行时,同样的 gateHook 判定为放行且不动盘', () => {

@@ -20,9 +20,17 @@ const {
   takeStagingSnapshot,
   setupRestoreOnExit,
   auditStagingFiles,
+  captureIndexIntegrity,
+  compareIndexIntegrity,
 } = require('./staging-snapshot.js')
 const { sanitizeGitEnv } = require('./hook-git-env.js')
+const indexContext = require('./index-context.js')
+const derivedArtifacts = require('./derived-artifacts.js')
+const indexPinGuard = require('./index-pin-guard.js')
+const { runCapturing } = require('./hook-capture.js')
 const { buildToolPath } = require('./hook-tool-path.js')
+// 取材层(Node 26 的 require(esm) 可直接载入 .mjs):绝对 git + stdio 接管 + timeout。
+const { gitRaw } = require('./face-reader.mjs')
 const HOOK_ROOT = path.resolve(__dirname, '..', '..')
 
 /**
@@ -53,6 +61,150 @@ if (require.main !== module) {
 // 父 git 正持锁的共享 index.lock(exit 128),或 restore --worktree 掉别人的未暂存改动。
 sanitizeGitEnv(process.env)
 
+// ─── 索引上下文(2026-11-04 立)────────────────────────────────────────────────
+// 两处独立丢失点,都在那一份实现里(./index-context.js):
+//  ① 调用方声明了私有索引(IHUI_EXPECTED_PRIVATE_INDEX,isolated-git 设置)而指针被清掉/被改
+//     ⇒ 这里 fail-closed(「索引上下文丢失」+ exit 1),绝不让钩子链静默落到共享索引;
+//  ② `git commit --only` 给的 next-index-<pid>.lock 会被切换成 `<gitdir>/ihui-isolated-index/
+//     <pid>-<ms>-<rand>.idx` 副本 —— 上游 lint-staged 17.3.0 gitWorkflow.js:403-421 对
+//     `.lock` 结尾的 activeIndexFile 会**额外**写默认索引(index.lock),实测把 8 个路径整份
+//     索引写进去、父 git 收尾后变成共享索引上的 MM 残留。换名后那条分支结构上不可达。
+//     钩子退出时再把副本回写原 .lock(仅当钩子整体成功),父 git 读到的仍是它自己那一份。
+// ─── 钩子开工期(索引上下文/定版基线)失败的机器可读留痕(2026-11-04 立)────────
+// 病灶(实测归因事故):下面三处 guard exit 都发生在 `process.on('exit', writeRoundRecord)` 注册
+// 之前,于是轮次记录里**没有这一轮**;而 pre-gate 的 lint-staged/派生腿失败又因为 ROUND 字段
+// 直到 L1213 才填,落成 `{"stagedFiles":[],"headBefore":"","gatesRan":false,"exitCode":1}`
+// —— 两种完全不同的失败长得一模一样,被别席读成"索引上下文被并发抢面"(2026-11-04 21:19:12)。
+// 修法:开工期 guard 失败也写一条同形状记录,用 `earlyExit` 字段标明是哪一格(ASCII-only),
+// 让"未判定/索引上下文/定版基线"三类失败从此可区分。
+function writeEarlyMarker(reason, exitCode) {
+  try {
+    const { appendFileSync, mkdirSync } = require('fs')
+    const path = require('path')
+    const file = path.join(process.cwd(), '.ihui-agent/state/hook-logs/pre-commit-rounds.jsonl')
+    mkdirSync(path.dirname(file), { recursive: true })
+    appendFileSync(
+      file,
+      JSON.stringify({
+        ts: new Date().toISOString(),
+        headBefore: '',
+        stagedFiles: [],
+        declaredFiles: [],
+        gatesRan: false,
+        gatesPassed: false,
+        failed: null,
+        total: null,
+        gatesTimedOut: false,
+        stagedMode: true,
+        exitCode,
+        earlyExit: reason,
+      }) + '\n',
+      'utf8',
+    )
+  } catch {
+    /* 记录写不出去 ≠ 提交该失败(同 writeRoundRecord 的失效方向) */
+  }
+}
+
+let INDEX_CTX
+try {
+  INDEX_CTX = indexContext.prepareIndexContext(process.env)
+} catch (e) {
+  console.error(`❌ ${e?.message ?? e}`)
+  console.error('   提交已阻止:钩子拒绝在没有正确索引上下文的情况下继续(绝不落回共享索引)。')
+  writeEarlyMarker('index-context', 1)
+  process.exit(1)
+}
+// 共享索引视图基线:只取本次声明路径(index + 若存在的 index.lock),用于 lint-staged 前后比对。
+// 路径来自 isolated-git 写下的内容快照(--only 模式无此快照 ⇒ 空集,不做共享视图断言)。
+const SHARED_VIEW_PATHS = (() => {
+  const file = process.env.IHUI_ISOLATED_INDEX_SNAPSHOT
+  if (!file) return []
+  try {
+    const snap = JSON.parse(require('node:fs').readFileSync(file, 'utf8'))
+    return Array.isArray(snap?.paths) ? snap.paths : []
+  } catch {
+    return []
+  }
+})()
+const SHARED_VIEW_BEFORE = indexContext.captureSharedView(INDEX_CTX, SHARED_VIEW_PATHS)
+
+// ─── 定版索引基线(2026-11-04 立,漏点 A 的第四个出口)──────────────────────────
+// 病灶:调用方用私有索引 `git update-index --cacheinfo` 把某文件钉成**旧版本**(意图撤掉
+// 被夹带进 HEAD 的半成品),而 lint-staged 的「Staging changes from tasks」用 `git add` 把
+// **工作树版本**写回同一个 GIT_INDEX_FILE ⇒ 定版在钩子内部被静默取消,提交反向入库他人增量。
+// 与 `AD`(复活已删件)/`MM`(共享索引挂旧 blob)/`git reset HEAD`(清空共享索引)同根:
+// 钩子没有尊重调用方给出的索引上下文;本例是同一病灶在**私有索引内容**上的出口。
+// 判据:只在调用方自带私有索引时启用;git 自己为 `--only/--amend -- <路径>` 建的
+// `next-index-<pid>.lock` 不保护(那份索引的格式化回写正是 git 的提交面语义)。
+const PIN_SNAPSHOT = (() => {
+  if (INDEX_CTX.mode !== 'private') return null
+  if (indexPinGuard.isGitTempIndex(INDEX_CTX.entry)) return null
+  // 指针若就是共享索引本身(IDE 显式设 GIT_INDEX_FILE=<gitdir>/index),它就是"共享索引提交",
+  // 格式化结果进提交是预期语义 ⇒ 不保护。只有"真的另一份索引"才保护。
+  const norm = (p) =>
+    String(p || '')
+      .replace(/\\/g, '/')
+      .toLowerCase()
+  if (INDEX_CTX.sharedIndex && norm(INDEX_CTX.entry) === norm(INDEX_CTX.sharedIndex)) return null
+  try {
+    return indexPinGuard.capturePinnedIndex({ gitCwd: INDEX_CTX.cwd, env: process.env })
+  } catch (e) {
+    if (e?.code === indexPinGuard.UNDETERMINED_CODE) {
+      console.error(`❓ 定版索引基线未判定:${e.message}`)
+      console.error(
+        '   提交已阻止(exit 2):索引内容读不全 ⇒ 既不能记绿(等于假装没被回灌),' +
+          '也不能按"内容被改"记红(没有证据);按 §0.3 只能是未判定。',
+      )
+      writeEarlyMarker('pin-undetermined', 2)
+      process.exit(2)
+    }
+    console.error(`❌ 定版索引基线读取失败:${e?.message ?? e}`)
+    console.error('   提交已阻止:无法在钩子开工前留住调用方定版的索引内容,就不能保证它不被回灌。')
+    writeEarlyMarker('pin-baseline', 1)
+    process.exit(1)
+  }
+})()
+
+// ─── 私有索引内容护栏调用点(2026-11-04 立)──────────────────────────────────
+// 治什么:isolated-git 现有的"查声明集外条目"只看**路径集合**;而 lint-staged 对声明路径
+// 执行的 `git add` 会用**工作树整份内容**替换索引条目 —— 路径没变、内容被整份换掉,
+// 路径集合校验完全看不见(实测:AGENTS.md 提交前 numstat 1/0,钩子跑完变 8/12)。
+// isolated-git 在 commit 前把每条声明路径的索引 (mode, blob, stage) 落成快照,这里在
+// 钩子退出前(含 SIGINT/SIGTERM 转成的 exit)调 restore-index 逐条比对:blob 变了就用
+// `git update-index --cacheinfo` 复原回快照(不 checkout/reset/restore,工作树一个字节不动),
+// 复核仍不一致、或出现声明集外条目 ⇒ 抬 exit code 让父 git 拒绝落地。
+// 取舍(明写):lint-staged --fix 对**声明路径**的自动格式化会被复原掉 —— 本通道优先保证
+// "提交内容 = 作者声明时那一刻的索引内容";要保留格式化结果,请另起一笔专门提交格式化产物。
+const ISOLATED_SNAPSHOT = process.env.IHUI_ISOLATED_INDEX_SNAPSHOT
+if (ISOLATED_SNAPSHOT) {
+  process.on('exit', (code) => {
+    const r = spawnSync(
+      process.execPath,
+      [
+        require('node:path').join(__dirname, '..', 'isolated-git.mjs'),
+        '-C',
+        process.cwd(),
+        'restore-index',
+        '--snapshot',
+        ISOLATED_SNAPSHOT,
+      ],
+      { stdio: ['ignore', 'inherit', 'inherit'], windowsHide: true },
+    )
+    if (r.status !== 0) {
+      try {
+        require('node:fs').writeSync(
+          2,
+          '❌ 私有索引内容护栏失败:声明路径的索引内容被钩子改动且无法复原,提交已阻止\n',
+        )
+      } catch {
+        console.error('❌ 私有索引内容护栏失败:声明路径的索引内容被钩子改动且无法复原,提交已阻止')
+      }
+      if (code === 0 || code === null || code === undefined) process.exitCode = 1
+    }
+  })
+}
+
 // ── 专项段档位判据(2026-10-22 立,与 scripts/lib/gate-scope.mjs 同口径)───────────
 // **必须定义在文件顶部**:下方 13 处专项守门(footer / portal / button / credential /
 // agent / capability / miniapp parity / auth refresh / staged typecheck / tokens sync …)
@@ -65,11 +217,7 @@ sanitizeGitEnv(process.env)
 // 因为改它们会让门静默失效,而 CI 是延迟发现。逃生:IHUI_SPECIAL_SCOPE=full。
 function stagedIsToolOnly() {
   try {
-    const out = execSync('git diff --cached --name-only', {
-      encoding: 'utf8',
-      cwd: process.cwd(),
-      windowsHide: true,
-      stdio: ['ignore', 'pipe', 'pipe'],
+    const out = gitRaw(['diff', '--cached', '--name-only'], process.cwd(), {
       timeout: 30_000,
     })
     const paths = String(out)
@@ -238,35 +386,8 @@ function stripAnsi(text) {
 }
 
 /**
- * 跑一条命令并捕获 stdout/stderr(不写 .log —— 那份日志有 tee 缓冲窗口)。
- * ok 只看退出码；output 原样透传给 parseGateSummary。
+ * 守门批输出捕获:实现与 maxBuffer 判据在 ./hook-capture.js(可被测试 import,本钩子不可 import)。
  */
-function runCapturing(
-  label,
-  cmd,
-  timeoutMs = Number(process.env.HUSKY_GATE_BATCH_TIMEOUT_MS) || 1_800_000,
-) {
-  console.log(label)
-  try {
-    const stdout = execSync(cmd, {
-      cwd: process.cwd(),
-      windowsHide: true,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-      timeout: timeoutMs,
-    })
-    process.stdout.write(stdout)
-    return { ok: true, output: stdout || '' }
-  } catch (error) {
-    // execSync 失败时 stdout/stderr 挂在 error 上(stdio: 'pipe')；写出去再返回。
-    const stdout = typeof error?.stdout === 'string' ? error.stdout : ''
-    const stderr = typeof error?.stderr === 'string' ? error.stderr : ''
-    process.stdout.write(stdout)
-    process.stderr.write(stderr)
-    console.error(`\n❌ ${label}失败，提交已阻止`)
-    return { ok: false, output: stdout + '\n' + stderr }
-  }
-}
 
 /**
  * 从 guardian-runner 的 stdout 提取「总检查数 / 失败」汇总行。
@@ -344,6 +465,31 @@ function writeRoundRecord(exitCode) {
 // 记录缺失只意味着那一轮拿不到正证 —— 与"把没判写成判过了"相比,这是可接受的失效方向。
 process.on('exit', writeRoundRecord)
 
+// ─── 轮次记录的取证面提前填(2026-11-04 立)──────────────────────────────────
+// 病灶(实测归因事故):下面 `if (!runLintStaged()) process.exit(1)` 以及派生腿的失败出口都在
+// L1213(`ROUND.headBefore = ...`)之前 ⇒ 记录永远是 `stagedFiles:[],headBefore:""`,与
+// "索引上下文拒绝"无法区分;实测 21:19:12 一轮 lint-staged eslint 红被别席读成"并发抢索引"。
+// 修法:在**任何会失败的腿开跑之前**先把 HEAD 与暂存面填进记录(同一条命令、同一时刻的真相),
+// lint-staged 之后的 L1213 仍会覆盖成门看到的那一份 —— 失败留下的则是"开跑时"那一份。
+try {
+  const gitOutEarly = (cmd) =>
+    execSync(cmd, {
+      encoding: 'utf8',
+      cwd: process.cwd(),
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: 30_000,
+    }).trim()
+  ROUND.headBefore = ROUND.headBefore || gitOutEarly('git rev-parse HEAD')
+  ROUND.stagedFiles = ROUND.stagedFiles.length
+    ? ROUND.stagedFiles
+    : gitOutEarly('git diff --cached --name-only')
+        .split(/\r?\n/)
+        .map((s) => s.trim())
+        .filter(Boolean)
+} catch {
+  /* 取不到就保持空 —— 失效方向是"记录少",与写失败同向 */
+}
 // ─── staging area 入口快照(2026-07-26 立) ──────────────────
 // 背景:多 agent 并行时曾出现非本任务文件被 commit 的事故(IDE 自动 stage / 未察觉的
 //       git add / lint-staged 副作用)。本机制在 pre-commit 入口快照 staging area,
@@ -356,6 +502,87 @@ process.on('exit', writeRoundRecord)
 const INITIAL_STAGED_SNAPSHOT = takeStagingSnapshot()
 setupRestoreOnExit(INITIAL_STAGED_SNAPSHOT, {
   skip: process.env.HUSKY_SKIP_STAGING_RESTORE === '1',
+})
+
+// ─── 索引完整性入口自检(2026-11-08 立)──────────────────────────────────────
+// 真实事故:提交时索引在 hook 期间被并跑进程清空,`git ls-files` 返回 0、全仓显示
+// staged-deleted,于是约 30 道 blocking 门集体判“枚举到 0 个源码文件”而假红,与提交
+// 内容无关。门禁层无法把“索引读成空”与“本来就没有文件”区分开,必须在入口 fail-closed:
+//   - HEAD 有内容而索引 0 条 ⇒ 是索引被清空/删除,不是空的 staged 清单;
+//   - 索引读不出来 ⇒ 未判定,不允许在盲区里跑门禁。
+// 该判据不依赖任何 GIT_* 旁路,也不放宽任何门;恢复方式保持人工可控。
+const ENTRY_INDEX_INTEGRITY = captureIndexIntegrity({ cwd: process.cwd() })
+if (!ENTRY_INDEX_INTEGRITY.ok) {
+  console.error(
+    `\n❓ 索引完整性入口自检未判定:读取索引失败:${ENTRY_INDEX_INTEGRITY.error || '未知错误'}`,
+  )
+  console.error('   不能在读不到索引的情况下跑门禁(否则每道门都可能把 0 条当成事实)。')
+  console.error('   提交已阻止(exit 2)。')
+  process.exit(2)
+}
+if (ENTRY_INDEX_INTEGRITY.entries === 0 && ENTRY_INDEX_INTEGRITY.headEntries > 0) {
+  console.error(
+    `\n❌ 索引完整性入口自检失败:HEAD 有 ${ENTRY_INDEX_INTEGRITY.headEntries} 条,` +
+      `当前索引 ${ENTRY_INDEX_INTEGRITY.indexFile || '(默认 .git/index)'} 却只有 0 条。`,
+  )
+  console.error('   这是索引被清空/删除,不是本次提交内容的问题;')
+  console.error('   此时任何门禁都会“枚举到 0 个源码文件”并假红。')
+  console.error('   恢复索引(先确认工作树没有他人未提交改动): git read-tree HEAD && git add -A')
+  console.error('   提交已阻止(exit 2)。')
+  process.exit(2)
+}
+
+// ─── 定版索引退出网(2026-11-04 立)──────────────────────────────────────────
+// 位置:在 staging area 还原之后、`.lock` 回写之前 —— 前者可能按快照重排索引条目,
+// 后者必须读到复原后的内容。runLintStaged 内已做过一次(挡住「Staging changes from tasks」);
+// 这里兜住 lint-staged **之后**的任何腿再次回灌同一批条目。
+if (PIN_SNAPSHOT) {
+  process.on('exit', () => {
+    const pin = indexPinGuard.restorePinnedIndex({
+      gitCwd: INDEX_CTX.cwd,
+      env: process.env,
+      snapshot: PIN_SNAPSHOT,
+    })
+    if (pin.undetermined) {
+      try {
+        require('node:fs').writeSync(
+          2,
+          `❓ 定版索引保护未判定:${pin.detail}\n   提交已阻止(exit 2):索引内容读不全。\n`,
+        )
+      } catch {
+        console.error(`❓ 定版索引保护未判定:${pin.detail}`)
+      }
+      process.exitCode = 2
+      return
+    }
+    if (!pin.ok) {
+      try {
+        require('node:fs').writeSync(
+          2,
+          `❌ 定版索引保护失败:${pin.detail}\n   提交已阻止:调用方定版的私有索引内容无法复原。\n`,
+        )
+      } catch {
+        console.error(`❌ 定版索引保护失败:${pin.detail}`)
+      }
+      if (process.exitCode === 0 || process.exitCode === null || process.exitCode === undefined)
+        process.exitCode = 1
+    }
+  })
+}
+
+// ─── 索引上下文收尾(2026-11-04 立)──────────────────────────────────────────
+// 必须**最后注册**:Node 的 'exit' 监听器按注册顺序执行,所以这里的顺序是
+//   ① 私有索引内容护栏(文件顶部,最先注册)→ ② staging area 还原 → ③ 定版索引退出网
+//   (上一段)→ ④ 这里回写 .lock。
+// 回写只在钩子整体成功时做(失败时父 git 会丢弃自己那份临时索引),随后删掉本次副本。
+process.on('exit', () => {
+  try {
+    indexContext.finalizeIndexContext(INDEX_CTX, process.exitCode)
+  } catch (e) {
+    console.error(
+      `❌ 索引上下文收尾失败(不影响本次判定,但请核对父 git 的临时索引):${e?.message ?? e}`,
+    )
+  }
 })
 
 // 0b. staged 文件清单审计(2026-08-06 立,防同目录文件级污染)
@@ -450,6 +677,8 @@ function spawnLintStagedOnce() {
   // ⇒ 这条 spawn 自己也 EBUSY(本机实测 `npx lint-staged --version` 裸调即 EBUSY)。
   // stdout 仍 inherit ⇒ lint-staged 的任务输出照旧原样透传(不改变它的实际行为)。
   // stderr 改 pipe ⇒ 仅为把指纹文案拿回来做判定,用完原样回显,见下。
+  // 索引上下文(2026-11-04 立):显式传指针(而不是只靠继承)+ NODE_OPTIONS 预载校验;
+  // 子进程拿不到同一份私有索引 ⇒ preload 直接 exit 1(报「索引上下文丢失」)。
   // env.PATH 显式构造(node 目录 + node_modules/.bin + 原 PATH):eslint/prettier 不靠继承值。
   const r = spawnSync(process.execPath, [LINT_STAGED_BIN, ...LINT_STAGED_FLAGS], {
     cwd: process.cwd(),
@@ -457,7 +686,7 @@ function spawnLintStagedOnce() {
     stdio: ['ignore', 'inherit', 'pipe'],
     encoding: 'utf8',
     env: {
-      ...process.env,
+      ...indexContext.lintStagedEnv(INDEX_CTX),
       PATH: buildToolPath({
         envPath: process.env.PATH,
         execPath: process.execPath,
@@ -533,7 +762,65 @@ function runLintStaged() {
       // 在一个正为 EBUSY 难受的进程里再 spawn 只会更糟)。
       Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, wait)
     }
+    // 开工前校验:本次那份私有索引仍原样在位(否则不跑,直接 fail-closed)。
+    try {
+      indexContext.assertIndexContext(INDEX_CTX)
+    } catch (e) {
+      console.error(`❌ ${e?.message ?? e}`)
+      console.error('   lint-staged 未启动,提交已阻止(绝不落回共享索引)。')
+      return false
+    }
     const res = spawnLintStagedOnce()
+    // 收工后两道校验:
+    //  ① 指针还在(子进程没把上下文弄丢);
+    //  ② 共享索引(index + 若存在的 index.lock)里,本次声明路径的条目一条都不能变 ——
+    //     典型违例就是上游 lint-staged 的「Staging changes from tasks」写默认索引。
+    try {
+      indexContext.assertIndexContext(INDEX_CTX)
+    } catch (e) {
+      console.error(`❌ ${e?.message ?? e}`)
+      return false
+    }
+    const sharedCheck = indexContext.assertSharedViewUnchanged(
+      INDEX_CTX,
+      SHARED_VIEW_PATHS,
+      SHARED_VIEW_BEFORE,
+    )
+    if (!sharedCheck.ok) {
+      console.error(`❌ ${sharedCheck.detail}`)
+      console.error(
+        '   lint-staged 前后共享索引里本次声明路径的条目不一致 —— 拒绝提交,先排查是谁写了共享索引。',
+      )
+      console.error(`   改前:${sharedCheck.before.replace(/\n/g, ' | ')}`)
+      console.error(`   改后:${sharedCheck.after.replace(/\n/g, ' | ')}`)
+      return false
+    }
+    // ③ 定版保护:lint-staged 的 `git add` 把**工作树版本**写回 GIT_INDEX_FILE 指向的索引;
+    //    对调用方用 `--cacheinfo` 钉过的私有索引,这是通用破坏面(路径未变、blob 被换)。
+    //    按开工前的整份索引快照逐条复原(只写索引内容,工作树一个字节不碰),复原后仍不一致
+    //    ⇒ fail-closed —— 绝不把"定版被回灌"当作成功。
+    if (PIN_SNAPSHOT) {
+      const pin = indexPinGuard.restorePinnedIndex({
+        gitCwd: INDEX_CTX.cwd,
+        env: process.env,
+        snapshot: PIN_SNAPSHOT,
+      })
+      if (pin.undetermined) {
+        console.error(`❓ 定版索引保护未判定:${pin.detail}`)
+        console.error(
+          '   提交已阻止(exit 2):无法确认索引全貌 ⇒ 不折绿(不假装没回灌),' +
+            '也不按"内容被改"记红(没有证据)。',
+        )
+        process.exit(2)
+      }
+      if (!pin.ok) {
+        console.error(`❌ 定版索引保护失败:${pin.detail}`)
+        console.error(
+          '   提交已阻止:钩子不得用工作树版本覆盖调用方显式定版的私有索引,且这里复原失败。',
+        )
+        return false
+      }
+    }
     if (res.status === 0) return true
     last = res
     if (isIndexLockShaped(res)) {
@@ -670,7 +957,10 @@ const TOKENS_CSS_REL = 'packages/design-tokens/src/styles/tokens.css'
 // END_SRC_DIRS 在它之外补上 apps/web/ 与 apps/extension/:四端 ui-routes 的输入面有两端落在
 // v3 三端之外,粗触发盖不住它们,那两行就过不了第一道筛(行在而永不触发 = 登记表最烂的一型)。
 const V3_USAGE_DIRS = ['apps/miniapp-taro/src/', 'apps/mobile-rn/src/', 'packages/app/src/']
-const END_SRC_DIRS = [...V3_USAGE_DIRS, 'apps/web/', 'apps/extension/']
+// 2026-11-06:粗触发面补 `apps/miniapp-taro/types/`(小程序端编译期契约派生件住在这里)。
+// 只扩粗触发;各行的有效面仍由自己的 pathTrigger 收窄,原有行一字未动
+// (ALPHA_USAGE 仍按引用钉回 V3_USAGE_DIRS,粗触发扩容的代价不由它付)。
+const END_SRC_DIRS = [...V3_USAGE_DIRS, 'apps/web/', 'apps/extension/', 'apps/miniapp-taro/types/']
 // 行的**精确**触发面:`pathTrigger`(空格分隔前缀,与 file 同形)在场就按它筛,不在场沿用粗触发。
 // 为什么要这一维:守门 125(check-token-sync-registry)对 trigger 字段是**闭合枚举** {tokens, v3-src},
 // 实测给它加第四个值 ⇒ 它当场 R1 判红(`trigger='ui-routes-src' 不在 {tokens, v3-src}`),而它自己的
@@ -765,6 +1055,23 @@ const TOKEN_SYNC_TARGETS = [
     failMode: 'warn',
     check: 'check-rn-compat-coverage.mjs',
   },
+  {
+    // 2026-11-06 立:壳承载页的**编译期契约**派生件(rn-shells.generated.d.ts)。
+    // 病灶(实测):52505f20c3 把 49 行手写 declare 塞进受管块内部,而提交链上没有任何环节
+    // 重判这份派生件 —— 守门 251 C9 会判(判据在 check-rn-compat-coverage.mjs),但它的
+    // stagedTriggers 不含 apps/miniapp-taro/types/ ⇒ 该提交在门 251 的触发面上是"没跑"。
+    // 本行把同一把判据(生成器自己的 --check)挂进提交链,不在这里写第二份尺子。
+    // 面必须取**索引面**:HEAD 面看不见"只改索引、未进 HEAD"的手改(本仓实测那一型),
+    // 与 251 --staged 同面同轮;判据仍然只是"派生件是否落后",一个字节都不放宽。
+    label: 'rn-shell-types 编译期契约派生件',
+    file: 'apps/miniapp-taro/types/rn-shells.generated.d.ts',
+    cmd: 'node scripts/gen-rn-shell-types.mjs --check --staged',
+    trigger: 'v3-src',
+    // 精确面 ⊆ 粗触发(守门 105 镜像 T21 的死行锁):派生件自身 + 它的输入面(小程序页)。
+    pathTrigger: 'apps/miniapp-taro/types/ apps/miniapp-taro/src/',
+    failMode: 'block',
+    check: 'check-rn-compat-coverage.mjs',
+  },
   // ── 四端「AI 可导航路由」派生产物(2026-10-10 立,G-816040)────────────────────
   // 病因(本仓人肉修过多次、每次都写"消守门 105 恒红"的那一型):`apps/web/app/**/page.tsx`
   // 之类的输入被别人改了并入库,而链条上没有任何环节重跑各端的 generate-ui-routes ⇒ 产物里的自述钉
@@ -819,13 +1126,10 @@ const TOKEN_SYNC_TARGETS = [
 
 if (!TOOL_ONLY && process.env.HUSKY_SKIP_TOKENS_SYNC !== '1') {
   try {
-    const stagedForTokens = execSync('git diff --cached --name-only --diff-filter=ACMR', {
-      encoding: 'utf8',
-      cwd: process.cwd(),
-      windowsHide: true,
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
+    const stagedForTokens = gitRaw(
+      ['diff', '--cached', '--name-only', '--diff-filter=ACMR'],
+      process.cwd(),
+    )
     const stagedList = stagedForTokens
       .split('\n')
       .filter(Boolean)
@@ -884,15 +1188,61 @@ if (!TOOL_ONLY && process.env.HUSKY_SKIP_TOKENS_SYNC !== '1') {
           console.log(`  ✅ ${t.label} 同步后无变化,跳过 git add`)
           continue
         }
+        // ─── 派生申报(2026-11-04 立)──────────────────────────────────────────
+        // 病灶:这条腿的产物天然在作者声明集之外,旧护栏只看"声明集外有没有条目",于是
+        // 每次业务提交都被私有索保护栏判红,提交者只能拿 HUSKY_SKIP_TOKENS_SYNC=1 换绿。
+        // 通道:**先申报(路径 + 工作树 blob),再 git add**,护栏把申报路径并入允许集并
+        // 逐条核验索引 blob == 申报 blob;申报之外的条目仍按原样拒绝。
+        // 只对"本次确实有变化"的产物申报 —— 生成器 warn 拒写时 continue 在上面,不会悬空申报。
+        const productPaths = t.file.split(/\s+/).filter(Boolean)
+        // 2026-11-08:逐路径留住"要拿来核验的申报 blob"。申报成功的用申报值(它对应
+        // 生成器刚写完、即将 add 的字节);author-declared / 无 manifest 这两条 skipped 腿
+        // 不带 blob,必须在这里按工作树现算 —— 旧调用方一律没传,verify 里 `cur.blob !== undefined`
+        // 恒真,凡真产出差异就必红。
+        const productBlobs = new Map()
+        const manifestFile = process.env.IHUI_ISOLATED_INDEX_DERIVED_MANIFEST
+        for (const p of productPaths) {
+          try {
+            const decl = derivedArtifacts.declareDerivedArtifact({
+              manifestFile,
+              path: p,
+              generator: t.cmd,
+              declaredPaths: SHARED_VIEW_PATHS,
+              gitCwd: process.cwd(),
+            })
+            const declaredBlob = decl.declared
+              ? decl.blob
+              : derivedArtifacts.hashWorktreeBlob({ gitCwd: process.cwd(), relPath: p })
+            if (!declaredBlob) throw new Error(`取不到 ${p} 的申报 blob(hash-object 返回空)`)
+            productBlobs.set(p, declaredBlob)
+            if (decl.declared)
+              console.log(`  🧾 已申报派生产物:${p}(blob ${decl.blob.slice(0, 12)})`)
+            else if (decl.skipped === 'author-declared')
+              console.log(`  ℹ️  ${p} 已在本单声明集内,按声明内容护栏复原,不再重复申报`)
+          } catch (e) {
+            console.error(`❌ ${derivedArtifacts.LOST_PREFIX}:${e?.message ?? e}`)
+            console.error('   提交已阻止:派生产物没有完成显式申报。')
+            process.exit(1)
+          }
+        }
         try {
-          execSync(`git add ${t.file}`, { stdio: 'inherit', cwd: process.cwd(), windowsHide: true })
-          // 同步更新 staging 快照,避免 setupRestoreOnExit 把它当作"非预期 staged 文件"unstage
-          if (INITIAL_STAGED_SNAPSHOT && typeof INITIAL_STAGED_SNAPSHOT.add === 'function') {
-            INITIAL_STAGED_SNAPSHOT.add(t.file)
+          for (const p of productPaths) {
+            execSync(`git add -- ${p}`, { stdio: 'inherit', cwd: process.cwd(), windowsHide: true })
+            // 同步更新 staging 快照(逐条 add,修掉旧实现把 "a b" 整体塞进集合、b 仍被 unstage 的漏洞)
+            if (INITIAL_STAGED_SNAPSHOT && typeof INITIAL_STAGED_SNAPSHOT.add === 'function') {
+              INITIAL_STAGED_SNAPSHOT.add(p)
+            }
+            const check = derivedArtifacts.verifyDeclaredEntryInIndex({
+              gitCwd: process.cwd(),
+              relPath: p,
+              blob: productBlobs.get(p),
+            })
+            if (!check.ok)
+              throw new Error(`索引内容与刚写入的工作树不一致:${check.reason}(须先排查并发写者)`)
           }
           console.log(`  ✅ 已将同步后的 ${t.file} 加入 staged`)
-        } catch {
-          console.error(`❌ git add ${t.file} 失败,提交已阻止`)
+        } catch (e) {
+          console.error(`❌ git add ${t.file} 失败,提交已阻止:${e?.message ?? e}`)
           process.exit(1)
         }
       }
@@ -904,6 +1254,85 @@ if (!TOOL_ONLY && process.env.HUSKY_SKIP_TOKENS_SYNC !== '1') {
   console.log(
     `⏭  design-tokens → 各端 CSS 副本自动同步(${skipCause('HUSKY_SKIP_TOKENS_SYNC')}, 跳过)`,
   )
+}
+
+// ── i18n 离线包 → 提交时强制重生成(2026-11-04 立)────────────────────────────────────
+// 病灶(实测,2026-11-03 夜间):`4dc42b03` 删了 `miniapp-taro/ko.json` 两枚野键、另一席改了
+//   `shared/zh-TW.json`,两处输入都进了提交,而 7 份离线包产物没有任何环节跟着重生成 ⇒
+//   守门 105 G5 在 HEAD 上挂 blocking 红门(`94fd2f6a ≠ 455aaebe`),直到 21:2x 被另一单偶然
+//   撞见才清偿。自愈腿在这期间明明返回 `state=written` —— 检测能力一直有,缺的是**提交时强制调用**。
+// 判据与重生成全部复用 `healI18nFamily({ face:'staged' })`(单一实现,不在这里写第二把尺):
+//   clean  ⇒ 零写盘。判的是 `inputsSha256`,不是产物字节差 ⇒ 只改 generatedAt/sourceCommit 类
+//            元数据不会触发重写(否则每笔提交都会重写 4 份,制造无限脏面)。
+//   healed ⇒ 已走派生申报通道 + `git add` + **复判 clean**;产物路径登记进入口快照,
+//            防止 setupRestoreOnExit 把钩子窗口内新增的产物当"非预期 staged"unstage。
+//   refused / undetermined / blocked ⇒ 一律阻断,绝不冒绿(§0.3 未判定就报未判定)。
+// 无 skip 变量:这不是"可绕过的同步",是"输入变了产物必须跟上"的硬约束。
+const I18N_INPUT_PREFIX = 'packages/i18n/messages/'
+const I18N_GENERATOR_REL = 'scripts/gen-i18n-compressed.mjs'
+try {
+  const stagedForI18n = gitRaw(['diff', '--cached', '--name-only'], process.cwd())
+  const i18nStaged = stagedForI18n
+    .split('\n')
+    .map((f) => f.trim().replace(/\\/g, '/'))
+    .filter(Boolean)
+  const i18nTouched = i18nStaged.some(
+    (p) => p.startsWith(I18N_INPUT_PREFIX) || p === I18N_GENERATOR_REL,
+  )
+  if (!i18nTouched) {
+    console.log('⏭  i18n 离线包派生同步(本次 staged 不含 i18n 输入/生成器, 跳过)')
+  } else {
+    console.log('🌐 i18n 离线包 → 提交时强制重生成判定')
+    const r = spawnSync(
+      process.execPath,
+      ['scripts/hook-i18n-bundle-sync.mjs', '--staged', '--json'],
+      {
+        cwd: process.cwd(),
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 30 * 60 * 1000,
+        maxBuffer: 1 << 26,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
+    )
+    const raw = String(r.stdout || '').trim()
+    let res = null
+    try {
+      const lastLine = raw.split(/\r?\n/).filter(Boolean).pop()
+      res = lastLine ? JSON.parse(lastLine) : null
+    } catch {
+      res = null
+    }
+    if (r.status !== 0 || !res) {
+      const detail = [r.stderr, raw, r.error ? String(r.error.message || r.error) : '']
+        .map((s) => String(s || '').trim())
+        .filter(Boolean)
+        .join('\n')
+      console.error(
+        `❌ i18n 离线包派生同步失败(exit=${r.status}):${res?.why || detail || '无输出'}`,
+      )
+      process.exit(1)
+    }
+    if (res.state === 'clean') {
+      console.log(`  ✅ 钉与本次输入一致(inputsSha256 ${String(res.digest).slice(0, 12)}…),零写盘`)
+    } else if (res.state === 'healed') {
+      for (const f of res.files || []) {
+        if (INITIAL_STAGED_SNAPSHOT && typeof INITIAL_STAGED_SNAPSHOT.add === 'function') {
+          INITIAL_STAGED_SNAPSHOT.add(f.path)
+        }
+      }
+      console.log(
+        `  ✅ 已按本次输入重生成 ${(res.files || []).length} 份离线包产物并入索引(复判 clean)`,
+      )
+      for (const f of res.files || []) console.log(`   + ${f.path}`)
+    } else {
+      console.error(`❌ i18n 离线包派生同步未通过:${res.state}${res.why ? ` —— ${res.why}` : ''}`)
+      process.exit(1)
+    }
+  }
+} catch (e) {
+  console.error(`❌ i18n 离线包派生同步无法判定,提交已阻止:${e?.message ?? e}`)
+  process.exit(1)
 }
 
 // ── README 数字生成块自动同步(2026-10-19 立 · 李总诉求:项目改动自动更新文档)────
@@ -1035,6 +1464,20 @@ const gates = runCapturing(
   '🛡️ 运行守门脚本批量检查...',
   'node scripts/guardian-runner.mjs --staged --timing',
 )
+// ─── 索引完整性批后复核(2026-11-08 立)──────────────────────────────────────
+// 入口基线 vs 批后现场:正常 hook 只增加/改写索引条目(派生申报 add、lint-staged 回写),
+// 不会删条目、不会换 git dir。若条目减少或归零,说明批期间有并跑进程在同一索引上做了
+// reset/rm/覆盖 —— 这时各门的“枚举结果”已经不可信,必须整批判为未判定,而不是让某一门
+// 单独背“0 个源码文件”的假红。该检查只读,不改 GIT_* / 不放宽任何门。
+const FINAL_INDEX_INTEGRITY = captureIndexIntegrity({ cwd: process.cwd() })
+const INDEX_DRIFT = compareIndexIntegrity(ENTRY_INDEX_INTEGRITY, FINAL_INDEX_INTEGRITY)
+if (!INDEX_DRIFT.ok) {
+  console.error(`\n❌ 守门批期间索引完整性被破坏:${INDEX_DRIFT.code}`)
+  console.error(`   ${INDEX_DRIFT.detail}`)
+  console.error('   这不是本次提交内容的问题;各门在此索引上得到的枚举结果不可信。')
+  console.error('   本次判为未判定并阻止提交(exit 2);恢复索引: git read-tree HEAD && git add -A')
+  process.exit(2)
+}
 const gatesOk = gates.ok
 const gateSummary = parseGateSummary(gates.output)
 ROUND.gatesRan = true
@@ -1221,13 +1664,10 @@ if (!TOOL_ONLY && process.env.HUSKY_SKIP_STAGED_TYPECHECK !== '1') {
 
 // 16b-16e: 条件守门(非 git 环境用 try/catch 兜底,跳过)
 try {
-  const stagedFiles = execSync('git diff --cached --name-only --diff-filter=ACMR', {
-    encoding: 'utf8',
-    cwd: process.cwd(),
-    windowsHide: true,
-    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
+  const stagedFiles = gitRaw(
+    ['diff', '--cached', '--name-only', '--diff-filter=ACMR'],
+    process.cwd(),
+  )
     .split('\n')
     .filter(Boolean)
 
@@ -1305,13 +1745,10 @@ try {
   // 跳过方法(紧急):HUSKY_SKIP_MINIAPP_ICU_CHECK=1 git commit ...
   // 仅 staged 涉及 apps/miniapp-taro/src/ 时跑,避免影响其他包 commit 速度
   if (process.env.HUSKY_SKIP_MINIAPP_ICU_CHECK !== '1') {
-    const stagedForIcu = execSync('git diff --cached --name-only --diff-filter=ACMR', {
-      encoding: 'utf8',
-      cwd: process.cwd(),
-      windowsHide: true,
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
+    const stagedForIcu = gitRaw(
+      ['diff', '--cached', '--name-only', '--diff-filter=ACMR'],
+      process.cwd(),
+    )
     const involvesMiniappIcu = stagedForIcu
       .split('\n')
       .filter(Boolean)

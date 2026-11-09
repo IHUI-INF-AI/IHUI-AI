@@ -16,9 +16,14 @@ from __future__ import annotations
 
 import hashlib
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 
-from app.core.ai_code_attribution_verdict import classify
+from app.core.ai_code_attribution_verdict import (
+    ATTRIBUTION_AI,
+    ATTRIBUTION_HUMAN,
+    classify,
+)
 
 #: hunk 摘要入账的字符上限(账目文件要有界;超限截断并由 make_record 标注)。
 HUNK_SUMMARY_MAX = 500
@@ -125,4 +130,174 @@ def make_record(
         session_id=session_id,
         at=at,
     )
+
+
+#: 对侧 checkpoint 协议观察到的三个事件名。认不出的值不落账。
+CHECKPOINT_HOOKS = ("before_edit", "after_edit", "checkpoint")
+
+_HOST_TEXT_KEYS = (
+    ("__completion_id", "completion_id"),
+    ("__chat_session_path", "chat_session_path"),
+    ("__cwd", "cwd"),
+    ("__editor", "editor"),
+    ("__editor_version", "editor_version"),
+    ("__extension_version", "extension_version"),
+    ("__model", "model"),
+    ("__repo_working_dir", "repo_working_dir"),
+    ("__workspace_folder", "workspace_folder"),
+)
+_HOST_LIST_KEYS = (
+    ("__will_edit_filepaths", "will_edit_filepaths"),
+    ("__dirty_files", "dirty_files"),
+)
+
+
+def canonical_path_set(paths: list[str]) -> list[str]:
+    """路径集合归一：正斜杠、去尾斜杠、大小写不敏感、排序去重。"""
+    found: set[str] = set()
+    for raw in paths:
+        text = raw.replace("\\", "/").strip().rstrip("/").casefold()
+        if text:
+            found.add(text)
+    return sorted(found)
+
+
+def checkpoint_path_hash(paths: list[str]) -> str:
+    """文件集合哈希。顺序不同但集合相同 ⇒ 同一个键。"""
+    blob = "\n".join(canonical_path_set(paths)).encode()
+    return hashlib.sha256(blob).hexdigest()[:16]
+
+
+def plan_checkpoint(
+    tool: str,
+    file: str,
+    hunk: str,
+    arguments: Mapping[str, object] | None,
+    *,
+    hook_event_name: str,
+    session_id: str,
+    edited_filepaths: list[str] | None = None,
+) -> tuple[dict[str, object] | None, str]:
+    """拼一条检查点。缺测的宿主字段留空，不填对侧的默认工具名或模型名。"""
+    if hook_event_name not in CHECKPOINT_HOOKS:
+        return None, "检查点事件不在 before_edit/after_edit/checkpoint"
+    edited = [file] if edited_filepaths is None else edited_filepaths
+    if any(not isinstance(item, str) for item in edited):
+        return None, "改动文件清单形态不对"
+    if not (file or "").strip() or not (hunk or "").strip() or not canonical_path_set(edited):
+        return None, "缺少文件或改动"
+    host, refused = _host_fields(arguments)
+    if refused:
+        return None, refused
+    verdict = classify(tool, file, hunk)
+    completion = host.get("completion_id")
+    completion_text = completion.strip() if isinstance(completion, str) else ""
+    if verdict.attribution == ATTRIBUTION_HUMAN:
+        operation = "human"
+        kind = "known_human"
+    elif completion_text:
+        operation = completion_text
+        kind = "ai_tab"
+    elif verdict.attribution == ATTRIBUTION_AI:
+        operation = "unjudged"
+        kind = "ai"
+    else:
+        operation = "unjudged"
+        kind = "unjudged"
+    path_hash = checkpoint_path_hash(edited)
+    record: dict[str, object] = {
+        "hook_event_name": hook_event_name,
+        "dedupe_key": f"{session_id}:{operation}:{hook_event_name}:{path_hash}",
+        "session_id": session_id,
+        "operation_id": operation,
+        "kind": kind,
+        "tool": tool,
+        "edited_filepaths": canonical_path_set(edited),
+        "path_hash": path_hash,
+    }
+    record.update(host)
+    prompt_id, _text, prompt_refused = host_prompt(arguments)
+    if prompt_refused:
+        return None, prompt_refused
+    if prompt_id:
+        record["prompt_id"] = prompt_id
+    return record, ""
+
+
+def host_prompt(arguments: Mapping[str, object] | None) -> tuple[str, str, str]:
+    """编号和正文必须由宿主一起注入。只给一半不编，模型自报的字段不算。"""
+    if not isinstance(arguments, Mapping):
+        return "", "", ""
+    has_id = "__prompt_id" in arguments
+    has_text = "__prompt_text" in arguments
+    if not has_id and not has_text:
+        return "", "", ""
+    if not has_id or not has_text:
+        return "", "", "提示词编号和正文必须一起给"
+    raw_id = arguments.get("__prompt_id")
+    raw_text = arguments.get("__prompt_text")
+    if not isinstance(raw_id, str) or not isinstance(raw_text, str):
+        return "", "", "提示词编号或正文形态不对"
+    prompt_id = raw_id.strip()
+    text = raw_text.strip()
+    if not prompt_id or not text:
+        return "", "", "提示词编号或正文是空的"
+    if any(mark in prompt_id for mark in ("\n", "\r")) or len(prompt_id) > 200:
+        return "", "", "提示词编号形态不对"
+    if len(text) > 100_000:
+        return "", "", "提示词超长"
+    return prompt_id, text, ""
+
+
+def plan_blame_view(
+    mode: str | None,
+    records: list[AttributionRecord],
+    *,
+    line: int | None = None,
+) -> tuple[str, str, list[AttributionRecord]]:
+    """档位没给，或 auto 却没量到该用行还是整文件，都不挑一份结果。"""
+    if not isinstance(mode, str) or not mode.strip():
+        return "unjudged", "blame 档位没量到", []
+    token = mode.strip()
+    if token == "auto":
+        return "unjudged", "auto 档没有量到该用行还是整文件", []
+    if token == "off":
+        return "off", "blame 档位是关闭", []
+    if token == "all":
+        return "all", "ok", list(records)
+    if token != "line":
+        return "refused", "blame 档位不认识", []
+    if isinstance(line, bool) or not isinstance(line, int) or line <= 0:
+        return "unjudged", "行档没有量到光标行", []
+    chosen: list[AttributionRecord] = []
+    for record in records:
+        start = record.anchor.line_start
+        end = record.anchor.line_end
+        if start <= 0 or end < start:
+            continue
+        if start <= line <= end:
+            chosen.append(record)
+    return "line", "ok", chosen
+
+
+def _host_fields(arguments: Mapping[str, object] | None) -> tuple[dict[str, object], str]:
+    """只认宿主注入的 ``__`` 字段。没给就是没测到，给了但形态不对就拒绝整条。"""
+    found: dict[str, object] = {name: None for _, name in (*_HOST_TEXT_KEYS, *_HOST_LIST_KEYS)}
+    if not isinstance(arguments, Mapping):
+        return found, ""
+    for source, name in _HOST_TEXT_KEYS:
+        if source not in arguments:
+            continue
+        value = arguments[source]
+        if not isinstance(value, str):
+            return found, "宿主字段形态不对"
+        found[name] = value.strip()
+    for source, name in _HOST_LIST_KEYS:
+        if source not in arguments:
+            continue
+        value = arguments[source]
+        if not isinstance(value, list) or any(not isinstance(item, str) for item in value):
+            return found, "宿主文件清单形态不对"
+        found[name] = canonical_path_set(value)
+    return found, ""
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

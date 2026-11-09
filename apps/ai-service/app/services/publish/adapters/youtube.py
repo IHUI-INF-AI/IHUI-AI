@@ -19,6 +19,7 @@
 """
 from __future__ import annotations
 
+import asyncio
 import json
 from collections.abc import Awaitable, Callable
 from typing import Any
@@ -179,7 +180,7 @@ class YouTubeAdapter(BasePlatformAdapter):
                     error_message=f"video file not found: {content.file_path}",
                 )
             file_size = video_path.stat().st_size
-            file_bytes = video_path.read_bytes()
+            file_bytes = await asyncio.to_thread(video_path.read_bytes)
         except Exception as e:
             return PublishResult(
                 success=False, platform=self.platform_id,

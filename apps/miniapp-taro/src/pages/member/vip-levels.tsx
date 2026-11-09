@@ -71,7 +71,9 @@ export default function VipLevels({ levels, error, onRetry }: VipLevelsProps) {
           return (
             <View key={level.id} className="mb-[16rpx] p-[20rpx] border border-border rounded-lg">
               <View className="flex items-center justify-between">
-                <Text className="text-body font-semibold text-foreground">{level.levelName}</Text>
+                <Text className="text-body font-semibold text-foreground">
+                  {level.levelName}
+                </Text>
                 <Text className="text-label text-muted-foreground">
                   {t('vip.duration', { days: level.durationDays })}
                 </Text>

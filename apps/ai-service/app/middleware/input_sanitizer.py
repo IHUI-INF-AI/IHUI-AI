@@ -25,17 +25,18 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
-from ..core.config import settings
+from ..core.internal_secret_auth import allow_prompt_scan_bypass
 
 logger = logging.getLogger(__name__)
 
-# 内部可信服务调用的放行头(与 api 侧 AI_CALLBACK_SECRET / X-Internal-Secret 约定一致)。
-# 携带正确密钥的内部请求(如 AI 资讯批量分类/翻译管道)跳过 Prompt-Injection 内容扫描:
+# 内部可信服务调用的放行判据(2026-11-06 票据化):
+# 携带有效短期票(x-internal-service-ticket, scope=prompt-scan-bypass)的内部请求
+# (如 AI 资讯批量分类/翻译管道)跳过 Prompt-Injection 内容扫描。旧共享密钥
+# x-internal-secret 只在显式 dual/legacy 兼容档下仍有效(判据与路由鉴权同源)。
 # 这些请求的正文来自已审核的权威来源标题,而非不可信的用户输入;若仍按关键词扫描,
 # 会误伤含 "jailbreak"/"system prompt"/"ignore previous instructions" 等主题词的
 # 合法 AI 安全研究内容(实测 arxiv 标题被 400 拦截,导致资讯漏翻译/漏分类)。
-# 用户侧请求不携带该密钥,安全兜底不受影响。
-INTERNAL_SECRET_HEADER = "X-Internal-Secret"
+# 用户侧请求不携带该凭据,安全兜底不受影响。
 
 # ==================== XSS 危险模式(对齐 xss-protection.ts DANGEROUS_PATTERNS)====================
 
@@ -124,11 +125,11 @@ class InputSanitizerMiddleware(BaseHTTPMiddleware):
         if "application/json" not in content_type:
             return await call_next(request)
 
-        # 内部可信调用(如 AI 资讯批量分类/翻译管道):携带与 API 侧一致的内部密钥即跳过
-        # Prompt-Injection 内容扫描,避免误伤合法 AI 安全研究标题;用户请求无此密钥,不受影响。
-        if settings.ai_callback_secret:
-            if request.headers.get(INTERNAL_SECRET_HEADER) == settings.ai_callback_secret:
-                return await call_next(request)
+        # 内部可信调用(如 AI 资讯批量分类/翻译管道):有效内部票/兼容档旧密钥即跳过
+        # Prompt-Injection 内容扫描,避免误伤合法 AI 安全研究标题;用户请求无凭据,不受影响。
+        # 这里只验票面、不消费 jti —— 该标记不授予访问权,下游鉴权才消费。
+        if allow_prompt_scan_bypass(request.headers):
+            return await call_next(request)
 
         # 读取 body(Starlette 会缓存到 request._body,下游 handler 仍可读取)
         body_bytes = await request.body()

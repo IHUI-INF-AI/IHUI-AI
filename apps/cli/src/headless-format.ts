@@ -32,6 +32,12 @@ export type HeadlessEvent =
        * 缺省 = 本次未触发裁剪;绝不得用它替换 `output`(模型侧权威)。
        */
       display?: ToolResultDisplaySource;
+      /**
+       * 失败原因。缺席 = 成功或提供方未给原因。**不得**用它替代 `output`
+       * (那才是喂模型的那一份);它存在的理由只有一个:事后归因必须能从转录里
+       * 读出"这一枚工具为什么没成",而不是看见 `success:false` + 空正文再猜。
+       */
+      error?: string;
     }
   /**
    * D113(2026-09-27)流中 diff 预览帧 —— 载荷字段沿用 `@ihui/api-client` 的
@@ -129,7 +135,10 @@ export function eventToMarkdown(event: HeadlessEvent): string {
       // 没有 display(未触发裁剪)时回落到 output —— 两条路径的展示上限与散文注记一字不变。
       const source = event.display?.text ?? event.output
       const truncated = source.length > 1000 ? source.slice(0, 1000) + '\n...(truncated)' : source
-      return `\n#### ${icon} 工具结果 [${status}]\n\n\`\`\`\n${truncated}\n\`\`\`\n`
+      // 失败原因单独成行:正文为空时(`output` 只在成功侧填),没有这一行报告就只剩一个 ✗。
+      // 文案用 ASCII —— 与本文件其余机器面标注同源纪律(守门 70 的硬编码中文基线棘轮只拦新增)。
+      const reason = event.error ? `\n> [failure-reason] ${event.error}\n` : ''
+      return `\n#### ${icon} 工具结果 [${status}]\n\n\`\`\`\n${truncated}\n\`\`\`\n${reason}`
     }
     case 'iteration':
       return `\n<!-- iteration ${event.count}/${event.max} -->\n`

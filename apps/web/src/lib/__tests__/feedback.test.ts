@@ -39,7 +39,7 @@ describe('api helper', () => {
     global.fetch = (() =>
       Promise.resolve({
         ok: true,
-        json: async () => ({ code: 0, message: 'ok', data: { v: 1 } }),
+        text: async () => JSON.stringify({ code: 0, message: 'ok', data: { v: 1 } }),
       } as unknown as Response)) as unknown as typeof fetch
     try {
       const data = await api('/test')
@@ -54,7 +54,7 @@ describe('api helper', () => {
     global.fetch = (() =>
       Promise.resolve({
         ok: true,
-        json: async () => ({ code: 1, message: '失败', data: null }),
+        text: async () => JSON.stringify({ code: 1, message: '失败', data: null }),
       } as unknown as Response)) as unknown as typeof fetch
     try {
       await expect(api('/test')).rejects.toThrow('失败')

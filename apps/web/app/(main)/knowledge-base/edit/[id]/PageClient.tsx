@@ -20,6 +20,7 @@ export default function KBEditByIdPage() {
   const router = useRouter()
   const qc = useQueryClient()
   const t = useTranslations('kbEditPage')
+  const tCommon = useTranslations('common')
 
   const [form, setForm] = React.useState<KBForm>(EMPTY_KB_FORM)
   const [tagInput, setTagInput] = React.useState('')
@@ -30,7 +31,7 @@ export default function KBEditByIdPage() {
     queryKey: ['kb', 'categories'],
     queryFn: async () => {
       const res = await getKnowledgeBaseCategories<KBCategory>()
-      if (!res.success) throw new Error(res.error || '加载失败')
+      if (!res.success) throw new Error(res.error || tCommon('loadFailed'))
       return res.data.list ?? []
     },
   })
@@ -38,7 +39,7 @@ export default function KBEditByIdPage() {
     queryKey: ['kb', 'detail', id],
     queryFn: async (): Promise<{ article: KBArticle }> => {
       const res = await getKnowledgeBase<{ article: KBArticle }>(id)
-      if (!res.success) throw new Error(res.error || '加载失败')
+      if (!res.success) throw new Error(res.error || tCommon('loadFailed'))
       return res.data
     },
   })
@@ -66,7 +67,7 @@ export default function KBEditByIdPage() {
         categoryId: form.categoryId || undefined,
         tags: form.tags.length > 0 ? form.tags : undefined,
       })
-      if (!res.success) throw new Error(res.error || '保存失败')
+      if (!res.success) throw new Error(res.error || tCommon('saveFailed'))
       return res.data
     },
     onSuccess: () => {

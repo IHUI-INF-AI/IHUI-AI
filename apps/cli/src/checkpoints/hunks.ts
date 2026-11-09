@@ -20,6 +20,8 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import * as crypto from 'node:crypto';
 import { isRecord, isJsonArray } from '../util/json.js';
+// 会话/检查点 id 路径穿越修复:与 CheckpointManager 共用同一套收敛 + 根内/realpath 判据。
+import { assertPathInside, isPathInside, segmentPathInside } from '../util/path-guard.js';
 import { readManifestChecked, type CorruptManifestEntry } from './manifest-integrity.js';
 import { probeSnapshotRoot } from './snapshot-store-host.js';
 
@@ -89,7 +91,12 @@ export class HunkCheckpointManager {
     this.sessionId = opts.sessionId;
     this.workspacePath = path.resolve(opts.workspacePath);
     this.maxCheckpoints = opts.maxCheckpoints ?? DEFAULT_MAX_HUNK_CHECKPOINTS;
-    this.baseDir = path.join(os.homedir(), '.ihui', 'checkpoints', this.sessionId);
+    // sessionId 来自 `--session`,与整文件检查点同解:收敛成单段并断言在 checkpoints 根内。
+    this.baseDir = segmentPathInside(
+      path.resolve(os.homedir(), '.ihui', 'checkpoints'),
+      this.sessionId,
+      '会话 hunk 检查点目录',
+    );
     this.onCorrupt =
       opts.onCorruptManifest ??
       ((entry) => {
@@ -188,7 +195,7 @@ export class HunkCheckpointManager {
       hunks: records,
     };
 
-    const cpDir = path.join(this.baseDir, id);
+    const cpDir = assertPathInside(this.baseDir, path.join(this.baseDir, id), 'hunk 检查点目录');
     this.ensureDir(cpDir);
     fs.writeFileSync(
       path.join(cpDir, 'manifest.json'),
@@ -228,7 +235,10 @@ export class HunkCheckpointManager {
     | { status: 'missing' }
     | { status: 'unreadable'; detail: string }
     | { status: 'corrupt'; reason: string } {
-    const manifestPath = path.join(this.baseDir, checkpointId, 'manifest.json');
+    const manifestPath = path.join(
+      assertPathInside(this.baseDir, path.join(this.baseDir, checkpointId), 'hunk 检查点目录'),
+      'manifest.json',
+    );
     const result = readManifestChecked(manifestPath, checkpointId, isHunkCheckpointMeta, this.onCorrupt);
     if (result.status === 'ok') return { status: 'ok', meta: result.meta };
     if (result.status === 'unreadable') return { status: 'unreadable', detail: result.detail };
@@ -317,7 +327,9 @@ export class HunkCheckpointManager {
   }
 
   delete(checkpointId: string): boolean {
-    const cpDir = path.join(this.baseDir, checkpointId);
+    // 根外的 id 视为"没有这个检查点"(false,不抛也不删);根内符号链接拐到根外时抛错。
+    if (!isPathInside(this.baseDir, path.join(this.baseDir, checkpointId))) return false;
+    const cpDir = assertPathInside(this.baseDir, path.join(this.baseDir, checkpointId), 'hunk 检查点目录');
     const root = probeSnapshotRoot(cpDir);
     if (root === 'missing') return false;
     if (root === 'unreadable') throw new Error('检查点目录读不到,不能把它说成未找到');

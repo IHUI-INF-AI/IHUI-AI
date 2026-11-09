@@ -40,6 +40,9 @@ logger = logging.getLogger(__name__)
 _ALLOWED_SCHEMES = {"http", "https"}
 _ALLOWED_PORTS = {80, 443, 8080, 8443, 3000, 8801}
 
+# AIS-103:probe 最多跟随的跳数。每一跳都要重新过 SSRF 尺,超出直接拒绝。
+_PROBE_MAX_HOPS: int = 6
+
 # RFC 2544 基准测试段(198.18.0.0/15)。
 # 该段是 Clash/Surge 等代理的 fake-ip 默认范围:开启 fake-ip 的机器上,
 # 所有域名 DNS 解析都会返回 198.18.x.x。它不属于可被 SSRF 利用的内网
@@ -265,16 +268,44 @@ def _check_headers_can_embed(headers: dict[str, str]) -> bool:
 
 
 def _probe_can_embed_sync(url: str) -> dict[str, Any]:
-    """同步探测 URL 是否可 iframe 嵌入(只查 HTTP 头,不截图)。"""
+    """同步探测 URL 是否可 iframe 嵌入(只查 HTTP 头,不截图)。
+
+    AIS-103:入口的 `_validate_url_ssrf` 只看首跳,而旧码这一支走
+    `context.request.get(url)` —— 没注册 route 守卫、也没禁重定向,Playwright 会自行
+    跟随最多 20 跳并自行解析 DNS ⇒ 公网 302/DNS rebinding 直达 169.254/内网。这里改成
+    `max_redirects=0`,每一跳都先过同一把 SSRF 尺,只放行白名单内的跳数。
+    """
+    from urllib.parse import urljoin
+
     browser = _get_browser_sync()
     context = browser.new_context()
     try:
-        response = context.request.get(url, timeout=10000)
-        headers = {k.lower(): v for k, v in response.headers.items()}
-        can_embed = _check_headers_can_embed(headers)
-        return {"url": url, "can_embed": can_embed}
-    except Exception as e:
-        logger.debug("[screenshot_service] probe_can_embed 失败(降级为不可嵌入): %s", e)
+        current = url
+        for _hop in range(_PROBE_MAX_HOPS):
+            ok, reason = _validate_url_ssrf(current)
+            if not ok:
+                logger.warning("[screenshot_service] probe 跳转被 SSRF 尺拦下: %s", current)
+                return {
+                    "url": url, "can_embed": False,
+                    "ssrf_blocked": True, "error": reason,
+                }
+            try:
+                response = context.request.get(
+                    current, timeout=10000, max_redirects=0
+                )
+            except Exception as e:  # 3xx 在个别实现里以异常形式抛出
+                logger.debug("[screenshot_service] probe 请求失败(降级为不可嵌入): %s", e)
+                return {"url": url, "can_embed": False}
+            location = (
+                response.headers.get("location")
+                if 300 <= int(getattr(response, "status", 200)) < 400
+                else None
+            )
+            if not location:
+                headers = {k.lower(): v for k, v in response.headers.items()}
+                return {"url": url, "can_embed": _check_headers_can_embed(headers)}
+            current = urljoin(current, location)
+        logger.warning("[screenshot_service] probe 跳数超限,拒绝继续: %s", url)
         return {"url": url, "can_embed": False}
     finally:
         context.close()

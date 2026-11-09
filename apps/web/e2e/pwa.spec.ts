@@ -42,7 +42,7 @@ test.describe.parallel('PWA 专项', () => {
   test('manifest 包含 name / short_name / icons / start_url / display', async ({ request }) => {
     const response = await request.get('/manifest.webmanifest')
     if (response.status() !== 200) {
-      test.skip(true, 'manifest.webmanifest 未配置,跳过')
+      test.skip(true, 'manifest.webmanifest 未配置,跳过 [SKIP:SKIP-0172]')
       return
     }
     const manifest = (await response.json()) as {

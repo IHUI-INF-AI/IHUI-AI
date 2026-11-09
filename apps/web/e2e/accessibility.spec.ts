@@ -50,6 +50,7 @@ test.describe('基础可访问性', () => {
     await page.waitForLoadState('domcontentloaded')
     // 按 Tab 键,焦点应移动到可聚焦元素
     await page.keyboard.press('Tab')
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(500)
     // 检查是否有元素获得焦点
     const focused = page.locator(':focus')

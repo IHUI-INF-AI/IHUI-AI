@@ -107,11 +107,44 @@ function toPickerAsset(uri: string, tempFiles: readonly TempFileMeta[], index: n
   return { uri, name, fileName: name, mimeType, size, fileSize: size }
 }
 
+type ImagePickerPermission = {
+  granted: boolean
+  canAskAgain: boolean
+  status: 'granted' | 'denied' | 'undetermined'
+}
+
+/** XUI-050:权限状态如实取自 authSetting,不再恒返回 granted:true。 */
+function permissionFromAuth(auth: unknown): ImagePickerPermission {
+  if (auth === true) return { granted: true, canAskAgain: true, status: 'granted' }
+  if (auth === false) return { granted: false, canAskAgain: false, status: 'denied' }
+  return { granted: false, canAskAgain: true, status: 'undetermined' }
+}
+
+async function readAuthSetting(): Promise<Record<string, boolean>> {
+  try {
+    const res = await Taro.getSetting()
+    return (res.authSetting ?? {}) as Record<string, boolean>
+  } catch {
+    return {}
+  }
+}
+
 export const ImagePicker = {
-  requestMediaLibraryPermissionsAsync: async () => ({ granted: true, status: 'granted' }),
-  requestCameraPermissionsAsync: async () => ({ granted: true, status: 'granted' }),
+  // 微信没有「相册读取」scope(读图由 chooseImage 现场触发),如实给 undetermined,
+  // 不能让调用方以为已授权后静默失败。
+  requestMediaLibraryPermissionsAsync: async (): Promise<ImagePickerPermission> => ({
+    granted: false,
+    canAskAgain: true,
+    status: 'undetermined',
+  }),
+  requestCameraPermissionsAsync: async (): Promise<ImagePickerPermission> =>
+    permissionFromAuth((await readAuthSetting())['scope.camera']),
   launchImageLibraryAsync: async (options: Record<string, unknown> = {}) => {
-    const count = Number(options.selectionLimit ?? 1)
+    // XUI-055:只认 selectionLimit ⇒ 声明多选但没给上限时退化成单选。
+    // 微信 chooseImage 上限 9;未声明多选才落 1。
+    const count = Number(
+      options.selectionLimit ?? (options.allowsMultipleSelection === true ? 9 : 1),
+    )
     try {
       const res = await Taro.chooseImage({ count })
       const uris = (res.tempFilePaths ?? []) as string[]
@@ -147,12 +180,21 @@ export const ImagePicker = {
 export const MediaLibrary = {
   requestPermissionsAsync: async () => ({ granted: true, status: 'granted' }),
   getAsync: async () => ({ totalCount: 0, assets: [] }),
-  createAssetAsync: async (uri: string): Promise<void> => {
+  // XUI-052:调用方会读 `asset.uri` 再交给 saveToLibraryAsync;旧实现返回 void ⇒ uri 为 undefined,
+  // 保存相册静默失败。这里如实回吐落库后的本地 uri(尺寸微信不回吐,给 0 不臆造)。
+  createAssetAsync: async (
+    uri: string,
+  ): Promise<{ uri: string; width: number; height: number }> => {
     if (/\.(mp4|mov|m4v)$/i.test(uri)) await Taro.saveVideoToPhotosAlbum({ filePath: uri })
     else await Taro.saveImageToPhotosAlbum({ filePath: uri })
+    return { uri, width: 0, height: 0 }
   },
   saveToPhotosAsync: async (uris: string[]): Promise<void> => {
     for (const uri of uris) await MediaLibrary.createAssetAsync(uri)
+  },
+  // XUI-052:RN 侧 saveToLibraryAsync 是独立成员;垫片此前没有 ⇒ 调用即 TypeError。
+  saveToLibraryAsync: async (uri: string): Promise<void> => {
+    await MediaLibrary.createAssetAsync(uri)
   },
   deleteAssetsAsync: async (_ids: string[]): Promise<void> => {},
 }
@@ -392,21 +434,24 @@ export const launchCameraAsync = ImagePicker.launchCameraAsync
 export const requestMediaLibraryPermissionsAsync = ImagePicker.requestMediaLibraryPermissionsAsync
 export const requestCameraPermissionsAsync = ImagePicker.requestCameraPermissionsAsync
 export const MediaType = ImagePicker.MediaType
+// XUI-051:RN 侧用的是 MediaTypeOptions;旧垫片只导出 MediaType ⇒ 消费方拿到 undefined,
+// 选择器类型过滤被静默忽略。给同名别名即可。
+export const MediaTypeOptions = ImagePicker.MediaType
 export const ImageQuality = ImagePicker.ImageQuality
 
 export const requestPermissionsAsync = MediaLibrary.requestPermissionsAsync
 export const getAsync = MediaLibrary.getAsync
 export const createAssetAsync = MediaLibrary.createAssetAsync
+export const saveToLibraryAsync = MediaLibrary.saveToLibraryAsync
 export const saveToPhotosAsync = MediaLibrary.saveToPhotosAsync
 export const deleteAssetsAsync = MediaLibrary.deleteAssetsAsync
 
-export default {
-  Clipboard,
-  ImagePicker,
-  MediaLibrary,
-  SafeAreaView,
-  SafeAreaProvider,
-  useSafeAreaInsets,
-  useSafeAreaFrame,
-}
+/**
+ * XUI-013:默认导出必须是 Clipboard 本体。
+ * 共享层用法是 `import Clipboard from '@react-native-clipboard/clipboard'` 再
+ * `Clipboard.setString(...)`;旧默认导出是一个「成员袋」,调用方拿到的
+ * Clipboard.setString 为 undefined ⇒ 点击复制即 TypeError。
+ * ImagePicker / MediaLibrary / SafeArea* 等仍由上面的命名导出提供。
+ */
+export default Clipboard
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

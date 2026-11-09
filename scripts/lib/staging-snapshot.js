@@ -26,8 +26,10 @@
  *   - 还原使用 `git restore --staged <file>`(git 2.23+),非破坏性,working tree 保留。
  *
  * GIT_INDEX_FILE 隔离通道防护(2026-09-03 立,真实事故):
- *   并行会话共用同一份 .git/index,commit 时会互相污染暂存区。AGENTS.md §20 推荐的
- *   隔离通道是:`GIT_INDEX_FILE=<tmp> git read-tree HEAD && git add <本任务文件>`。
+ *   并行会话共用同一份 .git/index,commit 时会互相污染暂存区。AGENTS.md §12i 的私有索引
+ *   提交通道(`node scripts/isolated-git.mjs commit -m "<标题>" -- <路径...>`)即此机制:
+ *   它把 `GIT_INDEX_FILE` 指到 `<gitdir>/ihui-isolated-index/<pid>-<ms>-<rand>.idx`
+ *   (read-tree HEAD → add 声明集 → commit)。
  *   但 git/husky 在运行 pre-commit hook 时可能改写 GIT_INDEX_FILE(指向 git 自身的
  *   临时索引),导致 takeStagingSnapshot() 与 restoreStaging() 读到的不是同一个索引:
  *   快照里只有本任务的 N 个文件,还原时却读到"本任务 N 个 + 共享索引 M 个",于是把
@@ -125,11 +127,121 @@ function writeRestoreLog(result, skipReason, options) {
       restoredCount: result.restored.length,
       skipped: result.skipped,
       skipReason,
+      undetermined: !!result.undetermined,
+      ...(result.emptyIndex ? { emptyIndex: result.emptyIndex } : {}),
     })
     appendFileSync(logPath, entry + '\n', 'utf8')
   } catch {
     // 吞掉 IO 错误,不阻塞主流程
   }
+}
+
+/**
+ * 采集当前索引的“身份 + 规模”基线(2026-11-08 立,修“hook 日志说还原成功,同一时刻 git ls-files 返回 0”)
+ *
+ * 为什么不能只看 GIT_INDEX_FILE 路径字符串:
+ *   真实事故里索引文件在 hook 执行期间被删除/清空,之后又在**同一路径**重建为空索引。
+ *   路径字符串一字未变,restoreStaging 的旧护栏于是照常放行,并把“剩余 N 个 staged 文件”
+ *   当作成功结论打出来 —— 但此刻 `git ls-files` 是 0 条,全仓显示 staged-deleted。
+ *   本函数记录 git dir、索引条目数、HEAD 树条目数,让“索引被换库/清空”这种跨进程破坏
+ *   可以被入口自检与批后复核直接判出并 fail-closed,而不是伪装成“0 个源码文件”的门禁假红。
+ *
+ * 注意:不比对文件 mtime/size。lint-staged / git add 会原子重写同一份索引,内容变化是
+ * 正常现象;要抓的是“换库 / 清空 / 条目减少”,不是“内容更新”。
+ *
+ * @param {object} [options]
+ * @param {string} [options.cwd] 工作目录,默认 process.cwd()
+ * @returns {{ok:boolean,cwd:string,indexFile:string,gitDir:string,entries:number,headEntries:number,error?:string}}
+ */
+function captureIndexIntegrity(options = {}) {
+  const cwd = options.cwd || process.cwd()
+  const indexFile = process.env.GIT_INDEX_FILE || ''
+  const run = (args, at = cwd) =>
+    execFileSync('git', args, {
+      encoding: 'utf8',
+      cwd: at,
+      // 不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY(2026-10-04 实测)
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    })
+  const countZ = (out) => out.split('\u0000').filter(Boolean).length
+  try {
+    // 从仓库根统计,避免调用方在子目录时 ls-files 只返回该前缀下的条目而误判“索引为空”
+    const repoRoot = run(['rev-parse', '--show-toplevel']).trim().replace(/\\/g, '/') || cwd
+    const gitDir = run(['rev-parse', '--absolute-git-dir']).trim().replace(/\\/g, '/')
+    const entries = countZ(run(['ls-files', '--cached', '-z'], repoRoot))
+    let headEntries = 0
+    try {
+      headEntries = countZ(run(['ls-tree', '-r', '--name-only', '-z', 'HEAD'], repoRoot))
+    } catch {
+      // 无 HEAD(初始提交):不存在“空索引 vs 有 HEAD”的判据,保持 0
+      headEntries = 0
+    }
+    return {
+      ok: true,
+      cwd: repoRoot.replace(/\\/g, '/'),
+      indexFile,
+      gitDir,
+      entries,
+      headEntries,
+    }
+  } catch (e) {
+    return {
+      ok: false,
+      cwd: cwd.replace(/\\/g, '/'),
+      indexFile,
+      gitDir: '',
+      entries: -1,
+      headEntries: -1,
+      error: String(e?.message ?? e),
+    }
+  }
+}
+
+/**
+ * 对比入口 / 当前索引身份基线,返回可解释的破坏类型(2026-11-08 立)。
+ *
+ * code 取值:
+ *   - index-unreadable   当前索引读不出来(不能把 0 条当成“枚举为空”)
+ *   - index-file-changed  GIT_INDEX_FILE 路径被换
+ *   - git-dir-changed     同一路径却换了 git 库(跨工作树/跨仓写坏)
+ *   - index-emptied       索引从 N 条变 0 条而 HEAD 有内容 ⇒ 全仓 staged-deleted 的来源
+ *   - index-shrunk        索引条目减少 ⇒ hook 正常路径不会删索引条目,必为并跑写者
+ */
+function compareIndexIntegrity(before, after) {
+  if (!before || !after)
+    return { ok: false, code: 'missing-baseline', detail: '缺少入口或当前索引身份基线' }
+  if (!after.ok)
+    return {
+      ok: false,
+      code: 'index-unreadable',
+      detail: `读取当前索引失败:${after.error || '未知错误'}`,
+    }
+  if (before.indexFile !== after.indexFile)
+    return {
+      ok: false,
+      code: 'index-file-changed',
+      detail: `GIT_INDEX_FILE "${before.indexFile || '(默认 .git/index)'}" → "${after.indexFile || '(默认 .git/index)'}"`,
+    }
+  if (before.gitDir !== after.gitDir)
+    return {
+      ok: false,
+      code: 'git-dir-changed',
+      detail: `git dir "${before.gitDir || '(未知)'}" → "${after.gitDir || '(未知)'}"`,
+    }
+  if (before.entries > 0 && after.entries === 0 && after.headEntries > 0)
+    return {
+      ok: false,
+      code: 'index-emptied',
+      detail: `索引 ${after.indexFile || '(默认 .git/index)'} 从 ${before.entries} 条变成 0 条,而 HEAD 有 ${after.headEntries} 条`,
+    }
+  if (before.entries > 0 && after.entries < before.entries)
+    return {
+      ok: false,
+      code: 'index-shrunk',
+      detail: `索引条目从 ${before.entries} 条降到 ${after.entries} 条(hook 正常路径只增/改索引条目,不会删除)`,
+    }
+  return { ok: true }
 }
 
 /**
@@ -139,7 +251,8 @@ function writeRestoreLog(result, skipReason, options) {
  * @param {string} [options.cwd] 工作目录,默认 process.cwd()
  * @param {boolean} [options.skip] 跳过还原(如 HUSKY_SKIP_STAGING_RESTORE=1)
  * @param {boolean} [options.silent] 静默模式(不输出日志,测试用)
- * @returns {{restored: string[], skipped: boolean}} 还原的文件列表 + 是否跳过
+ * @returns {{restored: string[], skipped: boolean, undetermined?: boolean}}
+ *   还原的文件列表 + 是否跳过;索引被并跑进程清空时额外带 `undetermined` 与 `emptyIndex`
  */
 function restoreStaging(initialSnapshot, options = {}) {
   const result = { restored: [], skipped: false }
@@ -174,6 +287,39 @@ function restoreStaging(initialSnapshot, options = {}) {
       console.warn('     的暂存文件,本次不做还原。请自行确认 staged 清单无误。')
     }
     writeRestoreLog(result, 'index-file-changed', options)
+    return result
+  }
+  // 索引身份/规模复核(2026-11-08 立):
+  // 路径字符串没变 ≠ 还是同一份索引 —— 索引被删除后在原路径重建为空索引时,旧护栏会照常
+  // 放行并打出“剩余 N 个 staged 文件”的假成功。这里在动手还原之前先验规模,发现空索引
+  // 就判为“未判定”,绝不再把一句“已还原”当成结论。
+  const identity = captureIndexIntegrity({ cwd })
+  if (!identity.ok) {
+    result.skipped = true
+    result.undetermined = true
+    if (!silent) {
+      console.warn(`\n❓ staging area 还原未判定:读取索引失败:${identity.error || '未知错误'}`)
+      console.warn('     索引读不出来时无法区分“没有新增 staged”与“索引被清空”,本次不做还原。')
+    }
+    writeRestoreLog(result, 'index-unreadable', options)
+    return result
+  }
+  if (identity.entries === 0 && identity.headEntries > 0) {
+    result.skipped = true
+    result.undetermined = true
+    result.emptyIndex = {
+      entries: identity.entries,
+      headEntries: identity.headEntries,
+      indexFile: identity.indexFile,
+    }
+    if (!silent) {
+      console.warn(
+        `\n❓ staging area 还原未判定:索引 ${identity.indexFile || '(默认 .git/index)'} 为 0 条,而 HEAD 有 ${identity.headEntries} 条`,
+      )
+      console.warn('     这是索引在 hook 期间被并跑进程删除/清空,不是“还原成功剩余 N 条”。')
+      console.warn('     恢复索引(先确认工作树无他人未提交改动): git read-tree HEAD && git add -A')
+    }
+    writeRestoreLog(result, 'index-empty-vs-head', options)
     return result
   }
   try {
@@ -312,7 +458,8 @@ function setupRestoreOnExit(initialSnapshot, options = {}) {
  * 注意:
  *   - 本函数是"提示层",无法真正阻止污染。真正阻止污染的是 safe-commit.mjs
  *     (git reset HEAD 清空暂存区 + 只 add 声明文件 + 校验 staged == 预期)
- *   - agent 应遵循 AGENTS.md §12/§16/§20 强制用 safe-commit.mjs,不直接 git add + commit
+ *   - agent 应遵循 AGENTS.md §12/§16 强制用 safe-commit.mjs;多会话共用工作树时优先 §12i
+ *     的私有索引提交通道(`node scripts/isolated-git.mjs commit`),不直接 git add + commit
  *
  * 豁免: HUSKY_SKIP_STAGING_AUDIT=1 跳过审计(紧急情况用)
  *
@@ -403,5 +550,12 @@ function auditStagingFiles(options = {}) {
   }
 }
 
-module.exports = { takeStagingSnapshot, restoreStaging, setupRestoreOnExit, auditStagingFiles }
+module.exports = {
+  takeStagingSnapshot,
+  restoreStaging,
+  setupRestoreOnExit,
+  auditStagingFiles,
+  captureIndexIntegrity,
+  compareIndexIntegrity,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

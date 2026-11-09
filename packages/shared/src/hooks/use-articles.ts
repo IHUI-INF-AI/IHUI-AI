@@ -136,14 +136,16 @@ export function useArticles<TArticle extends Article = Article>(
   const hasNext = page < totalPages
 
   const buildParams = React.useCallback(
-    (overridePage?: number): ArticleQueryParams => ({
-      page: overridePage ?? page,
+    (overridePage: number): ArticleQueryParams => ({
+      page: overridePage,
       pageSize,
       categoryId: categoryId === 'all' ? undefined : categoryId,
       status: status === 'all' ? undefined : status,
       search: search.trim() || undefined,
     }),
-    [page, pageSize, categoryId, status, search],
+    // XUI-024:不得再依赖 `page` —— load() 依赖 buildParams,而 loadMore 会推进 page,
+    // 一旦把 page 放进依赖环,loadMore 后 effect 就会把列表重置回第 1 页(永远只有第一页)。
+    [pageSize, categoryId, status, search],
   )
 
   const load = React.useCallback(async () => {
