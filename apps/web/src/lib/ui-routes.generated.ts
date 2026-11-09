@@ -11,8 +11,8 @@
  */
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/web/scripts/generate-ui-routes.mjs
-// sourceCommit: b603657f6065d68667c5c056c33b150f959a515a
-// inputsSha256: 5604b17c7b14da985f5bbe72e5bc917ea19d726f991bc97f1d4657520b9a0cf4
+// sourceCommit: 7d907303898bccef13863bb65aa9b2c57a6c4e84
+// inputsSha256: 6ca81cedb26bd4c7fb0170cc16cbb2d229c69bab7cd54a2e256b550413344445
 // input: apps/web/app/(auth)/apple/callback/page.tsx f328ceb139ed3b61c0e79bc671e93885a6c1e1b6b7c356febbc97f3255da2075
 // input: apps/web/app/(auth)/callback/page.tsx d17f249c8506951babf768ff47e0800dc7ed191a9c80ddb124142a8520bcd80e
 // input: apps/web/app/(auth)/forgot-password/page.tsx ebf3e4b50c09d9871131b9fbdc5cddb79c0f9c73bc5775c5ce56dd08a0fa2443
@@ -176,6 +176,7 @@
 // input: apps/web/app/(main)/admin/gray-release/page.tsx 2ded41ac6e29893dcc280e05e0f035e1e970f264b30e45a53e3f399678426c78
 // input: apps/web/app/(main)/admin/help/page.tsx eff70194426b19eee76958dfac04d6a1444f2220736d73164af54a4bd1f20eec
 // input: apps/web/app/(main)/admin/home-schema/page.tsx dc4ce8e0553789f28c2f88cccff8671c82af3c526e7b095b5186f140257af627
+// input: apps/web/app/(main)/admin/hr-attendance/page.tsx f5e8490307a919ceb968f2bcc932c69b05916e18e681d12382feeebfee05cb91
 // input: apps/web/app/(main)/admin/i18n-dashboard/compare/page.tsx cd1148a50dba0988f67b748f1239a0aac69d100fe02e0f9b0797c549d0f58a01
 // input: apps/web/app/(main)/admin/i18n-dashboard/missing/page.tsx 3cad88d28fd230c860e2196cceb064a81e3ae92c6bfc6265d7a6316d000c4157
 // input: apps/web/app/(main)/admin/i18n-dashboard/page.tsx e3b10d41c8ad7cc21f4b6c86e7604e24d82e04126c1ac0a6b63e795955ce9f6a
@@ -780,7 +781,7 @@
 // input: apps/web/app/(main)/resources/edit/page.tsx 832f3347693415d4fce788faeffb0d9441afed480364754afa506b881ca5ceae
 // input: apps/web/app/(main)/resources/page.tsx ab362ceed9985b50ea8dfc71b7bf0a26e699522aa71f3b8be7c60030bc70f947
 // input: apps/web/app/(main)/rules/page.tsx fded796d761de0925cc5ca6bc9fd7bf01bd616c0e497cd528e1aa5a532b69e68
-// input: apps/web/app/(main)/sag2/page.tsx 095968e96eb767388aca5ff525e0525044fe4e42e2d5fcffd0996832c69b88d2
+// input: apps/web/app/(main)/sag2/page.tsx b18e7ba3f9a181fc767e1c430afa6084021048434585e31abc4bd949a8fbeae7
 // input: apps/web/app/(main)/schedule/page.tsx e21bf50c94b7d96e2acf1ee6d479043c02d2e5f0bb49d3f7c4d72d6272b318e9
 // input: apps/web/app/(main)/search/history/page.tsx 1b1b3dbaf7c50e8b141f3cfef02d6e7af399cd94219c7bc6181ac6f06e649713
 // input: apps/web/app/(main)/search/page.tsx 9e7de3a1fc1f2c59c7b05b9081944bd9a9a77554dfa96971cff5d08fe67a5ebe
@@ -790,7 +791,7 @@
 // input: apps/web/app/(main)/self-media/koubo/page.tsx ef36a73376d8ad4784db041acb58033fa4d2bb5712a679f8e41f25f5314176ff
 // input: apps/web/app/(main)/self-media/wechat/page.tsx 26013635b79d6a515a8ebef8c5f396c3653440933a0007de863207fa62f4dfd3
 // input: apps/web/app/(main)/services/page.tsx b54ca5c46d6700ea0fd78c5cac5efde5d04098a2be51feba7d745667d6dc7c8b
-// input: apps/web/app/(main)/settings/account-deletion/page.tsx 6e9dac8b685fcd00e10d2ec441a4f1556b261784425559534fe92f79ec9caa17
+// input: apps/web/app/(main)/settings/account-deletion/page.tsx e4b97714087e2e1465dcf18cec7d581c86ad1ca3a77ed5d497a03c62dc95d3f2
 // input: apps/web/app/(main)/settings/activity/page.tsx e01b30e9f2d8be4089a668bc58f192390b9d9b1d8f145f7f48fe0f8904c32859
 // input: apps/web/app/(main)/settings/agent-security/page.tsx 43c685aa16a4268f677b366eddd03370573e878a1c9d5b74faf161b7a2f6c620
 // input: apps/web/app/(main)/settings/api-keys/page.tsx 64eb416eb0f634d712d8ae232d5b8c03fb584b07493ec184f93ed7efc412ebe4
@@ -937,7 +938,7 @@
 // input: apps/web/app/sso/wecom/page.tsx 35efcf616fc264c76204fb3d155f464682cd239b37965652b930391e0e7144b6
 // input: apps/web/app/status/page.tsx d28928c9d285ce3bbf41205bea01abc4d8eadce1762f269615846130b228510e
 // skipped: excludedTopSegments(sso|h5|api)=9 pages; duplicatePaths(保留先扫描到的)=0
-// generatedAt: 2026-11-08T21:15:31.637Z
+// generatedAt: 2026-11-09T11:06:53.192Z
 // IHUI-GEN-PIN-END
 
 export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
@@ -1102,6 +1103,7 @@ export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
   { path: '/admin/gray-release', param: false, group: 'admin' },
   { path: '/admin/help', param: false, group: 'admin' },
   { path: '/admin/home-schema', param: false, group: 'admin' },
+  { path: '/admin/hr-attendance', param: false, group: 'admin' },
   { path: '/admin/i18n-dashboard', param: false, group: 'admin' },
   { path: '/admin/i18n-dashboard/compare', param: false, group: 'admin' },
   { path: '/admin/i18n-dashboard/missing', param: false, group: 'admin' },
