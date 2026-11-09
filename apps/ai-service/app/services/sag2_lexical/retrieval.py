@@ -37,7 +37,7 @@ from .judge import (
     NO_MODEL_REASON,
     EvidenceJudge,
 )
-from .text import casefold_tokens, match_query, name_phrases, sentence_spans
+from .text import cached_tokens, match_query, name_phrases, sentence_spans
 
 MAX_HOPS = 2
 PROTECTED_INITIAL = 5
@@ -152,7 +152,7 @@ def _term_stats(index: LexicalIndex, term: str) -> tuple[float, float]:
     因此用「最稀有组成词」近似短语稀有度，保证 ``name_phrase`` 不被
     一律当成 df=0 丢掉。
     """
-    tokens = casefold_tokens(term)
+    tokens = cached_tokens(term)
     if not tokens:
         return 0.0, 0.0
     if len(tokens) == 1:
@@ -199,14 +199,16 @@ def expansion_terms(
             for ns, ne, _phrase in names:
                 for pos in range(ns, ne):
                     ungrouped[pos] = " "
-            words = casefold_tokens("".join(ungrouped))
+            # 挖掉人名后的整句、以及原句，都是「同一段文本」的重复切词场景：
+            # 走缓存版（tuple）后按需拷贝一次，避免对每个候选段落重扫字符。
+            words = list(cached_tokens("".join(ungrouped)))
             for _ns, _ne, phrase in names:
                 words.append(phrase)
                 name_terms.add(phrase)
 
             seen: set[str] = set()
             context = 0.0
-            for word in casefold_tokens(sentence):
+            for word in cached_tokens(sentence):
                 if word in seen or word not in query_terms:
                     continue
                 seen.add(word)
@@ -216,7 +218,7 @@ def expansion_terms(
                 contexts[word] = max(contexts.get(word, 0.0), context)
 
         for term, tf in counts.items():
-            if all(word in query_terms for word in casefold_tokens(term)):
+            if all(word in query_terms for word in cached_tokens(term)):
                 continue
             df, idf = _term_stats(index, term)
             if df <= 0 or idf <= 0:
@@ -254,10 +256,12 @@ def resolve_terms(
     """
     resolved: list[ExpansionTerm] = []
     for term in terms:
-        tokens = casefold_tokens(term.term)
+        tokens = cached_tokens(term.term)
         if not tokens:
             continue
-        if not index.candidate_query(tokens, 1, excluded_keys):
+        # 只问「还能不能带来新段落」，不问名次：旧写法 candidate_query(tokens, 1, …)
+        # 会把整张 posting 打完分再全量排序，只为取第 1 名（20k 篇实测占多跳 75% 耗时）。
+        if not index.has_new_candidate(tokens, excluded_keys):
             continue
         resolved.append(term)
         if len(resolved) >= limit:

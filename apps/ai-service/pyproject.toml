@@ -46,6 +46,10 @@ dependencies = [
     "beautifulsoup4>=4.15.0",
     "mammoth>=1.12.0",
     "pdfplumber>=0.11.10",
+    # PDF 第二抽取器 + 页栅格化(2026-11-09 立)：pypdfium2 本是 pdfplumber 的
+    # 传递依赖，这里显式声明 —— SAG2 直接用它抽对象流/xref 流文本层，以及把
+    # 扫描件渲成位图交给 OCR。传递依赖某天被摘掉时，这里会先失败。
+    "pypdfium2>=5.0.0",
     # 文档解析引擎(2026-09-08 立):Firecrawl anydoc(Rust 原生,NAPI wheel)
     # doc/docx/pptx/ppt/xls/xlsx/odt/ods/odp/rtf/epub/pdf → GFM Markdown
     # document_tools.py / codebase_indexer.py 主路径;未安装时自动降级旧实现
@@ -91,6 +95,15 @@ dev = [
     "mypy==2.3.1",
     # 2026-07-24 立:Redis 持久化测试用 fakeredis 隔离(不依赖真实 Redis)
     "fakeredis>=2.37.0",
+]
+# 扫描件/截图 OCR(2026-11-09 立)：**可选**依赖。
+# 链路（pdfium 栅格化 → 引擎识别）写死在代码里，引擎本身不在主依赖面内 ——
+# 它要拖进 opencv(42MB) 等重量级包，而多数部署用不到扫描件。
+#   uv pip install -e ".[ocr]"        # 首选：纯 pip + onnxruntime，模型随包
+#   # 或装系统 tesseract + pip install pytesseract，代码会自动探测
+# 未安装时 /status 的 extractors.ocr 如实报 no-ocr-engine，不会假装读过。
+ocr = [
+    "rapidocr-onnxruntime>=1.4.0",
 ]
 
 [tool.ruff]
