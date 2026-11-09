@@ -54,6 +54,8 @@ import {
   type ToolContext,
 } from '../tools/index.js';
 import { BUILTIN_TOOLS } from '../tools/builtins.js';
+// 人事考勤(HR)工具族:AI 对话框可调用操作考勤/部门/员工/请假(复用 @ihui/attendance-core 判定内核)。
+import { HR_TOOLS } from '../tools/hr.js';
 import { createFileEditTools } from '../tools/file-edit.js';
 import {
   buildFileEditPreviewEvents,
@@ -456,6 +458,8 @@ const PLUGIN_CONSOLE_LOGGER: PluginLogger = {
 export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<SetupAgentToolsResult> {
   clearTools();
   registerTools(BUILTIN_TOOLS);
+  // 人事考勤(HR)工具族:2026-11-09 立,API 路由 → AI 工具模板域。
+  registerTools(HR_TOOLS);
   registerTools(GIT_TOOLS);
   registerTools(FETCH_TOOLS);
   registerTools(WEB_SEARCH_TOOLS);

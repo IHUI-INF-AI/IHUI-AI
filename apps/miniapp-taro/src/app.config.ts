@@ -423,6 +423,10 @@ export default defineAppConfig({
         'workflow-list/index',
       ],
     },
+    {
+      root: 'pkg-hr',
+      pages: ['hr-attendance/index'],
+    },
   ],
   // 微信原生 darkmode:theme.json 提供 light/dark 两组变量,auto 模式运行期由
   // 系统实时切换原生 chrome(导航栏/窗口/tabBar),与 src/lib/theme.ts JS 层互补
