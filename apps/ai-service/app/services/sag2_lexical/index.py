@@ -19,7 +19,9 @@ BM25 粗筛、文件 hash 驱动的增量重建、索引版本递增使查询缓
 from __future__ import annotations
 
 import hashlib
+import heapq
 import math
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -394,22 +396,70 @@ class LexicalIndex:
         """词项在索引里是否有命中（查询词修复/扩展词解析用）。"""
         return any(token in self._postings for token in casefold_tokens(term))
 
+    def has_new_candidate(self, terms: Sequence[str], excluded: set[str]) -> bool:
+        """是否存在「未被排除且可打分」的候选。
+
+        等价于 ``bool(candidate_query(terms, 1, excluded))``，但**不打分、不排序**。
+        扩展词预算只关心「这个词还能不能带来新段落」（见 ``resolve_terms``），
+        不需要名次；旧实现为了拿第 1 名会把整张 posting 打完分再全量排序，
+        20k 篇下一次查询要打分 560 万次（实测占多跳总耗时 75%）。
+
+        等价性论证：posting 里的 cid 必然 ``tf > 0``；``bm25_idf`` 对 df≤N 恒正；
+        ``denominator = tf + k1*(1-B+B*dl/avgdl) ≥ tf + k1*(1-B) > 0``
+        ⇒ 命中即得分 > 0，与 ``candidate_query`` 的 ``value > 0`` 过滤同解。
+        """
+        chunks = self._chunks
+        for term in terms:
+            for cid in self._postings.get(term, ()):
+                chunk = chunks.get(cid)
+                if chunk is None:
+                    continue
+                if f"{chunk.path}#{chunk.chunk_id}:{chunk.start}-{chunk.end}" not in excluded:
+                    return True
+        return False
+
     def candidate_query(
         self,
         terms: list[str],
         limit: int,
         excluded: set[str] | None = None,
     ) -> list[ScoredChunk]:
-        """BM25 粗筛：宽松 OR 合并，返回按词法分降序的候选。"""
+        """BM25 粗筛：宽松 OR 合并，返回按词法分降序的候选。
+
+        打分内联（idf/avgdl 每个词项只算一次，不再逐 cid 重算）并用定长堆
+        代替全量排序：结果与「全量打分 + ``sorted`` + 顺序截断」逐条一致，
+        只是复杂度从 O(命中数 log 命中数) 降到 O(命中数 log 所需名额)。
+        """
         excluded = excluded or set()
         scores: dict[int, float] = {}
+        total = len(self._chunks)
+        avgdl = self._avgdl or 1.0
+        lengths = self._lengths
+        k1 = BM25_K1
+        b = BM25_B
+        k1p1 = k1 + 1.0
         for term in terms:
-            for cid in self._postings.get(term, {}):
-                scores[cid] = scores.get(cid, 0.0) + self._bm25_term(term, cid)
-        ranked = sorted(
-            (cid for cid, value in scores.items() if value > 0),
-            key=lambda cid: (-scores[cid], cid),
-        )
+            posting = self._postings.get(term)
+            if not posting:
+                continue
+            df = len(posting)
+            # 与 bm25_idf 同式同序，保证浮点逐位一致。
+            idf = math.log(1.0 + (total - df + 0.5) / (df + 0.5))
+            for cid, tf in posting.items():
+                if tf <= 0:
+                    continue
+                dl = lengths.get(cid, 1) or 1
+                denominator = tf + k1 * (1.0 - b + b * dl / avgdl)
+                if denominator <= 0:
+                    continue
+                scores[cid] = scores.get(cid, 0.0) + idf * (tf * k1p1) / denominator
+        positives = [cid for cid, value in scores.items() if value > 0]
+        # excluded 最多挡掉 len(excluded) 个，取前 limit+len(excluded) 名必然覆盖最终前 limit 名。
+        keep = limit + len(excluded)
+        if len(positives) > keep * 4:
+            ranked = heapq.nsmallest(keep, positives, key=lambda cid: (-scores[cid], cid))
+        else:
+            ranked = sorted(positives, key=lambda cid: (-scores[cid], cid))
         out: list[ScoredChunk] = []
         for cid in ranked:
             chunk = self._chunks.get(cid)

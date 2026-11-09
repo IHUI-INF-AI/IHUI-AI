@@ -5,7 +5,8 @@
 """MCP 工具定义 deferral(瘦身)与 list_changed 动态刷新测试(2026-09-02 立)。
 
 覆盖:
-- deferral 开启:ToolDefinition 描述 ≤80 字符、parameters 为占位;get_tool_schema 强制完整;
+- deferral 开启:ToolDefinition 描述压缩到一行、内置工具 parameters 原样保留、
+  api_* 长尾保留键名/类型/required 只删字段 description;get_tool_schema 强制完整;
 - deferral 关闭:行为与历史一致(完整 description + 完整 parameters);
 - get_tool_schema 返回完整 schema(内置工具来源 + register_external_tool 外部来源);
 - list_changed 通知自增 toolsVersion,tools/list 响应附带 toolsVersion;未知通知返回空 result;
@@ -13,6 +14,7 @@
 """
 
 import asyncio
+import json
 from typing import Any
 
 import pytest
@@ -23,14 +25,19 @@ from app.services import mcp_server as mcp_module
 from app.services.mcp_server import mcp_server as mcp_instance
 
 # ---------------------------------------------------------------------------
-# 1. deferral 开启:短描述 + 占位参数
+# 1. deferral 开启:描述压缩 + 分层参数(内置保留 / api_* 只删字段描述)
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
-async def test_deferral_on_shortens_description_and_placeholder_params(
+async def test_deferral_on_compresses_description_and_keeps_builtin_params(
     monkeypatch: Any,
 ) -> None:
+    """deferral 开启:描述压到一行,内置工具 parameters 原样保留。
+
+    旧版本此例钉的是 `parameters == {"type": "object"}` —— 那正是病灶本身(模型看不见
+    `command` 就会判"没有这个工具"),所以本例随 2026-11-09 的修复**改判据而不是删例**。
+    """
     monkeypatch.setenv("TOOL_DEFERRAL", "on")
     tools = await agents_router._build_loop_v2_tools(None)
     assert tools, "deferral 开启时应至少包含工具"
@@ -38,16 +45,20 @@ async def test_deferral_on_shortens_description_and_placeholder_params(
     # get_tool_schema 必须被强制纳入(否则模型无法反查完整参数)
     assert any(t.name == "get_tool_schema" for t in tools)
 
+    src = {mt.name: mt for mt in mcp_instance.list_tools()}
     for t in tools:
         if t.name == "get_tool_schema":
             # 自身保持完整 schema,不得被 deferral 精简
             assert t.parameters != {"type": "object"}
             assert "properties" in t.parameters
             continue
-        # 精简后描述必须 ≤80 字符
-        assert len(t.description) <= 80, f"{t.name} 描述超 80 字符: {t.description!r}"
-        # 参数必须为最小占位
-        assert t.parameters == {"type": "object"}, t.name
+        # 精简后描述必须非空且 ≤ 上限(一行,不整段展开)
+        assert 0 < len(t.description) <= agents_router._TOOL_DEFERRAL_DESC_LIMIT, (
+            t.name
+        )
+        # 内置工具参数必须原样保留 —— 病灶就是"模型看不到 command 参数"
+        if t.name in src:
+            assert t.parameters == src[t.name].input_schema, t.name
 
 
 # ---------------------------------------------------------------------------
@@ -180,4 +191,66 @@ def test_shorten_multiline() -> None:
 def test_shorten_respects_limit() -> None:
     s = agents_router._shorten_description("简短描述", limit=4)
     assert len(s) <= 4
+
+
+def test_shorten_keeps_underscore_identifiers() -> None:
+    """下划线不得再被当 markdown 强调符号吃掉(工具名/常量名靠它才读得出)。"""
+    s = agents_router._shorten_description(
+        "用 run_command 执行命令,并发写会返回 CONCURRENT_MODIFICATION。", limit=120
+    )
+    assert "run_command" in s
+    assert "CONCURRENT_MODIFICATION" in s
+
+
+def test_deferral_api_params_keep_shape_and_drop_only_descriptions() -> None:
+    """api_* 长尾:properties/required/type 全留,只删 description 文本。"""
+    schema = {
+        "type": "object",
+        "description": "顶层描述也应删除",
+        "properties": {
+            "id": {"type": "string", "description": "path 参数 id"},
+            "nested": {
+                "type": "object",
+                "properties": {
+                    "flag": {"type": "boolean", "description": "嵌套字段说明"}
+                },
+            },
+            "tags": {
+                "type": "array",
+                "items": {"type": "string", "description": "标签"},
+            },
+        },
+        "required": ["id"],
+    }
+    out = agents_router._deferral_tool_parameters("api_demo_endpoint", schema)
+    assert out["type"] == "object"
+    assert out["required"] == ["id"]
+    assert set(out["properties"]) == {"id", "nested", "tags"}
+    assert out["properties"]["id"] == {"type": "string"}
+    assert out["properties"]["nested"]["properties"]["flag"] == {"type": "boolean"}
+    assert out["properties"]["tags"]["items"] == {"type": "string"}
+    # 不得出现"有 required 却没有对应 properties"的畸形形状
+    assert set(out["required"]) <= set(out["properties"])
+    assert "description" not in json.dumps(out, ensure_ascii=False, default=str)
+    # 源对象不得被就地改坏(递归删除必须走副本)
+    assert schema["properties"]["id"]["description"] == "path 参数 id"
+
+
+def test_deferral_builtin_params_returned_identity() -> None:
+    """内置/桥接工具:同一个对象原样返回,不做任何拷贝或裁剪。"""
+    schema = {
+        "type": "object",
+        "properties": {"command": {"type": "string", "description": "shell 命令"}},
+        "required": ["command"],
+    }
+    assert agents_router._deferral_tool_parameters("run_command", schema) is schema
+    assert agents_router._deferral_tool_parameters("write_file", None) == {
+        "type": "object",
+        "properties": {},
+    }
+
+
+def test_deferral_description_takes_first_line() -> None:
+    desc = agents_router._deferral_tool_description("第一行摘要\n第二行细节")
+    assert desc == "第一行摘要"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
