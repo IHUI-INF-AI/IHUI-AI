@@ -1004,16 +1004,30 @@ if (addResult.status !== 0) {
 // (实测 tracked 15613 / 索引 15612 / HEAD 15611)。
 // 修在 Step 2 之后而不是 pre-commit 里:README 此刻已在索引 ⇒ 改内容不算"窗口期新进",
 // O43② 护栏零感知(在钩子里补写并 add 会被它整枚拒发 —— 那正是这段移到 post-commit 的由来)。
-// 处理面严格限定在**声明面里的** README:`--files` 防本器顺手 add 未声明的兄弟文件,
+// 处理面严格限定在**声明面里的** README:只写声明路径,不碰未声明的兄弟文件,
 // 否则 Step 3 的精确匹配会判"意外文件"并中止。
 const readmeDeclared = expectedFiles
   .map((f) => f.replace(/\\/g, '/'))
   .filter((f) => /^README(\.en|\.ko|\.ja)?\.md$/.test(f))
 if (readmeDeclared.length > 0 && process.env.IHUI_SKIP_README_NUMBERS_SYNC !== '1') {
+  // 面:staged(2026-11-07 修)。病灶:本步原先走 sync-readme-numbers(默认 worktree 面),
+  // 而 Step 2 刚暂存完、门 173 判的是索引现算 ⇒ worktree 面把未跟踪件也算进 trackedFiles,
+  // 两面对不上(worktree 4300/19796 vs staged 4289/19748),凡带 README 的提交必被门 173 判红。
+  // 现在重算改用 `gen-doc-numbers --markdown --staged`,写完立刻 `git add` 同一批声明路径,
+  // 让"重算 → 重新暂存 → 判门"三步落在同一个面上。判据/阈值/门 173/块外散文一律不动。
   try {
-    execFileSync(
+    const GEN_BEGIN = '<!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->'
+    const GEN_END = '<!-- END GENERATED NUMBERS -->'
+    // 剥掉"最后核对日期"行:仅日期滚动不算变化(与 sync-readme-numbers 的幂等语义一致)。
+    const stripDateLine = (s) =>
+      s
+        .split('\n')
+        .filter((l) => !/上表由 .*生成,最后核对日期/.test(l))
+        .join('\n')
+        .trim()
+    const fresh = execFileSync(
       process.execPath,
-      [join(ROOT, 'scripts', 'sync-readme-numbers.mjs'), `--files=${readmeDeclared.join(',')}`],
+      [join(ROOT, 'scripts', 'gen-doc-numbers.mjs'), '--markdown', '--staged'],
       {
         cwd: ROOT,
         encoding: 'utf8',
@@ -1021,12 +1035,41 @@ if (readmeDeclared.length > 0 && process.env.IHUI_SKIP_README_NUMBERS_SYNC !== '
         windowsHide: true,
         stdio: ['ignore', 'pipe', 'pipe'],
       },
+    ).replace(/\n+$/, '')
+    const pickNum = (key) => {
+      const m = fresh.match(new RegExp(`\\|\\s*(\\d+)\\s*\\|\\s*\`${key}\`\\s*\\|`))
+      return m ? m[1] : '未判定'
+    }
+    const written = []
+    for (const f of readmeDeclared) {
+      const p = join(ROOT, f)
+      if (!existsSync(p)) continue
+      const text = readFileSync(p, 'utf8')
+      const bi = text.indexOf(GEN_BEGIN)
+      const ei = text.indexOf(GEN_END)
+      if (bi === -1 || ei === -1 || ei < bi) continue // 无生成块 ⇒ 跳过(ko/ja 暂未嵌入)
+      const embedded = text.slice(bi, ei + GEN_END.length)
+      if (stripDateLine(embedded) === stripDateLine(fresh)) continue // 数字未变 ⇒ 幂等不写盘
+      writeFileSync(p, text.slice(0, bi) + fresh + text.slice(ei + GEN_END.length))
+      written.push(f)
+    }
+    // 立即重新暂存:不写回索引的话,判门看到仍是旧块,"同一面"不成立。
+    if (written.length > 0) gitRaw(['add', '--', ...written], ROOT)
+    log(
+      'info',
+      `Step 2b/5: README 生成块面=staged / trackedFiles=${pickNum('trackedFiles')} testFiles=${pickNum(
+        'testFiles',
+      )}`,
     )
-    log('info', `Step 2b/5: README 生成数字已对齐现算值(${readmeDeclared.join(', ')})`)
+    log(
+      'info',
+      `Step 2b/5: 重算前后块内是否变化=${written.length ? '是' : '否'}` +
+        `(${readmeDeclared.join(', ')}${written.length ? ':已写盘并 git add 重新暂存' : ':幂等跳过,未写盘'})`,
+    )
   } catch (e) {
     log(
       'warn',
-      `Step 2b/5: sync-readme-numbers 失败(不阻断,门 173 照索引面判):${String(
+      `Step 2b/5: README 生成块(staged 面)同步失败(不阻断,门 173 照索引面判):${String(
         e?.stdout || e?.message || '',
       )
         .trim()

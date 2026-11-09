@@ -412,7 +412,13 @@ const SERVICES = [
     port: 8801,
     required: false,
     probe: 'http',
-    path: '/',
+    // 2026-11-07:探针改打 /health(零依赖静态出口),不再打 '/'。
+    // 原 path:'/' 探的是营销首页整页 SSR,CPU 被并发门禁打满时实测 2.0–24.8s,而
+    // httpProbe 的超时是 2500ms ⇒ isUp 判假死 ⇒ watcher 每 60–90s 杀一次重拉,
+    // 实例永远热不起来(活锁,当日 11:0x–11:5x 实测)。探活要判"服务活着、路由能命中",
+    // 不是"首页渲染多快";同 api 腿,补 healthExpect 免得占位的 200 桩被当成 web 本体。
+    path: '/health',
+    healthExpect: '@ihui/web',
     describe: 'Next.js Web(OAuth 回调宿主,可选)',
     start: () => {
       // pnpm install 会重链 next dist、抹掉 dev 预取补丁(unlock-dev-prefetch.mjs 头注),
@@ -872,6 +878,13 @@ if (watchMode) {
           // 2026-10-29: 重拉冷却。就绪等待最长 45s 而 tick 间隔 30s,上一轮刚 spawn 的树
           // 还没监听时下一轮就会判它 down 再拉一棵 ⇒ 两棵树抢同一个端口,双双失败。
           // 冷却期内的"掉线"只记录不重拉(startedAt 由本轮写入,与重入锁配合兜底)。
+          //
+          // 2026-11-07:等待窗口 45s → readyTimeoutMs(默认 120s,--timeout 可调)。
+          // 45s 是给 next/web 量级的腿定的,而 ai-service 冷启实测 53–88s、api
+          // (`node --import tsx src/index.ts`)约 75s ⇒ 必然在"还没监听"时被判
+          // 重拉失败并杀掉,重拉永远跑不完(同日 api 12:15 掉线后反复失败的实测)。
+          // 双拉风险由上面那段冷却期 + 本轮 await(阻塞到 waitReady 结束)兜住,
+          // 与 45s 时同构,不因加长而变差。
           const nowMs = Date.now();
           if (nowMs - (lastStartAt.get(svc.name) ?? 0) < RELAUNCH_COOLDOWN_MS) {
             console.log(
@@ -883,7 +896,7 @@ if (watchMode) {
           console.log(`[${new Date().toLocaleTimeString()}] ${svc.name}(:${svc.port}) 掉线,重拉中...`);
           const child = startSvc(svc);
           if (child && typeof child.unref === 'function') child.unref();
-          const ok = await waitReady(svc, 45000);
+          const ok = await waitReady(svc, readyTimeoutMs);
           console.log(`  ${svc.name} 重拉${ok ? '成功 ✅' : '失败 ❌(日志见 .tmp-sync)'}`);
         } catch (e) {
           console.error(`  重拉失败: ${e instanceof Error ? e.message : String(e)}`);

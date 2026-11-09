@@ -110,6 +110,12 @@ import {
 } from './lib/code-mask.mjs'
 // G-322:带值旗标的**唯一取值出口**(值必须存在且不以 `-` 开头,否则判死,绝不折回默认)。
 import { requireFlagValue } from './lib/flag-value.mjs'
+import {
+  deltaParents,
+  effectiveAnchorCount,
+  newOccurrences,
+  readParentTexts,
+} from './lib/merge-delta.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -495,6 +501,23 @@ function readLedgerFromFace(root, face) {
 }
 
 /**
+ * 命中身份 = 「该文件第 k 枚顶层 run 命中」:本门现职口径就是逐文件命中数,
+ * 行号与调用文本跨面会漂移,把它们纳入身份会破坏「非合并提交逐字等价」。
+ * 单父面下 `newOccurrences` 的计数恰好等于 `max(0, 结果命中数 − 父命中数)`,
+ * 于是有效锚点 = HEAD 命中数,与旧行为一致。
+ */
+export function hitKeys(judged) {
+  return (judged && Array.isArray(judged.hits) ? judged.hits : []).map((_, i) => `hit\u0000${i}`)
+}
+
+/** 合并感知锚点:结果读数 − 本次真正新增数(结果面有、每一枚父提交都没有)。 */
+export function anchorFromParents({ result, parents }) {
+  const keys = hitKeys(result)
+  const fresh = newOccurrences(keys, (parents || []).map(hitKeys)).length
+  return effectiveAnchorCount(keys.length, fresh)
+}
+
+/**
  * 一面的完整判定。取不到面(清单/正文/台账任一派生失败)一律**抛** `Undetermined`,
  * 由 `main` 折成 exit 2 —— 不回落另一个面,也不记绿。
  */
@@ -505,14 +528,22 @@ export function analyze({ face = 'head', root = ROOT } = {}) {
   const judged = rows.map((r) => judgeSource(r.rel, r.src))
   const hitRels = judged.filter((j) => j.state === 'hit').map((j) => j.rel)
 
-  // 锚点档:HEAD 面上"该文件自身的命中数"。head 档判的就是 HEAD ⇒ 锚点即本轮读数(新增按构造为 0)。
+  // 锚点档:head 面结构上没有「本次提交」这一维 ⇒ 锚点即本轮读数(新增按构造为 0)。
+  // staged/worktree 的父集 = HEAD ∪ MERGE_HEAD;合并带入的存量命中不记本次新增。
   const anchor = new Map()
   if (face === 'head') for (const j of judged) anchor.set(j.rel, j.hits.length)
   else if (hitRels.length) {
-    const base = new Map()
-    for (const j of judged) base.set(j.rel, j)
-    const arows = readFace(top, 'head', hitRels)
-    for (const r of arows) anchor.set(r.rel, judgeSource(r.rel, r.src).hits.length)
+    const parents = deltaParents({ root: top, face }).parents
+    const texts = readParentTexts({ root: top, rels: hitRels, parents })
+    const byRel = new Map()
+    for (const j of judged) byRel.set(j.rel, j)
+    for (const rel of hitRels) {
+      const parentJudged = [...texts.values()].map((m) => {
+        const src = m.get(rel)
+        return judgeSource(rel, src === null || src === undefined ? null : src)
+      })
+      anchor.set(rel, anchorFromParents({ result: byRel.get(rel), parents: parentJudged }))
+    }
   }
 
   const led = readLedgerFromFace(top, face)
@@ -918,6 +949,8 @@ export const __test__ = {
   MASK_PROJECTIONS,
   readLedger,
   decide,
+  hitKeys,
+  anchorFromParents,
   analyze,
   listInScope,
   readFace,

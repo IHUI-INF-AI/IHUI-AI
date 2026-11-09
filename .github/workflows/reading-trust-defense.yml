@@ -1,0 +1,73 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+# 读准防线元门(2026-11-07)。新增的四道门不抢任何既有 hook 接线点,统一由这里调度:
+#   A scripts/check-face-spec-hardcode.mjs          面规格拼接静态扫描(棘轮)
+#   B scripts/check-face-empty-guard-coverage.mjs   空输入保护只读盘点
+#   C scripts/check-generated-pin-face.mjs          派生件 inputsSha256 与被审面一致性
+#   D scripts/check-gate-owner-declaration.mjs      改已登记属主的门必须带 Gate-Owner 声明
+# 另加四份镜像测试(含阴性对照)。工作树链接完整性门也在这里挂载一次(--strict):
+# 新建/复用 worktree 后 node_modules/@ihui/* 指向别棵树是 tsc 与单测"测的是别人代码图"的根因。
+#
+# 为什么单开一个 workflow 而不改 scripts-mirror-tests.yml:当日已有四条线在 scripts/ 上并行,
+# 不再制造第五个共同修改点。代价(如实记录):check-gate-wiring 的 R4 只认五处权威接线点里
+# 直接出现的 check-*.mjs,本 workflow 通过 `run-reading-trust-defense.mjs` 间接调度,
+# 故 R4 暂时看不见这四道门;补名受 AGENTS.md 96KB 预算阻塞,已列入人工裁决。
+
+name: reading-trust defense (meta gates)
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - scripts/**
+      - .github/workflows/reading-trust-defense.yml
+  pull_request:
+    paths:
+      - scripts/**
+      - .github/workflows/reading-trust-defense.yml
+  workflow_dispatch: {}
+
+concurrency:
+  group: reading-trust-defense-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  meta-gates:
+    name: reading-trust meta gates
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # 门 D 要按提交面读 diff;门 C 要按 HEAD/staged/worktree 三面重算钉值。
+          fetch-depth: 0
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 24
+
+      - name: Run reading-trust meta gates (A/B/C/D)
+        run: node scripts/run-reading-trust-defense.mjs
+
+      - name: Worktree link integrity (strict)
+        if: always()
+        # workspace 层无 @ihui/* 链接时本门按工程约定 exit 0(见 check-worktree-link-integrity.mjs 头注);
+        # 这里不改它的判据,只在"链接存在但指向别树"时判红。
+        run: node scripts/check-worktree-link-integrity.mjs --strict
+
+      - name: Mirror tests (negative controls must go red)
+        if: always()
+        run: >-
+          node --test
+          scripts/tests/check-face-spec-hardcode.test.mjs
+          scripts/tests/check-face-empty-guard-coverage.test.mjs
+          scripts/tests/check-generated-pin-face.test.mjs
+          scripts/tests/check-gate-owner-declaration.test.mjs
+
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

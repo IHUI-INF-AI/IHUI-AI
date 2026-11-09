@@ -73,7 +73,8 @@ import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSyn
 import { tmpdir } from 'node:os'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { catBatch, catBatchOids, gitRaw } from './lib/face-reader.mjs'
+import { Undetermined, catBatch, catBatchOids, gitRaw } from './lib/face-reader.mjs'
+import { deltaParents } from './lib/merge-delta.mjs'
 import {
   ANCESTOR_WINDOW_DEFAULT,
   ancestorBlobOf,
@@ -191,9 +192,54 @@ export function judge({
       return { state: 'undetermined', judged: 0, why: `索引/HEAD blob 取不到:${String(e?.message ?? e).split('\n')[0]}` }
     }
   }
+  // 父提交集:非合并提交只有 HEAD(与旧行为逐字等价);合并未收口时还有 MERGE_HEAD。
+  // 判据「结果面等于任一父 ⇒ 归因该父 ⇒ 不作降级」:合并把上游的版本取进结果面不是回写,
+  // 只有"与所有父都不同"才可能是作者把内容改回旧档;真正的降级因此一枚都放不掉。
+  let upstreamParents = []
+  const parentOidByPath = new Map()
+  try {
+    const dp = deltaParents({ root, face: 'staged' })
+    upstreamParents = dp.parents.filter((p) => p.label !== 'HEAD')
+  } catch (e) {
+    if (e instanceof Undetermined) return { state: 'undetermined', judged: 0, why: e.message }
+    throw e
+  }
+  for (const p of upstreamParents) {
+    try {
+      gitRaw(['rev-parse', '--verify', `${p.rev}^{commit}`], root, { timeout: 15000 })
+    } catch (e) {
+      return {
+        state: 'undetermined',
+        judged: 0,
+        why: `${p.label} 父提交不可读:${String(e?.message ?? e).split('\n')[0]}`,
+      }
+    }
+  }
+  if (upstreamParents.length > 0) {
+    const all = [...new Set([...paths, ...worktreePaths])]
+    const specs = []
+    for (const p of upstreamParents) for (const f of all) specs.push(`${p.rev}:${f}`)
+    try {
+      const got = catBatchOids(root, specs)
+      for (const p of upstreamParents)
+        for (const f of all) {
+          const oid = got.get(`${p.rev}:${f}`)
+          if (!oid) continue
+          if (!parentOidByPath.has(f)) parentOidByPath.set(f, new Set())
+          parentOidByPath.get(f).add(String(oid).toLowerCase())
+        }
+    } catch (e) {
+      return {
+        state: 'undetermined',
+        judged: 0,
+        why: `父面 blob 取不到:${String(e?.message ?? e).split('\n')[0]}`,
+      }
+    }
+  }
   const scope = declared === null ? declaredFilesOf(env) : declared.map((s) => String(s).trim())
   const stale = []
   const judgedSet = new Set()
+  let attributedToParent = 0
   let normalizedJudged = 0
   let stagedJudged = 0
   let worktreeJudged = 0
@@ -225,6 +271,11 @@ export function judge({
     if (headOid.toLowerCase() === indexOid.toLowerCase()) continue
     judgedSet.add(p)
     stagedJudged += 1
+    // 索引内容逐字等于 MERGE_HEAD(或任一非 HEAD 父)⇒ 合并取自上游,归因该父,不是回写
+    if (parentOidByPath.get(p)?.has(indexOid.toLowerCase())) {
+      attributedToParent += 1
+      continue
+    }
     const anc = ancestorBlobOf(p, indexOid, { root, windowSize })
     if (!anc.judged) return { state: 'undetermined', judged: judgedSet.size, why: `${p}: ${anc.why}` }
     if (anc.match) {
@@ -283,6 +334,11 @@ export function judge({
     if (wtOid === hb.oid) continue
     judgedSet.add(p)
     worktreeJudged += 1
+    // 磁盘内容等于任一父面 ⇒ 归因该父(合并把上游版本取进工作树),不记本门红
+    if (parentOidByPath.get(p)?.has(wtOid.toLowerCase())) {
+      attributedToParent += 1
+      continue
+    }
     const anc = ancestorBlobOf(p, wtOid, { root, windowSize })
     if (!anc.judged)
       return { state: 'undetermined', judged: judgedSet.size, why: `${p}: ${anc.why}` }
@@ -302,6 +358,7 @@ export function judge({
     stagedJudged,
     normalizedJudged,
     worktreeJudged,
+    attributedToParent,
     formatNoise,
     declaredScope: scope.length,
     suspects,

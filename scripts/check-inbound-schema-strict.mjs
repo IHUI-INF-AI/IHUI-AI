@@ -75,6 +75,12 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
 import { maskCommentsAndStrings } from './lib/code-mask.mjs'
+import {
+  deltaParents,
+  effectiveAnchorCount,
+  newOccurrences,
+  readParentTexts,
+} from './lib/merge-delta.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const GIT_TIMEOUT = 120000
@@ -545,6 +551,39 @@ function collect(faceName, onlyFiles) {
   return { files, per }
 }
 
+/**
+ * 逐文件四维的可计数身份。身份键 = 「该文件该维的第 k 枚」:本门现职扫描口径就是
+ * 每文件计数(契约份数 / 入站消费点数 / 待偿份数),行号与声明名跨面都会漂移,
+ * 把它们纳入身份反而会破坏「非合并提交逐字等价」。用序位键后,
+ * `newOccurrences` 在单父面下的新增数恰为 `max(0, 结果读数 − 父读数)`,
+ * 于是非合并提交的有效锚点 = HEAD 读数,与旧行为逐字一致。
+ */
+export function countableKeys(judged) {
+  const out = { bareInbound: [], bareSites: [], looseDeclared: [], looseSites: [] }
+  if (!judged || judged.unreadable) return out
+  for (const dim of Object.keys(out)) {
+    for (let i = 0; i < (judged.counts?.[dim] || 0); i++) out[dim].push(`${dim}\u0000${i}`)
+  }
+  return out
+}
+
+/**
+ * 合并感知棘轮锚点:结果读数 − 本次真正新增数。父集 = HEAD ∪ MERGE_HEAD;
+ * 非合并提交父集只有 HEAD ⇒ 锚点 = HEAD 读数(旧行为)。判据仍是 `读数 > 锚点`。
+ */
+export function inboundAnchors({ result, parents }) {
+  const rk = countableKeys(result)
+  const pk = (parents || []).map(countableKeys)
+  const out = {}
+  for (const dim of Object.keys(rk)) {
+    out[dim] = effectiveAnchorCount(
+      rk[dim].length,
+      newOccurrences(rk[dim], pk.map((x) => x[dim])).length,
+    )
+  }
+  return out
+}
+
 export function analyze(face, onlyFiles = null, { strict = false } = {}) {
   let effFace = face
   let retreatReason = null
@@ -559,6 +598,9 @@ export function analyze(face, onlyFiles = null, { strict = false } = {}) {
     retreatReason = '本次暂存集里没有本门射程内的文件 ⇒ 回退 HEAD 全量面(不是"没判")'
   }
   const cur = collect(effFace, onlyFiles)
+  // 合并未收口时父集 = HEAD ∪ MERGE_HEAD;非合并时 = [HEAD](见 merge-delta 的语义)。
+  // head 面结构上没有「本次提交」这一维 ⇒ 不适用,保持原「存量只报数」。
+  const parents = effFace === 'head' ? null : deltaParents({ root: ROOT, face: effFace }).parents
   const onlyFilesUsed = onlyFiles !== null
   const totals = {
     declaredStrict: 0,
@@ -598,12 +640,19 @@ export function analyze(face, onlyFiles = null, { strict = false } = {}) {
     if (!r.counts.bareInbound && !r.counts.looseDeclared) continue
     if (effFace === 'head' && !strict) continue // 全量档:存量只报数,绝不当场判红
     if (effFace === 'staged' || effFace === 'worktree') {
-      // 棘轮锚点 = 该文件 **HEAD 自身**的存量,两维各自只许降:契约份数与入站消费点数。
-      const headText = readFace([f], 'head').get(f)
-      const capRes = headText ? judgeFile(headText) : null
-      const cap = capRes && !capRes.unreadable ? capRes.counts.bareInbound : 0
-      const capSites = capRes && !capRes.unreadable ? capRes.counts.bareSites : 0
-      const capLoose = capRes && !capRes.unreadable ? capRes.counts.looseDeclared : 0
+      // 棘轮锚点 = **每一枚父提交**(HEAD ∪ MERGE_HEAD)的存量 ⇒ 合并带入的既有条目
+      // 不记本次新增,只剩「两父都没有」的部分计入;非合并提交父集只有 HEAD,与原行为一致。
+      const parentTexts = readParentTexts({ root: ROOT, rels: [f], parents })
+      const anchors = inboundAnchors({
+        result: r,
+        parents: [...parentTexts.values()].map((m) => {
+          const t = m.get(f)
+          return t === null || t === undefined ? null : judgeFile(t)
+        }),
+      })
+      const cap = anchors.bareInbound
+      const capSites = anchors.bareSites
+      const capLoose = anchors.looseDeclared
       const overBare = r.counts.bareInbound > cap
       const overSites = r.counts.bareSites > capSites
       const overLoose = r.counts.looseDeclared > capLoose
@@ -1036,6 +1085,8 @@ export const __test__ = {
   exemptNear,
   shouldRetreatToHead,
   decideExit,
+  countableKeys,
+  inboundAnchors,
   SCAN_ROOTS,
   EXEMPT,
   FIXTURES,

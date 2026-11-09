@@ -63,7 +63,7 @@ import { flowKeysOf } from './lib/i18n-key-flow.mjs'
 // (迁移属另票)。统一入口 scripts/scan-dead-i18n-keys.mjs 的默认根已改由脚本自身位置推导,
 // 且 main(opts) 接受显式 opts.root —— 提交链与镜像测试一律走显式 root,不依赖 cwd。
 const ROOT = process.cwd()
-const LOCALES = ['zh-CN', 'en', 'ja', 'ko', 'zh-TW']
+export const LOCALES = ['zh-CN', 'en', 'ja', 'ko', 'zh-TW']
 const EXCLUDE_DIRS = new Set([
   'node_modules',
   '.next',
@@ -366,8 +366,8 @@ export function indexScannableRels(root, scanTargets) {
  * HEAD 面枚举:清单来自 `git ls-tree -r HEAD`(提交真正带上的那一份),
  * 与索引档共用同一份剪枝/归一化/排序实现 —— 不允许"索引一套目录规则、HEAD 另一套"。
  */
-export function headScannableRels(root, scanTargets) {
-  return relsFromGit(['ls-tree', '-r', '--name-only', '-z', 'HEAD', '--', ...scanTargets], root)
+export function headScannableRels(root, scanTargets, rev = 'HEAD') {
+  return relsFromGit(['ls-tree', '-r', '--name-only', '-z', rev, '--', ...scanTargets], root)
 }
 
 function relsFromGit(args, root) {
@@ -1128,6 +1128,8 @@ export function main(opts) {
       exitOnDead,
       contractHardFail,
       contractIssueCount: contractShapeIssues.length + contractViolations.length,
+      // 合并面归因需要:死键逐枚点名(已扣契约免除),调用方用它减去各父的死键集。
+      deadKeys: [...deadKeys],
     })
 
   console.log('\n=== 总览 ===')

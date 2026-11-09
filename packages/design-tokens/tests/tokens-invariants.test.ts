@@ -106,6 +106,8 @@ describe('几何档投影:dp 与 rpx 必须由同一张表派生', () => {
     // 2026-11-07 补 sidebarMaxWidth 180 / sidebarCollapsedWidth 60,并把 drawerWidth 由 250
     // 改钉 160(侧栏宽度族三端同源收口:drawerWidth 管展开默认宽、sidebarMaxWidth 管桌面拖拽上限、
     // sidebarCollapsedWidth 管折叠态;表里有几档就钉几档,漏钉即给下一次静默改值留口子)。
+    // 2026-11-07 19:57 机主最终定档:drawerWidth 锁定 160,三端统一(web 160px / RN 160dp /
+    // 小程序 320rpx);当日 19:13 的 120 中间档已废止,**此后不再改动本值**。
     expect(GEOMETRY_PX).toEqual({
       tapBox: 36,
       fabBox: 56,
