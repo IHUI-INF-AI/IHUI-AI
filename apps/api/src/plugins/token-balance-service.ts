@@ -80,6 +80,153 @@ function getVipBenefit(vipLevel: number) {
   return VIP_TOKEN_BENEFITS[vipLevel] ?? VIP_TOKEN_BENEFITS[0]!
 }
 
+/**
+ * 原子扣减用户钱包 token 余额,并在同一事务写 token_flows(opType=1)。
+ *
+ * 与 deductTokens 共用同一套 SQL 语义;抽成独立导出函数是为了让没有 Fastify server
+ * 的调用方(Crew 子 LLM)也能接上真实扣费链路,而不是只记统计表。
+ */
+export async function deductWalletTokens(input: {
+  userId: string
+  amount: number
+  reason?: string
+  idempotencyKey?: string
+  /** 调用前已读到的余额;不传时在事务内再查一次 */
+  currentBalance?: number
+}): Promise<{ success: boolean; remaining: number }> {
+  const { userId, amount, reason, idempotencyKey, currentBalance } = input
+  return db.transaction(async (tx) => {
+    const readBalance = async (): Promise<number> => {
+      if (currentBalance !== undefined) return currentBalance
+      const [row] = await tx
+        .select({ tokenQuantity: userMargins.tokenQuantity })
+        .from(userMargins)
+        .where(eq(userMargins.userId, userId))
+        .limit(1)
+      return row?.tokenQuantity ?? 0
+    }
+
+    // G3:事务内幂等检查(依赖 unique index (related_order_no, op_type))
+    if (idempotencyKey) {
+      const existing = await tx.execute(sql`
+        SELECT 1 FROM "token_flows"
+        WHERE "related_order_no" = ${idempotencyKey} AND "op_type" = 1
+        LIMIT 1
+      `)
+      if (existing.length > 0) {
+        return { success: true, remaining: await readBalance() }
+      }
+    }
+
+    // 原子 UPDATE + WHERE 余额检查 + RETURNING(0 行 = 余额不足或用户不存在)
+    const updated = await tx
+      .update(userMargins)
+      .set({
+        tokenQuantity: sql`${userMargins.tokenQuantity} - ${amount}`,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(userMargins.userId, userId), sql`${userMargins.tokenQuantity} >= ${amount}`))
+      .returning({ tokenQuantity: userMargins.tokenQuantity })
+
+    if (updated.length === 0) {
+      return { success: false, remaining: await readBalance() }
+    }
+
+    const newBalance = updated[0]!.tokenQuantity
+    await tx.execute(sql`
+      INSERT INTO "token_flows" ("user_id", "op_type", "quantity", "balance_after", "remark", "related_order_no", "created_at")
+      VALUES (${userId}, 1, ${amount}, ${newBalance}, ${reason ?? 'api_call'}, ${idempotencyKey ?? null}, now())
+      ON CONFLICT ("related_order_no", "op_type") DO NOTHING
+    `)
+    return { success: true, remaining: newBalance }
+  })
+}
+
+/**
+ * 读取用户钱包真实余额(主库)。
+ * 预检必须走主库:副本延迟会让「余额为 0 的用户」在预检时看到旧余额而放行。
+ */
+export async function getWalletBalance(userId: string): Promise<number> {
+  const [row] = await db
+    .select({ tokenQuantity: userMargins.tokenQuantity })
+    .from(userMargins)
+    .where(eq(userMargins.userId, userId))
+    .limit(1)
+  return row?.tokenQuantity ?? 0
+}
+
+/**
+ * 结算一次「已经发生」的用量:余额够就全额扣,不够则扣到 0,差额作为欠额返回。
+ *
+ * 与 deductWalletTokens 的区别:后者余额不足时整笔不扣(适合调用前已预检的路径);
+ * 本函数用于上游调用已经产生成本、无法撤回的场景 —— 能扣多少扣多少,
+ * 欠额由调用方落可审计记录(不能只打日志,否则等于平台白送)。
+ */
+export async function settleWalletUsage(input: {
+  userId: string
+  amount: number
+  reason?: string
+  /** 幂等键:队列重试时同一笔不重复结算(依赖 token_flows 唯一索引) */
+  idempotencyKey?: string
+}): Promise<{ deducted: number; remaining: number; shortfall: number }> {
+  const { userId, amount, reason, idempotencyKey } = input
+  if (amount <= 0) {
+    return { deducted: 0, remaining: await getWalletBalance(userId), shortfall: 0 }
+  }
+  return db.transaction(async (tx) => {
+    // FOR UPDATE 锁住该行:避免并发结算把同一笔余额重复扣掉。
+    const [row] = await tx
+      .select({ tokenQuantity: userMargins.tokenQuantity })
+      .from(userMargins)
+      .where(eq(userMargins.userId, userId))
+      .limit(1)
+      .for('update')
+    const balance = row?.tokenQuantity ?? 0
+
+    // 重试幂等:这笔已经结算过 ⇒ 不再扣,也不重复记欠额。
+    if (idempotencyKey) {
+      const existing = await tx.execute(sql`
+        SELECT 1 FROM "token_flows"
+        WHERE "related_order_no" = ${idempotencyKey} AND "op_type" = 1
+        LIMIT 1
+      `)
+      if (existing.length > 0) {
+        return { deducted: 0, remaining: balance, shortfall: 0 }
+      }
+    }
+    const deducted = Math.min(balance, amount)
+    const shortfall = amount - deducted
+
+    if (deducted <= 0) {
+      return { deducted: 0, remaining: balance, shortfall }
+    }
+
+    const updated = await tx
+      .update(userMargins)
+      .set({
+        tokenQuantity: sql`${userMargins.tokenQuantity} - ${deducted}`,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(eq(userMargins.userId, userId), sql`${userMargins.tokenQuantity} >= ${deducted}`),
+      )
+      .returning({ tokenQuantity: userMargins.tokenQuantity })
+
+    if (updated.length === 0) {
+      // 行锁下不应发生;真发生就按未扣处理,绝不写一条没发生的流水。
+      return { deducted: 0, remaining: balance, shortfall: amount }
+    }
+
+    const remaining = updated[0]!.tokenQuantity
+    await tx.execute(sql`
+      INSERT INTO "token_flows" ("user_id", "op_type", "quantity", "balance_after", "remark", "related_order_no", "created_at")
+      VALUES (${userId}, 1, ${deducted}, ${remaining}, ${reason ?? 'api_call'}, ${idempotencyKey ?? null}, now())
+      ON CONFLICT ("related_order_no", "op_type") DO NOTHING
+    `)
+    return { deducted, remaining, shortfall }
+  })
+}
+
 const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   const redis = server.redis
 
@@ -181,51 +328,12 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
 
       // P0 修复:幂等检查 + 原子扣减 + 流水写入全部包在事务内,
       // 防止 UPDATE 成功后 INSERT 失败导致余额扣了无流水。
-      const result = await db.transaction(async (tx) => {
-        // G3: 事务内幂等检查 - 若 idempotencyKey 已存在于 token_flows(同 op_type=1 扣减),
-        // 说明是 BullMQ 重试重复消费,直接返回当前余额不重复扣
-        // (依赖 G2 已建的 unique index (related_order_no, op_type))
-        if (idempotencyKey) {
-          const existing = await tx.execute(sql`
-            SELECT 1 FROM "token_flows"
-            WHERE "related_order_no" = ${idempotencyKey} AND "op_type" = 1
-            LIMIT 1
-          `)
-          if (existing.length > 0) {
-            return { success: true, remaining: info.balance }
-          }
-        }
-
-        // 原子 UPDATE + WHERE 余额检查 + RETURNING
-        // (0 行影响 = 余额不足 OR 用户不存在 → success=false)
-        const updated = await tx
-          .update(userMargins)
-          .set({
-            tokenQuantity: sql`${userMargins.tokenQuantity} - ${actualAmount}`,
-            updatedAt: new Date(),
-          })
-          .where(
-            and(
-              eq(userMargins.userId, userId),
-              sql`${userMargins.tokenQuantity} >= ${actualAmount}`,
-            ),
-          )
-          .returning({ tokenQuantity: userMargins.tokenQuantity })
-
-        if (updated.length === 0) {
-          return { success: false, remaining: info.balance }
-        }
-
-        const newBalance = updated[0]!.tokenQuantity
-
-        // 写流水:事务内,失败回滚 UPDATE(带 ON CONFLICT DO NOTHING 幂等兜底)
-        await tx.execute(sql`
-          INSERT INTO "token_flows" ("user_id", "op_type", "quantity", "balance_after", "remark", "related_order_no", "created_at")
-          VALUES (${userId}, 1, ${actualAmount}, ${newBalance}, ${reason ?? 'api_call'}, ${idempotencyKey ?? null}, now())
-          ON CONFLICT ("related_order_no", "op_type") DO NOTHING
-        `)
-
-        return { success: true, remaining: newBalance }
+      const result = await deductWalletTokens({
+        userId,
+        amount: actualAmount,
+        reason,
+        idempotencyKey,
+        currentBalance: info.balance,
       })
 
       // 事务提交成功后:invalidate cache + VIP 折扣埋点(事务外,失败不影响主流程)

@@ -28,7 +28,8 @@ async function gotoPage(page: Page) {
 setupTest.describe('账号代理管理页', () => {
   setupTest('入口与文案已归「账号代理」,表头为「代理地址」', async ({ adminPage }) => {
     await gotoPage(adminPage)
-    if (!adminPage.url().includes(PATH)) return setupTest.skip()
+    if (!adminPage.url().includes(PATH))
+      return setupTest.skip(true, '当前登录账号未能进入管理端账号代理路由 [SKIP:SKIP-0009]')
 
     await expect(adminPage.getByRole('heading', { level: 1, name: '账号代理' })).toBeVisible()
     await expect(adminPage.locator('th', { hasText: '代理地址' }).first()).toBeVisible()
@@ -37,7 +38,8 @@ setupTest.describe('账号代理管理页', () => {
 
   setupTest('代理状态筛选把 hasProxy=true 带到库侧', async ({ adminPage }) => {
     await gotoPage(adminPage)
-    if (!adminPage.url().includes(PATH)) return setupTest.skip()
+    if (!adminPage.url().includes(PATH))
+      return setupTest.skip(true, '当前登录账号未能进入管理端账号代理路由 [SKIP:SKIP-0010]')
 
     const requested = adminPage
       .waitForRequest(
@@ -54,7 +56,8 @@ setupTest.describe('账号代理管理页', () => {
 
   setupTest('设置代理→脱敏回显→清除回直连(只动停用且未配置的账号)', async ({ adminPage }) => {
     await gotoPage(adminPage)
-    if (!adminPage.url().includes(PATH)) return setupTest.skip()
+    if (!adminPage.url().includes(PATH))
+      return setupTest.skip(true, '当前登录账号未能进入管理端账号代理路由 [SKIP:SKIP-0011]')
 
     const rows = adminPage.locator('table tbody tr')
     // 等列表落定:骨架行的 innerText 是空的,数据行才带平台名
@@ -84,7 +87,8 @@ setupTest.describe('账号代理管理页', () => {
     }
 
     const row = rows.filter({ hasText: '停用' }).filter({ hasText: '直连' }).first()
-    if (!(await row.isVisible().catch(() => false))) return setupTest.skip()
+    if (!(await row.isVisible().catch(() => false)))
+      return setupTest.skip(true, '账号列表中没有「停用且直连」的可探针行 [SKIP:SKIP-0012]')
 
     await row.getByRole('button', { name: '设置代理' }).click()
     // 页面另有一枚 aria-label="显示代理地址" 的按钮,getByLabel('代理地址') 会双命中

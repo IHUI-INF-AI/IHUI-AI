@@ -70,10 +70,12 @@ function firstWritten(): { filepath: string; content: string } {
 
 describe('crash-handler 进程级异常边界(G-610)', () => {
   let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
-  let initialExitCode: number | undefined;
-  let initialUncaught: Array<(...args: never[]) => void>;
-  let initialUnhandled: Array<(...args: never[]) => void>;
-  let initialMonitor: Array<(...args: never[]) => void>;
+  // 三组监听器按**事件各自**的签名声明:`process.on(event, l)` 的重载只认本事件的形,
+  // 用 `(...args: never[]) => void` 统一糊住会让还原那一步落进"无匹配重载"。
+  let initialExitCode: typeof process.exitCode;
+  let initialUncaught: Array<(err: Error, origin: NodeJS.UncaughtExceptionOrigin) => void>;
+  let initialUnhandled: Array<(reason: unknown, promise: Promise<unknown>) => void>;
+  let initialMonitor: Array<(err: Error, origin: NodeJS.UncaughtExceptionOrigin) => void>;
 
   beforeEach(() => {
     vi.clearAllMocks();

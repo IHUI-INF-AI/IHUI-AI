@@ -37,7 +37,7 @@ export function LiveQuickActions({
         onPress={onPressHost}
         style={[styles.action, styles.actionPrimary]}
       >
-        <Text style={[styles.label, styles.labelPrimary]} numberOfLines={1}>
+        <Text style={[styles.label, styles.actionPrimaryText]} numberOfLines={1}>
           {labels.host}
         </Text>
       </TouchableOpacity>
@@ -97,8 +97,8 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: rnType.body.size,
       color: tk.text.primary,
     },
-    labelPrimary: {
-      color: tk.surface.light,
+    actionPrimaryText: {
+      color: tk.brand.ctaForeground,
       fontWeight: '600',
     },
   })

@@ -23,6 +23,7 @@ import {
   getDefaultTelemetryClient,
   _resetDefaultClientForTest,
   redactSensitive,
+  type TelemetryTimerHandle,
 } from '../src/telemetry/index.js';
 
 // === 辅助:构造 mock fetch ===
@@ -36,14 +37,16 @@ function createMockFetch(ok: boolean = true, status: number = 200) {
 }
 
 // === 辅助:构造可控制的 mock 定时器 ===
+// 注入面是 `TelemetrySetInterval` / `TelemetryClearInterval`(只声明客户端真正用到的形态),
+// 因此替身可以如实返回一个句柄编号,不需要任何 `as` 断言。
 function createMockTimers() {
   const intervals: Array<() => void> = [];
-  const setIntervalImpl = vi.fn((cb: () => void, _ms: number) => {
+  const setIntervalImpl = vi.fn((cb: () => void, _ms: number): TelemetryTimerHandle => {
     const id = intervals.length;
     intervals.push(cb);
-    return id as unknown as NodeJS.Timeout;
+    return id;
   });
-  const clearIntervalImpl = vi.fn((_id: NodeJS.Timeout) => {
+  const clearIntervalImpl = vi.fn((_id: TelemetryTimerHandle): void => {
     // mock no-op
   });
   return {

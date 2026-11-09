@@ -597,4 +597,162 @@ test('字段级尺子: migration 多出列(TS 无)→ extra columns 信息级,�
     rmScratch(root)
   }
 })
+
+// ─── 21-25. 外键名称级维度(2026-11-07,warn-only 起步) ───────────────
+// 夹具三组:有(合法不红) / 无(迁移有·声明无) / 名字不一致;外加阴性对照与未判定面。
+const FK_MIG_SQL =
+  `CREATE TABLE "users" (\n  ${STD_COLS}\n);\n` +
+  `CREATE TABLE "posts" (\n  ${STD_COLS},\n  "user_id" text\n);\n` +
+  `ALTER TABLE "posts" ADD CONSTRAINT "fk_posts_user" FOREIGN KEY ("user_id") REFERENCES "users"("id");\n`
+
+function writeFkMeta(root, entries, snapshots) {
+  const dir = join(root, 'packages', 'database', 'drizzle', 'meta')
+  mkdirSync(dir, { recursive: true })
+  writeFileSync(
+    join(dir, '_journal.json'),
+    JSON.stringify({ version: '7', dialect: 'postgresql', entries }),
+  )
+  for (const [num, snapshot] of Object.entries(snapshots)) {
+    writeFileSync(join(dir, `${num}_snapshot.json`), JSON.stringify(snapshot))
+  }
+}
+
+// 只保留判定面需要的 foreignKeys;tableTo/columnsTo 与迁移侧同形
+function fkSnapshot(fkByTable) {
+  return {
+    tables: Object.fromEntries(
+      Object.entries(fkByTable).map(([table, foreignKeys]) => [
+        `public.${table}`,
+        { foreignKeys },
+      ]),
+    ),
+  }
+}
+
+function fkFixtureRoot() {
+  const root = createTempProject()
+  writeSchema(root, 'users.ts', [['users', 'users']])
+  writeSchema(root, 'posts.ts', [['posts', 'posts']], [
+    { tsName: 'userId', dbName: 'user_id', type: 'text' },
+  ])
+  writeMigration(root, '0000_init.sql', FK_MIG_SQL)
+  writeFkMeta(root, [{ idx: 0, tag: '0000_init' }], {})
+  return root
+}
+
+test('FK 名称级: 迁移终态与 snapshot 同形 → 不红(exit 0)', () => {
+  const root = fkFixtureRoot()
+  try {
+    writeFkMeta(root, [{ idx: 0, tag: '0000_init' }], {
+      '0000': fkSnapshot({
+        users: {},
+        posts: {
+          fk_posts_user: {
+            name: 'fk_posts_user',
+            tableFrom: 'posts',
+            columnsFrom: ['user_id'],
+            tableTo: 'users',
+            columnsTo: ['id'],
+          },
+        },
+      }),
+    })
+    const r = runScript(root)
+    assertPass(r)
+    assert.match(r.stdout, /FK name-level:\s+1 条迁移终态 \/ 1 条声明末态/)
+    assert.match(r.stdout, /迁移有·声明无:\s+0/)
+  } finally {
+    rmScratch(root)
+  }
+})
+
+test('FK 名称级: 迁移有/声明无 → 默认 warn 不阻断(exit 0),--strict 才 exit 1', () => {
+  const root = fkFixtureRoot()
+  try {
+    writeFkMeta(root, [{ idx: 0, tag: '0000_init' }], {
+      '0000': fkSnapshot({ users: {}, posts: {} }),
+    })
+    const warn = runScript(root)
+    assertPass(warn)
+    assert.match(warn.stdout, /迁移有·声明无:\s+1/)
+    assert.match(warn.stdout, /fk_posts_user/, 'warn 档也应点名掉约束的 FK')
+    const strict = runScript(root, ['--strict'])
+    assert.equal(strict.status, 1, `--strict 应 exit 1,实际 ${strict.status}`)
+    assert.match(strict.stdout, /schema drift check 失败/)
+    assert.match(strict.stdout, /fk_posts_user/)
+  } finally {
+    rmScratch(root)
+  }
+})
+
+test('FK 名称级: 名字不一致 → 同列序也算掉约束(阴性对照 + strict exit 1)', () => {
+  const root = fkFixtureRoot()
+  try {
+    writeFkMeta(root, [{ idx: 0, tag: '0000_init' }], {
+      '0000': fkSnapshot({
+        users: {},
+        posts: {
+          fk_posts_user_legacy: {
+            name: 'fk_posts_user_legacy',
+            tableFrom: 'posts',
+            columnsFrom: ['user_id'],
+            tableTo: 'users',
+            columnsTo: ['id'],
+          },
+        },
+      }),
+    })
+    const strict = runScript(root, ['--strict'])
+    assert.equal(strict.status, 1, `名字不一致应 exit 1,实际 ${strict.status}`)
+    assert.match(strict.stdout, /fk_posts_user/, '必须点名迁移侧名字 fk_posts_user')
+  } finally {
+    rmScratch(root)
+  }
+})
+
+test('FK 名称级: snapshot 缺 foreignKeys 字段 → 未判定 exit 2(不记绿)', () => {
+  const root = fkFixtureRoot()
+  try {
+    writeFkMeta(root, [{ idx: 0, tag: '0000_init' }], {
+      '0000': { tables: { 'public.users': { columns: {} } } },
+    })
+    const r = runScript(root)
+    assert.equal(r.status, 2, `应 exit 2,实际 ${r.status}\nstdout: ${r.stdout}`)
+    assert.match(r.stdout, /外键名称级维度未判定/)
+    assert.match(r.stdout, /foreignKeys/)
+  } finally {
+    rmScratch(root)
+  }
+})
+
+test('FK 名称级: 动态 DDL(EXECUTE format)记未判定不折红(exit 0)', () => {
+  const root = fkFixtureRoot()
+  try {
+    writeMigration(
+      root,
+      '0000_init.sql',
+      FK_MIG_SQL +
+        `DO $$ BEGIN EXECUTE format('CREATE TABLE %I ("id" text)', 'dyn_tbl'); END $$;\n`,
+    )
+    writeFkMeta(root, [{ idx: 0, tag: '0000_init' }], {
+      '0000': fkSnapshot({
+        users: {},
+        posts: {
+          fk_posts_user: {
+            name: 'fk_posts_user',
+            tableFrom: 'posts',
+            columnsFrom: ['user_id'],
+            tableTo: 'users',
+            columnsTo: ['id'],
+          },
+        },
+      }),
+    })
+    const r = runScript(root)
+    assertPass(r)
+    assert.match(r.stdout, /动态 DDL\(EXECUTE format\)未纳入 FK 判定/)
+  } finally {
+    rmScratch(root)
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -27,11 +27,11 @@
  *   node scripts/check-egress-builtin-list-sync.mjs --self-test
  */
 import { existsSync, readFileSync } from 'node:fs'
-import { spawnSync } from 'node:child_process'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { ARTIFACT_REL, buildManifest, loadTsEngines, serialize } from './generate-egress-builtin-list.mjs'
+import { gitRaw } from './lib/face-reader.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const RUST_GATE_REL = 'apps/desktop/src-tauri/src/egress_gate.rs'
@@ -61,15 +61,12 @@ function readFace (face, rel) {
 }
 
 function runGit (args) {
-  const r = spawnSync('git', ['-c', 'safe.directory=*', '-C', ROOT, ...args], {
-    encoding: 'utf8',
-    windowsHide: true,
-    stdio: ['ignore', 'pipe', 'pipe'],
-    maxBuffer: 1 << 26,
-  })
-  if (r.error) throw new Undetermined(`git 派生失败(${args[0]}): ${r.error.message}`)
-  if (r.status !== 0) return null
-  return String(r.stdout ?? '')
+  try {
+    return String(gitRaw(args, ROOT, { timeout: 60_000, maxBuffer: 1 << 26 }) ?? '')
+  } catch (e) {
+    if (typeof e?.status === 'number') return null
+    throw new Undetermined(`git 派生失败(${args[0]}): ${e?.message ?? e}`)
+  }
 }
 
 /** L1:产物 ⇄ TS 源(逐字节)。 */

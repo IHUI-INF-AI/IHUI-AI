@@ -47,7 +47,10 @@ const hoisted = vi.hoisted(() => ({
 }))
 
 vi.mock('../../plugins/require-permission.js', () => ({
-  requireAdmin: async () => {},
+  // 2026-11-07 起 import 的 owner 只能来自承载层 request.userId;旧桩不放行主体 ⇒ 恒 401。
+  requireAdmin: async (request: { userId?: string }) => {
+    request.userId = '00000000-0000-4000-8000-00000000ad02'
+  },
 }))
 vi.mock('../../db/index.js', () => ({
   db: {

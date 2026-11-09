@@ -659,7 +659,7 @@ Pydantic Settings,字段名统一小写(与 services/routers 既有代码一致)
 | `OTEL_SERVICE_NAME` | `@ihui/ai-service` | 服务名 |
 | `OTEL_TRACES_SAMPLER` | `traceidratio` | 采样器 |
 | `OTEL_TRACES_SAMPLER_ARG` | `0.1` | 采样率(10%) |
-| `AGENT_EXECUTOR` | `langgraph` | Agent 执行器开关,`loop_v2` 启用 AgentLoopV2(见下) |
+| `AGENT_EXECUTOR` | `loop_v2` | Agent 执行器开关;`langgraph`/`v1`/`legacy` 为显式回退档(见下) |
 
 #### JWT_PUBLIC_PATHS 的三条**不由部署配置决定**的边界(2026-09-21 立,O17 + O19 收口)
 
@@ -689,15 +689,20 @@ Pydantic Settings,字段名统一小写(与 services/routers 既有代码一致)
 配套镜像测试:`scripts/tests/e2e-agent-access-never-public.test.mjs`,含"往清单里加一个根 → 守门立即跟随变红"
 与"判据函数签名不接受『代码侧是否已净化』这个入参"两条结构性断言,专门防止 fail-safe 把违规洗成绿色。
 
-#### Agent 执行器开关(AGENT_EXECUTOR,2026-08-12 立)
+#### Agent 执行器开关(AGENT_EXECUTOR,2026-08-12 立;2026-11-09 纠正默认档)
 
-- **默认 `langgraph`(不设置即保持现状)**:agent 任务走原 LangGraph 工作流(`langgraph_service.py`,plan → execute → summarize)。
-- **`AGENT_EXECUTOR=loop_v2`**:agent 任务改走 AgentLoopV2(`agent_loop_v2.py`),启用后具备:
+- **默认 `loop_v2`(不设置即走 V2)**:agent 任务走 AgentLoopV2(`agent_loop_v2.py`),具备:
   - LLM 指数退避重试 + 工具瞬时重试(抗瞬时故障)
   - 错误六分类(精准定位失败原因)
   - 元学习闭环(技能自进化)
   - 事件总线实时可视化(任务进度可观测)
-- **启用方式**:在 `apps/ai-service/.env` 中设置 `AGENT_EXECUTOR=loop_v2` 后重启 ai-service。生产环境切换前建议先在预发环境验证任务成功率与可观测性。
+  - 工具全量 function calling + 审批投递通道(高危工具默认需审批)
+- **`AGENT_EXECUTOR=langgraph|v1|legacy` = 显式回退档**:走已弃用的单轮执行器 `AgentExecutor`(`agent_loop.py`)。该档:
+  - 只暴露**只读工具面**:需审批的写盘/起 shell 等工具不下发(V1 无审批投递通道,不做无人审批执行);
+  - 配了工具却全程零工具执行时如实返回 `failed`(`zero_tool_calls`),不再伪报 `completed`;
+  - 流式端点返回 `EXECUTOR_DISABLED`(V2 是唯一受支持的流式执行器)。
+- **为何纠正**:旧模板与本文把 `langgraph` 写成默认档,照模板配置会让每个 agent 任务都落到零工具的 V1,流式端点直接不可用;审计报告(`docs/plan-audit-2026-09-25/wave3-G1.md`)已把该配置陷阱单列为可机检缺陷。
+- **启用方式**:`apps/ai-service/.env` 中设置 `AGENT_EXECUTOR=loop_v2`(或直接不设置)后重启 ai-service。
 
 ### LLM Provider Key(任选一个激活真实调用,全部为空降级 stub)
 

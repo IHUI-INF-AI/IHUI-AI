@@ -25,6 +25,9 @@ vi.mock('../src/plugins/require-permission.js', () => ({
   requireAdmin: mockRequireAdmin,
   requirePermission: vi.fn(),
   requireAuth: vi.fn(),
+  // 2026-11 集中特权谓词:agents.ts 的属主/管理员分支改用 isSystemAdmin;
+  // 本文件全部用例都按普通登录用户跑,固定 false 才与旧断言(非属主 403/公开投影)一致。
+  isSystemAdmin: vi.fn(() => false),
 }))
 
 vi.mock('../src/config/index.js', () => ({

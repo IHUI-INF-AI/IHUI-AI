@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { eq, and, desc, sql, isNull } from 'drizzle-orm'
+import { eq, and, desc, sql, isNull, gt } from 'drizzle-orm'
 import { db } from './index.js'
 import {
   oauthApps,
@@ -146,8 +146,23 @@ export async function findSessionByCode(code: string) {
   return rows[0]
 }
 
-export async function markSessionUsed(code: string) {
-  await db.update(oauthSessions).set({ isUsed: true }).where(eq(oauthSessions.code, code))
+/**
+ * 原子消费授权码(F-244):把「先查后标」改成单条条件 UPDATE,返回是否抢到。
+ * 并发两次换码只有一次能拿到 true,另一路按无效处理 —— 此前两路都能换出 token。
+ */
+export async function markSessionUsed(code: string): Promise<boolean> {
+  const rows = await db
+    .update(oauthSessions)
+    .set({ isUsed: true })
+    .where(
+      and(
+        eq(oauthSessions.code, code),
+        eq(oauthSessions.isUsed, false),
+        gt(oauthSessions.expiresAt, new Date()),
+      ),
+    )
+    .returning({ code: oauthSessions.code })
+  return rows.length > 0
 }
 
 export async function listUserSessions(userId: string) {
@@ -355,12 +370,14 @@ export async function listUserSk(userId: string, page: number, limit: number) {
 }
 
 export async function updateUserSk(id: string, userId: string, status: number) {
-  return db
-    .update(userSk)
-    .set({ status, updatedAt: new Date() })
-    // status-guard-exempt: 通用状态 setter——目标值由调用方传入,终态合法性由服务层/路由层裁决,非固定出向终态写点
-    .where(and(eq(userSk.id, id), eq(userSk.userId, userId)))
-    .returning({ id: userSk.id })
+  return (
+    db
+      .update(userSk)
+      .set({ status, updatedAt: new Date() })
+      // status-guard-exempt: 通用状态 setter——目标值由调用方传入,终态合法性由服务层/路由层裁决,非固定出向终态写点
+      .where(and(eq(userSk.id, id), eq(userSk.userId, userId)))
+      .returning({ id: userSk.id })
+  )
 }
 
 /**

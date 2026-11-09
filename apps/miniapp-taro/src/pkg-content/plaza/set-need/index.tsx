@@ -6,7 +6,7 @@ import { useI18n } from '@/i18n'
 import { View, Text, Button } from '@tarojs/components'
 import { logger } from '@/utils/logger'
 import Taro, { useDidShow } from '@tarojs/taro'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { get, post } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 import { onToast } from '@/host/on-toast'
@@ -28,6 +28,14 @@ export default function SetNeed() {
   const [level, setLevel] = useState('')
   const [budget, setBudget] = useState('')
   const [saving, setSaving] = useState(false)
+  // 保存成功后的延迟返回定时器:存引用以便卸载时取消,否则用户自行返回会多退一层页面
+  const navigateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(
+    () => () => {
+      if (navigateTimerRef.current) clearTimeout(navigateTimerRef.current)
+    },
+    [],
+  )
 
   const categories = tList('plaza.setNeed.categories')
   const levels = tList('plaza.setNeed.levels')
@@ -61,7 +69,7 @@ export default function SetNeed() {
     try {
       await post('/plaza/need', { categories: selected, level, budget })
       onToast(t('plaza.setNeed.saved'), { kind: 'success' })
-      setTimeout(() => Taro.navigateBack(), 800)
+      navigateTimerRef.current = setTimeout(() => Taro.navigateBack(), 800)
     } catch (e) {
       logger.error('plaza/set-need', 'save', e)
     } finally {

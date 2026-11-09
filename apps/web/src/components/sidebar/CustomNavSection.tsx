@@ -130,31 +130,33 @@ function SortableCustomItem({
           '[@media(hover:none)]:pointer-events-auto',
         )}
       >
-        <button
-          type="button"
-          {...attributes}
-          {...listeners}
-          aria-label={dragLabel}
-          title={dragLabel}
-          data-testid={`nav-custom-drag-${item.href}`}
-          className="flex h-6 w-6 cursor-grab touch-none items-center justify-center rounded-sm text-muted-foreground/60 transition-colors hover:bg-foreground/10 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing"
-        >
-          <GripVertical className="h-3.5 w-3.5" />
-        </button>
-        <button
-          type="button"
-          onClick={(e) => {
-            e.preventDefault()
-            e.stopPropagation()
-            onRemove(item.href)
-          }}
-          aria-label={removeLabel}
-          title={removeLabel}
-          data-testid={`nav-custom-remove-${item.href}`}
-          className="flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground/60 transition-colors hover:bg-foreground/10 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <X className="h-3.5 w-3.5" />
-        </button>
+        <Tooltip content={dragLabel}>
+          <button
+            type="button"
+            {...attributes}
+            {...listeners}
+            aria-label={dragLabel}
+            data-testid={`nav-custom-drag-${item.href}`}
+            className="flex h-6 w-6 cursor-grab touch-none items-center justify-center rounded-sm text-muted-foreground/60 transition-colors hover:bg-foreground/10 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing"
+          >
+            <GripVertical className="h-3.5 w-3.5" />
+          </button>
+        </Tooltip>
+        <Tooltip content={removeLabel}>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              onRemove(item.href)
+            }}
+            aria-label={removeLabel}
+            data-testid={`nav-custom-remove-${item.href}`}
+            className="flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground/60 transition-colors hover:bg-foreground/10 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </Tooltip>
       </div>
     </div>
   )
@@ -280,16 +282,17 @@ const CustomNavSection = React.memo(function CustomNavSection({
         <span className="min-w-0 whitespace-nowrap text-left text-body font-semibold uppercase tracking-wider text-muted-foreground/60">
           {t('customGroup')}
         </span>
-        <button
-          type="button"
-          onClick={openDialog}
-          aria-label={t('customAddTitle')}
-          title={t('customAddTitle')}
-          data-testid="nav-custom-add"
-          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-sm text-muted-foreground/60 transition-colors hover:bg-sidebar-item-hover-bg hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <Plus className="h-4 w-4" />
-        </button>
+        <Tooltip content={t('customAddTitle')}>
+          <button
+            type="button"
+            onClick={openDialog}
+            aria-label={t('customAddTitle')}
+            data-testid="nav-custom-add"
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-sm text-muted-foreground/60 transition-colors hover:bg-sidebar-item-hover-bg hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <Plus className="h-4 w-4" />
+          </button>
+        </Tooltip>
       </div>
 
       {customItems.length === 0 ? (

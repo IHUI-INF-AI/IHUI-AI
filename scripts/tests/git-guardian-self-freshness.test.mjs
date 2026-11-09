@@ -146,8 +146,7 @@ test('T2 有新文件且未超熔断 ⇒ 触发一次,审计行含触发文件�
 test('T3 同窗口第二次 ⇒ 只判红不重启', () => {
   const dir = mkScratch('guardian-self-freshness-t3-')
   try {
-    const staleScan = () =>
-      scanOk(START_AT + 5_000)
+    const staleScan = () => scanOk(START_AT + 5_000)
     const first = run({ dir, scan: staleScan, now: T0 })
     const second = run({ dir, scan: staleScan, now: T0 + 30 * 60 * 1000 })
     assert.equal(first.r.restarted, true)
@@ -155,7 +154,11 @@ test('T3 同窗口第二次 ⇒ 只判红不重启', () => {
     assert.equal(second.r.restarted, false)
     assert.equal(second.r.breaker, true, '第二次必须命中熔断,只报红')
     assert.equal(first.restarts.length + second.restarts.length, 1, '窗口内总动作次数 = 1')
-    assert.equal(first.notifies.length + second.notifies.length, 2, '每轮都要判红,熔断只压动作不压判据')
+    assert.equal(
+      first.notifies.length + second.notifies.length,
+      2,
+      '每轮都要判红,熔断只压动作不压判据',
+    )
     assert.match(second.logs.join('\n'), /熔断/)
   } finally {
     rmScratch(dir, { bestEffort: true })
@@ -173,5 +176,116 @@ test('T4 扫描面:排除 tests/data,只收 .mjs 与 scripts/lib 全量', () => 
     assert.ok(!/\/data\//.test(rel), `扫描面混进了配置/台账: ${rel}`)
     assert.ok(/\.mjs$/.test(rel) || /\/scripts\/lib\//.test(rel), `扫描面混进了非源码文件: ${rel}`)
   }
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 闭包档(2026-11-05 立)。现读证据:扫描面是全 scripts/(1054 枚),而绝大多数是被 spawn 的子脚本
+// —— 子进程每次都用盘上最新字节,常驻守护载不载与它们无关。本仓活跃时"比进程新"结构性恒真:
+// 24h 内该主题寄了 7 封、身份在 3 个之间跳,并为"无关文件的字节"重启了 4 次常驻守护。
+// 这不是把告警调宽,是把**量错的对象**修窄;被排除的枚数照实进读数,量窄这件事本身不许静默。
+// ─────────────────────────────────────────────────────────────────────────────
+function scanTwo(newOnes) {
+  const files = [
+    { path: 'scripts/git-guardian.mjs', mtimeMs: T0 - 120_000 },
+    { path: 'scripts/lib/in-proc.mjs', mtimeMs: T0 - 120_000 },
+    { path: 'scripts/check-spawned.mjs', mtimeMs: T0 - 120_000 },
+  ].map((f) => (newOnes.includes(f.path) ? { ...f, mtimeMs: T0 + 1000 } : f))
+  return {
+    ok: true,
+    scanned: files.length,
+    files,
+    maxSourceMtime: Math.max(...files.map((f) => f.mtimeMs)),
+    maxSourceFile: 'scripts/check-spawned.mjs',
+    unreadable: [],
+  }
+}
+const CLOSURE = { set: new Set(['scripts/git-guardian.mjs', 'scripts/lib/in-proc.mjs']), why: '' }
+
+function runClosure({ dir, scan, closure }) {
+  const trace = { restarts: 0, notifies: [], logs: [] }
+  const r = auditGuardianCodeFreshness({
+    now: T0,
+    processStartAt: START_AT,
+    scan,
+    closure,
+    stateFile: join(dir, 'self-last.json'),
+    auditFile: join(dir, 'self-audit.jsonl'),
+    daemon: true,
+    checkOnly: false,
+    enabled: true,
+    logger: (m) => trace.logs.push(String(m)),
+    notify: (name, detail, opts) => trace.notifies.push({ name, detail, opts }),
+    doRestart: () => {
+      trace.restarts += 1
+      return { ok: true, pid: 1 }
+    },
+    beforeRestart: () => {},
+  })
+  return { r, trace }
+}
+
+const CLS = '闭包档'
+test(`${CLS}① 闭包内那枚比进程新 ⇒ 仍判红,且读数写明"排除几枚 spawn 面"`, async () => {
+  const dir = mkScratch('gsf-')
+  try {
+    const { r, trace } = runClosure({
+      dir,
+      scan: () => scanTwo(['scripts/lib/in-proc.mjs', 'scripts/check-spawned.mjs']),
+      closure: CLOSURE,
+    })
+    assert.notEqual(r.state, 'ok', '闭包内变新必须仍喊')
+    assert.equal(trace.notifies.length, 1)
+    assert.match(trace.logs.join('\n'), /排除 1 枚非本进程加载/)
+    assert.match(String(trace.notifies[0].opts.dedupKey), /:closure:/)
+  } finally {
+    rmScratch(dir, { bestEffort: true })
+  }
+})
+test(`${CLS}② 成对反向:只有 spawn 面变新 ⇒ ok、零发信、零重启`, async () => {
+  const dir = mkScratch('gsf-')
+  try {
+    const { r, trace } = runClosure({
+      dir,
+      scan: () => scanTwo(['scripts/check-spawned.mjs']),
+      closure: CLOSURE,
+    })
+    assert.equal(r.state, 'ok')
+    assert.equal(trace.notifies.length, 0, '与常驻进程无关的字节变化不该喊到人')
+    assert.equal(trace.restarts, 0, '更不该为它重启常驻守护')
+    assert.match(trace.logs.join('\n'), /都在 spawn 面/)
+  } finally {
+    rmScratch(dir, { bestEffort: true })
+  }
+})
+test(`${CLS}③ 闭包取不到 ⇒ 退回全量判并点名原因,绝不因量不到而放绿`, async () => {
+  const dir = mkScratch('gsf-')
+  try {
+    const { r, trace } = runClosure({
+      dir,
+      scan: () => scanTwo(['scripts/check-spawned.mjs']),
+      closure: { set: null, why: '注入:闭包不可用' },
+    })
+    assert.notEqual(r.state, 'ok', '量窄不了的时候必须按老口径喊')
+    assert.equal(trace.notifies.length, 1)
+    assert.match(trace.logs.join('\n'), /闭包不可用\(注入:闭包不可用\)/)
+    assert.match(
+      String(trace.notifies[0].opts.dedupKey),
+      /:all:/,
+      '身份要能区分闭包档与全量档,别混在一个桶里',
+    )
+  } finally {
+    rmScratch(dir, { bestEffort: true })
+  }
+})
+test(`${CLS}④ 零复算锁:闭包口径只许 import lib 那一份,守护里不得再拼一份 import 解析`, async () => {
+  const src = readFileSync(new URL('../git-guardian.mjs', import.meta.url), 'utf8')
+  assert.match(
+    src,
+    /import \{ relativeImportClosure \} from '\.\/lib\/scratch-module-closure\.mjs'/,
+  )
+  assert.ok(
+    !/matchAll\(\s*\/\(\?:\^\|\n\)[\s\S]{0,80}?from\s/.test(src),
+    '本器里出现了第二份 import 解析 ⇒ 两份必漂移(§0.6)',
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

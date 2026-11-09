@@ -61,11 +61,11 @@ async function prepareHome(page: Page, theme: 'light' | 'dark') {
       )
       await page.reload({ waitUntil: 'domcontentloaded', timeout: 30000 })
       // 折叠态由 Sidebar 的 useEffect 读 localStorage 后才切换,给一拍
-      await page.waitForTimeout(2500)
+      await page.waitForLoadState('load', { timeout: 7500 }).catch(() => {})
       return
     } catch (e) {
       if (attempt === 2) throw e
-      await page.waitForTimeout(2000)
+      await page.waitForLoadState('load', { timeout: 6000 }).catch(() => {})
     }
   }
 }
@@ -78,6 +78,7 @@ async function assertTooltipArrowNotClipped(page: Page, tag: string, theme: 'lig
 
   await prepareHome(page, theme)
   await expect(page.locator(DESKTOP_ASIDE)).toBeVisible({ timeout: 15000 })
+  // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
   await page.waitForTimeout(1000)
 
   if (theme === 'dark') {
@@ -87,6 +88,7 @@ async function assertTooltipArrowNotClipped(page: Page, tag: string, theme: 'lig
       document.documentElement.classList.add('dark')
     })
     await expect(page.locator('html')).toHaveClass(/dark/, { timeout: 5000 })
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(300)
   }
 
@@ -105,6 +107,7 @@ async function assertTooltipArrowNotClipped(page: Page, tag: string, theme: 'lig
   const tip = page.locator('[role="tooltip"][data-side][data-state]').first()
   await expect(tip, `${tag}: feedback Tooltip 应出现`).toBeVisible({ timeout: 10000 })
 
+  // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
   await page.waitForTimeout(300) // 等箭头定位稳定
   await page.screenshot({ path: path.join(SHOT_DIR, `${tag}-tooltip.png`), fullPage: false })
 

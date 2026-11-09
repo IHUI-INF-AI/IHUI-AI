@@ -16,6 +16,7 @@ import {
   Globe,
 } from 'lucide-react'
 import { BackButton } from '@/components/common'
+import { jsonLdHtml } from '@/lib/seo/json-ld'
 
 const jsonLd = {
   '@context': 'https://schema.org',
@@ -186,10 +187,7 @@ const metrics = [
 export default function AiDesignPage() {
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdHtml(jsonLd) }} />
       <main className="py-4 mx-auto w-full max-w-6xl px-4">
         <BackButton />
         {/* Hero */}

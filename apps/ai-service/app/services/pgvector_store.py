@@ -154,8 +154,14 @@ async def search_chunks(
     query_embedding: list[float],
     top_k: int = 10,
     threshold: float = 0.7,
+    user_id: str | None = None,
 ) -> list[tuple[str, dict[str, Any], float]]:
-    """pgvector 余弦检索。返回 [(ref_id, metadata, similarity)],失败返回 [](降级信号)。"""
+    """pgvector 余弦检索。返回 [(ref_id, metadata, similarity)],失败返回 [](降级信号)。
+
+    user_id 非空时把属主过滤下推到 SQL:先按 metadata->>'user_id' 收窄再 ORDER/LIMIT。
+    原写法只在应用层事后过滤,而 SQL 已按全局 top_k 截断 ⇒ 他人的高相似条目会先把
+    top_k 名额占满,本人确有匹配却召回为空或变少(AIS-019)。
+    """
     if _is_disabled() or not query_embedding:
         return []
     try:
@@ -165,19 +171,26 @@ async def search_chunks(
         if not await _ensure_schema(pool):
             _note_failure()
             return []
-        rows = await pool.fetch(
-            """
-            SELECT ref_id, metadata::text AS metadata_json,
-                   1 - (embedding <=> $1::vector) AS similarity
-            FROM rag_chunks
-            WHERE namespace = $2 AND dims = $3 AND embedding IS NOT NULL
-            ORDER BY embedding <=> $1::vector
-            LIMIT $4
-            """,
+        # 属主过滤必须在 LIMIT 之前,否则全局 top_k 会被他人条目占满。
+        user_clause = " AND metadata->>'user_id' = $5" if user_id is not None else ""
+        params: tuple[Any, ...] = (
             _vec_literal(query_embedding),
             namespace,
             len(query_embedding),
             max(1, int(top_k)),
+        )
+        if user_id is not None:
+            params = params + (user_id,)
+        rows = await pool.fetch(
+            f"""
+            SELECT ref_id, metadata::text AS metadata_json,
+                   1 - (embedding <=> $1::vector) AS similarity
+            FROM rag_chunks
+            WHERE namespace = $2 AND dims = $3 AND embedding IS NOT NULL{user_clause}
+            ORDER BY embedding <=> $1::vector
+            LIMIT $4
+            """,
+            *params,
         )
         _note_success()
         results: list[tuple[str, dict[str, Any], float]] = []

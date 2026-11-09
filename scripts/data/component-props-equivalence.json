@@ -38,6 +38,30 @@
       "rationale": "同一无障碍名称槽位:RN 由调用方给本地化字面量(屏幕阅读器只会念这一个字符串),小程序给 i18n 键由端内取词;两端都只喂 ariaLabel/accessibilityLabel,不参与可见渲染。"
     },
     {
+      "pair": "UserInfoCard",
+      "ours": "onEdit",
+      "theirs": "onClick",
+      "kind": "event",
+      "owner": "cross-end-props-parity",
+      "evidence": {
+        "rn": "apps/mobile-rn/src/components/UserInfoCard.tsx:102",
+        "mini": "packages/types/src/ui-native-components.ts:206"
+      },
+      "rationale": "同一资料编辑激活槽位:RN 在头像与昵称两个 Touchable 上各绑 onEdit,小程序在头部容器绑 onClick(同位置显示铅笔图标);两端都是点击头像/昵称区进入资料编辑。"
+    },
+    {
+      "pair": "VideoPlayer",
+      "ours": "onProgress",
+      "theirs": "onTimeUpdate",
+      "kind": "event",
+      "owner": "cross-end-props-parity",
+      "evidence": {
+        "rn": "packages/types/src/ui-native-components.ts:230",
+        "mini": "apps/miniapp-taro/src/components/VideoPlayer.tsx:30"
+      },
+      "rationale": "同一播放进度回调槽位:RN 用 react-native-video 的 onProgress、小程序用原生 Video 的 onTimeUpdate;共享类型已显式登记该字段名映射,两端都回传 (currentTime, duration)。"
+    },
+    {
       "pair": "IntelligentAssistant",
       "ours": "tokenQuantity",
       "theirs": "tokenBalance",
@@ -258,36 +282,12 @@
       "ours": "onComplete",
       "theirs": "onEnded",
       "kind": "event",
-      "owner": "mobile-rn-video",
-      "rationale": "同一语义槽位(播放结束回调),小程序端命名为 onEnded(apps/miniapp-taro/src/components/VideoPlayer.tsx:29);两端均无参回调。",
+      "owner": "cross-end-props-parity",
       "evidence": {
-        "rn": "apps/mobile-rn/src/components/VideoPlayer.tsx:12",
+        "rn": "packages/types/src/ui-native-components.ts:232",
         "mini": "apps/miniapp-taro/src/components/VideoPlayer.tsx:31"
-      }
-    },
-    {
-      "pair": "VideoPlayer",
-      "ours": "onProgress",
-      "theirs": "onTimeUpdate",
-      "kind": "event",
-      "owner": "mobile-rn-video",
-      "rationale": "同一语义槽位(播放进度回调),小程序端命名为 onTimeUpdate(apps/miniapp-taro/src/components/VideoPlayer.tsx:28);两端均回传 (currentTime, duration)。",
-      "evidence": {
-        "rn": "apps/mobile-rn/src/components/VideoPlayer.tsx:11",
-        "mini": "apps/miniapp-taro/src/components/VideoPlayer.tsx:30"
-      }
-    },
-    {
-      "pair": "UserInfoCard",
-      "ours": "onEdit",
-      "theirs": "onClick",
-      "kind": "event",
-      "owner": "ihui-mobile-props",
-      "rationale": "同一资料编辑入口:RN 弹层内编辑(onEdit),小程序跳资料页(onClick→goProfile);点位不同,语义同源。",
-      "evidence": {
-        "rn": "apps/mobile-rn/src/components/UserInfoCard.tsx:100",
-        "mini": "apps/miniapp-taro/src/components/UserInfoCard.tsx:128"
-      }
+      },
+      "rationale": "同一播放结束回调槽位:RN onComplete ↔ 小程序 onEnded(共享类型显式登记映射);两端都在播放结束时无参回调上层,供标记课时完成。"
     },
     {
       "pair": "UserInfoCard",

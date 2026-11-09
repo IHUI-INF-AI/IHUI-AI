@@ -94,7 +94,14 @@ function makeRepo(t) {
  * 门 98(树不是本仓 HEAD)。**暖色描边门不跳** —— G-929 起门体支持 `--root`,
  * 落地器把它透传给门,临时仓的真树真判(射程外 ⇒ 本门不适用 ⇒ 放行)。
  */
-function land(dir, { paths = '', remove = '', msg = 'e2e', extra = {} }) {
+// 缺省正文同 conflict-gate 那档:旧 `e2e` 从 2026-11-04 正文形状档立项起让本档 6 枚用例整片红,
+// 死因与删除档无关(先被形状档拒成 exit 2)。改夹具不改判据。
+function land(dir, {
+  paths = '',
+  remove = '',
+  msg = 'test(land): 删除档夹具正文 —— 需过落地器的正文形状档',
+  extra = {},
+}) {
   const r = spawnSync(process.execPath, [SCRIPT], {
     env: {
       ...process.env,
@@ -131,8 +138,11 @@ test('T1 反向自证:删除项问的是"不在树里"而不是"在树里"(拿�
   assert.match(SRC, /删除档反向自证/, '必须有删除档专属的反向自证段')
   assert.match(SRC, /delFace\.present\.length > 0/, '仍在树里必须判红(不是拿写入档的 absent 当尺子)')
   assert.match(SRC, /✅ 删除档反向自证/, '放行必须打出可读结论,不得静默')
-  // 且它问的是删除清单,不是写入清单
-  assert.match(SRC, /commitFacePresence\(\{ root, commit: landed, paths: removePaths \}\)/, '反向自证的输入必须是 removePaths')
+  // 且它问的是删除清单,不是写入清单;且这把尺子在 CAS **之前**跑(2026-11-09 先验后落)
+  assert.match(SRC, /commitFacePresence\(\{ root, commit, paths: removePaths \}\)/, '反向自证的输入必须是 removePaths')
+  const verifyAt = SRC.indexOf('const pre = verifyMadeCommitFace(')
+  const casAt = SRC.indexOf('casUpdateRef(commit, head')
+  assert.ok(verifyAt !== -1 && casAt !== -1 && verifyAt < casAt, `删除档反向自证必须先于 CAS(实测 verify@${verifyAt} / cas@${casAt})`)
 })
 
 test('T2 工作树不被动:取消跟踪 ≠ 删盘上文件', (t) => {

@@ -123,6 +123,12 @@ export interface ToolCall extends BaseToolCall {
   partialDiff?: string
   /** D113:已收敛消费的最大 tool-delta `seq`(缺省视为 0;收敛判据 `evt.seq>partialSeq`)。 */
   partialSeq?: number
+  /** 2026-11-05:工具入参逐分片渐进渲染的当前最好可用部分对象。
+   * 数据源 = api-client 的 onOpenAiToolCall(OpenAiToolCallDelta.args),仅 running 态渲染;
+   * argsComplete 到达或 Vercel tool-result 到达即清 undefined。绝不写进正式 args。 */
+  partialArgs?: Record<string, unknown>
+  /** 2026-11-05:入参仍在流式构建中(驱动 ToolCallCard 的部分参数预览块)。 */
+  argsStreaming?: boolean
   /** L5-8 工具瞬时失败自动重试次数(>0 时 ToolCallCard 渲染"重试N次"徽章)。
    * 数据源:后端 tool-call-start/result 事件携带则透传;暂未下发时恒 undefined,徽章不显示。 */
   retryCount?: number
@@ -158,6 +164,8 @@ export interface MessageUsage {
 export interface QuestionOption {
   id: string
   label: string
+  /** 选项的一句话说明(新帧可选;旧数据没有) */
+  description?: string
 }
 
 /** AI 主动提问(挂起对话,等用户回答后继续) */
@@ -167,6 +175,10 @@ export interface PendingQuestion {
   options: QuestionOption[]
   allowCustom: boolean
   allowMultiple: boolean
+  /** 卡片小标题(新帧可选;旧数据没有) */
+  header?: string
+  /** 答复截止时间(ISO 字符串或毫秒时间戳,新帧可选;有则卡片走倒计时/超时只读) */
+  expiresAt?: string | number
   /** 关联的 assistant 消息 ID,用户回答后追加到该消息上下文 */
   assistantMessageId?: string
 }
@@ -609,6 +621,8 @@ export interface ChatState {
   setPendingQuestion: (q: PendingQuestion | null) => void
   /** 清空挂起的提问(用户回答后或续流开始时调用) */
   clearPendingQuestion: () => void
+  /** 仅当 questionId 与当前挂起提问匹配时清空(SSE question-resolved 结算帧用,避免误抹别的提问) */
+  clearPendingQuestionFor: (questionId: string) => void
   /** 追加 token 到指定 sub-agent 的流式内容;agentId 不存在时自动创建新活动条目 */
   appendToAgentStream: (agentId: string, delta: string, name?: string) => void
   /** 标记所有 sub-agent 流式结束(stream 结束时调用,UI 切换为已完成态) */
@@ -1226,7 +1240,18 @@ const buildChatState: ChatStateCreator = (set, get) => ({
       next[idx] = {
         ...target,
         toolCalls: target.toolCalls?.map((tc) =>
-          revokedIds.has(tc.id) ? { ...tc, status: 'cancelled' as const } : tc,
+          revokedIds.has(tc.id)
+            ? {
+                ...tc,
+                status: 'cancelled' as const,
+                // 2026-11-05 断流兜底:流中途崩溃时,已发 partial 帧的工具卡把最后已知的
+                // 入参收敛为正式 args(而非留空 {}),并清掉流式预览态 —— 避免卡在 running 预览,
+                // 同时让 cancelled 卡仍展示"构建到一半的入参"而非空白。
+                args: tc.partialArgs ?? tc.args,
+                partialArgs: undefined,
+                argsStreaming: undefined,
+              }
+            : tc,
         ),
       }
       return { messages: next }
@@ -1562,6 +1587,13 @@ const buildChatState: ChatStateCreator = (set, get) => ({
 
   clearPendingQuestion: () => set({ pendingQuestion: null }),
 
+  clearPendingQuestionFor: (questionId) =>
+    set((s) =>
+      s.pendingQuestion && s.pendingQuestion.questionId === questionId
+        ? { pendingQuestion: null }
+        : {},
+    ),
+
   appendToAgentStream: (agentId, delta, name) =>
     set((s) => {
       const existing = s.subAgentActivities.find((a) => a.agentId === agentId)
@@ -1660,33 +1692,36 @@ const buildChatState: ChatStateCreator = (set, get) => ({
       const applyEnd = (a: SubAgentActivity): SubAgentActivity => {
         if (a.agentId !== event.id) return a
         const nextStatus: SubAgentActivity['status'] =
-          event.status === 'failed' ? 'failed' : 'completed'
+          event.status === 'failed' ? 'failed' : event.status === 'stub' ? 'stub' : 'completed'
         return {
           ...a,
           status: nextStatus,
           // 完成时把 currentStep 推入 completedSteps,再清空 currentStep;
-          // 失败时 currentStep 改为错误摘要,保留 step 上下文供用户排查
+          // 失败时 currentStep 改为错误摘要,保留 step 上下文供用户排查。
+          // stub 不清步骤进完成列表,也不写死中文,文案走活动行 i18n。
           ...(event.status === 'failed'
             ? {
                 currentStep: event.failureReason
                   ? `失败:${event.failureReason.slice(0, 200)}`
                   : '执行失败',
               }
-            : {
-                completedSteps: [
-                  ...a.completedSteps,
-                  ...(a.currentStep
-                    ? [
-                        {
-                          stepAction: a.currentStep,
-                          createdAt: event.timestamp,
-                          status: 'completed' as const,
-                        },
-                      ]
-                    : []),
-                ],
-                currentStep: '',
-              }),
+            : event.status === 'stub'
+              ? { currentStep: '' }
+              : {
+                  completedSteps: [
+                    ...a.completedSteps,
+                    ...(a.currentStep
+                      ? [
+                          {
+                            stepAction: a.currentStep,
+                            createdAt: event.timestamp,
+                            status: 'completed' as const,
+                          },
+                        ]
+                      : []),
+                  ],
+                  currentStep: '',
+                }),
           streamingDone: true,
         }
       }

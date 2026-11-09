@@ -50,8 +50,112 @@ import { maskComments, maskCommentsStringsAndRegex } from './code-mask.mjs'
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(HERE, '..', '..')
 const WORKER = join(HERE, 'land-gate-rerun-worker.mjs')
-/** 注册表臂单臂超时(与串行时代一致;并发不放大单臂预算)。 */
-const GATE_TIMEOUT_MS = 300000
+/**
+ * 注册表臂单臂超时的**最后兜底**。正常运行只认登记表里的 `defaultTimeoutMs`(DG-06 单一来源):
+ * 执行器看门狗与落地后置复跑都调 `resolveGateBudget`,不再各写一个数;只有表不在位/表里没登记
+ * `defaultTimeoutMs` 时才退回本常量,并出声。
+ *
+ * 2026-11-06 加"按门登记"这一层,起因是实测而不是感觉:落地后置复跑连报
+ * `registry [门 20/30a/30c](rc=killed)⇒ 未判定`。把三道门静默态单独跑一遍现读:
+ *   门 20 check-tailwind-class-conflict = 84s
+ *   门 30a check-commit-loss-guard      = **506s(2026-11-06 静默态旧读数;2026-11-08 复测 176–255s)**
+ *   门 30c check-stale-copy             = 67s
+ * 三道 rc 全为 0(判定本身是绿的),只有 30a 被自己的预算掐死 ⇒ 一条恒"未判定"的臂。
+ * §0.3"取不到不记绿"是对的,但**永远取不到**就不是保守而是坏了:它把每一次旁路落地的
+ * 自证都拖一格,而读数看上去像"这轮没验成"(恒红门同一类病,§12e)。
+ * 出路不是把全局缺省一拍抬到 900s(那让 26 臂陪等),而是逐臂登记实测值 + 出处;
+ * 未被登记的臂行为与改前逐字相同。预算表 = scripts/data/land-gate-budgets.json。
+ */
+const GATE_TIMEOUT_FALLBACK_MS = 300000
+const GATE_BUDGETS_REL = 'scripts/data/land-gate-budgets.json'
+
+/** 纯函数:预算表文本 → { ok, byScript: Map<文件名, ms>, defaultMs, problems[] }。坏条目只剔该条。 */
+export function parseGateBudgets(text) {
+  if (typeof text !== 'string')
+    return { ok: false, byScript: new Map(), defaultMs: null, problems: ['表取不到'] }
+  let j
+  try {
+    j = JSON.parse(text)
+  } catch (e) {
+    return {
+      ok: false,
+      byScript: new Map(),
+      defaultMs: null,
+      problems: ['JSON 坏:' + String(e?.message ?? e).slice(0, 80)],
+    }
+  }
+  const byScript = new Map()
+  const problems = []
+  if (!Array.isArray(j?.gates))
+    return { ok: false, byScript, defaultMs: null, problems: ['缺 gates 数组'] }
+  // DG-06:缺省也登记在本表 —— 执行器看门狗与落地复跑共用这一格,代码里不再各写 300s。
+  const rawDefault = Number(j?.defaultTimeoutMs)
+  const defaultMs = Number.isFinite(rawDefault) && rawDefault > 0 ? Math.floor(rawDefault) : null
+  if (defaultMs === null)
+    problems.push('defaultTimeoutMs 缺失或非正数 ⇒ 缺省退回代码内最后兜底(应在表里登记)')
+  for (const g of j.gates) {
+    const script = typeof g?.script === 'string' ? g.script.trim() : ''
+    const ms = Number(g?.timeoutMs)
+    if (!script || !Number.isFinite(ms) || ms <= 0) {
+      problems.push('条目缺 script 或 timeoutMs 非正数:' + JSON.stringify(g).slice(0, 70))
+      continue
+    }
+    if (!/\.(mjs|py|ts)$/.test(script)) {
+      problems.push('script 必须是带扩展名的文件名:' + script)
+      continue
+    }
+    if (!g?.measuredMs || !g?.note)
+      problems.push(script + ' 缺 measuredMs/note(登记预算必须带实测出处,否则下一人无从复核)')
+    byScript.set(script, Math.floor(ms))
+  }
+  return { ok: true, byScript, defaultMs, problems }
+}
+
+let gateBudgetCache = null
+/**
+ * 按臂解析预算:**单一来源** = scripts/data/land-gate-budgets.json(DG-06)。
+ * 优先级:env 全局抬 > env 缺省覆盖 > 表 `defaultTimeoutMs` > 代码最后兜底。
+ * 表读不到 ⇒ 全按兜底并出声(不把"读不到"读成"无限")。
+ */
+export function resolveGateBudget(
+  scriptPath,
+  { root = REPO_ROOT, env = process.env, reload = false } = {},
+) {
+  const globalMs = Number(env?.IHUI_LAND_GATE_TIMEOUT_MS)
+  if (Number.isFinite(globalMs) && globalMs > 0) return Math.floor(globalMs)
+  if (gateBudgetCache === null || reload) {
+    let text = null
+    try {
+      text = readFileSync(resolve(root, GATE_BUDGETS_REL), 'utf8')
+    } catch {
+      text = null
+    }
+    const parsed = parseGateBudgets(text)
+    gateBudgetCache = { ...parsed, absent: text === null, warned: false }
+  }
+  const envDefaultMs = Number(env?.IHUI_LAND_GATE_TIMEOUT_MS_DEFAULT)
+  const def =
+    Number.isFinite(envDefaultMs) && envDefaultMs > 0
+      ? Math.floor(envDefaultMs)
+      : (gateBudgetCache.defaultMs ?? GATE_TIMEOUT_FALLBACK_MS)
+  if (!gateBudgetCache.warned) {
+    gateBudgetCache.warned = true
+    if (!gateBudgetCache.absent && !gateBudgetCache.ok)
+      console.error(
+        `⚠️ 复跑预算表(${GATE_BUDGETS_REL})不作数:${gateBudgetCache.problems.join(' / ')} ⇒ 本批全按缺省 ${def}ms`,
+      )
+    else if (gateBudgetCache.problems.length)
+      console.error(
+        `⚠️ 复跑预算表有 ${gateBudgetCache.problems.length} 条坏行被剔(其余生效):${gateBudgetCache.problems.slice(0, 3).join(' / ')}`,
+      )
+  }
+  const name = String(scriptPath ?? '')
+    .split(/[\\/]/)
+    .pop()
+  if (!name) return def
+  const hit = gateBudgetCache.byScript.get(name)
+  return Number.isFinite(hit) && hit > 0 ? hit : def
+}
 /** worker 总超时:按最坏串行排队留足余量,只防"worker 挂死"把落地器拖到天荒地老。 */
 const WORKER_TIMEOUT_MS = 30 * 60 * 1000
 
@@ -263,13 +367,11 @@ export function scanDuplicateDefinitions(text, ext) {
       const m = patterns[pi].exec(l)
       if (m) {
         if (!seen.has(m[1])) seen.set(m[1], [])
-        seen
-          .get(m[1])
-          .push({
-            line: idx + 1,
-            body: /\)\s*(?::[^)]*)?\{/.test(t) || /\{\s*\}\s*$/.test(t),
-            fn: pi === 0,
-          })
+        seen.get(m[1]).push({
+          line: idx + 1,
+          body: /\)\s*(?::[^)]*)?\{/.test(t) || /\{\s*\}\s*$/.test(t),
+          fn: pi === 0,
+        })
         break
       }
     }
@@ -296,22 +398,26 @@ export function scanDuplicateDefinitions(text, ext) {
 // ===========================================================================
 
 function spawnGate(script, args, root, timeoutMs, env) {
+  const budget = timeoutMs ?? resolveGateBudget(script, { root, env })
+  const t0 = Date.now()
   try {
     const out = execFileSync(process.execPath, [script, ...args], {
       cwd: root,
       encoding: 'utf8',
       windowsHide: true,
-      timeout: timeoutMs,
+      timeout: budget,
       maxBuffer: 64 << 20,
       stdio: ['ignore', 'pipe', 'pipe'],
       env: env ? { ...process.env, ...env } : process.env,
     })
-    return { rc: 0, out: String(out ?? '') }
+    return { rc: 0, out: String(out ?? ''), elapsedMs: Date.now() - t0, budgetMs: budget }
   } catch (e) {
     const rc = typeof e.status === 'number' ? e.status : 9
     const out = String((e.stdout ?? '') + (e.stderr ?? ''))
-    if (rc === 9 && (e.code === 'ETIMEDOUT' || e.signal)) return { rc: 'killed', out }
-    return { rc, out }
+    const elapsedMs = Date.now() - t0
+    if (rc === 9 && (e.code === 'ETIMEDOUT' || e.signal))
+      return { rc: 'killed', out, elapsedMs, budgetMs: budget }
+    return { rc, out, elapsedMs, budgetMs: budget }
   }
 }
 
@@ -372,7 +478,13 @@ export function runGateBatch(tasks, { root = REPO_ROOT, concurrency, env = proce
     Number.isFinite(concurrency) && concurrency > 0 ? Math.floor(concurrency) : gateConcurrency(env)
   if (list.length === 1 || limit <= 1)
     return list.map((t) =>
-      spawnGate(t.script, t.args ?? [], root, t.timeoutMs ?? GATE_TIMEOUT_MS, env),
+      spawnGate(
+        t.script,
+        t.args ?? [],
+        root,
+        t.timeoutMs ?? resolveGateBudget(t.script, { root, env }),
+        env,
+      ),
     )
   const failAll = (why) => list.map(() => ({ rc: 9, out: why }))
   try {
@@ -606,7 +718,11 @@ export function rerunAffectedGates({ root = REPO_ROOT, paths = [], env = process
         batchPlan.push({ g, scriptPath, args: gateArgs })
       }
       const outcomes = runGateBatch(
-        batchPlan.map((b) => ({ script: b.scriptPath, args: b.args, timeoutMs: GATE_TIMEOUT_MS })),
+        batchPlan.map((b) => ({
+          script: b.scriptPath,
+          args: b.args,
+          timeoutMs: resolveGateBudget(b.scriptPath, { root, env }),
+        })),
         { root, env },
       )
       for (let i = 0; i < batchPlan.length; i++) {
@@ -617,7 +733,29 @@ export function rerunAffectedGates({ root = REPO_ROOT, paths = [], env = process
         else if (r.rc === 1) {
           if (g.mode === 'warn') res.warnFailures.push({ ...rec, out: r.out })
           else res.failed.push({ ...rec, out: r.out })
-        } else res.undetermined.push({ ...rec, rc: r.rc, out: r.out })
+        } else {
+          // 被杀必须把"跑了多久 / 预算多少 / 预算从哪来"一起报出来:上一版只说 rc=killed,
+          // 于是"偶发争用"与"恒定超预算"长得一模一样,而后者才是需要登记的(现读门 30a = 506s)。
+          const secs = (ms) => Math.round(Number(ms ?? 0) / 1000)
+          const whyExtra =
+            r.rc === 'killed'
+              ? ' · 实测 ' +
+                secs(r.elapsedMs) +
+                's 撞预算 ' +
+                secs(r.budgetMs ?? GATE_TIMEOUT_FALLBACK_MS) +
+                's(表=' +
+                GATE_BUDGETS_REL +
+                ';被杀 ≠ 判红,但**每轮都被杀**就是预算没量过)'
+              : ''
+          res.undetermined.push({
+            ...rec,
+            rc: r.rc,
+            out: r.out,
+            elapsedMs: r.elapsedMs ?? null,
+            budgetMs: r.budgetMs ?? GATE_TIMEOUT_FALLBACK_MS,
+            whyExtra,
+          })
+        }
       }
       res.registryAffected = affected.map((g) => `${g.id}:${g.script}`)
       // 覆盖面边界(2026-10-27 立):把"本通道结构上永不复跑"的那一截量出来并点名。
@@ -654,7 +792,13 @@ export function rerunAffectedGates({ root = REPO_ROOT, paths = [], env = process
       why: `门体取不到:${markerGate}(未判定不等于通过)`,
     })
   } else {
-    const r = spawnGate(markerGate, ['--rev', 'HEAD'], root, GATE_TIMEOUT_MS, env)
+    const r = spawnGate(
+      markerGate,
+      ['--rev', 'HEAD'],
+      root,
+      resolveGateBudget(markerGate, { root, env }),
+      env,
+    )
     if (r.rc === 0) res.ran.push({ kind: 'conflict-markers', rev: 'HEAD' })
     else if (r.rc === 1)
       res.failed.push({
@@ -696,7 +840,7 @@ export function rerunAffectedGates({ root = REPO_ROOT, paths = [], env = process
   }
   for (const u of res.undetermined) {
     console.error(
-      `❌ 落地后复跑**无法判定**:${u.kind}${u.id ? ` [门 ${u.id}]` : ''}(rc=${u.rc ?? 'n/a'})—— 未判定不等于通过`,
+      `❌ 落地后复跑**无法判定**:${u.kind}${u.id ? ` [门 ${u.id}]` : ''}(rc=${u.rc ?? 'n/a'})${u.whyExtra ?? ''}—— 未判定不等于通过`,
     )
     if (u.why) console.error(`   ${u.why}`)
   }

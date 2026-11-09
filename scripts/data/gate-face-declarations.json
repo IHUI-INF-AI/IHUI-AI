@@ -1,0 +1,1297 @@
+{
+  "version": 1,
+  "generatedAt": "2026-11-08",
+  "source": "scripts/guardian-runner.mjs + scripts/data/gate-cache-registry.json",
+  "defaultFace": "auto",
+  "note": "门体同代自检的判面声明表;未登记的脚本在派发时会 exit 2(未声明判面),必须先登记再跑",
+  "entries": {
+    "scripts/check-adapter-style-parity.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-adapter-wiring.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-admin-gate-consistency.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-agent-status-vocabulary-parity.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-agents-doc-size.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-ai-panel-mount-guards.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-ai-task-background-reference.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-alert-identity-volatility.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-api-client-utf8.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-api-endpoint-delta.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-api-failure-throw.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-api-key-leak.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-api-key-permission-labels.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-api-migration-completeness.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-api-route-uniqueness.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-api-routes.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-architecture-policy.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-artifact-budget.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-auth-cookie-domain-scope.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-auth-handler-registration-parity.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-authorization-column-isolation.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-autonomy-invariants.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-background-task-type-parity.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-batch-write-count-honesty.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-biz-day-single-source.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-bpe-encoding-parity.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-brand-email-channel.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-brand-foreground.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-button-height.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-bypass-landing-scope.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-c-drive-paths.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-c-drive-pollution.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-capability-catalog.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-capability-field-not-client-supplied.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-chat-element-coverage.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-ci-failure-triage-wiring.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-cli-i18n-parity.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-commit-loss-guard.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-compaction-denominator.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-config-table-existence.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-crash-report-redaction.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-credential-leak-in-message.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-credential-presence-bypass.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-cross-end-component-props-parity.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-cross-end-parity-drift.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-cross-end-screen-coverage.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-cross-end-spec-coverage.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-cross-end-tokens.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-cross-end-ui-parity.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-csrf-exemption-shape.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-dangling-local-imports.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-db-blind-updatedat-set.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-db-schema-drift.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-ddos-guard-wiring.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-dead-script-refs.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-declared-carriage.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-declared-outbound-routes.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-declared-policy-has-consumer.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-declared-shortcuts.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-dedupe.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-delivery-report-consistency.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-desktop-event-wiring.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-dev-db-rotation-window.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-diagnostic-redaction.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-digest-name-reality.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-direct-backend-calls.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-direct-run-guard.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-disk-root-write.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-dist-encoding.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-doc-numbers.mjs": {
+      "face": "auto",
+      "reason": "历史事故③:判 index 面而同轮写口走 worktree 面;缺省 auto,写口用 --face=staged"
+    },
+    "scripts/check-dockerfile-copy-paths.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-docs-public-health.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-doom-loop-parity.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-e2e-coverage-gap.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-e2e-skip-wait-policy.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-edu-arrears-single-source.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-egress-facts.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-enum-default-widening.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-enum-fallback-terminal.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-error-attribution-single-source.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-error-code-coverage.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-error-code-not-text-matching.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-error-message-bounded.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-event-closure-leak.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-exemption-expiry.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-file-size.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-file-write-safety.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-fixture-tmpdir.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-gate-body-direct-run-coverage.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面与 registry/台账,否则 HEAD 面;本门只接受这两个面"
+    },
+    "scripts/check-gate-face-discipline.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-gate-presence-exemption.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-gate-triggers.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-gate-wiring.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-generator-resource-release.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-git-read-timeout.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-git-stdio-discipline.mjs": {
+      "face": "auto",
+      "reason": "历史事故②:点名了被判树里不存在的脚本;缺省 auto(HEAD/索引按旗)"
+    },
+    "scripts/check-glyph-arrow-icon.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-guarded-write-affected.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-guardian-review-wired.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-hairline-separator.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-head-recall-stock.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-home-junctions.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-hover-lift-single-source.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-husky-hook-form.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-i18n-broken-en.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-i18n-cross-end-wording.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-i18n-duplicate-namespaces.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-i18n-keys.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-i18n-locale-content-language.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-i18n-messages-exist.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-i18n-namespace-passing.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-icu-locale-support.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-identity-principal-source.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-image-source-domains.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-hook-chain-refs.mjs": {
+      "face": "auto",
+      "reason": "工作区面:钩子执行的就是工作区文件,判红面按工作区读(readWorktreeFile),HEAD 树只作报数;缺省 auto"
+    },
+    "scripts/check-immutable-guard.mjs": {
+      "face": "auto",
+      "reason": "历史事故①:在落后 origin/main 的树上用旧 PROTECTED_KINDS 判 bad-kind;本门 LEAD/index/worktree 三面自选,故缺省 auto"
+    },
+    "scripts/check-inbound-schema-strict.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-inline-back-button.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-input-border-var.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-input-focus-feedback.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-installer-assets.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-killer-parity-ends.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-like-wildcard-escape.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-line-split-parity.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-lint-staged-stdio-pin.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-list-cap-honesty.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-list-predicate-has-positive-proof.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-live-doc-duplicates.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-live-doc-pathspec.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-live-doc-references.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-llm-provider-schema.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-load-state-loaded-marks.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-load-state-projection-parity.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-lock-manifest-consistency.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-lsp-language-table.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-mass-deletion.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-memory-owner-binding.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-mention-engine-wired.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-merge-addition-loss.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-merge-deletion-resurrection.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-metric-existence.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-migration-bookkeeping.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-migration-immutable.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-migration-ledger-drift.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-miniapp-chrome.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-miniapp-generated.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-miniapp-interaction-hygiene.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-miniapp-shell-form.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-miniapp-taro-design-tokens.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-miniapp-tokens-sync.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-mirror-purge-intact.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-mjs-export-resolution.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-mjs-syntax.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-mobile-api-base-bake.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-mobile-rn-style-parity.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-mobile-version-code.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-modal-keyboard-avoid.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-mode-permission-matrix.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-model-capacity-parity.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-money-display-single-source.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-monitor-alert-vocabulary.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-multi-end-sync.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-mypy.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-native-title-tooltip.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-nested-additional-properties.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-next-env-dist.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-no-conflict-markers.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-no-divider.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-no-emoji-icons.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-no-mask-image.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-no-native-dialog.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-no-nested-git-sites-durability.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-no-nested-git.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-no-visible-spawn.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-no-warm-border.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-overlay-zindex.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-package-barrel-export.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-panel-datasource-wiring.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-panel-metric-exists.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-parent-pollution.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-permission-lease-bounded.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-permission-mode-vocabulary.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-plan-archive-monotonic.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-plan-closed-stock.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-plan-deferred-expiry.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-plan-dup-pointer-ratchet.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-plan-fields.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-plan-id-pool.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-plan-line-loss.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-plan-row-length.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-plan-sha-form.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-plan-task-duplicates.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-plugin-manifest-integrity.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-port-registry.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-principal-consumed.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-process-exit-attribution.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-prod-bundle-shadow.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-prod-dep-advisories.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-project-plan-size.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-prompt-injection-registry.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-provider-health-vocabulary.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-ps1-bom.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-push-sync.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-python-import-landed.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-radius-role-conformance.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-radius-single-source.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-readme-sync.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-readme-table-integrity.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-readout-and-timer-hygiene.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-readout-no-break.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-redirect-target-origin-pinned.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-registry-worktree-superset.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-relay-queue-db-isolation.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-replacement-chars.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-retry-aliases.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-rich-anchor-renderer-single-source.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-rn-app-migration.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-rn-compat-coverage.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-rn-double-header.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-rn-host-shell-coverage.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-rn-interaction-hygiene.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-rn-interop-fn-style.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-rn-readout-cell.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-rn-type-floor.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-root-dir-clean.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-root-guard-consistency.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-rounded-full.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-rounded-overflow.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-ruff-python.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-safe-parse.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-sanitizer-bypass.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-scratch-root-no-nesting.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-selftest-registrant-evaluates.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-service-binary-paths.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-shared-layer-duplication.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-shared-nonde-node-purity.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-shared-type-not-redeclared.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-sheet-flex-contract.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-sidebar-width-consistency.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-single-branch.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-skip-env-promise.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-slash-command-wired.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-solito-residue.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-spawn-output-channel.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-sse-dispatch-parity.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-sse-frame-watermark.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-sse-no-blind-merge.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-sse-parser-parity.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-staged-deletions.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-staged-downgrade.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-staged-files.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-staged-pollution.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-staged-typecheck-mirror-sync.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-stale-copy.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-stale-dist.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-stale-revert.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-stale-stashes.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-statusbar-single-source.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-style-key-consumption.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-subagent-permission-inherited.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-tagsview-visual.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-tailwind-class-conflict.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-task-claims.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-test-collection-runs.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-test-judge-not-replicated.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-test-paths.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-theme-prop-wiring.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-token-literal-debt.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-token-sync-registry.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-tool-activity-coverage.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-tool-arg-routing-identity.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-tool-arg-validation-wired.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-tool-contract-declared.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-tool-display-resolvable.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-tool-exec-budget.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-tool-family-registered.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-tool-name-display-coverage.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-tool-schema-projection.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-tracked-ignored.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-truncation-accounting.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-ts-ignore.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-turn-ordinal-lock.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-txn-cancel-boundary.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-typecheck.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-ui-react-usage.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-ui-spec-mirror.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-uncommitted-age.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-upload-budget.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-v3-62-conversation-mount.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-verify-tmp-files.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-watermark-coverage.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-watermark-syntax.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-web-mp-route-carriers.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-web-portal-label-keys.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-web-rn-copy-parity.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-web-rn-gap-ratchet.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-web-tokens-sync.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-wire-strictness.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-word-table-resolvable.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-workflow-step-order.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-workspace-dep-links.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-workspace-hygiene.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-worktree-status.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-write-owner-predicate.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-z-index-guard.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-zh-term-quality.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/desktop-nsis-template.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/fix-package-exports-conditions.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/fix-rn-color-literals.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/gen-knip-taro-entries.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/gen-rn-shell-scaffold.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/gen-tool-name-sets.mjs": {
+      "face": "auto",
+      "reason": "历史事故②:旧生成器复算得出滞后结论;--check 只读工作树生成物,缺省 auto"
+    },
+    "scripts/i18n-diff.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/openapi-check.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/plan-tasks.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/provenance-ledger.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/scan-dead-i18n-keys.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/scan-hardcoded-zh.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/scan-i18n-zh-residue.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/sync-extension-tokens.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/sync-rn-tokens.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/validate-i18n-integrity.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    }
+  }
+}

@@ -27,11 +27,23 @@ from typing import Any
 import pytest
 
 from app.services import codebase_indexer as indexer_module
+from app.services import mcp_server
 from app.services.mcp_server import _tool_search_codebase
 
 _ALPHA = "alpha_target_symbol"
 _BETA = "beta_other_symbol"
 _DEF_ALPHA = re.compile(rf"^\s*def\s+{_ALPHA}\b")
+
+
+@pytest.fixture(autouse=True)
+def _tmp_path_is_workspace_root(monkeypatch, tmp_path):
+    """AIS-080:search 入口现在过工作区白名单;本模块用 tmp_path 造树,登记为根。"""
+    real = mcp_server._get_workspace_roots
+    monkeypatch.setattr(
+        mcp_server,
+        "_get_workspace_roots",
+        lambda: [str(tmp_path.resolve()), *real()],
+    )
 
 
 def _chunk(symbol: str, line: int, path: str = "app/demo.py") -> dict[str, Any]:

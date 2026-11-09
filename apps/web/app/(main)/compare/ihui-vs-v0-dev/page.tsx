@@ -4,6 +4,7 @@
 
 import type { Metadata } from 'next'
 import { CompareContent } from '../ihui-vs-dify/CompareContent'
+import { jsonLdHtml } from '@/lib/seo/json-ld'
 
 const compareJsonLd = {
   '@context': 'https://schema.org',
@@ -54,7 +55,7 @@ export default function CompareV0DevPage() {
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(compareJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdHtml(compareJsonLd) }}
       />
       <CompareContent competitor="v0-dev" />
     </>

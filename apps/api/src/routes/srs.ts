@@ -22,7 +22,7 @@
 
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { eq, desc } from 'drizzle-orm'
+import { eq, desc, and } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { srsStreams, srsServers } from '@ihui/database'
 import { requireAdmin, requireAuth } from '../plugins/require-permission.js'
@@ -73,17 +73,25 @@ export const srsRoutes: FastifyPluginAsync = async (server) => {
   // ===== 流管理 =====
 
   server.get('/streams', async (request, reply) => {
+    // F-196(P1):列表含 streamKey 与推流地址 —— 普通用户只能看自己的,管理员看全量。
+    // 旧写法只校验登录 ⇒ 任意用户可枚举他人推流密钥(盗播 / 顶替推流)。
     await requireAuth(request, reply)
     if (reply.sent) return
     const query = streamListQuery.parse(request.query)
+    const viewerId = request.userId ?? ''
     const page = query.page
     const pageSize = query.pageSize
     const offset = (page - 1) * pageSize
-    const condition = query.status ? eq(srsStreams.status, query.status) : undefined
+    // F-196:非管理员只能看自己创建的流,避免枚举全站 streamKey/pushUrl。
+    const isAdmin = (request.jwtPayload?.roleId ?? 0) >= 1
+    const conditions = []
+    if (!isAdmin) conditions.push(eq(srsStreams.userId, viewerId))
+    if (query.status) conditions.push(eq(srsStreams.status, query.status))
+    const where = conditions.length > 0 ? and(...conditions) : undefined
     const list = await db
       .select()
       .from(srsStreams)
-      .where(condition ?? eq(srsStreams.id, srsStreams.id))
+      .where(where)
       .orderBy(desc(srsStreams.createdAt))
       .limit(pageSize)
       .offset(offset)
@@ -91,6 +99,8 @@ export const srsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.get('/streams/:key', async (request, reply) => {
+    // F-196(P1):按 streamKey 查询返回完整实体(含密钥与推流地址)。
+    // 属主可查自己的;他人一律 404(不暴露"该 key 是否存在")。
     await requireAuth(request, reply)
     if (reply.sent) return
     const { key } = keyParam.parse(request.params)
@@ -100,6 +110,11 @@ export const srsRoutes: FastifyPluginAsync = async (server) => {
       .where(eq(srsStreams.streamKey, key))
       .limit(1)
     if (!stream) return reply.status(404).send(error(404, '流不存在'))
+    // F-196:详情同样做属主校验,避免按 streamKey 直查他人推流凭据。
+    const isAdmin = (request.jwtPayload?.roleId ?? 0) >= 1
+    if (!isAdmin && stream.userId !== request.userId) {
+      return reply.status(404).send(error(404, '流不存在'))
+    }
     return reply.send(success(stream))
   })
 
@@ -115,7 +130,8 @@ export const srsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.put('/streams/:id', async (request, reply) => {
-    // 2026-08-26:管理员或流创建者(普通主播可结束自己的流)
+    // F-196(P1):编辑返回含 streamKey 的完整实体。保留「管理员或流创建者」这条合法路径
+    // (2026-08-26 立:普通主播可结束自己的流),但跨用户一律 403 且不落库。
     await requireAuth(request, reply)
     if (reply.sent) return
     const { id } = idParam.parse(request.params)
@@ -171,9 +187,21 @@ export const srsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.get('/streams/:key/status', async (request, reply) => {
+    // F-196(P1):状态端点回显 streamKey、暴露 SRS 内部读数。属主可查自己的;
+    // 他人一律 404 —— 旧写法只校验登录,任何用户都能探测他人推流是否在线。
     await requireAuth(request, reply)
     if (reply.sent) return
     const { key } = keyParam.parse(request.params)
+    const [stream] = await db
+      .select({ userId: srsStreams.userId })
+      .from(srsStreams)
+      .where(eq(srsStreams.streamKey, key))
+      .limit(1)
+    if (!stream) return reply.status(404).send(error(404, '流不存在'))
+    const isAdmin = (request.jwtPayload?.roleId ?? 0) >= 1
+    if (!isAdmin && stream.userId !== request.userId) {
+      return reply.status(404).send(error(404, '流不存在'))
+    }
     const srv = await getActiveServer()
     if (!srv) return reply.status(503).send(error(503, '无可用 SRS 服务器'))
     const status = await getStreamStatusFromSRS(srv, key)
@@ -183,9 +211,28 @@ export const srsRoutes: FastifyPluginAsync = async (server) => {
   // ===== SRS 服务器管理 =====
 
   server.get('/servers', async (request, reply) => {
-    await requireAuth(request, reply)
+    // F-195:apiSecret 是 SRS 管理凭据,只允许管理员读取,且响应显式排除该列。
+    await requireAdmin(request, reply)
     if (reply.sent) return
-    const list = await db.select().from(srsServers).orderBy(desc(srsServers.createdAt))
+    const list = await db
+      .select({
+        id: srsServers.id,
+        name: srsServers.name,
+        host: srsServers.host,
+        rtmpPort: srsServers.rtmpPort,
+        httpPort: srsServers.httpPort,
+        webrtcPort: srsServers.webrtcPort,
+        apiPort: srsServers.apiPort,
+        maxStreams: srsServers.maxStreams,
+        isActive: srsServers.isActive,
+        healthCheckUrl: srsServers.healthCheckUrl,
+        lastHealthCheck: srsServers.lastHealthCheck,
+        status: srsServers.status,
+        createdAt: srsServers.createdAt,
+        updatedAt: srsServers.updatedAt,
+      })
+      .from(srsServers)
+      .orderBy(desc(srsServers.createdAt))
     return reply.send(success(list))
   })
 

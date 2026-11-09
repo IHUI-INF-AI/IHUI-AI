@@ -301,8 +301,8 @@ describe('会话吊销面 · 四条判据成对行为用例', () => {
     m.hashPassword.mockResolvedValue('$fake$newhash')
   })
 
-  // ───────── A. POST /sso/refresh 重放三档(refresh-replay-policy 真实现) ─────────
-  describe('A · POST /api/auth/sso/refresh — 重放三档裁决(与 /auth/refresh 同尺)', () => {
+  // ───────── A. POST /sso/refresh 重放两档(refresh-replay-policy 真实现) ─────────
+  describe('A · POST /api/auth/sso/refresh — 重放两档裁决(与 /auth/refresh 同尺)', () => {
     const ssoRefresh = (token = 'fixture-refresh-token') =>
       appSso.inject({
         method: 'POST',
@@ -337,10 +337,10 @@ describe('会话吊销面 · 四条判据成对行为用例', () => {
       expect(m.findLiveFamilyToken).not.toHaveBeenCalled() // race 短路,不该查同族活 token
     })
 
-    it('A-2 stale-sibling(超宽限但族内有活 token)⇒ 200 正常轮转,不吊族、不重复 revoke、不带 stale 码', async () => {
-      // 2026-10-27 改判依据:能走到这一档的前提是同族还有活 token ⇒ 会话没死,迟到的
-      // 只是调用方手里那份旧副本(桌面 vault 旧值 / 旧页签 / 另一台设备 / API 重启打断
-      // 刷新响应)。此前只拒绝本次,合法用户每冷启动一次撞一次 401,只能手登并新建 family。
+    it('A-2 同族有活 token 也不得放行(F-268)⇒ 吊销整族 + 401,不再轮转', async () => {
+      // 旧断言(stale-sibling ⇒ 200)固化的正是 F-268 的缺陷:攻击者首次重放 v1 被放行后
+      // 拿到新的活 sibling,reuse 从此永不可达,一次凭据泄露被洗成合法长期会话。
+      // 现在超出 30s 宽限期一律按 reuse 处理,同族是否还有活 token 不再参与裁决。
       m.findRefreshToken.mockResolvedValue({
         token: 'fixture-refresh-token',
         userId: USER_ID,
@@ -350,17 +350,14 @@ describe('会话吊销面 · 四条判据成对行为用例', () => {
       })
       m.findLiveFamilyToken.mockResolvedValue({ id: 'sibling-live' })
       const res = await ssoRefresh()
-      expect(res.statusCode).toBe(200)
-      const body = res.json()
-      expect(body.data.accessToken).toBe('at-new')
-      expect(body.data.refreshToken).toBe('rt-new')
-      // 服务端不再否定这次刷新 ⇒ 端上分型用的 stale 码不得再出现(出现即说明改判被回退)
-      expect(body.errorCode).toBeUndefined()
-      expect(m.findLiveFamilyToken).toHaveBeenCalledWith(FAMILY_ID)
-      // 活着的族不能被打死;旧 token 已是吊销态,再刷一次 revokedAt 就是滑动窗口
-      expect(m.revokeRefreshTokenFamily).not.toHaveBeenCalled()
+      expect(res.statusCode).toBe(401)
+      expect(m.revokeRefreshTokenFamily).toHaveBeenCalledTimes(1)
+      expect(m.revokeRefreshTokenFamily).toHaveBeenCalledWith(FAMILY_ID)
+      // 裁决不再查同族活 token,也不再轮转
+      expect(m.findLiveFamilyToken).not.toHaveBeenCalled()
       expect(m.revokeRefreshToken).not.toHaveBeenCalled()
-      expect(m.saveRefreshToken).toHaveBeenCalledTimes(1)
+      expect(m.saveRefreshToken).not.toHaveBeenCalled()
+      expect(m.signAccessToken).not.toHaveBeenCalled()
     })
 
     it('A-3 reuse(超宽限且族内无活 token)⇒ 吊销整族 + 401,**不带** stale 码', async () => {
@@ -475,6 +472,30 @@ describe('会话吊销面 · 四条判据成对行为用例', () => {
       expect(res.statusCode).toBe(400)
       expect(m.updateUser).not.toHaveBeenCalled()
       expect(m.revokeAllUserRefreshTokens).not.toHaveBeenCalled()
+    })
+  })
+
+  // ───────── E. PUT /auth/profile 邮箱改绑必须收敛到 /auth/me ─────────
+  // F-53:邮箱是登录凭据,仅凭会话改绑会形成「改邮箱 → 验证码登录」的持久接管链。
+  describe('E · PUT /auth/profile — 仅凭会话不得改绑邮箱', () => {
+    const putProfile = (body: Record<string, unknown>) =>
+      appExt.inject({ method: 'PUT', url: '/auth/profile', payload: body })
+
+    it('E-1 改成他人邮箱 ⇒ 403 且不写库', async () => {
+      const res = await putProfile({ email: 'attacker@evil.com' })
+      expect(res.statusCode).toBe(403)
+      expect(m.updateUser).not.toHaveBeenCalled()
+    })
+
+    it('E-2 对照:提交与当前值相同的邮箱 ⇒ 幂等放行', async () => {
+      const res = await putProfile({ email: baseUser.email })
+      expect(res.statusCode).toBe(200)
+      expect(m.updateUser).toHaveBeenCalledTimes(1)
+    })
+
+    it('E-3 对照:不含 email 的资料更新 ⇒ 原行为不变', async () => {
+      const res = await putProfile({ avatar: '/uploads/a.png' })
+      expect(res.statusCode).toBe(200)
     })
   })
 })

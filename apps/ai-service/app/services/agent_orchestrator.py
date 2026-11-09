@@ -86,7 +86,7 @@ class AgentStepResult:
     agent_name: str
     input: str
     output: str
-    status: str  # completed / failed / skipped
+    status: str  # completed / failed / skipped / stub
     duration_ms: float = 0.0
     iterations: int = 0
     tool_calls: list[dict[str, Any]] = field(default_factory=list)
@@ -425,6 +425,9 @@ class AgentOrchestrator:
             if result.status == "failed":
                 status = "failed"
                 break
+            # 模拟步骤不能把整条流水线收成真实完成。
+            if result.status == "stub":
+                status = "stub"
             final_output = result.output
             current_input = final_output
 
@@ -486,11 +489,18 @@ class AgentOrchestrator:
             f"[{r.agent_name}]: {r.output}" for r in results if r.status == "completed"
         )
         any_failed = any(r.status == "failed" for r in results)
+        any_stub = any(r.status == "stub" for r in results)
+        if any_failed:
+            batch_status = "failed"
+        elif any_stub:
+            batch_status = "stub"
+        else:
+            batch_status = "completed"
         return OrchestrationResult(
             orchestration_id=orchestration_id,
             steps=list(results),
             final_output=joined,
-            status="failed" if any_failed else "completed",
+            status=batch_status,
             total_duration_ms=round((time.monotonic() - start) * 1000, 2),
             trace=[
                 {
@@ -1704,11 +1714,13 @@ class AgentOrchestrator:
             except Exception as e:
                 logger.warning("memory_store.add assistant 输出失败: %s", e)
 
+            # 网关 stub:true = 没配密钥的模拟文本。没抛错也不能标成真实 completed。
+            step_status = "stub" if stub else "completed"
             return AgentStepResult(
                 agent_name=agent.name,
                 input=user_input,
                 output=output,
-                status="completed",
+                status=step_status,
                 duration_ms=round((time.monotonic() - start) * 1000, 2),
                 iterations=iterations,
                 tool_calls=tool_calls,

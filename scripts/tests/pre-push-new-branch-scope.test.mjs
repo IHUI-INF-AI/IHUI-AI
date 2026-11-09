@@ -17,7 +17,7 @@
  *   T1 形状锁 —— 二级推导必须仍住在钩子原文里;
  *   T2 普通提交 —— 输出与 `git show --name-only` 逐行一致(旧行为不得漂移);
  *   T3 merge tip —— `git show` 为空,二级给出**非空**且**只含本分支真实变更**的清单;
- *   T4 merge tip 且取不到 origin/main —— 输出空(下游维持「回退全量面 + 告警」,不伪造 scope)。
+ *   T4 merge tip 且取不到 origin/main —— 输出空(下游判「未判定」exit 2,不伪造 scope、不退回整面)。
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'

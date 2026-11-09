@@ -13,7 +13,7 @@
 // (盘上副本不等于近 40 枚任何祖先 ⇒ 是现场不是幻影)。我按 HEAD 面补一行点名,对方下一次提交
 // 就会把那一行连我的注册一起抹掉 ⇒ "接线成功"当场变"接线红",红还记在对方头上。
 // **补接线的唯一正确姿势**:等 README.md 无人在飞时,把「注册条目 + 点名行 + 重跑
-// `node scripts/gen-doc-numbers.mjs --markdown`」放进**同一枚**提交 —— 三者缺一必红,且红在别人身上。
+// `node scripts/sync-readme-numbers.mjs`」放进**同一枚**提交 —— 三者缺一必红,且红在别人身上。
 //
 // 判据 A(唯一判据):同一个 class 串里同时出现「同色底」与「该色的角色档文字」
 //   (`bg-<色>[/NN | /[a] | -tint | -tint-strong | 裸实底]` + `text-<色>-text`)时,
@@ -202,7 +202,7 @@ function selfTest() {
   let bad = 0
   const ok = (name, cond, extra = '') => { n++; if (!cond) { bad++; console.log(`  ❌ ${name}${extra ? ' —— ' + extra : ''}`) } else console.log(`  ✅ ${name}`) }
   let css
-  try { css = readFileSync(resolve(ROOT, TOKENS_REL), 'utf8') } catch (e) { console.log('自检:tokens.css 读不出 ⇒ 未判定'); return 2 }
+  try { css = readFileSync(resolve(ROOT, TOKENS_REL), 'utf8') } catch { console.log('自检:tokens.css 读不出 ⇒ 未判定'); return 2 }
   const theme = parseThemeBlocks(css)
   ok('T1 两档色表都解得出(四支 × 文字档 × 填充档 = 16 个值)', COLORS.every((c) => ['L', 'D'].every((t) => toRgb(theme[t]['color-' + c]) && toRgb(theme[t]['color-' + c + '-text']))))
   const r = judgeFiles(FIXTURE, theme)

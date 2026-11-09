@@ -43,7 +43,15 @@ import {
 } from './argument-validation-telemetry.js';
 import { formatValidationErrorsLine, resolveSchemaOrThrow, validateToolArguments } from './argument-validator.js';
 // G-916424:确认窗的 permissionRequest 钩子应答出口(deny/allow/ask/modify 四形状)。
-import { runPermissionRequest } from '../hooks/index.js';
+import {
+  runHook,
+  runPermissionRequest,
+  surfaceHookOutcome,
+  runPreToolCall,
+  runPostToolCall,
+  runWithToolHookScope,
+  shouldDispatchCentralPostHook,
+} from '../hooks/index.js';
 import { noteDangerousApproval } from './danger-gate.js';
 import { recordApprovedInvocation } from './permission-lease.js';
 import { leaseWorkspaceIdOf } from '../utils/permission-lease-flag.js';
@@ -58,6 +66,7 @@ import {
   type ToolCallDenial,
 } from '../utils/tool-denial.js';
 import { injectHostSection } from '../utils/prompt-injection-registry.js';
+import { buildToolSurface, renderStablePrefix, renderToolSchema } from './tool-surface.js';
 import { BROWSER_TOOLS } from './browser.js';
 import { BROWSER_PAGE_TOOLS } from './browser-page.js';
 import {
@@ -180,6 +189,15 @@ export interface ToolResult {
    * 结构上**没有** content/output 字段 —— 全文进不了落库面(见 `ToolResultPersistence`)。
    */
   persistence?: ToolResultPersistence;
+  /**
+   * handler 自述的**结构化载荷**(browser-page 一族:`browser_page_snapshot` 的
+   * `{scope, counts, handles}`、动作结果的 `{sideEffect, sideEffectReason, detail}`)。
+   *
+   * 这些 handler 早就把它随结果一起返回,只是此前没有在契约面声明 —— 于是调用方(含测试)
+   * 只能靠断言才读得到,而"契约里没有"看起来又像"运行时也没有"。此处按事实补齐:
+   * 仍可缺席,存在时也只是 opaque map,渲染侧不得据此臆造语义。
+   */
+  data?: Record<string, unknown>;
   /**
    * handler 产出的完整内容落盘路径(artifact,如 result-envelope 的 `relativePath` 口径)。
    * 只做原样搬运进 `persistence.artifactPath`,不臆造路径;缺席 = 没有可回捞的全文。
@@ -310,6 +328,14 @@ export interface Tool extends ToolContractMount {
    * 缺省(省略)= 现状逐字不变。
    */
   strictSchema?: boolean;
+  /**
+   * 延迟装载自述位(2026-11 拍板):true = 参数 schema 默认不进常驻 prompt,只进延迟目录,
+   * 由 `tool_search` 按需揭示;false = 强制常驻。
+   * 缺省(省略)= 交给 `tools/defer-policy.ts` 按名字族判断 —— 注册点不必逐个改,
+   * 个别工具需要破例时在这里显式声明。`dangerous` 级工具即便声明 true 也仍常驻
+   * (危险动作必须让模型直接看到参数,不得先检索再确认)。
+   */
+  deferLoading?: boolean;
   execute(args: Record<string, unknown>, ctx: ToolContext): Promise<ToolResult>;
 }
 
@@ -855,19 +881,31 @@ const PLAN_FIRST_DIRECTIVE = `## 任务规划(必须先规划后执行)
 
 规划完成后再逐步执行工具调用。每完成一步,简要说明进度并继续下一步。若规划需调整,先输出新的 plan 块再继续。`;
 
-export function buildSystemPrompt(tools: Tool[], extraContext?: string, planFirst?: boolean): string {
-  const toolDescriptions = tools
-    .map((t) => {
-      const params = Object.entries(t.parameters)
-        .map(([name, p]) => {
-          const req = t.required.includes(name) ? ' (必填)' : '';
-          const enumStr = p.enum ? ` 可选值: ${p.enum.join('|')}` : '';
-          return `    - ${name}: ${p.type}${req} — ${p.description}${enumStr}`;
-        })
-        .join('\n');
-      return `### ${t.name}\n${t.description}\n参数:\n${params}`;
-    })
-    .join('\n\n');
+/** `buildSystemPrompt` 的可选装配参数。 */
+export interface BuildSystemPromptOptions {
+  /**
+   * 延迟工具目录文本(「名字 — 一句话描述」,不含参数 schema)。
+   * 显式给出(含空串)= 工具面已由调用方切好(典型:`prompts/compose.ts` 经 `buildToolSurface`),
+   * 本函数不再二次延迟;省略 = 由本函数按 `defer-policy` 自行切分。
+   */
+  deferredCatalogue?: string;
+  /** 会话级已揭示集合(仅在自行切分时生效;显式给出目录时调用方已并入 promptTools) */
+  revealed?: ReadonlySet<string>;
+}
+
+export function buildSystemPrompt(
+  tools: Tool[],
+  extraContext?: string,
+  planFirst?: boolean,
+  opts: BuildSystemPromptOptions = {},
+): string {
+  // 稳定前缀(与工具集合无关)+ 上下文 + 规划段 + 常驻 schema + 延迟目录 + 一句提示。
+  // 顺序刻意固定:工具集变化只影响"常驻 schema"及其后的段落,前缀字节不移动。
+  const surface = opts.deferredCatalogue !== undefined
+    ? { promptTools: tools, catalogueText: opts.deferredCatalogue }
+    : buildToolSurface(tools, { revealed: opts.revealed ?? new Set<string>() });
+
+  const toolDescriptions = surface.promptTools.map((t) => renderToolSchema(t)).join('\n\n');
 
   const contextSection = extraContext
     ? `\n\n## 项目上下文\n\n${extraContext}\n`
@@ -884,33 +922,21 @@ export function buildSystemPrompt(tools: Tool[], extraContext?: string, planFirs
     : '';
   const planSection = planFirstDirective ? `\n\n${planFirstDirective}` : '';
 
-  return `你是一个强大的编码助手。你可以使用以下工具来完成任务。
+  // 延迟目录同样是宿主指令:目录文本 + "先检索再调用"的提示一并经登记出口下发。
+  // 目录为空时**不记账**(无延迟工具是常态,不是降级)。
+  const catalogueDirective = surface.catalogueText
+    ? injectHostSection('tool_catalogue_deferred', `## 延迟工具目录(按需检索)\n\n${surface.catalogueText}\n\n需要某个未列出参数的工具时,先调用 tool_search(关键词或工具名),拿到完整参数后再调用该工具。`, { kind: 'host_directive' })
+    : '';
+  const catalogueSection = catalogueDirective ? `\n\n${catalogueDirective}` : '';
+
+  return `${renderStablePrefix()}
 ${contextSection}${planSection}
 
 ## 可用工具
 
-${toolDescriptions}
-
-## 工具调用格式
-
-当需要使用工具时,在回复中输出以下格式的代码块:
-
-\`\`\`tool_call
-{"name":"工具名","arguments":{"参数名":"参数值"}}
-\`\`\`
-
-可以连续调用多个工具(每个占一个代码块)。工具执行后,结果会以 user 消息形式返回,你可以继续处理。
-
-当任务完成或无需工具时,正常回复即可(不包含 tool_call 块)。
-
-## 注意事项
-
-- 优先使用工具获取信息,不要猜测文件内容
-- 文件路径相对于工作区根目录
-- 一次只调用必要的工具,避免冗余操作
-- 修改/创建文件必须使用 edit_file / write_file 工具,禁止通过 run_command 执行内嵌脚本(如 node -e / sed -i)改文件——跨 shell 引号转义极易失败且错误不易察觉
-- 声称完成前,用 read_file 复核关键改动确实落盘`;
+${toolDescriptions}${catalogueSection}`;
 }
+
 
 export interface ParsedToolCall {
   name: string;
@@ -1742,14 +1768,107 @@ async function executeToolCallInner(
 }
 
 /**
+ * 工具失败档的统一派发口(postToolUseFailure):工具**执行抛错**与返回失败结果两种情况
+ * 都走这里,载荷带工具名与错误文本。hook 自身抛错由 runHook 内部兜底;本函数不再造第二层
+ * 异常 —— 抛错路径的原始错误必须原样上抛(见 executeToolCall 的 catch)。
+ */
+async function firePostToolUseFailure(
+  call: ParsedToolCall,
+  ctx: ToolContext,
+  errorText: string,
+): Promise<void> {
+  const res = await runHook('postToolUseFailure', {
+    workspacePath: ctx.workspacePath,
+    toolName: call.name,
+    error: errorText,
+  });
+  surfaceHookOutcome('postToolUseFailure', res);
+}
+
+/**
+ * 工具终态的两档事后钩子 —— **互斥且只发一次**:
+ *  - 拒绝类(结果带 denial)⇒ permissionDenied(事后通知,不改判定);
+ *  - 其余非成功结果 ⇒ postToolUseFailure;
+ *  - 成功结果两条都不发。
+ * 位置在 assembleToolResultProjections 之后:钩子看到的是最终投影,而不是中间态。
+ * 钩子链的任何故障都不许改写本次 ToolResult(返回值逐字不变)。
+ */
+async function fireToolOutcomeHooks(
+  call: ParsedToolCall,
+  ctx: ToolContext,
+  result: ToolResult,
+): Promise<void> {
+  if (result.denial) {
+    const res = await runHook('permissionDenied', {
+      workspacePath: ctx.workspacePath,
+      toolName: call.name,
+      reason: result.denial.decider,
+      error: result.error,
+    });
+    surfaceHookOutcome('permissionDenied', res);
+    return;
+  }
+  if (!result.success) {
+    await firePostToolUseFailure(call, ctx, result.error ?? 'unknown error');
+  }
+}
+
+/**
  * G-109 终态出口:全部 return 分支(hub / 本地 / 各道拒绝闸)共用同一个装配点,
  * 保证"三条投影一次写齐"不靠每条分支自觉。装配内部不改早退判定的任何字段。
+ *
+ * 2026-11-06 追加两档事后钩子:拒绝类(permissionDenied)与失败类(postToolUseFailure)
+ * 只在这一个出口派发,不散落进各条早退分支(否则"拒绝"与"失败"会被不同分支各报一次)。
+ * 抛错路径先补一条 postToolUseFailure,**然后原样 rethrow** —— 钩子侧故障不得吞掉
+ * 或替换原始错误(那是把失败路径自身变成异常源)。
  */
 export async function executeToolCall(
   call: ParsedToolCall,
   ctx: ToolContext,
 ): Promise<ToolResult> {
-  return assembleToolResultProjections(await executeToolCallInner(call, ctx));
+  return runWithToolHookScope(async () => {
+    // F-097 中央 preToolCall 闸:所有工具(含 read/list/grep/glob/skill/MCP/subagent)
+    // 都从这里统一过一遍;工具体内已自己接线的第二次调用由 scope 折成"已派发空结果",
+    // 不重复跑钩子(避免同一调用两次审计/两次拦截)。
+    const pre = await runPreToolCall(call.name, call.arguments, ctx.signal);
+    if (!pre.proceed) {
+      return {
+        success: false,
+        output: '',
+        error: pre.reason ?? `preToolCall 钩子阻断 ${call.name}`,
+        errorType: 'permission_denied',
+      };
+    }
+    let result: ToolResult;
+    try {
+      result = assembleToolResultProjections(await executeToolCallInner(call, ctx));
+    } catch (error) {
+      try {
+        await firePostToolUseFailure(call, ctx, error instanceof Error ? error.message : String(error));
+      } catch {
+        // 钩子链故障不得替换原始错误;原始错误在下一行照常上抛。
+      }
+      throw error;
+    }
+    try {
+      await fireToolOutcomeHooks(call, ctx, result);
+    } catch {
+      // 钩子链故障不得改写成败/成功,也不得把结果路径变成第二异常源:结果原样返回。
+    }
+    // F-097 中央 postToolCall 闸:工具体内没有任何 post 派发时才补一次标准载荷。
+    if (shouldDispatchCentralPostHook()) {
+      try {
+        await runPostToolCall(
+          call.name,
+          { success: result.success, output: result.output, error: result.error },
+          ctx.signal,
+        );
+      } catch {
+        // 同 fireToolOutcomeHooks:钩子故障不改结果。
+      }
+    }
+    return result;
+  });
 }
 
 /**

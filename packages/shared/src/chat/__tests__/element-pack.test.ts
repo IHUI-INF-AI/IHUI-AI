@@ -69,7 +69,7 @@ describe('D64 ③ thinkingTitleView 双态', () => {
 
 describe('D64 ④ backgroundTaskView 八态穷尽', () => {
   it('八态逐个派发,titleKey 与 state 一一对应(穷尽,零 default 由编译期锁死)', () => {
-    expect(BACKGROUND_TASK_STATES).toHaveLength(8)
+    expect(BACKGROUND_TASK_STATES).toHaveLength(9)
     for (const state of BACKGROUND_TASK_STATES) {
       const view = backgroundTaskView(state)
       expect(view.titleKey, state).toBe(`state.${state}`)
@@ -106,7 +106,7 @@ describe('D64 ④ backgroundTaskView 八态穷尽', () => {
   })
 
   it('AgentStatus 十态全部可归并(穷尽),运行细分阶段归并 running', () => {
-    expect(AGENT_STATUS_LITERALS).toHaveLength(10)
+    expect(AGENT_STATUS_LITERALS).toHaveLength(11)
     expect(fromAgentStatus('idle')).toBe('pending')
     expect(fromAgentStatus('pending')).toBe('pending')
     for (const s of ['thinking', 'acting', 'reflecting', 'waiting', 'running'] as const) {
@@ -115,6 +115,7 @@ describe('D64 ④ backgroundTaskView 八态穷尽', () => {
     expect(fromAgentStatus('completed')).toBe('completed')
     expect(fromAgentStatus('failed')).toBe('failed')
     expect(fromAgentStatus('cancelled')).toBe('cancelled')
+    expect(fromAgentStatus('stub')).toBe('stub')
   })
 
   it('isBackgroundTaskState 类型守卫', () => {

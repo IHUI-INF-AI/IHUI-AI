@@ -6,8 +6,9 @@ import { useTt, useI18n } from '@/i18n'
 import { goToLogin } from '@/utils/auth'
 import { View, Text } from '@tarojs/components'
 import { FocusInput } from '@/components/FocusField'
-import Taro from '@tarojs/taro'
-import { useState, useMemo, useRef, useEffect } from 'react'
+import Taro, { useDidShow } from '@tarojs/taro'
+import { useState, useMemo } from 'react'
+import { useCountdown } from '@ihui/shared'
 import { sendSmsCode, post } from '@/api'
 import PhoneAreaCodePicker from '@/components/PhoneAreaCodePicker'
 import PasswordVisibilityToggle from '@/components/PasswordVisibilityToggle'
@@ -36,21 +37,19 @@ export default function ForgotPassword() {
   const [showNew, setShowNew] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
 
-  const [countdown, setCountdown] = useState(0)
+  // 截止戳派生:后台被节流后返回前台仍按墙钟对表(useDidShow 里 sync)
+  const codeCountdown = useCountdown(60)
   const [submitting, setSubmitting] = useState(false)
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  useDidShow(() => {
+    codeCountdown.sync()
+  })
 
   const codeBtnText = useMemo(
-    () => (countdown > 0 ? `${countdown}秒后重新获取` : t('forgot.getCode')),
-    [countdown, t],
+    () => (codeCountdown.count > 0 ? `${codeCountdown.count}秒后重新获取` : t('forgot.getCode')),
+    [codeCountdown.count, t],
   )
-  const codeBtnDisabled = countdown > 0 || phone.length !== 11
-
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current)
-    }
-  }, [])
+  const codeBtnDisabled = codeCountdown.count > 0 || phone.length !== 11
 
   async function sendCode() {
     if (codeBtnDisabled) return
@@ -61,16 +60,9 @@ export default function ForgotPassword() {
     try {
       await sendSmsCode(phone)
       onToast(t('forgot.codeSent'), { kind: 'success' })
-      setCountdown(60)
-      timerRef.current = setInterval(() => {
-        setCountdown((prev) => {
-          if (prev <= 1 && timerRef.current) {
-            clearInterval(timerRef.current)
-            timerRef.current = null
-          }
-          return prev <= 1 ? 0 : prev - 1
-        })
-      }, 1000)
+      // 重发时先复位再启动,确保走完整 60s 截止戳
+      codeCountdown.reset(60)
+      codeCountdown.start()
     } catch {
       // 错误已由 request 统一提示
     }

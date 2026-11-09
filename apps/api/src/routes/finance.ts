@@ -18,13 +18,15 @@ import {
   listCommissionFlows,
   commissionSummary,
   applyWithdrawal,
+  approveWithdrawal,
+  rejectWithdrawal,
   listWithdrawals,
   withdrawalSummary,
   availableWithdrawal,
   listSubordinates,
   teamCenter,
 } from '../db/commission-queries.js'
-import { orders, withdrawalFlows } from '@ihui/database'
+import { orders } from '@ihui/database'
 import { eq, and, desc, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 
@@ -149,7 +151,9 @@ export const financeRoutes: FastifyPluginAsync = async (server) => {
       })
       .parse(request.query)
     const userId = request.userId!
-    const result = await listTokenFlows(userId, page, limit, opType)
+    // token_flows.quantity 在 op_type 0–5 是「分」，op_type 6 是 API 配额计数（个）。
+    // 本端点是钱流水，未显式指定 opType 时排除配额腿，避免被当金额展示。
+    const result = await listTokenFlows(userId, page, limit, opType, true)
     return reply.send(success(result))
   })
 
@@ -241,7 +245,17 @@ export const financeRoutes: FastifyPluginAsync = async (server) => {
     // 2FA step-up 闸：已开 2FA 的账号，敏感操作前须有窗内二次验证（会话被窃 ⇒ 拿不到凭据）
     const stepUp = await requireStepUpForTwoFactorUser({ userId, redis: request.server.redis })
     if (!stepUp.ok) {
-      return reply.status(401).send(error(401, stepUp.code === 'STEP_UP_REQUIRED' ? '该操作需要二次验证：请先调用 POST /auth/2fa/step-up 提交当前 TOTP 验证码（5 分钟内有效）' : '暂时无法确认该账号的两步验证状态，请稍后重试', stepUp.code))
+      return reply
+        .status(401)
+        .send(
+          error(
+            401,
+            stepUp.code === 'STEP_UP_REQUIRED'
+              ? '该操作需要二次验证：请先调用 POST /auth/2fa/step-up 提交当前 TOTP 验证码（5 分钟内有效）'
+              : '暂时无法确认该账号的两步验证状态，请稍后重试',
+            stepUp.code,
+          ),
+        )
     }
     if (amountCents <= 0) return reply.status(400).send(error(400, '提现金额必须为正'))
 
@@ -333,22 +347,26 @@ export const financeRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    // approved→1(processing,进入付款流程),rejected→3(failed)
-    const dbStatus = parsed.data.status === 'approved' ? 1 : 3
-    const set: Partial<typeof withdrawalFlows.$inferInsert> = {
-      status: dbStatus,
-      processedAt: new Date(),
-      updatedAt: new Date(),
+    // F-62:原实现按 id 无条件 UPDATE —— (1) rejected 只改状态、不退还冻结余额,
+    // token 永久卡在 frozen;(2) 已 completed(2)/已退款(3) 的流水可被改回 processing(1)
+    // 再次进入打款流程(退款后又收一次钱);(3) 并发通过/驳回均成功。
+    // 统一走已实现状态机:approve 只允许 0→1,reject 只允许 0→3 且同事务退还冻结。
+    const operatorId = request.userId ?? null
+    if (parsed.data.status === 'approved') {
+      const updated = await approveWithdrawal(parsedParams.data.id, operatorId)
+      if (!updated) {
+        return reply.status(409).send(error(409, '提现记录不存在或已被处理'))
+      }
+      return reply.send(success({}))
     }
-    if (parsed.data.status === 'rejected' && parsed.data.remark) {
-      set.rejectReason = parsed.data.remark
+    const rejected = await rejectWithdrawal(
+      parsedParams.data.id,
+      parsed.data.remark ?? '管理员驳回',
+      operatorId,
+    )
+    if (!rejected) {
+      return reply.status(409).send(error(409, '提现记录不存在或已被处理'))
     }
-    const [updated] = await db
-      .update(withdrawalFlows)
-      .set(set)
-      .where(eq(withdrawalFlows.id, parsedParams.data.id))
-      .returning()
-    if (!updated) return reply.status(404).send(error(404, '提现记录不存在'))
     return reply.send(success({}))
   })
 }

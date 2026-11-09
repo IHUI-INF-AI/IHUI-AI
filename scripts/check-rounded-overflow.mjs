@@ -40,12 +40,16 @@
  * 注:本脚本采用行级启发式 + className 跨行合并 + 缩进判断父子关系,准确度 ~90%。
  *     cn()/clsx() 包装的 className 已解析其中的字符串字面量(2026-08-27 修复
  *     UserMembershipBenefits 误报,并由此揭示 RequestBuilder/ResponseViewer 两处真实溢出)。
- *     warn-only 起步(不阻塞 commit),1 周后(2026-08-13)评估升级 blocking。
+ *     2026-08-13 已升级 blocking(注册为 blocking,staged 命中新增违规 exit 1)。
+ *
+ * 取材面(2026-11-08 修):--staged 的行号取自索引 diff,正文也必须读**索引 blob**
+ * (`readSources(ROOT,'staged',…)`),不再读工作树 —— 清单与内容同面,避免「暂存的是旧态、
+ * 盘上是新态」时按错位行号判绿/误红(§0.4)。
  */
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { isExcludedDirName } from './lib/exclude-dirs.mjs'
-import { gitRaw } from './lib/face-reader.mjs'
+import { catBatch, gitRaw } from './lib/face-reader.mjs'
 import { COLORS as C } from './lib/logger.mjs'
 
 const ROOT = process.cwd()
@@ -327,7 +331,7 @@ function getStagedFiles() {
       .filter((f) => SCAN_EXTS.some((e) => f.endsWith(e)))
       .filter((f) => !isExcludedDirName(f.split('/')[0]))
       .map((f) => join(ROOT, f))
-      .filter((f) => existsSync(f))
+    // 不按工作树存在性过滤:staged 档的真相在索引 blob(工作树暂缺时仍应判) 
   } catch {
     return []
   }
@@ -362,8 +366,30 @@ if (isStaged) {
 let totalViolations = 0
 const fileReports = []
 
+// 清单与内容同面:--staged 的正文读索引 blob(与 addedLinesMap 的 diff 同源),不读工作树。
+let stagedSources = null
+if (isStaged) {
+  try {
+    const rels = files.map((f) => relative(ROOT, f).replace(/\\/g, '/'))
+    stagedSources = catBatch(ROOT, rels.map((r) => `:${r}`))
+  } catch (e) {
+    console.error(`${C.red}⚠️  索引 blob 取不到,无法判定:${C.reset}${e?.message ?? e}`)
+    process.exit(2)
+  }
+}
+
 for (const file of files) {
-  const src = readFileSync(file, 'utf8')
+  const rel = relative(ROOT, file).replace(/\\/g, '/')
+  let src
+  if (isStaged) {
+    src = stagedSources.get(`:${rel}`)
+    if (src === null || src === undefined) {
+      console.error(`${C.red}⚠️  索引里取不到 ${rel},无法判定${C.reset}`)
+      process.exit(2)
+    }
+  } else {
+    src = readFileSync(file, 'utf8')
+  }
   const lines = src.split('\n')
   const elements = extractJsxElements(src)
 

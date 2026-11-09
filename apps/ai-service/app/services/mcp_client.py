@@ -43,6 +43,7 @@ from app.services.command_streamer import (
     PROTOCOL_FRAME_LIMIT_BYTES,
     read_protocol_frame,
 )
+from app.services.mcp_endpoint_policy import MCPEndpointRejected, resolve_endpoint
 from app.services.mcp_oauth import MCPOAuthClient, MCPOAuthConfig
 from app.services.tool_budget_governor import (
     BUDGET_EXCEEDED,
@@ -141,6 +142,9 @@ class MCPClient:
         self._dropped_frame_bytes = 0
         # streamable-http 状态
         self._http_headers: dict[str, str] = {}
+        # AIS-053:已钉住 IP 的请求 URL / TLS SNI(原域名)。连接层不再做 DNS。
+        self._http_url = ""
+        self._http_sni = ""
         self._http_mode = "post"
         self._http_client: httpx.AsyncClient | None = None
         self._http_sse_task: asyncio.Task[None] | None = None
@@ -678,29 +682,30 @@ class MCPClient:
             logger.error("SSE 模式缺少 url")
             return False
         parsed = urllib.parse.urlparse(self._config.url)
-        # 2026-11-01 安全强化:连接点只做**协议族**校验(非 http(s) 一律拒:file/gopher 之类
-        # 形态连不上任何 MCP,却能把后续实现带进本地读取面)。
-        # 刻意**不**在这里套 `_validate_url_ssrf`:那把尺子的端口封闭表只放行
-        # 80/443/8080/8443/3000/8801,而本仓的外部 MCP 设计上包含"连内网自研服务"这一档
-        # (既有 tests/test_mcp_client.py::test_sse_connect_success 连的就是
-        # 127.0.0.1:8803 的 ai-service 自身端点)—— 接上去会打死在用能力。
-        # 内网面在这里是意图而非缺陷,真正的收口在注册面:routers/mcp.py 已把 url 型传输
-        # 与 stdio 同档收成"仅管理员注册"(那条通道 = 让服务端替调用者出连)。
-        if parsed.scheme not in ("http", "https"):
-            logger.error("SSE 模式仅允许 http(s),收到 %r", parsed.scheme)
-            return False
-        host = parsed.hostname or "localhost"
-        port = parsed.port or (443 if parsed.scheme == "https" else 80)
         path = parsed.path or "/sse"
-        use_ssl = parsed.scheme == "https"
+        # AIS-053:落点判定必须落在 **DNS 解析后的真实 IP** 上,且默认 fail-closed
+        # (私网/回环/链路本地/云元数据全拒;本地开发用 MCP_ALLOW_PRIVATE_ENDPOINTS 显式放行)。
+        # 这里拿到的是已钉住 IP 的 target:下一行 open_connection 只传 IP,不再做第二次 DNS,
+        # 否则校验期与连接期可被 DNS rebinding 换掉。
+        try:
+            target = resolve_endpoint(self._config.url)
+        except MCPEndpointRejected as e:
+            logger.error("SSE 落点被策略拒绝(%s): %s", self._config.url, e.reason)
+            self._connected = False
+            return False
+        use_ssl = target.scheme == "https"
+        connect_kwargs: dict[str, Any] = {"ssl": use_ssl}
+        if use_ssl:
+            # TLS 证书按原域名校验(连接目标已是 IP,SNI/Host 必须保持原样)。
+            connect_kwargs["server_hostname"] = target.host
         try:
             reader, writer = await asyncio.wait_for(
-                asyncio.open_connection(host, port, ssl=use_ssl),
+                asyncio.open_connection(target.ip, target.port, **connect_kwargs),
                 timeout=self._config.timeout,
             )
             request = (
                 f"GET {path} HTTP/1.1\r\n"
-                f"Host: {host}:{port}\r\n"
+                f"Host: {target.host_header}\r\n"
                 f"Accept: text/event-stream\r\n"
                 f"Cache-Control: no-cache\r\n"
                 f"\r\n"
@@ -716,7 +721,14 @@ class MCPClient:
                 header_bytes += chunk
             header_text = header_bytes.split(b"\r\n\r\n")[0].decode("utf-8", errors="replace")
             status_line = header_text.split("\r\n")[0] if header_text else ""
-            if "200" not in status_line and "201" not in status_line:
+            status_code = 0
+            parts = status_line.split()
+            if len(parts) >= 2 and parts[1].isdigit():
+                status_code = int(parts[1])
+            if 300 <= status_code < 400:
+                # AIS-053:重定向一律不跟随(不逐跳复检);3xx 后面可能藏着私网落点。
+                raise ConnectionError(f"SSE 不跟随重定向: {status_line}")
+            if status_code not in (200, 201):
                 raise ConnectionError(f"SSE 连接失败: {status_line}")
             self._reader = reader
             self._writer = writer
@@ -798,23 +810,31 @@ class MCPClient:
             base = f"{parsed.scheme}://{parsed.netloc}"
             post_url = f"{base}/messages/"
         parsed = urllib.parse.urlparse(post_url)
-        host = parsed.hostname or "localhost"
-        port = parsed.port or (443 if parsed.scheme == "https" else 80)
         post_path = parsed.path or "/messages/"
         if parsed.query:
             post_path += f"?{parsed.query}"
         elif self._session_id:
             post_path += f"?sessionId={self._session_id}"
-        use_ssl = parsed.scheme == "https"
+        # AIS-053:SSE 的 messages 落点由服务端在 endpoint 事件里给出,同样必须按
+        # "解析后的真实 IP"判定 —— 只信首跳 URL 的话,一条公网 SSE 就能把 POST 指回内网。
+        try:
+            target = resolve_endpoint(post_url)
+        except MCPEndpointRejected as e:
+            logger.error("SSE POST 落点被策略拒绝(%s): %s", post_url, e.reason)
+            raise ConnectionError(f"SSE POST 落点被拒绝: {e.reason}") from e
+        use_ssl = target.scheme == "https"
+        connect_kwargs: dict[str, Any] = {"ssl": use_ssl}
+        if use_ssl:
+            connect_kwargs["server_hostname"] = target.host
         try:
             reader, writer = await asyncio.wait_for(
-                asyncio.open_connection(host, port, ssl=use_ssl),
+                asyncio.open_connection(target.ip, target.port, **connect_kwargs),
                 timeout=self._config.timeout,
             )
             body = data.encode("utf-8")
             request = (
                 f"POST {post_path} HTTP/1.1\r\n"
-                f"Host: {host}:{port}\r\n"
+                f"Host: {target.host_header}\r\n"
                 f"Content-Type: application/json\r\n"
                 f"Content-Length: {len(body)}\r\n"
                 f"\r\n"
@@ -893,8 +913,25 @@ class MCPClient:
         if not self._config.url:
             logger.error("streamable-http 模式缺少 url")
             return False
-        self._http_client = httpx.AsyncClient(timeout=httpx.Timeout(self._config.timeout))
-        headers: dict[str, str] = {"Accept": "application/json, text/event-stream"}
+        # AIS-053:与 SSE 同一条判据链 —— 解析后校验所有 IP,并把请求 URL 钉到该 IP;
+        # 显式 follow_redirects=False,3xx 由调用方当失败处理(不跟随、不逐跳复检)。
+        try:
+            target = resolve_endpoint(self._config.url)
+        except MCPEndpointRejected as e:
+            logger.error(
+                "streamable-http 落点被策略拒绝(%s): %s", self._config.url, e.reason,
+            )
+            self._connected = False
+            return False
+        self._http_url = target.pin_url(self._config.url)
+        self._http_sni = target.host if target.scheme == "https" else ""
+        self._http_client = httpx.AsyncClient(
+            timeout=httpx.Timeout(self._config.timeout), follow_redirects=False,
+        )
+        headers: dict[str, str] = {
+            "Accept": "application/json, text/event-stream",
+            "Host": target.host_header,
+        }
         # OAuth:连接前先取 token,注入 Authorization: Bearer <token>
         self._oauth_client_owned = False
         self._oauth_client = None
@@ -961,11 +998,16 @@ class MCPClient:
         if self._session_id:
             headers["Mcp-Session-Id"] = self._session_id
         try:
+            kwargs: dict[str, Any] = {}
+            if self._http_sni:
+                # 连接目标是钉住后的 IP,证书仍须按原域名校验。
+                kwargs["extensions"] = {"sni_hostname": self._http_sni}
             resp = await self._http_client.post(
-                self._config.url,
+                self._http_url or self._config.url,
                 headers=headers,
                 json=msg,
                 timeout=httpx.Timeout(timeout or self._config.timeout),
+                **kwargs,
             )
         except Exception as e:
             logger.error("streamable-http 请求失败: %s", e)
@@ -1015,8 +1057,12 @@ class MCPClient:
             stream_headers["Mcp-Session-Id"] = self._session_id
         try:
             timeout = httpx.Timeout(self._config.timeout * 2, connect=self._config.timeout)
+            stream_kwargs: dict[str, Any] = {}
+            if self._http_sni:
+                stream_kwargs["extensions"] = {"sni_hostname": self._http_sni}
             async with self._http_client.stream(
-                "GET", self._config.url, headers=stream_headers, timeout=timeout,
+                "GET", self._http_url or self._config.url, headers=stream_headers,
+                timeout=timeout, **stream_kwargs,
             ) as resp:
                 ctype = resp.headers.get("Content-Type", "").lower()
                 if "text/event-stream" not in ctype:

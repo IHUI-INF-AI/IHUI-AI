@@ -49,6 +49,18 @@ const GITDIR = resolveGitdir(WORKTREE)
 const REFS_MANIFEST = join(GITDIR, 'refs-manifest.json')
 
 /**
+ * `lost-commit/*` 期望项是否允许整族摘除(2026-11-05 机主令)。
+ *
+ * **默认关** ⇒ 行为与既有完全一致(一律 holdover,保证防 gc 载体被清后仍能离线重建)。
+ * 只有显式 `IHUI_REFS_MANIFEST_DROP_LOST_TAG_EXPECTATIONS=1` 才把 `refs/tags/lost-commit/**`
+ * 交给 prune 流程摘除;**`refs/tags/backup/**` 与其余 tag 期望项不受此开关管辖**,行为不变。
+ */
+const DROP_LOST_TAG_EXPECTATIONS_ENV = 'IHUI_REFS_MANIFEST_DROP_LOST_TAG_EXPECTATIONS'
+function dropLostTagExpectations() {
+  return String(process.env[DROP_LOST_TAG_EXPECTATIONS_ENV] || '') === '1'
+}
+
+/**
  * 派生 git 的输出缓冲上限。这里必须**显式给**:execFileSync 默认 1 MiB,而 `for-each-ref refs/heads
  * refs/tags refs/remotes` 在本仓(2026-11-03 实测 23,031 枚 tag)输出 1,052,662 B,刚好顶穿默认值报
  * ENOBUFS ⇒ `git(..., true)` 返回 null ⇒ `currentRefs()` 交回空表 ⇒ `--status` 把清单里 22,298 条
@@ -251,9 +263,13 @@ function remoteCandidatesFor(ref) {
  *     网络/权限抖动删光整族期望项 —— 那比恒红严重得多(§5b 的分层自愈正依赖这份清单)。
  *  ② 只动 origin 命名空间(refs/remotes/origin/**、refs/tags/**),其它形态的键不判也不删。
  *  ③ 按**键名**判存在,不比 sha(sha 由上面的校准负责);候选名任一命中即保留。
- * @returns {{removed:string[], kept:number, skippedNonOrigin:number, declined:boolean}}
+ * @param {object} [opts]
+ * @param {boolean} [opts.dropLostCommitTagExpectations=false] 显式开关:整族摘除 `refs/tags/lost-commit/**`
+ * @param {boolean} [opts.dryRun=false] true = 只算不写(供 --prune-dry-run 干跑)
+ * @returns {{removed:string[], kept:number, skippedNonOrigin:number, tagHoldovers:number, lostTagRemoved:number, declined:boolean}}
  */
-function pruneAbsentExpectations(map, remoteRefNames) {
+function pruneAbsentExpectations(map, remoteRefNames, opts = {}) {
+  const { dropLostCommitTagExpectations = false, dryRun = false } = opts
   const all = Object.keys(map)
   if (!remoteFaceIsComplete(remoteRefNames)) {
     return {
@@ -261,13 +277,23 @@ function pruneAbsentExpectations(map, remoteRefNames) {
       kept: all.length,
       skippedNonOrigin: 0,
       tagHoldovers: 0,
+      lostTagRemoved: 0,
       declined: true,
     }
   }
   const removed = []
   let skippedNonOrigin = 0
   let tagHoldovers = 0
+  let lostTagRemoved = 0
   for (const ref of all) {
+    // 2026-11-05:lost-commit/* 期望项不再**无条件**保留。显式开关打开时整族摘除(它们的
+    // 语义是"防 gc 载体的期望",迁移到 keep 介质后由新载体接管);backup/* 与其它 tag 一律
+    // 走下面的 holdover 分支,行为不变(§22 禁删、§5b 双留)。
+    if (dropLostCommitTagExpectations && ref.startsWith('refs/tags/lost-commit/')) {
+      removed.push(ref)
+      lostTagRemoved++
+      continue
+    }
     const candidates = remoteCandidatesFor(ref)
     if (!candidates) {
       skippedNonOrigin++
@@ -282,12 +308,13 @@ function pruneAbsentExpectations(map, remoteRefNames) {
     }
     removed.push(ref)
   }
-  for (const ref of removed) delete map[ref]
+  if (!dryRun) for (const ref of removed) delete map[ref]
   return {
     removed,
-    kept: Object.keys(map).length,
+    kept: dryRun ? all.length - removed.length : Object.keys(map).length,
     skippedNonOrigin,
     tagHoldovers,
+    lostTagRemoved,
     declined: false,
   }
 }
@@ -320,7 +347,9 @@ function refreshFromRemote() {
     if (map[local] !== sha) added++
     map[local] = sha
   }
-  const pruned = pruneAbsentExpectations(map, remoteRefNames)
+  const pruned = pruneAbsentExpectations(map, remoteRefNames, {
+    dropLostCommitTagExpectations: dropLostTagExpectations(),
+  })
   if (pruned.removed.length) {
     console.log(`[refresh-remote] 摘除 ${pruned.removed.length} 个远端已不存在的期望项:`)
     for (const r of pruned.removed) console.log(`   - ${r}`)
@@ -489,6 +518,59 @@ function selfTest() {
       throw new Error(`maxBuffer 余量太小(${GIT_MAX_BUFFER_BYTES})`)
   })
 
+  t('清单摘除开关:默认关 ⇒ lost-commit 期望项仍 holdover,一条不摘', () => {
+    const map = {
+      'refs/tags/lost-commit/auto-abc': shaAlive,
+      'refs/tags/backup/snap': shaAlive,
+      'refs/remotes/origin/gone/x': shaAlive,
+    }
+    const r = pruneAbsentExpectations(map, new Set(['refs/heads/main', 'refs/tags/unrelated']), {
+      dropLostCommitTagExpectations: false,
+      dryRun: true,
+    })
+    if (r.lostTagRemoved !== 0) throw new Error(`默认关仍摘了 lost-commit 期望项:${r.lostTagRemoved}`)
+    if (r.removed.some((x) => x.startsWith('refs/tags/lost-commit/')))
+      throw new Error('默认关把 lost-commit 期望项摘了(既有行为被破坏)')
+    if (r.tagHoldovers !== 2) throw new Error(`tag holdover 数不对:${r.tagHoldovers}(应为 lost+backup=2)`)
+    if (!r.removed.includes('refs/remotes/origin/gone/x')) throw new Error('远端已无的 tracking ref 应被摘')
+  })
+
+  t('清单摘除开关:开 + dry-run ⇒ 只算不写,backup/* 零摘除', () => {
+    const map = {
+      'refs/tags/lost-commit/auto-abc': shaAlive,
+      'refs/tags/lost-commit/auto-def': shaAlive,
+      'refs/tags/backup/snap': shaAlive,
+    }
+    const before = JSON.stringify(map)
+    const r = pruneAbsentExpectations(map, new Set(['refs/heads/main', 'refs/tags/unrelated']), {
+      dropLostCommitTagExpectations: true,
+      dryRun: true,
+    })
+    if (r.declined) throw new Error('远端面完整时不应判 declined')
+    if (r.lostTagRemoved !== 2) throw new Error(`应报 2 条 lost-commit,实际 ${r.lostTagRemoved}`)
+    if (r.removed.some((x) => x.startsWith('refs/tags/backup/')))
+      throw new Error('backup/* 被摘除(违反 §22/§5b)')
+    if (r.tagHoldovers !== 1) throw new Error(`backup 应仍 holdover,实际 ${r.tagHoldovers}`)
+    if (JSON.stringify(map) !== before) throw new Error('dry-run 改了清单')
+  })
+
+  t('清单摘除开关:开 + 真跑 ⇒ 删 lost-commit,backup/* 与其它 tag 保留', () => {
+    const map = {
+      'refs/tags/lost-commit/auto-abc': shaAlive,
+      'refs/tags/backup/snap': shaAlive,
+      'refs/tags/keep/release': shaAlive,
+      'refs/remotes/origin/gone/x': shaAlive,
+    }
+    const r = pruneAbsentExpectations(map, new Set(['refs/heads/main', 'refs/tags/unrelated']), {
+      dropLostCommitTagExpectations: true,
+    })
+    if (r.lostTagRemoved !== 1) throw new Error(`应摘 1 条,实际 ${r.lostTagRemoved}`)
+    if (map['refs/tags/lost-commit/auto-abc']) throw new Error('lost-commit 期望项没删')
+    if (!map['refs/tags/backup/snap']) throw new Error('backup/* 被误删')
+    if (!map['refs/tags/keep/release']) throw new Error('其它 tag 期望项被误删')
+    if (map['refs/remotes/origin/gone/x']) throw new Error('远端已无的 tracking ref 没摘')
+  })
+
   let fail = 0
   for (const [name, fn] of cases) {
     try {
@@ -510,6 +592,50 @@ function main() {
     const s = status()
     console.log(JSON.stringify(s, null, 1))
     process.exit(s.state === 'unjudged' ? 2 : s.missing.length === 0 ? 0 : 1)
+  }
+
+  // 只读干跑:这次**不写** refs-manifest.json、不重建 ref,只报「若执行会摘掉多少」。
+  // 远端面取不到 ⇒ exit 2(未判定),不许把"没返回"当"远端没有"。
+  if (args.includes('--prune-dry-run')) {
+    const out = git(['ls-remote', '--tags', '--heads', 'origin'], true)
+    if (!out) {
+      console.error('❌ 干跑:读不到远端 ref(网络/代理不可达)⇒ 未判定,不做任何推断')
+      process.exit(2)
+    }
+    const names = new Set()
+    for (const line of out.split('\n')) {
+      const ref = (line.split('\t')[1] || '').trim()
+      if (!ref || ref.endsWith('^{}')) continue
+      names.add(ref)
+    }
+    const map = readManifest()
+    const drop = dropLostTagExpectations()
+    const res = pruneAbsentExpectations(map, names, {
+      dropLostCommitTagExpectations: drop,
+      dryRun: true,
+    })
+    const keys = Object.keys(map)
+    const lostTagExpectations = keys.filter((r) => r.startsWith('refs/tags/lost-commit/')).length
+    const backupExpectations = keys.filter((r) => r.startsWith('refs/tags/backup/')).length
+    const backupRemoved = res.removed.filter((r) => r.startsWith('refs/tags/backup/')).length
+    console.log(
+      JSON.stringify(
+        {
+          dropLostCommitTagExpectations: drop,
+          declined: res.declined,
+          lostTagExpectations,
+          wouldRemoveLostTags: res.lostTagRemoved,
+          backupExpectations,
+          backupRemoved,
+          otherRemoved: res.removed.length - res.lostTagRemoved,
+          tagHoldovers: res.tagHoldovers,
+          kept: res.kept,
+        },
+        null,
+        1,
+      ),
+    )
+    process.exit(res.declined ? 2 : 0)
   }
 
   if (args.includes('--refresh-remote') && !refreshFromRemote()) process.exit(1)
@@ -564,7 +690,9 @@ function main() {
   //       只删 ref 不清清单,则 healRefs() 会按清单把它造回来(2026-10-04 三轮 tick 全红的原状)。
   //     · 只在**本轮真拿到远端全集**时做;取不到就整步跳过(把"没返回"当"远端没有"会误删期望项)。
   if (remoteCalibrated && lastRemoteRefs) {
-    const pruned = pruneAbsentExpectations(map, lastRemoteRefs)
+    const pruned = pruneAbsentExpectations(map, lastRemoteRefs, {
+      dropLostCommitTagExpectations: dropLostTagExpectations(),
+    })
     if (pruned.declined) {
       console.log(
         '[prune-gone] ⚠️ 远端面不完整(没同时看到 refs/heads/* 与 refs/tags/*)⇒ 本轮不摘任何期望项',
@@ -579,6 +707,11 @@ function main() {
       } else {
         for (const l of pr.split('\n')) if (l.trim().startsWith('* [pruned]')) console.log(`   ${l.trim()}`)
       }
+    }
+    if (pruned.lostTagRemoved) {
+      console.log(
+        `[prune-gone] 按 ${DROP_LOST_TAG_EXPECTATIONS_ENV}=1 整族摘除 ${pruned.lostTagRemoved} 个 lost-commit/* 期望项(backup/* 与其它 tag 不受影响)`,
+      )
     }
     if (pruned.tagHoldovers) {
       console.log(

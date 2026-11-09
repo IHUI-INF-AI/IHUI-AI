@@ -33,11 +33,13 @@ function gateSpecsOf(checks) {
 }
 
 /**
- * 计算门检查输入的内容指纹:HEAD 类型相关子树 + 工作区脏状态(含脏文件内容)
- * + **HEAD 全树**(2026-11-03 补:门 47 push 档判的是 push scope ∩ HEAD 全树,
- *   `HEAD:apps/packages` 两棵子树覆盖不到 scripts/ 等路径;不并入全树会让"只改 scripts/ 的提交"
- *   复用到旧指纹而跳过水印门 —— 结构上等于没挂门)
+ * 计算门检查输入的内容指纹:HEAD 全树 + 工作区**全量**脏状态(含脏文件内容)
  * + **push 门注册表规格**(门集合/参数变化必须使旧缓存失效;否则新挂的门会被老缓存放过去)。
+ *
+ * 2026-11-08(DG-02):脏状态路径面由 `-- apps packages` 放宽到**全仓**(`-uall`)。
+ * 立因:门 47 / 门体 / 根配置(tsconfig、package.json 等)未提交的改动此前既不在
+ * status 面、也不在 HEAD 树面 ⇒ 指纹不变 ⇒ 带着未提交的判据改动也能命中旧缓存跳过 push 门。
+ * 同时撤掉 400 条截断:超限时返回 null(缓存 fail-closed 失效),绝不用"部分哈希"冒充全量。
  */
 export function computeGateFingerprint({ gateSpecs } = {}) {
   try {
@@ -45,17 +47,23 @@ export function computeGateFingerprint({ gateSpecs } = {}) {
     const trees = gitRaw(['rev-parse', 'HEAD:apps', 'HEAD:packages', 'HEAD^{tree}'], process.cwd(), {
       timeout: 300_000,
     }).trim()
-    // -z:NUL 分隔,路径无转义歧义;rename 条目 "R  new\0old\0" 需跳过 old 段
-    const statusRaw = gitRaw(['status', '--porcelain', '-z', '--', 'apps', 'packages'], process.cwd(), {
-      timeout: 300_000,
-    })
+    // -z:NUL 分隔,路径无转义歧义;rename 条目 "R  new\0old\0" 需跳过 old 段。
+    // -uall:未跟踪目录按文件逐条列出(默认 `?? dir/` 看不到目录内部后续变化)。
+    const statusRaw = gitRaw(
+      ['status', '--porcelain', '-z', '--untracked-files=all'],
+      process.cwd(),
+      { timeout: 300_000 },
+    )
     const h = createHash('sha1')
     h.update(trees)
     h.update(statusRaw)
     h.update('\0push-gate-specs\0')
     h.update(gateSpecs ?? '')
     const tokens = statusRaw.split('\0').filter(Boolean)
-    for (let i = 0; i < tokens.length && i < 400; i++) {
+    // 超过 400 条脏条目 ⇒ 缓存整体弃用(返回 null)。截断只会把"部分工作树"哈希成"全量",
+    // 正是 DG-02 要堵的假命中;宁可不缓存,也不给出一个可能骗过判据的指纹。
+    if (tokens.length > 400) return null
+    for (let i = 0; i < tokens.length; i++) {
       const tok = tokens[i]
       if (tok.length <= 3 || tok[2] !== ' ') continue
       const xy = tok.slice(0, 2)

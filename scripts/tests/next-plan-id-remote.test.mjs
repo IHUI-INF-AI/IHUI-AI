@@ -48,6 +48,25 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(HERE, '..', '..')
 const CLI = resolve(ROOT, 'scripts', 'next-plan-id.mjs')
 const TOOL_SRC = readFileSync(CLI, 'utf8')
+/**
+ * 反向锁(`doesNotMatch`)一律判**代码面**,不判含注释原文。
+ *
+ * 成因(2026-11-06 现读):`next-plan-id.mjs:121` 的**文档注释里逐字写着** `const FAMILY = 'O'`
+ * (那是改判留痕),而 `TOOL_SRC` 是含注释原文 ⇒ 不限定形态的反向锁会读到自己的解释文字并恒红。
+ * 本仓被"锁判自己的散文"这一型咬过多次(守门 70/131/135/98 D4),遮罩的唯一实现就是
+ * `lib/code-mask.mjs`。这是**加强**而不是放宽:代码位真写死了照样红,而注释里写"曾经写死过"
+ * 不再需要把说明删掉才能保绿。正向 `match` 仍判全文(它要钉的东西本就在代码位,判全文只会更严)。
+ *
+ * 遮罩的形态边界(现量:同一份 806 行原文 ⇒ 36554B → 27863B,行数不变):**行注释整段删掉、
+ * 块注释逐字符换空白并保住换行**。所以等长不成立、**等行**成立 ⇒ 位置类判据(按行归属)仍安全,
+ * 但不得拿字符偏移去对照原文。
+ */
+const TOOL_CODE = maskComments(TOOL_SRC)
+assert.equal(
+  TOOL_CODE.split('\n').length,
+  TOOL_SRC.split('\n').length,
+  '遮罩必须保行数(等行),否则反向锁命中行号与原文错位',
+)
 
 test('T1 源码形状锁:远端尺必须 import 自 live-doc-edit.mjs,本器不得自带第二份传输面', () => {
   assert.match(
@@ -55,9 +74,9 @@ test('T1 源码形状锁:远端尺必须 import 自 live-doc-edit.mjs,本器不�
     /import\s*\{\s*readRemoteIdBasis,\s*idBasisGate\s*\}\s*from\s*'\.\/live-doc-edit\.mjs'/,
     '远端基准与闸门必须与第一发号出口同一份实现(抄第二份必漂,AGENTS §3)',
   )
-  assert.doesNotMatch(TOOL_SRC, /ls-remote/, '本器不得自带 ls-remote 派生(传输面只有一份,在 live-doc-edit.mjs)')
-  assert.doesNotMatch(TOOL_SRC, /'fetch'/, '本器不得自带 fetch(自补救住在共享 transport 里)')
-  assert.doesNotMatch(TOOL_SRC, /\bexecFileSync\(/, 'git 派生纪律只许住在 lib 层(守门 52/80 口径)')
+  assert.doesNotMatch(TOOL_CODE, /ls-remote/, '本器不得自带 ls-remote 派生(传输面只有一份,在 live-doc-edit.mjs)')
+  assert.doesNotMatch(TOOL_CODE, /'fetch'/, '本器不得自带 fetch(自补救住在共享 transport 里)')
+  assert.doesNotMatch(TOOL_CODE, /\bexecFileSync\(/, 'git 派生纪律只许住在 lib 层(守门 52/80 口径)')
 })
 
 test('T2 闸门必须强制在发号路径上:block ⇒ exit 1;应急 env 必须被读取', () => {
@@ -137,7 +156,7 @@ test('T5 系列小节不得被并成重号:同号不同后缀必须各算一条;
 
 test('T6 数字段提取必须走 key 而不是整串:带后缀的 key 不得把 max 算成 NaN(G-927 自伤反证)', () => {
   assert.match(TOOL_SRC, /const headingNum = /, '必须有一份 headingNum 出口(旧写法 Number(k.slice(1)) 遇到 O62附⑥ 得 NaN,会把 maxLedger 算成 NaN 并顶掉整个发号路径)')
-  assert.doesNotMatch(TOOL_SRC, /Number\((?:k|m\[1\])\.slice\(1\)\)/, '不得再出现 Number(key.slice(1)) 那一族写法(key 现在可能带后缀)')
+  assert.doesNotMatch(TOOL_CODE, /Number\((?:k|m\[1\])\.slice\(1\)\)/, '不得再出现 Number(key.slice(1)) 那一族写法(key 现在可能带后缀)')
   const re = headingReFromSource()
   const withSuffix = [...'### O62 附⑫:构建漂移'.matchAll(re)][0][1].replace(/[ \t]+/g, '')
   const numSrc = /const headingNum = \(key\) => Number\(\/\^O\(\\d\+\)\/\.exec\(key\)\[1\]\)/.test(TOOL_SRC)
@@ -243,7 +262,7 @@ test('T8a 发号路径必须吃全文件扫描的实时占用面(G-14 形状锁)
     /import\s*\{[^}]*\bcollectIdFace\b[^}]*\bscanFamilyIds\b[^}]*\}\s*from\s*'\.\/lib\/plan-id-face\.mjs'/,
     '扫描必须 import 那份唯一实现(自抄一条正则就是第二份尺子)',
   )
-  assert.doesNotMatch(TOOL_SRC, /const FULLSCAN/, '本器不得自带第二份全文件扫描正则')
+  assert.doesNotMatch(TOOL_CODE, /const FULLSCAN/, '本器不得自带第二份全文件扫描正则')
   assert.match(TOOL_SRC, /const scanWork = scanFamilyIds\(worktreeText, FAMILY\)/, '工作树副本也必须走同一把尺')
   assert.match(TOOL_SRC, /const liveUsed = \[\.\.\.new Set\(\[\.\.\.poolUsed, \.\.\.scanHead, \.\.\.scanWork\]\)\]/, '占用集必须是 旧口径 ∪ HEAD 宽面扫描 ∪ 工作树扫描 的并集')
   assert.match(TOOL_SRC, /smallestFreeId\(\{ usedNumbers: liveUsed/, '建议号必须按实时占用面算(还按 poolUsed 算就是没装车)')
@@ -509,10 +528,34 @@ test('T11b 装车形状锁:发号路径必须真吃远端号集并逐枚点名(�
  */
 test('T12 族是第一等参数:--family 单源 + 标题形状只换字母 + 号用该族书写形状', () => {
   assert.match(TOOL_SRC, /const DEFAULT_FAMILY = 'O'/, '缺省族必须只有一个来源')
+  // 反向锁判代码面的**前提**:遮罩只吃注释、不吃代码位。若遮罩哪天误把代码吞成注释/正则体,
+  // 本文件全部 doesNotMatch 会静默变绿(判据失明的表现永远是安静)。这一支就是那条反向的瞎闸探针。
+  assert.match(
+    TOOL_CODE,
+    /const DEFAULT_FAMILY = 'O'/,
+    '代码面上的 DEFAULT_FAMILY 必须穿过遮罩仍在场 ⇒ 否则本器的反向锁全部失明',
+  )
   assert.match(
     TOOL_SRC,
-    /const FAMILY = \(familyFlag\.value \?\? DEFAULT_FAMILY\)\.toUpperCase\(\)/,
-    '族必须由 --family 取值、缺省落 DEFAULT_FAMILY(写死 O 就是本票要治的原病)',
+    // 〔改判@2026-11-06,取证三条:① 实现那行自枚 73eac1c22b「号域族注册表(RP 多字母族在册,
+    //   单字母逐字不变)」起就是 FAMILY_ENTRY.name,旧字面量在 HEAD 面上已不存在(现读
+    //   git show HEAD:scripts/next-plan-id.mjs 含 '(familyFlag.value ?? DEFAULT_FAMILY).toUpperCase()'
+    //   = false);② 当次 CLI 现读 --family RP ⇒ rc=0 出 RP-5、--family Z ⇒ rc=0 出 Z-2,
+    //   换族真发得出号这一件事没坏;③ 未在册(--family OO)与缺值(--family)两支仍 rc=2 且 stdout 空。
+    //   ⇒ 这是**锁陈旧**而不是实现回退:断言必须跟着"族是第一等参数"这一意图的新载体走,
+    //   而不是把实现改回写死单字母的旧形态(那会重新引入 RP 多字母族发不出号的原病)。〕
+    /const FAMILY = FAMILY_ENTRY\.name/,
+    '族名必须来自族目(FAMILY_ENTRY),而 FAMILY_ENTRY 只由 --family 取值或落 DEFAULT_FAMILY 得到',
+  )
+  assert.match(
+    TOOL_SRC,
+    /familyFlag\.value === null\s*\?\s*lookupPlanIdFamily\(DEFAULT_FAMILY\)/,
+    '缺省必须落 DEFAULT_FAMILY(而不是落某个硬编码字母)',
+  )
+  assert.doesNotMatch(
+    TOOL_CODE,
+    /const FAMILY = 'O'/,
+    '族名不得再写死 O —— 那正是本票要治的原病,也是多字母族发不出号的形态(判代码面,注释里的改判留痕不算)',
   )
   assert.match(
     TOOL_SRC,
@@ -531,14 +574,17 @@ test('T12 族是第一等参数:--family 单源 + 标题形状只换字母 + 号
     '族只换捕获组里的那一个字母(形状本身仍只有一份)',
   )
   assert.match(TOOL_SRC, /const HEADING_RE = headingReFor\(FAMILY\)/, '标题判据必须真用上族实例(造好没装车 = 没有)')
-  assert.doesNotMatch(TOOL_SRC, /const HEADING_[A-Z]+ = \//, '不得新写第二颗族正则字面量')
+  assert.doesNotMatch(TOOL_CODE, /const HEADING_[A-Z]+ = \//, '不得新写第二颗族正则字面量')
   // 数字段算术单源:族感知那一份复用 headingNum(T6 逐字锁定的那一份),不另写 `^Z(\d+)`
   assert.match(
     TOOL_SRC,
-    /const headingNumOf = \(key\) => headingNum\(/,
+    // `\s*` 不是让步,是必须:实现那行是 `const headingNumOf = (key) =>` 换行后接 `headingNum(`
+    // (prettier 对模板串嵌套的折叠形态)。旧正则要求两者同行 ⇒ 锁随格式化而红,
+    // 而它要钉的意图("数字段算术只有一份 = 复用 headingNum")与行宽无关。
+    /const headingNumOf = \(key\) =>\s*headingNum\(/,
     '族感知数字段必须复用 headingNum 那一份算术(另写一族正则即第二份判据)',
   )
-  assert.doesNotMatch(TOOL_SRC, /\^Z\(\\d\+\)/, '不得另写一族数字段正则')
+  assert.doesNotMatch(TOOL_CODE, /\^Z\(\\d\+\)/, '不得另写一族数字段正则')
   // 书写形状单源:号按该族模板渲染(裸拼族名会印出判据认不出来的号)
   assert.match(TOOL_SRC, /const familyTemplate =/, '书写形状必须有单一出口')
   assert.match(TOOL_SRC, /familyTemplate\.replace\('%d', String\(n\)\)/, '号必须按模板渲染,不得裸拼族名')
@@ -555,7 +601,15 @@ test('T13 --family Z 真发得出号;缺值 / 非单字母必须 exit 2 且不�
       timeout: 60_000,
     })
     assert.equal(bad.status, 2, `${JSON.stringify(args)} 必须 exit 2(给了旗标就要有值 / 值须单字母),实得 ${bad.status}`)
-    assert.match(String(bad.stderr), /单字母族名/, `${JSON.stringify(args)} 必须点名取值要求,实得:${bad.stderr}`)
+    // 〔改判@2026-11-06:旧正则要"单字母族名"连写,而现读两支的点名分别是
+    //   "需要一个在册族名(单字母 A–Z 或多字母 RP)…(不得静默退回默认)"与
+    //   "需要一个**在册**族名(大小写归一;在册 = A–Z 单字母 + RP 多字母)…⇒ 拒绝发号"。
+    //   意图(必须点名取值要求、不许静默退回缺省族)未变,变的是在册口径。〕
+    assert.match(
+      String(bad.stderr),
+      /在册族名|在册\*\*族名|拒绝发号/,
+      `${JSON.stringify(args)} 必须点名"在册族名"这一取值要求,实得:${bad.stderr}`,
+    )
     assert.equal(String(bad.stdout).trim(), '', `${JSON.stringify(args)} 不得在 stdout 给号`)
   }
   // 正证:换族必须真能发号(族满三族之后新票唯一的合法取号路)

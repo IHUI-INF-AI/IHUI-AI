@@ -20,7 +20,7 @@ import { DistributedLock } from '../utils/distributed-lock.js'
 import { aggregateHeatStats } from '../services/heat-stats-service.js'
 import { refreshTrafficGauges } from '../services/traffic-stats-service.js'
 import { refreshRelayPoolGaugesSafely } from '../services/relay-pool-stats-service.js'
-import { checkDailyAlerts } from '../services/alert-check-service.js'
+import { alertCheckJobStatus, checkDailyAlerts } from '../services/alert-check-service.js'
 import { archiveDailyData } from '../services/data-archive-service.js'
 import { startExpirationMonitor } from '../services/expiration-monitor-service.js'
 import { runFileCleanup } from '../services/cleanup-service.js'
@@ -275,6 +275,13 @@ export async function maybePushAiFeedCollectAlert(deps: {
 }
 
 /**
+ * F-411:任务返回的 errors 非空 ⇒ 本次执行不是"成功"(局部失败/降级必须可见,不能只按"没抛错"判绿)。
+ */
+export function jobErrorsStatus(result: { errors: readonly unknown[] }): 'success' | 'failed' {
+  return result.errors.length > 0 ? 'failed' : 'success'
+}
+
+/**
  * 启动定时任务 Worker（消费 scheduler 队列的 repeatable jobs）。
  *
  * 多实例部署时，BullMQ 保证每个 delayed job 只被一个 worker 抢占执行，
@@ -358,6 +365,7 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
                 escalated: result.escalated,
                 backupIssues: result.backupIssues,
                 backupUndetermined: result.backupUndetermined,
+                errors: result.errors.length,
               },
               'daily alert check done',
             )
@@ -385,15 +393,25 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
                   })
                 }
                 if (result.backupAlerts.length === 0) {
+                  // SDB-43:自身检查失败(errors)时「0 条错误」不是健康读数,必须把原因带进正文。
                   await pushAlert({
                     title: '告警升级通知',
-                    message: `最近 24h 错误数 ${result.checked} 超过阈值,需要人工介入`,
+                    message:
+                      result.errors.length > 0
+                        ? capAlertMessage(
+                            [
+                              `最近 24h 告警检查自身失败 ${result.errors.length} 项,无法判定:`,
+                              ...result.errors.map((e) => `- ${flattenUntrustedText(e)}`),
+                            ].join('\n'),
+                          )
+                        : `最近 24h 错误数 ${result.checked} 超过阈值,需要人工介入`,
                     severity: 'critical',
                     source: 'alert-check-daily',
                     metadata: {
                       checked: result.checked,
                       resolved: result.resolved,
                       escalated: result.escalated,
+                      errors: result.errors.length,
                     },
                   })
                 }
@@ -402,7 +420,8 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
               }
             }
             try {
-              server.recordJobExecution(name, 'success')
+              // SDB-43:自身检查失败必须记 failed,不能写 success。
+              server.recordJobExecution(name, alertCheckJobStatus(result))
             } catch {
               /* 指标采集失败不影响业务 */
             }
@@ -478,7 +497,7 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
               'VIP expire daily done',
             )
             try {
-              server.recordJobExecution(name, 'success')
+              server.recordJobExecution(name, jobErrorsStatus(result))
             } catch {
               /* 指标采集失败不影响业务 */
             }
@@ -513,7 +532,7 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
               'commission settle daily done',
             )
             try {
-              server.recordJobExecution(name, 'success')
+              server.recordJobExecution(name, jobErrorsStatus(result))
             } catch {
               /* 指标采集失败不影响业务 */
             }

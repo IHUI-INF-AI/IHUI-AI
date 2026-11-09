@@ -32,12 +32,15 @@
  */
 import * as http from 'node:http';
 import * as url from 'node:url';
-import * as fs from 'node:fs';
-import * as path from 'node:path';
-import { writePrivateFile } from './private-file.js';
+import { getSettingsPath, loadSettings } from '../commands/settings.js';
+import {
+  stripPlaintextCredentialFile,
+  writeMainCredentials,
+} from './main-credential-store.js';
 import { spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { DOC_TEXT_MUTED } from '@ihui/design-tokens';
+import { escapeHtml } from '@ihui/shared/artifact/render';
 import {
   exchangeSsoCode as exchangeSsoCodeCore,
   extractSsoCode,
@@ -45,7 +48,6 @@ import {
   type SsoTokenData,
 } from '@ihui/shared/auth/sso-core';
 import { SSO_CLIENT_IDS, WEB_BASE } from '@ihui/shared/constants';
-import { loadSettings, getSettingsPath, readSettingsObjectForUpdate, type Settings } from '../commands/settings.js';
 
 // 重新导出类型与工具(保持调用方 API 一致)
 export type { SsoTokenData } from '@ihui/shared/auth/sso-core';
@@ -57,23 +59,6 @@ const CALLBACK_PATH = '/callback';
 const CALLBACK_HOST = '127.0.0.1';
 const CALLBACK_URL = `http://localhost:${CALLBACK_PORT}${CALLBACK_PATH}`;
 const SERVER_TIMEOUT_MS = 5 * 60 * 1000; // 5 分钟超时(用户登录可能耗时)
-
-/**
- * 回调页把 query 值写进 HTML 前必须过的转义。
- *
- * 此前 `?error=<原样插值>` 直接落进 `<p>`:回环端口 1738 在 5 分钟等待窗内对本机任意
- * 进程/任意页面可达,`/callback?error=<img src=x onerror=...>` 就是在
- * `http://127.0.0.1:1738` 这个 origin 上执行脚本(反射型 XSS)。回环不等于可信源 ——
- * 浏览器里那页与本 CLI 的回调页同源,能读到回调流程。
- */
-function escapeHtmlText(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
 
 /** query 值归一:node 的 url.parse 对重复参数给 string[],原样进模板会变成 "a,b" 还带对象味道 */
 function firstQueryValue(raw: string | string[] | undefined): string {
@@ -161,7 +146,9 @@ function waitForCallback(expectedState?: string): Promise<string> {
       } else if (parsed.query.error) {
         // 用户主动取消授权(error 参数,真正失败场景)
         const errParam = firstQueryValue(parsed.query.error);
-        const errShown = escapeHtmlText(errParam.slice(0, 200) || '未知错误');
+        // 回调页把 query 值写进 HTML 前必须过共享层转义:回环端口 1738 在 5 分钟等待窗内
+        // 对本机任意进程/页面可达,`?error=<img src=x onerror=...>` 就是该 origin 上的反射型 XSS。
+        const errShown = escapeHtml(errParam.slice(0, 200) || '未知错误');
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         res.end(
           '<!DOCTYPE html><html><head><meta charset="utf-8"><title>SSO 登录失败</title></head>' +
@@ -223,18 +210,20 @@ export async function exchangeSsoCode(code: string): Promise<SsoTokenData | null
 }
 
 /**
- * 写入 accessToken + refreshToken 到 settings.json(复用 login.ts 的 persistTokens 模式)。
+ * 写入 accessToken + refreshToken 到**安全存储**(与 login.ts 同一套机制)。
+ * settings.json 只保留非敏感字段;写入失败直接抛错(fail-closed),不会退化为明文写盘。
  */
 function persistTokens(accessToken: string, refreshToken?: string): void {
+  writeMainCredentials(
+    { apiKey: accessToken, refreshToken: refreshToken ?? undefined },
+    { recoverCorrupt: true },
+  );
   const settingsPath = getSettingsPath();
-  const dir = path.dirname(settingsPath);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  const read = readSettingsObjectForUpdate(settingsPath);
-  if (read.state === 'corrupt') throw new Error('配置读不到,不能把它覆盖成新内容 (corrupt)');
-  const existing: Settings = read.state === 'ok' ? read.settings : {};
-  existing.apiKey = accessToken;
-  if (refreshToken) existing.refreshToken = refreshToken;
-  writePrivateFile(settingsPath, JSON.stringify(existing, null, 2) + '\n');
+  // 剥离函数本体保证:坏 JSON/非对象一律不动文件 ⇒ 与 main 侧 corrupt guard 语义等价
+  const stripped = stripPlaintextCredentialFile(settingsPath);
+  if (!stripped.ok) {
+    console.warn(`[credentials] settings 明文清理失败(${stripped.reason ?? 'unknown'});下次加载会重试`);
+  }
 }
 
 /**

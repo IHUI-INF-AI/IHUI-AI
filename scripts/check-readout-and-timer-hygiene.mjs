@@ -58,6 +58,11 @@ import { catBatch, gitRaw } from './lib/face-reader.mjs'
 import { faceList, readFaceBatch } from './lib/gate-face.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+/**
+ * 单批取面的**硬超时**(120s/块,层内默认值显式化):超时即抛 ⇒ 门落「未判定」出口(exit 2),
+ * 不静默绿。这是"跑不完"的第二道保险 —— 第一批化已把派生次数压到个位数,超时只兜异常面。
+ */
+const SUBPROC_TIMEOUT_MS = Number(process.env.IHUI_BATCH_TIMEOUT_MS) || 120000
 const SCOPES = ['apps/web/app', 'apps/web/src', 'packages/ui-react/src', 'packages/app/src']
 
 /**
@@ -254,7 +259,7 @@ function faceFiles(face) {
  */
 function readFixedRev(rev, files) {
   const specs = files.map((f) => `${rev}:${f}`)
-  const got = catBatch(ROOT, specs)
+  const got = catBatch(ROOT, specs, { timeout: SUBPROC_TIMEOUT_MS })
   return new Map(files.map((f, i) => [f, got.get(specs[i]) ?? null]))
 }
 

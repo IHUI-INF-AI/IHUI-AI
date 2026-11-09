@@ -24,7 +24,19 @@ const { fetchApiMock, clipboardGetMock, warnSpy } = vi.hoisted(() => ({
 }))
 
 vi.mock('react', () => ({ default: { useRef: () => ({ current: undefined }) } }))
-vi.mock('@ihui/api-client', () => ({ createNotificationClient: vi.fn() }))
+// 实现侧变更(2026-11 门 300 A 类):桌面桥回执改走共享出口
+// `@ihui/api-client.reportAgentControlResult`(与 RN 同语义),不再直接调
+// `@/lib/api.fetchApi`。断言语义(同一 requestId/ordinal 重放只回执一次)不变,
+// 这里把共享出口转接回同一个 fetchApiMock,让既有 URL/次数断言继续成立。
+vi.mock('@ihui/api-client', () => ({
+  createNotificationClient: vi.fn(),
+  reportAgentControlResult: vi.fn(async (payload: unknown) =>
+    fetchApiMock('/api/agent-control/result', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  ),
+}))
 vi.mock('@/lib/api', () => ({ fetchApi: fetchApiMock }))
 vi.mock('@/lib/tauri-bridge', () => ({
   isTauri: vi.fn(() => false),

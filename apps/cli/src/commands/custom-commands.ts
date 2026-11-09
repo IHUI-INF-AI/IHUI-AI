@@ -37,6 +37,8 @@ import * as path from 'node:path';
 import { t } from '../i18n/index.js';
 import { getIhuiRoot } from '../plugins/paths.js';
 import { captureWriteBaseline, commitAtomicWrite } from '../util/atomic-write.js';
+// 命令文件落点判据统一走 util/path-guard(名字已由 COMMAND_NAME_PATTERN 收敛,这里补根内/realpath 断言)。
+import { assertPathInside } from '../util/path-guard.js';
 import { findSlashCommand, getAllSlashNames } from './slash-registry.js';
 
 /** 全部参数的占位符(唯一写法之一,与上游逐字同形) */
@@ -261,7 +263,8 @@ function maxReferencedPositional(content: string): number {
 export function loadCustomCommand(name: string): CustomCommandDefinition {
   const normalized = assertCustomCommandNameShape(name);
   const dir = getCustomCommandsDir();
-  const source = path.join(dir, `${normalized}${COMMAND_FILE_EXT}`);
+  // 名字本身已不含分隔符/`..`;这里堵的是"根内符号链接文件指向根外"的只读越界。
+  const source = assertPathInside(dir, path.join(dir, `${normalized}${COMMAND_FILE_EXT}`), '自定义命令文件');
 
   let raw: string;
   try {

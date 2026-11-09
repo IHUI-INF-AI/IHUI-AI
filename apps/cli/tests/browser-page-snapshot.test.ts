@@ -150,9 +150,11 @@ describe('契约：截断阶梯只动定位细节', () => {
     expect(line).not.toContain('rect=')
     expect(line).not.toContain('data-testid')
     // 受保护字段**在本行里有值的**必须都还在（无值的可选字段不该被凭空补上，也不该被算成丢失）
-    expect(result.rows[0].handle).toBe(wide.handle)
-    expect(result.rows[0].role).toBe('button')
-    expect(result.rows[0].name).toBe('按钮 7')
+    const firstRow = result.rows[0]
+    if (firstRow === undefined) throw new Error('快照没有行')
+    expect(firstRow.handle).toBe(wide.handle)
+    expect(firstRow.role).toBe('button')
+    expect(firstRow.name).toBe('按钮 7')
     expect(SNAPSHOT_ROW_PROTECTED_FIELDS).toContain('handle')
     expect(SNAPSHOT_ROW_PROTECTED_FIELDS).not.toContain('rect')
     expect(SNAPSHOT_ROW_PROTECTED_FIELDS).not.toContain('attrs')

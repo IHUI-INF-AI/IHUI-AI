@@ -137,7 +137,17 @@ const walletRoutes: FastifyPluginAsync = async (server) => {
       // 2FA step-up 闸：已开 2FA 的账号，敏感操作前须有窗内二次验证（会话被窃 ⇒ 拿不到凭据）
       const stepUp = await requireStepUpForTwoFactorUser({ userId, redis: request.server.redis })
       if (!stepUp.ok) {
-        return reply.status(401).send(error(401, stepUp.code === 'STEP_UP_REQUIRED' ? '该操作需要二次验证：请先调用 POST /auth/2fa/step-up 提交当前 TOTP 验证码（5 分钟内有效）' : '暂时无法确认该账号的两步验证状态，请稍后重试', stepUp.code))
+        return reply
+          .status(401)
+          .send(
+            error(
+              401,
+              stepUp.code === 'STEP_UP_REQUIRED'
+                ? '该操作需要二次验证：请先调用 POST /auth/2fa/step-up 提交当前 TOTP 验证码（5 分钟内有效）'
+                : '暂时无法确认该账号的两步验证状态，请稍后重试',
+              stepUp.code,
+            ),
+          )
       }
       const parsed = withdrawSchema.safeParse(request.body)
       if (!parsed.success) {
@@ -151,6 +161,8 @@ const walletRoutes: FastifyPluginAsync = async (server) => {
             amount,
             method: accountType,
             accountInfo: { accountType, account },
+            // F-63:与 /finance/withdrawal 同口径,仅佣金可提现
+            requireCommissionEligibility: true,
           },
           userId,
         )

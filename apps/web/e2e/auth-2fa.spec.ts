@@ -40,7 +40,7 @@ test.describe('两步验证 2FA', () => {
     await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/user/security')) return
 
-    await page.waitForTimeout(2000)
+    await page.waitForLoadState('load', { timeout: 6000 }).catch(() => {})
     // 查找 2FA 相关文案
     const twoFAElement = page.locator('text=/两步|2FA|双因素|二次验证|two.?factor/i').first()
     const has2FA = await twoFAElement.isVisible({ timeout: 3000 }).catch(() => false)
@@ -52,7 +52,7 @@ test.describe('两步验证 2FA', () => {
     await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/user/security')) return
 
-    await page.waitForTimeout(2000)
+    await page.waitForLoadState('load', { timeout: 6000 }).catch(() => {})
     const enableBtn = page
       .getByRole('button')
       .filter({
@@ -68,7 +68,7 @@ test.describe('两步验证 2FA', () => {
     await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/user/security')) return
 
-    await page.waitForTimeout(2000)
+    await page.waitForLoadState('load', { timeout: 6000 }).catch(() => {})
     // 验证码输入框可能是 6 位数字输入
     const codeInput = page
       .locator('input[name="code"], input[placeholder*="验证"], input[placeholder*="code" i]')
@@ -86,7 +86,7 @@ test.describe('两步验证 2FA', () => {
     await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/user/security')) return
 
-    await page.waitForTimeout(2000)
+    await page.waitForLoadState('load', { timeout: 6000 }).catch(() => {})
     const recoveryElement = page.locator('text=/恢复码|recovery.?code/i').first()
     const hasRecovery = await recoveryElement.isVisible({ timeout: 3000 }).catch(() => false)
     expect(hasRecovery || true).toBeTruthy()
@@ -97,7 +97,7 @@ test.describe('两步验证 2FA', () => {
     await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/user/security')) return
 
-    await page.waitForTimeout(2000)
+    await page.waitForLoadState('load', { timeout: 6000 }).catch(() => {})
     const disableBtn = page
       .getByRole('button')
       .filter({

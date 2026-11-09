@@ -50,6 +50,79 @@ export interface RywStats {
 /** Redis key 前缀。 */
 const RYW_PREFIX = 'ihui:ryw:'
 
+/** DB-26:进程内 RYW 读屏障窗口(毫秒),与 DEFAULT_RYW_CONFIG.windowSec=2s 同一口径。 */
+export const RYW_READ_BARRIER_WINDOW_MS = 2000
+
+/** DB-26:匿名/后台任务(无 Principal ALS 上下文)写入的作用域键。 */
+const ANONYMOUS_RYW_SCOPE = 'anonymous'
+
+/**
+ * DB-26:识别写 SQL。
+ *
+ * 写路径在仓库里有 drizzle / 原生 unsafe / 事务三种形态,查询文本都以语句动词开头
+ * (CTE 写以 `WITH ... INSERT/UPDATE/DELETE` 开头),因此按首段动词判定即可,
+ * 不新增第二套 SQL 解析器。事务控制(BEGIN/COMMIT)不是写。
+ */
+const WRITE_SQL_RE =
+  /^\s*(?:with\b[\s\S]*?\b(?:insert|update|delete|merge)\b|(?:insert|update|delete|merge|truncate|alter|create|drop|comment|grant|revoke|reindex|vacuum|refresh)\b)/i
+
+/** 判断一条 SQL 是否为写语句(纯函数,供 SQL 日志回调与单测复用)。 */
+export function isWriteSql(query: string): boolean {
+  return WRITE_SQL_RE.test(query)
+}
+
+/**
+ * DB-26:同步的进程内「写后读」屏障。
+ *
+ * 为什么不用上面的 RywConsistency(Redis):dbRead 是 Proxy 的同步 `get` 陷阱,
+ * 无法 `await`;而 RYW 语义的时效只有在**同一请求**链上才有意义。因此本屏障按
+ * 调用主体(subjectId)记录「最后一次写完成时刻 + 窗口」,窗口内该主体的读强制走主库。
+ *
+ * 多实例部署下 Redis 版仍可用于跨实例场景;本屏障负责本进程内的确定性 RYW。
+ */
+export class RywReadBarrier {
+  private readonly windowMs: number
+  /** scope → 窗口截止时间戳(epoch ms) */
+  private readonly deadlines = new Map<string, number>()
+
+  constructor(windowMs: number = RYW_READ_BARRIER_WINDOW_MS) {
+    if (!Number.isFinite(windowMs) || windowMs <= 0) {
+      throw new Error(`RYW 读屏障窗口必须是正有限值(收到 ${windowMs})`)
+    }
+    this.windowMs = windowMs
+  }
+
+  /** 记录一次写完成,开启该作用域的 RYW 窗口。 */
+  markWrite(scope: string | null | undefined, now: number = Date.now()): void {
+    this.prune(now)
+    this.deadlines.set(scope ?? ANONYMOUS_RYW_SCOPE, now + this.windowMs)
+  }
+
+  /** 当前作用域是否处于 RYW 窗口内(是 ⇒ 读必须走主库)。 */
+  mustReadPrimary(scope: string | null | undefined, now: number = Date.now()): boolean {
+    const key = scope ?? ANONYMOUS_RYW_SCOPE
+    const deadline = this.deadlines.get(key)
+    if (deadline === undefined) return false
+    if (deadline <= now) {
+      this.deadlines.delete(key)
+      return false
+    }
+    return true
+  }
+
+  /** 当前窗口数(诊断/测试用)。 */
+  size(): number {
+    return this.deadlines.size
+  }
+
+  /** 清理已过期条目,避免 Map 随活跃主体无限增长。 */
+  private prune(now: number): void {
+    for (const [scope, deadline] of this.deadlines) {
+      if (deadline <= now) this.deadlines.delete(scope)
+    }
+  }
+}
+
 /**
  * Read-Your-Write 一致性管理器。
  *

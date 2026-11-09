@@ -56,8 +56,8 @@
  *        blocking 守门里:它让"守门通过"与"真实文件通过"不再等价)。)
  */
 import { readFileSync, existsSync } from 'node:fs'
-import { join } from 'node:path'
-import { gitRaw } from './lib/face-reader.mjs'
+import { join, relative } from 'node:path'
+import { catBatch, gitRaw } from './lib/face-reader.mjs'
 
 const ROOT = process.cwd()
 const isStaged = process.argv.includes('--staged')
@@ -77,6 +77,24 @@ const LAYOUT_PATH = join(ROOT, 'apps/web/app/layout.tsx')
 const DIALOG_PATH = join(ROOT, 'packages/ui-react/src/components/dialog.tsx')
 // 第 5 项检查的**唯一**真实路径:不提供任何覆盖入口(见头部 --self-test 说明)
 const TOPBAR_PATH = join(ROOT, 'apps/web/src/components/layout/GlobalTopBar.tsx')
+
+/**
+ * 取材面:--staged 档读**索引 blob**(与触发清单同面),全量档读工作树。
+ * 取不到即 exit 2 未判定,绝不回落另一个面(§0.4)。
+ */
+function readFaceSource(absPath) {
+  if (!isStaged) return readFileSync(absPath, 'utf8')
+  const rel = relative(ROOT, absPath).replace(/\\/g, '/')
+  try {
+    const spec = `:${rel}`
+    const text = catBatch(ROOT, [spec]).get(spec)
+    if (text === null || text === undefined) throw new Error(`索引里取不到 ${rel}`)
+    return text
+  } catch (e) {
+    console.error(`${C.red}⚠️  无法判定:${C.reset}${e?.message ?? e}`)
+    process.exit(2)
+  }
+}
 
 /**
  * 第 5 项契约表:桌面端窗口控制三按钮的两组视觉链路挂点。
@@ -279,8 +297,8 @@ const CHECK_VARS = [
 ]
 
 console.log('  [1/5] 检查 tokens.css z-index 变量无 !important...')
-if (existsSync(TOKENS_PATH)) {
-  const css = readFileSync(TOKENS_PATH, 'utf8')
+if (isStaged || existsSync(TOKENS_PATH)) {
+  const css = readFaceSource(TOKENS_PATH)
   for (const { name, value } of CHECK_VARS) {
     // 检查变量存在
     const valuePattern = new RegExp(
@@ -314,8 +332,8 @@ if (existsSync(TOKENS_PATH)) {
 const CHECK_UTILITIES = ['.z-sticky', '.z-modal', '.z-popover', '.z-notification', '.z-max']
 
 console.log('  [2/5] 检查 globals.css z-index 工具类无 !important...')
-if (existsSync(GLOBALS_PATH)) {
-  const css = readFileSync(GLOBALS_PATH, 'utf8')
+if (isStaged || existsSync(GLOBALS_PATH)) {
+  const css = readFaceSource(GLOBALS_PATH)
   for (const cls of CHECK_UTILITIES) {
     const varName = cls.replace('.', '--')
     const importantPattern = new RegExp(
@@ -339,8 +357,8 @@ if (existsSync(GLOBALS_PATH)) {
 // 检查 3: layout.tsx inline script 必须设置 z-index 变量
 // ============================================================
 console.log('  [3/5] 检查 layout.tsx inline script 设置 z-index 变量...')
-if (existsSync(LAYOUT_PATH)) {
-  const tsx = readFileSync(LAYOUT_PATH, 'utf8')
+if (isStaged || existsSync(LAYOUT_PATH)) {
+  const tsx = readFaceSource(LAYOUT_PATH)
 
   // 检查 inline script 中是否包含 setProperty 调用设置 z-index 变量
   const requiredInScript = [
@@ -377,8 +395,8 @@ if (existsSync(LAYOUT_PATH)) {
 // 检查 4: dialog.tsx 遮罩不得有 open 态 fade-in 动画
 // ============================================================
 console.log('  [4/5] 检查 dialog.tsx 遮罩无 open 态 fade-in 动画...')
-if (existsSync(DIALOG_PATH)) {
-  const tsx = readFileSync(DIALOG_PATH, 'utf8')
+if (isStaged || existsSync(DIALOG_PATH)) {
+  const tsx = readFaceSource(DIALOG_PATH)
 
   // 找 Overlay 的 className 行
   const overlayMatch = tsx.match(/DialogPrimitive\.Overlay[^>]*className="([^"]+)"/)
@@ -411,7 +429,7 @@ if (existsSync(DIALOG_PATH)) {
 // 检查 5: 桌面端窗口控制三按钮必须有等效压暗层(2026-09-22 立,同族第 3 次复发)
 // ============================================================
 console.log('  [5/5] 检查窗口控制按钮两组契约(等效压暗层 + 失焦非活动态)...')
-if (!existsSync(TOPBAR_PATH) || !existsSync(GLOBALS_PATH)) {
+if (!isStaged && (!existsSync(TOPBAR_PATH) || !existsSync(GLOBALS_PATH))) {
   console.log(
     `${C.yellow}    ⚠️  契约文件缺失:${[TOPBAR_PATH, GLOBALS_PATH].filter((p) => !existsSync(p)).join(' / ')}${C.reset}`,
   )
@@ -419,8 +437,8 @@ if (!existsSync(TOPBAR_PATH) || !existsSync(GLOBALS_PATH)) {
 } else {
   const SRC_PATH = { topbar: TOPBAR_PATH, globals: GLOBALS_PATH }
   const violations = findWindowControlViolations({
-    topbar: readFileSync(TOPBAR_PATH, 'utf8'),
-    globals: readFileSync(GLOBALS_PATH, 'utf8'),
+    topbar: readFaceSource(TOPBAR_PATH),
+    globals: readFaceSource(GLOBALS_PATH),
   })
 
   if (violations.length > 0) {

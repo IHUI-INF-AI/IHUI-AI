@@ -61,7 +61,7 @@ async function navigateToChat(page: Page) {
       return
     } catch (e) {
       if (attempt === 2) throw e
-      await page.waitForTimeout(1500)
+      await page.waitForLoadState('load', { timeout: 5000 }).catch(() => {})
     }
   }
 }
@@ -90,7 +90,7 @@ async function ensureConversationItems(page: Page, minCount = 1): Promise<number
     if (recount >= minCount) return recount
     const emptyText = await region.innerText().catch(() => '')
     expect(emptyText, '无会话时应渲染空态(暂无任务)').toContain('暂无任务')
-    test.skip(true, `历史对话项不足: 期望 >= ${minCount}, 实际 = ${recount}`)
+    test.skip(true, `历史对话项不足: 期望 >= ${minCount}, 实际 = ${recount} [SKIP:SKIP-0222]`)
   }
   return count
 }
@@ -142,6 +142,7 @@ test.describe('侧边栏历史对话 - 三态视觉验证', () => {
 
     // 实际 hover 并验证 :before 伪元素背景色
     await firstItem.hover()
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(300)
 
     const beforeBg = await firstItem.evaluate((el) => {
@@ -160,6 +161,7 @@ test.describe('侧边栏历史对话 - 三态视觉验证', () => {
 
     // 点击使其成为当前选中
     await firstItem.click()
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(500)
 
     // 重新定位 (可能 DOM 已更新)
@@ -197,13 +199,13 @@ test.describe('侧边栏历史对话 - 三态视觉验证', () => {
 
     // 点击第一项
     await firstItem.click()
-    await page.waitForTimeout(500)
     let activeItems = page.locator(`${CONVERSATION_ITEM_SELECTOR}[aria-current="true"]`)
     await expect(activeItems).toHaveCount(1)
     await expect(firstItem).toHaveAttribute('aria-current', 'true')
 
     // 点击第二项
     await secondItem.click()
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(500)
     activeItems = page.locator(`${CONVERSATION_ITEM_SELECTOR}[aria-current="true"]`)
     await expect(activeItems, '切换后仍应只有 1 个 active 项').toHaveCount(1)
@@ -215,6 +217,7 @@ test.describe('侧边栏历史对话 - 三态视觉验证', () => {
     await page.evaluate(() => {
       document.documentElement.classList.add('dark')
     })
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(300)
 
     await ensureConversationItems(page, 1)
@@ -231,7 +234,6 @@ test.describe('侧边栏历史对话 - 三态视觉验证', () => {
 
     // 点击后验证 active 态
     await firstItem.click()
-    await page.waitForTimeout(500)
     const activeItem = page.locator(`${CONVERSATION_ITEM_SELECTOR}[aria-current="true"]`)
     await expect(activeItem).toHaveCount(1)
 

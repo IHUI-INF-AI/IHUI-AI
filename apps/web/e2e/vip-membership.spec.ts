@@ -21,7 +21,7 @@ test.describe('VIP 会员页 /vip', () => {
   test('订阅按钮链接到结账页', async ({ page }) => {
     await page.goto('/vip')
     // 等待内容加载
-    await page.waitForTimeout(2000)
+    await page.waitForLoadState('load', { timeout: 6000 }).catch(() => {})
     // 查找订阅按钮
     const subscribeBtn = page
       .getByRole('link', { name: /订阅|Subscribe|免费开始|Get Started/i })
@@ -50,7 +50,7 @@ test.describe('VIP 会员页 /vip', () => {
 
   test('FAQ 提示可见', async ({ page }) => {
     await page.goto('/vip')
-    await page.waitForTimeout(2000)
+    await page.waitForLoadState('load', { timeout: 6000 }).catch(() => {})
     // 底部应有 FAQ 提示
     const faqHint = page.locator('text=/取消|cancel|客服|support/i').first()
     if (await faqHint.isVisible()) {

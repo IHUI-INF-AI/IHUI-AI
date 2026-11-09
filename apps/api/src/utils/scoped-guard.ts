@@ -589,13 +589,231 @@ function bindsSubject(params: readonly unknown[], subjectId: string): boolean {
   return params.some((p) => typeof p === 'string' && p === subjectId)
 }
 
-/** 语句文本是否引用了该表的 owner 列。 */
-function referencesOwnerColumn(sqlText: string, table: string): boolean {
+/**
+ * F-216(2026-11-08):select/update/delete 必须出现 `"<owner>" = $n` 且该参数等于主体。
+ * 旧判据只要求"文本里出现列名 + 参数数组里出现自己 ID",可被
+ * `where "name" = $1` + `$1=自己ID` 或 `... or true` 绕过。
+ */
+function ownerEqualityBindsSubject(
+  sqlText: string,
+  table: string,
+  params: readonly unknown[],
+  subjectId: string,
+): boolean {
   const column = ownerColumnOf(table)
-  if (!sqlText.includes(`"${column}"`)) return false
-  // users 的 owner 列是主键 "id",裸 "id" 到处出现 → 必须是被限定引用的形式
-  if (column === 'id') return /"[a-z_][a-z0-9$]*"\."id"/i.test(sqlText)
+  const pattern =
+    column === 'id'
+      ? /"[a-z_][a-z0-9$]*"\."id"\s*=\s*\$(\d+)/gi
+      : new RegExp(`"${column.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"\\s*=\\s*\\$(\\d+)`, 'gi')
+  for (const m of sqlText.matchAll(pattern)) {
+    const idx = Number(m[1]) - 1
+    if (params[idx] === subjectId) return true
+  }
+  return false
+}
+
+/** 跳过空白后的位置。 */
+function skipSpaces(text: string, from: number): number {
+  let i = from
+  while (i < text.length && /\s/.test(text[i]!)) i += 1
+  return i
+}
+
+/** 找到与 `openIndex` 处左括号配对的右括号(感知引号/转义);失败返回 undefined。 */
+function balancedParentheses(
+  text: string,
+  openIndex: number,
+): { inner: string; end: number } | undefined {
+  if (text[openIndex] !== '(') return undefined
+  let depth = 0
+  let quote: '"' | "'" | undefined
+  for (let i = openIndex; i < text.length; i += 1) {
+    const char = text[i]!
+    if (quote) {
+      if (char === quote) {
+        if (text[i + 1] === quote) {
+          i += 1
+          continue
+        }
+        quote = undefined
+      } else if (char === '\\' && quote === "'") {
+        i += 1
+      }
+      continue
+    }
+    if (char === '"' || char === "'") {
+      quote = char
+      continue
+    }
+    if (char === '(') depth += 1
+    else if (char === ')') {
+      depth -= 1
+      if (depth === 0) return { inner: text.slice(openIndex + 1, i), end: i }
+    }
+  }
+  return undefined
+}
+
+/** 按顶层逗号切分(忽略括号/引号内的逗号)。 */
+function splitTopLevel(text: string): string[] {
+  const parts: string[] = []
+  let start = 0
+  let depth = 0
+  let quote: '"' | "'" | undefined
+  for (let i = 0; i < text.length; i += 1) {
+    const char = text[i]!
+    if (quote) {
+      if (char === quote) {
+        if (text[i + 1] === quote) {
+          i += 1
+          continue
+        }
+        quote = undefined
+      } else if (char === '\\' && quote === "'") {
+        i += 1
+      }
+      continue
+    }
+    if (char === '"' || char === "'") {
+      quote = char
+      continue
+    }
+    if (char === '(') depth += 1
+    else if (char === ')') depth -= 1
+    else if (char === ',' && depth === 0) {
+      parts.push(text.slice(start, i))
+      start = i + 1
+    }
+  }
+  parts.push(text.slice(start))
+  return parts
+}
+
+/** 标识符归一(取最后一个引号段,小写比较)。 */
+function normalizeIdentifier(token: string): string {
+  const trimmed = token.trim()
+  const quoted = /"([^"]+)"\s*$/.exec(trimmed)
+  return (quoted?.[1] ?? trimmed).toLowerCase()
+}
+
+/** `$n` 参数 / 字符串字面量(允许 `::type` 显式转型)是否就是主体 ID。 */
+function valueIsSubject(raw: string, params: readonly unknown[], subjectId: string): boolean {
+  const token = raw.trim()
+  const cast = '(?:::[a-z_][a-z0-9_$]*(?:\\([0-9]+\\))?)?'
+  const param = new RegExp(`^\\$([0-9]+)(?![0-9])${cast}$`, 'i').exec(token)
+  if (param) {
+    const index = Number(param[1]) - 1
+    return index >= 0 && params[index] === subjectId
+  }
+  const literal = new RegExp(`^'((?:[^']|'')*)'${cast}$`, 'i').exec(token)
+  if (literal) return (literal[1] ?? '').replace(/''/g, "'") === subjectId
+  return false
+}
+
+/** 顶层关键字位置(引号内的关键字不参与扫描)。 */
+function topLevelKeywordIndex(text: string, keyword: string, from = 0): number {
+  const target = keyword.toLowerCase()
+  let depth = 0
+  let quote: '"' | "'" | undefined
+  for (let i = from; i < text.length; i += 1) {
+    const char = text[i]!
+    if (quote) {
+      if (char === quote) {
+        if (text[i + 1] === quote) {
+          i += 1
+          continue
+        }
+        quote = undefined
+      } else if (char === '\\' && quote === "'") {
+        i += 1
+      }
+      continue
+    }
+    if (char === '"' || char === "'") {
+      quote = char
+      continue
+    }
+    if (char === '(') {
+      depth += 1
+      continue
+    }
+    if (char === ')') {
+      depth = Math.max(0, depth - 1)
+      continue
+    }
+    if (depth !== 0 || text.slice(i, i + target.length).toLowerCase() !== target) continue
+    const before = i === 0 ? '' : text[i - 1]!
+    const after = text[i + target.length] ?? ''
+    const isWordChar = (c: string): boolean => /[a-z0-9_$]/i.test(c)
+    if (!isWordChar(before) && !isWordChar(after)) return i
+  }
+  return -1
+}
+
+/** `on conflict do update set` 不得改归属列。 */
+function onConflictDoesNotRewriteOwner(sqlText: string, table: string): boolean {
+  const conflict = /\bon\s+conflict\b/i.exec(sqlText)
+  if (!conflict) return true
+  const tail = sqlText.slice(conflict.index)
+  const doUpdate = /\bdo\s+update\b/i.exec(tail)
+  if (!doUpdate) return true
+  const from = conflict.index + doUpdate.index + doUpdate[0].length
+  const setIndex = topLevelKeywordIndex(sqlText, 'set', from)
+  if (setIndex < 0) return false
+  const whereIndex = topLevelKeywordIndex(sqlText, 'where', setIndex + 3)
+  const setRegion = sqlText.slice(setIndex + 3, whereIndex < 0 ? undefined : whereIndex)
+  const owner = ownerColumnOf(table).toLowerCase()
+  for (const assignment of splitTopLevel(setRegion)) {
+    const text = assignment.trim()
+    if (!text) continue
+    const eqIndex = text.indexOf('=')
+    if (eqIndex < 0) return false
+    if (normalizeIdentifier(text.slice(0, eqIndex)) === owner) return false
+  }
   return true
+}
+
+/**
+ * F-216:insert 必须把主体 ID 写在 owner 列对应的**同一位置**。
+ * 旧判据只看"列清单含 owner 列 + 参数数组任意位置含主体",可被
+ * `insert into "notes" ("user_id","body") values ($1,$2)` 配 `[$1=受害者,$2=自己]` 冒名写。
+ * 多行 values 逐行校验;`on conflict do update set` 不得把归属列列为赋值目标。
+ */
+function insertOwnerColumnBindsSubject(
+  sqlText: string,
+  table: string,
+  params: readonly unknown[],
+  subjectId: string,
+): boolean {
+  const into = /\binsert\s+into\s+(?:"[a-z_][a-z0-9_$]*"\s*\.\s*)*"[a-z_][a-z0-9_$]*"\s*\(/i.exec(
+    sqlText,
+  )
+  if (!into) return false
+  const openIndex = into.index + into[0].length - 1
+  const columns = balancedParentheses(sqlText, openIndex)
+  if (!columns) return false
+  const columnNames = splitTopLevel(columns.inner).map(normalizeIdentifier)
+  const ownerIndex = columnNames.indexOf(ownerColumnOf(table).toLowerCase())
+  if (ownerIndex < 0) return false
+
+  const afterColumns = sqlText.slice(columns.end + 1)
+  const valuesKeyword = /\bvalues\b/i.exec(afterColumns)
+  if (!valuesKeyword) return false
+  let cursor = skipSpaces(sqlText, columns.end + 1 + valuesKeyword.index + valuesKeyword[0].length)
+  let rows = 0
+  while (sqlText[cursor] === '(') {
+    const group = balancedParentheses(sqlText, cursor)
+    if (!group) return false
+    const values = splitTopLevel(group.inner)
+    const ownerValue = values[ownerIndex]
+    if (!ownerValue || !valueIsSubject(ownerValue, params, subjectId)) return false
+    rows += 1
+    cursor = skipSpaces(sqlText, group.end + 1)
+    if (sqlText[cursor] !== ',') break
+    cursor = skipSpaces(sqlText, cursor + 1)
+  }
+  if (rows === 0) return false
+  return onConflictDoesNotRewriteOwner(sqlText, table)
 }
 
 export interface OwnerPredicateEvidence {
@@ -608,8 +826,9 @@ export interface OwnerPredicateEvidence {
 
 /**
  * owner 谓词证据判定(证据式,非信任式):
- * - select/update/delete:必须有 WHERE、引用每张被访问表的 owner 列、并把主体 ID 绑定为参数;
- * - insert:列清单必须含 owner 列,且主体 ID 作为参数写入(机器凭据只能种自己的数据);
+ * - select/update/delete:必须有 WHERE、每张被访问表的 owner 列都以 `= $n` 绑定主体、
+ *   且语句级不得出现 OR(旧版的"文本含列名 + 参数任意位置含主体"可被冒名绕过);
+ * - insert:owner 列必须在列清单中,且**同一位置**的值参数等于主体;
  * - 其他语句类型 / 无表名 / 多表但未全覆盖 → false。
  */
 export function hasOwnerPredicate(evidence: OwnerPredicateEvidence): boolean {
@@ -617,8 +836,13 @@ export function hasOwnerPredicate(evidence: OwnerPredicateEvidence): boolean {
   if (tables.length === 0) return false
   if (kind === 'other') return false
   if (!bindsSubject(params, subjectId)) return false
-  if (kind !== 'insert' && !/\bwhere\b/i.test(sqlText)) return false
-  return tables.every((table) => referencesOwnerColumn(sqlText, table))
+  // F-216:语句级 OR 可让 owner 谓词短路(where owner=$1 or true),一律拒绝
+  if (/\bor\b/i.test(sqlText)) return false
+  if (kind === 'insert') {
+    return tables.every((table) => insertOwnerColumnBindsSubject(sqlText, table, params, subjectId))
+  }
+  if (!/\bwhere\b/i.test(sqlText)) return false
+  return tables.every((table) => ownerEqualityBindsSubject(sqlText, table, params, subjectId))
 }
 
 // ============================================================================

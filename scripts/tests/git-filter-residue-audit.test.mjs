@@ -76,7 +76,7 @@ test('T5 形状锁:定义存在 ∧ !CHECK_ONLY 挂点存在 ∧ 判据已进 __
   assert.equal(typeof G.parseGitFilterKeys, 'function')
   assert.equal(typeof G.auditGitFilterResidue, 'function')
   assert.ok(
-    /function auditGitFilterResidue\(\) \{/.test(SRC),
+    /function auditGitFilterResidue\(/.test(SRC),
     'auditGitFilterResidue 的定义不见了(挂点会当场 ReferenceError)',
   )
   assert.ok(
@@ -84,7 +84,7 @@ test('T5 形状锁:定义存在 ∧ !CHECK_ONLY 挂点存在 ∧ 判据已进 __
     '挂点必须带 !CHECK_ONLY:--check 是零副作用档,破坏性摘除绝不能进只读档',
   )
   // 挂点必须排在函数定义之后、且与既有巡检腿同格(健康轮次早退之前)
-  const defAt = SRC.indexOf('function auditGitFilterResidue() {')
+  const defAt = SRC.indexOf('function auditGitFilterResidue(')
   const callAt = SRC.indexOf('if (!CHECK_ONLY) auditGitFilterResidue()')
   assert.ok(defAt > 0 && callAt > defAt, '挂点顺序错:调用必须排在定义之后')
   assert.ok(

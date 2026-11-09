@@ -38,7 +38,7 @@
  * GATE_ID: 296 —— 既有门扩面(web + 小程序),未新占门号
  */
 
-import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join, relative } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -171,13 +171,18 @@ function loadFace(face) {
   return { sharedScreens, rnShells }
 }
 
+/** worktree 面不扫依赖/构建产物目录:它们不是产品源码,且会把符号链接目录当文件读(EISDIR) */
+const WALK_SKIP_DIRS = new Set(['node_modules', '.next', 'dist', 'build', '.turbo', '.output'])
+
 /** worktree 面:按扩展名枚举磁盘文件(穷举,不猜) */
 function walkDir(dir, out = []) {
   if (!existsSync(dir)) return out
   for (const e of readdirSync(dir, { withFileTypes: true })) {
     const p = join(dir, e.name)
-    if (e.isDirectory()) walkDir(p, out)
-    else out.push(p)
+    if (e.isDirectory()) {
+      if (WALK_SKIP_DIRS.has(e.name)) continue
+      walkDir(p, out)
+    } else out.push(p)
   }
   return out
 }
@@ -207,10 +212,20 @@ function collectRetryCandidateFiles(face, surface) {
       .map((p) => relative(ROOT, p).replace(/\\/g, '/'))
       .filter((rel) => ext.test(rel) && !TEST_FILE_RE.test(rel))
       .filter((rel) => {
+        const full = join(ROOT, rel)
+        let st
         try {
-          return /\bonRetry\b/.test(readFileSync(join(ROOT, rel), 'utf8'))
+          st = statSync(full)
+        } catch {
+          // 枚举后被删除的瞬时项:不是候选,也不算"取不到"
+          return false
+        }
+        // 符号链接指向目录/设备等非普通文件:不含源码文本,直接排除(EISDIR 不是取不到输入)
+        if (!st.isFile()) return false
+        try {
+          return /\bonRetry\b/.test(readFileSync(full, 'utf8'))
         } catch (e) {
-          // 取不到正文 ≠ 正文里没有 onRetry;折成 false 会把候选面读小、进而冒绿(§0.3)。
+          // 普通文件读不到 ≠ 正文里没有 onRetry;折成 false 会把候选面读小、进而冒绿(§0.3)。
           throw new Undetermined(`取不到 worktree 面 ${rel} 正文: ${e?.message ?? e}`)
         }
       })

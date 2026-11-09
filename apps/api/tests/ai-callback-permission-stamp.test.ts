@@ -26,7 +26,9 @@ vi.mock('../src/db/chat-queries.js', () => ({ findConversationById }))
 vi.mock('../src/db/workspace-permission-queries.js', () => ({ getPermission }))
 
 vi.mock('../src/config/index.js', () => ({
-  config: { AI_CALLBACK_SECRET: 'test-secret' },
+  // 鉴权夹具是"只带旧密钥" ⇒ 显式 dual 兼容档(默认 ticket 档下的拒绝行为
+  // 由 tests/internal-secret-auth.test.ts 覆盖)。
+  config: { AI_CALLBACK_SECRET: 'test-secret', INTERNAL_SECRET_AUTH_MODE: 'dual' },
 }))
 
 import aiCallbackRoutes from '../src/routes/ai-callback'

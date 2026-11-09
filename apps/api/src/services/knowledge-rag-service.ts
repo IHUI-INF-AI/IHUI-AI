@@ -70,6 +70,44 @@ async function getEmbedding(text: string): Promise<number[] | null> {
 }
 
 /**
+ * F-139:入库并发闸 + 单条 insert 行数上限。
+ *
+ * 一次上传 5MB 文本 ≈ 1.1 万切片,原实现 `chunks.map(getEmbedding)` 会同时发起
+ * 上万次 embedding 请求、再以单个 `insert().values(1.1万行)` 落库 —— PostgreSQL
+ * 单语句参数上限 65535,必抛 "too many parameters";doc 已先提交,留下 chunkCount
+ * 虚高的空壳文档。这里把 embedding 并发收敛到 8,insert 按 500 行一批,并把 doc 与
+ * chunk 包进同一事务:任一步失败整体回滚,不再产生半截知识库。
+ */
+const EMBED_CONCURRENCY = 8
+const CHUNK_INSERT_BATCH = 500
+
+/** 受控并发生成 embedding(顺序与输入一一对应,失败按 null 落库走关键词降级) */
+async function embedWithConcurrency(chunks: string[]): Promise<(number[] | null)[]> {
+  const out = new Array<number[] | null>(chunks.length)
+  let next = 0
+  const worker = async (): Promise<void> => {
+    while (true) {
+      const i = next++
+      if (i >= chunks.length) return
+      out[i] = await getEmbedding(chunks[i]!)
+    }
+  }
+  await Promise.all(
+    Array.from({ length: Math.min(EMBED_CONCURRENCY, chunks.length) }, () => worker()),
+  )
+  return out
+}
+
+/**
+ * F-140:关键词兜底的候选上限。
+ *
+ * 降级路径原本 `SELECT` 该 owner+collection 的全部 chunk 到 Node 端逐条打分,
+ * 知识库越大内存与 DB 压力越高,数十并发聊天即可打爆进程。这里在 SQL 侧加
+ * LIMIT(仍保留 Node 端打分/排序语义),把单次候选集封顶到 2000 条。
+ */
+const KEYWORD_CANDIDATE_LIMIT = 2000
+
+/**
  * 导入会话的 knowledge_doc.source_type 取值(2026-10-03 立)。
  *
  * 为什么不复用 'text':会话不是纯文本,是带发言人/时间轴/来源归属的结构化记录。
@@ -171,38 +209,45 @@ class KnowledgeRagService {
     if (chunks.length === 0) return { docId: 0, chunkCount: 0 }
 
     const contentHash = createHash('md5').update(text, 'utf8').digest('hex')
-    const [doc] = await db
-      .insert(knowledgeDoc)
-      .values({
-        ownerUuid,
-        collectionName,
-        title,
-        sourceType,
-        sourcePath,
-        contentHash,
-        chunkCount: chunks.length,
-        status: 'active',
-        metadataJson,
-      })
-      .returning({ id: knowledgeDoc.id })
-    if (!doc) throw new Error('Failed to insert knowledge doc')
+    // embedding 在事务外生成:外部 HTTP 调用不应占住数据库连接/事务。
+    const embeddings = await embedWithConcurrency(chunks)
+    const chunkRows = chunks.map((content, i) => ({
+      docId: 0, // 事务内插入 doc 后回填
+      collectionName,
+      ownerUuid,
+      chunkIndex: i,
+      content,
+      // vector1536 customType toDriver 自动序列化为 '[...]',NULL 走 fallback
+      embedding: embeddings[i] && embeddings[i]!.length === 1536 ? embeddings[i]! : null,
+    }))
 
-    const chunkRows = await Promise.all(
-      chunks.map(async (content, i) => {
-        const embedding = await getEmbedding(content)
-        return {
-          docId: doc.id,
-          collectionName,
+    const docId = await db.transaction(async (tx) => {
+      const [doc] = await tx
+        .insert(knowledgeDoc)
+        .values({
           ownerUuid,
-          chunkIndex: i,
-          content,
-          // vector1536 customType toDriver 自动序列化为 '[...]',NULL 走 fallback
-          embedding: embedding && embedding.length === 1536 ? embedding : null,
-        }
-      }),
-    )
-    await db.insert(knowledgeChunk).values(chunkRows)
-    return { docId: doc.id, chunkCount: chunks.length }
+          collectionName,
+          title,
+          sourceType,
+          sourcePath,
+          contentHash,
+          chunkCount: chunks.length,
+          status: 'active',
+          metadataJson,
+        })
+        .returning({ id: knowledgeDoc.id })
+      if (!doc) throw new Error('Failed to insert knowledge doc')
+
+      for (let i = 0; i < chunkRows.length; i += CHUNK_INSERT_BATCH) {
+        const batch = chunkRows.slice(i, i + CHUNK_INSERT_BATCH).map((row) => ({
+          ...row,
+          docId: doc.id,
+        }))
+        await tx.insert(knowledgeChunk).values(batch)
+      }
+      return doc.id
+    })
+    return { docId, chunkCount: chunks.length }
   }
 
   /** 文本入库, 返回切片数量 */
@@ -452,6 +497,7 @@ class KnowledgeRagService {
       })
       .from(knowledgeChunk)
       .where(and(...conditions))
+      .limit(KEYWORD_CANDIDATE_LIMIT)
 
     const results: SearchHit[] = []
     for (const chunk of rows) {

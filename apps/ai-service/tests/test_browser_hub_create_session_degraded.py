@@ -46,9 +46,17 @@ class FakeSession:
 class FakeHub:
     def __init__(self, session: FakeSession) -> None:
         self._session = session
+        self.close_calls: list[tuple[str, str | None]] = []
 
     async def create_session(self, **_kwargs: object) -> FakeSession:
         return self._session
+
+    async def close_session(
+        self, session_id: str, owner_user_id: str | None = None
+    ) -> bool:
+        self.close_calls.append((session_id, owner_user_id))
+        self._session.closed = True
+        return True
 
 
 @pytest.fixture()

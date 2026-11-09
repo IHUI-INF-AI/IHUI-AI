@@ -7,11 +7,14 @@
  * 零真实网络/数据库:drizzle 链式 mock + fetch 打桩 + 假适配器注册。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { PgDialect } from 'drizzle-orm/pg-core'
 
 // ── db mock:select 按查询特征供行(join=provider 反查 / orderBy=账号候选),update 记录 set 参数 ──
 let providerRows: unknown[] = []
 let accountRows: unknown[] = []
 const updateCalls: Array<Record<string, unknown>> = []
+// SDB-32:write 的 WHERE 条件(断言 CAS 用)
+const updateWheres: unknown[] = []
 
 vi.mock('../src/db/index.js', () => {
   const withSettlers = (step: Record<string, unknown>, resolver: () => unknown[]) => {
@@ -36,11 +39,15 @@ vi.mock('../src/db/index.js', () => {
   }
   const chainWrite = () => {
     const step: Record<string, unknown> = {}
-    for (const m of ['from', 'where', 'returning', 'values']) {
+    for (const m of ['from', 'returning', 'values']) {
       step[m] = vi.fn(() => step)
     }
     step.set = vi.fn((arg?: unknown) => {
       if (arg && typeof arg === 'object') updateCalls.push(arg as Record<string, unknown>)
+      return step
+    })
+    step.where = vi.fn((arg?: unknown) => {
+      if (arg !== undefined) updateWheres.push(arg)
       return step
     })
     return withSettlers(step, () => [])
@@ -168,6 +175,7 @@ function accountRow(label: string, overrides: Record<string, unknown> = {}): unk
     name: `测试号-${id}`,
     tokenEnc: 'enc:jwt-old',
     refreshTokenEnc: null,
+    credVersion: 1,
     cookiesEnc: null,
     secretsEnc: null,
     deviceId: null,
@@ -242,6 +250,7 @@ beforeEach(async () => {
   providerRows = []
   accountRows = []
   updateCalls.length = 0
+  updateWheres.length = 0
   vi.unstubAllGlobals()
   await sharedState.reset()
   mockRecordAccountUsage.mockReset().mockResolvedValue(undefined)
@@ -364,6 +373,15 @@ describe('forwardToAccountPool', () => {
     // 第二次请求带刷新后的 token
     const secondInit = fetchMock.mock.calls[1]?.[1] as { headers: Record<string, string> }
     expect(secondInit.headers.Authorization).toBe('Bearer jwt-new')
+
+    // SDB-32:上游未回传 refreshToken ⇒ 落库 SET 不得回写快照旧票,且写入必须带 cred_version CAS
+    await vi.waitFor(() => expect(updateCalls.some((s) => s.tokenEnc === 'enc:jwt-new')).toBe(true))
+    const refreshWrite = updateCalls.find((s) => s.tokenEnc === 'enc:jwt-new')!
+    expect(Object.prototype.hasOwnProperty.call(refreshWrite, 'refreshTokenEnc')).toBe(false)
+    const where = updateWheres[updateCalls.indexOf(refreshWrite)]
+    const q = new PgDialect().sqlToQuery(where as never)
+    expect(q.sql.toLowerCase()).toContain('cred_version')
+    expect((q.params as unknown[]).map(String)).toContain('1')
   })
 
   it('credit 分类:失败透传 + 摘除落库(tempUnschedulable)', async () => {
@@ -1197,6 +1215,58 @@ describe('O93 全局在途并发闸(maxInFlightGlobal)', () => {
     } finally {
       vi.unstubAllEnvs()
     }
+  })
+})
+
+// =============================================================================
+// F-671 断连语义:响应头之后 parent abort 仍生效;tap 支路可取消;提前 break 取消底层流
+// =============================================================================
+
+describe('F-671 上游正文阶段断连取消', () => {
+  it('响应头后 clear() 只清超时定时器,parent abort 仍能中止正文', () => {
+    const parent = new AbortController()
+    const timed = F.withUpstreamTimeout(parent.signal)
+    timed.clear()
+    parent.abort()
+    expect(timed.signal.aborted).toBe(true)
+  })
+
+  it('客户端 abort 后 tap 支路停止读取并以 interrupted 归还额度', async () => {
+    const enc = new TextEncoder()
+    const stream = new ReadableStream<Uint8Array>({
+      start(c) {
+        c.enqueue(enc.encode('data: {"usage":{"prompt_tokens":1,"completion_tokens":2}}\n\n'))
+      },
+      pull() {
+        /* 永不 close:模拟上游长流 */
+      },
+    })
+    const resp = new Response(stream, {
+      headers: { 'content-type': 'text/event-stream' },
+    })
+    const ac = new AbortController()
+    const outcomes: string[] = []
+    F.tapAccountUsage(resp, undefined, (_u, o) => outcomes.push(o), ac.signal)
+    ac.abort()
+    await vi.waitFor(() => expect(outcomes).toHaveLength(1))
+    expect(outcomes[0]).toBe('interrupted')
+  })
+
+  it('readSseDataLines 提前 break 时 cancel 底层流(不只 releaseLock)', async () => {
+    let cancelled = false
+    const stream = new ReadableStream<Uint8Array>({
+      start(c) {
+        c.enqueue(new TextEncoder().encode('data: {"a":1}\n\ndata: [DONE]\n\n'))
+      },
+      cancel() {
+        cancelled = true
+      },
+    })
+    for await (const line of F.readSseDataLines(stream)) {
+      expect(line).toContain('data:')
+      break
+    }
+    await vi.waitFor(() => expect(cancelled).toBe(true))
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

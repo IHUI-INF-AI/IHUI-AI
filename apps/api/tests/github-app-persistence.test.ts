@@ -42,6 +42,8 @@ function makeStore(overrides: Partial<GithubAppStore> = {}): GithubAppStore {
   return {
     hasDelivery: vi.fn(async () => false),
     recordDelivery: vi.fn(async () => {}),
+    claimDelivery: vi.fn(async () => 'claimed' as const),
+    settleDelivery: vi.fn(async () => {}),
     applyInstallationEvent: vi.fn(async () => {}),
     listInstallations: vi.fn(async () => []),
     ...overrides,

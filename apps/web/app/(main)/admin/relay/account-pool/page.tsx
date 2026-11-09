@@ -9,6 +9,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
 import { toast } from 'sonner'
 import { fetchApi } from '@/lib/api'
+import { apiFailureToError } from '@ihui/shared/utils'
 import {
   Badge,
   Button,
@@ -836,7 +837,7 @@ export default function AdminRelayAccountPoolPage() {
         `/api/admin/relay/accounts/${vars.id}/${vars.shared ? 'share' : 'unshare'}`,
         { method: 'POST' },
       )
-      if (!r.success) throw new Error(r.error)
+      if (!r.success) throw apiFailureToError(r)
       return r.data
     },
     onSuccess: (d) => {

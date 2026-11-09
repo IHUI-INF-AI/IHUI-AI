@@ -31,7 +31,7 @@ import contextvars
 import fnmatch
 import os
 import sys
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
 
@@ -267,6 +267,73 @@ def scrub_non_inheritable_env_vars(env: Mapping[str, str]) -> dict[str, str]:
 def scrub_injection_env_vars(env: Mapping[str, str]) -> dict[str, str]:
     """从环境映射剥离注入型危险变量(继承值与工具参数 override 同剥)。"""
     return {k: v for k, v in env.items() if not is_injection_env_var(k)}
+
+
+def _runtime_name(argv0: str) -> str | None:
+    name = os.path.basename(str(argv0)).lower()
+    if name.endswith(".exe"):
+        name = name[:-4]
+    if name == "bash":
+        return "bash"
+    if name == "node":
+        return "node"
+    if name in {"python", "python3"}:
+        return "python"
+    return None
+
+
+def apply_child_runtime_guard(
+    env: Mapping[str, str],
+    argv0: str,
+    hooks: Mapping[str, str | None],
+    hook_exists: Callable[[str], bool],
+) -> tuple[dict[str, str], dict[str, str]]:
+    """给 bash / node / python 子进程挂上宿主指定的启动钩子。
+
+    观察:对照程序用环境变量把删除护栏送进子 shell。钩子路径只认调用方传入的宿主表,
+    不认即将交给子进程的那份 env,避免命令参数把钩子指走。
+    文件没量到就不写变量。已有别的钩子时不覆盖。运行时不在这三档里是未判定,原环境不动。
+    """
+    child = dict(env)
+    runtime = _runtime_name(argv0)
+    if runtime is None:
+        return child, {"disposition": "unjudged", "reason": "runtime-not-guarded"}
+    raw = hooks.get(runtime)
+    if not isinstance(raw, str) or not raw.strip():
+        return child, {"disposition": "unjudged", "reason": "hook-absent"}
+    hook = raw.strip()
+    if "\n" in hook or "\r" in hook:
+        return child, {"disposition": "unjudged", "reason": "hook-invalid"}
+    try:
+        proven = hook_exists(hook)
+    except OSError:
+        return child, {"disposition": "unjudged", "reason": "hook-unreadable"}
+    if proven is not True:
+        return child, {"disposition": "unjudged", "reason": "hook-missing"}
+    if runtime == "python" and os.path.basename(hook).lower() != "sitecustomize.py":
+        return child, {"disposition": "unjudged", "reason": "hook-shape"}
+    if runtime == "bash":
+        current = child.get("BASH_ENV")
+        if current is None:
+            child["BASH_ENV"] = hook
+            return child, {"disposition": "attached", "reason": "bash-env"}
+        if current == hook:
+            return child, {"disposition": "attached", "reason": "already"}
+        return child, {"disposition": "unjudged", "reason": "existing-hook"}
+    if runtime == "node":
+        flag = f"--require {hook}"
+        current = child.get("NODE_OPTIONS", "")
+        if flag in current:
+            return child, {"disposition": "attached", "reason": "already"}
+        child["NODE_OPTIONS"] = f"{current} {flag}".strip()
+        return child, {"disposition": "attached", "reason": "node-options"}
+    directory = os.path.dirname(hook)
+    current = child.get("PYTHONPATH", "")
+    parts = [part for part in current.split(os.pathsep) if part]
+    if directory not in parts:
+        parts.insert(0, directory)
+    child["PYTHONPATH"] = os.pathsep.join(parts)
+    return child, {"disposition": "attached", "reason": "python-path"}
 
 
 @dataclass

@@ -38,6 +38,7 @@ import tempfile
 import threading
 import time
 import uuid
+from collections import deque
 from collections.abc import Callable, Coroutine
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
@@ -555,6 +556,264 @@ def _key_to_vk_code(key: str) -> int:
 
 
 # ---------------------------------------------------------------------------
+# 浏览器运行时观测:console / network 环形缓冲(2026-11-08)
+# ---------------------------------------------------------------------------
+# 对标 Trae 的 browser_console_messages / browser_network_requests:agent 改完页面
+# 不能只看截图,还要能读到"页面自己说了什么"(报错/警告)与"页面发了什么请求"
+# (状态码/耗时/失败原因)。这里只做**录制 + 归一化 + 有界留存**,判定留给读取面。
+#
+# 三条纪律:
+#   ① 有界:环形缓冲固定容量,超限丢最旧并累计 dropped —— "被截断"必须能被看到;
+#   ② 截断:单条文本截到 EVENT_TEXT_LIMIT,防一条超长日志撑爆模型上下文;
+#   ③ 不过滤丢弃:level/关键字过滤只在读取时做,录制面不因过滤丢事件。
+CONSOLE_MAX_EVENTS = 500
+NETWORK_MAX_EVENTS = 500
+EVENT_TEXT_LIMIT = 2000
+CONSOLE_LEVELS = frozenset({"error", "warning", "info", "log", "debug"})
+_CONSOLE_LEVEL_ALIASES = {"warn": "warning", "verbose": "debug", "trace": "debug", "assert": "error"}
+
+
+def normalize_console_level(raw: str | None) -> str:
+    """CDP console 类型 → 五个稳定 level;未知按 log(不丢事件)。"""
+    value = str(raw or "log").strip().lower()
+    value = _CONSOLE_LEVEL_ALIASES.get(value, value)
+    return value if value in CONSOLE_LEVELS else "log"
+
+
+def _remote_object_text(obj: Any) -> str:
+    """CDP RemoteObject → 可读文本(value > unserializableValue > description > type)。"""
+    if not isinstance(obj, dict):
+        return str(obj)
+    if "value" in obj:
+        value = obj["value"]
+        if isinstance(value, str):
+            return value
+        try:
+            return json.dumps(value, ensure_ascii=False, default=str)
+        except Exception:  # noqa: BLE001 - 序列化失败只影响展示,不影响录制
+            return str(value)
+    for key in ("unserializableValue", "description"):
+        value = obj.get(key)
+        if value:
+            return str(value)
+    return str(obj.get("type") or "")
+
+
+class BrowserEventBuffer:
+    """固定容量事件环形缓冲(线程安全)。
+
+    写入发生在 CDP 回调(executor 线程),读取发生在 main loop,故用 Lock 保护。
+    超过容量丢**最旧**一条并累加 dropped,读取面据此判断"是否还有更早的事件"。
+    """
+
+    def __init__(
+        self, max_events: int = CONSOLE_MAX_EVENTS, text_limit: int = EVENT_TEXT_LIMIT
+    ) -> None:
+        self._max = max(1, int(max_events))
+        self._text_limit = max(1, int(text_limit))
+        self._events: deque[dict[str, Any]] = deque()
+        self._lock = threading.Lock()
+        self._dropped = 0
+        self._seq = 0
+
+    @property
+    def capacity(self) -> int:
+        return self._max
+
+    @property
+    def dropped(self) -> int:
+        with self._lock:
+            return self._dropped
+
+    def __len__(self) -> int:
+        with self._lock:
+            return len(self._events)
+
+    def append(self, event: dict[str, Any]) -> dict[str, Any]:
+        """归一化并写入环形缓冲,返回落库后的条目。"""
+        with self._lock:
+            self._seq += 1
+            item = dict(event)
+            item["seq"] = self._seq
+            for key in ("text", "url", "errorText", "mimeType"):
+                value = item.get(key)
+                if isinstance(value, str):
+                    item[key] = value[: self._text_limit]
+            self._events.append(item)
+            while len(self._events) > self._max:
+                self._events.popleft()
+                self._dropped += 1
+            return item
+
+    def snapshot(
+        self,
+        *,
+        limit: int = 50,
+        predicate: Callable[[dict[str, Any]], bool] | None = None,
+    ) -> list[dict[str, Any]]:
+        """按时间序取最近条目:先过滤,再截取尾部 limit 条。"""
+        with self._lock:
+            items = list(self._events)
+        if predicate is not None:
+            items = [item for item in items if predicate(item)]
+        cap = max(1, int(limit))
+        return items[-cap:]
+
+
+def _console_event_from_cdp(params: dict[str, Any]) -> dict[str, Any]:
+    """Runtime.consoleAPICalled → 归一化条目。"""
+    raw_args = params.get("args") or []
+    parts = [_remote_object_text(arg) for arg in raw_args] if isinstance(raw_args, list) else []
+    return {
+        "level": normalize_console_level(params.get("type")),
+        "source": "console",
+        "type": str(params.get("type") or "log"),
+        "text": " ".join(part for part in parts if part),
+        "url": str(params.get("url") or ""),
+        "line": params.get("lineNumber"),
+        "column": params.get("columnNumber"),
+        "timestamp": params.get("timestamp"),
+    }
+
+
+def _exception_event_from_cdp(params: dict[str, Any]) -> dict[str, Any]:
+    """Runtime.exceptionThrown → 归一化条目(未捕获异常一律 error)。"""
+    details = params.get("exceptionDetails") or {}
+    if not isinstance(details, dict):
+        details = {}
+    exception = details.get("exception")
+    text = _remote_object_text(exception) if isinstance(exception, dict) else ""
+    if not text:
+        text = str(details.get("text") or "")
+    return {
+        "level": "error",
+        "source": "exception",
+        "type": "uncaught",
+        "text": text,
+        "url": str(details.get("url") or params.get("url") or ""),
+        "line": details.get("lineNumber"),
+        "column": details.get("columnNumber"),
+        "timestamp": params.get("timestamp"),
+    }
+
+
+def _log_entry_event_from_cdp(params: dict[str, Any]) -> dict[str, Any]:
+    """Log.entryAdded → 归一化条目(浏览器/网络层日志)。"""
+    entry = params.get("entry") or {}
+    if not isinstance(entry, dict):
+        entry = {}
+    return {
+        "level": normalize_console_level(entry.get("level")),
+        "source": "log",
+        "type": str(entry.get("source") or "log"),
+        "text": str(entry.get("text") or ""),
+        "url": str(entry.get("url") or ""),
+        "line": entry.get("lineNumber"),
+        "column": None,
+        "timestamp": entry.get("timestamp"),
+    }
+
+
+class NetworkRecorder:
+    """把 Network.* 事件合并成"一条请求一行"。
+
+    requestWillBeSent 建档 → responseReceived 补状态 → loadingFinished/Failed 落库。
+    未完成的请求**不落库**(半条记录会把"还在飞"误报成"已完成"),但读取面可通过
+    `pending` 计数知道还有多少在途。
+    """
+
+    _PENDING_LIMIT = 2000
+
+    def __init__(self, buffer: BrowserEventBuffer) -> None:
+        self._buffer = buffer
+        self._pending: dict[str, dict[str, Any]] = {}
+        self._lock = threading.Lock()
+
+    @property
+    def pending_count(self) -> int:
+        with self._lock:
+            return len(self._pending)
+
+    def on_request_will_be_sent(self, params: dict[str, Any]) -> None:
+        request_id = str(params.get("requestId") or "")
+        if not request_id:
+            return
+        request = params.get("request") or {}
+        entry = {
+            "requestId": request_id,
+            "method": str(request.get("method") or ""),
+            "url": str(request.get("url") or ""),
+            "resourceType": str(params.get("type") or ""),
+            "startedAt": params.get("timestamp"),
+            "status": None,
+            "mimeType": "",
+            "failed": False,
+            "errorText": "",
+            "durationMs": None,
+            "size": None,
+        }
+        with self._lock:
+            if len(self._pending) >= self._PENDING_LIMIT:
+                # 极端长会话:丢最旧的在途记录,避免 pending 无界增长
+                self._pending.pop(next(iter(self._pending)), None)
+            self._pending[request_id] = entry
+
+    def on_response_received(self, params: dict[str, Any]) -> None:
+        request_id = str(params.get("requestId") or "")
+        if not request_id:
+            return
+        response = params.get("response") or {}
+        with self._lock:
+            entry = self._pending.get(request_id)
+            if entry is None:
+                entry = {
+                    "requestId": request_id,
+                    "method": "",
+                    "url": str(response.get("url") or ""),
+                    "resourceType": str(params.get("type") or ""),
+                    "startedAt": None,
+                    "status": None,
+                    "mimeType": "",
+                    "failed": False,
+                    "errorText": "",
+                    "durationMs": None,
+                    "size": None,
+                }
+                self._pending[request_id] = entry
+            entry["status"] = response.get("status")
+            entry["mimeType"] = str(response.get("mimeType") or "")
+            if not entry.get("url"):
+                entry["url"] = str(response.get("url") or "")
+
+    def _finish(self, params: dict[str, Any], *, failed: bool) -> None:
+        request_id = str(params.get("requestId") or "")
+        if not request_id:
+            return
+        with self._lock:
+            entry = self._pending.pop(request_id, None)
+        if entry is None:
+            return
+        entry["failed"] = failed
+        if failed:
+            entry["status"] = 0
+            entry["errorText"] = str(params.get("errorText") or "")
+        else:
+            ended_at = params.get("timestamp")
+            started_at = entry.get("startedAt")
+            if isinstance(ended_at, (int, float)) and isinstance(started_at, (int, float)):
+                entry["durationMs"] = round((ended_at - started_at) * 1000, 2)
+            size = params.get("encodedDataLength")
+            entry["size"] = int(size) if isinstance(size, (int, float)) else None
+        self._buffer.append(entry)
+
+    def on_loading_finished(self, params: dict[str, Any]) -> None:
+        self._finish(params, failed=False)
+
+    def on_loading_failed(self, params: dict[str, Any]) -> None:
+        self._finish(params, failed=True)
+
+
+# ---------------------------------------------------------------------------
 # BrowserSession:单个浏览器会话(sync_playwright 对象,async 接口)
 # ---------------------------------------------------------------------------
 class BrowserSession:
@@ -591,6 +850,14 @@ class BrowserSession:
         self._on_frame: Callable[[str, dict[str, Any]], Coroutine[Any, Any, None]] | None = None
         self._on_navigation: Callable[[str, str | None], Coroutine[Any, Any, None]] | None = None
         self._lock = threading.Lock()
+        # 2026-11-08 运行时观测:console / network 各有独立环形缓冲,读写线程不同,
+        # 由 BrowserEventBuffer 内部锁保护;enable 幂等,失败降级为"观测不可用"。
+        self.console_buffer = BrowserEventBuffer(CONSOLE_MAX_EVENTS)
+        self.network_buffer = BrowserEventBuffer(NETWORK_MAX_EVENTS)
+        self._network_recorder = NetworkRecorder(self.network_buffer)
+        self._observability_enabled = False
+        self._observability_lock = threading.Lock()
+        self._observability_warned = False
 
     # ---- 内部辅助 ----
     async def _run_sync(self, func: Callable[[], _T]) -> _T:
@@ -601,6 +868,128 @@ class BrowserSession:
     def _schedule_coro(self, coro: Coroutine[Any, Any, None]) -> None:
         """从 executor 线程向 main loop 提交 coroutine(navigation 回调用)。"""
         asyncio.run_coroutine_threadsafe(coro, self._main_loop)
+
+    # ---- 运行时观测(console / network) ----
+    async def enable_observability(self) -> bool:
+        """订阅 console / network 的 CDP 事件(幂等)。
+
+        必须在 executor 线程里取 CDP session 并注册回调。失败返回 False 而不是抛:
+        观测是"增强",不是会话存续的必要条件;一次失败只告警一次,后续读取仍可重试。
+        """
+        if self._observability_enabled:
+            return True
+
+        def _sync() -> bool:
+            with self._observability_lock:
+                if self._observability_enabled:
+                    return True
+                cdp = self._ensure_cdp()
+                # 先开域再挂回调:迟到的事件不会漏掉回调注册。
+                cdp.send("Runtime.enable")
+                cdp.send("Log.enable")
+                cdp.send("Network.enable")
+                cdp.on(
+                    "Runtime.consoleAPICalled",
+                    lambda params: self.console_buffer.append(
+                        _console_event_from_cdp(params or {})
+                    ),
+                )
+                cdp.on(
+                    "Runtime.exceptionThrown",
+                    lambda params: self.console_buffer.append(
+                        _exception_event_from_cdp(params or {})
+                    ),
+                )
+                cdp.on(
+                    "Log.entryAdded",
+                    lambda params: self.console_buffer.append(_log_entry_event_from_cdp(params or {})),
+                )
+                cdp.on("Network.requestWillBeSent", self._network_recorder.on_request_will_be_sent)
+                cdp.on("Network.responseReceived", self._network_recorder.on_response_received)
+                cdp.on("Network.loadingFinished", self._network_recorder.on_loading_finished)
+                cdp.on("Network.loadingFailed", self._network_recorder.on_loading_failed)
+                self._observability_enabled = True
+                return True
+
+        try:
+            return await self._run_sync(_sync)
+        except Exception as exc:  # noqa: BLE001 - 观测失败不得影响导航/输入
+            if not self._observability_warned:
+                self._observability_warned = True
+                logger.warning(
+                    f"[browser_hub] session {self.session_id} 运行时观测启用失败,降级为不可用: {exc}"
+                )
+            return False
+
+    async def console_messages(
+        self,
+        *,
+        level: str | None = None,
+        limit: int = 50,
+        text_contains: str | None = None,
+    ) -> dict[str, Any]:
+        """读取最近的 console / 未捕获异常 / 浏览器日志。
+
+        level="all"/None 表示不过滤;其它值按 normalize_console_level 归一后再比。
+        过滤在读取时做 —— 录制面永远保留全量(受环形容量约束)。
+        """
+        enabled = await self.enable_observability()
+        raw_level = str(level or "").strip().lower()
+        want_level = None if raw_level in ("", "all", "*") else normalize_console_level(raw_level)
+        needle = str(text_contains or "").strip().lower()
+
+        def _match(item: dict[str, Any]) -> bool:
+            if want_level is not None and item.get("level") != want_level:
+                return False
+            return not needle or needle in str(item.get("text") or "").lower()
+
+        events = self.console_buffer.snapshot(limit=limit, predicate=_match)
+        return {
+            "enabled": enabled,
+            "count": len(events),
+            "dropped": self.console_buffer.dropped,
+            "events": events,
+        }
+
+    async def network_requests(
+        self,
+        *,
+        limit: int = 50,
+        url_contains: str | None = None,
+        method: str | None = None,
+        status_min: int | None = None,
+        failed_only: bool = False,
+    ) -> dict[str, Any]:
+        """读取最近完成的网络请求(一条请求一行,未完成的不落库)。
+
+        status_min 只对**已有状态码**的请求生效;failed_only 只看 loadingFailed。
+        在途请求数由 pending 返回,避免把"还在飞"误判成"没发生"。
+        """
+        enabled = await self.enable_observability()
+        needle = str(url_contains or "").strip().lower()
+        want_method = str(method or "").strip().upper()
+        min_status = int(status_min) if status_min is not None else None
+
+        def _match(item: dict[str, Any]) -> bool:
+            if failed_only and not item.get("failed"):
+                return False
+            if want_method and str(item.get("method") or "").upper() != want_method:
+                return False
+            if needle and needle not in str(item.get("url") or "").lower():
+                return False
+            if min_status is not None:
+                status = item.get("status")
+                return isinstance(status, int) and status >= min_status
+            return True
+
+        events = self.network_buffer.snapshot(limit=limit, predicate=_match)
+        return {
+            "enabled": enabled,
+            "count": len(events),
+            "dropped": self.network_buffer.dropped,
+            "pending": self._network_recorder.pending_count,
+            "events": events,
+        }
 
     # ---- 导航 ----
     async def navigate(
@@ -624,6 +1013,10 @@ class BrowserSession:
                 "error": reason[:200],
                 "errorCode": "SSRF_BLOCKED",
             }
+
+        # 2026-11-08:导航前订阅观测,保证本次 page load 的 console/network 能录到。
+        # 失败只降级(enable_observability 内部已吞异常),不阻断导航。
+        await self.enable_observability()
 
         def _sync() -> dict[str, Any]:
             try:
@@ -1036,6 +1429,10 @@ class BrowserHub:
     # 会话创建幂等窗口:同一 URL 在此窗口内的重复创建请求返回已有会话
     _DEDUP_WINDOW_SECONDS: float = 10.0
 
+    # AIS-029:单主体并存会话上限。`_sessions` 原本无上限 —— 单个登录用户反复
+    # POST /sessions 即可无限创建 Chromium BrowserContext(内存/句柄耗尽)。
+    _MAX_SESSIONS_PER_OWNER: int = 5
+
     def __init__(self) -> None:
         self._playwright: Any | None = None
         self._browser: Browser | None = None
@@ -1163,6 +1560,20 @@ class BrowserHub:
                         logger.info(f"[browser_hub] 幂等命中:复用 session {sid} (url={url})")
                         return candidate
                     logger.info(f"[browser_hub] 幂等窗口内但属主不同:为 {session_id or '新会话'} 另建会话")
+
+        # AIS-029:单主体并存会话上限(幂等复用不计)。超限即拒,提示先关不用的会话;
+        # 放在 _build_session 之前,避免先建 context 再拒造成泄漏。
+        if owner_user_id:
+            owned = sum(
+                1
+                for sid, registration in self._tab_registry.items()
+                if sid in self._sessions and _same_owner(registration.owner_user_id, owner_user_id)
+            )
+            if owned >= self._MAX_SESSIONS_PER_OWNER:
+                raise ValueError(
+                    f"同一账号并存浏览器会话已达上限 {self._MAX_SESSIONS_PER_OWNER},"
+                    "请先关闭不用的会话"
+                )
 
         self._main_loop = asyncio.get_running_loop()
         session_id = session_id or str(uuid.uuid4())

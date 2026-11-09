@@ -21,6 +21,7 @@ import { useToast } from '@/hooks/use-toast'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { AuthGatePrompt } from '@/components/common'
 import { fetchApi } from '@/lib/api'
+import { resolveCheckoutLevel, type CheckoutLevel } from '@/lib/checkout-plan-levels'
 
 const formatCNY = (n: number) =>
   new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(n)
@@ -60,12 +61,20 @@ function CheckoutContent() {
   const [polling, setPolling] = React.useState(false)
   const [qrCodeUrl, setQrCodeUrl] = React.useState('')
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  // 2026-11-08(W-08):档位与金额以服务端 /vip/levels 为准。
+  // plan id 是前端语义名('free'|'pro'|'enterprise'),不是 vip_levels.id(uuid),
+  // 直接当 vipLevelId 传会让 POST /vip/order 按 uuid 查库 404。
+  const [levels, setLevels] = React.useState<CheckoutLevel[] | null>(null)
+  const [levelsError, setLevelsError] = React.useState('')
+  const [chargedAmount, setChargedAmount] = React.useState<number | null>(null)
 
   // 2026-09-18 修复:移除假优惠码(IHUI20 仅前端减价展示,下单金额不含折扣,
   // UI 显示折后价、实际支付原价)——折扣展示必须以服务端计价为准
 
-  const subtotal = plan.price
-  const total = subtotal
+  // 服务端价目(元);下单后以订单实付金额(分→元)校准,不再只信前端硬编码价
+  const level = resolveCheckoutLevel(levels ?? [], planId)
+  const total = chargedAmount ?? (level ? level.price / 100 : plan.price)
+  const subtotal = total
 
   const stopPoll = () => {
     if (pollRef.current) {
@@ -76,6 +85,23 @@ function CheckoutContent() {
   }
 
   useEffect(() => () => stopPoll(), [])
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const r = await fetchApi<{ items: CheckoutLevel[] }>('/api/vip/levels')
+      if (cancelled) return
+      if (r.success && r.data?.items) {
+        setLevels(r.data.items)
+        setLevelsError('')
+      } else {
+        setLevelsError(r.error || '加载 VIP 档位失败')
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const startPolling = (orderNo: string) => {
     setPolling(true)
@@ -115,8 +141,14 @@ function CheckoutContent() {
   const handlePay = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      const order = await createOrder(planId)
+      if (!level) {
+        toast.error(t('checkout.payIncomplete'), levelsError || t('checkout.payTimeout'))
+        return
+      }
+      const order = await createOrder(level.id)
       if (!order) return
+      // 以订单实付金额(分)校准展示,避免前端价与下单价双源
+      setChargedAmount(order.amount / 100)
       const info = order.payInfo
       if (info.mock && info.error) {
         toast.error(t('checkout.payConfigNotReady'), t('checkout.contactAdmin'))

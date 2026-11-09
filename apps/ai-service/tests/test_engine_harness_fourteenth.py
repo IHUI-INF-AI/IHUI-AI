@@ -12,6 +12,7 @@
 - file_search 零结果给可操作建议
 """
 
+import os
 from typing import Any
 
 import pytest
@@ -41,6 +42,22 @@ async def _engine_rpc(
 # =============================================================================
 # 夹具
 # =============================================================================
+
+
+@pytest.fixture(autouse=True)
+def _register_pytest_tmp_workspace_root(
+    tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """AIS-106:file_search 现在要求搜索根落在工作区白名单内。
+
+    本文件拿 pytest 临时目录当受控仓库根,这里显式把该受控临时根登记进
+    MCP_WORKSPACE_ROOTS —— 白名单闸本身不绕过(仍是 deny-by-default,只是把
+    "本次测试自己的临时根"如实登记,而不是放宽判据)。
+    """
+    roots = os.pathsep.join(
+        [str(tmp_path_factory.getbasetemp()), os.path.abspath(os.getcwd())]
+    )
+    monkeypatch.setenv("MCP_WORKSPACE_ROOTS", roots)
 
 
 class _FakeLoop:

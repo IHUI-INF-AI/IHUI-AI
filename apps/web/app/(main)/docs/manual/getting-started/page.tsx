@@ -4,6 +4,7 @@
 
 import type { Metadata } from 'next'
 import { Lightbulb, MapPin } from 'lucide-react'
+import { ManualFigure } from '@/components/docs/manual-figure'
 import { ManualNav, chapters } from '../_manual-nav'
 
 const SITE_URL = 'https://aizhs.top'
@@ -64,6 +65,11 @@ export default function ManualGettingStartedPage() {
             <strong>提示</strong>:无需信用卡,无隐藏消费,积分用完可继续用免费模型(如 DeepSeek)或充值。
           </p>
         </div>
+        <ManualFigure
+          src="/images/docs/manual/getting-started-register.png"
+          alt="智汇 AI 线上注册界面:手机号、验证码、密码、确认密码四个输入项,下方为服务条款与隐私政策勾选项和「注册并授权」按钮"
+          caption="实拍 aizhs.top 注册界面(2026-11-06 本机在线站点无头浏览器截取):当前线上注册走「手机号 + 短信验证码 + 密码」,提交后自动回跳目标应用、登录态在各子项目间共享;GitHub / Google / 微信等第三方注册入口在登录界面同屏可选(见 1.2)。"
+        />
       </section>
 
       {/* 登录 */}
@@ -81,6 +87,11 @@ export default function ManualGettingStartedPage() {
             <strong>忘记密码</strong>:登录页点"忘记密码" → 输入邮箱 → 收件箱点重置链接 → 设置新密码。
           </p>
         </div>
+        <ManualFigure
+          src="/images/docs/manual/getting-started-login.png"
+          alt="智汇 AI 线上登录界面:顶部「邮箱 / 账号 / 扫码」三个页签,其下为 Passkey 免密登录、邮箱与验证码输入框、登录按钮,再往下是 Google 及 GitHub、Apple、企业 SSO、微信、飞书、钉钉、企业微信、支付宝八个第三方入口"
+          caption="实拍 aizhs.top 登录界面:邮箱页签当前为「邮箱 + 验证码」免密形态,账号页签走用户名 + 密码,扫码页签走移动端授权;第三方入口与手册 1.1 所列一致。"
+        />
       </section>
 
       {/* 界面导览 */}
@@ -120,6 +131,11 @@ export default function ManualGettingStartedPage() {
             </ul>
           </div>
         </div>
+        <ManualFigure
+          src="/images/docs/manual/getting-started-workspace.png"
+          alt="智汇 AI 工作区首屏:最左为一级导航栏(首页、热门、生态市场、AI 智能体、AI 教育、内容、交易、个人),其右为任务列表栏(新建任务、插件市场、自动化、产物中心),顶部为搜索、新建、视图、模型与页面切换工具条,右侧大面积为对话区"
+          caption="实拍 aizhs.top 工作区首屏(/chat)。三块版式即本节所述「左侧栏 + 中间区 + 右上角」;未登录时中间区显示登录引导,登录后同一位置即为对话气泡与输入框。"
+        />
       </section>
 
       {/* 首次对话 */}

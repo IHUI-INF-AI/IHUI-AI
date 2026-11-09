@@ -21,7 +21,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 from datetime import UTC, datetime
 from typing import Any
@@ -50,6 +49,7 @@ from ..services.plan_mode import (
     update_task_status,
     validate_transition,
 )
+from ..utils.tool_call_args import normalize_tool_call_args
 
 logger = logging.getLogger(__name__)
 
@@ -125,14 +125,10 @@ def _make_loop_v2_llm(model: str | None) -> Any:
             converted = []
             for tc in tool_calls:
                 fn = tc.get("function") or {}
-                raw = fn.get("arguments") or "{}"
-                if isinstance(raw, str):
-                    try:
-                        args = json.loads(raw)
-                    except (ValueError, TypeError):
-                        args = {}
-                else:
-                    args = raw
+                raw = fn.get("arguments")
+                # 单一真相源：字符串形态 args（含残缺/截断）走 normalize_tool_call_args 修复解析，
+                # 对标 Qoder/Trae 的 jsonrepair 用法；非字符串（已是对象等）原样透传，维持契约不变。
+                args = normalize_tool_call_args(raw) if isinstance(raw, str) else (raw or {})
                 converted.append(
                     {
                         "id": tc.get("id", ""),

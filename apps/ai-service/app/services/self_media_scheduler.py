@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 # 默认时区:东八区(用户主要时区)
 from app.core.cn_time import CN_TZ as _CN_TZ
+from app.utils.atomic_io import write_text_atomic
 
 # 历史记录上限(内存 LRU,超过自动 pop 最旧的一条)
 _HISTORY_LIMIT = 30
@@ -136,13 +137,21 @@ class SelfMediaScheduler:
         )
 
     async def stop(self) -> None:
-        """停止调度循环。"""
-        if self._task is None:
-            return
-        self._task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await self._task
-        self._task = None
+        """停止调度循环,并取消在途任务。"""
+        if self._task is not None:
+            self._task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._task
+            self._task = None
+        # AIS-030:只取消主循环时,已 spawn 的 _run_koubo/_run_wechat 仍在出网/写文件,
+        # 关停后产生孤儿输出。这里一并 cancel 并等到真正收尾(gather 吞取消异常)。
+        if self._pending_tasks:
+            pending = list(self._pending_tasks)
+            for task in pending:
+                task.cancel()
+            await asyncio.gather(*pending, return_exceptions=True)
+            self._pending_tasks.clear()
+        self._running_tasks.clear()
 
     # ===== 主循环 =====
 
@@ -272,7 +281,7 @@ class SelfMediaScheduler:
         articles_dir = Path(__file__).resolve().parent.parent / "skills" / "content_engine" / "articles"
         articles_dir.mkdir(parents=True, exist_ok=True)
         md_path = articles_dir / f"{_safe_filename(title)}.md"
-        md_path.write_text(md_content, encoding="utf-8")
+        await asyncio.to_thread(write_text_atomic, md_path, md_content)
         return {
             "title": title,
             "md_path": str(md_path),

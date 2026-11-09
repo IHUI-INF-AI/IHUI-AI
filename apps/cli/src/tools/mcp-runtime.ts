@@ -399,38 +399,26 @@ function ensureStdioDispatcher(proc: ChildProcess): StdioDispatcher {
   if (existing) return existing;
 
   const pending = new Map<number, StdioPendingEntry>();
-  const contentLengthDecoder =
-    stdioFramingOf(proc) === 'content-length' ? createStdioFrameDecoder() : undefined;
+  // F-103:收发两档都走同一份带残留缓冲的帧解码器。旧 ndjson 分支逐 `data` 块
+  // `toString()+split('\n')`,既不留残帧、也不保证 UTF-8 字符跨块完整 ——
+  // >64KB/中文结果会被切成半截 JSON 并丢弃,pending 只能等超时。
+  const decoder = createStdioFrameDecoder();
   function onData(data: Buffer): void {
-    if (contentLengthDecoder) {
-      let messages: unknown[];
-      try {
-        messages = contentLengthDecoder.push(data);
-      } catch (cause) {
-        const error = cause instanceof Error ? cause : new Error(String(cause));
-        for (const entry of pending.values()) entry.fail(error);
-        pending.clear();
-        return;
-      }
-      for (const message of messages) {
-        if (!message || typeof message !== 'object') continue;
-        deliverStdioMessage(
-          pending,
-          message as { id?: number; error?: { message?: string }; result?: unknown },
-        );
-      }
+    let messages: unknown[];
+    try {
+      messages = decoder.push(data);
+    } catch (cause) {
+      const error = cause instanceof Error ? cause : new Error(String(cause));
+      for (const entry of pending.values()) entry.fail(error);
+      pending.clear();
       return;
     }
-    const text = data.toString();
-    for (const line of text.split('\n')) {
-      if (!line.trim()) continue;
-      let parsed: { id?: number; error?: { message?: string }; result?: unknown };
-      try {
-        parsed = JSON.parse(line) as { id?: number; error?: { message?: string }; result?: unknown };
-      } catch {
-        continue; // 忽略非 JSON 行
-      }
-      deliverStdioMessage(pending, parsed);
+    for (const message of messages) {
+      if (!message || typeof message !== 'object') continue;
+      deliverStdioMessage(
+        pending,
+        message as { id?: number; error?: { message?: string }; result?: unknown },
+      );
     }
   }
 

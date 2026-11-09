@@ -12,6 +12,7 @@ import { logger } from './logger.js'
 import { getSkillManager, type SkillStep } from './skills.js'
 import { getMemoryService } from './memory.js'
 import { generateCompactId } from '../../utils/crypto-random.js'
+import { buildInternalCallHeaders } from '../../utils/internal-call-headers.js'
 import { callRealLlm, type LlmMessage } from '../crew-llm-adapter.js'
 import { config } from '../../config/index.js'
 
@@ -65,7 +66,13 @@ async function publishEvolvedSkillToMarket(params: {
   const baseUrl = `http://localhost:${config.PORT}`
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   if (config.AI_CALLBACK_SECRET) {
-    headers['X-Internal-Secret'] = config.AI_CALLBACK_SECRET
+    // 2026-11-06:内部发布改走 X-Internal-Secret 族票据(scope=skills-market);
+    // 兼容窗口内同发旧密钥。签不出票 ⇒ 不带内部凭据,发布按未授权失败(fail-closed)。
+    const internalHeaders = await buildInternalCallHeaders({
+      scope: 'skills-market',
+      legacySecret: config.AI_CALLBACK_SECRET,
+    })
+    if (internalHeaders) Object.assign(headers, internalHeaders)
   }
   try {
     const resp = await fetch(`${baseUrl}/api/skills/market`, {

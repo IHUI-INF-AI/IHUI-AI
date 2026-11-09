@@ -8,6 +8,7 @@ import Link from 'next/link'
 import { BackButton } from '@/components/common'
 import { PublishedDocsSection } from '@/components/docs/published-docs-section'
 import { BookOpen, Rocket, Container, Wrench, Brain } from 'lucide-react'
+import { jsonLdHtml } from '@/lib/seo/json-ld'
 
 const SITE_URL = 'https://aizhs.top'
 
@@ -199,7 +200,7 @@ export default function DocsIndexPage() {
       <BackButton />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(docsJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdHtml(docsJsonLd) }}
       />
 
       <div className="grid grid-cols-1 gap-6 min-[768px]:grid-cols-2">

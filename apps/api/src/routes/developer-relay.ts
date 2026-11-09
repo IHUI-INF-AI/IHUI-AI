@@ -64,7 +64,7 @@ const usageQuerySchema = z.object({
 
 const logsQuerySchema = paginationSchema.extend({
   model: z.transform(emptyToUndefined).pipe(z.string().max(100).optional()),
-  status: z.transform(emptyToUndefined).pipe(z.enum(['success', 'error']).optional()),
+  status: z.transform(emptyToUndefined).pipe(z.enum(['success', 'error', 'partial']).optional()),
   /** API Key 筛选(仅当前用户名下的 Key)*/
   apiKeyId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
   /** 渠道筛选,精确匹配 provider_code */

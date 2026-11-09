@@ -77,7 +77,7 @@ export function OrderRefundScreen() {
     const res = await refundOrder(order.orderNo, reason.trim())
     setSubmitting(false)
     if (res.success) {
-      setSubmitSuccess(t('orderRefund.submitSuccess', { orderNo: order.orderNo }))
+      setSubmitSuccess(t('orderRefund.submitSuccess'))
       setReason('')
       setSelectedId(null)
       void load(true)

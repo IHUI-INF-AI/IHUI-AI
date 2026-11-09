@@ -7,7 +7,7 @@ import { useTt, type TtFn, t } from '@/i18n'
 import { View, Text, Button, RadioGroup, Radio } from '@tarojs/components'
 import { FocusInput, FocusTextarea } from '@/components/FocusField'
 import Taro, { useRouter } from '@tarojs/taro'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useUiField } from '@/lib/ui-field-registry'
 import { refund, getOrderDetail, type Order } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
@@ -57,6 +57,14 @@ export default function OrderRefund() {
     setValue: setContact,
   })
   const [submitting, setSubmitting] = useState(false)
+  // 退款提交成功后的延迟返回定时器:存引用以便卸载时取消,否则用户自行返回会多退一层页面
+  const navigateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(
+    () => () => {
+      if (navigateTimerRef.current) clearTimeout(navigateTimerRef.current)
+    },
+    [],
+  )
 
   const loadOrder = useCallback((no: string) => {
     setLoadError(false)
@@ -105,9 +113,13 @@ export default function OrderRefund() {
       .join(' | ')
     setSubmitting(true)
     try {
-      await refund({ orderId: String(order.id), reason: composed })
+      await refund({
+        orderId: String(order.id),
+        reason: composed,
+        ...(refundAmount > 0 ? { refundAmount: refundAmount.toFixed(2) } : {}),
+      })
       onToast(tt('order.refund.submitted', '退款申请已提交'), { kind: 'success' })
-      setTimeout(() => Taro.navigateBack(), 1500)
+      navigateTimerRef.current = setTimeout(() => Taro.navigateBack(), 1500)
     } catch {
       onToast(tt('setting.operationFailed', '操作失败'), { kind: 'error' })
     } finally {

@@ -63,7 +63,6 @@ export function VipScreen({
   benefitItems,
   onRetry,
   colorScheme = 'light',
-  onNavigate,
   onToast,
   headerPrice,
   introduce,
@@ -73,7 +72,6 @@ export function VipScreen({
   buyBar,
   overlay,
 }: VipScreenProps & { onRetry?: () => void }) {
-  assertRequiredPort('onNavigate', onNavigate)
   assertRequiredPort('onToast', onToast)
 
   const tk = getTokens(colorScheme)

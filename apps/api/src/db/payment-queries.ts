@@ -48,8 +48,15 @@ export interface CreateOrderInput {
  * @param operatorId 操作者 userId(用于 createdBy + updatedBy 审计)。route handler 传 request.userId ?? null;系统异步任务传 null。
  * Phase 4: 事务内双写 orders + edu_orders（分→元 / int orderType→字符串），与 edu 入口互补。
  */
-export async function createOrder(input: CreateOrderInput, operatorId: string | null) {
-  return db.transaction(async (tx) => {
+/** 事务句柄（DB-02：让下单/完成订单可加入调用方事务，避免跨事务半提交）。 */
+export type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0]
+
+export async function createOrder(
+  input: CreateOrderInput,
+  operatorId: string | null,
+  outerTx?: DbTx,
+) {
+  const run = async (tx: DbTx) => {
     const outTradeNo = generateOutTradeNo(input.payType === 'alipay' ? 'ALI' : 'WX')
     const [order] = await tx
       .insert(orders)
@@ -94,11 +101,12 @@ export async function createOrder(input: CreateOrderInput, operatorId: string | 
       remark: input.remark,
     })
     return order
-  })
+  }
+  return outerTx ? run(outerTx) : db.transaction(run)
 }
 
-export async function findOrderByNo(orderNo: string) {
-  const rows = await db.select().from(orders).where(eq(orders.orderNo, orderNo)).limit(1)
+export async function findOrderByNo(orderNo: string, tx?: DbTx) {
+  const rows = await (tx ?? db).select().from(orders).where(eq(orders.orderNo, orderNo)).limit(1)
   return rows[0]
 }
 
@@ -115,6 +123,7 @@ export async function updateOrderStatus(
   status: string,
   fromStatus?: string,
   operatorId: string | null = null,
+  outerTx?: DbTx,
 ): Promise<Order | undefined> {
   const values: Record<string, unknown> = {
     status,
@@ -124,9 +133,12 @@ export async function updateOrderStatus(
   if (status === 'cancelled') values.cancelTime = new Date()
   if (status === 'refunded') values.refundTime = new Date()
   values.updatedBy = operatorId
-  return db.transaction(async (tx) => {
+  // F-147:paid 只能从 pending 迁移。历史调用方(vip.ts 主动查单)不传 fromStatus,
+  // 曾出现 paid→paid 重放再次进入发卡链路;这里统一兜底为条件更新,0 行即视为已处理。
+  const effectiveFrom = fromStatus ?? (status === 'paid' ? 'pending' : undefined)
+  const run = async (tx: DbTx) => {
     const conds = [eq(orders.orderNo, orderNo)]
-    if (fromStatus) conds.push(eq(orders.status, fromStatus))
+    if (effectiveFrom) conds.push(eq(orders.status, effectiveFrom))
     const [updated] = await tx
       .update(orders)
       .set(values)
@@ -139,14 +151,15 @@ export async function updateOrderStatus(
       if (status === 'cancelled') eduValues.cancelTime = new Date()
       if (status === 'refunded') eduValues.refundTime = new Date()
       const eduConds = [eq(eduOrders.orderNo, orderNo)]
-      if (fromStatus) eduConds.push(eq(eduOrders.status, fromStatus))
+      if (effectiveFrom) eduConds.push(eq(eduOrders.status, effectiveFrom))
       await tx
         .update(eduOrders)
         .set(eduValues)
         .where(and(...eduConds))
     }
     return updated
-  })
+  }
+  return outerTx ? run(outerTx) : db.transaction(run)
 }
 
 export async function queryPendingOrders() {

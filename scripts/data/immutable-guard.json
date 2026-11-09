@@ -2,6 +2,24 @@
   "signatureRequiredFrom": "2026-11-11",
   "entries": [
     {
+      "path": "scripts/auto-evolve.mjs",
+      "kind": "gate-registry",
+      "why": "自主环执行体自身:实测两枚残骸均由环自己派出的会话留下(11-04 18:59Z 一份、11-05 03:52Z 一份 1661 行未提交改动),改坏它 ⇒ A14 停派、整环自我钉瘫;列入后落地腿对这类产物整批拒收(artifact-protected-face)",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/cost-breaker.mjs",
+      "kind": "gate-body",
+      "why": "成本熔断判据本体:它决定环当天还能不能派发;被静默放宽=熔断失效(§0.7 没验过就免那一型),收紧同样要留痕。本枚之前它连一次写盘夹具都没有(真跑第一次就崩在两处自伤)",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/data/cost-caps.json",
+      "kind": "judgement-lib",
+      "why": "熔断上限闭集:文件自述上调属人工阀、须人拍板,过去这条只靠散文约束;列入受保护面后,改它必须带理由与签名,散文承诺变成机器判据",
+      "reviewBy": "2027-06-30"
+    },
+    {
       "path": "scripts/guardian-runner.mjs",
       "kind": "gate-registry",
       "why": "全部守门的注册表：改一行就能把任何一道门降档/换脚本/放宽 skipEnv/整条抹掉，而没有任何一道门读自己（2026-10-21 core.hooksPath 指向不存在目录、静默跑 0 个钩子两天即此型）",
@@ -44,6 +62,24 @@
       "reviewBy": "2027-01-31"
     },
     {
+      "path": "scripts/data/immutable-guard-attestations.jsonl",
+      "kind": "gate-registry",
+      "why": "具名追认台账（2026-11-07 立）：一行 = 给一枚未声明提交补发豁免。paths 必须与该枚实际触发路径逐元素相等、sig 必须验得过、reviewer 与 attestedAt 都在行内；它本身若不受保护，就有人可以「往台账里补一行」直接洗白任意历史提交，护栏形同虚设",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/data/immutable-guard-detached-signatures.jsonl",
+      "kind": "gate-registry",
+      "why": "分离签名台账（2026-11-07 立）：一行 = 给一枚已入库、提交信息里没有签名槽位的历史提交补一份「40 位 sha + 该枚实际路径全集 + 理由 + signedAt」的签名，用独立追认钥签。paths 逐条精确相等、sig 必须验得过、同一 sha 不许重复、钥不可用即未判定；它本身若不受保护，谁都能往里补一行把任意历史提交洗成「有有效签名」，通道就成了豁免名单",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/data/migration-rewrite-ledger.jsonl",
+      "kind": "gate-registry",
+      "why": "迁移正文改写登记册(append-only)：往里加一行就等于承认某次已入库迁移正文的改写合法，门 185 会据此把 IM2/IM1 的判红转绿——必须与受保护面清单同档，否则「悄悄补一行洗白一次改写」只需一次 append，且所有门全绿",
+      "reviewBy": "2027-06-30"
+    },
+    {
       "path": "scripts/git-guardian.mjs",
       "kind": "gate-registry",
       "why": "巡检调度器本体：auditImmutableGuardNewCommits 住这里，改掉它巡检就永远 return，而巡检仍由被改过的代码执行",
@@ -65,6 +101,12 @@
       "path": "scripts/object-space-land.mjs",
       "kind": "gate-body",
       "why": "旁路落地器：结构上不跑钩子，冲突标记/水印/落地后复跑判据全由它自带",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/push-receipt.mjs",
+      "kind": "gate-registry",
+      "why": "推送门凭据 CLI 入口：把校验改成恒 true 即可用任意旧 tree 洗白任何提交（实现本体在 scripts/lib/push-receipt.mjs，同受保护）",
       "reviewBy": "2027-06-30"
     },
     {

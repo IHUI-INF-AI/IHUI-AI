@@ -52,6 +52,8 @@ export const eduOrders = pgTable(
     userIdx: index('edu_orders_user_idx').on(t.userId),
     statusIdx: index('edu_orders_status_idx').on(t.status),
     typeIdx: index('edu_orders_type_idx').on(t.orderType),
+    userCreatedIdx: index('edu_orders_user_created_at_idx').on(t.userId, t.createdAt),
+    createdIdx: index('edu_orders_created_at_idx').on(t.createdAt),
   }),
 )
 

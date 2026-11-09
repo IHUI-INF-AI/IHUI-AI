@@ -75,6 +75,14 @@ import { stripClientCapabilityFields } from '@ihui/types'
 // 指向 src),判据 9 据此把本包钉成坏包。值出口搬到包内逐字移植(error-serialize.ts,类型仍从
 // @ihui/types 锚定,零重写),同 nullDeviceFingerprintCollector 的既有收口形态。
 import { serializeError } from './error-serialize.js'
+// 2026-11-05 立:OpenAI 兼容流式工具调用解析（逆向-复现-超越 Qoder/Trae 的 tool-call args 流式修复）。
+// 仅在 opts.openAiCompat === true 时启用,默认走既有 Vercel AI SDK 协议解析,零行为变化。
+import {
+  parseOpenAiStreamLine,
+  createOpenAiToolCallAccumulator,
+  parseToolCallArgsDeltaFrame,
+  type OpenAiToolCallDelta,
+} from './openai-tool-stream.js'
 
 /**
  * 默认空采集器(发布物自包含,2026-09-26 立)。
@@ -2069,9 +2077,26 @@ export interface StreamChatOptions {
   onQuestion?: (question: {
     questionId: string
     prompt: string
-    options: Array<{ id: string; label: string }>
+    options: Array<{ id: string; label: string; description?: string }>
     allowCustom: boolean
     allowMultiple: boolean
+    /** 卡片小标题(新帧可选;旧帧没有) */
+    header?: string
+    /** 答复截止时间(ISO 字符串或毫秒时间戳,新帧可选) */
+    expiresAt?: string | number
+    /** 2026-11-08 立:阻塞式提问所属的 ai-service 流会话 ID(旧帧没有)。
+     *  前端据此把答复投到 `/llm/complete/stream/:sessionId/question-response`。 */
+    sessionId?: string
+  }) => void
+  /** 2026-11-08 立:提问结算帧 —— 一个 questionId 只结算一次。
+   *  answered / timeout / withdrawn / interrupted 四种结局都从这里回到流里;
+   *  未注册回调时不解析(旧端零行为变化)。 */
+  onQuestionResolved?: (event: {
+    type: 'question-resolved'
+    questionId: string
+    status: 'answered' | 'timeout' | 'withdrawn' | 'interrupted'
+    selectedOptionIds: string[]
+    customText?: string
   }) => void
   /** P4-2: 后端 fallback 触发回调(主模型失败 + 切换到备用模型时触发,前端展示横幅提示) */
   onFallback?: (event: FallbackEvent) => void
@@ -2172,6 +2197,18 @@ export interface StreamChatOptions {
    *  缺失时前端可降级从 onToolCall 累加的 toolCalls 数组本地聚合。
    *  注意:本回调仅扩展类型签名,streamChat 实现解析逻辑由 A2/A3 任务补齐。 */
   onToolSummary?: (summary: ToolSummaryEvent) => void
+  /** OpenAI 兼容流式模式(2026-11-05 立,逆向-复现-超越 Qoder/Trae 的 tool-call args 流式修复):
+   *  上游按 OpenAI chat completion 流式协议下发(`choices[].delta.tool_calls[].function.arguments`
+   *  为字符串分片)。开启后 streamChat 逐行经 parseOpenAiStreamLine 解析,tool_calls 增量喂给
+   *  OpenAiToolCallAccumulator(内部用 ToolCallArgsStreamer 渐进修复/累积 args),每个分片即回调
+   *  onOpenAiToolCall(带 partial/complete 态);文本增量回调 onOpenAiContent。
+   *  默认 false ⇒ 走既有 Vercel AI SDK 协议解析,零行为变化。开启后 Vercel 解析照常跑(对 OpenAI
+   *  行返回 null 不发重复 delta),两条解析互不干扰。 */
+  openAiCompat?: boolean
+  /** OpenAI 兼容模式下,每片 tool_calls 增量回调(含 partial/complete 态)。 */
+  onOpenAiToolCall?: (delta: OpenAiToolCallDelta) => void
+  /** OpenAI 兼容模式下,正文增量回调(`choices[].delta.content`)。 */
+  onOpenAiContent?: (text: string) => void
   /** Subagent 自动派发回调(2026-07-28 立, Work):
    *  主 agent 在对话流中调用 dispatch_subagent 工具时,后端发 subagent_spawn/end SSE 事件,
    *  前端进度面板自动展示 subagent 生命周期(spawned → running → done/failed)。 */
@@ -4410,6 +4447,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
     const hasReasoning = typeof opts.onReasoning === 'function'
     const hasCompaction = typeof opts.onCompaction === 'function'
     const hasQuestion = typeof opts.onQuestion === 'function'
+    // 2026-11-08 立:提问结算帧解析开关(未注册回调时不解析,零开销)
+    const hasQuestionResolved = typeof opts.onQuestionResolved === 'function'
     const hasAgentDelta = typeof opts.onAgentDelta === 'function'
     const hasToolCall = typeof opts.onToolCall === 'function'
     // P4-2: fallback 事件回调存在时启用解析
@@ -4599,17 +4638,67 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
             options: Array.isArray(q.options)
               ? q.options
                   .filter((o: unknown) => o && typeof o === 'object' && 'id' in o && 'label' in o)
-                  .map((o: { id: unknown; label: unknown }) => ({
+                  .map((o: { id: unknown; label: unknown; description?: unknown }) => ({
                     id: String(o.id),
                     label: String(o.label),
+                    ...(typeof o.description === 'string' && o.description
+                      ? { description: o.description }
+                      : {}),
                   }))
               : [],
             allowCustom: q.allowCustom !== false,
             allowMultiple: q.allowMultiple === true,
+            ...(typeof q.header === 'string' && q.header ? { header: q.header } : {}),
+            ...(typeof q.expiresAt === 'string' || typeof q.expiresAt === 'number'
+              ? { expiresAt: q.expiresAt }
+              : {}),
+            ...(typeof q.sessionId === 'string' && q.sessionId ? { sessionId: q.sessionId } : {}),
           })
         }
       } catch {
         /* 非 JSON 或非 question 事件忽略 */
+      }
+    }
+
+    /**
+     * 2026-11-08 立:提问结算帧解析。
+     * 形状:{"type":"question-resolved","questionId":"q_x","status":"answered|timeout|withdrawn|interrupted",
+     *       "selectedOptionIds":[],"customText":""}
+     * 只做结构校验,不猜状态值域 —— 未知 status 一律忽略(旧/坏帧不能伪造终态)。
+     */
+    const QUESTION_RESOLVED_STATUSES = new Set(['answered', 'timeout', 'withdrawn', 'interrupted'])
+    const tryParseQuestionResolved = (line: string): void => {
+      if (!hasQuestionResolved) return
+      if (!line || line.startsWith(':')) return
+      let data = line
+      if (line.startsWith('data:')) {
+        data = line.slice(5).replace(/^\s/, '')
+      } else if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
+        return
+      }
+      if (!data || data === '[DONE]') return
+      try {
+        const json = JSON.parse(data)
+        if (
+          json?.type !== 'question-resolved' ||
+          typeof json?.questionId !== 'string' ||
+          !json.questionId ||
+          typeof json?.status !== 'string' ||
+          !QUESTION_RESOLVED_STATUSES.has(json.status)
+        ) {
+          return
+        }
+        opts.onQuestionResolved!({
+          type: 'question-resolved',
+          questionId: json.questionId,
+          status: json.status,
+          selectedOptionIds: Array.isArray(json.selectedOptionIds)
+            ? json.selectedOptionIds.filter((id: unknown) => typeof id === 'string')
+            : [],
+          ...(typeof json.customText === 'string' ? { customText: json.customText } : {}),
+        })
+      } catch {
+        /* 非 JSON 或非 question-resolved 事件忽略 */
       }
     }
 
@@ -4771,8 +4860,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         } else if (json?.type === 'subagent_end' && json?.id) {
           opts.onSubagentEnd!({
             id: String(json.id),
-            status:
-              json.status === 'failed' ? 'failed' : json.status === 'stub' ? 'stub' : 'done',
+            status: json.status === 'failed' ? 'failed' : json.status === 'stub' ? 'stub' : 'done',
             failureReason: typeof json.failureReason === 'string' ? json.failureReason : undefined,
             timestamp:
               typeof json.timestamp === 'string' ? json.timestamp : new Date().toISOString(),
@@ -5924,6 +6012,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         switch (t) {
           case 'question':
             return 'question'
+          case 'question-resolved':
+            return 'question_resolved'
           case 'tool_result':
           case 'tool-result':
           case 'tool-call-start':
@@ -6014,6 +6104,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         tryParseCompaction(line)
       } else if (route === 'question') {
         tryParseQuestion(line)
+      } else if (route === 'question_resolved') {
+        tryParseQuestionResolved(line)
       } else if (route === 'tool_call') {
         tryParseToolCall(line)
       } else if (route === 'subagent') {
@@ -6083,6 +6175,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         // 对 token 行(非 JSON)无 JSON.parse 开销,保持原有行为
         tryParseCompaction(line)
         tryParseQuestion(line)
+        tryParseQuestionResolved(line)
         tryParseToolCall(line)
         tryParseSubagent(line)
         tryParseToolSummary(line)
@@ -6157,6 +6250,15 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       }
     }
 
+    // 2026-11-05 立:OpenAI 兼容流式模式(默认关闭 ⇒ 零行为变化)。
+    // 开启后逐行经 parseOpenAiStreamLine 解析 tool_calls/文本增量,累积器按 call index 渐进出 partial/complete 态。
+    const hasOpenAiCompat = opts.openAiCompat === true
+    const openAiAccumulator = createOpenAiToolCallAccumulator()
+    // 2026-11-05 立:ai-service 自定义逐分片帧与 openAiCompat **互相独立**。
+    // 只有订阅了 onOpenAiToolCall 才解析(未订阅零开销);openAiCompat 仍只管
+    // OpenAI 原生行,默认关闭时 Vercel 协议解析路径逐字不变。
+    const hasOpenAiToolCall = typeof opts.onOpenAiToolCall === 'function'
+
     // ===== D138(承 V4 #96):逐行处理体(原内联读环的行处理,原样搬为闭包)=====
     // 读环、行缓冲、id: 游标捕获、读超时、重连/退避全部下沉 runResumableSSEStream;
     // 本闭包只负责"一行已到"之后的解析与分发(id: 行由 runner 捕获游标后照常递出)。
@@ -6183,6 +6285,13 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         }
       }
       await dispatchTryParse(line)
+      // 2026-11-05 立:ai-service 工具入参逐分片直推帧(独立门控,不依赖 openAiCompat)。
+      // 载荷不含 content/delta/text ⇒ 下方 parseStreamLine 不会把它当正文二次累加;
+      // 未订阅 onOpenAiToolCall 时这一行都不执行 ⇒ 旧客户端零行为变化。
+      if (hasOpenAiToolCall) {
+        const argsDelta = parseToolCallArgsDeltaFrame(line)
+        if (argsDelta) opts.onOpenAiToolCall?.(argsDelta)
+      }
       // P4-2: 优先检查 fallback 事件,命中即触发回调跳过 parseStreamLine
       if (hasFallback) {
         const fbEvt = parseFallbackEvent(line)
@@ -6210,12 +6319,52 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           debugChunkTimer?.mark('reasoning', r, line)
         }
       }
+      // 2026-11-05 立:OpenAI 兼容流式模式(仅 openAiCompat 时启用)。Vercel parseStreamLine 对
+      // OpenAI 行返回 null,不会重复发 delta,故两条解析互不干扰。
+      if (hasOpenAiCompat) {
+        const frame = parseOpenAiStreamLine(line)
+        if (frame?.toolCalls?.length) {
+          const deltas = openAiAccumulator.pushToolCalls(frame.toolCalls)
+          for (const d of deltas) opts.onOpenAiToolCall?.(d)
+        }
+        if (frame && frame.finishReason !== undefined) {
+          openAiAccumulator.finish()
+          for (const d of openAiAccumulator.snapshot()) opts.onOpenAiToolCall?.(d)
+        }
+        if (frame?.content) opts.onOpenAiContent?.(frame.content)
+      }
     }
 
     await runResumableSSEStream({
       url,
       method: 'POST',
-      body: JSON.stringify(body),
+      body: (() => {
+        const wire = JSON.stringify(body)
+        // 决定性仪器(2026-11-06 立):`IHUI_BODY_AUDIT=1` 才出声,缺省**零行为变化**(逐字仍发 wire)。
+        // 为什么必须量在序列化之后:那条 400 今晚被四次"找到真因"推翻,最新一次是整族零宽在
+        // `content` 与 `tool_calls[].function.arguments` 两格都归零(`sent=0 zwj=0 extra=0`)而 400 不动
+        // ⇒ 病灶只可能在 CLI 射程之外。这里量的正是那一格之外唯一还没看过的东西:**发出去的字节本身**。
+        // 四类各自独立报数,不合并成一个"干净/不干净":
+        //  · loneHigh/loneLow —— 孤立代理项。`String.prototype.slice` 把 emoji/非 BMP 从中间切开才会产生;
+        //    `JSON.stringify` 把它写成 `\udXXX` 转义(所以逐 code unit 扫原串看不见,必须扫 wire 的转义形态),
+        //    前端中转的严格 JSON 解析器多按"非法字符"拒 —— 与"请求包含不合法字符"这条文案同形。
+        //  · repl —— U+FFFD(上游裁剪/解码失败的残迹);ctrl —— 逃过 JSON 转义的原生 C0/C1 控制符;
+        //  · bytes —— 体量,用来把"字符非法"与"体过大被截"两类分开。
+        if (typeof process !== 'undefined' && process.env?.IHUI_BODY_AUDIT) {
+          const loneHigh = (wire.match(/\\ud[89ab][0-9a-f]{2}(?!\\ud[c-f][0-9a-f]{2})/gi) ?? [])
+            .length
+          const loneLow = (wire.match(/(?<!\\ud[89ab][0-9a-f]{2})\\ud[c-f][0-9a-f]{2}/gi) ?? [])
+            .length
+          const repl = (wire.match(/\\ufffd/gi) ?? []).length
+          const ctrl = (wire.match(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g) ?? []).length
+          const bytes = new TextEncoder().encode(wire).length
+          const msgs = (body as { messages?: unknown[] })?.messages?.length ?? -1
+          process.stderr.write(
+            `[body-audit] msgs=${msgs} bytes=${bytes} loneHigh=${loneHigh} loneLow=${loneLow} repl=${repl} ctrl=${ctrl}\n`,
+          )
+        }
+        return wire
+      })(),
       headers,
       signal: opts.signal,
       maxRetries,
@@ -6237,6 +6386,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         frameBarrierAckedThisAttempt = false
         _frameBarrierFlush = []
         frameBarrier.reset()
+        // 2026-11-05 立:重连后重建 OpenAI 工具调用累积器(避免上一轮的分片污染本轮)。
+        openAiAccumulator.reset()
         // G-816031:新 attempt = 新订阅代际 ⇒ 权威须重新授予(仅权威感知流;legacy 无操作)
         if (runnerAttempt > 0) streamAuthority.observeReconnect()
       },

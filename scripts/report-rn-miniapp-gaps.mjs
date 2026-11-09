@@ -27,6 +27,7 @@ import { fileURLToPath } from 'node:url'
 import { __test__ as cov } from './check-cross-end-screen-coverage.mjs'
 // 判定台账(单源 lib):读"这一格验过没有",把已判定与未判定分开(§0.6)。
 import { indexVerdicts, readVerdicts } from './lib/cross-end-verdicts.mjs'
+import { gitRaw } from './lib/face-reader.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const argv = process.argv.slice(2)
@@ -169,12 +170,7 @@ function readBlockedLedger(face, root) {
     // 与 readVerdicts 同一取材面纪律:默认 HEAD blob,--staged 判索引,取不到绝不回落另一面。
     const spec = face === 'staged' ? `:${rel}` : `HEAD:${rel}`
     try {
-      text = execFileSync('git', ['-C', root, 'show', spec], {
-        encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'ignore'],
-        maxBuffer: 16 * 1024 * 1024,
-        windowsHide: true,
-      })
+      text = gitRaw(['show', spec], root, { timeout: 60_000, maxBuffer: 16 << 20 })
     } catch {
       text = null
     }

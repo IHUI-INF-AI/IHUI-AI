@@ -22,7 +22,8 @@
  * 四类判定:
  *  ① 判据自洽:抽不到帧回调名 / 数据文件缺端 / toolCallbacks 里的名字在 client.ts 不存在 = 判据失效,
  *     **按失败**(不许"解析不出来就当全绿")。
- *  ② ratchet:每端命中帧数 **不得低于 baseline**(只挡倒退不挡增长 —— 否则未接的端一提交就恒红)。
+ *  ② 派生基线自洽:baseline = 帧集合 - missing 条数,每次现算;台账里不得再手填数字。
+ *     命中数必须等于派生值(否则帧集合与 missing 台账不同源)。
  *  ③ 唯一真源:数据文件 `missing[端]` 的键集合 **必须精确等于**实测未命中集合。
  *     - 实测未命中却没登记 → 红(这正是"静默丢弃"本身);
  *     - 登记了却实际已命中 → 红(该删的删,登记项不得变成掩盖真相的墓志铭)。
@@ -47,9 +48,9 @@
  * `--no-verify`(连带废掉其余全部守门,与守门 57/77 今日同一取向)。读不到即按
  * **判据失效 exit 2**,不回退工作树、不静默放行。
  *
- * 为什么 pre-commit 必须切到暂存区而不是 HEAD:本闸的 ratchet 要求"代码与台账**同票**"——
- * 补接一帧就要在同一张票里删 `missing` 条目并上调 `baseline`。只看 HEAD 时,提交那一刻台账
- * 已写明 12 而 HEAD 仍是 11 ⇒ "命中低于 baseline" 判红,**正常推进被自己的门卡死**。
+ * 为什么 pre-commit 必须切到暂存区而不是 HEAD:本闸要求"代码与台账**同票**"——
+ * 补接一帧就要在同一张票里删 `missing` 条目;派生基线随帧集合与 missing 现算。只看 HEAD 时,
+ * 提交那一刻台账已删条目而 HEAD 仍留着 ⇒ "登记项不得掩盖真相"判红,**正常推进被自己的门卡死**。
  *
  * 集成位置:scripts/guardian-runner.mjs 第 90 项(blocking,pre-commit)
  * 紧急跳过:HUSKY_SKIP_SSE_DISPATCH_PARITY=1 git commit ...
@@ -150,25 +151,22 @@ export function evaluateDispatchParity({ hit, callbacks, known, data, parentMiss
       errors.push(`端 ${ep} 未参与统计(源码路径可能在数据文件里写错)—— 判据失效,按失败处理`)
       continue
     }
-    const baseline = data.baseline?.[ep]
-    if (typeof baseline !== 'number') {
-      errors.push(`端 ${ep} 缺 baseline(ratchet 无下限,失去防倒退作用)`)
-      continue
-    }
-    if (hits.size < baseline) {
+    // ② 派生基线:baseline = 帧集合 - missing 条数,每次现算;台账里不得再手填数字。
+    const declaredMissing = Object.keys(data.missing?.[ep] ?? {}).sort()
+    const derivedBaseline = callbacks.length - declaredMissing.length
+    if (Object.hasOwn(data.baseline ?? {}, ep)) {
       errors.push(
-        `端 ${ep} 命中的帧数 ${hits.size} 低于 baseline ${baseline} —— 有帧的注册被移除或改名(ratchet 只挡倒退)`,
+        `端 ${ep} 仍在台账里手填 baseline=${data.baseline[ep]} —— 该字段已废弃,派生基线 = 帧集合 ${callbacks.length} - missing ${declaredMissing.length} = ${derivedBaseline}`,
       )
     }
-    if (hits.size > baseline) {
-      warnings.push(
-        `端 ${ep} 命中 ${hits.size} 已超过 baseline ${baseline},请把 baseline 上调(ratchet 随增长维护)`,
+    if (hits.size !== derivedBaseline) {
+      errors.push(
+        `端 ${ep} 派生基线不自洽:命中 ${hits.size} ≠ 帧集合 ${callbacks.length} - missing ${declaredMissing.length} = ${derivedBaseline} —— 帧集合与基线条数必须同源现算`,
       )
     }
 
     // ③ 唯一真源:实测未命中集合 === 登记的 missing 键集合
     const measuredMissing = callbacks.filter((c) => !hits.has(c)).sort()
-    const declaredMissing = Object.keys(data.missing?.[ep] ?? {}).sort()
     // 合并未收口时,`measuredMissing` 里由上游带进来的既有缺帧不该记本次新增:
     // 父集 = HEAD ∪ MERGE_HEAD,只有「每一枚父提交的缺帧集合里都没有」的才是本次新增。
     const parentLists = parentMissing ? parentMissing.map((m) => m[ep] ?? []) : []
@@ -545,7 +543,6 @@ function selfTest() {
   const data = {
     toolCallbacks: ['onAbort'],
     endpoints: { web: ['apps/web/src'], cli: ['apps/cli'] },
-    baseline: { web: 2, cli: 1 },
     groups: { 'no-ui': '该端无对应 UI。' },
     missing: { web: { onGamma: 'no-ui' }, cli: { onBeta: 'no-ui', onGamma: 'no-ui' } },
   }
@@ -558,7 +555,7 @@ function selfTest() {
   cases.push(['正例:登记与实测一致必须放行', run({}).ok === true])
 
   cases.push([
-    '反演:某端命中数低于 baseline 必须判红',
+    '反演:某端命中数与派生基线不自洽必须判红',
     run({ hit: { web: new Set(['onAlpha']), cli: new Set(['onAlpha']) } }).ok === false,
   ])
 
@@ -585,8 +582,59 @@ function selfTest() {
   const emptyReason = run({ data: { ...data, missing: { web: { onGamma: '' }, cli: {} } } })
   cases.push(['反演:空理由必须判红', emptyReason.ok === false])
 
-  const missingBaseline = run({ data: { ...data, baseline: { web: 2 } } })
-  cases.push(['反演:某端缺 baseline 必须判红', missingBaseline.ok === false])
+  const manualBaseline = run({ data: { ...data, baseline: { web: 2 } } })
+  cases.push([
+    '反演:台账手填 baseline 必须判红(基线只能由帧集合 - missing 条数现算)',
+    manualBaseline.ok === false &&
+      manualBaseline.errors.some((e) => e.includes('手填 baseline')),
+  ])
+
+  /**
+   * BUG-0022 改前必红样本:onOpenAiContent / onOpenAiToolCall 是 client.ts 从
+   * content/toolCalls 派生出来的投影,不是协议帧。旧台账把它们留在 toolCallbacks 里,
+   * 于是被当成"五端都没接"的帧,5 个端各报一条"静默丢弃"。
+   * 修后把二者登记进 toolCallbacks,帧集合只剩 onRealFrame,五端全绿。
+   */
+  const fiveEndpoints = {
+    web: ['apps/web/src'],
+    extension: ['apps/extension'],
+    'miniapp-taro': ['apps/miniapp-taro/src'],
+    'mobile-rn': ['apps/mobile-rn'],
+    cli: ['apps/cli'],
+  }
+  const derivedCallbacks = ['onOpenAiContent', 'onOpenAiToolCall']
+  const realFrame = 'onRealFrame'
+  const hitFive = Object.fromEntries(
+    Object.keys(fiveEndpoints).map((ep) => [ep, new Set([realFrame])]),
+  )
+  const oldBugData = {
+    toolCallbacks: ['onAbort'],
+    endpoints: fiveEndpoints,
+    groups: {},
+    missing: Object.fromEntries(Object.keys(fiveEndpoints).map((ep) => [ep, {}])),
+  }
+  const oldBug = evaluateDispatchParity({
+    hit: hitFive,
+    callbacks: [realFrame, ...derivedCallbacks],
+    known: new Set([realFrame, ...derivedCallbacks, 'onAbort']),
+    data: oldBugData,
+  })
+  cases.push([
+    'BUG-0022 改前必红:派生回调被误当帧时 5 端各报静默丢弃',
+    oldBug.errors.filter((e) => e.includes('静默丢弃')).length === 5 &&
+      oldBug.errors.some((e) => e.includes('onOpenAiContent')),
+  ])
+  const fixedBugData = { ...oldBugData, toolCallbacks: ['onAbort', ...derivedCallbacks] }
+  const fixedBug = evaluateDispatchParity({
+    hit: hitFive,
+    callbacks: [realFrame],
+    known: new Set([realFrame, ...derivedCallbacks, 'onAbort']),
+    data: fixedBugData,
+  })
+  cases.push([
+    'BUG-0022 修后转绿:派生回调登记为非帧后 5 端全绿',
+    fixedBug.ok === true && fixedBug.errors.length === 0,
+  ])
 
   const noCallbacks = evaluateDispatchParity({ hit: baseHit, callbacks: [], known, data })
   cases.push(['反演:抽不到帧清单必须判红(判据失效不得当全绿)', noCallbacks.ok === false])

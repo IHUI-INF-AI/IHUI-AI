@@ -26,6 +26,7 @@ import { fileURLToPath } from 'node:url'
 
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import { keyOfRow } from './lib/plan-task-index.mjs'
+import { advanceSharedIndexPaths, treeSignatures } from './lib/shared-index-advance.mjs'
 
 const argv = process.argv.slice(2)
 const arg = (k) => argv[argv.indexOf(`--${k}`) + 1]
@@ -324,22 +325,47 @@ try {
   const tree = git(['write-tree'], { env }).trim()
   const msg = `Merge ${theirs.slice(0, 11)} into ${ours.slice(0, 11)} —— 台账按 union 归并(仅 ${FILE} 一处冲突,双方每一行均存活)\n\n由 scripts/plan-union-merge.mjs 生成:C1 单路径 / C2 零丢行 / C3 零新增长行重复。`
   const commit = git(['commit-tree', tree, '-p', ours, '-p', theirs, '-m', msg]).trim()
-  const before = git(['rev-parse', 'refs/heads/main']).trim()
+  // 目标 ref 从当前 HEAD 推导(2026-11-09 票),不再硬编码 main;detached ⇒ 不收(= 2)。
+  let targetRef = ''
+  try {
+    targetRef = git(['symbolic-ref', '-q', 'HEAD'])
+  } catch {
+    targetRef = ''
+  }
+  if (!targetRef) {
+    console.info('  ❌ HEAD 处于 detached(推导不出目标 ref)⇒ 不写 ref;先 checkout 到目标分支再重跑。')
+    exitClean(2)
+  }
+  const before = git(['rev-parse', targetRef]).trim()
   if (before !== ours) {
     // CAS 失败时这枚 commit-tree 产物是**悬空提交** —— 而守门 30a 会因"未备份悬空 commit"
     // 阻塞全队每一次提交。所以放弃前必须先按 §22 的既有口径 tag 起来,不能留裸悬空。
     const t = `backup/plan-union-${Date.now()}`
     try {
       git(['tag', t, commit])
-      console.info(`  ❌ main 已被并发推进(${before.slice(0, 11)} ≠ ${ours.slice(0, 11)})⇒ 本轮放弃。` +
+      console.info(`  ❌ ${targetRef} 已被并发推进(${before.slice(0, 11)} ≠ ${ours.slice(0, 11)})⇒ 本轮放弃。` +
         `\n     已把这枚未采用的合并提交 tag 为 ${t}(防 30a 悬空阻塞);重跑本工具取新远端值即可。`)
     } catch (e) {
       console.info(`  ❌ CAS 放弃,且 tag 失败(需人工看一眼,否则 30a 会拦):${(e.message || '').slice(0, 120)}`)
     }
     exitClean(1)
   }
-  git(['update-ref', 'refs/heads/main', commit, before])
-  console.info(`\n✅ 合并提交 ${commit.slice(0, 11)} 已写入 main(CAS 通过)。工作区未触碰(与 converge 同取向)。`)
+  git(['update-ref', targetRef, commit, before])
+  // 后置:私有索引提交只推进 HEAD,不推进共享索引 ⇒ 该文件在共享索引里停在 ours(`MM`),
+  // 下一条裸 `git commit` 会把祖先版本带回去(静默回滚)。期望基线 = 父提交树,凡是他席
+  // 在窗口内动过同一路径 ⇒ 只报数不覆盖(红线 C)。
+  const adv = advanceSharedIndexPaths({
+    gitCwd: REPO,
+    committedSha: commit,
+    paths: [FILE],
+    expectBefore: treeSignatures({ gitCwd: REPO, sha: ours, paths: [FILE] }),
+  })
+  console.info(
+    adv.ok
+      ? `   ↺ 共享索引已推进:${adv.advanced.join(', ') || '(无写入)'}`
+      : `   ⚠️ 共享索引未推进(${adv.reason ?? 'unknown'}),只报数不覆盖:${adv.skipped.join(', ') || '-'}`,
+  )
+  console.info(`\n✅ 合并提交 ${commit.slice(0, 11)} 已写入 ${targetRef}(CAS 通过)。工作区未触碰(与 converge 同取向)。`)
   // 与 git-sync-converge 完全对齐的两步收尾(缺任何一步都会留下"本地全绿、别人下次提交才炸"的空档):
   //  ① update-ref 不 checkout ⇒ 工作区落后 HEAD,此时任何人 `git add <该文件>` 就是把祖先版本
   //     写回 = 静默回滚(守门 84 判的那类),所以必须就地对齐幻影漂移;

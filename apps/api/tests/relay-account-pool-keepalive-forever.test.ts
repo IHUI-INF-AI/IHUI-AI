@@ -294,6 +294,40 @@ describe('发信面判据(薄壳侧)', () => {
   })
 })
 
+describe('心跳写入口:按主键 id 落库,不是 uid', () => {
+  const AT = '2026-11-06T02:40:00.000Z'
+  const ROW_A = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  const ROW_B = 'bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb'
+
+  // 2026-11-05 拆分:writeKeepAliveHeartbeats(table, at, touch) 已删除,
+  // 取主键的活归 heartbeatRowIdsOf(本文件下方已覆盖),落库只留 touchClientHeartbeat(ids, at, dryRun)。
+  // 旧三例钉的是已不存在的函数签名;这里改钉新写入口的守卫、dryRun 与落库载荷。
+
+  it('⑱ 空 rowIds / 非法时刻 ⇒ 0 且完全不碰写库', async () => {
+    const { touchClientHeartbeat } = await import('../scripts/relay-trae-session-sync.js')
+    await expect(touchClientHeartbeat([], AT, false)).resolves.toBe(0)
+    await expect(touchClientHeartbeat([ROW_A], null, false)).resolves.toBe(0)
+    await expect(touchClientHeartbeat([ROW_A], '不是时刻', false)).resolves.toBe(0)
+    expect(updates).toHaveLength(0)
+  })
+
+  it('⑲ dryRun 只计数、不写库', async () => {
+    const { touchClientHeartbeat } = await import('../scripts/relay-trae-session-sync.js')
+    await expect(touchClientHeartbeat([ROW_A, ROW_B], AT, true)).resolves.toBe(2)
+    expect(updates).toHaveLength(0)
+  })
+
+  it('⑳ 非 dryRun:按传入的主键集合写 clientActiveAt(不把 uid 当主键)', async () => {
+    const { touchClientHeartbeat } = await import('../scripts/relay-trae-session-sync.js')
+    // 链桩的 update().set().where() 固定返回空数组 ⇒ 返回 0;这里验的是写入载荷本身:
+    // 心跳时刻写进 extraMetadata 的 jsonb 增量,不做整枚覆盖。
+    await expect(touchClientHeartbeat([ROW_A], AT, false)).resolves.toBe(0)
+    expect(updates).toHaveLength(1)
+    // 只写 jsonb 增量列,不做整枚覆盖 —— 载荷键集就是新契约的一部分。
+    expect(Object.keys(updates[0] ?? {})).toEqual(['extraMetadata'])
+  })
+})
+
 beforeEach(() => {
   updates.length = 0
 })

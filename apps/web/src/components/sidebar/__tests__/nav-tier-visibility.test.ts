@@ -57,13 +57,14 @@ describe('侧边栏简洁模式:可见项计量', () => {
     //        + 个人号池 /account-pool,2026-10-23 随 b23f01cf21 入本域并标 experimental)
     // 手算极易漏掉那个"+父项":「高级 AI 工具」整组对用户无价值,故连父项一起隐藏;
     // 而 /models 恰恰相反,父项必须保留以承载 overview/usage,只能逐子项标注。
-    // 54 = AI_HUB_ITEMS flatten 全量(普通用户 role 过滤不掉任何一项,本域无权限点)。
+    // 55 = AI_HUB_ITEMS flatten 全量(普通用户 role 过滤不掉任何一项,本域无权限点)。
+    //      〔2026-11-08〕随 `/sag2`(SAG2 词法多跳检索工作台,c20e4a5797)入本域 +1。
     const all = itemsForNormalUser(AI_HUB_ITEMS)
     const full = flattenNavItems(all).length
     const simplified = flattenNavItems(filterNavItemsByTier(all, ALL_NAV_TIERS)).length
-    expect(full).toBe(54)
+    expect(full).toBe(55)
     expect(full - simplified).toBe(41)
-    expect(simplified).toBe(13)
+    expect(simplified).toBe(14)
   })
 
   it('个人域清单不受档位影响(全是用户自己的东西,一个都没标档)', () => {

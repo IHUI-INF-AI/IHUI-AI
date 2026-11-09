@@ -62,8 +62,17 @@ export function isDispatchVisibleTo(
 /**
  * 按 id 取派单 + 判归属(单一实现,所有按 id 端点共用)。
  * `false` = 不存在 **或** 不属于该调用方;调用方一律回 404(见文件头「防枚举」)。
+ *
+ * F-255(2026-11-08):取记录改走 `findByIdOrRestore` —— 终态记录按 LRU 淘汰后,
+ * 内存里没有但 Redis hash 还在(30 分钟窗口),必须能重建再判归属。否则「内存有界」
+ * 会让归属闸直接 404,把同一个越权形状换成「合法用户读不到自己的记录」。
+ * 因此本判据改为异步(是这条链路唯一需要等 Redis 的地方);调用方必须 `await`。
  */
-export function ownsDispatchById(id: string, userId: string, isAdmin = false): boolean {
-  const dispatch = subagentDispatchService.findById(id)
+export async function ownsDispatchById(
+  id: string,
+  userId: string,
+  isAdmin = false,
+): Promise<boolean> {
+  const dispatch = await subagentDispatchService.findByIdOrRestore(id)
   return dispatch !== null && isDispatchVisibleTo(dispatch, userId, isAdmin)
 }

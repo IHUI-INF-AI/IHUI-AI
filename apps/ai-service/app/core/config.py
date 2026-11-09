@@ -107,6 +107,8 @@ class Settings(BaseSettings):
     api_service_url: str = "http://localhost:8802"
     # AI 回调共享密钥(可选,与后端 AI_CALLBACK_SECRET 一致;为空则不发送 X-Internal-Secret 头)
     ai_callback_secret: str = ""
+    # X-Internal-Secret 族鉴权档位(2026-11-06):ticket 默认只认短期票;dual/legacy 仅显式兼容
+    internal_secret_auth_mode: str = "ticket"
 
     # 凭据加密密钥(与 apps/api 的 CREDENTIALS_ENCRYPTION_KEY 共享,
     # 用于解密 ai_model_config.api_key_enc)
@@ -126,10 +128,12 @@ class Settings(BaseSettings):
     # 2026-08-31 新增:/api/voice/stt - 语音转文字本地推理(浏览器录音上传,无敏感数据,
     # 仅接收音频返回文本;前端 voiceSttFromBlob 同时携带 Bearer token 双保险)。
     # 注意:本地 CPU 推理对未认证用户开放存在 DoS 风险,单机/内网部署可接受。
-    # 2026-09-01 新增:/api/voice/tts(免费 TTS,edge-tts 零 key)+ /api/mcp(官方 MCP
-    # 协议兼容层)— 匿名握手/工具调用,
+    # 2026-09-01 新增:/api/mcp(官方 MCP 协议兼容层)— 匿名握手/工具调用,
     # 高危工具由 mcp_server 权限矩阵兜底拒绝(user_role=0),安全默认;仅裸端点豁免,
     # /api/mcp/* 子路径鉴权状态不受影响。
+    # 2026-11-08 收权(AIS-092):/api/voice/tts 匿名可达且可经 engine=token6688
+    # 用平台 key 付费合成、voice 直通声纹库,已移出白名单改为 JWT 保护;
+    # 仅 /api/voice/stt 保持公开(本机 .env 的 JWT_PUBLIC_PATHS 亦须同步移除)。
     # 2026-09-20 O1 收权:上面 /api/mcp 匿名豁免**已移除** — 匿名 tools/call 是后门,
     # 官方 MCP 端点改由 routers/mcp_official.py 的 capability_gate.resolve_principal
     # 强制凭据(JWT / 内网 X-IHUI-Principal),并在 JWTAuthMiddleware 层同步要求认证。
@@ -152,7 +156,9 @@ class Settings(BaseSettings):
         # + 批量发布的 POST,移出白名单改为 JWT 保护(内部触发走 news_scheduler,
         # 全仓无匿名 HTTP 调用方)。/api/admin/news/status 为只读 GET 保留匿名。
         "/api/admin/news/status,"
-        "/api/voice/stt,/api/voice/tts,"
+        # AIS-092:/api/voice/tts 可切换付费 token6688 engine,移出匿名白名单;
+        # 免费 edge 路径仍有路由层 JWT 依赖(不配置 JWT 时的本地 dev 例外)。
+        "/api/voice/stt,"
         "/api/artifacts/f/,/api/video/token6688-callback,/api/media/tasks/callback,"
         # O11(2026-09-20)A2A 发现文档:标准规定 /.well-known/agent.json 必须可匿名抓取,
         # 否则严格 A2A 客户端在拿到凭据前无法发现本 agent 能力。卡片内容不含内网主机/密钥。
@@ -234,6 +240,11 @@ class Settings(BaseSettings):
     # [{"name":"...", "transport":"stdio|sse", "command":"...", "args":[...], "url":"...",
     #   "timeout":30, "reconnect":true, "max_reconnect_attempts":3, "env":{...}}]
     mcp_client_configs: str = ""
+    # AIS-053:外部 MCP 落点是否允许私网/回环地址。默认 False(fail-closed)——
+    # 私网段、回环、链路本地、云元数据地址(含 169.254.169.254 / 100.100.100.200 /
+    # fd00:ec2::254,IPv4 与 IPv6 同尺)一律拒绝。本地开发要连 127.0.0.1:8803
+    # 这类第一方服务时显式置 true;**绝不以"未配置"当"放行"**。
+    mcp_allow_private_endpoints: bool = False
     # stdio MCP Server 工具接入(2026-09-01 立,P1-4):官方 MCP Python SDK(stdio 子进程
     # 传输)启动本机 MCP server,并把它 list_tools 暴露的工具注册进内部工具表 —
     # 即"本机 stdio MCP server 作为内部工具"接入。与 mcp_client_configs(出站客户端,

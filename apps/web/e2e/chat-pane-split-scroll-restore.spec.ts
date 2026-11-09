@@ -270,6 +270,7 @@ async function scrollToMessageTop(page: Page, list: Locator, messageId: string):
   }, messageId)
   // scroll 事件在下一帧派发:observedScrollTopRef / 滚动权(following=false)靠它记账,
   // 落账取的是 max(DOM 现读, observed),不留这一帧就是量了个没人认领的位置。
+  // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
   await page.waitForTimeout(250)
   return (await listGeometry(list)).scrollTop
 }
@@ -353,6 +354,7 @@ test.describe('G-934 + 票60 会话级滚动恢复 / 真并行多窗格', () => 
     await expect(list).toHaveAttribute('data-window-total', '60', { timeout: 30_000 })
     await openFromSidebar(page, TITLE_A)
     await expect(list).toHaveAttribute('data-window-total', '60', { timeout: 30_000 })
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(GRACE_SETTLE_MS)
 
     const restored = (await listGeometry(list)).scrollTop
@@ -386,6 +388,7 @@ test.describe('G-934 + 票60 会话级滚动恢复 / 真并行多窗格', () => 
     await expect(list).toHaveAttribute('data-window-total', String(SHORT_A.messageCount), {
       timeout: 30_000,
     })
+    // WAIT-POLICY:TIMING-0004 视觉/几何采样前动画稳定窗口,先等待再截图
     await page.waitForTimeout(GRACE_SETTLE_MS)
 
     // 甲只有 1 条单行消息 ⇒ 列表根本不溢出 ⇒ scrollTop 在几何上只能是 0:
@@ -408,6 +411,7 @@ test.describe('G-934 + 票60 会话级滚动恢复 / 真并行多窗格', () => 
     await expect(list).toHaveAttribute('data-window-total', String(SHORT_A.messageCount), {
       timeout: 30_000,
     })
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(GRACE_SETTLE_MS)
     const backToShort = await listGeometry(list)
     expect(
@@ -421,6 +425,7 @@ test.describe('G-934 + 票60 会话级滚动恢复 / 真并行多窗格', () => 
     // ⇒ ②不是一句"永远 0 所以通过"的废话,它与①共用判据却给出两个不同的正确答案
     await openFromSidebar(page, TITLE_B)
     await expect(list).toHaveAttribute('data-window-total', '60', { timeout: 30_000 })
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(GRACE_SETTLE_MS)
     const restoredB = (await listGeometry(list)).scrollTop
     expect(
@@ -565,6 +570,7 @@ test.describe('G-934 + 票60 会话级滚动恢复 / 真并行多窗格', () => 
     await expect(pane1List).toHaveAttribute('data-window-total', '60', { timeout: 30_000 })
     await openFromSidebar(page, TITLE_A)
     await expect(rootPaneList).toHaveAttribute('data-window-total', '60', { timeout: 30_000 })
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(GRACE_SETTLE_MS)
 
     const rootRestored = (await listGeometry(rootPaneList)).scrollTop

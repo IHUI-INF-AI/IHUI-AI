@@ -22,7 +22,7 @@
  *   7. 重复至多 --rounds 轮(默认 3)
  *
  * 用法:
- *   node scripts/git-sync-converge.mjs [--branch main] [--rounds 3] [--dry-run]
+ *   node scripts/git-sync-converge.mjs [--branch <name>] [--rounds 3] [--dry-run]
  *   node scripts/git-sync-converge.mjs --self-test   # 回归自检(含 db6c455d6 静默回退复现,见下)
  *
  * 只读核验(不写任何东西)仍用 git-push-converge.mjs。
@@ -48,12 +48,13 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { dirname, resolve } from 'node:path'
-import { pathToFileURL } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { gitRaw, resolveRemoteHead } from './lib/face-reader.mjs'
+import { judgeRunningState } from './lib/push-state-liveness.mjs'
 import { postMergeLedgerSync } from './lib/post-merge-ledger-sync.mjs'
 // 孤儿提交备份腿的单一实现(2026-10-29 门 30a 根因票):四台旁路落地器共用一份判据(§0.6),
 // 本器只留薄封装与再导出 —— conv 档命名/幂等/pack-refs/留痕/永不抛 全部住在那一层。
-import { orphanBackupRefName, backupOrphanCommit } from './lib/orphan-backup.mjs'
+import { orphanBackupRefName, backupOrphanCommit, recordAbandonedCommit } from './lib/orphan-backup.mjs'
 // G-322:「带值旗标吞值」判据全仓只许一份(§0.6/§22c)。旧 `getOpt` 写的是
 //   `i >= 0 && argv[i + 1] ? argv[i + 1] : dflt`,把「没点旗标」与「点了旗标却没给值」折成同一件事:
 //   实测改前 `--branch --dry-run` ⇒ branch 被喂成 `'--dry-run'`,本器**照常出结论并 rc=0**
@@ -469,6 +470,23 @@ function backupOrphanMerge(sha, why) {
   }
   return { ok: false, ref: res.ref }
 }
+
+/**
+ * 中间轮次只记台账(2026-11-04 立,第五单)。
+ *
+ * 立因:本文件每轮都按**当时的 freshLocal/远端**现算合并树,blob 集合并非循环前一次算定,
+ * 也没有"下一轮 parent 是上一轮 parent 的快进后代"这条结构关系 ⇒ 不能照搬 object-space-land
+ * 的"中间 sha 内容必然被下一轮覆盖"论证。保守收法:中间轮次只 `recordAbandonedCommit`
+ * 记同一本 jsonl 台账(`superseded:true` / `ref:null`,不建 tag),只有**最终失败的那一枚**
+ * (循环耗尽那一枚)才走 backupOrphanMerge 打 tag —— 否则 30a 窗内恒红,又会逼全仓跳门(§12e)。
+ */
+function noteSupersededMerge(sha, why) {
+  const r = recordAbandonedCommit({ sha, why, kind: 'conv', root: process.cwd() })
+  if (!r.ok) {
+    log(C.yellow, `  ⚠️ 中间轮次台账写不进(${r.why}):${String(sha).slice(0, 11)} 按未备份处理`)
+  }
+  return r
+}
 /** 纯函数:拼出带身份的 `commit-tree` 参数(判据可被镜像测试直接喂构造面)。 */
 export function mergeCommitArgs({ tree, parents, message }) {
   const ps = (Array.isArray(parents) ? parents : [parents]).flatMap((p) => ['-p', p])
@@ -491,6 +509,17 @@ function waitForPushState(headSha, timeoutMs = 8 * 60 * 1000) {
         (s.status === 'done' || s.status === 'failed' || s.status === 'diverged')
       )
         return s.status
+      // 2026-11-07:running 的持有者已死 / pid 被复用 / 身份核不上 ⇒ 本次推送已经中止,
+      // 不能把它当"还在跑"白等满 8 分钟(死 worker 残留 running 会让每轮收敛空转)。
+      if (s.headSha === headSha && s.status === 'running') {
+        const v = judgeRunningState(s, { headSha })
+        if (!v.active) {
+          console.warn(
+            `⚠️  push-state running 已失效(${v.kind}: ${v.why})⇒ 判本次推送 failed,不再等满 ${Math.round(timeoutMs / 60000)}min`,
+          )
+          return 'failed'
+        }
+      }
       // state 已被更新 HEAD 的其他推送覆盖 → 视为本 HEAD 推送已无意义
       if (s.headSha !== headSha) return 'superseded'
     } catch {
@@ -727,7 +756,7 @@ export const KNOWN_FLAGS = Object.freeze([
 ])
 
 export const USAGE = [
-  '用法: node scripts/git-sync-converge.mjs [--branch main] [--rounds 3] [--dry-run]',
+  '用法: node scripts/git-sync-converge.mjs [--branch <name>] [--rounds 3] [--dry-run]',
   '      node scripts/git-sync-converge.mjs --status        # 只读看对齐停摆台账,零副作用',
   '      node scripts/git-sync-converge.mjs --align-only    # 只补对齐态,不做合并',
   '      node scripts/git-sync-converge.mjs --no-proxy      # 本轮 git 网络走直连(临时,不改配置)',
@@ -1628,6 +1657,20 @@ function selfTest() {
     results.push(cond)
     console.log(`${cond ? '✅' : '❌'} ${name}${cond || !extra ? '' : ` (${extra})`}`)
   }
+  // ── resolveConvergeTarget 五臂(P0-1 封口票 2026-11-09,④ 通道)── 纯函数,零 git 派生。
+  ok('④ 目标分支:无 --branch ⇒ 从 symbolic-ref HEAD 推导(不再默认 main)', (() => {
+    const r = resolveConvergeTarget({ explicitBranch: null, symbolicRef: 'refs/heads/wip/main-wt-dirty-20261109' })
+    return r.ok === true && r.branch === 'wip/main-wt-dirty-20261109' && r.source === 'derived'
+  })())
+  ok('④ 目标分支:显式且与 HEAD 一致 ⇒ explicit 放行', (() => {
+    const r = resolveConvergeTarget({ explicitBranch: 'main', symbolicRef: 'refs/heads/main' })
+    return r.ok === true && r.branch === 'main' && r.source === 'explicit'
+  })())
+  ok('④ 目标分支:显式 main 而 HEAD 在别支 ⇒ 拒(代别支写 main 正是封口要拦的型)', resolveConvergeTarget({ explicitBranch: 'main', symbolicRef: 'refs/heads/wip' }).ok === false)
+  ok('④ 目标分支:detached 无显式 ⇒ 拒,绝不默认落点', resolveConvergeTarget({ explicitBranch: null, symbolicRef: null }).ok === false)
+  ok('④ 目标分支:detached + 显式 ⇒ 也拒(本地侧无从核验)', resolveConvergeTarget({ explicitBranch: 'main', symbolicRef: null }).ok === false)
+  // 搜索串必须拼接而成 —— 直接写全串会命中"这一行自己"(自指假红,2026-11-09 实测)。
+  ok('④ 目标分支:源码里不得再出现 `getOpt(\'--branch\', \'main\')` 默认值', !readFileSync(fileURLToPath(import.meta.url), 'utf8').includes(`getOpt('--branch', 'ma` + `in'`))
   let tmp = null
   try {
     // 2026-10-26 迁 gitRaw(bootstrap:取 root 前尚无仓库,显式传 process.cwd(),与旧无 -C 同形)。
@@ -2052,6 +2095,31 @@ function selfTest() {
 }
 
 // ─── 主流程(§22d:仅 direct-run 执行,被 import 时零副作用) ──
+/**
+ * 纯函数(P0-1 封口票 2026-11-09,④ 通道):定本器的目标分支。
+ * 旧口径 `--branch` 默认 'main' 且不读当前分支 ⇒ HEAD 在别支时,合并 HEAD 的内容
+ * 却推进 refs/heads/main —— 这正是封口期间"自动化直写 main"的那一型。
+ * 新口径:
+ *   - 未传 --branch ⇒ 从 symbolic-ref HEAD 推导(detached ⇒ 拒,绝不默认落点);
+ *   - 传了 --branch ⇒ 必须等于 HEAD 所在分支(本器全程以 HEAD 为本地侧,"把 HEAD 的
+ *     内容合进别支"不是它的语义;显式代别支写 main 同样拒);
+ *   - detached + 显式 ⇒ 也拒(本地侧无从核验)。
+ * 返回 {ok:true, branch, source:'explicit'|'derived'} 或 {ok:false, why}。
+ */
+export function resolveConvergeTarget({ explicitBranch = null, symbolicRef = null } = {}) {
+  const HEAD_PREFIX = 'refs/heads/'
+  const headBranch = typeof symbolicRef === 'string' && symbolicRef.startsWith(HEAD_PREFIX) ? symbolicRef.slice(HEAD_PREFIX.length) : null
+  if (!headBranch) {
+    return { ok: false, why: 'HEAD 游离(detached)或 symbolic-ref 未命中,本地侧无从核验' }
+  }
+  if (explicitBranch && explicitBranch !== headBranch) {
+    return { ok: false, why: `--branch ${explicitBranch} 与 HEAD 所在分支 ${headBranch} 不一致 —— 本器只推进 HEAD 所在支` }
+  }
+  return explicitBranch
+    ? { ok: true, branch: explicitBranch, source: 'explicit' }
+    : { ok: true, branch: headBranch, source: 'derived' }
+}
+
 function main() {
   const argv = process.argv.slice(2)
   // 旗标闸排在**一切动作之前**(含 --self-test 与默认档收敛):未知旗必须由它裁,
@@ -2076,7 +2144,14 @@ function main() {
     }
     return rf.present ? rf.value : dflt
   }
-  const branch = getOpt('--branch', 'main', '分支名参数')
+  // `--branch` 不再默认 'main'(P0-1 封口票 2026-11-09,④ 通道)—— 落点由
+  // resolveConvergeTarget 在 repoRoot 之后依 HEAD 所在支推导/核验。
+  const brReq = requireFlagValue(argv, '--branch', { noun: '分支名参数' })
+  if (brReq.error) {
+    console.error(`❌ ${brReq.error}`)
+    process.exit(2)
+  }
+  const explicitBranch = brReq.present ? brReq.value : null
   const maxRounds = Number(getOpt('--rounds', 3, '轮数参数'))
   const dryRun = argv.includes('--dry-run')
   // `--no-proxy`(2026-10-26 立):显式临时绕开仓库配的代理。
@@ -2092,6 +2167,25 @@ function main() {
   const repoRoot = git(['rev-parse', '--show-toplevel'], { allowFail: true })
   if (!repoRoot) {
     log(C.red, '❌ 不在 git 仓库中')
+    process.exit(2)
+  }
+
+  // ── 目标分支定夺(P0-1 封口票 2026-11-09,④ 通道)──────────────────────────
+  // 写档必须拿到"HEAD 所在支"的核验结果;读档(--status/--dry-run)零副作用,
+  // 定夺失败时退回旧口径并点名,不得把只读查询也拦死(告警链路还在调 --status)。
+  const readOnlyMode = dryRun || argv.includes('--status')
+  const headRef = git(['symbolic-ref', '-q', 'HEAD'], { allowFail: true })
+  const target = resolveConvergeTarget({ explicitBranch, symbolicRef: headRef })
+  let branch
+  if (target.ok) {
+    branch = target.branch
+    if (target.source === 'derived') log(C.dim, `  ℹ️ 目标分支从 HEAD 所在支推导:${branch}(不再默认 main)`)
+  } else if (readOnlyMode) {
+    branch = explicitBranch || 'main'
+    log(C.yellow, `⚠️ 目标分支定夺失败(${target.why})⇒ 只读档按 ${branch} 查询,零副作用`)
+  } else {
+    log(C.red, `❌ 拒绝执行:④ 通道的目标分支定夺失败 —— ${target.why}`)
+    log(C.red, '   本器全程以 HEAD 为本地侧、只推进 HEAD 所在支。先切到目标分支再跑,或核对 --branch 拼写。')
     process.exit(2)
   }
 
@@ -2239,6 +2333,7 @@ function main() {
     }
   }
 
+  let lastSupersededMerge = ''
   for (let round = 1; round <= maxRounds; round++) {
     log(C.dim, `── 第 ${round}/${maxRounds} 轮 ──`)
     // fetch 失败**不是收敛器的失败模式**(休眠/瞬时锁/代理抖动都算不得结论),但也不能拿旧值继续判断
@@ -2613,11 +2708,15 @@ function main() {
         // "未备份的悬空 commit"是 blocking,而它**没有 stagedTriggers ⇒ 每一次提交都必跑**
         // ——于是一轮正常的并发争用会把全链 158 道检查对之后每一次提交都顶成 --no-verify。
         // 2026-09-27 同日两例:一枚 round3 悬空 merge 让所有会话的提交被挡,最后是人工补 tag
-        // 才消红(见 AGENTS §12f"恒红门优先级")。出路 = §29 既定的零损失流程:tag 指向原对象
-        // (不删、不改写、不碰别人的引用),再固化进 packed-refs —— 嵌套 refs/tags/<ns>/* 属
-        // depth≥2,不 pack 就会被宿主清理层删掉,下次照样红(tag 在 = 红在,等于没修)。
-        // tag 失败只报数:多一枚悬空是 30a 该喊的事,不能因此让收敛器在本轮罢工。
-        backupOrphanMerge(mergeSha, `round${round}`)
+        // 才消红(见 AGENTS §12f"恒红门优先级")。
+        // 2026-11-04(第五单)改口径:中间轮次**不再逐轮打 tag** —— 每轮都按当时的 HEAD/远端现算,
+        // 中间 sha 的内容不必然被下一轮覆盖(结构论证在 object-space-land 成立,在这里不成立),
+        // 所以既不能当噪声丢掉、也不能继续逐轮堆 tag:只记台账(不建 ref),末枚(循环耗尽那枚)
+        // 才按 §29 打 tag。台账不是备份,30a 仍按"无 tag = 未备份"判(不放宽任何门)。
+        lastSupersededMerge = mergeSha
+        // 末轮失败不记"被取代"台账:它会在循环耗尽处被照打 tag,再记一行会把"已打 tag 的那枚"
+        // 写成"只是被取代",台账与事实相反。
+        if (round < maxRounds) noteSupersededMerge(mergeSha, `round${round} CAS 失败(HEAD 被并发推进):中间轮次仅记台账,不打 tag`)
         continue
       }
       log(C.dim, `  合并提交 ${mergeSha.slice(0, 11)} 已推进本地 ${branch}`)
@@ -2669,6 +2768,11 @@ function main() {
     log(C.yellow, `  第 ${round} 轮未落地(远端 ${nowRemote.slice(0, 11)}),继续下一轮`)
   }
 
+  // 末枚兜底:循环耗尽时,最后一轮被并发抢走的那枚合并提交**必须照打**(它是本轮真正的失败产物);
+  // 更早的轮次已在上面逐轮记进台账(不建 ref)。两者都不删、不改写、不碰别人的引用。
+  if (lastSupersededMerge) {
+    backupOrphanMerge(lastSupersededMerge, `${maxRounds} 轮均未收敛:末轮 CAS 失败产物兜底`)
+  }
   log(C.red, `❌ ${maxRounds} 轮未收敛,稍后重跑: node scripts/git-sync-converge.mjs`)
   const lastState = (() => {
     try {

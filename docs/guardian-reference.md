@@ -27,8 +27,8 @@
 
 ### 1.1 blocking 项（302 项）
 
-| ID | Label | Script | Args | onFailHint |
-|----|-------|--------|------|------------|
+| ID | Label | Script | Args / 正规豁免通道 | onFailHint |
+|----|-------|--------|----------------------|------------|
 | 1 | 🔐 API key 泄露 | check-api-key-leak.mjs | — | — |
 | 2 | 🌐 i18n 键完整性 | check-i18n-keys.mjs | — | — |
 | 2b | 🔍 zh-TW 简体字残留 | scan-i18n-zh-residue.mjs | zh-TW | — |
@@ -237,7 +237,7 @@
 | 182 | 控制面 strict 棘轮门(b76-12c票2配套):扫描面(apps/api/src/plugins + packages/shared/src)的 z.object+.strict+.catch 总和只减不增(基线 91);禁 passthrough 降红/禁装饰字段塞控制面 | check-wire-strictness.mjs | — | 有 |
 | 183 | 分片上传聚合预算棘轮门(b76-12c票3配套):chunked-upload.ts 的 begin 新建装配检(isPerUserSessionBudgetExceeded)与每片落盘追加检(wouldStagedBudgetOverflow)各 ≥1,两档常量须在 PROTOCOL_UPLOAD_LIMITS 登记,防死表回潮 | check-upload-budget.mjs | — | 有 |
 | 184 | 📚 活文档点名路径存续性对账(blocking,正文反引号点名的仓内路径必须在被审面在位;索引缺而 HEAD 在 ⇒ 红,HEAD 缺席只 warning,2026-09-30 D169 立) | check-live-doc-references.mjs | — | 有 |
-| 185 | 迁移内容不可变性对账(已入库 drizzle 迁移不得被改写;IM1 与"该 tag 首次入库的 blob"逐字节比,存量只报数;IM2 判本次改写面;枚举 0 判死不记绿) | check-migration-immutable.mjs | — | 有 |
+| 185 | 迁移内容不可变性对账(已入库 drizzle 迁移不得被改写;IM1 与"该 tag 首次入库的 blob"逐字节比,存量只报数;IM2 判本次改写面;枚举 0 判死不记绿) | check-migration-immutable.mjs | 登记: scripts/data/migration-rewrite-ledger.jsonl —— 修已入库正文的正规流程 = 登记(附从零 370/370 验证与夹具断言),不是 skipEnv;登记与正文不符/证据缺/过期一律 exit 2 | 有 |
 | 189 | Python import 入库存续性对账 | check-python-import-landed.mjs | — | 有 |
 | 192 | 注册表工作树超集对账(package.json / guardian-runner 的已入库入口被工作树副本整行写回旧态;今日 28 份注册表零存量 ⇒ blocking,只在 --staged 面问责) | check-registry-worktree-superset.mjs | — | 有 |
 | 194 | 🧯 §22d 入口守卫对账:scripts/**.mjs 不得顶层裸 main()(存量以 node scripts/check-direct-run-guard.mjs 末行现读为准,差值棘轮只拦本次新增) | check-direct-run-guard.mjs | — | 有 |
@@ -260,8 +260,8 @@
 | 217 | 📐 mobile-rn sheet/弹窗 flex 弹性契约(bounded 容器内列表必须唯一弹性块,固定 chrome 不被压扁) | check-sheet-flex-contract.mjs | — | — |
 | 218 | 🎨 RN 端硬编码 hex 基线棘轮(基线之外新增 #hex 即 BLOCK,存量只减不增) | check-mobile-rn-style-parity.mjs | — | 有 |
 | 219 | 🧬 端内共享类型重声明对账(共享对外类型名不得在端内再写一份;差值棘轮锚点=该文件 HEAD 自身违规数,存量只报数) | check-shared-type-not-redeclared.mjs | — | 有 |
-| 220 | 监控大屏指标名对账(大屏查询的每个指标必须有代码发射点或台账登记) | check-grafana-metric-exists.mjs | — | 有 |
-| 222 | 监控大屏 ↔ 数据源 接线对账(面板引用的 uid 必须在 provisioning 里;声明了却零面板使用的源只报数不判红——未部署的基建是合法状态) | check-grafana-datasource-wiring.mjs | — | 有 |
+| 220 | 监控大屏指标名对账(大屏查询的每个指标必须有代码发射点或台账登记) | check-panel-metric-exists.mjs | — | 有 |
+| 222 | 监控大屏 ↔ 数据源 接线对账(面板引用的 uid 必须在 provisioning 里;声明了却零面板使用的源只报数不判红——未部署的基建是合法状态) | check-panel-datasource-wiring.mjs | — | 有 |
 | 221 | 🧾 .mjs 语法对账(被审面全量纯解析,只解析不执行;--staged 差值棘轮只拦本次带进来的,存量只报数——上线当刻 HEAD 面实测 1 枚存量,定级与清偿见门体头注) | check-mjs-syntax.mjs | — | 有 |
 | 223 | 桌面端(Tauri)事件链路三层接线守门:Rust emit→use-desktop listen/case→CustomEvent→web addEventListener 消费方闭环;含 G8 整页导航先复位深链闸门、G9 整页导航发起点必须先触发存草稿(desktop-before-close) | check-desktop-event-wiring.mjs | — | 有 |
 | 224 | 告警身份抖动对账(到人邮件的去重身份不得含逐轮抖动的 sha/时刻/原始计数/异常原文;差值棘轮:只拦本次加回来的) | check-alert-identity-volatility.mjs | — | 有 |
@@ -335,8 +335,8 @@
 
 ### 1.2 warn 项（29 项）
 
-| ID | Label | Script | Args | onFailHint |
-|----|-------|--------|------|------------|
+| ID | Label | Script | Args / 正规豁免通道 | onFailHint |
+|----|-------|--------|----------------------|------------|
 | 3 | 🗄️ schema drift | check-db-schema-drift.mjs | — | — |
 | 45 | 🛡️  C 盘路径硬编码扫描(warn-only,AGENTS.md §26) | check-c-drive-paths.mjs | --staged | 有 |
 | 13b | 📐 PROJECT_PLAN.md 体积(warn-only) | check-project-plan-size.mjs | — | — |
@@ -369,8 +369,8 @@
 
 ### 1.3 info 项（1 项）
 
-| ID | Label | Script | Args |
-|----|-------|--------|------|
+| ID | Label | Script | Args / 正规豁免通道 |
+|----|-------|--------|----------------------|
 | 23 | 📋 staged 文件清单(info) | check-staged-files.mjs | — |
 
 ### 1.4 失败提示详情（onFailHint）
@@ -2387,7 +2387,7 @@ T-B 半截行与孤立 2 竖线行只报数不判红(要逐案判语义,不归�
 
 ```
 
-刷新块: node scripts/gen-doc-numbers.mjs --markdown 替换 README 的 GENERATED NUMBERS 块(务必在 README 已在被审面上的那份面生成,否则 trackedFiles 天生差数);逐数来源: node scripts/gen-doc-numbers.mjs;连仓库简介一起问责: node scripts/check-doc-numbers.mjs --strict --description -
+刷新块: node scripts/sync-readme-numbers.mjs —— GENERATED NUMBERS 块的唯一写入口(只按索引面 staged 取数,与门 173 的 staged 段同面;持独占写手锁、写盘前后 CAS 复核;直接跑 gen-doc-numbers.mjs --markdown 会被拒绝并 exit 2);逐数来源: node scripts/gen-doc-numbers.mjs;连仓库简介一起问责: node scripts/check-doc-numbers.mjs --strict --description -
 本门只在触及 README.md/README.en.md 的轮次判红;未触及轮次打印的"漂移只报数"是"下次改 README 必须重跑生成块"的前置提醒,不构成跳门理由。
 例外(DN5):本轮引入新增/删除/改名/复制文件时,生成块 trackedFiles 必须同步,与是否触及 README 无关 —— 改清单的那枚会直接红。
 红点绝大多数落在 README 的 END RECENT UPDATES 标记之后的旧版全文快照副本(现读 --strict 61098 条:标记之后占 61048,活性声明只占 45,另 5 条是生成块):那些副本记的是当时的账,批量按现算值逐行改写=把历史改成今天,不是结清(2026-10-31 实测一席的手写"收敛到绿"循环改了 23900 行,其中历史区 7217 行)。正解=先跑配套清偿器 node scripts/scrub-doc-numbers.mjs(默认 dry-run,--apply 才写盘),它复用本门自己的 CLAIMS 与生成块同源取值;整片快照的清偿属全仓维护债,不在逐行手改。
@@ -3964,7 +3964,7 @@ warn-only 起步，无明确升级计划，需触发条件。
 | 167 | `—（待补充）` | 🔒 turn 序号分配点上锁(blocking,max(turnOrdinal) 与 insert(chatMessages) 同体 ⇒ 体内必须有 .for(\ | check-turn-ordinal-lock.mjs |
 | 168 | `—（待补充）` | 🔀 合并复活已删文件对账(blocking,DR1 基底判定 + DR2 删除出处;默认只判未入 origin/main 的合并,每枚判一次) | check-merge-deletion-resurrection.mjs |
 | 171 | `—（待补充）` | AI 面板装载守门:GlobalShell/AISidePanel 的骨架占位几何一致 + 8 个重组件懒加载边界 + inferVendor 单一来源(首屏延迟根治防回潮,2026-09-30;门体随 d5c54f4499 入库,本枚重注册补对账) | check-ai-panel-mount-guards.mjs |
-| 173 | `—（待补充）` | 对外文档数字对账(README/README.en 的生成块与散文声称必须等于 gen-doc-numbers 现算值;DN5 清单不变式:本轮引入 A/D/R/C 时 trackedFiles 必须同步,与是否触及 README 无关;其余数字判责时机=改动被审文档的那枚,未触及只报漂移数 —— 防恒红) | check-doc-numbers.mjs |
+| 173 | `node scripts/sync-readme-numbers.mjs`(唯一写入口:固定 staged 面 + 锁 + CAS,重算生成块并随本次提交带上);散文残留/历史快照人工回填用 `node scripts/scrub-doc-numbers.mjs`;门本体 `check-doc-numbers.mjs` 只读校验、不写盘 | 对外文档数字对账(README/README.en 的生成块与散文声称必须等于 gen-doc-numbers 现算值;DN5 清单不变式:本轮引入 A/D/R/C 时 trackedFiles 必须同步,与是否触及 README 无关;其余数字判责时机=改动被审文档的那枚,未触及只报漂移数 —— 防恒红) | check-doc-numbers.mjs |
 | 174 | `—（待补充）` | 诊断面脱敏守门(b76-08a票1配套):诊断/错误上报面不得携带未脱敏的密钥/令牌/邮箱/路径等敏感串,自检 --self-test 内嵌红绿对照 | check-diagnostic-redaction.mjs |
 | 175 | `—（待补充）` | 进程退出码归因守门(b76-08a票1配套):进程 exit 1/非零退出必须可归因到显式 failure kind/错误码,禁止无归因的裸退出,自检 --self-test 内嵌红绿对照 | check-process-exit-attribution.mjs |
 | 176 | `—（待补充）` | 能力位不得客户端自供守门(b76-08a票2配套):客户端不得自报 capability 字段(connectionId/clientMode/deliveryProfile/subscriberScope/workflowRunDeltas 名单),能力位只准服务端下发,自检 --self-test | check-capability-field-not-client-supplied.mjs |
@@ -4002,8 +4002,8 @@ warn-only 起步，无明确升级计划，需触发条件。
 | 217 | `—（待补充）` | 📐 mobile-rn sheet/弹窗 flex 弹性契约(bounded 容器内列表必须唯一弹性块,固定 chrome 不被压扁) | check-sheet-flex-contract.mjs |
 | 218 | `—（待补充）` | 🎨 RN 端硬编码 hex 基线棘轮(基线之外新增 #hex 即 BLOCK,存量只减不增) | check-mobile-rn-style-parity.mjs |
 | 219 | `—（待补充）` | 🧬 端内共享类型重声明对账(共享对外类型名不得在端内再写一份;差值棘轮锚点=该文件 HEAD 自身违规数,存量只报数) | check-shared-type-not-redeclared.mjs |
-| 220 | `—（待补充）` | 监控大屏指标名对账(大屏查询的每个指标必须有代码发射点或台账登记) | check-grafana-metric-exists.mjs |
-| 222 | `—（待补充）` | 监控大屏 ↔ 数据源 接线对账(面板引用的 uid 必须在 provisioning 里;声明了却零面板使用的源只报数不判红——未部署的基建是合法状态) | check-grafana-datasource-wiring.mjs |
+| 220 | `—（待补充）` | 监控大屏指标名对账(大屏查询的每个指标必须有代码发射点或台账登记) | check-panel-metric-exists.mjs |
+| 222 | `—（待补充）` | 监控大屏 ↔ 数据源 接线对账(面板引用的 uid 必须在 provisioning 里;声明了却零面板使用的源只报数不判红——未部署的基建是合法状态) | check-panel-datasource-wiring.mjs |
 | 221 | `—（待补充）` | 🧾 .mjs 语法对账(被审面全量纯解析,只解析不执行;--staged 差值棘轮只拦本次带进来的,存量只报数——上线当刻 HEAD 面实测 1 枚存量,定级与清偿见门体头注) | check-mjs-syntax.mjs |
 | 223 | `—（待补充）` | 桌面端(Tauri)事件链路三层接线守门:Rust emit→use-desktop listen/case→CustomEvent→web addEventListener 消费方闭环;含 G8 整页导航先复位深链闸门、G9 整页导航发起点必须先触发存草稿(desktop-before-close) | check-desktop-event-wiring.mjs |
 | 225 | `—（待补充）` | 生成器资源释放对账(warn;持有事务/句柄/订阅的 async 生成器,消费方提前 break/抛错时不得只靠退出作用域与 GC) | check-generator-resource-release.mjs |
@@ -4123,7 +4123,8 @@ node scripts/generate-guardian-docs.mjs --help
 
 1. 读取 `scripts/guardian-runner.mjs` 源码
 2. 字符级解析 `const checks = [...]` 数组（字符串/注释感知，避免误匹配）
-3. 对每个 check 对象提取 `id` / `label` / `script` / `args` / `mode` / `onFailHint`
+3. 对每个 check 对象提取 `id` / `label` / `script` / `args` / `mode` / `onFailHint` / `exemptionNote`
+   （`exemptionNote` = 该门的**正规豁免通道**说明，与 `args` 同格渲染；两样都没有才落 `—`）
 4. 同时提取对象前的 `//` 注释块（包含升级评估、设计原因等上下文）
 5. 与内置的 `UPGRADE_TIMELINE`（升级时间表）和 `NAMESPACE_MAP`（命名空间映射）合并
 6. 渲染 Markdown 模板，写入 `docs/guardian-reference.md`

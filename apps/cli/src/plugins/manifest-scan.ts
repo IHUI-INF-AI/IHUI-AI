@@ -26,7 +26,7 @@ import type {
 } from './types.js';
 
 /** 候选清单文件名(按优先级排序,前者在位时后者被忽略并留一条 warning 诊断) */
-export const MANIFEST_FILES = ['plugin.json', 'plugin.config.json'];
+const MANIFEST_FILES = ['plugin.json', 'plugin.config.json'];
 
 /**
  * 判别码 → 严重级的唯一映射。
@@ -52,10 +52,15 @@ const DIAGNOSTIC_SEVERITY: Record<PluginDiagnosticCode, PluginDiagnosticSeverity
   'plugin-activation-unknown-event': 'warning',
   // goal-b49/Z1:声明被读到但没有运行期消费者 —— 装载仍是成功的,喊的是"这条声明现在不干活"(warning 同训)。
   'plugin-declaration-unconsumed': 'warning',
+  // #12 多版本共存三档同为 warning:版本选择是配置意图的结果,选中的那一版照常装载;
+  // 被压掉/被禁用的版本仍在盘上,不构成"清单坏了",升档会把正常升级变成启动红旗(§12e)。
+  'plugin-version-shadowed': 'warning',
+  'plugin-version-pin-missing': 'warning',
+  'plugin-version-all-disabled': 'warning',
 };
 
 /** 错误文本(unknown 收窄,零 any) */
-export function errorText(err: unknown): string {
+function errorText(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 

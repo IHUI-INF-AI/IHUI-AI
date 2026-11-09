@@ -23,6 +23,7 @@ import {
   Users,
   Mail,
 } from 'lucide-react'
+import { jsonLdHtml } from '@/lib/seo/json-ld'
 
 const jsonLd = {
   '@context': 'https://schema.org',
@@ -181,7 +182,7 @@ export default function EnDocsPage() {
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdHtml(jsonLd) }}
       />
       <main className="mx-auto w-full max-w-6xl px-4 py-4">
         {/* Hero */}

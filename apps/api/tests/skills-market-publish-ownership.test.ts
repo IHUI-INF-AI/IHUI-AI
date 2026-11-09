@@ -62,6 +62,8 @@ vi.mock('../src/config/index.js', () => ({
     DATABASE_URL: 'postgres://localhost:5432/test',
     REDIS_URL: 'redis://localhost:6379',
     AI_CALLBACK_SECRET: INTERNAL_SECRET,
+    // 历史夹具只带旧密钥 ⇒ 显式兼容档;默认 ticket 档拒绝由 internal-secret-auth.test.ts 覆盖
+    INTERNAL_SECRET_AUTH_MODE: 'dual',
   },
 }))
 

@@ -28,6 +28,8 @@ vi.mock('../src/plugins/require-permission.js', () => ({
   requireAdmin: async () => undefined,
   requirePermission: () => async () => undefined,
   requireAnyPermission: () => async () => undefined,
+  // agent-extended 的读路由直接调同步 isSystemAdmin(request);缺导出会让该分支 500
+  isSystemAdmin: () => false,
 }))
 
 vi.mock('../src/plugins/auth.js', () => ({
@@ -47,17 +49,18 @@ describe('GET /api/agent-ext/permission/:agentId —— 归属主体只认承载
     await server.close()
   })
 
-  it('客户端自报 ?userId= 不参与判定:实参第二元仍是承载层身份', async () => {
+  it('客户端自报 ?userId= 指向他人 ⇒ 403,绝不参与判定', async () => {
     mockCalculate.mockClear()
     const res = await server.inject({
       method: 'GET',
       url: `/api/agent-ext/permission/agent-9?userId=${OTHER}`,
     })
-    expect(res.statusCode).toBe(200)
-    expect(mockCalculate.mock.calls.length).toBe(1)
-    expect(mockCalculate.mock.calls[0]?.[1]).toBe(ME)
-    // 阳性对照:agentId 确实原样传到第一位(否则"主体对"可能只是因为压根没调用)
-    expect(mockCalculate.mock.calls[0]?.[0]).toBe('agent-9')
+    // F-07(2026-11-08):`?userId=` 不再被忽略而是显式拒绝 —— 客户端不能用自己的 query
+    // 决定"查谁",更不能拿它探测他人权限;与 F-04/F-05 同口径(动作授权失败 → 403)。
+    expect(res.statusCode).toBe(403)
+    expect(res.json()).toMatchObject({ code: 403, message: '无权查询他人的智能体权限' })
+    // 拒绝发生在判定之前:服务一次都不该被调到(否则"403 只是表象"
+    expect(mockCalculate.mock.calls.length).toBe(0)
   })
 
   it('不带 query 时同样取承载层身份(现状唯一可达路径)', async () => {

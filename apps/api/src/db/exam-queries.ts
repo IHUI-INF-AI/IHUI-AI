@@ -19,7 +19,7 @@ import {
   type ExamRecord,
 } from '@ihui/database'
 // ihui_exam_score_sum/count:db 层不持有 fastify 实例,走模块级桥接函数打点
-import { recordExamScore } from '../plugins/business-metrics.js'
+import { adjustExamScore } from '../plugins/business-metrics.js'
 
 // =============================================================================
 // Exam Categories
@@ -115,7 +115,7 @@ export async function findPublishedPapers(opts: {
   cidList?: string[]
   paperType?: string
 }): Promise<{ list: PaperWithCategory[]; total: number }> {
-  const conds = [eq(examPapers.isPublished, true)]
+  const conds = [eq(examPapers.isPublished, true), eq(examPapers.status, 1)]
   if (opts.search) {
     conds.push(
       sql`(${examPapers.title} ILIKE ${`%${opts.search}%`} OR ${examPapers.description} ILIKE ${`%${opts.search}%`})`,
@@ -195,7 +195,13 @@ export async function findPublishedPapersByIds(ids: string[]): Promise<PaperWith
     .select({ paper: examPapers, categoryName: examCategories.name })
     .from(examPapers)
     .leftJoin(examCategories, eq(examPapers.categoryId, examCategories.id))
-    .where(and(eq(examPapers.isPublished, true), sql`${examPapers.id} = ANY(${ids})`))
+    .where(
+      and(
+        eq(examPapers.isPublished, true),
+        eq(examPapers.status, 1),
+        sql`${examPapers.id} = ANY(${ids})`,
+      ),
+    )
   const byId = new Map(rows.map((r) => [r.paper.id, { ...r.paper, categoryName: r.categoryName }]))
   return ids.map((id) => byId.get(id)).filter((p): p is PaperWithCategory => Boolean(p))
 }
@@ -488,31 +494,50 @@ export interface GradedAnswer {
   score: number
 }
 
+export interface ExamAnswerInput {
+  questionId: string
+  answer: unknown
+}
+
+export interface GradeExamResult {
+  gradedAnswers: GradedAnswer[]
+  totalScore: number
+  hasSubjective: boolean
+}
+
 /**
- * 提交试卷并自动判分(客观题)。
+ * 纯判分函数(不触 DB):客观题自动判分 + 逐题明细。
+ * - 按 questionId 去重,仅保留首次出现的答案(防止同一题重复计分)。
+ * - 不在本试卷 questions 内的答案按 0 分计,不参与得分。
  * - single_choice/judgment: 直接比较答案。
  * - multi_choice: 排序后比较数组。
  * - fill_blank: 逐空比较(去空格)。
  * - subjective: 不自动判分,isCorrect=false,score=0,需人工评分。
- *
- * 返回判分结果(得分/是否通过/用时/逐题明细)。
  */
-export async function submitExamRecord(
-  id: string,
-  userId: string,
-  answers: Array<{ questionId: string; answer: unknown }>,
-): Promise<{ score: number; isPassed: boolean; duration: number; answers: GradedAnswer[] }> {
-  const record = await findExamRecordById(id)
-  if (!record) throw new Error('答题记录不存在')
-  if (record.userId !== userId) throw new Error('无权操作该答题记录')
-  if (record.status === 'submitted' || record.status === 'graded') throw new Error('该试卷已提交')
-
-  const questions = await findQuestionsByPaperId(record.paperId)
+export function gradeExamAnswers(
+  questions: readonly ExamQuestion[],
+  answers: readonly ExamAnswerInput[],
+): GradeExamResult {
+  const seen = new Set<string>()
   let totalScore = 0
   let hasSubjective = false
-  const gradedAnswers: GradedAnswer[] = answers.map((a) => {
+  const gradedAnswers: GradedAnswer[] = []
+
+  for (const a of answers) {
+    if (seen.has(a.questionId)) continue
+    seen.add(a.questionId)
+
     const q = questions.find((qq) => qq.id === a.questionId)
-    if (!q) return { questionId: a.questionId, answer: a.answer, isCorrect: false, score: 0 }
+    if (!q) {
+      gradedAnswers.push({
+        questionId: a.questionId,
+        answer: a.answer,
+        isCorrect: false,
+        score: 0,
+      })
+      continue
+    }
+
     let isCorrect = false
     if (q.type === 'single_choice' || q.type === 'judgment') {
       isCorrect = contentEqual(a.answer, q.answer)
@@ -532,13 +557,40 @@ export async function submitExamRecord(
     }
     const score = isCorrect ? Number(q.score) : 0
     totalScore += score
-    return { questionId: a.questionId, answer: a.answer, isCorrect, score }
-  })
+    gradedAnswers.push({ questionId: a.questionId, answer: a.answer, isCorrect, score })
+  }
+
+  return { gradedAnswers, totalScore, hasSubjective }
+}
+
+/**
+ * 提交试卷并自动判分(客观题)。
+ * - single_choice/judgment: 直接比较答案。
+ * - multi_choice: 排序后比较数组。
+ * - fill_blank: 逐空比较(去空格)。
+ * - subjective: 不自动判分,isCorrect=false,score=0,需人工评分。
+ * - 状态:有主观题 ⇒ submitted(已提交待人工阅卷);无主观题 ⇒ graded(自动判分完成)。
+ *   与 exam-extended-queries.ts 状态机(answering→submitted→graded)一致。
+ *
+ * 返回判分结果(得分/是否通过/用时/逐题明细)。
+ */
+export async function submitExamRecord(
+  id: string,
+  userId: string,
+  answers: Array<{ questionId: string; answer: unknown }>,
+): Promise<{ score: number; isPassed: boolean; duration: number; answers: GradedAnswer[] }> {
+  const record = await findExamRecordById(id)
+  if (!record) throw new Error('答题记录不存在')
+  if (record.userId !== userId) throw new Error('无权操作该答题记录')
+  if (record.status === 'submitted' || record.status === 'graded') throw new Error('该试卷已提交')
+
+  const questions = await findQuestionsByPaperId(record.paperId)
+  const { gradedAnswers, totalScore, hasSubjective } = gradeExamAnswers(questions, answers)
 
   const paper = await findPaperById(record.paperId)
   const isPassed = totalScore >= Number(paper?.passScore ?? 60)
   const duration = Math.floor((Date.now() - record.startedAt.getTime()) / 1000)
-  const finalStatus = hasSubjective ? 'graded' : 'submitted'
+  const finalStatus = hasSubjective ? 'submitted' : 'graded'
 
   await db
     .update(examRecords)
@@ -568,7 +620,8 @@ export interface ManualGradeItem {
 /**
  * 管理员对主观题进行人工评分。
  * - 仅更新主观题答案的 score/isCorrect,其余答案保持不变。
- * - 重新汇总总分与是否通过,将状态置为 'submitted'(全部判分完成)。
+ * - 重新汇总总分与是否通过,将状态置为 'graded'(全部判分完成),与
+ *   exam-extended-queries.ts 的 submitted→graded 流转一致,不得回写 submitted。
  */
 export async function gradeSubjectiveAnswers(
   recordId: string,
@@ -605,13 +658,14 @@ export async function gradeSubjectiveAnswers(
       answers: updatedAnswers,
       score: String(totalScore),
       isPassed,
-      status: 'submitted', // 人工评分完成,最终状态
+      status: 'graded', // 人工评分完成:submitted→graded,终态不得回写 submitted
     })
     .where(eq(examRecords.id, recordId))
 
-  // ihui_exam_score_sum/score_count:与路由层判分收口同口径成对累加
-  recordExamScore(totalScore)
-  return { score: totalScore, isPassed, status: 'submitted' }
+  // ihui_exam_score_sum/count:提交判分时已按上一终态计过一次,人工阅卷只平移增量,
+  // 避免同一答题记录被整笔重复累计(sum 恰等于该记录终态分数,count 不再 +1)
+  adjustExamScore(totalScore - Number(record.score ?? 0))
+  return { score: totalScore, isPassed, status: 'graded' }
 }
 
 /** Admin: 删除答题记录。 */

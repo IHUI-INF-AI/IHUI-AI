@@ -31,11 +31,11 @@ import { registerCliTokenProvider } from '../lib/auth-refresh.js';
 import { loadConfig } from '../config/index.js';
 // 2026-09-27:doom_loop pattern 外发前过一次脱敏兜底(防原文字段流入服务端落库)
 import { redactSecrets } from '../redact.js';
+import { sanitizeMessagesForTransport } from '../util/invisible-transport.js';
 import {
   registerTools,
   registerBrowserTools,
   listTools,
-  buildSystemPrompt,
   parsePlanBlock,
   executeToolCall,
   formatToolResult,
@@ -52,6 +52,9 @@ import {
   type Tool,
   type ToolContext,
 } from '../tools/index.js';
+import { createToolSearchTool } from '../tools/tool-search.js';
+import { composeSystemPrompt } from '../prompts/compose.js';
+import { parseWelcomeMode, parseInteractionMode } from '../prompts/mode-matrix.js';
 import { BUILTIN_TOOLS } from '../tools/builtins.js';
 // 人事考勤(HR)工具族:AI 对话框可调用操作考勤/部门/员工/请假(复用 @ihui/attendance-core 判定内核)。
 import { HR_TOOLS } from '../tools/hr.js';
@@ -83,7 +86,7 @@ import {
   resolveAuditIngestClient,
 } from '../utils/audit-ingest-client.js';
 import { CLIPBOARD_TOOLS } from '../tools/clipboard.js';
-import { checkPermission, type PermissionRules, type PermissionMode } from '../tools/permissions.js';
+import { checkPermission, isAdvertisableDecision, type PermissionRules, type PermissionMode } from '../tools/permissions.js';
 import { createMarkdownRenderer } from './markdown-renderer.js';
 import { resolveProvider, streamOpenAiCompatible, type ChatCompletionMessage } from '../provider/local.js';
 // G-686:进程级、按 provider/model 分桶的 AIMD 准入闸门(默认关 —— 见该文件头注的翻转前置)。
@@ -159,10 +162,12 @@ import {
   declarationDiagnosticsOf,
   dispatchPluginCommandContributors,
   loadPluginsWithContributionAudit,
+  loadPluginsWithVersionPolicy,
   type PluginDiagnostic,
   type PluginHookContext,
   type PluginHookEvent,
   type PluginLogger,
+  type PluginVersionPolicy,
 } from '../plugins/index.js';
 // 宿主在册命令名面(对账用):只读注册表出口,不在这里另立第二份命令名单。
 import { getAllSlashNames } from './slash-registry.js';
@@ -258,6 +263,10 @@ export interface AgentOptions {
   signal?: AbortSignal;
   /** 强制 LLM 先输出 plan 块再执行工具 */
   planFirst?: boolean;
+  /** 欢迎模式(--welcome-mode;缺省 code)。 */
+  welcomeMode?: string;
+  /** 交互模式(--interaction-mode;缺省按 planFirst → plan,否则 craft)。 */
+  interactionMode?: string;
   /**
    * P0-C(2026-09-17 立):自动批准 LLM 提出的 plan 块(危险)。
    * 仅在 --auto-approve-plan 显式开启或 bypassPermissions 模式下生效;
@@ -382,6 +391,10 @@ export interface SetupAgentToolsOptions {
   allowDangerous?: boolean;
   /** 强制 LLM 先输出 plan 块再执行工具 */
   planFirst?: boolean;
+  /** 欢迎模式(CLI 参数优先;缺省 code)。非法值 fail-closed 抛错。 */
+  welcomeMode?: string;
+  /** 交互模式(CLI 参数优先;缺省按 planFirst → plan,否则 craft)。非法值 fail-closed 抛错。 */
+  interactionMode?: string;
   /** 子 agent 父配置(提供则注册 dispatch_subagent 工具) */
   subagentParent?: {
     modelId: string;
@@ -493,6 +506,16 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
     agentId: opts.agentId,
   }));
   const settings = loadSettings();
+  // ==== 模式矩阵 + 延迟工具装载(2026-11) ====
+  // 模式优先取 CLI 参数;缺省向后兼容:planFirst 开启 ⇒ plan(强制规划),否则 craft。
+  // 非法值由 parse* 抛错(fail-closed):拼错的模式名绝不允许静默回落成 all。
+  const welcomeMode = parseWelcomeMode(opts.welcomeMode) ?? 'code';
+  const interactionMode = parseInteractionMode(opts.interactionMode)
+    ?? (opts.planFirst === true || settings.planFirst === true ? 'plan' : 'craft');
+  // revealed 必须是**会话局部**:tool_search 命中后写入,新会话重新开始,且不落盘。
+  // 放模块级 Set 会让同进程两个会话互相污染工具面。
+  const revealedTools = new Set<string>();
+  registerTools([createToolSearchTool({ revealed: revealedTools })]);
   // 会话级 worktree 隔离(enter_worktree / exit_worktree):与子代理隔离腿同一套创建/回收实现。
   // 无条件注册:是否真的需要隔离由模型按任务决定,注册面不能替它预判(与 git 族同档)。
   registerTools(WORKTREE_TOOLS);
@@ -568,7 +591,22 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
       // goal-b49/W2:换成带贡献审计的同一族出口。装载器对每份清单的 `contributes` 逐档裁决,
       // declined(本宿主无落点 / 默认拒)与 unknown-kind(不在词表内)**各占 diagnostics 一条**,
       // 所以人前可见靠的还是下面这条既有派发,不另开通道、不新增环境变量、不升任何档。
-      const { plugins: defs, diagnostics } = loadPluginsWithContributionAudit({ pluginsDir });
+      // #12 多版本共存:只有显式配置(multiVersion / versionPins / disabledVersions)才走共存通道,
+      // 否则保持原严格出口 —— 同名多份不分版本仍弃权,零回归。
+      const pins = settings.plugins.versionPins;
+      const disabledVersions = settings.plugins.disabledVersions;
+      const multiVersion =
+        settings.plugins.multiVersion === true ||
+        (pins !== undefined && Object.keys(pins).length > 0) ||
+        (disabledVersions !== undefined && disabledVersions.length > 0);
+      const policy: PluginVersionPolicy = {};
+      if (pins !== undefined) policy.pins = pins;
+      if (disabledVersions !== undefined) policy.disabled = disabledVersions;
+      const loaded = multiVersion
+        ? loadPluginsWithVersionPolicy({ pluginsDir, policy })
+        : loadPluginsWithContributionAudit({ pluginsDir });
+      const defs = loaded.plugins;
+      const diagnostics = loaded.diagnostics;
       // 派发放在 defs.length 判据**之前**:全部清单都坏时 defs 为空,旧形态下"一个都没装上"
       // 反而零行日志,那正是本票要消灭的静默。装载继续(永不抛穿),诊断逐条点名到 logger。
       if (!opts.silent) {
@@ -631,7 +669,16 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
     ? injectHostSection('context_memory', memoryText, { kind: 'reference_data' })
     : '';
   const extraContext = [agentsMdSection, skillsText, memorySection].filter(Boolean).join('\n\n');
-  const systemPrompt = buildSystemPrompt(tools, extraContext, opts.planFirst);
+  // 唯一装配路径:模式矩阵过滤工具 → 片段经登记出口注入 → buildSystemPrompt 拼装。
+  // revealed 随会话传入(会话局部 Set),命中工具的完整 schema 由 tool_search 直接返回给模型;
+  // 本函数的 systemPrompt 只装配一次,不在轮间重建。
+  const systemPrompt = composeSystemPrompt({
+    welcome: welcomeMode,
+    interaction: interactionMode,
+    tools,
+    extraContext,
+    revealed: revealedTools,
+  });
   const resolvedSandbox = resolveSandboxOptions(
     settings.sandbox?.profile,
     settings.sandbox ?? {},
@@ -683,7 +730,18 @@ export interface RunToolLoopOptions {
    * G-109:第三个入参是**已有**的有界 display 投影(未触发裁剪时为 undefined)。
    * 它只供人读面与持久化 metadata 使用;`output` 仍是喂模型的那一份,一字未动。
    */
-  onToolResult?: (name: string, success: boolean, output: string, display?: ToolResultDisplaySource) => void | Promise<void>;
+  onToolResult?: (
+    name: string,
+    success: boolean,
+    output: string,
+    display?: ToolResultDisplaySource,
+    /**
+     * 失败原因(缺席 = 本次成功或提供方没给原因)。模型侧那一份由 `formatToolResult`
+     * 回灌(index.ts:933 的 `错误: …`),这一维是给**转录与事件面**的:自主班次死后只有
+     * 读回 `success:false` + 空 `output` 时,归因只能靠猜工具名(实测一夜两次栽在这)。
+     */
+    error?: string,
+  ) => void | Promise<void>;
   /**
    * WP-8③ —— 执行**前**声明的硬性指标。非空即进入 goal 模式:循环自宣完成
    * (`end_turn`)必须先过一次独立校验,未通过 / 未判定的档会被改写,
@@ -722,6 +780,10 @@ export interface RunToolLoopOptions {
   contextLimit?: number;
   /** 是否启用 plan 强制阻断(配合 planApproved 控制) */
   planFirst?: boolean;
+  /** 欢迎模式(--welcome-mode;缺省 code)。仅影响 system prompt 片段与工具面,不影响权限链。 */
+  welcomeMode?: string;
+  /** 交互模式(--interaction-mode;缺省按 planFirst → plan,否则 craft)。同上,只管提示面。 */
+  interactionMode?: string;
   /** plan 是否已被批准;true 时跳过阻断,允许工具执行。P0-C 修复后仅由真实审批来源置 true */
   planApproved?: boolean;
   /**
@@ -1475,7 +1537,11 @@ async function sampleWithRetry(
     try {
       await streamChat({
         model: opts.modelId,
-        messages: opts.messages,
+        // 出口清洗:tool 档正文里夹着本仓水印的零宽载荷时,上游会以 400「请求包含不合法字符」
+        // 整趟拒绝(实测:一份派发转录 970/2426 枚零宽,全部落在 read_file 的 tool_result 上;
+        // 会话只要读了水印第枚源文件,下一趟必自毒 ⇒ 这是 artifact-committed 长期为 0 的成因之一)。
+        // 判据单源 = ../util/invisible-transport.ts;本行只调用,不复算(§0.6)。
+        messages: sanitizeMessagesForTransport(opts.messages, 'streamChat', opts.extraBody),
         signal: opts.signal,
         onDelta: opts.onDelta,
         ...(opts.extraBody ? { extraBody: opts.extraBody } : {}),
@@ -1597,10 +1663,10 @@ export function createCompactionSampler(model: string): CompactionSampler {
       try {
         await streamChat({
           model,
-          messages: [
-            { role: 'system', content: COMPACTION_SUMMARY_PROMPT },
-            ...messages.map(m => ({ role: m.role, content: m.content })),
-          ],
+          messages: sanitizeMessagesForTransport([
+            { role: 'system' as const, content: COMPACTION_SUMMARY_PROMPT },
+            ...messages.map((m) => ({ role: m.role, content: m.content })),
+          ]),
           signal: controller.signal,
           // 2026-08-16 修复:显式声明流式,避免后端/中间件对 request.stream 做严格字段检测时关闭 SSE。
           stream: true,
@@ -1877,6 +1943,48 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
    * 4. 未挂 plugins —— preToolCall 钩子可能改写参数,提前跑就绕过了它。
    * 已知取舍:第 4 条让带插件的会话拿不到提前执行收益,这是有意的保守。
    */
+  /**
+   * 广告面 = 可执行面(2026-11-05 立)。
+   *
+   * 立因(现读实测):发给模型的 tools 清单一直下发**整份注册表**
+   * (`toolsToProviderSchema(listTools())`),而拒绝判据 `checkPermission` 只在**调用时**生效
+   * (全仓 `.deny` 除本模块外没有第二个消费者)。自主派发环 68 份转录里 `run_command` 被调
+   * **40 次、几乎全部 success:false** —— 每一次都是一整轮迭代白烧(会话上限 40 轮)。
+   * 无头会话没有审批人(`approverAvailable: false` 由本入口结构性声明,见上文注释),
+   * 那些"要人批准"的工具对它而言**结构上不可能执行**;把它们摆在清单里,就是引诱模型去撞一堵墙。
+   * 口径与本文既有裁决一致:**执行体只做它有权限做的事**。
+   *
+   * 判据**复用那一份现成的** `checkPermission`(§0.6,不另造第二把尺):
+   *  · `deny` ⇒ 永不摘除项之外一律摘(白名单/黑名单/plan 档都是这句);
+   *  · `ask` 且本会话没人可问 ⇒ 摘;但 `--allow-dangerous` 在场时不摘 —— 那时它是真能执行的;
+   *  · 其余(含 `ask` 而人在场)⇒ 照原样广告,交互式会话的确认窗不受影响。
+   * 失效方向:**过滤后为空 ⇒ 不应用过滤**并点名(宁可继续多给一次撞墙机会,
+   * 也不让 native function calling 静默退化成 prompt 模式 —— 那是另一种更难诊断的失败)。
+   */
+  const advertisableTools = (all: ReturnType<typeof listTools>): ReturnType<typeof listTools> => {
+    const mode = opts.ctx.permissionMode ?? 'default';
+    const nobodyToAsk = opts.ctx.approverAvailable === false && opts.ctx.allowDangerous !== true;
+    const kept = all.filter((t) => {
+      const d = checkPermission(
+        t.name,
+        opts.ctx.permissions,
+        mode,
+        t.dangerLevel ?? 'read',
+        undefined,
+        t.nameAliases,
+      );
+      return isAdvertisableDecision(d, nobodyToAsk);
+    });
+    if (all.length > 0 && kept.length === 0) {
+      console.error(
+        `⚠️ 广告面过滤后为空(整份注册表 ${all.length} 枚全被权限档判死)⇒ 原样下发不过滤,` +
+          `以免 native function calling 静默降级成 prompt 模式`,
+      );
+      return all;
+    }
+    return kept;
+  };
+
   const mayDispatchEarly = (toolName: string): boolean => {
     if (opts.signal?.aborted) return false;
     if (opts.planFirst && !opts.planApproved) return false;
@@ -2048,9 +2156,12 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
 
       // 原生 function calling:携带 tools schema 下发 + 收集 SSE tool-call 事件
       // auto 模式下 nativeToolsEnabled 探测失败会被置 false,后续迭代永久降级 prompt 模式
+      // 2026-11-05:下发前按**同一个权限判据**过滤(广告面=可执行面),无头会话不再被引诱去撞
+      // 结构上执行不了的墙(实测 run_command 40 次调用几乎全拒,每次烧掉一整轮迭代)。
       let nativeToolEvents: ParsedToolCall[] = [];
-      const useNativeTools = nativeToolsEnabled && listTools().length > 0;
-      const nativeExtraBody = useNativeTools ? { tools: toolsToProviderSchema(listTools()) } : undefined;
+      const advertisedTools = advertisableTools(listTools());
+      const useNativeTools = nativeToolsEnabled && advertisedTools.length > 0;
+      const nativeExtraBody = useNativeTools ? { tools: toolsToProviderSchema(advertisedTools) } : undefined;
 
       // 每轮一条流:换册前先收尾旧册(finalizeLedger 幂等 —— 上一轮尾已收尾则此处为 no-op;
       // 走过 continue 早退路径的旧册则在此交账,已提前发起的执行不得没有记录)。
@@ -2135,7 +2246,7 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
         const result = await streamOpenAiCompatible({
           url: localProvider.chatCompletionsUrl!,
           model: localProvider.model || opts.modelId,
-          messages: toOpenAiMessages(requestMessages),
+          messages: sanitizeMessagesForTransport(toOpenAiMessages(requestMessages)),
           ...(withTools && nativeExtraBody
             ? { tools: (nativeExtraBody as { tools?: unknown[] }).tools }
             : {}),
@@ -2738,7 +2849,13 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
             );
           }
         }
-        await opts.onToolResult?.(call.name, result.success, result.output, result.display);
+        await opts.onToolResult?.(
+          call.name,
+          result.success,
+          result.output,
+          result.display,
+          result.error,
+        );
         // WP-8③ 采集面:goal 校验只认"本轮真跑过什么"。这里记的是**调用与结果**,
         // 模型的自述(final_response)不进这一列 —— §8 禁止执行者自证完成。
         goalCallRecords.push({
@@ -3031,6 +3148,8 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
     enableMcp: opts.enableMcp,
     silent,
     planFirst: opts.planFirst,
+    welcomeMode: opts.welcomeMode,
+    interactionMode: opts.interactionMode,
     subagentParent: {
       modelId: opts.modelId,
       apiUrl: opts.apiUrl,
@@ -3214,6 +3333,8 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
       signal: opts.signal,
       sessionId: opts.session?.id,
       planFirst: opts.planFirst,
+      welcomeMode: opts.welcomeMode,
+      interactionMode: opts.interactionMode,
       // P0-C:plan 审批门 — 透传显式 auto 标志(headless 非交互无回调时由 runToolLoop fail-fast)
       autoApprovePlan: opts.autoApprovePlan,
       // 零推进闸:只有无头单次执行才把"什么都没做"判成失败(交互式 REPL 不走本函数)
@@ -3260,7 +3381,7 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
           });
         }
       },
-      onToolResult: (name, success, output, display) => {
+      onToolResult: (name, success, output, display, error) => {
         if (isStructured) {
           // 终态先清预览再落结果:消费方按 toolCallId 撤下流中预览之后才看到最终 diff,
           // 顺序反过来会出现"结果与预览同屏"(repl.ts 同一纪律,靠 settle 而不是再追加一条)。
@@ -3268,10 +3389,19 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
           if (settled) {
             emit({ type: 'tool_delta_clear', name: settled.toolName, toolCallId: settled.toolCallId });
           }
-          emit({ type: 'tool_result', name, success, output, ...(display ? { display } : {}) });
+          emit({
+            type: 'tool_result',
+            name,
+            success,
+            output,
+            ...(display ? { display } : {}),
+            ...(error ? { error } : {}),
+          });
         } else {
           const icon = success ? '✓' : '✗';
-          console.info(chalk.dim(`  ${icon} ${output.slice(0, 200)}`));
+          // 失败时 `output` 常是空串(结果体只在成功侧填),原先这一格就打出一行 `✗ ` ——
+          // 人读面与转录同盲。原因优先出,没有原因才回落到 output。
+          console.info(chalk.dim(`  ${icon} ${(success ? output : error || output).slice(0, 200)}`));
         }
       },
       onIteration: (count, max) => {

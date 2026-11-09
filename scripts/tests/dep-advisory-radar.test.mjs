@@ -24,7 +24,9 @@ import { fileURLToPath } from 'node:url'
 import {
   MAX_SUMMARY_LINES,
   RadarShapeError,
+  auditSpawnEnv,
   buildCandidates,
+  collectAudit,
   formatSummary,
   formatTicketLine,
   isFixable,
@@ -160,6 +162,66 @@ test('CLI 真跑:离线读数 exit 0,坏读数/缺文件 exit 2', () => {
     assert.equal(spawnSync(process.execPath, [SCRIPT, '--audit-json', bad, '--ledger', join(dir, 'l.jsonl')], { encoding: 'utf8' }).status, 2)
 
     assert.equal(spawnSync(process.execPath, [SCRIPT, '--audit-json', join(dir, 'missing.json'), '--ledger', join(dir, 'l.jsonl')], { encoding: 'utf8' }).status, 2)
+  } finally {
+    rmScratch(dir, { bestEffort: true })
+  }
+})
+
+test('T-ENV1 采集 spawn 注入净化 env:新对象、删 8 个代理键、保留 PATH', () => {
+  const calls = []
+  const fakeSpawn = (_cmd, argv, opts) => {
+    calls.push(opts)
+    return { status: 0, stdout: auditDoc([adv()]), stderr: '' }
+  }
+  const oldHttp = process.env.HTTP_PROXY
+  const oldHttps = process.env.HTTPS_PROXY
+  process.env.HTTP_PROXY = 'http://127.0.0.1:1'
+  process.env.HTTPS_PROXY = 'http://127.0.0.1:1'
+  try {
+    const result = collectAudit({ spawn: fakeSpawn })
+    assert.equal(result.status, 'ok')
+    const opts = calls[0]
+    assert.ok(opts.env !== process.env, 'env 必须是浅拷贝新对象,不是 process.env 本身')
+    for (const k of ['HTTP_PROXY', 'HTTPS_PROXY', 'ALL_PROXY', 'NO_PROXY', 'http_proxy', 'https_proxy', 'all_proxy', 'no_proxy']) {
+      assert.equal(opts.env[k], undefined, `${k} 应被删除`)
+    }
+    assert.equal(opts.env.PATH, process.env.PATH, 'PATH 等其余变量须保留')
+  } finally {
+    if (oldHttp === undefined) delete process.env.HTTP_PROXY
+    else process.env.HTTP_PROXY = oldHttp
+    if (oldHttps === undefined) delete process.env.HTTPS_PROXY
+    else process.env.HTTPS_PROXY = oldHttps
+  }
+})
+
+test('T-ENV2 逃生舱 KEEP_PROXY=1 原样保留;默认则删代理键', () => {
+  const base = { ...process.env, IHUI_DEP_AUDIT_KEEP_PROXY: '1', HTTP_PROXY: 'http://keep.me' }
+  assert.equal(auditSpawnEnv(base).HTTP_PROXY, 'http://keep.me')
+  delete base.IHUI_DEP_AUDIT_KEEP_PROXY
+  const stripped = auditSpawnEnv(base)
+  assert.equal(stripped.HTTP_PROXY, undefined, '默认模式应删掉代理键')
+  for (const k of ['HTTPS_PROXY', 'ALL_PROXY', 'NO_PROXY', 'http_proxy', 'https_proxy', 'all_proxy', 'no_proxy']) {
+    assert.equal(stripped[k], undefined, `默认模式应删 ${k}`)
+  }
+  assert.equal(stripped.PATH, base.PATH, '其余环境变量一个不动')
+})
+
+test('T-EMPTY 空 stdout 显式 fail-closed:undetermined 且不抛异常', () => {
+  const spawn = () => ({ status: 0, stdout: '', stderr: '' })
+  const r = collectAudit({ spawn })
+  assert.equal(r.status, 'undetermined')
+  assert.ok(r.why.includes('stdout 为空'), `why 缺诊断原因:${r.why}`)
+  assert.doesNotThrow(() => collectAudit({ spawn }))
+})
+
+test('T-OFFLINE-NOSPAWN 离线 --audit-json 分支不 spawn', () => {
+  const dir = mkScratch('dep-radar-env-')
+  try {
+    const p = join(dir, 'audit.json')
+    writeFileSync(p, auditDoc([adv()]), 'utf8')
+    const r = collectAudit({ auditJsonPath: p, spawn: () => { throw new Error('离线分支不该 spawn') } })
+    assert.equal(r.status, 'ok')
+    assert.equal(r.source, p)
   } finally {
     rmScratch(dir, { bestEffort: true })
   }

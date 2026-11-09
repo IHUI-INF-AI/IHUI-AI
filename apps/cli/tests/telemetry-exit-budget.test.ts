@@ -18,7 +18,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 
 import { TelemetryClient } from '../src/telemetry/index.js';
 
-function stalledFetch(_input: string, init?: RequestInit): Promise<Response> {
+function stalledFetch(_input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   // 永挂 + 不观测 init.signal:模拟"第三方实现把取消信号吃掉了"这一最坏形态
   return new Promise<Response>(() => {
     void init;
@@ -35,7 +35,7 @@ describe('TelemetryClient — 退出路径的有限预算', () => {
     const client = new TelemetryClient({
       enabled: true,
       endpoint: 'https://telemetry.invalid/v1/collect',
-      fetchImpl: (input, init) => {
+      fetchImpl: (_input, init) => {
         seen = init;
         return Promise.resolve(new Response('{}', { status: 202 }));
       },

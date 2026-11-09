@@ -56,11 +56,16 @@ async def _send_following_redirects(
     url: str,
     *,
     headers: dict[str, str] | None = None,
+    stream: bool = False,
 ) -> httpx.Response:
     """手动逐跳 GET,每跳先过 SSRF 尺再发请求;中间跳响应即时关闭。
 
     落点校验失败抛 HTTPException(400),由调用方决定错误形状;
     网络异常原样上抛(调用方已有 502 映射)。
+
+    AIS-093:``stream=True`` 让 ``client.send`` 只拿到响应头,正文由调用方
+    ``aiter_bytes`` 边收边转 —— 默认为 False 时 httpx 会把整包读进内存,
+    ``aiter_bytes`` 只是回放内存副本,任意大文件都能把 worker 打到 OOM。
     """
     from ..services.screenshot_service import resolve_pinned_target
 
@@ -86,7 +91,8 @@ async def _send_following_redirects(
             client.build_request(
                 "GET", pinned_url, headers=hop_headers,
                 extensions={"sni_hostname": orig_host},
-            )
+            ),
+            stream=stream,
         )
         location = resp.headers.get("location")
         if resp.is_redirect and location:
@@ -227,16 +233,23 @@ async def media_upload(
         # 的手动逐跳辅助,判据单源;错误文案不带上游原文(URL/内网主机名不进响应体)。
         try:
             async with httpx.AsyncClient(timeout=60, follow_redirects=False) as _c:
-                _r = await _send_following_redirects(_c, url or "")
-                _r.raise_for_status()
-                data = _r.content
+                _r = await _send_following_redirects(_c, url or "", stream=True)
+                try:
+                    _r.raise_for_status()
+                    # AIS-093:先看声明长度(超限直接 413),再边读边计数;不再整包
+                    # 进内存后才判 len —— 判定必须发生在内存被吃掉之前。
+                    if _declared_too_large(_r, _UPLOAD_MAX_BYTES):
+                        raise HTTPException(status_code=413, detail="远程文件超过 50MB 上限")
+                    data = await _read_capped_response(_r, _UPLOAD_MAX_BYTES)
+                    if data is None:
+                        raise HTTPException(status_code=413, detail="远程文件超过 50MB 上限")
+                finally:
+                    await _r.aclose()
         except HTTPException:
             raise
         except Exception as e:  # noqa: BLE001
             logger.warning("[media] 远程文件拉取失败: %s", e)
             raise HTTPException(status_code=502, detail="拉取远程文件失败") from e
-        if len(data) > 50 * 1024 * 1024:
-            raise HTTPException(status_code=400, detail="远程文件超过 50MB 上限")
         filename = (url or "").rsplit("/", 1)[-1][:200] or "file.bin"
         upload_url = await provider.upload_file(data, filename, purpose=purpose)
         return {"ok": True, "data": {"file_url": upload_url, "filename": filename, "size": len(data)}}
@@ -621,6 +634,70 @@ def _safe_content_length(headers: Any) -> str | None:
     return None
 
 
+# AIS-093:代理直链与远程转存此前都是"全量缓冲后再判长度"(stream=False +
+# resp.content),单个登录用户即可让 worker 吃下任意大的上游响应(可并发)OOM。
+# 现在三代理与 upload 一律 stream=True 边收边转,并给硬字节上限:
+#  - 播放/下载/图片:按响应体累计计数,超限断流(下载器可由 Content-Length 察觉截断);
+#  - 转存 token6688:沿用既有 50MB 语义,但改为边读边计数,读到上限即 413。
+_PROXY_MAX_BYTES = 200 * 1024 * 1024
+_IMAGE_MAX_BYTES = 20 * 1024 * 1024
+_UPLOAD_MAX_BYTES = 50 * 1024 * 1024
+
+
+def _declared_too_large(resp: httpx.Response, limit: int) -> bool:
+    """上游声明的 identity 长度超过上限(压缩声明长度不可比,留给流内计数兜底)。"""
+    clen = _safe_content_length(resp.headers)
+    return clen is not None and int(clen) > limit
+
+
+async def _reject_if_declared_too_large(
+    resp: httpx.Response, client: httpx.AsyncClient, limit: int, label: str
+) -> None:
+    """声明长度即超限时,在开始转发前 413 并关闭连接(避免先灌内存再拒绝)。"""
+    if not _declared_too_large(resp, limit):
+        return
+    await resp.aclose()
+    await client.aclose()
+    raise HTTPException(
+        status_code=413, detail=f"{label}超过 {limit // (1024 * 1024)}MB 上限"
+    )
+
+
+async def _read_capped_response(resp: httpx.Response, limit: int) -> bytes | None:
+    """AIS-093:边收边计数读取上游响应,超上限返回 None(峰值内存受限于 limit+一块)。"""
+    chunks: list[bytes] = []
+    total = 0
+    async for chunk in resp.aiter_bytes(chunk_size=1024 * 1024):
+        total += len(chunk)
+        if total > limit:
+            return None
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
+async def _stream_capped(
+    resp: httpx.Response, client: httpx.AsyncClient, limit: int
+) -> Any:
+    """AIS-093:流式转发上游字节,累计超上限即断流;退出时统一关闭响应与客户端。"""
+    total = 0
+    try:
+        async for chunk in resp.aiter_bytes(chunk_size=65536):
+            if not chunk:
+                continue
+            total += len(chunk)
+            if total > limit:
+                # 只吐到上限为止,不把越界块整块转出去(上限外的字节一律丢弃)
+                head = chunk[: limit - (total - len(chunk))]
+                if head:
+                    yield head
+                logger.warning("[media_tasks] 上游响应超过 %s 字节上限,已断流", limit)
+                break
+            yield chunk
+    finally:
+        await resp.aclose()
+        await client.aclose()
+
+
 @router.get("/media/download")
 async def download_media_artifact(url: str, request: Request) -> Any:
     """按产物直链代理下载(带 Content-Disposition: attachment)。
@@ -647,7 +724,8 @@ async def download_media_artifact(url: str, request: Request) -> Any:
     )
     try:
         # 2026-10-31 安全强化第 10 批:手动逐跳,每跳过 SSRF 尺(重定向绕过封死)
-        resp = await _send_following_redirects(client, url)
+        # AIS-093:stream=True —— 只拿响应头,正文在 StreamingResponse 里边收边转。
+        resp = await _send_following_redirects(client, url, stream=True)
     except HTTPException:
         await client.aclose()
         raise  # SSRF 拒绝保持 400,不被吞成 502
@@ -662,14 +740,7 @@ async def download_media_artifact(url: str, request: Request) -> Any:
         raise HTTPException(status_code=502, detail=f"源站返回 {status}")
 
     ctype = resp.headers.get("content-type", "application/octet-stream") or "application/octet-stream"
-
-    async def _body() -> Any:
-        try:
-            async for chunk in resp.aiter_bytes(chunk_size=65536):
-                yield chunk
-        finally:
-            await resp.aclose()
-            await client.aclose()
+    await _reject_if_declared_too_large(resp, client, _PROXY_MAX_BYTES, "上游文件")
 
     headers = {"Content-Disposition": f'attachment; filename="{fname}"'}
     # 纵深防御:attachment 已强制下载不渲染,再加 nosniff + CSP 兜住
@@ -678,7 +749,9 @@ async def download_media_artifact(url: str, request: Request) -> Any:
     safe_len = _safe_content_length(resp.headers)
     if safe_len:
         headers["Content-Length"] = safe_len
-    return StreamingResponse(_body(), media_type=ctype, headers=headers)
+    return StreamingResponse(
+        _stream_capped(resp, client, _PROXY_MAX_BYTES), media_type=ctype, headers=headers
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -726,7 +799,9 @@ async def stream_media_artifact(url: str, request: Request) -> Any:
         req_headers["range"] = rng
     try:
         # 2026-10-31 安全强化第 10 批:手动逐跳,每跳过 SSRF 尺(重定向绕过封死)
-        resp = await _send_following_redirects(client, url, headers=req_headers)
+        resp = await _send_following_redirects(
+            client, url, headers=req_headers, stream=True
+        )
     except HTTPException:
         await client.aclose()
         raise  # SSRF 拒绝保持 400,不被吞成 502
@@ -761,17 +836,14 @@ async def stream_media_artifact(url: str, request: Request) -> Any:
         await client.aclose()
         _raise_unsafe_ctype(raw_ct, "音视频")
     passthrough.update(_proxy_hardening_headers())
-
-    async def _stream_body() -> Any:
-        try:
-            async for chunk in resp.aiter_bytes(chunk_size=65536):
-                yield chunk
-        finally:
-            await resp.aclose()
-            await client.aclose()
+    await _reject_if_declared_too_large(resp, client, _PROXY_MAX_BYTES, "上游媒体文件")
 
     # 不传 media_type:保留上游 content-type,避免覆盖视频格式
-    return StreamingResponse(_stream_body(), status_code=resp.status_code, headers=passthrough)
+    return StreamingResponse(
+        _stream_capped(resp, client, _PROXY_MAX_BYTES),
+        status_code=resp.status_code,
+        headers=passthrough,
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -810,7 +882,8 @@ async def proxy_image(url: str, request: Request) -> Any:
     )
     try:
         # 2026-10-31 安全强化第 10 批:手动逐跳,每跳过 SSRF 尺(重定向绕过封死)
-        resp = await _send_following_redirects(client, url)
+        # AIS-093:stream=True —— 只拿响应头,正文在 StreamingResponse 里边收边转。
+        resp = await _send_following_redirects(client, url, stream=True)
     except HTTPException:
         await client.aclose()
         raise  # SSRF 拒绝保持 400,不被吞成 502
@@ -839,17 +912,12 @@ async def proxy_image(url: str, request: Request) -> Any:
     safe_len = _safe_content_length(resp.headers)
     if safe_len:
         passthrough["Content-Length"] = safe_len
-
-    async def _body() -> Any:
-        try:
-            async for chunk in resp.aiter_bytes(chunk_size=65536):
-                yield chunk
-        finally:
-            await resp.aclose()
-            await client.aclose()
+    await _reject_if_declared_too_large(resp, client, _IMAGE_MAX_BYTES, "上游图片")
 
     # 透传上游 content-type(已过白名单校验),不内联下载
-    return StreamingResponse(_body(), media_type=ctype, headers=passthrough)
+    return StreamingResponse(
+        _stream_capped(resp, client, _IMAGE_MAX_BYTES), media_type=ctype, headers=passthrough
+    )
 
 
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -13,7 +13,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { loadSkills } from '../src/skills/index.js';
+import { loadSkills, SkillScanUnread } from '../src/skills/index.js';
 
 describe('技能目录包形态 <root>/<name>/SKILL.md', () => {
   let tmpDir: string;
@@ -132,14 +132,21 @@ describe('技能目录包形态 <root>/<name>/SKILL.md', () => {
     expect(names).not.toContain('logo');
   });
 
-  it('坏文件不影响同根其余技能（读取失败逐份跳过，不整根放弃）', () => {
+  it('坏文件不再当成没有：读取失败会整根中止并点名（SkillScanUnread）', () => {
     write('good/SKILL.md', '---\nname: good-one\ndescription: 好\n---\ng\n');
     const broken = path.join(agentsRoot(), 'broken', 'SKILL.md');
     fs.mkdirSync(path.dirname(broken), { recursive: true });
     // 目录冒充文件：readFileSync 在 Windows/POSIX 都会抛 EISDIR/EACCES
     fs.mkdirSync(broken, { recursive: true });
-    const names = loadSkills({ cwd: tmpDir }).map((s) => s.name);
-    expect(names).toContain('good-one');
+    // 2026-11-07 3092936925 起的语义：读不到 ≠ 没有，绝不"逐份跳过"静默吞掉；
+    // 整根中止，由上层（catalog-cache-store.ts:200）捕获并保留旧缓存。
+    expect(() => loadSkills({ cwd: tmpDir })).toThrow(SkillScanUnread);
+    try {
+      loadSkills({ cwd: tmpDir });
+    } catch (error) {
+      expect((error as SkillScanUnread).scanPath).toBe(broken);
+      expect((error as SkillScanUnread).code).toBe('EISDIR');
+    }
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -36,10 +36,16 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { createHash } from 'node:crypto';
 import {
+  assertSafePluginName,
+  getInstalledPluginsDir,
   getPluginInstallPath,
   getPluginDataDir,
+  getPluginDataRoot,
   getRegistryPath,
+  UnsafePluginNameError,
 } from './paths.js';
+
+export { assertSafePluginName };
 import {
   getOrCloneGitCache,
   takeOwnershipOfTarget,
@@ -270,21 +276,18 @@ export function loadInstallRegistry(): InstallRegistry {
     throw new Error(`插件登记表读不到,不能把它说成没有已装插件 (${code})`);
   }
   if (raw.trim() === '') return { records: [] };
-  // 解析失败与"结构不对"分开判。改前是 `catch (error) { if (error.message.includes('插件登记表读不到'))
-  // throw error; … }` —— 拿**自己的文案**当控制流信号:同一句话改一个字就会静默失配,把"解析器语法错"
-  // 和"结构损坏"读成两回事,而两者对用户是同一件事(登记表坏了)。门 204 禁的正是这种文案判定。
-  const CORRUPT = '插件登记表读不到,不能把它说成没有已装插件 (corrupt)';
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw) as unknown;
   } catch {
-    throw new Error(CORRUPT);
+    throw new Error('插件登记表读不到,不能把它说成没有已装插件 (corrupt)');
   }
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    throw new Error(CORRUPT);
+    throw new Error('插件登记表读不到,不能把它说成没有已装插件 (corrupt)');
   }
-  if (!Array.isArray((parsed as Record<string, unknown>).records)) {
-    throw new Error(CORRUPT);
+  const obj = parsed as Record<string, unknown>;
+  if (!Array.isArray(obj.records)) {
+    throw new Error('插件登记表读不到,不能把它说成没有已装插件 (corrupt)');
   }
   return parsed as InstallRegistry;
 }
@@ -486,12 +489,14 @@ export function readPluginManifest(
         const obj = parsed as Record<string, unknown>;
         if (typeof obj.name === 'string' && obj.name.length > 0) {
           return {
-            name: obj.name,
+            name: assertSafePluginName(obj.name),
             version: typeof obj.version === 'string' ? obj.version : undefined,
           };
         }
       }
     } catch (err) {
+      // 插件名不安全必须原样抛出:它不带 errno,不能被当成"损坏 JSON,试下一份清单"吞掉
+      if (err instanceof UnsafePluginNameError) throw err;
       const code = (err as NodeJS.ErrnoException).code;
       if (code && !isDefinitePathAbsence(err)) {
         throw new Error(`插件清单读不到,不能改用下一份候选 (${code}): ${p}`);
@@ -500,6 +505,26 @@ export function readPluginManifest(
     }
   }
   throw new PluginManifestMissingError(`插件清单缺失或无效: ${pluginDir}`);
+}
+
+/**
+ * 安装目录落点包含判定:dest 若是符号链接,解析后必须仍在 installed-plugins 根内。
+ *
+ * 源路径安检只覆盖"从哪来",覆盖不到"落到哪":已存在的同名安装目录被换成指向根外的链接后,
+ * 安装(staging 落位)与卸载(递归删除)都会顺着链接作用到根外目标。判不了即拒,不放行。
+ */
+function assertInstallDestContained(dest: string, root: string): void {
+  // realpath/errno 判据只住 path-safety.ts(G-705 静态锁:installer 不得自持第二份实现)。
+  const verdict = checkSymlinkContainment({ linkPath: dest, targetPath: dest, rootPath: root });
+  if (verdict.status === 'degraded-missing') return;
+  if (verdict.status === 'unsafe') {
+    throw new PluginPathUnsafeError(`安装目录可达性判不了,不能继续:${verdict.message}`);
+  }
+  if (verdict.status === 'escape') {
+    throw new PluginPathUnsafeError(
+      `符号链接解析后落在根目录之外:${dest} → ${verdict.realTarget}(范围根 ${verdict.realRoot})`,
+    );
+  }
 }
 
 // ==================== 本地路径识别 ====================
@@ -848,6 +873,7 @@ async function installLocal(
   // 读清单
   const manifest = readPluginManifest(resolvedSrc);
   const dest = getPluginInstallPath(manifest.name);
+  assertInstallDestContained(dest, getInstalledPluginsDir());
 
   // 已装短路:按 name + sourcePath 去重。"已装"必须过可用性判据 ——
   // 只问 existsSync 会把"空目录/半成品"报成装好了(与缓存降级同一型)。
@@ -1066,6 +1092,7 @@ async function installGit(
   const pluginDir = pluginSubdir ? path.join(cachePath, pluginSubdir) : cachePath;
   const manifest = readPluginManifest(pluginDir);
   const dest = getPluginInstallPath(manifest.name);
+  assertInstallDestContained(dest, getInstalledPluginsDir());
 
   // 已装短路:按 name + sourceUrl + pluginSubdir 去重(同 local,须可用才算已装;
   // 且同样只对当代那一条成立 —— 取舍见上面 local 腿的 G-832 注记,两腿共用一处实现)。
@@ -1247,6 +1274,8 @@ export async function uninstallPlugin(
   const look = opts?.stat ?? fs.statSync;
   const installPath = getPluginInstallPath(name);
   const dataDir = getPluginDataDir(name);
+  assertInstallDestContained(installPath, getInstalledPluginsDir());
+  assertInstallDestContained(dataDir, getPluginDataRoot());
   const installPresence = pluginDirPresence(installPath, look);
   const dataPresence = pluginDirPresence(dataDir, look);
 

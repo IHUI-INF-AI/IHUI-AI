@@ -199,7 +199,7 @@ describe('study_plans.lesson_id 加列票', () => {
       sql = readFileSync(resolve(REPO_ROOT, MIG_REL), 'utf8')
     })
 
-    it('迁移文件存在且已登记进 journal(idx 309,when 严格递增)', () => {
+    it('迁移文件存在且已登记进 journal(idx 308,when 严格递增)', () => {
       expect(sql.length).toBeGreaterThan(0)
       const journal = JSON.parse(
         readFileSync(resolve(REPO_ROOT, 'packages/database/drizzle/meta/_journal.json'), 'utf8'),
@@ -207,7 +207,9 @@ describe('study_plans.lesson_id 加列票', () => {
       const entries = journal.entries as { idx: number; when: number; tag: string }[]
       const mine = entries.filter((e) => e.tag === '20261004103000_study_plans_lesson_id')
       expect(mine).toHaveLength(1)
-      expect(mine[0]!.idx).toBe(309)
+      // 2026-11 journal 重排为 0-based(first idx=0),绝对 idx 随之下移一位;
+      // 旧断言 309 钉的是 1-based 时代的位次,不再成立。
+      expect(mine[0]!.idx).toBe(308)
       // when 必须严格大于**它自己之前**那些条目的最大值(B3)。
       // 注意不能拿"除自己以外全部"的最大值来比:journal 是单调追加的,后续票还会
       // 继续加 idx(例如 20261004150000 的 study_plan_id),那种比法会让本用例在
