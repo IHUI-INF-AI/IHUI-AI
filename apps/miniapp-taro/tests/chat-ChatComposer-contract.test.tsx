@@ -52,6 +52,9 @@ vi.mock('react-native', () => {
   }
 })
 
+// 图标由 vitest.config 的别名统一指到 tests/stubs/lucide-react-native.ts(零依赖桩),
+// 本册只判布局与文案,不引平台渲染链。
+
 import {
   ChatComposer,
   type ChatComposerProps,
@@ -215,7 +218,10 @@ describe('ChatComposer 契约(块 3 输入区)', () => {
 
   it('阴性对照:源码不含平台 API 字面', () => {
     expect(source).not.toMatch(/Taro|fetch\(|axios|localStorage|Alert\.|react-navigation/)
-    expect(source).not.toMatch(/wx\.|AsyncStorage|Animated|Dimensions|lucide-react-native/)
+    // lucide-react-native 不再算平台 API 违禁项:主线的图标迁移(dc4c471aa2)就是让它进共享屏,
+    // 小程序构建侧 config/index.ts 有 `lucide-react-native$ → src/rn-compat/icons-generated.tsx`
+    // 别名把它换成端内实现;仍禁的是真正会炸的平台调用来路。
+    expect(source).not.toMatch(/wx\.|AsyncStorage|Animated|Dimensions/)
     expect(source).not.toMatch(/\bany\b/)
   })
 })

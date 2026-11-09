@@ -133,7 +133,8 @@
     "getPhoneFail": "獲取手機號碼失敗",
     "loginFailed": "登入失敗,請重試",
     "wechatOneClick": "微信一鍵登入",
-    "webAuthLogin": "網頁授權登入"
+    "webAuthLogin": "網頁授權登入",
+    "agreement": "登入即代表同意《使用者條款》和《隱私權政策》"
   },
   "forgot": {
     "step1": "第一步:驗證手機號",
@@ -2730,7 +2731,8 @@
     "payFailed": "支付失敗,請重試",
     "paying": "支付中...",
     "purchaseContent": "購買內容",
-    "userAgreement": "《使用者協議》"
+    "userAgreement": "《使用者協議》",
+    "activateDelayed": "權益發放延遲，請聯絡客服"
   },
   "study": {
     "todayMinutes": "今日 {n} 分鐘",
@@ -3028,7 +3030,8 @@
     "security": {
       "code": "驗證碼",
       "sendCode": "發送驗證碼"
-    }
+    },
+    "bindPhone": "綁定手機"
   },
   "vipScreen": {
     "qr": {
@@ -3446,7 +3449,11 @@
       "permanentMemory": "永久記憶"
     },
     "toast": {
-      "loginRequired": "請先登入"
+      "loginRequired": "請先登入",
+      "compactDone": "上下文已壓縮",
+      "compactFailed": "壓縮失敗",
+      "compactNoSession": "請先傳送一則訊息",
+      "compactSkipped": "暫無可壓縮的上下文"
     },
     "title": "智匯AI社群",
     "chatError": "傳送失敗,請重試",
@@ -3664,7 +3671,9 @@
     "d3": "本機檔案",
     "d4": "微信檔案",
     "p1": "語音輸入中",
-    "p2": "語音輸入"
+    "p2": "語音輸入",
+    "compact": "壓縮上下文",
+    "compacting": "壓縮中..."
   },
   "DrawerComponent": {
     "empty1": "暫無歷史對話",
@@ -7240,4 +7249,17 @@
     "statusApproved": "已通過",
     "statusRejected": "已駁回"
   }
-}
+,
+  "level": {
+    "0": "新手",
+    "1": "青銅",
+    "2": "白銀",
+    "3": "黃金",
+    "4": "鉑金",
+    "5": "鑽石",
+    "6": "王者",
+    "distance": "距"
+  },
+  "TagInput": {
+    "p2": "已達上限"
+  }}
