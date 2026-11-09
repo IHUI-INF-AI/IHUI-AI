@@ -21,6 +21,7 @@
  *   T8 css-tokens 腿三态:零字节写回⇒clean 无日志 / 已写回⇒written 有日志 / 乱输出⇒未判定;
  *   T9 装车顺序锁:sweepCssTokensSourceLeg() 与 sweepCrossEndLandingLeg() 两行必须排在
  *      sweepHandMirrorUpgrades() 之后、sweepParityCockpit() 之前(源头先补、再收编、最后汇总面);
+ *   T13 多线并行开关:开关文件在场 ⇒ 本轮不派、不写节流戳、日志点名;T13b 证明 paused:false 可恢复;
  *   C1 契约锁:两条腿匹配的结论文案必须真存在于生产方源码(不手抄形状);
  *   U7/U8 两态分道:拒写(downgrade>0)落 tick 的 downgrade 字段并进告警面;
  *      未判定(exit 2)落 undetermined 字段、走 ⚠️ 且不喊人,不合成一个 red。
@@ -30,7 +31,7 @@
  * 提交后两面收敛,不影响断言。
  */
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import test from 'node:test'
 
@@ -52,7 +53,15 @@ const SRC = readFileSync(GUARDIAN, 'utf8')
 
 /** 基线让路闸的默认注入值:本片测的是收编腿本身,祖先关系恒为"已含远端"。 */
 const OK_ANCESTRY = () => ({ state: 'descendant', headSha: 'head-sha', mainSha: 'origin-main-sha', behind: 0 })
-const fixture = () => ({ tickFile: join(mkScratch('cross-end-landing-'), 'tick.json'), ancestry: OK_ANCESTRY })
+/** pauseFile 一并注入 scratch:不注入就会读到真实 `.ihui-agent/state/` 的开关(测试与环境互踩)。 */
+const fixture = () => {
+  const dir = mkScratch('cross-end-landing-')
+  return {
+    tickFile: join(dir, 'tick.json'),
+    pauseFile: join(dir, 'pause.json'),
+    ancestry: OK_ANCESTRY,
+  }
+}
 /** 每条腿各用独立 scratch 内的独立戳名,避免同片测试互踩节流窗口 */
 const tick = (name) => join(mkScratch('cross-end-landing-'), name)
 const logsOf = () => {
@@ -189,6 +198,52 @@ test('T5 节流:窗口内第二次不派发;推后过 intervalMs 放行', async 
   const third = await sweepCrossEndLandingLeg({ ...f, logger: () => {}, runner: counting, intervalMs, now: T0 + intervalMs + 1 })
   assert.equal(third.ran, true)
   assert.equal(calls, 2)
+})
+
+test('T13 多线并行开关:开关文件在场 ⇒ 本轮不派、不写节流戳、日志点名', async () => {
+  // 立因(2026-11-08 机主令):收编器把工作树字节交 safe-commit,多线并行时无法逐字节证明
+  // "这枚改动只属于守护腿"。此前的处置是改 attemptAt 把节流窗推到未来 —— 那是压状态文件,
+  // 下一轮谁清 state 就复活,且没人记得自己关过。改为显式开关文件:在场即一律跳过,恢复=删文件。
+  const f = fixture()
+  writeFileSync(
+    f.pauseFile,
+    JSON.stringify({ paused: true, reason: '多线并行收尾期间:一律跳过' }),
+    'utf8',
+  )
+  const { logs, logger } = logsOf()
+  let calls = 0
+  const r = await sweepCrossEndLandingLeg({
+    ...f,
+    logger,
+    runner: () => {
+      calls += 1
+      return { status: 0, stdout: collectLine({ collected: 7 }), stderr: '' }
+    },
+  })
+  assert.equal(r.ran, false)
+  assert.equal(r.paused, true)
+  assert.equal(calls, 0, '开关在场时一条都不许派(开关的全部意义就是"这轮真的无效")')
+  assert.equal(existsSync(f.tickFile), false, '暂停轮不得消耗节流窗口/写 attemptAt')
+  const line = logs.find((l) => /跨端落库/.test(l))
+  assert.ok(line, '暂停必须留日志(否则"关了"与"坏了"在日志里长得一样)')
+  assert.match(line, /多线并行期间暂停/)
+  assert.match(line, /多线并行收尾期间:一律跳过/, '开关里的原因必须原样带出来')
+})
+
+test('T13b 开关可恢复:paused:false ⇒ 照常派发(不是"开了就粘死")', async () => {
+  const f = fixture()
+  writeFileSync(f.pauseFile, JSON.stringify({ paused: false }), 'utf8')
+  let calls = 0
+  const r = await sweepCrossEndLandingLeg({
+    ...f,
+    logger: () => {},
+    runner: () => {
+      calls += 1
+      return { status: 0, stdout: collectLine(), stderr: '' }
+    },
+  })
+  assert.equal(r.ran, true)
+  assert.equal(calls, 1)
 })
 
 /**

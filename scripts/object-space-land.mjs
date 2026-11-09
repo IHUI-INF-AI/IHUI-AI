@@ -2922,6 +2922,63 @@ export function commitFacePresence({ root, commit, paths, timeoutMs = 30_000 }) 
 }
 
 /**
+ * **先验后落**(2026-11-09,票「落地顺序」)。
+ *
+ * 旧次序是「CAS 落 ref → 再回读自检 → 自检 exit 2 只决定整批不落」:那等于**先把 ref 推过去、
+ * 再不承认**,失败那一轮留下的是"HEAD 已动而报告说没落"的既成事实(06:25/06:30 那一族的同型风险)。
+ * 本函数把两把尺子(写入档存在性 / 删除档反向存在性)整体前移到 CAS 之前,代价是:调用方在本轮
+ * 造出的 commit 若判红,它只是一枚**未成为 ref 值**的对象 —— 由 `backupIfAbandoned` 按 §22 兜住,
+ * 而 ref / 索引 / 工作树一个都没动。
+ *
+ * 返回 `{ ok, rc, fail:[...], okLines:[...] }`:
+ *  - rc=2 存在性**未判定**(问不到 ≠ 没有),rc=1 判出缺路径 / 删除项仍在树,rc=0 全过。
+ * 三态口径与 `commitFacePresence` 逐字一致,不在这里另立第二套判据。
+ */
+export function verifyMadeCommitFace({ root, commit, paths, removePaths = [] }) {
+  const fail = []
+  const okLines = []
+  const face = commitFacePresence({ root, commit, paths })
+  if (face.undetermined.length > 0) {
+    fail.push(
+      `❌ 提交面回读未判定(${face.undetermined.length} 路径):git 对"在不在树里"给不出结论 ⇒ 既不报"在树"也不报"缺路径":`,
+    )
+    for (const u of face.undetermined) fail.push(`   ${u.path} (${u.why})`)
+    fail.push(
+      `   落盘前自检未判定 ⇒ 本枚 ${commit.slice(0, 9)} 不推进任何 ref;先查 git 为何问不到,再逐路径核验 \`git cat-file -e ${commit.slice(0, 9)}:<path>\`;禁止按"缺路径"重跑本次落地`,
+    )
+    return { ok: false, rc: 2, fail, okLines }
+  }
+  if (face.absent.length > 0) {
+    fail.push(`❌ 提交面回读缺路径(消息声称的改动没真进树;git 逐路径答"不在 ${commit.slice(0, 9)} 的树里"):`)
+    for (const p of face.absent) fail.push(`  ${p}`)
+    fail.push('   落盘前自检判红 ⇒ 本枚不推进任何 ref(旧次序正是在这里先推了 ref 再报红)。')
+    return { ok: false, rc: 1, fail, okLines }
+  }
+  if (removePaths.length > 0) {
+    const delFace = commitFacePresence({ root, commit, paths: removePaths })
+    if (delFace.undetermined.length > 0) {
+      fail.push(
+        `❌ 删除档反向自证未判定(${delFace.undetermined.length} 路径):git 对"在不在树里"给不出结论 ⇒ 既不报"已删"也不报"未删":`,
+      )
+      for (const u of delFace.undetermined) fail.push(`   ${u.path} (${u.why})`)
+      fail.push(`   落盘前自检未判定 ⇒ 本枚 ${commit.slice(0, 9)} 不推进任何 ref;禁止按"已删除"重跑本次落地`)
+      return { ok: false, rc: 2, fail, okLines }
+    }
+    if (delFace.present.length > 0) {
+      fail.push(`❌ 删除档反向自证失败(声明摘除却仍在 ${commit.slice(0, 9)} 的树里):`)
+      for (const p of delFace.present) fail.push(`  ${p}`)
+      fail.push('   落盘前自检判红 ⇒ 本枚不推进任何 ref。')
+      return { ok: false, rc: 1, fail, okLines }
+    }
+    okLines.push(`✅ 删除档反向自证 ${removePaths.length}/${removePaths.length} 路径已不在树`)
+  }
+  okLines.unshift(
+    `✅ 提交面回读 ${paths.length}/${paths.length} 路径在树${removePaths.length ? `;删除档 ${removePaths.length} 路径已摘除` : ''}`,
+  )
+  return { ok: true, rc: 0, fail, okLines }
+}
+
+/**
  * 悬空相对引用预检(G-815985,2026-09-29 立)。
  *
  * 存在理由是本会话自己闯的祸:把 `./lib/lock-atomic-init.mjs` 与 `./lib/atomic-write.mjs` 的 import
@@ -3575,6 +3632,8 @@ async function main() {
   // 本轮造出却没能成为 ref 值的 sha 才是孤儿 ⇒ 备份只挂在弃落出口上(判据见 backupIfAbandoned)。
   // lastMadeCommit = 最后一轮 commit-tree 造出的那枚,供「12 次耗尽」出口兜底(与逐轮弃落同枚时幂等零加)。
   let lastMadeCommit = ''
+  // 先验后落:通过的那一轮的结论存在这里,供 CAS 成功后原样打出(pre 本身活在循环块内)。
+  let lastFace = null
   for (let attempt = 1; attempt <= MAX_CAS_ATTEMPTS; attempt++) {
     const head = git(['rev-parse', 'HEAD'], { root })
     const clobber = clobberedPaths(paths, base, head, { root })
@@ -3710,6 +3769,19 @@ async function main() {
     }
     const commit = made.commit
     lastMadeCommit = commit
+    // 先验后落(2026-11-09):回读两把尺子**在 CAS 之前**跑完。判红 ⇒ 一个 ref 都不动,
+    // 本枚 commit 只是未成为 ref 值对象 ⇒ 按 §22 备份后 exit;旧次序是"先推 ref 再报红"。
+    const pre = verifyMadeCommitFace({ root, commit, paths, removePaths })
+    if (!pre.ok) {
+      for (const l of pre.fail) console.error(l)
+      backupIfAbandoned(
+        commit,
+        `object-space-land 落地前自检不通过(rc=${pre.rc},ref 未动)`,
+        root,
+      )
+      process.exit(pre.rc)
+    }
+    lastFace = pre
     // casUpdateRef 除了返回 false 还会**抛出**(detached HEAD / G-939 fail-closed / 索引锁异常)——
     // 那一型同样是"本轮 sha 已造出却没能成为 ref 值",不接住就又是一个无备份孤儿。
     // 次序是死规矩:先备份,再把原异常**原样**抛出(不吞、不改退出码语义,更绝不因为"要备份"就
@@ -3753,55 +3825,10 @@ async function main() {
     process.exit(RC.REFUSED)
   }
 
-  // ① 提交面回读(G-801):存在性逐路径问 git 的结论 `cat-file -e <commit>:<path>`,三态不并桶。
-  //    (本段与其下 ①b 的四个 exit 1|2 **刻意不接 backupIfAbandoned**:走到这里说明 CAS 已成功、
-  //     ref 已推进且 landed 已进 HEAD 的 reflog ⇒ 结构上产不出守门 30a 数的"不可达孤儿";
-  //     接了只会在"回读前恰好被别席推进"的窗口里给一枚正常落地的提交造 tag 噪声。)
-  //    旧写法解析 `git show --name-only` 的输出文本并与声明路径逐字比对 —— git 默认按
-  //    core.quotePath 把非 ASCII 路径八进制转写并加引号,中文/带空格路径必然比不中,
-  //    把已成功的交付报成"缺路径";假失败会诱使重跑一次已经成功的落地(G-321① 幂等判据要拦的事)。
-  const face = commitFacePresence({ root, commit: landed, paths })
-  if (face.undetermined.length > 0) {
-    console.error(
-      `❌ 提交面回读未判定(${face.undetermined.length} 路径):git 对"在不在树里"给不出结论 ⇒ 既不报"在树"也不报"缺路径":`,
-    )
-    for (const u of face.undetermined) console.error(`   ${u.path} (${u.why})`)
-    console.error(
-      `   落地已推进 HEAD=${landed};先查 git 为何问不到,再逐路径核验 \`git cat-file -e ${landed.slice(0, 9)}:<path>\`;禁止按"缺路径"重跑本次落地`,
-    )
-    process.exit(2)
-  }
-  const notProven = face.absent
-  if (notProven.length > 0) {
-    console.error(
-      `❌ 提交面回读缺路径(消息声称的改动没真进树;git 逐路径答"不在 ${landed.slice(0, 9)} 的树里"):\n  ${notProven.join('\n  ')}`,
-    )
-    process.exit(1)
-  }
-  // ①b 删除档反向自证(G-926):删除项的自证必须是"**不在**树里"。
-  //     拿写入档那把尺子(`cat-file -e` 要求 status 0)量删除,一条都没删也能过 ——
-  //     那正是本器 2026-10-18 空内容守卫那次事故的同型:自检全绿而实际什么都没发生。
-  //     三态与写入档同构:未判定(问不到)exit 2、仍在树里 exit 1、确认不在 ⇒ 放行。
-  if (removePaths.length > 0) {
-    const delFace = commitFacePresence({ root, commit: landed, paths: removePaths })
-    if (delFace.undetermined.length > 0) {
-      console.error(
-        `❌ 删除档反向自证未判定(${delFace.undetermined.length} 路径):git 对"在不在树里"给不出结论 ⇒ 既不报"已删"也不报"未删":`,
-      )
-      for (const u of delFace.undetermined) console.error(`   ${u.path} (${u.why})`)
-      console.error(
-        `   落地已推进 HEAD=${landed};先查 git 为何问不到,再逐路径核验 \`git cat-file -e ${landed.slice(0, 9)}:<path>\`;禁止按"已删除"重跑本次落地`,
-      )
-      process.exit(2)
-    }
-    if (delFace.present.length > 0) {
-      console.error(
-        `❌ 删除档反向自证失败(声明摘除却仍在 ${landed.slice(0, 9)} 的树里):\n  ${delFace.present.join('\n  ')}`,
-      )
-      process.exit(1)
-    }
-    console.log(`✅ 删除档反向自证 ${removePaths.length}/${removePaths.length} 路径已不在树`)
-  }
+  // ① / ①b 的结论已在 CAS **之前**由 verifyMadeCommitFace 判完(先验后落,2026-11-09);
+  // 此处只把已通过的结论打出来,不再带任何 exit 分支 —— 走到这里 ref 已推进,再判红就又是
+  // "落了但不承认"那一型。
+  for (const l of (lastFace?.okLines ?? [])) console.log(l)
   // 混提核查(D171 起统一走 lib/git-paths 的 -z 出口:diff-tree NUL 分帧取真路径,
   // 与当年 G-801 的"-c core.quotePath=false"同效但不依赖文本行分帧;与 safe-commit
   // Step 5 共用一份实现)。它只留作"是否混提"的辅助提醒,**不参与存在性结论** ——
@@ -4615,6 +4642,7 @@ export const __test__ = {
   looksLikeLandingContract,
   staleReport,
   commitFacePresence,
+  verifyMadeCommitFace,
   // G-04:新建路径注入(文本级构造住在 watermark.mjs 的 injectText,本处只做对象空间编排)
   injectNewPathBlobs,
   watermarkPreflight,

@@ -9,7 +9,10 @@ import { canWithdraw } from '../DistributionScreen'
 
 describe('XUI-021 共享分销屏提现闸门', () => {
   it('待结算 500、可提现 0 ⇒ 不放行', () => {
-    expect(canWithdraw({ availableCommission: 0, pendingCommission: 500 }, false)).toBe(false)
+    // 先绑变量再传:canWithdraw 只声明 availableCommission/withdrawMin,多出的 pendingCommission
+    // 应被结构性忽略(对象字面量直传会触发多余属性检查,测不到「忽略」这件事)。
+    const info = { availableCommission: 0, pendingCommission: 500 }
+    expect(canWithdraw(info, false)).toBe(false)
   })
 
   it('可提现 880 ⇒ 放行;提现请求进行中 ⇒ 锁住', () => {

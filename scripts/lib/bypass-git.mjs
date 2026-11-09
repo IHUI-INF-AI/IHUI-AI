@@ -305,10 +305,56 @@ export function resolveHeadRef({ root }) {
  * 自家刚落的那枚)必须显式传 `allowNonFastForward: '<非空理由>'`,理由随 ⚠️ 行打印留痕;
  * 空串/纯空白不构成理由。方向与收敛器一致:判不出不当"判过了",拦下喊话不当静默放行。
  */
-export function casUpdateRef(newSha, oldSha, { root, ref, allowNonFastForward = '' } = {}) {
+/**
+ * 存量「给不出 oldSha」的调用方白名单(票 2026-11-09「没 CAS 的 update-ref 不许存在」)。
+ *
+ * 逐条必须写明 file:line / 谁在用 / 为什么暂时免 / 迁移计划 —— 白名单不是免死金牌,
+ * 迁移计划过期不还的条目由 `scripts/tests/landing-ref-cas.test.mjs` 侧的形状锁逼人看。
+ * 现读结论:本仓生产调用方**全部**能现读 oldSha(现读 HEAD / 父提交 / CAS 前像),
+ * 因此这里刻意留空。新增调用方请直接传 oldSha;首建 ref 用 40 个 `0`(git 语义 = 必须不存在)。
+ */
+export const CAS_OLD_ALLOWLIST = []
+
+const OID_RE = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/
+
+/**
+ * CAS 参数校验(实测语义,不是建议):**oldSha 一旦给了就必须是完整 oid**。
+ * 空串 / `HEAD` / 短 sha 一律 throw —— 它们要么让 `update-ref` 退化成无 CAS 的盲写
+ * (`git update-ref <ref> <new> ""` 会把 "" 当"必须不存在"以外的宽松语义),
+ * 要么根本判不出"抢没抢到"。只有 `undefined`(真没有旧值)才允许走显式豁免。
+ */
+function assertCasArgs(newSha, oldSha, { allowUnconditional, reason }) {
+  if (oldSha === undefined) {
+    if (allowUnconditional !== true)
+      throw new Error(
+        'casUpdateRef:缺 oldSha ⇒ 拒绝盲写(update-ref 无旧值 = 无 CAS,06:25 那类非快进改写正是这条路)。' +
+          '确有"无旧值"的合法场景请显式传 allowUnconditional:true 并给非空 reason(该行即留痕)。',
+      )
+    if (String(reason ?? '').trim() === '')
+      throw new Error('casUpdateRef:allowUnconditional 必须配非空 reason(空理由不构成豁免)')
+    return
+  }
+  const old = String(oldSha)
+  if (old.trim() === '')
+    throw new Error('casUpdateRef:oldSha 传了空串 ⇒ 拒绝(空串不是"没有旧值";要用无旧值请传 undefined 并显式豁免)')
+  if (!OID_RE.test(old))
+    throw new Error(
+      `casUpdateRef:oldSha 必须是完整 oid(40/64 位小写十六进制),收到 "${old.slice(0, 20)}" ⇒ 拒绝(` +
+        '短 sha / HEAD / 分支名都判不出"抢没抢到",等于无 CAS)',
+    )
+}
+
+export function casUpdateRef(
+  newSha,
+  oldSha,
+  { root, ref, allowNonFastForward = '', allowUnconditional = false, reason = '' } = {},
+) {
+  assertCasArgs(newSha, oldSha, { allowUnconditional, reason })
   const target = ref ?? resolveHeadRef({ root })
   if (!target) throw new Error('HEAD 处于 detached 状态 ⇒ 无法 CAS,拒绝盲写')
-  if (oldSha && newSha && newSha !== oldSha) {
+  // 全 0 的 old 是 git 的"必须不存在"语义(首建 ref):它不是祖先,不能进 G-939 的祖先性判定。
+  const zeroOld = typeof oldSha === 'string' && /^0+$/.test(oldSha)
+  if (oldSha && newSha && newSha !== oldSha && !zeroOld) {
     const anc = isAncestor(oldSha, newSha, { root })
     if (anc === null)
       throw new Error(
@@ -327,7 +373,15 @@ export function casUpdateRef(newSha, oldSha, { root, ref, allowNonFastForward = 
     }
   }
   try {
-    git(['update-ref', target, newSha, oldSha], { root })
+    if (oldSha === undefined) {
+      // 显式豁免档(必须由调用方举 allowUnconditional:true + 非空 reason):这一行即留痕。
+      console.log(
+        `⚠️ casUpdateRef 无旧值写入被显式放行(ref=${target},reason="${String(reason).trim()}")—— 无 CAS,事后靠这一行归因`,
+      )
+      git(['update-ref', target, newSha], { root })
+    } else {
+      git(['update-ref', target, newSha, oldSha], { root })
+    }
     return true
   } catch (e) {
     const t = gitErrText(e)

@@ -50,7 +50,7 @@ export default function PrivilegePage() {
       setList((privRes.list || []) as Privilege[])
       if (info) setVipInfo(info)
     } catch {
-      setLoadError(tt('common.loadFailed'))
+      setLoadError(tt('common.loadFailed', '加载失败'))
     } finally {
       setLoading(false)
     }

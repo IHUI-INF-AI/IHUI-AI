@@ -17,7 +17,6 @@ import { circleCategoryRelation, circleCircleCategoryRelation, circleDynamic } f
 import { sanitizeUgcInput } from '../../db/sensitive-words-queries.js'
 import { getLegacyId } from '../../db/id-mapping-queries.js'
 import { ADMIN_ROLE_ID } from './_shared.js'
-import { requireAdmin } from '../../plugins/require-permission.js'
 import {
   countSubscribers,
   findTagById,

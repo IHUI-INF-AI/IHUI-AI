@@ -138,8 +138,11 @@ test('T1 反向自证:删除项问的是"不在树里"而不是"在树里"(拿�
   assert.match(SRC, /删除档反向自证/, '必须有删除档专属的反向自证段')
   assert.match(SRC, /delFace\.present\.length > 0/, '仍在树里必须判红(不是拿写入档的 absent 当尺子)')
   assert.match(SRC, /✅ 删除档反向自证/, '放行必须打出可读结论,不得静默')
-  // 且它问的是删除清单,不是写入清单
-  assert.match(SRC, /commitFacePresence\(\{ root, commit: landed, paths: removePaths \}\)/, '反向自证的输入必须是 removePaths')
+  // 且它问的是删除清单,不是写入清单;且这把尺子在 CAS **之前**跑(2026-11-09 先验后落)
+  assert.match(SRC, /commitFacePresence\(\{ root, commit, paths: removePaths \}\)/, '反向自证的输入必须是 removePaths')
+  const verifyAt = SRC.indexOf('const pre = verifyMadeCommitFace(')
+  const casAt = SRC.indexOf('casUpdateRef(commit, head')
+  assert.ok(verifyAt !== -1 && casAt !== -1 && verifyAt < casAt, `删除档反向自证必须先于 CAS(实测 verify@${verifyAt} / cas@${casAt})`)
 })
 
 test('T2 工作树不被动:取消跟踪 ≠ 删盘上文件', (t) => {

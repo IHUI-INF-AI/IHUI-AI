@@ -194,6 +194,7 @@ export async function findCirclePosts(
     replyCount: circlePosts.replyCount,
     isPinned: circlePosts.isPinned,
     status: circlePosts.status,
+    visibility: circlePosts.visibility,
     createdAt: circlePosts.createdAt,
     updatedAt: circlePosts.updatedAt,
     authorName: users.nickname,
