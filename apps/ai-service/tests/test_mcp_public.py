@@ -18,8 +18,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from mcp_server import wb_autopilot_mcp as m
 from app.routers import mcp_public
+from mcp_server import wb_autopilot_mcp as m
 
 
 def _rpc(method: str, *, req_id: Any = 1, params: dict[str, Any] | None = None) -> dict[str, Any]:

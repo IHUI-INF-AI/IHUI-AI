@@ -97,6 +97,16 @@ from .session_security import (
     get_vault_store as _get_vault_store,
 )
 
+# Qoder 行为对齐(2026-11-08):会话级技能作用域 + 会话待办板。
+# 二者都是进程内会话状态(键 (user_id, session_id)),不是产品数据源;
+# 设计口径见各自模块头注(skill_scope.py / session_todo.py)。
+from .session_todo import format_todos as _format_todos
+from .session_todo import normalize_todos as _normalize_todos
+from .session_todo import todo_board as _todo_board
+from .skill_scope import activate_skill_scope as _activate_skill_scope
+from .skill_scope import describe_scope as _describe_skill_scope
+from .skill_scope import release_skill_scope as _release_skill_scope
+
 # 阶段化遥测(缺口表 T9 §10 #3,2026-11-05 Z19):段清单/结论词表/结构化结论行的唯一
 # 出处在这里,消费方(本模块的 _tool_search_codebase)不自立段名,也不自带第二份词表。
 from .stage_telemetry import UNJUDGED, StageRecorder
@@ -111,16 +121,6 @@ from .tool_surface import filter_visible_tools as _filter_visible_tools
 # 在列表面这一处把它接上;**执行面一律不受影响**(_TOOLS/_TOOL_HANDLERS 一条不动)。
 from .tool_surface_budget import RoundContext as _SurfaceRoundContext
 from .tool_surface_budget import apply_tool_surface_budget as _apply_tool_surface_budget
-
-# Qoder 行为对齐(2026-11-08):会话级技能作用域 + 会话待办板。
-# 二者都是进程内会话状态(键 (user_id, session_id)),不是产品数据源;
-# 设计口径见各自模块头注(skill_scope.py / session_todo.py)。
-from .session_todo import format_todos as _format_todos
-from .session_todo import normalize_todos as _normalize_todos
-from .session_todo import todo_board as _todo_board
-from .skill_scope import activate_skill_scope as _activate_skill_scope
-from .skill_scope import describe_scope as _describe_skill_scope
-from .skill_scope import release_skill_scope as _release_skill_scope
 
 # 2026-07-22 P1 鲁棒性加固:MCP tool 全局超时,防 handler 无限挂起
 MCP_GLOBAL_TIMEOUT = 120
