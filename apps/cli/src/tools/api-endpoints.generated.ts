@@ -8,8 +8,8 @@
  */
 // IHUI-GEN-PIN-BEGIN
 // generator: scripts/scan-api-routes.mjs
-// sourceCommit: 6ad946797610b7d58cb195da306010f887471eba
-// inputsSha256: 908952c8eab19d3b2936c37a32eec0223e2ccc50a9069aa8ad63a2bf2bb3584f
+// sourceCommit: 52ba369f82c0e6e87fab61b8fcbb4d944cb82ce6
+// inputsSha256: 572ab13f74ce789726a87af0c4c84c26af37f93b1d6838640192145c154608d3
 // input: apps/api/src/plugins/terminal-cleanup.ts c561f522419123bcf264e279c6aa5f9e5bf66b1d07fbe983bb0e6e6298f7f61a
 // input: apps/api/src/plugins/terminal-ws.ts d1693b1743170adb38494d59c2c026053eec50be1e67e011ae40d9ea286a06d9
 // input: apps/api/src/routes/ab-testing.ts 5bef33f97dcba9935bb3b8a28a5a79442ed3a686a50e2bb506d44b591511c6c0
@@ -296,7 +296,7 @@
 // input: apps/api/src/routes/groups.ts 9314ac484a3cba5a02ef2798ef713165a09439b1ee70ea86ade4dccdb3343f6b
 // input: apps/api/src/routes/health.ts e71fff58c66c73e911bea391d9eb341a0b1ebb5f2953b661a13ce5406468eb85
 // input: apps/api/src/routes/hooks.ts 91c949989ebf9d46c651408bb5ab766278a4cda8ae8c6494def718a5a8b108ba
-// input: apps/api/src/routes/hr-attendance.ts 52d5c7bc83329ee44d921f3588b9a631a0aafec05b5ab2c1311f014cdbd28540
+// input: apps/api/src/routes/hr-attendance.ts 3a61a2025b8e1a9abe1eeaf599a09bfb2afdab8d846c34bc9ff838ab01fe71f6
 // input: apps/api/src/routes/i18n-dashboard.ts 3880bb04a25b18411cedc4e49b456c862b2facbb4dce84d2d3a4f01cea2e4a1e
 // input: apps/api/src/routes/im-gateway.ts e8d979067d3f706f39cc38ac0019e25f11972828a9db5f7e39d66642a7e503de
 // input: apps/api/src/routes/index.ts 847fe82bf688608ce1c9bbb5ae043ea2a235c3a729fc35575a8e98bfcd119dc7
@@ -532,7 +532,7 @@
 // input: packages/design-tokens/src/index.ts 588263157672821ef856c43de9fdbf27bec98c371210e6b86855a45504441958
 // files: 520
 // endpoints: 5514
-// generatedAt: 2026-11-09T13:12:53.544Z
+// generatedAt: 2026-11-09T17:13:34.749Z
 // IHUI-GEN-PIN-END
 export const API_ENDPOINTS_RAW = `GET	/.well-known/apple-app-site-association	.well-known	apps/api/src/routes/apple-app-site-association.ts	exact
 GET	/.well-known/oauth-authorization-server	.well-known	apps/api/src/routes/oauth-authorization-server.ts	exact
@@ -6049,5 +6049,5 @@ GET	/api/wrong-questions	wrong-questions	apps/api/src/routes/wrong-questions.ts	
 POST	/api/wrong-questions	wrong-questions	apps/api/src/routes/wrong-questions.ts	exact
 GET	/ws/live-chat	ws	apps/api/src/routes/ws/live-chat.ts	exact
 `
-export const API_ENDPOINTS_GENERATED_AT = '2026-11-09T13:12:53.544Z'
+export const API_ENDPOINTS_GENERATED_AT = '2026-11-09T17:13:34.749Z'
 export const API_ENDPOINT_LINE_COUNT = 5514
