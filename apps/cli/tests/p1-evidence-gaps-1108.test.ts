@@ -33,7 +33,6 @@ import {
 } from '../src/tools/index.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(HERE, '../../..');
 
 function readSrc(rel: string): string {
   return fs.readFileSync(path.resolve(HERE, rel), 'utf-8');
@@ -139,7 +138,7 @@ const hookSpies = vi.hoisted(() => ({
 }));
 
 vi.mock('../src/hooks/index.js', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../src/hooks/index.js')>();
+  const actual = await importOriginal();
   return {
     ...actual,
     runPreToolCall: hookSpies.runPreToolCall,

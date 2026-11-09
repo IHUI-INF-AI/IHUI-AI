@@ -22,7 +22,7 @@
 
 from .diversity import diversify
 from .folder_ingest import DEFAULT_INCLUDE, FolderIngest, ScanStats, extract_text
-from .index import LexicalIndex, ScoredChunk
+from .index import Chunk, LexicalIndex, ScoredChunk
 from .judge import LexicalOnlyJudge, ModelJudge, resolve_judge
 from .retrieval import (
     Sag2Options,
@@ -37,7 +37,7 @@ from .text import casefold_tokens, match_query, name_phrases, sentence_spans
 
 __all__ = [
     "LexicalIndex",
-    "ScoredChunk",
+    "Chunk", "ScoredChunk",
     "DEFAULT_INCLUDE",
     "FolderIngest",
     "ScanStats",
