@@ -26,9 +26,11 @@ interface Captured {
 
 function capturingSink(): { sink: Captured[]; instance: FastifyLogInstance } {
   const sink: Captured[] = []
-  const at = (level: string) => (meta: object, msg: string): void => {
-    sink.push({ level, meta, msg })
-  }
+  const at =
+    (level: string) =>
+    (meta: object, msg: string): void => {
+      sink.push({ level, meta, msg })
+    }
   const instance: FastifyLogInstance = {
     log: { debug: at('debug'), info: at('info'), warn: at('warn'), error: at('error') },
   }

@@ -32,9 +32,9 @@ describe('XUI-039 confirmVipPaid:本地落账必须以服务端 paid 为准', ()
 
   it('一直 pending ⇒ 重试耗尽后判未支付', async () => {
     const fetchStatus = vi.fn(async () => ({ status: 'pending' }))
-    await expect(
-      confirmVipPaid('V4', fetchStatus, { attempts: 3, sleep: noSleep }),
-    ).resolves.toBe(false)
+    await expect(confirmVipPaid('V4', fetchStatus, { attempts: 3, sleep: noSleep })).resolves.toBe(
+      false,
+    )
     expect(fetchStatus).toHaveBeenCalledTimes(3)
   })
 
@@ -48,9 +48,9 @@ describe('XUI-039 confirmVipPaid:本地落账必须以服务端 paid 为准', ()
     const fetchStatus = vi.fn(async () => {
       throw new Error('network')
     })
-    await expect(
-      confirmVipPaid('V5', fetchStatus, { attempts: 2, sleep: noSleep }),
-    ).resolves.toBe(false)
+    await expect(confirmVipPaid('V5', fetchStatus, { attempts: 2, sleep: noSleep })).resolves.toBe(
+      false,
+    )
     expect(fetchStatus).toHaveBeenCalledTimes(2)
   })
 })

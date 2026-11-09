@@ -5,7 +5,15 @@
 // P
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, View } from 'react-native'
+import {
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native'
 import { appAlert } from '../BottomPops'
 import { ShieldAlert, ShieldCheck } from 'lucide-react-native'
 import type {

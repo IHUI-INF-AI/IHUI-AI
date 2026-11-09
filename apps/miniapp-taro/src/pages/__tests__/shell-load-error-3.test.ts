@@ -35,7 +35,7 @@ describe('XUI-066 组2b:壳必须把加载失败上抛', () => {
     for (const [, path] of SHELLS) {
       const src = read(path)
       expect(src).toContain("setLoadError('')")
-      expect(src).toMatch(/setLoadError\((?:t|tt)\('common\.loadFailed'/ )
+      expect(src).toMatch(/setLoadError\((?:t|tt)\('common\.loadFailed'/)
     }
   })
 })

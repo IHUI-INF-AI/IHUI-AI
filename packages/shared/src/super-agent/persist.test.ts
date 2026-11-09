@@ -169,5 +169,66 @@ describe('super-agent 快照（存算分离）', () => {
     expect(restored.getTicket(a.ticketId!, 'user-2')).toBeNull()
     expect(restored.getTicket(b.ticketId!, 'user-1')).toBeNull()
   })
+
+  it('旧快照缺授权依据按「当时未知」恢复，不按未授权砍单', () => {
+    const c = fakeClock(100)
+    const first = new SuperAgentHost(
+      { ...DEFAULT_SUPER_AGENT_POLICY, sessionIsAllowlist: false, allowedActors: ['user-2'] },
+      c.clock,
+    )
+    const opened = first.receive(trig('tA', { actorId: 'user-2' }), 'user-1')
+    expect(opened.disposition).toBe('accepted')
+    const id = opened.ticketId!
+    const snap = JSON.parse(JSON.stringify(first.snapshot()))
+    const owner = snap.owners.find(
+      (row: { ownerUserId: string; slice: { tickets: Record<string, unknown>[] } }) =>
+        row.ownerUserId === 'user-1',
+    )!
+    // 模拟加字段之前的旧快照。
+    delete owner.slice.tickets[0]!.mandate
+    delete owner.slice.tickets[0]!.policyEvents
+
+    const restored = new SuperAgentHost(DEFAULT_SUPER_AGENT_POLICY, fakeClock(900).clock)
+    expect(restored.restore(snap).ok).toBe(true)
+    const notified = restored.applyPolicy('user-1', {
+      ...DEFAULT_SUPER_AGENT_POLICY,
+      version: 'v2',
+      sessionIsAllowlist: true,
+      allowedActors: ['user-1'],
+    })
+    const ticket = restored.getTicket(id, 'user-1')!
+    expect(ticket.mandate).toBeUndefined()
+    expect(ticket.mandateWithdrawn).toBe(false)
+    expect(ticket.ended).toBeNull()
+    expect(ticket.policyEvents).toBeUndefined()
+    expect(notified).toContain(id)
+    // 尚未派出的工人仍在队列：未知不等于未授权。
+    expect(restored.takeStarted().map((row) => row.sessionId)).toContain(`worker-${id}`)
+  })
+
+  it('授权依据进快照：重启后同一份依据仍能重验', () => {
+    const c = fakeClock(100)
+    const first = new SuperAgentHost(
+      { ...DEFAULT_SUPER_AGENT_POLICY, sessionIsAllowlist: false, allowedActors: ['user-2'] },
+      c.clock,
+    )
+    const opened = first.receive(trig('tA', { actorId: 'user-2' }), 'user-1')
+    const id = opened.ticketId!
+    const snap = JSON.parse(JSON.stringify(first.snapshot()))
+    const restored = new SuperAgentHost(DEFAULT_SUPER_AGENT_POLICY, fakeClock(900).clock)
+    expect(restored.restore(snap).ok).toBe(true)
+    expect(restored.getTicket(id, 'user-1')?.mandate?.actorId).toBe('user-2')
+    restored.takeStarted()
+    const notified = restored.applyPolicy('user-1', {
+      ...DEFAULT_SUPER_AGENT_POLICY,
+      version: 'v2',
+      sessionIsAllowlist: true,
+      allowedActors: ['user-1'],
+    })
+    const ticket = restored.getTicket(id, 'user-1')!
+    expect(notified).toContain(id)
+    expect(ticket.mandateWithdrawn).toBe(true)
+    expect(ticket.ended).toEqual({ by: 'policy', outcome: 'policyRevoked' })
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

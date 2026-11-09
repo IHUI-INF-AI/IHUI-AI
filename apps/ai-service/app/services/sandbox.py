@@ -473,6 +473,17 @@ class SandboxExecutor:
                 full_env = {**os.environ, **env} if env else None
             else:
                 full_env = _strict_child_env(env)
+            # worker 请求级 env:档位裁剪之后、spawn 之前合并;上下文生效时先剥掉宿主
+            # 凭据形继承键。护栏不是沙箱(同 OS 用户仍可用绝对路径绕过)。
+            from app.core.worker_exec_context import (
+                apply_worker_child_env,
+                current_worker_exec_context,
+            )
+
+            if current_worker_exec_context() is not None:
+                full_env = apply_worker_child_env(
+                    full_env if full_env is not None else dict(os.environ)
+                )
             logger.info(
                 "sandbox exec start backend=local tier=%s timeout=%ss workdir=%s "
                 "network=%s env=%s",

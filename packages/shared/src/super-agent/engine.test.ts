@@ -155,5 +155,188 @@ describe('super-agent 控制面', () => {
     expect(agent.receive(trigger(), 'user-a').disposition).toBe('paused')
     expect(agent.panel('user-a').needsPerson).toHaveLength(0)
   })
+
+  it('面板投影全部工单：领域、创建时间、所属主体、进度与停单结局', () => {
+    const agent = host()
+    const opened = agent.receive(
+      trigger({ id: 'panel-1', sourceId: 'web', text: '给工单加面板' }),
+      'user-a',
+    )
+    const id = opened.ticketId!
+    agent.report(id, 'user-a', { state: 'progress', text: '正在接线' })
+    agent.report(id, 'user-a', { state: 'ready', text: '面板已可用' })
+
+    const panel = agent.panel('user-a')
+    expect(panel.tickets).toHaveLength(1)
+    const row = panel.tickets[0]!
+    expect(row).toMatchObject({
+      ticketId: id,
+      sourceId: 'web',
+      scope: '给工单加面板',
+      ownerUserId: 'user-a',
+      stage: { stage: 'person', action: 'review' },
+      report: { state: 'ready', text: '面板已可用' },
+      inputs: [{ triggerId: 'panel-1', text: '给工单加面板', fromPerson: true }],
+      ended: null,
+    })
+    expect(row.createdAt).toEqual(expect.any(Number))
+    expect(row.createdAt).toBeGreaterThan(0)
+
+    agent.stop(id, 'user-a', '用户停止')
+    const stopped = agent.panel('user-a').tickets[0]!
+    expect(stopped.stage).toEqual({ stage: 'ended' })
+    expect(stopped.ended).toEqual({ by: 'person', outcome: '用户停止' })
+    expect(agent.panel('user-a').needsPerson).toHaveLength(0)
+  })
+
+  it('别的主体的工单不进本主体面板', () => {
+    const agent = host()
+    agent.receive(trigger(), 'user-a')
+    expect(agent.panel('user-b').tickets).toHaveLength(0)
+  })
+})
+
+describe('super-agent 策略重验授权依据', () => {
+  function acceptInferred(
+    agent: SuperAgentHost,
+    over: Partial<IncomingTrigger>,
+    ruleId: string,
+  ): ReturnType<SuperAgentHost['acceptRecorded']> {
+    const recorded = agent.receive(trigger({ addressed: false, ...over }), 'user-a')
+    expect(recorded.disposition).toBe('recorded')
+    return agent.acceptRecorded('user-a', over.id!, ruleId)
+  }
+
+  it('显式来源被移出 allowed ⇒ 结束工单、记 policyRevoked 并出声', () => {
+    const agent = host({ sessionIsAllowlist: false, allowedActors: ['user-b'] })
+    const opened = agent.receive(trigger({ id: 'tr-b', actorId: 'user-b' }), 'user-a')
+    expect(opened.disposition).toBe('accepted')
+    const id = opened.ticketId!
+    expect(agent.takeStarted()).toHaveLength(1)
+
+    const notified = agent.applyPolicy('user-a', {
+      ...DEFAULT_SUPER_AGENT_POLICY,
+      version: 'v2',
+      allowedActors: ['user-a'],
+    })
+    const ticket = agent.getTicket(id, 'user-a')!
+    expect(ticket.mandate).toMatchObject({
+      route: 'explicit',
+      actorId: 'user-b',
+      tier: 'observe',
+      policyVersion: DEFAULT_SUPER_AGENT_POLICY.version,
+    })
+    expect(notified).toEqual([id])
+    expect(ticket.mandateWithdrawn).toBe(true)
+    expect(ticket.ended).toEqual({ by: 'policy', outcome: 'policyRevoked' })
+    expect(ticket.policyEvents?.map((row) => row.kind)).toEqual(['policyRevoked'])
+    const speech = agent.replies('user-a', 'session', 'th-1').at(-1)
+    expect(speech?.purpose).toBe('attention')
+    expect(speech?.text).toContain('撤回')
+    // 撤权只停新动作：尚未派出的那一格也要清掉。
+    expect(agent.takeStarted()).toHaveLength(0)
+  })
+
+  it('推断授权 auto 降 observe ⇒ 停新活、退回 recorded，已完成报告不回滚', () => {
+    const agent = host({
+      acceptMode: 'auto',
+      rules: [{ id: 'rule-x', enabled: true, revision: 'r1' }],
+    })
+    const opened = acceptInferred(agent, { id: 'inf-1' }, 'rule-x')
+    expect(opened.disposition).toBe('accepted')
+    const id = opened.ticketId!
+    expect(agent.takeStarted()).toHaveLength(1)
+    agent.report(id, 'user-a', { state: 'progress', text: '做到一半' })
+
+    const notified = agent.applyPolicy('user-a', {
+      ...DEFAULT_SUPER_AGENT_POLICY,
+      version: 'v2',
+      acceptMode: 'record',
+    })
+    const ticket = agent.getTicket(id, 'user-a')!
+    expect(ticket.mandate).toMatchObject({
+      strength: 'inferred',
+      route: 'admission',
+      ruleId: 'rule-x',
+      tier: 'auto',
+    })
+    expect(notified).toEqual([id])
+    expect(ticket.mandateWithdrawn).toBe(true)
+    expect(ticket.assignment?.state).toBe('ended')
+    expect(ticket.ended).toEqual({ by: 'policy', outcome: 'policyDowngraded' })
+    expect(ticket.policyEvents?.map((row) => row.kind)).toEqual(['policyDowngraded'])
+    expect(ticket.report?.text).toBe('做到一半')
+    const panel = agent.panel('user-a')
+    expect(panel.pendingRecords.map((row) => row.id)).toContain('inf-1')
+    expect(agent.takeStarted()).toHaveLength(0)
+  })
+
+  it('命中规则被禁用或改写 ⇒ 记 policy-changed，面板可标出', () => {
+    const agent = host({
+      acceptMode: 'auto',
+      rules: [
+        { id: 'rule-off', enabled: true, revision: 'r1' },
+        { id: 'rule-rewrite', enabled: true, revision: 'r1' },
+      ],
+    })
+    const disabled = acceptInferred(agent, { id: 'inf-a', threadId: 'th-a', text: 'A' }, 'rule-off')
+    const rewritten = acceptInferred(
+      agent,
+      { id: 'inf-b', threadId: 'th-b', text: 'B' },
+      'rule-rewrite',
+    )
+    expect(disabled.disposition).toBe('accepted')
+    expect(rewritten.disposition).toBe('accepted')
+    expect(agent.takeStarted()).toHaveLength(2)
+
+    const notified = agent.applyPolicy('user-a', {
+      ...DEFAULT_SUPER_AGENT_POLICY,
+      version: 'v2',
+      acceptMode: 'auto',
+      rules: [
+        { id: 'rule-off', enabled: false, revision: 'r1' },
+        { id: 'rule-rewrite', enabled: true, revision: 'r2' },
+      ],
+    })
+    const panel = agent.panel('user-a')
+    expect(panel.policyChanged.map((row) => row.ticketId).sort()).toEqual(
+      [disabled.ticketId!, rewritten.ticketId!].sort(),
+    )
+    expect(panel.policyChanged.every((row) => row.detail.includes('规则'))).toBe(true)
+    for (const id of [disabled.ticketId!, rewritten.ticketId!]) {
+      const ticket = agent.getTicket(id, 'user-a')!
+      expect(ticket.mandateWithdrawn).toBe(true)
+      expect(ticket.assignment?.state).toBe('ended')
+      expect(ticket.ended).toEqual({ by: 'policy', outcome: 'policy-changed' })
+      expect(ticket.policyEvents?.map((row) => row.kind)).toEqual(['policy-changed'])
+    }
+    expect(notified.sort()).toEqual([disabled.ticketId!, rewritten.ticketId!].sort())
+    expect(agent.takeStarted()).toHaveLength(0)
+  })
+
+  it('策略版本未变时不误伤：重验通过，不撤权、不记事件', () => {
+    const policy = {
+      acceptMode: 'auto' as const,
+      allowedActors: ['user-a'],
+      rules: [{ id: 'rule-x', enabled: true, revision: 'r1' }],
+    }
+    const agent = host(policy)
+    const explicit = agent.receive(trigger({ id: 'exp', threadId: 'th-e' }), 'user-a')
+    const inferred = acceptInferred(agent, { id: 'inf', threadId: 'th-i', text: '推断' }, 'rule-x')
+    expect(explicit.disposition).toBe('accepted')
+    expect(inferred.disposition).toBe('accepted')
+    agent.takeStarted()
+
+    const notified = agent.applyPolicy('user-a', { ...DEFAULT_SUPER_AGENT_POLICY, ...policy })
+    for (const id of [explicit.ticketId!, inferred.ticketId!]) {
+      const ticket = agent.getTicket(id, 'user-a')!
+      expect(ticket.mandateWithdrawn).toBe(false)
+      expect(ticket.ended).toBeNull()
+      expect(ticket.assignment?.state).toBe('running')
+      expect(ticket.policyEvents).toEqual([])
+    }
+    expect(notified.sort()).toEqual([explicit.ticketId!, inferred.ticketId!].sort())
+    expect(agent.panel('user-a').policyChanged).toEqual([])
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

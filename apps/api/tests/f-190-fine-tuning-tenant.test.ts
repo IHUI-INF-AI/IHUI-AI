@@ -27,7 +27,12 @@ vi.mock('../src/utils/capability-guard.js', () => ({
   requireCapabilityRules: () => async () => undefined,
 }))
 vi.mock('../src/services/relay-billing-service.js', () => ({
-  recordCall: vi.fn(async () => ({ logId: '', costCents: 0, newTokenBalance: 0, newCostBalanceCents: 0 })),
+  recordCall: vi.fn(async () => ({
+    logId: '',
+    costCents: 0,
+    newTokenBalance: 0,
+    newCostBalanceCents: 0,
+  })),
   modelToProviderCode: vi.fn(() => 'openai'),
 }))
 vi.mock('../src/config/body-limits.js', () => ({ MEDIA_FILE_UPLOAD_BODY_LIMIT: 10 * 1024 * 1024 }))
@@ -75,7 +80,7 @@ function installFetch() {
   globalThis.fetch = vi.fn(async (url: string) => {
     fetchCalls.push(String(url))
     const u = String(url)
-    if (u.endsWith('/v1/fine_tuning/jobs') ) {
+    if (u.endsWith('/v1/fine_tuning/jobs')) {
       return new Response(JSON.stringify(JOB_A), { status: 200 })
     }
     if (u.includes('/v1/fine_tuning/jobs?')) {

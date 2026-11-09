@@ -153,9 +153,15 @@ type Handler = (request: unknown, reply: unknown) => unknown
 function makeServer() {
   const handlers = new Map<string, Handler>()
   const server = {
-    get: vi.fn((p: string, ...a: unknown[]) => handlers.set(`GET ${p}`, a[a.length - 1] as Handler)),
-    post: vi.fn((p: string, ...a: unknown[]) => handlers.set(`POST ${p}`, a[a.length - 1] as Handler)),
-    put: vi.fn((p: string, ...a: unknown[]) => handlers.set(`PUT ${p}`, a[a.length - 1] as Handler)),
+    get: vi.fn((p: string, ...a: unknown[]) =>
+      handlers.set(`GET ${p}`, a[a.length - 1] as Handler),
+    ),
+    post: vi.fn((p: string, ...a: unknown[]) =>
+      handlers.set(`POST ${p}`, a[a.length - 1] as Handler),
+    ),
+    put: vi.fn((p: string, ...a: unknown[]) =>
+      handlers.set(`PUT ${p}`, a[a.length - 1] as Handler),
+    ),
     delete: vi.fn((p: string, ...a: unknown[]) =>
       handlers.set(`DELETE ${p}`, a[a.length - 1] as Handler),
     ),

@@ -6,7 +6,7 @@
 # https://smithery.ai/docs · server: wb-autopilot · Apache-2.0 · https://aizhs.top
 #
 # 本配置描述 **stdio 本地部署**(全量工具,含写侧;凭据由部署方本机 checkin_store 管理)。
-# 只读公网演示端点(无需部署):POST https://aizhs.top/api/mcp-public/wb-autopilot
+# 只读公网演示端点(无需部署):POST https://ai.aizhs.top/api/mcp-public/wb-autopilot
 #   工具:wb_server_info / wb_action_routes(零凭据、零写侧)。
 
 startCommand:
@@ -31,4 +31,5 @@ startCommand:
       args: ['apps/ai-service/mcp_server/wb_autopilot_mcp.py'],
       env: { WB_AUTOPILOT_ACCOUNT_ID: String(config.accountId ?? 20) }
     })
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
