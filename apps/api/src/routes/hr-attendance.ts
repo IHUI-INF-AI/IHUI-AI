@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsync, FastifyReply } from 'fastify'
 import { z } from 'zod'
 
 import {
@@ -22,7 +22,11 @@ import {
   listHrLeaves,
   DEFAULT_HR_BACKFILL_DAYS,
 } from '../services/hr-attendance.js'
-import { requirePermission, requireAuth } from '../plugins/require-permission.js'
+import {
+  requireAnyPermission,
+  requirePermission,
+  requireAuth,
+} from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
 import { AppError } from '../errors/AppError.js'
 
@@ -105,66 +109,94 @@ const leaveApproveSchema = z.object({
   approveRemark: z.string().optional(),
 })
 
-function badReply(reply: import('fastify').FastifyReply, parsed: z.SafeParseReturnType<unknown, unknown>) {
+function badReply(
+  reply: FastifyReply,
+  parsed: { error?: { issues: Array<{ message?: string }> } },
+) {
   return reply.status(400).send(error(400, parsed.error?.issues[0]?.message ?? '参数错误'))
 }
 
 export const hrAttendanceRoutes: FastifyPluginAsync = async (fastify) => {
   // ── 部门主数据 ──
-  fastify.get('/departments', { preHandler: requirePermission(HR_VIEW) }, async (_request, reply) => {
-    const list = await listHrDepartments()
-    return reply.send(success({ list }))
-  })
+  fastify.get(
+    '/departments',
+    { preHandler: requireAnyPermission([HR_VIEW, HR_MANAGE]) },
+    async (_request, reply) => {
+      const list = await listHrDepartments()
+      return reply.send(success({ list }))
+    },
+  )
 
-  fastify.post('/departments', { preHandler: requirePermission(HR_MANAGE) }, async (request, reply) => {
-    const parsed = departmentCreateSchema.safeParse(request.body)
-    if (!parsed.success) return badReply(reply, parsed)
-    const department = await createHrDepartment(parsed.data)
-    return reply.status(201).send(success({ department }))
-  })
+  fastify.post(
+    '/departments',
+    { preHandler: requirePermission(HR_MANAGE) },
+    async (request, reply) => {
+      const parsed = departmentCreateSchema.safeParse(request.body)
+      if (!parsed.success) return badReply(reply, parsed)
+      const department = await createHrDepartment(parsed.data)
+      return reply.status(201).send(success({ department }))
+    },
+  )
 
   // ── 员工主数据 ──
-  fastify.get('/employees', { preHandler: requirePermission(HR_VIEW) }, async (request, reply) => {
-    const q = request.query as { departmentId?: string; status?: string }
-    const list = await listHrEmployees({ departmentId: q.departmentId, status: q.status })
-    return reply.send(success({ list }))
-  })
+  fastify.get(
+    '/employees',
+    { preHandler: requireAnyPermission([HR_VIEW, HR_MANAGE]) },
+    async (request, reply) => {
+      const q = request.query as { departmentId?: string; status?: string }
+      const list = await listHrEmployees({ departmentId: q.departmentId, status: q.status })
+      return reply.send(success({ list }))
+    },
+  )
 
-  fastify.post('/employees', { preHandler: requirePermission(HR_MANAGE) }, async (request, reply) => {
-    const parsed = employeeCreateSchema.safeParse(request.body)
-    if (!parsed.success) return badReply(reply, parsed)
-    try {
-      const employee = await createHrEmployee(parsed.data)
-      return reply.status(201).send(success({ employee }))
-    } catch (e) {
-      const msg = String((e as { message?: string })?.message ?? '')
-      if (msg.includes('uq_hr_emp_no')) return reply.status(409).send(error(409, '工号已存在'))
-      if (msg.includes('fk_') || msg.includes('foreign key')) {
-        return reply.status(400).send(error(400, '关联的部门或账户不存在'))
+  fastify.post(
+    '/employees',
+    { preHandler: requirePermission(HR_MANAGE) },
+    async (request, reply) => {
+      const parsed = employeeCreateSchema.safeParse(request.body)
+      if (!parsed.success) return badReply(reply, parsed)
+      try {
+        const employee = await createHrEmployee(parsed.data)
+        return reply.status(201).send(success({ employee }))
+      } catch (e) {
+        const msg = String((e as { message?: string })?.message ?? '')
+        if (msg.includes('uq_hr_emp_no')) return reply.status(409).send(error(409, '工号已存在'))
+        if (msg.includes('fk_') || msg.includes('foreign key')) {
+          return reply.status(400).send(error(400, '关联的部门或账户不存在'))
+        }
+        throw e
       }
-      throw e
-    }
-  })
+    },
+  )
 
   // ── 考勤规则 ──
-  fastify.get('/attendance/rule', { preHandler: requirePermission(HR_VIEW) }, async (request, reply) => {
-    const q = request.query as { departmentId?: string }
-    if (!q.departmentId) return reply.status(400).send(error(400, 'departmentId 必填'))
-    const rule = await getHrAttendanceRule(q.departmentId)
-    return reply.send(success({ rule }))
-  })
-
-  fastify.put('/attendance/rule', { preHandler: requirePermission(HR_MANAGE) }, async (request, reply) => {
-    const parsed = ruleUpsertSchema.safeParse(request.body)
-    if (!parsed.success) return badReply(reply, parsed)
-    try {
-      const rule = await upsertHrAttendanceRule(parsed.data)
+  fastify.get(
+    '/attendance/rule',
+    { preHandler: requireAnyPermission([HR_VIEW, HR_MANAGE]) },
+    async (request, reply) => {
+      const q = request.query as { departmentId?: string }
+      if (!q.departmentId) return reply.status(400).send(error(400, 'departmentId 必填'))
+      const rule = await getHrAttendanceRule(q.departmentId)
       return reply.send(success({ rule }))
-    } catch (e) {
-      if (e instanceof AppError) return reply.status(e.statusCode).send(error(e.statusCode, e.message, e.errorCode))
-      throw e
-    }
-  })
+    },
+  )
+
+  fastify.put(
+    '/attendance/rule',
+    { preHandler: requirePermission(HR_MANAGE) },
+    async (request, reply) => {
+      const parsed = ruleUpsertSchema.safeParse(request.body)
+      if (!parsed.success) return badReply(reply, parsed)
+      try {
+        const rule = await upsertHrAttendanceRule(parsed.data)
+        return reply.send(success({ rule }))
+      } catch (e) {
+        if (e instanceof AppError)
+          return reply.status(e.statusCode).send(error(e.statusCode, e.message, e.errorCode))
+        throw e
+      }
+    },
+  )
 
   // ── 签到 / 签退(员工自助,需登录)──
   fastify.post('/attendance/check-in', { preHandler: requireAuth }, async (request, reply) => {
@@ -215,43 +247,55 @@ export const hrAttendanceRoutes: FastifyPluginAsync = async (fastify) => {
   )
 
   // ── 考勤记录列表 ──
-  fastify.get('/attendance/records', { preHandler: requirePermission(HR_VIEW) }, async (request, reply) => {
-    const q = request.query as Record<string, string | undefined>
-    const { list, total } = await listHrAttendanceRecords({
-      employeeId: q.employeeId,
-      departmentId: q.departmentId,
-      date: q.date,
-      startDate: q.startDate,
-      endDate: q.endDate,
-      limit: q.limit ? Number(q.limit) : 50,
-      offset: q.offset ? Number(q.offset) : 0,
-    })
-    return reply.send(success({ list, total }))
-  })
+  fastify.get(
+    '/attendance/records',
+    { preHandler: requireAnyPermission([HR_VIEW, HR_MANAGE]) },
+    async (request, reply) => {
+      const q = request.query as Record<string, string | undefined>
+      const { list, total } = await listHrAttendanceRecords({
+        employeeId: q.employeeId,
+        departmentId: q.departmentId,
+        date: q.date,
+        startDate: q.startDate,
+        endDate: q.endDate,
+        limit: q.limit ? Number(q.limit) : 50,
+        offset: q.offset ? Number(q.offset) : 0,
+      })
+      return reply.send(success({ list, total }))
+    },
+  )
 
   // ── 考勤统计 ──
-  fastify.get('/attendance/stats', { preHandler: requirePermission(HR_VIEW) }, async (request, reply) => {
-    const q = request.query as Record<string, string | undefined>
-    const stats = await getHrAttendanceStats({
-      departmentId: q.departmentId,
-      startDate: q.startDate,
-      endDate: q.endDate,
-    })
-    return reply.send(success({ stats }))
-  })
+  fastify.get(
+    '/attendance/stats',
+    { preHandler: requireAnyPermission([HR_VIEW, HR_MANAGE]) },
+    async (request, reply) => {
+      const q = request.query as Record<string, string | undefined>
+      const stats = await getHrAttendanceStats({
+        departmentId: q.departmentId,
+        startDate: q.startDate,
+        endDate: q.endDate,
+      })
+      return reply.send(success({ stats }))
+    },
+  )
 
   // ── 请假 ──
-  fastify.get('/leave', { preHandler: requirePermission(HR_VIEW) }, async (request, reply) => {
-    const q = request.query as Record<string, string | undefined>
-    const list = await listHrLeaves({
-      employeeId: q.employeeId,
-      departmentId: q.departmentId,
-      status: q.status,
-      startDate: q.startDate,
-      endDate: q.endDate,
-    })
-    return reply.send(success({ list }))
-  })
+  fastify.get(
+    '/leave',
+    { preHandler: requireAnyPermission([HR_VIEW, HR_MANAGE]) },
+    async (request, reply) => {
+      const q = request.query as Record<string, string | undefined>
+      const list = await listHrLeaves({
+        employeeId: q.employeeId,
+        departmentId: q.departmentId,
+        status: q.status,
+        startDate: q.startDate,
+        endDate: q.endDate,
+      })
+      return reply.send(success({ list }))
+    },
+  )
 
   fastify.post('/leave', { preHandler: requireAuth }, async (request, reply) => {
     const parsed = leaveCreateSchema.safeParse(request.body)
@@ -260,18 +304,22 @@ export const hrAttendanceRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.status(201).send(success({ leave }))
   })
 
-  fastify.put('/leave/:id/approve', { preHandler: requirePermission(HR_MANAGE) }, async (request, reply) => {
-    const idParsed = uuidSchema.safeParse((request.params as { id: string }).id)
-    if (!idParsed.success) return reply.status(400).send(error(400, 'leave id 非法'))
-    const parsed = leaveApproveSchema.safeParse(request.body)
-    if (!parsed.success) return badReply(reply, parsed)
-    const updated = await approveHrLeave(
-      idParsed.data,
-      request.userId ?? 'system',
-      parsed.data.decision,
-      parsed.data.approveRemark,
-    )
-    if (!updated) return reply.status(404).send(error(404, '请假单不存在或已审批'))
-    return reply.send(success({ leave: updated }))
-  })
+  fastify.put(
+    '/leave/:id/approve',
+    { preHandler: requirePermission(HR_MANAGE) },
+    async (request, reply) => {
+      const idParsed = uuidSchema.safeParse((request.params as { id: string }).id)
+      if (!idParsed.success) return reply.status(400).send(error(400, 'leave id 非法'))
+      const parsed = leaveApproveSchema.safeParse(request.body)
+      if (!parsed.success) return badReply(reply, parsed)
+      const updated = await approveHrLeave(
+        idParsed.data,
+        request.userId ?? 'system',
+        parsed.data.decision,
+        parsed.data.approveRemark,
+      )
+      if (!updated) return reply.status(404).send(error(404, '请假单不存在或已审批'))
+      return reply.send(success({ leave: updated }))
+    },
+  )
 }

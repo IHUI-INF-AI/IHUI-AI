@@ -8,12 +8,12 @@ import {
   text,
   integer,
   boolean,
-  jsonb,
   date,
   time,
   timestamp,
   index,
   uniqueIndex,
+  type AnyPgColumn,
 } from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
 import { users } from './users.js'
@@ -38,7 +38,9 @@ export const hrDepartment = pgTable(
   {
     id: uuid('id').defaultRandom().primaryKey(),
     name: varchar('name', { length: 100 }).notNull(),
-    parentId: uuid('parent_id').references((): any => hrDepartment.id, { onDelete: 'set null' }),
+    parentId: uuid('parent_id').references((): AnyPgColumn => hrDepartment.id, {
+      onDelete: 'set null',
+    }),
     leaderEmployeeId: uuid('leader_employee_id'),
     sortOrder: integer('sort_order').default(0).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
