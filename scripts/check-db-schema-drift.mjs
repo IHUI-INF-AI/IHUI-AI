@@ -21,6 +21,15 @@
  *    测试全绿"最高发面的静态对偶(动态面由 apps/ai-service 的 schema_check.py 管)。
  *    反向(migration 有列/TS 无)与"多余字段"同口径:信息级,非阻塞。
  *    枚举到 0 张可对照表 ⇒ 判"无法判定"而非记绿(与守门 117/157 的"枚举到 0 判死"同形)。
+ * 5. 外键名称级维度(2026-11-07 增补,warn-only 起步):迁移链终态声明过 FK、而 journal 末条
+ *    对应 snapshot 的 foreignKeys 已不再声明 ⇒ "迁移有/声明无",这正是会掉约束的单向面。
+ *    迁移侧复用门 350 的 extractAddedObjects / maskSql(不复制第二份 SQL 解析),按
+ *    meta/_journal.json 顺序扫 ALTER ADD CONSTRAINT 与 CREATE TABLE CONSTRAINT,并按序应用
+ *    DROP/RENAME CONSTRAINT;声明侧只读 journal 末条对应的 snapshot。身份键 =
+ *    name + columnsFrom 列序 + tableTo + columnsTo 列序。未加引号标识符折小写,public. 归一。
+ *    动态 SQL(EXECUTE format / 分区自动建表)解析不到的记"未判定",不折红。
+ *    snapshot 缺 foreignKeys / 末条 snapshot 及其前序都取不到 ⇒ exit 2,不记绿。
+ *    本轮不新建基线、不冻结数字;默认只打印不阻断(`--strict` 才把"迁移有/声明无"升为 exit 1)。
  *
  * 用法: node scripts/check-db-schema-drift.mjs
  *   无参数: 全量扫描,发现 migration 缺失 exit 1,无问题 exit 0
@@ -30,6 +39,13 @@
 import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
+// 门 350(check-hand-migration-snapshot.mjs)的迁移侧抽取器是唯一真源:
+// maskSql / parseTableRef / extractAddedObjects 均从其导出,本门不复制第二份 SQL 解析。
+import {
+  extractAddedObjects,
+  maskSql,
+  migrationNumberOf,
+} from './check-hand-migration-snapshot.mjs'
 
 const ROOT = process.cwd()
 const SCHEMA_DIR = join(ROOT, 'packages/database/src/schema')
@@ -323,6 +339,14 @@ async function main() {
   deadMigrations.sort((a, b) => a.table.localeCompare(b.table))
   whitelistedDeadMigrations.sort((a, b) => a.table.localeCompare(b.table))
 
+  // ── 外键名称级维度(2026-11-07,warn-only 起步;不新建基线、不冻结数字) ──
+  const fkStrict = process.argv.includes('--strict')
+  const fkMig = collectMigrationForeignKeys()
+  const fkDecl = fkMig.skipped || fkMig.unjudged ? null : loadDeclarationForeignKeys(fkMig.journal)
+  const fkUnjudged = fkMig.unjudged ?? fkDecl?.unjudged ?? null
+  const fkDiff =
+    fkMig.skipped || fkUnjudged ? null : diffForeignKeys(fkMig.fks, fkDecl.fks)
+
   // ============ 输出报告 ============
   console.log(`${C.bold}=== schema drift check report ===${C.reset}`)
   const modeHint =
@@ -352,6 +376,26 @@ async function main() {
         missingColumns.length === 0 ? C.green + '0' : C.red + missingColumns.length
       }${C.reset},extra columns: ${C.yellow}${extraColumns.length}${C.reset} (信息级)`,
   )
+  if (fkMig.skipped) {
+    console.log(
+      `  FK name-level:       ${C.dim}未纳入(${fkMig.skipped};夹具/无 journal 仓不判绿也不判红)${C.reset}`,
+    )
+  } else if (fkUnjudged) {
+    console.log(`  FK name-level:       ${C.yellow}未判定${C.reset} ${C.dim}(${fkUnjudged})${C.reset}`)
+  } else {
+    const snapName = fkDecl.snapshotPath.split(/[\\/]/).pop()
+    console.log(
+      `  FK name-level:       ${C.cyan}${fkMig.fks.length}${C.reset} 条迁移终态 / ` +
+        `${C.cyan}${fkDecl.fks.length}${C.reset} 条声明末态` +
+        `,迁移有·声明无: ${
+          fkDiff.missing.length === 0 ? C.green + '0' : C.yellow + fkDiff.missing.length
+        }${C.reset} ${C.dim}(warn-only,${fkStrict ? '--strict 本次升为阻塞' : '默认不阻断'})${C.reset}` +
+        `,声明有·迁移无: ${C.yellow}${fkDiff.extra.length}${C.reset} ${C.dim}(信息级)${C.reset}` +
+        ` ${C.dim}(snapshot ${snapName}${
+          fkDecl.degraded ? ',journal 末条缺同号,按 journal 前序回退' : ''
+        })${C.reset}`,
+    )
+  }
   console.log()
 
   let hasError = false
@@ -420,11 +464,65 @@ async function main() {
     hasError = true
   }
 
+  if (fkDiff && fkDiff.missing.length > 0) {
+    console.log(
+      `${fkStrict ? C.red : C.yellow}${C.bold}${fkStrict ? '❌' : '⚠'} 外键:迁移终态有、snapshot 末态无` +
+        `(${fkStrict ? '--strict 阻塞' : 'warn-only 不阻断'}):${C.reset}`,
+    )
+    console.log(
+      `${C.dim}  该面抓到「迁移链声明过 FK、TS/snapshot 侧已不再声明」的掉约束;` +
+        `本轮不新建基线、不冻结数字${C.reset}`,
+    )
+    const shown = fkDiff.missing.slice(0, 50)
+    for (const fk of shown) {
+      console.log(
+        `  ${fkStrict ? C.red : C.yellow}${fk.name}${C.reset} ` +
+          `${C.dim}${fk.tableFrom}(${fk.columnsFrom.join(',')}) → ` +
+          `${fk.tableTo}(${fk.columnsTo.join(',')}) ← ${fk.file}:${fk.line}${C.reset}`,
+      )
+    }
+    if (fkDiff.missing.length > 50) {
+      console.log(`  ${C.dim}... 还有 ${fkDiff.missing.length - 50} 个未显示${C.reset}`)
+    }
+    console.log()
+    if (fkStrict) hasError = true
+  }
+
+  if (fkDiff && fkDiff.extra.length > 0) {
+    console.log(
+      `${C.cyan}ℹ 外键:snapshot 末态有、迁移终态无(${fkDiff.extra.length} 条,信息级,不阻塞):${C.reset}`,
+    )
+    for (const fk of fkDiff.extra.slice(0, 20)) {
+      console.log(
+        `  ${C.dim}${fk.name} ${fk.tableFrom}(${fk.columnsFrom.join(',')}) → ` +
+          `${fk.tableTo}(${fk.columnsTo.join(',')})${C.reset}`,
+      )
+    }
+    if (fkDiff.extra.length > 20) {
+      console.log(`  ${C.dim}... 还有 ${fkDiff.extra.length - 20} 个未显示${C.reset}`)
+    }
+    console.log()
+  }
+
+  if (fkMig.dynamic?.length > 0) {
+    console.log(
+      `${C.dim}ℹ 动态 DDL(EXECUTE format)未纳入 FK 判定,记未判定不折红: ` +
+        `${fkMig.dynamic.map((d) => `${d.file}×${d.count}`).join(', ')}${C.reset}`,
+    )
+    console.log()
+  }
+
   if (joinedTables === 0) {
     // 枚举到 0 张可对照表 ⇒ 无法判定,不记绿(与守门 117/157 的"枚举到 0 判死"口径同形)
     console.log(
       `${C.red}${C.bold}❌ 无法判定:可做列级对照的表为 0(schema 目录或 migration 目录缺失/为空?)${C.reset}`,
     )
+    return 2
+  }
+
+  if (fkUnjudged) {
+    console.log(`${C.yellow}${C.bold}⚠ 外键名称级维度未判定:${fkUnjudged}${C.reset}`)
+    console.log()
     return 2
   }
 
@@ -604,6 +702,388 @@ export function extractColumnProvenanceFromSql(sql) {
   return out
 }
 
+// ───────────────── 外键名称级尺子(2026-11-07 增补,warn-only) ─────────────────
+// 迁移侧对象抽取复用门 350 的 extractAddedObjects / maskSql;这里只补「FK 明细(列序 +
+// 引用表列)」与声明侧 snapshot.foreignKeys 的对照,不再造第二份 SQL 解析。
+
+const JOURNAL_REL = 'meta/_journal.json'
+const FK_IDENT_BASE = `"(?:[^"]|"")+"|[A-Za-z_][A-Za-z0-9_$]*`
+const FK_IDENT = `(${FK_IDENT_BASE})`
+const FK_IDENT_NC = `(?:${FK_IDENT_BASE})`
+const FK_TABLE_REF_SRC = `(${FK_IDENT_NC}(?:\\s*\\.\\s*${FK_IDENT_NC})?)`
+const FK_CLAUSE_SRC = `FOREIGN\\s+KEY\\s*\\(([^()]*)\\)\\s+REFERENCES\\s+${FK_TABLE_REF_SRC}\\s*\\(([^()]*)\\)`
+
+/** 未加引号标识符按 PostgreSQL 折小写;双引号标识符保留原样。 */
+function normIdent(raw) {
+  const t = String(raw ?? '').trim()
+  if (t.startsWith('"') && t.endsWith('"')) return t.slice(1, -1).replace(/""/g, '"')
+  return t.toLowerCase()
+}
+
+/** `[schema.]table` → {schema, table};`public.` 前缀归一为无 schema。 */
+function normRef(raw) {
+  const parts = String(raw ?? '')
+    .split('.')
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .map(normIdent)
+    .filter(Boolean)
+  const table = parts[parts.length - 1] ?? ''
+  let schema = parts.length > 1 ? parts[parts.length - 2] : null
+  if (schema === 'public') schema = null
+  return { schema, table }
+}
+
+function normColumns(text) {
+  return String(text ?? '')
+    .split(',')
+    .map((c) => normIdent(c))
+    .filter(Boolean)
+}
+
+function escapeRe(text) {
+  return String(text).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function lineOf(text, index) {
+  let line = 1
+  for (let i = 0; i < index && i < text.length; i++) if (text[i] === '\n') line++
+  return line
+}
+
+/** 从 `FOREIGN KEY (...)` 子句起解析列序与引用表列(入参 start 指向子句前的空白)。 */
+function parseFkClauseAt(masked, start) {
+  const m = new RegExp(`^\\s+${FK_CLAUSE_SRC}`, 'i').exec(masked.slice(start))
+  if (!m) return null
+  const ref = normRef(m[2])
+  return {
+    tableTo: ref.table,
+    schemaTo: ref.schema,
+    columnsFrom: normColumns(m[1]),
+    columnsTo: normColumns(m[3]),
+  }
+}
+
+/** 掩码文本里的 CREATE TABLE 体(括号深度扫描;字符串/注释已在 maskSql 中抹平)。 */
+function createTableBodies(masked) {
+  const bodies = []
+  const re = new RegExp(
+    `\\bCREATE\\s+TABLE\\s+(?:IF\\s+NOT\\s+EXISTS\\s+)?${FK_TABLE_REF_SRC}\\s*\\(`,
+    'gi',
+  )
+  let m
+  while ((m = re.exec(masked)) !== null) {
+    const bodyStart = m.index + m[0].length
+    let depth = 1
+    let i = bodyStart
+    while (i < masked.length && depth > 0) {
+      if (masked[i] === '(') depth++
+      else if (masked[i] === ')') depth--
+      i++
+    }
+    const ref = normRef(m[1])
+    bodies.push({
+      table: ref.table,
+      schema: ref.schema,
+      start: bodyStart,
+      text: masked.slice(bodyStart, i - 1),
+    })
+    re.lastIndex = i
+  }
+  return bodies
+}
+
+/** 掩码文本里的 ALTER TABLE 动作段(到分号为止;DO $$ ... $$ 体内的动作同样在段内)。 */
+function alterTableSegments(masked) {
+  const segs = []
+  const re = new RegExp(
+    `\\bALTER\\s+TABLE\\s+(?:IF\\s+EXISTS\\s+)?(?:ONLY\\s+)?${FK_TABLE_REF_SRC}`,
+    'gi',
+  )
+  let m
+  while ((m = re.exec(masked)) !== null) {
+    const start = m.index + m[0].length
+    const semi = masked.indexOf(';', start)
+    const end = semi === -1 ? masked.length : semi
+    const ref = normRef(m[1])
+    segs.push({
+      table: ref.table,
+      schema: ref.schema,
+      start,
+      text: masked.slice(start, end),
+      index: m.index,
+    })
+  }
+  return segs
+}
+
+/** 动态 DDL 计数(`EXECUTE format(...)` 里的 DDL 在单引号字符串内被抹平,只能记未判定)。 */
+export function countDynamicDdl(sqlText) {
+  const masked = maskSql(sqlText)
+  return (masked.match(/\bEXECUTE\s+format\b/gi) ?? []).length
+}
+
+/**
+ * 纯函数:从单份迁移 SQL 抽取 FK 事件(按源码位置排序,供跨文件按 journal 顺序应用)。
+ * @returns {Array<{type:'add'|'drop'|'rename', ...}>}
+ */
+export function extractForeignKeyEventsFromSql(sqlText) {
+  const src = String(sqlText ?? '')
+  if (!src) return []
+  const masked = maskSql(src)
+  const events = []
+
+  // ① ALTER TABLE ... ADD CONSTRAINT <name> FOREIGN KEY ...(归属/对象名来自门 350)
+  for (const obj of extractAddedObjects(src)) {
+    if (obj.kind !== 'constraint') continue
+    const n = escapeRe(obj.object)
+    const re = new RegExp(`ADD\\s+CONSTRAINT\\s+(?:"${n}"|${n})(?![A-Za-z0-9_$])`, 'gi')
+    let m
+    while ((m = re.exec(masked)) !== null) {
+      const detail = parseFkClauseAt(masked, m.index + m[0].length)
+      if (!detail) continue
+      events.push({
+        type: 'add',
+        name: normIdent(obj.object),
+        tableFrom: obj.table,
+        schemaFrom: obj.schema ?? null,
+        index: m.index,
+        ...detail,
+      })
+      break
+    }
+  }
+
+  // ② CREATE TABLE 体内的 CONSTRAINT <name> FOREIGN KEY ...
+  for (const body of createTableBodies(masked)) {
+    const re = new RegExp(`\\bCONSTRAINT\\s+${FK_IDENT}\\s+(?:${FK_CLAUSE_SRC})`, 'gi')
+    let m
+    while ((m = re.exec(body.text)) !== null) {
+      const ref = normRef(m[3])
+      events.push({
+        type: 'add',
+        name: normIdent(m[1]),
+        tableFrom: body.table,
+        schemaFrom: body.schema,
+        index: body.start + m.index,
+        tableTo: ref.table,
+        schemaTo: ref.schema,
+        columnsFrom: normColumns(m[2]),
+        columnsTo: normColumns(m[4]),
+      })
+    }
+  }
+
+  // ③ DROP / RENAME CONSTRAINT(按出现顺序扣减或改名)
+  for (const seg of alterTableSegments(masked)) {
+    const dropRe = new RegExp(
+      `\\bDROP\\s+CONSTRAINT\\s+(?:IF\\s+EXISTS\\s+)?${FK_IDENT}`,
+      'gi',
+    )
+    let m
+    while ((m = dropRe.exec(seg.text)) !== null) {
+      events.push({
+        type: 'drop',
+        name: normIdent(m[1]),
+        tableFrom: seg.table,
+        schemaFrom: seg.schema,
+        index: seg.start + m.index,
+      })
+    }
+    const renRe = new RegExp(
+      `\\bRENAME\\s+CONSTRAINT\\s+${FK_IDENT}\\s+TO\\s+${FK_IDENT}`,
+      'gi',
+    )
+    while ((m = renRe.exec(seg.text)) !== null) {
+      events.push({
+        type: 'rename',
+        oldName: normIdent(m[1]),
+        newName: normIdent(m[2]),
+        tableFrom: seg.table,
+        schemaFrom: seg.schema,
+        index: seg.start + m.index,
+      })
+    }
+  }
+
+  const order = { add: 0, drop: 1, rename: 2 }
+  return events.sort((a, b) => a.index - b.index || order[a.type] - order[b.type])
+}
+
+/** 纯函数:把单文件事件按序应用到跨文件 FK 终态(state = Map<tableFrom|name, fk>)。 */
+export function applyForeignKeyEvents(state, events) {
+  const next = state instanceof Map ? new Map(state) : new Map()
+  for (const e of events) {
+    if (e.type === 'add') {
+      next.set(`${e.tableFrom}|${e.name}`, e)
+      continue
+    }
+    if (e.type === 'drop') {
+      const key = `${e.tableFrom}|${e.name}`
+      if (next.has(key)) {
+        next.delete(key)
+        continue
+      }
+      for (const [k, v] of next) {
+        if (v.name === e.name) {
+          next.delete(k)
+          break
+        }
+      }
+      continue
+    }
+    if (e.type === 'rename') {
+      let from = `${e.tableFrom}|${e.oldName}`
+      let v = next.get(from)
+      if (!v) {
+        for (const [k, x] of next) {
+          if (x.name === e.oldName) {
+            from = k
+            v = x
+            break
+          }
+        }
+      }
+      if (!v) continue
+      next.delete(from)
+      next.set(`${e.tableFrom}|${e.newName}`, { ...v, name: e.newName })
+    }
+  }
+  return next
+}
+
+/**
+ * 迁移侧终态:按 meta/_journal.json 顺序扫全部迁移,返回 FK 终态集合。
+ * journal 不存在 ⇒ 维度不纳入(夹具/无 journal 仓);journal 存在但指向的 .sql 缺失 ⇒ 未判定。
+ */
+export function collectMigrationForeignKeys() {
+  const journalPath = join(MIGRATIONS_DIR, JOURNAL_REL)
+  if (!existsSync(journalPath)) return { skipped: `未发现 ${JOURNAL_REL}` }
+  let journal
+  try {
+    journal = JSON.parse(readFileSync(journalPath, 'utf8'))
+  } catch (e) {
+    return { unjudged: `journal 解析失败: ${e?.message ?? e}` }
+  }
+  const entries = Array.isArray(journal?.entries) ? journal.entries : []
+  if (entries.length === 0) return { unjudged: 'journal entries 为空' }
+  let state = new Map()
+  const dynamic = []
+  for (const entry of entries) {
+    const file = `${entry.tag}.sql`
+    const filePath = join(MIGRATIONS_DIR, file)
+    if (!existsSync(filePath)) {
+      return { unjudged: `journal 指向的迁移文件缺失: ${file}`, journal }
+    }
+    const src = readFileSync(filePath, 'utf8')
+    const masked = maskSql(src)
+    const events = extractForeignKeyEventsFromSql(src).map((e) => ({
+      ...e,
+      file,
+      line: lineOf(masked, e.index),
+    }))
+    state = applyForeignKeyEvents(state, events)
+    const dyn = countDynamicDdl(src)
+    if (dyn > 0) dynamic.push({ file, count: dyn })
+  }
+  const fks = [...state.values()].map((e) => ({
+    name: e.name,
+    tableFrom: e.tableFrom,
+    columnsFrom: e.columnsFrom,
+    tableTo: e.tableTo,
+    columnsTo: e.columnsTo,
+    file: e.file,
+    line: e.line,
+  }))
+  return { fks, journal, dynamic }
+}
+
+/**
+ * 声明侧:journal 末条对应的 snapshot(按 journal 取,不按文件名排序)。
+ * 末条缺同号 snapshot → 按 journal 前序退到最近一枚可用快照(与门 350 同口径,报告明示);
+ * 末条及其前序都取不到 / snapshot 缺 tables 或 foreignKeys 字段 ⇒ 未判定 exit 2。
+ */
+export function loadDeclarationForeignKeys(journal) {
+  const entries = Array.isArray(journal?.entries) ? journal.entries : []
+  if (entries.length === 0) return { unjudged: 'journal 为空,取不到声明面' }
+  const snapshotPathOf = (n) =>
+    join(MIGRATIONS_DIR, 'meta', `${String(n).padStart(4, '0')}_snapshot.json`)
+  const last = entries[entries.length - 1]
+  const lastSeq = migrationNumberOf(last.tag, last.idx)
+  let path = snapshotPathOf(lastSeq)
+  let degraded = false
+  if (!existsSync(path)) {
+    path = null
+    for (let i = entries.length - 1; i >= 0; i--) {
+      const p = snapshotPathOf(migrationNumberOf(entries[i].tag, entries[i].idx))
+      if (existsSync(p)) {
+        path = p
+        degraded = true
+        break
+      }
+    }
+  }
+  if (!path) {
+    return { unjudged: `journal 末条(${last.tag})及其前序均取不到 snapshot` }
+  }
+  let snap
+  try {
+    snap = JSON.parse(readFileSync(path, 'utf8'))
+  } catch (e) {
+    return { unjudged: `snapshot 解析失败: ${path} (${e?.message ?? e})` }
+  }
+  const tables = snap?.tables
+  if (!tables || typeof tables !== 'object') {
+    return { unjudged: `snapshot 缺 tables 字段: ${path}` }
+  }
+  let sawForeignKeysField = false
+  const fks = []
+  for (const [tableKey, tableVal] of Object.entries(tables)) {
+    if (!tableVal || typeof tableVal !== 'object') continue
+    if (!Object.prototype.hasOwnProperty.call(tableVal, 'foreignKeys')) continue
+    sawForeignKeysField = true
+    const fkMap = tableVal.foreignKeys
+    if (!fkMap || typeof fkMap !== 'object') continue
+    for (const fk of Object.values(fkMap)) {
+      if (!fk || typeof fk !== 'object') continue
+      const ref = normRef(fk.tableTo)
+      fks.push({
+        name: String(fk.name ?? ''),
+        tableFrom: normRef(fk.tableFrom).table,
+        columnsFrom: Array.isArray(fk.columnsFrom) ? fk.columnsFrom.map(String) : [],
+        tableTo: ref.table,
+        columnsTo: Array.isArray(fk.columnsTo) ? fk.columnsTo.map(String) : [],
+        snapshotTable: tableKey,
+      })
+    }
+  }
+  if (!sawForeignKeysField) {
+    return { unjudged: `snapshot 缺 foreignKeys 字段: ${path}` }
+  }
+  return { fks, snapshotPath: path, lastSeq, degraded }
+}
+
+/** FK 身份键 = name + columnsFrom 列序 + 引用表 + columnsTo 列序(单向判据的唯一身份)。 */
+export function foreignKeyKey(fk) {
+  return [
+    String(fk.name),
+    (fk.columnsFrom ?? []).join(','),
+    normRef(fk.tableTo).table,
+    (fk.columnsTo ?? []).join(','),
+  ].join('|')
+}
+
+/** 纯函数:迁移终态 vs 声明末态。missing = 迁移有/声明无(单向阻塞候选);extra = 反向(信息级)。 */
+export function diffForeignKeys(migrationFks, declarationFks) {
+  const declKeys = new Set((declarationFks ?? []).map((f) => foreignKeyKey(f)))
+  const migKeys = new Set((migrationFks ?? []).map((f) => foreignKeyKey(f)))
+  const byKey = (a, b) =>
+    a.name.localeCompare(b.name) || foreignKeyKey(a).localeCompare(foreignKeyKey(b))
+  const missing = (migrationFks ?? []).filter((f) => !declKeys.has(foreignKeyKey(f))).sort(byKey)
+  const extra = (declarationFks ?? []).filter((f) => !migKeys.has(foreignKeyKey(f))).sort(byKey)
+  return { missing, extra }
+}
+
 /** 内存断言(--self-test):解析函数对内嵌样例的行为。不落盘不连网。 */
 function selfTest() {
   const cases = []
@@ -651,6 +1131,88 @@ function selfTest() {
     prov.get('foo_bar') ?? new Set(),
     ['id', 'scheduled_run_count', 'renamed_col', 'second_add'])
 
+  // ── 外键名称级维度纯函数自测(2026-11-07) ──
+  // 夹具覆盖:ALTER ADD(含 DO $$ 体) / CREATE TABLE 体内 CONSTRAINT / DROP / RENAME /
+  // 未加引号折小写 / public. 归一 / 复合 FK 列序。
+  const fkSample = `
+    CREATE TABLE "users" ("id" uuid PRIMARY KEY);
+    CREATE TABLE "agent_examines" (
+      "id" uuid PRIMARY KEY,
+      "user_id" uuid,
+      CONSTRAINT "fk_agent_examines_user_id_users" FOREIGN KEY ("user_id") REFERENCES "users"("id")
+    );
+    DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_webhook_subscriptions_user_id_users') THEN
+        ALTER TABLE "webhook_subscriptions" ADD CONSTRAINT "fk_webhook_subscriptions_user_id_users" FOREIGN KEY ("user_id") REFERENCES "users"("id");
+      END IF;
+    END $$;
+    ALTER TABLE "agent_examines" DROP CONSTRAINT "fk_agent_examines_user_id_users";
+    ALTER TABLE "unquoted" ADD CONSTRAINT FK_Up FOREIGN KEY (User_ID) REFERENCES Public.Users(ID);
+    ALTER TABLE "unquoted" RENAME CONSTRAINT FK_Up TO fk_up_renamed;
+    CREATE TABLE "pair_owner" ("id" uuid, "a" uuid, "b" uuid,
+      CONSTRAINT "fk_pair_owner_pair" FOREIGN KEY ("a", "b") REFERENCES "pair"("x", "y"));
+  `
+  const fkState = applyForeignKeyEvents(new Map(), extractForeignKeyEventsFromSql(fkSample))
+  assertEq(
+    'FK 迁移侧抽取(ALTER/CREATE/DROP/RENAME + 折小写)',
+    new Set(fkState.keys()),
+    [
+      'webhook_subscriptions|fk_webhook_subscriptions_user_id_users',
+      'unquoted|fk_up_renamed',
+      'pair_owner|fk_pair_owner_pair',
+    ],
+  )
+  cases.push([
+    'FK DROP CONSTRAINT 按序扣减',
+    ![...fkState.values()].some((f) => f.name === 'fk_agent_examines_user_id_users'),
+    'agent_examines 的 FK 应被 DROP 扣减',
+  ])
+
+  const fkBase = { tableFrom: 't1', columnsFrom: ['x'], tableTo: 't2', columnsTo: ['id'] }
+  const fkMig = [
+    { ...fkBase, name: 'fk_a' },
+    { ...fkBase, name: 'fk_b', columnsFrom: ['y', 'z'], tableTo: 't3', columnsTo: ['p', 'q'] },
+  ]
+  const fkSame = diffForeignKeys(fkMig, fkMig.map((f) => ({ ...f })))
+  cases.push([
+    'FK 合法情形不红(两侧同形)',
+    fkSame.missing.length === 0 && fkSame.extra.length === 0,
+    '两侧同形时 missing/extra 都应 0',
+  ])
+  const fkMissing = diffForeignKeys(fkMig, [{ ...fkBase, name: 'fk_a' }])
+  cases.push([
+    'FK 迁移有/声明无 只点名缺的那条',
+    fkMissing.missing.length === 1 && fkMissing.missing[0].name === 'fk_b',
+    '应只报 fk_b',
+  ])
+  const fkRenamed = diffForeignKeys(fkMig, [{ ...fkBase, name: 'fk_a_v2' }])
+  cases.push([
+    'FK 名字不一致 → 同列序也算掉约束',
+    fkRenamed.missing.some((f) => f.name === 'fk_a'),
+    '名字不一致时 fk_a 也必须出现在 missing',
+  ])
+  const fkReorder = diffForeignKeys(
+    fkMig,
+    [{ ...fkBase, name: 'fk_b', columnsFrom: ['z', 'y'], tableTo: 't3', columnsTo: ['p', 'q'] }],
+  )
+  cases.push([
+    'FK 复合列序变化 → 身份键不一致',
+    fkReorder.missing.some((f) => f.name === 'fk_b'),
+    '列序变化必须判为不同身份',
+  ])
+  // 阴性对照:把声明侧(等价于 snapshot)里某条 FK 删掉,必须报出该条
+  const fkNegative = diffForeignKeys(fkMig, fkMig.filter((f) => f.name !== 'fk_a'))
+  cases.push([
+    'FK 阴性对照:snapshot 删掉 fk_a 必须报出 fk_a',
+    fkNegative.missing.some((f) => f.name === 'fk_a'),
+    '删掉声明侧 fk_a 后仍应点名 fk_a',
+  ])
+  cases.push([
+    'FK 动态 DDL(EXECUTE format)记未判定',
+    countDynamicDdl(`DO $$ BEGIN EXECUTE format('CREATE TABLE %I (...)', 'x'); END $$;`) === 1,
+    'EXECUTE format 应计 1 处未判定',
+  ])
+
   const failed = cases.filter(([, ok]) => !ok)
   for (const [name, ok, msg] of cases) {
     console.log(`  ${ok ? '✅' : '❌'} ${ok ? name : msg}`)
@@ -692,5 +1254,12 @@ export const __test__ = {
   extractTsColumnsFromSource,
   findCallEnd,
   extractColumnProvenanceFromSql,
+  extractForeignKeyEventsFromSql,
+  applyForeignKeyEvents,
+  countDynamicDdl,
+  collectMigrationForeignKeys,
+  loadDeclarationForeignKeys,
+  foreignKeyKey,
+  diffForeignKeys,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
