@@ -36,7 +36,7 @@
     "directory": "packages/attendance-core"
   },
   "scripts": {
-    "build": "node ../../scripts/lib/atomic-build.mjs -p tsconfig.build.json",
+    "build": "node ../../scripts/lib/atomic-build.mjs -p tsconfig.json",
     "lint": "eslint src/",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit",
