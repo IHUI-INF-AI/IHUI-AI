@@ -1,7 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { and, eq, inArray, isNull, sql, count, gte, lte, between, desc } from 'drizzle-orm'
+import { and, eq, inArray, isNull, sql, count, gte, lte, between, desc, type SQL } from 'drizzle-orm'
 import {
   hrAttendanceRule,
   hrAttendanceRecord,
@@ -196,6 +196,8 @@ export async function hrCheckOut(params: {
       .set({ checkOutTime, checkOutMethod: 'manual', operatedBy, updatedAt: new Date() })
       .where(eq(hrAttendanceRecord.id, row.id))
       .returning()
+    // 行已在上面按主键读到再按同主键更新:取不到只可能是并发删除,按失败回,不塞 undefined
+    if (!updated) return { ok: false, reason: 'failed' }
     return { ok: true, record: updated }
   }
 
@@ -211,6 +213,7 @@ export async function hrCheckOut(params: {
     .set({ checkOutTime, checkOutMethod: 'manual', status, operatedBy, updatedAt: new Date() })
     .where(eq(hrAttendanceRecord.id, row.id))
     .returning()
+  if (!updated) return { ok: false, reason: 'failed' }
   return { ok: true, record: updated }
 }
 
@@ -486,12 +489,11 @@ export async function getHrAttendanceStats(params: {
   return { total, byStatus }
 }
 
-/** 部门列表(树形自引用,按 sortOrder 升序)。 */
+/** 部门列表(树形自引用,按 sortOrder 升序)。部门表无 deletedAt 列(硬删),故不加软删过滤。 */
 export async function listHrDepartments(): Promise<typeof hrDepartment.$inferSelect[]> {
   return db
     .select()
     .from(hrDepartment)
-    .where(isNull(hrDepartment.deletedAt))
     .orderBy(hrDepartment.sortOrder, hrDepartment.createdAt)
 }
 
@@ -583,12 +585,12 @@ export async function upsertHrAttendanceRule(params: {
       )
     thresholds[field] = hm
   }
-  const values: Record<string, unknown> = { departmentId: params.departmentId, ...thresholds }
+  const values: typeof hrAttendanceRule.$inferInsert = { departmentId: params.departmentId, ...thresholds }
   if (params.workdays !== undefined) values.workdays = params.workdays
   if (params.enabled !== undefined) values.enabled = params.enabled
   if (params.qrSecret !== undefined) values.qrSecret = params.qrSecret
 
-  const setClause: Record<string, unknown> = { ...thresholds, updatedAt: new Date() }
+  const setClause: Partial<typeof hrAttendanceRule.$inferInsert> = { ...thresholds, updatedAt: new Date() }
   if (params.workdays !== undefined) setClause.workdays = params.workdays
   if (params.enabled !== undefined) setClause.enabled = params.enabled
   if (params.qrSecret !== undefined) setClause.qrSecret = params.qrSecret

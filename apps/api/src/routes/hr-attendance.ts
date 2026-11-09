@@ -105,7 +105,7 @@ const leaveApproveSchema = z.object({
   approveRemark: z.string().optional(),
 })
 
-function badReply(reply: import('fastify').FastifyReply, parsed: z.SafeParseReturnType<unknown, unknown>) {
+function badReply(reply: import('fastify').FastifyReply, parsed: z.ZodSafeParseResult<unknown>) {
   return reply.status(400).send(error(400, parsed.error?.issues[0]?.message ?? '参数错误'))
 }
 
