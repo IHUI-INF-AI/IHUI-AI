@@ -39,6 +39,12 @@ NEW=""
 # **最终失败的那一枚必须照打**,否则门 30a 逐枚判红,§12e 的结局是全仓被逼跳门。
 # 用 EXIT trap 兜住所有退出路径(含 read-tree/add/write-tree/commit-tree 失败),成功落地时清空。
 LAST_NEW=""
+# 目标 ref 从当前 HEAD 推导(2026-11-09 票):本脚本只在 `cd /d/IHUI-AI` 里跑(入口定位另票),
+# 但**不许再硬编码 refs/heads/main** —— detached 就停手,不把 main 当默认落点。
+TARGET_REF=$(git symbolic-ref -q HEAD) || {
+  echo "❌ HEAD 处于 detached(推导不出目标 ref)⇒ 不写 ref;先 checkout 到目标分支"
+  exit 2
+}
 backup_last_orphan() {
   [ -n "${LAST_NEW:-}" ] || return 0
   node -e "import('./scripts/lib/orphan-backup.mjs').then((m) => m.backupOrphanCommit({ sha: process.argv[1], why: 'git-private-index-commit.sh 5 轮均未抢到 CAS(末枚兜底)', kind: 'priv', root: process.cwd(), logger: (s) => console.error(s) })).catch((e) => console.error('⚠️ 孤儿备份腿异常:' + e.message))" "$LAST_NEW" || true
@@ -60,7 +66,7 @@ for attempt in 1 2 3 4 5; do
   # commit-tree 直接吃内存里的 -m,全程不写 `.git/COMMIT_EDITMSG` —— 并发提交拿不到别人的消息。
   NEW=$(git commit-tree "$TREE" -p "$OLD" -m "$SUBJ" -m "$BODY") || { echo "commit-tree 失败"; exit 1; }
   LAST_NEW="$NEW"
-  if git update-ref refs/heads/main "$NEW" "$OLD" 2>/dev/null; then
+  if git update-ref "$TARGET_REF" "$NEW" "$OLD" 2>/dev/null; then
     echo "CAS_OK attempt=$attempt new=$NEW old=$OLD"
     LAST_NEW=""
     break
