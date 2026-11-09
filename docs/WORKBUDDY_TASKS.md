@@ -858,11 +858,12 @@ POST /api/checkin/accounts/{account_id}/autopilot   body {"dry_run": false, "cla
 | `wb_tasks_list(account_id?)` | 只读现读任务全表(零写侧) |
 | `wb_action_routes()` | 只读选路图(desktop / generic / 零出站登记) |
 
-- 接入:客户端 mcp.json 加一条 command 指向本文件(见文件 docstring 模板);本机
-  WorkBuddy 已注册(`wb-autopilot`)。凭据只在本机 checkin_store 解密,jwt/token
-  永不出 MCP 返回体;写侧工具只应接入可信本机客户端。
-- 用户级 Skill `~/.workbuddy/skills/wb-autopilot/SKILL.md` 同步封装三入口配方
-  (任何 WorkBuddy 会话按 skill 指引调用,不再读源码写脚本)。
+- 接入(项目自主定位):MCP server 是本功能**仓库内的标准导出形态**——本项目的
+  agent/桌面端/CLI 面走 HTTP 端点或 CLI;任何外部 MCP 客户端在**其自己的** mcp.json
+  加一条 command 指向本文件即接走(模板见文件 docstring)。凭据只在本机
+  checkin_store 解密,jwt/token 永不出 MCP 返回体;写侧工具只应接入可信本机客户端。
+  **不注册到任何 AI 宿主的配置**(2026-11-09 机主裁决:这是项目功能,不是某个
+  AI 客户端的插件;此前误注册 ~/.workbuddy/mcp.json 已撤销恢复原状)。
 - 协议单测 `tests/test_wb_autopilot_mcp.py` 9 例全绿(握手/工具清单/通知静默/
   -32601/-32602/-32603/坏行 -32700 不崩/EOF 退出/真动作表选路冒烟);
   真进程 stdio 端到端 smoke 通过(initialize + tools/list)。
