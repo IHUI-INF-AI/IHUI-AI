@@ -47,6 +47,8 @@ vi.mock('../src/plugins/require-permission.js', () => ({
   requireAuth: mocks.requireAuth,
   requireAdmin: mocks.requireAdmin,
   requirePermission: vi.fn(() => mocks.requireAuth),
+  // agent-extended 的读路由直接调同步 isSystemAdmin(request);缺导出会让该分支 500
+  isSystemAdmin: () => false,
 }))
 vi.mock('../src/db/index.js', () => ({
   db: {

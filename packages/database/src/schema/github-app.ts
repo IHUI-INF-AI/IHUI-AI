@@ -2,7 +2,16 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { bigint, index, pgTable, timestamp, uniqueIndex, uuid, varchar } from 'drizzle-orm/pg-core'
+import {
+  bigint,
+  index,
+  jsonb,
+  pgTable,
+  timestamp,
+  uniqueIndex,
+  uuid,
+  varchar,
+} from 'drizzle-orm/pg-core'
 
 /**
  * GitHub App 安装实例映射(D15①)。
@@ -37,7 +46,9 @@ export const githubAppInstallations = pgTable(
  *
  * 内存 LRU 是一级缓存(覆盖分钟级重投窗口),本表是持久层 —— API 重启后
  * 同一 X-GitHub-Delivery 的重投仍能在表里命中,不再重复处理。
- * 只有"已处理完成"的投递落表;status 目前恒为 'processed',预留 'failed' 供后续补偿扫描。
+ * status:'processing'(已认领、执行中) / 'processed' / 'failed'。
+ * payload(F-346):认领时落库的可恢复载荷(渲染后的触发规则),进程崩溃后
+ * 可据此重放;历史行(安装映射腿)该列为 NULL。
  */
 export const githubAppDeliveries = pgTable(
   'github_app_deliveries',
@@ -46,6 +57,7 @@ export const githubAppDeliveries = pgTable(
     deliveryId: varchar('delivery_id', { length: 64 }).notNull(),
     eventType: varchar('event_type', { length: 100 }).notNull(),
     status: varchar('status', { length: 20 }).default('processed').notNull(),
+    payload: jsonb('payload').$type<Record<string, unknown>>(),
     processedAt: timestamp('processed_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({

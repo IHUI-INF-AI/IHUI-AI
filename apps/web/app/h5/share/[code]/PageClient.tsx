@@ -7,6 +7,7 @@ import * as React from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
+import { useTheme } from '@/hooks/use-theme'
 import { Check, Link2, Share2 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -48,6 +49,7 @@ export default function H5SharePage(): React.JSX.Element {
   const router = useRouter()
   const th = useTranslations('h5SharePage')
   const tc = useTranslations('common')
+  const { resolvedTheme } = useTheme()
   const [copied, setCopied] = React.useState(false)
   const [shareTip, setShareTip] = React.useState('')
 
@@ -165,7 +167,7 @@ export default function H5SharePage(): React.JSX.Element {
           onPreviewImage={(images, index) => window.open(images[index], '_blank', 'noopener')}
           onRegenerate={() => router.push('/')}
           onShareFriend={wechatShare}
-          colorScheme="light"
+          colorScheme={resolvedTheme === 'dark' ? 'dark' : 'light'}
           formatTime={formatDate}
           renderText={(text) => (
             <div className="prose prose-sm max-w-none break-words text-body leading-relaxed">

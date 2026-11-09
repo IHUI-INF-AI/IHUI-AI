@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from 'vitest'
 import { createActor } from 'xstate'
-import { refundMachine } from './refund-machine'
+import { refundMachine, REFUND_MAX_RETRIES } from './refund-machine'
 
 const getStateValue = (
   snap: ReturnType<ReturnType<typeof createActor<typeof refundMachine>>['getSnapshot']>,
@@ -76,6 +76,31 @@ describe('refundMachine', () => {
     actor.start()
     actor.send({ type: 'CANCEL' })
     expect(getStateValue(actor.getSnapshot())).toBe('cancelled')
+  })
+
+  it(`XUI-035 重试不超过 ${REFUND_MAX_RETRIES} 次,超限停在 failed`, () => {
+    const actor = createActor(refundMachine)
+    actor.start()
+    actor.send({ type: 'REVIEW', reviewerId: 'r-1' })
+    actor.send({ type: 'APPROVE_REFUND' })
+    for (let i = 0; i < REFUND_MAX_RETRIES + 2; i += 1) {
+      actor.send({ type: 'REFUND_FAIL', error: `boom-${i}` })
+      actor.send({ type: 'RETRY' })
+    }
+    expect(getStateValue(actor.getSnapshot())).toBe('failed')
+    expect(actor.getSnapshot().context.retryCount).toBe(REFUND_MAX_RETRIES)
+  })
+
+  it('XUI-035 退款成功后清空上一次遗留的 errorMessage', () => {
+    const actor = createActor(refundMachine)
+    actor.start()
+    actor.send({ type: 'REVIEW', reviewerId: 'r-1' })
+    actor.send({ type: 'APPROVE_REFUND' })
+    actor.send({ type: 'REFUND_FAIL', error: 'gateway timeout' })
+    actor.send({ type: 'RETRY' })
+    actor.send({ type: 'REFUND_SUCCESS', transactionId: 'tx-ok' })
+    expect(getStateValue(actor.getSnapshot())).toBe('refunded')
+    expect(actor.getSnapshot().context.errorMessage).toBeUndefined()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

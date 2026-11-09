@@ -2458,6 +2458,16 @@ class ModelSyncService:
 
     @staticmethod
     def _row_metadata(row: Any) -> dict[str, Any]:
+        """把 DB metadata 列规范成 dict(asyncpg 默认把 jsonb 返回成字符串)。
+
+        迁移未应用时 SELECT 用 `NULL::jsonb AS metadata` 降级,行里一定有该列;
+        但单测/调用方可能传只含 model_id + is_relay_public 的最小行(或列被
+        老版本查询裁掉),此时缺列不该让整轮同步炸掉 —— 按"无标记"处理即可。
+        """
+        try:
+            meta = row["metadata"]
+        except (KeyError, IndexError, TypeError):
+            return {}
         """把 DB metadata 列规范成 dict(asyncpg 默认把 jsonb 返回成字符串)。"""
         meta = row["metadata"]
         if isinstance(meta, str):

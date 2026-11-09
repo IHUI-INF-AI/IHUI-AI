@@ -190,7 +190,7 @@ export default function MyAgentsPage() {
                         agent.isFree ? 'text-emerald-600 dark:text-emerald-500' : 'text-primary',
                       )}
                     >
-                      {agent.isFree ? t('free') : `¥${agent.price}`}
+                      {agent.isFree ? t('free') : `¥${(agent.price / 100).toFixed(2)}`}
                     </span>
                     <span>{fmt(agent.updatedAt)}</span>
                   </div>

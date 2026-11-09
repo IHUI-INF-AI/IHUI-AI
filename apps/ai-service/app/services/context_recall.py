@@ -142,8 +142,10 @@ class ContextRecallService:
             logger.warning("context_recall 查询 embed 失败: %s", e)
             return {"ok": False, "error": str(e)}
         try:
+            # 属主下推到检索层(AIS-019):原写法先取全局 top_k 再在应用层 continue 掉他人,
+            # 他人的高相似条目会把名额占满,本人确有匹配却召回为空/变少。
             hits = await self._store.search(
-                query_embedding, top_k=top_k, threshold=_RECALL_THRESHOLD
+                query_embedding, top_k=top_k, threshold=_RECALL_THRESHOLD, user_id=user_id
             )
         except Exception as e:
             logger.warning("context_recall 查询检索失败: %s", e)

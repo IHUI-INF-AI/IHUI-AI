@@ -14,7 +14,7 @@
  */
 import { View, Text, Image } from '@tarojs/components'
 import type { ReactNode } from 'react'
-import { rnRadius } from '@ihui/design-tokens'
+
 import LineIcon from '@/components/LineIcon'
 import { IntelligentAssistant } from '@/components'
 import BusinessFormCard, { type BusinessFormCardProps } from '@/components/BusinessFormCard'
@@ -150,10 +150,10 @@ export function ChatListHeader({
 /** 流式末条占位:AI 气泡 + 生成中文案 + 思考进度条。 */
 export interface ChatThinkingPlaceholderProps {
   t: Translate
-  progress: number
 }
 
-export function ChatThinkingPlaceholder({ t, progress }: ChatThinkingPlaceholderProps) {
+/** XUI-新C:不再展示伪造的思考百分比,只保留「生成中」与思考文案。 */
+export function ChatThinkingPlaceholder({ t }: ChatThinkingPlaceholderProps) {
   return (
     <View className="msg-item assistant">
       <View className="avatar assistant">{t('ai.chatMessageItem.ai')}</View>
@@ -166,35 +166,7 @@ export function ChatThinkingPlaceholder({ t, progress }: ChatThinkingPlaceholder
         >
           {t('chat.thinking')}
         </Text>
-        {/* 思考进度条(对标原 ai_assistant.vue thinking-progress-container) */}
-        <View
-          className="thinking-progress-container"
-          style={{ position: 'relative', marginTop: 'var(--spacing-xs)', height: '36rpx' }}
-        >
-          <View
-            className="thinking-progress-bar"
-            style={{
-              width: `${Math.floor(progress)}%`,
-              height: '100%',
-              background: 'var(--color-primary)',
-              borderRadius: rnRadius.xs,
-              transition: 'width 120ms linear',
-            }}
-          />
-          <Text
-            style={{
-              position: 'absolute',
-              left: '50%',
-              top: '0',
-              lineHeight: '36rpx',
-              transform: 'translateX(-50%)',
-              color: 'var(--color-foreground)',
-              fontSize: '24rpx',
-            }}
-          >
-            {Math.floor(progress)}%
-          </Text>
-        </View>
+        {/* 服务端不提供思考进度 ⇒ 不画进度条,也不显示伪造的百分比 */}
       </View>
     </View>
   )

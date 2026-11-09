@@ -13,6 +13,7 @@ import { toUserFriendlyMessage } from '@ihui/shared'
 import { fetchApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
 import { useAuthGate } from '@/hooks/use-auth-gate'
+import { useDeadlineCountdown } from '@/hooks/use-deadline-countdown'
 import { BackButton } from '@/components/common'
 
 import { PasswordSection } from './PasswordSection'
@@ -29,7 +30,9 @@ export default function SecurityPage() {
   const { allow } = useAuthGate()
   const [pwMsg, setPwMsg] = React.useState<FormMsg>(null)
   const [pwLoading, setPwLoading] = React.useState(false)
-  const [codeCountdown, setCodeCountdown] = React.useState(0)
+  // 同型根因 S-01:发码冷却由截止时间戳派生,后台节流不会延长冷却
+  const [codeDeadline, setCodeDeadline] = React.useState<number | null>(null)
+  const codeCountdown = useDeadlineCountdown(codeDeadline)
   const [newPhone, setNewPhone] = React.useState('')
   const [phoneCode, setPhoneCode] = React.useState('')
   const [phoneMsg, setPhoneMsg] = React.useState<FormMsg>(null)
@@ -85,29 +88,8 @@ export default function SecurityPage() {
     if (res.success) form.reset()
   }
 
-  // 2026-09-09 修复:倒计时 interval 登记到 ref,卸载时清理防孤儿 setState
-  const countdownTimerRef = React.useRef<ReturnType<typeof setInterval> | null>(null)
-  React.useEffect(() => {
-    const ref = countdownTimerRef
-    return () => {
-      if (ref.current) clearInterval(ref.current)
-      ref.current = null
-    }
-  }, [])
-
   const startCountdown = () => {
-    setCodeCountdown(60)
-    if (countdownTimerRef.current) clearInterval(countdownTimerRef.current)
-    countdownTimerRef.current = setInterval(() => {
-      setCodeCountdown((c) => {
-        if (c <= 1) {
-          if (countdownTimerRef.current) clearInterval(countdownTimerRef.current)
-          countdownTimerRef.current = null
-          return 0
-        }
-        return c - 1
-      })
-    }, 1000)
+    setCodeDeadline(Date.now() + 60_000)
   }
 
   const onSendCode = async () => {

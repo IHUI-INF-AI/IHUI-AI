@@ -1,0 +1,19 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+
+/**
+ * XUI-042 结构锁:GET /orders/me 返回 edu_orders 原始行,列表必须先归一再交给共享屏。
+ * node 环境无法渲染 Taro 页面,沿用本仓源码级自证。
+ */
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { describe, expect, it } from 'vitest'
+
+const SRC = readFileSync(join(__dirname, '..', 'index.ts'), 'utf8')
+
+describe('XUI-042 订单列表字段归一', () => {
+  it('getOrderList 逐行 normalizeOrderDetail(targetTitle/createdAt/payAmount → title/createTime/amount)', () => {
+    expect(SRC).toMatch(/export const getOrderList = async/)
+    expect(SRC).toContain('.map((row) => normalizeOrderDetail(row))')
+  })
+})

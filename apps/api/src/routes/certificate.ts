@@ -171,6 +171,10 @@ export const certificateRoutes: FastifyPluginAsync = async (server) => {
     if (cert.userId !== request.userId) {
       return reply.status(403).send(error(403, '无权下载此证书'))
     }
+    // F-570:与 /certificates/verify 同口径,已撤销(0)证书不得下载,不生成 PDF
+    if (cert.status !== 1) {
+      return reply.status(404).send(error(404, '证书已失效'))
+    }
 
     const doc = new PDFKit({ size: 'A4', layout: 'landscape', margin: 50 })
     const chunks: Buffer[] = []

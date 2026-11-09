@@ -12,6 +12,7 @@ import {
   jsonb,
   timestamp,
   index,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core'
 import { users } from './users.js'
 import { orders } from './billing.js'
@@ -75,6 +76,8 @@ export const developerSubscriptions = pgTable(
   (t) => ({
     userIdx: index('ix_developer_subscriptions_user').on(t.userId),
     statusIdx: index('ix_developer_subscriptions_status').on(t.status),
+    // F-689:一个订单只激活一条开发者订阅。
+    orderIdUniq: uniqueIndex('ix_developer_subscriptions_order_id_uniq').on(t.orderId),
   }),
 )
 

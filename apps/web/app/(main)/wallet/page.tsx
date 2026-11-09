@@ -22,6 +22,7 @@ import {
   TableCell,
 } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
+import { resolveWalletFlowMeta } from '@ihui/shared/utils/wallet-flow-meta'
 import { formatPrice } from '@ihui/shared/utils/format'
 import { AnimatedNumber, AuthGatePrompt, BackButton } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
@@ -45,14 +46,6 @@ interface FlowsData {
 }
 
 const PAGE_SIZE = 20
-
-const OP_TYPE_KEY: Record<number, string> = {
-  1: 'flowRecharge',
-  2: 'flowDeduct',
-  3: 'flowExpire',
-  4: 'flowRefund',
-  5: 'flowCommission',
-}
 
 export default function WalletPage() {
   const t = useTranslations('wallet')
@@ -191,22 +184,29 @@ export default function WalletPage() {
                   </TableRow>
                 ) : (
                   items.map((it) => {
-                    const positive = it.opType === 1 || it.opType === 4 || it.opType === 5
+                    const meta = resolveWalletFlowMeta(it.opType, it.quantity)
                     return (
                       <TableRow key={it.id}>
                         <TableCell className="px-4 py-2.5 font-medium">
-                          {t(OP_TYPE_KEY[it.opType] ?? 'flowRecharge')}
+                          {t(meta.labelKey)}
                         </TableCell>
                         <TableCell
-                          className={cn(
-                            'px-4 py-2.5 text-right font-medium',
-                            positive
-                              ? 'text-emerald-600 dark:text-emerald-400'
-                              : 'text-red-600 dark:text-red-400',
-                          )}
+                          className={cn('px-4 py-2.5 text-right font-medium', meta.colorClass)}
                         >
-                          {positive ? '+' : ''}
-                          {formatPrice(it.quantity)}
+                          {meta.isMoney ? (
+                            <>
+                              {meta.sign === 'positive'
+                                ? '+'
+                                : meta.sign === 'negative'
+                                  ? '-'
+                                  : ''}
+                              {formatPrice(
+                                meta.sign === 'neutral' ? it.quantity : Math.abs(it.quantity),
+                              )}
+                            </>
+                          ) : (
+                            <>{it.quantity}</>
+                          )}
                         </TableCell>
                         <TableCell className="px-4 py-2.5 text-right text-muted-foreground">
                           {formatPrice(it.balanceAfter)}

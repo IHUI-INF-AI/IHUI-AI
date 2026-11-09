@@ -23,7 +23,7 @@
  *
  * ## 判据纠偏(2026-11-05,实测咬住第 9 轮收敛落地闸后定夺)
  *
- * `README.*` 的数字表与"守门点名索引"段是 `gen-doc-numbers.mjs --markdown` 的**生成块**
+ * `README.*` 的数字表与"守门点名索引"段是 `sync-readme-numbers.mjs`(唯一写入口)的**生成块**
  * (`<!-- BEGIN GENERATED … --> … <!-- END GENERATED … -->`)。生成块的行值随两侧各自提交
  * 时点滚动(trackedFiles/testFiles 只会前进),两侧同一行**天然互斥** —— "合并结果必须包含
  * 对侧生成行"结构上不可满足,等价于 §12e 定义的恒红门:唯一结局是把每个含 README 数字变化的

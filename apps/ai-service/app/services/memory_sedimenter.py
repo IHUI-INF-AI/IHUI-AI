@@ -22,6 +22,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+from collections import OrderedDict
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -35,8 +36,12 @@ _RECENT_LIMIT = 40
 # 后台任务引用集合(防 GC 提前回收;done 后自动移除)
 _pending: set[asyncio.Task[None]] = set()
 
-# 每会话用户消息计数(session_id -> count)
-_COUNT: dict[str, int] = {}
+# 每会话用户消息计数(session_id -> count)。AIS-105:会话 id 来自请求体
+# (metadata.conversationId),只增不淘汰等于给进程内存留一条无界增长路径 ——
+# 改 OrderedDict + 容量上限,超限淘汰最久未活跃的会话(只丢计数,不影响沉淀正确性:
+# 下次该会话从 0 重新累计)。
+_COUNT_MAX = 4096
+_COUNT: OrderedDict[str, int] = OrderedDict()
 
 
 def _threshold() -> int:
@@ -147,15 +152,25 @@ async def maybe_sediment(
     n = counts.get(session_id, 0) + 1
     if n < every:
         counts[session_id] = n
+        counts.move_to_end(session_id)
+        _evict_overflow(counts)
         return
 
     # 达阈值:重置并触发
     counts[session_id] = 0
+    counts.move_to_end(session_id)
+    _evict_overflow(counts)
     task = asyncio.create_task(_run_sediment(session_id, user_uuid, recent_messages))
     _pending.add(task)
     task.add_done_callback(_pending.discard)
 
 
-def _counts() -> dict[str, int]:
+def _evict_overflow(counts: OrderedDict[str, int]) -> None:
+    """超上限时淘汰最久未活跃的会话键(AIS-105:计数表必须有界)。"""
+    while len(counts) > _COUNT_MAX:
+        counts.popitem(last=False)
+
+
+def _counts() -> OrderedDict[str, int]:
     return _COUNT
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

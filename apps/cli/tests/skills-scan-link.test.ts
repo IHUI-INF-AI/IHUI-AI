@@ -16,7 +16,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { classifyPathPresence, loadSkills } from '../src/skills/index.js';
+import { classifyPathPresence, loadSkills, SkillScanUnread } from '../src/skills/index.js';
 
 /** 造一个"目录链接"(win32 = junction,其余 = dir symlink)。 */
 function makeLink(target: string, linkPath: string): void {
@@ -108,15 +108,15 @@ describe('技能扫描一律不跟随符号链接/junction(G-408③)', () => {
     fs.mkdirSync(path.join(root, 'realskill'), { recursive: true });
     fs.writeFileSync(path.join(root, 'realskill', 'SKILL.md'), SKILL_BODY('real-skill'));
     const notices: string[] = [];
-    const skills = loadSkills({
+    // 读不到 ≠ 没有：出声 + 抛 SkillScanUnread，缓存层保留旧清单。
+    expect(() => loadSkills({
       cwd: tmpDir,
       repoRoot: tmpDir,
       onNotice: (message) => notices.push(message),
       readDir: () => {
         throw Object.assign(new Error('denied'), { code: 'EACCES' });
       },
-    });
-    expect(skills.map((skill) => skill.name)).not.toContain('real-skill');
+    })).toThrow(SkillScanUnread);
     const joined = notices.join('\n');
     expect(joined).toContain('不当成没有技能');
     expect(joined).toContain('EACCES');
@@ -128,7 +128,8 @@ describe('技能扫描一律不跟随符号链接/junction(G-408③)', () => {
     fs.mkdirSync(path.join(root, 'empty-pkg'), { recursive: true });
     fs.writeFileSync(path.join(root, 'real-skill.md'), SKILL_BODY('real-skill'));
     const notices: string[] = [];
-    const skills = loadSkills({
+    // 读不到 ≠ 没有这份技能：出声 + 抛 SkillScanUnread，缓存层保留旧清单。
+    expect(() => loadSkills({
       cwd: tmpDir,
       repoRoot: tmpDir,
       onNotice: (message) => notices.push(message),
@@ -138,8 +139,7 @@ describe('技能扫描一律不跟随符号链接/junction(G-408③)', () => {
         }
         return fs.readFileSync(file, 'utf-8');
       },
-    });
-    expect(skills.map((skill) => skill.name)).not.toContain('real-skill');
+    })).toThrow(SkillScanUnread);
     const joined = notices.join('\n');
     expect(joined).toContain('not "no such skill"');
     expect(joined).toContain('EACCES');

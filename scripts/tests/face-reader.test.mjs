@@ -613,10 +613,13 @@ const BARE_GIT_DEBT = [
   },
   {
     file: 'scripts/check-no-visible-spawn.mjs',
-    count: 20,
+    count: 25,
     addedBy: '',
     due: '2026-12-31',
-    why: '基线内存量(自检夹具大量样本)',
+    // 2026-11-08 复核:现读 25 处**全部**是该门自检夹具里的样本串(``src: `execSync('git …')` ``
+    // 这一族,用于验证"违规样本判红、合规样本判绿"),没有一处是可迁移的派生调用 ——
+    // 迁走就等于把判据的阳性对照删掉。这属于夹具增长,按 §0.7 用新证据重写本条,不是放宽产品面。
+    why: '基线内存量(自检夹具大量样本;2026-11-08 复核 20→25,全部为自检样本串)',
   },
   {
     file: 'scripts/check-spawn-stdio.mjs',
@@ -682,13 +685,6 @@ const BARE_GIT_DEBT = [
     why: '基线内存量',
   },
   {
-    file: 'scripts/lib/pre-commit-hook.js',
-    count: 4,
-    addedBy: '',
-    due: '2026-12-31',
-    why: '基线内存量(CJS 钩子层)',
-  },
-  {
     file: 'scripts/lib/staging-snapshot.js',
     count: 4,
     addedBy: '',
@@ -718,10 +714,10 @@ const BARE_GIT_DEBT = [
   },
   {
     file: 'scripts/safe-commit.mjs',
-    count: 9,
+    count: 8,
     addedBy: '',
     due: '2026-12-31',
-    why: '基线内存量(定基线时 8 处,后又加 1 处 —— 数字棘轮的盲区实例)',
+    why: '基线内存量(定基线时 8 处;2026-11-08 把 4 处只读探针迁到 gitRaw 后又回到 8,余项为 worktree add / commit 等写操作,层无对应形态)',
   },
   // ── 2026-10-26 之后新增的 24 枚(18 → 42),addedBy = 引入该处裸派生的提交 ──────────────
   {
@@ -730,13 +726,6 @@ const BARE_GIT_DEBT = [
     addedBy: '92f364dc925dc51b9de04d7c5d1d773840901faf',
     due: '2026-12-31',
     why: '门户批次器物化(2026-10-28)',
-  },
-  {
-    file: 'scripts/check-cross-end-parity-drift.mjs',
-    count: 1,
-    addedBy: '9fdbc207ba2ea5536812f8b965d7a9218bb28785',
-    due: '2026-12-31',
-    why: '跨端漂移哨兵:git show HEAD:<doc>(2026-10-25)',
   },
   {
     file: 'scripts/check-i18n-cross-end-wording.mjs',
@@ -1731,6 +1720,46 @@ test('catBatchBinary:oid 面 + 路径面 + missing 混合输入 —— 与纯 oi
     assert.equal(mixed.get('HEAD:no-such.txt'), null, '路径面 missing 未归 null')
     assert.equal(mixed.get(missing), null, 'oid 面 missing 未归 null')
   } finally {
+    rmScratch(root)
+  }
+})
+
+test('IHUI_FACE_TREE_SNAPSHOT:开时单轮复用 HEAD 树表且读数与 git show 全等;关时仍随提交更新', () => {
+  // 立因(2026-11-07 302p 提速):六把尺各自把同一棵 HEAD 树 `ls-tree` 2~7 次。
+  // 快照只允许"短命单面进程"用,所以这里同时钉住两件事:
+  // ① 开启后重复 catBatch 的读数必须与 git show 逐字全等(复用不漂);
+  // ② 关闭(默认)时同一进程里 HEAD 移动必须读到新树 —— 镜像测试就是连续造提交的。
+  const root = mkScratch('face-snapshot-')
+  const prev = process.env.IHUI_FACE_TREE_SNAPSHOT
+  try {
+    gitRaw(['init', '--quiet'], root)
+    const rels = Array.from({ length: 210 }, (_, i) => `f${String(i).padStart(3, '0')}.txt`)
+    for (const rel of rels) writeFileSync(join(root, rel), `seed:${rel}\n`)
+    gitRaw(['add', '-A'], root)
+    gitRaw(['-c', 'user.email=t@t.local', '-c', 'user.name=t', 'commit', '--quiet', '-m', 'seed'], root)
+    const specs = rels.map((rel) => `HEAD:${rel}`)
+
+    process.env.IHUI_FACE_TREE_SNAPSHOT = '1'
+    const first = catBatch(root, specs)
+    const second = catBatch(root, specs)
+    assert.equal(first.size, rels.length, '快照面丢规格')
+    for (const rel of rels) {
+      assert.equal(second.get(`HEAD:${rel}`), first.get(`HEAD:${rel}`), `${rel}:快照复用后读数漂了`)
+    }
+    // 抽样对 git show 逐字校验(全量 210 次 git 派生会把夹具拖成分钟级,抽样已能抓住 oid 错配)
+    for (const rel of [rels[0], rels[105], rels[209]]) {
+      assert.equal(first.get(`HEAD:${rel}`), gitRaw(['show', `HEAD:${rel}`], root), `${rel}:快照读数与 git show 不等`)
+    }
+    delete process.env.IHUI_FACE_TREE_SNAPSHOT
+
+    writeFileSync(join(root, 'f000.txt'), 'moved\n')
+    gitRaw(['add', '-A'], root)
+    gitRaw(['-c', 'user.email=t@t.local', '-c', 'user.name=t', 'commit', '--quiet', '-m', 'move'], root)
+    const moved = catBatch(root, specs)
+    assert.equal(moved.get('HEAD:f000.txt'), 'moved\n', '默认路径被 HEAD 树表缓存钉住了')
+  } finally {
+    if (prev === undefined) delete process.env.IHUI_FACE_TREE_SNAPSHOT
+    else process.env.IHUI_FACE_TREE_SNAPSHOT = prev
     rmScratch(root)
   }
 })

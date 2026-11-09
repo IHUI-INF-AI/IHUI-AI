@@ -24,6 +24,7 @@ import {
   seriesUuidFromSeedHex,
   SNAPSHOT_SERIES_SEED_HEX_LENGTH,
 } from './snapshot-series.js';
+import { assertPathInside, isPathInside } from '../util/path-guard.js';
 import {
   DEFAULT_SNAPSHOT_GC_POLICY,
   planSnapshotGc,
@@ -130,7 +131,7 @@ export class CheckpointManager {
       throw new Error(`检查点版本分配失败(${allocation.reason}):${allocation.detail}`);
     }
     const id = formatSnapshotSeriesDirName(allocation.ref);
-    const cpDir = path.join(this.baseDir, id);
+    const cpDir = this.checkpointDir(id);
     ensureHostDir(cpDir);
     const copied = copyFilesIntoSnapshot(this.workspacePath, cpDir, files);
     const meta: CheckpointMeta = {
@@ -184,6 +185,15 @@ export class CheckpointManager {
     return result.status === 'ok' ? result.meta : null;
   }
 
+  /**
+   * 检查点目录的唯一构造入口:根内/realpath 断言(复用 util/path-guard)。
+   * 检查点 id 是内部序列名(含 `@vN`),不能做 `sanitizeSessionSegment` 改写,
+   * 否则落盘名与 manifest id 不一致、list 会扫不到;只做根内断言即可拦 `../`。
+   */
+  private checkpointDir(checkpointId: string): string {
+    return assertPathInside(this.baseDir, path.join(this.baseDir, checkpointId), '检查点目录');
+  }
+
   private readCheckpoint(checkpointId: string): CheckpointMeta {
     const result = readSnapshotMeta(this.baseDir, checkpointId, { onCorrupt: this.onCorrupt });
     if (result.status === 'ok') return result.meta;
@@ -196,21 +206,24 @@ export class CheckpointManager {
 
   async restore(checkpointId: string): Promise<{ restored: string[]; removed: string[]; notRestored: string[] }> {
     const meta = this.readCheckpoint(checkpointId);
-    return restoreSnapshotFiles(this.workspacePath, path.join(this.baseDir, checkpointId), meta.files);
+    return restoreSnapshotFiles(this.workspacePath, this.checkpointDir(checkpointId), meta.files);
   }
 
   diff(checkpointId?: string): CheckpointDiffEntry[] {
     if (checkpointId) {
       const cp = this.readCheckpoint(checkpointId);
-      return diffSnapshotFiles(this.workspacePath, path.join(this.baseDir, cp.id), cp.files);
+      return diffSnapshotFiles(this.workspacePath, this.checkpointDir(cp.id), cp.files);
     }
     const cp = this.list()[0] ?? null;
     if (!cp) throw new Error('暂无检查点,不能把它说成没有差异');
-    return diffSnapshotFiles(this.workspacePath, path.join(this.baseDir, cp.id), cp.files);
+    return diffSnapshotFiles(this.workspacePath, this.checkpointDir(cp.id), cp.files);
   }
 
   delete(checkpointId: string): boolean {
-    return removeSnapshotDir(path.join(this.baseDir, checkpointId));
+    // 根外的 id 一律视为"没有这个检查点"(返回 false,不抛也不删);
+    // 根内但 realpath 拐到根外的符号链接由 checkpointDir 抛错拒绝。
+    if (!isPathInside(this.baseDir, path.join(this.baseDir, checkpointId))) return false;
+    return removeSnapshotDir(this.checkpointDir(checkpointId));
   }
 
   /** 最近一次回收轮次(snapshotSync() 会刷;list()/get() 不跑回收 ⇒ 取到的是上一轮账面)的点名行;'undetermined' 时逐条说明缺哪门输入 */

@@ -14,10 +14,10 @@ import {
   agentRuleLink,
   agentRuleParam,
   agentHeatStats,
+  agents,
 } from '@ihui/database'
 import { isSystemAdmin, requireAdmin, requireAuth } from '../plugins/require-permission.js'
 import { requireActiveUser } from '../plugins/auth.js'
-import { syncAgentBuyToSettlement } from '../services/settlement-service.js'
 import { calculateAgentPermission } from '../services/agent-service.js'
 // requireStepUpForTwoFactorUser 的唯一消费点(/withdrawal/create)已在 2026-10-31
 // 安全强化第 10 批 R10 随该端点下线一并移除 —— 提现资金动作现只走 /api/wallet/withdraw,
@@ -27,6 +27,38 @@ import { generateOrderNumber } from '../utils/crypto-random.js'
 import { isUuidString } from '../utils/uuid.js'
 
 const idParamSchema = z.object({ id: z.string().min(1) })
+
+/** 购买/续费时长上限(天),防止用极小单价一次性买断十年以上权益。 */
+const MAX_AGENT_DURATION_DAYS = 3650
+
+/**
+ * F-135/F-136:智能体价格只能取服务端配置。
+ * agents.price 以"分"存储,zhs_agent_buy.price 以"元"的十进制字符串存储。
+ * 返回 null 表示智能体不存在。
+ */
+async function resolveAgentPriceCents(agentId: string): Promise<number | null> {
+  const [row] = await db
+    .select({ price: agents.price, isFree: agents.isFree })
+    .from(agents)
+    .where(eq(agents.agentId, agentId))
+    .limit(1)
+  if (!row) return null
+  return row.isFree ? 0 : row.price
+}
+
+/**
+ * F-228:客户端不得传价。zod 默认会静默剥离未知字段,客户端无法得知 price 未生效;
+ * 这里显式识别并返回 400,避免“以为按 21000 计价、实际按服务端价下单价”的错觉。
+ */
+function rejectsClientPrice(body: unknown): boolean {
+  return typeof body === 'object' && body !== null && 'price' in body
+}
+
+const CLIENT_PRICE_REJECTED = {
+  code: 400,
+  message: '不接受客户端传价:单价由服务端智能体定价决定',
+  data: null,
+} as const
 
 // =============================================================================
 // 通用 raw SQL 辅助（适用于尚未迁移到 Drizzle schema 的旧表）
@@ -63,19 +95,123 @@ const ALLOWED_ORDERS: Record<string, string> = {
   updated_asc: '"updated_at" ASC',
 }
 
+/**
+ * DB-46:旧表的显式读列白名单。
+ *
+ * `SELECT *` 会在表新增内部列时自动把该列出参（且列宽漂移不可控）。列集合来自
+ * 各端点既有的写入/筛选契约；未迁入 Drizzle 的旧表以仓内代码列名为准。
+ * `zhs_agent_use_detail` 在仓内无 DDL/写入契约，这里只列筛选与排序真正用到的列。
+ */
+const READ_COLUMNS: Record<string, readonly string[]> = {
+  zhs_agent_need_task: [
+    'id',
+    'user_id',
+    'user_name',
+    'agent_id',
+    'agent_name',
+    'title',
+    'description',
+    'type',
+    'priority',
+    'budget',
+    'deadline',
+    'status',
+    'developer_id',
+    'developer_name',
+    'accept_time',
+    'complete_time',
+    'deliverable',
+    'remark',
+    'created_at',
+    'updated_at',
+  ],
+  agent_upload: [
+    'id',
+    'user_id',
+    'user_name',
+    'agent_id',
+    'agent_name',
+    'file_name',
+    'file_url',
+    'file_type',
+    'file_size',
+    'mime_type',
+    'ext',
+    'biz_type',
+    'status',
+    'created_at',
+    'updated_at',
+  ],
+  zhs_agent_use_detail: ['id', 'user_id', 'agent_id', 'biz_type'],
+  agent_rule_param: [
+    'id',
+    'agent_rule_id',
+    'param_name',
+    'param_code',
+    'param_type',
+    'param_value',
+    'description',
+    'status',
+    'created_at',
+    'updated_at',
+  ],
+  zhs_agent_buy: [
+    'id',
+    'agent_id',
+    'user_id',
+    'price',
+    'duration',
+    'expires_at',
+    'status',
+    'payment_method',
+    'payment_id',
+    'created_at',
+    'updated_at',
+  ],
+  zhs_developer_link: [
+    'id',
+    'user_id',
+    'user_name',
+    'creator_id',
+    'creator_name',
+    'type',
+    'count',
+    'order_no',
+    'expires_at',
+    'status',
+    'created_at',
+    'updated_at',
+  ],
+}
+
+/** 列表页码上限：page 只有下界时 (page-1)*pageSize 可无限大（DB-46）。 */
+const MAX_LIST_PAGE = 1000
+/** 列表单页上限（与 parsePaging 的 PAGE_SIZE_MAX 同口径）。 */
+const MAX_LIST_PAGE_SIZE = 100
+
+/** 取旧表的显式投影（缺列清单即失败，绝不回退 SELECT *）。 */
+function readProjection(table: string): string {
+  assertTable(table)
+  const cols = READ_COLUMNS[table]
+  if (!cols) throw new Error(`Table not in read-column allowlist: ${table}`)
+  return cols.map((c) => `"${c}"`).join(', ')
+}
+
 import { parsePaging } from '../utils/paging.js'
 
 async function rawList(
   table: string,
   opts: { page: number; pageSize: number; conds?: SQL[]; orderBy?: string },
 ) {
-  assertTable(table)
+  const projection = readProjection(table)
   const where =
     opts.conds && opts.conds.length > 0 ? sql`WHERE ${sql.join(opts.conds, sql` AND `)}` : sql``
   const order = (opts.orderBy ? ALLOWED_ORDERS[opts.orderBy] : undefined) ?? '"id" DESC'
-  const offset = (opts.page - 1) * opts.pageSize
+  const page = Math.min(Math.max(1, opts.page), MAX_LIST_PAGE)
+  const pageSize = Math.min(Math.max(1, opts.pageSize), MAX_LIST_PAGE_SIZE)
+  const offset = (page - 1) * pageSize
   const rows = await db.execute(
-    sql`SELECT * FROM ${sql.raw(`"${table}"`)} ${where} ORDER BY ${sql.raw(order)} LIMIT ${opts.pageSize} OFFSET ${offset}`,
+    sql`SELECT ${sql.raw(projection)} FROM ${sql.raw(`"${table}"`)} ${where} ORDER BY ${sql.raw(order)} LIMIT ${pageSize} OFFSET ${offset}`,
   )
   const countRows = await db.execute(
     sql`SELECT count(*)::int AS count FROM ${sql.raw(`"${table}"`)} ${where}`,
@@ -84,8 +220,8 @@ async function rawList(
   return {
     list: rows as Record<string, unknown>[],
     total,
-    page: opts.page,
-    pageSize: opts.pageSize,
+    page,
+    pageSize,
   }
 }
 
@@ -110,9 +246,11 @@ function developerOwnerScope(request: FastifyRequest): SQL | undefined {
 }
 
 async function rawById(table: string, id: string, extraCond?: SQL) {
-  assertTable(table)
+  const projection = readProjection(table)
   const scope = extraCond ? sql`"id"::text = ${id} AND ${extraCond}` : sql`"id"::text = ${id}`
-  const rows = await db.execute(sql`SELECT * FROM ${sql.raw(`"${table}"`)} WHERE ${scope} LIMIT 1`)
+  const rows = await db.execute(
+    sql`SELECT ${sql.raw(projection)} FROM ${sql.raw(`"${table}"`)} WHERE ${scope} LIMIT 1`,
+  )
   return (rows as Record<string, unknown>[])[0]
 }
 
@@ -214,7 +352,12 @@ const updateRuleSchema = z.object({
 })
 
 // P1 安全修复(2026-08-02):personality update body schema
-const personalityUpdateSchema = z.object({ personality: z.string() })
+// F-133:personality 是直接落进 prompt 的注入面,补 8000 字上限拒绝超大注入体
+// (只收紧上限,字段仍为原有可选/必填语义,不改变既有成功路径)。
+const personalityUpdateSchema = z.object({ personality: z.string().max(8000) })
+
+// F-133:raw SQL 取回的 user_id 可能是 null;统一收敛成 string|null 再比对
+const asOwnerId = (v: unknown): string | null => (typeof v === 'string' && v.length > 0 ? v : null)
 
 const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   // P0 安全修复:所有路由默认要求登录;admin-only 端点在路由级用 requireAdmin 覆盖
@@ -259,7 +402,8 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   const renewBody = z.object({
     agentId: z.string(),
     userId: z.string(),
-    duration: z.number(),
+    // F-136:续费时长同样必须有限,且不再立即延长权益(见下方改为待支付订单)
+    duration: z.number().int().min(1).max(MAX_AGENT_DURATION_DAYS),
   })
   const withdrawalListQuery = z.object({
     userId: z.string().optional(),
@@ -575,13 +719,16 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   const agentBuySchema = z.object({
     agentId: z.uuid(),
     userId: z.uuid(),
-    price: z.number().min(0),
-    duration: z.number().int().min(1), // 购买时长（天）
+    // F-135:价格只能由服务端 agents 配置决定,客户端传价一律忽略
+    duration: z.number().int().min(1).max(MAX_AGENT_DURATION_DAYS), // 购买时长（天）
     paymentMethod: z.string().max(32).optional(),
   })
 
   // 创建购买订单
   server.post('/buy/create', async (request, reply) => {
+    if (rejectsClientPrice(request.body)) {
+      return reply.code(400).send(CLIENT_PRICE_REJECTED)
+    }
     const body = agentBuySchema.parse(request.body)
     // P0 安全修复:禁止用其他用户 ID 创建订单(IDOR)
     if (body.userId !== request.userId) {
@@ -594,13 +741,17 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
         .code(403)
         .send({ code: 403, message: permission.reason ?? '无权购买', data: null })
     }
+    const priceCents = await resolveAgentPriceCents(body.agentId)
+    if (priceCents === null) {
+      return reply.code(404).send({ code: 404, message: '智能体不存在', data: null })
+    }
     const expiresAt = new Date(Date.now() + body.duration * 86400000)
     const [order] = await db
       .insert(zhsAgentBuy)
       .values({
         agentId: body.agentId,
         userId: body.userId,
-        price: body.price.toString(),
+        price: (priceCents / 100).toFixed(2),
         duration: body.duration,
         expiresAt,
         status: 'pending',
@@ -609,27 +760,23 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     if (!order) {
       return reply.code(500).send({ code: 1, message: '创建订单失败', data: null })
     }
-    // 同步到结算表(按月度切分生成结算记录,幂等,失败不影响主业务)
-    await syncAgentBuyToSettlement({
-      id: order.id,
-      agentId: order.agentId,
-      price: order.price,
-      createdAt: order.createdAt,
-      expiresAt: order.expiresAt,
-      paymentId: order.paymentId,
-    })
+    // F-135/F-228:订单此刻是 pending(未支付),不得生成结算记录;
+    // 结算在权威支付事件(扣币成功激活)后由 syncAgentBuyToSettlement 生成。
     return reply.code(201).send(order)
   })
 
   // 查询用户对指定智能体的访问权限（VIP 专享/免费/付费/已购买）
-  server.get('/permission/:agentId', async (request) => {
+  server.get('/permission/:agentId', async (request, reply) => {
     const params = z.object({ agentId: z.string().min(1) }).parse(request.params)
     const query = z.object({ userId: z.uuid().optional() }).parse(request.query)
-    // 归属主体优先取承载层身份:本插件顶层已有 requireAuth preHandler,所以登录态下
-    // `?userId=` 一律不再参与判定 —— 客户端自报身份能决定"我看得到这个 Agent 吗"
-    // 就是 §5「身份不得住客户端可整写字段」那型。只有拿不到主体身份时才回落 query
-    // (给未挂 preHandler 的复用路径留出口,现状不会走到)。
-    const subjectId = request.userId ?? query.userId
+    // F-07 同族(2026-11-08):归属主体只取认证身份。此前 `request.userId ?? query.userId`
+    // 是客户端可整写的身份回落 —— 登录态缺失时 `?userId=` 能决定"我看得到什么";
+    // 现在显式 401,且指定他人一律 403(与 F-04/F-05 同口径)。
+    const subjectId = request.userId
+    if (!subjectId) return reply.status(401).send(error(401, '未授权'))
+    if (query.userId && query.userId !== subjectId) {
+      return reply.status(403).send(error(403, '无权查询他人的智能体权限'))
+    }
     const permission = await calculateAgentPermission(params.agentId, subjectId)
     return { code: 0, message: 'ok', data: permission }
   })
@@ -665,6 +812,9 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
 
   // 续费
   server.post('/developer/renew', async (request, reply) => {
+    if (rejectsClientPrice(request.body)) {
+      return reply.code(400).send(CLIENT_PRICE_REJECTED)
+    }
     const { agentId, userId, duration } = renewBody.parse(request.body)
     // P0 安全修复:禁止为其他用户续费(IDOR)
     if (userId !== request.userId) {
@@ -679,19 +829,28 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
       .limit(1)
     const existingRow = existing[0]
     if (!existingRow) return reply.code(404).send({ error: '无有效订阅记录' })
-    const newExpires = new Date(
-      Math.max(existingRow.expiresAt.getTime(), Date.now()) + duration * 86400000,
-    )
-    const [updated] = await db
-      .update(zhsAgentBuy)
-      .set({
-        expiresAt: newExpires,
-        duration: existingRow.duration + duration,
-        updatedAt: new Date(),
+    const priceCents = await resolveAgentPriceCents(agentId)
+    if (priceCents === null) {
+      return reply.code(404).send({ code: 404, message: '智能体不存在', data: null })
+    }
+    // F-136:原实现收到请求就直接延长 expiresAt —— 等于免费续期。
+    // 改为生成待支付续费订单(服务端定价),由支付成功事件激活后再延长权益。
+    const baseMs = Math.max(existingRow.expiresAt?.getTime() ?? Date.now(), Date.now())
+    const [renewal] = await db
+      .insert(zhsAgentBuy)
+      .values({
+        agentId,
+        userId,
+        price: (priceCents / 100).toFixed(2),
+        duration,
+        expiresAt: new Date(baseMs + duration * 86400000),
+        status: 'pending',
       })
-      .where(eq(zhsAgentBuy.id, existingRow.id))
       .returning()
-    return updated
+    if (!renewal) {
+      return reply.code(500).send({ code: 1, message: '创建续费订单失败', data: null })
+    }
+    return reply.code(201).send(renewal)
   })
 
   // 提现明细列表(管理员看所有;由 requireAdmin 守门)
@@ -1045,7 +1204,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
       }
       if (!row && orderNo) {
         const rows = await db.execute(
-          sql`SELECT * FROM ${sql.raw('"zhs_agent_buy"')} WHERE "payment_id" = ${orderNo} LIMIT 1`,
+          sql`SELECT ${sql.raw(readProjection('zhs_agent_buy'))} FROM ${sql.raw('"zhs_agent_buy"')} WHERE "payment_id" = ${orderNo} LIMIT 1`,
         )
         row = (rows as Record<string, unknown>[])[0]
       }
@@ -1323,7 +1482,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
       return reply.status(500).send(error(500, '查询规则参数失败'))
     }
   })
-  server.post('/rule-params', async (req, reply) => {
+  server.post('/rule-params', { preHandler: requireAdmin }, async (req, reply) => {
     const bodyParsed = ruleParamCreateSchema.safeParse(req.body ?? {})
     if (!bodyParsed.success) {
       return reply.status(400).send(error(400, '参数校验失败'))
@@ -1339,7 +1498,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
       return reply.status(500).send(error(500, '创建规则参数失败'))
     }
   })
-  server.put('/rule-params/:id', async (req, reply) => {
+  server.put('/rule-params/:id', { preHandler: requireAdmin }, async (req, reply) => {
     const parsed = idParamSchema.safeParse(req.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
     const bodyParsed = ruleParamCreateSchema.safeParse(req.body ?? {})
@@ -1561,7 +1720,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     const { orderNo } = req.params as { orderNo: string }
     try {
       const rows = await db.execute(
-        sql`SELECT * FROM ${sql.raw('"zhs_developer_link"')} WHERE "order_no" = ${orderNo} AND ${
+        sql`SELECT ${sql.raw(readProjection('zhs_developer_link'))} FROM ${sql.raw('"zhs_developer_link"')} WHERE "order_no" = ${orderNo} AND ${
           developerOwnerScope(req) ?? sql`true`
         } LIMIT 1`,
       )
@@ -1579,7 +1738,14 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
       return reply.status(400).send(error(400, '参数校验失败'))
     }
     try {
-      const body = bodyParsed.data
+      // F-138 写归属(2026-11-08):developer_link 的 user_id/creator_id 一律取令牌主体。
+      // 同文件的 /upload、/need-task 也在插入前无条件覆盖 user_id(管理员侧同样按本人落库),
+      // 这里沿用同一口径;若采信 body,任意登录用户都能把绑定记录写到他人名下。
+      const body: Record<string, unknown> = {
+        ...bodyParsed.data,
+        user_id: req.userId,
+        creator_id: req.userId,
+      }
       const type = Number(body.type ?? 0)
       const count = Math.max(1, Number(body.count ?? 1))
       const now = new Date()
@@ -1617,10 +1783,20 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     const { agentId } = req.params as { agentId: string }
     try {
       const rows = await db.execute(
-        sql`SELECT "agent_id", "agent_prompt" FROM ${sql.raw('"agents"')} WHERE "agent_id"::text = ${agentId} LIMIT 1`,
+        sql`SELECT "agent_id", "agent_prompt", "user_id", "status" FROM ${sql.raw('"agents"')} WHERE "agent_id"::text = ${agentId} LIMIT 1`,
       )
       const row = (rows as Record<string, unknown>[])[0]
       if (!row) return reply.status(404).send(error(404, '智能体不存在'))
+      // F-133:未发布智能体的人设属私有配置,仅属主/系统管理员可读;
+      // 已发布的才对外公开(下游 mobile-chat / v1-public 以 system 使用)。
+      // 非授权一律 404,不暴露该 agentId 是否存在。
+      if (row['status'] !== 'published') {
+        const owner = asOwnerId(row['user_id'])
+        const privileged =
+          owner !== null &&
+          (owner === req.userId || isSystemAdmin(req, { includeInternalChannel: false }))
+        if (!privileged) return reply.status(404).send(error(404, '智能体不存在'))
+      }
       return reply.send(success({ agentId: row['agent_id'], personality: row['agent_prompt'] }))
     } catch (e) {
       req.log.error(e)
@@ -1635,8 +1811,22 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     }
     const { personality } = bodyParsed.data
     try {
+      // F-133 归属闸:与 GET 同口径 —— 非属主且非管理员一律 404,不暴露存在性。
+      const ownerRows = await db.execute(
+        sql`SELECT "agent_id", "user_id" FROM ${sql.raw('"agents"')} WHERE "agent_id"::text = ${agentId} LIMIT 1`,
+      )
+      const ownerRow = (ownerRows as Record<string, unknown>[])[0]
+      if (!ownerRow) return reply.status(404).send(error(404, '智能体不存在'))
+      const ownerId = ownerRow['user_id']
+      const isOwner = typeof ownerId === 'string' && ownerId === req.userId
+      const isAdmin = isSystemAdmin(req, { includeInternalChannel: false })
+      if (!isOwner && !isAdmin) {
+        return reply.status(404).send(error(404, '智能体不存在'))
+      }
+      // 管理面放行任意属主;普通用户把归属条件同时下推到 UPDATE,避免检查与写入之间的竞态。
+      const ownership = isAdmin ? sql`` : sql` AND "user_id"::text = ${req.userId!}`
       const rows = await db.execute(
-        sql`UPDATE ${sql.raw('"agents"')} SET "agent_prompt" = ${personality}, "updated_at" = NOW() WHERE "agent_id"::text = ${agentId} RETURNING "agent_id", "agent_prompt"`,
+        sql`UPDATE ${sql.raw('"agents"')} SET "agent_prompt" = ${personality}, "updated_at" = NOW() WHERE "agent_id"::text = ${agentId}${ownership} RETURNING "agent_id", "agent_prompt"`,
       )
       const row = (rows as Record<string, unknown>[])[0]
       if (!row) return reply.status(404).send(error(404, '智能体不存在'))

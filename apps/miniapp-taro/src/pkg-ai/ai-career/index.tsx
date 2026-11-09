@@ -19,18 +19,18 @@ import { EmptyState, ErrorState, ScreenSkeleton } from '@/components/ScreenState
 function extractTags(name: string, desc: string): string[] {
   const text = `${name} ${desc}`
   const tagMap: Array<{ keyword: string; tag: string }> = [
-    { keyword: t('aicareer.q1'), tag: t('aicareer.q2') },
-    { keyword: t('aicareer.q3'), tag: t('aicareer.q4') },
-    { keyword: t('aicareer.q5'), tag: t('aicareer.q6') },
-    { keyword: t('aicareer.q7'), tag: t('aicareer.q8') },
-    { keyword: t('aicareer.q9'), tag: t('aicareer.q10') },
-    { keyword: t('aicareer.q11'), tag: t('aicareer.q12') },
-    { keyword: t('aicareer.q13'), tag: t('aicareer.q14') },
-    { keyword: t('aicareer.q15'), tag: t('aicareer.q16') },
-    { keyword: t('aicareer.q17'), tag: t('aicareer.q18') },
+    { keyword: t('aiCareer.q1'), tag: t('aiCareer.q2') },
+    { keyword: t('aiCareer.q3'), tag: t('aiCareer.q4') },
+    { keyword: t('aiCareer.q5'), tag: t('aiCareer.q6') },
+    { keyword: t('aiCareer.q7'), tag: t('aiCareer.q8') },
+    { keyword: t('aiCareer.q9'), tag: t('aiCareer.q10') },
+    { keyword: t('aiCareer.q11'), tag: t('aiCareer.q12') },
+    { keyword: t('aiCareer.q13'), tag: t('aiCareer.q14') },
+    { keyword: t('aiCareer.q15'), tag: t('aiCareer.q16') },
+    { keyword: t('aiCareer.q17'), tag: t('aiCareer.q18') },
     { keyword: t('aiAssistant.catStudy'), tag: t('aiAssistant.catStudy') },
     { keyword: t('favorites.manage'), tag: t('favorites.manage') },
-    { keyword: t('aicareer.q19'), tag: t('aicareer.q20') },
+    { keyword: t('aiCareer.q19'), tag: t('aiCareer.q20') },
   ]
   const tags: string[] = []
   for (const { keyword, tag } of tagMap) {
@@ -56,7 +56,7 @@ export default function AiCareer() {
       const res = (await api.getAgentList()) as { list?: Array<Record<string, unknown>> }
       setList(res?.list || [])
     } catch (e) {
-      logger.error('unknown', t('aicareer.q21'), e)
+      logger.error('unknown', t('aiCareer.q21'), e)
       setError(true)
     } finally {
       setLoading(false)

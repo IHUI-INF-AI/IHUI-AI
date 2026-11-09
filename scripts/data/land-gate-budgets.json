@@ -1,23 +1,23 @@
 {
   "$comment": [
     "落地后置复跑的**按臂预算登记表**(2026-11-06 立)。",
-    "为什么要有这本表:注册表臂缺省预算 300s,而门 30a 静默态实测 506s(rc=0,判定是绿的),",
-    "于是它在旁路落地通道上**每轮都被掐死**,读数永远是 `rc=killed ⇒ 未判定`。",
+    "为什么要有这本表:注册表臂缺省预算 300s,而门 30a 2026-11-06 静默态实测 506s(rc=0,判定是绿的),",
+    "2026-11-08 复测已降到 176–255s;无论哪次读数,300s 都贴着上限。",
     "§0.3 的『取不到不记绿』是对的,但永远取不到就不是保守而是坏了 —— 它把每一次落地的自证拖一格,",
     "而恒不可满足的读数与恒红门是同一类病(§12e)。",
     "规矩:① 只登记**实测过**的臂,`measuredMs` + `note` 缺一即被判据剔出该行;",
-    "② 未被登记的臂行为与改前逐字相同(缺省 300s 不动,不为一格把全局抬高);",
-    "③ 超时一律落 `undetermined` 而不是判红,本表不改变这一条;",
+    "② 未被登记的臂取本表 `defaultTimeoutMs` —— 执行器看门狗与落地复跑共用同一处取数,不再各写一个数(DG-06);",
+    "③ 超时一律落 `undetermined` 而不是判红,更不允许洗成通过;本表不改变这一条;",
     "④ 抬高预算的理由必须是量出来的耗时,不能是『它最近老红』。"
   ],
   "defaultTimeoutMs": 300000,
   "gates": [
     {
       "script": "check-commit-loss-guard.mjs",
-      "timeoutMs": 900000,
-      "measuredMs": 506000,
-      "measuredAt": "2026-11-06",
-      "note": "门 30a;静默态单跑 rc=0 / 506s(31 万对象级 reflog + fsck 可达性)。900s = 实测 ×1.8 余量,与并发无关。出处:scripts/lib/land-gate-rerun.mjs 头注同一读数。"
+      "timeoutMs": 600000,
+      "measuredMs": 255000,
+      "measuredAt": "2026-11-08",
+      "note": "门 30a;2026-11-08 复测单跑 176–255s(rc=0;2026-11-06 静默态旧读数 506s 已作废)。600s = 最坏 255s ×2.35 余量(≤ 3× 上限)。执行器看门狗与落地复跑共用本行,不再各写 300s。"
     },
     {
       "script": "check-dangling-local-imports.mjs",
@@ -25,6 +25,29 @@
       "measuredMs": 201242,
       "measuredAt": "2026-11-06",
       "note": "门 98 的 --rev HEAD --anchor HEAD^ 两面全量审实测 201s(阶段剖析:auditTree 13,479 文件 = 93s/面)。缺省 300s 在并发 8 臂下不够,而落地器自己早已对同一条 CLI 用 10 分钟(IHUI_LAND_DANGLING_GATE_TIMEOUT_MS)⇒ 两通道同一条量纲取 600s,不各拍各的。"
+    },
+    {
+      "script": "check-typecheck.mjs",
+      "timeoutMs": 405000,
+      "measuredMs": 266784,
+      "measuredAt": "2026-11-08",
+      "note": "门 T1(push 门全量 typecheck,19 个包重建)。2026-11-08 实测:干净树首次全量(冷 tsbuildinfo + 包重建)266.8s;同刻另一工作树并发跑同一门 117.1s。旧缺省 300s = 1.12× 实测 ⇒ 多线同机时必被单门看门狗终止且无结论(undetermined),既不是判红也不是通过。405s = 266.8s ×1.52(≤ 3× 上限)。判据一字未改:超时仍落 undetermined,不判红、不洗绿。长期方案见 docs/tickets/2026-11/t1-typecheck-budget-calibration-20261108.md(推送前单跑一次、push 门只读近期结论)。"
+    },
+    {
+      "gateId": "305",
+      "script": "check-hook-chain-refs.mjs",
+      "measuredMs": 4000,
+      "measuredAt": "2026-11-08",
+      "timeoutMs": 12000,
+      "note": "commit 档实测 3.8–4.0s(2753 个 JS 文件),取 3× 余量 12s;接面改造后 import 判面层,量级不变。"
+    },
+    {
+      "gateId": "305p",
+      "script": "check-hook-chain-refs.mjs",
+      "measuredMs": 4000,
+      "measuredAt": "2026-11-08",
+      "timeoutMs": 12000,
+      "note": "push 档与 commit 档同脚本同参数,复用同一实测值。"
     }
   ]
 }

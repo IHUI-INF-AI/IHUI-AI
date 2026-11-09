@@ -23,7 +23,7 @@
  */
 
 import { execFileSync, spawn, spawnSync } from 'node:child_process'
-import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs'
+import { appendFileSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { gitRaw } from './face-reader.mjs'
 // 2026-10-16 [11e] 余量拉开:push-gate 缓存(指纹/命中早退/写入)与批次留痕 attest 各自外置成
@@ -37,1021 +37,1757 @@ import { normalizeTriggers, triggersTouch } from './guardian-triggers.mjs'
 import { widenFilesOverDependents } from './import-graph.mjs'
 import { resolveGitBin } from './gitdir.mjs'
 import { probeSubstrate } from './substrate-probe.mjs'
+// 2026-11-08(DG-01):单门超时预算与旁路落地器共用同一张登记表(scripts/data/land-gate-budgets.json),
+// 避免"执行面一套 300s、落地面另一套"把 30a 在两条腿上判成两个结论。
+import { resolveGateBudget } from './land-gate-rerun.mjs'
+import { createGatePhaseWatchdog } from './gate-phase-watchdog.mjs'
 // G-611:子门"被信号杀死"与"检查结论失败"的分界用共享尺子判(集合/分类唯一实现在该 lib;
 // 75 传播语义见执行段 catch)。此前本 runner 只认 status===75,子门被可捕获信号杀掉而
 // 产出 128+N、或没装产出侧只留下 signal 时,都被计成"结论失败"—— 归因分叉的 runner 层。
-import {
-  interruptReason,
-  shouldPropagateAsInterrupt,
-  TEMPFAIL_EXIT_CODE,
-} from './signal-exit.mjs'
+import { interruptReason, shouldPropagateAsInterrupt, TEMPFAIL_EXIT_CODE } from './signal-exit.mjs'
 // 2026-09-29:把"跑不起来(崩溃)"与"判据判红"分流的纯函数(构造面四条分支各有正反例)。
 // 2026-10-24:同一把尺子多收一个输入 `code` —— 执行器两道兜底(单门超时看门狗 / 输出超 20MB)合成的
 // Error 只有 error.code、没有 status/signal,不传 code 就被读成"判据判红"(§0.3 把"没判"写成"判过");
 // 归 crash 档后后果一项不减(仍 failed++、仍非零退出、提交仍被拦)。判定与措辞单源都在该 lib。
-import { crashAdvisory, crashNextStep, decideGateOutcome, UNDETERMINED_EXIT_CODE } from './gate-failure-kind.mjs'
+import {
+  crashAdvisory,
+  crashNextStep,
+  decideGateOutcome,
+  UNDETERMINED_EXIT_CODE,
+} from './gate-failure-kind.mjs'
+// 2026-11-08:门体同代自检与"重试变绿"判定。统一入口必须是**派发点** —— 任何一处 spawn
+// 自己拼 argv 都会绕过自检,所以两道 spawn 都走 gateSpawnPlan();未声明判面/门体不同代
+// 由子进程 exit 2(preflight)或此处合成的 exit 2 收口,绝不放行 0/1。
+import { gateSpawnPlan } from './gate-body-provenance.mjs'
+import { formatRetryReport, recordAndClassify } from './gate-attempt-ledger.mjs'
+// 2026-11-08:门判据面(delta/stock)注册与"存量红降级"纯判定。分类面住独立 lib,
+// 不进 checks 注册表(门 192 按条目行逐字比对 HEAD↔索引,插字段会被判 P2 改写)。
+import {
+  buildStockLedgerEntry,
+  decideStockOutcome,
+  gateFace,
+  isRefsFace,
+  refsTouched,
+  stockFacePaths,
+} from './gate-face-registry.mjs'
 
-export async function runGuardianBatch({ checks, pushGateChecks, effectiveChecks, passStaged, pushGate, showTiming, cliArgs }) {
-
-// === 颜色 ===
-const C = {
-  red: '\x1b[31m',
-  green: '\x1b[32m',
-  yellow: '\x1b[33m',
-  cyan: '\x1b[36m',
-  dim: '\x1b[2m',
-  bold: '\x1b[1m',
-  reset: '\x1b[0m',
-}
-
-// ── --timing 的机读旁路(2026-10-12 立) ─────────────────────────────────────
-// 为什么需要:并行档把所有门头一次性打印在前、各门的 ⏱ 行随后按完成序回放,
-// 于是「日志里第 N 个 ⏱ 对应哪道门」不可解析(实测 235 个门头只有 16 个能靠
-// 邻接配对)⇒ 只能拿汇总总耗时,做不了逐门针对性提速。
-// 出路:applyGateResult 收口处按 check.id 落一份 JSON(仅 --timing 时写),
-// 与控制台输出互不干扰,分析脚本读它,不再靠正则配对日志。
-const timingRows = []
-if (showTiming) {
-  process.on('exit', () => {
-    try {
-      const out = resolve(process.cwd(), '.ihui-agent/tmp/guardian-timing.json')
-      writeFileSync(out, JSON.stringify({ generatedAt: new Date().toISOString(), rows: timingRows }, null, 2) + '\n')
-      process.stderr.write(`⏱  逐门耗时已落盘: ${out}(${timingRows.length} 行)\n`)
-    } catch {
-      /* 落盘失败不得影响守门结论 —— 只是少一份分析材料 */
-    }
-  })
-}
-
-// ── 逐门实时进度旁路(2026-10-21 立)─────────────────────────────────────────
-// 病灶:pre-commit 用 execSync 调本进程,stdout 被**全量缓冲到结束**才写出 ⇒ 钩子运行期
-// (safe-commit 自述"本机实测 ≈15 分钟")在调用方眼里就是零输出,与"卡死"同形。实测
-// 2026-10-21 22:57 那轮:13 分钟里 pre-commit.log 停在"运行守门脚本批量检查..."一字不增,
-// 只能靠抓进程树才看出当前跑到哪一门。
-// 出路:每门收口时 append 一行可 tail 的进度,当场就能回答"卡在哪一门/跑到第几门"。
-// 纯观测旁路:写失败只吞掉,绝不改判据、不改退出码、不进提交面。
-const GATE_PROGRESS_FILE = resolve(process.cwd(), '.ihui-agent', 'state', 'hook-logs', 'gates-progress.log')
-function appendGateProgress(check, r, elapsedMs) {
-  try {
-    // §0.3 三态:exit 2 + 门自称「未判定」是独立一档,不得记成 fail —— 进度台账是归因一手证据,
-    // 把「取不到输入」与「判出了违规」混成同一行会带人去修不存在的缺陷。判定走 decideGateOutcome
-    // 同一把尺子(与 applyGateResult 的 kindPre 同源),观测旁路不另抄一份分类。
-    const gateStderr = typeof r?.stderr === 'string' ? r.stderr : ''
-    let status
-    if (r?.error) status = 'error'
-    // BUG-55 × BUG-43④:门以 exit 0 + stderr 显式 [UNDETERMINED] 交付「未判定」时
-    // (check-cli-i18n-parity.mjs 被审面目录不在位即此型),applyGateResult 已判 undetermined 不记绿,
-    // 而进度台账若只看 status===0 就会把「没判」记成 pass —— 三态污染的一手证据。
-    // 标记与 applyGateResult 的 [UNDETERMINED] 检查同源:只认门自己的显式声明,不猜、不放宽;
-    // exit 2 + 自称未判定仍走 decideGateOutcome 这一把尺子,观测旁路不另抄分类。
-    else if (
-      gateStderr.includes('[UNDETERMINED]') ||
-      decideGateOutcome({
-        status: r?.status ?? null,
-        signal: r?.signal ?? null,
-        stderr: gateStderr,
-      }).kind === 'undetermined'
-    ) status = 'undetermined'
-    else if (r?.status === 0 && r?.signal === null) status = 'pass'
-    else status = 'fail'
-    mkdirSync(dirname(GATE_PROGRESS_FILE), { recursive: true })
-    appendFileSync(
-      GATE_PROGRESS_FILE,
-      `[${new Date().toISOString()}] ${status.padEnd(5)} ${String(check.id).padEnd(8)} ${String(elapsedMs).padStart(6)}ms ${check.script || ''}\n`,
-    )
-  } catch {
-    /* 观测旁路:落盘失败不得影响守门结论 */
+export async function runGuardianBatch({
+  checks,
+  pushGateChecks,
+  effectiveChecks,
+  passStaged,
+  fullFace = false,
+  pushGate,
+  showTiming,
+  cliArgs,
+}) {
+  // === 颜色 ===
+  const C = {
+    red: '\x1b[31m',
+    green: '\x1b[32m',
+    yellow: '\x1b[33m',
+    cyan: '\x1b[36m',
+    dim: '\x1b[2m',
+    bold: '\x1b[1m',
+    reset: '\x1b[0m',
   }
-}
 
-// === 执行 ===
-
-// ─── push-gate 结果缓存(2026-09-18 立;2026-10-16 外置到 lib/guardian-pushgate-cache.mjs) ───
-// 内容指纹为键(HEAD:apps/packages 树 hash + HEAD 全树 hash + 脏文件内容 hash + push 门集规格),只缓存全部通过结果;
-// 命中即在本函数内 process.exit(0),--no-cache / HUSKY_SKIP_PUSHGATE_CACHE=1 逃生舱保留。
-pushGateCacheEarlyExit({ pushGate, cliArgs, C, checks: effectiveChecks })
-
-let passed = 0
-let warned = 0
-let failed = 0
-let skipped = 0
-// §0.3「未判定」独成一档(2026-10-27):既不是 passed(没拿到"通过"这个结论)也不是 failed
-// (没有判出任何违规)。单独计数 ⇒ 汇总既能把它逐道点名出来,又不会把"没判"算进"失败"。
-let undetermined = 0
-// info 门失败既不该拦提交,也**绝不许记绿**(把失败计成 passed 就是"没判写成判过")。
-// 单列一档:不计 passed/failed/undetermined,只逐道点名,退出码不变(info 门本就不拦)。
-let infoDegraded = 0
-const infoDegradedGates = []
-// 快档/硬预算/应急放行跳过的 blocking 门:门根本没跑,没拿到"通过"这个结论。
-// 与 stagedTriggers 未命中(设计上的正常跳过)分开记 —— 后者与本次提交内容无关,不进此清单。
-const skippedBlockingGates = []
-const startTime = Date.now()
-// 跑完再汇总(2026-09-22 改版):原先任一 blocking 门失败即 exit(1),会遮蔽其后所有门的结论
-// —— 既让人误判"刚注册的门没生效"(实测两次被 id 6 / id 30c 的在途失败截断),也会把
-// 本可一次看全的多处故障拆成多轮。改为一轮跑完、末尾列清单一次性退出。
-// 两条不变量:① 中断(75 或信号族/无码信号死,G-611 同一把尺子)仍**立即**向上传播,
-//    不收敛成 1(push guard 靠它决定重试);
-// ② GUARDIAN_STOP_ON_FIRST=1 完整恢复旧的快速失败行为(逃生舱)。
-// ── 快档(2026-10-21 立,机主要求"整体 ≤1 分钟")────────────────────────────────
-// 现读数据(guardian-timing.json,154 门):33 道重型门(>3s)合计 **656s = 86%**,
-// 121 道快门合计 109s。快档只跑快门(8 并发 ≈ 20s),重型门由 post-commit 后台补跑,
-// 失败写 .ihui-agent/state/hook-logs/gates-heavy-fail.log —— 提交不被拖住,但红仍然会被看见。
-// 默认开(由 pre-commit-hook 设 IHUI_GATE_FAST=1);要全量(CI / 发版 / 排障):IHUI_GATE_FAST=0。
-const HEAVY_GATE_IDS = new Set([
-  '30a', '103', '107', '168', '165', '93', '137', '104', '89', '47', '46', '181',
-  '155', '108', '105', '172', '26', '127', '224', '24b', '41', '92', '49', '57',
-  '220', '213', '84', '39', '100', '29', '2n-web', '4', '2f-mobile-rn',
-  // 2026-10-21 二次实测补入:静态耗时清单跟不上波动 —— 这几道是**全仓扫描型**
-  // (test-paths 单轮 57~67s、dangling-local-imports 33~38s、stale-copy 13s),
-  // 判的是仓库状态而非本次提交内容,与 30a 同性质,一并延后到 post-commit。
-  '85', '98', '30c',
-  // 2026-10-22 快档实测:门 8(前端↔后端路由全量对账)单门 15~22s,占快档墙钟一半以上。
-  // guardian-runner 注册它的 args 是 [] ⇒ 判的是 **HEAD 全仓面**、不是索引面,
-  // 与本次提交内容无关(同 85/98/30c 性质);post-commit 的 IHUI_GATE_FAST=0 补跑会在
-  // 新 HEAD 上判同一件事(更鲜),pre-commit 跑它只是重复上一枚提交的结论。
-  '8',
-])
-const fastMode = process.env.IHUI_GATE_FAST === '1'
-
-// ── 快档硬时间预算(2026-10-21,机主要求"整体 ≤1 分钟")──────────────────────────
-// 静态重型清单追不上耗时波动(test-paths 单轮 57~67s),并发也受队头/屏障拖累(实测 CPU 179s
-// 却跑出 101s 墙钟 = 并发 1.77)。这里给快档一个**硬预算**:到点后不再派发新门,剩余一律
-// 记为"延后"(不判红、也不记绿),清单落 .ihui-agent/state/hook-logs/gates-deferred.json,
-// 补跑命令打印在汇总里。预算可通过 IHUI_GATE_FAST_BUDGET_MS 调整。
-const FAST_BUDGET_MS = Number(process.env.IHUI_GATE_FAST_BUDGET_MS ?? 35_000)
-const deferredGates = []
-let budgetBlown = false
-
-// 纯内容门指纹缓存实例(2026-10-22,机主要求"提速到极致"):同一份内容在失败重试、
-// safe-commit 内部重入、post-commit 补跑时会被逐字重算。惰性算指纹,读坏/写坏只当没缓存。
-const gateContentCache = createGateContentCache({ cwd: process.cwd() })
-
-const stopOnFirst = process.env.GUARDIAN_STOP_ON_FIRST === '1'
-/** blocking 失败门清单(末尾汇总用)。 */
-const failedGates = []
-/** 跑不起来的门(崩溃指纹 / 被兜底弄死的 error.code ⇒ 都是"未判定")。仍计入 failed(不放行),但**不进** failedGates,免得被当"判据判红"。 */
-const crashedGates = []
-/**
- * 门自己按 §0.3 交付「未判定」的那几道(exit 2 + 显式点名了取不到什么)。
- * 与 crashedGates 的区分:那一档是"整套门没跑起来",这一档是"门跑完了,但这一次它取不到被审面"。
- * 两档都**不等于通过**,但只有 `failedGates`(red)才是"判出了违规" —— 三者一个都不许并桶。
- */
-const undeterminedGates = []
-
-// ─── 批次留痕(G-1059139)───
-// 两类"没跑"必须分开记:`selfSkipped` 只收 **env 自跳**(条目声明了 skipEnv 且当次该变量为 1),
-// `notTriggered` 收"暂存区未触及声明路径所以没跑"—— 后者不是跳门,混进去就是把"没跑到"写成"跳过了",
-// 而这两件事要的处理动作完全不同(前者要读谁按了开关,后者本来就是设计)。
-/** env 自跳逐道点名。 */
-const selfSkippedGates = []
-/** 条件触发未命中所以没跑。 */
-const notTriggeredGates = []
-
-/**
- * 往台账落一行 kind=gate-batch-run(2026-10-16 函数体外置到 lib/guardian-batch-attest.mjs,
- * 数组本体与计数器仍在本文件 —— 调用点(L620 早退 / 跑完各一)零改动,经 wrapper 传当下值)。
- * **永不抛、永不改退出码**:一次正常的守门批不得因为记账写失败而变红。
- */
-function attestGateBatchRun(ranFullBatch) {
-  return attestGateBatchRunImpl(
-    {
-      C,
-      checks,
-      pushGateChecks,
-      passStaged,
-      effectiveChecks,
-      failedGates,
-      selfSkippedGates,
-      notTriggeredGates,
-      passed,
-      warned,
-      failed,
-      skipped,
-    },
-    ranFullBatch,
-  )
-}
-
-/** 打印批量检查汇总。早退与跑完两条路径共用,避免两份实现漂移。 */
-function printSummary(useStderr) {
-  const out = useStderr ? console.error : console.info
-  // 快档延后清单落盘(2026-10-21):"这次没跑"必须可追,补跑命令直接可复制。
-  if (deferredGates.length > 0) {
-    try {
-      const p = resolve(process.cwd(), '.ihui-agent', 'state', 'hook-logs', 'gates-deferred.json')
-      mkdirSync(dirname(p), { recursive: true })
-      writeFileSync(
-        p,
-        JSON.stringify(
-          { generatedAt: new Date().toISOString(), count: deferredGates.length, gates: deferredGates },
-          null,
-          2,
-        ) + '\n',
-      )
-      out(`⏱  快档延后 ${deferredGates.length} 门(清单:${p})`)
-      out('   补跑:node scripts/guardian-runner.mjs --staged   全量:IHUI_GATE_FAST=0')
-    } catch {
-      /* 观测旁路:落盘失败不影响判据 */
-    }
-  }
-  const executed = passed + warned + failed + skipped + undetermined + infoDegraded
-  const totalTime = ((Date.now() - startTime) / 1000).toFixed(1)
-  out('')
-  out(`${C.bold}🛡️ 守门脚本批量检查汇总${C.reset}`)
-  out(
-    `  总检查数: ${effectiveChecks.length}(已执行 ${executed}${executed < effectiveChecks.length ? ' ← 提前中止' : ''})`,
-  )
-  out(`  ${C.green}通过: ${passed}${C.reset}`)
-  out(`  ${C.yellow}警告: ${warned}${C.reset}`)
-  out(`  ${C.red}失败: ${failed}${C.reset}`)
-  out(`  ${C.dim}跳过: ${skipped}${C.reset}`)
-  // 刻意**不**写进"失败"那一行(那是判红计数),也不写进"通过"(没判);
-  // 但必须占一行并进 executed —— 少算它会让上一行凭空打出"← 提前中止",把"没判"说成"没跑到"。
-  out(`  ${C.yellow}❓ 未判定: ${undetermined}(取不到输入,§0.3 不记绿也不冒红,见下方逐道点名)${C.reset}`)
-  // info 门失败与"跳过但没跑"的 blocking 门都必须占一行:不许把"没判/没跑"藏进"通过"。
-  out(`  ${C.yellow}⚠ info 门失败(未记绿): ${infoDegraded}${C.reset}`)
-  out(`  ${C.yellow}⏭ 跳过的 blocking 门(未判定): ${skippedBlockingGates.length}${C.reset}`)
-  out(`  总耗时: ${totalTime}s`)
-}
-
-// ─── 条件触发(2026-09-22 立)───
-// 条目声明 stagedTriggers(路径前缀数组,支持 `**`/`*`/`?` glob)时,--staged 模式下只在**暂存区触及这些前缀**才执行,
-// 口径与 .husky/pre-commit 的 16b/16c/16e 条件守门完全一致(git diff --cached --name-only)。
-// 为什么需要:领域守门(桌面安装器等)与绝大多数提交无关,无条件挂上既拖慢每次 commit,
-//   又会因他人未完成的工作树改动误伤;但判据本身必须 blocking —— 静默失败类事故
-//   (NSIS 少一行 File 编译零报错、--write 抹掉未登记定制)只有真拦住才有意义。
-// 全量模式(不带 --staged,手动 / CI)一律执行;拿不到暂存区(非 git 环境)按「触及」处理,
-//   宁误跑不误漏。结果缓存一次,多个条件项共用。
-// 边界:--staged 而暂存区为空(手动误跑该模式)按「未触及」跳过 —— 需要全量审计请不带 --staged。
-let stagedFilesCache = null
-function stagedFilesOrNull() {
-  if (stagedFilesCache) return stagedFilesCache
-  try {
-    stagedFilesCache = gitRaw(['diff', '--cached', '--name-only'], process.cwd(), {
-      timeout: 120_000,
+  // ── --timing 的机读旁路(2026-10-12 立) ─────────────────────────────────────
+  // 为什么需要:并行档把所有门头一次性打印在前、各门的 ⏱ 行随后按完成序回放,
+  // 于是「日志里第 N 个 ⏱ 对应哪道门」不可解析(实测 235 个门头只有 16 个能靠
+  // 邻接配对)⇒ 只能拿汇总总耗时,做不了逐门针对性提速。
+  // 出路:applyGateResult 收口处按 check.id 落一份 JSON(仅 --timing 时写),
+  // 与控制台输出互不干扰,分析脚本读它,不再靠正则配对日志。
+  const timingRows = []
+  if (showTiming) {
+    process.on('exit', () => {
+      try {
+        // GUARDIAN_TIMING_FILE 允许调用方指定独立落盘路径（push-receipt worker 用），
+        // 避免与其他并发门批量的固定文件互相覆盖。
+        const out = process.env.GUARDIAN_TIMING_FILE
+          ? resolve(process.cwd(), process.env.GUARDIAN_TIMING_FILE)
+          : resolve(process.cwd(), '.ihui-agent/tmp/guardian-timing.json')
+        const tmp = `${out}.tmp-${process.pid}`
+        writeFileSync(
+          tmp,
+          JSON.stringify({ generatedAt: new Date().toISOString(), rows: timingRows }, null, 2) +
+            '\n',
+        )
+        renameSync(tmp, out)
+        process.stderr.write(`⏱  逐门耗时已落盘: ${out}(${timingRows.length} 行)\n`)
+      } catch {
+        /* 落盘失败不得影响守门结论 —— 只是少一份分析材料 */
+      }
     })
-      .split('\n')
+  }
+
+  // ── 逐门实时进度旁路(2026-10-21 立)─────────────────────────────────────────
+  // 病灶:pre-commit 用 execSync 调本进程,stdout 被**全量缓冲到结束**才写出 ⇒ 钩子运行期
+  // (safe-commit 自述"本机实测 ≈15 分钟")在调用方眼里就是零输出,与"卡死"同形。实测
+  // 2026-10-21 22:57 那轮:13 分钟里 pre-commit.log 停在"运行守门脚本批量检查..."一字不增,
+  // 只能靠抓进程树才看出当前跑到哪一门。
+  // 出路:每门收口时 append 一行可 tail 的进度,当场就能回答"卡在哪一门/跑到第几门"。
+  // 纯观测旁路:写失败只吞掉,绝不改判据、不改退出码、不进提交面。
+  const GATE_PROGRESS_FILE = resolve(
+    process.cwd(),
+    '.ihui-agent',
+    'state',
+    'hook-logs',
+    'gates-progress.log',
+  )
+  function appendGateProgress(check, r, elapsedMs) {
+    try {
+      // §0.3 三态:exit 2 + 门自称「未判定」是独立一档,不得记成 fail —— 进度台账是归因一手证据,
+      // 把「取不到输入」与「判出了违规」混成同一行会带人去修不存在的缺陷。判定走 decideGateOutcome
+      // 同一把尺子(与 applyGateResult 的 kindPre 同源),观测旁路不另抄一份分类。
+      const gateStderr = typeof r?.stderr === 'string' ? r.stderr : ''
+      let status
+      if (r?.error) status = 'error'
+      // BUG-55 × BUG-43④:门以 exit 0 + stderr 显式 [UNDETERMINED] 交付「未判定」时
+      // (check-cli-i18n-parity.mjs 被审面目录不在位即此型),applyGateResult 已判 undetermined 不记绿,
+      // 而进度台账若只看 status===0 就会把「没判」记成 pass —— 三态污染的一手证据。
+      // 标记与 applyGateResult 的 [UNDETERMINED] 检查同源:只认门自己的显式声明,不猜、不放宽;
+      // exit 2 + 自称未判定仍走 decideGateOutcome 这一把尺子,观测旁路不另抄分类。
+      else if (
+        gateStderr.includes('[UNDETERMINED]') ||
+        decideGateOutcome({
+          status: r?.status ?? null,
+          signal: r?.signal ?? null,
+          stderr: gateStderr,
+        }).kind === 'undetermined'
+      )
+        status = 'undetermined'
+      else if (r?.status === 0 && r?.signal === null) status = 'pass'
+      else status = 'fail'
+      mkdirSync(dirname(GATE_PROGRESS_FILE), { recursive: true })
+      appendFileSync(
+        GATE_PROGRESS_FILE,
+        `[${new Date().toISOString()}] ${status.padEnd(5)} ${String(check.id).padEnd(8)} ${String(elapsedMs).padStart(6)}ms ${check.script || ''}\n`,
+      )
+    } catch {
+      /* 观测旁路:落盘失败不得影响守门结论 */
+    }
+  }
+
+  // === 执行 ===
+
+  // ─── push-gate 结果缓存(2026-09-18 立;2026-10-16 外置到 lib/guardian-pushgate-cache.mjs) ───
+  // 内容指纹为键(HEAD:apps/packages 树 hash + HEAD 全树 hash + 脏文件内容 hash + push 门集规格),只缓存全部通过结果;
+  // 命中即在本函数内 process.exit(0),--no-cache / HUSKY_SKIP_PUSHGATE_CACHE=1 逃生舱保留。
+  pushGateCacheEarlyExit({ pushGate, cliArgs, C, checks: effectiveChecks })
+
+  let passed = 0
+  let warned = 0
+  let failed = 0
+  let skipped = 0
+  // §0.3「未判定」独成一档(2026-10-27):既不是 passed(没拿到"通过"这个结论)也不是 failed
+  // (没有判出任何违规)。单独计数 ⇒ 汇总既能把它逐道点名出来,又不会把"没判"算进"失败"。
+  let undetermined = 0
+  // info 门失败既不该拦提交,也**绝不许记绿**(把失败计成 passed 就是"没判写成判过")。
+  // 单列一档:不计 passed/failed/undetermined,只逐道点名,退出码不变(info 门本就不拦)。
+  let infoDegraded = 0
+  const infoDegradedGates = []
+  // 快档/硬预算/应急放行跳过的 blocking 门:门根本没跑,没拿到"通过"这个结论。
+  // 与 stagedTriggers 未命中(设计上的正常跳过)分开记 —— 后者与本次提交内容无关,不进此清单。
+  const skippedBlockingGates = []
+  const startTime = Date.now()
+  // 跑完再汇总(2026-09-22 改版):原先任一 blocking 门失败即 exit(1),会遮蔽其后所有门的结论
+  // —— 既让人误判"刚注册的门没生效"(实测两次被 id 6 / id 30c 的在途失败截断),也会把
+  // 本可一次看全的多处故障拆成多轮。改为一轮跑完、末尾列清单一次性退出。
+  // 两条不变量:① 中断(75 或信号族/无码信号死,G-611 同一把尺子)仍**立即**向上传播,
+  //    不收敛成 1(push guard 靠它决定重试);
+  // ② GUARDIAN_STOP_ON_FIRST=1 完整恢复旧的快速失败行为(逃生舱)。
+  // ── 快档(2026-10-21 立,机主要求"整体 ≤1 分钟")────────────────────────────────
+  // 现读数据(guardian-timing.json,154 门):33 道重型门(>3s)合计 **656s = 86%**,
+  // 121 道快门合计 109s。快档只跑快门(8 并发 ≈ 20s),重型门由 post-commit 后台补跑,
+  // 失败写 .ihui-agent/state/hook-logs/gates-heavy-fail.log —— 提交不被拖住,但红仍然会被看见。
+  // 默认开(由 pre-commit-hook 设 IHUI_GATE_FAST=1);要全量(CI / 发版 / 排障):IHUI_GATE_FAST=0。
+  const HEAVY_GATE_IDS = new Set([
+    '30a',
+    '103',
+    '107',
+    '168',
+    '165',
+    '93',
+    '137',
+    '104',
+    '89',
+    '47',
+    '46',
+    '181',
+    '155',
+    '108',
+    '105',
+    '172',
+    '26',
+    '127',
+    '224',
+    '24b',
+    '41',
+    '92',
+    '49',
+    '57',
+    '220',
+    '213',
+    '84',
+    '39',
+    '100',
+    '29',
+    '2n-web',
+    '4',
+    '2f-mobile-rn',
+    // 2026-10-21 二次实测补入:静态耗时清单跟不上波动 —— 这几道是**全仓扫描型**
+    // (test-paths 单轮 57~67s、dangling-local-imports 33~38s、stale-copy 13s),
+    // 判的是仓库状态而非本次提交内容,与 30a 同性质,一并延后到 post-commit。
+    '85',
+    '98',
+    '30c',
+    // 2026-10-22 快档实测:门 8(前端↔后端路由全量对账)单门 15~22s,占快档墙钟一半以上。
+    // guardian-runner 注册它的 args 是 [] ⇒ 判的是 **HEAD 全仓面**、不是索引面,
+    // 与本次提交内容无关(同 85/98/30c 性质);post-commit 的 IHUI_GATE_FAST=0 补跑会在
+    // 新 HEAD 上判同一件事(更鲜),pre-commit 跑它只是重复上一枚提交的结论。
+    '8',
+  ])
+  const fastMode = process.env.IHUI_GATE_FAST === '1'
+
+  // ── 快档硬时间预算(2026-10-21,机主要求"整体 ≤1 分钟")──────────────────────────
+  // 静态重型清单追不上耗时波动(test-paths 单轮 57~67s),并发也受队头/屏障拖累(实测 CPU 179s
+  // 却跑出 101s 墙钟 = 并发 1.77)。这里给快档一个**硬预算**:到点后不再派发新门,剩余一律
+  // 记为"延后"(不判红、也不记绿),清单落 .ihui-agent/state/hook-logs/gates-deferred.json,
+  // 补跑命令打印在汇总里。预算可通过 IHUI_GATE_FAST_BUDGET_MS 调整。
+  const FAST_BUDGET_MS = Number(process.env.IHUI_GATE_FAST_BUDGET_MS ?? 35_000)
+  const deferredGates = []
+  let budgetBlown = false
+
+  // 纯内容门指纹缓存实例(2026-10-22,机主要求"提速到极致"):同一份内容在失败重试、
+  // safe-commit 内部重入、post-commit 补跑时会被逐字重算。惰性算指纹,读坏/写坏只当没缓存。
+  const gateContentCache = createGateContentCache({ cwd: process.cwd() })
+
+  const stopOnFirst = process.env.GUARDIAN_STOP_ON_FIRST === '1'
+
+  // ── stock 门降级开关(2026-11-08)──────────────────────────────────────────────
+  // 显式 full / CI / 不带 --staged(手动全量审计、push 门)一律按原语义阻断;
+  // 只有"普通提交路径(--staged、非显式 full)"才对未触及判据面的 stock 门降级为只报数。
+  const explicitFull =
+    !passStaged ||
+    process.env.IHUI_GATE_SCOPE === 'full' ||
+    // 只认"真 CI"(GitHub Actions)。裸 CI=true 在 agent 宿主/本地也会被置上,
+    // 若把它当显式 full,普通提交路径的 stock 降级会被宿主环境整体关掉(2026-11-08 实测即此)。
+    process.env.GITHUB_ACTIONS === 'true'
+
+  const STOCK_LEDGER_FILE = resolve(
+    process.cwd(),
+    '.ihui-agent',
+    'state',
+    'gate-stock-ledger.jsonl',
+  )
+  const REFS_BASELINE_FILE = resolve(
+    process.cwd(),
+    '.ihui-agent',
+    'state',
+    'gate-face-refs-baseline.json',
+  )
+
+  /** 读当前分支/远端跟踪引用快照(refs 面"触及"判定用)。 */
+  function readRefsSnapshot() {
+    try {
+      const out = execFileSync(
+        resolveGitBin(),
+        [
+          '-c',
+          'safe.directory=*',
+          'for-each-ref',
+          '--format=%(refname) %(objectname)',
+          'refs/heads',
+          'refs/remotes',
+        ],
+        {
+          encoding: 'utf8',
+          cwd: process.cwd(),
+          windowsHide: true,
+          stdio: ['ignore', 'pipe', 'pipe'],
+          timeout: 30_000,
+        },
+      )
+      const snap = {}
+      for (const line of String(out || '').split(/\r?\n/)) {
+        const [name, sha] = line.trim().split(/\s+/)
+        if (name && sha) snap[name] = sha
+      }
+      return snap
+    } catch {
+      return null
+    }
+  }
+
+  function currentBranchName() {
+    try {
+      return execFileSync(
+        resolveGitBin(),
+        ['-c', 'safe.directory=*', 'rev-parse', '--abbrev-ref', 'HEAD'],
+        {
+          encoding: 'utf8',
+          cwd: process.cwd(),
+          windowsHide: true,
+          stdio: ['ignore', 'pipe', 'pipe'],
+          timeout: 15_000,
+        },
+      ).trim()
+    } catch {
+      return ''
+    }
+  }
+
+  function loadRefsBaseline() {
+    try {
+      const o = JSON.parse(readFileSync(REFS_BASELINE_FILE, 'utf8'))
+      return o && typeof o.refs === 'object' ? o.refs : null
+    } catch {
+      return null
+    }
+  }
+
+  function saveRefsBaseline(snap) {
+    try {
+      mkdirSync(dirname(REFS_BASELINE_FILE), { recursive: true })
+      const tmp = `${REFS_BASELINE_FILE}.tmp-${process.pid}`
+      writeFileSync(
+        tmp,
+        JSON.stringify({ at: new Date().toISOString(), refs: snap }, null, 2) + '\n',
+      )
+      renameSync(tmp, REFS_BASELINE_FILE)
+    } catch {
+      /* 观测旁路:写失败不影响判据 */
+    }
+  }
+
+  const refsSnapshot = passStaged && !pushGate ? readRefsSnapshot() : null
+  const refsBaseline = passStaged && !pushGate ? loadRefsBaseline() : null
+
+  /** old 是否为 new 的祖先(快进前进)。读不了就当"不是",失效方向是阻断。 */
+  function isFastForwardRef(oldSha, newSha) {
+    try {
+      gitRaw(['merge-base', '--is-ancestor', oldSha, newSha], process.cwd(), { timeout: 15_000 })
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  const refsTouchedFlag = !!(
+    refsSnapshot &&
+    refsBaseline &&
+    refsTouched(refsSnapshot, refsBaseline, currentBranchName(), isFastForwardRef)
+  )
+  if (passStaged && !pushGate && refsSnapshot) {
+    // 本轮结束后把快照写成下一轮基线;refs 面"本笔新建/重指分支"= 相对上一轮基线发生变化。
+    process.on('exit', () => saveRefsBaseline(refsSnapshot))
+  }
+
+  /** 从门的输出里摘"被点名的存量项"落台账(输出未捕获时退回尾部几行)。 */
+  function extractStockItems(r) {
+    const text = [r?.stdout, r?.stderr].filter((s) => typeof s === 'string').join('\n')
+    const lines = String(text || '')
+      .split(/\r?\n/)
       .map((s) => s.trim())
       .filter(Boolean)
-  } catch {
-    return null
-  }
-  return stagedFilesCache
-}
-
-// L14546(2026-10-18 机主拍板全量铺开):--staged 触发面沿**反向依赖闭包**加宽。
-// 只做路径前缀时,改了被 N 处 import 的契约(packages/types、shared、design-tokens、
-// database schema…)却没动 importer,声明了 stagedTriggers 的门一个都不跑 = 净零逃逸
-// (换个写法就逃过门)。现把暂存文件集过 widenFilesOverDependents(face=index,与
-// git diff --cached 同面同轮),把所有(传递)依赖改动文件的 importer 一并算进"本次触及"。
-// 0 边 / 无源码扩展名时逐字不变;建图失败退回纯前缀并打可见告警(不崩、不静默假装成功 ——
-// 增强失效 == 改前行为,绝不把环境故障升级成硬拦)。一次 runner 进程只建一次图(缓存)。
-let stagedEffectiveCache = null
-let stagedWidenAnnounced = false
-function stagedEffectiveFilesOrNull() {
-  if (stagedEffectiveCache) return stagedEffectiveCache
-  const raw = stagedFilesOrNull()
-  if (raw === null) {
-    stagedEffectiveCache = null
-    return null
-  }
-  const w = widenFilesOverDependents(raw, { face: 'index' })
-  if (!stagedWidenAnnounced) {
-    stagedWidenAnnounced = true
-    if (w.widened) {
-      console.info(`🔗 [staged 触发] ${w.reason} —— 相关 importer 已并入本次触发面`)
-    } else if (w.reason.includes('失败')) {
-      console.warn(
-        `⚠️  [staged 触发] ${w.reason}(本轮仅按路径前缀触发,反向依赖增强未生效)`,
-      )
-    }
-  }
-  stagedEffectiveCache = w.files
-  return stagedEffectiveCache
-}
-
-function stagedPathsTouch(prefixes) {
-  // 归一交给 lib/guardian-triggers.mjs:裸字符串注册(HEAD 实测 3 道)曾在此处
-  // TypeError 崩掉整条守门链;空清单则抛错,不允许"永不运行"的隐形失踪。
-  // 文件集是经反向依赖闭包加宽后的 effective 集(L14546),不是裸暂存清单。
-  return triggersTouch(stagedEffectiveFilesOrNull(), prefixes)
-}
-
-/**
- * 地基探针:开跑整批门之前,先问一句"这个仓库此刻**答不答得上话**"。
- * 判据与"为什么不住在 runner 里"写在 `scripts/lib/substrate-probe.mjs` 头注(本仓 2026-09-29
- * 实测:五道门在 .git 抖动的 90 秒里各报"无法判定",而分发循环把任何非零码一律计成
- * "blocking 失败,提交已阻止" ⇒ 全队要么被挡、要么 `--no-verify`,一次绕过 = 该枚提交上
- * 全部守门作废)。结论走 `TEMPFAIL_EXIT_CODE`(75):它在本仓已经是"非检查结论、稍后重试"
- * 的既有通道(push guard 的带 hook 重试链依赖它),归因层也把它读成"批没跑完"而不是"你的红"。
- */
-function assertSubstrateUsable() {
-  let gitBin = null
-  try {
-    gitBin = resolveGitBin()
-  } catch (e) {
-    console.error(
-      `🚫 [substrate] 连 git 二进制都解析不到(${String((e && e.message) || e).slice(0, 100)})` +
-        ` —— 整批守门无法出具结论,以 ${TEMPFAIL_EXIT_CODE} 向上传播(非检查结论,等仓库恢复后重试)。`,
+    const picked = lines.filter((l) =>
+      /^(✗|×|❌|🚫|⚠|-|\*)\s|^(红|失败|违规)|\.(ts|tsx|js|mjs|cjs|json|py|md):\d+/.test(l),
     )
-    process.exit(TEMPFAIL_EXIT_CODE)
+    const uniq = [...new Set(picked)]
+    return (uniq.length ? uniq : lines.slice(-5)).slice(0, 20)
   }
-  const v = probeSubstrate({
-    // 只读动词 + 显式 timeout(守门 80 的口径:热路径的只读 git 调用必须封顶)
-    run: () =>
-      execFileSync(gitBin, ['rev-parse', '--is-inside-work-tree'], {
-        encoding: 'utf8',
-        cwd: process.cwd(),
-        timeout: 15000,
-        windowsHide: true,
-        stdio: ['ignore', 'pipe', 'pipe'],
-      }),
-  })
-  if (v.usable) return
-  console.error(
-    `🚫 [substrate] 仓库此刻答不上话:${v.reason}\n` +
-      `   ⇒ 本轮**不跑** ${effectiveChecks.length} 道门,也不把这场瞬时故障记成 ${effectiveChecks.length} 条"结论失败"` +
-      '(那正是逼全队 `--no-verify` 的形态)。等 gitdir 恢复(守护 ≤2 分钟自愈一轮)后重跑提交即可。',
-  )
-  process.exit(TEMPFAIL_EXIT_CODE)
-}
 
-assertSubstrateUsable()
-
-// === 只读门并行白名单(方案A 外置层)===
-// 只有收录于此的门进并行池;未收录的门(含未来新增门)默认串行 = 安全向;写者门永列不入。
-// 为什么不写成 checks 条目字段:守门 192(注册表工作树超集,--staged 问责)按「条目行逐字等值」
-// 比对 HEAD↔索引 —— 给既有条目插一行 `par: true` 会被判 228 条 P2 改写(2026-10-12 实测即红,
-// 提交被拦);白名单住顶层常量 ⇒ checks 条目字节与 HEAD 逐字一致,192 零命中,并行语义不变。
-// 新增只读门提速:在此加一行 id 即可(现有 228 门)。
-// 门 7(check-dedupe)刻意不入池:2026-10-28 实测本机单跑 2m2s / RC=0,而全量档在 parMax=8
-// 并发下被 300s 单门看门狗 SIGKILL(三次体检同形)⇒ 每轮都记成「未判定」而不是判红。耗时来自
-// pnpm 解析整棵依赖图,与并发争用叠加后不可控;串行档独占机器可稳定出结论。判据/退出码一位未改,
-// 也**不**靠调大 GUARDIAN_GATE_TIMEOUT_MS 消红。
-const PAR_GATE_IDS = new Set([
-  '1', '2', '2b', '2c', '2e', '2e-dupns', '2g-web', '3',
-  '4', '4b', '4c', '6', '8', '11', '11b',
-  '11c', '11d', '11h', '11e', '11f', '11g', '12', '13c',
-  '17', '18', '20', '24a', '25', '26', '27', '28',
-  '29', '30', '30a', '30c', '30b', '16c', '45', '35',
-  '36', '37', '38', '39', '40', '41', '2d', '2o-shared',
-  '2o-miniapp-taro', '2o-mobile-rn', '2f-ext', '2f-shared', '2g-ext', '2h-ext', '2i-ext', '2j-shared',
-  '2p-api', '2q-cli', '2r-miniapp-taro', '2s-mobile-rn', '2t-api', '2u-cli', '2v-miniapp-taro', '2w-mobile-rn',
-  '2k-shared', '2m-shared', '2n-web', '2f-mobile-rn', '2f-cli', '9', '13b', '19',
-  '21', '22', '24b', '34', '33', '42', '44', '46',
-  '48', '49', '50', '51', '52', '53', '54', '55',
-  '59', '57', '58', '60', '56', '61', '62', '63',
-  '68', '64', '66', '67', '69', '70', '71', '72',
-  '73', '74', '75', '76', '77', '93', '91', '10',
-  '65', '83', '84', '78', '80', '79', '81', '85',
-  '86', '87', '88', '89', '92', '90', '94', '95',
-  '96', '97', '98', '99', '101', '102', '103', '104',
-  '105', '106', '107', '108', '109', '110', '111', '112',
-  '113', '114', '115', '116', '117', '118', '119', '120',
-  '121', '122', '123', '124', '125', '126', '127', '128',
-  '129', '130', '131', '132', '133', '134', '135', '136',
-  '137', '138', '139', '140', '141', '142', '143', '144',
-  '145', '146', '147', '148', '149', '151', '152', '153',
-  '154', '155', '156', '157', '158', '159', '160', '161',
-  '163', '164', '165', '166', '167', '171', '173', '174',
-  '175', '176', '177', '178', '179', '180', '181', '182',
-  '183', '184', '185', '189', '190', '191', '192', '194',
-  '195', '199', '200', '23', '150', '172', '186', '187',
-  '188', '196', '197', '198',
-  // 2026-10-21 机主要求"整体 ≤1 分钟":把原先漏在白名单外的 13 道**只读**门收进池
-  // (逐门核过 writeFileSync 去向:写的都是各自的缓存/报告,不是共享 git 索引)。
-  // 刻意**不**收的三个:`2f-web`/`2f-miniapp-taro`/`2f-shared-diff` 是同一个
-  // i18n-diff.mjs 的三个档,共用同一份中间产物 ⇒ 必须串行。
-  '168', '47', '224', '220', '213', '100', '221', '232',
-  '210', '13d', '170', '231', '15',
-  '70b', // i18n 死 key 扫描(2026-10-22 从 pre-commit 串行段移入池)
-  // 2026-10-22 补入:纯内容缓存白名单(T1 要求缓存集 ⊆ 本池)。三门均只读 ——
-  //   211 check-plan-id-pool(只读 PROJECT_PLAN) / 203 check-plan-task-duplicates(face-reader 读 HEAD·索引面)
-  //   / 229 check-plan-closed-stock(只读 PROJECT_PLAN);逐门核过无 writeFileSync/spawn。
-  '211', '203', '229',
-])
-// === 只读门并行池(方案A;逃生舱:GUARDIAN_SERIAL=1 退回全串行,GUARDIAN_PAR=<n> 调并发度) ===
-// 契约(与串行版逐字对齐的三条):
-//   ① 只有 PAR_GATE_IDS 白名单收录的门进池(新门默认串行 = 安全向);写者门(git 索引/共享文件)照旧串行,
-//      且执行前先 flushParBuffer() 全屏障 —— 池内零在飞子进程时才跑写者 ⇒ 与只读门零交叠。
-//   ② 子进程 stdout/stderr 全部缓冲,flush 时按 checks **原序**回放(表头在派发时按序打印,
-//      结论/输出在 flush 按序吐)⇒ 结论顺序与串行版一致(表头可能先于前段结论,属观感差异)。
-//   ③ 退出码语义不变:flush 走同一份 applyGateResult(75/128+N 中断传播、stopOnFirst 早退、
-//      崩溃/判红分流原样);任何 process.exit 路径由 exit 钩子杀掉在飞子进程,不留孤儿。
-// 2026-10-12 parMax A/B(全量档 + --timing,五档九轮,同机连续测量):
-//   par=4  wall 491.8s / 池内合计 1114.8s(并发不足,单门最省但墙钟被卡)
-//   par=6  wall 422.5 / 563.7 / 494.9s(中位 494.9,最快单次) 池内 1155/1671/1266s
-//   par=8  wall 467.1 / 460.0 / 496.8s(中位 467.1,三轮最稳) 池内 1575/1525/1592s
-//   par=10 wall 574.0s(池内 1586.7s) / par=14 wall 583.4s(池内 2030.1s)
-// 结论:① ≥10 单调劣化 —— 并行度上去后单门均值从 5067ms 涨到 8904ms(+76%),
-//        CPU 竞争反噬盖过并发收益;② 4~8 是同一个谷底平台,6 与 8 的中位差(6%)
-//        远小于同档轮间波动(par=6 三轮跨 422~564s = 33%),**判不出显著差异**;
-//        ③ 池内合计(= 真实 CPU 成本)par=8 比 par=6 高 15%。故默认保持 6 不动 ——
-//        没有统计显著的收益就不改默认;真要试,逃生档 GUARDIAN_PAR=8 仍在。
-//        反面教材:单跑一轮就改默认会被 par=6 首轮 422.5s 或次轮 563.7s 带偏(同参 33% 噪声)。
-const guardianSerial = process.env.GUARDIAN_SERIAL === '1'
-const parMaxRaw = Number.parseInt(process.env.GUARDIAN_PAR || '', 10)
-// 2026-10-21:12 并发实测更慢(check-dangling-local-imports 从秒级涨到 32.8s,CPU 竞争反噬),
-// 回到 8;达标靠"快档"而不是堆并发。
-const parMax = Number.isFinite(parMaxRaw) && parMaxRaw >= 1 ? parMaxRaw : 8
-// ─── 单门超时看门狗(并行档 2026-10-12 立;2026-11-06 BUG-43① 补到串行档)──────
-// 并行分支有 gateTimer + ETIMEDOUT 兜底,串行 spawnSync 此前**无 timeout** ⇒ 非并行池的写者门
-// 挂住时整条提交链无界等待。并行与串行共用同一枚旋钮 GUARDIAN_GATE_TIMEOUT_MS(0 = 仅排障关闭),
-// 不各设一套阈值;超时由 spawnSync 回吐 error.code=ETIMEDOUT,走 applyGateResult 的未判定分流,
-// 绝不静默洗成通过。
-const gateTimeoutMs = Number(process.env.GUARDIAN_GATE_TIMEOUT_MS ?? 300_000)
-const parPending = [] // 按派发序(checks 原序)排队的在途任务;flush 只消费队头
-const parLive = new Set() // 在飞子进程句柄;exit 钩子统一收割,防孤儿门进程
-let parSlots = parMax // 并发信号量:限制同时在飞的子进程数
-const parSlotWaiters = []
-
-function acquireParSlot() {
-  if (parSlots > 0) {
-    parSlots -= 1
-    return Promise.resolve()
-  }
-  return new Promise((ok) => {
-    parSlotWaiters.push(ok)
-  })
-}
-
-function releaseParSlot() {
-  const next = parSlotWaiters.shift()
-  if (next) next() // 槽位直接交接给等待者(不回加计数)
-  else parSlots += 1
-}
-
-// 中断传播 / stopOnFirst / 正常收口都走 process.exit:统一在此收割在飞子进程。
-process.on('exit', () => {
-  for (const child of parLive) {
+  function appendStockLedger({ check, r, items, touched }) {
     try {
-      child.kill()
-    } catch {
-      /* 子进程已退出 */
-    }
-  }
-})
-
-/** 派发一道只读门:先按 checks 原序入队(保回放序),再等槽;完成后 job.done 置位。 */
-async function dispatchPar(check, cmdArgs) {
-  const job = {
-    check,
-    args: cmdArgs,
-    runtime: 0,
-    error: null,
-    status: null,
-    signal: null,
-    stdout: '',
-    stderr: '',
-  }
-  let markDone
-  job.done = new Promise((ok) => {
-    markDone = ok
-  })
-  parPending.push(job)
-  await acquireParSlot()
-  const spawnedAt = Date.now()
-  const child = spawn(process.execPath, [`scripts/${check.script}`, ...cmdArgs], {
-    cwd: process.cwd(),
-    windowsHide: true,
-    stdio: ['ignore', 'pipe', 'pipe'],
-    env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' },
-  })
-  parLive.add(child)
-  // 输出上限与 spawnSync maxBuffer 同档(≈20MB):超限合成 ENOBUFS error,与 spawnSync
-  // 超限同走 applyGateResult 的 crash 分流 —— 绝不把"输出被截断"静默洗成通过。
-  // 分流真成立靠 applyGateResult 把 job.error.code 传给 decideGateOutcome(2026-10-24 接上;
-  // 此前只传 status/signal,而本行这个合成 Error 的 status/signal 可都是空的 ⇒ 被读成判红)。
-  // 注意并行档这里 job.status 可能是真实退出码 0(截断的是"跑完但输出爆表"那型),
-  // 所以 gate-failure-kind 把兜底码排在"退出码 0 ⇒ pass"之前。
-  const CAP = 20 * 1024 * 1024
-  const outChunks = []
-  const errChunks = []
-  let outBytes = 0
-  let errBytes = 0
-  let overCap = false
-  child.stdout.on('data', (d) => {
-    outBytes += d.length
-    if (outBytes <= CAP) outChunks.push(d)
-    else overCap = true
-  })
-  child.stderr.on('data', (d) => {
-    errBytes += d.length
-    if (errBytes <= CAP) errChunks.push(d)
-    else overCap = true
-  })
-  let finished = false
-  let gateTimer = null
-  const finish = (apply) => {
-    if (finished) return
-    finished = true
-    if (gateTimer) {
-      clearTimeout(gateTimer)
-      gateTimer = null
-    }
-    job.runtime = Date.now() - spawnedAt
-    parLive.delete(child)
-    releaseParSlot()
-    apply()
-    markDone()
-  }
-  child.on('error', (e) => {
-    finish(() => {
-      job.error = e
-    })
-  })
-  child.on('close', (code, signal) => {
-    finish(() => {
-      job.status = code
-      job.signal = signal
-      job.stdout = Buffer.concat(outChunks).toString('utf8')
-      job.stderr = Buffer.concat(errChunks).toString('utf8')
-      if (overCap && !job.error) {
-        const capErr = new Error(`gate stdout/stderr exceeded 20MB cap (${check.id})`)
-        capErr.code = 'ENOBUFS'
-        job.error = capErr
-      }
-    })
-  })
-  // ─── 单门超时兜底(2026-10-12 立,守门无界的第二道闸) ──────────────────
-  // 成因实测:desktop-nsis-template.mjs --check 走「console.log 后立刻 process.exit(0)」,
-  // 在 **stdout 是 pipe** 时(并行派发 stdio: ['ignore','pipe','pipe'])于本机 Node v24 上
-  // 以 3/6、5/6 的概率打完 OK 文案后永不退出 —— 串行档 stdio inherit 无此病,故并行档首曝。
-  // 子进程不死 ⇒ parPending 队头永远等不到 job.done ⇒ 整条提交链无界挂起(比判红更难查)。
-  // 处置与门 80(热路径 git 只读调用必须带 timeout)同一口径:**任何子检查都不得无界**。
-  // 超时 → kill 子进程 + job.error.code = 'ETIMEDOUT',走 applyGateResult 的 r.error 分支
-  // (与 ENOBUFS 同路)⇒ 未判定分流、点名、非零退出,绝不静默洗成通过。
-  // ⚠️ 2026-10-24 修正本注:它此前自称"走崩溃分流"其实是**假**的 —— applyGateResult 把
-  //   status/signal/stderr 交给 decideGateOutcome 时**没有传 code**,而这个 Error 的
-  //   status/signal 都是 null ⇒ 一路落到最后一行的 `判据判红(exit null)`,被记进 failedGates
-  //   (判红名单),汇总既无 crashedGates 也无未判定段。当天实测复现:门 30c check-stale-copy.mjs
-  //   被 300010ms 看门狗 SIGKILL、零输出 ⇒ 判红。修法 = 调用处把 `code: e?.code ?? null` 一起传入
-  //   (判定实现在 lib/gate-failure-kind.mjs 的 FALLBACK_KILL_CODES,本文件不复制判据)。
-  //   后果一项没减:这一族仍 failed++、仍非零退出、提交仍被拦 —— 改的只是"没判"不许写成"判过"(§0.3)。
-  //   另:shouldPropagateAsInterrupt(lib/signal-exit.mjs)对这两个 code 实测返回 false
-  //   (它只看 status/signal)⇒ 不会被误传播成 exit 75 重试,这正是"后果不变"要的那一格,**不得**扩。
-  // 旋钮:GUARDIAN_GATE_TIMEOUT_MS=0 关闭(仅排障用),默认 300s(正常门实测均在秒级)。
-  // gateTimeoutMs 已提升到函数外顶层(并行与串行共用同一枚旋钮,见 parMax 定义处)。
-  if (Number.isFinite(gateTimeoutMs) && gateTimeoutMs > 0) {
-    gateTimer = setTimeout(() => {
-      if (finished) return
-      const te = new Error(`守门脚本超时未退出(${gateTimeoutMs}ms)—— ${check.id} ${check.script}`)
-      te.code = 'ETIMEDOUT'
+      mkdirSync(dirname(STOCK_LEDGER_FILE), { recursive: true })
+      const staged = stagedFilesOrNull() || []
+      let head = ''
       try {
-        child.kill('SIGKILL')
+        head = gitRaw(['rev-parse', 'HEAD'], process.cwd(), { timeout: 15_000 }).trim()
       } catch {
-        /* kill 失败也要 finish,不能把兜底本身变成新的挂起点 */
+        /* HEAD 读不到不阻断记账 */
       }
-      finish(() => {
-        job.error = te
-        job.stdout = Buffer.concat(outChunks).toString('utf8')
-        job.stderr = Buffer.concat(errChunks).toString('utf8')
-      })
-    }, gateTimeoutMs)
-  }
-}
-
-/**
- * 全屏障:队头起逐个等完并按 checks 原序回放(先 stdout,再 stderr+结论)。
- * 串行门(写者/跳过/汇总)执行前各调一次 ⇒ 共享状态只在池内零在飞时被触碰。
- */
-async function flushParBuffer() {
-  while (parPending.length > 0) {
-    const job = parPending[0]
-    await job.done
-    parPending.shift()
-    if (job.stdout) process.stdout.write(job.stdout)
-    // checkStart 回推:⏱ 显示子进程真实运行时长,而非"等到 flush 才开始计时"
-    applyGateResult(job.check, job, Date.now() - job.runtime, job.args)
-  }
-}
-
-// 串行 spawnSync 的结果判定体原样抽出(par 与 serial 共用同一份,退出码语义不分叉)。
-// ── 实时百分比进度(2026-10-21 机主要求)────────────────────────────────────
-// 用 stderr:stdout 会被 pre-commit 的 parseGateSummary 正则解析,进度行走 stderr 不会污染汇总;
-// 同时 append 到 gates-progress.log,被缓冲时仍可 tail。
-const totalGates = effectiveChecks.length
-let doneGates = 0
-
-function applyGateResult(check, r, checkStart, cmdArgs = []) {
-  doneGates += 1
-  const pct = totalGates > 0 ? Math.min(100, Math.round((doneGates / totalGates) * 100)) : 100
-  const okNow = !r?.error && r?.status === 0 && r?.signal === null
-  const elapsedNow = Date.now() - checkStart
-  try {
-    process.stderr.write(
-      `  ▸ ${String(doneGates).padStart(3)}/${totalGates} ${String(pct).padStart(3)}%  ` +
-        `${okNow ? 'ok  ' : 'FAIL'} [${check.id}] ${String(elapsedNow).padStart(6)}ms\n`,
-    )
-  } catch {
-    /* 进度输出失败不影响判据 */
-  }
-  // 先落实时进度(纯观测,不参与判据):调用方 stdout 被缓冲时,这是唯一能看出"跑到哪"的口子。
-  appendGateProgress(check, r, elapsedNow)
-  const gateStderr = typeof r.stderr === 'string' ? r.stderr : ''
-  if (showTiming) {
-    // 三条出口(pass / blocking失败 / warn·info)统一在此记账,含被判红的门 ——
-    // 慢门往往正是被判红或做过重活的那几道,漏掉它们等于只统计了"好消息"。
-    timingRows.push({
-      id: check.id,
-      label: check.label,
-      script: check.script,
-      mode: check.mode,
-      ms: Date.now() - checkStart,
-      ok: !r.error && r.status === 0 && r.signal === null,
-    })
-  }
-  try {
-    if (gateStderr.length > 0) process.stderr.write(gateStderr)
-    if (r.error) throw r.error
-    if (r.status !== 0 || r.signal !== null) {
-      const err = new Error(`守门脚本以 exit ${String(r.status)} 退出`)
-      err.status = r.status ?? null
-      err.signal = r.signal ?? null
-      throw err
-    }
-    // 门自称「未判定」(取不到被审面)但按既有镜像测试契约仍 exit 0 的那一族(BUG-43④):
-    // 绝不能把"没审到"计成 passed。只认 stderr 里的显式标记,不猜、不放宽到其它门。
-    if (check.mode === 'blocking' && gateStderr.includes('[UNDETERMINED]')) {
-      undetermined++
-      undeterminedGates.push({
-        id: check.id,
-        label: check.label,
-        script: check.script,
-        reason: '门自称未判定(被审面不在位)',
-      })
-      console.error(
-        `${C.yellow}❓ [${check.id}] ${check.label} 交付未判定(被审面不在位)⇒ **不记绿**${C.reset}`,
+      appendFileSync(
+        STOCK_LEDGER_FILE,
+        JSON.stringify(
+          buildStockLedgerEntry({
+            head,
+            check,
+            touched,
+            rc: r?.status,
+            items,
+            stagedCount: staged.length,
+            stagedSample: staged.slice(0, 10),
+            explicitFull,
+          }),
+        ) + '\n',
       )
-      return
+    } catch {
+      /* 观测旁路:写失败不影响判据 */
     }
-    passed++
-    if (showTiming) {
-      console.info(`  ${C.dim}⏱  ${Date.now() - checkStart}ms${C.reset}`)
-    }
-    // 只有真正跑过且通过的门才落缓存(白名单内);失败/崩溃/warn 走下方 catch 或另一分支,永不记账。
-    gateContentCache.record(
-      check.id,
-      { script: check.script, args: cmdArgs },
-      { passed: true, ms: Date.now() - checkStart },
+  }
+
+  /** blocking 失败门清单(末尾汇总用)。 */
+  const failedGates = []
+  /** 跑不起来的门(崩溃指纹 / 被兜底弄死的 error.code ⇒ 都是"未判定")。仍计入 failed(不放行),但**不进** failedGates,免得被当"判据判红"。 */
+  const crashedGates = []
+  /**
+   * 门自己按 §0.3 交付「未判定」的那几道(exit 2 + 显式点名了取不到什么)。
+   * 与 crashedGates 的区分:那一档是"整套门没跑起来",这一档是"门跑完了,但这一次它取不到被审面"。
+   * 两档都**不等于通过**,但只有 `failedGates`(red)才是"判出了违规" —— 三者一个都不许并桶。
+   */
+  const undeterminedGates = []
+  /**
+   * stock 面门"本笔未触及"判红 → 只报数,不计失败(2026-11-08)。
+   * 与 failedGates 分桶:它不是"本笔的违规",也不是"通过";读数进 .ihui-agent/state/gate-stock-ledger.jsonl。
+   */
+  const stockAdvisoryGates = []
+  let stockAdvisory = 0
+
+  // ─── 批次留痕(G-1059139)───
+  // 两类"没跑"必须分开记:`selfSkipped` 只收 **env 自跳**(条目声明了 skipEnv 且当次该变量为 1),
+  // `notTriggered` 收"暂存区未触及声明路径所以没跑"—— 后者不是跳门,混进去就是把"没跑到"写成"跳过了",
+  // 而这两件事要的处理动作完全不同(前者要读谁按了开关,后者本来就是设计)。
+  /** env 自跳逐道点名。 */
+  const selfSkippedGates = []
+  /** 条件触发未命中所以没跑。 */
+  const notTriggeredGates = []
+
+  /**
+   * 往台账落一行 kind=gate-batch-run(2026-10-16 函数体外置到 lib/guardian-batch-attest.mjs,
+   * 数组本体与计数器仍在本文件 —— 调用点(L620 早退 / 跑完各一)零改动,经 wrapper 传当下值)。
+   * **永不抛、永不改退出码**:一次正常的守门批不得因为记账写失败而变红。
+   */
+  function attestGateBatchRun(ranFullBatch) {
+    return attestGateBatchRunImpl(
+      {
+        C,
+        checks,
+        pushGateChecks,
+        passStaged,
+        effectiveChecks,
+        failedGates,
+        selfSkippedGates,
+        notTriggeredGates,
+        passed,
+        warned,
+        failed,
+        skipped,
+      },
+      ranFullBatch,
     )
-  } catch (e) {
-    const elapsed = Date.now() - checkStart
-    // 2026-09-18 中断传播:子检查以 exit 75(临时失败/被中断)退出 ≠ 检查结论失败,
-    // 必须原样向上传播(hook → push guard 据此带 hook 重试),不得收敛成 1。
-    // 2026-09-29 G-611 扩两格(同一把尺子 scripts/lib/signal-exit.mjs):
-    //   ② 子进程装了产出侧、被可捕获信号杀死 ⇒ 退出码是 128+N 族(130/137/141/143/3221225786)
-    //      —— 旧判据只认 75,族码在这里会被计成"结论失败";
-    //   ③ 没装产出侧/不可捕获 ⇒ execSync 抛错只剩 {status:null, signal} —— 同样不是结论。
-    // 有结论的失败(非族非零码)不在此列,照旧计入 failedGates(不得反向把失败洗成中断)。
-    if (check.mode === 'blocking' && shouldPropagateAsInterrupt(e)) {
+  }
+
+  /** 打印批量检查汇总。早退与跑完两条路径共用,避免两份实现漂移。 */
+  function printSummary(useStderr) {
+    const out = useStderr ? console.error : console.info
+    // 快档延后清单落盘(2026-10-21):"这次没跑"必须可追,补跑命令直接可复制。
+    if (deferredGates.length > 0) {
+      try {
+        const p = resolve(process.cwd(), '.ihui-agent', 'state', 'hook-logs', 'gates-deferred.json')
+        mkdirSync(dirname(p), { recursive: true })
+        writeFileSync(
+          p,
+          JSON.stringify(
+            {
+              generatedAt: new Date().toISOString(),
+              count: deferredGates.length,
+              gates: deferredGates,
+            },
+            null,
+            2,
+          ) + '\n',
+        )
+        out(`⏱  快档延后 ${deferredGates.length} 门(清单:${p})`)
+        out('   补跑:node scripts/guardian-runner.mjs --staged   全量:IHUI_GATE_FAST=0')
+      } catch {
+        /* 观测旁路:落盘失败不影响判据 */
+      }
+    }
+    const executed =
+      passed + warned + failed + skipped + undetermined + infoDegraded + stockAdvisory
+    const totalTime = ((Date.now() - startTime) / 1000).toFixed(1)
+    out('')
+    out(`${C.bold}🛡️ 守门脚本批量检查汇总${C.reset}`)
+    out(
+      `  总检查数: ${effectiveChecks.length}(已执行 ${executed}${executed < effectiveChecks.length ? ' ← 提前中止' : ''})`,
+    )
+    out(`  ${C.green}通过: ${passed}${C.reset}`)
+    out(`  ${C.yellow}警告: ${warned}${C.reset}`)
+    out(`  ${C.red}失败: ${failed}${C.reset}`)
+    out(`  ${C.dim}跳过: ${skipped}${C.reset}`)
+    out(
+      `  ${C.yellow}ℹ️ 存量红只报数(本笔未触及判据面): ${stockAdvisory}${C.reset}` +
+        (stockAdvisory > 0 ? `${C.dim}(台账:${STOCK_LEDGER_FILE})${C.reset}` : ''),
+    )
+    // 刻意**不**写进"失败"那一行(那是判红计数),也不写进"通过"(没判);
+    // 但必须占一行并进 executed —— 少算它会让上一行凭空打出"← 提前中止",把"没判"说成"没跑到"。
+    out(
+      `  ${C.yellow}❓ 未判定: ${undetermined}(取不到输入,§0.3 不记绿也不冒红,见下方逐道点名)${C.reset}`,
+    )
+    // info 门失败与"跳过但没跑"的 blocking 门都必须占一行:不许把"没判/没跑"藏进"通过"。
+    out(`  ${C.yellow}⚠ info 门失败(未记绿): ${infoDegraded}${C.reset}`)
+    out(`  ${C.yellow}⏭ 跳过的 blocking 门(未判定): ${skippedBlockingGates.length}${C.reset}`)
+    out(`  总耗时: ${totalTime}s`)
+  }
+
+  // ─── 条件触发(2026-09-22 立)───
+  // 条目声明 stagedTriggers(路径前缀数组,支持 `**`/`*`/`?` glob)时,--staged 模式下只在**暂存区触及这些前缀**才执行,
+  // 口径与 .husky/pre-commit 的 16b/16c/16e 条件守门完全一致(git diff --cached --name-only)。
+  // 为什么需要:领域守门(桌面安装器等)与绝大多数提交无关,无条件挂上既拖慢每次 commit,
+  //   又会因他人未完成的工作树改动误伤;但判据本身必须 blocking —— 静默失败类事故
+  //   (NSIS 少一行 File 编译零报错、--write 抹掉未登记定制)只有真拦住才有意义。
+  // 全量模式(不带 --staged,手动 / CI)一律执行;拿不到暂存区(非 git 环境)按「触及」处理,
+  //   宁误跑不误漏。结果缓存一次,多个条件项共用。
+  // 边界:--staged 而暂存区为空(手动误跑该模式)按「未触及」跳过 —— 需要全量审计请不带 --staged。
+  let stagedFilesCache = null
+  function stagedFilesOrNull() {
+    if (stagedFilesCache) return stagedFilesCache
+    try {
+      stagedFilesCache = gitRaw(['diff', '--cached', '--name-only'], process.cwd(), {
+        timeout: 120_000,
+      })
+        .split('\n')
+        .map((s) => s.trim())
+        .filter(Boolean)
+    } catch {
+      return null
+    }
+    return stagedFilesCache
+  }
+
+  // L14546(2026-10-18 机主拍板全量铺开):--staged 触发面沿**反向依赖闭包**加宽。
+  // 只做路径前缀时,改了被 N 处 import 的契约(packages/types、shared、design-tokens、
+  // database schema…)却没动 importer,声明了 stagedTriggers 的门一个都不跑 = 净零逃逸
+  // (换个写法就逃过门)。现把暂存文件集过 widenFilesOverDependents(face=index,与
+  // git diff --cached 同面同轮),把所有(传递)依赖改动文件的 importer 一并算进"本次触及"。
+  // 0 边 / 无源码扩展名时逐字不变;建图失败退回纯前缀并打可见告警(不崩、不静默假装成功 ——
+  // 增强失效 == 改前行为,绝不把环境故障升级成硬拦)。一次 runner 进程只建一次图(缓存)。
+  let stagedEffectiveCache = null
+  let stagedWidenAnnounced = false
+  function stagedEffectiveFilesOrNull() {
+    if (stagedEffectiveCache) return stagedEffectiveCache
+    const raw = stagedFilesOrNull()
+    if (raw === null) {
+      stagedEffectiveCache = null
+      return null
+    }
+    const w = widenFilesOverDependents(raw, { face: 'index' })
+    if (!stagedWidenAnnounced) {
+      stagedWidenAnnounced = true
+      if (w.widened) {
+        console.info(`🔗 [staged 触发] ${w.reason} —— 相关 importer 已并入本次触发面`)
+      } else if (w.reason.includes('失败')) {
+        console.warn(`⚠️  [staged 触发] ${w.reason}(本轮仅按路径前缀触发,反向依赖增强未生效)`)
+      }
+    }
+    stagedEffectiveCache = w.files
+    return stagedEffectiveCache
+  }
+
+  function stagedPathsTouch(prefixes) {
+    // 归一交给 lib/guardian-triggers.mjs:裸字符串注册(HEAD 实测 3 道)曾在此处
+    // TypeError 崩掉整条守门链;空清单则抛错,不允许"永不运行"的隐形失踪。
+    // 文件集是经反向依赖闭包加宽后的 effective 集(L14546),不是裸暂存清单。
+    return triggersTouch(stagedEffectiveFilesOrNull(), prefixes)
+  }
+
+  /**
+   * 地基探针:开跑整批门之前,先问一句"这个仓库此刻**答不答得上话**"。
+   * 判据与"为什么不住在 runner 里"写在 `scripts/lib/substrate-probe.mjs` 头注(本仓 2026-09-29
+   * 实测:五道门在 .git 抖动的 90 秒里各报"无法判定",而分发循环把任何非零码一律计成
+   * "blocking 失败,提交已阻止" ⇒ 全队要么被挡、要么 `--no-verify`,一次绕过 = 该枚提交上
+   * 全部守门作废)。结论走 `TEMPFAIL_EXIT_CODE`(75):它在本仓已经是"非检查结论、稍后重试"
+   * 的既有通道(push guard 的带 hook 重试链依赖它),归因层也把它读成"批没跑完"而不是"你的红"。
+   */
+  function assertSubstrateUsable() {
+    let gitBin = null
+    try {
+      gitBin = resolveGitBin()
+    } catch (e) {
       console.error(
-        `⏭️ [${check.id}] ${check.label} 被中断(${interruptReason(e)})—— 非检查结论,以 ${TEMPFAIL_EXIT_CODE} 向上传播`,
+        `🚫 [substrate] 连 git 二进制都解析不到(${String((e && e.message) || e).slice(0, 100)})` +
+          ` —— 整批守门无法出具结论,以 ${TEMPFAIL_EXIT_CODE} 向上传播(非检查结论,等仓库恢复后重试)。`,
       )
       process.exit(TEMPFAIL_EXIT_CODE)
     }
-    // 2026-08-19 立的这条注释已过时(原写"stdio:inherit 已把 stderr 透传,无需 silent-skip 检测"):
-    // 现在 stderr 是**管道进来的**,由上方 `process.stderr.write(gateStderr)` 负责原样吐回上游 ——
-    // 也就是说"子进程的话一定被打印"这件事仍然成立,但**保障它的是这段代码,不是 stdio 模式**。
-    // 谁再改 stdio 配置,必须同时回头看那一句 write,否则判据的输出会被静默吞掉(比误报更难查)。
-    // ── §0.3「未判定」必须在**任何计数之前**分出去(2026-10-27)──────────────────
-    // 判据体对"取不到输入"的合规交付是 exit 2 + 显式点名,而此前这一档落到 decideGateOutcome 的
-    // 最后一行 ⇒ kind='red' ⇒ failed++ / 进 failedGates(判红名单)/ 批量 exit(1)。于是
-    // 「我读到了内容、它确实违规」与「我取不到输入、判不了」在汇总层长得一模一样 —— 这正是
-    // §12e/§12f 明令禁止的形状:与本次提交内容无关的红会让使用者去 `--no-verify`,一次绕过 =
-    // 该枚提交上全部守门作废。这里把它单独成档,**不计 failed、不进 failedGates**,但逐道点名、
-    // 批量以同一枚退出码收口(不记绿也不冒红)。
-    // 注意 `kindPre` 故意算在 mode 派发**之外**:这样上面的异常返回值可直接复用于未判定判定,
-    // 而 `failed++` 仍是 blocking 支的第一句(executor 分类层的既有结构锁)。
-    const kindPre = decideGateOutcome({
-      status: e?.status ?? null,
-      signal: e?.signal ?? null,
-      code: e?.code ?? null,
-      stderr: gateStderr,
+    const v = probeSubstrate({
+      // 只读动词 + 显式 timeout(守门 80 的口径:热路径的只读 git 调用必须封顶)
+      run: () =>
+        execFileSync(gitBin, ['rev-parse', '--is-inside-work-tree'], {
+          encoding: 'utf8',
+          cwd: process.cwd(),
+          timeout: 15000,
+          windowsHide: true,
+          stdio: ['ignore', 'pipe', 'pipe'],
+        }),
     })
-    if (check.mode === 'blocking' && kindPre.kind === 'undetermined') {
-      undetermined++
-      undeterminedGates.push({ id: check.id, label: check.label, script: check.script, reason: kindPre.reason })
-      console.error(
-        `${C.yellow}❓ [${check.id}] ${check.label} ${kindPre.reason}${C.reset} —— **未判定**:` +
-          `这不是"这道门发现了违规"(不计入 blocking 红),也不是"通过"(不记绿);` +
-          `上面该门回吐的输出里有它点名的路径/原因。(单独复现:node scripts/${check.script}` +
-          `${passStaged ? ' --staged' : ''})`,
-      )
-      return
+    if (v.usable) return
+    console.error(
+      `🚫 [substrate] 仓库此刻答不上话:${v.reason}\n` +
+        `   ⇒ 本轮**不跑** ${effectiveChecks.length} 道门,也不把这场瞬时故障记成 ${effectiveChecks.length} 条"结论失败"` +
+        '(那正是逼全队 `--no-verify` 的形态)。等 gitdir 恢复(守护 ≤2 分钟自愈一轮)后重跑提交即可。',
+    )
+    process.exit(TEMPFAIL_EXIT_CODE)
+  }
+
+  assertSubstrateUsable()
+
+  // === 只读门并行白名单(方案A 外置层)===
+  // 只有收录于此的门进并行池;未收录的门(含未来新增门)默认串行 = 安全向;写者门永列不入。
+  // 为什么不写成 checks 条目字段:守门 192(注册表工作树超集,--staged 问责)按「条目行逐字等值」
+  // 比对 HEAD↔索引 —— 给既有条目插一行 `par: true` 会被判 228 条 P2 改写(2026-10-12 实测即红,
+  // 提交被拦);白名单住顶层常量 ⇒ checks 条目字节与 HEAD 逐字一致,192 零命中,并行语义不变。
+  // 新增只读门提速:在此加一行 id 即可(现有 228 门)。
+  // 门 7(check-dedupe)刻意不入池:2026-10-28 实测本机单跑 2m2s / RC=0,而全量档在 parMax=8
+  // 并发下被 300s 单门看门狗 SIGKILL(三次体检同形)⇒ 每轮都记成「未判定」而不是判红。耗时来自
+  // pnpm 解析整棵依赖图,与并发争用叠加后不可控;串行档独占机器可稳定出结论。判据/退出码一位未改,
+  // 也**不**靠调大 GUARDIAN_GATE_TIMEOUT_MS 消红。
+  const PAR_GATE_IDS = new Set([
+    '1',
+    '2',
+    '2b',
+    '2c',
+    '2e',
+    '2e-dupns',
+    '2g-web',
+    '3',
+    '4',
+    '4b',
+    '4c',
+    '6',
+    '8',
+    '11',
+    '11b',
+    '11c',
+    '11d',
+    '11h',
+    '11e',
+    '11f',
+    '11g',
+    '12',
+    '13c',
+    '17',
+    '18',
+    '20',
+    '24a',
+    '25',
+    '26',
+    '27',
+    '28',
+    '29',
+    '30',
+    '30a',
+    '30c',
+    '30b',
+    '16c',
+    '45',
+    '35',
+    '36',
+    '37',
+    '38',
+    '39',
+    '40',
+    '41',
+    '2d',
+    '2o-shared',
+    '2o-miniapp-taro',
+    '2o-mobile-rn',
+    '2f-ext',
+    '2f-shared',
+    '2g-ext',
+    '2h-ext',
+    '2i-ext',
+    '2j-shared',
+    '2p-api',
+    '2q-cli',
+    '2r-miniapp-taro',
+    '2s-mobile-rn',
+    '2t-api',
+    '2u-cli',
+    '2v-miniapp-taro',
+    '2w-mobile-rn',
+    '2k-shared',
+    '2m-shared',
+    '2n-web',
+    '2f-mobile-rn',
+    '2f-cli',
+    '9',
+    '13b',
+    '19',
+    '21',
+    '22',
+    '24b',
+    '34',
+    '33',
+    '42',
+    '44',
+    '46',
+    '48',
+    '49',
+    '50',
+    '51',
+    '52',
+    '53',
+    '54',
+    '55',
+    '59',
+    '57',
+    '58',
+    '60',
+    '56',
+    '61',
+    '62',
+    '63',
+    '68',
+    '64',
+    '66',
+    '67',
+    '69',
+    '70',
+    '71',
+    '72',
+    '73',
+    '74',
+    '75',
+    '76',
+    '77',
+    '93',
+    '91',
+    '10',
+    '65',
+    '83',
+    '84',
+    '78',
+    '80',
+    '79',
+    '81',
+    '85',
+    '86',
+    '87',
+    '88',
+    '89',
+    '92',
+    '90',
+    '94',
+    '95',
+    '96',
+    '97',
+    '98',
+    '99',
+    '101',
+    '102',
+    '103',
+    '104',
+    '105',
+    '106',
+    '107',
+    '108',
+    '109',
+    '110',
+    '111',
+    '112',
+    '113',
+    '114',
+    '115',
+    '116',
+    '117',
+    '118',
+    '119',
+    '120',
+    '121',
+    '122',
+    '123',
+    '124',
+    '125',
+    '126',
+    '127',
+    '128',
+    '129',
+    '130',
+    '131',
+    '132',
+    '133',
+    '134',
+    '135',
+    '136',
+    '137',
+    '138',
+    '139',
+    '140',
+    '141',
+    '142',
+    '143',
+    '144',
+    '145',
+    '146',
+    '147',
+    '148',
+    '149',
+    '151',
+    '152',
+    '153',
+    '154',
+    '155',
+    '156',
+    '157',
+    '158',
+    '159',
+    '160',
+    '161',
+    '163',
+    '164',
+    '165',
+    '166',
+    '167',
+    '171',
+    '173',
+    '174',
+    '175',
+    '176',
+    '177',
+    '178',
+    '179',
+    '180',
+    '181',
+    '182',
+    '183',
+    '184',
+    '185',
+    '189',
+    '190',
+    '191',
+    '192',
+    '194',
+    '195',
+    '199',
+    '200',
+    '23',
+    '150',
+    '172',
+    '186',
+    '187',
+    '188',
+    '196',
+    '197',
+    '198',
+    // 2026-10-21 机主要求"整体 ≤1 分钟":把原先漏在白名单外的 13 道**只读**门收进池
+    // (逐门核过 writeFileSync 去向:写的都是各自的缓存/报告,不是共享 git 索引)。
+    // 刻意**不**收的三个:`2f-web`/`2f-miniapp-taro`/`2f-shared-diff` 是同一个
+    // i18n-diff.mjs 的三个档,共用同一份中间产物 ⇒ 必须串行。
+    '168',
+    '47',
+    '224',
+    '220',
+    '213',
+    '100',
+    '221',
+    '232',
+    '210',
+    '13d',
+    '170',
+    '231',
+    '15',
+    '70b', // i18n 死 key 扫描(2026-10-22 从 pre-commit 串行段移入池)
+    // 2026-10-22 补入:纯内容缓存白名单(T1 要求缓存集 ⊆ 本池)。三门均只读 ——
+    //   211 check-plan-id-pool(只读 PROJECT_PLAN) / 203 check-plan-task-duplicates(face-reader 读 HEAD·索引面)
+    //   / 229 check-plan-closed-stock(只读 PROJECT_PLAN);逐门核过无 writeFileSync/spawn。
+    '211',
+    '203',
+    '229',
+  ])
+  // === 只读门并行池(方案A;逃生舱:GUARDIAN_SERIAL=1 退回全串行,GUARDIAN_PAR=<n> 调并发度) ===
+  // 契约(与串行版逐字对齐的三条):
+  //   ① 只有 PAR_GATE_IDS 白名单收录的门进池(新门默认串行 = 安全向);写者门(git 索引/共享文件)照旧串行,
+  //      且执行前先 flushParBuffer() 全屏障 —— 池内零在飞子进程时才跑写者 ⇒ 与只读门零交叠。
+  //   ② 子进程 stdout/stderr 全部缓冲,flush 时按 checks **原序**回放(表头在派发时按序打印,
+  //      结论/输出在 flush 按序吐)⇒ 结论顺序与串行版一致(表头可能先于前段结论,属观感差异)。
+  //   ③ 退出码语义不变:flush 走同一份 applyGateResult(75/128+N 中断传播、stopOnFirst 早退、
+  //      崩溃/判红分流原样);任何 process.exit 路径由 exit 钩子杀掉在飞子进程,不留孤儿。
+  // 2026-10-12 parMax A/B(全量档 + --timing,五档九轮,同机连续测量):
+  //   par=4  wall 491.8s / 池内合计 1114.8s(并发不足,单门最省但墙钟被卡)
+  //   par=6  wall 422.5 / 563.7 / 494.9s(中位 494.9,最快单次) 池内 1155/1671/1266s
+  //   par=8  wall 467.1 / 460.0 / 496.8s(中位 467.1,三轮最稳) 池内 1575/1525/1592s
+  //   par=10 wall 574.0s(池内 1586.7s) / par=14 wall 583.4s(池内 2030.1s)
+  // 结论:① ≥10 单调劣化 —— 并行度上去后单门均值从 5067ms 涨到 8904ms(+76%),
+  //        CPU 竞争反噬盖过并发收益;② 4~8 是同一个谷底平台,6 与 8 的中位差(6%)
+  //        远小于同档轮间波动(par=6 三轮跨 422~564s = 33%),**判不出显著差异**;
+  //        ③ 池内合计(= 真实 CPU 成本)par=8 比 par=6 高 15%。故默认保持 6 不动 ——
+  //        没有统计显著的收益就不改默认;真要试,逃生档 GUARDIAN_PAR=8 仍在。
+  //        反面教材:单跑一轮就改默认会被 par=6 首轮 422.5s 或次轮 563.7s 带偏(同参 33% 噪声)。
+  const guardianSerial = process.env.GUARDIAN_SERIAL === '1'
+  const parMaxRaw = Number.parseInt(process.env.GUARDIAN_PAR || '', 10)
+  // 2026-10-21:12 并发实测更慢(check-dangling-local-imports 从秒级涨到 32.8s,CPU 竞争反噬),
+  // 回到 8;达标靠"快档"而不是堆并发。
+  const parMax = Number.isFinite(parMaxRaw) && parMaxRaw >= 1 ? parMaxRaw : 8
+  // ─── 单门超时看门狗(并行档 2026-10-12 立;2026-11-06 BUG-43① 补到串行档)──────
+  // 并行分支有 gateTimer + ETIMEDOUT 兜底,串行 spawnSync 此前**无 timeout** ⇒ 非并行池的写者门
+  // 挂住时整条提交链无界等待。并行与串行共用同一枚旋钮 GUARDIAN_GATE_TIMEOUT_MS(0 = 仅排障关闭),
+  // 不各设一套阈值;超时由 spawnSync 回吐 error.code=ETIMEDOUT,走 applyGateResult 的未判定分流,
+  // 绝不静默洗成通过。
+  //
+  // 2026-11-08(DG-01 / DG-06):缺省预算改为**逐门查登记表**(scripts/data/land-gate-budgets.json),
+  // 不再一律 300s。实测 30a check-commit-loss-guard 2026-11-06 静默态 506s、2026-11-08 复测
+  // 176–255s ⇒ 旧 300s 看门狗仍会把它杀死,全量腿结构上不可能绿("未判定"又不是通过)。
+  // DG-06 起"缺省"也只有一处:表里的 defaultTimeoutMs —— 执行器不再自带第二枚 300s 字面量,
+  // 与落地后置复跑共用 resolveGateBudget 同一处取数;表缺失/坏行时由该函数退回兜底并出声。
+  // 显式 GUARDIAN_GATE_TIMEOUT_MS 仍整体覆盖(排障语义不变)。
+  const gateTimeoutOverrideRaw = process.env.GUARDIAN_GATE_TIMEOUT_MS
+
+  function gateTimeoutFor(check) {
+    if (gateTimeoutOverrideRaw !== undefined) {
+      const n = Number(gateTimeoutOverrideRaw)
+      return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0
     }
-    if (check.mode === 'blocking') {
-      failed++
-      // 崩溃 ≠ 判红(纯函数与各分支的构造面证明在 scripts/lib/gate-failure-kind.mjs)。
-      // 分流只改**说法与归类**,不改后果:仍然 failed、批量仍然非零退出 —— 把"跑不起来"洗成
-      // 通过,等于给一台瞎掉的尺子发合格证(本仓对"未判定"的一贯要求:大声、点名、不清偿不放行)。
-      // code 必须一起传:兜底弄死(超时看门狗 / 输出超 20MB)那两个 Error 只有 code,
-      // 没有 status/signal —— 少传这一个键,门就会被读成"判据判红"(2026-10-24 实测即此型)。
-      // 2026-10-27:这次调用提前到上面 kindPre(未判定要先于 failed++ 分流),此处直接复用同一个结果,
-      // 判定实现与"code 必须传"这条规矩都还在 gate-failure-kind 单源里,本文件不复制。
-      const kind = kindPre
-      if (kind.kind === 'crash') {
-        crashedGates.push({ id: check.id, label: check.label, script: check.script, reason: kind.reason })
-        console.error(
-          `${C.yellow}⚠️ [${check.id}] ${check.label} ${kind.reason}${C.reset} —— 跑不起来(未判定),不是检查结论;` +
-            `提交仍被阻止,但**请勿把它读成"这道门发现了缺陷"**。${crashNextStep(kind.reason)}` +
-            `(单独复现:node scripts/${check.script})`,
+    return resolveGateBudget(check.script, { env: {} })
+  }
+  // ─── 阶段协议(2026-11-07 DG-06 归档移植;2026-11-09 手合到 main 取表)──────────────
+  // 只有预算表登记 phaseProtocol 的门才把「排队/等锁」与「真跑」分段计时。超时数值本身
+  // 仍走上面 gateTimeoutFor 单源(GUARDIAN_GATE_TIMEOUT_MS 覆盖 + 逐门查表),本包装只补
+  // resolveGateBudget 不暴露的两个条目字段(phaseProtocol/waitMs);表读不到 = 非阶段门
+  // (fail-closed 回老语义),绝不抛。
+  const GATE_BUDGET_TABLE_REL = 'scripts/data/land-gate-budgets.json'
+  const DEFAULT_WAIT_TIMEOUT_MS = 600_000
+  let gateBudgetTableCache = null
+  function gateBudgetTable() {
+    if (gateBudgetTableCache === null) {
+      try {
+        const parsed = JSON.parse(
+          readFileSync(resolve(process.cwd(), GATE_BUDGET_TABLE_REL), 'utf8'),
         )
-      } else {
-        failedGates.push({ id: check.id, label: check.label, script: check.script })
-        if (check.onFailHint) {
-          console.info(check.onFailHint)
-        }
-        console.error(`${C.red}❌ [${check.id}] ${check.label} 失败,提交已阻止${C.reset}`)
-      }
-      // 默认继续跑完(见 failedGates 声明处注释);逃生舱才早退。
-      if (stopOnFirst) {
-        printSummary(true)
-        // 早退也是一轮"跑过一部分门"的批次:留痕照落,但 ranFullBatch:false(它没跑完全部)。
-        attestGateBatchRun(false)
-        process.exit(1)
-      }
-    } else if (check.mode === 'warn') {
-      warned++
-      console.warn(
-        `${C.yellow}⚠️ [${check.id}] ${check.label} 失败 (warn-only,不阻塞 commit)${C.reset}`,
-      )
-      if (showTiming) {
-        console.info(`  ${C.dim}⏱  ${elapsed}ms${C.reset}`)
-      }
-    } else {
-      // info 模式:不拦提交,但**绝不记绿** —— 把失败计成 passed 就是"没判写成判过"(§0.3)。
-      // 单列 infoDegraded 一档:不计 passed/failed/undetermined,逐道点名,退出码不变。
-      infoDegraded++
-      infoDegradedGates.push({ id: check.id, label: check.label, script: check.script })
-      console.warn(
-        `${C.yellow}⚠️ [${check.id}] ${check.label} info 门失败(未记绿,不阻塞 commit)${C.reset}`,
-      )
-      if (showTiming) {
-        console.info(`  ${C.dim}⏱  ${elapsed}ms${C.reset}`)
+        gateBudgetTableCache = Array.isArray(parsed?.gates) ? parsed : undefined
+      } catch {
+        gateBudgetTableCache = undefined
       }
     }
+    return gateBudgetTableCache
   }
-}
-
-// 并发诊断(2026-10-22 立):排查"CPU 合计与墙钟几乎相等 = 并发没生效"时用。只打配置,不改行为。
-{
-  const inPool = effectiveChecks.filter((c) => PAR_GATE_IDS.has(String(c.id)) && !guardianSerial).length
-  console.info(
-    `🧮 并发诊断:parMax=${parMax} guardianSerial=${guardianSerial} checks=${effectiveChecks.length} ` +
-      `池内=${inPool} fastMode=${fastMode} 预算=${FAST_BUDGET_MS}ms`,
-  )
-}
-
-for (const check of effectiveChecks) {
-  // 快档硬预算:到点即停止派发,剩余门记延后(见 FAST_BUDGET_MS 头注)。
-  if (fastMode && !budgetBlown && Date.now() - startTime > FAST_BUDGET_MS) {
-    budgetBlown = true
-    console.info(
-      `⏱  快档预算 ${Math.round(FAST_BUDGET_MS / 1000)}s 已到 —— 剩余门转为延后,补跑:node scripts/guardian-runner.mjs --staged`,
-    )
-  }
-  if (fastMode && budgetBlown) {
-    skipped++
-    deferredGates.push({ id: String(check.id), label: check.label, script: check.script })
-    if (check.mode === 'blocking')
-      skippedBlockingGates.push({
-        id: String(check.id),
-        label: check.label,
-        script: check.script,
-        reason: '快档硬预算到点,剩余门未派发',
-      })
-    continue
-  }
-  // 逐项应急放行(2026-09-21 立):与各门脚本内部 HUSKY_SKIP_* 惯例一致,由 item 的
-  // skipEnv 字段声明变量名。适用场景 = 并发会话未提交 WIP 造成"工作区级"漂移,
-  // 阻塞与本任务无关的提交(本次改动不含该目录时,门的结论是假阳性)。
-  // 纪律:commit message 必须写明责任归属;默认行为不变(不设变量照常阻塞)。
-  if (check.skipEnv && process.env[check.skipEnv] === '1') {
-    // 同 stagedTriggers / 重型门:应急放行不 spawn 任何门进程,纯记账 ⇒ 不设屏障。
-    skipped++
-    selfSkippedGates.push({ id: String(check.id), label: check.label, skipEnv: check.skipEnv })
-    if (check.mode === 'blocking')
-      skippedBlockingGates.push({
-        id: String(check.id),
-        label: check.label,
-        script: check.script,
-        reason: `应急放行 ${check.skipEnv}=1`,
-      })
-    console.info(`⏭  [${check.id}] ${check.label}(跳过:${check.skipEnv}=1)`)
-    continue
-  }
-  // 条件触发(2026-09-22 立,见上方 stagedPathsTouch):暂存区未触及声明路径 → 不执行。
-  // 与 skipEnv 同计入"跳过",并打印触发清单,避免"静默没跑"。
-  if (check.stagedTriggers && passStaged && !stagedPathsTouch(check.stagedTriggers)) {
-    // 2026-10-22 去掉这里的 `await flushParBuffer()`。
-    // 病灶:本分支**不 spawn 任何子进程**,却在每次跳过时做一次全屏障 —— 等池里所有在飞门
-    // 跑完才继续。元门档实测 31 门里 17 门被 stagedTriggers 跳过 ⇒ 17 次屏障,
-    // 而 14 道实跑门 CPU 仅 14.3s,守门墙钟却到 69s,差距全在这里。
-    // 去掉后跳过是纯记账,不阻塞派发;真正的屏障只保留在**写者门**之前(那里必须等池清空)。
-    skipped++
-    notTriggeredGates.push({
-      id: String(check.id),
-      label: check.label,
-      triggers: normalizeTriggers(check.stagedTriggers),
-    })
-    console.info(
-      `⏭  [${check.id}] ${check.label}(暂存区未触及:${normalizeTriggers(check.stagedTriggers).join(' / ')},跳过)`,
-    )
-    continue
-  }
-  // 快档:重型门延后到 post-commit 后台补跑(见 HEAVY_GATE_IDS 头注)。计入 notTriggered 而不是
-  // selfSkipped —— 它不是"人按了跳过开关",是"本档设计上就不在这里跑",两者的处置动作不同。
-  if (fastMode && HEAVY_GATE_IDS.has(String(check.id))) {
-    // 不 flush:本分支一道子进程都不 spawn,是纯记账 + 打印 ⇒ 没有任何理由等池里在飞的门跑完。
-    // 2026-10-22 实测:32 道重型门散落在注册序里,旧写法的 32 次全屏障把并行池反复抽干,
-    // 119 道实跑门 CPU 合计 33.7s、parMax=8,墙钟却 15s(并发仅 2.2);去掉后墙钟约 1/3。
-    skipped++
-    // 必须进延后清单:预算没爆时 post-commit 也要知道这 N 道 blocking 门没跑(镜像测试 T6 锁死)。
-    deferredGates.push({ id: String(check.id), label: check.label, script: check.script })
-    // 快档跳过的 blocking 门 = 没拿到"通过"结论:单列未判定档,批量不得 exit 0(BUG-19①)。
-    if (check.mode === 'blocking')
-      skippedBlockingGates.push({
-        id: String(check.id),
-        label: check.label,
-        script: check.script,
-        reason: '快档重型门延后,本轮未跑',
-      })
-    notTriggeredGates.push({
-      id: String(check.id),
-      label: check.label,
-      triggers: ['(快档:重型门延后到 post-commit)'],
-    })
-    console.info(
-      `⏭  [${check.id}] ${check.label}(快档跳过:重型门由 post-commit 补跑;要全量设 IHUI_GATE_FAST=0)`,
-    )
-    continue
-  }
-  const cmdArgs = [...check.args]
-  if (passStaged) cmdArgs.push('--staged')
-  // (旧版这里拼一条 shell 字符串给 execSync;改 spawnSync 用 argv 数组后不再需要,
-  //  顺带去掉 shell 一层。复现命令由汇总段按 `node scripts/<script>` 现拼,不在此处留变量。)
-
-  // 纯内容门指纹缓存查询 —— 必须排在 skipEnv/stagedTriggers/重型门三个跳过分支**之后**:
-  // 被跳过的门不得被缓存洗绿(镜像测试 T6 用源码顺序锁这条)。命中 = 同一份输入此前真跑过且通过。
-  const cacheHit = gateContentCache.lookup(check.id, { script: check.script, args: cmdArgs })
-  if (cacheHit) {
-    passed++
-    console.info(
-      `⚡ [${check.id}] ${check.label} 命中指纹缓存(${Math.round(cacheHit.ageMs / 1000)}s 前通过,省 ${cacheHit.ms}ms)`,
-    )
-    if (showTiming) {
-      timingRows.push({ id: check.id, label: check.label, script: check.script, mode: check.mode, ms: 0, ok: true })
+  function gateBudgetFor(check) {
+    const ms = gateTimeoutFor(check)
+    if (gateTimeoutOverrideRaw !== undefined) {
+      return {
+        ms,
+        waitMs: DEFAULT_WAIT_TIMEOUT_MS,
+        phaseProtocol: false,
+        limitSource: 'GUARDIAN_GATE_TIMEOUT_MS 覆盖',
+      }
     }
-    continue
+    const name = String(check?.script ?? '')
+      .split(/[\\/]/)
+      .pop()
+    const table = gateBudgetTable()
+    const entry =
+      table?.gates.find(
+        (g) => g?.script === name && (!g.gateId || String(g.gateId) === String(check?.id ?? '')),
+      ) ?? null
+    const waitRaw = Number(entry?.waitMs ?? table?.defaultWaitTimeoutMs)
+    return {
+      ms,
+      waitMs:
+        Number.isFinite(waitRaw) && waitRaw > 0 ? Math.floor(waitRaw) : DEFAULT_WAIT_TIMEOUT_MS,
+      phaseProtocol: entry?.phaseProtocol === true,
+      limitSource: entry
+        ? `${GATE_BUDGET_TABLE_REL} / ${entry.gateId ? `${entry.gateId}+${name}` : name} / ${ms}ms`
+        : `未在册 ⇒ 缺省 ${ms}ms`,
+    }
+  }
+  const parPending = [] // 按派发序(checks 原序)排队的在途任务;flush 只消费队头
+  const parLive = new Set() // 在飞子进程句柄;exit 钩子统一收割,防孤儿门进程
+  let parSlots = parMax // 并发信号量:限制同时在飞的子进程数
+  const parSlotWaiters = []
+
+  function acquireParSlot() {
+    if (parSlots > 0) {
+      parSlots -= 1
+      return Promise.resolve()
+    }
+    return new Promise((ok) => {
+      parSlotWaiters.push(ok)
+    })
   }
 
-  // ⚠️ 2026-10-21 关键修复:`check.id` 在注册表里**大多是数字**(1/2/30/103…),而
-  // PAR_GATE_IDS 里存的是**字符串** ⇒ 旧写法 `has(check.id)` 对绝大多数门恒 false,
-  // 并行池实际上从未生效过(实测 CPU 179s 却跑出 101s 墙钟 = 并发 1.77,原因就在这里)。
-  // 必须 String() 归一,与 HEAVY_GATE_IDS / notTriggeredGates 的写法一致。
-  if (PAR_GATE_IDS.has(String(check.id)) && !guardianSerial) {
-    console.info(`[${check.id}] ${check.label}...`)
-    await dispatchPar(check, cmdArgs)
-    continue
+  function releaseParSlot() {
+    const next = parSlotWaiters.shift()
+    if (next)
+      next() // 槽位直接交接给等待者(不回加计数)
+    else parSlots += 1
   }
-  await flushParBuffer()
-  console.info(`[${check.id}] ${check.label}...`)
-  const checkStart = Date.now()
 
-  // 2026-09-29:执行改走 spawnSync —— 唯一理由是**要读到子进程 stderr**(崩溃指纹只在那里)。
-  // execSync 在 stdio:'pipe' 下只回 stdout,成功门的 stderr 会被**吞掉**,那是比"分不清崩溃与判红"
-  // 更糟的回归(判据失效的表现永远是安静)。stdout 仍 'inherit' 实时输出,观感与逐门进度一字不变;
-  // 失败路径合成一个带 status/signal 的 Error,使下方 shouldPropagateAsInterrupt(G-611 的中断传播)
-  // 与所有旧分支的读法保持同形 —— 退出码语义不因这次改动而变化:崩溃仍然计失败,不静默放行。
-  const r = spawnSync(process.execPath, [`scripts/${check.script}`, ...cmdArgs], {
-    cwd: process.cwd(),
-    windowsHide: true,
-    stdio: ['ignore', 'inherit', 'pipe'],
-    maxBuffer: 20 * 1024 * 1024,
-    encoding: 'utf8',
-    // BUG-43①:串行档此前无 timeout(并行档有 gateTimer + ETIMEDOUT),写者门挂住即整链无界等待。
-    // 与并行档共用 gateTimeoutMs;超时由 spawnSync 回吐 error.code=ETIMEDOUT ⇒ 未判定分流,不洗绿。
-    timeout: Number.isFinite(gateTimeoutMs) && gateTimeoutMs > 0 ? gateTimeoutMs : 0,
+  // 中断传播 / stopOnFirst / 正常收口都走 process.exit:统一在此收割在飞子进程。
+  process.on('exit', () => {
+    for (const child of parLive) {
+      try {
+        child.kill()
+      } catch {
+        /* 子进程已退出 */
+      }
+    }
   })
-  applyGateResult(check, r, checkStart, cmdArgs)
-}
 
-// 汇总前收口:把剩余在飞/缓冲的并行结果按原序全部回放(全屏障)。
-await flushParBuffer()
-
-// === 汇总 ===
-
-printSummary(false)
-// 跑完的批次(不论有无 blocking 失败)都落一行 kind=gate-batch-run:统计器靠它的 treeDigest
-// 把"门确实跑过、但有 N 道按名字自跳"这一枚与"整批根本没跑"分开(§12f 的 unknown 拆格)。
-attestGateBatchRun(true)
-if (crashedGates.length > 0) {
-  console.error('')
-  console.error(
-    `${C.bold}${C.yellow}⚠️ ${crashedGates.length} 道门**跑不起来(未判定)**—— 与"判据判红"分开列,别按缺陷派单:${C.reset}`,
-  )
-  for (const g of crashedGates)
-    console.error(
-      `   · [${g.id}] ${g.label} —— ${g.reason}(复现:node scripts/${g.script};下一步:${crashNextStep(g.reason)})`,
+  /** 派发一道只读门:先按 checks 原序入队(保回放序),再等槽;完成后 job.done 置位。 */
+  async function dispatchPar(check, cmdArgs) {
+    const job = {
+      check,
+      args: cmdArgs,
+      runtime: 0,
+      error: null,
+      status: null,
+      signal: null,
+      stdout: '',
+      stderr: '',
+    }
+    let markDone
+    job.done = new Promise((ok) => {
+      markDone = ok
+    })
+    parPending.push(job)
+    let plan
+    try {
+      plan = gateSpawnPlan({
+        root: process.cwd(),
+        script: check.script,
+        args: cmdArgs,
+        env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' },
+      })
+    } catch (e) {
+      if (e?.exitCode === UNDETERMINED_EXIT_CODE) {
+        // 派发层自己就"没有资格回答":把同一段话作为该门的 stderr 送进 applyGateResult,
+        // 走既有的未判定分流(不记绿、不冒红、批量 exit 2),不在这里另造一套退出码。
+        job.status = UNDETERMINED_EXIT_CODE
+        job.stderr = `${e.message}\n`
+        job.runtime = 0
+        markDone()
+        return
+      }
+      markDone()
+      throw e
+    }
+    await acquireParSlot()
+    const spawnedAt = Date.now()
+    const budget = gateBudgetFor(check)
+    const child = spawn(process.execPath, plan.argv, {
+      cwd: process.cwd(),
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: plan.env,
+    })
+    parLive.add(child)
+    console.info(
+      `[guardian:par] ${check.id} spawn script=${String(check.script).split(/[\\/]/).pop()} ` +
+        `runLimitMs=${budget.ms}(${budget.limitSource})`,
     )
-  console.error(`   ${crashAdvisory(crashedGates.length, crashedGates.map((g) => g.reason))}`)
-}
-// §0.3 未判定清单(2026-10-27 立):与上面两档都**不同桶** —— 不是"判出了违规",也不是"整套门没跑起来"。
-// 这里必须**逐道点名**:立案要求就是"不许静默吞掉"。逐条的根据有两处:
-//  ① reason 带上 detectUndetermined 从该门 stderr 里抓到的那句自述;
-//  ② 该门自己的输出(含它点名的具体路径/被审面)已在 applyGateResult 里原样吐回上游,见上方回显。
-// 打印位置排在判红支**之前**:两份名单都要打印完再退出,不得因为先退而把另一段吞掉。
-if (undeterminedGates.length > 0) {
-  console.error('')
-  console.error(
-    `${C.bold}${C.yellow}❓ ${undeterminedGates.length} 道门**未判定**(取不到输入,§0.3)—— ` +
-      `与"判据判红"分开列:**不许**按缺陷派单,但也不许当通过:${C.reset}`,
-  )
-  for (const g of undeterminedGates)
-    console.error(
-      `   · [${g.id}] ${g.label} —— ${g.reason}(上面该门回显里有它点名的路径;` +
-        `复现:node scripts/${g.script}${passStaged ? ' --staged' : ''})`,
-    )
-}
-if (failedGates.length > 0) {
-  console.error('')
-  console.error(
-    `${C.bold}${C.red}🚫 ${failedGates.length} 道 blocking 门失败 —— 本轮已跑完全部 ${effectiveChecks.length} 项,未提前中止:${C.reset}`,
-  )
-  for (const g of failedGates) {
-    console.error(`   · [${g.id}] ${g.label}`)
-    console.error(`     单独复现:node scripts/${g.script}${passStaged ? ' --staged' : ''}`)
+    // 输出上限与 spawnSync maxBuffer 同档(≈20MB):超限合成 ENOBUFS error,与 spawnSync
+    // 超限同走 applyGateResult 的 crash 分流 —— 绝不把"输出被截断"静默洗成通过。
+    // 分流真成立靠 applyGateResult 把 job.error.code 传给 decideGateOutcome(2026-10-24 接上;
+    // 此前只传 status/signal,而本行这个合成 Error 的 status/signal 可都是空的 ⇒ 被读成判红)。
+    // 注意并行档这里 job.status 可能是真实退出码 0(截断的是"跑完但输出爆表"那型),
+    // 所以 gate-failure-kind 把兜底码排在"退出码 0 ⇒ pass"之前。
+    let watchdog = null // 阶段协议看门狗:仅 phaseProtocol 门在函数尾兜底分支里创建
+    const CAP = 20 * 1024 * 1024
+    const outChunks = []
+    const errChunks = []
+    let outBytes = 0
+    let errBytes = 0
+    let overCap = false
+    child.stdout.on('data', (d) => {
+      outBytes += d.length
+      if (outBytes <= CAP) outChunks.push(d)
+      else overCap = true
+      if (watchdog) watchdog.observe(d.toString('utf8'))
+    })
+    child.stderr.on('data', (d) => {
+      errBytes += d.length
+      if (errBytes <= CAP) errChunks.push(d)
+      else overCap = true
+    })
+    let finished = false
+    let gateTimer = null
+    const finish = (apply) => {
+      if (finished) return
+      finished = true
+      if (gateTimer) {
+        clearTimeout(gateTimer)
+        gateTimer = null
+      }
+      if (watchdog) watchdog.finish()
+      const endedAt = Date.now()
+      if (watchdog) {
+        const t = watchdog.timing(endedAt)
+        job.phase = t
+        console.info(
+          `[guardian:par] ${check.id} phase waitMs=${t.waitMs} runMs=${t.runMs} runStarted=${watchdog.runStarted()} ` +
+            `runLimitMs=${budget.ms} waitLimitMs=${budget.waitMs}`,
+        )
+      }
+      job.runtime = endedAt - spawnedAt
+      parLive.delete(child)
+      releaseParSlot()
+      apply()
+      markDone()
+    }
+    child.on('error', (e) => {
+      finish(() => {
+        job.error = e
+      })
+    })
+    child.on('close', (code, signal) => {
+      finish(() => {
+        job.status = code
+        job.signal = signal
+        job.stdout = Buffer.concat(outChunks).toString('utf8')
+        job.stderr = Buffer.concat(errChunks).toString('utf8')
+        if (overCap && !job.error) {
+          const capErr = new Error(`gate stdout/stderr exceeded 20MB cap (${check.id})`)
+          capErr.code = 'ENOBUFS'
+          job.error = capErr
+        }
+      })
+    })
+    // ─── 单门超时兜底(2026-10-12 立,守门无界的第二道闸) ──────────────────
+    // 成因实测:desktop-nsis-template.mjs --check 走「console.log 后立刻 process.exit(0)」,
+    // 在 **stdout 是 pipe** 时(并行派发 stdio: ['ignore','pipe','pipe'])于本机 Node v24 上
+    // 以 3/6、5/6 的概率打完 OK 文案后永不退出 —— 串行档 stdio inherit 无此病,故并行档首曝。
+    // 子进程不死 ⇒ parPending 队头永远等不到 job.done ⇒ 整条提交链无界挂起(比判红更难查)。
+    // 处置与门 80(热路径 git 只读调用必须带 timeout)同一口径:**任何子检查都不得无界**。
+    // 超时 → kill 子进程 + job.error.code = 'ETIMEDOUT',走 applyGateResult 的 r.error 分支
+    // (与 ENOBUFS 同路)⇒ 未判定分流、点名、非零退出,绝不静默洗成通过。
+    // ⚠️ 2026-10-24 修正本注:它此前自称"走崩溃分流"其实是**假**的 —— applyGateResult 把
+    //   status/signal/stderr 交给 decideGateOutcome 时**没有传 code**,而这个 Error 的
+    //   status/signal 都是 null ⇒ 一路落到最后一行的 `判据判红(exit null)`,被记进 failedGates
+    //   (判红名单),汇总既无 crashedGates 也无未判定段。当天实测复现:门 30c check-stale-copy.mjs
+    //   被 300010ms 看门狗 SIGKILL、零输出 ⇒ 判红。修法 = 调用处把 `code: e?.code ?? null` 一起传入
+    //   (判定实现在 lib/gate-failure-kind.mjs 的 FALLBACK_KILL_CODES,本文件不复制判据)。
+    //   后果一项没减:这一族仍 failed++、仍非零退出、提交仍被拦 —— 改的只是"没判"不许写成"判过"(§0.3)。
+    //   另:shouldPropagateAsInterrupt(lib/signal-exit.mjs)对这两个 code 实测返回 false
+    //   (它只看 status/signal)⇒ 不会被误传播成 exit 75 重试,这正是"后果不变"要的那一格,**不得**扩。
+    // 旋钮:GUARDIAN_GATE_TIMEOUT_MS=0 关闭(仅排障用);未显式设置时按门查登记表(缺省 300s)。
+    // gateTimeoutFor 已提升到函数外顶层(并行与串行共用同一枚旋钮,见 parMax 定义处)。
+    // 2026-11-07(DG-06):登记 phaseProtocol 的门改走看门狗分段计时,不再把全程排队
+    // 当执行;非阶段门仍是原 gateTimer,行为逐字不变。
+    if (budget.phaseProtocol) {
+      watchdog = createGatePhaseWatchdog({
+        phase: true,
+        runLimitMs: budget.ms,
+        waitLimitMs: budget.waitMs,
+        spawnedAt,
+        onExpire: (t) => {
+          try {
+            child.kill('SIGKILL')
+          } catch {
+            /* kill 失败也要 finish,不能把兜底本身变成新的挂起点 */
+          }
+          finish(() => {
+            job.error = t
+            job.stdout = Buffer.concat(outChunks).toString('utf8')
+            job.stderr = Buffer.concat(errChunks).toString('utf8')
+          })
+        },
+      })
+      watchdog.start()
+    } else if (budget.ms > 0) {
+      gateTimer = setTimeout(() => {
+        if (finished) return
+        const te = new Error(`守门脚本超时未退出(${budget.ms}ms)—— ${check.id} ${check.script}`)
+        te.code = 'ETIMEDOUT'
+        try {
+          child.kill('SIGKILL')
+        } catch {
+          /* kill 失败也要 finish,不能把兜底本身变成新的挂起点 */
+        }
+        finish(() => {
+          job.error = te
+          job.stdout = Buffer.concat(outChunks).toString('utf8')
+          job.stderr = Buffer.concat(errChunks).toString('utf8')
+        })
+      }, budget.ms)
+    }
   }
-  console.error(`  ${C.dim}(紧急只跑首个即停:GUARDIAN_STOP_ON_FIRST=1)${C.reset}`)
-  process.exit(1)
-}
-// 未判定 ≠ 通过(2026-10-25 补,§0.3 / 本模块不变量 1"崩溃不洗成通过"):
-// 实测复现 (2026-10-25,现读 RC):`GUARDIAN_GATE_TIMEOUT_MS=1 node scripts/guardian-runner.mjs --staged`
-// 把 111 道门全打成"跑不起来(未判定)",汇总也点了名,**批量却 exit 0** —— 因为末尾只有
-// `failedGates.length > 0` 那一支会 exit(1),而 crash 一支只 failed++ 不退出(写缓存那侧倒有
-// failed===0 守卫,所以"没结论"这批还被缓存成了"通过")。这是崩溃分流(2026-09-29)装车时就漏的
-// 半格,本次把兜底码接进 crash 档后射程变大(门 30c 那型不再进判红名单 ⇒ 单独靠判红支拦不住),
-// 所以必须同批补牙,否则"改归因"就真的演变成"改后果"。位置排在判红支之后:两道名单都要点名完
-// 再退出,不得因为先退而把另一段吞掉。
-if (crashedGates.length > 0) {
-  console.error('')
-  console.error(
-    `${C.bold}${C.red}⛔ 本批有 ${crashedGates.length} 道门**未判定**(没跑出结论)⇒ 批量按失败退出(不清偿不放行;` +
-      `未判定 ≠ 通过,§0.3)${C.reset}`,
-  )
-  process.exit(1)
-}
-// ── 未判定 ⇒ 批量以 §0.3 的**同一枚**退出码(2)收口(2026-10-27)────────────────
-// 不写第四个数,也不落到 0/1 两头:三档口径是全仓既有约定(AGENTS §0.3、§5c),执行器把同一把尺子
-// 用在批量结论上,而不是自造一套。
-//   · **不冒红**:本批没有判出任何违规 ⇒ 不得 exit 1,不得进 failedGates(failed 计数也不加)。
-//     这是本次要根治的那一格 —— 与本次提交内容无关的红会把使用者推向 `--no-verify`,
-//     一次绕过 = 该枚提交上全部守门作废(§12e/§12f)。
-//   · **不记绿**:批量没有拿到"通过"这个结论 ⇒ 绝不落到 exit 0 / `writePushGateCache`。
-//     排在缓存写入之前正是为此:把"没判"当"通过"缓存起来会让下一轮 push 连门都不跑。
-if (undeterminedGates.length > 0) {
-  console.error('')
-  console.error(
-    `${C.bold}${C.yellow}⛔ 本批有 ${undeterminedGates.length} 道门**未判定**(取不到输入,判不了)⇒ ` +
-      `批量以 exit ${UNDETERMINED_EXIT_CODE}「未判定」收口:${C.reset}`,
-  )
-  console.error(
-    `   ${C.dim}不是红(这批里一道都没判出违规,**请勿当缺陷派单**),也不是绿(没拿到"通过"这个结论;` +
-      `§0.3 不记绿也不冒红)。把上面逐条点名的取材问题清偿后,重跑本批即可拿到真结论。${C.reset}`,
-  )
-  process.exit(UNDETERMINED_EXIT_CODE)
-}
 
-// info 门失败与"跳过但没跑"的 blocking 门都必须逐道点名(§0.3 不许静默把"没判/没跑"写成"通过")。
-if (infoDegradedGates.length > 0) {
-  console.error('')
-  console.error(
-    `${C.bold}${C.yellow}⚠️ ${infoDegradedGates.length} 道 info 门失败(未记绿,不阻塞 commit):${C.reset}`,
-  )
-  for (const g of infoDegradedGates)
-    console.error(`   · [${g.id}] ${g.label}(复现:node scripts/${g.script})`)
-}
-// BUG-19①:快档/硬预算/应急放行跳过的 blocking 门 ⇒ 门根本没跑、没拿到"通过"结论。
-// 与"判出违规"(red)、"取不到输入"(undetermined)都不同桶,但同样不许落成 exit 0。
-if (skippedBlockingGates.length > 0) {
-  console.error('')
-  console.error(
-    `${C.bold}${C.yellow}⛔ 本批有 ${skippedBlockingGates.length} 道 blocking 门**没跑**(快档/预算/应急放行)⇒ ` +
-      `批量以 exit ${UNDETERMINED_EXIT_CODE}「未判定」收口:${C.reset}`,
-  )
-  for (const g of skippedBlockingGates)
-    console.error(`   · [${g.id}] ${g.label} —— ${g.reason}(复现:node scripts/${g.script})`)
-  console.error(
-    `   ${C.dim}没跑到 ≠ 通过,§0.3 不记绿;设 IHUI_GATE_FAST=0 跑全量档即可清偿。${C.reset}`,
-  )
-  process.exit(UNDETERMINED_EXIT_CODE)
-}
+  /**
+   * 全屏障:队头起逐个等完并按 checks 原序回放(先 stdout,再 stderr+结论)。
+   * 串行门(写者/跳过/汇总)执行前各调一次 ⇒ 共享状态只在池内零在飞时被触碰。
+   */
+  async function flushParBuffer() {
+    while (parPending.length > 0) {
+      const job = parPending[0]
+      await job.done
+      parPending.shift()
+      if (job.stdout) process.stdout.write(job.stdout)
+      // checkStart 回推:⏱ 显示子进程真实运行时长,而非"等到 flush 才开始计时"
+      applyGateResult(job.check, job, Date.now() - job.runtime, job.args)
+    }
+  }
 
-// push-gate 全部通过 → 写缓存(2026-10-16 外置到 lib/guardian-pushgate-cache.mjs;守卫与打印在 lib 内)。
-// BUG-19④:把 skipped/undetermined/infoDegraded 一并传入,lib 内只有全零才写 passed:true。
-writePushGateCache({ C, failed, skipped, undetermined, infoDegraded, pushGate, checks: effectiveChecks })
+  // 串行 spawnSync 的结果判定体原样抽出(par 与 serial 共用同一份,退出码语义不分叉)。
+  // ── 实时百分比进度(2026-10-21 机主要求)────────────────────────────────────
+  // 用 stderr:stdout 会被 pre-commit 的 parseGateSummary 正则解析,进度行走 stderr 不会污染汇总;
+  // 同时 append 到 gates-progress.log,被缓冲时仍可 tail。
+  const totalGates = effectiveChecks.length
+  let doneGates = 0
 
-process.exit(0)
+  function lastStderrLine(text) {
+    const lines = String(text ?? '')
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0)
+    return lines.length > 0 ? lines[lines.length - 1] : ''
+  }
+
+  function applyGateResult(check, r, checkStart, cmdArgs = []) {
+    doneGates += 1
+    const pct = totalGates > 0 ? Math.min(100, Math.round((doneGates / totalGates) * 100)) : 100
+    const okNow = !r?.error && r?.status === 0 && r?.signal === null
+    const elapsedNow = Date.now() - checkStart
+    try {
+      process.stderr.write(
+        `  ▸ ${String(doneGates).padStart(3)}/${totalGates} ${String(pct).padStart(3)}%  ` +
+          `${okNow ? 'ok  ' : 'FAIL'} [${check.id}] ${String(elapsedNow).padStart(6)}ms\n`,
+      )
+    } catch {
+      /* 进度输出失败不影响判据 */
+    }
+    // 先落实时进度(纯观测,不参与判据):调用方 stdout 被缓冲时,这是唯一能看出"跑到哪"的口子。
+    appendGateProgress(check, r, elapsedNow)
+    const gateStderr = typeof r.stderr === 'string' ? r.stderr : ''
+    if (showTiming) {
+      // 三条出口(pass / blocking失败 / warn·info)统一在此记账,含被判红的门 ——
+      // 慢门往往正是被判红或做过重活的那几道,漏掉它们等于只统计了"好消息"。
+      timingRows.push({
+        id: check.id,
+        label: check.label,
+        script: check.script,
+        mode: check.mode,
+        args: cmdArgs.slice(),
+        ms: Date.now() - checkStart,
+        rc: typeof r?.status === 'number' ? r.status : null,
+        signal: r?.signal || null,
+        ok: !r.error && r.status === 0 && r.signal === null,
+      })
+    }
+    try {
+      if (gateStderr.length > 0) process.stderr.write(gateStderr)
+      if (r.error) throw r.error
+      if (r.status !== 0 || r.signal !== null) {
+        const err = new Error(`守门脚本以 exit ${String(r.status)} 退出`)
+        err.status = r.status ?? null
+        err.signal = r.signal ?? null
+        throw err
+      }
+      // 门自称「未判定」(取不到被审面)但按既有镜像测试契约仍 exit 0 的那一族(BUG-43④):
+      // 绝不能把"没审到"计成 passed。只认 stderr 里的显式标记,不猜、不放宽到其它门。
+      if (check.mode === 'blocking' && gateStderr.includes('[UNDETERMINED]')) {
+        undetermined++
+        undeterminedGates.push({
+          id: check.id,
+          label: check.label,
+          script: check.script,
+          reason: '门自称未判定(被审面不在位)',
+        })
+        console.error(
+          `${C.yellow}❓ [${check.id}] ${check.label} 交付未判定(被审面不在位)⇒ **不记绿**${C.reset}`,
+        )
+        return
+      }
+      // 2026-11-08:同一判面指纹下"先红 ≥2 次后转绿"不是通过,是读数不稳(§0.3 未判定)。
+      // 放在 passed++ 之前:这一格不记绿、不冒红,但批量必须以 exit 2 收口 —— 否则"红了就重试"
+      // 会被训练成拿绿灯的习惯,真 bug 永远浮不出来。
+      if (check.mode === 'blocking') {
+        const retry = recordAndClassify({
+          root: process.cwd(),
+          gateId: check.id,
+          script: check.script,
+          kind: 'pass',
+          summary: lastStderrLine(gateStderr),
+        })
+        if (retry.undetermined) {
+          undetermined++
+          undeterminedGates.push({
+            id: check.id,
+            label: check.label,
+            script: check.script,
+            reason: `同一判面指纹下先红 ${retry.reds.length} 次后转绿(读数不稳,不记绿)`,
+          })
+          console.error(
+            `${C.yellow}❓ ${formatRetryReport({ gateId: check.id, label: check.label, reds: retry.reds })}${C.reset}`,
+          )
+          return
+        }
+      }
+      passed++
+      if (showTiming) {
+        console.info(`  ${C.dim}⏱  ${Date.now() - checkStart}ms${C.reset}`)
+      }
+      // 只有真正跑过且通过的门才落缓存(白名单内);失败/崩溃/warn 走下方 catch 或另一分支,永不记账。
+      gateContentCache.record(
+        check.id,
+        { script: check.script, args: cmdArgs },
+        { passed: true, ms: Date.now() - checkStart },
+      )
+    } catch (e) {
+      const elapsed = Date.now() - checkStart
+      // 2026-09-18 中断传播:子检查以 exit 75(临时失败/被中断)退出 ≠ 检查结论失败,
+      // 必须原样向上传播(hook → push guard 据此带 hook 重试),不得收敛成 1。
+      // 2026-09-29 G-611 扩两格(同一把尺子 scripts/lib/signal-exit.mjs):
+      //   ② 子进程装了产出侧、被可捕获信号杀死 ⇒ 退出码是 128+N 族(130/137/141/143/3221225786)
+      //      —— 旧判据只认 75,族码在这里会被计成"结论失败";
+      //   ③ 没装产出侧/不可捕获 ⇒ execSync 抛错只剩 {status:null, signal} —— 同样不是结论。
+      // 有结论的失败(非族非零码)不在此列,照旧计入 failedGates(不得反向把失败洗成中断)。
+      if (check.mode === 'blocking' && shouldPropagateAsInterrupt(e)) {
+        console.error(
+          `⏭️ [${check.id}] ${check.label} 被中断(${interruptReason(e)})—— 非检查结论,以 ${TEMPFAIL_EXIT_CODE} 向上传播`,
+        )
+        process.exit(TEMPFAIL_EXIT_CODE)
+      }
+      // 2026-08-19 立的这条注释已过时(原写"stdio:inherit 已把 stderr 透传,无需 silent-skip 检测"):
+      // 现在 stderr 是**管道进来的**,由上方 `process.stderr.write(gateStderr)` 负责原样吐回上游 ——
+      // 也就是说"子进程的话一定被打印"这件事仍然成立,但**保障它的是这段代码,不是 stdio 模式**。
+      // 谁再改 stdio 配置,必须同时回头看那一句 write,否则判据的输出会被静默吞掉(比误报更难查)。
+      // ── §0.3「未判定」必须在**任何计数之前**分出去(2026-10-27)──────────────────
+      // 判据体对"取不到输入"的合规交付是 exit 2 + 显式点名,而此前这一档落到 decideGateOutcome 的
+      // 最后一行 ⇒ kind='red' ⇒ failed++ / 进 failedGates(判红名单)/ 批量 exit(1)。于是
+      // 「我读到了内容、它确实违规」与「我取不到输入、判不了」在汇总层长得一模一样 —— 这正是
+      // §12e/§12f 明令禁止的形状:与本次提交内容无关的红会让使用者去 `--no-verify`,一次绕过 =
+      // 该枚提交上全部守门作废。这里把它单独成档,**不计 failed、不进 failedGates**,但逐道点名、
+      // 批量以同一枚退出码收口(不记绿也不冒红)。
+      // 注意 `kindPre` 故意算在 mode 派发**之外**:这样上面的异常返回值可直接复用于未判定判定,
+      // 而 `failed++` 仍是 blocking 支的第一句(executor 分类层的既有结构锁)。
+      const kindPre = decideGateOutcome({
+        status: e?.status ?? null,
+        signal: e?.signal ?? null,
+        code: e?.code ?? null,
+        stderr: gateStderr,
+      })
+      if (check.mode === 'blocking' && kindPre.kind === 'undetermined') {
+        undetermined++
+        undeterminedGates.push({
+          id: check.id,
+          label: check.label,
+          script: check.script,
+          reason: kindPre.reason,
+        })
+        console.error(
+          `${C.yellow}❓ [${check.id}] ${check.label} ${kindPre.reason}${C.reset} —— **未判定**:` +
+            `这不是"这道门发现了违规"(不计入 blocking 红),也不是"通过"(不记绿);` +
+            `上面该门回吐的输出里有它点名的路径/原因。(单独复现:node scripts/${check.script}` +
+            `${passStaged ? ' --staged' : ''})`,
+        )
+        return
+      }
+      // ── stock 面门"本笔未触及判据面"⇒ 只报数不阻断(2026-11-08)──────────────
+      // 放在未判定分流之后、failed++ 之前:只降级 kind==='red'(有结论的存量违规);
+      // 崩溃/未判定照旧走下面 blocking 支(未判定 ≠ 通过)。显式 full / CI / 无 --staged 由
+      // explicitFull 关掉降级,恒按原语义阻断。
+      if (check.mode === 'blocking' && gateFace(check) === 'stock') {
+        const touched = isRefsFace(check)
+          ? refsTouchedFlag
+          : stagedPathsTouch(stockFacePaths(check))
+        const decision = decideStockOutcome({
+          face: 'stock',
+          touched,
+          explicitFull,
+          kind: kindPre.kind,
+        })
+        if (decision === 'advisory') {
+          const items = extractStockItems(r)
+          stockAdvisory += 1
+          stockAdvisoryGates.push({
+            id: check.id,
+            label: check.label,
+            script: check.script,
+            touched,
+            redCount: items.length,
+          })
+          appendStockLedger({ check, r, items, touched })
+          console.warn(
+            `${C.yellow}ℹ️ [${check.id}] ${check.label} 存量红(本笔未触及该判据面)⇒ 只报数不阻断:` +
+              `读数 ${items.length} 项,已记 ${STOCK_LEDGER_FILE}${C.reset}`,
+          )
+          if (showTiming) console.info(`  ${C.dim}⏱  ${elapsed}ms${C.reset}`)
+          return
+        }
+      }
+      if (check.mode === 'blocking') {
+        // 只记"真有结论的红":崩溃/未判定不入账(它们本来就不记绿,也不构成"两次红")。
+        if (kindPre.kind === 'red') {
+          recordAndClassify({
+            root: process.cwd(),
+            gateId: check.id,
+            script: check.script,
+            kind: 'red',
+            summary: lastStderrLine(gateStderr),
+          })
+        }
+        failed++
+        // 崩溃 ≠ 判红(纯函数与各分支的构造面证明在 scripts/lib/gate-failure-kind.mjs)。
+        // 分流只改**说法与归类**,不改后果:仍然 failed、批量仍然非零退出 —— 把"跑不起来"洗成
+        // 通过,等于给一台瞎掉的尺子发合格证(本仓对"未判定"的一贯要求:大声、点名、不清偿不放行)。
+        // code 必须一起传:兜底弄死(超时看门狗 / 输出超 20MB)那两个 Error 只有 code,
+        // 没有 status/signal —— 少传这一个键,门就会被读成"判据判红"(2026-10-24 实测即此型)。
+        // 2026-10-27:这次调用提前到上面 kindPre(未判定要先于 failed++ 分流),此处直接复用同一个结果,
+        // 判定实现与"code 必须传"这条规矩都还在 gate-failure-kind 单源里,本文件不复制。
+        const kind = kindPre
+        if (kind.kind === 'crash') {
+          crashedGates.push({
+            id: check.id,
+            label: check.label,
+            script: check.script,
+            reason: kind.reason,
+          })
+          console.error(
+            `${C.yellow}⚠️ [${check.id}] ${check.label} ${kind.reason}${C.reset} —— 跑不起来(未判定),不是检查结论;` +
+              `提交仍被阻止,但**请勿把它读成"这道门发现了缺陷"**。${crashNextStep(kind.reason)}` +
+              `(单独复现:node scripts/${check.script})`,
+          )
+        } else {
+          failedGates.push({ id: check.id, label: check.label, script: check.script })
+          if (check.onFailHint) {
+            console.info(check.onFailHint)
+          }
+          console.error(`${C.red}❌ [${check.id}] ${check.label} 失败,提交已阻止${C.reset}`)
+        }
+        // 默认继续跑完(见 failedGates 声明处注释);逃生舱才早退。
+        if (stopOnFirst) {
+          printSummary(true)
+          // 早退也是一轮"跑过一部分门"的批次:留痕照落,但 ranFullBatch:false(它没跑完全部)。
+          attestGateBatchRun(false)
+          process.exit(1)
+        }
+      } else if (check.mode === 'warn') {
+        warned++
+        console.warn(
+          `${C.yellow}⚠️ [${check.id}] ${check.label} 失败 (warn-only,不阻塞 commit)${C.reset}`,
+        )
+        if (showTiming) {
+          console.info(`  ${C.dim}⏱  ${elapsed}ms${C.reset}`)
+        }
+      } else {
+        // info 模式:不拦提交,但**绝不记绿** —— 把失败计成 passed 就是"没判写成判过"(§0.3)。
+        // 单列 infoDegraded 一档:不计 passed/failed/undetermined,逐道点名,退出码不变。
+        infoDegraded++
+        infoDegradedGates.push({ id: check.id, label: check.label, script: check.script })
+        console.warn(
+          `${C.yellow}⚠️ [${check.id}] ${check.label} info 门失败(未记绿,不阻塞 commit)${C.reset}`,
+        )
+        if (showTiming) {
+          console.info(`  ${C.dim}⏱  ${elapsed}ms${C.reset}`)
+        }
+      }
+    }
+  }
+
+  // 并发诊断(2026-10-22 立):排查"CPU 合计与墙钟几乎相等 = 并发没生效"时用。只打配置,不改行为。
+  {
+    const inPool = effectiveChecks.filter(
+      (c) => PAR_GATE_IDS.has(String(c.id)) && !guardianSerial,
+    ).length
+    console.info(
+      `🧮 并发诊断:parMax=${parMax} guardianSerial=${guardianSerial} checks=${effectiveChecks.length} ` +
+        `池内=${inPool} fastMode=${fastMode} 预算=${FAST_BUDGET_MS}ms`,
+    )
+  }
+
+  for (const check of effectiveChecks) {
+    // 快档硬预算:到点即停止派发,剩余门记延后(见 FAST_BUDGET_MS 头注)。
+    if (fastMode && !budgetBlown && Date.now() - startTime > FAST_BUDGET_MS) {
+      budgetBlown = true
+      console.info(
+        `⏱  快档预算 ${Math.round(FAST_BUDGET_MS / 1000)}s 已到 —— 剩余门转为延后,补跑:node scripts/guardian-runner.mjs --staged`,
+      )
+    }
+    if (fastMode && budgetBlown) {
+      skipped++
+      deferredGates.push({ id: String(check.id), label: check.label, script: check.script })
+      if (check.mode === 'blocking')
+        skippedBlockingGates.push({
+          id: String(check.id),
+          label: check.label,
+          script: check.script,
+          reason: '快档硬预算到点,剩余门未派发',
+        })
+      continue
+    }
+    // 逐项应急放行(2026-09-21 立):与各门脚本内部 HUSKY_SKIP_* 惯例一致,由 item 的
+    // skipEnv 字段声明变量名。适用场景 = 并发会话未提交 WIP 造成"工作区级"漂移,
+    // 阻塞与本任务无关的提交(本次改动不含该目录时,门的结论是假阳性)。
+    // 纪律:commit message 必须写明责任归属;默认行为不变(不设变量照常阻塞)。
+    if (check.skipEnv && process.env[check.skipEnv] === '1') {
+      // 同 stagedTriggers / 重型门:应急放行不 spawn 任何门进程,纯记账 ⇒ 不设屏障。
+      skipped++
+      selfSkippedGates.push({ id: String(check.id), label: check.label, skipEnv: check.skipEnv })
+      if (check.mode === 'blocking')
+        skippedBlockingGates.push({
+          id: String(check.id),
+          label: check.label,
+          script: check.script,
+          reason: `应急放行 ${check.skipEnv}=1`,
+        })
+      console.info(`⏭  [${check.id}] ${check.label}(跳过:${check.skipEnv}=1)`)
+      continue
+    }
+    // 条件触发(2026-09-22 立,见上方 stagedPathsTouch):暂存区未触及声明路径 → 不执行。
+    // 与 skipEnv 同计入"跳过",并打印触发清单,避免"静默没跑"。
+    if (check.stagedTriggers && passStaged && !stagedPathsTouch(check.stagedTriggers)) {
+      // 2026-10-22 去掉这里的 `await flushParBuffer()`。
+      // 病灶:本分支**不 spawn 任何子进程**,却在每次跳过时做一次全屏障 —— 等池里所有在飞门
+      // 跑完才继续。元门档实测 31 门里 17 门被 stagedTriggers 跳过 ⇒ 17 次屏障,
+      // 而 14 道实跑门 CPU 仅 14.3s,守门墙钟却到 69s,差距全在这里。
+      // 去掉后跳过是纯记账,不阻塞派发;真正的屏障只保留在**写者门**之前(那里必须等池清空)。
+      skipped++
+      notTriggeredGates.push({
+        id: String(check.id),
+        label: check.label,
+        triggers: normalizeTriggers(check.stagedTriggers),
+      })
+      console.info(
+        `⏭  [${check.id}] ${check.label}(暂存区未触及:${normalizeTriggers(check.stagedTriggers).join(' / ')},跳过)`,
+      )
+      continue
+    }
+    // 快档:重型门延后到 post-commit 后台补跑(见 HEAVY_GATE_IDS 头注)。计入 notTriggered 而不是
+    // selfSkipped —— 它不是"人按了跳过开关",是"本档设计上就不在这里跑",两者的处置动作不同。
+    if (fastMode && HEAVY_GATE_IDS.has(String(check.id))) {
+      // 不 flush:本分支一道子进程都不 spawn,是纯记账 + 打印 ⇒ 没有任何理由等池里在飞的门跑完。
+      // 2026-10-22 实测:32 道重型门散落在注册序里,旧写法的 32 次全屏障把并行池反复抽干,
+      // 119 道实跑门 CPU 合计 33.7s、parMax=8,墙钟却 15s(并发仅 2.2);去掉后墙钟约 1/3。
+      skipped++
+      // 必须进延后清单:预算没爆时 post-commit 也要知道这 N 道 blocking 门没跑(镜像测试 T6 锁死)。
+      deferredGates.push({ id: String(check.id), label: check.label, script: check.script })
+      // 快档跳过的 blocking 门 = 没拿到"通过"结论:单列未判定档,批量不得 exit 0(BUG-19①)。
+      if (check.mode === 'blocking')
+        skippedBlockingGates.push({
+          id: String(check.id),
+          label: check.label,
+          script: check.script,
+          reason: '快档重型门延后,本轮未跑',
+        })
+      notTriggeredGates.push({
+        id: String(check.id),
+        label: check.label,
+        triggers: ['(快档:重型门延后到 post-commit)'],
+      })
+      console.info(
+        `⏭  [${check.id}] ${check.label}(快档跳过:重型门由 post-commit 补跑;要全量设 IHUI_GATE_FAST=0)`,
+      )
+      continue
+    }
+    const cmdArgs = [...check.args]
+    if (passStaged) cmdArgs.push('--staged')
+    // 显式全量面档(2026-11-09):只有声明了 fullFaceArgs 的门(水印 47)需要面旗;
+    // post-commit 补跑走这一档 —— 它不带 --staged,若不显式给面,47 会按"面未判定"exit 2。
+    if (fullFace && Array.isArray(check.fullFaceArgs)) {
+      cmdArgs.splice(0, cmdArgs.length, ...check.fullFaceArgs)
+    }
+    // (旧版这里拼一条 shell 字符串给 execSync;改 spawnSync 用 argv 数组后不再需要,
+    //  顺带去掉 shell 一层。复现命令由汇总段按 `node scripts/<script>` 现拼,不在此处留变量。)
+
+    // 纯内容门指纹缓存查询 —— 必须排在 skipEnv/stagedTriggers/重型门三个跳过分支**之后**:
+    // 被跳过的门不得被缓存洗绿(镜像测试 T6 用源码顺序锁这条)。命中 = 同一份输入此前真跑过且通过。
+    const cacheHit = gateContentCache.lookup(check.id, { script: check.script, args: cmdArgs })
+    if (cacheHit) {
+      passed++
+      console.info(
+        `⚡ [${check.id}] ${check.label} 命中指纹缓存(${Math.round(cacheHit.ageMs / 1000)}s 前通过,省 ${cacheHit.ms}ms)`,
+      )
+      if (showTiming) {
+        // cached=true 是关键标记：缓存命中行没有真实 rc，凭据签发必须拒绝这种行。
+        timingRows.push({
+          id: check.id,
+          label: check.label,
+          script: check.script,
+          mode: check.mode,
+          args: cmdArgs.slice(),
+          ms: 0,
+          rc: null,
+          cached: true,
+          ok: true,
+        })
+      }
+      continue
+    }
+
+    // ⚠️ 2026-10-21 关键修复:`check.id` 在注册表里**大多是数字**(1/2/30/103…),而
+    // PAR_GATE_IDS 里存的是**字符串** ⇒ 旧写法 `has(check.id)` 对绝大多数门恒 false,
+    // 并行池实际上从未生效过(实测 CPU 179s 却跑出 101s 墙钟 = 并发 1.77,原因就在这里)。
+    // 必须 String() 归一,与 HEAVY_GATE_IDS / notTriggeredGates 的写法一致。
+    if (PAR_GATE_IDS.has(String(check.id)) && !guardianSerial) {
+      console.info(`[${check.id}] ${check.label}...`)
+      await dispatchPar(check, cmdArgs)
+      continue
+    }
+    await flushParBuffer()
+    console.info(`[${check.id}] ${check.label}...`)
+    const checkStart = Date.now()
+
+    // 2026-09-29:执行改走 spawnSync —— 唯一理由是**要读到子进程 stderr**(崩溃指纹只在那里)。
+    // execSync 在 stdio:'pipe' 下只回 stdout,成功门的 stderr 会被**吞掉**,那是比"分不清崩溃与判红"
+    // 更糟的回归(判据失效的表现永远是安静)。stdout 仍 'inherit' 实时输出,观感与逐门进度一字不变;
+    // 失败路径合成一个带 status/signal 的 Error,使下方 shouldPropagateAsInterrupt(G-611 的中断传播)
+    // 与所有旧分支的读法保持同形 —— 退出码语义不因这次改动而变化:崩溃仍然计失败,不静默放行。
+    const plan = (() => {
+      try {
+        return gateSpawnPlan({
+          root: process.cwd(),
+          script: check.script,
+          args: cmdArgs,
+          env: process.env,
+        })
+      } catch (e) {
+        if (e?.exitCode === UNDETERMINED_EXIT_CODE) {
+          // 与并行档同口径:派发层没有资格回答 ⇒ 合成 exit 2 + 自称未判定的 stderr,
+          // 交给 applyGateResult 的既有分流(不记绿、不冒红、批量 exit 2)。
+        applyGateResult(check, { status: UNDETERMINED_EXIT_CODE, signal: null, stdout: '', stderr: `${e.message}\n`, error: null }, Date.now(), cmdArgs)
+          return null
+        }
+        throw e
+      }
+    })()
+    if (plan === null) continue
+    const r = spawnSync(process.execPath, plan.argv, {
+      cwd: process.cwd(),
+      windowsHide: true,
+      // stock 面门要把"被点名的存量项"落台账 ⇒ stdout 需要捕获后回放;其余门保持 inherit 实时输出。
+      stdio: ['ignore', gateFace(check) === 'stock' ? 'pipe' : 'inherit', 'pipe'],
+      maxBuffer: 20 * 1024 * 1024,
+      encoding: 'utf8',
+      env: plan.env,
+      // BUG-43①:串行档此前无 timeout(并行档有 gateTimer + ETIMEDOUT),写者门挂住即整链无界等待。
+      // 2026-11-08(DG-01):与并行档共用 gateTimeoutFor(逐门登记表,缺省 300s);
+      // 超时由 spawnSync 回吐 error.code=ETIMEDOUT ⇒ 未判定分流,不洗绿。
+      timeout: gateTimeoutFor(check),
+    })
+    // stock 面门 stdout 已改为 pipe(为了落台账),这里原样回放,保证现场观感不丢。
+    if (gateFace(check) === 'stock' && typeof r.stdout === 'string' && r.stdout.length > 0) {
+      process.stdout.write(r.stdout)
+    }
+    applyGateResult(check, r, checkStart, cmdArgs)
+  }
+
+  // 汇总前收口:把剩余在飞/缓冲的并行结果按原序全部回放(全屏障)。
+  await flushParBuffer()
+
+  // === 汇总 ===
+
+  printSummary(false)
+  // 跑完的批次(不论有无 blocking 失败)都落一行 kind=gate-batch-run:统计器靠它的 treeDigest
+  // 把"门确实跑过、但有 N 道按名字自跳"这一枚与"整批根本没跑"分开(§12f 的 unknown 拆格)。
+  attestGateBatchRun(true)
+  if (crashedGates.length > 0) {
+    console.error('')
+    console.error(
+      `${C.bold}${C.yellow}⚠️ ${crashedGates.length} 道门**跑不起来(未判定)**—— 与"判据判红"分开列,别按缺陷派单:${C.reset}`,
+    )
+    for (const g of crashedGates)
+      console.error(
+        `   · [${g.id}] ${g.label} —— ${g.reason}(复现:node scripts/${g.script};下一步:${crashNextStep(g.reason)})`,
+      )
+    console.error(
+      `   ${crashAdvisory(crashedGates.length, crashedGates.map((g) => g.reason))}`,
+    )
+  }
+  // §0.3 未判定清单(2026-10-27 立):与上面两档都**不同桶** —— 不是"判出了违规",也不是"整套门没跑起来"。
+  // 这里必须**逐道点名**:立案要求就是"不许静默吞掉"。逐条的根据有两处:
+  //  ① reason 带上 detectUndetermined 从该门 stderr 里抓到的那句自述;
+  //  ② 该门自己的输出(含它点名的具体路径/被审面)已在 applyGateResult 里原样吐回上游,见上方回显。
+  // 打印位置排在判红支**之前**:两份名单都要打印完再退出,不得因为先退而把另一段吞掉。
+  if (undeterminedGates.length > 0) {
+    console.error('')
+    console.error(
+      `${C.bold}${C.yellow}❓ ${undeterminedGates.length} 道门**未判定**(取不到输入,§0.3)—— ` +
+        `与"判据判红"分开列:**不许**按缺陷派单,但也不许当通过:${C.reset}`,
+    )
+    for (const g of undeterminedGates)
+      console.error(
+        `   · [${g.id}] ${g.label} —— ${g.reason}(上面该门回显里有它点名的路径;` +
+          `复现:node scripts/${g.script}${passStaged ? ' --staged' : ''})`,
+      )
+  }
+  if (failedGates.length > 0) {
+    console.error('')
+    console.error(
+      `${C.bold}${C.red}🚫 ${failedGates.length} 道 blocking 门失败 —— 本轮已跑完全部 ${effectiveChecks.length} 项,未提前中止:${C.reset}`,
+    )
+    for (const g of failedGates) {
+      console.error(`   · [${g.id}] ${g.label}`)
+      console.error(`     单独复现:node scripts/${g.script}${passStaged ? ' --staged' : ''}`)
+    }
+    console.error(`  ${C.dim}(紧急只跑首个即停:GUARDIAN_STOP_ON_FIRST=1)${C.reset}`)
+    process.exit(1)
+  }
+  // 未判定 ≠ 通过(2026-10-25 补,§0.3 / 本模块不变量 1"崩溃不洗成通过"):
+  // 实测复现 (2026-10-25,现读 RC):`GUARDIAN_GATE_TIMEOUT_MS=1 node scripts/guardian-runner.mjs --staged`
+  // 把 111 道门全打成"跑不起来(未判定)",汇总也点了名,**批量却 exit 0** —— 因为末尾只有
+  // `failedGates.length > 0` 那一支会 exit(1),而 crash 一支只 failed++ 不退出(写缓存那侧倒有
+  // failed===0 守卫,所以"没结论"这批还被缓存成了"通过")。这是崩溃分流(2026-09-29)装车时就漏的
+  // 半格,本次把兜底码接进 crash 档后射程变大(门 30c 那型不再进判红名单 ⇒ 单独靠判红支拦不住),
+  // 所以必须同批补牙,否则"改归因"就真的演变成"改后果"。位置排在判红支之后:两道名单都要点名完
+  // 再退出,不得因为先退而把另一段吞掉。
+  if (crashedGates.length > 0) {
+    console.error('')
+    console.error(
+      `${C.bold}${C.red}⛔ 本批有 ${crashedGates.length} 道门**未判定**(没跑出结论)⇒ 批量按失败退出(不清偿不放行;` +
+        `未判定 ≠ 通过,§0.3)${C.reset}`,
+    )
+    process.exit(1)
+  }
+  // ── 未判定 ⇒ 批量以 §0.3 的**同一枚**退出码(2)收口(2026-10-27)────────────────
+  // 不写第四个数,也不落到 0/1 两头:三档口径是全仓既有约定(AGENTS §0.3、§5c),执行器把同一把尺子
+  // 用在批量结论上,而不是自造一套。
+  //   · **不冒红**:本批没有判出任何违规 ⇒ 不得 exit 1,不得进 failedGates(failed 计数也不加)。
+  //     这是本次要根治的那一格 —— 与本次提交内容无关的红会把使用者推向 `--no-verify`,
+  //     一次绕过 = 该枚提交上全部守门作废(§12e/§12f)。
+  //   · **不记绿**:批量没有拿到"通过"这个结论 ⇒ 绝不落到 exit 0 / `writePushGateCache`。
+  //     排在缓存写入之前正是为此:把"没判"当"通过"缓存起来会让下一轮 push 连门都不跑。
+  if (undeterminedGates.length > 0) {
+    console.error('')
+    console.error(
+      `${C.bold}${C.yellow}⛔ 本批有 ${undeterminedGates.length} 道门**未判定**(取不到输入,判不了)⇒ ` +
+        `批量以 exit ${UNDETERMINED_EXIT_CODE}「未判定」收口:${C.reset}`,
+    )
+    console.error(
+      `   ${C.dim}不是红(这批里一道都没判出违规,**请勿当缺陷派单**),也不是绿(没拿到"通过"这个结论;` +
+        `§0.3 不记绿也不冒红)。把上面逐条点名的取材问题清偿后,重跑本批即可拿到真结论。${C.reset}`,
+    )
+    process.exit(UNDETERMINED_EXIT_CODE)
+  }
+
+  // info 门失败与"跳过但没跑"的 blocking 门都必须逐道点名(§0.3 不许静默把"没判/没跑"写成"通过")。
+  if (infoDegradedGates.length > 0) {
+    console.error('')
+    console.error(
+      `${C.bold}${C.yellow}⚠️ ${infoDegradedGates.length} 道 info 门失败(未记绿,不阻塞 commit):${C.reset}`,
+    )
+    for (const g of infoDegradedGates)
+      console.error(`   · [${g.id}] ${g.label}(复现:node scripts/${g.script})`)
+  }
+  // BUG-19①:快档/硬预算/应急放行跳过的 blocking 门 ⇒ 门根本没跑、没拿到"通过"结论。
+  // 与"判出违规"(red)、"取不到输入"(undetermined)都不同桶,但同样不许落成 exit 0。
+  if (skippedBlockingGates.length > 0) {
+    console.error('')
+    console.error(
+      `${C.bold}${C.yellow}⛔ 本批有 ${skippedBlockingGates.length} 道 blocking 门**没跑**(快档/预算/应急放行)⇒ ` +
+        `批量以 exit ${UNDETERMINED_EXIT_CODE}「未判定」收口:${C.reset}`,
+    )
+    for (const g of skippedBlockingGates)
+      console.error(`   · [${g.id}] ${g.label} —— ${g.reason}(复现:node scripts/${g.script})`)
+    console.error(
+      `   ${C.dim}没跑到 ≠ 通过,§0.3 不记绿;设 IHUI_GATE_FAST=0 跑全量档即可清偿。${C.reset}`,
+    )
+    process.exit(UNDETERMINED_EXIT_CODE)
+  }
+
+  // push-gate 全部通过 → 写缓存(2026-10-16 外置到 lib/guardian-pushgate-cache.mjs;守卫与打印在 lib 内)。
+  // BUG-19④:把 skipped/undetermined/infoDegraded 一并传入,lib 内只有全零才写 passed:true。
+  writePushGateCache({
+    C,
+    failed,
+    skipped,
+    undetermined,
+    infoDegraded,
+    pushGate,
+    checks: effectiveChecks,
+  })
+
+  process.exit(0)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

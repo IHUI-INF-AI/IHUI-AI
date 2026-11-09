@@ -193,6 +193,9 @@ import { reapWorktrees } from './lib/git-guardian-worktree-reap.mjs'
 // (apps/cli/src/tools/trash-prune-entry.ts + packages/shared/src/delete-guard/),
 // 本层只负责 24h 节流地派生它、读它那一行结论、并把「自动退休」这一档寄到人通道。
 import { sweepTrashExpiry } from './lib/git-guardian-trash-expiry.mjs'
+// 「远端分支现在在哪」的唯一取法(ls-remote 当次真值);收编腿的基线让路判据不许拿
+// 会被宿主清理层删掉的跟踪 ref 落槌(§5b)。
+import { resolveRemoteHead } from './lib/face-reader.mjs'
 
 // 对外出口与搬出前保持一致(原先这些是 export function;实现已单源到 lib,这里只做原路径再导出)。
 export {
@@ -216,6 +219,30 @@ export {
 export const WORKTREE = resolveWorktree()
 const GITDIR = resolveGitdir(WORKTREE)
 const BACKUP = resolveBackupDir(WORKTREE)
+// ── 守护暂停标记(P0-1 封口票 2026-11-09)──────────────────────────────────────────
+// 立因:守护只扫"启动它的那块盘"(WORKTREE=resolveWorktree()),此前没有任何跳过名单 ⇒
+// 要封一块盘只能停服务+禁任务,恢复时一重启就复活(交接实测:06:30 与 08:30 各抢落一次)。
+// 新增盘级标记:`.ihui-agent/state/guardian-pause.json` 存在 ⇒ 守护(一次性轮次与常驻 tick
+// 两个承载体)不执行任何副作用腿;删标记即恢复,零重启。标记内容供人读/审计,不参与判定;
+// 标记存在但读不懂 ⇒ 照停(fail-closed,绝不把"读不到"当"没暂停")。
+const GUARDIAN_PAUSE_FILE = join('.ihui-agent', 'state', 'guardian-pause.json')
+export function guardianPauseState(root) {
+  let raw
+  try {
+    raw = readFileSync(join(root, GUARDIAN_PAUSE_FILE), 'utf8')
+  } catch (e) {
+    if (e && e.code === 'ENOENT') return { paused: false, why: '' }
+    return { paused: true, why: `暂停标记读取异常(${e && e.code ? e.code : String(e)}) ⇒ fail-closed 停` }
+  }
+  let why = '暂停标记存在(内容不可解析 ⇒ fail-closed 停)'
+  try {
+    const j = JSON.parse(raw)
+    why = [j && j.reason, j && j.setBy, j && j.ts].filter(Boolean).join(' / ') || '暂停标记存在'
+  } catch {
+    /* 坏标记照停,措辞用上一行默认值 */
+  }
+  return { paused: true, why }
+}
 /** origin = GitHub SSH(仓库唯一权威源;严禁改回 https,见 AGENTS.md §5b 铁律) */
 const GITHUB_SSH_URL = 'ssh://git@ssh.github.com:443/IHUI-INF-AI/IHUI-AI.git'
 // 〈原 6 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l132(门 103 C1 收口)〉首意: 2026-10-23 机主令:GitCode/Gitee **代码镜像仓早已弃用**,此处不再保留任何镜像远端常量。
@@ -12701,26 +12728,31 @@ const CROSS_END_LANDING_INTERVAL_MS = Number(
  * 拒绝(`scripts/git-push-guard.mjs:220` 默认推 main),结果只堆本地旧提交。
  *
  * 判据:
- *   · `merge-base --is-ancestor origin/main HEAD` 退出 0 ⇒ `descendant`(允许收编);
+ *   · `merge-base --is-ancestor <远端 sha> HEAD` 退出 0 ⇒ `descendant`(允许收编);
  *   · 退出 1 ⇒ `behind`(落后或分叉)⇒ 让路;
- *   · 取不到 `origin/main` / HEAD / 判不出 ⇒ `unknown` ⇒ **一律让路**(fail-closed,§0.3:
+ *   · 取不到远端 / HEAD / 判不出 ⇒ `unknown` ⇒ **一律让路**(fail-closed,§0.3:
  *     不许把"忘了 fetch"读成"已同步")。
+ *
+ * 远端 sha 只许 `resolveRemoteHead`(ls-remote 当次真值);**不得** `rev-parse origin/main` ——
+ * 宿主清理层删掉松散 ref 后 packed-refs 的旧值会被读回来(§5b),那一刻跟踪 ref 是"上次同步时"
+ * 的答案,拿它判祖先关系会得出"已同步"的假绿。
  */
 export function readMainAncestry(run = (args, allowFail) => git(args, allowFail)) {
   const headSha = String(run(['rev-parse', '--verify', 'HEAD'], true) ?? '').trim() || null
-  const mainSha = String(run(['rev-parse', '--verify', 'origin/main'], true) ?? '').trim() || null
+  const remote = resolveRemoteHead('main', { run: (args) => run(args, true) })
+  const mainSha = remote.sha
   if (!headSha || !mainSha) {
     return {
       state: 'unknown',
       headSha,
       mainSha,
       behind: null,
-      why: !mainSha ? 'origin/main 取不到(未 fetch 或远端分支不存在)' : 'HEAD 取不到',
+      why: !mainSha ? `origin/main 取不到(${remote.reason ?? '未判定'})` : 'HEAD 取不到',
     }
   }
   let behind = null
   try {
-    behind = Number(String(run(['rev-list', '--count', 'HEAD..origin/main'])).trim())
+    behind = Number(String(run(['rev-list', '--count', `HEAD..${mainSha}`])).trim())
   } catch {
     behind = null
   }
@@ -12728,7 +12760,7 @@ export function readMainAncestry(run = (args, allowFail) => git(args, allowFail)
   // 用抛错对象上的 .status 判,而不是 allowFail 的 null —— null 会把"退出 1"与"真错误"折成同一档。
   let state = 'unknown'
   try {
-    run(['merge-base', '--is-ancestor', 'origin/main', 'HEAD'])
+    run(['merge-base', '--is-ancestor', mainSha, 'HEAD'])
     state = 'descendant'
   } catch (e) {
     state = e && typeof e.status === 'number' && e.status === 1 ? 'behind' : 'unknown'
@@ -12743,6 +12775,7 @@ export async function sweepCrossEndLandingLeg(opts = {}) {
     now = Date.now(),
     intervalMs = CROSS_END_LANDING_INTERVAL_MS,
     tickFile = join(dirname(LOG), 'cross-end-landing-last.json'),
+    pauseFile = join(dirname(LOG), 'cross-end-landing-paused.json'),
     logger = log,
     runner = null,
     ancestry = null,
@@ -12754,6 +12787,27 @@ export async function sweepCrossEndLandingLeg(opts = {}) {
   if (!existsSync(script)) {
     logger('ℹ️ 跨端落库:器物不在位(scripts/auto-commit-quiet.mjs)⇒ 本轮跳过,不记为已探测')
     return { ran: false, why: '器物不在位' }
+  }
+  // 多线并行期的显式暂停闸(2026-11-08 机主令)。
+  // 立因:收编器把工作树字节交给 safe-commit,多线并行时无法逐字节证明"这枚改动只属于守护腿";
+  // 用改 `attemptAt` 把节流窗推到未来只是压状态文件,下一轮谁清 state 就复活,故改为**开关文件**:
+  // 文件在场且 `paused !== false` ⇒ 本轮一律不派发。位置放在 ancestry/节流之前:
+  // 暂停轮不得消耗 15 分钟窗口,也不得写 attemptAt(否则恢复后还要空等一轮)。
+  // 读取口径:ENOENT = 没开;读不出/JSON 损坏 = **按暂停处理**(fail-closed,失效方向恒为少收编);
+  // 恢复 = 删文件,不靠任何时间戳。
+  let pause = null
+  try {
+    pause = JSON.parse(readFileSync(pauseFile, 'utf8'))
+  } catch (e) {
+    if (!e || e.code !== 'ENOENT') {
+      pause = { paused: true, reason: `开关文件读不出(${String(e?.code ?? e?.message ?? e).slice(0, 80)})` }
+    }
+  }
+  if (pause && pause.paused !== false) {
+    logger(
+      `⏸️ 跨端落库:多线并行期间暂停(开关 ${pauseFile}:${String(pause.reason ?? '未给原因').slice(0, 120)})⇒ 本轮不派 auto-commit-quiet,也不写节流戳;恢复=删开关文件`,
+    )
+    return { ran: false, why: '多线并行暂停', paused: true }
   }
   // 基线让路闸放在节流之前:让路轮不得消耗 15 分钟窗口,否则追上 origin/main 后还要空等一轮。
   const anc = typeof ancestry === 'function' ? ancestry() : readMainAncestry()
@@ -13824,6 +13878,16 @@ async function main() {
   }
   // 手工/只读入口不参与单实例闸:它们要么不写盘,要么是人在等结果
   const manual = process.argv.includes('--check') || process.argv.includes('--notify-test')
+  // 暂停标记(P0-1 封口票 2026-11-09):--status 已在上方返回(只读不受影响),--check/--notify-test
+  // 是人工只读入口 —— 三者都不拦;副作用轮次 ⇒ 标记存在即停(与 daemon tick 同一判据同一函数,§12g)。
+  if (!manual) {
+    const pause = guardianPauseState(WORKTREE)
+    if (pause.paused) {
+      log(`🛑 守护暂停标记存在 ⇒ 本轮零副作用(${pause.why})`)
+      console.error(`[git-guardian] paused by marker: ${pause.why}`)
+      return 0
+    }
+  }
   // 2026-11-02:一次性轮次也走轮级原子锁。旧的 acquireSingleInstance 是 pid 文件 read→write,
   // 两个进程都能先读到"没锁"再各自写进去;新锁用 O_CREAT|O_EXCL,只有一个能赢。
   // --check 保持零副作用;--notify-test 保持 manual —— 它是人工核验入口,不能被别的轮次
@@ -14418,6 +14482,17 @@ function startDaemon(bootGuard = null) {
         intervalMs: Number(process.env.IHUI_GUARDIAN_HEARTBEAT_MS || 30_000),
         onLost: (r) => log(`⚠️ daemon 轮级锁心跳丢失(${r.why || '未知'})⇒ 下轮 tick 重新 acquire`),
       })
+    }
+    // 暂停标记优先于一切副作用(P0-1 封口票)。daemon 的 setTimeout 链不重读本文件(见 :272 长注),
+    // 但这一查每轮都读磁盘 ⇒ 删标记即恢复,无需重启服务。日志 30 分钟最多一条(与 overlap 闸同款节流)。
+    {
+      const pause = guardianPauseState(WORKTREE)
+      if (pause.paused) {
+        if (legThrottle(join(dirname(LOG), 'guardian-pause-last.json'), 30 * 60 * 1000, Date.now(), log))
+          log(`🛑 守护暂停标记存在 ⇒ 本轮零副作用(${pause.why}) — 删除 ${GUARDIAN_PAUSE_FILE} 即恢复,无需重启服务`)
+        setTimeout(tick, intervalMs)
+        return
+      }
     }
     // 提交窗口期静默(2026-10-22,与 main() 同一判据 inCommitWindow):
     // daemon 常驻时同样要在提交链跑的时候让路,否则它每轮派生的 git 派生会与提交抢锁。
@@ -15681,6 +15756,8 @@ if (isDirectRun) {
 // §22c 镜像测试出口:通知层"是否应当发信"的全部判据(指纹/去重窗口/退避/状态归一/argv 契约)
 // 必须能在零副作用、零网络、零真收件人的前提下取证。
 export const __test__ = {
+  // 暂停标记判据(P0-1 封口票):镜像测试 import 这一份本体断言三态(无标记/好标记/坏标记)。
+  guardianPauseState,
   // 旧单实例闸(pid 文件 read→write)保留:main() 已改用轮级原子锁,但既有 S1–S4 镜像测试
   // 仍按名 import 这一份取证;不登记进本台账会让那组锁结构上打不到这一格。
   acquireSingleInstance,

@@ -1698,6 +1698,34 @@ def _sse(evt: str, payload: Any) -> str:
     return f"event: {evt}\ndata: {json.dumps(frame_payload, ensure_ascii=False)}\n\n"
 
 
+# 子代理进度队列上限(AIS-008):256 帧足以覆盖前端一帧的进度面板。
+_PROGRESS_QUEUE_MAXSIZE = 256
+
+
+def _enqueue_progress_event(
+    queue: asyncio.Queue[dict[str, Any] | None],
+    evt: dict[str, Any],
+    dropped: list[int],
+) -> None:
+    """子代理进度入队(AIS-008)。
+
+    progress_callback 是同步函数,不能 await 背压;队列满时丢最旧并累计 dropped,
+    排水端把 dropped_before 挂到下一帧,显式标记"有进度帧被截断"。
+    """
+    try:
+        queue.put_nowait(evt)
+    except asyncio.QueueFull:
+        try:
+            queue.get_nowait()
+        except asyncio.QueueEmpty:
+            pass
+        dropped[0] += 1
+        try:
+            queue.put_nowait(evt)
+        except asyncio.QueueFull:
+            pass
+
+
 def _sse_contract_warn(msg: str) -> None:
     """契约漂移告警(warnings 通道,不阻断流式输出)。"""
     import warnings
@@ -3663,9 +3691,30 @@ async def llm_complete(req: LLMCompleteRequest, request: Request) -> dict[str, A
         if _billing_uid
         else {}
     )
-    result = await llm_gateway.complete(
-        messages, model=req.model, owner_uuid=owner_uuid, **_billing_kwargs, **kwargs
-    )
+    try:
+        result = await llm_gateway.complete(
+            messages, model=req.model, owner_uuid=owner_uuid, **_billing_kwargs, **kwargs
+        )
+    except Exception as exc:
+        # 网关直接抛异常时同样要把测试失败写进健康状态,否则该模型不会从列表消失
+        if isinstance(req.metadata, dict) and req.metadata.get("testOnly"):
+            from ..services.model_health import model_health
+
+            model_health.record_test_result(
+                req.model or "", False, f"{type(exc).__name__}: {exc}"
+            )
+        raise
+    # 单模型"测试连通"结果即时同步到模型级健康状态(2026-11-07 立):
+    # 测试失败 => 该模型立刻从 /llm/models 列表消失,不必等 30 分钟自动复测。
+    if isinstance(req.metadata, dict) and req.metadata.get("testOnly"):
+        from ..services.model_health import model_health
+
+        if result.get("error"):
+            model_health.record_test_result(
+                req.model or "", False, str(result.get("error_message") or "")
+            )
+        else:
+            model_health.record_test_result(req.model or "", True)
     # 错误前置返回(P1 错误标准化,2026-07-22 立):
     # 之前 LLM 错误一律 HTTP 200 + result.error:True,网关/监控层无法通过状态码识别失败,
     # 必须在调用方解析 result 字段才能区分成功/失败,影响 ELK/Prometheus 错误率统计。
@@ -3741,6 +3790,14 @@ async def llm_complete(req: LLMCompleteRequest, request: Request) -> dict[str, A
 
 
 @router.get("/llm/models")
+async def build_model_catalog() -> list[dict[str, Any]]:
+    """构建完整模型目录(data/default_models.json + ai_model_config_models 表合并)。
+
+    2026-11-07 抽出:模型级健康探测服务需要与 /llm/models 同源的候选清单,进程启动
+    时自举目录(否则要等页面首次访问才登记目录,重启后死模型会短暂重现)。
+    """
+    default_models = await build_model_catalog()
+    return default_models
 async def list_models(request: Request) -> dict[str, Any]:
     """返回可用模型列表(已按 provider 健康状态自动过滤)。
 
@@ -3862,6 +3919,18 @@ async def list_models(request: Request) -> dict[str, Any]:
         logger.info(
             "[llm/models] availability filter: %d → %d (filtered out %d unavailable)",
             total_before, len(default_models), filtered_out,
+        )
+        # 2026-11-07 立:模型级健康过滤 —— provider 整体健康时,单个坏死模型也要消失
+        from ..services.model_health import model_health
+
+        model_health.observe_catalog(default_models)
+        before_model_health = len(default_models)
+        default_models = model_health.filter_available(default_models)
+        logger.info(
+            "[llm/models] model-health filter: %d → %d (down %d)",
+            before_model_health,
+            len(default_models),
+            before_model_health - len(default_models),
         )
     # H5(Phase C,2026-08-01):为每个模型附加 caps 字段(provider capability 声明)。
     # 优先用 default_models.json 中已静态声明的 caps(H5 已给每个模型条目加 caps),
@@ -6417,7 +6486,10 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 # task_index → subagent_id 映射(并行模式多 task,单模式只有 1 个)
                                 _sub_id_by_index: dict[int, str] = dict(enumerate(_spawned_sub_ids))
                                 _single_sub_id = _spawned_sub_ids[0]
-                                _progress_queue: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue()
+                                _progress_queue: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue(
+                                    maxsize=_PROGRESS_QUEUE_MAXSIZE
+                                )
+                                _progress_dropped = [0]
 
                                 def _progress_cb(
                                     evt: dict[str, Any],
@@ -6453,7 +6525,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                         _sse_evt["agentName"] = _agent_name
                                     if message_id:
                                         _sse_evt["messageId"] = message_id
-                                    _progress_queue.put_nowait(_sse_evt)
+                                    _enqueue_progress_event(
+                                        _progress_queue, _sse_evt, _progress_dropped
+                                    )
 
                                 try:
                                     # MCP 工具调用取消闭环:登记到本流追踪器,
@@ -6479,6 +6553,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                         try:
                                             _pevt = await asyncio.wait_for(_progress_queue.get(), timeout=0.05)
                                             if _pevt:
+                                                if _progress_dropped[0]:
+                                                    _pevt["dropped_before"] = _progress_dropped[0]
+                                                    _progress_dropped[0] = 0
                                                 yield _sse(SSE_SUBAGENT_PROGRESS, _pevt)
                                         except TimeoutError:
                                             continue
@@ -6486,6 +6563,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     while not _progress_queue.empty():
                                         _pevt = _progress_queue.get_nowait()
                                         if _pevt:
+                                            if _progress_dropped[0]:
+                                                _pevt["dropped_before"] = _progress_dropped[0]
+                                                _progress_dropped[0] = 0
                                             yield _sse(SSE_SUBAGENT_PROGRESS, _pevt)
                                     exec_result = await _dispatch_task
                                 except Exception as e:
@@ -6961,6 +7041,28 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                             accumulated["content"] = _fallback
                             _fallback_evt = {"type": "chunk", "content": _fallback}
                             yield _sse(SSE_CHUNK, _fallback_evt)
+                elif event_type == "error":
+                    # AIS-001:provider 中途 error 已是终态。旧实现落入通用透传
+                    # (`yield _sse(event_type, event)`)后继续循环,provider 耗尽即
+                    # 按成功收尾落库。这里写 error 标记、透传归一化 errorCode 后
+                    # 立即 return,finally 走中断回调落半截 + errorCode。
+                    _err_msg = str(event.get("message") or "LLM 调用失败")
+                    _err_code = _normalize_provider_budget_error_code(
+                        event.get("errorCode"), _err_msg
+                    )
+                    accumulated["error"] = _err_msg
+                    accumulated["errorCode"] = _err_code
+                    if _is_budget_exhaustion_error(event.get("errorCode"), _err_msg):
+                        _budget_exhausted_this_turn = True
+                    yield _sse(
+                        SSE_ERROR,
+                        {
+                            "type": "error",
+                            "errorCode": _err_code,
+                            "message": _err_msg,
+                        },
+                    )
+                    return
                 yield _sse(event_type, event)
         except GeneratorExit:
             # G-815975:客户端断开 ⇒ 生成器被 aclose,finally 里不允许 yield,
@@ -7357,6 +7459,12 @@ async def post_tool_approval_response(
     主对话流审批条目在 _approval_sessions,agent 任务流在 agent_loop_v2 注册表)。
     兼容 camelCase(approvalId,与网关 /agent/approval-response 同款双写法)。
 
+    2026-11-08(审批代答收口):条目在发帧时已记下发起主体 `owner_user_id`,本端点
+    此前**从不比对**它 —— 任何拿到 approval_id(且知道 session_id)的登录用户都能
+    替别人批准一次高危工具调用(shell 一类)。现在按承载层解析出的主体复核:
+    不匹配或"带身份撞无主条目"一律**与不存在同形**且零副作用(不写 decision、
+    不置 Event、不 pop 待决项),因此真属主迟到的应答仍然有效。
+
     D-07(2026-10-26):断线窗口里已失效的审批,应答经 `_approval_settle_rejection`
     **具名拒绝**(仅属主本人能听到具体原因),其余形态仍逐字回落原有两条通用文本;
     回包键集仍是 `{ok, error}` 一个没加 ⇒ 跨端零改动。live 条目的结算路径一字未动
@@ -7369,6 +7477,28 @@ async def post_tool_approval_response(
         return _approval_settle_rejection(session_id, approval_id, caller_uuid, "session not found or expired")
     entry = session.get(approval_id)
     if not entry or not isinstance(entry.get("event"), asyncio.Event):
+        return _approval_settle_rejection(
+            session_id, approval_id, caller_uuid, "approval not found or expired"
+        )
+    # 归属复核(顺序必须在这里:先于任何"写入 decision / 置 Event"的动作)。
+    # 零副作用 ⇒ 越权应答之后条目仍在待决表里,真属主随后的应答照常生效。
+    owner_uid = entry.get("owner_user_id")
+    if isinstance(owner_uid, str) and owner_uid:
+        if caller_uuid != owner_uid:
+            logger.warning(
+                "approval-response 越权尝试(session=%s approval=%s owner=%s caller=%s)已拒绝:未结算待决项",
+                session_id, approval_id, owner_uid, caller_uuid,
+            )
+            return _approval_settle_rejection(
+                session_id, approval_id, caller_uuid, "approval not found or expired"
+            )
+    elif caller_uuid is not None:
+        # 待决项发帧时没有主体(进程内/开发态路径),而调用方带身份:两条不同身份
+        # 通道的偶然相遇,不构成授权结论 —— fail-closed,不予结算。
+        logger.warning(
+            "approval-response 待决项无可证明属主(session=%s approval=%s caller=%s):未结算",
+            session_id, approval_id, caller_uuid,
+        )
         return _approval_settle_rejection(
             session_id, approval_id, caller_uuid, "approval not found or expired"
         )
@@ -8125,17 +8255,20 @@ def _interrupted_callback_flush(
 ) -> bool:
     """G-94:被"无消费者"关闭的流,是否仍要把已到达的半截回答交给回调落库。
 
-    三条判据同时成立才补发,缺一不补:
-    - stream_exiting:流正被 aclose/取消(GeneratorExit 或 CancelledError)——正常跑完
-      那一趟由 try 之后的原回调路径处理,不在这里发第二次(幂等键相同,但重复 POST
-      仍是无谓的额度与日志);
-    - not error:流内已判错(模型/供应商错)的不算"半截回答",那是另一条终态路径;
+    AIS-001(2026-11-08):判据从 `stream_exiting` 扩为 `stream_exiting or error`。
+    中途 provider error 是终态但**没有**第二条落库路径:下面的正常回调显式
+    `not accumulated.get("error")` 跳过,若这里也不补,则"用户已看到半截回答 +
+    上游报错"在历史上完全消失(旧实现的错误落库只覆盖异常抛出,不覆盖 error 帧)。
+
+    - stream_exiting|error:流正被 aclose/取消,或流内已收到 error 终态;
+      正常跑完且无 error 的那一趟仍由 try 之后的原回调路径处理,不在这里发
+      第二次(幂等键相同,但重复 POST 仍是无谓的额度与日志);
     - content 非空白:一个字都没到达本进程时**不写**空 assistant 气泡(与
       conversation.py 取消支路、上游 `if (!options.snapshot.text) return` 同一判据)。
 
     刻意只看正文不看工具载荷:给在飞工具补写半截 result 会造出"调用无回复"的历史。
     """
-    return bool(stream_exiting and not error and str(content or "").strip())
+    return bool((stream_exiting or error) and str(content or "").strip())
 
 
 def _is_allowed_callback_target(url: str) -> bool:
@@ -9582,4 +9715,26 @@ async def revoke_approval_grant(request: Request) -> dict[str, Any] | JSONRespon
         return {"ok": False, "error": "revoke failed"}
     logger.info("D158 放行规则已撤销(kind=%s, key=%s)", kind, cache_key[:64])
     return {"ok": True}
+
+
+@router.post("/llm/models/refresh")
+async def refresh_model_health() -> dict[str, Any]:
+    """手动触发一轮模型级连通复测 + 上游模型清单同步。
+
+    探测与上游同步在后台异步执行,立即返回当前进度;前端轮询 /llm/models/refresh/status
+    等待 running 落 false 后再重拉 /llm/models(避免清单尚未落库就提前刷新)。
+    2026-11-08 扩展:复测前先拉一次上游模型清单,下架的从库里清掉、新增的补进来。
+    """
+    from ..services.model_health import model_health
+
+    return model_health.trigger_refresh()
+
+
+@router.get("/llm/models/refresh/status")
+async def model_health_refresh_status() -> dict[str, Any]:
+    """供前端手动刷新轮询:running=false 且 checked_at 已更新时才重拉列表。"""
+    from ..services.model_health import model_health
+
+    return model_health.get_status()
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1,4 +1,60 @@
 {
+  "sag2Lexical": {
+    "title": "SAG2 詞法多跳檢索",
+    "globalSearchTitle": "全域檢索",
+    "globalSearchPlaceholder": "搜尋本地知識庫（Ctrl/Cmd + K）",
+    "globalSearchEmpty": "沒有命中：索引裡沒有包含這些詞的檔案",
+    "globalSearchHint": "↑↓ 選擇 · Enter 開啟 · Esc 關閉",
+    "filter_all": "全部",
+    "filter_text": "文字",
+    "filter_office": "文件",
+    "fromPalette": "來自全域檢索",
+    "subtitle": "零模型建庫 · 查詢時關聯 · 引用可直達原文",
+    "ready": "索引就緒",
+    "empty": "索引為空",
+    "version": "版本",
+    "documents": "文件",
+    "chunks": "區塊",
+    "terms": "詞項",
+    "judgeProvider": "判定器",
+    "foldersTitle": "本地資料夾",
+    "folderPath": "資料夾路徑",
+    "folderPlaceholder": "例如 D://docs 或 /Users/me/docs",
+    "registerFolder": "登記並掃描",
+    "scanFolders": "掃描全部",
+    "foldersList": "已登記",
+    "noFolders": "還沒有登記資料夾",
+    "removeFolder": "註銷",
+    "watchFolder": "自動監聽",
+    "scanSummary": "{changed} 新增 · {unchanged} 未變 · {unsupported} 不支援 · {failed} 失敗",
+    "docsTitle": "文件登記",
+    "docsPath": "路徑",
+    "docsContent": "正文",
+    "pathPlaceholder": "kb/example.txt",
+    "contentPlaceholder": "貼上或輸入文件正文…",
+    "add": "登記 / 更新",
+    "remove": "移除",
+    "added": "已登記（建庫零模型呼叫）",
+    "unchanged": "檔案 hash 未變，略過重建",
+    "removed": "已移除區塊數",
+    "queryTitle": "檢索",
+    "queryPlaceholder": "輸入問題，可跨文件多跳關聯…",
+    "quick": "快速搜尋",
+    "deep": "多跳檢索",
+    "fuse": "RRF 融合",
+    "emptyResult": "暫無結果，請先登記文件",
+    "loading": "處理中…",
+    "error": "請求失敗",
+    "modelCalls": "模型呼叫 0 次",
+    "judgeOff": "證據判斷未執行（純詞法判定）",
+    "trace": "檢索軌跡",
+    "tracePool": "候選池",
+    "traceTerms": "擴展詞",
+    "citations": "引用錨點",
+    "score": "得分",
+    "bm25": "BM25",
+    "hop": "跳"
+  },
   "playBeta": {
     "hero": {
       "badge": "Google Play 封閉測試招募",
@@ -9488,6 +9544,22 @@
         "WORKFLOW_NOT_TRIGGERABLE": {
           "title": "該工作流目前無法觸發",
           "action": "確認工作流存在、已啟用且沒有實例正在執行後重試"
+        },
+        "ADD_JOB_FAILED": {
+          "title": "定時任務註冊失敗",
+          "action": "稍後重試；持續失敗請聯絡管理員檢查排程服務"
+        },
+        "INVALID_CALLBACK": {
+          "title": "任務回呼設定無效",
+          "action": "檢查回呼類型與參數後重試"
+        },
+        "SCHEDULER_UNAVAILABLE": {
+          "title": "排程器未啟動",
+          "action": "稍後重試；持續失敗請聯絡管理員啟動排程服務"
+        },
+        "UNREADABLE": {
+          "title": "檔案不可讀",
+          "action": "檢查檔案權限與佔用後重試"
         }
       },
       "worktree": {
@@ -13630,6 +13702,7 @@
     "show": "顯示",
     "delete": "刪除",
     "save": "儲存",
+    "saveFailed": "儲存失敗",
     "ok": "確定",
     "create": "創建",
     "agentKanban": "Agent 看板",
@@ -20422,7 +20495,7 @@
     "wizardAuditEntries": "檢視全部掃描明細",
     "wizardAuditScope": "掃描範圍：{cn} 與 {roaming}，共 {files} 個檔案。"
   },
-  "checkin": {
+  "checkinAssistant": {
     "taskPanelTitle": "自動做任務",
     "taskPanelAutoTitle": "自動巡檢",
     "taskPanelAutoLoading": "讀取中…",
@@ -20763,6 +20836,7 @@
     "saasCertificates": "SaaS 證書",
     "saasTenants": "SaaS 租戶",
     "dashboard": "管理後臺",
+    "sag2Lexical": "SAG2 檢索",
     "users": "使用者管理",
     "projects": "專案管理",
     "refund": "退款管理",
@@ -21467,9 +21541,12 @@
     "status": {
       "all": "全部",
       "cancelled": "已取消",
+      "completed": "已完成",
+      "failed": "失敗",
       "paid": "已支付",
       "pending": "待支付",
       "refunded": "已退款",
+      "refunding": "退款中",
       "unknown": "未知"
     },
     "statusLabel": "狀態",
@@ -23671,6 +23748,7 @@
     "icpRecordDesc": "查看平臺ICP備案登記信息",
     "icpRecordEntity": "備案主體",
     "icpRecordEntityType": "主體類型",
+    "icpRecordFooter": "以上資訊來自工信部備案查詢系統",
     "icpRecordNotice": "本平臺已依法完成ICP備案登記,備案信息以上述公示為準,如有疑問請聯系客服。",
     "icpRecordNumber": "備案號",
     "icpRecordScope": "備案範圍",
@@ -25289,6 +25367,14 @@
     "empty": "暫無記錄",
     "flowAmount": "數量",
     "flowBalance": "餘額",
+    "flowDeduct": "扣減",
+    "flowExpire": "過期",
+    "flowOther": "其他變動",
+    "flowRecharge": "充值",
+    "flowRefund": "退款扣回",
+    "flowRelayRecharge": "轉帳至 API Key",
+    "flowAdminAdjust": "管理員調整",
+    "flowQuota": "配額類變動",
     "flowRemark": "備注",
     "flowTime": "時間",
     "flowType": "類型",
@@ -26980,9 +27066,7 @@
     "loadFailed": "載入考試結果失敗",
     "passed": "已通過",
     "failed": "未通過",
-    "correct": "答對 {count}/{total}",
     "duration": "用時 {min} 分鐘",
-    "wrongQuestions": "錯題",
     "yourAnswer": "你的答案",
     "correctAnswer": "正確答案"
   },

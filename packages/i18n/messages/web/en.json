@@ -1,4 +1,60 @@
 {
+  "sag2Lexical": {
+    "title": "SAG2 Lexical Multi-hop Retrieval",
+    "globalSearchTitle": "Global search",
+    "globalSearchPlaceholder": "Search the local knowledge base (Ctrl/Cmd + K)",
+    "globalSearchEmpty": "No hits: no indexed file contains these terms",
+    "globalSearchHint": "↑↓ select · Enter open · Esc close",
+    "filter_all": "All",
+    "filter_text": "Text",
+    "filter_office": "Documents",
+    "fromPalette": "From global search",
+    "subtitle": "Zero-model indexing · query-time association · citations to source",
+    "ready": "Index ready",
+    "empty": "Index empty",
+    "version": "Version",
+    "documents": "Docs",
+    "chunks": "Chunks",
+    "terms": "Terms",
+    "judgeProvider": "Judge",
+    "foldersTitle": "Local folders",
+    "folderPath": "Folder path",
+    "folderPlaceholder": "e.g. D://docs or /Users/me/docs",
+    "registerFolder": "Add & scan",
+    "scanFolders": "Scan all",
+    "foldersList": "Registered",
+    "noFolders": "No folder registered yet",
+    "removeFolder": "Unregister",
+    "watchFolder": "Auto watch",
+    "scanSummary": "{changed} added · {unchanged} unchanged · {unsupported} unsupported · {failed} failed",
+    "docsTitle": "Document registry",
+    "docsPath": "Path",
+    "docsContent": "Content",
+    "pathPlaceholder": "kb/example.txt",
+    "contentPlaceholder": "Paste or type document text…",
+    "add": "Add / update",
+    "remove": "Remove",
+    "added": "Registered (zero model calls while indexing)",
+    "unchanged": "File hash unchanged, rebuild skipped",
+    "removed": "Chunks removed",
+    "queryTitle": "Retrieval",
+    "queryPlaceholder": "Ask a question spanning multiple documents…",
+    "quick": "Quick search",
+    "deep": "Multi-hop",
+    "fuse": "RRF fuse",
+    "emptyResult": "No results yet — register a document first",
+    "loading": "Working…",
+    "error": "Request failed",
+    "modelCalls": "0 model calls",
+    "judgeOff": "Evidence judge not executed (lexical-only)",
+    "trace": "Retrieval trace",
+    "tracePool": "Pool",
+    "traceTerms": "Terms",
+    "citations": "Citation anchors",
+    "score": "Score",
+    "bm25": "BM25",
+    "hop": "Hop"
+  },
   "playBeta": {
     "hero": {
       "badge": "Google Play closed test recruitment",
@@ -9488,6 +9544,22 @@
         "WORKFLOW_NOT_TRIGGERABLE": {
           "title": "This workflow cannot be triggered right now",
           "action": "Confirm it exists, is enabled and has no running instance, then retry"
+        },
+        "ADD_JOB_FAILED": {
+          "title": "Failed to register the scheduled task",
+          "action": "Retry later; if it keeps failing, ask an admin to check the scheduler"
+        },
+        "INVALID_CALLBACK": {
+          "title": "Task callback configuration is invalid",
+          "action": "Check the callback type and parameters, then retry"
+        },
+        "SCHEDULER_UNAVAILABLE": {
+          "title": "The scheduler is not running",
+          "action": "Retry later; if it keeps failing, ask an admin to start the scheduler"
+        },
+        "UNREADABLE": {
+          "title": "The file is unreadable",
+          "action": "Check the file permissions and locks, then retry"
         }
       },
       "worktree": {
@@ -13626,6 +13698,7 @@
     "show": "Show",
     "delete": "Delete",
     "save": "Save",
+    "saveFailed": "Save Failed",
     "ok": "OK",
     "create": "Create",
     "agentKanban": "Agent Kanban",
@@ -20418,7 +20491,7 @@
     "wizardAuditEntries": "View full scan details",
     "wizardAuditScope": "Scan scope: {cn} and {roaming}, {files} files in total."
   },
-  "checkin": {
+  "checkinAssistant": {
     "taskPanelTitle": "Auto-run tasks",
     "taskPanelAutoTitle": "Auto sweep",
     "taskPanelAutoLoading": "Loading…",
@@ -20788,6 +20861,7 @@
     "saasCertificates": "SaaS Certificates",
     "saasTenants": "SaaS Tenants",
     "dashboard": "Admin Dashboard",
+    "sag2Lexical": "SAG2 Retrieval",
     "users": "User Management",
     "projects": "Project Management",
     "refund": "Refund Management",
@@ -21492,9 +21566,12 @@
     "status": {
       "all": "All",
       "cancelled": "Cancelled",
+      "completed": "Completed",
+      "failed": "Failed",
       "paid": "Paid",
       "pending": "Pending",
       "refunded": "Refunded",
+      "refunding": "Refunding",
       "unknown": "Unknown"
     },
     "statusLabel": "Status",
@@ -23696,6 +23773,7 @@
     "icpRecordDesc": "View platform ICP record information",
     "icpRecordEntity": "Filing Entity",
     "icpRecordEntityType": "Entity Type",
+    "icpRecordFooter": "Sourced from MIIT filing system",
     "icpRecordNotice": "This platform has completed ICP record registration. The record information is as shown above. Contact customer service for any questions.",
     "icpRecordNumber": "Filing Number",
     "icpRecordScope": "Filing Scope",
@@ -25314,6 +25392,14 @@
     "empty": "No records",
     "flowAmount": "Amount",
     "flowBalance": "Balance",
+    "flowDeduct": "Deduct",
+    "flowExpire": "Expired",
+    "flowOther": "Other",
+    "flowRecharge": "Recharge",
+    "flowRefund": "Refund clawback",
+    "flowRelayRecharge": "Transfer to API key",
+    "flowAdminAdjust": "Admin adjustment",
+    "flowQuota": "Quota change",
     "flowRemark": "Remark",
     "flowTime": "Time",
     "flowType": "Type",
@@ -27005,9 +27091,7 @@
     "loadFailed": "Failed to load",
     "passed": "Passed",
     "failed": "Failed",
-    "correct": "Correct {count}/{total}",
     "duration": "Duration {min} min",
-    "wrongQuestions": "Wrong answers",
     "yourAnswer": "Your answer",
     "correctAnswer": "Correct answer"
   },

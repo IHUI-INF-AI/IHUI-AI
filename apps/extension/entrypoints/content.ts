@@ -26,6 +26,7 @@ import {
   detectLanguage,
 } from '../src/content/content-utils'
 import { sendMessage } from '../lib/message-router'
+import { isTrustedTopLevelExtensionSender, type RuntimeSenderLike } from '../lib/message-trust'
 import { ContentToolbar } from './content/content-toolbar'
 import { computePositionWithMemory, type RectLike } from '../src/content/position-memory'
 import { executeDomAction } from '../lib/agent-control'
@@ -48,7 +49,6 @@ const CTX_POPUP_ID = 'ihui-ctx-popup'
 const CTX_POPUP_TTL_MS = 6000
 
 // ---- i18n(内容脚本) ----
-const LOCALE_STORAGE_KEY = 'ihui_locale'
 const DEFAULT_LOCALE: Locale = 'zh-CN'
 const contentMessages: Record<Locale, Messages> = {
   'zh-CN': mergeMessages(sharedZhCN, extZhCN),
@@ -59,16 +59,18 @@ const contentMessages: Record<Locale, Messages> = {
 }
 let activeLocale: Locale = DEFAULT_LOCALE
 
-/** 异步预加载用户语言(与 background.ts 读同一键),失败时保持默认 zh-CN。 */
+/** 异步预加载用户语言。2026-11-08 E 类第 2 条:storage.local 已收紧到 TRUSTED_CONTEXTS,
+ *  内容脚本不能再直读 `ihui_locale`;改由 background 读 local 后经消息回包。
+ *  background 不可用/超时 ⇒ 保持默认 zh-CN(不静默改写用户设置)。 */
 async function loadActiveLocale(): Promise<void> {
   try {
-    if (typeof chrome !== 'undefined' && chrome.storage?.local) {
-      const result = await chrome.storage.local.get(LOCALE_STORAGE_KEY)
-      const value: unknown = result[LOCALE_STORAGE_KEY]
-      if (typeof value === 'string' && isLocale(value)) activeLocale = value
-    }
+    const value = await sendMessage<string>(
+      { type: 'locale.get', payload: undefined, requestId: `locale-${Date.now()}` },
+      3000,
+    )
+    if (typeof value === 'string' && isLocale(value)) activeLocale = value
   } catch {
-    // ignore and fall through
+    // ignore and fall through(保持默认 zh-CN)
   }
 }
 
@@ -512,8 +514,19 @@ export default defineContentScript({
     })
 
     // 接收 background 主动消息
-    chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+    chrome.runtime.onMessage.addListener((msg, sender: RuntimeSenderLike | undefined, sendResponse) => {
       if (!msg || typeof msg !== 'object') return false
+      // 2026-11-08 同型根因 D 类:内容脚本是唯一能直接改宿主 DOM 的执行端,消息只应由
+      // background 下发。sender.id === runtime.id 不够 —— 内容脚本自身也满足该条件,
+      // 因此要求 tab === undefined(排除内容脚本,只留顶层扩展上下文)。
+      if (!isTrustedTopLevelExtensionSender(sender, chrome.runtime.id)) {
+        console.warn(
+          '[IHUI AI] content: 丢弃非白名单来源的消息',
+          sender?.id ?? '(none)',
+          sender?.url ?? '(no-url)',
+        )
+        return false
+      }
       const m = msg as {
         type?: string
         payload?: {

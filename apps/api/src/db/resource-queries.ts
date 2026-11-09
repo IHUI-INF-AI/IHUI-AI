@@ -141,14 +141,15 @@ export async function findResources(
   return { list, total: totalRows[0]?.count ?? 0, page, pageSize }
 }
 
-/** 资源详情(含 intro + categoryName join),并自增浏览量。 */
+/**
+ * 资源详情(含 intro + categoryName join)。
+ *
+ * F-206:浏览量自增已收归 plugins/watch-aspect(鉴权后的路由级 preHandler)。
+ * 本函数若再 `+1`,同一次浏览会被计两次,故只读不写。
+ */
 export async function findResourceByIdAndIncrementView(
   id: string,
 ): Promise<(Resource & { categoryName: string | null }) | undefined> {
-  await db
-    .update(resources)
-    .set({ viewCount: sql<number>`${resources.viewCount} + 1` })
-    .where(eq(resources.id, id))
   const rows = await db
     .select({
       ...getTableColumns(resources),

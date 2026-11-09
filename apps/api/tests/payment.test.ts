@@ -103,6 +103,7 @@ const {
   mockPlaceOrder,
   mockGetOrder,
   mockCompleteOrder,
+  mockCompleteOrderWithSaga,
   mockCancelOrder,
   mockRefundOrder,
   mockActivateOrderSubscription,
@@ -114,6 +115,7 @@ const {
   mockPlaceOrder: vi.fn(),
   mockGetOrder: vi.fn(),
   mockCompleteOrder: vi.fn(),
+  mockCompleteOrderWithSaga: vi.fn(),
   mockCancelOrder: vi.fn(),
   mockRefundOrder: vi.fn(),
   mockActivateOrderSubscription: vi.fn(),
@@ -127,6 +129,7 @@ vi.mock('../src/services/order-service.js', () => ({
   placeOrder: mockPlaceOrder,
   getOrder: mockGetOrder,
   completeOrder: mockCompleteOrder,
+  completeOrderWithSaga: mockCompleteOrderWithSaga,
   cancelOrder: mockCancelOrder,
   refundOrder: mockRefundOrder,
   activateOrderSubscription: mockActivateOrderSubscription,
@@ -160,6 +163,7 @@ const { mockDbRows, mockDb } = vi.hoisted(() => {
 vi.mock('../src/db/index.js', () => ({ db: mockDb }))
 
 import { paymentGatewayRoutes } from '../src/routes/payment-gateway'
+import { zhsCourseVideo } from '@ihui/database'
 
 function makeOrder(overrides: Record<string, unknown> = {}) {
   return {
@@ -422,6 +426,27 @@ describe('payment gateway — 高风险安全路由(金额篡改/反查/提现/�
       expect(res.statusCode).toBe(200)
       expect(mockPlaceOrder).toHaveBeenCalledWith(expect.objectContaining({ amount: 200 }))
     })
+
+    // F-449:金额列精度。夹具按列的真实存储类型模拟「落库→读回」:
+    //   real(float4)    → Math.fround(131072.01) = 131072.015625,再 *100 取整多收 1 分
+    //   numeric(12,2)   → '131072.01' 精确十进制,应恰好 13107201 分
+    // 同一条夹具在改前(real)为红、改后(numeric)为绿,不靠改断言迁就实现。
+    it('F-449 131072.01 元不得因 float4 量化多收 1 分', async () => {
+      authAs()
+      const yuan = 131072.01
+      const stored = zhsCourseVideo.amount.dataType === 'string' ? yuan.toFixed(2) : Math.fround(yuan)
+      mockDbRows.push({ amount: stored, isPay: 1 })
+      mockPlaceOrder.mockResolvedValueOnce(makeOrder({ amount: 13107201, orderType: 1 }))
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/payments/wechat/course/create?amount=13107201&courseId=321',
+        headers: { authorization: 'Bearer t' },
+      })
+      expect(res.statusCode).toBe(200)
+      expect(mockPlaceOrder).toHaveBeenCalledWith(
+        expect.objectContaining({ amount: 13107201, orderType: 1, productId: '321' }),
+      )
+    })
   })
 
   // ===================== wechatPay 基金支付金额反查(CWE-994)=====================
@@ -501,6 +526,31 @@ describe('payment gateway — 高风险安全路由(金额篡改/反查/提现/�
       expect(mockAliRefundOrder).toHaveBeenCalledWith(
         expect.objectContaining({ refundAmount: 100 }),
       )
+    })
+
+    // F-09:并发第二笔在"本地条件 UPDATE(paid→refunded)"上抢不到行,必须回 409。
+    // 旧实现忽略 refundOrder 返回值、无条件回 200,前端会把两笔都当退款成功。
+    it('本地退款未落库(并发第二笔)返回 409,不谎报成功', async () => {
+      authAsAdmin()
+      mockIsAlipayConfigured.mockReturnValue(false)
+      mockGetOrder.mockResolvedValueOnce(
+        makeOrder({
+          status: 'paid',
+          userId: '11111111-1111-4111-8111-111111111111',
+          amount: 10000,
+        }),
+      )
+      mockRefundOrder.mockResolvedValueOnce({
+        success: false,
+        reason: '订单状态已变更,退款未落库',
+      })
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/payments/alipay/refund?outTradeNo=EDU001&refundAmount=100.00',
+        headers: { authorization: 'Bearer t' },
+      })
+      expect(res.statusCode).toBe(409)
+      expect(res.json().message).toContain('状态已变更')
     })
 
     it('非管理员非本人退款返回 403', async () => {
@@ -655,7 +705,9 @@ describe('payment gateway — 高风险安全路由(金额篡改/反查/提现/�
       expect(res.json().message).toContain('transaction_id')
     })
 
-    it('回调幂等(processing 状态返回 SUCCESS)', async () => {
+    // F-220:processing 表示并发回调仍在处理中,原实现 ACK SUCCESS 会让微信停止重投;
+    // 若在途处理最终失败,该笔已付款订单再无补单机会。必须回 FAIL 让平台重投。
+    it('回调幂等(processing 状态回 FAIL/503,不得 ACK SUCCESS)', async () => {
       mockVerifyCallbackSignature.mockReturnValueOnce(true)
       mockDecryptCallback.mockReturnValueOnce({
         out_trade_no: 'EDU001',
@@ -676,9 +728,40 @@ describe('payment gateway — 高风险安全路由(金额篡改/反查/提现/�
           'wechatpay-signature': 'ok',
         },
       })
-      expect(res.statusCode).toBe(200)
-      expect(res.json().message).toContain('processing')
+      expect(res.statusCode).toBe(503)
+      expect(res.json().code).toBe('FAIL')
       expect(mockCompleteOrder).not.toHaveBeenCalled()
+    })
+
+    // F-32:executeSaga 失败是返回值 {success:false}(不抛),旧实现只在 catch 里回 FAIL,
+    // 返回失败时仍 paymentIdempotency.complete + ACK SUCCESS ⇒ 微信停止重投,订单永久卡住。
+    it('saga 返回 success:false 时回 FAIL/500,不得 ACK SUCCESS', async () => {
+      mockVerifyCallbackSignature.mockReturnValueOnce(true)
+      mockDecryptCallback.mockReturnValueOnce({
+        out_trade_no: 'EDU001',
+        trade_state: 'SUCCESS',
+        transaction_id: 'TX-SAGA-FAIL',
+        amount: { total: 10000 },
+      })
+      mockGetOrder.mockResolvedValueOnce(makeOrder({ amount: 10000 }))
+      mockCompleteOrderWithSaga.mockResolvedValueOnce({
+        success: false,
+        reason: '订单完成流程失败: recharge-tokens failed',
+      })
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/payments/wechat/notify',
+        payload: { resource: { ciphertext: 'c', nonce: 'n', associated_data: 'a' } },
+        headers: {
+          'wechatpay-timestamp': 'ts',
+          'wechatpay-nonce': 'nonce',
+          'wechatpay-signature': 'ok',
+        },
+      })
+      expect(res.statusCode).toBe(500)
+      expect(res.json().code).toBe('FAIL')
+      expect(app.paymentIdempotency.fail).toHaveBeenCalled()
+      expect(app.paymentIdempotency.complete).not.toHaveBeenCalled()
     })
   })
 
@@ -740,6 +823,31 @@ describe('payment gateway — 高风险安全路由(金额篡改/反查/提现/�
       })
       expect(res.body).toBe('success')
       expect(mockCompleteOrder).not.toHaveBeenCalled()
+    })
+
+    // F-32:completeOrder 返回 success:false 时旧实现继续落 complete 并回 success,
+    // 支付宝不再重投 ⇒ 已付款订单丢单。
+    it('completeOrder 返回 success:false 时回 fail,不落幂等完成', async () => {
+      mockVerifyNotify.mockReturnValueOnce(true)
+      mockGetOrder.mockResolvedValueOnce(makeOrder({ amount: 10000, status: 'paid' }))
+      mockCompleteOrder.mockResolvedValueOnce({
+        success: false,
+        reason: '订单状态(cancelled)不可完成',
+      })
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/payments/alipay/notify',
+        payload: {
+          sign: 'ok',
+          trade_status: 'TRADE_SUCCESS',
+          out_trade_no: 'EDU001',
+          trade_no: 'ALI-SAGA-FAIL',
+          total_amount: '100.00',
+        },
+      })
+      expect(res.body).toBe('fail')
+      expect(app.paymentIdempotency.fail).toHaveBeenCalled()
+      expect(app.paymentIdempotency.complete).not.toHaveBeenCalled()
     })
   })
 

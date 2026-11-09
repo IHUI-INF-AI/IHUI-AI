@@ -1,4 +1,60 @@
 {
+  "sag2Lexical": {
+    "title": "SAG2 語彙マルチホップ検索",
+    "globalSearchTitle": "グローバル検索",
+    "globalSearchPlaceholder": "ローカル知識ベースを検索（Ctrl/Cmd + K）",
+    "globalSearchEmpty": "該当なし：これらの語を含むファイルがありません",
+    "globalSearchHint": "↑↓ 選択 · Enter 開く · Esc 閉じる",
+    "filter_all": "すべて",
+    "filter_text": "テキスト",
+    "filter_office": "文書",
+    "fromPalette": "グローバル検索から",
+    "subtitle": "モデル不要の索引作成 · 検索時関連付け · 原文への引用",
+    "ready": "索引準備完了",
+    "empty": "索引が空です",
+    "version": "バージョン",
+    "documents": "文書",
+    "chunks": "チャンク",
+    "terms": "語項",
+    "judgeProvider": "判定器",
+    "foldersTitle": "ローカルフォルダ",
+    "folderPath": "フォルダのパス",
+    "folderPlaceholder": "例: D://docs または /Users/me/docs",
+    "registerFolder": "登録してスキャン",
+    "scanFolders": "すべてスキャン",
+    "foldersList": "登録済み",
+    "noFolders": "フォルダは未登録です",
+    "removeFolder": "登録解除",
+    "watchFolder": "自動監視",
+    "scanSummary": "{changed} 追加 · {unchanged} 変更なし · {unsupported} 非対応 · {failed} 失敗",
+    "docsTitle": "文書登録",
+    "docsPath": "パス",
+    "docsContent": "本文",
+    "pathPlaceholder": "kb/example.txt",
+    "contentPlaceholder": "文書の本文を貼り付けまたは入力…",
+    "add": "登録 / 更新",
+    "remove": "削除",
+    "added": "登録しました（索引作成時のモデル呼び出し 0 回）",
+    "unchanged": "ファイル hash が不変のため再構築をスキップ",
+    "removed": "削除チャンク数",
+    "queryTitle": "検索",
+    "queryPlaceholder": "複数文書にまたがる質問を入力…",
+    "quick": "クイック検索",
+    "deep": "マルチホップ",
+    "fuse": "RRF 融合",
+    "emptyResult": "結果がありません。先に文書を登録してください",
+    "loading": "処理中…",
+    "error": "リクエスト失敗",
+    "modelCalls": "モデル呼び出し 0 回",
+    "judgeOff": "証拠判定は未実行（語彙のみ）",
+    "trace": "検索トレース",
+    "tracePool": "候補プール",
+    "traceTerms": "拡張語",
+    "citations": "引用アンカー",
+    "score": "スコア",
+    "bm25": "BM25",
+    "hop": "ホップ"
+  },
   "playBeta": {
     "hero": {
       "badge": "Google Play クローズドテスト募集",
@@ -9488,6 +9544,22 @@
         "WORKFLOW_NOT_TRIGGERABLE": {
           "title": "このワークフローは現在トリガーできません",
           "action": "存在・有効化・実行中のインスタンスなしを確認してから再試行"
+        },
+        "ADD_JOB_FAILED": {
+          "title": "定期タスクの登録に失敗しました",
+          "action": "しばらくしてから再試行し、続く場合は管理者にスケジューラの点検を依頼"
+        },
+        "INVALID_CALLBACK": {
+          "title": "タスクのコールバック設定が無効です",
+          "action": "コールバックの種類と引数を確認して再試行"
+        },
+        "SCHEDULER_UNAVAILABLE": {
+          "title": "スケジューラが起動していません",
+          "action": "しばらくしてから再試行し、続く場合は管理者にスケジューラの起動を依頼"
+        },
+        "UNREADABLE": {
+          "title": "ファイルを読み取れません",
+          "action": "ファイルの権限とロックを確認して再試行"
         }
       },
       "worktree": {
@@ -13629,6 +13701,7 @@
     "show": "表示",
     "delete": "削除",
     "save": "保存",
+    "saveFailed": "保存に失敗しました",
     "ok": "OK",
     "create": "作成",
     "agentKanban": "Agent 看板",
@@ -20421,7 +20494,7 @@
     "wizardAuditEntries": "スキャン詳細をすべて表示",
     "wizardAuditScope": "スキャン範囲：{cn} と {roaming}、合計 {files} ファイル。"
   },
-  "checkin": {
+  "checkinAssistant": {
     "taskPanelTitle": "タスク自動実行",
     "taskPanelAutoTitle": "自動巡回",
     "taskPanelAutoLoading": "読み込み中…",
@@ -20791,6 +20864,7 @@
     "saasCertificates": "SaaS 証明書",
     "saasTenants": "SaaS テナント",
     "dashboard": "管理バックエンド",
+    "sag2Lexical": "SAG2 検索",
     "users": "ユーザー管理",
     "projects": "プロジェクト管理",
     "refund": "返金管理",
@@ -21495,9 +21569,12 @@
     "status": {
       "all": "すべて",
       "cancelled": "キャンセル済み",
+      "completed": "完了",
+      "failed": "失敗",
       "paid": "支払済み",
       "pending": "支払い待ち",
       "refunded": "返金済み",
+      "refunding": "返金処理中",
       "unknown": "不明"
     },
     "statusLabel": "ステータス",
@@ -23699,6 +23776,7 @@
     "icpRecordDesc": "プラットフォームのICP届出情報を表示",
     "icpRecordEntity": "備案主体",
     "icpRecordEntityType": "主体タイプ",
+    "icpRecordFooter": "MIIT登録システムより",
     "icpRecordNotice": "当プラットフォームは法に基づきICP届出登録を完了しております。届出情報は上記の公示に準じます。ご不明な点がございましたらカスタマーサポートにお問い合わせください。",
     "icpRecordNumber": "備案番号",
     "icpRecordScope": "備案範囲",
@@ -25317,6 +25395,14 @@
     "empty": "なし",
     "flowAmount": "Count",
     "flowBalance": "残高",
+    "flowDeduct": "減算",
+    "flowExpire": "期限切れ",
+    "flowOther": "その他",
+    "flowRecharge": "チャージ",
+    "flowRefund": "返金取消",
+    "flowRelayRecharge": "APIキーへ振替",
+    "flowAdminAdjust": "管理者調整",
+    "flowQuota": "クォータ変更",
     "flowRemark": "備考",
     "flowTime": "時間",
     "flowType": "タイプ",
@@ -27008,9 +27094,7 @@
     "loadFailed": "読み込みに失敗しました",
     "passed": "合格",
     "failed": "不合格",
-    "correct": "正解 {count}/{total}",
     "duration": "所用 {min} 分",
-    "wrongQuestions": "誤答",
     "yourAnswer": "あなたの回答",
     "correctAnswer": "正解"
   },

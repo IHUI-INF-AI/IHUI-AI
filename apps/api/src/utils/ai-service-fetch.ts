@@ -30,6 +30,72 @@ import { getSystemAccessToken } from './system-access-token.js'
 export interface AiServiceFetchOptions extends Omit<RequestInit, 'headers'> {
   /** 额外 headers，会与 traceparent 头合并（traceparent / X-Trace-Id 优先级最高，不被覆盖）。 */
   headers?: Record<string, string>
+  /**
+   * 覆盖默认 deadline（毫秒）。显式 `signal` 优先：传了 signal 就不再另起 deadline。
+   * 长耗时非流式调用（如长文 LLM 补全）可据此抬高超时，避免被默认值截断。
+   */
+  timeoutMs?: number
+}
+
+/**
+ * 默认 deadline（2026-11-08, F-38）：此前 aiServiceFetch 直接裸调 fetch，上游不回时
+ * 调用方会无限挂起（无日志、无错误、连接占着不放）。默认值与仓内 LLM 调用点既有
+ * `AbortSignal.timeout(60_000)` 同档。
+ *
+ * 注意这是「等响应头」的 deadline，不是「整条流必须在此刻前结束」：响应到手后定时器立即
+ * 清掉（见 fetchWithDeadline），否则复用同一实现的 SSE 长连接会在 60s 处被拦腰 abort。
+ */
+export const DEFAULT_AI_SERVICE_TIMEOUT_MS = 60_000
+
+/**
+ * 可识别的 ai-service 超时错误(F-38)。调用方据此把「上游没在 deadline 内响应」与业务错误、
+ * 以及「上游 5xx」区分开：5xx 依旧是正常 Response（status>=500），本类只在本地 deadline
+ * 到点时抛出，绝不把超时混写成上游故障，也不让 catch-all 把它读成业务兜底。
+ */
+export class AiServiceTimeoutError extends Error {
+  readonly code = 'AI_SERVICE_TIMEOUT'
+  readonly path: string
+  readonly timeoutMs: number
+
+  constructor(path: string, timeoutMs: number) {
+    super(`ai-service 调用超时(${timeoutMs}ms): ${path}`)
+    this.name = 'AiServiceTimeoutError'
+    this.path = path
+    this.timeoutMs = timeoutMs
+  }
+}
+
+/**
+ * 带默认 deadline 的 fetch。
+ * - 调用方显式 `signal` → 原样交给 fetch，不另起 deadline，abort 的原始错误原样上抛；
+ * - 否则装 AbortController + 定时器，到点 abort 并抛 AiServiceTimeoutError；
+ * - 响应到手即清定时器（等响应头语义，不掐断后续流式 body）。
+ */
+async function fetchWithDeadline(
+  path: string,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<Response> {
+  const url = `${config.AI_SERVICE_URL}${path}`
+  if (init.signal) {
+    return fetch(url, init)
+  }
+  const controller = new AbortController()
+  let timedOut = false
+  const timer = setTimeout(() => {
+    timedOut = true
+    controller.abort()
+  }, timeoutMs)
+  // 不因一个 pending deadline 拖住进程退出（与 unref 后台任务的惯例一致）
+  timer.unref()
+  try {
+    return await fetch(url, { ...init, signal: controller.signal })
+  } catch (err) {
+    if (timedOut) throw new AiServiceTimeoutError(path, timeoutMs)
+    throw err
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 /**
@@ -65,8 +131,9 @@ export async function aiServiceFetch(
   path: string,
   init: AiServiceFetchOptions = {},
 ): Promise<Response> {
+  const { timeoutMs, ...fetchInit } = init
   const { traceparent, traceId } = buildTraceHeaders(request)
-  const userHeaders: Record<string, string> = init.headers ?? {}
+  const userHeaders: Record<string, string> = fetchInit.headers ?? {}
   // traceparent / X-Trace-Id 优先级最高，确保不被用户 headers 覆盖
   const headers: Record<string, string> = {
     ...userHeaders,
@@ -110,11 +177,14 @@ export async function aiServiceFetch(
       headers['x-ihui-edge-verified'] = '1'
     }
   }
-  const url = `${config.AI_SERVICE_URL}${path}`
-  return fetch(url, {
-    ...init,
-    headers,
-  })
+  return fetchWithDeadline(
+    path,
+    {
+      ...fetchInit,
+      headers,
+    },
+    timeoutMs ?? DEFAULT_AI_SERVICE_TIMEOUT_MS,
+  )
 }
 
 /**
@@ -144,13 +214,11 @@ export async function aiServiceFetchStream(
 export async function aiServiceSystemFetch(
   path: string,
   init: RequestInit = {},
+  timeoutMs: number = DEFAULT_AI_SERVICE_TIMEOUT_MS,
 ): Promise<Response> {
   const headers = new Headers(init.headers ?? {})
   headers.set('Authorization', `Bearer ${await getSystemAccessToken()}`)
-  return fetch(`${config.AI_SERVICE_URL}${path}`, {
-    ...init,
-    headers,
-  })
+  return fetchWithDeadline(path, { ...init, headers }, timeoutMs)
 }
 
 /**
@@ -166,12 +234,10 @@ export async function aiServiceUserFetch(
   path: string,
   init: RequestInit,
   token: string,
+  timeoutMs: number = DEFAULT_AI_SERVICE_TIMEOUT_MS,
 ): Promise<Response> {
   const headers = new Headers(init.headers ?? {})
   headers.set('Authorization', `Bearer ${token}`)
-  return fetch(`${config.AI_SERVICE_URL}${path}`, {
-    ...init,
-    headers,
-  })
+  return fetchWithDeadline(path, { ...init, headers }, timeoutMs)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

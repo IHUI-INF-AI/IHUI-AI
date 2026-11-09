@@ -15,7 +15,7 @@ import json
 import logging
 import os
 import re
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Mapping
 from typing import TYPE_CHECKING, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -55,6 +55,10 @@ from ..services.agent_events import (
 )
 from ..services.agent_loop import agent_executor
 from ..services.agent_orchestrator import AgentOrchestrator, agent_orchestrator
+from ..services.agent_resume_semantics import (
+    ResumeBlockedError,
+    UnknownConfirmationError,
+)
 from ..services.agent_run_control import (
     PauseOutcome,
     ResumeOutcome,
@@ -1243,6 +1247,20 @@ class AgentResumeRequest(BaseModel):
         le=int(DURABLE_HORIZON_MAX_SECONDS),
         description="耐久任务视野声明(秒,1 ~ 7天);续跑重建的循环落盘时携带,省略 = 非耐久",
     )
+    # 跨进程续跑:仅当崩溃落在"工具执行中"那一轮且存在无法判定的副作用调用时使用。
+    # 409 响应的 blocked[].tool_call_id 是唯一合法键;缺一项则该项继续待确认(再回 409),
+    # 不得默认放行。skip/accept 只写真实标记("崩溃后未执行,结果未知"/"已完成但输出丢失"),
+    # 绝不伪造工具成功结果。
+    resume_confirmations: dict[str, Literal["retry", "skip", "accept", "abort"]] | None = (
+        Field(
+            None,
+            description=(
+                "按 tool_call_id 给出的续跑处置:retry=重新执行 / skip=确认未执行并跳过 / "
+                "accept=确认已完成(输出丢失)/ abort=放弃本次续跑;省略则对无法判定的"
+                "副作用调用返回 HTTP 409 AGENT_RESUME_REQUIRES_CONFIRMATION"
+            ),
+        )
+    )
 
 
 class MemorySearchRequest(BaseModel):
@@ -1590,6 +1608,10 @@ async def execute_agent_stream(
         owned_sessions: list[str] = []
         # V3 #65:登记进 run 控制面(agent_run_control)的会话标识,与上面同生命周期
         registered_sessions: list[str] = []
+        # AIS-005:后台 run 句柄必须在 finally 可见 —— 断线时只有生成器被 aclose,
+        # 不取消 run_task 的话 LLM/工具会在后台继续执行(改文件、发消息、耗额度),
+        # 客户端重连再起一轮即同会话双跑。
+        run_task: asyncio.Task[Any] | None = None
 
         # 断线重连: 先按**三态**判定续传(2026-09-27 修;病灶全文见 core/sse_buffer.py 头注)
         #   hit            ⇒ 锚点在缓冲内,只发其后的事件(与旧行为一致)
@@ -1982,6 +2004,12 @@ async def execute_agent_stream(
             eid = sse_buffer.append(task_id, err_event)
             yield _format_sse(eid, err_event)
         finally:
+            # AIS-005:断开/收尾都必须收敛后台 run。取消后 await 等它真正退出
+            # (return_exceptions 吃掉 CancelledError),避免取消信号滞后到
+            # detach_run 之后还在跑的窗口。
+            if run_task is not None and not run_task.done():
+                run_task.cancel()
+                await asyncio.gather(run_task, return_exceptions=True)
             # G9: 立即清理缓冲区,避免已完成会话的过期事件占内存(TTL 仍兜底重连场景)
             sse_buffer.clear(task_id)
             # V3 #65:解绑控制面里的 loop 引用。paused 记录**故意保留**
@@ -2015,6 +2043,7 @@ async def _resume_run_from_checkpoint(
     permission_mode: str | None = None,
     axis_resolution: "_AxisResolution | None" = None,
     durable_horizon_seconds: int | None = None,
+    resume_confirmations: "Mapping[str, str] | None" = None,
 ) -> "AgentLoopResult":
     """构造与 execute/stream 同参的 AgentLoopV2 并从 checkpoint 续跑(**全仓唯一实现**)。
 
@@ -2026,10 +2055,14 @@ async def _resume_run_from_checkpoint(
         axis_resolution: 79 号票双轴解析结果;None = 调用方未提供 ⇒ 按 config
             profiles 的选中档案接管(冷恢复直调路径),仍无档案 ⇒ None(裁决门
             整段跳过,与接线前逐字节同)。**必须经由本函数传入 `_new_v2_loop`**。
+        resume_confirmations: 崩溃轮"无法判定"调用的处置(见 AgentResumeRequest)。
+            省略 ⇒ 有副作用且判不出时抛 `ResumeBlockedError`,由调用方映射成 409。
 
     Raises:
         ValueError: checkpoint 不存在 / 已过期,由 `resume_from_checkpoint` 抛出;
             调用方各自映射成自己的响应形态(不在此层决定 HTTP 语义)。
+        ResumeBlockedError: 崩溃轮需要人工确认(载荷原样向上,不在此层改写)。
+        UnknownConfirmationError: resume_confirmations 含不在待确认清单内的 id。
     """
     # V3 #47 第二格:角色在此取一次,下面两处(工具装配 + 循环构造)共用同一个值,
     # 不允许各取各的 —— 两次读取之间若身份被改,就会出现"工具按 A 角色装配、
@@ -2062,7 +2095,9 @@ async def _resume_run_from_checkpoint(
         # V3 #84 生产者侧:耐久视野声明透传(省略 = None = 非耐久,零差异)。
         durable_horizon_seconds=durable_horizon_seconds,
     )
-    return await loop.resume_from_checkpoint(checkpoint_id)
+    return await loop.resume_from_checkpoint(
+        checkpoint_id, resume_confirmations=resume_confirmations
+    )
 
 
 def _resume_result_payload(
@@ -2099,6 +2134,11 @@ async def resume_agent_execute(
           checkpoint_id, error, total_iterations, total_duration_ms}}
 
     checkpoint 不存在 / 已过期 → code=404(与 v2 的 ValueError 语义对齐)。
+
+    崩溃落在"工具执行中"那一轮且有副作用调用判不出结果时 → **HTTP 409**
+    `{code:"AGENT_RESUME_REQUIRES_CONFIRMATION", checkpoint_id, iteration, blocked[],
+    allowed_decisions:["retry","skip","accept","abort"]}`;带上 `resume_confirmations`
+    再调一次即可。`resume_confirmations` 里出现本次清单外的 id → HTTP 400。
 
     b76-11(2026-09-30):body 新增 permission_mode?—— 冷恢复重建 runtime 时沿用
     create 的权限面(此前请求档位被静默丢弃,永远回落 env 默认档)。注意本链仍是
@@ -2177,7 +2217,24 @@ async def resume_agent_execute(
             axis_resolution=axis_resolution,
             # V3 #84 生产者侧:耐久视野声明透传(省略 = None = 非耐久,零差异)。
             durable_horizon_seconds=req.durable_horizon_seconds,
+            # 跨进程续跑:崩溃轮"无法判定"调用的处置(省略 ⇒ 需要时回 409)。
+            resume_confirmations=req.resume_confirmations,
         )
+    except ResumeBlockedError as e:
+        # 崩溃轮有副作用调用无法判定(或用户选择 abort):续跑**没有**发生,
+        # checkpoint 仍停在原处。载荷由 semantics 唯一构造,这里只做 HTTP 映射。
+        raise HTTPException(status_code=409, detail=dict(e.payload)) from e
+    except UnknownConfirmationError as e:
+        # ValueError 子类,必须排在 ValueError 之前 —— 否则客户端写错 id 会被
+        # 伪装成 404 "checkpoint 不存在"。
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "errorCode": "AGENT_RESUME_CONFIRMATION_UNKNOWN_ID",
+                "message": str(e),
+                "tool_call_ids": e.tool_call_ids,
+            },
+        ) from e
     except ValueError as e:
         return {
             "code": 404,
@@ -2248,6 +2305,18 @@ class AgentSessionResumeRequest(BaseModel):
         le=int(DURABLE_HORIZON_MAX_SECONDS),
         description="耐久任务视野声明(秒,1 ~ 7天);续跑重建的循环落盘时携带,省略 = 非耐久",
     )
+    # 跨进程续跑:与 AgentResumeRequest 同格,同因 —— 两条 resume 出口共用
+    # `_resume_run_from_checkpoint`,处置面也必须同形。省略 ⇒ 无法判定的副作用调用
+    # 回 409(该会话仍停在暂停点,处置后可以再 resume)。
+    resume_confirmations: dict[str, Literal["retry", "skip", "accept", "abort"]] | None = (
+        Field(
+            None,
+            description=(
+                "按 tool_call_id 给出的续跑处置:retry=重新执行 / skip=确认未执行并跳过 / "
+                "accept=确认已完成(输出丢失)/ abort=放弃本次续跑"
+            ),
+        )
+    )
 
 
 _PAUSE_STATUS_BY_OUTCOME: dict[PauseOutcome, int] = {
@@ -2262,6 +2331,7 @@ _RESUME_STATUS_BY_OUTCOME: dict[ResumeOutcome, int] = {
     ResumeOutcome.NO_CHECKPOINT: 404,
     ResumeOutcome.NOT_PAUSED: 409,
     ResumeOutcome.OWNER_UNVERIFIABLE: 409,
+    ResumeOutcome.NEEDS_CONFIRMATION: 409,
     ResumeOutcome.RESUME_FAILED: 503,
 }
 
@@ -2367,6 +2437,9 @@ async def resume_agent_session(
       403 AGENT_RESUME_FORBIDDEN        会话/检查点属于别人
       404 AGENT_RESUME_NO_CHECKPOINT    没有可续跑的暂停点
       409 AGENT_RESUME_NOT_PAUSED       它正在跑(或最新检查点已不是 paused 态)
+      409 AGENT_RESUME_REQUIRES_CONFIRMATION  崩溃轮有副作用调用判不出结果,载荷为
+                                        blocked[] + allowed_decisions(处置后会话仍暂停,
+                                        带 resume_confirmations 再调本端点即可)
       503 AGENT_RESUME_RESUME_FAILED    存储/循环不可用(含"查不了"不等于"查不到")
     """
 
@@ -2397,6 +2470,8 @@ async def resume_agent_session(
                 axis_resolution=axis_resolution,
                 # V3 #84 生产者侧:耐久视野声明透传(省略 = None = 非耐久,零差异)。
                 durable_horizon_seconds=req.durable_horizon_seconds,
+                # 跨进程续跑:崩溃轮"无法判定"调用的处置(省略 ⇒ 需要时回 409)。
+                resume_confirmations=req.resume_confirmations,
             )
         except ValueError as exc:
             # resume_from_checkpoint 的"这个 checkpoint 没了"在这里是**取用前的竞态失效**
@@ -2406,6 +2481,10 @@ async def resume_agent_session(
         return dict(_resume_result_payload(result, checkpoint.checkpoint_id))
 
     verdict = await resume_session(session_id, current_user, runner=_runner)
+    if verdict.outcome is ResumeOutcome.NEEDS_CONFIRMATION:
+        # 控制面已把 `ResumeBlockedError` 收成结论并保留暂停记录(处置后可再 resume);
+        # 载荷原样交给调用方,不再套一层 errorCode。
+        raise HTTPException(status_code=409, detail=verdict.result)
     if verdict.outcome is not ResumeOutcome.RESUMED:
         raise HTTPException(
             status_code=_RESUME_STATUS_BY_OUTCOME[verdict.outcome],

@@ -37,8 +37,16 @@ import {
   writeFileSync,
 } from 'node:fs'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import { resolveGitBin } from './gitdir.mjs'
+import {
+  GATE_FACE_ENV,
+  assertGateBodyProvenance,
+  declaredFaceFromRegistry,
+  findRepoRoot,
+  parseFaceFromArgv,
+} from './gate-body-provenance.mjs'
 
 export const FACES = ['staged', 'head', 'worktree']
 
@@ -1101,6 +1109,24 @@ function parseZLsFilesTable(out, { unmergedAsNull = true } = {}) {
 }
 
 /**
+ * 单轮只读扫描的面快照:同一进程里 HEAD 树表只物化一次。
+ * 为什么是 opt-in(`IHUI_FACE_TREE_SNAPSHOT=1`):face-reader 的镜像测试会在**同一进程**里
+ * 连续造提交并移动 HEAD,默认缓存会让第二次读拿到上一棵树的 oid。门/尺子这类"一轮一面"
+ * 的短命进程由调用方显式开启 —— 2026-11-07 302p 提速:六把尺各自重复跑 2~7 次全树 ls-tree,
+ * 开启后每把尺只跑 1 次,读数不变(树在轮内是静止的,§0.4 同面同轮)。
+ */
+const headTreeSnapshot = new Map()
+function headTableOf(root, timeout) {
+  if (process.env.IHUI_FACE_TREE_SNAPSHOT !== '1') {
+    return parseZPathOidTable(gitRaw(['ls-tree', '-r', '-z', 'HEAD'], root, { timeout }))
+  }
+  if (!headTreeSnapshot.has(root)) {
+    headTreeSnapshot.set(root, parseZPathOidTable(gitRaw(['ls-tree', '-r', '-z', 'HEAD'], root, { timeout })))
+  }
+  return headTreeSnapshot.get(root)
+}
+
+/**
  * 把一批 rev 规格解析成 oid。返回 `Map<spec, oid|null>`(null = 被审面上不存在)。
  * 无法离线解析的形态原样映射到自身,由 cat-file 自己去解释。
  */
@@ -1135,8 +1161,7 @@ export function resolveSpecOids(root, specs, opts = {}) {
   const timeout = opts.timeout ?? BATCH_TIMEOUT
   try {
     if (headPaths.length) {
-      const out = gitRaw(['ls-tree', '-r', '-z', 'HEAD'], root, { timeout })
-      const table = parseZPathOidTable(out)
+      const table = headTableOf(root, timeout)
       for (const [spec, rel] of headPaths) result.set(spec, table.has(rel) ? table.get(rel) : null)
     }
     if (indexPaths.length) {
@@ -1446,9 +1471,60 @@ export function selectFace({ staged, worktree, def = 'head' }) {
   if (staged && worktree) {
     return { face: null, error: '--staged 与 --worktree 不得同用(两个判定面互斥)' }
   }
+  const face = staged ? 'staged' : worktree ? 'worktree' : def
+  // 2026-11-08:门在判定**之前**先自检"正在执行的这份门体 == 被判修订里那一份"。
+  // 这是直跑单门(`node scripts/check-x.mjs`)的唯一入口 —— 不走 selectFace 的门由派发层
+  // (guardian-executor / gate-worker)兜住。不同代 ⇒ exit 2,绝不以 0/1 作答。
+  enforceGateBodyForFace(face)
   if (staged) return { face: 'staged', error: null }
   if (worktree) return { face: 'worktree', error: null }
   return { face: def, error: null }
+}
+
+let gateBodyChecked = null
+
+function enforceGateBodyForFace(face) {
+  if (gateBodyChecked) return
+  const entry = process.argv[1]
+  // 只对门脚本(self-run)生效;测试/工具/被 import 的 lib 一律不拦。
+  if (!entry || !/[\\/]scripts[\\/]check-[^\\/]+\.mjs$/i.test(entry)) return
+  if (/[\\/]scripts[\\/](tests|lib)[\\/]/i.test(entry)) return
+  if (!face) return
+  let root
+  let selfRoot
+  try {
+    root = findRepoRoot(entry)
+    selfRoot = findRepoRoot(fileURLToPath(import.meta.url))
+  } catch {
+    return
+  }
+  // 只判"执行门体所在仓库"的判面;夹具/异仓(门拿 --root 去判别的树)不适用本层。
+  if (!root || !selfRoot || path.resolve(root) !== path.resolve(selfRoot)) return
+  const entryRel = path.relative(root, path.resolve(entry)).replace(/\\/g, '/')
+  // 本层管的是"门在哪个面上作答",而"门"的定义就是声明表里在册的那 321 道。
+  // scripts/check-*.mjs 里还有一批**不是门**的尺子(如被门 302p spawn 的
+  // check-web-rn-style-tiers.mjs):它们不为判面负责、也没有声明义务,只要没给显式判面旗,
+  // 就照原样走自己的缺省面 —— 否则"子尺被另一道门按缺省面调用"会被读成门体事故。
+  // 在册门一律有声明(实测 321 注册 = 321 声明),所以这条不会给在册门开口子。
+  if (!declaredFaceFromRegistry(root, entryRel) && !parseFaceFromArgv(process.argv.slice(2))) {
+    if (!process.env[GATE_FACE_ENV]) return
+  }
+  try {
+    const result = assertGateBodyProvenance({
+      root,
+      entryRel,
+      argv: process.argv.slice(2),
+      env: process.env,
+    })
+    gateBodyChecked = result
+    if (result.escaped && result.note) process.stderr.write(`[gate-body] ${result.note}\n`)
+  } catch (e) {
+    if (e?.exitCode === 2) {
+      process.stderr.write(`${e.message}\n`)
+      process.exit(2)
+    }
+    throw e
+  }
 }
 
 /**

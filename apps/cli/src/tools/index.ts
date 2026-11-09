@@ -43,7 +43,15 @@ import {
 } from './argument-validation-telemetry.js';
 import { formatValidationErrorsLine, resolveSchemaOrThrow, validateToolArguments } from './argument-validator.js';
 // G-916424:确认窗的 permissionRequest 钩子应答出口(deny/allow/ask/modify 四形状)。
-import { runPermissionRequest } from '../hooks/index.js';
+import {
+  runHook,
+  runPermissionRequest,
+  surfaceHookOutcome,
+  runPreToolCall,
+  runPostToolCall,
+  runWithToolHookScope,
+  shouldDispatchCentralPostHook,
+} from '../hooks/index.js';
 import { noteDangerousApproval } from './danger-gate.js';
 import { recordApprovedInvocation } from './permission-lease.js';
 import { leaseWorkspaceIdOf } from '../utils/permission-lease-flag.js';
@@ -1751,14 +1759,107 @@ async function executeToolCallInner(
 }
 
 /**
+ * 工具失败档的统一派发口(postToolUseFailure):工具**执行抛错**与返回失败结果两种情况
+ * 都走这里,载荷带工具名与错误文本。hook 自身抛错由 runHook 内部兜底;本函数不再造第二层
+ * 异常 —— 抛错路径的原始错误必须原样上抛(见 executeToolCall 的 catch)。
+ */
+async function firePostToolUseFailure(
+  call: ParsedToolCall,
+  ctx: ToolContext,
+  errorText: string,
+): Promise<void> {
+  const res = await runHook('postToolUseFailure', {
+    workspacePath: ctx.workspacePath,
+    toolName: call.name,
+    error: errorText,
+  });
+  surfaceHookOutcome('postToolUseFailure', res);
+}
+
+/**
+ * 工具终态的两档事后钩子 —— **互斥且只发一次**:
+ *  - 拒绝类(结果带 denial)⇒ permissionDenied(事后通知,不改判定);
+ *  - 其余非成功结果 ⇒ postToolUseFailure;
+ *  - 成功结果两条都不发。
+ * 位置在 assembleToolResultProjections 之后:钩子看到的是最终投影,而不是中间态。
+ * 钩子链的任何故障都不许改写本次 ToolResult(返回值逐字不变)。
+ */
+async function fireToolOutcomeHooks(
+  call: ParsedToolCall,
+  ctx: ToolContext,
+  result: ToolResult,
+): Promise<void> {
+  if (result.denial) {
+    const res = await runHook('permissionDenied', {
+      workspacePath: ctx.workspacePath,
+      toolName: call.name,
+      reason: result.denial.decider,
+      error: result.error,
+    });
+    surfaceHookOutcome('permissionDenied', res);
+    return;
+  }
+  if (!result.success) {
+    await firePostToolUseFailure(call, ctx, result.error ?? 'unknown error');
+  }
+}
+
+/**
  * G-109 终态出口:全部 return 分支(hub / 本地 / 各道拒绝闸)共用同一个装配点,
  * 保证"三条投影一次写齐"不靠每条分支自觉。装配内部不改早退判定的任何字段。
+ *
+ * 2026-11-06 追加两档事后钩子:拒绝类(permissionDenied)与失败类(postToolUseFailure)
+ * 只在这一个出口派发,不散落进各条早退分支(否则"拒绝"与"失败"会被不同分支各报一次)。
+ * 抛错路径先补一条 postToolUseFailure,**然后原样 rethrow** —— 钩子侧故障不得吞掉
+ * 或替换原始错误(那是把失败路径自身变成异常源)。
  */
 export async function executeToolCall(
   call: ParsedToolCall,
   ctx: ToolContext,
 ): Promise<ToolResult> {
-  return assembleToolResultProjections(await executeToolCallInner(call, ctx));
+  return runWithToolHookScope(async () => {
+    // F-097 中央 preToolCall 闸:所有工具(含 read/list/grep/glob/skill/MCP/subagent)
+    // 都从这里统一过一遍;工具体内已自己接线的第二次调用由 scope 折成"已派发空结果",
+    // 不重复跑钩子(避免同一调用两次审计/两次拦截)。
+    const pre = await runPreToolCall(call.name, call.arguments, ctx.signal);
+    if (!pre.proceed) {
+      return {
+        success: false,
+        output: '',
+        error: pre.reason ?? `preToolCall 钩子阻断 ${call.name}`,
+        errorType: 'permission_denied',
+      };
+    }
+    let result: ToolResult;
+    try {
+      result = assembleToolResultProjections(await executeToolCallInner(call, ctx));
+    } catch (error) {
+      try {
+        await firePostToolUseFailure(call, ctx, error instanceof Error ? error.message : String(error));
+      } catch {
+        // 钩子链故障不得替换原始错误;原始错误在下一行照常上抛。
+      }
+      throw error;
+    }
+    try {
+      await fireToolOutcomeHooks(call, ctx, result);
+    } catch {
+      // 钩子链故障不得改写成败/成功,也不得把结果路径变成第二异常源:结果原样返回。
+    }
+    // F-097 中央 postToolCall 闸:工具体内没有任何 post 派发时才补一次标准载荷。
+    if (shouldDispatchCentralPostHook()) {
+      try {
+        await runPostToolCall(
+          call.name,
+          { success: result.success, output: result.output, error: result.error },
+          ctx.signal,
+        );
+      } catch {
+        // 同 fireToolOutcomeHooks:钩子故障不改结果。
+      }
+    }
+    return result;
+  });
 }
 
 /**

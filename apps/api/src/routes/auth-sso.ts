@@ -397,29 +397,16 @@ export const authSsoRoutes: FastifyPluginAsync = async (server) => {
           }
           return reply.code(401).send(error(401, 'refresh_token 无效或已被吊销'))
         }
-        if (replay.verdict === 'stale-sibling') {
-          // 超出宽限期但这一族还有活 token:迟到的是陈旧副本 ⇒ 2026-10-27 起放行正常轮转
-          // (与 /auth/refresh 同尺)。此前这里 401,把「凭据在、族也活着」的调用方永久锁死;
-          // 族还活着即会话未死,真正的攻击面由 reuse 覆盖。留 warn 便于观测旧副本频率。
-          request.log.warn(
-            {
-              familyId: payload.familyId,
-              userId: payload.userId,
-              revokedAgeMs: replay.revokedAgeMs,
-            },
-            '[sso] stale refresh token replay recovered by rotation (family still alive)',
-          )
-        } else {
-          // race:宽限期内竞态放行(记 info 便于观测),不吊销家族,继续下方正常轮转
-          request.log.info(
-            {
-              familyId: payload.familyId,
-              userId: payload.userId,
-              revokedAgeMs: replay.revokedAgeMs,
-            },
-            '[sso] refresh token replay within leeway, treated as multi-context race',
-          )
-        }
+        // F-268:超出宽限期一律按 reuse 拒绝并吊销整族,不再有 stale-sibling 放行档。
+        // race:宽限期内竞态放行(记 info 便于观测),不吊销家族,继续下方正常轮转。
+        request.log.info(
+          {
+            familyId: payload.familyId,
+            userId: payload.userId,
+            revokedAgeMs: replay.revokedAgeMs,
+          },
+          '[sso] refresh token replay within leeway, treated as multi-context race',
+        )
       }
 
       // 3. 确认用户仍然存在且启用

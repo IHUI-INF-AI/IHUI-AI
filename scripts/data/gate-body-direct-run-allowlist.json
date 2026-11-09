@@ -1,0 +1,287 @@
+{
+  "$comment": "门体同代自检的「直跑面存量债」台账:只登记未 import 判面层的注册门。只许缩短:新增门必须 import 判面层(否则 check-gate-body-direct-run-coverage 判红);某门迁移后必须删掉对应条目(留着会被判「清单腐烂」)。why 与 reviewBy 沿用 immutable-guard 台账习惯。",
+  "entries": [
+    {
+      "path": "scripts/check-adapter-style-parity.mjs",
+      "kind": "direct-run-uncovered",
+      "why": "直跑面无判面声明:本门按工作树文件取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:check-adapter-style-parity.mjs — miniapp-taro adapter 层硬编码颜色守门(2026-09-03 立)。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-adapter-wiring.mjs",
+      "kind": "direct-run-uncovered",
+      "why": "直跑面无判面声明:本门按工作树文件取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:check-adapter-wiring.mjs — miniapp-taro 适配层「未接线即拦」守门(2026-09-22 立,P2-F.5 配套)。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-artifact-budget.mjs",
+      "kind": "direct-run-uncovered",
+      "why": "直跑面无判面声明:本门按工作树文件取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:守门:产物预算门 A8(2026-09-25 立,规格 .ihui-agent/tmp/zcode-absorb/MECHANISM-SPEC-3.md §1)",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-brand-email-channel.mjs",
+      "kind": "direct-run-uncovered",
+      "why": "直跑面无判面声明:本门按工作树文件/外部命令/git 读数取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:scripts/check-brand-email-channel.mjs",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-c-drive-pollution.mjs",
+      "kind": "direct-run-uncovered",
+      "why": "直跑面无判面声明:本门按工作树文件/外部命令取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:C 盘污染实地扫描(编号以 runner 里本 script 所在条目为准,文档不写死)。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-cli-i18n-parity.mjs",
+      "kind": "direct-run-uncovered",
+      "why": "直跑面无判面声明:本门按工作树文件取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:check-cli-i18n-parity.mjs - Guard: verify packages/i18n/messages/cli/*.json",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-config-table-existence.mjs",
+      "kind": "direct-run-uncovered",
+      "why": "直跑面无判面声明:本门按工作树文件取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:O20d 守门:配置表名存在性机械门(check-config-table-existence.mjs)",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-cross-end-spec-coverage.mjs",
+      "kind": "direct-run-uncovered",
+      "why": "直跑面无判面声明:本门按工作树文件取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:跨端 spec 覆盖率守门 + 棘轮(阶段1/2 自动化执行半边)—— 扫描共享视觉原子,报告哪些已下沉 spec 且被 web/RN 双端消费。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-db-schema-drift.mjs",
+      "kind": "direct-run-uncovered",
+      "why": "直跑面无判面声明:本门按工作树文件取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:packages/database schema drift 检测脚本。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-dev-db-rotation-window.mjs",
+      "kind": "direct-run-uncovered",
+      "why": "直跑面无判面声明:本门按工作树文件/外部命令取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:check-dev-db-rotation-window.mjs — 本机 dev 库口令轮换的**窗口判定器**(票 O69,2026-11-01)。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-diagnostic-redaction.mjs",
+      "kind": "direct-run-uncovered",
+      "why": "直跑面无判面声明:本门按工作树文件取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:check-diagnostic-redaction — 子代理 stderr/stdout 诊断尾巴脱敏守门(G-998115 并入 T1,b76-08)。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-dist-encoding.mjs",
+      "kind": "direct-run-uncovered",
+      "why": "直跑面无判面声明:本门按工作树文件取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:packages/* + apps/* dist 文件 UTF-8 BOM 守门脚本(2026-07-19 立,2026-07-20 扩展 apps)",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-error-message-bounded.mjs",
+      "kind": "direct-run-uncovered",
+      "why": "直跑面无判面声明:本门按工作树文件取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:G-998147 守门(b76-12b):进持久记录的错误文案必须\"只描述形状\",上限度量按 UTF-8 字节。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-home-junctions.mjs",
+      "kind": "direct-run-uncovered",
+      "why": "直跑面无判面声明:本门按工作树文件/外部命令取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:AGENTS.md §26「家目录工具态一律 junction 改道」的完整性守门(2026-09-24 立)。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-i18n-broken-en.mjs",
+      "kind": "direct-run-uncovered",
+      "why": "直跑面无判面声明:本门按工作树文件/外部命令取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:检测 en.json 中的破碎机翻英文（pre-commit 第 2e 项守门）。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-i18n-cross-end-wording.mjs",
+      "kind": "direct-run-uncovered",
+      "why": "直跑面无判面声明:本门按工作树文件/外部命令取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:check-i18n-cross-end-wording.mjs —— 跨端同名键文案漂移的**裁定对账尺**。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-icu-locale-support.mjs",
+      "kind": "direct-run-uncovered",
+      "why": "直跑面无判面声明:本门按工作树文件取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:为什么需要:next-intl 只挂在 apps/web,其余端走 @ihui/i18n 的 ICU 子集解释器,",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-installer-assets.mjs",
+      "kind": "direct-run-uncovered",
+      "why": "直跑面无判面声明:本门按工作树文件取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:安装器品牌资产「引用 ↔ 打包 ↔ 落盘」三方对账守门(blocking)",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-lint-staged-stdio-pin.mjs",
+      "kind": "direct-run-uncovered",
+      "why": "直跑面无判面声明:本门按工作树文件/外部命令取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:check-lint-staged-stdio-pin — lint-staged stdio 三针的只读盯针门(2026-10-27 立，票「lint-staged stdio ",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-list-cap-honesty.mjs",
+      "kind": "direct-run-uncovered",
+      "why": "直跑面无判面声明:本门按工作树文件取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:守门:b76-13 票3「消费者绝不施加界 —— 有界表归生产者,且淘汰必须说出来 + 继续可数」。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-llm-provider-schema.mjs",
+      "kind": "direct-run-uncovered",
+      "why": "直跑面无判面声明:本门按工作树文件取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:check-llm-provider-schema.mjs — LLM provider 字典化阶段 3 前置守门",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-mass-deletion.mjs",
+      "kind": "direct-run-uncovered",
+      "why": "直跑面无判面声明:本门按外部命令取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:check-mass-deletion.mjs —— 整树删除事故的结构化拦截(pre-commit blocking,守门 id 65)",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-migration-ledger-drift.mjs",
+      "kind": "direct-run-uncovered",
+      "why": "直跑面无判面声明:本门按工作树文件取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:O20e 守门:迁移账本带外对象防回潮(check-migration-ledger-drift.mjs)",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-nested-additional-properties.mjs",
+      "kind": "direct-run-uncovered",
+      "why": "直跑面无判面声明:本门按工作树文件取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:b76-14 票1(G-998176)常驻门:工具入参的闭合声明与校验必须递归到每一层。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-no-conflict-markers.mjs",
+      "kind": "direct-run-uncovered",
+      "why": "直跑面无判面声明:本门按工作树文件/外部命令/git 读数取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:scripts/check-no-conflict-markers.mjs",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-overlay-zindex.mjs",
+      "kind": "direct-run-uncovered",
+      "why": "直跑面无判面声明:本门按工作树文件取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:check-overlay-zindex.mjs — 全屏遮罩 z-index 层级守门",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-parent-pollution.mjs",
+      "kind": "direct-run-uncovered",
+      "why": "直跑面无判面声明:本门按工作树文件取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:check-parent-pollution.mjs — 项目父目录污染巡查(运行时项目外文件创建禁令)",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-process-exit-attribution.mjs",
+      "kind": "direct-run-uncovered",
+      "why": "直跑面无判面声明:本门按工作树文件/外部命令取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:check-process-exit-attribution — 子进程退出归因三态守门(G-998115,b76-08a)。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-project-plan-size.mjs",
+      "kind": "direct-run-uncovered",
+      "why": "直跑面无判面声明:本门按工作树文件取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:PROJECT_PLAN.md 长度守门脚本(warn-only,2026-07-23 用户规则解除阻塞)。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-safe-parse.mjs",
+      "kind": "direct-run-uncovered",
+      "why": "直跑面无判面声明:本门按工作树文件取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:Fastify 路由 safeParse 反模式巡检。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-scratch-root-no-nesting.mjs",
+      "kind": "direct-run-uncovered",
+      "why": "直跑面无判面声明:本门按工作树文件取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:只读告警(G-286 票面点名的「判据缺位」):",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-service-binary-paths.mjs",
+      "kind": "direct-run-uncovered",
+      "why": "直跑面无判面声明:本门按工作树文件/外部命令取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:Windows 服务二进制路径烂掉量算器(票 G-302;只读:不创建/修改/启停任何服务、不写注册表)。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-sse-frame-watermark.mjs",
+      "kind": "direct-run-uncovered",
+      "why": "直跑面无判面声明:本门按工作树文件取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:守门:b76-13 票1「帧水位与纪元(logEpoch + (fromSeq,toSeq] + gap 判据)」。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-staged-typecheck-mirror-sync.mjs",
+      "kind": "direct-run-uncovered",
+      "why": "直跑面无判面声明:本门按工作树文件/外部命令取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:check-staged-typecheck-mirror-sync.mjs — 源/测 export 锚点回归测试",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-stale-stashes.mjs",
+      "kind": "direct-run-uncovered",
+      "why": "直跑面无判面声明:本门按外部命令取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:check-stale-stashes.mjs — Stash 滞留源码改动守门(AGENTS.md §12d 配套)",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-statusbar-single-source.mjs",
+      "kind": "direct-run-uncovered",
+      "why": "直跑面无判面声明:本门按工作树文件/外部命令取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:顶部状态栏避让单一源头对账(blocking)",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-tagsview-visual.mjs",
+      "kind": "direct-run-uncovered",
+      "why": "直跑面无判面声明:本门按工作树文件取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:check-tagsview-visual.mjs — 选中态描边定稿守门(防回退,2026-08-17 立,2026-08-18 扩全站)",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-tool-schema-projection.mjs",
+      "kind": "direct-run-uncovered",
+      "why": "直跑面无判面声明:本门按工作树文件取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:check-tool-schema-projection.mjs —— 投影完整性守门(b76-05 票2,2026-09-30 立)。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-upload-budget.mjs",
+      "kind": "direct-run-uncovered",
+      "why": "直跑面无判面声明:本门按工作树文件取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:分片上传聚合预算棘轮门(2026-09-30,票 b76-12c-3)。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-verify-tmp-files.mjs",
+      "kind": "direct-run-uncovered",
+      "why": "直跑面无判面声明:本门按工作树文件取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:check-verify-tmp-files.mjs — 一次性验证/探针脚本落点守门(AGENTS.md §25 配套)",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-watermark-syntax.mjs",
+      "kind": "direct-run-uncovered",
+      "why": "直跑面无判面声明:本门按工作树文件/外部命令取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:check-watermark-syntax.mjs — 溯源水印语法门禁(2026-09-03 P1 落地 / 2026-09-24 判据缺陷修复)",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-workflow-step-order.mjs",
+      "kind": "direct-run-uncovered",
+      "why": "直跑面无判面声明:本门按工作树文件取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:GitHub Actions 步骤顺序 + 权限声明守门(blocking)",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-zh-term-quality.mjs",
+      "kind": "direct-run-uncovered",
+      "why": "直跑面无判面声明:本门按工作树文件取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:中文 UI 术语机翻残留守门(PROJECT_PLAN.md D104 / H29)",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/desktop-nsis-template.mjs",
+      "kind": "direct-run-uncovered",
+      "why": "直跑面无判面声明:本门按工作树文件取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:桌面端 NSIS 安装器模板:生成 / 漂移校验。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/fix-package-exports-conditions.mjs",
+      "kind": "direct-run-uncovered",
+      "why": "直跑面无判面声明:本门按工作树文件取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:fix-package-exports-conditions.mjs —— workspace 包 `exports` 条件真值对账/修复器。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/gen-knip-taro-entries.mjs",
+      "kind": "direct-run-uncovered",
+      "why": "直跑面无判面声明:本门按工作树文件取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:gen-knip-taro-entries.mjs — 从 Taro 的 app.config.ts 派生 knip 的 entry 清单",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/gen-tool-name-sets.mjs",
+      "kind": "direct-run-uncovered",
+      "why": "直跑面无判面声明:本门按工作树文件取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:gen-tool-name-sets.mjs —— 工具名单「单一真相源 → Python 可读生成物」的唯一出口。",
+      "reviewBy": "2027-06-30"
+    }
+  ]
+}

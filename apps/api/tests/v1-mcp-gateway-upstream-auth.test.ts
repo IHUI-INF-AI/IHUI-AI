@@ -26,7 +26,8 @@ const state = vi.hoisted(() => ({
     allowedModels: null as string[] | null,
   } as Record<string, unknown> | null,
   signFails: false,
-  captured: [] as Array<{ url: string; headers: Record<string, string> }>,
+  fetchMode: 'ok' as 'ok' | 'timeout' | 'neterr',
+  captured: [] as Array<{ url: string; headers: Record<string, string>; signal?: AbortSignal | null }>,
 }))
 
 vi.mock('@ihui/auth', () => ({
@@ -67,12 +68,20 @@ beforeEach(async () => {
     allowedModels: null,
   }
   state.signFails = false
+  state.fetchMode = 'ok'
   state.captured = []
   globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
     state.captured.push({
       url: String(input),
       headers: (init?.headers ?? {}) as Record<string, string>,
+      signal: init?.signal,
     })
+    if (state.fetchMode === 'timeout') {
+      const err = new Error('The operation was aborted due to timeout')
+      err.name = 'TimeoutError'
+      throw err
+    }
+    if (state.fetchMode === 'neterr') throw new TypeError('fetch failed')
     return new Response(JSON.stringify({ tools: [], count: 0 }), {
       status: 200,
       headers: { 'content-type': 'application/json' },
@@ -148,6 +157,38 @@ describe('另外两个转发端点同样带前缀与凭据', () => {
       `${config.AI_SERVICE_URL}/api/mcp/resources/${encodeURIComponent('ihui://docs/a')}`,
     )
     expect(state.captured[0]?.headers.Authorization).toBe('Bearer test-internal-jwt')
+  })
+})
+
+describe('F-49 转发 fetch 必须有 deadline,且超时与不可用区分', () => {
+  it('转发时带 AbortSignal(无 deadline 时上游半开会永久挂起)', async () => {
+    await app.inject({ method: 'GET', url: '/v1/mcp/tools' })
+    const signal = state.captured[0]?.signal
+    expect(signal).toBeInstanceOf(AbortSignal)
+    expect(signal?.aborted).toBe(false)
+  })
+
+  it('上游超时 → 504 + 504(不是被吞成 503 的「不可用」)', async () => {
+    state.fetchMode = 'timeout'
+    const res = await app.inject({ method: 'GET', url: '/v1/mcp/tools' })
+    expect(res.statusCode).toBe(504)
+    expect(res.json()).toMatchObject({ code: 504 })
+    expect((res.json() as { message: string }).message).toContain('超时')
+  })
+
+  it('网络错误 → 仍是 503 + 5015(两类失败不混为一谈)', async () => {
+    state.fetchMode = 'neterr'
+    const res = await app.inject({ method: 'GET', url: '/v1/mcp/tools' })
+    expect(res.statusCode).toBe(503)
+    expect(res.json()).toMatchObject({ code: 5015 })
+  })
+
+  it('上游 5xx → 502 网关错误(路径不变)', async () => {
+    globalThis.fetch = (async () =>
+      new Response('boom', { status: 500 })) as unknown as typeof fetch
+    const res = await app.inject({ method: 'GET', url: '/v1/mcp/tools' })
+    expect(res.statusCode).toBe(502)
+    expect(res.json()).toMatchObject({ code: 502 })
   })
 })
 

@@ -48,8 +48,11 @@ jobs:
           node-version: 22
           cache: pnpm
 
-      - name: 安装依赖
-        run: pnpm install --frozen-lockfile
+      - name: 公共取材面(依赖 + packages 构建 + python/uv)
+        # 与 guardian-full 腿共用同一份,禁止在此处另行拼装:此前本腿只 install 依赖,
+        # 缺 packages dist 与 uv 执行器 ⇒ 门 4/98/254 在两条全量腿上结论不同。
+        # 判据:scripts/check-workflow-step-order.mjs 的 [full-prep] 维。
+        uses: ./.github/actions/gate-prep
 
       - name: 全仓面守门(331 门)
         # 确切命令口径 —— 逐条对过 scripts/guardian-runner.mjs:7288-7328 与 scripts/lib/gate-scope.mjs:
@@ -62,10 +65,12 @@ jobs:
         #   · **不传 --push-gate**:跑 checks 注册表(全仓面),而不是 push 的 4 门集。
         #   · 显式 IHUI_GATE_FAST=0:快档只在 ==='1' 时开(guardian-executor.mjs:147),
         #     这里置 0 防继承。这不是逃生舱,恰好相反 —— 它是"不许降级成快档"的承诺。
-        #   · --timing:runner **没有** --json / --out 参数(CLI 只认 --staged / --timing /
-        #     --push-gate / --help),逐门机读结果只能走 --timing 的旁路,
+        #   · --timing:runner **没有** --json / --out 参数(CLI 只认 --staged / --full-face /
+        #     --timing / --push-gate / --help),逐门机读结果只能走 --timing 的旁路,
         #     落 .ihui-agent/tmp/guardian-timing.json(见 guardian-executor.mjs:67-84)。
         #     故本单如实按"JSON + 文本日志"双留存,不假装有 runner 级 JSON 输出。
+        #   · --full-face(2026-11-09 必传):水印门 47 在无面旗时按「未判定」exit 2;
+        #     本 job 的语义就是显式整面检查,必须把面旗传给声明了 fullFaceArgs 的门。
         env:
           IHUI_GATE_FAST: '0'
         shell: bash
@@ -74,9 +79,10 @@ jobs:
           set -o pipefail
           # 干净 checkout 没有 .ihui-agent/tmp;不建目录,exit 钩子的 timing JSON 会静默落不了盘。
           mkdir -p .ihui-agent/tmp
-          node scripts/guardian-runner.mjs --timing 2>&1 | tee .ihui-agent/tmp/gates-full.log
+          node scripts/guardian-runner.mjs --full-face --timing 2>&1 | tee .ihui-agent/tmp/gates-full.log
         # 失败即 job 失败。**没有** continue-on-error,也不做任何降级:
-        #   · exit 1 = 有 blocking 门判红(或门崩溃 / 被 GUARDIAN_GATE_TIMEOUT_MS=300s 看门狗杀);
+        #   · exit 1 = 有 blocking 门判红(或门崩溃 / 被按门预算看门狗杀:预算登记在
+        #     scripts/data/land-gate-budgets.json,执行器与落地复跑共用这一处);
         #   · exit 2 = §0.3「未判定」(取不到输入,不记绿也不冒红;guardian-executor.mjs:924-943);
         #   两者都是非零 ⇒ 本 step 红 ⇒ job 红。禁止用 HUSKY_SKIP_* / continue-on-error 洗掉。
 

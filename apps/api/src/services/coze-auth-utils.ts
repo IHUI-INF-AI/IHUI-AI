@@ -26,10 +26,49 @@ const TOKEN_TTL = 86399 // 24h - 1s, 与 Coze JWT 流程一致
 const DEFAULT_COZE_API_BASE = 'https://api.coze.cn'
 const DEFAULT_COZE_AUD = 'https://api.coze.cn'
 
-/** 内存缓存: { token, expireTime } */
-const tokenCache: { token: string | null; expireTime: number } = {
-  token: null,
-  expireTime: 0,
+/** 缓存分槽上限:每个 (clientId, userUuid, scope) 一套 token,防止无界增长。 */
+const MAX_CACHED_TOKENS = 200
+
+interface CachedToken {
+  token: string
+  expireTime: number
+}
+
+/**
+ * 内存缓存(F-270):**按 `clientId|userUuid|scope` 分槽**,不是全局单槽。
+ *
+ * access_token 是按 JWT 里的 `session_name=userUuid`(以及申请 scope)签发的,
+ * 把它放在一个模块级单槽里意味着"A 的 token 会被当 B 的返回"—— 越权/身份错配,
+ * 而响应上完全同形。分槽后每个主体各自命中自己的缓存。
+ */
+const tokenCache = new Map<string, CachedToken>()
+
+function cacheKeyOf(clientId: string, userUuid: string | null, scope: string | null): string {
+  // `app` 占位符与真实 userUuid 不会撞:uuid 不含该字面形态且段间有 `|` 分隔。
+  return `${clientId}|${userUuid ?? 'app'}|${scope ?? ''}`
+}
+
+function readCachedToken(key: string, now: number): string | null {
+  const hit = tokenCache.get(key)
+  if (!hit) return null
+  if (hit.expireTime <= now) {
+    tokenCache.delete(key)
+    return null
+  }
+  // 命中后重插:Map 迭代序即淘汰序,让最近使用的槽排到队尾。
+  tokenCache.delete(key)
+  tokenCache.set(key, hit)
+  return hit.token
+}
+
+function writeCachedToken(key: string, token: string, expireTime: number): void {
+  tokenCache.delete(key)
+  tokenCache.set(key, { token, expireTime })
+  while (tokenCache.size > MAX_CACHED_TOKENS) {
+    const oldest = tokenCache.keys().next().value
+    if (oldest === undefined) break
+    tokenCache.delete(oldest)
+  }
 }
 
 export interface CozeOAuthConfig {
@@ -100,20 +139,30 @@ export async function getCozeAccessToken(
     userUuid?: string | null
     privateKey?: string | null
     forceRefresh?: boolean
+    /** 申请的最小权限范围;参与缓存分槽 —— 不同 scope 不得复用同一 token。 */
+    scope?: string | null
   } = {},
 ): Promise<string | null> {
-  const { userUuid = null, privateKey: pkOverride = null, forceRefresh = false } = options
+  const {
+    userUuid = null,
+    privateKey: pkOverride = null,
+    forceRefresh = false,
+    scope = null,
+  } = options
   try {
     const now = Math.floor(Date.now() / 1000)
-    if (!forceRefresh && tokenCache.token && tokenCache.expireTime > now) {
-      return tokenCache.token
-    }
 
     const clientId = env.COZE_OAUTH_APP_ID
     const publicKeyId = env.COZE_PUBLIC_KEY_ID
     const privateKey = pkOverride ?? getPrivateKey()
     if (!clientId || !publicKeyId || !privateKey) {
       throw new Error('JWT 配置不完整 (COZE_OAUTH_APP_ID/COZE_PUBLIC_KEY_ID/COZE_PRIVATE_KEY)')
+    }
+
+    const cacheKey = cacheKeyOf(clientId, userUuid, scope)
+    if (!forceRefresh) {
+      const cached = readCachedToken(cacheKey, now)
+      if (cached) return cached
     }
 
     const jwtToken = await buildJwtToken(userUuid, privateKey)
@@ -134,12 +183,16 @@ export async function getCozeAccessToken(
     if (!resp.ok) {
       throw new Error(`Coze 授权接口 HTTP ${resp.status}`)
     }
-    const result = (await resp.json()) as { access_token?: string }
+    const result = (await resp.json()) as { access_token?: string; expires_in?: number }
     if (!result.access_token) {
       throw new Error('Coze 授权响应缺少 access_token')
     }
-    tokenCache.token = result.access_token
-    tokenCache.expireTime = now + TOKEN_TTL
+    // 用真实 TTL;响应没给才退回默认值 —— 固定 24h 会在上游提前吊销时继续回放过期 token。
+    const expiresIn =
+      typeof result.expires_in === 'number' && result.expires_in > 0
+        ? result.expires_in
+        : TOKEN_TTL
+    writeCachedToken(cacheKey, result.access_token, now + expiresIn)
     return result.access_token
   } catch (e) {
     console.error(
@@ -152,7 +205,6 @@ export async function getCozeAccessToken(
 
 /** 清除内存中的 token 缓存（供强制刷新或测试使用） */
 export function clearTokenCache(): void {
-  tokenCache.token = null
-  tokenCache.expireTime = 0
+  tokenCache.clear()
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

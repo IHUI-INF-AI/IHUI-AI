@@ -105,6 +105,7 @@ const refreshBodySchema = z.object({
   client_id: z.string().optional(),
   client_secret: z.string().optional(),
   user_uuid: z.string().nullable().optional(),
+  scope: z.string().optional(),
   base_url: baseUrlField,
 })
 
@@ -201,6 +202,7 @@ export const cozeOauthRoutes: FastifyPluginAsync = async (server) => {
         const accessToken = await getCozeAccessToken({
           userUuid: b.user_uuid,
           forceRefresh: b.force_refresh,
+          scope: b.scope ?? null,
         })
         if (!accessToken) return reply.status(500).send(error(500, '获取 JWT access_token 失败'))
         return reply.send(
@@ -262,6 +264,7 @@ export const cozeOauthRoutes: FastifyPluginAsync = async (server) => {
         const accessToken = await getCozeAccessToken({
           userUuid: b.user_uuid,
           forceRefresh: true,
+          scope: b.scope ?? null,
         })
         if (!accessToken) return reply.status(500).send(error(500, '刷新 JWT access_token 失败'))
         return reply.send(

@@ -1183,6 +1183,9 @@ const checks = [
     label: '💧 溯源水印覆盖守门(自愈式: 缺失/损坏自动补齐并回暂存区)',
     script: 'check-watermark-coverage.mjs',
     args: [],
+    // 显式全量面档(post-commit 补跑/显式整面检查):47 的门没有"隐式面"了,
+    // 由 runner --full-face 下发该面旗;不声明 fullFaceArgs 的门不受影响。
+    fullFaceArgs: ['--full-face'],
     mode: 'blocking',
     stagedTriggers: ["**/*"],
     onFailHint: [
@@ -3502,6 +3505,8 @@ const checks = [
       'apps/miniapp-taro/config/',
       'packages/app/src/',
       'apps/mobile-rn/src/',
+      // 2026-11-06:C9 判的就是这份编译期契约派生件;它自己变了却不触发 = 门在而判不到。
+      'apps/miniapp-taro/types/',
       'scripts/gen-rn-compat.mjs',
       'scripts/check-rn-compat-coverage.mjs',
     ],
@@ -4544,7 +4549,7 @@ const checks = [
     stagedTriggers: ['**/*'],
     onFailHint: [
       '',
-      '刷新块: node scripts/gen-doc-numbers.mjs --markdown 替换 README 的 GENERATED NUMBERS 块(务必在 README 已在被审面上的那份面生成,否则 trackedFiles 天生差数);逐数来源: node scripts/gen-doc-numbers.mjs;连仓库简介一起问责: node scripts/check-doc-numbers.mjs --strict --description -',
+      '刷新块: node scripts/sync-readme-numbers.mjs —— 生成块的唯一写入口(只按索引面 staged 取数、持独占锁、写盘前后 CAS 复核;直接跑 gen-doc-numbers.mjs --markdown 会被拒绝并 exit 2)。逐数来源: node scripts/gen-doc-numbers.mjs;连仓库简介一起问责: node scripts/check-doc-numbers.mjs --strict --description -',
       '本门只在触及 README.md/README.en.md 的轮次判红;未触及轮次打印的"漂移只报数"是"下次改 README 必须重跑生成块"的前置提醒,不构成跳门理由。',
       '例外(DN5):本轮引入新增/删除/改名/复制文件时,生成块 trackedFiles 必须同步,与是否触及 README 无关 —— 改清单的那枚会直接红。',
       '红点绝大多数落在 README 的 END RECENT UPDATES 标记之后的旧版全文快照副本(现读 --strict 61098 条:标记之后占 61048,活性声明只占 45,另 5 条是生成块):那些副本记的是当时的账,批量按现算值逐行改写=把历史改成今天,不是结清(2026-10-31 实测一席的手写"收敛到绿"循环改了 23900 行,其中历史区 7217 行)。正解=先跑配套清偿器 node scripts/scrub-doc-numbers.mjs(默认 dry-run,--apply 才写盘),它复用本门自己的 CLAIMS 与生成块同源取值;整片快照的清偿属全仓维护债,不在逐行手改。',
@@ -6147,8 +6152,10 @@ const checks = [
     // 下一个人不会读。票族存在而源头空转,与 O65 第 0 期「派单白名单预留依赖族却没人看」同型。
     //
     // 两档刻意分开,因为它们的成本与失效方向完全不同:
-    //   · --staged(提交链):只判 scripts/data/dep-audit-policy.json 的形态(waiver 三要素 + 未过期),
-    //     毫秒级、不跑网络。它拦的是「有人写一枚永不到期的豁免」;
+    //   · --staged(提交链):政策形态 + **暂存依赖面真判**(2026-11-08 补)。锁文件被暂存时
+    //     读索引里的 pnpm-lock.yaml blob,与审计快照记录的锁文件指纹比对:一致才用快照真判,
+    //     不一致/缺失/过期 ⇒ exit 2 未判定(提示 pnpm install 后 --refresh)。毫秒级、不跑网络。
+    //     它拦的是「有人写一枚永不到期的豁免」与「拿旧快照给新依赖树判绿」;
     //   · 全量档:读 .ihui-agent/state/dep-audit-cache.json 判「生产可达 critical/high 是否全被覆盖」,
     //     快照过期先自动刷新一次(实测 pnpm audit --registry 6.8s),刷新失败 ⇒ exit 2 未判定。
     //
@@ -6162,6 +6169,8 @@ const checks = [
     // 均无 image-size)。混为一谈的门会恒红,恒红门的唯一结局是被 --no-verify 连带废掉(§0.2)。
     skipEnv: 'HUSKY_SKIP_PROD_DEP_ADVISORIES',
     stagedTriggers: [
+      'pnpm-lock.yaml',
+      '**/package.json',
       'scripts/data/dep-audit-policy.json',
       'scripts/check-prod-dep-advisories.mjs',
       'scripts/dep-advisory-radar.mjs',
@@ -6415,6 +6424,31 @@ const checks = [
       '     复验:node scripts/check-e2e-skip-wait-policy.mjs --staged',
       '     自检:node scripts/check-e2e-skip-wait-policy.mjs --self-test',
       '     跳过:HUSKY_SKIP_E2E_SKIP_WAIT_POLICY=1(须人工确认并附定向说明)',
+      '',
+    ].join('\n'),
+  },
+  // --- 直跑面判面层覆盖 ratchet(1 项,blocking)---
+  {
+    id: '312',
+    label: '🧬 直跑面判面层覆盖 ratchet(注册门不接判面层且不在台账即红)',
+    script: 'check-gate-body-direct-run-coverage.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_GATE_BODY_DIRECT_RUN_COVERAGE',
+    stagedTriggers: ['scripts/'],
+    onFailHint: [
+      '',
+      '  💡 立因:门体同代自检只覆盖「派发面」;人手 node scripts/check-x.mjs 直跑时,',
+      '     只有 import 判面层(face-reader / gate-body-provenance)的门才会触发自检。',
+      '     本门把存量 48 道变成可数的债,并让新增门再也长不进这条缝:',
+      '       R1 注册门未接判面层且不在 scripts/data/gate-body-direct-run-allowlist.json ⇒ 红',
+      '       R2 台账条目越出硬基线(新增抵账)⇒ 红;清单只许缩短',
+      '       R3 台账条目对应的门已接判面层 ⇒ 红(删条目 = 已迁移证据)',
+      '       R4 reviewBy 到期 ⇒ 红',
+      '     修复:新门加 import { selectFace } from \'./lib/face-reader.mjs\';',
+      '           手跑单门改走 node scripts/guardian-runner.mjs --only=<id|script>',
+      '     复验:node scripts/check-gate-body-direct-run-coverage.mjs --staged',
+      '     跳过:HUSKY_SKIP_GATE_BODY_DIRECT_RUN_COVERAGE=1(须人工确认并附定向说明)',
       '',
     ].join('\n'),
   },
@@ -7329,19 +7363,19 @@ const checks = [
       '     应急放行:HUSKY_SKIP_PLAN_DEFERRED_EXPIRY=1 git commit ...(不推荐;跳过会留痕)',
     ].join('\n'),
   },
-  // --- 跨端漂移回归制(2026-11-06 立)------------------------------------------------------
+  // --- 跨端漂移回归制(2026-11-06 立 / 2026-11-08 接提交期登记门)-------------------------
   // 立因:漂移尺/文案尺此前只有"只读体检"形态(存量非 0 ⇒ 恒 exit 1),只能靠人想起来跑,
   // 结构上不在提交链上 —— 于是"攒新漂移"是无人工区。改法不是把存量一次性洗白(§12e 禁止),
-  // 而是存量固化进 scripts/data/cross-end-drift-gate-baseline.json,commit 面只 advisory、
-  // push 面只对"相对基线新增/恶化"blocking。判据可复算:同一现读 + 同一基线 ⇒ 同一结论。
+  // 而是存量固化进 scripts/data/cross-end-drift-gate-baseline.json,提交面只让承载削减面阻断、
+  // push 面仍对"相对基线新增/恶化"全维 blocking。判据可复算:同一现读 + 同一基线 ⇒ 同一结论。
   // 取不到输入面(基线缺失/子对账器未判定/词包读不到)⇒ exit 2 未判定,不折 0、不记绿。
   {
     id: '302',
     label:
-      '🧪 跨端漂移回归门(commit advisory:存量只报数;相对基线新增/恶化才报。实际只覆盖 6 把子尺:页面覆盖 237·跨端几何 128·镜像保真 283·升级落地·RN↔web 样式档·小程序样式档,另报矩阵文档 doc-stale;不含 token 93·props 288·文案 291·薄壳 299·承载 301·生成物 105·文档数字 173)',
+      '🧪 跨端漂移回归门(commit blocking:只拦承载削减面 —— 镜像/登记行/aligned/承载面/壳承载/既有承载键被登记成 gap;登记新屏与其余维只报数不阻断。实际只覆盖 6 把子尺:页面覆盖 237·跨端几何 128·镜像保真 283·升级落地·RN↔web 样式档·小程序样式档,另报矩阵文档 doc-stale;不含 token 93·props 288·文案 291·薄壳 299·承载 301·生成物 105·文档数字 173)',
     script: 'check-cross-end-parity-drift.mjs',
     args: ['--gate'],
-    mode: 'warn',
+    mode: 'blocking',
     stagedTriggers: [
       'packages/app/src/',
       'apps/mobile-rn/src/',
@@ -7356,10 +7390,39 @@ const checks = [
     ],
     skipEnv: 'HUSKY_SKIP_CROSS_END_DRIFT',
     onFailHint: [
-      '  💡 红 = 本轮把某条跨端数字比基线做坏了(丢镜像/多腐烂/多未还原键/多非档值/多重复键)。',
-      '     先看点名维:掉下去的补回来,涨上去的查根因;确属新存量须改基线并在 PR 说明为何接受。',
-      '     取证:node scripts/check-cross-end-parity-drift.mjs --gate --json',
+      '  💡 红 = 承载削减面真的少了(镜像/登记行/aligned/承载面/壳承载,或既有承载键被登记成 gap)。',
+      '     先把承载补回来;「新增未登记屏」与「如实登记 gap」只会出现在 · [只报数] 行,不会拦提交。',
+      '     取证:node scripts/check-cross-end-parity-drift.mjs --gate --staged --json',
       '     应急放行:HUSKY_SKIP_CROSS_END_DRIFT=1 git commit ...(不推荐;跳过会留痕)',
+    ].join('\n'),
+  },
+  // --- 提交期屏/路由登记同步(2026-11-08 接)-----------------------------------------------
+  // 302p 只在 push 面兜"新增未登记屏";302 的 unmapped 维在提交面按「登记只报数」降为 advisory。
+  // 本门把登记检测本身挂进提交链(warn 档):失败时门自己的点名行走 stderr,原样出现在提交输出里,
+  // 不阻断、不写进日志了事。
+  {
+    id: '302r',
+    label:
+      '🧾 屏/路由登记同步(commit 只报数:新增 web page / RN 屏 / 小程序页必须在 web-rn-screen-map.jsonl 或 app.config.ts 有据可查)',
+    script: 'check-screen-registration-sync.mjs',
+    args: [],
+    mode: 'warn',
+    stagedTriggers: [
+      'apps/web/app/',
+      'packages/app/src/features/',
+      'apps/mobile-rn/src/screens/',
+      'apps/miniapp-taro/src/',
+      'scripts/data/web-rn-screen-map.jsonl',
+      'scripts/check-screen-registration-sync.mjs',
+      'scripts/check-web-rn-screen-parity.mjs',
+      'scripts/check-cross-end-screen-coverage.mjs',
+    ],
+    skipEnv: 'HUSKY_SKIP_SCREEN_REGISTRATION_SYNC',
+    onFailHint: [
+      '  💡 报数行 = 本笔新增的屏/路由还没登记:web page 要进 web-rn-screen-map.jsonl(rn 或 gap:原因),',
+      '     新增 RN *Screen.tsx 要被某行 rn 认领,小程序页要与 app.config.ts pages 双向一致。',
+      '     本门只报数不拦提交(push 面由 302p 兜底);取证:node scripts/check-screen-registration-sync.mjs --staged',
+      '     静音:HUSKY_SKIP_SCREEN_REGISTRATION_SYNC=1 git commit ...(不推荐;跳过会留痕)',
     ].join('\n'),
   },
   {
@@ -7402,6 +7465,23 @@ const checks = [
       '     scripts/data/shared-layer-platform-purity.jsonl(需 consumption 证据 file:line + owner + expires + why)。',
       '     取证:node scripts/check-shared-layer-duplication.mjs --platform-purity --json',
       '     应急放行:HUSKY_SKIP_SHARED_LAYER_PURITY=1 git commit ...(不推荐;跳过会留痕)',
+    ].join('\n'),
+  },
+  // --- 钩子链引用完整性(2026-11-08,瘦身波甄别后落地;批次3-2 移植,号 312→305)--------------
+  // 病灶:单父提交只挑"调用方"不挑"被调用物",钩子一 require 就崩;全树静态扫描区分不了注释/夹具字符串,
+  // 本门只判真的会被加载的那条链(钩子 require → spawn 入口 → 入口 import 闭包)。
+  {
+    id: '305',
+    label: '🪝 钩子链引用完整性(--strict:钩子 require/spawn 入口/import 闭包有缺失即红)',
+    script: 'check-hook-chain-refs.mjs',
+    args: ['--strict'],
+    mode: 'blocking',
+    stagedTriggers: ['scripts/', '.husky/'],
+    skipEnv: 'HUSKY_SKIP_HOOK_CHAIN_REFS',
+    onFailHint: [
+      '  💡 钩子链里有入口缺失:先补齐被调用物,别只挑调用方提交。',
+      '     取证:node scripts/check-hook-chain-refs.mjs(只报数);本门参数即 --strict。',
+      '     应急放行:HUSKY_SKIP_HOOK_CHAIN_REFS=1 git commit ...(不推荐;跳过会留痕)',
     ].join('\n'),
   },
   // --- 空转生成器接成 --check/预演硬门(2026-11-06)------------------------------------------
@@ -7450,6 +7530,31 @@ const checks = [
       '  💡 新共享屏缺 RN 壳或 props 契约取不到:先补契约/壳,或按 scripts/data/rn-host-shell-manual.json 登记判决。',
       '     预演取证:node scripts/gen-rn-shell-scaffold.mjs --all(默认不落盘)',
       '     应急放行:HUSKY_SKIP_GEN_RN_SHELL_SCAFFOLD=1 git commit ...(不推荐;跳过会留痕)',
+    ].join('\n'),
+  },
+  // 2026-11-08 DG-05:判据面不可变护栏的**全量腿**注册。push 门里已有同判据的 `IG`
+  // (id 不能重复,check-gate-wiring R5;push-receipt 的 EXPECTED_GATES 也逐项钉着 push 块),
+  // 但全量腿(CI guardian-full / 无钩子落地)原先一步都不判 —— 于是带 evil merge 的 PR 在
+  // 合并前没有任何门看判据面。这里用独立 id `IGf`,判同一个区间 origin/main..HEAD
+  // (与 push 门同面同尺:合并提交按逐父交集判,见 check-immutable-guard 2026-11-08 段)。
+  {
+    id: 'IGf',
+    label: '🧊  判据面不可变护栏(全量腿:origin/main..HEAD 逐枚判,合并按逐父交集)',
+    script: 'check-immutable-guard.mjs',
+    args: ['--range', 'origin/main..HEAD'],
+    mode: 'blocking',
+    // 射程 = 受保护面本身(immutable-guard.json entries 的路径前缀):本笔碰到它们才需要在提交时判区间
+    stagedTriggers: ['scripts/', 'AGENTS.md', '.husky/'],
+    skipEnv: 'HUSKY_SKIP_IMMUTABLE_GUARD',
+    onFailHint: [
+      '',
+      '  💡 全量腿这一档补的是 push 门管不到的面(CI / 无钩子落地);判红形态与 push 档 IG 相同:',
+      '     ① 没有 immutable-exempt 理由;② 有理由但缺/验不过签名;③ 清单 reviewBy 到期。',
+      '  合法改法:先 `node scripts/check-immutable-guard.mjs --sign-staged --subject "<提交标题>"',
+      '     --reason "<同一句>" --paths <a,b,c>` 取签名行,再重写提交信息(会改 sha)。',
+      '  区间取不到(origin/main 未 fetch)⇒ exit 2 未判定,不记绿。',
+      '  单独复验:node scripts/check-immutable-guard.mjs --range origin/main..HEAD',
+      '',
     ].join('\n'),
   },
 ]
@@ -7518,8 +7623,9 @@ const pushGateChecks = [
       '  💡 本次推送携带的某个文件在 HEAD blob 里水印缺失/损坏(常见于 commit-tree/私有索引落地绕过 pre-commit)。',
       '     修复:node scripts/watermark.mjs inject <file> → 随一枚新提交带进 HEAD → 重新 push。',
       '     push 档只写工作区、不碰索引:inject 完仍红属正常(HEAD 面欠账只能由真正的提交销账)。',
-      '     列出缺口:node scripts/watermark.mjs list-uncovered --files-from <清单>(清单即 PUSH_SCOPE_FILES)。',
-      '     退出码 2 = 取不到判定面或 push scope 不可得时退回全量面,不是"没水印"。',
+      '     列出缺口:node scripts/watermark.mjs list-uncovered --files-from <清单>(清单即 PUSH_SCOPE_FILES 或 PUSH_SCOPE_MANIFEST)。',
+      '     退出码 2 = 未判定(范围凭据缺失/面不明),不是"没水印":本门不再退回整张 HEAD 面。',
+      '     补范围:正常走 .husky/pre-push(>300 文件它会写 PUSH_SCOPE_MANIFEST);确实要整面检查请显式 --full-face。',
       '',
     ].join('\n'),
   },
@@ -7675,6 +7781,14 @@ const pushGateChecks = [
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_GEN_RN_SHELL_SCAFFOLD',
   },
+  {
+    id: '305p',
+    label: '🪝 钩子链引用完整性(push blocking:钩子链入口/闭包缺失即拦)',
+    script: 'check-hook-chain-refs.mjs',
+    args: ['--strict'],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_HOOK_CHAIN_REFS',
+  },
 ]
 
 // === CLI 解析 ===
@@ -7687,6 +7801,7 @@ const cliArgs = process.argv.slice(2)
 // 失效方向只能是"当场报错",不能是"照默认跑一遍还让人觉得跑的是别的东西"。
 const KNOWN_CLI_FLAGS = new Set([
   '--staged',
+  '--full-face',
   '--timing',
   '--push-gate',
   '--no-cache',
@@ -7694,21 +7809,41 @@ const KNOWN_CLI_FLAGS = new Set([
   '--help',
   '-h',
 ])
-const unknownCliArgs = cliArgs.filter((a) => !KNOWN_CLI_FLAGS.has(a))
+const unknownCliArgs = cliArgs.filter(
+  (a) => !KNOWN_CLI_FLAGS.has(a) && !a.startsWith('--only='),
+)
 if (unknownCliArgs.length) {
   console.error(`❌ 未知参数:${unknownCliArgs.join(' ')}`)
-  console.error('   本器只认:--staged / --timing / --push-gate / --no-cache / --self-test / --help / -h')
+  console.error('   本器只认:--staged / --full-face / --timing / --push-gate / --no-cache / --self-test / --only=<id|script> / --help / -h')
   console.error('   未知参数不再被忽略,也不会跑任何门(exit 2)。')
   process.exit(2)
 }
 
 const passStaged = cliArgs.includes('--staged')
+/** 显式全量面档(2026-11-09):把面旗下发给声明了 fullFaceArgs 的门(目前仅 47);
+ *  post-commit 补跑用这一档 —— 它刻意不带 --staged(否则 stagedTriggers 在空集上全跳)。 */
+const fullFacePass = cliArgs.includes('--full-face')
 const showTiming = cliArgs.includes('--timing')
 const showHelp = cliArgs.includes('--help') || cliArgs.includes('-h')
 const pushGate = cliArgs.includes('--push-gate')
 const selfTest = cliArgs.includes('--self-test')
-if (selfTest && (passStaged || pushGate)) {
-  console.error('❌ --self-test 不能与 --staged / --push-gate 组合(自检不读暂存面、不跑判据)')
+// `--only=<id|script>`:单门直跑的唯一入口。走派发层 ⇒ 带门体同代自检(preflight),
+// 避免人手 `node scripts/check-x.mjs` 绕过自检(见 AGENTS.md「单门直跑」条)。
+const onlyList = (cliArgs.find((a) => a.startsWith('--only=')) || '')
+  .slice('--only='.length)
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean)
+if (selfTest && (passStaged || pushGate || fullFacePass)) {
+  console.error('❌ --self-test 不能与 --staged / --push-gate / --full-face 组合(自检不读暂存面、不跑判据)')
+  process.exit(2)
+}
+if (fullFacePass && (passStaged || pushGate)) {
+  console.error('❌ --full-face 不得与 --staged / --push-gate 组合(一个是显式整面,另一个已有更窄的面)')
+  process.exit(2)
+}
+if (selfTest && onlyList.length > 0) {
+  console.error('❌ --self-test 不能与 --only 组合(自检不跑判据,单门筛选请去掉 --self-test)')
   process.exit(2)
 }
 
@@ -7864,10 +7999,70 @@ async function runGateSelfTests(checkList) {
 // --push-gate 模式:仅执行 push 门检查集(不跑 pre-commit 的全部检查)
 let effectiveChecks = pushGate ? pushGateChecks : checks
 
+// ── --only=<id|script>:单门直跑走派发层(2026-11-08 立)───────────────────────
+// 直跑 `node scripts/check-x.mjs` 会绕过判面层自检(只有 import 判面层的门例外)。
+// 这里把"只跑这道门"落到派发层:argv 仍带 --staged/--timing,spawn 仍走 gateSpawnPlan,
+// 因此门体同代自检照常生效。命中 0 道 ⇒ exit 2,绝不静默跑成"跑了但没跑"。
+if (onlyList.length > 0) {
+  const before = effectiveChecks.length
+  effectiveChecks = effectiveChecks.filter((c) => onlyList.includes(c.id) || onlyList.includes(c.script))
+  if (effectiveChecks.length === 0) {
+    console.error(`❌ --only=${onlyList.join(',')} 未命中任何注册门(${before} 道在册);按 id 或 script 名给`)
+    process.exit(2)
+  }
+  console.log(`🎯 --only:只跑 ${effectiveChecks.length}/${before} 道门(${onlyList.join(',')});仍走派发层与门体自检`)
+}
+
+// ── 显式跳过指定 push 门(DG-09:让 HUSKY_SKIP_TYPECHECK 名副其实)──────────────
+// 旧版 .husky/pre-push 把 `HUSKY_SKIP_TYPECHECK=1` 用作「整条 push 门链不跑」的开关,
+// 文案却说只跳过 typecheck ⇒ 47p/IG/299~308 等 12 道 blocking 门被静默放行。
+// 现由 hook 只导出 `IHUI_PUSH_GATE_SKIP_IDS=T1`,本器逐 id 过滤,其余门照跑。
+// 失效方向一律失败而非静默:未知/畸形 id、过滤后清单为空 ⇒ exit 2(绝不当作全绿)。
+if (pushGate) {
+  const skipEnvRaw = process.env.IHUI_PUSH_GATE_SKIP_IDS
+  if (typeof skipEnvRaw === 'string' && skipEnvRaw.trim() !== '') {
+    const skippedGates = [
+      ...new Set(
+        skipEnvRaw
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean),
+      ),
+    ]
+    if (skippedGates.length === 0) {
+      console.error('❌ IHUI_PUSH_GATE_SKIP_IDS 已设置但解析不出任何门 id(畸形式空值,拒绝静默生效)')
+      process.exit(2)
+    }
+    const knownIds = new Set(effectiveChecks.map((c) => String(c.id)))
+    const unknownIds = skippedGates.filter((id) => !knownIds.has(id))
+    if (unknownIds.length > 0) {
+      console.error(
+        `❌ IHUI_PUSH_GATE_SKIP_IDS 含未知/畸形门 id:${unknownIds.join(',')}` +
+          `(在册 push 门:${[...knownIds].join(', ')})`,
+      )
+      process.exit(2)
+    }
+    effectiveChecks = effectiveChecks.filter((c) => !skippedGates.includes(String(c.id)))
+    if (effectiveChecks.length === 0) {
+      console.error(
+        `❌ IHUI_PUSH_GATE_SKIP_IDS 过滤后 push 门清单为空(skippedGates=[${skippedGates.join(',')}])` +
+          ' —— 拒绝把它当作「全部通过」',
+      )
+      process.exit(2)
+    }
+    // 跳过态必须禁用 push-gate 结果缓存(--no-cache 既有实现):否则旧缓存命中会把其余门一并短路。
+    if (!cliArgs.includes('--no-cache')) cliArgs.push('--no-cache')
+    console.warn(
+      `⚠️ 显式跳过 push 门:skippedGates=[${skippedGates.join(',')}];` +
+        `其余 ${effectiveChecks.length} 道照跑(--no-cache 已强制启用)`,
+    )
+  }
+}
+
 // ── 档位裁剪(2026-10-22 立,判据与理由全在 scripts/lib/gate-scope.mjs 头注)──────────
 // 只决定"这次改动该跑哪些门",**不碰任何门的判据**。含业务路径 / 含判据库 / 判不出
 // 一律回落全量 —— 失效方向永远是"多跑",不是"少跑"。
-if (passStaged && !pushGate) {
+if (passStaged && !pushGate && onlyList.length === 0) {
   try {
     const stagedPaths = String(
       execFileSync(resolveGitBin(), ['-c', 'safe.directory=*', 'diff', '--cached', '--name-only'], {
@@ -7971,5 +8166,5 @@ if (selfTest) {
   process.exit(await runGateSelfTests(checks))
 }
 
-await runGuardianBatch({ checks, pushGateChecks, effectiveChecks, passStaged, pushGate, showTiming, cliArgs })
+await runGuardianBatch({ checks, pushGateChecks, effectiveChecks, passStaged, fullFace: fullFacePass, pushGate, showTiming, cliArgs })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

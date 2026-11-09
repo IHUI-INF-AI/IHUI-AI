@@ -37,6 +37,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Route
 
+from app.core.config import settings
 from app.services.mcp_client import (
     DEFAULT_PROTOCOL_VERSION,
     SUPPORTED_PROTOCOL_VERSIONS,
@@ -45,6 +46,13 @@ from app.services.mcp_client import (
     MCPClientConfig,
 )
 from app.services.mcp_oauth import MCPOAuthConfig
+
+
+@pytest.fixture(autouse=True)
+def _allow_loopback_endpoints(monkeypatch: pytest.MonkeyPatch) -> None:
+    """AIS-053 落点策略默认 fail-closed;本文件走 127.0.0.1 loopback 真网,显式开开关。"""
+    monkeypatch.setattr(settings, "mcp_allow_private_endpoints", True, raising=False)
+
 
 # OAuth 真网 server 期望的 Bearer 令牌(令牌端点返回,再由客户端注入请求头)
 E2E_BEARER_TOKEN = "e2e-access-token-123"

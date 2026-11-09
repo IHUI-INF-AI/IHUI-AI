@@ -32,6 +32,7 @@
  */
 
 import { appendFileSync, mkdirSync, readFileSync } from 'node:fs'
+import { userInfo } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -60,8 +61,28 @@ export function ledgerPath(root = REPO_ROOT) {
 }
 
 /**
+ * operator 净化(票 2026-11-09「旁路留痕必须记是谁落的」):剥全部空白(留痕行是 JSONL,
+ * 内嵌换行/制表会把一行毁成两行)、截 64、取不到 ⇒ '(unknown)' —— 空串不算"取不到",
+ * 它算"没记",而"没记"与"那一格为假"在 JSONL 上同形(本仓老禁令)。
+ */
+export function sanitizeOperator(v) {
+  const s = String(v ?? '').replace(/\s+/g, '')
+  return s.slice(0, 64) || '(unknown)'
+}
+
+/** 现取一次操作者名(os.userInfo().username;Windows 上是账户名)。取不到不编造 —— 落 '(unknown)'。 */
+export function currentOperator() {
+  try {
+    return sanitizeOperator(userInfo().username)
+  } catch {
+    return '(unknown)'
+  }
+}
+
+/**
  * 纯函数:造一条旁路留痕(键名逐字对齐 safe-commit 那本)。
  * 不碰磁盘、不取时钟以外的东西 —— 构造面因此可被测试直接断言。
+ * `operator` 是唯一例外:缺席时现取 `currentOperator()`(留痕不许把"谁落的"记成空)。
  */
 export function buildBypassRecord({
   source,
@@ -71,6 +92,7 @@ export function buildBypassRecord({
   reason = DEFAULT_BYPASS_REASON,
   nowIso = new Date().toISOString(),
   watermarkSkipped = false,
+  operator,
 } = {}) {
   const sha = String(landedSha ?? '')
   if (sha === '') throw new Error('buildBypassRecord: landedSha 不能为空(留痕必须绑到具体提交)')
@@ -105,6 +127,9 @@ export function buildBypassRecord({
     // (null / 空数组),而不是省键。理由同上:同一本台账只许一种形状。
     commitMsgStage: null,
     commitMsgChecks: [],
+    // 票 2026-11-09「谁落的」:旁路不跑钩子 ⇒ 提交链上的 author 身份之外必须有一格"操作者"。
+    // 老记录没有这一键 ⇒ 读侧按 '' 收(归"(无 operator)"),不回填、不编造。
+    operator: sanitizeOperator(operator ?? currentOperator()),
   }
 }
 
@@ -257,6 +282,9 @@ export function readLedgerRecords(root = REPO_ROOT) {
         ticketLine: typeof o.ticketLine === 'string' ? o.ticketLine : '',
         // 跳门原因(2026-11-02):有值才留(缺席读成空串 = 默认带钩子路径/旧记录)。
         hookSkipReason: typeof o.hookSkipReason === 'string' ? o.hookSkipReason : '',
+        // 票 2026-11-09:operator 必须在白名单里 —— 写侧记了、读侧丢掉,归因统计会把每一枚
+        // 都读成"(无 operator)",而 round-trip 镜像测试(L10)正是钉这一格的。
+        operator: typeof o.operator === 'string' ? o.operator : '',
       })
     })
   return { ok: true, state: 'read', path, records, badLines, why: null }

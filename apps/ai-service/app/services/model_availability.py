@@ -366,6 +366,10 @@ class ModelAvailabilityService:
         self._initialized = False
         # 429 限流退避记录(provider_code → 上次 429 时间戳)
         self._rate_limit_backoff: dict[str, float] = {}
+        # 最近一次全量 provider 刷新完成时间(0 = 本轮进程还没跑过首轮)
+        # 2026-11-07 新增:模型级探测服务启动自举目录前要等首轮 provider 刷新完成,
+        # 否则 PENDING 宽松期会把实际 DOWN 的厂商模型也登记进探测候选。
+        self.last_refresh_at: float = 0.0
 
     async def initialize(self) -> None:
         """启动时调用:后台跑首次 ping + 启动定时刷新任务。
@@ -552,6 +556,22 @@ class ModelAvailabilityService:
                 logger.warning("[availability] DOWN(%d): %s", len(downs), ", ".join(downs))
             if degs:
                 logger.info("[availability] DEGRADED(%d): %s", len(degs), ", ".join(degs))
+
+        # 标记首轮(含后续轮)刷新已完成,供模型级探测服务对齐过滤口径
+        self.last_refresh_at = time.time()
+
+    async def wait_initial_refresh(self, timeout: float) -> bool:
+        """等待本进程首轮 provider 级刷新完成(超时返回 False,不抛异常)。
+
+        模型级探测服务在启动时自举候选目录,必须等 provider 级状态就绪,
+        否则 PENDING 宽松期会把实际不可用的厂商模型也纳入探测(白耗配额)。
+        """
+        start = time.time()
+        while time.time() - start < timeout:
+            if self.last_refresh_at > 0:
+                return True
+            await asyncio.sleep(2)
+        return False
 
 
     async def _ping_provider_v2(self, code: str, api_key: str, api_base: str) -> ProviderHealth:

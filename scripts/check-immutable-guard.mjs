@@ -65,10 +65,12 @@
  *                  `cursor..HEAD` 里的并行分支提交（不是游标后代）不会被新游标排除 ⇒
  *                  实测 2026-11-02 在 4 枚游标间循环 6 轮、pending 恒在 1833~1906 打转，
  *                  10-30 的存量永远判不完、告警每 4 小时重投一次。集合差集保证恰好一次且收敛。
- *   合并提交**跳过并计数**（`skippedMerges`）：它按第一父比 diff，命中就是父辈内容的并集，
- *                  而父辈那些枚自己已被判过 ⇒ 再判一遍是把同一件事记两回。残余缺口 =
- *                  恶意 merge 自己改判据面（两父都没有的形态）：那一格归 `root-guard --check`
- *                  的哈希封条（部署环 fail-closed），本档如实不覆盖。
+ *   合并提交**按逐父交集判**（2026-11-08 DG-05 更正）：取「与每个父的差异清单」的**交集**
+ *                  —— 那正是 merge 自己造出来、两父都没有的内容（evil merge）。与第一父比 diff
+ *                  会把父辈内容并集算成"本次改动"，所以旧实现整枚跳过并计数；跳过留下的缺口是
+ *                  恶意 merge 可无声改判据面（父辈各自都干净，merge 里塞第三版内容），本档此前
+ *                  不覆盖。现交集为空 ⇒ 干净合并不记红；交集非空且触及判据面 ⇒ 与普通提交同判
+ *                  （无声明即红）。交集取不到（git 派生失败）⇒ 该枚落 undetermined，不记绿(§0.3)。
  *
  * 判红不阻断任何提交（旁路检测档），但经 guardian 的到人通道按**稳定身份**去重上报
  * （`dedupKey='undeclared'`，明细与 sha 不进身份，§5e-3）：判据必须"看得见地响"。
@@ -81,9 +83,11 @@
  * ## 判红之后的合法出路（2026-11-07 增具名追认档）
  *
  * 判红 ⇒ 先问 `scripts/data/immutable-guard-attestations.jsonl`：若有一行 `sha` 精确匹配、
- * `paths` 与该枚**实际触发路径集合逐元素相等**、`sig` 验过、`reason` ≥40 字、`reviewer` 非空、
+ * `paths` 与该枚**实际触发路径集合逐元素相等**、`sig` 用**独立追认钥**（`ihui.immutableGuardAckKeyPath`
+ * 三源，与提交签名钥必须是两把）验过、`reason` ≥40 字、`reviewer` 非空、
  * `attestedAt` 不早于该枚提交日期 ⇒ `code=declared-attested`（exit 0），**单独计数**为「已追认 N」，
- * 绝不并进 `declared`。任一红线不满足 ⇒ 保持红，并把成因（`attest-*`）带进读数点名。
+ * 绝不并进 `declared`。任一红线不满足 ⇒ 保持红，并把成因（`attest-*`）带进读数点名；
+ * 追认钥取不到 ⇒ `attest-undetermined`（exit 2）判未判定，不静默放行。
  * 它是"事后补发"通道：行由持钥方签，`reviewer` 与日期都写进行里，所以读数必须带人名，不能读成当时合规。
  * 与旧 `immutable-guard-acks.jsonl`（a1/a2）并存但互不替代：acks 带 `expires` 会到期，本档不带。
  *
@@ -135,6 +139,8 @@ import {
   ATTEST_LEDGER_REL,
   ATTEST_MIN_REASON_CHARS,
   parseAttestLedger,
+  DETACHED_LEDGER_REL,
+  parseDetachedLedger,
 } from './lib/immutable-guard.mjs'
 import {
   FACES,
@@ -305,6 +311,28 @@ export function readAttestRows(root, { rev = 'HEAD' } = {}) {
   }
   if (text === null) return { rows: [], problems: [], absent: true }
   const parsed = parseAttestLedger(text)
+  return { rows: parsed.rows, problems: parsed.problems, absent: false }
+}
+
+/**
+ * 分离签名台账取面：与被审面同轮（head 档取 `rev` 的 blob，不读工作树）。
+ * 「本地先塞一行就能把历史洗白」结构上不成立 —— 那一行必须先进仓，而本台账登记在受保护面上。
+ * 文件不存在 ⇒ `rows=[] / absent=true`（= 还没有任何分离签名，不是"读不到"）；
+ * 坏行 ⇒ 进 `problems` 逐条点名，绝不静默当成"没有这条"。
+ */
+export function readDetachedRows(root, { rev = 'HEAD' } = {}) {
+  let text
+  try {
+    text = readFaceText(root, 'head', DETACHED_LEDGER_REL, rev)
+  } catch (e) {
+    return {
+      rows: [],
+      problems: [{ why: `分离签名台账取不到（${e?.message ?? e}）⇒ 本轮没有可用分离签名` }],
+      absent: false,
+    }
+  }
+  if (text === null) return { rows: [], problems: [], absent: true }
+  const parsed = parseDetachedLedger(text)
   return { rows: parsed.rows, problems: parsed.problems, absent: false }
 }
 
@@ -506,6 +534,8 @@ export function batchFaceTexts(root, specs) {
 }
 
 const CHANGE_RECORD_SEP = '\x1e'
+/** 一次 `git log` 最多带多少个 sha 作参数：200 × 41 ≈ 8 KB，稳在 Windows 命令行上限内。 */
+const BATCH_REV_ARGS = 200
 /**
  * 一批提交的 `rev^..rev` 差异集**一次读齐**（RP-92）。
  * 立因（当次实测）：逐枚 `git diff --name-status -M -z rev^ rev` 60 枚 9.008 秒；
@@ -521,6 +551,19 @@ export function batchFaceChanges(root, shas) {
   const out = new Map()
   const list = (Array.isArray(shas) ? shas : []).filter((s) => FULL_SHA_RE.test(String(s)))
   if (list.length === 0) return out
+  // 一次 `git log` 带太多 sha 会顶穿 Windows 命令行长度上限（实测 1700+ 枚整批返空 ⇒ 调用方
+  // 逐枚回落，最坏退化成 1.7 万次派生）。按 200 枚分块，语义**不分叉**：任一块失败仍整批作废
+  // 返回空表（= 调用方逐枚回落），取不到的失效方向与原来完全一致。
+  for (let i = 0; i < list.length; i += BATCH_REV_ARGS) {
+    const part = batchFaceChangesOnce(root, list.slice(i, i + BATCH_REV_ARGS))
+    if (part === null) return new Map()
+    for (const [sha, changes] of part) out.set(sha, changes)
+  }
+  return out
+}
+
+/** 单块实现：失败/分帧对不上 ⇒ `null`（调用方按"整批作废"处理）。 */
+function batchFaceChangesOnce(root, list) {
   let raw
   try {
     raw = String(
@@ -540,12 +583,13 @@ export function batchFaceChanges(root, shas) {
       ),
     )
   } catch {
-    return out
+    return null
   }
+  const out = new Map()
   const pieces = raw.split(CHANGE_RECORD_SEP)
   for (const piece of pieces.slice(1)) {
     const m = /^([0-9a-f]{40})(?:\u0000\n|\n)?([\s\S]*)$/.exec(piece)
-    if (!m) return new Map()
+    if (!m) return null
     out.set(m[1], parseNameStatusZ(m[2]))
   }
   return out
@@ -596,6 +640,49 @@ export function listFaceChanges(root, face, rev = 'HEAD') {
     if (e instanceof Undetermined) throw e
     throw new Undetermined(`${face} 面取改动清单失败：${e?.message ?? e}`)
   }
+}
+
+/**
+ * 合并提交"自己引入"的改动面(DG-05):对每个父求 `<parent>..<merge>` 的改动清单并取 path 交集。
+ *
+ * 为什么是交集:与单父比 diff 得到的是"父辈内容 + 解决冲突时写下的第三版内容"的并集,
+ * 前者属于父辈那些提交(它们自己已被判过),后者才是 merge 提交独有的改动(evil merge)。
+ * 交集为空 = 干净合并(merge 树就是某一父或两父的无冲突拼接),不记红。
+ * 交集里的条目取"与第一父 diff"那一份 status/oldPath 读数(所有父都含该 path,形态一致即可)。
+ *
+ * 取不到父列表 / git diff 失败 ⇒ 抛 `Undetermined`(调用方落 undetermined,不记绿 §0.3)。
+ *
+ * @returns {Array<{status:string,path:string,oldPath?:string}>}
+ */
+export function mergeIntroductionChanges(root, sha) {
+  let parents
+  try {
+    parents = String(gitRaw(['rev-list', '--parents', '-n', '1', String(sha)], root))
+      .trim()
+      .split(/\s+/)
+      .slice(1)
+  } catch (e) {
+    throw new Undetermined(`${sha} 的父列表取不到:${e?.message ?? e}`)
+  }
+  if (parents.length < 2) {
+    throw new Undetermined(`${sha} 不是合并提交(父数 ${parents.length}),不应走逐父交集`)
+  }
+  let common = null
+  let firstChanges = null
+  for (const parent of parents) {
+    let changes
+    try {
+      changes = parseNameStatusZ(
+        gitRaw(['diff', '--name-status', '-M', '-z', String(parent), String(sha)], root),
+      )
+    } catch (e) {
+      throw new Undetermined(`${sha} 与父 ${String(parent).slice(0, 12)} 的差异取不到:${e?.message ?? e}`)
+    }
+    if (firstChanges === null) firstChanges = new Map(changes.map((c) => [c.path, c]))
+    const paths = new Set(changes.map((c) => c.path))
+    common = common === null ? paths : new Set([...common].filter((p) => paths.has(p)))
+  }
+  return [...common].map((p) => firstChanges.get(p)).filter(Boolean)
 }
 
 /**
@@ -703,6 +790,7 @@ export function runAudit(
     changesPre = undefined,
     onOriginMainPre = undefined,
     attestRows = [],
+    detachedRows = [],
     commitDate = undefined,
   } = {},
 ) {
@@ -855,7 +943,11 @@ export function runAudit(
   const ackSha = ackShaOf(root, face, rev)
   // 具名追认只在 head 面问得到（与 ack 同一边界）；提交日期取该枚自己的 `%cs`，取不到 ⇒ null ⇒ fail-closed。
   const attestDate =
-    commitDate === undefined ? (face === 'head' ? commitDateOf(root, ackSha ?? rev) : null) : commitDate
+    commitDate === undefined
+      ? face === 'head'
+        ? commitDateOf(root, ackSha ?? rev)
+        : null
+      : commitDate
   // a1 只对 origin/main 已入库枚保留：那些枚改不动历史、也不会再进推送区间；
   // 本地枚（区间里待推的那些）必须用 a2 独立追认，否则"作者拿提交钥自签一行"照样洗白。
   // `onOriginMainPre` = 批档一次 `rev-list origin/main` 的成员判定；`undefined` ⇒ 逐枚问（原路径）。
@@ -879,6 +971,7 @@ export function runAudit(
     hitsByBase,
     blobs,
     attestRows,
+    detachedRows,
     commitDate: attestDate,
   })
   const result = {
@@ -1008,8 +1101,28 @@ export function formatReport(out) {
       )
       for (const h of out.hits) lines.push(`      - ${h.path}（${h.entry.kind} / ${h.status}）`)
     }
+    if (out.code === 'detached-valid') {
+      lines.push(
+        `   ℹ️ 分离签名台账验签通过（提交当时${out.signature.ok ? '自带签名（未采用）' : '无有效签名'}）：sha ${String(out.rev).slice(0, 12)}，由持追认钥方于 ${out.detached?.row?.signedAt} 签发（${DETACHED_LEDGER_REL}）⇒ 不得读成提交当时就签了`,
+      )
+      for (const h of out.hits) lines.push(`      - ${h.path}（${h.entry.kind} / ${h.status}）`)
+    }
   } else if (out.exit === 1) {
     lines.push(`❌ ${head} ${CODE_LABEL[out.code]}`)
+    if (String(out.code).startsWith('detached-')) {
+      for (const h of out.hits) {
+        lines.push(`   - ${h.path}（${h.entry.kind} / ${h.status}）`)
+        lines.push(`     为什么受保护：${h.entry.why}`)
+      }
+      if (out.detached?.why) lines.push(`   台账与实际的差：${out.detached.why}`)
+      if (out.detached?.row)
+        lines.push(
+          `   台账那一行：sha ${out.detached.row.sha} / ${(out.detached.row.paths ?? []).length} 枚路径 / signedAt ${out.detached.row.signedAt}（L${out.detached.row.line ?? '?'}）`,
+        )
+      lines.push(
+        `   怎么合法改：\`node scripts/sign-immutable-guard-detached.mjs\` 会按真实差异集**现算**该枚的路径全集并逐枚自检；手改一行即验不过——这一档没有"补一句理由"或"改路径"的出路。`,
+      )
+    }
     if (out.code === 'undeclared') {
       for (const h of out.hits) {
         lines.push(`   - ${h.path}（${h.entry.kind} / ${h.status}）`)
@@ -1097,6 +1210,15 @@ export function formatReport(out) {
   } else {
     lines.push(`❌ 未判定 ${head} ${CODE_LABEL[out.code]}`)
     for (const p of out.listProblems ?? []) lines.push(`   - ${p.message}`)
+    if (out.code === 'detached-key-unavailable') {
+      lines.push(
+        '   为什么判不了：分离签名台账里有这一枚，但独立追认钥取不到 ⇒ 无法验签；本档**不降级成放行**，也不冒充"没这条"（fail-closed）。',
+      )
+      lines.push(
+        `   怎么解决：注入 ${ACK_KEY_ENV} / ${ACK_KEY_FILE_ENV} 或登记 git config ${ACK_KEY_CONFIG} 后复跑。`,
+      )
+      if (out.detached?.why) lines.push(`   台账：${out.detached.why}`)
+    }
     if (out.code === 'message-missing') {
       lines.push('   为什么判不了：改动清单能算出来，但提交信息还没有生成 ⇒ 无法判断"有没有声明"。')
       lines.push(
@@ -1171,9 +1293,11 @@ const AUDIT_BASE = {
   audited: 0,
   judged: 0,
   skippedMerges: 0,
+  mergeJudged: 0,
   declared: 0,
   retro: [],
   attested: [],
+  detachedValid: [],
   pending: 0,
   breaches: [],
   undetermined: [],
@@ -1188,7 +1312,8 @@ const AUDIT_BASE = {
 /**
  * 判一批提交并归桶（`--audit-new` 与 `--range` 共用同一份，判据不分叉）。
  * 归桶顺序：exit 1 ⇒ breach；exit 2 ⇒ undetermined；exit 0 ⇒ declared（签名验过）
- * 或 attested（具名追认台账验过）或 unsigned（迁移窗口内仅文字理由）。合并提交跳过并计数（理由见调用处注释）。
+ * 或 attested（具名追认台账验过）或 detached（分离签名台账验过）或 unsigned（迁移窗口内仅文字理由）。
+ * 合并提交跳过并计数（理由见调用处注释）。
  */
 function judgeBatch(root, batch, { today = todayStr(), record = false, policyRev = null } = {}) {
   const breaches = []
@@ -1196,13 +1321,18 @@ function judgeBatch(root, batch, { today = todayStr(), record = false, policyRev
   const unsigned = []
   const retro = []
   const attested = []
+  const detachedValid = []
   let declared = 0
-  let skippedMerges = 0
+  // 兼容读数:合并提交不再"跳过",该计数恒为 0;真正判定过的合并枚记在 mergeJudged。
+  const skippedMerges = 0
+  let mergeJudged = 0
   let judged = 0
   // 追认台账整批读一次(同一末端),逐枚只查自己的 sha;坏行带出去点名,不静默。
   const ack = readAckRows(root)
   // 具名追认台账同样整批读一次：它在 HEAD 面，逐枚比对时用各自的实际触发路径。
   const attest = readAttestRows(root)
+  // 分离签名台账同面同轮整批读一次：判定时按 sha 命中、按该枚全路径集逐条精确比。
+  const detached = readDetachedRows(root)
   // 整批一次读齐父辈/标题/正文 + 一次解析两把密钥(2026-11-05;读不到就逐枚回落原路径,判定不变)
   const metas = batchCommitMeta(root, batch)
   const sharedKeyRes = resolveSigningKey(root)
@@ -1221,9 +1351,39 @@ function judgeBatch(root, batch, { today = todayStr(), record = false, policyRev
   for (const sha of batch) {
     const meta = metas.get(sha) ?? null
     const parents = meta ? meta.parentCount : parentCount(root, sha)
+    // DG-05:合并提交按"与每个父的 diff 交集"判(交集 = merge 自己写下的第三版内容)。
+    // 取不到交集就落 undetermined —— 绝不能把"判不了"读成"干净合并"(§0.3)。
+    let mergeChanges
     if (parents > 1) {
-      skippedMerges += 1
-      continue
+      try {
+        mergeChanges = mergeIntroductionChanges(root, sha)
+      } catch (e) {
+        undetermined.push({
+          sha,
+          code: 'merge-face-missing',
+          subject: meta ? meta.subject : safeSubject(root, sha),
+          hits: [],
+          reasons: [],
+          problems: [],
+          signatureCode: '',
+          sigIssuedFor: null,
+          keySource: '',
+          windowUntil: null,
+          expired: [],
+          detail: String(e?.message ?? e),
+          ackedBy: '',
+          substitutedFor: '',
+          ackProblem: '',
+          reviewer: '',
+          attestedAt: '',
+          attestStage: '',
+          admitProblem: '',
+          detachedSignedAt: '',
+          detachedProblem: '',
+        })
+        continue
+      }
+      mergeJudged += 1
     }
     judged += 1
     // 根提交(0 父)不吃批表:`git log` 无父可差不吐差异,而逐枚档的 `rev^` 会失败 ⇒ `face-missing`。
@@ -1244,9 +1404,10 @@ function judgeBatch(root, batch, { today = todayStr(), record = false, policyRev
         ackKeyRes: sharedAckKeyRes,
         listTextPre,
         policyTextPre,
-        changesPre: useBatchChanges ? changesBatch.get(sha) : undefined,
+        changesPre: parents > 1 ? mergeChanges : useBatchChanges ? changesBatch.get(sha) : undefined,
         onOriginMainPre: originSet ? originSet.has(sha) : undefined,
         attestRows: attest.rows,
+        detachedRows: detached.rows,
         commitDate: meta ? meta.commitDate : undefined,
       })
     } catch (e) {
@@ -1284,14 +1445,20 @@ function judgeBatch(root, batch, { today = todayStr(), record = false, policyRev
       // 具名追认读数：必须带 reviewer/attestedAt，绝不能并进 declared 悄悄消失。
       reviewer: one.attest?.state === 'valid' ? one.attest.row.reviewer : '',
       attestedAt: one.attest?.state === 'valid' ? one.attest.row.attestedAt : '',
-      attestStage: one.attest?.state === 'valid' ? one.attest.substitutedFor ?? '' : '',
-      admitProblem:
-        one.attest?.state === 'invalid' ? `${one.attest.code}:${one.attest.why}` : '',
+      attestStage: one.attest?.state === 'valid' ? (one.attest.substitutedFor ?? '') : '',
+      admitProblem: one.attest?.state === 'invalid' ? `${one.attest.code}:${one.attest.why}` : '',
+      // 分离签名读数：单独一档，绝不并进 declared；判红/未判定时把成因带出去点名。
+      detachedSignedAt: one.detached?.state === 'valid' ? one.detached.row.signedAt : '',
+      detachedProblem:
+        one.detached?.state === 'invalid' || one.detached?.state === 'unavailable'
+          ? `${one.detached.code}:${one.detached.why}`
+          : '',
     }
     if (one.exit === 1) breaches.push(brief)
     else if (one.exit === 2) undetermined.push(brief)
     else if (one.code === 'declared') declared += 1
     else if (one.code === 'declared-attested') attested.push(brief)
+    else if (one.code === 'detached-valid') detachedValid.push(brief)
     else if (one.code === 'retro-declared') retro.push(brief)
     else if (one.code === 'declared-unsigned') unsigned.push(brief)
   }
@@ -1301,13 +1468,17 @@ function judgeBatch(root, batch, { today = todayStr(), record = false, policyRev
     unsigned,
     retro,
     attested,
+    detachedValid,
     declared,
     skippedMerges,
+    mergeJudged,
     judged,
     ackProblems: ack.problems,
     ackAbsent: ack.absent,
     attestProblems: attest.problems,
     attestAbsent: attest.absent,
+    detachedProblems: detached.problems,
+    detachedAbsent: detached.absent,
   }
 }
 
@@ -1406,11 +1577,14 @@ export function auditNewCommits(
     unsigned,
     retro,
     attested,
+    detachedValid,
     declared,
     skippedMerges,
+    mergeJudged,
     judged,
     ackProblems,
     attestProblems,
+    detachedProblems,
   } = judgeBatch(root, batch, { today, record })
 
   const lastAudited = batch[batch.length - 1]
@@ -1438,6 +1612,10 @@ export function auditNewCommits(
     notes.push(
       `具名追认台账坏行 ${attestProblems.length} 条(逐条点名:${attestProblems.map((p) => `L${p.line ?? '?'} ${p.why}`).join(' | ')})⇒ 这些行一律不生效`,
     )
+  if (detachedProblems.length)
+    notes.push(
+      `分离签名台账坏行 ${detachedProblems.length} 条(逐条点名:${detachedProblems.map((p) => `L${p.line ?? '?'} ${p.why}`).join(' | ')})⇒ 这些行一律不生效`,
+    )
   return {
     exit: breaches.length > 0 ? 1 : undetermined.length > 0 ? 2 : 0,
     state,
@@ -1445,9 +1623,11 @@ export function auditNewCommits(
     audited: batch.length,
     judged,
     skippedMerges,
+    mergeJudged,
     declared,
     retro,
     attested,
+    detachedValid,
     unsigned,
     pending,
     breaches,
@@ -1514,17 +1694,20 @@ export function auditRange(
     unsigned,
     retro,
     attested,
+    detachedValid,
     declared,
     skippedMerges,
+    mergeJudged,
     judged,
     ackProblems,
     attestProblems,
+    detachedProblems,
   } = judgeBatch(root, shas, {
     today,
     record,
     policyRev: baseRev,
   })
-  const badLines = ackProblems.length + attestProblems.length
+  const badLines = ackProblems.length + attestProblems.length + detachedProblems.length
   return {
     ...base,
     exit: breaches.length > 0 ? 1 : undetermined.length > 0 ? 2 : 0,
@@ -1534,9 +1717,11 @@ export function auditRange(
     audited: shas.length,
     judged,
     skippedMerges,
+    mergeJudged,
     declared,
     retro,
     attested,
+    detachedValid,
     unsigned,
     pending: 0,
     breaches,
@@ -1547,6 +1732,7 @@ export function auditRange(
       ? `${[
           ackProblems.length ? `追认台账坏行 ${ackProblems.length} 条` : '',
           attestProblems.length ? `具名追认台账坏行 ${attestProblems.length} 条` : '',
+          detachedProblems.length ? `分离签名台账坏行 ${detachedProblems.length} 条` : '',
         ]
           .filter(Boolean)
           .join('；')} ⇒ 这些行一律不生效`
@@ -1587,9 +1773,23 @@ const META_RECORD_SEP = '\x1e'
 const META_FIELD_SEP = '\x1f'
 function batchCommitMeta(root, shas) {
   const out = new Map()
-  if (!Array.isArray(shas) || shas.length === 0) return out
+  const list = Array.isArray(shas) ? shas.filter((s) => FULL_SHA_RE.test(String(s))) : []
+  if (list.length === 0) return out
+  // 同 batchFaceChanges：1700+ 枚一次带上命令行会顶穿上限，按块读；任一块失败仍整批落空，
+  // 调用方逐枚回落（失效方向不变）。
+  for (let i = 0; i < list.length; i += BATCH_REV_ARGS) {
+    const part = batchCommitMetaOnce(root, list.slice(i, i + BATCH_REV_ARGS))
+    if (part === null) return new Map()
+    for (const [sha, meta] of part) out.set(sha, meta)
+  }
+  return out
+}
+
+function batchCommitMetaOnce(root, shas) {
+  const out = new Map()
+  let raw
   try {
-    const raw = String(
+    raw = String(
       gitRaw(
         [
           'log',
@@ -1600,26 +1800,26 @@ function batchCommitMeta(root, shas) {
         root,
       ),
     )
-    for (const rec of raw.split(META_RECORD_SEP)) {
-      const body = rec.replace(/^\n/, '')
-      if (!body.trim()) continue
-      const parts = body.split(META_FIELD_SEP)
-      if (parts.length !== 5) continue
-      const [sha, parents, subject, commitDate, message] = parts
-      if (!/^[0-9a-f]{40}$/.test(sha.trim())) continue
-      out.set(sha.trim(), {
-        parentCount: parents.trim() === '' ? 0 : parents.trim().split(/\s+/).length,
-        subject: subject.trim(),
-        // 提交日期（%cs）用于具名追认的"倒填"判定：追认日期早于这一枚 ⇒ 判红。
-        commitDate: /^\d{4}-\d{2}-\d{2}$/.test(commitDate.trim()) ? commitDate.trim() : null,
-        // git 每条记录本来自带的收尾换行,被这里的记录分隔符 %x1e 顶掉了;
-        // 逐枚读法(`git log -1 --format=%B`)会带那个换行。补回来才叫**逐字等值**,
-        // 否则本枚的等价锁 ST49b 会差一个换行 —— 差别看着无害,但判据面不许"差不多"。
-        message: message + '\n',
-      })
-    }
   } catch {
-    /* 一次读不到就整批回落逐枚 —— 报数与判定都不许因此变化 */
+    return null
+  }
+  for (const rec of raw.split(META_RECORD_SEP)) {
+    const body = rec.replace(/^\n/, '')
+    if (!body.trim()) continue
+    const parts = body.split(META_FIELD_SEP)
+    if (parts.length !== 5) continue
+    const [sha, parents, subject, commitDate, message] = parts
+    if (!/^[0-9a-f]{40}$/.test(sha.trim())) continue
+    out.set(sha.trim(), {
+      parentCount: parents.trim() === '' ? 0 : parents.trim().split(/\s+/).length,
+      subject: subject.trim(),
+      // 提交日期（%cs）用于具名追认的"倒填"判定：追认日期早于这一枚 ⇒ 判红。
+      commitDate: /^\d{4}-\d{2}-\d{2}$/.test(commitDate.trim()) ? commitDate.trim() : null,
+      // git 每条记录本来自带的收尾换行,被这里的记录分隔符 %x1e 顶掉了;
+      // 逐枚读法(`git log -1 --format=%B`)会带那个换行。补回来才叫**逐字等值**,
+      // 否则本枚的等价锁 ST49b 会差一个换行 —— 差别看着无害,但判据面不许"差不多"。
+      message: message + '\n',
+    })
   }
   return out
 }
@@ -1672,6 +1872,7 @@ export function formatAuditReport(out) {
       lines.push(
         `     · 签名状态：${b.signatureCode}${b.keySource ? `（密钥来源 ${b.keySource}）` : ''}`,
       )
+    if (b.detachedProblem) lines.push(`     · 分离签名台账：${b.detachedProblem}`)
     if (b.sigIssuedFor)
       lines.push(
         `     · 签发对照：那条签名是为标题「${b.sigIssuedFor.subject}」/ ${b.sigIssuedFor.paths.length} 枚路径（${b.sigIssuedFor.paths.join(',')}）签的，` +
@@ -1713,14 +1914,40 @@ export function formatAuditReport(out) {
     )
     for (const h of u.hits) lines.push(`     · ${h.path}（${h.kind} / ${h.status}）`)
   }
+  // 分离签名档：单独一档、单独打印、单独计数；绝不并进 declared（它签的是"这一枚 + 这条全路径集"）。
+  for (const u of out.detachedValid ?? []) {
+    lines.push(
+      `   ℹ️ ${u.sha}「${u.subject}」分离签名验签通过（提交当时无有效签名，由持追认钥方于 ${u.detachedSignedAt} 在 ${DETACHED_LEDGER_REL} 按该枚实际路径全集签发 ⇒ 不得读成当时就合规）`,
+    )
+    for (const h of u.hits) lines.push(`     · ${h.path}（${h.kind} / ${h.status}）`)
+  }
+  const detachedRed = (out.breaches ?? []).filter((b) => String(b.code).startsWith('detached-'))
+  const detachedUndetermined = (out.undetermined ?? []).filter((b) =>
+    String(b.code).startsWith('detached-'),
+  )
+  if (detachedRed.length || detachedUndetermined.length) {
+    const tally = (list) => {
+      const m = new Map()
+      for (const b of list) m.set(b.code, (m.get(b.code) ?? 0) + 1)
+      return [...m.entries()].map(([c, n]) => `${c} ${n}`).join(' / ')
+    }
+    if (detachedRed.length)
+      lines.push(`   分离台账判红（${tally(detachedRed)}）：${detachedRed.length} 枚`)
+    if (detachedUndetermined.length)
+      lines.push(
+        `   分离台账未判定（${tally(detachedUndetermined)}）：${detachedUndetermined.length} 枚 ⇒ fail-closed，不计绿`,
+      )
+  }
   if (out.declared) lines.push(`   已声明且验签通过（--record 已留痕）：${out.declared} 枚`)
   if ((out.attested ?? []).length)
-    lines.push(`   已追认（attestations 台账逐枚具名、按实际触发路径签）：${(out.attested ?? []).length} 枚`)
+    lines.push(
+      `   已追认（attestations 台账逐枚具名、按实际触发路径签）：${(out.attested ?? []).length} 枚`,
+    )
   if ((out.retro ?? []).length)
     lines.push(`   事后追认通过（台账逐枚具名，到期即回到红）：${(out.retro ?? []).length} 枚`)
   if (out.detail) lines.push(`   注：${out.detail}`)
   lines.push(
-    `[immutable-guard:audit] 判 ${out.audited} 枚(其中合并跳过 ${out.skippedMerges ?? 0} 枚) / 红 ${out.breaches.length} / 未判定 ${out.undetermined.length} / 无签名 ${unsigned.length} / 已追认 ${(out.attested ?? []).length} / 待判 ${out.pending} / 游标 ${String(out.cursorBefore || '').slice(0, 12) || '(无)'} → ${String(out.cursorAfter || '').slice(0, 12) || '(无)'}`,
+    `[immutable-guard:audit] 判 ${out.audited} 枚(其中合并按逐父交集判 ${out.mergeJudged ?? 0} 枚) / 红 ${out.breaches.length} / 未判定 ${out.undetermined.length} / 无签名 ${unsigned.length} / 已追认 ${(out.attested ?? []).length} / 分离签名通过 ${(out.detachedValid ?? []).length} / 待判 ${out.pending} / 游标 ${String(out.cursorBefore || '').slice(0, 12) || '(无)'} → ${String(out.cursorAfter || '').slice(0, 12) || '(无)'}`,
   )
   return lines.join('\n')
 }
@@ -2221,7 +2448,7 @@ export function selfTest() {
     )
   })
 
-  // ST26 合并提交不重复计（第一父 diff 是父辈内容的并集）：分支那枚判一次，merge 枚跳过并点名
+  // ST26 干净合并：分支那枚判一次(breach=1)，merge 枚逐父交集为空 ⇒ 判过但零命中(不记第二回)
   run((root) => {
     auditNewCommits(root) // 建点
     gitRaw(['checkout', '-q', '-b', 'feat'], root)
@@ -2231,18 +2458,58 @@ export function selfTest() {
     gitRaw(['merge', '-q', '--no-ff', 'feat', '-m', 'Merge branch feat'], root)
     const out = auditNewCommits(root)
     ok(
-      'ST26 分支枚判一次 ⇒ breach=1 且 merge 枚 skippedMerges=1（同一件事不记两回）',
+      'ST26 干净合并 ⇒ breach=1(只有分支枚) 且 merge 枚按逐父交集判(mergeJudged=1/零命中)',
       out.state === 'breach' &&
         out.breaches.length === 1 &&
-        out.skippedMerges === 1 &&
-        out.judged === 1 &&
+        out.skippedMerges === 0 &&
+        out.mergeJudged === 1 &&
+        out.judged === 2 &&
         out.audited === 2,
       JSON.stringify({
         state: out.state,
         breach: out.breaches.length,
         skippedMerges: out.skippedMerges,
+        mergeJudged: out.mergeJudged,
         judged: out.judged,
         audited: out.audited,
+      }),
+    )
+  })
+
+  // ST26b evil merge(DG-05):两父各自只改非判据面,merge 提交里手工写进判据面的第三版内容。
+  // 旧实现整枚跳过 ⇒ 这枚永远不被审;新判据按逐父交集 ⇒ 交集恰是该判据面,无声明必须判红。
+  run((root) => {
+    auditNewCommits(root) // 建点
+    gitRaw(['checkout', '-q', '-b', 'evil-side'], root)
+    writeIn(root, 'docs/x.md', '# side edit\n')
+    commitAll(root, 'docs: side edit')
+    gitRaw(['checkout', '-q', 'main'], root)
+    // 两父都只碰非判据面(否则父辈自己就会判红,evil merge 那一格分不出来)
+    writeIn(root, 'notes-main.txt', 'main\n')
+    commitAll(root, 'docs: main edit')
+    gitRaw(['merge', '--no-commit', '--no-ff', '-q', 'evil-side'], root)
+    // 这一步两父都没有:merge 自己写下的第三版内容(evil merge)
+    writeIn(root, 'scripts/lib/face-reader.mjs', '// evil merge third version\n')
+    gitRaw(['add', 'scripts/lib/face-reader.mjs'], root)
+    gitRaw(['commit', '-q', '--no-verify', '-m', 'Merge branch evil-side'], root)
+    const mergeSha = String(gitRaw(['rev-parse', 'HEAD'], root)).trim()
+    const out = auditNewCommits(root)
+    ok(
+      'ST26b evil merge 在合并枚写判据面第三版内容 ⇒ 无声明判红且点名 merge sha(旧实现会整枚跳过)',
+      out.state === 'breach' &&
+        out.breaches.length === 1 &&
+        out.breaches[0].sha === mergeSha &&
+        out.breaches[0].hits.some((h) => h.path === 'scripts/lib/face-reader.mjs') &&
+        out.skippedMerges === 0 &&
+        out.mergeJudged === 1 &&
+        out.judged === 3 &&
+        out.audited === 3,
+      JSON.stringify({
+        state: out.state,
+        breach: out.breaches.map((b) => ({ sha: b.sha.slice(0, 12), paths: b.hits.map((h) => h.path) })),
+        mergeJudged: out.mergeJudged,
+        judged: out.judged,
+        mergeSha: mergeSha.slice(0, 12),
       }),
     )
   })

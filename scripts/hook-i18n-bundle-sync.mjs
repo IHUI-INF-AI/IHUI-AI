@@ -42,10 +42,10 @@
  * 只判索引面:这是提交链的腿,不判 HEAD/工作树面(那两档归 heal-derived-in-checkout.mjs 的巡检)。
  */
 
-import { spawnSync } from 'node:child_process'
 import { createRequire } from 'node:module'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { gitRaw } from './lib/face-reader.mjs'
 
 import { healI18nFamily } from './heal-derived-in-checkout.mjs'
 
@@ -76,16 +76,14 @@ export function stageI18nOutputs({ files, root = ROOT, manifestFile } = {}) {
     const blob = decl.declared
       ? decl.blob
       : derivedArtifacts.hashWorktreeBlob({ gitCwd: root, relPath })
-    const add = spawnSync('git', ['add', '--', relPath], {
-      cwd: root,
-      encoding: 'utf8',
-      windowsHide: true,
-      timeout: 5 * 60 * 1000,
-      maxBuffer: 1 << 24,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
-    if (add.status !== 0) {
-      const why = String(add.stderr || add.stdout || `exit=${add.status}`).trim().slice(0, 200)
+    try {
+      gitRaw(['add', '--', relPath], root, { timeout: 5 * 60 * 1000, maxBuffer: 1 << 24 })
+    } catch (e) {
+      const why = String(
+        e?.stderr || e?.stdout || e?.message || `exit=${e?.status}`,
+      )
+        .trim()
+        .slice(0, 200)
       throw new Error(`git add -- ${relPath} 失败:${why}`)
     }
     const check = derivedArtifacts.verifyDeclaredEntryInIndex({ gitCwd: root, relPath, blob })

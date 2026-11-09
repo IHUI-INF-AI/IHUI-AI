@@ -5,13 +5,13 @@
 import { aizhsUrl } from '@/constants/icon-urls'
 import { useTt } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
-import Taro from '@tarojs/taro'
 const dingdanIcon = aizhsUrl('remote-images/dingdan.jpg')
 const gerenIcon = aizhsUrl('remote-images/geren-icon.png')
 const xianLabelIcon = aizhsUrl('remote-images/xian_label.png')
 const shezhiIcon = aizhsUrl('remote-images/shezhi.png')
 import ThemeRoot from '@/components/ThemeRoot'
 import { onToast } from '@/host/on-toast'
+import { getUserInfo } from '@/utils/auth'
 
 export interface UserCardProps {
   onGoPage: (path: string) => void
@@ -69,7 +69,7 @@ export default function UserCard({ onGoPage }: UserCardProps) {
               key={item.key}
               className={`flex items-center px-[24rpx] py-[20rpx] rounded-lg mb-[14rpx] bg-card border-[length:2rpx] border-border ${isFullWidth ? 'w-full' : 'w-[calc(50vw-47rpx)]'}`}
               onClick={() => {
-                const userInfodata = Taro.getStorageSync('data')
+                const userInfodata = getUserInfo()
                 if (!userInfodata) {
                   onToast(tt('ai.aiAssistant.pleaseLogin', '请先登录'), { kind: 'error' })
                   return

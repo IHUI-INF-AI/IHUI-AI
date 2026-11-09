@@ -17,6 +17,11 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { success, error } from '../utils/response.js'
 import { requireAuth, callVendor, recordUsage, genId } from './ai-vendors/_shared.js'
+import {
+  ensurePointsAvailable,
+  chargeFlatPoints,
+  FLAT_POINTS,
+} from '../services/points-guard.js'
 
 type StepName = 'script' | 'material' | 'compose' | 'subtitle'
 type StepStatus = 'pending' | 'running' | 'succeeded' | 'failed'
@@ -55,6 +60,22 @@ interface ComposeTask {
 }
 
 const taskStore = new Map<string, ComposeTask>()
+
+// F-105(2026-11-08):原实现只 set 不 delete,任务(含完整厂商响应)永久驻留内存。
+export const TASK_TTL_MS = 30 * 60_000
+export const TASK_MAX = 500
+
+/** 清理过期任务;超过上限时按 updatedAt 从旧到新淘汰。 */
+export function pruneTaskStore(now = Date.now()): void {
+  for (const [id, t] of taskStore) {
+    if (now - t.updatedAt > TASK_TTL_MS) taskStore.delete(id)
+  }
+  if (taskStore.size <= TASK_MAX) return
+  const victims = [...taskStore.entries()]
+    .sort((a, b) => a[1].updatedAt - b[1].updatedAt)
+    .slice(0, taskStore.size - TASK_MAX)
+  for (const [id] of victims) taskStore.delete(id)
+}
 
 const STEP_ORDER: StepName[] = ['script', 'material', 'compose', 'subtitle']
 
@@ -168,6 +189,8 @@ export const aiVideoComposeRoutes: FastifyPluginAsync = async (server) => {
   // POST / — 创建编排任务并顺序执行全部步骤
   server.post('/', async (request, reply) => {
     const body = createSchema.parse(request.body)
+    if (!(await ensurePointsAvailable(request, reply))) return
+    pruneTaskStore()
     const task: ComposeTask = {
       id: genId('compose'),
       userId: request.userId!,
@@ -184,11 +207,16 @@ export const aiVideoComposeRoutes: FastifyPluginAsync = async (server) => {
       if (!ok) {
         task.status = 'failed'
         task.updatedAt = Date.now()
-        return reply.send(success(task))
+        // F-105:callVendor 失败时已 send 过 502,原实现再 send 一次会触发 Fastify 二次回包。
+        if (!reply.sent) {
+          return reply.status(502).send(error(502, task.steps[step].error ?? '视频编排失败'))
+        }
+        return
       }
     }
     task.status = 'succeeded'
     task.updatedAt = Date.now()
+    await chargeFlatPoints(request, FLAT_POINTS.videoCompose, '一键视频编排扣分', request.id)
     return reply.status(201).send(success(task))
   })
 
@@ -205,6 +233,7 @@ export const aiVideoComposeRoutes: FastifyPluginAsync = async (server) => {
   server.post('/:id/regenerate', async (request, reply) => {
     const { id } = idParam.parse(request.params)
     const body = regenerateSchema.parse(request.body)
+    if (!(await ensurePointsAvailable(request, reply))) return
     const task = taskStore.get(id)
     if (!task) return reply.status(404).send(error(404, '任务不存在'))
     if (task.userId !== request.userId) return reply.status(403).send(error(403, '无权操作该任务'))
@@ -217,11 +246,15 @@ export const aiVideoComposeRoutes: FastifyPluginAsync = async (server) => {
       if (!ok) {
         task.status = 'failed'
         task.updatedAt = Date.now()
-        return reply.send(success(task))
+        if (!reply.sent) {
+          return reply.status(502).send(error(502, task.steps[step].error ?? '视频编排失败'))
+        }
+        return
       }
     }
     task.status = 'succeeded'
     task.updatedAt = Date.now()
+    await chargeFlatPoints(request, FLAT_POINTS.videoCompose, '视频编排重生成扣分', request.id)
     return reply.send(success(task))
   })
 }

@@ -18,7 +18,16 @@ const { fetchApiMock, clipboardGetMock, warnSpy } = vi.hoisted(() => ({
 }))
 
 vi.mock('react', () => ({ default: { useRef: () => ({ current: undefined }) } }))
-vi.mock('@ihui/api-client', () => ({ createNotificationClient: vi.fn() }))
+// 2026-11 桥层改直呼 api-client 的 reportAgentControlResult(内部走自己的 fetchApi 绑定,
+// 模块级 @/lib/api mock 拦不到)。这里把端点出口转接回 fetchApiMock,保留原有 URL/body 断言。
+vi.mock('@ihui/api-client', () => ({
+  createNotificationClient: vi.fn(),
+  reportAgentControlCapability: vi.fn(() => Promise.resolve({ success: true })),
+  reportAgentControlResult: (payload: Record<string, unknown>) => {
+    fetchApiMock('/api/agent-control/result', { body: JSON.stringify(payload) })
+    return Promise.resolve({ success: true })
+  },
+}))
 vi.mock('@/lib/api', () => ({ fetchApi: fetchApiMock }))
 vi.mock('@/lib/tauri-bridge', () => ({
   isTauri: vi.fn(() => false),

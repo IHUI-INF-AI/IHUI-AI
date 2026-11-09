@@ -67,12 +67,10 @@ interface AnydocError extends Error {
 }
 
 let anydocModule: AnydocModule | null = null
-let anydocLoadAttempted = false
 
-/** 懒加载 anydoc(动态 import,加载失败不阻塞进程,降级旧实现)。 */
+/** 懒加载 anydoc(动态 import,加载失败不阻塞进程,降级旧实现)。失败不做永久缓存,下次请求重试。 */
 async function loadAnydoc(): Promise<AnydocModule | null> {
-  if (anydocLoadAttempted) return anydocModule
-  anydocLoadAttempted = true
+  if (anydocModule) return anydocModule
   try {
     const mod = (await import('@firecrawl/anydoc')) as unknown as AnydocModule
     if (typeof mod.toMarkdown !== 'function') throw new Error('toMarkdown 导出缺失')
