@@ -29,7 +29,8 @@ describe('XUI-066 组2:壳必须把失败上抛', () => {
   it('讲师详情:loadError 状态 + 透传,不再写死空串', () => {
     expect(TEACHER).not.toContain('error=""')
     expect(TEACHER).toContain('const [loadError, setLoadError] = useState(')
-    expect(TEACHER).toContain("setLoadError(tt('common.loadFailed'))")
+    // 端内 tt 统一带中文字面兜底(i18n 缺键时不至于把空串抛给共享屏),失败出口的语义不变。
+    expect(TEACHER).toContain("setLoadError(tt('common.loadFailed', '加载失败'))")
     expect(TEACHER).toContain('error={loadError}')
     expect(TEACHER.match(/setLoadError\(/g)?.length).toBe(2)
   })

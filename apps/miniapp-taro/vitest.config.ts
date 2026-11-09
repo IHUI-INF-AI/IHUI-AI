@@ -50,6 +50,15 @@ export default defineConfig({
         find: /^react-native$/,
         replacement: path.resolve(__dirname, 'tests/stubs/react-native.ts'),
       },
+      // 2026-11-10:共享屏的图标(主线 dc4c471aa2 起)统一 `import ... from 'lucide-react-native'`。
+      // 构建侧早已别名成端内实现;测试侧没配 ⇒ node 直接加载 lucide 的 ESM 入口会经
+      // react-native-svg 命中 Flow 源,报 `SyntaxError: Unexpected token 'typeof'`(整份 suite 收集失败)。
+      // 测试侧指到零依赖桩:端内图标实现由 react@18 运行时造元素,而共享屏用例用
+      // react-dom@19 渲染,跨版本元素会被拒收(Objects are not valid as a React child)。
+      {
+        find: /^lucide-react-native$/,
+        replacement: path.resolve(__dirname, 'tests/stubs/lucide-react-native.ts'),
+      },
       // D28 补齐层(2026-10-03):「用场景分析」的判据与场景目录已从 web 下沉到
       // @ihui/shared/import-analysis{,/scenarios}。指真实源码而非 mock:判据与目录
       // 都是纯数据/纯函数(无 DOM/Taro 依赖),给它写 mock 测的就是 mock。

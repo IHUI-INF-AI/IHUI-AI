@@ -7,7 +7,8 @@
  *
  * 这三件是 279 个 RN 壳的公共前置(就绪尺:三处引入点锁死全量);语义降级必须**显式**:
  *   - File 走本地 Storage,小文本(主题偏好)读写等价;
- *   - 二进制写入不落盘,且只告警一次(否则每个音频帧刷屏);
+ *   - 二进制写入无等价能力 ⇒ 显式抛 NotSupportedError(code=ERR_NOT_SUPPORTED),
+ *     不再"告警一次后静默成功"(XUI-054:让调用方按 code 判,而不是以为已经写进去了);
  *   - restart 在小程序不可能真重启 ⇒ 空实现但不能抛(调用方包在 try 里,抛了会走错分支)。
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -38,6 +39,8 @@ import Restart, {
   File,
   getInitialURL,
   modelId,
+  NOT_SUPPORTED_CODE,
+  NotSupportedError,
   openAuthSessionAsync,
   parse,
   Paths,
@@ -62,14 +65,20 @@ describe('File:同步读写(Storage 承载)', () => {
     expect(f.uri).toBe('wxfile://usr/cache/voice-turn-1.mp3')
   })
 
-  it('二进制写入不抛、不落文本,并告警一次', () => {
+  it('二进制写入显式 not-supported:抛固定错误码,不落文本也不假装成功', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const f = new File(Paths.cache, 'tts-1.mp3')
-    expect(() => f.write(new Uint8Array([1, 2, 3]))).not.toThrow()
-    expect(f.exists).toBe(true)
-    const hits = warn.mock.calls.filter((c) => String(c[0]).includes('二进制'))
-    // 同一告警只应出现一次,避免逐帧刷屏(vitest 的匹配器不收消息参数,意图写在这儿)
-    expect(hits.length).toBeLessThanOrEqual(1)
+    expect(() => f.write(new Uint8Array([1, 2, 3]))).toThrowError(NotSupportedError)
+    // 调用方按 code 判,不要匹配 message
+    try {
+      f.write(new Uint8Array([1]))
+      throw new Error('二进制写入应当抛 NotSupportedError')
+    } catch (e) {
+      expect((e as NotSupportedError).code).toBe(NOT_SUPPORTED_CODE)
+    }
+    // 失败不得留下"写成功了"的痕迹
+    expect(f.exists).toBe(false)
+    expect(warn).not.toHaveBeenCalled()
   })
 
   it('delete 之后 exists=false', () => {
