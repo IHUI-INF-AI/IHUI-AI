@@ -2568,13 +2568,6 @@
       "breakpoints": true
     },
     {
-      "idx": 369,
-      "version": "7",
-      "when": 1793971800000,
-      "tag": "20261106213000_agent_meta_lessons_indexes",
-      "breakpoints": true
-    },
-    {
       "idx": 370,
       "version": "7",
       "when": 1793996812693,
