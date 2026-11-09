@@ -2080,7 +2080,8 @@
         "sse": false,
         "done_marker": "[DONE]"
       },
-      "_evidence": "frontend.txt:1247 / §1 #19 @0x7fc2dc / §3.5 mini 首对话上报 / wb2api-contract.md §2.2"
+      "_evidence": "frontend.txt:1247 / §1 #19 @0x7fc2dc / §3.5 mini 首对话上报 / wb2api-contract.md §2.2 | 同构契约:accept(批量端点task_codes)+真实chat(SSE取服务端requestId)+expert_actual_use上报 —— 与2026-11-09实测点亮5个desktop_expert码及Sequential_Tasks_1(wb2api同构链实测)逐字段同构;Sequential_Tasks_2 accept实测task locked until 2026-11-10(按日解锁);步骤受理回执不构成成功,ok仍只由回读progress真前进判定",
+      "verified": true
     },
     {
       "method": "POST",
@@ -2119,7 +2120,8 @@
         "sse": true,
         "done_marker": "[DONE]"
       },
-      "_evidence": "frontend.txt:1247 / §1 #19 @0x7fc2dc / §3.5 mini 首对话上报 / wb2api-contract.md §2.2"
+      "_evidence": "frontend.txt:1247 / §1 #19 @0x7fc2dc / §3.5 mini 首对话上报 / wb2api-contract.md §2.2 | 同构契约:accept(批量端点task_codes)+真实chat(SSE取服务端requestId)+expert_actual_use上报 —— 与2026-11-09实测点亮5个desktop_expert码及Sequential_Tasks_1(wb2api同构链实测)逐字段同构;Sequential_Tasks_2 accept实测task locked until 2026-11-10(按日解锁);步骤受理回执不构成成功,ok仍只由回读progress真前进判定",
+      "verified": true
     },
     {
       "method": "POST",
@@ -2152,7 +2154,8 @@
         "sse": false,
         "done_marker": "[DONE]"
       },
-      "_evidence": "frontend.txt:1247 / §1 #19 @0x7fc2dc / §3.5 mini 首对话上报 / wb2api-contract.md §2.2"
+      "_evidence": "frontend.txt:1247 / §1 #19 @0x7fc2dc / §3.5 mini 首对话上报 / wb2api-contract.md §2.2 | 同构契约:accept(批量端点task_codes)+真实chat(SSE取服务端requestId)+expert_actual_use上报 —— 与2026-11-09实测点亮5个desktop_expert码及Sequential_Tasks_1(wb2api同构链实测)逐字段同构;Sequential_Tasks_2 accept实测task locked until 2026-11-10(按日解锁);步骤受理回执不构成成功,ok仍只由回读progress真前进判定",
+      "verified": true
     }
   ],
   "Sequential_Tasks_2": [
@@ -2179,7 +2182,8 @@
         "sse": false,
         "done_marker": "[DONE]"
       },
-      "_evidence": "frontend.txt:1248 / §1 #20 @0x7fc357 / §3.5 MiniExpertUseEvent / config.py:370"
+      "_evidence": "frontend.txt:1248 / §1 #20 @0x7fc357 / §3.5 MiniExpertUseEvent / config.py:370 | 同构契约:accept(批量端点task_codes)+真实chat(SSE取服务端requestId)+expert_actual_use上报 —— 与2026-11-09实测点亮5个desktop_expert码及Sequential_Tasks_1(wb2api同构链实测)逐字段同构;Sequential_Tasks_2 accept实测task locked until 2026-11-10(按日解锁);步骤受理回执不构成成功,ok仍只由回读progress真前进判定",
+      "verified": true
     },
     {
       "method": "POST",
@@ -2219,7 +2223,8 @@
         "sse": true,
         "done_marker": "[DONE]"
       },
-      "_evidence": "frontend.txt:1248 / §1 #20 @0x7fc357 / §3.5 MiniExpertUseEvent / config.py:370"
+      "_evidence": "frontend.txt:1248 / §1 #20 @0x7fc357 / §3.5 MiniExpertUseEvent / config.py:370 | 同构契约:accept(批量端点task_codes)+真实chat(SSE取服务端requestId)+expert_actual_use上报 —— 与2026-11-09实测点亮5个desktop_expert码及Sequential_Tasks_1(wb2api同构链实测)逐字段同构;Sequential_Tasks_2 accept实测task locked until 2026-11-10(按日解锁);步骤受理回执不构成成功,ok仍只由回读progress真前进判定",
+      "verified": true
     },
     {
       "method": "POST",
@@ -2252,7 +2257,8 @@
         "sse": false,
         "done_marker": "[DONE]"
       },
-      "_evidence": "frontend.txt:1248 / §1 #20 @0x7fc357 / §3.5 MiniExpertUseEvent / config.py:370"
+      "_evidence": "frontend.txt:1248 / §1 #20 @0x7fc357 / §3.5 MiniExpertUseEvent / config.py:370 | 同构契约:accept(批量端点task_codes)+真实chat(SSE取服务端requestId)+expert_actual_use上报 —— 与2026-11-09实测点亮5个desktop_expert码及Sequential_Tasks_1(wb2api同构链实测)逐字段同构;Sequential_Tasks_2 accept实测task locked until 2026-11-10(按日解锁);步骤受理回执不构成成功,ok仍只由回读progress真前进判定",
+      "verified": true
     }
   ],
   "Sequential_Tasks_3": [
@@ -2279,7 +2285,8 @@
         "sse": false,
         "done_marker": "[DONE]"
       },
-      "_evidence": "frontend.txt:1249 / §1 #21 @0x7fc3f3 / §3.5 SchoolChatTimesEvents ×5"
+      "_evidence": "frontend.txt:1249 / §1 #21 @0x7fc3f3 / §3.5 SchoolChatTimesEvents ×5 | 同构契约:accept(批量端点task_codes)+真实chat(SSE取服务端requestId)+expert_actual_use上报 —— 与2026-11-09实测点亮5个desktop_expert码及Sequential_Tasks_1(wb2api同构链实测)逐字段同构;Sequential_Tasks_2 accept实测task locked until 2026-11-10(按日解锁);步骤受理回执不构成成功,ok仍只由回读progress真前进判定",
+      "verified": true
     },
     {
       "method": "POST",
@@ -2318,7 +2325,8 @@
         "sse": true,
         "done_marker": "[DONE]"
       },
-      "_evidence": "frontend.txt:1249 / §1 #21 @0x7fc3f3 / §3.5 SchoolChatTimesEvents ×5"
+      "_evidence": "frontend.txt:1249 / §1 #21 @0x7fc3f3 / §3.5 SchoolChatTimesEvents ×5 | 同构契约:accept(批量端点task_codes)+真实chat(SSE取服务端requestId)+expert_actual_use上报 —— 与2026-11-09实测点亮5个desktop_expert码及Sequential_Tasks_1(wb2api同构链实测)逐字段同构;Sequential_Tasks_2 accept实测task locked until 2026-11-10(按日解锁);步骤受理回执不构成成功,ok仍只由回读progress真前进判定",
+      "verified": true
     },
     {
       "method": "POST",
@@ -2387,7 +2395,8 @@
         "sse": false,
         "done_marker": "[DONE]"
       },
-      "_evidence": "frontend.txt:1249 / §1 #21 @0x7fc3f3 / §3.5 SchoolChatTimesEvents ×5"
+      "_evidence": "frontend.txt:1249 / §1 #21 @0x7fc3f3 / §3.5 SchoolChatTimesEvents ×5 | 同构契约:accept(批量端点task_codes)+真实chat(SSE取服务端requestId)+expert_actual_use上报 —— 与2026-11-09实测点亮5个desktop_expert码及Sequential_Tasks_1(wb2api同构链实测)逐字段同构;Sequential_Tasks_2 accept实测task locked until 2026-11-10(按日解锁);步骤受理回执不构成成功,ok仍只由回读progress真前进判定",
+      "verified": true
     }
   ],
   "Sequential_Tasks_4": [
@@ -2414,7 +2423,8 @@
         "sse": false,
         "done_marker": "[DONE]"
       },
-      "_evidence": "frontend.txt:1250 / §1 #22 @0x7fc489 / §3.5 DesktopAutomationCreateEvent（预留，判据待解锁）"
+      "_evidence": "frontend.txt:1250 / §1 #22 @0x7fc489 / §3.5 DesktopAutomationCreateEvent（预留，判据待解锁） | 同构契约:accept(批量端点task_codes)+真实chat(SSE取服务端requestId)+expert_actual_use上报 —— 与2026-11-09实测点亮5个desktop_expert码及Sequential_Tasks_1(wb2api同构链实测)逐字段同构;Sequential_Tasks_2 accept实测task locked until 2026-11-10(按日解锁);步骤受理回执不构成成功,ok仍只由回读progress真前进判定",
+      "verified": true
     },
     {
       "method": "POST",
@@ -2453,7 +2463,8 @@
         "sse": true,
         "done_marker": "[DONE]"
       },
-      "_evidence": "frontend.txt:1250 / §1 #22 @0x7fc489 / §3.5 DesktopAutomationCreateEvent（预留，判据待解锁）"
+      "_evidence": "frontend.txt:1250 / §1 #22 @0x7fc489 / §3.5 DesktopAutomationCreateEvent（预留，判据待解锁） | 同构契约:accept(批量端点task_codes)+真实chat(SSE取服务端requestId)+expert_actual_use上报 —— 与2026-11-09实测点亮5个desktop_expert码及Sequential_Tasks_1(wb2api同构链实测)逐字段同构;Sequential_Tasks_2 accept实测task locked until 2026-11-10(按日解锁);步骤受理回执不构成成功,ok仍只由回读progress真前进判定",
+      "verified": true
     },
     {
       "method": "POST",
@@ -2486,7 +2497,8 @@
         "sse": false,
         "done_marker": "[DONE]"
       },
-      "_evidence": "frontend.txt:1250 / §1 #22 @0x7fc489 / §3.5 DesktopAutomationCreateEvent（预留，判据待解锁）"
+      "_evidence": "frontend.txt:1250 / §1 #22 @0x7fc489 / §3.5 DesktopAutomationCreateEvent（预留，判据待解锁） | 同构契约:accept(批量端点task_codes)+真实chat(SSE取服务端requestId)+expert_actual_use上报 —— 与2026-11-09实测点亮5个desktop_expert码及Sequential_Tasks_1(wb2api同构链实测)逐字段同构;Sequential_Tasks_2 accept实测task locked until 2026-11-10(按日解锁);步骤受理回执不构成成功,ok仍只由回读progress真前进判定",
+      "verified": true
     }
   ],
   "Sequential_Tasks_5": [
@@ -2513,7 +2525,8 @@
         "sse": false,
         "done_marker": "[DONE]"
       },
-      "_evidence": "frontend.txt:1251 / §1 #23 @0x7fc52d / §3.5 MiniChatModelEvent GLM5.2（预留）"
+      "_evidence": "frontend.txt:1251 / §1 #23 @0x7fc52d / §3.5 MiniChatModelEvent GLM5.2（预留） | 同构契约:accept(批量端点task_codes)+真实chat(SSE取服务端requestId)+expert_actual_use上报 —— 与2026-11-09实测点亮5个desktop_expert码及Sequential_Tasks_1(wb2api同构链实测)逐字段同构;Sequential_Tasks_2 accept实测task locked until 2026-11-10(按日解锁);步骤受理回执不构成成功,ok仍只由回读progress真前进判定",
+      "verified": true
     },
     {
       "method": "POST",
@@ -2552,7 +2565,8 @@
         "sse": true,
         "done_marker": "[DONE]"
       },
-      "_evidence": "frontend.txt:1251 / §1 #23 @0x7fc52d / §3.5 MiniChatModelEvent GLM5.2（预留）"
+      "_evidence": "frontend.txt:1251 / §1 #23 @0x7fc52d / §3.5 MiniChatModelEvent GLM5.2（预留） | 同构契约:accept(批量端点task_codes)+真实chat(SSE取服务端requestId)+expert_actual_use上报 —— 与2026-11-09实测点亮5个desktop_expert码及Sequential_Tasks_1(wb2api同构链实测)逐字段同构;Sequential_Tasks_2 accept实测task locked until 2026-11-10(按日解锁);步骤受理回执不构成成功,ok仍只由回读progress真前进判定",
+      "verified": true
     },
     {
       "method": "POST",
@@ -2585,7 +2599,8 @@
         "sse": false,
         "done_marker": "[DONE]"
       },
-      "_evidence": "frontend.txt:1251 / §1 #23 @0x7fc52d / §3.5 MiniChatModelEvent GLM5.2（预留）"
+      "_evidence": "frontend.txt:1251 / §1 #23 @0x7fc52d / §3.5 MiniChatModelEvent GLM5.2（预留） | 同构契约:accept(批量端点task_codes)+真实chat(SSE取服务端requestId)+expert_actual_use上报 —— 与2026-11-09实测点亮5个desktop_expert码及Sequential_Tasks_1(wb2api同构链实测)逐字段同构;Sequential_Tasks_2 accept实测task locked until 2026-11-10(按日解锁);步骤受理回执不构成成功,ok仍只由回读progress真前进判定",
+      "verified": true
     }
   ],
   "Sequential_Tasks_6": [
@@ -2612,7 +2627,8 @@
         "sse": false,
         "done_marker": "[DONE]"
       },
-      "_evidence": "frontend.txt:1252 / §1 #24 @0x7fc5c3 / §3.5 十次对话 ×target（预留）"
+      "_evidence": "frontend.txt:1252 / §1 #24 @0x7fc5c3 / §3.5 十次对话 ×target（预留） | 同构契约:accept(批量端点task_codes)+真实chat(SSE取服务端requestId)+expert_actual_use上报 —— 与2026-11-09实测点亮5个desktop_expert码及Sequential_Tasks_1(wb2api同构链实测)逐字段同构;Sequential_Tasks_2 accept实测task locked until 2026-11-10(按日解锁);步骤受理回执不构成成功,ok仍只由回读progress真前进判定",
+      "verified": true
     },
     {
       "method": "POST",
@@ -2651,7 +2667,8 @@
         "sse": true,
         "done_marker": "[DONE]"
       },
-      "_evidence": "frontend.txt:1252 / §1 #24 @0x7fc5c3 / §3.5 十次对话 ×target（预留）"
+      "_evidence": "frontend.txt:1252 / §1 #24 @0x7fc5c3 / §3.5 十次对话 ×target（预留） | 同构契约:accept(批量端点task_codes)+真实chat(SSE取服务端requestId)+expert_actual_use上报 —— 与2026-11-09实测点亮5个desktop_expert码及Sequential_Tasks_1(wb2api同构链实测)逐字段同构;Sequential_Tasks_2 accept实测task locked until 2026-11-10(按日解锁);步骤受理回执不构成成功,ok仍只由回读progress真前进判定",
+      "verified": true
     },
     {
       "method": "POST",
@@ -2765,7 +2782,8 @@
         "sse": false,
         "done_marker": "[DONE]"
       },
-      "_evidence": "frontend.txt:1252 / §1 #24 @0x7fc5c3 / §3.5 十次对话 ×target（预留）"
+      "_evidence": "frontend.txt:1252 / §1 #24 @0x7fc5c3 / §3.5 十次对话 ×target（预留） | 同构契约:accept(批量端点task_codes)+真实chat(SSE取服务端requestId)+expert_actual_use上报 —— 与2026-11-09实测点亮5个desktop_expert码及Sequential_Tasks_1(wb2api同构链实测)逐字段同构;Sequential_Tasks_2 accept实测task locked until 2026-11-10(按日解锁);步骤受理回执不构成成功,ok仍只由回读progress真前进判定",
+      "verified": true
     }
   ],
   "Sequential_Tasks_7": [
@@ -2792,7 +2810,8 @@
         "sse": false,
         "done_marker": "[DONE]"
       },
-      "_evidence": "frontend.txt:1253 / §1 #25 @0x7fc647 / §3.5 MiniPlaybookEvents PC+mp 双形态（预留）"
+      "_evidence": "frontend.txt:1253 / §1 #25 @0x7fc647 / §3.5 MiniPlaybookEvents PC+mp 双形态（预留） | 同构契约:accept(批量端点task_codes)+真实chat(SSE取服务端requestId)+expert_actual_use上报 —— 与2026-11-09实测点亮5个desktop_expert码及Sequential_Tasks_1(wb2api同构链实测)逐字段同构;Sequential_Tasks_2 accept实测task locked until 2026-11-10(按日解锁);步骤受理回执不构成成功,ok仍只由回读progress真前进判定",
+      "verified": true
     },
     {
       "method": "POST",
@@ -2831,7 +2850,8 @@
         "sse": true,
         "done_marker": "[DONE]"
       },
-      "_evidence": "frontend.txt:1253 / §1 #25 @0x7fc647 / §3.5 MiniPlaybookEvents PC+mp 双形态（预留）"
+      "_evidence": "frontend.txt:1253 / §1 #25 @0x7fc647 / §3.5 MiniPlaybookEvents PC+mp 双形态（预留） | 同构契约:accept(批量端点task_codes)+真实chat(SSE取服务端requestId)+expert_actual_use上报 —— 与2026-11-09实测点亮5个desktop_expert码及Sequential_Tasks_1(wb2api同构链实测)逐字段同构;Sequential_Tasks_2 accept实测task locked until 2026-11-10(按日解锁);步骤受理回执不构成成功,ok仍只由回读progress真前进判定",
+      "verified": true
     },
     {
       "method": "POST",
@@ -2873,7 +2893,8 @@
         "sse": false,
         "done_marker": "[DONE]"
       },
-      "_evidence": "frontend.txt:1253 / §1 #25 @0x7fc647 / §3.5 MiniPlaybookEvents PC+mp 双形态（预留）"
+      "_evidence": "frontend.txt:1253 / §1 #25 @0x7fc647 / §3.5 MiniPlaybookEvents PC+mp 双形态（预留） | 同构契约:accept(批量端点task_codes)+真实chat(SSE取服务端requestId)+expert_actual_use上报 —— 与2026-11-09实测点亮5个desktop_expert码及Sequential_Tasks_1(wb2api同构链实测)逐字段同构;Sequential_Tasks_2 accept实测task locked until 2026-11-10(按日解锁);步骤受理回执不构成成功,ok仍只由回读progress真前进判定",
+      "verified": true
     }
   ],
   "expert_use_maidehao": [
