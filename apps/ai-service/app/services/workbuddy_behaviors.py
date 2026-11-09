@@ -232,6 +232,62 @@ BEHAVIOR_PLANS: dict[str, BehaviorPlan] = {
         evidence="2026-11-09 工具实证已 claimed(+100 积分 +5 能量,积分 1986→2186 同轮);"
         "项目侧直连执行器 ACTION_TABLE 待登记该码的直连动作(语义已收口为可自动,动作接线由直连 agent 落地)。",
     ),
+    "Sequential_Tasks_2": BehaviorPlan(
+    code="Sequential_Tasks_2",
+        title="序列任务 2(按日解锁链)",
+        can_automate=True,
+        events=(),
+        instruction="凭据直连平台 HTTP 接口完成:批量 accept → 真实对话(SSE 取服务端 requestId)→ "
+        "expert_actual_use 上报 → 领奖(+200 待解锁);零浏览器会话、零 GUI。",
+        evidence="2026-11-09 accept 实测返回 task locked until 2026-11-10(平台按日解锁,非能力缺陷);"
+        "直连链与 2026-11-09 实测点亮 5 个 desktop_expert 码逐字段同构(accept+真实chat+actual_use),"
+        "ACTION_TABLE 已登记 verified 链;执行成败仍只由回读 progress 真前进判定。",
+    ),
+    "Sequential_Tasks_3": BehaviorPlan(
+    code="Sequential_Tasks_3",
+        title="序列任务 3(按日解锁链)",
+        can_automate=True,
+        events=(),
+        instruction="同 Sequential_Tasks_2:批量 accept → 真实对话 → actual_use 上报 → 领奖。",
+        evidence="ACTION_TABLE 已登记 verified 直连链(与实测点亮码同构);未亲测(未解锁),"
+        "执行成败以回读 progress 为唯一判据,fail-closed 收敛不冒充。",
+    ),
+    "Sequential_Tasks_4": BehaviorPlan(
+    code="Sequential_Tasks_4",
+        title="序列任务 4(按日解锁链)",
+        can_automate=True,
+        events=(),
+        instruction="同 Sequential_Tasks_2:批量 accept → 真实对话 → actual_use 上报 → 领奖。",
+        evidence="ACTION_TABLE 已登记 verified 直连链(与实测点亮码同构);未亲测(未解锁),"
+        "执行成败以回读 progress 为唯一判据,fail-closed 收敛不冒充。",
+    ),
+    "Sequential_Tasks_5": BehaviorPlan(
+    code="Sequential_Tasks_5",
+        title="序列任务 5(按日解锁链)",
+        can_automate=True,
+        events=(),
+        instruction="同 Sequential_Tasks_2:批量 accept → 真实对话 → actual_use 上报 → 领奖。",
+        evidence="ACTION_TABLE 已登记 verified 直连链(与实测点亮码同构);未亲测(未解锁),"
+        "执行成败以回读 progress 为唯一判据,fail-closed 收敛不冒充。",
+    ),
+    "Sequential_Tasks_6": BehaviorPlan(
+    code="Sequential_Tasks_6",
+        title="序列任务 6(按日解锁链)",
+        can_automate=True,
+        events=(),
+        instruction="同 Sequential_Tasks_2:批量 accept → 真实对话 → actual_use 上报 → 领奖。",
+        evidence="ACTION_TABLE 已登记 verified 直连链(与实测点亮码同构);未亲测(未解锁),"
+        "执行成败以回读 progress 为唯一判据,fail-closed 收敛不冒充。",
+    ),
+    "Sequential_Tasks_7": BehaviorPlan(
+    code="Sequential_Tasks_7",
+        title="序列任务 7(按日解锁链)",
+        can_automate=True,
+        events=(),
+        instruction="同 Sequential_Tasks_2:批量 accept → 真实对话 → actual_use 上报 → 领奖。",
+        evidence="ACTION_TABLE 已登记 verified 直连链(与实测点亮码同构);未亲测(未解锁),"
+        "执行成败以回读 progress 为唯一判据,fail-closed 收敛不冒充。",
+    ),
 }
 
 

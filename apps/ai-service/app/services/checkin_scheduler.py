@@ -61,6 +61,7 @@ from app.services import (
     checkin_store,
     checkin_workbuddy,
     checkin_workbuddy_local,
+    workbuddy_autopilot,
     workbuddy_tasks,
 )
 from app.services.checkin_batch_marker import CheckinBatchMarker
@@ -1612,6 +1613,32 @@ class CheckinScheduler:
                         result.get("reason"),
                     )
                 await asyncio.sleep(random.uniform(2.0, 8.0))
+            # O68+ 全量自动驾驶腿(2026-11-09):六族巡检只覆盖服务端可判定项(签到/兑换/
+            # 抽奖/旅行等);真行为项(desktop_expert / Sequential 族)由 workbuddy_autopilot
+            # 全量选路完成(verified 链才执行,无链码零出站只登记,防伪造纪律不删)。
+            # 幂等:accept_status=='claimed' 秒跳过 ⇒ 全表已领时等价一次只读扫表,可复跑。
+            try:
+                auto = await workbuddy_autopilot.run_autopilot(
+                    acc["jwt"], device_map, dry_run=dry_run
+                )
+                if auto.get("read_failed"):
+                    stats["unjudged"] += 1
+                if auto.get("claimed"):
+                    stats["claimed"] += len(auto["claimed"])
+                if auto.get("undone") or auto.get("unregistered"):
+                    stats["unjudged"] += 1
+                summary.append(
+                    f"{acc['id']}/autopilot:claimed_already={len(auto.get('claimed_already') or [])} "
+                    f"executed={len(auto.get('executed') or [])} "
+                    f"claimed={len(auto.get('claimed') or [])} "
+                    f"credits=+{auto.get('credits', 0)} "
+                    f"unregistered={len(auto.get('unregistered') or [])}"
+                )
+            except Exception as e:  # noqa: BLE001 — 单账号 autopilot 异常不中断整轮
+                logger.warning(
+                    "[checkin_scheduler] WB autopilot 异常 account=%s: %s", acc["id"], e
+                )
+                stats["errors"] += 1
         self._record_wb_sweep(
             started_at, dry_run, stats, None if stats["families"] else "无可用账号(全部冷却)"
         )
