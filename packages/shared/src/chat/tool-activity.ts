@@ -58,7 +58,16 @@ export function toolActivityState(status: ToolCallStatus): ToolActivityState | n
 
 /** 一帧渲染结果是否可用:没回显键名、非空、没把 ICU 语法吐到界面 */
 function isUsable(text: string, key: string): boolean {
-  return text !== key && text.trim() !== '' && !looksLikeUnrenderedIcu(text)
+  const normalized = text.trim()
+  // 2026-11-07:next-intl 缺失键时回的是**带命名空间的完整路径**(如
+  // `taskStatus.toolDispatchSubagentActivity`),旧判定只比对裸 key,
+  // 于是把原始 key 当成译文直接显示给用户。这里再挡一层后缀匹配。
+  return (
+    normalized !== '' &&
+    normalized !== key &&
+    !normalized.endsWith(`.${key}`) &&
+    !looksLikeUnrenderedIcu(text)
+  )
 }
 
 /** 中性功能名(键缺失或该端取不到值时返回空串) */

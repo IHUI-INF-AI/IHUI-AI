@@ -629,7 +629,12 @@ export interface RawTextColumns {
  * - token 计数、成本、apiKeyId 等归因/计费列与本法无关,调用方照常写。
  */
 export function buildRawTextColumns(
-  input: { apiKeyId: string | null; prompt: string; response: string | null; userId?: string | null },
+  input: {
+    apiKeyId: string | null
+    prompt: string
+    response: string | null
+    userId?: string | null
+  },
   policy: RawRetentionPolicy = resolveRawRetentionPolicy(),
 ): RawTextColumns {
   // 2026-10-03 数据出域合规整改:新增**按用户**关闭原文留存(此前只有按 key 的
@@ -637,7 +642,8 @@ export function buildRawTextColumns(
   // 必须给出用户自己能按的"不留存"开关,而不能只让运维改 env)。
   // 语义与按 key 一致:命中即"写入即不留",窗口为零(而不是等清除器来抹),
   // 归因/计费列(token 数、成本、apiKeyId、userId)完全不受影响。
-  const userOptOut = input.userId !== null && input.userId !== undefined && isRawRetentionOptedOut(input.userId)
+  const userOptOut =
+    input.userId !== null && input.userId !== undefined && isRawRetentionOptedOut(input.userId)
   const disabled =
     userOptOut ||
     policy.all ||
@@ -737,6 +743,59 @@ export async function purgeAllExpiredLlmCallLogRawText(
     if (!hasMore) break
   }
   return { purged, policy, hasMore }
+}
+
+export type ObservabilityRoute = {
+  disposition: 'persist' | 'defer' | 'unjudged' | 'refused'
+  reason:
+    | 'audit-persisted'
+    | 'telemetry-deferred'
+    | 'channel-unrecognized'
+    | 'persist-unmeasured'
+    | 'audit-not-persisted'
+    | 'pending-unmeasured'
+    | 'telemetry-dropped'
+  channel: 'audit' | 'telemetry' | null
+}
+
+/**
+ * 审计和遥测分两条通道。
+ * 审计没量到已经落库就不算记过，也不能改成待发送。
+ * 遥测可以晚发，但没进待发送队列也不算发出去。本函数不写库。
+ */
+export function routeObservabilityEvent(input: {
+  channel: unknown
+  persisted: unknown
+  pending: unknown
+}): ObservabilityRoute {
+  const none = (
+    reason: ObservabilityRoute['reason'],
+    disposition: ObservabilityRoute['disposition'] = 'unjudged',
+  ): ObservabilityRoute => ({ disposition, reason, channel: null })
+  if (input.channel !== 'audit' && input.channel !== 'telemetry')
+    return none('channel-unrecognized')
+  if (input.channel === 'audit') {
+    if (typeof input.persisted !== 'boolean') return none('persist-unmeasured')
+    if (!input.persisted)
+      return { disposition: 'refused', reason: 'audit-not-persisted', channel: 'audit' }
+    return { disposition: 'persist', reason: 'audit-persisted', channel: 'audit' }
+  }
+  if (typeof input.pending !== 'boolean') return none('pending-unmeasured')
+  if (!input.pending)
+    return { disposition: 'refused', reason: 'telemetry-dropped', channel: 'telemetry' }
+  return { disposition: 'defer', reason: 'telemetry-deferred', channel: 'telemetry' }
+}
+
+/** 审计写入结果。没有日志编号就是没落库，不能改记成待发送。 */
+export function observeAuditWrite(id: unknown): ObservabilityRoute {
+  if (typeof id !== 'string') {
+    return routeObservabilityEvent({
+      channel: 'audit',
+      persisted: id === undefined ? false : null,
+      pending: false,
+    })
+  }
+  return routeObservabilityEvent({ channel: 'audit', persisted: id.length > 0, pending: false })
 }
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -52,6 +52,11 @@ const result = pruneExpiredTrash(workspace);
 
 // 结论行:adapter 自己那一份 summary(判据层原样透出),此处**一字不改**地转述。
 process.stdout.write(`${result.summary}\n`);
+const receipt = result.receipt;
+const countText = (value: number | null): string => (value === null ? '' : String(value));
+process.stdout.write(
+  `TRASH-PRUNE-RECEIPT disposition=${receipt.disposition} reason=${receipt.reason} scanned=${countText(receipt.scanned)} linked=${countText(receipt.linked)} bytes=${countText(receipt.reclaimedBytes)} truncated=${receipt.truncated === null ? '' : String(receipt.truncated)}\n`,
+);
 for (const skip of result.skipped) {
   process.stdout.write(`TRASH-PRUNE-SKIP reason=${oneLine(skip.reason)}\n`);
 }

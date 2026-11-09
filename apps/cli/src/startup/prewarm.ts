@@ -161,4 +161,132 @@ export function renderPrewarmLine(reading: PrewarmReading): string {
   }
   return `[prewarm] status=unjudged reason=${reading.reason} (a missing reading is never reported as hit or miss)`;
 }
+
+/** 带外控制面认的状态。用法说明里只出现这三档。 */
+export const PREWARM_LIVE_STATUSES = ['idle', 'activating', 'active'] as const;
+export type PrewarmLiveStatus = (typeof PREWARM_LIVE_STATUSES)[number];
+
+export type PrewarmControlReply =
+  | { disposition: 'pong' }
+  | { disposition: 'ready'; status: PrewarmLiveStatus }
+  | { disposition: 'accepted' }
+  | { disposition: 'refused'; code: string }
+  | { disposition: 'unjudged'; reason: string };
+
+function readControlObject(line: string): Record<string, unknown> | null {
+  let json: unknown;
+  try {
+    json = JSON.parse(line);
+  } catch {
+    return null;
+  }
+  if (json === null || typeof json !== 'object' || Array.isArray(json)) return null;
+  return json as Record<string, unknown>;
+}
+
+/**
+ * 判一行带外应答。观察:ping/status/activate 各发一行 JSON,activate 只在 ok 为假时改退出码。
+ * 断线、坏 JSON、ok 缺席都不当成拒绝,也不当成已经探活成功。
+ */
+export function classifyPrewarmReply(command: 'ping' | 'status' | 'activate', line: string): PrewarmControlReply {
+  const body = readControlObject(line);
+  if (body === null) return { disposition: 'unjudged', reason: 'reply-malformed' };
+  if (body.ok === false) {
+    return typeof body.code === 'string' && body.code.length > 0
+      ? { disposition: 'refused', code: body.code }
+      : { disposition: 'unjudged', reason: 'refused-without-code' };
+  }
+  if (body.ok !== true) return { disposition: 'unjudged', reason: 'ok-absent' };
+  if (command === 'ping') return { disposition: 'pong' };
+  if (command === 'activate') return { disposition: 'accepted' };
+  const status = body.status;
+  if (typeof status === 'string' && (PREWARM_LIVE_STATUSES as readonly string[]).includes(status)) {
+    return { disposition: 'ready', status: status as PrewarmLiveStatus };
+  }
+  return { disposition: 'unjudged', reason: 'status-unrecognized' };
+}
+
+export interface PrewarmCatalogEntry {
+  id: string;
+  pid: number;
+  proc: 'alive' | 'dead';
+}
+
+export interface PrewarmCatalog {
+  visible: PrewarmCatalogEntry[];
+  hiddenDead: number;
+  unjudged: string[];
+}
+
+/**
+ * 从已经读出的登记里挑可见行。缺标识、同一标识出现两次,都不编一个假 id。
+ * 默认藏掉已死进程;showAll 才把它们留在表里。
+ */
+export function selectPrewarmCatalog(
+  entries: readonly unknown[],
+  isAlive: (pid: number) => boolean,
+  showAll: boolean,
+): PrewarmCatalog {
+  const parsed: { id: string; pid: number }[] = [];
+  const unjudged: string[] = [];
+  entries.forEach((entry, index) => {
+    if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) {
+      unjudged.push(`index-${index}:not-a-record`);
+      return;
+    }
+    const row = entry as Record<string, unknown>;
+    if (row.kind !== 'prewarm') return;
+    const meta = row.meta;
+    const id =
+      meta !== null && typeof meta === 'object' && !Array.isArray(meta)
+        ? (meta as Record<string, unknown>).prewarmId
+        : undefined;
+    if (typeof id !== 'string' || id.length === 0) {
+      unjudged.push(`index-${index}:id-absent`);
+      return;
+    }
+    if (typeof row.pid !== 'number' || !Number.isInteger(row.pid) || row.pid <= 0) {
+      unjudged.push(`${id}:pid-invalid`);
+      return;
+    }
+    parsed.push({ id, pid: row.pid });
+  });
+  const counts = new Map<string, number>();
+  for (const row of parsed) counts.set(row.id, (counts.get(row.id) ?? 0) + 1);
+  const visible: PrewarmCatalogEntry[] = [];
+  let hiddenDead = 0;
+  for (const row of parsed) {
+    if ((counts.get(row.id) ?? 0) > 1) {
+      if (!unjudged.includes(`${row.id}:duplicate`)) unjudged.push(`${row.id}:duplicate`);
+      continue;
+    }
+    const alive = isAlive(row.pid);
+    if (!alive && !showAll) {
+      hiddenDead += 1;
+      continue;
+    }
+    visible.push({ id: row.id, pid: row.pid, proc: alive ? 'alive' : 'dead' });
+  }
+  return { visible, hiddenDead, unjudged };
+}
+
+/** 宿主已经拿到的一行应答。没有这一行就返回 null,启动路径保持原样。命令认不出时不默认当成 ping。 */
+export function classifyPrewarmReplyEnv(
+  command: string | undefined,
+  line: string | undefined,
+): PrewarmControlReply | null {
+  if (typeof line !== 'string' || line.length === 0) return null;
+  if (command !== 'ping' && command !== 'status' && command !== 'activate') {
+    return { disposition: 'unjudged', reason: 'command-absent' };
+  }
+  return classifyPrewarmReply(command, line);
+}
+
+export function renderPrewarmControlLine(reply: PrewarmControlReply): string {
+  if (reply.disposition === 'pong') return '[prewarm-control] disposition=pong';
+  if (reply.disposition === 'ready') return `[prewarm-control] disposition=ready status=${reply.status}`;
+  if (reply.disposition === 'accepted') return '[prewarm-control] disposition=accepted';
+  if (reply.disposition === 'refused') return `[prewarm-control] disposition=refused code=${reply.code}`;
+  return `[prewarm-control] disposition=unjudged reason=${reply.reason}`;
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

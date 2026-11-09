@@ -639,7 +639,10 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, result.error ?? 'DAG 存在循环依赖'))
       }
 
-      return reply.send(success({ dispatch: result.dispatch }))
+      // 契约收敛(2026-11-08):shared 的 SubagentDispatchResult 要求 outcome 必有值,
+      // web 派单页按 data.outcome === 'success' 才跳详情;service 成功态用 'ok',
+      // 这里做唯一出口映射,否则 200 成功的派单会被前端渲染成「派单失败:未知结果」。
+      return reply.send(success({ dispatch: result.dispatch, outcome: 'success' as const }))
     } catch (e) {
       return reply.status(500).send(error(500, (e as Error).message))
     }

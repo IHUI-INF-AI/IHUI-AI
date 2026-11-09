@@ -289,17 +289,53 @@ export function compressContextIfNeeded(
   return _compressContextIfNeeded(messages, opts, hooks);
 }
 
+export const CONTEXT_CONTROL_KEYS = ['compact-percent', 'context-window', 'estimated-cost'] as const;
+
+export type ContextControlKey = (typeof CONTEXT_CONTROL_KEYS)[number];
+
+export type ContextControlPlan = {
+  disposition: 'applied' | 'unjudged';
+  reason: ContextControlKey | 'key-unrecognized' | 'value-invalid';
+  value: number | null;
+};
+
 /**
- * 只放行"真量到"的压缩阈值:有限数且落在 (0, 1] 区间。
- *
- * 数值面同样不许把"没量到"冒充成"没有" —— 配置里出现 NaN / Infinity / ≤0 / >1
- * 一律判不可用(返回 null),由调用方回落到共享包单源默认值;否则一个不可能的阈值
- * 会让压缩要么永不触发、要么每轮触发,而账面看不出是配置写错了。
+ * 一次只改一个上下文控制项。
+ * 认不出的键或值不落成 0，也不改另外两项。
  */
-export function measuredCompactRatio(value: number | null | undefined): number | null {
-  if (typeof value !== 'number' || !Number.isFinite(value)) return null;
-  if (value <= 0 || value > 1) return null;
-  return value;
+export function admitContextControl(input: { key: unknown; value: unknown }): ContextControlPlan {
+  const none = (reason: 'key-unrecognized' | 'value-invalid'): ContextControlPlan => ({
+    disposition: 'unjudged',
+    reason,
+    value: null,
+  });
+  if (typeof input.key !== 'string' || !(CONTEXT_CONTROL_KEYS as readonly string[]).includes(input.key)) {
+    return none('key-unrecognized');
+  }
+  if (typeof input.value !== 'number' || !Number.isFinite(input.value)) return none('value-invalid');
+  if (input.key === 'compact-percent') {
+    if (!Number.isInteger(input.value) || input.value < 1 || input.value > 99) return none('value-invalid');
+    return { disposition: 'applied', reason: 'compact-percent', value: input.value };
+  }
+  if (input.key === 'context-window') {
+    if (!Number.isInteger(input.value) || input.value < 1) return none('value-invalid');
+    return { disposition: 'applied', reason: 'context-window', value: input.value };
+  }
+  if (input.value < 0) return none('value-invalid');
+  return { disposition: 'applied', reason: 'estimated-cost', value: input.value };
+}
+
+/**
+ * 把占用率收成 1%–99% 的整数百分比。对不上这一档就返回 null，调用方继续用默认阈值。
+ */
+export function measuredCompactRatio(raw: unknown): number | null {
+  if (typeof raw !== 'number' || !Number.isFinite(raw)) return null;
+  const percent = raw * 100;
+  const rounded = Math.round(percent);
+  if (Math.abs(percent - rounded) > 1e-6) return null;
+  const plan = admitContextControl({ key: 'compact-percent', value: rounded });
+  if (plan.disposition !== 'applied' || plan.value === null) return null;
+  return plan.value / 100;
 }
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

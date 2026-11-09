@@ -1869,6 +1869,9 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
           .min(1)
           .max(1024 * 1024)
           .optional(),
+        previous: z.unknown().optional(),
+        measuredKinds: z.unknown().optional(),
+        muted: z.unknown().optional(),
       })
       .safeParse(request.body)
     if (!parsed.success) {

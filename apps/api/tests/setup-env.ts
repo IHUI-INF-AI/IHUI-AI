@@ -54,13 +54,6 @@ process.env.DATABASE_URL ??= TEST_DATABASE_FALLBACK_URL
 // 弱兜底会让导入真 config 的零连接测试在干净检出上 import 即崩(config 进程 exit(1))。
 // 每次进程内随机生成,不落盘 —— 零连接测试不依赖具体值。
 process.env.JWT_SECRET ??= randomBytes(32).toString('hex')
-
-// X-Internal-Secret 族(2026-11-06):测试默认面显式跑 `dual` 兼容档。
-// 理由:存量用例大量以「只带 x-internal-secret」为夹具,而代码默认档位是 ticket
-// (fail-closed)。测试面统一置 dual,让这些历史夹具继续表达"兼容窗口可用";
-// 真正的默认拒绝行为由 tests/internal-secret-auth.test.ts 直接对配置注入 ticket 覆盖,
-// 不靠测试环境全局放宽来掩盖。
-process.env.INTERNAL_SECRET_AUTH_MODE ??= 'dual'
 process.env.CREDENTIALS_ENCRYPTION_KEY ??= randomBytes(32).toString('hex')
 // 测试专用 Redis 兜底(2026-11-03 安全修复):兜底必须是**确认无人监听**的哨兵地址。
 // 旧值 redis://localhost:8811/1 是生产 Redis 的宿主映射端口(docker-compose.yml:339

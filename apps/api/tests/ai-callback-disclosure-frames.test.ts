@@ -19,9 +19,6 @@ vi.mock('../src/config/index.js', () => ({
     DATABASE_URL: 'postgres://mock:mock@localhost:5432/mock',
     REDIS_URL: 'redis://localhost:6379/0',
     AI_CALLBACK_SECRET: 'test-secret',
-    // 本文件只验交代帧落库,鉴权走"旧密钥"夹具 ⇒ 显式 dual 兼容档;
-    // ticket 档的拒绝行为由 tests/internal-secret-auth.test.ts 覆盖。
-    INTERNAL_SECRET_AUTH_MODE: 'dual',
   },
 }))
 

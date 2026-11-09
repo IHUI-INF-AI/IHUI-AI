@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import {
+  admitFailoverTarget,
   CircuitBreaker,
   CircuitOpenError,
   serverPreset,
@@ -261,6 +262,36 @@ describe('CircuitBreaker — Sliding-window-with-min-samples', () => {
     expect(cb.getState()).toBe('closed')
     await settle(cb, false)
     expect(cb.getState()).toBe('open')
+  })
+})
+
+describe('备用源必须在信任表里,熔断没量到不算可用', () => {
+  const trusted = ['https://a.example.test', 'https://b.example.test']
+
+  it('表外地址拒绝,熔断打开不切过去', () => {
+    expect(
+      admitFailoverTarget({
+        origin: 'https://b.example.test',
+        trustedOrigins: trusted,
+        circuit: 'closed',
+      }),
+    ).toMatchObject({ disposition: 'use', origin: 'https://b.example.test' })
+    expect(
+      admitFailoverTarget({
+        origin: 'https://evil.example.test',
+        trustedOrigins: trusted,
+        circuit: 'closed',
+      }).reason,
+    ).toBe('origin-untrusted')
+    expect(
+      admitFailoverTarget({ origin: trusted[0], trustedOrigins: trusted, circuit: 'open' }).reason,
+    ).toBe('circuit-open')
+    expect(
+      admitFailoverTarget({ origin: trusted[0], trustedOrigins: null, circuit: 'closed' }).reason,
+    ).toBe('trust-unmeasured')
+    expect(
+      admitFailoverTarget({ origin: trusted[0], trustedOrigins: trusted, circuit: null }).reason,
+    ).toBe('circuit-unmeasured')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

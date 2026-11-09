@@ -285,4 +285,28 @@ describe('G-688 观察汇:永不抛 + 按 sender 的身份闸门 + 能力缺席�
     expect(received[0]!.subagentId).toBe('orphan-1');
   });
 });
+
+describe('子代理按三层读', () => {
+  it('单工具明细不把快照名单交出去,请求没量到也不说成没有', async () => {
+    const store = await freshStore();
+    const detail = store.admitChildAgentRead({
+      view: 'tool-detail',
+      snapshots: ['snap-1'],
+      requests: ['req-1'],
+      toolNames: ['read'],
+      requestId: 'req-1',
+      toolName: 'read',
+    });
+    expect(detail).toMatchObject({ disposition: 'admitted', reason: 'tool-detail', ids: ['read'] });
+    expect(detail.ids).not.toContain('snap-1');
+    expect(
+      store.admitChildAgentRead({
+        view: 'requests',
+        snapshots: ['snap-1'],
+        requests: null,
+        toolNames: null,
+      }).reason,
+    ).toBe('requests-unmeasured');
+  });
+});
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

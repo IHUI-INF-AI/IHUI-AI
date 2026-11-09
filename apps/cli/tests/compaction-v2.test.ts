@@ -175,6 +175,12 @@ describe('shouldCompact', () => {
     expect(r.shouldCompact).toBe(false);
   });
 
+  it('阈值写成 0 或不是整数百分比时仍用默认 0.88', () => {
+    expect(shouldCompact(1000, 10000, undefined, { triggerRatio: 0 }).shouldCompact).toBe(false);
+    expect(shouldCompact(9000, 10000, undefined, { triggerRatio: Number.NaN }).shouldCompact).toBe(true);
+    expect(shouldCompact(5000, 10000, undefined, { triggerRatio: 0.885 }).shouldCompact).toBe(false);
+  });
+
   it('contextLimit <= 0 不触发(避免除零)', () => {
     const r = shouldCompact(1000, 0);
     expect(r.shouldCompact).toBe(false);

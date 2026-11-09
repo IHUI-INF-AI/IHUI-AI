@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 import { describe, expect, it, vi } from 'vitest'
 import { BaseClient, SdkError, type SdkConfig } from '../src/base'
+import { admitAssetContent, createFilesModule } from '../src/files'
 
 /** 构造注入用 fetch,记录每次调用的 url/init 并按脚本返回响应。 */
 function makeFetch(
@@ -282,5 +283,42 @@ describe('BaseClient 配置校验', () => {
     const client = makeClient({ baseUrl: 'http://test.local', fetch: fetchFn })
     const stream = await client.requestStream('POST', '/chat/completions', { stream: true })
     expect(stream).toBeInstanceOf(ReadableStream)
+  })
+})
+
+describe('内容资产先预检再读取', () => {
+  it('别的资产预检通过不能读这一份,没做预检也不读', () => {
+    expect(
+      admitAssetContent({ assetId: 'a1', preflight: { assetId: 'a1', ok: true } }),
+    ).toMatchObject({
+      disposition: 'fetch',
+      reason: 'preflight-ok',
+    })
+    expect(
+      admitAssetContent({ assetId: 'a1', preflight: { assetId: 'a2', ok: true } }).reason,
+    ).toBe('asset-mismatch')
+    expect(admitAssetContent({ assetId: 'a1', preflight: null }).reason).toBe(
+      'preflight-unmeasured',
+    )
+    expect(admitAssetContent({ assetId: 'a1', preflight: { assetId: 'a1' } }).reason).toBe(
+      'preflight-unreadable',
+    )
+    expect(
+      admitAssetContent({ assetId: 'a1', preflight: { assetId: 'a1', ok: false } }).disposition,
+    ).toBe('refused')
+  })
+
+  it('读内容走预检，没通过就不发请求', async () => {
+    const { fetchFn, calls } = makeFetch([{ body: 'bytes' }])
+    const files = createFilesModule(makeClient({ baseUrl: 'http://test.local', fetch: fetchFn }))
+    await expect(files.getContent('a1', null)).rejects.toThrow('preflight-unmeasured')
+    await expect(files.getContent('a1', { assetId: 'a2', ok: true })).rejects.toThrow(
+      'asset-mismatch',
+    )
+    expect(calls).toHaveLength(0)
+    const stream = await files.getContent('a1', { assetId: 'a1', ok: true })
+    expect(stream).toBeInstanceOf(ReadableStream)
+    expect(calls).toHaveLength(1)
+    expect(calls[0]?.url).toContain('/files/a1/content')
   })
 })

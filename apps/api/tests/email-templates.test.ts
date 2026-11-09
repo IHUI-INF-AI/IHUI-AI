@@ -726,7 +726,8 @@ describe('email-templates — resolveWebOrigin 与转义', () => {
   // 以下三例是 2026-10-15「邮件 Logo 永远加载不出来」的回归钉子。
   // 现场:CORS_ORIGIN 首项是 http://localhost:8801,模板把它拼进绝对地址 ⇒ 收件端全取不到。
   it('CORS_ORIGIN 全为 loopback / 本机协议时,跳过并回退公网域名(根因回归)', () => {
-    process.env.CORS_ORIGIN = 'http://localhost:8801,http://127.0.0.1:8804,tauri://localhost,file://'
+    process.env.CORS_ORIGIN =
+      'http://localhost:8801,http://127.0.0.1:8804,tauri://localhost,file://'
     const r = renderWelcomeEmail({ nickname: 'x', maskedId: 'x', initCredits: 1 })
     expect(r.html).toContain('https://aizhs.top/dashboard')
     expect(r.html).not.toContain('localhost')

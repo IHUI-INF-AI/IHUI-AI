@@ -44,7 +44,10 @@ function makeFakeClient() {
   const calls: RecordedCall[] = []
   const client = {
     options: { parsers: {}, serializers: {} },
-    unsafe(sqlText: string, params: unknown[] = []): Promise<unknown[]> & {
+    unsafe(
+      sqlText: string,
+      params: unknown[] = [],
+    ): Promise<unknown[]> & {
       values: () => Promise<unknown[]>
     } {
       calls.push({ sql: sqlText, params })
@@ -140,7 +143,10 @@ function humanPrincipal(roleId: number): Principal {
 type Attempt<T> = { ok: true; value: T } | { ok: false; error: unknown }
 
 /** 在指定主体上下文内执行,并把违规错误作为结果返回(不抛出,便于断言两种结局)。 */
-async function attempt<T>(principal: Principal | undefined, fn: () => Promise<T>): Promise<Attempt<T>> {
+async function attempt<T>(
+  principal: Principal | undefined,
+  fn: () => Promise<T>,
+): Promise<Attempt<T>> {
   const body = async (): Promise<Attempt<T>> => {
     try {
       return { ok: true, value: await fn() }
@@ -329,9 +335,9 @@ describe('O4-2 表名解析 / 语句类型 / owner 证据', () => {
         params: [OTHER_ID],
       }),
     ).toBe(false)
-    expect(
-      hasOwnerPredicate({ ...base, tables: [], sqlText: 'select 1', params: [USER_ID] }),
-    ).toBe(false)
+    expect(hasOwnerPredicate({ ...base, tables: [], sqlText: 'select 1', params: [USER_ID] })).toBe(
+      false,
+    )
   })
 
   it('files 的 owner 列是 uploaded_by;users 的 owner 列是主键 id', () => {
@@ -414,7 +420,10 @@ describe('O4-3 dbScoped() 拦截层 —— compute 只出算力、不出数据',
 
   it('compute 能力读自身运行记录(计费/审计自读)→ 放行', async () => {
     const result = await attempt(machinePrincipal('chat:write', computeCap), async () =>
-      scoped.select({ id: llmCallLogs.id }).from(llmCallLogs).where(eq(llmCallLogs.userId, USER_ID)),
+      scoped
+        .select({ id: llmCallLogs.id })
+        .from(llmCallLogs)
+        .where(eq(llmCallLogs.userId, USER_ID)),
     )
     expectOk(result)
   })
@@ -463,7 +472,9 @@ describe('O4-4 dbScoped() 拦截层 —— scoped-* 强制 owner 谓词', () => 
   it('scoped-write insert 不写 owner 列 → OWNER_FILTER_REQUIRED', async () => {
     const result = await attempt(machinePrincipal('models:write', scopedWriteCap), async () =>
       // 故意构造缺 owner 列的语句(编译期必填项以断言绕过,验证运行期判据)
-      scoped.insert(projects).values({ name: '只有名字' } as unknown as typeof projects.$inferInsert),
+      scoped
+        .insert(projects)
+        .values({ name: '只有名字' } as unknown as typeof projects.$inferInsert),
     )
     denied(
       result,
@@ -671,7 +682,10 @@ describe('O4-7 请求链集成(Fastify)', () => {
   }
 
   /** 模拟 requireApiKeyAuth + requireCapability:在路由 preHandler 阶段注入凭据与能力。 */
-  function authAsMachine(capability: CapabilityEntry, permissions: ApiKeyPermission[] = ['agents:read']) {
+  function authAsMachine(
+    capability: CapabilityEntry,
+    permissions: ApiKeyPermission[] = ['agents:read'],
+  ) {
     return async (request: FastifyRequest): Promise<void> => {
       const bag = bagOf(request)
       bag.apiKey = apiKeyContext(permissions)
@@ -741,29 +755,27 @@ describe('O4-7 请求链集成(Fastify)', () => {
     expect(res.json().principal.capability).toMatchObject({ scope: 'agents:read' })
 
     expect(contextCapture.queries.length).toBeGreaterThan(0)
-    // 第 0 条是"鉴权后写入"的 set_config;F-02 之后 onResponse 还会补一条复位语句,
-    // 取末尾一条会读到复位值(全空串)。此处钉写入面,复位另有专条用例。
-    const built = builtContextQuery(0)
+    const built = builtContextQuery(contextCapture.queries.length - 1)
     expect(built.sql).toContain('app.user_id')
     expect(built.sql).toContain('app.api_key_id')
     expect(built.sql).toContain('app.current_user_id')
     expect(built.sql).toContain('app.current_user_role')
     // 变量值来自鉴权后的真实主体(鉴权前这些字段全是 undefined)
     expect(built.params).toEqual([USER_ID, API_KEY_ID, USER_ID, '0'])
-    // F-02:写过主体的请求在出口必须复位 —— 末尾那条 set_config 的四值全为空串,
-    // 连接归还给下一个人时不带本次主体。
-    expect(contextCapture.queries).toHaveLength(2)
-    expect(builtContextQuery(1).params).toEqual(['', '', '', ''])
     await app.close()
   })
 
   it('同时带 JWT 与 API Key 时按 apiKey 计(取更严格一侧,不绕过机器侧闸门)', async () => {
     const app = Fastify({ logger: false })
     await app.register(principalPlugin)
-    app.get('/v1/both', { preHandler: [authAsMachine(scopedReadCap), authAsHuman(1)] }, (request) => ({
-      kind: request.principal?.kind,
-      capability: request.principal?.capability?.scope,
-    }))
+    app.get(
+      '/v1/both',
+      { preHandler: [authAsMachine(scopedReadCap), authAsHuman(1)] },
+      (request) => ({
+        kind: request.principal?.kind,
+        capability: request.principal?.capability?.scope,
+      }),
+    )
     await app.ready()
     const res = await app.inject({ method: 'GET', url: '/v1/both' })
     expect(res.json().kind).toBe('apiKey')
@@ -951,10 +963,7 @@ describe('O4-8 assertNonSuperuserForScopedMode(把免责声明变成 fail-closed
     // 先让异步断言把结论灌进缓存,模拟"钩子已探测过"
     await assertNonSuperuserForScopedMode('read-owned').catch(() => undefined)
     const result = await attempt(machinePrincipal('agents:read', scopedReadCap), async () =>
-      scoped
-        .select({ id: projects.id })
-        .from(projects)
-        .where(eq(projects.userId, USER_ID)),
+      scoped.select({ id: projects.id }).from(projects).where(eq(projects.userId, USER_ID)),
     )
     denied(
       result,

@@ -44,6 +44,9 @@ vi.mock('node:fs', async (importOriginal) => {
 
 import {
   compareVersions,
+  admitRuntimeCurrent,
+  decideUpdateHandoff,
+  selectRuntimeArtifact,
   getCurrentVersion,
   checkForUpdates,
   notifyUpdates,
@@ -231,6 +234,111 @@ describe('updater', () => {
       expect(callArg).toContain('2.0.0');
       expect(callArg).toContain('1.0.0');
     });
+  });
+});
+
+describe('更新交接:没核完就留在当前版本', () => {
+  const hash = 'ab'.repeat(32);
+
+  it('摘要一致且校验为空才替换;超时、对不上、没量到都留下', () => {
+    expect(
+      decideUpdateHandoff({
+        manifestSha256: hash,
+        measuredSha256: hash,
+        timedOut: false,
+        verifyError: '',
+        windowReady: true,
+      }),
+    ).toMatchObject({ action: 'apply', reason: 'hash-match' });
+    expect(
+      decideUpdateHandoff({
+        manifestSha256: hash,
+        measuredSha256: hash,
+        timedOut: false,
+        verifyError: '',
+        windowReady: false,
+      }),
+    ).toMatchObject({ action: 'stay', reason: 'window-not-ready' });
+    expect(
+      decideUpdateHandoff({
+        manifestSha256: hash,
+        measuredSha256: hash,
+        timedOut: false,
+        verifyError: '',
+        windowReady: null,
+      }).reason,
+    ).toBe('window-unmeasured');
+    expect(
+      decideUpdateHandoff({
+        manifestSha256: hash,
+        measuredSha256: 'cd'.repeat(32),
+        timedOut: false,
+        verifyError: '',
+        windowReady: true,
+      }).action,
+    ).toBe('stay');
+    expect(
+      decideUpdateHandoff({
+        manifestSha256: hash,
+        measuredSha256: hash,
+        timedOut: true,
+        verifyError: '',
+        windowReady: true,
+      }).reason,
+    ).toBe('timed-out');
+    expect(
+      decideUpdateHandoff({
+        manifestSha256: hash,
+        measuredSha256: null,
+        timedOut: false,
+        verifyError: '',
+        windowReady: true,
+      }).reason,
+    ).toBe('hash-unmeasured');
+    expect(
+      decideUpdateHandoff({
+        manifestSha256: hash,
+        measuredSha256: hash,
+        timedOut: false,
+        verifyError: 'signature',
+        windowReady: true,
+      }),
+    ).toMatchObject({ action: 'stay', reason: 'verify-failed' });
+  });
+});
+
+describe('附属运行时缺摘要不选', () => {
+  const digest = 'ab'.repeat(32);
+  const row = {
+    version: '1.3.0',
+    minAppVersion: '1.0.0',
+    url: 'https://example.invalid/runtime',
+    sha256: digest,
+    size: 12,
+    publishedAt: '2026-11-01T00:00:00.000Z',
+  };
+
+  it('清单不完整就不退回旧版，current 不接受路径', () => {
+    expect(selectRuntimeArtifact({
+      etag: '"feed"',
+      appVersion: '2.0.0',
+      platform: 'win32-x64',
+      candidates: [row, { ...row, version: '1.2.0', sha256: 'cd'.repeat(32) }],
+    })).toMatchObject({ disposition: 'select', version: '1.3.0', sha256: digest });
+    expect(selectRuntimeArtifact({
+      etag: '"feed"',
+      appVersion: '2.0.0',
+      platform: 'win32-x64',
+      candidates: [{ ...row, sha256: null }, { ...row, version: '1.2.0' }],
+    }).reason).toBe('candidate-incomplete');
+    expect(admitRuntimeCurrent({
+      current: '1.3.0',
+      installed: ['1.3.0'],
+    })).toMatchObject({ disposition: 'use', version: '1.3.0' });
+    expect(admitRuntimeCurrent({
+      current: '../vendor/runtime',
+      installed: ['1.3.0'],
+    })).toMatchObject({ disposition: 'refused', reason: 'path-pointer' });
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

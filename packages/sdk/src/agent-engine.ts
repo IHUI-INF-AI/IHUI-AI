@@ -857,4 +857,60 @@ function safeJson(text: string): Record<string, unknown> {
 export function createAgent(options: CreateAgentOptions): Agent {
   return new AgentEngineClient(options)
 }
+
+export const GUEST_NAMESPACE_PLATFORMS = ['web', 'desktop'] as const
+export type GuestNamespacePlatform = (typeof GUEST_NAMESPACE_PLATFORMS)[number]
+
+export type GuestNamespacePlan = {
+  disposition: 'admitted' | 'refused' | 'unjudged'
+  reason:
+    | 'named'
+    | 'namespace-denied'
+    | 'platform-unrecognized'
+    | 'allowlist-unmeasured'
+    | 'allowlist-invalid'
+    | 'name-invalid'
+  namespace: string
+}
+
+function guestNamespaceOk(value: unknown): value is string {
+  return (
+    typeof value === 'string' &&
+    value.length > 0 &&
+    !/[\s\0/\\]/.test(value) &&
+    !value.includes('..')
+  )
+}
+
+/**
+ * 访客能力按宿主平台切开。
+ * 桌面多出来的面不会自动出现在网页端。
+ * 这一端的允许表还没量到时不放行,也不把另一端的表拿来顶上。
+ */
+export function admitGuestNamespace(input: {
+  platform: unknown
+  namespace: unknown
+  allow: { web?: readonly string[] | null; desktop?: readonly string[] | null } | null
+}): GuestNamespacePlan {
+  const blank = (
+    reason: GuestNamespacePlan['reason'],
+    disposition: GuestNamespacePlan['disposition'] = 'unjudged',
+  ): GuestNamespacePlan => ({ disposition, reason, namespace: '' })
+  if (
+    typeof input.platform !== 'string' ||
+    !(GUEST_NAMESPACE_PLATFORMS as readonly string[]).includes(input.platform)
+  ) {
+    return blank('platform-unrecognized')
+  }
+  if (!guestNamespaceOk(input.namespace)) return blank('name-invalid')
+  if (input.allow === null || typeof input.allow !== 'object') return blank('allowlist-unmeasured')
+  const list = input.allow[input.platform as GuestNamespacePlatform]
+  if (list === null || list === undefined) return blank('allowlist-unmeasured')
+  if (list.some((name) => !guestNamespaceOk(name)) || new Set(list).size !== list.length) {
+    return blank('allowlist-invalid')
+  }
+  if (!list.includes(input.namespace))
+    return { disposition: 'refused', reason: 'namespace-denied', namespace: '' }
+  return { disposition: 'admitted', reason: 'named', namespace: input.namespace }
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

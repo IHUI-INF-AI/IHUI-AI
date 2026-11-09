@@ -25,7 +25,6 @@ import { inArray, sql } from 'drizzle-orm'
 import { aiRelayAccountPool } from '@ihui/database'
 import { db, dbRead } from '../db/index.js'
 import { config } from '../config/index.js'
-import { buildInternalCallHeaders } from '../utils/internal-call-headers.js'
 import { decryptField } from '../utils/crypto.js'
 import { logger } from '../utils/logger.js'
 import { isRelayProviderCode, type RelayProviderCode } from './relay-account-format.js'
@@ -213,20 +212,12 @@ export async function pushPoolSync(
   if (!secret) {
     return { ok: false, ...base, error: 'AI_CALLBACK_SECRET 未配置,跳过签到同步(不阻塞号池)' }
   }
-  const authHeaders = await buildInternalCallHeaders({
-    scope: 'checkin-pool',
-    legacySecret: secret,
-    extra: { 'Content-Type': 'application/json' },
-  })
-  if (!authHeaders) {
-    return { ok: false, ...base, error: 'JWT_SECRET 未配置,无法签发内部票据(拒绝无票同步)' }
-  }
   try {
     const resp = await fetchImpl(
       `${config.AI_SERVICE_URL.replace(/\/+$/, '')}/internal/checkin/pool-sync`,
       {
         method: 'POST',
-        headers: authHeaders,
+        headers: { 'Content-Type': 'application/json', 'X-Internal-Secret': secret },
         body: JSON.stringify({ platform, accounts }),
         signal: AbortSignal.timeout(PUSH_TIMEOUT_MS),
       },
@@ -302,20 +293,12 @@ export async function pushPoolState(
 ): Promise<{ ok: boolean; error: string | null }> {
   const secret = config.AI_CALLBACK_SECRET
   if (!secret) return { ok: false, error: 'AI_CALLBACK_SECRET 未配置,跳过签到状态同步' }
-  const authHeaders = await buildInternalCallHeaders({
-    scope: 'checkin-pool',
-    legacySecret: secret,
-    extra: { 'Content-Type': 'application/json' },
-  })
-  if (!authHeaders) {
-    return { ok: false, error: 'JWT_SECRET 未配置,无法签发内部票据(拒绝无票状态同步)' }
-  }
   try {
     const resp = await fetchImpl(
       `${config.AI_SERVICE_URL.replace(/\/+$/, '')}/internal/checkin/pool-state`,
       {
         method: 'POST',
-        headers: authHeaders,
+        headers: { 'Content-Type': 'application/json', 'X-Internal-Secret': secret },
         body: JSON.stringify({
           platform,
           items: [
@@ -780,19 +763,12 @@ export async function fetchPoolStatus(
   if (!secret) {
     return { ok: false, ...EMPTY_STATUS, error: 'AI_CALLBACK_SECRET 未配置,无法点查签到状态' }
   }
-  const authHeaders = await buildInternalCallHeaders({
-    scope: 'checkin-pool',
-    legacySecret: secret,
-  })
-  if (!authHeaders) {
-    return { ok: false, ...EMPTY_STATUS, error: 'JWT_SECRET 未配置,无法签发内部票据(拒绝无票点查)' }
-  }
   try {
     const resp = await fetchImpl(
       `${config.AI_SERVICE_URL.replace(/\/+$/, '')}/internal/checkin/pool-status?platform=${encodeURIComponent(platform)}&poolAccountId=${encodeURIComponent(target.poolAccountId)}&uid=${encodeURIComponent(target.uid)}`,
       {
         method: 'GET',
-        headers: authHeaders,
+        headers: { 'X-Internal-Secret': secret },
         signal: AbortSignal.timeout(10_000),
       },
     )
@@ -861,25 +837,12 @@ export async function postPoolRun(
       error: 'AI_CALLBACK_SECRET 未配置,无法触发签到',
     }
   }
-  const authHeaders = await buildInternalCallHeaders({
-    scope: 'checkin-pool',
-    legacySecret: secret,
-    extra: { 'Content-Type': 'application/json' },
-  })
-  if (!authHeaders) {
-    return {
-      ok: false,
-      httpStatus: 503,
-      record: null,
-      error: 'JWT_SECRET 未配置,无法签发内部票据(拒绝无票触发签到)',
-    }
-  }
   try {
     const resp = await fetchImpl(
       `${config.AI_SERVICE_URL.replace(/\/+$/, '')}/internal/checkin/pool-run`,
       {
         method: 'POST',
-        headers: authHeaders,
+        headers: { 'Content-Type': 'application/json', 'X-Internal-Secret': secret },
         body: JSON.stringify({
           platform,
           poolAccountId: target.poolAccountId,

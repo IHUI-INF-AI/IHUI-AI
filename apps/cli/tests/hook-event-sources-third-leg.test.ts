@@ -139,7 +139,16 @@ describe('① instructionsLoaded:装载成功才派发,且恰好一次', () => {
   it('读不动(同名目录)⇒ 不派发,返回 undefined,且不抛穿调用方', () => {
     const ws = trackedWorkspace('unreadable');
     fs.mkdirSync(path.join(ws, 'AGENTS.md'));
-    expect(readAgentsMd(ws)).toBeUndefined();
+    const lines: string[] = [];
+    const spy = vi.spyOn(console, 'info').mockImplementation((...args: unknown[]) => {
+      lines.push(args.map((item) => String(item)).join(' '));
+    });
+    try {
+      expect(readAgentsMd(ws)).toBeUndefined();
+    } finally {
+      spy.mockRestore();
+    }
+    expect(lines.join('\n')).toContain('不能把它说成仓库里没有');
     expect(callsOf('instructionsLoaded')).toHaveLength(0);
   });
 });

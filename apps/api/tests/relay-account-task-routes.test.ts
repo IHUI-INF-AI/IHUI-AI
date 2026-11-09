@@ -26,13 +26,7 @@ interface Envelope {
   data: Record<string, unknown>
 }
 
-// 内部票签发表依赖 jose 的 SignJWT:整包 mock 掉会让 SignJWT 变 undefined,
-// buildInternalCallHeaders 因此 fail-closed 返回 null(转发面恒 502)。
-// 只替换 decodeJwt,签名/验签走真实实现。
-vi.mock('jose', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('jose')>()
-  return { ...actual, decodeJwt: () => ({}) }
-})
+vi.mock('jose', () => ({ decodeJwt: () => ({}) }))
 vi.mock('../src/config/index.js', () => ({
   config: {
     NODE_ENV: 'test',
@@ -76,12 +70,6 @@ vi.mock('@ihui/auth', () => ({
   signRefreshToken: vi.fn().mockResolvedValue('mock-refresh-token'),
   verifyAccessToken: mockVerifyAccessToken,
   createFamilyId: vi.fn().mockReturnValue('00000000-0000-4000-8000-000000000002'),
-  // 2026-11-06 票据化:@ihui/auth 的 getJwtSecret() 是 api → ai-service 内部票的
-  // 签名源(buildInternalCallHeaders → mintInternalServiceTicket)。本体 mock 若漏了
-  // 这一枚,签票直接抛错 ⇒ fail-closed 返回 null ⇒ 转发面恒 502(不是被测路由的错)。
-  // 返回值形态照抄真实实现(jwt.ts):Uint8Array,不是字符串(jose HS256 只收
-  // CryptoKey/KeyObject/JWK/Uint8Array)。值取上方 mock 的 config.JWT_SECRET。
-  getJwtSecret: () => new TextEncoder().encode('test-jwt-secret-at-least-32-characters-long!!!'),
 }))
 vi.mock('../src/db/usercenter-queries.js', () => ({
   getUserStatus: vi.fn().mockResolvedValue(1),

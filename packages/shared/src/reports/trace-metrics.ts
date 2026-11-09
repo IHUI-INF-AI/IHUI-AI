@@ -11,7 +11,9 @@
 import type { ToolCallStatus } from '../chat/tool-activity'
 import {
   TRACE_FINDING_DEFAULTS,
+  type AgentTrace,
   type AgentTraceKpi,
+  type AgentTraceMessage,
   type AgentTraceStep,
   type TraceFinding,
   type TraceFindingId,
@@ -173,5 +175,211 @@ function makeFinding(id: TraceFindingId, params: Record<string, string | number>
 /** 比例 → 百分数(两位小数足够区分档位;浮点尾数进 HTML 会变成无人能读的长串) */
 export function roundPercent(ratio: number): number {
   return Math.round(ratio * 10_000) / 100
+}
+
+const SPAN_ID = /^[a-z0-9][a-z0-9_-]{0,40}$/
+
+export type TraceLaneBar = {
+  id: string
+  fromId: string | null
+  leftPct: number
+  widthPct: number
+}
+
+export type TraceLaneLayout = {
+  disposition: 'laid-out' | 'unjudged'
+  reason:
+    | 'laid-out'
+    | 'window-unmeasured'
+    | 'spans-unmeasured'
+    | 'span-unreadable'
+    | 'span-outside'
+    | 'edge-unknown'
+    | 'window-empty'
+  lanes: { lane: string; spans: TraceLaneBar[] }[] | null
+}
+
+function finiteMs(value: unknown): number | null {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null
+  return value
+}
+
+function lanePct(part: number, whole: number): number {
+  return Math.round((part / whole) * 1000) / 10
+}
+
+/**
+ * 按已量到的时间窗把分段排进进程道。
+ * 越出窗口不裁进图里；前序点名对不上就不画，避免半张瀑布看起来像完整启动。
+ */
+export function layoutTraceLanes(input: {
+  originMs: unknown
+  horizonMs: unknown
+  spans: unknown
+}): TraceLaneLayout {
+  const blank = (reason: TraceLaneLayout['reason']): TraceLaneLayout => ({
+    disposition: 'unjudged',
+    reason,
+    lanes: null,
+  })
+  const origin = finiteMs(input.originMs)
+  const horizon = finiteMs(input.horizonMs)
+  if (origin === null || horizon === null) return blank('window-unmeasured')
+  if (horizon <= origin) return blank('window-empty')
+  if (input.spans === null || input.spans === undefined) return blank('spans-unmeasured')
+  if (!Array.isArray(input.spans)) return blank('spans-unmeasured')
+  const window = horizon - origin
+  const pending: {
+    id: string
+    lane: string
+    fromId: string | null
+    leftPct: number
+    widthPct: number
+  }[] = []
+  const ids = new Set<string>()
+  for (const item of input.spans) {
+    if (item === null || typeof item !== 'object' || Array.isArray(item))
+      return blank('span-unreadable')
+    const row = item as Record<string, unknown>
+    if (typeof row.id !== 'string' || !SPAN_ID.test(row.id)) return blank('span-unreadable')
+    if (typeof row.lane !== 'string' || !SPAN_ID.test(row.lane)) return blank('span-unreadable')
+    if (ids.has(row.id)) return blank('span-unreadable')
+    const start = finiteMs(row.startMs)
+    const end = finiteMs(row.endMs)
+    if (start === null || end === null || end < start) return blank('span-unreadable')
+    if (start < origin || end > horizon) return blank('span-outside')
+    let fromId: string | null = null
+    if (row.fromId !== undefined && row.fromId !== null) {
+      if (typeof row.fromId !== 'string' || !SPAN_ID.test(row.fromId) || row.fromId === row.id) {
+        return blank('edge-unknown')
+      }
+      fromId = row.fromId
+    }
+    ids.add(row.id)
+    pending.push({
+      id: row.id,
+      lane: row.lane,
+      fromId,
+      leftPct: lanePct(start - origin, window),
+      widthPct: lanePct(end - start, window),
+    })
+  }
+  for (const span of pending) {
+    if (span.fromId !== null && !ids.has(span.fromId)) return blank('edge-unknown')
+  }
+  const lanes: { lane: string; spans: TraceLaneBar[] }[] = []
+  for (const span of pending) {
+    let lane = lanes.find((item) => item.lane === span.lane)
+    if (!lane) {
+      lane = { lane: span.lane, spans: [] }
+      lanes.push(lane)
+    }
+    lane.spans.push({
+      id: span.id,
+      fromId: span.fromId,
+      leftPct: span.leftPct,
+      widthPct: span.widthPct,
+    })
+  }
+  return { disposition: 'laid-out', reason: 'laid-out', lanes }
+}
+
+/**
+ * 拖入的载荷能不能换掉当前报告。
+ * 任一在场的段落读不出来，整份留下；不拿空图替换已经画好的那份。
+ */
+export function admitDroppedTrace(
+  previous: AgentTrace,
+  raw: unknown,
+): { disposition: 'keep' | 'replace'; reason: string; trace: AgentTrace | null } {
+  const keep = (reason: string) => ({ disposition: 'keep' as const, reason, trace: null })
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw))
+    return keep('payload-unreadable')
+  const row = raw as Record<string, unknown>
+  const hasSteps = Object.prototype.hasOwnProperty.call(row, 'toolCalls')
+  const hasSpans = Object.prototype.hasOwnProperty.call(row, 'spans')
+  if (!hasSteps && !hasSpans) return keep('payload-unmeasured')
+
+  let toolCalls = previous.toolCalls
+  if (hasSteps) {
+    if (!Array.isArray(row.toolCalls)) return keep('steps-unmeasured')
+    const parsed: AgentTraceStep[] = []
+    for (const item of row.toolCalls) {
+      if (item === null || typeof item !== 'object' || Array.isArray(item))
+        return keep('step-unreadable')
+      const step = normalizeAgentTraceStep(item)
+      if (!step) return keep('step-unreadable')
+      if (Object.prototype.hasOwnProperty.call(item, 'durationMs')) {
+        const duration = (item as { durationMs?: unknown }).durationMs
+        if (
+          duration !== null &&
+          duration !== undefined &&
+          !isMeasuredDuration(duration as number)
+        ) {
+          return keep('duration-unmeasured')
+        }
+      }
+      parsed.push(step)
+    }
+    toolCalls = parsed
+  }
+
+  let spanOriginMs = previous.spanOriginMs
+  let spanHorizonMs = previous.spanHorizonMs
+  let spans = previous.spans
+  if (hasSpans) {
+    const layout = layoutTraceLanes({
+      originMs: row.spanOriginMs,
+      horizonMs: row.spanHorizonMs,
+      spans: row.spans,
+    })
+    if (layout.disposition !== 'laid-out' || layout.lanes === null) return keep(layout.reason)
+    spanOriginMs = row.spanOriginMs as number
+    spanHorizonMs = row.spanHorizonMs as number
+    spans = row.spans as AgentTrace['spans']
+  }
+
+  let title = previous.title
+  if (Object.prototype.hasOwnProperty.call(row, 'title')) {
+    if (typeof row.title !== 'string' || row.title.trim() === '') return keep('title-unreadable')
+    title = row.title
+  }
+  let exportedAt = previous.exportedAt
+  if (Object.prototype.hasOwnProperty.call(row, 'exportedAt')) {
+    if (typeof row.exportedAt !== 'string' || row.exportedAt.trim() === '')
+      return keep('exported-unreadable')
+    exportedAt = row.exportedAt
+  }
+  let messages = previous.messages
+  if (Object.prototype.hasOwnProperty.call(row, 'messages')) {
+    if (!Array.isArray(row.messages)) return keep('messages-unreadable')
+    const parsedMessages: AgentTraceMessage[] = []
+    for (const item of row.messages) {
+      if (item === null || typeof item !== 'object' || Array.isArray(item))
+        return keep('messages-unreadable')
+      const message = item as { role?: unknown; content?: unknown }
+      if (typeof message.role !== 'string' || message.role.trim() === '')
+        return keep('messages-unreadable')
+      const next: AgentTraceMessage = { role: message.role }
+      if (typeof message.content === 'string') next.content = message.content
+      parsedMessages.push(next)
+    }
+    messages = parsedMessages
+  }
+
+  return {
+    disposition: 'replace',
+    reason: 'measured',
+    trace: {
+      ...previous,
+      title,
+      toolCalls,
+      exportedAt,
+      messages,
+      spanOriginMs,
+      spanHorizonMs,
+      spans,
+    },
+  }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

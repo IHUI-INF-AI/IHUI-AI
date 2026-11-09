@@ -1457,4 +1457,111 @@ export async function isExpired(
   if (!cred.expiresAt) return false;
   return Date.now() + skewMs >= cred.expiresAt;
 }
+
+export type AtRestFailure = {
+  resourceId: string
+  adapter: string
+  operation: string
+  failedAt: string
+}
+
+export type AtRestPlan = {
+  disposition: 'record' | 'held' | 'unjudged' | 'refused'
+  reason:
+    | 'failure-recorded'
+    | 'recovery-recorded'
+    | 'held'
+    | 'kind-unrecognized'
+    | 'identity-invalid'
+    | 'clock-unmeasured'
+    | 'clock-ahead'
+    | 'now-unmeasured'
+    | 'failures-unmeasured'
+    | 'recoveries-unmeasured'
+    | 'no-prior-failure'
+    | 'already-recovered'
+    | 'out-of-order'
+    | 'holder-unmeasured'
+    | 'lease-unmeasured'
+    | 'lease-expired'
+}
+
+const AT_REST_TOKEN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,80}$/
+const AT_REST_FUTURE_MS = 5 * 60 * 1000
+
+function atRestKey(resourceId: string, adapter: string, operation: string, failedAt: string): string {
+  return `${resourceId}|${adapter}|${operation}|${failedAt}`
+}
+
+function atRestInstant(value: unknown): number | null {
+  if (typeof value !== 'string' || value.trim() === '') return null
+  const ms = Date.parse(value)
+  return Number.isNaN(ms) ? null : ms
+}
+
+/**
+ * 静态数据的失败和恢复记在同一本账上。
+ * 没有已量到的失败，就不能记恢复。锁的持有者必须带租约，过期不再算持有。
+ * 本函数不写盘，也不读凭据正文。
+ */
+export function admitAtRestEvent(input: {
+  kind: unknown
+  resourceId: unknown
+  adapter: unknown
+  operation: unknown
+  at: unknown
+  holder: unknown
+  leaseMs: unknown
+  now: unknown
+  failures: readonly AtRestFailure[] | null
+  recoveredKeys: readonly string[] | null
+}): AtRestPlan {
+  const done = (disposition: AtRestPlan['disposition'], reason: AtRestPlan['reason']): AtRestPlan => ({
+    disposition,
+    reason,
+  })
+  if (input.kind !== 'fail' && input.kind !== 'recover' && input.kind !== 'hold') {
+    return done('unjudged', 'kind-unrecognized')
+  }
+  if (
+    typeof input.resourceId !== 'string' ||
+    !AT_REST_TOKEN.test(input.resourceId) ||
+    typeof input.adapter !== 'string' ||
+    !AT_REST_TOKEN.test(input.adapter) ||
+    typeof input.operation !== 'string' ||
+    !AT_REST_TOKEN.test(input.operation)
+  ) {
+    return done('refused', 'identity-invalid')
+  }
+  if (typeof input.now !== 'number' || !Number.isFinite(input.now)) return done('unjudged', 'now-unmeasured')
+  const atMs = atRestInstant(input.at)
+  if (atMs === null) return done('unjudged', 'clock-unmeasured')
+  if (atMs > input.now + AT_REST_FUTURE_MS) return done('unjudged', 'clock-ahead')
+  if (input.kind === 'hold') {
+    if (typeof input.holder !== 'string' || !AT_REST_TOKEN.test(input.holder)) {
+      return done('unjudged', 'holder-unmeasured')
+    }
+    if (typeof input.leaseMs !== 'number' || !Number.isInteger(input.leaseMs) || input.leaseMs < 1) {
+      return done('unjudged', 'lease-unmeasured')
+    }
+    if (input.now > atMs + input.leaseMs) return done('refused', 'lease-expired')
+    return done('held', 'held')
+  }
+  if (input.kind === 'fail') return done('record', 'failure-recorded')
+  if (input.failures === null) return done('unjudged', 'failures-unmeasured')
+  if (input.recoveredKeys === null) return done('unjudged', 'recoveries-unmeasured')
+  const prior = input.failures.find(
+    (row) =>
+      row.resourceId === input.resourceId &&
+      row.adapter === input.adapter &&
+      row.operation === input.operation &&
+      atRestInstant(row.failedAt) !== null,
+  )
+  if (!prior) return done('refused', 'no-prior-failure')
+  const failedMs = atRestInstant(prior.failedAt)
+  if (failedMs === null || atMs < failedMs) return done('refused', 'out-of-order')
+  const key = atRestKey(prior.resourceId, prior.adapter, prior.operation, prior.failedAt)
+  if (input.recoveredKeys.includes(key)) return done('refused', 'already-recovered')
+  return done('record', 'recovery-recorded')
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

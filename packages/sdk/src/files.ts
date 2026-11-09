@@ -54,8 +54,11 @@ export interface FilesModule {
   get(id: string): Promise<V1FileInfo>
   /** DELETE /v1/files/:id(删除文件)。 */
   delete(id: string): Promise<void>
-  /** GET /v1/files/:id/content(文件内容,返回二进制流)。 */
-  getContent(id: string): Promise<ReadableStream<Uint8Array>>
+  /** GET /v1/files/:id/content。同一资产预检通过才发请求。 */
+  getContent(
+    id: string,
+    preflight: { assetId?: unknown; ok?: unknown } | null,
+  ): Promise<ReadableStream<Uint8Array>>
   /** GET /v1/files/:id/versions(文件版本列表)。 */
   getVersions(id: string): Promise<V1FileVersionsResponse>
   /** POST /v1/files/upload-init(分片上传初始化)。 */
@@ -64,6 +67,43 @@ export interface FilesModule {
   uploadChunk(req: V1UploadChunkRequest): Promise<void>
   /** POST /v1/files/complete(完成分片上传)。 */
   uploadComplete(req: V1UploadCompleteRequest): Promise<V1UploadCompleteResponse>
+}
+
+export type AssetContentPlan = {
+  disposition: 'fetch' | 'refused' | 'unjudged'
+  reason:
+    | 'preflight-ok'
+    | 'preflight-failed'
+    | 'preflight-unmeasured'
+    | 'asset-mismatch'
+    | 'asset-invalid'
+    | 'preflight-unreadable'
+}
+
+function assetIdOk(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0 && !/[\s\0]/.test(value)
+}
+
+/**
+ * 读内容之前必须有同一资产的预检。
+ * 别的资产预检通过,不能拿来读这一份。
+ * 预检结果不是明确的通过或失败时,不发起内容请求。
+ */
+export function admitAssetContent(input: {
+  assetId: unknown
+  preflight: { assetId?: unknown; ok?: unknown } | null
+}): AssetContentPlan {
+  if (!assetIdOk(input.assetId)) return { disposition: 'unjudged', reason: 'asset-invalid' }
+  if (input.preflight === null) return { disposition: 'unjudged', reason: 'preflight-unmeasured' }
+  if (typeof input.preflight !== 'object')
+    return { disposition: 'unjudged', reason: 'preflight-unreadable' }
+  if (!assetIdOk(input.preflight.assetId))
+    return { disposition: 'unjudged', reason: 'preflight-unreadable' }
+  if (input.preflight.assetId !== input.assetId)
+    return { disposition: 'refused', reason: 'asset-mismatch' }
+  if (input.preflight.ok === true) return { disposition: 'fetch', reason: 'preflight-ok' }
+  if (input.preflight.ok === false) return { disposition: 'refused', reason: 'preflight-failed' }
+  return { disposition: 'unjudged', reason: 'preflight-unreadable' }
 }
 
 export function createFilesModule(client: BaseClient): FilesModule {
@@ -78,7 +118,12 @@ export function createFilesModule(client: BaseClient): FilesModule {
 
     get: (id) => client.request<V1FileInfo>('GET', `/files/${encodeURIComponent(id)}`),
     delete: (id) => client.request<void>('DELETE', `/files/${encodeURIComponent(id)}`),
-    getContent: (id) => client.requestStream('GET', `/files/${encodeURIComponent(id)}/content`),
+    getContent: (id, preflight) => {
+      const plan = admitAssetContent({ assetId: id, preflight })
+      if (plan.disposition !== 'fetch')
+        return Promise.reject(new Error(`asset content ${plan.reason}`))
+      return client.requestStream('GET', `/files/${encodeURIComponent(id)}/content`)
+    },
     getVersions: (id) =>
       client.request<V1FileVersionsResponse>('GET', `/files/${encodeURIComponent(id)}/versions`),
     uploadInit: (req) => client.request<V1UploadInitResponse>('POST', '/files/upload-init', req),

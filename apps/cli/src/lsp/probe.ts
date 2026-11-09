@@ -326,29 +326,42 @@ export function probeAllLspServers(
 export function checkWorkspaceMarkers(
   config: LspServerConfig,
   workspacePath: string,
+  io?: {
+    listDir?: (dir: string) => string[];
+    exists?: (file: string) => boolean;
+  },
 ): { required: string[]; found: string[]; unreadable: boolean } {
   const required = config.workspaceMarkers ?? [];
   if (required.length === 0) return { required, found: [], unreadable: false };
+  const listDir = io?.listDir ?? ((dir: string) => fs.readdirSync(dir));
+  const exists = io?.exists ?? ((file: string) => {
+    try {
+      fs.statSync(file);
+      return true;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === 'ENOENT' || code === 'ENOTDIR') return false;
+      throw error;
+    }
+  });
   const found: string[] = [];
   let unreadable = false;
   for (const marker of required) {
     if (marker.startsWith('*.')) {
       const suffix = marker.slice(1);
       try {
-        const entries = fs.readdirSync(workspacePath);
+        const entries = listDir(workspacePath);
         if (entries.some((e) => e.endsWith(suffix))) found.push(marker);
-      } catch {
-        // 工作区不可读:如实留空**并点名读不到**,不得猜成"有"或"没有"
-        unreadable = true;
+      } catch (error) {
+        const code = (error as NodeJS.ErrnoException).code;
+        if (code !== 'ENOENT') unreadable = true;
       }
       continue;
     }
     try {
-      fs.statSync(path.join(workspacePath, marker));
-      found.push(marker);
-    } catch (err) {
-      // 只有 ENOENT/ENOTDIR 才算"确实没有";其它读失一律记读不到,不冒充缺席
-      const code = (err as NodeJS.ErrnoException).code;
+      if (exists(path.join(workspacePath, marker))) found.push(marker);
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
       if (code !== 'ENOENT' && code !== 'ENOTDIR') unreadable = true;
     }
   }

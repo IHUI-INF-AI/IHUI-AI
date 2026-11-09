@@ -210,10 +210,14 @@ export function toolDisplayKey(toolName: string): string | null {
  */
 export function humanizeToolText(text: string, translate: (key: string) => string): string {
   let out = text
+  const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   for (const [code, key] of Object.entries(TOOL_DISPLAY_KEYS)) {
-    if (out.includes(code)) {
-      out = out.split(code).join(translate(key))
-    }
+    if (!out.includes(code)) continue
+    // 2026-11-07:必须按「整词」替换。旧实现 split/join 会命中更长标识符里的子串,
+    // 例如 code `patch` 命中 `dispatch_subagent` → 渲染成 `dis编辑文件_subagent`。
+    // 用 \w 边界遮住前后文,长名(dispatch_subagent)不会再被短名(patch)啃掉。
+    const re = new RegExp(`(?<![\\w])${escapeRe(code)}(?![\\w])`, 'g')
+    out = out.replace(re, () => translate(key))
   }
   return out
 }

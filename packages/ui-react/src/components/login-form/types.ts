@@ -55,6 +55,7 @@ export type ThirdPartyPlatform =
   | 'alipay'
   | 'apple'
   | 'oidc'
+  | 'linuxdo'
   | 'app'
   | 'linuxdo'
 

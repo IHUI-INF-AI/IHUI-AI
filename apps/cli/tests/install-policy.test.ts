@@ -12,6 +12,8 @@ import { createHash } from 'node:crypto';
 import { mkScratch, rmScratch } from '../../../scripts/lib/scratch-dir.mjs'; // arch-exempt: 测试夹具只能取 §26 唯一落点(禁 os.tmpdir/裸 mkdtemp),属测试面而非生产依赖边;正解=给"测试支持层"在策略表建档并降到 apps 之下 until 2026-12-28
 
 import {
+  admitExtensionPackage,
+  admitNativeRole,
   decideInstallPolicy,
   ENSURE_MINIMUM_PRESENCE,
   type DesiredResource,
@@ -442,6 +444,75 @@ describe('G 配额闸次序 · 拒在任何写盘之前', () => {
     for (const write of ['prepareStagingDirectory(destDir)', 'copyDirRecursive(sourceDir', 'persistInstallAuthority(']) {
       expect(body.indexOf(write)).toBeGreaterThan(guard);
     }
+  });
+});
+
+describe('原生角色:ABI 对上但摘要没量到不算可装', () => {
+  const hash = 'a'.repeat(64);
+
+  it('摘要一致才放行;没量到、对不上、版本不对,都不装', () => {
+    expect(
+      admitNativeRole({
+        role: 'ripgrep',
+        abiVersion: 10,
+        expectedAbi: 10,
+        declaredSha256: hash,
+        measuredSha256: hash,
+      }).reason,
+    ).toBe('abi-and-hash');
+    expect(
+      admitNativeRole({
+        role: 'ripgrep',
+        abiVersion: 10,
+        expectedAbi: 10,
+        declaredSha256: hash,
+        measuredSha256: null,
+      }).reason,
+    ).toBe('hash-unmeasured');
+    expect(
+      admitNativeRole({
+        role: 'ripgrep',
+        abiVersion: 9,
+        expectedAbi: 10,
+        declaredSha256: hash,
+        measuredSha256: hash,
+      }).reason,
+    ).toBe('abi-mismatch');
+    expect(
+      admitNativeRole({
+        role: '../ripgrep',
+        abiVersion: 10,
+        expectedAbi: 10,
+        declaredSha256: hash,
+        measuredSha256: hash,
+      }).reason,
+    ).toBe('role-invalid');
+  });
+});
+
+describe('扩展包:版本、地址、编号、摘要要一起钉住', () => {
+  const hash = 'b'.repeat(64);
+  const id = 'a'.repeat(32);
+  const base = {
+    version: '1.2.3',
+    url: 'https://example.test/ext/1.2.3/pack.zip',
+    extensionId: id,
+    declaredSha256: hash,
+    measuredSha256: hash,
+    publicKeyMode: 'pinned',
+    allowedKeyModes: ['pinned'],
+  };
+
+  it('四项一致才放行;明文地址、版本对不上、摘要没量到都不装', () => {
+    expect(admitExtensionPackage(base).reason).toBe('pinned');
+    expect(admitExtensionPackage({ ...base, url: 'http://example.test/ext/1.2.3/pack.zip' }).reason).toBe(
+      'url-insecure',
+    );
+    expect(admitExtensionPackage({ ...base, url: 'https://example.test/ext/9.9.9/pack.zip' }).reason).toBe(
+      'version-url-split',
+    );
+    expect(admitExtensionPackage({ ...base, measuredSha256: null }).reason).toBe('hash-unmeasured');
+    expect(admitExtensionPackage({ ...base, allowedKeyModes: [] }).reason).toBe('key-mode-unconfigured');
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

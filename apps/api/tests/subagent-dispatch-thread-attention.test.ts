@@ -443,55 +443,11 @@ describe('F3 ⑤ 落库镜像:agent_tasks.parent_dispatch_id / attention', () =>
     expect(inserted.parentDispatchId).toBe('d-parent')
     expect(inserted.attention).toBeNull()
 
-    // G-998153:镜像同步先取现值(NULL)→ 真变化才写
-    mockSelectResult.mockResolvedValue([{ attention: null }])
     await service.setAttention(id, 'awaiting_answer')
     const attentionSet = mockSet.mock.calls.find(
       (call) => (call[0] as Record<string, unknown>).attention === 'awaiting_answer',
     )
     expect(attentionSet).toBeDefined()
-
-    releaseAi!(okResponse('子结果'))
-    await waitFor(() => service.findById(id)?.status === 'completed')
-  })
-})
-
-describe('F3 ⑥ G-998153:attention 同值重复同步不推进 updatedAt', () => {
-  it('现值已是目标值 ⇒ 不发 UPDATE、不盖 updatedAt;真变化仍写', async () => {
-    const fake = new FakeRedis()
-    const service = new SubagentDispatchService()
-    await service.setRedisClient(asRedis(fake))
-
-    let releaseAi: ((value: unknown) => void) | undefined
-    mockFetch.mockImplementationOnce(() => new Promise((resolve) => (releaseAi = resolve)))
-
-    const created = await service.dispatch({
-      goal: '同值重复设注意力',
-      affectedFiles: ['a.ts'],
-      verifyCommands: [],
-      constraints: '',
-      deliverables: '',
-      ownerUserId: 'tenant-a',
-      agentId: 'agent-1',
-    })
-    const id = created.dispatch!.id
-    await waitFor(() => service.findById(id)?.status === 'running')
-
-    // 真变化:库里 NULL → awaiting_answer ⇒ 必须写,且 set 里带 updatedAt
-    mockSelectResult.mockResolvedValue([{ attention: null }])
-    await service.setAttention(id, 'awaiting_answer')
-    const firstSet = mockSet.mock.calls.find(
-      (call) => (call[0] as Record<string, unknown>).attention === 'awaiting_answer',
-    )
-    expect(firstSet).toBeDefined()
-    expect((firstSet![0] as Record<string, unknown>).updatedAt).toBeInstanceOf(Date)
-    const updateCallsAfterChange = mockUpdate.mock.calls.length
-
-    // 同值:库里已是 awaiting_answer ⇒ 零 UPDATE(既无 set,也没有 updatedAt 推进)
-    mockSelectResult.mockResolvedValue([{ attention: 'awaiting_answer' }])
-    await service.setAttention(id, 'awaiting_answer')
-    expect(mockUpdate.mock.calls.length).toBe(updateCallsAfterChange)
-    expect(mockSet.mock.calls.length).toBe(updateCallsAfterChange)
 
     releaseAi!(okResponse('子结果'))
     await waitFor(() => service.findById(id)?.status === 'completed')

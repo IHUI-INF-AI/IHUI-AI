@@ -8,6 +8,8 @@ import {
   estimateMessagesTokens,
   summarizeMessage,
   compressContext,
+  admitContextControl,
+  measuredCompactRatio,
   compressContextIfNeeded,
   SUMMARY_TIER_RECENT_RATIO,
   SUMMARY_RECENT_CHARS,
@@ -620,6 +622,25 @@ describe('分层金字塔摘要', () => {
     expect(SUMMARY_TIER_RECENT_RATIO).toBe(0.3)
     expect(SUMMARY_RECENT_CHARS).toBe(200)
     expect(SUMMARY_REMOTE_CHARS).toBe(120)
+  })
+})
+
+describe('上下文控制一次只改一项', () => {
+  it('认不出的值不落成 0，改压缩阈值不动窗口', () => {
+    expect(admitContextControl({ key: 'compact-percent', value: 40 })).toMatchObject({
+      disposition: 'applied',
+      reason: 'compact-percent',
+      value: 40,
+    })
+    expect(admitContextControl({ key: 'compact-percent', value: 0 }).reason).toBe('value-invalid')
+    expect(admitContextControl({ key: 'compact-percent', value: 0 }).value).toBeNull()
+    expect(admitContextControl({ key: 'estimated-cost', value: null }).reason).toBe('value-invalid')
+    expect(admitContextControl({ key: 'sandbox-mode', value: 'read-only' }).reason).toBe('key-unrecognized')
+    expect(admitContextControl({ key: 'context-window', value: 128000 }).value).toBe(128000)
+    expect(measuredCompactRatio(0.88)).toBe(0.88)
+    expect(measuredCompactRatio(0)).toBeNull()
+    expect(measuredCompactRatio(Number.NaN)).toBeNull()
+    expect(measuredCompactRatio(0.885)).toBeNull()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

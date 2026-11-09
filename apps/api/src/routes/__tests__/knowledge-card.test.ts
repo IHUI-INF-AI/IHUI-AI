@@ -43,16 +43,13 @@ vi.mock('../../plugins/auth.js', () => ({
 // ─────────────────────────────────────────────────────────────
 // Mock:config(内部调用密钥由 configState 控制)
 // ─────────────────────────────────────────────────────────────
-const configState = vi.hoisted(() => ({ callbackSecret: '', mode: 'dual' }))
+const configState = vi.hoisted(() => ({ callbackSecret: '' }))
 
 vi.mock('../../config/index.js', () => ({
   // getter 动态读取:内部调用测试可在 beforeEach 中切换密钥
   config: {
     get AI_CALLBACK_SECRET() {
       return configState.callbackSecret
-    },
-    get INTERNAL_SECRET_AUTH_MODE() {
-      return configState.mode
     },
   },
 }))

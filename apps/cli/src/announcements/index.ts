@@ -19,8 +19,6 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 
-import { writeFileAtomicSync } from '../util/atomic-write.js';
-
 /** 支持的 locale(用于 i18n 渲染) */
 export type AnnouncementLocale = 'zh' | 'en';
 
@@ -194,10 +192,7 @@ export function saveCache(cachePath: string, list: AnnouncementBrief[]): void {
   try {
     ensureParentDir(cachePath);
     const payload: CacheFile = { fetchedAt: Date.now(), list };
-    // 2026-11-07(DBG-41):裸 writeFileSync 在多 CLI 进程并发写同一缓存时互相截断,
-    // 留下半截 JSON 使下次 loadCache 解析失败、整份缓存被静默丢弃。改走原子替换
-    // (同目录 tmp + fsync + rename,最后写者胜),语义不变而目标文件永不被截半。
-    writeFileAtomicSync(cachePath, JSON.stringify(payload, null, 2) + '\n');
+    fs.writeFileSync(cachePath, JSON.stringify(payload, null, 2) + '\n', 'utf-8');
   } catch {
     // 写入失败静默
   }
@@ -267,9 +262,7 @@ export function markSeen(seenPath: string, id: string): void {
     let arr = Array.from(set);
     if (arr.length > MAX_SEEN_IDS) arr = arr.slice(arr.length - MAX_SEEN_IDS);
     const payload: SeenFile = { seenIds: arr };
-    // 同上(DBG-41):已读集合是读-改-写,裸写并发时会互相截断;原子替换保证不留半截文件。
-    // 注意:这里只解决"文件内容完整性",跨进程的更新丢失需要额外的锁,不在本次射程。
-    writeFileAtomicSync(seenPath, JSON.stringify(payload, null, 2) + '\n');
+    fs.writeFileSync(seenPath, JSON.stringify(payload, null, 2) + '\n', 'utf-8');
   } catch {
     // 写入失败静默
   }
@@ -287,9 +280,7 @@ export function markAllSeen(seenPath: string, list: AnnouncementBrief[]): void {
     let arr = Array.from(set);
     if (arr.length > MAX_SEEN_IDS) arr = arr.slice(arr.length - MAX_SEEN_IDS);
     const payload: SeenFile = { seenIds: arr };
-    // 同上(DBG-41):已读集合是读-改-写,裸写并发时会互相截断;原子替换保证不留半截文件。
-    // 注意:这里只解决"文件内容完整性",跨进程的更新丢失需要额外的锁,不在本次射程。
-    writeFileAtomicSync(seenPath, JSON.stringify(payload, null, 2) + '\n');
+    fs.writeFileSync(seenPath, JSON.stringify(payload, null, 2) + '\n', 'utf-8');
   } catch {
     // 写入失败静默
   }

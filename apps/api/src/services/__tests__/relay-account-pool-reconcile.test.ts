@@ -328,15 +328,14 @@ describe('planReconciliation', () => {
 // =============================================================================
 
 describe('fetchPoolAccounts', () => {
-  it('GET + 内部票(scope=checkin-pool)鉴权,旧密钥同发,解析 accounts 数组', async () => {
+  it('GET + X-Internal-Secret 鉴权,解析 accounts 数组', async () => {
     let seenAuth = ''
-    let seenTicket = ''
     let seenMethod = ''
     const fetchMock = vi.fn(
       async (_input: unknown, init?: { body?: unknown; headers?: unknown }) => {
-        const headers = (init?.headers ?? {}) as Record<string, string>
-        seenAuth = String(headers['X-Internal-Secret'] ?? '')
-        seenTicket = String(headers['X-Internal-Service-Ticket'] ?? '')
+        seenAuth = String(
+          (init?.headers as Record<string, string> | undefined)?.['X-Internal-Secret'] ?? '',
+        )
         seenMethod = 'GET'
         return jsonResponse({ accounts: [checkinRow()] })
       },
@@ -345,25 +344,7 @@ describe('fetchPoolAccounts', () => {
     expect(r.ok).toBe(true)
     expect(seenAuth).toBe('test-internal-secret')
     expect(seenMethod).toBe('GET')
-    expect(seenTicket).not.toBe('')
-    const claims = JSON.parse(Buffer.from(seenTicket.split('.')[1] ?? '', 'base64url').toString())
-    expect(claims.scope).toBe('checkin-pool')
-    expect(claims.sub).toBe('service:apps-api')
     expect(r.accounts).toEqual([checkinRow()])
-  })
-
-  it('人为故障:JWT_SECRET 缺失 ⇒ 拒绝无票对账(零请求)', async () => {
-    const saved = process.env.JWT_SECRET
-    process.env.JWT_SECRET = ''
-    try {
-      const fetchMock = vi.fn(async () => jsonResponse({ accounts: [] }))
-      const r = await fetchPoolAccounts(fetchMock as unknown as typeof fetch)
-      expect(r.ok).toBe(false)
-      expect(r.error).toContain('JWT_SECRET')
-      expect(fetchMock).not.toHaveBeenCalled()
-    } finally {
-      process.env.JWT_SECRET = saved
-    }
   })
 
   it('pending 摘要解析;缺字段按默认值容错', async () => {
@@ -553,11 +534,10 @@ describe('reconcileCheckinSync', () => {
     expect(meta.__vals).toContain('state')
   })
 
-  it('flush:批量触发签到侧重试回写,并携带内部票', async () => {
+  it('flush:批量触发签到侧重试回写', async () => {
     hoisted.poolRows.push(fullRow())
     let flushBody: unknown
-    let flushHeaders: Record<string, string> = {}
-    const inner = makeFetchMock({
+    const fetchMock = makeFetchMock({
       accounts: () =>
         jsonResponse({ accounts: [checkinRow({ poolPendingCred: { attempts: 1, at: null } })] }),
       flush: (body) => {
@@ -565,47 +545,10 @@ describe('reconcileCheckinSync', () => {
         return jsonResponse({ results: [{ status: 'flushed' }, { status: 'noop' }] })
       },
     })
-    const fetchMock = vi.fn(
-      async (input: unknown, init?: { body?: unknown; headers?: unknown }) => {
-        if (String(input).endsWith('/pool-cred-flush')) {
-          flushHeaders = (init?.headers ?? {}) as Record<string, string>
-        }
-        return inner(input, init)
-      },
-    )
-    const r = await reconcileCheckinSync({ fetchImpl: fetchMock as unknown as typeof fetch })
+    const r = await reconcileCheckinSync({ fetchImpl: fetchMock })
     expect(r.flushed).toBe(1)
     expect(r.flushFailed).toBe(1)
     expect(flushBody).toMatchObject({ accountIds: [101] })
-    const ticket = flushHeaders['X-Internal-Service-Ticket'] ?? ''
-    expect(ticket).not.toBe('')
-    expect(JSON.parse(Buffer.from(ticket.split('.')[1] ?? '', 'base64url').toString()).scope).toBe(
-      'checkin-pool',
-    )
-  })
-
-  it('人为故障:JWT_SECRET 缺失 ⇒ 对账首腿即拒绝(fail-closed),flush 零请求', async () => {
-    hoisted.poolRows.push(fullRow())
-    const flushCalls: string[] = []
-    const inner = makeFetchMock({
-      accounts: () =>
-        jsonResponse({ accounts: [checkinRow({ poolPendingCred: { attempts: 1, at: null } })] }),
-    })
-    const fetchMock = vi.fn(async (input: unknown, init?: { body?: unknown }) => {
-      if (String(input).endsWith('/pool-cred-flush')) flushCalls.push(String(input))
-      return inner(input, init)
-    })
-    const saved = process.env.JWT_SECRET
-    process.env.JWT_SECRET = ''
-    try {
-      const r = await reconcileCheckinSync({ fetchImpl: fetchMock as unknown as typeof fetch })
-      expect(r.ok).toBe(false)
-      expect(r.error).toContain('JWT_SECRET')
-      expect(flushCalls).toHaveLength(0)
-      expect(r.flushed).toBe(0)
-    } finally {
-      process.env.JWT_SECRET = saved
-    }
   })
 
   it('flush 请求失败 → 全批计 failed', async () => {

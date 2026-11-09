@@ -25,6 +25,7 @@ import {
   getCredential,
   setCredential,
   deleteCredential,
+  admitAtRestEvent,
   isExpired,
   getCredentialsPath,
   readCredentialStoreSnapshot,
@@ -94,11 +95,8 @@ describe('mcp-credentials 凭证持久化', () => {
       'https://a.example.com',
       'https://b.example.com',
     ]);
-    const a = all['https://a.example.com'];
-    const b = all['https://b.example.com'];
-    if (a === undefined || b === undefined) throw new Error('凭证缺失');
-    expect(a.accessToken).toBe('a');
-    expect(b.accessToken).toBe('b');
+    expect(all['https://a.example.com'].accessToken).toBe('a');
+    expect(all['https://b.example.com'].accessToken).toBe('b');
   });
 
   it('setCredential 覆盖同 server 的旧凭证', async () => {
@@ -205,6 +203,67 @@ describe('isExpired 过期判断', () => {
     const now = Date.now();
     const cred = { obtainedAt: now, expiresAt: now + 1000 }; // 1s 后过期
     expect(await isExpired(cred, 0)).toBe(false);
+  });
+});
+
+describe('静态数据恢复必须先有失败', () => {
+  const now = Date.parse('2026-11-06T05:12:00.000Z');
+  const failure = {
+    resourceId: 'store-1',
+    adapter: 'file',
+    operation: 'write',
+    failedAt: '2026-11-06T05:11:00.000Z',
+  };
+
+  it('空失败账不能记恢复，过期持有者不再算持有', () => {
+    expect(admitAtRestEvent({
+      kind: 'recover',
+      resourceId: 'store-1',
+      adapter: 'file',
+      operation: 'write',
+      at: '2026-11-06T05:11:30.000Z',
+      holder: null,
+      leaseMs: null,
+      now,
+      failures: [failure],
+      recoveredKeys: [],
+    }).reason).toBe('recovery-recorded');
+    expect(admitAtRestEvent({
+      kind: 'recover',
+      resourceId: 'store-1',
+      adapter: 'file',
+      operation: 'write',
+      at: '2026-11-06T05:11:30.000Z',
+      holder: null,
+      leaseMs: null,
+      now,
+      failures: [],
+      recoveredKeys: [],
+    })).toMatchObject({ disposition: 'refused', reason: 'no-prior-failure' });
+    expect(admitAtRestEvent({
+      kind: 'recover',
+      resourceId: 'store-1',
+      adapter: 'file',
+      operation: 'write',
+      at: '2026-11-06T05:11:30.000Z',
+      holder: null,
+      leaseMs: null,
+      now,
+      failures: null,
+      recoveredKeys: [],
+    }).reason).toBe('failures-unmeasured');
+    expect(admitAtRestEvent({
+      kind: 'hold',
+      resourceId: 'store-1',
+      adapter: 'file',
+      operation: 'write',
+      at: '2026-11-06T04:00:00.000Z',
+      holder: 'seat-a',
+      leaseMs: 60_000,
+      now,
+      failures: null,
+      recoveredKeys: null,
+    })).toMatchObject({ disposition: 'refused', reason: 'lease-expired' });
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

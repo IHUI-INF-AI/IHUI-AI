@@ -124,8 +124,10 @@ import { needsFirstRunSetup, runFirstRunSetup } from './commands/first-run.js';
 import { createStartupTracker, renderStartupLine } from './startup/profile.js';
 import {
   buildProcessFingerprint,
+  classifyPrewarmReplyEnv,
   defaultIsPidAlive,
   readPrewarmStatus,
+  renderPrewarmControlLine,
   renderPrewarmLine,
 } from './startup/prewarm.js';
 
@@ -386,11 +388,7 @@ async function runAgentAndExit(
       if (session && !jsonMode) {
         console.info(chalk.yellow(t('cliEntry.interruptSaving')));
       }
-      return;
     }
-    // 第二次 Ctrl-C:注册 SIGINT listener 后默认终止行为已被抑制,保存流程若卡住
-    // 用户将完全无出口。给一条真实可用的强退(128 + SIGINT 标准码 130)。
-    process.exit(130);
   };
   process.on('SIGINT', onSigint);
   try {
@@ -1404,6 +1402,8 @@ if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) 
     if (!startupProfileOn) return;
     console.error(renderStartupLine(startupTracker.reading()));
     if (prewarmReading) console.error(renderPrewarmLine(prewarmReading));
+    const control = classifyPrewarmReplyEnv(process.env.IHUI_PREWARM_REPLY_CMD, process.env.IHUI_PREWARM_REPLY);
+    if (control) console.error(renderPrewarmControlLine(control));
   });
   // F-002:commander 的 `parse()` 是同步 API,它把 `_parseCommand` 返回的 Promise
   // 直接丢弃 —— async action 内抛错就只剩 unhandledRejection,旧代码又只在

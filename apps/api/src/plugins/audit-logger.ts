@@ -29,7 +29,7 @@
  */
 import type { FastifyInstance, FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import fp from 'fastify-plugin'
-import { recordAuditLog } from '../services/audit-log-service.js'
+import { observeAuditWrite, recordAuditLog } from '../services/audit-log-service.js'
 // 复用 log-sanitizer 插件 Proxy 递归脱敏所用的同一套规则函数(不另起一套)。
 import { buildSensitiveKeySet, isSensitiveKey, sanitizeData } from './response-sanitizer.js'
 
@@ -390,9 +390,17 @@ const auditLoggerPlugin: FastifyPluginAsync = async (server: FastifyInstance) =>
           params,
           deviceFingerprint,
         },
-      }).catch(() => {
-        /* 审计写入失败不影响业务 */
       })
+        .then((id) => {
+          const observed = observeAuditWrite(id)
+          if (observed.disposition !== 'persist') {
+            server.log.warn({ reason: observed.reason, action }, 'audit write was not persisted')
+          }
+        })
+        .catch(() => {
+          const observed = observeAuditWrite(undefined)
+          server.log.warn({ reason: observed.reason, action }, 'audit write was not persisted')
+        })
     })
   })
 }

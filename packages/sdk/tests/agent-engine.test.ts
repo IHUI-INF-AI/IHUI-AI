@@ -8,6 +8,7 @@ import {
   ENGINE_ERROR_CODES,
   ENGINE_METHODS,
   ENGINE_NOTIFICATIONS,
+  admitGuestNamespace,
   createAgent,
   type AgentEngineEvent,
 } from '../src/agent-engine'
@@ -785,6 +786,29 @@ describe('协议常量(与引擎 handler 表 parity)', () => {
     ])
     expect([...ENGINE_NOTIFICATIONS]).toEqual(['thread/event', 'tool/execute', 'approval/request'])
     expect(ENGINE_ERROR_CODES.threadClosed).toBe(-32006)
+  })
+})
+
+describe('访客命名空间按宿主切开', () => {
+  it('网页端不继承桌面才有的面,名单没量到不放行', () => {
+    const allow = { web: ['storage'], desktop: ['storage', 'shell'] }
+    expect(admitGuestNamespace({ platform: 'desktop', namespace: 'shell', allow })).toMatchObject({
+      disposition: 'admitted',
+      namespace: 'shell',
+    })
+    expect(admitGuestNamespace({ platform: 'web', namespace: 'shell', allow }).reason).toBe(
+      'namespace-denied',
+    )
+    expect(
+      admitGuestNamespace({
+        platform: 'web',
+        namespace: 'storage',
+        allow: { web: null, desktop: ['storage'] },
+      }).reason,
+    ).toBe('allowlist-unmeasured')
+    expect(admitGuestNamespace({ platform: 'miniapp', namespace: 'storage', allow }).reason).toBe(
+      'platform-unrecognized',
+    )
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

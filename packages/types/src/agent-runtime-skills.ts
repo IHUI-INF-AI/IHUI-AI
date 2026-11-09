@@ -14,18 +14,6 @@ export type CapabilityMode = 'read-only' | 'read-write' | 'execute' | 'all'
 
 export type IsolationMode = 'none' | 'worktree' | 'subprocess'
 
-/**
- * 技能列表态词表(封闭联合;运行时唯一词表,CLI 与其它消费端直接引用,
- * 不得在别处另抄一份 —— 两处算同一件事必漂移)。
- */
-export const SKILL_LISTING_STATES = [
-  'platform_unlisted',
-  'user_unlisted',
-  'retired',
-  'removed',
-] as const
-export type SkillListingState = (typeof SKILL_LISTING_STATES)[number]
-
 export interface SkillFrontmatter {
   name?: string
   description?: string
@@ -51,6 +39,22 @@ export interface SkillFrontmatter {
   relatedSkills?: string[]
   /** 是否启用渐进式加载(元数据→指令→引用 3 层),默认 false */
   progressiveDisclosure?: boolean
+  /**
+   * 人能不能用斜杠把技能正文调出来。缺席=沿用旧行为(可以)。
+   * false=这条入口不执行。null=键在但值认不出,按未判定,不执行。
+   */
+  userInvocable?: boolean | null
+  /**
+   * 模型能不能通过 Skill 工具取正文。缺席=可以。
+   * false=不放行。null=值认不出,不放行。
+   */
+  modelInvocable?: boolean | null
+  /**
+   * 技能是否还在架上。缺席=在架。
+   * 四个终态各自记责任:平台下架、用户下架、退役、已删除。
+   * null=键在但值不在这四态里,未判定,不当成在架。
+   */
+  listing?: 'platform_unlisted' | 'user_unlisted' | 'retired' | 'removed' | null
   /** 来源:builtin(预置)/ user(用户编写)/ auto(自进化生成)/ hub(Skills Hub) */
   source?: SkillSource
   /**
@@ -69,17 +73,6 @@ export interface SkillFrontmatter {
    * 消费方见 apps/cli/src/tools/skill-tool.ts:选档结果 {tier, reason} 必须上报,不得静默。
    */
   tiers?: SkillCapabilityTiers
-  /**
-   * 用户调用开关(frontmatter `user-invocable` / `userInvocable`)。
-   * 三值:undefined=键缺席(默认放行) / false=用户面禁用 / null=值认不出(同样不放行,
-   * 但语义是"判不了"而非"关掉了")。消费方见 apps/cli/src/skills/index.ts 的
-   * decideSkillInvocation 与 commands/repl.ts 的 /skill。
-   */
-  userInvocable?: boolean | null
-  /** 模型调用开关;三值语义同 userInvocable,消费方见技能 prompt 段过滤 */
-  modelInvocable?: boolean | null
-  /** 列表态:undefined=在架 / 四态=下架且各记责任 / null=值认不出(不放行,也不冒充在架) */
-  listing?: SkillListingState | null
 }
 
 export interface SkillPrerequisites {

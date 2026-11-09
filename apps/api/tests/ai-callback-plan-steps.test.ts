@@ -17,9 +17,6 @@ vi.mock('../src/config/index.js', () => ({
     DATABASE_URL: 'postgres://mock:mock@localhost:5432/mock',
     REDIS_URL: 'redis://localhost:6379/0',
     AI_CALLBACK_SECRET: 'test-secret',
-    // 鉴权夹具是"只带旧密钥" ⇒ 显式 dual 兼容档(ticket 档拒绝行为由
-    // tests/internal-secret-auth.test.ts 覆盖)。
-    INTERNAL_SECRET_AUTH_MODE: 'dual',
   },
 }))
 
@@ -54,10 +51,9 @@ describe('AI callback planSteps 持久化通道(零 schema 迁移)', () => {
 
   beforeAll(async () => {
     mockAdd = vi.fn().mockResolvedValue({ id: 'job-1' })
-    server.decorate(
-      'aiCallbackQueue',
-      { add: mockAdd } as unknown as FastifyInstance['aiCallbackQueue'],
-    )
+    server.decorate('aiCallbackQueue', {
+      add: mockAdd,
+    } as unknown as FastifyInstance['aiCallbackQueue'])
     await server.register(aiCallbackRoutes)
     await server.ready()
   })

@@ -722,4 +722,107 @@ export function formatValidationErrorsLine(errors: readonly ValidationError[]): 
   const tail = errors.length > shown.length ? ` (+${errors.length - shown.length} more)` : '';
   return `arg_validation_failed: ${parts.join(' | ')}${tail}`;
 }
+
+export type TurnContextPlan =
+  | { disposition: 'admitted'; reason: 'host'; sessionId: string; turnId: string; workspace: string }
+  | { disposition: 'refused'; reason: 'param-override' | 'dirs-widened'; sessionId: ''; turnId: ''; workspace: '' }
+  | { disposition: 'unjudged'; reason: 'host-absent' | 'host-shape'; sessionId: ''; turnId: ''; workspace: '' };
+
+function turnIdOk(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0 && !value.includes('\0') && !/[\r\n]/.test(value);
+}
+
+function sameOrAbsent(hostValue: string, toolValue: unknown): boolean {
+  return toolValue === undefined || toolValue === hostValue;
+}
+
+/**
+ * 会话、回合和工作区只认宿主注入的值。
+ * 工具参数缺席可以。带了不一样的值就是覆盖,拒绝。
+ * 工具参数多给的可读目录也拒绝,不把可读范围扩大。
+ * 宿主没给齐身份时,不从工具参数里补。
+ */
+export function admitTurnContext(input: {
+  host: { sessionId?: unknown; turnId?: unknown; workspace?: unknown; readableDirs?: unknown };
+  toolArgs: { sessionId?: unknown; turnId?: unknown; workspace?: unknown; readableDirs?: unknown };
+}): TurnContextPlan {
+  const blank = {
+    sessionId: '' as const,
+    turnId: '' as const,
+    workspace: '' as const,
+  };
+  const { sessionId, turnId, workspace } = input.host;
+  if (!turnIdOk(sessionId) || !turnIdOk(turnId) || !turnIdOk(workspace)) {
+    return { disposition: 'unjudged', reason: 'host-absent', ...blank };
+  }
+  const dirs = input.host.readableDirs ?? [];
+  if (!Array.isArray(dirs) || dirs.some((dir) => !turnIdOk(dir) || dir.includes('..'))) {
+    return { disposition: 'unjudged', reason: 'host-shape', ...blank };
+  }
+  const args = input.toolArgs;
+  if (!sameOrAbsent(sessionId, args.sessionId) || !sameOrAbsent(turnId, args.turnId) || !sameOrAbsent(workspace, args.workspace)) {
+    return { disposition: 'refused', reason: 'param-override', ...blank };
+  }
+  if (args.readableDirs !== undefined) {
+    if (!Array.isArray(args.readableDirs) || args.readableDirs.some((dir) => typeof dir !== 'string' || !dirs.includes(dir))) {
+      return { disposition: 'refused', reason: 'dirs-widened', ...blank };
+    }
+  }
+  return { disposition: 'admitted', reason: 'host', sessionId, turnId, workspace };
+}
+
+export type ClientToolPlan = {
+  disposition: 'admitted' | 'refused' | 'unjudged';
+  reason:
+    | 'registered'
+    | 'removed'
+    | 'host-owned'
+    | 'already-registered'
+    | 'not-registered'
+    | 'host-unmeasured'
+    | 'client-unmeasured'
+    | 'name-invalid'
+    | 'action-unrecognized';
+  name: string;
+};
+
+function clientToolNameOk(value: unknown): value is string {
+  return typeof value === 'string' && /^[a-z][a-z0-9_]{0,63}$/.test(value);
+}
+
+function clientToolNamesOk(names: readonly string[]): boolean {
+  return names.every((name) => clientToolNameOk(name)) && new Set(names).size === names.length;
+}
+
+/**
+ * 访客只能登记自己的工具。
+ * 同名宿主工具既不能被盖掉,也不能被访客卸掉。
+ * 宿主名单没量到时,不把这个名字当成空位。
+ */
+export function admitClientTool(input: {
+  action: unknown;
+  name: unknown;
+  hostNames: readonly string[] | null;
+  clientNames: readonly string[] | null;
+}): ClientToolPlan {
+  const none = (reason: ClientToolPlan['reason']): ClientToolPlan => ({
+    disposition: 'unjudged',
+    reason,
+    name: '',
+  });
+  if (input.action !== 'register' && input.action !== 'unregister') return none('action-unrecognized');
+  if (!clientToolNameOk(input.name)) return none('name-invalid');
+  if (input.hostNames === null) return none('host-unmeasured');
+  if (input.clientNames === null) return none('client-unmeasured');
+  if (!clientToolNamesOk(input.hostNames) || !clientToolNamesOk(input.clientNames)) return none('name-invalid');
+  if (input.hostNames.includes(input.name)) return { disposition: 'refused', reason: 'host-owned', name: '' };
+  if (input.action === 'register') {
+    if (input.clientNames.includes(input.name)) {
+      return { disposition: 'refused', reason: 'already-registered', name: '' };
+    }
+    return { disposition: 'admitted', reason: 'registered', name: input.name };
+  }
+  if (!input.clientNames.includes(input.name)) return none('not-registered');
+  return { disposition: 'admitted', reason: 'removed', name: input.name };
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

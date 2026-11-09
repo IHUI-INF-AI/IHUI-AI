@@ -24,7 +24,7 @@
  * skill's declared whitelist would never be observed against real tool calls.
  */
 import { selectSkillTier } from '@ihui/types';
-import { SKILL_INVOCATION_TOOL_NAME, getAllowedTools } from '../skills/index.js';
+import { SKILL_INVOCATION_TOOL_NAME, admitSkillListing, decideSkillInvocation, getAllowedTools } from '../skills/index.js';
 import { augmentShadowSurfaceForSkill } from '../skills/allowed-tools-shadow.js';
 import { resolveModelProfile } from '../skills/model-capabilities.js';
 import {
@@ -109,6 +109,26 @@ const skillTool: Tool = {
     }
     const skill = findSessionSkill(raw);
     if (!skill) return notFoundResult(raw);
+
+    const listing = admitSkillListing(skill.frontmatter?.listing);
+    if (listing.disposition !== 'listed') {
+      return {
+        success: false,
+        output: '',
+        error: `skill "${skill.name}" is not listed (${listing.reason}). The body was not loaded.`,
+        errorType: 'skill_invocation_denied',
+      };
+    }
+    const invocation = decideSkillInvocation('model', skill.frontmatter?.modelInvocable);
+    if (invocation.disposition !== 'allow') {
+      return {
+        success: false,
+        output: '',
+        error:
+          `skill "${skill.name}" is not open to the model (${invocation.reason}). The body was not loaded.`,
+        errorType: 'skill_invocation_denied',
+      };
+    }
 
     if (!isSkillLoaded(skill.name)) {
       const missing = checkSkillPrerequisites(skill);

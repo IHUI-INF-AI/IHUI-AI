@@ -188,4 +188,58 @@ export const clientPreset: Partial<CircuitBreakerOptions> = {
   windowSizeMs: 30_000,
   halfOpenTimeoutMs: 15_000,
 }
+
+export type FailoverPlan = {
+  disposition: 'use' | 'refused' | 'unjudged'
+  reason:
+    | 'trusted'
+    | 'origin-untrusted'
+    | 'circuit-open'
+    | 'trust-unmeasured'
+    | 'circuit-unmeasured'
+    | 'origin-invalid'
+    | 'trust-invalid'
+  origin: string
+}
+
+function failoverOriginOk(value: unknown): value is string {
+  return typeof value === 'string' && value.startsWith('https://') && !/[\s\0]/.test(value)
+}
+
+/**
+ * 备用地址必须落在已经量到的信任源里。
+ * 熔断状态没量到时，不把这条源当成可用。
+ * 熔断打开时不把流量切过去。
+ */
+export function admitFailoverTarget(input: {
+  origin: unknown
+  trustedOrigins: readonly string[] | null
+  circuit: CircuitState | null
+}): FailoverPlan {
+  const blank = (
+    reason: FailoverPlan['reason'],
+    disposition: FailoverPlan['disposition'] = 'unjudged',
+  ): FailoverPlan => ({
+    disposition,
+    reason,
+    origin: '',
+  })
+  if (!failoverOriginOk(input.origin)) return blank('origin-invalid')
+  if (input.trustedOrigins === null) return blank('trust-unmeasured')
+  if (
+    input.trustedOrigins.some((item) => !failoverOriginOk(item)) ||
+    new Set(input.trustedOrigins).size !== input.trustedOrigins.length
+  ) {
+    return blank('trust-invalid')
+  }
+  if (!input.trustedOrigins.includes(input.origin)) return blank('origin-untrusted', 'refused')
+  if (
+    input.circuit === null ||
+    (input.circuit !== 'closed' && input.circuit !== 'open' && input.circuit !== 'half-open')
+  ) {
+    return blank('circuit-unmeasured')
+  }
+  if (input.circuit === 'open') return blank('circuit-open', 'refused')
+  return { disposition: 'use', reason: 'trusted', origin: input.origin }
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

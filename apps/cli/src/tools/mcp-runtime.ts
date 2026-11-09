@@ -1477,6 +1477,11 @@ function warnSkippedProjectMcpServers(ctx: ToolContext): void {
   }
 }
 
+function reportMcpServerUnreached(name: string, detail: string): void {
+  const safe = detail.replace(/\s+/g, ' ').slice(0, 180);
+  process.stderr.write(`warning: MCP 服务器 ${name} 没有连上,不能把它说成没有这个工具 (${safe})\n`);
+}
+
 export async function loadMcpTools(
   ctx: ToolContext,
   opts: McpProjectTrustOptions = {},
@@ -1493,13 +1498,14 @@ export async function loadMcpTools(
         for (const mcpTool of conn.tools) {
           allTools.push(mcpToolToTool(conn, mcpTool));
         }
-      } catch {
-        // 单个 server 连接失败不阻塞其他
+      } catch (error) {
+        reportMcpServerUnreached(server.name, error instanceof Error ? error.message : String(error));
       }
     }
 
     return allTools;
-  } catch {
+  } catch (error) {
+    reportMcpServerUnreached('(load)', error instanceof Error ? error.message : String(error));
     return [];
   }
 }
@@ -1523,13 +1529,14 @@ export async function loadMcpConnections(
       try {
         const conn = await connectMcpServer({ ...server, cwd: ctx.workspacePath });
         conns.push(conn);
-      } catch {
-        // 单个 server 连接失败不阻塞其他
+      } catch (error) {
+        reportMcpServerUnreached(server.name, error instanceof Error ? error.message : String(error));
       }
     }
 
     return conns;
-  } catch {
+  } catch (error) {
+    reportMcpServerUnreached('(load)', error instanceof Error ? error.message : String(error));
     return [];
   }
 }

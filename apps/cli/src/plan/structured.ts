@@ -15,8 +15,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { tryParseJson, isRecord, isJsonArray } from '../util/json.js';
-// 会话 id 路径穿越修复:与检查点共用同一套收敛 + 根内/realpath 断言。
-import { assertPathInside, safePathSegment } from '../util/path-guard.js';
 
 /**
  * 计划步骤状态(与 todo-write 的 TodoItem.status 同词表,可直接映射)。
@@ -56,14 +54,9 @@ export interface StructuredPlanInput {
 const VALID_ACTIONS: ReadonlySet<string> = new Set(['create', 'edit', 'delete', 'read', 'run', 'verify']);
 const VALID_STATUSES: ReadonlySet<string> = new Set(['pending', 'in_progress', 'completed', 'cancelled', 'blocked']);
 
-/** 计划持久化路径:<workspace>/.ihui/plan-<sessionId>.json(id 先收敛,再断言落点在 .ihui 内) */
+/** 计划持久化路径:<workspace>/.ihui/plan-<sessionId>.json */
 export function planFilePath(workspacePath: string, sessionId: string): string {
-  const root = path.resolve(workspacePath, '.ihui');
-  return assertPathInside(
-    root,
-    path.join(root, `plan-${safePathSegment(sessionId)}.json`),
-    '计划文件',
-  );
+  return path.join(workspacePath, '.ihui', `plan-${sessionId}.json`);
 }
 
 /** 解析持久化 JSON 为 StructuredPlan(结构非法/损坏返回 null) */

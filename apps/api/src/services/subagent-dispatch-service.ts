@@ -2067,23 +2067,21 @@ export class SubagentDispatchService {
     const taskId = runtime.agentTaskId
     if (!taskId) return
     try {
-      // G-998153:先取现值再比。attention 是派生镜像,同一值会被重复同步 ——
-      // 同值不发 UPDATE、不盖 updatedAt(该列是增量读的消费源,tasks.ts since 补拉会误读成"变过")。
+      // 先取现值、按键比较:attention 未变就不发 UPDATE(守门 161 出口形态)。
+      // 该列是 varchar(20) 可空串,直接全等比较成立;空白写会把 updatedAt 推成假变化。
+      const next = runtime.dispatch.attention ?? null
       const [current] = await db
         .select({ attention: agentTasks.attention })
         .from(agentTasks)
         .where(eq(agentTasks.id, taskId))
         .limit(1)
-      // 镜像行尚未建立(_createAgentTask 失败 / 无 agentId):原语义就是 0 行受影响,这里不新建
-      if (!current) return
-      const desired = runtime.dispatch.attention ?? null
-      const changed: { attention?: DispatchAttention | null } = {}
-      if (current.attention !== desired) changed.attention = desired
-      if (Object.keys(changed).length === 0) return
-      await db
-        .update(agentTasks)
-        .set({ ...changed, updatedAt: new Date() })
-        .where(eq(agentTasks.id, taskId))
+      const changed = current?.attention === next ? {} : { attention: next }
+      if (Object.keys(changed).length > 0) {
+        await db
+          .update(agentTasks)
+          .set({ ...changed, updatedAt: new Date() })
+          .where(eq(agentTasks.id, taskId))
+      }
     } catch (err) {
       logger.warn(`[subagent-dispatch] _syncAttentionToAgentTask 失败(不阻塞): ${String(err)}`)
     }

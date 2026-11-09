@@ -28,6 +28,15 @@ export interface AgentTraceStep {
   durationMs?: number | null
 }
 
+/** 启动瀑布里的一段。时刻相对调用方给出的窗口，不在这里改时钟。 */
+export interface AgentTraceSpan {
+  id: string
+  lane: string
+  startMs: number
+  endMs: number
+  fromId?: string | null
+}
+
 /** 会话消息的最小投影:报告只用于"这一趟跑了多少条、什么角色",不承载正文语义 */
 export interface AgentTraceMessage {
   role: string
@@ -41,6 +50,10 @@ export interface AgentTrace {
   exportedAt: string
   locale?: string
   timeZone?: string
+  /** 缺省表示这份报告不画分道。显式 null 表示窗口或分段还没量到。 */
+  spanOriginMs?: number | null
+  spanHorizonMs?: number | null
+  spans?: readonly AgentTraceSpan[] | null
 }
 
 /** findings 的三档强度(与 monitor 告警词表刻意不同域:这里是"一份报告内部的整改优先级") */

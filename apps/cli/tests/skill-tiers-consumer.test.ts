@@ -12,7 +12,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import type { SkillCapabilityTiers } from '@ihui/types';
 import { parseSkillDefinition, type Skill } from '../src/skills/index.js';
 import { serializeSkillsFrontmatter } from '../src/skills/frontmatter.js';
-import { setSkillCatalog } from '../src/skills/session.js';
+import { isSkillLoaded, setSkillCatalog } from '../src/skills/session.js';
 import {
   MODEL_PROFILES_ENV,
   loadModelProfiles,
@@ -148,6 +148,24 @@ describe('frontmatter tiers 声明(文件形态)', () => {
     expect(profiles.get('gpt-4o')!.contextWindow).toBe(8_000);
     expect(errors.join('|')).toContain('broken');
     expect(errors.join('|')).toContain('contextWindow');
+  });
+
+  it('model-invocable 关闭或认不出时不交正文,也不记成已加载', async () => {
+    setSkillCatalog([
+      mkSkill('closed', { modelInvocable: false }),
+      mkSkill('garbled', { modelInvocable: null }),
+    ]);
+    const closed = await tool.execute({ name: 'closed' }, {} as never);
+    expect(closed.success).toBe(false);
+    expect(closed.errorType).toBe('skill_invocation_denied');
+    expect(closed.output).toBe('');
+    expect(closed.error ?? '').not.toContain('CLOSED-BODY');
+    expect(isSkillLoaded('closed')).toBe(false);
+
+    const garbled = await tool.execute({ name: 'garbled' }, {} as never);
+    expect(garbled.errorType).toBe('skill_invocation_denied');
+    expect(garbled.output).not.toContain('GARBLED-BODY');
+    expect(isSkillLoaded('garbled')).toBe(false);
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -847,4 +847,100 @@ export function stopAuditEvidenceRetentionScheduler(): void {
     scheduledTask = null
   }
 }
+
+export type LedgerSealPlan = {
+  disposition: 'sealed' | 'unjudged' | 'refused'
+  reason:
+    | 'sealed'
+    | 'segment-invalid'
+    | 'count-unmeasured'
+    | 'count-invalid'
+    | 'dropped-unmeasured'
+    | 'hash-unmeasured'
+    | 'hash-invalid'
+    | 'clock-unmeasured'
+  entryCount: number | null
+  droppedCount: number | null
+}
+
+const LEDGER_SEGMENT = /^[a-z0-9][a-z0-9._-]{0,63}$/
+const LEDGER_SHA256 = /^[a-f0-9]{64}$/
+
+function ledgerHashState(value: unknown, required: boolean): 'ok' | 'missing' | 'bad' {
+  if (value === null || value === undefined) return required ? 'missing' : 'ok'
+  if (typeof value !== 'string' || !LEDGER_SHA256.test(value)) return 'bad'
+  return 'ok'
+}
+
+/**
+ * 台账段封存只接受已经量到的条数、摘要和时刻。
+ * 条数缺席不写成 0；空段不能再带首尾摘要；老化裁掉的条数没报出来就不封。
+ * 本函数不写盘。
+ */
+export function admitLedgerSeal(input: {
+  segment: unknown
+  entryCount: unknown
+  droppedCount: unknown
+  firstHash: unknown
+  lastHash: unknown
+  fileSha256: unknown
+  sealedAt: unknown
+}): LedgerSealPlan {
+  const blank = (
+    reason: LedgerSealPlan['reason'],
+    disposition: LedgerSealPlan['disposition'],
+  ): LedgerSealPlan => ({
+    disposition,
+    reason,
+    entryCount: null,
+    droppedCount: null,
+  })
+  if (typeof input.segment !== 'string' || !LEDGER_SEGMENT.test(input.segment)) {
+    return blank('segment-invalid', 'refused')
+  }
+  if (input.entryCount === null || input.entryCount === undefined)
+    return blank('count-unmeasured', 'unjudged')
+  if (
+    typeof input.entryCount !== 'number' ||
+    !Number.isInteger(input.entryCount) ||
+    input.entryCount < 0
+  ) {
+    return blank('count-invalid', 'unjudged')
+  }
+  if (input.droppedCount === null || input.droppedCount === undefined) {
+    return blank('dropped-unmeasured', 'unjudged')
+  }
+  if (
+    typeof input.droppedCount !== 'number' ||
+    !Number.isInteger(input.droppedCount) ||
+    input.droppedCount < 0
+  ) {
+    return blank('count-invalid', 'unjudged')
+  }
+  const needEnds = input.entryCount > 0
+  const first = ledgerHashState(input.firstHash, needEnds)
+  const last = ledgerHashState(input.lastHash, needEnds)
+  const file = ledgerHashState(input.fileSha256, true)
+  if (first === 'missing' || last === 'missing' || file === 'missing') {
+    return blank('hash-unmeasured', 'unjudged')
+  }
+  if (first === 'bad' || last === 'bad' || file === 'bad') return blank('hash-invalid', 'unjudged')
+  // eslint-disable-next-line eqeqeq -- G 面纯增量:!= null 为判空惯用法,零改在飞行;对象空间根治用 !== null && !== undefined
+  if (!needEnds && (input.firstHash != null || input.lastHash != null)) {
+    return blank('hash-invalid', 'unjudged')
+  }
+  if (
+    typeof input.sealedAt !== 'string' ||
+    input.sealedAt.trim() === '' ||
+    Number.isNaN(Date.parse(input.sealedAt))
+  ) {
+    return blank('clock-unmeasured', 'unjudged')
+  }
+  return {
+    disposition: 'sealed',
+    reason: 'sealed',
+    entryCount: input.entryCount,
+    droppedCount: input.droppedCount,
+  }
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

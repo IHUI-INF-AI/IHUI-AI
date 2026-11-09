@@ -29,6 +29,9 @@ import {
   USER_BROADCAST_EVENT_NAMES,
 } from '@ihui/types'
 import {
+  holdGuestDelivery,
+  releaseGuestSubscription,
+  settleGuestDelivery,
   subscribeUserBroadcast,
   feedUserBroadcastFrame,
   getUserBroadcastHubStats,
@@ -352,6 +355,22 @@ describe('D163 残余 checkpoint:availability 经同一 hub 分发(不另建通�
     expect(getUserBroadcastHubStats()).toHaveLength(1)
     a.close()
     b.close()
+  })
+
+  it('投递没成功确认就留重试,没订阅过的退订不编造计数', () => {
+    const seen = new Set<string>()
+    expect(holdGuestDelivery(seen, 'd1').disposition).toBe('deliver')
+    expect(holdGuestDelivery(seen, 'd1').disposition).toBe('duplicate')
+    expect(settleGuestDelivery(seen, 'd1', false).disposition).toBe('retry')
+    expect(seen.has('d1')).toBe(false)
+    expect(holdGuestDelivery(seen, '').reason).toBe('id-invalid')
+    const held = new Set<string>(['d2'])
+    expect(settleGuestDelivery(held, 'd2', 'ok').reason).toBe('result-unreadable')
+    expect(held.has('d2')).toBe(true)
+    const counts = new Map<string, number>([['skills', 1]])
+    expect(releaseGuestSubscription(counts, 'skills').count).toBe(0)
+    expect(releaseGuestSubscription(counts, 'missing').reason).toBe('subscription-unmeasured')
+    expect(counts.has('missing')).toBe(false)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

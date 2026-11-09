@@ -7,6 +7,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import { CheckpointManager } from '../src/checkpoints/index.js'
+import { projectChangeIndex, readChangeDetail, readRequestFileTree } from '../src/checkpoints/snapshot-store-host.js'
 
 describe('CheckpointManager', () => {
   let tmpDir: string
@@ -78,6 +79,78 @@ describe('CheckpointManager', () => {
     fs.writeFileSync(filePath, 'new file', 'utf-8')
     const cp = mgr.snapshotSync([filePath], 'manual')
     expect(cp.files['e.txt']).toBe('snap')
+  })
+})
+
+describe('变更列表不带文件名', () => {
+  it('计数对不上不投影，明细没量到不用列表顶上', () => {
+    const projected = projectChangeIndex([
+      {
+        id: 'c1',
+        requestId: 'r1',
+        summary: '改一处',
+        fileNames: ['a.ts'],
+        fileCount: 1,
+        additions: 2,
+        deletions: 0,
+      },
+    ])
+    expect(projected.rows?.[0]).toEqual({
+      id: 'c1',
+      requestId: 'r1',
+      summary: '改一处',
+      fileCount: 1,
+      additions: 2,
+      deletions: 0,
+      detailRef: 'c1.r1',
+    })
+    expect(projected.rows?.[0]).not.toHaveProperty('fileNames')
+    expect(projectChangeIndex([
+      {
+        id: 'c1',
+        requestId: 'r1',
+        summary: '改一处',
+        fileNames: ['a.ts', 'b.ts'],
+        fileCount: 1,
+        additions: 1,
+        deletions: 0,
+      },
+    ]).reason).toBe('count-mismatch')
+    expect(readChangeDetail({
+      detailRef: 'c1.r1',
+      requestId: 'r1',
+      detail: null,
+    })).toMatchObject({ disposition: 'unjudged', reason: 'detail-unmeasured', files: null })
+  })
+})
+
+describe('文件树只认本次请求', () => {
+  const requestId = 'ab'.repeat(16)
+  it('别的请求的树不能顶上，体积缺了不写成 0', () => {
+    const memo = {
+      [requestId]: {
+        createdAt: '2026-11-06T05:00:00.000Z',
+        files: [{ path: 'src/a.ts', name: 'a.ts', size: 12 }],
+      },
+    }
+    expect(readRequestFileTree({ requestId, memo })).toMatchObject({
+      disposition: 'read',
+      files: [{ path: 'src/a.ts', name: 'a.ts', size: 12 }],
+    })
+    expect(readRequestFileTree({
+      requestId: 'cd'.repeat(16),
+      memo,
+    })).toMatchObject({ disposition: 'refused', reason: 'request-absent', files: null })
+    expect(readRequestFileTree({ requestId, memo: null }).reason).toBe('memo-unmeasured')
+    expect(readRequestFileTree({
+      requestId,
+      memo: {
+        [requestId]: {
+          createdAt: '2026-11-06T05:00:00.000Z',
+          files: [{ path: 'src/a.ts', name: 'a.ts', size: null }],
+        },
+      },
+    }).reason).toBe('entry-unreadable')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

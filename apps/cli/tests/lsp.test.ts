@@ -74,6 +74,7 @@ import {
   isLspServerAvailable,
   listAvailableLspServers,
 } from '../src/tools/lsp-languages.js';
+import { checkWorkspaceMarkers } from '../src/lsp/probe.js';
 import type { ToolContext } from '../src/tools/index.js';
 
 // ==================== Mock LSP server ====================
@@ -997,6 +998,27 @@ describe('错误处理:LSP server 未安装时降级', () => {
     const _client = getLspClientByLanguage(workspace, 'typescript')!;
     // dispose 不应抛异常
     expect(() => disposeLspClient()).not.toThrow();
+  });
+});
+
+describe('工程根标记', () => {
+  it('工作区列不出来时不能说没有标记', () => {
+    const config = LSP_SERVERS.find((item) => item.workspaceMarkers?.includes('*.csproj'));
+    expect(config).toBeTruthy();
+    const denied = new Error('denied') as NodeJS.ErrnoException;
+    denied.code = 'EACCES';
+    const unread = checkWorkspaceMarkers(config!, 'G:/workspace', {
+      listDir: () => {
+        throw denied;
+      },
+    });
+    expect(unread.unreadable).toBe(true);
+    expect(unread.found).toEqual([]);
+    const present = checkWorkspaceMarkers(config!, 'G:/workspace', {
+      listDir: () => ['app.csproj'],
+    });
+    expect(present.unreadable).toBe(false);
+    expect(present.found).toContain('*.csproj');
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

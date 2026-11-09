@@ -23,6 +23,7 @@ import {
   estimateTokens,
   estimateMessagesTokens,
   compressContextIfNeeded,
+  measuredCompactRatio,
   type ChatMessage,
   type CompressionResult,
 } from './context.js';
@@ -274,7 +275,10 @@ export function shouldCompact(
   /** P2 闭集原因:below-threshold / above-threshold(分母无效时为 disabled) */
   reason: CompactionDecisionReason;
 } {
-  const triggerRatio = opts.triggerRatio ?? DEFAULT_TRIGGER_RATIO;
+  const triggerRatio =
+    opts.triggerRatio === undefined
+      ? DEFAULT_TRIGGER_RATIO
+      : (measuredCompactRatio(opts.triggerRatio) ?? DEFAULT_TRIGGER_RATIO);
   if (contextLimit <= 0) {
     return { shouldCompact: false, trigger: 'none', percent: 0, reason: 'disabled' };
   }
@@ -415,7 +419,10 @@ export async function compressContextV2(
     ...(typeof opts.contextBufferTokens === 'number' ? { buffer: opts.contextBufferTokens } : {}),
     enabled: opts.outputReserveEnabled ?? outputReserveEnabledByDefault(),
   });
-  const triggerRatio = opts.triggerRatio ?? DEFAULT_TRIGGER_RATIO;
+  const triggerRatio =
+    opts.triggerRatio === undefined
+      ? DEFAULT_TRIGGER_RATIO
+      : (measuredCompactRatio(opts.triggerRatio) ?? DEFAULT_TRIGGER_RATIO);
   const targetRatio = opts.targetRatio ?? DEFAULT_TARGET_RATIO;
   const keepRecent = opts.keepRecent ?? DEFAULT_KEEP_RECENT;
   const minMessages = opts.minMessages ?? DEFAULT_MIN_MESSAGES;

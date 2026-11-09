@@ -3,32 +3,71 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { describe, expect, it } from 'vitest'
-import { BUDGET_STOP_REASON_CODES } from '../sse/contract'
-import {
-  BUDGET_STOP_FALLBACK_TEXT,
-  budgetStopReasonText,
-  budgetStopReasonTexts,
-} from './budget-stop-note'
+import { judgeLintSpawn } from '../src/tools/diagnostics.js'
 
-describe('budgetStopReasonText — 原因码文案单一出口', () => {
-  it('封闭集每码都有独立文案,且不等于通用回落句', () => {
-    const texts = budgetStopReasonTexts()
-    expect(texts).toHaveLength(BUDGET_STOP_REASON_CODES.length)
-    expect(new Set(texts).size).toBe(BUDGET_STOP_REASON_CODES.length)
-    for (const text of texts) expect(text).not.toBe(BUDGET_STOP_FALLBACK_TEXT)
+const cwd = 'G:/work'
+
+describe('诊断没跑完不是没有问题', () => {
+  it('检查程序没启动时不说成没有问题', () => {
+    const run = judgeLintSpawn({
+      kind: 'tsc',
+      cwd,
+      errorMessage: 'spawn npx ENOENT',
+      signal: null,
+      status: null,
+      stdout: '',
+    })
+    expect(run.diags).toEqual([])
+    expect(run.unmeasured).toContain('ENOENT')
   })
 
-  it('逐码取文案,不串码', () => {
-    expect(budgetStopReasonText('daily_token_limit')).toContain('今日 token')
-    expect(budgetStopReasonText('pillar_token_limit')).toContain('能力支柱')
-    expect(budgetStopReasonText('provider_budget_exhausted')).toContain('上游模型')
+  it('tsc 正常退出且没有报错行才是没有问题', () => {
+    const run = judgeLintSpawn({
+      kind: 'tsc',
+      cwd,
+      errorMessage: null,
+      signal: null,
+      status: 0,
+      stdout: '',
+    })
+    expect(run.unmeasured).toBeNull()
+    expect(run.diags).toEqual([])
   })
 
-  it('未知码/缺失码回落通用句,不猜具体原因', () => {
-    expect(budgetStopReasonText('future_code_from_newer_server')).toBe(BUDGET_STOP_FALLBACK_TEXT)
-    expect(budgetStopReasonText(undefined)).toBe(BUDGET_STOP_FALLBACK_TEXT)
-    expect(budgetStopReasonText(null)).toBe(BUDGET_STOP_FALLBACK_TEXT)
-    expect(budgetStopReasonText(42)).toBe(BUDGET_STOP_FALLBACK_TEXT)
+  it('tsc 非零退出但没有可读报告时不算没有问题', () => {
+    const run = judgeLintSpawn({
+      kind: 'tsc',
+      cwd,
+      errorMessage: null,
+      signal: null,
+      status: 2,
+      stdout: 'not a diagnostic line\n',
+    })
+    expect(run.diags).toEqual([])
+    expect(run.unmeasured).toBe('tsc exit 2')
+  })
+
+  it('eslint 空数组是没有问题,非列表不是', () => {
+    const clean = judgeLintSpawn({
+      kind: 'eslint',
+      cwd,
+      errorMessage: null,
+      signal: null,
+      status: 0,
+      stdout: '[]',
+    })
+    expect(clean.unmeasured).toBeNull()
+    expect(clean.diags).toEqual([])
+    const broken = judgeLintSpawn({
+      kind: 'eslint',
+      cwd,
+      errorMessage: null,
+      signal: null,
+      status: 2,
+      stdout: 'eslint failed to start',
+    })
+    expect(broken.diags).toEqual([])
+    expect(broken.unmeasured).toContain('not a diagnostic list')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

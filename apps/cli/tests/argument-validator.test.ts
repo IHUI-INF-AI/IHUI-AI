@@ -4,6 +4,8 @@
 
 import { describe, expect, it } from 'vitest'
 import {
+  admitClientTool,
+  admitTurnContext,
   validateToolArguments,
   formatValidationErrors,
   type ValidationError,
@@ -518,6 +520,43 @@ describe('validateToolArguments - 收集式返回与严格档(G-937978)', () => 
     expect(row?.field).toBe('zz')
     expect(row?.observed).toBe('array')
     expect(JSON.stringify(records)).not.toContain('[1,2]')
+  })
+})
+
+describe('回合上下文:工具参数不能改宿主身份', () => {
+  const host = { sessionId: 's1', turnId: 't1', workspace: 'repo', readableDirs: ['src'] }
+
+  it('缺席参数沿用宿主;改身份或加目录都拒绝;宿主没给身份不从参数补', () => {
+    expect(admitTurnContext({ host, toolArgs: {} })).toMatchObject({
+      disposition: 'admitted',
+      sessionId: 's1',
+      turnId: 't1',
+    })
+    expect(admitTurnContext({ host, toolArgs: { sessionId: 'other' } }).reason).toBe('param-override')
+    expect(admitTurnContext({ host, toolArgs: { readableDirs: ['src', 'secrets'] } }).reason).toBe('dirs-widened')
+    expect(admitTurnContext({ host: { workspace: 'repo' }, toolArgs: { sessionId: 's1', turnId: 't1' } }).reason).toBe(
+      'host-absent',
+    )
+  })
+})
+
+describe('访客工具不能盖掉宿主同名工具', () => {
+  it('宿主名单没量到不放行,卸掉没登记过的也不算已删除', () => {
+    expect(
+      admitClientTool({ action: 'register', name: 'guest_read', hostNames: ['read'], clientNames: [] }),
+    ).toMatchObject({ disposition: 'admitted', name: 'guest_read' })
+    expect(admitClientTool({ action: 'register', name: 'read', hostNames: ['read'], clientNames: [] }).reason).toBe(
+      'host-owned',
+    )
+    expect(admitClientTool({ action: 'unregister', name: 'read', hostNames: ['read'], clientNames: [] }).reason).toBe(
+      'host-owned',
+    )
+    expect(admitClientTool({ action: 'register', name: 'guest_read', hostNames: null, clientNames: [] }).reason).toBe(
+      'host-unmeasured',
+    )
+    expect(
+      admitClientTool({ action: 'unregister', name: 'guest_read', hostNames: ['read'], clientNames: [] }).reason,
+    ).toBe('not-registered')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

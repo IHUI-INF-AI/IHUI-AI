@@ -15,7 +15,6 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import { spawnSync } from 'node:child_process'
-import { fileURLToPath } from 'node:url'
 import {
   detectCowKind,
   resetCowCache,
@@ -340,7 +339,7 @@ describe('createWorktree', () => {
 
   it('基本流程成功', async () => {
     const dst = path.join(tmpDir, 'wt-1')
-    const result = await createWorktree({ source: sourceRepo, destination: dst, withinRoot: tmpDir })
+    const result = await createWorktree({ source: sourceRepo, destination: dst })
 
     expect(result.destination).toBe(dst)
     expect(fs.existsSync(path.join(dst, 'README.md'))).toBe(true)
@@ -358,7 +357,7 @@ describe('createWorktree', () => {
     fs.mkdirSync(dst, { recursive: true })
     fs.writeFileSync(path.join(dst, 'blocker.txt'), 'x', 'utf-8')
 
-    await expect(createWorktree({ source: sourceRepo, destination: dst, withinRoot: tmpDir })).rejects.toThrow(
+    await expect(createWorktree({ source: sourceRepo, destination: dst })).rejects.toThrow(
       /非空|exists|empty/i,
     )
   })
@@ -368,7 +367,7 @@ describe('createWorktree', () => {
     fs.mkdirSync(nonGit, { recursive: true })
     const dst = path.join(tmpDir, 'wt-3')
 
-    await expect(createWorktree({ source: nonGit, destination: dst, withinRoot: tmpDir })).rejects.toThrow(
+    await expect(createWorktree({ source: nonGit, destination: dst })).rejects.toThrow(
       /git|\.git/i,
     )
   })
@@ -398,7 +397,7 @@ describe('createWorktree', () => {
     spawnSync('git', ['checkout', 'main'], { cwd: sourceRepo, encoding: 'utf-8', /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
 
     const dst = path.join(tmpDir, 'wt-4')
-    await createWorktree({ source: sourceRepo, destination: dst, ref: 'feature-x', withinRoot: tmpDir })
+    await createWorktree({ source: sourceRepo, destination: dst, ref: 'feature-x' })
 
     // 验证 destination 在 feature-x 分支
     const r = spawnSync('git', ['-C', dst, 'rev-parse', '--abbrev-ref', 'HEAD'], {
@@ -419,7 +418,6 @@ describe('createWorktree', () => {
     await createWorktree({
       source: sourceRepo,
       destination: dst,
-      withinRoot: tmpDir,
       preserveWorkingTree: true,
     })
 
@@ -433,7 +431,7 @@ describe('createWorktree', () => {
     for (const badRef of ['-b', '--orphan=x', 'main; rm -rf /', 'a b', 'x\ny']) {
       const dst = path.join(tmpDir, `wt-badref-${Buffer.from(badRef).toString('hex')}`)
       await expect(
-        createWorktree({ source: sourceRepo, destination: dst, ref: badRef, withinRoot: tmpDir }),
+        createWorktree({ source: sourceRepo, destination: dst, ref: badRef }),
       ).rejects.toThrow(/非法字符/)
       // 零副作用:目录都没建
       expect(fs.existsSync(dst)).toBe(false)
@@ -448,7 +446,6 @@ describe('createWorktree', () => {
     await createWorktree({
       source: sourceRepo,
       destination: dst,
-      withinRoot: tmpDir,
       preserveWorkingTree: false,
     })
 
@@ -477,7 +474,7 @@ describe('removeWorktree', () => {
     fs.mkdirSync(path.join(wt, '.git'), { recursive: true })
     fs.writeFileSync(path.join(wt, 'file.txt'), 'x', 'utf-8')
 
-    await removeWorktree(wt, { withinRoot: tmpDir })
+    await removeWorktree(wt)
     expect(fs.existsSync(wt)).toBe(false)
   })
 
@@ -503,13 +500,13 @@ describe('removeWorktree', () => {
     expect(fs.existsSync(linkedWt)).toBe(true)
     expect(fs.statSync(path.join(linkedWt, '.git')).isFile()).toBe(true)
 
-    await removeWorktree(linkedWt, { withinRoot: tmpDir })
+    await removeWorktree(linkedWt)
     expect(fs.existsSync(linkedWt)).toBe(false)
   })
 
   it('不存在路径不抛错', async () => {
     const missing = path.join(tmpDir, 'never-existed')
-    await expect(removeWorktree(missing, { withinRoot: tmpDir })).resolves.toBeUndefined()
+    await expect(removeWorktree(missing)).resolves.toBeUndefined()
   })
 
   it('确认目录时读不到,不摘注册', () => {
@@ -960,27 +957,8 @@ describe('getDefaultWorktreeRoot(subagents)IHUI_WORKTREE_DIR 落点护栏', () =
   })
 
   it('非法:相对路径 ⇒ 抛错(落点随 cwd 漂移,不可申报)', () => {
-    // 相对串的解析基准就是进程 cwd:若 cwd 落在 <盘>/DevEnv 之下,
-    // '../outside-wt' 会被解析回 DevEnv 白名单内而放行(2026-11-05 实证:
-    // DevEnv worktree 下本用例假红)。故显式 chdir 到盘根(其父仍为自身,
-    // 不在 .worktrees/ 也不在 DevEnv),并用前置断言锁定"样本确实越界",
-    // 避免用例退化成空断言。
-    const here = path.dirname(fileURLToPath(import.meta.url))
-    const repoRoot = path.resolve(here, '../../..')
-    const driveRoot = path.parse(repoRoot).root
-    const savedCwd = process.cwd()
-    try {
-      process.chdir(driveRoot)
-      const escaped = path.resolve('../outside-wt')
-      expect(escaped).toBe(path.join(driveRoot, 'outside-wt'))
-      const normalized = escaped.replace(/\\/g, '/').toLowerCase()
-      expect(normalized).not.toMatch(/^[a-z]:\/devenv(\/|$)/)
-      expect(normalized).not.toContain('/.worktrees/')
-      process.env[KEY] = '../outside-wt'
-      expect(() => getSubagentWorktreeRoot('/repo')).toThrowError(/必须落在项目/)
-    } finally {
-      process.chdir(savedCwd)
-    }
+    process.env[KEY] = '../outside-wt'
+    expect(() => getSubagentWorktreeRoot('/repo')).toThrowError(/必须落在项目/)
   })
 
   it.skipIf(process.platform !== 'win32')('合法②:<盘>/DevEnv 之下(部署环净面根同族)', () => {

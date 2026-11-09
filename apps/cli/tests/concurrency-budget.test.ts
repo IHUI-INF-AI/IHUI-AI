@@ -17,13 +17,6 @@ import {
   resolveMaxConcurrency,
 } from '../src/subagents/concurrency-budget.js'
 
-/** 索引访问 + 运行时越界检查(noUncheckedIndexedAccess 下数组元素天然是 T | undefined) */
-function at<T>(items: readonly T[], index: number): T {
-  const item = items[index]
-  if (item === undefined) throw new Error(`数组索引越界: ${index}`)
-  return item
-}
-
 /**
  * 并发预算单一出口的回归。
  *
@@ -112,9 +105,9 @@ describe('ProviderAimdGovernor — 纯 AIMD 状态机', () => {
     g.applyRunCapCommand('run-2', K, MAX_CONCURRENCY)
     const changes = g.release(K, { outcome: 'throttled' })
     expect(changes.map((c) => c.reason)).toContain('throttle-429')
-    expect(at(changes, 0).to).toBe(mid) // 退回 lastGood
-    expect(at(changes, 0).to).toBe(mid) // 13 ≠ 12(系数减结果)
-    expect(at(changes, 0).to).not.toBe(Math.max(MIN_CONCURRENCY, Math.floor(MAX_CONCURRENCY * AIMD_DECREASE_FACTOR)))
+    expect(changes[0].to).toBe(mid) // 退回 lastGood
+    expect(changes[0].to).toBe(mid) // 13 ≠ 12(系数减结果)
+    expect(changes[0].to).not.toBe(Math.max(MIN_CONCURRENCY, Math.floor(MAX_CONCURRENCY * AIMD_DECREASE_FACTOR)))
   })
 
   it('c) cap ≤ lastGood 时按系数减并清空 lastGood', () => {
@@ -129,9 +122,9 @@ describe('ProviderAimdGovernor — 纯 AIMD 状态机', () => {
     expect(g.snapshot(K).cap).toBe(expected)
     expect(g.snapshot(K).lastGood).toBe(0)
     expect(changes).toHaveLength(1)
-    expect(at(changes, 0).reason).toBe('throttle-429')
-    expect(at(changes, 0).from).toBe(MAX_CONCURRENCY)
-    expect(at(changes, 0).to).toBe(expected)
+    expect(changes[0].reason).toBe('throttle-429')
+    expect(changes[0].from).toBe(MAX_CONCURRENCY)
+    expect(changes[0].to).toBe(expected)
   })
 
   it('d) cap 已在地板:无 Retry-After ⇒ 0 条 change;带 ⇒ 仍发 1 条', () => {
@@ -145,8 +138,8 @@ describe('ProviderAimdGovernor — 纯 AIMD 状态机', () => {
     expect(g.snapshot(K).cap).toBe(MIN_CONCURRENCY)
     const withRa = g.release(K, { outcome: 'throttled', retryAfterMs: 5_000 })
     expect(withRa).toHaveLength(1)
-    expect(at(withRa, 0).reason).toBe('retry-after')
-    expect(at(withRa, 0).cooldownUntilMs).toBe(5_000)
+    expect(withRa[0].reason).toBe('retry-after')
+    expect(withRa[0].cooldownUntilMs).toBe(5_000)
     expect(g.snapshot(K).cap).toBe(MIN_CONCURRENCY) // cap 不再减
   })
 

@@ -22,6 +22,7 @@
  */
 
 import * as fs from 'node:fs';
+import * as path from 'node:path';
 import {
   recoverInterruptedCompactTimelines,
   type CompactTimelineEntryKind,
@@ -29,19 +30,10 @@ import {
   type TimelineRecoveryReport,
 } from '@ihui/context-compaction';
 import { getSessionsDir } from './commands/session.js';
-// 账本文件名由会话 id 拼出:收敛与落点断言统一走 util/path-guard(与会话文件同一判据)。
-import { segmentFilePathInside } from './util/path-guard.js';
-// BUG-0010:账本与主会话同目录、resume 必须可读 —— 落盘走唯一原子写出口,中断不留半截 JSON。
-import { writeFileAtomicSync } from './util/atomic-write.js';
 
 /** 账本与主会话同目录(同一份 getSessionsDir):resume 读会话处必然能读到账本。 */
 export function getCompactionTimelineLedgerPath(sessionId: string): string {
-  return segmentFilePathInside(
-    getSessionsDir(),
-    sessionId,
-    '.compaction-timelines.json',
-    '压缩时间线账本',
-  );
+  return path.join(getSessionsDir(), `${sessionId}.compaction-timelines.json`);
 }
 
 /** 条目 kind 闭集(与 @ihui/context-compaction 的 CompactTimelineEntryKind 对齐)。 */
@@ -107,9 +99,10 @@ export function recoverCompactionTimelinesForSession(
   const records = readCompactionTimelineLedger(sessionId, stat);
   const { records: converged, report } = recoverInterruptedCompactTimelines(records, nowMs);
   if (report.appended.length > 0) {
-    writeFileAtomicSync(
+    fs.writeFileSync(
       getCompactionTimelineLedgerPath(sessionId),
       JSON.stringify(converged, null, 2),
+      'utf-8',
     );
   }
   return report;

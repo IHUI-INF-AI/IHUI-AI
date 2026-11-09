@@ -141,6 +141,9 @@ section{
   border-radius:${CONTROL_RADIUS};
 }
 .bar[data-state="unmeasured"]{background:var(--rp-card-hover)}
+.lane{margin-top:8px}
+.lane-track{position:relative;height:8px;background:var(--rp-track);border-radius:${CONTROL_RADIUS}}
+.lane-bar{position:absolute;top:0;height:8px;background:var(--rp-bar);border-radius:${CONTROL_RADIUS}}
 .step .ms{flex:0 0 96px;text-align:right;font-size:12px}
 .toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:4px}
 .toolbar input{

@@ -87,8 +87,15 @@ export function registerCheckpointCommand(program: Command): void {
       const sessionId = opts.session ?? `cli_${crypto.randomBytes(4).toString('hex')}`;
       const mgr = new CheckpointManager({ sessionId, workspacePath: ws });
       const meta = await mgr.snapshot(files, opts.reason ?? 'manual');
-      console.info(chalk.green(`✓ 检查点已创建: ${meta.id}`));
-      console.info(chalk.dim(`  会话: ${meta.sessionId}  原因: ${meta.reason}  文件: ${Object.keys(meta.files).length} 个`));
+      const skipped = meta.skipped ?? [];
+      const recorded = Object.keys(meta.files).length;
+      if (recorded === 0 && skipped.length > 0) {
+        console.info(chalk.yellow(`检查点 ${meta.id} 没有纳入请求的路径: ${skipped.join(', ')}`));
+      } else {
+        console.info(chalk.green(`✓ 检查点已创建: ${meta.id}`));
+        console.info(chalk.dim(`  会话: ${meta.sessionId}  原因: ${meta.reason}  文件: ${recorded} 个`));
+        if (skipped.length > 0) console.info(chalk.yellow(`  未纳入: ${skipped.join(', ')}`));
+      }
       // goal-b49 W3:落盘即回收 ⇒ 这一轮的账面(已删计数 + 不删原因)当场说出口
       reportGcRun(mgr);
     });
@@ -102,7 +109,13 @@ export function registerCheckpointCommand(program: Command): void {
       const ws: string = rootOpts.workspace ?? process.cwd();
       const sessionId = opts.session ?? 'cli_default';
       const mgr = new CheckpointManager({ sessionId, workspacePath: ws });
-      const list = mgr.list();
+      let list: ReturnType<CheckpointManager['list']>;
+      try {
+        list = mgr.list();
+      } catch (err) {
+        console.info(chalk.yellow(err instanceof Error ? err.message : String(err)));
+        return;
+      }
       // G-671:损坏 manifest 已被隔离,账面必须点名(隔离件路径 + 原因),不允许静默消失
       const corrupted = mgr.getQuarantinedManifests();
       if (list.length === 0 && corrupted.length === 0) {
@@ -138,8 +151,19 @@ export function registerCheckpointCommand(program: Command): void {
       const ws: string = rootOpts.workspace ?? process.cwd();
       const sessionId = opts.session ?? 'cli_default';
       const mgr = new CheckpointManager({ sessionId, workspacePath: ws });
-      const result = await mgr.restore(id);
-      console.info(chalk.green(`✓ 已回滚到检查点: ${id}`));
+      let result: Awaited<ReturnType<CheckpointManager['restore']>>;
+      try {
+        result = await mgr.restore(id);
+      } catch (err) {
+        console.info(chalk.yellow(err instanceof Error ? err.message : String(err)));
+        return;
+      }
+      if (result.notRestored.length > 0) {
+        console.info(chalk.yellow(`检查点 ${id} 有 ${result.notRestored.length} 个文件没有写回`));
+        result.notRestored.forEach((f) => console.info(`    ${chalk.yellow('?')} ${f}`));
+      } else {
+        console.info(chalk.green(`✓ 已回滚到检查点: ${id}`));
+      }
       console.info(chalk.dim(`  恢复: ${result.restored.length} 个文件`));
       result.restored.forEach((f) => console.info(`    ${chalk.green('+')} ${f}`));
       if (result.removed.length > 0) {
@@ -157,14 +181,20 @@ export function registerCheckpointCommand(program: Command): void {
       const ws: string = rootOpts.workspace ?? process.cwd();
       const sessionId = opts.session ?? 'cli_default';
       const mgr = new CheckpointManager({ sessionId, workspacePath: ws });
-      const entries = mgr.diff(id);
+      let entries: ReturnType<CheckpointManager['diff']>;
+      try {
+        entries = mgr.diff(id);
+      } catch (err) {
+        console.info(chalk.yellow(err instanceof Error ? err.message : String(err)));
+        return;
+      }
       if (entries.length === 0) {
         console.info(chalk.dim('无差异'));
         return;
       }
       console.info(chalk.cyan('\n差异:'));
       for (const e of entries) {
-        const icon = e.status === 'modified' ? chalk.yellow('M') : e.status === 'added' ? chalk.green('+') : chalk.red('-');
+        const icon = e.status === 'modified' ? chalk.yellow('M') : e.status === 'added' ? chalk.green('+') : e.status === 'unmeasured' ? chalk.dim('?') : chalk.red('-');
         console.info(`  ${icon} ${e.path}`);
       }
       console.info('');
@@ -179,7 +209,14 @@ export function registerCheckpointCommand(program: Command): void {
       const ws: string = rootOpts.workspace ?? process.cwd();
       const sessionId = opts.session ?? 'cli_default';
       const mgr = new CheckpointManager({ sessionId, workspacePath: ws });
-      if (mgr.delete(id)) {
+      let removed = false;
+      try {
+        removed = mgr.delete(id);
+      } catch (err) {
+        console.info(chalk.yellow(err instanceof Error ? err.message : String(err)));
+        process.exit(1);
+      }
+      if (removed) {
         console.info(chalk.green(`✓ 已删除检查点: ${id}`));
       } else {
         console.info(chalk.red(`未找到检查点: ${id}`));
@@ -224,7 +261,13 @@ export function registerCheckpointCommand(program: Command): void {
       const ws: string = rootOpts.workspace ?? process.cwd();
       const sessionId = opts.session ?? 'cli_default';
       const mgr = new HunkCheckpointManager({ sessionId, workspacePath: ws });
-      const list = mgr.list();
+      let list: ReturnType<HunkCheckpointManager['list']>;
+      try {
+        list = mgr.list();
+      } catch (err) {
+        console.info(chalk.yellow(err instanceof Error ? err.message : String(err)));
+        return;
+      }
       // G-671:同 CheckpointManager —— 损坏 manifest 隔离后账面点名
       const corrupted = mgr.getQuarantinedManifests();
       if (list.length === 0 && corrupted.length === 0) {
@@ -296,7 +339,13 @@ export function registerCheckpointCommand(program: Command): void {
       const ws: string = rootOpts.workspace ?? process.cwd();
       const sessionId = opts.session ?? 'cli_default';
       const mgr = new HunkCheckpointManager({ sessionId, workspacePath: ws });
-      const diff = mgr.diffHunks(id);
+      let diff: ReturnType<HunkCheckpointManager['diffHunks']>;
+      try {
+        diff = mgr.diffHunks(id);
+      } catch (err) {
+        console.info(chalk.yellow(err instanceof Error ? err.message : String(err)));
+        return;
+      }
       if (diff.length === 0) {
         console.info(chalk.dim('检查点不存在或无 hunks'));
         return;
@@ -318,7 +367,14 @@ export function registerCheckpointCommand(program: Command): void {
       const ws: string = rootOpts.workspace ?? process.cwd();
       const sessionId = opts.session ?? 'cli_default';
       const mgr = new HunkCheckpointManager({ sessionId, workspacePath: ws });
-      if (mgr.delete(id)) {
+      let removed = false;
+      try {
+        removed = mgr.delete(id);
+      } catch (err) {
+        console.info(chalk.yellow(err instanceof Error ? err.message : String(err)));
+        process.exit(1);
+      }
+      if (removed) {
         console.info(chalk.green(`✓ 已删除 hunk 检查点: ${id}`));
       } else {
         console.info(chalk.red(`未找到 hunk 检查点: ${id}`));

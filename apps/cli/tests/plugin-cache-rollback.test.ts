@@ -33,13 +33,6 @@ import {
   type SwapAuthority,
 } from '../src/plugins/cache.js';
 
-/** 索引访问 + 运行时越界检查(noUncheckedIndexedAccess 下数组元素天然是 T | undefined) */
-function at<T>(items: readonly T[], index: number): T {
-  const item = items[index];
-  if (item === undefined) throw new Error(`数组索引越界: ${index}`);
-  return item;
-}
-
 /**
  * 插件缓存的「提交点」与回滚对账。
  *
@@ -610,7 +603,7 @@ describe('遗留归档的恢复 — 写者证据 × 权威结论', () => {
     const outcomes = await recoverStaleSwapArtifacts(scene.target, { isPidAlive: liveWriter });
 
     expect(outcomes.map((o) => o.action)).toEqual(['skipped-live-writer']);
-    expect(at(outcomes, 0).reason).toContain('G-731');
+    expect(outcomes[0].reason).toContain('G-731');
     // 备份字节逐字不变
     expect(fs.readFileSync(path.join(scene.archive, 'old.txt'), 'utf-8')).toBe(bytesBefore);
     // 目录形状逐字不变(既没回位也没删除)
@@ -639,7 +632,7 @@ describe('遗留归档的恢复 — 写者证据 × 权威结论', () => {
     const outcomes = await recoverStaleSwapArtifacts(scene.target);
 
     expect(outcomes.map((o) => o.action)).toEqual(['archive-deleted']);
-    expect(at(outcomes, 0).reason).toContain('归档已清除');
+    expect(outcomes[0].reason).toContain('归档已清除');
   });
 
   it('④c 同 pid 而 ownerId 不符 ⇒ pid 已被复用,不得判成"写者还活着"', async () => {
@@ -653,7 +646,7 @@ describe('遗留归档的恢复 — 写者证据 × 权威结论', () => {
 
     // 判活通道即使一律回 true,这条也不得走 live 分支 —— 短路在 ownerId 对账上
     expect(outcomes.map((o) => o.action)).toEqual(['restored']);
-    expect(at(outcomes, 0).reason).toContain('pid 已被复用');
+    expect(outcomes[0].reason).toContain('pid 已被复用');
   });
 
   it('④d 本进程在途的交换(ownerPid+ownerId 都是自己)⇒ 恢复绝不插手', async () => {
@@ -683,7 +676,7 @@ describe('遗留归档的恢复 — 写者证据 × 权威结论', () => {
     expect(outcomes.map((o) => o.action)).toEqual(['restored']);
     expect(fs.readFileSync(path.join(scene.target, 'old.txt'), 'utf-8')).toBe('old');
     // 判活通道一律回 true 也照样回位 ⇒ 走的是"无凭据"这一档,不是"判成已死"
-    expect(at(outcomes, 0).reason).toContain('无从证明写者已退出');
+    expect(outcomes[0].reason).toContain('无从证明写者已退出');
   });
 
   it('⑤-negative 存量 marker 无 ownerPid/ownerId + 新一代在位 ⇒ 不抢占,归档保留不删', async () => {
@@ -697,7 +690,7 @@ describe('遗留归档的恢复 — 写者证据 × 权威结论', () => {
     const outcomes = await recoverStaleSwapArtifacts(scene.target, { isPidAlive: liveWriter });
 
     expect(outcomes.map((o) => o.action)).toEqual(['left-as-is']);
-    expect(at(outcomes, 0).reason).toContain('不抢占');
+    expect(outcomes[0].reason).toContain('不抢占');
     expect(fs.existsSync(path.join(scene.archive, 'old.txt'))).toBe(true);
   });
 
@@ -718,7 +711,7 @@ describe('遗留归档的恢复 — 写者证据 × 权威结论', () => {
     const outcomes = await recoverStaleSwapArtifacts(scene.target, { isPidAlive: deadWriter });
 
     expect(outcomes.map((o) => o.action)).toEqual(['left-as-is']);
-    expect(at(outcomes, 0).reason).toContain('两份都保留');
+    expect(outcomes[0].reason).toContain('两份都保留');
     expect(fs.readFileSync(path.join(scene.target, 'new.txt'), 'utf-8')).toBe('new');
     expect(fs.readFileSync(path.join(scene.archive, 'old.txt'), 'utf-8')).toBe('old');
   });

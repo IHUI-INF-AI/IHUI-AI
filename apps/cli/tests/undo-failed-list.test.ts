@@ -41,10 +41,21 @@ afterEach(() => {
   fs.rmSync(ws, { recursive: true, force: true });
 });
 
-/** 记录一条"改前 old、改后 new"的改动,并让磁盘上的文件对写入只读。 */
-function recordFrozen(mgr: UndoRedoManager, rel: string, ts: number): void {
+/**
+ * 记录一条"改前 old、改后 new"的改动,并把失败机制按档造好:
+ *  - `disk`   磁盘只读(0o444)⇒ 写入腿在真盘上失败;合并后只走唯一原子写出口,
+ *             这一档每次失败要付 rename 退避(实测 ~0.8s/文件),只给小 N 用;
+ *  - `unread` 交给注入的尺判「读不到」⇒ applyChange 入口即抛,不触盘,适合大 N。
+ * 两档都只是"制造失败",被钉的判据(逐条点名 / 呈现截断)完全相同。
+ */
+function recordFailure(
+  mgr: UndoRedoManager,
+  rel: string,
+  ts: number,
+  mode: 'disk' | 'unread',
+): void {
   fs.writeFileSync(path.join(ws, rel), 'new', 'utf-8');
-  fs.chmodSync(path.join(ws, rel), 0o444);
+  if (mode === 'disk') fs.chmodSync(path.join(ws, rel), 0o444);
   mgr.recordChange(SESSION, {
     toolName: 'edit_file',
     filePath: rel,
@@ -53,6 +64,10 @@ function recordFrozen(mgr: UndoRedoManager, rel: string, ts: number): void {
     timestamp: ts,
   });
 }
+
+/** 磁盘只读档(①③ 用):失败真的发生在写盘那一刻。 */
+const recordFrozen = (mgr: UndoRedoManager, rel: string, ts: number): void =>
+  recordFailure(mgr, rel, ts, 'disk');
 
 describe('D22046 失败文件终端清单', () => {
   it('① 2 个失败文件 ⇒ 输出含两条文件名与各自原因', async () => {
@@ -77,9 +92,20 @@ describe('D22046 失败文件终端清单', () => {
   });
 
   it('② 12 个失败文件 ⇒ 前 10 条 + "另有 2 条",数据面仍完整', async () => {
-    const mgr = new UndoRedoManager(ws);
+    // 失败机制取 `unread` 档:写入腿合并后只走唯一原子写出口,磁盘只读那一档每条要付
+    // 一整轮 rename 退避(实测 ~0.8s/文件,12 条 ⇒ 顶穿 vitest 的 15s 预算)。本条钉的是
+    // 「>10 条失败的呈现截断」,与失败由哪一路产生无关 ⇒ 判据一条没减;磁盘只读仍由 ①③ 覆盖。
     const files = Array.from({ length: 12 }, (_, i) => `f${String(i).padStart(2, '0')}.txt`);
-    for (const [i, rel] of files.entries()) recordFrozen(mgr, rel, i + 1);
+    const unreadRel = new Set(files);
+    const mgr = new UndoRedoManager(ws, {
+      stat: (p: string) => {
+        if (unreadRel.has(path.relative(ws, p).replace(/\\/g, '/'))) {
+          throw Object.assign(new Error(`EACCES: permission denied ${p}`), { code: 'EACCES' });
+        }
+        return fs.statSync(p);
+      },
+    });
+    for (const [i, rel] of files.entries()) recordFailure(mgr, rel, i + 1, 'unread');
 
     const res = await mgr.undo(SESSION, 12);
     const report = renderUndoReport(res, realT);

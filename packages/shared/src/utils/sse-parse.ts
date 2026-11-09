@@ -26,7 +26,6 @@ import type {
   FormRequestEvent,
 } from '@ihui/api-client'
 import type { PlanUpdateEvent, TerminalStartEvent, TerminalEndEvent } from '@ihui/types'
-import { normalizeToolCallArgs } from './tool-call-args'
 // 预算档位合法值的唯一判据(单源 = @ihui/types/orchestration.ts 的 BUDGET_LEVELS):
 // 本解析器不再自持一份 `=== 'warning' || === 'critical' || === 'stopped'` 字面量副本
 // (§0.6 第二份必然漂移;漂开的表现是终态帧被静默丢弃)。表外档位整帧不产出,不猜档。
@@ -514,7 +513,7 @@ function parseLineEvent(line: string): SSEEvent | null {
             type: 'tool-call-start',
             toolCallId: String(parsed.toolCallId),
             toolName: String(parsed.toolName),
-            args: normalizeToolCallArgs(parsed.args),
+            args: parsed.args as Record<string, unknown> | undefined,
           },
         }
       }
@@ -874,7 +873,7 @@ function parseLineEvent(line: string): SSEEvent | null {
           type: 'tool-result',
           toolCallId: String(json.toolCallId),
           toolName: typeof json.toolName === 'string' ? json.toolName : '',
-          args: normalizeToolCallArgs(json.args),
+          args: json.args as Record<string, unknown> | undefined,
           result: json.result,
           isError: json.isError === true,
           ...pickServerMeta(json),
@@ -894,7 +893,7 @@ function parseLineEvent(line: string): SSEEvent | null {
           type: 'tool-call-start',
           toolCallId: String(json.toolCallId),
           toolName: typeof json.toolName === 'string' ? json.toolName : '',
-          args: normalizeToolCallArgs(json.args),
+          args: json.args as Record<string, unknown> | undefined,
           ...pickServerMeta(json),
         },
       }

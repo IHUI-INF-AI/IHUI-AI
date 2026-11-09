@@ -23,6 +23,8 @@ import {
   createStartupTracker,
   formatMs,
   renderStartupLine,
+  selectLazyChunkNames,
+  planLowMemoryEntry,
   DEFAULT_REQUIRED_MILESTONES,
 } from '../src/startup/profile.js';
 import {
@@ -30,8 +32,11 @@ import {
   buildProcessFingerprint,
   defaultIsPidAlive,
   getPrewarmStatusPath,
+  classifyPrewarmReply,
+  classifyPrewarmReplyEnv,
   readPrewarmStatus,
   renderPrewarmLine,
+  selectPrewarmCatalog,
   writePrewarmRecord,
   type PrewarmReadDeps,
 } from '../src/startup/prewarm.js';
@@ -193,6 +198,142 @@ describe('startup/prewarm:hit/miss/unjudged 成对', () => {
 
   it('W6 指纹构造纯拼接:四段按序冒号连接(超越点:身份即指纹,不采集进程外信息)', () => {
     expect(buildProcessFingerprint({ platform: 'a', arch: 'b', nodeVersion: 'c', cliVersion: 'd' })).toBe('a:b:c:d');
+  });
+});
+
+describe('prewarm 带外应答:坏行与缺 ok 都是未判定', () => {
+  it('ping 的 ok=true 才是探活成功;断不开的行不算进程已死', () => {
+    expect(classifyPrewarmReply('ping', '{"ok":true}')).toEqual({ disposition: 'pong' });
+    expect(classifyPrewarmReply('ping', '{"ok":false,"code":"EBADREQ"}')).toEqual({
+      disposition: 'refused',
+      code: 'EBADREQ',
+    });
+    expect(classifyPrewarmReply('ping', 'not-json').disposition).toBe('unjudged');
+    expect(classifyPrewarmReply('ping', '{"ok":false}')).toEqual({
+      disposition: 'unjudged',
+      reason: 'refused-without-code',
+    });
+  });
+
+  it('status 只认 idle/activating/active;activate 缺 ok 不当成拒绝', () => {
+    expect(classifyPrewarmReply('status', '{"ok":true,"status":"idle"}')).toEqual({
+      disposition: 'ready',
+      status: 'idle',
+    });
+    expect(classifyPrewarmReply('status', '{"ok":true,"status":"warming"}')).toEqual({
+      disposition: 'unjudged',
+      reason: 'status-unrecognized',
+    });
+    expect(classifyPrewarmReply('activate', '{"ok":true}')).toEqual({ disposition: 'accepted' });
+    expect(classifyPrewarmReply('activate', '{}')).toEqual({ disposition: 'unjudged', reason: 'ok-absent' });
+    expect(classifyPrewarmReplyEnv(undefined, undefined)).toBeNull();
+    expect(classifyPrewarmReplyEnv(undefined, '{"ok":true}')).toEqual({
+      disposition: 'unjudged',
+      reason: 'command-absent',
+    });
+  });
+
+  it('目录里同一标识两份、或没有标识,都不编一个可见行;默认藏掉已死进程', () => {
+    const catalog = selectPrewarmCatalog(
+      [
+        { kind: 'prewarm', pid: 11, meta: { prewarmId: 'a' } },
+        { kind: 'other', pid: 12, meta: { prewarmId: 'skip' } },
+        { kind: 'prewarm', pid: 13, meta: {} },
+        { kind: 'prewarm', pid: 21, meta: { prewarmId: 'dup' } },
+        { kind: 'prewarm', pid: 22, meta: { prewarmId: 'dup' } },
+        { kind: 'prewarm', pid: 31, meta: { prewarmId: 'gone' } },
+      ],
+      (pid) => pid !== 31,
+      false,
+    );
+    expect(catalog.visible).toEqual([{ id: 'a', pid: 11, proc: 'alive' }]);
+    expect(catalog.hiddenDead).toBe(1);
+    expect(catalog.unjudged).toContain('index-2:id-absent');
+    expect(catalog.unjudged).toContain('dup:duplicate');
+    const all = selectPrewarmCatalog(
+      [{ kind: 'prewarm', pid: 31, meta: { prewarmId: 'gone' } }],
+      () => false,
+      true,
+    );
+    expect(all.visible).toEqual([{ id: 'gone', pid: 31, proc: 'dead' }]);
+    expect(all.hiddenDead).toBe(0);
+  });
+});
+
+describe('lazy chunk 名单:坏清单不改成把目录全装上', () => {
+  it('目录不存在是 missing,不抛', () => {
+    const plan = selectLazyChunkNames({
+      directoryExists: false,
+      manifestText: null,
+      directoryNames: ['a.js'],
+    });
+    expect(plan).toEqual({ source: 'missing', files: [], reason: 'directory-absent' });
+  });
+
+  it('清单缺席才用目录名;清单没有 lazy_files 时不退回全目录', () => {
+    const fallback = selectLazyChunkNames({
+      directoryExists: true,
+      manifestText: null,
+      directoryNames: ['keep.js', '../no.js', 'note.txt'],
+    });
+    expect(fallback.source).toBe('readdir');
+    expect(fallback.files).toEqual(['keep.js']);
+    const shaped = selectLazyChunkNames({
+      directoryExists: true,
+      manifestText: '{"other":true}',
+      directoryNames: ['keep.js'],
+    });
+    expect(shaped).toEqual({ source: 'unjudged', files: [], reason: 'manifest-shape' });
+    const listed = selectLazyChunkNames({
+      directoryExists: true,
+      manifestText: '{"lazy_files":["ok.js","../x.js",1]}',
+      directoryNames: ['other.js'],
+    });
+    expect(listed).toEqual({ source: 'manifest', files: ['ok.js'], reason: 'listed' });
+  });
+});
+
+describe('低内存入口:长驻不套用,冲突上限不叠旗标', () => {
+  it('短生命周期给出省内存旗标,且不写老年代上限', () => {
+    const win = planLowMemoryEntry({ platform: 'win32', longLived: false, existingNodeOptions: null });
+    expect(win.disposition).toBe('apply');
+    if (win.disposition === 'apply') {
+      expect(win.channel).toBe('node-options');
+      expect(win.flags).toEqual(['--optimize-for-size', '--max-semi-space-size=2']);
+      expect(win.flags.join(' ')).not.toContain('max-old-space-size');
+    }
+    const linux = planLowMemoryEntry({ platform: 'linux', longLived: false, existingNodeOptions: '' });
+    expect(linux.disposition).toBe('apply');
+    if (linux.disposition === 'apply') expect(linux.channel).toBe('argv');
+  });
+
+  it('长驻拒绝;已有不同半区或老年代上限时未判定;旗标已齐则不再追加', () => {
+    expect(planLowMemoryEntry({ platform: 'win32', longLived: true, existingNodeOptions: null }).reason).toBe(
+      'long-lived',
+    );
+    expect(
+      planLowMemoryEntry({
+        platform: 'darwin',
+        longLived: false,
+        existingNodeOptions: '--max-semi-space-size=16',
+      }).reason,
+    ).toBe('existing-flag');
+    expect(
+      planLowMemoryEntry({
+        platform: 'win32',
+        longLived: false,
+        existingNodeOptions: '--max-old-space-size=512',
+      }).reason,
+    ).toBe('old-space-capped');
+    const already = planLowMemoryEntry({
+      platform: 'linux',
+      longLived: false,
+      existingNodeOptions: '--optimize-for-size --max-semi-space-size=2',
+    });
+    expect(already).toMatchObject({ disposition: 'apply', reason: 'already', flags: [], channel: 'argv' });
+    expect(planLowMemoryEntry({ platform: 'aix', longLived: false, existingNodeOptions: null }).reason).toBe(
+      'platform-unrecognized',
+    );
   });
 });
 

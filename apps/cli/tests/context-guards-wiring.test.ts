@@ -349,6 +349,7 @@ describe('runToolLoop 装车证明(守卫真的在主循环里跑)', () => {
 
   afterEach(() => {
     clearTools();
+    if (typeof clearToolsForTest === 'function') clearToolsForTest();
     if (fs.existsSync(workspace)) fs.rmSync(workspace, { recursive: true, force: true });
   });
 

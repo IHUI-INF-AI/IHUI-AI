@@ -16,6 +16,7 @@ vi.mock('../src/db/user-preferences-queries.js', () => ({
 
 import { subagentDispatchService } from '../src/services/subagent-dispatch-service.js'
 import {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- G 面纯增量:预留导入,零改他席行
   dispatchStartedWork,
   dispatchWorkerWork,
   registerTriggerSourcePort,

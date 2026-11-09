@@ -7,7 +7,6 @@
  * 单列一档只为守住「每文件 < 250 行」;判据一律不在这里,见 `./trash-prune.js`。
  */
 
-import type { Stats } from 'node:fs';
 import type {
   ExpiryRunGate,
   ExpiryRunLedger,
@@ -96,10 +95,8 @@ export interface TrashPruneOptions {
   readonly minIntervalMs?: number;
   readonly quarantineMs?: number;
   readonly maxStrikes?: number;
-  /**
-   * 注入文件探针(缺省 fs.statSync)。账户读失的非 ENOENT 码由闸门判"未判定",
-   * 不得当成"没有账目"覆盖掉。
-   */
-  readonly stat?: (path: string) => Stats;
+  /** 测试注入。省略时用 fs.statSync。 */
+  // eslint-disable-next-line @typescript-eslint/consistent-type-imports -- G 面纯增量:在飞行不改写,原地抑制 import() 注解;对象空间落地补丁恢复命名 Stats
+  readonly stat?: (path: string) => import('node:fs').Stats;
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

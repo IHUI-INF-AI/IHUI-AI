@@ -22,7 +22,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { grep, read_file, MAX_READ_BYTES, BINARY_SNIFF_BYTES } from '../src/tools/builtins.js';
+import { grep, read_file, MAX_READ_BYTES, BINARY_SNIFF_BYTES, selectBundledTool } from '../src/tools/builtins.js';
 import type { ToolContext } from '../src/tools/index.js';
 
 const createdDirs: string[] = [];
@@ -50,27 +50,14 @@ afterEach(() => {
  * 本机 rg 是否可用的**独立探测**(不复用被测模块里的那个探测)。
  * 理由:测试要按这个事实分支断言,若共用被测方状态,探测逻辑坏了测试就会跟着
  * 一起选错分支 —— 那等于让被测对象给自己的前提背书。
- *
- * 2026-11-05 起探测面不再只看 PATH:被测方现在会从"盘上已有的 rg 安装位"取用,
- * 只按裸名探测会让断言选错分支(实测②就是这么红的 —— 工具走 rg,测试还以为没 rg)。
- * 这里刻意**独立地**列一份安装位(不 import 被测方),问的仍是同一个机器事实。
  */
 function rgInstalledHere(): boolean {
-  const name = process.platform === 'win32' ? 'rg.exe' : 'rg';
-  const spots = [
-    name, // 裸名:由 PATH 解析
-    path.join(os.homedir(), '.cache', 'opencode', 'bin', name),
-    ...(process.platform === 'win32' ? [path.join(os.homedir(), 'AppData', 'Local', 'OpenAI', 'Codex', 'bin', name)] : []),
-  ];
-  for (const cmd of spots) {
-    try {
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      if (spawnSync(cmd, ['--version'], { encoding: 'utf-8', windowsHide: true, timeout: 5000, stdio: ['ignore', 'pipe', 'pipe'] }).status === 0) return true;
-    } catch {
-      /* 这一枚不行,问下一枚 */
-    }
+  try {
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    return spawnSync('rg', ['--version'], { encoding: 'utf-8', windowsHide: true, timeout: 5000, stdio: ['ignore', 'pipe', 'pipe'] }).status === 0;
+  } catch {
+    return false;
   }
-  return false;
 }
 
 /** 结论/标注行(engine=… / [ripgrep warning] / 截断提示)不参与命中集比对。 */
@@ -149,16 +136,13 @@ describe('grep 三态语义(外部命令报错不得当成"没有匹配")', () =
     const expected = matchLines(viaCurrentChannel.output);
     expect(expected).toHaveLength(2);
 
-    // 造"rg 取不到":钉死一个不存在的 rg 路径(2026-11-05 起 `IHUI_RG_PATH` 是**钉死**语义,
-    // 钉错不回落其它候选)+ 清空 PATH,然后重新取一份**全新模块实例**
+    // 造"rg 不在 PATH":清空 PATH 后重新取一份**全新模块实例**
     // (模块级探测缓存必须被重置,否则复用的还是上一次已缓存的"可用"结论)。
     const savedPath = process.env.PATH;
-    const savedPin = process.env.IHUI_RG_PATH;
     const emptyBin = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-empty-bin-'));
     createdDirs.push(emptyBin);
     try {
       process.env.PATH = emptyBin;
-      process.env.IHUI_RG_PATH = path.join(emptyBin, 'no-such-rg.exe');
       vi.resetModules();
       const fresh = await import('../src/tools/builtins.js');
       const viaWalk = await fresh.grep.execute({ pattern: 'hello', path: '.' }, ctx);
@@ -166,13 +150,9 @@ describe('grep 三态语义(外部命令报错不得当成"没有匹配")', () =
       expect(viaWalk.output).toContain('engine=js-walk');
       // 降级必须喊出为什么 —— 静默换通道就是"用 rg 的名义报告一次纯遍历扫描"
       expect(viaWalk.output).toContain('degraded_reason=');
-      // 钉死的取值必须出现在原因里(否则"我钉了但没生效"和"没钉"同形)
-      expect(viaWalk.output).toContain('no-such-rg.exe');
       expect(matchLines(viaWalk.output)).toEqual(expected);
     } finally {
       process.env.PATH = savedPath;
-      if (savedPin === undefined) delete process.env.IHUI_RG_PATH;
-      else process.env.IHUI_RG_PATH = savedPin;
       vi.resetModules();
     }
   });
@@ -250,74 +230,73 @@ describe('read_file 字节上限(超限必须如实,不得静默变短)', () => 
   });
 });
 
-/**
- * ripgrep 定位器(2026-11-05 立)。
- *
- * 病灶不是"判据写错了",而是**命令写死了裸名**:本机 ripgrep 15.1.0 一直在盘上,
- * 但 `spawnSync('rg')` 只问 PATH ⇒ 全年报 ENOENT ⇒ grep 整班降级 js-walk ⇒
- * 自主派发环 68 份转录里 158 次「未找到匹配」把存在的文件说成不存在,会话零写盘。
- * 所以这组锁钉四件事:候选顺序(纯函数,POSIX/win 成对)、钉死语义(不回落)、
- * 未验过不得自称可用、以及"能定位到就不该再走 js-walk"。
- */
-describe('ripgrep 定位器:候选顺序与钉死语义', () => {
-  it('⑥ 候选顺序 = 钉死 > 缓存位 > PATH 目录 > 裸名(成对:未钉时四档齐,钉了时只剩那一枚)', async () => {
-    const m = await import('../src/tools/ripgrep-bin.js');
-    const winName = m.rgBinaryName('win32');
-    expect(winName).toBe('rg.exe');
-    expect(m.rgBinaryName('linux')).toBe('rg');
-
-    const env = { IHUI_RG_PATH: '', PATH: ['/a/bin', ' ', '/b/bin'].join(path.delimiter) } as NodeJS.ProcessEnv;
-    const c = m.rgCandidates(env, '/home/u', 'linux');
-    expect(c[0]).toBe(path.join('/home/u', '.cache', 'opencode', 'bin', 'rg'));
-    expect(c).toContain(path.join('/a/bin', 'rg'));
-    expect(c).toContain(path.join('/b/bin', 'rg'));
-    expect(c[c.length - 1]).toBe('rg');
-    expect(c.filter((x) => x.trim())).toHaveLength(c.length);
-    // 空 PATH 段不得造出候选:缓存位 1 + PATH 目录 2 + 裸名 1 = 4 枚(多了就是空段漏进来)
-    expect(c).toHaveLength(4);
-    expect(new Set(c).size).toBe(c.length); // 去重:同一枚不排两次
-
-    // 钉死语义:命中 IHUI_RG_PATH 时**只有**那一枚候选(不回落 = 钉错会喊响)
-    const pinned = m.rgCandidates({ ...env, IHUI_RG_PATH: '/opt/rg/pinned' }, '/home/u', 'linux');
-    expect(pinned).toEqual(['/opt/rg/pinned']);
-
-    // win 形态:Codex 缓存位在,且名字带 .exe
-    const wc = m.rgCandidates({ IHUI_RG_PATH: '', PATH: ['C:\\x'] }, 'C:\\Users\\u', 'win32');
-    expect(wc).toContain(path.join('C:\\Users\\u', 'AppData', 'Local', 'OpenAI', 'Codex', 'bin', winName));
-    expect(wc[wc.length - 1]).toBe(winName);
+describe('包内工具不拿宿主同名程序顶替', () => {
+  it('量到包内文件就用它;没量到不用 PATH;显式允许才标明 host', () => {
+    const bundled = selectBundledTool({
+      bundledPath: 'vendor/ripgrep/rg.exe',
+      bundledExists: true,
+      hostPath: 'C:/Windows/rg.exe',
+      allowHost: false,
+    });
+    expect(bundled).toMatchObject({ source: 'bundled', path: 'vendor/ripgrep/rg.exe' });
+    const hidden = selectBundledTool({
+      bundledPath: 'vendor/ripgrep/rg.exe',
+      bundledExists: false,
+      hostPath: 'C:/Windows/rg.exe',
+      allowHost: false,
+    });
+    expect(hidden.reason).toBe('host-not-substitute');
+    expect(hidden.path).toBe('');
+    const unmeasured = selectBundledTool({
+      bundledPath: 'vendor/ripgrep/rg.exe',
+      bundledExists: null,
+      hostPath: 'C:/Windows/rg.exe',
+      allowHost: true,
+    });
+    expect(unmeasured.reason).toBe('presence-unmeasured');
+    const host = selectBundledTool({
+      bundledPath: 'vendor/ripgrep/rg.exe',
+      bundledExists: false,
+      hostPath: 'C:/Tools/rg.exe',
+      allowHost: true,
+    });
+    expect(host).toMatchObject({ source: 'host', reason: 'explicit-host', path: 'C:/Tools/rg.exe' });
+    const escaped = selectBundledTool({
+      bundledPath: 'vendor/../rg.exe',
+      bundledExists: true,
+      hostPath: null,
+      allowHost: false,
+    });
+    expect(escaped.reason).toBe('path-invalid');
   });
 
-  it('⑦ 钉死一枚取不到的路径 ⇒ verified=false 且 cmd 就是被钉的那枚(不偷换通道)', async () => {
-    const m = await import('../src/tools/ripgrep-bin.js');
-    const saved = process.env.IHUI_RG_PATH;
-    try {
-      process.env.IHUI_RG_PATH = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-norg-')), 'absent.exe');
-      const r = m.resolveRipgrepBin(true);
-      expect(r.verified).toBe(false);
-      expect(r.cmd).toBe(process.env.IHUI_RG_PATH);
-      expect(r.source).toBeNull();
-      expect(r.tried.length).toBeGreaterThan(0);
-    } finally {
-      if (saved === undefined) delete process.env.IHUI_RG_PATH;
-      else process.env.IHUI_RG_PATH = saved;
-    }
-  });
-
-  it('⑧ 本机真事实:定位到 rg 时 grep 必须走 rg 通道(检索假阴性的成因就地钉住)', async () => {
-    const m = await import('../src/tools/ripgrep-bin.js');
-    const { dir, ctx } = mkWorkspace();
-    writeAt(dir, 'codebase_indexer.py', 'def compute_simhash(x):\n  return x');
-    const r = m.resolveRipgrepBin(true);
-    const out = await grep.execute({ pattern: 'compute_simhash', path: '.' }, ctx);
-    expect(matchLines(out.output)).toHaveLength(1);
-    if (r.verified) {
-      expect(out.output).toContain('engine=ripgrep');
-      expect(out.output).not.toContain('degraded_reason=');
-    } else {
-      // 取不到时也必须留下点名原因,而且原因里要能看见"都试过哪儿"
-      expect(out.output).toContain('engine=js-walk');
-      expect(out.output).toContain('degraded_reason=ripgrep not resolvable');
-    }
+  it('PE 头与宿主架构不符就拒绝，截断的头不算匹配', () => {
+    const header = new Uint8Array(96);
+    header[0] = 0x4d;
+    header[1] = 0x5a;
+    header[0x3c] = 64;
+    header[64] = 0x50;
+    header[65] = 0x45;
+    header[68] = 0x64;
+    header[69] = 0xaa;
+    const foreign = selectBundledTool({
+      bundledPath: 'vendor/win32-x64/rg.exe',
+      bundledExists: true,
+      hostPath: 'C:/Tools/rg.exe',
+      allowHost: true,
+      hostArch: 'x64',
+      peHeader: header,
+    });
+    expect(foreign).toMatchObject({ disposition: 'refused', reason: 'foreign-arch', path: '' });
+    const truncated = selectBundledTool({
+      bundledPath: 'vendor/win32-x64/rg.exe',
+      bundledExists: true,
+      hostPath: null,
+      allowHost: false,
+      hostArch: 'x64',
+      peHeader: header.slice(0, 32),
+    });
+    expect(truncated.reason).toBe('header-truncated');
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

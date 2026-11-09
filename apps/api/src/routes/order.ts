@@ -374,9 +374,11 @@ export const orderRoutes: FastifyPluginAsync = async (server) => {
       // 恒为 undefined 而金额渲染占位符。payAmount/payTime/refundTime 原字段保留,旧消费方不受影响。
       const list = result.list.map((o) => ({
         ...o,
+        /* eslint-disable eqeqeq -- G 面:!= null 判空惯用法,零改他席行 */
         amount: o.payAmount != null ? Number(o.payAmount) : 0,
         paidAt: o.payTime != null ? o.payTime.toISOString() : null,
         refundedAt: o.refundTime != null ? o.refundTime.toISOString() : null,
+        /* eslint-enable eqeqeq */
       }))
       return reply.send(
         success({ list, total: result.total, page: result.page, pageSize: result.pageSize }),

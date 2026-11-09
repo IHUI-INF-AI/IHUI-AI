@@ -246,4 +246,119 @@ export function decideInstallPolicy(input: InstallPolicyInput): InstallPolicyDec
   const by = [rv === 'satisfied' ? 'revision' : '', vv === 'satisfied' ? '版本' : ''].filter((s) => s.length > 0);
   return decide('already-satisfied', [...reasons, `${by.join(' / ')}已满足最低要求`, ...faceHints(face)], face);
 }
+
+const NATIVE_ROLE_SHA256 = /^[0-9a-f]{64}$/;
+
+export type NativeRolePlan =
+  | { disposition: 'admitted'; reason: 'abi-and-hash' }
+  | { disposition: 'refused'; reason: 'abi-mismatch' | 'hash-mismatch' }
+  | { disposition: 'unjudged'; reason: 'role-invalid' | 'abi-invalid' | 'hash-unmeasured' | 'hash-shape' };
+
+function nativeAbiOk(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 1;
+}
+
+/**
+ * 原生角色要同时对上 ABI 和摘要。
+ * 只对上版本号、摘要还没量到,是未判定,不装。
+ * 角色名里带路径的,也不装。
+ */
+export function admitNativeRole(input: {
+  role: unknown;
+  abiVersion: unknown;
+  expectedAbi: unknown;
+  declaredSha256: unknown;
+  measuredSha256: unknown;
+}): NativeRolePlan {
+  const role = input.role;
+  if (
+    typeof role !== 'string' ||
+    role.length === 0 ||
+    role.includes('/') ||
+    role.includes('\\') ||
+    role.includes('..') ||
+    role.includes('\0')
+  ) {
+    return { disposition: 'unjudged', reason: 'role-invalid' };
+  }
+  if (!nativeAbiOk(input.abiVersion) || !nativeAbiOk(input.expectedAbi)) {
+    return { disposition: 'unjudged', reason: 'abi-invalid' };
+  }
+  if (input.abiVersion !== input.expectedAbi) {
+    return { disposition: 'refused', reason: 'abi-mismatch' };
+  }
+  if (typeof input.declaredSha256 !== 'string' || !NATIVE_ROLE_SHA256.test(input.declaredSha256)) {
+    return { disposition: 'unjudged', reason: 'hash-shape' };
+  }
+  if (input.measuredSha256 === null || input.measuredSha256 === undefined) {
+    return { disposition: 'unjudged', reason: 'hash-unmeasured' };
+  }
+  if (typeof input.measuredSha256 !== 'string' || !NATIVE_ROLE_SHA256.test(input.measuredSha256)) {
+    return { disposition: 'unjudged', reason: 'hash-shape' };
+  }
+  if (input.measuredSha256 !== input.declaredSha256) {
+    return { disposition: 'refused', reason: 'hash-mismatch' };
+  }
+  return { disposition: 'admitted', reason: 'abi-and-hash' };
+}
+
+const EXTENSION_ID = /^[a-p]{32}$/;
+
+export type ExtensionPackagePlan =
+  | { disposition: 'admitted'; reason: 'pinned' }
+  | { disposition: 'refused'; reason: 'hash-mismatch' | 'key-mode-denied' | 'url-insecure' }
+  | {
+      disposition: 'unjudged';
+      reason: 'version-invalid' | 'url-shape' | 'version-url-split' | 'id-shape' | 'hash-shape' | 'hash-unmeasured' | 'key-mode-unconfigured';
+    };
+
+/**
+ * 第三方扩展包要同时钉住版本、https 地址、扩展编号和摘要。
+ * 地址路径里必须带上声明的版本。密钥模式不在允许表里就拒绝。
+ * 摘要没量到不装。允许表为空是未判定,不默认放行。
+ */
+export function admitExtensionPackage(input: {
+  version: unknown;
+  url: unknown;
+  extensionId: unknown;
+  declaredSha256: unknown;
+  measuredSha256: unknown;
+  publicKeyMode: unknown;
+  allowedKeyModes: readonly string[];
+}): ExtensionPackagePlan {
+  if (typeof input.version !== 'string' || input.version.length === 0 || /[\s/\\]/.test(input.version)) {
+    return { disposition: 'unjudged', reason: 'version-invalid' };
+  }
+  if (typeof input.url !== 'string' || /\s/.test(input.url)) {
+    return { disposition: 'unjudged', reason: 'url-shape' };
+  }
+  if (!input.url.startsWith('https://')) {
+    return { disposition: 'refused', reason: 'url-insecure' };
+  }
+  if (!input.url.includes(`/${input.version}/`)) {
+    return { disposition: 'unjudged', reason: 'version-url-split' };
+  }
+  if (typeof input.extensionId !== 'string' || !EXTENSION_ID.test(input.extensionId)) {
+    return { disposition: 'unjudged', reason: 'id-shape' };
+  }
+  if (typeof input.declaredSha256 !== 'string' || !NATIVE_ROLE_SHA256.test(input.declaredSha256)) {
+    return { disposition: 'unjudged', reason: 'hash-shape' };
+  }
+  if (input.measuredSha256 === null || input.measuredSha256 === undefined) {
+    return { disposition: 'unjudged', reason: 'hash-unmeasured' };
+  }
+  if (typeof input.measuredSha256 !== 'string' || !NATIVE_ROLE_SHA256.test(input.measuredSha256)) {
+    return { disposition: 'unjudged', reason: 'hash-shape' };
+  }
+  if (input.measuredSha256 !== input.declaredSha256) {
+    return { disposition: 'refused', reason: 'hash-mismatch' };
+  }
+  if (input.allowedKeyModes.length === 0 || input.allowedKeyModes.some((mode) => mode.length === 0)) {
+    return { disposition: 'unjudged', reason: 'key-mode-unconfigured' };
+  }
+  if (typeof input.publicKeyMode !== 'string' || !input.allowedKeyModes.includes(input.publicKeyMode)) {
+    return { disposition: 'refused', reason: 'key-mode-denied' };
+  }
+  return { disposition: 'admitted', reason: 'pinned' };
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

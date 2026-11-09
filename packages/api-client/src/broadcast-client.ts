@@ -488,4 +488,81 @@ export function createUserBroadcastClient(config: UserBroadcastConfig): UserBroa
     stats: () => getUserBroadcastHubStats().filter((entry) => entry.key.startsWith(`${baseUrl}|`)),
   }
 }
+
+const GUEST_DELIVERY_CAP = 256
+
+export type GuestDeliveryPlan =
+  | { disposition: 'deliver'; reason: 'first-seen' }
+  | { disposition: 'duplicate'; reason: 'already-seen' }
+  | { disposition: 'unjudged'; reason: 'id-invalid' | 'ledger-full' }
+
+export type GuestDeliverySettlePlan =
+  | { disposition: 'acked'; reason: 'handler-ok' }
+  | { disposition: 'retry'; reason: 'handler-failed' }
+  | { disposition: 'unjudged'; reason: 'result-unreadable' | 'id-not-held' }
+
+export type GuestSubscriptionReleasePlan =
+  | { disposition: 'released'; reason: 'decremented'; count: number }
+  | { disposition: 'refused'; reason: 'already-zero'; count: 0 }
+  | { disposition: 'unjudged'; reason: 'subscription-unmeasured' | 'name-invalid'; count: null }
+
+function guestDeliveryIdOk(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0 && !/[\s\0]/.test(value)
+}
+
+/** 同一投递编号只处理一次。编号缺了或账满了,不另编一个编号顶上。 */
+export function admitGuestDelivery(
+  seen: ReadonlySet<string>,
+  deliveryId: unknown,
+): GuestDeliveryPlan {
+  if (!guestDeliveryIdOk(deliveryId)) return { disposition: 'unjudged', reason: 'id-invalid' }
+  if (seen.has(deliveryId)) return { disposition: 'duplicate', reason: 'already-seen' }
+  if (seen.size >= GUEST_DELIVERY_CAP) return { disposition: 'unjudged', reason: 'ledger-full' }
+  return { disposition: 'deliver', reason: 'first-seen' }
+}
+
+/** 决定要投递时才占住编号。处理失败才放回,好让下一次还能送。 */
+export function holdGuestDelivery(seen: Set<string>, deliveryId: unknown): GuestDeliveryPlan {
+  const plan = admitGuestDelivery(seen, deliveryId)
+  if (plan.disposition === 'deliver' && guestDeliveryIdOk(deliveryId)) seen.add(deliveryId)
+  return plan
+}
+
+/**
+ * 只有处理结果明确为 true 才确认。
+ * 结果不是布尔时既不确认也不放回,避免把没读懂的结果当成失败再送一遍。
+ */
+export function settleGuestDelivery(
+  seen: Set<string>,
+  deliveryId: unknown,
+  handled: unknown,
+): GuestDeliverySettlePlan {
+  if (!guestDeliveryIdOk(deliveryId) || !seen.has(deliveryId)) {
+    return { disposition: 'unjudged', reason: 'id-not-held' }
+  }
+  if (handled === true) return { disposition: 'acked', reason: 'handler-ok' }
+  if (handled === false) {
+    seen.delete(deliveryId)
+    return { disposition: 'retry', reason: 'handler-failed' }
+  }
+  return { disposition: 'unjudged', reason: 'result-unreadable' }
+}
+
+/** 退订只减已经量到的计数。账上没有这条订阅时,不编造 1 再减成 0。 */
+export function releaseGuestSubscription(
+  counts: Map<string, number>,
+  name: unknown,
+): GuestSubscriptionReleasePlan {
+  if (typeof name !== 'string' || name.length === 0 || /[\s\0]/.test(name)) {
+    return { disposition: 'unjudged', reason: 'name-invalid', count: null }
+  }
+  const current = counts.get(name)
+  if (current === undefined || !Number.isInteger(current) || current < 0) {
+    return { disposition: 'unjudged', reason: 'subscription-unmeasured', count: null }
+  }
+  if (current === 0) return { disposition: 'refused', reason: 'already-zero', count: 0 }
+  const next = current - 1
+  counts.set(name, next)
+  return { disposition: 'released', reason: 'decremented', count: next }
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

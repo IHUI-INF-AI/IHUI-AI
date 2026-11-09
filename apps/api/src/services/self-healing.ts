@@ -49,6 +49,105 @@ export interface SelfHealDetectResult {
   issues: SelfHealIssue[]
   /** 探针自身失败说明(不影响其余探针结果) */
   probeErrors: string[]
+  /** 带了上一份结果时才有。没量到的类别不会从这份合并结果里消失。 */
+  merge?: HealMerge
+}
+
+const HEAL_KINDS = ['dependency', 'index', 'port', 'disk'] as const
+
+export type HealMerge = {
+  disposition: 'merged' | 'unjudged'
+  reason:
+    | 'merged'
+    | 'previous-unreadable'
+    | 'next-unreadable'
+    | 'kinds-unmeasured'
+    | 'muted-unmeasured'
+    | 'mute-unreadable'
+    | 'issue-unmeasured'
+  issues: SelfHealIssue[] | null
+}
+
+function isHealKind(value: unknown): value is SelfHealIssueKind {
+  return typeof value === 'string' && (HEAL_KINDS as readonly string[]).includes(value)
+}
+
+function readHealIssue(value: unknown): SelfHealIssue | null {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return null
+  const row = value as Record<string, unknown>
+  if (!isHealKind(row.kind)) return null
+  if (row.severity !== 'warn' && row.severity !== 'error') return null
+  if (typeof row.detail !== 'string' || row.detail.trim() === '') return null
+  if (typeof row.fixPlan !== 'string' || row.fixPlan.trim() === '') return null
+  return { kind: row.kind, severity: row.severity, detail: row.detail, fixPlan: row.fixPlan }
+}
+
+function readHealIssues(value: unknown): SelfHealIssue[] | null {
+  if (!Array.isArray(value)) return null
+  const out: SelfHealIssue[] = []
+  const seen = new Set<string>()
+  for (const item of value) {
+    const issue = readHealIssue(item)
+    if (!issue || seen.has(issue.kind)) return null
+    seen.add(issue.kind)
+    out.push(issue)
+  }
+  return out
+}
+
+/**
+ * 把再扫结果并进上一份问题。
+ * 某一类这次没量到，就留着上一份里的那条，不当成已经修好。
+ * 静音必须带原因；原因没写，整份合并都不成立。
+ */
+export function mergeHealScan(input: {
+  previous: unknown
+  next: unknown
+  measuredKinds: unknown
+  muted: unknown
+}): HealMerge {
+  const keep = (reason: HealMerge['reason'], issues: SelfHealIssue[] | null): HealMerge => ({
+    disposition: 'unjudged',
+    reason,
+    issues,
+  })
+  const previous = readHealIssues(input.previous)
+  if (previous === null) return keep('previous-unreadable', null)
+  const next = readHealIssues(input.next)
+  if (next === null) return keep('next-unreadable', previous)
+  if (!Array.isArray(input.measuredKinds)) return keep('kinds-unmeasured', previous)
+  const measured = new Set<SelfHealIssueKind>()
+  for (const kind of input.measuredKinds) {
+    if (!isHealKind(kind) || measured.has(kind)) return keep('kinds-unmeasured', previous)
+    measured.add(kind)
+  }
+  if (input.muted === null || input.muted === undefined) return keep('muted-unmeasured', previous)
+  if (!Array.isArray(input.muted)) return keep('mute-unreadable', previous)
+  const muted = new Set<SelfHealIssueKind>()
+  for (const item of input.muted) {
+    if (item === null || typeof item !== 'object' || Array.isArray(item))
+      return keep('mute-unreadable', previous)
+    const row = item as Record<string, unknown>
+    if (!isHealKind(row.kind)) return keep('mute-unreadable', previous)
+    if (typeof row.reason !== 'string' || row.reason.trim() === '')
+      return keep('mute-unreadable', previous)
+    muted.add(row.kind)
+  }
+  if (next.some((issue) => !measured.has(issue.kind))) return keep('issue-unmeasured', previous)
+  const nextByKind = new Map(next.map((issue) => [issue.kind, issue]))
+  const previousByKind = new Map(previous.map((issue) => [issue.kind, issue]))
+  const issues: SelfHealIssue[] = []
+  for (const kind of HEAL_KINDS) {
+    if (muted.has(kind)) continue
+    if (!measured.has(kind)) {
+      const kept = previousByKind.get(kind)
+      if (kept) issues.push(kept)
+      continue
+    }
+    const found = nextByKind.get(kind)
+    if (found) issues.push(found)
+  }
+  return { disposition: 'merged', reason: 'merged', issues }
 }
 
 export interface SelfHealRepairResult {
@@ -57,6 +156,52 @@ export interface SelfHealRepairResult {
   dryRun: boolean
   ok: boolean
   steps: SelfHealStep[]
+}
+
+const REPAIR_COMMAND_LINES = [
+  /^pnpm install --no-frozen-lockfile$/,
+  /^taskkill \/PID [0-9]+ \/F$/,
+  /^kill -9 [0-9]+$/,
+  /^kill PID [0-9]+$/,
+]
+
+export type RepairBatch = {
+  disposition: 'dump' | 'unjudged'
+  reason: 'measured' | 'commands-unmeasured' | 'command-unreadable' | 'steps-unmeasured'
+  script: string | null
+  commandCount: number | null
+}
+
+function isRepairCommand(command: string): boolean {
+  return REPAIR_COMMAND_LINES.some((line) => line.test(command))
+}
+
+/** 把已量到的命令收成一份可交给人看的脚本。不执行。任一行不在已知形态里就整份不给。 */
+export function compileRepairBatch(steps: unknown): RepairBatch {
+  const blank = (reason: RepairBatch['reason']): RepairBatch => ({
+    disposition: 'unjudged',
+    reason,
+    script: null,
+    commandCount: null,
+  })
+  if (!Array.isArray(steps)) return blank('steps-unmeasured')
+  const lines: string[] = []
+  for (const item of steps) {
+    if (item === null || typeof item !== 'object' || Array.isArray(item))
+      return blank('command-unreadable')
+    if (!Object.prototype.hasOwnProperty.call(item, 'command')) return blank('command-unreadable')
+    const command = (item as { command?: unknown }).command
+    if (command === null) continue
+    if (typeof command !== 'string' || !isRepairCommand(command)) return blank('command-unreadable')
+    lines.push(command)
+  }
+  if (lines.length === 0) return blank('commands-unmeasured')
+  return {
+    disposition: 'dump',
+    reason: 'measured',
+    script: `${lines.join('\n')}\n`,
+    commandCount: lines.length,
+  }
 }
 
 // =============================================================================
@@ -189,6 +334,9 @@ export async function detectWorkspaceIssues(params: {
   workspacePath: string
   port?: number
   minFreeMB?: number
+  previous?: unknown
+  measuredKinds?: unknown
+  muted?: unknown
 }): Promise<SelfHealDetectResult> {
   const { workspacePath } = params
   const issues: SelfHealIssue[] = []
@@ -228,7 +376,33 @@ export async function detectWorkspaceIssues(params: {
     probeErrors.push(`disk 探针异常: ${String(e)}`)
   }
 
-  return { workspacePath, checkedAt: new Date().toISOString(), issues, probeErrors }
+  const result: SelfHealDetectResult = {
+    workspacePath,
+    checkedAt: new Date().toISOString(),
+    issues,
+    probeErrors,
+  }
+  const asked =
+    params.previous !== undefined ||
+    params.measuredKinds !== undefined ||
+    params.muted !== undefined
+  if (!asked) return result
+  const failed = new Set(
+    probeErrors
+      .map((line) => line.split(' ')[0])
+      .filter((kind): kind is SelfHealIssueKind => isHealKind(kind)),
+  )
+  const measuredNow = HEAL_KINDS.filter((kind) => {
+    if (kind === 'port' && params.port === undefined) return false
+    return !failed.has(kind)
+  })
+  result.merge = mergeHealScan({
+    previous: params.previous ?? null,
+    next: issues,
+    measuredKinds: params.measuredKinds === undefined ? measuredNow : params.measuredKinds,
+    muted: params.muted === undefined ? [] : params.muted,
+  })
+  return result
 }
 
 // =============================================================================
@@ -508,24 +682,27 @@ export async function repairWorkspaceIssue(params: {
   killDeps?: KillVerifiedDeps
   minFreeMB?: number
   detail?: string
-}): Promise<SelfHealRepairResult> {
+}): Promise<SelfHealRepairResult & { batch: RepairBatch }> {
   const dryRun = params.dryRun ?? true
-  switch (params.kind) {
-    case 'dependency':
-      return repairDependency(params.workspacePath, dryRun, params.detail ?? '')
-    case 'index':
-      return repairIndex(params.workspacePath, dryRun)
-    case 'port':
-      return repairPort(
-        params.workspacePath,
-        params.port ?? 0,
-        dryRun,
-        params.forceKillPid ?? null,
-        params.killDeps,
-      )
-    case 'disk':
-      return repairDisk(params.workspacePath, dryRun, params.minFreeMB ?? DEFAULT_MIN_FREE_MB)
-  }
+  const result = await (async (): Promise<SelfHealRepairResult> => {
+    switch (params.kind) {
+      case 'dependency':
+        return repairDependency(params.workspacePath, dryRun, params.detail ?? '')
+      case 'index':
+        return repairIndex(params.workspacePath, dryRun)
+      case 'port':
+        return repairPort(
+          params.workspacePath,
+          params.port ?? 0,
+          dryRun,
+          params.forceKillPid ?? null,
+          params.killDeps,
+        )
+      case 'disk':
+        return repairDisk(params.workspacePath, dryRun, params.minFreeMB ?? DEFAULT_MIN_FREE_MB)
+    }
+  })()
+  return { ...result, batch: compileRepairBatch(result.steps) }
 }
 
 // =============================================================================
@@ -541,6 +718,9 @@ agentLoop.registerTool({
       workspacePath: String(args['workspacePath'] ?? process.cwd()),
       port: args['port'] !== undefined ? Number(args['port']) : undefined,
       minFreeMB: args['minFreeMB'] !== undefined ? Number(args['minFreeMB']) : undefined,
+      previous: args['previous'],
+      measuredKinds: args['measuredKinds'],
+      muted: args['muted'],
     })
     return JSON.stringify(result)
   },
