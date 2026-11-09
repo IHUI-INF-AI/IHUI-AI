@@ -708,7 +708,22 @@ async function tryOsTier(readOnly: boolean): Promise<TierAttempt> {
   await fs.mkdir(path.dirname(p), { recursive: true });
   await fs.writeFile(p, prot.payload.trim(), 'utf-8');
   await chmodSafe(p);
-  const verify = await runDpapi('unprotect', new Uint8Array(Buffer.from(prot.payload.trim(), 'base64')));
+  // DBG-39:落盘后必须从盘上**读回**再解封比对。只拿内存里的 payload 自证,
+  // 等于没验证落盘;读不到时不承认这把密钥可用,也不落任何密文。
+  let readBack: string;
+  try {
+    readBack = (await fs.readFile(p, 'utf-8')).trim();
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    return {
+      ok: false,
+      created: false,
+      material: null,
+      reasonCode: 'os-key-readback-mismatch',
+      detail: `回读写不到(${code ?? 'error'});不落任何密文`,
+    };
+  }
+  const verify = await runDpapi('unprotect', new Uint8Array(Buffer.from(readBack, 'base64')));
   const same =
     verify.ok && !!verify.payload && Buffer.compare(Buffer.from(verify.payload, 'base64'), Buffer.from(fresh)) === 0;
   if (!same) {
@@ -718,6 +733,9 @@ async function tryOsTier(readOnly: boolean): Promise<TierAttempt> {
   osWrappedCache.set(p, material);
   return { ok: true, created: true, material, reasonCode: 'os-tier-created-now', detail: verify.detail, engine: prot.engine };
 }
+
+/** 测试专用出口:只暴露 DBG-39 的回读分支,生产代码不得调用。 */
+export const __test__ = { tryOsTier };
 
 // ==================== 档位②:机器绑定口令文件 ====================
 
