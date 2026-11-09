@@ -706,7 +706,7 @@ const ONE_SIDED_FACTS: ReadonlyArray<OneSidedFact> = [
     dimension: 'geometry',
     owner: 'mobile-rn',
     kind: 'A',
-    anchor: /configEmoji:\s*\{[^}]*\blineHeight:\s*20,/,
+    anchor: /configEmoji:\s*\{[^}]*\blineHeight:\s*rnType\.body\.lineHeight,/,
     otherAnchor: /configEmoji/,
     why: 'A 旧模式配置钮/辅助行行高:小程序模型条没有配置钮',
   },
