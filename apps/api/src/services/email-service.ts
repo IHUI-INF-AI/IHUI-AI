@@ -6,6 +6,13 @@ import { config } from '../config/index.js'
 import { logger } from '../utils/logger.js'
 import { renderNoticeEmail } from './email-templates.js'
 import {
+  brandResendFrom,
+  brandSmtpFrom,
+  DOMESTIC_EMAIL_DOMAINS,
+  isDomesticEmail,
+  BRAND_MAIL_DISPLAY_NAME,
+} from './email-templates.js'
+import {
   finalizeEmailHtml,
   missingInlineImageAssets,
   type InlineImageAttachment,
@@ -129,35 +136,14 @@ interface NodemailerModule {
 }
 
 /**
- * 国内主流邮箱域名。用于智能路由判定(国内收件人不走 Resend 海外优先通道)。
+ * 国内主流邮箱域名 + 判定函数(单一真相源已上移到 email-templates.ts)。
+ *
+ * 为什么在此 re-export 而不是各写一份:部署告警脚本刻意不 import 本文件
+ * (会连带 db/redis),而它同样需要"国内/海外"这条判据;两份实现必然漂移,
+ * 故真相源放在零副作用的模板模块,本文件与告警脚本都从那里取。
  */
-const DOMESTIC_EMAIL_DOMAINS = new Set<string>([
-  'qq.com',
-  'foxmail.com',
-  '163.com',
-  '126.com',
-  'yeah.net',
-  'sina.com',
-  'sina.cn',
-  'sohu.com',
-  '139.com',
-  'aliyun.com',
-  'mail.aliyun.com',
-  '189.cn',
-  'wo.cn',
-  'vip.qq.com',
-  'vip.163.com',
-  '263.net',
-])
-
-/**
- * 判断邮箱是否为国内主流邮箱。
- */
-export function isDomesticEmail(email: string): boolean {
-  const domain = email.split('@')[1]?.toLowerCase()
-  if (!domain) return false
-  return DOMESTIC_EMAIL_DOMAINS.has(domain)
-}
+export { DOMESTIC_EMAIL_DOMAINS, isDomesticEmail }
+export { BRAND_MAIL_DISPLAY_NAME }
 
 /**
  * 解析最终使用的 provider 及其路由链上的配置缺口(单一真相源)。
@@ -378,8 +364,10 @@ async function sendViaSmtp(mail: OutgoingMail): Promise<SendEmailResult> {
       secure: config.SMTP_PORT === 465,
       auth: config.SMTP_USER ? { user: config.SMTP_USER, pass: config.SMTP_PASS } : undefined,
     })
+    // 显示名同样收敛成品牌名:SMTP_FROM 只决定地址段(见 email-templates 的 BRAND_MAIL_DISPLAY_NAME)
+    const from = brandSmtpFrom(config.SMTP_FROM || config.SMTP_USER)
     await transporter.sendMail({
-      from: config.SMTP_FROM,
+      from,
       to: mail.to,
       subject: mail.subject,
       html: mail.html,
@@ -405,7 +393,9 @@ async function sendViaResend(mail: OutgoingMail): Promise<SendEmailResult> {
   if (!config.RESEND_API_KEY) {
     return { sent: false, stub: false, provider: 'resend', error: 'resend not configured' }
   }
-  const from = config.RESEND_FROM || '智汇AI官方 <IHUI-AI@aizhs.top>'
+  // 发件人显示名一律收敛成品牌名(见 email-templates.ts 的 BRAND_MAIL_DISPLAY_NAME):
+  // 收件箱里曾同时出现「智汇AI」「智汇AI官方」「502319984」,根子就是各通道各写一份默认值。
+  const from = brandResendFrom(config.RESEND_FROM || 'IHUI-AI@aizhs.top')
   // Resend 的内嵌图:content 是 base64 文本,content_id 对应 HTML 里的 src="cid:..."
   // (与 nodemailer 的 cid 字段同义、异名)。空数组不带这个键 —— 免得无谓触发附件校验。
   const attachments =

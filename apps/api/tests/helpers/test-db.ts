@@ -2,7 +2,8 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { createReadWriteDb, type Database } from '@ihui/database'
+import { randomUUID } from 'node:crypto'
+import { createReadWriteDb, type Database, users } from '@ihui/database'
 import postgres from 'postgres'
 
 const TEST_DB_URL = process.env.DATABASE_URL!
@@ -23,6 +24,21 @@ export const testDb: Database = dbWriter
 export async function closeTestDb(): Promise<void> {
   await writerClient.end()
   await resetClient.end()
+}
+
+/**
+ * 真实 DB 夹具:先落 users 行,再让带外键的业务表引用它的 id。
+ * 背景:迁移 20261106150000_fix_missing_indexes_fks 给 webhook_subscriptions /
+ * agent_examines 补了 fk_*_user_id_users,夹具用 randomUUID() 写孤儿 user_id 会撞 23503。
+ * 仅用于 *.real.test.ts(默认测试面不吃真库)。
+ */
+export async function createRealDbUser(nickname = 'real-db-fixture') {
+  const [row] = await testDb
+    .insert(users)
+    .values({ phone: `t${randomUUID().slice(0, 8)}`, nickname })
+    .returning()
+  if (!row) throw new Error('test-db: users 插入未返回行')
+  return row
 }
 
 /**

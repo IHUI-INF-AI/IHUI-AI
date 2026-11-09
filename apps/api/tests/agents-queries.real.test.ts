@@ -6,6 +6,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { randomUUID } from 'node:crypto'
 import { sql } from 'drizzle-orm'
 import { db } from '../src/db/index.js'
+import { createRealDbUser } from './helpers/test-db.js'
 import {
   findAgentsList,
   findAgentById,
@@ -228,7 +229,8 @@ describe('agents-queries — 真实 DB 集成测试', () => {
   describe('Examines 审核', () => {
     it('createExamine — 默认 status=pending', async () => {
       const agentId = randomUUID()
-      const userId = randomUUID()
+      // 2026-11-06 迁移为 agent_examines 补了 fk_agent_examines_user_id_users,userId 必须是真实 users 行
+      const userId = (await createRealDbUser()).id
       const e = await createExamine({ agentId, userId })
       expect(e?.status).toBe('pending')
       expect(e?.agentId).toBe(agentId)
@@ -237,8 +239,8 @@ describe('agents-queries — 真实 DB 集成测试', () => {
     it('findExamineList(agentId/userId/status 过滤)', async () => {
       const a1 = randomUUID()
       const a2 = randomUUID()
-      const u1 = randomUUID()
-      const u2 = randomUUID()
+      const u1 = (await createRealDbUser()).id
+      const u2 = (await createRealDbUser()).id
       await createExamine({ agentId: a1, userId: u1, status: 'pending' })
       await createExamine({ agentId: a2, userId: u2, status: 'approved' })
       const r1 = await findExamineList({})
@@ -264,7 +266,10 @@ describe('agents-queries — 真实 DB 集成测试', () => {
     })
 
     it('findExamineById + updateExamine + deleteExamine', async () => {
-      const e = await createExamine({ agentId: randomUUID(), userId: randomUUID() })
+      const e = await createExamine({
+        agentId: randomUUID(),
+        userId: (await createRealDbUser()).id,
+      })
       expect((await findExamineById(e!.id))?.id).toBe(e!.id)
       const updated = await updateExamine(e!.id, { status: 'approved', reason: 'ok' })
       expect(updated?.status).toBe('approved')
@@ -274,7 +279,10 @@ describe('agents-queries — 真实 DB 集成测试', () => {
     })
 
     it('approveExamine — 置为 approved + 记录 reviewerId + reviewedAt', async () => {
-      const e = await createExamine({ agentId: randomUUID(), userId: randomUUID() })
+      const e = await createExamine({
+        agentId: randomUUID(),
+        userId: (await createRealDbUser()).id,
+      })
       const reviewerId = randomUUID()
       const approved = await approveExamine(e!.id, reviewerId)
       expect(approved?.status).toBe('approved')
@@ -283,7 +291,10 @@ describe('agents-queries — 真实 DB 集成测试', () => {
     })
 
     it('rejectExamine — 置为 rejected + 记录 reason', async () => {
-      const e = await createExamine({ agentId: randomUUID(), userId: randomUUID() })
+      const e = await createExamine({
+        agentId: randomUUID(),
+        userId: (await createRealDbUser()).id,
+      })
       const reviewerId = randomUUID()
       const rejected = await rejectExamine(e!.id, reviewerId, '内容不合规')
       expect(rejected?.status).toBe('rejected')
