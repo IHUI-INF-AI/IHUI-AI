@@ -54,7 +54,7 @@ export function createAgreementStyles(tk: AppThemeTokens) {
       fontWeight: '600',
       color: tk.text.primary,
     },
-    listRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
+    listRow: { flexDirection: 'row', alignItems: 'flex-start', gap: rnSpacing['xs-loose'] },
     bullet: {
       fontSize: rnType.body.size,
       lineHeight: rnType.strong.lineHeight,

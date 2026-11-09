@@ -429,6 +429,14 @@ const PAR_GATE_IDS = new Set([
   //   211 check-plan-id-pool(只读 PROJECT_PLAN) / 203 check-plan-task-duplicates(face-reader 读 HEAD·索引面)
   //   / 229 check-plan-closed-stock(只读 PROJECT_PLAN);逐门核过无 writeFileSync/spawn。
   '211', '203', '229',
+  // 2026-11-09 机主再次要求"提交最多一分钟":本轮 pre-commit 实测 26 门墙钟 398s,其中
+  // 298(33.6s)/302(36.0s) 作为新增门默认落在串行段 —— 时间戳证据:并行池 12:34:33 已 flush 完,
+  // 串行段却从 12:34:36 一路跑到 12:35:53(77s),池外纯等。逐门核过写盘去向:
+  //   298 只 append 自己的 intentional-revert.jsonl 留痕(self-test 夹具走 mkdtemp,不碰共享索引);
+  //   302 只写自己的 cross-end-parity-last.json 报告,且只读自己上轮结论,无跨门 import;
+  //   262 的 writeFileSync 全在 selfTest() 内,提交路径纯只读;236/292/303/280 零写盘。
+  // 均符合 2026-10-21 那批 13 门的入池标准(写自己的缓存/报告,不写共享 git 索引)。
+  '298', '302', '236', '262', '292', '303', '280',
 ])
 // === 只读门并行池(方案A;逃生舱:GUARDIAN_SERIAL=1 退回全串行,GUARDIAN_PAR=<n> 调并发度) ===
 // 契约(与串行版逐字对齐的三条):

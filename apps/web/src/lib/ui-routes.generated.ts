@@ -11,8 +11,8 @@
  */
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/web/scripts/generate-ui-routes.mjs
-// sourceCommit: 46594d4a9b901f8ce6c14094d0e2ee9aa77e5a6d
-// inputsSha256: b3545a58b16eafd4f85438104991e6adf5fc53a02bec8bcad50fca0d15ed291b
+// sourceCommit: 6ad946797610b7d58cb195da306010f887471eba
+// inputsSha256: b3e8d258f90107805ae5fe558dd974dc77270df268e1bc7c66a159f927b11a80
 // input: apps/web/app/(auth)/apple/callback/page.tsx f328ceb139ed3b61c0e79bc671e93885a6c1e1b6b7c356febbc97f3255da2075
 // input: apps/web/app/(auth)/callback/page.tsx d17f249c8506951babf768ff47e0800dc7ed191a9c80ddb124142a8520bcd80e
 // input: apps/web/app/(auth)/forgot-password/page.tsx ebf3e4b50c09d9871131b9fbdc5cddb79c0f9c73bc5775c5ce56dd08a0fa2443
@@ -176,6 +176,7 @@
 // input: apps/web/app/(main)/admin/gray-release/page.tsx 2ded41ac6e29893dcc280e05e0f035e1e970f264b30e45a53e3f399678426c78
 // input: apps/web/app/(main)/admin/help/page.tsx eff70194426b19eee76958dfac04d6a1444f2220736d73164af54a4bd1f20eec
 // input: apps/web/app/(main)/admin/home-schema/page.tsx dc4ce8e0553789f28c2f88cccff8671c82af3c526e7b095b5186f140257af627
+// input: apps/web/app/(main)/admin/hr-attendance/page.tsx 2a4afd28e4aa74b4e86ab4af9a135bfaf4ced204f6ca116534e5cc07c3c1f8ea
 // input: apps/web/app/(main)/admin/i18n-dashboard/compare/page.tsx cd1148a50dba0988f67b748f1239a0aac69d100fe02e0f9b0797c549d0f58a01
 // input: apps/web/app/(main)/admin/i18n-dashboard/missing/page.tsx 3cad88d28fd230c860e2196cceb064a81e3ae92c6bfc6265d7a6316d000c4157
 // input: apps/web/app/(main)/admin/i18n-dashboard/page.tsx e3b10d41c8ad7cc21f4b6c86e7604e24d82e04126c1ac0a6b63e795955ce9f6a
@@ -936,7 +937,7 @@
 // input: apps/web/app/sso/wecom/page.tsx 35efcf616fc264c76204fb3d155f464682cd239b37965652b930391e0e7144b6
 // input: apps/web/app/status/page.tsx d28928c9d285ce3bbf41205bea01abc4d8eadce1762f269615846130b228510e
 // skipped: excludedTopSegments(sso|h5|api)=9 pages; duplicatePaths(保留先扫描到的)=0
-// generatedAt: 2026-11-07T05:58:12.134Z
+// generatedAt: 2026-11-09T13:13:02.026Z
 // IHUI-GEN-PIN-END
 
 export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
@@ -1101,6 +1102,7 @@ export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
   { path: '/admin/gray-release', param: false, group: 'admin' },
   { path: '/admin/help', param: false, group: 'admin' },
   { path: '/admin/home-schema', param: false, group: 'admin' },
+  { path: '/admin/hr-attendance', param: false, group: 'admin' },
   { path: '/admin/i18n-dashboard', param: false, group: 'admin' },
   { path: '/admin/i18n-dashboard/compare', param: false, group: 'admin' },
   { path: '/admin/i18n-dashboard/missing', param: false, group: 'admin' },

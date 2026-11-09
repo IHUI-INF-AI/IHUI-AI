@@ -82,28 +82,28 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 <!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->
 | 指标 | 现值 | 取数键 |
 | ---- | ---- | ------ |
-| 数据库表 | 624 | `dbTables` |
-| schema 文件 | 241 | `dbSchemaFiles` |
-| API 路由 | 4719 | `apiRoutes` |
-| 路由文件 | 667 | `apiRouteFiles` |
+| 数据库表 | 629 | `dbTables` |
+| schema 文件 | 242 | `dbSchemaFiles` |
+| API 路由 | 4733 | `apiRoutes` |
+| 路由文件 | 668 | `apiRouteFiles` |
 | AI 服务路由 | 646 | `aiServiceRoutes` |
 | WebSocket 端点 | 25 | `wsEndpoints` |
 | 入库模型清单 | 100 | `llmModels` |
 | 发布平台 | 38 | `publishPlatforms` |
 | 端应用包 | 9 | `appPackages` |
-| 共享包 | 16 | `sharedPackages` |
+| 共享包 | 17 | `sharedPackages` |
 | CLI 命令文件 | 75 | `cliCommandFiles` |
-| CLI 工具文件 | 94 | `cliToolFiles` |
+| CLI 工具文件 | 98 | `cliToolFiles` |
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 4289 | `testFiles` |
+| 测试文件 | 4302 | `testFiles` |
 | CI 工作流 | 56 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 348 | `guardianGates` |
 | — blocking | 319 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 19843 | `trackedFiles` |
+| 跟踪文件 | 19911 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-09。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
