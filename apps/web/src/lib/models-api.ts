@@ -76,6 +76,46 @@ export async function fetchSelectorModels(): Promise<SelectorModel[]> {
   }
 }
 
+/** 模型级复测进度(手动刷新按钮轮询) */
+export interface ModelHealthRefreshStatus {
+  running: boolean
+  total: number
+  done: number
+  checked_at: number
+  healthy?: number
+  down?: number
+}
+
+/**
+ * 触发模型级连通复测(2026-11-07 立)。
+ * 后端异步执行,立即返回;随后轮询 fetchModelHealthRefreshStatus 等待完成。
+ */
+export async function triggerModelHealthRefresh(): Promise<boolean> {
+  try {
+    const res = await fetchAiServiceJson<{ started?: boolean }>('/llm/models/refresh', {
+      method: 'POST',
+    })
+    return res.success
+  } catch (err) {
+    if (typeof window !== 'undefined') {
+      logger.warn('[models-api] triggerModelHealthRefresh 失败', err)
+    }
+    return false
+  }
+}
+
+/** 查询模型级复测进度(失败返回 null,调用方停止轮询) */
+export async function fetchModelHealthRefreshStatus(): Promise<ModelHealthRefreshStatus | null> {
+  try {
+    const res = await fetchAiServiceJson<ModelHealthRefreshStatus>(
+      '/llm/models/refresh/status',
+    )
+    return res.success ? (res.data ?? null) : null
+  } catch {
+    return null
+  }
+}
+
 /** AI 资讯条目(从 newsArticles schema 派生的前端展示型) */
 export interface AiNewsItem {
   id: string
