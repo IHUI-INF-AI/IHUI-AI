@@ -50,9 +50,12 @@ describe('XUI-countdown:miniapp 倒计时截止戳收敛', () => {
     expect(src).toContain("import { useCountdown } from '@ihui/shared'")
     expect(src).toContain('useCountdown(60)')
     expect(src).toContain('useCountdown(5)')
-    expect(src).toContain('codeCountdown.sync()')
-    expect(src).toContain('confirmCountdown.sync()')
-    expect(src).toContain('confirmCountdown.start()')
+    // 2026-11-10 起该页把 useCountdown 的返回解构成稳定标识符(对象字面量每次渲染都是新引用,
+    // 直接进 deps 会让倒计时 effect 反复重启),断言随实现改认解构后的函数标识符,判据不变:
+    // 仍是"两个冷却各一枚截止戳派生 hook + 回前台双 sync + 5s 闸门进页即 start"。
+    expect(src).toContain('syncCode()')
+    expect(src).toContain('syncConfirm()')
+    expect(src).toContain('startConfirm()')
     expect(src).not.toMatch(/setInterval/)
     expect(src).not.toMatch(/prev\s*-\s*1/)
   })
