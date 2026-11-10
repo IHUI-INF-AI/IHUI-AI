@@ -5458,6 +5458,9 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-10**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (5821a8c2dd)
+
+**2026-11-10**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (69bdc71f9b)
 
 **2026-11-10**
@@ -6360,7 +6363,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:T1 预算棘轮补 margin 证据链,自包含复核判据入库 (6013b5e151)
 - 🐞 修复:T1 改并发4+LPT 派发(300s 让位于实测基线),门251 修 staged 参数序+批量取面并补夹具,worktree 自有 node_modules (a8ff738ce2)
 - 🐞 修复:提现状态五语言包补齐 processing(web 管理端映射同步) (7b95c067b2)
-
 **2026-11-06**
 - 🔧 工程/其他:rebase 到现读尖后重封根护栏 + 写入基线刷新规程 (3533025249)
 - 🐞 修复:固化生成器裁决与 S3 扫描面口径 (6a4edbdc3a)
