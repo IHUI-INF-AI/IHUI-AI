@@ -132,6 +132,13 @@ const TOOL_DISPLAY_KEYS: Readonly<Record<string, string>> = {
   document_tables: 'toolDocumentTables',
   extract_document_assets: 'toolExtractDocumentAssets',
   get_tool_schema: 'toolGetToolSchema',
+  // 代理骨架自带的四个交互/编排工具(2026-11-10 立):守门 55 三方比对
+  // `mcp_server._TOOLS × 本表 × 五语言 taskStatus`,缺这四行 ⇒ 界面退化裸码名
+  // (`ask_user_question` / `skill` / `todo_read` / `todo_write`),覆盖率停在 116/120。
+  ask_user_question: 'toolAskUserQuestion',
+  skill: 'toolSkill',
+  todo_read: 'toolTodoRead',
+  todo_write: 'toolTodoWrite',
   proactive_suggestion: 'toolProactiveSuggestion',
   resolve_conflict: 'toolResolveConflict',
   review_pr: 'toolReviewPr',
