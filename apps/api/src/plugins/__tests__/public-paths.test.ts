@@ -103,6 +103,13 @@ describe('BUG-4 公开面单一真相源', () => {
       expect(isNetworkPublicPath('/api/health')).toBe(true)
     })
 
+    // 2026-11-10:顶层 /health 是 dev-stack / 部署守护 / 监控的探针口,不带租户头。
+    // TENANT_STRICT_MODE 缺省即严格后,它必须免租户,否则探针恒 401、启动门等满 240s。
+    it('顶层 /health 必须免租户(探针口)', () => {
+      expect(isAuthPublicPath('/health')).toBe(true)
+      expect(isTenantBypassPath('/health')).toBe(true)
+    })
+
     it('/api/public/xxx 属鉴权与网络公开面,但不自动获得免租户待遇', () => {
       expect(isAuthPublicPath('/api/public/banner')).toBe(true)
       expect(isNetworkPublicPath('/api/public/banner')).toBe(true)
