@@ -214,7 +214,12 @@ test('opencode:只改目标 provider,其它 provider 条目与旁键原样保留
       uid: 'acc-2',
       token: 'api-key-value',
       target: file,
-      secrets: { providerID: 'anthropic', authType: 'api', accountId: 'acc-2' },
+      secrets: {
+        providerID: 'anthropic',
+        authType: 'api',
+        accountId: 'acc-2',
+        sessionTemplate: { type: 'api', accountId: 'acc-2' },
+      },
     })
     L.applyOpencode(apiPayload, { extract })
     const apiEntry = readJson(file).anthropic
@@ -222,6 +227,44 @@ test('opencode:只改目标 provider,其它 provider 条目与旁键原样保留
     for (const k of ['access', 'accessToken', 'refresh', 'refreshToken', 'expires', 'expiresAt']) {
       assert.equal(k in apiEntry, false, `api 条目不得残留 ${k}`)
     }
+  } finally {
+    rmScratch(scratch)
+  }
+})
+
+test('2026-11-10 反向锁:四平台缺会话模板一律拒写,绝不静默沿用本机旧号资料', () => {
+  const src = fs.readFileSync(SCRIPT, 'utf8')
+  // 形状锁:写回基底不许再出现「模板缺失 ⇒ 拿本机当前会话/prev/row.session 兜底」
+  for (const forbidden of ['template ?? current', 'template ?? prev', 'template ?? row.session']) {
+    assert.equal(src.includes(forbidden), false, `不许再出现静默沿用旧号资料的写回基底:${forbidden}`)
+  }
+  for (const p of ['qoder', 'codearts', 'minimax', 'opencode']) {
+    assert.ok(
+      src.includes(`requireTemplate(template, '${p}')`),
+      `${p} 必须走 requireTemplate(缺模板 fail loud)`,
+    )
+  }
+
+  // 行为锁:本机明明有旧号会话,缺模板时也不许拿它当基底写回(文件逐字节不动)
+  const scratch = mkScratch('local-login-no-template-lock')
+  try {
+    const file = path.join(scratch, 'auth.json')
+    const beforeRaw = JSON.stringify({
+      opencode: { type: 'oauth', access: 'OLD-ACCOUNT-TOKEN', accountId: 'old-account-id', email: 'old@account' },
+    })
+    fs.writeFileSync(file, beforeRaw)
+    const payload = L.normalizePayload({
+      uid: 'target-account-id',
+      token: 'new-token',
+      target: file,
+      secrets: { providerID: 'opencode', authType: 'oauth' },
+    })
+    assert.throws(
+      () => L.applyOpencode(payload, { extract }),
+      (e) => e.code === 'no-template' && /拒绝写回/.test(e.message),
+      '缺模板必须 no-template 拒写并点名原因',
+    )
+    assert.equal(fs.readFileSync(file, 'utf8'), beforeRaw, '拒写时本机旧号登录态逐字节不动')
   } finally {
     rmScratch(scratch)
   }

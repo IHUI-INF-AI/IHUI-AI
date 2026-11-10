@@ -339,7 +339,7 @@ describe('loomy isAuthFailure / isAuthError', () => {
   })
 })
 
-describe('loomy checkHealth(三态,打桩 fetch)', () => {
+describe('loomy checkHealth(三态,打桩 fetch;余额端点 2026-11-10 实证)', () => {
   beforeEach(() => {
     mockFetch.mockReset()
   })
@@ -352,6 +352,29 @@ describe('loomy checkHealth(三态,打桩 fetch)', () => {
     expect(h.indeterminate).toBe(false)
   })
 
+  it('HTTP 200 + 业务登录态码 100002 → authFailed:true(信封型拒收)', async () => {
+    mockFetch.mockResolvedValue({
+      status: 200,
+      ok: true,
+      text: async () => JSON.stringify({ code: '100002', desc: '缺少 token', data: {} }),
+    })
+    const h = await loomyAdapter.checkHealth(makeCtx())
+    expect(h.ok).toBe(false)
+    expect(h.authFailed).toBe(true)
+    expect(h.indeterminate).toBe(false)
+    expect(h.error).toMatch(/100002/)
+  })
+
+  it('HTTP 200 + data.currentBalance → ok:true(真数据,不再一律未判定)', async () => {
+    mockFetch.mockResolvedValue({
+      status: 200,
+      ok: true,
+      text: async () => JSON.stringify({ code: '000000', data: { currentBalance: 1234 } }),
+    })
+    const h = await loomyAdapter.checkHealth(makeCtx())
+    expect(h.ok).toBe(true)
+  })
+
   it('5xx → ok:false + indeterminate(不误杀好号)', async () => {
     mockFetch.mockResolvedValue({ status: 503, ok: false, text: async () => 'boom' })
     const h = await loomyAdapter.checkHealth(makeCtx())
@@ -360,12 +383,22 @@ describe('loomy checkHealth(三态,打桩 fetch)', () => {
     expect(h.authFailed).toBeUndefined()
   })
 
-  it('200 → ok:false + indeterminate(端点推断,无法区分真数据/SPA 兜底页 ⇒ 未判定)', async () => {
+  it('200 但缺 data.currentBalance → indeterminate(不猜字段)', async () => {
     mockFetch.mockResolvedValue({ status: 200, ok: true, text: async () => '{}' })
     const h = await loomyAdapter.checkHealth(makeCtx())
     expect(h.ok).toBe(false)
     expect(h.indeterminate).toBe(true)
     expect(h.error).toMatch(/未判定/)
+  })
+
+  it('本地缺票 → indeterminate 且不置 authFailed(空壳号不得被巡检判死)', async () => {
+    const ctx = makeCtx()
+    ;(ctx.credentials as { token: string }).token = ''
+    const h = await loomyAdapter.checkHealth(ctx)
+    expect(h.ok).toBe(false)
+    expect(h.indeterminate).toBe(true)
+    expect(h.authFailed).toBeUndefined()
+    expect(mockFetch).not.toHaveBeenCalled()
   })
 
   it('网络异常 → indeterminate', async () => {
@@ -376,7 +409,7 @@ describe('loomy checkHealth(三态,打桩 fetch)', () => {
   })
 })
 
-describe('loomy getQuota(积分制;无公开额度端点 ⇒ 如实未判定)', () => {
+describe('loomy getQuota(积分余额;端点 2026-11-10 实证,读 data.currentBalance)', () => {
   beforeEach(() => {
     mockFetch.mockReset()
   })
@@ -390,7 +423,30 @@ describe('loomy getQuota(积分制;无公开额度端点 ⇒ 如实未判定)', 
     expect(q.quota).toBeUndefined()
   })
 
-  it('200 → ok:false 未判定,带响应键名清单(不猜字段读成数字)', async () => {
+  it('HTTP 200 + data.currentBalance → ok:true + remaining(真余额)', async () => {
+    mockFetch.mockResolvedValue({
+      status: 200,
+      ok: true,
+      text: async () => JSON.stringify({ code: '000000', data: { currentBalance: 8888 } }),
+    })
+    const q = await loomyAdapter.getQuota!(makeCtx())
+    expect(q.ok).toBe(true)
+    expect(q.quota).toEqual({ remaining: 8888, unit: '积分' })
+  })
+
+  it('HTTP 200 + 登录态码 100002 → authFailed(不读成 0)', async () => {
+    mockFetch.mockResolvedValue({
+      status: 200,
+      ok: true,
+      text: async () => JSON.stringify({ code: '100002', desc: '缺少 token', data: {} }),
+    })
+    const q = await loomyAdapter.getQuota!(makeCtx())
+    expect(q.ok).toBe(false)
+    expect(q.authFailed).toBe(true)
+    expect(q.quota).toBeUndefined()
+  })
+
+  it('200 但形状不符 → ok:false 未判定,绝不读成 0', async () => {
     mockFetch.mockResolvedValue({
       status: 200,
       ok: true,
@@ -399,26 +455,35 @@ describe('loomy getQuota(积分制;无公开额度端点 ⇒ 如实未判定)', 
     const q = await loomyAdapter.getQuota!(makeCtx())
     expect(q.ok).toBe(false)
     expect(q.quota).toBeUndefined()
-    expect(q.error).toContain('响应键=[points,unit]')
     expect(q.error).toMatch(/未判定/)
   })
 
-  it('200 非 JSON → ok:false 未判定,键=(空)', async () => {
+  it('200 非 JSON → ok:false 未判定', async () => {
     mockFetch.mockResolvedValue({ status: 200, ok: true, text: async () => 'not-json' })
     const q = await loomyAdapter.getQuota!(makeCtx())
     expect(q.ok).toBe(false)
-    expect(q.error).toContain('响应键=[(空)]')
+    expect(q.error).toMatch(/非 JSON/)
   })
 
-  it('请求面:GET 推断额度端点 + Bearer 头', async () => {
+  it('本地缺票 → ok:false 但 authFailed 不置位(不触发判死)', async () => {
+    const ctx = makeCtx()
+    ;(ctx.credentials as { token: string }).token = ''
+    const q = await loomyAdapter.getQuota!(ctx)
+    expect(q.ok).toBe(false)
+    expect(q.authFailed).toBeUndefined()
+    expect(q.error).toMatch(/缺少 Loomy 会话票/)
+    expect(mockFetch).not.toHaveBeenCalled()
+  })
+
+  it('请求面:GET 实证端点 + 裸 token 头(不是 Bearer)', async () => {
     mockFetch.mockResolvedValue({ status: 200, ok: true, text: async () => '{}' })
     await loomyAdapter.getQuota!(makeCtx())
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit]
-    expect(url).toBe('https://loomy.xunfei.cn/api/user/points')
+    expect(url).toBe('https://loomyad.xunfei.cn/api/v1/team-points/balance')
     expect(init.method).toBe('GET')
-    expect((init.headers as Record<string, string>)['authorization']).toBe(
-      'Bearer loomy-session-token-test',
-    )
+    const headers = init.headers as Record<string, string>
+    expect(headers['token']).toBe('loomy-session-token-test')
+    expect(headers['authorization']).toBeUndefined()
   })
 })
 
