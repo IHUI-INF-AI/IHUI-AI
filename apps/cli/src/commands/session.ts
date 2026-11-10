@@ -16,6 +16,7 @@ import * as os from 'node:os';
 import { repairMessages, type RepairableMessage, type ChatMessage } from '@ihui/types';
 import { tryParseJson, isRecord } from '../util/json.js';
 import { writeFileAtomicSync } from '../util/atomic-write.js';
+import { assertPathInside, segmentFilePathInside } from '../util/path-guard.js';
 export type { ChatMessage };
 
 export interface Session {
@@ -30,6 +31,14 @@ export interface Session {
 export function getSessionsDir(): string {
   if (process.env.IHUI_CLI_SESSIONS_DIR) return process.env.IHUI_CLI_SESSIONS_DIR;
   return path.join(os.homedir(), '.ihui', 'sessions');
+}
+
+/**
+ * 会话文件唯一落点:id 收敛成单段名并断言落在 sessions 目录内(`../` / 盘符一律拒)。
+ * save 与 load 共用同一判据,否则恶意 id 会把存档写到目录外、或从目录外读到同名会话。
+ */
+function sessionFilePath(id: string): string {
+  return segmentFilePathInside(getSessionsDir(), id, '.json', '会话文件');
 }
 
 function sessionReadCode(error: unknown): string {
@@ -54,7 +63,8 @@ export function createSession(workspacePath: string, modelId: string): Session {
 }
 
 export function saveSession(session: Session): void {
-  const filePath = path.join(getSessionsDir(), `${session.id}.json`);
+  // session.id 是不可信输入(`../` / 盘符):收敛成单段名并断言落在 sessions 目录内。
+  const filePath = sessionFilePath(session.id);
   let raw: string | null = null;
   try {
     raw = fs.readFileSync(filePath, 'utf-8');
@@ -73,7 +83,7 @@ export function saveSession(session: Session): void {
 }
 
 export function loadSession(id: string): Session | null {
-  const filePath = path.join(getSessionsDir(), `${id}.json`);
+  const filePath = sessionFilePath(id);
   let raw: string;
   try {
     raw = fs.readFileSync(filePath, 'utf-8');
@@ -94,6 +104,12 @@ export function listSessions(): Session[] {
   const sessions: Session[] = [];
   for (const f of files) {
     const filePath = path.join(dir, f);
+    // 根内符号链接指向根外 ⇒ 跳过,不把目录外的同名文件读成一场会话。
+    try {
+      assertPathInside(dir, filePath, '会话文件');
+    } catch {
+      continue;
+    }
     let raw: string;
     try {
       raw = fs.readFileSync(filePath, 'utf-8');

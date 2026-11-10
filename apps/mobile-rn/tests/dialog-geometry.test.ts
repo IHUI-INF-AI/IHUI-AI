@@ -69,6 +69,16 @@ const PANELS = [
     hook: 'useDialogHeightStyle(DIALOG_HEIGHT_RATIOS.businessForm)',
   },
   {
+    // XUI-074 审批卡片:整卡滚动 + extraTall 数值上限(短内容不强行拉高),
+    // 长参数/多工具时不被挤出屏幕。局部变量名 cardMaxHeightStyle 与其它屏不同,
+    // vars 按实现登记,判据(键位 + 上限档)不变。
+    rel: 'components/ai/ToolApprovalSheet.tsx',
+    keys: ['styles.card'],
+    vars: ['cardMaxHeightStyle'],
+    min: 1,
+    hook: 'useDialogMaxHeightStyle(DIALOG_HEIGHT_RATIOS.extraTall)',
+  },
+  {
     rel: 'components/chat/VoiceNote.tsx',
     keys: ['styles.panel'],
     vars: ['dialogHeightStyle'],

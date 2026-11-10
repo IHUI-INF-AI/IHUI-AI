@@ -22,6 +22,8 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { captureWriteBaseline, commitAtomicWrite } from '../util/atomic-write.js';
+// 持久化/篡改路径判据唯一实现:回放侧 filePath 与 history 文件名都收口到这里(§0.6)。
+import { resolvePathInsideRoot, segmentFilePathInside } from '../util/path-guard.js';
 // D163 回退臂(2026-10-18 立):撤回前后的工作区快照与比对。
 // 接进来的唯一理由:/undo 现在的失败路径是**异常冒泡**——applyChange 用
 // fs.writeFileSync/unlinkSync,中途任一文件写失败就整段抛出,返回面里
@@ -221,7 +223,9 @@ export class UndoRedoManager {
   }
 
   private getHistoryFile(sessionId: string): string {
-    return path.join(this.getHistoryDir(), `${sessionId}.json`);
+    // sessionId 是不可信输入(可含 `../` / 盘符):收敛成单段名并断言落在历史目录内,
+    // 否则恶意 id 会把历史文件写到工作区外的同名路径上。
+    return segmentFilePathInside(this.getHistoryDir(), sessionId, '.json', '撤销历史文件');
   }
 
   /**
@@ -412,9 +416,9 @@ export class UndoRedoManager {
    * @param reverse true=反向(beforeContent → 文件,用于 undo);false=正向(afterContent → 文件,用于 redo)
    */
   private applyChange(change: FileChange, reverse: boolean): void {
-    const fullPath = path.isAbsolute(change.filePath)
-      ? change.filePath
-      : path.resolve(this.workspacePath, change.filePath);
+    // 回放侧 filePath 是持久化输入(history JSON 可被篡改):相对/绝对一律先断言落在工作区内,
+    // `../` 与根外绝对路径都会被拒,绝不把覆盖/删除落到工作区外。
+    const fullPath = resolvePathInsideRoot(this.workspacePath, change.filePath, '撤销目标');
     const content = reverse ? change.beforeContent : change.afterContent;
     const kind = undoTargetKind(fullPath, this.deps.stat);
     if (kind.kind === 'unread') {
