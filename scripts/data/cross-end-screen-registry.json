@@ -1295,6 +1295,16 @@
       "shared": "packages/app/src/features/patrol/PatrolScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/PatrolScreen.tsx",
       "miniapp": "pkg-user/patrol/index"
+    },
+    {
+      "shared": "packages/app/src/features/repo-wiki/RepoWikiScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/RepoWikiScreen.tsx",
+      "miniapp": "pkg-user/repo-wiki/index"
+    },
+    {
+      "shared": "packages/app/src/features/team-knowledge/TeamKnowledgeScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/TeamKnowledgeScreen.tsx",
+      "miniapp": "pkg-user/team-knowledge/index"
     }
   ]
 }
