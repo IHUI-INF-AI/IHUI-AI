@@ -148,9 +148,6 @@ const { mockEvaluateLoginRisk } = vi.hoisted(() => ({
 vi.mock('../src/services/risk-engine-service.js', () => ({
   evaluateLoginRisk: mockEvaluateLoginRisk,
   evaluateRisk: vi.fn().mockReturnValue({ action: 'ALLOW', hits: [] }),
-  // F-378(2026-11-08):注册风控改查「同 IP 近期命中数」,数据源不可用时路由 fail-closed 503。
-  // 桩成 0 条命中,让注册落到建号主路径。
-  recentRiskHitsByIp: vi.fn().mockResolvedValue(0),
 }))
 
 vi.mock('../src/config/index.js', () => ({

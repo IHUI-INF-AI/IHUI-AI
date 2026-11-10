@@ -15,11 +15,12 @@ import asyncio
 
 import pytest
 
-from app.services.sag2_lexical import LexicalIndex, Sag2LexicalService
+from app.services.sag2_lexical import Chunk, LexicalIndex, Sag2LexicalService
 from app.services.sag2_lexical.pg_persistence import (
     PersistItem,
     PgDocumentStore,
 )
+
 
 # ---------------------------------------------------------------------------
 # 一个按 SQL 语义工作的假 asyncpg 池

@@ -248,8 +248,6 @@ describe('POST /api/exam/records/:recordId/start — 开始答题(enrolled→ans
 
   it('enrolled→answering 成功', async () => {
     const { db } = await import('../../db/index.js')
-    // F-168:入口先做属主探测(getExamRecordStatus),startAnswering 内部再读一次记录。
-    vi.mocked(db.select).mockReturnValueOnce(mockChain([makeRecord({ status: 'enrolled' })]))
     vi.mocked(db.select).mockReturnValueOnce(mockChain([makeRecord({ status: 'enrolled' })]))
     vi.mocked(db.update).mockReturnValueOnce(mockChain([makeRecord({ status: 'answering' })]))
 
@@ -266,8 +264,6 @@ describe('POST /api/exam/records/:recordId/start — 开始答题(enrolled→ans
 
   it('draft→answering 非法跳转返回 409', async () => {
     const { db } = await import('../../db/index.js')
-    // F-168 属主探测 + startAnswering 内部读取,两次都返回 draft。
-    vi.mocked(db.select).mockReturnValueOnce(mockChain([makeRecord({ status: 'draft' })]))
     vi.mocked(db.select).mockReturnValueOnce(mockChain([makeRecord({ status: 'draft' })]))
 
     const res = await app.inject({
@@ -282,7 +278,6 @@ describe('POST /api/exam/records/:recordId/start — 开始答题(enrolled→ans
 
   it('submitted→answering 回退返回 409', async () => {
     const { db } = await import('../../db/index.js')
-    vi.mocked(db.select).mockReturnValueOnce(mockChain([makeRecord({ status: 'submitted' })]))
     vi.mocked(db.select).mockReturnValueOnce(mockChain([makeRecord({ status: 'submitted' })]))
 
     const res = await app.inject({
@@ -316,8 +311,7 @@ describe('POST /api/exam/records/:recordId/submit-exam — 提交试卷(answerin
 
   it('answering→submitted 成功', async () => {
     const { db } = await import('../../db/index.js')
-    // submitExam 流程:F-168 属主探测 → 内部读 record → 查 paper duration → update(仅 1 次)
-    vi.mocked(db.select).mockReturnValueOnce(mockChain([makeRecord({ status: 'answering' })])) // F-168 属主探测
+    // submitExam 流程:select record → select paper duration → update(仅 1 次)
     vi.mocked(db.select).mockReturnValueOnce(mockChain([makeRecord({ status: 'answering' })])) // findExamRecordByIdExtended
     vi.mocked(db.select).mockReturnValueOnce(mockChain([{ duration: 60 }])) // 查 paper duration(60 分钟,未超时)
     vi.mocked(db.update).mockReturnValueOnce(
@@ -337,7 +331,6 @@ describe('POST /api/exam/records/:recordId/submit-exam — 提交试卷(answerin
 
   it('enrolled→submitted 非法跳转返回 409', async () => {
     const { db } = await import('../../db/index.js')
-    vi.mocked(db.select).mockReturnValueOnce(mockChain([makeRecord({ status: 'enrolled' })]))
     vi.mocked(db.select).mockReturnValueOnce(mockChain([makeRecord({ status: 'enrolled' })]))
 
     const res = await app.inject({

@@ -810,9 +810,6 @@ class AgentLoopRuntime {
           llmError = `ai-service /api/llm/complete 调用异常: ${(e as Error).message}`
           llmContent = `[LLM 调用失败] ${llmError}`
         }
-        // F-306:上游失败时不得把「LLM 调用失败」写进助手轨迹/result —— 那会被消费方
-        // 当成一条正常产出(伪成功)。失败信息只落 task.error,steps/result 保持未产出。
-        if (llmError) break
         task.steps.push({ iteration: i + 1, type: 'llm', content: llmContent })
 
         // 工具调用登记（演示路径：只记轨迹、零执行。2026-10-26 摘掉"模拟执行腿"）

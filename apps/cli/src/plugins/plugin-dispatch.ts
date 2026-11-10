@@ -63,7 +63,7 @@ export function hookMatcherSatisfied(matcher: string | null, context: PluginHook
 }
 
 /** 单条声明是否该为这次派发出声:事件段逐字相等 ∧ matcher 满足。 */
-function hookDeclarationMatches(declaration: string, event: string, context: PluginHookContext): boolean {
+export function hookDeclarationMatches(declaration: string, event: string, context: PluginHookContext): boolean {
   const parts = parseHookDeclaration(declaration);
   return parts.event === event && hookMatcherSatisfied(parts.matcher, context);
 }

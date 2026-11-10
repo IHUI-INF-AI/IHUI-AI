@@ -19,8 +19,8 @@ from typing import Any
 
 import pytest
 
-from app.services import mcp_server
 from app.services.publish import image_uploader
+from app.services import mcp_server
 
 _PNG = b"\x89PNG\r\n\x1a\n" + b"payload"
 _URL = "https://cdn.example.com/pic.png"
@@ -57,7 +57,7 @@ class _FakeClient:
     def __init__(self, response: _FakeResponse) -> None:
         self._response = response
 
-    async def __aenter__(self) -> _FakeClient:
+    async def __aenter__(self) -> "_FakeClient":
         return self
 
     async def __aexit__(self, *exc: Any) -> bool:
