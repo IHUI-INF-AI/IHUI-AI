@@ -151,5 +151,32 @@
     "owner": "ihui-deployloop",
     "reviewBy": "2026-11-17",
     "evidence": "deploy/win/ihui-deploy.ps1 Invoke-FailNotify / .ihui-agent/state/mail-send-ledger.jsonl 24h 3 封"
+  },
+  {
+    "id": "ios-escalated-hour-name-legacy",
+    "prefix": "iOS 站点腿已持续",
+    "cooldownMs": 86400000,
+    "reason": "历史形态兜底:该族标题把「已持续小时数」写进身份,72h 起每小时升一档=换一枚新 alertId,实测 98h~117h 逐小时各 1 封(48h 窗 17 封)——同一场故障被拆成逐小时轰炸。派发点已按 §5e-3 改为静态名+稳定原因码(2026-11-10),本条只兜住**未加载新代码的旧守护进程**在同一窗口里的持续报,以及任何回潮。判据/severity 一字未动;新形态另有自己的族条目。",
+    "owner": "git-guardian(2026-11-10 会话整改)",
+    "reviewBy": "2026-11-24",
+    "evidence": ".ihui-agent/state/mail-send-ledger.jsonl: iOS 站点腿已持续 98..117h 计 17 个身份;git-guardian.mjs sweepIosIpaRelay 旧标题模板"
+  },
+  {
+    "id": "ios-leg-undetermined-family",
+    "prefix": "iOS 站点腿",
+    "cooldownMs": 86400000,
+    "reason": "新静态形态族:名字带执行器当轮真原因码(version-asset-net:* 等),同一原因码 4h 默认窗本就只寄一封;跨原因码=真变化立即重报(判据方向不改)。族级 24h 兜底压的是**不同码之间来回抖动**(代理腿时好时坏会在 net/http-404/shape 之间跳),首封仍立即出。收信人可整改动作在正文(构建链补资产/显式补发/出口腿排查),压掉的只是同一持续态的重报。",
+    "owner": "git-guardian(2026-11-10 会话整改)",
+    "reviewBy": "2026-11-24",
+    "evidence": ".ihui-agent/state/mail-send-ledger.jsonl 48h: 站点腿 5 封 + 已发未收口 3 封,身份随 held 档抖"
+  },
+  {
+    "id": "app-download-latest-red-family",
+    "prefix": "App 更新卡取不到",
+    "cooldownMs": 86400000,
+    "reason": "该族按端拆名(ios/android),红项条数档进 dedupKey;但「latest 行对账红 1 项」在中继腿修好前是同一持续态逐轮重报(实测 48h 各端 3 封、身份随 held 抖)。族级 24h 只留首封 + 累计抑制计数;latest 行真恢复后自然不再触发,判据与 severity 不动。",
+    "owner": "git-guardian(2026-11-10 会话整改)",
+    "reviewBy": "2026-11-24",
+    "evidence": ".ihui-agent/state/mail-send-ledger.jsonl 48h: iOS 3 封 / 安卓 3 封(红 1 项,同一 latest 行)"
   }
 ]
