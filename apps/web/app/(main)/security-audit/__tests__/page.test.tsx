@@ -37,7 +37,14 @@ import SecurityAuditPage from '../page'
 // 语义未变 —— 夹具必须跟着出口走,而不是继续 mock 一条页面已不走的通道。
 const { getSecurityAuditMock } = vi.hoisted(() => ({ getSecurityAuditMock: vi.fn() }))
 
-vi.mock('@ihui/api-client', () => ({ getSecurityAudit: getSecurityAuditMock }))
+// 页面经 `@/lib/api` 间接消费 api-client:该包装层在模块求值期调 `setTokenProvider`
+// / `setBaseUrl` / `setStreamBaseUrl` 等(见 apps/web/src/lib/api.ts),桩若整块替换
+// 就会在收集期抛 "No X export is defined on the @ihui/api-client mock"。
+// 故只覆盖被钉的取数出口,其余走真实模块。
+vi.mock('@ihui/api-client', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>
+  return { ...actual, getSecurityAudit: getSecurityAuditMock }
+})
 
 const here = dirname(fileURLToPath(import.meta.url))
 // here = apps/web/app/(main)/security-audit/__tests__ → 上溯 6 级到仓库根

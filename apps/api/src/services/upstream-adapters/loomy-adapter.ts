@@ -45,6 +45,15 @@ const LOOMY_CHAT_URL = `${LOOMY_BASE}/api/chat/completions`
 /** 积分/额度端点(推断:积分制用户额度惯例路径;未实证) */
 const LOOMY_QUOTA_URL = `${LOOMY_BASE}/api/user/points`
 
+/**
+ * 模型清单(2026-11-10 本机取证,非猜测):Loomy 桌面端 0.9.39 的 Local Storage
+ * `loomy:selected-model` / `loomy:selected-model:ses_*`(40+ 条会话记录)实读值只有两种:
+ * `imodel/qwen3.8-flash` 与 `imodel/spark-x2.6` —— 即客户端真正发给上游的模型 id
+ * (带 `imodel/` 前缀)。上游没有公开模型清单端点(2026-11-10 实弹:`/api/models`、
+ * `/api/v1/models` 均 404),故按客户端实证 id 静态登记;新增档位须先取证再补。
+ */
+const LOOMY_MODEL_IDS = ['imodel/qwen3.8-flash', 'imodel/spark-x2.6']
+
 /** 鉴权失效类响应文案标记(通用形态;无 Loomy 专有实证码) */
 const AUTH_BODY_MARKERS = [
   'unauthorized',
@@ -303,6 +312,11 @@ export const loomyAdapter: RelayUpstreamAdapter = {
   },
 
   isAuthFailure,
+
+  /** 模型清单:客户端实证 id 静态登记(见 LOOMY_MODEL_IDS 注释;无上游清单端点) */
+  async listModels(): Promise<string[]> {
+    return [...LOOMY_MODEL_IDS]
+  },
 
   isAuthError(err: unknown): boolean {
     return err instanceof LoomyUpstreamError && (err.statusCode === 401 || err.statusCode === 403)

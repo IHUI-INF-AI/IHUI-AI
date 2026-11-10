@@ -41,7 +41,7 @@ function main() {
   const undetermined = []
   for (const c of CHECKS) {
     console.log(`\n=== ${c.name} :: node ${c.script} ${c.args.join(' ')}`.trimEnd())
-    const r = spawnSync(process.execPath, [resolve(ROOT, c.script), ...c.args], { cwd: ROOT, stdio: 'inherit', timeout: 180000 })
+    const r = spawnSync(process.execPath, [resolve(ROOT, c.script), ...c.args], { cwd: ROOT, stdio: 'inherit', timeout: 180000, windowsHide: true })
     if (r.error) {
       console.error(`未判定:${c.script} 无法执行(${r.error.message})`)
       undetermined.push(c.script)

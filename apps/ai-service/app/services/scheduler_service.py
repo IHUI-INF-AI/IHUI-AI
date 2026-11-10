@@ -440,7 +440,11 @@ class TaskScheduler:
             # BUG-34③:让外壳进程独立成进程组,超时才能连子孙一起杀。
             popen_kwargs: dict[str, Any] = {}
             if os.name == "nt":
-                popen_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+                # CREATE_NEW_PROCESS_GROUP 只存在于 Windows 版 subprocess；用 getattr
+                # 取值让 mypy 在 Linux runner 上也不报 attr-defined（此分支仅在 nt 命中）。
+                popen_kwargs["creationflags"] = getattr(
+                    subprocess, "CREATE_NEW_PROCESS_GROUP", 0
+                )
             else:
                 popen_kwargs["start_new_session"] = True
             proc = await asyncio.create_subprocess_shell(

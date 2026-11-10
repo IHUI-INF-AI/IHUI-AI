@@ -117,6 +117,40 @@ describe('opencode translateStreamChunk / translateNonStream', () => {
   })
 })
 
+describe('opencode listModels(2026-11-10 实弹:zen/v1/models)', () => {
+  beforeEach(() => {
+    mockFetch.mockReset()
+  })
+
+  it('GET zen/v1/models + Bearer;只收 type=chat 的 id', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        object: 'list',
+        data: [
+          { id: 'big-pickle', type: 'chat' },
+          { id: 'text-embedding-3', type: 'embedding' },
+          { id: 'no-type' },
+        ],
+      }),
+    })
+    const ids = await opencodeAdapter.listModels!(makeCtx())
+    expect(ids).toEqual(['big-pickle', 'no-type'])
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit]
+    expect(String(url)).toBe('https://opencode.ai/zen/v1/models')
+    expect(init.method).toBe('GET')
+    expect((init.headers as Record<string, string>)['authorization']).toBe('Bearer oc-key-test-1')
+  })
+
+  it('非 2xx / 形状非法 → 空数组(不抛)', async () => {
+    mockFetch.mockResolvedValue({ ok: false, status: 401, json: async () => ({}) })
+    expect(await opencodeAdapter.listModels!(makeCtx())).toEqual([])
+    mockFetch.mockResolvedValue({ ok: true, status: 200, json: async () => ({ data: 'bad' }) })
+    expect(await opencodeAdapter.listModels!(makeCtx())).toEqual([])
+  })
+})
+
 describe('opencode checkHealth(2026-10-27 实弹:zen/v1/models 轻量端点)', () => {
   beforeEach(() => {
     mockFetch.mockReset()

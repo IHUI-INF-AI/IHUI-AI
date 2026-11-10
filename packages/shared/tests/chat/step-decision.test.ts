@@ -97,9 +97,9 @@ const collectFromPython = (): Set<string> => {
 }
 
 describe('step-decision 词汇表(D55/G-66)', () => {
-  it('20 个字面量,无重复', () => {
-    expect(STEP_DECISIONS).toHaveLength(20)
-    expect(new Set(STEP_DECISIONS).size).toBe(20)
+  it('21 个字面量,无重复', () => {
+    expect(STEP_DECISIONS).toHaveLength(21)
+    expect(new Set(STEP_DECISIONS).size).toBe(21)
   })
 
   it('与后端字面量双向一致(既不缺 also 不多)', () => {

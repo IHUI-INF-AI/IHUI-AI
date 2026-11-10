@@ -90,7 +90,7 @@ export default function WithdrawalPage() {
     } finally {
       setSubmitting(false)
     }
-  }, [amount, method, tt, onToast])
+  }, [amount, method, tt])
 
   const goRecords = useCallback(() => {
     Taro.navigateTo({ url: '/pkg-ai/developer/withdrawal' })

@@ -49,6 +49,31 @@ async def test_file_search_rejects_traversal_root(monkeypatch, tmp_path):
 async def test_file_search_skips_oversized_files(monkeypatch):
     """AIS-106:单文件超上限必须跳过(否则一个超大文件就能把上下文撑爆)。"""
     monkeypatch.setattr(ms, "_MAX_SEARCH_FILE_BYTES", 0, raising=False)
+    # 平台无关:中和'ripgrep 未解析'这条仅由平台是否装了 rg 决定的 provenance 注记 ——
+    # 它不该让"全被大小上限跳过的零命中"在没装 rg 的机器上被误判为不可靠(ok=False)。
+    # 真实缺口(unread_dirs)仍保留。rg 缺失/降级本身由 test_file_search_ripgrep_v75 覆盖。
+    from app.services import rg_fallback_parity as _rgp
+    from app.services.rg_fallback_parity import EnumerationProvenance
+
+    def _clean_enumerate(root, *, ignored_dirs, suffixes, max_files=None, prefer_rg=True):
+        paths, prov = _rgp.enumerate_with_walk(
+            root, ignored_dirs=ignored_dirs, suffixes=suffixes, max_files=max_files
+        )
+        real_gap = (
+            f"有 {prov.unread_dirs} 个目录读不到,不能把枚举说成完整"
+            if prov.unread_dirs
+            else None
+        )
+        clean = EnumerationProvenance(
+            engine=prov.engine,
+            duration_s=prov.duration_s,
+            counted=prov.counted,
+            unread_dirs=prov.unread_dirs,
+            degraded_reason=real_gap,
+        )
+        return sorted(paths), clean
+
+    monkeypatch.setattr(_rgp, "enumerate_code_files", _clean_enumerate)
     out = await ms._tool_file_search(
         {"path": ".", "pattern": "*.py", "query": "def _validate_path_in_workspace"}
     )
