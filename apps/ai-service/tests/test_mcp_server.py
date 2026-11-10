@@ -752,16 +752,47 @@ async def test_tool_file_search_ignores_dirs(tmp_path):
     assert all("node_modules" not in m["path"] for m in out["matches"])
 
 
-async def test_tool_file_search_empty_dir(tmp_path):
+def _patch_clean_enumeration(monkeypatch):
+    """平台无关:保留真实 os.walk 枚举与真实缺口检测,但中和'ripgrep 未解析'这条
+    仅由平台是否装了 rg 决定的 provenance 注记 —— 它不该让'完全枚举的零命中'在
+    没有 rg 的机器上被误判为不可靠(ok=False)或吞掉零结果指引。真实缺口(unread_dirs)
+    仍如实保留。rg 缺失/降级本身由 test_file_search_ripgrep_v75 覆盖,不必在本模块重复。"""
+    from app.services import rg_fallback_parity as _rgp
+    from app.services.rg_fallback_parity import EnumerationProvenance
+
+    def _clean_enumerate(root, *, ignored_dirs, suffixes, max_files=None, prefer_rg=True):
+        paths, prov = _rgp.enumerate_with_walk(
+            root, ignored_dirs=ignored_dirs, suffixes=suffixes, max_files=max_files
+        )
+        real_gap = (
+            f"有 {prov.unread_dirs} 个目录读不到,不能把枚举说成完整"
+            if prov.unread_dirs
+            else None
+        )
+        clean = EnumerationProvenance(
+            engine=prov.engine,
+            duration_s=prov.duration_s,
+            counted=prov.counted,
+            unread_dirs=prov.unread_dirs,
+            degraded_reason=real_gap,
+        )
+        return sorted(paths), clean
+
+    monkeypatch.setattr(_rgp, "enumerate_code_files", _clean_enumerate)
+
+
+async def test_tool_file_search_empty_dir(tmp_path, monkeypatch):
     """空目录返回 0 匹配。"""
+    _patch_clean_enumeration(monkeypatch)
     out = await _tool_file_search({"path": str(tmp_path)})
     assert out["ok"] is True
     assert out["total"] == 0
     assert out["matches"] == []
 
 
-async def test_tool_file_search_no_pattern_match(tmp_path):
+async def test_tool_file_search_no_pattern_match(tmp_path, monkeypatch):
     """pattern 不匹配任何文件时返回 0。"""
+    _patch_clean_enumeration(monkeypatch)
     (tmp_path / "a.txt").write_text("x", encoding="utf-8")
     out = await _tool_file_search({"path": str(tmp_path), "pattern": "*.nonexistent"})
     assert out["ok"] is True

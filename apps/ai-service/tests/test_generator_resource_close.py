@@ -229,7 +229,7 @@ def _wire_native_branch(monkeypatch, stream: FakeStream):
     async def fake_get_provider(model, owner_uuid=None):  # noqa: ARG001 - 真站点是 await 它
         return provider
 
-    async def fake_fallback(msgs, model, reason):  # noqa: ARG001
+    async def fake_fallback(msgs, model, reason, *, tools=None, **kwargs):  # noqa: ARG001
         yield {"type": "chunk", "content": "FB"}
         yield {"type": "done", "model": model, "usage": {}, "stub": True}
 
