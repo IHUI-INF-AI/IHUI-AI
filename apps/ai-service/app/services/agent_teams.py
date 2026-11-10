@@ -597,12 +597,15 @@ class TeamTaskBoard:
         except Exception as e:  # noqa: BLE001 - 读不到不能按空表覆盖
             logger.warning("[agent_teams] 团队任务板读不到,不能按空表覆盖: %s", e)
             return
-        if dropped:
-            logger.info("[agent_teams] 团队任务板加载:清理过期/坏记录 %d 条", dropped)
-        self._records = {
-            str(key): dict(value) for key, value in raw.items() if isinstance(value, dict)
-        }
-        self._loaded = True
+        else:
+            # 成功子句内固化(try/else 形态):except 早退已把失败路径排除,
+            # 置真静态可证只落在成功路径 —— load-state 判据(_load_lifecycle)认可形。
+            if dropped:
+                logger.info("[agent_teams] 团队任务板加载:清理过期/坏记录 %d 条", dropped)
+            self._records = {
+                str(key): dict(value) for key, value in raw.items() if isinstance(value, dict)
+            }
+            self._loaded = True
 
     def _persist(self) -> None:
         """全量写回(原子写,失败只告警:内存副本仍在,下次变更再试)。"""
