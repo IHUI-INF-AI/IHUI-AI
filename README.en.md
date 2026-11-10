@@ -99,6 +99,9 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-10**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (d3aa620a76)
+
+**2026-11-10**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (b470d0ec08)
 
 **2026-11-10**
@@ -164,9 +167,6 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 **2026-11-10**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (3642b26464)
-
-**2026-11-10**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (dd1aeb0274)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)

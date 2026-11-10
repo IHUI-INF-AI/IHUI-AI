@@ -5458,6 +5458,26 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-10**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (7b48014e26)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (4e7adad235)
+- 📚 文档:数字块按 HEAD 面重算（与推门 check-doc-numbers 同面） (bd0fee0d4f)
+- 📚 文档:数字块按 HEAD 面重算（与推门 check-doc-numbers 同面） (09240bd0f0)
+- 🐞 修复:门 313 登记缺省判面——派发层不再回「未声明判面」 (3a78b71537)
+- 🐞 修复:定版索引护栏形状对齐——私有索引提交通道(isolated-git)结构性全灭根治 (211c3574f2)
+- 📚 文档:数字块按 HEAD 面重算（与推门 check-doc-numbers 同面） (474442934c)
+- 🐞 修复:face-reader 测试的派生 options 改用具名变量（绕开门 193 取数盲区） (a7c25307cd)
+- ⚡ 性能:30a 内存治理——流式解析 + Buffer 取面 + 候选分批,并查清 OOM 根因链 (e949a217d5)
+- 🐞 修复:face-reader 的 binary 档 encoding 改回 null（消 13 道门体的未判定） (a4b410d0ca)
+- 📚 文档:数字块按 head 面重算 (920736c944)
+- 📚 文档:数字块按 head 面重算(testFiles 4818 / trackedFiles 20849) (7765d5a6ff)
+- 📚 文档:数字块按 HEAD 面重算(testFiles 4817 / trackedFiles 20848) (82fac7fab0)
+- 🔧 工程/其他:补齐 brand-mail-from 测试文件的溯源水印 (7582515bf7)
+- 🔧 工程/其他:miniapp-taro 五个语言包对齐上游已完成的键清理 (975c6ec472)
+- 🐞 修复:三条 From 旁路归一 + 守门 R5 防回归 (0a761c3280)
+
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (d3aa620a76)
+
+**2026-11-10**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (dd1aeb0274)
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (3642b26464)
 
@@ -5584,26 +5604,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 
 **2026-11-10**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (f611c37a62)
-
-**2026-11-10**
-- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (4e7adad235)
-- 📚 文档:数字块按 HEAD 面重算（与推门 check-doc-numbers 同面） (bd0fee0d4f)
-- 📚 文档:数字块按 HEAD 面重算（与推门 check-doc-numbers 同面） (09240bd0f0)
-- 🐞 修复:门 313 登记缺省判面——派发层不再回「未声明判面」 (3a78b71537)
-- 🐞 修复:定版索引护栏形状对齐——私有索引提交通道(isolated-git)结构性全灭根治 (211c3574f2)
-- 📚 文档:数字块按 HEAD 面重算（与推门 check-doc-numbers 同面） (474442934c)
-- 🐞 修复:face-reader 测试的派生 options 改用具名变量（绕开门 193 取数盲区） (a7c25307cd)
-- ⚡ 性能:30a 内存治理——流式解析 + Buffer 取面 + 候选分批,并查清 OOM 根因链 (e949a217d5)
-- 🐞 修复:face-reader 的 binary 档 encoding 改回 null（消 13 道门体的未判定） (a4b410d0ca)
-- 📚 文档:数字块按 head 面重算 (920736c944)
-- 📚 文档:数字块按 head 面重算(testFiles 4818 / trackedFiles 20849) (7765d5a6ff)
-- 📚 文档:数字块按 HEAD 面重算(testFiles 4817 / trackedFiles 20848) (82fac7fab0)
-- 🔧 工程/其他:补齐 brand-mail-from 测试文件的溯源水印 (7582515bf7)
-- 🔧 工程/其他:miniapp-taro 五个语言包对齐上游已完成的键清理 (975c6ec472)
-- 🐞 修复:三条 From 旁路归一 + 守门 R5 防回归 (0a761c3280)
-
-**2026-11-10**
-- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (7b48014e26)
 <!-- END RECENT UPDATES -->
 同轮收口(2026-10-21 下午，五枚已入库)：把上一段里"只存不拦"的部分接成实链，并把跨端剩下的三处半截补齐。① **IP 白名单生效链**：判定唯一出口 `apps/api/src/routes/user/ip-whitelist-guard.ts`，挂在 18 条新登录腿的"凭据已验证之后、签发之前"；空表 = 未启用（不另开开关），已在线会话不受影响（换网不掉线），最后一次修改白名单的来源 IP 恒被放行（自救出口，否则清错一次就永久锁死）；被拒回 403 并落 `security_logs` 事件 `login_blocked_by_ip_allowlist`（登录前无主体，故 `recordSecurityEvent` 新增由承载层显式传主体的口子）。覆盖率由 `tests/ip-whitelist-issuance-coverage.test.ts` 机器守：全仓 6 个签发原语的每个调用点要么挂闸门、要么在具名豁免清单里带理由登记，将来新腿漏挂当场响。② **RN 安全中心接上这张卡**（`src/components/IpWhitelistPanel.tsx`，端内不复制 IP 文法校验，400 只翻本地化提示）。③ **五项 agent 护栏开关改为按登录主体生效**：`apps/ai-service/app/services/agent_security_prefs.py` 直连同库读 `user_preferences`（进程默认 ⊕ 该用户显式表态，缺省与改动前逐字一致），危险命令硬门与全局 kill switch 不受用户档影响。④ **小程序关于页补齐**为与 web/RN 同构的六段 + 保留 10 条合规入口（三端同脸，§4）。⑤ 删掉 PDF `print` / `sign` 两条零消费方的假 pending 端点（改成 404 断言留在原地），`openapi.json` 同步摘除两条 path。
 - **2026-10-21 公网提速批次的四件器物(点名义务在此,判据细节住器物头注;`§0.9` 的口径是"已接线而文档不点名 ⇒ 红")**:
