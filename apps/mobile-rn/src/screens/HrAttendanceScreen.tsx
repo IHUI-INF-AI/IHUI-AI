@@ -222,7 +222,7 @@ const styles = StyleSheet.create({
     fontSize: rnType.body.size,
     color: tokens.text.primary,
     backgroundColor: tokens.surface.muted,
-    borderRadius: rnRadius.md,
+    borderRadius: rnRadius.sm,
     paddingHorizontal: rnSpacing['sm-loose'],
     paddingVertical: rnSpacing['xs-loose'],
   },

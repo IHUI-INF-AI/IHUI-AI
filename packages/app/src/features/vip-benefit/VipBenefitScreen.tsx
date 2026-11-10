@@ -268,7 +268,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     upgradeBtn: {
       height: 48,
-      borderRadius: rnRadius.lg,
+      borderRadius: rnRadius.sm,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: VIP_GOLD,
@@ -293,8 +293,8 @@ function createStyles(tk: AppThemeTokens) {
     },
     popupCard: {
       maxHeight: '82%',
-      borderTopLeftRadius: rnRadius.xl,
-      borderTopRightRadius: rnRadius.xl,
+      borderTopLeftRadius: rnRadius.lg,
+      borderTopRightRadius: rnRadius.lg,
       backgroundColor: tk.surface.light,
       paddingHorizontal: rnSpacing.lg,
       paddingTop: rnSpacing.lg,

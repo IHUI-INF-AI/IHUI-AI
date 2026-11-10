@@ -212,7 +212,7 @@ export function GlobalSearchPalette() {
               key={key}
               type="button"
               onClick={() => setExt(key)}
-              className={`font-[weight:inherit] rounded px-2 py-0.5 text-label transition-colors ${
+              className={`font-[weight:inherit] rounded-sm px-2 py-0.5 text-label transition-colors ${
                 ext === key
                   ? 'bg-foreground text-background'
                   : 'text-muted-foreground hover:bg-muted'

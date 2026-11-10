@@ -49,8 +49,7 @@ const META_CLASS = 'rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground
  * 抽取能力徽标：与普通元信息同一视觉口径，但加边框 —— 它回答的是
  * 「这类文件到底能不能进索引」，需要和计数类信息区分开。
  */
-const PROBE_CLASS =
-  'rounded border border-border px-1.5 py-0.5 text-xs text-muted-foreground'
+const PROBE_CLASS = 'rounded border border-border px-1.5 py-0.5 text-xs text-muted-foreground'
 
 /** 扩展名快捷筛选：与全局检索面板同一套分组，避免两处口径不一致。 */
 type ExtFilter = 'all' | 'text' | 'office'
@@ -283,13 +282,10 @@ export default function PageClient({
             </span>
             <span className={PROBE_CLASS} title={status.extractors.ocr?.reason || ''}>
               {t('extractOcr')}{' '}
-              {status.extractors.ocr?.installed
-                ? status.extractors.ocr.engine
-                : t('missing')}
+              {status.extractors.ocr?.installed ? status.extractors.ocr.engine : t('missing')}
             </span>
             <span className={PROBE_CLASS} title={status.extractors.asr?.reason || ''}>
-              {t('extractAsr')}{' '}
-              {status.extractors.asr?.installed ? 'whisper' : t('missing')}
+              {t('extractAsr')} {status.extractors.asr?.installed ? 'whisper' : t('missing')}
             </span>
           </>
         ) : null}
@@ -332,7 +328,7 @@ export default function PageClient({
                     variant="primary"
                     disabled={busy || !folderRoot.trim()}
                     onClick={() => void addFolder()}
-                    className="font-[weight:inherit] rounded-md px-3 py-2 text-body"
+                    className="font-[weight:inherit] rounded-sm px-3 py-2 text-body"
                   >
                     {t('registerFolder')}
                   </Button>
@@ -340,7 +336,7 @@ export default function PageClient({
                     variant="outline"
                     disabled={busy || !(folders?.folders.length ?? 0)}
                     onClick={() => void scanAllFolders()}
-                    className="font-[weight:inherit] rounded-md px-3 py-2 text-body transition-colors hover:bg-accent"
+                    className="font-[weight:inherit] rounded-sm px-3 py-2 text-body transition-colors hover:bg-accent"
                   >
                     {t('scanFolders')}
                   </Button>
@@ -352,7 +348,9 @@ export default function PageClient({
                   </p>
                 ) : null}
 
-                <p className="font-[weight:inherit] text-label text-muted-foreground">{t('foldersList')}</p>
+                <p className="font-[weight:inherit] text-label text-muted-foreground">
+                  {t('foldersList')}
+                </p>
                 <div className="max-h-40 space-y-1 overflow-y-auto pr-1">
                   {(folders?.folders ?? []).length === 0 ? (
                     <p className="font-[weight:inherit] rounded border border-dashed border-border px-2 py-1.5 text-label text-muted-foreground">
@@ -386,7 +384,7 @@ export default function PageClient({
                           variant={watching ? 'primary' : 'outline'}
                           disabled={busy}
                           onClick={() => void toggleWatch(folder.root, !watching)}
-                          className="font-[weight:inherit] rounded px-2 py-0.5 text-label transition-colors hover:bg-accent"
+                          className="font-[weight:inherit] rounded-sm px-2 py-0.5 text-label transition-colors hover:bg-accent"
                         >
                           {t('watchFolder')}
                         </Button>
@@ -394,7 +392,7 @@ export default function PageClient({
                           variant="outline"
                           disabled={busy}
                           onClick={() => void removeFolder(folder.root)}
-                          className="font-[weight:inherit] rounded px-2 py-0.5 text-label transition-colors hover:bg-accent"
+                          className="font-[weight:inherit] rounded-sm px-2 py-0.5 text-label transition-colors hover:bg-accent"
                         >
                           {t('removeFolder')}
                         </Button>
@@ -433,7 +431,7 @@ export default function PageClient({
               variant="primary"
               disabled={busy || !docPath.trim() || !docContent.trim()}
               onClick={() => void addDocument()}
-              className="font-[weight:inherit] rounded-md px-3 py-2 text-body"
+              className="font-[weight:inherit] rounded-sm px-3 py-2 text-body"
             >
               {t('add')}
             </Button>

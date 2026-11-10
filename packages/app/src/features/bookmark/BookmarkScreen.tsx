@@ -175,7 +175,7 @@ function createStyles(tk: AppThemeTokens) {
     loadMoreBtn: {
       alignItems: 'center',
       paddingVertical: rnSpacing.md,
-      borderRadius: rnRadius.lg,
+      borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
     },
