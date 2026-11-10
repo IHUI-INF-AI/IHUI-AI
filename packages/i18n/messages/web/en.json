@@ -12968,7 +12968,16 @@
     "reviewTargetSnippet": "Pasted snippet",
     "reviewTargetSnippetLabel": "Code snippet to review",
     "reviewTargetSnippetPlaceholder": "Paste the code to review…",
-    "reviewTargetClear": "Clear review target"
+    "reviewTargetClear": "Clear review target",
+    "superAgentPanelTitle": "Super agent",
+    "superAgentEmpty": "Nothing pending",
+    "superAgentStageIdle": "Auto-running",
+    "superAgentStop": "Stop this task",
+    "superAgentVerdictAct": "Action needed",
+    "superAgentVerdictIgnore": "Safe to ignore",
+    "superAgentVerdictUnclear": "Unclear verdict",
+    "superAgentApprove": "Acknowledge",
+    "superAgentQuietDrops": "{{count}} more silently dropped"
   },
   "chatHistory": {
     "moveToGroup": "Move to group",

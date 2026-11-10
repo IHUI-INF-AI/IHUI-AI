@@ -12968,7 +12968,16 @@
     "reviewTargetSnippet": "貼上片段",
     "reviewTargetSnippetLabel": "要審查的程式碼片段",
     "reviewTargetSnippetPlaceholder": "貼上要審查的程式碼片段…",
-    "reviewTargetClear": "清除審查對象"
+    "reviewTargetClear": "清除審查對象",
+    "superAgentPanelTitle": "超級智慧體",
+    "superAgentEmpty": "暫無待處理項",
+    "superAgentStageIdle": "自動執行中",
+    "superAgentStop": "停止該單",
+    "superAgentVerdictAct": "需採取行動",
+    "superAgentVerdictIgnore": "可忽略",
+    "superAgentVerdictUnclear": "判定不明",
+    "superAgentApprove": "確認採納",
+    "superAgentQuietDrops": "另有 {{count}} 條已靜默丟棄"
   },
   "chatHistory": {
     "moveToGroup": "移動到分組",
