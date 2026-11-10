@@ -164,6 +164,32 @@ const HTML_FIELD_RE = /(?:^|[^\w$])["']?html["']?\s*[:=]/m
 /** 发信动作:`sendMail` 与其派生名(bridge 自己的腿函数就叫 sendMailLeg —— 旧 `\b` 判不到)。 */
 const SEND_ACTION_RE = /createTransport|\bsendMail\w*|api\.resend\.com/
 const BRAND_LAYER_RE = /email-templates|notify-deploy-failure/
+
+/**
+ * R5 发信 From 的**品牌身份**判据(2026-11-10 立)。
+ *
+ * 为什么需要它:R1-R4 只查「版式与传输」,没有一条查「From 里的显示名」。实测后果是
+ * `apps/api/src/services/alert-notification-service.ts` 用 `from: cfg.user`(把 SMTP 登录
+ * 账号直接当发件人 ⇒ 收件箱显示 `502319984`)、`mail-relay-notifier.ts` 用
+ * `from: process.env.SMTP_FROM` 整串直传,两处都 import 了品牌模板却各自拼 From,
+ * 而扫描面当初不含 `apps/api/src/services/**` ⇒ 长期零告警。
+ *
+ * 判据刻意做成**文件级**(而非逐行判表达式):From 常写成简写属性 `from,`,值在几行之前
+ * 算出来,逐行判必然要么误报要么漏报。文件里出现发信动作而通篇没有任何品牌化引用 ⇒ 红,
+ * 定位仍指到那个 `from:` 行。取向同仓库铁律:宁漏不误报,但真旁路必须被抓住。
+ */
+const MAIL_SEND_CONTEXT_RE = /sendMail\s*\(|api\.resend\.com|createTransport/
+const BRAND_IDENTITY_RE =
+  /brandSmtpFrom|brandResendFrom|resolveBrandSmtpFrom|BRAND_MAIL_DISPLAY_NAME|BRAND_FROM_NAME|\bbrandFrom\b/
+/**
+ * From 字段(对象字面量键,**含简写属性**)。
+ * 简写形态 `{ from, to }` 必须算 —— 修前的中继通知正是 `const from = process.env.SMTP_FROM`
+ * 之后 `sendMail({ from, ... })`,只认 `from:` 会把它漏掉(实测反向牙没咬合)。
+ * `(?![\w$])` 排除 `format` / `fromIso` 这类同前缀字段。
+ */
+const FROM_FIELD_RE = /(?:^|[\s,{])from(?![\w$])\s*(?::|,)/
+/** 品牌名声明点(用于跨文件一致性判定:同一品牌不得有两份不同字面量)。 */
+const BRAND_NAME_DECL_RE = /(?:BRAND_MAIL_DISPLAY_NAME|BRAND_FROM_NAME)\s*=\s*['"]([^'"]+)['"]/g
 /** R3b ①:邮件专属版式标记(浏览器页面用 div,`<table role=presentation>`/bgcolor/cellpadding 是邮件指纹)。 */
 const MAIL_MARKUP_RE = /<table[\s>/]|<td[\s>/]|<tr[\s>]|bgcolor\s*=|cellpadding|role=["']presentation["']/i
 /** R3b ②:版式样式指纹(品牌酸绿 + 邮件模板惯用的内联排版属性)。 */
@@ -234,8 +260,26 @@ export function isScannedPath(rel) {
   if (norm.startsWith('deploy/')) return true
   if (norm.startsWith('monitoring/')) return true
   if (norm.startsWith('apps/api/scripts/')) return true
+  // 2026-11-10 扩面:运行时服务层**同样**是发信出口。此前不纳入的理由是「服务层本就 import
+  // 模板」(见文件头),但实测这句话不成立 —— 两个文件 import 了模板却各自拼 From。
+  // 该面**只判 R5(身份)**,不判 R1-R4(版式/传输),因为服务层里还有 createTransport 只做
+  // `verify()` 的试测端点(`routes/system.ts` 同级形态),按 R3a 判会假红。
+  if (norm.startsWith('apps/api/src/services/')) return true
   if (norm.startsWith('scripts/tests/')) return false
   return norm.startsWith('scripts/')
+}
+
+/**
+ * 只判 R5 的面(运行时服务层)。
+ *
+ * 服务层与脚本层的差别:R1(PS 语法)、R2(Resend 正文必须带 html)、R4(Alertmanager 接收面)
+ * 对它都不适用;而 R3a「有发信动作却通篇不引用品牌层」会把「只 verify 不发信」的试测
+ * 端点判红。R5 判的是 From 身份,与服务层高度相关且误报面最小。
+ */
+export function isServiceLayerPath(rel) {
+  return String(rel || '')
+    .replace(/\\/g, '/')
+    .startsWith('apps/api/src/services/')
 }
 
 /**
@@ -440,6 +484,43 @@ export function scanAlertmanagerSurface(lines) {
 }
 
 /**
+ * R5 判据本体(纯函数)。
+ *
+ * 文件级判定 + 行级定位:文件里出现发信动作(`sendMail(` / Resend 端点 / `createTransport`)
+ * 而通篇没有任何品牌化引用 ⇒ 把该文件里第一个 `from:` 行报出来。每文件至多一条,便于人定位。
+ * 已品牌化的文件一条不报 —— 这正是「宁漏不误报」的取舍:逐个表达式判定在简写属性
+ * (`from,`)与间接赋值(`const from = resolve...`)面前必然失真。
+ */
+export function judgeFromIdentity(rel, lines, lang, stats = newStats()) {
+  const violations = []
+  const norm = String(rel || '').replace(/\\/g, '/')
+  // 只在**代码行**上取证:注释里讲「旧实现曾直连 api.resend.com」的说明不该让整个文件
+  // 被当成发信口(实测 scripts/check-credential-health.mjs 就是这样被误报的 ——
+  // 它的 `from:` 是"这条记录来自哪个滚动日志",与邮件毫无关系)。
+  const code = lines.filter((l) => !isCommentLine(l, lang)).join('\n')
+  if (!MAIL_SEND_CONTEXT_RE.test(code)) return violations
+  if (BRAND_IDENTITY_RE.test(code)) return violations
+  for (let i = 0; i < lines.length; i += 1) {
+    const l = String(lines[i])
+    if (isCommentLine(l, lang)) continue
+    if (!FROM_FIELD_RE.test(l)) continue
+    if (isExemptAt(lines, i)) {
+      stats.exempted += 1
+      continue
+    }
+    violations.push({
+      path: norm,
+      rule: 'R5',
+      line: i + 1,
+      snippet: l,
+      reason: '发信 From 未经品牌化:显示名会由配置或登录账号决定,收件箱出现多种发件人名字',
+    })
+    break
+  }
+  return violations
+}
+
+/**
  * 单文件判定(纯函数)。stats 如实累计:judged / selfExempt / brandExitSkipped / exempted /
  * resendNonEmails。返回 violations:[{ path, rule, line, snippet }]。
  */
@@ -458,6 +539,12 @@ export function judgeText(rel, text, stats = newStats()) {
   // R1 只可能命中 .ps1/.yml,出口是 .ts,故整块跳过不损失判据。
   if (isBrandExitScript(norm)) {
     stats.brandExitSkipped += 1
+    return { violations, stats }
+  }
+
+  // ── 运行时服务层:只判 R5(理由见 isServiceLayerPath) ──
+  if (isServiceLayerPath(norm)) {
+    violations.push(...judgeFromIdentity(norm, lines, lang, stats))
     return { violations, stats }
   }
 
@@ -536,6 +623,9 @@ export function judgeText(rel, text, stats = newStats()) {
       violations.push({ path: norm, rule: 'R4', line: hit.line, snippet: hit.snippet, reason: hit.reason })
     }
   }
+
+  // ── R5:发信 From 必须是品牌身份(脚本/部署/监控/CI 面) ──
+  violations.push(...judgeFromIdentity(norm, lines, lang, stats))
 
   return { violations, stats }
 }
@@ -728,6 +818,8 @@ export function audit(repoRoot, { staged = false, baseline } = {}) {
   }
 
   const violations = []
+  // R5b:品牌名字面量的声明点(value → 文件)。跨文件聚合,循环后判「是否只有一种取值」。
+  const brandNameDecls = new Map()
   for (const rel of candidates) {
     let text = null
     if (modeLabel.startsWith('pre-commit:')) {
@@ -740,7 +832,30 @@ export function audit(repoRoot, { staged = false, baseline } = {}) {
       if (!isSelfExempt(rel)) stats.unreadable += 1
       continue
     }
+    // 本门自身与测试文件必然含品牌名字面量(自检夹具就是在造"漂移"给判据咬),
+    // 与 isSelfExempt 同一取向:不参与一致性取证,否则门会咬到自己的夹具。
+    if (!isSelfExempt(rel)) {
+      for (const m of String(text).matchAll(BRAND_NAME_DECL_RE)) {
+        const value = m[1]
+        if (!brandNameDecls.has(value)) brandNameDecls.set(value, [])
+        brandNameDecls.get(value).push(rel)
+      }
+    }
     violations.push(...judgeText(rel, text, stats).violations)
+  }
+  // R5b 只在全量档判:`--staged` 是子集,子集里"只看见一种取值"不构成一致性证据。
+  // 反过来说,全量档只要发现两种取值就是真漂移 —— 这正是收件箱出现多种显示名的根子。
+  if (!modeLabel.startsWith('pre-commit:') && brandNameDecls.size > 1) {
+    const detail = [...brandNameDecls.entries()]
+      .map(([v, files]) => `'${v}' ← ${files.join(', ')}`)
+      .join(' ; ')
+    violations.push({
+      path: '(跨文件)',
+      rule: 'R5',
+      line: 0,
+      snippet: detail,
+      reason: '品牌名声明出多个不同字面量:收件箱会再次出现多种发件人显示名',
+    })
   }
   if (!baselineExists && stats.judged > 0) {
     // 基线缺失不是错误,但必须显式说 —— 否则"全绿"可能只是没人把存量写进来
@@ -894,12 +1009,13 @@ function selfTestRun() {
     seStats,
   )
   check('20 自豁免:本门脚本自身含字面量不判红且如实计数', se.violations.length === 0 && seStats.selfExempt === 1)
-  check('21 范围:deploy+scripts+workflows 在范围,tests/apps/其他扩展名不在',
+  check('21 范围:deploy+scripts+workflows+服务层在范围,tests/routes/其他扩展名不在',
     isScannedPath('deploy/win/a.ps1') &&
       isScannedPath('scripts/b.mjs') &&
       isScannedPath('.github/workflows/c.yml') &&
+      // 2026-11-10 扩面:运行时服务层是发信出口,此前漏在面外正是两条旁路的成因
+      isScannedPath('apps/api/src/services/e.ts') &&
       !isScannedPath('scripts/tests/d.mjs') &&
-      !isScannedPath('apps/api/src/services/e.ts') &&
       !isScannedPath('deploy/win/f.log') &&
       !isScannedPath('.github/workflows/nested/g.yml'))
 
@@ -1113,10 +1229,14 @@ function selfTestRun() {
         isScannedPath('scripts/x.cjs'),
     )
     check(
-      '46 范围反向:证据式不扩的面仍在面外(packages/apps 运行时/deploy 下非脚本扩展名)',
+      '46 范围反向:证据式不扩的面仍在面外(packages/routes/非脚本扩展名),服务层只吃 R5',
       !isScannedPath('packages/api-client/src/endpoints/mail.ts') &&
         !isScannedPath('apps/api/src/routes/system.ts') &&
-        !isScannedPath('apps/api/src/services/email-service.ts') &&
+        // 服务层进面,但**只判 R5**:R3a 的「有发信动作即须引用品牌层」会把只 verify 的
+        // 试测端点判红,故这一面在 judgeText 里早返回 R5
+        isScannedPath('apps/api/src/services/email-service.ts') &&
+        isServiceLayerPath('apps/api/src/services/email-service.ts') &&
+        !isServiceLayerPath('apps/api/src/routes/system.ts') &&
         !isScannedPath('deploy/scripts/backup-db.sh') &&
         !isScannedPath('monitoring/alertbridge/README.md') &&
         !isScannedPath('scripts/db/db_sync.py'),
@@ -1239,6 +1359,70 @@ function selfTestRun() {
       g(['commit', '-qm', 'am cleaned'])
     }
 
+    // ── R5:发信 From 的品牌身份(2026-11-10 立;两条真实旁路的回归牙) ──
+    const SVC = 'apps/api/src/services/x.ts'
+    const r5 = (rel, text) => judge(rel, text).filter((v) => v.rule === 'R5')
+    check(
+      '62 R5 红:服务层 sendMail 的 From 是裸登录账号(收件箱显示 502319984 的原始形态)',
+      r5(SVC, "await t.sendMail({ from: cfg.user, to: 'a@b.c' })").length === 1,
+    )
+    check(
+      '63 R5 红:From 是简写属性且通篇无品牌化引用(修前的余额通知形态;只认 from: 会漏掉它)',
+      r5(SVC, "await t.sendMail({ from, to: 'a@b.c' })").length === 1,
+    )
+    check(
+      '64 R5 绿:From 由品牌函数产出 ⇒ 不判',
+      r5(SVC, "const from = resolveBrandSmtpFrom(cfg.from, cfg.user)\nawait t.sendMail({ from, to: 'a@b.c' })")
+        .length === 0,
+    )
+    check(
+      '65 R5 绿:只 verify 不发信的试测端点不判(服务层面不许按 R3a 扩大打击)',
+      r5(SVC, 'const t = nodemailer.createTransport({ host })\nawait t.verify()').length === 0,
+    )
+    check(
+      '66 R5 绿:注释里提到 api.resend.com 的文件不被当成发信口(实测误报形态)',
+      r5(
+        'scripts/check-x.mjs',
+        "// 旧实现是 post({ host: 'api.resend.com', path: '/emails' }) 直发\nconst out = { from: '', candidates: 0 }",
+      ).length === 0,
+    )
+    check(
+      '67 R5 绿:format / fromIso 等同前缀字段不误命中',
+      r5(SVC, "await t.sendMail({ html: x })\nconst o = { format: 'x', fromIso: 'y' }").length === 0,
+    )
+    check(
+      '68 R5 装车:服务层纳入扫描面但只走 R5(此前漏了这一面,两条旁路才长期零告警)',
+      isScannedPath(SVC) &&
+        isServiceLayerPath(SVC) &&
+        !isServiceLayerPath('apps/api/scripts/notify-deploy-failure.ts') &&
+        r5('apps/api/src/services/z.ts', "import nodemailer from 'nodemailer'\nawait t.sendMail({ from: cfg.user })").length === 1,
+    )
+    {
+      // R5b 端到端:两份不同品牌名字面量 ⇒ 全量档必须点名"跨文件漂移"
+      mkdirSync(join(repo, 'apps', 'api', 'src', 'services'), { recursive: true })
+      const brandA = join(repo, 'apps', 'api', 'src', 'services', 'brand-a.ts')
+      const brandB = join(repo, 'apps', 'api', 'src', 'services', 'brand-b.ts')
+      writeFileSync(brandA, "export const BRAND_MAIL_DISPLAY_NAME = '智汇AI'\n")
+      writeFileSync(brandB, "export const BRAND_FROM_NAME = '智汇AI官方'\n")
+      g(['add', 'apps/api/src/services/brand-a.ts', 'apps/api/src/services/brand-b.ts'])
+      g(['commit', '-qm', 'brand drift'])
+      const sC = audit(repo, { baseline: {} })
+      check(
+        '69 R5b 红:两份不同品牌名字面量 ⇒ 全量档点名漂移(收件箱多种显示名的根子)',
+        sC.code === 1 && sC.violations.some((v) => v.rule === 'R5' && /跨文件/.test(String(v.path))),
+      )
+      writeFileSync(brandB, "export const BRAND_FROM_NAME = '智汇AI'\n")
+      g(['add', '-A'])
+      g(['commit', '-qm', 'brand align'])
+      // 断言只判 R5 维:临时仓是**全量**审计,前面用例留下的 R1/R2 夹具会一直躺在里面
+      // (实测 deploy/a.ps1 的 Send-MailMessage),拿 code===0 当"可逆"的证据会被它们污染。
+      const sD = audit(repo, { baseline: {} })
+      check(
+        '70 R5b 可逆:改回同值 ⇒ 该维清零(证明 69 的红在漂移本身,不是面写死)',
+        !sD.violations.some((v) => v.rule === 'R5'),
+      )
+    }
+
     // 消费点:求值只发生在这里(共用出口的报告函数,仍处 try 内、夹具在世时)。
     const { fail, cases: results } = report()
     for (const r of results) {
@@ -1321,6 +1505,8 @@ export const __test__ = {
   sendContextHasHtmlField,
   findLayoutCopyHits,
   scanAlertmanagerSurface,
+  isServiceLayerPath,
+  judgeFromIdentity,
   judgeText,
   newStats,
   parseBaseline,

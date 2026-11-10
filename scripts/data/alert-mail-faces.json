@@ -152,6 +152,15 @@
     "until": "2026-12-31"
   },
   {
+    "face": "CI 蓝绿失败兜底发信(零依赖 curl 直投)",
+    "producerPath": ".github/scripts/notify-deploy-failure-ci.mjs",
+    "role": "producer",
+    "inScope": false,
+    "gapReason": "身份侧不收:它没有 dedupKey/$sig/fingerprint 任何形态 —— 存活期只有一次 workflow run,跨 run 的去重状态无处可存(临时 runner 跑完连文件一起销毁)。台账侧同样量不到:CI 寄的信不进本机出口台账,本机投递账上没有这一路是设计事实。定位是「主路径依赖缺失时的最后保险」,只在 blue-green-deploy.yml 的 failure 分支被调起,正文刻意保持极简事故四要素且恒中文 —— 收件人是我方运维,它不参与按语言分流(为双语加百行等于扩大它自己的崩溃面)。发件人显示名已与品牌层同源(本文件 BRAND_FROM_NAME),由守门 81 的 R5 断言两处字面量逐字相等。",
+    "ticket": "告警邮件发件人身份统一 + 本地化收尾(2026-11-10):V4 发现集此前把它点成未登记",
+    "until": "2026-12-31"
+  },
+  {
     "face": "CI 每日值守分诊(loop-daily-triage)",
     "producerPath": ".github/workflows/loop-daily-triage.yml",
     "role": "producer",
