@@ -99,6 +99,14 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-10**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (ffb5f20a82)
+- 🐞 Fix:iOS 站点腿根因三修——出口腿现测借道/取不到不再冒充形状坏/告警身份摘小时数 (4e49779e1d)
+- 🐞 Fix:根治界面字体忽粗忽细——GB2312 分档宽子集 + 字重面显式 + 中文黑体回退链 + 门313（重落地） (2d41ff8cbd)
+- 🐞 Fix:重生成 miniapp 远端语言包,承载四个工具名五语言文案 (14965b4cdf)
+- 🐞 Fix:验证码复制按钮圆角改取档位变量,解守门77 新增红 (b31e2abc08)
+- 🐞 Fix:补 ask_user_question/skill/todo_read/todo_write 五语言功能名,守门55 归零 120/120 (d42e720dd0)
+
+**2026-11-10**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (c975820262)
 
 **2026-11-10**
@@ -161,9 +169,6 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 **2026-11-10**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (1fc4f840f0)
-
-**2026-11-10**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (9220756941)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
