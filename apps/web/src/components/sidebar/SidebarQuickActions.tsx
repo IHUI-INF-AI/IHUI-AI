@@ -89,8 +89,9 @@ export function SidebarQuickActions({
       </div>
 
       {/* 插件市场按钮(2026-07-22 新增,位于"新建任务"按钮正下方)
-            - 默认态无背景(与下方 NavLink 导航项一致),仅 hover 出现 bg-foreground/20
-            - active 态(/plugins 路由命中):bg-foreground/20 锁定,提示"正在该页面"
+            - 默认态无背景(与下方 NavLink 导航项一致),仅 hover 出现 sidebar-item-hover-bg 弱底
+            - active 态(/plugins 路由命中):bg-sidebar-active 弱底锁定,提示"正在该页面"
+            - 2026-11-10 用户要求:选中/hover 底色与 sidebar 底对比过大,统一降到 sidebar 弱色档
             - 折叠态:36×36 正方形图标按钮,与"新建任务"折叠态对齐
             - 与新建任务按钮共用 BTN_NEW_CONVERSATION_CLASS(h-9 + gap-2 + translateY 对齐)
             - 2026-07-22 用户反馈:默认不应与新建任务一样有灰底,改为透明 */}
@@ -104,7 +105,9 @@ export function SidebarQuickActions({
               aria-current={pathname.startsWith('/plugins') ? 'page' : undefined}
               className={cn(
                 'flex h-9 w-9 items-center justify-center rounded-sm text-foreground transition-colors',
-                pathname.startsWith('/plugins') ? 'bg-foreground/20' : 'hover:bg-foreground/20',
+                pathname.startsWith('/plugins')
+                  ? 'bg-sidebar-active'
+                  : 'hover:bg-sidebar-item-hover-bg',
               )}
             >
               <Package className="h-5 w-5" />
@@ -118,8 +121,8 @@ export function SidebarQuickActions({
             className={cn(
               BTN_NEW_CONVERSATION_CLASS,
               pathname.startsWith('/plugins')
-                ? 'bg-foreground/20 text-foreground'
-                : 'text-foreground hover:bg-foreground/20',
+                ? 'bg-sidebar-active text-foreground'
+                : 'text-foreground hover:bg-sidebar-item-hover-bg',
             )}
           >
             <Package className="h-5 w-5 shrink-0" />
@@ -129,8 +132,8 @@ export function SidebarQuickActions({
       </div>
 
       {/* 自动化任务按钮(2026-07-22 新增,位于"插件市场"按钮正下方,快捷区第3个)
-            - 默认态无背景(与下方 NavLink 导航项一致),仅 hover 出现 bg-foreground/20
-            - active 态(/self-media/automation 路由命中):bg-foreground/20 锁定
+            - 默认态无背景(与下方 NavLink 导航项一致),仅 hover 出现 sidebar-item-hover-bg 弱底
+            - active 态(/self-media/automation 路由命中):bg-sidebar-active 弱底锁定
             - 折叠态:36×36 正方形图标按钮,与上方两个按钮对齐
             - 从 AI 分组移出,提升为快捷入口(用户需求 2026-07-22)
             - 2026-07-22 用户反馈:默认不应与新建任务一样有灰底,改为透明 */}
@@ -145,8 +148,8 @@ export function SidebarQuickActions({
               className={cn(
                 'flex h-9 w-9 items-center justify-center rounded-sm text-foreground transition-colors',
                 pathname.startsWith('/self-media/automation')
-                  ? 'bg-foreground/20'
-                  : 'hover:bg-foreground/20',
+                  ? 'bg-sidebar-active'
+                  : 'hover:bg-sidebar-item-hover-bg',
               )}
             >
               <Clock className="h-5 w-5" />
@@ -160,8 +163,8 @@ export function SidebarQuickActions({
             className={cn(
               BTN_NEW_CONVERSATION_CLASS,
               pathname.startsWith('/self-media/automation')
-                ? 'bg-foreground/20 text-foreground'
-                : 'text-foreground hover:bg-foreground/20',
+                ? 'bg-sidebar-active text-foreground'
+                : 'text-foreground hover:bg-sidebar-item-hover-bg',
             )}
           >
             <Clock className="h-5 w-5 shrink-0" />
@@ -171,8 +174,8 @@ export function SidebarQuickActions({
       </div>
 
       {/* 产物中心按钮(2026-10-30 G3 新增,快捷区第4个)
-            - 样式与插件市场/自动化同款:默认透明仅 hover 出 bg-foreground/20,
-              active 态(/artifacts 路由命中)锁定;折叠态 36×36 图标按钮
+            - 样式与插件市场/自动化同款:默认透明仅 hover 出 sidebar-item-hover-bg 弱底,
+              active 态(/artifacts 路由命中)用 bg-sidebar-active 锁定;折叠态 36×36 图标按钮
             - 文案取 artifacts.navEntry(与产物中心页面词同源) */}
       <div className={cn('mb-1', collapsed && 'flex justify-center')}>
         {collapsed ? (
@@ -184,7 +187,9 @@ export function SidebarQuickActions({
               aria-current={pathname.startsWith('/artifacts') ? 'page' : undefined}
               className={cn(
                 'flex h-9 w-9 items-center justify-center rounded-sm text-foreground transition-colors',
-                pathname.startsWith('/artifacts') ? 'bg-foreground/20' : 'hover:bg-foreground/20',
+                pathname.startsWith('/artifacts')
+                  ? 'bg-sidebar-active'
+                  : 'hover:bg-sidebar-item-hover-bg',
               )}
             >
               <PackageOpen className="h-5 w-5" />
@@ -198,8 +203,8 @@ export function SidebarQuickActions({
             className={cn(
               BTN_NEW_CONVERSATION_CLASS,
               pathname.startsWith('/artifacts')
-                ? 'bg-foreground/20 text-foreground'
-                : 'text-foreground hover:bg-foreground/20',
+                ? 'bg-sidebar-active text-foreground'
+                : 'text-foreground hover:bg-sidebar-item-hover-bg',
             )}
           >
             <PackageOpen className="h-5 w-5 shrink-0" />

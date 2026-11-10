@@ -59,7 +59,11 @@ const CHAT_CARRY = Object.freeze({
   codex: { kind: 'local', text: '会话按日期存 ~/.codex/sessions、不带账号维度,切号后历史仍在' },
   doubao: {
     kind: 'cloud',
-    text: '对话在云端且与账号绑定、本地零副本 —— 这一项本器做不到,需在豆包客户端内导出/导入',
+    text:
+      '对话在云端且与账号绑定、本地零副本,豆包没有逐条消息写回的端点 ⇒ 走回放迁移:' +
+      '旧号登录态跑 node scripts/doubao-carry.mjs --export --apply 全量归档;' +
+      '再切到新号(本机登录新号)跑 node scripts/doubao-carry.mjs --replay <归档目录> --apply,' +
+      '旧对话以新会话进新号,打开客户端即可接着聊(指纹防重,复跑自动跳过;--limit n 可先试水)',
   },
 })
 

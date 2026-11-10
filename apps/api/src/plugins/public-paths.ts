@@ -127,6 +127,11 @@ export const AUTH_PUBLIC_PREFIX_PATHS: readonly string[] = [
  * 与鉴权公开面是不同维度(可"免租户"却仍"需登录",如 `/api/settings`)。
  */
 export const TENANT_BYPASS_PREFIX_PATHS: readonly string[] = [
+  // 顶层探活/存活口:dev-stack 的 api 探针、部署守护、外部监控都直接打 /health,
+  // 且**不携带**任何租户头。TENANT_STRICT_MODE 缺省即严格后,不列在这里就等于
+  // 让探针稳定收到 401 ⇒ dev-stack 判 api 假死并等满 240s 超时(2026-11-10 实测:
+  // dev 启动被卡 4 分钟,页面明明可用)。健康检查与租户身份无关,必须免租户。
+  '/health',
   '/api/health',
   '/api/auth/',
   '/api/sms-proxy/',

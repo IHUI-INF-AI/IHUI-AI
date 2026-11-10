@@ -36,6 +36,17 @@
  *     5947 页里 3024 页空闲且 ses_ id 仍残留在空闲页 ⇒ 曾有本地会话、后被清空,不是"云端无本地面"。
  *     另:全表路径改 {home}/{appData}/{localAppData}/{xdgData} 令牌派生,不再硬编码 C:/Users/Administrator。
  *
+ * 2026-11-10 尾刀:codearts / opencode **库表 0 行时的假盲区**(上一轮落点改对了,但这两台只是
+ * 从"找错地方"变成"找到了空库":SQL 口径恒 0 ⇒ 永远 undetermined ⇒ 会话保全没有实际保障)。
+ *   - 取证(只读,本机当日):opencode 24.4MB / freelist 3024/5947 页里 3 枚不同 ses_ 会话 id;
+ *     codearts 31.9MB / freelist 7731/7785 页里 183 枚;-wal 均无额外 id。
+ *   - 落法:0 行时改扫**文件字节**(主库 + `-wal`),按 id 形状 `ses_`+26 字符取游程前缀去重;
+ *     快照 sessions.count = 历史 id 数、sessions.liveCount = SQL 活行数,两个数并报,mode='raw-scan'。
+ *     切前/切后比 count —— 切号只"搬"不"删",历史 id 数只增不减,变少 = 真删了会话 ⇒ broken。
+ *   - 不冒绿的闸:同一路径两趟扫描结果必须逐项相同,不同 ⇒ undetermined;扫不到残留 ⇒ undetermined。
+ *   - 残余风险(结构决定):空闲页会被后续写入复用,VACUUM / secure_delete 会抹掉残留 ⇒
+ *     本口径只承诺"同法两次快照的差集",不承诺绝对条数。
+ *
  * 分族口径(2026-10-31 按新取证整段重写;旧口径"workbuddy/codearts/loomy 本地无会话正库"
  * 已被本机实测推翻,不留旧文。下列计数均本机当日现读,只作形态证据,绝对值以现读为准):
  *
@@ -161,6 +172,8 @@ export const APPS = Object.freeze({
     dbCandidates: ['{home}/.codeartsdoer/codearts-data/opencode.db'],
     sessions: { table: 'session', idCol: 'id', where: 'time_archived IS NULL' },
     messages: { table: 'message', idCol: 'id', sessionCol: 'session_id' },
+    // 库被清成 0 行时(本机实况)的唯一信号:id 形状 ses_ + 26 字符,残留在空闲页字节里
+    rawScan: { prefix: 'ses_', idLength: 26 },
     hint: '库 session 0 行且 chatSessions 0 份 = 本机该产品当前确无会话(不是路径找错:~/.codeartsdoer/codearts-data/opencode.db 的 session/message/part 三表均已被清空)',
     // workspaceStorage 下还有别家扩展写的 jsonl ⇒ 递归但只认路径里恰有 chatSessions 段
     fileSet: {
@@ -179,6 +192,8 @@ export const APPS = Object.freeze({
     dbCandidates: ['{xdgData}/opencode/opencode.db'],
     sessions: { table: 'session_v2', idCol: 'id', where: 'time_archived IS NULL' },
     messages: { table: 'session_message', idCol: 'id', sessionCol: 'session_id' },
+    // 同 codearts:0 行时靠空闲页里 ses_ + 26 字符的历史 id 兜底(本机 5947 页 / 3024 页空闲)
+    rawScan: { prefix: 'ses_', idLength: 26 },
     fileSet: {
       root: '{xdgData}/opencode/storage/plugin/history-snip',
       ext: '.json',
@@ -223,6 +238,7 @@ export function appFaces(spec) {
       dbCandidates: spec.dbCandidates,
       sessions: spec.sessions,
       messages: spec.messages,
+      rawScan: spec.rawScan,
       accountCols: spec.accountCols || [],
     })
   }
@@ -233,6 +249,7 @@ export function appFaces(spec) {
       dbCandidates: d.dbCandidates,
       sessions: d.sessions,
       messages: d.messages,
+      rawScan: d.rawScan || spec.rawScan,
       accountCols: d.accountCols || [],
     })
   }
@@ -434,6 +451,63 @@ export function listKeyCountIds(dir, spec) {
   return [...ids].sort()
 }
 
+/**
+ * 字节级会话 id 残留扫描(2026-11-10 立因,不是补全):
+ *   codearts / opencode 的会话表被清成 0 行 ⇒ SQL 口径恒 0 ⇒ 对账器只能报 undetermined,
+ *   这两个平台的会话保全**等于没有实际保障**(切号把会话删了也看不出来)。
+ * 本机当日只读实测:
+ *   - opencode opencode.db 24.4MB:session_v2/session_message/session_part 全 0 行,
+ *     page_count 5947 / freelist_count 3024 ⇒ 12MB 空闲页里仍有 265 处 ses_ 串、3 枚不同会话 id;
+ *   - codearts opencode.db 31.9MB:session/message/part 全 0 行,freelist 7731/7785,
+ *     13591 处 ses_ 串、183 枚不同会话 id;-wal 0 字节。
+ * id 形状两库一致 = `ses_` + 26 字符(游程长度分布里 26 是绝对多数:opencode 167/265、
+ * codearts 11951/13591;更长的游程是 id 后面**粘着 next 列**:"assistant"/"user"/"idle",
+ * 因为 SQLite 记录体里相邻 text 值没有分隔符)⇒ 取游程前 idLength 字符即 id。
+ * 短于 idLength 的游程是页边界截断残片(如 ses_e3f0e),**不猜**、直接丢。
+ * 局限(结构决定,写进快照 note 而非藏着):这是**历史残留**,不是活会话;
+ * 空闲页会被后续写入复用、VACUUM / secure_delete 会抹掉 ⇒ 只承诺"同法两次快照的差集"。
+ */
+export function extractSessionIds(buf, rawScan) {
+  const prefix = String(rawScan?.prefix ?? 'ses_')
+  const idLength = Number(rawScan?.idLength ?? 26)
+  if (!Number.isSafeInteger(idLength) || idLength <= 0) return []
+  // 前缀里的正则元字符必须转义(prefix 由注册表给,但仍按数据对待)
+  const esc = prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const re = new RegExp(`${esc}[A-Za-z0-9]{${idLength},}`, 'g')
+  const ids = new Set()
+  const s = buf.toString('latin1') // 单字节可逆:id 是 ascii,utf8 解码会在二进制里丢字节
+  for (const m of s.matchAll(re)) ids.add(m[0].slice(0, prefix.length + idLength))
+  return [...ids].sort()
+}
+
+/** 单趟:逐文件扫(主库 + `-wal` 各算一份,未 checkpoint 的最新行就在 WAL 里) */
+export function scanRawSessionIds(files, rawScan, read = (f) => fs.readFileSync(f)) {
+  const ids = new Set()
+  for (const f of files) {
+    let buf
+    try {
+      buf = read(f)
+    } catch {
+      continue // 读不动(被占/不存在)⇒ 该文件不计,不猜
+    }
+    for (const id of extractSessionIds(buf, rawScan)) ids.add(id)
+  }
+  return [...ids].sort()
+}
+
+/**
+ * 两趟扫描 + 稳定性校验:客户端的活库/活 WAL 随时在变,单趟数出来的数不可信。
+ * 两趟结果逐项相同才算数,不同 ⇒ `stable:false`(调用方必须降级 undetermined,不许冒绿)。
+ * `passes` = 两趟各自的条数,写进 why 供人看出"到底抖成什么样"。
+ */
+export function rawScanSessionIds(files, rawScan, opts = {}) {
+  const read = opts.read || ((f) => fs.readFileSync(f))
+  const a = scanRawSessionIds(files, rawScan, read)
+  const b = scanRawSessionIds(files, rawScan, read)
+  const stable = a.join('\n') === b.join('\n')
+  return { stable, ids: stable ? a : [], passes: [a.length, b.length] }
+}
+
 /** 单面(单个候选)的会话数:-1 = 读不成(被占/非 SQLite/无该表),0 = 读成但零会话 */
 function countFace(face, file) {
   if (face.kind === 'fileSet') return listFileSet(file, face.fileSet).length
@@ -525,7 +599,7 @@ export function openReadOnlyCopy(dbFile, env = process.env) {
     /* checkpoint 不成 ⇒ 退只读主库,在结果里如实标 wal_unmerged */
   }
   const db = new DatabaseSync(copy, { readOnly: true })
-  return { db, dir, merged }
+  return { db, dir, merged, file: copy }
 }
 
 /** 副本目录整棵删(含 -wal/-shm;Windows 句柄释放有延迟 ⇒ 退避重试 3 次,失败只告警不炸) */
@@ -582,11 +656,14 @@ function listFaceSnapshot(appKey, spec, face, dir, scored = []) {
     } catch {
       sessions.liveCount = null
     }
+  } else {
+    sessions.liveCount = ids.length // 文件族:一份文件就是一份实存会话,两个数同口径
   }
   return {
     app: appKey,
     label: spec.label,
     state: 'ok',
+    mode: face.kind,
     dbFile: dir,
     walMerged: null,
     takenAt: new Date().toISOString(),
@@ -598,18 +675,39 @@ function listFaceSnapshot(appKey, spec, face, dir, scored = []) {
   }
 }
 
-/** SQLite 面快照(库优先;副本 + WAL checkpoint,绝不锁活库) */
-function sqliteFaceSnapshot(appKey, spec, face, dbFile) {
-  const { db, dir, merged: walMerged } = openReadOnlyCopy(dbFile)
+/** 字节残留口径的 note(必须说清"历史残留"而不是"活会话",否则会被当绿读) */
+const rawScanNote = (n) =>
+  `库表 0 行,用文件字节扫描得到 ${n} 个历史会话 id(含 freelist/wal 残留)`
+
+/**
+ * SQLite 面快照(库优先;副本 + WAL checkpoint,绝不锁活库)。
+ * 会话表 0 行时(或表族对不上)走 `rawScan` 字节兜底:见 extractSessionIds 的立因与局限。
+ * 两个数分开报:`sessions.count`=历史 id 数(切前/切后比这个,只增不减),`sessions.liveCount`=SQL 活行数。
+ */
+function sqliteFaceSnapshot(appKey, spec, face, dbFile, opts = {}) {
+  const { db, dir, merged: walMerged, file: copyFile } = openReadOnlyCopy(dbFile)
   try {
     const s = face.sessions
     const where = s.where ? ` WHERE ${s.where}` : ''
     const distinctKw = s.distinct ? 'DISTINCT ' : ''
-    const sess = digestSet(db, `SELECT ${distinctKw}"${s.idCol}" FROM "${s.table}"${where}`)
+    let sess
+    let tableMissing = false
+    try {
+      sess = digestSet(db, `SELECT ${distinctKw}"${s.idCol}" FROM "${s.table}"${where}`)
+    } catch (e) {
+      // 表族对不上(升级改了表名)且该面有字节兜底 ⇒ 按 0 行处理,走残留扫描;否则照旧抛
+      if (!face.rawScan) throw e
+      tableMissing = true
+      sess = { count: 0, digest: '', ids: [] }
+    }
     let msgs = null
     if (face.messages) {
       const m = face.messages
-      msgs = digestSet(db, `SELECT "${m.idCol}" FROM "${m.table}"`)
+      try {
+        msgs = digestSet(db, `SELECT "${m.idCol}" FROM "${m.table}"`)
+      } catch {
+        msgs = null // 消息表被清掉/改名:不拿会话数冒充消息数
+      }
     }
     const perSession = sess.count > 0 && face.messages?.sessionCol
       ? db.prepare(`SELECT COUNT(DISTINCT "${face.messages.sessionCol}") c FROM "${face.messages.table}"`).get()
@@ -622,14 +720,62 @@ function sqliteFaceSnapshot(appKey, spec, face, dbFile) {
         return null
       }
     })
+
+    // ── 0 行(或表不存在)时的字节兜底:比 count,报 liveCount,不稳定就降级 ──
+    if (sess.count === 0 && face.rawScan) {
+      const res = rawScanSessionIds([copyFile, `${copyFile}-wal`], face.rawScan, {
+        read: opts.rawScanReader,
+      })
+      if (!res.stable) {
+        return {
+          app: appKey,
+          label: spec.label,
+          state: 'undetermined',
+          why: `库表 ${tableMissing ? '不存在' : '0 行'},字节残留两次扫描不一致(${res.passes[0]} vs ${res.passes[1]} 枚 ⇒ 文件正被写入)⇒ 不拿不稳定的数冒绿:${dbFile}`,
+          dbFile,
+          walMerged,
+          mode: 'raw-scan',
+        }
+      }
+      if (res.ids.length === 0) {
+        return {
+          app: appKey,
+          label: spec.label,
+          state: 'undetermined',
+          why: `库表 ${tableMissing ? '不存在' : '0 行'}且文件字节里扫不到 ${face.rawScan.prefix}* 残留(从未产生对话 / 已被 VACUUM 抹除 / id 形状变了)⇒ 未判定:${dbFile}`,
+          dbFile,
+          walMerged,
+          mode: 'raw-scan',
+        }
+      }
+      const rawDigest = crypto.createHash('sha1').update(res.ids.join('\n')).digest('hex')
+      return {
+        app: appKey,
+        label: spec.label,
+        state: 'ok',
+        mode: 'raw-scan',
+        dbFile,
+        walMerged,
+        takenAt: new Date().toISOString(),
+        // count = 历史 id 数(切前/切后比这个:切号只搬不删,只增不减);liveCount = SQL 活行数
+        sessions: { count: res.ids.length, liveCount: sess.count, digest: rawDigest.slice(0, 16) },
+        messageRows: null,
+        sessionsWithMessages: null,
+        accountDigests: acc.filter(Boolean).flat(),
+        sessionIds: res.ids.map(fp),
+        note: rawScanNote(res.ids.length),
+      }
+    }
+
     return {
       app: appKey,
       label: spec.label,
       state: 'ok',
+      mode: 'sqlite',
       dbFile,
       walMerged,
       takenAt: new Date().toISOString(),
-      sessions: { count: sess.count, digest: sess.digest },
+      sessions: { count: sess.count, liveCount: sess.count, digest: sess.digest },
       messageRows: msgs ? { count: msgs.count, digest: msgs.digest } : null,
       sessionsWithMessages: perSession ? Number(perSession.c) : null,
       accountDigests: acc.filter(Boolean).flat(),
@@ -652,9 +798,33 @@ function withFaceReport(snap, spec, scored, chosen) {
 }
 
 /**
+ * 字节兜底救援:所有面的**活行数**都是 0 时才走到这里(pickRichestDb 只在 >0 里选)。
+ * 逐候选两趟扫描残留 id,取最多者复拍一枚 raw-scan 快照;一条都没扫到 ⇒ null(调用方照旧报未判定)。
+ * 为什么不让 countFace 直接算残留:那样会把"历史 id 数"混进"活行数",chosen 面的优先级就乱了
+ * (codearts 库残留 183 枚 vs chatSessions 实存 5 份 ⇒ 会拿历史压活会话)。
+ */
+function rawScanRescue(appKey, spec, env, opts) {
+  let best = null
+  for (const face of appFaces(spec)) {
+    if (face.kind !== 'sqlite' || !face.rawScan) continue
+    for (const file of locateDbAll(appKey, env, face)) {
+      const res = rawScanSessionIds([file, `${file}-wal`], face.rawScan, { read: opts.rawScanReader })
+      if (!res.stable || res.ids.length === 0) continue
+      if (!best || res.ids.length > best.n) best = { file, face, n: res.ids.length }
+    }
+  }
+  if (!best) return null
+  const snap = sqliteFaceSnapshot(appKey, spec, best.face, best.file, opts)
+  if (snap.state !== 'ok') return null // 复拍不稳/无残留 ⇒ 不冒绿,交回未判定
+  return { snap, face: best.face }
+}
+
+/**
  * 拍一枚会话面快照。
  *   - opts.dbPath:测试/指定路径 —— 给目录 ⇒ 文件族/键族面;给文件 ⇒ SQLite 面。
- *   - 否则按 pickRichestDb 逐面打分取最大者,并把逐面数(faces)与另一形态(fallback)一并报出。
+ *   - opts.rawScanReader:注入字节读取(测试夹具用,模拟"同一路径两次读到的字节不同")
+ *   - 否则按 pickRichestDb 逐面打分取最大者,并把逐面数(faces)与另一形态(fallback)一并报出;
+ *     全 0 时对带 rawScan 的面做字节残留兜底(见 rawScanRescue)。
  */
 export function snapshotApp(appKey, opts = {}) {
   const env = opts.env ?? process.env
@@ -669,12 +839,14 @@ export function snapshotApp(appKey, opts = {}) {
       : faces.find((f) => f.kind === 'sqlite')
     if (!face) throw new CheckError(`${appKey} 没有 ${isDir ? '目录' : 'SQLite'} 形态的会话面`, 'bad-app')
     return face.kind === 'sqlite'
-      ? sqliteFaceSnapshot(appKey, spec, face, opts.dbPath)
+      ? sqliteFaceSnapshot(appKey, spec, face, opts.dbPath, opts)
       : listFaceSnapshot(appKey, spec, face, opts.dbPath)
   }
 
   const picked = pickRichestDb(appKey, env)
   if (!picked.file) {
+    const rescued = rawScanRescue(appKey, spec, env, opts)
+    if (rescued) return withFaceReport(rescued.snap, spec, picked.scored, rescued.face)
     return {
       app: appKey,
       state: 'undetermined',
@@ -689,7 +861,7 @@ export function snapshotApp(appKey, opts = {}) {
   const face = faces[best.faceIndex]
   const snap =
     face.kind === 'sqlite'
-      ? sqliteFaceSnapshot(appKey, spec, face, picked.file)
+      ? sqliteFaceSnapshot(appKey, spec, face, picked.file, opts)
       : listFaceSnapshot(appKey, spec, face, picked.file)
   return withFaceReport(snap, spec, picked.scored, face)
 }
@@ -706,6 +878,8 @@ export function compareSnapshots(before, after) {
   const a = new Set(after.sessionIds)
   const lost = before.sessionIds.filter((x) => !a.has(x))
   const gained = after.sessionIds.filter((x) => !b.has(x))
+  // 字节残留口径必须标在结论上:两侧都是"历史 id 数"时,ok 只代表"没有被删掉的痕迹",不代表活会话在位
+  const rawSides = [before, after].filter((s) => s.mode === 'raw-scan').length
   return {
     verdict: lost.length === 0 ? 'continuity-ok' : 'continuity-broken',
     beforeSessions: before.sessions.count,
@@ -715,9 +889,10 @@ export function compareSnapshots(before, after) {
     messageRowsBefore: before.messageRows?.count ?? null,
     messageRowsAfter: after.messageRows?.count ?? null,
     note:
-      lost.length === 0
+      (lost.length === 0
         ? `切号后本地会话清单完整在位(${before.sessions.count} 场)`
-        : `⚠️ 切号后有 ${lost.length} 场会话不在清单 ⇒ 产品 UI 按账号换列表,需做携号迁移腿`,
+        : `⚠️ 切号后有 ${lost.length} 场会话不在清单 ⇒ 产品 UI 按账号换列表,需做携号迁移腿`) +
+      (rawSides ? ` ｜ 口径:${rawSides} 侧为文件字节残留的历史 id 数(非活会话,库表 0 行)` : ''),
   }
 }
 
@@ -735,6 +910,9 @@ export const __test__ = {
   listKeyCountHistoryIds,
   decodeIdbStringKey,
   digestSet,
+  extractSessionIds,
+  scanRawSessionIds,
+  rawScanSessionIds,
   snapshotApp,
   compareSnapshots,
   openReadOnlyCopy,

@@ -59,7 +59,12 @@ const { pickProxyForAccount } = await import('../src/services/relay-proxy-pool.j
 
 interface CliOptions {
   stdin: boolean
-  file: string | null
+  /**
+   * 输入文件(2026-11-10 起可重复给):多个 --file = 批量模式,一个 node 进程内逐文件导入,
+   * 供 scripts/relay-account-pool-push-all.mjs 全池推生产时省掉每平台一次 tsx 冷启。
+   * IHUI_BATCH_FILE — 能力探针标记(ASCII,供远端 findstr 判本 checkout 是否已含批量模式)。
+   */
+  files: string[]
   providerCode: RelayProviderCode | null
   dryRun: boolean
   health: boolean
@@ -85,13 +90,16 @@ const HELP = `账号池导入(服务端落库)
   node scripts/relay-account-pool.mjs --file <accounts.json> --provider <${RELAY_PROVIDERS.join('|')}>
 
 直接调用:
-  pnpm exec tsx scripts/relay-account-import.ts (--file <json> | --stdin)
+  pnpm exec tsx scripts/relay-account-import.ts (--file <json> [--file <json> ...] | --stdin)
     [--provider <${RELAY_PROVIDERS.join('|')}>] [--dry-run] [--no-health] [--json]
     [--owner <users.id>]      落该用户的个人池;缺省 = 运营池
     [--owner-source <名>]     归属来源(explicit-flag|default-owner-file|none),编排器透传;
                               缺省按"给了 --owner 记 explicit-flag,否则 none"回填。
                               词汇唯一真相源 = scripts/lib/pool-owner.mjs 的 OWNER_SOURCES,
                               本脚本只透传不解释。
+
+批量模式(2026-11-10):--file 可重复给,同一进程内逐文件导入(每文件须自带顶层 providerCode,
+  此时不接受 --provider),退出码取最坏一档;用于全池推生产时只付一次 tsx 冷启。
 
 归属默认(2026-11-06 器物化):编排器不带 --owner 时会读本机 ~/.wb-switch/pool-owner 并代填,
   取不到才落运营池(取不到的原因由编排器打在 stdout,不静默)。直调本脚本不享有该默认。
@@ -106,7 +114,7 @@ function parseArgs(argv: string[]): {
 } {
   const options: CliOptions = {
     stdin: false,
-    file: null,
+    files: [],
     providerCode: null,
     dryRun: false,
     health: true,
@@ -121,8 +129,13 @@ function parseArgs(argv: string[]): {
     else if (arg === '--dry-run') options.dryRun = true
     else if (arg === '--no-health') options.health = false
     else if (arg === '--json') options.json = true
-    else if (arg === '--file') options.file = argv[++i] ?? null
-    else if (arg === '--provider') {
+    else if (arg === '--file') {
+      const v = argv[++i] ?? ''
+      if (!v || v.startsWith('--')) {
+        return { help: false, options: null, error: '--file 需要 JSON 路径(可重复给 = 批量)' }
+      }
+      options.files.push(v)
+    } else if (arg === '--provider') {
       const v = argv[++i] ?? ''
       if (!isRelayProviderCode(v)) {
         return {
@@ -154,11 +167,18 @@ function parseArgs(argv: string[]): {
       return { help: false, options: null, error: `未知参数: ${arg}` }
     }
   }
-  if (options.stdin && options.file) {
+  if (options.stdin && options.files.length > 0) {
     return { help: false, options: null, error: '--stdin 与 --file 只能二选一' }
   }
-  if (!options.stdin && !options.file) {
+  if (!options.stdin && options.files.length === 0) {
     return { help: false, options: null, error: '缺少输入:--file <json> 或 --stdin' }
+  }
+  if (options.files.length > 1 && options.providerCode) {
+    return {
+      help: false,
+      options: null,
+      error: '批量模式(--file 重复给)不接受 --provider:每个文件须自带顶层 providerCode',
+    }
   }
   // 来源缺省回填(单独直调本脚本时没有编排器给旗标):给了 --owner 就是显式旗标,否则 none。
   if (!options.ownerSource) {
@@ -269,13 +289,39 @@ async function main(argv: string[]): Promise<number> {
   }
   const opts = parsed.options
 
+  // 批量模式(2026-11-10):一个 node 进程内逐文件导入,退出码取最坏的一档。
+  // 用途 = scripts/relay-account-pool-push-all.mjs 全池推生产:9 个平台只需一次 tsx 冷启。
+  if (!opts.stdin && opts.files.length > 1) {
+    let worst = 0
+    for (const file of opts.files) {
+      let text: string
+      try {
+        text = readFileSync(resolvePath(file), 'utf8')
+      } catch (e) {
+        process.stderr.write(
+          `❌ 读取输入失败(未判定): ${file}: ${e instanceof Error ? e.message : String(e)}\n`,
+        )
+        worst = Math.max(worst, 2)
+        continue
+      }
+      process.stdout.write(`── 批量文件 ${file}\n`)
+      worst = Math.max(worst, await importOne(opts, text))
+    }
+    return worst
+  }
+
   let rawText: string
   try {
-    rawText = opts.stdin ? readStdin() : readFileSync(resolvePath(opts.file as string), 'utf8')
+    rawText = opts.stdin ? readStdin() : readFileSync(resolvePath(opts.files[0]), 'utf8')
   } catch (e) {
     process.stderr.write(`❌ 读取输入失败(未判定): ${e instanceof Error ? e.message : String(e)}\n`)
     return 2
   }
+  return importOne(opts, rawText)
+}
+
+/** 单份输入的完整导入流程(预检 → 落库 → 体检);批量模式由 main 逐文件调用,共享同一套判据。 */
+async function importOne(opts: CliOptions, rawText: string): Promise<number> {
   let raw: unknown
   try {
     raw = JSON.parse(rawText)
