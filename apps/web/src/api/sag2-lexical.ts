@@ -15,7 +15,7 @@
 import { apiOrThrow } from '@/lib/api'
 
 /** 单个抽取能力的探测结果（后端如实上报，不做美化）。 */
-interface Sag2ExtractorProbe {
+export interface Sag2ExtractorProbe {
   engine: string
   installed: boolean
   /** 不可用时的具名原因：missing-dep:* / missing-binary:* / no-ocr-engine ... */
@@ -51,7 +51,7 @@ export interface Sag2Status {
   }
 }
 
-interface Sag2Citation {
+export interface Sag2Citation {
   path: string
   title: string
   heading: string
@@ -90,7 +90,7 @@ export interface Sag2SearchItem {
 }
 
 /** 路径级筛选（与查询词 AND 生效）。 */
-interface Sag2SearchFilters {
+export interface Sag2SearchFilters {
   ext?: string[]
   prefix?: string[]
   contains?: string
@@ -108,13 +108,13 @@ export interface Sag2SearchResult {
   duration_ms: number
 }
 
-interface Sag2ExpansionTerm {
+export interface Sag2ExpansionTerm {
   term: string
   score: number
   kind: string
 }
 
-interface Sag2TraceHop {
+export interface Sag2TraceHop {
   hop: number
   candidates: string[]
   terms: Sag2ExpansionTerm[]
@@ -134,7 +134,7 @@ export interface Sag2ResultRow {
   hop: number
 }
 
-interface Sag2Judge {
+export interface Sag2Judge {
   mode: string
   executed: boolean
   reason: string
@@ -154,7 +154,7 @@ export interface Sag2RetrieveResult {
   paths: Record<string, unknown>
 }
 
-interface Sag2FusedRow {
+export interface Sag2FusedRow {
   path?: string
   key?: string
   rrf_score?: number
@@ -182,7 +182,7 @@ export interface Sag2RetrieveOptions {
 }
 
 /** 单个文件落桶的具名原因（unsupported / missing-dep / binary / parse-error / too-large）。 */
-interface Sag2ScanError {
+export interface Sag2ScanError {
   path: string
   reason: string
 }
@@ -208,7 +208,7 @@ export interface Sag2ScanResult extends Sag2ScanStats {
   reason?: string
 }
 
-interface Sag2Folder {
+export interface Sag2Folder {
   root: string
   include: string[]
   exclude: string[]
@@ -298,6 +298,52 @@ export function sag2Search(
   if (options.filters) body.filters = options.filters
   if (options.highlight !== undefined) body.highlight = options.highlight
   return postJson<Sag2SearchResult>('/api/v1/ai/sag2/search', body)
+}
+
+/** 跨语言桥接扩展预览（可解释性：这句查询会扩展出哪些另一种写法）。 */
+export interface Sag2BridgeTerm {
+  term: string
+  source_term: string
+  kind: string
+  score: number
+}
+
+export interface Sag2BridgeExpandResult {
+  query: string
+  candidate_keys: string[]
+  expanded: Sag2BridgeTerm[]
+  count: number
+  reason: string
+}
+
+export function sag2BridgeExpand(query: string): Promise<Sag2BridgeExpandResult> {
+  return postJson<Sag2BridgeExpandResult>('/api/v1/ai/sag2/bridge/expand', { query })
+}
+
+/** 持久化状态（重启后索引还在不在）。 */
+export interface Sag2PersistenceStatus {
+  backend: string
+  durable: boolean
+  available: boolean
+  reason: string
+  pending: number
+  saved: number
+  failed: number
+  dropped: number
+  last_error: string
+  restored_documents: number
+  restored_chunks: number
+  restoring: boolean
+  restore_error: string
+  restore_ms: number
+  schema_ready: boolean
+  pg?: { documents?: number; chunks?: number; error?: string } | null
+  memory_documents?: number
+  aligned?: boolean
+}
+
+export function sag2Persistence(): Promise<Sag2PersistenceStatus> {
+  return apiOrThrow<Sag2PersistenceStatus>('/api/v1/ai/sag2/persistence')
 }
 
 export function sag2Retrieve(

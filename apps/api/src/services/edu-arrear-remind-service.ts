@@ -300,7 +300,7 @@ export function parseRemindChannels(raw: string | undefined): ExternalChannel[] 
  * 留痕行应记录的主通道:成功时由实际送达通道覆盖(wechat→sms→in_app),
  * 失败时记录本次请求的主通道,便于按渠道统计"请求了但没送达"。
  */
-function primaryReminderChannel(channels: ExternalChannel[]): ExternalChannel {
+export function primaryReminderChannel(channels: ExternalChannel[]): ExternalChannel {
   if (channels.includes('wechat')) return 'wechat'
   if (channels.includes('sms')) return 'sms'
   return 'in_app'

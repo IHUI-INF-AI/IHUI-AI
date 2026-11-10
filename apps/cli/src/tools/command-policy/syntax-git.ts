@@ -14,7 +14,7 @@ import { opt } from './syntax-options.js';
 import { INFO_OPTIONS } from './syntax-options.js';
 import { GIT_DIFF_OPTIONS } from './syntax-options.js';
 
-const GIT_SUBCOMMANDS: Readonly<Record<string, SubcommandSpec>> = {
+export const GIT_SUBCOMMANDS: Readonly<Record<string, SubcommandSpec>> = {
   status: {
     effects: ['read'],
     options: [opt('b'), opt('i'), opt('j', { arity: 'required' }), opt('n', { arity: 'optional' }), opt('o'), opt('s'), opt('u', { arity: 'optional' }), opt('uno'), opt('z'), opt('ahead-behind'), opt('no-ahead-behind'), opt('branch'), opt('ignored', { arity: 'optional' }), opt('ignore-submodules', { arity: 'optional' }), opt('no-ignore-submodules'), opt('null'), opt('porcelain', { arity: 'optional' }), opt('renames'), opt('no-renames'), opt('show-stash'), opt('short'), opt('untracked-files', { arity: 'optional' })],

@@ -501,18 +501,6 @@ class JunitUnread(RuntimeError):
     """junit 文件在,但这次没读到。不能改去解析 stdout 冒充没有这份结果。"""
 
 
-def _stat_for_read(path: str) -> os.stat_result:
-    """解析 junit 前的存在性/可读性探测(唯一一处在读之前 stat 的地方)。
-
-    刻意独立成一个模块级函数当**测试接缝**:要证明"文件在但读不到 ⇒ JunitUnread",
-    只能替换这一格。若直接在用例里 monkeypatch ``self_healing_llm.os.stat``,
-    打的其实是全局 ``os`` 模块的属性 —— 同进程的 pytest 自身(行缓存、临时目录、
-    报告器)会跟着一起抛 PermissionError,xdist 下表现为 worker 崩成
-    ``INTERNALERROR``,而不是本用例一次失败。
-    """
-    return os.stat(path)
-
-
 class PytestSubprocessRunner:
     """真实 pytest 子进程 runner(引擎兼容,优雅降级)。
 
@@ -604,7 +592,7 @@ class PytestSubprocessRunner:
 
     def _parse_junit(self, junit_path: str, stdout: str, returncode: int) -> dict[str, Any]:
         try:
-            _stat_for_read(junit_path)
+            os.stat(junit_path)
         except (FileNotFoundError, NotADirectoryError):
             return self._parse_stdout(stdout, returncode)
         except OSError as exc:
