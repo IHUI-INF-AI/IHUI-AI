@@ -133,7 +133,8 @@
     "getPhoneFail": "電話番号の取得に失敗しました",
     "loginFailed": "ログインに失敗しました。もう一度お試しください",
     "wechatOneClick": "WeChatワンタップログイン",
-    "webAuthLogin": "Web認証ログイン"
+    "webAuthLogin": "Web認証ログイン",
+    "agreement": "ログインすると、ユーザー規約とプライバシーポリシーに同意したものとみなされます"
   },
   "forgot": {
     "step1": "ステップ1: 電話番号認証",
@@ -1241,11 +1242,9 @@
       "rewardLabel": "報酬ポイント",
       "submit": "質問を公開",
       "draftRestored": "下書きを復元しました",
-      "maxImages": "最大3枚",
       "contentRequired": "問題の内容を入力してください",
       "contentTooShort": "5文字以上入力してください",
       "categoryPlaceholder": "カテゴリーを選択",
-      "imageLabel": "画像",
       "anonymousLabel": "匿名で投稿",
       "anonymousDesc": "ニックネームを表示しません",
       "categoryLabel": "カテゴリ",
@@ -2730,7 +2729,8 @@
     "payFailed": "支払いに失敗しました。再試行してください",
     "paying": "支払い中...",
     "purchaseContent": "購入内容",
-    "userAgreement": "《利用規約》"
+    "userAgreement": "《利用規約》",
+    "activateDelayed": "特典の付与が遅れています。カスタマーサポートまでお問い合わせください"
   },
   "study": {
     "todayMinutes": "今日 {n} 分",
@@ -3028,7 +3028,8 @@
     "security": {
       "code": "認証コード",
       "sendCode": "コード取得"
-    }
+    },
+    "bindPhone": "電話番号を連携"
   },
   "vipScreen": {
     "qr": {
@@ -3446,7 +3447,11 @@
       "permanentMemory": "永続メモリー"
     },
     "toast": {
-      "loginRequired": "先にログインしてください"
+      "loginRequired": "先にログインしてください",
+      "compactDone": "コンテキストを圧縮しました",
+      "compactFailed": "圧縮に失敗しました",
+      "compactNoSession": "先にメッセージを送信してください",
+      "compactSkipped": "圧縮できるコンテキストがありません"
     },
     "title": "IHUI AIコミュニティ",
     "chatError": "送信に失敗しました。再試行してください",
@@ -3664,7 +3669,9 @@
     "d3": "ローカルファイル",
     "d4": "WeChatファイル",
     "p1": "音声入力中",
-    "p2": "音声入力"
+    "p2": "音声入力",
+    "compact": "コンテキストを圧縮",
+    "compacting": "圧縮中..."
   },
   "DrawerComponent": {
     "empty1": "履歴会話なし",
@@ -6587,6 +6594,7 @@
     "noTask": "タスクの説明なし"
   },
   "aigcPublish": {
+    "errorMaxFiles": "最大 {max} ファイルまで",
     "typeText": "テキスト",
     "fileAddText": "タップしてファイルを追加",
     "labelTextContent": "テキスト内容",
@@ -7240,4 +7248,17 @@
     "statusApproved": "承認済み",
     "statusRejected": "否認"
   }
-}
+,
+  "level": {
+    "0": "初心者",
+    "1": "ブロンズ",
+    "2": "シルバー",
+    "3": "ゴールド",
+    "4": "プラチナ",
+    "5": "ダイヤモンド",
+    "6": "キング",
+    "distance": "あと"
+  },
+  "TagInput": {
+    "p2": "上限に達しました"
+  }}

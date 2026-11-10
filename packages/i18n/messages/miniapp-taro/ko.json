@@ -133,7 +133,8 @@
     "getPhoneFail": "전화번호 가져오기 실패",
     "loginFailed": "로그인 실패, 다시 시도해 주세요",
     "wechatOneClick": "WeChat 원클릭 로그인",
-    "webAuthLogin": "웹 인증 로그인"
+    "webAuthLogin": "웹 인증 로그인",
+    "agreement": "로그인하면 이용약관 및 개인정보 처리방침에 동의하는 것으로 간주됩니다"
   },
   "forgot": {
     "step1": "1단계: 휴대폰 인증",
@@ -1241,11 +1242,9 @@
       "rewardLabel": "보상 포인트",
       "submit": "질문 게시",
       "draftRestored": "초안이 복원되었습니다",
-      "maxImages": "최대 3장",
       "contentRequired": "문제 설명을 입력해 주세요",
       "contentTooShort": "설명은 최소 5자 이상이어야 합니다",
       "categoryPlaceholder": "분류 선택",
-      "imageLabel": "이미지",
       "anonymousLabel": "익명 게시",
       "anonymousDesc": "닉네임이 표시되지 않습니다",
       "categoryLabel": "분류",
@@ -2730,7 +2729,8 @@
     "payFailed": "결제 실패, 다시 시도하세요",
     "paying": "결제 중...",
     "purchaseContent": "구매 내용",
-    "userAgreement": "《사용자 약관》"
+    "userAgreement": "《사용자 약관》",
+    "activateDelayed": "혜택 지급이 지연되고 있습니다. 고객센터에 문의해 주세요"
   },
   "study": {
     "todayMinutes": "오늘 {n}분",
@@ -3028,7 +3028,8 @@
     "security": {
       "code": "인증 코드",
       "sendCode": "전송인증 코드"
-    }
+    },
+    "bindPhone": "휴대폰 연결"
   },
   "vipScreen": {
     "qr": {
@@ -3446,7 +3447,11 @@
       "permanentMemory": "영구 기억"
     },
     "toast": {
-      "loginRequired": "먼저 로그인하세요"
+      "loginRequired": "먼저 로그인하세요",
+      "compactDone": "컨텍스트가 압축되었습니다",
+      "compactFailed": "압축 실패",
+      "compactNoSession": "먼저 메시지를 보내주세요",
+      "compactSkipped": "압축할 컨텍스트가 없습니다"
     },
     "title": "지후이 AI 커뮤니티",
     "chatError": "전송 실패, 다시 시도하세요",
@@ -3664,7 +3669,9 @@
     "d3": "로컬 파일",
     "d4": "위챗 파일",
     "p1": "음성 입력 중",
-    "p2": "음성 입력"
+    "p2": "음성 입력",
+    "compact": "컨텍스트 압축",
+    "compacting": "압축 중..."
   },
   "DrawerComponent": {
     "empty1": "대화 기록 없음",
@@ -6587,6 +6594,7 @@
     "noTask": "작업 설명 없음"
   },
   "aigcPublish": {
+    "errorMaxFiles": "최대 {max}개 파일",
     "typeText": "텍스트",
     "fileAddText": "탭하여 파일 추가",
     "labelTextContent": "텍스트 내용",
@@ -7240,4 +7248,17 @@
     "statusApproved": "승인됨",
     "statusRejected": "거절됨"
   }
-}
+,
+  "level": {
+    "0": "초보자",
+    "1": "브론즈",
+    "2": "실버",
+    "3": "골드",
+    "4": "플래티넘",
+    "5": "다이아몬드",
+    "6": "킹",
+    "distance": "다음"
+  },
+  "TagInput": {
+    "p2": "한도에 도달했습니다"
+  }}
