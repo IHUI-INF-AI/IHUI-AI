@@ -978,9 +978,12 @@ export async function settleRefund(input: {
             ),
           )
         if (Number(total?.sum ?? 0) >= Number(pay.amount)) {
+          // G-998153 出口形态:pay 现值已取(上游 status==='paid' 守卫 + 全额结算比较),
+          // 真变化才写 —— status 由 paid 推进 refunded。
+          const changed: Partial<typeof eduPaymentRecord.$inferInsert> = { status: 'refunded' }
           await tx
             .update(eduPaymentRecord)
-            .set({ status: 'refunded', updatedAt: new Date() })
+            .set({ ...changed, updatedAt: new Date() })
             .where(eq(eduPaymentRecord.id, existing.paymentId))
         }
       }
