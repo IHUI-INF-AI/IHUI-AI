@@ -33,11 +33,11 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const SHARD_COUNT = 4
+const SHARD_COUNT = 6
 // 固定摊片:每个包占 2 个分片,分片号从 SPLIT_LAYOUT 取(确定性,不参与装箱)
 const SPLIT_LAYOUT = {
   '@ihui/api': [1, 2],
-  '@ihui/web': [3, 4],
+  '@ihui/web': [3, 4, 5],
 }
 const SKIP_DIRS = new Set([
   'node_modules',
