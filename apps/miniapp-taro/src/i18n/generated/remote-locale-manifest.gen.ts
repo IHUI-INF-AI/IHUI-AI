@@ -8,29 +8,29 @@
 // 与 src/assets/remote-locales/<locale>.b64.txt(CDN 部署),三者同批派生、同钉对账。
 // IHUI-GEN-PIN-BEGIN
 // generator: scripts/gen-i18n-compressed.mjs
-// sourceCommit: d30a5af3b3f0424b76dc87e4a597ac9ad74a1059
-// inputsSha256: fbc4683999de1a52e4877c9be80cf61bf828f33aeed7732017c282ef3ee463c1
+// sourceCommit: ff17abfc5567981650cb99b5e547bfb09b997c91
+// inputsSha256: cf143038517405c8aed22ce9e9f5313124e9052ab66c5ebdee9af07e2576672a
 // input: packages/i18n/messages/miniapp-taro/en.json 55e36b46e1a984460e6b66752460bc989fa0540d1831b188e0a85b1a91ba0253
 // input: packages/i18n/messages/miniapp-taro/ja.json 47c068310b3cd1cc1e887355e684449618d25fafa7e94a4af458236139086949
 // input: packages/i18n/messages/miniapp-taro/ko.json ea91385150b8f8e3eb6cde578ad58b348cb5df881a7d7aa6f3e0888c1822d3d1
 // input: packages/i18n/messages/miniapp-taro/zh-TW.json d5e7f1e239cb9dd771a707565a14785d3beb11f286a3cf37a7ef93fbde61102c
-// input: packages/i18n/messages/mobile-rn/en.json 15b27218b1bf077da92505c0b832e7e618146bd305e13b91ab537bef171d8ff4
-// input: packages/i18n/messages/mobile-rn/ja.json 4f146e6fcacccdde333dc017ea2f768d6f1d1295b8cb0dc8b237a5dca6193545
-// input: packages/i18n/messages/mobile-rn/ko.json 1ed6e64074b1ca74631f81ff557f790748e7a42890287ea9c0d74c3aea80d9bb
-// input: packages/i18n/messages/mobile-rn/zh-TW.json 360533dfddb45b1208fbb06d2cc46229dc04a5a37b7d7d75a910de7e8e49db5b
-// input: packages/i18n/messages/shared/en.json 060e97d275a5bb657b4151d2ce4d12f314c6e3a2c4128b474becde58629e84d7
-// input: packages/i18n/messages/shared/ja.json cee38f4ce564e19a01d9e0e9e8dd2e553ec20a9e4d0ed1f2f0c15f097ca4464d
-// input: packages/i18n/messages/shared/ko.json 61dc658effce1924a6c43b1ebe7f3c6f7a4081e5fc1a7e381b8daa2fe49e6f83
-// input: packages/i18n/messages/shared/zh-TW.json e3b6784d84753e2588760d7b140706e51c0daf147c23ed699104b9dd5010108f
+// input: packages/i18n/messages/mobile-rn/en.json 1d15a2dca619ef0b270d84a7a7e047370f5656137adf4de9b9d98198bc753e49
+// input: packages/i18n/messages/mobile-rn/ja.json 4f140c451565acadeb02048af06e9b76fca7d2f102980354ab0f9ab39e8e4597
+// input: packages/i18n/messages/mobile-rn/ko.json d808ef04e96d35254b3bec2955b8688de2b923ebe3836eed3d04db1e3e631eae
+// input: packages/i18n/messages/mobile-rn/zh-TW.json f20b7481b575ed2d78db90d2334e0113cb2000f58c97cfcbb02bd2eaf8a78f78
+// input: packages/i18n/messages/shared/en.json 7fbf065c43b69ae44a84213988b6f6d7b426425e8c829393cf7a3d4fea85f349
+// input: packages/i18n/messages/shared/ja.json c0c09b44de795b000ee47ea12780f92ba75688f5505243cd09f0001ba5e39b14
+// input: packages/i18n/messages/shared/ko.json c49dab6f0aaf42728b2745273f928a3365a7e8dc70bb8c5da793c9fdaaebc394
+// input: packages/i18n/messages/shared/zh-TW.json bf3d79653f77c4caa744ddb387d5f9c21eed6b2390f4ddd8c6650e36b6afb38a
 // carried: present
 // carriedKeys: en=656 ja=656 ko=656 zh-TW=656
-// generatedAt: 2026-11-09T22:33:35.483Z
+// generatedAt: 2026-11-10T02:54:02.405Z
 // IHUI-GEN-PIN-END
 export type RemoteLocale = 'en' | 'ja' | 'ko' | 'zh-TW'
 export const REMOTE_LOCALE_MANIFEST: Record<RemoteLocale, { version: string; bytes: number }> = {
-  en: { version: '7bb288f18b699c405534dcae0761adeac968d3a23fe5e0c13704e7e2ebf7aaaa', bytes: 148172 },
-  ja: { version: '49c557ab5f4a9f694336c4774d4b6e69cd1d5ebe7ec228828a03c5242aa04e87', bytes: 170092 },
-  ko: { version: 'b95287ab21f33c0b8b24b3a43eeb852ef5fb0bcb5f7cb7e58382f4e424ff8d97', bytes: 161760 },
-  'zh-TW': { version: '80825b04eb69c21d1d8fe1abcc2f8a0e0c0ec4d364724be5d78e060a5d0a77ce', bytes: 153792 },
+  en: { version: 'bab373ff487bd85babdbc38714ed207a9777392acd5a3ec1b9a430a4fe98703b', bytes: 148208 },
+  ja: { version: '51355d54a0f60f019d7f308adee7b623470e9917cd295409daf670e1a22246db', bytes: 170116 },
+  ko: { version: '41c5f824b6d8746b63686920f5a02918b7acdc8063bba00fee3a0e39429268fc', bytes: 161792 },
+  'zh-TW': { version: '72a3b95ea1f4438f0de67b2e8ad1897939b8f0aa3bafbb977f3a95e58e608f26', bytes: 153824 },
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

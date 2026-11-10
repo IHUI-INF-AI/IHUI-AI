@@ -1047,8 +1047,9 @@ async function runSweepOnce(
         }
         return
       }
-      const adapter = getRelayAdapter(row.providerCode)
-      if (!adapter?.refreshToken) {
+      // 能力判据与临期档同源(2026-11-10):方法存在 ≠ 真能刷新。doubao/loomy 的空壳
+      // refreshToken 恒回 null,按方法存在去刷会让这两档平台每轮保活白记一次 refreshFailed。
+      if (!isRefreshableProviderCode(row.providerCode)) {
         out.refreshSkipped++
         return
       }
