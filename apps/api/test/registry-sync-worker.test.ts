@@ -138,15 +138,6 @@ function createMockJob(
   } as any
 }
 
-/**
- * fetchAllRawItems 的现行契约是 `{ items, failures, attempted }`(见
- * src/services/registry-sync/index.ts 的 RegistryFetchResult)。mock 必须按此返回对象,
- * 否则 worker 侧 `fetched.items` 为 undefined 会抛 TypeError。
- */
-function fetchOk(items: any[], attempted = 1) {
-  return { items, failures: [], attempted }
-}
-
 function createRawItem(overrides: Record<string, any> = {}) {
   return {
     sourceType: 'mcp',
@@ -179,7 +170,7 @@ describe('Registry Sync Worker', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    mockFetchAllRawItems.mockResolvedValue(fetchOk([]))
+    mockFetchAllRawItems.mockResolvedValue([])
     mockCalculateHeatScore.mockReturnValue(50)
     mockCalculateQualityScore.mockReturnValue(80)
     mockComputePayloadHash.mockResolvedValue('mock-payload-hash')
@@ -215,7 +206,7 @@ describe('Registry Sync Worker', () => {
   })
 
   it('fetchAllRawItems 返回空数组时,插入 skipped 状态的 sync_log', async () => {
-    mockFetchAllRawItems.mockResolvedValue(fetchOk([]))
+    mockFetchAllRawItems.mockResolvedValue([])
 
     const job = createMockJob()
     const handler = workerHarness.getJobHandler()!
@@ -232,13 +223,11 @@ describe('Registry Sync Worker', () => {
   })
 
   it('fetchAllRawItems 返回 3 条数据,全部 upsert 成功时,插入 success 状态的 sync_log', async () => {
-    mockFetchAllRawItems.mockResolvedValue(
-      fetchOk([
-        createRawItem({ sourceId: 'repo-1', version: '1.0.0' }),
-        createRawItem({ sourceId: 'repo-2', version: '2.0.0' }),
-        createRawItem({ sourceId: 'repo-3', version: '3.0.0' }),
-      ]),
-    )
+    mockFetchAllRawItems.mockResolvedValue([
+      createRawItem({ sourceId: 'repo-1', version: '1.0.0' }),
+      createRawItem({ sourceId: 'repo-2', version: '2.0.0' }),
+      createRawItem({ sourceId: 'repo-3', version: '3.0.0' }),
+    ])
     mockBatchUpsertRegistryItems.mockResolvedValue({
       inserted: 3,
       updated: 0,
@@ -286,13 +275,11 @@ describe('Registry Sync Worker', () => {
   })
 
   it('upsertRegistryItem 部分失败时(2 成功 1 失败),sync_log 状态为 success,failed=1', async () => {
-    mockFetchAllRawItems.mockResolvedValue(
-      fetchOk([
-        createRawItem({ sourceId: 'repo-1', version: '1.0.0' }),
-        createRawItem({ sourceId: 'repo-2', version: '2.0.0' }),
-        createRawItem({ sourceId: 'repo-3', version: '3.0.0' }),
-      ]),
-    )
+    mockFetchAllRawItems.mockResolvedValue([
+      createRawItem({ sourceId: 'repo-1', version: '1.0.0' }),
+      createRawItem({ sourceId: 'repo-2', version: '2.0.0' }),
+      createRawItem({ sourceId: 'repo-3', version: '3.0.0' }),
+    ])
     mockBatchUpsertRegistryItems.mockResolvedValue({
       inserted: 2,
       updated: 0,
@@ -332,12 +319,10 @@ describe('Registry Sync Worker', () => {
   })
 
   it('upsertRegistryItem 全部失败时,sync_log 状态为 fail', async () => {
-    mockFetchAllRawItems.mockResolvedValue(
-      fetchOk([
-        createRawItem({ sourceId: 'repo-1', version: '1.0.0' }),
-        createRawItem({ sourceId: 'repo-2', version: '2.0.0' }),
-      ]),
-    )
+    mockFetchAllRawItems.mockResolvedValue([
+      createRawItem({ sourceId: 'repo-1', version: '1.0.0' }),
+      createRawItem({ sourceId: 'repo-2', version: '2.0.0' }),
+    ])
     mockBatchUpsertRegistryItems.mockRejectedValue(new Error('db down'))
 
     const job = createMockJob()
@@ -357,9 +342,9 @@ describe('Registry Sync Worker', () => {
   })
 
   it('triggerId 存在时,完成后回写 webhook trigger 状态为 processed', async () => {
-    mockFetchAllRawItems.mockResolvedValue(
-      fetchOk([createRawItem({ sourceId: 'repo-1', version: '1.0.0' })]),
-    )
+    mockFetchAllRawItems.mockResolvedValue([
+      createRawItem({ sourceId: 'repo-1', version: '1.0.0' }),
+    ])
     mockBatchUpsertRegistryItems.mockResolvedValue({
       inserted: 1,
       updated: 0,
@@ -410,9 +395,9 @@ describe('Registry Sync Worker', () => {
   })
 
   it('force=false 且 upsert 返回 oldVersion === raw.version(无变更)时,计为 skipped', async () => {
-    mockFetchAllRawItems.mockResolvedValue(
-      fetchOk([createRawItem({ sourceId: 'repo-1', version: '1.0.0' })]),
-    )
+    mockFetchAllRawItems.mockResolvedValue([
+      createRawItem({ sourceId: 'repo-1', version: '1.0.0' }),
+    ])
     mockBatchUpsertRegistryItems.mockResolvedValue({
       inserted: 0,
       updated: 0,
@@ -440,13 +425,11 @@ describe('Registry Sync Worker', () => {
   })
 
   it('sync_log 的 oldVersion 聚合:第一个版本变化的 oldVersion 被写入', async () => {
-    mockFetchAllRawItems.mockResolvedValue(
-      fetchOk([
-        createRawItem({ sourceId: 'repo-1', version: '1.0.0' }),
-        createRawItem({ sourceId: 'repo-2', version: '2.0.0' }),
-        createRawItem({ sourceId: 'repo-3', version: '3.0.0' }),
-      ]),
-    )
+    mockFetchAllRawItems.mockResolvedValue([
+      createRawItem({ sourceId: 'repo-1', version: '1.0.0' }),
+      createRawItem({ sourceId: 'repo-2', version: '2.0.0' }),
+      createRawItem({ sourceId: 'repo-3', version: '3.0.0' }),
+    ])
     mockBatchUpsertRegistryItems.mockResolvedValue({
       inserted: 0,
       updated: 2,
@@ -492,9 +475,9 @@ describe('Registry Sync Worker', () => {
   })
 
   it('force=true 时,oldVersion===version 仍计为 synced(跳过幂等检查)', async () => {
-    mockFetchAllRawItems.mockResolvedValue(
-      fetchOk([createRawItem({ sourceId: 'repo-1', version: '1.0.0' })]),
-    )
+    mockFetchAllRawItems.mockResolvedValue([
+      createRawItem({ sourceId: 'repo-1', version: '1.0.0' }),
+    ])
     mockBatchUpsertRegistryItems.mockResolvedValue({
       inserted: 0,
       updated: 1,

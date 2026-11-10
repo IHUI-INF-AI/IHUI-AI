@@ -8,11 +8,7 @@
  * 病灶:ws/customer-service 的 sessionId 来自客户端 query,找到会话后直接挂到该会话的
  * 广播组 —— 任意登录用户拿到他人 sessionId 即可接管客服会话(读消息/冒充客户发言)。
  *
- * 判据:会话属主 ≠ 连接用户时 close(4004) 且不进任何会话;属主一致时照常 cs_connected。
- *
- * 2026-11-08 契约收口:"会话不存在/非属主/已关闭"合并为同一个 4004(不泄露会话是否存在,
- * 否则 4003 与 4004 的差异本身就是一枚存在性探测口)。本锁随之从 4003 收到 4004,
- * 但"拒绝 + 零下行帧"的判据不变。
+ * 判据:会话属主 ≠ 连接用户时 close(4003) 且不进任何会话;属主一致时照常 cs_connected。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
@@ -97,7 +93,7 @@ describe('F-109 客服 WS 会话必须校验属主', () => {
     state.sessionOwner = VICTIM
   })
 
-  it('拿他人 sessionId 连接 → close(4004),不进入会话', async () => {
+  it('拿他人 sessionId 连接 → close(4003),不进入会话', async () => {
     const { server, handlers } = makeFakeServer()
     await wsCustomerService(server as never, {})
     const handler = handlers.get('/ws/customer-service')
@@ -106,7 +102,7 @@ describe('F-109 客服 WS 会话必须校验属主', () => {
     const socket = makeSocket()
     handler!(socket, makeRequest('victim-session'))
     await vi.waitFor(() => expect(socket.close).toHaveBeenCalled())
-    expect(socket.close).toHaveBeenCalledWith(4004, '会话不存在')
+    expect(socket.close).toHaveBeenCalledWith(4003, '无权访问该会话')
     // 未进入会话:不应收到 cs_connected 之类的下行帧
     expect(socket.send).not.toHaveBeenCalled()
   })

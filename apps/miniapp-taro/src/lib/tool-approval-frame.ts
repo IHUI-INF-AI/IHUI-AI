@@ -51,7 +51,7 @@ export function dataPayloadOfLine(line: string): string | null {
 // 共享 @ihui/shared/utils/sse-parse 的 SSEEvent 联合类型不含 'question',parseSSEChunk
 // 也不认领该帧(web/RN 走 tryParseQuestion 整行旁路);本端复用同一条 onRawLine 旁路
 // 自行认领,再经 api/index.ts 的 onQuestion 回调分发到提问卡组件。
-const QUESTION_FRAME_TYPE = 'question'
+export const QUESTION_FRAME_TYPE = 'question'
 
 /** 与 @ihui/api-client streamChat.onQuestion / 后端 Question.to_dict() 逐字同形。 */
 export interface QuestionCardPayload {

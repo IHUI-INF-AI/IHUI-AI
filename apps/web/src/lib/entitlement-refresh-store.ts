@@ -19,17 +19,17 @@
  *  5. access 类查询 60s 去重;请求选项全字段 JSON 序列化做请求键(键序无关)。
  */
 
-const REFRESH_FAILURE_BACKOFF_MS: ReadonlyArray<number> = [30_000, 60_000, 120_000, 300_000]
+export const REFRESH_FAILURE_BACKOFF_MS: ReadonlyArray<number> = [30_000, 60_000, 120_000, 300_000]
 
 /** access 类查询去重窗口 */
-const REFRESH_ACCESS_DEDUPE_MS = 60_000
+export const REFRESH_ACCESS_DEDUPE_MS = 60_000
 
 /** 失败广播的稳定错误标记 */
 export const REFRESH_FAILED = 'refresh_failed'
 
-type RefreshListener<TSnapshot> = (snapshot: TSnapshot | null, error?: string) => void
+export type RefreshListener<TSnapshot> = (snapshot: TSnapshot | null, error?: string) => void
 
-interface BeginRequestHandle {
+export interface BeginRequestHandle {
   requestKey: string
   isCurrent(): boolean
 }

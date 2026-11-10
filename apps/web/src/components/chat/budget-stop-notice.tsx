@@ -49,7 +49,7 @@ interface BudgetStopFacts {
 }
 
 /** 内联提示条本体：只展示服务端算好的百分比字段，不再二次计算。 */
-function BudgetStopNotice({ facts }: { facts: BudgetStopFacts }) {
+export function BudgetStopNotice({ facts }: { facts: BudgetStopFacts }) {
   const reasonText = budgetStopReasonText(facts.reasonCode)
   const isKnownReason = reasonText !== BUDGET_STOP_FALLBACK_TEXT
   const hasUsage = typeof facts.usedTokens === 'number' || typeof facts.limitTokens === 'number'
