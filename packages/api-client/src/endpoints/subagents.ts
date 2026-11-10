@@ -80,6 +80,11 @@ export interface SubagentDispatchMetrics {
   totalTokens: number
   /** 已耗时(ms);未开跑 = 0 */
   elapsedMs: number
+  /**
+   * 真实原生 tool_calls 总条数(2026-11-08 P1)。
+   * 0 是有效判据(「跑了但一次工具都没调」),不要当缺失值隐藏。
+   */
+  toolCalls?: number
   /** 已产生的步骤明细 */
   steps: SubagentDispatchStep[]
   /** DAG 编排时:已完成节点数 */

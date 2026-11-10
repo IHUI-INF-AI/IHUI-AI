@@ -10,7 +10,7 @@
  *  ② 列表态端内零布局(创建表单已抽到宿主模块 create-view.tsx);
  *  ③ props 真到共享屏且 onOpen/onEdit/onBack 真接线;
  *  ④ 页源码不得回潮第二份实现(列表卡片/参数行/头部都搬走了);
- *  ⑤ 页内 JSX 只剩壳的两个节点(ThemeRoot + 共享屏,AST 计数);
+ *  ⑤ 页内 JSX 只剩三个节点(ThemeRoot 成对 + 创建表单宿主组件 + 共享屏,后两者自闭合,AST 计数);
  *  ⑥ 宿主模块承接创建表单、共享屏与 RN 消费点各自成锁。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -192,14 +192,17 @@ describe('n8n 模型页薄壳(直载 n8n-model/N8nModelScreen)', () => {
     expect(PAGE_SOURCE).not.toContain('renderParamList')
     expect(PAGE_SOURCE).not.toContain('className="nm-header"')
 
-    expect(PAGE_SOURCE).toContain('renderCreateView(')
+    // 创建表单入口已从页内函数 `renderCreateView()` 收成宿主模块组件 `<CreateView>`(见 create-view.tsx),
+    // 判据跟着真实形态走:页内只允许"引宿主模块 + 挂组件",不允许把表单再写回来。
+    expect(PAGE_SOURCE).toContain("from './create-view'")
+    expect(PAGE_SOURCE).toContain('<CreateView')
     expect(PAGE_SOURCE).toContain('onOpen={')
     expect(PAGE_SOURCE).toContain('@ihui/rn-app/features/n8n-model/N8nModelScreen')
     expect(PAGE_SOURCE).toContain("get('/workflows/n8n')")
     expect(PAGE_SOURCE).toContain('useUiField')
   })
 
-  it('⑤ AST 锁:页内 JSX 仅 ThemeRoot 元素 + 共享屏自闭合,无片段/无文本', () => {
+  it('⑤ AST 锁:页内 JSX 仅 ThemeRoot 成对 + 创建表单宿主组件/共享屏两枚自闭合,无片段/无文本', () => {
     const sourceFile = createSourceFile(
       'index.tsx',
       PAGE_SOURCE,
@@ -220,11 +223,13 @@ describe('n8n 模型页薄壳(直载 n8n-model/N8nModelScreen)', () => {
     }
     visit(sourceFile)
 
+    // ThemeRoot 是唯一成对标签(壳根);CreateView(宿主模块入口)与共享屏都是自闭合。
+    // 三枚之外再多就是列表实现回潮,本锁判红。
     expect(jsxElement).toBe(1)
-    expect(jsxSelfClosing).toBe(1)
+    expect(jsxSelfClosing).toBe(2)
     expect(jsxFragment).toBe(0)
     expect(jsxText).toBe(0)
-    expect(jsxElement + jsxSelfClosing + jsxFragment).toBeLessThanOrEqual(2)
+    expect(jsxElement + jsxSelfClosing + jsxFragment).toBeLessThanOrEqual(3)
   })
 
   it('⑥ 宿主模块锁:创建富表单留在端内,不引 RN 原语', () => {

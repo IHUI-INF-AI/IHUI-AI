@@ -17,7 +17,9 @@
 
 约定:
 - `source` 不在 `SOURCES` 内 → 抛 `ValueError`(路由映射为 400)
-- `parsed` 只含 `conversations` 一个键;单条会话形如
+- `parsed` 含 `conversations`,`source` 命中运行时分维导出时额外带 `runtime`
+  (automations/skills/memory/capabilities 等非会话维度,见 `runtime_bundle.py`);
+  单条会话形如
   `{title?, source, model?, sourceCreatedAt?, sourceUpdatedAt?,
   messages:[{role,content,createdAt?}]}`
   —— 与 api 侧 commitSchema、web 预览消费的字段一一对应
@@ -34,6 +36,7 @@ from typing import Any
 
 from . import aider, chatgpt, claude_ai, claude_code, codex, cursor, wechat
 from .ir import ParseResult, finalize
+from .runtime_bundle import classify_runtime_bundle
 
 __all__ = ["SOURCES", "parse_conversation_file"]
 
@@ -63,5 +66,16 @@ def parse_conversation_file(
         raise ValueError(f"不支持的数据源: {source}(允许: {', '.join(SOURCES)})")
     if not data or data.isspace():
         raise ValueError("上传的文件内容为空")
+    # 运行时分维导出(automations/skills/memory/capabilities 命名空间)先在此拆开:
+    # 会话维度仍走 finalize 的同一套净化/截断,其余维度只进 `runtime`,不与会话混写
+    # (混写会让 runtime 项被当成会话落库)。命名空间不命中 ⇒ None,原解析器照旧。
+    bundle = classify_runtime_bundle(data)
+    if bundle is not None:
+        parsed, warnings, truncated = finalize(
+            ParseResult(conversations=bundle.conversations, warnings=bundle.warnings),
+            source=source,
+        )
+        parsed["runtime"] = bundle.as_runtime()
+        return parsed, warnings, truncated or bundle.truncated
     return finalize(parser(data, filename), source=source)
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

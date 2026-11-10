@@ -92,6 +92,8 @@ interface SubagentDispatchMetrics {
   totalTokens: number
   /** 已耗时(ms);未开跑 = 0 */
   elapsedMs: number
+  /** 真实原生 tool_calls 总条数(0 也是有效值,表示零工具执行) */
+  toolCalls: number
   /** 已产生的步骤明细 */
   steps: SubagentDispatchStep[]
   /** DAG 编排时:已完成节点数 */
@@ -142,6 +144,8 @@ export function buildFleetRow(
   const metrics: SubagentDispatchMetrics = {
     totalTokens: stats.totalTokens,
     elapsedMs: dispatch.startedAt ? Math.max(0, stats.totalDurationMs) : 0,
+    // P1(2026-11-08):工具调用总账恒显式给出(0 也返回),「completed + toolCalls=0」可机械识别
+    toolCalls: stats.toolCalls,
     steps: stats.steps.map((s) => ({
       agent: s.agent,
       status: s.status,
