@@ -60,8 +60,10 @@ const CHAT_CARRY = Object.freeze({
   doubao: {
     kind: 'cloud',
     text:
-      '对话在云端且与账号绑定、本地零副本 —— 客户端无导出功能;用 node scripts/doubao-carry.mjs --export ' +
-      '走 /samantha 接口归档(需旧号 cookie);thread/create 不带消息体 ⇒ 只能归档到本器,不能写回新号云端',
+      '对话在云端且与账号绑定、本地零副本,豆包没有逐条消息写回的端点 ⇒ 走回放迁移:' +
+      '旧号登录态跑 node scripts/doubao-carry.mjs --export --apply 全量归档;' +
+      '再切到新号(本机登录新号)跑 node scripts/doubao-carry.mjs --replay <归档目录> --apply,' +
+      '旧对话以新会话进新号,打开客户端即可接着聊(指纹防重,复跑自动跳过;--limit n 可先试水)',
   },
 })
 

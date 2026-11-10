@@ -9,13 +9,16 @@
  *   node scripts/doubao-carry.mjs --export --apply     # 真导出到 .ihui-agent/doubao-archive/<ts>/
  *   node scripts/doubao-carry.mjs --export --apply --out D:/doubao
  *   node scripts/doubao-carry.mjs --index <dir>        # 只读打印归档清单
+ *   node scripts/doubao-carry.mjs --replay <dir>       # 干跑:列将回放进新号的会话
+ *   node scripts/doubao-carry.mjs --replay <dir> --apply [--limit n]
+ *                                                      # 用本机(新号)登录态把旧对话回放成新会话
  *   node scripts/doubao-carry.mjs --cookie "a=1; b=2"  # 本机无凭据时手动传
  *   node scripts/doubao-carry.mjs --cdp 9222           # 从运行中的豆包取 cookie
  *
  * 纪律(与仓库其它器物同规矩):
- *  - 默认干跑,`--apply` 才真写盘;写盘只写 `--out` / 默认归档根,绝不动豆包数据目录;
+ *  - 默认干跑,`--apply` 才真写盘/真发送;写盘只写 `--out` / 默认归档根,绝不动豆包数据目录;
  *  - cookie 只打来源与条数,零明文回显;
- *  - 退出码:0 完成 / 1 导出失败(含无凭据、登录过期) / 2 用法错或未判定。
+ *  - 退出码:0 完成 / 1 导出或回放失败(含无凭据、登录过期) / 2 用法错或未判定。
  */
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -26,17 +29,24 @@ import {
   listConversations,
   readArchiveIndex,
   readDoubaoCookie,
+  replayArchive,
   parseCookieHeader,
 } from './lib/doubao-carry.mjs'
 
-const USAGE = `豆包跨号会话归档(只读云端 /samantha 接口,不写豆包数据目录)
+const USAGE = `豆包跨号会话归档 + 回放(只走云端 /samantha 接口,不写豆包数据目录)
 
+  导出(旧号登录态):
   node scripts/doubao-carry.mjs                        干跑:打印将导出什么
   node scripts/doubao-carry.mjs --export --apply       真导出(默认落 .ihui-agent/doubao-archive/<ts>/)
   node scripts/doubao-carry.mjs --export --apply --out <dir>
   node scripts/doubao-carry.mjs --index <dir>          只读打印归档清单
-  node scripts/doubao-carry.mjs --cookie "<k=v; k=v>"  手动传 cookie
-  node scripts/doubao-carry.mjs --cdp <port>           从运行中的豆包(CDP)取 cookie
+
+  回放(新号登录态):旧对话以一条 user 消息进新会话,服务端自动建 conversation
+  node scripts/doubao-carry.mjs --replay <dir>         干跑:列将回放哪些会话
+  node scripts/doubao-carry.mjs --replay <dir> --apply          真回放(指纹防重,重复跑自动跳过已回放)
+  node scripts/doubao-carry.mjs --replay <dir> --apply --limit 5 先回放最近 5 个试水
+
+  凭据:--cookie "<k=v; k=v>" 手动传 / --cdp <port> 从运行中的豆包(CDP)取 / 默认读本机 Cookies 库
   其它:--profile <dir> 指定 profile 目录 / --max-pages <n> 翻页上限
 `
 
@@ -172,7 +182,86 @@ async function main(argv = process.argv.slice(2)) {
   }
   if (indexDir.present) return printIndex(indexDir.value)
 
+  const replay = takeValue(argv, '--replay')
+  if (replay.error) {
+    console.error(`用法错:${replay.error}`)
+    return 2
+  }
   const apply = argv.includes('--apply')
+  const limit = takeValue(argv, '--limit')
+  if (limit.error) {
+    console.error(`用法错:${limit.error}`)
+    return 2
+  }
+  if (replay.present) {
+    const out = takeValue(argv, '--out')
+    const profile = takeValue(argv, '--profile')
+    for (const [, r] of [
+      ['--out', out],
+      ['--profile', profile],
+    ]) {
+      if (r.error) {
+        console.error(`用法错:${r.error}`)
+        return 2
+      }
+    }
+    // 回放腿的凭据同样三路:cookie 明文 > CDP > 本机 Cookies 库(此时本机登录的是【新号】)
+    let cookie
+    const manual = takeValue(argv, '--cookie')
+    const cdp = takeValue(argv, '--cdp')
+    if (manual.error || cdp.error) {
+      console.error(`用法错:${(manual.error || cdp.error)}`)
+      return 2
+    }
+    if (manual.present) {
+      const n = Object.keys(parseCookieHeader(manual.value)).length
+      if (n === 0) {
+        console.error('用法错:--cookie 里没有一条 k=v')
+        return 2
+      }
+      cookie = { code: 'ok', cookieHeader: manual.value, count: n, source: '--cookie' }
+    } else if (cdp.present) {
+      cookie = await cookieViaCdp(cdp.value)
+    } else {
+      cookie = await readDoubaoCookie({ profileDir: profile.value || defaultDoubaoProfileDir() })
+    }
+    if (cookie.code !== 'ok') {
+      console.error(`❌ 回放失败:${cookie.message ?? cookie.code}(code=${cookie.code})`)
+      console.error('   回放需要【新号】的登录态:登录新号后重跑,或 --cookie "<k=v; k=v>" / --cdp <port>')
+      return 1
+    }
+    console.info(`凭据:${cookie.source}(${cookie.count} 条 cookie)`)
+    const res = await replayArchive({
+      cookieHeader: cookie.cookieHeader,
+      archiveDir: replay.value,
+      apply,
+      limit: limit.value ? Number(limit.value) : 0,
+      onProgress: (p) => {
+        if (p.phase === 'done') {
+          console.info(`  [${p.done}/${p.total}] ${p.conv.name || p.conv.conversationId} → 新会话 ${p.newConversationId}`)
+        } else if (p.phase === 'skipped') {
+          console.info(`  跳过 ${p.conv.name || p.conv.conversationId}(已回放过 → ${p.newConversationId})`)
+        } else if (p.phase === 'failed') {
+          console.error(`  失败 ${p.conv.name || p.conv.conversationId}(${p.code ?? ''}${p.message ? `:${p.message}` : ''})`)
+        } else if (p.phase === 'dry-run') {
+          console.info(`  [${p.done}/${p.total}] ${p.conv.name || p.conv.conversationId}(${p.messages} 条消息)`)
+        }
+      },
+    })
+    if (res.code !== 'ok') {
+      console.error(`❌ 回放失败:${res.message || res.code}(code=${res.code})`)
+      return 1
+    }
+    if (!apply) {
+      console.info(`[dry-run] 共 ${res.total} 个归档会话;确认后加 --apply 真回放(--limit n 可先试水)`)
+      console.info('✅ 干跑完成:未发送任何消息')
+      return 0
+    }
+    const bits = [`回放 ${res.replayed}`, `跳过(已回放) ${res.skipped}`, `失败 ${res.failed}`]
+    console.info(`✅ 回放完成:${bits.join(' / ')};落点记录:${res.logFile}`)
+    console.info('   打开豆包客户端(新号),侧栏最新会话即旧对话上下文,可直接接着聊')
+    return res.failed > 0 && res.replayed === 0 ? 1 : 0
+  }
   const out = takeValue(argv, '--out')
   const profile = takeValue(argv, '--profile')
   const maxPages = takeValue(argv, '--max-pages')
