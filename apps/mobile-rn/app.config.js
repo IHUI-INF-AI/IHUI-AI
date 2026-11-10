@@ -210,7 +210,7 @@ module.exports = ({ config }) => {
       //    fontNamesForFamilyName 取不到对应字重,粗细混排同字会换脸。
       //
       // 结论:与小程序端同口径走**系统中文黑体栈**,见 global.css 的品牌栈口径留痕与
-      // scripts/data/cross-end-allowed-diffs.json(platform:font-stack-cjk / mobile-rn)。
+      // scripts/data/cross-end-allowed-diffs.json(platform:font-stack-cjk / rn)。
       // 若将来确要自托管,前置条件是完整字库(≥8MB/面、三面同族同码位)+ 逐处显式
       // fontFamily 或编译期 Babel 注入 + 真机回归,不是本轮能顺带完成的事。
       // 撤掉运行时字体门同时根治了热更首启「7.4MB 字体远端取用失败 ⇒ 整棵树

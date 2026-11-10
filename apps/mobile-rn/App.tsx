@@ -186,7 +186,7 @@ const ROUTE_ROOT_BG: Record<string, (t: RnThemeTokens, dark: boolean) => string>
  *
  * 本轮定性:**不自托管**,与小程序端同口径走系统中文黑体栈(三条实测原因见
  * app.config.js,登记见 scripts/data/cross-end-allowed-diffs.json 的
- * platform:font-stack-cjk / mobile-rn)。原先挂在 app.config.js 的 expo-font 注册一并
+ * platform:font-stack-cjk / rn)。原先挂在 app.config.js 的 expo-font 注册一并
  * 撤掉 —— 注册了族名也没有任何 Text 消费(全仓 fontFamily 仅 23 处,都是等宽档)。
  * 若将来确要自托管,前置是完整字库(≥8MB/面、三面同族同码位)+ 逐处显式 fontFamily
  * 或编译期 Babel 注入 + 真机回归,不是能顺带完成的事。

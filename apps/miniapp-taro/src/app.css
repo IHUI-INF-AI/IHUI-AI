@@ -460,8 +460,10 @@ progress {
   --radius-2xl: 1rem;
 }
 
-/* ===== 阿里妈妈方圆体 VF — 统一项目字体 (对齐原项目) =====
-   @font-face 通过 JS 动态注入 (app.tsx),避免 webpack CSS url() 解析错误 */
+/* ===== 阿里妈妈方圆体 VF — 历史留痕(原「统一项目字体 / 对齐原项目」) =====
+   旧实现曾通过 JS 动态注入 @font-face (app.tsx,避免 webpack CSS url() 解析错误);
+   FontLoader/动态注入已于 2026-07-27 因 TLS/域名问题移除,现统一走 --font-sans 栈
+   (web 首选自托管 HarmonyOS Sans SC,小程序走系统中文栈 —— 详见下方页面根节点注释)。 */
 
 /* ===== 页面根节点(2026-09-03 两端一致性重构)=====
    历史遗留的 page{background:#121217;color:#fff;font:AlimamaFangYuanTi !important}

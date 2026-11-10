@@ -533,6 +533,9 @@
 | 字体格式 | WOFF2子集(小) | TTF全量(大) | ⚠️ 退化 |
 | 小程序字体 | `AlimamaFangYuanTi` | 未使用 | ❌ 未迁移 |
 
+> **历史审计快照**:上表「字体格式 / 小程序字体」两行为迁移当时留痕,结论已由 `PERFORMANCE.md §7.3` 与 `scripts/data/cross-end-allowed-diffs.json` 取代,保留不改。
+> **2026-11-10 现状**:web = 分段 WOFF2 自托管面(400 档主面 + `gbk-rare` 补面按 `unicode-range` 精确互补);小程序/RN 定性为平台能力差异,走系统中文黑体栈;阿里妈妈族名在 RN 端判定既非 family 也非 PostScript name,已撤除。
+
 ### 5.6 过渡动画
 
 | Token | 旧值 | 新值 | 一致性 |
