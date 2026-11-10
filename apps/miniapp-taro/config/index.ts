@@ -155,6 +155,22 @@ export default defineConfig(async (merge) => {
     alias: {
       '@': path.resolve(__dirname, '..', 'src'),
       // 与 mini 段同三条(h5 段不覆盖顶层 alias,但为防"平台段整体替换"的坑在此也备齐)
+      // 2026-11-10 H5 构建修复(ScrollEdgeFades 真渲染验证票):mini 段 alias 是平台级整体替换,
+      // h5 段无 alias ⇒ 顶层即 h5 唯一解析面。RN 壳薄壳页(`@rn-shells/<Name>`,2026-10-26 起
+      // 只补了 mini 段)在 h5 解析失败 ⇒ `build:h5` 自那日起必红。与 mini 段同源同值补齐。
+      '@rn-shells': path.resolve(
+        __dirname,
+        '..',
+        '..',
+        '..',
+        'apps',
+        'mobile-rn',
+        'src',
+        'screens',
+      ),
+      // react 强制收敛到端内 react@18(与 mini 段 2026-09-11 双实例白屏修复同理:
+      // packages/app 自带 react@19 依赖,h5 经 webpack 从 importer 目录解析会出双实例)
+      react: path.resolve(__dirname, '..', 'node_modules', 'react'),
       'react-native$': path.resolve(__dirname, '..', 'src', 'rn-compat', 'index.ts'),
       'lucide-react-native$': path.resolve(
         __dirname,
@@ -589,6 +605,11 @@ export default defineConfig(async (merge) => {
           path.resolve(__dirname, '..', '..', '..', 'packages', 'shared', 'src'),
           path.resolve(__dirname, '..', '..', '..', 'packages', 'types', 'src'),
           path.resolve(__dirname, '..', '..', '..', 'packages', 'app', 'src'),
+          // 2026-11-10 H5 构建修复(与 mini 段编译面对齐):这两处同为未预编译 TS 源,
+          // 缺任何一条 = h5 侧 ModuleParseError(packages/app 闭包 import @ihui/ui-native;
+          // 薄壳页经 @rn-shells 别名直进 RN 壳目录)
+          path.resolve(__dirname, '..', '..', '..', 'packages', 'ui-native', 'src'),
+          path.resolve(__dirname, '..', '..', '..', 'apps', 'mobile-rn', 'src'),
         ],
       },
       // 项目无 babel.config.js，webpack5 编译器需在 babel-loader 程序化注入 babel-preset-taro
@@ -608,6 +629,36 @@ export default defineConfig(async (merge) => {
             ...options,
             presets: [['taro', { framework: 'react', ts: true, compiler: 'webpack5' }]],
           }))
+        // 2026-11-10 H5 构建修复(与 mini 段 webpackChain 同两条,理由见 mini 段原注):
+        // packages/shared 里 `.js` 后缀相对导入指同名 .ts 源,不加 extensionAlias 解析失败;
+        // RN 壳闭包里的裸读 `../i18n` 与 `../context/ThemeContext` 须换到端内真相源。
+        chain.resolve.set('extensionAlias', {
+          '.js': ['.ts', '.tsx', '.js'],
+          '.mjs': ['.mts', '.mjs'],
+        })
+        chain.plugin('rnShellReplacements').use(RnShellReplacePlugin, [
+          [
+            {
+              base: path.resolve(__dirname, '..', '..', '..', 'apps', 'mobile-rn', 'src', 'i18n'),
+              to: path.resolve(__dirname, '..', 'src', 'rn-compat', 'i18n.ts'),
+            },
+            {
+              base: path.resolve(
+                __dirname,
+                '..',
+                '..',
+                '..',
+                'apps',
+                'mobile-rn',
+                'src',
+                'context',
+                'ThemeContext',
+              ),
+              to: path.resolve(__dirname, '..', 'src', 'rn-compat', 'theme.tsx'),
+            },
+          ],
+          'apps/mobile-rn/src/',
+        ])
         chain.optimization.runtimeChunk('single')
         chain.optimization.splitChunks({
           chunks: 'async',
