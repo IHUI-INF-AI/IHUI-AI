@@ -5458,6 +5458,12 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-10**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (358b1e4c8a)
+- 🚀 新功能/改进:号池导出工具 + codearts 永久AK/SK可导入 + 往返测试 (0c07cd5d50)
+- 🔧 工程/其他:miniapp 离线包按 HEAD 面(7f27d9d3ae)消息源重生成——清偿合并提交 c501898 记账的『生成物按本侧留下、落地后需重生成』欠账:三 gen.ts 自述钉 sourceCommit 对齐当前 HEAD,inputsSha256=a80eef25 对齐 mobile-rn 五语言与 shared 四语言现量(含 hrAttendance 去重后键面),补齐 en/ja/ko/zh-TW 包缺的 stepDecision.decision.skillGrantSkipApproval 与 zh-TW taskStatus.toolBrowserConsoleMessages 取值修正;CDN 载荷同批输出,溯源水印已注入;索引原暂存版为 05:15 同源重生成(仅 sourceCommit 钉旧 HEAD 与时间戳差),已按最新钉面覆盖 (0e730258df)
+- 🐞 修复:key_pool_selector 收口 mypy 两处类型错,解密失败改 fail-closed (43f40c6d30)
+
+**2026-11-10**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (7c975f7d2e)
 
 **2026-11-10**
