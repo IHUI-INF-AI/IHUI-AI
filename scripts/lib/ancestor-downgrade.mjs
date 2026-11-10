@@ -102,21 +102,48 @@ export function headBlobOf(rel, { root } = {}) {
 }
 
 /**
+ * 进程内「祖先清单」记忆(2026-11-10 提速;判据一字未改,只去掉重复取材)。
+ *
+ * 立因(实测):同一路径在同一轮里被问**两次** —— 索引臂先问 `ancestorBlobOf`(逐字档),
+ * 未命中后再问 `ancestorContentMatch`(归一化 / 标识符集合两档),两者各自跑一遍
+ * `git rev-list --max-count=80 HEAD -- <rel>`。这趟在深历史路径上是整门最贵的一步
+ * (本仓单条实测 2.5~3.4s;提交链 8 门并行时 ×4,门 298 的 126s 主要就是它)。
+ *
+ * 三条不许漂的写法:
+ * ① 键里带 `HEAD oid + 窗口大小 + 路径` 与 root ⇒ HEAD 一变(新提交)、窗口一变即重新取材,
+ *    不存在拿旧读数判新面;
+ * ② `judged:false`(**没判成**)一律不进记忆 —— 下一问必须重试,绝不把失败当结论复用;
+ * ③ 只记忆"祖先清单"这一层取材,判定仍在各档里逐次做(命中逻辑不共享状态)。
+ */
+const ANCESTOR_LIST_MEMO = new Map()
+const ANCESTOR_LIST_MEMO_MAX = 2000
+
+/**
  * 该路径在 HEAD 之前的祖先提交清单(逐字档与归一化档共用,不再各取一遍)。
  * 三态:HEAD 取不到 / rev-list 取不到 ⇒ judged:false(§0.3,不折成"没有祖先")。
  */
 export function ancestorCommitList(rel, { root, windowSize = ANCESTOR_WINDOW_DEFAULT } = {}) {
+  const win = Number(windowSize) || ANCESTOR_WINDOW_DEFAULT
+  let head = ''
   try {
-    const head = String(gitRaw(['rev-parse', 'HEAD'], root)).trim()
-    const list = String(
-      gitRaw(['rev-list', `--max-count=${Number(windowSize) || ANCESTOR_WINDOW_DEFAULT}`, 'HEAD', '--', rel], root),
-    )
+    head = String(gitRaw(['rev-parse', 'HEAD'], root)).trim()
+  } catch {
+    return { judged: false, list: [], scanned: 0, why: '祖先面取不到:HEAD 不可解析' }
+  }
+  const key = `${root}\0${head}\0${win}\0${rel}`
+  const memo = ANCESTOR_LIST_MEMO.get(key)
+  if (memo) return memo
+  try {
+    const list = String(gitRaw(['rev-list', `--max-count=${win}`, 'HEAD', '--', rel], root))
       .split(/\r?\n/)
       .map((s) => s.trim())
       .filter(Boolean)
       // HEAD 自身不是祖先:HEAD 触及该路径时 rev-list 会把它排在首位,那一条要摘掉。
       .filter((c) => c !== head)
-    return { judged: true, list, scanned: list.length, why: null }
+    const out = { judged: true, list, scanned: list.length, why: null }
+    if (ANCESTOR_LIST_MEMO.size >= ANCESTOR_LIST_MEMO_MAX) ANCESTOR_LIST_MEMO.clear()
+    ANCESTOR_LIST_MEMO.set(key, out)
+    return out
   } catch (e) {
     return { judged: false, list: [], scanned: 0, why: `祖先面取不到:${String(e?.message ?? e).split('\n')[0]}` }
   }

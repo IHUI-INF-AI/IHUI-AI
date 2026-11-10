@@ -31,6 +31,7 @@ import { join } from 'node:path'
 import { gitRaw } from '../lib/face-reader.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { __test__ as gate } from '../check-staged-downgrade.mjs'
+import { ancestorBlobOf, ancestorCommitList } from '../lib/ancestor-downgrade.mjs'
 import { downgradeGuardOf } from '../gen-ui-mirror.mjs'
 
 const REL = 'f.ts'
@@ -316,6 +317,44 @@ test('T17 疑退档:真仓那枚旧档的形态(带 HEAD 已退役符号)⇒ 三
     assert.equal(r.state, 'pass')
     assert.equal(r.suspects.length, 1)
     assert.ok(r.suspects[0].missing >= 10 && r.suspects[0].extra >= 1)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('T18 祖先清单记忆: 同路径连问两个候选各自命中各自的祖先,HEAD 一变必重新取材', () => {
+  const { dir, g } = makeRepo('alpha\n')
+  try {
+    commitAs(dir, g, 'beta\n', 'v2')
+    commitAs(dir, g, 'gamma\n', 'v3')
+    const [c3, c2, c1] = g(['rev-list', 'HEAD', '--', REL]).split(/\r?\n/)
+    const b1 = g(['rev-parse', `${c1}:${REL}`])
+    const b2 = g(['rev-parse', `${c2}:${REL}`])
+
+    // 第一问 c1 的旧 blob:记忆在这一步建立(清单 = [c2, c1],HEAD 自身不算祖先)
+    const m1 = ancestorBlobOf(REL, b1, { root: dir })
+    assert.equal(m1.judged, true)
+    assert.equal(m1.match?.commit, c1, 'c1 的旧档必须命中 c1 自己')
+    assert.equal(m1.scanned, 2)
+    // 第二问 c2 的旧 blob:必须重新比对,绝不能复用上一问的命中(记忆只记忆清单,不记忆结论)
+    const m2 = ancestorBlobOf(REL, b2, { root: dir })
+    assert.equal(m2.match?.commit, c2, '第二问必须命中 c2,不得串用第一问的 c1')
+    // 从未存在过的候选仍必须判"不是回写"(不得因记忆而假命中)
+    const m3 = ancestorBlobOf(REL, 'f'.repeat(40), { root: dir })
+    assert.equal(m3.judged, true)
+    assert.equal(m3.match, null)
+
+    // 记忆命中形态:同一 HEAD 下两次取材必须返回**同一个对象**(否则等于没记忆)
+    const l1 = ancestorCommitList(REL, { root: dir })
+    const l2 = ancestorCommitList(REL, { root: dir })
+    assert.equal(l1, l2, '同一 HEAD/路径/窗口必须复用同一次取材')
+    assert.equal(l1.list.length, 2)
+    // HEAD 一变(新提交)⇒ 键变 ⇒ 必须重新取材,不许拿旧清单判新面
+    commitAs(dir, g, 'delta\n', 'v4')
+    const l3 = ancestorCommitList(REL, { root: dir })
+    assert.notEqual(l3, l2, 'HEAD 变了必须重新取材')
+    assert.equal(l3.list.length, 3)
+    assert.equal(l3.list[0], c3, '新清单必须以"HEAD 之外最近一枚改过该路径的提交"开头')
   } finally {
     rmScratch(dir)
   }
