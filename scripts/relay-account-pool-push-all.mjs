@@ -154,17 +154,17 @@ async function main(argv) {
       return 1
     }
 
-    const scp = await runProcess('scp', [
-      ...sshOpts,
-      '-q',
-      '-r',
-      exportDir,
-      `${options.prodHost}:${remoteDir}`,
-    ])
-    if (scp.code !== 0) {
-      process.stderr.write(`❌ scp 到生产失败: ${scp.error ?? `退出码 ${scp.code}`}\n`)
-      return 2
-    }
+    // 传输与执行合并成一条 SSH:导出内容 base64 走 stdin,远端 node -e 落盘后立刻导入。
+    // (scp + ssh 要付两次 Cloudflare 握手≈16s,合并后只付一次;本机明文读进内存即删。)
+    const bundle = {}
+    for (const f of files) bundle[f] = fs.readFileSync(path.join(exportDir, f), 'utf8')
+    const payload = Buffer.from(JSON.stringify(bundle), 'utf8').toString('base64')
+    if (!options.keepExport) fs.rmSync(exportDir, { recursive: true, force: true })
+    const writer =
+      `const fs=require('fs'),p=require('path'),d='${remoteDir.replaceAll('\\', '/')}';` +
+      `fs.mkdirSync(d,{recursive:true});` +
+      `const o=JSON.parse(Buffer.from(fs.readFileSync(0,'utf8'),'base64').toString('utf8'));` +
+      `for(const k of Object.keys(o))fs.writeFileSync(p.join(d,k),o[k]);`
     remotePrepared = true
 
     // 生产 checkout 可能还停在批量模式之前:先探一次(--file 重复给是新增能力),
@@ -186,9 +186,10 @@ async function main(argv) {
         'ℹ️ 生产 checkout 未含批量模式(导入器 --file 重复给),本次按平台逐个导入;推 main 部署后自动改走批量\n',
       )
     }
-    const remoteCmd = `cd /d "${options.prodCheckout}" & ${runSteps.join(' & ')} && rmdir /s /q "${remoteDir}"`
+    const remoteCmd = `cd /d "${options.prodCheckout}" & node -e "${writer}" && ${runSteps.join(' & ')} && rmdir /s /q "${remoteDir}"`
     const ssh = await runProcess('ssh', [...sshOpts, options.prodHost, remoteCmd], {
       inherit: false,
+      input: payload,
     })
     if (ssh.code === 0) remotePrepared = false
     const output = `${ssh.stdout ?? ''}${ssh.error ? `${ssh.error}\n` : ''}`
