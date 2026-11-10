@@ -484,7 +484,7 @@ function inlineCopyButton(href: string): string {
     `display:inline-block;padding:9px 13px;font-family:'Microsoft YaHei','SimHei',sans-serif;` +
     `font-size:13px;line-height:13px;font-weight:bold;letter-spacing:1px;color:${t.accent};` +
     `text-decoration:none;white-space:nowrap;`
-  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td bgcolor="${t.cardBg}" align="center" valign="middle" style="border:1px solid ${t.accent};border-radius:4px;"><a href="${href}" target="_blank" style="${aStyle}">${escapeHtml('一键复制')}</a></td></tr></table>`
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td bgcolor="${t.cardBg}" align="center" valign="middle" style="border:1px solid ${t.accent};border-radius:var(--radius-sm);"><a href="${href}" target="_blank" style="${aStyle}">${escapeHtml('一键复制')}</a></td></tr></table>`
 }
 
 /**
