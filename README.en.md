@@ -99,6 +99,10 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-11**
+- 📚 Docs:自动刷新最近更新块(收敛循环) (d5e9ecf561)
+- 🐞 Fix:启动门只等必需后端三件套,/health 免租户(修 240s 假死) (3460206c42)
+
+**2026-11-11**
 - 📚 Docs:刷新生成块数字(trackedFiles 20934→20936,并入 relay 长连接收口 2 个新文件) (52848a9f7e)
 - 📚 Docs:自动刷新最近更新块 + 游标跟进 cb64a7fd1c (86abb395e5)
 
@@ -211,9 +215,6 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 **2026-11-10**
 - 🐞 Fix:typecheck-full 清缓存增补 .DevEnv/.workbuddy 排除——T1 被看门狗终止的真凶实测定位(cleanTsbuildinfo 对盘根 57000+ 子目录的 .DevEnv 深递归,30s 超时都跑不完);排除后 1248ms 过,全量轮 180s 完成落回执 (c592e24ceb)
-
-**2026-11-10**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (0e10f84bd0)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
