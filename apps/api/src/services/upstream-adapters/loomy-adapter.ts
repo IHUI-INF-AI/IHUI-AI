@@ -13,8 +13,9 @@
  *   (主进程 asar.unpacked 源码字面量,见 LOOMY_QUOTA_URL 注释)。
  * - 鉴权实证:Bearer 会话票 = loomy-auth-session JSON 的 `session` 字段(32-hex),
  *   见 loomySessionToken 注释。
- * - 积分制:额度以积分形态存在,余额端点已于 2026-11-10 实证
- *   (`/api/v1/team-points/balance` + `token` 头 + body.code 判成败,见 LOOMY_QUOTA_URL)。
+ * - 积分制:额度以积分形态存在,余额端点已于 2026-11-10 双重实证
+ *   (`/api/v1/points/records` + `token` 头 + body.code 判成败,读 data.balance,
+ *   见 LOOMY_QUOTA_URL 注释)。
  *   getQuota 现在读真 `data.currentBalance`;但**本地缺票时不冒充上游拒收**
  *   (缺票 ⇒ ok:false 且 authFailed 不置位,避免把「尚未导入凭据」的空壳号判死)。
  *   上游明确拒收(401/403 或登录态业务码 100001/100002/100003)才 authFailed:true。
@@ -57,30 +58,32 @@ import type { RelayProviderCode } from '../relay-account-format.js'
  * 实测 404 + SPA 兜底页,作废。
  */
 const LOOMY_CHAT_URL = 'https://loomyad.xunfei.cn/api/v1/chat/completions'
-/** 积分余额端点(**2026-11-10 实证,非推断**)。
+/** 个人积分余额端点(**2026-11-10 双重实证:源码字面量 + 真票实弹**)。
  *
  * 来源:本机 Loomy 0.9.39 主进程 `resources/app.asar.unpacked/electron/points-service.js`
- * 的 requestPath 字面量 —— `queryTeamRecords()` → GET `/api/v1/team-points/balance`,
- * 余额取 `data.currentBalance`(同文件注释:`balance: payloadData.currentBalance`)。
+ * 的 `queryRecords()` → GET `/api/v1/points/records`,响应体
+ * `data.balance` / `data.availableBalance` / `data.dailyBalance` 即余额口径。
  *
- * 三个历史坑,逐个钉死:
+ * 三个坑,逐个钉死(每条都有实证,不是推断):
  * 1. **域名**:必须是与 chat 同一个 `loomyad.xunfei.cn` 网关。`loomy.xunfei.cn` 是
- *    Next.js SPA,对任何未知路径都回 404 + 整站 HTML —— 旧常量
+ *    Next.js SPA,对任意未知路径都回 404 + 整站 HTML —— 旧常量
  *    `https://loomy.xunfei.cn/api/user/points` 就是踩这个坑,永远拿不到结构化响应。
  * 2. **认证头**:是裸 `token`,**不是** `Authorization: Bearer`。证据:同文件
  *    `request()` 内 `headers = { token: resolvedToken }`,而
  *    `resolvedToken = 入参 token || this.getAuthSession?.() || 配置 token`;
  *    `app/account-service-container.js` 把 getAuthSession 接成
  *    `() => getAuthSession()?.session` —— 即池内那张票的 `session` 字段。
- * 3. **成败判据**:HTTP 恒 200,要看 **body.code**。`000000` = 成功;
- *    `100002` = 缺少/失效 token;`100001`/`100003` 同属登录态码。
- *    实弹(2026-11-10,本机真实网络):
- *      · 不带票   → `{"code":"100002","desc":"缺少 token","data":{}}`
- *      · 带无效票 → `{"code":"100002","desc":"登录已失效，请重新登录","data":{}}`
- *    同一个码两种 desc ⇒ 该端点能区分「没带票」与「票失效」,但两者都归 authFailed。
- *    (「没带票」这一档在本地已先拦,不会白打一次网络,见 getQuota/checkHealth 的缺票分支)
+ * 3. **成败判据**:HTTP 恒 200,结论全在 **body.code**(真票实弹,2026-11-10):
+ *      · `000000` 成功               → 记录体里 `data.balance` 是余额
+ *      · `100002` **登录失效**        → 无票「缺少 token」/ 坏票「登录已失效，请重新登录」
+ *      · `100001` **业务状态,非失效** → 「当前未切换到团队」(票有效,只是团队维度不可用)
+ *      · `900000` **业务状态,非失效** → 「团队模型清单暂不可用」
+ *    ⇒ 只有 100002 是鉴权结论。把 100001 当登录态会**误杀有效号**
+ *      (本席首版采信了「100001/100002/100003 三分」的旧说法,被真票实弹当场推翻)。
+ *    ⇒ 团队余额端点 `/api/v1/team-points/balance` 必须先切团队才可用(100001),
+ *      故不作本端点 —— 个人余额走 points/records 才是稳的。
  */
-const LOOMY_QUOTA_URL = 'https://loomyad.xunfei.cn/api/v1/team-points/balance'
+const LOOMY_QUOTA_URL = 'https://loomyad.xunfei.cn/api/v1/points/records'
 
 /**
  * 模型清单(2026-11-10 本机 opencode 运行时 /config 实读 provider.imodel.models,
@@ -191,23 +194,26 @@ function isAuthFailure(statusCode: number, bodyText: string): boolean {
 }
 
 /**
- * 登录态业务码(与 chat 网关同一套三分:100001/100002/100003)。
- * 实证出处:points-service.js 与 chat 网关回包;本机无票实弹拿到 100002「缺少 token」。
+ * 唯一实证的登录失效业务码 = **100002**。
+ *
+ * 首版曾按「100001/100002/100003 三分」全归登录态(采信旧说法),2026-11-10 用真票
+ * 实弹推翻:100001 = 「当前未切换到团队」、900000 = 「团队模型清单暂不可用」,
+ * 两者票都有效、只是业务维度不可用 —— 归进 authFailed 会把好号判死。
  */
-const LOOMY_AUTH_CODES = new Set(['100001', '100002', '100003'])
+const LOOMY_AUTH_CODES = new Set(['100002'])
 
 /**
  * 余额端点响应的判读结果(三态 + 业务失败,绝不把「读不懂」冒充成「没额度」)。
  *
- * 实证前提(2026-11-10):该端点 **HTTP 恒 200**,成败写在 body.code;
- * 余额写在 `data.currentBalance`。因此顺序是:
+ * 实证前提(2026-11-10 真票):该端点 **HTTP 恒 200**,成败写在 body.code;
+ * 余额写在 `data.balance`。因此顺序是:
  * 传输层(401/403 → 拒收;非 2xx → 未判定)→ 解析层(非 JSON → 未判定)
- * → 业务码(登录态码 → 拒收)→ 形状(`currentBalance` 是有限数 → 成功)
- * → 其余业务码(业务失败)→ 兜底未判定。
+ * → 业务码(**只有 100002 是拒收**;100001/900000 是业务状态)→
+ * 形状(`data.balance` 是有限数 → 成功)→ 其余非成功码(业务失败)→ 兜底未判定。
  *
- * 之所以把「形状优先于业务码」放在成功判定上:成功码的精确字面量尚未用真票实证过,
- * 而 `data.currentBalance` 是客户端自己读的字段(源码字面量),以形状为准既不会漏判成功,
- * 也不会因为猜错成功码把真数据判成失败。
+ * 之所以把「形状优先于业务码」放在成功判定上:成功码字面量虽已实证为 000000,
+ * 但 `data.balance` 是客户端自己读的字段(源码字面量),以形状为准既不会漏判成功,
+ * 也不会因为上游换码把真数据判成失败。
  */
 type LoomyQuotaProbe =
   | { kind: 'ok'; remaining: number; data: Record<string, unknown> }
@@ -240,11 +246,18 @@ function classifyQuotaPayload(statusCode: number, bodyText: string): LoomyQuotaP
   const data = root['data']
   if (data && typeof data === 'object' && !Array.isArray(data)) {
     const d = data as Record<string, unknown>
-    const n = Number(d['currentBalance'])
-    if (Number.isFinite(n)) return { kind: 'ok', remaining: n, data: d }
+    // 实证字段优先级:`points/records` 的 `data.balance`(真票实弹读到 balance=0);
+    // 兼容 team 口径 currentBalance 与 available 口径 availableBalance。
+    // 必须显式跳过 null/空串 —— `Number(null)` 得 0,会把「没给数」读成「积分耗尽」。
+    for (const key of ['balance', 'currentBalance', 'availableBalance']) {
+      const v = d[key]
+      if (v === undefined || v === null || v === '') continue
+      const n = Number(v)
+      if (Number.isFinite(n)) return { kind: 'ok', remaining: n, data: d }
+    }
     return {
       kind: 'indeterminate',
-      message: `quota code=${code || '(空)'} 但缺 data.currentBalance(未判定;data.keys=[${Object.keys(d).join(',')}])`,
+      message: `quota code=${code || '(空)'} 但无余额字段(未判定;data.keys=[${Object.keys(d).join(',')}])`,
     }
   }
   if (code !== '' && code !== '0' && code !== '000000') {
@@ -411,11 +424,12 @@ export const loomyAdapter: RelayUpstreamAdapter = {
   },
 
   /**
-   * 积分余额点查(端点 2026-11-10 实证,见 LOOMY_QUOTA_URL):
-   * 读 `data.currentBalance` 作 remaining,单位「积分」(客户端即以此字段渲染余额)。
+   * 积分余额点查(端点 2026-11-10 双重实证,见 LOOMY_QUOTA_URL):
+   * 读 `data.balance` 作 remaining,单位「积分」(客户端即以此字段渲染余额)。
    * 缺票 ⇒ ok:false 且 **authFailed 不置位**(本地配置缺失不得触发判死);
-   * 上游明确拒收(401/403 或登录态业务码)⇒ authFailed:true 交承载层自愈。
-   * 形状不符/业务失败 ⇒ ok:false + 具名原因,绝不读成 0(0 在面板读成积分耗尽)。
+   * 上游明确拒收(401/403 或 100002)⇒ authFailed:true 交承载层自愈。
+   * 形状不符/业务状态(100001 未切团队、900000 团队清单不可用)⇒ ok:false + 具名原因,
+   * 绝不读成 0(0 在面板读成积分耗尽)。
    */
   async getQuota(ctx: AdapterAccountContext, opts?: QuotaCallOptions): Promise<RelayQuotaResult> {
     const ticket = loomySessionToken(ctx.credentials.token)
