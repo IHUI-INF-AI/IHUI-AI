@@ -69,7 +69,7 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 | 数据库表 | 630 | `dbTables` |
 | schema 文件 | 242 | `dbSchemaFiles` |
 | API 路由 | 4744 | `apiRoutes` |
-| 路由文件 | 688 | `apiRouteFiles` |
+| 路由文件 | 689 | `apiRouteFiles` |
 | AI 服务路由 | 676 | `aiServiceRoutes` |
 | WebSocket 端点 | 29 | `wsEndpoints` |
 | 入库模型清单 | 100 | `llmModels` |
@@ -87,7 +87,7 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 | 工程守门 | 357 | `guardianGates` |
 | — blocking | 328 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 20874 | `trackedFiles` |
+| 跟踪文件 | 20899 | `trackedFiles` |
 
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-10。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -98,6 +98,20 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-10**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (248f785cdb)
+
+**2026-11-10**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (58ff04350e)
+- 🐞 Fix:收口 shard 下游 40 项测试红(checkpoints 拆层 + worktree 守卫次序 + 普查面对齐) (1d74cb4f50)
+
+**2026-11-10**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (51c0c84e6c)
+- ⚡ Perf:接线对账门多模式 grep 分片,真仓全量 43.8s→8.7s (b3b69ab321)
+
+**2026-11-10**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (c224f786e6)
+
 **2026-11-10**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (d3aa620a76)
 
@@ -141,32 +155,6 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 **2026-11-10**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (7898525095)
-
-**2026-11-10**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (f611c37a62)
-
-**2026-11-10**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (4e7adad235)
-- 📚 Docs:数字块按 HEAD 面重算（与推门 check-doc-numbers 同面） (bd0fee0d4f)
-- 📚 Docs:数字块按 HEAD 面重算（与推门 check-doc-numbers 同面） (09240bd0f0)
-- 🐞 Fix:门 313 登记缺省判面——派发层不再回「未声明判面」 (3a78b71537)
-- 🐞 Fix:定版索引护栏形状对齐——私有索引提交通道(isolated-git)结构性全灭根治 (211c3574f2)
-- 📚 Docs:数字块按 HEAD 面重算（与推门 check-doc-numbers 同面） (474442934c)
-- 🐞 Fix:face-reader 测试的派生 options 改用具名变量（绕开门 193 取数盲区） (a7c25307cd)
-- ⚡ Perf:30a 内存治理——流式解析 + Buffer 取面 + 候选分批,并查清 OOM 根因链 (e949a217d5)
-- 🐞 Fix:face-reader 的 binary 档 encoding 改回 null（消 13 道门体的未判定） (a4b410d0ca)
-- 📚 Docs:数字块按 head 面重算 (920736c944)
-- 📚 Docs:数字块按 head 面重算(testFiles 4818 / trackedFiles 20849) (7765d5a6ff)
-- 📚 Docs:数字块按 HEAD 面重算(testFiles 4817 / trackedFiles 20848) (82fac7fab0)
-- 🔧 Chore/Other:补齐 brand-mail-from 测试文件的溯源水印 (7582515bf7)
-- 🔧 Chore/Other:miniapp-taro 五个语言包对齐上游已完成的键清理 (975c6ec472)
-- 🐞 Fix:三条 From 旁路归一 + 守门 R5 防回归 (0a761c3280)
-
-**2026-11-10**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (7b48014e26)
-
-**2026-11-10**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (3642b26464)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)

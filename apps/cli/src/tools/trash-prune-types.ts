@@ -19,7 +19,7 @@ import type {
 /** 结论三态(gate = 闸门怎么说,state = 这一轮到底发生了什么;两者不是一回事) */
 export type TrashPruneState = 'clean' | 'pruned' | 'undetermined';
 /** 闸门态 + 空账档(空账连闸门都不进 ⇒ 零写零噪声) */
-type TrashPruneGate = ExpiryRunGate | 'empty';
+export type TrashPruneGate = ExpiryRunGate | 'empty';
 
 /** 一次成功摘除(件已按判据层放行并真删) */
 export interface TrashPruneRemoval {

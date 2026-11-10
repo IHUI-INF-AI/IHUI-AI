@@ -16,10 +16,12 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import crypto from 'node:crypto'
+import path from 'node:path'
 
 import {
   extractOpencodeAccounts,
   summarizeProvider,
+  candidateDataDirs,
 } from '../lib/opencode-auth-extract.mjs'
 
 const AUTH_FIXTURE = JSON.stringify({
@@ -102,6 +104,35 @@ describe('opencode 提取器 extractOpencodeAccounts', () => {
     }).catch((e) => e)
     // 空注入回落文件查找;无文件 ⇒ NO_SESSION(不为编造路径冒绿)
     assert.strictEqual(out.code, 'OPENCODE_NO_SESSION')
+  })
+
+  it('2026-11-10 锁:候选目录按客户端真实落点给(XDG 根不拼 .local/share,且含 ~/.opencode)', () => {
+    const dirs = candidateDataDirs({
+      XDG_DATA_HOME: 'D:\\xdg\\data',
+      USERPROFILE: 'C:\\Users\\u',
+      HOME: 'C:\\Users\\u',
+    })
+    // XDG 规范:数据根就是 $XDG_DATA_HOME;实测 opencode 2.2.6 的 watcher/shell/snapshot
+    // 全在 $XDG_DATA_HOME\opencode,旧实现拼成 .local\share\opencode 永远探不到。
+    assert.ok(
+      dirs.includes(path.win32.join('D:\\xdg\\data', 'opencode')),
+      `XDG 分支必须是 <XDG_DATA_HOME>\\opencode,实得 ${JSON.stringify(dirs)}`,
+    )
+    assert.ok(
+      dirs.every((d) => !(d.startsWith('D:\\xdg\\data') && d.includes('.local'))),
+      'XDG 分支不得再拼 .local\\share',
+    )
+    // v2 自带 legacy 回退路径(反解 opencode-cli 的 Ph() 会回退到 ~/.opencode)
+    assert.ok(
+      dirs.includes(path.win32.join('C:\\Users\\u', '.opencode')),
+      '~/.opencode 必须进候选',
+    )
+    assert.ok(
+      dirs.includes(path.win32.join('C:\\Users\\u', '.local', 'share', 'opencode')),
+      'XDG 惯例路径照旧保留',
+    )
+    // USERPROFILE 与 HOME 相同 ⇒ 去重后不重复
+    assert.strictEqual(new Set(dirs).size, dirs.length)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

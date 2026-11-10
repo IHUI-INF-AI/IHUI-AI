@@ -214,7 +214,12 @@ test('opencode:只改目标 provider,其它 provider 条目与旁键原样保留
       uid: 'acc-2',
       token: 'api-key-value',
       target: file,
-      secrets: { providerID: 'anthropic', authType: 'api', accountId: 'acc-2' },
+      secrets: {
+        providerID: 'anthropic',
+        authType: 'api',
+        accountId: 'acc-2',
+        sessionTemplate: { type: 'api', accountId: 'acc-2' },
+      },
     })
     L.applyOpencode(apiPayload, { extract })
     const apiEntry = readJson(file).anthropic
@@ -222,6 +227,44 @@ test('opencode:只改目标 provider,其它 provider 条目与旁键原样保留
     for (const k of ['access', 'accessToken', 'refresh', 'refreshToken', 'expires', 'expiresAt']) {
       assert.equal(k in apiEntry, false, `api 条目不得残留 ${k}`)
     }
+  } finally {
+    rmScratch(scratch)
+  }
+})
+
+test('2026-11-10 反向锁:四平台缺会话模板一律拒写,绝不静默沿用本机旧号资料', () => {
+  const src = fs.readFileSync(SCRIPT, 'utf8')
+  // 形状锁:写回基底不许再出现「模板缺失 ⇒ 拿本机当前会话/prev/row.session 兜底」
+  for (const forbidden of ['template ?? current', 'template ?? prev', 'template ?? row.session']) {
+    assert.equal(src.includes(forbidden), false, `不许再出现静默沿用旧号资料的写回基底:${forbidden}`)
+  }
+  for (const p of ['qoder', 'codearts', 'minimax', 'opencode']) {
+    assert.ok(
+      src.includes(`requireTemplate(template, '${p}')`),
+      `${p} 必须走 requireTemplate(缺模板 fail loud)`,
+    )
+  }
+
+  // 行为锁:本机明明有旧号会话,缺模板时也不许拿它当基底写回(文件逐字节不动)
+  const scratch = mkScratch('local-login-no-template-lock')
+  try {
+    const file = path.join(scratch, 'auth.json')
+    const beforeRaw = JSON.stringify({
+      opencode: { type: 'oauth', access: 'OLD-ACCOUNT-TOKEN', accountId: 'old-account-id', email: 'old@account' },
+    })
+    fs.writeFileSync(file, beforeRaw)
+    const payload = L.normalizePayload({
+      uid: 'target-account-id',
+      token: 'new-token',
+      target: file,
+      secrets: { providerID: 'opencode', authType: 'oauth' },
+    })
+    assert.throws(
+      () => L.applyOpencode(payload, { extract }),
+      (e) => e.code === 'no-template' && /拒绝写回/.test(e.message),
+      '缺模板必须 no-template 拒写并点名原因',
+    )
+    assert.equal(fs.readFileSync(file, 'utf8'), beforeRaw, '拒写时本机旧号登录态逐字节不动')
   } finally {
     rmScratch(scratch)
   }
@@ -316,6 +359,182 @@ test('minimax:多会话且无 recordKey 时点名拒写', () => {
     )
     const payload = L.normalizePayload({ uid: 'u', token: 't', target: file, secrets: {} })
     assert.throws(() => L.applyMinimax(payload, { extract }), (e) => e.code === 'no-template')
+  } finally {
+    rmScratch(scratch)
+  }
+})
+
+// =============================================================================
+// 2026-11-10 实测回归:模板是骨架不是原样数据 / API key 混票 / OpenCode v2 迁移
+// =============================================================================
+
+test('2026-11-10 锁:模板是骨架(字符串占位)时,本机已有记录必须原样保留形状', () => {
+  const scratch = mkScratch('local-login-minimax-shape')
+  try {
+    const dir = path.join(scratch, 'auth', 'prod', 'cn', 'mcode-public')
+    fs.mkdirSync(dir, { recursive: true })
+    const file = path.join(dir, 'auth.json')
+    const key = 'com.minimax.mcode.oauth.prod.cn abc'
+    // 本机真实形状(2026-11-10 从 mcode-public/auth.json 实读):数字 schemaVersion、
+    // 数组 scopes、带 tokenType/generation/loginEpoch。
+    const localRecord = {
+      schemaVersion: 1,
+      accessToken: 'old-access',
+      refreshToken: 'old-refresh',
+      tokenType: 'Bearer',
+      clientId: 'cid',
+      scopes: ['agent.default'],
+      audience: 'agent-backend',
+      expiresAtMs: 1794319860000,
+      generation: 482,
+      loginEpoch: 'e1',
+    }
+    fs.writeFileSync(file, JSON.stringify({ schemaVersion: 1, records: { [key]: localRecord } }))
+    // 池内模板是采集骨架:实测 schemaVersion 被写成字符串 "1"、scopes 被写成 "list",
+    // 且缺 tokenType/generation/loginEpoch。用它整体重建就会污染本机形状。
+    const payload = L.normalizePayload({
+      uid: 'minimax-uid',
+      token: 'mmoat_new_access',
+      refreshToken: 'mmort_new_refresh',
+      expiresAt: '2026-12-02T03:04:05.000Z',
+      target: file,
+      secrets: {
+        recordKey: key,
+        sessionTemplate: {
+          schemaVersion: '1',
+          clientId: 'cid',
+          scopes: 'list',
+          audience: 'agent-backend',
+          region: 'cn',
+        },
+      },
+    })
+    const result = L.applyMinimax(payload, { extract })
+    const out = readJson(file).records[key]
+    assert.equal(out.accessToken, 'mmoat_new_access')
+    assert.equal(out.refreshToken, 'mmort_new_refresh')
+    assert.equal(out.schemaVersion, 1, '模板的字符串占位不得污染本机数字形状')
+    assert.deepEqual(out.scopes, ['agent.default'], '模板的 "list" 占位不得污染本机数组')
+    assert.equal(out.tokenType, 'Bearer', '客户端自有字段不得被模板抹掉')
+    assert.equal(out.generation, 482)
+    assert.equal(out.loginEpoch, 'e1')
+    assert.equal('region' in out, false, '模板独有键不得混进本机记录')
+    assert.ok(
+      result.notes.some((n) => n.includes('本机原样')),
+      'notes 必须点名形状来源=本机原样',
+    )
+  } finally {
+    rmScratch(scratch)
+  }
+})
+
+test('2026-11-10 锁:本机无该记录时才用模板重建,notes 点名骨架来源', () => {
+  const scratch = mkScratch('local-login-minimax-template-shape')
+  try {
+    const dir = path.join(scratch, 'auth', 'prod', 'cn', 'mcode-public')
+    fs.mkdirSync(dir, { recursive: true })
+    const file = path.join(dir, 'auth.json')
+    fs.writeFileSync(file, JSON.stringify({ schemaVersion: 1, records: {} }))
+    const payload = L.normalizePayload({
+      uid: 'minimax-uid',
+      token: 'mmoat_new_access',
+      refreshToken: 'mmort_new_refresh',
+      target: file,
+      secrets: {
+        recordKey: 'k1',
+        sessionTemplate: { schemaVersion: 1, tokenType: 'Bearer', region: 'cn' },
+      },
+    })
+    const result = L.applyMinimax(payload, { extract })
+    const out = readJson(file).records.k1
+    assert.equal(out.accessToken, 'mmoat_new_access')
+    assert.equal(out.tokenType, 'Bearer', '本机没有该记录时模板独有键应当补上')
+    assert.equal(out.region, 'cn')
+    assert.ok(
+      result.notes.some((n) => n.includes('按池内模板重建')),
+      'notes 必须如实点名用了骨架',
+    )
+  } finally {
+    rmScratch(scratch)
+  }
+})
+
+test('2026-11-10 锁:API key 形态票(sk-…且无 refresh)写进 MiniMax OAuth 会话一律拒写', () => {
+  const scratch = mkScratch('local-login-minimax-apikey')
+  try {
+    const dir = path.join(scratch, 'auth', 'prod', 'cn', 'mcode-public')
+    fs.mkdirSync(dir, { recursive: true })
+    const file = path.join(dir, 'auth.json')
+    const key = 'com.minimax.mcode.oauth.prod.cn abc'
+    const beforeRaw = JSON.stringify({
+      records: { [key]: { accessToken: 'mmoat_old', refreshToken: 'mmort_old' } },
+    })
+    fs.writeFileSync(file, beforeRaw)
+    const payload = L.normalizePayload({
+      uid: 'minimax-uid',
+      // 池内同号两枚票,另一枚实测是 API key 形态(sk-api-i…,126 字符,无 refreshToken)
+      token: 'sk-api-i'.padEnd(126, 'x'),
+      target: file,
+      secrets: { recordKey: key, sessionTemplate: { accessToken: 'sk-api-i' } },
+    })
+    assert.throws(
+      () => L.applyMinimax(payload, { extract }),
+      (e) => e.code === 'target-shape' && /API key/.test(e.message),
+    )
+    assert.equal(fs.readFileSync(file, 'utf8'), beforeRaw, '拒写时原文件必须逐字节不变')
+  } finally {
+    rmScratch(scratch)
+  }
+})
+
+test('2026-11-10 锁:本机是 OAuth 会话而票没有 refreshToken 时拒写(不降级续期能力)', () => {
+  const scratch = mkScratch('local-login-minimax-downgrade')
+  try {
+    const dir = path.join(scratch, 'auth', 'prod', 'cn', 'mcode-public')
+    fs.mkdirSync(dir, { recursive: true })
+    const file = path.join(dir, 'auth.json')
+    const key = 'com.minimax.mcode.oauth.prod.cn abc'
+    const beforeRaw = JSON.stringify({
+      records: { [key]: { accessToken: 'mmoat_old', refreshToken: 'mmort_old' } },
+    })
+    fs.writeFileSync(file, beforeRaw)
+    const payload = L.normalizePayload({
+      uid: 'minimax-uid',
+      token: 'mmoat_no_refresh',
+      target: file,
+      secrets: { recordKey: key, sessionTemplate: {} },
+    })
+    assert.throws(
+      () => L.applyMinimax(payload, { extract }),
+      (e) => e.code === 'target-shape' && /refreshToken/.test(e.message),
+    )
+    assert.equal(fs.readFileSync(file, 'utf8'), beforeRaw, '拒写时原文件必须逐字节不变')
+  } finally {
+    rmScratch(scratch)
+  }
+})
+
+test('2026-11-10 锁:OpenCode v2 凭证面已迁进 SQLite 时,写 auth.json 必须 fail-closed', () => {
+  const scratch = mkScratch('local-login-opencode-v2')
+  try {
+    const dir = path.join(scratch, 'opencode')
+    fs.mkdirSync(dir, { recursive: true })
+    const file = path.join(dir, 'auth.json')
+    // v2.2.6 真实形态:同目录有 opencode.db(WAL 长持),auth.json 的 legacy 迁移已 completed
+    fs.writeFileSync(path.join(dir, 'opencode.db'), '')
+    const payload = L.normalizePayload({
+      uid: 'opencode-uid',
+      token: 'tok',
+      refreshToken: 'ref',
+      target: file,
+      secrets: { providerID: 'anthropic', authType: 'oauth', sessionTemplate: { type: 'oauth' } },
+    })
+    assert.throws(
+      () => L.applyOpencode(payload, { extract }),
+      (e) => e.code === 'target-shape' && /opencode\.db/.test(e.message) && /SQLite/.test(e.message),
+      'v2 落点必须点名 SQLite 并拒写,不得写了 auth.json 让客户端读不到',
+    )
+    assert.equal(fs.existsSync(file), false, 'fail-closed 时不得新建 auth.json')
   } finally {
     rmScratch(scratch)
   }

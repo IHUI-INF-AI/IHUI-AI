@@ -553,6 +553,7 @@ export async function createWorktreeWithFallback(
       const result = await createWorktreeCoW({
         source: sourcePath,
         destination,
+        withinRoot: root,
         preserveWorkingTree: false,
       });
 

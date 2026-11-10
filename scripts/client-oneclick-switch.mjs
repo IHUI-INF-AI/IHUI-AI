@@ -35,6 +35,21 @@ const ROOT = path.resolve(HERE, '..')
 const API_DIR = path.join(ROOT, 'apps', 'api')
 const POOL_LIST_TS = path.join(API_DIR, 'scripts', 'relay-pool-account-list.ts')
 const SWITCH_MJS = path.join(ROOT, 'scripts', 'switch-client-account.mjs')
+/** 每次双击的完整输出留痕(2026-11-10 立):窗口一关就没证据,查不到「跑完了却没切」断在哪 */
+const LOG_FILE = path.join(ROOT, 'logs', 'client-oneclick-switch.log')
+
+/** 同一份文本同时上窗口与日志;日志写不动绝不反过来影响切号主链 */
+function emit(stream, text) {
+  stream.write(text)
+  try {
+    fs.mkdirSync(path.dirname(LOG_FILE), { recursive: true })
+    fs.appendFileSync(LOG_FILE, `[${new Date().toISOString()}] ${text}`, 'utf8')
+  } catch {
+    /* 日志不可写属旁路,不阻断主链 */
+  }
+}
+const out = (text) => emit(process.stdout, text)
+const err = (text) => emit(process.stderr, text)
 
 function resolveTsx() {
   for (const c of [
@@ -92,7 +107,7 @@ export const RETRY_LIMIT = 3
  * 问一个序号:空答复 ⇒ {cancel} 正常收手;连续 RETRY_LIMIT 次打错 ⇒ {fail}(rc=1,
  * 与"非 TTY/取不到数"的 rc=2 未判定分开 —— 机主打错一次就被踢出窗口,是本入口最难用的一型)。
  */
-export async function askOrdinal(rl, promptText, length, report = (t) => process.stderr.write(t)) {
+export async function askOrdinal(rl, promptText, length, report = (t) => err(t)) {
   // 射程必须是正整数:漏传 length 时 n>undefined 恒 false,会把任意序号都判成合法
   if (!Number.isInteger(length) || length < 1) {
     throw new Error(`askOrdinal 需要正整数射程,收到 ${String(length)}`)
@@ -120,59 +135,89 @@ export function fmtAccountRow(r, i) {
   )
 }
 
+/** 余额视图 → 单行人话(零凭据)。与 relay-pool-account-list.ts 的 formatQuotaLine 同四态口径。 */
+export function fmtQuotaLine(q) {
+  if (!q) return '      额度=未拉取(余额查询未返回)'
+  if (!q.ok) {
+    if (q.unsupported) return '      额度=未支持(该平台无已实证余额端点)'
+    if (q.authFailed) {
+      // 确凿过期 ⇒ "令牌过期,需重登";否则只说"被上游拒收,可能已失效",
+      // 不对已确认废的号暗示"重登就能救"。
+      if (q.tokenExpired) return '      额度=未判定(令牌已过期,需重登/刷新)'
+      return '      额度=未判定(凭据被上游拒收,可能已失效)'
+    }
+    return `      额度=未判定(${(q.error ?? '上游未给判定依据').slice(0, 60)})`
+  }
+  const parts = []
+  if (q.remaining !== undefined) parts.push(`剩余=${q.remaining}`)
+  if (q.used !== undefined) parts.push(`已用=${q.used}`)
+  if (q.total !== undefined) parts.push(`总量=${q.total}`)
+  if (q.ratio !== undefined) parts.push(`比例=${(q.ratio * 100).toFixed(1)}%`)
+  if (q.subscriptionName) parts.push(`档=${q.subscriptionName}`)
+  if (q.unit) parts.push(`单位=${q.unit}`)
+  if (q.resetsAt) parts.push(`重置=${String(q.resetsAt).slice(0, 10)}`)
+  return `      额度✓ ${parts.join(' ')}`
+}
+
 async function main() {
+  out(`\n===== 一键切号 ${new Date().toISOString()} =====\n`)
   if (!process.stdin.isTTY) {
-    process.stderr.write('❌ 本入口需要交互输入(非 TTY ⇒ 未判定,不静默往下切号)\n')
+    err('❌ 本入口需要交互输入(非 TTY ⇒ 未判定,不静默往下切号)\n')
     return 2
   }
   const tsx = resolveTsx()
   if (!tsx) {
-    process.stderr.write('❌ 未找到 tsx(apps/api/node_modules/tsx);先在仓根 pnpm install\n')
+    err('❌ 未找到 tsx(apps/api/node_modules/tsx);先在仓根 pnpm install\n')
     return 2
   }
   const rl = createInterface({ input: process.stdin, output: process.stdout })
   try {
     // 冷启要等 tsx 与库连接(实测空白 1.7~2.9s;整条切号往返实测 9.1s)—— 不先给一句话,
     // 双击的人只会看到"没反应",2026-11-05 机主报"根本就不好使"有一半就出在这格。
-    process.stdout.write('正在读取号池…(首次冷启约需几秒,整条切号往返实测约 9 秒)\n')
+    out('正在读取号池…(首次冷启约需几秒,整条切号往返实测约 9 秒)\n')
     const counts = runPoolListJson(tsx, ['--counts', '--json'])
     if (counts.error) {
-      process.stderr.write(`❌ ${counts.error}\n`)
+      err(`❌ ${counts.error}\n`)
       return 2
     }
     const rows = counts.data.counts
     if (!Array.isArray(rows) || rows.length === 0) {
-      process.stdout.write('号池 0 行 —— 先用 relay-account-pool 导入再来切\n')
+      out('号池 0 行 —— 先用 relay-account-pool 导入再来切\n')
       return 0
     }
-    process.stdout.write(`号池里各客户端的号(按平台;取数时刻=${counts.data.asOf ?? '?'}):\n`)
-    for (const [i, r] of rows.entries()) process.stdout.write(`${fmtCountRow(r, i)}\n`)
+    out(`号池里各客户端的号(按平台;取数时刻=${counts.data.asOf ?? '?'}):\n`)
+    for (const [i, r] of rows.entries()) out(`${fmtCountRow(r, i)}\n`)
     const p = await askOrdinal(rl, '输入序号选客户端(回车取消): ', rows.length)
     if (p.cancel) return 0
     if (p.fail) {
-      process.stderr.write('❌ 连续 3 次无效序号,已退出(未改动任何登录态)\n')
+      err('❌ 连续 3 次无效序号,已退出(未改动任何登录态)\n')
       return 1
     }
     const platform = rows[p.idx].providerCode
 
-    const listed = runPoolListJson(tsx, ['--provider', platform, '--json', '--mask'])
+    const listed = runPoolListJson(tsx, ['--provider', platform, '--json', '--mask', '--with-quota'])
     if (listed.error) {
-      process.stderr.write(`❌ ${listed.error}\n`)
+      err(`❌ ${listed.error}\n`)
       return 2
     }
     const accounts = listed.data.accounts
     if (!Array.isArray(accounts) || accounts.length === 0) {
-      process.stdout.write(`${platform} 池内 0 枚\n`)
+      out(`${platform} 池内 0 枚\n`)
       return 0
     }
-    process.stdout.write(
-      `\n${platform} 号池 ${accounts.length} 枚(按 token 到期新→旧;取数时刻=${listed.data.asOf ?? '?'}):\n`,
+    const quotaMap = listed.data.quota
+    out(
+      `\n${platform} 号池 ${accounts.length} 枚(按 token 到期新→旧;取数时刻=${listed.data.asOf ?? '?'}` +
+        `${quotaMap ? ';额度为实时余额' : ';额度未拉取'}):\n`,
     )
-    for (const [i, a] of accounts.entries()) process.stdout.write(`${fmtAccountRow(a, i)}\n`)
+    for (const [i, a] of accounts.entries()) {
+      out(`${fmtAccountRow(a, i)}\n`)
+      out(`${fmtQuotaLine(quotaMap ? quotaMap[a.uid] : undefined)}\n`)
+    }
     const a = await askOrdinal(rl, '输入序号切到该号(回车取消): ', accounts.length)
     if (a.cancel) return 0
     if (a.fail) {
-      process.stderr.write('❌ 连续 3 次无效序号,已退出(未改动任何登录态)\n')
+      err('❌ 连续 3 次无效序号,已退出(未改动任何登录态)\n')
       return 1
     }
     const target = accounts[a.idx]
@@ -182,28 +227,45 @@ async function main() {
         ? '⚠ Trae 客户端需先退出,否则写回会被它退出时的内存态覆盖;切完请重启客户端。'
         : '⚠ 写回只改本机客户端登录态;切完请重启客户端生效。'
     const cmdLine = `node scripts/switch-client-account.mjs --to ${target.uid} --provider ${platform}`
-    process.stdout.write(`\n将执行:\n  ${cmdLine}\n${note}\n`)
+    out(`\n将执行:\n  ${cmdLine}\n${note}\n`)
     const yes = (await rl.question('确认执行请输入 y(其它任意键取消): ')).trim().toLowerCase()
     if (yes !== 'y') {
-      process.stdout.write('已取消,未改动任何登录态。\n')
+      out('已取消,未改动任何登录态。\n')
       return 0
     }
     return await new Promise((resolve) => {
+      out(`\n[切号开始 ${new Date().toISOString()}] 平台=${platform} 目标uid=${target.uid}\n`)
       const child = spawn(
         process.execPath,
         [SWITCH_MJS, '--to', target.uid, '--provider', platform],
         {
           cwd: ROOT,
           windowsHide: true,
-          // 凭据只在子进程内存里流动,本层 stdio 全 inherit 直出
-          stdio: 'inherit',
+          // 两条输出腿都接管:既上窗口,也落日志(写回脚本输出面零凭据)
+          stdio: ['ignore', 'pipe', 'pipe'],
         },
       )
+      child.stdout.setEncoding('utf8')
+      child.stderr.setEncoding('utf8')
+      child.stdout.on('data', (c) => out(c))
+      child.stderr.on('data', (c) => err(c))
+      let done = false
+      const finish = (code, cause) => {
+        if (done) return
+        done = true
+        const banner =
+          code === 0
+            ? '\n✅ 写回腿完成。请打开客户端核对当前账号;若仍是旧号,看上面有没有「模板缺失」告警 —— 缺模板时写回腿会直接拒绝(不再沿用旧号资料),按告警里的一键补模板命令补齐后再切即可。\n'
+            : `\n❌ 切号未成功(exit=${code}${cause ? `,${cause}` : ''}):登录态很可能未被改写,上方最后几行是失败原因。\n`
+        out(banner)
+        out(`📄 本次完整输出已留痕: ${LOG_FILE}\n`)
+        resolve(code)
+      }
       child.on('error', (e) => {
-        process.stderr.write(`❌ 派发失败(未判定): ${e.message}\n`)
-        resolve(2)
+        err(`❌ 派发失败(未判定): ${e.message}\n`)
+        finish(2, e.message)
       })
-      child.on('exit', (code, signal) => resolve(signal ? 2 : (code ?? 2)))
+      child.on('exit', (code, signal) => finish(signal ? 2 : (code ?? 2), signal || ''))
     })
   } finally {
     rl.close()
@@ -215,7 +277,7 @@ if (isDirectRun) {
   main()
     .then((code) => process.exit(code))
     .catch((e) => {
-      process.stderr.write(`❌ ${e instanceof Error ? e.message : String(e)}\n`)
+      err(`❌ ${e instanceof Error ? e.message : String(e)}\n`)
       process.exit(2)
     })
 }
@@ -227,6 +289,7 @@ export const __test__ = {
   RETRY_LIMIT,
   fmtCountRow,
   fmtAccountRow,
+  fmtQuotaLine,
   POOL_LIST_TS,
   SWITCH_MJS,
 }

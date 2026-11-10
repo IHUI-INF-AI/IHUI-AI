@@ -268,6 +268,18 @@ export interface RelayUpstreamAdapter {
    */
   getQuota?(ctx: AdapterAccountContext, opts?: QuotaCallOptions): Promise<RelayQuotaResult>
   /**
+   * 余额端点能力声明(2026-11-10 立,与 refreshTokenSupported 同形):**getQuota 方法存在 ≠ 有已实证端点**。
+   * - 省略/true:适配器确有已实证余额端点(trae/workbuddy/qoder/minimax/codearts/zcode/grokbot)
+   *   ⇒ 承载层可真发点查并展示数值;
+   * - false:方法有,但只是"探测推断端点、200 也如实报形状未实证 ⇒ 未判定"的空壳
+   *   (doubao/lingma/loomy/codex/opencode 五个平台无公开余额端点)。这类平台**不得**让
+   *   承载层逐号发无谓探测请求(拖慢列号窗口、探测 401 还会误触发 refresh 重试),应直接
+   *   如实标"未支持",绝不拿 0 冒充额度耗尽(§0.3)。
+   * 判据唯一真相源 = `hasVerifiedQuotaEndpoint()`(方法存在 且 本字段不为 false);
+   * 承载层不得自己抄一份平台清单(§0.6),新平台接入只要不声明 false 就自动生效。
+   */
+  quotaSupported?: boolean
+  /**
    * 富模型清单(可选,2026-10-27 立;与 listModels 并存的原因见 RelayModelListResult)。
    * 永不抛(失败归 ok:false);scope 如实标注清单语义。
    */
@@ -348,6 +360,25 @@ export function isRefreshableProviderCode(providerCode: string): boolean {
   const a = getRelayAdapter(providerCode)
   if (!a) return false
   return typeof a.refreshToken === 'function' && a.refreshTokenSupported !== false
+}
+
+/**
+ * 平台是否真有已实证余额端点(2026-11-10 立,承载层唯一判据;与 isRefreshableProviderCode 同形)。
+ *
+ * 为什么不能只问 `typeof adapter.getQuota === 'function'`:五个无公开余额端点的平台
+ * (doubao/lingma/loomy/codex/opencode)**也实装了 getQuota**,但它们的实现只是"探测推断端点,
+ * 200 也如实报形状未实证 ⇒ 未判定"的空壳。承载层若照常逐号点查,会白发 N 次网络请求拖慢
+ * 列号窗口,且探测 401 会被误读成凭据失效、误触发 refresh 重试(§0.3 取不到 ≠ 失效)。
+ *
+ * 判据 = 方法存在 且 未显式声明 `quotaSupported: false`。声明 false 的平台由承载层直接
+ * 如实标"未支持",零探测、零假数;新平台接入不声明即自动生效,无需改承载层硬编码名单(§0.6)。
+ */
+export function hasVerifiedQuotaEndpoint(
+  adapter: Pick<RelayUpstreamAdapter, 'getQuota' | 'quotaSupported'> | null | undefined,
+): adapter is RelayUpstreamAdapter & { getQuota: NonNullable<RelayUpstreamAdapter['getQuota']> } {
+  return (
+    !!adapter && typeof adapter.getQuota === 'function' && adapter.quotaSupported !== false
+  )
 }
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

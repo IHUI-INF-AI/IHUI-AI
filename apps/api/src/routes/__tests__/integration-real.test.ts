@@ -105,11 +105,6 @@ vi.mock('../../db/learn-queries.js', () => ({
   isSignedUp: vi.fn().mockResolvedValue(false),
   findSignUp: vi.fn().mockResolvedValue(undefined),
   updateProgress: vi.fn().mockResolvedValue(undefined),
-  // F-153(2026-11-08):报名前先查课程是否存在 + 付费闸。桩成"免费且存在的课程",
-  // 让 enroll 走到 isSignedUp/signUpLesson 的主路径(付费拦截另有专项用例)。
-  findLessonById: vi.fn().mockResolvedValue({ id: 'c1', isFree: true, price: '0' }),
-  isLessonFree: vi.fn().mockReturnValue(true),
-  hasPaidCourseOrder: vi.fn().mockResolvedValue(false),
 }))
 
 vi.mock('../../db/chat-queries.js', () => ({

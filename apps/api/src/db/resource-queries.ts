@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { eq, and, desc, asc, sql, ilike, inArray, gt } from 'drizzle-orm'
+import { eq, and, desc, asc, sql, ilike, inArray, gt, getTableColumns } from 'drizzle-orm'
 import { db } from './index.js'
 import {
   resourceCategories,
@@ -139,6 +139,27 @@ export async function findResources(
   ])
 
   return { list, total: totalRows[0]?.count ?? 0, page, pageSize }
+}
+
+/**
+ * 资源详情(含 intro + categoryName join)。
+ *
+ * F-206:浏览量自增已收归 plugins/watch-aspect(鉴权后的路由级 preHandler)。
+ * 本函数若再 `+1`,同一次浏览会被计两次,故只读不写。
+ */
+export async function findResourceByIdAndIncrementView(
+  id: string,
+): Promise<(Resource & { categoryName: string | null }) | undefined> {
+  const rows = await db
+    .select({
+      ...getTableColumns(resources),
+      categoryName: resourceCategories.name,
+    })
+    .from(resources)
+    .leftJoin(resourceCategories, eq(resources.categoryId, resourceCategories.id))
+    .where(eq(resources.id, id))
+    .limit(1)
+  return rows[0]
 }
 
 /** Admin 用：按 ID 查询资源(不限状态,不自增浏览量)。 */

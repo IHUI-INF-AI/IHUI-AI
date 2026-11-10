@@ -56,6 +56,11 @@ export interface WorktreeOptions {
   preserveWorkingTree?: boolean
   /** skip 文件集合(默认空) */
   skip?: Set<string>
+  /**
+   * 显式根约束(fail-closed)。缺省即拒绝 —— 不是"默认随便放"。
+   * destination 必须解析(含符号链接 realpath)后落在该根目录内,否则拒绝且零副作用。
+   */
+  withinRoot?: string
   /** 测试注入。省略时用 fs.statSync。 */
   stat?: (target: string) => fs.Stats
 }
@@ -114,7 +119,15 @@ export class WorktreeLandUnprovableError extends Error {
 // ============ CoW 能力检测 ============
 
 const COW_CACHE_PATH = path.join(os.homedir(), '.ihui', 'cache', 'cow-capability.json')
-const VALID_COW_KINDS: readonly CowKind[] = ['ficlone', 'clonefile', 'refs', 'none']
+/**
+ * 合法 CoW 类别全集(唯一源)。
+ *
+ * 导出是给判据用的:能力探测的结果**依宿主文件系统而变**(Windows 只可能 `refs`/`none`;
+ * Linux 上 FICLONE 可用即 `ficlone`,macOS 上 clonefile 可用即 `clonefile`),
+ * 所以任何"探测结果落在哪一档"的断言都必须对着这张全集写,不能把 Windows 的两档
+ * 当成全世界的两档 —— 那是把本机文件系统当判据。
+ */
+export const VALID_COW_KINDS: readonly CowKind[] = ['ficlone', 'clonefile', 'refs', 'none']
 
 let cachedCowKind: CowKind | undefined = undefined
 
@@ -570,6 +583,15 @@ export async function createWorktree(opts: WorktreeOptions): Promise<WorktreeRes
   const start = Date.now()
   const { source, destination, ref, preserveWorkingTree = false, skip, stat } = opts
   const look = stat ?? fs.statSync
+
+  // 0. 根约束(fail-closed):必须在任何副作用(mkdir/复制/marker/git)之前。
+  //    缺 withinRoot ⇒ 拒绝(不是"无根可放"),与 removeWorktree 对称。
+  //    有 withinRoot ⇒ destination 解析(含符号链接 realpath)必须落在根内,
+  //    `..`、根外绝对路径、指向根外的父级符号链接一律拒绝且零副作用。
+  if (!opts.withinRoot) {
+    throw new Error('createWorktree 需要显式 withinRoot,拒绝在无根约束下创建')
+  }
+  assertPathInside(opts.withinRoot, destination, 'worktree 目标目录')
 
   // 0. 2026-10-31 安全强化第 20 批(F4):ref 形状校验 —— 必须在任何副作用
   //    (mkdir/复制/marker)之前。拒前导 `-`(选项注入面:git checkout 会把

@@ -115,6 +115,19 @@ describe('runVerifiedSwitch(全注入,零真库零真写)', () => {
     expect(r.ok).toBe(true)
   })
 
+  it('写回腿回报 ok:false / 无落点 ⇒ r.ok=false(2026-11-10 回归锁:命令跑完≠账号已换)', async () => {
+    const r = await runVerifiedSwitch({
+      provider: 'minimax',
+      loadRow: async () => FAKE_ROW,
+      writeBack: async () => ({ ok: false, notes: [], targetFile: '', backupFile: '' }) as never,
+      snapshot: () => snapOk(3),
+      compare: fakeCompare(0),
+    })
+    // 会话连续性没丢,这一格本来就绿;但写回没成 ⇒ 整体不许冒成功
+    expect(r.verdict).toBe('continuity-ok')
+    expect(r.ok).toBe(false)
+  })
+
   it('compare broken ⇒ verdict=continuity-broken、ok=false(切号真丢会话必须显性失败)', async () => {
     const r = await runVerifiedSwitch({
       provider: 'qoder',
@@ -208,7 +221,7 @@ describe('CONTINUITY_FACE 映射(与 switch-continuity-check APPS 同源口径)'
   })
 })
 
-describe('会话模板缺失告警(切号产出面必须可见,但绝不拦写回)', () => {
+describe('会话模板缺失告警(切号产出面必须可见;写回腿 2026-11-10 起拒绝沿用旧号)', () => {
   const fakeWrite = async () =>
     ({ ok: true, notes: [], targetFile: 'X:\\auth.v1.dat', backupFile: 'X:\\auth.bak' }) as never
 
@@ -242,9 +255,11 @@ describe('会话模板缺失告警(切号产出面必须可见,但绝不拦写�
     })
     const note = r.notes.find((n) => n.includes('模板缺失'))
     expect(note).toBeDefined()
-    expect(note).toContain('仍沿用旧号')
+    // 2026-11-10:文案必须说清「写回腿会拒绝」,并给两条当下真出路(合成补模板 / 实采重导)
+    expect(note).toContain('直接拒绝')
+    expect(note).toContain('relay-backfill-session-template.ts --apply --provider qoder')
     expect(note).toContain('relay-account-pool.mjs --from qoder')
-    // 只告警不拦写回:凭证写回本身有效
+    // 本层仍只告警(不在此拦派发);真正拒绝发生在 scripts/local-login.mjs 的 requireTemplate
     expect(r.wroteBack).toBe(true)
     expect(r.verdict).toBe('continuity-ok')
   })
@@ -372,6 +387,17 @@ describe('CLI 退出路径(失败必须显式 exit,只设 exitCode 会被 pg 句
     })
     await tick()
     expect(brokenExit).toHaveBeenCalledWith(1)
+  })
+
+  it('写回腿未成功 ⇒ 即便 verdict=continuity-ok 也必须 exit(1)', async () => {
+    const exit = vi.fn()
+    main(['--provider', 'minimax'], {
+      exit,
+      log: () => {},
+      run: async () => ({ ...fakeResult('continuity-ok'), ok: false }),
+    })
+    await tick()
+    expect(exit).toHaveBeenCalledWith(1)
   })
 })
 

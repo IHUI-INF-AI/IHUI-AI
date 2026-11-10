@@ -21,7 +21,7 @@ import * as os from 'node:os';
 import * as crypto from 'node:crypto';
 import { isRecord, isJsonArray } from '../util/json.js';
 // 会话/检查点 id 路径穿越修复:与 CheckpointManager 共用同一套收敛 + 根内/realpath 判据。
-import { assertPathInside, isPathInside, segmentPathInside } from '../util/path-guard.js';
+import { assertPathInside, isPathInside, resolveWorkspaceRelPath, segmentPathInside } from '../util/path-guard.js';
 import { readManifestChecked, type CorruptManifestEntry } from './manifest-integrity.js';
 import { probeSnapshotRoot } from './snapshot-store-host.js';
 
@@ -277,7 +277,9 @@ export class HunkCheckpointManager {
       return { restored: false, linesAffected: 0, reason: `hunkIdx ${hunkIdx} 越界(共 ${meta.hunks.length} 个 hunks)` };
     }
     const hunk = meta.hunks[hunkIdx]!;
-    const absInWorkspace = path.join(this.workspacePath, meta.file);
+    // 回放侧必须复用持久化相对路径判据:manifest 的 file 被篡改成 `../victim` / 绝对路径时,
+    // 直接 path.join 会把行覆盖写到工作区外。判据唯一实现在 util/path-guard(返回绝对路径)。
+    const absInWorkspace = resolveWorkspaceRelPath(this.workspacePath, meta.file, 'hunk 文件');
     let currentLines: string[];
     try {
       currentLines = this.readLines(absInWorkspace);
@@ -348,7 +350,8 @@ export class HunkCheckpointManager {
       throw new Error(`检查点 ${checkpointId} 清单读不到(${read.reason}),不能把它说成不存在`);
     }
     const meta = read.meta;
-    const absInWorkspace = path.join(this.workspacePath, meta.file);
+    // 比对侧与回放侧复用同一份持久化相对路径判据(manifest 的 file 被篡改时拒绝)。
+    const absInWorkspace = resolveWorkspaceRelPath(this.workspacePath, meta.file, 'hunk 文件');
     const currentLines = this.readLines(absInWorkspace);
     const result: Array<{ hunkIdx: number; range: HunkRange; status: 'unchanged' | 'modified' | 'gone' }> = [];
     meta.hunks.forEach((hunk, idx) => {

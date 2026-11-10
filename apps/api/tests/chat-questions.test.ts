@@ -18,7 +18,7 @@
  * - global.fetch mock 用于 /chat/answer 的 ai-service SSE 调用
  * - pushNotification 用 app.decorate 注册 spy
  */
-import { describe, it, expect, afterAll, beforeAll, afterEach, beforeEach, vi } from 'vitest'
+import { describe, it, expect, afterAll, beforeAll, afterEach, vi } from 'vitest'
 import Fastify from 'fastify'
 
 // 1. Mock config 避免 env 校验触发 process.exit(1)
@@ -79,18 +79,13 @@ vi.mock('@ihui/context-compaction', async (importOriginal) => {
 })
 
 // 5. Mock chat-queries —— 关键 spy:createMessage / patchConversationMetadata
-const { mockCreateMessage, mockPatchConversationMetadata, mockFindConversationById } = vi.hoisted(
-  () => ({
-    mockCreateMessage: vi.fn(),
-    mockPatchConversationMetadata: vi.fn(),
-    // F-03(2026-11-08):/chat/answer 的写路径前先由服务端核会话归属。
-    mockFindConversationById: vi.fn(),
-  }),
-)
+const { mockCreateMessage, mockPatchConversationMetadata } = vi.hoisted(() => ({
+  mockCreateMessage: vi.fn(),
+  mockPatchConversationMetadata: vi.fn(),
+}))
 vi.mock('../src/db/chat-queries.js', () => ({
   createMessage: mockCreateMessage,
   patchConversationMetadata: mockPatchConversationMetadata,
-  findConversationById: mockFindConversationById,
 }))
 
 import { aiChatStreamRoutes } from '../src/routes/ai-chat-stream.js'
@@ -143,13 +138,6 @@ describe('AI 主动提问多端同步持久化(P2)', () => {
     pushSpy.mockClear()
     mockCreateMessage.mockReset()
     mockPatchConversationMetadata.mockReset()
-  })
-
-  // F-03:会话归属由服务端查 —— 夹具里 conv-1 属当前用户,其余 id 一律「不存在/他人」。
-  beforeEach(() => {
-    mockFindConversationById.mockImplementation(async (id: string) =>
-      id === 'conv-1' ? { id, userId: USER_ID } : null,
-    )
   })
 
   // ===========================================================================

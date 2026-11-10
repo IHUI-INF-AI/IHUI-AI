@@ -9,12 +9,16 @@
  * 契约实证边界(§0.3 如实,不冒绿):
  * - **chat 链路已实证(2026-11-10)**:端点/鉴权/模型名/响应形状全部来自本机 Loomy
  *   0.9.39 内嵌 opencode 运行时(`/config` 实读 provider.imodel)+ 同票实弹 200 回包
- *   (标准 chat.completion;业务错误 = HTTP 200 + {code,desc} 信封)。quota 端点仍推断。
+ *   (标准 chat.completion;业务错误 = HTTP 200 + {code,desc} 信封)。quota 端点同日实证
+ *   (主进程 asar.unpacked 源码字面量,见 LOOMY_QUOTA_URL 注释)。
  * - 鉴权实证:Bearer 会话票 = loomy-auth-session JSON 的 `session` 字段(32-hex),
  *   见 loomySessionToken 注释。
- * - 积分制:客户端证据 loomy-points-summary(本地缓存)说明额度以积分形态存在,但
- *   **无公开额度端点** ⇒ getQuota 探测推断端点,200 也如实报「形状未实证 ⇒ 未判定」,
- *   绝不猜字段读成数字;401/403 ⇒ authFailed:true(唯一有把握的判定)。
+ * - 积分制:额度以积分形态存在,余额端点已于 2026-11-10 双重实证
+ *   (`/api/v1/points/records` + `token` 头 + body.code 判成败,读 data.balance,
+ *   见 LOOMY_QUOTA_URL 注释)。
+ *   getQuota 现在读真 `data.currentBalance`;但**本地缺票时不冒充上游拒收**
+ *   (缺票 ⇒ ok:false 且 authFailed 不置位,避免把「尚未导入凭据」的空壳号判死)。
+ *   上游明确拒收(401/403 或登录态业务码 100001/100002/100003)才 authFailed:true。
  * - 国际版:讯飞海外暂无实证域名,LOOMY_GLOBAL_BASE 预留(null 占位,待实证再换)。
  * - chat 响应:推断上游可能 OpenAI SSE 同构 ⇒ 帧原样透传(零映射,§0.6);
  *   [DONE]/心跳由转发层统一处理,本适配器不发明字段。
@@ -35,12 +39,16 @@ import type {
 import type { RelayProviderCode } from '../relay-account-format.js'
 
 // =============================================================================
-// 端点与常量(改端点只改这里。chat 网关与模型清单已 2026-11-10 本机运行时取证 +
-// 实弹验证;quota 端点仍为推断,拿真实抓包后在此收口)
+// 端点与常量(改端点只改这里。chat 网关、模型清单与 quota 余额端点均已 2026-11-10
+// 本机运行时/主进程源码取证 + 实弹验证)
 // =============================================================================
 
-/** 业务主站(登录/积分类 API 的域;2026-10-27 本机 Loomy 数据目录实证) */
-const LOOMY_BASE = 'https://loomy.xunfei.cn'
+/**
+ * 业务主站 `https://loomy.xunfei.cn`(登录页 / 桌面端 SPA;2026-10-27 本机数据目录实证)。
+ * 它**不承载任何 API**:凡是 API 都走 `loomyad.xunfei.cn` 网关。
+ * 之所以在这里留名:它对任意未知路径都回 404 + 整站 HTML(Next.js SPA 兜底),
+ * 正是下面「域名坑」的成因,删掉这行注释会让后人再踩一次。
+ */
 /**
  * chat 网关(2026-11-10 实弹取证):本机 Loomy 0.9.39 的 opencode 运行时
  * (`opencode serve` 127.0.0.1 GET /config)实读 provider.imodel.options.baseURL =
@@ -50,8 +58,32 @@ const LOOMY_BASE = 'https://loomy.xunfei.cn'
  * 实测 404 + SPA 兜底页,作废。
  */
 const LOOMY_CHAT_URL = 'https://loomyad.xunfei.cn/api/v1/chat/completions'
-/** 积分/额度端点(推断:积分制用户额度惯例路径;未实证) */
-const LOOMY_QUOTA_URL = `${LOOMY_BASE}/api/user/points`
+/** 个人积分余额端点(**2026-11-10 双重实证:源码字面量 + 真票实弹**)。
+ *
+ * 来源:本机 Loomy 0.9.39 主进程 `resources/app.asar.unpacked/electron/points-service.js`
+ * 的 `queryRecords()` → GET `/api/v1/points/records`,响应体
+ * `data.balance` / `data.availableBalance` / `data.dailyBalance` 即余额口径。
+ *
+ * 三个坑,逐个钉死(每条都有实证,不是推断):
+ * 1. **域名**:必须是与 chat 同一个 `loomyad.xunfei.cn` 网关。`loomy.xunfei.cn` 是
+ *    Next.js SPA,对任意未知路径都回 404 + 整站 HTML —— 旧常量
+ *    `https://loomy.xunfei.cn/api/user/points` 就是踩这个坑,永远拿不到结构化响应。
+ * 2. **认证头**:是裸 `token`,**不是** `Authorization: Bearer`。证据:同文件
+ *    `request()` 内 `headers = { token: resolvedToken }`,而
+ *    `resolvedToken = 入参 token || this.getAuthSession?.() || 配置 token`;
+ *    `app/account-service-container.js` 把 getAuthSession 接成
+ *    `() => getAuthSession()?.session` —— 即池内那张票的 `session` 字段。
+ * 3. **成败判据**:HTTP 恒 200,结论全在 **body.code**(真票实弹,2026-11-10):
+ *      · `000000` 成功               → 记录体里 `data.balance` 是余额
+ *      · `100002` **登录失效**        → 无票「缺少 token」/ 坏票「登录已失效，请重新登录」
+ *      · `100001` **业务状态,非失效** → 「当前未切换到团队」(票有效,只是团队维度不可用)
+ *      · `900000` **业务状态,非失效** → 「团队模型清单暂不可用」
+ *    ⇒ 只有 100002 是鉴权结论。把 100001 当登录态会**误杀有效号**
+ *      (本席首版采信了「100001/100002/100003 三分」的旧说法,被真票实弹当场推翻)。
+ *    ⇒ 团队余额端点 `/api/v1/team-points/balance` 必须先切团队才可用(100001),
+ *      故不作本端点 —— 个人余额走 points/records 才是稳的。
+ */
+const LOOMY_QUOTA_URL = 'https://loomyad.xunfei.cn/api/v1/points/records'
 
 /**
  * 模型清单(2026-11-10 本机 opencode 运行时 /config 实读 provider.imodel.models,
@@ -161,6 +193,79 @@ function isAuthFailure(statusCode: number, bodyText: string): boolean {
   return statusCode >= 200 && statusCode < 400 && looksLikeHtmlLoginPage(bodyText)
 }
 
+/**
+ * 唯一实证的登录失效业务码 = **100002**。
+ *
+ * 首版曾按「100001/100002/100003 三分」全归登录态(采信旧说法),2026-11-10 用真票
+ * 实弹推翻:100001 = 「当前未切换到团队」、900000 = 「团队模型清单暂不可用」,
+ * 两者票都有效、只是业务维度不可用 —— 归进 authFailed 会把好号判死。
+ */
+const LOOMY_AUTH_CODES = new Set(['100002'])
+
+/**
+ * 余额端点响应的判读结果(三态 + 业务失败,绝不把「读不懂」冒充成「没额度」)。
+ *
+ * 实证前提(2026-11-10 真票):该端点 **HTTP 恒 200**,成败写在 body.code;
+ * 余额写在 `data.balance`。因此顺序是:
+ * 传输层(401/403 → 拒收;非 2xx → 未判定)→ 解析层(非 JSON → 未判定)
+ * → 业务码(**只有 100002 是拒收**;100001/900000 是业务状态)→
+ * 形状(`data.balance` 是有限数 → 成功)→ 其余非成功码(业务失败)→ 兜底未判定。
+ *
+ * 之所以把「形状优先于业务码」放在成功判定上:成功码字面量虽已实证为 000000,
+ * 但 `data.balance` 是客户端自己读的字段(源码字面量),以形状为准既不会漏判成功,
+ * 也不会因为上游换码把真数据判成失败。
+ */
+type LoomyQuotaProbe =
+  | { kind: 'ok'; remaining: number; data: Record<string, unknown> }
+  | { kind: 'authFailed'; message: string }
+  | { kind: 'businessFail'; message: string }
+  | { kind: 'indeterminate'; message: string }
+
+function classifyQuotaPayload(statusCode: number, bodyText: string): LoomyQuotaProbe {
+  if (statusCode === 401 || statusCode === 403) {
+    return { kind: 'authFailed', message: `quota HTTP ${statusCode}` }
+  }
+  if (statusCode < 200 || statusCode >= 300) {
+    return { kind: 'indeterminate', message: `quota HTTP ${statusCode}(未判定)` }
+  }
+  let obj: unknown
+  try {
+    obj = JSON.parse(bodyText)
+  } catch {
+    return { kind: 'indeterminate', message: 'quota 响应非 JSON(未判定)' }
+  }
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
+    return { kind: 'indeterminate', message: 'quota 响应不是对象(未判定)' }
+  }
+  const root = obj as Record<string, unknown>
+  const code = root['code'] === undefined ? '' : String(root['code'])
+  const desc = root['desc'] !== undefined ? String(root['desc']).slice(0, 120) : ''
+  if (LOOMY_AUTH_CODES.has(code)) {
+    return { kind: 'authFailed', message: `quota code=${code}${desc ? `: ${desc}` : ''}` }
+  }
+  const data = root['data']
+  if (data && typeof data === 'object' && !Array.isArray(data)) {
+    const d = data as Record<string, unknown>
+    // 实证字段优先级:`points/records` 的 `data.balance`(真票实弹读到 balance=0);
+    // 兼容 team 口径 currentBalance 与 available 口径 availableBalance。
+    // 必须显式跳过 null/空串 —— `Number(null)` 得 0,会把「没给数」读成「积分耗尽」。
+    for (const key of ['balance', 'currentBalance', 'availableBalance']) {
+      const v = d[key]
+      if (v === undefined || v === null || v === '') continue
+      const n = Number(v)
+      if (Number.isFinite(n)) return { kind: 'ok', remaining: n, data: d }
+    }
+    return {
+      kind: 'indeterminate',
+      message: `quota code=${code || '(空)'} 但无余额字段(未判定;data.keys=[${Object.keys(d).join(',')}])`,
+    }
+  }
+  if (code !== '' && code !== '0' && code !== '000000') {
+    return { kind: 'businessFail', message: `quota code=${code}${desc ? `: ${desc}` : ''}` }
+  }
+  return { kind: 'indeterminate', message: `quota code=${code || '(空)'} 缺 data 对象(未判定)` }
+}
+
 /** Loomy 上游错误(带 HTTP 状态码;消息截断防泄漏) */
 export class LoomyUpstreamError extends Error {
   readonly statusCode: number
@@ -181,6 +286,10 @@ export const loomyAdapter: RelayUpstreamAdapter = {
   // 刷新能力:恒 null 空壳 ⇒ 声明为不可续期(见 relay-upstream-adapters.isRefreshableProviderCode)。
   // 否则保活窗口/临期档会把"刷新失败"记到它头上,连续 3 次误判自动摘除好号。
   refreshTokenSupported: false,
+  // 额度能力:余额端点 2026-11-10 已实证(/api/v1/team-points/balance, token 头,
+  // data.currentBalance),故声明 supported。承载层「点余额」会真查;
+  // 本地缺票时 getQuota 返回 ok:false 但 **不置 authFailed**,不会被误判死。
+  quotaSupported: true,
 
   /**
    * chat 请求构造(推断层):OpenAI 同构 body 透传,Bearer 票鉴权,accept 按 stream 二分。
@@ -282,32 +391,29 @@ export const loomyAdapter: RelayUpstreamAdapter = {
     ctx: AdapterAccountContext,
     opts?: AdapterCallOptions,
   ): Promise<{ ok: boolean; error?: string; indeterminate?: boolean; authFailed?: boolean }> {
+    // 本地缺票 ≠ 上游拒收。空壳号(凭据未导入,库里 token_enc 解出空串)必须留在
+    // 「未判定」:一旦在这里抛 authFailed,巡检会把它写成 healthStatus='down',而
+    // scheduler 注释写明 down 会「永久停在那儿,除非有人手工点一次余额」——
+    // 等于用一次本地配置缺失换一次不可逆的状态迁移。
+    const ticket = loomySessionToken(ctx.credentials.token)
+    if (!ticket) {
+      return { ok: false, indeterminate: true, error: '本地缺少 Loomy 会话票(未判定,不判死)' }
+    }
     try {
       const res = await resolveFetchImpl(opts ?? {})(LOOMY_QUOTA_URL, {
         method: 'GET',
-        headers: {
-          accept: 'application/json',
-          authorization: `Bearer ${loomySessionToken(ctx.credentials.token)}`,
-        },
+        // 实证:该网关认裸 `token` 头,不是 Authorization: Bearer(见 LOOMY_QUOTA_URL 注释)
+        headers: { accept: 'application/json', token: ticket },
       })
       const text = await res.text().catch(() => '')
-      if (!res.ok) {
-        const rejected = isAuthFailure(res.status, text)
-        return {
-          ok: false,
-          indeterminate: !rejected,
-          // 只在明确拒收时写 authFailed;5xx/网络缺省(不得与 indeterminate 背离)
-          ...(rejected ? { authFailed: true } : {}),
-          error: `quota HTTP ${res.status}${text ? `: ${text.slice(0, 200)}` : ''}${
-            rejected ? '' : '(未判定)'
-          }`,
-        }
+      const probe = classifyQuotaPayload(res.status, text)
+      if (probe.kind === 'ok') return { ok: true }
+      if (probe.kind === 'authFailed') {
+        return { ok: false, indeterminate: false, authFailed: true, error: probe.message }
       }
-      return {
-        ok: false,
-        indeterminate: true,
-        error: 'quota 端点为推断形状,HTTP 200 无法区分真数据/SPA 兜底页 ⇒ 未判定',
-      }
+      // businessFail(端点通、票未被拒收,但业务侧不认)与 indeterminate 同归「未判定」:
+      // 该形态尚未用真票实证,不做不可逆的 down 迁移(§0.3 取不到 ≠ 失效)。
+      return { ok: false, indeterminate: true, error: probe.message }
     } catch (e) {
       return {
         ok: false,
@@ -318,43 +424,35 @@ export const loomyAdapter: RelayUpstreamAdapter = {
   },
 
   /**
-   * 积分余额点查(§0.3 如实未判定):**无公开额度端点**,LOOMY_QUOTA_URL 是推断路径。
-   * 非 2xx ⇒ authFailed 按 isAuthFailure(401/403 是唯一有把握的判定);
-   * 200 ⇒ 回响应键名清单 + 「形状未实证 ⇒ 未判定」,绝不猜字段读成数字
-   * (一旦清单可见,后续一轮即可补解析;对齐 codearts getQuota 同款口径)。
+   * 积分余额点查(端点 2026-11-10 双重实证,见 LOOMY_QUOTA_URL):
+   * 读 `data.balance` 作 remaining,单位「积分」(客户端即以此字段渲染余额)。
+   * 缺票 ⇒ ok:false 且 **authFailed 不置位**(本地配置缺失不得触发判死);
+   * 上游明确拒收(401/403 或 100002)⇒ authFailed:true 交承载层自愈。
+   * 形状不符/业务状态(100001 未切团队、900000 团队清单不可用)⇒ ok:false + 具名原因,
+   * 绝不读成 0(0 在面板读成积分耗尽)。
    */
   async getQuota(ctx: AdapterAccountContext, opts?: QuotaCallOptions): Promise<RelayQuotaResult> {
+    const ticket = loomySessionToken(ctx.credentials.token)
+    if (!ticket) {
+      return {
+        ok: false,
+        error: '本地缺少 Loomy 会话票(需先导入 loomy-auth-session 的 session 字段)',
+      }
+    }
     try {
       const res = await resolveFetchImpl(opts ?? {})(LOOMY_QUOTA_URL, {
         method: 'GET',
-        headers: {
-          accept: 'application/json',
-          authorization: `Bearer ${loomySessionToken(ctx.credentials.token)}`,
-        },
+        headers: { accept: 'application/json', token: ticket },
       })
       const text = await res.text().catch(() => '')
-      if (!res.ok) {
-        return {
-          ok: false,
-          ...(isAuthFailure(res.status, text) ? { authFailed: true } : {}),
-          error: `points HTTP ${res.status}${text ? `: ${text.slice(0, 200)}` : ''}`,
-        }
+      const probe = classifyQuotaPayload(res.status, text)
+      if (probe.kind === 'ok') {
+        return { ok: true, quota: { remaining: probe.remaining, unit: '积分' } }
       }
-      let keys: string[] = []
-      try {
-        const obj: unknown = JSON.parse(text)
-        if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
-          keys = Object.keys(obj as Record<string, unknown>)
-        }
-      } catch {
-        /* 非 JSON 也如实报 */
+      if (probe.kind === 'authFailed') {
+        return { ok: false, authFailed: true, error: probe.message }
       }
-      return {
-        ok: false,
-        error:
-          `Loomy 无公开额度端点,${LOOMY_QUOTA_URL} 为推断路径,响应键=[${keys.join(',') || '(空)'}],` +
-          '字段形状未实证 ⇒ 未判定(不猜字段读成数字)',
-      }
+      return { ok: false, error: probe.message }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       return { ok: false, error: `积分点查失败: ${msg}` }

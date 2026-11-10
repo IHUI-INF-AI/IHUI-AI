@@ -25,16 +25,16 @@ import {
   type RumProps,
 } from './privacy'
 
-const RUM_SAMPLING_RATE_MAX = 0.01
-const RUM_DEFAULT_SAMPLING_RATE = 0.01
+export const RUM_SAMPLING_RATE_MAX = 0.01
+export const RUM_DEFAULT_SAMPLING_RATE = 0.01
 export const RUM_MAX_BUFFERED_EVENTS = 50
-const RUM_MAX_BATCH_SIZE = 20
-const RUM_FLUSH_INTERVAL_MS = 30_000
-const RUM_MAX_CONSECUTIVE_FAILURES = 2
+export const RUM_MAX_BATCH_SIZE = 20
+export const RUM_FLUSH_INTERVAL_MS = 30_000
+export const RUM_MAX_CONSECUTIVE_FAILURES = 2
 /** 单次同意周期内的硬上限：即使采样随机源异常，也不会无界上报。 */
 export const RUM_MAX_EVENTS_PER_SESSION = 200
 /** 请求失败聚合键上限：防止异常路径把基数打爆。 */
-const RUM_MAX_REQUEST_FAILURE_KEYS = 20
+export const RUM_MAX_REQUEST_FAILURE_KEYS = 20
 /** 已记录完成的 messageId 上限：只做幂等去重，不做历史归档。 */
 const RUM_MAX_COMPLETION_KEYS = 200
 
