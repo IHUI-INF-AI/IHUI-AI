@@ -23,11 +23,14 @@
 //
 // 用法: node scripts/dev-stack-watchdog.mjs [--install]
 //   --install 注册计划任务(幂等);无参 = 单次巡检(计划任务调用形态)
+// 2026-11-10 机主令禁常驻白占 ⇒ 巡检复活与 --install 注册默认拒绝,仅
+//   IHUI_DEV_AUTOSTART_OWNER_ALLOW=1 显式放行(判据单源 scripts/lib/dev-stack-residency-policy.mjs)
 
 import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { judgeDevAutostart } from './lib/dev-stack-residency-policy.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const LOG_DIR = path.join(ROOT, '.tmp-sync');
@@ -246,7 +249,15 @@ function install() {
 // (import 一 patrol 就会派生守护头与 pwsh,这是测试绝不能碰的副作用)。
 const isDirectRun = process.argv[1] && import.meta.url === (await import('node:url')).pathToFileURL(process.argv[1]).href;
 if (isDirectRun) {
-  if (process.argv.includes('--install')) install();
+  const residency = judgeDevAutostart({ env: process.env });
+  if (!residency.allowed) {
+    if (process.argv.includes('--install')) {
+      console.error(`[dev-stack-watchdog] 拒绝注册:${residency.why}`);
+      process.exitCode = 1;
+    } else {
+      log(`巡检跳过(常驻策略):${residency.why}`);
+    }
+  } else if (process.argv.includes('--install')) install();
   else patrol();
 }
 
