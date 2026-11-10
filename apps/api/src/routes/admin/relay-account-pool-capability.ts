@@ -28,6 +28,7 @@ import { dbRead } from '../../db/index.js'
 import { aiRelayAccountPool } from '@ihui/database'
 import { success, error } from '../../utils/response.js'
 import { requireAdmin } from '../../plugins/require-permission.js'
+import { exposeRelayPoolRoutesToPublicNetwork } from './_shared.js'
 import { RELAY_PROVIDERS } from '../../services/relay-account-format.js'
 import {
   getRelayAdapter,
@@ -48,6 +49,9 @@ interface RenewalCapabilityItem {
 
 const relayAccountPoolCapabilityRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', requireAdmin)
+  // 号池必须公网可用(机主 2026-11-10 永久指令):renewal-capability 是号池页直接依赖,
+  // 与 relay-account-pool.ts 同族同策略(立据见 _shared 出口注释)。
+  exposeRelayPoolRoutesToPublicNetwork(server)
 
   // ===== 1. GET /admin/relay/account-pool/renewal-capability — 平台续期能力位 =====
   server.get('/admin/relay/account-pool/renewal-capability', async (request, reply) => {

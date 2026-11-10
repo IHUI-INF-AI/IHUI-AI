@@ -56,7 +56,7 @@ import { aiRelayAccountPool } from '@ihui/database'
 import { PROVIDER_HEALTH_STATUSES } from '@ihui/types'
 import { success, error, emptyToUndefined } from '../../utils/response.js'
 import { requireAdmin } from '../../plugins/require-permission.js'
-import { paginationSchema, idParamSchema } from './_shared.js'
+import { paginationSchema, idParamSchema, exposeRelayPoolRoutesToPublicNetwork } from './_shared.js'
 import {
   importAccounts,
   decryptAccountCredentials,
@@ -562,6 +562,9 @@ function upstreamTaskErrorDetail(body: Record<string, unknown> | null): string {
 
 const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', requireAdmin)
+  // 号池必须公网可用(机主 2026-11-10 永久指令;立据与顺序自证见 _shared 出口注释)。
+  // 只放行本插件(号池管理面)的作用域,其余 /api/admin/* 仍默认内网。
+  exposeRelayPoolRoutesToPublicNetwork(server)
 
   // ===== 1. POST /admin/relay/accounts/import — 批量导入 =====
   server.post('/admin/relay/accounts/import', async (request, reply) => {
@@ -612,8 +615,7 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
           ...result,
           ownership: {
             pool: 'personal' as const,
-            label:
-              '个人池(owner=本人,首次导入强制落个人池;可经"共享到运营池"按钮对他人开放)',
+            label: '个人池(owner=本人,首次导入强制落个人池;可经"共享到运营池"按钮对他人开放)',
             // 共享到运营池 = 在保留个人归属的同时对所有用户/匿名开放(全局开放标记模型)。
             // 不再提供"直接落运营池"的静默出路 —— 运营池仅由用户主动共享动作填充。
             shareToOps: {
