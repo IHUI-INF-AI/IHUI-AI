@@ -7,11 +7,11 @@
  * 积分制)上游适配器(2026-10-27 立)。
  *
  * 契约实证边界(§0.3 如实,不冒绿):
- * - 上游是讯飞私有端点,**没有公开文档**;2026-10-27 本机取证(scripts/lib/loomy-auth-extract.mjs
- *   头注)连会话 token 的持久化键都未实证到,更没有端点/请求体证据 ⇒ 本文件所有请求构造
- *   都停在「合理推断+未判定」层:端点/头/请求体按 Electron 客户端惯例推断,注释逐条标
- *   「推断」,响应形状一律未实证 —— 拿到真实回包前不做任何字段级解析。
- * - 鉴权推断:手机号登录后发 Bearer 会话票 ⇒ `authorization: Bearer <token>`(推断)。
+ * - **chat 链路已实证(2026-11-10)**:端点/鉴权/模型名/响应形状全部来自本机 Loomy
+ *   0.9.39 内嵌 opencode 运行时(`/config` 实读 provider.imodel)+ 同票实弹 200 回包
+ *   (标准 chat.completion;业务错误 = HTTP 200 + {code,desc} 信封)。quota 端点仍推断。
+ * - 鉴权实证:Bearer 会话票 = loomy-auth-session JSON 的 `session` 字段(32-hex),
+ *   见 loomySessionToken 注释。
  * - 积分制:客户端证据 loomy-points-summary(本地缓存)说明额度以积分形态存在,但
  *   **无公开额度端点** ⇒ getQuota 探测推断端点,200 也如实报「形状未实证 ⇒ 未判定」,
  *   绝不猜字段读成数字;401/403 ⇒ authFailed:true(唯一有把握的判定)。
@@ -35,24 +35,57 @@ import type {
 import type { RelayProviderCode } from '../relay-account-format.js'
 
 // =============================================================================
-// 端点与常量(推断值;改端点只改这里。全部未实证,拿真实抓包后在此收口)
+// 端点与常量(改端点只改这里。chat 网关与模型清单已 2026-11-10 本机运行时取证 +
+// 实弹验证;quota 端点仍为推断,拿真实抓包后在此收口)
 // =============================================================================
 
-/** 实证:2026-10-27 本机 Loomy 数据目录唯一现身的业务域(上报域 idatalog.iflysec.com 不计) */
+/** 业务主站(登录/积分类 API 的域;2026-10-27 本机 Loomy 数据目录实证) */
 const LOOMY_BASE = 'https://loomy.xunfei.cn'
-/** chat 端点(推断:OpenAI 同构惯例路径;未实证) */
-const LOOMY_CHAT_URL = `${LOOMY_BASE}/api/chat/completions`
+/**
+ * chat 网关(2026-11-10 实弹取证):本机 Loomy 0.9.39 的 opencode 运行时
+ * (`opencode serve` 127.0.0.1 GET /config)实读 provider.imodel.options.baseURL =
+ * `https://loomyad.xunfei.cn/api/v1`(@ai-sdk/openai-compatible ⇒ chat 路径 =
+ * `<baseURL>/chat/completions`)。实弹 POST 200 返回标准 chat.completion
+ * (usage 带 points_consumed 计费键)。旧推断路径 loomy.xunfei.cn/api/chat/completions
+ * 实测 404 + SPA 兜底页,作废。
+ */
+const LOOMY_CHAT_URL = 'https://loomyad.xunfei.cn/api/v1/chat/completions'
 /** 积分/额度端点(推断:积分制用户额度惯例路径;未实证) */
 const LOOMY_QUOTA_URL = `${LOOMY_BASE}/api/user/points`
 
 /**
- * 模型清单(2026-11-10 本机取证,非猜测):Loomy 桌面端 0.9.39 的 Local Storage
- * `loomy:selected-model` / `loomy:selected-model:ses_*`(40+ 条会话记录)实读值只有两种:
- * `imodel/qwen3.8-flash` 与 `imodel/spark-x2.6` —— 即客户端真正发给上游的模型 id
- * (带 `imodel/` 前缀)。上游没有公开模型清单端点(2026-11-10 实弹:`/api/models`、
- * `/api/v1/models` 均 404),故按客户端实证 id 静态登记;新增档位须先取证再补。
+ * 模型清单(2026-11-10 本机 opencode 运行时 /config 实读 provider.imodel.models,
+ * 非猜测):只收 tool_call/文本产出档位,图像产出档(Hy-Image/doubao-seedream/
+ * qwen-image)不入对话清单。网关认**裸模型名**(imodel/ 前缀是 opencode 侧的
+ * provider 限定名,发给上游前由转发层剥掉平台前缀后即为裸名)。
  */
-const LOOMY_MODEL_IDS = ['imodel/qwen3.8-flash', 'imodel/spark-x2.6']
+const LOOMY_MODEL_IDS = [
+  'qwen3.8-flash',
+  'spark-x2.6',
+  'GLM-5.3-Flash',
+  'DeepSeek-V4.1-Flash',
+  'deepseek-v4-flash-0731',
+  'mimo-v2.5',
+  'auto',
+]
+
+/**
+ * 池内票形态(2026-11-10 实证):导入载荷 loomy-auth-session 的 value = 整份会话 JSON
+ * ({phone,maskedPhone,session,userid,loggedInAt}),而网关 Bearer 只认其中 `session`
+ * (32-hex;实弹:整 JSON 当票 ⇒ code=100002 登录已失效,session 字段 ⇒ 200 正常补全)。
+ * 非 JSON 形态按原票直通(兼容未来直存裸票的导入源)。
+ */
+export function loomySessionToken(token: string): string {
+  const s = String(token ?? '').trim()
+  if (!s.startsWith('{')) return s
+  try {
+    const j = JSON.parse(s) as { session?: unknown }
+    const v = typeof j.session === 'string' ? j.session.trim() : ''
+    return v || s
+  } catch {
+    return s
+  }
+}
 
 /** 鉴权失效类响应文案标记(通用形态;无 Loomy 专有实证码) */
 const AUTH_BODY_MARKERS = [
@@ -175,8 +208,9 @@ export const loomyAdapter: RelayUpstreamAdapter = {
       headers: {
         'content-type': 'application/json',
         accept: req.stream ? 'text/event-stream' : 'application/json',
-        authorization: `Bearer ${token}`,
-        'user-agent': 'LoomyDesktop', // 推断桌面端 UA;真实 UA 未实证
+        // 会话票只认 session 字段(池内票为整份会话 JSON,见 loomySessionToken 注释)
+        authorization: `Bearer ${loomySessionToken(token)}`,
+        'user-agent': 'LoomyDesktop', // 推断桌面端 UA;真实 UA 未实证(实弹默认 UA 亦放行)
       },
       rawBody,
     }
@@ -204,10 +238,26 @@ export const loomyAdapter: RelayUpstreamAdapter = {
     return { openaiChunk: obj as Record<string, unknown> }
   },
 
-  /** 非流式整体透传(推断层;不做字段翻译,§0.6) */
+  /**
+   * 非流式响应翻译(2026-11-10 实弹):成功 = 标准 chat.completion 原样透传;
+   * 网关业务错误走 **HTTP 200 + {code,desc,trace_id} 信封**(实读 code=100002
+   * "登录已失效,请重新登录")——不拦截会被当成功透给前端且把好号记成健康。
+   * 登录态类码(100001/100002/100003;本机解包 asar 会话协调器同款三分)
+   * 映射为 401 触发自愈,其余业务码按上游错误抛出。
+   */
   translateNonStream(_ctx: AdapterAccountContext, responseBody: unknown): Record<string, unknown> {
     if (responseBody && typeof responseBody === 'object' && !Array.isArray(responseBody)) {
-      return responseBody as Record<string, unknown>
+      const obj = responseBody as Record<string, unknown>
+      if (obj['choices'] === undefined && obj['code'] !== undefined) {
+        const code = String(obj['code'])
+        const desc = String(obj['desc'] ?? '')
+        const authCodes = new Set(['100001', '100002', '100003'])
+        throw new LoomyUpstreamError(
+          authCodes.has(code) ? 401 : 502,
+          `Loomy 网关业务错误 code=${code}${desc ? `: ${desc.slice(0, 200)}` : ''}`,
+        )
+      }
+      return obj
     }
     throw new LoomyUpstreamError(502, 'Loomy 上游响应非 JSON 对象(形状未实证 ⇒ 未判定)')
   },
@@ -237,7 +287,7 @@ export const loomyAdapter: RelayUpstreamAdapter = {
         method: 'GET',
         headers: {
           accept: 'application/json',
-          authorization: `Bearer ${ctx.credentials.token}`,
+          authorization: `Bearer ${loomySessionToken(ctx.credentials.token)}`,
         },
       })
       const text = await res.text().catch(() => '')
@@ -279,7 +329,7 @@ export const loomyAdapter: RelayUpstreamAdapter = {
         method: 'GET',
         headers: {
           accept: 'application/json',
-          authorization: `Bearer ${ctx.credentials.token}`,
+          authorization: `Bearer ${loomySessionToken(ctx.credentials.token)}`,
         },
       })
       const text = await res.text().catch(() => '')
