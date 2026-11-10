@@ -324,7 +324,7 @@ function makeIdbDir(dir, { puts = [], deletes = [] } = {}) {
   return dir
 }
 
-test('loomy IndexedDB 活主键:只数 ses_ 前缀且 tombstone 不算,删一枚 ⇒ broken', () => {
+test('loomy IndexedDB:活主键 ∪ 日志历史 id —— 真机全量 tombstone 也数得出会话', () => {
   const scratch = mkScratch('cont-loomy')
   try {
     const dir = makeIdbDir(path.join(scratch, 'idb'), {
@@ -341,14 +341,16 @@ test('loomy IndexedDB 活主键:只数 ses_ 前缀且 tombstone 不算,删一枚
     )
     const before = C.snapshotApp('loomy', { dbPath: dir })
     assert.equal(before.state, 'ok')
+    assert.equal(before.sessions.liveCount, 2, '活主键 = ses_a/ses_b(同键跨 store 去重)')
     assert.equal(
       before.sessions.count,
-      2,
-      '两枚活会话(同键跨 store 去重);元数据键与 tombstone 都不计入',
+      3,
+      '清单钉 = 活主键 ∪ 日志历史 id(ses_gone 已被 tombstone 但日志里写过)',
     )
-    assert.deepEqual(before.sessionIds.slice().sort(), [C.fp('ses_a'), C.fp('ses_b')].sort())
-    assert.ok(!JSON.stringify(before).includes('ses_gone'), '已删会话不得出现在清单')
+    assert.ok(before.sessionIds.includes(C.fp('ses_gone')), '历史 id 必须进清单(真机形态)')
+    assert.ok(!before.sessionIds.includes(C.fp('theme-mode')), '非 ses_ 前缀不计')
 
+    // 同法再拍:删掉一枚活记录 ⇒ 钉不翻(历史口径的结构性局限,见实现注)
     const dir2 = path.join(scratch, 'idb2')
     fs.cpSync(dir, dir2, { recursive: true })
     fs.writeFileSync(
@@ -358,16 +360,75 @@ test('loomy IndexedDB 活主键:只数 ses_ 前缀且 tombstone 不算,删一枚
       ]),
     )
     const after = C.snapshotApp('loomy', { dbPath: dir2 })
-    assert.equal(after.sessions.count, 1)
-    const cmp = C.compareSnapshots(before, after)
-    assert.equal(cmp.verdict, 'continuity-broken')
-    assert.deepEqual(cmp.lostFp, [C.fp('ses_b')])
+    assert.equal(after.sessions.liveCount, 1, '活主键少了 ses_b')
+    assert.equal(after.sessions.count, 3, '历史口径不随单条删除翻钉(局限,已如实标注)')
+    assert.equal(C.compareSnapshots(before, after).verdict, 'continuity-ok')
   } finally {
     cleanScratch(scratch)
   }
 })
 
-test('loomy 目录在但 0 枚活会话 ⇒ undetermined(不冒绿)', () => {
+test('loomy 真机键布局:db/store 是 varint(旧实现钉死 buf[2]=0x02 ⇒ 恒数 0)', () => {
+  const scratch = mkScratch('cont-loomy-layout')
+  try {
+    const dir = path.join(scratch, 'idb')
+    fs.mkdirSync(dir, { recursive: true })
+    // 真机键:00 01 <db> <store> 01 <varint 字符数> UTF-16BE
+    const realKey = (str, db, store) => {
+      const body = Buffer.from(str, 'utf16le')
+      body.swap16()
+      return Buffer.concat([Buffer.from([0x00, 0x01, db, store, 0x01, str.length]), body])
+    }
+    assert.equal(C.decodeIdbStringKey(realKey('ses_e4ac4497effeIguY', 2, 1)), 'ses_e4ac4497effeIguY')
+    assert.equal(C.decodeIdbStringKey(realKey('theme-mode', 1, 1)), 'theme-mode')
+    // 对象存储元数据键(00 01 00 00 32 01 00)不是记录键 ⇒ 不猜
+    assert.equal(C.decodeIdbStringKey(Buffer.from('00010000320100', 'hex')), null)
+    fs.writeFileSync(
+      path.join(dir, '000003.log'),
+      appendRecords(Buffer.alloc(0), [
+        buildBatch(1, [
+          { key: realKey('ses_a', 2, 1), value: Buffer.from('"sessionId"ses_a') },
+          { key: realKey('ses_b', 2, 2), value: Buffer.from('x') },
+        ]),
+      ]),
+    )
+    const s = C.snapshotApp('loomy', { dbPath: dir })
+    assert.equal(s.state, 'ok')
+    assert.equal(s.sessions.count, 2)
+    assert.equal(s.sessions.liveCount, 2)
+  } finally {
+    cleanScratch(scratch)
+  }
+})
+
+test('loomy 值里的会话 id(loomy-current-task 指针 / 索引值)也算历史,ascii 明文扫得出', () => {
+  const scratch = mkScratch('cont-loomy-val')
+  try {
+    const dir = path.join(scratch, 'idb')
+    fs.mkdirSync(dir, { recursive: true })
+    fs.writeFileSync(
+      path.join(dir, '000003.log'),
+      appendRecords(Buffer.alloc(0), [
+        buildBatch(1, [
+          {
+            key: idbKey('loomy-current-task'),
+            // 真机值 = V8 单字节串:`"` + 长度 + 原文
+            value: Buffer.from('o"key".loomy-current-task".value".ses_pointerONLY1234', 'latin1'),
+          },
+        ]),
+      ]),
+    )
+    const s = C.snapshotApp('loomy', { dbPath: dir })
+    assert.equal(s.state, 'ok', '只有指针、没有会话记录时也必须数得出(否则又是空转)')
+    assert.equal(s.sessions.liveCount, 0)
+    assert.equal(s.sessions.count, 1)
+    assert.deepEqual(s.sessionIds, [C.fp('ses_pointerONLY1234')])
+  } finally {
+    cleanScratch(scratch)
+  }
+})
+
+test('loomy 目录在但 0 枚会话 ⇒ undetermined(不冒绿)', () => {
   const scratch = mkScratch('cont-loomy-empty')
   try {
     const dir = makeIdbDir(path.join(scratch, 'idb'), { puts: ['theme-mode'] })
@@ -389,6 +450,162 @@ test('2026-10-31 扩容三键在册:workbuddy/codearts/loomy 形态各自可寻�
   assert.ok(C.APPS.codearts.fileSet, 'codearts = chatSessions/*.jsonl 文件族')
   assert.ok(C.APPS.loomy.keyCount, 'loomy = IndexedDB 活主键(keyCount;文件数恒定,钉文件只能粗检)')
   assert.equal(C.APPS.doubao, undefined, '豆包是云端回包缓存,刻意不接')
+})
+
+// ── 2026-11-10 四端空转整改:codearts 双面 / zcode 双库 / opencode XDG 新表 / 路径令牌 ──
+
+test('路径令牌:全表不再硬编码 C:/Users/Administrator,{xdgData} 优先 XDG_DATA_HOME', () => {
+  const flat = JSON.stringify(C.APPS)
+  assert.ok(!flat.includes('C:/Users/Administrator'), '注册表里不得再出现硬编码用户目录')
+  assert.deepEqual(C.APPS.opencode.dbCandidates, ['{xdgData}/opencode/opencode.db'])
+  assert.equal(
+    C.resolveDataPath('{xdgData}/opencode/opencode.db', {
+      USERPROFILE: 'D:/u',
+      XDG_DATA_HOME: 'D:/xdg/data',
+    }),
+    'D:/xdg/data/opencode/opencode.db',
+    'XDG_DATA_HOME 在 ⇒ 用它',
+  )
+  assert.equal(
+    C.resolveDataPath('{xdgData}/opencode/opencode.db', { USERPROFILE: 'D:/u' }),
+    'D:/u/.local/share/opencode/opencode.db',
+    '没有 XDG_DATA_HOME ⇒ 退 ~/.local/share',
+  )
+  assert.equal(
+    C.resolveDataPath('{appData}/Loomy/x', { USERPROFILE: 'D:/u', APPDATA: 'E:/r' }),
+    'E:/r/Loomy/x',
+    'APPDATA 重定向必须跟着走',
+  )
+})
+
+/** codearts 形态:真库 session/message + chatSessions 文件族 */
+function makeCodeartsEnv(scratch, { dbSessions = 0, jsonl = 0 } = {}) {
+  const dbFile = path.join(scratch, '.codeartsdoer', 'codearts-data', 'opencode.db')
+  fs.mkdirSync(path.dirname(dbFile), { recursive: true })
+  const db = new DatabaseSync(dbFile)
+  db.exec('CREATE TABLE session (id TEXT PRIMARY KEY, time_archived INTEGER, title TEXT)')
+  db.exec('CREATE TABLE message (id TEXT PRIMARY KEY, session_id TEXT)')
+  const ins = db.prepare('INSERT INTO session(id, time_archived, title) VALUES(?,?,?)')
+  for (let i = 0; i < dbSessions; i++) ins.run(`sess_db_${i}`, null, 't')
+  db.exec('PRAGMA wal_checkpoint(TRUNCATE)')
+  db.close()
+  const root = path.join(scratch, 'AppData', 'Roaming', 'codearts-agent', 'User', 'workspaceStorage')
+  if (jsonl) {
+    const d = path.join(root, 'hash1', 'chatSessions')
+    fs.mkdirSync(d, { recursive: true })
+    for (let i = 0; i < jsonl; i++) fs.writeFileSync(path.join(d, `chat-${i}.jsonl`), '{}\n')
+  } else {
+    fs.mkdirSync(root, { recursive: true })
+  }
+  return {
+    env: {
+      USERPROFILE: scratch,
+      APPDATA: path.join(scratch, 'AppData', 'Roaming'),
+      IHUI_TRAE_SCAN_USERS: '0',
+    },
+    dbFile,
+  }
+}
+
+test('codearts:库优先(库有数据用库),库空回落 chatSessions 文件族,两数并报', () => {
+  const s1 = mkScratch('cont-ca-db')
+  const s2 = mkScratch('cont-ca-file')
+  const s3 = mkScratch('cont-ca-none')
+  try {
+    // ① 库有 3 场 + 文件族 4 份 ⇒ 用库,fallback 报文件族
+    const a = makeCodeartsEnv(s1, { dbSessions: 3, jsonl: 4 })
+    const withDb = C.snapshotApp('codearts', { env: a.env })
+    assert.equal(withDb.state, 'ok')
+    assert.equal(withDb.sessions.count, 3, '库有数据 ⇒ 用库')
+    assert.equal(withDb.dbFile, a.dbFile)
+    assert.ok(withDb.fallback, '另一形态必须并报')
+    assert.equal(withDb.fallback.kind, 'fileSet')
+    assert.equal(withDb.fallback.count, 4)
+
+    // ② 库 0 行 + 文件族 5 份 ⇒ 回落文件族
+    const b = makeCodeartsEnv(s2, { dbSessions: 0, jsonl: 5 })
+    const fallback = C.snapshotApp('codearts', { env: b.env })
+    assert.equal(fallback.state, 'ok', '库空不是"未判定",真会话面在文件族')
+    assert.equal(fallback.sessions.count, 5)
+    assert.match(String(fallback.dbFile), /workspaceStorage/)
+    assert.equal(fallback.fallback.kind, 'sqlite')
+    assert.equal(fallback.fallback.count, 0, '库那一侧的 0 也要报出来')
+
+    // ③ 两边都 0 ⇒ undetermined,且 why 里两边的数都点名
+    const c = makeCodeartsEnv(s3, { dbSessions: 0, jsonl: 0 })
+    const none = C.snapshotApp('codearts', { env: c.env })
+    assert.equal(none.state, 'undetermined')
+    assert.match(String(none.why), /库 .*opencode\.db=0 份/)
+    assert.match(String(none.why), /文件族 .*workspaceStorage=0 份/)
+    assert.equal(none.faces.length, 2)
+  } finally {
+    cleanScratch(s1)
+    cleanScratch(s2)
+    cleanScratch(s3)
+  }
+})
+
+test('zcode:cli/db.sqlite 空但 v2/tasks-index.sqlite 有数据 ⇒ 取有数据的那库,两库都数', () => {
+  const scratch = mkScratch('cont-zcode')
+  try {
+    const cli = path.join(scratch, '.zcode', 'cli', 'db', 'db.sqlite')
+    fs.mkdirSync(path.dirname(cli), { recursive: true })
+    const d1 = new DatabaseSync(cli)
+    d1.exec('CREATE TABLE session (id TEXT PRIMARY KEY)')
+    d1.exec('CREATE TABLE message (id TEXT PRIMARY KEY, session_id TEXT)')
+    d1.close()
+
+    const idx = path.join(scratch, '.zcode', 'v2', 'tasks-index.sqlite')
+    fs.mkdirSync(path.dirname(idx), { recursive: true })
+    const d2 = new DatabaseSync(idx)
+    // 列名按真库 35 列实测:deleted INTEGER(0=未删);不存在 time_deleted 列
+    d2.exec('CREATE TABLE tasks (task_id TEXT PRIMARY KEY, title TEXT, deleted INTEGER DEFAULT 0)')
+    const ins = d2.prepare('INSERT INTO tasks(task_id, title, deleted) VALUES(?,?,?)')
+    ins.run('sess_a', 'a', 0)
+    ins.run('sess_b', 'b', 0)
+    ins.run('sess_gone', 'gone', 1) // 软删 ⇒ 不计
+    d2.close()
+
+    const s = C.snapshotApp('zcode', {
+      env: { USERPROFILE: scratch, IHUI_TRAE_SCAN_USERS: '0' },
+    })
+    assert.equal(s.state, 'ok')
+    assert.equal(s.sessions.count, 2, 'tasks 未删 2 条(软删 1 条不计)')
+    assert.match(String(s.dbFile), /tasks-index\.sqlite/)
+    assert.equal(s.faces.length, 2, '两个库各自数都要报')
+    assert.ok(s.faces.some((f) => /db\.sqlite$/.test(f.path) && f.count === 0))
+  } finally {
+    cleanScratch(scratch)
+  }
+})
+
+test('opencode 2.2.6:会话表是 session_v2/session_message,数据根跟 XDG_DATA_HOME', () => {
+  const scratch = mkScratch('cont-opencode')
+  try {
+    assert.equal(C.APPS.opencode.sessions.table, 'session_v2', '旧 session 表在 2.2.6 已不存在')
+    assert.equal(C.APPS.opencode.messages.table, 'session_message')
+    const xdg = path.join(scratch, 'xdg')
+    const dbFile = path.join(xdg, 'opencode', 'opencode.db')
+    fs.mkdirSync(path.dirname(dbFile), { recursive: true })
+    const db = new DatabaseSync(dbFile)
+    db.exec('CREATE TABLE session_v2 (id TEXT PRIMARY KEY, project_id TEXT, time_archived INTEGER)')
+    db.exec('CREATE TABLE session_message (id TEXT PRIMARY KEY, session_id TEXT)')
+    db.exec("INSERT INTO session_v2(id, project_id, time_archived) VALUES('ses_1','p1',NULL)")
+    db.exec("INSERT INTO session_v2(id, project_id, time_archived) VALUES('ses_2','p1',1)")
+    db.exec("INSERT INTO session_message(id, session_id) VALUES('m1','ses_1')")
+    db.exec('PRAGMA wal_checkpoint(TRUNCATE)')
+    db.close()
+
+    const s = C.snapshotApp('opencode', {
+      env: { USERPROFILE: scratch, XDG_DATA_HOME: xdg, IHUI_TRAE_SCAN_USERS: '0' },
+    })
+    assert.equal(s.state, 'ok')
+    assert.equal(s.sessions.count, 1, 'archived 的那场不计')
+    assert.equal(s.messageRows.count, 1)
+    assert.equal(s.dbFile, dbFile)
+  } finally {
+    cleanScratch(scratch)
+  }
 })
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
