@@ -135,20 +135,23 @@ const ExpandableNavItem = React.memo(function ExpandableNavItem({
     'group/exp relative',
     NAV_ITEM_BASE_CLASS,
     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
-    // 二态优先级:展开/子级激活合一(都是浅绿+主色文字+加粗) vs 闭合态(70% 灰+hover)
-    parentActive || open
-      ? 'bg-primary/10 text-primary font-semibold'
-      : 'text-foreground/70 hover:bg-sidebar-item-hover-bg hover:text-accent-foreground',
+    // 二态优先级:父项自身激活(子级路由命中)用反色；仅"展开"仍用浅绿主色区分展开态；
+    // 其余为未选中 muted + hover 回升前景色。
+    parentActive
+      ? 'bg-cta text-cta-foreground font-semibold'
+      : open
+        ? 'bg-primary/10 text-primary font-semibold'
+        : 'text-muted-foreground hover:bg-sidebar-item-hover-bg hover:text-foreground',
     collapsed ? NAV_ITEM_COLLAPSED_CLASS : NAV_ITEM_EXPANDED_CLASS,
   )
 
   const childClassName = (active: boolean) =>
     cn(
       NAV_CHILD_CLASS,
-      // 2026-11-10 用户要求:选中态底色对比降低,与 NavLink 统一改用 sidebar-active 弱底
+      // 2026-11-11 用户最终定稿:选中态改反色(亮色黑底白字 / 暗色白底黑字),与 NavLink 同档
       active
-        ? 'bg-sidebar-active text-foreground'
-        : 'text-foreground/70 hover:bg-sidebar-item-hover-bg hover:text-accent-foreground',
+        ? 'bg-cta text-cta-foreground font-semibold'
+        : 'text-muted-foreground hover:bg-sidebar-item-hover-bg hover:text-foreground',
     )
 
   const childList = (

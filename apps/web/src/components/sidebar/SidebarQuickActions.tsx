@@ -46,9 +46,10 @@ export function SidebarQuickActions({
     <>
       {/* 新建任务按钮(对齐旧架构 .nav-new-chat,黑白对调主题)
             2026-07-19 用户反馈:整体偏灰,不再用极端黑/白对比;
-            改用 bg-foreground/10 + text-foreground,保持"亮色暗色反向对比"特性
-            (亮色模式 10% 黑 = 浅灰底 + 黑字 / 暗色模式 10% 白 = 深灰底 + 白字),
-            hover 升至 /20 给出明显反馈,但整体仍不抢眼。
+            2026-11-11 用户反馈:该按钮与导航项不同,不需要「选中」语义,却常驻灰底,
+            看起来像一直处于激活态 —— 与首页误高亮同型观感问题。
+            现改为与下方导航项/快捷钮完全一致的默认透明 + hover 弱底(sidebar-item-hover-bg),
+            不再有常驻底色;文字仍用 text-foreground 保持可读性。
             2026-08-29 迁移整合:AI 面板 header"新建任务"按钮已移除,入口统一到此按钮。
             能力 = 打开 AI 面板 + 新建会话(handleNewTask);流式中禁用(原 header 按钮能力)。 */}
       <div className={cn('mb-1', collapsed && 'flex justify-center')}>
@@ -60,12 +61,15 @@ export function SidebarQuickActions({
               disabled={isStreaming}
               aria-label={tchat('newConversation')}
               aria-pressed={aiPanelOpen}
+              data-testid="quick-new-task"
               // 2026-10-19 美化:三枚快捷钮圆角统一 sm 档(O81 角色台账 control=sm)。
               // 此前「新建任务」是 sm、另两枚(插件市场/自动化)是 md,同列两档并存;
               // 首版曾统一到 md,被 radius-role-conformance 守门判红(角色 control 取 md 应为 sm,
               // O81 票 c603c52ddd2 已把控件档定死 sm),故按台账档位全列统一 sm;
               // 另两枚的 md 藏在模板串里守门解析不到(账面暗洞),一并对齐免得暗洞留存。
-              className="flex h-9 w-9 items-center justify-center rounded-sm bg-foreground/10 text-foreground transition-colors hover:bg-foreground/20 disabled:cursor-not-allowed disabled:opacity-40"
+              // 2026-11-11 用户要求「圆角/内边距/图标全部一致」:折叠态从 rounded-sm(4px)
+              // 对齐到展开态与导航项的 rounded-md(6px);36×36 盒型不变。
+              className="flex h-9 w-9 items-center justify-center rounded-md text-foreground transition-colors hover:bg-sidebar-item-hover-bg disabled:cursor-not-allowed disabled:opacity-40"
             >
               <Plus className="h-5 w-5" />
             </button>
@@ -76,9 +80,10 @@ export function SidebarQuickActions({
             onClick={handleNewTask}
             disabled={isStreaming}
             aria-pressed={aiPanelOpen}
+            data-testid="quick-new-task"
             className={cn(
               BTN_NEW_CONVERSATION_CLASS,
-              'bg-foreground/10 text-foreground hover:bg-foreground/20',
+              'text-foreground hover:bg-sidebar-item-hover-bg',
               'disabled:cursor-not-allowed disabled:opacity-40',
             )}
           >
@@ -90,8 +95,7 @@ export function SidebarQuickActions({
 
       {/* 插件市场按钮(2026-07-22 新增,位于"新建任务"按钮正下方)
             - 默认态无背景(与下方 NavLink 导航项一致),仅 hover 出现 sidebar-item-hover-bg 弱底
-            - active 态(/plugins 路由命中):bg-sidebar-active 弱底锁定,提示"正在该页面"
-            - 2026-11-10 用户要求:选中/hover 底色与 sidebar 底对比过大,统一降到 sidebar 弱色档
+            - active 态(/plugins 路由命中):反色锁定(亮色黑底白字 / 暗色白底黑字),提示"正在该页面"
             - 折叠态:36×36 正方形图标按钮,与"新建任务"折叠态对齐
             - 与新建任务按钮共用 BTN_NEW_CONVERSATION_CLASS(h-9 + gap-2 + translateY 对齐)
             - 2026-07-22 用户反馈:默认不应与新建任务一样有灰底,改为透明 */}
@@ -104,10 +108,10 @@ export function SidebarQuickActions({
               aria-label={t('pluginMarket')}
               aria-current={pathname.startsWith('/plugins') ? 'page' : undefined}
               className={cn(
-                'flex h-9 w-9 items-center justify-center rounded-sm text-foreground transition-colors',
+                'flex h-9 w-9 items-center justify-center rounded-md transition-colors',
                 pathname.startsWith('/plugins')
-                  ? 'bg-sidebar-active'
-                  : 'hover:bg-sidebar-item-hover-bg',
+                  ? 'bg-cta text-cta-foreground'
+                  : 'text-muted-foreground hover:bg-sidebar-item-hover-bg hover:text-foreground',
               )}
             >
               <Package className="h-5 w-5" />
@@ -121,8 +125,8 @@ export function SidebarQuickActions({
             className={cn(
               BTN_NEW_CONVERSATION_CLASS,
               pathname.startsWith('/plugins')
-                ? 'bg-sidebar-active text-foreground'
-                : 'text-foreground hover:bg-sidebar-item-hover-bg',
+                ? 'bg-cta text-cta-foreground font-semibold'
+                : 'text-muted-foreground hover:bg-sidebar-item-hover-bg hover:text-foreground',
             )}
           >
             <Package className="h-5 w-5 shrink-0" />
@@ -133,7 +137,7 @@ export function SidebarQuickActions({
 
       {/* 自动化任务按钮(2026-07-22 新增,位于"插件市场"按钮正下方,快捷区第3个)
             - 默认态无背景(与下方 NavLink 导航项一致),仅 hover 出现 sidebar-item-hover-bg 弱底
-            - active 态(/self-media/automation 路由命中):bg-sidebar-active 弱底锁定
+            - active 态(/self-media/automation 路由命中):反色锁定(亮色黑底白字 / 暗色白底黑字)
             - 折叠态:36×36 正方形图标按钮,与上方两个按钮对齐
             - 从 AI 分组移出,提升为快捷入口(用户需求 2026-07-22)
             - 2026-07-22 用户反馈:默认不应与新建任务一样有灰底,改为透明 */}
@@ -146,10 +150,10 @@ export function SidebarQuickActions({
               aria-label={t('selfMediaAutomation')}
               aria-current={pathname.startsWith('/self-media/automation') ? 'page' : undefined}
               className={cn(
-                'flex h-9 w-9 items-center justify-center rounded-sm text-foreground transition-colors',
+                'flex h-9 w-9 items-center justify-center rounded-md transition-colors',
                 pathname.startsWith('/self-media/automation')
-                  ? 'bg-sidebar-active'
-                  : 'hover:bg-sidebar-item-hover-bg',
+                  ? 'bg-cta text-cta-foreground'
+                  : 'text-muted-foreground hover:bg-sidebar-item-hover-bg hover:text-foreground',
               )}
             >
               <Clock className="h-5 w-5" />
@@ -163,8 +167,8 @@ export function SidebarQuickActions({
             className={cn(
               BTN_NEW_CONVERSATION_CLASS,
               pathname.startsWith('/self-media/automation')
-                ? 'bg-sidebar-active text-foreground'
-                : 'text-foreground hover:bg-sidebar-item-hover-bg',
+                ? 'bg-cta text-cta-foreground font-semibold'
+                : 'text-muted-foreground hover:bg-sidebar-item-hover-bg hover:text-foreground',
             )}
           >
             <Clock className="h-5 w-5 shrink-0" />
@@ -175,7 +179,7 @@ export function SidebarQuickActions({
 
       {/* 产物中心按钮(2026-10-30 G3 新增,快捷区第4个)
             - 样式与插件市场/自动化同款:默认透明仅 hover 出 sidebar-item-hover-bg 弱底,
-              active 态(/artifacts 路由命中)用 bg-sidebar-active 锁定;折叠态 36×36 图标按钮
+              active 态(/artifacts 路由命中)用反色锁定(亮色黑底白字 / 暗色白底黑字);折叠态 36×36 图标按钮
             - 文案取 artifacts.navEntry(与产物中心页面词同源) */}
       <div className={cn('mb-1', collapsed && 'flex justify-center')}>
         {collapsed ? (
@@ -186,10 +190,10 @@ export function SidebarQuickActions({
               aria-label={tart('navEntry')}
               aria-current={pathname.startsWith('/artifacts') ? 'page' : undefined}
               className={cn(
-                'flex h-9 w-9 items-center justify-center rounded-sm text-foreground transition-colors',
+                'flex h-9 w-9 items-center justify-center rounded-md transition-colors',
                 pathname.startsWith('/artifacts')
-                  ? 'bg-sidebar-active'
-                  : 'hover:bg-sidebar-item-hover-bg',
+                  ? 'bg-cta text-cta-foreground'
+                  : 'text-muted-foreground hover:bg-sidebar-item-hover-bg hover:text-foreground',
               )}
             >
               <PackageOpen className="h-5 w-5" />
@@ -203,8 +207,8 @@ export function SidebarQuickActions({
             className={cn(
               BTN_NEW_CONVERSATION_CLASS,
               pathname.startsWith('/artifacts')
-                ? 'bg-sidebar-active text-foreground'
-                : 'text-foreground hover:bg-sidebar-item-hover-bg',
+                ? 'bg-cta text-cta-foreground font-semibold'
+                : 'text-muted-foreground hover:bg-sidebar-item-hover-bg hover:text-foreground',
             )}
           >
             <PackageOpen className="h-5 w-5 shrink-0" />

@@ -59,11 +59,12 @@ export const NAV_ITEM_EXPANDED_CLASS = 'w-full'
  *  py-1.5 = 6px 上下内边距(高度略小于父级)
  */
 export const NAV_CHILD_CLASS =
-  'flex h-9 w-full min-w-0 items-center gap-2 rounded-md pl-5 pr-2.5 py-1.5 text-sm font-medium leading-none whitespace-nowrap transition-colors [&>span]:translate-y-[var(--text-vcenter-offset)]'
+  'flex h-9 w-full min-w-0 items-center gap-2.5 rounded-md pl-5 pr-2.5 py-1.5 text-sm font-medium leading-none whitespace-nowrap transition-colors [&>span]:translate-y-[var(--text-vcenter-offset)]'
 
 /** 通用按钮:新建任务 / 工具栏触发器
  *  - h-9 w-full 与导航项高度一致
- *  - bg-foreground/10 浅色态背景,hover 加深到 20%
+ *  - 本身不带底色(2026-11-11 起):调用方按语义补 hover/active 态,
+ *    避免常驻灰底被误读成「选中」;侧栏内统一用 hover:bg-sidebar-item-hover-bg
  *  - gap-2.5 + px-2.5 + py-2 与 NAV_ITEM_BASE_CLASS 完全对齐(2026-08-02 修:原 gap-2/px-3 导致文字位置与导航项不一致)
  *  - [&>span]:translate-y-[var(--text-vcenter-offset)] 对齐(默认 0.3px)
  */
