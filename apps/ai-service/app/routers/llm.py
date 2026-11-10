@@ -3798,31 +3798,11 @@ async def llm_complete(req: LLMCompleteRequest, request: Request) -> dict[str, A
     return result
 
 
-@router.get("/llm/models")
 async def build_model_catalog() -> list[dict[str, Any]]:
     """构建完整模型目录(data/default_models.json + ai_model_config_models 表合并)。
 
     2026-11-07 抽出:模型级健康探测服务需要与 /llm/models 同源的候选清单,进程启动
     时自举目录(否则要等页面首次访问才登记目录,重启后死模型会短暂重现)。
-    """
-    default_models = await build_model_catalog()
-    return default_models
-async def list_models(request: Request) -> dict[str, Any]:
-    """返回可用模型列表(已按 provider 健康状态自动过滤)。
-
-    过滤规则(2026-07-31 立,用户规则:只显示可完美接通调用的模型):
-    - 加载 data/default_models.json + ai_model_config_models 表合并清单
-    - 调 model_availability.get_available_models() 过滤:
-      * 未配置 key 的 provider 模型 → 过滤
-      * 健康检查 DOWN(401/403/超时/网络错误)的 provider 模型 → 过滤
-      * zero_cost provider(pollinations/llm7/aihorde/opencode_zen)→ 保留
-      * LOCAL provider(ollama/lmstudio/llamacpp/vllm)→ 保留
-      * PENDING(尚未检测)/ DEGRADED(延迟高但仍可用)→ 保留
-    - stub 模式下绕过过滤(本地开发无 key,返回默认列表)
-    - 健康状态由 ModelAvailabilityService 后台每 5 分钟刷新一次(不阻塞请求)
-
-    前端 /models 页面通过 API 代理调用此端点获取动态模型清单。
-    Dashboard 可调 GET /llm/providers/availability 查看 provider 健康状态详情。
     """
     default_models = _load_default_models()
     # 从数据库加载额外模型(ai_model_config_models 表,is_relay_public=true)
@@ -3916,7 +3896,28 @@ async def list_models(request: Request) -> dict[str, Any]:
                 seen.add(mid)
     except Exception as e:
         logger.warning("从数据库加载模型失败: %s", e)
+    return default_models
 
+
+@router.get("/llm/models")
+async def list_models(request: Request) -> dict[str, Any]:
+    """返回可用模型列表(已按 provider 健康状态自动过滤)。
+
+    过滤规则(2026-07-31 立,用户规则:只显示可完美接通调用的模型):
+    - 加载 data/default_models.json + ai_model_config_models 表合并清单
+    - 调 model_availability.get_available_models() 过滤:
+      * 未配置 key 的 provider 模型 → 过滤
+      * 健康检查 DOWN(401/403/超时/网络错误)的 provider 模型 → 过滤
+      * zero_cost provider(pollinations/llm7/aihorde/opencode_zen)→ 保留
+      * LOCAL provider(ollama/lmstudio/llamacpp/vllm)→ 保留
+      * PENDING(尚未检测)/ DEGRADED(延迟高但仍可用)→ 保留
+    - stub 模式下绕过过滤(本地开发无 key,返回默认列表)
+    - 健康状态由 ModelAvailabilityService 后台每 5 分钟刷新一次(不阻塞请求)
+
+    前端 /models 页面通过 API 代理调用此端点获取动态模型清单。
+    Dashboard 可调 GET /llm/providers/availability 查看 provider 健康状态详情。
+    """
+    default_models = await build_model_catalog()
     # 模型可用性过滤(2026-07-31 立,用户规则:只显示可完美接通调用的模型)
     # stub 模式下绕过过滤(本地开发无 key,所有模型都不可用会被过滤光)
     stub_mode = llm_gateway._is_stub_mode()
