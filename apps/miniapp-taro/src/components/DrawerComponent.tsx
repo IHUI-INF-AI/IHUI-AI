@@ -6,9 +6,12 @@ import { aizhsUrl } from '@/constants/icon-urls'
 import { useTt, type TtFn } from '@/i18n'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import { cn, rnRadius, rnRadiusFor, taroGeometry } from '@ihui/design-tokens'
-import type { CSSProperties } from 'react'
+import { useRef, useState, type CSSProperties } from 'react'
 import LineIcon from '@/components/LineIcon'
 import { ICONS } from '@/components/LineIcon/icons'
+import ScrollEdgeFades from '@/components/ScrollEdgeFades'
+import { useAppTheme } from '@/lib/theme'
+import { COLORS } from '@/constants/style'
 // 图片内容(非 UI 图标)只有两枚:头部品牌 logo 与默认头像 —— 其余界面图标一律 LineIcon 矢量
 // (O81 票:菜单/标签/设置/模型兜底图标从 CDN 位图收进矢量,与 RN 端 lucide 同一载体类)
 // icon-bitmap-exempt: 品牌多色插画 logo(非线形 UI 图标;RN 侧同资产 Drawer.tsx LOGO_LIGHT/LOGO_DARK 已同例豁免) until 2027-01-15
@@ -123,6 +126,18 @@ const DEFAULT_LABEL_ITEMS = (tt: TtFn): DrawerMenuItem[] => [
 
 export default function DrawerComponent(props: DrawerComponentProps) {
   const tt = useTt()
+  // 左抽屉历史列表的边缘淡出(2026-11-10 多端一致规格,与 Web Sidebar 的 ScrollEdgeFades 同族):
+  // 本端可直接拿到该 ScrollView 的 onScroll ⇒ 节流(≥150ms)后并入 depKey 触发重测,手指滑动即时更新。
+  // 钩子必须在 `if (!visible) return null` 之前(条件钩子会炸 React 规则)。
+  const { resolved } = useAppTheme()
+  const [drawerScrollTick, setDrawerScrollTick] = useState(0)
+  const drawerScrollTsRef = useRef(0)
+  const bumpDrawerScroll = () => {
+    const now = Date.now()
+    if (now - drawerScrollTsRef.current < 150) return
+    drawerScrollTsRef.current = now
+    setDrawerScrollTick((v) => v + 1)
+  }
   const {
     visible,
     onClose,
@@ -306,7 +321,7 @@ export default function DrawerComponent(props: DrawerComponentProps) {
           </View>
 
           {/* 历史对话列表:scroll-y,按模型 + 日期分组 */}
-          <ScrollView scrollY className="flex-1">
+          <ScrollView scrollY className="drawer-history-scroll flex-1" onScroll={bumpDrawerScroll}>
             {groupedData.length === 0 ? (
               <View style={{ padding: 'var(--spacing-xl) 23rpx' }} className="text-center">
                 <Text
@@ -411,6 +426,14 @@ export default function DrawerComponent(props: DrawerComponentProps) {
               ))
             )}
           </ScrollView>
+
+          {/* 历史列表滚动视口上/下边缘淡出(多端一致规格 24px 纯渐变,仅溢出方向显示,
+              pointer-events 穿透;色 = 抽屉面板底 var(--color-card) 的 JS 同源值 bgSecondary) */}
+          <ScrollEdgeFades
+            scrollSelector=".drawer-history-scroll"
+            depKey={`${groupedData.length}:${drawerScrollTick}`}
+            bgColorHsl={COLORS.bgSecondary[resolved]}
+          />
 
           {/* 底部用户信息 */}
           {userinfo ? (

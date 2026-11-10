@@ -21,7 +21,7 @@ import { SidebarUserRow } from './SidebarUserRow'
 import { NavGroupSection } from './NavGroupSection'
 import { CustomNavSection } from './CustomNavSection'
 import { SidebarHeader } from './SidebarHeader'
-import SidebarScrollFades from './SidebarScrollFades'
+import { ScrollEdgeFades } from '@/components/common/ScrollEdgeFades'
 import { SidebarQuickActions } from './SidebarQuickActions'
 import { useNavVisibilityFilter } from './use-nav-visibility'
 // 宽度常量保留在 barrel (../sidebar.tsx) 中,供 scripts/check-sidebar-width-consistency.mjs 守门脚本校验;
@@ -499,11 +499,11 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
           collapsed={effectiveCollapsed}
           onToggleCollapse={onToggleCollapse}
         />
-        {/* relative 包裹层:SidebarScrollFades 的绝对定位淡出锚定在菜单滚动视口的上/下边缘,
+        {/* relative 包裹层:ScrollEdgeFades 的绝对定位淡出锚定在菜单滚动视口的上/下边缘,
             不随内容滚动;nav 自身 overflow-y-auto 承担滚动。 */}
         <div className="relative flex min-h-0 flex-1 flex-col">
           {navContent(desktopNavId, navRef, 'desktop', effectiveCollapsed)}
-          <SidebarScrollFades navRef={navRef} />
+          <ScrollEdgeFades scrollRef={navRef} />
         </div>
         {desktopFooter}
         {/* 右侧拖拽手柄:展开/折叠态均显示(折叠态可拖拽展开)。
@@ -571,7 +571,7 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
           {/* 同桌面:relative 包裹层 + 滚动淡出(移动抽屉菜单同样需要上下边缘无硬切) */}
           <div className="relative flex min-h-0 flex-1 flex-col">
             {navContent(mobileNavId, mobileNavRef, 'mobile', false)}
-            <SidebarScrollFades navRef={mobileNavRef} />
+            <ScrollEdgeFades scrollRef={mobileNavRef} />
           </div>
           {mobileFooter}
           {/* 移动端拖拽手柄(2026-07-31 第十五次新增):复用 desktop 同款结构

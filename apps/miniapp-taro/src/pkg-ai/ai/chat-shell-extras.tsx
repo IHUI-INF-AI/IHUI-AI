@@ -23,6 +23,7 @@ import { getModelContextCapacity } from '@ihui/api-client'
 import { onToast } from '@/host/on-toast'
 import LineIcon from '@/components/LineIcon'
 import { InputArea, SkillsPopup, MaterialPopup } from '@/components'
+import ScrollEdgeFades from '@/components/ScrollEdgeFades'
 import ChatMessageItem from './ChatMessageItem'
 import MessageVersionMenu from './message-version-menu'
 import ContextUsageStrip from './context-usage-strip'
@@ -439,6 +440,21 @@ export function buildChatShellProps(ctx: ChatShellCtx): ChatScreenProps {
 
   const overlaySlot = (
     <>
+      {/* 消息滚动视口上/下边缘淡出(2026-11-10 多端一致规格:纯渐变 24px、仅溢出方向显示、
+          pointer-events 穿透;与 Web ScrollEdgeFades / 胶囊 BottomFadeMask 同族,见该组件头注)。
+          消息列表宿主在共享层(经 rn-compat 渲染,拿不到 onScroll)⇒ 选择器快照 + IO 实时触发
+          (IO 观察行节点,根治纯手指滑动滞后,见 ScrollEdgeFades 头注);行节点在孙级
+          (rn-compat ScrollView 垫了一层 contentContainer view)⇒ childSelector 指到行层。
+          depKey 并入 消息数/流式态/scrollTop(流式每个增量都会翻动 scrollTop,重建 IO 观察)。
+          颜色 = 页面背景令牌:chat.css .page 用 var(--color-background),与 COLORS.bgPrimary 同源同值。
+          z-index=40 依据(2026-11-10 复核 chat.css):.msg-list 与 .input-area(z:5)为 flex 兄弟
+          无空间重叠;浮层族 agent 全屏 998 / 输入全屏放大 999 / 弹层 1000 均 > 40 ⇒ 淡出条正确
+          沉于全屏态之下;胶囊 50 > 40 ⇒ 不压胶囊。无冲突,维持默认 40。 */}
+      <ScrollEdgeFades
+        scrollSelector=".msg-list"
+        childSelector=".msg-list > view > view"
+        depKey={`${messages.length}:${thinking ? 1 : 0}:${scrollTop}`}
+      />
       <ModelDrawer
         visible={modelDrawerVisible}
         onClose={() => setModelDrawerVisible(false)}
