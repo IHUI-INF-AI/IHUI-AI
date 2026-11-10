@@ -131,7 +131,9 @@ class TestAgentInvokeEndpoint:
         data = resp.json()
         assert data["code"] == 0
         assert data["data"]["agent_name"] == "researcher"
-        assert data["data"]["status"] == "completed"
+        # 测试环境无 key ⇒ orchestrator 按契约返回 stub(不冒充 completed,见
+        # agent_orchestrator 2026-11-07 起 step_status=stub);两者都是降级成功。
+        assert data["data"]["status"] in ("completed", "stub")
         assert "output" in data["data"]
 
     @pytest.mark.asyncio
@@ -159,7 +161,7 @@ class TestAgentInvokeEndpoint:
         )
         assert resp.status_code == 200
         data = resp.json()
-        assert data["data"]["status"] == "completed"
+        assert data["data"]["status"] in ("completed", "stub")
 
 
 class TestAgentPipelineEndpoint:
@@ -180,7 +182,7 @@ class TestAgentPipelineEndpoint:
         data = resp.json()
         assert data["code"] == 0
         assert len(data["data"]["steps"]) == 2
-        assert data["data"]["status"] == "completed"
+        assert data["data"]["status"] in ("completed", "stub")
 
     @pytest.mark.asyncio
     async def test_pipeline_missing_steps(self, client):
@@ -783,7 +785,9 @@ async def test_ais050_upload_file_blocks_outside_path_before_network(tmp_path):
     "tool",
     [
         "token6688_upload_file",
-        "token6688_voice_clone",
+        # token6688_voice_clone 不在档内:用户 2026-11-08 逐条裁定它是"贵资源",
+        # 走归属闸+计费闸(tests/test_voice_clone_owner_credit_ais050.py),
+        # 整只塞进 admin 档会挡死 role=0 的正常对话链 —— 见 AIS-050 裁定补充。
         "browser_selfcheck_screenshot",
         "browser_selfcheck",
     ],

@@ -132,8 +132,10 @@ async def agent_invoke(req: AgentInvokeRequest) -> dict[str, Any]:
             model_override=req.model,
         )
         return {
-            "code": 0 if result.status == "completed" else 1,
-            "message": "ok" if result.status == "completed" else result.error or "failed",
+            # stub 是"未配置 key 的降级成功"(orchestrator 契约:不冒充 completed,
+            # 但也没失败)⇒ 协议码仍为 0,否则前端会把无 key 环境当故障。
+            "code": 0 if result.status in ("completed", "stub") else 1,
+            "message": "ok" if result.status in ("completed", "stub") else result.error or "failed",
             "data": agent_orchestrator.step_result_to_dict(result),
         }
     except Exception as e:
@@ -157,8 +159,8 @@ async def agent_pipeline(req: PipelineRequest) -> dict[str, Any]:
                 session_id=req.session_id,
             )
         return {
-            "code": 0 if result.status == "completed" else 1,
-            "message": "ok" if result.status == "completed" else "pipeline failed",
+            "code": 0 if result.status in ("completed", "stub") else 1,
+            "message": "ok" if result.status in ("completed", "stub") else "pipeline failed",
             "data": agent_orchestrator.orchestration_to_dict(result),
         }
     except Exception as e:
@@ -180,8 +182,8 @@ async def agent_parallel(req: ParallelRequest) -> dict[str, Any]:
                 session_id=req.session_id,
             )
         return {
-            "code": 0 if result.status == "completed" else 1,
-            "message": "ok" if result.status == "completed" else "partial failed",
+            "code": 0 if result.status in ("completed", "stub") else 1,
+            "message": "ok" if result.status in ("completed", "stub") else "partial failed",
             "data": agent_orchestrator.orchestration_to_dict(result),
         }
     except Exception as e:
@@ -302,8 +304,8 @@ async def agent_run_decomposed(req: RunDecomposedRequest) -> dict[str, Any]:
                 session_id=req.session_id,
             )
         return {
-            "code": 0 if result.status == "completed" else 1,
-            "message": "ok" if result.status == "completed" else "decomposed run failed",
+            "code": 0 if result.status in ("completed", "stub") else 1,
+            "message": "ok" if result.status in ("completed", "stub") else "decomposed run failed",
             "data": agent_orchestrator.orchestration_to_dict(result),
         }
     except Exception as e:

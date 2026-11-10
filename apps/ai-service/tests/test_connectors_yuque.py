@@ -52,6 +52,33 @@ class _FakeResp:
             raise requests.HTTPError(f"{self._status} Error")
 
 
+def _async_responses(*responses: _FakeResp):
+    """把响应序列包成 async 替身。
+
+    `_request` 已在 cf2f0b3ff0 改为 httpx.AsyncClient 异步实现(避免阻塞事件
+    循环),同步 lambda 替身会让 `await` 拿到裸对象 → 直接走异常降级分支。
+    """
+    queue = list(responses)
+
+    async def _fake(
+        url: str, params: dict[str, Any] | None = None, timeout: float = 20.0
+    ) -> _FakeResp:
+        return queue.pop(0)
+
+    return _fake
+
+
+def _async_raises(exc: Exception):
+    """构造 async 网络异常替身(与 `_request` 协程签名对齐)。"""
+
+    async def _fake(
+        url: str, params: dict[str, Any] | None = None, timeout: float = 20.0
+    ) -> _FakeResp:
+        raise exc
+
+    return _fake
+
+
 def _record(**overrides: Any) -> dict:
     rec: dict[str, Any] = {
         "key": "yuque:docs",
@@ -64,7 +91,7 @@ def _record(**overrides: Any) -> dict:
 
 
 async def test_sync_returns_expected_structure(monkeypatch):
-    monkeypatch.setattr(yuque, "_request", lambda url, params=None, timeout=20: _FakeResp(text=_fake_home_html()))
+    monkeypatch.setattr(yuque, "_request", _async_responses(_FakeResp(text=_fake_home_html())))
     res = await yuque.sync(_record())
     assert res["ok"] is True
     assert res["last_sync_at"]  # 成功时带时间戳
@@ -80,7 +107,7 @@ async def test_fetch_document_returns_expected_structure(monkeypatch):
         _FakeResp(text=_fake_home_html()),
         _FakeResp(json_data={"data": {"title": "Overview", "content": content}}),
     ]
-    monkeypatch.setattr(yuque, "_request", lambda url, params=None, timeout=20: fake_responses.pop(0))
+    monkeypatch.setattr(yuque, "_request", _async_responses(*fake_responses))
     res = await yuque.fetch_document(_record(), "api")
     assert res["ok"] is True
     assert res["title"] == "Overview"
@@ -96,7 +123,7 @@ async def test_fetch_document_truncates_long_content(monkeypatch):
         _FakeResp(text=_fake_home_html()),
         _FakeResp(json_data={"data": {"title": "长文", "content": content}}),
     ]
-    monkeypatch.setattr(yuque, "_request", lambda url, params=None, timeout=20: fake_responses.pop(0))
+    monkeypatch.setattr(yuque, "_request", _async_responses(*fake_responses))
     res = await yuque.fetch_document(_record(), "long")
     assert res["ok"] is True
     assert res["truncated"] is True
@@ -119,10 +146,7 @@ async def test_fetch_missing_extra_returns_ok_false():
 
 
 async def test_sync_network_error_degrades(monkeypatch):
-    def _boom(url, params=None, timeout=20):
-        raise requests.ConnectionError("mock 网络不可达")
-
-    monkeypatch.setattr(yuque, "_request", _boom)
+    monkeypatch.setattr(yuque, "_request", _async_raises(requests.ConnectionError("mock 网络不可达")))
     res = await yuque.sync(_record())
     assert res["ok"] is False
     assert res["items"] == []
@@ -131,10 +155,7 @@ async def test_sync_network_error_degrades(monkeypatch):
 
 
 async def test_fetch_network_error_degrades(monkeypatch):
-    def _boom(url, params=None, timeout=20):
-        raise requests.Timeout("mock 超时")
-
-    monkeypatch.setattr(yuque, "_request", _boom)
+    monkeypatch.setattr(yuque, "_request", _async_raises(requests.Timeout("mock 超时")))
     res = await yuque.fetch_document(_record(), "api")
     assert res["ok"] is False
     assert res["content"] == ""
@@ -146,7 +167,7 @@ async def test_fetch_empty_doc_content_returns_ok_false(monkeypatch):
         _FakeResp(text=_fake_home_html()),
         _FakeResp(json_data={"data": {"title": "空", "content": ""}}),
     ]
-    monkeypatch.setattr(yuque, "_request", lambda url, params=None, timeout=20: fake_responses.pop(0))
+    monkeypatch.setattr(yuque, "_request", _async_responses(*fake_responses))
     res = await yuque.fetch_document(_record(), "empty")
     assert res["ok"] is False
     assert res["title"] == "空"

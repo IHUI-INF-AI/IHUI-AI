@@ -2685,6 +2685,13 @@
       "when": 1794157200000,
       "tag": "20261109010000_hr_attendance_fix",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 386,
+      "when": 1794160800000,
+      "tag": "20261108190000_tool_call_empirical_capability",
+      "breakpoints": true
     }
   ]
 }
