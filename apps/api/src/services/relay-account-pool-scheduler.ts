@@ -52,6 +52,21 @@ import { ACCOUNT_SCHEDULABLE_HEALTH_STATES } from './relay-pool-stats-service.js
 
 /** 临期刷新窗口:距过期 15 分钟内触发(上游 token 寿命 ~14 天,窗口足够宽) */
 const REFRESH_AHEAD_MS = 15 * 60 * 1000
+/**
+ * 临期窗口的覆盖面出口(2026-11-10):`RELAY_ACCOUNT_REFRESH_AHEAD_MS`。
+ *
+ * 立因:窗口必须 ≥ 巡检节拍,否则「到期」必然落在两次巡检之间的空档 ⇒ 那枚号有一段时间
+ * 不可用。api 常驻每 5 分钟一轮,用默认 15 分钟就够;而 api 不在时唯一的承载体是
+ * scripts/relay-account-keepalive.mjs(1 小时节拍),它派发时把这条调到 90 分钟
+ * (节拍 + 余量)。判据仍只有这一份,承载腿不另算。
+ * 未设/非法 ⇒ 默认(失效方向是「照默认保活」,不是静默关掉窗口)。
+ */
+export function refreshAheadMs(env: NodeJS.ProcessEnv = process.env): number {
+  const raw = (env.RELAY_ACCOUNT_REFRESH_AHEAD_MS ?? '').trim()
+  if (!raw) return REFRESH_AHEAD_MS
+  const n = Number(raw)
+  return Number.isFinite(n) && n > 0 ? n : REFRESH_AHEAD_MS
+}
 /** 连续刷新失败摘除阈值 */
 const REFRESH_FAILURE_LIMIT = 3
 /**
@@ -105,6 +120,19 @@ export function renewalPolicyOf(
   const flag = (env[flagName] ?? '').trim().toLowerCase()
   if (['0', 'false', 'off'].includes(flag)) return 'server'
   return 'client-first'
+}
+
+/**
+ * 「本机客户端手里也握着同一枚轮换型 refresh_token」的平台(单一真相源 = CLIENT_FIRST_FLAGS 的键集)。
+ *
+ * 用途(2026-11-10):永久保活档的让位方向必须按这条问,而不是按 `renewalPolicyOf`。
+ * 两者答的不是同一个问题:开关答「谁负责续期」,这里答「让位会不会造成不可逆损伤」——
+ * 只有客户端真握着票时,池抢刷才会把机主顶下线;开关拨回 server 并不等于客户端手上没票
+ * (测试 ⑧ 钉住这一点)。反过来,没有客户端握票的平台(workbuddy 等)让位 = 永不续期,
+ * 那才是真正不可逆的损伤(现读:三枚 workbuddy forever 号空转六天)。
+ */
+export function hasLocalRenewingClient(providerCode: string): boolean {
+  return Object.prototype.hasOwnProperty.call(CLIENT_FIRST_FLAGS, providerCode)
 }
 
 /**
@@ -196,6 +224,8 @@ export function keepaliveForeverIdleHours(env: NodeJS.ProcessEnv = process.env):
  *  - `clientRunning === null/undefined`(探测未判定/未提供)⇒ **按在跑处理 ⇒ 让位**;
  *    这一枚的默认方向必须是「多让」:多刷一次 = 机主不可逆掉线,多让一次 = rt 晚续
  *    最多一个 TTL(§0.3 反向应用:量不到绝不冒「判过没在跑」);
+ *    例外(2026-11-10):`renewalPolicyOf(provider) === 'server'` 的平台没有客户端在续期,
+ *    未判定不得冻结续期 —— 见函数体内该格立因;
  *  - `clientRunning === false` ⇒ 才落到心跳维:心跳仍新鲜 ⇒ 让位(客户端刚停,票面
  *    可能还在它手里),心跳陈旧/没有 ⇒ 接管(此时两条证据同向指「客户端已不在续期」)。
  *
@@ -208,12 +238,24 @@ export type KeepAliveForeverVerdict = {
 }
 
 export function keepAliveForeverVerdictOf(
-  row: { extraMetadata?: unknown },
+  row: { providerCode?: string; extraMetadata?: unknown },
   now: Date,
   clientRunning: boolean | null | undefined,
 ): KeepAliveForeverVerdict {
-  if (clientRunning !== false) {
+  if (clientRunning === true) {
     return { defer: true, reason: 'client-running-or-unjudged' }
+  }
+  if (clientRunning !== false) {
+    // 未判定时的默认方向必须是「多让」—— 但它只在「本机客户端手里也握着同一枚轮换型 rt」的
+    // 平台上成立(判据单源 = hasLocalRenewingClient,不是 renewalPolicyOf 的开关值):
+    // 让位会造成的不可逆损伤只有一种 —— 池抢刷把机主客户端顶下线;反过来,没有客户端握票的
+    // 平台(workbuddy / codearts / zcode / opencode…)让位 = **永不续期**。
+    // 2026-11-10 现读反例:workbuddy 三枚 forever 号 lastRefreshAt 停在 11-03/11-04,
+    // 而探针表只有 trae/qoder/minimax ⇒ 恒 null ⇒ 恒让位 ⇒ token 12-03~12-09 到期后
+    // 「安静地整批死亡」,与永久保活档的立因正相反。
+    if (hasLocalRenewingClient(row.providerCode ?? '')) {
+      return { defer: true, reason: 'client-running-or-unjudged' }
+    }
   }
   const activeAt = clientActiveAtOf(row)
   if (activeAt !== null && now.getTime() - activeAt.getTime() < CLIENT_ACTIVE_TTL_MS) {
@@ -921,7 +963,7 @@ async function runSweepOnce(
     foreverDeferred: 0,
   }
   const now = new Date()
-  const deadline = new Date(now.getTime() + REFRESH_AHEAD_MS)
+  const deadline = new Date(now.getTime() + refreshAheadMs())
   // 出口选取台账(仅日志观测;不新增 sweep 产出键,保持全标量契约)
   const egress: EgressProxyTally = { proxied: 0, direct: 0 }
 

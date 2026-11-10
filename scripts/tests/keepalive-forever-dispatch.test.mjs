@@ -52,7 +52,8 @@ test('T1 未到节流窗口 ⇒ 一次都不派生', (t) => {
   const h = harness(t)
   sweepKeepAliveForever(h.opts)
   assert.equal(h.calls.length, 1, '首次应派发')
-  h.opts.now = NOW + HOUR // 1 小时 < 6 小时窗口
+  // 2026-11-10:成功间隔由 6h 降到 1h(minimax access token 实测仅 ~4h 寿命),窗口随之 1h
+  h.opts.now = NOW + 30 * 60 * 1000 // 半小时 < 1 小时窗口
   const r = sweepKeepAliveForever(h.opts)
   assert.equal(r.ran, false)
   assert.equal(h.calls.length, 1, '未到窗口不得再派生')
