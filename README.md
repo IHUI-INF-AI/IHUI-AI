@@ -5458,6 +5458,9 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-10**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (f611c37a62)
+
+**2026-11-10**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (4e7adad235)
 - 📚 文档:数字块按 HEAD 面重算（与推门 check-doc-numbers 同面） (bd0fee0d4f)
 - 📚 文档:数字块按 HEAD 面重算（与推门 check-doc-numbers 同面） (09240bd0f0)
