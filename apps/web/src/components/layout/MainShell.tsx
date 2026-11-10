@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { usePathname } from 'next/navigation'
 import { useAuthStore } from '@/stores/auth'
 import { GlobalErrorBanner } from '@/components/common/GlobalErrorBanner'
 import { ConnectivityBanner } from '@/components/layout/ConnectivityBanner'
@@ -33,6 +34,19 @@ import { ConnectivityBanner } from '@/components/layout/ConnectivityBanner'
 export function MainShell({ children }: { children: React.ReactNode }) {
   // 显式订阅以触发 (main) 路由组的认证态变化(2026-07-30:从原顶栏副作用保留)
   useAuthStore((s) => s.isAuthenticated)
+
+  // 2026-11-10 根治「右侧工作区向上偏移」(用户实拍定位):
+  // main 是全站唯一持久滚动容器(overflow-y-auto),TagsView/侧栏切换路由时它不重建,
+  // 上一页的 scrollTop 会原样带到新页面 → 新页面顶部内容(返回区/标题)被顶出可视区,
+  // 看起来就是"工作区整体向上偏移"。Next.js 的 scrollRestoration 只管 window 滚动,
+  // 管不到这个自定义容器,所以必须在 pathname 变化时绘制前归零。
+  // 用 useLayoutEffect(同 TabBar 先例):在浏览器绘制前复位,避免旧偏移闪一帧。
+  const pathname = usePathname()
+  const mainRef = React.useRef<HTMLElement | null>(null)
+  React.useLayoutEffect(() => {
+    const el = mainRef.current
+    if (el && el.scrollTop !== 0) el.scrollTop = 0
+  }, [pathname])
 
   return (
     // 外层 wrapper:底部 + 右侧各 8px 间距(与 GlobalTopBar 顶部 8px + 左右 8px 互补,
@@ -64,6 +78,7 @@ export function MainShell({ children }: { children: React.ReactNode }) {
         data-workspace-card
       >
         <main
+          ref={mainRef}
           id="main"
           tabIndex={-1}
           // 2026-08-01 用户要求"完全去掉 padding,内容占满工作内容展示区":
