@@ -12,6 +12,10 @@
     "gb2312-l12": {
       "codepoints": 8736,
       "cjk": 7155
+    },
+    "gbk-rare": {
+      "codepoints": 14274,
+      "cjk": 13748
     }
   },
   "faces": [
@@ -20,6 +24,9 @@
       "css_weight": 100,
       "tier": "subset",
       "chars": 4214,
+      "faceCodepoints": 3324,
+      "rangeSegments": 2143,
+      "rangeSha": "e1a8c955b0f63aed9f72bde20fd047f63105f4aee7065d9cddd1b43566d35a70",
       "bytes": 381964,
       "kb": 373,
       "dst": "HarmonyOS_SansSC_Thin.subset.woff2",
@@ -30,6 +37,9 @@
       "css_weight": 300,
       "tier": "subset",
       "chars": 4214,
+      "faceCodepoints": 3324,
+      "rangeSegments": 2143,
+      "rangeSha": "e1a8c955b0f63aed9f72bde20fd047f63105f4aee7065d9cddd1b43566d35a70",
       "bytes": 383536,
       "kb": 375,
       "dst": "HarmonyOS_SansSC_Light.subset.woff2",
@@ -40,6 +50,9 @@
       "css_weight": 400,
       "tier": "gb2312-l12",
       "chars": 8736,
+      "faceCodepoints": 7846,
+      "rangeSegments": 3848,
+      "rangeSha": "de088e2f8212ef9041c94e65b060afb04cdeec14e5e906a321dc94b2b091c456",
       "bytes": 1011644,
       "kb": 988,
       "dst": "HarmonyOS_SansSC_Regular.gb2312-l12.woff2",
@@ -50,6 +63,9 @@
       "css_weight": 500,
       "tier": "gb2312-l1",
       "chars": 5856,
+      "faceCodepoints": 4966,
+      "rangeSegments": 3048,
+      "rangeSha": "397d816923450b917962ee2b05867f847168ac4e0489b7037481a826983060a7",
       "bytes": 610456,
       "kb": 596,
       "dst": "HarmonyOS_SansSC_Medium.gb2312-l1.woff2",
@@ -60,10 +76,26 @@
       "css_weight": 700,
       "tier": "gb2312-l1",
       "chars": 5856,
+      "faceCodepoints": 4966,
+      "rangeSegments": 3048,
+      "rangeSha": "397d816923450b917962ee2b05867f847168ac4e0489b7037481a826983060a7",
       "bytes": 613636,
       "kb": 599,
       "dst": "HarmonyOS_SansSC_Bold.gb2312-l1.woff2",
       "tag": "bold-gb2312-l1"
+    },
+    {
+      "weight": "Regular",
+      "css_weight": 400,
+      "tier": "gbk-rare",
+      "chars": 14274,
+      "faceCodepoints": 14274,
+      "rangeSegments": 3885,
+      "rangeSha": "745633b211042906c7d8eded9ca317509b3e347bba689669a7079c137d6a9e6f",
+      "bytes": 2215444,
+      "kb": 2164,
+      "dst": "HarmonyOS_SansSC_Regular.gbk-rare.woff2",
+      "tag": "regular-gbk-rare"
     }
   ],
   "sentinel": {
@@ -71,5 +103,11 @@
     "missing": "",
     "words": 6,
     "nameChars": 96
+  },
+  "complementary": {
+    "note": "regular(400) 与 rare(400) 两面的实际 cmap 交集必须为空",
+    "regular": "HarmonyOS_SansSC_Regular.gb2312-l12.woff2",
+    "rare": "HarmonyOS_SansSC_Regular.gbk-rare.woff2",
+    "overlap": 0
   }
 }
