@@ -26,7 +26,6 @@
  *   node scripts/check-rn-compat-coverage.mjs --staged   # 索引 blob
  *   node scripts/check-rn-compat-coverage.mjs --self-test
  */
-import { execFileSync } from 'node:child_process'
 import { dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -107,14 +106,7 @@ function makeReader(face) {
     // 旧写法 `git grep -l -E <pattern> --cached` 会把 `--cached` 当 revision 名 ⇒ rc=2,
     // 结果是 staged 面**从未检查过任何东西**却一直是绿的。夹具锁住该反例必须 rc=2。
     const args = buildGrepListArgs(face, RN_GREP_PATTERN, paths)
-    const out = execFileSync('git', args, {
-      cwd: ROOT,
-      encoding: 'utf8',
-      maxBuffer: 1 << 26,
-      stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
-      timeout: LIST_TIMEOUT_MS, // 旧实现没有 timeout ⇒ 断言面卡死时门跟着一起卡死(票面事实)
-    })
+    const out = gitRaw(args, ROOT, { maxBuffer: 1 << 26, timeout: LIST_TIMEOUT_MS })
     return out
       .trim()
       .split('\n')
@@ -216,13 +208,7 @@ function makeReader(face) {
     if (face === 'worktree') return null
     if (pathSet) return pathSet
     const args = face === 'staged' ? ['ls-files', '--cached'] : ['ls-tree', '-r', '--name-only', 'HEAD']
-    const out = execFileSync('git', args, {
-      cwd: ROOT,
-      encoding: 'utf8',
-      maxBuffer: 1 << 26,
-      stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
-    })
+    const out = gitRaw(args, ROOT, { maxBuffer: 1 << 26 })
     pathSet = new Set(out.split('\n').map((l) => l.trim()).filter(Boolean))
     return pathSet
   }

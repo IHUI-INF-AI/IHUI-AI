@@ -686,10 +686,10 @@ const BARE_GIT_DEBT = [
   },
   {
     file: 'scripts/lib/staging-snapshot.js',
-    count: 4,
+    count: 0,
     addedBy: '',
     due: '2026-12-31',
-    why: '基线内存量(CJS 钩子层)',
+    why: '2026-11-10 已全量迁 gitRaw 层(型 A),债结清',
   },
   {
     file: 'scripts/merge-live-doc.mjs',
@@ -743,10 +743,10 @@ const BARE_GIT_DEBT = [
   },
   {
     file: 'scripts/check-rn-compat-coverage.mjs',
-    count: 1,
+    count: 0,
     addedBy: '8cc5c831128db329a8d71307aa78b1e1dd6d1ceb',
     due: '2026-12-31',
-    why: 'C1/C2/C3 覆盖面(2026-10-26)',
+    why: '2026-11-10 已全量迁 gitRaw 层(型 A),债结清',
   },
   {
     file: 'scripts/check-style-key-consumption.mjs',
