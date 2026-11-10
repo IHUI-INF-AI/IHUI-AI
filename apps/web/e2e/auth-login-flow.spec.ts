@@ -275,11 +275,8 @@ test.describe('8 端关键路径 · 认证登录流程 (SSO)', () => {
       'data-testid',
       'qr-tab-wechat',
     )
-    // 2026-10-27 口径:qr 首屏未同意即弹协议通知窗(login-form.tsx:178-182),遮住底层表单;
-    // 继续操作前先按真实用户路径同意一次(弹窗可能晚一帧出现,故先等再判)。
-    const noticeAgree = page.getByTestId('agreement-notice-agree')
-    await noticeAgree.waitFor({ state: 'visible', timeout: 3000 }).catch(() => {})
-    if (await noticeAgree.isVisible().catch(() => false)) await noticeAgree.click()
+    // 2026-11-11:扫码面板不再自动弹协议窗,改为面板内联「同意并继续」,
+    // 不会遮挡底层 tab;此处无需再预点同意。
     // 主推大按钮仍要验(它在非 qr tab 才渲染):切到 email ⇒ featured 必须是微信、不得是 Google。
     await page.getByTestId('login-tab-email').click()
     await expect(page.getByTestId('third-party-featured-wechat')).toBeVisible({ timeout: 5000 })

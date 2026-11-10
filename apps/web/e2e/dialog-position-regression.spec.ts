@@ -132,9 +132,9 @@ async function triggerAndMeasure(
   const loginDialog = page.getByTestId('login-dialog')
   await expect(loginDialog).toBeVisible({ timeout: 5000 })
 
-  // 3.5 2026-10-27 协议票(方案①)配套:国内 geo 下扫码 tab 是默认首屏,且"进入扫码面板即弹协议窗"
-  //   已生效 —— 本用例要量的是**提交路径**拦出的弹窗几何,自动弹窗若已在场会挡住切 tab 的点击。
-  //   按「不同意」关掉(协议态保持未同意,不影响第 6-7 步的提交门禁语义);未在场则跳过。
+  // 3.5 2026-11-11:扫码面板已改为内联「同意并继续」,不再自动弹协议窗。
+  //   本用例量的是**提交路径**拦出的弹窗几何;若其它宿主仍自动弹窗,按「不同意」关掉
+  //   (协议态保持未同意,不影响第 6-7 步的提交门禁语义);未在场则跳过。
   const autoDisagree = page.getByTestId('agreement-notice-disagree')
   if (await autoDisagree.isVisible().catch(() => false)) {
     await autoDisagree.click()

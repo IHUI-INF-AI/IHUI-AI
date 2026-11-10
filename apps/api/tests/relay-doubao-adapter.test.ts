@@ -20,7 +20,7 @@
  *
  * fetch 全部打桩,不发真实网络请求;提取器全部用临时目录,不碰真实 %LOCALAPPDATA%。
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { createRequire } from 'node:module'
 import crypto from 'node:crypto'
 import fs from 'node:fs'
@@ -28,6 +28,7 @@ import os from 'node:os'
 import path from 'node:path'
 import type { AdapterAccountContext, StreamState } from '../src/services/relay-upstream-adapters.js'
 import {
+  __clearDoubaoConversationCache,
   buildCookieHeader,
   doubaoAdapter,
   DoubaoUpstreamError,
@@ -723,6 +724,116 @@ describe('doubao classifyUpstreamFailure / refreshToken', () => {
 
   it('refreshToken 恒 null(无实证刷新端点 ⇒ 无法刷新,轮转靠重登)', async () => {
     expect(await doubaoAdapter.refreshToken!(makeCtx())).toBeNull()
+  })
+})
+
+describe('doubao 上游会话续写缓存(2026-11-11 立)', () => {
+  const ACK_CONV = '59830099522953'
+  const ackFrame = (convId: string): string =>
+    JSON.stringify({ event: 'SSE_ACK', conversation_id: convId })
+
+  beforeEach(() => {
+    __clearDoubaoConversationCache()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+    __clearDoubaoConversationCache()
+  })
+
+  const bodyOf = (conversationId?: string): any =>
+    JSON.parse(
+      doubaoAdapter.buildChatRequest(makeCtx(), {
+        model: 'x',
+        messages: [{ role: 'user', content: 'hi' }],
+        stream: true,
+        ...(conversationId !== undefined ? { conversationId } : {}),
+      }).rawBody!,
+    )
+
+  it('首轮:非数字会话键 → need_create,不把自有 id 送上游', () => {
+    const body = bodyOf('sess-1')
+    expect(body.client_meta.conversation_id).toBe('')
+    expect(body.option.need_create_conversation).toBe(true)
+  })
+
+  it('流内捕获 SSE_ACK 的数字会话 id 后,同账号同会话键的下一轮透传并续写', () => {
+    // 首轮:ctx 贯穿 buildChatRequest → translateStreamChunk(与转发层真实调用序一致)
+    const ctx = makeCtx()
+    const first = doubaoAdapter.buildChatRequest(ctx, {
+      model: 'x',
+      messages: [{ role: 'user', content: 'hi' }],
+      stream: true,
+      conversationId: 'sess-1',
+    })
+    expect((JSON.parse(first.rawBody!) as any).option.need_create_conversation).toBe(true)
+    // SSE_ACK 到达 → 写缓存(返回 null 属既有分支,不抛即通过)
+    expect(
+      doubaoAdapter.translateStreamChunk(ctx, `data: ${ackFrame(ACK_CONV)}`, {}),
+    ).toBeNull()
+
+    // 次轮:**新的 ctx 对象**但同 row.id + 同会话键 → 必须命中(跨请求持久键)
+    const second = bodyOf('sess-1')
+    expect(second.client_meta.conversation_id).toBe(ACK_CONV)
+    expect(second.option.need_create_conversation).toBe(false)
+  })
+
+  it('不同会话键不串号(缓存键含会话键)', () => {
+    const ctx = makeCtx()
+    doubaoAdapter.buildChatRequest(ctx, {
+      model: 'x',
+      messages: [{ role: 'user', content: 'hi' }],
+      stream: true,
+      conversationId: 'sess-1',
+    })
+    doubaoAdapter.translateStreamChunk(ctx, `data: ${ackFrame(ACK_CONV)}`, {})
+
+    const other = bodyOf('sess-2')
+    expect(other.client_meta.conversation_id).toBe('')
+    expect(other.option.need_create_conversation).toBe(true)
+  })
+
+  it('TTL 30min 过期后回到 need_create(与号池亲和 TTL 对齐)', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-11-11T00:00:00Z'))
+    const ctx = makeCtx()
+    doubaoAdapter.buildChatRequest(ctx, {
+      model: 'x',
+      messages: [{ role: 'user', content: 'hi' }],
+      stream: true,
+      conversationId: 'sess-1',
+    })
+    doubaoAdapter.translateStreamChunk(ctx, `data: ${ackFrame(ACK_CONV)}`, {})
+    expect(bodyOf('sess-1').option.need_create_conversation).toBe(false)
+
+    vi.setSystemTime(new Date('2026-11-11T00:31:00Z'))
+    const expired = bodyOf('sess-1')
+    expect(expired.client_meta.conversation_id).toBe('')
+    expect(expired.option.need_create_conversation).toBe(true)
+  })
+
+  it('非数字/过短的 conversation_id 不入缓存(判据与请求侧同一条正则)', () => {
+    const ctx = makeCtx()
+    doubaoAdapter.buildChatRequest(ctx, {
+      model: 'x',
+      messages: [{ role: 'user', content: 'hi' }],
+      stream: true,
+      conversationId: 'sess-1',
+    })
+    expect(
+      doubaoAdapter.translateStreamChunk(ctx, `data: ${ackFrame('not-a-number')}`, {}),
+    ).toBeNull()
+    expect(doubaoAdapter.translateStreamChunk(ctx, `data: ${ackFrame('12345')}`, {})).toBeNull()
+
+    const second = bodyOf('sess-1')
+    expect(second.client_meta.conversation_id).toBe('')
+    expect(second.option.need_create_conversation).toBe(true)
+  })
+
+  it('客户端显式给纯数字长串 → 直接透传(既有行为,不依赖缓存)', () => {
+    const body = bodyOf('1234567890123')
+    expect(body.client_meta.conversation_id).toBe('1234567890123')
+    expect(body.option.need_create_conversation).toBe(false)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -204,6 +204,8 @@ export default defineAppConfig({
         'ranking-detail/index',
         'identity-verify/index',
         'groups/index',
+        'api-keys/index',
+        'patrol/index',
       ],
     },
     {
