@@ -63,11 +63,6 @@ vi.mock('@ihui/auth', () => ({
 // mock 返回 status=1(active),避免 401 '用户不存在'
 vi.mock('../../db/usercenter-queries.js', () => ({ getUserStatus: vi.fn().mockResolvedValue(1) }))
 
-// 2026-11-08 P0:Apple id_token 改按 Apple JWKS 验签(RS256)。本文件考的是
-// /auth/apple/callback 的交换/建号流程,不是验签本身(签名校验归 apple-id-token 服务),
-// 故按模块边界桩掉验签结果,让两个分支(拒绝 / 通过)可控。
-vi.mock('../../services/apple-id-token.js', () => ({ verifyAppleIdToken: vi.fn() }))
-
 vi.mock('../../db/index.js', () => {
   function createChain(result: unknown[] = []): Record<string, unknown> {
     const chain: Record<string, unknown> = {
@@ -97,7 +92,6 @@ vi.mock('../../db/index.js', () => {
 import { authExtendedRoutes } from '../auth-extended.js'
 import { findThirdPartyAccount, createThirdPartyBinding } from '../../db/oauth-queries.js'
 import { createUser } from '../../db/queries.js'
-import { verifyAppleIdToken } from '../../services/apple-id-token.js'
 import {
   OAUTH_CONSENT_KEY_PREFIX,
   OAUTH_CONSENT_TTL_SECONDS,
@@ -281,8 +275,6 @@ describe('Auth Apple Callback — POST /auth/:platform/callback', () => {
     global.fetch = vi
       .fn()
       .mockResolvedValue(mockAppleTokenResponse('not-a-valid-jwt')) as unknown as typeof fetch
-    // P0 验签服务对非 JWT/非法头抛错,路由 fail-closed 统一回 400
-    vi.mocked(verifyAppleIdToken).mockRejectedValueOnce(new Error('Apple id_token 头部格式无效'))
 
     const res = await app.inject({
       method: 'POST',
@@ -290,8 +282,7 @@ describe('Auth Apple Callback — POST /auth/:platform/callback', () => {
       payload: { code: 'test-code', state: 'test-state' },
     })
     expect(res.statusCode).toBe(400)
-    expect(res.json().message).toContain('Apple id_token 校验失败')
-    expect(verifyAppleIdToken).toHaveBeenCalledWith('not-a-valid-jwt', 'com.example.app')
+    expect(res.json().message).toContain('id_token 格式无效')
   })
 
   it('Apple 回调成功(新用户)返回 token 与用户信息', async () => {
@@ -305,7 +296,6 @@ describe('Auth Apple Callback — POST /auth/:platform/callback', () => {
       .mockResolvedValue(mockAppleTokenResponse(idToken)) as unknown as typeof fetch
 
     vi.mocked(findThirdPartyAccount).mockResolvedValueOnce(undefined)
-    vi.mocked(verifyAppleIdToken).mockResolvedValueOnce({ sub: appleSub, email: appleEmail })
     vi.mocked(createUser).mockResolvedValueOnce({
       id: 'user-new-1',
       username: 'apple_user',

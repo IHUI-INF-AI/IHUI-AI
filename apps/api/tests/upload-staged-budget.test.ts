@@ -95,17 +95,9 @@ vi.mock('@ihui/database', () => {
       completed: 'completed',
       cancelled: 'cancelled',
       checksumMismatch: 'checksum_mismatch',
-      contentRejected: 'content_rejected',
     },
-    UPLOAD_SESSION_TERMINAL_STATUSES: [
-      'completed',
-      'cancelled',
-      'checksum_mismatch',
-      'content_rejected',
-    ],
+    UPLOAD_SESSION_TERMINAL_STATUSES: ['completed', 'cancelled', 'checksum_mismatch'],
     UPLOAD_SESSION_REAPABLE_STATUSES: ['uploading', 'merging'],
-    // F-381(2026-11-08):失败终态可回收子集,upload-integrity 在模块顶层消费
-    UPLOAD_SESSION_RECLAIMABLE_TERMINAL_STATUSES: ['checksum_mismatch', 'content_rejected'],
   }
 })
 
@@ -122,8 +114,9 @@ vi.mock('../src/services/upload-integrity.js', async (importOriginal) => {
   return {
     ...actual,
     measureStagedBytes: (chunksRoot?: string) =>
-      testState.stagedBytesOverride ??
-      (actual.measureStagedBytes as (chunksRoot?: string) => number)(chunksRoot),
+      testState.stagedBytesOverride ?? (
+        actual.measureStagedBytes as (chunksRoot?: string) => number
+      )(chunksRoot),
   }
 })
 
@@ -252,12 +245,8 @@ describe('钳制器 clampUploadLimit(c/d)', () => {
 
 describe('纯判据与实测度量', () => {
   it('isPerUserSessionBudgetExceeded:达到档位即超(=limit 拒),留一档余量给在途', () => {
-    expect(isPerUserSessionBudgetExceeded(PROTOCOL_UPLOAD_LIMITS.maxActiveSessionsPerUser)).toBe(
-      true,
-    )
-    expect(
-      isPerUserSessionBudgetExceeded(PROTOCOL_UPLOAD_LIMITS.maxActiveSessionsPerUser - 1),
-    ).toBe(false)
+    expect(isPerUserSessionBudgetExceeded(PROTOCOL_UPLOAD_LIMITS.maxActiveSessionsPerUser)).toBe(true)
+    expect(isPerUserSessionBudgetExceeded(PROTOCOL_UPLOAD_LIMITS.maxActiveSessionsPerUser - 1)).toBe(false)
   })
 
   it('wouldStagedBudgetOverflow:恰好到顶不超,再进 1 字节即超', () => {

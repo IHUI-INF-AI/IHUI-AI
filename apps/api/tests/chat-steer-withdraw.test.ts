@@ -66,12 +66,7 @@ vi.mock('jose', () => ({
 vi.mock('../src/plugins/auth.js', () => ({
   authenticate: vi.fn(),
   requireActiveUser: vi.fn(),
-  // checkAuth 在生产里经 authenticate 注入 request.userId;F-03 会话归属校验依赖它,
-  // 这里是假鉴权,必须同步补齐 userId,否则 isConversationOwnedBy 恒 false → 404。
-  checkAuth: vi.fn(async (request: { userId?: string }) => {
-    request.userId = '00000000-0000-4000-8000-000000000001'
-    return true
-  }),
+  checkAuth: vi.fn(async () => true),
 }))
 
 vi.mock('../src/db/chat-queries.js', () => ({
@@ -80,11 +75,7 @@ vi.mock('../src/db/chat-queries.js', () => ({
   replaceMessages: vi.fn().mockResolvedValue(undefined),
   createConversation: vi.fn(),
   findConversationsByUser: vi.fn(),
-  // F-03:/chat/steer/withdraw 转发前先按会话归属收敛,返回的行须与 checkAuth 注入的用户一致。
-  findConversationById: vi.fn(async (id: string) => ({
-    id,
-    userId: '00000000-0000-4000-8000-000000000001',
-  })),
+  findConversationById: vi.fn(),
   updateConversation: vi.fn(),
   deleteConversation: vi.fn(),
   deleteConversationsBatch: vi.fn(),

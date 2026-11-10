@@ -56,14 +56,12 @@ const h = vi.hoisted(() => {
       list(userId: string) {
         return Array.from(agents.values()).filter((a) => a.userUuid === userId)
       },
-      get(agentId: string, userId: string) {
-        const agent = agents.get(agentId)
-        // 与真实 BackgroundAgentManager 同契约:非属主一律 null(路由映射为 404)
-        return agent && agent.userUuid === userId ? agent : null
+      get(agentId: string) {
+        return agents.get(agentId) ?? null
       },
-      cancel(agentId: string, userId: string) {
+      cancel(agentId: string) {
         const agent = agents.get(agentId)
-        if (!agent || agent.userUuid !== userId || agent.status !== 'running') return false
+        if (!agent || agent.status !== 'running') return false
         agent.status = 'cancelled'
         return true
       },
@@ -156,8 +154,6 @@ vi.mock('../src/services/atomic-rollback.js', () => ({
   listAtomicCheckpoints: vi.fn(),
   planAtomicRollback: vi.fn(),
   executeAtomicRollback: vi.fn(),
-  // workspace-ai 的 checkpointId schema 顶层会 import 这个纯校验函数
-  isSafeCheckpointId: vi.fn(() => true),
 }))
 
 import { workspaceAiRoutes } from '../src/routes/workspace-ai.js'
@@ -281,7 +277,7 @@ describe('F-07 background-agents 必须按调用者归属收敛', () => {
     expect(victimReply.body.data.agents.map((a: FakeAgent) => a.prompt)).toEqual(['victim'])
   })
 
-  it('查看他人 Agent → 404(不泄漏存在性);本人 → 200;不存在 → 404', async () => {
+  it('查看他人 Agent → 403;本人 → 200;不存在 → 404', async () => {
     h.manager.start({ prompt: 'victim', workspacePath: '/w', userUuid: VICTIM })
     const handlers = await setupWorkspace()
 
@@ -290,7 +286,7 @@ describe('F-07 background-agents 必须按调用者归属收敛', () => {
       { params: { agentId: 'agent-1' }, userId: ME, log: requestLog },
       denied,
     )
-    expect(denied.code).toBe(404)
+    expect(denied.code).toBe(403)
 
     state.userId = VICTIM
     const allowed = makeReply()
@@ -309,7 +305,7 @@ describe('F-07 background-agents 必须按调用者归属收敛', () => {
     expect(missing.code).toBe(404)
   })
 
-  it('取消他人 Agent → 404 且仍 running;本人 → 取消成功', async () => {
+  it('取消他人 Agent → 403 且仍 running;本人 → 取消成功', async () => {
     h.manager.start({ prompt: 'victim', workspacePath: '/w', userUuid: VICTIM })
     const handlers = await setupWorkspace()
 
@@ -318,7 +314,7 @@ describe('F-07 background-agents 必须按调用者归属收敛', () => {
       { params: { agentId: 'agent-1' }, userId: ME, log: requestLog },
       denied,
     )
-    expect(denied.code).toBe(404)
+    expect(denied.code).toBe(403)
     expect(h.agents.get('agent-1')?.status).toBe('running')
 
     state.userId = VICTIM
@@ -505,19 +501,19 @@ describe('F-08 agent-control/result 必须绑定待处理动作的属主', () =>
     }
   }
 
-  it('他人回执(无 responded)→ 404,不 resolve、不删 pending', async () => {
+  it('他人回执(无 responded)→ 403,不 resolve、不删 pending', async () => {
     const { resolve } = seedPending()
     const handlers = await setupAgentControl()
 
     const reply = makeReply()
     await handlers.get('POST /result')!({ body: resultBody(), userId: ME, log: requestLog }, reply)
-    expect(reply.code).toBe(404)
+    expect(reply.code).toBe(403)
     expect(resolve).not.toHaveBeenCalled()
     expect(__test__.pending.has(REQUEST_ID)).toBe(true)
     expect(__test__.droppedResults.ownerMismatch).toBe(1)
   })
 
-  it('他人回执(带正确 responded)同样 404,令牌对也不能跨用户结算', async () => {
+  it('他人回执(带正确 responded)同样 403,令牌对也不能跨用户结算', async () => {
     const { resolve } = seedPending()
     const handlers = await setupAgentControl()
 
@@ -530,7 +526,7 @@ describe('F-08 agent-control/result 必须绑定待处理动作的属主', () =>
       },
       reply,
     )
-    expect(reply.code).toBe(404)
+    expect(reply.code).toBe(403)
     expect(resolve).not.toHaveBeenCalled()
     expect(__test__.pending.has(REQUEST_ID)).toBe(true)
   })

@@ -183,13 +183,13 @@ export interface SessionScanIo {
   readDir(dir: string): Promise<SessionScanEntry[]>;
 }
 
-interface SessionScanStat {
+export interface SessionScanStat {
   isFile(): boolean;
   isDirectory(): boolean;
   mtimeMs: number;
 }
 
-interface SessionScanEntry {
+export interface SessionScanEntry {
   name: string;
   isFile(): boolean;
   isDirectory(): boolean;
@@ -321,7 +321,7 @@ export async function discoverSessionCandidates(
 }
 
 /** 跨产品迁移的预演/拒写判定。source 只认三款已知产品;没量到/没迁入一律不许 sync。 */
-type PeerMigrationSource = 'workbuddy' | 'codex' | 'qoder-work';
+export type PeerMigrationSource = 'workbuddy' | 'codex' | 'qoder-work';
 
 export interface PeerMigrationInput {
   source: string;

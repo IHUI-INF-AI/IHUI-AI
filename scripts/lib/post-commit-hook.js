@@ -281,7 +281,14 @@ if (process.env.HUSKY_SKIP_DEFERRED_GATES !== '1') {
           detached: true,
           stdio: ['ignore', fd, fd],
           windowsHide: true,
-          env: { ...process.env, IHUI_GATE_FAST: '0', ...envExtra },
+          env: {
+            ...process.env,
+            IHUI_GATE_FAST: '0',
+            // 2026-11-10:30a 的 3b 维在本文件末段有**专门**的后台补判段,
+            // 这里再让它跑一遍全量逐路径对账等于白烧 74s(同一维跑两趟)。
+            IHUI_COMMIT_LOSS_DEFER_3B: '1',
+            ...envExtra,
+          },
         })
         child.unref()
         console.log(`⏱  快档延后的 ${j.gates.length} 门已在后台补跑(日志:${outLog})`)
@@ -290,6 +297,21 @@ if (process.env.HUSKY_SKIP_DEFERRED_GATES !== '1') {
       /* 补跑派发失败不影响提交(提交已落地) */
     }
   }
+}
+
+// ─── 7b. 30a 的 3b 维后台补判(2026-11-10)────────────────────────────────────
+// 提交链上的 30a 带 `--defer-3b`,不再跑「3b 全量逐路径对账」。实测:该维 74s/轮,占 30a 单跑
+// 116s 的 64%,而它**从不判红**(缺口只进 warn) —— 它是"延后"不是"跳过":判据、取材、结论
+// 生成仍与提交链共用 `computeTagBackupCoverage`(§22c 单一真相源),只把落点换成
+// `.ihui-agent/state/commit-loss-3b-audit.json`,下一次提交链读它报数(并标注年龄/面漂移)。
+// 节流 10 分钟:3b 的面随 tag 缓慢变化,不必每枚提交都扫一遍全历史(ref 面单趟本仓 64s)。
+// 跳过:HUSKY_SKIP_COMMIT_LOSS_3B_AUDIT=1(仅在审计件本身损坏时用;它不拦任何东西)。
+if (process.env.HUSKY_SKIP_COMMIT_LOSS_3B_AUDIT !== '1') {
+  runLogged(
+    'post-commit-loss-3b-audit',
+    'node scripts/check-commit-loss-guard.mjs --blocking --audit-3b --min-interval 600',
+    { timeout: 420000 },
+  )
 }
 
 // ─── 8. 四端 i18n 死 key 扫描(2026-10-22 从 pre-commit 移来)────────────────────
