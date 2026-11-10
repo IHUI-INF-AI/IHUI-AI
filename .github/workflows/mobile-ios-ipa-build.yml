@@ -28,10 +28,14 @@ on:
       - 'pnpm-lock.yaml'
     tags: ['v*']
 
-# 防止并发重复构建:同一时间只保留一个构建(新 push 排队等待,不取消进行中的旧构建)
+# 2026-11-10 提速改判:固定单组 + cancel=false 的「排队」形态在 22min 构建下意味着
+# 连续 push 时后续提交全部 pending 堆积(GitHub 对同组更早的 pending 也会取消,实测先例见
+# ci-monorepo.yml 2026-11-03 注记)——排队既拿不到结论也保不住构建。改按 ref 分组:
+# push(main)与 tags(v*)各走独立组,dispatch 独立 run_id,新提交取消旧 run(最新代码才是
+# 该出的包;tags 唯一 ref 不受影响)。语义对齐 build.yml 2026-11-03 治理。
 concurrency:
-  group: ios-ipa-build
-  cancel-in-progress: false
+  group: ${{ github.event_name == 'workflow_dispatch' && format('ios-ipa-dispatch-{0}', github.run_id) || format('ios-ipa-{0}', github.ref) }}
+  cancel-in-progress: true
 
 permissions:
   contents: write
