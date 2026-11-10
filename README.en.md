@@ -99,6 +99,9 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-10**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (248f785cdb)
+
+**2026-11-10**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (58ff04350e)
 - 🐞 Fix:收口 shard 下游 40 项测试红(checkpoints 拆层 + worktree 守卫次序 + 普查面对齐) (1d74cb4f50)
 
@@ -152,9 +155,6 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 **2026-11-10**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (7898525095)
-
-**2026-11-10**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (f611c37a62)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
