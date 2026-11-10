@@ -59,7 +59,9 @@ const CHAT_CARRY = Object.freeze({
   codex: { kind: 'local', text: '会话按日期存 ~/.codex/sessions、不带账号维度,切号后历史仍在' },
   doubao: {
     kind: 'cloud',
-    text: '对话在云端且与账号绑定、本地零副本 —— 这一项本器做不到,需在豆包客户端内导出/导入',
+    text:
+      '对话在云端且与账号绑定、本地零副本 —— 客户端无导出功能;用 node scripts/doubao-carry.mjs --export ' +
+      '走 /samantha 接口归档(需旧号 cookie);thread/create 不带消息体 ⇒ 只能归档到本器,不能写回新号云端',
   },
 })
 
