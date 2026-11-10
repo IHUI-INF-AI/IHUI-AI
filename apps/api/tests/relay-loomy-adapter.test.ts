@@ -64,6 +64,13 @@ function makeCtx(): AdapterAccountContext {
   } as unknown as AdapterAccountContext
 }
 
+describe('loomy listModels(客户端实证 id)', () => {
+  it('返回桌面端 localStorage 实证的 imodel 模型 id', async () => {
+    const ids = await loomyAdapter.listModels!(makeCtx())
+    expect(ids).toEqual(['imodel/qwen3.8-flash', 'imodel/spark-x2.6'])
+  })
+})
+
 describe('loomy 提取器:目录缺失 ⇒ NO_SESSION(§0.3 未判定)', () => {
   it('roamingDir 不存在 → throw code=LOOMY_NO_SESSION,消息点名目录', async () => {
     const err = await loomyExtract
