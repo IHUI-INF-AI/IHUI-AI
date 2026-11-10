@@ -24,11 +24,18 @@ import { eq } from 'drizzle-orm'
 import { dbRead } from '../db/index.js'
 import { users, userEmails } from '@ihui/database'
 import { logger } from '../utils/logger.js'
-import { renderLowBalanceEmail } from './email-templates.js'
+import { renderLowBalanceEmail, resolveBrandSmtpFrom } from './email-templates.js'
 
 // =============================================================================
 // 常量与配置
 // =============================================================================
+
+/**
+ * SMTP 三段超时(ms):连接 / 握手 / 读写各一条。
+ * 缺省时 nodemailer 会挂到操作系统默认(数分钟),fire-and-forget 的调用方
+ * (relay 扣费后 notify)会攒住 socket 不释放。
+ */
+const SMTP_TIMEOUT_MS = 10_000
 
 /** 余额不足通知冷却窗口(ms),默认 24h,env LOW_BALANCE_NOTIFY_COOLDOWN_MS 可调 */
 const LOW_BALANCE_NOTIFY_COOLDOWN_MS = Number(
@@ -76,11 +83,24 @@ export async function sendLowBalanceMail(params: SendLowBalanceMailParams): Prom
   const port = process.env.SMTP_PORT
   const user = process.env.SMTP_USER
   const pass = process.env.SMTP_PASS
-  const from = process.env.SMTP_FROM
+  const fromConfig = process.env.SMTP_FROM
 
   // 任一 SMTP 配置缺失 → 不发送(静默降级,不影响主链路)
-  if (!host || !port || !user || !pass || !from) {
+  if (!host || !port || !user || !pass) {
     logger.warn('[mail-notify] SMTP 未配置,跳过余额不足邮件', { to: params.to })
+    return false
+  }
+
+  /**
+   * From 走品牌身份 —— 2026-11-10 定案。此前是 `const from = process.env.SMTP_FROM` 整串直传:
+   * 配置里写什么显示名就寄什么(裸地址时收件箱显示 `noreply`),与告警派发器的口径完全脱节。
+   * 地址段与显示名分离、以及 QQ 中继「地址必须等于登录账号」的回落,都与派发器共用同一判据。
+   */
+  const from = resolveBrandSmtpFrom(fromConfig, user)
+  if (from === '') {
+    logger.warn('[mail-notify] SMTP_FROM/SMTP_USER 均取不到地址,跳过余额不足邮件', {
+      to: params.to,
+    })
     return false
   }
 
@@ -91,11 +111,20 @@ export async function sendLowBalanceMail(params: SendLowBalanceMailParams): Prom
   }
 
   try {
+    // `family` 是 nodemailer 透给 net.connect 的运行时旋钮,@types/nodemailer 未登记它 ⇒
+    // 具名变量 spread(口径同 notify-deploy-failure 的 makeSmtpTransport),不整包 as any。
+    const runtimeOnly: { family: 4 } = { family: 4 }
     const transporter = nodemailer.createTransport({
       host,
       port: Number.parseInt(port, 10) || 465,
       secure: Number.parseInt(port, 10) === 465,
       auth: { user, pass },
+      // IPv4 强制 + 三段超时:2026-10-01 记录在案的 IPv6 ENETUNREACH 静默失败,
+      // 以及 fire-and-forget 调用方不能被默认超时攒住 socket。口径同派发器 makeSmtpTransport。
+      ...runtimeOnly,
+      connectionTimeout: SMTP_TIMEOUT_MS,
+      greetingTimeout: SMTP_TIMEOUT_MS,
+      socketTimeout: SMTP_TIMEOUT_MS,
     })
 
     const purchaseUrl = `${PURCHASE_BASE_URL}/purchase`

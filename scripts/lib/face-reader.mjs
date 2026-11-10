@@ -490,6 +490,25 @@ function gitRawOnce(args, root, opts = {}) {
   // 'ignore' 时喂进去的清单被丢弃,而 git 不报错,只是"每个对象都取不到"。
   // 两态都写死,不给调用方留"顺手删掉 stdio"的空间。
   const stdio = opts.input === undefined ? ['ignore', 'pipe', 'pipe'] : ['pipe', 'pipe', 'pipe']
+  /**
+   * binary 档的 encoding 必须是 **`null`** 而不是 `'buffer'`(2026-11-10 实测,门 30a 触发)。
+   *
+   * `encoding:'buffer'` 在**不带 input** 时确实返回 Buffer(Node v22 实测),所以本仓 5 处既有
+   * 调用方(check-ps1-bom / check-live-doc-duplicates / dedupe-live-doc / git-sync-converge /
+   * guardian-gate-cache)都没暴露问题 —— 它们全都不带 input。
+   * 但 `execFileSync` 在 `input !== undefined` 时会把 `encoding` 用作**输入编码**
+   * (`Buffer.from(input, encoding)`)⇒ `'buffer'` 不是合法编码 ⇒ 抛
+   * `Unknown encoding: buffer`,而且该错误无退出码无回显,`gitRetryPlan` 会把它当"可重试"
+   * 串行重跑一遍再失败,最终话术变成"git log 失败"(完全看不出是 encoding 的问题)。
+   *
+   * `null` 两态都成立:`execFileSync` 见 `encoding:null` 一律返回 Buffer,且不参与 input 编码。
+   * 同时把 binary 档的 input 预先转成 Buffer(双保险:即使某个 Node 版本仍按 encoding 编 input,
+   * Buffer 输入也不需要编码)。
+   */
+  const binaryInput =
+    opts.binary && opts.input !== undefined && opts.input !== null && !Buffer.isBuffer(opts.input)
+      ? Buffer.from(String(opts.input), 'utf8')
+      : opts.input
   // 显式绕过(调用方 `--no-proxy` / `IHUI_GIT_NO_PROXY=1`)时**第一趟就直连**:
   // 代理腿已确认死的情况下,再让它先烧一次 21s 超时纯属浪费(guardian 巡检轮当天实测每轮都付这笔)。
   const forceDirect = Boolean(opts.forceDirect) || isForceDirect()
@@ -499,11 +518,12 @@ function gitRawOnce(args, root, opts = {}) {
       ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', ...extraArgs, '-C', root, ...args],
       {
         cwd: root,
-        encoding: opts.binary ? 'buffer' : 'utf8',
+        encoding: opts.binary ? null : 'utf8',
         ...gitProcessGuards({ timeout: opts.timeout }),
         maxBuffer: opts.maxBuffer ?? GIT_MAX_BUFFER,
         stdio,
-        ...(opts.input === undefined ? {} : { input: opts.input }),
+        // 2026-11-10:binary 档的 input 转 Buffer,避免 `encoding` 参与输入编码(见上方长注释)。
+        ...(opts.input === undefined ? {} : { input: binaryInput }),
       },
     )
   try {
