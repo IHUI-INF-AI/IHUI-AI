@@ -40,7 +40,8 @@ function mockFetch(routes) {
   return impl
 }
 
-/** thread/list 单页响应(形状逐字对齐 4213.js:196068 的 {thread_list,has_more,next_index}) */
+/** conversation/list 单页响应(2026-11-11 真票实证:thread/list 恒空,真数据在 conversation/list,
+ *  响应 data 顶层 {thread_list,has_more,next_index},与旧 thread/list 同构) */
 function threadPage(ids, { hasMore = false, nextIndex } = {}) {
   return {
     code: 0,
@@ -85,7 +86,7 @@ test('① 正常翻页:3 页 → 会话数正确,maxPages 生效', async () => {
     2: threadPage(['c3'], { hasMore: false }),
   }
   const fetchImpl = mockFetch({
-    '/samantha/thread/list': ({ body }) => pages[body.index],
+    '/samantha/conversation/list': ({ body }) => pages[body.index],
   })
   const r = await listConversations({ cookieHeader: COOKIE, fetchImpl })
   assert.equal(r.code, 'ok')
@@ -112,7 +113,7 @@ test('① 正常翻页:3 页 → 会话数正确,maxPages 生效', async () => {
 
 test('② cookie 过期(code:710012001)⇒ 明确报错,不返回空数组冒绿', async () => {
   const fetchImpl = mockFetch({
-    '/samantha/thread/list': {
+    '/samantha/conversation/list': {
       code: 710012001,
       msg: '登录已过期，请重新登录',
       message: 'login invalid',
@@ -135,7 +136,7 @@ test('②b 无 cookie ⇒ code=cookie-missing(不发请求)', async () => {
 test('③ has_more 恒 true 且 index 不前进 ⇒ 防死循环生效(只翻 1 页)', async () => {
   let calls = 0
   const fetchImpl = mockFetch({
-    '/samantha/thread/list': () => {
+    '/samantha/conversation/list': () => {
       calls += 1
       return threadPage([`c${calls}`], { hasMore: true, nextIndex: 0 }) // 游标永远 0
     },
@@ -149,7 +150,7 @@ test('③ has_more 恒 true 且 index 不前进 ⇒ 防死循环生效(只翻 1 
 
 test('③b has_more 恒 true 但 next_index 缺失 ⇒ 同样只翻 1 页', async () => {
   const fetchImpl = mockFetch({
-    '/samantha/thread/list': () => threadPage(['c1'], { hasMore: true }),
+    '/samantha/conversation/list': () => threadPage(['c1'], { hasMore: true }),
   })
   const r = await listConversations({ cookieHeader: COOKIE, fetchImpl, maxPages: 50 })
   assert.equal(r.pages, 1)
@@ -157,7 +158,7 @@ test('③b has_more 恒 true 但 next_index 缺失 ⇒ 同样只翻 1 页', asyn
 
 test('③c 新版 threadFeed 形状(has_more/next_cursor/thread_list 收在 data.threads)同样能翻', async () => {
   const fetchImpl = mockFetch({
-    '/samantha/thread/list': ({ body }) => ({
+    '/samantha/conversation/list': ({ body }) => ({
       code: 0,
       data: {
         threads: {
@@ -232,7 +233,51 @@ test('④b thread/get 无消息 ⇒ 退 IM 网关 /im/chain/single(请求体逐�
   assert.equal(up.conversation_id, 'c9')
   assert.equal(up.conversation_type, 3)
   assert.equal(up.direction, 1)
-  assert.equal(up.anchor_index, 0)
+  // 2026-11-11 客户端真实抓包:anchor 从 MAX_SAFE_INTEGER 起步(direction=1 OLDER),
+  // filter 不带 bot_id,必带 option.lazy_load_strategy=0 —— 三者任一偏差即 712017020 序列化错误
+  assert.equal(up.anchor_index, 9007199254740991)
+  assert.deepEqual(up.filter, { index_list: [] })
+  assert.deepEqual(up.option, { lazy_load_strategy: 0 })
+})
+
+test('④b-2 thread/get 报错(710010702)⇒ 不短路,落 IM 网关照常拿到消息', async () => {
+  const fetchImpl = mockFetch({
+    '/samantha/thread/get': { code: 710010702, msg: '系统错误', error: { code: 710010702, message: '系统错误' } },
+    '/im/chain/single': {
+      status_code: 0,
+      downlink_body: {
+        pull_singe_chain_downlink_body: {
+          messages: [
+            { message_id: 'm1', sender_id: 'u1', user_type: 1, content_type: 1, content: '{"text":"1+1等于几"}', index_in_conv: '1', create_time: '1794319000', status: 0 },
+            { message_id: 'm2', sender_id: 'bot', user_type: 2, content_type: 1, content: '[{"block_type":10000,"block_id":"b1","content":{"text_block":{"text":"1+1=2"}}},{"block_type":10101,"content":{}}]', index_in_conv: '2', create_time: '1794319064', status: 0 },
+          ],
+          has_more: false,
+        },
+      },
+    },
+  })
+  const r = await getThread({ cookieHeader: COOKIE, conversationId: 'c7', fetchImpl })
+  assert.equal(r.code, 'ok')
+  assert.equal(r.source, 'im/chain')
+  assert.equal(r.messages.length, 2)
+  // content 是 JSON 字符串 ⇒ 归一化抽 text
+  assert.equal(r.messages[0].content, '1+1等于几')
+  assert.equal(r.messages[0].role, 'user')
+  assert.equal(r.messages[1].content, '1+1=2')
+  assert.equal(r.messages[1].role, 'assistant')
+  assert.match(r.warning ?? '', /thread\/get 不可用/)
+})
+
+test('④b-3 thread/get 与 IM 网关双腿全断 ⇒ 报错不冒绿,登录过期优先', async () => {
+  const fetchImpl = mockFetch({
+    '/samantha/thread/get': { code: 710010702, msg: '系统错误' },
+    '/im/chain/single': { status_code: 710012001, status_desc: '登录已过期，请重新登录' },
+  })
+  const r = await getThread({ cookieHeader: COOKIE, conversationId: 'c8', fetchImpl })
+  assert.equal(r.code, 'cookie-expired')
+  assert.equal(r.messages.length, 0)
+  assert.match(r.message, /thread\/get/)
+  assert.match(r.message, /im\/chain/)
 })
 
 test('④c getThread 拿不到消息且网关报登录过期 ⇒ 明确带 code,不静默', async () => {
@@ -250,7 +295,7 @@ test('⑤ exportArchive:每个会话一个 json + index.json,totalMessages = 各
   const dir = mkScratch('doubao-export-')
   try {
     const fetchImpl = mockFetch({
-      '/samantha/thread/list': ({ body }) =>
+      '/samantha/conversation/list': ({ body }) =>
         body.index === 0
           ? threadPage(['c1', 'c2'], { hasMore: false })
           : threadPage([], { hasMore: false }),
@@ -431,12 +476,12 @@ test('⑧c pickNewConversationId:字符串/数字两种 SSE 形状都认', () =>
   assert.equal(pickNewConversationId('data: {}'), '')
 })
 
-test('⑧d replayConversation:发 chat/completion 不带 conversation_id,抽回新会话 id', async () => {
+test('⑧d replayConversation:POST /chat/completion content_block 信封,抽回新会话 id', async () => {
   const calls = []
   const impl = (url, init) => {
     const u = new URL(String(url))
     const body = init.body ? JSON.parse(init.body) : null
-    calls.push({ pathname: u.pathname, body })
+    calls.push({ pathname: u.pathname, search: u.searchParams, body, headers: init.headers })
     return Promise.resolve({ ok: true, status: 200, text: async () => SSE_OK, json: async () => ({}) })
   }
   const r = await replayConversation({
@@ -448,11 +493,30 @@ test('⑧d replayConversation:发 chat/completion 不带 conversation_id,抽回�
   assert.equal(r.code, 'ok', `code=${r.code} message=${r.message ?? ''}`)
   assert.equal(r.newConversationId, '7421112222333')
   assert.equal(calls.length, 1)
-  assert.equal(calls[0].pathname, '/samantha/chat/completion')
-  assert.ok(!('conversation_id' in calls[0].body), '不带 conversation_id ⇒ 服务端新建')
-  assert.equal(calls[0].body.messages.length, 1)
-  assert.equal(calls[0].body.messages[0].role, 'user')
-  assert.ok(calls[0].body.messages[0].content.includes('【对话迁移】'))
+  // 2026-11-11 真机实证:路径 /chat/completion(单数、无 /samantha 前缀)
+  assert.equal(calls[0].pathname, '/chat/completion')
+  // query 必须带 device_id(缺了 710022004 风控)
+  assert.ok(calls[0].search.get('device_id'), 'device_id 必须在 query 上')
+  assert.equal(calls[0].search.get('pkg_type'), 'release_version')
+  // 信封:content_block 结构,client_meta.conversation_id 为空 + need_create_conversation ⇒ 服务端新建
+  assert.equal(calls[0].body.client_meta.conversation_id, '')
+  assert.equal(calls[0].body.option.need_create_conversation, true)
+  const block = calls[0].body.messages[0].content_block[0]
+  assert.equal(block.block_type, 10000)
+  assert.ok(block.content.text_block.text.includes('【对话迁移】'))
+})
+
+test('⑧d-2 replayConversation:SSE 流里 STREAM_ERROR 710022004 ⇒ code=rate-limited 不冒绿', async () => {
+  const impl = async () => ({
+    ok: true,
+    status: 200,
+    text: async () => 'id: 0\nevent: STREAM_ERROR\ndata: {"error_code":710022004,"error_msg":"rate limited"}\n\n',
+    json: async () => ({}),
+  })
+  const r = await replayConversation({ cookieHeader: COOKIE, conv: {}, messages: [], fetchImpl: impl })
+  assert.equal(r.code, 'rate-limited')
+  assert.equal(r.newConversationId, '')
+  assert.match(r.message, /710022004/)
 })
 
 test('⑧e replayConversation:登录过期(710012001)⇒ code=login-invalid 不冒绿', async () => {
