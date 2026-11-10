@@ -64,10 +64,18 @@ function makeCtx(): AdapterAccountContext {
   } as unknown as AdapterAccountContext
 }
 
-describe('loomy listModels(客户端实证 id)', () => {
-  it('返回桌面端 localStorage 实证的 imodel 模型 id', async () => {
+describe('loomy listModels(本机 opencode 运行时 /config 实证 id)', () => {
+  it('返回 provider.imodel.models 实读的裸模型名(图像产出档不入清单)', async () => {
     const ids = await loomyAdapter.listModels!(makeCtx())
-    expect(ids).toEqual(['imodel/qwen3.8-flash', 'imodel/spark-x2.6'])
+    expect(ids).toEqual([
+      'qwen3.8-flash',
+      'spark-x2.6',
+      'GLM-5.3-Flash',
+      'DeepSeek-V4.1-Flash',
+      'deepseek-v4-flash-0731',
+      'mimo-v2.5',
+      'auto',
+    ])
   })
 })
 
@@ -203,7 +211,7 @@ describe('loomy 提取器:目录在盘 ⇒ 形状(临时目录伪造 leveldb;捆
   })
 })
 
-describe('loomy buildChatRequest(推断构造)', () => {
+describe('loomy buildChatRequest(2026-11-10 实弹端点)', () => {
   it('端点/Bearer 头/OpenAI 同构 body 透传', () => {
     const http = loomyAdapter.buildChatRequest(makeCtx(), {
       model: 'glm-5.3',
@@ -212,7 +220,7 @@ describe('loomy buildChatRequest(推断构造)', () => {
       maxTokens: 100,
       stream: true,
     })
-    expect(http.url).toBe('https://loomy.xunfei.cn/api/chat/completions')
+    expect(http.url).toBe('https://loomyad.xunfei.cn/api/v1/chat/completions')
     expect(http.method).toBe('POST')
     const body = JSON.parse(http.rawBody ?? '') as Record<string, unknown>
     expect(body).toMatchObject({
@@ -223,6 +231,23 @@ describe('loomy buildChatRequest(推断构造)', () => {
     })
     expect(http.headers['authorization']).toBe('Bearer loomy-session-token-test')
     expect(http.headers['accept']).toBe('text/event-stream')
+  })
+
+  it('池内票=整份会话 JSON ⇒ Bearer 只取 session 字段(实弹:整 JSON 当票 100002)', () => {
+    const ctx = makeCtx()
+    ctx.credentials.token = JSON.stringify({
+      phone: '13800000000',
+      maskedPhone: '138****0000',
+      session: '796dd2062333482f980efd740527b63b',
+      userid: '261023222726664932',
+      loggedInAt: '2026-10-30T09:21:31.000Z',
+    })
+    const http = loomyAdapter.buildChatRequest(ctx, {
+      model: 'm',
+      messages: [],
+      stream: false,
+    })
+    expect(http.headers['authorization']).toBe('Bearer 796dd2062333482f980efd740527b63b')
   })
 
   it('缺 token ⇒ 抛错(该账号不可转发)', () => {
@@ -251,10 +276,33 @@ describe('loomy translateStreamChunk / translateNonStream(透传,零映射)', ()
     expect(loomyAdapter.translateStreamChunk(ctx, '', state)).toBeNull()
   })
 
-  it('非流式:JSON 对象透传;非对象 ⇒ 抛错(形状未实证 ⇒ 未判定)', () => {
+  it('非流式:JSON 对象透传;非对象 ⇒ 抛错', () => {
     const body = { id: 'x', choices: [{ message: { content: 'hi' } }] }
     expect(loomyAdapter.translateNonStream(ctx, body)).toEqual(body)
     expect(() => loomyAdapter.translateNonStream(ctx, 'not-object')).toThrow(/非 JSON 对象/)
+  })
+
+  it('网关业务错误信封(HTTP 200 + code/desc,实弹 100002):无 choices ⇒ 抛错', () => {
+    const env = { code: '100002', desc: '登录已失效，请重新登录', trace_id: 't1' }
+    let caught: unknown
+    try {
+      loomyAdapter.translateNonStream(ctx, env)
+    } catch (e) {
+      caught = e
+    }
+    expect(caught).toBeInstanceOf(LoomyUpstreamError)
+    expect((caught as LoomyUpstreamError).statusCode).toBe(401) // 登录态类码 ⇒ 触发自愈
+    // 非登录态业务码 ⇒ 502(不冒充鉴权失效)
+    let caught2: unknown
+    try {
+      loomyAdapter.translateNonStream(ctx, { code: '200005', desc: '积分不足' })
+    } catch (e) {
+      caught2 = e
+    }
+    expect((caught2 as LoomyUpstreamError).statusCode).toBe(502)
+    // 反证:带 choices 的正常回包即使含 code 也透传
+    const ok = { id: 'x', code: '0', choices: [{ message: { content: 'hi' } }] }
+    expect(loomyAdapter.translateNonStream(ctx, ok)).toEqual(ok)
   })
 })
 
