@@ -2440,4 +2440,93 @@ test('30a 缓存版本隔离: v2 件即使槽内容"看起来匹配"也绝不误
     rmScratch(dir)
   }
 })
+
+/**
+ * 流式解析与数组出口的**逐条等价**(2026-11-10,内存治理的判据守卫)。
+ *
+ * 立因:30a 在 4GB 堆上 `FATAL ERROR: Reached heap limit`(本仓 3401 悬空 commit、
+ * `git log --all --raw` 单面 256MB)。改造把 `split('\0')` 全量 token 数组 + entries 数组
+ * 换成游标生成器,并让整面按 Buffer 落地。**这是判据脚本**,改错会放行真丢失 ——
+ * 所以等价性不能靠"跑一遍看着没红",必须把两侧逐条钉死:
+ *   - 数组出口 `parseRawDiffZ` 与流式出口 `parseRawDiffZIter` 对同一输入必须 deepEqual;
+ *   - Buffer 输入与 String 输入必须等价(改造新增的输入形态,不测就等于没有);
+ *   - **报错臂同判据**:该抛的两个形态在三条路径上都必须抛,只测正例会让"该抛不抛"漂过去
+ *     (那正是"半截输出读成没有改动"的假绿入口)。
+ * 两条出口同面导出,不等于同一实现 —— 所以这里比的是行为,不是代码引用。
+ */
+test('30a 流式解析:parseRawDiffZIter 与数组出口逐条等价(String/Buffer 双输入,含报错臂)', () => {
+  const { parseRawDiffZ, parseRawDiffZIter } = __test__
+  const A = 'a'.repeat(40)
+  const B = 'b'.repeat(40)
+  const C = 'c'.repeat(40)
+  const cases = [
+    { name: '空字符串', input: '', opts: {} },
+    { name: '空 Buffer', input: Buffer.alloc(0), opts: {} },
+    { name: 'null', input: null, opts: {} },
+    { name: '纯 NUL', input: '\0\0', opts: {} },
+    {
+      name: '单条新增',
+      input: `IHUI:${A}:100\n\0:000000 100644 ${B} ${C} A\0p.ts\0`,
+      opts: { withCommit: true },
+    },
+    {
+      name: '两条改动',
+      input: `IHUI:${A}:100\n\0:000000 100644 ${B} ${C} A\0p1\0:111111 222222 ${B} ${C} M\0p2\0`,
+      opts: { withCommit: true },
+    },
+    {
+      name: '删除记录(oldBlob 非零)',
+      input: `IHUI:${A}:100\n\0:111111 000000 ${B} ${'0'.repeat(40)} D\0gone\0`,
+      opts: { withCommit: true },
+    },
+    { name: '无 withCommit 档', input: `:000000 100644 ${B} ${C} A\0p.ts\0`, opts: {} },
+    {
+      name: 'CRLF 行尾',
+      input: `IHUI:${A}:100\r\n\0:000000 100644 ${B} ${C} A\r\n\0p.ts\0`,
+      opts: { withCommit: true },
+    },
+    {
+      name: '两个 commit 段连续',
+      input: `IHUI:${A}:100\n\0:000000 100644 ${B} ${C} A\0p1\0IHUI:${A}:200\n\0:000000 100644 ${B} ${C} A\0p2\0`,
+      opts: { withCommit: true },
+    },
+  ]
+  for (const c of cases) {
+    const arr = parseRawDiffZ(c.input, c.opts)
+    assert.deepEqual(
+      [...parseRawDiffZIter(c.input, c.opts)],
+      arr,
+      `${c.name}:流式出口与数组出口必须逐条等价`,
+    )
+    if (typeof c.input === 'string' && c.input.length > 0) {
+      assert.deepEqual(
+        [...parseRawDiffZIter(Buffer.from(c.input, 'utf8'), c.opts)],
+        arr,
+        `${c.name}:Buffer 输入必须与 String 输入等价`,
+      )
+    }
+  }
+  // 报错臂:截断 / 错位 / 非法段 —— 三条路径必须同判据(抛),否则「取不到」会被读成「没改动」
+  const throwing = [
+    { name: '非法 commit 段', input: 'IHUI:nothex:1\0', opts: { withCommit: true } },
+    {
+      name: '非法 raw 头',
+      input: `IHUI:${A}:1\n\0:badheader\0x\0`,
+      opts: { withCommit: true },
+    },
+    {
+      name: '路径段错位(commit 段丢失)',
+      input: `IHUI:${A}:1\n\0:000000 100644 ${B} ${C} A\0IHUI:${'z'.repeat(40)}:2\0`,
+      opts: { withCommit: true },
+    },
+  ]
+  for (const t of throwing) {
+    assert.throws(() => parseRawDiffZ(t.input, t.opts), `${t.name}:数组出口必须抛`)
+    assert.throws(() => [...parseRawDiffZIter(t.input, t.opts)], `${t.name}:流式出口必须抛`)
+    assert.throws(
+      () => [...parseRawDiffZIter(Buffer.from(t.input, 'utf8'), t.opts)],
+      `${t.name}:Buffer 输入同样必须抛`,
+    )
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
