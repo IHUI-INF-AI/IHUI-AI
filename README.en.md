@@ -99,6 +99,23 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-10**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (4e7adad235)
+- 📚 Docs:数字块按 HEAD 面重算（与推门 check-doc-numbers 同面） (bd0fee0d4f)
+- 📚 Docs:数字块按 HEAD 面重算（与推门 check-doc-numbers 同面） (09240bd0f0)
+- 🐞 Fix:门 313 登记缺省判面——派发层不再回「未声明判面」 (3a78b71537)
+- 🐞 Fix:定版索引护栏形状对齐——私有索引提交通道(isolated-git)结构性全灭根治 (211c3574f2)
+- 📚 Docs:数字块按 HEAD 面重算（与推门 check-doc-numbers 同面） (474442934c)
+- 🐞 Fix:face-reader 测试的派生 options 改用具名变量（绕开门 193 取数盲区） (a7c25307cd)
+- ⚡ Perf:30a 内存治理——流式解析 + Buffer 取面 + 候选分批,并查清 OOM 根因链 (e949a217d5)
+- 🐞 Fix:face-reader 的 binary 档 encoding 改回 null（消 13 道门体的未判定） (a4b410d0ca)
+- 📚 Docs:数字块按 head 面重算 (920736c944)
+- 📚 Docs:数字块按 head 面重算(testFiles 4818 / trackedFiles 20849) (7765d5a6ff)
+- 📚 Docs:数字块按 HEAD 面重算(testFiles 4817 / trackedFiles 20848) (82fac7fab0)
+- 🔧 Chore/Other:补齐 brand-mail-from 测试文件的溯源水印 (7582515bf7)
+- 🔧 Chore/Other:miniapp-taro 五个语言包对齐上游已完成的键清理 (975c6ec472)
+- 🐞 Fix:三条 From 旁路归一 + 守门 R5 防回归 (0a761c3280)
+
+**2026-11-10**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (7b48014e26)
 
 **2026-11-10**
@@ -597,18 +614,6 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 - 📚 Docs:auto-triage 自动登记(api-logs;第 1 期感知层产线动作,O65) (616fb59a5a)
 - 📚 Docs:auto-triage 自动登记(api-logs;第 1 期感知层产线动作,O65) (aec3023ba2)
 - 📚 Docs:auto-triage 自动登记(api-logs;第 1 期感知层产线动作,O65) (d400a0e35b)
-
-**2026-11-07**
-- 🐞 Fix:签到按钮同 tick 互斥与失败复位(票 F),并发两次只发一次请求 (125d3b1f3f)
-- 🐞 Fix:签到助手回屏只刷新一次(票 D),复用 screen-reappear-adapter (29085fdd48)
-- 🐞 Fix:web checkin 改名 checkinAssistant,与 checkIn 区分 (4623179dfc)
-- 🐞 Fix:重发倒计时秒数上屏,补全 5 locale 占位符并清掉全量静默丢参 (ef4478996d)
-- 🐞 Fix:签到助手写操作加同 tick 互斥与 finally 复位,消除连点重复签到/重复启停 (077ee973a8)
-- 🔧 Chore/Other:收编守护落档产出(3 件,凭落点账本) (98b102011c)
-- 🐞 Fix:T1 超时预算畸形改硬失败 + 棘轮改跨提交史比对 (3444b0ae67)
-- 🐞 Fix:T1 预算棘轮补 margin 证据链,自包含复核判据入库 (6013b5e151)
-- 🐞 Fix:T1 改并发4+LPT 派发(300s 让位于实测基线),门251 修 staged 参数序+批量取面并补夹具,worktree 自有 node_modules (a8ff738ce2)
-- 🐞 Fix:提现状态五语言包补齐 processing(web 管理端映射同步) (7b95c067b2)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
