@@ -20,15 +20,19 @@
  * 3. 必需 query 面:`aid=497858&real_aid=497858&device_platform=web&version_code=20800
  *    &device_id=…&pc_version=3.45.x`;缺则回 710020702「系统错误」(是参数问题,不是签名问题)。
  * 4. `content-type` 必须写 `application/json; encoding=utf-8`,否则 712012002「不支持编码类型」。
- * 5. **chat 不走 HTTP**:页面内发消息成功作答,但全程无 chat/completion 请求 ——
- *    对话走 IM cmd 长连接;`/api/chat/completions` 恒 401。⇒ buildChatRequest 仅契约占位。
- * 6. `/api/*` 是字节签名墙(真票也 401);`/samantha/*` 与 `/im/*` 不需要 a-bogus 签名。
+ * 5. **chat 走 HTTP + SSE**(2026-11-10 纯 Node 打通,推翻了此前"走 IM 长连接"的误判):
+ *    `POST /chat/completion`(单数、无 /api)带真实 cookie 直接 200 `text/event-stream`,
+ *    答问正常;补监听 WebSocket 后全程零 `WS-CREATED` ⇒ **没有任何长连接**。
+ *    前一轮判死的真实原因:路径猜成 `/api/chat/completions`(复数、带 /api)+ 那次被风控
+ *    拦成 710022004,把"端点猜错"误读成"协议不存在"。
+ * 6. `a_bogus` **不是硬门**:带真实 cookie 时不传/传空/传假都回 200(只影响风控评分)
+ *    ⇒ 适配器不伪造签名。`/api/*` 才是签名墙(真票也 401);`/samantha/*`、`/im/*` 不需要。
  *
  * ## 仍未实证的边界(照旧不冒绿)
- * - 额度:豆包有额度体系(页面实证「每日签到领 200」),但**无公开余额查询端点** ⇒
- *   getQuota 保持未判定、quotaSupported=false。
+ * - 额度:豆包有额度体系(页面实证「每日签到领 200」;SSE 里 `commerce_usage_data_v1`
+ *   显示「本轮免费」),但**无公开余额查询端点** ⇒ getQuota 保持未判定、quotaSupported=false。
+ * - 工具调用 / 多模态:`content_block` 只发 10000 文本块,未实证 tool/image 块形状 ⇒ 不伪造。
  * - 国际版:豆包海外版 = Cici,DOUBAO_GLOBAL_BASE 常量预留(无本机取证,留位待实证)。
- * - chat 响应形状:IM 协议未解码,现有 SSE 帧透传逻辑对豆包不适用。
  */
 import { ProxyAgent, fetch as undiciFetch } from 'undici'
 import type {
@@ -53,13 +57,35 @@ import type { RelayProviderCode } from '../relay-account-format.js'
 const DOUBAO_BASE = 'https://www.doubao.com'
 
 /**
- * chat 端点(2026-11-10 浏览器实弹证伪):此路径恒 401,且豆包对话**根本不走 HTTP**。
- * 实测:在真实登录态页面里发送「1+1等于几」,消息正常上屏并由模型作答,但全程
- * 没有任何 chat/completion 类 HTTP 请求 —— 对话走的是 IM 长连接(cmd 编号协议,
- * pull_recent_conv_chain / thread_message),HTTP 面只有会话列表等旁路接口。
- * ⇒ 本常量仅为 RelayUpstreamAdapter 的接口契约占位,**不构成可用通路**。
+ * chat 端点(2026-11-10 纯 Node 实弹打通,`200 text/event-stream`)。
+ *
+ * 前一轮曾把这个能力判死,结论是错的,错因记录在此以免重犯:
+ * 当时在浏览器里等待 `waitForRequest(/completion/)` 超时,就断言"豆包对话走 IM 长连接、
+ * 不走 HTTP"。实际是**路径猜错**(真路径是 `/chat/completion` 单数,不是 `/api/chat/completions`),
+ * 且那次请求被字节风控拦成 `710022004 rate limited`。补监听 WebSocket 后全程零 `WS-CREATED`,
+ * 证明根本没有长连接。
+ *
+ * 实证面(纯 Node,零 a_bogus / 零浏览器):
+ * - `a_bogus` **不是硬门**:带真实 cookie 时,不传/传空/传假值都回 200,签名只影响风控评分;
+ * - 必需的是 query 面(见 doubaoChatQuery)与 body 的 cmd 信封结构(见 buildChatRequest);
+ * - 响应是标准 SSE,事件族:`SSE_ACK`(给出 conversation_id)/ `FULL_MSG_NOTIFY`(用户消息回显)/
+ *   `STREAM_MSG_NOTIFY` / `STREAM_CHUNK`(patch_op 增量)/ `CHUNK_DELTA`(纯文本增量)/
+ *   `SSE_REPLY_END`(end_type 1→消息完成, 2→答案完成, 3→流结束)/ `SSE_HEARTBEAT` / `STREAM_ERROR`。
  */
-const DOUBAO_CHAT_URL = `${DOUBAO_BASE}/api/chat/completions`
+const DOUBAO_CHAT_URL = `${DOUBAO_BASE}/chat/completion`
+
+/**
+ * 实证:豆包主对话 bot id(浏览器抓包 `client_meta.bot_id`,全站 web 会话固定值)。
+ * 不是账号相关字段,换号不变;若上游改版,抓包即可更新。
+ */
+const DOUBAO_BOT_ID = '7338286299411103781'
+
+/**
+ * 实证:CHUNK_DELTA 的文本与 patch 的 text_block 是**两条互补增量通道**,不是重复流。
+ * 实测「1+1等于几」:patch 给 `1` `+`,CHUNK_DELTA 接着给 `1` `=` `2`,拼起来才是 `1+1=2`;
+ * 任何单取一路都会少字(只取 CHUNK_DELTA 得 `1=2`,只取 patch 得 `1+`)。
+ * ⇒ translateStreamChunk 两路都收;用 `state.doubaoAnswer` 做前缀去重,防上游改发全量时重复。
+ */
 
 /**
  * 额度端点(2026-11-10 实测):此路径恒 401(字节签名墙,真票也 401)。
@@ -272,7 +298,208 @@ function doubaoWebQuery(ctx: AdapterAccountContext): string {
   }).toString()
 }
 
-/** 实证:IM 面请求头(content-type 必须带 `encoding=utf-8`,否则回 712012002「不支持编码类型」) */
+/** 构造 OpenAI chat.completion.chunk(豆包流式/非流式共用;模块级,避免 this 绑定问题) */
+function buildDoubaoDeltaChunk(
+  state: StreamState,
+  content: string,
+  finishReason: 'stop' | null,
+): Record<string, unknown> {
+  if (typeof state['doubaoChunkId'] !== 'string') {
+    state['doubaoChunkId'] = `chatcmpl-doubao-${Date.now().toString(36)}`
+    state['doubaoCreated'] = Math.floor(Date.now() / 1000)
+  }
+  return {
+    id: state['doubaoChunkId'],
+    object: 'chat.completion.chunk',
+    created: state['doubaoCreated'],
+    model: 'doubao',
+    choices: [
+      {
+        index: 0,
+        delta: content === '' ? { role: 'assistant' } : { role: 'assistant', content },
+        finish_reason: finishReason,
+      },
+    ],
+  }
+}
+
+/**
+ * 实证:chat 面 query 比 IM 面多一组端类型/区域参数(2026-11-10 浏览器抓包逐字复刻,
+ * 纯 Node 复现可通)。故意**不带 `a_bogus`** —— 实测真票下不传也回 200(签名只影响风控评分)。
+ */
+function doubaoChatQuery(ctx: AdapterAccountContext): string {
+  const own = (ctx.row.deviceId ?? '').trim()
+  return new URLSearchParams({
+    aid: DOUBAO_AID,
+    real_aid: DOUBAO_AID,
+    device_id: own || DOUBAO_FALLBACK_DEVICE_ID,
+    device_platform: 'web',
+    doubao_device_platform: 'web',
+    doubao_pc_version: DOUBAO_PC_VERSION,
+    language: 'zh',
+    pc_version: DOUBAO_PC_VERSION,
+    pkg_type: 'release_version',
+    region: 'CN',
+    sys_region: 'CN',
+    samantha_web: '1',
+    'use-olympus-account': '1',
+    version_code: '20800',
+    web_platform: 'browser',
+    tz_name: 'Asia/Shanghai',
+  }).toString()
+}
+
+/** 实证:chat 面请求头(抓包复刻;accept 用通配符,SSE 由 content-type 判定而非 accept 协商) */
+function chatRequestHeaders(ctx: AdapterAccountContext): Record<string, string> {
+  return {
+    accept: '*/*',
+    'content-type': 'application/json',
+    cookie: buildCookieHeader(ctx),
+    'agw-js-conv': 'str, str',
+    'user-agent': DOUBAO_UA,
+    referer: `${DOUBAO_BASE}/chat/`,
+  }
+}
+
+/** OpenAI content(string / parts 数组 / 对象) → 纯文本,未知形状按 JSON 兜底 */
+function contentToPlainText(content: unknown): string {
+  if (typeof content === 'string') return content
+  if (Array.isArray(content)) {
+    return content
+      .map((part) => {
+        if (typeof part === 'string') return part
+        if (part && typeof part === 'object') {
+          const p = part as Record<string, unknown>
+          if (typeof p['text'] === 'string') return p['text']
+          if (typeof p['content'] === 'string') return p['content']
+        }
+        return ''
+      })
+      .filter((s) => s !== '')
+      .join('')
+  }
+  if (content && typeof content === 'object') {
+    const c = content as Record<string, unknown>
+    if (typeof c['text'] === 'string') return c['text']
+    try {
+      return JSON.stringify(content)
+    } catch {
+      return ''
+    }
+  }
+  return ''
+}
+
+/**
+ * 多轮 → 单条消息文本(豆包 web 面一条 chat/completion 只收一条用户消息,
+ * 多轮上下文靠 conversation_id;本仓没有豆包会话 id 映射 ⇒ 把历史压成一段带角色标签的文本)。
+ * 单条 user 消息(最常见)逐字直传,不加任何标签,避免污染 prompt。
+ */
+function flattenMessagesForDoubao(messages: Array<{ role: string; content: unknown }>): string {
+  if (messages.length === 1 && messages[0]?.role === 'user') {
+    return contentToPlainText(messages[0].content)
+  }
+  const label = (role: string): string => {
+    if (role === 'system') return '[系统指令]'
+    if (role === 'assistant') return '[助手]'
+    if (role === 'tool') return '[工具结果]'
+    return '[用户]'
+  }
+  return messages
+    .map((m) => `${label(String(m.role))} ${contentToPlainText(m.content)}`.trim())
+    .filter((s) => s !== '' && s !== label(''))
+    .join('\n')
+}
+
+/**
+ * 实证:chat 请求体(2026-11-10 浏览器抓包 + 纯 Node 复现成功的最小充分集)。
+ * 关键结构:`messages[].content_block[]` 里 `block_type:10000` 是文本块,
+ * 文本放在 `content.text_block.text`;`option` 里 `agent_mode/conversation_mode/
+ * sse_recv_event_options.support_chunk_delta` 三个开关缺一不可(缺则不下发 CHUNK_DELTA,
+ * 只剩 patch 通道 ⇒ 丢字)。
+ */
+function buildChatBody(req: NormalizedChatRequest, text: string): Record<string, unknown> {
+  const now = Date.now()
+  const localConvId = `local_${now}`
+  const messageId = crypto.randomUUID()
+  const blockId = crypto.randomUUID()
+  // 豆包会话 id 是纯数字长串;本仓的 conversationId 是自有 id,形态不符时一律新建会话,
+  // 绝不把自有 id 当作豆包 conversation_id 送给上游(会被判会话不存在)。
+  const rawConv = (req.conversationId ?? '').trim()
+  const convId = /^\d{10,}$/.test(rawConv) ? rawConv : ''
+  return {
+    client_meta: {
+      local_conversation_id: localConvId,
+      conversation_id: convId,
+      bot_id: DOUBAO_BOT_ID,
+      last_section_id: '',
+      last_message_index: null,
+      local_permissions: [],
+    },
+    messages: [
+      {
+        local_message_id: messageId,
+        content_block: [
+          {
+            block_type: 10000,
+            block_id: blockId,
+            content: {
+              text_block: { text, icon_url: '', icon_url_dark: '', summary: '' },
+              pc_event_block: '',
+            },
+            parent_id: '',
+            meta_info: [],
+            extra_info: {},
+            append_fields: [],
+          },
+        ],
+        message_status: 0,
+      },
+    ],
+    option: {
+      create_time_ms: now,
+      answer_with_suggest: false,
+      agent_mode: 2,
+      tts_switch: false,
+      need_deep_think: 0,
+      is_audio: false,
+      need_create_conversation: convId === '',
+      conversation_init_option: { need_ack_conversation: true },
+      conversation_init_ext: { model_item_key: '0', reasoning_effort: '5', mode_id: '1' },
+      model_config: { model_item_key: '0', model_extra_params: {}, reasoning_effort: 5 },
+      aggregate_params: {
+        conversation_mode: '1',
+        mode_id: '1',
+        model_item_key: '0',
+        agent_mode: '2',
+        reasoning_effort: '5',
+        provider_id: '',
+        mention_skill_list: '[]',
+        mention_plugin_list: '[]',
+        mention_ext: '[{}]',
+      },
+      conversation_mode: 1,
+      sse_recv_event_options: { support_chunk_delta: true },
+      support_lazy_fetch_stream: true,
+      message_from: 0,
+      is_old_user: true,
+      scene_type: 0,
+      unique_key: crypto.randomUUID(),
+      start_seq: 0,
+    },
+    user_context: [],
+    ext: {
+      agent_mode: '2',
+      use_deep_think: '0',
+      is_finish: '1',
+      commerce_credit_config_enable: '0',
+    },
+  }
+}
+
+/**
+ * 实证:IM 面请求头(content-type 必须带 `encoding=utf-8`,否则回 712012002「不支持编码类型」)
+ */
 function imRequestHeaders(ctx: AdapterAccountContext): Record<string, string> {
   return {
     accept: 'application/json, text/plain, */*',
@@ -332,65 +559,140 @@ export const doubaoAdapter: RelayUpstreamAdapter = {
   quotaSupported: false,
 
   /**
-   * chat 请求构造 —— **2026-11-10 实弹证伪,本通路不成立**。
+   * chat 请求构造(2026-11-10 实证重写,纯 Node 已打通)。
    *
-   * 实测过程:注入真实会话票打开 https://www.doubao.com/chat/ (确认登录态),在输入框
-   * 发送「1+1等于几」,消息上屏且模型正常作答,全程 `waitForRequest(/completion/)` 超时 ——
-   * 豆包对话**不走 HTTP**,走的是 IM cmd 编号协议长连接(pull_recent_conv_chain /
-   * thread_message 一族),HTTP 面只有会话列表/偏好等旁路接口。
-   * 另测 `/api/chat/completions` 直接 401(签名墙)。
+   * 前一轮把这里写成「契约占位、不产出可用上游调用」是错的 —— 错在端点路径猜成
+   * `/api/chat/completions`(复数、带 /api),而真路径是 `/chat/completion`(单数、无 /api)。
+   * 换对端点后同一个 cookie 直接 200 text/event-stream,且**不需要 a_bogus**。
    *
-   * 因此本方法保留仅为满足 RelayUpstreamAdapter 契约,**不产出可用的上游调用**。
-   * 要真正打通豆包对话,需实现 IM 长连接协议(建连/心跳/cmd 编解码),属独立工程,
-   * 不在本次收口范围。承载层应在此实现落地前避免把 doubao 纳入 chat 调度。
+   * 模型名:豆包 web 面用 `conversation_init_ext.model_item_key` 选模型(默认 '0' = 豆包主模型),
+   * 不认 OpenAI 的 `model` 字段 ⇒ 客户端传的 model 不映射,固定 '0'(见头注 quota/model 边界)。
    */
   buildChatRequest(ctx: AdapterAccountContext, req: NormalizedChatRequest): UpstreamHttpRequest {
-    const body: Record<string, unknown> = {
-      model: req.model,
-      messages: req.messages,
-      stream: req.stream,
-    }
-    if (typeof req.temperature === 'number') body['temperature'] = req.temperature
-    if (typeof req.maxTokens === 'number') body['max_tokens'] = req.maxTokens
-    if (req.tools !== undefined) body['tools'] = req.tools
-    if (req.toolChoice !== undefined) body['tool_choice'] = req.toolChoice
-    if (req.responseFormat !== undefined) body['response_format'] = req.responseFormat
-    const rawBody = JSON.stringify(body)
+    const text = flattenMessagesForDoubao(req.messages)
+    const rawBody = JSON.stringify(buildChatBody(req, text))
     return {
-      url: DOUBAO_CHAT_URL,
+      url: `${DOUBAO_CHAT_URL}?${doubaoChatQuery(ctx)}`,
       method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        accept: req.stream ? 'text/event-stream' : 'application/json',
-        cookie: buildCookieHeader(ctx),
-        'agw-js-conv': 'str',
-        referer: `${DOUBAO_BASE}/chat/`,
-        'user-agent': DOUBAO_UA,
-      },
+      headers: chatRequestHeaders(ctx),
       rawBody,
     }
   },
 
   /**
-   * 流式帧翻译(推断层):假设上游 SSE 同构 ⇒ JSON 帧**原样透传**(零映射)。
-   * 心跳/非 JSON 帧忽略;[DONE] 由转发层统一补发。响应形状未实证,透传即未判定。
+   * 流式帧翻译(2026-11-10 实证,纯 Node 抓到的 25 帧全覆盖)。
+   *
+   * 上游只给 `data:` 行(转发层的 readSseDataLines 剥掉了 event 名)⇒ **只能按 JSON 形状判别**:
+   * - `error_code` 存在          ⇒ STREAM_ERROR,抛 DoubaoUpstreamError(交给转发层罚号/冷却)
+   * - `end_type === 3`           ⇒ 流结束,发 finish_reason:'stop' 且 done:true
+   * - `end_type` 其他(1/2)      ⇒ 中间收尾(消息完成/答案完成),忽略
+   * - `text` 字符串              ⇒ CHUNK_DELTA 增量
+   * - `patch_op[]`               ⇒ STREAM_CHUNK,只取 `patch_object===1` 里 `block_type===10000`
+   *                                 的 `content.text_block.text`(loading_block 10101 / tts 111 /
+   *                                 ext 50 / content_status 3 一律丢)
+   * - 其余(SSE_ACK / FULL_MSG_NOTIFY / HEARTBEAT)⇒ null
+   *
+   * 两路增量**互补而非重复**(实测 patch 给 `1+`、CHUNK_DELTA 给 `1=2`,合起来才是 `1+1=2`),
+   * 故都收;用 state.doubaoAnswer 做前缀去重,防上游某天改发全量导致重复输出。
    */
   translateStreamChunk(
     _ctx: AdapterAccountContext,
     rawFrame: string,
-    _state: StreamState,
+    state: StreamState,
   ): TranslatedChunk | null {
     let s = rawFrame.trim()
     if (s.startsWith('data:')) s = s.slice(5).trim()
     if (!s || s === '[DONE]') return null
-    let obj: unknown
+    let obj: Record<string, unknown>
     try {
-      obj = JSON.parse(s)
+      const parsed: unknown = JSON.parse(s)
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null
+      obj = parsed as Record<string, unknown>
     } catch {
       return null // 心跳/注释等非 JSON 帧:忽略
     }
-    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return null
-    return { openaiChunk: obj as Record<string, unknown> }
+
+    // 1) 错误帧:上游业务错误必须冒泡,不能静默吞成"空回答"
+    const errCode = obj['error_code']
+    if (typeof errCode === 'number') {
+      const msg = typeof obj['error_msg'] === 'string' ? obj['error_msg'] : ''
+      // 710022004 = 风控限流(可冷却自愈)⇒ 用 429 让转发层按限流退避;其余归 502
+      throw new DoubaoUpstreamError(
+        String(errCode) === '710022004' ? 429 : 502,
+        `豆包流错误 ${errCode}${msg ? `: ${msg}` : ''}`,
+      )
+    }
+
+    // 2) 结束帧
+    const endType = obj['end_type']
+    if (typeof endType === 'number') {
+      if (endType !== 3) return null // 1=消息完成, 2=答案完成:都不是流终点
+      return {
+        openaiChunk: buildDoubaoDeltaChunk(state, '', 'stop'),
+        done: true,
+      }
+    }
+
+    // 3) 正文增量:三条通道都要,缺一路就丢字(2026-11-10 短回答实测)
+    //    a. CHUNK_DELTA         → obj.text
+    //    b. STREAM_CHUNK patch   → patch_op[].patch_value.content_block[]
+    //    c. STREAM_MSG_NOTIFY    → obj.content.content_block[]  ← 短回答的首字只在这里出现
+    // 每条 10000 文本块按 block_id 累积(上游对同一 block 可能发增量,也可能发全量重发,
+    // 统一用「已累积前缀」比对:是全量就取新增尾巴,是增量就直接追加)。
+    let piece = ''
+    if (typeof obj['text'] === 'string') piece += obj['text']
+
+    const takeBlocks = (blocks: unknown): void => {
+      if (!Array.isArray(blocks)) return
+      for (const rawBlock of blocks) {
+        if (!rawBlock || typeof rawBlock !== 'object') continue
+        const block = rawBlock as Record<string, unknown>
+        if (block['block_type'] !== 10000) continue // 10101 = loading 占位块,不是正文
+        const content = block['content']
+        if (!content || typeof content !== 'object') continue
+        const tb = (content as Record<string, unknown>)['text_block']
+        if (!tb || typeof tb !== 'object') continue
+        const t = (tb as Record<string, unknown>)['text']
+        if (typeof t !== 'string' || t === '') continue
+        const blockId = typeof block['block_id'] === 'string' ? block['block_id'] : '(noid)'
+        const key = `doubaoBlock:${blockId}`
+        const prev = typeof state[key] === 'string' ? (state[key] as string) : ''
+        if (t === prev) continue // 同块全量重发且无新增
+        if (prev !== '' && t.startsWith(prev)) {
+          piece += t.slice(prev.length) // 全量重发:只取新增尾巴
+          state[key] = t
+        } else {
+          piece += t // 增量追加
+          state[key] = prev + t
+        }
+      }
+    }
+
+    const ops = Array.isArray(obj['patch_op']) ? obj['patch_op'] : []
+    for (const raw of ops) {
+      if (!raw || typeof raw !== 'object') continue
+      const op = raw as Record<string, unknown>
+      if (op['patch_object'] !== 1) continue // 1 = content_block;111=tts / 50=ext / 3=status
+      const pv = op['patch_value']
+      if (!pv || typeof pv !== 'object') continue
+      takeBlocks((pv as Record<string, unknown>)['content_block'])
+    }
+    const notifyContent = obj['content']
+    if (notifyContent && typeof notifyContent === 'object') {
+      takeBlocks((notifyContent as Record<string, unknown>)['content_block'])
+    }
+
+    if (piece === '') return null
+
+    // 跨通道去重:CHUNK_DELTA 与 block 通道理论上互补,但上游若把同段发两遍,
+    // 只保留「累积串尾巴之后」的那部分。
+    const acc = typeof state['doubaoAnswer'] === 'string' ? state['doubaoAnswer'] : ''
+    if (piece === acc) return null
+    if (acc !== '' && piece.startsWith(acc) && piece.length > acc.length) {
+      piece = piece.slice(acc.length)
+    }
+    state['doubaoAnswer'] = acc + piece
+    return { openaiChunk: buildDoubaoDeltaChunk(state, piece, null) }
   },
 
   /** 非流式整体透传(推断层;不做字段翻译,§0.6) */

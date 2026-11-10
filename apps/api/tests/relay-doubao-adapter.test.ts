@@ -9,8 +9,10 @@
  *   .doubao.com 会话族 raw 直通、meta 零泄漏、外域/非会话键被滤、v20 非 v10 形如实未判定);
  *   os_crypt v10 解密纯函数回路(不触 DPAPI)
  * - 适配器:buildCookieHeader(cookies 逐条直通 / 坏条剔除 / token 兜底 / 双空抛错)、
- *   buildChatRequest 契约占位(实测豆包对话走 IM 长连接,HTTP 面不成立)、
- *   translateStreamChunk 透传、isAuthFailure(401/403/登录墙)、
+ *   buildChatRequest(POST /chat/completion 单数端点 + cmd 信封 body + 多轮扁平化)、
+ *   translateStreamChunk(三通道增量:CHUNK_DELTA / patch_op / STREAM_MSG_NOTIFY;
+ *     end_type 1/2/3;STREAM_ERROR 冒泡;同 block 全量重发去重)、
+ *   isAuthFailure(401/403/登录墙)、
  *   checkHealth(2026-11-10 实证判据:POST /im/conversation/batch_get ——
  *     status_code 0 + user_id ⇒ ok;710012001/712012001 ⇒ authFailed;
  *     其他业务码/5xx/形状不符 ⇒ 未判定;行内 doubaoUserId 不符 ⇒ authFailed)、
@@ -250,61 +252,228 @@ describe('doubao buildCookieHeader(推断层)', () => {
   })
 })
 
-describe('doubao buildChatRequest(推断构造)', () => {
-  it('端点/Cookie 头/OpenAI 同构 body 透传', () => {
+describe('doubao buildChatRequest(2026-11-10 实证:POST /chat/completion)', () => {
+  it('URL 是单数 /chat/completion(不是 /api/chat/completions),query 带 aid/端类型面', () => {
     const http = doubaoAdapter.buildChatRequest(makeCtx(), {
       model: 'doubao-pro',
       messages: [{ role: 'user', content: 'hi' }],
-      temperature: 0.7,
-      maxTokens: 100,
       stream: true,
     })
-    expect(http.url).toBe('https://www.doubao.com/api/chat/completions')
+    expect(http.url.startsWith('https://www.doubao.com/chat/completion?')).toBe(true)
+    const u = new URL(http.url)
+    expect(u.searchParams.get('aid')).toBe('497858')
+    expect(u.searchParams.get('real_aid')).toBe('497858')
+    expect(u.searchParams.get('device_platform')).toBe('web')
+    expect(u.searchParams.get('samantha_web')).toBe('1')
+    // a_bogus 不是硬门(实测不传也 200)⇒ 适配器不该伪造签名
+    expect(u.searchParams.get('a_bogus')).toBeNull()
     expect(http.method).toBe('POST')
-    const body = JSON.parse(http.rawBody ?? '') as Record<string, unknown>
-    expect(body).toMatchObject({
-      model: 'doubao-pro',
-      stream: true,
-      temperature: 0.7,
-      max_tokens: 100,
-    })
     expect(http.headers['cookie']).toBe('sessionid=sess-cookie-1; ttwid=ttw-1')
-    expect(http.headers['accept']).toBe('text/event-stream')
-    // 2026-11-10 实测:豆包端点按 /chat/ 出站(referer 校验面)
     expect(http.headers['referer']).toBe('https://www.doubao.com/chat/')
-    expect(http.headers['agw-js-conv']).toBe('str')
+    expect(http.headers['agw-js-conv']).toBe('str, str')
   })
 
-  it('注释已证伪:本方法仅为契约占位,不产出可用上游调用', () => {
-    // 端点仍是 /api/chat/completions(实测 401 签墙);豆包真实对话走 IM 长连接。
-    // 这条断言锁死「不偷偷改成看似可用」的改动:若有人把 url 换成别的猜测路径,
-    // 必须同时更新 10 楼的头注实证记录。
+  it('body 是 cmd 信封:content_block[block_type=10000].text_block.text 承载 prompt', () => {
     const http = doubaoAdapter.buildChatRequest(makeCtx(), {
-      model: 'm',
-      messages: [],
-      stream: false,
+      model: 'x',
+      messages: [{ role: 'user', content: '1+1等于几' }],
+      stream: true,
     })
-    expect(http.url).toBe('https://www.doubao.com/api/chat/completions')
+    const body = JSON.parse(http.rawBody ?? '') as any
+    expect(body.messages).toHaveLength(1)
+    expect(body.messages[0].content_block[0].block_type).toBe(10000)
+    expect(body.messages[0].content_block[0].content.text_block.text).toBe('1+1等于几')
+    expect(body.client_meta.bot_id).toBe('7338286299411103781')
+    // 三个开关缺一,上游不下发 CHUNK_DELTA ⇒ 只剩 patch 通道会丢字
+    expect(body.option.sse_recv_event_options.support_chunk_delta).toBe(true)
+    expect(body.option.agent_mode).toBe(2)
+    expect(body.option.conversation_mode).toBe(1)
+  })
+
+  it('单条 user 逐字直传;多轮压成带角色标签的一段(豆包一条请求只收一条消息)', () => {
+    const single = JSON.parse(
+      doubaoAdapter.buildChatRequest(makeCtx(), {
+        model: 'x',
+        messages: [{ role: 'user', content: '你好' }],
+        stream: true,
+      }).rawBody!,
+    ) as any
+    expect(single.messages[0].content_block[0].content.text_block.text).toBe('你好')
+
+    const multi = JSON.parse(
+      doubaoAdapter.buildChatRequest(makeCtx(), {
+        model: 'x',
+        messages: [
+          { role: 'system', content: '只回答数字' },
+          { role: 'user', content: '2+3' },
+        ],
+        stream: true,
+      }).rawBody!,
+    ) as any
+    const flat = multi.messages[0].content_block[0].content.text_block.text as string
+    expect(flat).toContain('[系统指令] 只回答数字')
+    expect(flat).toContain('[用户] 2+3')
+  })
+
+  it('自有 conversationId 不冒充豆包会话 id;纯数字长串才透传', () => {
+    const own = JSON.parse(
+      doubaoAdapter.buildChatRequest(makeCtx(), {
+        model: 'x',
+        messages: [{ role: 'user', content: 'a' }],
+        stream: true,
+        conversationId: 'sess_abc',
+      }).rawBody!,
+    ) as any
+    expect(own.client_meta.conversation_id).toBe('')
+    expect(own.option.need_create_conversation).toBe(true)
+
+    const doubao = JSON.parse(
+      doubaoAdapter.buildChatRequest(makeCtx(), {
+        model: 'x',
+        messages: [{ role: 'user', content: 'a' }],
+        stream: true,
+        conversationId: '38452907617626882',
+      }).rawBody!,
+    ) as any
+    expect(doubao.client_meta.conversation_id).toBe('38452907617626882')
+    expect(doubao.option.need_create_conversation).toBe(false)
   })
 })
 
-describe('doubao translateStreamChunk / translateNonStream(透传,零映射)', () => {
+describe('doubao translateStreamChunk(2026-11-10 实证:三通道增量)', () => {
   const ctx = makeCtx()
-  const state: StreamState = {}
-
-  it('JSON 帧原样透传;[DONE]/心跳/空帧 → null', () => {
-    const frame = {
-      id: 'chatcmpl-1',
-      object: 'chat.completion.chunk',
-      choices: [{ index: 0, delta: { content: '你好' }, finish_reason: null }],
-    }
-    const out = doubaoAdapter.translateStreamChunk(ctx, 'data: ' + JSON.stringify(frame), state)
-    expect(out?.openaiChunk).toEqual(frame)
-    expect(doubaoAdapter.translateStreamChunk(ctx, 'data: [DONE]', state)).toBeNull()
-    expect(doubaoAdapter.translateStreamChunk(ctx, ': keep-alive', state)).toBeNull()
+  const mk = (): StreamState => ({}) as StreamState
+  const pick = (o?: TranslatedChunk | null): string => {
+    const ch = o?.openaiChunk as any
+    const c = ch?.choices?.[0]?.delta?.content
+    return typeof c === 'string' ? c : ''
+  }
+  const notify = (id: string, t: string) => ({
+    content: {
+      content_block: [{ block_id: id, block_type: 10000, content: { text_block: { text: t } } }],
+    },
+  })
+  const patch = (id: string, t: string) => ({
+    patch_op: [
+      {
+        patch_object: 1,
+        patch_type: 1,
+        patch_value: {
+          content_block: [
+            { block_id: id, block_type: 10000, content: { text_block: { text: t } } },
+          ],
+        },
+      },
+    ],
   })
 
-  it('非流式:JSON 对象透传;非对象 ⇒ 抛错(形状未实证 ⇒ 未判定)', () => {
+  it('CHUNK_DELTA(obj.text)是增量文本', () => {
+    const s = mk()
+    expect(pick(doubaoAdapter.translateStreamChunk(ctx, 'data: {"text":"="}', s))).toBe('=')
+  })
+
+  it('STREAM_CHUNK patch:只取 block_type=10000,忽略 loading(10101)/tts(111)/ext(50)', () => {
+    const s = mk()
+    const feed = (o: unknown) =>
+      doubaoAdapter.translateStreamChunk(ctx, 'data: ' + JSON.stringify(o), s)
+    expect(
+      feed({
+        patch_op: [
+          {
+            patch_object: 1,
+            patch_value: {
+              content_block: [{ block_type: 10101, content: { loading_block: { scene: 2 } } }],
+            },
+          },
+        ],
+      }),
+    ).toBeNull()
+    expect(
+      feed({ patch_op: [{ patch_object: 111, patch_value: { tts_content: 'x' } }] }),
+    ).toBeNull()
+    expect(
+      feed({ patch_op: [{ patch_object: 50, patch_value: { ext: { is_finish: '1' } } }] }),
+    ).toBeNull()
+    expect(
+      feed({ patch_op: [{ patch_object: 3, patch_value: { content_status: 100 } }] }),
+    ).toBeNull()
+    expect(pick(feed(patch('b1', '+')))).toBe('+')
+  })
+
+  it('STREAM_MSG_NOTIFY(obj.content.content_block)也收 —— 短回答首字只在这条通道', () => {
+    const s = mk()
+    expect(
+      pick(
+        doubaoAdapter.translateStreamChunk(ctx, 'data: ' + JSON.stringify(notify('b0', '1')), s),
+      ),
+    ).toBe('1')
+  })
+
+  it('同 block 全量重发只吐新增尾巴,同串重发返回 null', () => {
+    const s = mk()
+    const push = (t: string) =>
+      doubaoAdapter.translateStreamChunk(ctx, 'data: ' + JSON.stringify(notify('b9', t)), s)
+    expect(pick(push('1'))).toBe('1')
+    expect(pick(push('1+'))).toBe('+')
+    expect(pick(push('1+1'))).toBe('1')
+    expect(push('1+1')).toBeNull()
+  })
+
+  it('三通道合成完整答案(实测「1+1等于几」→ 1+1=2,任何单通道都少字)', () => {
+    const s = mk()
+    const feed = (o: unknown) =>
+      pick(doubaoAdapter.translateStreamChunk(ctx, 'data: ' + JSON.stringify(o), s))
+    let answer = ''
+    answer += feed(notify('b0', '1')) // 首字
+    answer += feed(patch('b0', '+')) // patch 追加
+    answer += feed({ text: '1' }) // CHUNK_DELTA
+    answer += feed({ text: '=' })
+    answer += feed({ text: '2' })
+    expect(answer).toBe('1+1=2')
+  })
+
+  it('end_type:1/2 不是终点,3 才是(done + finish_reason=stop)', () => {
+    const s = mk()
+    expect(doubaoAdapter.translateStreamChunk(ctx, 'data: {"end_type":1}', s)).toBeNull()
+    expect(doubaoAdapter.translateStreamChunk(ctx, 'data: {"end_type":2}', s)).toBeNull()
+    const end = doubaoAdapter.translateStreamChunk(ctx, 'data: {"end_type":3}', s)
+    expect(end?.done).toBe(true)
+    expect((end?.openaiChunk as any).choices[0].finish_reason).toBe('stop')
+  })
+
+  it('STREAM_ERROR 必须冒泡:限流码归 429(可冷却),其余归 502', () => {
+    const s = mk()
+    let limited: unknown = null
+    try {
+      doubaoAdapter.translateStreamChunk(
+        ctx,
+        'data: {"error_code":710022004,"error_msg":"rate limited"}',
+        s,
+      )
+    } catch (e) {
+      limited = e
+    }
+    expect(limited).toBeInstanceOf(Error)
+    expect((limited as { statusCode?: number }).statusCode).toBe(429)
+    expect(String((limited as Error).message)).toMatch(/rate limited/)
+
+    let other: unknown = null
+    try {
+      doubaoAdapter.translateStreamChunk(ctx, 'data: {"error_code":123,"error_msg":"boom"}', s)
+    } catch (e) {
+      other = e
+    }
+    expect((other as { statusCode?: number }).statusCode).toBe(502)
+  })
+
+  it('心跳/空帧/非 JSON 帧 → null(不产出空 delta)', () => {
+    const s = mk()
+    expect(doubaoAdapter.translateStreamChunk(ctx, 'data: {}', s)).toBeNull()
+    expect(doubaoAdapter.translateStreamChunk(ctx, 'data: [DONE]', s)).toBeNull()
+    expect(doubaoAdapter.translateStreamChunk(ctx, ': keep-alive', s)).toBeNull()
+  })
+
+  it('非流式:JSON 对象透传;非对象 ⇒ 抛错(形状不符)', () => {
     const body = { id: 'x', choices: [{ message: { content: 'hi' } }] }
     expect(doubaoAdapter.translateNonStream(ctx, body)).toEqual(body)
     expect(() => doubaoAdapter.translateNonStream(ctx, 'not-object')).toThrow(/非 JSON 对象/)
