@@ -335,5 +335,65 @@ describe('/ws/relay/chat', () => {
     expect(seenSignal?.aborted).toBe(true)
     c.close()
   })
+
+  it('会话连续性:同一连接多轮请求落到同一号池账号(affinityKey 为会话级,非每轮请求 id)', async () => {
+    forwardMock.mockResolvedValue({
+      ok: true,
+      response: new Response(''),
+      channel: {},
+      latencyMs: 1,
+      latencyTrusted: true,
+    })
+    pipeMock.mockImplementation(async (_resp: unknown, opts: { writeLine: (l: string) => void }) => {
+      opts.writeLine('data: {"choices":[{"delta":{"content":"x"}}]}')
+      return {}
+    })
+
+    const c = await connect()
+    await c.waitFor((f) => f.type === 'ready', 'ready')
+    for (const id of ['r1', 'r2']) {
+      c.send({ type: 'chat', id, model: 'doubao/x', messages: [{ role: 'user', content: id }] })
+      await c.waitFor((f) => f.type === 'done' && f.id === id, `done:${id}`)
+    }
+    expect(forwardMock).toHaveBeenCalledTimes(2)
+    const keys = forwardMock.mock.calls.map(
+      (call) => ((call.at(0) ?? {}) as { affinityKey?: string }).affinityKey,
+    )
+    // 两轮用不同请求 id,但亲和键必须相同:否则号池每轮换号、上游每次新建会话,上下文断裂
+    expect(keys[0]).toBe(keys[1])
+    // 亲和键绝不能是请求 id(那是上一版的 bug)
+    expect(keys[0]).not.toBe('r1')
+    expect(keys[0]).not.toBe('r2')
+    c.close()
+  })
+
+  it('会话连续性:客户端显式 conversationId 优先于连接级默认键', async () => {
+    forwardMock.mockResolvedValue({
+      ok: true,
+      response: new Response(''),
+      channel: {},
+      latencyMs: 1,
+      latencyTrusted: true,
+    })
+    pipeMock.mockImplementation(async (_resp: unknown, opts: { writeLine: (l: string) => void }) => {
+      opts.writeLine('data: {"choices":[{"delta":{"content":"x"}}]}')
+      return {}
+    })
+
+    const c = await connect()
+    await c.waitFor((f) => f.type === 'ready', 'ready')
+    c.send({
+      type: 'chat',
+      id: 'c1',
+      model: 'doubao/x',
+      conversationId: 'conv-abc-123',
+      messages: [{ role: 'user', content: 'hi' }],
+    })
+    await c.waitFor((f) => f.type === 'done' && f.id === 'c1', 'done')
+    expect(forwardMock).toHaveBeenCalledTimes(1)
+    const key = ((forwardMock.mock.calls.at(0)?.at(0) ?? {}) as { affinityKey?: string }).affinityKey
+    expect(key).toBe('conv-abc-123')
+    c.close()
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
