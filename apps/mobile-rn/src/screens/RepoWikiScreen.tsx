@@ -32,6 +32,7 @@ import { useTheme } from '../context/ThemeContext'
 import { useI18n } from '../i18n'
 import { tokens } from '../theme/active-tokens'
 
+import { rnSpacing, rnType } from '@ihui/design-tokens'
 const REPO_NAME_KEY = 'ihui:repo-wiki:repoName'
 
 /** ISO 时间 → `YYYY-MM-DD HH:mm`(不依赖 Intl,Hermes 各版本表现一致) */
@@ -146,8 +147,8 @@ export function RepoWikiScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  hintBox: { paddingHorizontal: 12, paddingTop: 4 },
-  hint: { fontSize: 12, color: tokens.text.tertiary },
+  hintBox: { paddingHorizontal: rnSpacing.md, paddingTop: rnSpacing.xs },
+  hint: { fontSize: rnType.label.size, color: tokens.text.tertiary },
   detail: { fontSize: 13, lineHeight: 20, color: tokens.text.primary },
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
