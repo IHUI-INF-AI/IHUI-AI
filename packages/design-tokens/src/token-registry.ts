@@ -261,13 +261,15 @@ const RN_FINE_COLOR_ENTRIES: ReadonlyArray<TokenEntry> = [
     name: '--color-success-text',
     type: 'color',
     defaultValue: 'hsl(142 71% 28%)',
-    description: '状态色「文字」角色档 · success(暗档恒现值,亮档加深到 AA;填充仍用 --color-success)',
+    description:
+      '状态色「文字」角色档 · success(暗档恒现值,亮档加深到 AA;填充仍用 --color-success)',
   },
   {
     name: '--color-warning-text',
     type: 'color',
     defaultValue: 'hsl(38 92% 30%)',
-    description: '状态色「文字」角色档 · warning(暗档恒现值,亮档加深到 AA;填充仍用 --color-warning)',
+    description:
+      '状态色「文字」角色档 · warning(暗档恒现值,亮档加深到 AA;填充仍用 --color-warning)',
   },
   {
     name: '--color-danger-text',
@@ -383,12 +385,21 @@ const FONT_ENTRIES: ReadonlyArray<TokenEntry> = [
   {
     name: '--font-sans',
     type: 'font',
-    defaultValue: "'HarmonyOS Sans SC', ui-sans-serif, system-ui, sans-serif",
+    // 与 styles/tokens.css 的 --font-sans 逐字同源(§22c 单一真相源):本档原值停在旧的
+    // 4 族版本,字体根治枚把 CSS 侧扩到 13 族(品牌自托管 + 中文现代黑体 + 拉丁族)后,
+    // 注册表侧没跟上 ⇒ 两份真相源漂移。守门 check-design-tokens-sync 的 registry 档
+    // 只比 token 名不比值,故这处漂移不会自己变红 —— 靠本注释锁住"改 CSS 必须同步这里"。
+    defaultValue:
+      "'HarmonyOS Sans SC', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', 'Source Han Sans SC', " +
+      "'Hiragino Sans GB', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', " +
+      "Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji'",
   },
   {
     name: '--font-sans-sc',
     type: 'font',
-    defaultValue: "'HarmonyOS Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif",
+    defaultValue:
+      "'HarmonyOS Sans SC', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', 'Source Han Sans SC', " +
+      "'Hiragino Sans GB', system-ui, -apple-system, sans-serif",
   },
 ]
 

@@ -170,3 +170,5 @@
 {"path":"scripts/verify-grafana-panel-data.mjs","reason":"HEAD 删除历史重建:scripts/verify-grafana-panel-data.mjs 在 2026-11-01 起的提交历史中被删除,且当前 HEAD 树无此文件","until":null}
 {"path":"packages/database/drizzle/20261106213000_agent_meta_lessons_indexes.sql","reason":"origin/main（收敛目标）已删除该 drizzle 迁移文件，本次合并传播该删除；合并树内 0 引用（引用图核对通过），属安全删除。","until":null}
 {"path":"packages/database/drizzle/20261106213000_agent_meta_lessons_indexes.sql","reason":"2026-11-10 远端收敛裁决:origin/main 213ce88545 整文件删除该迁移件(理由=其 3 个索引已被 prod 件 20261106150000_fix_missing_indexes_fks.sql 逐条等价覆盖,无差异可留);本侧 blob 与共同基底 1a4f328008 逐字同一即从未改动,删除随合并传播按 git 三方语义不丢内容;合并树内 0 处运行时引用(旁路删除门逐路径实测)","until":null}
+{"path":"apps/miniapp-taro/tests/stubs/react-native.test.ts","reason":"远端 7c1f0ac0380 相对基底 55588ab98e8 删除该测试桩,本侧未改动此路径;合并树引用面 0 引用,零丢失由逐字同一 blob 证明,随本次合流一并退役。","until":null}
+{"path":"packages/database/scripts/realign-ledger-hashes.mjs","reason":"远端 7c1f0ac0380 相对基底 55588ab98e8 删除该一次性台账重算脚本,本侧未改动此路径;合并树引用面 0 引用,零丢失由逐字同一 blob 证明,随本次合流一并退役。","until":null}

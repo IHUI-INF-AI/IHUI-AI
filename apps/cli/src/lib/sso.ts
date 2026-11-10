@@ -125,7 +125,7 @@ function waitForCallback(expectedState?: string): Promise<string> {
           res.writeHead(403, { 'Content-Type': 'text/html; charset=utf-8' });
           res.end(
             '<!DOCTYPE html><html><head><meta charset="utf-8"><title>SSO 回调被拒</title></head>' +
-              '<body style="font-family:system-ui;padding:40px;text-align:center;">' +
+              '<body style="font-family:system-ui,PingFang SC,Microsoft YaHei,Noto Sans SC,sans-serif;padding:40px;text-align:center;">' +
               '<h1>✗ 回调被拒</h1><p style="color:#c00;">授权响应与本次登录请求不匹配。</p>' +
               '</body></html>',
           );
@@ -135,7 +135,7 @@ function waitForCallback(expectedState?: string): Promise<string> {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         res.end(
           '<!DOCTYPE html><html><head><meta charset="utf-8"><title>SSO 登录成功</title></head>' +
-          '<body style="font-family:system-ui;padding:40px;text-align:center;">' +
+          '<body style="font-family:system-ui,PingFang SC,Microsoft YaHei,Noto Sans SC,sans-serif;padding:40px;text-align:center;">' +
           '<h1>✓ 登录成功</h1><p>已获取授权码,请返回终端继续。</p>' +
           `<p style="color:${DOC_TEXT_MUTED};font-size:14px;">本页面可关闭。</p>` +
           '</body></html>',
@@ -152,7 +152,7 @@ function waitForCallback(expectedState?: string): Promise<string> {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         res.end(
           '<!DOCTYPE html><html><head><meta charset="utf-8"><title>SSO 登录失败</title></head>' +
-          '<body style="font-family:system-ui;padding:40px;text-align:center;">' +
+          '<body style="font-family:system-ui,PingFang SC,Microsoft YaHei,Noto Sans SC,sans-serif;padding:40px;text-align:center;">' +
           `<h1>✗ 登录失败</h1><p style="color:#c00;">错误: ${errShown}</p>` +
           `<p style="color:${DOC_TEXT_MUTED};font-size:14px;">请返回终端重试。</p>` +
           '</body></html>',
@@ -166,7 +166,7 @@ function waitForCallback(expectedState?: string): Promise<string> {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         res.end(
           '<!DOCTYPE html><html><head><meta charset="utf-8"><title>等待 SSO 登录</title></head>' +
-          '<body style="font-family:system-ui;padding:40px;text-align:center;">' +
+          '<body style="font-family:system-ui,PingFang SC,Microsoft YaHei,Noto Sans SC,sans-serif;padding:40px;text-align:center;">' +
           '<h1>等待登录中</h1><p>请在弹出的登录页完成授权。</p>' +
           `<p style="color:${DOC_TEXT_MUTED};font-size:14px;">本页面可关闭,CLI 仍在等待回调。</p>` +
           '</body></html>',
