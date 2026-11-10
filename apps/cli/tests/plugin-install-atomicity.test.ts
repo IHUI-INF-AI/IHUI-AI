@@ -142,6 +142,26 @@ const canSymlink = (() => {
   }
 })();
 
+/**
+ * 当前环境能否创建**文件**符号链接(Windows 需开发者模式/管理员)。
+ * 权威写失败的注入靠它(见 G-756 describe);建不出来 ⇒ 那条用 `ctx.skip()` 如实跳过,
+ * 不把"环境不支持"折成"通过"。
+ */
+const canFileSymlink = (() => {
+  let probe: string | null = null;
+  try {
+    probe = mkScratch('plugin-install-file-symlink-cap-');
+    const real = path.join(probe, 'real.json');
+    fs.writeFileSync(real, '{}', 'utf-8');
+    fs.symlinkSync('real.json', path.join(probe, 'link.json'));
+    return fs.lstatSync(path.join(probe, 'link.json')).isSymbolicLink();
+  } catch {
+    return false;
+  } finally {
+    if (probe) rmScratch(probe);
+  }
+})();
+
 // ==================== 本地路径安装 ====================
 
 describe('installPlugin(local) — 提交点之前不得破坏现状', () => {
@@ -412,20 +432,6 @@ describe('installMarketplacePlugin — 取消通道贯穿到同一条提交序�
  * 可回位、且 finalize 从未被跑到**。
  */
 describe('installPlugin — 权威落盘排在 finalize 之前(G-756)', () => {
-  /** 阳性对照:把一份文件改名到一个已存在的目录上,这台机真的会失败(否则注入是空支票) */
-  function assertRenameFileOntoExistingDirFailsHere(blockerDir: string): void {
-    const probe = path.join(
-      path.dirname(blockerDir),
-      `.probe-file-${process.pid}-${Math.random().toString(36).slice(2, 6)}`,
-    );
-    fs.writeFileSync(probe, 'probe', 'utf-8');
-    try {
-      expect(() => fs.renameSync(probe, blockerDir)).toThrow();
-      expect(fs.existsSync(probe)).toBe(true);
-    } finally {
-      if (fs.existsSync(probe)) fs.rmSync(probe, { force: true });
-    }
-  }
 
   it('① 成功安装:registry 那条记录带 transactionId,值等于本次 staged swap 的事务号', async () => {
     process.chdir(tmpCwd);
@@ -442,7 +448,7 @@ describe('installPlugin — 权威落盘排在 finalize 之前(G-756)', () => {
     expect(again.transactionId).toBeUndefined();
   });
 
-  it('② 注入"权威写失败":抛错、归档未被处置、旧副本逐字留在归档里可回位(次序判据)', async () => {
+  it('② 注入"权威写失败":抛错、归档未被处置、旧副本逐字留在归档里可回位(次序判据)', async (ctx) => {
     process.chdir(tmpCwd);
     writeLocalPlugin('v1', { name: 'a-order', version: '1.0.0' }, { 'marker.txt': 'v1' });
     await installPlugin('./v1');
@@ -451,11 +457,22 @@ describe('installPlugin — 权威落盘排在 finalize 之前(G-756)', () => {
     // 换一个源目录(同插件名)绕开"已装短路",逼它真走覆盖 ⇒ 会产生旧副本归档
     writeLocalPlugin('v2', { name: 'a-order', version: '2.0.0' }, { 'marker.txt': 'v2' });
 
-    // 把 registry.json 换成一个非空目录 ⇒ 权威落盘的 rename 必然失败
-    fs.rmSync(getRegistryPath(), { force: true });
-    fs.mkdirSync(getRegistryPath(), { recursive: true });
-    fs.writeFileSync(path.join(getRegistryPath(), 'keep.txt'), 'not-mine', 'utf-8');
-    assertRenameFileOntoExistingDirFailsHere(getRegistryPath());
+    // 注入"权威落盘这一格必然失败",且**不**绊到读侧。
+    //
+    // 旧法把 registry.json 换成目录 ⇒ installLocal 的读侧 `loadInstallRegistry()` 先撞 EISDIR,
+    // 而生产侧刻意不把 EISDIR 当"没有这份登记表"(`path-safety.ts` 的 `isDefinitePathAbsence`
+    // 明确排除它)⇒ 在写之前就抛,判据根本够不到"权威记录未写入"。改注入在**写侧**:
+    // registry.json 指成指向同目录真实副本的符号链接 —— 读侧照常(跟随链接)读到记录,
+    // 写侧 `captureWriteBaseline → assertNotReparsePoint` 对「最终分量是符号链接」无条件拒绝。
+    if (!canFileSymlink) {
+      ctx.skip();
+      return;
+    }
+    const regPath = getRegistryPath();
+    const realReg = `${regPath}.real`;
+    fs.renameSync(regPath, realReg);
+    fs.symlinkSync(path.basename(realReg), regPath);
+    const authorityBefore = fs.readFileSync(realReg, 'utf-8');
 
     await expect(installPlugin('./v2')).rejects.toThrow(/权威记录未写入/);
 
@@ -464,9 +481,10 @@ describe('installPlugin — 权威落盘排在 finalize 之前(G-756)', () => {
     expect(fs.existsSync(archive)).toBe(true);
     expect(fs.readFileSync(path.join(archive, 'marker.txt'), 'utf-8')).toBe('v1');
     expect(fs.readFileSync(path.join(archive, 'plugin.json'), 'utf-8')).toContain('1.0.0');
-    // 占住权威路径的东西一根手指都没碰;权威面也确实没被更新
-    expect(fs.readFileSync(path.join(getRegistryPath(), 'keep.txt'), 'utf-8')).toBe('not-mine');
-    expect(readRegistry().records.find((r) => r.name === 'a-order')).toBeUndefined();
+    // 权威面一根手指都没碰:登记表逐字未变(仍是 v1 那条,不带本次事务号)
+    expect(fs.readFileSync(realReg, 'utf-8')).toBe(authorityBefore);
+    const rec = readRegistry().records.find((r) => r.name === 'a-order');
+    expect(rec?.version).toBe('1.0.0');
     // 已落位的新副本不回退(G-729/G-730 越过提交点的既有语义,见本 describe 的头注)
     expect(fs.readFileSync(path.join(dest, 'marker.txt'), 'utf-8')).toBe('v2');
   });

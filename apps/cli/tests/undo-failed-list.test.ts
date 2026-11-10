@@ -41,10 +41,21 @@ afterEach(() => {
   fs.rmSync(ws, { recursive: true, force: true });
 });
 
-/** 记录一条"改前 old、改后 new"的改动,并让磁盘上的文件对写入只读。 */
+/**
+ * 记录一条"改前 old、改后 new"的改动,并注入「该文件写入必然失败」。
+ *
+ * 注入用重解析点(符号链接)而非权限位(2026-11-10 实测):`chmod 0o444` 只挡得住 Windows
+ * (rename 撞 EPERM);POSIX 下 `rename(2)` 由**目录**写权限裁决、CI 又以 root 跑,文件只读位
+ * 拦不住 `commitAtomicWrite` 的 tmp+rename。生产侧 `assertNotReparsePoint` 对「最终分量是
+ * 符号链接」无条件拒绝(与 uid/平台无关),故改用它;链接指向同内容的 `.real` 兄弟文件。
+ */
 function recordFrozen(mgr: UndoRedoManager, rel: string, ts: number): void {
-  fs.writeFileSync(path.join(ws, rel), 'new', 'utf-8');
-  fs.chmodSync(path.join(ws, rel), 0o444);
+  const p = path.join(ws, rel);
+  fs.writeFileSync(p, 'new', 'utf-8');
+  const real = `${rel}.real`;
+  fs.writeFileSync(path.join(ws, real), 'new', 'utf-8');
+  fs.rmSync(p);
+  fs.symlinkSync(real, p);
   mgr.recordChange(SESSION, {
     toolName: 'edit_file',
     filePath: rel,

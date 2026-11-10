@@ -1493,8 +1493,13 @@ export async function loadMcpTools(
         for (const mcpTool of conn.tools) {
           allTools.push(mcpToolToTool(conn, mcpTool));
         }
-      } catch {
-        // 单个 server 连接失败不阻塞其他
+      } catch (err) {
+        // 单个 server 连接失败不阻塞其他;但**必须点名** —— 「连不上」不等于「没有这个 server」,
+        // 静默吞掉会让用户以为配置里压根没这一项(2026-11-10 接线)。
+        process.stderr.write(
+          `warning: MCP server "${server.name}" 连不上,不能把它说成没有这个工具:` +
+            `${err instanceof Error ? err.message : String(err)}\n`,
+        );
       }
     }
 

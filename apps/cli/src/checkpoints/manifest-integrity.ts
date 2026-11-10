@@ -29,6 +29,12 @@ export interface CorruptManifestEntry {
   quarantinePath: string | null;
   reason: CorruptManifestReason;
   detail: string;
+  /**
+   * shape-invalid 时带上的已解析原文(其余两态为 undefined)。
+   * 调用方(CheckpointManager)据此把"路径键越界"这一型单独还原成 path-guard 文案 ——
+   * 形状校验在守卫之前跑,不带上原文就把守卫的精确原因吞掉了。
+   */
+  parsed?: unknown;
 }
 
 export type ManifestReadResult<T> =
@@ -114,6 +120,7 @@ export function readManifestChecked<T>(
       quarantinePath: quarantineManifest(manifestPath),
       reason: 'shape-invalid',
       detail: 'manifest 形状校验不通过(缺字段/档值非法/schemaVersion 不识别)',
+      parsed,
     };
     onCorrupt(entry);
     return { status: 'corrupt', entry };
