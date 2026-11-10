@@ -385,6 +385,9 @@ export const oauthAuthorizationServerRoutes: FastifyPluginAsync = async (server)
     request: FastifyRequest,
     reply: FastifyReply,
   ): Promise<unknown> => {
+    // sanitizer-bypass 门声明点:本端点响应只含身份 claims(sub/nickname/avatar),不含 token/secret;
+    // Bearer access token 仅用于请求方鉴权,不进响应体。显式跳过响应消毒器(门要求的文件级声明)。
+    request.skipResponseSanitization = true
     const header = request.headers.authorization ?? ''
     if (!header.startsWith('Bearer ')) {
       return reply
