@@ -99,6 +99,10 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-10**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (51c0c84e6c)
+- ⚡ Perf:接线对账门多模式 grep 分片,真仓全量 43.8s→8.7s (b3b69ab321)
+
+**2026-11-10**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (c224f786e6)
 
 **2026-11-10**
@@ -164,9 +168,6 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 - 🔧 Chore/Other:补齐 brand-mail-from 测试文件的溯源水印 (7582515bf7)
 - 🔧 Chore/Other:miniapp-taro 五个语言包对齐上游已完成的键清理 (975c6ec472)
 - 🐞 Fix:三条 From 旁路归一 + 守门 R5 防回归 (0a761c3280)
-
-**2026-11-10**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (7b48014e26)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
