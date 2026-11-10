@@ -613,6 +613,19 @@ export function applyOpencode(payload, opts = {}) {
     throw new WriteError('解析不出 OpenCode 数据目录(XDG_DATA_HOME/USERPROFILE/HOME 全缺)', 'no-target')
   }
   const exists = fs.existsSync(file)
+  // v2 形态守卫(2026-11-10 实测):OpenCode 2.2.6 把凭证面搬进 <数据根>/opencode.db
+  // 的 SQLite 表(credential/account/account_state),auth.json 只剩一次性 legacy
+  // 迁移(迁移号 20260805200742_import_legacy_credentials,且 migration 表已 completed)。
+  // 此时再写 auth.json 客户端根本不读 —— 与"跑完没切号"同一型假象,**必须 fail-closed**。
+  const v2Db = path.join(path.dirname(file), 'opencode.db')
+  if (fs.existsSync(v2Db)) {
+    throw new WriteError(
+      `本机 OpenCode 已是 v2 形态:凭证面在 ${v2Db} 的 SQLite 表(credential/account/account_state),` +
+        'auth.json 仅作一次性 legacy 迁移且已完成 ⇒ 写 auth.json 客户端不会读,拒绝盲写。' +
+        '要支持 v2 需先在 v2 客户端上真实登录一次采到 credential.value 的编码样本(未采到编码格式前不得猜),再扩写回腿。',
+      'target-shape',
+    )
+  }
   if (!exists && !fs.existsSync(path.dirname(file))) {
     throw new WriteError(
       `本机没有 OpenCode 数据目录(${path.dirname(file)})。请先在本机 \`opencode auth login\` 登录一次`,
@@ -721,12 +734,44 @@ export function applyMinimax(payload, opts = {}) {
   // 不含 uid/手机号/昵称 ⇒ 拿不到"切前是谁",replacedUid 恒为 null(不猜身份)。
   const replacedUid = null
 
-  const base = requireTemplate(template, 'minimax')
-  const entry = {}
-  for (const [k, v] of Object.entries(base)) {
-    if (MINIMAX_CRED_KEYS.includes(k)) continue
-    entry[k] = v
+  // 形状来源(2026-11-10 实测修复):模板是导入时采集的**结构骨架**,不是原样数据 ——
+  // 实测模板里 schemaVersion 变成字符串 "1"、scopes 变成字符串 "list",且缺
+  // tokenType/generation/loginEpoch。用模板整体重建 record 会把客户端自己写的
+  // 形状抹掉 ⇒ token 对了但客户端可能不认(与"跑完没切号"同一型)。
+  // 正解:本机已有该 recordKey 时就地改凭证(保留本地形状),本地没有才用模板重建。
+  const local = asObj(records[recordKey])
+  let shapeSource = 'local'
+  let entry
+  if (local) {
+    entry = cloneJson(local)
+  } else {
+    const base = requireTemplate(template, 'minimax')
+    entry = {}
+    for (const [k, v] of Object.entries(base)) {
+      if (MINIMAX_CRED_KEYS.includes(k)) continue
+      entry[k] = v
+    }
+    shapeSource = 'template'
   }
+
+  // 形态守卫(2026-11-10 实测):池内同号两枚可能一枚是 OAuth 票(mmoat_/mmort_)、
+  // 另一枚是 API key(sk-api-i…,126 字符,无 refreshToken)。把 API key 写进
+  // accessToken 会把 OAuth 会话降级成客户端不认的形状 ⇒ fail-closed 拒写。
+  const localIsOauth = Boolean(asText(local?.refreshToken)) || /^mmoat_/.test(asText(local?.accessToken))
+  const targetIsApiKey = /^sk-/.test(String(payload.token ?? '')) && !payload.refreshToken
+  if (targetIsApiKey) {
+    throw new WriteError(
+      '该票是 API key 形态(sk-… 且无 refreshToken),写进 MiniMax OAuth 会话(accessToken/refreshToken)语义不符 ⇒ 拒绝写入,避免把可续期会话降级成不可续期',
+      'target-shape',
+    )
+  }
+  if (localIsOauth && !payload.refreshToken) {
+    throw new WriteError(
+      `本机 MiniMax 会话是 OAuth 形态(有 refreshToken),而该票没有 refreshToken ⇒ 写入会丢掉续期能力,拒绝`,
+      'target-shape',
+    )
+  }
+
   entry.accessToken = payload.token
   if (payload.refreshToken) entry.refreshToken = payload.refreshToken
   else delete entry.refreshToken
@@ -738,23 +783,38 @@ export function applyMinimax(payload, opts = {}) {
 
   const backupFile = backupOf(file)
   atomicWrite(file, `${JSON.stringify(doc, null, 2)}\n`)
-  assertReadBack(
-    'MiniMax auth.json',
-    () => asText(readJsonObject(file, 'MiniMax auth.json')?.records?.[recordKey]?.accessToken) === payload.token,
-  )
+  // 自检射程(2026-11-10 实测加宽):原先只比 accessToken ⇒ refreshToken/expiresAtMs
+  // 写丢写错也会"自检通过"。现在逐字段比,任一不符即抛。
+  assertReadBack('MiniMax auth.json', () => {
+    const reread = asObj(readJsonObject(file, 'MiniMax auth.json')?.records)?.[recordKey]
+    if (asText(reread?.accessToken) !== String(payload.token)) return false
+    if (payload.refreshToken && asText(reread?.refreshToken) !== String(payload.refreshToken)) return false
+    if (Number.isFinite(expMs) && Number(reread?.expiresAtMs) !== expMs) return false
+    return true
+  })
 
   // 同目录 auth-state.json 的 expiresAtMs 与实际会话同步(存在才改,不发明字段)
-  const notes = []
+  const notes = [
+    shapeSource === 'local'
+      ? '记录形状:沿用本机原样(保留 tokenType/generation/loginEpoch 等客户端自有字段)'
+      : '记录形状:本机无该记录键,按池内模板重建(模板是骨架,不含客户端的 tokenType/generation/loginEpoch)',
+  ]
   const stateFile = path.join(path.dirname(file), 'auth-state.json')
   let stateBackup = ''
   if (fs.existsSync(stateFile)) {
     try {
       const state = readJsonObject(stateFile, 'MiniMax auth-state.json')
+      const generationBefore = state.generation
       if (Number.isFinite(expMs)) {
         state.expiresAtMs = expMs
         stateBackup = backupOf(stateFile) ?? ''
         atomicWrite(stateFile, `${JSON.stringify(state, null, 2)}\n`)
         notes.push(`auth-state.json 的 expiresAtMs 已同步(${stateBackup ? `备份 ${stateBackup}` : '无原文件可备份'})`)
+      }
+      if (generationBefore !== undefined) {
+        notes.push(
+          `auth-state.generation=${String(generationBefore)}(外部写回不改登录代次;代次由客户端自己续期时推进)`,
+        )
       }
     } catch {
       notes.push('auth-state.json 解析失败,已跳过(主会话文件已写入)')
