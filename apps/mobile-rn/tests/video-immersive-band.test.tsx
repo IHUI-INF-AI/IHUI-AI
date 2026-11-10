@@ -74,7 +74,6 @@ vi.mock('@ihui/ui-native', () => ({
   Loading: () => createElement('div', null, 'loading'),
 }))
 
-vi.mock('expo-font', () => ({ useFonts: () => [true] }))
 vi.mock('expo-status-bar', () => ({ StatusBar: () => null }))
 vi.mock('@react-navigation/native', () => ({
   NavigationContainer: ({ children }: { children: unknown }) => children,

@@ -348,7 +348,7 @@
  *          (只留 CSS 自定义属性),且 RN 的 fontFamily 只认单族名、无回退栈;
  *   web 预览端:react-native-web 的 Text 初始样式 `font: 14px System`(类选择器)压过 `*`。
  * 故 RN 端中文实际走系统字体 —— 与小程序端同口径的平台差异,已登记在
- * scripts/data/cross-end-allowed-diffs.json(platform:font-stack-cjk / mobile-rn)。
+ * scripts/data/cross-end-allowed-diffs.json(platform:font-stack-cjk / rn)。
  * 不自托管的三条实测(无全局注入点 / GB2312 子集缺字率约 26% / 无回退栈)
  * 与族名·码位表见 app.config.js、App.tsx 头注。下方族序列与
  * packages/design-tokens/src/styles/base.css 的 --font-sans 回退链同源,中文现代黑体
