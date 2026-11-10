@@ -178,6 +178,39 @@ async function checkHealth(
 }
 
 /**
+ * 上游模型清单(2026-11-10 实弹实证):GET /zen/v1/models + 账号 API key ⇒ 200,
+ * 形状 `{object:"list",data:[{id,name,type:"chat",…}]}`(OpenAI /v1/models 同构)。
+ * 只收 type=chat 的项(该端点也可能列非对话模型);非 2xx / 解析失败 ⇒ 空数组
+ * (取不到 ≠ 没模型,由调用方按预置登记兜底)。
+ */
+async function listModels(
+  ctx: AdapterAccountContext,
+  opts?: AdapterCallOptions,
+): Promise<string[]> {
+  try {
+    const res = await resolveFetchImpl(opts ?? {})(MODELS_URL, {
+      method: 'GET',
+      headers: { accept: 'application/json', authorization: `Bearer ${ctx.credentials.token}` },
+    })
+    if (!res.ok) return []
+    const json = (await res.json()) as { data?: unknown }
+    if (!Array.isArray(json?.data)) return []
+    const out: string[] = []
+    for (const item of json.data) {
+      if (!item || typeof item !== 'object') continue
+      const rec = item as Record<string, unknown>
+      const type = typeof rec['type'] === 'string' ? rec['type'] : ''
+      if (type && type !== 'chat') continue
+      const id = typeof rec['id'] === 'string' ? rec['id'].trim() : ''
+      if (id) out.push(id)
+    }
+    return out
+  } catch {
+    return []
+  }
+}
+
+/**
  * 余额点查(§0.3 如实未判定):OpenCode **无公开额度端点**(2026-10-27 实弹复核:
  * zen/v1/usage 404 不存在;models 只回模型清单不含用量)。额度在各个底层 provider,
  * 聚合面不可查。不发请求、不编数字;凭据是否失效由 chat 面实测 401 时按
@@ -240,6 +273,7 @@ export const opencodeAdapter: RelayUpstreamAdapter = {
   translateStreamChunk,
   translateNonStream,
   checkHealth,
+  listModels,
   getQuota,
   isAuthFailure,
 }
