@@ -648,8 +648,10 @@ class TestToken6688BalanceTool:
     def test_new_tools_not_admin_only(self):
         """只读工具:对话链 user_role=0 必须可用。
 
-        AIS-050/051 例外:`token6688_voice_clone` / `token6688_upload_file` 会读本地
-        文件并外传,已收进 admin 档;语音转写因本地路径走 workspace/敏感文件校验,保持可用。
+        权限档只收 `token6688_upload_file`(纯外传,对话链不依赖);`token6688_voice_clone`
+        **不得入档** —— 用户 2026-11-08 逐条裁定它是"贵资源",用归属闸+计费闸治理
+        (tests/test_voice_clone_owner_credit_ais050.py),整只塞进 admin 档会把 role=0
+        的正常对话链整个挡死。语音转写因本地路径走 workspace/敏感文件校验,同样保持可用。
         """
         assert "audio_transcription" not in _ADMIN_ONLY_TOOLS
         assert "token6688_balance" not in _ADMIN_ONLY_TOOLS
@@ -657,7 +659,7 @@ class TestToken6688BalanceTool:
         assert "image_edit" not in _ADMIN_ONLY_TOOLS
         assert "token6688_cancel_task" not in _ADMIN_ONLY_TOOLS
         assert "token6688_model_info" not in _ADMIN_ONLY_TOOLS
-        assert "token6688_voice_clone" in _ADMIN_ONLY_TOOLS
+        assert "token6688_voice_clone" not in _ADMIN_ONLY_TOOLS
         assert "token6688_upload_file" in _ADMIN_ONLY_TOOLS
 
 

@@ -37,7 +37,16 @@ import { createHash, randomBytes } from 'node:crypto'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import nodemailer, { type Transporter } from 'nodemailer'
-import { escapeHtml, renderSystemAlertEmail } from '../src/services/email-templates.js'
+import {
+  escapeHtml,
+  renderSystemAlertEmail,
+  brandResendFrom,
+  brandSmtpFrom,
+  defaultAlertTitle,
+  extractMailAddress,
+  localeForRecipient,
+  type MailLocale,
+} from '../src/services/email-templates.js'
 import { finalizeEmailHtml, missingInlineImageAssets } from '../src/services/email-assets.js'
 import type { InlineImageAttachment } from '../src/services/email-assets.js'
 import { sanitizeAlertMessage } from '../src/utils/alert-text.js'
@@ -52,8 +61,36 @@ type Severity = 'info' | 'warning' | 'critical'
 const SEVERITIES: readonly Severity[] = ['info', 'warning', 'critical']
 
 const DEFAULT_SOURCE = 'github-actions/blue-green-deploy'
-const DEFAULT_RESEND_FROM = '智汇AI官方 <IHUI-AI@aizhs.top>'
+/**
+ * 发件人显示名统一为「智汇AI」(2026-11-10 机主定案)。
+ * 此前这里是「智汇AI官方」,而 SMTP 侧 .env 写「智汇AI」、CI secrets 里又可能是别的形态 ⇒
+ * 收件箱同时出现三种显示名。显示名现由 email-templates 的 BRAND_MAIL_DISPLAY_NAME 单点决定,
+ * 本常量只保留"默认发件地址"这一层语义(仍可被 RESEND_FROM 覆盖地址段,显示名不可覆盖)。
+ */
+const DEFAULT_RESEND_FROM = '智汇AI <IHUI-AI@aizhs.top>'
 const RESEND_ENDPOINT = 'https://api.resend.com/emails'
+
+/**
+ * --probe --probe-deliver 的自测信文案(双语)。
+ *
+ * 独立于 ALERT_COPY:探针不是告警,正文是"这条通道验过没有"的技术说明,
+ * 与告警正文的措辞无关。但仍按收件人语言分流 —— 海外运维同样不该收到中文自测信。
+ */
+const PROBE_COPY: Record<MailLocale, { title: string; message: string }> = {
+  zh: {
+    title: '告警邮件通道活性自测(不是故障)',
+    message:
+      '本信由 apps/api/scripts/notify-deploy-failure.ts 的 --probe --probe-deliver 发出,' +
+      '用于确证"运维到人"这条唯一通道端到端可用。收到它说明通道正常,无需任何处置。',
+  },
+  en: {
+    title: 'Mail channel liveness self-test (not an incident)',
+    message:
+      'This message is sent by apps/api/scripts/notify-deploy-failure.ts with --probe --probe-deliver ' +
+      'to prove that the last-hop-to-human mail channel works end to end. ' +
+      'Receiving it means the channel is healthy and no action is required.',
+  },
+}
 /**
  * 处置标记(2026-11-02):stdout 上的一行机器可读令牌。
  * 「被 --alert-id 窗口压住」与「真投递」的退出码同为 0(退出码不能改:bridge / monitor /
@@ -366,22 +403,27 @@ function composeMessage(parts: MessageParts): string {
 }
 
 /**
- * SMTP 通道 From 构造:经 smtp.qq.com 中继时 From 邮箱段必须等于登录账号,否则被 550 拒。
- * 仅当 SMTP_FROM 为带 `<...>` 的显示名形态且其邮箱段大小写不敏感等于 SMTP_USER 才整串采用
- * (采用逻辑的意义是"保留自定义显示名";裸地址没有显示名可保留,仍走默认 `"智汇AI官方" <user>`,
- * 与 §5e 发件人品牌统一)。
+ * SMTP 通道 From 构造:显示名**恒为品牌名**,地址段必须等于登录账号。
+ *
+ * 两条约束叠在一起:
+ * - 经 smtp.qq.com 中继时 From 邮箱段必须等于登录账号,否则被 550 拒 ⇒ 地址段取 SMTP_FROM
+ *   里的地址,但它与 SMTP_USER 不一致时回落到 SMTP_USER;
+ * - 显示名不接受配置覆盖(2026-11-10):此前 `SMTP_FROM` 里的显示名会被整串采用,而它在
+ *   .env / CI secrets / 代码默认里各有一份 ⇒ 同一个品牌在收件箱里长出三种名字。
  */
 function resolveSmtpFrom(smtpFrom: string | undefined, smtpUser: string): string {
-  const fallback = `"智汇AI官方" <${smtpUser}>`
-  const configured = (smtpFrom ?? '').trim()
-  const angle = /<([^>]+)>/.exec(configured)
-  if (!angle || configured.startsWith('<')) return fallback
-  const emailPart = (angle[1] ?? '').trim().toLowerCase()
-  return emailPart === smtpUser.trim().toLowerCase() ? configured : fallback
+  const user = smtpUser.trim()
+  const configuredAddr = extractMailAddress(smtpFrom ?? '')
+  const addr = configuredAddr !== '' && configuredAddr.toLowerCase() === user.toLowerCase()
+    ? configuredAddr
+    : user
+  return brandSmtpFrom(addr)
 }
 
+/** Resend 通道 From:同一品牌显示名,地址段沿用配置(缺省用内置地址)。 */
 function resolveResendFrom(effectiveEnv: EnvLike): string {
-  return (effectiveEnv.RESEND_FROM ?? '').trim() || DEFAULT_RESEND_FROM
+  const configured = (effectiveEnv.RESEND_FROM ?? '').trim()
+  return configured === '' ? DEFAULT_RESEND_FROM : brandResendFrom(configured)
 }
 
 interface ChannelPlan {
@@ -419,6 +461,8 @@ interface AlertRenderInput {
   message: string
   plain: boolean
   time: string
+  /** 收件人语言:zh = 中文(国内邮箱),en = 英文(海外邮箱)。缺省 zh(主语言)。 */
+  locale?: MailLocale
 }
 
 function renderAlertEmail(input: AlertRenderInput): RenderedMail {
@@ -433,6 +477,7 @@ function renderAlertEmail(input: AlertRenderInput): RenderedMail {
     time: input.time,
     title: input.title,
     message: input.message,
+    locale: input.locale ?? 'zh',
   })
   // 内嵌图片落位:Logo/二维码随正文一起到达收件端,才不受"远程图片拦截"影响
   const prepared = finalizeEmailHtml(r.html)
@@ -443,6 +488,31 @@ function renderAlertEmail(input: AlertRenderInput): RenderedMail {
     attachments: prepared.attachments,
     downgraded: prepared.downgraded,
   }
+}
+
+interface RecipientGroup {
+  locale: MailLocale
+  to: string[]
+}
+
+/**
+ * 按收件人域名分组:国内主流邮箱 → zh,其余 → en。
+ *
+ * 为什么必须分组而不是"选一个主语言":一封邮件只有一种语言,混合收件人时无论选哪边,
+ * 另一边都会收到看不懂的邮件 —— 而"给国外用户发英文"正是本次需求的一半。
+ * 顺序固定 zh 在前:它是主语言,dry-run 与投递台账展示都取第一组。
+ */
+function groupRecipientsByLocale(to: readonly string[]): RecipientGroup[] {
+  const zh: string[] = []
+  const en: string[] = []
+  for (const addr of to) {
+    if (localeForRecipient(addr) === 'zh') zh.push(addr)
+    else en.push(addr)
+  }
+  const groups: RecipientGroup[] = []
+  if (zh.length > 0) groups.push({ locale: 'zh', to: zh })
+  if (en.length > 0) groups.push({ locale: 'en', to: en })
+  return groups
 }
 
 interface MailPayload {
@@ -633,6 +703,11 @@ interface RunOutcome {
   reasons: string[]
   warnings: string[]
   htmlHasDispatchBanner: boolean
+  /**
+   * 本次投递按语言分成几批(zh=国内、en=海外)。dry-run 用它回答"这封信会分几封发" ——
+   * 混合收件人是唯一会多发一封的场景,不打印出来就没人知道。
+   */
+  localeGroups?: { locale: MailLocale; count: number }[]
   /** --probe 档才有;缺省 = 本次不是探针(既有调用方与测试夹具一字不改) */
   probe?: ProbeReport
 }
@@ -1109,7 +1184,7 @@ function redactSecrets(text: string, secrets: readonly string[]): string {
 async function probeChannels(
   cfg: SendConfig,
   deps: { verifySmtp: SmtpVerifyFn; fetchResend: FetchLike; sendSmtp: SmtpSendFn },
-  opts: { deliver: boolean; probeMail: RenderedMail },
+  opts: { deliver: boolean; probeMails: readonly RenderedMail[] },
 ): Promise<ProbeReport> {
   const channels: ChannelProbe[] = []
 
@@ -1158,17 +1233,26 @@ async function probeChannels(
 
   let delivered = false
   if (opts.deliver) {
-    const r = await dispatchMail(cfg, opts.probeMail, {
-      sendSmtp: deps.sendSmtp,
-      fetchResend: deps.fetchResend,
-    })
-    delivered = r.ok
-    if (r.channel) {
-      const prev = channels.findIndex((c) => c.channel === r.channel)
-      const why = r.ok ? '真投递成功(--probe-deliver)' : r.reasons.join(' / ') || '投递失败'
-      const v: ProbeVerdict = r.ok ? 'ok' : 'fail'
-      if (prev >= 0) channels[prev] = { channel: r.channel, verdict: v, why }
-      else channels.push({ channel: r.channel, verdict: v, why })
+    /**
+     * 逐语言各发一封(与告警主链路同一分流口径)。
+     *
+     * 原先固定渲染一封中文探针发给全部收件人 —— 配了海外运维时,他会收到一封
+     * 看不懂的中文自测信,和"报警邮件本地化"是同一个洞。任一组投递成功即证明
+     * 通道端到端可用(探针的目的是验通道,不是验某一封信)。
+     */
+    for (const probeMail of opts.probeMails) {
+      const r = await dispatchMail(cfg, probeMail, {
+        sendSmtp: deps.sendSmtp,
+        fetchResend: deps.fetchResend,
+      })
+      delivered = delivered || r.ok
+      if (r.channel) {
+        const prev = channels.findIndex((c) => c.channel === r.channel)
+        const why = r.ok ? '真投递成功(--probe-deliver)' : r.reasons.join(' / ') || '投递失败'
+        const v: ProbeVerdict = r.ok ? 'ok' : 'fail'
+        if (prev >= 0) channels[prev] = { channel: r.channel, verdict: v, why }
+        else channels.push({ channel: r.channel, verdict: v, why })
+      }
     }
   }
 
@@ -1213,7 +1297,11 @@ async function runCore(argv: readonly string[], env: EnvLike, deps: RunDeps): Pr
   const severity = normalizeSeverity(args.severity)
   const environment = args.environment || 'production'
   const source = args.source || DEFAULT_SOURCE
-  const title = args.title ?? `部署失败 — ${environment}`
+  /**
+   * 缺省标题**不在这里定**。它是可见文案的一部分,必须与级别前缀同语言——
+   * 否则英文收件人会收到 `[CRITICAL] 部署失败 — production`(半中半英)。
+   * 逐组渲染时按该组 locale 取 defaultAlertTitle();显式 --title 优先。
+   */
 
   let fileContent: string | undefined
   if (args.messageFile !== undefined) {
@@ -1230,14 +1318,34 @@ async function runCore(argv: readonly string[], env: EnvLike, deps: RunDeps): Pr
     trigger: args.trigger,
     runUrl: args.runUrl,
   })
-  const rendered = renderAlertEmail({
-    severity,
-    source,
-    title,
-    message,
-    plain: args.plain,
-    time: deps.now(),
-  })
+  /**
+   * 收件人按语言分组(2026-11-10):国内邮箱收中文、海外邮箱收英文,各一封。
+   *
+   * 空收件人也要有"一组空组",否则 --dry-run 连一封都渲染不出来、连 subject 都看不到 ——
+   * 而演练恰恰是配置错时唯一能看的地方。真空收件人的拦截由 planChannels 负责。
+   */
+  const groups = groupRecipientsByLocale(to)
+  if (groups.length === 0) groups.push({ locale: 'zh', to: [] })
+
+  const time = deps.now()
+  const renderedByLocale = new Map<MailLocale, RenderedMail>()
+  for (const g of groups) {
+    renderedByLocale.set(
+      g.locale,
+      renderAlertEmail({
+        severity,
+        source,
+        title: args.title ?? defaultAlertTitle(environment, g.locale),
+        message,
+        plain: args.plain,
+        time,
+        locale: g.locale,
+      }),
+    )
+  }
+  // 主语言 = 第一组(zh 优先):RunOutcome.subject / htmlBytes / 台账都取它
+  const primaryGroup = groups[0] as RecipientGroup
+  const rendered = renderedByLocale.get(primaryGroup.locale) as RenderedMail
   // 内嵌图缺席必须响:这条链路上唯一能暴露它的时刻,就是有人已经看不到 Logo 了
   if (rendered.downgraded.length > 0) {
     warnings.push(
@@ -1256,7 +1364,10 @@ async function runCore(argv: readonly string[], env: EnvLike, deps: RunDeps): Pr
     smtp: { available: cfg.smtp.available, missing: cfg.smtp.missing, from: cfg.smtp.from },
     resend: { available: cfg.resend.available, missing: cfg.resend.missing, from: cfg.resend.from },
     warnings,
-    htmlHasDispatchBanner: rendered.html.includes('MECHANICAL'),
+    // 判据 = 品牌刊头(语言无关)。旧判据找 'MECHANICAL',而中文版式里没有这个词 ——
+    // 不改就会把一封正常的品牌邮件在 dry-run 里报成"未命中横幅"。
+    htmlHasDispatchBanner: rendered.html.includes('IHUI-CORE'),
+    localeGroups: groups.map((g) => ({ locale: g.locale, count: g.to.length })),
   }
 
   /**
@@ -1274,16 +1385,17 @@ async function runCore(argv: readonly string[], env: EnvLike, deps: RunDeps): Pr
       },
       {
         deliver: args.probeDeliver,
-        probeMail: renderAlertEmail({
-          severity: 'info',
-          source: args.source || 'mail-channel-probe',
-          title: '告警邮件通道活性自测(不是故障)',
-          message:
-            '本信由 apps/api/scripts/notify-deploy-failure.ts 的 --probe --probe-deliver 发出,' +
-            '用于确证"运维到人"这条唯一通道端到端可用。收到它说明通道正常,无需任何处置。',
-          plain: args.plain,
-          time: deps.now(),
-        }),
+        probeMails: groups.map((g) =>
+          renderAlertEmail({
+            severity: 'info',
+            source: args.source || 'mail-channel-probe',
+            title: PROBE_COPY[g.locale].title,
+            message: PROBE_COPY[g.locale].message,
+            plain: args.plain,
+            time,
+            locale: g.locale,
+          }),
+        ),
       },
     )
     const okChannel = report.channels.find((c) => c.verdict === 'ok')?.channel ?? null
@@ -1396,11 +1508,32 @@ async function runCore(argv: readonly string[], env: EnvLike, deps: RunDeps): Pr
         /* 文件仍不存在 ⇒ 沿用首读的空状态 */
       }
     }
-    const result = await dispatchMail(cfg, rendered, {
-      sendSmtp: deps.sendSmtp,
-      fetchResend: deps.fetchResend,
-    })
-    if (result.ok && alertId !== '') {
+    // 逐语言组投递:每组一封、每组只发给该语言的收件人。
+    // 合并口径:任一组成即 sent=true(告警已到人);但**全部成功才记账** —— 只成功一半时
+    // 下一轮仍要能重试那半边,而"多寄一封"永远优于"吞掉一封"(头注的失效方向铁律)。
+    let anyOk = false
+    let allOk = true
+    let firstChannel: 'smtp' | 'resend' | null = null
+    const reasons: string[] = []
+    for (const g of groups) {
+      // 空组也要走一次:通道未配置时 dispatchMail 会逐个点名缺哪个键(ALERT_EMAIL_TO 等),
+      // 那几条 reasons 正是"为什么没寄出去"的唯一答案,跳过它等于把原因藏起来。
+      const mail = renderedByLocale.get(g.locale) as RenderedMail
+      const r = await dispatchMail({ ...cfg, to: g.to }, mail, {
+        sendSmtp: deps.sendSmtp,
+        fetchResend: deps.fetchResend,
+      })
+      if (r.ok) {
+        anyOk = true
+        if (firstChannel === null) firstChannel = r.channel
+      } else {
+        allOk = false
+      }
+      // 无论成败都收:成功也可能带"SMTP 失败已回落 Resend"这行说明,
+      // 它正是运维判断"通道是否带病工作"的唯一线索,丢掉等于把半故障藏起来。
+      for (const why of r.reasons) reasons.push(groups.length > 1 ? `[${g.locale}] ${why}` : why)
+    }
+    if (allOk && alertId !== '') {
       // 只在真送达后记账:投递失败必须让下一轮重试,否则一次网络抖动换来 4 小时静默
       try {
         const next = pruneDedupeState({ ...state, [alertId]: { ts: nowMs } }, nowMs, windowMs)
@@ -1411,11 +1544,11 @@ async function runCore(argv: readonly string[], env: EnvLike, deps: RunDeps): Pr
     }
     return {
       ...base,
-      sent: result.ok,
+      sent: anyOk,
       suppressed: false,
       dedupeWhy: decision.why,
-      channel: result.channel,
-      reasons: result.reasons,
+      channel: firstChannel,
+      reasons,
     }
   } finally {
     claim?.release()
@@ -1549,6 +1682,13 @@ async function main(
         }`,
       )
       console.log(`[dry-run] 收件人: ${outcome.toMasked.join(', ') || '(空)'}`)
+      console.log(
+        `[dry-run] 语言分组: ${
+          (outcome.localeGroups ?? [])
+            .map((g) => `${g.locale === 'zh' ? '中文' : '英文'}=${g.count}`)
+            .join(' ') || '(无收件人)'
+        } ⇒ 共 ${(outcome.localeGroups ?? []).filter((g) => g.count > 0).length} 封`,
+      )
       console.log(`[dry-run] subject: ${outcome.subject}`)
       console.log(
         `[dry-run] html 字节数: ${outcome.htmlBytes};机械风横幅关键字命中: ${
@@ -1624,6 +1764,7 @@ export const __test__ = {
   resolveSmtpFrom,
   resolveResendFrom,
   planChannels,
+  groupRecipientsByLocale,
   renderAlertEmail,
   dispatchMail,
   // 探针三件套必须可被测试直接 import(§22c:镜像不得再抄一份判据 —— 包括"怎么算未判定")

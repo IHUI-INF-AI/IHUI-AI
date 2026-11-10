@@ -117,9 +117,10 @@ describe('POST /api/mail/send — 品牌模板层装车', () => {
     })
     expect(res.statusCode).toBe(202)
     const options = firstSendCall()
-    // 机械风刊头横幅唯一标识(email-templates.ts renderDispatchEmail 的眉+题头)
-    expect(options.html).toContain('THE&nbsp;MECHANICAL&nbsp;DISPATCH')
+    // 品牌版式唯一标识(email-templates.ts renderDispatchEmail 的刊头);
+    // 2026-11-10 起缺省语言为中文,副标是「智汇通报」,英文副标只在 locale=en 时出现。
     expect(options.html).toContain('IHUI-CORE')
+    expect(options.html).toContain('智汇通报')
     // 刊头曾印着一对写死的装饰性经纬度("43.82°N 125.32°E")。它是版式纹样,
     // 但在**运维告警**里长得像遥测数据 ⇒ 连着两次被当成数据泄漏去排查(2026-09-27 第二次)。
     // 这条锁防的是"为好看再把裸坐标印回刊头"——要印就得印成读得出身份的标记,不是数值。

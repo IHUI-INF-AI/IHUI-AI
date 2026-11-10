@@ -104,10 +104,8 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | — blocking | 327 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
 | 跟踪文件 | 20844 | `trackedFiles` |
-
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-09。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
-
 <!-- END GENERATED NUMBERS -->
 **一句话口径**:数字一律现读,文档里不写「约 N 个」——那种写法必然腐烂。
 ---
@@ -5459,43 +5457,30 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-10**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (d3a1d5f997)
-
 **2026-11-10**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (1c7ae127e2)
-
 **2026-11-10**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (b1cd8ac62a)
-
 **2026-11-10**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (14f4bb650b)
-
 **2026-11-10**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (5821a8c2dd)
-
 **2026-11-10**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (69bdc71f9b)
-
 **2026-11-10**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (592e34e0d9)
-
 **2026-11-10**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (765673a89e)
-
 **2026-11-10**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (59caf867b1)
-
 **2026-11-10**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (36c0a0dfe6)
-
 **2026-11-10**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (7f7e043688)
-
 **2026-11-10**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (5d3985caa0)
-
 **2026-11-10**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (abd53a8e91)
-
 **2026-11-10**
 - 🔧 工程/其他:收编守护落档产出(1 件,凭落点账本) (902bb35c58)
 - 🚀 新功能/改进:干净基线上重放仅存本地的成果 (87da79c682)
@@ -5522,7 +5507,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🔧 工程/其他:ui-routes 生成物对齐当前 HEAD 生成钉,消除门 30c 陈旧暂存副本 (90d84a8d68)
 - 🐞 修复:HR 迁移补登记 journal(B1/B5)并前向补部门树外键与 RBAC 权限点 (52ba369f82)
 - 🐞 修复:pre-push 增跨分支推送告警(审错树点名,不改判据与退出码) + README 点名 scan-api-routes.mjs 接线 (195eb486dd)
-
 **2026-11-07**
 - 🐞 修复:签到按钮同 tick 互斥与失败复位(票 F),并发两次只发一次请求 (125d3b1f3f)
 - 🐞 修复:签到助手回屏只刷新一次(票 D),复用 screen-reappear-adapter (29085fdd48)
@@ -43055,7 +43039,6 @@ A: Yes. Test file and case counts: see the generated table / 67 e2e spec / 4705 
 - 🚀 新功能/改进:自动臂按需加密(环开 4 分钟/轮,环合即回落) (0061164cdb)
 - 🐞 修复:判据面护栏在 commit-msg 加只报不拦的预警档 —— 未声明要在"还改得动"那一刻报出来 (facba1ab6a)
 - 🔧 工程/其他:再摘 plugins-data 死副本 14 枚并登记退役锁(逐字节同 @ihui/shared;9fdbc207ba 带回) (180c244014)
-
 - 🐞 修复:派生进度始终落地,门禁红只拦合并不拦推进 (252ef71a05)
 - 🚀 新功能/改进:跨端级联全自动流水线 web→RN→小程序 (机主令 2026-11-04) (06f85e2a91)
 - 📚 文档:随本轮文件面变动同步现算数字(表 621/测试文件 4108/守门 336) (2f779fcd75)
@@ -43853,3 +43836,14 @@ A: Yes. Test file and case counts: see the generated table / 67 e2e spec / 4719 
 - **规模**:624 张表 · 4721 API 路由 · 测试文件数与用例数见生成块
 - **API(Fastify 5)**:4721 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 A: Yes. Test file and case counts: see the generated table / 67 e2e spec / 4721 API 路由 / 624 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
+| 数据库表 | 630 | `dbTables` |
+| API 路由 | 4744 | `apiRoutes` |
+| AI 服务路由 | 676 | `aiServiceRoutes` |
+| 跟踪文件 | 20845 | `trackedFiles` |
+| AI 服务路由 | 676 | `aiServiceRoutes` |
+| CLI 工具文件 | 98 | `cliToolFiles` |
+| 测试文件 | 4799 | `testFiles` |
+| 跟踪文件 | 20682 | `trackedFiles` |
+| CLI 工具文件 | 98 | `cliToolFiles` |
+| 测试文件 | 4798 | `testFiles` |
+| 跟踪文件 | 20680 | `trackedFiles` |

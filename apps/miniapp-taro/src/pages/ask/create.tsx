@@ -3,13 +3,18 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // 对齐目标(RN 共享屏): packages/app/src/features/ask-create/AskCreateScreen.tsx
+// 配图与草稿两段已下沉共享: AskImageField.tsx / ask-draft.tsx;平台 API 只落在
+// apps/miniapp-taro/src/host/ask-create-ports.ts(media/draft 端口的 Taro 实现)。
 import { useTt, t } from '@/i18n'
 import { logger } from '@/utils/logger'
-import { View, Text, Button, Image, Switch, ScrollView } from '@tarojs/components'
+import { View, Text, Button, Switch, ScrollView } from '@tarojs/components'
 import { FocusInput, FocusTextarea } from '@/components/FocusField'
 import LineIcon from '@/components/LineIcon'
 import Taro from '@tarojs/taro'
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { AskImageField, ASK_IMAGE_MAX } from '@ihui/rn-app/features/ask-create/AskImageField'
+import { useAskDraft } from '@ihui/rn-app/features/ask-create/ask-draft'
+import { createAskDraftPort, createAskMediaPort } from '@/host/ask-create-ports'
 import { createAsk } from '@ihui/api-client'
 import { unwrapApi } from '@/utils/api-bridge'
 import { NavBar } from '@/components'
@@ -31,8 +36,6 @@ interface FormState {
 
 const TITLE_MAX = 50
 const CONTENT_MAX = 500
-const IMAGE_MAX = 3
-const DRAFT_KEY = 'ask_create_draft'
 
 const CATEGORIES = [
   { key: 'tech', labelKey: 'askCreate.d1', fb: t('askCreate.d1') },
@@ -62,7 +65,6 @@ export default function AskCreatePage() {
   })
   const [submitting, setSubmitting] = useState(false)
   const [showCategorySheet, setShowCategorySheet] = useState(false)
-  const draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   // 发布成功后的延迟返回定时器:存引用以便卸载时取消,否则用户自行返回会多退一层页面
   const navigateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(
@@ -72,41 +74,29 @@ export default function AskCreatePage() {
     [],
   )
 
-  // 草稿恢复
-  useEffect(() => {
-    try {
-      const raw = Taro.getStorageSync(DRAFT_KEY)
-      if (raw) {
-        const saved = typeof raw === 'string' ? JSON.parse(raw) : raw
-        if (saved && (saved.title || saved.content)) {
-          setForm({
-            title: saved.title || '',
-            content: saved.content || '',
-            tags: saved.tags || '',
-            reward: Number(saved.reward) || 0,
-            category: saved.category || '',
-            images: Array.isArray(saved.images) ? saved.images : [],
-            anonymous: !!saved.anonymous,
-          })
-          onToast(tt('ask.create.draftRestored', '草稿已恢复'), { kind: 'info' })
-        }
-      }
-    } catch {
-      // ignore
-    }
-  }, [tt])
+  // 端口实现只在本端适配层:这里只拿端口对象,Taro API 全在 ask-create-ports.ts
+  const media = useMemo(() => createAskMediaPort(), [])
+  const draft = useMemo(() => createAskDraftPort(), [])
 
-  // 草稿自动保存(防抖 800ms)
-  const saveDraft = useCallback((data: FormState) => {
-    if (draftTimer.current) clearTimeout(draftTimer.current)
-    draftTimer.current = setTimeout(() => {
-      try {
-        Taro.setStorageSync(DRAFT_KEY, JSON.stringify(data))
-      } catch {
-        // ignore
-      }
-    }, 800)
-  }, [])
+  // 草稿读写走共享钩子:挂载恢复一次 + 防抖 800ms + 提交后清除,与 RN 同一份实现。
+  // 空草稿不恢复的判据在共享 readAskDraft/normalizeAskDraft 里,端内不再复写一遍。
+  const { save: saveDraft, clear: clearDraft } = useAskDraft<FormState>({
+    draft,
+    onRestore: (saved) =>
+      setForm({
+        title: typeof saved.title === 'string' ? saved.title : '',
+        content: typeof saved.content === 'string' ? saved.content : '',
+        tags: typeof saved.tags === 'string' ? saved.tags : '',
+        reward: Number(saved.reward) || 0,
+        category: typeof saved.category === 'string' ? saved.category : '',
+        images: Array.isArray(saved.images)
+          ? saved.images.filter((uri): uri is string => typeof uri === 'string')
+          : [],
+        anonymous: !!saved.anonymous,
+      }),
+    restoredMessage: tt('ask.create.draftRestored', '草稿已恢复'),
+    onToast,
+  })
 
   const updateForm = useCallback(
     (patch: Partial<FormState>) => {
@@ -117,27 +107,6 @@ export default function AskCreatePage() {
       })
     },
     [saveDraft],
-  )
-
-  const addImage = useCallback(() => {
-    if (form.images.length >= IMAGE_MAX) {
-      onToast(tt('ask.create.maxImages', '最多 3 张'), { kind: 'info' })
-      return
-    }
-    Taro.chooseImage({
-      count: IMAGE_MAX - form.images.length,
-      sizeType: ['compressed'],
-      success: (res) => {
-        updateForm({ images: [...form.images, ...res.tempFilePaths] })
-      },
-    })
-  }, [form.images, updateForm, tt])
-
-  const removeImage = useCallback(
-    (idx: number) => {
-      updateForm({ images: form.images.filter((_, i) => i !== idx) })
-    },
-    [form.images, updateForm],
   )
 
   const pickCategory = useCallback(
@@ -188,7 +157,8 @@ export default function AskCreatePage() {
           tags,
         }),
       )
-      Taro.removeStorageSync(DRAFT_KEY)
+      // 草稿清除走共享钩子(取消待写定时器 + 删 key),与 RN 同一份实现
+      await clearDraft()
       onToast(tt('ask.create.published', '问题已发布'), { kind: 'success' })
       navigateTimerRef.current = setTimeout(() => Taro.navigateBack(), 1500)
     } catch (e) {
@@ -197,7 +167,7 @@ export default function AskCreatePage() {
     } finally {
       setSubmitting(false)
     }
-  }, [form.title, form.content, form.tags, tt])
+  }, [form.title, form.content, form.tags, tt, clearDraft])
 
   const canSubmit = form.title.trim().length > 0 && form.content.trim().length >= 5
 
@@ -290,26 +260,23 @@ export default function AskCreatePage() {
 
           {/* 配图 */}
           <View className="ask-create-card">
-            <Text className="ask-create-label">{tt('ask.create.imageLabel', '配图')}</Text>
-            <View className="ask-create-images">
-              {form.images.map((img, i) => (
-                <View key={i} className="ask-create-img-item">
-                  <Image className="ask-create-img" src={img} mode="aspectFill" />
-                  <View
-                    className="ask-create-img-del"
-                    onClick={() => removeImage(i)}
-                    hoverClass="opacity-60"
-                  >
-                    <Text>×</Text>
-                  </View>
-                </View>
-              ))}
-              {form.images.length < IMAGE_MAX ? (
-                <View className="ask-create-img-add" onClick={addImage} hoverClass="opacity-60">
-                  <Text className="ask-create-img-add-icon">+</Text>
-                </View>
-              ) : null}
-            </View>
+            {/* 标签与满额提示都取共享屏同名的键(RN AskCreateScreen 用同两枚),
+                端内不再另造 ask.create.imageLabel / maxImages ⇒ 两端读同一句话 */}
+            <Text className="ask-create-label">{tt('publishNew.formatImage', '图片')}</Text>
+            {/* 配图段与 RN 共用:剩余张数、满额 toast 文案都来自共享逻辑,端内只接状态 */}
+            <AskImageField
+              colorScheme={resolved}
+              images={form.images}
+              media={media}
+              maxToast={tt('aigcPublish.errorMaxFiles', '最多 {max} 个文件', {
+                max: ASK_IMAGE_MAX,
+              })}
+              onToast={onToast}
+              onAdd={(uris) => updateForm({ images: [...form.images, ...uris] })}
+              onRemove={(index) =>
+                updateForm({ images: form.images.filter((_, i) => i !== index) })
+              }
+            />
           </View>
 
           {/* 匿名发布 */}
