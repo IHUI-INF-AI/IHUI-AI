@@ -24,7 +24,10 @@
  * `face-reader` 的 `gitRaw` / `catBatchOids`(stdio、timeout、batch 三件统一在层内)。
  */
 import { createHash } from 'node:crypto'
+import { spawnSync } from 'node:child_process'
+import { resolve } from 'node:path'
 import { catBatch, catBatchOids, catBatchSizes, gitRaw } from './face-reader.mjs'
+import { resolveGitBin } from './gitdir.mjs'
 
 /** 祖先窗口:每路径回看多少枚"改过该路径"的提交。现读最深命中 = 19 枚前,80 留余量。 */
 export const ANCESTOR_WINDOW_DEFAULT = 80
@@ -102,24 +105,189 @@ export function headBlobOf(rel, { root } = {}) {
 }
 
 /**
+ * 进程内「祖先清单」记忆(2026-11-10 提速;判据一字未改,只去掉重复取材)。
+ *
+ * 立因(实测):同一路径在同一轮里被问**两次** —— 索引臂先问 `ancestorBlobOf`(逐字档),
+ * 未命中后再问 `ancestorContentMatch`(归一化 / 标识符集合两档),两者各自跑一遍
+ * `git rev-list --max-count=80 HEAD -- <rel>`。这趟在深历史路径上是整门最贵的一步
+ * (本仓单条实测 2.5~3.4s;提交链 8 门并行时 ×4,门 298 的 126s 主要就是它)。
+ *
+ * 三条不许漂的写法:
+ * ① 键里带 `HEAD oid + 窗口大小 + 路径` 与 root ⇒ HEAD 一变(新提交)、窗口一变即重新取材,
+ *    不存在拿旧读数判新面;
+ * ② `judged:false`(**没判成**)一律不进记忆 —— 下一问必须重试,绝不把失败当结论复用;
+ * ③ 只记忆"祖先清单"这一层取材,判定仍在各档里逐次做(命中逻辑不共享状态)。
+ */
+const ANCESTOR_LIST_MEMO = new Map()
+const ANCESTOR_LIST_MEMO_MAX = 2000
+
+/** 写记忆的唯一出口(容量上限的清理规则只此一处,预热与顺序取材共用)。 */
+function memoSetAncestorList(key, value) {
+  if (ANCESTOR_LIST_MEMO.size >= ANCESTOR_LIST_MEMO_MAX) ANCESTOR_LIST_MEMO.clear()
+  ANCESTOR_LIST_MEMO.set(key, value)
+}
+
+/**
  * 该路径在 HEAD 之前的祖先提交清单(逐字档与归一化档共用,不再各取一遍)。
  * 三态:HEAD 取不到 / rev-list 取不到 ⇒ judged:false(§0.3,不折成"没有祖先")。
  */
 export function ancestorCommitList(rel, { root, windowSize = ANCESTOR_WINDOW_DEFAULT } = {}) {
+  const win = Number(windowSize) || ANCESTOR_WINDOW_DEFAULT
+  let head = ''
   try {
-    const head = String(gitRaw(['rev-parse', 'HEAD'], root)).trim()
-    const list = String(
-      gitRaw(['rev-list', `--max-count=${Number(windowSize) || ANCESTOR_WINDOW_DEFAULT}`, 'HEAD', '--', rel], root),
-    )
+    head = String(gitRaw(['rev-parse', 'HEAD'], root)).trim()
+  } catch {
+    return { judged: false, list: [], scanned: 0, why: '祖先面取不到:HEAD 不可解析' }
+  }
+  const key = `${root}\0${head}\0${win}\0${rel}`
+  const memo = ANCESTOR_LIST_MEMO.get(key)
+  if (memo) return memo
+  try {
+    const list = String(gitRaw(['rev-list', `--max-count=${win}`, 'HEAD', '--', rel], root))
       .split(/\r?\n/)
       .map((s) => s.trim())
       .filter(Boolean)
       // HEAD 自身不是祖先:HEAD 触及该路径时 rev-list 会把它排在首位,那一条要摘掉。
       .filter((c) => c !== head)
-    return { judged: true, list, scanned: list.length, why: null }
+    const out = { judged: true, list, scanned: list.length, why: null }
+    memoSetAncestorList(key, out)
+    return out
   } catch (e) {
     return { judged: false, list: [], scanned: 0, why: `祖先面取不到:${String(e?.message ?? e).split('\n')[0]}` }
   }
+}
+
+/**
+ * 预热子进程(经 `node -e` 传入,不进本仓模块图)。
+ * 纪律:git 走 `resolveGitBin()` 给的绝对路径 + `safe.directory=*` + `core.quotepath=false`
+ * + `windowsHide` + 数字 `timeout` + 显式 stdio(与 `face-reader.gitRaw` 同一组护栏);
+ * 命令形态与 `ancestorCommitList` **逐字相同**(`rev-list --max-count=<win> HEAD -- <rel>`),
+ * 只把串行改成并发 —— 一旦改命令,等价性就不再成立。
+ */
+const PREWARM_WORKER_CODE = String.raw`
+const { execFile } = require('node:child_process')
+const fs = require('node:fs')
+const payload = JSON.parse(fs.readFileSync(0, 'utf8'))
+const { git, root, win, rels, concurrency } = payload
+const base = ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', '-C', root]
+const guards = { cwd: root, windowsHide: true, timeout: 120000, maxBuffer: 16 << 20, stdio: ['ignore', 'pipe', 'pipe'] }
+const rows = new Array(rels.length)
+let next = 0
+let running = 0
+let done = 0
+function finish() {
+  execFile(git, [...base, 'rev-parse', 'HEAD'], { ...guards, maxBuffer: 1 << 20 }, (err, stdout) => {
+    const head = err ? '' : String(stdout).trim()
+    process.stdout.write(JSON.stringify({ head, rows }))
+  })
+}
+function run() {
+  while (running < concurrency && next < rels.length) {
+    const i = next
+    next += 1
+    running += 1
+    const args = [...base, 'rev-list', '--max-count=' + win, 'HEAD', '--', rels[i]]
+    execFile(git, args, guards, (err, stdout, stderr) => {
+      running -= 1
+      done += 1
+      if (err) rows[i] = { ok: false, why: String(stderr || err.message).split('\n')[0] }
+      else rows[i] = { ok: true, list: String(stdout).split(/\r?\n/).map((s) => s.trim()).filter(Boolean) }
+      if (done === rels.length) finish()
+      else run()
+    })
+  }
+}
+run()
+`
+
+/**
+ * 并行走查预热(2026-11-10 提速;判据一字未改,只把 N 条串行取材改成 N 条并发取材)。
+ *
+ * 立因(实测):`ancestorCommitList` 每路径一趟 `git rev-list --max-count=80 HEAD -- <rel>`,
+ * 本仓深历史路径单条 2.5~3.4s;一轮判 N 条路径 = N × 单条。探针实测(同命令/同窗口/同 HEAD,
+ * 只改并发):空载 15.80s → 5.78s(2.7x),模拟 6 枚 `rev-list --all` 负载下 22.66s → 10.90s(2.1x),
+ * **15/15 条路径结果逐枚一致**。这是"多路径合并成一次 `git log`"被实测证伪(合并桶丢祖先 2 枚)
+ * 之后唯一可证等价的提速方向 —— 所以只许改并发,**不许改命令形态**。
+ *
+ * 为什么另起子进程:本层与调用方都是同步接口(`gitRaw`/`catBatch` 皆 sync),进程内做不了并发;
+ * 子进程里 `execFile` 并发跑**同一条** `rev-list`,回传清单。子进程代码用模板字符串传 `-e`
+ * (不新增文件、不 import 本仓模块,不存在守门递归入口)。
+ *
+ * 三条失效方向(全部落回"顺序走查",结论不变):
+ *   ① 候选 < 2 条 ⇒ 不预热(另起派生比顺序跑还贵);
+ *   ② 子进程没跑成 / 输出不可解析 / 任一条路径失败 ⇒ 那几条不进记忆,调用方顺序走查时会重新取材;
+ *   ③ 子进程读到的 HEAD 与父进程不一致(预热期间有新提交)⇒ **整批作废**,一条都不写记忆。
+ *
+ * @returns {{warmed:number, total:number, why:string|null}} warmed = 成功写进记忆的路径数
+ */
+export function prewarmAncestorLists(
+  rels,
+  { root, windowSize = ANCESTOR_WINDOW_DEFAULT, concurrency = 8, timeout = 150000 } = {},
+) {
+  const list = [
+    ...new Set(
+      (Array.isArray(rels) ? rels : []).map((s) => String(s ?? '').trim()).filter(Boolean),
+    ),
+  ]
+  if (list.length < 2) return { warmed: 0, total: list.length, why: '候选路径少于 2 条 ⇒ 不另起派生' }
+  const win = Number(windowSize) || ANCESTOR_WINDOW_DEFAULT
+  let head = ''
+  try {
+    head = String(gitRaw(['rev-parse', 'HEAD'], root)).trim()
+  } catch (e) {
+    return { warmed: 0, total: list.length, why: `HEAD 取不到:${String(e?.message ?? e).split('\n')[0]}` }
+  }
+  if (!/^[0-9a-f]{40}$/i.test(head)) return { warmed: 0, total: list.length, why: 'HEAD 取不到 oid ⇒ 不预热' }
+  const payload = JSON.stringify({
+    git: resolveGitBin() || 'git',
+    root: root ? resolve(root) : process.cwd(),
+    win,
+    rels: list,
+    concurrency: Math.max(1, Math.min(list.length, Number(concurrency) || 8)),
+  })
+  let res
+  try {
+    res = spawnSync(process.execPath, ['-e', PREWARM_WORKER_CODE], {
+      input: payload,
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: Number(timeout) > 0 ? Number(timeout) : 150000,
+      maxBuffer: 8 << 20,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    })
+  } catch (e) {
+    return { warmed: 0, total: list.length, why: `预热派生失败:${String(e?.message ?? e).split('\n')[0]}` }
+  }
+  if (res?.error || res?.status !== 0) {
+    const why = res?.error
+      ? String(res.error.message ?? res.error).split('\n')[0]
+      : `退出码 ${String(res?.status)}:${String(res?.stderr ?? '').split('\n')[0]}`
+    return { warmed: 0, total: list.length, why: `预热派生未跑成:${why}` }
+  }
+  let parsed
+  try {
+    parsed = JSON.parse(String(res.stdout ?? ''))
+  } catch {
+    return { warmed: 0, total: list.length, why: '预热输出不可解析 ⇒ 回落顺序走查' }
+  }
+  if (String(parsed?.head ?? '') !== head)
+    return { warmed: 0, total: list.length, why: '预热期间 HEAD 变了 ⇒ 整批作废' }
+  const rows = Array.isArray(parsed?.rows) ? parsed.rows : []
+  let warmed = 0
+  list.forEach((rel, i) => {
+    const row = rows[i]
+    if (!row?.ok || !Array.isArray(row.list)) return
+    // HEAD 自身不是祖先(与 ancestorCommitList 同一过滤口径,过滤只此一处语义)
+    const commits = row.list.map((c) => String(c).trim()).filter((c) => c && c !== head)
+    memoSetAncestorList(`${root}\0${head}\0${win}\0${rel}`, {
+      judged: true,
+      list: commits,
+      scanned: commits.length,
+      why: null,
+    })
+    warmed += 1
+  })
+  return { warmed, total: list.length, why: null }
 }
 
 /**

@@ -30,6 +30,12 @@ export interface ServiceStatus {
   message?: string
 }
 
+/**
+ * 入口允许的两种形状：单对象（当前后端真实返回）或数组（页面历史声明/未来契约）。
+ * 调用方不得在此之后自行按数组取值，必须先过 `normalizeHealthPayload`。
+ */
+export type HealthPayload = ServiceStatus | ServiceStatus[]
+
 /** 后端显式正常词表：ok 是 `/health` 的实况，ready/alive/up 覆盖同族探针。 */
 const HEALTHY_STATES = new Set(['healthy', 'ok', 'ready', 'alive', 'up'])
 

@@ -101,7 +101,6 @@ export default function DistributionOrderListScreen() {
       activeTab={activeTab}
       loading={loading}
       loadingMore={loadingMore}
-      hasMore={hasMore}
       onSearch={onSearch}
       onKeywordChange={setKeyword}
       onTabChange={(tab) => setActiveTab(tab as TabValue)}

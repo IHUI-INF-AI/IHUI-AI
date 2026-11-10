@@ -1280,6 +1280,11 @@
       "shared": "packages/app/src/features/study-progress/StudyProgressScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/StudyProgressScreen.tsx",
       "miniapp": "pages/study/index"
+    },
+    {
+      "shared": "packages/app/src/features/groups/GroupsScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/GroupsScreen.tsx",
+      "miniapp": "pkg-user/groups/index"
     }
   ]
 }

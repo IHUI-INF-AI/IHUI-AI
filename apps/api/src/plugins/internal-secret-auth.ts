@@ -31,9 +31,11 @@ import {
 } from './internal-service-ticket.js'
 
 /** 老门请求头(族内 5 个端点共用的那个名字)。 */
-const INTERNAL_SECRET_HEADER = 'x-internal-secret'
+export const INTERNAL_SECRET_HEADER = 'x-internal-secret'
 
-type InternalSecretAuthMode = 'ticket' | 'dual' | 'legacy'
+export type InternalSecretAuthMode = 'ticket' | 'dual' | 'legacy'
+
+export const DEFAULT_INTERNAL_SECRET_AUTH_MODE: InternalSecretAuthMode = 'ticket'
 
 /** 同一把密钥的比较口径必须全族一致:sha256 定长后再 timingSafeEqual。 */
 function secretsEqual(a: string, b: string): boolean {
@@ -47,11 +49,11 @@ function readHeader(request: FastifyRequest, name: string): string | undefined {
   return Array.isArray(raw) ? raw[0] : raw
 }
 
-function resolveInternalSecretAuthMode(raw: unknown): InternalSecretAuthMode {
+export function resolveInternalSecretAuthMode(raw: unknown): InternalSecretAuthMode {
   return raw === 'dual' || raw === 'legacy' ? raw : 'ticket'
 }
 
-function internalSecretAuthMode(): InternalSecretAuthMode {
+export function internalSecretAuthMode(): InternalSecretAuthMode {
   return resolveInternalSecretAuthMode(
     (config as unknown as { INTERNAL_SECRET_AUTH_MODE?: unknown }).INTERNAL_SECRET_AUTH_MODE,
   )

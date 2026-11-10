@@ -481,6 +481,12 @@ export interface TokenValuePackage {
   popular?: boolean
 }
 
+/** TokenValue 记录时间范围条选项(数据型注入,仅 id/label) */
+export interface TokenValueRangeOption {
+  id: string
+  label: string
+}
+
 /** TokenValueScreen props */
 export interface TokenValueScreenProps {
   t: TFunction
@@ -502,6 +508,14 @@ export interface TokenValueScreenProps {
   /** 是否还有下一页(undefined=未知,不渲染结束提示) */
   hasMore?: boolean
   colorScheme?: 'light' | 'dark'
+  /**
+   * 记录时间范围条(数据型注入)。
+   * RN 壳与小程序腿共用同一份 RN 壳(`@rn-shells/TokenValueScreen` ⇒ apps/mobile-rn/src/screens),
+   * 两端传同一注入点;三件套(选项/当前值/回调)齐备才渲染,缺一不渲染(共享屏不猜默认范围)。
+   */
+  rangeItems?: readonly TokenValueRangeOption[]
+  rangeId?: string
+  onSelectRange?: (id: string) => void
 }
 
 /** 财务汇总(平台注入,字段对齐 mobile-rn FinanceScreen FinanceSummary) */

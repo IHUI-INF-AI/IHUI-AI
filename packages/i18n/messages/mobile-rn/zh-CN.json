@@ -2521,7 +2521,11 @@
     "copySecret": "复制",
     "secretCopied": "密钥已复制到剪贴板",
     "rateLimit": "速率限制",
-    "rateLimitUnit": "次/分钟"
+    "rateLimitUnit": "次/分钟",
+    "subtitle": "管理您的开发者 API 密钥,供第三方应用接入",
+    "permissionsRequired": "请至少选择一个权限",
+    "rateLimitPerMinute": "速率 {rateLimit}/分钟",
+    "callsTotal": "累计调用 {times} 次"
   },
   "devices": {
     "title": "设备管理",
@@ -5420,12 +5424,59 @@
     "toast": {
       "runDone": "巡检完成",
       "resumed": "已恢复",
-      "paused": "已暂停"
+      "paused": "已暂停",
+      "saveFailed": "保存失败"
     },
     "action": {
       "delete": "删除",
       "runNow": "立即巡检",
-      "history": "历史"
+      "history": "历史",
+      "pause": "暂停",
+      "resume": "恢复",
+      "edit": "编辑",
+      "openConversation": "打开会话"
+    },
+    "deleteConfirm": {
+      "title": "删除巡检任务",
+      "content": "确定删除“{name}”吗？巡检历史将一并删除，此操作不可恢复。"
+    },
+    "delete": "删除",
+    "cancel": "取消",
+    "save": "保存",
+    "weekdayMo": "周一",
+    "weekdayTu": "周二",
+    "weekdayWe": "周三",
+    "weekdayTh": "周四",
+    "weekdayFr": "周五",
+    "weekdaySa": "周六",
+    "weekdaySu": "周日",
+    "form": {
+      "createTitle": "新建巡检任务",
+      "editTitle": "编辑巡检任务",
+      "desc": "设置巡检类型、目标与巡检计划",
+      "name": "名称",
+      "namePlaceholder": "例如：每日 CI 巡检",
+      "patrolType": "巡检类型",
+      "target": "巡检目标",
+      "targetPlaceholder": "例如：仓库地址 / URL / 日志范围",
+      "prompt": "附加巡检指令",
+      "promptPlaceholder": "需要重点检查的内容（可选）…",
+      "frequency": "频率",
+      "freqHourly": "每小时",
+      "freqDaily": "每天",
+      "freqWeekly": "每周",
+      "time": "执行时刻",
+      "weekdays": "周几",
+      "rrule": "执行计划",
+      "rrulePlaceholder": "FREQ=DAILY;BYHOUR=9;BYMINUTE=0",
+      "errName": "请输入名称",
+      "errDays": "请至少选择一个周几",
+      "errRrule": "请填写执行计划"
+    },
+    "runs": {
+      "title": "巡检历史",
+      "empty": "暂无巡检记录",
+      "loading": "加载中…"
     }
   },
   "selfHealing": {
@@ -7582,7 +7633,27 @@
       "eraseCard": "数据擦除"
     },
     "groups": {
-      "title": "我的群组"
+      "addMember": "添加成员",
+      "allGroups": "全部群组",
+      "confirmDelete": "确定删除该群组？",
+      "createGroup": "创建群组",
+      "createdAt": "创建时间",
+      "custom": "自定义",
+      "delete": "删除",
+      "deleteTitle": "删除群组",
+      "description": "群组描述",
+      "edit": "编辑",
+      "empty": "暂无群组，点击右上角创建",
+      "error": "操作失败",
+      "groupName": "群组名称",
+      "groupNameRequired": "群组名称不能为空",
+      "memberList": "成员管理",
+      "members": "成员数",
+      "membersUnavailable": "后端未提供成员列表接口,此处仅显示成员数",
+      "owner": "群主",
+      "save": "保存",
+      "title": "我的群组",
+      "userId": "用户 ID"
     },
     "stt": {
       "error": "转写失败"

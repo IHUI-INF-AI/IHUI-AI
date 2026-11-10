@@ -130,10 +130,6 @@
     {
       "path": "packages/app/src/features/model-edit/model-edit-save.ts",
       "reason": "2026-11-05 有意删除(与同目录 __tests__/model-edit-save.test.ts 同批退役,模型编辑保存层已于 2026-11-03 上收 @ihui/shared/utils):现役实现为 packages/shared/src/utils/model-edit-billing.ts(经 packages/shared/src/utils/index.ts 具名出口),现役消费者 apps/miniapp-taro/src/pkg-ai/dev-enter/model-edit/index.tsx:17 与 apps/mobile-rn/src/screens/ModelEditScreen.tsx:19 两处均从 @ihui/shared/utils 取 submitModelEdit;等价测试 packages/shared/src/utils/__tests__/model-edit-billing.test.ts 已在,删本件不减少任何行为覆盖。本门 E1 点名的唯一引用方 scripts/tests/check-staged-deletions.test.mjs 不是消费者,而是本笔新增的回归用例把本路径当夹具字面量(该用例钉住「同批删测试与源模块时 E3 对仅类型 import 误判」这一形态),属夹具/否定断言引用,与本台账 apps/cli/tests/argument-repair.test.ts 条目同型;本条豁免只记录该形态,不改门 99 判据。问责复跑:node scripts/check-staged-deletions.mjs --staged;node scripts/check-orphan-deletion-refs.mjs;node --test scripts/tests/check-staged-deletions.test.mjs。"
-    },
-    {
-      "path": "apps/api/src/db/coze-chat-queries.ts",
-      "reason": "2026-11-09 有意删除(Knip 棘轮票):coze 端点已 404 化,本文件为遗留死查询层。两处引用方均为 vi.mock **带 factory** 形态 —— 工厂自给全部导出,模块解析只按路径做 key,不依赖真实文件存在:\n① apps/api/src/routes/__tests__/coze-chat-history-authz.test.ts:20 vi.mock(\"../../db/coze-chat-queries.js\", () => ({ findCozeChatHistory: mockFindCozeChatHistory }));\n② apps/api/tests/f-54-155-134-admin-gates.test.ts:55 vi.mock(\"../src/db/coze-chat-queries.js\", () => ({ findCozeChatHistory: spies.findCozeChatHistory }))。\n删除后两测试仍绿(HEAD 面 CI test job 199/200 唯一红是 tool-invocation-ledger 硬编码 idx,与本件无关)。同目录 my-member-queries 等在役文件不受影响。\n问责复跑:node scripts/check-staged-deletions.mjs --staged;pnpm -C apps/api vitest run src/routes/__tests__/coze-chat-history-authz.test.ts tests/f-54-155-134-admin-gates.test.ts。"
     }
   ]
 }

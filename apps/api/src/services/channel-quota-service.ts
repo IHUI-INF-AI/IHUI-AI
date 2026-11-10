@@ -8,6 +8,7 @@
  * 职责:
  * 1. checkQuota(keyPoolId): 调用前检查渠道(key_pool 条目)是否超出每日/每月配额
  * 2. recordUsage(keyPoolId, tokens, costCents, isError): 调用后 UPSERT 当日用量(原子递增)
+ * 3. getMonthlyUsage / getDailyUsage: admin Dashboard 用量查询
  * 4. resetDailyQuota: 定时清理任务,清理 90 天前的旧数据(按 date 分组,无需主动重置)
  *
  * 配额维度(4 个,null = 无限):
@@ -114,7 +115,7 @@ interface QuotaLimits {
 }
 
 /** 单日用量聚合。 */
-interface DailyUsageResult {
+export interface DailyUsageResult {
   callCount: number
   totalTokens: number
   totalCostCents: number
@@ -122,7 +123,7 @@ interface DailyUsageResult {
 }
 
 /** 月度用量聚合(用于 admin Dashboard)。 */
-interface MonthlyUsageResult {
+export interface MonthlyUsageResult {
   callCount: number
   totalTokens: number
   totalCostCents: number
@@ -517,6 +518,85 @@ export async function recordUsageBatch(inputs: readonly RecordUsageInput[]): Pro
       count: inputs.length,
       error: (err as Error).message,
     })
+  }
+}
+
+// =============================================================================
+// 3. getMonthlyUsage — admin Dashboard 月度用量查询
+// =============================================================================
+
+/**
+ * 查指定渠道当月(UTC+8 当月 1 日至今)的用量聚合。
+ *
+ * 用于 admin Dashboard 展示当月累计调用次数 / token / 成本。
+ *
+ * @param keyPoolId 渠道 id
+ * @returns { callCount, totalTokens, totalCostCents }(无数据返回 0)
+ */
+export async function getMonthlyUsage(keyPoolId: string): Promise<MonthlyUsageResult> {
+  const monthStartStr = getUtc8MonthStartStr()
+  const rows = await dbRead
+    .select({
+      callCount: sql<number>`coalesce(sum(${aiRelayChannelDailyUsage.callCount}), 0)::bigint::int`,
+      totalTokens: sql<number>`coalesce(sum(${aiRelayChannelDailyUsage.totalTokens}), 0)::bigint::int`,
+      totalCostCents: sql<number>`coalesce(sum(${aiRelayChannelDailyUsage.totalCostCents}), 0)::bigint::int`,
+    })
+    .from(aiRelayChannelDailyUsage)
+    .where(
+      and(
+        eq(aiRelayChannelDailyUsage.keyPoolId, keyPoolId),
+        gte(aiRelayChannelDailyUsage.usageDate, monthStartStr),
+      ),
+    )
+  const row = rows[0]
+  if (!row) return { callCount: 0, totalTokens: 0, totalCostCents: 0 }
+  return {
+    callCount: row.callCount,
+    totalTokens: row.totalTokens,
+    totalCostCents: row.totalCostCents,
+  }
+}
+
+// =============================================================================
+// 4. getDailyUsage — admin Dashboard 单日用量查询
+// =============================================================================
+
+/**
+ * 查指定渠道指定日期的用量(默认今天)。
+ *
+ * @param keyPoolId 渠道 id
+ * @param targetDate 日期(默认 UTC+8 当日);传 Date 时取其 UTC+8 当日的 YYYY-MM-DD
+ * @returns { callCount, totalTokens, totalCostCents, errorCount }(无数据返回 0)
+ */
+export async function getDailyUsage(
+  keyPoolId: string,
+  targetDate?: Date,
+): Promise<DailyUsageResult> {
+  const dateStr = targetDate ? getUtc8DateStr(targetDate) : getUtc8DateStr()
+  const rows = await dbRead
+    .select({
+      callCount: aiRelayChannelDailyUsage.callCount,
+      totalTokens: aiRelayChannelDailyUsage.totalTokens,
+      totalCostCents: aiRelayChannelDailyUsage.totalCostCents,
+      errorCount: aiRelayChannelDailyUsage.errorCount,
+    })
+    .from(aiRelayChannelDailyUsage)
+    .where(
+      and(
+        eq(aiRelayChannelDailyUsage.keyPoolId, keyPoolId),
+        eq(aiRelayChannelDailyUsage.usageDate, dateStr),
+      ),
+    )
+    .limit(1)
+  const row = rows[0]
+  if (!row) {
+    return { callCount: 0, totalTokens: 0, totalCostCents: 0, errorCount: 0 }
+  }
+  return {
+    callCount: row.callCount,
+    totalTokens: row.totalTokens,
+    totalCostCents: row.totalCostCents,
+    errorCount: row.errorCount,
   }
 }
 
