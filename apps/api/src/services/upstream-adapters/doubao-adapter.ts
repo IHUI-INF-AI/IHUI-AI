@@ -194,6 +194,9 @@ export const doubaoAdapter: RelayUpstreamAdapter = {
   // 刷新能力:恒 null 空壳 ⇒ 声明为不可续期(见 relay-upstream-adapters.isRefreshableProviderCode)。
   // 否则保活窗口/临期档会把"刷新失败"记到它头上,连续 3 次误判自动摘除好号。
   refreshTokenSupported: false,
+  // 额度能力:无公开余额端点,getQuota 只是探测签名墙的推断路径(200 也如实报未判定)。
+  // 声明 false ⇒ 承载层(切号列表/admin 点查)直接标"未支持",零探测、零假数(§0.3)。
+  quotaSupported: false,
 
   /**
    * chat 请求构造(推断层):OpenAI 同构 body 透传,Cookie 头鉴权,accept 按 stream 二分。

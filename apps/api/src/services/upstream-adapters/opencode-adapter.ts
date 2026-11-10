@@ -269,6 +269,9 @@ function isAuthFailure(statusCode: number, bodyText: string): boolean {
 // 统一集成时加入);此处 cast 保持 RelayUpstreamAdapter 契约形状,集成后即可去掉。
 export const opencodeAdapter: RelayUpstreamAdapter = {
   providerCode: 'opencode' as RelayProviderCode,
+  // 额度能力:zen/v1/usage 实弹 404,聚合面无公开余额端点;getQuota 恒如实未判定。
+  // 声明 false ⇒ 承载层直接标"未支持",零探测、零假数(§0.3)。
+  quotaSupported: false,
   buildChatRequest,
   translateStreamChunk,
   translateNonStream,
