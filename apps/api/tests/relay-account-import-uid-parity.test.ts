@@ -331,6 +331,19 @@ describe('T8 CLI 预检面接线锁(键源只此一枚,不许回潮)', () => {
       (src.match(/const uid = uidFromImportPayload\(mapped, acc\.uid, token\)/g) ?? []).length,
     ).toBe(1)
   })
+
+  it('runHealth 出口代理必须经 pickProxyForAccount(信封直喂 = Invalid URL 误判未判定)', () => {
+    // 立因(2026-11-10):proxy_url 列可能存 encryptField 信封({"iv","ciphertext","tag"}),
+    // 把库内原文直接当代理 URL 喂给 ProxyAgent 会抛 Invalid URL ⇒ 健康检查误判未判定。
+    // 出口必须与转发链路同源:pickProxyForAccount 负责解密 + 池内轮换回退。
+    const src = readFileSync(cliPath, 'utf8')
+    expect(src).toContain('await pickProxyForAccount({ id: row.id, proxyUrl: row.proxyUrl })')
+    // checkHealth 只许吃解出来的明文,不许再碰库内原文
+    expect(src).toContain('proxyUrl: proxyUrl ?? undefined')
+    // 反向牙:row.proxyUrl 作为实参只许出现在 pickProxyForAccount 那一处(第二处=又有人直喂)
+    const rawFeeds = (src.match(/proxyUrl:\s*row\.proxyUrl/g) ?? []).length
+    expect(rawFeeds).toBe(1)
+  })
 })
 
 /**

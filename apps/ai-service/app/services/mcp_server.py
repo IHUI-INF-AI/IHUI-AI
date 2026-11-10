@@ -931,6 +931,13 @@ def _validate_path_in_workspace(
         roots = _get_workspace_roots() + list(
             _active_extra_roots() if extra_roots is None else extra_roots
         )
+        # 跨平台:POSIX 上没有盘符概念,`Z:/no/such/x` 会被当成相对路径拼到 cwd 下,
+        # 于是"根外路径"被误判成"根内不存在的文件"(PATH_NOT_ALLOWED 退化成
+        # FILE_NOT_FOUND —— Linux CI 的媒体上传用例即此,Windows 上则因 is_absolute()
+        # 为真走包含性判定、本来就是对的)。盘符只指向它自己的卷,不可能落在 POSIX
+        # 工作区根内,所以先判越界,不让它进相对路径探测。
+        if os.name != "nt" and re.match(r"^[A-Za-z]:[\\/]", path):
+            return False, f"路径不在工作区白名单内: {path}(允许根目录: {roots})"
         if not p.is_absolute():
             for root in roots:
                 candidate = (Path(root) / path).resolve(strict=False)
@@ -5491,7 +5498,8 @@ async def _tool_file_search(arguments: dict[str, Any]) -> dict[str, Any]:
                 "enum_engine": _enum_prov.engine,
                 "enum_degraded": _enum_prov.degraded_reason,
                 "message": fuzzy_message,
-                "ok": not (_enum_prov.degraded_reason and not matches),
+                # 通道降级≠结果缺口(见下方非模糊分支同一判据)。
+                "ok": not (_enum_prov.unread_dirs and not matches),
             }
 
         query_lower = query.lower() if query else None
@@ -5558,7 +5566,12 @@ async def _tool_file_search(arguments: dict[str, Any]) -> dict[str, Any]:
         )
         # 「没找到」与「没查到」是两件事:枚举/读取有缺口时,零命中不能报成成功,
         # 也不能再给"放宽 pattern"这类误导性建议(缺口不在 pattern 上)。
-        incomplete = _enum_prov.degraded_reason or ""
+        # 但**通道降级不等于结果有缺口**:rg 缺失/坏掉时走 python-walk 完整遍历,
+        # 两通道结果集等价(见 rg_fallback_parity),此时 0 就是真 0。只有遍历真的
+        # 有目录读不到(unread_dirs>0)才算不完整 —— 把降级当缺口会让无 rg 的机器
+        # (含 Linux CI)上任何零命中都报失败、并吞掉可操作建议;降级事实仍由
+        # enum_engine/enum_degraded 如实留痕,不冒用 rg 的名义。
+        incomplete = _enum_prov.degraded_reason if _enum_prov.unread_dirs else ""
         if unread_files:
             file_note = f"有 {unread_files} 个文件读不到,不能把检索说成没有命中"
             incomplete = f"{incomplete};{file_note}" if incomplete else file_note
