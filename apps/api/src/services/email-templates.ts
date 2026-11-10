@@ -35,6 +35,93 @@ export const DISPATCH_TOKENS = {
   hairline: '#3A3A40',
 } as const
 
+/* ================================================================== *
+ * 品牌发件人与收件人语言(2026-11-10 立,单一真相源)
+ *
+ * 为什么必须收在这里:同一个「发件人显示名」在收件箱里曾同时出现
+ * 「智汇AI」「智汇AI官方」「502319984」三种形态 —— 根子不是某处写错,
+ * 而是它同时有四个独立默认值(SMTP_FROM / RESEND_FROM / config 默认 /
+ * CI 的 secrets),外加"裸地址无显示名"这一形态。四个默认值必然漂移。
+ *
+ * 收敛口径:
+ *   · 显示名只有 BRAND_MAIL_DISPLAY_NAME 一个值,任何通道都从这里取;
+ *   · 地址段仍由配置给(QQ SMTP 要求 From 地址 == 登录账号,不能硬编码);
+ *   · 本模块零副作用,CI 脚本可直接 import,不必连带 db/redis。
+ * ================================================================== */
+
+/** 品牌发件人显示名。全站唯一取值点,禁止在别处另写一份字面量。 */
+export const BRAND_MAIL_DISPLAY_NAME = '智汇AI'
+
+/**
+ * 创始人微信号(与 SiteFooter QRS copyValue 同源)。
+ * 定义在版式外壳文案之前 —— 那些常量在模块初始化时就要读它。
+ */
+export const FOUNDER_WECHAT_ID = 'ok502319984'
+
+/** 邮件语言:zh = 中文(国内收件人,默认);en = 英文(海外收件人) */
+export type MailLocale = 'zh' | 'en'
+
+/**
+ * 国内主流邮箱域名。用于「给国内发中文、给海外发英文」的判定。
+ *
+ * 这张表原先住在 email-service.ts,而部署告警脚本刻意不 import 那个文件
+ * (它会连带 db/redis,而告警发生时数据库可能本身就是坏的)。判据必须能被
+ * 无副作用地复用,故上移到本模块,email-service 侧改为 re-export(仍单源)。
+ */
+export const DOMESTIC_EMAIL_DOMAINS: ReadonlySet<string> = new Set<string>([
+  'qq.com',
+  'foxmail.com',
+  '163.com',
+  '126.com',
+  'yeah.net',
+  'sina.com',
+  'sina.cn',
+  'sohu.com',
+  '139.com',
+  'aliyun.com',
+  'mail.aliyun.com',
+  '189.cn',
+  'wo.cn',
+  'vip.qq.com',
+  'vip.163.com',
+  '263.net',
+])
+
+/** 判断邮箱是否为国内主流邮箱(域名不在表内 = 海外,走英文)。 */
+export function isDomesticEmail(email: string): boolean {
+  const domain = email.split('@')[1]?.toLowerCase().trim()
+  if (!domain) return false
+  return DOMESTIC_EMAIL_DOMAINS.has(domain)
+}
+
+/** 收件人 → 邮件语言:国内主流邮箱中文,其余英文。 */
+export function localeForRecipient(email: string): MailLocale {
+  return isDomesticEmail(email) ? 'zh' : 'en'
+}
+
+/** 从任意 From 形态里抽地址段:`X <a@b>` / `"X" <a@b>` / `a@b` 三种都吃。 */
+export function extractMailAddress(raw: string): string {
+  const s = (raw ?? '').trim()
+  if (s === '') return ''
+  const angle = /<([^>]+)>/.exec(s)
+  return (angle ? (angle[1] ?? '') : s).trim()
+}
+
+/**
+ * SMTP 的 From:显示名恒为品牌名,地址保留传入值。
+ * 显示名带双引号 —— nodemailer 会按 RFC 2047 编码中文,SMTP 头更稳。
+ */
+export function brandSmtpFrom(address: string): string {
+  const addr = extractMailAddress(address)
+  return addr === '' ? '' : `"${BRAND_MAIL_DISPLAY_NAME}" <${addr}>`
+}
+
+/** Resend 的 from:同一品牌名,不带引号(与 Resend 文档示例同形)。 */
+export function brandResendFrom(address: string): string {
+  const addr = extractMailAddress(address)
+  return addr === '' ? '' : `${BRAND_MAIL_DISPLAY_NAME} <${addr}>`
+}
+
 /**
  * 邮件内不可用(收件端不可达)的原点形态:回环 / 内网私有段 / tauri 自定义协议。
  *
@@ -122,6 +209,46 @@ interface DispatchLayoutInput {
   footNote?: string
   /** 配色:默认品牌绿;security 用 danger */
   tone?: 'accent' | 'danger'
+  /**
+   * 版式语言。缺省 'zh' = 中文页面(中文站的主要收件人);
+   * 海外收件人由调用方显式传 'en' —— 见 localeForRecipient。
+   */
+  locale?: MailLocale
+}
+
+/**
+ * 版式外壳文案(刊头副标 / 创始人直联 / 页脚 / 联络块),按语言各一份。
+ */
+const DISPATCH_CHROME: Record<
+  MailLocale,
+  {
+    brandLine: string
+    directLine: string
+    contact: (accent: string) => string
+    qrAlt: string
+    footer: string
+  }
+> = {
+  zh: {
+    brandLine: '智汇AI&nbsp;·&nbsp;智汇通报',
+    directLine: '[&nbsp;创始人直联&nbsp;]',
+    contact: (accent) =>
+      '遇到任何问题,微信扫码<b style="color:#F5F5F0;">直接联系创始人李春川</b><br>微信号:' +
+      `<span style="font-family:Consolas,monospace;font-size:17px;color:${accent};letter-spacing:1px;">${FOUNDER_WECHAT_ID}</span>` +
+      `(长按复制)· 邮件兜底:<a href="mailto:support@aizhs.top" style="color:${accent};text-decoration:none;">support@aizhs.top</a>`,
+    qrAlt: '创始人微信二维码',
+    footer: `智汇AI集团 创始人 <span style="color:${DISPATCH_TOKENS.ink};font-weight:bold;">李春川</span> · aizhs.top · © 2026 智汇AI · 系统自动派发`,
+  },
+  en: {
+    brandLine: 'IHUI&nbsp;AI&nbsp;·&nbsp;THE&nbsp;MECHANICAL&nbsp;DISPATCH',
+    directLine: '[&nbsp;DIRECT_LINE&nbsp;//&nbsp;FOUNDER&nbsp;]',
+    contact: (accent) =>
+      'Need help? Scan the WeChat QR to <b style="color:#F5F5F0;">reach the founder directly</b><br>WeChat ID:' +
+      `<span style="font-family:Consolas,monospace;font-size:17px;color:${accent};letter-spacing:1px;">${FOUNDER_WECHAT_ID}</span>` +
+      ` · Email: <a href="mailto:support@aizhs.top" style="color:${accent};text-decoration:none;">support@aizhs.top</a>`,
+    qrAlt: 'Founder WeChat QR code',
+    footer: `IHUI AI · Founder <span style="color:${DISPATCH_TOKENS.ink};font-weight:bold;">Li Chunchuan</span> · aizhs.top · © 2026 IHUI AI · Automated message`,
+  },
 }
 
 /**
@@ -154,8 +281,6 @@ function bulletproofButton(
 
 /** 创始人微信二维码(web public 静态资产,footer-data.ts QRS 同源) */
 export const FOUNDER_QR_PATH = '/footer/erweima/wechat-vx.png'
-/** 创始人微信号(与 SiteFooter QRS copyValue 同源) */
-export const FOUNDER_WECHAT_ID = 'ok502319984'
 /** 品牌图片 Logo(黑底渐变,与邮件深黑卡片底色融合;PNG 保证 Outlook/Gmail 兼容) */
 export const BRAND_LOGO_PATH = '/images/logo.png'
 
@@ -183,6 +308,8 @@ export const EMAIL_QR_ASSET = '/footer/erweima/wechat-vx-email.png'
 /** 通用版式:品牌刊头(纯 HTML) + 内容 + 按钮 + 创始人直联 + 页脚 */
 export function renderDispatchEmail(input: DispatchLayoutInput): string {
   const t = DISPATCH_TOKENS
+  const locale = input.locale ?? 'zh'
+  const chrome = DISPATCH_CHROME[locale]
   const accent = input.tone === 'danger' ? t.danger : t.accent
   const button = input.button
     ? `<tr><td style="padding:24px 36px 6px;">${bulletproofButton(input.button.href, escapeHtml(input.button.label), input.button.kind ?? 'accent')}</td></tr>`
@@ -192,19 +319,19 @@ export function renderDispatchEmail(input: DispatchLayoutInput): string {
     : ''
   const contactQr = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px;"><tr>
     <td valign="middle" style="font-family:'Microsoft YaHei',sans-serif;font-size:15px;line-height:1.9;color:${t.body};">
-      <div style="font-family:Consolas,monospace;font-size:13px;color:${t.dim};letter-spacing:3px;">[&nbsp;DIRECT_LINE&nbsp;//&nbsp;创始人直联&nbsp;]</div>
-      <div style="margin-top:8px;">遇到任何问题,微信扫码<b style="color:${t.ink};">直接联系创始人李春川</b><br>微信号:<span style="font-family:Consolas,monospace;font-size:17px;color:${accent};letter-spacing:1px;">${FOUNDER_WECHAT_ID}</span>(长按复制)· 邮件兜底:<a href="mailto:support@aizhs.top" style="color:${accent};text-decoration:none;">support@aizhs.top</a></div>
+      <div style="font-family:Consolas,monospace;font-size:13px;color:${t.dim};letter-spacing:3px;">${chrome.directLine}</div>
+      <div style="margin-top:8px;">${chrome.contact(accent)}</div>
     </td>
-    <td width="124" align="right" valign="middle"><img src="cid:${EMAIL_QR_CID}" width="112" height="112" alt="创始人微信二维码" style="display:block;border:1px solid ${t.hairline};padding:5px;background:${t.pageBg};"></td>
+    <td width="124" align="right" valign="middle"><img src="cid:${EMAIL_QR_CID}" width="112" height="112" alt="${chrome.qrAlt}" style="display:block;border:1px solid ${t.hairline};padding:5px;background:${t.pageBg};"></td>
   </tr></table>`
   return `<!DOCTYPE html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<html lang="${locale === 'zh' ? 'zh-CN' : 'en'}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="margin:0;padding:0;background:${t.pageBg};">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${t.pageBg}"><tr><td align="center" style="padding:24px 8px;">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="${t.cardBg}" style="width:600px;max-width:600px;background:${t.cardBg};">
   <tr><td style="padding:28px 36px 0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="font-family:Consolas,'Courier New',monospace;font-size:14px;color:${t.dim};letter-spacing:2px;">IHUI-CORE<span style="color:${accent};">&nbsp;&nbsp;//&nbsp;&nbsp;${escapeHtml(input.tag)}</span></td><td width="64" align="right" valign="top"><img src="cid:${EMAIL_LOGO_CID}" width="56" height="56" alt="IHUI AI" style="display:block;border:1px solid ${t.hairline};"></td></tr></table></td></tr>
   <tr><td style="padding:14px 36px 0;font-family:Impact,'Arial Black','Microsoft YaHei',sans-serif;font-size:64px;line-height:70px;font-weight:bold;color:${t.ink};letter-spacing:3px;">IHUI<span style="color:${accent};">.</span></td></tr>
-  <tr><td style="padding:10px 36px 0;font-family:Consolas,monospace;font-size:14px;color:${t.dim};letter-spacing:5px;">智汇AI&nbsp;·&nbsp;THE&nbsp;MECHANICAL&nbsp;DISPATCH</td></tr>
+  <tr><td style="padding:10px 36px 0;font-family:Consolas,monospace;font-size:14px;color:${t.dim};letter-spacing:5px;">${chrome.brandLine}</td></tr>
   <tr><td style="padding:16px 36px 0;"><div style="height:4px;background:${accent};font-size:0;line-height:0;">&nbsp;</div></td></tr>
   <tr><td style="padding:26px 36px 0;font-family:Consolas,monospace;font-size:14px;color:${accent};letter-spacing:3px;">[&nbsp;${escapeHtml(input.tag)}&nbsp;]</td></tr>
   <tr><td style="padding:10px 36px 0;font-family:'Microsoft YaHei','SimHei',sans-serif;font-size:27px;font-weight:900;color:${t.ink};letter-spacing:2px;">${escapeHtml(input.title)}</td></tr>
@@ -213,7 +340,7 @@ export function renderDispatchEmail(input: DispatchLayoutInput): string {
   <tr><td style="padding:26px 36px 30px;border-top:1px dashed ${t.hairline};">
     ${contactQr}
     <div style="font-family:Consolas,monospace;font-size:13px;line-height:22px;color:${t.dim};letter-spacing:1px;">${foot}</div>
-    <div style="font-family:Consolas,monospace;font-size:13px;color:${t.dim};margin-top:8px;">智汇AI集团 创始人 <span style="color:${t.ink};font-weight:bold;">李春川</span> · aizhs.top · © 2026 IHUI AI · 系统自动派发</div>
+    <div style="font-family:Consolas,monospace;font-size:13px;color:${t.dim};margin-top:8px;">${chrome.footer}</div>
   </td></tr>
 </table></td></tr></table></body></html>`
 }
@@ -589,12 +716,75 @@ export interface SystemAlertEmailInput {
   time: string
   title: string
   message: string
+  /**
+   * 邮件语言,缺省 'zh'。
+   *
+   * 2026-11-10 机主定案:中文收件人看到的是「[警告] / 严重级别 / 来源 / 时间 / 告警内容」,
+   * 不再出现 WARNING / SEVERITY / MESSAGE 这类只能靠猜的英文;海外收件人仍走 'en'
+   * (由调用方按收件域名判定,判据见 localeForRecipient)。
+   */
+  locale?: MailLocale
 }
 
-const SEVERITY_LABEL: Record<SystemAlertEmailInput['severity'], string> = {
-  info: 'INFO',
-  warning: 'WARNING',
-  critical: 'CRITICAL',
+/** 告警邮件全部可见文案,按语言各一份(标签与级别词必须同源,否则两处会漂)。 */
+interface AlertCopy {
+  /** 邮件主题里的级别前缀 */
+  subjectPrefix: Record<SystemAlertEmailInput['severity'], string>
+  /** 刊头栏目眉 */
+  tag: Record<SystemAlertEmailInput['severity'], string>
+  /** 数据格标签 */
+  label: { severity: string; source: string; time: string; message: string }
+  /** 级别取值(数据格里方括号内的词) */
+  severityValue: Record<SystemAlertEmailInput['severity'], string>
+  introInfo: string
+  introAlert: string
+  footNote: string
+  /** 纯文本兜底里的字段名 */
+  textSource: string
+  textTime: string
+  /**
+   * 缺省主题(调用方没给 --title 时用它)。
+   *
+   * 2026-11-10:原先脚本里硬编码 `部署失败 — ${env}`,于是英文收件人收到
+   * `[CRITICAL] 部署失败 — production` —— 级别词翻成英文、标题仍中文,
+   * 半中半英比全中文更难读。标题同属可见文案,必须与 subjectPrefix 同源。
+   */
+  defaultTitle: (environment: string) => string
+}
+
+const ALERT_COPY: Record<MailLocale, AlertCopy> = {
+  zh: {
+    subjectPrefix: { info: '提示', warning: '警告', critical: '严重' },
+    tag: { info: '系统通知', warning: '系统警告', critical: '系统严重告警' },
+    label: { severity: '严重级别', source: '来源', time: '时间', message: '告警内容' },
+    severityValue: { info: '提示', warning: '警告', critical: '严重' },
+    introInfo: '系统监测到以下事件,供知悉:',
+    introAlert: '系统监测到异常,请值班操作员立即关注:',
+    footNote: '本邮件由系统自动派发,无需回复。请前往服务器日志定位根因后再恢复。',
+    textSource: '来源',
+    textTime: '时间',
+    defaultTitle: (environment) => `部署失败 — ${environment}`,
+  },
+  en: {
+    subjectPrefix: { info: 'INFO', warning: 'WARNING', critical: 'CRITICAL' },
+    tag: { info: 'SYSTEM // ALERT_INFO', warning: 'SYSTEM // ALERT_WARNING', critical: 'SYSTEM // ALERT_CRITICAL' },
+    label: { severity: 'SEVERITY', source: 'SOURCE', time: 'TIME', message: 'MESSAGE' },
+    severityValue: { info: 'INFO', warning: 'WARNING', critical: 'CRITICAL' },
+    introInfo: 'The system recorded the following event for your information:',
+    introAlert: 'The system detected an anomaly. On-call operators please investigate immediately:',
+    footNote: 'This mail is dispatched automatically; do not reply. Locate the root cause in the server logs before restoring service.',
+    textSource: 'Source',
+    textTime: 'Time',
+    defaultTitle: (environment) => `Deploy failed — ${environment}`,
+  },
+}
+
+/**
+ * 取缺省主题(按语言)。调用方不传 --title 时用它,避免脚本里硬编码某一语言的标题。
+ * 显式 `--title` 始终优先——调查者手写的标题不该被翻译覆盖。
+ */
+export function defaultAlertTitle(environment: string, locale: MailLocale = 'zh'): string {
+  return ALERT_COPY[locale].defaultTitle(environment)
 }
 
 /** 多行纯文本 → 逐行 div(先整体转义,空行以 &nbsp; 保位) */
@@ -605,44 +795,47 @@ function multiLineHtml(text: string): string {
     .join('')
 }
 
-/** 渲染运维系统告警邮件(critical/warning 信号红,info 品牌绿) */
+/** 渲染运维系统告警邮件(critical/warning 信号红,info 品牌绿;默认中文) */
 export function renderSystemAlertEmail(input: SystemAlertEmailInput): DispatchEmail {
   const t = DISPATCH_TOKENS
+  const locale = input.locale ?? 'zh'
+  const copy = ALERT_COPY[locale]
   const tone = input.severity === 'info' ? 'accent' : 'danger'
   const accent = tone === 'danger' ? t.danger : t.accent
   const mono = `font-family:Consolas,'Courier New',monospace;font-size:17px;font-weight:bold;color:${t.ink};margin-top:7px;`
   // message 整体转义后按行拆分渲染,空行以 &nbsp; 保位
   const messageHtml = multiLineHtml(input.message)
   const body = `
-    ${para(input.severity === 'info' ? '系统监测到以下事件,供知悉:' : '系统监测到异常,请值班操作员立即关注:')}
+    ${para(input.severity === 'info' ? copy.introInfo : copy.introAlert)}
     ${metaGrid(
       [
         metaRow([
           cell(
-            'SEVERITY',
-            `<span style="color:${accent};">[ ${SEVERITY_LABEL[input.severity]} ]</span>`,
+            copy.label.severity,
+            `<span style="color:${accent};">[ ${copy.severityValue[input.severity]} ]</span>`,
             accent,
             { right: true },
           ),
-          cell('SOURCE', escapeHtml(input.source), accent, { right: true, valueStyle: mono }),
-          cell('TIME', escapeHtml(input.time), accent, { valueStyle: mono }),
+          cell(copy.label.source, escapeHtml(input.source), accent, { right: true, valueStyle: mono }),
+          cell(copy.label.time, escapeHtml(input.time), accent, { valueStyle: mono }),
         ]),
         metaRow([
-          `<td colspan="3" style="border-top:1px dashed ${accent};padding:16px 22px;"><div style="font-family:Consolas,monospace;font-size:12px;color:#8A8A85;letter-spacing:3px;margin-bottom:8px;">MESSAGE</div><div style="font-family:Consolas,'Courier New',monospace;font-size:16px;line-height:1.9;color:#F5F5F0;">${messageHtml}</div></td>`,
+          `<td colspan="3" style="border-top:1px dashed ${accent};padding:16px 22px;"><div style="font-family:Consolas,monospace;font-size:12px;color:#8A8A85;letter-spacing:3px;margin-bottom:8px;">${escapeHtml(copy.label.message)}</div><div style="font-family:Consolas,'Courier New',monospace;font-size:16px;line-height:1.9;color:#F5F5F0;">${messageHtml}</div></td>`,
         ]),
       ],
       accent,
     )}
-    ${note('本邮件由系统自动派发,无需回复。请前往服务器日志定位根因后再恢复。')}`
+    ${note(copy.footNote)}`
   return {
-    subject: `[${SEVERITY_LABEL[input.severity]}] ${input.title}`,
+    subject: `[${copy.subjectPrefix[input.severity]}] ${input.title}`,
     html: renderDispatchEmail({
-      tag: `SYSTEM // ALERT_${SEVERITY_LABEL[input.severity]}`,
+      tag: copy.tag[input.severity],
       title: input.title,
       bodyHtml: body,
+      locale,
       tone,
     }),
-    text: `[${SEVERITY_LABEL[input.severity]}] ${input.title}\n${input.message}\n来源:${input.source} · 时间:${input.time}`,
+    text: `[${copy.subjectPrefix[input.severity]}] ${input.title}\n${input.message}\n${copy.textSource}:${input.source} · ${copy.textTime}:${input.time}`,
   }
 }
 

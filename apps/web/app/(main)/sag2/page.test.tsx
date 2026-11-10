@@ -5,6 +5,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 
+// 页面壳在客户端组件里读 useSearchParams（静态导出不能读服务端 searchParams），
+// 这里用可复位的 URLSearchParams 还原「地址栏带 q/path」这一事实。
+const nav = vi.hoisted(() => ({ params: new URLSearchParams() }))
+vi.mock('next/navigation', () => ({
+  useSearchParams: () => nav.params,
+}))
+
 // 与 PageClient.test.tsx 同口径：只旁路展示层原子组件与 i18n，绝不 vi.mock('@/lib/api')。
 vi.mock('next-intl', () => ({
   useTranslations: () => (key: string) => key,
@@ -74,13 +81,17 @@ function installRouted(routes: Array<{ suffix: string; body: string }>) {
 }
 
 /**
- * page.tsx 是 **async server component**：RTL 不能直接 render 返回 Promise 的组件
- * （渲染结果会是空 div，测试变成假绿）。这里按 Next 的调用约定先 await 出元素树再 render，
- * 因此「searchParams → PageClient props」这一段是真的被执行过的。
+ * page.tsx 是**同步静态壳**（`<Suspense>` + 客户端组件读 useSearchParams）：
+ * 静态导出没有请求期，服务端读 searchParams 会让 /sag2 判成动态路由、构建失败。
+ * 这里把查询串喂给 useSearchParams 再渲染整棵树，因此
+ * 「searchParams → PageClient props → 自动检索」这一段仍然被真实执行。
  */
-async function renderPage(params: { q?: string; path?: string } = {}) {
-  const tree = await Sag2Page({ searchParams: Promise.resolve(params) })
-  return render(tree)
+function renderPage(params: { q?: string; path?: string } = {}) {
+  const sp = new URLSearchParams()
+  if (params.q) sp.set('q', params.q)
+  if (params.path) sp.set('path', params.path)
+  nav.params = sp
+  return render(<Sag2Page />)
 }
 
 afterEach(() => {

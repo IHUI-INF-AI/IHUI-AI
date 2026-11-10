@@ -75,7 +75,7 @@ export async function pickAskImages({
 
 export interface AskImageFieldProps {
   images: readonly string[]
-  /** 上限文案由宿主给出:小程序读 `ask.create.maxImages`,RN 复用既有发布图文案。 */
+  /** 上限文案由宿主给出:两端都读 `aigcPublish.errorMaxFiles`(带 {max} 参数),口吻一致。 */
   maxToast: string
   media: MediaPort
   onToast: OnToast

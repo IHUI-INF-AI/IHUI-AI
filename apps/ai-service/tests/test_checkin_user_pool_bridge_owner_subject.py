@@ -138,7 +138,7 @@ async def test_upsert_桥发出的载荷_键级不含自报主体_主体在票�
     assert headers[INTERNAL_TOKEN_HEADER] == LEGACY
     claims = _claims(headers)
     assert claims["sub"] == OWNER, "主体必须住在票里,不住在 body 里"
-    assert claims["scope"] == "ai-callback"
+    assert claims["scope"] == "relay-user-pool"
     assert changed is True and dm["pool_account_id"] == "pa-1"
 
 

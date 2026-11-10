@@ -378,6 +378,12 @@ export interface DispatchResourceStats {
   parentDispatchId?: string
   attention?: DispatchAttention
   result?: string
+  /**
+   * 工具调用总账(P1,2026-11-08):steps 里真实返回的原生 tool_calls 之和。
+   * 恒有值(0 也显式返回)——「completed 但 toolCalls=0」是假成功的机械判据,
+   * 不让消费方靠读日志猜。
+   */
+  toolCalls: number
   steps: Array<{
     agent: string
     durationMs: number
@@ -455,18 +461,20 @@ export interface QueueEntry {
   position: number
 }
 
-/** 配额使用情况 */
+/**
+ * 配额使用情况。
+ * 唯一契约源 = packages/shared `QuotaUsage`(web 详情页 `used.elapsedMs / tokensUsed /
+ * retriesUsed` 直接按此消费);API 只做聚合出口,不另立 `{dispatchId, quotas, agents[]}`
+ * 这类同名字段不同形状的副本(2026-11-08 契约漂移收敛)。
+ */
 export interface QuotaUsage {
-  dispatchId: string
-  quotas: QuotaConfig
-  agents: Array<{
-    agent: string
-    durationMs: number
-    tokenUsage: number
-    retries: number
-    status: 'ok' | 'failed' | 'quota_exceeded' | 'running' | 'pending'
-    exceeded: 'none' | 'timeout' | 'tokens' | 'retries'
-  }>
+  quota: QuotaConfig
+  used: {
+    elapsedMs: number
+    tokensUsed: number
+    retriesUsed: number
+  }
+  exceeded: boolean
 }
 
 /** DAG 可视化数据 */
@@ -600,6 +608,12 @@ interface DispatchRuntime {
     attempt: number
     status: 'ok' | 'failed' | 'quota_exceeded'
     error?: string
+    /**
+     * 该次尝试里模型真实返回的原生 tool_calls 条数(0 = 一次都没调)。
+     * 与 tokenUsage 同源取自 ai-service 响应;缺失(旧记录/多轮通信)按 0 计,
+     * 由 getDispatchStats 聚合进 metrics.toolCalls —— 「跑了但零工具执行」因此可机械识别。
+     */
+    toolCalls?: number
   }>
   logs: LogEntry[]
   startedAt?: number
@@ -867,6 +881,18 @@ function extractTokenUsage(
   if (stepsTotal.total > 0) return stepsTotal
   const estimated = Math.ceil((finalOutput?.length ?? 0) / 4)
   return { prompt: 0, completion: estimated, total: estimated }
+}
+
+/**
+ * 从 ai-service 响应里数真实原生 tool_calls 条数。
+ * 只读 `steps[].tool_calls`(编排器逐 agent 回传的真实调用明细);
+ * 缺失 / 非数组一律 0,不按文本里的 `<tool_call>` 之类痕迹估算(那等于把模型幻觉当执行)。
+ */
+function extractToolCallCount(data: AiOrchestrationResult | null | undefined): number {
+  return (data?.steps ?? []).reduce(
+    (acc, s) => acc + (Array.isArray(s.tool_calls) ? s.tool_calls.length : 0),
+    0,
+  )
 }
 
 /**
@@ -3068,6 +3094,7 @@ export class SubagentDispatchService {
           attempt,
           status: 'quota_exceeded',
           error: quotaError,
+          toolCalls: result.ok ? extractToolCallCount(result.data) : 0,
         })
         // 写 checkpoint
         await this._writeCheckpoint(id, {
@@ -3100,6 +3127,7 @@ export class SubagentDispatchService {
         attempt,
         status: result.ok ? 'ok' : 'failed',
         error: result.ok ? undefined : result.message,
+        toolCalls: result.ok ? extractToolCallCount(result.data) : 0,
       })
 
       if (result.ok) {
@@ -3365,6 +3393,7 @@ export class SubagentDispatchService {
               attempt,
               status: 'quota_exceeded',
               error: quotaError,
+              toolCalls: callResult.ok ? extractToolCallCount(callResult.data) : 0,
             })
             await this._writeCheckpoint(id, {
               stepId: nodeId,
@@ -3410,6 +3439,7 @@ export class SubagentDispatchService {
             tokenUsage,
             attempt,
             status: 'ok',
+            toolCalls: callResult.ok ? extractToolCallCount(callResult.data) : 0,
           })
         } else {
           runtime.dagNodeStatus.set(nodeId, 'failed')
@@ -3428,6 +3458,8 @@ export class SubagentDispatchService {
             attempt,
             status: 'failed',
             error: callResult?.message,
+            // failed 分支必然没有成功的 ai-service 响应 ⇒ 实证 toolCalls 恒 0
+            toolCalls: 0,
           })
         }
       })
@@ -3564,6 +3596,7 @@ export class SubagentDispatchService {
         attempt,
         status: result.ok ? 'ok' : 'failed',
         error: result.ok ? undefined : result.message,
+        toolCalls: result.ok ? extractToolCallCount(result.data) : 0,
       })
 
       if (result.ok) {
@@ -3802,6 +3835,7 @@ export class SubagentDispatchService {
       parentDispatchId: d.parentDispatchId,
       attention: d.attention,
       result: d.result,
+      toolCalls: runtime.steps.reduce((acc, s) => acc + (s.toolCalls ?? 0), 0),
       steps: runtime.steps.map((s) => ({
         agent: s.agent,
         durationMs: s.durationMs,
@@ -4020,66 +4054,20 @@ export class SubagentDispatchService {
       tokenQuota: 0,
       maxRetries: 0,
     }
-    // 按 agent 聚合 steps
-    const agentMap = new Map<
-      string,
-      {
-        durationMs: number
-        tokenUsage: number
-        retries: number
-        lastStatus: 'ok' | 'failed' | 'quota_exceeded' | 'running' | 'pending'
-      }
-    >()
-    for (const step of runtime.steps) {
-      const existing = agentMap.get(step.agent) ?? {
-        durationMs: 0,
-        tokenUsage: 0,
-        retries: 0,
-        lastStatus: 'pending' as const,
-      }
-      existing.durationMs += step.durationMs
-      existing.tokenUsage += step.tokenUsage.total
-      if (step.status === 'failed') existing.retries++
-      existing.lastStatus =
-        step.status === 'ok' ? 'ok' : step.status === 'quota_exceeded' ? 'quota_exceeded' : 'failed'
-      agentMap.set(step.agent, existing)
-    }
-    // DAG 节点状态
-    if (runtime.dag) {
-      for (const node of runtime.dag.nodes) {
-        if (!agentMap.has(node.agentRole)) {
-          const dagStatus = runtime.dagNodeStatus.get(node.id) ?? 'pending'
-          agentMap.set(node.agentRole, {
-            durationMs: 0,
-            tokenUsage: 0,
-            retries: 0,
-            lastStatus:
-              dagStatus === 'completed' ? 'ok' : dagStatus === 'running' ? 'running' : 'pending',
-          })
-        }
-      }
-    }
+    // 与 GET /:id/stats 同一耗时口径:未开跑记 0(不拿 Date.now()-0 冒充已用时)
+    const elapsedMs =
+      runtime.startedAt !== undefined ? (runtime.completedAt ?? Date.now()) - runtime.startedAt : 0
+    const tokensUsed = runtime.steps.reduce((acc, s) => acc + s.tokenUsage.total, 0)
+    // 重试数 = 实际发生过的重试(attempt > 1 的步骤),首次尝试不计
+    const retriesUsed = runtime.steps.filter((s) => s.attempt > 1).length
+    const exceeded =
+      (quotas.timeoutMs > 0 && elapsedMs > quotas.timeoutMs) ||
+      (quotas.tokenQuota > 0 && tokensUsed > quotas.tokenQuota) ||
+      (quotas.maxRetries > 0 && retriesUsed > quotas.maxRetries)
     return {
-      dispatchId: id,
-      quotas,
-      agents: Array.from(agentMap.entries()).map(([agent, usage]) => {
-        let exceeded: 'none' | 'timeout' | 'tokens' | 'retries' = 'none'
-        if (quotas.timeoutMs > 0 && usage.durationMs > quotas.timeoutMs) {
-          exceeded = 'timeout'
-        } else if (quotas.tokenQuota > 0 && usage.tokenUsage > quotas.tokenQuota) {
-          exceeded = 'tokens'
-        } else if (quotas.maxRetries > 0 && usage.retries > quotas.maxRetries) {
-          exceeded = 'retries'
-        }
-        return {
-          agent,
-          durationMs: usage.durationMs,
-          tokenUsage: usage.tokenUsage,
-          retries: usage.retries,
-          status: usage.lastStatus,
-          exceeded,
-        }
-      }),
+      quota: quotas,
+      used: { elapsedMs, tokensUsed, retriesUsed },
+      exceeded,
     }
   }
 

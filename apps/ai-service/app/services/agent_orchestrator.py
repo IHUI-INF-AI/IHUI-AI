@@ -1619,6 +1619,13 @@ class AgentOrchestrator:
                 tc_raw = result.get("tool_calls") or []
                 if not tc_raw:
                     output = content
+                    # 工具能力不成立(2026-11-08):网已判该端点只会把工具调用写成文本。
+                    # 此时禁止"不带 tools 再总结一次"的退路 —— 那只会再造一次
+                    # 「零工具执行但 completed」的假成功;直接按失败上报。
+                    if result.get("errorCode") == "MODEL_TOOL_CAPABILITY_UNVERIFIED":
+                        raise RuntimeError(
+                            str(result.get("errorMessage") or "模型工具调用能力未通过实证")
+                        )
                     # 防御:complete 返回错误(content 为空 + error=True)时,
                     # 不把空 content 当正常输出;尝试不带 tools 再调一次让 LLM 基于已有上下文总结
                     if not content and result.get("error"):

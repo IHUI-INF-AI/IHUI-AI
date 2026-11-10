@@ -517,6 +517,10 @@ def test_auto_record_on_open_and_click(monkeypatch, tmp_path: Path):
     # (两者都不是本模块的形状了)—— 把替身页面放进该用户的会话条目即可,
     # `_ensure_page("test-user")` 会直接复用它,不启动 Chromium。
     _install_session("test-user", fake_page)
+    # AIS-035(bc025ddb42)起 /open 先过 SSRF 闸,`mock.test` 是保留 TLD 不解析,
+    # 真实尺子必判 400。本用例判的是"open/click 自动记步",不是 SSRF 本体
+    # (那份判据钉在 test_batch_ais035_083_nav_ssrf_and_edit_lock.py),故打桩放行。
+    monkeypatch.setattr(cu, "_validate_url_ssrf", lambda _url: (True, ""))
 
     with client:
         client.post("/api/computer-use/trace/start", json={"trace_id": "bt-auto"})
