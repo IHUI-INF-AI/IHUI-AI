@@ -122,7 +122,7 @@ interface ApiError {
 | 租户配额(storage) | 10 GB/租户 | 上传拒绝 |
 | 租户配额(users) | tenantQuotas.userLimit | 拒绝新用户 |
 
-环境变量:`NODE_ENV=production` 启用生产限流,`TENANT_STRICT_MODE=true` 启用多租户严格模式(未携带租户标识 → 401)。
+环境变量:`NODE_ENV=production` 启用生产限流;`TENANT_STRICT_MODE` **缺省即严格**(未携带 `X-Tenant-Id` 或子域租户标识 → 401),只有单租户本地开发才显式设 `false` 放行。
 
 ---
 
