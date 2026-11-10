@@ -1064,4 +1064,104 @@ test('T34 R3 档位形状锁:扩面唯一进 reds 的是 red-r3-rot,未登记只
   )
 })
 
+test('T35 多模式分片:并集与顺序逐字守恒,边界与非法粒度当场拒', () => {
+  const names = Array.from({ length: 131 }, (_, i) => `check-${String(i).padStart(3, '0')}.mjs`)
+  const parts = G.shardPatterns(names, 64)
+  assert.deepEqual(
+    parts.map((p) => p.length),
+    [64, 64, 3],
+  )
+  assert.deepEqual(parts.flat(), names, '分片并集必须逐字还原原名单与原序')
+  assert.deepEqual(G.shardPatterns([], 64), [], '空名单 0 片')
+  assert.deepEqual(
+    G.shardPatterns(names.slice(0, 64), 64).map((p) => p.length),
+    [64],
+    '恰好一片不再切',
+  )
+  assert.ok(Number.isInteger(G.GREP_PATTERN_SHARD_SIZE) && G.GREP_PATTERN_SHARD_SIZE > 0)
+  assert.deepEqual(
+    G.shardPatterns(names),
+    G.shardPatterns(names, G.GREP_PATTERN_SHARD_SIZE),
+    '默认粒度 = 导出常量',
+  )
+  for (const bad of [0, -1, 1.5, NaN]) {
+    assert.throws(
+      () => G.shardPatterns(names, bad),
+      RangeError,
+      `粒度 ${bad} 会让步长失效(死循环),必须拒`,
+    )
+  }
+})
+
+test('T36 分片结果合并:顺序拼接、失败原样上抛、后续片一次都不派生', () => {
+  const a = { ok: true, out: 'HEAD:scripts/a.mjs:check-a.mjs' }
+  const b = { ok: true, out: 'HEAD:scripts/b.mjs:check-b.mjs' }
+  const bad = { ok: false, out: '', err: 'git grep 自身异常' }
+  assert.deepEqual(G.mergeGrepShardResults([]), { ok: true, out: '' }, '0 片是合法空结果,不是失败')
+  assert.deepEqual(G.mergeGrepShardResults([a, b]), { ok: true, out: `${a.out}\n${b.out}` })
+  let spawned = 0
+  function* lazy() {
+    spawned++
+    yield a
+    spawned++
+    yield bad
+    spawned++
+    yield b // 不得被消费
+  }
+  assert.deepEqual(G.mergeGrepShardResults(lazy()), bad, '失败片必须原样上抛(调用方照旧 return 2)')
+  assert.equal(spawned, 2, '遇失败即停,第三片一次都不派生')
+})
+
+test('T37 接线点归属回填:按 path 分派,不串点/不收名单外名字/husky 仍按前缀收口', () => {
+  const points = [
+    { id: 'runner', files: ['scripts/guardian-runner.mjs'] },
+    { id: 'husky', files: ['.husky/pre-push', '.husky/pre-commit'] },
+    { id: 'package-json', files: ['package.json'] },
+    { id: 'empty', files: [] },
+  ]
+  const out = [
+    'HEAD:scripts/guardian-runner.mjs:check-a.mjs',
+    'HEAD:scripts/guardian-runner.mjs:check-a.mjs', // 重复行由 Set 收敛
+    'HEAD:.husky/pre-push:check-b.mjs',
+    'HEAD:.husky/not-owned.mjs:check-b.mjs', // 不在该点文件清单 ⇒ 不进
+    'HEAD:scripts/other.mjs:check-c.mjs', // 不属于任何点 ⇒ 不进
+    'HEAD:package.json:check-b.mjs',
+    'HEAD:package.json:unknown.mjs', // 名单外 ⇒ parseGrepHits 丢
+  ].join('\n')
+  const hits = G.assignGrepHitsToPoints(out, ['check-a.mjs', 'check-b.mjs', 'check-c.mjs'], points)
+  assert.deepEqual([...hits.keys()].sort(), ['empty', 'husky', 'package-json', 'runner'])
+  assert.deepEqual([...hits.get('runner')], ['check-a.mjs'])
+  assert.deepEqual([...hits.get('husky')], ['check-b.mjs'])
+  assert.deepEqual([...hits.get('package-json')], ['check-b.mjs'])
+  assert.equal(hits.get('empty').size, 0, '0 文件点仍要有空 Set,不得缺键')
+})
+
+test('T38 提速形状锁:两轮各一次 gitGrep、命令参数未换、无第二份逐点 pathspec', () => {
+  const src = readFileSync(
+    join(fileURLToPath(new URL('.', import.meta.url)), '..', 'check-gate-wiring.mjs'),
+    'utf8',
+  )
+  assert.equal((src.match(/gitGrep\(gateNames/g) || []).length, 1, '门形档那一轮只能有一处 gitGrep')
+  assert.equal(
+    (src.match(/gitGrep\(extraFaceNames/g) || []).length,
+    1,
+    'R3 扩面必须仍复用同一支 gitGrep(§0.6)',
+  )
+  assert.ok(!src.includes('pathsForGrep'), '逐点 pathspec 已收成一份全集,不得留第二份口径')
+  assert.ok(
+    src.includes('const hitsByPoint = assignGrepHitsToPoints('),
+    '点归属必须由单份纯函数回填',
+  )
+  assert.ok(/assignGrepHitsToPoints\(\s*rFace\.out/.test(src), '扩面同样走归属回填')
+  assert.ok(
+    src.includes("const args = ['grep', '-o', '-I', '-F']"),
+    'git grep 命令与 -o/-I/-F 参数一字未换',
+  )
+  assert.ok(
+    src.includes('mergeGrepShardResults(grepShardResults(shardPatterns(patterns)'),
+    '分片只包在 gitGrep 内部',
+  )
+  assert.ok(!src.includes('Promise.all'), '不得引入并发层(实测 15 个 git 进程争用反而更慢)')
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
