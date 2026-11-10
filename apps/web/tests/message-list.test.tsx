@@ -1023,5 +1023,33 @@ describe('MessageList — v2 深度优化(对标 AI 工作台)', () => {
       await waitFor(() => expect(screen.queryByTestId('message-quote-selection-a-sel')).toBeNull())
     })
   })
+
+  // ─── 边缘淡出遮罩接线(2026-11-10 立,多端一致规格)──────────────────
+  // 显隐判据本体已由 src/components/common/__tests__/scroll-edge-fades.test.tsx 5 条钉死;
+  // 本条只钉「MessageList 确实把 ScrollEdgeFades 挂在了滚动视口的 relative 包裹层里」——
+  // 后端 dev 环境 500 导致浏览器实测聊天区被阻塞,挂载级对账即聊天区淡出的闭环证据。
+  describe('边缘淡出遮罩接线', () => {
+    it('消息滚动容器的 relative 包裹层内含上下两条 24px 淡出层', () => {
+      const msg = makeAssistantMsg('m-fade', 'x'.repeat(200))
+      const { container } = render(<MessageList {...baseProps} messages={[msg]} />)
+      const scroller = container.querySelector<HTMLElement>(
+        '[data-testid="message-list-inline-panel"]',
+      )
+      expect(scroller).toBeTruthy()
+      expect(scroller!.className).toContain('overflow-y-auto')
+      const wrap = scroller!.parentElement!
+      expect(wrap.className).toContain('relative')
+      const fadeEls = Array.from(wrap.children).filter(
+        (n) => (n as HTMLElement).getAttribute?.('aria-hidden') === 'true',
+      ) as HTMLElement[]
+      expect(fadeEls.length).toBe(2)
+      for (const el of fadeEls) {
+        expect(el.style.height).toBe('24px')
+        expect(el.className).toContain('pointer-events-none')
+      }
+      expect(fadeEls[0].className).toContain('top-0')
+      expect(fadeEls[1].className).toContain('bottom-0')
+    })
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
