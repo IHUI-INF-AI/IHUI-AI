@@ -44,8 +44,9 @@ const require = createRequire(import.meta.url)
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
 
 export const DOUBAO_BASE_URL = 'https://www.doubao.com'
-/** 会话 cookie 域(实证 .doubao.com;www.doubao.com 也可能单独成行) */
-const COOKIE_HOSTS = ['.doubao.com', 'doubao.com', 'www.doubao.com']
+/** 会话 cookie 域(实证 .doubao.com;www.doubao.com 也可能单独成行)。
+ *  .bytedance.com 的 msToken 是同族风控票,alice/ug 活动接口要它 —— 一起带上(2026-11-11)。 */
+const COOKIE_HOSTS = ['.doubao.com', 'doubao.com', 'www.doubao.com', '.bytedance.com']
 /** 登录过期码(实测无 cookie 直调 `{"code":710012001,"msg":"登录已过期，请重新登录"}`) */
 export const LOGIN_INVALID_CODE = '710012001'
 /** 与 apps/api doubao-adapter 的 DOUBAO_FALLBACK_DEVICE_ID 同源:本机锚定 device_id,
