@@ -2,11 +2,16 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { getDistributionTree, getTeamMembers, getTeamStats } from '@ihui/api-client'
+import {
+  getDistributionTree,
+  getTeamMembers,
+  getTeamStats,
+  type TeamMemberItem,
+} from '@ihui/api-client'
 import { formatDateOnly } from '@ihui/shared/utils/date-utils'
 import {
   TeamScreen as SharedTeamScreen,
@@ -20,6 +25,25 @@ import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
+
+const PAGE_SIZE = 20
+
+/** 接口行 → 共享屏 TeamMember(日期格式化在数据层完成,共享屏只渲染) */
+function toMember(m: TeamMemberItem): TeamMember {
+  return {
+    id: m.id,
+    nickname: m.nickname,
+    avatar: m.avatar,
+    level: m.level,
+    joinDate: formatDateOnly(m.joinDate),
+    contribution: m.contribution,
+    status: m.status,
+    relation: m.relation,
+    transactionVolume: m.transactionVolume,
+    orderNum: m.orderNum,
+    createdAtLabel: formatDateOnly(m.joinDate),
+  }
+}
 
 export function TeamScreen() {
   const { resolvedTheme } = useTheme()
@@ -35,8 +59,14 @@ export function TeamScreen() {
   const [sortBy, setSortBy] = useState<'orderNum' | 'date'>('orderNum')
   const [selectedDate, setSelectedDate] = useState('')
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
+  // 分页:与小程序 distribution/team 同语义(page 从 1 起、PAGE_SIZE=20、按 total 决定 hasMore)
+  const [hasMore, setHasMore] = useState(true)
+  const pageRef = useRef(1)
+  const hasMoreRef = useRef(true)
+  const loadingMoreRef = useRef(false)
   // 分销层级树(未登录保持 undefined ⇒ 共享屏不渲染树区块)
   const [tree, setTree] = useState<TeamTreeNode[] | undefined>(undefined)
   const [treeLoading, setTreeLoading] = useState(false)
@@ -48,11 +78,14 @@ export function TeamScreen() {
       if (refresh) setRefreshing(true)
       else setLoading(true)
       setError('')
+      pageRef.current = 1
+      hasMoreRef.current = true
+      setHasMore(true)
       // 2026-08-21:历史 fetchApi('/team/stats'|'/team/members') 在后端不存在(404),
       // 迁移到真实端点 /distribution/team/*(对齐 Uniapp distribution_personnel_list)。
       const [statsRes, membersRes] = await Promise.all([
         getTeamStats(),
-        getTeamMembers({ page: 1, pageSize: 20 }),
+        getTeamMembers({ page: 1, pageSize: PAGE_SIZE }),
       ])
       if (!statsRes.success || !membersRes.success) {
         setError(t('team.loadFailed'))
@@ -75,26 +108,41 @@ export function TeamScreen() {
       }
       // 格式化日期字段,共享组件只负责渲染
       const rawMembers = membersRes.data?.list ?? []
-      setMembers(
-        rawMembers.map((m) => ({
-          id: m.id,
-          nickname: m.nickname,
-          avatar: m.avatar,
-          level: m.level,
-          joinDate: formatDateOnly(m.joinDate),
-          contribution: m.contribution,
-          status: m.status,
-          relation: m.relation,
-          transactionVolume: m.transactionVolume,
-          orderNum: m.orderNum,
-          createdAtLabel: formatDateOnly(m.joinDate),
-        })),
-      )
+      setMembers(rawMembers.map(toMember))
+      const more = PAGE_SIZE < (membersRes.data?.total ?? 0)
+      hasMoreRef.current = more
+      setHasMore(more)
       setLoading(false)
       setRefreshing(false)
     },
     [t],
   )
+
+  /** 触底翻页:loadingMore/无更多时防重入,成功后 page+1 并追加成员 */
+  const loadMore = useCallback(async () => {
+    if (loadingMoreRef.current || !hasMoreRef.current) return
+    loadingMoreRef.current = true
+    setLoadingMore(true)
+    try {
+      const nextPage = pageRef.current + 1
+      const res = await getTeamMembers({ page: nextPage, pageSize: PAGE_SIZE })
+      if (!res.success) {
+        setError(t('team.loadFailed'))
+        return
+      }
+      const rawMembers = res.data?.list ?? []
+      setMembers((prev) => [...prev, ...rawMembers.map(toMember)])
+      pageRef.current = nextPage
+      const more = nextPage * PAGE_SIZE < (res.data?.total ?? 0)
+      hasMoreRef.current = more
+      setHasMore(more)
+    } catch {
+      setError(t('team.loadFailed'))
+    } finally {
+      loadingMoreRef.current = false
+      setLoadingMore(false)
+    }
+  }, [t])
 
   useEffect(() => {
     void load()
@@ -186,6 +234,7 @@ export function TeamScreen() {
       loading={loading}
       refreshing={refreshing}
       error={error}
+      onRetry={() => void load()}
       onSelectTab={setActiveTab}
       onRefresh={() => {
         void load(true)
@@ -193,6 +242,9 @@ export function TeamScreen() {
       }}
       onBack={() => navigation.goBack()}
       onPressMember={(memberId) => navigation.navigate('TeamDetail', { memberId })}
+      onEndReached={() => void loadMore()}
+      loadingMore={loadingMore}
+      hasMore={hasMore}
       tree={user ? tree : undefined}
       treeLoading={user ? treeLoading : false}
       treeFailed={user ? treeFailed : false}
