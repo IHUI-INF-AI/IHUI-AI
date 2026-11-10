@@ -104,10 +104,8 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | — blocking | 327 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
 | 跟踪文件 | 20854 | `trackedFiles` |
-
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-10。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
-
 <!-- END GENERATED NUMBERS -->
 **一句话口径**:数字一律现读,文档里不写「约 N 个」——那种写法必然腐烂。
 ---
@@ -43849,3 +43847,5 @@ A: Yes. Test file and case counts: see the generated table / 67 e2e spec / 4721 
 | CLI 工具文件 | 98 | `cliToolFiles` |
 | 测试文件 | 4798 | `testFiles` |
 | 跟踪文件 | 20680 | `trackedFiles` |
+| 测试文件 | 4817 | `testFiles` |
+| 跟踪文件 | 20847 | `trackedFiles` |

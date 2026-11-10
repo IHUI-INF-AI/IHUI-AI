@@ -5,48 +5,48 @@
       "evidence": {
         "runs": [
           {
-            "afterTokens": 2216,
+            "afterTokens": 2306,
             "beforeTokens": 3700,
             "compressed": true,
             "danglingToolCallIds": [],
             "degenerate": true,
-            "messagesAfter": 3,
+            "messagesAfter": 4,
             "orphanToolCallIds": [],
             "reason": "sampler-failed",
-            "removedCount": 27,
+            "removedCount": 26,
             "sample": "",
             "samplerCalls": 1,
-            "summaryChars": 2533,
+            "summaryChars": 2467,
             "trigger": "ratio"
           },
           {
-            "afterTokens": 2216,
+            "afterTokens": 2306,
             "beforeTokens": 3700,
             "compressed": true,
             "danglingToolCallIds": [],
             "degenerate": true,
-            "messagesAfter": 3,
+            "messagesAfter": 4,
             "orphanToolCallIds": [],
             "reason": "sampler-failed",
-            "removedCount": 27,
+            "removedCount": 26,
             "sample": "   ",
             "samplerCalls": 1,
-            "summaryChars": 2533,
+            "summaryChars": 2467,
             "trigger": "ratio"
           },
           {
-            "afterTokens": 2216,
+            "afterTokens": 2306,
             "beforeTokens": 3700,
             "compressed": true,
             "danglingToolCallIds": [],
             "degenerate": true,
-            "messagesAfter": 3,
+            "messagesAfter": 4,
             "orphanToolCallIds": [],
             "reason": "sampler-failed",
-            "removedCount": 27,
+            "removedCount": 26,
             "sample": "[占位] 已完成。",
             "samplerCalls": 1,
-            "summaryChars": 2533,
+            "summaryChars": 2467,
             "trigger": "ratio"
           }
         ]
@@ -56,7 +56,7 @@
       "metrics": {
         "compaction.compressed": true,
         "compaction.degenerate_summary": true,
-        "compaction.token_reduction": 1484,
+        "compaction.token_reduction": 1394,
         "compaction.tool_pair_integrity": true
       },
       "passed": true
@@ -786,7 +786,7 @@
       "passed": true
     }
   ],
-  "commit": "158c6f95598f331138d661b04ab9aa459e88e71a",
+  "commit": "f779dca91c5c5d6dbba54c159fa9542c7083243e",
   "fixtureHash": "f7450dddd300c825a686b9651a025b294adeb3440ce97cc7181071902e85ffb2",
   "schemaVersion": 1
 }

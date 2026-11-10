@@ -50,6 +50,13 @@ const BASE_GLOBAL = 'https://api.z.ai'
 /** GLM Coding Plan 专属 OpenAI 兼容面(与通用资源包面 /api/paas/v4 不能混用) */
 const CHAT_PATH = '/api/coding/paas/v4/chat/completions'
 /**
+ * 模型清单走**通用资源面**(2026-11-10 实弹:`GET {region}/api/paas/v4/models` +
+ * 账号项目 api-key ⇒ 200 `{object:"list",data:[{id:"glm-4.5",…}]}`)。同一端点用
+ * zcodejwttoken ⇒ 401,coding 面 `/api/coding/paas/v4/models` ⇒ 401
+ * ⇒ 清单只认「通用面 + 账号 api-key」这一组合,不复用 chat 的票。
+ */
+const MODELS_PATH = '/api/paas/v4/models'
+/**
  * 套餐/余额查询面(coding 域旧版资源接口;通用域同路径 /api/paas/v4/users/me/balance
  * 查现金余额。2026-10-27 起额度/健康检查走 zcode-plan 通道(PLAN_*),此常量保留作
  * 后备参考;实弹复核:该路径对 zcodejwttoken 亦 401,不再作为主通道)。
@@ -142,6 +149,23 @@ interface ZcodePlanBalanceEnvelope {
   }
 }
 
+/**
+ * 账号项目 API Key(credentialMap 里 `account-provider:…:api-key`)。
+ * 2026-11-10 实弹:通用面模型清单只认它(oauth / zcodejwttoken ⇒ 401);
+ * 取不到才回落 chat 用的 token。
+ */
+function accountApiKey(ctx: AdapterAccountContext): string {
+  const cm = ctx.credentials.secrets?.['credentialMap']
+  if (cm && typeof cm === 'object') {
+    for (const [k, v] of Object.entries(cm as Record<string, unknown>)) {
+      if (!/(^|[:-])api-?key$/i.test(k)) continue
+      const key = str(v)
+      if (key) return key
+    }
+  }
+  return ctx.credentials.token
+}
+
 // =============================================================================
 // fetch 解析(测试缝 > 账号级代理 > 全局直连;对齐 codearts/trae 同款做法)
 // =============================================================================
@@ -182,11 +206,18 @@ function str(v: unknown): string {
 
 /**
  * 账号区域:secrets.region(提取器已把 region 带进 raw,映射后落 secrets)>
- * extraMetadata.region > 'cn' 兜底(主仓在 CN;region 判不出落国内域,显式决策留痕)。
+ * credentialMap.oauth:active_provider(=zai ⇒ 国际站,2026-11-10 实证:该号
+ * api.z.ai/api/paas/v4/models 200、zcode-plan 走 zcode.z.ai)> extraMetadata.region >
+ * 'cn' 兜底(主仓在 CN;region 判不出落国内域,显式决策留痕)。
  */
 function resolveRegion(ctx: AdapterAccountContext): 'cn' | 'global' {
   const secrets = (ctx.credentials.secrets ?? {}) as Record<string, unknown>
   if (str(secrets['region']) === 'global') return 'global'
+  const cm = secrets['credentialMap']
+  if (cm && typeof cm === 'object') {
+    const active = str((cm as Record<string, unknown>)['oauth:active_provider'])
+    if (active === 'zai') return 'global'
+  }
   const extra = ctx.row.extraMetadata as Record<string, unknown> | null | undefined
   if (extra && str(extra['region']) === 'global') return 'global'
   return 'cn'
@@ -404,6 +435,41 @@ async function getQuota(
   }
 }
 
+/**
+ * 上游模型清单(2026-11-10 实弹):`GET {base}/api/paas/v4/models` + 账号 api-key
+ * ⇒ 200 `{object:"list",data:[{id:"glm-5.3",…}]}`。按账号区域先打本站,失败换另一站
+ * (清单是资源面,不消耗对话额度);两站都取不到 ⇒ 空数组,不猜模型。
+ */
+async function listModels(
+  ctx: AdapterAccountContext,
+  opts?: AdapterCallOptions,
+): Promise<string[]> {
+  const key = accountApiKey(ctx)
+  if (!key) return []
+  const bases = resolveRegion(ctx) === 'global' ? [BASE_GLOBAL, BASE_CN] : [BASE_CN, BASE_GLOBAL]
+  for (const base of bases) {
+    try {
+      const res = await resolveFetchImpl(opts ?? {})(`${base}${MODELS_PATH}`, {
+        method: 'GET',
+        headers: { accept: 'application/json', authorization: `Bearer ${key}` },
+      })
+      if (!res.ok) continue
+      const json = (await res.json()) as { data?: unknown }
+      if (!Array.isArray(json?.data)) continue
+      const ids: string[] = []
+      for (const item of json.data) {
+        if (!item || typeof item !== 'object') continue
+        const id = str((item as Record<string, unknown>)['id'])
+        if (id) ids.push(id)
+      }
+      if (ids.length > 0) return ids
+    } catch {
+      /* 换另一站再试 */
+    }
+  }
+  return []
+}
+
 async function checkHealth(
   ctx: AdapterAccountContext,
   opts?: AdapterCallOptions,
@@ -463,8 +529,9 @@ export const zcodeAdapter: RelayUpstreamAdapter = {
   translateNonStream,
   // refreshToken 不实现:ZCode OAuth 刷新端点未实证,绝不猜端点(401 自愈靠重新导入)
   checkHealth,
+  // listModels 走通用资源面 + 账号 api-key(2026-11-10 实弹);健康检查仍走余额端点
+  listModels,
   getQuota,
-  // listModels 不实现:模型清单端点未实证(健康检查走余额端点)
   isAuthFailure,
   classifyUpstreamFailure,
 }

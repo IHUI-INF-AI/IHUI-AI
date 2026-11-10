@@ -239,8 +239,8 @@ export function summarizeSamples(records) {
 }
 
 function judgeEndpoint({ id, kind, cand, base, th }) {
-  // 单枚离群的读数槽(只在"超绝对阈但样本数不足"时被填,末行必须把它说出来)
-  let candSingleOutlier = null
+  // 单枚离群的读数槽(两维各自可能填一条:绝对阈值维 / 相对基线维;末行必须把它们都说出来)
+  const outlierNotes = []
   if (!cand) {
     return { id, kind, verdict: 'unknown', reason: `${id}:候选无样本(未判定)` }
   }
@@ -290,7 +290,9 @@ function judgeEndpoint({ id, kind, cand, base, th }) {
       }
     }
     // 落到这里 = 单枚离群 ⇒ 不判死,但把这一格挂进末行读数(调用方原样落台账,不是吞掉)。
-    candSingleOutlier = { id, p95Ms: Math.round(cand.p95Ms), overCount, minOver }
+    outlierNotes.push(
+      `⚠️ 单枚离群未判死:P95 ${Math.round(cand.p95Ms)}ms > ${th.maxP95Ms}ms 但超阈样本仅 ${overCount} 枚(< ${minOver})⇒ 进队列并出声,不自动回滚`,
+    )
   }
   const baseUsable = base && base.measured >= th.minSamples
   if (baseUsable && cand.errorRate - base.errorRate > th.maxErrorRateDelta) {
@@ -309,16 +311,32 @@ function judgeEndpoint({ id, kind, cand, base, th }) {
     cand.p95Ms / base.p95Ms > th.maxP95Ratio &&
     cand.p95Ms - base.p95Ms > th.maxP95DeltaMs
   ) {
-    return {
-      id,
-      kind,
-      verdict: 'fail',
-      reason: `${id}:P95 ${Math.round(cand.p95Ms)}ms 较基线 ${Math.round(base.p95Ms)}ms 放大 > ${th.maxP95Ratio}x 且增量 > ${th.maxP95DeltaMs}ms`,
+    // 与上面绝对阈值维同型(B37 当日只修了那一半,这一半漏了):最近秩 P95 在 n≤20 恒等于
+    // 最大值 ⇒ "一枚离群"与"整体变慢"在 p95Ms 上一个数上不可区分。
+    // 2026-11-10 实测备案(web-origin,sha 0d5844dcf8e):10 拍里首拍 5041ms 是 unknown
+    // (status=0,灰度实例刚 up 连不上)、第二拍 4658ms 是冷启动首帧,其余 8 拍 27~138ms、
+    // err=0.0%、公网腿 P95 259ms 全绿 ⇒ P95 被顶到 4658ms,对照基线 275ms 判 16.9x,
+    // 触发自动回滚。而 warmup 剔除口径挡不住这一型:预热拍里一旦有 unknown 就"非全绿",
+    // 按设计整批并入候选(见 canary-policy.json 的 $comment),冷启动首帧因此直接进判据。
+    // 修法与绝对维同源:相对维也要求 ≥minOver 枚样本"各自"同时越过放大与增量阈值才判死,
+    // 阈值与窗口一字未动;真劣化(多枚一致变慢)与整体回归照旧 fail。
+    const minOverRel = Number.isInteger(th.minAbsP95OverSamples) ? th.minAbsP95OverSamples : 2
+    const overRel = (cand.passMs || []).filter(
+      (m) => Number.isFinite(m) && m / base.p95Ms > th.maxP95Ratio && m - base.p95Ms > th.maxP95DeltaMs,
+    ).length
+    if (overRel >= minOverRel) {
+      return {
+        id,
+        kind,
+        verdict: 'fail',
+        reason: `${id}:P95 ${Math.round(cand.p95Ms)}ms 较基线 ${Math.round(base.p95Ms)}ms 放大 > ${th.maxP95Ratio}x 且增量 > ${th.maxP95DeltaMs}ms(超阈样本 ${overRel} 枚 ≥ ${minOverRel})`,
+      }
     }
+    outlierNotes.push(
+      `⚠️ 单枚离群未判死:P95 ${Math.round(cand.p95Ms)}ms 较基线 ${Math.round(base.p95Ms)}ms 放大 > ${th.maxP95Ratio}x 但超阈样本仅 ${overRel} 枚(< ${minOverRel})⇒ 进队列并出声,不自动回滚`,
+    )
   }
-  const outlierNote = candSingleOutlier
-    ? ` ⚠️ 单枚离群未判死:P95 ${candSingleOutlier.p95Ms}ms > ${th.maxP95Ms}ms 但超阈样本仅 ${candSingleOutlier.overCount} 枚(< ${candSingleOutlier.minOver})⇒ 进队列并出声,不自动回滚`
-    : ''
+  const outlierNote = outlierNotes.length ? ` ${outlierNotes.join(' ')}` : ''
   return {
     id,
     kind,
@@ -596,6 +614,32 @@ async function selfTest() {
       }
     }
     if (n !== 2) throw new Error(`两条形状坏只有 ${n} 条被拦住`)
+  })
+  // —— B5~B7(2026-11-10 立:B37 漏掉的另一半 —— 相对基线 P95 维)——
+  t('B5 相对基线单枚离群 ⇒ 不 fail,且相对维必须出声点名"单枚离群未判死"', () => {
+    const base = [rec('a', 'pass', 275), rec('a', 'pass', 275), rec('a', 'pass', 275)]
+    const c = [rec('a', 'pass', 4658), rec('a', 'pass', 117), rec('a', 'pass', 44)]
+    const r = decideCanary({ policy, baseline: base, candidate: c })
+    if (r.verdict !== 'pass') throw new Error(`实得 ${r.verdict}(期望 pass:两维各只有 1 枚超阈)`)
+    const line = JSON.stringify(r)
+    if (!line.includes('单枚离群未判死')) throw new Error(`没出声就是静默放行(§0.3):${line.slice(0, 300)}`)
+    if (!line.includes('较基线')) throw new Error(`相对基线维没出声,只被绝对维接住了:${line.slice(0, 300)}`)
+    if (!line.includes('超阈样本仅 1 枚')) throw new Error(`读数没给样本数:${line.slice(0, 300)}`)
+  })
+  t('B6 相对基线两枚离群 ⇒ 仍 fail(绝对阈值抬到不参战,证明相对维自己判死)', () => {
+    const wide = { ...policy, thresholds: { ...th, maxP95Ms: 100000 } }
+    const base = [rec('a', 'pass', 275), rec('a', 'pass', 275), rec('a', 'pass', 275)]
+    const c = [rec('a', 'pass', 4658), rec('a', 'pass', 1200), rec('a', 'pass', 44)]
+    const r = decideCanary({ policy: wide, baseline: base, candidate: c })
+    if (r.verdict !== 'fail') throw new Error(`实得 ${r.verdict}(期望 fail:两枚各自越过放大与增量)`)
+    if (!JSON.stringify(r).includes('超阈样本 2 枚')) throw new Error(`fail 理由没给超阈样本数:${JSON.stringify(r).slice(0, 300)}`)
+  })
+  t('B7 变异自证:minAbsP95OverSamples=1 时相对维单枚立刻翻回 fail(确证是本档在起作用)', () => {
+    const one = { ...policy, thresholds: { ...th, maxP95Ms: 100000, minAbsP95OverSamples: 1 } }
+    const base = [rec('a', 'pass', 275), rec('a', 'pass', 275), rec('a', 'pass', 275)]
+    const c = [rec('a', 'pass', 4658), rec('a', 'pass', 117), rec('a', 'pass', 44)]
+    const r = decideCanary({ policy: one, baseline: base, candidate: c })
+    if (r.verdict !== 'fail') throw new Error(`摘掉下限后仍 ${r.verdict} ⇒ B5 是被别的档顺手接住的,不是相对维的功劳`)
   })
   t('相对基线错误率抬升 ⇒ fail', () => {
     const base = [rec('a', 'pass', 10), rec('a', 'pass', 10), rec('a', 'pass', 10)]

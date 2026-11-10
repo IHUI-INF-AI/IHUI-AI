@@ -5,41 +5,41 @@
 'use client'
 
 import * as React from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
-import { useTranslations, useLocale } from 'next-intl'
-import { FileText, Loader2, Calendar, Tag } from 'lucide-react'
+import { useTranslations } from 'next-intl'
+import { useTheme } from 'next-themes'
 
 import { apiOrThrow } from '@/lib/api'
-import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
-import { BackButton, SafeHtml } from '@/components/common'
+import { AgreementScreen } from '@ihui/rn-app/pilot'
 import { cn } from '@/lib/utils'
+import {
+  agreementFallbackTitle,
+  normalizeAgreementType,
+  toAgreementContentView,
+  type AgreementPayload,
+} from '@/lib/rn-pilot/agreement-view-model'
+import { useSharedScreenT } from '@/lib/rn-pilot/use-shared-screen-t'
 
 type AgreementType = 'user' | 'privacy'
-
-// 前端短名 → 后端完整 type
-const TYPE_MAP: Record<AgreementType, string> = {
-  user: 'user-agreement',
-  privacy: 'privacy-policy',
-}
-
-interface Agreement {
-  id: string
-  title: string
-  content: string
-  version?: string | null
-  effectiveDate?: string | null
-  type?: string | null
-}
 
 const TABS: { key: AgreementType; labelKey: string }[] = [
   { key: 'user', labelKey: 'userAgreement' },
   { key: 'privacy', labelKey: 'privacyPolicy' },
 ]
 
+/**
+ * 协议总览页(带类型切换条)· web 消费共享屏(2026-11-08 收编)。
+ *
+ * 类型切换条是页内导航(共享屏没有),属壳职责,留在本文件;正文渲染整屏交给
+ * `@ihui/rn-app/pilot` 的 AgreementScreen。返回走浏览器历史(`router.back()`),
+ * 不再自注册顶栏返回组件,避免与全局顶栏重复。
+ */
 export default function AgreementPage() {
   const t = useTranslations('agreement')
-  const locale = useLocale()
+  const tShared = useSharedScreenT()
+  const router = useRouter()
+  const { resolvedTheme } = useTheme()
   const searchParams = useSearchParams()
 
   const typeParam = (searchParams.get('type') as AgreementType | null) ?? 'user'
@@ -53,31 +53,19 @@ export default function AgreementPage() {
     }
   }, [typeParam])
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ['agreement', activeType],
-    queryFn: () => apiOrThrow<Agreement>(`/api/agreements/current?type=${TYPE_MAP[activeType]}`),
+    queryFn: () =>
+      apiOrThrow<AgreementPayload>(
+        `/api/agreements/current?type=${encodeURIComponent(normalizeAgreementType(activeType))}`,
+      ),
     retry: false,
   })
 
-  const fmtDate = (v?: string | null) => {
-    if (!v) return '-'
-    const d = new Date(v)
-    return Number.isNaN(d.getTime()) ? '-' : new Intl.DateTimeFormat(locale).format(d)
-  }
-
-  const agreement = data
+  const colorScheme = resolvedTheme === 'dark' ? 'dark' : 'light'
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-4 px-4 py-4">
-      <BackButton />
-      <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight min-[768px]:text-display">
-          <FileText className="h-7 w-7 text-primary" />
-          {t('title')}
-        </h1>
-        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
-      </header>
-
       {/* 协议类型切换 */}
       <div className="flex flex-wrap gap-1 rounded-lg border bg-muted/30 p-1">
         {TABS.map((tab) => (
@@ -91,69 +79,21 @@ export default function AgreementPage() {
                 : 'text-muted-foreground hover:text-foreground',
             )}
           >
-            <FileText className="h-3.5 w-3.5" />
             {t(tab.labelKey)}
           </button>
         ))}
       </div>
 
-      {isLoading ? (
-        <div className="flex items-center justify-center py-8 text-muted-foreground">
-          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          {t('loading')}
-        </div>
-      ) : error || !agreement ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">
-              {activeType === 'privacy' ? t('privacyPolicy') : t('userAgreement')}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pb-4 text-body text-muted-foreground">
-              <span className="inline-flex items-center gap-1">
-                <Tag className="h-4 w-4" />
-                {t('version')}: v1.0.0
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <Calendar className="h-4 w-4" />
-                {t('effectiveDate')}: {fmtDate(new Date().toISOString())}
-              </span>
-            </div>
-            <div className="space-y-3 text-body leading-relaxed text-muted-foreground">
-              <p>{t('staticContent1')}</p>
-              <p>{t('staticContent2')}</p>
-              <p>{t('staticContent3')}</p>
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">{agreement.title}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pb-4 text-body text-muted-foreground">
-              {agreement.version && (
-                <span className="inline-flex items-center gap-1">
-                  <Tag className="h-4 w-4" />
-                  {t('version')}: {agreement.version}
-                </span>
-              )}
-              {agreement.effectiveDate && (
-                <span className="inline-flex items-center gap-1">
-                  <Calendar className="h-4 w-4" />
-                  {t('effectiveDate')}: {fmtDate(agreement.effectiveDate)}
-                </span>
-              )}
-            </div>
-            <SafeHtml
-              html={agreement.content}
-              className="prose prose-sm max-w-none dark:prose-invert"
-            />
-          </CardContent>
-        </Card>
-      )}
+      <div className="flex min-h-[480px] flex-col overflow-hidden">
+        <AgreementScreen
+          t={tShared}
+          agreement={toAgreementContentView(data)}
+          loading={isLoading}
+          fallbackTitle={agreementFallbackTitle(normalizeAgreementType(activeType), activeType)}
+          onBack={() => router.back()}
+          colorScheme={colorScheme}
+        />
+      </div>
     </div>
   )
 }

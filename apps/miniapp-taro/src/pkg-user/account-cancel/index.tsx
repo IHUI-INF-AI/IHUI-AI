@@ -62,8 +62,9 @@ export default function AccountCancel() {
   const [confirmText, setConfirmText] = useState('')
   const [code, setCode] = useState('')
   // 两个倒计时均为截止戳派生:后台节流后返回前台按墙钟对表(useDidShow 里 sync)
-  const codeCountdown = useCountdown(60)
-  const confirmCountdown = useCountdown(5)
+  // 解构成稳定标识符:对象字面量每次渲染都是新引用,直接放进 deps 会让 effect 反复重启倒计时。
+  const { count: codeCount, start: startCode, reset: resetCode, sync: syncCode } = useCountdown(60)
+  const { count: confirmCount, start: startConfirm, sync: syncConfirm } = useCountdown(5)
   const codeSendingRef = useRef(false)
 
   const phone = (info?.phone as string) || ''
@@ -88,8 +89,8 @@ export default function AccountCancel() {
   }, [])
 
   useDidShow(() => {
-    codeCountdown.sync()
-    confirmCountdown.sync()
+    syncCode()
+    syncConfirm()
     // G-933 冷启动门控:资料自查 GET /user/profile(checkAuth)需鉴权
     gate.waitUntilReady(() => {
       void loadData()
@@ -98,11 +99,11 @@ export default function AccountCancel() {
 
   // 页级 5 秒强制阅读倒计时(进入页面即开始,结束前禁止提交;闸门留在本地页)
   useEffect(() => {
-    confirmCountdown.start()
-  }, [confirmCountdown.start])
+    startConfirm()
+  }, [startConfirm])
 
   const onSendCode = useCallback(async () => {
-    if (codeCountdown.count > 0 || !phone) return
+    if (codeCount > 0 || !phone) return
     // 2026-08-21 修复(双击重发竞态):count 在 await sendSmsCode 网络往返期间仍为 0,
     // 快速双击会两次通过守卫 → 发两条短信。
     // 用同步 ref 守卫覆盖整个 await 窗口。
@@ -111,18 +112,18 @@ export default function AccountCancel() {
     try {
       await api.sendSmsCode(phone)
       onToast(t('accountCancel.codeSent'), { kind: 'success' })
-      codeCountdown.reset(60)
-      codeCountdown.start()
+      resetCode(60)
+      startCode()
     } catch {
       // 错误已由 request 统一提示
     } finally {
       codeSendingRef.current = false
     }
-  }, [codeCountdown.count, phone, t])
+  }, [codeCount, resetCode, startCode, phone, t])
 
   const onSubmit = useCallback(async () => {
     if (submitting) return
-    if (confirmCountdown.count > 0) return
+    if (confirmCount > 0) return
     if (!phone) {
       onToast(t('accountCancel.noPhone'), { kind: 'error' })
       return
@@ -155,7 +156,7 @@ export default function AccountCancel() {
     } finally {
       setSubmitting(false)
     }
-  }, [submitting, confirmCountdown.count, phone, code, confirmText, t])
+  }, [submitting, confirmCount, phone, code, confirmText, t])
 
   return (
     // 对齐 RN 共享 AccountCancelScreen:header(返回+标题)由共享屏承载;
@@ -166,9 +167,9 @@ export default function AccountCancel() {
         phone={phone ? maskedPhone : ''}
         confirmText={confirmText}
         smsCode={code}
-        countdown={codeCountdown.count}
+        countdown={codeCount}
         showConfirmModal={false}
-        confirmCountdown={confirmCountdown.count}
+        confirmCountdown={confirmCount}
         submitting={submitting}
         consequences={CONSEQUENCE_KEYS.map((k) => t(ACCOUNT_CANCEL_TEXT[k] ?? k))}
         phoneReadOnly={true}

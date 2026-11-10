@@ -38,6 +38,7 @@ import sys
 import threading
 import time
 from collections.abc import Callable
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -139,7 +140,11 @@ class DirWatcher:
         self._wake.set()
         if self._handle is not None:
             try:
-                ctypes.windll.kernel32.CancelIoEx(
+                # ctypes 仅在 Windows 上暴露 windll；用 getattr 取值以便 mypy 在
+                # Linux 上也能通过（非 Windows 上此分支不会命中，取到 None 时
+                # 下面的属性访问会抛 AttributeError 并被下面的 except 吞掉）。
+                windll: Any = getattr(ctypes, "windll", None)
+                windll.kernel32.CancelIoEx(
                     ctypes.c_void_p(self._handle), None
                 )
             except Exception:  # noqa: BLE001 - 关闭路径不许抛
@@ -161,7 +166,8 @@ class DirWatcher:
 
     def _start_win32(self) -> str:
         try:
-            kernel32 = ctypes.windll.kernel32
+            windll: Any = getattr(ctypes, "windll", None)
+            kernel32 = windll.kernel32
             handle = kernel32.CreateFileW(
                 ctypes.c_wchar_p(self.root),
                 _FILE_LIST_DIRECTORY,
@@ -200,7 +206,9 @@ class DirWatcher:
     # -- 事件循环 ----------------------------------------------------------
 
     def _loop_win32(self) -> None:
-        kernel32 = ctypes.windll.kernel32
+        # 只有 _start_win32 成功（Windows）才会进到这里，windll 必然存在。
+        windll: Any = getattr(ctypes, "windll", None)
+        kernel32 = windll.kernel32
         buf = ctypes.create_string_buffer(64 * 1024)
         returned = ctypes.c_ulong(0)
         while not self._stop.is_set():
@@ -299,7 +307,8 @@ class DirWatcher:
         if self._handle is None:
             return
         try:
-            ctypes.windll.kernel32.CloseHandle(ctypes.c_void_p(self._handle))
+            windll: Any = getattr(ctypes, "windll", None)
+            windll.kernel32.CloseHandle(ctypes.c_void_p(self._handle))
         except Exception:  # noqa: BLE001 - 关闭路径不许抛
             logger.debug("CloseHandle 失败（忽略）", exc_info=True)
         self._handle = None

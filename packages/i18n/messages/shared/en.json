@@ -2307,6 +2307,7 @@
       "approvalPersistHit": "Reused your saved approval",
       "execPolicyApproved": "Allowed by execution policy",
       "autoSkipApproval": "Auto-approved (no approval needed)",
+      "skillGrantSkipApproval": "Skill grant allows this tool (no approval needed)",
       "bypassSkipApproval": "Approval skipped",
       "mcpRequiresApproval": "MCP annotations require approval",
       "taintEgressGate": "Session taint: network access needs approval",
