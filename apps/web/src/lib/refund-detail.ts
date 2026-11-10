@@ -24,11 +24,13 @@ export interface RefundDetailResult<R> {
   degraded: boolean
 }
 
-type RefundDetailFetch<R> =
-  { ok: true; data: { refund: R } } | { ok: false; status?: number; error?: string }
+export type RefundDetailFetch<R> =
+  | { ok: true; data: { refund: R } }
+  | { ok: false; status?: number; error?: string }
 
-type RefundListFetch<R> =
-  { ok: true; data: { list: R[]; total: number } } | { ok: false; error?: string }
+export type RefundListFetch<R> =
+  | { ok: true; data: { list: R[]; total: number } }
+  | { ok: false; error?: string }
 
 export interface LoadRefundDetailOptions<R extends { id: string }> {
   id: string

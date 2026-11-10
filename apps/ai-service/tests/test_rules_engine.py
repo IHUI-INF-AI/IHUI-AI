@@ -326,8 +326,7 @@ class TestCRUD:
     def test_unreadable_rule_is_not_dropped(self, engine, monkeypatch):
         rule = engine.create({"name": "Keep Me", "content": "stay"})
         path = os.path.join(engine._rules_dir, f"{rule.id}.md")
-        with open(path, encoding="utf-8") as f:
-            original = f.read()
+        original = open(path, encoding="utf-8").read()
         real_stat = os.stat
 
         def fake_stat(target, *args, **kwargs):
@@ -339,8 +338,7 @@ class TestCRUD:
         assert engine.delete(rule.id) is False
         monkeypatch.undo()
         assert engine.get(rule.id) is not None
-        with open(path, encoding="utf-8") as f:
-            assert f.read() == original
+        assert open(path, encoding="utf-8").read() == original
 
     def test_reload_picks_up_new_files(self, engine, rules_dir):
         """reload 热加载新文件。"""

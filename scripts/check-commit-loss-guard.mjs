@@ -95,7 +95,9 @@ import { mkdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSyn
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import {
   batchExecFileSync,
+  catBatchCheck,
   catBatchOids,
+  catBatchTypes,
   gitBinary,
   gitErrText,
   gitRaw,
@@ -136,6 +138,11 @@ const FLAGS = {
   listUnbacked: '--list-unbacked',
   listOutOfWindow: '--list-out-of-window',
   listCovered: '--list-covered',
+  // 2026-11-10 提速:3b 维是全量逐路径对账(本仓实测 74s/轮,占本门 116s 的 64%),
+  // 而它**从不判红**(缺口只进 warn)。提交链用 `--defer-3b` 把它交给 post-commit 后台
+  // (`--audit-3b`),提交链只读上次审计读数并如实标注"这是后台判的、几分钟前的面"。
+  defer3b: '--defer-3b',
+  audit3b: '--audit-3b',
 }
 
 /** 自检入口旗标与脚本自身路径(自检必须**以子进程**再跑一遍本门才能拿到真实 exit 码)。 */
@@ -237,6 +244,16 @@ const isFilterStash = process.argv.includes(FLAGS.filterStash)
 const isListUnbacked = process.argv.includes(FLAGS.listUnbacked)
 const isListOutOfWindow = process.argv.includes(FLAGS.listOutOfWindow)
 const isListCovered = process.argv.includes(FLAGS.listCovered)
+/**
+ * 3b 维延后档(2026-11-10)。
+ * `--defer-3b` 或环境变量 `IHUI_COMMIT_LOSS_DEFER_3B=1`(后者给 guardian 的全量档补跑用:
+ * 那趟是 runner 拼好的固定 argv,加不了旗标,只能靠 env)。
+ * 语义边界:被延后的**只有** 3b(= 全量逐路径对账),它本身从不判红;阻塞项
+ * (reset / 窗内未备份悬空 / tag 对象不可达 / 同秒并列未判定)一律照旧在提交链判。
+ */
+const DEFER_3B_ENV = 'IHUI_COMMIT_LOSS_DEFER_3B'
+const isAudit3b = process.argv.includes(FLAGS.audit3b)
+const isDefer3b = process.argv.includes(FLAGS.defer3b) || process.env[DEFER_3B_ENV] === '1'
 /**
  * `--list-covered <file>` 的落盘目标(**只认紧跟的那一个 token**,与 `--window-days <N>` 同形)。
  * 取不到路径就落空,由 main 的入口守卫显式报"未判定"(exit 2),不允许"给了开关却没落盘"
@@ -624,6 +641,16 @@ function dropBackedResets(resets, backedHashes, beforeHashOf = () => '') {
 // 失效方向:TTL 内新增的悬空 commit 本门看不见 —— 由 IHUI-GIT-GUARD 巡检与 post-commit 的
 // lost-commit tag 同步兜底;要当场重算:IHUI_COMMIT_LOSS_NO_CACHE=1。
 const LOSS_CACHE_TTL_MS = 30 * 60_000
+/**
+ * fsck 层缓存的存活期(2026-11-10 与结论缓存拆分)。
+ *
+ * 结论缓存 30 分钟一轮是"结论必须新鲜";fsck 层不同:`readFsckCache` 每次都用**当下 ref 快照
+ * 做增量校验**(旧 tip 丢了可达性 ⇒ `rev-list <tip> --not --all` 补算它独有的那段,见
+ * orphanedCommitsFromTips),所以读数不会因 ref 变化而腐烂,只可能因"非 ref 驱动的孤儿"
+ * (典型:stash 中间提交)漏报 —— 而那一档本来就被 filter-stash 过滤掉。
+ * 2 小时只为兜住残留风险;一次铸造(全量 fsck)在本仓实测 109s,不宜高频付。
+ */
+const LOSS_FSCK_CACHE_TTL_MS = 2 * 60 * 60_000
 const lossCachePath = () => join(commonGitDir(), 'ihui-commit-loss-cache.json')
 function currentHeadSha() {
   return gitText(['rev-parse', 'HEAD'], { allowFail: true })
@@ -1067,6 +1094,333 @@ function writeLossCache(obj) {
     }
   } catch {
     /* 写不进去只是下次重算,不影响本次判定 */
+  }
+}
+
+// ── fsck 悬空集合缓存(2026-11-10 立,提交链提速的正主)──────────────────────────
+// 病灶(本机实测,非推测):本门单跑 100s,其中
+//   `git fsck --connectivity-only --unreachable --no-reflogs` = 37s(与其余 18 道门并发时被放大到 80s+),
+// 而结论缓存的读取点排在 fsck **之后**(缓存键里装着 fsck 结果本身)⇒ 缓存再准也救不了 fsck。
+// 现把 fsck 这一层单独落缓存,**先读缓存、未命中才 fsck**。
+//
+// 判定面(为什么这几项就够):`fsck --no-reflogs` 的悬空 commit 只由 **refs 的可达面**决定
+// (reflog 明确不参与)。所以只要证明"缓存那轮之后没有任何 ref 丢掉过可达性",悬空集合就
+// 只可能**变小**(新提交 / 新 tag 让旧悬空变可达),不可能变大。证明方式 = 把当轮**全部 ref 的
+// tip** 存进缓存,复用前逐条核对:ref 没了或换了 tip ⇒ 旧 tip 必须仍可达,否则作废重算。
+// 交付面(`rev-list --all`)本身**不进键**:每枚提交都会让它变,进键就等于"永不命中"(老问题)。
+// 反过来"ref 变多 / tip 前移"不作废 —— 本仓门内自动备份每轮都会新增 lost-commit/auto-* tag
+// (实测 +2 枚/轮),把它们当失效条件等于让自愈动作打死自己的缓存(2026-11-10 三连 miss 实测)。
+// 变小的那一档当场剪掉(与本轮可达面取交集剔除),不留假红;对象已被 gc 清掉的同样剔除
+// (不存在 ⇒ 谈不上"丢失")。
+// 仍看不见的一档(明说,不当作看不见):`git stash create` / `git commit-tree` 这类**不写任何
+// ref** 造出的孤儿 commit 不触发上述任一条 ⇒ TTL 30 分钟内看不见。失效方向与结论缓存一致
+// (由 IHUI-GIT-GUARD 巡检与 post-commit 的 lost-commit 同步兜底);要当场重算:
+// IHUI_COMMIT_LOSS_NO_CACHE=1。
+const LOSS_FSCK_CACHE_VERSION = 2
+const lossFsckCachePath = () => join(commonGitDir(), 'ihui-commit-loss-fsck-cache.json')
+
+/** 两套缓存共用的启用条件(档位/名单出口/显式远程档一律现算,见 readLossCache 头注)。 */
+function lossCacheEnabled() {
+  if (!isBlocking || process.env.IHUI_COMMIT_LOSS_NO_CACHE === '1') return false
+  if (isListUnbacked || isListOutOfWindow || isListCovered) return false
+  return process.env.IHUI_COMMIT_LOSS_REMOTE !== '1'
+}
+
+/** 全部 ref 的 tip 快照(`fsck` 的可达面就是"全部 refs",一个都不能漏)。 */
+function allRefTips() {
+  const out = gitText(['for-each-ref', '--format=%(refname) %(objectname)'], {
+    timeout: SPAWN_DEFAULT_TIMEOUT_MS,
+  })
+  const tips = []
+  for (const line of String(out || '').split('\n')) {
+    const [name, oid] = line.trim().split(' ')
+    if (!name || !oid) continue
+    tips.push([name, oid])
+  }
+  return tips
+}
+
+/**
+ * 交付面(含 lost-commit/backup tag)= `rev-list --all`:fsck 的"可达"就是这个集合。
+ * 取不到(与本门其余 18 道门并发争用时可能超时/被 git 报错截断)⇒ 返回 null,
+ * **只让缓存失效、照旧真跑 fsck**,绝不把缓存读不到升级成「未判定」(§0.3:缓存是旁路,
+ * 旁路出问题只能退回精确路径,不能反过来把判据面判成"没判")。
+ */
+function allReachableCommits() {
+  let raw
+  try {
+    raw = gitText(['rev-list', '--all'], { timeout: SPAWN_DEFAULT_TIMEOUT_MS })
+  } catch {
+    return null
+  }
+  const out = new Set()
+  for (const line of String(raw || '').split('\n')) {
+    const h = line.trim()
+    if (h) out.add(h)
+  }
+  return out
+}
+
+/**
+ * 读 fsck 悬空集合缓存。命中返回 `{ list, ageMs, delta }`,未命中/不可信返回 null。
+ * 取不到/坏件/过期/面不符一律 null(= 老老实实跑 fsck),读失败绝不影响判据。
+ *
+ * 判据 = **"缓存那轮之后丢掉的 ref tip,其独有历史已经逐段补算进来"**,逐条核对缓存里的每个 ref:
+ *   - ref 还在且 tip 仍可达 ⇒ 通过;
+ *   - ref 没了或 tip 变了 ⇒ 拿旧 tip 跑 `rev-list <tip> --not --all`(**只吐它独有的那段**)
+ *     并入悬空集合(2026-11-10 由"整份作废"改成增量)。
+ *     tag 对象先剥到 commit 再判可达性(理由见下方 readFsckCache 内的注释):否则每一枚旧
+ *     `lost-commit/auto-*` tag 都会白走一趟全历史。
+ * 反过来,**ref 变多/tip 前移**不需要处理:那只会让悬空集合变小,变小的部分由 ②/③ 当场剪掉。
+ * 这一条是本仓的关键:门内自动备份每次都会新增 lost-commit/auto-* tag(实测每轮 +2 枚),
+ * 若把"tag 集合指纹"当键,缓存就会被自己的自愈动作打死(2026-11-10 实测三连 miss)。
+ */
+function readFsckCache(reachable) {
+  if (!lossCacheEnabled() || !reachable) return null
+  try {
+    const j = JSON.parse(readFileSync(lossFsckCachePath(), 'utf8'))
+    if (!j || j.version !== LOSS_FSCK_CACHE_VERSION) return null
+    if (typeof j.ts !== 'number' || Date.now() - j.ts > LOSS_FSCK_CACHE_TTL_MS) return null
+    if (!Array.isArray(j.refs) || !Array.isArray(j.unreachable)) return null
+    // ① ref 面:丢了 tip 的可达性 ⇒ **不再整份作废,改成就地补算增量**(2026-11-10)。
+    //    原写法(任一 commit tip 丢可达性就 return null)在真实仓里等于"缓存永不命中":
+    //    lost-commit tag 推完 origin 就删、别的会话 rebase/amend、宿主机清嵌套 ref,每一次
+    //    都会命中这一条,退回 `git fsck --connectivity-only` —— 实测 109s/次(本仓 66 万对象),
+    //    而缓存本可只算"这枚旧 tip 独有的那一段"(通常 0 枚)。
+    //    只对 **commit / tag** tip 这么算:refs/hold/* 按设计指向 tree(树快照),那类对象
+    //    本来就不在 `rev-list --all` 的提交面上;指向 tree/blob 的 tag 让 rev-list 报错,
+    //    由逐枚兜底跳过(跳过 = 少算,不是多放:该 tip 的增量不进"已达"结论)。
+    const lostTips = []
+    for (const tip of j.refs) {
+      const oid = Array.isArray(tip) ? tip[1] : ''
+      if (!oid) return null
+      if (!reachable.has(oid)) lostTips.push(oid)
+    }
+    let delta = []
+    if (lostTips.length > 0) {
+      const types = catBatchTypes(ROOT, lostTips)
+      // 2026-11-10:tag 对象**永远不在** `rev-list` 的 commit 面上(client 集合只有 commit)⇒
+      // 原写法把每一枚旧 tag 都当成"tip 丢了可达性",对它们逐块跑 `rev-list <tag> --not --all`。
+      // 本仓实测:缓存 18 分钟内 ref 少了 1082 个(auto tag 推完即删)⇒ 每轮白付 ~9s,
+      // 而它们的 target 早就被别的 ref 覆盖(delta 恒 0)。这里先剥到 commit 再看可达性:
+      // target 仍可达 ⇒ 这条 ref 的消失不产生新悬空,一枚都不用走查。
+      const tagTips = lostTips.filter((oid) => types.get(oid.toLowerCase()) === 'tag')
+      let peeled = new Map()
+      if (tagTips.length > 0) {
+        try {
+          peeled = catBatchOids(
+            ROOT,
+            tagTips.map((oid) => `${oid}^{commit}`),
+          )
+        } catch {
+          peeled = new Map() // 剥不出来 ⇒ 这批 tag 全部跳过(少算,不是多放)
+        }
+      }
+      const tips = []
+      const seenTips = new Set()
+      for (const oid of lostTips) {
+        const t = types.get(oid.toLowerCase())
+        let target = ''
+        if (t === 'commit') target = oid
+        else if (t === 'tag') target = peeled.get(`${oid}^{commit}`) || ''
+        // 剥不出 commit(空壳 tag / 指向 tree·blob)⇒ 跳过:它不可能带出 commit 面的增量。
+        if (!target || reachable.has(target) || seenTips.has(target)) continue
+        seenTips.add(target)
+        tips.push(target)
+      }
+      if (tips.length > 0) delta = orphanedCommitsFromTips(tips)
+    }
+    // ② 交付面只增 ⇒ 旧悬空里已变可达的当场剪掉(那枚不该再算悬空;含"刚被 auto tag 备份"的)
+    let list = j.unreachable.filter((h) => !reachable.has(h))
+    if (delta.length > 0) {
+      const seen = new Set(list)
+      for (const h of delta) if (!seen.has(h)) list.push(h)
+    }
+    // ③ 已被 gc 清掉的对象不存在,谈不上"丢";剔除后保留其余。
+    if (list.length > 0) {
+      const { missing } = catBatchCheck(ROOT, list)
+      if (missing.size > 0) list = list.filter((h) => !missing.has(h))
+    }
+    return { list, ageMs: Date.now() - j.ts, refCount: j.refs.length, delta: delta.length, lostTips: lostTips.length, ts: j.ts }
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 一批"曾是某个 ref tip、现已不可达"的 oid → 它们独有(不被任何 ref 覆盖)的 commit。
+ *
+ * 判据 = `rev-list <tips> --not --all`:rev-list 会自动剥离 tag 对象,并对每个 tip 只吐
+ * "从它出发可达、但从任何 ref 都不可达"的那一段 —— 正是 fsck 会新报出来的那批。
+ * 分块控制 argv 长度;某块失败(典型:tip 指向 tree/blob 让 rev-list 报错)**逐枚重试**,
+ * 单枚仍失败只跳过它自己(少算增量),绝不因为一枚坏 tip 把整份缓存判废、退回 109s 全量。
+ */
+function orphanedCommitsFromTips(tips) {
+  const out = new Set()
+  const runOne = (chunk) => {
+    const raw = gitText(['rev-list', ...chunk, '--not', '--all'], {
+      timeout: SPAWN_DEFAULT_TIMEOUT_MS,
+    })
+    for (const line of String(raw ?? '').split('\n')) {
+      const h = line.trim()
+      if (h) out.add(h)
+    }
+  }
+  for (let i = 0; i < tips.length; i += DATE_WALK_BATCH) {
+    const chunk = tips.slice(i, i + DATE_WALK_BATCH)
+    try {
+      runOne(chunk)
+    } catch {
+      for (const t of chunk) {
+        try {
+          runOne([t])
+        } catch {
+          /* 单枚取不到:少算这一枚的增量(失效方向 = 少放,不是多放) */
+        }
+      }
+    }
+  }
+  return [...out]
+}
+
+function writeFsckCache(unreachable, ts = Date.now()) {
+  if (!lossCacheEnabled()) return
+  try {
+    const path = lossFsckCachePath()
+    const body = JSON.stringify({
+      version: LOSS_FSCK_CACHE_VERSION,
+      // 增量合并后的回写必须沿用**上一轮铸造**的时刻:ts 是"最近一次全量 fsck"的年龄,
+      // 拿回写时刻顶替会让 TTL 变成滑动窗口 ⇒ 全量普查永远不到期(残留的漏报就再也兜不住)。
+      ts,
+      refs: allRefTips(),
+      unreachable: [...unreachable].sort(),
+    })
+    // 共享 gitdir 下多个 worktree 并发写同一份缓存件:先写临时件再 rename,避免读到半截 JSON。
+    const tmp = `${path}.${process.pid}.tmp`
+    try {
+      writeFileSync(tmp, body)
+      renameSync(tmp, path)
+    } catch {
+      try {
+        writeFileSync(path, body)
+      } catch {
+        /* 写不进去只是下次重算 */
+      }
+      try {
+        unlinkSync(tmp)
+      } catch {
+        /* 临时件可能已被 rename 或本就不存在 */
+      }
+    }
+  } catch {
+    /* 写不进去只是下次重算,不影响本次判定 */
+  }
+}
+
+// ── 逐路径覆盖结论缓存(2026-11-10)────────────────────────────────────────────
+/**
+ * §4(悬空提交逐路径覆盖)的**结论缓存**。
+ *
+ * 立因(2026-11-10 实测):3b 延后到 post-commit 后台之后,§4 成了提交链上最贵的一段 ——
+ * 每轮都要为同一批候选走一趟**全历史 ref 面**(`git log --all --raw -z`,本仓 66 万对象
+ * 实测 42s),而同一批候选每轮算出的都是同一个结论(本仓 46/46 枚恒为「已覆盖」)。
+ *
+ * **只缓存 covered,且只认可校验的证据** —— 这是本缓存不放大风险的全部理由:
+ *   - 证据必须来自 ref 面或 reflog 面,且那枚证据 commit 本轮**仍在同一个面里** ⇒
+ *     「同路径同 blob 有副本」这件事只可能因 ref/reflog 减少而失效,新提交**不会**让它失效
+ *     (它只会多一份副本)。于是复用它最多多放行"本来就会放行的那枚",不可能把没覆盖的
+ *     读成覆盖。校验本身很便宜:ref 面用 `rev-list --all`(本仓 ~4.5s),reflog 面用
+ *     直接解析 reflog 文件(本仓 <0.5s,见 readReflogEntriesFromFiles 头注)。
+ *   - 含 D 类证据的候选一律**不入缓存**:D 的判据是"该路径在可达面的**最新**改动是删除、
+ *     且 old blob 相同"—— 新提交可以把它顶翻,那不是单调量,缓存它就会把后来的红读成绿。
+ *   - `uncovered` / `undetermined` 一律不缓存:它们正是"会被新提交翻转"的那一档
+ *     (缓存恒红等于把门变成常量,缓存未判定等于把 exit 2 也固化成常量)。
+ * 失效方向:证据 commit 丢可达性 ⇒ 该条作废、现扫(多算,不是多放);读不到/坏件/版本不符
+ * ⇒ 全部现扫。`readCoverageCache` 还会把不合规的旧条目逐条丢弃 —— 判据收紧后旧条目自动失效。
+ */
+const LOSS_COVERAGE_CACHE_VERSION = 1
+const lossCoverageCachePath = () => join(commonGitDir(), 'ihui-commit-loss-coverage-cache.json')
+
+/**
+ * 该证据集是否**可入缓存 / 可复用**。见上面 LOSS_COVERAGE_CACHE_VERSION 头注。
+ * 允许 ref 面与 reflog 面:**两者都是"某个面里仍含有这枚 commit 的原始改动"**,
+ * 复用前分别按各自的面校验一次(见 main 里的 stillThere)。不允许的只有:
+ *   - D 类(判据依赖"最新一次改动",不是单调量);
+ *   - 缺 commit / blob 的残缺证据(无法校验 ⇒ 不缓存)。
+ * 纯函数:测试可直接断言"含 D、缺 commit、缺 blob 的一律不可缓存"。
+ */
+function isCacheableCoverageEvidence(evidence) {
+  if (!Array.isArray(evidence) || evidence.length === 0) return false
+  return evidence.every(
+    (e) =>
+      e &&
+      (e.surface === 'ref' || e.surface === 'reflog') &&
+      e.status !== 'D' &&
+      typeof e.path === 'string' &&
+      e.path.length > 0 &&
+      typeof e.blob === 'string' &&
+      /^[0-9a-f]{40}$/.test(e.blob) &&
+      typeof e.commit === 'string' &&
+      /^[0-9a-f]{40}$/.test(e.commit),
+  )
+}
+
+function readCoverageCache() {
+  if (!lossCacheEnabled()) return null
+  try {
+    const j = JSON.parse(readFileSync(lossCoverageCachePath(), 'utf8'))
+    if (!j || j.version !== LOSS_COVERAGE_CACHE_VERSION) return null
+    const entries = j.entries && typeof j.entries === 'object' ? j.entries : null
+    if (!entries) return null
+    const out = new Map()
+    for (const [hash, rec] of Object.entries(entries)) {
+      if (!/^[0-9a-f]{40}$/.test(hash)) continue
+      const evidence = rec && Array.isArray(rec.evidence) ? rec.evidence : null
+      if (!isCacheableCoverageEvidence(evidence)) continue
+      out.set(hash, {
+        evidence: evidence.map((e) => ({
+          path: e.path,
+          status: e.status,
+          blob: e.blob,
+          commit: e.commit,
+          surface: e.surface,
+        })),
+      })
+    }
+    return out
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 回写覆盖结论缓存。`entries` 只装**本轮候选**里"已覆盖且证据单调"的那些
+ * (掉出候选的那批自然缺席 ⇒ 缓存件不会随历史增长而无界膨胀)。
+ * 共享 gitdir 下多 worktree 并发写:先写临时件再 rename(与 writeFsckCache 同一口径)。
+ */
+function writeCoverageCache(entries) {
+  if (!lossCacheEnabled()) return
+  try {
+    const path = lossCoverageCachePath()
+    const body = JSON.stringify({ version: LOSS_COVERAGE_CACHE_VERSION, ts: Date.now(), entries })
+    const tmp = `${path}.${process.pid}.tmp`
+    try {
+      writeFileSync(tmp, body)
+      renameSync(tmp, path)
+    } catch {
+      try {
+        writeFileSync(path, body)
+      } catch {
+        /* 写不进去只是下次现扫 */
+      }
+      try {
+        unlinkSync(tmp)
+      } catch {
+        /* 临时件可能已被 rename 或本就不存在 */
+      }
+    }
+  } catch {
+    /* 写不进去只是下次现扫,不影响本次判定 */
   }
 }
 
@@ -2024,6 +2378,154 @@ function computeTagBackupCoverage({
 }
 
 /**
+ * 3b 后台审计的落盘件(2026-11-10)。
+ *
+ * 为什么要有这个件:3b 的全量逐路径对账在本仓实测 74s/轮(占本门 116s 的 64%),而它**从不判红**
+ * (缺口只进 warn)。把它从提交链挪到 post-commit 后台(那里本来就整链 detached)之后,
+ * 提交链只剩"读上次审计读数"这一步(毫秒级),而 3b 的**结论仍在**,不会因为提速而消失
+ * —— 这是"延后"不是"跳过":审计照跑,只是不在你等提交的那几十秒里跑。
+ *
+ * 逐字段用途:
+ *   ts / face  —— 让提交链能如实标注"这是 M 分钟前、基于哪个 tag 面的读数",不把旧面当现面;
+ *   covered/uncovered/realGaps/noDiff/topHashes —— 与冷跑打印、结论缓存同一组读数;
+ *   surfaceError —— 审计自己没判成时原样报出(提交链**不**据此 exit 2,见下方说明)。
+ */
+const LOSS_3B_AUDIT_VERSION = 1
+const loss3bAuditPath = () => join(ROOT, '.ihui-agent', 'state', 'commit-loss-3b-audit.json')
+// 后台审计的节流间隔由调用方用 `--min-interval <秒>` 给(post-commit 传 600):3b 的面随 tag
+// 增长缓慢变化,10 分钟一轮足够,又不让它常驻吃满 CPU。这里不设默认值 —— 人工复核即跑。
+
+function read3bAudit() {
+  try {
+    const j = JSON.parse(readFileSync(loss3bAuditPath(), 'utf8'))
+    if (!j || j.version !== LOSS_3B_AUDIT_VERSION || typeof j.ts !== 'number') return null
+    return j
+  } catch {
+    return null
+  }
+}
+
+function write3bAudit(rec) {
+  try {
+    const path = loss3bAuditPath()
+    mkdirSync(dirname(path), { recursive: true })
+    const body = JSON.stringify({ version: LOSS_3B_AUDIT_VERSION, ...rec })
+    const tmp = `${path}.${process.pid}.tmp`
+    try {
+      writeFileSync(tmp, body)
+      renameSync(tmp, path)
+    } catch {
+      writeFileSync(path, body)
+      try {
+        unlinkSync(tmp)
+      } catch {
+        /* 临时件可能已消失 */
+      }
+    }
+  } catch {
+    /* 审计件写不进去只是下一轮读不到读数,不影响审计本身 */
+  }
+}
+
+/**
+ * 延后档的 3b 占位读数(不跑全量对账)。
+ *
+ * 候选数照旧现算(`tag 指向 ∧ 交付面不可达`):它只依赖已取到的 reachability 与交付面集合,
+ * 成本可忽略,却能让提交链说清"这一档有多少东西待核",而不是含糊的一句"已延后"。
+ * `audit` 是上一轮后台审计的原始读数,打印层据此报数并标注年龄/面漂移。
+ */
+function deferredTagBackup(reachability, lostTags) {
+  const tagPointed = tagPointedCommitSet(reachability, new Set(lostTags))
+  return {
+    deferred: true,
+    tagPointedTotal: tagPointed.size,
+    candidates: [],
+    covered: [],
+    uncovered: [],
+    undetermined: [],
+    surfaceError: '',
+    audit: read3bAudit(),
+  }
+}
+
+/**
+ * `--audit-3b`:后台审计入口(由 post-commit 钩子的 detached 链调用)。
+ *
+ * 与提交链共用**同一套**取材与判定(`computeTagBackupCoverage`),不另立第二份判据(§22c);
+ * 差别只有两点:① 只做 3b,不做综合判定(审计不拦任何东西);② 结论落到审计件而非结论缓存。
+ * 退出码仍守三态:0 = 判完,2 = 没判成(写 `surfaceError` 进审计件,由下一轮提交链如实报出)。
+ */
+function runAudit3b() {
+  const t0 = Date.now()
+  // 节流:同一轮多次提交只跑一次。`--min-interval <秒>` 由调用方给,缺省不节流(人工复核即跑)。
+  const mi = process.argv.indexOf('--min-interval')
+  const minIntervalMs = mi > -1 && Number(process.argv[mi + 1]) > 0
+    ? Number(process.argv[mi + 1]) * 1000
+    : 0
+  if (minIntervalMs > 0) {
+    const last = read3bAudit()
+    if (last && Date.now() - last.ts < minIntervalMs) {
+      console.log(
+        `  ${C.dim}3b 后台审计:上轮 ${Math.max(1, Math.round((Date.now() - last.ts) / 60000))} 分钟前刚跑过` +
+          `(节流 ${Math.round(minIntervalMs / 60000)} 分钟),本轮跳过${C.reset}`,
+      )
+      process.exit(0)
+    }
+  }
+  let lostTags
+  let reachability
+  let rawUnreachable
+  try {
+    lostTags = listLostCommitTags()
+    reachability = verifyAllTagReachability(lostTags)
+    // fsck 层缓存与提交链共用(提交链刚写过,这里通常是命中);未命中就真跑 —— 后台不省这一刀。
+    const reachable = lossCacheEnabled() ? allReachableCommits() : null
+    const cached = readFsckCache(reachable)
+    rawUnreachable = cached ? cached.list : detectUnreachable()
+    if (!cached) writeFsckCache(rawUnreachable)
+  } catch (e) {
+    const reason = `3b 审计取材失败:${firstErrorLine(e)}`
+    write3bAudit({ ts: Date.now(), head: currentHeadSha(), surfaceError: reason })
+    console.log(`  ${C.red}❌ UNDETERMINED: ${reason}${C.reset}`)
+    process.exit(2)
+  }
+  const tagBackup = computeTagBackupCoverage({ reachability, lostTags, rawUnreachable })
+  const gaps = tagBackup.uncovered.filter((u) => u.missing.length > 0)
+  const detail = {
+    ts: Date.now(),
+    head: currentHeadSha(),
+    // 面指纹:让提交链判断"审计时的 tag 面"与"当下 tag 面"是否还是同一份。
+    tagFingerprint: backupTagFingerprint(lostTags, listBackups()),
+    tagPointedTotal: tagBackup.tagPointedTotal,
+    candidates: tagBackup.candidates.length,
+    covered: tagBackup.covered.length,
+    uncovered: tagBackup.uncovered.length,
+    realGaps: gaps.length,
+    noDiff: tagBackup.uncovered.length - gaps.length,
+    topHashes: gaps.slice(0, 10).map((u) => u.hash),
+    surfaceError: tagBackup.surfaceError || '',
+    elapsedMs: Date.now() - t0,
+  }
+  write3bAudit(detail)
+  if (tagBackup.surfaceError) {
+    console.log(`  ${C.red}❌ 3b 后台审计未判定:${tagBackup.surfaceError}${C.reset}`)
+    process.exit(2)
+  }
+  console.log(
+    `  ${C.dim}3b 后台审计:候选 ${detail.candidates} / 已清偿 ${detail.covered}` +
+      ` / 未清偿 ${detail.uncovered}(未覆盖路径 ${detail.realGaps} / 无改动 ${detail.noDiff})` +
+      ` · ${Math.round(detail.elapsedMs / 1000)}s${C.reset}`,
+  )
+  if (detail.realGaps > 0) {
+    console.log(
+      `  ${C.yellow}⚠️  已备份但缺口仍在:${detail.realGaps} 枚${C.reset}` +
+        ` ${C.dim}(${detail.topHashes.map((h) => h.slice(0, SHORT_HASH_LEN)).join(', ')})${C.reset}`,
+    )
+  }
+  process.exit(0)
+}
+
+/**
  * 一批 commit oid → `[{hash, unixSeconds}]`(**纯函数**,不派生 git)。
  *
  * 输入是 `git log --no-walk --format=%H%x09%ct` 的 stdout。两件事必须记住:
@@ -2849,6 +3351,9 @@ async function main() {
   // --self-test 分派放在 skip 档**之前**:SKIP_ENV 是"紧急跳门"通道,它不得把自检也跳成 0 ——
   // 那会在最需要证明门有牙的环境里得到一份空自检。
   if (process.argv.includes(SELF_TEST_FLAG)) return runSelfTest()
+  // --audit-3b(2026-11-10):后台审计专用入口。它不做综合判定、不拦任何东西,
+  // 只把 3b 的全量逐路径读数算出来落盘;提交链(带 --defer-3b)读它。
+  if (isAudit3b) return runAudit3b()
   if (skip) {
     console.log(`${C.yellow}⚠ ${SKIP_ENV}=1 已跳过 commit 丢失防护守门(不推荐)${C.reset}`)
     process.exit(0)
@@ -2894,13 +3399,16 @@ async function main() {
   // 判据输入面(缓存键的 ①②③)。必须在读缓存**之前**取:缓存能否复用取决于它,而取它的
   // 成本(本机实测 rev-list 0.6s + reflog 23s)远低于重算全量(静默态 188s)。
   // 取不到 ⇒ null ⇒ 本轮不读也不写结论缓存(见 collectLossCacheInputs 头注)。
-  const lossCacheInputs = collectLossCacheInputs(reachability)
+  // 延后档(提交链)跳过结论缓存的指纹采集(2026-11-10 实测 11.4s):
+  // 本仓这份缓存**结构性不命中** —— 键里的 tagTargets 会被门内自动备份每轮新增的 tag 打变,
+  // 而采指纹要另付一次 delivery rev-list + 全 ref reflog 指纹。延后档只保留 fsck 层缓存
+  // (那一层才是省下 37s fsck 的正主)。手动档(不带 --defer-3b)行为一字未改。
+  const lossCacheInputs = isDefer3b ? null : collectLossCacheInputs(reachability)
   mark(`lossCacheInputs(${lossCacheInputs ? 'ok' : 'unavailable'})`)
 
-  const rawUnreachable = detectUnreachable()
-  mark(`detectUnreachable(${rawUnreachable.length})`)
-
-  // 登记本轮判据面(缓存键的另一半,见 lossCacheFace 头注)
+  // 登记本轮判据面(缓存键的另一半,见 lossCacheFace 头注)。
+  // **先登记不含 unreachable 的那一份**:fsck 结果本身要由 fsck 缓存给出,而它的键只有
+  // tag 面 + 非 tag ref tip(见 readFsckCache 头注)—— 否则就是"要读缓存先得有缓存结论"的死结。
   setLossCacheFace({
     windowDays: winDim.days,
     winSource: winDim.source,
@@ -2912,6 +3420,41 @@ async function main() {
     delivery: lossCacheInputs ? lossCacheInputs.deliveryFingerprint : '',
     reflog: lossCacheInputs ? lossCacheInputs.reflog : '',
     // 本 worktree 的 reset 窗口(缓存命中会跳过 detectResets,见 collectLossCacheInputs)。
+    resetWindow: lossCacheInputs ? lossCacheInputs.resetWindow : '',
+  })
+
+  // fsck 悬空集合:先读缓存,未命中才真跑(本机实测 fsck 单跑 37s、并发争用下 80s+,是本门最大头)。
+  const fsckReachable = lossCacheEnabled() ? allReachableCommits() : null
+  mark('allReachableCommits')
+  const fsckCached = readFsckCache(fsckReachable)
+  mark('readFsckCache')
+  const rawUnreachable = fsckCached ? fsckCached.list : detectUnreachable()
+  mark(`detectUnreachable(${rawUnreachable.length}${fsckCached ? ',复用' : ''})`)
+  if (fsckCached) {
+    // 旧 tip 丢可达性时读过缓存里的 ref 快照 ⇒ 增量已并入,立即回写新快照(沿用原 ts)。
+    // 不回写的话,同一批"已删除 tag 的旧 tip"会在每轮重复做一次 rev-list,成本随历史欠账增长。
+    if (fsckCached.lostTips > 0) writeFsckCache(rawUnreachable, fsckCached.ts)
+    console.log(
+      `  ${C.dim}fsck 悬空集合复用 ${Math.max(1, Math.round(fsckCached.ageMs / 60000))} 分钟前的读数` +
+        `(判定面:缓存里那 ${fsckCached.refCount} 个 ref 的 tip 丢可达性时按「旧 tip 独有段」增量补算` +
+        `${fsckCached.lostTips > 0 ? `,本轮补入 ${fsckCached.delta} 枚` : ''};` +
+        `强制重算:IHUI_COMMIT_LOSS_NO_CACHE=1)${C.reset}`,
+    )
+  } else {
+    writeFsckCache(rawUnreachable)
+  }
+
+  // 登记含 fsck 结果的完整判据面(结论缓存 readLossCache/writeLossCache 用)。
+  setLossCacheFace({
+    windowDays: winDim.days,
+    winSource: winDim.source,
+    strict: isStrict ? 1 : 0,
+    filterStash: isFilterStash ? 1 : 0,
+    tagFingerprint: backupTagFingerprint(lostTags, backups),
+    coverageVersion: COVERAGE_FACE_VERSION,
+    tagTargets: lossCacheInputs ? lossCacheInputs.tagTargets : '',
+    delivery: lossCacheInputs ? lossCacheInputs.deliveryFingerprint : '',
+    reflog: lossCacheInputs ? lossCacheInputs.reflog : '',
     resetWindow: lossCacheInputs ? lossCacheInputs.resetWindow : '',
     unreachable: lossCacheInputs ? sortedFingerprint(rawUnreachable) : '',
   })
@@ -3130,13 +3673,15 @@ async function main() {
   // 这一维独立于上面的「悬空分档」:分档统计的是 `fsck --unreachable` 的 200 枚,
   // 这里统计的是**被 tag 变成可达、因而 fsck 看不到**的那一批。两档不得混算。
   console.log(header('3b. lost-commit/* tag 备份提交的逐路径清偿核对'))
-  const tagBackup = computeTagBackupCoverage({
-    reachability,
-    lostTags,
-    rawUnreachable,
-    // 交付面已为本轮缓存键取过时直接复用,避免重复 rev-list(结果与 3b 内取法逐字同源)。
-    deliveryReachable: lossCacheInputs ? lossCacheInputs.delivery : null,
-  })
+  const tagBackup = isDefer3b
+    ? deferredTagBackup(reachability, lostTags)
+    : computeTagBackupCoverage({
+        reachability,
+        lostTags,
+        rawUnreachable,
+        // 交付面已为本轮缓存键取过时直接复用,避免重复 rev-list(结果与 3b 内取法逐字同源)。
+        deliveryReachable: lossCacheInputs ? lossCacheInputs.delivery : null,
+      })
   // 供结论缓存复用的 3b 读数(命中时不必再跑 3b)。标签未指向任何提交时为 null。
   let tagBackupDetail = null
   if (tagBackup.tagPointedTotal === 0) {
@@ -3145,6 +3690,49 @@ async function main() {
     console.log(
       `  ${C.red}❌ UNDETERMINED(未判定):${tagBackup.surfaceError} —— 3b 本次没判成,不得计为绿${C.reset}`,
     )
+  } else if (tagBackup.deferred) {
+    // 延后档(提交链):不跑全量对账,只把**上一轮后台审计**的读数如实报出,并标注年龄与面漂移。
+    // 三件事不许漂:① 不许说"已清偿"(那会把没判写成判过);② 面变了必须点名;③ 没有读数时
+    // 不许静默 —— 要给出一条能立即判的出路命令。
+    const audit = tagBackup.audit
+    console.log(
+      `  ${C.dim}tag 直接指向 ${tagBackup.tagPointedTotal} 枚;全量逐路径对账已延后到 post-commit` +
+        ` 后台(本仓实测该维冷跑 74s,占整门 64%;审计照跑,只是不在等提交的这几十秒里)${C.reset}`,
+    )
+    if (!audit) {
+      console.log(
+        `  ${C.yellow}↳ 尚无后台审计读数${C.reset}` +
+          ` ${C.dim}(本次提交后会生成;想立即判:node scripts/check-commit-loss-guard.mjs --blocking --audit-3b)${C.reset}`,
+      )
+    } else if (audit.surfaceError) {
+      console.log(
+        `  ${C.red}↳ 上次后台审计未判定:${audit.surfaceError}${C.reset}` +
+          ` ${C.dim}(提交链不为这一维的取材失败兜底 exit 2:它从不判红,兜底只会变成恒红跳门)${C.reset}`,
+      )
+    } else {
+      const ageMin = Math.max(0, Math.round((Date.now() - audit.ts) / 60000))
+      const drift =
+        audit.tagFingerprint !== backupTagFingerprint(lostTags, backups)
+          ? ' ⚠ 面已变(读数是旧 tag 面的)'
+          : ''
+      console.log(
+        `  ${audit.realGaps === 0 ? C.green : C.yellow}↳ 后台审计(${ageMin} 分钟前):已清偿 ${audit.covered}` +
+          ` / 未清偿 ${audit.uncovered}(未覆盖路径 ${audit.realGaps} / 无改动 ${audit.noDiff})` +
+          `${drift}${C.reset}`,
+      )
+      if (audit.realGaps > 0) {
+        console.log(
+          `  ${C.yellow}⚠️  已备份但缺口仍在(tag 只防 gc,不等于内容已落地):${audit.realGaps} 枚${C.reset}`,
+        )
+        const top = Array.isArray(audit.topHashes) ? audit.topHashes : []
+        const subj = subjectsForHashes(top)
+        for (const h of top) {
+          console.log(
+            `     ${C.cyan}${String(h).slice(0, SHORT_HASH_LEN)}${C.reset}  ${C.dim}${subj.get(h) || '(空)'}${C.reset}`,
+          )
+        }
+      }
+    }
   } else {
     console.log(
       `  ${C.dim}tag 直接指向 ${tagBackup.tagPointedTotal} 枚;其中去掉隔离 tag 后不可达(盲区候选)` +
@@ -3396,6 +3984,13 @@ async function main() {
     // `git log --all` 的 (树,题) 键集两元同时相等;索引取不到(log 派生失败/空读数)
     // ⇒ 白名单整体失效,维持 blocking(fail-safe 朝红,绝不朝绿)。
     // 白名单放行**不静默**:逐条点名打在 stdout(见下方 whitelistedSameContent 打印)。
+    // 窗外未核枚数(2026-11-10):窗维前置后,超窗那批**不再进逐路径核对**,所以它们留在
+    // unbacked 里。分档行必须把这一批单列(而不是混进"待处置"),否则账面会把"只报数的存量"
+    // 说成"待处理的债" —— 那是另一种把没判写成判过的形态。
+    let outOfWindowUnverified = 0
+    // 本轮 §4 里由覆盖结论缓存直接放行的枚数(0 = 全现扫)。只用于打印"这档是复用来的",
+    // 不参与任何判定 —— 复用与否不改变判据,只改变代价(见 LOSS_COVERAGE_CACHE_VERSION 头注)。
+    let coverageCacheReused = 0
     const {
       unbacked,
       whitelistedSameContent,
@@ -3480,26 +4075,127 @@ async function main() {
         // 排除集必须是**全部悬空 commit**(含被 filter-stash 滤掉的):它们会出现在 HEAD reflog,
         // 若算作覆盖面,任何悬空提交都能自证通过。
         if (rest.length > 0) {
-          mark(`path-coverage(${rest.length})`)
-          const derived = derivePathCoverage(rest, {
-            excludedCommits: new Set(rawUnreachable),
+          // 2026-11-10 提速(窗维前置):④ 的取材面 = **全历史 ref 面**,本仓实测单趟 64s,
+          // 是 3b 之外最大的一段。而超窗存量按 §29 只报数、从不判红 ⇒ 先按窗切一刀,
+          // 只给"可能被判红的那一批"取逐路径证据;超窗那批原样留在 rest,交给下面的
+          // 时间窗量纲照旧报数。窗维关掉(`--window-days 0`)/ `--strict` 时
+          // preWin.blocking 恒等于 rest ⇒ 行为与旧版逐字相同(那两个档本来就是全量语义)。
+          const preWalk = committerUnixFor(rest)
+          const preWin = splitUnbackedByWindow({
+            unbacked: rest,
+            committerUnixByHash: preWalk.map,
+            failedBatches: preWalk.failedBatches,
+            nowUnix: Math.floor(Date.now() / 1000),
+            windowDays: winDim.days,
+            strict: isStrict,
           })
-          const splitPaths = splitByPathCoverage({
-            candidates: rest,
-            entriesByCommit: derived.entriesByCommit,
-            coverage: derived.coverage,
-            latestByPath: derived.latestByPath,
-            problemsByCommit: derived.problemsByCommit,
-            surfaceError: derived.surfaceError,
-            ambiguousPaths: derived.ambiguousPaths,
-          })
-          pathCovered.push(...splitPaths.covered)
-          // 未判定(=同秒并列导致"最新状态"不存在)的**既不进放行也不进判红**:
-          // 它们留在外面单独成档,由主链落 exit 2(没判完 ≠ 判红,也绝不许折成绿)。
-          for (const u of splitPaths.undetermined) pathCoverageUndetermined.set(u.hash, u)
-          for (const u of splitPaths.uncovered) pathCoverageGaps.set(u.hash, u)
-          rest = splitPaths.uncovered.map((u) => u.hash)
-          mark(`path-coverage-done(covered=${pathCovered.length},undetermined=${pathCoverageUndetermined.size})`)
+          const coverTargets = preWin.blocking
+          const skippedOutOfWindow = new Set(preWin.outOfWeek.map((o) => o.hash))
+          outOfWindowUnverified = skippedOutOfWindow.size
+          if (coverTargets.length === 0) {
+            mark(`path-coverage(skip:${rest.length} 枚全在窗外,只报数不判红)`)
+          } else {
+            // 结论缓存(2026-11-10):先按「证据 commit 本轮仍在交付面」复用上一轮已判 covered
+            // 的结论,只对剩下的现扫。本仓这批候选 46/46 恒已覆盖而单趟全历史 ref 面要 42s
+            // ⇒ 命中即整段免付;判据单调性见 LOSS_COVERAGE_CACHE_VERSION 头注。
+            const cachedCov = readCoverageCache()
+            const covCacheNext = {}
+            let reusedCov = 0
+            let toCover = coverTargets
+            if (cachedCov && cachedCov.size > 0) {
+              const hitCands = coverTargets.filter((c) => cachedCov.has(c))
+              if (hitCands.length > 0) {
+                // 交付面集合:延后档不采指纹(见 lossCacheInputs 注释)⇒ 这里现算一次(本仓 ~4.5s)。
+                let delivery = LOSS_DELIVERY_SET
+                if (!delivery) {
+                  try {
+                    delivery = deliveryReachableCommits()
+                  } catch {
+                    delivery = null // 取不到交付面 ⇒ 不复用(现扫,失效方向 = 多算)
+                  }
+                }
+                if (delivery) {
+                  // reflog 面的证据:校验面 = reflog 文件里仍能读到这枚 commit(readReflogEntriesFromFiles,
+                  // 本仓 <0.5s)。按需才取 —— 没有 reflog 面证据的轮次一分不付。
+                  let reflogShas = null
+                  const stillThere = (e) => {
+                    if (delivery.has(e.commit)) return true
+                    if (e.surface !== 'reflog') return false
+                    if (!reflogShas) {
+                      reflogShas = new Set()
+                      try {
+                        for (const r of reflogEntriesFromFiles()) reflogShas.add(r.sha)
+                      } catch {
+                        /* 读不到 reflog 文件 ⇒ 该条不复用(现扫) */
+                      }
+                    }
+                    return reflogShas.has(e.commit)
+                  }
+                  const keep = new Map()
+                  for (const c of hitCands) {
+                    const rec = cachedCov.get(c)
+                    if (rec.evidence.every(stillThere)) keep.set(c, rec)
+                  }
+                  for (const [hash, rec] of keep) {
+                    pathCovered.push({ hash, evidence: rec.evidence })
+                    covCacheNext[hash] = { evidence: rec.evidence }
+                    reusedCov += 1
+                  }
+                  if (keep.size > 0) {
+                    toCover = coverTargets.filter((c) => !keep.has(c))
+                    mark(`coverage-cache-reuse(${keep.size}/${hitCands.length})`)
+                  }
+                }
+              }
+            }
+            const stillOwed = new Set()
+            if (toCover.length === 0) {
+              mark(`path-coverage(skip:${coverTargets.length} 枚全部命中覆盖结论缓存)`)
+            } else {
+              mark(`path-coverage(${toCover.length}/${rest.length})`)
+              const derived = derivePathCoverage(toCover, {
+                excludedCommits: new Set(rawUnreachable),
+              })
+              const splitPaths = splitByPathCoverage({
+                candidates: toCover,
+                entriesByCommit: derived.entriesByCommit,
+                coverage: derived.coverage,
+                latestByPath: derived.latestByPath,
+                problemsByCommit: derived.problemsByCommit,
+                surfaceError: derived.surfaceError,
+                ambiguousPaths: derived.ambiguousPaths,
+              })
+              pathCovered.push(...splitPaths.covered)
+              // 只有"证据可校验"的 covered 才入缓存(D 类一律不入,见 isCacheableCoverageEvidence)。
+              // 未入缓存的枚数按原因分桶进 mark(仅 IHUI_LOSS_TIMING=1 可见):这几枚每轮都要
+              // 现扫,若这个数居高不下,提速就只停留在冷启动那一次 —— 必须一眼看得出来。
+              let skipD = 0
+              let skipOther = 0
+              for (const c of splitPaths.covered) {
+                if (isCacheableCoverageEvidence(c.evidence)) {
+                  covCacheNext[c.hash] = { evidence: c.evidence }
+                } else if (c.evidence.some((e) => e.status === 'D')) skipD += 1
+                else skipOther += 1
+              }
+              if (skipD + skipOther > 0) {
+                mark(`coverage-cache-skip(D=${skipD},other=${skipOther})`)
+              }
+              // 未判定(=同秒并列导致"最新状态"不存在)的**既不进放行也不进判红**:
+              // 它们留在外面单独成档,由主链落 exit 2(没判完 ≠ 判红,也绝不许折成绿)。
+              for (const u of splitPaths.undetermined) pathCoverageUndetermined.set(u.hash, u)
+              for (const u of splitPaths.uncovered) pathCoverageGaps.set(u.hash, u)
+              for (const u of splitPaths.uncovered) stillOwed.add(u.hash)
+              mark(
+                `path-coverage-done(covered=${pathCovered.length},undetermined=${pathCoverageUndetermined.size})`,
+              )
+            }
+            rest = rest.filter((c) => stillOwed.has(c) || skippedOutOfWindow.has(c))
+            coverageCacheReused = reusedCov
+            // 回写:本轮候选里有结论的才留(掉出候选的自然缺席 ⇒ 缓存件不随历史无界增长)。
+            if (reusedCov > 0 || Object.keys(covCacheNext).length > 0) {
+              writeCoverageCache(covCacheNext)
+            }
+          }
         }
       }
       return {
@@ -3563,6 +4259,14 @@ async function main() {
           console.log(`  ${C.dim}        ${e.status} ${e.path}${blobPart}${coverPart}${C.reset}`)
         }
       }
+      // 复用必须说出来(2026-11-10):"这 46 枚是复用上一轮的结论"与"刚判过"在 stdout 上
+      // 必须可分辨 —— 否则读的人会把缓存读数当成此刻的复核结果(§12e 同一纪律)。
+      if (coverageCacheReused > 0) {
+        console.log(
+          `  ${C.dim}   ↳ 其中 ${coverageCacheReused} 枚复用上轮覆盖结论(证据提交本轮仍在交付面;` +
+            `要当场重算:IHUI_COMMIT_LOSS_NO_CACHE=1)${C.reset}`,
+        )
+      }
     }
     if (unreachable.length > 0) {
       // 分档出处一览(2026-11-03 判据补细;2026-11-04 增"逐路径覆盖"档):
@@ -3581,12 +4285,16 @@ async function main() {
       // 只有真的出现逐路径覆盖档才加这一桶:老仓的存量账(0 枚)保持原有行形状,
       // 免得下游按行解析的消费者(以及镜像测试)因为多一个 0 而读不到。
       const coverageBucket = pathCovered.length > 0 ? ` / 逐路径覆盖 ${pathCovered.length}` : ''
+      // 窗外未核:只报数、不判红(§29 人工 GC 存量),单列以免被读成"待处置"。
+      const outOfWindowBucket =
+        outOfWindowUnverified > 0 ? ` / 超窗未核 ${outOfWindowUnverified}(只报数)` : ''
       const undeterminedBucket =
         undeterminedCoverage.size > 0 ? ` / 未判定 ${undeterminedCoverage.size}` : ''
       console.log(
         `  ${C.dim}↳ 悬空分档:已备份 ${backedOut} / 同内容副本 ${whitelistedSameContent.length}` +
           ` / 等价残留 ${treeEquivalentResidual.length}${coverageBucket}` +
-          `${undeterminedBucket} / 待处置 ${unbacked.length}${C.reset}`,
+          `${outOfWindowBucket}${undeterminedBucket}` +
+          ` / 待处置 ${unbacked.length - outOfWindowUnverified}${C.reset}`,
       )
     }
     if (unbacked.length > 0) {
@@ -3770,11 +4478,19 @@ async function main() {
   // 3b 维:已备份但未清偿的缺口必须进 issues —— 否则本轮会打印"✅ 无风险"并通过句,
   // 而那正是盲区的原形(门说绿,缺口还在)。本维暂不置 blocking,是否转 blocking 属用户级决定
   // (见本单交付说明);但必须**报出来**,不得静默。
-  const tagBackupGaps = tagBackup.uncovered.filter((u) => u.missing.length > 0).length
+  // 延后档下这一维的读数来自上一轮 post-commit 后台审计(见 deferredTagBackup 头注):
+  // 读数照旧进 issues,不许因为"是后台算的"就静默 —— 缺口还在这件事本身不会因为挪走而消失。
+  const tagBackupGaps = tagBackup.deferred
+    ? tagBackup.audit && !tagBackup.audit.surfaceError
+      ? Number(tagBackup.audit.realGaps) || 0
+      : 0
+    : tagBackup.uncovered.filter((u) => u.missing.length > 0).length
   if (tagBackupGaps > 0) {
     issues.push(
       `${tagBackupGaps} 个 lost-commit/* tag 备份的提交仍有未覆盖路径` +
-        `(已备份但未落地,见 3b;未转 blocking 属待定项)`,
+        `(已备份但未落地,见 3b;未转 blocking 属待定项${
+          tagBackup.deferred ? ';读数来自 post-commit 后台审计' : ''
+        })`,
     )
   }
 
@@ -4043,6 +4759,8 @@ export const __test__ = {
   parseRawDiffZIter,
   splitByPathCoverage,
   derivePathCoverage,
+  // 覆盖结论缓存(2026-11-10):"证据是否可缓存/可复用"的判据必须可被直接断言,免得测试另抄一份
+  isCacheableCoverageEvidence,
   // 3b 维(2026-11-05):lost-commit tag 直接指向的提交也纳入逐路径覆盖
   tagPointedCommitSet,
   selectTagCoverageCandidates,

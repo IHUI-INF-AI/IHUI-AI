@@ -30,7 +30,7 @@ import { formatDate } from '@/lib/date-utils'
  * web 只保留数据获取、路由,以及平台专属插槽:markdown 正文、`<video>`/`<audio>`、
  * 底部复制链接/微信分享栏与返回。
  */
-function toShareLandingContent(data: ShareContent): ShareLandingContent {
+export function toShareLandingContent(data: ShareContent): ShareLandingContent {
   return {
     modelName: data.modelName,
     modelIcon: data.modelIcon,

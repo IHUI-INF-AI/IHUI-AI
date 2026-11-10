@@ -73,12 +73,7 @@ const { mockAuthenticate, mockRequireActiveUser } = vi.hoisted(() => ({
 vi.mock('../src/plugins/auth.js', () => ({
   authenticate: mockAuthenticate,
   requireActiveUser: mockRequireActiveUser,
-  // F-03(2026-11-08)后 /chat/steer 先校验会话归属,identity 必须由 checkAuth 写入;
-  // 否则 request.userId 为空,任何请求都会在触达上游之前被判 404。
-  checkAuth: vi.fn(async (request: { userId?: string }) => {
-    request.userId = 'u-1'
-    return true
-  }),
+  checkAuth: vi.fn(async () => true),
 }))
 
 vi.mock('../src/db/rbac-queries.js', () => ({
@@ -91,11 +86,7 @@ vi.mock('../src/db/chat-queries.js', () => ({
   replaceMessages: vi.fn().mockResolvedValue(undefined),
   createConversation: vi.fn(),
   findConversationsByUser: vi.fn(),
-  // F-03:steer 前会查会话属主,返回与 checkAuth 注入的 u-1 匹配的会话。
-  findConversationById: vi.fn().mockResolvedValue({
-    id: 'conv-l7648',
-    userId: 'u-1',
-  }),
+  findConversationById: vi.fn(),
   updateConversation: vi.fn(),
   deleteConversation: vi.fn(),
   deleteConversationsBatch: vi.fn(),

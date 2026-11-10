@@ -16,9 +16,6 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import Fastify, { type FastifyInstance, type FastifyReply } from 'fastify'
 
-const USER_ID = '00000000-0000-4000-8000-000000000001'
-const { mockFindConversationById } = vi.hoisted(() => ({ mockFindConversationById: vi.fn() }))
-
 vi.mock('../src/config/index.js', () => ({
   config: {
     NODE_ENV: 'test',
@@ -65,11 +62,7 @@ vi.mock('jose', () => ({
 vi.mock('../src/plugins/auth.js', () => ({
   authenticate: vi.fn(),
   requireActiveUser: vi.fn(),
-  // F-03(2026-11-08):流控制端点先核会话归属,归属以服务端认证态为准 —— 桩必须盖出 userId
-  checkAuth: vi.fn(async (request: { userId?: string }) => {
-    request.userId = USER_ID
-    return true
-  }),
+  checkAuth: vi.fn(async () => true),
 }))
 
 vi.mock('../src/db/chat-queries.js', () => ({
@@ -78,7 +71,7 @@ vi.mock('../src/db/chat-queries.js', () => ({
   replaceMessages: vi.fn().mockResolvedValue(undefined),
   createConversation: vi.fn(),
   findConversationsByUser: vi.fn(),
-  findConversationById: mockFindConversationById,
+  findConversationById: vi.fn(),
   updateConversation: vi.fn(),
   deleteConversation: vi.fn(),
   deleteConversationsBatch: vi.fn(),
@@ -153,8 +146,6 @@ describe('POST /api/ai/chat/steer/reorder(差距③ mutateQueue 网关侧)', () 
 
   beforeEach(() => {
     vi.clearAllMocks()
-    // 归属查询:会话存在且属于当前用户(否则 F-03 归属闸门先回 404,走不到转发面)
-    mockFindConversationById.mockResolvedValue({ id: 'conv-owned', userId: USER_ID })
   })
 
   it('转发成功:反查命中 ⇒ 拼上游 steer/reorder 路径,body 只带 order,生效结果原样回传', async () => {

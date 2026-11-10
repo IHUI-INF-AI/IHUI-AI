@@ -67,6 +67,9 @@ const configuredApiBase = getEnvApiBase()
  */
 export const BASE_URL = configuredApiBase ?? (IS_H5 ? '/api' : PROD_API_BASE_URL)
 
+/** 生产/真机是否已完成 API base 配置(H5 走同源 /api,视为已配置)。 */
+export const isApiBaseConfigured = IS_H5 || configuredApiBase !== undefined
+
 /**
  * 启动链调用(BUG-41①):小程序生产缺配置直接抛错,绝不静默回落 localhost。
  * 由 app.tsx 在崩溃上报初始化之后调用,错误会被捕获并上报(/api/crash-reports)。

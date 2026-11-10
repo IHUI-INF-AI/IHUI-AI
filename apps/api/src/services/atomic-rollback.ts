@@ -33,7 +33,7 @@ function errnoOf(error: unknown): string | undefined {
 }
 
 /** ENOENT/ENOTDIR 才是真的没有。其它读失败不能拿来覆盖或删除。 */
-async function classifyWorkspacePath(
+export async function classifyWorkspacePath(
   abs: string,
   statImpl: (path: string) => Promise<unknown> = stat,
 ): Promise<'absent' | 'present' | 'unreadable'> {
