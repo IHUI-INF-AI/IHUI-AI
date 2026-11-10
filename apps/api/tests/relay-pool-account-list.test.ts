@@ -282,13 +282,15 @@ describe('实时额度视图(--with-quota)', () => {
   const quotaRows = async () => [{ uid: 'u-a' }, { uid: 'u-b' }] as never
 
   it('四态人话:已查到/未支持/凭据失效(过期与否)/未判定,绝不给假数', () => {
-    expect(formatQuotaLine({ ok: true, remaining: 900, used: 2100, total: 3000, unit: 'trae 积分' })).toContain(
-      '剩余=900',
-    )
+    expect(
+      formatQuotaLine({ ok: true, remaining: 900, used: 2100, total: 3000, unit: 'trae 积分' }),
+    ).toContain('剩余=900')
     expect(formatQuotaLine({ ok: false, unsupported: true })).toContain('未支持')
     // 确凿过期才说"需重登";否则只说"被上游拒收",不对确认废的号暗示重登能救
     expect(formatQuotaLine({ ok: false, authFailed: true })).toContain('凭据被上游拒收')
-    expect(formatQuotaLine({ ok: false, authFailed: true, tokenExpired: true })).toContain('令牌已过期')
+    expect(formatQuotaLine({ ok: false, authFailed: true, tokenExpired: true })).toContain(
+      '令牌已过期',
+    )
     expect(formatQuotaLine({ ok: false, error: '上游未给判定依据' })).toContain('未判定')
     // 未支持/未判定一律不得出现任何数字冒充额度
     expect(formatQuotaLine({ ok: false, unsupported: true })).not.toMatch(/\d/)
@@ -395,21 +397,25 @@ describe('额度端点能力判据(单一真相源)', () => {
     expect(hasVerifiedQuotaEndpoint({ getQuota, quotaSupported: false } as never)).toBe(false)
   })
 
-  it('五个无公开端点适配器都必须显式声明 false(漏一枚就白发探测)', async () => {
+  it('四个无公开端点适配器都必须显式声明 false(漏一枚就白发探测)', async () => {
     const mods = await Promise.all([
       import('../src/services/upstream-adapters/doubao-adapter.js'),
       import('../src/services/upstream-adapters/lingma-adapter.js'),
-      import('../src/services/upstream-adapters/loomy-adapter.js'),
       import('../src/services/upstream-adapters/codex-adapter.js'),
       import('../src/services/upstream-adapters/opencode-adapter.js'),
     ])
-    const keys = ['doubaoAdapter', 'lingmaAdapter', 'loomyAdapter', 'codexAdapter', 'opencodeAdapter']
+    const keys = ['doubaoAdapter', 'lingmaAdapter', 'codexAdapter', 'opencodeAdapter']
     for (const [i, m] of mods.entries()) {
       const a = (m as unknown as Record<string, { quotaSupported?: boolean }>)[keys[i]]
       expect(a, `${keys[i]} 应导出适配器对象`).toBeTruthy()
       expect(a.quotaSupported, `${keys[i]} 必须声明 quotaSupported:false`).toBe(false)
       expect(hasVerifiedQuotaEndpoint(a as never)).toBe(false)
     }
+  })
+
+  it('loomy 余额端点 2026-11-10 实证:必须判为已支持(不得再标未支持)', async () => {
+    const { loomyAdapter } = await import('../src/services/upstream-adapters/loomy-adapter.js')
+    expect(hasVerifiedQuotaEndpoint(loomyAdapter as never)).toBe(true)
   })
 
   it('trae 走真端点:不得被误标为未支持', async () => {
