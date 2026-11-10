@@ -35,6 +35,39 @@ const ROOT = path.resolve(HERE, '..')
 const API_DIR = path.join(ROOT, 'apps', 'api')
 const POOL_LIST_TS = path.join(API_DIR, 'scripts', 'relay-pool-account-list.ts')
 const SWITCH_MJS = path.join(ROOT, 'scripts', 'switch-client-account.mjs')
+/**
+ * 每个平台「切号后旧对话还能不能接着用」的结论矩阵(2026-11-10 全平台实测/取证后固化)。
+ *
+ * 三型:
+ *   rebind —— 会话按 uid 绑在本地(全平台只有 Trae 这一型):本器真重绑,
+ *              含 SQLCipher 正库解密→改 user_id→重加密→逐页自证。
+ *   local  —— 会话表/记录里**没有账号维度**,切号后历史天然仍在(7 平台实测:
+ *              qoder chat_sessions 239 行无账号列、minimax local_runtime_sessions 25 行、
+ *              codearts/zcode/opencode session 表同型、loomy IndexedDB 无账号键、codex 按日期分目录)。
+ *              另有切前/切后连续性对账兜底(会话条数变了就判 continuity-broken)。
+ *   cloud  —— 会话在云端且绑账号、本地 0 字节(仅豆包),本地无迁移路径。
+ */
+const CHAT_CARRY = Object.freeze({
+  trae: { kind: 'rebind', text: '旧号对话会随新号重绑(含加密正库),切完直接接着聊' },
+  qoder: { kind: 'local', text: '对话在本地 main.sqlite、不带账号维度,切号后历史仍在' },
+  minimax: { kind: 'local', text: '对话在本地 runtime-state.sqlite、不带账号维度,切号后历史仍在' },
+  codearts: { kind: 'local', text: '对话在本地 codearts-data/opencode.db、不带账号维度,切号后历史仍在' },
+  zcode: { kind: 'local', text: '任务/会话在本地 ~/.zcode、不带账号维度,切号后历史仍在' },
+  loomy: { kind: 'local', text: '对话在本地 IndexedDB、不带账号维度,切号后历史仍在' },
+  opencode: { kind: 'local', text: '会话在本地 opencode.db、不带账号维度,切号后历史仍在' },
+  workbuddy: { kind: 'local', text: '登录态热切生效(10~20ms);对话由客户端本地管理,切号不致丢' },
+  codex: { kind: 'local', text: '会话按日期存 ~/.codex/sessions、不带账号维度,切号后历史仍在' },
+  doubao: {
+    kind: 'cloud',
+    text: '对话在云端且与账号绑定、本地零副本 —— 这一项本器做不到,需在豆包客户端内导出/导入',
+  },
+})
+
+/** 该平台的对话策略(未知平台如实标未取证,不冒充) */
+function chatCarryOf(platform) {
+  return CHAT_CARRY[platform] ?? { kind: 'unknown', text: '该平台的对话归属未取证,不做承诺' }
+}
+
 /** 每次双击的完整输出留痕(2026-11-10 立):窗口一关就没证据,查不到「跑完了却没切」断在哪 */
 const LOG_FILE = path.join(ROOT, 'logs', 'client-oneclick-switch.log')
 
@@ -222,12 +255,25 @@ async function main() {
     }
     const target = accounts[a.idx]
     // Trae 系写回前客户端必须已退出(其余平台由写回腿自己判在跑与否);话术不替它代裁
-    const note =
+    const carry = chatCarryOf(platform)
+    /**
+     * 进程面提示按实测事实改写(2026-11-10):
+     * - Trae:写回必须接管进程(客户端退出会用内存态覆写 storage.json)⇒ 本器代关、写完再拉起,
+     *   用户不用手动先退;一键入口直接带 --force。
+     * - WorkBuddy:客户端自带目录 watcher,外部写 auth 文件 10~20ms 内热切,**不用重启**;
+     *   且它是本会话宿主,绝不能关。
+     * - 其余 GUI 平台:写回腿自带关端/拉起。
+     */
+    const procNote =
       platform === 'trae'
-        ? '⚠ Trae 客户端需先退出,否则写回会被它退出时的内存态覆盖;切完请重启客户端。'
-        : '⚠ 写回只改本机客户端登录态;切完请重启客户端生效。'
-    const cmdLine = `node scripts/switch-client-account.mjs --to ${target.uid} --provider ${platform}`
-    out(`\n将执行:\n  ${cmdLine}\n${note}\n`)
+        ? 'Trae 在跑时本器会代关、写完自动拉起(--force),不用手动先退。'
+        : platform === 'workbuddy'
+          ? 'WorkBuddy 会热切生效(客户端 watcher 自动重载),本器不关端。'
+          : '写回腿会按需关闭并重新拉起客户端。'
+    const cmdLine =
+      `node scripts/switch-client-account.mjs --to ${target.uid} --provider ${platform}` +
+      (platform === 'trae' ? ' --force' : '')
+    out(`\n将执行:\n  ${cmdLine}\n\n对话:${carry.text}\n${procNote}\n`)
     const yes = (await rl.question('确认执行请输入 y(其它任意键取消): ')).trim().toLowerCase()
     if (yes !== 'y') {
       out('已取消,未改动任何登录态。\n')
@@ -235,9 +281,12 @@ async function main() {
     }
     return await new Promise((resolve) => {
       out(`\n[切号开始 ${new Date().toISOString()}] 平台=${platform} 目标uid=${target.uid}\n`)
+      const args = [SWITCH_MJS, '--to', target.uid, '--provider', platform]
+      // Trae 在跑时必须代关才写得进去(客户端退出会用内存态覆写);其余平台写回腿自己处理
+      if (platform === 'trae') args.push('--force')
       const child = spawn(
         process.execPath,
-        [SWITCH_MJS, '--to', target.uid, '--provider', platform],
+        args,
         {
           cwd: ROOT,
           windowsHide: true,
@@ -255,7 +304,9 @@ async function main() {
         done = true
         const banner =
           code === 0
-            ? '\n✅ 写回腿完成。请打开客户端核对当前账号;若仍是旧号,看上面有没有「模板缺失」告警 —— 缺模板时写回腿会直接拒绝(不再沿用旧号资料),按告警里的一键补模板命令补齐后再切即可。\n'
+            ? `\n✅ 切号完成。\n📚 对话:${carry.text}\n` +
+              `   打开客户端核对当前账号即可;若界面仍显示旧号,看上方有没有「模板缺失」告警 —— ` +
+              `缺模板时写回腿会直接拒绝(不再沿用旧号资料),按告警里的一键补模板命令补齐后再切。\n`
             : `\n❌ 切号未成功(exit=${code}${cause ? `,${cause}` : ''}):登录态很可能未被改写,上方最后几行是失败原因。\n`
         out(banner)
         out(`📄 本次完整输出已留痕: ${LOG_FILE}\n`)
