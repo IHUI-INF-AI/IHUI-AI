@@ -104,10 +104,8 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | — blocking | 328 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
 | 跟踪文件 | 20866 | `trackedFiles` |
-
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-10。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
-
 <!-- END GENERATED NUMBERS -->
 **一句话口径**:数字一律现读,文档里不写「约 N 个」——那种写法必然腐烂。
 ---
@@ -5465,18 +5463,15 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:重生成 miniapp 远端语言包,承载四个工具名五语言文案 (14965b4cdf)
 - 🐞 修复:验证码复制按钮圆角改取档位变量,解守门77 新增红 (b31e2abc08)
 - 🐞 修复:补 ask_user_question/skill/todo_read/todo_write 五语言功能名,守门55 归零 120/120 (d42e720dd0)
-
 **2026-11-10**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (358b1e4c8a)
 - 🚀 新功能/改进:号池导出工具 + codearts 永久AK/SK可导入 + 往返测试 (0c07cd5d50)
 - 🔧 工程/其他:miniapp 离线包按 HEAD 面(7f27d9d3ae)消息源重生成——清偿合并提交 c501898 记账的『生成物按本侧留下、落地后需重生成』欠账:三 gen.ts 自述钉 sourceCommit 对齐当前 HEAD,inputsSha256=a80eef25 对齐 mobile-rn 五语言与 shared 四语言现量(含 hrAttendance 去重后键面),补齐 en/ja/ko/zh-TW 包缺的 stepDecision.decision.skillGrantSkipApproval 与 zh-TW taskStatus.toolBrowserConsoleMessages 取值修正;CDN 载荷同批输出,溯源水印已注入;索引原暂存版为 05:15 同源重生成(仅 sourceCommit 钉旧 HEAD 与时间戳差),已按最新钉面覆盖 (0e730258df)
 - 🐞 修复:key_pool_selector 收口 mypy 两处类型错,解密失败改 fail-closed (43f40c6d30)
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (c975820262)
-
 **2026-11-10**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (7c975f7d2e)
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (49a2a775d2)
-
 **2026-11-10**
 - 🐞 修复:常驻开发服务按需启停——停白占栈断复活链,安装器默认拒注 (7f27d9d3ae)
 - 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (08fc6d68b2)
@@ -5503,7 +5498,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:补 skillGrantSkipApproval 五语言词条并修正 zh-TW 主控臺用词 (ff17abfc55)
 - 🐞 修复:vitest 收集面显式排除 dist,消除 57 例重复执行 (b7eaf2ad7d)
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (0d0c352538)
-
 **2026-11-10**
 - 🔧 工程/其他:收编守护落档产出(1 件,凭落点账本) (902bb35c58)
 - 🚀 新功能/改进:干净基线上重放仅存本地的成果 (87da79c682)
@@ -5544,13 +5538,10 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (1c7ae127e2)
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (d3a1d5f997)
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (4d28e8d18c)
-
 **2026-11-10**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (7898525095)
-
 **2026-11-10**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (f611c37a62)
-
 **2026-11-10**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (4e7adad235)
 - 📚 文档:数字块按 HEAD 面重算（与推门 check-doc-numbers 同面） (bd0fee0d4f)
@@ -5567,16 +5558,12 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🔧 工程/其他:补齐 brand-mail-from 测试文件的溯源水印 (7582515bf7)
 - 🔧 工程/其他:miniapp-taro 五个语言包对齐上游已完成的键清理 (975c6ec472)
 - 🐞 修复:三条 From 旁路归一 + 守门 R5 防回归 (0a761c3280)
-
 **2026-11-10**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (7b48014e26)
-
 **2026-11-10**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (3642b26464)
-
 **2026-11-10**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (dd1aeb0274)
-
 **2026-11-10**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (0ad8d37a99)
 - 🐞 修复:binary 档 + input 组合修复并入远端,消除 30a 的取数不可用 (98e18b522e)
@@ -5587,13 +5574,10 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:倒计时收敛夹具改认解构后的函数标识符,解 test 腿 miniapp 红 (73ff8614f0)
 - 🐞 修复:loomy chat 换实证网关 loomyad.xunfei.cn 并收口票形/模型名/错误信封 (7816076585)
 - ⚡ 性能:30a 内存治理——流式解析 + Buffer 取面 + 候选分批,并把 OOM 根因链查清 (c21c92594c)
-
 **2026-11-10**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (adf9c835cf)
-
 **2026-11-10**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (d2cb6d426c)
-
 **2026-11-10**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (1fc4f840f0)
 <!-- END RECENT UPDATES -->
@@ -43940,5 +43924,5 @@ A: Yes. Test file and case counts: see the generated table / 67 e2e spec / 4721 
 | 跟踪文件 | 20849 | `trackedFiles` |
 | 测试文件 | 4818 | `testFiles` |
 | 跟踪文件 | 20851 | `trackedFiles` |
-
-
+| 测试文件 | 4822 | `testFiles` |
+| 跟踪文件 | 20862 | `trackedFiles` |

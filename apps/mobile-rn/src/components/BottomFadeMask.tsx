@@ -6,33 +6,69 @@ import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg'
 import { tokens } from '../theme/active-tokens'
 
 /**
- * 底部平滑淡出遮罩(mobile-rn 端)
+ * 滚动边缘淡出遮罩(mobile-rn 端;RN 不支持 CSS mask-image,用 react-native-svg 实现)
  *
- * 贴在悬浮胶囊正上方的内容区底部:从透明(顶)渐变到页面背景色(底),
- * 让滚动内容在接近底部胶囊前平滑「溶解」,任何位置都不出现硬边。
- *
- * 层级:在内容之上、胶囊之下(`pointerEvents:'none'`,不挡滚动与点击)。
- * 真实模糊由胶囊玻璃承接(内容滚到胶囊底下被真实模糊);本层只负责「无硬边过渡」。
- *
- * 几何:渐变段占 `height`,其底边距屏幕底 = `offsetFromBottom`(一般 = 胶囊悬浮量 + 胶囊高,
- * 即胶囊顶沿);本体自渐变段顶一路铺到屏幕底,故胶囊下方的悬浮间距也被实底盖住(不留硬边)。
- * 渐变在靠近胶囊的最后约 55% 高度内由透明平滑转实底(约 55% 处已达 0.7 不透明,
- * 比初版更早更猛),故胶囊上方 ~100px 处的「返回顶部」按钮仍落在透明区,不受影响。
+ * 两种模式:
+ * 1) 多端一致「边缘渐变覆盖层」(不传 offsetFromBottom,2026-11-10 与 Web 端定稿同规格):
+ *    贴父容器上/下边缘(edge,默认 bottom)的一条纯线性渐变 —— 边缘实底色 → 内侧完全透明,
+ *    无实底平台,默认高 24px(heightPx)。pointerEvents 穿透,不挡滚动与点击。
+ *    「该方向是否确有溢出」由宿主判定,本组件只负责「显示即贴边」。
+ * 2) 旧「悬浮胶囊上方」模式(传 offsetFromBottom,TabBar 胶囊场景在用):保留已定稿的
+ *    实底平台几何(前 22% 透明 → 约 55% 处 0.7 → 实底一路铺到屏幕底),行为与视觉不变。
  */
 const BOTTOM_FADE_HEIGHT_PX = 90
+/** 多端一致规格:边缘渐变覆盖层默认高度(px) */
+const EDGE_FADE_HEIGHT_PX = 24
 
 export interface BottomFadeMaskProps {
-  /** 渐变段底边距屏幕底的距离(px):一般 = 胶囊悬浮量 + 胶囊高(即胶囊顶沿) */
-  offsetFromBottom: number
-  /** 渐变段高度(px),默认 90 */
+  /** 旧胶囊模式:渐变段底边距屏幕底的距离(px)= 胶囊悬浮量 + 胶囊高(即胶囊顶沿)。传入即走旧几何 */
+  offsetFromBottom?: number
+  /** 旧胶囊模式渐变段高度(px),默认 90 */
   height?: number
+  /** 新模式:贴滚动视口哪条边缘,默认 'bottom' */
+  edge?: 'top' | 'bottom'
+  /** 新模式渐变高度(px),默认 24 */
+  heightPx?: number
+  /** 底色覆盖(默认页面背景令牌 tokens.surface.bg;抽屉等面板场景传面板自身底色) */
+  color?: string
 }
 
 export default function BottomFadeMask({
   offsetFromBottom,
   height = BOTTOM_FADE_HEIGHT_PX,
+  edge = 'bottom',
+  heightPx = EDGE_FADE_HEIGHT_PX,
+  color,
 }: BottomFadeMaskProps) {
-  const bg = tokens.surface.bg
+  const bg = color ?? tokens.surface.bg
+
+  if (offsetFromBottom === undefined) {
+    // 新模式:纯线性,无平台 —— edge 一侧 100% 实底,内侧 0% 完全透明
+    return (
+      <View
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          height: heightPx,
+          pointerEvents: 'none',
+          ...(edge === 'top' ? { top: 0 } : { bottom: 0 }),
+        }}
+      >
+        <Svg width="100%" height="100%">
+          <Defs>
+            <LinearGradient id={`ihuiEdgeFade-${edge}`} x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0%" stopColor={bg} stopOpacity={edge === 'top' ? 1 : 0} />
+              <Stop offset="100%" stopColor={bg} stopOpacity={edge === 'top' ? 0 : 1} />
+            </LinearGradient>
+          </Defs>
+          <Rect x="0" y="0" width="100%" height="100%" fill={`url(#ihuiEdgeFade-${edge})`} />
+        </Svg>
+      </View>
+    )
+  }
+
+  // ── 旧胶囊模式(以下逐字节保持 2026-11-04 定稿几何,勿动)──
   // 渐变段仍只占 `height`,但本体一路铺到屏幕底:胶囊下方的悬浮间距(floatGap)此前没有任何
   // 覆盖层,滚动内容经过时会在胶囊底边形成硬切(2026-11-04 机主实拍点名「底部那一小段没被覆盖上」)。
   const total = height + offsetFromBottom

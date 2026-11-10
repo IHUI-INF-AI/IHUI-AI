@@ -1364,6 +1364,44 @@ function selfTest() {
     const v = j(`const a = ${EF}(GIT_BIN, ['status'], ${S_OK})`)
     if (v.verdict !== 'ok') throw new Error(`应合规:${v.verdict}`)
   })
+  // ── 2026-11-10 反向牙:`gitBinary()` 首参 + **多行折行 + 内联 options** 这一真实形态 ──────
+  // 立这一例的经过值得写下来,因为它差点被误判成"门的盲区":
+  //   当日 `scripts/tests/face-reader.test.mjs` 的 `run()` 里 options 只写了 `encoding` 与
+  //   `windowsHide`,**漏了 `stdio`**,门判红 —— 判得**完全正确**(实测 `noStdio`)。但排查时
+  //   先入为主地怀疑"首参是函数调用时 callSpan 会提前归零、内联 options 落在 span 之外",
+  //   于是把门体与判据记成了缺陷,还据此换了写法去"绕开"。
+  //   复核结论:`gitBinary()` 的括号是**配对**的,`callSpan` 从 `spawnSync(` 起配平不会提前归零
+  //   (花括号不参与计数,options 在 span 内),门对下面这两例的判定与期望逐条相符。
+  // 所以这一例锁的是**最简单也最容易被忘的那件事**:多行形态下漏写 `stdio` 必须判红,
+  // 补上必须转绿 —— 防的正是"把真缺陷归因成门体缺陷"这条弯路再次发生(§0.4 根因优先)。
+  t('设计命门:gitBinary() 首参 + 多行折行 + 内联 options,漏 stdio 必须判红(2026-11-10 实测形态)', () => {
+    const noStdioMulti = [
+      'const run = (args) =>',
+      `  spawnSync(gitBinary(), ['-c', 'safe.directory=*', ...args], {`,
+      "    encoding: 'utf8',",
+      '    windowsHide: true,',
+      '  })',
+    ].join('\n')
+    const r = scanSource(noStdioMulti)
+    if (r.misses.length !== 1 || r.misses[0].verdict !== 'noStdio') {
+      throw new Error(`多行漏 stdio 未判红:${JSON.stringify(r.misses)}`)
+    }
+    // 同一形态补上 stdio ⇒ 必须转绿(证明上一例不是恒红,也证明"内联 options 会被读到")
+    const withStdio = [
+      'const run = (args) =>',
+      `  spawnSync(gitBinary(), ['-c', 'safe.directory=*', ...args], {`,
+      "    encoding: 'utf8',",
+      '    windowsHide: true,',
+      `    ${S_STDIO}: ['ignore', 'pipe', 'pipe'],`,
+      '  })',
+    ].join('\n')
+    const r2 = scanSource(withStdio)
+    if (r2.misses.length !== 0) {
+      throw new Error(
+        `多行内联 stdio 被漏读(callSpan 未覆盖首参为函数调用的形态):${JSON.stringify(r2.misses)}`,
+      )
+    }
+  })
   t('注释里出现 stdio 不算数(仍判红)', () => {
     const v = j(
       `const a = ${EF}(${S_GIT}, ['ls-files'], { encoding: 'utf8' /* ${S_STDIO}: ['pipe'] */ })`,
