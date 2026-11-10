@@ -125,6 +125,8 @@ import {
   PermissionTierRow,
   SteerNoticeList,
 } from '../components/ChatDisclosure'
+// 多端一致聊天滚动淡出(2026-11-10,与 Web 端同规格:视口上下沿各一条 24px 纯渐变)
+import { ChatScrollFades, useChatScrollFades } from '../components/chat/ChatScrollFades'
 import { NavBar } from '../components/NavBar'
 import { PanelLeftRounded } from '../components/PanelLeftRounded'
 import { NavChrome } from '../components/NavChrome'
@@ -957,6 +959,8 @@ export default function AiAssistantN8nScreen() {
   const routeConversationId = route.params?.conversationId
 
   const listRef = useRef<FlatList<N8nMessage> | null>(null)
+  // 滚动淡出溢出判定(本屏消息 FlatList 由本端创建,直接走标准 onScroll 接线)
+  const fades = useChatScrollFades()
   const abortRef = useRef<AbortController | null>(null)
   const idCounter = useRef(0)
   const nextId = (): string => `n8n-${++idCounter.current}`
@@ -1951,19 +1955,33 @@ export default function AiAssistantN8nScreen() {
         style={styles.body}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <FlatList
-          ref={listRef}
-          data={messages}
-          keyExtractor={(item) => item.id}
-          renderItem={renderItem}
-          contentContainerStyle={styles.listContent}
-          onContentSizeChange={scrollToEnd}
-          onLayout={scrollToEnd}
-          showsVerticalScrollIndicator={false}
-          ListEmptyComponent={
-            <Empty text={agentId ? t('aiAssistantN8n.empty') : t('aiAssistantN8n.emptyNoAgent')} />
-          }
-        />
+        {/* 滚动淡出包装容器:与消息视口同界,遮罩绝对覆盖上下沿(仅溢出方向显示) */}
+        <View style={styles.listFadeWrap}>
+          <FlatList
+            ref={listRef}
+            data={messages}
+            keyExtractor={(item) => item.id}
+            renderItem={renderItem}
+            contentContainerStyle={styles.listContent}
+            onScroll={fades.onScroll}
+            scrollEventThrottle={16}
+            onContentSizeChange={(w, h) => {
+              fades.onContentSizeChange(w, h)
+              scrollToEnd()
+            }}
+            onLayout={(e) => {
+              fades.onLayout(e)
+              scrollToEnd()
+            }}
+            showsVerticalScrollIndicator={false}
+            ListEmptyComponent={
+              <Empty
+                text={agentId ? t('aiAssistantN8n.empty') : t('aiAssistantN8n.emptyNoAgent')}
+              />
+            }
+          />
+          <ChatScrollFades topVisible={fades.topVisible} bottomVisible={fades.bottomVisible} />
+        </View>
         {/* 快捷操作区(对齐 Uniapp ai_assistant_n8n quick-actions-container:
             无消息时输入区上方横向 suggestedQuestions chip,点击直接发送) */}
         {messages.length === 0 && QUICK_SUGGESTION_KEYS.length > 0 ? (
@@ -2171,6 +2189,8 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: tokens.surface.bg },
   valueCardWrap: { paddingHorizontal: rpx(16), marginTop: rpx(8) },
   body: { flex: 1 },
+  // 滚动淡出包装容器:与消息视口同界(ScrollView 默认 flexGrow/flexShrink 1,几何不变)
+  listFadeWrap: { flex: 1 },
   listContent: { paddingHorizontal: rpx(32), paddingVertical: rpx(16), paddingBottom: rpx(32) },
   // 语音输入行(对齐 Uniapp ai_assistant_n8n.vue 输入区语音模式,置于 InputArea 上方)
   voiceInputWrap: {
