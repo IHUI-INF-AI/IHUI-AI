@@ -682,8 +682,9 @@ select:-webkit-autofill:focus {
   --color-sidebar-hover: hsl(222 14% 14%);
   --color-sidebar-active: hsl(228 21% 8%);
   --color-sidebar-active-hover: hsl(0 0% 0%);
-  /* 暗色模式:纯黑,与 sidebar 的 14% L 偏白底形成区分 */
-  --color-sidebar-item-hover-bg: hsl(0 0% 0%);
+  /* 暗色模式:14% L,与 sidebar 19% L 仅差 5% L(2026-11-10 用户要求降低按钮底色对比)。
+     原纯黑(0% L)与 sidebar 差 19% L,几乎与选中态同强,盖过 --color-sidebar-active 的风头。 */
+  --color-sidebar-item-hover-bg: hsl(226 14% 14%);
   /* 暗色模式:深灰色,与 14% L 偏白页面底形成反向对比 */
   --color-shell-panel: hsl(220 12% 5%);
   /* 2026-08-07 立:暗色标签栏未激活 tab 提到 24% L(对比 background 14% L 差 10% L 清晰可辨) */
