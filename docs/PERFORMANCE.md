@@ -349,31 +349,45 @@ gh workflow run ws-loadtest.yml -f users=500 -f run-time=120s
 
 **失败处理**:error 级别断言失败 → CI 阻塞 PR 合并;warn 级别 → 仅提醒。
 
-### 7.3 字体子集化
+### 7.3 字体子集化(2026-11-10 起为「按字重分档」)
 
-中文字体(HarmonyOS Sans SC)全量体积 5MB+,必须子集化。
+中文字体(HarmonyOS Sans SC)单面源文件 8MB,必须子集化。
+
+**为什么分档**:旧实现只把「源代码里出现过的字符」打进子集(实测 4016 码位 / 汉字 2292,
+GB2312 一级 3755 字缺 2178)。运行时动态中文(用户昵称、知识库标题、AI 回答)因此成片落回退链,
+换成交互式系统字体渲染 —— 同一行里两种字面并存,就是界面「一粗一个细、不像一个字体」的主病灶
+(2026-11-10 真 Chromium 夹具复现,业务文本缺字率实测 4%–26%)。
+
+| 档 | 产物文件 | 字符集 | 实测体积 | 用途 |
+|----|----------|--------|----------|------|
+| Regular(400) | `HarmonyOS_SansSC_Regular.gb2312-l12.woff2` | 源码扫描 ∪ GB2312 一级 ∪ 二级(8703 码位) | 982 KB | 正文,动态中文全覆盖 |
+| Medium(500) | `HarmonyOS_SansSC_Medium.gb2312-l1.woff2` | 源码扫描 ∪ GB2312 一级(5766 码位) | 582 KB | 强调/次级标题 |
+| Bold(600–700) | `HarmonyOS_SansSC_Bold.gb2312-l1.woff2` | 同上 | 585 KB | 标题;本家族官方无 Semibold 面,600 由该面代打(已在 `@font-face` 显式声明 `font-weight: 600 700`) |
+| Thin(100) / Light(300) | `HarmonyOS_SansSC_{Thin,Light}.subset.woff2` | 源码扫描窄档 | 373 / 375 KB | 全站几乎不用,不为它付体积 |
+| 营销首页专用 | `HarmonyOS_SansSC_home-subset-v1-{400,500,700}.woff2` | 首页去重字(更窄) | 69 / 70 / 70 KB | FEO 决策,见 `apps/web/app/(marketing)/marketing-fonts.css` |
 
 | 文件 | 用途 |
 |------|------|
-| `scripts/subset-fonts.py` | 子集化脚本(pyftsubset) |
-| `scripts/font-subset-chars.txt` | 字符清单(ASCII + 中日韩常用字 + emoji + 标点) |
-| `apps/web/public/fonts/HarmonyOS_SansSC_*.subset.woff2` | 5 档字重子集化产物(Thin/Light/Regular/Medium/Bold) |
+| `scripts/subset-fonts.py` | 子集化唯一出口(pyftsubset;含前置自检 + 缺字哨兵自检) |
+| `scripts/font-subset-chars.txt` | 宽档并集字符清单(8703 码位,供守门与工具读取) |
+| `scripts/font-subset-unicode-range.txt` | 并集 unicode-range 描述 |
+| `scripts/data/font-subset-manifest.json` | 逐面码位数/体积/哨兵结果(守门对账用) |
 
-**重新生成**(字符清单变更后):
+**重新生成**(需官方 `HarmonyOS_Sans_SC_*.ttf` 源文件;仓库不入库源字体):
+
 ```bash
-python scripts/subset-fonts.py
-# 产物:apps/web/public/fonts/HarmonyOS_SansSC_{Thin,Light,Regular,Medium,Bold}.subset.woff2
+pip install fonttools brotli
+python scripts/subset-fonts.py --self-test          # 判据自检(不碰真字体)
+python scripts/subset-fonts.py --dry-run            # 只统计
+python scripts/subset-fonts.py --src-dir "<HarmonyOS_Sans_SC 目录>"
+# 产物文件名带 tier 段;哨兵词缺字即非零退出,防子集无声缩水回潮
 ```
 
-**CSS 引用**(见 `apps/web/app/globals.css` 第 14-48 行):
-```css
-@font-face {
-  font-family: 'HarmonyOS Sans SC';
-  font-weight: 400;
-  font-display: swap;  /* 关键:避免 FOIT */
-  src: url('/fonts/HarmonyOS_SansSC_Regular.subset.woff2') format('woff2');
-}
-```
+**CSS 引用**:见 `apps/web/app/globals.css` 的 `@font-face { font-family: 'HarmonyOS Sans SC'; … }`
+声明块(按内容锚点定位,不写行号 —— 行号一次 append 就挪位)。
+
+**跨端**:小程序 / RN 未自托管本字体,走系统字体(见 AGENTS §4 跨端样式同步铁律);
+本节的分档只作用于 web 端 `--font-sans` 首位家族。
 
 ### 7.4 图片优化
 
