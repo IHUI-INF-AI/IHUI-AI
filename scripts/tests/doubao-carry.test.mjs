@@ -364,3 +364,182 @@ test('⑦c v20(app-bound)⇒ code=cookie-app-bound,不静默 NULL', async () => 
     rmScratch(dir)
   }
 })
+
+// =============================================================================
+// ⑧ 回放腿(--replay:旧对话 → 新号新会话,2026-11-10)
+// =============================================================================
+import {
+  buildReplayText,
+  pickNewConversationId,
+  replayArchive,
+  replayConversation,
+  replayFingerprint,
+} from '../lib/doubao-carry.mjs'
+
+const SSE_OK = 'data: {"event_data":{"conversation":{"conversation_id":"7421112222333"},"section_id":"s1"}}\n\ndata: {"event_data":{"message":{"content":"收到"}}}\n\n'
+
+/** 一个真实形状的归档目录(index.json + 两个会话 json) */
+function makeArchive(dir) {
+  const c1 = { conversationId: '111', name: '需求讨论', createTime: 1700000000, messages: [
+    { messageId: 'm1', role: 'user', content: '帮我设计登录页' },
+    { messageId: 'm2', role: 'assistant', content: '好的,方案如下…' },
+  ] }
+  const c2 = { conversationId: '222', name: '排期', createTime: 1700000100, messages: [
+    { messageId: 'm3', role: 'user', content: '周三上线' },
+  ] }
+  fs.mkdirSync(dir, { recursive: true })
+  fs.writeFileSync(path.join(dir, 'conv-0-111.json'), `${JSON.stringify(c1, null, 2)}\n`)
+  fs.writeFileSync(path.join(dir, 'conv-1-222.json'), `${JSON.stringify(c2, null, 2)}\n`)
+  fs.writeFileSync(path.join(dir, 'index.json'), `${JSON.stringify({
+    generatedAt: new Date().toISOString(),
+    count: 2,
+    totalMessages: 3,
+    conversations: [
+      { conversationId: '111', name: '需求讨论', file: 'conv-0-111.json', messages: 2 },
+      { conversationId: '222', name: '排期', file: 'conv-1-222.json', messages: 1 },
+    ],
+  }, null, 2)}\n`)
+  return { c1, c2 }
+}
+
+test('⑧a buildReplayText:只收 user/assistant 非空消息,带头尾标', () => {
+  const t = buildReplayText({ name: '需求讨论' }, [
+    { role: 'user', content: '帮我设计登录页' },
+    { role: 'system', content: 'should-skip' },
+    { role: 'assistant', content: '' },
+    { role: 'assistant', content: '好的,方案如下…' },
+  ])
+  assert.match(t, /【对话迁移】/)
+  assert.match(t, /会话名:需求讨论/)
+  assert.match(t, /用户:帮我设计登录页/)
+  assert.match(t, /AI:好的,方案如下…/)
+  assert.ok(!t.includes('should-skip'))
+  assert.match(t, /--- 原始对话结束 ---/)
+})
+
+test('⑧b replayFingerprint:同会话稳定,消息/时间变化即换指纹', () => {
+  const conv = { conversationId: '111', createTime: 1 }
+  const a = replayFingerprint(conv, [{ messageId: 'x' }, { messageId: 'y' }])
+  assert.equal(a, replayFingerprint(conv, [{ messageId: 'x' }, { messageId: 'y' }]))
+  assert.notEqual(a, replayFingerprint(conv, [{ messageId: 'x' }]))
+  assert.notEqual(a, replayFingerprint({ ...conv, createTime: 2 }, [{ messageId: 'x' }, { messageId: 'y' }]))
+})
+
+test('⑧c pickNewConversationId:字符串/数字两种 SSE 形状都认', () => {
+  assert.equal(pickNewConversationId(SSE_OK), '7421112222333')
+  assert.equal(pickNewConversationId('data: {"conversation_id": 7421112222333}'), '7421112222333')
+  assert.equal(pickNewConversationId('data: {}'), '')
+})
+
+test('⑧d replayConversation:发 chat/completion 不带 conversation_id,抽回新会话 id', async () => {
+  const calls = []
+  const impl = (url, init) => {
+    const u = new URL(String(url))
+    const body = init.body ? JSON.parse(init.body) : null
+    calls.push({ pathname: u.pathname, body })
+    return Promise.resolve({ ok: true, status: 200, text: async () => SSE_OK, json: async () => ({}) })
+  }
+  const r = await replayConversation({
+    cookieHeader: COOKIE,
+    conv: { name: '需求讨论' },
+    messages: [{ role: 'user', content: '帮我设计登录页' }],
+    fetchImpl: impl,
+  })
+  assert.equal(r.code, 'ok', `code=${r.code} message=${r.message ?? ''}`)
+  assert.equal(r.newConversationId, '7421112222333')
+  assert.equal(calls.length, 1)
+  assert.equal(calls[0].pathname, '/samantha/chat/completion')
+  assert.ok(!('conversation_id' in calls[0].body), '不带 conversation_id ⇒ 服务端新建')
+  assert.equal(calls[0].body.messages.length, 1)
+  assert.equal(calls[0].body.messages[0].role, 'user')
+  assert.ok(calls[0].body.messages[0].content.includes('【对话迁移】'))
+})
+
+test('⑧e replayConversation:登录过期(710012001)⇒ code=login-invalid 不冒绿', async () => {
+  const impl = async () => ({
+    ok: true,
+    status: 200,
+    text: async () => JSON.stringify({ code: 710012001, msg: '登录已过期，请重新登录' }),
+    json: async () => ({}),
+  })
+  const r = await replayConversation({ cookieHeader: COOKIE, conv: {}, messages: [], fetchImpl: impl })
+  assert.equal(r.code, 'login-invalid')
+  assert.equal(r.newConversationId, '')
+})
+
+test('⑧f replayArchive 干跑:列出将回放什么,零发送、零写盘', async () => {
+  const dir = mkScratch('doubao-replay-dry-')
+  try {
+    makeArchive(dir)
+    let sent = 0
+    const impl = async () => {
+      sent += 1
+      throw new Error('干跑不得发网络请求')
+    }
+    const r = await replayArchive({ cookieHeader: COOKIE, archiveDir: dir, fetchImpl: impl, apply: false })
+    assert.equal(r.code, 'ok')
+    assert.equal(r.total, 2)
+    assert.equal(r.replayed, 0)
+    assert.equal(sent, 0)
+    assert.ok(!fs.existsSync(path.join(dir, 'replay-log.json')), '干跑不写 replay-log')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('⑧g replayArchive --apply:逐会话发送,指纹写 replay-log;复跑全跳过', async () => {
+  const dir = mkScratch('doubao-replay-apply-')
+  try {
+    makeArchive(dir)
+    let sends = 0
+    const impl = async () => {
+      sends += 1
+      return { ok: true, status: 200, text: async () => SSE_OK, json: async () => ({}) }
+    }
+    const r1 = await replayArchive({ cookieHeader: COOKIE, archiveDir: dir, fetchImpl: impl, apply: true })
+    assert.equal(r1.code, 'ok')
+    assert.equal(r1.replayed, 2)
+    assert.equal(r1.skipped, 0)
+    assert.equal(sends, 2)
+    const log = JSON.parse(fs.readFileSync(r1.logFile, 'utf8'))
+    assert.equal(Object.keys(log.entries).length, 2)
+    // 复跑:指纹命中 ⇒ 全跳过,零发送
+    const r2 = await replayArchive({ cookieHeader: COOKIE, archiveDir: dir, fetchImpl: impl, apply: true })
+    assert.equal(r2.replayed, 0)
+    assert.equal(r2.skipped, 2)
+    assert.equal(sends, 2, '复跑零新增发送')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('⑧h replayArchive --limit:只回放前 n 个', async () => {
+  const dir = mkScratch('doubao-replay-limit-')
+  try {
+    makeArchive(dir)
+    const seen = []
+    const impl = async () => {
+      seen.push(1)
+      return { ok: true, status: 200, text: async () => SSE_OK, json: async () => ({}) }
+    }
+    const r = await replayArchive({ cookieHeader: COOKIE, archiveDir: dir, fetchImpl: impl, apply: true, limit: 1 })
+    assert.equal(r.total, 1)
+    assert.equal(r.replayed, 1)
+    assert.equal(seen.length, 1)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('⑨ 缺 cookie 时 replayArchive 明确 cookie-missing,不静默空过', async () => {
+  const dir = mkScratch('doubao-replay-nocookie-')
+  try {
+    makeArchive(dir)
+    const r = await replayArchive({ cookieHeader: '', archiveDir: dir, apply: true })
+    assert.equal(r.code, 'cookie-missing')
+    assert.equal(r.replayed, 0)
+    assert.match(r.message, /新号/)
+  } finally {
+    rmScratch(dir)
+  }
+})
