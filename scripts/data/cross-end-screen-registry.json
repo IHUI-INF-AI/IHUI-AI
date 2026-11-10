@@ -1285,6 +1285,16 @@
       "shared": "packages/app/src/features/groups/GroupsScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/GroupsScreen.tsx",
       "miniapp": "pkg-user/groups/index"
+    },
+    {
+      "shared": "packages/app/src/features/api-keys/ApiKeysScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ApiKeysScreen.tsx",
+      "miniapp": "pkg-user/api-keys/index"
+    },
+    {
+      "shared": "packages/app/src/features/patrol/PatrolScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/PatrolScreen.tsx",
+      "miniapp": "pkg-user/patrol/index"
     }
   ]
 }
