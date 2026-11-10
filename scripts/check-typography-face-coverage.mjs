@@ -1,0 +1,436 @@
+#!/usr/bin/env node
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * 字体面覆盖与回退链守门(门 313,2026-11-10 立)。
+ *
+ * 立因(用户报"界面里字体一个粗一个细,看着不像一个字体"):2026-11-10 逐层现读取证,
+ * 病灶三处,而本仓此前**没有任何一把门盯着字体这一层**(字号/圆角/描边都有门):
+ *   T1 字重面断裂 —— 档位表请求 600,而 'HarmonyOS Sans SC' 家族只有 100/300/400/500/700
+ *       五面(HarmonyOS Sans 官方只开放 Thin/Light/Regular/Medium/Bold/Black,无 Semibold),
+ *       600 全靠浏览器隐式匹配规则代打;规则一旦被改写就静默变脸。
+ *   T2 子集覆盖缩水 —— 品牌字体是子集产物,字符集一旦缩水,动态中文立刻落系统字体换脸。
+ *       旧值实测 2292 汉字(GB2312 一级缺 2178),业务样本缺字率实测 13.87%。
+ *   T3 回退链与假粗卫生 —— --font-sans 缺字时若无确定的中文黑体族,会落到"系统默认
+ *       sans-serif"(可能被设成宋体/衬线);单面 display 字体(EDIX)不声明字重区间时,
+ *       加粗请求走浏览器合成假粗(笔画涨糊),与同版面真 Bold 并存即"不像一个字体"。
+ *
+ * 判据(三臂,全绿才 exit 0):
+ *   T1 档位表请求的每个字重,都必须被 globals.css 里该家族某个 @font-face 的**显式字重区间**覆盖。
+ *   T2 manifest 各档汉字数不得低于 scripts/data/typography-face-baseline.json 基线(只拦下降);
+ *      globals.css 引用的每个 /fonts/*.woff2 必须在该判定面上存在;缺字哨兵必须为 ok。
+ *   T3 --font-sans 必须含中文现代黑体族,且排在 ui-sans-serif/system-ui 之前;
+ *      单面 display 家族必须声明字重区间(禁合成假粗回潮)。
+ *
+ * 取不到输入一律 exit 2 显式「未判定」(全局铁律 §0.3),不回落另一个面(守门 118)。
+ *
+ * 用法:
+ *   node scripts/check-typography-face-coverage.mjs --staged   # pre-commit(索引 blob)
+ *   node scripts/check-typography-face-coverage.mjs            # 全量审计(HEAD blob)
+ *   node scripts/check-typography-face-coverage.mjs --self-test
+ *   node scripts/check-typography-face-coverage.mjs --update-baseline   # 唯一写基线出口
+ * 应急: HUSKY_SKIP_TYPOGRAPHY_FACE_COVERAGE=1(须人工确认并附定向说明)
+ */
+import { readFileSync, writeFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+import {
+  Undetermined,
+  catBatch,
+  readWorktreeFile,
+  selectFace,
+  probeFaceSpec,
+} from './lib/face-reader.mjs'
+
+const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
+
+const GLOBALS_REL = 'apps/web/app/globals.css'
+const TOKENS_REL = 'packages/design-tokens/src/styles/tokens.css'
+const TYPO_REL = 'packages/design-tokens/src/typography.ts'
+const MANIFEST_REL = 'scripts/data/font-subset-manifest.json'
+const BASELINE_REL = 'scripts/data/typography-face-baseline.json'
+const RELS = [GLOBALS_REL, TOKENS_REL, TYPO_REL, MANIFEST_REL, BASELINE_REL]
+
+const BRAND_FAMILY = 'HarmonyOS Sans SC'
+/** 中文现代黑体族白名单(衬线/宋体一律不算) */
+const CJK_SANS_FAMILIES = [
+  'PingFang SC',
+  'Microsoft YaHei',
+  'Noto Sans SC',
+  'Source Han Sans SC',
+  'Hiragino Sans GB',
+]
+/** 拉丁优先的通用族;中文族必须排在它们之前,否则缺字先被这些截走 */
+const LATIN_FIRST_MARKERS = ['ui-sans-serif', 'system-ui']
+
+const FACE_BLOCK_RE = /@font-face\s*\{([^}]*)\}/g
+const DECL_RE = /([\w-]+)\s*:\s*([^;]+);/g
+
+function unquote(v) {
+  return String(v)
+    .trim()
+    .replace(/^['"]|['"]$/g, '')
+    .trim()
+}
+
+/** font-weight 值 → [lo, hi];normal=400 / bold=700 / "600 700"=[600,700];解析不出给 null */
+export function parseWeightRange(raw) {
+  const t = String(raw ?? '')
+    .trim()
+    .toLowerCase()
+  if (!t) return null
+  const kw = { normal: 400, bold: 700, light: 300 }
+  const nums = []
+  for (const part of t.split(/\s+/)) {
+    if (kw[part] !== undefined) nums.push(kw[part])
+    else if (/^\d{3}$/.test(part)) nums.push(Number(part))
+    else return null
+  }
+  if (!nums.length) return null
+  return [Math.min(...nums), Math.max(...nums)]
+}
+
+/** globals.css 文本 → [{ family, range, srcs }] */
+export function parseFontFaces(css) {
+  const faces = []
+  for (const m of css.matchAll(FACE_BLOCK_RE)) {
+    const decls = {}
+    for (const d of m[1].matchAll(DECL_RE)) {
+      const k = d[1].trim()
+      if (decls[k] === undefined) decls[k] = d[2].trim()
+    }
+    const family = decls['font-family'] ? unquote(decls['font-family'].split(',')[0]) : ''
+    if (!family) continue
+    faces.push({
+      family,
+      range: parseWeightRange(decls['font-weight'] ?? 'normal'),
+      srcs: [...String(decls.src ?? '').matchAll(/url\(\s*['"]?([^'")]+)['"]?\s*\)/g)].map(
+        (s) => s[1],
+      ),
+    })
+  }
+  return faces
+}
+
+/** 档位表请求的字重集合 = FONT_WEIGHTS 值 ∪ TYPE_STEPS 的 weight ∪ tokens.css 的 --text-*--font-weight */
+export function collectRequestedWeights(typoSrc, tokensCss) {
+  const set = new Set()
+  const fw = typoSrc.match(/FONT_WEIGHTS\s*=\s*\{([^}]*)\}/)
+  if (fw) for (const n of fw[1].matchAll(/:\s*(\d{3})/g)) set.add(Number(n[1]))
+  for (const n of typoSrc.matchAll(/\bweight:\s*(\d{3})\b/g)) set.add(Number(n[1]))
+  for (const n of tokensCss.matchAll(/--text-[\w-]*--font-weight:\s*(\d{3})/g))
+    set.add(Number(n[1]))
+  return [...set].sort((a, b) => a - b)
+}
+
+/** T1:被请求字重必须有显式区间覆盖;返回未覆盖清单 */
+export function findUncoveredWeights(faces, family, requested) {
+  const mine = faces.filter((f) => f.family === family && f.range)
+  return requested.filter((w) => !mine.some((f) => f.range[0] <= w && w <= f.range[1]))
+}
+
+/** T3a:--font-sans 里中文黑体族必须存在且排在拉丁通用族之前 */
+export function checkFallbackChain(tokensCss) {
+  const m = tokensCss.match(/--font-sans:\s*([\s\S]*?);/)
+  if (!m) return { ok: false, reason: 'tokens.css 找不到 --font-sans 声明' }
+  const value = m[1].replace(/\/\*[\s\S]*?\*\//g, '')
+  const idx = (name) => value.toLowerCase().indexOf(name.toLowerCase())
+  const cjkHits = CJK_SANS_FAMILIES.map(idx).filter((i) => i >= 0)
+  if (!cjkHits.length) {
+    return { ok: false, reason: '--font-sans 不含任何中文现代黑体族(缺字将落系统默认 sans-serif)' }
+  }
+  const latinIdx = LATIN_FIRST_MARKERS.map(idx).filter((i) => i >= 0)
+  if (latinIdx.length && Math.min(...cjkHits) > Math.min(...latinIdx)) {
+    return { ok: false, reason: '中文黑体族排在 ui-sans-serif/system-ui 之后,缺字会被拉丁族截走' }
+  }
+  return { ok: true }
+}
+
+/** T3b:单面 display 家族必须声明字重区间,否则加粗请求走合成假粗 */
+export function checkDisplaySynthesis(faces) {
+  const byFamily = new Map()
+  for (const f of faces) {
+    if (!byFamily.has(f.family)) byFamily.set(f.family, [])
+    byFamily.get(f.family).push(f)
+  }
+  const bad = []
+  for (const [family, list] of byFamily) {
+    if (family === BRAND_FAMILY) continue
+    if (list.length > 1) continue
+    const [f] = list
+    if (!f.range) bad.push({ family, why: '无 font-weight 声明' })
+    else if (f.range[0] === f.range[1]) bad.push({ family, why: `只声明单点 ${f.range[0]}` })
+  }
+  return bad
+}
+
+/** T2:manifest 各档汉字数对基线做防回退棘轮 + 哨兵必须过 */
+export function checkSubsetRatchet(manifest, baseline) {
+  const findings = []
+  for (const [tier, min] of Object.entries(baseline.minCjk ?? {})) {
+    const cur = manifest?.tiers?.[tier]?.cjk
+    if (cur === undefined) {
+      findings.push(`档 ${tier} 在 manifest 里查不到汉字数(取不到即未判定,不折成 0)`)
+      continue
+    }
+    if (cur < min)
+      findings.push(`档 ${tier} 汉字数 ${cur} < 基线 ${min}(子集缩水=动态中文换脸回潮)`)
+  }
+  if (manifest?.sentinel && manifest.sentinel.ok !== true) {
+    findings.push(`缺字哨兵未过: ${JSON.stringify(manifest.sentinel).slice(0, 160)}`)
+  }
+  return findings
+}
+
+/** globals.css 引用的本地字体相对路径(去 query) */
+export function referencedFontPaths(faces) {
+  const out = new Set()
+  for (const f of faces) {
+    for (const s of f.srcs)
+      if (s.startsWith('/fonts/')) out.add('apps/web/public' + s.split('?')[0])
+  }
+  return [...out].sort()
+}
+
+export function faceFromArgv(argv) {
+  return selectFace({
+    staged: argv.includes('--staged'),
+    worktree: argv.includes('--worktree'),
+    def: 'head',
+  })
+}
+
+export function readFaceInputs(repoRoot, face) {
+  if (face === 'worktree') {
+    const out = {}
+    for (const rel of RELS) {
+      const t = readWorktreeFile(repoRoot, rel)
+      if (t === null || t === undefined) throw new Undetermined(`工作树(逃生舱)取不到 ${rel}`)
+      out[rel] = t
+    }
+    return out
+  }
+  const prefix = face === 'staged' ? ':' : 'HEAD:'
+  const specs = RELS.map((rel) => prefix + rel)
+  const got = catBatch(repoRoot, specs, { maxBuffer: 1 << 26 })
+  const out = {}
+  for (let i = 0; i < RELS.length; i++) {
+    const t = got.get(specs[i])
+    if (t === null || t === undefined) {
+      throw new Undetermined(`${face === 'staged' ? '索引' : 'HEAD'} 取不到 ${RELS[i]}`)
+    }
+    out[RELS[i]] = t
+  }
+  return out
+}
+
+/** 字体二进制只问"本面上存不存在",不读内容 */
+export function findMissingFontFiles(repoRoot, face, rels) {
+  const missing = []
+  for (const rel of rels) {
+    if (face === 'worktree') {
+      try {
+        readFileSync(join(repoRoot, rel))
+      } catch {
+        missing.push(rel)
+      }
+      continue
+    }
+    const probe = probeFaceSpec(repoRoot, (face === 'staged' ? ':' : 'HEAD:') + rel)
+    if (!probe.ok) missing.push(rel)
+  }
+  return missing
+}
+
+export function judge({
+  globalsCss,
+  tokensCss,
+  typoSrc,
+  manifestText,
+  baselineText,
+  missingFonts,
+}) {
+  const findings = []
+  const faces = parseFontFaces(globalsCss)
+  const requested = collectRequestedWeights(typoSrc, tokensCss)
+  const uncovered = findUncoveredWeights(faces, BRAND_FAMILY, requested)
+  if (uncovered.length) {
+    findings.push(
+      `T1 档位表请求的字重 ${uncovered.join('/')} 在 '${BRAND_FAMILY}' 无显式 @font-face 区间覆盖(只能靠浏览器隐式代打,观感随时会漂)`,
+    )
+  }
+  const ratchet = checkSubsetRatchet(JSON.parse(manifestText), JSON.parse(baselineText))
+  for (const r of ratchet) findings.push(`T2 ${r}`)
+  if (missingFonts.length) {
+    findings.push(`T2 globals.css 引用但本面上不存在的字体文件: ${missingFonts.join(', ')}`)
+  }
+  const chain = checkFallbackChain(tokensCss)
+  if (!chain.ok) findings.push(`T3 --font-sans 回退链: ${chain.reason}`)
+  for (const s of checkDisplaySynthesis(faces)) {
+    findings.push(
+      `T3 display 家族 '${s.family}' ${s.why} ⇒ 加粗请求走浏览器合成假粗(与真 Bold 并存即换脸感)`,
+    )
+  }
+  return { findings, requested, faceCount: faces.length }
+}
+
+function runSelfTest() {
+  const fails = []
+  const css = [
+    "@font-face { font-family: 'HarmonyOS Sans SC'; font-weight: 400; src: url('/fonts/a.woff2'); }",
+    "@font-face { font-family: 'HarmonyOS Sans SC'; font-weight: 600 700; src: url('/fonts/b.woff2'); }",
+    "@font-face { font-family: 'EDIX'; font-weight: 400 700; src: url('/fonts/c.woff2'); }",
+  ].join('\n')
+  const faces = parseFontFaces(css)
+  if (faces.length !== 3) fails.push(`@font-face 解析数应为 3,实得 ${faces.length}`)
+  if (parseWeightRange('600 700')[1] !== 700) fails.push('区间解析失败')
+  if (parseWeightRange('normal')[0] !== 400) fails.push('normal 应折成 400')
+  if (findUncoveredWeights(faces, BRAND_FAMILY, [400, 700]).length) fails.push('已覆盖字重被误判')
+  if (findUncoveredWeights(faces, BRAND_FAMILY, [450]).join() !== '450')
+    fails.push('450 应判未覆盖')
+  if (checkDisplaySynthesis(faces).length) fails.push('已声明区间的 display 家族被误判')
+  const badEdix = parseFontFaces(
+    css.replace("'EDIX'; font-weight: 400 700", "'EDIX'; font-weight: normal"),
+  )
+  if (checkDisplaySynthesis(badEdix).length !== 1) fails.push('单点声明的 EDIX 未被判出')
+  const good =
+    '@theme { --font-sans: "HarmonyOS Sans SC", "PingFang SC", "Microsoft YaHei", ui-sans-serif, system-ui, sans-serif; }'
+  if (!checkFallbackChain(good).ok) fails.push('合规回退链被误判')
+  const latinFirst =
+    '@theme { --font-sans: "HarmonyOS Sans SC", ui-sans-serif, system-ui, "PingFang SC", sans-serif; }'
+  if (checkFallbackChain(latinFirst).ok) fails.push('中文族排在拉丁之后未判出')
+  const noCjk = '@theme { --font-sans: "HarmonyOS Sans SC", ui-sans-serif, sans-serif; }'
+  if (checkFallbackChain(noCjk).ok) fails.push('缺中文黑体族未判出')
+  const baseline = { minCjk: { 'gb2312-l12': 7155 } }
+  if (
+    checkSubsetRatchet({ tiers: { 'gb2312-l12': { cjk: 7155 } }, sentinel: { ok: true } }, baseline)
+      .length
+  )
+    fails.push('等值基线被误判为缩水')
+  if (
+    !checkSubsetRatchet(
+      { tiers: { 'gb2312-l12': { cjk: 2292 } }, sentinel: { ok: true } },
+      baseline,
+    ).length
+  )
+    fails.push('子集缩水未被判出')
+  if (checkSubsetRatchet({ tiers: {}, sentinel: { ok: false } }, baseline).length < 2)
+    fails.push('缺档与哨兵未过应各判一条')
+  if (referencedFontPaths(faces).length !== 3) fails.push('字体引用路径解析数应为 3')
+  const typo = [
+    'export const TYPE_STEPS = { title: { size: 16, lineHeight: 24, weight: 600 } } as const',
+    'export const FONT_WEIGHTS = { regular: 400, medium: 500, semibold: 600, bold: 700 } as const',
+  ].join('\n')
+  const got = collectRequestedWeights(typo, '@theme { --text-strong--font-weight: 500; }')
+  if (got.join() !== '400,500,600,700') fails.push(`档位字重集合异常(单行形): ${got.join()}`)
+  // 真仓 typography.ts 是多行形;两形都必须被同一把尺子读到,否则门会漏判 400
+  const typoMulti = [
+    'export const TYPE_STEPS = {',
+    '  body: { size: 14, lineHeight: 20, weight: 400 },',
+    '  title: { size: 16, lineHeight: 24, weight: 600 },',
+    '} as const satisfies Record<string, TypeStep>',
+    'export const FONT_WEIGHTS = {',
+    '  regular: 400,',
+    '  medium: 500,',
+    '  semibold: 600,',
+    '  bold: 700,',
+    '} as const',
+  ].join('\n')
+  const gotMulti = collectRequestedWeights(typoMulti, '')
+  if (gotMulti.join() !== '400,500,600,700')
+    fails.push(`档位字重集合异常(多行形): ${gotMulti.join()}`)
+  for (const line of fails.length ? ['SELF-TEST FAIL', ...fails] : ['SELF-TEST PASS'])
+    console.log(line)
+  return fails.length ? 1 : 0
+}
+
+async function main() {
+  const argv = process.argv.slice(2)
+  if (argv.includes('--self-test')) return runSelfTest()
+  const { face, error } = faceFromArgv(argv)
+  if (error) {
+    console.log(`❌ 未判定: ${error}`)
+    return 2
+  }
+  if (argv.includes('--update-baseline')) {
+    const inputs = readFaceInputs(ROOT, 'worktree')
+    const manifest = JSON.parse(inputs[MANIFEST_REL])
+    const minCjk = {}
+    // 只钉 GB2312 宽档:它们是确定性字表,基线不会因无关提交漂移。
+    // 窄档(subset)由源码扫描得出,钉它会造出"删一个中文字就红"的恒红门(§12e)。
+    for (const [t, v] of Object.entries(manifest.tiers ?? {})) {
+      if (t.startsWith('gb2312')) minCjk[t] = v.cjk
+    }
+    const out = {
+      note: '字体子集汉字数防回退基线;唯一写入口 = node scripts/check-typography-face-coverage.mjs --update-baseline(取工作树面)',
+      generatedFrom: 'scripts/data/font-subset-manifest.json',
+      minCjk,
+    }
+    writeFileSync(join(ROOT, BASELINE_REL), JSON.stringify(out, null, 2) + '\n', 'utf8')
+    console.log(`✅ 基线已刷新: ${JSON.stringify(minCjk)}`)
+    return 0
+  }
+  const inputs = readFaceInputs(ROOT, face)
+  const faces = parseFontFaces(inputs[GLOBALS_REL])
+  const missingFonts = findMissingFontFiles(ROOT, face, referencedFontPaths(faces))
+  const { findings, requested } = judge({
+    globalsCss: inputs[GLOBALS_REL],
+    tokensCss: inputs[TOKENS_REL],
+    typoSrc: inputs[TYPO_REL],
+    manifestText: inputs[MANIFEST_REL],
+    baselineText: inputs[BASELINE_REL],
+    missingFonts,
+  })
+  const label =
+    face === 'staged' ? '索引 blob' : face === 'worktree' ? '工作树(逃生舱)' : 'HEAD blob'
+  if (!findings.length) {
+    console.log(
+      `✅ 字体面覆盖对账通过(${label}):档位字重 ${requested.join('/')} 全部有面,@font-face ${faces.length} 面,引用字体文件齐备`,
+    )
+    return 0
+  }
+  console.log(`❌ 字体面覆盖对账(${label})发现 ${findings.length} 处:`)
+  for (const f of findings) console.log(`  · ${f}`)
+  console.log(
+    '  💡 出路:重跑宽子集 `python scripts/subset-fonts.py --src-dir <官方 HarmonyOS_Sans_SC TTF 目录>`' +
+      '(含缺字哨兵),再同步 globals.css 的 @font-face;基线只经 --update-baseline 写。',
+  )
+  return 1
+}
+
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+if (isDirectRun) {
+  main()
+    .then((code) => {
+      process.exitCode = code
+    })
+    .catch((e) => {
+      if (e instanceof Undetermined) {
+        console.log(`⚠️ 未判定: ${e.message}`)
+        process.exitCode = 2
+      } else {
+        console.log(`❌ 门自身异常: ${e?.message ?? e}\n${e?.stack ?? ''}`)
+        process.exitCode = 2
+      }
+    })
+}
+
+export const __test__ = {
+  parseWeightRange,
+  parseFontFaces,
+  collectRequestedWeights,
+  findUncoveredWeights,
+  checkFallbackChain,
+  checkDisplaySynthesis,
+  checkSubsetRatchet,
+  referencedFontPaths,
+  faceFromArgv,
+  findMissingFontFiles,
+  judge,
+  CJK_SANS_FAMILIES,
+  BRAND_FAMILY,
+  RELS,
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
