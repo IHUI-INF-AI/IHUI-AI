@@ -166,6 +166,14 @@ import {
   ChatMessageItem,
   type ChatScreenMessageWithReasoning,
 } from '../components/chat/ChatMessageList'
+// 多端一致聊天滚动淡出(2026-11-10,与 Web 端同规格:视口上下沿各一条 24px 纯渐变)
+import {
+  ChatScrollFades,
+  attachScrollFadesToFlatList,
+  readFlatListScrollMetrics,
+  useChatScrollFades,
+  type ScrollFadeMetrics,
+} from '../components/chat/ChatScrollFades'
 import { ShareRewardDialog } from '../components/ShareRewardDialog'
 import { NavChrome } from '../components/NavChrome'
 // 会话失效出口唯一实现:401 流与 SSE auth 错误都必须走它(不落登出标记),见 stores/auth-store.ts
@@ -759,6 +767,30 @@ export function ChatScreen() {
   const roundTraceIdRef = useRef<string | undefined>(undefined)
   const idCounter = useRef(0)
   const listRef = useRef<FlatList<ChatMessage> | null>(null)
+  // ── 多端一致聊天滚动淡出 ──
+  // 消息 FlatList 由跨端包 @ihui/rn-app 内部创建(web/小程序共同消费,本票禁改),RN 侧只经
+  // onListRef 拿到实例 ⇒ 滚动度量走 attachScrollFadesToFlatList 内部桥接喂入(带静默降级保护)。
+  const fades = useChatScrollFades()
+  const fadeDetachRef = useRef<(() => void) | null>(null)
+  // 底部遮罩 inset = 包装容器高 − 列表视口高(视口下方还有 statusSlot/queueSlot 固定 UI,
+  // 遮罩必须贴视口边而不是容器边);两值分别来自容器 onLayout 与桥接度量。
+  const fadeWrapHRef = useRef(0)
+  const [fadeBottomInset, setFadeBottomInset] = useState(0)
+  const syncFadeInset = useCallback((): void => {
+    const m = fades.getLastMetrics()
+    const wrapH = fadeWrapHRef.current
+    if (!m || wrapH <= 0) return
+    const inset = Math.max(0, wrapH - m.visibleLength)
+    setFadeBottomInset((prev) => (Math.abs(prev - inset) > 0.5 ? inset : prev))
+  }, [fades.getLastMetrics])
+  const handleFadeMetrics = useCallback(
+    (m: ScrollFadeMetrics): void => {
+      fades.feed(m)
+      syncFadeInset()
+    },
+    [fades.feed, syncFadeInset],
+  )
+  useEffect(() => () => fadeDetachRef.current?.(), [])
   const materialCardIdCounter = useRef(0)
   const qrCodeViewRef = useRef<View | null>(null)
   // 消息气泡节点 Map(长按截图用,id → 原生节点)
@@ -2990,94 +3022,117 @@ export function ChatScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={0}
       >
-        <SharedChatScreen
-          t={t}
-          messages={sharedMessages}
-          inputText={prompt}
-          isStreaming={isStreaming}
-          error=""
-          models={sharedModels}
-          model={model}
-          pickerOpen={false}
-          navItems={[]}
-          inputFiles={inputFiles}
-          isInputFocused={inputFocused}
-          isInputFullscreen={false}
-          isVoiceMode={isVoiceMode}
-          isRecording={false}
-          isSending={isStreaming}
-          inputError=""
-          showHeader={false}
-          showModelBar={false}
-          showInput={false}
-          renderMessage={renderMessage}
-          renderListHeader={renderListHeader() as React.ReactNode}
-          renderListFooter={renderListFooter() as React.ReactNode}
-          // 批次 3:硬停止提示条挂在消息列表尾部(最后一条消息之后、脚注之前),
-          // 不是请求失败卡 —— 它在流成功收口后仍常驻,直到下一轮开始或换会话。
-          messageListSlots={{
-            orphanTailNode: budgetStop ? <BudgetStopNotice stop={budgetStop} /> : null,
+        {/* 滚动淡出包装层:消息列表是 SharedChatScreen 首个可见子节点(header/模型条均关)
+            ⇒ 视口上沿 = 容器上沿;底部 inset 由 syncFadeInset 扣除视口下方固定 UI */}
+        <View
+          style={styles.fadeWrap}
+          onLayout={(e) => {
+            fadeWrapHRef.current = e.nativeEvent.layout.height
+            // 键盘/固定 UI 出现引起的视口变化:先补读一次内部度量,再重判溢出与 inset
+            const m = readFlatListScrollMetrics(listRef.current)
+            if (m) handleFadeMetrics(m)
+            else syncFadeInset()
           }}
-          itemSeparatorComponent={null}
-          containerStyle={{ flex: 1 }}
-          flatListStyle={{ flex: 1 }}
-          onListRef={(ref) => {
-            listRef.current = ref as FlatList<ChatMessage> | null
-          }}
-          onInputTextChange={updatePrompt}
-          onSend={() => send()}
-          onStop={stop}
-          onModelChange={setModel}
-          // 共享层 onPickerOpenChange 语义=模型选择器开关(showModelBar 点开/关闭),
-          // RN 端对应 ModelList 弹窗(modelListVisible,showModelBar=false 时不会被触发)
-          onPickerOpenChange={(open) => setModelListVisible(open)}
-          onLongPressMessage={(msg) => void handleLongPressMessage(msg)}
-          onInputFocus={handleInputFocus}
-          onInputBlur={handleInputBlur}
-          onInputFullscreenToggle={handleFangda}
-          onInputVoiceToggle={onInputVoiceToggle}
-          onInputAddImage={onInputAddImage}
-          onInputAddFile={() => void handleFileUpload()}
-          onInputRemoveFile={onInputRemoveFile}
-          onInputClear={() => {}}
-          onInputVoiceStart={() => {}}
-          onInputVoiceEnd={() => {}}
-          colorScheme={resolvedTheme}
-          onNavigate={onNavigate}
-          onToast={onToast}
-          statusSlot={
-            /* D135:任务进度状态条(plan/tool 执行帧折叠结果的可读出口,对齐 web / N8n 位置:输入区上方) */
-            <TaskStatusBar
-              planSteps={planViz?.planSteps ?? []}
-              toolCalls={planViz?.toolCalls}
-              isStreaming={isStreaming}
-            />
-          }
-          queueSlot={
-            <>
-              {/* D38:队列交互条(排队消息 撤回/编辑/重排 + 打断并执行入口 + 模式切换;空队列零占位) */}
-              <QueueInteractionBar
-                items={sideQueue}
-                streaming={isStreaming}
-                mode={followUpMode}
-                // G-171a:待决审批事实喂入许可门(真实来源 = useToolApprovalQueue 的 pending 非空)
-                awaitingApproval={toolApproval.awaitingApproval}
-                onReorder={handleQueueReorder}
-                onUndo={handleQueueUndo}
-                onEdit={handleQueueEdit}
-                onInterruptAndRun={handleInterruptAndRun}
-                onModeChange={handleFollowUpModeChange}
+        >
+          <SharedChatScreen
+            t={t}
+            messages={sharedMessages}
+            inputText={prompt}
+            isStreaming={isStreaming}
+            error=""
+            models={sharedModels}
+            model={model}
+            pickerOpen={false}
+            navItems={[]}
+            inputFiles={inputFiles}
+            isInputFocused={inputFocused}
+            isInputFullscreen={false}
+            isVoiceMode={isVoiceMode}
+            isRecording={false}
+            isSending={isStreaming}
+            inputError=""
+            showHeader={false}
+            showModelBar={false}
+            showInput={false}
+            renderMessage={renderMessage}
+            renderListHeader={renderListHeader() as React.ReactNode}
+            renderListFooter={renderListFooter() as React.ReactNode}
+            // 批次 3:硬停止提示条挂在消息列表尾部(最后一条消息之后、脚注之前),
+            // 不是请求失败卡 —— 它在流成功收口后仍常驻,直到下一轮开始或换会话。
+            messageListSlots={{
+              orphanTailNode: budgetStop ? <BudgetStopNotice stop={budgetStop} /> : null,
+            }}
+            itemSeparatorComponent={null}
+            containerStyle={{ flex: 1 }}
+            flatListStyle={{ flex: 1 }}
+            onListRef={(ref) => {
+              listRef.current = ref as FlatList<ChatMessage> | null
+              // 滚动淡出桥接:实例更换即旧实例 detach、新实例 attach(挂载时先同步一次度量)
+              fadeDetachRef.current?.()
+              fadeDetachRef.current = ref
+                ? attachScrollFadesToFlatList(ref, handleFadeMetrics)
+                : null
+            }}
+            onInputTextChange={updatePrompt}
+            onSend={() => send()}
+            onStop={stop}
+            onModelChange={setModel}
+            // 共享层 onPickerOpenChange 语义=模型选择器开关(showModelBar 点开/关闭),
+            // RN 端对应 ModelList 弹窗(modelListVisible,showModelBar=false 时不会被触发)
+            onPickerOpenChange={(open) => setModelListVisible(open)}
+            onLongPressMessage={(msg) => void handleLongPressMessage(msg)}
+            onInputFocus={handleInputFocus}
+            onInputBlur={handleInputBlur}
+            onInputFullscreenToggle={handleFangda}
+            onInputVoiceToggle={onInputVoiceToggle}
+            onInputAddImage={onInputAddImage}
+            onInputAddFile={() => void handleFileUpload()}
+            onInputRemoveFile={onInputRemoveFile}
+            onInputClear={() => {}}
+            onInputVoiceStart={() => {}}
+            onInputVoiceEnd={() => {}}
+            colorScheme={resolvedTheme}
+            onNavigate={onNavigate}
+            onToast={onToast}
+            statusSlot={
+              /* D135:任务进度状态条(plan/tool 执行帧折叠结果的可读出口,对齐 web / N8n 位置:输入区上方) */
+              <TaskStatusBar
+                planSteps={planViz?.planSteps ?? []}
+                toolCalls={planViz?.toolCalls}
+                isStreaming={isStreaming}
               />
-              {/*
+            }
+            queueSlot={
+              <>
+                {/* D38:队列交互条(排队消息 撤回/编辑/重排 + 打断并执行入口 + 模式切换;空队列零占位) */}
+                <QueueInteractionBar
+                  items={sideQueue}
+                  streaming={isStreaming}
+                  mode={followUpMode}
+                  // G-171a:待决审批事实喂入许可门(真实来源 = useToolApprovalQueue 的 pending 非空)
+                  awaitingApproval={toolApproval.awaitingApproval}
+                  onReorder={handleQueueReorder}
+                  onUndo={handleQueueUndo}
+                  onEdit={handleQueueEdit}
+                  onInterruptAndRun={handleInterruptAndRun}
+                  onModeChange={handleFollowUpModeChange}
+                />
+                {/*
                 D154(2026-10-01 收口渲染面):MCP 连接状态行,位置与小程序端一致(输入条上方)。
                 数据源是共享层那一份 `mcpStatusLedger`(帧进表由 ../lib/user-broadcast 的唯一接线负责,
                 本端渲染侧只读表 ⇒ 无第二条连接)。票面要求「至少显示状态行 + 桌面端管理提示」:
                 FloatBox toast 会过期,这一行不会。空表 ⇒ 组件返回 null、零占位。
               */}
-              <McpStatusStrip />
-            </>
-          }
-        />
+                <McpStatusStrip />
+              </>
+            }
+          />
+          <ChatScrollFades
+            topVisible={fades.topVisible}
+            bottomVisible={fades.bottomVisible}
+            bottomInset={fadeBottomInset}
+          />
+        </View>
         <ChatInputBar
           prompt={prompt}
           onPromptChange={updatePrompt}
@@ -3723,6 +3778,10 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.bg,
   },
   body: {
+    flex: 1,
+  },
+  // 滚动淡出包装容器:与消息视口同界(遮罩绝对定位覆盖其上、下沿)
+  fadeWrap: {
     flex: 1,
   },
   navRight: {
