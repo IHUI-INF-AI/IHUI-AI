@@ -8,9 +8,13 @@
  * - 提取器两态:数据目录缺失 ⇒ DOUBAO_NO_SESSION;目录在盘 ⇒ 形状(临时 Cookies sqlite:
  *   .doubao.com 会话族 raw 直通、meta 零泄漏、外域/非会话键被滤、v20 非 v10 形如实未判定);
  *   os_crypt v10 解密纯函数回路(不触 DPAPI)
- * - 适配器:buildCookieHeader(cookies 整包直通 / token 兜底推断 / 双空抛错)、
- *   buildChatRequest 推断构造、translateStreamChunk 透传、isAuthFailure(401/403/登录墙)、
- *   checkHealth 三态、getQuota 401⇒authFailed 与 200⇒未判定(不猜字段)、classifyUpstreamFailure
+ * - 适配器:buildCookieHeader(cookies 逐条直通 / 坏条剔除 / token 兜底 / 双空抛错)、
+ *   buildChatRequest 契约占位(实测豆包对话走 IM 长连接,HTTP 面不成立)、
+ *   translateStreamChunk 透传、isAuthFailure(401/403/登录墙)、
+ *   checkHealth(2026-11-10 实证判据:POST /im/conversation/batch_get ——
+ *     status_code 0 + user_id ⇒ ok;710012001/712012001 ⇒ authFailed;
+ *     其他业务码/5xx/形状不符 ⇒ 未判定;行内 doubaoUserId 不符 ⇒ authFailed)、
+ *   getQuota 401⇒未判定 与 200⇒未判定(不猜字段)、classifyUpstreamFailure
  *
  * fetch 全部打桩,不发真实网络请求;提取器全部用临时目录,不碰真实 %LOCALAPPDATA%。
  */
@@ -209,20 +213,31 @@ describe('doubao buildCookieHeader(推断层)', () => {
     expect(() => buildCookieHeader(ctx)).toThrow(DoubaoUpstreamError)
   })
 
-  it('cookie 值含非 Latin-1(如 U+FFFD 解码残留)⇒ percent-encode,头值保持 ByteString 可构造', () => {
+  it('cookie 值含非 Latin-1(如 U+FFFD 解码残留)⇒ 剔除该条,保住其余好票', () => {
     const ctx = makeCtx()
     ctx.credentials.cookies = [
       { name: 'sessionid', value: `sess-ok-\uFFFD-tail` },
       { name: 'ttwid', value: 'plain-ascii' },
     ]
     const header = buildCookieHeader(ctx)
-    expect(header).toContain('sess-ok-%EF%BF%BD-tail')
-    expect(header).toContain('ttwid=plain-ascii')
-    // 逐字符都必须落在 Latin-1(否则 fetch 抛 ByteString 错,把未判定伪装成凭据错误)
-    for (const ch of header) expect(ch.codePointAt(0)!).toBeLessThanOrEqual(0xff)
+    // 2026-11-10 实测:把坏值 percent-encode 后 undici 8.x 仍报
+    // `UND_ERR_INVALID_ARG: invalid cookie header` 拒收**整个头**,
+    // 会连带废掉其余好票 ⇒ 只能剔除坏条
+    expect(header).toBe('ttwid=plain-ascii')
+    expect(header).not.toContain('%EF%BF%BD')
   })
 
-  it('token 兜底路径同样过 ByteString 归一;纯 ASCII 票逐字不变', () => {
+  it('cookie 名含分隔符(分号/逗号/空格)同样剔除', () => {
+    const ctx = makeCtx()
+    ctx.credentials.cookies = [
+      { name: 'bad;name', value: 'v' },
+      { name: 'has space', value: 'v' },
+      { name: 'sessionid', value: 'ok' },
+    ]
+    expect(buildCookieHeader(ctx)).toBe('sessionid=ok')
+  })
+
+  it('token 兜底:纯 ASCII 票直通;含损坏字节则抛错(不伪造可构造的头)', () => {
     const plain = makeCtx()
     plain.credentials.cookies = []
     expect(buildCookieHeader(plain)).toBe(
@@ -231,9 +246,7 @@ describe('doubao buildCookieHeader(推断层)', () => {
     const dirty = makeCtx()
     dirty.credentials.cookies = []
     dirty.credentials.token = `ticket-\uFFFD-x`
-    const header = buildCookieHeader(dirty)
-    expect(header).toContain('%EF%BF%BD')
-    for (const ch of header) expect(ch.codePointAt(0)!).toBeLessThanOrEqual(0xff)
+    expect(() => buildCookieHeader(dirty)).toThrow(DoubaoUpstreamError)
   })
 })
 
@@ -257,7 +270,21 @@ describe('doubao buildChatRequest(推断构造)', () => {
     })
     expect(http.headers['cookie']).toBe('sessionid=sess-cookie-1; ttwid=ttw-1')
     expect(http.headers['accept']).toBe('text/event-stream')
-    expect(http.headers['referer']).toBe('https://www.doubao.com/')
+    // 2026-11-10 实测:豆包端点按 /chat/ 出站(referer 校验面)
+    expect(http.headers['referer']).toBe('https://www.doubao.com/chat/')
+    expect(http.headers['agw-js-conv']).toBe('str')
+  })
+
+  it('注释已证伪:本方法仅为契约占位,不产出可用上游调用', () => {
+    // 端点仍是 /api/chat/completions(实测 401 签墙);豆包真实对话走 IM 长连接。
+    // 这条断言锁死「不偷偷改成看似可用」的改动:若有人把 url 换成别的猜测路径,
+    // 必须同时更新 10 楼的头注实证记录。
+    const http = doubaoAdapter.buildChatRequest(makeCtx(), {
+      model: 'm',
+      messages: [],
+      stream: false,
+    })
+    expect(http.url).toBe('https://www.doubao.com/api/chat/completions')
   })
 })
 
@@ -305,21 +332,82 @@ describe('doubao isAuthFailure / isAuthError', () => {
   })
 })
 
-describe('doubao checkHealth(三态,打桩 fetch)', () => {
+describe('doubao checkHealth(2026-11-10 实证判据:IM batch_get)', () => {
   beforeEach(() => {
     mockFetch.mockReset()
   })
 
-  it('401 → ok:false + indeterminate(2026-10-27 实弹:签名墙 401 与失效不可区分,不误杀)', async () => {
-    mockFetch.mockResolvedValue({ status: 401, ok: false, text: async () => 'unauthorized' })
+  /** 真票形态:status_code 0 + downlink 里的真实 user_id */
+  const imOk = (userId: string) => ({
+    status: 200,
+    ok: true,
+    text: async () =>
+      JSON.stringify({
+        cmd: 1111,
+        status_code: 0,
+        status_desc: 'OK',
+        downlink_body: {
+          batch_get_conv_info_downlink_body: { user_id: userId, conversation_info_list: [] },
+        },
+      }),
+  })
+
+  const imBiz = (statusCode: number, statusDesc: string) => ({
+    status: 200,
+    ok: true,
+    text: async () =>
+      JSON.stringify({ cmd: 1111, status_code: statusCode, status_desc: statusDesc }),
+  })
+
+  it('status_code=0 且带 user_id ⇒ ok:true(真票正例,2026-11-10 实弹)', async () => {
+    mockFetch.mockResolvedValue(imOk('59830099522953'))
+    const h = await doubaoAdapter.checkHealth(makeCtx())
+    expect(h.ok).toBe(true)
+    expect(h.authFailed).toBeUndefined()
+    expect(h.indeterminate).toBeUndefined()
+  })
+
+  it('status_code=712012001「登录校验不合法」⇒ authFailed(空票实测反例)', async () => {
+    mockFetch.mockResolvedValue(imBiz(712012001, '登录校验不合法'))
+    const h = await doubaoAdapter.checkHealth(makeCtx())
+    expect(h.ok).toBe(false)
+    expect(h.authFailed).toBe(true)
+    expect(h.indeterminate).toBeUndefined()
+    expect(h.error).toContain('712012001')
+  })
+
+  it('status_code=710012001「登录已过期」(samantha 面同族码)也归 authFailed', async () => {
+    mockFetch.mockResolvedValue(imBiz(710012001, '登录已过期，请重新登录'))
+    const h = await doubaoAdapter.checkHealth(makeCtx())
+    expect(h.authFailed).toBe(true)
+  })
+
+  it('其他业务码(如 712012002 编码类型错)⇒ 未判定,绝不判死', async () => {
+    mockFetch.mockResolvedValue(imBiz(712012002, '不支持编码类型'))
     const h = await doubaoAdapter.checkHealth(makeCtx())
     expect(h.ok).toBe(false)
     expect(h.indeterminate).toBe(true)
     expect(h.authFailed).toBeUndefined()
-    expect(h.error).toMatch(/签名墙/)
   })
 
-  it('5xx → ok:false + indeterminate(不误杀好号)', async () => {
+  it('status_code=0 但响应无 user_id ⇒ 未判定(形状不符,不冒绿)', async () => {
+    mockFetch.mockResolvedValue({
+      status: 200,
+      ok: true,
+      text: async () => JSON.stringify({ status_code: 0, downlink_body: {} }),
+    })
+    const h = await doubaoAdapter.checkHealth(makeCtx())
+    expect(h.ok).toBe(false)
+    expect(h.indeterminate).toBe(true)
+  })
+
+  it('HTTP 401/403 ⇒ authFailed(上游明确拒收)', async () => {
+    mockFetch.mockResolvedValue({ status: 401, ok: false, text: async () => '' })
+    const h = await doubaoAdapter.checkHealth(makeCtx())
+    expect(h.authFailed).toBe(true)
+  })
+
+  it('5xx ⇒ 未判定(不误杀好号)', async () => {
     mockFetch.mockResolvedValue({ status: 503, ok: false, text: async () => 'boom' })
     const h = await doubaoAdapter.checkHealth(makeCtx())
     expect(h.ok).toBe(false)
@@ -327,16 +415,72 @@ describe('doubao checkHealth(三态,打桩 fetch)', () => {
     expect(h.authFailed).toBeUndefined()
   })
 
-  it('200 → ok:false + indeterminate(端点推断,无法区分真数据/SPA 兜底页 ⇒ 未判定)', async () => {
-    mockFetch.mockResolvedValue({ status: 200, ok: true, text: async () => '{}' })
+  it('响应非 JSON ⇒ 未判定', async () => {
+    mockFetch.mockResolvedValue({ status: 200, ok: true, text: async () => '<html>spa</html>' })
     const h = await doubaoAdapter.checkHealth(makeCtx())
-    expect(h.ok).toBe(false)
     expect(h.indeterminate).toBe(true)
-    expect(h.error).toMatch(/未判定/)
+  })
+
+  it('user_id 与本行登记不符 ⇒ authFailed(票被换/顶号防线)', async () => {
+    const ctx = makeCtx()
+    ;(ctx.row as unknown as Record<string, unknown>)['extraMetadata'] = {
+      doubaoUserId: '59830099522953',
+    }
+    // 实测:伪造 sessionid 会被派一个游客 id(3018599589489431)
+    mockFetch.mockResolvedValue(imOk('3018599589489431'))
+    const h = await doubaoAdapter.checkHealth(ctx)
+    expect(h.authFailed).toBe(true)
+    expect(h.error).toContain('不属于本行账号')
+  })
+
+  it('行内已登记且 user_id 一致 ⇒ ok:true', async () => {
+    const ctx = makeCtx()
+    ;(ctx.row as unknown as Record<string, unknown>)['extraMetadata'] = {
+      doubaoUserId: '59830099522953',
+    }
+    mockFetch.mockResolvedValue(imOk('59830099522953'))
+    const h = await doubaoAdapter.checkHealth(ctx)
+    expect(h.ok).toBe(true)
+  })
+
+  it('请求面:POST /im/conversation/batch_get + 必需 query + encoding=utf-8', async () => {
+    mockFetch.mockResolvedValue(imOk('59830099522953'))
+    await doubaoAdapter.checkHealth(makeCtx())
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit]
+    expect(url.startsWith('https://www.doubao.com/im/conversation/batch_get?')).toBe(true)
+    expect(url).toContain('aid=497858')
+    expect(url).toContain('real_aid=497858')
+    expect(url).toContain('device_platform=web')
+    expect(url).toContain('version_code=20800')
+    expect(init.method).toBe('POST')
+    const hdr = init.headers as Record<string, string>
+    // 实证:缺 encoding=utf-8 会被回 712012002「不支持编码类型」
+    expect(hdr['content-type']).toBe('application/json; encoding=utf-8')
+    expect(hdr['agw-js-conv']).toBe('str')
+  })
+
+  it('损坏 cookie 被剔除,不能整头进 HTTP(undici invalid cookie header 防线)', async () => {
+    const ctx = makeCtx()
+    ctx.credentials.cookies = [
+      { name: 'sessionid', value: 'sess-cookie-1' },
+      // 实测本号 msToken 首字节就是 U+FFFD
+      { name: 'msToken', value: '\uFFFDabc' },
+      { name: 'sid-guard-x', value: 'v' },
+    ]
+    mockFetch.mockResolvedValue(imOk('59830099522953'))
+    const h = await doubaoAdapter.checkHealth(ctx)
+    expect(h.ok).toBe(true)
+    // 如实报出坏项,而不是静默丢弃
+    expect(h.error).toContain('msToken')
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit]
+    const cookie = (init.headers as Record<string, string>)['cookie']
+    expect(cookie).toBe('sessionid=sess-cookie-1; sid-guard-x=v')
+    expect(cookie).not.toContain('msToken')
+    expect(cookie).not.toContain('%EF%BF%BD')
   })
 
   it('opts.fetchImpl 注入缝优先于全局 fetch', async () => {
-    const injected = vi.fn().mockResolvedValue({ status: 200, ok: true, text: async () => '{}' })
+    const injected = vi.fn().mockResolvedValue(imOk('59830099522953'))
     mockFetch.mockResolvedValue({ status: 500, ok: false, text: async () => 'boom' })
     await doubaoAdapter.checkHealth(makeCtx(), { fetchImpl: injected as unknown as typeof fetch })
     expect(injected).toHaveBeenCalledTimes(1)
