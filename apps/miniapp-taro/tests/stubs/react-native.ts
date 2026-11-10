@@ -30,7 +30,7 @@ export const ScrollView = make('div')
 export const TextInput = make('input')
 export const Modal = make('div')
 
-export const RefreshControl = (_props?: unknown) => null
+export const RefreshControl = () => null
 
 export function FlatList(props: {
   data?: unknown[]
@@ -65,7 +65,7 @@ export const StyleSheet = {
 export const Platform = { OS: 'ios', select: (v: Record<string, unknown>) => v.ios ?? v.default }
 
 export const Dimensions = {
-  get: (_dim?: unknown) => ({ width: 375, height: 812, scale: 2, fontScale: 2 }),
+  get: () => ({ width: 375, height: 812, scale: 2, fontScale: 2 }),
 }
 
 export const Animated = {

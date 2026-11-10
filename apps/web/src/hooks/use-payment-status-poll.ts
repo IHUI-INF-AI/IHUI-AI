@@ -19,7 +19,7 @@ import * as React from 'react'
  * 页面不可见时暂停,重新可见立即补一次;耗尽后由调用方展示可见提示。
  */
 
-interface PaymentPollResult {
+export interface PaymentPollResult {
   status?: string
   paid?: boolean
 }

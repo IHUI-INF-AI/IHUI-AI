@@ -411,7 +411,7 @@ const OAUTH_AUDIENCE = 'agent-backend'
  * 永不含凭据,也不转述上游 error_description(有的服务端会把 token 值原样写回描述里,
  * 而 lastErrorMessage 是明文列)。
  */
-class MinimaxRefreshError extends Error {
+export class MinimaxRefreshError extends Error {
   readonly status: number
   readonly code: string
   constructor(status: number, code: string, message: string) {

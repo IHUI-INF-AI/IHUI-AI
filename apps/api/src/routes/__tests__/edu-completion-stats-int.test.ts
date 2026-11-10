@@ -32,9 +32,7 @@ describe('F-699 完成率汇总', () => {
       { totalItems: 6, completedItems: '3' },
     ]
     // 旧：0 + "5" = "05"，"05" + "3" = "053"，"053" / 12 = 4.4166…
-    // 旧实现的起点是数字 0(不是空串),这里用类型断言复刻其运行期行为。
-    const legacySeed = 0 as unknown as string
-    const legacy = stats.reduce((sum: string, s) => sum + s.completedItems, legacySeed)
+    const legacy = stats.reduce((sum: string, s) => sum + s.completedItems, '')
     const legacyRate = Math.round((Number(legacy) / 12) * 100)
     expect(legacy).toBe('053')
     expect(legacyRate).toBe(442)

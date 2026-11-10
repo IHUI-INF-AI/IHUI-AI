@@ -254,7 +254,7 @@ function faceFiles(face) {
  */
 function readFixedRev(rev, files) {
   const specs = files.map((f) => `${rev}:${f}`)
-  const got = catBatch(ROOT, specs)
+  const got = catBatch(ROOT, specs, { timeout: SUBPROC_TIMEOUT_MS })
   return new Map(files.map((f, i) => [f, got.get(specs[i]) ?? null]))
 }
 

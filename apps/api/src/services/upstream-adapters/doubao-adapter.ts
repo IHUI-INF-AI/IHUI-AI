@@ -135,7 +135,7 @@ export class DoubaoUpstreamError extends Error {
  * 逐字符 percent-encode 非 Latin-1;Latin-1 原样保留 ⇒ 既有合法会话票逐字不变,
  * 只收敛本来就进不了 HTTP 头的字符。
  */
-function byteStringSafeHeaderValue(value: string): string {
+export function byteStringSafeHeaderValue(value: string): string {
   let out = ''
   for (const ch of value) {
     const cp = ch.codePointAt(0) ?? 0
@@ -160,7 +160,9 @@ export function buildCookieHeader(ctx: AdapterAccountContext): string {
     const value = c['value']
     if (typeof name !== 'string' || name === '') continue
     if (typeof value !== 'string') continue
-    pairs.push(`${byteStringSafeHeaderValue(name)}=${byteStringSafeHeaderValue(value)}`)
+    pairs.push(
+      `${byteStringSafeHeaderValue(name)}=${byteStringSafeHeaderValue(value)}`,
+    )
   }
   if (pairs.length > 0) return pairs.join('; ')
   const token = ctx.credentials.token
