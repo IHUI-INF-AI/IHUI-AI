@@ -98,6 +98,32 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-10**
+- 🐞 Fix:常驻开发服务按需启停——停白占栈断复活链,安装器默认拒注 (7f27d9d3ae)
+- 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (08fc6d68b2)
+- 🐞 Fix:sanitizer-bypass 门清红 2 文件(收敛面带入的 HEAD 面既有红,非本会话引入)——oauth userinfo 显式声明跳响应消毒器(响应只含身份 claims sub/nickname/avatar,Bearer token 仅用于请求方鉴权不进响应体);srs POST/PUT /servers 管理端回显刚写入的 apiSecret(F-195 允许管理员读取)显式跳消毒器,避免回显值被掩码致创建/更新结果不可核验 (b4da27a2d3)
+- 🐞 Fix:人事考勤两个 TextInput 补焦点态,解 apk 肉机的 G-978007 普查锁 (ec13c2b5c0)
+- 🐞 Fix:重新派生 api-endpoints.generated.ts,消除派生件钉面陈旧 (4195b290ca)
+- 🐞 Fix:收口 python-ai-service 残留 20 失败 + test-python ruff(F401) (d2ac87b17e)
+- 📚 Docs:刷新 README 生成块数字(trackedFiles/testFiles 各 +1) (443c3491d0)
+- 🐞 Fix:收敛面清红三件——①agent_teams._ensure_loaded 置真改 try/else 成功子句形态(load-state 判据认可形,语义逐字等价)②removeConversationShareToken 改 G-998153 出口形态(先取现值按键比较,重复撤销不再空转 updatedAt)③wire-strictness 基线吸收 87→90(3 增量全为宽口径 Promise catch,零新 zod,逐文件实证见注记,按 2026-10-28 人审吸收先例) (3d6097d5bd)
+- 🐞 Fix:后台套餐价的「分→元」展示改委托 @ihui/shared/utils 的 formatPrice (a250235421)
+- 🐞 Fix:补 scripts/safe-trash.ps1 的 UTF-8 BOM,两处派生控制台程序补 windowsHide (cd9970784e)
+- 🐞 Fix:删除 miniapp-taro/mobile-rn 十份语言包里重复的 hrAttendance 块 (897d846f0a)
+- ⚡ Perf:T1 长期票落地——全量 typecheck 结论按 tree-sha 落盘回执,推送门只读近期结论 (e9c435cfff)
+- 🐞 Fix:号池管理面公网可达——机主 2026-11-10 永久指令(号必须跟着 admin 账号在网络上走) (c3b6a98a14)
+- 🐞 Fix:号池管理面公网可达——机主 2026-11-10 永久指令(号必须跟着 admin 账号在网络上走) (fa237c4293)
+- 🐞 Fix:web [chat] 补齐 super-agent-panel 9 键 x5 语言——该组件已被收编进 HEAD 但键缺失(闸判缺失键 9);Action* 5 键系间接拼键不被静态闸拦,留组件归属会话自补;文案语义取自组件只读投影语境 (7c8bd4440f)
+- 🐞 Fix:补齐 opencode/zcode/loomy 号池模型清单 (80bc1b3ee1)
+- 🐞 Fix:收敛面上 8 处 mypy 清红——key_pool_selector 补 _decrypt_api_key 缺失 import(该裸调运行时即 NameError,真 bug)+解密失败剔除+dict 类型实参;wb_autopilot_mcp 号池无凭据时显式报错+result/resp 显式注解;两文件 blob 与 origin/main 逐字同一,红为远端既有,非本次收敛引入 (0b1e9e5b93)
+- 🐞 Fix:相对基线 P95 维补单枚离群下限，堵住冷启动首帧误杀导致自动回滚 (89defd6e1c)
+- 🐞 Fix:刷新能力评测基线(锚点保真换 90 token)并让压缩库变更触发评测门 (0a5fc86d03)
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (eccce4a301)
+- 🐞 Fix:对齐 file_search 降级语义、POSIX 盘符越界判定与 mypy 跨平台符号 (579a1abeef)
+- 🐞 Fix:清 api/web 用例红项、协议与安全审计页收编共享屏并同步派生路由产物 (0fed98405e)
+- 🐞 Fix:补 skillGrantSkipApproval 五语言词条并修正 zh-TW 主控臺用词 (ff17abfc55)
+- 🐞 Fix:vitest 收集面显式排除 dist,消除 57 例重复执行 (b7eaf2ad7d)
+
 **2026-11-09**
 - 📚 Docs:合并面 0d503a4 数字按唯一写入口现算刷新(trackedFiles 20612/testFiles 4768) (1c27bda99a)
 - 🔧 Chore/Other:perf(sag2)+feat(sag2): 扫描件 OCR 四级链落地；多跳检索等价提速 4.4×（召回结果逐条不变） (abd73298e4)
@@ -1371,12 +1397,6 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 - 🚀 Feature/Improvement:自动臂按需加密(环开 4 分钟/轮,环合即回落) (0061164cdb)
 - 🐞 Fix:判据面护栏在 commit-msg 加只报不拦的预警档 —— 未声明要在"还改得动"那一刻报出来 (facba1ab6a)
 - 🔧 Chore/Other:再摘 plugins-data 死副本 14 枚并登记退役锁(逐字节同 @ihui/shared;9fdbc207ba 带回) (180c244014)
-
-**2026-11-06**
-- 🐞 Fix:落地悬空副本里的两枚判据 fail-closed 与跳门降级证据(RP-67) (b7aa56e7f6)
-- 🐞 Fix:派发前闸的"瞬时不在位"先复核再停派 —— 别席 install 重挂 tsx 不该烧掉一班 (0be42c4124)
-- 🐞 Fix:取票腿被击穿时的可证复用 —— 三条安全条件缺一即拒绝,且必须说出是哪一条 (43bdd603e5)
-- 📚 Docs:22 枚在飞票挂完整租约(HEAD 面⊕挂牌,不代他席落地) (1c4f42c0c6)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
