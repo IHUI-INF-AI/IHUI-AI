@@ -27,7 +27,7 @@ import { githubAppDeliveries, githubAppInstallations, type Database } from '@ihu
 export type DeliveryClaimState = 'claimed' | 'reclaimed' | 'duplicate' | 'unavailable'
 
 /** 认领入参:payload 是可恢复载荷(渲染后的触发规则),崩溃后据此重放 */
-interface DeliveryClaimInput {
+export interface DeliveryClaimInput {
   deliveryId: string
   eventType: string
   payload: Record<string, unknown>
@@ -37,7 +37,7 @@ interface DeliveryClaimInput {
  * processing 行超过该时长视为"认领者已崩溃",允许重投接管。
  * GitHub 自身重投窗口通常为分钟级;10 分钟足以避开正常执行的并发重叠。
  */
-const DELIVERY_STALE_MS = 10 * 60 * 1000
+export const DELIVERY_STALE_MS = 10 * 60 * 1000
 
 /** installation 事件落表后的行状态(GitHub 语义:装了/卸了;权限更新不换状态,只刷 updated_at) */
 export type GithubAppInstallationStatus = 'active' | 'removed'

@@ -15,7 +15,7 @@ import * as React from 'react'
  * 组合态(isComposing / keyCode 229)下的 Enter 与逗号不再向 React 业务处理器传播,
  * 只留给输入法完成「候选词上屏」。普通 Enter/逗号不受影响。
  */
-function isImeComposingEvent(e: { isComposing?: boolean; keyCode?: number }): boolean {
+export function isImeComposingEvent(e: { isComposing?: boolean; keyCode?: number }): boolean {
   return Boolean(e.isComposing) || e.keyCode === 229
 }
 

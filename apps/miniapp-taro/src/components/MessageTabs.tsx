@@ -2,14 +2,56 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-/**
- * 消息页 tab 项类型。组件体已删(暂无消费屏,见 components/index.ts 注记);
- * 本文件仅承载 MessageTabItem,消息页经 components/index.ts 转出使用。
- */
+import { View, Text, ScrollView } from '@tarojs/components'
 
 export interface MessageTabItem {
   key: string
   label: string
   unread?: number
+}
+
+export interface MessageTabsProps {
+  tabs: MessageTabItem[]
+  active: string
+  onChange: (key: string) => void
+}
+
+export default function MessageTabs({ tabs, active, onChange }: MessageTabsProps) {
+  return (
+    <ScrollView scrollX className="mb-sm" enhanced showScrollbar={false}>
+      {/* 对齐 RN MessageCenterScreen:胶囊 tab(paddingHorizontal 14/paddingVertical 6/radius 12 dp) */}
+      <View className="flex flex-row items-center px-[20rpx] py-[16rpx] gap-[16rpx]">
+        {tabs.map((tab) => {
+          const isActive = tab.key === active
+          const showUnread = (tab.unread ?? 0) > 0
+          return (
+            <View
+              key={tab.key}
+              className={`flex flex-row items-center px-[28rpx] py-[12rpx] rounded-xl ${
+                isActive ? 'bg-primary' : 'bg-card'
+              }`}
+              onClick={() => onChange(tab.key)}
+              hoverClass="opacity-60"
+            >
+              <Text
+                className={`text-body ${
+                  isActive ? 'text-primary-foreground font-semibold' : 'text-muted-foreground'
+                }`}
+              >
+                {tab.label}
+              </Text>
+              {showUnread && (
+                <View className="ml-[8rpx] min-w-[32rpx] h-[32rpx] px-[6rpx] rounded-md bg-destructive flex items-center justify-center">
+                  <Text className="text-badge text-destructive-foreground font-bold">
+                    {tab.unread! > 99 ? '99+' : tab.unread}
+                  </Text>
+                </View>
+              )}
+            </View>
+          )
+        })}
+      </View>
+    </ScrollView>
+  )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

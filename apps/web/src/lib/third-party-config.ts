@@ -280,7 +280,7 @@ export const OIDC_CONFIG: ThirdPartyPlatformConfig = {
  * `NEXT_PUBLIC_LINUXDO_ENABLED=true` 才点亮,不给"构建期开关说了算"的假绿留窗口
  * (判据与回归锁见 `src/hooks/__tests__/use-third-party-server-gate.test.tsx`)。
  */
-const LINUXDO_CONFIG: ThirdPartyPlatformConfig = {
+export const LINUXDO_CONFIG: ThirdPartyPlatformConfig = {
   enabled: getEnvBool('NEXT_PUBLIC_LINUXDO_ENABLED', false),
   clientId: getEnv('NEXT_PUBLIC_LINUXDO_CLIENT_ID'),
   redirectUri: '',

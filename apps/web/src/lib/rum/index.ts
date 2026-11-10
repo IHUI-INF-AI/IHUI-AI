@@ -48,6 +48,7 @@ export function recordRumEvent(name: RumEventName, props?: Record<string, unknow
 
 export type { RumEvent, RumEventName, RumCollectorStats } from './collector'
 export type { RumProps } from './privacy'
+export { RUM_FLUSH_INTERVAL_MS, RUM_MAX_BUFFERED_EVENTS, RUM_MAX_BATCH_SIZE } from './collector'
 export { installStartupRum, readStartupTiming } from './startup'
 export { startRumLongTaskWindow } from './collector'
 export { setRumConsent, isRumConsentGranted } from './consent'

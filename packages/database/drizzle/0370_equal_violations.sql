@@ -6,13 +6,5 @@
 -- drizzle-kit 同时把 idx 367/20261106150000 手写迁移漏记进 snapshot 的差异(重复 ADD COLUMN /
 -- 重复 CREATE UNIQUE INDEX / 重复 CHECK)一并生成了出来,那些已在既有迁移执行过,故此处删去,
 -- 只保留真实缺失的这一列;snapshot(0370_snapshot.json)仍保留生成结果,由它把历史漂移收口。
---
--- 2026-11-09 幂等修复(CI `ai-service-schema-check` 实测红):
---   本列在建库链上被加了两次 —— journal idx 368 的 20261106180000_share_token_expires_at.sql
---   先建(该文件自带 IF NOT EXISTS),本文件(idx 370)在其后无条件再 ADD 一次 ⇒
---   `ERROR: column "share_token_expires_at" of relation "chat_conversations" already exists`,
---   整条迁移链在建库时中断。保留两条(368 那份带 BUG-50 的定性说明,是本列的出处记录),
---   但**后者的动作必须幂等**:补 IF NOT EXISTS,重复应用退化为 NOTICE,不再中断。
---   迁移正文属"已入库不可改写"面,正规通道登记见 scripts/data/migration-rewrite-ledger.jsonl。
-ALTER TABLE "chat_conversations" ADD COLUMN IF NOT EXISTS "share_token_expires_at" timestamp with time zone;
+ALTER TABLE "chat_conversations" ADD COLUMN "share_token_expires_at" timestamp with time zone;
 -- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

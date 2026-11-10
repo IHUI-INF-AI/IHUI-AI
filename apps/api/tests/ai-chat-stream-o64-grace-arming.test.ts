@@ -100,10 +100,7 @@ vi.mock('../src/db/chat-queries.js', () => ({
   replaceMessages: vi.fn().mockResolvedValue(undefined),
   createConversation: vi.fn(),
   findConversationsByUser: vi.fn(),
-  findConversationById: vi.fn(async (id: string) => ({
-    id,
-    userId: '00000000-0000-4000-8000-000000000001',
-  })),
+  findConversationById: vi.fn(),
   updateConversation: vi.fn(),
   deleteConversation: vi.fn(),
   deleteConversationsBatch: vi.fn(),

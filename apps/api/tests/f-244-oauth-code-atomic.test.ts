@@ -66,17 +66,11 @@ describe('F-244 授权码消费是原子抢占', () => {
     expect(block).toContain('.returning(')
   })
 
-  it('源码锁:5 个换码入口都原子消费授权码', () => {
-    // 4 个入口沿用 markSessionUsed 并逐一检查返回值;
-    // 第 5 个入口(/oauth/web/token)已收敛到 claimAuthorizationCode ——
-    // 它本身是单条条件 UPDATE(... WHERE is_used = FALSE RETURNING),返回值即抢占结果。
+  it('源码锁:5 个换码入口都检查 markSessionUsed 的返回值', () => {
     const calls = authExtendedSource.match(/markSessionUsed\(/g) ?? []
     const guarded = authExtendedSource.match(/if \(!\(await markSessionUsed\(/g) ?? []
-    expect(calls).toHaveLength(4)
-    expect(guarded).toHaveLength(4)
-    const claims = authExtendedSource.match(/const session = await claimAuthorizationCode\(/g) ?? []
-    expect(claims).toHaveLength(1)
-    expect(authExtendedSource).toMatch(/if \(!session \|\| session\.expiresAt < new Date\(\)\)/)
+    expect(calls).toHaveLength(5)
+    expect(guarded).toHaveLength(5)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
