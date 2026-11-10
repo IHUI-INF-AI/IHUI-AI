@@ -2521,7 +2521,11 @@
     "copySecret": "複製",
     "secretCopied": "金鑰已複製到剪貼簿",
     "rateLimit": "速率限制",
-    "rateLimitUnit": "次/分鐘"
+    "rateLimitUnit": "次/分鐘",
+    "subtitle": "管理您的開發者 API 密鑰,供第三方應用接入",
+    "permissionsRequired": "請至少選擇一個權限",
+    "rateLimitPerMinute": "速率 {rateLimit}/分鐘",
+    "callsTotal": "累計呼叫 {times} 次"
   },
   "devices": {
     "title": "裝置管理",
@@ -5420,12 +5424,59 @@
     "toast": {
       "runDone": "巡檢完成",
       "resumed": "已恢復",
-      "paused": "已暫停"
+      "paused": "已暫停",
+      "saveFailed": "儲存失敗"
     },
     "action": {
       "delete": "刪除",
       "runNow": "立即巡檢",
-      "history": "歷史"
+      "history": "歷史",
+      "pause": "暫停",
+      "resume": "恢復",
+      "edit": "編輯",
+      "openConversation": "開啟會話"
+    },
+    "deleteConfirm": {
+      "title": "刪除巡檢任務",
+      "content": "確定刪除「{name}」嗎？巡檢歷史將一併刪除，此操作不可復原。"
+    },
+    "delete": "刪除",
+    "cancel": "取消",
+    "save": "儲存",
+    "weekdayMo": "週一",
+    "weekdayTu": "週二",
+    "weekdayWe": "週三",
+    "weekdayTh": "週四",
+    "weekdayFr": "週五",
+    "weekdaySa": "週六",
+    "weekdaySu": "週日",
+    "form": {
+      "createTitle": "新建巡檢任務",
+      "editTitle": "編輯巡檢任務",
+      "desc": "設定巡檢類型、目標與巡檢計畫",
+      "name": "名稱",
+      "namePlaceholder": "例如：每日 CI 巡檢",
+      "patrolType": "巡檢類型",
+      "target": "巡檢目標",
+      "targetPlaceholder": "例如：儲存庫地址 / URL / 日誌範圍",
+      "prompt": "附加巡檢指令",
+      "promptPlaceholder": "需要重點檢查的內容（可選）…",
+      "frequency": "頻率",
+      "freqHourly": "每小時",
+      "freqDaily": "每天",
+      "freqWeekly": "每週",
+      "time": "執行時刻",
+      "weekdays": "週幾",
+      "rrule": "執行計畫",
+      "rrulePlaceholder": "FREQ=DAILY;BYHOUR=9;BYMINUTE=0",
+      "errName": "請輸入名稱",
+      "errDays": "請至少選擇一個週幾",
+      "errRrule": "請填寫執行計畫"
+    },
+    "runs": {
+      "title": "巡檢歷史",
+      "empty": "暫無巡檢記錄",
+      "loading": "載入中…"
     }
   },
   "selfHealing": {
@@ -7582,7 +7633,27 @@
       "eraseCard": "數據擦除"
     },
     "groups": {
-      "title": "我的群組"
+      "addMember": "添加成員",
+      "allGroups": "全部群組",
+      "confirmDelete": "確定刪除該群組？",
+      "createGroup": "創建群組",
+      "createdAt": "創建時間",
+      "custom": "自定義",
+      "delete": "刪除",
+      "deleteTitle": "刪除群組",
+      "description": "群組描述",
+      "edit": "編輯",
+      "empty": "暫無群組，點擊右上角創建",
+      "error": "操作失敗",
+      "groupName": "群組名稱",
+      "groupNameRequired": "群組名稱不能為空",
+      "memberList": "成員管理",
+      "members": "成員數",
+      "membersUnavailable": "後端未提供成員清單介面,此處僅顯示成員數",
+      "owner": "群主",
+      "save": "保存",
+      "title": "我的群組",
+      "userId": "用戶 ID"
     },
     "stt": {
       "error": "轉寫失敗"

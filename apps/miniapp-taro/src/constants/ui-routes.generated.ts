@@ -624,6 +624,7 @@
 // input: apps/miniapp-taro/src/pkg-user/favorites/index.tsx 7e73090147af7f812f40e714fb143e188bd5c893c929de3de887c0e533e42420
 // input: apps/miniapp-taro/src/pkg-user/following/index.config.ts c17f5f4bf09110d00ae568437b311ca7ca331436bc8578f6d314671390db3e92
 // input: apps/miniapp-taro/src/pkg-user/following/index.tsx e01f0db836a7667bff7e1ffa1ab901817e5d7726ce269ba7cb313618b80bb3f1
+// input: apps/miniapp-taro/src/pkg-user/groups/index.tsx e73691e0103d09d18854857107bd07c90ca69813edcd118d6ef46447522a5303
 // input: apps/miniapp-taro/src/pkg-user/identity-verify/index.tsx b73a1e177cf7af1f09693a63d1395c3ce4b55df7d5fe079eddec9ea766092dfa
 // input: apps/miniapp-taro/src/pkg-user/knowledge-planet/index.tsx 3a9026618ef4e5c8019b55372e1717d8ffd0a6e8c6051ed7cdd53a37e896fa87
 // input: apps/miniapp-taro/src/pkg-user/lecturer-list/index.tsx 0b6f14a9916ec20b074dbd63bdf17c415be7ce385622391b76d4a8b1ba3b7f86
@@ -1906,6 +1907,13 @@ export const TARO_UI_ROUTES: readonly TaroUiRouteEntry[] = [
   },
   {
     path: '/pkg-user/identity-verify/index',
+    title: '智汇AI',
+    tab: false,
+    subPackageRoot: 'pkg-user',
+    requiresParams: false,
+  },
+  {
+    path: '/pkg-user/groups/index',
     title: '智汇AI',
     tab: false,
     subPackageRoot: 'pkg-user',
