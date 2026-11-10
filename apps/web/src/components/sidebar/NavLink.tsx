@@ -47,8 +47,10 @@ const NavLink = React.memo(function NavLink({
   const isActive = useOptimisticNavStore((s) => (s.href === null ? active : s.href === item.href))
   const className = cn(
     NAV_ITEM_BASE_CLASS,
+    // 2026-11-10 用户要求:选中态底色与 sidebar 底对比过大,改用 sidebar-active 弱底(亮色 86% L / 暗色 8% L),
+    // 不再用满色 bg-cta(亮色纯黑 / 暗色纯白)形成强反差。
     isActive
-      ? 'bg-cta text-cta-foreground'
+      ? 'bg-sidebar-active text-foreground'
       : 'text-foreground/70 hover:bg-sidebar-item-hover-bg hover:text-accent-foreground',
     collapsed ? NAV_ITEM_COLLAPSED_CLASS : NAV_ITEM_EXPANDED_CLASS,
   )
