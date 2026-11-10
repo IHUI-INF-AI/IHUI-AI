@@ -244,6 +244,9 @@ export const srsRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const [srv] = await db.insert(srsServers).values(parsed.data).returning()
+    // sanitizer-bypass 门声明点:管理端回显刚写入的 apiSecret(F-195 允许管理员读取),
+    // 若不跳过消毒器,回显值会被掩码导致创建结果不可核验。
+    request.skipResponseSanitization = true
     return reply.status(201).send(success(srv))
   })
 
@@ -261,6 +264,8 @@ export const srsRoutes: FastifyPluginAsync = async (server) => {
       .where(eq(srsServers.id, id))
       .returning()
     if (!srv) return reply.status(404).send(error(404, '服务器不存在'))
+    // sanitizer-bypass 门声明点:同 POST,管理端回显 apiSecret(F-195 允许管理员读取)。
+    request.skipResponseSanitization = true
     return reply.send(success(srv))
   })
 
