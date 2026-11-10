@@ -7,24 +7,30 @@
 /**
  * Repo Wiki 页面 (2026-09-07 新增,Repo Wiki MVP)
  *
- * 上半区:仓库名 + 选择文件夹(浏览器 FileSystemDirectoryHandle 遍历收集文本文件)
- *        → 生成按钮 → 调后端 LLM 生成"仓库总览 + 模块文档"。
- * 下半区:该仓库文档列表(标题/类型/生成时间)→ 点击查看用 MarkdownStream 渲染。
+ * 与 RN `apps/mobile-rn/src/screens/RepoWikiScreen.tsx` 共用同一份渲染
+ * (`@ihui/rn-app/features/repo-wiki/RepoWikiScreen`,react-native-web 承载)。
+ * 本页只保留 web 侧独有的"选文件夹 + 生成"能力(浏览器 File System Access API,
+ * RN 无等价能力)与平台件:MarkdownStream 正文渲染、confirmDialog、生成错误提示。
+ * 仓库名输入、文档列表、详情查看、删除确认均由共享屏渲染。
  */
 
 import * as React from 'react'
-import { useTranslations } from 'next-intl'
-import { Eye, FolderOpen, Loader2, RefreshCw, Trash2 } from 'lucide-react'
+import { useLocale, useTranslations } from 'next-intl'
+import { FolderOpen, Loader2 } from 'lucide-react'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { Alert, confirmDialog } from '@/components/feedback'
-import { Input } from '@/components/form'
 import { MarkdownStream } from '@/components/ai/markdown-stream'
+import type { TFunction } from '@ihui/types'
+import {
+  RepoWikiScreen as SharedRepoWikiScreen,
+  type RepoWikiDocView,
+} from '@ihui/rn-app/features/repo-wiki/RepoWikiScreen'
+import { formatDate } from '@/lib/date-utils'
 import {
   generateRepoWiki,
   listRepoWiki,
   getRepoWikiDoc,
   deleteRepoWikiDoc,
-  type RepoWikiDocSummary,
   type RepoWikiFileInput,
 } from '@ihui/api-client'
 
@@ -162,63 +168,45 @@ interface PickerWindow {
   }) => Promise<FileSystemDirectoryHandle>
 }
 
-function formatDate(iso: string): string {
-  try {
-    return new Intl.DateTimeFormat('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(new Date(iso))
-  } catch {
-    return iso
-  }
-}
-
 // =============================================================================
 // 页面
 // =============================================================================
 
 export default function RepoWikiPage() {
   const t = useTranslations('repoWiki')
+  const locale = useLocale()
 
   const [repoName, setRepoName] = React.useState('')
   const [folderName, setFolderName] = React.useState<string | null>(null)
   const [collectedFiles, setCollectedFiles] = React.useState<RepoWikiFileInput[]>([])
   const [collecting, setCollecting] = React.useState(false)
   const [generating, setGenerating] = React.useState(false)
-  const [error, setError] = React.useState<string | null>(null)
+  const [genError, setGenError] = React.useState<string | null>(null)
 
-  const [docs, setDocs] = React.useState<RepoWikiDocSummary[]>([])
+  const [docs, setDocs] = React.useState<RepoWikiDocView[]>([])
   const [loadingDocs, setLoadingDocs] = React.useState(false)
+  const [loadError, setLoadError] = React.useState<string | null>(null)
 
-  const [viewingId, setViewingId] = React.useState<string | null>(null)
-  const [viewingTitle, setViewingTitle] = React.useState('')
-  const [detailContent, setDetailContent] = React.useState<string | null>(null)
-  const [loadingDetail, setLoadingDetail] = React.useState(false)
-  const [deletingId, setDeletingId] = React.useState<string | null>(null)
-
-  const loadDocs = React.useCallback(async (name: string) => {
-    if (!name.trim()) return
+  const loadDocs = React.useCallback(async () => {
+    const name = repoName.trim()
+    if (!name) return
     setLoadingDocs(true)
-    setError(null)
+    setLoadError(null)
     try {
-      const rows = await listRepoWiki(name.trim())
-      setDocs(rows)
+      setDocs(await listRepoWiki(name))
     } catch (e) {
-      setError((e as Error).message)
+      setLoadError((e as Error).message)
     } finally {
       setLoadingDocs(false)
     }
-  }, [])
+  }, [repoName])
 
   // 选择文件夹(showDirectoryPicker),自动把文件夹名填入仓库名
   const handlePickFolder = React.useCallback(async () => {
-    setError(null)
+    setGenError(null)
     const w = window as unknown as PickerWindow
     if (typeof w.showDirectoryPicker !== 'function') {
-      setError(t('pickerUnsupported'))
+      setGenError(t('pickerUnsupported'))
       return
     }
     setCollecting(true)
@@ -226,7 +214,7 @@ export default function RepoWikiPage() {
       const handle = await w.showDirectoryPicker({ mode: 'read' })
       const files = await collectRepoFiles(handle)
       if (files.length === 0) {
-        setError(t('noTextFiles'))
+        setGenError(t('noTextFiles'))
         setFolderName(null)
         return
       }
@@ -237,7 +225,7 @@ export default function RepoWikiPage() {
     } catch (e) {
       // 用户取消选择 AbortError,静默
       if ((e as Error).name !== 'AbortError') {
-        setError((e as Error).message)
+        setGenError((e as Error).message)
       }
     } finally {
       setCollecting(false)
@@ -246,71 +234,55 @@ export default function RepoWikiPage() {
 
   // 生成 Wiki
   const handleGenerate = React.useCallback(async () => {
-    setError(null)
+    setGenError(null)
     if (!repoName.trim()) {
-      setError(t('needRepoName'))
+      setGenError(t('needRepoName'))
       return
     }
     setGenerating(true)
     try {
       if (collectedFiles.length === 0) {
-        setError(t('needFolder'))
+        setGenError(t('needFolder'))
         return
       }
       await generateRepoWiki({ repoName: repoName.trim(), files: collectedFiles })
-      await loadDocs(repoName.trim())
+      await loadDocs()
     } catch (e) {
-      setError(`${t('generateFailed')}:${(e as Error).message}`)
+      setGenError(`${t('generateFailed')}:${(e as Error).message}`)
     } finally {
       setGenerating(false)
     }
   }, [repoName, collectedFiles, loadDocs, t])
 
-  // 查看文档
-  const handleView = React.useCallback(async (doc: RepoWikiDocSummary) => {
-    setViewingId(doc.id)
-    setViewingTitle(doc.title)
-    setDetailContent(null)
-    setLoadingDetail(true)
-    try {
-      const detail = await getRepoWikiDoc(doc.id)
-      setDetailContent(detail.content)
-    } catch (e) {
-      setError((e as Error).message)
-      setViewingId(null)
-    } finally {
-      setLoadingDetail(false)
-    }
+  const handleLoadDoc = React.useCallback(async (id: string) => {
+    const full = await getRepoWikiDoc(id)
+    return full.content
   }, [])
 
-  // 删除文档
-  const handleDelete = React.useCallback(
-    async (doc: RepoWikiDocSummary) => {
-      const ok = await confirmDialog({ title: t('deleteConfirm'), variant: 'danger' })
-      if (!ok) return
-      setDeletingId(doc.id)
-      try {
-        await deleteRepoWikiDoc(doc.id)
-        setDocs((prev) => prev.filter((d) => d.id !== doc.id))
-      } catch (e) {
-        setError((e as Error).message)
-      } finally {
-        setDeletingId(null)
-      }
-    },
-    [t],
+  const handleDelete = React.useCallback(async (id: string) => {
+    await deleteRepoWikiDoc(id)
+    setDocs((prev) => prev.filter((d) => d.id !== id))
+  }, [])
+
+  const handleConfirm = React.useCallback(
+    (options: { title: string; message: string; destructive?: boolean }) =>
+      confirmDialog({
+        title: options.title,
+        content: options.message,
+        variant: options.destructive ? 'danger' : 'default',
+      }),
+    [],
   )
 
   return (
-    <div className="px-4 py-4 mx-auto flex w-full max-w-5xl flex-col gap-6">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-4">
       <div>
         <h1 className="text-display font-semibold">{t('title')}</h1>
-        <p className="mt-1 text-body text-muted-foreground">{t('description')}</p>
       </div>
 
-      {error && <Alert variant="danger" description={error} className="items-start" />}
+      {genError && <Alert variant="danger" description={genError} className="items-start" />}
 
-      {/* 上半区:生成入口 */}
+      {/* web 独有:选文件夹 + 生成(浏览器 File System Access API,RN 无等价能力) */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
@@ -320,17 +292,6 @@ export default function RepoWikiPage() {
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center gap-3">
-            <label className="w-20 shrink-0 text-body font-medium" htmlFor="repo-wiki-repo-name">
-              {t('repoNameLabel')}
-            </label>
-            <Input
-              id="repo-wiki-repo-name"
-              value={repoName}
-              onChange={(e) => setRepoName(e.target.value)}
-              placeholder={t('repoNamePlaceholder')}
-              className="max-w-xs"
-              disabled={generating}
-            />
             <Button
               variant="outline"
               onClick={handlePickFolder}
@@ -343,143 +304,40 @@ export default function RepoWikiPage() {
               )}
               {collecting ? t('collecting') : t('pickFolder')}
             </Button>
+            {folderName && (
+              <p className="text-body text-muted-foreground">
+                {t('folderSelected', { name: folderName, count: collectedFiles.length })}
+              </p>
+            )}
           </div>
 
-          {folderName && (
-            <p className="text-body text-muted-foreground">
-              {t('folderSelected', { name: folderName, count: collectedFiles.length })}
-            </p>
-          )}
-
-          <div>
+          <div className="flex flex-col gap-2">
             <Button onClick={handleGenerate} disabled={generating || collecting || !folderName}>
               {generating && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
               {generating ? t('generating') : t('generate')}
             </Button>
+            {(!folderName || collectedFiles.length === 0) && (
+              <p className="text-label text-muted-foreground">{t('regenerateDisabledHint')}</p>
+            )}
           </div>
         </CardContent>
       </Card>
 
-      {/* 查看详情 */}
-      {viewingId && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between gap-2 text-base">
-              <span className="truncate">{viewingTitle}</span>
-              <div className="flex shrink-0 items-center gap-2">
-                {/* P1-8(2026-09-13 立):已生成文档支持原地重新生成,复用 handleGenerate 生成链路 */}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => void handleGenerate()}
-                  disabled={generating || collecting || !folderName || collectedFiles.length === 0}
-                >
-                  {generating ? (
-                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                  ) : (
-                    <RefreshCw className="h-4 w-4" aria-hidden />
-                  )}
-                  {generating ? t('generating') : t('regenerate')}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setViewingId(null)
-                    setDetailContent(null)
-                  }}
-                >
-                  {t('backToList')}
-                </Button>
-              </div>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {(!folderName || collectedFiles.length === 0) && (
-              <p className="mb-3 text-label text-muted-foreground">{t('regenerateDisabledHint')}</p>
-            )}
-            {loadingDetail || detailContent === null ? (
-              <div className="flex items-center gap-2 py-8 text-body text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                {t('loadingDetail')}
-              </div>
-            ) : (
-              <MarkdownStream content={detailContent} collapseLines={0} />
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* 下半区:文档列表 */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between text-base">
-            <span>{t('listTitle')}</span>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => void loadDocs(repoName)}
-              disabled={loadingDocs || !repoName.trim()}
-            >
-              <RefreshCw className="h-4 w-4" aria-hidden />
-              {t('refresh')}
-            </Button>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {loadingDocs ? (
-            <div className="flex items-center gap-2 py-6 text-body text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-              {t('loadingDocs')}
-            </div>
-          ) : docs.length === 0 ? (
-            <p className="py-6 text-body text-muted-foreground">{t('emptyList')}</p>
-          ) : (
-            <ul className="flex flex-col gap-3">
-              {docs.map((doc) => (
-                <li
-                  key={doc.id}
-                  className="flex flex-wrap items-center gap-3 rounded-lg border p-3"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="truncate font-medium">{doc.title}</span>
-                      <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] uppercase text-muted-foreground">
-                        {doc.kind === 'module' ? t('kindModule') : t('kindOverview')}
-                      </span>
-                    </div>
-                    <p className="mt-1 text-label text-muted-foreground">
-                      {t('generatedAt', { time: formatDate(doc.generatedAt) })}
-                      {' · '}
-                      {t('fileCount', { count: doc.fileCount })}
-                      {doc.model ? ` · ${doc.model}` : ''}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={() => void handleView(doc)}>
-                      <Eye className="h-4 w-4" aria-hidden />
-                      {t('view')}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => void handleDelete(doc)}
-                      disabled={deletingId === doc.id}
-                    >
-                      {deletingId === doc.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                      ) : (
-                        <Trash2 className="h-4 w-4" aria-hidden />
-                      )}
-                      {t('delete')}
-                    </Button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
+      <SharedRepoWikiScreen
+        t={t as unknown as TFunction}
+        colorScheme="light"
+        repoName={repoName}
+        onChangeRepoName={setRepoName}
+        docs={docs}
+        loading={loadingDocs}
+        error={loadError}
+        formatDate={(iso) => formatDate(iso, locale)}
+        onLoad={loadDocs}
+        onLoadDoc={handleLoadDoc}
+        onDelete={handleDelete}
+        onConfirm={handleConfirm}
+        renderDetail={(content) => <MarkdownStream content={content} collapseLines={0} />}
+      />
     </div>
   )
 }
