@@ -5458,6 +5458,33 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-10**
+- 🐞 修复:常驻开发服务按需启停——停白占栈断复活链,安装器默认拒注 (7f27d9d3ae)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (08fc6d68b2)
+- 🐞 修复:sanitizer-bypass 门清红 2 文件(收敛面带入的 HEAD 面既有红,非本会话引入)——oauth userinfo 显式声明跳响应消毒器(响应只含身份 claims sub/nickname/avatar,Bearer token 仅用于请求方鉴权不进响应体);srs POST/PUT /servers 管理端回显刚写入的 apiSecret(F-195 允许管理员读取)显式跳消毒器,避免回显值被掩码致创建/更新结果不可核验 (b4da27a2d3)
+- 🐞 修复:人事考勤两个 TextInput 补焦点态,解 apk 肉机的 G-978007 普查锁 (ec13c2b5c0)
+- 🐞 修复:重新派生 api-endpoints.generated.ts,消除派生件钉面陈旧 (4195b290ca)
+- 🐞 修复:收口 python-ai-service 残留 20 失败 + test-python ruff(F401) (d2ac87b17e)
+- 📚 文档:刷新 README 生成块数字(trackedFiles/testFiles 各 +1) (443c3491d0)
+- 🐞 修复:收敛面清红三件——①agent_teams._ensure_loaded 置真改 try/else 成功子句形态(load-state 判据认可形,语义逐字等价)②removeConversationShareToken 改 G-998153 出口形态(先取现值按键比较,重复撤销不再空转 updatedAt)③wire-strictness 基线吸收 87→90(3 增量全为宽口径 Promise catch,零新 zod,逐文件实证见注记,按 2026-10-28 人审吸收先例) (3d6097d5bd)
+- 🐞 修复:后台套餐价的「分→元」展示改委托 @ihui/shared/utils 的 formatPrice (a250235421)
+- 🐞 修复:补 scripts/safe-trash.ps1 的 UTF-8 BOM,两处派生控制台程序补 windowsHide (cd9970784e)
+- 🐞 修复:删除 miniapp-taro/mobile-rn 十份语言包里重复的 hrAttendance 块 (897d846f0a)
+- ⚡ 性能:T1 长期票落地——全量 typecheck 结论按 tree-sha 落盘回执,推送门只读近期结论 (e9c435cfff)
+- 🐞 修复:号池管理面公网可达——机主 2026-11-10 永久指令(号必须跟着 admin 账号在网络上走) (c3b6a98a14)
+- 🐞 修复:号池管理面公网可达——机主 2026-11-10 永久指令(号必须跟着 admin 账号在网络上走) (fa237c4293)
+- 🐞 修复:web [chat] 补齐 super-agent-panel 9 键 x5 语言——该组件已被收编进 HEAD 但键缺失(闸判缺失键 9);Action* 5 键系间接拼键不被静态闸拦,留组件归属会话自补;文案语义取自组件只读投影语境 (7c8bd4440f)
+- 🐞 修复:补齐 opencode/zcode/loomy 号池模型清单 (80bc1b3ee1)
+- 🐞 修复:收敛面上 8 处 mypy 清红——key_pool_selector 补 _decrypt_api_key 缺失 import(该裸调运行时即 NameError,真 bug)+解密失败剔除+dict 类型实参;wb_autopilot_mcp 号池无凭据时显式报错+result/resp 显式注解;两文件 blob 与 origin/main 逐字同一,红为远端既有,非本次收敛引入 (0b1e9e5b93)
+- 🐞 修复:相对基线 P95 维补单枚离群下限，堵住冷启动首帧误杀导致自动回滚 (89defd6e1c)
+- 🐞 修复:刷新能力评测基线(锚点保真换 90 token)并让压缩库变更触发评测门 (0a5fc86d03)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (eccce4a301)
+- 🐞 修复:对齐 file_search 降级语义、POSIX 盘符越界判定与 mypy 跨平台符号 (579a1abeef)
+- 🐞 修复:清 api/web 用例红项、协议与安全审计页收编共享屏并同步派生路由产物 (0fed98405e)
+- 🐞 修复:补 skillGrantSkipApproval 五语言词条并修正 zh-TW 主控臺用词 (ff17abfc55)
+- 🐞 修复:vitest 收集面显式排除 dist,消除 57 例重复执行 (b7eaf2ad7d)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (0d0c352538)
+
+**2026-11-10**
 - 🔧 工程/其他:收编守护落档产出(1 件,凭落点账本) (902bb35c58)
 - 🚀 新功能/改进:干净基线上重放仅存本地的成果 (87da79c682)
 - 🐞 修复:号池补号与永久保活口径收口——非续期平台不再被误摘、导入默认永久保活 (f16d6dc3db)
@@ -5561,32 +5588,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 
 **2026-11-10**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (7c975f7d2e)
-
-**2026-11-10**
-- 🐞 修复:常驻开发服务按需启停——停白占栈断复活链,安装器默认拒注 (7f27d9d3ae)
-- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (08fc6d68b2)
-- 🐞 修复:sanitizer-bypass 门清红 2 文件(收敛面带入的 HEAD 面既有红,非本会话引入)——oauth userinfo 显式声明跳响应消毒器(响应只含身份 claims sub/nickname/avatar,Bearer token 仅用于请求方鉴权不进响应体);srs POST/PUT /servers 管理端回显刚写入的 apiSecret(F-195 允许管理员读取)显式跳消毒器,避免回显值被掩码致创建/更新结果不可核验 (b4da27a2d3)
-- 🐞 修复:人事考勤两个 TextInput 补焦点态,解 apk 肉机的 G-978007 普查锁 (ec13c2b5c0)
-- 🐞 修复:重新派生 api-endpoints.generated.ts,消除派生件钉面陈旧 (4195b290ca)
-- 🐞 修复:收口 python-ai-service 残留 20 失败 + test-python ruff(F401) (d2ac87b17e)
-- 📚 文档:刷新 README 生成块数字(trackedFiles/testFiles 各 +1) (443c3491d0)
-- 🐞 修复:收敛面清红三件——①agent_teams._ensure_loaded 置真改 try/else 成功子句形态(load-state 判据认可形,语义逐字等价)②removeConversationShareToken 改 G-998153 出口形态(先取现值按键比较,重复撤销不再空转 updatedAt)③wire-strictness 基线吸收 87→90(3 增量全为宽口径 Promise catch,零新 zod,逐文件实证见注记,按 2026-10-28 人审吸收先例) (3d6097d5bd)
-- 🐞 修复:后台套餐价的「分→元」展示改委托 @ihui/shared/utils 的 formatPrice (a250235421)
-- 🐞 修复:补 scripts/safe-trash.ps1 的 UTF-8 BOM,两处派生控制台程序补 windowsHide (cd9970784e)
-- 🐞 修复:删除 miniapp-taro/mobile-rn 十份语言包里重复的 hrAttendance 块 (897d846f0a)
-- ⚡ 性能:T1 长期票落地——全量 typecheck 结论按 tree-sha 落盘回执,推送门只读近期结论 (e9c435cfff)
-- 🐞 修复:号池管理面公网可达——机主 2026-11-10 永久指令(号必须跟着 admin 账号在网络上走) (c3b6a98a14)
-- 🐞 修复:号池管理面公网可达——机主 2026-11-10 永久指令(号必须跟着 admin 账号在网络上走) (fa237c4293)
-- 🐞 修复:web [chat] 补齐 super-agent-panel 9 键 x5 语言——该组件已被收编进 HEAD 但键缺失(闸判缺失键 9);Action* 5 键系间接拼键不被静态闸拦,留组件归属会话自补;文案语义取自组件只读投影语境 (7c8bd4440f)
-- 🐞 修复:补齐 opencode/zcode/loomy 号池模型清单 (80bc1b3ee1)
-- 🐞 修复:收敛面上 8 处 mypy 清红——key_pool_selector 补 _decrypt_api_key 缺失 import(该裸调运行时即 NameError,真 bug)+解密失败剔除+dict 类型实参;wb_autopilot_mcp 号池无凭据时显式报错+result/resp 显式注解;两文件 blob 与 origin/main 逐字同一,红为远端既有,非本次收敛引入 (0b1e9e5b93)
-- 🐞 修复:相对基线 P95 维补单枚离群下限，堵住冷启动首帧误杀导致自动回滚 (89defd6e1c)
-- 🐞 修复:刷新能力评测基线(锚点保真换 90 token)并让压缩库变更触发评测门 (0a5fc86d03)
-- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (eccce4a301)
-- 🐞 修复:对齐 file_search 降级语义、POSIX 盘符越界判定与 mypy 跨平台符号 (579a1abeef)
-- 🐞 修复:清 api/web 用例红项、协议与安全审计页收编共享屏并同步派生路由产物 (0fed98405e)
-- 🐞 修复:补 skillGrantSkipApproval 五语言词条并修正 zh-TW 主控臺用词 (ff17abfc55)
-- 🐞 修复:vitest 收集面显式排除 dist,消除 57 例重复执行 (b7eaf2ad7d)
 <!-- END RECENT UPDATES -->
 同轮收口(2026-10-21 下午，五枚已入库)：把上一段里"只存不拦"的部分接成实链，并把跨端剩下的三处半截补齐。① **IP 白名单生效链**：判定唯一出口 `apps/api/src/routes/user/ip-whitelist-guard.ts`，挂在 18 条新登录腿的"凭据已验证之后、签发之前"；空表 = 未启用（不另开开关），已在线会话不受影响（换网不掉线），最后一次修改白名单的来源 IP 恒被放行（自救出口，否则清错一次就永久锁死）；被拒回 403 并落 `security_logs` 事件 `login_blocked_by_ip_allowlist`（登录前无主体，故 `recordSecurityEvent` 新增由承载层显式传主体的口子）。覆盖率由 `tests/ip-whitelist-issuance-coverage.test.ts` 机器守：全仓 6 个签发原语的每个调用点要么挂闸门、要么在具名豁免清单里带理由登记，将来新腿漏挂当场响。② **RN 安全中心接上这张卡**（`src/components/IpWhitelistPanel.tsx`，端内不复制 IP 文法校验，400 只翻本地化提示）。③ **五项 agent 护栏开关改为按登录主体生效**：`apps/ai-service/app/services/agent_security_prefs.py` 直连同库读 `user_preferences`（进程默认 ⊕ 该用户显式表态，缺省与改动前逐字一致），危险命令硬门与全局 kill switch 不受用户档影响。④ **小程序关于页补齐**为与 web/RN 同构的六段 + 保留 10 条合规入口（三端同脸，§4）。⑤ 删掉 PDF `print` / `sign` 两条零消费方的假 pending 端点（改成 404 断言留在原地），`openapi.json` 同步摘除两条 path。
 - **2026-10-21 公网提速批次的四件器物(点名义务在此,判据细节住器物头注;`§0.9` 的口径是"已接线而文档不点名 ⇒ 红")**:
