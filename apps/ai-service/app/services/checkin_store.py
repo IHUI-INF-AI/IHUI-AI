@@ -874,6 +874,7 @@ async def create_account(
     device_map: dict[str, Any],
     account_group: str = "",
     platform: str = "trae",
+    adopt_pool_owner: bool = False,
 ) -> dict[str, Any]:
     """录入账号(jwt 加密落库)。
 
@@ -881,6 +882,11 @@ async def create_account(
     (owner + platform + 身份 uid,见 derive_account_identity)重复录入时
     **合并刷新既有行** —— 凭证与设备态以本次为准,不建新行;展示名仅在
     既有名为 UUID 编码形态且本次派生出更好名时才换(尊重用户手动改名)。
+
+    号池归属迁移(adopt_pool_owner=True,2026-11-11 立):同一真实账号从运营池
+    (系统 owner)迁入个人池时,既有 `account_group='pool'` 行**改归属收养**,
+    绝不另建一行 —— 否则同平台同身份会出现「system:relay-pool 一条 + 新 owner
+    一条」两只号各签各的(生产实测 9 对)。跨平台同号仍各自独立(身份键含 platform)。
 
     身份派生不出的账号退回旧语义:同名已存在时抛 ValueError(23505 → 409)。
     """
@@ -906,6 +912,52 @@ async def create_account(
                 platform,
                 identity_key,
             )
+            if existing is None and adopt_pool_owner and owner_user_id != POOL_SYNC_OWNER:
+                # 归属迁移收养:同平台同身份的 pool 同步行(系统 owner)直接改归属,
+                # 不新建行 —— 防止运营池→个人池迁移后同号两只各签各的。
+                adopted = await conn.fetchrow(
+                    """
+                    SELECT id, owner_user_id, name, device_map, enabled, account_group, platform,
+                           created_at, updated_at
+                    FROM checkin_accounts
+                    WHERE platform = $1 AND identity_key = $2
+                      AND owner_user_id = $3 AND account_group = 'pool'
+                    ORDER BY id ASC
+                    LIMIT 1
+                    """,
+                    platform,
+                    identity_key,
+                    POOL_SYNC_OWNER,
+                )
+                if adopted is not None:
+                    try:
+                        await conn.execute(
+                            "UPDATE checkin_accounts SET owner_user_id = $1, updated_at = now() WHERE id = $2",
+                            owner_user_id,
+                            adopted["id"],
+                        )
+                    except Exception as e:
+                        # 目标归属已有同名账号 ⇒ 用确定性别名迁过去(仍是一条,不克隆)
+                        if getattr(e, "sqlstate", None) != "23505" and "duplicate key" not in str(e).lower():
+                            raise
+                        alias = pool_conflict_alias(str(adopted["name"]), identity_key)
+                        if alias is None:
+                            raise
+                        await conn.execute(
+                            "UPDATE checkin_accounts SET owner_user_id = $1, name = $3, updated_at = now()"
+                            " WHERE id = $2",
+                            owner_user_id,
+                            adopted["id"],
+                            alias,
+                        )
+                    existing = dict(adopted)
+                    existing["owner_user_id"] = owner_user_id
+                    logger.info(
+                        "[checkin_store] 号池归属迁移收养既有行 id=%s platform=%s identity=%s",
+                        adopted["id"],
+                        platform,
+                        identity_key,
+                    )
             if existing is not None:
                 # O64 号池同步账号:pool_cred_version 防降级 —— 本地版本 ≥ 推送版本时
                 # 原地返回不更新(幂等重推;旧凭证永不覆盖新凭证,设计 §3 D1)。

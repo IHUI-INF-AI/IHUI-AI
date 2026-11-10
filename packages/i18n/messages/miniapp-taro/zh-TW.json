@@ -7357,5 +7357,68 @@
       "empty": "暫無巡檢記錄",
       "loading": "載入中…"
     }
+  },
+  "repoWiki": {
+    "title": "Repo Wiki",
+    "description": "從本地程式碼倉庫自動產生架構與模組知識庫",
+    "repoNamePlaceholder": "輸入倉庫名",
+    "needRepoName": "請輸入倉庫名",
+    "listTitle": "文件列表",
+    "loadingDocs": "載入中…",
+    "generatedAt": "{time} 產生",
+    "fileCount": "{count} 個檔案",
+    "view": "查看",
+    "delete": "刪除",
+    "deleteConfirm": "確認刪除該文件？",
+    "backToList": "返回列表",
+    "loadingDetail": "載入文件中…",
+    "searchBtn": "查詢",
+    "generateHint": "產生需要上傳整個儲存庫目錄,目前僅 Web 端支援;本頁可瀏覽與刪除已產生的文件",
+    "loadFailed": "載入文件列表失敗",
+    "emptyList": "暫無文件,請先在 Web 端產生"
+  },
+  "teamKnowledge": {
+    "title": "團隊知識引擎",
+    "description": "團隊級共享知識:空間協作、成員修正、全程可審計",
+    "teamPlaceholder": "輸入團隊 teamId",
+    "searchBtn": "查詢",
+    "newSpaceBtn": "新建空間",
+    "newSpaceTitle": "新建知識空間",
+    "spaceNamePlaceholder": "為這個知識空間起個名字",
+    "teamVisible": "團隊可見",
+    "restricted": "受限可見",
+    "needTeam": "請先填寫團隊 ID",
+    "needSpaceName": "空間名稱不能為空",
+    "saveFailed": "保存失敗",
+    "needTitle": "標題不能為空",
+    "spaceListTitle": "知識空間",
+    "emptySpaces": "該團隊下暫無可見的知識空間",
+    "membersTitle": "空間成員",
+    "emptyMembers": "暫無顯式授權成員",
+    "itemsTitle": "知識條目",
+    "newItemBtn": "新建條目",
+    "kindAll": "全部類型",
+    "emptyItems": "該空間暫無條目",
+    "titlePlaceholder": "一句話概括這條知識",
+    "contentPlaceholder": "背景、結論、注意事項",
+    "publishBtn": "發布",
+    "archiveBtn": "歸檔",
+    "saveBtn": "保存",
+    "cancelBtn": "取消",
+    "role": {
+      "owner": "所有者",
+      "editor": "編輯者",
+      "viewer": "查看者"
+    },
+    "kind": {
+      "memory": "團隊記憶",
+      "wiki": "Wiki",
+      "card": "知識卡"
+    },
+    "status": {
+      "draft": "草稿",
+      "published": "已發布",
+      "archived": "已歸檔"
+    }
   }
 }

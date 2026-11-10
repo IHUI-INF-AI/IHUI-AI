@@ -30,7 +30,6 @@ vi.mock('../src/utils/relay-egress-guard.js', () => ({
 import {
   canUseSocketTransport,
   createRelaySocketFactory,
-  isSupportedProxyUrl,
   resolveSocketTransport,
   socketToSseResponse,
   UpstreamSocketOpenError,
