@@ -123,9 +123,7 @@ describe('接线与单一真相源', () => {
   it('logger.ts 自己调那两道出口(而不是只躺着导入了)', () => {
     const text = src('utils/logger.ts')
     expect(text).toContain('redactCredentialText(msg)')
-    // meta 落盘口在 F-284 之后先过 shadowRedactErr 再打码,实参名是 safeErrMeta 而非 meta;
-    // 断言"以该函数调用一次"而不是钉死中间变量名(行为断言见上组用例)。
-    expect(text).toMatch(/redactCredentialStrings\(\s*[A-Za-z_$][\w$]*\s*\)/)
+    expect(text).toContain('redactCredentialStrings(meta)')
   })
 
   it('打码实现全仓只有一份函数体(§0.6)', () => {

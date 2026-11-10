@@ -42,7 +42,7 @@ export interface ApkLeg {
 export const APK_CN_LEG_TAG = 'mobile-apk-latest'
 export const APK_CN_LEG_ASSET = 'ihui-ai-latest.apk'
 /** 固定 tag 下所有附件共用的直链前缀(单文件腿与多分片清单都挂在它下面)。 */
-const APK_CN_LEG_BASE = `https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI/releases/download/${APK_CN_LEG_TAG}`
+export const APK_CN_LEG_BASE = `https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI/releases/download/${APK_CN_LEG_TAG}`
 export const APK_CN_LEG_URL = `${APK_CN_LEG_BASE}/${APK_CN_LEG_ASSET}`
 /**
  * 多分片清单的固定附件名(2026-11-05 立)。
@@ -50,7 +50,7 @@ export const APK_CN_LEG_URL = `${APK_CN_LEG_BASE}/${APK_CN_LEG_ASSET}`
  * 客户端不构造名字 ⇒ 发版换份数/切法都不需要改客户端。
  * ⚠️ 与 scripts/publish-mobile-apk-gitee.py 的 PARTS_MANIFEST_ASSET 逐字一致(发布侧写、客户端读)。
  */
-const APK_PARTS_MANIFEST_ASSET = 'ihui-ai-parts.json'
+export const APK_PARTS_MANIFEST_ASSET = 'ihui-ai-parts.json'
 export const APK_PARTS_MANIFEST_URL = `${APK_CN_LEG_BASE}/${APK_PARTS_MANIFEST_ASSET}`
 
 /** 字面量白名单,与 desktop-download-leg.ts 的 RELEASE_TARGET_ALLOWED_ORIGINS 同源纪律。 */

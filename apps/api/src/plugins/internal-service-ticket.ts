@@ -120,7 +120,7 @@ function clampTicketTtl(raw: number): number {
 }
 
 /** 票面判据(签名 / 用途 / 时效)的失败原因 —— 不含单次使用那一维。 */
-type TicketSignalFailureReason =
+export type TicketSignalFailureReason =
   | 'secret_unavailable'
   | 'malformed'
   | 'expired'

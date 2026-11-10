@@ -26,10 +26,10 @@
  */
 
 /** 缺省并发=1:同一时刻只跑一枚重活,避免风暴把 ai-service 与 GitHub API 一起打穿 */
-const DEFAULT_DISPATCH_CONCURRENCY = 1
+export const DEFAULT_DISPATCH_CONCURRENCY = 1
 
 /** 缺省积压上限(条)——超出即触发"就地执行"兜底,同时记 error 供对账 */
-const DEFAULT_DISPATCH_MAX_PENDING = 256
+export const DEFAULT_DISPATCH_MAX_PENDING = 256
 
 /** 缺省应答预算(ms):远低于 GitHub 的 10s 投递超时,又足够让"零外部 IO 的轻判定"同步回话 */
 export const DEFAULT_RESPONSE_BUDGET_MS = 500
@@ -59,10 +59,11 @@ export interface DispatchJobDescriptor {
   event: string
 }
 
-type DispatchRejectReason = 'backlog_full' | 'closed'
+export type DispatchRejectReason = 'backlog_full' | 'closed'
 
 /** 任务真正结束时的两种结局(永不 reject,因此后台失败不会掀掉 worker) */
-type DispatchSettled<T> = { phase: 'completed'; value: T } | { phase: 'failed'; error: unknown }
+export type DispatchSettled<T> =
+  { phase: 'completed'; value: T } | { phase: 'failed'; error: unknown }
 
 /** 调用方在应答预算处看到的那一面 */
 export type DispatchOutcome<T> =
@@ -72,7 +73,7 @@ export type DispatchOutcome<T> =
   /** 队列拒绝受理(积压满 / 已关闭),调用方需就地执行 */
   | { phase: 'rejected'; reason: DispatchRejectReason }
 
-interface DispatchHandle<T> {
+export interface DispatchHandle<T> {
   /** 是否已入队;false 时 rejectReason 必非 null */
   readonly accepted: boolean
   readonly rejectReason: DispatchRejectReason | null

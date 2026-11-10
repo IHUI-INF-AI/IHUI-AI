@@ -194,16 +194,6 @@ vi.mock('../src/services/points-service.js', () => ({
 }))
 
 // =============================================================================
-// Mock services/risk-engine-service.js(F-378 注册风控查同 IP 近期命中数)
-// 数据源不可用时 register 会 fail-closed 503;本文件测成功路径,桩成 0 命中 + 放行。
-// =============================================================================
-vi.mock('../src/services/risk-engine-service.js', () => ({
-  evaluateLoginRisk: vi.fn().mockReturnValue({ action: 'ALLOW', hits: [] }),
-  evaluateRisk: vi.fn().mockReturnValue({ action: 'ALLOW', hits: [], totalScore: 0, score: 0 }),
-  recentRiskHitsByIp: vi.fn().mockResolvedValue(0),
-}))
-
-// =============================================================================
 // 导入被测路由与 mock 函数（vi.mock 在导入前生效）
 // =============================================================================
 import { authRoutes } from '../src/routes/auth'
