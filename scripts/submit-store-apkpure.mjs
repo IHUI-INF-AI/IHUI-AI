@@ -91,10 +91,34 @@ export function buildMailBody(args) {
 
 /**
  * 提交函发信端点。守卫 81 的行内豁免说明:这是发给 APKPure 工单系统的**对外业务函件**
- * (纯文本字段表,对方按字段拉包),不是运维告警,因此不走品牌告警模板层。
+ * (纯文本字段表,对方按字段拉包),不是运维告警;豁免的只是「版式层」
+ * (不套品牌告警模板),**发件人显示名不豁免** —— 它同样代表品牌对外形象,见 brandFrom。
  */
-// brand-mail-exempt: 商店提交函件是对外业务邮件(纯文本字段表),非运维告警,不能套品牌告警模板
+// brand-mail-exempt: 商店提交函件是对外业务邮件(纯文本字段表),非运维告警,不套品牌模板
 export const MAIL_ENDPOINT = 'https://api.resend.com/emails'
+
+/**
+ * 品牌显示名。
+ *
+ * 与 `apps/api/src/services/email-templates.ts` 的 `BRAND_MAIL_DISPLAY_NAME` 必须同值:
+ * 本文件是零依赖 .mjs(CI 与本地都能裸跑),不能 import 那份 TS 模块;两处字面量的一致性
+ * 由守门 81 的 R5 断言(改了一边而另一边没跟上 ⇒ 判红),而不是靠"记得同步"。
+ */
+const BRAND_FROM_NAME = '智汇AI'
+
+/**
+ * 把任意 From 形态(裸地址 / `名字 <地址>` / 带引号的名字)归一成品牌身份。
+ *
+ * 只保留地址段,显示名一律用品牌名 —— 与 email-templates 的 `brandResendFrom` 语义一致。
+ * 理由同告警链路:显示名若能由配置决定,同一个品牌就会在收件箱里长出多个名字。
+ */
+export function brandFrom(raw) {
+  const s = String(raw ?? '').trim()
+  if (s === '') return ''
+  const angle = /<([^>]+)>/.exec(s)
+  const addr = (angle ? (angle[1] ?? '') : s).trim()
+  return addr === '' ? '' : `${BRAND_FROM_NAME} <${addr}>`
+}
 
 /** 密钥库缺省 env-file:apps/api/.env(只读;路径经 key-dir 单一候选序,不写死盘符)。 */
 export function defaultMailEnvFile({ env = process.env } = {}) {
@@ -182,7 +206,11 @@ export async function postSubmissionMail({ transport, to = CHANNELS.mail.to, cc 
   if (transport?.status !== STATUS.FOUND) return { status: STATUS.MISSING, detail: `发信凭据未到位:${transport?.detail ?? '未探测'} ⇒ 零调用`, id: null }
   if (!subject || !text) return { status: STATUS.MISSING, detail: '主题或正文为空 ⇒ 不发送', id: null }
   const { apiKey, from } = transport.value
-  const payload = { from, to: [to], cc: cc ? [cc] : [], subject, text }
+  const brandFromHeader = brandFrom(from)
+  if (brandFromHeader === '') {
+    return { status: STATUS.MISSING, detail: '发信凭据里的 From 解析不出邮箱地址 ⇒ 零调用', id: null }
+  }
+  const payload = { from: brandFromHeader, to: [to], cc: cc ? [cc] : [], subject, text }
   if (replyTo) payload.reply_to = [replyTo]
   let r
   try {
@@ -418,7 +446,7 @@ function selfTest() {
   ])
 }
 
-export const __test__ = { STATUS, CHANNELS, buildMailBody, buildMailMessage, MAIL_ENDPOINT, mailTransportState, defaultMailEnvFile, defaultMailKeyFile, sendDisposition, postSubmissionMail, probeReachability, proxyEnvState, parseArgs, foldExit, existsSync }
+export const __test__ = { STATUS, CHANNELS, buildMailBody, buildMailMessage, MAIL_ENDPOINT, mailTransportState, defaultMailEnvFile, defaultMailKeyFile, sendDisposition, postSubmissionMail, probeReachability, proxyEnvState, parseArgs, foldExit, existsSync, brandFrom, BRAND_FROM_NAME }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) {

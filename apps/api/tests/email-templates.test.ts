@@ -32,6 +32,12 @@ import {
   EMAIL_QR_CID,
   escapeHtml,
   defaultAlertTitle,
+  BRAND_MAIL_DISPLAY_NAME,
+  brandResendFrom,
+  brandSmtpFrom,
+  groupRecipientsByLocale,
+  localeForRecipient,
+  resolveBrandSmtpFrom,
 } from '../src/services/email-templates.js'
 
 // email-templates 现为零副作用模块(不 import config),CORS_ORIGIN 直读 process.env。
@@ -789,6 +795,72 @@ describe('email-templates — resolveWebOrigin 与转义', () => {
     process.env.CORS_ORIGIN = 'https://bsm.aizhs.top,https://api.aizhs.top'
     const r = renderWelcomeEmail({ nickname: 'x', maskedId: 'x', initCredits: 1 })
     expect(r.html).toContain('https://bsm.aizhs.top/dashboard')
+  })
+})
+
+/**
+ * 发件人身份 + 收件人语言分流(2026-11-10 机主定案)。
+ *
+ * 这一组是「收件箱里同时出现智汇AI / 智汇AI官方 / 502319984」与「英文报警看不懂」两个
+ * 需求的**判据本体**。所有出口(事务邮件、告警派发器、运行期告警服务、中继余额通知、
+ * 商店提审函件)都必须走这里,故用直接单测钉住,而不是只在某个出口的集成测试里顺带验证。
+ */
+describe('email-templates — 发件人身份与语言分流', () => {
+  it('品牌显示名是单一字面量(出口不得各写一份)', () => {
+    expect(BRAND_MAIL_DISPLAY_NAME).toBe('智汇AI')
+  })
+
+  it('brandSmtpFrom 只保留地址段,显示名恒为品牌名(带双引号便于 RFC 2047 编码)', () => {
+    expect(brandSmtpFrom('智汇AI官方 <noreply@aizhs.top>')).toBe('"智汇AI" <noreply@aizhs.top>')
+    expect(brandSmtpFrom('502319984@qq.com')).toBe('"智汇AI" <502319984@qq.com>')
+    expect(brandSmtpFrom('')).toBe('')
+  })
+
+  it('brandResendFrom 同义但不带引号(与 Resend 文档示例同形)', () => {
+    expect(brandResendFrom('某人 <x@aizhs.top>')).toBe('智汇AI <x@aizhs.top>')
+  })
+
+  describe('resolveBrandSmtpFrom — QQ 中继「地址必须等于登录账号」', () => {
+    it('配置地址与登录账号一致 → 保留配置里的地址写法', () => {
+      expect(resolveBrandSmtpFrom('智汇AI官方 <A@B.com>', 'a@b.com')).toBe('"智汇AI" <A@B.com>')
+    })
+
+    it('不一致 → 回落登录账号(否则被 550 拒信,告警静默失败)', () => {
+      expect(resolveBrandSmtpFrom('智汇AI <noreply@aizhs.top>', '502319984@qq.com')).toBe(
+        '"智汇AI" <502319984@qq.com>',
+      )
+    })
+
+    it('配置缺失/空串 → 用登录账号', () => {
+      expect(resolveBrandSmtpFrom(undefined, 'a@b.com')).toBe('"智汇AI" <a@b.com>')
+      expect(resolveBrandSmtpFrom('', 'a@b.com')).toBe('"智汇AI" <a@b.com>')
+    })
+
+    it('两者都取不到地址 → 空串(调用方据此跳过投递,不拿空 From 去连 SMTP)', () => {
+      expect(resolveBrandSmtpFrom(undefined, '')).toBe('')
+      expect(resolveBrandSmtpFrom('', undefined)).toBe('')
+    })
+  })
+
+  describe('groupRecipientsByLocale — 混合收件人必须分两封', () => {
+    it('国内与海外分两组,zh 恒在前(去重台账与 dry-run 都取第一组)', () => {
+      const g = groupRecipientsByLocale(['ops@example.com', '502319984@qq.com', 'x@163.com'])
+      expect(g.map((x) => x.locale)).toEqual(['zh', 'en'])
+      expect(g[0]?.to).toEqual(['502319984@qq.com', 'x@163.com'])
+      expect(g[1]?.to).toEqual(['ops@example.com'])
+    })
+
+    it('单一语言不产出空组(空组会让投递循环白发一次)', () => {
+      expect(groupRecipientsByLocale(['a@qq.com']).map((x) => x.locale)).toEqual(['zh'])
+      expect(groupRecipientsByLocale(['a@example.com']).map((x) => x.locale)).toEqual(['en'])
+      expect(groupRecipientsByLocale([])).toEqual([])
+    })
+
+    it('分组判据与 localeForRecipient 同源(不另写一份域名表)', () => {
+      for (const addr of ['a@qq.com', 'a@example.com', 'a@163.com', 'a@gmail.com']) {
+        expect(groupRecipientsByLocale([addr])[0]?.locale).toBe(localeForRecipient(addr))
+      }
+    })
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

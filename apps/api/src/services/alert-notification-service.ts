@@ -29,7 +29,7 @@ import { pino, type Logger } from 'pino'
 import { config } from '../config/index.js'
 import { flattenUntrustedText, sanitizeAlertMessage } from '../utils/alert-text.js'
 import { finalizeEmailHtml } from './email-assets.js'
-import { renderSystemAlertEmail } from './email-templates.js'
+import { groupRecipientsByLocale, renderSystemAlertEmail, resolveBrandSmtpFrom } from './email-templates.js'
 
 // 开发档判定从 config 对象取(理由同 services/clawdbot/logger.ts:顶层求值 + 测试手写
 // 全量 mock 时,具名 import 缺键会当场抛在 import 链上)。
@@ -86,7 +86,7 @@ interface AlertConfig {
   dingtalk: { webhook: string; secret: string }
   wechatWork: { webhook: string }
   feishu: { webhook: string }
-  email: { host: string; port: number; user: string; password: string; to: string[] }
+  email: { host: string; port: number; user: string; from: string; password: string; to: string[] }
   pagerduty: { routingKey: string; apiUrl: string }
   slack: { webhook: string }
   teams: { webhook: string }
@@ -110,6 +110,8 @@ function loadConfig(): AlertConfig {
       host: process.env.SMTP_HOST ?? '',
       port: Number.parseInt(process.env.SMTP_PORT ?? '465', 10) || 465,
       user: process.env.SMTP_USER ?? '',
+      // 只作「地址段候选」:显示名恒由 resolveBrandSmtpFrom 覆盖,配置改不到品牌名
+      from: process.env.SMTP_FROM ?? '',
       password: process.env.SMTP_PASS ?? '',
       to: emailTo,
     },
@@ -451,15 +453,35 @@ async function pushEmail(
     return false
   }
 
-  // 渲染「智汇通报」品牌模板(与事务邮件同一设计语言);severity 白名单外按 warning 处理
+  /**
+   * From 必须是品牌身份,不能是登录账号 —— 2026-11-10 定案。
+   *
+   * 此前这里是 `from: cfg.user`,于是收件箱里显示的就是账号本地部分(如 `502319984`)。
+   * 这正是机主反馈的三种显示名之一,而且它出现在**触达频率最高**的运维告警链路上
+   * (ops-watch、relay 告警规则、威胁告警、调度器全部经 pushAlert 走这里)。
+   * 地址段与显示名的分离口径与派发器共用 `resolveBrandSmtpFrom`:QQ 中继要求
+   * From 地址等于登录账号,配置里的地址不一致就回落登录账号。
+   */
+  const from = resolveBrandSmtpFrom(cfg.from, cfg.user)
+  if (from === '') {
+    logger.warn('[alert-email] 无法解析发件人地址,跳过邮件渠道')
+    return false
+  }
+
+  // severity 白名单外按 warning 处理
   const known = severity === 'info' || severity === 'critical' ? severity : 'warning'
-  const rendered = renderSystemAlertEmail({
-    severity: known,
-    source,
-    time: new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false }),
-    title,
-    message,
-  })
+
+  /**
+   * 收件人按语言分组各发一封 —— 2026-11-10 机主定案「国外用户发英文」。
+   *
+   * 一封邮件只有一种语言:混合收件人时若只渲染一次,总有一边收到看不懂的正文。
+   * 分组判据与告警派发器同源(email-templates 的 `groupRecipientsByLocale`),
+   * 时间格式也跟着语言走 —— 英文正文里塞 `2026/11/10 10:55:30` 的中式日期同样是语言外溢。
+   */
+  const groups = groupRecipientsByLocale(cfg.to)
+  if (groups.length === 0) {
+    return false
+  }
 
   /**
    * 内嵌品牌图(CID)必须在这里挂上 —— 2026-10-15「邮件 Logo 永远加载不出来」的第二处缺口:
@@ -469,56 +491,90 @@ async function pushEmail(
    * finalizeEmailHtml 只在 HTML 真引用了某个 cid 时才挂对应附件,并在资产缺席时把它改写回
    * 公网外链 —— 失效方向是"退回修复前的行为",绝不留死 cid,也绝不因缺图阻断告警到人。
    */
-  const prepared = finalizeEmailHtml(rendered.html)
-  if (prepared.downgraded.length > 0) {
-    logger.warn(
-      { downgraded: prepared.downgraded },
-      'inline email asset missing, downgraded to remote url',
-    )
-  }
+  // `family` 是 nodemailer 透给 net.connect 的运行时旋钮,@types/nodemailer 未登记它。
+  // 经具名变量 spread 进去(与 notify-deploy-failure 的 makeSmtpTransport 同口径),
+  // 而不是把整包选项 as any —— 后者会让真正的字段拼写错误也一起失去检查。
+  const runtimeOnly: { family: 4 } = { family: 4 }
 
   const transporter = nodemailer.createTransport({
     host: cfg.host,
     port: cfg.port,
     secure: cfg.port === 465,
     auth: cfg.password ? { user: cfg.user, pass: cfg.password } : undefined,
+    // IPv4 强制:2026-10-01 实测本机解析到 AAAA 记录而 IPv6 出网不通,
+    // nodemailer 会以 ENETUNREACH 静默失败(重试也只重踩同一个地址)。
+    // 派发器的 makeSmtpTransport 早已钉住这一条,本文件与中继通知器此前都没有。
+    ...runtimeOnly,
     connectionTimeout: SMTP_TIMEOUT_MS,
     greetingTimeout: SMTP_TIMEOUT_MS,
     socketTimeout: SMTP_TIMEOUT_MS,
   })
 
-  let lastErr = ''
+  let anyOk = false
+  const failures: string[] = []
 
   try {
-    for (let attempt = 0; attempt <= PUSH_RETRY; attempt++) {
-      try {
-        await transporter.sendMail({
-          from: cfg.user,
-          to: cfg.to.join(','),
-          subject: rendered.subject,
-          html: prepared.html,
-          text: rendered.text,
-          attachments: prepared.attachments.map((a) => ({
-            cid: a.cid,
-            filename: a.filename,
-            contentType: a.contentType,
-            content: a.content,
-          })),
-        })
-        return true
-      } catch (e) {
-        lastErr = e instanceof Error ? e.message : String(e)
+    for (const group of groups) {
+      const time = new Date().toLocaleString(group.locale === 'zh' ? 'zh-CN' : 'en-US', {
+        timeZone: 'Asia/Shanghai',
+        hour12: false,
+      })
+      const rendered = renderSystemAlertEmail({
+        severity: known,
+        source,
+        time,
+        title,
+        message,
+        locale: group.locale,
+      })
+      const prepared = finalizeEmailHtml(rendered.html)
+      if (prepared.downgraded.length > 0) {
+        logger.warn(
+          { downgraded: prepared.downgraded, locale: group.locale },
+          'inline email asset missing, downgraded to remote url',
+        )
       }
-      if (attempt < PUSH_RETRY) {
-        await sleep(300 * (attempt + 1))
+
+      let lastErr = ''
+      let ok = false
+      for (let attempt = 0; attempt <= PUSH_RETRY; attempt++) {
+        try {
+          await transporter.sendMail({
+            from,
+            to: group.to.join(','),
+            subject: rendered.subject,
+            html: prepared.html,
+            text: rendered.text,
+            attachments: prepared.attachments.map((a) => ({
+              cid: a.cid,
+              filename: a.filename,
+              contentType: a.contentType,
+              content: a.content,
+            })),
+          })
+          ok = true
+          break
+        } catch (e) {
+          lastErr = e instanceof Error ? e.message : String(e)
+        }
+        if (attempt < PUSH_RETRY) {
+          await sleep(300 * (attempt + 1))
+        }
       }
+      if (ok) anyOk = true
+      else failures.push(`[${group.locale}] ${lastErr}`)
     }
   } finally {
     transporter.close()
   }
 
-  logger.warn({ err: lastErr }, 'email push failed')
-  return false
+  // 任一组送达即视为「告警已到人」;失败组逐条留痕,便于定位是哪个语言面没出去。
+  if (!anyOk) {
+    logger.warn({ err: failures.join(' / ') }, 'email push failed')
+  } else if (failures.length > 0) {
+    logger.warn({ failed: failures.join(' / ') }, 'email push partially failed')
+  }
+  return anyOk
 }
 
 // ---------------------------------------------------------------------------
