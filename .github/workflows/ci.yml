@@ -354,9 +354,13 @@ jobs:
       SHARD_INDEX: ${{ matrix.shard }}
     strategy:
       fail-fast: false
-      max-parallel: 4
+      # 2026-11-10 提速(勿轻率回退):4→6 片。实测(77d89cf175)最慢片 1127s 决定 required
+      # 链路收口;@ihui/web 权重占优(两半 1127/956s)而 @ihui/api 偏轻(546/777s),web 改三摊
+      # (SPLIT_LAYOUT [3,4,5],vitest --shard=i/3)后最慢片预期 ~700s,收口提前 ~3-4min。
+      # 算法侧 SHARD_COUNT 同步 6(ci-test-shards.mjs),两处必须同源(:246 断言)。
+      max-parallel: 6
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: [1, 2, 3, 4, 5, 6]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         id: checkout
@@ -380,9 +384,9 @@ jobs:
         id: test-shard-coverage
         run: node scripts/ci-test-shards.mjs --assert
 
-      - name: Test (shard ${{ matrix.shard }}/4)
+      - name: Test (shard ${{ matrix.shard }}/6)
         id: test
-        run: node scripts/ci-test-shards.mjs --shard "$SHARD_INDEX/4"
+        run: node scripts/ci-test-shards.mjs --shard "$SHARD_INDEX/6"
 
       - name: Failure triage (public annotations)
         id: failure-triage

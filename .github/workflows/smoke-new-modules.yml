@@ -22,6 +22,11 @@ on:
 permissions:
   contents: read
 
+# 并发收敛(2026-11-10):非 required check,同 ref 连续 push 时旧轮排队只烧分钟数,cancel 同 build.yml 治理语义。
+concurrency:
+  group: smoke-new-modules-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   smoke:
     runs-on: ubuntu-latest

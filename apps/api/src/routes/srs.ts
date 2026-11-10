@@ -243,6 +243,9 @@ export const srsRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
+    // requireAdmin 管理端点:.returning() 回全行含 apiSecret(管理员刚录入的 SRS 凭据回显),
+    // 跳过响应脱敏,防止 response-sanitizer 把 apiSecret 误伤为 '***' 打断管理端回读。
+    request.skipResponseSanitization = true
     const [srv] = await db.insert(srsServers).values(parsed.data).returning()
     return reply.status(201).send(success(srv))
   })
@@ -255,6 +258,9 @@ export const srsRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
+    // requireAdmin 管理端点:.returning() 回全行含 apiSecret(SRS 凭据回显),
+    // 跳过响应脱敏,防止 response-sanitizer 把 apiSecret 误伤为 '***' 打断管理端回读。
+    request.skipResponseSanitization = true
     const [srv] = await db
       .update(srsServers)
       .set({ ...parsed.data, updatedAt: new Date() })

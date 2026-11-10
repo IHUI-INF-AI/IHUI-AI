@@ -285,3 +285,4 @@ UI 改动必须真机/真浏览器验证(截图或 e2e),禁止只凭代码审查
 - **207 体积对账**:`check-agents-doc-size.mjs`(blocking,预算 96,000 字节,跳过 `HUSKY_SKIP_AGENTS_DOC_SIZE=1`);阈值出处与定级以门体头注及 runner 现值为准。
 - **API 端点扫描(生成器,非门,2026-11-09)**:`scripts/scan-api-routes.mjs`(`npm run gen:api-endpoints`;`--report-only` 只报不写),从 `apps/api/src/routes/**/*.ts` 抽 Fastify 挂载图,供 `gen-ai-tools-from-routes.mjs` 做存在性校验;零依赖、秒级;与 `check-api-routes.mjs` 的取值重复与精度边界见脚本头注。
 - **读准防线元门点名(R4,2026-11-07)**:`check-face-spec-hardcode` / `check-face-empty-guard-coverage` / `check-generated-pin-face` / `check-gate-owner-declaration` / `check-worktree-link-integrity`,由 `run-reading-trust-defense.mjs` 统一调度(CI = `.github/workflows/reading-trust-defense.yml`);编号 / 档位以 runner 现值为准。
+- **常驻服务按需启停(2026-11-10 机主令)**:开发服务只在有人用时跑,收尾必须 `pnpm dev:safe:stop` 停掉;禁止开机自启常驻白占(IHUI-DevStack / IHUI-DevStackWatchdog / IHUI-ImageCDN-Watch 三任务已禁用;自启安装器与看门狗默认拒注/拒复活,判据单源 `scripts/lib/dev-stack-residency-policy.mjs`,仅 `IHUI_DEV_AUTOSTART_OWNER_ALLOW=1` 显式放行)。
