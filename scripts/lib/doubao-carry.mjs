@@ -657,6 +657,232 @@ export async function exportArchive({
   }
 }
 
+// =============================================================================
+// 回放腿(2026-11-10 深挖结论):豆包没有「逐条消息写回云端」的端点 ——
+// ThreadCreate 只带 conversation_id/message_id(4213.js:… ThreadCreate 体),
+// PutChatRecord 只认 tool_message_id,都是落库确认不是内容写入口。
+// 聊天发送链是 /samantha/chat/completion(SSE,cookie + Agw-Js-Conv 鉴权,
+// 端点形态与 getCommonParams/getCommonHeaders 同源,本机 bundle 只有封装壳,
+// 真 URL 在线上 web 层)。⇒ 迁移语义 = 回放:用新号把旧对话作为一条 user
+// 消息发进新会话,服务端自动建 conversation,新号上立即可接着聊。
+// =============================================================================
+
+/** 旧对话 → 单条回放文本(结构清晰,供新会话里 AI/人共同读) */
+export function buildReplayText(conv, messages) {
+  const turns = (messages ?? [])
+    .filter((m) => (m.role === 'user' || m.role === 'assistant') && String(m.content ?? '').trim() !== '')
+    .map((m) => `${m.role === 'user' ? '用户' : 'AI'}:${String(m.content).trim()}`)
+  const name = String(conv?.name ?? '').trim() || '(未命名)'
+  const header = [
+    '【对话迁移】以下为旧账号的历史对话记录,请作为上下文保留:',
+    `会话名:${name}`,
+    `消息数:${turns.length}`,
+    '--- 原始对话开始 ---',
+  ]
+  return [...header, ...turns, '--- 原始对话结束 ---'].join('\n')
+}
+
+/** 会话指纹:同一归档重复回放防重(comversationId+createTime+消息数+首末消息 id) */
+export function replayFingerprint(conv, messages) {
+  const list = messages ?? []
+  const first = list[0]?.messageId ?? ''
+  const last = list[list.length - 1]?.messageId ?? ''
+  return crypto
+    .createHash('sha256')
+    .update(`${conv?.conversationId ?? ''}|${conv?.createTime ?? 0}|${list.length}|${first}|${last}`)
+    .digest('hex')
+    .slice(0, 32)
+}
+
+/** replay-log.json 读写(存在归档目录内,跟 index.json 同级) */
+function readReplayLog(dir) {
+  const file = path.join(dir, 'replay-log.json')
+  try {
+    const json = JSON.parse(fs.readFileSync(file, 'utf8'))
+    return { file, entries: json.entries ?? {} }
+  } catch {
+    return { file, entries: {} }
+  }
+}
+
+function writeReplayLog(dir, log) {
+  fs.mkdirSync(dir, { recursive: true })
+  fs.writeFileSync(
+    log.file,
+    `${JSON.stringify({ generatedAt: new Date().toISOString(), entries: log.entries }, null, 2)}\n`,
+    'utf8',
+  )
+}
+
+/** 从 SSE 全文里抽新会话 id(服务端建的 conversation) */
+export function pickNewConversationId(sseText) {
+  const m =
+    /"conversation_id"\s*:\s*"(\d{10,})"/.exec(sseText) ??
+    /"conversation_id"\s*:\s*(\d{10,})/.exec(sseText)
+  return m ? m[1] : ''
+}
+
+/**
+ * 单会话回放:POST /samantha/chat/completion,body 不带 conversation_id
+ * ⇒ 服务端新建会话。响应是 SSE,整段读完用 res.text()(避免流式状态机),
+ * 从中抽 conversation_id 作为回放落点。
+ *
+ * @returns {Promise<{code:string, newConversationId:string, message?:string}>}
+ *   code: 'ok' | 'cookie-missing' | 'login-invalid' | 'send-failed' | 'no-new-conversation'
+ */
+export async function replayConversation({
+  cookieHeader,
+  conv,
+  messages,
+  fetchImpl = globalThis.fetch,
+  commonParams = {},
+} = {}) {
+  if (!cookieHeader) return { code: 'cookie-missing', newConversationId: '', message: '缺少 cookie' }
+  const text = buildReplayText(conv, messages)
+  const url = buildUrl('/samantha/chat/completion', commonParams)
+  let res
+  try {
+    res = await fetchImpl(url, {
+      method: 'POST',
+      headers: buildHeaders(cookieHeader),
+      body: JSON.stringify({
+        messages: [{ role: 'user', content: text }],
+        local_message_id: `migr_${Date.now()}`,
+        stream: true,
+      }),
+    })
+  } catch (e) {
+    return { code: 'send-failed', newConversationId: '', message: e instanceof Error ? e.message : String(e) }
+  }
+  if (res.status === 401 || res.status === 403) {
+    return { code: 'login-invalid', newConversationId: '', message: `HTTP ${res.status}:登录态无效` }
+  }
+  if (!res.ok) {
+    return { code: 'send-failed', newConversationId: '', message: `HTTP ${res.status}` }
+  }
+  const sse = await res.text()
+  // 错误体可能是裸 JSON(如 {"code":710012001})而非 SSE;SSE 文本里抽不到 code 字段就当成功流
+  let apiJson = null
+  try {
+    apiJson = JSON.parse(sse)
+  } catch {
+    apiJson = null
+  }
+  const raw = apiJson && typeof apiJson === 'object' ? apiErrorCode(apiCodeOf(apiJson)) : null
+  if (raw) {
+    return {
+      code: raw === 'cookie-expired' ? 'login-invalid' : raw,
+      newConversationId: '',
+      message: errMessage(apiJson) || raw,
+    }
+  }
+  const newId = pickNewConversationId(sse)
+  if (!newId) {
+    return { code: 'no-new-conversation', newConversationId: '', message: 'SSE 里抽不到 conversation_id(响应形状可能已变,需复核)' }
+  }
+  return { code: 'ok', newConversationId: newId }
+}
+
+/**
+ * 全量回放:读归档 → 逐会话(可 limit)→ 指纹防重 → 写 replay-log.json。
+ * apply=false 时只列「将回放什么」不发送(与仓库 dry-run 同规矩)。
+ *
+ * @returns {Promise<{code:string, apply:boolean, total:number, replayed:number, skipped:number,
+ *   failed:number, logFile:string, message?:string}>}
+ */
+export async function replayArchive({
+  cookieHeader,
+  archiveDir,
+  fetchImpl = globalThis.fetch,
+  commonParams = {},
+  apply = false,
+  limit = 0,
+  onProgress,
+} = {}) {
+  const idx = readArchiveIndex(archiveDir)
+  if (idx.code !== 'ok') {
+    return {
+      code: idx.code,
+      apply,
+      total: 0,
+      replayed: 0,
+      skipped: 0,
+      failed: 0,
+      logFile: '',
+      message: idx.message,
+    }
+  }
+  const convs = (idx.conversations ?? []).filter((c) => c.file)
+  const planned = Number.isFinite(limit) && limit > 0 ? convs.slice(0, limit) : convs
+  if (!cookieHeader) {
+    return {
+      code: 'cookie-missing',
+      apply,
+      total: planned.length,
+      replayed: 0,
+      skipped: 0,
+      failed: 0,
+      logFile: '',
+      message: '缺少 cookie(给新号的登录态:--cookie / --cdp / 本机 Cookies 库)',
+    }
+  }
+  const log = readReplayLog(archiveDir)
+  let replayed = 0
+  let skipped = 0
+  let failed = 0
+  for (const [i, c] of planned.entries()) {
+    let body
+    try {
+      body = JSON.parse(fs.readFileSync(path.join(archiveDir, c.file), 'utf8'))
+    } catch (e) {
+      failed += 1
+      onProgress?.({ phase: 'failed', conv: c, message: `归档文件读不出: ${e instanceof Error ? e.message : e}` })
+      continue
+    }
+    const fp = replayFingerprint(c, body.messages)
+    if (log.entries[fp]) {
+      skipped += 1
+      onProgress?.({ phase: 'skipped', conv: c, newConversationId: log.entries[fp].newConversationId })
+      continue
+    }
+    if (!apply) {
+      onProgress?.({ phase: 'dry-run', conv: c, messages: (body.messages ?? []).length, done: i + 1, total: planned.length })
+      continue
+    }
+    const r = await replayConversation({
+      cookieHeader,
+      conv: c,
+      messages: body.messages,
+      fetchImpl,
+      commonParams,
+    })
+    if (r.code === 'ok') {
+      replayed += 1
+      log.entries[fp] = {
+        conversationId: c.conversationId,
+        name: c.name ?? '',
+        newConversationId: r.newConversationId,
+        at: new Date().toISOString(),
+      }
+      writeReplayLog(archiveDir, log)
+      onProgress?.({ phase: 'done', conv: c, newConversationId: r.newConversationId, done: i + 1, total: planned.length })
+    } else {
+      failed += 1
+      onProgress?.({ phase: 'failed', conv: c, code: r.code, message: r.message })
+    }
+  }
+  if (apply) writeReplayLog(archiveDir, log)
+  return {
+    code: 'ok',
+    apply,
+    total: planned.length,
+    replayed,
+    skipped,
+    failed,
+    logFile: log.file,
+  }
+}
+
 /** 读归档 index(给"作为上下文引用"/回放腿用) */
 export function readArchiveIndex(dir) {
   if (!dir) return { code: 'bad-arg', message: '缺少归档目录' }
