@@ -46,6 +46,7 @@ import type {
   TokenRefreshResult,
   TranslatedChunk,
   UpstreamHttpRequest,
+  UpstreamSocketRequest,
 } from '../relay-upstream-adapters.js'
 import type { RelayProviderCode } from '../relay-account-format.js'
 
@@ -576,6 +577,39 @@ export const doubaoAdapter: RelayUpstreamAdapter = {
       method: 'POST',
       headers: chatRequestHeaders(ctx),
       rawBody,
+    }
+  },
+
+  /**
+   * 长连接能力声明(2026-11-10 立)。
+   *
+   * **边界如实写**:豆包 web 面只有 HTTPS + SSE —— 2026-11-10 补 WebSocket 监听后
+   * 全程零 `WS-CREATED`(见文件头实证记录),所以本平台声明的是 `transport: 'sse'`,
+   * 即"一条活到流结束的上游连接",不是 WS。真正的豆包 WS 在火山方舟
+   * (`wss://ark.cn-beijing.volces.com/api/v3/realtime`),那走 API Key 体系,
+   * 与号池 cookie 是两套凭据,不在本适配器范围内(渠道侧 /ws/doubao 已接)。
+   *
+   * 声明它的理由不是性能:HTTP 路径与 sse 路径单请求开销等价。理由是
+   * 1. 号池对外 WS 入口(/ws/relay/chat)需要一条统一的"上游连接"抽象来做取消传播;
+   * 2. WS 运输层已实现并有测试覆盖,后续接入有真 WS 端点的平台只需改 transport 一个字段。
+   * 性能上不吹收益 —— 若将来拿到豆包 web 面的 WS 证据,只改这里。
+   */
+  socketSupported: true,
+
+  buildSocketRequest(
+    ctx: AdapterAccountContext,
+    req: NormalizedChatRequest,
+  ): UpstreamSocketRequest {
+    // 复用同一套端点/头/信封构造,只换运输方式:两条路径的上游语义必须逐字一致,
+    // 否则 socket 通道会变成"另一个豆包适配器",迟早与 HTTP 路径漂移。
+    // (不写 this.buildChatRequest:对象字面量方法的 this 绑定在冻结/解构后不稳)
+    const text = flattenMessagesForDoubao(req.messages)
+    return {
+      url: `${DOUBAO_CHAT_URL}?${doubaoChatQuery(ctx)}`,
+      method: 'POST',
+      headers: chatRequestHeaders(ctx),
+      rawBody: JSON.stringify(buildChatBody(req, text)),
+      transport: 'sse',
     }
   },
 

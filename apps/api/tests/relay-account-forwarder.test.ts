@@ -6,7 +6,7 @@
  * relay-account-forwarder 单测(2026-10-22):账号池回落转发核心路径。
  * 零真实网络/数据库:drizzle 链式 mock + fetch 打桩 + 假适配器注册。
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { PgDialect } from 'drizzle-orm/pg-core'
 
 // ── db mock:select 按查询特征供行(join=provider 反查 / orderBy=账号候选),update 记录 set 参数 ──
@@ -138,6 +138,7 @@ vi.mock('node:dns/promises', () => ({
 
 import {
   forwardToAccountPool,
+  setRelaySocketFactory,
   __test__ as F,
   type ToolCallSlot,
 } from '../src/services/relay-account-forwarder.js'
@@ -165,6 +166,7 @@ import type {
   AdapterAccountContext,
   RelayUpstreamAdapter,
   TranslatedChunk,
+  UpstreamSocket,
 } from '../src/services/relay-upstream-adapters.js'
 
 const FUTURE = new Date(Date.now() + 7 * 24 * 3600_000)
@@ -1308,6 +1310,152 @@ describe('providerFromModelPrefix', () => {
     expect(providerFromModelPrefix('openai/gpt-4o')).toBeNull()
     expect(providerFromModelPrefix('anthropic/claude-sonnet-4')).toBeNull()
     expect(providerFromModelPrefix('qoders/foo')).toBeNull()
+  })
+})
+
+describe('上游长连接选路(2026-11-10)', () => {
+  function mockSocket(lines: string[]): UpstreamSocket {
+    return {
+      send: () => {},
+      close: () => {},
+      lastError: () => null,
+      frames: () => ({
+        [Symbol.asyncIterator]: () => {
+          let i = 0
+          return {
+            next: async () =>
+              i < lines.length
+                ? { value: { text: lines[i++]! }, done: false }
+                : { value: undefined, done: true },
+          }
+        },
+      }),
+    }
+  }
+
+  afterEach(() => {
+    setRelaySocketFactory(null)
+    delete process.env.RELAY_SOCKET_TRANSPORT
+  })
+
+  it('适配器声明 socketSupported ⇒ 走长连接工厂,不发 HTTP', async () => {
+    providerRows = [{ providerCode: 'trae', configId: 7 }]
+    accountRows = [accountRow('acct-sock')]
+    registerRelayAdapter(
+      fakeAdapter({
+        providerCode: 'trae',
+        socketSupported: true,
+        buildSocketRequest: () => ({
+          url: 'https://upstream.test/v',
+          headers: {},
+          method: 'POST',
+          transport: 'sse',
+          rawBody: '{}',
+        }),
+        buildChatRequest: () => {
+          throw new Error('声明了长连接就不该走 HTTP 构造')
+        },
+      }),
+    )
+    const httpFetch = vi.fn()
+    vi.stubGlobal('fetch', httpFetch)
+    const opened: unknown[] = []
+    setRelaySocketFactory({
+      open: async (req) => {
+        opened.push(req)
+        return mockSocket(['data: {"choices":[{"delta":{"content":"VIA-SOCKET"}}]}'])
+      },
+    })
+
+    const res = await forwardToAccountPool(baseReq('sock-model-1'), 'sock-model-1')
+    expect(res?.ok).toBe(true)
+    if (!res || !res.ok) return
+    const text = await res.response.text()
+    expect(text).toContain('VIA-SOCKET')
+    expect(opened).toHaveLength(1)
+    expect(httpFetch).not.toHaveBeenCalled()
+    expect(mockUndiciFetch).not.toHaveBeenCalled()
+  })
+
+  it('长连接建连失败 ⇒ 静默回落 HTTP,请求仍然成功(不把新通道变成新单点)', async () => {
+    providerRows = [{ providerCode: 'trae', configId: 7 }]
+    accountRows = [accountRow('acct-sock-fallback')]
+    registerRelayAdapter(
+      fakeAdapter({
+        providerCode: 'trae',
+        socketSupported: true,
+        buildSocketRequest: () => ({
+          url: 'https://upstream.test/v',
+          headers: {},
+          method: 'POST',
+          transport: 'sse',
+          rawBody: '{}',
+        }),
+      }),
+    )
+    setRelaySocketFactory({
+      open: async () => {
+        throw new Error('ws blocked by gateway')
+      },
+    })
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response('data: {"choices":[{"delta":{"content":"VIA-HTTP"}}]}\n\n', {
+            status: 200,
+            headers: { 'Content-Type': 'text/event-stream' },
+          }),
+      ),
+    )
+
+    const res = await forwardToAccountPool(baseReq('sock-fb-model-1'), 'sock-fb-model-1')
+    expect(res?.ok).toBe(true)
+    if (!res || !res.ok) return
+    const text = await res.response.text()
+    expect(text).toContain('VIA-HTTP')
+  })
+
+  it('RELAY_SOCKET_TRANSPORT=off ⇒ 完全不尝试长连接(运维兜底开关)', async () => {
+    process.env.RELAY_SOCKET_TRANSPORT = 'off'
+    providerRows = [{ providerCode: 'trae', configId: 7 }]
+    accountRows = [accountRow('acct-sock-off')]
+    registerRelayAdapter(
+      fakeAdapter({
+        providerCode: 'trae',
+        socketSupported: true,
+        buildSocketRequest: () => ({
+          url: 'https://upstream.test/v',
+          headers: {},
+          method: 'POST',
+          transport: 'sse',
+          rawBody: '{}',
+        }),
+      }),
+    )
+    const opened: unknown[] = []
+    setRelaySocketFactory({
+      open: async (req) => {
+        opened.push(req)
+        return mockSocket(['data: {"choices":[{"delta":{"content":"NOPE"}}]}'])
+      },
+    })
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response('data: {"choices":[{"delta":{"content":"OFF-HTTP"}}]}\n\n', {
+            status: 200,
+            headers: { 'Content-Type': 'text/event-stream' },
+          }),
+      ),
+    )
+
+    const res = await forwardToAccountPool(baseReq('sock-off-model-1'), 'sock-off-model-1')
+    expect(opened).toHaveLength(0)
+    expect(res?.ok).toBe(true)
+    if (!res || !res.ok) return
+    expect(await res.response.text()).toContain('OFF-HTTP')
   })
 })
 

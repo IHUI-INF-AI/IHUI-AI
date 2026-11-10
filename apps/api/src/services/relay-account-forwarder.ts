@@ -100,12 +100,20 @@ import {
 } from './relay-stop-truncate.js'
 import {
   getRelayAdapter,
+  isSocketCapableAdapter,
   normalizeStopSequences,
   type AdapterAccountContext,
   type NormalizedChatRequest,
   type RelayUpstreamAdapter,
   type StreamState,
+  type UpstreamSocketFactory,
+  type UpstreamSocketRequest,
 } from './relay-upstream-adapters.js'
+import {
+  canUseSocketTransport,
+  relaySocketFactory,
+  socketToSseResponse,
+} from './relay-socket-transport.js'
 import type { SelectedChannelKey } from './relay-channel-router.js'
 import type { ForwardResult, UpstreamForwardRequest } from './relay-upstream-forwarder.js'
 
@@ -1280,6 +1288,102 @@ function toNormalized(req: UpstreamForwardRequest, rawModel: string): Normalized
   return norm
 }
 
+// =============================================================================
+// 上游长连接选路(2026-11-10 立)
+// =============================================================================
+
+/** 长连接开关:auto = 适配器声明即启用;off = 全局退回 HTTP 单请求(运维兜底) */
+type SocketTransportMode = 'auto' | 'off'
+
+export function readRelaySocketTransportMode(): SocketTransportMode {
+  const raw = (process.env.RELAY_SOCKET_TRANSPORT ?? '').trim().toLowerCase()
+  if (raw === 'off' || raw === '0' || raw === 'false') return 'off'
+  return 'auto'
+}
+
+/** 工厂可注入(测试打桩);生产恒为 relaySocketFactory */
+let activeSocketFactory: UpstreamSocketFactory = relaySocketFactory
+
+export function setRelaySocketFactory(factory: UpstreamSocketFactory | null): void {
+  activeSocketFactory = factory ?? relaySocketFactory
+}
+
+type AttemptFinish = (r: Response, terminal?: StreamTerminal) => AccountAttempt
+type AttemptFail = (
+  kind: FailureKind,
+  reason: string,
+  httpStatus?: number,
+  backoff?: RateBackoff,
+) => AccountAttempt
+
+/**
+ * 长连接尝试。返回 null = 「这次不上长连接/长连接没连上」,调用方静默走 HTTP。
+ *
+ * 罚号策略(与 HTTP 路径刻意不同,改之前先读完):
+ * - 构造失败 / 被代理挡下 / 建连失败 ⇒ **一律不记失败、不罚号、直接回落**。
+ *   理由:WS 握手失败在真实网络里更多是中间设备策略(企业网关拦 Upgrade),
+ *   不是这个号坏了;把它记成 network 失败会误冷却甚至摘掉一批好号(§0.3)。
+ * - 建连成功后流中途异常 ⇒ 交给 consumeUpstreamResponse / judgeStreamOutcome 按
+ *   既有流中断语义处理(此时故障确实发生在号或上游会话上,该罚)。
+ * - 401/403 不做特殊快路 ⇒ 回落 HTTP 让既有的 refreshRowInPlace 自愈逻辑判一次,
+ *   避免同一套换票流程在两处各写一份。
+ */
+async function attemptSocketWithAccount(
+  adapter: RelayUpstreamAdapter,
+  row: AiRelayAccountPool,
+  req: UpstreamForwardRequest,
+  rawModel: string,
+  opts: { upstreamModel: string; proxy: string | null },
+  finish: AttemptFinish,
+  fail: AttemptFail,
+): Promise<AccountAttempt | null> {
+  if (!isSocketCapableAdapter(adapter)) return null
+
+  const normReq = toNormalized(req, opts.upstreamModel)
+  let ctx: AdapterAccountContext
+  let sockReq: UpstreamSocketRequest
+  try {
+    ctx = { row, credentials: decryptAccountCredentials(row) }
+    sockReq = adapter.buildSocketRequest(ctx, normReq)
+  } catch (err) {
+    logger.debug(
+      `relay socket: ${adapter.providerCode} 构造长连接请求失败,回落 HTTP(${
+        err instanceof Error ? err.message : String(err)
+      })`,
+    )
+    return null
+  }
+
+  if (!canUseSocketTransport(sockReq, opts.proxy)) {
+    logger.debug(
+      `relay socket: ${adapter.providerCode} 账号带代理且目标为 ws,传输层不支持,回落 HTTP`,
+      { provider: adapter.providerCode, proxy: Boolean(opts.proxy) },
+    )
+    return null
+  }
+
+  let socket
+  try {
+    socket = await activeSocketFactory.open(sockReq, {
+      signal: req.signal,
+      proxyUrl: opts.proxy,
+      // 必须交账号级 fetch:sse 模式的出口守卫与代理都挂在它上面
+      fetchImpl: poolFetch(opts.proxy),
+    })
+  } catch (err) {
+    logger.warn(
+      `relay socket: ${adapter.providerCode} 建连失败,回落 HTTP(不罚号):${
+        err instanceof Error ? err.message : String(err)
+      }`,
+      { provider: adapter.providerCode },
+    )
+    return null
+  }
+
+  const resp = socketToSseResponse(socket, adapter, ctx, {})
+  return consumeUpstreamResponse(resp, adapter, ctx, req, rawModel, finish, fail)
+}
+
 async function attemptWithAccount(
   adapter: RelayUpstreamAdapter,
   row: AiRelayAccountPool,
@@ -1378,6 +1482,24 @@ async function attemptWithAccount(
     } finally {
       timed.clear()
     }
+  }
+
+  // ── 路径 B0:上游长连接(2026-11-10 立;适配器显式声明 socketSupported 才走)──
+  //
+  // 排在 B 之前:长连接是更优运输方式(免重复握手、支持上游主动推),
+  // 但**不得**成为可用性的新单点 —— 任何否决/建连失败都静默回落 HTTP,
+  // 罚号策略见 attemptSocketWithAccount 的注释。
+  if (readRelaySocketTransportMode() === 'auto') {
+    const viaSocket = await attemptSocketWithAccount(
+      adapter,
+      row,
+      req,
+      rawModel,
+      opts,
+      finish,
+      fail,
+    )
+    if (viaSocket) return viaSocket
   }
 
   // ── 路径 B:通用单请求(buildChatRequest → fetch → 翻译)──

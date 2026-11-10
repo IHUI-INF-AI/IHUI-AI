@@ -101,6 +101,81 @@ export interface UpstreamHttpRequest {
   rawBody?: string
 }
 
+// =============================================================================
+// 上游长连接(2026-11-10 立)
+//
+// 背景:号池此前只有 buildChatRequest → fetch → SSE 一条路,全部 12 家适配器均无长连接
+// 通道;而 chat-models 侧的 /v1/realtime、/ws/qwen-omni、/ws/doubao、/ws/zhipu 早已
+// 是双向 WS 透传。同一项目两条链路能力不对等,故把长连接抽成传输层能力,契约开放给
+// 每个适配器按平台实际情况声明。
+//
+// 设计约束:
+// 1. **传输与协议解耦**:UpstreamSocket 是"一条活着的帧通道",不绑定 ws 协议;
+//    上游只有 SSE 的平台(sse 模式)同样能拿到句柄,帧序列语义一致。
+// 2. **翻译层零改动**:socket 帧最终被包装成标准 SSE Response 交给既有
+//    consumeUpstreamResponse,翻译/usage 记账/成功判定/401 自愈全部复用,不另起一套。
+// 3. **失败即回落**:socket 建连失败或首帧前中断 ⇒ 转发层退回 HTTP 单请求路径,
+//    绝不因为新通道把存量可用性拖下水。
+// =============================================================================
+
+/** 上游长连接帧(文本帧承载 JSON / SSE data 行;二进制帧用于音频等) */
+export interface UpstreamSocketFrame {
+  /** 文本帧内容;与 binary 二选一 */
+  text?: string
+  /** 二进制帧内容;与 text 二选一 */
+  binary?: Uint8Array
+  /** 上游主动关闭时的 code(仅终止帧可带) */
+  closeCode?: number
+  closeReason?: string
+}
+
+/**
+ * 适配器构造的上游长连接请求。
+ * transport 缺省按 url scheme 推断:`ws(s)://` → 'ws',`http(s)://` → 'sse'。
+ */
+export interface UpstreamSocketRequest {
+  url: string
+  headers: Record<string, string>
+  method?: 'GET' | 'POST'
+  /** 建连后立即发送的首帧(WS 握手,如 session.update / 请求信封) */
+  handshake?: unknown
+  /** 请求体(sse 模式必填;ws 模式一般走 handshake) */
+  body?: unknown
+  rawBody?: string
+  transport?: 'ws' | 'sse'
+}
+
+/** 上游长连接句柄(由传输层实现,适配器不直接构造) */
+export interface UpstreamSocket {
+  /** 发送一帧 */
+  send(data: string | Uint8Array): void
+  /** 主动关闭 */
+  close(code?: number, reason?: string): void
+  /** 帧异步序列;上游关闭/异常时序列自然结束(不抛,异常经 lastError 交付) */
+  frames(): AsyncIterable<UpstreamSocketFrame>
+  /** 最近一次错误(无错为 null) */
+  lastError(): Error | null
+}
+
+/** 长连接建连选项(转发层注入) */
+export interface UpstreamSocketOpenOptions {
+  signal?: AbortSignal
+  /** 账号级出口代理(行.proxyUrl;null = 直连) */
+  proxyUrl?: string | null
+  /** 建连超时(ms);缺省由传输层取 15s */
+  connectTimeoutMs?: number
+  /**
+   * fetch 注入点(sse 模式用)。转发层必须传入自己的账号级 fetch,
+   * 否则账号代理与连接期出口守卫都会被绕过(见 relay-socket-transport 文件头约束 1)。
+   */
+  fetchImpl?: typeof fetch
+}
+
+/** 传输层工厂(转发层注入;测试可打桩) */
+export interface UpstreamSocketFactory {
+  open(req: UpstreamSocketRequest, opts?: UpstreamSocketOpenOptions): Promise<UpstreamSocket>
+}
+
 /** token 刷新结果(转发层/调度器据此回写号池) */
 export interface TokenRefreshResult {
   token: string
@@ -280,6 +355,33 @@ export interface RelayUpstreamAdapter {
    */
   quotaSupported?: boolean
   /**
+   * 长连接能力声明(2026-11-10 立,与 refreshTokenSupported/quotaSupported 同形):
+   * **buildSocketRequest 方法存在 ≠ 真能长连接**,必须是适配器已实证的通道。
+   * - 省略/false:该平台走 HTTP 单请求路径(现状);
+   * - true:适配器实现 buildSocketRequest,转发层优先走长连接,**失败自动回落 HTTP**。
+   * 判据唯一真相源 = `isSocketCapableAdapter()`(方法存在 且 本字段为 true)。
+   */
+  socketSupported?: boolean
+  /**
+   * 构造上游长连接请求(socketSupported=true 时必实现)。
+   * 与 buildChatRequest 并列:同一份 NormalizedChatRequest,两种运输方式。
+   */
+  buildSocketRequest?(
+    ctx: AdapterAccountContext,
+    req: NormalizedChatRequest,
+  ): UpstreamSocketRequest
+  /**
+   * 长连接帧 → OpenAI chunk(可选)。
+   * 省略时转发层按 SSE 语义透传文本帧,复用 translateStreamChunk 翻译
+   * (适用于上游帧格式与 HTTP 流一致的平台,如 sse 模式)。
+   * 声明后由适配器自行翻译(适用于二进制/私有事件帧,如 realtime WS)。
+   */
+  translateSocketFrame?(
+    ctx: AdapterAccountContext,
+    frame: UpstreamSocketFrame,
+    state: StreamState,
+  ): TranslatedChunk | null
+  /**
    * 富模型清单(可选,2026-10-27 立;与 listModels 并存的原因见 RelayModelListResult)。
    * 永不抛(失败归 ok:false);scope 如实标注清单语义。
    */
@@ -378,6 +480,27 @@ export function hasVerifiedQuotaEndpoint(
 ): adapter is RelayUpstreamAdapter & { getQuota: NonNullable<RelayUpstreamAdapter['getQuota']> } {
   return (
     !!adapter && typeof adapter.getQuota === 'function' && adapter.quotaSupported !== false
+  )
+}
+
+/**
+ * 平台是否真能走上游长连接(2026-11-10 立,转发层唯一判据;与上面两个同形)。
+ *
+ * 判据 = 适配器**显式**声明 `socketSupported: true` 且确有 `buildSocketRequest` 方法。
+ * 与 quotaSupported 相反,这里缺省为 false:长连接是新通道,没实证过的平台不得被
+ * 转发层"猜"进 socket 路径,否则每个请求都要先付一次多余建连失败再回落,纯亏。
+ * 新平台接入时自行声明 true 即自动生效,转发层不维护硬编码名单(§0.6)。
+ */
+export function isSocketCapableAdapter(
+  adapter: RelayUpstreamAdapter | null | undefined,
+): adapter is RelayUpstreamAdapter & {
+  socketSupported: true
+  buildSocketRequest: NonNullable<RelayUpstreamAdapter['buildSocketRequest']>
+} {
+  return (
+    !!adapter &&
+    adapter.socketSupported === true &&
+    typeof adapter.buildSocketRequest === 'function'
   )
 }
 
