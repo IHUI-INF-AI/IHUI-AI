@@ -655,25 +655,23 @@ server.get('/orders', async (request) => {
 `apps/api/src/plugins/tenant.ts`:
 
 ```typescript
-// 1. 解析租户标识(优先级:X-Tenant-Id header > subdomain)
+// 1. 解析租户标识(优先级:X-Tenant-Id header > 子域 <slug>.host.com;IP 与保留子域不算)
 const identifier = resolveTenantIdentifier(request)
 
-// 2. 查询租户(UUID 按 id,否则按 slug,60s 缓存)
-const tenant = await lookupTenant(identifier)
-
-// 3. 严格模式校验
-if (TENANT_STRICT_MODE && !tenant) {
-  throw new AppError('FORBIDDEN', '未知租户')
+// 2. 无标识:缺省即严格 ⇒ 直接 401;只有显式 TENANT_STRICT_MODE=false(单租户本地开发)才放行
+if (!identifier && isTenantStrictMode()) {
+  return reply.status(401).send({ code: 401, message: '多租户严格模式已启用…' })
 }
 
-// 4. 注入 request.tenantId
-request.tenantId = tenant?.id ?? DEFAULT_TENANT_ID
+// 3. 有标识:查租户(UUID 按 id,否则按 slug,60s 缓存);不存在 → 404,status=0 → 403
+const tenant = await lookupTenant(identifier)
+if (!tenant) return reply.status(404).send({ code: 404, message: '租户不存在' })
+if (tenant.status === 0) return reply.status(403).send({ code: 403, message: '租户已停用' })
 
-// 5. 异步自增配额
-reply.addHook('onResponse', async () => {
-  await db.update(tenants).set({ apiCallsUsed: sql`api_calls_used + 1` })
-    .where(eq(tenants.id, tenant.id))
-})
+// 4. 注入 request.tenantId / request.tenant(无标识的非严格档两者保持 undefined)
+request.tenantId = tenant.id
+
+// 5. onResponse:异步自增 tenantQuotas.apiCallsUsed(失败不影响业务)
 ```
 
 ### 10.2 JWT claim 与 tenant 解析优先级
@@ -1338,6 +1336,6 @@ if (res.success) {
 | `CREDENTIALS_ENCRYPTION_KEY` | (必填) | 2FA secret / SK 加密 key,AES-256-GCM |
 | `JWT_KEY_ROTATION_CANARY_RATIO` | 0.1 | 密钥轮换灰度比例 |
 | `JWT_KEY_ROTATION_GRACE_PERIOD_SEC` | 86400(1 天) | 密钥轮换宽限期 |
-| `TENANT_STRICT_MODE` | false | 严格租户模式(未知租户拒绝) |
+| `TENANT_STRICT_MODE` | true(缺省即严格,fail-closed) | 严格租户模式(无租户标识 → 401;仅单租户本地开发显式设 false) |
 | `OAUTH_CODE_TTL_SECONDS` | 600(10min) | authorization code TTL |
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
