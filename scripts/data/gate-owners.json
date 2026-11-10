@@ -12,6 +12,16 @@
         "check-generated-pin-face.mjs",
         "check-gate-owner-declaration.mjs"
       ]
+    },
+    "typography-face-coverage-2026-11-10": {
+      "since": "2026-11-10",
+      "scope": "界面字体面覆盖对账门(门 313):A 档位表字重↔@font-face 区间覆盖 / B 端内取用 / C 覆盖面 / T4 书写面中文黑体兜底",
+      "scripts": ["check-typography-face-coverage.mjs"]
+    },
+    "hook-chain-refs-2026-11-09": {
+      "since": "2026-11-09",
+      "scope": "钩子链引用完整性门(门 305p):钩子入口缺失 / 闭包缺失 / 相对 require 解析不到 / 钩子 require 完整性",
+      "scripts": ["check-hook-chain-refs.mjs"]
     }
   },
   "unowned": [
