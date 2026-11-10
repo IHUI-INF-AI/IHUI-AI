@@ -461,12 +461,27 @@ def test_unreadable_store_is_not_overwritten(store_path, monkeypatch):
 
 
 def test_write_failure_returns_none(store_path, monkeypatch):
-    """写失败(目标父目录被文件占用)→ save_installed 返回 None、remove 返回 False。"""
-    store_path.write_text("[]", encoding="utf-8")
-    # 把存储路径放到已存在文件的下级目录,迫使 mkdir 失败
-    monkeypatch.setattr(mcp_store, "_STORE_PATH", store_path / "sub" / "x.json")
-    assert mcp_store.save_installed({"name": "git", "key": "git"}) is None
+    """写失败(写盘抛错)→ save_installed 返回 None、remove 返回 False。
+
+    注意必须模拟**写**失败而不是"读失败":把 _STORE_PATH 放到一个已存在文件的
+    下级目录,在 POSIX 上 stat 抛 NotADirectoryError(ENOTDIR)而不是
+    FileNotFoundError,于是先命中 _load 的 fail-closed 分支、抛 McpStoreUnread
+    (Windows 恰好抛 ENOENT,所以旧写法只在 Linux 上红)。那测的是"名单读不到
+    不许覆盖"——已由 test_unreadable_store_is_not_overwritten 钉住。这里让
+    名单可正常读出、只让落盘这一步抛错,才是在验"写失败返回 None"。
+    """
+    store_path.write_text(
+        json.dumps([{"name": "git", "key": "git"}], ensure_ascii=False), encoding="utf-8"
+    )
+
+    def failing_write_text(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        raise PermissionError(13, "denied", str(self))
+
+    monkeypatch.setattr(Path, "write_text", failing_write_text)
+    assert mcp_store.save_installed({"name": "git", "key": "git2"}) is None
     assert mcp_store.remove_installed("git") is False
+    # 写失败不得动到原名单(只 patch 了 write_text,read_text 仍是真实实现)
+    assert json.loads(store_path.read_text(encoding="utf-8")) == [{"name": "git", "key": "git"}]
 
 
 def test_set_enabled_missing_returns_none(store_path):
