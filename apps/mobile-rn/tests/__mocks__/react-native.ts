@@ -292,6 +292,10 @@ export const StyleSheet = {
   // 缺了后者遮罩样式表静默丢铺满四边 —— 都不报错但断言失真。
   hairlineWidth: 1,
   absoluteFillObject: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+  // 真身 API 面补齐(2026-11-10,遮罩接线集成测试暴露):StyleSheet.absoluteFill 是
+  // 注册表版 absoluteFillObject,替身缺它时 `style={StyleSheet.absoluteFill}` 拿到
+  // undefined ⇒ 铺满四边在测试里静默丢失(不报错、断言失真),与上两条同一条规矩。
+  absoluteFill: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
 } as const
 export const Dimensions = { get: () => ({ width: 375, height: 812 }) }
 /**
