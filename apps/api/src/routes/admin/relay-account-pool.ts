@@ -73,6 +73,7 @@ import {
 } from '../../services/relay-account-format.js'
 import {
   getRelayAdapter,
+  hasVerifiedQuotaEndpoint,
   isRefreshableProviderCode,
 } from '../../services/relay-upstream-adapters.js'
 import { healthStatusOf } from '../../services/relay-account-pool-scheduler.js'
@@ -1693,8 +1694,11 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
           .status(400)
           .send(error(400, `平台 ${row.providerCode} 适配器未注册,无法查余额`))
       }
-      // 平台无已实证余额端点 ⇒ 如实"未支持",不得拿 0 冒充(0 在面板读成积分耗尽)
-      if (!adapter.getQuota) {
+      // 平台无已实证余额端点 ⇒ 如实"未支持",不得拿 0 冒充(0 在面板读成积分耗尽)。
+      // 判据走集中纯函数(§0.6 单一真相源):方法存在 且 未声明 quotaSupported:false。
+      // 五个无公开端点的平台虽实装了 getQuota,那只是探测空壳;旧判法 `!adapter.getQuota`
+      // 对它们恒命中不了 ⇒ 白发探测请求、探测 401 还误触发刷新重试。此处一次收口。
+      if (!hasVerifiedQuotaEndpoint(adapter)) {
         return reply
           .status(400)
           .send(error(400, `平台 ${row.providerCode} 无已实证的余额端点(未支持)`))

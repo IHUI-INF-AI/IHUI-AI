@@ -5859,18 +5859,32 @@ export function sweepExposedCredentialRotation(opts = {}) {
  * 三态(§0.3):ok ⇒ 静默只留日志;alert ⇒ 也只留日志(喊人由器物自己经
  * notify-deploy-failure 唯一出口完成,这里再 notify 就是同一故障两封信 §5e-3);
  * undetermined ⇒ 这是「腿自己哑了」,与「号掉线」是两个身份 ⇒ 归本守护 notify。
- * 失败只冷却 1 小时(成功才按 6 小时窗口),判机器状态 ⇒ 绝不进提交链(§12e)。
+ * 判机器状态 ⇒ 绝不进提交链(§12e)。
+ *
+ * 为什么把成功间隔从 6h 降到 1h(2026-11-10 现读):minimax 的 access token 实测寿命只有
+ * 约 4h(17:41 续期 ⇒ 21:41 到期),6h 节拍必然跨过到期点 ⇒ 池里那枚号每小时都有一段
+ * 时间不可用,而 api 常驻已按 §18 撤下,这条腿就是唯一承载体。1h ≪ 4h 才有「永久」可言。
+ * 监听成本:大多数轮次无事可做(只续候选集里的号),不动 qoder/trae 未临期的票。
  */
 const KEEPALIVE_FOREVER_INTERVAL_MS = Number(
-  process.env.IHUI_KEEPALIVE_FOREVER_INTERVAL_MS || 6 * 60 * 60 * 1000,
+  process.env.IHUI_KEEPALIVE_FOREVER_INTERVAL_MS || 60 * 60 * 1000,
 )
 const KEEPALIVE_FOREVER_FAILURE_COOLDOWN_MS = 60 * 60 * 1000
+/**
+ * alert(号掉线)窗口:钉死 6 小时,与成功间隔**解耦**。
+ * 2026-11-10 把成功间隔降到 1h 时,原实现靠「window = intervalMs」把 alert 也一起压到了
+ * 1h —— 那是拿坏票每小时撞一次上游鉴权点(本仓点名的封号前兆型)。测试 T10 正是这条反向牙。
+ */
+const KEEPALIVE_FOREVER_ALERT_INTERVAL_MS = Number(
+  process.env.IHUI_KEEPALIVE_FOREVER_ALERT_INTERVAL_MS || 6 * 60 * 60 * 1000,
+)
 
 export function sweepKeepAliveForever(opts = {}) {
   const {
     now = Date.now(),
     intervalMs = KEEPALIVE_FOREVER_INTERVAL_MS,
     failureCooldownMs = KEEPALIVE_FOREVER_FAILURE_COOLDOWN_MS,
+    alertIntervalMs = KEEPALIVE_FOREVER_ALERT_INTERVAL_MS,
     tickFile = join(dirname(LOG), 'keepalive-forever-last.json'),
     logger = log,
     runner = null,
@@ -5898,7 +5912,11 @@ export function sweepKeepAliveForever(opts = {}) {
   // alert 反向**留在 6 小时**:那是「号掉线」不是「尺子哑」,器物自己已经经唯一出口喊过人,
   // 把它也压到一小时等于拿坏票每小时撞一次上游鉴权点(本仓点名的封号前兆型)。
   const window =
-    lastState === 'undetermined' || lastState === 'no-result-line' ? failureCooldownMs : intervalMs
+    lastState === 'undetermined' || lastState === 'no-result-line'
+      ? failureCooldownMs
+      : lastState === 'alert'
+        ? alertIntervalMs
+        : intervalMs
   if (Number.isFinite(last) && now - last < window) return { ran: false, why: '未到节流窗口' }
   try {
     mkdirSync(dirname(tickFile), { recursive: true })

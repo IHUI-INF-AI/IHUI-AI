@@ -173,7 +173,7 @@ export function ChatThinkingPlaceholder({ t }: ChatThinkingPlaceholderProps) {
 }
 
 /** 单条业务表单卡(锚定在 assistant 消息之后 / 或列表尾兜底)。 */
-interface ChatBusinessFormTailProps {
+export interface ChatBusinessFormTailProps {
   kind: BusinessFormCardProps['kind']
   mode?: BusinessFormCardProps['mode']
   requestId: string
@@ -183,7 +183,7 @@ interface ChatBusinessFormTailProps {
   onAction: NonNullable<BusinessFormCardProps['onAction']>
 }
 
-function ChatBusinessFormTail({
+export function ChatBusinessFormTail({
   kind,
   mode,
   requestId,

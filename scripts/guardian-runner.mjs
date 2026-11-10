@@ -468,7 +468,12 @@ const checks = [
     id: '30a',
     label: '🛡️  Commit 丢失防护(blocking,AGENTS.md §22,防 reset / drop stash 误丢 commit)',
     script: 'check-commit-loss-guard.mjs',
-    args: ['--blocking', '--filter-stash'],
+    // 2026-11-10 提速:`--defer-3b` 把"3b 全量逐路径对账"(本仓实测 74s/轮,占本门 116s 的 64%)
+    // 挪到 post-commit 后台(`--audit-3b`,见 .husky/post-commit 的 detached 链)。
+    // 提交链只剩毫秒级的"读上次审计读数";3b **从不判红**,所以延后不改变任何阻塞语义,
+    // 阻塞项(reset / 窗内未备份悬空 / tag 对象不可达)照旧在提交链判。
+    // 全量档补跑由 runner 注入 IHUI_COMMIT_LOSS_DEFER_3B=1(见 fullFace spawn env),避免同一维跑两遍。
+    args: ['--blocking', '--filter-stash', '--defer-3b'],
     mode: 'blocking',
     stagedTriggers: ["**/*"],
     // 2026-10-03 补齐:门体头注一直写着 `HUSKY_SKIP_COMMIT_LOSS_CHECK`,但 runner 从未声明该字段

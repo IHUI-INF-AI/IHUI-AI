@@ -198,6 +198,44 @@ describe('让位/接管 shouldDeferRefresh(C 档 2026-11-10:接管前当场再�
       ),
     ).toBe(false)
   })
+  it('⑨b server 续期档永久保活号:探测缺席不得冻结续期(否则 = 永不续期)', () => {
+    // 现读反例(2026-11-10):workbuddy 三枚 forever 号 lastRefreshAt 停在 11-03/11-04,
+    // 而探针表只有 trae/qoder/minimax ⇒ 恒 null ⇒ 恒让位 ⇒ token 12-03~12-09 到期后静默死亡。
+    const wb = foreverRow(null)
+    const serverRow = { ...wb, providerCode: 'workbuddy' }
+    expect(S.keepAliveForeverVerdictOf(serverRow, NOW, null)).toEqual({
+      defer: false,
+      reason: 'client-stopped-and-heartbeat-stale',
+    })
+    expect(S.shouldDeferRefresh(serverRow, NOW, process.env, undefined)).toBe(false)
+    // 明确探到「在跑」仍然让位(多让方向不变)
+    expect(S.shouldDeferRefresh(serverRow, NOW, process.env, true)).toBe(true)
+    // client-first 档不受这条放宽影响:未判定照样让位
+    const miniRow = { ...wb, providerCode: 'minimax' }
+    expect(S.shouldDeferRefresh(miniRow, NOW, process.env, undefined)).toBe(true)
+    expect(S.shouldDeferRefresh(miniRow, NOW, process.env, null)).toBe(true)
+    // 退回 server 开关后 minimax 仍按「客户端握票」让位 —— 开关答的是谁负责续期,
+    // 不改变「mcode 客户端手上也有票」这个事实(与 ⑧ 同一口径)。
+    expect(
+      S.shouldDeferRefresh(miniRow, NOW, { RELAY_MINIMAX_CLIENT_FIRST_REFRESH: '0' }, undefined),
+    ).toBe(true)
+    // 没有客户端握票的平台,开关值不改变结论
+    expect(
+      S.shouldDeferRefresh(serverRow, NOW, { RELAY_TRAE_CLIENT_FIRST_REFRESH: '0' }, null),
+    ).toBe(false)
+  })
+})
+
+describe('临期窗口覆盖出口 refreshAheadMs', () => {
+  it('⑲ 未设 ⇒ 默认 15 分钟;给值 ⇒ 用它(承载腿 1 小时节拍调 90 分钟)', () => {
+    expect(S.refreshAheadMs({})).toBe(15 * 60 * 1000)
+    expect(S.refreshAheadMs({ RELAY_ACCOUNT_REFRESH_AHEAD_MS: ' 5400000 ' })).toBe(5400000)
+  })
+  it('⑳ 非法/非正数 ⇒ 回落默认(失效方向是照默认保活,不是静默关掉)', () => {
+    for (const raw of ['', 'abc', '0', '-1', 'NaN']) {
+      expect(S.refreshAheadMs({ RELAY_ACCOUNT_REFRESH_AHEAD_MS: raw })).toBe(15 * 60 * 1000)
+    }
+  })
 })
 
 describe('空闲保活候选面 keepaliveIdleWhere', () => {

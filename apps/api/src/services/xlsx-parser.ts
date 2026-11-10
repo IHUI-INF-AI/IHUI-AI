@@ -44,9 +44,9 @@ export class XlsxFileTooLargeError extends Error {
  * 只要含 `<c r="XFD1048576">`,两个循环就是 1.7e10 次对象分配,主线程直接卡死/OOM。
  * 这里在遍历前先做预算断言,超限抛错误(不再降级到 xlsx 库 —— 那条路同样会按范围展开)。
  */
-const XLSX_MAX_SHEET_ROWS = 5000
-const XLSX_MAX_SHEET_COLS = 5000
-const XLSX_MAX_SHEET_CELLS = 4_000_000
+export const XLSX_MAX_SHEET_ROWS = 5000
+export const XLSX_MAX_SHEET_COLS = 5000
+export const XLSX_MAX_SHEET_CELLS = 4_000_000
 
 export class XlsxSheetTooLargeError extends Error {
   readonly rows: number

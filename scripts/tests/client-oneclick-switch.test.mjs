@@ -16,6 +16,7 @@ const {
   RETRY_LIMIT,
   fmtAccountRow,
   fmtCountRow,
+  fmtQuotaLine,
   runPoolListJson,
   POOL_LIST_TS,
 } = oneclick
@@ -97,13 +98,37 @@ test('② 展示面:序号行只给脱敏投影,绝不出现令牌形态字段',
   )
 })
 
-test('②b 取名单那一趟必须带 --mask(双击出来的是会被截图的窗口)', () => {
+test('②b 取名单那一趟必须带 --mask(双击出来的是会被截图的窗口)且带 --with-quota(实时余额)', () => {
   const entry = fileURLToPath(new URL('../client-oneclick-switch.mjs', import.meta.url))
   const src = fs.readFileSync(entry, 'utf8').replace(/[⁠​‌‍]*/g, '')
-  assert.match(src, /'--provider', platform, '--json', '--mask'/)
+  assert.match(src, /'--provider', platform, '--json', '--mask', '--with-quota'/)
   // 首屏只有枚数没有名称 ⇒ 不需要掩码档,但必须标注取数时刻(两屏之间池可能被别席改)
   assert.match(src, /'--counts', '--json'/)
   assert.match(src, /取数时刻=/)
+})
+
+test('②c 余额行四态口径:已查到/未支持/凭据失效/未判定,绝不给假数', () => {
+  const { fmtQuotaLine } = oneclick
+  assert.match(
+    fmtQuotaLine({ ok: true, remaining: 1200, total: 1500, unit: '积分' }),
+    /额度✓.*剩余=1200.*总量=1500.*单位=积分/,
+  )
+  // 无实证端点的平台(doubao 等)必须如实标"未支持",不得拿 0 冒充耗尽
+  assert.match(fmtQuotaLine({ ok: false, unsupported: true }), /额度=未支持/)
+  // 上游当场拒收凭据、且本机量不到令牌过期 ⇒ 标"被上游拒收,可能已失效"(不对废号暗示"重登能救")
+  assert.match(fmtQuotaLine({ ok: false, authFailed: true }), /额度=未判定\(凭据被上游拒收/)
+  // 确凿过期 ⇒ 明确"令牌已过期,需重登/刷新"
+  assert.match(
+    fmtQuotaLine({ ok: false, authFailed: true, tokenExpired: true }),
+    /额度=未判定\(令牌已过期/,
+  )
+  // 查不动(网络/解密/形状异常) ⇒ 未判定,带原因截断
+  assert.match(
+    fmtQuotaLine({ ok: false, error: '上游未给判定依据-过长原因应被截断处理过长原因应被截断处理' }),
+    /额度=未判定\(/,
+  )
+  // 余额查询整体未返回(如拉取失败)⇒ 不冒充"耗尽"
+  assert.match(fmtQuotaLine(undefined), /额度=未拉取/)
 })
 
 test('③ 列池管道:污染行照取、非零 exit 落未判定、JSON 解不开落未判定', () => {

@@ -193,14 +193,9 @@ const existingRow = (over: Record<string, unknown>): Record<string, unknown> => 
   ...over,
 })
 
-/**
- * 构造**业务时区(Asia/Shanghai)墙钟**对应的时间点。
- * judgeStatus 经 hmOfLocalDate 固定按 Asia/Shanghai 读时刻,因此不能用
- * `new Date(y,m,d,h,min)`(那按跑机本地时区解释:CI 在 UTC 时 08:30 会读成上海 16:30,
- * 正向/正对照三格会随环境翻红)。此处显式按 UTC+8 折算,断言与跑机时区无关。
- */
-function atBizWallClock(y: number, m: number, d: number, h: number, min: number): Date {
-  return new Date(Date.UTC(y, m, d, h - 8, min))
+/** 只在本地墙钟上造时刻,日期键一律经 bizDayKey 现算 ⇒ 断言与跑机时区无关。 */
+function localAt(y: number, m: number, d: number, h: number, min: number): Date {
+  return new Date(y, m, d, h, min)
 }
 
 beforeEach(() => {
@@ -224,7 +219,7 @@ afterEach(() => {
 
 describe('A. 教师代签 POST /attendance/check-in', () => {
   it('正向:该班规则 lateAfter=09:00,服务器当前时刻 11:30 ⇒ 落库 status=late(不是 present)', async () => {
-    const inT = atBizWallClock(2026, 0, 5, 11, 30)
+    const inT = localAt(2026, 0, 5, 11, 30)
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(inT)
     const day = bizDayKey(inT)
@@ -245,7 +240,7 @@ describe('A. 教师代签 POST /attendance/check-in', () => {
   })
 
   it('反向:客户端硬塞 status:"present" ⇒ 服务端判定不被改写(zod strip 后自报值结构上进不了库)', async () => {
-    const inT = atBizWallClock(2026, 0, 5, 11, 30)
+    const inT = localAt(2026, 0, 5, 11, 30)
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(inT)
     const day = bizDayKey(inT)
@@ -283,7 +278,7 @@ describe('A. 教师代签 POST /attendance/check-in', () => {
   })
 
   it('反向:显式 checkInTime 与 date 跨业务日 ⇒ 400 点名"同日",零写库', async () => {
-    const inT = atBizWallClock(2026, 0, 5, 11, 30)
+    const inT = localAt(2026, 0, 5, 11, 30)
     const wrongDay = shiftBizDayKey(bizDayKey(inT), 1) // 时刻在 wrongDay 的前一天,故意错开
     const app = await buildApp()
     const res = await app.inject({
@@ -303,7 +298,7 @@ describe('A. 教师代签 POST /attendance/check-in', () => {
   })
 
   it('正向:显式 checkInTime 落在 date 当日内 ⇒ 按该时刻判定 late(回填有合法出路)', async () => {
-    const inT = atBizWallClock(2026, 0, 5, 11, 30)
+    const inT = localAt(2026, 0, 5, 11, 30)
     const day = bizDayKey(inT)
     H.selectQueue.push([ruleRow('09:00', null)], [])
     H.insertQueue.push([existingRow({ date: day, status: 'late', checkInTime: inT })])
@@ -325,7 +320,7 @@ describe('A. 教师代签 POST /attendance/check-in', () => {
   })
 
   it('无规则班级(退化档):不发明默认阈值 ⇒ 判定走"阈值缺失"分支,落 present', async () => {
-    const inT = atBizWallClock(2026, 0, 5, 11, 30)
+    const inT = localAt(2026, 0, 5, 11, 30)
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(inT)
     const day = bizDayKey(inT)
@@ -349,18 +344,12 @@ describe('A. 教师代签 POST /attendance/check-in', () => {
 
 describe('B. 签退重判 PUT /attendance/check-out', () => {
   it('正向:present 记录 08:00 签到、14:00 签退,规则 earlyBefore=16:00 ⇒ status=early(全系统该状态的写入路径)', async () => {
-    const outT = atBizWallClock(2026, 0, 5, 14, 0)
+    const outT = localAt(2026, 0, 5, 14, 0)
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(outT)
     const day = bizDayKey(outT)
     H.selectQueue.push(
-      [
-        existingRow({
-          date: day,
-          status: 'present',
-          checkInTime: atBizWallClock(2026, 0, 5, 8, 0),
-        }),
-      ],
+      [existingRow({ date: day, status: 'present', checkInTime: localAt(2026, 0, 5, 8, 0) })],
       [ruleRow('09:00', '16:00')],
     )
     H.updateQueue.push([existingRow({ date: day, status: 'early', checkOutTime: outT })])
@@ -378,13 +367,13 @@ describe('B. 签退重判 PUT /attendance/check-out', () => {
   })
 
   it('反向:leave(请假审批联动写入)签退后仍是 leave,且规则查询压根不发生(结构性不洗)', async () => {
-    const outT = atBizWallClock(2026, 0, 5, 14, 0)
+    const outT = localAt(2026, 0, 5, 14, 0)
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(outT)
     const day = bizDayKey(outT)
     // 若实现错误地对 leave 也重判,下面这条规则行会把状态洗成 early ⇒ 断言同时抓两件事
     H.selectQueue.push([
-      existingRow({ date: day, status: 'leave', checkInTime: atBizWallClock(2026, 0, 5, 8, 0) }),
+      existingRow({ date: day, status: 'leave', checkInTime: localAt(2026, 0, 5, 8, 0) }),
     ])
     H.updateQueue.push([existingRow({ date: day, status: 'leave', checkOutTime: outT })])
     const app = await buildApp()
@@ -401,12 +390,12 @@ describe('B. 签退重判 PUT /attendance/check-out', () => {
   })
 
   it('反向:absent 记录签退后仍是 absent(即便时刻阈值全命中也不得洗成 early)', async () => {
-    const outT = atBizWallClock(2026, 0, 5, 14, 0)
+    const outT = localAt(2026, 0, 5, 14, 0)
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(outT)
     const day = bizDayKey(outT)
     H.selectQueue.push([
-      existingRow({ date: day, status: 'absent', checkInTime: atBizWallClock(2026, 0, 5, 8, 0) }),
+      existingRow({ date: day, status: 'absent', checkInTime: localAt(2026, 0, 5, 8, 0) }),
     ])
     H.updateQueue.push([existingRow({ date: day, status: 'absent', checkOutTime: outT })])
     const app = await buildApp()
@@ -422,18 +411,12 @@ describe('B. 签退重判 PUT /attendance/check-out', () => {
   })
 
   it('正对照:阈值内(08:00 签到、17:00 签退)重判后仍 present,reason 走 ok 档', async () => {
-    const outT = atBizWallClock(2026, 0, 5, 17, 0)
+    const outT = localAt(2026, 0, 5, 17, 0)
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(outT)
     const day = bizDayKey(outT)
     H.selectQueue.push(
-      [
-        existingRow({
-          date: day,
-          status: 'present',
-          checkInTime: atBizWallClock(2026, 0, 5, 8, 0),
-        }),
-      ],
+      [existingRow({ date: day, status: 'present', checkInTime: localAt(2026, 0, 5, 8, 0) })],
       [ruleRow('09:00', '16:00')],
     )
     H.updateQueue.push([existingRow({ date: day, status: 'present', checkOutTime: outT })])
@@ -450,18 +433,12 @@ describe('B. 签退重判 PUT /attendance/check-out', () => {
   })
 
   it('迟到修正联动:present 行 11:30 签到(阈值 09:00)、17:00 签退 ⇒ 重判补出 late', async () => {
-    const outT = atBizWallClock(2026, 0, 5, 17, 0)
+    const outT = localAt(2026, 0, 5, 17, 0)
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(outT)
     const day = bizDayKey(outT)
     H.selectQueue.push(
-      [
-        existingRow({
-          date: day,
-          status: 'present',
-          checkInTime: atBizWallClock(2026, 0, 5, 11, 30),
-        }),
-      ],
+      [existingRow({ date: day, status: 'present', checkInTime: localAt(2026, 0, 5, 11, 30) })],
       [ruleRow('09:00', '16:00')],
     )
     H.updateQueue.push([existingRow({ date: day, status: 'late', checkOutTime: outT })])
@@ -483,7 +460,7 @@ describe('B. 签退重判 PUT /attendance/check-out', () => {
 
 describe('C. 批量点名 POST /attendance/batch-check-in', () => {
   it('正向+反向:11:30 点名、规则 lateAfter=09:00,客户端硬塞 status:"present" ⇒ 全员落库 late', async () => {
-    const inT = atBizWallClock(2026, 0, 5, 11, 30)
+    const inT = localAt(2026, 0, 5, 11, 30)
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(inT)
     H.selectQueue.push(
@@ -529,7 +506,7 @@ describe('C. 批量点名 POST /attendance/batch-check-in', () => {
   })
 
   it('正向:显式 checkInTime 落在 date 当日 ⇒ 按该时刻判定,全员 present(阈值内)', async () => {
-    const inT = atBizWallClock(2026, 0, 5, 8, 30)
+    const inT = localAt(2026, 0, 5, 8, 30)
     const day = bizDayKey(inT)
     H.selectQueue.push([ruleRow('09:00', '16:00')], [{ studentId: STUDENT_A }], [])
     H.insertQueue.push([{ id: 'x1', studentId: STUDENT_A }])

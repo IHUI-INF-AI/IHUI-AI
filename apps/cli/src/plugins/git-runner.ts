@@ -30,7 +30,7 @@
  *     代价如实登记:GitHub 偶发 RPC/recv timeout 落在 `status=128` 这一档,本实现**不会**为它自动重试
  *     —— 要覆盖它需要结构化信号(git 侧或 Node 侧新增),而不是回到文案正则。
  */
-import { execFile, execFileSync } from 'node:child_process';
+import { execFile, execFileSync, type ExecFileOptions } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 // G-786 的形状拒绝错误:它是"安全拒绝类",必须原样上抛、绝不退避(G-809 点名的面)。
@@ -605,27 +605,42 @@ export function execGitCappedAsync(args: readonly string[], opts: GitCappedAsync
     return Promise.reject(new GitOperationAbortedError('git 操作已被取消(未发起派生)'));
   }
   return new Promise<string>((resolve, reject) => {
-    const child = execFile(
-      resolved.binary,
-      [...args],
-      {
-        cwd: resolved.cwd,
-        env: resolved.env,
-        encoding: resolved.encoding,
-        maxBuffer: resolved.maxBufferBytes,
-        timeout: resolved.timeoutMs,
-        killSignal: resolved.killSignal,
-        windowsHide: resolved.windowsHide,
-      },
-      (raw, stdout) => {
-        opts.signal?.removeEventListener('abort', onAbort);
-        if (raw) {
-          reject(toAsyncGitError(raw, opts.signal, verb, resolved));
-          return;
-        }
-        resolve(String(stdout));
-      },
-    );
+    // `detached` 是 `spawn` 的选项;`execFile` 在运行时会把它透传给 `spawn`(取消腿靠它建进程组),
+    // 但本仓的 `@types/node@26` 里 `ExecFileOptions`(extends CommonOptions)**没有**这个字段 ——
+    // 直接写字面量会撞 TS2769 重载失配。这里显式把它标进交叉类型:类型面如实,运行面照旧。
+    const execOpts: ExecFileOptions & { detached?: boolean } = {
+      cwd: resolved.cwd,
+      env: resolved.env,
+      encoding: resolved.encoding,
+      maxBuffer: resolved.maxBufferBytes,
+      timeout: resolved.timeoutMs,
+      killSignal: resolved.killSignal,
+      windowsHide: resolved.windowsHide,
+      // electron/deadlock 前的取消腿依赖 `killProcessTree(child)`;而它整棵树的机制是
+      // `kill(-pid)`(负 pid = 进程组 ID),**进程组只在 child 自成组 leader 时存在**
+      // (见 util/spawn-isolated.ts 的「调用端配合条件」)。不设 detached 时 `-pid` 不是任何
+      // 进程组:组 kill 报 ESRCH ⇒ 判定"组已消亡" ⇒ 补刀跳过 ⇒ 子进程根本没被杀,照常跑完并以
+      // 成功 resolve。这与 mcp-runtime.ts 的 detached 分档同一条(POSIX 侧建组,win32 侧靠
+      // taskkill /T,多分配控制台窗口无益故不设)。
+      detached: process.platform !== 'win32',
+    }
+    const child = execFile(resolved.binary, [...args], execOpts, (raw, stdout) => {
+      opts.signal?.removeEventListener('abort', onAbort);
+      // POSIX 侧 detached 进程组被 kill(-pid) 团灭后,execFile 有可能以 raw=null 回调
+      // (子进程组整体消失,直接子进程来不及把信号状态传回来)。此时若直接 resolve,
+      // 「取消已发生」却被报成成功 —— 与 `预先取消 ⇒ 一轮都不派生` 的 fail-closed 口径相反,
+      // CI Linux 实测即在此处漏判(Windows 侧不设 detached,走 child.kill 故不触发)。
+      // 判据必须放在 raw 之前:取消是既成事实,优先于任何子进程返回值;绝不拿近似成功顶替。
+      if (opts.signal?.aborted) {
+        reject(new GitOperationAbortedError(undefined, { cause: raw instanceof Error ? raw : undefined }));
+        return;
+      }
+      if (raw) {
+        reject(toAsyncGitError(raw, opts.signal, verb, resolved));
+        return;
+      }
+      resolve(String(stdout));
+    });
     // 不把 signal 直接交给 execFile:Node 只会杀直接子进程,git 在 Windows 上还会派生
     // 传输层子进程(残留会占住仓库锁)。这里统一走 killProcessTree(/T 团灭)。
     function onAbort(): void {

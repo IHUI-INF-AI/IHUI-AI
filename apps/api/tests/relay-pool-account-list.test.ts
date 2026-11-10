@@ -8,12 +8,15 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import {
   SAFE_COLUMN_KEYS,
+  formatQuotaLine,
   listMain,
   rowLine,
   sortByExpiry,
   type ListOutcome,
   type PoolRow,
+  type QuotaView,
 } from '../scripts/relay-pool-account-list.js'
+import { hasVerifiedQuotaEndpoint } from '../src/services/relay-upstream-adapters.js'
 
 // 测试隔离铁律:本文件一律 deps.fetch 注入,库连接依赖延迟在 listPoolAccounts 内,不建连。
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -256,6 +259,168 @@ describe('号池名单只读出口', () => {
     const c = capture()
     expect(await listMain(['--help'], c.deps)).toBe(0)
     expect(c.so.join('')).toContain('switch-client-account.mjs')
+  })
+
+  it('--with-quota 用法行必须交代"无实证端点标未支持、不编 0"', async () => {
+    const c = capture()
+    expect(await listMain(['--help'], c.deps)).toBe(0)
+    const help = c.so.join('')
+    expect(help).toContain('--with-quota')
+    expect(help).toContain('未支持')
+    expect(help).toContain('不编 0')
+  })
+})
+
+describe('实时额度视图(--with-quota)', () => {
+  const outcome: ListOutcome = {
+    providerCode: 'qoder',
+    total: 2,
+    accounts: [row({ uid: 'u-a' }), row({ uid: 'u-b' })],
+    asOf: '2026-11-10T09:30:00.000Z',
+  }
+  /** 全列取行的注入桩:只给 uid,零凭据(测试隔离铁律:不连库、不解密) */
+  const quotaRows = async () => [{ uid: 'u-a' }, { uid: 'u-b' }] as never
+
+  it('四态人话:已查到/未支持/凭据失效(过期与否)/未判定,绝不给假数', () => {
+    expect(
+      formatQuotaLine({ ok: true, remaining: 900, used: 2100, total: 3000, unit: 'trae 积分' }),
+    ).toContain('剩余=900')
+    expect(formatQuotaLine({ ok: false, unsupported: true })).toContain('未支持')
+    // 确凿过期才说"需重登";否则只说"被上游拒收",不对确认废的号暗示重登能救
+    expect(formatQuotaLine({ ok: false, authFailed: true })).toContain('凭据被上游拒收')
+    expect(formatQuotaLine({ ok: false, authFailed: true, tokenExpired: true })).toContain(
+      '令牌已过期',
+    )
+    expect(formatQuotaLine({ ok: false, error: '上游未给判定依据' })).toContain('未判定')
+    // 未支持/未判定一律不得出现任何数字冒充额度
+    expect(formatQuotaLine({ ok: false, unsupported: true })).not.toMatch(/\d/)
+    expect(formatQuotaLine({ ok: false, error: '网络超时' })).not.toMatch(/剩余=|已用=/)
+    expect(formatQuotaLine(undefined)).toContain('未拉取')
+  })
+
+  it('JSON 与人读两面都带 quota,按 uid 映射、零凭据外泄', async () => {
+    const views: Record<string, QuotaView> = {
+      'u-a': { ok: true, remaining: 900, used: 2100, total: 3000, ratio: 0.7, unit: 'trae 积分' },
+      'u-b': { ok: false, unsupported: true },
+    }
+    const quotaOf = async (r: { uid: string }) => views[r.uid]
+    const c = capture()
+    expect(
+      await listMain(['--provider', 'qoder', '--json', '--with-quota'], {
+        ...c.deps,
+        fetch: async () => outcome,
+        quotaRows,
+        quotaOf,
+      }),
+    ).toBe(0)
+    const parsed = JSON.parse(c.so.join('')) as ListOutcome
+    expect(parsed.quota?.['u-a']).toMatchObject({ ok: true, remaining: 900 })
+    expect(parsed.quota?.['u-b']).toMatchObject({ ok: false, unsupported: true })
+    expect(c.so.join('')).not.toMatch(/tokenEnc|cookiesEnc|secretsEnc|token_enc/)
+
+    const c2 = capture()
+    expect(
+      await listMain(['--provider', 'qoder', '--with-quota'], {
+        ...c2.deps,
+        fetch: async () => outcome,
+        quotaRows,
+        quotaOf,
+      }),
+    ).toBe(0)
+    const text = c2.so.join('')
+    expect(text).toContain('剩余=900')
+    expect(text).toContain('未支持')
+    // 名单照常,额度是附加行,不吞任何一枚账号
+    expect(text.match(/uid=u-/g)?.length).toBe(2)
+  })
+
+  it('不带 --with-quota 时零额度查询、输出里没有 quota 字段', async () => {
+    let called = 0
+    const c = capture()
+    expect(
+      await listMain(['--provider', 'qoder', '--json'], {
+        ...c.deps,
+        fetch: async () => outcome,
+        quotaRows: async () => {
+          called += 1
+          return quotaRows()
+        },
+        quotaOf: async () => ({ ok: true, remaining: 1 }),
+      }),
+    ).toBe(0)
+    expect(called).toBe(0)
+    expect(JSON.parse(c.so.join(''))).not.toHaveProperty('quota')
+  })
+
+  it('某枚查不动不致命:名单照常、额度行如实标未判定(§0.3 取不到≠失效)', async () => {
+    const c = capture()
+    expect(
+      await listMain(['--provider', 'qoder', '--with-quota', '--json'], {
+        ...c.deps,
+        fetch: async () => outcome,
+        quotaRows,
+        quotaOf: async (r: { uid: string }) =>
+          r.uid === 'u-b' ? { ok: false, error: '上游 5xx(未判定)' } : { ok: true, remaining: 42 },
+      }),
+    ).toBe(0)
+    const parsed = JSON.parse(c.so.join('')) as ListOutcome
+    expect(parsed.accounts).toHaveLength(2)
+    expect(parsed.quota?.['u-a']).toMatchObject({ ok: true, remaining: 42 })
+    expect(parsed.quota?.['u-b']).toMatchObject({ ok: false })
+    expect(parsed.quota?.['u-b']?.remaining).toBeUndefined()
+  })
+
+  it('全列取行整趟炸 ⇒ 名单仍 exit 0,stderr 如实报未判定', async () => {
+    const c = capture()
+    expect(
+      await listMain(['--provider', 'qoder', '--with-quota'], {
+        ...c.deps,
+        fetch: async () => outcome,
+        quotaRows: async () => {
+          throw new Error('connection refused')
+        },
+      }),
+    ).toBe(0)
+    expect(c.so.join('')).toContain('共 2 枚')
+    expect(c.se.join('')).toContain('未判定')
+  })
+})
+
+describe('额度端点能力判据(单一真相源)', () => {
+  it('方法存在 ≠ 有已实证端点:quotaSupported:false 直接判未支持,零探测', () => {
+    const getQuota = async () => ({ ok: false })
+    expect(hasVerifiedQuotaEndpoint(null)).toBe(false)
+    expect(hasVerifiedQuotaEndpoint(undefined)).toBe(false)
+    expect(hasVerifiedQuotaEndpoint({} as never)).toBe(false)
+    expect(hasVerifiedQuotaEndpoint({ getQuota } as never)).toBe(true)
+    expect(hasVerifiedQuotaEndpoint({ getQuota, quotaSupported: true } as never)).toBe(true)
+    expect(hasVerifiedQuotaEndpoint({ getQuota, quotaSupported: false } as never)).toBe(false)
+  })
+
+  it('四个无公开端点适配器都必须显式声明 false(漏一枚就白发探测)', async () => {
+    const mods = await Promise.all([
+      import('../src/services/upstream-adapters/doubao-adapter.js'),
+      import('../src/services/upstream-adapters/lingma-adapter.js'),
+      import('../src/services/upstream-adapters/codex-adapter.js'),
+      import('../src/services/upstream-adapters/opencode-adapter.js'),
+    ])
+    const keys = ['doubaoAdapter', 'lingmaAdapter', 'codexAdapter', 'opencodeAdapter']
+    for (const [i, m] of mods.entries()) {
+      const a = (m as unknown as Record<string, { quotaSupported?: boolean }>)[keys[i]]
+      expect(a, `${keys[i]} 应导出适配器对象`).toBeTruthy()
+      expect(a.quotaSupported, `${keys[i]} 必须声明 quotaSupported:false`).toBe(false)
+      expect(hasVerifiedQuotaEndpoint(a as never)).toBe(false)
+    }
+  })
+
+  it('loomy 余额端点 2026-11-10 实证:必须判为已支持(不得再标未支持)', async () => {
+    const { loomyAdapter } = await import('../src/services/upstream-adapters/loomy-adapter.js')
+    expect(hasVerifiedQuotaEndpoint(loomyAdapter as never)).toBe(true)
+  })
+
+  it('trae 走真端点:不得被误标为未支持', async () => {
+    const { traeAdapter } = await import('../src/services/upstream-adapters/trae-adapter.js')
+    expect(hasVerifiedQuotaEndpoint(traeAdapter as never)).toBe(true)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

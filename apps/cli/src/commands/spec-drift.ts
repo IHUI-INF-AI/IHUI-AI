@@ -768,6 +768,10 @@ export async function loadToolFamilies(): Promise<{ families: ToolFamily[]; load
     ['BROWSER_TOOLS', async () => import('../tools/browser.js')],
     ['BROWSER_PAGE_TOOLS', async () => import('../tools/browser-page.js')],
     ['WORKTREE_TOOLS', async () => import('../tools/worktree.js')],
+    // 2026-11-10:新声明三族纳入被审面(此前只在 src/tools 里声明,判据对它们静默失明)。
+    ['API_BRIDGE_TOOLS', async () => import('../tools/api-bridge.js')],
+    ['HR_TOOLS', async () => import('../tools/hr.js')],
+    ['RELAY_TOOLS', async () => import('../tools/relay.js')],
   ];
   for (const [family, loader] of wanted) {
     try {

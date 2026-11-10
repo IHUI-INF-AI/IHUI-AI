@@ -354,6 +354,9 @@ export const lingmaAdapter: RelayUpstreamAdapter = {
   // 集成点:RELAY_PROVIDERS(relay-account-format.ts)尚未收录 'lingma',由主会话统一补入;
   // 收录后此断言可删,providerCode 直接写字面量。
   providerCode: 'lingma' as unknown as RelayProviderCode,
+  // 额度能力:灵码套餐余额无公开端点(2026-10-27 取证,阿里只在控制台页展示)。
+  // getQuota 如实未判定、不发请求;声明 false ⇒ 承载层直接标"未支持",零探测、零假数(§0.3)。
+  quotaSupported: false,
   buildChatRequest,
   translateStreamChunk,
   translateNonStream,

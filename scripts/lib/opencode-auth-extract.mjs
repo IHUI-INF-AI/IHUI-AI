@@ -42,13 +42,22 @@ function fingerprintOf(token) {
 /**
  * auth.json 候选数据目录(按序取第一个存在的):
  * XDG_DATA_HOME(官方 XDG 支持)> %USERPROFILE% > $HOME。opts.dataDir 显式指定时只用它。
+ *
+ * 2026-11-10 实测修正两处路径偏差(原实现探不到本机真实落点):
+ *  ① XDG 分支原拼成 `$XDG_DATA_HOME/.local/share/opencode`,而客户端(2.2.6)真实
+ *     数据根是 `$XDG_DATA_HOME/opencode`(日志里 watcher path 与 shell/snapshot 均在此);
+ *  ② 完全没覆盖 v2 自带的 legacy 回退路径 `~/.opencode`(反解 opencode-cli 的 Ph()
+ *     会在这两个位置之间回退)。
  */
 export function candidateDataDirs(env = process.env) {
-  const bases = []
-  if (cstr(env.XDG_DATA_HOME)) bases.push(cstr(env.XDG_DATA_HOME))
-  if (cstr(env.USERPROFILE)) bases.push(cstr(env.USERPROFILE))
-  if (cstr(env.HOME)) bases.push(cstr(env.HOME))
-  return [...new Set(bases)].map((b) => path.join(b, '.local', 'share', 'opencode'))
+  const out = []
+  if (cstr(env.XDG_DATA_HOME)) out.push(path.join(cstr(env.XDG_DATA_HOME), 'opencode'))
+  for (const home of [cstr(env.USERPROFILE), cstr(env.HOME)]) {
+    if (!home) continue
+    out.push(path.join(home, '.local', 'share', 'opencode'))
+    out.push(path.join(home, '.opencode'))
+  }
+  return [...new Set(out)]
 }
 
 /**

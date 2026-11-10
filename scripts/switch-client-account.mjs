@@ -79,6 +79,7 @@ const USAGE =
   '      node scripts/switch-client-account.mjs --to <uid|名称> --provider <平台> [--dry-run] [--force] [--no-launch] [--product <名>] [--json]\n' +
   '  --list       列出号池里该平台的账号(Trae 系转 switch-trae-client-account.mjs;其余平台走只读列池 relay-pool-account-list;--list/--current 缺省 --provider trae)\n' +
   '  --counts     与 --list 同用:列全池逐平台枚数概览(取数时刻一并回显;不与 --provider 同给)\n' +
+  '  --with-quota 只与 --list 同用:逐号实时查各 provider 余额(非 Trae 平台只读列池支持;Trae 系列号走另一入口、该脚本暂无实证端点,如实标未支持;与 --counts 互斥)\n' +
   '  --current    本机登录号在该平台池里的状态\n' +
   '  --to         把池里的号写回本机客户端(Trae 系支持名称匹配;其它平台须精确 uid)\n' +
   `  --provider   平台名:${SUPPORTED_PLATFORMS.join(' | ')}\n` +
@@ -131,6 +132,7 @@ export function parseArgs(argv) {
     noLaunch: false,
     json: false,
     counts: false,
+    withQuota: false,
   }
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i]
@@ -140,6 +142,8 @@ export function parseArgs(argv) {
       opts.action = action
     } else if (a === '--counts') {
       opts.counts = true
+    } else if (a === '--with-quota') {
+      opts.withQuota = true
     } else if (a === '--to') {
       const r = readValue(argv, i, '--to')
       if (r.error) return fail(r.error)
@@ -179,6 +183,12 @@ export function parseArgs(argv) {
   if (opts.counts && opts.providerRaw !== null) {
     return fail('--counts 与 --provider 互斥(要全池计数还是要单平台名单,不猜)')
   }
+  if (opts.withQuota && opts.action !== 'list') {
+    return fail('--with-quota 只与 --list 同用(--current 读本机登录态、--to 写回腿都不查逐号额度)')
+  }
+  if (opts.withQuota && opts.counts) {
+    return fail('--with-quota 与 --counts 互斥(全池逐平台枚数概览没有逐号列表,不查额度)')
+  }
   return { ok: true, opts }
 }
 
@@ -205,6 +215,7 @@ function buildReadPlan(opts) {
     if (opts.action === 'list') {
       const args = ['--provider', n.provider]
       if (opts.json) args.push('--json')
+      if (opts.withQuota) args.push('--with-quota')
       return { ok: true, action: 'list', target: 'pool-list', args }
     }
     return fail(
@@ -213,6 +224,12 @@ function buildReadPlan(opts) {
         `     node scripts/relay-account-pool.mjs --from ${n.provider} --json      # 取本机登录态入池/刷新并做健康检查\n` +
         `     pnpm relay:inspect -- --file <accounts.json> --provider ${n.provider}  # 账号体检(零 DB)\n` +
         '     node scripts/check-relay-capacity-zero.mjs --json                    # 全池可调度容量只读哨兵',
+    )
+  }
+  // Trae 系 --list 转 switch-trae-client-account.mjs,该入口不支持 --with-quota;不猜、不静默吞旗标
+  if (opts.withQuota && opts.action === 'list') {
+    return fail(
+      'trae 系 --list 走 switch-trae-client-account.mjs 另一入口,该脚本暂无逐号额度端点:--with-quota 暂不支持(不猜、不静默吞掉旗标)',
     )
   }
   const args = [opts.action === 'list' ? '--list' : '--current']

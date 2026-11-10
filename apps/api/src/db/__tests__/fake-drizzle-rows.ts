@@ -33,7 +33,7 @@ function cell(row: Record<string, unknown>, col: Col): unknown {
   return row[col.name]
 }
 
-function matches(cond: Cond, row: Record<string, unknown>): boolean {
+export function matches(cond: Cond, row: Record<string, unknown>): boolean {
   switch (cond.op) {
     case 'and':
       return cond.args.every((c) => matches(c, row))
@@ -56,14 +56,12 @@ function matches(cond: Cond, row: Record<string, unknown>): boolean {
   }
 }
 
-interface FakeDbState {
+export interface FakeDbState {
   /** 最近一次 .limit(n) 的实参；未调用为 undefined */
   lastLimit: number | undefined
 }
 
-export function createFakeDb(
-  tables: Record<'files' | 'projects' | 'users', Record<string, unknown>[]>,
-) {
+export function createFakeDb(tables: Record<'files' | 'projects' | 'users', Record<string, unknown>[]>) {
   const state: FakeDbState = { lastLimit: undefined }
 
   // drizzle 表对象把表名挂在 `Symbol.for('drizzle:Name')` 上（部分版本另有 `_.name`），

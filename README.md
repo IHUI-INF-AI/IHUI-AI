@@ -85,7 +85,7 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 数据库表 | 630 | `dbTables` |
 | schema 文件 | 242 | `dbSchemaFiles` |
 | API 路由 | 4744 | `apiRoutes` |
-| 路由文件 | 688 | `apiRouteFiles` |
+| 路由文件 | 689 | `apiRouteFiles` |
 | AI 服务路由 | 676 | `aiServiceRoutes` |
 | WebSocket 端点 | 29 | `wsEndpoints` |
 | 入库模型清单 | 100 | `llmModels` |
@@ -103,7 +103,7 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 工程守门 | 357 | `guardianGates` |
 | — blocking | 328 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 20874 | `trackedFiles` |
+| 跟踪文件 | 20899 | `trackedFiles` |
 
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-10。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -43982,3 +43982,11 @@ A: Yes. Test file and case counts: see the generated table / 67 e2e spec / 4721 
 | 跟踪文件 | 20851 | `trackedFiles` |
 | 测试文件 | 4822 | `testFiles` |
 | 跟踪文件 | 20862 | `trackedFiles` |
+| 路由文件 | 689 | `apiRouteFiles` |
+| 测试文件 | 4824 | `testFiles` |
+| 跟踪文件 | 20896 | `trackedFiles` |
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (58ff04350e)
+- 🐞 修复:收口 shard 下游 40 项测试红(checkpoints 拆层 + worktree 守卫次序 + 普查面对齐) (1d74cb4f50)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (51c0c84e6c)
+- ⚡ 性能:接线对账门多模式 grep 分片,真仓全量 43.8s→8.7s (b3b69ab321)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (c224f786e6)

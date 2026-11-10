@@ -17,8 +17,8 @@
  */
 import { decodeProtectedHeader, importJWK, jwtVerify } from 'jose'
 
-const APPLE_JWKS_URL = 'https://appleid.apple.com/auth/keys'
-const APPLE_ISSUER = 'https://appleid.apple.com'
+export const APPLE_JWKS_URL = 'https://appleid.apple.com/auth/keys'
+export const APPLE_ISSUER = 'https://appleid.apple.com'
 
 /** JWKS 本地缓存时长:Apple 轮换密钥时最多 6h 后生效;未知 kid 会立即强制刷新。 */
 const JWKS_CACHE_TTL_MS = 6 * 60 * 60 * 1000

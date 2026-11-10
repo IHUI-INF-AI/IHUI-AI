@@ -140,8 +140,10 @@ export const runMinimaxSessionSync = (): Promise<ClientSyncOutcome> =>
  * (probeClientActive / __test__.probeQoderClientActive,判据单源在工具层,本层零复算),
  * 收 JSON。任何失败/超时/解析不出 ⇒ 空表 ⇒ 逐平台按 null = 未判定 ⇒ scheduler 侧
  * keepAliveForeverVerdictOf 按「在跑」让位 —— 失效方向恒为「多让」,绝不因量不到而接管。
- * 探测的 provider 只有 trae/qoder(工具层探测器只有这两族);其余平台缺键 ⇒ null ⇒ 同样让位,
- * 这是已知覆盖面缺口(见交付报告风险项),不是 bug 复算。
+ * 探测的 provider = trae/qoder(工具层探测器只有这两族)+ minimax(2026-11-10 补接,
+ * 探测器同在那条回灌腿里,原先漏接 ⇒ 该平台恒「未判定」⇒ 恒让位 ⇒ 永不续期);
+ * 其余平台缺键 ⇒ null;`server` 续期档的平台由 scheduler 侧放行(见 keepAliveForeverVerdictOf),
+ * `client-first` 档仍按「在跑」让位。
  */
 const CLIENT_PROBE_TIMEOUT_MS = 30_000
 
@@ -152,12 +154,19 @@ export async function probeKeepAliveClientStates(): Promise<Record<string, boole
   const qoderUrl = pathToFileURL(
     resolvePath(REPO_ROOT, 'scripts', 'sync-qoder-client-session.mjs'),
   ).href
+  const minimaxUrl = pathToFileURL(
+    resolvePath(REPO_ROOT, 'scripts', 'sync-minimax-client-session.mjs'),
+  ).href
   const src =
     'const out={};' +
     `import(${JSON.stringify(traeUrl)}).then((m)=>{out.trae=m.probeClientActive();})` +
     '.catch(()=>{out.trae=null;})' +
     `.then(()=>import(${JSON.stringify(qoderUrl)})).then((m)=>{out.qoder=m.__test__.probeQoderClientActive();})` +
     '.catch(()=>{out.qoder=null;})' +
+    // minimax(2026-11-10 补):探测器在回灌腿里早就导出,原先没接 ⇒ 该平台恒「未判定」= 恒让位
+    // = 永不续期(与薄壳 scripts/relay-account-keepalive.mjs 的 probe 表必须同形,两处同源)。
+    `.then(()=>import(${JSON.stringify(minimaxUrl)})).then((m)=>{out.minimax=m.probeMinimaxClientActive();})` +
+    '.catch(()=>{out.minimax=null;})' +
     '.then(()=>{process.stdout.write(JSON.stringify(out));});'
   return await new Promise<Record<string, boolean | null>>((resolveP) => {
     const child = spawn(process.execPath, ['-e', src], {

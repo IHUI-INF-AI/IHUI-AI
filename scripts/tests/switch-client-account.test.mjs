@@ -196,6 +196,43 @@ test('③b --counts 走全池概览:参数互斥有牙,用法行不吞掉别档'
   assert.match(S.USAGE, /--list/)
 })
 
+test('③c --with-quota 透传实时额度:只与 --list 同用,互斥有牙,Trae 系如实拒', () => {
+  // 非 Trae 平台 --list:额度旗标透传到只读列池,落在 args 末尾
+  const quota = planCli(['--list', '--provider', 'workbuddy', '--with-quota'])
+  assert.equal(quota.ok, true)
+  assert.equal(quota.target, 'pool-list')
+  assert.equal(quota.args.at(-1), '--with-quota')
+
+  // 反向:不带该旗标时 args 不含它(既有列号路径零变化)
+  const plain = planCli(['--list', '--provider', 'workbuddy'])
+  assert.equal(plain.ok, true)
+  assert.ok(!plain.args.includes('--with-quota'))
+
+  // --with-quota 与 --current / --to / --counts 互斥,各一条红灯
+  const withCurrent = planCli(['--current', '--provider', 'workbuddy', '--with-quota'])
+  assert.equal(withCurrent.ok, false)
+  assert.equal(withCurrent.code, 2)
+  assert.match(withCurrent.error, /--with-quota 只与 --list 同用/)
+
+  const withTo = planCli(['--to', 'u-1', '--provider', 'workbuddy', '--with-quota'])
+  assert.equal(withTo.ok, false)
+  assert.equal(withTo.code, 2)
+
+  const withCounts = planCli(['--list', '--counts', '--with-quota'])
+  assert.equal(withCounts.ok, false)
+  assert.equal(withCounts.code, 2)
+  assert.match(withCounts.error, /互斥|只与/)
+
+  // Trae 系列号走 switch-trae-client-account.mjs 另一入口,该脚本不支持额度 ⇒ 如实 fail,不静默吞旗标
+  const traeQuota = planCli(['--list', '--provider', 'trae', '--with-quota'])
+  assert.equal(traeQuota.ok, false)
+  assert.equal(traeQuota.code, 2)
+  assert.match(traeQuota.error, /另一入口|switch-trae-client-account/)
+
+  // 用法面必须出现新旗标,否则人找不到出路
+  assert.match(S.USAGE, /--with-quota/)
+})
+
 test('④ 未知 provider / 缺 --to / 未知参数 ⇒ exit 2 并列出支持集', () => {
   const unknown = planCli(['--to', 'x', '--provider', 'nope'])
   assert.equal(unknown.ok, false)

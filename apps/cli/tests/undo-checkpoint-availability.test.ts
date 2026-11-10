@@ -33,10 +33,21 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  // Windows 上 0o444 是真只读,先恢复再删。
-  for (const entry of fs.readdirSync(ws, { withFileTypes: true })) {
-    if (entry.isFile()) fs.chmodSync(path.join(ws, entry.name), 0o666);
-  }
+  // Windows 上 0o444 是真只读;POSIX 上被冻结的目录(0o555)不恢复则 rmSync 会 EACCES。
+  // 自底向上逐层恢复:子目录内的文件先放回 0o666,再把目录放回 0o755。
+  const restore = (dir: string): void => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        restore(p);
+        fs.chmodSync(p, 0o755);
+      } else {
+        fs.chmodSync(p, 0o666);
+      }
+    }
+  };
+  restore(ws);
+  fs.chmodSync(ws, 0o755);
   fs.rmSync(ws, { recursive: true, force: true });
 });
 
@@ -51,11 +62,23 @@ function writeIndex(sessionId: string, raw: string): void {
 }
 
 function write(rel: string, content: string): void {
-  fs.writeFileSync(path.join(ws, rel), content, 'utf-8');
+  const p = path.join(ws, rel);
+  fs.mkdirSync(path.dirname(p), { recursive: true });
+  fs.writeFileSync(p, content, 'utf-8');
 }
 
+/**
+ * 制造「写入失败」。
+ * 生产侧回放已升级为原子写(同目录 tmp + rename),POSIX 上 rename 覆盖只读文件只受
+ * **目录**写权限约束 —— 单冻目标文件(0o444)在 Linux 上挡不住它,回退会误报成功。
+ * 因此同时冻结父目录,让 tmp 的 O_EXCL 创建如实落在 EACCES;Windows 上 chmod 目录
+ * 不生效,但 0o444 文件 + rename EPERM 那条仍在,两侧都落到「写入失败」。
+ * 断言一字未动,只换夹具制造失败的方式(保持「可用但执行失败」这条契约的射程)。
+ */
 function freeze(rel: string): void {
-  fs.chmodSync(path.join(ws, rel), 0o444);
+  const p = path.join(ws, rel);
+  fs.chmodSync(p, 0o444);
+  fs.chmodSync(path.dirname(p), 0o555);
 }
 
 function claimOf(res: Awaited<ReturnType<UndoRedoManager['undo']>>): string {
@@ -245,20 +268,21 @@ describe('D22046 /undo 撤销前的检查点探测(集成)', () => {
 
   it('③ 检查点可用、写入失败 ⇒ 仍是 available(与"不可用"分得开)', async () => {
     const mgr = new UndoRedoManager(ws);
-    write('a.txt', 'a2');
-    write('b.txt', 'b2');
-    freeze('a.txt');
-    freeze('b.txt');
+    // 放进子目录:冻结的是它父目录,ws 根保持可写,`persist` 写 undo-history 不受牵连。
+    write('blocked/a.txt', 'a2');
+    write('blocked/b.txt', 'b2');
+    freeze('blocked/a.txt');
+    freeze('blocked/b.txt');
     mgr.recordChange(SESSION, {
       toolName: 'edit_file',
-      filePath: 'a.txt',
+      filePath: 'blocked/a.txt',
       beforeContent: 'a1',
       afterContent: 'a2',
       timestamp: 1,
     });
     mgr.recordChange(SESSION, {
       toolName: 'edit_file',
-      filePath: 'b.txt',
+      filePath: 'blocked/b.txt',
       beforeContent: 'b1',
       afterContent: 'b2',
       timestamp: 2,

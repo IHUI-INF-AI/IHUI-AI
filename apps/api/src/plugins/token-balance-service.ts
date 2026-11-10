@@ -86,7 +86,7 @@ function getVipBenefit(vipLevel: number) {
  * 与 deductTokens 共用同一套 SQL 语义;抽成独立导出函数是为了让没有 Fastify server
  * 的调用方(Crew 子 LLM)也能接上真实扣费链路,而不是只记统计表。
  */
-async function deductWalletTokens(input: {
+export async function deductWalletTokens(input: {
   userId: string
   amount: number
   reason?: string
@@ -207,7 +207,9 @@ export async function settleWalletUsage(input: {
         tokenQuantity: sql`${userMargins.tokenQuantity} - ${deducted}`,
         updatedAt: new Date(),
       })
-      .where(and(eq(userMargins.userId, userId), sql`${userMargins.tokenQuantity} >= ${deducted}`))
+      .where(
+        and(eq(userMargins.userId, userId), sql`${userMargins.tokenQuantity} >= ${deducted}`),
+      )
       .returning({ tokenQuantity: userMargins.tokenQuantity })
 
     if (updated.length === 0) {
