@@ -1076,11 +1076,9 @@ export interface StageOption {
 
 /** StudyPublishScreen props(平台无关,wrapper 注入数据+回调) */
 export interface StudyPublishScreenProps {
-  t: TFunction
   colorScheme?: 'light' | 'dark'
   mode: 'group' | 'video'
   onModeChange: (mode: 'group' | 'video') => void
-  onBack?: () => void
   // Group form
   groupTitle: string
   groupContent: string
