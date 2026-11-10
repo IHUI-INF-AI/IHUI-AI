@@ -81,13 +81,13 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 4821 | `testFiles` |
+| 测试文件 | 4825 | `testFiles` |
 | CI 工作流 | 59 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 357 | `guardianGates` |
 | — blocking | 328 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 20866 | `trackedFiles` |
+| 跟踪文件 | 20873 | `trackedFiles` |
 
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-10。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -98,6 +98,12 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-10**
+- 🐞 Fix:typecheck-full 清缓存增补 .DevEnv/.workbuddy 排除——T1 被看门狗终止的真凶实测定位(cleanTsbuildinfo 对盘根 57000+ 子目录的 .DevEnv 深递归,30s 超时都跑不完);排除后 1248ms 过,全量轮 180s 完成落回执 (c592e24ceb)
+
+**2026-11-10**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (0e10f84bd0)
+
 **2026-11-10**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (ffb5f20a82)
 - 🐞 Fix:iOS 站点腿根因三修——出口腿现测借道/取不到不再冒充形状坏/告警身份摘小时数 (4e49779e1d)
@@ -163,12 +169,6 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 **2026-11-10**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (adf9c835cf)
-
-**2026-11-10**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (d2cb6d426c)
-
-**2026-11-10**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (1fc4f840f0)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
