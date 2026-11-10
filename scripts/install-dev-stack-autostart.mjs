@@ -6,6 +6,8 @@
 //
 // 用途(2026-09-22 起,2026-09-23 改造):Windows 登录后自动起 `dev-stack.mjs --watch --device`,
 //   每 30s 体检自愈 + 周期重建 adb reverse。npm script: pnpm dev:stack:autostart
+// 2026-11-10 机主令禁常驻白占 ⇒ 本入口默认拒注,仅 IHUI_DEV_AUTOSTART_OWNER_ALLOW=1
+//   显式放行(判据单源 scripts/lib/dev-stack-residency-policy.mjs,镜像测试钉住接线)
 //
 // 为什么从「启动夹 VBS 隐藏窗口」改成「S4U 非交互计划任务」(2026-09-23 用户硬要求:
 // 一扇窗也不许弹,同时自愈不许降速):
@@ -31,6 +33,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { resolveTaskNodeAnchor } from './lib/task-node-anchor.mjs';
+import { judgeDevAutostart } from './lib/dev-stack-residency-policy.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const TASK_NAME = 'IHUI-DevStack';
@@ -123,6 +126,13 @@ function stopLegacyWatcher() {
 }
 
 function install() {
+  const residency = judgeDevAutostart({ env: process.env });
+  if (!residency.allowed) {
+    console.error(`[dev-stack:autostart] 拒绝注册:${residency.why}`);
+    console.error('[dev-stack:autostart] 按需启动: pnpm dev · 用完停止: pnpm dev:safe:stop');
+    process.exitCode = 1;
+    return;
+  }
   const anchor = resolveTaskNodeAnchor({
     execPath: process.execPath,
     pathEntries: String(process.env.PATH ?? '').split(path.delimiter),

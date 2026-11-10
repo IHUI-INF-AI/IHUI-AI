@@ -178,6 +178,7 @@ UI 改动必须真机/真浏览器验证(截图或 e2e),禁止只凭代码审查
 - **17b e2e skip 制度化 + 固定等待条件化**:允许 skip 的条件见 `apps/web/e2e/SKIP-WAIT-POLICY.md`,台账 `apps/web/e2e/skip-register.json`;skip 必须带 ≥8 字理由 **且** `[SKIP:<id>]`(ENV 引用 envRefs / BUG 引用 status=open 的缺陷),裸 skip 或无编号 skip 一律判失败。固定等待只能用于不可观察的计时窗口,且紧邻 `// WAIT-POLICY:TIMING-<id> <理由>`;等加载/登录/接口/元素一律改 `expect.poll` / `locator.waitFor` / 自动重试断言。守门 311 `check-e2e-skip-wait-policy.mjs`(blocking,`stagedTriggers: apps/web/e2e/`、`apps/web/tests/visual/` 与台账/判据面)。
 ## 18. 启动项目语义(强制)
 "启动项目"= `pnpm dev` 全栈(web+api+ai-service);单端启动须显式说端名。`dev`/`dev:clean`/`dev:stable` 三条入口统一走启动器(拿锁在 spawn 前)。
+- **常驻服务按需启停(2026-11-10 机主令)**:开发服务只在有人用时跑,收尾必须 `pnpm dev:safe:stop` 停掉;禁止开机自启常驻白占(IHUI-DevStack / IHUI-DevStackWatchdog / IHUI-ImageCDN-Watch 三任务已禁用;自启安装器与看门狗默认拒注/拒复活,判据单源 `scripts/lib/dev-stack-residency-policy.mjs`,仅 `IHUI_DEV_AUTOSTART_OWNER_ALLOW=1` 显式放行)。
 ## 19. i18n 约束规则(强制)
 - 翻译文件语言纯度:zh-TW/ko 阻塞中文残留、ja warn(`scan-i18n-zh-residue.mjs`);en 破损检测 `check-i18n-broken-en.mjs`;parity `check-i18n-keys.mjs`(五语言键集对齐);**新增状态词必须同批补齐五语言**,禁止端内硬编码中文(`scan-hardcoded-zh.mjs` 70,基线棘轮)。
 - **JSON 重复键禁止**:JSON.parse last-wins 静默遮蔽;同层重复键守门 `check-i18n-duplicate-namespaces.mjs`(2e-dupns,blocking)。
