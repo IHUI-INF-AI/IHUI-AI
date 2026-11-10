@@ -329,7 +329,8 @@ export function MessageInput({
     const convId = chatStore.getState().conversationId
     const draft = peekInitialDraft(convId ? `chat:draft:${convId}` : 'chat:draft')
     if (draft) setValue(draft)
-  }, [])
+    // chatStore 是模块级单例(引用稳定),列进依赖只为满足 exhaustive-deps;仍只跑一次。
+  }, [chatStore])
   const [slashOpen, setSlashOpen] = React.useState(false)
   const [mentionOpen, setMentionOpen] = React.useState(false)
   // D68 统一多源建议面板:单一聚合入口(工具栏按钮),旧三浮层入口原样保留不回归。
