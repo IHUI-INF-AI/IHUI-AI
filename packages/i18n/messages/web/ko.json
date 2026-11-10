@@ -12968,7 +12968,16 @@
     "reviewTargetSnippet": "붙여넣은 스니펫",
     "reviewTargetSnippetLabel": "리뷰할 코드 스니펫",
     "reviewTargetSnippetPlaceholder": "리뷰할 코드를 붙여넣으세요…",
-    "reviewTargetClear": "리뷰 대상 지우기"
+    "reviewTargetClear": "리뷰 대상 지우기",
+    "superAgentPanelTitle": "슈퍼 에이전트",
+    "superAgentEmpty": "대기 중 항목 없음",
+    "superAgentStageIdle": "자동 실행 중",
+    "superAgentStop": "이 작업 중지",
+    "superAgentVerdictAct": "조치 필요",
+    "superAgentVerdictIgnore": "무시 가능",
+    "superAgentVerdictUnclear": "판단 불명",
+    "superAgentApprove": "승인",
+    "superAgentQuietDrops": "추가로 {{count}}건이 조용히 삭제되었습니다"
   },
   "chatHistory": {
     "moveToGroup": "그룹으로 이동",

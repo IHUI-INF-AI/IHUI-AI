@@ -164,7 +164,7 @@ export function InlineQuestionCard({ question, onSubmit, className }: InlineQues
       // Esc 只拦卡内按键,不注册全局快捷键
       onKeyDownCapture={handleCardKeyDown}
       className={cn(
-        'mx-auto w-full max-w-3xl rounded-xl border border-border/70 bg-card/95 p-3 text-sm shadow-sm',
+        'font-[weight:inherit] mx-auto w-full max-w-3xl rounded-lg border border-border/70 bg-card/95 p-3 text-body shadow-sm',
         'focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/20',
         className,
       )}

@@ -109,7 +109,7 @@ async def _account_credential(account_id: int) -> tuple[str, dict[str, Any]]:
     """从本机号池解密凭据;jwt 绝不放进任何 MCP 返回体。"""
     acc = await checkin_store.get_decrypted_jwt(account_id, DEFAULT_OWNER)
     if acc is None:
-        raise RuntimeError(f"账号不存在或不属于本属主: {account_id}")
+        raise ValueError(f"account_id={account_id} 在本机号池无解密凭据(owner={DEFAULT_OWNER})")
     device_map = acc.get("device_map") or {}
     if isinstance(device_map, str):
         device_map = json.loads(device_map)

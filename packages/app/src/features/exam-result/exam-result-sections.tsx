@@ -167,8 +167,9 @@ export function ExamResultActions({
     { key: 'list', label: t('examResult.viewList'), onPress: onViewList, primary: false },
   ].filter((action) => !!action.onPress)
 
-  const shareSlot = shareAction ?? (
-    onShare ? (
+  const shareSlot =
+    shareAction ??
+    (onShare ? (
       <Pressable
         key="share"
         accessibilityRole="button"
@@ -177,8 +178,7 @@ export function ExamResultActions({
       >
         <Text style={styles.actionGhostText}>{t('examResult.share')}</Text>
       </Pressable>
-    ) : null
-  )
+    ) : null)
 
   if (actions.length === 0 && !shareSlot) return null
 
@@ -270,7 +270,7 @@ function createStyles(tk: AppThemeTokens) {
       minWidth: 96,
       alignItems: 'center',
       paddingVertical: rnSpacing.sm,
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadius.sm,
       borderWidth: 1,
     },
     actionPrimary: {

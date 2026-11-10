@@ -7204,8 +7204,7 @@
     "statusPending": "Pending",
     "statusApproved": "Approved",
     "statusRejected": "Rejected"
-  }
-,
+  },
   "level": {
     "0": "Novice",
     "1": "Bronze",

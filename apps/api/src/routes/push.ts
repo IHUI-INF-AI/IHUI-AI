@@ -92,16 +92,25 @@ export const pushRoutes: FastifyPluginAsync = async (server) => {
       .object({ deviceToken: z.string().min(1).max(500) })
       .parse(request.body)
     // 归属校验:WHERE 必须同时带 token 与 user_id,否则知道他人 device token 即可静默停掉对方推送
-    const rows = await db
-      .update(deviceTokens)
-      .set({ isActive: false, updatedAt: new Date() })
+    const [current] = await db
+      .select({ id: deviceTokens.id, isActive: deviceTokens.isActive })
+      .from(deviceTokens)
       .where(and(eq(deviceTokens.token, deviceToken), eq(deviceTokens.userId, request.userId!)))
-      .returning({ id: deviceTokens.id })
-    const removed = rows.length
-    if (removed === 0) {
+      .limit(1)
+    if (!current) {
       return reply.status(404).send(error(404, '设备不存在或不属于当前用户'))
     }
-    return reply.send(success({ unregistered: true, removed }))
+    // G-998153 出口形态:先取现值、按键比较,只有真变化才写 —— 已停用设备的重复注销
+    // 不再空转 UPDATE 推进 updatedAt(增量读消费源),应答契约不变(仍 unregistered:true, removed:1)。
+    const changed: { isActive?: boolean } = {}
+    if (current.isActive) changed.isActive = false
+    if (Object.keys(changed).length > 0) {
+      await db
+        .update(deviceTokens)
+        .set({ ...changed, updatedAt: new Date() })
+        .where(and(eq(deviceTokens.token, deviceToken), eq(deviceTokens.userId, request.userId!)))
+    }
+    return reply.send(success({ unregistered: true, removed: 1 }))
   })
 
   // GET /push/provider - 查询当前推送 provider

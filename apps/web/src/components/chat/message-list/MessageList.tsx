@@ -65,6 +65,9 @@ import { CompactionBoundaryReview } from '../compaction-boundary-review'
 // 本组件不再手算 `offsets[len] - offsets[end+1]`。
 import { listItemEntranceMotion, windowPaddings } from '../windowing'
 import { useMessageListScroll } from './use-message-list-scroll'
+// 滚动视口上下边缘淡出(2026-11-10 立,多端一致规格:纯渐变 24px,仅溢出方向显示;
+// 与侧栏菜单共用同一组件,web/RN/小程序三端同参数)
+import { ScrollEdgeFades } from '@/components/common/ScrollEdgeFades'
 import { useMessageListDerivations } from './use-message-list-derivations'
 import { useMessageListSearch } from './use-message-list-search'
 import { useMessageListContextMenu } from './use-message-list-context-menu'
@@ -837,7 +840,12 @@ export function MessageList({
       <PictureInPictureSection conversationId={conversationId} />
       {/* D45 档位切换胶囊(2026-09-24 立):消息流顶部工具区,紧凑三选一,持久化 */}
       <DetailModeSwitcher />
-      {inlinePanelNode}
+      {/* relative 包裹层:ScrollEdgeFades 绝对定位钉在消息滚动视口上/下边缘,不随内容滚动;
+          滚动由消息容器自身 overflow-y-auto 承担(与侧栏菜单淡出同构) */}
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        {inlinePanelNode}
+        <ScrollEdgeFades scrollRef={containerRef} />
+      </div>
       {/* D45(2026-09-24 立,G-54):ambient suggestions 环境建议条。
           2026-11-04 第三轮:从滚动内容尾部移到滚动容器**下方**的常驻带。
           旧落点的问题:建议条是消息流最后一行,会话变窄/变长时这一行会被滚动视口底边
