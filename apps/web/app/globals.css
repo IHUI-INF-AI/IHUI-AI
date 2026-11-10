@@ -169,32 +169,57 @@
   font-display: swap;
   src: url('/fonts/HarmonyOS_SansSC_Light.subset.woff2') format('woff2');
 }
+/* ── 2026-11-10 分档宽子集(界面「一粗一细不像一个字体」的根治) ─────────────────────
+ * 旧档:5 面全部只打「源代码里出现过的字符」(实测 4016 码位 / 汉字 2292,GB2312 一级
+ * 3755 字里缺 2178)。运行时动态中文(昵称、知识库标题、AI 回答、Agent 名称)因此成片
+ * 落回退链换系统字体渲染,同一行里两种字面并存。真 Chromium 夹具已复现(缺字率 4%–26%)。
+ * 新档(按字重分体积档,数字为本次实测产物):
+ *   Regular(400)  982KB  源码扫描 ∪ GB2312 一级 ∪ 二级(8703 码位 / 汉字 7122)——正文全覆盖
+ *   Medium(500)   582KB  源码扫描 ∪ GB2312 一级(5766 码位)——强调/次级标题
+ *   Bold(600–700) 585KB  同上,并显式认领 600(本家族官方无 Semibold 面)
+ *   Thin(100)/Light(300) 373/375KB 维持窄档原位刷新(全站几乎不用,不为它付体积)
+ * 营销首页另有更窄的 Home 子集(FEO 决策,213KB),本文件不碰;两侧字形同源,不会互相换脸。
+ * 重生成唯一出口: python scripts/subset-fonts.py(含缺字哨兵自检,缺字即非零退出)。 */
 @font-face {
   font-family: 'HarmonyOS Sans SC';
   font-weight: 400;
   font-style: normal;
   font-display: swap;
-  src: url('/fonts/HarmonyOS_SansSC_Regular.subset.woff2') format('woff2');
+  src: url('/fonts/HarmonyOS_SansSC_Regular.gb2312-l12.woff2') format('woff2');
 }
 @font-face {
   font-family: 'HarmonyOS Sans SC';
   font-weight: 500;
   font-style: normal;
   font-display: swap;
-  src: url('/fonts/HarmonyOS_SansSC_Medium.subset.woff2') format('woff2');
+  src: url('/fonts/HarmonyOS_SansSC_Medium.gb2312-l1.woff2') format('woff2');
 }
+/* 2026-11-10 诚实化:本家族没有 Semibold 面(HarmonyOS Sans 官方只开放 6 个字重
+ * Thin100/Light300/Regular400/Medium500/Bold700/Black900,无 600)。设计档位表 typography.ts 的
+ * badge/title/subtitle 与全站 font-semibold 请求的都是 600,按 CSS 字体匹配规则(目标 >500
+ * 先向上取)原本就隐式落到 Bold 面——真浏览器截图实测「请求 600」与「请求 700」渲染同形。
+ * 这里把该事实写进声明(font-weight: 600 700),渲染结果不变,但:
+ *   ① 600 不再依赖浏览器的隐式猜测;
+ *   ② 字体守门 scripts/check-typography-face-coverage.mjs 可据此对账「每个被请求的字重都有面」;
+ *   ③ 日后若补入真 Semibold 面,必须把本行收窄回 700 并同步档位表,否则 600 会被这里继续抢走。 */
 @font-face {
   font-family: 'HarmonyOS Sans SC';
-  font-weight: 700;
+  font-weight: 600 700;
   font-style: normal;
   font-display: swap;
-  src: url('/fonts/HarmonyOS_SansSC_Bold.subset.woff2') format('woff2');
+  src: url('/fonts/HarmonyOS_SansSC_Bold.gb2312-l1.woff2') format('woff2');
 }
 
+/* EDIX 是单面 display 字体(只有一个字面,无 Bold)。原声明 font-weight: normal 时,
+ * 任何加粗请求(首页 hero 的 font-edix + font-bold)都会让浏览器做**合成加粗**(faux bold):
+ * 把唯一的面用描边算法涨粗,笔画互相粘连、字距发糊,与同一版面上 HarmonyOS 的真 Bold 摆在一起
+ * 就是「看着不像一个字体」里最扎眼的那一半。
+ * 修法=把这张唯一的面显式声明为覆盖 400–700,浏览器据此直接取面、不再合成;真浏览器截图对照:
+ * 关闭合成后 EDIX 大字笔画更锐利、层级没有变虚(EDIX 本身就是高对比几何 display 字体)。 */
 @font-face {
   font-family: 'EDIX';
   src: url('/fonts/EDIX.woff2') format('woff2');
-  font-weight: normal;
+  font-weight: 400 700;
   font-style: normal;
   font-display: swap;
   /* 拉丁字符范围 — 包含 U+0180-024F 拉丁扩展-B(MIGRATION_INTEGRITY_REPORT §6.2 P0-4 修复) */

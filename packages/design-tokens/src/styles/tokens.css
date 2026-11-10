@@ -28,8 +28,19 @@
  */
 
 @theme {
+  /* 2026-11-10 补中文现代黑体回退族(字体不和谐的现行病灶之一):
+   * 本栈首位 'HarmonyOS Sans SC' 是**子集**字体(实测码位表 4016 个,其中汉字 2292),
+   * 运行时动态中文(用户昵称、知识库标题、AI 回答、Agent 名称)大量落在子集之外。
+   * 原栈在 HarmonyOS 之后直接进 ui-sans-serif/system-ui/Segoe UI/Roboto/Arial 这类拉丁族,
+   * 中文缺字只能靠浏览器的 per-script 兜底去找"系统默认 sans-serif"——
+   * 这台默认被设成宋体/衬线的机器、或 fontconfig 把 sans-serif 指到思源**宋**的 Linux 上,
+   * 缺的字就当场换成另一款字体,与同一行里子集内的字粗细、字面率全不一致(=用户看到的"一个粗一个细")。
+   * 这里把各平台确定的**现代黑体**显式排在拉丁族之前,让缺字永远落到同一种气质的黑体:
+   * PingFang SC(macOS/iOS)→ Microsoft YaHei(Windows)→ Noto/Source Han Sans SC(Android/Linux)
+   * → Hiragino Sans GB 兜底。根治仍须扩子集覆盖面(见 scripts/subset-fonts.py 与本轮交付报告)。 */
   --font-sans:
-    'HarmonyOS Sans SC', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    'HarmonyOS Sans SC', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', 'Source Han Sans SC',
+    'Hiragino Sans GB', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
     Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
   /* 简体中文专用字体栈(中文 glyph 优先匹配,确保 ink 中心一致)
      - 优先 HarmonyOS Sans SC(本项目自托管,固定 ink 中心)

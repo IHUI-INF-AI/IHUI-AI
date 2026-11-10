@@ -29,7 +29,13 @@ import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 const NOW = Date.parse('2026-11-03T04:00:00.000Z')
 
-function harness({ status, stdout = '', stderr = '', seedFirstMs = null, scratchName = 'ios-relay' } = {}) {
+function harness({
+  status,
+  stdout = '',
+  stderr = '',
+  seedFirstMs = null,
+  scratchName = 'ios-relay',
+} = {}) {
   const scratch = mkScratch(scratchName)
   const tickFile = join(scratch, 'tick.ts')
   const firstFile = join(scratch, 'first.json')
@@ -50,7 +56,11 @@ function harness({ status, stdout = '', stderr = '', seedFirstMs = null, scratch
 }
 
 test('R1 rc0 ⇒ published,不发信,持续台账被清', () => {
-  const h = harness({ status: 0, stdout: '[ipa] ✓ 登记腿 registered', seedFirstMs: NOW - 3_600_000 })
+  const h = harness({
+    status: 0,
+    stdout: '[ipa] ✓ 登记腿 registered',
+    seedFirstMs: NOW - 3_600_000,
+  })
   assert.equal(h.result.state, 'published')
   assert.equal(h.calls.length, 0)
   assert.equal(existsSync(h.firstFile), false, '成功后必须清持续台账,否则下次故障从旧起点起算')
@@ -87,6 +97,42 @@ test('R4 rc2 持续 72h+ ⇒ 升格喊人,身份固定不随小时数抖', () =>
   rmScratch(h.scratch)
 })
 
+test('R4b 升格标题禁止携带小时数(2026-11-05~09 实测:名字带小时 ⇒ 每小时换身份寄了 17 封)', () => {
+  for (const hoursAgo of [73, 84, 117, 200]) {
+    const h = harness({
+      status: 2,
+      stderr: '[ipa] ✗ 未判定:version-asset-net:ECONNRESET@github.com —— 不发布',
+      seedFirstMs: NOW - hoursAgo * 3_600_000,
+      scratchName: `ios-relay-hours-${hoursAgo}`,
+    })
+    assert.equal(h.calls.length, 1, `${hoursAgo}h 应当喊`)
+    assert.doesNotMatch(
+      h.calls[0].title,
+      /\d+\s*小时/,
+      `标题里不许有小时数(档/小时数只能进正文):${h.calls[0].title}`,
+    )
+    assert.match(h.calls[0].title, /version-asset-net/, '标题必须挂执行器真原因码')
+    assert.equal(
+      String(h.calls[0].opts.dedupKey),
+      'verdict=undetermined;escalated=72h+',
+      'dedupKey 恒静态,小时数与档都不进身份',
+    )
+    rmScratch(h.scratch)
+  }
+})
+
+test('R4c 原因码取不到时落诚实名 no-reason-line(不冒充具体分类)', () => {
+  const h = harness({
+    status: 2,
+    stderr: '✗ 未判定:version-asset-没有这个码',
+    seedFirstMs: NOW - 80 * 3_600_000,
+    scratchName: 'ios-relay-nocode',
+  })
+  assert.equal(h.calls.length, 1)
+  assert.match(h.calls[0].title, /原因码=no-reason-line/)
+  rmScratch(h.scratch)
+})
+
 test('R5 节流窗口内不第二次派发', () => {
   const first = harness({ status: 0, scratchName: 'ios-relay-throttle' })
   let dispatched = false
@@ -112,7 +158,10 @@ test('R6 装车锁:定义/调用/出口/env 覆盖/执行器在位,五项齐', (
   assert.match(src, /if \(!CHECK_ONLY\) sweepIosIpaRelay\(\)/, '必须挂在巡检轮体内(与同族腿同函数)')
   assert.match(src, /sweepIosIpaRelay,\n/, '必须在出口表里')
   assert.match(src, /IHUI_IOS_RELAY_INTERVAL_MS/, '节流可由 env 覆盖')
-  assert.ok(existsSync(join(import.meta.dirname, '..', 'publish-mobile-ipa.mjs')), '派发的目标必须真在位(门 89 R7 同型)')
+  assert.ok(
+    existsSync(join(import.meta.dirname, '..', 'publish-mobile-ipa.mjs')),
+    '派发的目标必须真在位(门 89 R7 同型)',
+  )
 })
 
 test('R7 执行器契约锁:未判定归 exit 2、真失败归 1(两档混了就会天天喊或永远不喊)', () => {

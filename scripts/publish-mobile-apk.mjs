@@ -51,7 +51,14 @@
  *        app_versions 未登记/登记执行失败)/ 2 未判定(缺参数、APK、站点落点,或参数做不出合法登记行)
  */
 import { createHash } from 'node:crypto'
-import { copyFileSync, createReadStream, existsSync, statSync, writeFileSync } from 'node:fs'
+import {
+  copyFileSync,
+  createReadStream,
+  existsSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -196,18 +203,23 @@ export async function verifySiteLegLive({
   if (r.status !== 302) throw new Error(`固定地址未按 302 应答: HTTP ${r.status} (${latestUrl})`)
   const loc = r.headers.get('location') || ''
   if (!loc.startsWith('https://')) throw new Error(`302 目标不是 https: ${loc || '(缺 Location)'}`)
-  if (expectVersionCode && !loc.includes(`-${expectVersionCode}${ext}`)) throw new Error(`固定地址仍指向旧包: ${loc}`)
+  if (expectVersionCode && !loc.includes(`-${expectVersionCode}${ext}`))
+    throw new Error(`固定地址仍指向旧包: ${loc}`)
   const f = await fetchImpl(loc, { headers: { range: 'bytes=0-0' }, signal: signal() })
   await f.body?.cancel().catch(() => {})
   const ct = f.headers.get('content-type') || ''
-  if (f.status !== 200 && f.status !== 206) throw new Error(`版本副本公网取不到: HTTP ${f.status} (${loc})`)
-  if (!ct.includes(contentTypeNeedle)) throw new Error(`公网 Content-Type=${ct || '(空)'},不是 ${expectLabel} —— 多半落到占位图/缺文件`)
+  if (f.status !== 200 && f.status !== 206)
+    throw new Error(`版本副本公网取不到: HTTP ${f.status} (${loc})`)
+  if (!ct.includes(contentTypeNeedle))
+    throw new Error(
+      `公网 Content-Type=${ct || '(空)'},不是 ${expectLabel} —— 多半落到占位图/缺文件`,
+    )
   const cr = f.headers.get('content-range') || ''
   const remote = Number(cr.includes('/') ? cr.split('/')[1] : f.headers.get('content-length') || 0)
-  if (expectSize && remote !== Number(expectSize)) throw new Error(`公网回读大小不符: 本地 ${expectSize} / 公网 ${remote}`)
+  if (expectSize && remote !== Number(expectSize))
+    throw new Error(`公网回读大小不符: 本地 ${expectSize} / 公网 ${remote}`)
   return { location: loc, status: f.status, contentType: ct, size: remote }
 }
-
 
 /** 版本副本的 key:ihui-ai-<version>-<code>.apk(与历史手工命名保持一致;ext 供 .ipa 复用) */
 export function versionKey(version, versionCode, { ext = 'apk' } = {}) {
@@ -224,17 +236,47 @@ export function versionKey(version, versionCode, { ext = 'apk' } = {}) {
 /**
  * 从发布进程环境选登记腿:DATABASE_URL(db 腿)优先,其次 IHUI_ADMIN_TOKEN(api 腿)。
  * 只回凭据**名**;值仅用于传给登记器物自身的腿,永不进日志/告警正文(§5e:输出恒脱敏)。
+ * env 两把皆空 ⇒ 点读仓内标准配置面 .env(守护/服务身份下 env 常残缺,2026-11-10 iOS 腿实测
+ * 发布链跑到登记前一切正常、只缺这一把键;`.env` 是本仓既定凭据落点,§5d/§5f 同族手法)。
+ * 值同样绝不进日志;文件缺失/无键 ⇒ 维持原"无凭据"结论,不猜不落绿。
  */
-export function registerLegFromEnv(env = process.env) {
+export function registerLegFromEnv(env = process.env, opts = {}) {
   const dbUrl = String(env.DATABASE_URL ?? '').trim()
   if (dbUrl) return { leg: 'db', credential: 'DATABASE_URL', value: dbUrl }
   const token = String(env.IHUI_ADMIN_TOKEN ?? '').trim()
   if (token) return { leg: 'api', credential: 'IHUI_ADMIN_TOKEN', value: token }
+  const read = opts.readText ?? ((p) => readFileSync(p, 'utf-8'))
+  // 默认用真文件系统探存在;测试注入 readText 时直接让 read 自己抛(夹具不需同时伪造 exists)
+  const has = opts.exists ?? (opts.readText ? () => true : existsSync)
+  const files = opts.envFiles ?? [join(REPO, '.env'), join(REPO, 'apps', 'api', '.env')]
+  for (const key of ['DATABASE_URL', 'IHUI_ADMIN_TOKEN']) {
+    for (const f of files) {
+      let v = ''
+      try {
+        if (!has(f)) continue
+        const m = new RegExp(`^${key}=(.*)$`, 'm').exec(read(f))
+        v = (m ? m[1] : '')
+          .trim()
+          .replace(/^"(.*)"$/, '$1')
+          .replace(/^'(.*)'$/, '$1')
+      } catch {
+        continue
+      }
+      if (v)
+        return { leg: key === 'DATABASE_URL' ? 'db' : 'api', credential: `${key}(.env)`, value: v }
+    }
+  }
   return { leg: null, credential: null, value: '' }
 }
 
 /** 唯一可复制整改命令:只含参数与 env 名,绝不含凭据值。 */
-export function registerRemediationCommand({ version, versionCode, latestKey = LATEST_KEY, platform, downloadUrl }) {
+export function registerRemediationCommand({
+  version,
+  versionCode,
+  latestKey = LATEST_KEY,
+  platform,
+  downloadUrl,
+}) {
   const platArg = platform ? ` --platform ${platform}` : ''
   const url = downloadUrl || siteLegUrl(latestKey)
   return (
@@ -264,7 +306,9 @@ export async function registerAppVersionAfterPublish({
   const buildNumber = Number(versionCode)
   const bad = validateDesired({ platform, version, buildNumber, downloadUrl })
   if (bad.length > 0) throw new Error(`登记参数不合规: ${bad.join('; ')}`)
-  const sel = (deps.registerLegFromEnv ?? registerLegFromEnv)(env)
+  // registerLegOpts 只供测试把 .env 兜底夹具化(envFiles:[] 隔离生产配置面);生产不传,走默认两把 .env
+  const sel = (deps.registerLegFromEnv ?? registerLegFromEnv)(env, deps.registerLegOpts ?? {})
+
   if (!sel.leg) return { status: 'unregistered', leg: null }
   const desired = { platform, version, buildNumber, downloadUrl }
   if (sel.leg === 'db') {
@@ -282,7 +326,12 @@ export async function registerAppVersionAfterPublish({
       }
     }
   }
-  const r = await (deps.applyViaApi ?? applyViaApi)({ baseUrl, token: sel.value, ...desired, apply: true })
+  const r = await (deps.applyViaApi ?? applyViaApi)({
+    baseUrl,
+    token: sel.value,
+    ...desired,
+    apply: true,
+  })
   return { status: r.wrote ? 'registered' : 'noop', leg: 'api', plan: r.plan }
 }
 
@@ -381,7 +430,9 @@ async function main() {
     downloadUrl,
   })
   if (regBad.length > 0) {
-    console.error('未判定: 发布参数做不出合法 app_versions 登记行 ⇒ 拒绝落包\n  - ' + regBad.join('\n  - '))
+    console.error(
+      '未判定: 发布参数做不出合法 app_versions 登记行 ⇒ 拒绝落包\n  - ' + regBad.join('\n  - '),
+    )
     return 2
   }
   const size = statSync(args.apk).size
@@ -397,8 +448,12 @@ async function main() {
 
   const sizeMB = (size / 1048576).toFixed(1)
   console.log(`[publish] ${args.apk} (${sizeMB} MB, sha256=${sha.slice(0, 16)}…)`)
-  console.log(`[publish]   站点腿 ${vKey}  →  ${siteLegUrl(vKey)}  (落点 ${plan.chosen.dir}, 取自 ${plan.chosen.source})`)
-  console.log(`[publish]   站点腿固定地址指针 ${LATEST_KEY}.redirect.json → ${siteLegUrl(LATEST_KEY)}`)
+  console.log(
+    `[publish]   站点腿 ${vKey}  →  ${siteLegUrl(vKey)}  (落点 ${plan.chosen.dir}, 取自 ${plan.chosen.source})`,
+  )
+  console.log(
+    `[publish]   站点腿固定地址指针 ${LATEST_KEY}.redirect.json → ${siteLegUrl(LATEST_KEY)}`,
+  )
 
   if (args.dryRun) {
     const sel = registerLegFromEnv()
@@ -412,19 +467,35 @@ async function main() {
   }
 
   // 版本名先落盘,指针最后翻(顺序反了等于把用户 302 到一个还不存在的文件)
-  const site = publishSiteLeg({ apk: args.apk, dir: plan.chosen.dir, version: args.version, versionCode: args.versionCode, sha256: sha, size })
-  console.log(`[publish] ✓ 站点腿 ${site.vKey} (${(statSync(site.target).size / 1048576).toFixed(1)} MB, 回读一致)`)
+  const site = publishSiteLeg({
+    apk: args.apk,
+    dir: plan.chosen.dir,
+    version: args.version,
+    versionCode: args.versionCode,
+    sha256: sha,
+    size,
+  })
+  console.log(
+    `[publish] ✓ 站点腿 ${site.vKey} (${(statSync(site.target).size / 1048576).toFixed(1)} MB, 回读一致)`,
+  )
   console.log(`[publish] ✓ 指针已翻 → ${site.pointer.url}`)
   const live = await verifySiteLegLive({ expectSize: size, expectVersionCode: args.versionCode })
-  console.log(`[publish] ✓ 公网自证 HTTP ${live.status} content-range 大小 ${live.size} → ${live.location}`)
+  console.log(
+    `[publish] ✓ 公网自证 HTTP ${live.status} content-range 大小 ${live.size} → ${live.location}`,
+  )
 
   // 登记步(Y-14):没有它,发布链就是"只推包、从不登记"——手工补一次,下次发布照样空。
-  const step = await publishRegisterStep({ version: args.version, versionCode: args.versionCode, downloadUrl })
+  const step = await publishRegisterStep({
+    version: args.version,
+    versionCode: args.versionCode,
+    downloadUrl,
+  })
   if (!step.ok) return 1
 
   console.log(`\n下载地址(固定): ${siteLegUrl(LATEST_KEY)}`)
   console.log(`本次版本副本: ${siteLegUrl(vKey)}`)
-  if (downloadUrl !== siteLegUrl(LATEST_KEY)) console.log(`快腿(已登记为 App 内下载地址): ${downloadUrl}`)
+  if (downloadUrl !== siteLegUrl(LATEST_KEY))
+    console.log(`快腿(已登记为 App 内下载地址): ${downloadUrl}`)
   console.log(`SHA256: ${sha}`)
   return 0
 }
