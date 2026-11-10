@@ -5,7 +5,7 @@
   "identifier": "com.ihui.desktop",
   "build": {
     "beforeDevCommand": "pnpm --filter @ihui/web dev",
-    "beforeBuildCommand": "",
+    "beforeBuildCommand": "node ../../scripts/desktop-installer-assets.mjs",
     "devUrl": "http://localhost:8801",
     "frontendDist": "shell"
   },

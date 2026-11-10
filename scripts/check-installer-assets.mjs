@@ -30,6 +30,7 @@
  */
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { dirname, join } from 'node:path'
 
@@ -52,13 +53,30 @@ const TIERS = ['100', '125', '150', '175', '200']
 // 为什么自己写而不用库:本仓没有提供 isDirectRun 的库文件(scripts/lib/ 下无此导出),
 // 各门体一律自写,照抄 scripts/check-migration-immutable.mjs 的现行形态。
 // 必须经 pathToFileURL():Windows 下 process.argv[1] 带反斜杠,手拼 file:/// 永不相等。
-const isDirectRun =
-  process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 
 if (isDirectRun) {
   if (!existsSync(NSI)) {
     console.error(`[check-installer-assets] 找不到 ${NSI}`)
     process.exit(1)
+  }
+  // 安装器位图已改为构建时生成(2026-11-11):干净检出/CI 首次跑门时先补生成,
+  // 避免"资产不在库里 ⇒ 本门把 5 档全判缺文件"的假红。自测模式(IHUI_NSI_PATH)不生成。
+  if (
+    !process.env.IHUI_NSI_PATH &&
+    TIERS.some((t) => !existsSync(join(ASSET_ROOT, `assets-${t}`)))
+  ) {
+    console.log(
+      '[check-installer-assets] 安装器资产缺失 ⇒ 先运行 desktop-installer-assets.mjs 生成',
+    )
+    const gen = spawnSync(process.execPath, [join(ROOT, 'scripts/desktop-installer-assets.mjs')], {
+      cwd: ROOT,
+      stdio: 'inherit',
+    })
+    if (gen.status !== 0) {
+      console.error(`[check-installer-assets] 资产生成失败(exit ${String(gen.status)})`)
+      process.exit(2)
+    }
   }
   const src =
     readFileSync(NSI, 'utf8') +
@@ -538,10 +556,7 @@ export function checkEditInContainerCentered({ uiSrc, genSrc }) {
  * @returns {number[]} 命中的行首下标(按出现顺序)
  */
 export function insertmacroLineStarts(src, macro) {
-  const re = new RegExp(
-    `^[ \\t]*!insertmacro[ \\t]+${macro}\\b[ \\t]*(?:;[^\\r\\n]*)?\\r?$`,
-    'gim',
-  )
+  const re = new RegExp(`^[ \\t]*!insertmacro[ \\t]+${macro}\\b[ \\t]*(?:;[^\\r\\n]*)?\\r?$`, 'gim')
   const hits = []
   let m
   while ((m = re.exec(src)) !== null) hits.push(m.index)
@@ -564,8 +579,9 @@ export const reanchorMissingMacroHead = (macro) => `重装页 DPI 重锚分支�
  */
 export function macroBodyOf(src, name) {
   return (
-    String(src).match(new RegExp(`!macro ${name}[ \\t]*\\r?\\n([\\s\\S]*?)!macroend`)) || []
-  )[1] || ''
+    (String(src).match(new RegExp(`!macro ${name}[ \\t]*\\r?\\n([\\s\\S]*?)!macroend`)) || [])[1] ||
+    ''
+  )
 }
 
 /**
@@ -629,8 +645,14 @@ export function checkDpiReanchorCompleteness({ uiSrc, installerSrc }) {
     } else {
       for (const [needle, what] of [
         ['user32::GetClientRect', '重锚判据必须取自窗口实际客户区(运行期被系统改尺寸的权威观测点)'],
-        ['SetWindowPos', '窗口框必须归一到新档物理尺寸 —— 不归一则内层 dialog 永远填不满窗口(右/下露原生白底)'],
-        ['IHUI_EXTRACTPAGESETS', '档位变化后必须重解压页面资产 —— 不重解压则位图停在旧档,与新窗口框错档'],
+        [
+          'SetWindowPos',
+          '窗口框必须归一到新档物理尺寸 —— 不归一则内层 dialog 永远填不满窗口(右/下露原生白底)',
+        ],
+        [
+          'IHUI_EXTRACTPAGESETS',
+          '档位变化后必须重解压页面资产 —— 不重解压则位图停在旧档,与新窗口框错档',
+        ],
         ['IHUI_WINDOW_RGN', '窗口裁剪区域(SetWindowRgn 回退分支)'],
       ]) {
         if (!ra.includes(needle)) {
@@ -639,46 +661,46 @@ export function checkDpiReanchorCompleteness({ uiSrc, installerSrc }) {
       }
     }
   } else {
-  const from = theme.indexOf('${If} $0 != $IHUIDPIW')
-  if (from < 0) {
-    v.push(
-      'IHUI_REINSTALLTHEME 里没有"窗口 DPI ≠ 布局 DPI"的重锚分支 —— 外部改显示缩放后本页不会再定档',
-    )
-  } else {
-    const stop = theme.indexOf('${EndIf}', from)
-    const branch = theme.slice(from, stop < 0 ? theme.length : stop)
-    for (const [macro, what] of [
-      ['IHUI_GUIINIT_SIZE', '窗口框尺寸/档位($IHUIWW/$IHUIWH + SetWindowPos)'],
-      ['IHUI_WINDOW_RGN', '窗口裁剪区域(SetWindowRgn 回退分支)'],
-    ]) {
-      if (!new RegExp(`!insertmacro\\s+${macro}\\b`).test(branch)) {
+    const from = theme.indexOf('${If} $0 != $IHUIDPIW')
+    if (from < 0) {
+      v.push(
+        'IHUI_REINSTALLTHEME 里没有"窗口 DPI ≠ 布局 DPI"的重锚分支 —— 外部改显示缩放后本页不会再定档',
+      )
+    } else {
+      const stop = theme.indexOf('${EndIf}', from)
+      const branch = theme.slice(from, stop < 0 ? theme.length : stop)
+      for (const [macro, what] of [
+        ['IHUI_GUIINIT_SIZE', '窗口框尺寸/档位($IHUIWW/$IHUIWH + SetWindowPos)'],
+        ['IHUI_WINDOW_RGN', '窗口裁剪区域(SetWindowRgn 回退分支)'],
+      ]) {
+        if (!new RegExp(`!insertmacro\\s+${macro}\\b`).test(branch)) {
+          v.push(
+            `${reanchorMissingMacroHead(macro)}(=${what}) —— ` +
+              `${macro === 'IHUI_WINDOW_RGN' ? '窗口框放大后旧 region 仍按上一档硬裁,右/下内容被切' : '控件按新档摆、窗口框按旧档留,页面溢出'}` +
+              `。必须与 IHUI_GUIINIT_COMMON 同源,不得内联复制换算。`,
+          )
+        }
+      }
+      // ②b 收敛轮数与顺序(2026-09-25 立):重锚必须与 IHUI_GUIINIT_COMMON 同口径跑**两轮**
+      // IHUI_GUIINIT_SIZE。首轮 SetWindowPos 把窗口挪到目标屏后 per-monitor DPI 才生效,
+      // 只跑一轮 = 跨屏搬迁时档位/控件坐标整体错一档(2026-09-19 真机 125%/150% 双屏实锤)。
+      // 只数**行首锚定**的插入行(注释里提到宏名不计),故夹注释、改缩进都不会误红。
+      //   形状本体住在 insertmacroLineStarts(门体导出,镜像测试的注入调同一份 —— §22c 不许两处各写一遍)。
+      const sizeAt = insertmacroLineStarts(branch, 'IHUI_GUIINIT_SIZE')
+      const rgnAt = insertmacroLineStarts(branch, 'IHUI_WINDOW_RGN')
+      if (sizeAt.length === 1) {
         v.push(
-          `${reanchorMissingMacroHead(macro)}(=${what}) —— ` +
-            `${macro === 'IHUI_WINDOW_RGN' ? '窗口框放大后旧 region 仍按上一档硬裁,右/下内容被切' : '控件按新档摆、窗口框按旧档留,页面溢出'}` +
-            `。必须与 IHUI_GUIINIT_COMMON 同源,不得内联复制换算。`,
+          '重装页 DPI 重锚分支只跑 1 轮 IHUI_GUIINIT_SIZE,与 IHUI_GUIINIT_COMMON 的两轮口径不一致 —— 首轮 SetWindowPos 把窗口挪到目标屏后 per-monitor DPI 才生效,不复读重算则跨屏搬迁时档位与控件坐标整体错一档(窗口框与 region 一起偏)。必须紧邻补跑第二轮,不得改回单轮。',
+        )
+      }
+      // 两轮之间不得夹 IHUI_WINDOW_RGN:该宏把 $R6/$R7 当临时量(区域句柄/圆角直径),
+      // 夹在中间会让第二轮读到脏的工作区矩形 → 窗口被摆到屏外(比单轮更糟的失效形态)。
+      if (sizeAt.length >= 2 && rgnAt.length > 0 && rgnAt[0] < sizeAt[sizeAt.length - 1]) {
+        v.push(
+          '重装页 DPI 重锚分支把 IHUI_WINDOW_RGN 插在了两轮 IHUI_GUIINIT_SIZE 之间 —— 该宏用 $R6/$R7 当临时量,第二轮再读工作区矩形(R5..R8)拿到的就是脏值,窗口会被摆到屏外。定档两轮必须紧邻、region 宏收尾。',
         )
       }
     }
-    // ②b 收敛轮数与顺序(2026-09-25 立):重锚必须与 IHUI_GUIINIT_COMMON 同口径跑**两轮**
-    // IHUI_GUIINIT_SIZE。首轮 SetWindowPos 把窗口挪到目标屏后 per-monitor DPI 才生效,
-    // 只跑一轮 = 跨屏搬迁时档位/控件坐标整体错一档(2026-09-19 真机 125%/150% 双屏实锤)。
-    // 只数**行首锚定**的插入行(注释里提到宏名不计),故夹注释、改缩进都不会误红。
-    //   形状本体住在 insertmacroLineStarts(门体导出,镜像测试的注入调同一份 —— §22c 不许两处各写一遍)。
-    const sizeAt = insertmacroLineStarts(branch, 'IHUI_GUIINIT_SIZE')
-    const rgnAt = insertmacroLineStarts(branch, 'IHUI_WINDOW_RGN')
-    if (sizeAt.length === 1) {
-      v.push(
-        '重装页 DPI 重锚分支只跑 1 轮 IHUI_GUIINIT_SIZE,与 IHUI_GUIINIT_COMMON 的两轮口径不一致 —— 首轮 SetWindowPos 把窗口挪到目标屏后 per-monitor DPI 才生效,不复读重算则跨屏搬迁时档位与控件坐标整体错一档(窗口框与 region 一起偏)。必须紧邻补跑第二轮,不得改回单轮。',
-      )
-    }
-    // 两轮之间不得夹 IHUI_WINDOW_RGN:该宏把 $R6/$R7 当临时量(区域句柄/圆角直径),
-    // 夹在中间会让第二轮读到脏的工作区矩形 → 窗口被摆到屏外(比单轮更糟的失效形态)。
-    if (sizeAt.length >= 2 && rgnAt.length > 0 && rgnAt[0] < sizeAt[sizeAt.length - 1]) {
-      v.push(
-        '重装页 DPI 重锚分支把 IHUI_WINDOW_RGN 插在了两轮 IHUI_GUIINIT_SIZE 之间 —— 该宏用 $R6/$R7 当临时量,第二轮再读工作区矩形(R5..R8)拿到的就是脏值,窗口会被摆到屏外。定档两轮必须紧邻、region 宏收尾。',
-      )
-    }
-  }
   } // end: 旧内联 DPI 分支校验(非统一 REANCHOR 时)
 
   // ③ 同源实现:IHUI_WINDOW_RGN 必须存在、被 GUIINIT_COMMON 一起用、几何取自 $IHUIWW/$IHUIWH
@@ -801,7 +823,8 @@ export function checkWorkAreaDownshift({ uiSrc }) {
 if (isDirectRun) {
   const UI_SRC_FOR_GEO = readFileSync(process.env.IHUI_NSI_PATH || NSI, 'utf8')
   const INSTALLER_SRC_FOR_GEO = readFileSync(
-    process.env.IHUI_INSTALLER_NSI_PATH || join(ROOT, 'apps/desktop/src-tauri/windows/installer.nsi'),
+    process.env.IHUI_INSTALLER_NSI_PATH ||
+      join(ROOT, 'apps/desktop/src-tauri/windows/installer.nsi'),
     'utf8',
   )
   const GEN_SRC_FOR_GEO = readFileSync(
@@ -813,7 +836,11 @@ if (isDirectRun) {
     ...checkHoleEqualsButton({ uiSrc: UI_SRC_FOR_GEO }),
     ...checkBadgeConcentric({ uiSrc: UI_SRC_FOR_GEO, genSrc: GEN_SRC_FOR_GEO }),
     ...checkAnchorsMatchTicks({ installerSrc: INSTALLER_SRC_FOR_GEO, genSrc: GEN_SRC_FOR_GEO }),
-    ...checkReinstallCards({ uiSrc: UI_SRC_FOR_GEO, genSrc: GEN_SRC_FOR_GEO, assetRoot: ASSET_ROOT }),
+    ...checkReinstallCards({
+      uiSrc: UI_SRC_FOR_GEO,
+      genSrc: GEN_SRC_FOR_GEO,
+      assetRoot: ASSET_ROOT,
+    }),
     ...checkVarScopeOrder({
       installerSrc: INSTALLER_SRC_FOR_GEO,
       sources: [[join(NSI).replace(/^.*[\\/]/, ''), UI_SRC_FOR_GEO]],

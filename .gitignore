@@ -33,6 +33,10 @@ apps/web/public/downloads/update-files.json
 # Desktop 安装包 ~230MB,超过 GitHub 单文件 100MB 限制,不能入库。
 # 下载按钮 href 已指向 GitHub Release 官方资产(downloads.config.ts),本地文件仅供 dev 预览。
 apps/web/public/downloads/desktop/
+# 安装器位图(5 档 DPI × 30 个 BMP,约 324MB)与路径清单都是 scripts/desktop-installer-assets.mjs
+# 的生成物:tauri build 前由 beforeBuildCommand 自动产出,入库只会撑大 GitHub/Gitee 仓库。
+apps/desktop/src-tauri/windows/installer-assets/
+apps/desktop/src-tauri/windows/ihui-assets-path.nsh
 # 图片 CDN 占位图骨架目录(deploy/generate-placeholders.js 生成,191 个 0 字节占位文件,
 # 不入库;新图标加入 remote-icons.ts 后重新生成)
 deploy/server-root/
