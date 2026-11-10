@@ -325,17 +325,12 @@ async function apiHealthy() {
 
 // 跑一轮 dev-stack(--json 拿结构化结果,便于区分"必需"与"可选"分别处置)。
 // 不用 --json 就只能看退出码 ⇒ 必然把 ai-service 的可选失败也当成阻断,语义就错了。
-// 一次覆盖 BACKEND_ALL:ensure 对已就绪服务只探活、不重复拉起,所以"全探"既是最简单
-// 的调用形态,也天然免去"先自探再决定探哪些"这一步(那需要在本地再写一份端口真值)。
-function runDevStack() {
+// only 默认全量,供运行期看守使用;启动门只传必需三件套(见 ensureBackend 的 2026-11-10 修复):
+// 可选服务没就绪时不该把前端启动按在起跑线上等它 240s。
+function runDevStack(only = BACKEND_ALL) {
   const r = spawnSync(
     process.execPath,
-    [
-      DEV_STACK_SCRIPT,
-      `--only=${BACKEND_ALL.join(',')}`,
-      '--json',
-      `--timeout=${BACKEND_TIMEOUT_S}`,
-    ],
+    [DEV_STACK_SCRIPT, `--only=${only.join(',')}`, '--json', `--timeout=${BACKEND_TIMEOUT_S}`],
     {
       cwd: REPO_ROOT,
       encoding: 'utf8',
@@ -411,13 +406,25 @@ async function ensureBackend() {
     }
     if (ready) {
       log('api 已在宽限窗口内就绪 ✅(复用在跑实例)')
-      return afterRun(await runDevStack())
+      logOptionalDeferred()
+      return afterRun(await runDevStack(BACKEND_REQUIRED))
     }
     log('宽限窗口内仍未就绪 ⇒ 交给 dev-stack 复置(清掉僵死实例后重拉)')
   }
 
-  log(`后端就绪检查(委托 dev-stack,覆盖 ${BACKEND_ALL.join('/')})…`)
-  return afterRun(await runDevStack())
+  log(`后端就绪检查(委托 dev-stack,覆盖必需项 ${BACKEND_REQUIRED.join('/')})…`)
+  logOptionalDeferred()
+  return afterRun(await runDevStack(BACKEND_REQUIRED))
+}
+
+// 2026-11-10 修复(用户实测:网页已可用,启动却卡在 ai-service 冷启动上等数分钟):
+// 启动门只等必需三件套;ai-service 是**可选**后端(它挂了只告警、从不阻断),
+// 却因 runDevStack 默认全量而串行等满 240s 超时 —— 与"可选"语义自相矛盾。
+// 现在它交给 next dev 起来后的运行期看守(30s 一轮)在后台补齐:
+// 前端页面/侧边栏/登录都不依赖它,首个 AI 请求若早于它就绪会拿到 5xx,由看守拉起后自愈。
+function logOptionalDeferred() {
+  if (!BACKEND_OPTIONAL.length) return
+  log(`可选后端 ${BACKEND_OPTIONAL.join('/')} 不参与启动门,交由运行期看守后台补齐(不阻塞前端)`)
 }
 
 // 启动门的判定出口:必需三件套必须全 up,否则阻断;可选失败只告警。
