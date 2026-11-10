@@ -14,6 +14,7 @@
  *   列;缺省时保持存量语义(refreshTokenEnc=null),不让普通导入静默变成删不掉。
  * - secretsEnc 单列合并(2026-10-27 加):只带凭证的导入不得抹掉既有会话模板/设备材料,
  *   带模板的导入也不得丢掉既有设备材料(同列共存,整列覆盖会互相踩踏)。
+ * - 永久保活默认登记(2026-11-10 加):导入即进 keepAliveForever 档,载荷显式 false 仍尊重。
  *
  * 测试模式:vi.mock 掉 db / crypto / 签到同步(对齐 relay-qoder-import.test.ts),零真实 IO。
  */
@@ -21,6 +22,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const hoisted = vi.hoisted(() => ({
   mockSelectRows: [] as Array<Record<string, unknown>>,
+  mockInsertValues: [] as Array<Record<string, unknown>>,
   mockUpdateSet: vi.fn(),
 }))
 
@@ -32,9 +34,12 @@ vi.mock('../src/db/index.js', () => ({
       }),
     }),
     insert: () => ({
-      values: () => ({
-        returning: () => Promise.resolve([{ id: 'row-new', credVersion: 1 }]),
-      }),
+      values: (values: Record<string, unknown>) => {
+        hoisted.mockInsertValues.push(values)
+        return {
+          returning: () => Promise.resolve([{ id: 'row-new', credVersion: 1 }]),
+        }
+      },
     }),
     update: () => ({
       set: (set: unknown) => {
@@ -86,11 +91,19 @@ const FUTURE = Math.floor(Date.UTC(2027, 0, 1) / 1000)
 beforeEach(() => {
   hoisted.mockUpdateSet.mockClear()
   hoisted.mockSelectRows.length = 0
+  hoisted.mockInsertValues.length = 0
 })
 
 function lastUpdateSet(): Record<string, unknown> {
   expect(hoisted.mockUpdateSet).toHaveBeenCalled()
   return hoisted.mockUpdateSet.mock.calls.at(-1)![0] as Record<string, unknown>
+}
+
+/** 取最近一次 insert 的列图(= 真正写进 ai_relay_account_pool 的新行) */
+function lastInsert(): Record<string, unknown> {
+  const v = hoisted.mockInsertValues.at(-1)
+  expect(v, '应有 insert 落库列图').toBeDefined()
+  return v!
 }
 
 describe('resolveOverwriteRefresh 纯判据四态', () => {
@@ -314,5 +327,48 @@ describe('secretsEnc 单列合并(模板/设备材料同列共存)', () => {
       },
     ])
     expect(writtenSecrets()).toEqual({ sessionTemplate: { userId: 'u1' } })
+  })
+})
+
+/**
+ * 永久保活默认登记(2026-11-10 机主口径「所有的都要永久保活」)。
+ * 立因:导入的新号若不进 keepAliveForever 档,就躺在普通档等退避摘除,「掉线就登不回来」
+ * 的那一枚会静默死掉。判据:extraMetadata.keepAliveForever 缺省 ⇒ 写 true;
+ * 载荷显式给 false 仍尊重(默认登记不得单向下压掉显式输入)。
+ */
+describe('importAccounts 永久保活默认登记(keepAliveForever)', () => {
+  it('新导入未给 keepAliveForever ⇒ extraMetadata 默认 true', async () => {
+    const r = await importAccounts('trae', [
+      { name: '账号A', token: jwt({ sub: 'u-ka-1', exp: FUTURE }) },
+    ])
+    expect(r.imported).toBe(1)
+    const extra = lastInsert()['extraMetadata'] as Record<string, unknown>
+    expect(extra.keepAliveForever).toBe(true)
+  })
+
+  it('载荷显式 keepAliveForever=false ⇒ 仍尊重 false(默认登记不是单向下压)', async () => {
+    await importAccounts('trae', [
+      { name: '账号B', token: jwt({ sub: 'u-ka-2', exp: FUTURE }), keepAliveForever: false },
+    ])
+    const extra = lastInsert()['extraMetadata'] as Record<string, unknown>
+    expect(extra.keepAliveForever).toBe(false)
+  })
+
+  it('载荷显式 keepAliveForever=true ⇒ 原样 true(幂等,不因默认值变形)', async () => {
+    await importAccounts('trae', [
+      { name: '账号C', token: jwt({ sub: 'u-ka-3', exp: FUTURE }), keepAliveForever: true },
+    ])
+    const extra = lastInsert()['extraMetadata'] as Record<string, unknown>
+    expect(extra.keepAliveForever).toBe(true)
+  })
+
+  it('覆盖导入同样默认登记:update 写回的 extraMetadata 带 keepAliveForever=true', async () => {
+    hoisted.mockSelectRows.push({ id: 'row-1', hasRefreshToken: true })
+    const r = await importAccounts('trae', [
+      { name: '账号D', token: jwt({ sub: 'u-ka-4', exp: FUTURE }) },
+    ])
+    expect(r.updated).toBe(1)
+    const extra = lastUpdateSet()['extraMetadata'] as Record<string, unknown>
+    expect(extra.keepAliveForever).toBe(true)
   })
 })
