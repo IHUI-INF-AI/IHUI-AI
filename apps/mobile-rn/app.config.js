@@ -191,15 +191,30 @@ module.exports = ({ config }) => {
       // 唯一合法自动化手段是 AccessibilityService —— 由用户一次性在系统设置启用,之后代点确认。
       // 服务只认安装器包名 + 界面出现本应用名,装别的 App 一律不碰(见插件头注的安全边界)。
       './plugins/withAutoInstaller.cjs',
-      // 全局统一字体:对齐历史 Uniapp 项目 AlimamaFangYuanTi(2026-08-13 立,H19)
-      // 字体文件:assets/fonts/AlimamaFangYuanTiVF-Thin.ttf
-      // build-time linking,font-family 名称取字体内部 PostScript name
-      [
-        'expo-font',
-        {
-          fonts: ['./assets/fonts/AlimamaFangYuanTiVF-Thin.ttf'],
-        },
-      ],
+      // RN 端中文字体:本轮定性为**平台差异,不自托管**(2026-11-10 实测收口)。
+      //
+      // 这里原先挂 expo-font config plugin 注册自托管族(先阿里妈妈方圆体,后试 HarmonyOS
+      // Sans SC 400/500/700 三面),本轮整体撤掉,三条实测原因:
+      // ① RN 端**没有全局注入点**:React 19 automatic runtime 不读 defaultProps;
+      //    react-native 的 Text 是 getter 且 packages/app 有 317 处直接静态导入;
+      //    react-native-css-interop 丢弃 `* { font-family }` 非变量声明;
+      //    NativeWind 的 remapProps/className 也覆盖不到未标注 className 的 Text
+      //    ⇒ 注册了族名也没有任何 Text 消费(全仓 fontFamily 仅 23 处,均 monospace/Menlo)。
+      // ② RN 的 fontFamily 只认**单族名、无回退栈**;可用 TTF 却是 GB2312 子集
+      //    (fontTools 实测 Regular 7846 码位/7154 汉字、Medium·Bold 4966/4274、Light
+      //    3324/2632),「昇啰厏」等 GBK 扩展字全缺,缺字率约 26% ⇒ 一旦全局启用,
+      //    缺字直接落系统默认字体当场换脸,比不启用更糟。web 端能治靠的是
+      //    unicode-range 分段面 + 中文兜底栈,RN 两者皆无。
+      // ③ 三面码位数互不相同,且 Medium/Light 的 name(1) 是独立族名
+      //    ('HarmonyOS Sans SC Medium' / '... Light') ⇒ Android <font-family> 与 iOS
+      //    fontNamesForFamilyName 取不到对应字重,粗细混排同字会换脸。
+      //
+      // 结论:与小程序端同口径走**系统中文黑体栈**,见 global.css 的品牌栈口径留痕与
+      // scripts/data/cross-end-allowed-diffs.json(platform:font-stack-cjk / mobile-rn)。
+      // 若将来确要自托管,前置条件是完整字库(≥8MB/面、三面同族同码位)+ 逐处显式
+      // fontFamily 或编译期 Babel 注入 + 真机回归,不是本轮能顺带完成的事。
+      // 撤掉运行时字体门同时根治了热更首启「7.4MB 字体远端取用失败 ⇒ 整棵树
+      // return null ⇒ 灰屏卡死」(见 App.tsx 启动注释)。
     ],
   }
 }
