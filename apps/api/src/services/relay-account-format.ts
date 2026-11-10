@@ -748,6 +748,12 @@ export interface RelayCredentialSlot {
    * GrokBot 的 sandSealedFile 密封串:形状对,导不进号池(解封方案未取证前只能如实点名)。
    */
   sealed?: { parent: string; keys: string[] }
+  /**
+   * 可选槽位(2026-11-10 立,CodeArts 永久访问密钥):该槽缺省/空值不算形状不成立。
+   * 目前只用于 CodeArts 的 STS 票槽 —— 库里已切永久 AK/SK 的号(securitytoken 为空)
+   * 导出-重导闭环必须走得通:accessKey+secretKey 两槽非空命中即完整形状。
+   */
+  optional?: boolean
 }
 
 /**
@@ -769,9 +775,10 @@ export interface RelayCredentialSlot {
 const RELAY_IMPORT_CREDENTIAL_SLOTS: Record<RelayProviderCode, RelayCredentialSlot[]> = {
   trae: [{ top: ['token'] }],
   workbuddy: [{ top: ['token'] }],
-  // CodeArts 是复合凭据:STS 票 + AK + SK 三者全在才算一条完整账号
+  // CodeArts 是复合凭据:STS 三件套(securitytoken+AK+SK)或永久 AK/SK 二件套(AK+SK)
+  // 都算一条完整账号;票槽 optional ⇒ 缺省/空值时按永久密钥形状成立(2026-11-10)
   codearts: [
-    { top: ['securitytoken', 'security_token', 'cloud_dragon_token'] },
+    { top: ['securitytoken', 'security_token', 'cloud_dragon_token'], optional: true },
     { top: ['accessKey', 'access_key_id'] },
     { top: ['secretKey', 'secret_access_key'] },
   ],
@@ -799,7 +806,8 @@ const RELAY_IMPORT_CREDENTIAL_SLOTS: Record<RelayProviderCode, RelayCredentialSl
 const RELAY_IMPORT_SHAPE_REASON: Record<RelayProviderCode, string> = {
   trae: 'Trae 导入缺少 token',
   workbuddy: 'WorkBuddy 导入缺少 token',
-  codearts: 'CodeArts 导入缺少 STS 凭据(securitytoken/accessKey/secretAccessKey)',
+  codearts:
+    'CodeArts 导入缺少凭据(STS 三件套 securitytoken/accessKey/secretAccessKey 或永久 AK/SK 二件套 accessKey/secretKey)',
   qoder: 'Qoder 导入缺少 token',
   codex: 'Codex 导入缺少 tokens.access_token(auth.json 形状不符或 keyring 模式)',
   opencode: 'OpenCode 导入条目缺 key/access 字段(auth.json 形状不符)',
@@ -924,9 +932,11 @@ export function recognizeImportShape(
     }
   }
   let credential: string | null = null
-  for (const slot of slots) {
+  for (const [slotIndex, slot] of slots.entries()) {
     const hit = resolveCredentialSlot(acc, slot)
     if (!hit) {
+      // 可选槽位(CodeArts STS 票,2026-11-10):缺省/空值 = "未提供",按永久密钥形状继续
+      if (slot.optional) continue
       return {
         recognized: false,
         importable: false,
@@ -946,7 +956,9 @@ export function recognizeImportShape(
         reason: RELAY_IMPORT_SHAPE_REASON[providerCode],
       }
     }
-    if (credential === null) credential = hit.value
+    // 主凭据只取首槽值:CodeArts 永久密钥形状票槽缺位 ⇒ credential 保持 null(主票为空),
+    // 绝不让 accessKey 冒充主凭据被当 token 消费
+    if (credential === null && slotIndex === 0) credential = hit.value
   }
   return { recognized: true, importable: true, credentialKeys, credential, reason: null }
 }
