@@ -120,7 +120,7 @@ jobs:
           fi
 
       - name: 配置 pnpm + Node
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6.1.1
         with:
           version: ${{ env.PNPM_VERSION }}
       - uses: actions/setup-node@v4

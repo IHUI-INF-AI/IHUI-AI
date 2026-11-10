@@ -98,7 +98,7 @@ jobs:
           fetch-depth: 0
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
         # 不写 `with: version` —— 根 package.json 的 `packageManager: pnpm@11.18.0` 才是唯一
         # 版本源。原先这里再写一个 `version: 11` 会被 action 判成
         # "Multiple versions of pnpm specified" 直接失败(2026-10-15 那夜的 skipped 链就是这么起的);
