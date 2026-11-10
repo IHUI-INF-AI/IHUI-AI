@@ -79,8 +79,8 @@ vi.mock('../src/services/subagent-dispatch-service.js', () => {
     subagentDispatchService: {
       setRedisClient: async () => undefined,
       findById: (id: string) => store.get(id) ?? null,
-    // F-255:归属闸改走 findByIdOrRestore(淘汰后从 Redis 重建);夹具内存档即终态聚合面
-    findByIdOrRestore: async (id: string) => store.get(id) ?? null,
+      // F-255:归属闸改走 findByIdOrRestore(淘汰后从 Redis 重建);夹具内存档即终态聚合面
+      findByIdOrRestore: async (id: string) => store.get(id) ?? null,
       cancel: (id: string) => {
         calls.cancel.push(id)
         const d = store.get(id)
@@ -131,10 +131,11 @@ vi.mock('../src/services/subagent-dispatch-service.js', () => {
       getQuotas: (id: string) => {
         const d = store.get(id)
         if (!d) return null
+        // 契约 = shared QuotaUsage(2026-11-08 起 API 与 web 同形)
         return {
-          dispatchId: id,
-          quotas: { timeoutMs: 1000, tokenQuota: 1000, maxRetries: 1 },
-          agents: [],
+          quota: { timeoutMs: 1000, tokenQuota: 1000, maxRetries: 1 },
+          used: { elapsedMs: 1, tokensUsed: 42, retriesUsed: 0 },
+          exceeded: false,
         }
       },
       getMessages: (id: string) => {
