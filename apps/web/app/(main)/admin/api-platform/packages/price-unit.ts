@@ -4,12 +4,15 @@
 
 // XUI-084: 后台 API 套餐 price 量纲唯一换算点（plans.price 以「分」入库，表单按「元」编辑）。
 
+import { formatPrice } from '@ihui/shared/utils'
+
 import type { ApiPackage, ApiPackageForm } from './types'
 
 export const ADMIN_PACKAGE_PRICE_UNIT = 'fen' as const
 
 export function priceCentsToYuanText(cents: number): string {
-  return `¥${(cents / 100).toFixed(2)}`
+  // 分→元只许一个出口(@ihui/shared/utils 的 formatPrice);本文件只补货币符号。
+  return `¥${formatPrice(cents)}`
 }
 
 export function priceCentsToFormYuan(cents: number): string {
