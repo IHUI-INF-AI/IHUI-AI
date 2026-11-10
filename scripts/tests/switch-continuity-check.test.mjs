@@ -608,4 +608,199 @@ test('opencode 2.2.6:会话表是 session_v2/session_message,数据根跟 XDG_DA
   }
 })
 
+// ── 2026-11-10 尾刀:codearts / opencode 库表 0 行时的字节残留兜底(rawScanFallback) ──
+
+/** 临时目录(mkdtemp;沿用仓库 scratch 落点,不依赖本机真库,CI 上也不会挂) */
+function tmpDir(tag) {
+  return mkScratch(`cont-${tag}-`)
+}
+
+/** 与生产同形状的会话 id:ses_ + 26 字符(12 位时间戳 + 14 位 base62) */
+const rawId = (n) => `ses_${String(n).padStart(12, '0')}abcdefghijklmn`
+
+/**
+ * 造"曾被写满、现在 0 行"的合成库:插 N 枚会话(id + 关联消息)⇒ 全删 ⇒ checkpoint。
+ * SQLite 默认 secure_delete=0,空闲页里的字节不会被抹(与真库 freelist 残留同因),
+ * 这就是 raw-scan 能数出历史 id 的物理依据。
+ */
+function makeResidualDb(file, ids, { table = 'session_v2', messages = 'session_message' } = {}) {
+  fs.mkdirSync(path.dirname(file), { recursive: true })
+  const db = new DatabaseSync(file)
+  db.exec(`CREATE TABLE "${table}" (id TEXT PRIMARY KEY, project_id TEXT, time_archived INTEGER)`)
+  db.exec(`CREATE TABLE "${messages}" (id TEXT PRIMARY KEY, session_id TEXT)`)
+  const insS = db.prepare(`INSERT INTO "${table}"(id, project_id, time_archived) VALUES(?,?,?)`)
+  const insM = db.prepare(`INSERT INTO "${messages}"(id, session_id) VALUES(?,?)`)
+  for (const id of ids) {
+    insS.run(id, 'p1', null)
+    insM.run(`msg_${id.slice(4, 16)}`, id)
+  }
+  db.exec('PRAGMA wal_checkpoint(TRUNCATE)')
+  db.exec(`DELETE FROM "${table}"`)
+  db.exec(`DELETE FROM "${messages}"`)
+  db.exec('PRAGMA wal_checkpoint(TRUNCATE)')
+  const left = db.prepare(`SELECT COUNT(*) c FROM "${table}"`).get().c
+  const leftM = db.prepare(`SELECT COUNT(*) c FROM "${messages}"`).get().c
+  db.close()
+  assert.equal(left, 0, '夹具前提:会话表必须真的 0 行')
+  assert.equal(leftM, 0, '夹具前提:消息表也必须 0 行')
+  return file
+}
+
+test('extractSessionIds:粘着 next 列的游程按 id 定长截断,短残片丢弃(不猜)', () => {
+  const raw = C.APPS.opencode.rawScan
+  assert.equal(raw.idLength, 26, 'opencode 的 id = ses_ + 26(本机游程分布里 26 是绝对多数)')
+  assert.deepEqual(C.APPS.codearts.rawScan, raw, 'codearts 是同一 id 形状(实测两库一致)')
+  const buf = Buffer.from(
+    [
+      'ses_000000000001abcdefghijklmnassistant', // id + 粘着的 next 列(SQLite 记录体里相邻 text 无分隔)
+      'ses_000000000001abcdefghijklmn', // 同一枚的光秃写法
+      'ses_000000000002abcdefghijklmnuser',
+      'ses_0000000', // 页边界截断残片 ⇒ 丢弃
+    ].join('\u0001'),
+    'latin1',
+  )
+  const ids = C.extractSessionIds(buf, raw)
+  assert.deepEqual(ids, ['ses_000000000001abcdefghijklmn', 'ses_000000000002abcdefghijklmn'])
+})
+
+test('codearts/opencode 库 0 行 ⇒ 走 raw-scan:count=历史 id 数,liveCount=0,mode=raw-scan', () => {
+  const dir = tmpDir('cont-raw')
+  try {
+    const dbFile = path.join(dir, 'opencode.db')
+    const ids = [rawId(0), rawId(1), rawId(2), rawId(3)]
+    makeResidualDb(dbFile, ids)
+
+    const s = C.snapshotApp('opencode', { dbPath: dbFile })
+    assert.equal(s.state, 'ok', '0 行不再等于"未判定"(否则这两个平台永远无对账)')
+    assert.equal(s.mode, 'raw-scan')
+    assert.equal(s.sessions.count, 4, '历史 id 数')
+    assert.equal(s.sessions.liveCount, 0, '活行数必须显式报 0,不能被 count 掩盖')
+    assert.match(s.note, /历史会话 id/, 'note 必须写明是历史残留,不是活会话')
+    assert.match(s.note, /freelist\/wal/)
+    assert.equal(s.messageRows, null, '字节口径不编造消息行数')
+    assert.deepEqual(s.sessionIds.slice().sort(), ids.map(C.fp).sort())
+
+    // codearts 同法(表名 session/message)
+    const caFile = path.join(dir, 'ca', 'opencode.db')
+    makeResidualDb(caFile, [rawId(10), rawId(11)], { table: 'session', messages: 'message' })
+    const ca = C.snapshotApp('codearts', { dbPath: caFile })
+    assert.equal(ca.mode, 'raw-scan')
+    assert.equal(ca.sessions.count, 2)
+    assert.equal(ca.sessions.liveCount, 0)
+  } finally {
+    cleanScratch(dir)
+  }
+})
+
+test('raw-scan 快照:切后历史 id 数变少 ⇒ continuity-broken 并点名(切号只搬不删)', () => {
+  const dir = tmpDir('cont-raw-cmp')
+  try {
+    const beforeFile = path.join(dir, 'before.db')
+    const afterFile = path.join(dir, 'after.db')
+    makeResidualDb(beforeFile, [rawId(0), rawId(1), rawId(2), rawId(3)])
+    makeResidualDb(afterFile, [rawId(0), rawId(1), rawId(2)]) // 切后被删掉一场
+    const before = C.snapshotApp('opencode', { dbPath: beforeFile })
+    const after = C.snapshotApp('opencode', { dbPath: afterFile })
+    assert.equal(before.sessions.count, 4)
+    assert.equal(after.sessions.count, 3)
+
+    const same = C.compareSnapshots(before, before)
+    assert.equal(same.verdict, 'continuity-ok')
+    assert.match(same.note, /字节残留/, '同口径时必须标注这是历史残留口径')
+
+    const cross = C.compareSnapshots(before, after)
+    assert.equal(cross.verdict, 'continuity-broken', '历史 id 数变少 = 真删了会话')
+    assert.deepEqual(cross.lostFp, [C.fp(rawId(3))])
+
+    // 反向:多了会话(切号后继续用)⇒ 仍是 ok
+    assert.equal(C.compareSnapshots(after, before).verdict, 'continuity-ok')
+  } finally {
+    cleanScratch(dir)
+  }
+})
+
+test('字节扫描两趟不一致 ⇒ undetermined(不许拿不稳定的数冒绿)', () => {
+  const dir = tmpDir('cont-raw-unstable')
+  try {
+    const dbFile = path.join(dir, 'opencode.db')
+    makeResidualDb(dbFile, []) // 库本身 0 行、无残留,抖动全靠注入的读取器
+    const a = Buffer.from(rawId(0), 'latin1')
+    const b = Buffer.from(`${rawId(0)}\u0001${rawId(1)}`, 'latin1')
+    let calls = 0
+    // 每趟扫 [主库, -wal] 两个文件 ⇒ 前 2 次给 a、后 2 次给 b
+    const rawScanReader = () => (calls++ < 2 ? a : b)
+    const s = C.snapshotApp('opencode', { dbPath: dbFile, rawScanReader })
+    assert.equal(s.state, 'undetermined', '两趟不一致必须降级')
+    assert.equal(s.mode, 'raw-scan')
+    assert.match(s.why, /不一致/)
+    assert.match(s.why, /1 vs 2/)
+    assert.equal(C.compareSnapshots(s, s).verdict, 'undetermined')
+
+    // 两趟一致时同一注入器必须给出确定数(证明降级不是"永远未判定")
+    const steady = C.snapshotApp('opencode', { dbPath: dbFile, rawScanReader: () => a })
+    assert.equal(steady.state, 'ok')
+    assert.equal(steady.sessions.count, 1)
+  } finally {
+    cleanScratch(dir)
+  }
+})
+
+test('库 0 行且字节里也扫不到残留 ⇒ undetermined(不冒绿)', () => {
+  const dir = tmpDir('cont-raw-none')
+  try {
+    const dbFile = path.join(dir, 'opencode.db')
+    makeResidualDb(dbFile, [])
+    const s = C.snapshotApp('opencode', { dbPath: dbFile })
+    assert.equal(s.state, 'undetermined')
+    assert.match(s.why, /扫不到/)
+    assert.equal(C.compareSnapshots(s, s).verdict, 'undetermined')
+  } finally {
+    cleanScratch(dir)
+  }
+})
+
+test('liveCount 在库有行时等于 SQL 计数(mode=sqlite,不误走字节口径)', () => {
+  const dir = tmpDir('cont-live')
+  try {
+    const dbFile = path.join(dir, 'opencode.db')
+    fs.mkdirSync(path.dirname(dbFile), { recursive: true })
+    const db = new DatabaseSync(dbFile)
+    db.exec('CREATE TABLE session_v2 (id TEXT PRIMARY KEY, project_id TEXT, time_archived INTEGER)')
+    db.exec('CREATE TABLE session_message (id TEXT PRIMARY KEY, session_id TEXT)')
+    db.exec(`INSERT INTO session_v2(id,project_id,time_archived) VALUES('${rawId(0)}','p1',NULL)`)
+    db.exec(`INSERT INTO session_v2(id,project_id,time_archived) VALUES('${rawId(1)}','p1',NULL)`)
+    db.exec(`INSERT INTO session_message(id,session_id) VALUES('m1','${rawId(0)}')`)
+    db.exec('PRAGMA wal_checkpoint(TRUNCATE)')
+    db.close()
+
+    const s = C.snapshotApp('opencode', { dbPath: dbFile })
+    assert.equal(s.mode, 'sqlite', '有活行就不走字节口径')
+    assert.equal(s.sessions.count, 2)
+    assert.equal(s.sessions.liveCount, 2, '库有行时 liveCount 必须等于 SQL 计数')
+    assert.equal(s.messageRows.count, 1)
+  } finally {
+    cleanScratch(dir)
+  }
+})
+
+test('走本机路径时也兜得住:活行全 0 ⇒ snapshotApp 自动落到 raw-scan(XDG 真落点)', () => {
+  const dir = tmpDir('cont-raw-env')
+  try {
+    const xdg = path.join(dir, 'xdg')
+    const dbFile = path.join(xdg, 'opencode', 'opencode.db')
+    makeResidualDb(dbFile, [rawId(0), rawId(1)])
+    const s = C.snapshotApp('opencode', {
+      env: { USERPROFILE: dir, XDG_DATA_HOME: xdg, IHUI_TRAE_SCAN_USERS: '0' },
+    })
+    assert.equal(s.state, 'ok', 'pickRichestDb 全 0 时也必须救回一条可对账的面')
+    assert.equal(s.mode, 'raw-scan')
+    assert.equal(s.dbFile, dbFile)
+    assert.equal(s.sessions.count, 2)
+    assert.equal(s.sessions.liveCount, 0)
+    assert.ok(Array.isArray(s.faces), '逐面数仍要报(活行那一列全是 0)')
+  } finally {
+    cleanScratch(dir)
+  }
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
