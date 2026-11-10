@@ -342,7 +342,10 @@ const TIMING_ON = process.env.IHUI_LOSS_TIMING === '1'
 const TIMING_T0 = Date.now()
 function mark(label) {
   if (!TIMING_ON) return
-  console.log(`  [t+${String(Date.now() - TIMING_T0).padStart(6)}ms] ${label}`)
+  // 内存读数并入同一个诊断行(2026-11-10):30a 在本仓规模下 OOM,而"耗时"看不出是哪个结构在涨 ——
+  // 每步带 heapUsed 才能一眼分清"慢"与"涨",不必每次猜。
+  const heapMb = Math.round(process.memoryUsage().heapUsed / 1048576)
+  console.log(`  [t+${String(Date.now() - TIMING_T0).padStart(6)}ms] [heap ${heapMb}MB] ${label}`)
 }
 /** 旧 `runGit()`(spawnSync 通道)的默认上限;层默认 60s,这里显式保住原值,免得迁移改了失败时机 */
 const SPAWN_DEFAULT_TIMEOUT_MS = 120_000
@@ -845,13 +848,16 @@ function reflogSurfaceRaw() {
     if (LOSS_DELIVERY_SET && LOSS_DELIVERY_SET.has(e.sha)) continue
     oids.push(e.sha)
   }
-  if (oids.length === 0) return ''
+  // 空面返回空 Buffer(与 lossSurfaceRaw 的落地类型一致;解析侧对 0 字节输入产出 0 条)。
+  if (oids.length === 0) return Buffer.alloc(0)
   const raw = gitRaw(rawLogArgs(['log', '--no-walk=unsorted', '--stdin']), ROOT, {
     timeout: PATH_COVERAGE_TIMEOUT_MS,
     maxBuffer: BULK_RAW_MAX_BUFFER,
     input: oids.join('\n') + '\n',
+    // 2026-11-10:与 lossSurfaceRaw 同口径按 Buffer 落地(见 parseRawDiffZIter 头注)。
+    binary: true,
   })
-  return String(raw ?? '')
+  return Buffer.isBuffer(raw) ? raw : Buffer.from(String(raw ?? ''), 'utf8')
 }
 
 // 交付面集合(用于 reflog 面裁剪)。collectLossCacheInputs / 3b 都会现算一次,这里接住。
@@ -895,15 +901,25 @@ function lossSurfaceRawArgs(kind) {
 
 function lossSurfaceRaw(kind) {
   if (!lossSurfaceRawCache.has(kind)) {
+    mark(`surface:${kind}-derive-start`)
     if (kind === 'reflog') {
       lossSurfaceRawCache.set('reflog', reflogSurfaceRaw())
     } else {
       const raw = gitRaw(lossSurfaceRawArgs(kind), ROOT, {
         timeout: PATH_COVERAGE_TIMEOUT_MS,
         maxBuffer: BULK_RAW_MAX_BUFFER,
+        // 2026-11-10:整面读数按 **Buffer** 落地,不转 UTF-16 —— 这一面对 256MB 输入而言,
+        // `String(raw)` 会多驻留一份等长双字节串且被本缓存常驻(见 parseRawDiffZIter 头注的内存账)。
+        // 解析侧支持 Buffer,按字节找 0x00、逐段解码,判据一字未改。
+        binary: true,
       })
-      lossSurfaceRawCache.set(kind, String(raw ?? ''))
+      lossSurfaceRawCache.set(
+        kind,
+        Buffer.isBuffer(raw) ? raw : Buffer.from(String(raw ?? ''), 'utf8'),
+      )
     }
+    const got = lossSurfaceRawCache.get(kind)
+    mark(`surface:${kind}-derive-done(bytes=${got ? got.length : -1})`)
   }
   return lossSurfaceRawCache.get(kind)
 }
@@ -1309,14 +1325,44 @@ function splitReachableSameContent({
  *
  * 解析失败必须**抛**:调用方以此把该面判成"取不到"→ 朝红,绝不能把半截输出读成"没有改动"。
  */
-function parseRawDiffZ(stdout, { withCommit = false } = {}) {
-  const tokens = String(stdout ?? '').split('\0')
-  const entries = []
+function* parseRawDiffZIter(stdout, { withCommit = false } = {}) {
+  // 2026-11-10(B37 同批·内存):原实现 `String(stdout).split('\0')` 一次派生三份大对象 ——
+  // ① 输入字符串(UTF-16 双倍驻留)② 全量 token 数组(每个 token 是独立字符串)③ entries 数组。
+  // 本仓实测 `git log --all --raw` 单面 256MB(maxBuffer 上限)⇒ ①≈512MB 且被
+  // `lossSurfaceRawCache` 常驻,②≈800MB,③≈120MB;ref 面跑完再跑 reflog 面 ⇒ 峰值 >2GB,
+  // 4GB 堆在 30a 上 `FATAL ERROR: Reached heap limit`(2026-11-10 实测 RC=134,8GB 堆同样崩)。
+  //
+  // 改造:①**逐段游标**取代 split,内存 O(1 条记录);②接受 Buffer 输入,按字节找 0x00,
+  // 只在需要判断/落地时把该段转成字符串(不再把整面转 UTF-16)。
+  // 判据与旧实现**逐字等价**:空段跳过、commit 段解析、raw 头正则、path 段未做 EOL 归一、
+  // 截断/错位两种抛错条件全部保留(等价性由 `__test__` 的双路对照用例钉住)。
+  const isBuf = Buffer.isBuffer(stdout)
+  const buf = isBuf ? stdout : null
+  const str = isBuf ? '' : String(stdout ?? '')
+  const total = isBuf ? buf.length : str.length
+  const idxNul = (from) => {
+    const at = isBuf ? buf.indexOf(0, from) : str.indexOf('\0', from)
+    return at === -1 ? total : at
+  }
+  // `path` 段旧实现直接用 split 出来的原始 token(未做 EOL 归一),这里保持一致:
+  // takeToken 返回原始切片,由调用方决定是否 stripEol。
+  const takeToken = () => {
+    if (pos > total) return null
+    const end = idxNul(pos)
+    const text = isBuf ? buf.toString('utf8', pos, end) : str.slice(pos, end)
+    pos = Math.min(end + 1, total + 1)
+    return text
+  }
+  let pos = 0
   let commit = ''
   let ct = 0
-  for (let i = 0; i < tokens.length; i++) {
-    const token = tokens[i].replace(/\r?\n/g, '')
-    if (!token) continue
+  let rawToken = takeToken()
+  while (rawToken !== null) {
+    const token = rawToken.replace(/\r?\n/g, '')
+    if (!token) {
+      rawToken = takeToken()
+      continue
+    }
     if (withCommit && token.startsWith(RAW_COMMIT_MARKER)) {
       const body = token.slice(RAW_COMMIT_MARKER.length).trim()
       const parts = body.split(':')
@@ -1324,26 +1370,38 @@ function parseRawDiffZ(stdout, { withCommit = false } = {}) {
         throw new Error(`raw 日志的 commit 段非法:${token.slice(0, 60)}`)
       commit = parts[0]
       ct = Number(parts[1])
+      rawToken = takeToken()
       continue
     }
-    if (!token.startsWith(':')) continue
+    if (!token.startsWith(':')) {
+      rawToken = takeToken()
+      continue
+    }
     const m = RAW_DIFF_ENTRY_RE.exec(token)
     if (!m) throw new Error(`raw diff 头无法解析:${token.slice(0, 80)}`)
-    const path = tokens[i + 1]
-    if (path === undefined) throw new Error('raw diff 缺路径段(输出被截断?)')
+    const path = takeToken()
+    if (path === null) throw new Error('raw diff 缺路径段(输出被截断?)')
     if (withCommit && path.startsWith(RAW_COMMIT_MARKER))
       throw new Error('raw diff 路径段错位(commit 段丢失)')
-    i += 1
-    entries.push({
+    yield {
       commit,
       ct,
       status: m[5][0],
       blob: m[4],
       oldBlob: /^0+$/.test(m[3]) ? '' : m[3],
       path,
-    })
+    }
+    rawToken = takeToken()
   }
-  return entries
+}
+
+/**
+ * 数组出口(既有调用方与 `__test__` 的稳定面):逐条收集生成器。
+ * 需要全量数组的两处(entriesByCommit 构造)仍走它;只需遍历的覆盖面走生成器直传,
+ * 这样 256MB 那一面不再派生出第二份与输入等大的数组。
+ */
+function parseRawDiffZ(stdout, opts = {}) {
+  return [...parseRawDiffZIter(stdout, opts)]
 }
 
 /**
@@ -1601,57 +1659,90 @@ function derivePathCoverage(candidates, { excludedCommits = new Set() } = {}) {
   // 是 30a 结构性跑不完的另一半根因)。改为与 3b 同一套批量取材:一次
   // `log --no-walk=unsorted --stdin --raw` 拿全部候选的改动(本仓实测 <2s)。
   // 批量失败时**回退**旧逐枚路径:单枚取不到只影响那一枚,不把整批判成未取到。
-  try {
-    const raw = gitRaw(
-      [
-        'log',
-        '--no-walk=unsorted',
-        '--stdin',
-        '--raw',
-        '--no-abbrev',
-        '-z',
-        '--no-renames',
-        '--root',
-        `--format=${RAW_COMMIT_MARKER}%H:%ct`,
-      ],
-      ROOT,
-      {
-        timeout: PATH_COVERAGE_TIMEOUT_MS,
-        maxBuffer: BULK_RAW_MAX_BUFFER,
-        input: candidates.join('\n') + '\n',
-      },
-    )
-    const entries = parseRawDiffZ(String(raw ?? ''), { withCommit: true })
-    for (const c of candidates) entriesByCommit.set(c, [])
-    for (const e of entries) {
-      if (!entriesByCommit.has(e.commit)) entriesByCommit.set(e.commit, [])
-      entriesByCommit.get(e.commit).push(e)
+  //
+  // 2026-11-10(内存,30a OOM 真凶):一次全量派生会同时驻留三份等大对象 ——
+  // `String(raw)`(UTF-16,双倍)、`.split('\0')` 的全量 token 数组、`entries` 数组。
+  // 本仓实测 1987 枚候选时堆从 771MB **瞬间**破 4GB(mark 的 heap 读数:进本节前 771MB,
+  // 无中间读数,直接崩),而全量面改造后仍崩 ⇒ 就剩这一处没流式化。
+  // 现在按 CAND_BATCH 分批:每批输出即刻解析并归组,峰值 = 单批输出 + entriesByCommit。
+  // 分批**不改语义**:`--no-walk=unsorted` 按输入顺序输出,分批只是把同一条序列切开,
+  // `entriesByCommit` 是按键归组的 Map、`presentPaths`/`deletedPaths` 是累积 Set,都与切点无关。
+  // 失败回退也按批粒度:单批失败只让那一批走逐枚,不把上千枚整体推进 66 分钟的逐枚通道。
+  const CAND_BATCH = 200
+  for (const c of candidates) entriesByCommit.set(c, [])
+  let failedBatches = 0
+  let firstBatchFail = ''
+  for (let from = 0; from < candidates.length; from += CAND_BATCH) {
+    const batch = candidates.slice(from, from + CAND_BATCH)
+    let batchEntries = null
+    try {
+      const raw = gitRaw(
+        [
+          'log',
+          '--no-walk=unsorted',
+          '--stdin',
+          '--raw',
+          '--no-abbrev',
+          '-z',
+          '--no-renames',
+          '--root',
+          `--format=${RAW_COMMIT_MARKER}%H:%ct`,
+        ],
+        ROOT,
+        {
+          timeout: PATH_COVERAGE_TIMEOUT_MS,
+          maxBuffer: BULK_RAW_MAX_BUFFER,
+          input: batch.join('\n') + '\n',
+          // Buffer 落地:同批输出不再转 UTF-16(见 parseRawDiffZIter 头注的内存账)。
+          binary: true,
+        },
+      )
+      batchEntries = []
+      for (const e of parseRawDiffZIter(raw, { withCommit: true })) batchEntries.push(e)
+    } catch (e) {
+      batchEntries = null
+      // 2026-11-10:静默回退是这次排查绕远路的直接原因 —— 日志里只看到 `failed=N`,
+      // 完全看不出是「并列批输出超 maxBuffer」。本仓实测 200 枚悬空提交的 raw 就有 386MB
+      // (> BULK_RAW_MAX_BUFFER 256MB) ⇒ 每批必失败 ⇒ 全量回退逐枚 ⇒ entries 驻留爆 4GB。
+      // 首因只记一次(后续批次多半同因,重复记会把日志冲成噪声),由 mark 带出。
+      if (!firstBatchFail) firstBatchFail = firstLine(e).slice(0, 120)
     }
-    for (const entries of entriesByCommit.values()) {
-      for (const e of entries) {
+    if (batchEntries === null) {
+      failedBatches++
+      for (const c of batch) {
+        try {
+          const raw = gitText(
+            ['diff-tree', '--no-commit-id', '-r', '-z', '--raw', '--root', '--no-renames', c],
+            { timeout: SPAWN_DEFAULT_TIMEOUT_MS },
+          )
+          const entries = parseRawDiffZ(raw)
+          entriesByCommit.set(c, entries)
+          for (const e of entries) {
+            if (e.status === 'D') deletedPaths.add(e.path)
+            else presentPaths.add(e.path)
+          }
+        } catch (e) {
+          entriesByCommit.set(c, null)
+          problemsByCommit.set(c, `diff-tree 取不到:${firstLine(e)}`)
+        }
+      }
+    } else {
+      for (const e of batchEntries) {
+        if (!entriesByCommit.has(e.commit)) entriesByCommit.set(e.commit, [])
+        entriesByCommit.get(e.commit).push(e)
         if (e.status === 'D') deletedPaths.add(e.path)
         else presentPaths.add(e.path)
       }
     }
-  } catch {
-    for (const c of candidates) {
-      try {
-        const raw = gitText(
-          ['diff-tree', '--no-commit-id', '-r', '-z', '--raw', '--root', '--no-renames', c],
-          { timeout: SPAWN_DEFAULT_TIMEOUT_MS },
-        )
-        const entries = parseRawDiffZ(raw)
-        entriesByCommit.set(c, entries)
-        for (const e of entries) {
-          if (e.status === 'D') deletedPaths.add(e.path)
-          else presentPaths.add(e.path)
-        }
-      } catch (e) {
-        entriesByCommit.set(c, null)
-        problemsByCommit.set(c, `diff-tree 取不到:${firstLine(e)}`)
-      }
-    }
+    mark(
+      `derive:cand-batch(${Math.min(from + CAND_BATCH, candidates.length)}/${candidates.length},failed=${failedBatches}${firstBatchFail ? `,firstFail=${firstBatchFail}` : ''})`,
+    )
   }
+  // 回退不是静默降级:它把"批量面取不到"这个事实带到出口(否则只看到慢,看不到为什么慢)。
+  if (failedBatches > 0)
+    mark(
+      `derive:cand-batch-fallback(batches=${failedBatches},reason=${firstBatchFail || 'unknown'})`,
+    )
 
   const coverage = new Map()
   const latestByPath = new Map()
@@ -1659,18 +1750,20 @@ function derivePathCoverage(candidates, { excludedCommits = new Set() } = {}) {
   if (queryPaths.length === 0)
     return { entriesByCommit, coverage, latestByPath, problemsByCommit, surfaceError: '', ambiguousPaths }
 
+  mark(`derive:entries-ready(cand=${candidates.length},paths=${queryPaths.length})`)
   // 2026-11-08:原为 pathspec 分块重复走查(本仓实测 41 枚候选 ≈85s),改成与 3b 共享
   // 同一趟全量面读数(见 lossSurfaceRaw 头注)。absorb 会过滤掉与候选无关的路径,
   // 对 `latestByPath` / 覆盖键 / 同秒并列判定的结果逐字等价(只多出无人查询的键)。
   try {
     absorbRawCoverage(
-      parseRawDiffZ(lossSurfaceRaw('ref'), { withCommit: true }),
+      parseRawDiffZIter(lossSurfaceRaw('ref'), { withCommit: true }),
       'ref',
       coverage,
       latestByPath,
       excludedCommits,
       ambiguousPaths,
     )
+    mark(`derive:ref-absorbed(cov=${coverage.size},latest=${latestByPath.size})`)
   } catch (e) {
     return {
       entriesByCommit,
@@ -1702,7 +1795,7 @@ function derivePathCoverage(candidates, { excludedCommits = new Set() } = {}) {
   if (reflogPaths.length > 0) {
     try {
       absorbRawCoverage(
-        parseRawDiffZ(lossSurfaceRaw('reflog'), { withCommit: true }),
+        parseRawDiffZIter(lossSurfaceRaw('reflog'), { withCommit: true }),
         'reflog',
         coverage,
         latestByPath,
@@ -1808,29 +1901,35 @@ function deriveTagBackupPathCoverage(candidates, excludedCommits) {
     ambiguousPaths,
   })
 
-  try {
-    const raw = gitRaw(
-      rawLogArgs(['log', '--no-walk=unsorted', '--stdin']),
-      ROOT,
-      {
+  // 2026-11-10:与 `derivePathCoverage` 同因(见那里的长注释)—— 一次性派生 + `String(raw)` +
+  // `split('\0')` 会在候选多时瞬间冲破堆上限。这里改分批流式,失败语义**保持原样**:
+  // 任一批取不到 ⇒ 整维未判定(本维从不做逐枚回退,那是 §4 悬空维的降级策略,不搬到这里)。
+  const CAND_BATCH = 200
+  for (const c of candidates) entriesByCommit.set(c, [])
+  for (let from = 0; from < candidates.length; from += CAND_BATCH) {
+    const batch = candidates.slice(from, from + CAND_BATCH)
+    try {
+      const raw = gitRaw(rawLogArgs(['log', '--no-walk=unsorted', '--stdin']), ROOT, {
         timeout: PATH_COVERAGE_TIMEOUT_MS,
         maxBuffer: BULK_RAW_MAX_BUFFER,
-        input: candidates.join('\n') + '\n',
-      },
-    )
-    const entries = parseRawDiffZ(String(raw ?? ''), { withCommit: true })
-    for (const c of candidates) entriesByCommit.set(c, [])
-    for (const e of entries) {
-      if (!entriesByCommit.has(e.commit)) entriesByCommit.set(e.commit, [])
-      entriesByCommit.get(e.commit).push(e)
+        input: batch.join('\n') + '\n',
+        binary: true,
+      })
+      for (const e of parseRawDiffZIter(raw, { withCommit: true })) {
+        if (!entriesByCommit.has(e.commit)) entriesByCommit.set(e.commit, [])
+        entriesByCommit.get(e.commit).push(e)
+      }
+    } catch (e) {
+      return fail(`候选改动取不到:${firstErrorLine(e)}`)
     }
-  } catch (e) {
-    return fail(`候选改动取不到:${firstErrorLine(e)}`)
+    mark(
+      `tag-coverage:cand-batch(${Math.min(from + CAND_BATCH, candidates.length)}/${candidates.length})`,
+    )
   }
 
   try {
     absorbRawCoverage(
-      parseRawDiffZ(lossSurfaceRaw('ref'), { withCommit: true }),
+      parseRawDiffZIter(lossSurfaceRaw('ref'), { withCommit: true }),
       'ref',
       coverage,
       latestByPath,
@@ -1857,7 +1956,7 @@ function deriveTagBackupPathCoverage(candidates, excludedCommits) {
   if (leftover.size > 0) {
     try {
       absorbRawCoverage(
-        parseRawDiffZ(lossSurfaceRaw('reflog'), { withCommit: true }),
+        parseRawDiffZIter(lossSurfaceRaw('reflog'), { withCommit: true }),
         'reflog',
         coverage,
         latestByPath,
@@ -3939,6 +4038,9 @@ export const __test__ = {
   splitReachableSameContent,
   // 逐路径覆盖(2026-11-04):取代「整树相等」放行判据的解析与判定
   parseRawDiffZ,
+  // 2026-11-10:流式出口同面导出 —— 等价性用例必须能直接对照"数组 vs 逐条产出",
+  // 只测其中一侧会让另一侧漂移(§22c 单一真相源)。
+  parseRawDiffZIter,
   splitByPathCoverage,
   derivePathCoverage,
   // 3b 维(2026-11-05):lost-commit tag 直接指向的提交也纳入逐路径覆盖
