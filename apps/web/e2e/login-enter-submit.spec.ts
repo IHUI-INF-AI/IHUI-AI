@@ -136,9 +136,8 @@ async function openLoginDialog(
   await ensureLoginDialogOpen(page)
   await expect(dialog).toBeVisible({ timeout: 5000 })
 
-  // 2026-11-03:国内 geo 首屏主推扫码 tab,进面板即自动弹协议窗(region-priority 方案①);
-  // freshPageDomestic 的用例必须先收起它,否则 tab 点击被判被 agreement-notice 拦截。
-  // 海外 geo 下不弹,guard 跳过。
+  // 2026-11-11:扫码面板已改为内联「同意并继续」,不再自动弹协议窗;
+  // 保留下面这段 guard 仅为兼容其它宿主/旧构建仍会弹窗的情况,不影响当前语义。
   const autoAgreementDisagree = page.getByTestId('agreement-notice-disagree')
   if (await autoAgreementDisagree.isVisible().catch(() => false)) {
     // 2026-11-04 CI flaky 根因(login-enter-submit:144):isVisible 是瞬时快照,
