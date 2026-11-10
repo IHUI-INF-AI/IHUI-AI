@@ -626,6 +626,15 @@ export function execGitCappedAsync(args: readonly string[], opts: GitCappedAsync
     }
     const child = execFile(resolved.binary, [...args], execOpts, (raw, stdout) => {
       opts.signal?.removeEventListener('abort', onAbort);
+      // POSIX 侧 detached 进程组被 kill(-pid) 团灭后,execFile 有可能以 raw=null 回调
+      // (子进程组整体消失,直接子进程来不及把信号状态传回来)。此时若直接 resolve,
+      // 「取消已发生」却被报成成功 —— 与 `预先取消 ⇒ 一轮都不派生` 的 fail-closed 口径相反,
+      // CI Linux 实测即在此处漏判(Windows 侧不设 detached,走 child.kill 故不触发)。
+      // 判据必须放在 raw 之前:取消是既成事实,优先于任何子进程返回值;绝不拿近似成功顶替。
+      if (opts.signal?.aborted) {
+        reject(new GitOperationAbortedError(undefined, { cause: raw instanceof Error ? raw : undefined }));
+        return;
+      }
       if (raw) {
         reject(toAsyncGitError(raw, opts.signal, verb, resolved));
         return;
