@@ -99,6 +99,81 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-10**
+- 📚 Docs:刷新生成块数字(trackedFiles 20930→20934,并入远端 4 个新脚本路径) (cb64a7fd1c)
+- 🔧 Chore/Other:同步小程序 entry 清单(新增 2 枚壳承载页后页面数 331→333) (13e9ad2c96)
+- 🐞 Fix:侧边栏选中态降对比 —— 统一 sidebar-active 弱底(明暗主题) (104ed9e8f9)
+- 🐞 Fix:豆包跨号会话云端归档腿 + 一键入口文案据实测更新 (8068aa017c)
+- 🚀 Feature/Improvement:号池导入支持批量与生产推送，全池迁生产收敛为一条命令 (da8d7b0606)
+- 📚 Docs:刷新生成块数字(relay 长连接 4 文件并入致 trackedFiles+4/testFiles+2/wsEndpoints+1/apiRoutes+1) (993f458ebf)
+- 🔧 Chore/Other:壳声明件跟随新落承载页(258 条说明符) (a83db3919e)
+- 🔧 Chore/Other:自动落 2 枚小程序壳承载页(共 4 枚待产) (7ce25c7a45)
+- 🐞 Fix:会话对账器补字节级兜底 —— 库被清空也不再是盲区 (df6082c173)
+- 🐞 Fix:base.css 第二份源纳入小程序 token 同步触发面 并补全 T1 配套断言 (36d956d285)
+- 🔧 Chore/Other:补 relay 长连接 4 个新增文件的溯源水印 (45e114f364)
+- 🚀 Feature/Improvement:号池 relay 全链路长连接贯通(契约+传输层+选路+WS 入口) (87e9aad2af)
+- 🚀 Feature/Improvement:对话随行落到实处 + WorkBuddy/OpenCode 写回真打通 (250ec2e0e3)
+- 🐞 Fix:补 miniapp-taro 词包 eduAi 命名空间 20 键 清门 302p (9ea36e90cb)
+- 🐞 Fix:豆包 chat 打通 —— POST /chat/completion + SSE,推翻「走长连接」误判 (5414871662)
+- 🔧 Chore/Other:补两枚判据面收敛提交的具名追认行 (636bde6529)
+- 🐞 Fix:豆包 chat 打通 —— POST /chat/completion + SSE,推翻「走长连接」误判 (44404bb5e2)
+- 🔧 Chore/Other:ui-routes 四端重算 + knip 受管块同步 (External-Red-Audit / Push-Channel: direct-merge) (94dcbdd310)
+- 🔧 Chore/Other:生成器重算收口 — sync-readme-numbers / gen-ui-routes / gen-i18n-compressed / gen-knip (External-Red-Audit / Push-Channel: direct-merge) (3cc4c48fdb)
+- 🐞 Fix:收尾修复 — 门 128 platform 非法 + docs 同步 + RN 残留清理 (55b19ffe08)
+- 🐞 Fix:豆包适配器判活改走 IM batch_get,实证替换全部推断值 (57f105e3f0)
+- 🐞 Fix:豆包适配器判活改走 IM batch_get,实证替换全部推断值 (00a62e9b2e)
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (0ba0746bb8)
+- 🐞 Fix:修掉「写了但客户端不认」的两型 —— MiniMax 记录形状污染 + OpenCode v2 落点失效 (0c17085f7d)
+- 🐞 Fix:余额端点二次实证纠正(改 points/records + 100001 非失效,避免误杀有效号) (68c93885b4)
+- 🐞 Fix:余额端点实证落地(域名+路径+token 头三重纠错,缺票不判死) (ffcff7a443)
+- 🐞 Fix:一键切号写回腿根治 + 缺模板拒写 + 会话模板回填器物 (136b39adff)
+- 🚀 Feature/Improvement:小程序/RN 中文回退链同源 + RN 端自托管方案根因收口 (9fb83e175b)
+- 🚀 Feature/Improvement:web 正文 400 档分段 unicode-range 按需面 + 门 313 跨端触发面补齐 (57d84775b4)
+- 🚀 Feature/Improvement:一键切号窗口实时显示各平台余额(未支持如实标注,不编 0) (c1aebcd0ac)
+- 🔧 Chore/Other:裸 git 派生迁 gitRaw 层 收口棘轮例19 (450f453118)
+- 🐞 Fix:收口 gate-test(6) 两枚 Linux 专属红(abort 漏判 + 原子写夹具漂移) (3e662520bc)
+- 🐞 Fix:修复永久保活号静默饿死(server 档未判定放行 + minimax 探针接线 + 1h 节拍) (6a6c3cfcd4)
+- 🚀 Feature/Improvement:门 313 登记维断判据根治 + 属主登记补漏 + token 档位同源 (9dd458b22b)
+- ♻️ Refactor:门体自检的 cat-file 取材收敛到 face-reader 取材层 (a8ad54d211)
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (aef27ba3d9)
+- 📚 Docs:数字块按 HEAD 面重算（与推门 check-doc-numbers 同面） (7c9999939f)
+- 🐞 Fix:补迁 check-hook-chain-refs 的跨行裸 git 派生 (46dd3e0b86)
+- 🐞 Fix:五处裸 git 派生迁到统一承载层 gitRaw（清门193与测试面两条欠账） (264c676468)
+- 🐞 Fix:门313 补 T4 书写面臂——品牌/子集/display 族所在栈一律配中文现代黑体兜底 (d786ae8aef)
+- ⚡ Perf:接线对账门多模式 grep 分片,真仓全量 43.8s→8.7s (a381e3a33f)
+- 🐞 Fix:恢复 /llm/models 路由挂载并消除 build_model_catalog 自递归 (3e8fdd3d4d)
+- 🚀 Feature/Improvement:三端滚动边缘淡出 ScrollEdgeFades + 抽屉/底部遮罩细化 (acdd5f169e)
+- ⚡ Perf:祖先取材改逐路径并发,18 条 M 路径 44.8s→19.4s (c6bb81e584)
+- ⚡ Perf:祖先取材按 HEAD+路径记忆,同轮不再为同一路径走两遍全历史 (d0b4aad671)
+- ⚡ Perf:3b 对账延后到后台 + 逐路径覆盖结论缓存,提交链 116.7s→28s (7ab84a9314)
+- ⚡ Perf:水印提交档分母收窄到本次携带,单门 24.5s→1.0s (0cf426141b)
+- ⚡ Perf:30a 悬空集合单列缓存,提交链守门实测 309s→69s (775ca7e783)
+- 🐞 Fix:合并后按 token 档归一 inline-question-card 字号与字重 (10e5b33bb5)
+
+**2026-11-08**
+- 🚀 Feature/Improvement:补齐 AI 生成显式/隐式标识 (8d972f386c)
+- 🚀 Feature/Improvement:补齐 AI 生成显式/隐式标识 (f4535c338e)
+- 🚀 Feature/Improvement:Groups 屏薄壳承载落地(RN 壳同源渲染,词条取 web 原文) (e7d27e3e99)
+
+**2026-11-07**
+- 🐞 Fix:补 web 端 apiKeys en/ko 译文(24 键,清门 4 pending) (5e1c14de23)
+- 🐞 Fix:四屏壳改桶导入,补门173共享屏直接 import 覆盖 (e71cd19a5d)
+- 🚀 Feature/Improvement:TeamKnowledge 屏下沉共享屏,RN/Web 同源渲染零降级 (c0ca814f16)
+- 🔧 Chore/Other:重算 rn-shells.generated.d.ts（补 VipTraderScreen，修门 251 C9 不同步） (fa6c08282d)
+- 🐞 Fix:RepoWiki 生成禁用提示回到宿主(详情内重复入口去重后补齐可发现性;删 web 失用键 refresh/regenerate) (a3dc7d1bc5)
+- 🚀 Feature/Improvement:RepoWiki 共享屏下沉(RN/Web 同源渲染,零降级) (b37e84d18c)
+- 🐞 Fix:Groups 三列断点卡片基宽 (97cb9752de)
+- 🚀 Feature/Improvement:Groups 屏下沉共享屏,两端宿主注入 (39fcfc991b)
+- 🚀 Feature/Improvement:Patrol 屏下沉共享屏,两端宿主注入 (cd9a85fea2)
+- 🚀 Feature/Improvement:ApiKeys 屏下沉共享屏,web/mobile-rn 五语言词表补齐 (10f86bc743)
+- ♻️ Refactor:EarnCommission 壳删冗余 View 层(共享屏根已等价提供 flex+背景) (62cb2eaa1f)
+- 🚀 Feature/Improvement:TokenValue 记录时间范围条下沉共享屏(数据型注入点,RN/小程序同源) (e7c52e45ba)
+- 🚀 Feature/Improvement:8 条单端槽位裁决落锁,2 条真下沉 (72a500c115)
+- 🔧 Chore/Other:再 rebase 后生成器取胜, 刷新 ui-routes 钉值与 README 数字 (5c833a7bbc)
+
+**2026-11-06**
+- 🚀 Feature/Improvement:补齐 Team/MessageCenter/ArticleList/Coupon 行为型 prop 跨端缺口并清理死契约 (a872076ccc)
+
+**2026-11-10**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (248f785cdb)
 
 **2026-11-10**
@@ -143,18 +218,6 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 **2026-11-10**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (c975820262)
-
-**2026-11-10**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (49a2a775d2)
-
-**2026-11-10**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (0d0c352538)
-
-**2026-11-10**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (4d28e8d18c)
-
-**2026-11-10**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (7898525095)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
