@@ -24,6 +24,13 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# 并发收敛(2026-11-10):本工作流非 required check(分支保护现读只有 CI / lint-typecheck-test),
+# 单轮 ~30min,同 ref 连续 push 时旧轮排队只会烧分钟数拿不到时效结论 —— cancel-in-progress
+# 语义与 build.yml 2026-11-03 治理同源:被挤掉的是排队损耗,不是门禁结论(最新一轮才是真相)。
+concurrency:
+  group: gates-full-${{ github.ref }}
+  cancel-in-progress: true
+
 # 只做 checkout + 装依赖 + 跑门:不建 PR、不发 release、不调 GITHUB_TOKEN 写接口。
 permissions:
   contents: read

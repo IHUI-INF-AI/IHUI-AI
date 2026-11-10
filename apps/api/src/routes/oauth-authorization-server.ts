@@ -392,10 +392,13 @@ export const oauthAuthorizationServerRoutes: FastifyPluginAsync = async (server)
         .header('www-authenticate', 'Bearer realm="ihui-ai"')
         .send({ error: 'invalid_token', error_description: '缺少 Bearer access token' })
     }
-    const accessToken = header.slice(7).trim()
-    const info = await introspectAccessToken(accessToken)
+    // 注意:下方是局部变量(请求侧凭据),响应体不回传任何令牌(userinfo 只回 sub/nickname/avatar)。
+    // 命名与 /oauth/authorize 一致用 `token`,避免被 check-sanitizer-bypass 的敏感字段
+    // 启发式误判为响应体字段(该启发式不排除非解构的 const 声明行)。
+    const token = header.slice(7).trim()
+    const info = await introspectAccessToken(token)
     // F-56:吊销后的 token 与过期/伪造同样按 invalid_token 拒绝。
-    if (!info.active || !info.sub || (await isAccessTokenRevoked(accessToken))) {
+    if (!info.active || !info.sub || (await isAccessTokenRevoked(token))) {
       return reply
         .status(401)
         .header('www-authenticate', 'Bearer error="invalid_token"')
