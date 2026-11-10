@@ -412,6 +412,73 @@ function flattenMessagesForDoubao(messages: Array<{ role: string; content: unkno
     .join('\n')
 }
 
+// =============================================================================
+// 上游会话续写缓存(2026-11-11 立)
+// =============================================================================
+
+/**
+ * 豆包上游 conversation_id 续写缓存。
+ *
+ * 为什么要有:豆包多轮上下文靠 conversation_id —— 首轮 need_create 拿到 SSE_ACK 的
+ * 数字会话 id,后续轮透传它才能在**同一对话里续写**。此前的折中是每轮全量压送历史
+ * (内容不丢但每次重建对话,token 翻倍且易触发上游建对话频控)。
+ *
+ * 两个存储,各管一半:
+ * - `conversationCache`(持久键 `${账号id}:${会话键}`):跨请求存数字会话 id,
+ *   TTL 30min(与号池亲和 TTL 对齐)+ 容量 5000(超限先清过期,再删最旧)。
+ * - `sessionKeyByCtx`(WeakMap<ctx, 会话键>):translateStreamChunk 拿不到 req,
+ *   但 ctx 贯穿 buildChatRequest → translateStreamChunk 整个请求生命周期,
+ *   用它桥接"本轮是哪个会话";ctx 被回收即自动清理,零泄漏、不占契约字段。
+ */
+const CONVERSATION_TTL_MS = 30 * 60_000
+const CONVERSATION_CACHE_MAX = 5000
+const conversationCache = new Map<string, { convId: string; expiresAt: number }>()
+const sessionKeyByCtx = new WeakMap<AdapterAccountContext, string>()
+
+/** 请求入口调用:把本轮会话键记到 ctx 上(供流式翻译端回写缓存) */
+function bindDoubaoSessionKey(ctx: AdapterAccountContext, req: NormalizedChatRequest): void {
+  sessionKeyByCtx.set(ctx, (req.conversationId ?? '').trim())
+}
+
+/** 查续写缓存:同账号+同会话键 → 上轮记录的数字会话 id;过期即删即 miss */
+function lookupCachedConversation(ctx: AdapterAccountContext): string | undefined {
+  const sessionKey = sessionKeyByCtx.get(ctx) ?? ''
+  if (sessionKey === '') return undefined
+  const key = `${String(ctx.row?.id ?? '')}:${sessionKey}`
+  const hit = conversationCache.get(key)
+  if (!hit) return undefined
+  if (hit.expiresAt <= Date.now()) {
+    conversationCache.delete(key)
+    return undefined
+  }
+  return hit.convId
+}
+
+/** 流内捕获到上游会话 id 时写入(同会话幂等覆盖;超限先清过期,再淘汰最旧) */
+function rememberConversation(ctx: AdapterAccountContext, convId: string): void {
+  const sessionKey = sessionKeyByCtx.get(ctx)
+  if (sessionKey === undefined || sessionKey === '') return
+  const key = `${String(ctx.row?.id ?? '')}:${sessionKey}`
+  const now = Date.now()
+  if (conversationCache.size >= CONVERSATION_CACHE_MAX) {
+    for (const [k, v] of conversationCache) {
+      if (v.expiresAt <= now) conversationCache.delete(k)
+      if (conversationCache.size < CONVERSATION_CACHE_MAX) break
+    }
+    while (conversationCache.size >= CONVERSATION_CACHE_MAX) {
+      const oldest = conversationCache.keys().next().value
+      if (oldest === undefined) break
+      conversationCache.delete(oldest)
+    }
+  }
+  conversationCache.set(key, { convId, expiresAt: now + CONVERSATION_TTL_MS })
+}
+
+/** 测试钩子:清空缓存(TTL/容量边界用 fake timers 推进时间验证) */
+export function __clearDoubaoConversationCache(): void {
+  conversationCache.clear()
+}
+
 /**
  * 实证:chat 请求体(2026-11-10 浏览器抓包 + 纯 Node 复现成功的最小充分集)。
  * 关键结构:`messages[].content_block[]` 里 `block_type:10000` 是文本块,
@@ -419,14 +486,22 @@ function flattenMessagesForDoubao(messages: Array<{ role: string; content: unkno
  * sse_recv_event_options.support_chunk_delta` 三个开关缺一不可(缺则不下发 CHUNK_DELTA,
  * 只剩 patch 通道 ⇒ 丢字)。
  */
-function buildChatBody(req: NormalizedChatRequest, text: string): Record<string, unknown> {
+function buildChatBody(
+  req: NormalizedChatRequest,
+  text: string,
+  cachedConvId?: string,
+): Record<string, unknown> {
   const now = Date.now()
   const localConvId = `local_${now}`
   const messageId = crypto.randomUUID()
   const blockId = crypto.randomUUID()
-  // 豆包会话 id 是纯数字长串;本仓的 conversationId 是自有 id,形态不符时一律新建会话,
+  // 会话 id 决策(2026-11-11 立续写缓存),三级:
+  // 1. 客户端显式给纯数字长串 → 直接透传(那就是上游真实会话 id);
+  // 2. 否则查续写缓存(同账号+同会话键 → 上轮 SSE_ACK 记下的数字 id)→ 透传,上游续写;
+  // 3. 都没有 → need_create_conversation 新建(多轮历史仍全量压送兜底,内容不丢)。
   // 绝不把自有 id 当作豆包 conversation_id 送给上游(会被判会话不存在)。
-  const rawConv = (req.conversationId ?? '').trim()
+  const sessionKey = (req.conversationId ?? '').trim()
+  const rawConv = /^\d{10,}$/.test(sessionKey) ? sessionKey : (cachedConvId ?? '')
   const convId = /^\d{10,}$/.test(rawConv) ? rawConv : ''
   return {
     client_meta: {
@@ -570,8 +645,9 @@ export const doubaoAdapter: RelayUpstreamAdapter = {
    * 不认 OpenAI 的 `model` 字段 ⇒ 客户端传的 model 不映射,固定 '0'(见头注 quota/model 边界)。
    */
   buildChatRequest(ctx: AdapterAccountContext, req: NormalizedChatRequest): UpstreamHttpRequest {
+    bindDoubaoSessionKey(ctx, req)
     const text = flattenMessagesForDoubao(req.messages)
-    const rawBody = JSON.stringify(buildChatBody(req, text))
+    const rawBody = JSON.stringify(buildChatBody(req, text, lookupCachedConversation(ctx)))
     return {
       url: `${DOUBAO_CHAT_URL}?${doubaoChatQuery(ctx)}`,
       method: 'POST',
@@ -603,12 +679,13 @@ export const doubaoAdapter: RelayUpstreamAdapter = {
     // 复用同一套端点/头/信封构造,只换运输方式:两条路径的上游语义必须逐字一致,
     // 否则 socket 通道会变成"另一个豆包适配器",迟早与 HTTP 路径漂移。
     // (不写 this.buildChatRequest:对象字面量方法的 this 绑定在冻结/解构后不稳)
+    bindDoubaoSessionKey(ctx, req)
     const text = flattenMessagesForDoubao(req.messages)
     return {
       url: `${DOUBAO_CHAT_URL}?${doubaoChatQuery(ctx)}`,
       method: 'POST',
       headers: chatRequestHeaders(ctx),
-      rawBody: JSON.stringify(buildChatBody(req, text)),
+      rawBody: JSON.stringify(buildChatBody(req, text, lookupCachedConversation(ctx))),
       transport: 'sse',
     }
   },
@@ -630,7 +707,7 @@ export const doubaoAdapter: RelayUpstreamAdapter = {
    * 故都收;用 state.doubaoAnswer 做前缀去重,防上游某天改发全量导致重复输出。
    */
   translateStreamChunk(
-    _ctx: AdapterAccountContext,
+    ctx: AdapterAccountContext,
     rawFrame: string,
     state: StreamState,
   ): TranslatedChunk | null {
@@ -644,6 +721,14 @@ export const doubaoAdapter: RelayUpstreamAdapter = {
       obj = parsed as Record<string, unknown>
     } catch {
       return null // 心跳/注释等非 JSON 帧:忽略
+    }
+
+    // 0) 会话 id 捕获(2026-11-11 立续写缓存):任何帧顶层带纯数字长串 conversation_id
+    //    (SSE_ACK 确认帧必然带;其余帧带了也是同一会话的幂等重复)⇒ 记入缓存。
+    //    下一轮同会话请求透传它 ⇒ need_create_conversation=false,上游在同一对话续写。
+    const ackConv = obj['conversation_id']
+    if (typeof ackConv === 'string' && /^\d{10,}$/.test(ackConv)) {
+      rememberConversation(ctx, ackConv)
     }
 
     // 1) 错误帧:上游业务错误必须冒泡,不能静默吞成"空回答"
