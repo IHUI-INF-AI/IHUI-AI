@@ -5458,6 +5458,9 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-10**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (dd1aeb0274)
+
+**2026-11-10**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (0ad8d37a99)
 - 🐞 修复:binary 档 + input 组合修复并入远端,消除 30a 的取数不可用 (98e18b522e)
 - 🐞 修复:路由切换时工作区 main 滚动归零——根治「右侧工作区向上偏移」 (5f77cebd8b)
