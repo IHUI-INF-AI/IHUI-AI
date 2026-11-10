@@ -5690,6 +5690,7 @@
       "approvalPersistHit": "保存済みの承認を適用",
       "execPolicyApproved": "実行ポリシーで許可",
       "autoSkipApproval": "自動承認(承認スキップ)",
+      "skillGrantSkipApproval": "スキルの許可により承認をスキップ",
       "bypassSkipApproval": "承認をスキップ",
       "mcpRequiresApproval": "MCP 注釈が承認を要求",
       "policyRequiresApproval": "ポリシーが承認を要求",
