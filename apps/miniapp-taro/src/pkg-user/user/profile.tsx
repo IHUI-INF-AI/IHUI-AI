@@ -150,7 +150,6 @@ export default function Profile() {
         onAvatarPress={chooseAvatar}
         onLogout={handleLogout}
         onToast={onToast}
-        onBack={() => Taro.navigateBack()}
       />
     </ThemeRoot>
   )
