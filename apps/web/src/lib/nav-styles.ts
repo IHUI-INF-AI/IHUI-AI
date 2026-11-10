@@ -151,8 +151,10 @@ export const SIDEBAR_TOGGLE_BTN_CLASS =
 /** 折叠/展开箭头 hover 微位移:展开态箭头朝左 ⇒ 向左轻推;折叠态箭头朝右 ⇒ 向右轻推。
  *  只位移 svg 内的 <g>,不改 svg 自身 20×20 与按钮 36×36 的盒子 —— 视觉守门测的是外层盒,
  *  位移不参与布局,不会让任何断言翻红。 */
-export const SIDEBAR_ARROW_NUDGE_LEFT = 'transition-transform duration-200 group-hover/toggle:-translate-x-[1.5px]'
-export const SIDEBAR_ARROW_NUDGE_RIGHT = 'transition-transform duration-200 group-hover/toggle:translate-x-[1.5px]'
+export const SIDEBAR_ARROW_NUDGE_LEFT =
+  'transition-transform duration-200 group-hover/toggle:-translate-x-[1.5px]'
+export const SIDEBAR_ARROW_NUDGE_RIGHT =
+  'transition-transform duration-200 group-hover/toggle:translate-x-[1.5px]'
 
 /** 模型选择器下拉触发器 (h-9,icon + 文字 + chevron)
  *  - 三元素同行,中间文字 span 加 translateY
