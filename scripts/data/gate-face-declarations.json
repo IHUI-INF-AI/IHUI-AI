@@ -1141,6 +1141,10 @@
       "face": "auto",
       "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
     },
+    "scripts/check-typography-face-coverage.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
     "scripts/check-ui-react-usage.mjs": {
       "face": "auto",
       "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"

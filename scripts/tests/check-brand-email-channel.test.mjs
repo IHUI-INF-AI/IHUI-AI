@@ -117,12 +117,17 @@ test('R3 正反成对:ops 邮件绕过品牌层判红;email-templates / notify-d
   assert.equal(s('scripts/doc.mjs', '// 曾用 createTransport,已迁移').length, 0, '注释行不计发信动作(宁漏不误报)')
 })
 
-test('范围与自豁免:deploy/scripts(+workflows yml)在范围;scripts/tests、apps/、非脚本扩展名不在;本门自身豁免', () => {
+test('范围与自豁免:deploy/scripts(+workflows yml)+服务层在范围;scripts/tests、routes、非脚本扩展名不在;本门自身豁免', () => {
   assert.ok(gate.isScannedPath('deploy/win/a.ps1'))
   assert.ok(gate.isScannedPath('scripts/b.mjs'))
   assert.ok(gate.isScannedPath('.github/workflows/c.yml'))
   assert.ok(!gate.isScannedPath('scripts/tests/d.mjs'))
-  assert.ok(!gate.isScannedPath('apps/api/src/services/e.ts'))
+  // 2026-11-10 扩面:运行时服务层是真实发信出口(两条 From 旁路就在这一面),
+  // 但只走 R5;routes 里的 createTransport 只做 verify,仍留在面外。
+  assert.ok(gate.isScannedPath('apps/api/src/services/e.ts'))
+  assert.ok(gate.isServiceLayerPath('apps/api/src/services/e.ts'))
+  assert.ok(!gate.isServiceLayerPath('apps/api/src/routes/system.ts'))
+  assert.ok(!gate.isScannedPath('apps/api/src/routes/system.ts'))
   assert.ok(!gate.isScannedPath('deploy/win/f.log'))
   const r = gate.judgeText(
     'scripts/check-brand-email-channel.mjs',

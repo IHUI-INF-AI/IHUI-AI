@@ -246,6 +246,76 @@ describe('mail-relay-notifier', () => {
     const arg = mockSendMail.mock.calls[0]?.[0]
     expect(arg?.to).toBe('extra-only@example.com')
   })
+
+  // ⑨ From 必须是品牌身份（2026-11-10 定案）
+  //
+  // 此前这里是 `const from = process.env.SMTP_FROM` 整串直传：配置里写什么显示名就寄什么，
+  // 写裸地址时收件箱显示 `noreply`，与告警派发器的身份口径完全脱节。
+  it('⑨ From 恒为品牌名，配置里的显示名不生效', async () => {
+    // SMTP_USER=user@test（beforeEach），配置里给另一个地址 ⇒ 地址回落登录账号。
+    // 两条老路一次堵死：显示名不采用配置里的「智汇AI官方」，地址也不采用不一致的 noreply。
+    process.env.SMTP_FROM = '智汇AI官方 <noreply@aizhs.top>'
+    mockDbReadSelect.mockReturnValueOnce(chain([{ email: 'u@example.com' }]))
+    const res = await checkAndNotifyLowBalance({
+      userId: 'user-from',
+      keyId: 'key-from',
+      keyName: 'key-from',
+      tokenBalance: 0,
+      costBalanceCents: 0,
+    })
+    expect(res).toBe(true)
+    const arg = mockSendMail.mock.calls[0]?.[0]
+    expect(arg?.from).toBe('"智汇AI" <user@test>')
+    expect(String(arg?.from)).not.toContain('智汇AI官方')
+  })
+
+  // ⑩ 地址段必须等于登录账号（否则 QQ 中继 550 拒信 → 用户永远收不到余额预警）
+  it('⑩ SMTP_FROM 地址与 SMTP_USER 不一致 → 回落登录账号', async () => {
+    process.env.SMTP_USER = '502319984@qq.com'
+    process.env.SMTP_FROM = '智汇AI <noreply@aizhs.top>'
+    mockDbReadSelect.mockReturnValueOnce(chain([{ email: 'u@example.com' }]))
+    const res = await checkAndNotifyLowBalance({
+      userId: 'user-from2',
+      keyId: 'key-from2',
+      keyName: 'key-from2',
+      tokenBalance: 0,
+      costBalanceCents: 0,
+    })
+    expect(res).toBe(true)
+    expect(mockSendMail.mock.calls[0]?.[0]?.from).toBe('"智汇AI" <502319984@qq.com>')
+  })
+
+  // ⑪ SMTP_FROM 缺省不再等于"未配置"：地址可由 SMTP_USER 补足
+  it('⑪ SMTP_FROM 留空 → 用 SMTP_USER 作地址，仍照常投递', async () => {
+    delete process.env.SMTP_FROM
+    mockDbReadSelect.mockReturnValueOnce(chain([{ email: 'u@example.com' }]))
+    const res = await checkAndNotifyLowBalance({
+      userId: 'user-from3',
+      keyId: 'key-from3',
+      keyName: 'key-from3',
+      tokenBalance: 0,
+      costBalanceCents: 0,
+    })
+    expect(res).toBe(true)
+    expect(mockSendMail.mock.calls[0]?.[0]?.from).toBe('"智汇AI" <user@test>')
+  })
+
+  // ⑫ transporter 必须钉住 IPv4 + 三段超时（IPv6 ENETUNREACH 曾让通知静默失败）
+  it('⑫ transporter 带 family:4 与三段超时', async () => {
+    mockDbReadSelect.mockReturnValueOnce(chain([{ email: 'u@example.com' }]))
+    await checkAndNotifyLowBalance({
+      userId: 'user-opts',
+      keyId: 'key-opts',
+      keyName: 'key-opts',
+      tokenBalance: 0,
+      costBalanceCents: 0,
+    })
+    const opts = mockCreateTransport.mock.calls[0]?.[0]
+    expect(opts?.family).toBe(4)
+    expect(opts?.connectionTimeout).toBeGreaterThan(0)
+    expect(opts?.greetingTimeout).toBeGreaterThan(0)
+    expect(opts?.socketTimeout).toBeGreaterThan(0)
+  })
 })
 
 // 测试内复用参数类型(避免重复 import,保持文件自洽)

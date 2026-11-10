@@ -90,6 +90,15 @@
     "until": "2026-12-31"
   },
   {
+    "face": "API Key 余额不足通知(自建 transport 发到客户邮箱)",
+    "producerPath": "apps/api/src/services/mail-relay-notifier.ts",
+    "role": "producer",
+    "inScope": false,
+    "gapReason": "身份侧不收:它是 relay 扣费后 fire-and-forget 的**业务通知**,收件人是客户(users.email + user_emails 合并去重),不是运维到人通道,没有 dedupKey/$sig/fingerprint —— 防骚扰靠进程内 Map 的 24h 冷却(LOW_BALANCE_NOTIFY_COOLDOWN_MS),不是身份档。台账侧量不到:它自建 nodemailer transport,不经唯一出口,出口的投递台账里没有这一路。V4 此前没点它,是因为旧代码里不带任何运维告警字面量;2026-11-10 修 From 身份时注释引用了派发器的 makeSmtpTransport 口径,它因此进入发现集 —— 登记是如实对齐,不是本轮新增的缺口。发件人身份已归一到 resolveBrandSmtpFrom,transporter 也补齐了 family 为 4 与三段超时。",
+    "ticket": "告警邮件发件人身份统一 + 本地化收尾(2026-11-10):V4 发现集点出未登记",
+    "until": "2026-12-31"
+  },
+  {
     "face": "品牌邮件版式资产",
     "producerPath": "apps/api/src/services/email-assets.ts",
     "role": "asset",
@@ -149,6 +158,15 @@
     "inScope": false,
     "gapReason": "身份侧不收:这一面没有 dedupKey/$sig/fingerprint 任何形态,它的问题是「有没有跨 run 去重能力」—— 去重状态与投递台账都住在 runner 本地,临时 runner 每次从空状态起、跑完连文件一起销毁 ⇒ **CI 寄的信在本机量不到**,本机出口账上没有这一路是设计事实不是漏采。2026-10-18 已把发信步骤改成 --strict(缺 secret/投递失败不再恒 exit 0)。该 workflow 现读 workflow_dispatch、全历史 6 次 run ⇒「每失败 run 一封」是它的下限,不是风暴源。要真量到 CI 侧发信,得给台账加共享存储 —— 那是新增能力,按 §24 需机主点头。",
     "ticket": "告警身份抖动门 224 立项同日射程审计(2026-10-18)",
+    "until": "2026-12-31"
+  },
+  {
+    "face": "CI 蓝绿失败兜底发信(零依赖 curl 直投)",
+    "producerPath": ".github/scripts/notify-deploy-failure-ci.mjs",
+    "role": "producer",
+    "inScope": false,
+    "gapReason": "身份侧不收:它没有 dedupKey/$sig/fingerprint 任何形态 —— 存活期只有一次 workflow run,跨 run 的去重状态无处可存(临时 runner 跑完连文件一起销毁)。台账侧同样量不到:CI 寄的信不进本机出口台账,本机投递账上没有这一路是设计事实。定位是「主路径依赖缺失时的最后保险」,只在 blue-green-deploy.yml 的 failure 分支被调起,正文刻意保持极简事故四要素且恒中文 —— 收件人是我方运维,它不参与按语言分流(为双语加百行等于扩大它自己的崩溃面)。发件人显示名已与品牌层同源(本文件 BRAND_FROM_NAME),由守门 81 的 R5 断言两处字面量逐字相等。",
+    "ticket": "告警邮件发件人身份统一 + 本地化收尾(2026-11-10):V4 发现集此前把它点成未登记",
     "until": "2026-12-31"
   },
   {
