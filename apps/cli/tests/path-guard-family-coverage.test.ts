@@ -51,7 +51,7 @@ import {
 } from '../src/subagents/state-store.js';
 import { createWorktree, reconcileWorktreeArtifacts } from '../src/subagents/worktree.js';
 import { WorktreeManager } from '../src/tools/worktree.js';
-import { writeRunManifest } from '../src/runs/manifest.js';
+import { writeRunManifest, runsRootFor } from '../src/runs/manifest.js';
 
 let tmpHome: string;
 let tmpWorkspace: string;
@@ -499,8 +499,11 @@ describe('worktree 目录与回收', () => {
     const victim = path.join(path.dirname(tmpWorkspace), 'victim.txt');
     fs.writeFileSync(victim, 'safe', 'utf-8');
     const mgr = new WorktreeManager(tmpWorkspace);
-    expect(mgr.remove('../victim')).toBe(false);
-    expect(mgr.remove('../../victim')).toBe(false);
+    // 越界 agentId 由容器性断言先拦:出声 + 抛(现场一字节不删)。
+    // **不是**返回 false —— 返回 false 会把越界回收静默成"本来就没有这棵树",
+    // 与同文件"根内符号链接 ⇒ 抛"那条同口径(判据见 src/tools/worktree.ts 的 @throws 与两处反控)。
+    expect(() => mgr.remove('../victim')).toThrow(/\[worktree-containment\]/);
+    expect(() => mgr.remove('../../victim')).toThrow(/\[worktree-containment\]/);
     expect(fs.readFileSync(victim, 'utf-8')).toBe('safe');
   });
 
@@ -537,9 +540,15 @@ describe('run manifest', () => {
       env: {},
     });
     expect(out).not.toBeNull();
-    const runsRoot = path.join(tmpHome, '.ihui', 'runs');
-    expect(out!.dir.startsWith(path.resolve(runsRoot) + path.sep)).toBe(true);
-    expect(fs.existsSync(path.join(tmpHome, '.ihui', 'evil'))).toBe(false);
+    // runs 根随宿主而变:仓内落 `<projectRoot>/.ihui-agent/state/runs`,仓外回落 `~/.ihui/runs`。
+    // 单源取 `runsRootFor`(生产同一件),测试不再写死其一 —— 断言的是"落点不出根 + 不越界",
+    // 与本仓宿主形态(scratch 根是否在某个 `.git` 标记之下)无关。
+    const runsRoot = path.resolve(runsRootFor(out!.manifest));
+    expect(out!.dir.startsWith(runsRoot + path.sep)).toBe(true);
+    // runId 已收敛成单段名,`../../evil` 不得折叠出根外目录。
+    const escaped = path.resolve(path.join(runsRoot, '..', 'evil'));
+    expect(out!.dir).not.toBe(escaped);
+    expect(fs.existsSync(escaped)).toBe(false);
   });
 
   it('合法 runId 文件名不变', () => {
@@ -551,7 +560,7 @@ describe('run manifest', () => {
       env: {},
     });
     expect(out!.manifest.runId).toBe('run-1');
-    expect(out!.dir).toBe(path.join(tmpHome, '.ihui', 'runs', 'run-1'));
+    expect(out!.dir).toBe(path.join(runsRootFor(out!.manifest), 'run-1'));
   });
 });
 

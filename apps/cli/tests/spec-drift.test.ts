@@ -366,10 +366,22 @@ describe('族清单不腐烂(spec-drift.ts 注释点名的那条对账)', () => 
     return [...(block![0] ?? '').matchAll(/\['([A-Z][A-Z_]*_TOOLS)'/g)].map((m) => m[1]!);
   }
 
+  /**
+   * 去掉注释再扫,避免把注释里的示例当声明。实测 2026-11-10:`route-tools.ts` 头注里的
+   * 示例 `export const X_TOOLS = createRouteTools(SPECS)`(整行在 `/** … *​/` 块注释内)
+   * 被原判据当成一族 ⇒ 报「X_TOOLS 静默失明」,而它根本不是声明。这是**判据的假阳性**:
+   * 普查对象是"声明了几族",注释文本不是声明。方向只收窄假阳性,真声明一个不少。
+   */
+  function stripComments(src: string): string {
+    return src
+      .replace(/\/\*[\s\S]*?\*\//g, '') // 块注释(含 /** … *​/ 文档注释)
+      .replace(/(^|[^:])\/\/.*$/gm, '$1'); // 行注释(避免误伤 `http://`;本判据只扫 .ts 声明,够用)
+  }
+
   function declaredFamilies(): Set<string> {
     const out = new Set<string>();
     for (const file of walk(TOOLS_DIR)) {
-      for (const m of readFileSync(file, 'utf8').matchAll(/export const ([A-Z][A-Z_]*_TOOLS)\b/g)) {
+      for (const m of stripComments(readFileSync(file, 'utf8')).matchAll(/export const ([A-Z][A-Z_]*_TOOLS)\b/g)) {
         const name = m[1];
         if (name) out.add(name);
       }

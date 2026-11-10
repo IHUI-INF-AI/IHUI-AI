@@ -56,9 +56,22 @@ function read(rel: string): string {
   return fs.readFileSync(path.join(ws, rel), 'utf-8');
 }
 
-/** 让该文件对写入失败(只留只读位;删除权限不受影响,故删除场景不靠它模拟)。 */
+/**
+ * 注入「该文件写入必然失败」—— 用重解析点(符号链接),**不用权限位**。
+ *
+ * 立因(2026-11-10 实测):旧的 `chmod 0o444` 只挡得住 Windows(rename 撞 EPERM);
+ * POSIX 下 `rename(2)` 由**目录**写权限裁决、CI 又以 root 跑,文件只读位根本拦不住
+ * `commitAtomicWrite` 的 tmp+rename ⇒ Linux 上回滚其实成功了,用例号称"失败"却拿到成功态。
+ * 生产侧 `assertNotReparsePoint` 对「最终分量是符号链接」是**无条件拒绝**(与 uid/平台无关),
+ * 故改用它注入:链接指向同一内容的 `.real` 兄弟文件 ⇒ 回滚失败后按原样读回仍是原内容。
+ */
 function freeze(rel: string): void {
-  fs.chmodSync(path.join(ws, rel), 0o444);
+  const p = path.join(ws, rel);
+  const content = fs.readFileSync(p, 'utf-8');
+  const real = `${rel}.real`;
+  fs.writeFileSync(path.join(ws, real), content, 'utf-8');
+  fs.rmSync(p);
+  fs.symlinkSync(real, p);
 }
 
 function manager(): UndoRedoManager {
