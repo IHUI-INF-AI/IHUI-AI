@@ -360,16 +360,20 @@ GB2312 一级 3755 字缺 2178)。运行时动态中文(用户昵称、知识库
 
 | 档 | 产物文件 | 字符集 | 实测体积 | 用途 |
 |----|----------|--------|----------|------|
-| Regular(400) | `HarmonyOS_SansSC_Regular.gb2312-l12.woff2` | 源码扫描 ∪ GB2312 一级 ∪ 二级(8703 码位) | 982 KB | 正文,动态中文全覆盖 |
-| Medium(500) | `HarmonyOS_SansSC_Medium.gb2312-l1.woff2` | 源码扫描 ∪ GB2312 一级(5766 码位) | 582 KB | 强调/次级标题 |
-| Bold(600–700) | `HarmonyOS_SansSC_Bold.gb2312-l1.woff2` | 同上 | 585 KB | 标题;本家族官方无 Semibold 面,600 由该面代打(已在 `@font-face` 显式声明 `font-weight: 600 700`) |
-| Thin(100) / Light(300) | `HarmonyOS_SansSC_{Thin,Light}.subset.woff2` | 源码扫描窄档 | 373 / 375 KB | 全站几乎不用,不为它付体积 |
+| Regular(400) | `HarmonyOS_SansSC_Regular.gb2312-l12.woff2` | 源码扫描 ∪ GB2312 一级 ∪ 二级(8736 码位) | 988 KB | 正文,动态中文全覆盖 |
+| Medium(500) | `HarmonyOS_SansSC_Medium.gb2312-l1.woff2` | 源码扫描 ∪ GB2312 一级(5856 码位) | 596 KB | 强调/次级标题 |
+| Bold(600–700) | `HarmonyOS_SansSC_Bold.gb2312-l1.woff2` | 同上(5856 码位) | 599 KB | 标题;本家族官方无 Semibold 面,600 由该面代打(已在 `@font-face` 显式声明 `font-weight: 600 700`) |
+| Thin(100) / Light(300) | `HarmonyOS_SansSC_{Thin,Light}.subset.woff2` | 源码扫描窄档(4214 码位) | 373 / 375 KB | 全站几乎不用,不为它付体积 |
 | 营销首页专用 | `HarmonyOS_SansSC_home-subset-v1-{400,500,700}.woff2` | 首页去重字(更窄) | 69 / 70 / 70 KB | FEO 决策,见 `apps/web/app/(marketing)/marketing-fonts.css` |
+
+> 码位与体积逐字取自 `scripts/data/font-subset-manifest.json`(唯一真相源,勿手抄)。
+> **残余缺字**:GB2312 之外的汉字仍有 4 枚(U+6607 昇 / U+5570 啰 / U+538F 厏 / U+9FFF 鿿),
+> 全仓 4463 个源文件重扫实测;前三枚在 GBK 内,U+9FFF 鿿 连 GBK 都没有。
 
 | 文件 | 用途 |
 |------|------|
 | `scripts/subset-fonts.py` | 子集化唯一出口(pyftsubset;含前置自检 + 缺字哨兵自检) |
-| `scripts/font-subset-chars.txt` | 宽档并集字符清单(8703 码位,供守门与工具读取) |
+| `scripts/font-subset-chars.txt` | 宽档并集字符清单(8737 码位,供守门与工具读取) |
 | `scripts/font-subset-unicode-range.txt` | 并集 unicode-range 描述 |
 | `scripts/data/font-subset-manifest.json` | 逐面码位数/体积/哨兵结果(守门对账用) |
 
