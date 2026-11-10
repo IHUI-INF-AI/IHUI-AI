@@ -1931,6 +1931,74 @@ test('规格快路径:索引面 :path 在 catBatch 与 catBatchOids 上给同一
   assert.equal(catBatchOids(root, [ghost], { maxBuffer: 1 << 20 }).get(ghost), null)
 })
 
+/**
+ * `gitRaw` binary 档 + `input` 的组合(2026-11-10 实测,门 30a 触发)。
+ *
+ * 旧实现写 `encoding: opts.binary ? 'buffer' : 'utf8'`。`'buffer'` 在**不带 input** 时确实
+ * 让 `execFileSync` 返回 Buffer,所以本仓 5 处既有调用方(check-ps1-bom /
+ * check-live-doc-duplicates / dedupe-live-doc / git-sync-converge / guardian-gate-cache)
+ * 全都不带 input ⇒ 这个洞潜伏到今天才被 30a 的内存治理踩到。
+ *
+ * 真因:`execFileSync` 在 `input !== undefined` 时把 `encoding` 当作**输入编码**
+ * (`Buffer.from(input, encoding)`)⇒ `'buffer'` 不是合法编码 ⇒ 抛 `Unknown encoding: buffer`。
+ * 该错误**无退出码无回显**,`gitRetryPlan` 会判成可重试、串行重跑一遍再失败,最终话术是
+ * "git log 失败"—— 完全看不出是 encoding 的问题(实测就是照这个方向排查了两轮)。
+ *
+ * 三条断言各自锁一件事:① 不带 input 的 binary 档仍是 Buffer(既有 5 处调用方的活路);
+ * ② **带 input 的 binary 档可用**(回归点);③ 文本档不受影响。
+ */
+test('gitRaw binary 档:带 input 时 encoding 不得参与输入编码(Unknown encoding: buffer 回归)', () => {
+  const dir = mkScratch('ihui-face-bin-')
+  try {
+    const run = (args) =>
+      spawnSync(gitBinary(), ['-c', 'safe.directory=*', '-C', dir, ...args], {
+        encoding: 'utf8',
+        windowsHide: true,
+      })
+    run(['init', '-q'])
+    writeFileSync(join(dir, 'a.txt'), 'hello\n')
+    run(['add', 'a.txt'])
+    run(['-c', 'user.name=t', '-c', 'user.email=t@example.com', 'commit', '-q', '-m', 'init'])
+    const head = gitRaw(['rev-parse', 'HEAD'], dir).trim()
+    assert.match(head, /^[0-9a-f]{40}$/, `夹具仓 HEAD 取不到:${head}`)
+
+    // ① 不带 input:binary 档必须返回 Buffer(既有调用方的形态,不得回归)
+    const noInput = gitRaw(['rev-parse', 'HEAD'], dir, { binary: true })
+    assert.ok(Buffer.isBuffer(noInput), 'binary 档必须返回 Buffer')
+    assert.equal(noInput.toString('utf8').trim(), head)
+
+    // ② 带 input:回归点 —— 旧实现会抛 Unknown encoding: buffer
+    const withInput = gitRaw(
+      [
+        'log',
+        '--no-walk=unsorted',
+        '--stdin',
+        '--raw',
+        '--no-abbrev',
+        '-z',
+        '--no-renames',
+        '--root',
+        '--format=IHUI:%H:%ct',
+      ],
+      dir,
+      { binary: true, input: head + '\n', maxBuffer: 8 * 1024 * 1024 },
+    )
+    assert.ok(Buffer.isBuffer(withInput), '带 input 的 binary 档必须返回 Buffer')
+    assert.ok(
+      withInput.length > 0,
+      '带 input 的 binary 档不得返回空(空读数会被判据读成"没有改动")',
+    )
+    assert.match(withInput.toString('utf8'), /IHUI:/, '输出必须含 commit 段标记')
+
+    // ③ 文本档不受影响
+    const txt = gitRaw(['rev-parse', 'HEAD'], dir)
+    assert.equal(typeof txt, 'string', '非 binary 档必须仍返回字符串')
+    assert.equal(txt.trim(), head)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
 test('probeFaceSpec:取不到时把 命令/rc/stderr 一起带回(RP-47 可观测腿)', () => {
   const root = join(here, '..', '..')
   const ok = probeFaceSpec(root, 'HEAD:package.json')

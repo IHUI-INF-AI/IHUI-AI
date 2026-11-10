@@ -52,6 +52,8 @@ export default function HrAttendanceScreen() {
   const [busy, setBusy] = useState(false)
   const [employeeId, setEmployeeId] = useState('')
   const [departmentId, setDepartmentId] = useState('')
+  /** 哪个输入框持有焦点(G-978007:带 value 的裸 TextInput 必须有焦点态,不然键入无视觉反馈) */
+  const [focusField, setFocusField] = useState<'employeeId' | 'departmentId' | null>(null)
 
   const load = useCallback(
     async (refresh = false) => {
@@ -128,17 +130,21 @@ export default function HrAttendanceScreen() {
             <Text style={styles.cardTitle}>{t('hrAttendance.checkIn')}</Text>
           </View>
           <TextInput
-            style={styles.input}
+            style={[styles.input, focusField === 'employeeId' && styles.inputFocused]}
             placeholder={t('hrAttendance.colEmployeeNo')}
             value={employeeId}
             onChangeText={setEmployeeId}
+            onFocus={() => setFocusField('employeeId')}
+            onBlur={() => setFocusField(null)}
             autoCapitalize="none"
           />
           <TextInput
-            style={styles.input}
+            style={[styles.input, focusField === 'departmentId' && styles.inputFocused]}
             placeholder={t('hrAttendance.colDepartment')}
             value={departmentId}
             onChangeText={setDepartmentId}
+            onFocus={() => setFocusField('departmentId')}
+            onBlur={() => setFocusField(null)}
             autoCapitalize="none"
           />
           <TouchableOpacity
@@ -223,8 +229,13 @@ const styles = StyleSheet.create({
     color: tokens.text.primary,
     backgroundColor: tokens.surface.muted,
     borderRadius: rnRadius.md,
+    borderWidth: 1,
+    borderColor: tokens.border.light,
     paddingHorizontal: rnSpacing['sm-loose'],
     paddingVertical: rnSpacing['xs-loose'],
+  },
+  inputFocused: {
+    borderColor: tokens.brand.DEFAULT ?? tokens.text.primary,
   },
   submit: {
     marginTop: rnSpacing.sm,
