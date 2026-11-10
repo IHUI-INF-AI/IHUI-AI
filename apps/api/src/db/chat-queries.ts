@@ -2262,9 +2262,14 @@ export async function removeConversationShareToken(id: string, userId: string): 
   const existing = await findConversationById(id)
   if (!existing) throw new Error('对话不存在')
   if (existing.userId !== userId) throw new Error('无权操作该对话')
+  // G-998153 出口形态:先取现值、按键比较,只有真变化才写(重复撤销不再空转 updatedAt)。
+  const changed: Partial<typeof chatConversations.$inferInsert> = {}
+  if (existing.shareToken !== null) changed.shareToken = null
+  if (existing.shareTokenExpiresAt !== null) changed.shareTokenExpiresAt = null
+  if (Object.keys(changed).length === 0) return
   await db
     .update(chatConversations)
-    .set({ shareToken: null, shareTokenExpiresAt: null, updatedAt: new Date() })
+    .set({ ...changed, updatedAt: new Date() })
     .where(eq(chatConversations.id, id))
 }
 
