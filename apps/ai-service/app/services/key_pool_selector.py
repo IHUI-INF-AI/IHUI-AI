@@ -84,6 +84,28 @@ class KeyPoolSelector:
         if not rows:
             return None
 
+        # 占位符 key 一律视为未配置:先剔除再选,避免把假 key 打去上游换一个 401。
+        # 剔除留痕(只打前 4 位 + 长度),便于回答"这一家为什么回落到了 env"。
+        from ..core.llm_gateway import mask_api_key, placeholder_key_reason
+
+        candidates: list[tuple[dict, str]] = []
+        for row in rows:
+            decrypted = _decrypt_api_key(row["api_key_enc"])
+            reason = placeholder_key_reason(decrypted)
+            if reason:
+                logger.warning(
+                    "[key_pool] 跳过占位符 key(key_pool_id=%s, name=%s, reason=%s, key=%s) => 视为未配置",
+                    row["id"],
+                    row["name"],
+                    reason,
+                    mask_api_key(decrypted),
+                )
+                continue
+            candidates.append((row, decrypted))
+        if not candidates:
+            return None
+        rows = [row for row, _ in candidates]
+
         # 同 priority 分组:取最小 priority 组(priority 已 ASC 排序,首行即最小)
         first_priority = rows[0]["priority"]
         same_priority = [r for r in rows if r["priority"] == first_priority]
@@ -95,17 +117,8 @@ class KeyPoolSelector:
             weights = [max(int(r["weight"]), 1) for r in same_priority]
             chosen = random.choices(same_priority, weights=weights, k=1)[0]
 
-        # 解密 api_key_enc(懒导入避免循环依赖)
-        from ..core.llm_gateway import _decrypt_api_key
-
-        api_key = _decrypt_api_key(chosen["api_key_enc"])
-        if not api_key:
-            logger.warning(
-                "[key_pool] api_key_enc 解密失败(key_pool_id=%s, name=%s)",
-                chosen["id"],
-                chosen["name"],
-            )
-            return None
+        # 复用上面已解出的明文(按 id 对齐),不再二次解密
+        api_key = next(key for row, key in candidates if row["id"] == chosen["id"])
 
         return SelectedKey(
             api_key=api_key,

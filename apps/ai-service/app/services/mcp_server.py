@@ -817,6 +817,8 @@ _ADMIN_ONLY_TOOLS: set[str] = {
     # intend 路由与 tool 选择表都不含它(role=0 正常链路不依赖);本地路径分支已过
     # 工作区+敏感文件判据,这里再加角色档。voice_clone 不能加:对话链 role=0 直接
     # 依赖它(conversation._MEDIA_INTENT_PATTERNS["token6688_voice_clone"])。
+    # 用户 2026-11-08 逐条裁定:voice_clone 属"贵资源",用归属闸+计费闸治理
+    # (tests/test_voice_clone_owner_credit_ais050.py),整只入档会挡死正常对话链。
     "token6688_upload_file",
     # 2026-07-24 扩展工具(自研核心能力):
     # fetch_url:SSRF 入口 + 可探测内网;
@@ -12069,7 +12071,22 @@ async def _tool_run_workflow(arguments: dict[str, Any]) -> dict[str, Any]:
                 "run_workflow", str(node.get("agent") or "").strip(), arguments
             )
             if denial is not None:
-                return denial
+                # 与 run_workflow 既有回执同形(workflow_runner._undetermined 口径):
+                # 拒绝发生在分派之前 ⇒ executed/cached 必为空,status 为 undetermined。
+                # 调用方不必按"拒绝来自哪一层"分叉解析响应形状。
+                return {
+                    "tool": "run_workflow",
+                    "ok": False,
+                    "errorCode": denial["errorCode"],
+                    "error": denial["error"],
+                    "run_id": None,
+                    "status": "undetermined",
+                    "executed": [],
+                    "cached": [],
+                    "skipped": {},
+                    "failed": {},
+                    "results": {},
+                }
 
     resume_raw = arguments.get("resume_from_run_id")
     resume = str(resume_raw).strip() if resume_raw is not None and str(resume_raw).strip() else None
@@ -15556,6 +15573,10 @@ async def _tool_browser_console_messages(arguments: dict[str, Any]) -> dict[str,
     session, error = _browser_observe_target(arguments, "browser_console_messages")
     if error is not None:
         return error
+    # 契约:error 与 session 互斥 —— error 为 None 时必然给出了会话。mypy 看不到这层关联
+    # (二元组的两个元素在类型上各自独立),显式断言把不变式写进类型面,而不是用类型忽略
+    # 注释把门戳瞎(那样真接错属性时也不再有提示)。
+    assert session is not None
     result = await session.console_messages(
         level=str(arguments.get("level") or "all"),
         limit=_clamp_read_limit(arguments.get("limit", 50)),
@@ -15569,6 +15590,7 @@ async def _tool_browser_network_requests(arguments: dict[str, Any]) -> dict[str,
     session, error = _browser_observe_target(arguments, "browser_network_requests")
     if error is not None:
         return error
+    assert session is not None  # 同上:error/session 互斥
     raw_status = arguments.get("statusMin")
     try:
         status_min = int(raw_status) if raw_status not in (None, "") else None

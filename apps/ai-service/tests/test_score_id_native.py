@@ -5,8 +5,8 @@
 """`id_native` 同 id 索引打分的钉(goal-b47)。
 
 钉的是"这条轨是怎么被点亮的":①id 全部由本仓切块器现算(不是抄来的表);
-②金标 id 的复现率有下限,漏的那一枚必须是点名的陈旧 id;③指标一律走 `retrieval_eval`;
-④判不了的题必须给出名字化的原因,不许静默消失。全部零连库、零网络。
+②金标 id 的复现率有下限,漏的每一枚都必须是点名了成因的陈旧 id;③指标一律走
+`retrieval_eval`;④判不了的题必须给出名字化的原因,不许静默消失。全部零连库、零网络。
 """
 
 from __future__ import annotations
@@ -21,6 +21,12 @@ from bench import score_id_native as SIN
 
 REPO = Path(__file__).resolve().parents[3]
 STALE_ID = "93d1a33883fd30d9"
+# 第二枚陈旧 id(2026-11-04 起):docs/architecture.md「i18n 与代码质量」那个父块在
+# 金标成稿后被 3778408c72(退役 legacy grafana/dashboards 树)改了一行 ——
+# 该行里的 `/ generate-stub-routes.mjs` 被删。父块字节变 ⇒ chunk_id 由
+# 94b7784dc1bf3529 漂成 457ee5c792b15cd4(实测新旧两版现算只此一进一出),
+# 引用它的 6 题因此不再复现。属"文档侧合法变更带出的陈旧派生 id",不是切块器回归。
+STALE_ID_ARCH = "94b7784dc1bf3529"
 
 
 def _index() -> SIN.SameIdIndex:
@@ -40,18 +46,23 @@ def test_ids_are_the_ones_our_chunker_produces_not_a_copied_table():
     assert json.loads(json.dumps({"cfg": index.config_note}))["cfg"].startswith("config=")
 
 
-def test_gold_id_reproduction_is_27_of_28_with_the_stale_one_named():
+def test_gold_id_reproduction_is_26_of_28_with_the_stale_ones_named():
     index = _index()
     items = SIN.load_questions()
     gold = {cid for it in items for cid in it.expected_chunk_ids}
     reproduced = gold & index.universe
     assert len(gold) == 28, f"金标Distinct id 数漂了(现读 {len(gold)})"
-    assert len(reproduced) == 27, f"复现率不是 27/28(现读 {len(reproduced)})"
+    assert len(reproduced) == 26, f"复现率不是 26/28(现读 {len(reproduced)})"
     unmatched = sorted(gold - index.universe)
-    assert unmatched == [STALE_ID], f"未复现的应当只有那枚已知陈旧 id,实得 {unmatched}"
+    assert unmatched == sorted([STALE_ID, STALE_ID_ARCH]), (
+        f"未复现的应当只有那两枚已知陈旧 id,实得 {unmatched}"
+    )
     # 陈旧因由:该题金标写「9 端同源」而现文是「8 端同源」⇒ id 随正文变过(同族数据缺陷一票)
     q = next(it for it in items if STALE_ID in it.expected_chunk_ids)
     assert q.question_id == "q-1194d4444087"
+    # 另一枚的因由见 STALE_ID_ARCH 注释(architecture.md 同一父块的那行被删)
+    arch_qs = sorted(it.question_id for it in items if STALE_ID_ARCH in it.expected_chunk_ids)
+    assert len(arch_qs) == 6, f"引用 architecture 陈旧 id 的题数漂了: {arch_qs}"
 
 
 def test_metrics_come_from_retrieval_eval_and_no_second_formula_lives_here():

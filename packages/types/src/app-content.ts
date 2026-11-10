@@ -14,7 +14,7 @@
 import type { ReactNode } from 'react'
 import type { ListPaginationProps, TFunction } from './app-shared.js'
 import type { CategoryItem } from './app-learning.js'
-import type { OnNavigate, OnToast } from './app-host-ports.js'
+import type { AsyncKvPort, MediaPort, OnNavigate, OnToast } from './app-host-ports.js'
 
 /** 笔记列表项(平台注入,字段对齐 mobile-rn NoteListScreen Note) */
 export interface NoteListItem {
@@ -336,6 +336,10 @@ export interface AskCreateScreenProps {
   colorScheme?: 'light' | 'dark'
   /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
   onToast: OnToast
+  /** 选图端口:配图共享段唯一选图出口;两端宿主必须真传(Taro / expo-image-picker) */
+  media: MediaPort
+  /** 草稿存储端口:异步形,RN AsyncStorage 只能异步读写;两端宿主必须真传 */
+  draft: AsyncKvPort
 }
 
 /** NoteCreateScreen props(表单屏,状态由 wrapper 管理) */

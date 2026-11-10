@@ -9,8 +9,8 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Ban, Play, Loader2 } from 'lucide-react'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
+import { getAllSubagentDispatches } from '@ihui/api-client'
 import {
-  fetchActiveDispatches,
   fetchDispatchDag,
   fetchDispatchQuotas,
   fetchDispatchMessages,
@@ -20,24 +20,35 @@ import {
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { DagGraph } from '@/components/subagents/DagGraph'
 import { AgentMessageList } from '@/components/subagents/AgentMessageList'
-import type { DispatchStatus, AgentRole, DispatchPriority } from '@ihui/shared/subagents/index'
+import type { AgentRole, DispatchPriority } from '@ihui/shared/subagents/index'
 
-const STATUS_BADGE: Record<DispatchStatus, string> = {
+// /subagents/all 会带扩展状态(queued/interrupted/preempted/quota_exceeded),
+// 用 string 键兜住,查到不认识的扩展态按原字面量直显,不落成 "undefined"(2026-11-08 P2)。
+const STATUS_BADGE: Record<string, string> = {
   pending: 'bg-slate-100 text-slate-700 dark:bg-slate-900 dark:text-slate-300',
   running: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
   completed: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300',
   failed: 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300',
   cancelled: 'bg-slate-100 text-slate-700 dark:bg-slate-900 dark:text-slate-300',
   paused: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300',
+  queued: 'bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300',
+  interrupted: 'bg-slate-100 text-slate-700 dark:bg-slate-900 dark:text-slate-300',
+  preempted: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300',
+  quota_exceeded: 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300',
 }
-const STATUS_LABEL: Record<DispatchStatus, string> = {
+const STATUS_LABEL: Record<string, string> = {
   pending: '等待',
   running: '运行中',
   completed: '已完成',
   failed: '失败',
   cancelled: '已取消',
   paused: '已暂停',
+  queued: '排队中',
+  interrupted: '已中断',
+  preempted: '被抢占',
+  quota_exceeded: '配额超限',
 }
+const STATUS_BADGE_FALLBACK = 'bg-slate-100 text-slate-700 dark:bg-slate-900 dark:text-slate-300'
 const ROLE_LABEL: Record<AgentRole, string> = {
   researcher: '研究员',
   coder: '编码员',
@@ -96,9 +107,11 @@ export default function SubagentDetailClient() {
   // 登录态门(与签到助手同型):未就绪/未登录不发注定 401 的挂载请求
   const { allow } = useAuthGate()
 
-  const activeQ = useQuery({
-    queryKey: ['subagents', 'active'],
-    queryFn: fetchActiveDispatches,
+  // 详情页必须能打开终态派单:数据源改 /subagents/all(active 只是 pending/running 子集),
+  // 否则 completed 单恒落到「不存在或已结束」分支(2026-11-08 P2)。
+  const allQ = useQuery({
+    queryKey: ['subagents', 'all', { limit: 200 }],
+    queryFn: () => getAllSubagentDispatches({ limit: 200 }),
     refetchInterval: 5000,
     enabled: allow,
   })
@@ -119,7 +132,7 @@ export default function SubagentDetailClient() {
     refetchInterval: 3000,
   })
 
-  const dispatch = activeQ.data?.dispatches.find((d) => d.id === id)
+  const dispatch = allQ.data?.dispatches.find((d) => d.id === id)
 
   const cancelMut = useMutation({
     mutationFn: () => cancelDispatch(id),
@@ -195,18 +208,35 @@ export default function SubagentDetailClient() {
         <CardContent className="min-[640px]:p-3 p-3 pt-0">
           {!dispatch ? (
             <p className="py-6 text-center text-body text-muted-foreground">
-              {activeQ.isLoading ? '加载中...' : '派单不存在或已结束(不在活跃列表)'}
+              {allQ.isLoading ? '加载中...' : '派单不存在'}
             </p>
           ) : (
             <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[768px]:grid-cols-4">
               <div>
                 <p className="text-label text-muted-foreground">状态</p>
                 <span
-                  className={`mt-1 inline-block rounded px-1.5 py-0.5 text-label font-medium ${STATUS_BADGE[dispatch.status]}`}
+                  className={`mt-1 inline-block rounded px-1.5 py-0.5 text-label font-medium ${STATUS_BADGE[dispatch.status] ?? STATUS_BADGE_FALLBACK}`}
                 >
-                  {STATUS_LABEL[dispatch.status]}
+                  {STATUS_LABEL[dispatch.status] ?? dispatch.status}
                 </span>
               </div>
+              {dispatch.metrics && (
+                <div>
+                  <p className="text-label text-muted-foreground">工具调用</p>
+                  <p
+                    className={`mt-1 text-body tabular-nums ${
+                      typeof dispatch.metrics.toolCalls === 'number' &&
+                      dispatch.metrics.toolCalls > 0
+                        ? ''
+                        : 'text-amber-600 dark:text-amber-400'
+                    }`}
+                  >
+                    {typeof dispatch.metrics.toolCalls === 'number'
+                      ? `${dispatch.metrics.toolCalls} 次`
+                      : '未判定'}
+                  </p>
+                </div>
+              )}
               {dispatch.agentRole && (
                 <div>
                   <p className="text-label text-muted-foreground">角色</p>
@@ -229,6 +259,23 @@ export default function SubagentDetailClient() {
           )}
         </CardContent>
       </Card>
+
+      {dispatch && (dispatch.result || dispatch.errorMessage) && (
+        <Card>
+          <CardHeader className="p-3">
+            <CardTitle className="text-body">执行结果</CardTitle>
+          </CardHeader>
+          <CardContent className="min-[640px]:p-3 p-3 pt-0">
+            {dispatch.result ? (
+              <pre className="max-h-96 overflow-auto whitespace-pre-wrap break-words text-body">
+                {dispatch.result}
+              </pre>
+            ) : (
+              <p className="text-body text-rose-600 dark:text-rose-400">{dispatch.errorMessage}</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-2">
         <Card>
