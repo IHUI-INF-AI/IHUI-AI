@@ -85,13 +85,38 @@ def test_label_payload_adds_aigc_block_without_touching_existing_keys():
     assert "aigc" not in payload
     aigc = out["aigc"]
     assert aigc["labeled"] is True
-    assert aigc["label_type"] == "explicit+implicit"
+    # 未带回字节层写入证据时不得宣称 implicit(此前写死 explicit+implicit 属于虚报)
+    assert aigc["label_type"] == "explicit"
+    assert "implicit" not in aigc
     assert aigc["content_kind"] == "image"
     assert aigc["tool"] == "image_generation"
     assert aigc["generator"] == "agnes"
     assert aigc["labeled_at"] == "2026-10-31T12:00:00+00:00"
     assert aigc["explicit_notice"] == "AI 生成图像"
     assert "标识办法" in aigc["standard"]
+
+
+def test_label_payload_merges_implicit_byte_evidence():
+    """真实带回字节层写入证据时,label_type 才升级 explicit+implicit,并保留 info。"""
+    implicit = {"embedded": True, "method": "png_tEXt+iTXt", "content_id": "aigc-1"}
+    out = label_aigc_payload(
+        {}, kind="image", tool="image_generation", provider="p", implicit=implicit
+    )
+    assert out["aigc"]["label_type"] == "explicit+implicit"
+    assert out["aigc"]["implicit"] == implicit
+
+
+def test_label_payload_implicit_not_embedded_stays_explicit():
+    """产物是远端 URL 未落盘时 embedded=False,不得谎报 implicit。"""
+    out = label_aigc_payload(
+        {},
+        kind="image",
+        tool="image_generation",
+        provider="p",
+        implicit={"embedded": False, "reason": "remote_url_not_persisted"},
+    )
+    assert out["aigc"]["label_type"] == "explicit"
+    assert out["aigc"]["implicit"]["embedded"] is False
 
 
 def test_label_payload_carries_model_when_present():
@@ -141,6 +166,38 @@ async def test_persist_writes_aigc_block_into_db_payload():
     assert '"aigc"' in result_json
     assert '"labeled": true' in result_json
     assert "AI 生成图像" in result_json
+
+
+async def test_persist_carries_implicit_byte_evidence_into_db_payload():
+    """工具结果带 aigc_implicit 时,落库 aigc 块必须包含字节层写入证据。"""
+    conn = AsyncMock()
+    conn.fetch = AsyncMock(return_value=[{"id": 3}])
+    implicit = {
+        "embedded": True,
+        "method": "png_tEXt+iTXt",
+        "content_id": "aigc-persist-1",
+        "keyword": "AIGC",
+    }
+    with patch("app.services.media_tasks.get_db_conn", new_callable=AsyncMock) as m:
+        m.return_value = conn
+        ok = await mt.persist_media_task(
+            "image_generation",
+            {
+                "ok": True,
+                "task_id": "t-aigc-3",
+                "image_url": "data:image/png;base64,AAAA",
+                "provider": "agnes",
+                "aigc_implicit": implicit,
+            },
+            user_uuid="u1",
+        )
+    assert ok is True
+    _sql, *params = conn.fetch.call_args.args
+    result_json = params[-1]
+    assert '"implicit"' in result_json
+    assert '"embedded": true' in result_json
+    assert "aigc-persist-1" in result_json
+    assert "explicit+implicit" in result_json
 
 
 async def test_persist_aigc_disabled_keeps_legacy_payload():
