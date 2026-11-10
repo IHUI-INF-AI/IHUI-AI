@@ -23,7 +23,7 @@
  *   钩子 spawn 引用 39 处 | 入口缺失 1 处(scripts/check-staged-resurrection.mjs)
  *   入口 import 闭包缺失 1 个(scripts/lib/intentional-file-deletion.mjs)
  */
-import { execFileSync, spawnSync } from 'node:child_process'
+import { spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -117,11 +117,11 @@ function collectSpecs(src) {
 
 // ─── ① 全树静态基准读数(不判红)──────────────────────────────────────────────
 const jsFiles = [...headTree].filter((f) => /\.(c|m)?js$/.test(f))
-const grepOut = spawnSync(
-  'git',
-  ['-C', ROOT, 'grep', '-n', '-E', REL_REQUIRE, 'HEAD', '--', '*.js', '*.mjs', '*.cjs'],
-  { encoding: 'utf8', maxBuffer: 1 << 28, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true },
-).stdout
+const grepOut = gitRaw(
+  ['grep', '-n', '-E', REL_REQUIRE, 'HEAD', '--', '*.js', '*.mjs', '*.cjs'],
+  ROOT,
+  { timeout: 120_000, maxBuffer: 1 << 28 },
+)
 let treeRequires = 0
 const treeBroken = []
 for (const line of String(grepOut || '').split(/\r?\n/)) {
