@@ -342,13 +342,37 @@
   --color-danger-text: #f87171;
 }
 
-/* 全局统一字体:对齐历史 Uniapp 项目 AlimamaFangYuanTi(2026-08-13 立,H19)
- * 字体文件:assets/fonts/AlimamaFangYuanTiVF-Thin.ttf
- * 加载方式:app.config.js expo-font config plugin(build-time linking)
- * Uniapp 源:@font-face { font-family: 'AlimamaFangYuanTi'; src: url('AlimamaFangYuanTiVF-Thin.ttf') }
- * 注:font-family 名称需与字体 PostScript name 一致,build 后生效。 */
+/* 品牌字体栈口径留痕(2026-11-10 收口):本块两端都**不产生运行时效果**,保留只为让
+ * 门 313 的 T4 书写面与跨端回退链有同一份可读真值:
+ *   原生端:react-native-css-interop 的 normalize-selectors 丢弃 `*` 的非变量声明
+ *          (只留 CSS 自定义属性),且 RN 的 fontFamily 只认单族名、无回退栈;
+ *   web 预览端:react-native-web 的 Text 初始样式 `font: 14px System`(类选择器)压过 `*`。
+ * 故 RN 端中文实际走系统字体 —— 与小程序端同口径的平台差异,已登记在
+ * scripts/data/cross-end-allowed-diffs.json(platform:font-stack-cjk / mobile-rn)。
+ * 不自托管的三条实测(无全局注入点 / GB2312 子集缺字率约 26% / 无回退栈)
+ * 与族名·码位表见 app.config.js、App.tsx 头注。下方族序列与
+ * packages/design-tokens/src/styles/base.css 的 --font-sans 回退链同源,中文现代黑体
+ * 兜底必须落在确定的黑体族而不是裸 sans-serif。 */
 * {
-  font-family: 'AlimamaFangYuanTi';
+  font-family:
+    'HarmonyOS Sans SC',
+    'PingFang SC',
+    'Microsoft YaHei',
+    'Noto Sans SC',
+    'Source Han Sans SC',
+    'Hiragino Sans GB',
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    Roboto,
+    'Helvetica Neue',
+    Arial,
+    'Noto Sans',
+    sans-serif,
+    'Apple Color Emoji',
+    'Segoe UI Emoji';
 }
 
 /* Web 预览隐藏滚动条(2026-10-15 立)

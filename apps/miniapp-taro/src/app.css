@@ -42,16 +42,32 @@ page {
   padding: 0;
   width: 100%;
   height: 100%;
+  /*
+   * 回退值与 tokens.css 的 `--font-sans` **逐字同源**(2026-11-10 对齐,此前只抄了前半截:
+   * 缺 'Source Han Sans SC' / 'Hiragino Sans GB' 两档中文现代黑体,缺字只能落系统默认
+   * sans-serif —— 那台机器把 sans-serif 指到宋体/衬线时,中文就与同一行里的拉丁字换脸)。
+   * 改这一处 ⇒ 必须同批改 tokens.css 的 `--font-sans`,两处逐字一致(同源,不得各抄一份)。
+   */
   font-family: var(
     --font-sans,
     'HarmonyOS Sans SC',
     'PingFang SC',
     'Microsoft YaHei',
     'Noto Sans SC',
+    'Source Han Sans SC',
+    'Hiragino Sans GB',
+    ui-sans-serif,
     system-ui,
     -apple-system,
     BlinkMacSystemFont,
-    sans-serif
+    'Segoe UI',
+    Roboto,
+    'Helvetica Neue',
+    Arial,
+    'Noto Sans',
+    sans-serif,
+    'Apple Color Emoji',
+    'Segoe UI Emoji'
   );
   background-color: var(--color-background);
   color: var(--color-foreground);
@@ -452,8 +468,10 @@ progress {
    与 *{font-family !important} 深色科技风强制覆盖已删除(根治):
    - 背景与文字色由上方共享 base.css 绑定 var(--color-background/foreground),
      与 web 端完全同源,亮/暗主题可切换。
-   - 字体统一走 --font-sans 栈(web 首选自托管 HarmonyOS Sans SC,小程序降级
-     系统中文栈 — 平台必需差异:小程序无法自托管 woff2,7.4MB 本地 TTF 不可接受)。
+   - 字体统一走 --font-sans 栈(web 首选自托管 HarmonyOS Sans SC,小程序走系统中文栈
+     —— 平台必需差异,三条具体原因:① 微信 loadFontFace 只吃 https 网络地址或 base64
+     Data URL,不吃本地字体文件;② 主包余量实测只剩 130,035 B,放不下任何一档中文字体;
+     ③ 2026-07-27 远程字体因 TLS/域名问题被移除(app.tsx:241-243 记着现场))。
    - 主题根容器 .theme-root 供 src/lib/theme.ts 挂载 .dark 类(变量随子树继承)。 */
 .theme-root {
   min-height: 100vh;

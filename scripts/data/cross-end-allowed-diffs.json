@@ -268,6 +268,24 @@
       "evidence": "apps/mobile-rn/src/screens/AiAssistantN8nScreen.tsx:2394,2406,2413:Menlo/monospace"
     },
     {
+      "component": "font",
+      "key": "platform:font-stack-cjk",
+      "platform": "miniapp",
+      "owner": "cross-end-platform",
+      "expires": "2027-03-27",
+      "reason": "小程序端不自带中文字体,走系统字体:微信 loadFontFace 只吃 https 网络地址或 base64 Data URL,不吃本地字体文件;主包余量实测只剩 130,035 B,放不下任何一档中文字体;2026-07-27 远程字体因 TLS/域名问题被移除。web 端自托管 HarmonyOS Sans SC,两端差异属平台能力差异。",
+      "evidence": "apps/miniapp-taro/config/index.ts:118-129:字体仅 H5 使用的三条原因; apps/miniapp-taro/src/app.tsx:241-243:2026-07-27 移除 loadFontFace; apps/miniapp-taro/src/app.css:468-471:平台必需差异说明"
+    },
+    {
+      "component": "font",
+      "key": "platform:font-stack-cjk",
+      "platform": "mobile-rn",
+      "owner": "cross-end-platform",
+      "expires": "2027-03-27",
+      "reason": "RN 端不自托管中文字体,走系统中文黑体栈:① RN 端结构上无全局字体注入点(React 19 automatic runtime 不读 defaultProps / react-native 的 Text 是 getter 且 317 处静态导入 / css-interop 丢弃 * 非变量声明 / NativeWind className 覆盖不到未标注 Text),注册族名也无任何 Text 消费(全仓 fontFamily 仅 23 处,均为等宽档);② RN 的 fontFamily 只认单族名、无回退栈,而可用 TTF 是 GB2312 子集(Regular 7846 码位/7154 汉字、Medium·Bold 4966/4274、Light 3324/2632),昇啰厏 等 GBK 扩展字全缺、缺字率约 26% ⇒ 启用即落系统默认字体换脸;③ 三面码位不齐且 Medium/Light 的 name(1) 是独立族名,字重族内匹配取不到。web 端能自托管是因为有 unicode-range 分段面 + 中文兜底栈,RN 两者皆无。与小程序端同口径。",
+      "evidence": "apps/mobile-rn/App.tsx:172-192:五条注入点否证; apps/mobile-rn/app.config.js:194-220:三条实测原因与族名/码位表; apps/mobile-rn/global.css:345-370:品牌栈口径留痕; fontTools 4.68.0 实测 4 枚 TTF 的 name(1)/usWeightClass/getBestCmap"
+    },
+    {
       "component": "BlurView",
       "key": "platform:gaussian-blur",
       "platform": "both",

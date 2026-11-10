@@ -6,16 +6,12 @@ import './global.css'
 import { useCallback, useEffect, useState } from 'react'
 import {
   AppRegistry,
-  ActivityIndicator,
   AppState,
   LogBox,
   Platform,
-  Text,
-  TextInput,
   View,
 } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { useFonts } from 'expo-font'
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
 import { NavigationContainer, DarkTheme, DefaultTheme } from '@react-navigation/native'
 import { StatusBar } from 'expo-status-bar'
@@ -174,23 +170,27 @@ const ROUTE_ROOT_BG: Record<string, (t: RnThemeTokens, dark: boolean) => string>
 }
 
 /**
- * 全局默认字体:阿里妈妈方圆体(对齐 D 盘 uniapp Ai-WXMiniVue 的 App.vue 全局字体)。
- * PostScript name = AlimamaFangYuanTiVF-Thin(见 assets/fonts/AlimamaFangYuanTiVF-Thin.ttf)。
- * 通过 defaultProps.style 注入,所有未显式指定 fontFamily 的 Text/TextInput 默认走此字体;
- * 显式 style 中的 fontFamily 优先级更高,不受影响。
+ * 全局默认字体:本仓 RN 端**没有**可用的全局注入点,原因逐条(2026-11-10 实测):
+ *
+ * ① `(Text as any).defaultProps` 注入:React 19 的 automatic runtime 下 jsx-runtime 不处理
+ *    defaultProps,RN 0.86.2 的 `Libraries/Text/Text.js` 里 TextImpl 又是函数组件
+ *    ⇒ 这段赋值不产生任何效果(写在这里看着生效,其实从不生效)。
+ * ② 替换基座组件:`react-native/index.js` 的 `Text`/`TextInput` 是 getter,不能直接赋值;
+ *    而 packages/app 里 317 个文件直接从 'react-native' 导入 Text ⇒ 包装基座覆盖不全。
+ * ③ CSS 通配:`react-native-css-interop` 丢弃 `* { font-family }`(只有自定义变量存活)。
+ * ④ RN 的 fontFamily 只认单个族名,逗号栈无效 ⇒ 回退只能交给系统。
+ * ⑤ 更硬的约束:RN 没有回退栈,而可用 TTF 是 GB2312 子集(Regular 7154 汉字 /
+ *    Medium·Bold 4274 / Light 2632,「昇啰厏」等 GBK 扩展字全缺),缺字率约 26%
+ *    ⇒ 一旦全局启用,缺字直接落系统默认字体当场换脸,比不启用更糟。web 端能治
+ *    是因为有 unicode-range 分段面 + 中文兜底栈,RN 两者皆无。
+ *
+ * 本轮定性:**不自托管**,与小程序端同口径走系统中文黑体栈(三条实测原因见
+ * app.config.js,登记见 scripts/data/cross-end-allowed-diffs.json 的
+ * platform:font-stack-cjk / mobile-rn)。原先挂在 app.config.js 的 expo-font 注册一并
+ * 撤掉 —— 注册了族名也没有任何 Text 消费(全仓 fontFamily 仅 23 处,都是等宽档)。
+ * 若将来确要自托管,前置是完整字库(≥8MB/面、三面同族同码位)+ 逐处显式 fontFamily
+ * 或编译期 Babel 注入 + 真机回归,不是能顺带完成的事。
  */
-const GLOBAL_FONT_FAMILY = 'AlimamaFangYuanTiVF-Thin'
-// 注入全局默认字体（React Native 限制，defaultProps 需要 any 断言）
-/* eslint-disable @typescript-eslint/no-explicit-any */
-;(Text as any).defaultProps = {
-  ...(Text as any).defaultProps,
-  style: { fontFamily: GLOBAL_FONT_FAMILY },
-}
-;(TextInput as any).defaultProps = {
-  ...(TextInput as any).defaultProps,
-  style: { fontFamily: GLOBAL_FONT_FAMILY },
-}
-/* eslint-enable @typescript-eslint/no-explicit-any */
 
 // dev 报错悬浮条(替换内核 LogBox,见 src/components/DevErrorToast.tsx):
 // 抑制 LogBox UI(metro 终端日志不受影响),报错统一走 DevErrorToast 展示
@@ -402,65 +402,18 @@ function AppContent() {
 }
 
 /**
- * 字体门最长等待(ms):超过就按系统字体先开屏。
+ * 启动不再有「字体门」(2026-11-10 根因级收口)。
  *
- * 为什么需要上限(2026-10-27 真机「点更新 → 灰屏一直不动」的根因):RN 下 `global.window` 存在,
- * expo-font 走 **运行时**加载分支;热更包首启时这枚 7.4MB 字体资产要走远端取用,取失败
- * (弱网 / 资产 CDN 不可达)⇒ loadAsync reject ⇒ 原写法只判 `!fontsLoaded` 就 return null,
- * 把「加载失败」也当成「还没加载完」⇒ 整棵树永不挂载:一块不动的灰屏,连更新检查入口都没有。
- * 现在:失败立即放行,未失败但久等不到也放行 —— 宁可字体不完美,不能打不开。
+ * 原来这道门等的是 expo-font 的**运行时**加载:7.4MB 字体资产走远端取用,取失败就整棵树
+ * 永不挂载(灰屏卡死),于是又加了超时放行 + BootScreen 兜底屏两条补丁。
+ * 现在运行时字体加载整体移除(不再注册任何自托管族,理由见上一段与 app.config.js)
+ * ⇒ 没有异步加载、没有失败分支 ⇒ 门与两条补丁整体撤掉。
+ *
+ * 顺带修掉 web 预览的老毛病:react-native-web 下 require(ttf) 返回的是资产 id 而非可加载
+ * URL,expo-font 的 web loader 永远不 resolve ⇒ fontsLoaded 恒 false ⇒ 整棵树 return null
+ * (:8806 白屏根因)。不再有这层等待,该路径一并消失。
  */
-const FONT_GATE_TIMEOUT_MS = 6000
-
-/**
- * 启动兜底屏(2026-10-28 机主「点了更新依旧灰屏 卡死」):
- * 字体还没就绪时**不再 return null**。null 期间 RN 根视图是空的 —— 原生启动图撤下后
- * 只剩 AppTheme 的 DayNight 窗口底(深色机型就是一块暗灰),真机上读作"灰屏卡死"。
- * 这里给一帧与应用同色的底 + 一枚转圈:任何等待都有可见反馈,绝不再出现无内容灰屏。
- */
-function BootScreen(): React.JSX.Element {
-  return (
-    <View
-      style={{
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: tokens.surface.bg,
-      }}
-    >
-      <ActivityIndicator color={tokens.brandAccent.deep} />
-    </View>
-  )
-}
-
 export default function App() {
-  // 加载阿里妈妈方圆体(对齐 uniapp);未加载完返回 null 避免字体闪烁
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const fontAsset = require('./assets/fonts/AlimamaFangYuanTiVF-Thin.ttf')
-  // eslint-enable @typescript-eslint/no-require-imports
-  const [fontsLoaded, fontError] = useFonts({
-    'AlimamaFangYuanTiVF-Thin': fontAsset,
-  })
-  const [fontGateExpired, setFontGateExpired] = useState(false)
-  useEffect(() => {
-    if (Platform.OS === 'web' || fontsLoaded || fontError) return
-    const timer = setTimeout(() => setFontGateExpired(true), FONT_GATE_TIMEOUT_MS)
-    return () => clearTimeout(timer)
-  }, [fontsLoaded, fontError])
-  useEffect(() => {
-    // 失败必须喊出来(§0.3 不静默降级):release 包里这行是唯一的现场线索
-    if (fontError) console.warn('[boot] 字体加载失败,以系统字体继续启动:', fontError)
-  }, [fontError])
-  // 原生:未加载完返回 null,避免字体闪烁。Web 预览必须跳过这道门:
-  // react-native-web 下 require(ttf) 返回的是资产 id 而非可加载 URL,expo-font 的 web
-  // loader 永远不 resolve ⇒ fontsLoaded 恒 false ⇒ 整棵树 return null(:8806 白屏根因)。
-  if (Platform.OS !== 'web' && !fontsLoaded && !fontError && !fontGateExpired) {
-    return (
-      <ThemeProvider>
-        <BootScreen />
-      </ThemeProvider>
-    )
-  }
   return (
     <ThemeProvider>
       <AppContent />

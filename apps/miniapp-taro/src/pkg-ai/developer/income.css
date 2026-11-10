@@ -9,7 +9,19 @@
 .income-page {
   min-height: 100vh;
   background: var(--color-background);
-  font-family: 'AlimamaFangYuanTi', sans-serif;
+  /* 品牌族之后必须列确定的中文现代黑体:阿里妈妈方圆体只覆盖部分汉字,
+   * 缺的字若直落裸 sans-serif,会落到"系统默认 sans-serif"——默认被设成宋体的机器
+   * 即当场换衬线(与 web 端门 313 T4 同一类病)。族序列与 chat.css:1228 /
+   * pages/user/index.css:201 逐字同源。 */
+  font-family:
+    'AlimamaFangYuanTi',
+    'PingFang SC',
+    'Microsoft YaHei',
+    'Noto Sans SC',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
 }
 
 /* 顶部导航 — 对齐 RN header(row/gap 12/paddingH 10/paddingV 12) */
