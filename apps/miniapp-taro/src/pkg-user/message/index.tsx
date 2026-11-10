@@ -8,7 +8,7 @@ import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
 import { MessageCenterScreen } from '@ihui/rn-app/features/message-center/MessageCenterScreen'
-import type { MessageCenterItem } from '@ihui/types'
+import type { MessageCenterItem, MessageConversationItem } from '@ihui/types'
 import {
   getMessageRooms,
   getSystemNotices,
@@ -32,7 +32,6 @@ import {
   SystemNotice,
   PrivateMessageList,
   MessageDetail,
-  UnreadBadge,
   MessageActions,
   NotificationSettings,
   type MessageTabItem,
@@ -407,8 +406,59 @@ export default function MessageIndex() {
   }
 
   /**
-   * 共享屏缺段(进缺段表,不造字段):聚合会话行、系统通知、私信列表、order/course 站内消息
-   * 由本端注入;'all' 空态返回 null ⇒ 交回共享屏 EmptyState,'interaction' 同。
+   * 聚合行 → 共享屏会话行契约:'all' tab 的行渲染/删除/点击行为统一由共享屏承载
+   * (与 RN 同形),本端只注入数据与平台特有动作(标记已读)。
+   */
+  const conversations = useMemo<MessageConversationItem[]>(
+    () =>
+      filtered
+        .filter((room): room is Required<Pick<Room, 'id'>> & Room => Boolean(room.id))
+        .map((room) => ({
+          id: room.id,
+          name: room.name || t('message.unnamedRoom'),
+          lastMessage: room.lastMessage || t('message.empty'),
+          unread: room.unreadCount ?? room.unread ?? 0,
+          pinned: false,
+        })),
+    [filtered, t],
+  )
+
+  const findRoom = (id: string) => list.find((room) => room.id === id)
+
+  /** 点击会话行:私信进详情页;公告/系统行本端无独立详情页,切到系统通知 tab 看全文 */
+  const onPressConversation = (conv: MessageConversationItem) => {
+    const room = findRoom(conv.id)
+    if (!room) return
+    if (room.kind === 'private') {
+      const item = privateList.find((p) => p.id === conv.id)
+      if (item) {
+        void onOpenPrivate(item)
+        return
+      }
+      setActiveTab('private')
+      return
+    }
+    setActiveTab('system')
+  }
+
+  /** 行级平台动作槽位:聚合行只有「标记已读」有真实端点语义;置顶无会话身份 ⇒ 不给假入口。
+   *  动作区是共享行内嵌的兄弟节点,必须阻断冒泡,避免点「标记已读」同时触发整行跳转。 */
+  const renderConversationActions = (conv: MessageConversationItem) => {
+    const room = findRoom(conv.id)
+    if (!room || !canActRoom(room) || !roomHasUnread(room)) return null
+    return (
+      <View onClick={(e) => e.stopPropagation()}>
+        <MessageActions
+          onMarkRead={() => onRoomMarkRead(room as { id: string } & Room)}
+          markReadLabel={t('messageCenter.markRead')}
+        />
+      </View>
+    )
+  }
+
+  /**
+   * 共享屏缺段(进缺段表,不造字段):系统通知、私信列表、order/course 站内消息由本端注入;
+   * 'all' 会话行已下沉到共享屏统一渲染,这里返回 null 交回共享屏默认区。
    */
   const renderTabBody = (tab: string) => {
     if (tab === 'order' || tab === 'course') {
@@ -422,68 +472,7 @@ export default function MessageIndex() {
     if (tab === 'private') {
       return <PrivateMessageList list={privateList} onClick={onOpenPrivate} />
     }
-    if (tab !== 'all') return null
-    if (loading) {
-      return (
-        <Text className="block text-center text-body text-muted-foreground py-[96rpx]">
-          {t('common.loading')}
-        </Text>
-      )
-    }
-    if (!filtered.length) return null
-    return (
-      <View className="p-[20rpx]">
-        {/* 会话区标题(对齐 RN MessageCenterScreen convSection.convTitle) */}
-        <Text className="block text-body-sm leading-[normal] font-semibold text-muted-foreground mt-[16rpx] mb-[8rpx]">
-          {t('messageCenter.conversations')}
-        </Text>
-        {filtered.map((room) => {
-          const unread = room.unreadCount ?? room.unread ?? 0
-          return (
-            <View
-              key={(room.id || room.name) as string}
-              className="flex flex-row items-center py-[24rpx] px-[20rpx] rounded-xl gap-[24rpx]"
-            >
-              {/* 头像(首字母占位,对齐 RN convAvatar 44dp/radius 10dp) */}
-              <View className="relative shrink-0">
-                <View className="w-[88rpx] h-[88rpx] rounded-lg bg-muted flex items-center justify-center">
-                  <Text className="text-title font-semibold text-foreground">
-                    {(room.name || '?').charAt(0).toUpperCase()}
-                  </Text>
-                </View>
-                {unread > 0 && (
-                  <View className="absolute -top-[8rpx] -right-[8rpx]">
-                    <UnreadBadge count={unread} />
-                  </View>
-                )}
-              </View>
-              <View className="flex-1 min-w-0">
-                <Text className="text-strong font-semibold text-foreground truncate">
-                  {room.name || t('message.unnamedRoom')}
-                </Text>
-                <Text className="mt-[4rpx] text-body-sm leading-[normal] text-muted-foreground truncate">
-                  {room.lastMessage || t('message.empty')}
-                </Text>
-              </View>
-              {/* 操作区(对齐共享屏 spec):「标记已读」只在未读行出现(onMarkRead 不传整块不渲染);
-                  置顶需真实会话身份(本聚合行是公告/私信,无置顶语义)⇒ 不给假入口 */}
-              {canActRoom(room) ? (
-                <MessageActions
-                  onMarkRead={
-                    roomHasUnread(room)
-                      ? () => onRoomMarkRead(room as { id: string } & Room)
-                      : undefined
-                  }
-                  onDelete={() => onRoomDelete(room as { id: string } & Room)}
-                  markReadLabel={t('messageCenter.markRead')}
-                  deleteLabel={t('messageCenter.deleteConv')}
-                />
-              ) : null}
-            </View>
-          )
-        })}
-      </View>
-    )
+    return null
   }
 
   if (selectedPrivate) {
@@ -536,6 +525,14 @@ export default function MessageIndex() {
         onPressSettings={() => setShowSettings(true)}
         onBack={() => void Taro.navigateBack()}
         emptyText={keyword ? t('message.notFound') : t('message.empty')}
+        conversations={conversations}
+        conversationsTab="all"
+        onPressConversation={onPressConversation}
+        onDeleteConversation={(conv) => {
+          const room = findRoom(conv.id)
+          if (room && canActRoom(room)) onRoomDelete(room as { id: string } & Room)
+        }}
+        renderConversationActions={renderConversationActions}
         renderTabBody={renderTabBody}
         onToast={onToast}
       />

@@ -1,9 +1,9 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-10T13:56:17.517Z",
+  "sealedAt": "2026-11-10T14:04:52.889Z",
   "sealedBy": "root-guard --seal",
-  "reason": "合流重封:按合并树 guardian-runner.mjs / git-guardian.mjs 重算派生哈希,清单与规则文件同枚",
+  "reason": "合流重封:按三方合并树 guardian-runner.mjs / git-guardian.mjs 重算派生哈希",
   "targets": [
     {
       "id": "guardian-runner",

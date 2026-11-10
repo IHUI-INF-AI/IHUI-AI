@@ -18,7 +18,7 @@
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { createElement } from 'react'
-import { render, waitFor } from '@testing-library/react'
+import { render, waitFor, act } from '@testing-library/react'
 import type * as I18nModule from '../src/i18n'
 
 const captured = vi.hoisted(() => ({
@@ -32,6 +32,11 @@ const apiMocks = vi.hoisted(() => ({
 }))
 
 const navMocks = vi.hoisted(() => ({ navigate: vi.fn(), goBack: vi.fn() }))
+
+/** 稳定引用:真实 useI18n/useAuth 的返回值跨渲染稳定,替身若每次新建会触发 effect 死循环 */
+const stableMocks = vi.hoisted(() => ({
+  user: { id: 'u1', nickname: '测试用户' },
+}))
 
 vi.mock('@ihui/rn-app', () => ({
   TeamScreen: (props: Record<string, unknown>) => {
@@ -52,18 +57,16 @@ vi.mock('@react-navigation/native', () => ({
 vi.mock('@react-navigation/native-stack', () => ({}))
 vi.mock('../src/context/ThemeContext', () => ({ useTheme: () => ({ resolvedTheme: 'light' }) }))
 vi.mock('../src/context/AuthContext', () => ({
-  useAuth: () => ({ user: { id: 'u1', nickname: '测试用户' } }),
+  useAuth: () => ({ user: stableMocks.user }),
 }))
 
 // 只替 useI18n 出口;messages / getValueByPath 保留,断言的 label 才有真词包可对照
 vi.mock('../src/i18n', async (importOriginal) => {
   const mod = await importOriginal<typeof I18nModule>()
+  const t = (key: string) => (mod.getValueByPath(mod.messages['zh-CN'], key) as string) ?? key
   return {
     ...mod,
-    useI18n: () => ({
-      locale: 'zh-CN',
-      t: (key: string) => (mod.getValueByPath(mod.messages['zh-CN'], key) as string) ?? key,
-    }),
+    useI18n: () => ({ locale: 'zh-CN', t }),
   }
 })
 
@@ -171,5 +174,86 @@ describe('RN TeamScreen 真消费共享屏 team/TeamScreen props(A 方案)', () 
       joinTime: val('team.joinDate'),
       viewSubordinates: val('distributionCompany.subordinates'),
     })
+  })
+
+  /**
+   * 分页接线锁(阳):onEndReached 必须是真函数,触底后真请求 page 2 并追加;
+   * hasMore 由 total 决定。阴性对照:摘掉 onEndReached/loadingMore/hasMore 任一接线,
+   * 首条 typeof 断言或 page 2 调用断言即红。
+   */
+  it('onEndReached 真接线:触发后 page+1 并追加成员,hasMore 依 total', async () => {
+    apiMocks.getTeamMembers.mockImplementation(async ({ page }: { page: number }) =>
+      page === 1
+        ? { success: true, data: { list: [rawMembers[0]], total: 21 } }
+        : { success: true, data: { list: [rawMembers[1]], total: 21 } },
+    )
+    renderScreen()
+    await waitFor(() => expect(captured.team).not.toBeNull())
+    await waitFor(() => expect((props().members as unknown[]).length).toBe(1))
+    expect(typeof props().onEndReached).toBe('function')
+    expect(props().loadingMore).toBe(false)
+    expect(props().hasMore).toBe(true)
+
+    await act(async () => {
+      ;(props().onEndReached as () => void)()
+    })
+    await waitFor(() =>
+      expect(apiMocks.getTeamMembers).toHaveBeenCalledWith({ page: 2, pageSize: 20 }),
+    )
+    await waitFor(() => expect((props().members as unknown[]).length).toBe(2))
+    // 追加后仍按 orderNum 降序:乙(7)在前,甲(3)在后
+    expect((props().members as Array<Record<string, unknown>>).map((m) => m.id)).toEqual([
+      'm2',
+      'm1',
+    ])
+    // 2 × PAGE_SIZE(20)= 40 不小于 total 21 ⇒ 没有更多
+    expect(props().hasMore).toBe(false)
+  })
+
+  /** onRetry 真接线:首次失败后重试重新拉取 page 1 并清错 */
+  it('onRetry 真接线:失败后重试重新拉取并清错', async () => {
+    apiMocks.getTeamStats.mockResolvedValueOnce({ success: false })
+    renderScreen()
+    await waitFor(() => expect(props().error).toBe(val('team.loadFailed')))
+    expect(typeof props().onRetry).toBe('function')
+    const callsBefore = apiMocks.getTeamMembers.mock.calls.length
+
+    await act(async () => {
+      ;(props().onRetry as () => void)()
+    })
+    await waitFor(() => expect(props().error).toBe(''))
+    await waitFor(() => expect(apiMocks.getTeamMembers.mock.calls.length).toBe(callsBefore + 1))
+  })
+
+  /** loadingMore 防重入:同一帧连续两次触底,page 2 只发一次 */
+  it('loadingMore 期间重复触底不重复请求 page 2', async () => {
+    let resolvePage2: (value: unknown) => void = () => {}
+    const pendingPage2 = new Promise((resolve) => {
+      resolvePage2 = resolve
+    })
+    apiMocks.getTeamMembers.mockImplementation(({ page }: { page: number }) =>
+      page === 1
+        ? Promise.resolve({ success: true, data: { list: [rawMembers[0]], total: 40 } })
+        : pendingPage2,
+    )
+    renderScreen()
+    await waitFor(() => expect(captured.team).not.toBeNull())
+    await waitFor(() => expect((props().members as unknown[]).length).toBe(1))
+
+    await act(async () => {
+      const more = props().onEndReached as () => void
+      more()
+      more()
+    })
+    const page2Calls = apiMocks.getTeamMembers.mock.calls.filter(
+      (call) => (call[0] as { page?: number } | undefined)?.page === 2,
+    )
+    expect(page2Calls).toHaveLength(1)
+
+    await act(async () => {
+      resolvePage2({ success: true, data: { list: [rawMembers[1]], total: 40 } })
+      await pendingPage2
+    })
+    await waitFor(() => expect((props().members as unknown[]).length).toBe(2))
   })
 })
