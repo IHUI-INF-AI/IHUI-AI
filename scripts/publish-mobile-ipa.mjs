@@ -25,6 +25,15 @@
  *      所以历史上那枚 `ios-nightly` 包**没有任何可自证的版本号** —— 宁可说"取不到",
  *      也不能在下载页与 `app_versions` 里写一个猜出来的号(那正是"两号对不上"那一型)。
  *
+ * 出口腿事实(2026-11-10 会话取证修正归因):`version-asset-shape` 曾连续 140+ 小时霸占告警,
+ *   而资产本体一直合法在位 —— 真因是 **github.com 资产下载域名被本机网络层间歇掐线**
+ *   (node 直连 ECONNRESET/超时;api.github.com 与 curl 走系统代理都正常),旧代码把"网络取不到"
+ *   一律折叠成 `fetchJsonOrNull → null → judge(null) → version-asset-shape`,把整改方向指去修 CI。
+ *   现在:HTTP 状态与网络异常**分开归因**(reason 各自点名),并复用仓内既有借道形态
+ *   (`applyEgressProxyEnv`,与 release-mobile-rn.mjs 的 probeLocalProxy+NODE_USE_ENV_PROXY 同型,
+ *   口清单以 scripts/check-port-registry.mjs 现值为准);
+ *   代理不在位 ⇒ 不注入,让失败如实表现为 `*-net:*` 原因码。
+ *
  * 自证走**本地源站**而不是公网:线上 cdn-server 只听 127.0.0.1:80,公网那条腿要过 EdgeOne/
  * Cloudflared 跨境段(2026-11-02 实测公网入口整段 45s 超时)。取指针必须验的是"我们的服务
  * 有没有正确转 302",不是"跨境段今天通不通"。公网那条另由只读哨兵量。
@@ -36,6 +45,7 @@
  * 退出码:0 成功 / 1 发布或登记失败 / 2 用法错或**未判定**(取不到版本号、落点不存在、资产不在)
  */
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { request as httpRequest } from 'node:http'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -56,6 +66,12 @@ export const IPA_ASSET_NAME = 'ihui-ai-latest.ipa'
 export const VERSION_ASSET_NAME = 'ios-version.json'
 export const DEFAULT_TAG = 'ios-nightly'
 export const DEFAULT_REPO = 'IHUI-INF-AI/IHUI-AI'
+/**
+ * 本地 CONNECT 代理口(2026-11-10 立;先 CONNECT 现测再用,绝不凭空注入):
+ * 与 scripts/release-mobile-rn.mjs 的 probeLocalProxy 同一动机(那条腿实测被掐时借道 Clash)。
+ * 口清单以 scripts/check-port-registry.mjs 现值为准(7897=Clash 出站代理)。
+ */
+export const EGRESS_PROXY_PORTS = [7897, 7890]
 /** 本地源站探针(线上 cdn-server 只听 127.0.0.1:80;见头注"自证走本地源站") */
 export const LOCAL_ORIGIN = 'http://127.0.0.1:80'
 export const LOCAL_PROBE_HOST = 'www.aizhs.top'
@@ -70,18 +86,31 @@ export function ipaSiteLegPlan(opts = {}) {
  * 三态分开:文档不可用 / 有文档但没包 / 有包但没版本自证 ⇒ 各自原因码,不并桶。
  */
 export function pickIpaReleaseAssets(doc) {
-  if (doc === null || typeof doc !== 'object') return { state: 'undetermined', reason: 'release-doc-unreachable' }
-  if (typeof doc.tag_name !== 'string') return { state: 'undetermined', reason: 'release-doc-shape' }
+  if (doc === null || typeof doc !== 'object')
+    return { state: 'undetermined', reason: 'release-doc-unreachable' }
+  if (typeof doc.tag_name !== 'string')
+    return { state: 'undetermined', reason: 'release-doc-shape' }
   const assets = Array.isArray(doc.assets) ? doc.assets : []
   const ipa = assets.find((a) => a && a.name === IPA_ASSET_NAME)
   if (!ipa) return { state: 'undetermined', reason: `ipa-asset-missing:${IPA_ASSET_NAME}` }
   const url = typeof ipa.browser_download_url === 'string' ? ipa.browser_download_url.trim() : ''
   if (url === '') return { state: 'undetermined', reason: 'ipa-asset-has-no-download-url' }
   const size = Number(ipa.size)
-  if (!Number.isFinite(size) || size <= 0) return { state: 'undetermined', reason: `ipa-asset-size-unreadable:${String(ipa.size)}` }
+  if (!Number.isFinite(size) || size <= 0)
+    return { state: 'undetermined', reason: `ipa-asset-size-unreadable:${String(ipa.size)}` }
   const versionAsset = assets.find((a) => a && a.name === VERSION_ASSET_NAME)
-  const vUrl = versionAsset && typeof versionAsset.browser_download_url === 'string' ? versionAsset.browser_download_url : null
-  return { state: 'ok', tag: doc.tag_name, url, size, versionAssetUrl: vUrl, publishedAt: String(doc.published_at || '') }
+  const vUrl =
+    versionAsset && typeof versionAsset.browser_download_url === 'string'
+      ? versionAsset.browser_download_url
+      : null
+  return {
+    state: 'ok',
+    tag: doc.tag_name,
+    url,
+    size,
+    versionAssetUrl: vUrl,
+    publishedAt: String(doc.published_at || ''),
+  }
 }
 
 /**
@@ -99,20 +128,28 @@ export function judgeIpaVersionDoc(input) {
       return { state: 'undetermined', reason: 'version-asset-not-json' }
     }
   }
-  if (doc === null || typeof doc !== 'object') return { state: 'undetermined', reason: 'version-asset-shape' }
+  if (doc === null || typeof doc !== 'object')
+    return { state: 'undetermined', reason: 'version-asset-shape' }
   const version = String(doc.version ?? '').trim()
   const buildNumber = String(doc.buildNumber ?? doc.versionCode ?? '').trim()
   if (!/^\d+\.\d+\.\d+$/.test(version)) {
     return { state: 'undetermined', reason: `version-asset-no-semver:${version || '(空)'}` }
   }
   if (!/^\d+$/.test(buildNumber)) {
-    return { state: 'undetermined', reason: `version-asset-no-build-number:${buildNumber || '(空)'}` }
+    return {
+      state: 'undetermined',
+      reason: `version-asset-no-build-number:${buildNumber || '(空)'}`,
+    }
   }
   return { state: 'ok', version, buildNumber }
 }
 
 /** GitHub API 头:env 有 token 用 env;否则问单源凭据目录(值绝不进日志/正文) */
-export function githubToken(env = process.env, readText = (p) => readFileSync(p, 'utf-8'), keyDir = resolveKeyDir) {
+export function githubToken(
+  env = process.env,
+  readText = (p) => readFileSync(p, 'utf-8'),
+  keyDir = resolveKeyDir,
+) {
   const fromEnv = String(env.GITHUB_TOKEN ?? '').trim()
   if (fromEnv) return fromEnv
   try {
@@ -126,6 +163,59 @@ export function githubToken(env = process.env, readText = (p) => readFileSync(p,
   }
 }
 
+/**
+ * 对单个候选口做一次 CONNECT 现测(与 release-mobile-rn.probeLocalProxy 同形,只是口清单固定)。
+ * resolve 成功口号或 null —— 不区分"没人听"与"听了但不转发"。
+ */
+export function localProxyConnectProbe(port, targetHost = 'github.com:443', timeoutMs = 1500) {
+  return new Promise((resolve) => {
+    const req = httpRequest({
+      host: '127.0.0.1',
+      port,
+      method: 'CONNECT',
+      path: targetHost,
+      agent: false,
+      timeout: timeoutMs,
+    })
+    req.on('connect', (r, sock) => {
+      sock.destroy()
+      resolve(r.statusCode === 200 ? port : null)
+    })
+    req.on('error', () => resolve(null))
+    req.on('timeout', () => {
+      req.destroy()
+      resolve(null)
+    })
+    req.end()
+  })
+}
+
+/**
+ * 把"该注入哪些代理 env"落进 process.env(与 release-mobile-rn spawn 形态同形,这里是同进程):
+ *   · env 已有 HTTPS_PROXY ⇒ 尊人配置,原样;
+ *   · 否则逐口现测,取第一个能 CONNECT github.com:443 的口 ⇒ 落 NODE_USE_ENV_PROXY=1 + HTTPS_PROXY;
+ *   · 无一可达 ⇒ 什么都不写(不注入;让真失败如实表现为网络原因码,绝不制造"伪通道已配好"的假象)。
+ * 只动 HTTPS(不注入 HTTP_PROXY):本地源站自证走 http://127.0.0.1,node24 的 env-proxy 会把
+ * localhost 也塞进代理,那会把自证搞成第二条断腿。
+ */
+export async function applyEgressProxyEnv(
+  env = process.env,
+  ports = EGRESS_PROXY_PORTS,
+  probe = localProxyConnectProbe,
+) {
+  const existing = String(env.HTTPS_PROXY ?? env.https_proxy ?? '').trim()
+  if (existing) return { source: 'respect-existing', proxyUrl: existing }
+  for (const p of ports) {
+    const hit = await probe(p)
+    if (hit) {
+      env.NODE_USE_ENV_PROXY = '1'
+      env.HTTPS_PROXY = `http://127.0.0.1:${hit}`
+      return { source: 'live-probe', proxyUrl: env.HTTPS_PROXY }
+    }
+  }
+  return { source: 'none', proxyUrl: null }
+}
+
 function ghHeaders(token) {
   const h = { Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' }
   if (token) h.Authorization = `Bearer ${token}`
@@ -133,7 +223,11 @@ function ghHeaders(token) {
 }
 
 async function fetchBuffer(url, headers, fetchImpl) {
-  const res = await fetchImpl(url, { headers, signal: AbortSignal.timeout(120000), redirect: 'follow' })
+  const res = await fetchImpl(url, {
+    headers,
+    signal: AbortSignal.timeout(120000),
+    redirect: 'follow',
+  })
   if (!res.ok) throw new Error(`HTTP ${res.status} (${url.slice(0, 80)})`)
   return Buffer.from(await res.arrayBuffer())
 }
@@ -176,8 +270,10 @@ export function parseArgs(argv) {
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     if (a === '--from-release') out.mode = 'release'
-    else if (a === '--ipa') out.mode = 'file', (out.ipa = argv[++i])
-    else if (a === '--version') out.version = argv[++i]
+    else if (a === '--ipa') {
+      out.mode = 'file'
+      out.ipa = argv[++i]
+    } else if (a === '--version') out.version = argv[++i]
     else if (a === '--build-number') out.buildNumber = argv[++i]
     else if (a === '--tag') out.tag = argv[++i]
     else if (a === '--dry-run') out.dryRun = true
@@ -216,12 +312,26 @@ export async function main(argv = process.argv.slice(2), deps = {}) {
   let size = null
 
   if (args.mode === 'release') {
+    // 出口腿先实测再借道(2026-11-10):注入产物落进 env(测试注入 env={} + deps.probe 桩时零网络)
+    const egress =
+      deps.egressSource !== undefined
+        ? deps.egressSource
+        : await applyEgressProxyEnv(env, deps.egressPorts, deps.egressProbe)
+    if (egress.source === 'live-probe')
+      out(`[ipa] 出口腿:借道本地代理 ${egress.proxyUrl}(CONNECT 现测通过)`)
+    else if (egress.source === 'none') out('[ipa] 出口腿:本地代理无一可达 ⇒ 不注入,按直连判定')
     const token = (deps.githubToken ?? githubToken)(env)
-    const doc = await fetchJsonOrNull(
+    const docRes = await fetchJsonOutcome(
       `https://api.github.com/repos/${args.repo}/releases/tags/${args.tag}`,
       ghHeaders(token),
       fetchImpl,
     )
+    if (!docRes.ok) {
+      const reason = outcomeUndeterminedReason(docRes, 'release-doc')
+      err(`[ipa] ✗ 未判定:${reason} —— 不发布(宁缺勿假,§0.3)`)
+      return 2
+    }
+    const doc = docRes.doc
     const picked = pickIpaReleaseAssets(doc)
     if (picked.state !== 'ok') {
       err(`[ipa] ✗ 未判定:${picked.reason} —— 不发布(宁缺勿假,§0.3)`)
@@ -237,8 +347,18 @@ export async function main(argv = process.argv.slice(2), deps = {}) {
         return 2
       }
     } else {
-      const vdoc = await fetchJsonOrNull(picked.versionAssetUrl, token ? { Authorization: `Bearer ${token}` } : {}, fetchImpl)
-      const judged = judgeIpaVersionDoc(vdoc)
+      const vRes = await fetchJsonOutcome(
+        picked.versionAssetUrl,
+        token ? { Authorization: `Bearer ${token}` } : {},
+        fetchImpl,
+      )
+      if (!vRes.ok) {
+        // 2026-11-10 归因纠偏:这一档过去被折叠成 version-asset-shape,把"网络取不到"说成"文件坏了"
+        const reason = outcomeUndeterminedReason(vRes, 'version-asset')
+        err(`[ipa] ✗ 未判定:${reason} —— 不发布(资产在 release 清单里;取它的那次请求本身失败)`)
+        return 2
+      }
+      const judged = judgeIpaVersionDoc(vRes.doc)
       if (judged.state !== 'ok') {
         err(`[ipa] ✗ 未判定:${judged.reason} —— 不发布`)
         return 2
@@ -247,7 +367,9 @@ export async function main(argv = process.argv.slice(2), deps = {}) {
       buildNumber = buildNumber ?? judged.buildNumber
     }
     if (args.dryRun) {
-      out(`[ipa] dry-run:将下载 ${IPA_ASSET_NAME}(${picked.size} B)并落站点腿,版本=${version ?? '(未判定)'} 构建=${buildNumber ?? '(未判定)'}`)
+      out(
+        `[ipa] dry-run:将下载 ${IPA_ASSET_NAME}(${picked.size} B)并落站点腿,版本=${version ?? '(未判定)'} 构建=${buildNumber ?? '(未判定)'}`,
+      )
       return 0
     }
     const dlDir = deps.dlDir ?? join(REPO_DIR, '.ihui-agent', 'tmp', 'ios-ipa-relay')
@@ -275,7 +397,9 @@ export async function main(argv = process.argv.slice(2), deps = {}) {
       return 2
     }
     if (!version || !buildNumber) {
-      err('[ipa] ✗ 用法错:--ipa 模式必须同时给 --version 与 --build-number(不许把包发到一个没有版本号的指针上)')
+      err(
+        '[ipa] ✗ 用法错:--ipa 模式必须同时给 --version 与 --build-number(不许把包发到一个没有版本号的指针上)',
+      )
       return 2
     }
     size = statSync(file).size
@@ -311,7 +435,7 @@ export async function main(argv = process.argv.slice(2), deps = {}) {
 
   const verdict = await (deps.verifySiteLegLive ?? verifySiteLegLive)({
     latestKey: LATEST_IPA_KEY,
-    latestUrl: `${(deps.localOrigin ?? LOCAL_ORIGIN)}${SITE_LEG.UrlPrefix}/${LATEST_IPA_KEY}`,
+    latestUrl: `${deps.localOrigin ?? LOCAL_ORIGIN}${SITE_LEG.UrlPrefix}/${LATEST_IPA_KEY}`,
     expectSize: size,
     expectVersionCode: buildNumber,
     ext: IPA_EXT,
@@ -335,14 +459,31 @@ export async function main(argv = process.argv.slice(2), deps = {}) {
   return 0
 }
 
-async function fetchJsonOrNull(url, headers, fetchImpl) {
+async function fetchJsonOutcome(url, headers, fetchImpl) {
   try {
     const res = await fetchImpl(url, { headers, signal: AbortSignal.timeout(30000) })
-    if (!res.ok) return null
-    return await res.json()
-  } catch {
-    return null
+    if (!res.ok) return { ok: false, kind: 'http', status: res.status }
+    try {
+      return { ok: true, doc: await res.json() }
+    } catch {
+      return { ok: false, kind: 'parse', status: res.status }
+    }
+  } catch (e) {
+    const addr = String(e.cause?.address || e.cause?.hostname || '').slice(0, 30)
+    return {
+      ok: false,
+      kind: 'net',
+      cause: String(e.cause?.code || e.name || '').slice(0, 20),
+      addr,
+    }
   }
+}
+
+/** 三态 outcome → 未判定原因码(与 pickIpaReleaseAssets/judgeIpaVersionDoc 的原因族同风格) */
+export function outcomeUndeterminedReason(o, base) {
+  if (o.kind === 'http') return o.status === 404 ? `${base}-not-found` : `${base}-http-${o.status}`
+  if (o.kind === 'parse') return `${base}-not-json`
+  return `${base}-net:${o.cause || 'ERR'}${o.addr ? '@' + o.addr : ''}`
 }
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -367,6 +508,10 @@ export const __test__ = {
   downloadIpaTo,
   makeLocalProbeFetch,
   parseArgs,
+  outcomeUndeterminedReason,
+  localProxyConnectProbe,
+  applyEgressProxyEnv,
+  EGRESS_PROXY_PORTS,
   LATEST_IPA_KEY,
   IPA_EXT,
   IPA_ASSET_NAME,

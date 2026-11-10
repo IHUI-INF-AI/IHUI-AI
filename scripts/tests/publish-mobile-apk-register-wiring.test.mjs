@@ -37,7 +37,9 @@ function capture() {
 function makeFakeDb(state = []) {
   const log = []
   const exec = (strings, ...vals) => {
-    const s = (Array.isArray(strings) ? strings.join('?') : String(strings)).replace(/\s+/g, ' ').trim()
+    const s = (Array.isArray(strings) ? strings.join('?') : String(strings))
+      .replace(/\s+/g, ' ')
+      .trim()
     log.push(s)
     if (s.startsWith('select id')) {
       return state.map((r) => ({
@@ -51,7 +53,12 @@ function makeFakeDb(state = []) {
     if (s.startsWith('select version')) {
       return state
         .filter((r) => r.status === 'latest')
-        .map((r) => ({ version: r.version, build_number: r.buildNumber, status: r.status, download_url: r.downloadUrl }))
+        .map((r) => ({
+          version: r.version,
+          build_number: r.buildNumber,
+          status: r.status,
+          download_url: r.downloadUrl,
+        }))
     }
     if (s.startsWith('update') && s.includes('id <>')) {
       const target = vals[1]
@@ -64,7 +71,13 @@ function makeFakeDb(state = []) {
     }
     if (s.startsWith('insert')) {
       const [v, , bn, url] = vals
-      state.push({ id: `n${state.length}`, version: v, buildNumber: bn, downloadUrl: url, status: 'latest' })
+      state.push({
+        id: `n${state.length}`,
+        version: v,
+        buildNumber: bn,
+        downloadUrl: url,
+        status: 'latest',
+      })
       return []
     }
     throw new Error(`fake 未实现: ${s}`)
@@ -75,11 +88,38 @@ function makeFakeDb(state = []) {
   return { sql, state, log }
 }
 
-test('W1 选腿优先级:DATABASE_URL(db)⇒ IHUI_ADMIN_TOKEN(api)⇒ 皆无 leg=null(不猜)', () => {
-  assert.equal(pub.registerLegFromEnv({ DATABASE_URL: SECRET_DB, IHUI_ADMIN_TOKEN: SECRET_JWT }).leg, 'db')
-  assert.equal(pub.registerLegFromEnv({ IHUI_ADMIN_TOKEN: SECRET_JWT }).leg, 'api')
-  const none = pub.registerLegFromEnv({ DATABASE_URL: '   ', IHUI_ADMIN_TOKEN: '' })
-  assert.equal(none.leg, null, '空白串凭据 = 没凭据,不得选腿')
+test('W1 选腿优先级:DATABASE_URL(db)⇒ IHUI_ADMIN_TOKEN(api)⇒ .env 兜底 ⇒ 皆无 leg=null(不猜)', () => {
+  // envFiles 一律显式注入:不注入时兜底会点读**真 .env**,测试不得碰生产配置面
+  const noFiles = { envFiles: [] }
+  assert.equal(
+    pub.registerLegFromEnv({ DATABASE_URL: SECRET_DB, IHUI_ADMIN_TOKEN: SECRET_JWT }, noFiles).leg,
+    'db',
+  )
+  assert.equal(pub.registerLegFromEnv({ IHUI_ADMIN_TOKEN: SECRET_JWT }, noFiles).leg, 'api')
+  const none = pub.registerLegFromEnv({ DATABASE_URL: '   ', IHUI_ADMIN_TOKEN: '' }, noFiles)
+  assert.equal(none.leg, null, '空白串凭据 = 没凭据;envFiles=[] 时不得回落真 .env(夹具隔离)')
+})
+
+test('W1b .env 兜底:env 两把皆空 ⇒ 点读配置文件取 DATABASE_URL;文件名标注来源;两文件皆无 ⇒ 仍 null', () => {
+  let hit = null
+  const fakeDir = { '/somewhere/.env': 'OTHER=1\nDATABASE_URL=postgres://fake/reload\n' }
+  hit = pub.registerLegFromEnv(
+    {},
+    { envFiles: ['/somewhere/.env', '/nope/.env'], readText: (p) => fakeDir[p] },
+  )
+  assert.equal(hit.leg, 'db')
+  assert.equal(hit.value, 'postgres://fake/reload')
+  assert.equal(hit.credential, 'DATABASE_URL(.env)', 'credential 只给名与来源,值不在此列')
+  const quoted = pub.registerLegFromEnv(
+    {},
+    { envFiles: ['/q.env'], readText: () => 'DATABASE_URL="postgres://quoted/x"' },
+  )
+  assert.equal(quoted.value, 'postgres://quoted/x', '包裹引号必须剥掉(与 dotenv 语义一致)')
+  const miss = pub.registerLegFromEnv(
+    {},
+    { envFiles: ['/empty.env'], readText: () => 'A=1\n# DATABASE_URL=nope\n' },
+  )
+  assert.equal(miss.leg, null, '无键/仅注释 ⇒ 维持"没凭据",不猜')
 })
 
 test('W2 整改命令:带本次版本/构建号/固定下载地址,绝不含凭据值', () => {
@@ -111,7 +151,11 @@ test('W3 成功路径必然产生登记调用:db 腿参数逐键对账,输出恒
   assert.equal(calls[0].platform, 'android')
   assert.equal(calls[0].version, '0.1.0')
   assert.equal(calls[0].buildNumber, 26110101, 'buildNumber 必须是数字形态(与登记器同一入参形状)')
-  assert.equal(calls[0].downloadUrl, pub.siteLegUrl(pub.LATEST_KEY), '登记的必须是固定地址,不是版本名副本')
+  assert.equal(
+    calls[0].downloadUrl,
+    pub.siteLegUrl(pub.LATEST_KEY),
+    '登记的必须是固定地址,不是版本名副本',
+  )
   assert.equal(calls[0].apply, true)
   assert.match(cap.out.join('\n'), /✓ app_versions 登记已落地 leg=db plan=create/)
   assert.ok(!(cap.out.join('') + cap.err.join('')).includes('TOPSECRET'), '凭据值不得进任何输出')
@@ -126,6 +170,7 @@ test('W4 无凭据 ⇒ 显式「未登记」告警三要素齐(缺什么/后果/
     out: cap.o,
     err: cap.e,
     deps: {
+      registerLegOpts: { envFiles: [] },
       openDb: () => {
         throw new Error('不该被调用')
       },
@@ -140,7 +185,11 @@ test('W4 无凭据 ⇒ 显式「未登记」告警三要素齐(缺什么/后果/
   assert.match(msg, /未登记/)
   assert.match(msg, /DATABASE_URL/)
   assert.match(msg, /IHUI_ADMIN_TOKEN/, '必须点名**两条**腿各缺什么')
-  assert.match(msg, /node scripts\/register-app-version-latest\.mjs --apply/, '必须给一条可复制的整改命令')
+  assert.match(
+    msg,
+    /node scripts\/register-app-version-latest\.mjs --apply/,
+    '必须给一条可复制的整改命令',
+  )
   assert.equal(cap.out.filter((m) => m.includes('✓')).length, 0, '不许出现"登记成功"式绿字')
 })
 
@@ -186,7 +235,16 @@ test('W5 三态判据单源:真 applyViaDb+fake 库跑通 create→noop,plan 与
     downloadUrl: pub.siteLegUrl(pub.LATEST_KEY),
   })
   assert.deepEqual(s2.plan, expected)
-  assert.ok(Array.isArray(validateDesired({ platform: 'android', version: '0.1.0', buildNumber: 1, downloadUrl: pub.siteLegUrl(pub.LATEST_KEY) })))
+  assert.ok(
+    Array.isArray(
+      validateDesired({
+        platform: 'android',
+        version: '0.1.0',
+        buildNumber: 1,
+        downloadUrl: pub.siteLegUrl(pub.LATEST_KEY),
+      }),
+    ),
+  )
 })
 
 test('W6 api 腿:仅 IHUI_ADMIN_TOKEN 时走 applyViaApi,token 只进腿不进日志', async () => {
@@ -246,7 +304,15 @@ test('W8 形状锁:三态判据零复制 + main 的登记步接在公网自证�
     '登记步必须接在公网自证成功之后(包没发出去不先动库)',
   )
   assert.match(mainSrc, /if \(!step\.ok\) return 1/, '登记不落地必须以非零码退出')
-  assert.match(mainSrc, /--dry-run: app_versions 登记腿/, 'dry-run 必须现读并打印登记腿判定(不联网)')
-  assert.match(PUBLISH_SRC, /const regBad = validateDesired\(/, '非法参数在落包之前就未判定(fail-fast)')
+  assert.match(
+    mainSrc,
+    /--dry-run: app_versions 登记腿/,
+    'dry-run 必须现读并打印登记腿判定(不联网)',
+  )
+  assert.match(
+    PUBLISH_SRC,
+    /const regBad = validateDesired\(/,
+    '非法参数在落包之前就未判定(fail-fast)',
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
