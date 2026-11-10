@@ -489,6 +489,62 @@ describe('zcode classifyUpstreamFailure', () => {
   })
 })
 
+describe('zcode listModels(2026-11-10 实弹:通用面 + 账号 api-key)', () => {
+  beforeEach(() => {
+    mockFetch.mockReset()
+  })
+
+  function ctxWithAccountKey(
+    region?: 'cn' | 'global',
+    activeProvider?: string,
+  ): AdapterAccountContext {
+    const ctx = makeCtx(region) as unknown as {
+      credentials: { secrets: { credentialMap: Record<string, string> } }
+    }
+    const map = ctx.credentials.secrets.credentialMap
+    map['account-provider:coding-plan:account:zai-individual-coding-plan:account:u1:api-key'] =
+      'zc-api-key-fixture'
+    if (activeProvider) map['oauth:active_provider'] = activeProvider
+    return ctx as unknown as AdapterAccountContext
+  }
+
+  it('用账号 api-key 打通用面,解析 data[].id(不用 jwt)', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ object: 'list', data: [{ id: 'glm-5.3' }, { id: 'glm-4.6' }] }),
+    })
+    const ids = await zcodeAdapter.listModels!(ctxWithAccountKey('global'))
+    expect(ids).toEqual(['glm-5.3', 'glm-4.6'])
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit]
+    expect(String(url)).toBe('https://api.z.ai/api/paas/v4/models')
+    expect((init.headers as Record<string, string>)['authorization']).toBe(
+      'Bearer zc-api-key-fixture',
+    )
+  })
+
+  it('oauth:active_provider=zai ⇒ 判国际站(先打 api.z.ai)', async () => {
+    mockFetch.mockResolvedValue({ ok: false, status: 401, json: async () => ({}) })
+    await zcodeAdapter.listModels!(ctxWithAccountKey(undefined, 'zai'))
+    const [url] = mockFetch.mock.calls[0] as [string]
+    expect(String(url)).toBe('https://api.z.ai/api/paas/v4/models')
+  })
+
+  it('本站非 2xx ⇒ 换另一站;两站都失败 ⇒ 空数组', async () => {
+    mockFetch
+      .mockResolvedValueOnce({ ok: false, status: 401, json: async () => ({}) })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ data: [{ id: 'glm-5.2' }] }),
+      })
+    expect(await zcodeAdapter.listModels!(ctxWithAccountKey('global'))).toEqual(['glm-5.2'])
+    mockFetch.mockReset()
+    mockFetch.mockResolvedValue({ ok: false, status: 401, json: async () => ({}) })
+    expect(await zcodeAdapter.listModels!(ctxWithAccountKey('global'))).toEqual([])
+  })
+})
+
 describe('zcode summarizeCredentials(零回显)', () => {
   it('摘要只有指纹/长度/布尔,不带凭据明文', () => {
     const s = zcodeExtract.summarizeCredentials(makeCredMap(), ['cn'])
