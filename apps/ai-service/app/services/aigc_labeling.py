@@ -16,8 +16,9 @@ Trae 把 AIGC 打标做成工具宿主的按需命令;本模块把它做成**落
    不是行为破坏 —— payload 新增 `aigc` 键,既有消费方零改动;关掉即逐字节旧行为。
 2. **纯函数**:本模块不做任何 IO(落库在 media_tasks.persist_media_task),全部可脱栈测。
 3. **不冒充**:拿不到 provider/model 时如实落空串,不编造生成方;`labeled` 恒 true
-   仅表示"本条已按本模块规则打标",不代表产物字节层带了水印(字节级改写属于
-   对外部产物 URL 的二次分发,不在本模块射程,留作下游下载侧的后续件)。
+   仅表示"本条已按本模块规则打标"。产物字节层的隐式标识由
+   ``aigc_watermark.py`` 真实写入,调用方通过 ``implicit`` 参数把写入结果并入本块;
+   未传/未写入时 ``label_type`` 只记 ``explicit``,不把"打算写"说成"已经写"。
 
 依赖方向:本模块不得 import app.routers.*(路由层依赖服务层,反向即循环)。
 """
@@ -62,6 +63,7 @@ def label_aigc_payload(
     tool: str,
     provider: str,
     now: datetime | None = None,
+    implicit: dict[str, Any] | list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """给媒体任务 payload 追加 `aigc` 元数据块(返回新 dict,不改入参)。
 
@@ -71,9 +73,14 @@ def label_aigc_payload(
     if not labeling_enabled():
         return payload
     labeled_at = (now or datetime.now(UTC)).isoformat()
+    # 只有真实带回了字节层写入证据才宣称 explicit+implicit;否则如实只记 explicit
+    embedded = bool(implicit) and (
+        implicit.get("embedded") if isinstance(implicit, dict)
+        else any(isinstance(i, dict) and i.get("embedded") for i in implicit)
+    )
     aigc: dict[str, Any] = {
         "labeled": True,
-        "label_type": "explicit+implicit",
+        "label_type": "explicit+implicit" if embedded else "explicit",
         "content_kind": kind,
         "tool": tool,
         "generator": provider or "",
@@ -84,6 +91,8 @@ def label_aigc_payload(
     model = payload.get("model") or payload.get("model_id")
     if isinstance(model, str) and model.strip():
         aigc["model"] = model.strip()
+    if implicit:
+        aigc["implicit"] = implicit
     return {**payload, "aigc": aigc}
 
 

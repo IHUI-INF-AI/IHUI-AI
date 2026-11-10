@@ -63,20 +63,6 @@ vi.mock('../src/db/index.js', () => {
     update: vi.fn(),
     insert: vi.fn(),
     execute: vi.fn(),
-    // F-384/384G(ec3e0ec3f1):removeTeamMember 收进事务 —— 删成员前先在同一事务里
-    // 读 team_knowledge_spaces 的空间 id,再级联清 team_knowledge_space_members。
-    // 夹具据此给 transaction 一个同形 tx:tx.select 只服务这一次"取空间 id"的读,
-    // 返回空集(本用例量的是成员删除的 RETURNING 证据,不量级联分支),且**不计入**
-    // chain.selectCalls —— 那个计数器量的是"用顶层 select 预查询伪造删除命中",不是这层。
-    transaction: <T>(fn: (txArg: unknown) => Promise<T>) =>
-      fn({
-        ...db,
-        select: vi.fn(() => {
-          const rows: Array<{ id: string }> = []
-          const settled = Promise.resolve(rows)
-          return { from: () => ({ where: () => settled }) }
-        }),
-      }),
   }
   return { db, dbRead: db, dbClient: {} }
 })

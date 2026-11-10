@@ -26,10 +26,10 @@ from app.services.sag2_lexical import (
 from app.services.sag2_lexical.index import LexicalIndex
 from app.services.sag2_lexical.judge import (
     JUDGE_EXECUTED_REASON,
+    JudgeVerdict,
     MODE_LEXICAL_ONLY,
     MODE_MODEL,
     NO_MODEL_REASON,
-    JudgeVerdict,
 )
 
 # 与 test_sag2_lexical.py 同一套确定性多跳语料：doc3 只能靠查询时关联抵达。

@@ -19,6 +19,8 @@ import { WEB_BASE_URL } from '../lib/webview-portal-config'
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 const MIN_PWD_LEN = 6
+/** 与小程序 pwd 页同规则:输入上限 20(types 契约 inputMaxLength) */
+const MAX_PWD_LEN = 20
 
 function ChangePwdScreen() {
   const { resolvedTheme } = useTheme()
@@ -85,6 +87,7 @@ function ChangePwdScreen() {
         showNew={showNew}
         showConfirm={showConfirm}
         submitting={submitting}
+        inputMaxLength={MAX_PWD_LEN}
         onOldChange={setOldPwd}
         onNewChange={setNewPwd}
         onConfirmChange={setConfirmPwd}

@@ -27,10 +27,9 @@ const CLIENT_MSG_ID = '22222222-2222-2222-2222-222222222222'
 // mock 面(与被测模块的导入面一一对应;缺导出 named import 为 undefined)
 // ---------------------------------------------------------------------------
 
-const { mockAppendFrame, mockConsumeFrames, mockFindConversationById } = vi.hoisted(() => ({
+const { mockAppendFrame, mockConsumeFrames } = vi.hoisted(() => ({
   mockAppendFrame: vi.fn(async () => true),
   mockConsumeFrames: vi.fn(async (): Promise<Record<string, unknown>[]> => []),
-  mockFindConversationById: vi.fn(),
 }))
 
 vi.mock('../src/db/element-pack-queries.js', () => ({
@@ -47,7 +46,7 @@ vi.mock('../src/db/chat-queries.js', () => ({
   bindConversationWorkspace: vi.fn(async () => false),
   createMessage: mockCreateMessage,
   updateMessage: mockUpdateMessage,
-  findConversationById: mockFindConversationById,
+  findConversationById: vi.fn(),
   patchConversationMetadata: vi.fn(),
   replaceMessages: vi.fn(),
   setConversationAdditionalDirectories: vi.fn(),
@@ -145,8 +144,6 @@ describe('D64⑤ 网关元素包捕获(POST /chat/stream)', () => {
   let server: Awaited<ReturnType<typeof Fastify>>
   beforeAll(async () => {
     const app = Fastify()
-    // F-03(2026-11-08):/chat/stream 先核会话归属,桩成"存在且属于当前用户"
-    mockFindConversationById.mockResolvedValue({ id: CONV_ID, userId: 'user-1' })
     await app.register(aiChatStreamRoutes)
     await app.ready()
     server = app
