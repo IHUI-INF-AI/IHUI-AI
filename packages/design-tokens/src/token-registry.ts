@@ -105,8 +105,8 @@ const SIDEBAR_COLOR_ENTRIES: ReadonlyArray<TokenEntry> = [
   { name: '--color-sidebar', type: 'color', defaultValue: 'hsl(0 0% 96.1%)' },
   { name: '--color-sidebar-foreground', type: 'color', defaultValue: 'hsl(0 0% 9%)' },
   { name: '--color-sidebar-hover', type: 'color', defaultValue: 'hsl(218 14% 92%)' },
-  { name: '--color-sidebar-active', type: 'color', defaultValue: 'hsl(222 13% 86%)' },
-  { name: '--color-sidebar-active-hover', type: 'color', defaultValue: 'hsl(217 11% 80%)' },
+  { name: '--color-sidebar-active', type: 'color', defaultValue: 'hsl(222 13% 91%)' },
+  { name: '--color-sidebar-active-hover', type: 'color', defaultValue: 'hsl(222 13% 88%)' },
   { name: '--color-sidebar-item-hover-bg', type: 'color', defaultValue: 'hsl(0 0% 100%)' },
   { name: '--color-shell-panel', type: 'color', defaultValue: 'hsl(0 0% 100%)' },
 ]

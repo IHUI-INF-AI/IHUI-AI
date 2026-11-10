@@ -12,6 +12,7 @@ import {
   EDU_HUB_ITEMS,
   CONTENT_HUB_ITEMS,
   TRADE_HUB_ITEMS,
+  isHrefActive,
 } from '@/components/sidebar/nav-data'
 
 describe('P2 域入口:TDZ 与清单完整性', () => {
@@ -50,6 +51,24 @@ describe('P2 域入口:TDZ 与清单完整性', () => {
   it('教师权限项仍在教育域清单里(权限过滤才有东西可滤)', () => {
     const managed = EDU_HUB_ITEMS.filter((i) => i.permission === 'edu:manage')
     expect(managed.length).toBe(10)
+  })
+})
+
+// 回归锁(2026-11-11 用户反馈):没在首页时首页箭头仍常驻高亮。
+// 根因:'/' 是任意 pathname 的前缀,未登记进 nav 表的真实路由(/plugins 等)找不到
+// 更精确 href,于是首页被判为 active。锁死:根路径只在精确 '/' 时激活。
+describe('isHrefActive 根路径精确匹配', () => {
+  it('只在 pathname 恰为 / 时激活首页', () => {
+    expect(isHrefActive('/', '/')).toBe(true)
+    expect(isHrefActive('/', '/plugins')).toBe(false)
+    expect(isHrefActive('/', '/chat/abc')).toBe(false)
+  })
+
+  it('非根 href 仍按前缀匹配(含子路由)', () => {
+    const href = '/domains/ai'
+    expect(isHrefActive(href, '/domains/ai')).toBe(true)
+    expect(isHrefActive(href, '/domains/ai/child')).toBe(true)
+    expect(isHrefActive(href, '/domains/edu')).toBe(false)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -349,10 +349,14 @@ export function SidebarUserRow({
         // 首帧 showAuthed=false 渲染矮一号的登录按钮,rehydrate 后换成高的用户行,整条底栏上下跳 8px。
         // 这里改 h-9 + px-1:与 userTrigger、与导航项行高(NavLink h-9)三方严格同高,
         // 既消除位移,也顺带修掉「登录按钮比旁边导航项矮一截」的观感不一致。
-        'flex h-9 w-full items-center justify-center gap-1.5 rounded-sm px-1 text-body font-medium transition-colors bg-foreground text-background hover:bg-foreground/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+        // 2026-11-11 实测(1440×900):外框本来就是 144×36,与 NavLink 完全一致;
+        // 肉眼"不一样大"来自内部四处不同 —— 圆角 4px vs 6px、内边距 4px vs 10px、
+        // 图标 14px vs 20px、字号 body vs sm。这里按 NAV_ITEM_BASE_CLASS 口径逐项对齐;
+        // 同时去掉 justify-center,内容与导航项一样左对齐(与已登录态 userTrigger 同源)。
+        'flex h-9 w-full items-center gap-2.5 rounded-md px-2.5 text-sm font-medium transition-colors bg-foreground text-background hover:bg-foreground/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
       )}
     >
-      <LogIn className="h-3.5 w-3.5 shrink-0" />
+      <LogIn className="h-5 w-5 shrink-0" />
       {!collapsed && <span>{tc('login')}</span>}
     </button>
   )
@@ -362,9 +366,9 @@ export function SidebarUserRow({
     <button
       aria-label={user?.nickname ?? 'User'}
       className={cn(
-        // 整行 row 容器样式:flex + h-9(与 NavLink 行高一致) + gap-2 + 圆角 + padding
-        // flex w-full 与导航项(NavLink w-full)同宽,px-2.5 与导航区对齐
-        'group/row flex h-9 w-full items-center justify-center gap-2 rounded-sm px-2.5 transition-colors hover:bg-sidebar-item-hover-bg',
+        // 整行 row 容器样式:与 NAV_ITEM_BASE_CLASS 全参数对齐 —— h-9 + px-2.5 + gap-2.5 +
+        // rounded-md(6px) + text-sm,左对齐(不再居中),保证与上方导航项同一套几何。
+        'group/row flex h-9 w-full items-center gap-2.5 rounded-md px-2.5 text-sm transition-colors hover:bg-sidebar-item-hover-bg',
         // 按钮态样式:outline-none + focus-visible ring 保留键盘可访问性
         'outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring',
       )}
@@ -385,7 +389,7 @@ export function SidebarUserRow({
       {!collapsed && (
         <span
           className={cn(
-            'min-w-0 truncate text-body font-medium text-foreground/70 transition-colors group-hover/row:text-foreground',
+            'min-w-0 truncate text-sm font-medium text-foreground/70 transition-colors group-hover/row:text-foreground',
           )}
         >
           {user?.nickname ?? 'User'}
