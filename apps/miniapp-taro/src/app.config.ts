@@ -206,6 +206,8 @@ export default defineAppConfig({
         'groups/index',
         'api-keys/index',
         'patrol/index',
+        'repo-wiki/index',
+        'team-knowledge/index',
       ],
     },
     {

@@ -7357,5 +7357,68 @@
       "empty": "暂无巡检记录",
       "loading": "加载中…"
     }
+  },
+  "repoWiki": {
+    "title": "Repo Wiki",
+    "description": "从本地代码仓库自动生成架构与模块知识库",
+    "repoNamePlaceholder": "输入仓库名",
+    "needRepoName": "请输入仓库名",
+    "listTitle": "文档列表",
+    "loadingDocs": "加载中…",
+    "generatedAt": "{time} 生成",
+    "fileCount": "{count} 个文件",
+    "view": "查看",
+    "delete": "删除",
+    "deleteConfirm": "确认删除该文档？",
+    "backToList": "返回列表",
+    "loadingDetail": "加载文档中…",
+    "searchBtn": "查询",
+    "generateHint": "生成需上传整个仓库目录,当前仅 Web 端支持;本屏可浏览与删除已生成文档",
+    "loadFailed": "加载文档列表失败",
+    "emptyList": "暂无文档,请先在 Web 端生成"
+  },
+  "teamKnowledge": {
+    "title": "团队知识引擎",
+    "description": "团队级共享知识:空间协作、成员修正、全程可审计",
+    "teamPlaceholder": "输入团队 teamId",
+    "searchBtn": "查询",
+    "newSpaceBtn": "新建空间",
+    "newSpaceTitle": "新建知识空间",
+    "spaceNamePlaceholder": "为这个知识空间起个名字",
+    "teamVisible": "团队可见",
+    "restricted": "受限可见",
+    "needTeam": "请先填写团队 ID",
+    "needSpaceName": "空间名称不能为空",
+    "saveFailed": "保存失败",
+    "needTitle": "标题不能为空",
+    "spaceListTitle": "知识空间",
+    "emptySpaces": "该团队下暂无可见的知识空间",
+    "membersTitle": "空间成员",
+    "emptyMembers": "暂无显式授权成员",
+    "itemsTitle": "知识条目",
+    "newItemBtn": "新建条目",
+    "kindAll": "全部类型",
+    "emptyItems": "该空间暂无条目",
+    "titlePlaceholder": "一句话概括这条知识",
+    "contentPlaceholder": "背景、结论、注意事项",
+    "publishBtn": "发布",
+    "archiveBtn": "归档",
+    "saveBtn": "保存",
+    "cancelBtn": "取消",
+    "role": {
+      "owner": "所有者",
+      "editor": "编辑者",
+      "viewer": "查看者"
+    },
+    "kind": {
+      "memory": "团队记忆",
+      "wiki": "Wiki",
+      "card": "知识卡"
+    },
+    "status": {
+      "draft": "草稿",
+      "published": "已发布",
+      "archived": "已归档"
+    }
   }
 }
