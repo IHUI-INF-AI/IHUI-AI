@@ -2307,6 +2307,7 @@
       "approvalPersistHit": "沿用你保存的批准",
       "execPolicyApproved": "执行策略放行",
       "autoSkipApproval": "自动批准(免审批)",
+      "skillGrantSkipApproval": "技能授权放行(免审批)",
       "bypassSkipApproval": "已跳过审批",
       "mcpRequiresApproval": "MCP 标注要求确认",
       "taintEgressGate": "会话污点:出网需确认",

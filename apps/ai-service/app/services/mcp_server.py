@@ -817,6 +817,8 @@ _ADMIN_ONLY_TOOLS: set[str] = {
     # intend 路由与 tool 选择表都不含它(role=0 正常链路不依赖);本地路径分支已过
     # 工作区+敏感文件判据,这里再加角色档。voice_clone 不能加:对话链 role=0 直接
     # 依赖它(conversation._MEDIA_INTENT_PATTERNS["token6688_voice_clone"])。
+    # 用户 2026-11-08 逐条裁定:voice_clone 属"贵资源",用归属闸+计费闸治理
+    # (tests/test_voice_clone_owner_credit_ais050.py),整只入档会挡死正常对话链。
     "token6688_upload_file",
     # 2026-07-24 扩展工具(自研核心能力):
     # fetch_url:SSRF 入口 + 可探测内网;
@@ -929,6 +931,13 @@ def _validate_path_in_workspace(
         roots = _get_workspace_roots() + list(
             _active_extra_roots() if extra_roots is None else extra_roots
         )
+        # 跨平台:POSIX 上没有盘符概念,`Z:/no/such/x` 会被当成相对路径拼到 cwd 下,
+        # 于是"根外路径"被误判成"根内不存在的文件"(PATH_NOT_ALLOWED 退化成
+        # FILE_NOT_FOUND —— Linux CI 的媒体上传用例即此,Windows 上则因 is_absolute()
+        # 为真走包含性判定、本来就是对的)。盘符只指向它自己的卷,不可能落在 POSIX
+        # 工作区根内,所以先判越界,不让它进相对路径探测。
+        if os.name != "nt" and re.match(r"^[A-Za-z]:[\\/]", path):
+            return False, f"路径不在工作区白名单内: {path}(允许根目录: {roots})"
         if not p.is_absolute():
             for root in roots:
                 candidate = (Path(root) / path).resolve(strict=False)
@@ -5489,7 +5498,8 @@ async def _tool_file_search(arguments: dict[str, Any]) -> dict[str, Any]:
                 "enum_engine": _enum_prov.engine,
                 "enum_degraded": _enum_prov.degraded_reason,
                 "message": fuzzy_message,
-                "ok": not (_enum_prov.degraded_reason and not matches),
+                # 通道降级≠结果缺口(见下方非模糊分支同一判据)。
+                "ok": not (_enum_prov.unread_dirs and not matches),
             }
 
         query_lower = query.lower() if query else None
@@ -5556,7 +5566,12 @@ async def _tool_file_search(arguments: dict[str, Any]) -> dict[str, Any]:
         )
         # 「没找到」与「没查到」是两件事:枚举/读取有缺口时,零命中不能报成成功,
         # 也不能再给"放宽 pattern"这类误导性建议(缺口不在 pattern 上)。
-        incomplete = _enum_prov.degraded_reason or ""
+        # 但**通道降级不等于结果有缺口**:rg 缺失/坏掉时走 python-walk 完整遍历,
+        # 两通道结果集等价(见 rg_fallback_parity),此时 0 就是真 0。只有遍历真的
+        # 有目录读不到(unread_dirs>0)才算不完整 —— 把降级当缺口会让无 rg 的机器
+        # (含 Linux CI)上任何零命中都报失败、并吞掉可操作建议;降级事实仍由
+        # enum_engine/enum_degraded 如实留痕,不冒用 rg 的名义。
+        incomplete = _enum_prov.degraded_reason if _enum_prov.unread_dirs else ""
         if unread_files:
             file_note = f"有 {unread_files} 个文件读不到,不能把检索说成没有命中"
             incomplete = f"{incomplete};{file_note}" if incomplete else file_note
@@ -12069,7 +12084,22 @@ async def _tool_run_workflow(arguments: dict[str, Any]) -> dict[str, Any]:
                 "run_workflow", str(node.get("agent") or "").strip(), arguments
             )
             if denial is not None:
-                return denial
+                # 与 run_workflow 既有回执同形(workflow_runner._undetermined 口径):
+                # 拒绝发生在分派之前 ⇒ executed/cached 必为空,status 为 undetermined。
+                # 调用方不必按"拒绝来自哪一层"分叉解析响应形状。
+                return {
+                    "tool": "run_workflow",
+                    "ok": False,
+                    "errorCode": denial["errorCode"],
+                    "error": denial["error"],
+                    "run_id": None,
+                    "status": "undetermined",
+                    "executed": [],
+                    "cached": [],
+                    "skipped": {},
+                    "failed": {},
+                    "results": {},
+                }
 
     resume_raw = arguments.get("resume_from_run_id")
     resume = str(resume_raw).strip() if resume_raw is not None and str(resume_raw).strip() else None

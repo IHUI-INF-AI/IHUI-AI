@@ -75,6 +75,30 @@ from .free_provider_registry import ProviderCategory, free_provider_registry
 
 logger = logging.getLogger(__name__)
 
+# 工具调用能力实证字段(2026-11-08 立)。
+# 这两个列是"实测结论",不是上游元数据:只允许 tool_capability 探针/线上判据写。
+# 同步的职责只是新增/删除行;若某次 upsert 的列集合命中它们,说明有人把实证字段
+# 混进了同步白名单 —— 上游一跑就会把 true/false 覆盖回元数据值,缺陷原样复活。
+# 因此这里用运行时硬断言(RuntimeError,不是 assert,避免 -O 下被剥离)。
+EMPIRICAL_TOOL_CALL_COLUMNS = frozenset({"tool_call_empirical", "tool_call_verified_at"})
+
+
+def assert_sync_does_not_touch_empirical_columns(
+    written_columns: set[str], context: str
+) -> None:
+    """同步写库前的硬断言:禁止任何 INSERT/UPDATE 语句触碰实证字段。
+
+    Args:
+        written_columns: 本次 SQL 将要写入的列名(含 ON CONFLICT UPDATE 的左侧列)。
+        context: 断言位置(用于异常定位)。
+    """
+    overlap = EMPIRICAL_TOOL_CALL_COLUMNS & written_columns
+    if overlap:
+        raise RuntimeError(
+            f"[ModelSyncService] {context} 试图写入实证字段 {sorted(overlap)};"
+            "模型同步只能新增/删除行,不得覆盖 tool_call_empirical / tool_call_verified_at"
+        )
+
 
 # ============================================================================
 # 常量配置
@@ -2363,6 +2387,12 @@ class ModelSyncService:
         if columns.get("last_synced_at", False):
             update_parts.append("last_synced_at = now()")
 
+        # 硬断言:INSERT 列 + ON CONFLICT UPDATE 左侧列都不得包含实证字段
+        assert_sync_does_not_touch_empirical_columns(
+            set(fields) | {part.split(" = ", 1)[0].strip() for part in update_parts},
+            "_insert_model",
+        )
+
         fields_str = ", ".join(fields)
         placeholders_str = ", ".join(placeholders)
         update_str = ", ".join(update_parts)
@@ -2448,6 +2478,12 @@ class ModelSyncService:
         # last_synced_at(每次同步刷新,用 SQL now() 函数,不需要 placeholder)
         if columns.get("last_synced_at", False):
             set_parts.append("last_synced_at = now()")
+
+        # 硬断言:UPDATE 的 SET 左侧列不得包含实证字段
+        assert_sync_does_not_touch_empirical_columns(
+            {part.split(" = ", 1)[0].strip() for part in set_parts},
+            "_update_model",
+        )
 
         set_str = ", ".join(set_parts)
         sql = (

@@ -96,15 +96,15 @@ export default function Phone() {
     })
   })
 
-  function startOldCountdown() {
+  const startOldCountdown = useCallback(() => {
     oldCodeCountdown.reset(60)
     oldCodeCountdown.start()
-  }
+  }, [oldCodeCountdown])
 
-  function startNewCountdown() {
+  const startNewCountdown = useCallback(() => {
     newCodeCountdown.reset(60)
     newCodeCountdown.start()
-  }
+  }, [newCodeCountdown])
 
   const onSendOldCode = useCallback(async () => {
     if (oldCodeCountdown.count > 0 || oldSendingRef.current) return
@@ -124,7 +124,7 @@ export default function Phone() {
     } finally {
       oldSendingRef.current = false
     }
-  }, [currentPhone, oldCodeCountdown.count, tt, t])
+  }, [currentPhone, oldCodeCountdown.count, startOldCountdown, tt, t])
 
   const onSendCode = useCallback(async () => {
     if (newCodeCountdown.count > 0 || newSendingRef.current) return
@@ -160,7 +160,7 @@ export default function Phone() {
     } finally {
       newSendingRef.current = false
     }
-  }, [currentPhone, newCodeCountdown.count, newPhone, tt, t])
+  }, [currentPhone, newCodeCountdown.count, newPhone, startNewCountdown, tt, t])
 
   const onSubmit = useCallback(async () => {
     if (submitting || submittingRef.current) return

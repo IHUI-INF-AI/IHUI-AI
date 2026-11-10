@@ -1107,7 +1107,10 @@ class PublishScheduler:
 
         查询口径带 user_id,防止调用链上游漏校验时用他人账号凭证代发。
         """
-        if account_id is None:
+        # fail-closed:缺归属主体时直接拒绝,连库都不碰 —— 否则 user_id=NULL 的查询
+        # 语义依赖驱动/列约束(历史上就有 `WHERE user_id=$3` 传 None 全落空的隐式行为),
+        # 且会给攻击面留一次不必要的出站。
+        if account_id is None or not user_id:
             return None
         conn = await self._get_conn()
         if conn is None:

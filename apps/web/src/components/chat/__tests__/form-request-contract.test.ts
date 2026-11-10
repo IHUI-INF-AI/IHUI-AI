@@ -66,7 +66,7 @@ describe('V3 #63 form_request 契约登记 / 漂移锁', () => {
     expect(FORM_FRAME_EVENTS.REQUEST).toBe(SSE_EVENTS.FORM_REQUEST)
   })
 
-  it('跨语言契约集合含 form_request,成员数按现读抬到 37', () => {
+  it('跨语言契约集合含 form_request,成员数按现读抬到 38', () => {
     // 注:这个绝对数是粗锁(任何一次合法新增事件都得跟着抬,D113 的 tool-delta 抬过一次,
     // D151 的 terminal_interaction 抬第二次);精确的那把锁是上面两条对成员在/不在的判定,
     // 它不随事件增减漂移。
@@ -84,7 +84,12 @@ describe('V3 #63 form_request 契约登记 / 漂移锁', () => {
     // 36→37 由 `TOOL_CALL_ARGS_DELTA: 'tool-call-args-delta'` 带来(2026-11-05 立,
     // packages/shared/src/sse/contract.ts:95-98,双端由 parity 门看护)。数字是粗锁,
     // 所以下面再补一条成员集合断言,防止"数字抬对了但名字漂了"。
-    expect(SSE_EVENT_NAMES).toHaveLength(37)
+    // 37→38 由 `QUESTION_RESOLVED: 'question-resolved'` 带来(`35c6363d81`,2026-11-08):
+    //   packages/shared/src/sse/contract.ts + apps/ai-service/app/core/sse_contract.py 双端同笔,
+    //   shared 侧 contract.test.ts:39 同批抬到 38;web 侧这条此前漏改 ⇒ 干净 HEAD 上恒红。
+    expect(SSE_EVENT_NAMES).toHaveLength(38)
+    expect(SSE_EVENT_NAMES as readonly string[]).toContain(SSE_EVENTS.QUESTION_RESOLVED)
+    expect(SSE_EVENTS.QUESTION_RESOLVED).toBe('question-resolved')
     expect(SSE_EVENT_NAMES as readonly string[]).toContain(SSE_EVENTS.TOOL_CALL_ARGS_DELTA)
     expect(SSE_EVENTS.TOOL_CALL_ARGS_DELTA).toBe('tool-call-args-delta')
   })

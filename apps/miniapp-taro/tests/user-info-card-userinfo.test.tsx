@@ -47,7 +47,9 @@ describe('UserInfoCard userInfo 真消费', () => {
   it('未传扁平字段时,昵称与智汇值取自 userInfo 容器', () => {
     const html = render({ userInfo })
     expect(html).toContain('容器昵称')
-    expect(html).toContain('1.2k')
+    // 智汇值跨端统一走 @ihui/shared formatTokenValue(XUI-065):不足 1 万原样,
+    // ≥1 万才缩成「X.XX万」/「X.XX亿」,旧的端内 1.2k 写法已废弃。
+    expect(html).toContain('1200')
   })
 
   it('扁平显式值覆盖容器同字段', () => {
