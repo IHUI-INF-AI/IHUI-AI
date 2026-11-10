@@ -237,8 +237,40 @@ function git(args, root, opts = {}) {
   }
 }
 
+/**
+ * 多模式 git grep 的分片粒度(**性能常量,不参与任何判定**)。
+ * 现读实测 2026-11-10:475 个 -e 字面模式打 scripts/guardian-runner.mjs(497KB) +
+ * scripts/git-guardian.mjs(801KB) 一发 19.1s,切成每片 64 个后顺序合计 3.5s;
+ * 两轮全路径合计 42.5s → 6.0s。并发反而更慢(15 个 git 进程在 Windows 上争用 10.8s),
+ * 故只做顺序分片,不引入任何异步 / 并发层。
+ */
+export const GREP_PATTERN_SHARD_SIZE = 64
+
+/** 纯函数:按固定大小切模式列表,顺序与并集逐字守恒(空表 ⇒ 0 片)。 */
+export function shardPatterns(patterns, size = GREP_PATTERN_SHARD_SIZE) {
+  // size=0 / 负数 / 小数会让 for 的步长失效 ⇒ 死循环。宁可当场抛,也不静默挂死一门守门。
+  if (!Number.isInteger(size) || size < 1) throw new RangeError(`分片大小必须是正整数,实得 ${size}`)
+  const out = []
+  for (let i = 0; i < patterns.length; i += size) out.push(patterns.slice(i, i + size))
+  return out
+}
+
+/**
+ * 纯函数:把逐片 git grep 结果按序拼回一份 stdout。任一片 !ok 立即**原样返回该失败**
+ * (调用方照旧 return 2),绝不静默吞掉、也绝不只拼成功片。生成器入参保证遇失败即停,
+ * 后续分片一次都不派生。
+ */
+export function mergeGrepShardResults(results) {
+  const outs = []
+  for (const r of results) {
+    if (!r.ok) return r
+    outs.push(r.out)
+  }
+  return { ok: true, out: outs.join('\n') }
+}
+
 /** git grep 在无匹配时 exit 1:区分「无匹配」与「git 自身异常」,绝不静默放行 */
-function gitGrep(patterns, rev, paths, root) {
+function gitGrepOnce(patterns, rev, paths, root) {
   const args = ['grep', '-o', '-I', '-F']
   for (const p of patterns) args.push('-e', p)
   args.push(rev, '--', ...paths)
@@ -249,6 +281,40 @@ function gitGrep(patterns, rev, paths, root) {
     if (code === 1) return { ok: true, out: '' } // 1 = 无匹配(git grep 语义)
     return { ok: false, out: '', err: String((err && err.stderr) || (err && err.message) || err) }
   }
+}
+
+function* grepShardResults(parts, rev, paths, root) {
+  for (const part of parts) yield gitGrepOnce(part, rev, paths, root)
+}
+
+/**
+ * 多模式 git grep:命令、参数、rev、pathspec、取材面**全部不变**,只把过长的 -e 列表
+ * 切片顺序跑再把 stdout 拼回。parseGrepHits 按行解析且用 Set 收敛 ⇒ 分片并集与一次性
+ * 全模式逐字等价(真仓 7 个权威点 × 2 轮对拍 14/14,2026-11-10)。失败折值原样上抛。
+ */
+function gitGrep(patterns, rev, paths, root) {
+  return mergeGrepShardResults(grepShardResults(shardPatterns(patterns), rev, paths, root))
+}
+
+/**
+ * 纯函数(§22c):把一次 git grep 的 stdout 按 rev:path:match 里的 path 归属回填各接线点。
+ * 归属判据 = 该点在 HEAD 面上展开出的文件清单(pt.files);husky 点仍按 .husky/ 前缀再收一道
+ * (这两条与改前的逐点循环逐字同义,只从循环体搬进单份纯函数,不新增第二份口径)。
+ */
+export function assignGrepHitsToPoints(grepOut, knownNames, points) {
+  const byPath = parseGrepHits(grepOut, knownNames)
+  const hits = new Map()
+  for (const pt of points) {
+    const owned = new Set(pt.files)
+    const set = new Set()
+    for (const [path, names] of byPath) {
+      if (!owned.has(path)) continue
+      if (pt.id === 'husky' && !path.startsWith('.husky/')) continue
+      for (const n of names) set.add(n)
+    }
+    hits.set(pt.id, set)
+  }
+  return hits
 }
 
 /**
@@ -1741,6 +1807,11 @@ async function main(argv = process.argv.slice(2)) {
       pointPathsWithFiles.push({ tier, id: pt.id, label: pt.label, files })
     }
   }
+  // 一次 grep 的 pathspec 全集 = 各点在 HEAD 面上展开出的文件清单之并集。与改前「每点
+  // 单独一次 grep」逐字等价(2026-11-10 真仓 7 点 × 2 轮对拍 14/14):git grep 的目录参数
+  // `.husky` 与显式列出其下 9 个 tracked 文件产出同一批 HEAD:path 行,其余点本就是文件清单。
+  // 合并只为把 475 / 399 个模式的两轮扫描各压成一次;点归属由 assignGrepHitsToPoints 回填。
+  const allPathsForGrep = [...new Set(pointPathsWithFiles.flatMap((pt) => pt.files))]
 
   // 2) 台账(原步骤 4 整块前移;唯一理由是 dispatcher 依据文件必须进**同一批**预取 —— 判据未动)
   let allowEntries = []
@@ -1813,24 +1884,18 @@ async function main(argv = process.argv.slice(2)) {
     return blobs.get(spec)
   }
 
-  // 4) 点 1-4 与点 5 各跑一次 git grep(-F 全字面,一次覆盖全部 154 枚)
+  // 4) 五处权威点跑 git grep(-F 全字面,一次覆盖全部门形档)
   //    留在层外是**如实决策**:`git grep` 是内容检索器不是 blob 读取器 —— 它有自己的
   //    -I 二进制过滤/rev:path:line 输出语义,用预取 blob + 手搓匹配重写等于换判据。
-  const hitsByPoint = new Map()
-  for (const pt of pointPathsWithFiles) {
-    hitsByPoint.set(pt.id, new Set())
-    if (pt.files.length === 0) continue
-    const pathsForGrep = pt.id === 'husky' ? ['.husky'] : pt.files
-    const r = gitGrep(gateNames, 'HEAD', pathsForGrep, root)
-    if (!r.ok) {
-      console.error(`❌ git grep 失败(${pt.id}): ${r.err}`)
-      return 2
-    }
-    for (const [path, names] of parseGrepHits(r.out, gateNames)) {
-      if (pt.id === 'husky' && !path.startsWith('.husky/')) continue
-      for (const n of names) hitsByPoint.get(pt.id).add(n)
-    }
+  //    2026-11-10 提速:pathspec 取各点文件清单的并集(一次),模式由 gitGrep 内部分片;
+  //    点归属改由 assignGrepHitsToPoints 按 path 回填。判据 / 取材面 / 失败折值一字未动,
+  //    真仓 7 点 × 2 轮与改前逐点整模式扫描对拍 14/14 逐字同(见当日日志)。
+  const rGates = gitGrep(gateNames, 'HEAD', allPathsForGrep, root)
+  if (!rGates.ok) {
+    console.error(`❌ git grep 失败(五处权威点): ${rGates.err}`)
+    return 2
   }
+  const hitsByPoint = assignGrepHitsToPoints(rGates.out, gateNames, pointPathsWithFiles)
 
   // 5) 模板形态(${target} 拼接 / path.join 派生)补判 —— 只补强接线点里未命中的
   //    语料取自步骤 3 的同批预取(isCorpusFile 与预取共用一支,两处不可能漂移)。
@@ -1981,18 +2046,18 @@ async function main(argv = process.argv.slice(2)) {
     gateNames.filter((n) => templateHit.has(n) || [...hitsByPoint.values()].some((s) => s.has(n))),
   )
   if (extraFaceNames.length) {
-    for (const pt of pointPathsWithFiles) {
-      if (pt.files.length === 0) continue
-      const pathsForGrep = pt.id === 'husky' ? ['.husky'] : pt.files
-      const r = gitGrep(extraFaceNames, 'HEAD', pathsForGrep, root)
-      if (!r.ok) {
-        console.error(`❌ git grep 失败(R3 扩面/${pt.id}): ${r.err}`)
-        return 2
-      }
-      for (const [path, names] of parseGrepHits(r.out, extraFaceNames)) {
-        if (pt.id === 'husky' && !path.startsWith('.husky/')) continue
-        for (const n of names) faceAnyHit.add(n)
-      }
+    // 同一支 gitGrep / 同一批权威点 / 同一个 pathspec 全集:只换模式清单,零第二份判据(§0.6)。
+    const rFace = gitGrep(extraFaceNames, 'HEAD', allPathsForGrep, root)
+    if (!rFace.ok) {
+      console.error(`❌ git grep 失败(R3 扩面): ${rFace.err}`)
+      return 2
+    }
+    for (const names of assignGrepHitsToPoints(
+      rFace.out,
+      extraFaceNames,
+      pointPathsWithFiles,
+    ).values()) {
+      for (const n of names) faceAnyHit.add(n)
     }
   }
   const r3FaceUnwired = r3FaceNames.filter(
@@ -4046,6 +4111,11 @@ if (isDirectRun) {
 export const __test__ = {
   WIRING_POINTS,
   GATE_FILE_RE,
+  // 2026-11-10 多模式分片:镜像测试直接 import 判据,不得另抄一份切分/合并/归属口径(§22c)
+  GREP_PATTERN_SHARD_SIZE,
+  shardPatterns,
+  mergeGrepShardResults,
+  assignGrepHitsToPoints,
   idsOfRegistry,
   HEADER_CLAIM_PATTERNS,
   CLAIM_NEGATION_RE,
