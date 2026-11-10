@@ -5458,6 +5458,26 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-10**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (adf9c835cf)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (0ad8d37a99)
+- 🐞 修复:binary 档 + input 组合修复并入远端,消除 30a 的取数不可用 (98e18b522e)
+- 🐞 修复:路由切换时工作区 main 滚动归零——根治「右侧工作区向上偏移」 (5f77cebd8b)
+- 🔧 工程/其他:README×2 生成块按落地面现算同步(门 173 DN5) (594bbd9c4a)
+- 🐞 修复:常驻开发服务按需启停——机主令防复发机制单枚落远端基线 (d66edcd649)
+- ⚡ 性能:CI 提速包落地 + 收口 gates-full 门6/dedupe 红 (31640643c0)
+- 🐞 修复:倒计时收敛夹具改认解构后的函数标识符,解 test 腿 miniapp 红 (73ff8614f0)
+- 🐞 修复:loomy chat 换实证网关 loomyad.xunfei.cn 并收口票形/模型名/错误信封 (7816076585)
+- ⚡ 性能:30a 内存治理——流式解析 + Buffer 取面 + 候选分批,并把 OOM 根因链查清 (c21c92594c)
+
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (5f53dfa375)
+- 🔧 工程/其他:离线包按 HEAD 面重生成——清合并票记账「落地后需重生成」欠账;gen --head 输入=HEAD 面词包(他席在飞磁盘内容不烤包),3 gen.ts 同步(4 CDN b64 与 HEAD 恒等零变化),B2/stale 钉收敛;门298红点名为他席滞留磁盘档非本票声明集(pathspec 不进本次内容),经 safe-commit 归因 undetermined-red 后按仓库出路③走本旁路 (3dd977d158)
+- 🚀 新功能/改进:三端滚动边缘淡出 ScrollEdgeFades + 抽屉/底部遮罩细化 (87084cf084)
+- 📚 文档:数字块按 HEAD 面重算（与推门 check-doc-numbers 同面） (65d93b3390)
+- 🔧 工程/其他:补多行gitBinary形态的反向牙,并更正上一轮的错误归因 (1913e2f971)
+- 📚 文档:README 中文数字块按 HEAD 面重算（与推门 check-doc-numbers 同面） (2db5df9981)
+- 📚 文档:README.en 数字块按 HEAD 面重算（与推门 check-doc-numbers 同面） (4b32f111c1)
+
+**2026-11-10**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (d2cb6d426c)
 
 - 🐞 修复:typecheck-full 清缓存增补 .DevEnv/.workbuddy 排除——T1 被看门狗终止的真凶实测定位(cleanTsbuildinfo 对盘根 57000+ 子目录的 .DevEnv 深递归,30s 超时都跑不完);排除后 1248ms 过,全量轮 180s 完成落回执 (c592e24ceb)
@@ -5584,20 +5604,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 
 **2026-11-10**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (dd1aeb0274)
-
-**2026-11-10**
-- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (0ad8d37a99)
-- 🐞 修复:binary 档 + input 组合修复并入远端,消除 30a 的取数不可用 (98e18b522e)
-- 🐞 修复:路由切换时工作区 main 滚动归零——根治「右侧工作区向上偏移」 (5f77cebd8b)
-- 🔧 工程/其他:README×2 生成块按落地面现算同步(门 173 DN5) (594bbd9c4a)
-- 🐞 修复:常驻开发服务按需启停——机主令防复发机制单枚落远端基线 (d66edcd649)
-- ⚡ 性能:CI 提速包落地 + 收口 gates-full 门6/dedupe 红 (31640643c0)
-- 🐞 修复:倒计时收敛夹具改认解构后的函数标识符,解 test 腿 miniapp 红 (73ff8614f0)
-- 🐞 修复:loomy chat 换实证网关 loomyad.xunfei.cn 并收口票形/模型名/错误信封 (7816076585)
-- ⚡ 性能:30a 内存治理——流式解析 + Buffer 取面 + 候选分批,并把 OOM 根因链查清 (c21c92594c)
-
-**2026-11-10**
-- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (adf9c835cf)
 <!-- END RECENT UPDATES -->
 同轮收口(2026-10-21 下午，五枚已入库)：把上一段里"只存不拦"的部分接成实链，并把跨端剩下的三处半截补齐。① **IP 白名单生效链**：判定唯一出口 `apps/api/src/routes/user/ip-whitelist-guard.ts`，挂在 18 条新登录腿的"凭据已验证之后、签发之前"；空表 = 未启用（不另开开关），已在线会话不受影响（换网不掉线），最后一次修改白名单的来源 IP 恒被放行（自救出口，否则清错一次就永久锁死）；被拒回 403 并落 `security_logs` 事件 `login_blocked_by_ip_allowlist`（登录前无主体，故 `recordSecurityEvent` 新增由承载层显式传主体的口子）。覆盖率由 `tests/ip-whitelist-issuance-coverage.test.ts` 机器守：全仓 6 个签发原语的每个调用点要么挂闸门、要么在具名豁免清单里带理由登记，将来新腿漏挂当场响。② **RN 安全中心接上这张卡**（`src/components/IpWhitelistPanel.tsx`，端内不复制 IP 文法校验，400 只翻本地化提示）。③ **五项 agent 护栏开关改为按登录主体生效**：`apps/ai-service/app/services/agent_security_prefs.py` 直连同库读 `user_preferences`（进程默认 ⊕ 该用户显式表态，缺省与改动前逐字一致），危险命令硬门与全局 kill switch 不受用户档影响。④ **小程序关于页补齐**为与 web/RN 同构的六段 + 保留 10 条合规入口（三端同脸，§4）。⑤ 删掉 PDF `print` / `sign` 两条零消费方的假 pending 端点（改成 404 断言留在原地），`openapi.json` 同步摘除两条 path。
 - **2026-10-21 公网提速批次的四件器物(点名义务在此,判据细节住器物头注;`§0.9` 的口径是"已接线而文档不点名 ⇒ 红")**:

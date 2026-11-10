@@ -99,6 +99,15 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-10**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (5f53dfa375)
+- 🔧 Chore/Other:离线包按 HEAD 面重生成——清合并票记账「落地后需重生成」欠账;gen --head 输入=HEAD 面词包(他席在飞磁盘内容不烤包),3 gen.ts 同步(4 CDN b64 与 HEAD 恒等零变化),B2/stale 钉收敛;门298红点名为他席滞留磁盘档非本票声明集(pathspec 不进本次内容),经 safe-commit 归因 undetermined-red 后按仓库出路③走本旁路 (3dd977d158)
+- 🚀 Feature/Improvement:三端滚动边缘淡出 ScrollEdgeFades + 抽屉/底部遮罩细化 (87084cf084)
+- 📚 Docs:数字块按 HEAD 面重算（与推门 check-doc-numbers 同面） (65d93b3390)
+- 🔧 Chore/Other:补多行gitBinary形态的反向牙,并更正上一轮的错误归因 (1913e2f971)
+- 📚 Docs:README 中文数字块按 HEAD 面重算（与推门 check-doc-numbers 同面） (2db5df9981)
+- 📚 Docs:README.en 数字块按 HEAD 面重算（与推门 check-doc-numbers 同面） (4b32f111c1)
+
+**2026-11-10**
 - 🐞 Fix:typecheck-full 清缓存增补 .DevEnv/.workbuddy 排除——T1 被看门狗终止的真凶实测定位(cleanTsbuildinfo 对盘根 57000+ 子目录的 .DevEnv 深递归,30s 超时都跑不完);排除后 1248ms 过,全量轮 180s 完成落回执 (c592e24ceb)
 
 **2026-11-10**
@@ -166,9 +175,6 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 - 🐞 Fix:倒计时收敛夹具改认解构后的函数标识符,解 test 腿 miniapp 红 (73ff8614f0)
 - 🐞 Fix:loomy chat 换实证网关 loomyad.xunfei.cn 并收口票形/模型名/错误信封 (7816076585)
 - ⚡ Perf:30a 内存治理——流式解析 + Buffer 取面 + 候选分批,并把 OOM 根因链查清 (c21c92594c)
-
-**2026-11-10**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (adf9c835cf)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
