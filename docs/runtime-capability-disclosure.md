@@ -797,11 +797,37 @@ Ollama `http://localhost:11434`、LM Studio `http://localhost:1234`、llama.cpp
 - **到人运维只有一条通道：邮件**。发信一律经
   `apps/api/scripts/notify-deploy-failure.ts`：Resend 端点常量
   `https://api.resend.com/emails`，默认 From
-  `智汇AI <IHUI-AI@aizhs.top>`（`DEFAULT_RESEND_FROM`；显示名由
-  `email-templates.ts` 的 `BRAND_MAIL_DISPLAY_NAME` 单点决定，配置只能改地址段）；
-  回落链 SMTP → Resend，且经 `smtp.qq.com` 中继时 From 邮箱段必须等于登录账号
-  （`resolveSmtpFrom` 注释）。**邮件语言按收件域名分流**：国内主流邮箱（`qq.com` / `163.com` 等
-  `DOMESTIC_EMAIL_DOMAINS`）收中文，其余收英文；混合收件人按语言分组各发一封。
+  `智汇AI <IHUI-AI@aizhs.top>`（`DEFAULT_RESEND_FROM`，其值由 `brandResendFrom` 生成，
+  不手写整串）；显示名由 `email-templates.ts` 的 `BRAND_MAIL_DISPLAY_NAME` 单点决定，
+  配置只能改地址段。回落链 SMTP → Resend，且经 `smtp.qq.com` 中继时 From 邮箱段必须等于
+  登录账号（判据 = `resolveBrandSmtpFrom`，见下）。
+
+  **发件人身份在全部真实发信出口上归一**（`BRAND_MAIL_DISPLAY_NAME` 是唯一字面量）；
+  出口共六处，此前只有前两处接品牌层，后四处的显示名由配置或登录账号决定 ——
+  这正是收件箱里同时出现「智汇AI」「智汇AI官方」「502319984」三种名字的根因：
+
+  | 出口 | 角色 |
+  |---|---|
+  | `apps/api/scripts/notify-deploy-failure.ts` | 部署环 / 监控 / PG 备份 / 告警桥 / 凭据巡检的唯一派发器 |
+  | `apps/api/src/services/email-service.ts` | 事务邮件（验证码 / 欢迎 / 支付回执等） |
+  | `apps/api/src/services/alert-notification-service.ts` | 运行期告警扇出（ops-watch / relay 告警规则 / 威胁告警 / 调度器）；此前 `from: cfg.user` 直接把登录账号当发件人 |
+  | `apps/api/src/services/mail-relay-notifier.ts` | API Key 余额不足通知；此前 `from = process.env.SMTP_FROM` 整串直传 |
+  | `scripts/submit-store-apkpure.mjs` | APKPure 提交函件（免的是版式层，不豁免身份层） |
+  | `.github/scripts/notify-deploy-failure-ci.mjs` | CI 零依赖兜底（`BRAND_FROM_NAME` 与主字面量由守门断言对齐） |
+
+  三条把显示名带偏的路径已逐条封死：① 配置里的显示名（`SMTP_FROM=智汇AI官方 <…>`）
+  只取地址段；② 登录账号裸地址（`from: SMTP_USER`）由 `brandSmtpFrom` 包上品牌名；
+  ③ 硬编码默认值改由品牌函数生成。SMTP 侧另有一条中继约束：地址段与 `SMTP_USER`
+  不一致时回落登录账号（否则 550 拒信，告警静默失败）—— 判据只有一份
+  `resolveBrandSmtpFrom`，事务邮件 / 告警派发器 / 余额通知共用。
+
+  防回归由守门 81 的 R5 承担：`apps/api/src/services/**` 纳入扫描面但**只判身份**
+  （不判版式，避免把只 `verify()` 不发信的试测端点判红）；文件出现发信动作而通篇无
+  任何品牌化引用 ⇒ 红；跨文件品牌名字面量出现两种取值 ⇒ 红。
+
+  **邮件语言按收件域名分流**：国内主流邮箱（`qq.com` / `163.com` 等
+  `DOMESTIC_EMAIL_DOMAINS`）收中文，其余收英文；混合收件人按语言分组各发一封
+  （分组判据 `groupRecipientsByLocale` 也是单份，派发器与运行期告警服务共用）。
   **主题与正文同源**：级别前缀 `[严重]/[警告]/[提示]` ↔ `[CRITICAL]/[WARNING]/[INFO]`，
   缺省标题也按语言生成（`defaultAlertTitle(environment, locale)`：中文 `部署失败 — <env>`、
   英文 `Deploy failed — <env>`），显式 `--title` 优先且不被翻译覆盖；

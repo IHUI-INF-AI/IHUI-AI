@@ -85,7 +85,10 @@ services:
       - SMTP_PORT=${SMTP_PORT:-587}
       - SMTP_USER=${SMTP_USER:-}
       - SMTP_PASS=${SMTP_PASS:-}
-      - SMTP_FROM=${SMTP_FROM:-noreply@aizhs.top}
+      # SMTP_FROM 只贡献"地址段",显示名恒为品牌名(代码侧 resolveBrandSmtpFrom)。
+      # 默认留空 = 回落 SMTP_USER:容器内常见的 SMTP 是中继(账号即发件人),
+      # 预先填一个 noreply@ 域名会因地址与登录账号不一致被 550 拒信。
+      - SMTP_FROM=${SMTP_FROM:-}
       - SMTP_ENABLED=${SMTP_ENABLED:-false}
       # 微信支付证书(占位值通过启动校验;真实部署替换为有效证书)
       - WX_SHOP_ID=${WX_SHOP_ID:-}
@@ -191,7 +194,10 @@ services:
       - SMTP_PORT=${SMTP_PORT:-587}
       - SMTP_USER=${SMTP_USER:-}
       - SMTP_PASS=${SMTP_PASS:-}
-      - SMTP_FROM=${SMTP_FROM:-noreply@aizhs.top}
+      # SMTP_FROM 只贡献"地址段",显示名恒为品牌名(代码侧 resolveBrandSmtpFrom)。
+      # 默认留空 = 回落 SMTP_USER:容器内常见的 SMTP 是中继(账号即发件人),
+      # 预先填一个 noreply@ 域名会因地址与登录账号不一致被 550 拒信。
+      - SMTP_FROM=${SMTP_FROM:-}
       - SMTP_ENABLED=${SMTP_ENABLED:-false}
       # 微信支付证书(占位值通过启动校验;真实部署替换为有效证书)
       - WX_SHOP_ID=${WX_SHOP_ID:-}
