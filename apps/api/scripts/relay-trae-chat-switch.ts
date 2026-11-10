@@ -306,23 +306,48 @@ export async function main(argv: string[]): Promise<number> {
     return 2
   }
 
-  const backups: string[] = []
-  const restored: string[] = []
+  /**
+   * 备份日志(2026-11-10 修缺陷 1/2/4):每轮一个 `carry-backups/<runId>/` 目录。
+   * 与老固定后缀的区别:
+   *   - vscdb / 正库 / storage.json / tips 全部在**写前**入账 ⇒ 写坏了能整组还原
+   *     (老代码只把 storage.json 与 database.db 塞进 backups[],vscdb 纯裸写);
+   *   - runId 隔离 ⇒ 第二轮失败不会覆盖第一轮的"切前态"(老 .pre-carry.bak 会被下一轮顶掉);
+   *   - SQLite 伴生 -wal/-shm 同进同出 ⇒ 不会出现"还原主库 + 留一截新 WAL"的坏库。
+   */
+  const journal = carry.createCarryJournal({
+    backupRoot: path.join(userDataDir, 'carry-backups'),
+    root: userDataDir,
+  })
+  report.runId = journal.runId
+  report.backupDir = journal.dir
   const fail = async (msg: string, code = 1): Promise<number> => {
-    process.stderr.write(`❌ ${msg}(备份文件 ${backups.length} 份,尝试还原…)\n`)
-    for (const bak of backups) {
-      const target = bak.replace(/\.(pre-carry|pre-switch)\.bak$/, '')
-      try {
-        fs.copyFileSync(bak, target)
-        restored.push(target)
-      } catch {
-        /* 单个还原失败继续下一个 */
-      }
+    process.stderr.write(`❌ ${msg}(备份 ${journal.count()} 份,尝试还原…)\n`)
+    const res = journal.restore()
+    // backups/restored 的字段形状保持不变(数组元素仍是路径字符串);新增项都是可加字段
+    report.rollback = {
+      backups: journal.backupPaths(),
+      restored: res.restored,
+      removed: res.removed,
+      failedRestores: res.failed,
+      renames: journal.renames(),
+      runId: journal.runId,
     }
-    report.rollback = { backups, restored }
     report.outcome = 'failed-rolled-back'
     process.stdout.write(`${JSON.stringify(report)}\n`)
     return code
+  }
+
+  /**
+   * 关端前先抓 exe 路径并缓存:客户端一关,resolveProductExe 就查不到进程路径了
+   * (它靠 CIM 读运行中进程的 ExecutablePath)。而正库段的 dll 定位需要它做首选候选。
+   * 这一步零成本,却是本机 `no-dll` 的根治点之一。
+   */
+  let preCloseExePath = ''
+  try {
+    const probe = proc.resolveProductExe(product)
+    preCloseExePath = typeof probe === 'string' ? probe : ((probe as { path?: string })?.path ?? '')
+  } catch {
+    preCloseExePath = ''
   }
 
   // ① 关端(在跑且 --force)
@@ -334,11 +359,11 @@ export async function main(argv: string[]): Promise<number> {
     steps.push('client-closed')
   }
 
-  // ② 切登录信封(先做,失败面小;原子写自带 .pre-switch.bak)
+  // ② 切登录信封(先做,失败面小;原子写自带 .pre-switch.bak,我们另在写前把原件入账)
   let store: Record<string, unknown>
   try {
     store = JSON.parse(fs.readFileSync(storageFile, 'utf8'))
-    backups.push(`${storageFile}.pre-switch.bak`)
+    journal.backup(storageFile)
   } catch (e) {
     return fail(`读 storage.json 失败: ${String(e)}`, 2)
   }
@@ -361,42 +386,63 @@ export async function main(argv: string[]): Promise<number> {
   const patch = sw.buildStoragePatch(store, { userInfo, device: dec.device })
 
   // ③ 对话重绑(仅在拿得到 oldUid 时):先做 vscdb/tips(可单件回滚),再做正库(最重的一步)
+  const vscdbLeftover = { files: 0, leftoverOldKeys: 0 }
   if (oldUid) {
     const gs = path.join(userDataDir, 'User', 'globalStorage')
     const ws = path.join(userDataDir, 'User', 'workspaceStorage')
     try {
-      const g = carry.rebindVscdb(path.join(gs, 'state.vscdb'), oldUid, newUid)
-      const w = fs.existsSync(ws)
+      // 缺陷 1:vscdb 此前是"原地写、无备份",写坏只能靠外部手拍 —— 现在每个文件写前入账
+      // (文件不存在时 backup 只记一笔"回滚要删",免得 DatabaseSync 顺手造出的空库留下来)
+      const gsFile = path.join(gs, 'state.vscdb')
+      journal.backup(gsFile)
+      const g = carry.rebindVscdb(gsFile, oldUid, newUid)
+      const wsFiles = fs.existsSync(ws)
         ? fs
             .readdirSync(ws)
             .map((d) => path.join(ws, d, 'state.vscdb'))
             .filter((f) => fs.existsSync(f))
-            .map((f) => carry.rebindVscdb(f, oldUid, newUid))
-            .reduce(
-              (a, b) => ({
-                renamed: a.renamed + b.renamed,
-                collisions: a.collisions + b.collisions,
-              }),
-              { renamed: 0, collisions: 0 },
-            )
-        : { renamed: 0, collisions: 0 }
-      report.vscdb = { global: g, workspace: w }
+        : []
+      const wsResults = wsFiles.map((f) => {
+        journal.backup(f)
+        return carry.rebindVscdb(f, oldUid, newUid)
+      })
+      const w = wsResults.reduce(
+        (a, b) => ({
+          renamed: a.renamed + b.renamed,
+          collisions: a.collisions + b.collisions,
+        }),
+        { renamed: 0, collisions: 0 },
+      )
+      vscdbLeftover.files = 1 + wsFiles.length
+      vscdbLeftover.leftoverOldKeys =
+        Number(g.leftoverOldKeys ?? 0) + wsResults.reduce((a, b) => a + Number(b.leftoverOldKeys ?? 0), 0)
+      report.vscdb = { global: g, workspace: w, leftoverOldKeys: vscdbLeftover.leftoverOldKeys }
       steps.push('rebind-vscdb')
 
       const tips = carry.planTipsRenames(userDataDir, oldUid, newUid)
+      let tipsRenamed = 0
       for (const { from, to } of tips) {
-        const bak = `${from}.pre-carry.bak`
-        fs.copyFileSync(from, bak)
-        backups.push(bak)
+        if (from === to) continue
+        journal.backup(from)
+        // 新名切前就在 ⇒ 也得留一份,回滚时还原它而不是删它(缺陷 3 的边界)
+        const preExisted = fs.existsSync(to)
+        if (preExisted) journal.backup(to)
+        journal.recordRename(from, to, { preExisted })
         fs.renameSync(from, to)
+        tipsRenamed += 1
       }
-      report.tipsRenamed = tips.length
+      report.tipsRenamed = tipsRenamed
 
       const patched = carry.rebindStorageJson(patch.next as Record<string, unknown>, oldUid, newUid)
       for (const a of patched.actions)
         if (a.kind === 'envelope-uid-rebind') steps.push('rebind-envelope-uid')
       Object.assign(patch.next, patched.next)
     } catch (e) {
+      // 缺陷 5 的显式档:vscdb 改完仍有旧 uid 键 ⇒ 具名 leftover-uid 并进 fail 流程
+      if ((e as { code?: string })?.code === 'leftover-uid') {
+        steps.push('abort-leftover-uid')
+        return fail(`leftover-uid 断言失败: ${String(e)}`)
+      }
       return fail(`状态重绑失败: ${String(e)}`)
     }
   }
@@ -406,47 +452,57 @@ export async function main(argv: string[]): Promise<number> {
   if (dbFile && oldUid) {
     steps.push('agent-db-found')
     try {
-      const exe = proc.resolveProductExe(product)
-      const exePath = typeof exe === 'string' ? exe : ((exe as { path?: string })?.path ?? '')
-      const dllCandidates = [
-        exePath
-          ? path.join(
-              path.dirname(exePath),
-              'resources',
-              'app',
-              'modules',
-              'ai-agent',
-              'ai_agent.dll',
-            )
-          : '',
-        path.join(
-          process.env.LOCALAPPDATA ?? '',
-          'Programs',
-          product,
-          'resources',
-          'app',
-          'modules',
-          'ai-agent',
-          'ai_agent.dll',
-        ),
-      ]
-      const dllPath = dllCandidates.find((f) => f && fs.existsSync(f)) ?? ''
+      const exe = preCloseExePath
+      const exePath = exe
+      /**
+       * 2026-11-10 修:不能再只靠 exe 目录推 dll —— 正库段在客户端**已关闭之后**才跑,
+       * 那时 resolveProductExe 查不到进程路径(本机装在 G:\Trae CN,返回 '')⇒ no-dll ⇒ 整链回滚。
+       * 改走 `locateAgentDll`:从 userDataDir 逐级向上反推安装根,与进程无关。
+       * exePath 只在前置缓存命中时才有值(关端前抓的),仍作首选。
+       */
+      const dllPath = carry.locateAgentDll({
+        product,
+        userDataDir,
+        exePath,
+        env: process.env,
+      })
+      if (!dllPath) {
+        return fail(
+          `找不到 ai_agent.dll(正库密钥材料):userDataDir=${userDataDir} / exe=${exePath || '(空)'}。` +
+            '请确认客户端安装完整(resources/app/modules/ai-agent/ai_agent.dll 存在)',
+        )
+      }
+      steps.push('agent-dll-found')
       const res = await carry.rebindAgentDbFile(dbFile, {
         oldUid,
         newUid,
         dllPath,
         write: true,
-        backupDir: path.join(
-          path.dirname(storageFile),
-          '..',
-          '..',
-          'carry-backups',
-          String(Date.now()),
-        ),
+        // 缺陷 4:正库原件与伴生 -wal/-shm 在写前进同一本日志 ⇒ 失败时与 storage.json/vscdb 一起还原
+        journal,
       })
       report.agentDb = res
+      report.serverHistoryInfoUserId = res.serverHistoryInfo
+      report.leftoverCheck = {
+        db: res.leftovers?.checked ?? [],
+        dbLeftovers: res.leftovers?.leftovers ?? [],
+        vscdb: vscdbLeftover,
+        // uidCols 之外仍带旧号的表只报不改(model_config_cache 这类"缓存"面,不属对话正文)
+        otherUidTables: res.otherUidTables ?? [],
+      }
       steps.push('rebind-agent-db:selfcheck-pass')
+      steps.push('assert-no-leftover-uid')
+      if (res.serverHistoryInfo?.decision === 'left-untouched') {
+        // 判据:该列客户端从不填、也不据此过滤本地历史 ⇒ 全 NULL 保持原样,不做 NULL 归并
+        steps.push('skip-server-history-user-null(客户端不据此过滤)')
+      } else if (res.rebound?.['server_history_info:null-merge']) {
+        steps.push('rebind-server-history-null-merge')
+      }
     } catch (e) {
+      if ((e as { code?: string })?.code === 'leftover-uid') {
+        steps.push('abort-leftover-uid')
+        return fail(`leftover-uid 断言失败: ${String(e)}`)
+      }
       return fail(`正库迁移失败: ${String(e)}`)
     }
   } else if (!dbFile) {
