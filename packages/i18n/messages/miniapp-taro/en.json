@@ -133,7 +133,8 @@
     "getPhoneFail": "Failed to get phone number",
     "loginFailed": "Login failed, please try again",
     "wechatOneClick": "One-click WeChat Login",
-    "webAuthLogin": "Sign in via web authorization"
+    "webAuthLogin": "Sign in via web authorization",
+    "agreement": "By continuing, you agree to the User Agreement and Privacy Policy"
   },
   "forgot": {
     "step1": "Step 1: Verify phone",
@@ -1241,11 +1242,9 @@
       "rewardLabel": "Reward points",
       "submit": "Publish",
       "draftRestored": "Draft restored",
-      "maxImages": "Up to 3 images",
       "contentRequired": "Please enter your question",
       "contentTooShort": "Description must be at least 5 characters",
       "categoryPlaceholder": "Select category",
-      "imageLabel": "Image",
       "anonymousLabel": "Post anonymously",
       "anonymousDesc": "Your nickname will not be shown",
       "categoryLabel": "Category",
@@ -2730,7 +2729,8 @@
     "payFailed": "Payment failed. Please try again",
     "paying": "Paying...",
     "purchaseContent": "Purchase Content",
-    "userAgreement": "User Agreement"
+    "userAgreement": "User Agreement",
+    "activateDelayed": "Benefit delivery is delayed, please contact support"
   },
   "study": {
     "todayMinutes": "{n} min today",
@@ -3028,7 +3028,8 @@
     "security": {
       "code": "Verification code",
       "sendCode": "Send Code"
-    }
+    },
+    "bindPhone": "Bind phone"
   },
   "vipScreen": {
     "qr": {
@@ -3446,7 +3447,11 @@
       "permanentMemory": "Permanent Memory"
     },
     "toast": {
-      "loginRequired": "Please login first"
+      "loginRequired": "Please login first",
+      "compactDone": "Context compacted",
+      "compactFailed": "Compaction failed",
+      "compactNoSession": "Send a message first",
+      "compactSkipped": "No context to compact"
     },
     "title": "IHUI AI Community",
     "chatError": "Failed to send. Please try again",
@@ -3664,7 +3669,9 @@
     "d3": "Local files",
     "d4": "WeChat files",
     "p1": "Voice input in progress",
-    "p2": "Voice input"
+    "p2": "Voice input",
+    "compact": "Compact context",
+    "compacting": "Compacting..."
   },
   "DrawerComponent": {
     "empty1": "No chat history",
@@ -6587,6 +6594,7 @@
     "noTask": "No task description"
   },
   "aigcPublish": {
+    "errorMaxFiles": "Maximum {max} files allowed",
     "typeText": "Text",
     "fileAddText": "Tap to add file",
     "labelTextContent": "Text content",
@@ -7240,4 +7248,17 @@
     "statusApproved": "Approved",
     "statusRejected": "Rejected"
   }
-}
+,
+  "level": {
+    "0": "Novice",
+    "1": "Bronze",
+    "2": "Silver",
+    "3": "Gold",
+    "4": "Platinum",
+    "5": "Diamond",
+    "6": "King",
+    "distance": "To"
+  },
+  "TagInput": {
+    "p2": "Limit reached"
+  }}
