@@ -87,7 +87,7 @@ function loadRegistry(file) {
 }
 
 function gitRun(args) {
-  const r = spawnSync('git', ['-C', ROOT, ...args], { encoding: 'utf8', timeout: 120000, maxBuffer: 32 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] })
+  const r = spawnSync('git', ['-C', ROOT, ...args], { encoding: 'utf8', timeout: 120000, maxBuffer: 32 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true })
   if (r.error) throw new Undetermined(`git ${args[0]} 执行失败(${r.error.message})`)
   if (r.status !== 0) throw new Undetermined(`git ${args[0]} 退出 ${r.status}:${(r.stderr || '').trim().slice(0, 200)}`)
   return r.stdout
