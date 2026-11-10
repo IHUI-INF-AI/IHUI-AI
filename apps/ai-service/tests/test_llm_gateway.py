@@ -2724,7 +2724,7 @@ async def test_byok_stepfun_prefix_maps_to_openai(monkeypatch):
     monkeypatch.setattr(settings, "credentials_encryption_key", _BYOK_TEST_ENC_KEY)
     row = _FakeRow({
         "id": 14,
-        "api_key_enc": "sk-test",
+        "api_key_enc": "sk-stepfun-real-001",
         "base_url": "https://api.stepfun.com/v1",
         "api_format": "openai_chat",
     })
@@ -2741,7 +2741,7 @@ async def test_byok_openrouter_passthrough_no_prefix_change(monkeypatch):
     monkeypatch.setattr(settings, "credentials_encryption_key", _BYOK_TEST_ENC_KEY)
     row = _FakeRow({
         "id": 15,
-        "api_key_enc": "sk-or-test",
+        "api_key_enc": "sk-openrouter-real-01",
         "base_url": None,
         "api_format": "openai_chat",
     })
@@ -2758,7 +2758,7 @@ async def test_byok_anthropic_protocol_adds_prefix(monkeypatch):
     monkeypatch.setattr(settings, "credentials_encryption_key", _BYOK_TEST_ENC_KEY)
     row = _FakeRow({
         "id": 16,
-        "api_key_enc": "sk-ant-test",
+        "api_key_enc": "sk-anthropic-real-01",
         "base_url": None,
         "api_format": "anthropic_messages",
     })
@@ -2786,7 +2786,7 @@ async def test_byok_no_owner_uuid_works_global_only(monkeypatch):
     monkeypatch.setattr(settings, "credentials_encryption_key", _BYOK_TEST_ENC_KEY)
     row = _FakeRow({
         "id": 17,
-        "api_key_enc": "sk-global-key",
+        "api_key_enc": "sk-global-config-01",
         "base_url": "https://api.global.com/v1",
         "api_format": "openai_chat",
     })
@@ -2795,7 +2795,7 @@ async def test_byok_no_owner_uuid_works_global_only(monkeypatch):
     result = await _resolve_from_db("groq/llama-3.3-70b", owner_uuid=None)
     assert result is not None
     api_key, api_base, _, _ = result
-    assert api_key == "sk-global-key"
+    assert api_key == "sk-global-config-01"
     assert api_base == "https://api.global.com/v1"
 
 
@@ -2819,7 +2819,7 @@ async def test_byok_agnes_prefix_maps_to_openai(monkeypatch):
     monkeypatch.setattr(settings, "credentials_encryption_key", _BYOK_TEST_ENC_KEY)
     row = _FakeRow({
         "id": 19,
-        "api_key_enc": "sk-agnes-byok",
+        "api_key_enc": "sk-agnes-byok-real1",
         "base_url": "https://apihub.agnes-ai.com/v1",
         "api_format": "openai_chat",
     })
@@ -2828,7 +2828,7 @@ async def test_byok_agnes_prefix_maps_to_openai(monkeypatch):
     result = await _resolve_from_db("agnes/gpt-4o-mini", owner_uuid="user-456")
     assert result is not None
     api_key, api_base, litellm_model, config_id = result
-    assert api_key == "sk-agnes-byok"
+    assert api_key == "sk-agnes-byok-real1"
     assert api_base == "https://apihub.agnes-ai.com/v1"
     assert litellm_model == "openai/gpt-4o-mini"
 
@@ -2838,7 +2838,7 @@ async def test_byok_row_without_valid_id_still_resolves_key_but_no_config_id(mon
     monkeypatch.setattr(settings, "credentials_encryption_key", _BYOK_TEST_ENC_KEY)
     row = _FakeRow({
         "id": None,
-        "api_key_enc": "sk-no-id",
+        "api_key_enc": "sk-no-id-real-key1",
         "base_url": None,
         "api_format": "openai_chat",
     })
@@ -2847,7 +2847,7 @@ async def test_byok_row_without_valid_id_still_resolves_key_but_no_config_id(mon
     result = await _resolve_from_db("stepfun/step-3.7-flash", owner_uuid="user-789")
     assert result is not None
     api_key, _, _, config_id = result
-    assert api_key == "sk-no-id"
+    assert api_key == "sk-no-id-real-key1"
     assert config_id is None
 
 

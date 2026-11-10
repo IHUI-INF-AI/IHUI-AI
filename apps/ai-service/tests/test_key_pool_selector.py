@@ -107,7 +107,7 @@ def test_model_to_provider_code(model: str, expected: str) -> None:
 
 async def test_select_key_single_key() -> None:
     """单 key 直接返回(无需加权随机)。"""
-    rows = [_make_row(row_id="uuid-1", name="key-1", api_key_enc="sk-test-1")]
+    rows = [_make_row(row_id="uuid-1", name="key-1", api_key_enc="sk-test-key-0001")]
     pool = _make_mock_pool(rows)
 
     with patch("app.services.key_pool_selector.get_shared_pool", return_value=pool):
@@ -115,7 +115,7 @@ async def test_select_key_single_key() -> None:
         result = await KeyPoolSelector.select_key("stepfun")
 
     assert result is not None
-    assert result["api_key"] == "sk-test-1"
+    assert result["api_key"] == "sk-test-key-0001"
     assert result["key_pool_id"] == "uuid-1"
     assert result["key_name"] == "key-1"
 
@@ -154,8 +154,8 @@ async def test_select_key_db_exception_returns_none() -> None:
 async def test_select_key_weighted_random_picks_from_same_priority() -> None:
     """同 priority 多 key 时,加权随机选中的 key 在列表内。"""
     rows = [
-        _make_row(row_id="uuid-1", name="key-1", api_key_enc="sk-1", priority=0, weight=3),
-        _make_row(row_id="uuid-2", name="key-2", api_key_enc="sk-2", priority=0, weight=1),
+        _make_row(row_id="uuid-1", name="key-1", api_key_enc="sk-openai-key-01", priority=0, weight=3),
+        _make_row(row_id="uuid-2", name="key-2", api_key_enc="sk-openai-key-02", priority=0, weight=1),
     ]
     pool = _make_mock_pool(rows)
 
@@ -170,8 +170,8 @@ async def test_select_key_weighted_random_picks_from_same_priority() -> None:
 async def test_select_key_priority_filter() -> None:
     """不同 priority 时,只选最小 priority 组(priority ASC 排序)。"""
     rows = [
-        _make_row(row_id="high-prio", name="vip", api_key_enc="sk-vip", priority=0, weight=1),
-        _make_row(row_id="low-prio", name="normal", api_key_enc="sk-normal", priority=5, weight=100),
+        _make_row(row_id="high-prio", name="vip", api_key_enc="sk-vip-real-key01", priority=0, weight=1),
+        _make_row(row_id="low-prio", name="normal", api_key_enc="sk-normal-real01", priority=5, weight=100),
     ]
     pool = _make_mock_pool(rows)
 
@@ -186,8 +186,8 @@ async def test_select_key_priority_filter() -> None:
 async def test_select_key_weight_zero_treated_as_one() -> None:
     """weight=0 的 key 视为 weight=1(防御异常配置,避免 random.choices 报错)。"""
     rows = [
-        _make_row(row_id="zero-weight", name="zero", api_key_enc="sk-zero", priority=0, weight=0),
-        _make_row(row_id="normal", name="normal", api_key_enc="sk-normal", priority=0, weight=0),
+        _make_row(row_id="zero-weight", name="zero", api_key_enc="sk-zero-real-001", priority=0, weight=0),
+        _make_row(row_id="normal", name="normal", api_key_enc="sk-normal-real01", priority=0, weight=0),
     ]
     pool = _make_mock_pool(rows)
 
@@ -210,7 +210,7 @@ async def test_select_key_health_status_down_filtered_by_sql() -> None:
     验证 select_key 不会收到 down 的 key(模拟 DB 已过滤)。
     """
     # DB 返回的 rows 只有 healthy 的 key(down 的已被 SQL 过滤)
-    rows = [_make_row(row_id="healthy-key", name="ok", api_key_enc="sk-ok")]
+    rows = [_make_row(row_id="healthy-key", name="ok", api_key_enc="sk-ok-real-key01")]
     pool = _make_mock_pool(rows)
 
     with patch("app.services.key_pool_selector.get_shared_pool", return_value=pool):
