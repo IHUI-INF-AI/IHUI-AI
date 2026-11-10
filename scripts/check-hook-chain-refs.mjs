@@ -29,6 +29,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { findRepoRoot } from './lib/gate-body-provenance.mjs'
 import { readWorktreeFile } from './lib/face-reader.mjs'
+import { gitRaw } from './lib/face-reader.mjs'
 
 const ROOT = findRepoRoot(fileURLToPath(import.meta.url))
 const STRICT = process.argv.includes('--strict')
@@ -50,12 +51,9 @@ const CANDIDATE_EXTS = [
 ]
 
 // 判红面看**工作区**(钩子执行的就是工作区文件);HEAD 树只用来报"提交态还缺哪些"。
+// 走统一承载层(门 193):裸 'git' 依赖 PATH,服务账户 / GUI 宿主下取不到且失败是静默的。
 const headTree = new Set(
-  execFileSync('git', ['-C', ROOT, 'ls-tree', '-r', '--name-only', 'HEAD'], {
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-    windowsHide: true,
-  })
+  gitRaw(['ls-tree', '-r', '--name-only', 'HEAD'], ROOT, { timeout: 120_000 })
     .split(/\r?\n/)
     .filter(Boolean),
 )
