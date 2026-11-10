@@ -514,27 +514,86 @@ test('2026-11-10 锁:本机是 OAuth 会话而票没有 refreshToken 时拒写(�
   }
 })
 
-test('2026-11-10 锁:OpenCode v2 凭证面已迁进 SQLite 时,写 auth.json 必须 fail-closed', () => {
+test('2026-11-10 锁:OpenCode v2 凭证面在 SQLite ⇒ 必须写 credential 表(明文 JSON),不写 auth.json', () => {
   const scratch = mkScratch('local-login-opencode-v2')
   try {
     const dir = path.join(scratch, 'opencode')
     fs.mkdirSync(dir, { recursive: true })
     const file = path.join(dir, 'auth.json')
-    // v2.2.6 真实形态:同目录有 opencode.db(WAL 长持),auth.json 的 legacy 迁移已 completed
-    fs.writeFileSync(path.join(dir, 'opencode.db'), '')
+    const dbFile = path.join(dir, 'opencode.db')
+    // v2.2.6 真实 schema(取自本机实证;只建写回涉及的表)
+    const { DatabaseSync } = require('node:sqlite')
+    const seed = new DatabaseSync(dbFile)
+    seed.exec(
+      'CREATE TABLE credential (' +
+        'id text PRIMARY KEY, integration_id text, label text NOT NULL, value text NOT NULL, ' +
+        'connector_id text, method_id text, active integer, ' +
+        'time_created integer NOT NULL, time_updated integer NOT NULL)',
+    )
+    seed.close()
+
     const payload = L.normalizePayload({
       uid: 'opencode-uid',
-      token: 'tok',
-      refreshToken: 'ref',
+      token: 'oc_sk_unit_test',
       target: file,
-      secrets: { providerID: 'anthropic', authType: 'oauth', sessionTemplate: { type: 'oauth' } },
+      secrets: { providerID: 'opencode', authType: 'key', sessionTemplate: { type: 'key' } },
     })
-    assert.throws(
-      () => L.applyOpencode(payload, { extract }),
-      (e) => e.code === 'target-shape' && /opencode\.db/.test(e.message) && /SQLite/.test(e.message),
-      'v2 落点必须点名 SQLite 并拒写,不得写了 auth.json 让客户端读不到',
+    const result = L.applyOpencode(payload, { extract })
+    assert.equal(fs.existsSync(file), false, 'v2 不得新建 auth.json(客户端只跑一次性 legacy 迁移,已完成)')
+    assert.equal(result.targetFile, dbFile, '落点必须是 SQLite 凭证库')
+
+    const ro = new DatabaseSync(dbFile, { readOnly: true })
+    const row = ro.prepare('SELECT * FROM credential').get()
+    ro.close()
+    assert.ok(row, 'credential 必须落一行')
+    assert.match(String(row.id), /^cred_[0-9A-HJKMNP-TV-Z]{26}$/, 'id 必须是 cred_<ULID>')
+    assert.equal(row.integration_id, 'opencode')
+    assert.equal(row.label, 'API key')
+    assert.equal(Number(row.active), 1, 'active 必须为 1(该集成当前启用)')
+    assert.equal(row.connector_id, null)
+    assert.equal(row.method_id, null)
+    assert.deepEqual(JSON.parse(String(row.value)), { type: 'key', key: 'oc_sk_unit_test' }, 'value 是明文 JSON')
+    assert.equal(typeof Number(row.time_created), 'number')
+  } finally {
+    rmScratch(scratch)
+  }
+})
+
+test('2026-11-10 锁:OpenCode v2 已有同 integration 行 ⇒ 就地改凭证并保 id,不新增行', () => {
+  const scratch = mkScratch('local-login-opencode-v2-update')
+  try {
+    const dir = path.join(scratch, 'opencode')
+    fs.mkdirSync(dir, { recursive: true })
+    const file = path.join(dir, 'auth.json')
+    const dbFile = path.join(dir, 'opencode.db')
+    const { DatabaseSync } = require('node:sqlite')
+    const seed = new DatabaseSync(dbFile)
+    seed.exec(
+      'CREATE TABLE credential (' +
+        'id text PRIMARY KEY, integration_id text, label text NOT NULL, value text NOT NULL, ' +
+        'connector_id text, method_id text, active integer, ' +
+        'time_created integer NOT NULL, time_updated integer NOT NULL)',
     )
-    assert.equal(fs.existsSync(file), false, 'fail-closed 时不得新建 auth.json')
+    seed
+      .prepare('INSERT INTO credential VALUES (?,?,?,?,?,?,?,?,?)')
+      .run('cred_OLDROW', 'opencode', 'API key', JSON.stringify({ type: 'key', key: 'old_key' }), null, null, 1, 1, 1)
+    seed.close()
+
+    const payload = L.normalizePayload({
+      uid: 'opencode-uid',
+      token: 'oc_sk_new',
+      target: file,
+      secrets: { providerID: 'opencode', authType: 'key', sessionTemplate: { type: 'key' } },
+    })
+    L.applyOpencode(payload, { extract })
+
+    const ro = new DatabaseSync(dbFile, { readOnly: true })
+    const rows = ro.prepare('SELECT id, value, active FROM credential ORDER BY id').all()
+    ro.close()
+    assert.equal(rows.length, 1, '幂等:不得插第二行')
+    assert.equal(String(rows[0].id), 'cred_OLDROW', '就地改必须保留原 id')
+    assert.equal(JSON.parse(String(rows[0].value)).key, 'oc_sk_new')
+    assert.equal(Number(rows[0].active), 1)
   } finally {
     rmScratch(scratch)
   }
@@ -1001,7 +1060,14 @@ test('workbuddy:同账号净零 ⇒ 整树原样搬,只重封凭证族,资料信
     const reread = W.decryptSessionTree(readJson(file), key, keyId)
     assert.equal(reread.auth.accessToken, 'new-at')
     assert.equal(reread.auth.refreshToken, 'new-rt')
-    assert.equal(reread.auth.expiresAt, '2026-12-01T00:00:00.000Z')
+    /**
+     * 2026-11-10 修正:时刻族必须是 epoch 毫秒**数字**。
+     * 客户端按数值参与算术(expiresAt-864e5 < Date.now() / setTimeout(i+t-Date.now())),
+     * ISO 字符串会变 NaN ⇒ setTimeout(NaN)=0 ⇒ 立即刷新循环,且过期判定失效。
+     */
+    assert.equal(typeof reread.auth.expiresAt, 'number', 'expiresAt 必须是数字,不能是 ISO 字符串')
+    assert.equal(reread.auth.expiresAt, Date.parse('2026-12-01T00:00:00.000Z'))
+    assert.equal(typeof reread.auth.lastRefreshTime, 'number', 'lastRefreshTime 必须是数字')
     assert.equal(reread.account.nickname, '张三', '同账号资料信封必须原样保留')
     assert.equal(reread.accounts[0].nickname, '张三')
     assert.equal(reread.account.uid, 'wb-uid')

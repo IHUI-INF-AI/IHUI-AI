@@ -600,32 +600,200 @@ export function applyCodex(payload, opts = {}) {
 
 const OPENCODE_CRED_KEYS = ['key', 'access', 'accessToken', 'refresh', 'refreshToken', 'expires', 'expiresAt']
 
+const ULID_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ'
+
+/** credential.id 形态 = "cred_" + ULID(26 位 Crockford base32);客户端只当 branded string,不校验格式 */
+function newCredentialId() {
+  let ts = Date.now()
+  let head = ''
+  for (let i = 0; i < 10; i += 1) {
+    head = ULID_ALPHABET[ts % 32] + head
+    ts = Math.floor(ts / 32)
+  }
+  const rand = crypto.randomBytes(16)
+  let tail = ''
+  for (let i = 0; i < 16; i += 1) tail += ULID_ALPHABET[rand[i] % 32]
+  return `cred_${head}${tail}`
+}
+
+/**
+ * OpenCode v2 真写回(2026-11-10 本机实证,取代此前的 fail-closed)。
+ *
+ * 2.2.6 把凭证面从 auth.json 搬进 `<数据根>/opencode.db` 的 SQLite 表:
+ *   credential(id, integration_id, label, value, connector_id, method_id, active, time_created, time_updated)
+ *
+ * 编码规则(取自二进制内嵌源码,两处互证):
+ * - `value` 是 **明文 JSON**(Drizzle `text({mode:"json"})`,写入走 `JSON.stringify`):
+ *     OAuth   {type:"oauth", methodID, access, refresh, expires:<epoch ms>, metadata?}
+ *     API key {type:"key", key, metadata?}
+ *     external{type:"external", methodID, metadata?}
+ * - `id` = `cred_<ULID>`;`integration_id` = 集成 ID(OpenCode Console 是 "opencode");
+ *   `label` 只是 UI 显示名("OAuth" / "API key");`active=1` = 该集成当前启用。
+ * - `account` / `account_state` 只有建表 DDL、运行时零读写 ⇒ **不插**(插了反而引入无意义 FK)。
+ *
+ * 实测自证(agent 2026-11-10):写入后 `opencode-cli auth list` 立刻列出该连接,
+ * 且用该 key 请求上游 `GET /api/v2/config` 返回 200 ⇒ 客户端认这条记录。
+ */
+function applyOpencodeV2(payload, opts, dbFile) {
+  const template = templateOf(payload)
+  const providerID =
+    asText(payload.secrets?.providerID) || asText(template?.providerID) || asText(payload.secrets?.integrationID) || 'opencode'
+  assertTemplateUid(template, payload.uid)
+  const authType =
+    asText(payload.secrets?.authType) || asText(template?.type) || (payload.refreshToken ? 'oauth' : 'key')
+  // 池内 OpenCode 票多为 API key(oc_sk_ 前缀,extra_metadata.auth.key);缺凭证直接拒写,不猜
+  if (!asText(payload.token)) {
+    throw new WriteError('该号没有可用凭证(token 为空)⇒ 无法写 OpenCode credential,请重新 --from opencode 导入', 'no-template')
+  }
+
+  let value
+  if (authType === 'api' || authType === 'key') {
+    const meta = asObj(template?.metadata)
+    value = { type: 'key', key: payload.token }
+    if (meta && Object.keys(meta).length > 0) value.metadata = meta
+  } else {
+    const expMs = toEpochMs(payload.expiresAt)
+    value = { type: 'oauth', methodID: asText(template?.methodID) || 'device', access: payload.token }
+    if (payload.refreshToken) value.refresh = payload.refreshToken
+    // expires 用 epoch ms;0 = 不过期(客户端约定)
+    value.expires = expMs === null ? 0 : expMs
+    const meta = asObj(template?.metadata)
+    if (meta && Object.keys(meta).length > 0) value.metadata = meta
+  }
+  const label = value.type === 'oauth' ? 'OAuth' : 'API key'
+
+  // 备份整库三件套(db/wal/shm):SQLite 落盘后页分配会变,回滚必须靠整文件覆盖
+  const backupFile = backupOf(dbFile)
+  for (const suffix of ['-wal', '-shm']) {
+    const side = `${dbFile}${suffix}`
+    if (fs.existsSync(side)) {
+      try {
+        fs.copyFileSync(side, `${side}.ihui-login-${stamp()}.bak`)
+      } catch {
+        /* 旁路文件拷不动不阻塞;db 本体备份已在 */
+      }
+    }
+  }
+
+  const { DatabaseSync } = require('node:sqlite')
+  let db
+  try {
+    db = new DatabaseSync(dbFile)
+  } catch (e) {
+    throw new WriteError(
+      `打不开 OpenCode 凭证库 ${dbFile}:${e instanceof Error ? e.message : String(e)}`,
+      'target-locked',
+    )
+  }
+  let rowId = ''
+  let mode = ''
+  try {
+    db.exec('PRAGMA busy_timeout = 8000')
+    db.exec('BEGIN IMMEDIATE')
+    const now = Date.now()
+    const existing = db
+      .prepare('SELECT id, label FROM credential WHERE integration_id = ? ORDER BY time_created ASC')
+      .all(providerID)
+    const keep = existing.length > 0 ? String(existing[0].id) : ''
+    if (keep) {
+      rowId = keep
+      mode = 'update'
+      db.prepare(
+        'UPDATE credential SET label = ?, value = ?, connector_id = NULL, method_id = NULL, active = 1, time_updated = ? WHERE id = ?',
+      ).run(label, JSON.stringify(value), now, keep)
+      if (existing.length > 1) {
+        const stmt = db.prepare('UPDATE credential SET active = 0, time_updated = ? WHERE integration_id = ? AND id <> ?')
+        stmt.run(now, providerID, keep)
+      }
+    } else {
+      rowId = newCredentialId()
+      mode = 'insert'
+      db.prepare(
+        'INSERT INTO credential (id, integration_id, label, value, connector_id, method_id, active, time_created, time_updated) VALUES (?, ?, ?, ?, NULL, NULL, 1, ?, ?)',
+      ).run(rowId, providerID, label, JSON.stringify(value), now, now)
+      const stmt = db.prepare('UPDATE credential SET active = 0, time_updated = ? WHERE integration_id = ? AND id <> ?')
+      stmt.run(now, providerID, rowId)
+    }
+    db.exec('COMMIT')
+  } catch (e) {
+    try {
+      db.exec('ROLLBACK')
+    } catch {
+      /* 事务未开或已回滚 */
+    }
+    db.close()
+    throw new WriteError(
+      `写 OpenCode credential 失败(库被占用或 schema 不符):${e instanceof Error ? e.message : String(e)}`,
+      'target-locked',
+    )
+  }
+  db.close()
+
+  // 写后自检:按客户端读法解 value,凭证与类型必须一致
+  assertReadBack('OpenCode credential', () => {
+    const ro = new DatabaseSync(dbFile, { readOnly: true })
+    try {
+      const row = ro.prepare('SELECT value, label, active, integration_id FROM credential WHERE id = ?').get(rowId)
+      if (!row) return false
+      const parsed = JSON.parse(String(row.value))
+      const got = parsed.type === 'key' ? parsed.key : parsed.access
+      return asText(got) === payload.token && parsed.type === value.type && Number(row.active) === 1
+    } finally {
+      ro.close()
+    }
+  })
+
+  return writeResult('opencode', dbFile, backupFile, {
+    uid: payload.uid,
+    replacedUid: null,
+    notes: [
+      '落点:OpenCode 2.x 的 SQLite 凭证表 credential(auth.json 仅一次性 legacy 迁移,写它客户端不读)',
+      `credential.id=${rowId}(${mode} / integration_id=${providerID} / label=${label} / active=1)`,
+      `value 为明文 JSON:type=${value.type}${value.type === 'oauth' ? `,expires=${value.expires}` : ',key 长度 ' + payload.token.length}`,
+      'account / account_state 未插入(客户端运行时零读写,插了只引入无意义外键耦合)',
+    ],
+    restartHint: 'CLI 已实时读库(auth list 立刻可见);桌面端若界面未刷新,重开对话或重启客户端即可',
+  })
+}
+
+
 export function applyOpencode(payload, opts = {}) {
   const extract = opts.extract
   let file = payload.target ? path.resolve(payload.target) : ''
-  let dirs = []
-  if (!file) {
-    dirs = uniq(clientEnvs(opts).flatMap((env) => extract.candidateDataDirs(env)))
-    const candidates = dirs.map((d) => path.join(d, 'auth.json'))
-    file = firstExisting(candidates) || firstUsableDir(candidates) || (candidates[0] ?? '')
+  // 显式给了凭证库路径(.db)⇒ 直接走 v2
+  if (file && /\.db$/i.test(file)) {
+    if (!fs.existsSync(file)) {
+      throw new WriteError(`指定的 OpenCode 凭证库不存在:${file}`, 'no-target')
+    }
+    return applyOpencodeV2(payload, opts, file)
   }
-  if (!file) {
+  let dataDir = file ? path.dirname(file) : ''
+  if (!dataDir) {
+    const dirs = uniq(clientEnvs(opts).flatMap((env) => extract.candidateDataDirs(env)))
+    /**
+     * 数据根判定顺序(2026-11-10 修正):v2 的 opencode.db 才是现役落点,
+     * 先找 auth.json 会命中 legacy 残留目录 ⇒ 误判成 v1。
+     */
+    dataDir =
+      dirs.find((d) => fs.existsSync(path.join(d, 'opencode.db'))) ||
+      dirs.find((d) => fs.existsSync(path.join(d, 'auth.json'))) ||
+      dirs.find((d) => fs.existsSync(d)) ||
+      dirs[0] ||
+      ''
+  }
+  if (!dataDir) {
     throw new WriteError('解析不出 OpenCode 数据目录(XDG_DATA_HOME/USERPROFILE/HOME 全缺)', 'no-target')
   }
+  file = path.join(dataDir, 'auth.json')
+  /**
+   * v2 形态(OpenCode 2.2.6,**已从 fail-closed 改为真写回**):
+   * 凭证面在 <数据根>/opencode.db 的 SQLite 表 credential,value 是明文 JSON。
+   * 旧实现只报"写 auth.json 客户端不读" —— 那是当时没有编码样本时的诚实拒绝;
+   * 现在样本已取到并实测闭环,写 auth.json 才是错的。
+   */
+  const v2Db = path.join(dataDir, 'opencode.db')
+  if (fs.existsSync(v2Db)) return applyOpencodeV2(payload, opts, v2Db)
   const exists = fs.existsSync(file)
-  // v2 形态守卫(2026-11-10 实测):OpenCode 2.2.6 把凭证面搬进 <数据根>/opencode.db
-  // 的 SQLite 表(credential/account/account_state),auth.json 只剩一次性 legacy
-  // 迁移(迁移号 20260805200742_import_legacy_credentials,且 migration 表已 completed)。
-  // 此时再写 auth.json 客户端根本不读 —— 与"跑完没切号"同一型假象,**必须 fail-closed**。
-  const v2Db = path.join(path.dirname(file), 'opencode.db')
-  if (fs.existsSync(v2Db)) {
-    throw new WriteError(
-      `本机 OpenCode 已是 v2 形态:凭证面在 ${v2Db} 的 SQLite 表(credential/account/account_state),` +
-        'auth.json 仅作一次性 legacy 迁移且已完成 ⇒ 写 auth.json 客户端不会读,拒绝盲写。' +
-        '要支持 v2 需先在 v2 客户端上真实登录一次采到 credential.value 的编码样本(未采到编码格式前不得猜),再扩写回腿。',
-      'target-shape',
-    )
-  }
   if (!exists && !fs.existsSync(path.dirname(file))) {
     throw new WriteError(
       `本机没有 OpenCode 数据目录(${path.dirname(file)})。请先在本机 \`opencode auth login\` 登录一次`,
@@ -1207,6 +1375,79 @@ export function applyQoder(payload, opts = {}) {
 // =============================================================================
 
 /**
+ * ISO 字符串 / epoch 数字 / BigInt → epoch 毫秒数字;无法解析返回 null(调用方保留原值)。
+ *
+ * 2026-11-10 实证:WorkBuddy 客户端拿 auth.expiresAt / refreshExpiresAt / lastRefreshTime
+ * **按数值参与算术**(`expiresAt - 864e5 < Date.now()`、`setTimeout(i + t - Date.now())`)。
+ * 写成 ISO 字符串 ⇒ 变 NaN ⇒ setTimeout(NaN)=0 ⇒ 立即刷新循环(每 30s 一轮重写盘),
+ * 且过期判定失效。故这三个键必须是 number,不能透传号池里的 ISO 形态。
+ */
+function toEpochMs(v) {
+  if (typeof v === 'number' && Number.isFinite(v)) return v
+  if (typeof v === 'bigint') return Number(v)
+  const s = asText(v)
+  if (!s) return null
+  const ms = Date.parse(s)
+  return Number.isFinite(ms) ? ms : null
+}
+
+/**
+ * 热切自证:读客户端自己的主进程日志,确认这次外部写入被 watcher 接住并应用到了内存会话。
+ *
+ * 期望两行(实测形态):
+ *   [FileAuthenticationStorage] Restored auth session from file, userId: <uid>
+ *   [FileAuthenticationStorage] External change applied to session
+ *
+ * 只作**如实回报**,不作失败判据:日志有秒级延迟与轮转,写入本身已由解密自检担保。
+ */
+function probeWorkbuddyHotApply(env, uid) {
+  const home = asText(env.USERPROFILE) || asText(env.HOME)
+  if (!home) return { observed: false, reason: 'no-home' }
+  const d = new Date()
+  const ymd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  const chunks = []
+  for (const root of ['.workbuddy', '.workbuddy-ai']) {
+    const dir = path.join(home, root, 'logs', ymd)
+    let names = []
+    try {
+      names = fs.readdirSync(dir).filter((n) => n.startsWith('workbuddyMainThread__') && n.endsWith('.log'))
+    } catch {
+      continue
+    }
+    for (const name of names) {
+      const full = path.join(dir, name)
+      try {
+        const st = fs.statSync(full)
+        // 只读最近 5 分钟内还在写的日志(日切/轮转后旧文件不含本次事件)
+        if (Date.now() - st.mtimeMs > 5 * 60_000) continue
+        const len = Math.min(st.size, 256 * 1024)
+        const buf = Buffer.alloc(len)
+        const fd = fs.openSync(full, 'r')
+        try {
+          fs.readSync(fd, buf, 0, len, st.size - len)
+        } finally {
+          fs.closeSync(fd)
+        }
+        chunks.push(buf.toString('utf8'))
+      } catch {
+        /* 读不到就跳过,不掩盖写入结果 */
+      }
+    }
+  }
+  if (chunks.length === 0) return { observed: false, reason: 'no-log' }
+  const all = chunks.join('\n')
+  const escaped = String(uid).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const restored = new RegExp(`Restored auth session from file, userId: ${escaped}`).test(all)
+  const applied = /External change applied to session/.test(all)
+  return {
+    observed: restored && applied,
+    reconciling: /Auth storage changed externally/.test(all),
+    restored,
+    applied,
+  }
+}
+
+/**
  * 写回配方(2026-10-28 本机实证):
  * - 字段密钥只存在于运行中的主进程(inspector 取 loggerGet)⇒ 先取钥,再关端;
  * - 落点是带 $wbEncrypted 信封的 JSON 树,客户端只认信封形态:
@@ -1221,7 +1462,27 @@ export function applyQoder(payload, opts = {}) {
 export async function applyWorkbuddy(payload, opts = {}) {
   const extract = opts.extract
   const env = opts.env ?? process.env
-  const procControl = String(env.IHUI_LOCAL_LOGIN_PROC_CONTROL ?? '').trim() !== '0'
+  /**
+   * 2026-11-10 实证反转:「先关端再写」这个前提是错的。
+   *
+   * WorkBuddy 的 FileAuthenticationStorage 自带目录 watcher(fs.watch(dir)):
+   * 外部改 auth 文件 → reconcileExternalState() → restore() → storeSessionSubject
+   * → AuthenticationManager 应用。实测落盘到内存生效 10~20ms,无需重启:
+   *   [FileAuthenticationStorage] Auth storage changed externally; reconciling
+   *   [FileAuthenticationStorage] Restored auth session from file, userId: …
+   *   [FileAuthenticationStorage] External change applied to session
+   *
+   * 反证「退出会覆写」:dispose() 只 clearTimeout + watcher.close(),没有任何 flush;
+   * 写盘点只有 store()(login/refresh/switch/logout),节奏是令牌刷新(40min~2h),
+   * 不是退出时一次。外部写入后 13 分钟无任何自身 Stored 记录,文件没被回滚。
+   *
+   * 而关端反而是真正的危险动作:clean() 会把现役文件 rename 成 dated 归档 + 置空会话,
+   * 且本会话就寄生在那棵进程树里(一关即自杀)。
+   * ⇒ 默认**不关端**;只有显式 IHUI_LOCAL_LOGIN_PROC_CONTROL=1 才走旧的关端流程。
+   */
+  const procControl = String(env.IHUI_LOCAL_LOGIN_PROC_CONTROL ?? '').trim() === '1'
+  /** 客户端跨进程写盘锁(proper-lockfile 目录锁):抢住它再 rename,避免与刷新那次 store 对撞 */
+  const wbLockDir = (target) => path.join(path.dirname(target), `.${path.basename(target)}.workbuddy.lock`)
 
   // 1) 取钥:必须有且只有一个运行中的主进程
   const mains = extract.listWorkbuddyMainProcesses()
@@ -1265,29 +1526,29 @@ export async function applyWorkbuddy(payload, opts = {}) {
     )
   }
 
-  // 2) 关端(运行中客户端退出时会用内存态覆写落点 ⇒ 必须先关再写)
-  let client = { product: '', wasRunning: false, closed: false, forced: false, exePath: '' }
+  // 2) 进程面:只探测(用于回报),默认**不关端**(watcher 热切,见函数头注)
+  const client = { product: '', wasRunning: false, closed: false, forced: false, exePath: '' }
+  let lockHeld = false
   try {
-    if (process.platform === 'win32' && procControl) {
+    if (process.platform === 'win32') {
       const pids = listProductPids('WorkBuddy', env)
-      if (pids === null) {
+      if (pids === null && procControl) {
         throw new WriteError('探测 WorkBuddy.exe 进程失败(未判定)⇒ 拒绝盲写', 'target-locked')
       }
-      if (pids.length > 0) {
-        const exePath = resolveProductExe('WorkBuddy', env) || ''
-        const r = closeProduct('WorkBuddy', { env, pids })
-        client = {
-          product: 'WorkBuddy',
-          wasRunning: true,
-          closed: r.closed === true,
-          forced: r.forced === true,
-          exePath,
-        }
-        if (!client.closed) {
-          throw new WriteError(
-            '已尝试关闭 WorkBuddy 但进程仍在运行(或关断结果未判定)⇒ 拒绝写入:运行中的客户端会用内存态覆写登录态。请手动退出 WorkBuddy 后重试',
-            'target-locked',
-          )
+      if (Array.isArray(pids) && pids.length > 0) {
+        client.wasRunning = true
+        client.product = 'WorkBuddy'
+        client.exePath = resolveProductExe('WorkBuddy', env) || ''
+        if (procControl) {
+          const r = closeProduct('WorkBuddy', { env, pids })
+          client.closed = r.closed === true
+          client.forced = r.forced === true
+          if (!client.closed) {
+            throw new WriteError(
+              '已尝试关闭 WorkBuddy 但进程仍在运行(或关断结果未判定)⇒ 拒绝写入。请手动退出 WorkBuddy 后重试',
+              'target-locked',
+            )
+          }
         }
       }
     }
@@ -1334,12 +1595,57 @@ export async function applyWorkbuddy(payload, opts = {}) {
     if (!asObj(tree.auth)) tree.auth = {}
     tree.auth.accessToken = extract.sealField(payload.token, key, keyId)
     if (payload.refreshToken) tree.auth.refreshToken = extract.sealField(payload.refreshToken, key, keyId)
-    if (payload.expiresAt) tree.auth.expiresAt = payload.expiresAt
-    if (payload.refreshExpiresAt) tree.auth.refreshExpiresAt = payload.refreshExpiresAt
-    tree.auth.lastRefreshTime = new Date().toISOString()
+    /**
+     * 时刻族必须是 **number(epoch ms)**,不能透传号池的 ISO 字符串 ——
+     * 客户端按数值参与算术,ISO 会变 NaN(setTimeout(NaN)=0 ⇒ 立即刷新循环)。
+     */
+    const expMs = toEpochMs(payload.expiresAt)
+    if (expMs !== null) tree.auth.expiresAt = expMs
+    const refreshExpMs = toEpochMs(payload.refreshExpiresAt)
+    if (refreshExpMs !== null) tree.auth.refreshExpiresAt = refreshExpMs
+    tree.auth.lastRefreshTime = Date.now()
+
+    /**
+     * 三处账号镜像必须同一个 uid(account / accounts[0] / allAccounts[0])。
+     * 只改其中一处 ⇒ UI 出现"切成新号了但账号列表还是旧号"或反过来的半切态。
+     */
+    const mirrorPaths = ['account', 'accounts.0', 'allAccounts.0']
+    const mirrorUids = mirrorPaths
+      .map((p) => asText(asObj(extract.getPathByJsonPath(tree, p))?.uid))
+      .filter(Boolean)
+    const badMirror = mirrorUids.find((u) => u !== String(payload.uid))
+    if (badMirror) {
+      throw new WriteError(
+        `WorkBuddy 会话树的账号镜像不一致(account/accounts[0]/allAccounts[0] 出现 ${badMirror},目标 ${payload.uid})⇒ 拒绝写入(会造成半切态)`,
+        'template-uid-mismatch',
+      )
+    }
 
     const backupFile = backupOf(file)
+    /**
+     * 抢客户端自己的写盘锁(proper-lockfile 目录锁,stale 10s / update 5s)。
+     * 不抢就可能在"客户端恰好刷新那一拍"与它的 store() 对撞,出现半写/覆盖。
+     * 抢不到不算失败(客户端正持锁):退避一次后照常写,原子 rename 本身仍是安全落盘。
+     */
+    const lockDir = wbLockDir(file)
+    for (let attempt = 0; attempt < 2 && !lockHeld; attempt += 1) {
+      try {
+        fs.mkdirSync(lockDir)
+        lockHeld = true
+      } catch (e) {
+        if (e?.code !== 'EEXIST') break
+        sleepSync(400)
+      }
+    }
     atomicWrite(file, `${JSON.stringify(tree)}\n`)
+    if (lockHeld) {
+      try {
+        fs.rmdirSync(lockDir)
+      } catch {
+        /* 清不掉不影响写入结果 */
+      }
+      lockHeld = false
+    }
     // 4) 写后自检:按客户端读法解密,凭证与账号必须都是目标号
     assertReadBack('WorkBuddy 会话文件', () => {
       const reread = extract.decryptSessionTree(JSON.parse(fs.readFileSync(file, 'utf8')), key, keyId)
@@ -1349,7 +1655,12 @@ export async function applyWorkbuddy(payload, opts = {}) {
         asText(asObj(reread?.account)?.uid) === String(payload.uid)
       )
     })
-    // 5) 拉起 + 回报
+    // 5) 热切自证(给 watcher 一拍)+ 必要时拉起 + 回报
+    let hot = { observed: false, reason: 'not-probed' }
+    if (client.wasRunning && !client.closed) {
+      sleepSync(1500)
+      hot = probeWorkbuddyHotApply(env, String(payload.uid))
+    }
     let restarted = false
     let launchError = ''
     let via = ''
@@ -1366,12 +1677,24 @@ export async function applyWorkbuddy(payload, opts = {}) {
       notes: [
         `版本:${edition}`,
         `信封重封:auth.accessToken${payload.refreshToken ? '+auth.refreshToken' : ''}(其余${localSealed.length}路信封按形态保留/重封)`,
+        `时刻族已按客户端读法写成 epoch 毫秒数字(expiresAt/refreshExpiresAt/lastRefreshTime)`,
+        `三处账号镜像一致:account / accounts[0] / allAccounts[0] = ${payload.uid}`,
+        hot.observed
+          ? '热切已生效:客户端日志出现 Restored auth session from file + External change applied to session(未重启、未关端)'
+          : client.wasRunning && !client.closed
+            ? `未观测到热切日志(${hot.reason || 'no-match'});写入已落盘并通过解密自检,客户端下次刷新/启动会读到`
+            : '未探测前后端进程(或显式要求关端),不做热切自证',
       ],
-      restartHint: restarted
-        ? `已重新打开 WorkBuddy,登录态即时生效`
-        : client.wasRunning
-          ? '写入前已关闭 WorkBuddy,但未能自动重新打开:请手动启动客户端'
-          : '启动 WorkBuddy 后生效',
+      restartHint: hot.observed
+        ? '已热切生效,无需重启(客户端 watcher 已自行重载登录态)'
+        : client.closed
+          ? restarted
+            ? '已重新打开 WorkBuddy,登录态即时生效'
+            : '写入前已关闭 WorkBuddy,但未能自动重新打开:请手动启动客户端'
+          : client.wasRunning
+            ? '写入已落盘;若界面仍显示旧号,退出并重启 WorkBuddy 即可'
+            : '启动 WorkBuddy 后生效',
+      hotApplied: hot.observed,
       clientProduct: client.product,
       clientWasRunning: client.wasRunning,
       clientClosed: client.closed,
@@ -1392,6 +1715,13 @@ export async function applyWorkbuddy(payload, opts = {}) {
     }
     throw e
   } finally {
+    if (lockHeld) {
+      try {
+        fs.rmdirSync(wbLockDir(file))
+      } catch {
+        /* 残留锁目录 stale 10s 后客户端会自己抢,不影响 */
+      }
+    }
     if (key) key.fill(0)
   }
 }
