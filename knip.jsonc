@@ -628,6 +628,7 @@
         "src/pkg-user/favorites/index.tsx",
         "src/pkg-user/following/index.config.ts",
         "src/pkg-user/following/index.tsx",
+        "src/pkg-user/groups/index.tsx",
         "src/pkg-user/identity-verify/index.tsx",
         "src/pkg-user/knowledge-planet/index.tsx",
         "src/pkg-user/lecturer-list/index.tsx",
