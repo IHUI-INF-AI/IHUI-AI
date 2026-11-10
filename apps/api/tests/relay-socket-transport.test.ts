@@ -30,12 +30,10 @@ vi.mock('../src/utils/relay-egress-guard.js', () => ({
 import {
   canUseSocketTransport,
   createRelaySocketFactory,
-  isSupportedProxyUrl,
   resolveSocketTransport,
   socketToSseResponse,
   UpstreamSocketOpenError,
 } from '../src/services/relay-socket-transport.js'
-import { isSupportedProxyUrl } from '../src/services/relay-connect-agent.js'
 import {
   isSocketCapableAdapter,
   type AdapterAccountContext,
@@ -85,30 +83,22 @@ describe('运输模式推断', () => {
     expect(resolveSocketTransport({ url: 'https://a/b', headers: {}, transport: 'ws' })).toBe('ws')
   })
 
-  it('ws + http/https 代理 = 可用(CONNECT 隧道 agent 接管);ws + SOCKS = 不可用', () => {
-    // http/https 代理:隧道 agent 支持 ⇒ 可用(代理越全的号越该用长连接,不能反着来)
-    expect(canUseSocketTransport({ url: 'wss://a/b', headers: {} }, 'http://proxy:8080')).toBe(true)
-    expect(canUseSocketTransport({ url: 'wss://a/b', headers: {} }, 'https://proxy:8080')).toBe(true)
-    // SOCKS 隧道 agent 不支持 ⇒ 不可用(否则建连阶段才炸,白付一次握手)
-    expect(canUseSocketTransport({ url: 'wss://a/b', headers: {} }, 'socks5://proxy:1080')).toBe(false)
+  it('ws + 账号代理 = 不可用(ws 要 Node agent,号池是 undici ProxyAgent)', () => {
+    expect(canUseSocketTransport({ url: 'wss://a/b', headers: {} }, 'http://proxy:8080')).toBe(
+      false,
+    )
     expect(canUseSocketTransport({ url: 'wss://a/b', headers: {} }, null)).toBe(true)
     // sse 走的是注入的 fetch(账号代理本来就挂在它上面),不受这条限制
-    expect(canUseSocketTransport({ url: 'https://a/b', headers: {} }, 'http://proxy:8080')).toBe(true)
-  })
-
-  it('isSupportedProxyUrl:仅 http/https 代理被支持,SOCKS/非法 URL 一律 false', () => {
-    expect(isSupportedProxyUrl('http://proxy:8080')).toBe(true)
-    expect(isSupportedProxyUrl('https://u:p@proxy:3128')).toBe(true)
-    expect(isSupportedProxyUrl('socks5://proxy:1080')).toBe(false)
-    expect(isSupportedProxyUrl('socks4://proxy:1080')).toBe(false)
-    expect(isSupportedProxyUrl('not-a-url')).toBe(false)
+    expect(canUseSocketTransport({ url: 'https://a/b', headers: {} }, 'http://proxy:8080')).toBe(
+      true,
+    )
   })
 })
 
 describe('sse 模式', () => {
   it('按行产帧,上游关流后迭代结束', async () => {
-    const fetchImpl = (async () => sseResponse(['data: {"a":1}', '', 'data: {"b":2}'])) as unknown as
-      typeof fetch
+    const fetchImpl = (async () =>
+      sseResponse(['data: {"a":1}', '', 'data: {"b":2}'])) as unknown as typeof fetch
     const factory = createRelaySocketFactory({ fetchImpl })
     const socket = await factory.open({ url: 'https://up.example/sse', headers: {} })
     const frames = await collectFrames(socket)
@@ -205,10 +195,7 @@ describe('ws 模式(真服务端)', () => {
 })
 
 describe('socketToSseResponse 桥', () => {
-  function mockSocket(
-    frames: UpstreamSocketFrame[],
-    err?: Error,
-  ): UpstreamSocket {
+  function mockSocket(frames: UpstreamSocketFrame[], err?: Error): UpstreamSocket {
     return {
       send: () => {},
       close: () => {},
@@ -249,7 +236,10 @@ describe('socketToSseResponse 桥', () => {
       translateSocketFrame: (_ctx: unknown, frame: UpstreamSocketFrame) =>
         frame.text === 'ping'
           ? null
-          : { openaiChunk: { id: 'x', choices: [{ delta: { content: frame.text } }] }, done: false },
+          : {
+              openaiChunk: { id: 'x', choices: [{ delta: { content: frame.text } }] },
+              done: false,
+            },
     } as unknown as RelayUpstreamAdapter
     const socket = mockSocket([{ text: 'ping' }, { text: '你' }, { text: '好' }])
     const resp = socketToSseResponse(socket, adapter, fakeCtx(), {})
@@ -278,7 +268,11 @@ describe('isSocketCapableAdapter 判据', () => {
   })
 
   it('声明 true 且实现方法 ⇒ true', () => {
-    const a = { ...base, socketSupported: true, buildSocketRequest: () => ({ url: 'wss://x', headers: {} }) }
+    const a = {
+      ...base,
+      socketSupported: true,
+      buildSocketRequest: () => ({ url: 'wss://x', headers: {} }),
+    }
     expect(isSocketCapableAdapter(a as RelayUpstreamAdapter)).toBe(true)
   })
 
@@ -305,8 +299,11 @@ describe('isSocketCapableAdapter 判据', () => {
     }
     expect(stableOption(a)).toBe(stableOption(b))
     const textOf = (body: Record<string, never>): string =>
-      (body['messages'] as unknown as Array<{ content_block: Array<{ content: { text_block: { text: string } } }> }>)[0]!
-        .content_block[0]!.content.text_block.text
+      (
+        body['messages'] as unknown as Array<{
+          content_block: Array<{ content: { text_block: { text: string } } }>
+        }>
+      )[0]!.content_block[0]!.content.text_block.text
     expect(textOf(a)).toBe('hi')
   })
 })
