@@ -18,6 +18,9 @@ on:
     paths:
       - 'benchmarks/agent-capability/**'
       - 'apps/cli/src/**'
+      # 压缩库本身即被评测对象：改 packages/context-compaction 必须触发本门，
+      # 否则锚点保真策略改动只能在别的路径变更时"顺带"暴露（2026-11-10 补，此前已连红 7 次）。
+      - 'packages/context-compaction/**'
       - 'package.json'
       - 'pnpm-lock.yaml'
       - 'pnpm-workspace.yaml'
@@ -28,6 +31,7 @@ on:
     paths:
       - 'benchmarks/agent-capability/**'
       - 'apps/cli/src/**'
+      - 'packages/context-compaction/**'
       - 'package.json'
       - 'pnpm-lock.yaml'
       - 'pnpm-workspace.yaml'
