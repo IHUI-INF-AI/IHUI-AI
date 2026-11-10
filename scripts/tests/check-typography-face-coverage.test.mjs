@@ -141,4 +141,93 @@ test('面旗互斥:--staged 与 --worktree 同给必报错(守门 118)', () => {
   assert.equal(r.face, null)
   assert.match(r.error, /不得同用/)
 })
+
+// ─────────────────────────────────────────────────────────────
+// T4：品牌/子集/display 族所在栈必须有确定的中文现代黑体兜底(2026-11-10 补)
+// ─────────────────────────────────────────────────────────────
+
+const readRepo = (rel) => readFileSync(join(ROOT, rel), 'utf8')
+
+test('T4 现状:11 处书写面逐处合规(真仓自证,不是"应该没问题")', () => {
+  const bad = []
+  for (const rel of T.FONT_STACK_SITES) {
+    const text = readRepo(rel)
+    for (const f of T.checkBrandStacks(text)) bad.push(`${rel}: ${f.snippet}`)
+  }
+  assert.deepEqual(bad, [])
+})
+
+test('T4 反向牙:把小程序标题链的中文族删干净 ⇒ 必判出', () => {
+  const rel = 'apps/miniapp-taro/src/pages/user/index.css'
+  let mutated = readRepo(rel)
+  for (const fam of T.CJK_SANS_FAMILIES) mutated = mutated.split(`'${fam}',`).join('')
+  assert.notEqual(mutated, readRepo(rel), '变异未命中,夹具失效')
+  const hits = T.checkBrandStacks(mutated)
+  assert.ok(hits.length >= 1)
+  assert.match(hits[0].why, /没有中文现代黑体族/)
+})
+
+test('T4 反向牙:营销作用域链退回"Home + 拉丁族" ⇒ 必判出', () => {
+  const rel = 'apps/web/app/(marketing)/marketing-fonts.css'
+  const mutated = readRepo(rel).replace(
+    /'HarmonyOS Sans SC Home', 'PingFang SC',[\s\S]*?'Hiragino Sans GB',/,
+    "'HarmonyOS Sans SC Home',",
+  )
+  assert.notEqual(mutated, readRepo(rel), '变异未命中,夹具失效')
+  assert.ok(T.checkBrandStacks(mutated).length >= 1)
+})
+
+test('T4 反向牙:中文族排在裸 sans-serif 之后 ⇒ 判"先被泛族截走"', () => {
+  const late = ".x { font-family: 'EDIX', sans-serif, 'PingFang SC'; }"
+  const hits = T.checkBrandStacks(late)
+  assert.equal(hits.length, 1)
+  assert.match(hits[0].why, /排在裸 sans-serif 之后/)
+})
+
+test('T4 不误伤:纯拉丁/等宽栈、@font-face 族名、注释里的族名都不算', () => {
+  assert.deepEqual(T.checkBrandStacks('.y { font-family: Menlo, Consolas, monospace; }'), [])
+  assert.deepEqual(
+    T.checkBrandStacks(
+      "@font-face { font-family: 'HarmonyOS Sans SC'; src: url('/fonts/a.woff2'); }",
+    ),
+    [],
+  )
+  assert.deepEqual(T.checkBrandStacks("/* 'EDIX', sans-serif */ .z { color: red; }"), [])
+})
+
+test('T4 登记维:声明集里出现未登记的新品牌族书写面 ⇒ 点名;拿不到声明集 ⇒ 不发言', () => {
+  const rel = 'apps/web/src/components/new-face.css'
+  const inputs = { [rel]: ".a { font-family: 'HarmonyOS Sans SC', sans-serif; }" }
+  assert.deepEqual(T.findUnregisteredStackSites([rel], inputs), [rel])
+  assert.deepEqual(T.findUnregisteredStackSites([], inputs), [])
+  assert.deepEqual(T.findUnregisteredStackSites(['README.md'], { 'README.md': 'EDIX' }), [])
+})
+
+test('T4 端到端:现状 judge 无 findings;注入一处坏栈即多一条且带路径名', () => {
+  const sites = T.FONT_STACK_SITES.map((rel) => ({ rel, text: readRepo(rel) }))
+  const ok = T.judge({
+    globalsCss: readRepo('apps/web/app/globals.css'),
+    tokensCss,
+    typoSrc,
+    manifestText: manifest,
+    baselineText: baseline,
+    missingFonts: [],
+    stackSites: sites,
+  })
+  assert.deepEqual(ok.findings, [])
+  const broken = T.judge({
+    globalsCss: readRepo('apps/web/app/globals.css'),
+    tokensCss,
+    typoSrc,
+    manifestText: manifest,
+    baselineText: baseline,
+    missingFonts: [],
+    stackSites: [
+      { rel: 'apps/x/y.css', text: ".a { font-family: 'AlimamaFangYuanTi', sans-serif; }" },
+    ],
+  })
+  assert.equal(broken.findings.length, 1)
+  assert.match(broken.findings[0], /T4 apps\/x\/y\.css/)
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

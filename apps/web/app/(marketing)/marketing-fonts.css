@@ -64,10 +64,16 @@
  * 但共享组件后续若经该变量引用字族,不会把全量字体带回首页。
  */
 .font-scope-marketing {
+  /* 2026-11-10 补中文现代黑体族(与 packages/design-tokens/src/styles/tokens.css 的 --font-sans 同口径):
+   * 本作用域首位 'HarmonyOS Sans SC Home' 是首页去重的**窄子集**(实测 481 汉字),
+   * 首页任何动态/漏字中文都落在它之外;原链在 Home 之后直接进 ui-sans-serif/system-ui 这类拉丁族,
+   * 缺字只能靠浏览器 per-script 兜底去找"系统默认 sans-serif"——默认被设成宋体/衬线的机器上,
+   * 首页那几处漏字会当场换成另一款字体(与门 313 T3/T4 同根)。补族**不改下载体积**,纯增益。 */
   --font-sans:
-    'HarmonyOS Sans SC Home', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
-    'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji',
-    'Segoe UI Emoji';
+    'HarmonyOS Sans SC Home', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC',
+    'Source Han Sans SC', 'Hiragino Sans GB', ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif,
+    'Apple Color Emoji', 'Segoe UI Emoji';
   --font-sans-sc:
     'HarmonyOS Sans SC Home', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC',
     'Source Han Sans SC', 'Hiragino Sans GB', system-ui, -apple-system, sans-serif;

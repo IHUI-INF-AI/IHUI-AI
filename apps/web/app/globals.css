@@ -826,9 +826,16 @@ iframe::-webkit-scrollbar {
 /* EDIX 字体仅用于显式 .font-edix 工具类(2026-08-02 修复)
  * 原规则 h1-h6 强制 EDIX 导致模型卡片内的 h3 标题(Claude 3.7 Sonnet 等)走 EDIX 字体,
  * 用户规则:EDIX 只允许用到大标题/主标题上,内部文字不允许用。
- * 现改为:只有显式加 .font-edix 类的元素才用 EDIX,h1-h6 默认走系统字体。 */
+ * 现改为:只有显式加 .font-edix 类的元素才用 EDIX,h1-h6 默认走系统字体。
+ * 2026-11-10 补中文现代黑体族:EDIX 的 unicode-range 只含拉丁,混排里的中文落给
+ * 'HarmonyOS Sans SC'(子集),而该子集之外的中文原先只能交给裸 `sans-serif` 兜底 ——
+ * 与门 313 T3/T4 同一根,首页 hero 的中文一旦含子集外字就会换脸。 */
 .font-edix {
-  font-family: 'EDIX', 'HarmonyOS Sans SC', sans-serif;
+  font-family:
+    'EDIX', 'HarmonyOS Sans SC', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC',
+    'Source Han Sans SC', 'Hiragino Sans GB', sans-serif;
+  /* 单面 display 字体不得再被合成加粗(面本身已声明覆盖 400–700) */
+  font-synthesis-weight: none;
 }
 
 /* 登录页 welcome 图:浅色 welcome.svg,深色 baiwelcome.svg,配合 next-themes attribute="class" */
