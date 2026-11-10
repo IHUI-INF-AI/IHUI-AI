@@ -19,15 +19,17 @@
  * 三条硬约束(改这个文件前先读):
  * 1. **出口守卫不得绕**:建连前必须过 assertRelayEgressSafe(SSRF/内网重定向防线),
  *    SSE 模式还必须走注入的 fetchImpl(账号代理 + 连接期 DNS 守卫都挂在它上面)。
- * 2. **WS 模式不支持账号代理**:`ws` 要的是 Node http.Agent,而号池代理池是 undici
- *    ProxyAgent,两者不通用。带 proxyUrl 的账号走 WS 会静默降级 —— 由调用方判断,
- *    本层不假装支持(见 canUseSocketTransport 的 proxyUrl 分支)。
+ * 2. **WS 模式账号代理走 CONNECT 隧道**:`ws` 要的是 Node http.Agent,而号池代理池是
+ *    undici ProxyAgent,两者不通用。故带 proxyUrl 时本层用自建的 CONNECT 隧道 agent
+ *    (relay-connect-agent.ts) 接管建连,只支持 http/https 代理,**SOCKS 明确不支持**
+ *    (见 canUseSocketTransport 的 SOCKS 分支)。sse 模式仍走注入的 undici fetchImpl。
  * 3. **错误即数据**:建连失败统一抛 UpstreamSocketOpenError(带上游 status/bodyText),
  *    好让转发层沿用既有的 classifyFailure + 401 自愈,而不是另起一套错误判定。
  */
 import WebSocket from 'ws'
 import { fetch as undiciFetch } from 'undici'
 import { assertRelayEgressSafe, directEgressDispatcher } from '../utils/relay-egress-guard.js'
+import { createConnectProxyAgent, isSupportedProxyUrl } from './relay-connect-agent.js'
 import type {
   AdapterAccountContext,
   RelayUpstreamAdapter,
@@ -41,6 +43,34 @@ import type {
 
 /** 建连超时缺省值(与转发层 UPSTREAM_TIMEOUT_MS 区别:这是"连上"的时限,不是"说完"的时限) */
 export const DEFAULT_SOCKET_CONNECT_TIMEOUT_MS = 15_000
+
+/**
+ * WS 心跳间隔。为什么必须有:号池走 CDN/网关出网,空闲 60s 左右被中间设备静默掐断是常态,
+ * 而 TCP 半开时 `ws` 的 close 事件永远不会触发 —— 上层 for-await 就永久阻塞在那个 Promise 上,
+ * 请求既不成功也不超时(比报错更糟:占着号池槽位、客户端一直转圈)。
+ */
+export const DEFAULT_SOCKET_HEARTBEAT_MS = 30_000
+
+/** 连续多少个心跳周期没收到 pong 判定连接已死 */
+export const SOCKET_HEARTBEAT_MISS_LIMIT = 2
+
+/**
+ * 上游空闲超时:建连成功后连续这么久没有新帧,判定上游卡死并结束通道。
+ * sse/ws 两种模式共用 —— 覆盖"连上了、握手也回了、然后一句话不说"的僵死形态。
+ * 缺省 5 分钟:长思考模型(带 reasoning)首帧前静默 2-3 分钟是真实存在的,
+ * 设太短会把正常慢响应误杀。
+ */
+export const DEFAULT_SOCKET_IDLE_TIMEOUT_MS = 300_000
+
+/**
+ * 帧队列背压上限。
+ *
+ * 真 bug 面:FrameChannel 是"上游推帧 / 消费者按需拉帧"的解耦缓冲,消费者慢
+ * (下游客户端网络差、SSE 写阻塞)时上游仍全速推 ⇒ 队列无界增长直到 OOM。
+ * 上限不是"丢帧"(丢帧会静默截断正文),而是**判流中断**:结束通道并让消费侧
+ * 按既有语义罚号/回滚,把内存问题转成一次可观测的失败。
+ */
+export const DEFAULT_SOCKET_MAX_QUEUED_FRAMES = 4096
 
 /**
  * 建连失败(含 sse 模式上游直接回 4xx/5xx)。
@@ -69,6 +99,10 @@ export function resolveSocketTransport(req: UpstreamSocketRequest): 'ws' | 'sse'
  * 帧通道:把"回调式推帧"和"异步迭代消费"接起来。
  * 单消费者设计 —— frames() 只允许调用一次(转发层每个请求一个通道,用完即弃);
  * 重复调用直接抛错,不静默返回空序列(那会让上层误以为"上游没说话")。
+ *
+ * 两条自保机制(缺任一条都会把"上游怪行为"升级成"进程级故障"):
+ * - 背压上限:队列超水位 ⇒ 判流中断,不无界缓冲(见 DEFAULT_SOCKET_MAX_QUEUED_FRAMES);
+ * - 空闲看门狗:建连成功后长时间无帧 ⇒ 结束通道,不让 for-await 永久挂起。
  */
 class FrameChannel implements UpstreamSocket {
   private queue: UpstreamSocketFrame[] = []
@@ -78,6 +112,14 @@ class FrameChannel implements UpstreamSocket {
   private consumed = false
   private sendImpl: ((data: string | Uint8Array) => void) | null = null
   private closeImpl: ((code?: number, reason?: string) => void) | null = null
+  private idleTimer: NodeJS.Timeout | null = null
+  /** 溢出/空闲这类"本层自判"的中断要能反手关掉上游连接,否则通道结束了连接还活着 */
+  private onAbort: (() => void) | null = null
+
+  constructor(
+    private readonly maxQueuedFrames: number = DEFAULT_SOCKET_MAX_QUEUED_FRAMES,
+    private readonly idleTimeoutMs: number = DEFAULT_SOCKET_IDLE_TIMEOUT_MS,
+  ) {}
 
   attachSender(fn: (data: string | Uint8Array) => void): void {
     this.sendImpl = fn
@@ -87,20 +129,69 @@ class FrameChannel implements UpstreamSocket {
     this.closeImpl = fn
   }
 
+  /** 建连成功后调用:开始空闲计时(在此之前由建连超时兜底,不重复计时) */
+  armIdleWatchdog(onAbort: () => void): void {
+    this.onAbort = onAbort
+    if (this.idleTimeoutMs <= 0) return
+    this.armIdleTimer()
+  }
+
+  private armIdleTimer(): void {
+    this.disarmIdleTimer()
+    const timer = setTimeout(() => {
+      this.abortSelf(
+        new Error(`上游空闲超时(${this.idleTimeoutMs}ms 无新帧),判定会话僵死`),
+      )
+    }, this.idleTimeoutMs)
+    // 不能让看门狗把进程钉住:它只是兜底,不该影响进程正常退出
+    timer.unref?.()
+    this.idleTimer = timer
+  }
+
+  private disarmIdleTimer(): void {
+    if (this.idleTimer) {
+      clearTimeout(this.idleTimer)
+      this.idleTimer = null
+    }
+  }
+
+  /** 本层自判中断:标记错误 → 结束通道 → 反手关上游连接 */
+  private abortSelf(err: Error): void {
+    if (this.ended) return
+    this.end(err)
+    try {
+      this.onAbort?.()
+    } catch {
+      /* 关闭竞态:上游已断 */
+    }
+  }
+
   push(frame: UpstreamSocketFrame): void {
     if (this.ended) return
+    // 有消费者在等 ⇒ 直投,不占队列(这是正常快路径,别让水位判断挡住它)
     const waiter = this.waiters.shift()
     if (waiter) {
+      this.armIdleTimer()
       waiter(frame)
       return
     }
+    if (this.queue.length >= this.maxQueuedFrames) {
+      this.abortSelf(
+        new Error(
+          `上游帧队列溢出(${this.queue.length} 帧未消费),判定下游消费阻塞,中断本次流`,
+        ),
+      )
+      return
+    }
     this.queue.push(frame)
+    this.armIdleTimer()
   }
 
   /** 结束通道;err 非空表示异常终止(仍会把队列排空后结束迭代) */
   end(err?: Error): void {
     if (this.ended) return
     this.ended = true
+    this.disarmIdleTimer()
     if (err) this.error = err
     while (this.waiters.length > 0) {
       const waiter = this.waiters.shift()
@@ -119,6 +210,7 @@ class FrameChannel implements UpstreamSocket {
 
   close(code?: number, reason?: string): void {
     if (this.ended) return
+    this.disarmIdleTimer()
     try {
       this.closeImpl?.(code, reason)
     } catch {
@@ -182,6 +274,12 @@ async function openWsSocket(
   // 与 sse 模式同一条守卫:WS 也是出网,且 `ws` 不走 undici dispatcher ⇒
   // 连接期钩子对它无效,首跳复检是它唯一能拿到的防线,漏了就是一条 SSRF 旁路。
   await assertRelayEgressSafe(req.url)
+  // 账号带代理时挂 CONNECT 隧道 agent(ws 要 Node http.Agent,不认 undici ProxyAgent)。
+  // secureTarget 取决于上游是 wss 还是 ws,必须显式传(隧道内是否再套一层 TLS)。
+  const secureTarget = req.url.startsWith('wss:')
+  const agent = opts.proxyUrl
+    ? createConnectProxyAgent(opts.proxyUrl, { secureTarget })
+    : undefined
   return withConnectTimeout(
     (signal) =>
       new Promise<void>((resolve, reject) => {
@@ -191,13 +289,61 @@ async function openWsSocket(
         const ws = new WebSocket(req.url, {
           headers: req.headers,
           handshakeTimeout,
+          ...(agent ? { agent } : {}),
           // 关闭 permessage-deflate:号池上游多为 JSON 文本帧,压缩收益低,
           // 但会引入一块额外的解压缓冲与内存泄漏面(上游不发 close 时尤其明显)。
           perMessageDeflate: false,
         })
         ws.binaryType = 'arraybuffer'
 
+        /**
+         * 心跳:发 ping 数 pong。连丢 SOCKET_HEARTBEAT_MISS_LIMIT 个周期 ⇒ 判半开。
+         * 半开是 WS 最阴的故障形态:TCP 那头已经没了,本地 socket 还在 ESTABLISHED,
+         * close/error 事件一个都不会来。只有主动 ping 能探出来。
+         */
+        const heartbeatMs = opts.heartbeatMs ?? DEFAULT_SOCKET_HEARTBEAT_MS
+        let missedPongs = 0
+        let heartbeatTimer: NodeJS.Timeout | null = null
+        const stopHeartbeat = (): void => {
+          if (heartbeatTimer) {
+            clearInterval(heartbeatTimer)
+            heartbeatTimer = null
+          }
+        }
+        const startHeartbeat = (): void => {
+          if (heartbeatMs <= 0) return
+          stopHeartbeat()
+          const timer = setInterval(() => {
+            if (ws.readyState !== WebSocket.OPEN) return
+            if (missedPongs >= SOCKET_HEARTBEAT_MISS_LIMIT) {
+              stopHeartbeat()
+              const err = new Error(
+                `socket 心跳丢失(连续 ${missedPongs} 个周期无 pong),判定连接半开`,
+              )
+              channel.end(err)
+              try {
+                ws.terminate()
+              } catch {
+                /* 已断 */
+              }
+              return
+            }
+            missedPongs += 1
+            try {
+              ws.ping()
+            } catch {
+              /* 发送竞态:交给 close/error 分支收尾 */
+            }
+          }, heartbeatMs)
+          timer.unref?.()
+          heartbeatTimer = timer
+        }
+        ws.on('pong', () => {
+          missedPongs = 0
+        })
+
         const onAbort = (): void => {
+          stopHeartbeat()
           try {
             ws.terminate()
           } catch {
@@ -225,6 +371,16 @@ async function openWsSocket(
             }
           })
           channel.attachCloser(() => ws.close(1000, 'client done'))
+          // 建连成功才起心跳与空闲看门狗(在此之前由 handshakeTimeout 兜底)
+          startHeartbeat()
+          channel.armIdleWatchdog(() => {
+            stopHeartbeat()
+            try {
+              ws.terminate()
+            } catch {
+              /* 已断 */
+            }
+          })
           if (req.handshake !== undefined) {
             try {
               ws.send(JSON.stringify(req.handshake))
@@ -249,12 +405,27 @@ async function openWsSocket(
 
         ws.on('close', (code: number, reason: Buffer) => {
           cleanup()
-          channel.end()
+          stopHeartbeat()
           if (!settled) {
             settled = true
+            channel.end()
             reject(
               new UpstreamSocketOpenError(
                 `socket closed before open (code=${code}${reason.length ? `, ${reason.toString()}` : ''})`,
+              ),
+            )
+            return
+          }
+          // 1000=正常关闭,1005=关闭但未带码(两者都是对端主动收尾)。
+          // 其余(1001 going away / 1006 abnormal / 1011 internal error)一律记异常:
+          // 否则"上游中途崩了但我们读到了半个回答"会被判成一次成功调用。
+          const normal = code === 1000 || code === 1005
+          if (normal) {
+            channel.end()
+          } else {
+            channel.end(
+              new Error(
+                `socket 异常关闭(code=${code}${reason.length ? `, ${reason.toString()}` : ''})`,
               ),
             )
           }
@@ -262,6 +433,7 @@ async function openWsSocket(
 
         ws.on('error', (err: Error) => {
           cleanup()
+          stopHeartbeat()
           channel.end(err)
           if (!settled) {
             settled = true
@@ -320,6 +492,10 @@ async function openSseSocket(
     channel.end(new Error('sse 模式不支持向已建立的上游连接发送帧'))
   })
   channel.attachCloser(() => {
+    void resp.body?.cancel().catch(() => {})
+  })
+  // sse 模式也要空闲看门狗(与 ws 一致):上游建连成功却再不推帧 ⇒ 不让 for-await 永久挂起
+  channel.armIdleWatchdog(() => {
     void resp.body?.cancel().catch(() => {})
   })
 
@@ -398,7 +574,9 @@ export function canUseSocketTransport(
   proxyUrl: string | null | undefined,
 ): boolean {
   const transport = resolveSocketTransport(req)
-  if (transport === 'ws' && proxyUrl) return false
+  // ws 模式只认 Node http.Agent;带代理时由 CONNECT 隧道 agent 接管(http/https 代理 OK),
+  // 但 SOCKS 等隧道 agent 不支持的代理类型必须挡掉(否则建连阶段才炸,白付一次握手)。
+  if (transport === 'ws' && proxyUrl && !isSupportedProxyUrl(proxyUrl)) return false
   return true
 }
 

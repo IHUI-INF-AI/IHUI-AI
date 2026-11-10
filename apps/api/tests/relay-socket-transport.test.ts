@@ -30,10 +30,12 @@ vi.mock('../src/utils/relay-egress-guard.js', () => ({
 import {
   canUseSocketTransport,
   createRelaySocketFactory,
+  isSupportedProxyUrl,
   resolveSocketTransport,
   socketToSseResponse,
   UpstreamSocketOpenError,
 } from '../src/services/relay-socket-transport.js'
+import { isSupportedProxyUrl } from '../src/services/relay-connect-agent.js'
 import {
   isSocketCapableAdapter,
   type AdapterAccountContext,
@@ -83,11 +85,23 @@ describe('运输模式推断', () => {
     expect(resolveSocketTransport({ url: 'https://a/b', headers: {}, transport: 'ws' })).toBe('ws')
   })
 
-  it('ws + 账号代理 = 不可用(ws 要 Node agent,号池是 undici ProxyAgent)', () => {
-    expect(canUseSocketTransport({ url: 'wss://a/b', headers: {} }, 'http://proxy:8080')).toBe(false)
+  it('ws + http/https 代理 = 可用(CONNECT 隧道 agent 接管);ws + SOCKS = 不可用', () => {
+    // http/https 代理:隧道 agent 支持 ⇒ 可用(代理越全的号越该用长连接,不能反着来)
+    expect(canUseSocketTransport({ url: 'wss://a/b', headers: {} }, 'http://proxy:8080')).toBe(true)
+    expect(canUseSocketTransport({ url: 'wss://a/b', headers: {} }, 'https://proxy:8080')).toBe(true)
+    // SOCKS 隧道 agent 不支持 ⇒ 不可用(否则建连阶段才炸,白付一次握手)
+    expect(canUseSocketTransport({ url: 'wss://a/b', headers: {} }, 'socks5://proxy:1080')).toBe(false)
     expect(canUseSocketTransport({ url: 'wss://a/b', headers: {} }, null)).toBe(true)
     // sse 走的是注入的 fetch(账号代理本来就挂在它上面),不受这条限制
     expect(canUseSocketTransport({ url: 'https://a/b', headers: {} }, 'http://proxy:8080')).toBe(true)
+  })
+
+  it('isSupportedProxyUrl:仅 http/https 代理被支持,SOCKS/非法 URL 一律 false', () => {
+    expect(isSupportedProxyUrl('http://proxy:8080')).toBe(true)
+    expect(isSupportedProxyUrl('https://u:p@proxy:3128')).toBe(true)
+    expect(isSupportedProxyUrl('socks5://proxy:1080')).toBe(false)
+    expect(isSupportedProxyUrl('socks4://proxy:1080')).toBe(false)
+    expect(isSupportedProxyUrl('not-a-url')).toBe(false)
   })
 })
 

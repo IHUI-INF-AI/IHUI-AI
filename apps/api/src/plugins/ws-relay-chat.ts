@@ -34,6 +34,7 @@
  *   { "type":"error",   "id":"c1", "message":"...", "status":401 }
  */
 import type { FastifyPluginAsync } from 'fastify'
+import { randomUUID } from 'node:crypto'
 import type { WebSocket } from '@fastify/websocket'
 import {
   WsRateLimiter,
@@ -84,6 +85,13 @@ export const wsRelayChat: FastifyPluginAsync = async (server) => {
         return
       }
       sockets.add(socket)
+
+      /**
+       * 会话级亲和键:同一 WS 连接(或客户端显式声明的 conversationId / sessionId)的
+       * 多轮请求必须落到同一号池账号 + 同一个上游会话,否则对话上下文会断裂。
+       * 绝不能用"每轮请求 id"作亲和键 —— 那会让每轮换号、上游每次新建会话。
+       */
+      const sessionKey = `${userId}:${randomUUID()}`
 
       /** 在途请求:id → abort 句柄(客户端 cancel / 连接断开时统一中断) */
       const inflight = new Map<string, AbortController>()
@@ -142,12 +150,18 @@ export const wsRelayChat: FastifyPluginAsync = async (server) => {
         safeSend(socket, { type: 'start', id })
 
         try {
+          // 会话级亲和键:客户端显式 conversationId/sessionId 优先,否则回退到本连接稳定键。
+          // 不能用每轮请求 id —— 那会使号池每轮换号、上游每次新建会话,对话上下文断裂。
+          const affinityKey =
+            (typeof frame.conversationId === 'string' && frame.conversationId.trim()) ||
+            (typeof frame.sessionId === 'string' && frame.sessionId.trim()) ||
+            sessionKey
           const result = await forwardToChannel({
             model,
             messages: frame.messages as Array<{ role: string; content?: unknown }>,
             stream,
             userId,
-            affinityKey: id,
+            affinityKey,
             signal: controller.signal,
             temperature: typeof frame.temperature === 'number' ? frame.temperature : undefined,
             maxTokens: typeof frame.max_tokens === 'number' ? frame.max_tokens : undefined,
