@@ -29,6 +29,7 @@ import { resolveTsxCli } from './lib/tsx-cli.mjs'
 import { assertDistFresh } from './lib/dist-freshness.mjs'
 // 进程探测单源在两条回灌腿里(§0.6):这里复用同两把,不在本文件重抄 tasklist 判据
 import { probeClientActive as probeTraeClientActive } from './sync-trae-client-session.mjs'
+import { probeMinimaxClientActive } from './sync-minimax-client-session.mjs'
 import { __test__ as qoderSessionSync } from './sync-qoder-client-session.mjs'
 
 const probeQoderClientActive = qoderSessionSync.probeQoderClientActive
@@ -83,6 +84,10 @@ function runKeepaliveTs(argv) {
     stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf8',
     timeout: 300_000,
+    // 临期窗口必须 ≥ 本腿节拍(git-guardian 每 1 小时派发):默认 15 分钟窗口只服务
+    // 「api 常驻 + 5 分钟一轮」,搬到 1 小时节拍上会让到期点落在两轮之间。90 分钟 = 节拍 + 余量;
+    // 判据仍只有调度层一份(RELAY_ACCOUNT_REFRESH_AHEAD_MS),本层只给值不复算。
+    env: { ...process.env, RELAY_ACCOUNT_REFRESH_AHEAD_MS: String(90 * 60 * 1000) },
   })
   const stdout = String(r.stdout ?? '')
   let json = null
@@ -195,6 +200,10 @@ async function main(argv) {
     const probed = [
       ['trae', probeTraeClientActive()],
       ['qoder', probeQoderClientActive()],
+      // minimax(2026-11-10 补):探测器早就导出在回灌腿里,却没接进来 ⇒ 该平台永久判「未判定」
+      // ⇒ 永久让位 ⇒ 永不续期。现读:池内 minimax forever 号 access token 今天 22:11 到期,
+      // 而它的探针一旦缺席就等于「登记了永久保活却没人续」。
+      ['minimax', probeMinimaxClientActive()],
     ]
     for (const [provider, active] of probed) {
       const word = active === null ? 'unknown' : active ? 'running' : 'stopped'
