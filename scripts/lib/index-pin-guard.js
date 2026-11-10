@@ -75,25 +75,61 @@ function cleanGitEnv(env) {
   return full
 }
 
+/**
+ * 派生 git 的唯一出口(经 face-reader 收口层:GIT_OPTIONAL_LOCKS=0、显式 stdio、windowsHide)。
+ *
+ * ⚠️ 形状对齐(2026-11-10 修):收口层的契约是**成功返回 stdout 字符串、失败抛 Error**
+ * (`e.code`/`e.status`/`e.signal`/`e.stdout`/`e.stderr` 挂在异常上),而本文件其余部分
+ * (resolveIndexPath / capturePinnedIndex / restorePinnedIndex)一律按
+ * `{status, signal, error, stdout, stderr}` 五态消费。此前这里把返回值原样当对象交出去,
+ * `res.status` 恒为 `undefined` ⇒ `capturePinnedIndex` 每次必抛
+ * `git ls-files 失败(exit undefined)`,**私有索引提交通道(isolated-git)自 11-04 起结构性全灭**
+ * (镜像测试 scripts/tests/index-pin-guard.test.mjs 7/7 红即同一根)。
+ * 现在只在这一处把两种形状对齐,三态语义保持不变:
+ *   - 成功            ⇒ status 0 + stdout
+ *   - 输出超上界      ⇒ error.code='ENOBUFS' ⇒ 调用方判「未判定」(exit 2)
+ *   - 进程被杀/起不来 ⇒ status null + error/signal ⇒ 调用方 fail-closed
+ *   - git 非零退出    ⇒ status=N + stderr ⇒ 调用方按真失败处理
+ */
 function spawnGit(args, { cwd, env }, maxBuffer) {
-  return batchExecFileSync(
-    gitBinary(),
-    ['-c', 'safe.directory=*', '-C', cwd || process.cwd(), ...args],
-    {
-      cwd,
-      env: cleanGitEnv(env),
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
-      timeout: 60_000,
-      ...(maxBuffer ? { maxBuffer } : {}),
-    },
-  )
+  try {
+    const stdout = batchExecFileSync(
+      gitBinary(),
+      ['-c', 'safe.directory=*', '-C', cwd || process.cwd(), ...args],
+      {
+        cwd,
+        env: cleanGitEnv(env),
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+        windowsHide: true,
+        timeout: 60_000,
+        ...(maxBuffer ? { maxBuffer } : {}),
+      },
+    )
+    return { status: 0, signal: null, error: null, stdout: String(stdout ?? ''), stderr: '' }
+  } catch (e) {
+    const status = typeof e?.status === 'number' ? e.status : null
+    const signal = typeof e?.signal === 'string' ? e.signal : null
+    const stdout = typeof e?.stdout === 'string' ? e.stdout : String(e?.output?.[0] ?? '')
+    const stderr = typeof e?.stderr === 'string' ? e.stderr : String(e?.message ?? '')
+    const isEnobufs = e?.code === 'ENOBUFS'
+    return {
+      status,
+      signal,
+      // ENOBUFS 必须带 error 且 code 原样透出(调用方据此判「未判定」而不是判红);
+      // 非零退出是"git 自己答了个失败",按既有语义只给 status,不得伪造成 error。
+      error: isEnobufs || status === null ? e : null,
+      stdout,
+      stderr,
+    }
+  }
 }
 
 /** 本次要读的索引文件的绝对路径:优先 GIT_INDEX_FILE,否则问 git(输出极小,默认上界足够)。 */
 function resolveIndexPath({ gitCwd, env }) {
-  const pointer = env?.GIT_INDEX_FILE ? path.resolve(gitCwd || process.cwd(), env.GIT_INDEX_FILE) : ''
+  const pointer = env?.GIT_INDEX_FILE
+    ? path.resolve(gitCwd || process.cwd(), env.GIT_INDEX_FILE)
+    : ''
   if (pointer) return pointer
   const r = spawnGit(['rev-parse', '--path-format=absolute', '--git-path', 'index'], {
     cwd: gitCwd,
@@ -196,11 +232,18 @@ function restorePinnedIndex({ gitCwd, env, snapshot, log = console, maxBytes }) 
   } catch (e) {
     if (e?.code === UNDETERMINED_CODE)
       return { ok: false, undetermined: true, restored, missing, changed, detail: e.message }
-    return { ok: false, restored, missing, changed, detail: `读不到索引(复原前): ${e?.message ?? e}` }
+    return {
+      ok: false,
+      restored,
+      missing,
+      changed,
+      detail: `读不到索引(复原前): ${e?.message ?? e}`,
+    }
   }
   for (const [p, want] of snapshot.entries) {
     const got = current.get(p)
-    if (got && got.mode === want.mode && got.blob === want.blob && got.stage === want.stage) continue
+    if (got && got.mode === want.mode && got.blob === want.blob && got.stage === want.stage)
+      continue
     if (!got) missing.push(p)
     else changed.push(p)
     const args = ['update-index', '--add', '--cacheinfo', `${want.mode},${want.blob},${p}`]
@@ -223,12 +266,19 @@ function restorePinnedIndex({ gitCwd, env, snapshot, log = console, maxBytes }) 
   } catch (e) {
     if (e?.code === UNDETERMINED_CODE)
       return { ok: false, undetermined: true, restored, missing, changed, detail: e.message }
-    return { ok: false, restored, missing, changed, detail: `读不到索引(复原后): ${e?.message ?? e}` }
+    return {
+      ok: false,
+      restored,
+      missing,
+      changed,
+      detail: `读不到索引(复原后): ${e?.message ?? e}`,
+    }
   }
   const bad = []
   for (const [p, want] of snapshot.entries) {
     const got = after.get(p)
-    if (!got || got.mode !== want.mode || got.blob !== want.blob || got.stage !== want.stage) bad.push(p)
+    if (!got || got.mode !== want.mode || got.blob !== want.blob || got.stage !== want.stage)
+      bad.push(p)
   }
   if (bad.length) {
     return {
