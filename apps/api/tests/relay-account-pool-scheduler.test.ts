@@ -313,6 +313,58 @@ describe('client-first 续期策略(trae 池不与客户端抢轮换)', () => {
   })
 })
 
+/**
+ * 非续期平台(doubao/loomy)在保活档不得被白记失败(2026-11-10,能力判据单源)。
+ * 它们的 refreshToken 是恒 null 空壳(声明 refreshTokenSupported:false):按「方法存在」判能力,
+ * 空闲保活档会把行放进 refreshOne,每轮白记一次 refreshFailed(f16d6dc 只收了临期/down 两档,
+ * 保活档是同型残留)。三档必须统一走 isRefreshableProviderCode。
+ */
+describe('非续期平台(doubao/loomy)保活档跳过', () => {
+  function shellAdapter(providerCode: string, refreshToken: ReturnType<typeof vi.fn>) {
+    return {
+      providerCode,
+      // 镜像生产形态:方法存在但恒 null 空壳,且显式声明不可续期
+      refreshTokenSupported: false,
+      refreshToken,
+      buildChatRequest: () => ({ url: 'https://x.test', method: 'POST', headers: {}, body: {} }),
+      translateStreamChunk: () => null,
+      translateNonStream: (_c: AdapterAccountContext, body: unknown) =>
+        (body ?? {}) as Record<string, unknown>,
+      checkHealth: vi.fn(async () => ({ ok: true })),
+      isAuthFailure: (status: number) => status === 401,
+    }
+  }
+
+  for (const providerCode of ['doubao', 'loomy']) {
+    it(`${providerCode} 空闲行:计入 refreshSkipped、refreshFailed=0、空壳不被调用、不涨失败计数`, async () => {
+      const refreshToken = vi.fn(async () => null)
+      registerRelayAdapter(shellAdapter(providerCode, refreshToken) as never)
+      accountRows = [sweepRow({ providerCode })]
+      const out = await sweepAccountPool()
+      expect(out.keepalive).toBe(1)
+      // 临期档 + 空闲保活档各按 isRefreshableProviderCode 跳过一次(mock 不筛查询,同一行两档都捞到)
+      expect(out.refreshSkipped).toBe(2)
+      expect(out.refreshFailed).toBe(0)
+      expect(out.refreshed).toBe(0)
+      expect(refreshToken).not.toHaveBeenCalled()
+      // 不得记失败:没有任何写入把 refreshFailureCount 涨到 >=1,也没有任何写入置 tempUnschedulable=true
+      expect(updateCalls.some((s) => Number(s.refreshFailureCount ?? 0) >= 1)).toBe(false)
+      expect(updateCalls.some((s) => s.tempUnschedulable === true)).toBe(false)
+    })
+  }
+
+  it('能力判据单源锁:sweep 三档不得各带一份「方法存在」判据', () => {
+    // 由本文件自身位置推导(禁 process.cwd() 定根,§15)
+    const src = fs.readFileSync(
+      fileURLToPath(new URL('../src/services/relay-account-pool-scheduler.ts', import.meta.url)),
+      'utf8',
+    )
+    // adapter?.refreshToken 只许留在 refreshOne 的最终兜底一处;临期/保活/down 恢复三档全部走单源判据
+    expect((src.match(/adapter\?\.refreshToken/g) ?? []).length).toBe(1)
+    expect((src.match(/isRefreshableProviderCode\(row\.providerCode\)/g) ?? []).length).toBe(3)
+  })
+})
+
 describe('refresh 绝对寿命(60 天)落库与提前预警', () => {
   const NOW = new Date('2026-11-03T12:00:00.000Z')
 
@@ -563,6 +615,21 @@ describe('可再取凭据的候选谓词(cookie 通道必须在内)', () => {
     const both = new PgDialect().sqlToQuery(m.recredentialableCondition() as never).sql
     expect(render(m.expiringRefreshWhere(new Date())).text).toContain(both.toLowerCase())
     expect(render(m.downRecoveryWhere()).text).toContain(both.toLowerCase())
+  })
+
+  it('codearts 永久密钥行(rt 与 cookie 双空)被三档候选面全部排除(sweep 捞不到、不记失败)', async () => {
+    const m = await import('../src/services/relay-account-pool-scheduler.js')
+    // 2026-11-10 该号已切永久 AK/SK:refreshTokenEnc=null、tokenExpiresAt=null(凭据在 secretsEnc)。
+    // 三档候选面都嵌同一把「可再取凭据」谓词 ⇒ rt/cookie 双空的行根本进不了任何刷新档,
+    // 不存在「无 refresh token 却被 sweep 记失败」的路径;本文件 mock 不筛 WHERE,所以锁形状。
+    const rec = render(m.recredentialableCondition()).text
+    expect(rec).toContain('is not null')
+    expect(render(m.expiringRefreshWhere(new Date())).text).toContain(rec)
+    expect(render(m.keepaliveIdleWhere(new Date())).text).toContain(rec)
+    expect(render(m.keepaliveIdleWhere(new Date(), new Date())).text).toContain(rec)
+    expect(render(m.downRecoveryWhere()).text).toContain(rec)
+    // 临期档还有第二重排除:tokenExpiresAt=null ⇒ lte(null, deadline) 不成立,行不会被捞出
+    expect(render(m.expiringRefreshWhere(new Date())).text).toContain('token_expires_at')
   })
 })
 
