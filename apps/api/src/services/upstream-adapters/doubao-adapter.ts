@@ -3,22 +3,32 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 豆包(字节豆包桌面客户端,Electron,字节账号登录)上游适配器(2026-10-27 立)。
+ * 豆包(字节豆包 web,字节账号登录)上游适配器(2026-10-27 立,2026-11-10 实证校准)。
  *
- * 契约实证边界(§0.3 如实,不冒绿):
- * - 上游是字节私有端点(web/移动端 API),**没有公开文档** ⇒ 请求构造停在
- *   「合理推断+未判定」层:端点/头/请求体按 web 客户端惯例推断,注释逐条标「推断」,
- *   响应形状一律未实证 —— 拿到真实回包前不做任何字段级解析。
- * - 鉴权形态(2026-10-27 本机取证实证,scripts/lib/doubao-auth-extract.mjs 头注):
- *   .doubao.com 域字节 passport 会话族 cookie(sessionid/sessionid_ss/sid_guard/
- *   sid_ucp_v1/uid_tt/user_token/ttwid 等)⇒ 请求鉴权 = Cookie 头(推断构造,
- *   cookie 集来自号池 cookiesEnc;缺 cookies 时以 tokenEnc 充 sessionid_ss/sessionid,
- *   该映射是推断,注释标明)。
- * - 额度:**无公开额度端点** ⇒ getQuota 探测推断端点,200 也如实报
- *   「形状未实证 ⇒ 未判定」,绝不猜字段读成数字;401/403 ⇒ authFailed:true。
+ * ## 2026-11-10 浏览器实弹校准(替换 10-27 的全部推断值)
+ *
+ * 方法:取号池 doubao 行的 12 条 .doubao.com 会话族 cookie,注入本机 Chrome,
+ * 打开 https://www.doubao.com/chat/ —— 直接进登录态(侧边栏出现真实项目与历史会话),
+ * 证明**票一直有效**。随后抓页面自身请求拿到真实契约,再用纯 Node fetch 逐条复现。
+ *
+ * 实证结论(逐条可复现):
+ * 1. 判活端点 = `POST /im/conversation/batch_get`;
+ *    正例 真票 → status_code 0 + 真实 user_id(=59830099522953);
+ *    反例 空 cookie → 712012001「登录校验不合法」;伪造 sessionid → 游客 user_id + 空列表。
+ * 2. **弱端点不可作判据**:`/samantha/user/preference/get` 与 `/samantha/notice/info`
+ *    只校验 cookie 存在性 —— 伪造 32 位 sessionid 照样回 code:0,据此判活会把废票当活票。
+ * 3. 必需 query 面:`aid=497858&real_aid=497858&device_platform=web&version_code=20800
+ *    &device_id=…&pc_version=3.45.x`;缺则回 710020702「系统错误」(是参数问题,不是签名问题)。
+ * 4. `content-type` 必须写 `application/json; encoding=utf-8`,否则 712012002「不支持编码类型」。
+ * 5. **chat 不走 HTTP**:页面内发消息成功作答,但全程无 chat/completion 请求 ——
+ *    对话走 IM cmd 长连接;`/api/chat/completions` 恒 401。⇒ buildChatRequest 仅契约占位。
+ * 6. `/api/*` 是字节签名墙(真票也 401);`/samantha/*` 与 `/im/*` 不需要 a-bogus 签名。
+ *
+ * ## 仍未实证的边界(照旧不冒绿)
+ * - 额度:豆包有额度体系(页面实证「每日签到领 200」),但**无公开余额查询端点** ⇒
+ *   getQuota 保持未判定、quotaSupported=false。
  * - 国际版:豆包海外版 = Cici,DOUBAO_GLOBAL_BASE 常量预留(无本机取证,留位待实证)。
- * - chat 响应:推断上游为字节私有 SSE(非 OpenAI 形) ⇒ 帧原样透传(零映射,§0.6),
- *   不发明字段;[DONE]/心跳由转发层统一处理。
+ * - chat 响应形状:IM 协议未解码,现有 SSE 帧透传逻辑对豆包不适用。
  */
 import { ProxyAgent, fetch as undiciFetch } from 'undici'
 import type {
@@ -41,10 +51,44 @@ import type { RelayProviderCode } from '../relay-account-format.js'
 
 /** 实证:2026-10-27 号机 Cookies 里 .doubao.com 会话族所在主域 */
 const DOUBAO_BASE = 'https://www.doubao.com'
-/** chat 端点(推断:通用惯例路径;未实证) */
+
+/**
+ * chat 端点(2026-11-10 浏览器实弹证伪):此路径恒 401,且豆包对话**根本不走 HTTP**。
+ * 实测:在真实登录态页面里发送「1+1等于几」,消息正常上屏并由模型作答,但全程
+ * 没有任何 chat/completion 类 HTTP 请求 —— 对话走的是 IM 长连接(cmd 编号协议,
+ * pull_recent_conv_chain / thread_message),HTTP 面只有会话列表等旁路接口。
+ * ⇒ 本常量仅为 RelayUpstreamAdapter 的接口契约占位,**不构成可用通路**。
+ */
 const DOUBAO_CHAT_URL = `${DOUBAO_BASE}/api/chat/completions`
-/** 额度端点(推断:通用惯例路径;未实证) */
+
+/**
+ * 额度端点(2026-11-10 实测):此路径恒 401(字节签名墙,真票也 401)。
+ * 豆包确有额度体系(登录态页面实证:「每日签到领 200 额度,周一翻倍,签到 30 天得 8800」),
+ * 但公开面未发现余额查询端点 ⇒ 仍声明 quotaSupported=false,零探测零假数(§0.3)。
+ */
 const DOUBAO_QUOTA_URL = `${DOUBAO_BASE}/api/user/quota`
+
+/**
+ * 会话票判活端点(2026-11-10 浏览器抓包 + 纯 Node 复现,强校验):
+ * `/im/conversation/batch_get` 是**唯一实测能区分票真伪**的端点 ——
+ *   · 空 cookie      ⇒ status_code 712012001「登录校验不合法」(硬拒收,可判 authFailed)
+ *   · 真票          ⇒ status_code 0 + downlink_body.user_id = 真实号 id
+ *   · 伪造 sessionid ⇒ status_code 0 但 user_id 变成游客 id(3018599589489431)、会话列表为空
+ * 反面对照(同批实测):`/samantha/user/preference/get` 与 `/samantha/notice/info`
+ * 只校验 cookie 存在性 —— 伪造 32 位 sessionid 照样回 code:0,**不足以判活**,故不作判据。
+ */
+const DOUBAO_IM_BATCH_GET_URL = `${DOUBAO_BASE}/im/conversation/batch_get`
+
+/** 实证:豆包 web 统一 query 面;缺 aid/real_aid 会被服务端按非法请求拒(710020702) */
+const DOUBAO_AID = '497858'
+/** 实证:浏览器抓包里的 pc_version(2.33.x 是桌面端版本号,web 用 3.45.x) */
+const DOUBAO_PC_VERSION = '3.45.1'
+
+/**
+ * 实证:会话票失效业务码(两个面各一套,语义都是「没登录/票不合法」)。
+ * 注意 IM 面用 `status_code`、samantha 面用 `code`,字段名不同,别混读。
+ */
+const DOUBAO_AUTH_CODES = new Set([710012001, 712012001])
 
 /** 鉴权失效类响应文案标记(通用形态;无豆包专有实证码) */
 const AUTH_BODY_MARKERS = [
@@ -123,33 +167,34 @@ export class DoubaoUpstreamError extends Error {
 }
 
 // =============================================================================
-// Cookie 头组装(推断层)
+// Cookie 头组装(2026-11-10 实弹校准)
 // =============================================================================
 
 /**
- * HTTP 头值必须是 ByteString(每个码点 ≤ 0xff)。本机 Cookies sqlite 解码残留 U+FFFD
- * 之类非 Latin-1 字符时,直接拼进 cookie 头会让 fetch 抛
- * "Cannot convert argument to a ByteString because the character ...",把设计上应判
- * indeterminate 的健康检查伪装成凭据错误(2026-11-06 本机实测:重导入后该行
- * last_error_message 变成 ByteString 错,而生产库同平台是"quota HTTP 401 ⇒ 未判定")。
- * 逐字符 percent-encode 非 Latin-1;Latin-1 原样保留 ⇒ 既有合法会话票逐字不变,
- * 只收敛本来就进不了 HTTP 头的字符。
+ * 一条 cookie 的键/值是否「能进 HTTP 头」:只接受 Latin-1(码点 ≤ 0xff)且不含
+ * 控制字符/分隔符。**不能 percent-encode 蒙过去** —— 2026-11-10 实测:把解密的
+ * 损坏值(含 U+FFFD)编码成 %EF%BF%BD 后,undici 8.x 直接
+ * `UND_ERR_INVALID_ARG: invalid cookie header` 拒收**整个头**,
+ * 结果是 11 条好票被 1 条垃圾连带废掉,健康检查全变 fetch failed。
+ * ⇒ 正确处置是剔除坏条、保留其余,并把剔除数如实报给健康检查。
  */
-export function byteStringSafeHeaderValue(value: string): string {
-  let out = ''
-  for (const ch of value) {
+function isHeaderSafeToken(s: string): boolean {
+  if (s === '') return false
+  for (const ch of s) {
     const cp = ch.codePointAt(0) ?? 0
-    out += cp <= 0xff ? ch : encodeURIComponent(ch)
+    if (cp > 0xff) return false
+    // 0x00-0x1f / 0x7f 控制字符,Cookie 名不允许的分隔符,以及逗号分号空格
+    if (cp <= 0x1f || cp === 0x7f) return false
+    if (ch === ';' || ch === ',' || ch === ' ' || ch === '"' || ch === '\\') return false
   }
-  return out
+  return true
 }
 
 /**
- * 组 Cookie 头:优先 credentials.cookies 整包直通(name=value 逐条拼接,零字段改写);
- * cookies 为空且 tokenEnc 有值 ⇒ 按取证键名当 sessionid_ss/sessionid 用(推断映射:
- * 号池导入时字节 passport 会话票常落 tokenEnc;真实键序待实证后收口)。
+ * 组 Cookie 头:credentials.cookies 逐条直通(name=value,零字段改写)。
+ * cookies 为空且 tokenEnc 有值 ⇒ 按取证键名当 sessionid_ss/sessionid 用
+ * (号池导入时字节 passport 会话票常落 tokenEnc;键序映射是推断,待实证收口)。
  * 两处皆空 ⇒ 抛错(该账号不可转发)。
- * 键与值都过 byteStringSafeHeaderValue:只防非法头字符,不做凭据改写。
  */
 export function buildCookieHeader(ctx: AdapterAccountContext): string {
   const cookies = Array.isArray(ctx.credentials.cookies) ? ctx.credentials.cookies : []
@@ -159,30 +204,116 @@ export function buildCookieHeader(ctx: AdapterAccountContext): string {
     const name = c['name']
     const value = c['value']
     if (typeof name !== 'string' || name === '') continue
-    if (typeof value !== 'string') continue
-    pairs.push(
-      `${byteStringSafeHeaderValue(name)}=${byteStringSafeHeaderValue(value)}`,
-    )
+    if (typeof value !== 'string' || value === '') continue
+    if (!isHeaderSafeToken(name) || !isHeaderSafeToken(value)) continue
+    pairs.push(`${name}=${value}`)
   }
   if (pairs.length > 0) return pairs.join('; ')
   const token = ctx.credentials.token
-  if (token) {
+  if (token && isHeaderSafeToken(token)) {
     // 推断映射(未实证):tokenEnc 充当会话票,套用取证实证的两个会话键名
-    const safe = byteStringSafeHeaderValue(token)
-    return `sessionid_ss=${safe}; sessionid=${safe}`
+    return `sessionid_ss=${token}; sessionid=${token}`
   }
   throw new DoubaoUpstreamError(
     401,
-    '豆包账号缺少 cookies 与 token(cookiesEnc/tokenEnc 未导入或未解密)',
+    '豆包账号无可用 cookies/token(全部缺失或含不可进 HTTP 头的损坏字节)',
   )
 }
 
-/** 额度/健康探测共用请求头(推断:cookie 鉴权 + JSON accept) */
+/**
+ * 统计被剔除的坏 cookie 名(仅名字,零值),供健康检查如实报告。
+ * 用途:号池里该行的 msToken 已实测损坏(U+FFFD 首字节),剔除后不影响会话判活,
+ * 但运营侧需要知道「凭据有一项是坏的」而不是以为全好。
+ */
+export function listUnsafeCookieNames(ctx: AdapterAccountContext): string[] {
+  const cookies = Array.isArray(ctx.credentials.cookies) ? ctx.credentials.cookies : []
+  const bad: string[] = []
+  for (const c of cookies) {
+    if (!c || typeof c !== 'object') continue
+    const name = c['name']
+    const value = c['value']
+    if (typeof name !== 'string' || name === '') continue
+    if (typeof value !== 'string' || value === '') {
+      bad.push(name)
+      continue
+    }
+    if (!isHeaderSafeToken(name) || !isHeaderSafeToken(value)) bad.push(name)
+  }
+  return bad
+}
+
+/**
+ * 兜底 device_id(2026-11-10 实测:服务端不校验其真实性,固定值可通)。
+ * 号池行有 deviceId 时优先用行内值,避免同池多个号共用一个设备指纹。
+ */
+const DOUBAO_FALLBACK_DEVICE_ID = '7595255965021849098'
+
+/** 实证:浏览器真实 UA(推断的 "Mozilla/5.0 DoubaoDesktop" 会被风控当成非浏览器流量) */
+const DOUBAO_UA =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36'
+
+/**
+ * 实证:豆包 web 统一 query 面(2026-11-10 浏览器抓包逐字复刻)。
+ * 这串参数是**必需项**不是装饰:只带 page_size 打 /samantha/* 会被回 710020702「系统错误」,
+ * 补全 version_code/aid/real_aid/device_platform/device_id/pc_version 后立刻 code:0。
+ */
+function doubaoWebQuery(ctx: AdapterAccountContext): string {
+  const own = (ctx.row.deviceId ?? '').trim()
+  return new URLSearchParams({
+    version_code: '20800',
+    language: 'zh',
+    device_platform: 'web',
+    doubao_device_platform: 'web',
+    aid: DOUBAO_AID,
+    real_aid: DOUBAO_AID,
+    pkg_type: 'release_version',
+    device_id: own || DOUBAO_FALLBACK_DEVICE_ID,
+    pc_version: DOUBAO_PC_VERSION,
+  }).toString()
+}
+
+/** 实证:IM 面请求头(content-type 必须带 `encoding=utf-8`,否则回 712012002「不支持编码类型」) */
+function imRequestHeaders(ctx: AdapterAccountContext): Record<string, string> {
+  return {
+    accept: 'application/json, text/plain, */*',
+    'content-type': 'application/json; encoding=utf-8',
+    cookie: buildCookieHeader(ctx),
+    'agw-js-conv': 'str',
+    'user-agent': DOUBAO_UA,
+    referer: `${DOUBAO_BASE}/chat/`,
+    origin: DOUBAO_BASE,
+  }
+}
+
+/**
+ * 实测有效的最轻 IM 请求:取「豆包」官方会话的一条信息。
+ * 判活只看 status_code + downlink_body.user_id,不依赖会话是否存在 ——
+ * 号里没有该会话时列表为空但 user_id 仍在,判据不受影响。
+ */
+function imProbeBody(): string {
+  return JSON.stringify({
+    cmd: 1111,
+    uplink_body: {
+      batch_get_conv_info_uplink_body: {
+        conversation_id: ['102959638119426'],
+        option: { recent_message_count_per_conv: 1 },
+        ext: {},
+      },
+    },
+    sequence_id: '00000000-0000-4000-8000-000000000000',
+    channel: 2,
+    version: '1',
+  })
+}
+
+/** 额度/健康探测共用请求头(cookie 鉴权 + JSON accept;字段取证实证值) */
 function probeRequestHeaders(ctx: AdapterAccountContext): Record<string, string> {
   return {
     accept: 'application/json',
     cookie: buildCookieHeader(ctx),
-    referer: `${DOUBAO_BASE}/`, // 推断:web 私有端点常见 referer 校验,未实证
+    'agw-js-conv': 'str',
+    'user-agent': DOUBAO_UA,
+    referer: `${DOUBAO_BASE}/chat/`,
   }
 }
 
@@ -201,8 +332,17 @@ export const doubaoAdapter: RelayUpstreamAdapter = {
   quotaSupported: false,
 
   /**
-   * chat 请求构造(推断层):OpenAI 同构 body 透传,Cookie 头鉴权,accept 按 stream 二分。
-   * 端点与响应形状均未实证(见模块头注)。
+   * chat 请求构造 —— **2026-11-10 实弹证伪,本通路不成立**。
+   *
+   * 实测过程:注入真实会话票打开 https://www.doubao.com/chat/ (确认登录态),在输入框
+   * 发送「1+1等于几」,消息上屏且模型正常作答,全程 `waitForRequest(/completion/)` 超时 ——
+   * 豆包对话**不走 HTTP**,走的是 IM cmd 编号协议长连接(pull_recent_conv_chain /
+   * thread_message 一族),HTTP 面只有会话列表/偏好等旁路接口。
+   * 另测 `/api/chat/completions` 直接 401(签名墙)。
+   *
+   * 因此本方法保留仅为满足 RelayUpstreamAdapter 契约,**不产出可用的上游调用**。
+   * 要真正打通豆包对话,需实现 IM 长连接协议(建连/心跳/cmd 编解码),属独立工程,
+   * 不在本次收口范围。承载层应在此实现落地前避免把 doubao 纳入 chat 调度。
    */
   buildChatRequest(ctx: AdapterAccountContext, req: NormalizedChatRequest): UpstreamHttpRequest {
     const body: Record<string, unknown> = {
@@ -223,8 +363,9 @@ export const doubaoAdapter: RelayUpstreamAdapter = {
         'content-type': 'application/json',
         accept: req.stream ? 'text/event-stream' : 'application/json',
         cookie: buildCookieHeader(ctx),
-        referer: `${DOUBAO_BASE}/`,
-        'user-agent': 'Mozilla/5.0 DoubaoDesktop', // 推断桌面端 UA;真实 UA 未实证
+        'agw-js-conv': 'str',
+        referer: `${DOUBAO_BASE}/chat/`,
+        'user-agent': DOUBAO_UA,
       },
       rawBody,
     }
@@ -272,50 +413,139 @@ export const doubaoAdapter: RelayUpstreamAdapter = {
   },
 
   /**
-   * 健康检查(三态语义,对齐 HealthCheckResult):
-   * - **401 在此端点不可作拒收判据**(2026-10-27 实弹对照:无 cookie/假 cookie/真 cookie
-   *   全 401 空体 —— 端点是字节签名墙,a-bogus/msToken 防签缺失时真票也 401,不可区分)
-   *   ⇒ 401/403 回 indeterminate(未判定),绝不误杀好号;
-   * - 5xx/网络 ⇒ indeterminate;
-   * - 2xx:端点本身是推断的,SPA 服务器对任意路径都可能回 200 ⇒ 形状未实证 ⇒ indeterminate。
-   * 净效果:豆包健康检查恒 unknown,票有效性只能靠 chat 面实测(签名墙内)。
+   * 健康检查(2026-11-10 实证重写,三态语义对齐 HealthCheckResult)。
+   *
+   * 判据端点换成 `/im/conversation/batch_get` —— 本仓唯一实测能区分票真伪的豆包端点:
+   *   · `status_code` ∈ {710012001, 712012001} ⇒ 上游明确拒收 ⇒ **authFailed**(写 down)
+   *   · `status_code === 0` 且 `downlink_body…user_id` 非空 ⇒ **ok**(写 healthy)
+   *   · 其他业务码 / 缺字段 / 非 2xx / 网络 ⇒ indeterminate(保留 unknown,绝不误杀)
+   *
+   * 为什么不用旧路径(2026-10-27 曾据 `/api/user/quota` 断言「豆包健康检查恒 unknown」):
+   * 那是**端点选错**导致的假象 —— `/api/*` 是字节签名墙,真票也 401;
+   * 而 `/samantha/user/preference/get` 又只校验 cookie 存在性,伪造 sessionid 照样回
+   * `code:0`,两个极端都判不了活。换成 IM 面后正反用例可分离(见模块常量区实证注)。
+   *
+   * 额外防线:行内 `extraMetadata.doubaoUserId` 若已记录过真实 user_id,而本次探测拿到
+   * 另一个 id(实测伪造票会被派一个游客 id ⇒ 典型「票被换/被顶号」形态)⇒ 直接 authFailed。
    */
   async checkHealth(
     ctx: AdapterAccountContext,
     opts?: AdapterCallOptions,
   ): Promise<{ ok: boolean; error?: string; indeterminate?: boolean; authFailed?: boolean }> {
+    const url = `${DOUBAO_IM_BATCH_GET_URL}?${doubaoWebQuery(ctx)}`
+    let res: Response
     try {
-      const res = await resolveFetchImpl(opts ?? {})(DOUBAO_QUOTA_URL, {
-        method: 'GET',
-        headers: probeRequestHeaders(ctx),
+      res = await resolveFetchImpl(opts ?? {})(url, {
+        method: 'POST',
+        headers: imRequestHeaders(ctx),
+        body: imProbeBody(),
       })
-      const text = await res.text().catch(() => '')
-      if (!res.ok) {
-        return {
-          ok: false,
-          indeterminate: true,
-          error: `quota HTTP ${res.status}${text ? `: ${text.slice(0, 200)}` : ''}(端点为签名墙,401 与凭证失效不可区分 ⇒ 未判定)`,
-        }
-      }
-      return {
-        ok: false,
-        indeterminate: true,
-        error: 'quota 端点为推断形状,HTTP 200 无法区分真数据/SPA 兜底页 ⇒ 未判定',
-      }
     } catch (e) {
+      // 本地构造的 401/403 只有一种来源:buildCookieHeader 报「本行没有可用的票」。
+      // 那不是上游抖动,是**本行确实没有凭据** ⇒ 明确 authFailed,不留在未判定里冒充待复检。
+      if (e instanceof DoubaoUpstreamError && (e.statusCode === 401 || e.statusCode === 403)) {
+        return { ok: false, authFailed: true, error: e.message }
+      }
       return {
         ok: false,
         indeterminate: true,
-        error: `${e instanceof Error ? e.message : String(e)}(未判定)`,
+        error: `IM 判活探测失败:${e instanceof Error ? e.message : String(e)}(未判定)`,
       }
     }
+
+    const text = await res.text().catch(() => '')
+    if (res.status === 401 || res.status === 403) {
+      return { ok: false, authFailed: true, error: `IM 判活探测 HTTP ${res.status}(上游拒收凭据)` }
+    }
+    if (!res.ok) {
+      return {
+        ok: false,
+        indeterminate: true,
+        error: `IM 判活探测 HTTP ${res.status}${text ? `: ${text.slice(0, 160)}` : ''}(未判定)`,
+      }
+    }
+
+    let obj: Record<string, unknown>
+    try {
+      const parsed: unknown = JSON.parse(text)
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        return { ok: false, indeterminate: true, error: 'IM 判活响应非 JSON 对象(未判定)' }
+      }
+      obj = parsed as Record<string, unknown>
+    } catch {
+      return { ok: false, indeterminate: true, error: 'IM 判活响应无法解析为 JSON(未判定)' }
+    }
+
+    const statusCode =
+      typeof obj['status_code'] === 'number' ? (obj['status_code'] as number) : null
+    if (statusCode === null) {
+      return { ok: false, indeterminate: true, error: 'IM 判活响应缺 status_code 字段(未判定)' }
+    }
+    const statusDesc = typeof obj['status_desc'] === 'string' ? (obj['status_desc'] as string) : ''
+    if (DOUBAO_AUTH_CODES.has(statusCode)) {
+      return {
+        ok: false,
+        authFailed: true,
+        error: `会话票被上游拒收:status_code=${statusCode}${statusDesc ? ` ${statusDesc}` : ''}`,
+      }
+    }
+    if (statusCode !== 0) {
+      return {
+        ok: false,
+        indeterminate: true,
+        error: `IM 判活业务码 ${statusCode}${statusDesc ? ` ${statusDesc}` : ''}(非鉴权类,未判定)`,
+      }
+    }
+
+    const downlink = obj['downlink_body']
+    const inner =
+      downlink && typeof downlink === 'object'
+        ? (downlink as Record<string, unknown>)['batch_get_conv_info_downlink_body']
+        : undefined
+    const userId =
+      inner && typeof inner === 'object' ? (inner as Record<string, unknown>)['user_id'] : undefined
+    if (typeof userId !== 'string' || userId === '') {
+      return {
+        ok: false,
+        indeterminate: true,
+        error: 'IM 判活 status_code=0 但响应无 user_id(形状不符,未判定)',
+      }
+    }
+
+    const expected =
+      ctx.row.extraMetadata && typeof ctx.row.extraMetadata === 'object'
+        ? (ctx.row.extraMetadata as Record<string, unknown>)['doubaoUserId']
+        : undefined
+    if (typeof expected === 'string' && expected !== '' && expected !== userId) {
+      return {
+        ok: false,
+        authFailed: true,
+        error: `会话票不属于本行账号:期望 user_id=${expected},实测 ${userId}(票被更换或顶号)`,
+      }
+    }
+
+    // 判活通过,但凭据里若有不可进 HTTP 头的损坏项(本号 msToken 实测如此),
+    // 如实随结果报出:不影响本次判定,但运营侧要知道凭据不是全好。
+    const unsafe = listUnsafeCookieNames(ctx)
+    if (unsafe.length > 0) {
+      return {
+        ok: true,
+        error: `判活通过;凭据含 ${unsafe.length} 条损坏项(${unsafe.join(',')})已剔除后判活,建议重新导入该会话票`,
+      }
+    }
+    return { ok: true }
   },
 
   /**
-   * 额度点查(§0.3 如实未判定):DOUBAO_QUOTA_URL 是推断路径且**实弹实证为字节签名墙**
-   * (2026-10-27:无 cookie/假 cookie/真 cookie 全 401 空体,不可区分)⇒ 非 2xx 一律
-   * 未判定(authFailed 不再由此端点判定);200 ⇒ 回响应键名清单 + 「形状未实证 ⇒ 未判定」,
-   * 绝不猜字段读成数字(对齐 codearts getQuota 同款口径)。
+   * 额度点查(§0.3 如实未判定)。
+   *
+   * 2026-11-10 复核结论:`/api/user/quota` 仍是**字节签名墙**,真票也 401 空体,
+   * 与凭据失效不可区分 ⇒ 非 2xx 一律未判定,authFailed 不由此端点判定。
+   *
+   * 同时确认了「豆包确实有额度体系」(登录态页面实证:每日签到领 200 额度、周一翻倍、
+   * 签到 30 天得 8800),但该额度只在页面内展示,浏览器抓包全程未见余额查询 HTTP 端点
+   * ⇒ 维持 quotaSupported=false,承载层直接标「未支持」,零探测零假数。
+   * 若日后从签到/会员接口实证出余额端点,应在此处收口而不是猜字段。
    */
   async getQuota(ctx: AdapterAccountContext, opts?: QuotaCallOptions): Promise<RelayQuotaResult> {
     try {
@@ -342,7 +572,7 @@ export const doubaoAdapter: RelayUpstreamAdapter = {
       return {
         ok: false,
         error:
-          `豆包无公开额度端点,${DOUBAO_QUOTA_URL} 为推断路径,响应键=[${keys.join(',') || '(空)'}],` +
+          `豆包未发现公开额度端点,${DOUBAO_QUOTA_URL} 为推断路径,响应键=[${keys.join(',') || '(空)'}],` +
           '字段形状未实证 ⇒ 未判定(不猜字段读成数字)',
       }
     } catch (e) {
