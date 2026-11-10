@@ -123,6 +123,62 @@ export function brandResendFrom(address: string): string {
 }
 
 /**
+ * SMTP 出口的 From 地址段解析:必须等于登录账号,否则回落登录账号。
+ * 这条约束写在传输层而不是各出口里,原因是它有两个独立来源、漏任一处都会静默失效:
+ *
+ * 1. **中继拒绝**:经 smtp.qq.com 这类"账号即发件人"的中继发信时,From 的邮箱段与
+ *    SMTP_USER 不一致会被 550 拒。2026-11-10 实测:生产 `.env` 的 `SMTP_FROM` 地址段
+ *    恰好等于 `SMTP_USER`,于是这条约束一直是"配置侥幸"——换一台机、换一份 `.env`
+ *    (例如 `.env.example` 与 docker-compose 的 `noreply@aizhs.top` 缺省值)就立刻踩中。
+ * 2. **显示名漂移**:`SMTP_FROM` 常被写成 `显示名 <地址>` 整串。若出口直接把它当 From,
+ *    显示名就由配置决定 ⇒ 同一个品牌在不同通道长出不同名字(收件箱曾同时出现
+ *    「智汇AI」「智汇AI官方」「502319984」)。地址段与显示名必须分开处理。
+ *
+ * 返回值恒为已品牌化的完整 From(`"智汇AI" <地址>`);配置读不出地址时回落 `user`,
+ * 两者都空时返回空串(调用方据此判定"未配置",不要拿空 From 去投递)。
+ */
+export function resolveBrandSmtpFrom(configured: string | undefined, user: string | undefined): string {
+  const account = extractMailAddress(user ?? '')
+  const configuredAddr = extractMailAddress(configured ?? '')
+  const addr =
+    configuredAddr !== '' && account !== '' && configuredAddr.toLowerCase() === account.toLowerCase()
+      ? configuredAddr
+      : account !== ''
+        ? account
+        : configuredAddr
+  return brandSmtpFrom(addr)
+}
+
+/** 一组同语言收件人。 */
+export interface MailRecipientGroup {
+  locale: MailLocale
+  to: string[]
+}
+
+/**
+ * 按收件人域名分组:国内主流邮箱 → zh,其余 → en。
+ *
+ * 为什么必须分组而不是"选一个主语言":一封邮件只有一种语言,混合收件人时无论选哪边,
+ * 另一边都会收到看不懂的邮件 —— 而"给国外用户发英文"正是本次需求的一半。
+ * 顺序固定 zh 在前:它是主语言,调度侧的去重台账与 dry-run 展示都取第一组。
+ *
+ * 判据本体只有一份(2026-11-10):告警派发器与运行期告警通知服务都要分流,
+ * 各写一份必然在某次改域名表时漂开,故收敛到模板层(零副作用,可被脚本直接引用)。
+ */
+export function groupRecipientsByLocale(to: readonly string[]): MailRecipientGroup[] {
+  const zh: string[] = []
+  const en: string[] = []
+  for (const addr of to) {
+    if (localeForRecipient(addr) === 'zh') zh.push(addr)
+    else en.push(addr)
+  }
+  const groups: MailRecipientGroup[] = []
+  if (zh.length > 0) groups.push({ locale: 'zh', to: zh })
+  if (en.length > 0) groups.push({ locale: 'en', to: en })
+  return groups
+}
+
+/**
  * 邮件内不可用(收件端不可达)的原点形态:回环 / 内网私有段 / tauri 自定义协议。
  *
  * 2026-10-15 实测根因:生产 apps/api/.env 的

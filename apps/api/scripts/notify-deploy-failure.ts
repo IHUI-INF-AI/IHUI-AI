@@ -41,11 +41,11 @@ import {
   escapeHtml,
   renderSystemAlertEmail,
   brandResendFrom,
-  brandSmtpFrom,
   defaultAlertTitle,
-  extractMailAddress,
-  localeForRecipient,
+  groupRecipientsByLocale,
+  resolveBrandSmtpFrom,
   type MailLocale,
+  type MailRecipientGroup,
 } from '../src/services/email-templates.js'
 import { finalizeEmailHtml, missingInlineImageAssets } from '../src/services/email-assets.js'
 import type { InlineImageAttachment } from '../src/services/email-assets.js'
@@ -66,8 +66,11 @@ const DEFAULT_SOURCE = 'github-actions/blue-green-deploy'
  * 此前这里是「智汇AI官方」,而 SMTP 侧 .env 写「智汇AI」、CI secrets 里又可能是别的形态 ⇒
  * 收件箱同时出现三种显示名。显示名现由 email-templates 的 BRAND_MAIL_DISPLAY_NAME 单点决定,
  * 本常量只保留"默认发件地址"这一层语义(仍可被 RESEND_FROM 覆盖地址段,显示名不可覆盖)。
+ *
+ * 值本身也由 brandResendFrom 生成,而不是手写整串:否则这里就成了全仓**唯一**一处
+ * 绕过品牌函数直接产出 From 的位置(空 RESEND_FROM 时走它),改品牌名时必漏。
  */
-const DEFAULT_RESEND_FROM = '智汇AI <IHUI-AI@aizhs.top>'
+const DEFAULT_RESEND_FROM = brandResendFrom('IHUI-AI@aizhs.top')
 const RESEND_ENDPOINT = 'https://api.resend.com/emails'
 
 /**
@@ -410,14 +413,12 @@ function composeMessage(parts: MessageParts): string {
  *   里的地址,但它与 SMTP_USER 不一致时回落到 SMTP_USER;
  * - 显示名不接受配置覆盖(2026-11-10):此前 `SMTP_FROM` 里的显示名会被整串采用,而它在
  *   .env / CI secrets / 代码默认里各有一份 ⇒ 同一个品牌在收件箱里长出三种名字。
+ *
+ * 判据本体已上移到 email-templates 的 `resolveBrandSmtpFrom`(2026-11-10 二次收敛):事务邮件
+ * 出口与中继余额通知各自也拼 From,三条腿各写一份必然漂移,故这里只保留参数适配。
  */
 function resolveSmtpFrom(smtpFrom: string | undefined, smtpUser: string): string {
-  const user = smtpUser.trim()
-  const configuredAddr = extractMailAddress(smtpFrom ?? '')
-  const addr = configuredAddr !== '' && configuredAddr.toLowerCase() === user.toLowerCase()
-    ? configuredAddr
-    : user
-  return brandSmtpFrom(addr)
+  return resolveBrandSmtpFrom(smtpFrom, smtpUser)
 }
 
 /** Resend 通道 From:同一品牌显示名,地址段沿用配置(缺省用内置地址)。 */
@@ -490,30 +491,14 @@ function renderAlertEmail(input: AlertRenderInput): RenderedMail {
   }
 }
 
-interface RecipientGroup {
-  locale: MailLocale
-  to: string[]
-}
-
 /**
  * 按收件人域名分组:国内主流邮箱 → zh,其余 → en。
  *
- * 为什么必须分组而不是"选一个主语言":一封邮件只有一种语言,混合收件人时无论选哪边,
- * 另一边都会收到看不懂的邮件 —— 而"给国外用户发英文"正是本次需求的一半。
- * 顺序固定 zh 在前:它是主语言,dry-run 与投递台账展示都取第一组。
+ * 判据本体已上移到 email-templates 的 `groupRecipientsByLocale`(2026-11-10 二次收敛):
+ * 运行期告警通知服务(ops-watch / relay 规则 / 威胁告警)同样要按收件人语言分流,
+ * 两处各写一份必然在改域名表时漂开。本地只保留类型别名与转出,便于脚本测试直接 import。
  */
-function groupRecipientsByLocale(to: readonly string[]): RecipientGroup[] {
-  const zh: string[] = []
-  const en: string[] = []
-  for (const addr of to) {
-    if (localeForRecipient(addr) === 'zh') zh.push(addr)
-    else en.push(addr)
-  }
-  const groups: RecipientGroup[] = []
-  if (zh.length > 0) groups.push({ locale: 'zh', to: zh })
-  if (en.length > 0) groups.push({ locale: 'en', to: en })
-  return groups
-}
+type RecipientGroup = MailRecipientGroup
 
 interface MailPayload {
   from: string

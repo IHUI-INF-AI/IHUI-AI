@@ -124,6 +124,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # 2026-11-10 提速:Playwright 浏览器约 130MB 每次全量下载;版本由 pnpm-lock.yaml
+      # 钉死,lockfile 不变即命中缓存(key 含 runner.os 防跨系统污染)。
+      - name: Cache Playwright browsers
+        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('**/pnpm-lock.yaml') }}
+
       - name: Install Playwright browsers
         working-directory: apps/web
         run: pnpm exec playwright install --with-deps chromium

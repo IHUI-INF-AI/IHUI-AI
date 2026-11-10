@@ -7,10 +7,10 @@ import { logger } from '../utils/logger.js'
 import { renderNoticeEmail } from './email-templates.js'
 import {
   brandResendFrom,
-  brandSmtpFrom,
   DOMESTIC_EMAIL_DOMAINS,
   isDomesticEmail,
   BRAND_MAIL_DISPLAY_NAME,
+  resolveBrandSmtpFrom,
 } from './email-templates.js'
 import {
   finalizeEmailHtml,
@@ -364,8 +364,10 @@ async function sendViaSmtp(mail: OutgoingMail): Promise<SendEmailResult> {
       secure: config.SMTP_PORT === 465,
       auth: config.SMTP_USER ? { user: config.SMTP_USER, pass: config.SMTP_PASS } : undefined,
     })
-    // 显示名同样收敛成品牌名:SMTP_FROM 只决定地址段(见 email-templates 的 BRAND_MAIL_DISPLAY_NAME)
-    const from = brandSmtpFrom(config.SMTP_FROM || config.SMTP_USER)
+    // 显示名同样收敛成品牌名:SMTP_FROM 只决定地址段(见 email-templates 的 BRAND_MAIL_DISPLAY_NAME)。
+    // 地址段还必须与登录账号一致,否则 QQ 中继 550 拒信 —— 判据与告警派发器共用
+    // `resolveBrandSmtpFrom`,不在这里另写一份。
+    const from = resolveBrandSmtpFrom(config.SMTP_FROM, config.SMTP_USER)
     await transporter.sendMail({
       from,
       to: mail.to,
