@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import logging
 import random
-from typing import TypedDict
+from typing import Any, TypedDict
 
 from ..core.db_pool import get_shared_pool
 
@@ -92,7 +92,7 @@ class KeyPoolSelector:
             placeholder_key_reason,
         )
 
-        candidates: list[tuple[dict, str]] = []
+        candidates: list[tuple[dict[str, Any], str]] = []
         for row in rows:
             decrypted = _decrypt_api_key(row["api_key_enc"])
             reason = placeholder_key_reason(decrypted)
@@ -103,6 +103,15 @@ class KeyPoolSelector:
                     row["name"],
                     reason,
                     mask_api_key(decrypted),
+                )
+                continue
+            # 解不出来(AES 密钥轮换/数据损坏)与占位符同理:fail-closed 跳过,
+            # 不把 None 当明文 key 交给上游换一个 401。
+            if decrypted is None:
+                logger.warning(
+                    "[key_pool] 跳过无法解密的 key(key_pool_id=%s, name=%s) => 视为未配置",
+                    row["id"],
+                    row["name"],
                 )
                 continue
             candidates.append((row, decrypted))
