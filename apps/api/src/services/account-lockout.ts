@@ -69,6 +69,23 @@ function normalizeAccount(account: string): string {
   return account.trim().toLowerCase()
 }
 
+/**
+ * 免锁定账号名单(2026-11-11):逗号分隔,大小写不敏感,匹配用户名/邮箱/手机号任一标识。
+ * 典型用途:本地开发环境把机主自己的 admin 账号排除在"5 次失败锁 15 分钟"之外,
+ * 避免自己调试时被自己的安全策略锁死。生产通过环境变量留空即保持原有严格锁定。
+ */
+const LOCKOUT_EXEMPT_ACCOUNTS = new Set(
+  (process.env.AUTH_LOCKOUT_EXEMPT_ACCOUNTS ?? '')
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean),
+)
+
+function isLockoutExempt(account: string): boolean {
+  if (LOCKOUT_EXEMPT_ACCOUNTS.size === 0) return false
+  return LOCKOUT_EXEMPT_ACCOUNTS.has(normalizeAccount(account))
+}
+
 function fallbackKey(account: string, _ip: string): string {
   return `${normalizeAccount(account)}`
 }
@@ -106,6 +123,9 @@ function fallbackClearFailures(account: string, ip: string): void {
 
 /** 记录一次登录失败。返回剩余可重试次数;已达上限返回 0。 */
 export async function recordLoginFailure(account: string, ip: string): Promise<number> {
+  // 免锁定账号:既不计失败次数,也不置锁,剩余次数恒为满额。
+  if (isLockoutExempt(account)) return MAX_FAILURES
+
   const redis = getRedis()
   if (!redis) return fallbackRecordFailure(account, ip)
 
@@ -130,6 +150,8 @@ export async function recordLoginFailure(account: string, ip: string): Promise<n
 
 /** 查询账号/IP 是否被锁定。返回剩余锁定毫秒数,0 表示未锁。 */
 export async function getLockRemainingMs(account: string, ip: string): Promise<number> {
+  if (isLockoutExempt(account)) return 0
+
   const redis = getRedis()
   if (!redis) return fallbackGetLockRemainingMs(account, ip)
 
