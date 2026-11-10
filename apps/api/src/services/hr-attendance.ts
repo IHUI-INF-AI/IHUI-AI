@@ -6,6 +6,7 @@ import {
   eq,
   inArray,
   isNull,
+  ne,
   sql,
   count,
   gte,
@@ -206,9 +207,15 @@ export async function hrCheckOut(params: {
 
   if (row.status === 'leave' || row.status === 'absent') {
     // 优先级保护:leave/absent 不被签退洗回,只补 checkOutTime
+    // G-998153 出口形态:先取现值、按键比较,只有真变化才写(重复同值签退不再空转 updatedAt)。
+    const changed: Partial<typeof hrAttendanceRecord.$inferInsert> = {}
+    if (row.checkOutTime?.getTime() !== checkOutTime.getTime()) changed.checkOutTime = checkOutTime
+    if (row.checkOutMethod !== 'manual') changed.checkOutMethod = 'manual'
+    if (row.operatedBy !== operatedBy) changed.operatedBy = operatedBy
+    if (Object.keys(changed).length === 0) return { ok: true, record: row }
     const [updated] = await db
       .update(hrAttendanceRecord)
-      .set({ checkOutTime, checkOutMethod: 'manual', operatedBy, updatedAt: new Date() })
+      .set({ ...changed, updatedAt: new Date() })
       .where(eq(hrAttendanceRecord.id, row.id))
       .returning()
     if (!updated) throw new AppError('签退写入后回读失败', 500, 'INTERNAL')
@@ -222,9 +229,16 @@ export async function hrCheckOut(params: {
     checkInTime: row.checkInTime,
     checkOutTime,
   })
+  // G-998153 出口形态:同上,真变化才写。
+  const changed: Partial<typeof hrAttendanceRecord.$inferInsert> = {}
+  if (row.checkOutTime?.getTime() !== checkOutTime.getTime()) changed.checkOutTime = checkOutTime
+  if (row.checkOutMethod !== 'manual') changed.checkOutMethod = 'manual'
+  if (row.status !== status) changed.status = status
+  if (row.operatedBy !== operatedBy) changed.operatedBy = operatedBy
+  if (Object.keys(changed).length === 0) return { ok: true, record: row }
   const [updated] = await db
     .update(hrAttendanceRecord)
-    .set({ checkOutTime, checkOutMethod: 'manual', status, operatedBy, updatedAt: new Date() })
+    .set({ ...changed, updatedAt: new Date() })
     .where(eq(hrAttendanceRecord.id, row.id))
     .returning()
   if (!updated) throw new AppError('签退写入后回读失败', 500, 'INTERNAL')
@@ -404,9 +418,11 @@ export async function approveHrLeave(
     .returning()
   if (decision === 'approved') {
     // 覆盖区间内已有的 absent 记录为 leave(优先级高于 absent)
+    // G-998153 出口形态:WHERE 排除已是 leave 的行(同值空写不推进 updatedAt),真变化才写。
+    const changed: Partial<typeof hrAttendanceRecord.$inferInsert> = { status: 'leave' }
     await db
       .update(hrAttendanceRecord)
-      .set({ status: 'leave', updatedAt: new Date() })
+      .set({ ...changed, updatedAt: new Date() })
       .where(
         and(
           eq(hrAttendanceRecord.employeeId, leave.employeeId),
@@ -414,6 +430,7 @@ export async function approveHrLeave(
           sql`${hrAttendanceRecord.date} >= ${leave.startDate}::date`,
           sql`${hrAttendanceRecord.date} <= ${leave.endDate}::date`,
           isNull(hrAttendanceRecord.deletedAt),
+          ne(hrAttendanceRecord.status, 'leave'),
         ),
       )
   }

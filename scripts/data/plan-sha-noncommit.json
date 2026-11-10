@@ -4,14 +4,14 @@
     {
       "token": "29628c9",
       "kind": "external-revision",
-      "reason": "ZCode 上游 v3.14.3 冻结 revision 的 7 位缩写;全量 40 位在受版本控制的 config/zcode-absorption.json 的 upstream.revision(29628c9acdb81b703bbd4080c207a0e7ce5e276e,逐字前缀核符)。本仓对象库结构上不含上游对象,量算尺的『取不到』对它不构成出处腐烂。",
-      "reviewBy": "2026-11-07"
+      "reason": "ZCode 上游 v3.14.3 冻结 revision 的 7 位缩写;全量 40 位在受版本控制的 config/zcode-absorption.json 的 upstream.revision(29628c9acdb81b703bbd4080c207a0e7ce5e276e,逐字前缀核符)。本仓对象库结构上不含上游对象,量算尺的『取不到』对它不构成出处腐烂。2026-11-10 重新现量 git ls-remote:refs/tags/v3.14.3^{} 仍逐字等于 29628c9acdb81b703bbd4080c207a0e7ce5e276e(HEAD/main 已移至 a9fe401eede6e6e5e01be9048679c206fe6f02d9,冻结位不受影响),续期。",
+      "reviewBy": "2026-12-10"
     },
     {
       "token": "29628c9ac",
       "kind": "external-revision",
-      "reason": "同上:ZCode 上游冻结 revision 的 9 位缩写(@29628c9ac 形态),全量值在 config/zcode-absorption.json 的 upstream.revision。上游移动时本条随之过期,须重新现量 git ls-remote 后改写。",
-      "reviewBy": "2026-11-07"
+      "reason": "同上:ZCode 上游冻结 revision 的 9 位缩写(@29628c9ac 形态),全量值在 config/zcode-absorption.json 的 upstream.revision。上游移动时本条随之过期,须重新现量 git ls-remote 后改写。2026-11-10 重新现量:refs/tags/v3.14.3^{} 仍等于所钉 sha,冻结位未动(上游 main 前进至 a9fe401e 不构成过期),续期。",
+      "reviewBy": "2026-12-10"
     }
   ]
 }

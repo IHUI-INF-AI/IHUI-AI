@@ -406,7 +406,7 @@ function createStyles(tk: AppThemeTokens) {
     featureTag: {
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: rnSpacing['2xs'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: baseTokens.vip.gold,
       fontSize: rnType.caption.size,
       fontWeight: '600',
@@ -422,7 +422,7 @@ function createStyles(tk: AppThemeTokens) {
       marginHorizontal: rnSpacing.lg,
       marginBottom: rnSpacing.lg,
       padding: rnSpacing.lg,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -524,7 +524,7 @@ function createStyles(tk: AppThemeTokens) {
     buyBtn: {
       minWidth: 140,
       height: 46,
-      borderRadius: rnRadius.lg,
+      borderRadius: rnRadius.sm,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: baseTokens.vip.gold,
@@ -550,7 +550,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: rnCssLight.black50,
     },
     overlayCard: {
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.light,
       padding: rnSpacing.lg,
       maxHeight: '85%',

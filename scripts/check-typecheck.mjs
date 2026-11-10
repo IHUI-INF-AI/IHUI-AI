@@ -3,7 +3,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-
 /**
  * push 门全量 typecheck 包装(staged-scope 降级)。
  *
@@ -53,21 +52,34 @@ import { fileURLToPath } from 'node:url'
 import { readFileSync } from 'node:fs'
 // G-611:128+N 族码的集合/分类/产出侧全部住 scripts/lib/signal-exit.mjs —— 本文件的消费侧
 // 与两个被派生方的产出侧用**同一把尺子**,字面量集合在本文件不得再出现(镜像测试形状锁)。
-import {
-  classifySpawnOutcome,
-  installSignalExit,
-  TEMPFAIL_EXIT_CODE,
-} from './lib/signal-exit.mjs'
+import { classifySpawnOutcome, installSignalExit, TEMPFAIL_EXIT_CODE } from './lib/signal-exit.mjs'
 // 未判定判据的唯一实现住 gate-failure-kind(exit 2 + 未判定标记),本文件只消费。
 // 机器级锁等不到时 typecheck-full 以 exit 2 交付「未判定(并发占用)」,必须原样透传:
 // 下方的 staged-scope 降级与「退出码非 0 但没解析到报错文件 ⇒ 按失败处理」都会把它折成红。
 import { detectUndetermined, UNDETERMINED_EXIT_CODE } from './lib/gate-failure-kind.mjs'
-import { formatDuration, formatSummaryLine, readTimings, summarizeTimings } from './lib/typecheck-timing.mjs'
+import {
+  formatDuration,
+  formatSummaryLine,
+  readTimings,
+  summarizeTimings,
+} from './lib/typecheck-timing.mjs'
 // G-406 ②:反向依赖闭包的门 103 已有那份文件级图(边解析只有这一份实现),
 // 本门只**消费** lib 的反向依赖闭包判据,不自己再实现一遍边判定(2026-10-18 L14546 后,
 // 通用判据 widenFilesOverDependents 已提升到 lib,本门固定 face='worktree' 薄封装)。
 import { buildFileGraph, widenFilesOverDependents } from './lib/import-graph.mjs'
 import { gitRaw } from './lib/face-reader.mjs'
+// T1 长期票(2026-11-10 落地):全量结论按 tree-sha 落盘为回执,推送门只读近期结论。
+// 判据本体不变 —— 回执只替代「重新 spawn tsc」,降级/未判定/超时口径全部沿用现有实现重算。
+import {
+  RECEIPT_REL,
+  RECEIPT_SCHEMA_V,
+  RECEIPT_WRITER,
+  readReceipt,
+  receiptDisabled,
+  receiptTtlMs,
+  receiptUsable,
+  writeReceipt,
+} from './lib/typecheck-receipt.mjs'
 // T1 超时预算**不设第二本账**(2026-11-08 裁决):唯一取数处 = land-gate-budgets.json
 // (DG-06,执行器看门狗与落地复跑共用)。本门只校验 T1 那一行的证据链,见下方 enforceT1BudgetEntry。
 
@@ -93,7 +105,9 @@ function enforceT1BudgetEntry() {
   try {
     raw = JSON.parse(readFileSync(abs, 'utf8'))
   } catch (e) {
-    console.error(`[check-typecheck] ❌ 读不到/解析不了 ${BUDGET_REL} —— 拒绝回落默认阈值: ${e.message}`)
+    console.error(
+      `[check-typecheck] ❌ 读不到/解析不了 ${BUDGET_REL} —— 拒绝回落默认阈值: ${e.message}`,
+    )
     process.exit(1)
   }
   const row = (Array.isArray(raw?.gates) ? raw.gates : []).find((g) => g?.script === T1_GATE_SCRIPT)
@@ -102,7 +116,8 @@ function enforceT1BudgetEntry() {
     problems.push(`表中没有 ${T1_GATE_SCRIPT} 的登记行`)
   } else {
     for (const k of ['timeoutMs', 'measuredMs']) {
-      if (!Number.isFinite(Number(row[k])) || Number(row[k]) <= 0) problems.push(`${k} 缺失或非正数`)
+      if (!Number.isFinite(Number(row[k])) || Number(row[k]) <= 0)
+        problems.push(`${k} 缺失或非正数`)
     }
     if (typeof row.measuredAt !== 'string' || !row.measuredAt) problems.push('measuredAt 缺失')
     if (typeof row.note !== 'string' || !row.note) problems.push('note(凭什么给这个阈值)缺失')
@@ -110,7 +125,8 @@ function enforceT1BudgetEntry() {
       const measured = Number(row.measuredMs)
       const timeout = Number(row.timeoutMs)
       if (timeout < measured) problems.push(`timeoutMs ${timeout} 低于实测 ${measured}(门会误杀)`)
-      if (timeout > 3 * measured) problems.push(`timeoutMs ${timeout} 超过 3×实测 ${measured}(放水超上限)`)
+      if (timeout > 3 * measured)
+        problems.push(`timeoutMs ${timeout} 超过 3×实测 ${measured}(放水超上限)`)
     }
   }
   if (problems.length === 0) return
@@ -302,33 +318,52 @@ if (SELF_TEST) {
     }
   }
 
-  const stagedWeb = ['apps/web/app/sitemap.ts', 'apps/web/src/components/sidebar/SidebarActions.tsx']
+  const stagedWeb = [
+    'apps/web/app/sitemap.ts',
+    'apps/web/src/components/sidebar/SidebarActions.tsx',
+  ]
   const sampleNoise = [
-    'apps/web: src/components/OtherBroken.tsx(12,5): error TS1005: \';\' expected.',
-    'packages/ui/src/Unfinished.tsx(3,1): error TS1005: \',\' expected.',
+    "apps/web: src/components/OtherBroken.tsx(12,5): error TS1005: ';' expected.",
+    "packages/ui/src/Unfinished.tsx(3,1): error TS1005: ',' expected.",
     'apps/api: src/routes/x.ts(1,1): error TS1128: Declaration or statement expected.',
   ].join('\n')
-  const sampleStagedErr = 'apps/web: src/components/sidebar/SidebarActions.tsx(8,3): error TS2322: Type \'string\' is not assignable to type \'number\'.'
-  const sampleAbs = 'G:/IHUI-AI/apps/api/src/routes/other.ts(1,1): error TS1005: \';\' expected.'
-  const sampleMypy = 'apps/ai-service/app/routers/broken.py:12: error: Name "x" is not defined  [name-defined]'
+  const sampleStagedErr =
+    "apps/web: src/components/sidebar/SidebarActions.tsx(8,3): error TS2322: Type 'string' is not assignable to type 'number'."
+  const sampleAbs = "G:/IHUI-AI/apps/api/src/routes/other.ts(1,1): error TS1005: ';' expected."
+  const sampleMypy =
+    'apps/ai-service/app/routers/broken.py:12: error: Name "x" is not defined  [name-defined]'
 
   const efNoise = extractErrorFiles(sampleNoise)
-  console.log(`[self-test] 样例1(全噪音,pnpm 包前缀) 解析到 ${efNoise.length} 个报错文件: ${efNoise.join(', ')}`)
+  console.log(
+    `[self-test] 样例1(全噪音,pnpm 包前缀) 解析到 ${efNoise.length} 个报错文件: ${efNoise.join(', ')}`,
+  )
   assert(efNoise.length === 3, '样例1 解析数量应为 3')
   assert(efNoise[0] === 'src/components/OtherBroken.tsx', '样例1 包前缀 "apps/web: " 不应混入捕获')
 
   const efStaged = extractErrorFiles(sampleStagedErr)
-  assert(isPathInStaged(efStaged[0], stagedWeb), '样例2 staged 文件报错(package 相对路径)应命中暂存区(正向后缀匹配)')
+  assert(
+    isPathInStaged(efStaged[0], stagedWeb),
+    '样例2 staged 文件报错(package 相对路径)应命中暂存区(正向后缀匹配)',
+  )
   assert(!shouldDegrade(efStaged, stagedWeb), '样例2 存在暂存文件报错 → 不应降级')
 
   const efAbs = extractErrorFiles(sampleAbs)
   console.log(`[self-test] 样例3(Windows 绝对路径) 解析到: ${efAbs[0]}`)
-  assert(efAbs[0] === 'G:/IHUI-AI/apps/api/src/routes/other.ts', '样例3 绝对路径应被完整捕获(冒号不被截断)')
-  assert(isPathInStaged(efAbs[0], ['apps/api/src/routes/other.ts']), '样例3 绝对路径应可反向匹配 repo 相对暂存路径')
+  assert(
+    efAbs[0] === 'G:/IHUI-AI/apps/api/src/routes/other.ts',
+    '样例3 绝对路径应被完整捕获(冒号不被截断)',
+  )
+  assert(
+    isPathInStaged(efAbs[0], ['apps/api/src/routes/other.ts']),
+    '样例3 绝对路径应可反向匹配 repo 相对暂存路径',
+  )
 
   const efMypy = extractErrorFiles(sampleMypy)
   console.log(`[self-test] 样例4(mypy 格式) 解析到: ${efMypy[0]}`)
-  assert(efMypy.length === 1 && efMypy[0] === 'apps/ai-service/app/routers/broken.py', '样例4 mypy 格式应可解析')
+  assert(
+    efMypy.length === 1 && efMypy[0] === 'apps/ai-service/app/routers/broken.py',
+    '样例4 mypy 格式应可解析',
+  )
 
   assert(shouldDegrade(efNoise, stagedWeb), '样例5 全部报错不在暂存区 → 应降级')
   assert(!shouldDegrade(efNoise, []), '样例6 暂存区为空 → 不应降级')
@@ -356,7 +391,10 @@ if (SELF_TEST) {
     '样例10 报错文件落在 push-scope 内 → 不应降级(维持阻塞,宁可误拦)',
   )
   process.env.PUSH_SCOPE_FILES = ''
-  assert(getScopeFiles().source !== 'push-scope', '样例11 PUSH_SCOPE_FILES 为空 → 应回退暂存区/不可用判据')
+  assert(
+    getScopeFiles().source !== 'push-scope',
+    '样例11 PUSH_SCOPE_FILES 为空 → 应回退暂存区/不可用判据',
+  )
   // 样例12(2026-09-03):Next.js 路由组 (main) 路径 —— 原正则排除括号会截断路径,
   // 使范围内文件匹配不上而误放行(不安全方向),现应完整捕获。
   const efParen = extractErrorFiles(
@@ -376,7 +414,10 @@ if (SELF_TEST) {
   // 票面验收的"父侧读到 143 判临时失败"在这里以纯函数臂成立,进程臂见
   // scripts/tests/signal-exit.test.mjs(真派生子进程产出 143 再由父侧分类)。
   const cls13 = (over) => classifySpawnOutcome({ status: null, signal: null, ...over })
-  assert(cls13({ status: 143 }).kind === 'interrupt', '样例13a exit 143 ⇒ interrupt(父侧读到产出码,被杀 ≠ 结论)')
+  assert(
+    cls13({ status: 143 }).kind === 'interrupt',
+    '样例13a exit 143 ⇒ interrupt(父侧读到产出码,被杀 ≠ 结论)',
+  )
   assert(
     cls13({ status: 143 }).exitCode === TEMPFAIL_EXIT_CODE,
     '样例13b interrupt ⇒ exit 75(临时失败,可带 hook 重试)',
@@ -466,8 +507,8 @@ if (SELF_TEST) {
 
   // 样例19(2026-11-04):无文件面档 —— 只认「flag=1 + 依据」这一对值,缺依据不得启用。
   assert(
-    noFileFaceVerdict({ PUSH_NO_FILE_FACE: '1', PUSH_NO_FILE_FACE_BASIS: 'push refs=1 条全部删除' })?.ok ===
-      true,
+    noFileFaceVerdict({ PUSH_NO_FILE_FACE: '1', PUSH_NO_FILE_FACE_BASIS: 'push refs=1 条全部删除' })
+      ?.ok === true,
     '样例19a flag=1 且带依据 ⇒ 启用无文件面档',
   )
   assert(
@@ -654,7 +695,9 @@ if (DRY_RUN) {
           : '全量门'
     }`,
   )
-  console.log(`[check-typecheck] 将运行命令: ${_dryFast ? `pnpm --filter ${_dryFast.name} run typecheck(定向快速通道:改动全部位于 apps/${_dryFast.app})` : 'node scripts/typecheck-full.mjs (等价 pnpm typecheck:full)'}`)
+  console.log(
+    `[check-typecheck] 将运行命令: ${_dryFast ? `pnpm --filter ${_dryFast.name} run typecheck(定向快速通道:改动全部位于 apps/${_dryFast.app})` : 'node scripts/typecheck-full.mjs (等价 pnpm typecheck:full)'}`,
+  )
   process.exit(0)
 }
 
@@ -766,7 +809,6 @@ function resolveFastScopeApp(files) {
   return { app, name: pkg.name || app }
 }
 
-
 // ─── 主流程第一档:无 TS 输入面 ──────────────────────────────────────
 // 判定在 --dry-run 之前(见上方),这里只负责出口。顺序必须在快通道之前:
 // 快通道是「整 app 全量 tsc」,对本档这种"一个 TS 文件都没碰"的面同样是白跑。
@@ -804,7 +846,9 @@ if (_fast) {
   // 不抑制任何报错 —— 只是把"类型结论该拿哪一面的产物"补回与全量通道一致。
   // 失败出口(2026-11-06 裁决):前置只负责"把输入面准备好",拿不到就**未判定 exit 2** ——
   // 不许 exit 0(旧产物下结论),也不许沿用 build 的 1(把 build 失败冒充成"类型红";上层会当已入库红追责)。
-  console.log('[check-typecheck] 陈旧 dist 前置:node typecheck-full.mjs --preflight-only(与全量通道同一份实现)')
+  console.log(
+    '[check-typecheck] 陈旧 dist 前置:node typecheck-full.mjs --preflight-only(与全量通道同一份实现)',
+  )
   const _pf = spawnSync(
     process.execPath,
     [resolve(__dirname, 'typecheck-full.mjs'), '--preflight-only'],
@@ -825,10 +869,17 @@ if (_fast) {
     )
     process.exit(2)
   }
-  const _pfOutcome = classifySpawnOutcome({ status: _pf.status ?? null, signal: _pf.signal ?? null })
+  const _pfOutcome = classifySpawnOutcome({
+    status: _pf.status ?? null,
+    signal: _pf.signal ?? null,
+  })
   if (_pfOutcome.kind === 'interrupt') {
-    console.error(`[check-typecheck] ⚠️ 陈旧 dist 前置重建被中断(${_pfOutcome.reason}),非类型检查结论`)
-    console.error(`[check-typecheck] ⏭️ 按临时失败处理(exit ${TEMPFAIL_EXIT_CODE})—— push 侧将带 hook 重试以获取真实结论`)
+    console.error(
+      `[check-typecheck] ⚠️ 陈旧 dist 前置重建被中断(${_pfOutcome.reason}),非类型检查结论`,
+    )
+    console.error(
+      `[check-typecheck] ⏭️ 按临时失败处理(exit ${TEMPFAIL_EXIT_CODE})—— push 侧将带 hook 重试以获取真实结论`,
+    )
     process.exit(TEMPFAIL_EXIT_CODE)
   }
   if (_pf.status !== 0) {
@@ -870,13 +921,22 @@ if (_fast) {
   // 归 75 让 push 侧带 hook 重试;有结论的失败(如 exit 2)照旧落到下面的降级判定。
   const fastOutcome = classifySpawnOutcome({ status: r.status ?? null, signal: r.signal ?? null })
   if (fastOutcome.kind === 'interrupt') {
-    console.error(`[check-typecheck] ⚠️ apps/${_fast.app} 定向 typecheck 被中断(${fastOutcome.reason}),非类型检查结论`)
-    console.error(`[check-typecheck] ⏭️ 按临时失败处理(exit ${TEMPFAIL_EXIT_CODE})—— push 侧将带 hook 重试以获取真实结论`)
+    console.error(
+      `[check-typecheck] ⚠️ apps/${_fast.app} 定向 typecheck 被中断(${fastOutcome.reason}),非类型检查结论`,
+    )
+    console.error(
+      `[check-typecheck] ⏭️ 按临时失败处理(exit ${TEMPFAIL_EXIT_CODE})—— push 侧将带 hook 重试以获取真实结论`,
+    )
     process.exit(TEMPFAIL_EXIT_CODE)
   }
   // 与全量路径同源的 scope 降级判定(EXTRACT_ERROR_FILES/shouldDegrade 见下方全量分支)
   const fastErrorFiles = extractErrorFiles(`${_fout}\n${_ferr}`)
-  if (scopeDegradeOk && scopeEnabled && fastErrorFiles.length > 0 && shouldDegrade(fastErrorFiles, scopeFiles)) {
+  if (
+    scopeDegradeOk &&
+    scopeEnabled &&
+    fastErrorFiles.length > 0 &&
+    shouldDegrade(fastErrorFiles, scopeFiles)
+  ) {
     console.log('')
     console.log(
       `ℹ️ apps/${_fast.app} 定向 typecheck 的 ${fastErrorFiles.length} 个报错文件均不在本次改动范围(${scopeLabel},属并行会话噪音),降级为警告`,
@@ -894,6 +954,61 @@ if (_fast) {
   process.exit(r.status ?? 1)
 }
 
+// ─── 全量档前置:近期结论回执命中即不再 spawn tsc(T1 长期票) ────────────────
+// 键 = `git write-tree`(索引面树 sha)。树没变 ⇒ tsc 的输入集合没变 ⇒ 结论必然不变;
+// 降级判据依赖的「本次范围」每次照常重算,回执只缓存原始结论面(exitCode + 报错文件清单)。
+// 失效方向安全:tree sha 取不到 / 回执缺失或结构非法 / 超 TTL / 显式关闭 ⇒ 一律回落实跑。
+const _receiptAbs = join(ROOT, RECEIPT_REL)
+let _treeSha = null
+try {
+  _treeSha = String(gitRaw(['write-tree'], ROOT) || '').trim() || null
+} catch {
+  _treeSha = null
+}
+const _receiptOn = !_treeSha ? false : !receiptDisabled()
+if (_receiptOn) {
+  const _rc = readReceipt(_receiptAbs)
+  const _usable = receiptUsable(_rc, {
+    treeSha: _treeSha,
+    nowMs: Date.now(),
+    ttlMs: receiptTtlMs(),
+  })
+  if (_usable.ok) {
+    console.log(
+      `[check-typecheck] ♻️ 命中近期全量结论(${_usable.reason},exit ${_rc.exitCode})⇒ 不再 spawn tsc`,
+    )
+    console.log('[check-typecheck] 判据未放宽:报错文件清单按本次改动范围重新走同一条降级判定。')
+    if (_rc.exitCode === 0) {
+      console.log('[check-typecheck] ✅ 全量 typecheck 验证通过(近期结论回放)')
+      process.exit(0)
+    }
+    const _rf = _rc.errorFiles
+    if (scopeDegradeOk && scopeEnabled && _rf.length > 0 && shouldDegrade(_rf, scopeFiles)) {
+      console.log('')
+      console.log(
+        `ℹ️ 全部报错文件均不在本次改动范围(${scopeLabel},属并行会话工作区噪音),降级为警告`,
+      )
+      console.log(`ℹ️ 解析到报错文件共 ${_rf.length} 个(样例前 20 个):`)
+      for (const f of _rf.slice(0, 20)) console.log(`   - ${f}`)
+      console.log('ℹ️ 判定:本次 push 放行(exit 0);报错文件的类型修复由其所属会话负责')
+      console.log('[IHUI-SCOPE-DEGRADE] 全部报错文件均不在本次推送范围,降级为警告(exit 0)')
+      process.exit(0)
+    }
+    if (scopeEnabled && _rf.length > 0) {
+      const _in = _rf.filter((f) => isPathInStaged(f, scopeFiles))
+      if (_in.length > 0) {
+        console.log(
+          `ℹ️ ${_in.length}/${_rf.length} 个报错文件在本次改动范围内,维持失败(样例前 20 个):`,
+        )
+        for (const f of _in.slice(0, 20)) console.log(`   - ${f}`)
+      }
+    }
+    console.error(`❌ 全量 typecheck 失败(近期结论回放,exit ${_rc.exitCode}),推送已阻止`)
+    process.exit(_rc.exitCode)
+  }
+  console.log(`[check-typecheck] ℹ️ 回执未命中:${_usable.reason} ⇒ 现跑全量`)
+}
+
 console.log(
   `[check-typecheck] 运行全量 typecheck(node scripts/typecheck-full.mjs,实时透传输出)${scopeEnabled ? ` [${scopeLabel} 降级启用,${scopeFiles.length} 文件(原始 ${scopeFilesRaw.length} + 反向依赖新增 ${_widen.added.length})]` : ' [无可判定改动范围,无降级]'}...`,
 )
@@ -905,6 +1020,19 @@ if (_widen.widened) {
 
 let out = ''
 let err = ''
+const _fullT0 = Date.now()
+const _writeReceipt = (exitCode, errorFiles) => {
+  if (!_treeSha) return
+  writeReceipt(_receiptAbs, {
+    v: RECEIPT_SCHEMA_V,
+    treeSha: _treeSha,
+    finishedAt: Date.now(),
+    exitCode,
+    errorFiles,
+    writer: RECEIPT_WRITER,
+    measuredMs: Date.now() - _fullT0,
+  })
+}
 const child = spawn(process.execPath, [resolve(__dirname, 'typecheck-full.mjs')], {
   cwd: ROOT,
   stdio: ['ignore', 'pipe', 'pipe'],
@@ -930,8 +1058,12 @@ const timeoutTimer = setTimeout(() => {
   console.error('   1. worktree 各包缺 node_modules —— tsc 解析不到 workspace 依赖而静默长耗时')
   console.error('      修法(见 skills/ihui-worktree-parallel-dev §2):给 apps/*、packages/* 各包')
   console.error('      逐个建 node_modules junction 指向主仓同名目录')
-  console.error('   2. .ihui-agent/state/typecheck.lock 被僵死进程持有 —— rm -rf .ihui-agent/state/typecheck.lock')
-  console.error('   3. pnpm -r 进程树递归 —— 复核 scripts/typecheck-full.mjs 的再入守卫 env 是否生效')
+  console.error(
+    '   2. .ihui-agent/state/typecheck.lock 被僵死进程持有 —— rm -rf .ihui-agent/state/typecheck.lock',
+  )
+  console.error(
+    '   3. pnpm -r 进程树递归 —— 复核 scripts/typecheck-full.mjs 的再入守卫 env 是否生效',
+  )
   console.error(
     '[check-typecheck] ⏭️ 按「环境挂起」处理(exit 1):不等第二次带 hook 重试,push guard 将直接降级重推',
   )
@@ -974,6 +1106,7 @@ child.on('close', (code, signal) => {
     process.exit(1)
   }
   if (outcome.kind === 'pass') {
+    _writeReceipt(0, [])
     console.log('[check-typecheck] ✅ 全量 typecheck 验证通过')
     process.exit(0)
   }
@@ -1001,6 +1134,9 @@ child.on('close', (code, signal) => {
 
   // 2026-08-31:staged-scope 降级判定(改动原因见文件头注释)
   const errorFiles = extractErrorFiles(`${out}\n${err}`)
+  // 有结论的失败(解析到报错文件)也落回执:下次同树推送直接回放失败清单,不再白跑 20 分钟。
+  // 「非 0 但零报错文件」= 环境故障,不是类型结论,不落盘。
+  if (errorFiles.length > 0) _writeReceipt(code ?? 1, errorFiles)
   if (scopeDegradeOk && scopeEnabled && shouldDegrade(errorFiles, scopeFiles)) {
     console.log('')
     console.log(`ℹ️ 全部报错文件均不在本次改动范围(${scopeLabel},属并行会话工作区噪音),降级为警告`)
@@ -1016,19 +1152,25 @@ child.on('close', (code, signal) => {
   if (scopeEnabled && errorFiles.length > 0) {
     const inScope = errorFiles.filter((f) => isPathInStaged(f, scopeFiles))
     if (inScope.length > 0) {
-      console.log(`ℹ️ ${inScope.length}/${errorFiles.length} 个报错文件在本次改动范围内,维持失败(样例前 20 个):`)
+      console.log(
+        `ℹ️ ${inScope.length}/${errorFiles.length} 个报错文件在本次改动范围内,维持失败(样例前 20 个):`,
+      )
       for (const f of inScope.slice(0, 20)) console.log(`   - ${f}`)
     }
   }
   if (scopeEnabled && errorFiles.length === 0) {
-    console.log('ℹ️ 退出码非 0 但未解析到任何报错文件路径(tsc 未能真正运行/环境故障),按失败处理(§22b)')
+    console.log(
+      'ℹ️ 退出码非 0 但未解析到任何报错文件路径(tsc 未能真正运行/环境故障),按失败处理(§22b)',
+    )
   }
   console.error(`❌ 全量 typecheck 失败,推送已阻止(exit ${code ?? 1})`)
   process.exit(code ?? 1)
 })
 
 child.on('error', (e) => {
-  console.error(`[check-typecheck] ❌ 无法启动 typecheck 进程: ${e.message}(按失败处理,禁止静默通过)`)
+  console.error(
+    `[check-typecheck] ❌ 无法启动 typecheck 进程: ${e.message}(按失败处理,禁止静默通过)`,
+  )
   process.exit(1)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -228,7 +228,7 @@ const styles = StyleSheet.create({
     fontSize: rnType.body.size,
     color: tokens.text.primary,
     backgroundColor: tokens.surface.muted,
-    borderRadius: rnRadius.md,
+    borderRadius: rnRadius.sm,
     borderWidth: 1,
     borderColor: tokens.border.light,
     paddingHorizontal: rnSpacing['sm-loose'],

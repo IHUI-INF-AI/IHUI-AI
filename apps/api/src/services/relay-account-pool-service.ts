@@ -37,6 +37,7 @@ import {
   extractUid,
   foreignPassthroughMetadata,
   isFullPhone,
+  isRelayProviderCode,
   normalizeCredentialValue,
   normalizeForeignAccountShape,
   parseFlexibleExpiry,
@@ -46,7 +47,6 @@ import {
   resolveOverwriteRefresh,
   resolveRelayAccountName,
   resolveRelayCredentialSlots,
-  isRelayProviderCode,
   type RelayAccountNameDecision,
   type RelayAccountNameFallback,
   type RelayAccountNameSource,
@@ -216,13 +216,15 @@ function parseJwkValue(v: unknown): Record<string, unknown> | null {
  */
 function mapCodeartsImport(acc: ImportAccountInput): CodeartsImportMapping | null {
   const a = acc as Record<string, unknown>
-  // 凭据落点单源在 relay-account-format 的槽位表(STS 票 / AK / SK 三槽全命中才算一条)
+  // 凭据落点单源在 relay-account-format 的槽位表:STS 票 / AK / SK 三槽,票槽可选。
+  // 永久访问密钥形态(2026-11-10):AK+SK 两槽非空即完整,票槽缺省 ⇒ token 落空串,
+  // 与库里已切永久密钥的行(tokenEnc=encryptField(''))同形,导出-重导闭环走得通。
   const { hits } = resolveRelayCredentialSlots(a, 'codearts')
   const sts = hits[0]
   const ak = hits[1]
   const sk = hits[2]
-  if (!sts || !ak || !sk) return null
-  const token = sts.value
+  if (!ak || !sk) return null
+  const token = sts?.value ?? ''
   const accessKeyId = ak.value
   const secretAccessKey = sk.value
 
@@ -717,7 +719,9 @@ export function resolveImportAccountUid(
   if (!recognizeImportShape(providerCode, acc).importable) return null
   const mapped = mapImportedAccount(providerCode, acc)
   const token = normalizeCredentialValue(mapped ? mapped.token : acc.token) ?? ''
-  if (!token) return null
+  // CodeArts 永久密钥形态(2026-11-10):票槽缺位 ⇒ token 为空,uid 取 account.id/user_id,
+  // 不依赖 token ⇒ 空票也推得出落库口径键(闸门已过 = AK+SK 两槽非空命中)
+  if (!token && !(providerCode === 'codearts' && mapped)) return null
   return uidFromImportPayload(mapped, acc.uid, token)
 }
 
@@ -901,7 +905,10 @@ export async function importAccounts(
         extraPhoneCandidates: [typeof prefClaim === 'string' ? prefClaim : null],
       })
       displayName = naming.name
-      if (!token) {
+      // CodeArts 永久密钥形态(2026-11-10):闸门已过(AK+SK 非空)而票为空 = 合法空 token 行,
+      // 落 tokenEnc=encryptField('') 与库里现状同形;其余平台空凭据仍照常拒收。
+      const permanentCodearts = providerCode === 'codearts' && mapped !== null && token === ''
+      if (!token && !permanentCodearts) {
         result.failed++
         pushItem(naming, {
           index: i,
@@ -1746,9 +1753,291 @@ export function decryptAccountCredentials(row: AiRelayAccountPool): AccountCrede
 }
 
 // =============================================================================
-// 个人号池 → 对话模型清单(2026-11-10 立)
+// 导出侧逆向映射(2026-11-10 立,scripts/relay-account-export.ts 的纯逻辑内核)
+//
+// 库列 → 各平台原生导入载荷:键位全部取自 mapXxxImport 的取值键与
+// RELAY_IMPORT_CREDENTIAL_SLOTS(单源,不发明第二份键位)。载荷过 Web 导入端点
+// (POST /admin/relay/accounts/import,强制落登录管理员个人池)重导后,必须逐字
+// 复现原行的 (uid, name) —— buildExportPayload + validateExportRoundTrip 就是
+// 导出脚本写文件前的硬校验判据(零 DB,可单测)。
 // =============================================================================
 
+/**
+ * Web 路由结构闸门的镜像判据(尺子在 routes/admin/relay-account-pool.ts L122-138,
+ * 该处常量未导出;此处镜像只为"导出即可导入"预检,不改语义)。
+ * 只报键名/尺寸,绝不报值。
+ */
+const EXPORT_ROUTE_KEY_NAME_RE = /^[A-Za-z0-9_:.@\-[\]]{1,128}$/
+const EXPORT_ROUTE_MAX_KEYS = 64
+const EXPORT_ROUTE_MAX_STRING = 8192
+const EXPORT_ROUTE_FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
+
+export function exportRouteStructureIssue(payload: Record<string, unknown>): string | null {
+  const keys = Object.keys(payload)
+  if (keys.length === 0) return '载荷是空对象'
+  if (keys.length > EXPORT_ROUTE_MAX_KEYS)
+    return `字段数超上限(${keys.length} > ${EXPORT_ROUTE_MAX_KEYS})`
+  for (const key of keys) {
+    if (EXPORT_ROUTE_FORBIDDEN_KEYS.has(key) || !EXPORT_ROUTE_KEY_NAME_RE.test(key))
+      return `字段名过不了路由白名单: ${key.slice(0, 40)}`
+  }
+  const oversize = (v: unknown, depth: number): string | null => {
+    if (typeof v === 'string') return v.length > EXPORT_ROUTE_MAX_STRING ? 'string超长' : null
+    if (depth > 6) return null
+    if (Array.isArray(v)) {
+      for (const item of v) {
+        const r = oversize(item, depth + 1)
+        if (r) return r
+      }
+      return null
+    }
+    if (v !== null && typeof v === 'object') {
+      for (const [k, item] of Object.entries(v as Record<string, unknown>)) {
+        const r = oversize(item, depth + 1)
+        if (r) return `${k}.${r}`
+      }
+    }
+    return null
+  }
+  for (const key of keys) {
+    const r = oversize(payload[key], 1)
+    if (r) return `字段 ${key} ${r}(>${EXPORT_ROUTE_MAX_STRING})`
+  }
+  return null
+}
+
+/**
+ * 名称保真:库里统一名要么是手机号(全号/掩码),要么是当时的载荷名/平台映射名。
+ * 载荷按 PHONE/NAME 键位回填:手机号形态放顶层 `phone`(12 平台 PHONE_KEYS 都认),
+ * 其余放顶层 `name`(各平台 NAME_KEYS 均含 name,payload-name 压过平台映射名)⇒ 重导同名。
+ */
+function applyExportNameFidelity(base: Record<string, unknown>, row: AiRelayAccountPool): void {
+  const name = row.name ?? ''
+  if (isFullPhone(name) || detectPhoneMask(name) !== null) base['phone'] = name
+  else if (name) base['name'] = name
+}
+
+/** 非凭据透传:keepAliveForever=false(=true 时缺省由导入侧默认登记自然复现)、email 族 */
+function applyExportExtraFidelity(base: Record<string, unknown>, row: AiRelayAccountPool): void {
+  const extra = (row.extraMetadata ?? {}) as Record<string, unknown>
+  if (extra['keepAliveForever'] === false) base['keepAliveForever'] = false
+  for (const k of ['email', 'emailSource']) {
+    const v = cstr(extra[k])
+    if (v) base[k] = v
+  }
+}
+
+/**
+ * 单行 → 导入载荷。返回载荷对象;返回字符串 = 该行不可导出(拒出原因,不含凭据值)。
+ * 公共保真键(uid/name/deviceId/enabled/keepAlive)最后落:zcode/lingma 摊平的
+ * 原始键不得覆盖确定性回填。
+ */
+export function buildExportPayload(
+  row: AiRelayAccountPool,
+  creds: AccountCredentials,
+): Record<string, unknown> | string {
+  const p = row.providerCode as RelayProviderCode
+  const s = creds.secrets
+  const base: Record<string, unknown> = {}
+
+  switch (p) {
+    case 'trae':
+    case 'workbuddy': {
+      base['token'] = creds.token
+      if (creds.refreshToken) base['refreshToken'] = creds.refreshToken
+      if (creds.cookies.length > 0) base['cookies'] = creds.cookies
+      // trae 设备材料/模板键(mapTraeImport 存进 secretsEnc 的键位逆向回填)
+      for (const k of [
+        'deviceKeyPem',
+        'devicePubPem',
+        'sessionTemplate',
+        'sealedPaths',
+        'edition',
+      ]) {
+        const v = s[k]
+        if (v !== null && v !== undefined) base[k] = v
+      }
+      break
+    }
+    case 'qoder': {
+      base['token'] = creds.token
+      if (creds.refreshToken) base['refreshToken'] = creds.refreshToken
+      if (creds.cookies.length > 0) base['cookies'] = creds.cookies
+      if (row.tokenExpiresAt) base['expiresAt'] = row.tokenExpiresAt.toISOString()
+      const rtExp = cstr(
+        (row.extraMetadata as Record<string, unknown> | null)?.['refreshTokenExpiresAt'],
+      )
+      if (rtExp) base['refreshTokenExpiresAt'] = rtExp
+      // Cosy 设备头族:extraMetadata.cosy 蛇形 → 载荷驼峰(mapQoderImport cosyKeyMap 逆向)
+      const cosy = (row.extraMetadata as Record<string, unknown> | null)?.['cosy']
+      if (cosy && typeof cosy === 'object' && !Array.isArray(cosy)) {
+        const c = cosy as Record<string, unknown>
+        for (const [storeKey, payloadKey] of [
+          ['machine_token', 'machineToken'],
+          ['machine_code', 'machineCode'],
+          ['machine_type', 'machineType'],
+          ['version', 'version'],
+        ] as const) {
+          const v = cstr(c[storeKey])
+          if (v) base[payloadKey] = v
+        }
+      }
+      const tpl = s['sessionTemplate']
+      if (tpl && typeof tpl === 'object') base['sessionTemplate'] = tpl
+      break
+    }
+    case 'minimax': {
+      base['accessToken'] = creds.token
+      if (creds.refreshToken) base['refreshToken'] = creds.refreshToken
+      // uid 键源 = 账号级 recordKey(Y-24),必须回带;其余 mapMinimaxImport 的 secrets 键位逆向
+      for (const k of [
+        'recordKey',
+        'clientId',
+        'audience',
+        'tokenType',
+        'loginEpoch',
+        'region',
+        'sourcePath',
+        'fingerprint',
+      ] as const) {
+        const v = cstr(s[k])
+        if (v) base[k] = v
+      }
+      if (Array.isArray(s['scopes'])) base['scopes'] = s['scopes']
+      if (row.tokenExpiresAt) base['expiresAtMs'] = row.tokenExpiresAt.getTime()
+      break
+    }
+    case 'codearts': {
+      // STS 三件套或永久 AK/SK 二件套(2026-11-10 修复后两种形状都认)
+      if (creds.token) base['securitytoken'] = creds.token
+      const ak = cstr(s['accessKeyId'])
+      const sk = cstr(s['secretAccessKey'])
+      if (ak) base['accessKey'] = ak
+      if (sk) base['secretKey'] = sk
+      if (creds.refreshToken) base['refresh_token'] = creds.refreshToken
+      if (row.tokenExpiresAt) base['expires_at'] = row.tokenExpiresAt.toISOString()
+      // uid 键源 = account.id > user_id > auto:hash(accessKeyId);非 auto 键回填 account.id
+      if (!row.uid.startsWith('auto:')) base['account'] = { id: row.uid }
+      const userName = cstr(s['userName'])
+      if (userName) base['user_name'] = userName
+      const domainId = cstr(s['domainId'])
+      if (domainId) base['domain_id'] = domainId
+      const clientId = cstr(s['clientId'])
+      if (clientId) base['client_id'] = clientId
+      const cv = cstr(s['codeVerifier'])
+      if (cv) base['code_verifier'] = cv
+      const jwk = s['dpopPrivateKeyJwk']
+      if (jwk && typeof jwk === 'object') base['dpop_private_key'] = jwk
+      break
+    }
+    case 'loomy':
+    case 'doubao': {
+      // 会话族形状 {source,key,host,value,cookies}(mapSessionEntryImport 认的键位)
+      base['value'] = creds.token
+      const es = cstr(s['entrySource'])
+      if (es) base['source'] = es
+      const ek = cstr(s['entryKey'])
+      if (ek) base['key'] = ek
+      const host = cstr(s['host'])
+      if (host) base['host'] = host
+      // cookies 是 uid 的稳定键源(uid_tt 族,Y-24),必须整族回带
+      if (creds.cookies.length > 0) base['cookies'] = creds.cookies
+      break
+    }
+    case 'zcode': {
+      // credentials.json 扁平图直通:secrets.credentialMap = 原载荷(含凭据键本体)。
+      // 键名过不了 Web 路由白名单的原生键(leveldb URL 编码键 project-key-location:v1:%5B…)
+      // 一律弃置:同一凭据槽在 RELAY_IMPORT_CREDENTIAL_SLOTS 里本就登记了合法拼写
+      // (oauth:bigmodel:access_token / zcodejwttoken / 前缀键三者同槽互斥拼写),
+      // 库里 tokenEnc 即该值 ⇒ 凭据恒定以合法拼写回填,uid/name 判据不放宽。
+      const cm = s['credentialMap']
+      if (cm && typeof cm === 'object' && !Array.isArray(cm)) {
+        for (const [k, v] of Object.entries(cm as Record<string, unknown>)) {
+          if (EXPORT_ROUTE_FORBIDDEN_KEYS.has(k) || !EXPORT_ROUTE_KEY_NAME_RE.test(k)) continue
+          base[k] = v
+        }
+      }
+      if (creds.token) base['oauth:bigmodel:access_token'] = creds.token
+      const region = cstr(s['region'])
+      if (region) base['region'] = region
+      if (Array.isArray(s['regions'])) base['regions'] = s['regions']
+      const sp = cstr(s['sourcePath'])
+      if (sp) base['sourcePath'] = sp
+      break
+    }
+    case 'opencode': {
+      const providerID = cstr(s['providerID'])
+      if (providerID) base['providerID'] = providerID
+      const auth: Record<string, unknown> = { key: creds.token }
+      const at = cstr(s['authType'])
+      if (at) auth['type'] = at
+      if (creds.refreshToken) auth['refresh'] = creds.refreshToken
+      // uid 键源 = auth.accountId > auto:hash(providerID:token);非 auto 键回填 accountId
+      if (!row.uid.startsWith('auto:')) auth['accountId'] = row.uid
+      const eu = cstr(s['enterpriseUrl'])
+      if (eu) auth['enterpriseUrl'] = eu
+      if (row.tokenExpiresAt) auth['expires'] = Math.floor(row.tokenExpiresAt.getTime() / 1000)
+      base['auth'] = auth
+      break
+    }
+    case 'codex': {
+      const tokens: Record<string, unknown> = { access_token: creds.token }
+      if (creds.refreshToken) tokens['refresh_token'] = creds.refreshToken
+      if (!row.uid.startsWith('auto:')) tokens['account_id'] = row.uid
+      base['tokens'] = tokens
+      for (const k of ['authMode', 'lastRefresh', 'fingerprint'] as const) {
+        const v = cstr(s[k])
+        if (v) base[k] = v
+      }
+      break
+    }
+    case 'lingma': {
+      // mapLingmaImport 把整份载荷存进 secrets ⇒ 逆向 = 摊平 secrets 再覆盖凭据列
+      for (const [k, v] of Object.entries(s)) base[k] = v
+      base['token'] = creds.token
+      if (creds.refreshToken) base['refreshToken'] = creds.refreshToken
+      break
+    }
+    case 'grokbot': {
+      return 'grokbot 本机凭证为 sandSealedFile 密封串,无明文凭据可导出(解封方案未取证)'
+    }
+    default: {
+      return `平台 ${p} 无导出映射`
+    }
+  }
+
+  base['uid'] = row.uid
+  applyExportNameFidelity(base, row)
+  if (row.deviceId) base['deviceId'] = row.deviceId
+  if (row.machineId) base['machineId'] = row.machineId
+  if (row.isEnabled === false) base['enabled'] = false
+  applyExportExtraFidelity(base, row)
+  return base
+}
+
+/**
+ * 导出硬校验(写文件前逐行):路由结构镜像闸门 + uid 复现 + 统一名复现。
+ * 返回 null = 可导;字符串 = 拒出原因(点名判据,绝不回显凭据值)。
+ */
+export function validateExportRoundTrip(
+  row: AiRelayAccountPool,
+  payload: Record<string, unknown>,
+): string | null {
+  const p = row.providerCode as RelayProviderCode
+  const routeIssue = exportRouteStructureIssue(payload)
+  if (routeIssue) return `Web 路由结构闸门拒收: ${routeIssue}`
+  const uid = resolveImportAccountUid(p, payload as ImportAccountInput)
+  if (uid !== row.uid) return `uid 不可复现: 重导将落 ${uid ?? '(闸门拒收/无键)'} ≠ 原行 ${row.uid}`
+  const name = resolveRelayAccountName({
+    providerCode: p,
+    payload: normalizeForeignAccountShape(payload),
+    index: 0,
+  }).name
+  if (name !== row.name) return `统一名不可复现: 重导将落「${name}」≠ 原行「${row.name}」`
+  return null
+}
+
+// 2026-11-10 回补:后台重构误删了本区(listUserPoolModels 与模型选择器缓存),account-pool.ts 仍依赖 ⇒ 按 HEAD 原样回挂。
 /**
  * 模型选择器「我的号池」分组的一条模型。
  *

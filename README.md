@@ -104,10 +104,8 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | — blocking | 328 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
 | 跟踪文件 | 20855 | `trackedFiles` |
-
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-10。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
-
 <!-- END GENERATED NUMBERS -->
 **一句话口径**:数字一律现读,文档里不写「约 N 个」——那种写法必然腐烂。
 ---
@@ -43837,3 +43835,148 @@ A: Yes. Test file and case counts: see the generated table / 67 e2e spec / 4721 
 | CLI 工具文件 | 98 | `cliToolFiles` |
 | 测试文件 | 4798 | `testFiles` |
 | 跟踪文件 | 20680 | `trackedFiles` |
+| 数据库表 | 630 | `dbTables` |
+| API 路由 | 4744 | `apiRoutes` |
+| 测试文件 | 4825 | `testFiles` |
+| 跟踪文件 | 20873 | `trackedFiles` |
+**2026-11-10**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (7b48014e26)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (4e7adad235)
+- 📚 文档:数字块按 HEAD 面重算（与推门 check-doc-numbers 同面） (bd0fee0d4f)
+- 📚 文档:数字块按 HEAD 面重算（与推门 check-doc-numbers 同面） (09240bd0f0)
+- 🐞 修复:门 313 登记缺省判面——派发层不再回「未声明判面」 (3a78b71537)
+- 🐞 修复:定版索引护栏形状对齐——私有索引提交通道(isolated-git)结构性全灭根治 (211c3574f2)
+- 📚 文档:数字块按 HEAD 面重算（与推门 check-doc-numbers 同面） (474442934c)
+- 🐞 修复:face-reader 测试的派生 options 改用具名变量（绕开门 193 取数盲区） (a7c25307cd)
+- ⚡ 性能:30a 内存治理——流式解析 + Buffer 取面 + 候选分批,并查清 OOM 根因链 (e949a217d5)
+- 🐞 修复:face-reader 的 binary 档 encoding 改回 null（消 13 道门体的未判定） (a4b410d0ca)
+- 📚 文档:数字块按 head 面重算 (920736c944)
+- 📚 文档:数字块按 head 面重算(testFiles 4818 / trackedFiles 20849) (7765d5a6ff)
+- 📚 文档:数字块按 HEAD 面重算(testFiles 4817 / trackedFiles 20848) (82fac7fab0)
+- 🔧 工程/其他:补齐 brand-mail-from 测试文件的溯源水印 (7582515bf7)
+- 🔧 工程/其他:miniapp-taro 五个语言包对齐上游已完成的键清理 (975c6ec472)
+- 🐞 修复:三条 From 旁路归一 + 守门 R5 防回归 (0a761c3280)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (d3aa620a76)
+**2026-11-10**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (dd1aeb0274)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (3642b26464)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (b470d0ec08)
+**2026-11-10**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (adf9c835cf)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (0ad8d37a99)
+- 🐞 修复:binary 档 + input 组合修复并入远端,消除 30a 的取数不可用 (98e18b522e)
+- 🐞 修复:路由切换时工作区 main 滚动归零——根治「右侧工作区向上偏移」 (5f77cebd8b)
+- 🔧 工程/其他:README×2 生成块按落地面现算同步(门 173 DN5) (594bbd9c4a)
+- 🐞 修复:常驻开发服务按需启停——机主令防复发机制单枚落远端基线 (d66edcd649)
+- ⚡ 性能:CI 提速包落地 + 收口 gates-full 门6/dedupe 红 (31640643c0)
+- 🐞 修复:倒计时收敛夹具改认解构后的函数标识符,解 test 腿 miniapp 红 (73ff8614f0)
+- 🐞 修复:loomy chat 换实证网关 loomyad.xunfei.cn 并收口票形/模型名/错误信封 (7816076585)
+- ⚡ 性能:30a 内存治理——流式解析 + Buffer 取面 + 候选分批,并把 OOM 根因链查清 (c21c92594c)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (5f53dfa375)
+- 🔧 工程/其他:离线包按 HEAD 面重生成——清合并票记账「落地后需重生成」欠账;gen --head 输入=HEAD 面词包(他席在飞磁盘内容不烤包),3 gen.ts 同步(4 CDN b64 与 HEAD 恒等零变化),B2/stale 钉收敛;门298红点名为他席滞留磁盘档非本票声明集(pathspec 不进本次内容),经 safe-commit 归因 undetermined-red 后按仓库出路③走本旁路 (3dd977d158)
+- 🚀 新功能/改进:三端滚动边缘淡出 ScrollEdgeFades + 抽屉/底部遮罩细化 (87084cf084)
+- 📚 文档:数字块按 HEAD 面重算（与推门 check-doc-numbers 同面） (65d93b3390)
+- 🔧 工程/其他:补多行gitBinary形态的反向牙,并更正上一轮的错误归因 (1913e2f971)
+- 📚 文档:README 中文数字块按 HEAD 面重算（与推门 check-doc-numbers 同面） (2db5df9981)
+- 📚 文档:README.en 数字块按 HEAD 面重算（与推门 check-doc-numbers 同面） (4b32f111c1)
+**2026-11-10**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (d2cb6d426c)
+- 🐞 修复:typecheck-full 清缓存增补 .DevEnv/.workbuddy 排除——T1 被看门狗终止的真凶实测定位(cleanTsbuildinfo 对盘根 57000+ 子目录的 .DevEnv 深递归,30s 超时都跑不完);排除后 1248ms 过,全量轮 180s 完成落回执 (c592e24ceb)
+**2026-11-10**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (0e10f84bd0)
+**2026-11-10**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (9220756941)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (ffb5f20a82)
+- 🐞 修复:iOS 站点腿根因三修——出口腿现测借道/取不到不再冒充形状坏/告警身份摘小时数 (4e49779e1d)
+- 🐞 修复:根治界面字体忽粗忽细——GB2312 分档宽子集 + 字重面显式 + 中文黑体回退链 + 门313（重落地） (2d41ff8cbd)
+- 🐞 修复:重生成 miniapp 远端语言包,承载四个工具名五语言文案 (14965b4cdf)
+- 🐞 修复:验证码复制按钮圆角改取档位变量,解守门77 新增红 (b31e2abc08)
+- 🐞 修复:补 ask_user_question/skill/todo_read/todo_write 五语言功能名,守门55 归零 120/120 (d42e720dd0)
+**2026-11-10**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (358b1e4c8a)
+- 🚀 新功能/改进:号池导出工具 + codearts 永久AK/SK可导入 + 往返测试 (0c07cd5d50)
+- 🔧 工程/其他:miniapp 离线包按 HEAD 面(7f27d9d3ae)消息源重生成——清偿合并提交 c501898 记账的『生成物按本侧留下、落地后需重生成』欠账:三 gen.ts 自述钉 sourceCommit 对齐当前 HEAD,inputsSha256=a80eef25 对齐 mobile-rn 五语言与 shared 四语言现量(含 hrAttendance 去重后键面),补齐 en/ja/ko/zh-TW 包缺的 stepDecision.decision.skillGrantSkipApproval 与 zh-TW taskStatus.toolBrowserConsoleMessages 取值修正;CDN 载荷同批输出,溯源水印已注入;索引原暂存版为 05:15 同源重生成(仅 sourceCommit 钉旧 HEAD 与时间戳差),已按最新钉面覆盖 (0e730258df)
+- 🐞 修复:key_pool_selector 收口 mypy 两处类型错,解密失败改 fail-closed (43f40c6d30)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (c975820262)
+**2026-11-10**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (7c975f7d2e)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (49a2a775d2)
+**2026-11-10**
+- 🐞 修复:常驻开发服务按需启停——停白占栈断复活链,安装器默认拒注 (7f27d9d3ae)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (08fc6d68b2)
+- 🐞 修复:sanitizer-bypass 门清红 2 文件(收敛面带入的 HEAD 面既有红,非本会话引入)——oauth userinfo 显式声明跳响应消毒器(响应只含身份 claims sub/nickname/avatar,Bearer token 仅用于请求方鉴权不进响应体);srs POST/PUT /servers 管理端回显刚写入的 apiSecret(F-195 允许管理员读取)显式跳消毒器,避免回显值被掩码致创建/更新结果不可核验 (b4da27a2d3)
+- 🐞 修复:人事考勤两个 TextInput 补焦点态,解 apk 肉机的 G-978007 普查锁 (ec13c2b5c0)
+- 🐞 修复:重新派生 api-endpoints.generated.ts,消除派生件钉面陈旧 (4195b290ca)
+- 🐞 修复:收口 python-ai-service 残留 20 失败 + test-python ruff(F401) (d2ac87b17e)
+- 📚 文档:刷新 README 生成块数字(trackedFiles/testFiles 各 +1) (443c3491d0)
+- 🐞 修复:收敛面清红三件——①agent_teams._ensure_loaded 置真改 try/else 成功子句形态(load-state 判据认可形,语义逐字等价)②removeConversationShareToken 改 G-998153 出口形态(先取现值按键比较,重复撤销不再空转 updatedAt)③wire-strictness 基线吸收 87→90(3 增量全为宽口径 Promise catch,零新 zod,逐文件实证见注记,按 2026-10-28 人审吸收先例) (3d6097d5bd)
+- 🐞 修复:后台套餐价的「分→元」展示改委托 @ihui/shared/utils 的 formatPrice (a250235421)
+- 🐞 修复:补 scripts/safe-trash.ps1 的 UTF-8 BOM,两处派生控制台程序补 windowsHide (cd9970784e)
+- 🐞 修复:删除 miniapp-taro/mobile-rn 十份语言包里重复的 hrAttendance 块 (897d846f0a)
+- ⚡ 性能:T1 长期票落地——全量 typecheck 结论按 tree-sha 落盘回执,推送门只读近期结论 (e9c435cfff)
+- 🐞 修复:号池管理面公网可达——机主 2026-11-10 永久指令(号必须跟着 admin 账号在网络上走) (c3b6a98a14)
+- 🐞 修复:号池管理面公网可达——机主 2026-11-10 永久指令(号必须跟着 admin 账号在网络上走) (fa237c4293)
+- 🐞 修复:web [chat] 补齐 super-agent-panel 9 键 x5 语言——该组件已被收编进 HEAD 但键缺失(闸判缺失键 9);Action* 5 键系间接拼键不被静态闸拦,留组件归属会话自补;文案语义取自组件只读投影语境 (7c8bd4440f)
+- 🐞 修复:补齐 opencode/zcode/loomy 号池模型清单 (80bc1b3ee1)
+- 🐞 修复:收敛面上 8 处 mypy 清红——key_pool_selector 补 _decrypt_api_key 缺失 import(该裸调运行时即 NameError,真 bug)+解密失败剔除+dict 类型实参;wb_autopilot_mcp 号池无凭据时显式报错+result/resp 显式注解;两文件 blob 与 origin/main 逐字同一,红为远端既有,非本次收敛引入 (0b1e9e5b93)
+- 🐞 修复:相对基线 P95 维补单枚离群下限，堵住冷启动首帧误杀导致自动回滚 (89defd6e1c)
+- 🐞 修复:刷新能力评测基线(锚点保真换 90 token)并让压缩库变更触发评测门 (0a5fc86d03)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (eccce4a301)
+- 🐞 修复:对齐 file_search 降级语义、POSIX 盘符越界判定与 mypy 跨平台符号 (579a1abeef)
+- 🐞 修复:清 api/web 用例红项、协议与安全审计页收编共享屏并同步派生路由产物 (0fed98405e)
+- 🐞 修复:补 skillGrantSkipApproval 五语言词条并修正 zh-TW 主控臺用词 (ff17abfc55)
+- 🐞 修复:vitest 收集面显式排除 dist,消除 57 例重复执行 (b7eaf2ad7d)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (0d0c352538)
+**2026-11-10**
+- 🔧 工程/其他:收编守护落档产出(1 件,凭落点账本) (902bb35c58)
+- 🚀 新功能/改进:干净基线上重放仅存本地的成果 (87da79c682)
+- 🐞 修复:号池补号与永久保活口径收口——非续期平台不再被误摘、导入默认永久保活 (f16d6dc3db)
+- 🐞 修复:重建清单补 @ihui/attendance-core，修复 API 蓝绿起不来 (996beb3f2e)
+- 🔧 工程/其他:JSON-LD 注入面回潮锁(裸 __html 直塞或漏走 jsonLdHtml 即红) (f0385fd942)
+- 🚀 新功能/改进:relay 号池工具族 6 枚落 main(清单生成器产出 + 端点存在性校验) (e574623059)
+- 🔧 工程/其他:ruff check 全绿（UP035/I001 自动修复） (a45fbcb2c8)
+- 🐞 修复:帧归属屏障溢出清理按订阅隔离，与判据源 XUI-031 同形 (c1bb5ef17e)
+- 🚀 新功能/改进:新增账本 hash 对齐器物 realign-ledger-hashes (c1d0becd7a)
+- 🐞 修复:main 存量 9 红门收口——watermark/py/ruff/ledger/migration/Knip/sheet-flex/OpenAPI/E2E (d6499f35b1)
+- 🐞 修复:补齐 journal idx 重编号（承接 370 起整体 -1，消除 idx=369 断档） (21e7e8b35e)
+- 🐞 修复:删 journal 孤儿条目修复 db:migrate 硬挂 (b2aec2ba2a)
+- 🔧 工程/其他:收敛后重生成 ui-routes(329 页) (6e5cf5b821)
+- 🐞 修复:JSON-LD 全部注入点收口到唯一转义出口 (4e46cdc3b8)
+- 📚 文档:同步合并后 README 生成块数字 (b48962ac3f)
+- 🐞 修复:补齐 fda837a1b4 半落地收编的类型/几何面,三包 typecheck 归零 (6818816e0b)
+- 🔧 工程/其他:登记 packages/database 迁移文件删除意图 (61f9f54070)
+- 📚 文档:复核维持 4 项认领已释放态，否决远端陈旧重认领 (4b054e2275)
+- 📚 文档:公网 MCP 端点主机名统一为 ai.aizhs.top —— 旧 aizhs.top 实测 403 (a4c303001b)
+- 🔧 工程/其他:推送前修 4 门(端点差异登记 HR 前缀 / 段级豁免自述计数 / taro knip entry 同步) (335a23de00)
+- 📚 文档:README.en.md 头条数字对齐现算值(数据库表 624→629 / API 路由 4719→4733 / CI workflows 54→56)，消门 173 散文漂移 (deac1ec676)
+- 🐞 修复:修复人事考勤链路五处断点(barrel 导出/build 链/类型/权限档位/幽灵列)并补 59 条路由契约锁 (b110ba536c)
+- 🔧 工程/其他:ui-routes 生成物对齐当前 HEAD 生成钉,消除门 30c 陈旧暂存副本 (90d84a8d68)
+- 🐞 修复:HR 迁移补登记 journal(B1/B5)并前向补部门树外键与 RBAC 权限点 (52ba369f82)
+- 🐞 修复:pre-push 增跨分支推送告警(审错树点名,不改判据与退出码) + README 点名 scan-api-routes.mjs 接线 (195eb486dd)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (abd53a8e91)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (5d3985caa0)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (7f7e043688)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (36c0a0dfe6)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (59caf867b1)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (765673a89e)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (592e34e0d9)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (69bdc71f9b)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (5821a8c2dd)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (14f4bb650b)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (b1cd8ac62a)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (1c7ae127e2)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (d3a1d5f997)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (4d28e8d18c)
+**2026-11-10**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (7898525095)
+**2026-11-10**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (f611c37a62)
+- 🐞 修复:真实DB夹具先建users行并保留余额不足业务文案 (641817ad48)
+- 🚀 新功能/改进:新增外键名称级维度,先 warn-only 起步 (54e33d3480)
+| 跟踪文件 | 20845 | `trackedFiles` |
+| 测试文件 | 4817 | `testFiles` |
+| 跟踪文件 | 20847 | `trackedFiles` |
+| 跟踪文件 | 20849 | `trackedFiles` |
+| 跟踪文件 | 20851 | `trackedFiles` |
+| 测试文件 | 4822 | `testFiles` |
+| 跟踪文件 | 20862 | `trackedFiles` |

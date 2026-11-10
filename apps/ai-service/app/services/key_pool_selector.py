@@ -86,15 +86,19 @@ class KeyPoolSelector:
 
         # 占位符 key 一律视为未配置:先剔除再选,避免把假 key 打去上游换一个 401。
         # 剔除留痕(只打前 4 位 + 长度),便于回答"这一家为什么回落到了 env"。
-        from ..core.llm_gateway import (
-            _decrypt_api_key,
-            mask_api_key,
-            placeholder_key_reason,
-        )
+        from ..core.llm_gateway import _decrypt_api_key, mask_api_key, placeholder_key_reason
 
         candidates: list[tuple[dict[str, Any], str]] = []
         for row in rows:
             decrypted = _decrypt_api_key(row["api_key_enc"])
+            if decrypted is None:
+                # 解密失败与占位符同罚:此 key 不可用,剔除留痕,绝不让 None 明文流入上游。
+                logger.warning(
+                    "[key_pool] 跳过解密失败 key(key_pool_id=%s, name=%s) => 视为未配置",
+                    row["id"],
+                    row["name"],
+                )
+                continue
             reason = placeholder_key_reason(decrypted)
             if reason:
                 logger.warning(

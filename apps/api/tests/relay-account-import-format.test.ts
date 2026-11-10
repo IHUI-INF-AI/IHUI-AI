@@ -490,6 +490,23 @@ describe('导入形状闸门 recognizeImportShape:Web 路由 / CLI 预检 / 服�
     expect(v.reason).toContain('密封')
   })
 
+  // 2026-11-10 修:CodeArts 永久访问密钥形态(AK+SK 二件套,票槽缺省)必须过闸门
+  // (库里 tokenEnc=encryptField('') 的行要能导出-重导闭环;三处共用同一份判据)。
+  it('CodeArts 永久 AK/SK 二件套:认得 + 可导,主凭据为空(绝不让 accessKey 冒充 token)', () => {
+    const perm = { accessKey: 'ak-perm', secretKey: 'sk-perm' }
+    const v = recognizeImportShape('codearts', perm)
+    expect(v.recognized).toBe(true)
+    expect(v.importable).toBe(true)
+    expect(v.credential).toBeNull()
+    expect(v.credentialKeys).toEqual(['accessKey', 'secretKey'])
+    // 预检面同源:validateAccountExport 对同一份载荷判可导
+    expect(
+      validateAccountExport({ accounts: [perm] }, { providerCode: 'codearts', now: NOW }).ok,
+    ).toBe(true)
+    // 只有票没有 AK/SK ⇒ 仍拒(永久形态要求二件套齐)
+    expect(recognizeImportShape('codearts', { securitytoken: 'sts' }).importable).toBe(false)
+  })
+
   it('垃圾形状:认不出 + 点名缺哪个键(绝不静默放过)', () => {
     expect(recognizeImportShape('trae', {}).recognized).toBe(false)
     expect(recognizeImportShape('trae', { foo: 'bar' }).recognized).toBe(false)

@@ -145,12 +145,61 @@ describe('importAccounts codearts 分支', () => {
     expect(secrets['dpopPrivateKeyJwk']).toMatchObject({ x: 'X9', y: 'Y9', d: 'D9' })
   })
 
-  it('缺 STS 凭据 → failed 且不落库', async () => {
+  it('缺凭据(三件套与永久二件套都不成立)→ failed 且不落库', async () => {
     const acc = { name: '坏账号' } as unknown as ImportAccountInput
     const out = await importAccounts('codearts', [acc])
     expect(out.failed).toBe(1)
-    expect(out.items[0]?.reason).toMatch(/STS 凭据/)
+    expect(out.items[0]?.reason).toMatch(/STS 三件套.*永久 AK\/SK 二件套/)
     expect(mockInsertValues).not.toHaveBeenCalled()
+  })
+
+  // 2026-11-10 修:库里已切永久访问密钥的行(tokenEnc=encryptField('')、refreshTokenEnc=null)
+  // 必须能经导入端点原样重导(导出-重导闭环),此前三槽位逐槽非空的闸门把它挡死。
+  it('永久 AK/SK 二件套(无 securitytoken):落库 tokenEnc 为空串密文,uid 取 account.id', async () => {
+    const acc = {
+      accessKey: 'HSTAKpermanent',
+      secretKey: 'skpermanent000000000',
+      account: { id: 'user-perm-1', label: '永久密钥号' },
+    } as unknown as ImportAccountInput
+
+    const out = await importAccounts('codearts', [acc])
+    expect(out.imported).toBe(1)
+    expect(out.items[0]?.uid).toBe('user-perm-1')
+
+    const row = lastInsert()
+    expect(row['uid']).toBe('user-perm-1')
+    expect(row['name']).toBe('永久密钥号')
+    expect(row['tokenEnc']).toBe('enc:') // encryptField('') 与库里现状同形
+    expect(row['refreshTokenEnc']).toBeNull()
+
+    const secrets = secretsOf(row)
+    expect(secrets).toMatchObject({
+      accessKeyId: 'HSTAKpermanent',
+      secretAccessKey: 'skpermanent000000000',
+      clientId: 'codearts-agent',
+    })
+  })
+
+  it('永久形态缺 SK(只有 AK)→ 闸门拒收,不落库', async () => {
+    const out = await importAccounts('codearts', [
+      { accessKey: 'ak-only', account: { id: 'u-x' } } as unknown as ImportAccountInput,
+    ])
+    expect(out.failed).toBe(1)
+    expect(mockInsertValues).not.toHaveBeenCalled()
+  })
+
+  it('显式空 securitytoken + AK/SK:同样按永久形态入库', async () => {
+    const out = await importAccounts('codearts', [
+      {
+        securitytoken: '',
+        accessKey: 'ak-empty-sts',
+        secretKey: 'sk-empty-sts',
+        user_id: 'u-empty-sts',
+      } as unknown as ImportAccountInput,
+    ])
+    expect(out.imported).toBe(1)
+    expect(lastInsert()['uid']).toBe('u-empty-sts')
+    expect(lastInsert()['tokenEnc']).toBe('enc:')
   })
 
   it('已过期且无 refresh_token → 入库即摘除(down + tempUnschedulable)', async () => {

@@ -62,7 +62,7 @@ test('T1 行为锁:--self-test 真跑 rc=0 且 RP-67 正反例逐条在输出(�
   }
 })
 
-test('T2 形状锁:消费侧真的读 widen.ok,且两处降级判定都挂 gate(摘掉接线即红)', () => {
+test('T2 形状锁:消费侧真的读 widen.ok,且三处降级判定都挂 gate(摘掉接线即红)', () => {
   assert.match(SRC, /function scopeDegradeAllowed\(widen\)/, '缺 scopeDegradeAllowed 纯判据')
   assert.match(
     SRC,
@@ -74,17 +74,22 @@ test('T2 形状锁:消费侧真的读 widen.ok,且两处降级判定都挂 gate(
     /const scopeDegradeOk = scopeDegradeAllowed\(_widen\)/,
     '主流程未把 _widen 喂给开关(判据在、主流程没用它)',
   )
-  // 两处降级判定(定向快通道 / 全量分支)都必须挂 gate;只挂一处 = 另一条路径仍 fail-open。
+  // 三处降级判定(定向快通道 / 全量分支 / 回执回放档,2026-11-10 T1 长期票加第三处)
+  // 都必须挂 gate;漏挂任何一条路径 = 该路径 fail-open。
   const gated = SRC.match(/scopeDegradeOk && scopeEnabled && [^\n]*shouldDegrade\(/g) || []
-  assert.equal(gated.length, 2, `两处降级判定都必须挂 scopeDegradeOk,实测 ${gated.length} 处`)
+  assert.equal(gated.length, 3, `三处降级判定都必须挂 scopeDegradeOk,实测 ${gated.length} 处`)
 })
 
-test('T3 签名行生产者:两个降级块末尾各打一行 [IHUI-SCOPE-DEGRADE] 且格式命中正则', () => {
+test('T3 签名行生产者:三个降级块末尾各打一行 [IHUI-SCOPE-DEGRADE] 且格式命中正则', () => {
   // 从源码抽真实字面量(不自造),逐条喂给只读 import 来的正则验格式。
   const sigLines = [...SRC.matchAll(/console\.log\('(\[IHUI-SCOPE-DEGRADE\][^']*)'\)/g)].map(
     (m) => m[1],
   )
-  assert.equal(sigLines.length, 2, `两个降级块应各有 1 处签名行(第二半的生产者),实测 ${sigLines.length}`)
+  assert.equal(
+    sigLines.length,
+    3,
+    `三个降级块应各有 1 处签名行(第二半的生产者),实测 ${sigLines.length}`,
+  )
   for (const line of sigLines) {
     assert.ok(line.startsWith('[IHUI-SCOPE-DEGRADE]'), `签名行必须以标记开头: ${line}`)
     assert.ok(
@@ -98,7 +103,7 @@ test('T3 签名行生产者:两个降级块末尾各打一行 [IHUI-SCOPE-DEGRAD
     SRC.match(
       /判定:本次 push 放行[^\n]*\n[\s\S]{0,260}?\[IHUI-SCOPE-DEGRADE\][^\n]*\n\s*process\.exit\(0\)/g,
     ) || []
-  assert.equal(inBlock.length, 2, `签名行必须落在两处降级块末尾(exit 0 前),实测 ${inBlock.length}`)
+  assert.equal(inBlock.length, 3, `签名行必须落在三处降级块末尾(exit 0 前),实测 ${inBlock.length}`)
 })
 
 test('T4 反向对照:证据正则有选择性,签名行不是恒真守卫', () => {

@@ -96,6 +96,8 @@ import { favoriteConversation, unfavoriteConversation } from '@ihui/api-client'
 import LOGO_LIGHT from '../../assets/images/logo.png' // icon-bitmap-exempt: 品牌多色插画 logo(非线形 UI 图标,web 同一资产,暂无矢量等价物) until 2027-01-15
 import LOGO_DARK from '../../assets/images/logo-dark.png'
 import { Tappable } from '@ihui/ui-native' // icon-bitmap-exempt: 品牌多色插画 logo 暗主题版(同 LOGO_LIGHT 理由) until 2027-01-15
+// 多端一致聊天滚动淡出(2026-11-10,与 Web 端同规格:视口上下沿各一条 24px 纯渐变)
+import { ChatScrollFades, useChatScrollFades } from './chat/ChatScrollFades'
 
 // ── 类型定义(强类型,禁用 any) ──
 
@@ -622,6 +624,8 @@ export function Drawer(props: DrawerProps) {
   } = props
 
   const insets = useSafeAreaInsets()
+  // 会话列表滚动淡出溢出判定(本组件自有 ScrollView,直接走标准 onScroll 接线)
+  const fades = useChatScrollFades()
   const { t } = useI18n()
   const { logout } = useAuth()
   const { resolvedTheme, setThemeMode } = useTheme()
@@ -929,135 +933,151 @@ export function Drawer(props: DrawerProps) {
               </Pressable>
             </View>
 
-            <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-              <View className="px-2 pb-2">
-                {/* 2. 快捷区:「新建任务」灰底行(web BTN_NEW_CONVERSATION 同构) */}
-                <Pressable
-                  onPress={handleCreateNewChat}
-                  className="h-9 flex-row items-center gap-2.5 rounded-md px-2.5 active:opacity-60"
-                  style={{ backgroundColor: tokens.surface.muted }}
-                  android_ripple={{ color: tokens.surface.muted }}
-                >
-                  <Plus size={rnGeometry.glyphMd} color={tokens.text.primary} />
-                  <Text
-                    numberOfLines={1}
-                    className="flex-1 font-medium"
-                    style={{ color: tokens.text.primary, fontSize: rnGeometry.textBody }}
+            {/* 会话列表(可滚动)+ 多端一致滚动淡出:包装层与视口同界,遮罩贴上下沿(仅溢出方向) */}
+            <View className="flex-1">
+              <ScrollView
+                className="flex-1"
+                showsVerticalScrollIndicator={false}
+                onScroll={fades.onScroll}
+                scrollEventThrottle={16}
+                onLayout={fades.onLayout}
+                onContentSizeChange={fades.onContentSizeChange}
+              >
+                <View className="px-2 pb-2">
+                  {/* 2. 快捷区:「新建任务」灰底行(web BTN_NEW_CONVERSATION 同构) */}
+                  <Pressable
+                    onPress={handleCreateNewChat}
+                    className="h-9 flex-row items-center gap-2.5 rounded-md px-2.5 active:opacity-60"
+                    style={{ backgroundColor: tokens.surface.muted }}
+                    android_ripple={{ color: tokens.surface.muted }}
                   >
-                    {t('drawer.newChat')}
-                  </Text>
-                </Pressable>
+                    <Plus size={rnGeometry.glyphMd} color={tokens.text.primary} />
+                    <Text
+                      numberOfLines={1}
+                      className="flex-1 font-medium"
+                      style={{ color: tokens.text.primary, fontSize: rnGeometry.textBody }}
+                    >
+                      {t('drawer.newChat')}
+                    </Text>
+                  </Pressable>
 
-                {/* 2b. 自动化任务(对齐 web 侧边栏快捷区第 3 枚 /self-media/automation) */}
-                <View className="mt-1">
-                  <NavRow item={automationRow} />
-                </View>
+                  {/* 2b. 自动化任务(对齐 web 侧边栏快捷区第 3 枚 /self-media/automation) */}
+                  <View className="mt-1">
+                    <NavRow item={automationRow} />
+                  </View>
 
-                {/* 3. 历史对话(模型分组 → 日期分组 → 左滑收藏/删除;机制原样,文案 i18n 化)。
+                  {/* 3. 历史对话(模型分组 → 日期分组 → 左滑收藏/删除;机制原样,文案 i18n 化)。
                     位置对齐 web:快捷区 → 历史对话 → 分组导航 —— 此前 RN 把历史压在
                     分组之下,是两端观感差异最大的一处 */}
-                <View className="mt-3 flex-row items-center justify-between px-2.5">
-                  <Text
-                    className="font-bold"
-                    style={{ color: tokens.text.primary, fontSize: rnGeometry.textStrong }}
-                  >
-                    {t('drawer.history')}
-                  </Text>
-                  <Text style={{ color: tokens.text.tertiary, fontSize: rnGeometry.textCaption }}>
-                    {t('drawer.swipeHint')}
-                  </Text>
-                </View>
-
-                {modelGroups.length === 0 ? (
-                  <View className="items-center px-2.5 py-8">
-                    <Text style={{ color: tokens.text.tertiary, fontSize: rnGeometry.textLabel }}>
-                      {t('drawer.noHistory')}
+                  <View className="mt-3 flex-row items-center justify-between px-2.5">
+                    <Text
+                      className="font-bold"
+                      style={{ color: tokens.text.primary, fontSize: rnGeometry.textStrong }}
+                    >
+                      {t('drawer.history')}
+                    </Text>
+                    <Text style={{ color: tokens.text.tertiary, fontSize: rnGeometry.textCaption }}>
+                      {t('drawer.swipeHint')}
                     </Text>
                   </View>
-                ) : (
-                  modelGroups.map((mg) => (
-                    <View key={mg.modelName} className="mt-2">
-                      {/* 模型标题 */}
-                      <View className="flex-row items-center gap-1.5 px-2.5 py-1">
-                        {mg.modelIcon ? (
-                          <Image source={{ uri: mg.modelIcon }} style={styles.modelIcon} />
-                        ) : (
-                          <View style={[styles.modelIcon, styles.modelIconFallback]}>
-                            <Bot size={rnGeometry.glyphSm} color={tokens.text.secondary} />
-                          </View>
-                        )}
-                        <Text
-                          numberOfLines={1}
-                          className="flex-1 font-semibold"
-                          style={{ color: tokens.text.secondary, fontSize: rnGeometry.textLabel }}
-                        >
-                          {mg.modelName === DEFAULT_MODEL_NAME
-                            ? t('drawer.defaultModel')
-                            : mg.modelName}
-                        </Text>
-                      </View>
-                      {/* 日期分组(今天/昨天/更早) */}
-                      {mg.dateGroups.map((dg) => (
-                        <View key={dg.bucket}>
-                          <Text
-                            className="px-2.5 py-1"
-                            style={{
-                              color: tokens.text.tertiary,
-                              fontSize: rnGeometry.textCaption,
-                            }}
-                          >
-                            {t(`drawer.${dg.bucket}`)}
-                          </Text>
-                          {dg.list.map((item) => (
-                            <SwipeableConversationItem
-                              key={item.id}
-                              item={item}
-                              isOpen={openSwipeId === item.id}
-                              onOpen={handleSwipeOpen}
-                              onSelect={handleSelectConversation}
-                              onDelete={onDeleteConversation}
-                              onToggleFavorite={handleToggleFavoriteConversation}
-                            />
-                          ))}
-                        </View>
-                      ))}
+
+                  {modelGroups.length === 0 ? (
+                    <View className="items-center px-2.5 py-8">
+                      <Text style={{ color: tokens.text.tertiary, fontSize: rnGeometry.textLabel }}>
+                        {t('drawer.noHistory')}
+                      </Text>
                     </View>
-                  ))
-                )}
+                  ) : (
+                    modelGroups.map((mg) => (
+                      <View key={mg.modelName} className="mt-2">
+                        {/* 模型标题 */}
+                        <View className="flex-row items-center gap-1.5 px-2.5 py-1">
+                          {mg.modelIcon ? (
+                            <Image source={{ uri: mg.modelIcon }} style={styles.modelIcon} />
+                          ) : (
+                            <View style={[styles.modelIcon, styles.modelIconFallback]}>
+                              <Bot size={rnGeometry.glyphSm} color={tokens.text.secondary} />
+                            </View>
+                          )}
+                          <Text
+                            numberOfLines={1}
+                            className="flex-1 font-semibold"
+                            style={{ color: tokens.text.secondary, fontSize: rnGeometry.textLabel }}
+                          >
+                            {mg.modelName === DEFAULT_MODEL_NAME
+                              ? t('drawer.defaultModel')
+                              : mg.modelName}
+                          </Text>
+                        </View>
+                        {/* 日期分组(今天/昨天/更早) */}
+                        {mg.dateGroups.map((dg) => (
+                          <View key={dg.bucket}>
+                            <Text
+                              className="px-2.5 py-1"
+                              style={{
+                                color: tokens.text.tertiary,
+                                fontSize: rnGeometry.textCaption,
+                              }}
+                            >
+                              {t(`drawer.${dg.bucket}`)}
+                            </Text>
+                            {dg.list.map((item) => (
+                              <SwipeableConversationItem
+                                key={item.id}
+                                item={item}
+                                isOpen={openSwipeId === item.id}
+                                onOpen={handleSwipeOpen}
+                                onSelect={handleSelectConversation}
+                                onDelete={onDeleteConversation}
+                                onToggleFavorite={handleToggleFavoriteConversation}
+                              />
+                            ))}
+                          </View>
+                        ))}
+                      </View>
+                    ))
+                  )}
 
-                {/* 4. 首页行(无标题组,对齐 web 侧边栏首个 Home 行);条目取自导航单源 */}
-                <View className="mt-2">
-                  <NavRow item={homeRow} />
-                </View>
+                  {/* 4. 首页行(无标题组,对齐 web 侧边栏首个 Home 行);条目取自导航单源 */}
+                  <View className="mt-2">
+                    <NavRow item={homeRow} />
+                  </View>
 
-                {/* 5. 竖排导航:折叠组(热门/AI/个人/推广/高级工具/开发者) + 域入口行(教育/内容/交易/社区 → 二级屏) */}
-                {DRAWER_NAV_SECTIONS.map((section) => {
-                  if (section.kind === 'domain') {
-                    const hub = DOMAIN_HUBS[section.domain]
-                    if (!hub) return null
+                  {/* 5. 竖排导航:折叠组(热门/AI/个人/推广/高级工具/开发者) + 域入口行(教育/内容/交易/社区 → 二级屏) */}
+                  {DRAWER_NAV_SECTIONS.map((section) => {
+                    if (section.kind === 'domain') {
+                      const hub = DOMAIN_HUBS[section.domain]
+                      if (!hub) return null
+                      return (
+                        <NavDomainRow
+                          key={section.domain}
+                          label={t(hub.titleKey)}
+                          Icon={hub.Icon}
+                          onPress={() => handleOpenDomain(section.domain)}
+                        />
+                      )
+                    }
+                    const group = groupByKey.get(section.key)
+                    if (!group) return null
                     return (
-                      <NavDomainRow
-                        key={section.domain}
-                        label={t(hub.titleKey)}
-                        Icon={hub.Icon}
-                        onPress={() => handleOpenDomain(section.domain)}
+                      <NavGroupSection
+                        key={group.key}
+                        title={group.title}
+                        variant={group.variant}
+                        defaultOpen={group.defaultOpen}
+                        items={group.items}
                       />
                     )
-                  }
-                  const group = groupByKey.get(section.key)
-                  if (!group) return null
-                  return (
-                    <NavGroupSection
-                      key={group.key}
-                      title={group.title}
-                      variant={group.variant}
-                      defaultOpen={group.defaultOpen}
-                      items={group.items}
-                    />
-                  )
-                })}
-              </View>
-            </ScrollView>
+                  })}
+                </View>
+              </ScrollView>
+              {/* 抽屉面板底色是 surface.card:淡出用面板自身底色才能无缝融合(规格「当前页面背景色令牌」) */}
+              <ChatScrollFades
+                topVisible={fades.topVisible}
+                bottomVisible={fades.bottomVisible}
+                color={tokens.surface.card}
+              />
+            </View>
 
             {/* 6b. 扫一扫快捷入口(用户 2026-10-27 要求:左侧栏底部一键直达扫码);
                 与快捷区/首页行走同一 buildNavRow 出口,active 态随 ScanLogin 路由高亮 */}

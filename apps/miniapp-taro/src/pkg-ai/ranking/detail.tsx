@@ -7,11 +7,14 @@ import { useI18n, type TtFn } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Image, ScrollView } from '@tarojs/components'
 import Taro, { useRouter, useDidShow } from '@tarojs/taro'
-import { useState, useCallback, useMemo } from 'react'
+import { useRef, useState, useCallback, useMemo } from 'react'
 import * as api from '@/api'
 import { DrawerComponent } from '@/components'
 import ThemeRoot from '@/components/ThemeRoot'
 import { ScreenSkeleton } from '@/components/ScreenStates.taro'
+import ScrollEdgeFades from '@/components/ScrollEdgeFades'
+import { useAppTheme } from '@/lib/theme'
+import { COLORS } from '@/constants/style'
 import './detail.css'
 import { onToast } from '@/host/on-toast'
 
@@ -75,6 +78,17 @@ export default function RankingDetailPage() {
   const [drawerVisible, setDrawerVisible] = useState(false)
   const [drawerMode, setDrawerMode] = useState<DrawerMode>('menu')
   const [relatedList, setRelatedList] = useState<RankingRawItem[]>([])
+  // 抽屉列表边缘淡出(2026-11-10 多端一致规格,与 Web ScrollEdgeFades 同族):
+  // 该 ScrollView 本端直接掌控 ⇒ onScroll 节流(≥150ms)并入 depKey,手指滑动即时重测显隐。
+  const { resolved } = useAppTheme()
+  const [drawerScrollTick, setDrawerScrollTick] = useState(0)
+  const drawerScrollTsRef = useRef(0)
+  const bumpDrawerScroll = () => {
+    const now = Date.now()
+    if (now - drawerScrollTsRef.current < 150) return
+    drawerScrollTsRef.current = now
+    setDrawerScrollTick((v) => v + 1)
+  }
 
   const load = useCallback(async () => {
     const id = router.params.id
@@ -320,28 +334,37 @@ export default function RankingDetailPage() {
             {drawerMode === 'fenlei' ? tt('ranking.fenlei', '分类') : tt('ranking.menu', '菜单')}
           </Text>
           {relatedList.length ? (
-            <ScrollView scrollY className="drawer-list">
-              {relatedList.map((it) => {
-                const raw = it as Record<string, unknown>
-                const name = pick(raw, ['name', 'title'])
-                return (
-                  <ThemeRoot key={String(it.id)}>
-                    <View
-                      className="drawer-item"
-                      onClick={() => {
-                        const itemId = it.id
-                        if (itemId === undefined) return
-                        closeDrawer()
-                        Taro.redirectTo({ url: `/pkg-ai/ranking/detail?id=${itemId}` })
-                      }}
-                      hoverClass="opacity-60"
-                    >
-                      <Text className="drawer-item-text">{name || '-'}</Text>
-                    </View>
-                  </ThemeRoot>
-                )
-              })}
-            </ScrollView>
+            <>
+              <ScrollView scrollY className="drawer-list" onScroll={bumpDrawerScroll}>
+                {relatedList.map((it) => {
+                  const raw = it as Record<string, unknown>
+                  const name = pick(raw, ['name', 'title'])
+                  return (
+                    <ThemeRoot key={String(it.id)}>
+                      <View
+                        className="drawer-item"
+                        onClick={() => {
+                          const itemId = it.id
+                          if (itemId === undefined) return
+                          closeDrawer()
+                          Taro.redirectTo({ url: `/pkg-ai/ranking/detail?id=${itemId}` })
+                        }}
+                        hoverClass="opacity-60"
+                      >
+                        <Text className="drawer-item-text">{name || '-'}</Text>
+                      </View>
+                    </ThemeRoot>
+                  )
+                })}
+              </ScrollView>
+              {/* 列表滚动视口上/下边缘淡出(多端一致规格 24px 纯渐变,仅溢出方向显示,
+                pointer-events 穿透;色 = 抽屉面板 bg-card 的 JS 同源值 bgSecondary) */}
+              <ScrollEdgeFades
+                scrollSelector=".drawer-list"
+                depKey={`${relatedList.length}:${drawerScrollTick}`}
+                bgColorHsl={COLORS.bgSecondary[resolved]}
+              />
+            </>
           ) : (
             <Text className="drawer-empty">{tt('ranking.empty', '暂无数据')}</Text>
           )}

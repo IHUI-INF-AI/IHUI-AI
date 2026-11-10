@@ -7204,8 +7204,7 @@
     "statusPending": "待審批",
     "statusApproved": "已通過",
     "statusRejected": "已駁回"
-  }
-,
+  },
   "level": {
     "0": "新手",
     "1": "青銅",

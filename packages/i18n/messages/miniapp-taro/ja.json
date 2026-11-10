@@ -7204,8 +7204,7 @@
     "statusPending": "承認待ち",
     "statusApproved": "承認済み",
     "statusRejected": "否認"
-  }
-,
+  },
   "level": {
     "0": "初心者",
     "1": "ブロンズ",
