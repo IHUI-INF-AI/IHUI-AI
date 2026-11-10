@@ -86,7 +86,11 @@ class KeyPoolSelector:
 
         # 占位符 key 一律视为未配置:先剔除再选,避免把假 key 打去上游换一个 401。
         # 剔除留痕(只打前 4 位 + 长度),便于回答"这一家为什么回落到了 env"。
-        from ..core.llm_gateway import mask_api_key, placeholder_key_reason
+        from ..core.llm_gateway import (
+            _decrypt_api_key,
+            mask_api_key,
+            placeholder_key_reason,
+        )
 
         candidates: list[tuple[dict, str]] = []
         for row in rows:

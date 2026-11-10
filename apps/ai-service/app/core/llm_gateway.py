@@ -56,7 +56,6 @@ from .provider_caps import (
 )
 from .provider_slots import provider_slot
 from .tool_capability import (
-    count_tool_calls,
     detect_pseudo_tool_trace,
     is_empirically_tool_capable,
     record_tool_capability_verdict,
