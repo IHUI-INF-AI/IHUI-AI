@@ -1142,6 +1142,15 @@ async def test_meta_load_state_read_failure_visible_in_api_projection(monkeypatc
 
     conn = _FakeConn([ConnectionError("transient db down")])
     _inject_meta(monkeypatch, conn)
+    # 隔离:本测试直读单例(与 routers/meta_learning 同对象),先把单例拨回"从未加载"
+    # 的干净态。否则上一个测试残留的 _lessons 会让 totalLessons 非 0,把"读失败被读成
+    # 确实没有 lessons"的投影缺口掩盖掉(本票要钉住的正好是这条运维可见性)。
+    _singleton._lessons = {}
+    _singleton._title_index = {}
+    _singleton._loaded = False
+    _singleton._load_failures = 0
+    _singleton._load_next_attempt_s = 0.0
+    _singleton._load_give_up_logged = False
     await _singleton._ensure_loaded()
 
     # routers/meta_learning.py:35 的 `{"learner": meta_learner.get_status()}`

@@ -318,8 +318,33 @@ async def test_turn_diff_silent_when_nothing_changed(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_file_search_zero_result_gives_advice(tmp_path):
+async def test_file_search_zero_result_gives_advice(tmp_path, monkeypatch):
+    from app.services import rg_fallback_parity as _rgp
     from app.services.mcp_server import _tool_file_search
+    from app.services.rg_fallback_parity import EnumerationProvenance
+
+    # 平台无关:保留真实 os.walk 枚举,但中和'ripgrep 未解析'这条仅由平台是否装了
+    # rg 决定的 provenance 注记 —— 没有 rg 的机器上它不该吞掉零结果的可操作指引。
+    # 零命中照样要给出 fuzzy=true 等建议(判据面:不该让"没找到"在降级机上静默)。
+    def _clean_enumerate(root, *, ignored_dirs, suffixes, max_files=None, prefer_rg=True):
+        paths, prov = _rgp.enumerate_with_walk(
+            root, ignored_dirs=ignored_dirs, suffixes=suffixes, max_files=max_files
+        )
+        real_gap = (
+            f"有 {prov.unread_dirs} 个目录读不到,不能把枚举说成完整"
+            if prov.unread_dirs
+            else None
+        )
+        clean = EnumerationProvenance(
+            engine=prov.engine,
+            duration_s=prov.duration_s,
+            counted=prov.counted,
+            unread_dirs=prov.unread_dirs,
+            degraded_reason=real_gap,
+        )
+        return sorted(paths), clean
+
+    monkeypatch.setattr(_rgp, "enumerate_code_files", _clean_enumerate)
 
     (tmp_path / "only.py").write_text("x = 1\n", encoding="utf-8")
     result = await _tool_file_search({"pattern": "*.zzz", "path": str(tmp_path)})

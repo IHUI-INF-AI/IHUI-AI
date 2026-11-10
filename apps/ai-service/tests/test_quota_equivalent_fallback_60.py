@@ -343,14 +343,14 @@ async def test_resolve_from_db_uses_db_ownership_for_base_url(
         "ANY($1::text[])": [_Rec(provider_code="opencode_zen", model_id="mimo-v2.5-free")],
         "api_key_enc": _Rec(
             id=41,
-            api_key_enc="sk-opencode",
+            api_key_enc="sk-opencode-real-01",
             base_url="https://opencode.ai/zen/v1",
             api_format="openai_chat",
         ),
     })
     api_key, api_base, litellm_model, config_id = await _resolve_from_db("mimo-v2.5-free")
     assert (api_key, api_base, litellm_model) == (
-        "sk-opencode",
+        "sk-opencode-real-01",
         "https://opencode.ai/zen/v1",
         "openai/mimo-v2.5-free",
     )
@@ -368,7 +368,7 @@ async def test_resolve_from_db_backfills_openrouter_path_for_db_attributed_model
         "ANY($1::text[])": [_Rec(provider_code="openrouter", model_id="qwen/qwen3-max")],
         "api_key_enc": _Rec(
             id=42,
-            api_key_enc="sk-or",
+            api_key_enc="sk-openrouter-key01",
             base_url="https://openrouter.ai/api/v1",
             api_format="openai_chat",
         ),
