@@ -71,8 +71,10 @@ type PoolRowLike = Parameters<typeof loginAccountLocal>[0]
 /**
  * 「无会话模板 ⇒ 静默兜底到本机当前会话」的平台,判据来自 scripts/local-login.mjs 的写回基底:
  * qoder `template ?? current`、codearts `template ?? row.session`、minimax/opencode `template ?? prev`。
- * 这些平台没模板时凭证照样换,但账号资料(user/userId/邮箱等)仍是本机旧号的
- * ⇒ 用户看到「切了号却显示旧号资料」。这里只告警,不拦写回(凭证写回本身是有效的)。
+ * 这些平台原来没模板时凭证照样换,但账号资料(user/userId/邮箱等)仍是本机旧号的
+ * ⇒ 用户看到「切了号却显示旧号资料」。2026-11-10 起 scripts/local-login.mjs 的
+ * requireTemplate 已把这四个平台改成「缺模板直接拒绝写回」(no-template),
+ * 这里保留告警是为了在 dry-run 阶段就把原因和补法说清楚,不让人白切一次。
  *
  * 不在列的原因(逐平台读过写回配方):workbuddy 无模板且跨号时显式 409 no-template,不会静默沿用;
  * codex auth.json 只存 tokens 不含账号资料;zcode 认 secrets.credentialMap、doubao 认 cookies;
@@ -106,8 +108,10 @@ export function hasSessionTemplate(row: PoolRowLike): boolean {
 /** 模板缺失告警(人类可读行与 --json 的 notes 同一份文案) */
 export function templateMissingNote(providerCode: string): string {
   return (
-    '模板缺失:该票导入时未采集会话模板,写回后客户端账号资料仍沿用旧号;' +
-    `建议先跑 node scripts/relay-account-pool.mjs --from ${providerCode} 重新导入后再切`
+    '模板缺失:该票没采到会话模板,写回腿会直接拒绝(不再沿用本机旧号资料)。' +
+    `补法:node apps/api/node_modules/tsx/dist/cli.mjs apps/api/scripts/relay-backfill-session-template.ts --apply --provider ${providerCode}` +
+    ' 按票内身份补最小模板;要真实昵称/头像则先在本机登录该号后跑 ' +
+    `node scripts/relay-account-pool.mjs --from ${providerCode} 重导`
   )
 }
 
@@ -229,11 +233,13 @@ export async function runVerifiedSwitch(opts: {
       notes.push(`${opts.provider} 无本地正库对账面(对话在云端或由携对话腿自证),写回结果如实回报`)
   }
   return {
-    ok: verdict !== 'continuity-broken',
+    // 2026-11-10:写回腿自己没成 / 没回报落点,一律不许 ok(原先只看会话连续性,
+    // 会把「命令跑完但账号根本没换」报成成功 —— 机主双击后看到的就是这一档)
+    ok: verdict !== 'continuity-broken' && writeBack?.ok === true && Boolean(writeBack?.targetFile),
     provider: opts.provider,
     uid: row.uid,
     dryRun: false,
-    wroteBack: true,
+    wroteBack: Boolean(writeBack),
     continuityFace: Boolean(face),
     before,
     after,
@@ -305,13 +311,17 @@ export function main(argv: string[], io: MainIo = {}): number {
             : 'after: (无对账面)',
         r.compare ? `compare: ${r.compare.verdict} ${r.compare.note}` : '',
         ...r.notes.map((n) => `  · ${n}`),
-        `SWITCH-VERIFIED state=${r.verdict}`,
+        `身份核验: ${r.wroteBack ? (r.ok ? '写回腿已回报落点;客户端账号仍需上层回读核对' : '写回腿未成功,账号未切换') : '未写回'}`,
+        r.verdict === 'no-continuity-face'
+          ? '⚠ 该平台无本地对账面:以上只证明命令跑完,不证明客户端账号已换,请打开客户端核对'
+          : '',
+        `SWITCH-VERIFIED state=${r.verdict} ok=${r.ok}`,
       ].filter(Boolean)
       // --json 打整份结果 ⇒ notes(含模板缺失告警)在两条产出面上都可见
       if (argv.includes('--json')) log(JSON.stringify(r, null, 1))
       else log(lines.join('\n'))
       // pg 连接池 keep-alive 会挂住进程 ⇒ CLI 面显式退出(退出码按 verdict)
-      exitWith(r.verdict === 'continuity-broken' ? 1 : 0, null, io)
+      exitWith(r.ok === false || r.verdict === 'continuity-broken' ? 1 : 0, null, io)
     })
     .catch((e: { code?: string; message?: string }) => {
       // 失败分支同样必须显式退出:只设 exitCode 会被 pg 句柄挂住(2026-10-31 实测 120s 不退)
