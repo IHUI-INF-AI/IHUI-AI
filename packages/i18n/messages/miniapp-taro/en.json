@@ -7357,5 +7357,68 @@
       "empty": "No patrol runs yet",
       "loading": "Loading…"
     }
+  },
+  "repoWiki": {
+    "title": "Repo Wiki",
+    "description": "Auto-generate architecture & module docs from your local repo",
+    "repoNamePlaceholder": "Enter repository name",
+    "needRepoName": "Please enter a repository name",
+    "listTitle": "Documents",
+    "loadingDocs": "Loading…",
+    "generatedAt": "Generated at {time}",
+    "fileCount": "{count} files",
+    "view": "View",
+    "delete": "Delete",
+    "deleteConfirm": "Delete this document?",
+    "backToList": "Back to list",
+    "loadingDetail": "Loading document…",
+    "searchBtn": "Search",
+    "generateHint": "Generation needs a whole repository folder upload and is Web-only; here you can browse and delete generated docs",
+    "loadFailed": "Failed to load documents",
+    "emptyList": "No documents yet, generate them on the Web first"
+  },
+  "teamKnowledge": {
+    "title": "Team Knowledge Engine",
+    "description": "Shared team knowledge: collaborative spaces, member revisions, full audit trail",
+    "teamPlaceholder": "Enter team ID",
+    "searchBtn": "Search",
+    "newSpaceBtn": "New Space",
+    "newSpaceTitle": "New Knowledge Space",
+    "spaceNamePlaceholder": "Name this knowledge space",
+    "teamVisible": "Visible to team",
+    "restricted": "Restricted",
+    "needTeam": "Please enter a team ID first",
+    "needSpaceName": "Space name is required",
+    "saveFailed": "Failed to save",
+    "needTitle": "Title is required",
+    "spaceListTitle": "Knowledge Spaces",
+    "emptySpaces": "No visible knowledge spaces in this team",
+    "membersTitle": "Space Members",
+    "emptyMembers": "No explicitly granted members",
+    "itemsTitle": "Knowledge Items",
+    "newItemBtn": "New Item",
+    "kindAll": "All types",
+    "emptyItems": "No items in this space",
+    "titlePlaceholder": "Summarize this knowledge item in one line",
+    "contentPlaceholder": "Context, conclusion, caveats",
+    "publishBtn": "Publish",
+    "archiveBtn": "Archive",
+    "saveBtn": "Save",
+    "cancelBtn": "Cancel",
+    "role": {
+      "owner": "Owner",
+      "editor": "Editor",
+      "viewer": "Viewer"
+    },
+    "kind": {
+      "memory": "Team Memory",
+      "wiki": "Wiki",
+      "card": "Knowledge Card"
+    },
+    "status": {
+      "draft": "Draft",
+      "published": "Published",
+      "archived": "Archived"
+    }
   }
 }

@@ -7357,5 +7357,68 @@
       "empty": "巡検履歴はありません",
       "loading": "読み込み中…"
     }
+  },
+  "repoWiki": {
+    "title": "Repo Wiki",
+    "description": "ローカルリポジトリから構成・モジュール文書を自動生成",
+    "repoNamePlaceholder": "リポジトリ名を入力",
+    "needRepoName": "リポジトリ名を入力してください",
+    "listTitle": "ドキュメント一覧",
+    "loadingDocs": "読み込み中…",
+    "generatedAt": "{time} に生成",
+    "fileCount": "{count} ファイル",
+    "view": "表示",
+    "delete": "削除",
+    "deleteConfirm": "このドキュメントを削除しますか?",
+    "backToList": "一覧へ戻る",
+    "loadingDetail": "ドキュメントを読み込み中…",
+    "searchBtn": "検索",
+    "generateHint": "生成にはリポジトリ全体のアップロードが必要で、現在は Web 専用です。ここでは生成済み文書の閲覧と削除ができます",
+    "loadFailed": "文書一覧の読み込みに失敗しました",
+    "emptyList": "文書がありません。先に Web で生成してください"
+  },
+  "teamKnowledge": {
+    "title": "チームナレッジエンジン",
+    "description": "チーム共有のナレッジ:スペース連携・メンバー修正・全過程監査",
+    "teamPlaceholder": "チーム ID を入力",
+    "searchBtn": "検索",
+    "newSpaceBtn": "新規スペース",
+    "newSpaceTitle": "新規ナレッジスペース",
+    "spaceNamePlaceholder": "ナレッジスペースの名前を入力",
+    "teamVisible": "チーム全体に公開",
+    "restricted": "限定公開",
+    "needTeam": "先にチーム ID を入力してください",
+    "needSpaceName": "スペース名は必須です",
+    "saveFailed": "保存に失敗しました",
+    "needTitle": "タイトルは必須です",
+    "spaceListTitle": "ナレッジスペース",
+    "emptySpaces": "このチームに参照可能なナレッジスペースはありません",
+    "membersTitle": "スペースメンバー",
+    "emptyMembers": "明示的に権限を付与されたメンバーはいません",
+    "itemsTitle": "ナレッジアイテム",
+    "newItemBtn": "新規アイテム",
+    "kindAll": "すべてのタイプ",
+    "emptyItems": "このスペースにアイテムはありません",
+    "titlePlaceholder": "この知識を一言で表す",
+    "contentPlaceholder": "背景・結論・注意事項",
+    "publishBtn": "公開",
+    "archiveBtn": "アーカイブ",
+    "saveBtn": "保存",
+    "cancelBtn": "キャンセル",
+    "role": {
+      "owner": "所有者",
+      "editor": "エディター",
+      "viewer": "ビューアー"
+    },
+    "kind": {
+      "memory": "チームメモ",
+      "wiki": "Wiki",
+      "card": "ナレッジカード"
+    },
+    "status": {
+      "draft": "下書き",
+      "published": "公開済み",
+      "archived": "アーカイブ済み"
+    }
   }
 }
