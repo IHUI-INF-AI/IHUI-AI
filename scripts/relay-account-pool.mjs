@@ -30,6 +30,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 // 个人池归属的唯一读取实现(§0.6):判据与 reason 措辞都只许这一份,不在本文件复算
 import {
   POOL_OWNER_REASON_TEXT,
+  UUID_LIKE_RE,
   maskPoolOwner,
   resolveDefaultPoolOwner,
 } from './lib/pool-owner.mjs'
@@ -66,6 +67,12 @@ const HELP = `反代账号池导入
     [--no-health]                            跳过导入后的上游健康检查
     [--owner <users.id>]                     显式导入为该用户的个人池(优先级最高,压过默认)
     [--ops-pool]                             显式落运营池(运维逃生口,压过默认归属;与 --owner 互斥)
+    [--push-prod]                            本机导入成功后,同一批凭据再推一份到生产库(SSH 直连生产 checkout,不走后台密码)
+    [--prod-only]                            跳过本机库,只推生产(隐含 --push-prod)
+    [--prod-host <alias>]                    SSH 别名(默认 ssh.aizhs.top;须免密可用)
+    [--prod-checkout <path>]                 生产 checkout 根(默认 D:\\DevEnv\\ihui-prod)
+    [--prod-owner <users.id>]                生产侧归属(缺省用生产机 ~/.wb-switch/pool-owner)
+    [--with-health]                          带 --push-prod 时也做导入后上游健康检查(默认跳过:那一步要等上游 5xx 回落)
     [--json]                                 机器可读摘要(提取信息走 stderr)
 
 行文本形态(--tokens-file,2026-11-06 立,手上只有纯文本时的出口):
@@ -150,6 +157,12 @@ function parseArgs(argv) {
     help: false,
     owner: '',
     opsPool: false,
+    prodPush: false,
+    prodOnly: false,
+    prodHost: 'ssh.aizhs.top',
+    prodCheckout: 'D:\\DevEnv\\ihui-prod',
+    prodOwner: '',
+    withHealth: false,
   }
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]
@@ -163,6 +176,14 @@ function parseArgs(argv) {
     else if (arg === '--no-health') options.health = false
     else if (arg === '--json') options.json = true
     else if (arg === '--ops-pool') options.opsPool = true
+    else if (arg === '--push-prod') options.prodPush = true
+    else if (arg === '--prod-only') {
+      options.prodPush = true
+      options.prodOnly = true
+    } else if (arg === '--prod-host') options.prodHost = (argv[++i] ?? '').trim()
+    else if (arg === '--prod-checkout') options.prodCheckout = (argv[++i] ?? '').trim()
+    else if (arg === '--prod-owner') options.prodOwner = (argv[++i] ?? '').trim()
+    else if (arg === '--with-health') options.withHealth = true
     else if (arg === '--owner') {
       options.owner = (argv[++i] ?? '').trim()
       if (!options.owner) {
@@ -179,6 +200,18 @@ function parseArgs(argv) {
       options: null,
       error: '--owner 与 --ops-pool 只能二选一(个人池归属与运营池不得同时指定)',
     }
+  if (options.prodPush && options.dryRun)
+    return { options: null, error: '--dry-run 与 --push-prod 互斥:预检不落任何库(含生产)' }
+  if (options.prodPush && options.opsPool)
+    return { options: null, error: '--ops-pool 与 --push-prod 互斥:运营池号不推生产个人池' }
+  if (options.prodPush && !options.prodHost)
+    return { options: null, error: '--prod-host 需要 SSH 别名(默认 ssh.aizhs.top)' }
+  if (options.prodPush && !options.prodCheckout)
+    return { options: null, error: '--prod-checkout 需要生产 checkout 根路径' }
+  if (options.prodOwner && !UUID_LIKE_RE.test(options.prodOwner))
+    return { options: null, error: `--prod-owner 不像 users.id: ${options.prodOwner}` }
+  if (options.prodOwner && !options.prodPush)
+    return { options: null, error: '--prod-owner 只在 --push-prod / --prod-only 下生效' }
   if (options.from && options.file) return { options: null, error: '--from 与 --file 只能二选一' }
   if (options.tokensFile && options.file)
     return {
@@ -305,9 +338,74 @@ function runImporter(payloadText, providerCode, options, decision) {
   })
 }
 
+/** 起一个子进程并收齐退出码;inherit=true 时输出直通(生产导入器的摘要要原样让人看见) */
+export function runProcess(cmd, args, { inherit = false, input = null } = {}) {
+  const hasInput = typeof input === 'string'
+  return new Promise((resolve) => {
+    const child = spawn(cmd, args, {
+      stdio: [
+        hasInput ? 'pipe' : 'ignore',
+        inherit ? 'inherit' : 'pipe',
+        inherit ? 'inherit' : 'pipe',
+      ],
+      windowsHide: true,
+    })
+    let stdout = ''
+    let stderr = ''
+    if (!inherit) {
+      child.stdout.on('data', (d) => (stdout += String(d)))
+      child.stderr.on('data', (d) => (stderr += String(d)))
+    }
+    child.on('error', (e) => resolve({ code: 2, error: e.message, stdout }))
+    child.on('exit', (code, signal) => {
+      if (signal) resolve({ code: 2, error: `进程被信号终止: ${signal}`, stdout })
+      else resolve({ code: code ?? 2, error: stderr.trim() || null, stdout })
+    })
+    if (hasInput) {
+      child.stdin.on('error', () => {
+        /* 对端已关:退出码才是结论 */
+      })
+      child.stdin.end(input)
+    }
+  })
+}
+
+/**
+ * 生产推送(2026-11-10 立):同一条 stdin 载荷,经 SSH 在生产 checkout 内交给**同一个导入器**
+ * (`relay-account-import.ts --stdin`,与本机 runImporter 共用 buildImporterArgs 装配),
+ * 只开一条连接、不落任何临时文件,也不走后台密码登录。
+ * 归属默认由生产机 ~/.wb-switch/pool-owner 决定,可用 --prod-owner 显式点名;
+ * 生产侧健康检查默认跳过(导入器不再等上游 5xx 回落),显式 --with-health 才当场验。
+ */
+async function pushPayloadToProd(payloadText, providerCode, options) {
+  const decision = options.prodOwner
+    ? { owner: options.prodOwner, source: 'explicit-flag' }
+    : { owner: null, source: 'default-owner-file' }
+  const importerArgs = buildImporterArgs(
+    providerCode,
+    { ...options, dryRun: false, health: options.withHealth },
+    decision,
+  )
+  const remoteCmd =
+    `cd /d "${options.prodCheckout}" & node ` +
+    ['apps\\api\\node_modules\\tsx\\dist\\cli.mjs', 'apps\\api\\scripts\\relay-account-import.ts']
+      .concat(importerArgs)
+      .join(' ')
+  const ssh = await runProcess(
+    'ssh',
+    ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=20', options.prodHost, remoteCmd],
+    { inherit: true, input: payloadText },
+  )
+  return {
+    code: ssh.code,
+    error: ssh.code === 0 ? null : ssh.error || `生产导入器退出码 ${ssh.code}`,
+  }
+}
+
 /** 可注入面(测试用):下游导入与默认归属读取都必须能被替身接走,绝不真写库、绝不读真机文件。 */
 const DEFAULT_DEPS = {
   runImporter,
+  pushProd: pushPayloadToProd,
   resolveDefaultOwner: resolveDefaultPoolOwner,
   // 名称脱敏单源的装载出口(测试注入替身,绝不依赖 packages/shared 的构建产物在不在)
   loadMaskPhone,
@@ -342,7 +440,10 @@ async function main(argv, injectedDeps = {}) {
   // 归属裁决排在提取与写下游之前:先定"这批号跟谁走",再把结论(含取不到的具名原因)
   // 打在 stdout 上 —— 永久指令不靠人记旗标,但必须让人一眼看见这行号跟谁走。
   const decision = resolveOwnerDecision(options, deps.resolveDefaultOwner)
-  process.stdout.write(ownerNoticeLine(decision))
+  // 只推生产时,本机归属文件缺失不该吓人:归属由生产机自己的 pool-owner / --prod-owner 决定
+  if (!(options.prodOnly && decision.source === 'none')) {
+    process.stdout.write(ownerNoticeLine(decision))
+  }
 
   if (options.from === 'workbuddy') {
     const { extractWorkbuddyAccount } = await import(
@@ -551,7 +652,7 @@ async function main(argv, injectedDeps = {}) {
   // 放在输入解析/校验之后:空文件 / 全注释 / 形态坏等"未判定"出口优先,本处只拦"确有可用
   // 凭据却无个人归属"的情形。运营池仅由用户经「共享到运营池」按钮填充(全局开放标记模型),
   // 不再接受直接导入;显式 --ops-pool 仍保留为运维逃生口(需本人明确意图),不在此拒绝之列。
-  if (decision.source === 'none' && !options.opsPool) {
+  if (decision.source === 'none' && !options.opsPool && !options.prodOnly) {
     process.stderr.write(
       `❌ 首次导入强制落个人池:未取到个人池归属(原因=${POOL_OWNER_REASON_TEXT[decision.reason] ?? decision.reason}:${decision.file})。\n` +
         '   请显式带 --owner <users.id>,或在 ~/.wb-switch/pool-owner 写入本人 users.id。\n' +
@@ -560,9 +661,37 @@ async function main(argv, injectedDeps = {}) {
     return 2
   }
 
-  const result = await deps.runImporter(payloadText, providerCode, options, decision)
+  // 推生产的快路径:导入后健康检查默认跳过(Trae 这类 IDE 号要等 model_list 5xx 回落,单号就几十秒),
+  // 要当场验可用带 --with-health;不验不等于不查,保活调度会按档位复检。
+  const skipHealth = options.prodPush && !options.withHealth
+  if (skipHealth) {
+    process.stderr.write('ℹ️ 已跳过导入后健康检查(由保活调度复检;要当场验证请加 --with-health)\n')
+  }
+
+  // 只推生产:本机库一行不写,凭据只在生产 checkout 内落一次。
+  // 生产归属缺省沿用本机裁决(两库 admin users.id 同源镜像);显式 --prod-owner 覆盖。
+  const prodOptions = options.prodPush
+    ? { ...options, prodOwner: options.prodOwner || decision.owner }
+    : options
+  if (options.prodPush && !prodOptions.prodOwner) {
+    process.stderr.write('❌ 生产推送缺个人池归属:带 --prod-owner <users.id>(不推运营池)\n')
+    return 2
+  }
+  if (options.prodOnly) {
+    const push = await deps.pushProd(payloadText, providerCode, prodOptions)
+    if (push.error) process.stderr.write(`❌ 生产推送失败: ${push.error}\n`)
+    return push.code
+  }
+
+  const localOptions = skipHealth ? { ...options, health: false } : options
+  const result = await deps.runImporter(payloadText, providerCode, localOptions, decision)
   if (result.error) process.stderr.write(`❌ ${result.error}\n`)
-  return result.code
+  if (result.code !== 0 || !options.prodPush) return result.code
+
+  // 本机已入池,再把同一批凭据推一份到生产(SSH 直连,不经后台密码)
+  const push = await deps.pushProd(payloadText, providerCode, prodOptions)
+  if (push.error) process.stderr.write(`❌ 生产推送失败: ${push.error}\n`)
+  return push.code
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href

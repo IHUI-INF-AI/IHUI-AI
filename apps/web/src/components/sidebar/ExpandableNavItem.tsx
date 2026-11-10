@@ -145,8 +145,9 @@ const ExpandableNavItem = React.memo(function ExpandableNavItem({
   const childClassName = (active: boolean) =>
     cn(
       NAV_CHILD_CLASS,
+      // 2026-11-10 用户要求:选中态底色对比降低,与 NavLink 统一改用 sidebar-active 弱底
       active
-        ? 'bg-cta text-cta-foreground'
+        ? 'bg-sidebar-active text-foreground'
         : 'text-foreground/70 hover:bg-sidebar-item-hover-bg hover:text-accent-foreground',
     )
 
