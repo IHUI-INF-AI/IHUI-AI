@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { checkFolderTrust } from '../src/sandbox/index.js';
@@ -69,15 +70,23 @@ describe('文件访问裁决 · 凭据族(读侧 deny)', () => {
   });
 
   it('⑤ 绝对路径先折成工作区相对形态(不给"传绝对路径就绕过"留缝)', () => {
-    const ws = 'G:/IHUI-AI';
-    expect(toAclPath(ws, 'G:/IHUI-AI/src/deploy/x.pem')).toBe('src/deploy/x.pem');
+    // 工作区与"工作区内绝对路径"都必须**就宿主平台**构造:写死 `G:/IHUI-AI` 这类 Windows
+    // 盘符形态,在 POSIX 上 `resolve('G:/IHUI-AI')` 折出来的工作面与那个字面量不是同一个串,
+    // 折叠必然失败 ⇒ 本机(win32)绿、CI(linux)红。用 path.resolve 从 cwd 派生两平台都成立的一对。
+    const ws = path.resolve('ihui-ws');
+    const insideAbs = path.join(ws, 'src', 'deploy', 'x.pem');
+    expect(toAclPath(ws, insideAbs)).toBe('src/deploy/x.pem');
     expect(toAclPath(ws, 'src/deploy/x.pem')).toBe('src/deploy/x.pem');
     // 越出工作区:实现保持原样进尺(折不成相对不等于"看不见"),两种形态都必须被拦住。
-    const outside = toAclPath(ws, 'G:/Other/keys/id_rsa');
-    expect(outside).toBe('G:/Other/keys/id_rsa');
+    // 用一个与 ws 无包含关系的绝对路径:取 ws 的上级再进另一条支线。
+    const outsideAbs = path.join(path.dirname(ws), 'ihui-other', 'keys', 'id_rsa');
+    const outside = toAclPath(ws, outsideAbs);
     expect(decideFileAccess('read', outside, rules).decision).toBe('deny');
-    const crossDrive = toAclPath(ws, 'D:/Other/keys/id_rsa');
-    expect(decideFileAccess('read', crossDrive, rules).decision).toBe('deny');
+    // 另一根层形态(跨盘/跨根):POSIX 上 `path.parse().root` 只有一个;win32 上是另一个盘。
+    // 取"当前根的兄弟根"若不存在则退化为同一个根下的遥远处 —— 两种情况都必须是"折不成相对"。
+    const otherRoot = process.platform === 'win32' ? 'D:/Other/keys/id_rsa' : '/other-root/keys/id_rsa';
+    const crossRoot = toAclPath(ws, otherRoot);
+    expect(decideFileAccess('read', crossRoot, rules).decision).toBe('deny');
     // 根层形态(本仓 glob 里 `**/x` 要求前置一层 ⇒ 裸形态必须单列,否则根层漏过去)
     expect(decideFileAccess('read', 'id_rsa', rules).decision).toBe('deny');
     expect(decideFileAccess('read', 'server.pem', rules).decision).toBe('deny');

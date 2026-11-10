@@ -187,8 +187,10 @@ describe('⑥ 形状锁:判据层零 fs + 声明确有消费者', () => {
     expect(gc).not.toMatch(/JSON\.parse/)
   })
   it('两个判据模块都被 CheckpointManager 真走到(命名分配 + 回收派发)', () => {
-    const index = sourceOf('index.ts')
-    const missing = ['planSnapshotGc(', 'allocateNextSnapshotSeriesRef(', 'formatSnapshotSeriesDirName(', 'seriesUuidFromSeedHex(', 'parseSnapshotSeriesDirName('].filter((call) => !index.includes(call))
+    // goal-b49 W3:CheckpointManager 的编排实现自 index.ts 抽到 manager.ts(index 只留 barrel)。
+    // 判据射程随之**只增不减**:两处源码取并集,谁住这份实现都得真走到两个判据模块。
+    const sources = ['index.ts', 'manager.ts'].map((f) => sourceOf(f)).join('\n')
+    const missing = ['planSnapshotGc(', 'allocateNextSnapshotSeriesRef(', 'formatSnapshotSeriesDirName(', 'seriesUuidFromSeedHex(', 'parseSnapshotSeriesDirName('].filter((call) => !sources.includes(call))
     expect(missing).toEqual([])
   })
 })

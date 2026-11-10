@@ -79,7 +79,10 @@ describe('DBG-49 worktree CoW 缓存写失败被吞掉时必须留痕', () => {
 
     return import('../src/worktree.js').then((worktree) => {
       const kind = worktree.detectCowKind(scratch);
-      expect(kind === 'refs' || kind === 'none').toBe(true);
+      // 探测结果依宿主文件系统而变(Windows 只可能 refs/none;Linux 可能是 ficlone;macOS 可能是 clonefile):
+      // 这条只是"探测落在一个合法档位"的前置条件,不是本用例的被审对象 —— 所以对着唯一源的全集判,
+      // 不把本机的两档当成全世界的两档。真正要判的是下面的 warn 留痕与真身不变。
+      expect(worktree.VALID_COW_KINDS).toContain(kind);
 
       const lines = warnSpy.mock.calls.flat().map(String).join('\n');
       expect(lines).toContain(link);

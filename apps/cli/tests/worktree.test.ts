@@ -380,6 +380,10 @@ describe('createWorktree', () => {
     await expect(createWorktree({
       source: sourceRepo,
       destination: dst,
+      // createWorktree 自本批起要求显式 withinRoot(fail-closed,见 path-guard-family-coverage
+      // 的"低层 worktree 原语:显式 withinRoot"段);本用例审的是 `.git` 读不到的出声与零副作用,
+      // 根约束按本 describe 的 tmpDir 如实给出,不因补参数而改变被审对象。
+      withinRoot: tmpDir,
       stat: (target) => {
         if (target.endsWith(`${path.sep}.git`)) throw denied
         return fs.statSync(target)

@@ -14,6 +14,7 @@
 
 import { describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
+import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   decideWatchdogTick,
@@ -146,20 +147,26 @@ describe('作业监工启动条件', () => {
   })
 
   it('lifeline 没量到或占用了标准流,都不记成已装上作业', () => {
+    // 走通 abs 闸的路径必须**在宿主平台**上是绝对路径:判据用 `path.isAbsolute`,
+    // 而 `C:\engine.exe` 只在 win32 上是绝对的(POSIX 上不是)—— 写死 Windows 形态
+    // 就会让 `engine-path-not-absolute` 抢在 lifeline 判定之前先返回,本机绿、CI 红。
+    // 用 path.resolve 造一个两平台都绝对的形态,受审的是 lifeline/grace/receipt 三闸。
+    const abs = path.resolve('/engine.exe')
+    const absReceipt = path.resolve('/receipt.json')
     expect(
       planEngineSupervisor({
-        enginePath: 'C:\\engine.exe',
+        enginePath: abs,
         lifelineFd: null,
         graceMs: 1000,
-        exitReceipt: 'C:\\receipt.json',
+        exitReceipt: absReceipt,
       }).reason,
     ).toBe('lifeline-unmeasured')
     expect(
       planEngineSupervisor({
-        enginePath: 'C:\\engine.exe',
+        enginePath: abs,
         lifelineFd: 1,
         graceMs: 1000,
-        exitReceipt: 'C:\\receipt.json',
+        exitReceipt: absReceipt,
       }).reason,
     ).toBe('lifeline-not-dedicated')
     expect(
@@ -167,20 +174,20 @@ describe('作业监工启动条件', () => {
         enginePath: 'engine.exe',
         lifelineFd: 3,
         graceMs: 1000,
-        exitReceipt: 'C:\\receipt.json',
+        exitReceipt: absReceipt,
       }).reason,
     ).toBe('engine-path-not-absolute')
     expect(
       planEngineSupervisor({
-        enginePath: 'C:\\engine.exe',
+        enginePath: abs,
         lifelineFd: 3,
         graceMs: null,
-        exitReceipt: 'C:\\receipt.json',
+        exitReceipt: absReceipt,
       }).reason,
     ).toBe('grace-unmeasured')
     expect(
       planEngineSupervisor({
-        enginePath: 'C:\\engine.exe',
+        enginePath: abs,
         lifelineFd: 3,
         graceMs: 1000,
         exitReceipt: null,
@@ -188,10 +195,10 @@ describe('作业监工启动条件', () => {
     ).toBe('receipt-unmeasured')
     expect(
       planEngineSupervisor({
-        enginePath: 'C:\\engine.exe',
+        enginePath: abs,
         lifelineFd: 3,
         graceMs: 1000,
-        exitReceipt: 'C:\\receipt.json',
+        exitReceipt: absReceipt,
       }),
     ).toEqual({ disposition: 'armed', reason: 'measured' })
   })

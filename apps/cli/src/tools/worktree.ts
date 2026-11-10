@@ -39,6 +39,8 @@ import { stashDirToTrash } from './file-batch-edit.js';
 // 文件访问裁决的 delete 轴(goal-b49 S5 接线):规则表与档位判据**全在这一件**,本层不抄第二份(§0.6)
 // 容器性断言(goal-b49 W5):与 ACL 分职,判"删除目标解析后是否越出自家隔离区根",同取这一件单源
 import { evaluateFileAccess, toAclPath, announceGuardUnjudged, judgeWorktreeContainment } from '../sandbox/file-access-policy.js';
+// 根内符号链接指向根外 ⇒ 拒绝递归删除(realpath 判据单源,与检查点/hunk/会话同取 path-guard)
+import { assertPathInside } from '../util/path-guard.js';
 import {
   AGENT_BRANCH_PREFIX,
   DEFAULT_WORKTREE_DIR,
@@ -111,10 +113,15 @@ export class WorktreeManager {
     const wtPath = path.join(this.rootDir, agentId);
     const containment = judgeWorktreeContainment(this.rootDir, wtPath);
     if (!containment.contained) {
+      // 容器性判越界:出声 + 抛(现场一字节不删)。**不得**改成"返回 false 视同查不到" ——
+      // 那会把一次越界回收静默成"本来就没有这棵树",`..` 折叠出的越界路径将不再出声,
+      // 判据(worktree-containment 的 ①+② 反控)当场失明。与下方 aclDelete 拒删同口径:都是拒,都出声。
       const refusal = `[worktree-containment] ${containment.reason}。下一步:${containment.nextStep}`;
       emitWorktreeVoice(refusal);
       throw new Error(refusal);
     }
+    // 根内但 realpath 拐到根外的符号链接/junction ⇒ 拒绝递归删除(现场不受损)。
+    assertPathInside(this.rootDir, wtPath, 'worktree 删除目录');
     const aclDelete = evaluateFileAccess('delete', toAclPath(this.sourcePath, wtPath), this.sourcePath);
     // 守护面清单不可判 ⇒ 出声一次(S7:unjudged 透到消费点;排在下一次 fs 动作之前)
     announceGuardUnjudged(this.sourcePath, aclDelete.guard, 'worktree_remove');
