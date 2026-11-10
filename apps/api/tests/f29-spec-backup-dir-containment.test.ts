@@ -6,6 +6,8 @@
  * F-29:`/spec/pipeline-rollback` 接受绝对 backupDir —— 可读工作区外任意目录的 *.bak,
  * 搬进 .ihui-agent/specs 后再经 /workspace-ai/fs/read 取出。
  */
+import { resolve } from 'node:path'
+
 import { describe, expect, it, vi } from 'vitest'
 
 vi.hoisted(() => {
@@ -24,9 +26,13 @@ const ROOT = 'C:/tmp/f29-workspace'
 
 describe('F-29 备份目录必须在工作区内', () => {
   it('绝对路径指向工作区外 ⇒ 拒绝,且不读取该目录', async () => {
+    // 用 resolve 拼"绝对且在工作区外",而不是写 `D:/outside-backups` ——
+    // 后者在 POSIX 上不是绝对路径(isAbsolute=false),会被当成工作区内相对路径,
+    // 于是先撞"目录不存在"分支,用例在 Linux CI 上假红。
+    const outside = resolve(ROOT, '..', 'outside-backups')
     const result = await specService.rollbackPipeline({
       workspacePath: ROOT,
-      backupDir: 'D:/outside-backups',
+      backupDir: outside,
     })
     expect(result.rolled).toBe(0)
     expect(result.error).toBe('备份目录越出工作区')

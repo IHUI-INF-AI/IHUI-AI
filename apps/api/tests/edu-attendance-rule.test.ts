@@ -18,12 +18,11 @@ import { __test__ as conflictTest } from '../src/services/edu-schedule-conflict.
 const { judgeStatus, judgeStatusDetailed, hmOfLocalDate } = ruleTest
 const { normalizeHm } = conflictTest
 
-/** 把本地墙钟拼成 Date(避开 TZ) */
-const local = (hh: number, mm: number): Date => {
-  const d = new Date()
-  d.setHours(hh, mm, 0, 0)
-  return d
-}
+/** 把**业务墙钟(Asia/Shanghai,UTC+8)**拼成 Date。
+ *  不能用 `setHours()`:那是宿主本地时区,CI 跑在 UTC 时会与 `hmOfLocalDate` 的
+ *  上海墙钟口径差 8 小时(F-263 回归,判据见 edu-attendance-timezone-contract)。 */
+const local = (hh: number, mm: number): Date =>
+  new Date(`2026-01-05T${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:00+08:00`)
 
 describe('judgeStatus 四型:迟到 / 早退 / 正常 / 缺输入', () => {
   it('① 无签到 ⇒ absent(不依赖阈值)', () => {

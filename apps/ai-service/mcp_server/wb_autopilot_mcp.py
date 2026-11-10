@@ -108,6 +108,8 @@ def _err(code: int, message: str) -> dict[str, Any]:
 async def _account_credential(account_id: int) -> tuple[str, dict[str, Any]]:
     """从本机号池解密凭据;jwt 绝不放进任何 MCP 返回体。"""
     acc = await checkin_store.get_decrypted_jwt(account_id, DEFAULT_OWNER)
+    if acc is None:
+        raise RuntimeError(f"账号不存在或不属于本属主: {account_id}")
     device_map = acc.get("device_map") or {}
     if isinstance(device_map, str):
         device_map = json.loads(device_map)
@@ -229,7 +231,7 @@ def _dispatch(
         return None
     try:
         if method == "initialize":
-            result = {
+            result: dict[str, Any] = {
                 "protocolVersion": PROTOCOL_VERSION,
                 "capabilities": {"tools": {}},
                 "serverInfo": SERVER_INFO,
@@ -270,6 +272,7 @@ def main() -> int:
         line = line.strip()
         if not line:
             continue
+        resp: dict[str, Any] | None
         try:
             msg = json.loads(line)
         except ValueError:

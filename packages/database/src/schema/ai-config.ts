@@ -115,8 +115,8 @@ export const aiModelConfig = pgTable(
      * 除"删僵尸行 + 改生产者"外,这一层是防再生的硬闸(重复插入会被直接拒绝)。
      *
      * 为什么用 (provider_code, COALESCE(base_url,'')) 而不是单独 provider_code:
-   * 同一 provider_code 下允许存在多个**不同端点**的中转配置(既有设计,如 swiftapi 存在
-   * 空 base_url 行与 /v1 后缀行两条语义不同的配置行)。
+     * 同一 provider_code 下允许存在多个**不同端点**的中转配置(既有设计,如 swiftapi 存在
+     * 空 base_url 行与 /v1 后缀行两条语义不同的配置行)。
      * 只按 provider_code 做唯一会误伤这类配置,故把 base_url 纳入键。
      * COALESCE 是必须的:base_url 可空,而 UNIQUE 对 NULL 不去重。
      */
@@ -172,6 +172,12 @@ export const aiModelConfigModels = pgTable(
     vendor: varchar('vendor', { length: 64 }),
     maxOutputTokens: integer('max_output_tokens'),
     supportsToolCall: boolean('supports_tool_call').default(false),
+    // --- 工具调用能力实证(2026-11-08 立) ---
+    // 与 supports_tool_call(上游元数据"声称")分离:这两个列只由真实探针/线上判据写入,
+    // ModelSyncService 只允许新增/删除行,禁止覆盖(断言见 model_sync.py)。
+    /** null=未实证;true=实测拿到原生 tool_calls;false=实测只吐伪工具痕迹 */
+    toolCallEmpirical: boolean('tool_call_empirical'),
+    toolCallVerifiedAt: timestamp('tool_call_verified_at', { withTimezone: true }),
     supportsVision: boolean('supports_vision').default(false),
     supportsStreaming: boolean('supports_streaming').default(true),
     rateLimitRpm: integer('rate_limit_rpm'),
@@ -281,6 +287,37 @@ export type AiModelConfig = typeof aiModelConfig.$inferSelect
 export type NewAiModelConfig = typeof aiModelConfig.$inferInsert
 export type AiModelConfigModel = typeof aiModelConfigModels.$inferSelect
 export type NewAiModelConfigModel = typeof aiModelConfigModels.$inferInsert
+
+/**
+ * 工具调用能力实证审计(2026-11-08 立)
+ *
+ * 每次探针/线上判据落一行,回答"这个模型什么时候、按哪版判据、因为什么痕迹
+ * 被判定不支持工具调用"。判据升级只递增 criterion_version,历史行不改写。
+ */
+export const aiModelToolCallVerifications = pgTable(
+  'ai_model_tool_call_verifications',
+  {
+    id: bigserial('id', { mode: 'number' }).primaryKey(),
+    modelId: varchar('model_id', { length: 128 }).notNull(),
+    providerCode: varchar('provider_code', { length: 64 }).notNull(),
+    /** supported | failed | no_tool_calls */
+    verdict: varchar('verdict', { length: 24 }).notNull(),
+    criterionVersion: varchar('criterion_version', { length: 64 }).notNull(),
+    /** 命中的痕迹类型;supported/no_tool_calls 为 null */
+    traceKind: varchar('trace_kind', { length: 64 }),
+    /** probe(主动探针)/ runtime(线上请求判据) */
+    source: varchar('source', { length: 16 }).notNull(),
+    observedAt: timestamp('observed_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    modelObservedIdx: index('ai_model_tool_call_verifications_model_observed_idx').on(
+      t.modelId,
+      t.observedAt,
+    ),
+  }),
+)
+
+export type AiModelToolCallVerification = typeof aiModelToolCallVerifications.$inferSelect
 export type AiModelConfigGroup = typeof aiModelConfigGroups.$inferSelect
 export type NewAiModelConfigGroup = typeof aiModelConfigGroups.$inferInsert
 export type VideoGenerationTask = typeof videoGenerationTasks.$inferSelect

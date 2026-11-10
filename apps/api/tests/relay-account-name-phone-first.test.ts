@@ -196,6 +196,40 @@ describe('resolveRelayAccountName:手机号优先与退化归因(判据单源)',
     expect(d.fallbackReason).toContain('退化为#序号')
   })
 
+  it('opencode(Google 登录,无手机号维度)命名候选 = email → user.email → name(2026-11-10)', () => {
+    const topEmail = resolveRelayAccountName({
+      providerCode: 'opencode',
+      payload: { email: EMAIL, name: '旧自带名' },
+      index: 0,
+    })
+    expect(topEmail.name).toBe(EMAIL)
+    expect(topEmail.source).toBe('payload-name')
+    expect(topEmail.fallback).toBe('phone-absent')
+
+    const nestedEmail = resolveRelayAccountName({
+      providerCode: 'opencode',
+      payload: { user: { email: 'nested@example.com' }, name: '旧自带名' },
+      index: 0,
+    })
+    expect(nestedEmail.name).toBe('nested@example.com')
+
+    // 数组顺序即优先级:顶层 email 压过 user.email,两者都压过 name
+    const both = resolveRelayAccountName({
+      providerCode: 'opencode',
+      payload: { email: EMAIL, user: { email: 'nested@example.com' }, name: '旧自带名' },
+      index: 0,
+    })
+    expect(both.name).toBe(EMAIL)
+
+    const fallbackName = resolveRelayAccountName({
+      providerCode: 'opencode',
+      payload: { name: '旧自带名' },
+      index: 0,
+    })
+    expect(fallbackName.name).toBe('旧自带名')
+    expect(fallbackName.source).toBe('payload-name')
+  })
+
   it('嵌套键位按实证开放:qoder 认 user.phone;没实证的平台不吃嵌套位', () => {
     const qoder = resolveRelayAccountName({
       providerCode: 'qoder',
@@ -350,6 +384,20 @@ describe('importAccounts:入库名 = 统一名(手机号优先)', () => {
     const r = await importAccounts('trae', [{ name: '昵称', token } as ImportAccountInput])
     expect(lastInsert()['name']).toBe(FULL)
     expect(r.items[0]!.nameSource).toBe('phone')
+  })
+
+  it('opencode 带 email ⇒ 落库名取邮箱(Google 登录无手机号维度,入库面与判据同源)', async () => {
+    const r = await importAccounts('opencode', [
+      {
+        auth: { type: 'api', key: 'oc-key-1' },
+        email: EMAIL,
+        name: '旧自带名',
+      } as ImportAccountInput,
+    ])
+    expect(r.imported).toBe(1)
+    expect(lastInsert()['name']).toBe(EMAIL)
+    expect(r.items[0]!.nameSource).toBe('payload-name')
+    expect(r.items[0]!.nameFallback).toBe('phone-absent')
   })
 
   it('掩码手机号入库即落 extraMetadata.phoneMask 待补全(既有对账链不改)', async () => {

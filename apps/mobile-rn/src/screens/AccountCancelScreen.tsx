@@ -30,8 +30,13 @@ export default function AccountCancelScreen() {
   const [confirmText, setConfirmText] = useState('')
   const [smsCode, setSmsCode] = useState('')
   // 截止戳派生:App 从后台回前台时按墙钟对表(AppState 监听里 sync)
-  const smsCountdown = useCountdown(60)
-  const confirmCountdown = useCountdown(5)
+  const { count: smsCount, start: startSms, reset: resetSms, sync: syncSms } = useCountdown(60)
+  const {
+    count: confirmCount,
+    start: startConfirm,
+    reset: resetConfirm,
+    sync: syncConfirm,
+  } = useCountdown(5)
   const [showConfirmModal, setShowConfirmModal] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   // 二次确认闸门的状态位:第一击开弹窗,弹窗内那一击才真发请求(见 onSubmit)
@@ -40,19 +45,19 @@ export default function AccountCancelScreen() {
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
-        smsCountdown.sync()
-        confirmCountdown.sync()
+        syncSms()
+        syncConfirm()
       }
     })
     return () => sub.remove()
-  }, [smsCountdown.sync, confirmCountdown.sync])
+  }, [syncSms, syncConfirm])
 
   useEffect(() => {
-    if (confirmCountdown.count > 0 || !showConfirmModal) return
+    if (confirmCount > 0 || !showConfirmModal) return
     setShowConfirmModal(false)
     // 自动关窗同样要复位二次确认闸门,否则下一次点击会跳过弹窗直接注销。
     confirmGateRef.current = false
-  }, [confirmCountdown.count, showConfirmModal])
+  }, [confirmCount, showConfirmModal])
 
   const onSendSms = useCallback(async () => {
     const phone = inputPhone.trim()
@@ -68,12 +73,12 @@ export default function AccountCancelScreen() {
     const res = await sendSmsCode(phone, 'login')
     if (res.success) {
       appAlert(t('home.pubTip'), t('account.smsSent'))
-      smsCountdown.reset(60)
-      smsCountdown.start()
+      resetSms(60)
+      startSms()
     } else {
       appAlert(t('home.pubTip'), res.error ?? t('account.smsFailRetry'))
     }
-  }, [inputPhone, t])
+  }, [inputPhone, resetSms, startSms, t])
 
   const validate = useCallback((): string => {
     if (!inputPhone.trim()) return t('account.phoneRequired')
@@ -96,8 +101,8 @@ export default function AccountCancelScreen() {
     // 5 秒倒计时闸门在 RN 端根本不出现。用这一位区分两击:第一击只开闸门。
     if (!confirmGateRef.current) {
       confirmGateRef.current = true
-      confirmCountdown.reset(5)
-      confirmCountdown.start()
+      resetConfirm(5)
+      startConfirm()
       setShowConfirmModal(true)
       return
     }
@@ -126,7 +131,7 @@ export default function AccountCancelScreen() {
     } finally {
       setSubmitting(false)
     }
-  }, [validate, logout, smsCode, t])
+  }, [validate, logout, smsCode, t, resetConfirm, startConfirm])
 
   return (
     <SharedAccountCancelScreen
@@ -134,9 +139,9 @@ export default function AccountCancelScreen() {
       phone={inputPhone}
       confirmText={confirmText}
       smsCode={smsCode}
-      countdown={smsCountdown.count}
+      countdown={smsCount}
       showConfirmModal={showConfirmModal}
-      confirmCountdown={confirmCountdown.count}
+      confirmCountdown={confirmCount}
       submitting={submitting}
       consequences={[
         t('settings.accountDeletionConsequence1'),

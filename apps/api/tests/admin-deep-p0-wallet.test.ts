@@ -333,9 +333,10 @@ describe('adminWalletRoutes — /api/admin/wallet/*', () => {
     expect(res.statusCode).toBe(400)
     const body = res.json()
     expect(body.code).toBe(400)
-    // 新契约(wallet.ts adjust 的 catch):异常原文只进服务端日志,对外一律通用文案,
-    // 防止 DB/内部异常文本出仓。旧断言钉的是 2026-08 之前直接透出业务异常 message 的契约。
-    expect(body.message).toBe('操作失败,请稍后重试')
+    // wallet.ts adjust 的 catch 口径:4xx 只可能来自本服务显式抛出的业务错误,
+    // 业务文案原样保留(与 finance.ts / withdrawal-routes 等提现入口一致);
+    // 5xx/未知异常才统一兜底,DB/内部异常文本不出仓。此处 400 是"扣成负数"的业务结论。
+    expect(body.message).toBe('调整后余额不能为负数')
     expect(txInsertValuesSpy).not.toHaveBeenCalled()
     expect(txUpdateWhereSpy).toHaveBeenCalledTimes(1)
     expect(mockLogAction).not.toHaveBeenCalled()

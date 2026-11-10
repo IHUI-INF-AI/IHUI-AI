@@ -11,14 +11,13 @@ import { useRouter } from 'next/navigation'
 import { useTheme } from 'next-themes'
 
 import { SecurityAuditScreen } from '@ihui/rn-app/pilot'
+import { getSecurityAudit } from '@ihui/api-client'
 import { formatDate } from '@/lib/date-utils'
-import { fetchApi } from '@/lib/api'
 import { BackButton, AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import {
   createSecurityAuditT,
   toSecurityAuditItems,
-  type SecurityLogRow,
 } from '@/lib/rn-pilot/security-audit-view-model'
 
 /**
@@ -49,8 +48,9 @@ export default function SecurityAuditPageClient() {
     queryKey: ['security-audit'],
     enabled: allow,
     queryFn: async () => {
-      // 响应是 {list,total,page,pageSize},不是裸数组 ⇒ 取 .list
-      const r = await fetchApi<{ list: SecurityLogRow[] }>('/api/security/audit')
+      // 响应是 {list,total,page,pageSize},不是裸数组 ⇒ 取 .list;
+      // URL 由共享出口持有(web 不再直拼 /api/security/audit,门 300 A 类收口)
+      const r = await getSecurityAudit()
       return r.success && r.data ? (r.data.list ?? []) : []
     },
   })

@@ -589,19 +589,24 @@ describe('GET /parent/child/:id/attendance 的 status 枚举闸(与 /attendance 
 describe('status 取值表的同源锁(§22c:判据只有一份)', () => {
   it('枚举档恰好等于 judgeStatus 现算产出的四档 ∪ 路由自己写入的 leave', () => {
     const judge = (ruleTest as Record<string, unknown>).judgeStatus as (i: unknown) => string
+    // 判据按**业务墙钟(Asia/Shanghai,UTC+8)**读时刻:CI 跑在 UTC,
+    // 用 `new Date(2026,0,5,h,m)`(宿主本地时区)会整体偏 +8h,早退用例于是
+    // 被判成 present,'early' 从集合里消失 —— 该文件在 Linux CI 上假红的根因。
+    const at = (h: number, m: number): Date =>
+      new Date(`2026-01-05T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00+08:00`)
     const judged = new Set<string>([
       judge({ checkInTime: null }),
-      judge({ lateAfter: '08:30', checkInTime: new Date(2026, 0, 5, 9, 30) }),
+      judge({ lateAfter: '08:30', checkInTime: at(9, 30) }),
       judge({
         earlyBefore: '16:00',
-        checkInTime: new Date(2026, 0, 5, 8, 0),
-        checkOutTime: new Date(2026, 0, 5, 14, 0),
+        checkInTime: at(8, 0),
+        checkOutTime: at(14, 0),
       }),
       judge({
         lateAfter: '08:30',
         earlyBefore: '16:00',
-        checkInTime: new Date(2026, 0, 5, 8, 0),
-        checkOutTime: new Date(2026, 0, 5, 16, 30),
+        checkInTime: at(8, 0),
+        checkOutTime: at(16, 30),
       }),
     ])
     // leave 这一档由请假审批流写入路由自己那句 eq(status,'leave') —— 现读源码,不写行号

@@ -133,6 +133,11 @@ describe('键位表不变量:手机号只判一遍、平台特化序不改', () 
     }
   })
 
+  it('opencode 命名候选表逐字锁:email → user.email → name(Google 登录无手机号维度,2026-11-10)', () => {
+    // 表是判据的真相源:这一格钉住"用邮箱命名"的键位与顺序本身,行为测试跟着改钉不住纪律
+    expect(RELAY_ACCOUNT_NAME_KEYS.opencode).toEqual(['email', 'user.email', 'name'])
+  })
+
   it('qoder 既有优先关系保留:手机号取不到时 nickname 仍压过自带 name', () => {
     expect(RELAY_ACCOUNT_NAME_KEYS.qoder).toEqual(['nickname', 'name'])
     const d = resolveRelayAccountName({

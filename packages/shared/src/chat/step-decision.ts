@@ -6,7 +6,7 @@
  * 步骤决策(D55 / G-66)词汇表 —— 跨端单一真相源。
  *
  * 数据来源:`apps/ai-service` 的 `_derive_step_decision()`(从结果可见路径推导)与
- * `_decision_hints`(auto 免审批等不可见路径手工写入),两处合计 20 个字面量。
+ * `_decision_hints`(auto 免审批等不可见路径手工写入),两处合计 21 个字面量。
  * 本模块只认**全集**,不另建第二套枚举(后端新增字面量时由用例与守门 57 一起逼齐)。
  *
  * 纪律:
@@ -36,6 +36,8 @@ export const STEP_DECISIONS = [
   'approval_policy_never',
   'guardian_review_suggested',
   'guardian_review_alternative_applied',
+  // skill 的 allowed-tools 已授权该工具 ⇒ 本次免审批(agent_loop_v2 写 _decision_hints)
+  'skill_grant_skip_approval',
 ] as const
 
 export type StepDecision = (typeof STEP_DECISIONS)[number]
@@ -66,6 +68,7 @@ const DECISION_WORD_KEY: Record<StepDecision, string> = {
   approval_policy_never: 'decision.policySkipsApproval',
   guardian_review_suggested: 'decision.guardianReviewSuggested',
   guardian_review_alternative_applied: 'decision.guardianReviewAlternativeApplied',
+  skill_grant_skip_approval: 'decision.skillGrantSkipApproval',
 }
 
 const DECISION_STATE: Record<StepDecision, StepDecisionState> = {
@@ -97,6 +100,8 @@ const DECISION_STATE: Record<StepDecision, StepDecisionState> = {
   // 而 alternative_applied 只在用户勾选"改用更安全等价路径"且参数真被替换后置位 ⇒ approved。
   guardian_review_suggested: 'needsUser',
   guardian_review_alternative_applied: 'approved',
+  // skill allowed-tools 授权后免审批 ⇒ 工具照常执行,同 auto_skip_approval 的"已放行"面。
+  skill_grant_skip_approval: 'approved',
 }
 
 export function isStepDecision(value: unknown): value is StepDecision {
@@ -142,7 +147,7 @@ export function stateLabel(state: StepDecisionState, t: StepDecisionTranslate): 
 
 /**
  * `/agent-runtime` 通道的 permission 决策矩阵取值(producer 是
- * `apps/ai-service/app/routers/agent_runtime.py::_check_permission`,与上面 20 值**不同源**)。
+ * `apps/ai-service/app/routers/agent_runtime.py::_check_permission`,与上面 21 值**不同源**)。
  * 只登记已核实字面量 —— 审批语境下把 deny 误译成"已放行"会直接误导用户的授权决定。
  */
 const PERMISSION_DECISION_KEY: Readonly<Record<string, string>> = {

@@ -55,6 +55,12 @@ from .provider_caps import (
     get_provider_cap,
 )
 from .provider_slots import provider_slot
+from .tool_capability import (
+    count_tool_calls,
+    detect_pseudo_tool_trace,
+    is_empirically_tool_capable,
+    record_tool_capability_verdict,
+)
 from .usage_cache import normalize_usage
 
 # Combo 多级 fallback 路由器(2026-07-30 立,P0-1 Combo 接入 LLM 调用链)
@@ -1548,6 +1554,56 @@ _FREE_PROVIDER_ENDPOINT_RESOLVERS: dict[str, tuple[str, str | None, bool, bool]]
 }
 
 
+_PLACEHOLDER_MIN_KEY_LEN = 16
+_PLACEHOLDER_KEY_PATTERNS = (
+    "placeholder",
+    "your-key",
+    "your_key",
+    "yourkey",
+    "sk-place",
+    "change-me",
+    "changeme",
+    "replace-me",
+    "replace_me",
+    "example",
+    "dummy",
+    "todo",
+    "xxxx",
+    "<",
+    ">",
+)
+
+
+def mask_api_key(api_key: str | None) -> str:
+    """只暴露前 4 位 + 长度,禁止把 key 本体写进日志。"""
+    if not api_key:
+        return "<empty>"
+    return f"{api_key[:4]}…(len={len(api_key)})"
+
+
+def placeholder_key_reason(api_key: str | None) -> str | None:
+    """识别占位符/伪 key;返回原因串,None 表示看起来像真 key。
+
+    fail-closed:识别过程出任何异常都按"占位符"处理(视为未配置),
+    绝不因为识别失败而把假 key 当成真的打去上游换一个 401。
+    """
+    try:
+        if not isinstance(api_key, str):
+            return "not_string"
+        key = api_key.strip()
+        if not key:
+            return "empty"
+        if len(key) < _PLACEHOLDER_MIN_KEY_LEN:
+            return f"too_short(len={len(key)})"
+        lowered = key.lower()
+        for pattern in _PLACEHOLDER_KEY_PATTERNS:
+            if pattern in lowered:
+                return f"pattern:{pattern}"
+        return None
+    except Exception as e:  # noqa: BLE001 - fail-closed 兜底
+        return f"detect_error:{type(e).__name__}"
+
+
 async def _resolve_from_db(
     model: str,
     owner_uuid: str | None = None,
@@ -1600,13 +1656,16 @@ async def _resolve_from_db(
         if not api_key:
             return None
         # H7(Phase D):占位符 key 不覆盖 .env
-        # 解密后的 api_key 若为占位符(以 '<' 开头如 <your-key> / 以 'sk-placeholder' 开头 / 空),
-        # 视为未配置,返回 None 降级到 .env 真实配置。双保险:SQL migration 已把占位符记录
-        # enabled=false,这里再加运行时检测防止管理员手动 enabled=true 但 key 仍是占位符。
-        if api_key.startswith("<") or api_key.startswith("sk-placeholder"):
-            logger.info(
-                "H7: provider=%s 的 api_key 为占位符(%s...),降级到 .env 配置",
-                provider_code, api_key[:16],
+        # 解密后的 api_key 若为占位符(以 '<' 开头 / 含 placeholder / sk-place... / 明显过短 / 空)
+        # 一律视为**未配置**,返回 None 让调用方按既有优先级回落(号池 → .env 真 key)。
+        # 回落链留痕:记下是哪一家、哪一把 key 因为占位符被跳过(只打前 4 位 + 长度)。
+        placeholder_reason = placeholder_key_reason(api_key)
+        if placeholder_reason:
+            logger.warning(
+                "[key-fallback] provider=%s 的库内 api_key 是占位符(reason=%s, key=%s) => 视为未配置,回落 env/号池",
+                provider_code,
+                placeholder_reason,
+                mask_api_key(api_key),
             )
             return None
         base_url = row["base_url"] or None
@@ -2512,6 +2571,8 @@ class LLMGateway:
             await self._emit_model_reroute(model, used_model)
         else:
             used_model = model
+        # 带 tools 的请求:后续伪工具痕迹判据与故障转移过滤都以它为准
+        _has_tools = bool(kwargs.get("tools"))
         # P38 跨端同步:先修复结构异常,再修剪窗口(防御性兜底,与 API /chat/stream 同源)
         # keep_trailing_user=True: 末尾 user 是当前发送的输入,必须保留
         # agent loop 内部消息流(tool role / 自定义 tool_calls)走专用修复:
@@ -2763,6 +2824,61 @@ class LLMGateway:
                 model_requested=model,
                 conversation_id=conversation_id,
             )
+            # 应调未调判据(2026-11-08):带 tools 却拿回 tool_calls=null,且正文出现伪工具
+            # 调用痕迹(<tool_call> / <function= / 声称已执行且附代码块或路径)→ 判该端点工具
+            # 能力不成立:记一次实证失败并直接换到"实证支持工具调用"的模型,不在本端点重试。
+            # 注意:不带痕迹的纯文本回答不算失败(模型可以合法地不需要工具)。
+            if _has_tools and not result.get("tool_calls"):
+                _trace = detect_pseudo_tool_trace(str(result.get("content") or ""))
+                if _trace:
+                    _provider_code = await _resolve_provider_code(used_model)
+                    await record_tool_capability_verdict(
+                        model_id=used_model,
+                        provider_code=_provider_code,
+                        verdict="failed",
+                        trace_kind=_trace,
+                        source="runtime",
+                    )
+                    logger.warning(
+                        "LLM 端点应调未调(model=%s, provider=%s, trace=%s):"
+                        "带 tools 却无 tool_calls,判工具能力不成立",
+                        used_model, _provider_code, _trace,
+                    )
+                    if _skip_fallback:
+                        return {
+                            "content": "",
+                            "model": used_model,
+                            "stub": False,
+                            "error": True,
+                            "errorCode": "MODEL_TOOL_CAPABILITY_UNVERIFIED",
+                            "errorMessage": (
+                                f"端点返回伪工具调用痕迹({_trace})且无实证工具能力,"
+                                "拒绝把文本当作执行结果"
+                            ),
+                        }
+                    fb_result = await fallback_router.complete_with_fallback(
+                        trimmed_messages,
+                        used_model,
+                        primary_error=f"pseudo_tool_trace:{_trace}",
+                        billing_user_id=billing_user_id,
+                        conversation_id=conversation_id,
+                        tools=kwargs.get("tools"),
+                    )
+                    if not fb_result.get("error"):
+                        fb_result["fallback_used"] = True
+                        fb_result["fallback_primary"] = used_model
+                        return fb_result
+                    return {
+                        "content": "",
+                        "model": used_model,
+                        "stub": False,
+                        "error": True,
+                        "errorCode": "MODEL_TOOL_CAPABILITY_UNVERIFIED",
+                        "errorMessage": (
+                            f"端点返回伪工具调用痕迹({_trace}),且无实证支持的故障转移模型: "
+                            f"{fb_result.get('error') or fb_result.get('errorMessage') or '无可用候选'}"
+                        ),
+                    }
             return result
         except Exception as e:
             # 观测收口:换 key 递归/换模型 fallback 会各自再记一次,所以
@@ -2900,6 +3016,7 @@ class LLMGateway:
                     billing_user_id=billing_user_id,
                     conversation_id=conversation_id,
                     combo_name=_combo_name,
+                    tools=kwargs.get("tools"),
                 )
                 if not fb_result.get("error"):
                     fb_result["fallback_used"] = True
@@ -3100,6 +3217,7 @@ class LLMGateway:
         billing_user_id: str | None = None,
         conversation_id: str | None = None,
         combo_name: str | None = None,
+        tools: list[dict[str, Any]] | None = None,
     ) -> AsyncIterator[dict[str, Any]]:
         """流式主路径失败(未发任何 chunk)时的 FallbackRouter 兜底事件流。
 
@@ -3123,6 +3241,7 @@ class LLMGateway:
                 billing_user_id=billing_user_id,
                 conversation_id=conversation_id,
                 combo_name=combo_name,
+                tools=tools,
             )
             if not fb_result.get("error"):
                 fb_content = fb_result.get("content", "") or ""
@@ -3527,6 +3646,7 @@ class LLMGateway:
                                         if billing_user_id
                                         else {}
                                     ),
+                                    tools=kwargs.get("tools"),
                                 ):
                                     yield fb_evt
                                 return
@@ -4202,6 +4322,7 @@ class LLMGateway:
                         billing_user_id=billing_user_id,
                         conversation_id=conversation_id,
                         combo_name=_combo_name,
+                        tools=kwargs.get("tools"),
                     )
                     if not fb_result.get("error"):
                         # fallback 返回的是完整结果(非流式),拆成 chunk 产出
@@ -4459,6 +4580,7 @@ class FallbackRouter:
         billing_user_id: str | None = None,
         conversation_id: str | None = None,
         combo_name: str | None = None,
+        tools: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         """带故障转移的推理。
 
@@ -4535,6 +4657,12 @@ class FallbackRouter:
         equivalents: list[str] = []
         equivalents_loaded = not quota_hit
 
+        # 带 tools 的故障转移(2026-11-08):只允许落到"实证支持工具调用"的模型。
+        # 元数据 supports_tool_call 不可信(上游可把工具调用写成文本),因此这里查
+        # tool_call_empirical=true;未实证(null)一律跳过,宁可不换也不换成假工具端点。
+        has_tools = bool(tools)
+        verified_attempted = 0
+
         last_error: str | None = None
         attempts: list[str] = []
         cursor = 0
@@ -4559,16 +4687,28 @@ class FallbackRouter:
             # 不参与该分支的返回文案)—— 普通故障转移不得因为归属查询多打一次 DB。
             provider_code = (
                 await _resolve_provider_code(provider)
-                if quota_hit
+                if (quota_hit or has_tools)
                 else _explicit_provider_code_of(provider)
             )
             if provider_code and provider_code in blocked_providers:
                 continue
+            if has_tools and not await is_empirically_tool_capable(provider, provider_code):
+                attempts.append(f"{provider}[{provider_code or '-'}]=未实证工具能力")
+                logger.info(
+                    "[tool-failover] 跳过未实证工具能力的候选: %s[%s]",
+                    provider, provider_code or "-",
+                )
+                continue
+            if has_tools:
+                verified_attempted += 1
             try:
                 # P2 修复:fallback 阶段 num_retries=0,防止重试放大
                 # 主 provider 已失败,fallback 也失败时重试只是浪费资源,应快速返回错误
                 # 逐条落库(2026-10-22):fallback 腿同样带主体下传,每腿一行;
                 # call_route='fallback' + leg_primary 指回失败的 primary。
+                # tools 必须随腿透传(2026-11-08):此前 fallback 腿丢掉 tools,
+                # 端点即使支持 function calling 也只会"没有工具可用"地回文本。
+                _call_kwargs: dict[str, Any] = {"tools": tools} if has_tools else {}
                 result = await llm_gateway.complete(
                     messages, model=provider, _skip_fallback=True,
                     num_retries=0,
@@ -4577,6 +4717,7 @@ class FallbackRouter:
                     _call_route="fallback",
                     _call_route_primary=primary,
                     _combo_name=combo_name,
+                    **_call_kwargs,
                 )
                 if not result.get("error"):
                     if provider in equivalents:
@@ -4584,7 +4725,11 @@ class FallbackRouter:
                         # 由 astream 的 fallback 事件 reason / complete 的 fallback_reason 回给调用方
                         result["fallback_reason"] = FALLBACK_REASON_QUOTA_EQUIVALENT
                     return result
-                last_error = result.get("error_message") or result.get("error")
+                last_error = (
+                    result.get("error_message")
+                    or result.get("errorMessage")
+                    or result.get("error")
+                )
             except Exception as e:
                 last_error = str(e)
             err_text = str(last_error or "")
@@ -4597,6 +4742,18 @@ class FallbackRouter:
             reason = describe_quota_error(err_text) if provider_quota else "其他错误"
             attempts.append(f"{provider}[{provider_code or '-'}]={reason}")
 
+        if has_tools and verified_attempted == 0:
+            # 带 tools 却没有任何实证通过的候选:显式失败,绝不"换到某个未实证端点"
+            # 然后拿一段文本当成功返回(那正是 2026-11-08 假成功的发生方式)。
+            return {
+                "content": "",
+                "error": (
+                    "带 tools 请求的故障转移没有实证支持工具调用的候选: "
+                    + "; ".join(attempts or [f"{primary}[{primary_provider or '-'}]=primary 失败"])
+                ),
+                "errorCode": "MODEL_TOOL_CAPABILITY_UNVERIFIED",
+                "tool_capability_unverified": True,
+            }
         if quota_hit:
             trail = [f"{primary}[{primary_provider or '-'}]={describe_quota_error(primary_error)}"]
             trail.extend(attempts)
