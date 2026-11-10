@@ -103,7 +103,7 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 工程守门 | 357 | `guardianGates` |
 | — blocking | 328 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 20873 | `trackedFiles` |
+| 跟踪文件 | 20877 | `trackedFiles` |
 
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-10。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -5458,6 +5458,18 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-10**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (7c975f7d2e)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (49a2a775d2)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (358b1e4c8a)
+- 🚀 新功能/改进:号池导出工具 + codearts 永久AK/SK可导入 + 往返测试 (0c07cd5d50)
+- 🔧 工程/其他:miniapp 离线包按 HEAD 面(7f27d9d3ae)消息源重生成——清偿合并提交 c501898 记账的『生成物按本侧留下、落地后需重生成』欠账:三 gen.ts 自述钉 sourceCommit 对齐当前 HEAD,inputsSha256=a80eef25 对齐 mobile-rn 五语言与 shared 四语言现量(含 hrAttendance 去重后键面),补齐 en/ja/ko/zh-TW 包缺的 stepDecision.decision.skillGrantSkipApproval 与 zh-TW taskStatus.toolBrowserConsoleMessages 取值修正;CDN 载荷同批输出,溯源水印已注入;索引原暂存版为 05:15 同源重生成(仅 sourceCommit 钉旧 HEAD 与时间戳差),已按最新钉面覆盖 (0e730258df)
+- 🐞 修复:key_pool_selector 收口 mypy 两处类型错,解密失败改 fail-closed (43f40c6d30)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (c975820262)
+
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (58ff04350e)
+- 🐞 修复:收口 shard 下游 40 项测试红(checkpoints 拆层 + worktree 守卫次序 + 普查面对齐) (1d74cb4f50)
+
+**2026-11-10**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (59caf867b1)
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (765673a89e)
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (592e34e0d9)
@@ -5593,17 +5605,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:重生成 miniapp 远端语言包,承载四个工具名五语言文案 (14965b4cdf)
 - 🐞 修复:验证码复制按钮圆角改取档位变量,解守门77 新增红 (b31e2abc08)
 - 🐞 修复:补 ask_user_question/skill/todo_read/todo_write 五语言功能名,守门55 归零 120/120 (d42e720dd0)
-
-**2026-11-10**
-- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (358b1e4c8a)
-- 🚀 新功能/改进:号池导出工具 + codearts 永久AK/SK可导入 + 往返测试 (0c07cd5d50)
-- 🔧 工程/其他:miniapp 离线包按 HEAD 面(7f27d9d3ae)消息源重生成——清偿合并提交 c501898 记账的『生成物按本侧留下、落地后需重生成』欠账:三 gen.ts 自述钉 sourceCommit 对齐当前 HEAD,inputsSha256=a80eef25 对齐 mobile-rn 五语言与 shared 四语言现量(含 hrAttendance 去重后键面),补齐 en/ja/ko/zh-TW 包缺的 stepDecision.decision.skillGrantSkipApproval 与 zh-TW taskStatus.toolBrowserConsoleMessages 取值修正;CDN 载荷同批输出,溯源水印已注入;索引原暂存版为 05:15 同源重生成(仅 sourceCommit 钉旧 HEAD 与时间戳差),已按最新钉面覆盖 (0e730258df)
-- 🐞 修复:key_pool_selector 收口 mypy 两处类型错,解密失败改 fail-closed (43f40c6d30)
-- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (c975820262)
-
-**2026-11-10**
-- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (7c975f7d2e)
-- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (49a2a775d2)
 <!-- END RECENT UPDATES -->
 同轮收口(2026-10-21 下午，五枚已入库)：把上一段里"只存不拦"的部分接成实链，并把跨端剩下的三处半截补齐。① **IP 白名单生效链**：判定唯一出口 `apps/api/src/routes/user/ip-whitelist-guard.ts`，挂在 18 条新登录腿的"凭据已验证之后、签发之前"；空表 = 未启用（不另开开关），已在线会话不受影响（换网不掉线），最后一次修改白名单的来源 IP 恒被放行（自救出口，否则清错一次就永久锁死）；被拒回 403 并落 `security_logs` 事件 `login_blocked_by_ip_allowlist`（登录前无主体，故 `recordSecurityEvent` 新增由承载层显式传主体的口子）。覆盖率由 `tests/ip-whitelist-issuance-coverage.test.ts` 机器守：全仓 6 个签发原语的每个调用点要么挂闸门、要么在具名豁免清单里带理由登记，将来新腿漏挂当场响。② **RN 安全中心接上这张卡**（`src/components/IpWhitelistPanel.tsx`，端内不复制 IP 文法校验，400 只翻本地化提示）。③ **五项 agent 护栏开关改为按登录主体生效**：`apps/ai-service/app/services/agent_security_prefs.py` 直连同库读 `user_preferences`（进程默认 ⊕ 该用户显式表态，缺省与改动前逐字一致），危险命令硬门与全局 kill switch 不受用户档影响。④ **小程序关于页补齐**为与 web/RN 同构的六段 + 保留 10 条合规入口（三端同脸，§4）。⑤ 删掉 PDF `print` / `sign` 两条零消费方的假 pending 端点（改成 404 断言留在原地），`openapi.json` 同步摘除两条 path。
 - **2026-10-21 公网提速批次的四件器物(点名义务在此,判据细节住器物头注;`§0.9` 的口径是"已接线而文档不点名 ⇒ 红")**:
