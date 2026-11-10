@@ -67,6 +67,8 @@ const EXCLUDE_DIRS = new Set([
   '.ihui-agent',
   '.turbo',
   '.worktrees',
+  '.workbuddy',
+  '.DevEnv',
   'node_modules',
 ])
 
