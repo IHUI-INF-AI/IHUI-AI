@@ -6467,8 +6467,14 @@ const checks = [
     stagedTriggers: [
       'apps/web/app/globals.css',
       'packages/design-tokens/src/styles/tokens.css',
+      'packages/design-tokens/src/styles/base.css',
       'packages/design-tokens/src/typography.ts',
       'apps/web/public/fonts/',
+      // 跨端:小程序与 RN 的字体书写面也在门 313 射程内(见 check-typography-face-coverage.mjs
+      // 的 FONT_STACK_SITES),不触发它 ⇒ 跨端字体改动无人可守。
+      'apps/miniapp-taro/src/',
+      'apps/mobile-rn/global.css',
+      'apps/mobile-rn/App.tsx',
       'scripts/subset-fonts.py',
       'scripts/data/font-subset-manifest.json',
       'scripts/data/typography-face-baseline.json',

@@ -30,7 +30,8 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { spawnSync } from 'node:child_process'
+// 裸 'git' 派生一律不许(门 193):统一走 gitRaw —— 绝对路径 + quotepath + 显式 stdio 两态。
+import { gitRaw } from './lib/face-reader.mjs'
 
 /** 本地未判定错误(本门不读仓库内容,故不引入 face-reader 的取材层)。 */
 class Undetermined extends Error {}
@@ -87,10 +88,15 @@ function loadRegistry(file) {
 }
 
 function gitRun(args) {
-  const r = spawnSync('git', ['-C', ROOT, ...args], { encoding: 'utf8', timeout: 120000, maxBuffer: 32 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true })
-  if (r.error) throw new Undetermined(`git ${args[0]} 执行失败(${r.error.message})`)
-  if (r.status !== 0) throw new Undetermined(`git ${args[0]} 退出 ${r.status}:${(r.stderr || '').trim().slice(0, 200)}`)
-  return r.stdout
+  // 走统一承载层(scripts/lib/face-reader.mjs):绝对路径 git + quotepath + 显式 stdio 两态 +
+  // 三段超时 + EBUSY 兜底都在层内。裸 `'git'` 依赖 PATH —— 服务账户 / GUI 宿主下取不到,
+  // 失败是静默的(这正是门 193 要治的那一型)。取不到时层会抛带 stderr 的错,这里原样升成
+  // Undetermined,保住本文件"判不了就喊未判定、绝不折成通过"的既有语义。
+  try {
+    return gitRaw(['-C', ROOT, ...args], ROOT, { timeout: 120000, maxBuffer: 32 * 1024 * 1024 })
+  } catch (e) {
+    throw new Undetermined(`git ${args[0]} 执行失败(${e?.message ?? e})`)
+  }
 }
 
 function changedGateScripts({ staged, commit }) {
