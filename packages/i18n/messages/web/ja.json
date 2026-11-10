@@ -12968,7 +12968,16 @@
     "reviewTargetSnippet": "貼り付けスニペット",
     "reviewTargetSnippetLabel": "レビューするコードスニペット",
     "reviewTargetSnippetPlaceholder": "レビューするコードを貼り付け…",
-    "reviewTargetClear": "レビュー対象をクリア"
+    "reviewTargetClear": "レビュー対象をクリア",
+    "superAgentPanelTitle": "スーパーエージェント",
+    "superAgentEmpty": "対応待ちなし",
+    "superAgentStageIdle": "自動実行中",
+    "superAgentStop": "このタスクを停止",
+    "superAgentVerdictAct": "対応が必要",
+    "superAgentVerdictIgnore": "無視してよい",
+    "superAgentVerdictUnclear": "判定不明",
+    "superAgentApprove": "承認する",
+    "superAgentQuietDrops": "さらに {{count}} 件を静かに破棄しました"
   },
   "chatHistory": {
     "moveToGroup": "グループへ移動",

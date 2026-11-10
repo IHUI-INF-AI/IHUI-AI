@@ -12968,7 +12968,16 @@
     "reviewTargetSnippet": "粘贴片段",
     "reviewTargetSnippetLabel": "要审查的代码片段",
     "reviewTargetSnippetPlaceholder": "粘贴要审查的代码片段…",
-    "reviewTargetClear": "清除审查对象"
+    "reviewTargetClear": "清除审查对象",
+    "superAgentPanelTitle": "超级智能体",
+    "superAgentEmpty": "暂无待处理项",
+    "superAgentStageIdle": "自动执行中",
+    "superAgentStop": "停止该单",
+    "superAgentVerdictAct": "需采取行动",
+    "superAgentVerdictIgnore": "可忽略",
+    "superAgentVerdictUnclear": "判定不明",
+    "superAgentApprove": "确认采纳",
+    "superAgentQuietDrops": "另有 {{count}} 条已静默丢弃"
   },
   "chatHistory": {
     "moveToGroup": "移动到分组",
