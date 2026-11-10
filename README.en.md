@@ -66,7 +66,7 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 <!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->
 | 指标 | 现值 | 取数键 |
 | ---- | ---- | ------ |
-| 数据库表 | 629 | `dbTables` |
+| 数据库表 | 630 | `dbTables` |
 | schema 文件 | 242 | `dbSchemaFiles` |
 | API 路由 | 4744 | `apiRoutes` |
 | 路由文件 | 688 | `apiRouteFiles` |
@@ -87,7 +87,7 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 | 工程守门 | 356 | `guardianGates` |
 | — blocking | 327 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 20842 | `trackedFiles` |
+| 跟踪文件 | 20845 | `trackedFiles` |
 
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-09。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。

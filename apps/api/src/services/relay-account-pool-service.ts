@@ -1836,7 +1836,10 @@ async function fetchUpstreamModelIds(
 }
 
 /**
- * 当前登录用户个人号池能被对话链路用到的模型清单。
+ * 当前登录用户的号池能被对话链路用到的模型清单。
+ *
+ * 归属面:本人个人池;管理员(includeOpsPool)再并入运营池 —— 线上号池以运营池为主,
+ * 只认个人池会让管理员登录后看到空清单。
  *
  * 口径(用户 2026-11-10 定档):预置为主 + 上游刷新为辅 ——
  * 预置 = 该平台在 ai_model_config 的启用模型行(有展示名、有定价,请求天然命中反查);
@@ -1847,13 +1850,20 @@ async function fetchUpstreamModelIds(
  */
 export async function listUserPoolModels(
   userId: string,
-  opts: { refresh?: boolean } = {},
+  opts: { refresh?: boolean; includeOpsPool?: boolean } = {},
 ): Promise<UserPoolModelItem[]> {
   const { accountSchedulableCondition } = await import('./relay-account-pool-scheduler.js')
+  // 归属面与转发器 selectAccountCandidates 对齐:普通用户只列本人个人池;
+  // 管理员额外并入运营池(owner_user_id IS NULL)—— 线上号池绝大多数是运营池,
+  // 只认个人池会让管理员登录后"一条都看不到"。他人 sharedToOps 的号不进清单:
+  // 清单表达的是"这号是谁的",不是"此刻能借哪些号"。
+  const ownerCond = opts.includeOpsPool
+    ? or(eq(aiRelayAccountPool.ownerUserId, userId), isNull(aiRelayAccountPool.ownerUserId))
+    : eq(aiRelayAccountPool.ownerUserId, userId)
   const accounts = await dbRead
     .select()
     .from(aiRelayAccountPool)
-    .where(and(eq(aiRelayAccountPool.ownerUserId, userId), accountSchedulableCondition()))
+    .where(and(ownerCond, accountSchedulableCondition()))
     .orderBy(aiRelayAccountPool.providerCode)
   if (accounts.length === 0) return []
 
@@ -1895,7 +1905,7 @@ export async function listUserPoolModels(
   const upstreamByProvider = new Map<string, string[]>()
   await Promise.all(
     [...byProvider.entries()].map(async ([code, hit]) => {
-      const cacheKey = `${userId}:${code}`
+      const cacheKey = `${userId}:${opts.includeOpsPool ? 'ops' : 'me'}:${code}`
       const cached = poolModelCache.get(cacheKey)
       if (!opts.refresh && cached && cached.expiresAt > Date.now()) {
         upstreamByProvider.set(code, cached.upstreamIds)

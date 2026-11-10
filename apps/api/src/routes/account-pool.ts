@@ -16,6 +16,9 @@ import { and, desc, eq, isNotNull, sql } from 'drizzle-orm'
 import { aiRelayAccountPool } from '@ihui/database'
 import { db, dbRead } from '../db/index.js'
 import { authenticate } from '../plugins/auth.js'
+// 管理员判定走集中谓词(2026-11-10):管理员在「我的号池」里应当看到运营池的号,
+// 否则线上管理员登录后选择器里一条号池模型都没有 —— 与转发器实际可用的候选面不符。
+import { isSystemAdmin } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
 import { RELAY_PROVIDERS, isRelayProviderCode } from '../services/relay-account-format.js'
 import { importAccounts, listUserPoolModels } from '../services/relay-account-pool-service.js'
@@ -308,7 +311,13 @@ const accountPoolRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, q.error.issues[0]?.message ?? '参数错误'))
     }
     try {
-      const list = await listUserPoolModels(userId, { refresh: q.data.refresh === 'true' })
+      const list = await listUserPoolModels(userId, {
+        refresh: q.data.refresh === 'true',
+        // 管理员额外纳入运营池(owner_user_id IS NULL):转发器 selectAccountCandidates
+        // 对任何已登录用户都包含运营池,管理员的清单面应与之一致,不然"登录 admin 看不到号池"。
+        // 只认 JWT 通道(includeInternalChannel=false),机器凭据不得借管理员归属升格。
+        includeOpsPool: isSystemAdmin(request, { includeInternalChannel: false }),
+      })
       return reply.send(success({ list, total: list.length }))
     } catch (e) {
       request.log.error(e, '[account-pool] 拉取号池模型失败')
