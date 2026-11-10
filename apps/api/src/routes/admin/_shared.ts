@@ -369,6 +369,40 @@ export function registerCrud(
   })
 }
 
+// ── 号池管理面公网可达例外(2026-11-10 机主永久指令)────────────────────────
+//
+// 立据:server.ts 的 onRoute 对 /api/admin/* 注入 `network: existingConfig.network ??
+// { allowExternal: false }` ⇒ 公网打开管理台时号池页整页取数 403
+// ("External network access not allowed for this route";2026-11-10 aizhs.top
+// /admin/relay/account-pool 三视图实测同报此错、共 0 条 —— 号池"看起来是空的"的
+// 真因,不是数据缺失)。机主纪律:号池账号必须跟着 admin 账号在公网上走,导入/体检/
+// 保活/签到/切客户端都要在公网页面上完成,号池不得锁成"只有内网可达"。
+//
+// 放行单位是"整个插件"而不是逐路由:号池管理面 30+ 条路由且端点仍在增(文件头清单
+// 已到 31),逐条挂 config 必漏新增 ⇒ 在封装作用域内挂一枚 onRoute 钩子统一注入,
+// 本插件此后新增的任何路由自动继承该策略。
+//
+// 顺序自证:钩子对 network.allowExternal 是**无条件覆盖**(不是 ??)。无论它与
+// server.ts 根钩子的执行先后 —— 根钩子先跑(注入 false 后被本钩子改写),还是本钩子
+// 先跑(根钩子 `??` 尊重既有声明)—— 最终值都是 true。根钩子注入的 mtls 等其余键
+// 经展开保留,鉴权面不松:同插件仍装 requireAdmin preHandler(测试成对钉死)。
+export const RELAY_POOL_NETWORK = { allowExternal: true } as const
+
+/** 给本插件作用域内全部路由注入 network.allowExternal:true(仅号池管理面使用) */
+export function exposeRelayPoolRoutesToPublicNetwork(server: FastifyInstance) {
+  server.addHook('onRoute', (routeOptions) => {
+    const existingConfig = (routeOptions.config ?? {}) as Record<string, unknown>
+    const existingNetwork =
+      typeof existingConfig.network === 'object' && existingConfig.network !== null
+        ? (existingConfig.network as Record<string, unknown>)
+        : {}
+    routeOptions.config = {
+      ...existingConfig,
+      network: { ...existingNetwork, ...RELAY_POOL_NETWORK },
+    }
+  })
+}
+
 export type FieldType = 'string' | 'number' | 'boolean' | 'date' | 'json'
 export function fields(fc: Record<string, FieldType>) {
   return (b: Record<string, unknown>) => {
