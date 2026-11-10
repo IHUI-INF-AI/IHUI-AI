@@ -99,6 +99,9 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-10**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (b470d0ec08)
+
+**2026-11-10**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (5f53dfa375)
 - 🔧 Chore/Other:离线包按 HEAD 面重生成——清合并票记账「落地后需重生成」欠账;gen --head 输入=HEAD 面词包(他席在飞磁盘内容不烤包),3 gen.ts 同步(4 CDN b64 与 HEAD 恒等零变化),B2/stale 钉收敛;门298红点名为他席滞留磁盘档非本票声明集(pathspec 不进本次内容),经 safe-commit 归因 undetermined-red 后按仓库出路③走本旁路 (3dd977d158)
 - 🚀 Feature/Improvement:三端滚动边缘淡出 ScrollEdgeFades + 抽屉/底部遮罩细化 (87084cf084)
@@ -164,17 +167,6 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 **2026-11-10**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (dd1aeb0274)
-
-**2026-11-10**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (0ad8d37a99)
-- 🐞 Fix:binary 档 + input 组合修复并入远端,消除 30a 的取数不可用 (98e18b522e)
-- 🐞 Fix:路由切换时工作区 main 滚动归零——根治「右侧工作区向上偏移」 (5f77cebd8b)
-- 🔧 Chore/Other:README×2 生成块按落地面现算同步(门 173 DN5) (594bbd9c4a)
-- 🐞 Fix:常驻开发服务按需启停——机主令防复发机制单枚落远端基线 (d66edcd649)
-- ⚡ Perf:CI 提速包落地 + 收口 gates-full 门6/dedupe 红 (31640643c0)
-- 🐞 Fix:倒计时收敛夹具改认解构后的函数标识符,解 test 腿 miniapp 红 (73ff8614f0)
-- 🐞 Fix:loomy chat 换实证网关 loomyad.xunfei.cn 并收口票形/模型名/错误信封 (7816076585)
-- ⚡ Perf:30a 内存治理——流式解析 + Buffer 取面 + 候选分批,并把 OOM 根因链查清 (c21c92594c)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
