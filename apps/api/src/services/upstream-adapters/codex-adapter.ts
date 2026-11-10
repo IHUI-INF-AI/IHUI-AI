@@ -340,6 +340,9 @@ function isAuthFailure(statusCode: number, bodyText: string): boolean {
 // 时加入);此处 cast 保持 RelayUpstreamAdapter 契约形状,集成后即可去掉。
 export const codexAdapter: RelayUpstreamAdapter = {
   providerCode: 'codex' as RelayProviderCode,
+  // 额度能力:无公开额度端点,getQuota 实为 probeIdentity 探测(401 会被读成 authFailed)。
+  // 声明 false ⇒ 承载层直接标"未支持",零探测、零误触发 refresh 重试、零假数(§0.3)。
+  quotaSupported: false,
   buildChatRequest,
   translateStreamChunk,
   translateNonStream,

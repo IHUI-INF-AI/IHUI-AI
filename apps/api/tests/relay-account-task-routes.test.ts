@@ -91,7 +91,9 @@ vi.mock('../src/services/relay-account-pool-scheduler.js', () => ({
   sweepAccountPool: vi.fn().mockResolvedValue({}),
   refreshOne: vi.fn().mockResolvedValue(true),
 }))
-vi.mock('../src/services/relay-upstream-adapters.js', () => ({
+// importOriginal 保留真判据 hasVerifiedQuotaEndpoint(§0.6 单一真相源,测试不复制判据)
+vi.mock('../src/services/relay-upstream-adapters.js', async (importOriginal) => ({
+  ...((await importOriginal()) as Record<string, unknown>),
   getRelayAdapter: vi.fn(() => null),
 }))
 

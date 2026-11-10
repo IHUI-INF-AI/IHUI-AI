@@ -977,10 +977,12 @@ export const traeAdapter: RelayUpstreamAdapter = {
         headers: {
           Authorization: `Cloud-IDE-JWT ${ctx.credentials.token}`,
           Accept: 'application/json',
-          // 该端点属 web 域(api.trae.cn):线上那次 200 是在页面上下文带 cookie 取到的;
-          // 只发 Authorization 是否够用,本机无法证明(唯一在册号的会话已被上游整体拒收,
-          // JWT、cookie、两者叠加、无凭据四型同回 401 code 1001)。⇒ 取超集:
-          // JWT + cookie + 站点身份头(与 GetUserToken 同一组常量,该端点已实证接受这套指纹)。
+          // 端点鉴权实证(2026-11-10):本机直连 TRAE_ENT_USAGE_URL 无凭据 ⇒ HTTP 401 /
+          // code 1001,响应体结构与 extractEntUsage 期望一致(usage_summary{} /
+          // user_entitlement_pack_list[])。⇒ 端点 URL 与鉴权门未变,长期 401 系号池
+          // 会话失效,非端点故障(故配额通道要恢复必须续命/重导活会话,重新取证端点无效)。
+          // 请求指纹取超集:JWT + cookie + 站点身份头(与 GetUserToken 同一组常量,该端点
+          // 已实证接受这套指纹)。
           Origin: WEB_LOGIN_ORIGIN,
           Referer: `${WEB_LOGIN_ORIGIN}/`,
           'User-Agent': WEB_USER_AGENT,
