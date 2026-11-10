@@ -170,6 +170,23 @@ function templateOf(payload) {
   return asObj(payload.secrets.sessionTemplate)
 }
 
+/**
+ * 2026-11-10 根治「流程跑完、打开客户端却没切号」:qoder/codearts/minimax/opencode 的写回
+ * 基底原本是 `template ?? 本机当前会话` —— 票没采到 sessionTemplate 时凭证照样换,
+ * 账号资料(user/userId/邮箱/手机号)却整份沿用本机旧号,界面看起来就像没切。
+ * 现在一律 fail loud:没模板就拒绝写回,并指两条当下能跑通的出路(实采重导 / 按票内身份
+ * 补最小模板)。绝不静默沿用旧号资料,也绝不把「命令跑完」当成功。
+ */
+function requireTemplate(template, platform) {
+  if (template) return template
+  throw new WriteError(
+    `该号没有会话模板 ⇒ 拒绝写回(否则凭证换了、界面仍是本机旧号)。` +
+      `出路:① 在本机登录该号后跑 node scripts/relay-account-pool.mjs --from ${platform} 实采重导;` +
+      `② 或跑 node apps/api/node_modules/tsx/dist/cli.mjs apps/api/scripts/relay-backfill-session-template.ts --apply --provider ${platform} 按票内身份补最小模板`,
+    'no-template',
+  )
+}
+
 /** 模板账号与目标 uid 对不上 ⇒ 拒绝写入(防止拿错号的模板把本机登录态写成别人) */
 export function assertTemplateUid(template, uid) {
   if (!template) return null
@@ -617,7 +634,7 @@ export function applyOpencode(payload, opts = {}) {
 
   const authType =
     asText(payload.secrets.authType) || asText(template?.type) || (payload.refreshToken ? 'oauth' : 'api')
-  const base = template ?? prev ?? {}
+  const base = requireTemplate(template, 'opencode')
   const entry = {}
   for (const [k, v] of Object.entries(base)) {
     if (OPENCODE_CRED_KEYS.includes(k)) continue
@@ -700,10 +717,11 @@ export function applyMinimax(payload, opts = {}) {
       'no-template',
     )
   }
-  const prev = asObj(records[recordKey])
+  // MiniMax 的 auth.json 条目只有凭证字段(accessToken/refreshToken/expiresAtMs),
+  // 不含 uid/手机号/昵称 ⇒ 拿不到"切前是谁",replacedUid 恒为 null(不猜身份)。
   const replacedUid = null
 
-  const base = template ?? prev ?? {}
+  const base = requireTemplate(template, 'minimax')
   const entry = {}
   for (const [k, v] of Object.entries(base)) {
     if (MINIMAX_CRED_KEYS.includes(k)) continue
@@ -938,7 +956,7 @@ export function applyCodearts(payload, opts = {}) {
       )
     }
     const replacedUid = asText(row.session?.account?.id) || null
-    const base = template ?? row.session
+    const base = requireTemplate(template, 'codearts')
     const next = cloneJson(base)
 
     const tokenKeys = ['securitytoken', 'security_token', 'cloud_dragon_token'].filter((k) => k in base)
@@ -1096,7 +1114,7 @@ export function applyQoder(payload, opts = {}) {
   if (!asObj(current)) throw new WriteError('Qoder auth.v1.dat 解出的会话不是对象', 'target-shape')
   const replacedUid = asText(asObj(current.user)?.id) || asText(current.userId) || null
 
-  const base = template ?? current
+  const base = requireTemplate(template, 'qoder')
   const next = cloneJson(base)
   const tokenKey = QODER_TOKEN_ALIASES.find((k) => k in base) ?? 'token'
   next[tokenKey] = payload.token
