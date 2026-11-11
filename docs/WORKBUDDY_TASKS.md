@@ -1084,4 +1084,37 @@ cd apps/ai-service
   零 `openid` 伪造;真机只做两条只读 GET 取基线。输出所有阶段与积分一律标 `SIM`,
   **不得当成真机到账**。
 
+### 14.6 LIVE 真机实跑与「真实完成」守候(2026-11-11 夜)
+
+SIM 给的是终态预演,真机到账走 `--live`,两者都不伪造判据:
+
+```
+cd apps/ai-service
+.venv/Scripts/python.exe scripts/workbuddy_oa_simulate.py --live          # 真机凭据实跑
+.venv/Scripts/python.exe scripts/workbuddy_oa_simulate.py --live --json   # 结构化终态
+```
+
+- `run_live_round()` / `live_pool()`:不注入任何假返回体,用号池真实 accessToken 让
+  生产 `run_autopilot` 自己 GET `subscribe-task/status` + `growth/tasks`;只有服务端
+  **真判达标**(`progress 1/1` 且未 `claimed`)时引擎走 `claim-only` 发**真实**
+  `POST /activity/growth/tasks/wb_wechat_oa_subscribe_task/claim`,积分真实到账。
+  未达标只登记 `pending_platform`,一个写请求都不发。`table={}` 锁死其它族路由,
+  本轮不会顺带触发任何其它任务的写侧动作。
+- 实现坑(已钉用例):本机 httpx 的 `AsyncClient` 要求 `event_hooks["request"]` 是
+  **async** 函数;写成同步 hook 会让每个请求抛 `TypeError: NoneType can't be used in
+  'await' expression`,被引擎 fail-soft 吞成 `0/0` 假读失败。
+- 真机实测(21:3x):`14f939c3` 19/19 已完成;`0bc1074d`、`25913b4a` 各 18/19,
+  `subscribed=false / remaining=-1 / accepted`,本轮真实到账 `+0`、真实 claim `0` 次
+  —— **服务端尚未判达标,程序不代替它判**。
+- 常驻守候:一条 recurring automation 每小时跑一次 `--live`,绑定生效、服务端翻
+  `completed` 后当轮即真实领奖;调度器既有 `_workbuddy_task_sweep` 也会兜底。
+  **无需再跑命令、无需改代码**。
+- **不能代签的那一格**:判据是微信侧真人关注关系 + 服务端账号对象的
+  `wechatOpenId`,由 OneID 微信 OAuth 授权(真人点确认)写入;growth 域写侧 0 条,
+  号池 token 打 initiate 是 `401 G40102`。官方规则明确「人为抬高活动数据 ⇒ 取消资格、
+  追回奖励」。程序不伪造 openid、不伪造关注事件、不代签 —— 那不是完成,是让账号被追责。
+- **剩下的人动作(压缩到最小)**:给 `0bc1074d`、`25913b4a` 各用一个独立微信号,
+  在账号中心「绑定微信」→ 关注「腾讯 WorkBuddy」公众号满 24h(同一微信号仅可领一次,
+  同手机号/微信/设备/IP 归并同一用户)。之后全自动到账。
+
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
