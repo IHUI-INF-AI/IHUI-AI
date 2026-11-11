@@ -58,7 +58,17 @@ function Write-Log {
     }
 }
 
+function Test-WalArchiveCleanupAllowed {
+    param([bool]$RoundSucceeded)
+    # 本轮备份成功才允许删过期 WAL。失败仍按 7 天 cutoff 删,会拆掉 PITR 所需的归档链。
+    return [bool]$RoundSucceeded
+}
+
 function Run-Backup {
+    # 默认保留归档。只有下面 exit 0 分支把 $roundOk 改成 $true。
+    # 不用 $script:BackupOk:连续 4 次失败后放弃本轮时,那个标志会被拨回 $true,
+    # 只表示改回每天 03:00,不表示本轮写出了新档。
+    $roundOk = $false
     try {
         # 计划任务没有 NSSM 那层 AppStdout 捕获(2026-10-27 换载体的实测差异)⇒ 子脚本的
         # [OK]/[ERROR]/[WARN] 明细必须在这里整段接住转写日志,否则日志面只剩"备份完成/失败"
@@ -73,6 +83,7 @@ function Run-Backup {
         # 而当时脚本用的是 postgres + 显式空口令 —— 最后一份成功 dump 停在 04:39,
         # 之后每次"成功"都是假的。静默是这类事故唯一的传播方式。
         if ($LASTEXITCODE -eq 0) {
+            $roundOk = $true
             $script:BackupOk = $true
             $script:RetryCount = 0
             Write-Log "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] 备份完成"
@@ -84,17 +95,20 @@ function Run-Backup {
         $script:BackupOk = $false
         Write-Log "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] 备份失败: $_"
     }
-    # 2026-09-06 WAL 归档清理: 每次备份后清掉超过 7 天的归档(与 7 天全量轮转对齐, 防无限累积)。
+    # WAL 归档是 PITR 增量链,只在本轮备份成功后才清超过 7 天的段。
     # 归档来自 PG archive_command → <DevEnvRoot>\pg_archives\(24 位十六进制 WAL 段名)。
-    # 2026-10-27 实测:D:\DevEnv\pg_archives 字面量在本机是死路径(换机后 DevEnv 根随仓根走盘派生),
-    # 与上方 $DevEnvRoot/$schedulerLogFile 同一口径,盘符字面量不得回来。
-    $archivesDir = Join-Path $DevEnvRoot 'pg_archives'
-    $archives = Get-ChildItem $archivesDir -File -ErrorAction SilentlyContinue |
-        Where-Object { $_.BaseName -match '^[0-9A-F]{24}$' }
-    $cutoff = (Get-Date).AddDays(-7)
-    $removed = $archives | Where-Object { $_.LastWriteTime -lt $cutoff }
-    foreach ($f in $removed) { Remove-Item $f.FullName -Force -ErrorAction SilentlyContinue }
-    Write-Log "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] WAL 归档:清理 $($removed.Count) 份, 保留 $($archives.Count - $removed.Count) 份"
+    # 目录与上方 $DevEnvRoot 同一口径,盘符字面量不得回来。
+    if (Test-WalArchiveCleanupAllowed -RoundSucceeded $roundOk) {
+        $archivesDir = Join-Path $DevEnvRoot 'pg_archives'
+        $archives = Get-ChildItem $archivesDir -File -ErrorAction SilentlyContinue |
+            Where-Object { $_.BaseName -match '^[0-9A-F]{24}$' }
+        $cutoff = (Get-Date).AddDays(-7)
+        $removed = $archives | Where-Object { $_.LastWriteTime -lt $cutoff }
+        foreach ($f in $removed) { Remove-Item $f.FullName -Force -ErrorAction SilentlyContinue }
+        Write-Log "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] WAL 归档:清理 $($removed.Count) 份, 保留 $($archives.Count - $removed.Count) 份"
+    } else {
+        Write-Log "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] WAL 归档:本轮备份未成功,过期归档全部保留"
+    }
 }
 
 Write-Log "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] 备份调度器启动,先执行一次备份"
