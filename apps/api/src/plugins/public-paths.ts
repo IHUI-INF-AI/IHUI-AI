@@ -153,6 +153,17 @@ export const TENANT_BYPASS_PREFIX_PATHS: readonly string[] = [
   // 该前缀已同时列于 AUTH_PUBLIC_PREFIX_PATHS(免登录);此处补免租户,否则 TENANT_STRICT_MODE
   // 缺省严格后启动即 401。双清单一致性由 public-paths.test.ts 的回归锁钉住(2026-11-11 立)。
   '/api/app-version/',
+  // 公开内容面:tools / news / articles / announcements 的**读端点**是免登录公开内容
+  // (已列于 AUTH_PUBLIC_PREFIX_PATHS),客户端未登录冷启动即调;后端 handler 不按 tenantId
+  // 过滤(全局共享内容,非租户隔离数据)。补免租户,否则 TENANT_STRICT_MODE 缺省严格后
+  // 未登录冷启动拉取这些列表即 401(2026-11-11 线上实测:/api/tools、/api/news、/api/articles、
+  // /api/announcements 均返回"多租户严格模式已启用"401)。
+  // 安全边界:前缀豁免只免"租户校验",**不免鉴权**——各前缀下的写端点(增删改)仍挂
+  // requireAdmin / requireAuth,读端点本就公开无租户数据可泄露,故前缀豁免不打穿任何面。
+  '/api/tools',
+  '/api/news',
+  '/api/articles',
+  '/api/announcements',
   // OpenAI 兼容机器面(API Key 自证身份):调用方只会带 Authorization/X-Api-Key,**不带**租户头,
   // 典型如 ai-service 的模型连通性探测与平台中转模型(workbuddy/*)调用。TENANT_STRICT_MODE 缺省
   // 即严格后,不在这里豁免就等于让这 33 个模型全线 401(2026-11-11 实测:带租户头 200、不带 401)。
