@@ -464,4 +464,50 @@ async def test_context_probe_skips_recent_and_budget_zero(monkeypatch):
     monkeypatch.setattr(svc, "_probe_context", fail_probe)
     await svc._run_context_probes()
     assert svc._states["m"].context_checked_at == 0
+
+
+async def test_context_probe_initial_coverage_covers_all_untested(monkeypatch):
+    """未显式配置预算时,首轮把「从未测过」的模型一次覆盖完(否则前端一天都填不满)。"""
+    monkeypatch.delenv("MODEL_HEALTH_CONTEXT_PROBES_PER_CYCLE", raising=False)
+    monkeypatch.setenv("MODEL_HEALTH_CONTEXT_PROBE_TOKENS", "500")
+    monkeypatch.setattr(
+        mh, "_build_probe_target", lambda mid, hint: mh._ProbeTarget("alpha", "http://x", {}, None, mid)
+    )
+    svc = ModelHealthService()
+    svc._catalog = {f"m{i}": "alpha" for i in range(6)}
+    svc._states = {f"m{i}": ModelProbeState(status="healthy") for i in range(6)}
+    calls: list[str] = []
+
+    async def fake_probe(target, tokens):
+        calls.append(target.upstream_model)
+        return True, ""
+
+    monkeypatch.setattr(svc, "_probe_context", fake_probe)
+    await svc._run_context_probes()
+
+    assert sorted(calls) == [f"m{i}" for i in range(6)]
+    assert all(svc._states[f"m{i}"].context_ok is True for i in range(6))
+    assert all(svc._states[f"m{i}"].context_checked_at > 0 for i in range(6))
+
+
+async def test_context_probe_explicit_budget_keeps_acceleration_off(monkeypatch):
+    """机主显式配置每轮预算时,首轮加速不得越权放大。"""
+    monkeypatch.setenv("MODEL_HEALTH_CONTEXT_PROBES_PER_CYCLE", "2")
+    monkeypatch.setenv("MODEL_HEALTH_CONTEXT_PROBE_TOKENS", "500")
+    monkeypatch.setattr(
+        mh, "_build_probe_target", lambda mid, hint: mh._ProbeTarget("alpha", "http://x", {}, None, mid)
+    )
+    svc = ModelHealthService()
+    svc._catalog = {f"m{i}": "alpha" for i in range(6)}
+    svc._states = {f"m{i}": ModelProbeState(status="healthy") for i in range(6)}
+    calls: list[str] = []
+
+    async def fake_probe(target, tokens):
+        calls.append(target.upstream_model)
+        return True, ""
+
+    monkeypatch.setattr(svc, "_probe_context", fake_probe)
+    await svc._run_context_probes()
+
+    assert sorted(calls) == ["m0", "m1"], "显式 budget=2 时本轮只测 2 个"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

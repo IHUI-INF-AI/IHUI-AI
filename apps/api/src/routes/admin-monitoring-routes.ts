@@ -52,6 +52,20 @@ async function getPerf() {
   }
 }
 
+/**
+ * F-706:avg()/count() 在 PG 里走 numeric/bigint,drizzle 会原样返回字符串,
+ * `sql<number>` 只是类型断言、不做运行时转换。统一在此收口:非有限数归 0。
+ */
+function toNum(v: unknown): number {
+  const n = Number(v)
+  return Number.isFinite(n) ? n : 0
+}
+
+/** 均值类指标(比率/延迟)固定两位小数;SQL 侧已 ::numeric(10,2),这里兜底防驱动/口径变化。 */
+function toFixed2(v: unknown): number {
+  return Number(toNum(v).toFixed(2))
+}
+
 const apiLogQuerySchema = z.object({
   page: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(1).default(1)),
   pageSize: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(1).max(100).default(20)),
@@ -114,13 +128,23 @@ export const adminMonitoringRoutes: FastifyPluginAsync = async (server) => {
     const [stats] = await db
       .select({
         totalCalls: count(),
-        todayCalls: sql<number>`count(*) filter (where ${apiLogs.createdAt} >= current_date)`,
-        errorRate: sql<number>`coalesce(avg(case when ${apiLogs.statusCode} >= 400 then 1 else 0 end) * 100, 0)`,
-        avgLatency: sql<number>`coalesce(avg(${apiLogs.duration}), 0)`,
+        todayCalls: sql<string>`count(*) filter (where ${apiLogs.createdAt} >= current_date)`,
+        // F-706:率是百分数(avg*100),两位小数足够;判空在 SQL 侧 coalesce,精度在 SQL 侧定档。
+        errorRate: sql<string>`coalesce(avg(case when ${apiLogs.statusCode} >= 400 then 1 else 0 end) * 100, 0)::numeric(10,2)`,
+        avgLatency: sql<string>`coalesce(avg(${apiLogs.duration}), 0)::numeric(10,2)`,
       })
       .from(apiLogs)
     return reply.send(
-      success(stats ?? { totalCalls: 0, todayCalls: 0, errorRate: 0, avgLatency: 0 }),
+      success(
+        stats
+          ? {
+              totalCalls: toNum(stats.totalCalls),
+              todayCalls: toNum(stats.todayCalls),
+              errorRate: toFixed2(stats.errorRate),
+              avgLatency: toFixed2(stats.avgLatency),
+            }
+          : { totalCalls: 0, todayCalls: 0, errorRate: 0, avgLatency: 0 },
+      ),
     )
   })
 

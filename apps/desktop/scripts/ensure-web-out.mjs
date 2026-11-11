@@ -5,8 +5,12 @@
 
 // 智汇AI (IHUI AI) 桌面端 — 条件构建前端产物(历史遗留件,现为手动问责/条件重建入口)
 // 架构口径(2026-09-17 终极薄壳化,现行为准):桌面端 = Tauri 薄壳 + 直连线上站点:frontendDist 指向 src-tauri/shell 占位页,窗口 url 直接加载 https://aizhs.top/ 首页(2026-10-13 起启动页由 /agents 改为首页;V3 #72 拍板薄壳不打包本地 web 产物)
-// 桌面端 AI 版本由线上站点决定,本仓不可校验:线上不可用=桌面端一起不可用、无法本地降级、无法离线首屏(仅有薄壳占位页与 Rust 侧 offline:// 重连提示,本地无可渲染 UI)
-// 本脚本不在构建链:tauri.conf.json 的 build.beforeBuildCommand 为空串、apps/desktop/package.json 的 build 直跑 tauri build,它仅是手动问责/条件重建入口。问责命令(从仓库根):pnpm --filter @ihui/desktop exec node scripts/ensure-web-out.mjs
+// 桌面端 AI 版本由线上站点决定,本仓不可校验:线上不可用时业务能力不可用,但壳侧有本地降级 ——
+// auto_refresh 探活失败会切到内置 offline 兜底页(本地可渲染 UI),切页前通知工作区保存草稿,
+// 恢复后回到离线前地址;兜底页不承载业务逻辑,无法离线进行 AI 对话(详见 apps/desktop/README.md)。
+// 本脚本不在构建链:tauri.conf.json 的 build.beforeBuildCommand 现为 node ../../scripts/desktop-installer-assets.mjs
+// (只生成安装器 DPI 资产,不构建 web 产物)、apps/desktop/package.json 的 build 直跑 tauri build,
+// 它仅是手动问责/条件重建入口。问责命令(从仓库根):pnpm --filter @ihui/desktop exec node scripts/ensure-web-out.mjs
 // 手动调用时行为:apps/web/out 产物存在且源码不新于产物则跳过,否则(含产物缺失)触发 pnpm --filter @ihui/web build:static 重建。
 // 强制重建:FORCE_FRONTEND_BUILD=1 node scripts/ensure-web-out.mjs;无条件跳过构建(只打印判定):TAURI_SKIP_FRONTEND=1 同上。
 // 若未来回到内嵌 web 产物方案:必须同步改 tauri.conf.json 的 frontendDist/beforeBuildCommand 并把本脚本重新接回构建链(另见 apps/desktop/src-tauri/README.md)。

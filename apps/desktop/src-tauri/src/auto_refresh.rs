@@ -51,6 +51,158 @@ const RELOAD_DEBOUNCE_SECS: u64 = 600;
 /// 就绪标志,步长不同只会让"谁先看见"变得不可解释(票 P1 僵尸实例,2026-10-22)。
 const LOOP_ADMISSION_POLL_MS: u64 = 200;
 
+// ── 探活结果分级(2026-11-12 立)──
+// 网络不可达 / 服务端 5xx / 出口门拒绝过去被一律折叠成 false,服务端维护被误报成
+// 「网络连接不可用」。此后通知、窗口标题、离线页文案按档显示,真相源只此一份枚举。
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ProbeOutcome {
+    Healthy,
+    Unreachable,
+    ServerError(u16),
+    GateDenied,
+}
+
+impl ProbeOutcome {
+    pub(crate) fn is_healthy(&self) -> bool {
+        matches!(self, Self::Healthy)
+    }
+
+    /// 枚举的可序列化投影(code / status_code / from_code):当前分级文案走进程内状态,
+    /// 这组逆函数由 roundtrip 单测钉住,保留给后续 query / IPC 通道复用,故放行 dead_code。
+    #[allow(dead_code)]
+    pub(crate) fn code(&self) -> &'static str {
+        match self {
+            Self::Healthy => "healthy",
+            Self::Unreachable => "unreachable",
+            Self::ServerError(_) => "server",
+            Self::GateDenied => "gate",
+        }
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn status_code(&self) -> u16 {
+        match self {
+            Self::ServerError(s) => *s,
+            _ => 0,
+        }
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn from_code(code: &str, status: u16) -> Self {
+        match code {
+            "healthy" => Self::Healthy,
+            "unreachable" => Self::Unreachable,
+            "server" => Self::ServerError(status),
+            "gate" => Self::GateDenied,
+            _ => Self::Unreachable,
+        }
+    }
+
+    pub(crate) fn notice_body(&self) -> String {
+        match self {
+            Self::Healthy => "连接正常".to_string(),
+            Self::Unreachable => "网络连接不可用,已切换离线页并自动重连".to_string(),
+            Self::ServerError(s) => format!("服务端暂时不可用(HTTP {s}),已切换离线页并自动重连"),
+            Self::GateDenied => "出站访问被拒绝,已切换离线页;请检查代理或出口策略".to_string(),
+        }
+    }
+
+    pub(crate) fn title_suffix(&self) -> &'static str {
+        match self {
+            Self::Healthy => "在线",
+            Self::Unreachable => "离线,自动重连中",
+            Self::ServerError(_) => "服务端暂不可用,自动重连中",
+            Self::GateDenied => "出站被拒,自动重连中",
+        }
+    }
+
+    pub(crate) fn page_reason_label(&self) -> &'static str {
+        match self {
+            Self::Healthy => "连接正常",
+            Self::Unreachable => "网络连接不可用",
+            Self::ServerError(_) => "服务端暂时不可用",
+            Self::GateDenied => "出站访问被拒绝",
+        }
+    }
+
+    pub(crate) fn page_detail(&self) -> String {
+        match self {
+            Self::Healthy => "健康检查已通过,工作区可正常访问。".to_string(),
+            Self::Unreachable => "请检查本机网络连通性与系统代理配置,代理异常同样会导致健康检查无法到达服务端。".to_string(),
+            Self::ServerError(_) => "服务端维护或部署中,健康检查未通过,不一定是断网;稍后会自动重连,无需改动本机网络设置。".to_string(),
+            Self::GateDenied => "出站访问被出口门拒绝,请检查代理或出口策略是否放行健康检查目标,必要时联系网络管理员。".to_string(),
+        }
+    }
+
+    pub(crate) fn page_heading(&self) -> &'static str {
+        match self {
+            Self::Healthy => "工作区已连接",
+            _ => "暂时无法连接工作区",
+        }
+    }
+}
+
+/// 当前记录的探针结果(进程内状态):offline 协议据此渲染分级文案,导航 URL 保持不变,
+/// 无需解析 query。读写都用 into_inner 兜底 poison,不让一次 panic 毒死整条离线链。
+static LAST_PROBE_OUTCOME: std::sync::Mutex<ProbeOutcome> =
+    std::sync::Mutex::new(ProbeOutcome::Unreachable);
+
+pub(crate) fn set_last_probe_outcome(outcome: ProbeOutcome) {
+    *LAST_PROBE_OUTCOME
+        .lock()
+        .unwrap_or_else(|e| e.into_inner()) = outcome;
+}
+
+pub(crate) fn last_probe_outcome() -> ProbeOutcome {
+    *LAST_PROBE_OUTCOME
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+}
+
+/// offline 协议入口:把内嵌 HTML 的四个占位符按当前探针结果替换后返回。
+/// 只做纯字符串替换,HTML 内容里的换行不额外处理;替换后不得残留任何占位符。
+/// 副作用:消费一次「立即重新检测」回执标志(单次显示,再刷新回到默认提示)。
+pub(crate) fn render_offline_page() -> String {
+    let outcome = last_probe_outcome();
+    let detail = outcome.page_detail();
+    let retry_note = if take_retry_ack() {
+        "已触发立即检测;若连接恢复将自动回到工作区,未恢复可稍后再点一次"
+    } else {
+        "不想等 30 秒可点此;若恢复会自动回到工作区"
+    };
+    include_str!("../offline/index.html")
+        .replace("{{OFFLINE_REASON_LABEL}}", outcome.page_reason_label())
+        .replace("{{OFFLINE_HEADING}}", outcome.page_heading())
+        .replace("{{OFFLINE_DETAIL}}", detail.as_str())
+        .replace("{{OFFLINE_RETRY_NOTE}}", retry_note)
+}
+
+/// 离线页「立即重新检测」请求(单次闩锁)。由 offline 协议置位,
+/// 常驻循环下一轮读走后清零;RETRY_ACK 只管页面那句一次性回执。
+static IMMEDIATE_PROBE: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+static RETRY_ACK: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
+pub(crate) fn request_immediate_probe() {
+    IMMEDIATE_PROBE.store(true, Ordering::Release);
+    RETRY_ACK.store(true, Ordering::Release);
+}
+
+fn take_retry_ack() -> bool {
+    RETRY_ACK.swap(false, Ordering::AcqRel)
+}
+
+fn take_immediate_probe_request() -> bool {
+    IMMEDIATE_PROBE.swap(false, Ordering::AcqRel)
+}
+
+/// 离线页「立即重试」用的带参地址:只附加 query,不改 OFFLINE_URL 本身。
+pub(crate) fn offline_retry_url() -> String {
+    format!("{OFFLINE_URL}?retry=1")
+}
+
 /// 常驻循环准入判据(纯函数,便于单测)。
 ///
 /// 立因(2026-10-22,票 P1 僵尸实例):tauri-runtime-wry 2.11.4 的 `Message::CreateWebview`
@@ -245,40 +397,75 @@ async fn emit_before_close_for_navigation(window: &tauri::WebviewWindow) {
     tokio::time::sleep(DRAFT_FLUSH_GRACE).await;
 }
 
-/// 探活一次(HEAD /api/health)。仅 2xx 视为健康。
+/// 探活一次(HEAD /api/health),按失败档分级返回 `ProbeOutcome`:仅 2xx 为健康。
 ///
-/// 出站前先过出口门(`egress_gate`,Z17 与 CLI 同源腿):enforce 档拒绝 ⇒ 判「不健康」
-/// 并**具名**留痕,不静默把拒绝伪装成网络失败。
-async fn probe_health(client: &reqwest::Client, health_url: &str) -> bool {
+/// 出站前先过出口门(`egress_gate`,Z17 与 CLI 同源腿):enforce 档拒绝 ⇒ `GateDenied`
+/// 并**具名**留痕,不静默把拒绝伪装成网络失败;请求发不出 ⇒ `Unreachable`;
+/// 有响应但非 2xx ⇒ `ServerError(status)`;2xx ⇒ `Healthy`。
+async fn probe_health(client: &reqwest::Client, health_url: &str) -> ProbeOutcome {
     if let Err(denied) = crate::egress_gate::guard_egress_target(health_url) {
         log::warn!("[auto-refresh] 探活目标被出口门拒绝: {denied}");
-        return false;
+        return ProbeOutcome::GateDenied;
     }
-    client
-        .head(health_url)
-        .send()
-        .await
-        .map(|r| r.status().is_success())
-        .unwrap_or(false)
+    match client.head(health_url).send().await {
+        Ok(resp) => {
+            let status = resp.status();
+            if status.is_success() {
+                ProbeOutcome::Healthy
+            } else {
+                ProbeOutcome::ServerError(status.as_u16())
+            }
+        }
+        Err(_) => ProbeOutcome::Unreachable,
+    }
 }
 
-/// 单轮探活:同一轮内最多尝试 `PROBE_ATTEMPTS` 次,任一次成功即判健康。
+/// 全失败一轮的合并判据只有这一份:ServerError > GateDenied > Unreachable。
+/// 同档取 next,ServerError 同档取较大的 status;Healthy 不该出现在这条路径。
+fn merge_probe_outcomes(prev: ProbeOutcome, next: ProbeOutcome) -> ProbeOutcome {
+    fn rank(o: ProbeOutcome) -> u8 {
+        match o {
+            ProbeOutcome::Healthy => 3,
+            ProbeOutcome::ServerError(_) => 2,
+            ProbeOutcome::GateDenied => 1,
+            ProbeOutcome::Unreachable => 0,
+        }
+    }
+    if rank(prev) > rank(next) {
+        return prev;
+    }
+    if rank(next) > rank(prev) {
+        return next;
+    }
+    match (prev, next) {
+        (ProbeOutcome::ServerError(a), ProbeOutcome::ServerError(b)) => {
+            ProbeOutcome::ServerError(a.max(b))
+        }
+        _ => next,
+    }
+}
+
+/// 单轮探活:同一轮内最多尝试 `PROBE_ATTEMPTS` 次,任一次成功即返回 `Healthy`。
+/// 全失败时用 `merge_probe_outcomes` 合并 —— 失败档合并判据只有这一份。
 ///
 /// 存在的意义:滤掉**单次瞬时报文丢失**。健康检查的结论会驱动"整页替换用户界面"
 /// 这种破坏性动作,单次采样的误判代价远高于多打一次轻量 HEAD 请求。
-async fn probe_health_with_retry(client: &reqwest::Client, health_url: &str) -> bool {
+async fn probe_health_with_retry(client: &reqwest::Client, health_url: &str) -> ProbeOutcome {
+    let mut merged = ProbeOutcome::Unreachable;
     for attempt in 1..=PROBE_ATTEMPTS {
-        if probe_health(client, health_url).await {
+        let outcome = probe_health(client, health_url).await;
+        if outcome.is_healthy() {
             if attempt > 1 {
                 log::info!("[auto-refresh] 探活第 {attempt} 次成功(已滤掉前序瞬时失败)");
             }
-            return true;
+            return ProbeOutcome::Healthy;
         }
+        merged = merge_probe_outcomes(merged, outcome);
         if attempt < PROBE_ATTEMPTS {
             tokio::time::sleep(Duration::from_secs(PROBE_RETRY_GAP_SECS)).await;
         }
     }
-    false
+    merged
 }
 
 /// 「是否应从在线切到离线」—— 纯函数,便于单测。
@@ -753,7 +940,8 @@ pub fn start(app: tauri::AppHandle, reveal_on_probe: bool) {
         // ── 启动序列:探活决定首屏,永不白屏 ──
         // 启动期用「同轮重试」而非 ON/OFF 阈值滞回:此刻只有"在线/离线"二选一,
         // 没有可保留的既有页面,尽早定论才对(阈值滞回是给稳态用的)。
-        let healthy = probe_health_with_retry(&client, &base.health_url).await;
+        let outcome = probe_health_with_retry(&client, &base.health_url).await;
+        let healthy = outcome.is_healthy();
         if let Some(w) = app.get_webview_window("main") {
             if healthy {
                 // ⚠️ 2026-10-16:点亮时机从「探活落定」改为「主文档加载完成」(lib.rs
@@ -791,10 +979,12 @@ pub fn start(app: tauri::AppHandle, reveal_on_probe: bool) {
                 crate::reset_tray_gate_for_navigation("main");
                 // G-379,2026-10-07:导航前过存草稿闸(与 CloseRequested 同通道,下同)
                 emit_before_close_for_navigation(&w).await;
+                set_last_probe_outcome(outcome);
                 let _ = w.eval(&format!("location.href={}", js_string(OFFLINE_URL)));
                 let _ = w.set_title(&format!(
-                    "{} · 离线,自动重连中",
-                    crate::localized_app_name()
+                    "{} · {}",
+                    crate::localized_app_name(),
+                    outcome.title_suffix()
                 ));
                 if reveal_on_probe {
                     log::info!("[window-show] site=auto_refresh_probe_offline trigger=启动探活失败已切离线兜底页且 reveal_on_probe=true ⇒ 点亮离线页");
@@ -802,7 +992,7 @@ pub fn start(app: tauri::AppHandle, reveal_on_probe: bool) {
                 } else {
                     log::info!("[auto-refresh] 离线兜底页已就绪,但用户要求启动后进托盘 → 保持隐藏");
                 }
-                notify(&app, "智汇AI", "网络连接不可用,已切换离线页并自动重连");
+                notify(&app, "智汇AI", &outcome.notice_body());
                 log::warn!("[auto-refresh] 启动探活失败 → 离线兜底页");
             }
         }
@@ -841,7 +1031,8 @@ pub fn start(app: tauri::AppHandle, reveal_on_probe: bool) {
                 );
                 return;
             }
-            let now_healthy = probe_health_with_retry(&client, &base.health_url).await;
+            let outcome = probe_health_with_retry(&client, &base.health_url).await;
+            let now_healthy = outcome.is_healthy();
 
             if !now_healthy {
                 consecutive_fails = consecutive_fails.saturating_add(1);
@@ -863,13 +1054,15 @@ pub fn start(app: tauri::AppHandle, reveal_on_probe: bool) {
                         crate::reset_tray_gate_for_navigation("main");
                         // G-379,2026-10-07:导航前过存草稿闸
                         emit_before_close_for_navigation(&w).await;
+                        set_last_probe_outcome(outcome);
                         let _ = w.eval(&format!("location.href={}", js_string(OFFLINE_URL)));
                         let _ = w.set_title(&format!(
-                            "{} · 离线,自动重连中",
-                            crate::localized_app_name()
+                            "{} · {}",
+                            crate::localized_app_name(),
+                            outcome.title_suffix()
                         ));
                     }
-                    notify(&app, "智汇AI", "网络连接不可用,已切换离线页并自动重连");
+                    notify(&app, "智汇AI", &outcome.notice_body());
                 } else {
                     // 关键日志:单次失败只记录、不切页。线上出现此日志但页面未变 = 修复生效
                     log::warn!(
@@ -993,7 +1186,9 @@ pub fn start(app: tauri::AppHandle, reveal_on_probe: bool) {
                     check_app_update(&app).await;
                 }
             }
-            tokio::time::sleep(Duration::from_secs(HEALTH_SECS)).await;
+            // 离线页的立即重新检测只把等待时长置 0,不新增循环结构
+            let wait_secs = if take_immediate_probe_request() { 0 } else { HEALTH_SECS };
+            tokio::time::sleep(Duration::from_secs(wait_secs)).await;
         }
     });
 }
@@ -1406,6 +1601,90 @@ mod tests {
             fallback < admission,
             "离线兜底切页被挪到准入闸之后 ⇒ 断网冷启动永远等不到就绪置位,正常用户被误杀"
         );
+    }
+
+    // ── 探活分级(2026-11-12):通知/标题/离线页按档显示,5xx 不得误报成断网 ──
+
+    #[test]
+    fn merge_probe_outcomes_prefers_server_error() {
+        // 优先级:ServerError > GateDenied > Unreachable
+        assert_eq!(
+            merge_probe_outcomes(ProbeOutcome::Unreachable, ProbeOutcome::ServerError(503)),
+            ProbeOutcome::ServerError(503)
+        );
+        assert_eq!(
+            merge_probe_outcomes(ProbeOutcome::ServerError(503), ProbeOutcome::Unreachable),
+            ProbeOutcome::ServerError(503)
+        );
+        assert_eq!(
+            merge_probe_outcomes(ProbeOutcome::Unreachable, ProbeOutcome::GateDenied),
+            ProbeOutcome::GateDenied
+        );
+        assert_eq!(
+            merge_probe_outcomes(ProbeOutcome::GateDenied, ProbeOutcome::Unreachable),
+            ProbeOutcome::GateDenied
+        );
+        assert_eq!(
+            merge_probe_outcomes(ProbeOutcome::GateDenied, ProbeOutcome::ServerError(500)),
+            ProbeOutcome::ServerError(500)
+        );
+        assert_eq!(
+            merge_probe_outcomes(ProbeOutcome::ServerError(500), ProbeOutcome::GateDenied),
+            ProbeOutcome::ServerError(500)
+        );
+        // 同档取 next;ServerError 同档取较大的 status
+        assert_eq!(
+            merge_probe_outcomes(ProbeOutcome::ServerError(500), ProbeOutcome::ServerError(503)),
+            ProbeOutcome::ServerError(503)
+        );
+        assert_eq!(
+            merge_probe_outcomes(ProbeOutcome::ServerError(503), ProbeOutcome::ServerError(500)),
+            ProbeOutcome::ServerError(503)
+        );
+        assert_eq!(
+            merge_probe_outcomes(ProbeOutcome::Unreachable, ProbeOutcome::Unreachable),
+            ProbeOutcome::Unreachable
+        );
+        assert_eq!(
+            merge_probe_outcomes(ProbeOutcome::GateDenied, ProbeOutcome::GateDenied),
+            ProbeOutcome::GateDenied
+        );
+    }
+
+    #[test]
+    fn probe_outcome_code_roundtrip() {
+        for &o in &[
+            ProbeOutcome::Healthy,
+            ProbeOutcome::Unreachable,
+            ProbeOutcome::ServerError(502),
+            ProbeOutcome::GateDenied,
+        ] {
+            assert_eq!(ProbeOutcome::from_code(o.code(), o.status_code()), o);
+        }
+        assert_eq!(ProbeOutcome::from_code("unknown", 0), ProbeOutcome::Unreachable);
+        assert_eq!(ProbeOutcome::Healthy.status_code(), 0);
+        assert_eq!(ProbeOutcome::ServerError(502).status_code(), 502);
+    }
+
+    #[test]
+    fn server_error_notice_must_not_blame_network() {
+        let body = ProbeOutcome::ServerError(503).notice_body();
+        assert!(body.contains("服务端"), "ServerError 通知必须点明服务端: {body}");
+        assert!(!body.contains("网络连接不可用"), "ServerError 不得误报成断网: {body}");
+        assert!(!body.contains("检查网线"), "ServerError 不得误导查网线: {body}");
+        assert!(body.contains("503"), "通知应带上 HTTP 状态码: {body}");
+    }
+
+    #[test]
+    fn render_offline_page_has_no_unreplaced_marker() {
+        let outcome = ProbeOutcome::ServerError(503);
+        set_last_probe_outcome(outcome);
+        let html = render_offline_page();
+        assert!(!html.contains("{{"), "占位符必须全部替换");
+        assert!(html.contains(outcome.page_reason_label()), "未注入分级原因标签");
+        assert!(html.contains(outcome.page_heading()), "未注入分级标题");
+        let detail = outcome.page_detail();
+        assert!(html.contains(detail.as_str()), "未注入分级自查说明");
     }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

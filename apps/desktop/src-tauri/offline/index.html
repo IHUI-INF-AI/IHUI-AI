@@ -7,8 +7,9 @@
 <!DOCTYPE html>
 <!-- © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top -->
 <!-- 桌面端离线兜底页(2026-09-17 薄壳化配套):auto_refresh 探活失败时 Rust 侧导航至此,恢复后自动切回线上前端 -->
-<!-- 2026-11-12 信息层补强:原页只显示「正在自动重连」,未告知草稿已保存/恢复会回原地址/服务端故障也会落本页,
-     与 auto_refresh.rs 的 G-379 存草稿闸、resume_url 回跳、probe_health 把 5xx 折叠成 false 的实际行为不一致。
+<!-- 2026-11-12 信息层补强:原页只显示「正在自动重连」,未告知草稿已保存/恢复会回原地址/服务端故障也会落本页。
+     探活结果已分级(Unreachable / ServerError / GateDenied),由 auto_refresh.rs 的 render_offline_page()
+     经进程内探针状态替换本页占位符渲染,导航 URL 保持不变以守住形状锁。
      本页保持纯 HTML/CSS 无脚本(tauri.conf.json CSP: script-src 'self'),不引入第二套判定。 -->
 <html lang="zh-CN">
 <head>
@@ -35,11 +36,12 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
   .hint { margin-top: 14px; font-size: 12px; color: #6f6f6f; }
+  .reason { margin-top: 10px; padding: 5px 12px; font-size: 13px; color: #a99bff; border-left: 3px solid #7c6cff; background: #2b2b2b; }
+  .retry { display: inline-block; margin-top: 16px; padding: 9px 22px; font-size: 13px; color: #e8e8e8; text-decoration: none; border: 1px solid #7c6cff; background: #332b57; }
+  .retry:hover { background: #3d3470; }
   .panel { width: min(560px, 88vw); margin-top: 32px; padding: 18px 20px; text-align: left; border: 1px solid #3a3a3a; background: #2b2b2b; }
   .panel h2 { font-size: 13px; font-weight: 500; color: #e8e8e8; margin-bottom: 8px; }
   .panel p { font-size: 12px; line-height: 1.8; color: #b6b6b6; }
-  .panel li { font-size: 12px; line-height: 1.9; color: #b6b6b6; }
-  .panel ol { padding-left: 18px; }
   .panel .k { color: #a99bff; }
   .panel .sep { height: 1px; background: #3a3a3a; margin: 14px 0; }
   .foot { margin-top: 18px; font-size: 11px; color: #6f6f6f; }
@@ -47,9 +49,12 @@
 </head>
 <body>
   <div class="logo">智汇<span>AI</span></div>
-  <div class="sub">暂时无法连接工作区</div>
+  <div class="sub">{{OFFLINE_HEADING}}</div>
   <div class="status"><div class="spinner"></div><div>正在自动重连,恢复后将自动回到刚才的页面…</div></div>
+  <div class="reason">{{OFFLINE_REASON_LABEL}}</div>
   <div class="hint">每 30 秒检测一次,恢复后无需任何操作</div>
+  <a class="retry" href="/retry">立即重新检测</a>
+  <div class="hint">{{OFFLINE_RETRY_NOTE}}</div>
 
   <div class="panel">
     <h2>你的内容没有丢</h2>
@@ -59,11 +64,7 @@
     <p>AI 对话、模型调用与会话同步都由线上服务提供,本地壳只承载窗口与系统集成,因此离线期间这些功能不可用;账号状态不受影响。</p>
     <div class="sep"></div>
     <h2>如果一直停在本页</h2>
-    <ol>
-      <li>检查本机网络与系统代理 —— 代理配置异常同样会触发本页。</li>
-      <li>网络正常却仍停在本页,通常是<span class="k">服务端维护或部署中</span>:健康检查未通过也会落到这里,不一定是断网。</li>
-      <li>恢复后自动返回;长时间未恢复请稍后重启应用或查看本站服务状态。</li>
-    </ol>
+    <p>{{OFFLINE_DETAIL}}</p>
   </div>
   <div class="foot">本页为本地内置页面 · 不代表账号异常</div>
 </body>

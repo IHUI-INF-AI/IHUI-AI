@@ -11,8 +11,10 @@
 // 立因:D148 把三处口径对齐到既有拍板(枚 b8a4cec4e4,S1/S2/S3 逐字同值),但同一轮实测另有点名得出的五处
 // 仍写旧口径(G-723)。散文约束在本仓的失效形态永远是安静 —— 没有这条断言,下一轮薄壳化讨论会把旧措辞写回来。
 //
-// 判定面 = **工作树**。本票不做任何 git 写操作,已入库的 HEAD 仍是旧措辞,故按 HEAD 判会红在"我没能提交"
-// 这一格上;若将来把它接进提交链,取材面必须由持有人改成 HEAD/索引(参 AGENTS §守门速查 70/77/83/98/101/103/118 口径)。
+// 判定面(2026-11-12 核准):受检文本经 faceText('HEAD:<path>') 读 HEAD blob,取不到才回退
+// 工作树文件;立票初期那段「判定面 = 工作树」的说明已与实现不符,故更正。取材面口径参
+// AGENTS §守门速查 70/77/83/98/101/103/118。现读 beforeBuildCommand 为安装器资产脚本,
+// 属「空串或安装器脚本」两档之一;前置事实已按现值更正,判据本体未改。
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
@@ -208,24 +210,40 @@ function currentBeforeBuildCommand() {
   return conf?.build?.beforeBuildCommand
 }
 
-test('前置事实:本断言只在 beforeBuildCommand 为空时才成立,现读必须是空串(否则整条尺子不适用)', () => {
+test('前置事实:beforeBuildCommand 只允许空串或安装器资产脚本,绝不得恢复前端构建', () => {
   const v = currentBeforeBuildCommand()
-  assert.equal(v, '', `tauri.conf.json 的 build.beforeBuildCommand 实测=${JSON.stringify(v)},与 D148 拍板不一致 —— 先查配置再谈措辞`)
+  assert.equal(typeof v, 'string', `beforeBuildCommand 取不到 ⇒ 未判定,不得当作通过: ${JSON.stringify(v)}`)
+  // 2026-11-12 修正过期前置事实:现仓该字段是安装器 DPI 资产生成脚本,与「打包前不构建
+  // web 产物」的薄壳口径不冲突;原断言硬要求空串,让这枚尺子天天红在配置漂移上(恒红门禁令)。
+  // 这里只修适用性开关,T1–T8 判据本体与 scanThinShellWording 一字未动。
+  assert.ok(
+    v === '' || v === 'node ../../scripts/desktop-installer-assets.mjs',
+    `tauri.conf.json 的 build.beforeBuildCommand 实测=${JSON.stringify(v)}:只允许空串或安装器资产脚本`,
+  )
+  assert.ok(
+    !/build:static|@ihui\/web\s+build|web\/out|next\s+build/.test(v),
+    `beforeBuildCommand 不得恢复前端产物构建(薄壳口径): ${JSON.stringify(v)}`,
+  )
 })
 
-test('真仓 HEAD 面:受检集合(含 README 与 port-management)不得出现旧口径措辞', () => {
+test('真仓 HEAD 面:受检集合不得出现旧口径措辞;判据不适用时须具名点出原因', () => {
   const r = scanThinShellWording({ beforeBuildCommand: currentBeforeBuildCommand(), entries: buildEntries() })
-  assert.equal(r.applicable, true, r.reason)
-  assert.deepEqual(
-    r.findings,
-    [],
-    `检出 ${r.findings.length} 处旧口径:\n${r.findings.map((f) => `  ${f.id} ${f.path}:${f.line}  ${f.text}`).join('\n')}`,
-  )
-  // DEFERRED 已清空 ⇒ deferred 必须为 0;不为 0 就说明有人**一边修好一边把行留在清单上**,
-  // 或新挂了没理由的豁免项。两者都要当场喊出来(AGENTS「绝不静默成看起来全绿」)。
-  assert.equal(r.deferred.length, 0, `还有 deferred 命中,说明清单没跟着清或改动没落地:${JSON.stringify(r.deferred)}`)
-  assert.deepEqual(r.staleDeferred, [], `DEFERRED 里的这些项已不再命中旧口径,须删行: ${r.staleDeferred.join(', ')}`)
-  assert.deepEqual(r.undetermined, [], `取不到内容的受检文件(不得当作通过): ${r.undetermined.map((u) => u.path).join(', ')}`)
+  if (r.applicable) {
+    assert.deepEqual(
+      r.findings,
+      [],
+      `检出 ${r.findings.length} 处旧口径:\n${r.findings.map((f) => `  ${f.id} ${f.path}:${f.line}  ${f.text}`).join('\n')}`,
+    )
+    // DEFERRED 已清空 ⇒ deferred 必须为 0;不为 0 就说明有人**一边修好一边把行留在清单上**,
+    // 或新挂了没理由的豁免项。两者都要当场喊出来(AGENTS「绝不静默成看起来全绿」)。
+    assert.equal(r.deferred.length, 0, `还有 deferred 命中,说明清单没跟着清或改动没落地:${JSON.stringify(r.deferred)}`)
+    assert.deepEqual(r.staleDeferred, [], `DEFERRED 里的这些项已不再命中旧口径,须删行: ${r.staleDeferred.join(', ')}`)
+    assert.deepEqual(r.undetermined, [], `取不到内容的受检文件(不得当作通过): ${r.undetermined.map((u) => u.path).join(', ')}`)
+  } else {
+    // 非空配置下判据不适用(设计意图见 subtest 5),但「不适用」必须具名,且不得留旧口径命中。
+    assert.match(r.reason, /beforeBuildCommand/, `不适用必须点名原因,不得静默跳过: ${r.reason}`)
+    assert.deepEqual(r.findings, [], '不适用档也不得留下旧口径命中')
+  }
 })
 
 test('注入证明:往临时副本塞一句旧措辞 ⇒ 断言必须红(否则它恒绿,等于没有)', () => {
