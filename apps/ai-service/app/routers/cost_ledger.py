@@ -18,10 +18,10 @@ import logging
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 
-from ..core.jwt_auth import get_current_user_id
+from ..core.jwt_auth import get_current_user_id, resolve_request_role_id
 from ..services.cost_ledger import CostLedger, cost_ledger
 
 logger = logging.getLogger(__name__)
@@ -31,6 +31,28 @@ router = APIRouter(prefix="/cost-ledger", tags=["cost-ledger"])
 _DEFAULT_N = 10
 _MAX_PAGE_SIZE = 200
 _GRANULARITIES = ("hour", "day")
+
+#: 与 `usage.py:ADMIN_ROLE_ID` / AGENTS.md §5 同一条口径:roleId ≥ 1 才是管理员。
+ADMIN_ROLE_ID = 1
+
+
+def _scope_user_id(uid: str, request: Request, user_id: str | None) -> str | None:
+    """AIS-014:属主口径 —— 非管理员只能看自己的账本,不能查他人也不能拿全站。
+
+    改前:`user_id` 查询参数原样进 `_collect`,而 `uid` 只写日志。于是任何已登录用户
+    带 `?user_id=<他人>` 就能读别人的成本/session/run/tool 明细;不带参数则拿到全站
+    聚合(等于把全站财务面公开给所有登录用户)。
+
+    现在与 `usage._scope_user_id` 对齐(那份用 `require_request_user_id`,这里保留
+    `Depends(get_current_user_id)` 以免破坏既有的依赖覆写型测试):
+      · 管理员(roleId ≥ 1):`user_id` 原样生效;省略即全站聚合(运维需要)。
+      · 普通用户:`user_id` 省略或等于本人 ⇒ 强制收敛到本人;指向他人 ⇒ 403。
+    """
+    if resolve_request_role_id(request) >= ADMIN_ROLE_ID:
+        return user_id
+    if user_id and user_id != uid:
+        raise HTTPException(status_code=403, detail="仅管理员可查询他人或全站成本账本")
+    return uid
 
 
 def _build_filter(
@@ -128,6 +150,7 @@ def _collect(
 
 @router.get("/summary")
 async def cost_summary(
+    request: Request,
     user_id: str | None = None,
     session_id: str | None = None,
     run_id: str | None = None,
@@ -138,8 +161,9 @@ async def cost_summary(
     uid: str = Depends(get_current_user_id),
 ) -> dict[str, Any]:
     """Aggregate totals and by_tool/by_model under the given filters."""
+    scoped = _scope_user_id(uid, request, user_id)
     data = _scratch(
-        _collect(user_id, session_id, run_id, tool_name, model, date_from, date_to)
+        _collect(scoped, session_id, run_id, tool_name, model, date_from, date_to)
     ).aggregate()
     logger.info(
         "cost-ledger summary uid=%s steps=%s cost=%s",
@@ -150,6 +174,7 @@ async def cost_summary(
 
 @router.get("/top-tools")
 async def cost_top_tools(
+    request: Request,
     n: int = Query(_DEFAULT_N, ge=1),
     user_id: str | None = None,
     session_id: str | None = None,
@@ -161,8 +186,9 @@ async def cost_top_tools(
     uid: str = Depends(get_current_user_id),
 ) -> dict[str, Any]:
     """Top N tools by cost (desc), optionally scoped by filter."""
+    scoped = _scope_user_id(uid, request, user_id)
     data = _scratch(
-        _collect(user_id, session_id, run_id, tool_name, model, date_from, date_to)
+        _collect(scoped, session_id, run_id, tool_name, model, date_from, date_to)
     ).top_tools(n)
     logger.info("cost-ledger top-tools uid=%s n=%s", uid, len(data))
     return {"code": 0, "message": "ok", "data": data}
@@ -170,6 +196,7 @@ async def cost_top_tools(
 
 @router.get("/timeseries", response_model=None)
 async def cost_timeseries(
+    request: Request,
     granularity: str = "hour",
     user_id: str | None = None,
     session_id: str | None = None,
@@ -190,8 +217,9 @@ async def cost_timeseries(
                 "data": None,
             },
         )
+    scoped = _scope_user_id(uid, request, user_id)
     data = _scratch(
-        _collect(user_id, session_id, run_id, tool_name, model, date_from, date_to)
+        _collect(scoped, session_id, run_id, tool_name, model, date_from, date_to)
     ).timeseries(granularity)
     logger.info(
         "cost-ledger timeseries uid=%s granularity=%s buckets=%s",
@@ -202,6 +230,7 @@ async def cost_timeseries(
 
 @router.get("/query")
 async def cost_query(
+    request: Request,
     user_id: str | None = None,
     session_id: str | None = None,
     run_id: str | None = None,
@@ -214,8 +243,9 @@ async def cost_query(
     uid: str = Depends(get_current_user_id),
 ) -> dict[str, Any]:
     """Raw detail rows under filters with in-memory pagination."""
+    scoped = _scope_user_id(uid, request, user_id)
     entries = _collect(
-        user_id, session_id, run_id, tool_name, model, date_from, date_to
+        scoped, session_id, run_id, tool_name, model, date_from, date_to
     )
     size = min(page_size, _MAX_PAGE_SIZE)
     start = (page - 1) * size

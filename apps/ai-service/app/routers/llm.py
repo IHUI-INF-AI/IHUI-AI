@@ -1742,6 +1742,100 @@ def _sse_contract_warn(msg: str) -> None:
     warnings.warn(msg, RuntimeWarning, stacklevel=3)
 
 
+# ---------------------------------------------------------------------------
+# AIS-004(2026-11-12 立):主上游"首个事件"到达前的等待心跳。
+#
+# 票面:原生流消费是单个 `async for`,推理模型/冷启动/重试退避期间上游零字节输出,
+# 前端 streamChat 的 30s 读超时会把一条本可成功的回复掐断。审批/表单/引导等待早
+# 就有同款心跳(_APPROVAL_KEEPALIVE_INTERVAL),主上游读取却没有。
+#
+# 做法:只包在"首个事件到达"这一段 —— 独立 ticker 任务每 interval 投一个信号,
+# 主循环用 `asyncio.wait(..., timeout=interval, return_when=FIRST_COMPLETED)` 与
+# 上游读取竞争:ticker 先到就注一帧 SSE 注释 `: ping`。首包一到立刻停 ticker,
+# 之后纯转发(帧序/内容/水位与未包装时逐帧一致,取消作用域不变)。
+# 包装器关停(客户端断开 / GeneratorExit / 上游抛错)时先取消 ticker 与在途
+# `__anext__`,再关停借来的上游流 —— 不留 pending 任务,也不让上游停在半读态。
+# ---------------------------------------------------------------------------
+_STREAM_KEEPALIVE_INTERVAL = 15  # 秒:同 _APPROVAL_KEEPALIVE_INTERVAL(其定义在后,不前置引用)
+_STREAM_KEEPALIVE_PING = ": ping\n\n"
+
+
+async def _astream_first_event_keepalive(
+    source: AsyncIterator[dict[str, Any]],
+) -> AsyncIterator[dict[str, Any] | str]:
+    """首个事件到达前每 `_STREAM_KEEPALIVE_INTERVAL` 秒注一帧 `: ping`。
+
+    产出两类值:`dict` 为上游事件(原样透传);`str` 为 SSE 注释帧(调用方原样
+    上 wire,不参与内容累积/帧水位)。首个事件之后退化为纯转发,不再与 ticker 竞争。
+    """
+    _iter = source.__aiter__()
+    _pings: asyncio.Queue[None] = asyncio.Queue()
+
+    async def _ticker() -> None:
+        while True:
+            await asyncio.sleep(_STREAM_KEEPALIVE_INTERVAL)
+            _pings.put_nowait(None)
+
+    _ticker_task: asyncio.Task[None] | None = None
+    _next_task: asyncio.Task[dict[str, Any]] | None = None
+    _ping_task: asyncio.Task[None] | None = None
+    try:
+        _ticker_task = asyncio.create_task(_ticker(), name="llm-stream-first-event-keepalive")
+        while True:
+            if _next_task is None:
+                _next_task = asyncio.ensure_future(_iter.__anext__())
+            if _ping_task is None:
+                _ping_task = asyncio.ensure_future(_pings.get())
+            _done, _ = await asyncio.wait(
+                {_next_task, _ping_task},
+                timeout=_STREAM_KEEPALIVE_INTERVAL,
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+            if _ping_task in _done:
+                _ping_task.result()
+                _ping_task = None
+                yield _STREAM_KEEPALIVE_PING
+                continue
+            if _next_task not in _done:
+                continue  # 兜底:仅在 timeout 且 ticker 未按时投递时走到,不重复造帧
+            try:
+                _first_event = _next_task.result()
+            except StopAsyncIteration:
+                return
+            finally:
+                _next_task = None
+            # 首包已到:心跳收工,后面逐帧原样转发(与未包装时的帧序一致)
+            _ticker_task.cancel()
+            try:
+                await _ticker_task
+            except asyncio.CancelledError:
+                pass
+            _ticker_task = None
+            _ping_task.cancel()
+            try:
+                await _ping_task
+            except asyncio.CancelledError:
+                pass
+            _ping_task = None
+            yield _first_event
+            async for _event in _iter:
+                yield _event
+            return
+    finally:
+        # 关停包装器(客户端断开 / GeneratorExit / 上游抛错)⇒ 取消在途读取与 ticker,
+        # 并一并关停借来的上游流(本包装是它唯一的消费者),不留孤儿任务/半读态。
+        # 收尾等待自身异常不外溢:原异常/取消必须照常向外传播。
+        for _task in (_next_task, _ping_task, _ticker_task):
+            if _task is None:
+                continue
+            _task.cancel()
+            try:
+                await _task
+            except BaseException:  # noqa: BLE001 - 收尾等待不得掩盖正在传播的原异常
+                pass
+        await aclose_async_gen(source, label="routers.llm astream keepalive (wrapper closed)")
+
+
 async def _with_review_findings(
     source: AsyncIterator[str],
     accumulated: dict[str, Any],
@@ -4681,6 +4775,8 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
         # "尚未创建生成器"的路径上也能安全引用 —— llm_gateway 里记过一次同型
         # UnboundLocalError(except/finally 引用了只在 try 内赋值的局部量)。
         _native_fc_stream: AsyncIterator[dict[str, Any]] | None = None
+        # AIS-004:上游流的首包前心跳包装句柄(同上,先置 None 防 finally 引用未绑定)。
+        _native_fc_events: AsyncIterator[dict[str, Any] | str] | None = None
         try:
             # 差距①/③(2026-10-30):发送准入回执(admission)。同会话有活跃流 ⇒ 不并行
             # 执行:产出 queued + queuedTurnId 入 FIFO lane,等当前流收口晋升后发开始执行帧
@@ -7162,17 +7258,26 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                 **_billing_kwargs,
                 **_native_fc_kwargs
             )
-            async for event in _native_fc_stream:
+            # AIS-004:首个事件前的等待心跳包装(15s 一帧 `: ping`,防前端 30s 读超时掐流)
+            _native_fc_events = _astream_first_event_keepalive(_native_fc_stream)
+            async for event in _native_fc_events:
                 if await request.is_disconnected():
                     logger.info("SSE client disconnected, stopping stream")
                     # 被弃路径就地关停:break 之后本流还要走完半截落库 / 空回复兜底 /
                     # 计量帧,而 provider 侧此刻仍停在 `async with client.stream(...)`
                     # 的半读态 —— 拖到函数 finally(更差是 GC)才关,已经太晚。
+                    # AIS-004:先关心跳包装(停 ticker + 取消在途 anext),它关停时会
+                    # 一并关掉借来的上游流,故这里不必再单独 aclose 上游。
                     await aclose_async_gen(
-                        _native_fc_stream,
+                        _native_fc_events,
                         label="routers.llm astream (client disconnected)",
                     )
                     break
+                if isinstance(event, str):
+                    # AIS-004:首包前的 `: ping` 注释帧,原样上 wire;不是上游事件,
+                    # 不进内容累积/提问解析/帧水位。
+                    yield event
+                    continue
                 event_type = event.get("type", "message")
                 _note_retry(retry_notices, event)
                 # 累积内容用于回调
@@ -7363,6 +7468,8 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
             # 借来的异步生成器兜底关停:覆盖"流中途抛错 / GeneratorExit"两条被弃路径
             # (客户端断开那条已在 break 之前就关)。正常耗尽时 aclose 是合法 no-op,
             # 不构成二次回滚;出口自身吞错,绝不用关停异常掩盖正在传播的原异常。
+            # AIS-004:已建心跳包装时关它 —— 包装的 finally 会先取消 ticker / 在途 anext
+            # 再关停上游流,顺序不能反(直接关半读中的上游会撞 "already running")。
             # **必须 shield + 只吞本行等待**:这段 finally 会在"任务被取消"的作用域里执行,而它后面
             # 还挂着 MCP 取消闭环 / 委托 session / 表单待决 / 引导队列四项清理。站点跑在
             # uvicorn + anyio 上,而 anyio 的取消是**持续投递**的(作用域内每一处 await 都会再点燃
@@ -7372,7 +7479,8 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
             try:
                 await asyncio.shield(
                     aclose_async_gen(
-                        _native_fc_stream, label="routers.llm astream (stream finally)"
+                        _native_fc_events or _native_fc_stream,
+                        label="routers.llm astream (stream finally)",
                     )
                 )
             except BaseException as close_err:  # noqa: BLE001 - 兜底关停不得越过后四项清理
