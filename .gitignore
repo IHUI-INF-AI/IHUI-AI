@@ -692,3 +692,8 @@ apps/web/e2e/screenshots/**/*.png
 docs/环境密钥配置清单*.md
 docs/engineering/app-store-submission-ledger-*.md
 docs/engineering/ai-compliance-readiness-*.md
+
+# 运行期产物(2026-11-12):agent 任务注册表与 pytest 临时沙箱目录,不入库。
+# 二者都不是源码,留在工作树只会污染 git status(每个 pytest 用例一个临时目录)。
+.box-agent/
+.pytest_tmp_*/
