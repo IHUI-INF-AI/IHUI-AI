@@ -75,6 +75,9 @@ SAFE_KEYS: set[str] = {
     # 与 cookie_count 同族误伤。cookie 真内容仍照常脱敏。
     "cookiehealth",
     "cookie_health",
+    # 2026-11-11:模型实测能力里的 context.tokens 是针测规模(整数),不是密钥;
+    # 全库同名 "tokens" 字段均为计量值(仓库内无 "tokens": [...] 的密钥列表),误伤面为零。
+    "tokens",
 }
 
 MASK = "***"

@@ -7,9 +7,12 @@
 与 model_availability 的分工:
 - model_availability 是 **provider 级**健康检查(看整家厂商 /v1/models 或推理 ping,
   一家厂商里任一模型通就判整家 HEALTHY ⇒ 单个模型坏死仍会继续显示,用户实测踩到)。
-- 本模块是 **模型级**探测:对目录里每个候选模型发一次 max_tokens=1 的最小请求,
+- 本模块是 **模型级**探测:对目录里每个候选模型发一次 max_tokens=8 的流式请求
+  (SSE 首块解析成功即流式达标;失败再退回非流式 max_tokens=1),
   明确模型级错误(404/模型不存在/余额耗尽)一次即隐藏,其余失败连续两次才隐藏,
   由 /llm/models 过滤掉。
+- 2026-11-11 起额外实测工具调用(每可用模型 +1 请求)与长上下文(每轮预算 1 个、
+  7 天轮转);三项能力只标注、不参与隐藏判定。
 
 设计要点:
 - 只探测「已通过 provider 级可用性过滤」的候选(未配 key 的厂商不浪费请求)。
@@ -45,7 +48,7 @@ import logging
 import os
 import re
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -200,6 +203,11 @@ def _redact_secrets(text: str) -> str:
     return _SECRET_RE.sub("[REDACTED]", text or "")
 
 
+def _opt_bool(value: Any) -> bool | None:
+    """状态文件里的三态布尔:只认真正的 JSON bool,其余一律视为未知。"""
+    return value if isinstance(value, bool) else None
+
+
 def _classify_error(text: str, status_code: int) -> tuple[bool, bool]:
     """把上游错误分类为 (account_level, model_level)。
 
@@ -226,13 +234,50 @@ _STATE_FILE = Path(__file__).resolve().parents[2] / "data" / "model_health_state
 
 @dataclass
 class ModelProbeState:
-    """单个模型的最近一次探测结果。"""
+    """单个模型的最近一次探测结果(可用性 + 已实测能力)。"""
 
     status: str = "pending"  # pending / healthy / down
     checked_at: float = 0.0
     error: str = ""
     latency_ms: int = 0
     consecutive_failures: int = 0
+    # 2026-11-11 立:用户要求把验收标准从"端口活着"提升到实测能力。
+    # 三项能力只做标注,不参与 filter_available 的 down 判定(不支持 ≠ 隐藏)。
+    stream_ok: bool | None = None
+    stream_ttft_ms: int = 0
+    tools_ok: bool | None = None
+    tools_error: str = ""
+    context_tokens: int = 0
+    context_ok: bool | None = None
+    context_error: str = ""
+    context_checked_at: float = 0.0
+
+
+@dataclass
+class ProbeOutcome:
+    """一次模型级探测的完整结论(可用性 + 流式/工具能力)。"""
+
+    ok: bool
+    http_status: int = 0
+    latency_ms: int = 0
+    error: str = ""
+    account_level: bool = False
+    model_level: bool = False
+    stream_ok: bool | None = None
+    stream_ttft_ms: int = 0
+    tools_ok: bool | None = None
+    tools_error: str = ""
+
+
+@dataclass
+class _ProbeTarget:
+    """探测所需的连接信息(可用性 / 工具 / 长上下文共用)。"""
+
+    code: str
+    chat_url: str
+    headers: dict[str, str]
+    proxy: str | None
+    upstream_model: str
 
 
 def _strip_upstream_prefix(model_id: str, provider_code: str) -> str:
@@ -305,6 +350,260 @@ def _needs_stream(body: str) -> bool:
             "streaming is required",
         )
     )
+
+
+# 流式探测被拒后仍值得用非流式复测的状态码:多为"不支持流式参数/工具参数"类拒绝,
+# 不代表模型不可用;404/401/402/429 等明确不可用或账户级问题不复测,省一次请求。
+_STREAM_FALLBACK_STATUS = frozenset({400, 405, 422, 501})
+# 工具调用探测用量:极简 function tool + 64 tokens,成本可忽略。
+_TOOL_PROBE_MAX_TOKENS = 64
+# 长上下文针测的超时:16k token 预填充比 ping 慢,给 3 倍预算(60s)。
+CONTEXT_PROBE_TIMEOUT_S = PROBE_TIMEOUT_S * 3
+# 判定"请求内容与工具/function 有关"的关键词(400/422 时区分能力缺失与协议错误)。
+_TOOL_KEYWORDS = ("tool", "function", "tools", "functions")
+
+
+def _env_int(name: str, default: int, minimum: int = 1) -> int:
+    """读取正整数环境变量;非法值回退默认值(不因误配让探测逻辑崩溃)。"""
+    raw = os.environ.get(name)
+    if raw is None or not str(raw).strip():
+        return default
+    try:
+        return max(minimum, int(str(raw).strip()))
+    except ValueError:
+        return default
+
+
+def _env_float(name: str, default: float, minimum: float = 0.0) -> float:
+    raw = os.environ.get(name)
+    if raw is None or not str(raw).strip():
+        return default
+    try:
+        return max(minimum, float(str(raw).strip()))
+    except ValueError:
+        return default
+
+
+def _context_probe_tokens() -> int:
+    return _env_int("MODEL_HEALTH_CONTEXT_PROBE_TOKENS", 16000, minimum=256)
+
+
+def _context_probe_days() -> float:
+    return _env_float("MODEL_HEALTH_CONTEXT_PROBE_DAYS", 7.0, minimum=0.0)
+
+
+def _context_probes_per_cycle() -> int:
+    # 允许配 0 表示暂停长上下文针测(省钱开关)
+    return _env_int("MODEL_HEALTH_CONTEXT_PROBES_PER_CYCLE", 1, minimum=0)
+
+
+def _build_probe_target(model_id: str, provider_hint: str) -> _ProbeTarget | None:
+    """解析探测目标;返回 None 表示该模型不由本模块直连探测。
+
+    跳过条件与原 _probe_model 完全一致(非 OpenAI 兼容 / 本地 provider /
+    无 base / 无凭据),避免把无法探测的模型误判为 down。
+    """
+    from ..core.config import settings
+
+    hint_code = provider_hint.strip()
+    code = _infer_provider_code(model_id) or hint_code
+    if not code:
+        return None
+    if code in _PROBE_SKIP_CODES:
+        return None
+    provider = free_provider_registry.get_by_code(code)
+    if provider and provider.category == ProviderCategory.LOCAL:
+        return None
+    if not provider and not hint_code:
+        return None
+
+    api_key, api_base = _resolve_credentials(code)
+    # 推断厂商没有凭据、但目录条目登记了另一个厂商:改用条目登记的厂商,
+    # 避免用错误厂商的 key/base 探测(裸模型名跨厂商重名时会被误判成 down)。
+    if (
+        (not api_base or (not api_key and code not in _ZERO_COST_CODES))
+        and hint_code
+        and hint_code != code
+    ):
+        h_key, h_base = _resolve_credentials(hint_code)
+        if h_base and (h_key or hint_code in _ZERO_COST_CODES):
+            code, api_key, api_base = hint_code, h_key, h_base
+    if not api_base:
+        return None
+    if not api_key and code not in _ZERO_COST_CODES:
+        return None
+
+    headers: dict[str, str] = {"Content-Type": "application/json"}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+    try:
+        from ..core.provider_caps import resolve_provider_headers
+
+        headers.update(resolve_provider_headers(code))
+    except Exception:
+        pass
+
+    proxy = (
+        (settings.sync_proxy_url_by_provider.get(code) or settings.sync_proxy_url or "").strip()
+    ) or None
+    return _ProbeTarget(
+        code=code,
+        chat_url=_chat_url(api_base, code),
+        headers=headers,
+        proxy=proxy,
+        upstream_model=_strip_upstream_prefix(model_id, code),
+    )
+
+
+def _sse_chunk_has_content(line: str) -> bool:
+    """判断一行 SSE 是否是"可解析出 choices/delta"的有效内容块。
+
+    只看 `data:` 行;`[DONE]`、心跳、注释行不算。收到任意一条即证明流式链路可用。
+    """
+    stripped = (line or "").strip()
+    if not stripped.startswith("data:"):
+        return False
+    data_str = stripped[5:].strip()
+    if not data_str or data_str == "[DONE]":
+        return False
+    try:
+        data = json.loads(data_str)
+    except Exception:
+        return False
+    if not isinstance(data, dict) or data.get("error"):
+        return False
+    choices = data.get("choices")
+    if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict):
+        return False
+    first = choices[0]
+    return isinstance(first.get("delta"), dict) or isinstance(first.get("message"), dict)
+
+
+def _evaluate_200_body(raw_text: str) -> tuple[bool, str, bool, bool]:
+    """校验 HTTP 200 的响应体,返回 (ok, error, account_level, model_level)。
+
+    部分代理/厂商把错误包在 HTTP 200 里(HTML 网关页 / error 字段 / 空 choices),
+    必须逐项校验,不能只看状态码。
+    """
+    text = raw_text or ""
+    if text.lstrip().lower().startswith("<"):
+        return False, "HTTP 200 但返回 HTML 页面(疑似网关/代理劫持)", True, False
+    try:
+        data = json.loads(text)
+    except Exception:
+        data = None
+    err_payload: Any = None
+    if isinstance(data, dict):
+        if data.get("error") or data.get("errors") or data.get("success") is False:
+            err_payload = data
+        else:
+            code_val = data.get("code")
+            if isinstance(code_val, int) and code_val != 0 and not data.get("choices"):
+                err_payload = data
+    elif (
+        isinstance(data, list)
+        and data
+        and isinstance(data[0], dict)
+        and data[0].get("error")
+    ):
+        err_payload = data[0]
+    if err_payload is not None:
+        full_detail = _redact_secrets(json.dumps(err_payload, ensure_ascii=False))
+        account_level, model_level = _classify_error(full_detail, 200)
+        return False, f"HTTP 200 但响应体报错: {full_detail[:150]}", account_level, model_level
+    if isinstance(data, dict):
+        choices = data.get("choices")
+        if isinstance(choices, list) and not choices:
+            return False, "HTTP 200 但 choices 为空", False, False
+    return True, "", False, False
+
+
+def _judge_tools_response(status_code: int, raw_text: str) -> tuple[bool | None, str]:
+    """把工具调用探测结果判为 True / False / None(未知)。
+
+    - 200 且有 tool_calls ⇒ True
+    - 200 但没调用 / 400·422 明确报错含 tool/function ⇒ False
+    - 5xx / 鉴权 / 限流 ⇒ None(未知,不能误判为不支持)
+    """
+    text = raw_text or ""
+    lowered = text.lower()
+    body = _redact_secrets(text[:200].replace("\n", " "))
+    if status_code == 200:
+        try:
+            data = json.loads(text)
+        except Exception:
+            return False, "HTTP 200 但工具探测响应无法解析"
+        if not isinstance(data, dict):
+            return False, "HTTP 200 但工具探测响应格式异常"
+        if data.get("error"):
+            if any(k in lowered for k in _TOOL_KEYWORDS):
+                return False, f"HTTP 200 但响应体报错: {body[:150]}"
+            return None, f"HTTP 200 但响应体报错: {body[:150]}"
+        choices = data.get("choices")
+        if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict):
+            return False, "HTTP 200 但工具探测 choices 为空"
+        message = choices[0].get("message")
+        calls = message.get("tool_calls") if isinstance(message, dict) else None
+        if isinstance(calls, list) and calls:
+            return True, ""
+        return False, "声明支持工具调用但未实际触发"
+    if status_code in (400, 422) and any(k in lowered for k in _TOOL_KEYWORDS):
+        return False, f"HTTP {status_code}: {body[:150]}"
+    return None, (f"HTTP {status_code}: {body[:150]}" if body else "")
+
+
+def _build_context_probe_text(tokens: int) -> tuple[str, str]:
+    """构造确定性的长上下文针测文本,返回 (文本, 末尾验证码)。
+
+    约 4 字符/token 的重复文本即可撑满上下文,不需要随机大文件;
+    验证码由 tokens 派生,固定在末尾,模型只输出它才算长上下文可用。
+    """
+    tokens = max(256, int(tokens))
+    code = f"IHUI-{tokens:06d}-OK"
+    target_chars = max(1024, tokens * 4)
+    filler = "The quick brown fox jumps over the lazy dog. "
+    body = (filler * ((target_chars // len(filler)) + 1))[:target_chars]
+    text = (
+        "Read the following reference text, then answer the question at the end.\n\n"
+        f"{body}\n\n"
+        "Question: reply with ONLY the verification code that appears at the very end, "
+        "no other words.\n"
+        f"Verification code: {code}"
+    )
+    return text, code
+
+
+def _check_context_probe_reply(reply: str, code: str) -> bool:
+    """回复里出现验证码即视为长上下文针测通过(允许模型附加少量说明)。"""
+    return bool(code) and code.lower() in (reply or "").lower()
+
+
+async def _stream_chat(
+    client: httpx.AsyncClient,
+    url: str,
+    headers: dict[str, str],
+    payload: dict[str, Any],
+) -> tuple[int, str, int | None]:
+    """发一次流式 chat 请求,返回 (status, 聚合文本, 首块耗时 ms)。
+
+    首块 = 第一条能解析出 choices/delta 的 SSE `data:` 块;None 表示没等到有效
+    流式内容(上游直接返回非流式 JSON / HTML / 错误),交由调用方决定是否复测。
+    """
+    start = time.monotonic()
+    async with client.stream("POST", url, headers=headers, json=payload) as resp:
+        status = resp.status_code
+        if status != 200:
+            body = (await resp.aread()).decode("utf-8", "replace")
+            return status, body, None
+        lines: list[str] = []
+        ttft_ms: int | None = None
+        async for line in resp.aiter_lines():
+            lines.append(line)
+            if ttft_ms is None and _sse_chunk_has_content(line):
+                ttft_ms = int((time.monotonic() - start) * 1000)
+            if len(lines) >= 400:  # 只需判定首块,防止异常上游无限输出
+                break
+        return status, "\n".join(lines), ttft_ms
 
 
 class ModelHealthService:
@@ -575,6 +874,27 @@ class ModelHealthService:
     def get_state(self, model_id: str) -> ModelProbeState | None:
         return self._states.get(model_id)
 
+    def get_caps_verified(self, model_id: str) -> dict[str, Any]:
+        """实测能力摘要(供 /llm/models 透出);null 表示未测/未知。
+
+        tokens 未测时回填本轮配置的针测规模,前端可据此展示"将按 16k 验证"。
+        """
+        state = self._states.get(model_id)
+        if state is None:
+            return {
+                "stream": None,
+                "tools": None,
+                "context": {"ok": None, "tokens": _context_probe_tokens()},
+            }
+        return {
+            "stream": state.stream_ok,
+            "tools": state.tools_ok,
+            "context": {
+                "ok": state.context_ok,
+                "tokens": state.context_tokens or _context_probe_tokens(),
+            },
+        }
+
     def _resolve_catalog_model(self, model_id: str) -> str | None:
         """把测试接口传来的模型 id 对齐到目录 id。
 
@@ -608,8 +928,15 @@ class ModelHealthService:
         cid = self._resolve_catalog_model(model_id)
         if cid is None:
             return
+        prev = self._states.get(cid) or ModelProbeState()
         if ok:
-            self._states[cid] = ModelProbeState(status="healthy", checked_at=time.time())
+            self._states[cid] = replace(
+                prev,
+                status="healthy",
+                checked_at=time.time(),
+                error="",
+                consecutive_failures=0,
+            )
             self._save_states()
             return
         lowered = (error or "").lower()
@@ -617,8 +944,8 @@ class ModelHealthService:
             k in lowered for k in _BALANCE_EXHAUSTED_KEYWORDS
         ):
             return
-        prev = self._states.get(cid) or ModelProbeState()
-        self._states[cid] = ModelProbeState(
+        self._states[cid] = replace(
+            prev,
             status="down",
             checked_at=time.time(),
             error=_redact_secrets(error or "connectivity test failed")[:200],
@@ -649,6 +976,14 @@ class ModelHealthService:
                     error=str(item.get("error") or "")[:200],
                     latency_ms=int(item.get("latency_ms") or 0),
                     consecutive_failures=int(item.get("consecutive_failures") or 0),
+                    stream_ok=_opt_bool(item.get("stream_ok")),
+                    stream_ttft_ms=int(item.get("stream_ttft_ms") or 0),
+                    tools_ok=_opt_bool(item.get("tools_ok")),
+                    tools_error=str(item.get("tools_error") or "")[:200],
+                    context_tokens=int(item.get("context_tokens") or 0),
+                    context_ok=_opt_bool(item.get("context_ok")),
+                    context_error=str(item.get("context_error") or "")[:200],
+                    context_checked_at=float(item.get("context_checked_at") or 0),
                 )
                 restored += 1
             if restored:
@@ -669,6 +1004,14 @@ class ModelHealthService:
                         "error": _redact_secrets(s.error),
                         "latency_ms": s.latency_ms,
                         "consecutive_failures": s.consecutive_failures,
+                        "stream_ok": s.stream_ok,
+                        "stream_ttft_ms": s.stream_ttft_ms,
+                        "tools_ok": s.tools_ok,
+                        "tools_error": _redact_secrets(s.tools_error),
+                        "context_tokens": s.context_tokens,
+                        "context_ok": s.context_ok,
+                        "context_error": _redact_secrets(s.context_error),
+                        "context_checked_at": s.context_checked_at,
                     }
                     for mid, s in self._states.items()
                     if (now - s.checked_at) < STATUS_TTL_S
@@ -768,38 +1111,38 @@ class ModelHealthService:
 
         async def _probe_one(mid: str, provider_hint: str) -> None:
             async with semaphore:
-                (
-                    ok,
-                    _status_code,
-                    latency_ms,
-                    error,
-                    account_level,
-                    model_level,
-                ) = await self._probe_model(mid, provider_hint)
+                outcome = await self._probe_model(mid, provider_hint)
             async with self._lock:
                 prev = self._states.get(mid) or ModelProbeState()
-                if ok:
-                    self._states[mid] = ModelProbeState(
+                if outcome.ok:
+                    self._states[mid] = replace(
+                        prev,
                         status="healthy",
                         checked_at=time.time(),
-                        latency_ms=latency_ms,
+                        error="",
+                        latency_ms=outcome.latency_ms,
                         consecutive_failures=0,
+                        stream_ok=outcome.stream_ok,
+                        stream_ttft_ms=outcome.stream_ttft_ms,
+                        tools_ok=outcome.tools_ok,
+                        tools_error=outcome.tools_error,
                     )
-                elif account_level:
+                elif outcome.account_level:
                     # 账户级错误(限流/鉴权)不隐藏模型,保留上次结论;但必须刷新 checked_at,
                     # 否则每 30 分钟复测也救不回 TTL,状态会过期导致隐藏过的模型复活。
-                    prev.error = error
+                    prev.error = outcome.error
                     prev.checked_at = time.time()
-                    prev.latency_ms = latency_ms
+                    prev.latency_ms = outcome.latency_ms
                     self._states[mid] = prev
                 else:
                     failures = prev.consecutive_failures + 1
-                    hide = model_level or failures >= MAX_CONSECUTIVE_FAILURES
-                    self._states[mid] = ModelProbeState(
+                    hide = outcome.model_level or failures >= MAX_CONSECUTIVE_FAILURES
+                    self._states[mid] = replace(
+                        prev,
                         status="down" if hide else prev.status,
                         checked_at=time.time(),
-                        error=error,
-                        latency_ms=latency_ms,
+                        error=outcome.error,
+                        latency_ms=outcome.latency_ms,
                         consecutive_failures=failures,
                     )
                 self._last_done += 1
@@ -809,6 +1152,9 @@ class ModelHealthService:
                 *[_probe_one(mid, hint) for mid, hint in candidates],
                 return_exceptions=True,
             )
+            # 长上下文针测按轮转预算单独跑(默认每轮最多 1 个、7 天复测一次),
+            # 避免 16k token 请求铺满整轮把成本打高。
+            await self._run_context_probes()
         finally:
             self._last_checked_at = time.time()
             self._running = False
@@ -819,170 +1165,173 @@ class ModelHealthService:
                 self._last_total, down,
             )
 
+    async def _run_context_probes(self) -> None:
+        """按「从未测优先 + 超过 N 天」轮转,每轮最多测 budget 个可用模型。"""
+        budget = _context_probes_per_cycle()
+        if budget <= 0:
+            return
+        tokens = _context_probe_tokens()
+        max_age = _context_probe_days() * 86400
+        now = time.time()
+        due: list[tuple[float, str]] = []
+        for mid, state in list(self._states.items()):
+            if state.status != "healthy" or mid not in self._catalog:
+                continue
+            if state.context_checked_at and (now - state.context_checked_at) < max_age:
+                continue
+            due.append((state.context_checked_at, mid))
+        # 从未测过(checked_at=0)排最前,其余按上次测试时间从旧到新
+        due.sort(key=lambda item: (item[0] != 0.0, item[0]))
+        tested = 0
+        for _checked, mid in due:
+            if tested >= budget:
+                break
+            target = _build_probe_target(mid, self._catalog.get(mid, ""))
+            if target is None:  # 本地 provider / 无凭据:跳过,不占用本轮预算
+                continue
+            tested += 1
+            try:
+                ok, error = await self._probe_context(target, tokens)
+            except Exception as e:  # pragma: no cover - 针测失败不阻断整轮
+                ok, error = None, _redact_secrets(f"{type(e).__name__}: {e}")[:200]
+            async with self._lock:
+                state = self._states.get(mid)
+                if state is None:
+                    continue
+                state.context_tokens = tokens
+                state.context_ok = ok
+                state.context_error = error[:200]
+                state.context_checked_at = time.time()
+            logger.info(
+                "[model-health] context probe %s tokens=%d ok=%s",
+                mid, tokens, ok,
+            )
+
     async def _probe_model(
         self,
         model_id: str,
         provider_hint: str,
-    ) -> tuple[bool, int, int, str, bool, bool]:
-        """返回 (ok, http_status, latency_ms, error, account_level, model_level)。
+    ) -> ProbeOutcome:
+        """可用性探测:流式优先,失败再退回非流式(不因流式问题判死模型)。
 
-        account_level=True 表示余额/配额/限流等账户级错误:不据此隐藏单个模型。
-        model_level=True 表示上游明确不认识/已下线该模型(404、模型不存在文案):
-        一次探测即可隐藏,不必等连续两次失败。
+        stream_ok=True 表示 SSE 首块已解析成功;False 表示可用但流式不达标;
+        None 表示模型不可用 / 未探测。工具调用能力在同一连接上顺带测一次。
         """
-        from ..core.config import settings
-
-        hint_code = provider_hint.strip()
-        code = _infer_provider_code(model_id) or hint_code
-        if not code:
-            return True, 0, 0, "", False, False  # 判不出厂商:不据此隐藏
-        if code in _PROBE_SKIP_CODES:
-            return True, 0, 0, "", False, False  # 非 OpenAI 兼容协议,交给 provider 级判定
-        provider = free_provider_registry.get_by_code(code)
-        if provider and provider.category == ProviderCategory.LOCAL:
-            return True, 0, 0, "", False, False  # 本地服务由 local_provider_health 负责
-        if not provider and not hint_code:
-            return True, 0, 0, "", False, False
-
-        api_key, api_base = _resolve_credentials(code)
-        # 推断厂商没有凭据、但目录条目登记了另一个厂商:改用条目登记的厂商,
-        # 避免用错误厂商的 key/base 探测(裸模型名跨厂商重名时会被误判成 down)。
-        if (
-            (not api_base or (not api_key and code not in _ZERO_COST_CODES))
-            and hint_code
-            and hint_code != code
-        ):
-            h_key, h_base = _resolve_credentials(hint_code)
-            if h_base and (h_key or hint_code in _ZERO_COST_CODES):
-                code, api_key, api_base = hint_code, h_key, h_base
-        if not api_base:
-            return True, 0, 0, "", False, False  # 没有 base 无法探测,交给 provider 级判定
-        if not api_key and code not in _ZERO_COST_CODES:
-            return True, 0, 0, "", False, False  # 无凭据:provider 级过滤已负责
-
-        upstream_model = _strip_upstream_prefix(model_id, code)
-        headers: dict[str, str] = {"Content-Type": "application/json"}
-        if api_key:
-            headers["Authorization"] = f"Bearer {api_key}"
-        try:
-            from ..core.provider_caps import resolve_provider_headers
-
-            headers.update(resolve_provider_headers(code))
-        except Exception:
-            pass
-
-        proxy = (
-            (settings.sync_proxy_url_by_provider.get(code) or settings.sync_proxy_url or "").strip()
-        ) or None
-        payload: dict[str, Any] = {
-            "model": upstream_model,
-            "messages": [{"role": "user", "content": "ping"}],
-            "max_tokens": 1,
-            "stream": False,
-        }
-        chat_url = _chat_url(api_base, code)
+        target = _build_probe_target(model_id, provider_hint)
+        if target is None:
+            # 判不出厂商 / 非 OpenAI 兼容 / 本地 provider / 无凭据:不据此隐藏
+            return ProbeOutcome(ok=True)
+        chat_url = target.chat_url
+        headers = target.headers
+        proxy = target.proxy
+        upstream_model = target.upstream_model
 
         start = time.monotonic()
         try:
             async with httpx.AsyncClient(
                 timeout=PROBE_TIMEOUT_S, proxy=proxy, follow_redirects=True
             ) as client:
-                resp = await client.post(chat_url, headers=headers, json=payload)
-                if resp.status_code in (400, 422) and _needs_completion_tokens(
-                    resp.text or ""
-                ):
+                payload: dict[str, Any] = {
+                    "model": upstream_model,
+                    "messages": [{"role": "user", "content": "ping"}],
+                    "max_tokens": 8,
+                    "stream": True,
+                }
+                status, stream_text, ttft_ms = await _stream_chat(
+                    client, chat_url, headers, payload
+                )
+                if status in (400, 422) and _needs_completion_tokens(stream_text):
                     # OpenAI o1/o3/o4 等推理模型拒绝 max_tokens:换 max_completion_tokens 再试
                     payload.pop("max_tokens", None)
-                    payload["max_completion_tokens"] = 1
-                    resp = await client.post(chat_url, headers=headers, json=payload)
-                if resp.status_code in (400, 422) and _needs_stream(resp.text or ""):
-                    # 少数厂商只允许流式调用:换 stream=True 再试,避免把可用模型误判为死亡
-                    payload["stream"] = True
-                    resp = await client.post(chat_url, headers=headers, json=payload)
+                    payload["max_completion_tokens"] = 8
+                    status, stream_text, ttft_ms = await _stream_chat(
+                        client, chat_url, headers, payload
+                    )
                 if (
-                    resp.status_code == 403
-                    and "白名单" in (resp.text or "")
-                    and upstream_model != model_id
+                    status == 403
+                    and "白名单" in stream_text
+                    and payload["model"] != model_id
                 ):
                     # 自家 relay 网关(workbuddy_relay 等)的白名单按带厂商前缀的 id 登记
                     # (如 workbuddy/*),剥前缀探测会被 403「模型不在白名单」误杀;
                     # 换回完整 id 复测一次,避免把真实可用的平台模型判成未验证。
                     payload["model"] = model_id
-                    resp = await client.post(chat_url, headers=headers, json=payload)
-            latency_ms = int((time.monotonic() - start) * 1000)
-            # 分类必须基于完整响应文本:关键词可能出现在前 180 字符之后,
-            # 只按截断文本分类会漏判余额耗尽/模型不存在等语义。
-            raw_text = resp.text or ""
-            body = raw_text[:180].replace("\n", " ")
-            if resp.status_code == 200:
-                # 200 也可能带错误体(部分代理/厂商把错误包在 HTTP 200 里),必须校验
-                content_type = (resp.headers.get("content-type") or "").lower()
-                if "html" in content_type or raw_text.lstrip().lower().startswith("<"):
-                    return (
-                        False, 200, latency_ms,
-                        "HTTP 200 但返回 HTML 页面(疑似网关/代理劫持)",
-                        True, False,
+                    status, stream_text, ttft_ms = await _stream_chat(
+                        client, chat_url, headers, payload
                     )
-                try:
-                    data = resp.json()
-                except Exception:
-                    data = None
-                err_payload: Any = None
-                if isinstance(data, dict):
-                    if data.get("error") or data.get("errors") or data.get("success") is False:
-                        err_payload = data
-                    else:
-                        code_val = data.get("code")
-                        if (
-                            isinstance(code_val, int)
-                            and code_val != 0
-                            and not data.get("choices")
-                        ):
-                            err_payload = data
-                elif (
-                    isinstance(data, list)
-                    and data
-                    and isinstance(data[0], dict)
-                    and data[0].get("error")
-                ):
-                    err_payload = data[0]
-                if err_payload is not None:
-                    full_detail = _redact_secrets(
-                        json.dumps(err_payload, ensure_ascii=False)
+                latency_ms = int((time.monotonic() - start) * 1000)
+                probe_model_name = str(payload["model"])
+
+                if status == 200 and ttft_ms is not None:
+                    # 流式成功:可用 + 流式达标。工具调用复用同一连接再测一次(+1 请求)。
+                    tools_ok, tools_error = await self._probe_tools(
+                        client, chat_url, headers, probe_model_name
                     )
-                    account_level, model_level = _classify_error(full_detail, 200)
-                    detail = full_detail[:150]
-                    return (
-                        False, 200, latency_ms,
-                        f"HTTP 200 但响应体报错: {detail}",
-                        account_level, model_level,
+                    return ProbeOutcome(
+                        ok=True,
+                        http_status=200,
+                        latency_ms=latency_ms,
+                        stream_ok=True,
+                        stream_ttft_ms=ttft_ms,
+                        tools_ok=tools_ok,
+                        tools_error=tools_error,
                     )
-                if isinstance(data, dict):
-                    choices = data.get("choices")
-                    if isinstance(choices, list) and not choices:
-                        # 200 却没有任何候选输出:该模型当前不可用
-                        return (
-                            False, 200, latency_ms,
-                            "HTTP 200 但 choices 为空",
-                            False, False,
+
+                if status == 200:
+                    # 200 但没有可解析 SSE(非流式 JSON / 网关 HTML):先校验响应体
+                    ok, error, account_level, model_level = _evaluate_200_body(stream_text)
+                    if not ok:
+                        return ProbeOutcome(
+                            ok=False,
+                            http_status=200,
+                            latency_ms=latency_ms,
+                            error=error,
+                            account_level=account_level,
+                            model_level=model_level,
                         )
-                return True, 200, latency_ms, "", False, False
-            account_level, model_level = _classify_error(raw_text, resp.status_code)
-            return (
-                False, resp.status_code, latency_ms,
-                _redact_secrets(f"HTTP {resp.status_code}: {body}"),
-                account_level,
-                model_level,
-            )
+                if status == 200 or status in _STREAM_FALLBACK_STATUS:
+                    # 流式不可用/不达标:用原非流式 max_tokens=1 复测。
+                    # 可用但流式不达标只记 stream_ok=False,绝不判死模型。
+                    fallback, used_model = await self._non_stream_probe(
+                        client,
+                        chat_url,
+                        headers,
+                        probe_model_name,
+                        model_id,
+                    )
+                    if not fallback.ok:
+                        return fallback
+                    tools_ok, tools_error = await self._probe_tools(
+                        client, chat_url, headers, used_model
+                    )
+                    fallback.stream_ok = False
+                    fallback.tools_ok = tools_ok
+                    fallback.tools_error = tools_error
+                    return fallback
+
+                # 分类必须基于完整响应文本:关键词可能出现在前 180 字符之后,
+                # 只按截断文本分类会漏判余额耗尽/模型不存在等语义。
+                raw_text = stream_text or ""
+                body = raw_text[:180].replace("\n", " ")
+                account_level, model_level = _classify_error(raw_text, status)
+                return ProbeOutcome(
+                    ok=False,
+                    http_status=status,
+                    latency_ms=latency_ms,
+                    error=_redact_secrets(f"HTTP {status}: {body}"),
+                    account_level=account_level,
+                    model_level=model_level,
+                )
         except httpx.TimeoutException as e:
             # 连接/连接池超时属网络基础设施问题,不据此隐藏模型(provider 级会判整家);
             # 读超时视为该模型过慢/挂死,计失败次数。
             infra = isinstance(e, (httpx.ConnectTimeout, httpx.PoolTimeout))
-            return (
-                False, 0, int((time.monotonic() - start) * 1000),
-                type(e).__name__,
-                infra,
-                False,
+            return ProbeOutcome(
+                ok=False,
+                http_status=0,
+                latency_ms=int((time.monotonic() - start) * 1000),
+                error=type(e).__name__,
+                account_level=infra,
             )
         except (
             httpx.ConnectError,
@@ -995,19 +1344,204 @@ class ModelHealthService:
             httpx.WriteError,
             httpx.TooManyRedirects,
         ) as e:
-            return (
-                False, 0, int((time.monotonic() - start) * 1000),
-                _redact_secrets(f"{type(e).__name__}: {str(e)[:120]}"),
-                True,
-                False,
+            return ProbeOutcome(
+                ok=False,
+                http_status=0,
+                latency_ms=int((time.monotonic() - start) * 1000),
+                error=_redact_secrets(f"{type(e).__name__}: {str(e)[:120]}"),
+                account_level=True,
             )
         except Exception as e:
-            return (
-                False, 0, int((time.monotonic() - start) * 1000),
-                _redact_secrets(f"{type(e).__name__}: {str(e)[:120]}"),
-                False,
-                False,
+            return ProbeOutcome(
+                ok=False,
+                http_status=0,
+                latency_ms=int((time.monotonic() - start) * 1000),
+                error=_redact_secrets(f"{type(e).__name__}: {str(e)[:120]}"),
             )
+
+    async def _non_stream_probe(
+        self,
+        client: httpx.AsyncClient,
+        chat_url: str,
+        headers: dict[str, str],
+        model_name: str,
+        full_model_id: str,
+    ) -> tuple[ProbeOutcome, str]:
+        """原非流式探测(max_tokens=1),用于流式不达标/不支持时的可用性兜底。"""
+        start = time.monotonic()
+        payload: dict[str, Any] = {
+            "model": model_name,
+            "messages": [{"role": "user", "content": "ping"}],
+            "max_tokens": 1,
+            "stream": False,
+        }
+        resp = await client.post(chat_url, headers=headers, json=payload)
+        if resp.status_code in (400, 422) and _needs_completion_tokens(resp.text or ""):
+            payload.pop("max_tokens", None)
+            payload["max_completion_tokens"] = 1
+            resp = await client.post(chat_url, headers=headers, json=payload)
+        if resp.status_code in (400, 422) and _needs_stream(resp.text or ""):
+            # 上游只允许流式,但流式解析未达标:判可用,能力标注为缺失
+            return (
+                ProbeOutcome(
+                    ok=True,
+                    http_status=resp.status_code,
+                    latency_ms=int((time.monotonic() - start) * 1000),
+                    stream_ok=False,
+                ),
+                str(payload["model"]),
+            )
+        if (
+            resp.status_code == 403
+            and "白名单" in (resp.text or "")
+            and payload["model"] != full_model_id
+        ):
+            payload["model"] = full_model_id
+            resp = await client.post(chat_url, headers=headers, json=payload)
+        latency_ms = int((time.monotonic() - start) * 1000)
+        raw_text = resp.text or ""
+        if resp.status_code == 200:
+            ok, error, account_level, model_level = _evaluate_200_body(raw_text)
+            return (
+                ProbeOutcome(
+                    ok=ok,
+                    http_status=200,
+                    latency_ms=latency_ms,
+                    error=error,
+                    account_level=account_level,
+                    model_level=model_level,
+                ),
+                str(payload["model"]),
+            )
+        body = raw_text[:180].replace("\n", " ")
+        account_level, model_level = _classify_error(raw_text, resp.status_code)
+        return (
+            ProbeOutcome(
+                ok=False,
+                http_status=resp.status_code,
+                latency_ms=latency_ms,
+                error=_redact_secrets(f"HTTP {resp.status_code}: {body}"),
+                account_level=account_level,
+                model_level=model_level,
+            ),
+            str(payload["model"]),
+        )
+
+    async def _probe_tools(
+        self,
+        client: httpx.AsyncClient,
+        chat_url: str,
+        headers: dict[str, str],
+        model_name: str,
+    ) -> tuple[bool | None, str]:
+        """极简工具调用探测(+1 请求/可用模型/轮)。"""
+        payload: dict[str, Any] = {
+            "model": model_name,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": "What is the weather in Beijing? Use the get_weather tool.",
+                }
+            ],
+            "tools": [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "get_weather",
+                        "description": "Get the current weather for a city.",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "city": {"type": "string", "description": "City name"},
+                            },
+                            "required": ["city"],
+                        },
+                    },
+                }
+            ],
+            "tool_choice": "auto",
+            "max_tokens": _TOOL_PROBE_MAX_TOKENS,
+            "stream": False,
+        }
+        try:
+            resp = await client.post(chat_url, headers=headers, json=payload)
+            if resp.status_code in (400, 422) and _needs_completion_tokens(
+                resp.text or ""
+            ):
+                payload.pop("max_tokens", None)
+                payload["max_completion_tokens"] = _TOOL_PROBE_MAX_TOKENS
+                resp = await client.post(chat_url, headers=headers, json=payload)
+            return _judge_tools_response(resp.status_code, resp.text or "")
+        except Exception as e:
+            # 超时 / 网络异常不能误判为"不支持工具调用"(记未知)
+            return None, _redact_secrets(f"{type(e).__name__}: {str(e)[:120]}")[:200]
+
+    async def _probe_context(
+        self, target: _ProbeTarget, tokens: int
+    ) -> tuple[bool | None, str]:
+        """长上下文针测:填充文本 + 末尾验证码,只让模型输出验证码。"""
+        text, code = _build_context_probe_text(tokens)
+        payload: dict[str, Any] = {
+            "model": target.upstream_model,
+            "messages": [{"role": "user", "content": text}],
+            "max_tokens": 24,
+            "stream": False,
+        }
+        try:
+            async with httpx.AsyncClient(
+                timeout=CONTEXT_PROBE_TIMEOUT_S,
+                proxy=target.proxy,
+                follow_redirects=True,
+            ) as client:
+                resp = await client.post(
+                    target.chat_url, headers=target.headers, json=payload
+                )
+                if resp.status_code in (400, 422) and _needs_completion_tokens(
+                    resp.text or ""
+                ):
+                    payload.pop("max_tokens", None)
+                    payload["max_completion_tokens"] = 24
+                    resp = await client.post(
+                        target.chat_url, headers=target.headers, json=payload
+                    )
+                raw = resp.text or ""
+                if resp.status_code != 200:
+                    summary = _redact_secrets(
+                        f"HTTP {resp.status_code}: {raw[:150].replace(chr(10), ' ')}"
+                    )
+                    # 5xx 属上游临时故障:能力未知,不误判为不支持长上下文
+                    return (None if resp.status_code >= 500 else False), summary[:200]
+                ok, error, _account, _model = _evaluate_200_body(raw)
+                if not ok:
+                    return False, error[:200]
+                try:
+                    data = json.loads(raw)
+                except Exception:
+                    return False, "针测响应无法解析"
+                choices = data.get("choices") if isinstance(data, dict) else None
+                if not isinstance(choices, list) or not choices:
+                    return False, "针测响应 choices 为空"
+                message = (
+                    choices[0].get("message") if isinstance(choices[0], dict) else None
+                )
+                reply = ""
+                if isinstance(message, dict):
+                    content = message.get("content")
+                    if isinstance(content, str):
+                        reply = content
+                    elif isinstance(content, list):
+                        reply = "".join(
+                            str(part.get("text") or "")
+                            for part in content
+                            if isinstance(part, dict)
+                        )
+                if _check_context_probe_reply(reply, code):
+                    return True, ""
+                return False, _redact_secrets(f"回复未包含验证码: {reply[:120]}")[:200]
+        except httpx.TimeoutException as e:
+            return None, type(e).__name__
+        except Exception as e:
+            return None, _redact_secrets(f"{type(e).__name__}: {str(e)[:120]}")[:200]
 
 
 # 模块级单例

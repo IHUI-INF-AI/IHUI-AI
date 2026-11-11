@@ -15,14 +15,32 @@
  * 后端判定规则的单测在 apps/ai-service/tests/test_model_catalog.py,
  * 前端只测"拿到字段后怎么分",不重复实现判定逻辑。
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import * as React from 'react'
 
 import {
+  buildCapabilitySegments,
   filterByCapabilities,
+  formatContextTokens,
   groupByCategory,
   splitByTier,
   type ModelOption,
 } from '@/components/chat/model-tier-utils'
+import type { SelectorModel } from '@/lib/models-api'
+
+// ModelCapsSummary 依赖 next-intl;这里用固定中文标签,避免为一条展示行拉起 i18n 运行时
+const { capLabels } = vi.hoisted(() => ({
+  capLabels: {
+    capStream: '流式',
+    capTools: '工具',
+    capContext: '长上下文',
+    capUnknownHint: '尚未实测',
+    capFailHint: '实测未通过',
+  } as Record<string, string>,
+}))
+vi.mock('next-intl', () => ({
+  useTranslations: () => (key: string) => capLabels[key] ?? key,
+}))
 
 function opt(
   value: string,
@@ -143,6 +161,64 @@ describe('filterByCapabilities — 历史区能力过滤(2026-09-19 D23 立)', (
   it('非布尔值按 false 处理而非崩溃', () => {
     const list = [opt('weird', 'chat', 'legacy', { vision: 'yes' as unknown as true })]
     expect(filterByCapabilities(list, ['vision'])).toHaveLength(0)
+  })
+})
+
+describe('实测能力 caps_verified(2026-11-11 立)', () => {
+  const labels = { stream: '流式', tools: '工具', context: '长上下文' }
+
+  function apiModel(over: Partial<SelectorModel>): SelectorModel {
+    return { id: 'demo/model', name: 'Demo', ...over } as SelectorModel
+  }
+
+  it('buildOptionsFromApi 原样透传 caps_verified,缺失为 undefined', async () => {
+    const { buildOptionsFromApi } = await import('@/components/chat/model-selector')
+    const caps = { stream: true, tools: false, context: { ok: true, tokens: 16000 } }
+    const options = buildOptionsFromApi([
+      apiModel({ id: 'with-caps', caps_verified: caps }),
+      apiModel({ id: 'no-caps' }),
+    ])
+    expect(options[0]?.capsVerified).toEqual(caps)
+    expect(options[1]?.capsVerified).toBeUndefined()
+  }, 60_000)
+
+  it('tokens 以 1000 取整换算(16000 → 16K)', () => {
+    expect(formatContextTokens(16000)).toBe('16K')
+    expect(formatContextTokens(32000)).toBe('32K')
+    expect(formatContextTokens(32400)).toBe('32K')
+  })
+
+  it('capsVerified 完全缺失时三段都是问号', () => {
+    const segments = buildCapabilitySegments({}, labels)
+    expect(segments.map((s) => s.text)).toEqual(['流式?', '工具?', '长上下文?'])
+    expect(segments.map((s) => s.state)).toEqual(['unknown', 'unknown', 'unknown'])
+  })
+
+  it('通过/失败/未知逐段判定,长上下文通过时带测试规模', () => {
+    const segments = buildCapabilitySegments(
+      { capsVerified: { stream: true, tools: false, context: { ok: true, tokens: 16000 } } },
+      labels,
+    )
+    expect(segments.map((s) => s.text)).toEqual(['流式✓', '工具✗', '长上下文16K'])
+    expect(segments.map((s) => s.state)).toEqual(['ok', 'fail', 'ok'])
+  })
+
+  it('未验证模型(verified=false)仍渲染完整能力行', async () => {
+    const { ModelCapsSummary } = await import('@/components/chat/model-selector')
+    const { render } = await import('@testing-library/react')
+    const { container } = render(
+      React.createElement(ModelCapsSummary, {
+        opt: {
+          value: 'unverified',
+          label: 'unverified',
+          verified: false,
+          capsVerified: { stream: true, tools: null, context: { ok: false, tokens: 16000 } },
+        } satisfies ModelOption,
+      }),
+    )
+    expect(container.textContent).toContain('流式✓')
+    expect(container.textContent).toContain('工具?')
+    expect(container.textContent).toContain('长上下文✗')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
