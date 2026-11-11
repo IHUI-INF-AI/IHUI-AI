@@ -3,8 +3,10 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { StyleSheet, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { tokens } from '../theme/active-tokens'
 import {
   getTokenBalance,
   getTokenFlows,
@@ -14,6 +16,7 @@ import {
   type TopUpOrder,
 } from '@ihui/api-client'
 import {
+  CategoryInlineBar,
   TokenValueScreen as SharedTokenValueScreen,
   type TokenRecordType,
   type TokenValueBalance,
@@ -23,6 +26,7 @@ import { formatShortDateTime } from '../utils/date-utils'
 import { useTheme } from '../context/ThemeContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { rpx } from '../utils/rpx'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -180,28 +184,43 @@ export default function TokenValueScreen() {
   }, [tagged, range])
 
   return (
-    // 记录时间范围条下沉共享屏(数据型注入点;RN 与小程序腿经 @rn-shells 执行同一份壳):
-    // 对齐 Uniapp token_value.vue TabBar barList 的 7天/一个月/近一年/全部。
-    <SharedTokenValueScreen
-      t={t}
-      balance={balance}
-      records={records}
-      loading={loading}
-      refreshing={refreshing}
-      error={error}
-      activeTab={tab}
-      onSelectTab={setTab}
-      onRefresh={onRefresh}
-      onRecharge={handleRecharge}
-      onBack={() => navigation.goBack()}
-      onLoadMore={loadMore}
-      loadingMore={loadingMore}
-      hasMore={hasMore}
-      colorScheme={resolvedTheme}
-      rangeItems={RANGE_ITEMS.map((item) => ({ id: item.key, label: t(item.labelKey) }))}
-      rangeId={range}
-      onSelectRange={(id) => setRange(id as RangeKey)}
-    />
+    <View style={styles.container}>
+      {/* 记录时间范围切换(统一分类条;对齐 Uniapp token_value.vue TabBar barList: 7天/一个月/近一年/全部) */}
+      <View style={styles.studyBarWrap}>
+        <CategoryInlineBar
+          items={RANGE_ITEMS.map((item) => ({ id: item.key, label: t(item.labelKey) }))}
+          selectedId={range}
+          onSelect={(id) => setRange(id as RangeKey)}
+          colorScheme={resolvedTheme}
+          contentPaddingHorizontal={0}
+        />
+      </View>
+      <View style={styles.sharedWrap}>
+        <SharedTokenValueScreen
+          t={t}
+          balance={balance}
+          records={records}
+          loading={loading}
+          refreshing={refreshing}
+          error={error}
+          activeTab={tab}
+          onSelectTab={setTab}
+          onRefresh={onRefresh}
+          onRecharge={handleRecharge}
+          onBack={() => navigation.goBack()}
+          onLoadMore={loadMore}
+          loadingMore={loadingMore}
+          hasMore={hasMore}
+          colorScheme={resolvedTheme}
+        />
+      </View>
+    </View>
   )
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: tokens.surface.bg },
+  studyBarWrap: { paddingHorizontal: rpx(32), paddingTop: rpx(16) },
+  sharedWrap: { flex: 1 },
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

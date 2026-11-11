@@ -46,6 +46,7 @@ vi.mock('react-native', async (importOriginal) => {
   }
 })
 
+vi.mock('expo-font', () => ({ useFonts: () => [true] }))
 vi.mock('expo-status-bar', () => ({ StatusBar: () => null }))
 vi.mock('@react-navigation/native', () => ({
   NavigationContainer: ({ children }: { children: unknown }) => children,

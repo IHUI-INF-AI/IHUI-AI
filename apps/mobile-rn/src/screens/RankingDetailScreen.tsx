@@ -219,7 +219,25 @@ export default function RankingDetailScreenWrapper() {
           ]}
         />
       </NavChrome>
-      <RankingDetailScreen t={t} detail={detail} colorScheme={resolvedTheme} />
+      <RankingDetailScreen
+        t={t}
+        onBack={() => navigation.goBack()}
+        detail={detail}
+        history={history}
+        drawerVisible={drawerVisible}
+        onDrawerVisibleChange={setDrawerVisible}
+        onNavigate={onNavigate as (tab: string) => void}
+        onNavigateCompany={onNavigateCompany}
+        onClaimFree={onClaimFree}
+        onCreateNewChat={onCreateNewChat}
+        onNavigateExtra={onNavigateExtra as (menu: string) => void}
+        onSelectConversation={onSelectConversation}
+        onDeleteConversation={onDeleteConversation}
+        onOpenSettings={onOpenSettings}
+        onOpenMessages={onOpenMessages}
+        onGoHome={onGoHome}
+        colorScheme={resolvedTheme}
+      />
       <Drawer
         visible={drawerVisible}
         onClose={closeDrawer}

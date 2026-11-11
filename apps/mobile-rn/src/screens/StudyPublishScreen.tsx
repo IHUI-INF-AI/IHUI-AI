@@ -209,8 +209,10 @@ export default function StudyPublishScreen() {
   }, [videoTitle, videoContent, videoUri, navigation, t])
 
   const sharedProps: StudyPublishScreenProps = {
+    t,
     mode,
     onModeChange: setMode,
+    onBack: () => navigation.goBack(),
     groupTitle,
     groupContent,
     groupCategory,
