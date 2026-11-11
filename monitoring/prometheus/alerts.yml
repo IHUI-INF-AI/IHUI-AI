@@ -39,11 +39,15 @@ groups:
           description: 'API 不可达:router(8802) 已宕机,或 BLUE(8842)/GREEN(8843) 两工作色全部无监听超过 1 分钟。先查 IHUI-API-ROUTER 与 IHUI-API-BLUE/GREEN 服务状态、8802/8842/8843 端口监听(netstat -ano | findstr :8842)、以及 api-bluegreen.json 活跃色。'
 
       # API 高错误率(5xx 占比 > 5%)
+      # 2026-11-11 DBG-75 除零防护:分母加 `> 0` 过滤。workers 全 down / 零流量时分母为 0,
+      # 旧写法 0/0=NaN 靠"NaN 比较恒假"隐式语义不触发;显式过滤后零流量下结果为空向量,
+      # 不产生 NaN,口径与 LlmProviderErrorBurst 的除零注释同理。
+      # "API 完全停服"场景由 ApiDown(router+两 worker 双覆盖)兜底,不靠本规则。
       - alert: ApiHighErrorRate
         expr: |
           sum(rate(http_requests_by_status{job="api",status=~"5.."}[5m]))
           /
-          sum(rate(http_requests_by_status{job="api"}[5m]))
+          (sum(rate(http_requests_by_status{job="api"}[5m])) > 0)
           > 0.05
         for: 5m
         labels:
