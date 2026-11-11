@@ -44,6 +44,8 @@ import { resolveGateScope, isMetaGate } from './lib/gate-scope.mjs'
 // BUG-55:档位判定的 git 派生此前用裸 'git',全仓已收口 resolveGitBin();PATH 不通时
 // 该调用恒失败被吞成 warn ⇒ 档位判定恒失败、退回全量档。改用绝对路径 git 二进制。
 import { resolveGitBin } from './lib/gitdir.mjs'
+// RP-72(2026-11-11 立):根护栏「声明集成对」判据单源(本枚改规则面须同枚改清单)。
+import { rootGuardDeclarationPairing } from './lib/root-guard-declaration-pairing.mjs'
 
 
 // === 检查配置(按 mode 分组;项数与分级见 `--help`,勿在此写死数字——写死必然过期) ===
@@ -468,12 +470,7 @@ const checks = [
     id: '30a',
     label: '🛡️  Commit 丢失防护(blocking,AGENTS.md §22,防 reset / drop stash 误丢 commit)',
     script: 'check-commit-loss-guard.mjs',
-    // 2026-11-10 提速:`--defer-3b` 把"3b 全量逐路径对账"(本仓实测 74s/轮,占本门 116s 的 64%)
-    // 挪到 post-commit 后台(`--audit-3b`,见 .husky/post-commit 的 detached 链)。
-    // 提交链只剩毫秒级的"读上次审计读数";3b **从不判红**,所以延后不改变任何阻塞语义,
-    // 阻塞项(reset / 窗内未备份悬空 / tag 对象不可达)照旧在提交链判。
-    // 全量档补跑由 runner 注入 IHUI_COMMIT_LOSS_DEFER_3B=1(见 fullFace spawn env),避免同一维跑两遍。
-    args: ['--blocking', '--filter-stash', '--defer-3b'],
+    args: ['--blocking', '--filter-stash'],
     mode: 'blocking',
     stagedTriggers: ["**/*"],
     // 2026-10-03 补齐:门体头注一直写着 `HUSKY_SKIP_COMMIT_LOSS_CHECK`,但 runner 从未声明该字段
@@ -4581,6 +4578,30 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- README RECENT 块外禁增(1 项,blocking,2026-11-11 立)---
+  // 立门理由:5833953de0 那次收口(END 后 37,179 行散落、README.md 12.95MB)的复发防线。
+  // 旧失效型(merge-live-doc"无锚点⇒追加到文件末尾")把 HEAD 侧内容整段甩到 END 之后,
+  // 既有门(表格形态/生成块数字)对"块外长出新内容"结构性失明。判据与自检见
+  // check-readme-recent-containment.mjs 头注:被审面 END 后尾部必须是 HEAD 尾部的纯删减子序列。
+  {
+    id: '175',
+    label:
+      '📕 README RECENT 块外禁增守门(5833953de0 复发防线):END RECENT UPDATES 之后只许删不许增 —— 净增/改写/标记被删即拦,纯清理与块内更新放行',
+    script: 'check-readme-recent-containment.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_README_RECENT_CONTAINMENT',
+    stagedTriggers: ['README.md', 'README.en.md', 'README.ko.md', 'README.ja.md'],
+    onFailHint: [
+      '',
+      '单独复现:node scripts/check-readme-recent-containment.mjs',
+      '自检:node scripts/check-readme-recent-containment.mjs --self-test',
+      '合法改法:活性 changelog 一律进 BEGIN/END RECENT UPDATES 块内(auto-update-readme-recent.mjs 是唯一写入口);块外只许删不许增。',
+      '应急放行:HUSKY_SKIP_README_RECENT_CONTAINMENT=1 git commit(commit message 写明责任归属)',
+      '',
+    ].join('\n'),
+  },
+
   // --- 退出码归因(1 项,blocking)---
   {
     id: '175',
@@ -6467,14 +6488,8 @@ const checks = [
     stagedTriggers: [
       'apps/web/app/globals.css',
       'packages/design-tokens/src/styles/tokens.css',
-      'packages/design-tokens/src/styles/base.css',
       'packages/design-tokens/src/typography.ts',
       'apps/web/public/fonts/',
-      // 跨端:小程序与 RN 的字体书写面也在门 313 射程内(见 check-typography-face-coverage.mjs
-      // 的 FONT_STACK_SITES),不触发它 ⇒ 跨端字体改动无人可守。
-      'apps/miniapp-taro/src/',
-      'apps/mobile-rn/global.css',
-      'apps/mobile-rn/App.tsx',
       'scripts/subset-fonts.py',
       'scripts/data/font-subset-manifest.json',
       'scripts/data/typography-face-baseline.json',
@@ -8157,6 +8172,39 @@ if (passStaged && !pushGate && onlyList.length === 0) {
         dup.map(([k, v]) => `${k}=${v.join('/')}`).join(' ; ') +
         ' → 按"后落地者让号"各自改号(runner + AGENTS 速查 + README 三处同步)。',
     )
+  }
+}
+
+// ── RP-72 根护栏声明自检(2026-11-11 立,票 RP-72;判据单源在 scripts/lib/root-guard-declaration-pairing.mjs)──
+// 本枚声明集(staged 面)改 scripts/guardian-runner.mjs 或 scripts/git-guardian.mjs 而未同枚改
+// scripts/data/root-guard-manifest.json ⇒ 判拦并点名同枚 --seal 出口。不提供任何 skip 变量:
+// 唯一出路是同枚重封清单。当前档 = 声明自检(只打印不阻断,共判新增走自检档);
+// 升 blocking 仍走「存量先归零」(RP-64 的 19 枚未声明提交待 ack)。
+if (passStaged) {
+  try {
+    const rpPairingPaths = String(
+      execFileSync(resolveGitBin(), ['-c', 'safe.directory=*', 'diff', '--cached', '--name-only'], {
+        encoding: 'utf8',
+        cwd: process.cwd(),
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        timeout: 30_000,
+      }) || '',
+    )
+      .split(/\r?\n/)
+      .map((s) => s.trim().replace(/\\/g, '/'))
+      .filter(Boolean)
+    const rpVerdict = rootGuardDeclarationPairing(rpPairingPaths)
+    if (rpVerdict.verdict === 'block') {
+      console.warn(
+        `🧯 根护栏声明自检(RP-72,自检档不阻断):本枚声明集改 ${rpVerdict.ruleFiles.join(' / ')} ` +
+          `而未同枚改 ${rpVerdict.manifestFile} ⇒ 判拦。出路:同枚执行 ` +
+          `node scripts/root-guard.mjs --seal --staged --reason "..." 重封清单后随本枚提交` +
+          `(不提供 skip 变量;升 blocking 待存量归零)。`,
+      )
+    }
+  } catch (e) {
+    console.warn(`⚠️ 根护栏声明自检:git diff --cached 取不到(${e?.message || e})⇒ 本自检跳过(失效方向=少喊一次,不误拦提交)`)
   }
 }
 
