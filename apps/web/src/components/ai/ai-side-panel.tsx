@@ -2005,6 +2005,7 @@ export function AISidePanel() {
                 onModelChange={setModel}
                 modelLabel={t('model')}
                 autoResolvedModel={conversationModel}
+                forceToolbarText
                 onFloatDragStart={handleFloatDragStart}
                 onTriggerClick={() => setFloatCollapsed(false)}
                 compactTop
@@ -2230,6 +2231,7 @@ export function AISidePanel() {
         onModelChange={setModel}
         modelLabel={t('model')}
         autoResolvedModel={conversationModel}
+        forceToolbarText
       />
 
       {/* AI 主动提问已改为消息流内联卡(MessageList trailing 插槽),不再渲染弹窗 */}
