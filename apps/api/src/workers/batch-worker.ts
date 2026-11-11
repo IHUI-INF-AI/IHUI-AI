@@ -15,7 +15,8 @@
  *      Anthropic: 读取 _requests → 逐请求调用 LLM → 写 results
  *   4. 每条调用 recordCall(metadata { batch: true, discount: 0.5, batchId })
  *   5. 更新状态 finalizing → completed(含 request_counts + output)
- *   6. 失败时更新状态 failed + _errorMessage
+ *   6. 失败时仅在最后一次 attempt 更新状态 failed + _errorMessage(F-88),
+ *      否则回写 in_progress 后 rethrow,让 BullMQ 的重试真正生效
  *
  * 与 registry-sync-worker / relay-health-check-worker 同模式:
  * - server.redisForQueue 作为 BullMQ 连接
@@ -45,6 +46,28 @@ import { logger } from '../utils/logger.js'
 
 /** 终态状态(已终态任务不再处理,幂等) */
 const TERMINAL_STATUSES: BatchTaskStatus[] = ['completed', 'failed', 'cancelled', 'expired']
+
+/**
+ * F-88:判断当前失败是否已到最后一次 attempt(只有最后一次才允许写终态 failed)。
+ *
+ * BullMQ 在处理器执行期间不递增 attemptsMade(第 1 次为 0,第 N 次为 N-1),
+ * 该字段只在 moveToFinished / retryJob 里 +1,故 `attemptsMade + 1 >= maxAttempts`
+ * 即「没有下一次重试」。maxAttempts 缺失时按 1 处理(保持原有一失败即终态的语义)。
+ */
+export function shouldMarkTerminalFailed(
+  attemptsMade: number | undefined | null,
+  maxAttempts: number | undefined | null,
+): boolean {
+  const max =
+    typeof maxAttempts === 'number' && Number.isFinite(maxAttempts) && maxAttempts >= 1
+      ? Math.floor(maxAttempts)
+      : 1
+  const made =
+    typeof attemptsMade === 'number' && Number.isFinite(attemptsMade) && attemptsMade > 0
+      ? Math.floor(attemptsMade)
+      : 0
+  return made + 1 >= max
+}
 
 // P1 修复(2026-08-06):计费幂等 — worker 崩溃后 BullMQ 会重新投递同一任务,
 // 重试时任务状态是 in_progress(非终态),原实现会从头重跑并再次计费 → 重复扣费。
@@ -578,9 +601,19 @@ export function startBatchWorker(server: FastifyInstance): Worker {
         // 未预期的异常(处理函数内部的错误已在内部 catch)
         const errMsg = err instanceof Error ? err.message : String(err)
         server.log.error({ jobId: job.id, taskId, err: errMsg }, 'batch-worker: 批量任务处理异常')
-        await updateBatchTaskStatus(redis, taskId, 'failed', {
-          _errorMessage: errMsg,
-        }).catch(() => {})
+        // F-88:仅在最后一次 attempt 写终态 failed;还有重试时回写进行态后 rethrow,
+        // 否则第 2/3 次重试一进 process* 就被 TERMINAL_STATUSES 短路(stuck failed)。
+        if (shouldMarkTerminalFailed(job.attemptsMade, job.opts.attempts)) {
+          await updateBatchTaskStatus(redis, taskId, 'failed', {
+            _errorMessage: errMsg,
+          }).catch(() => {})
+        } else {
+          // 已被取消/完成的任务不回退(避免重试把终态覆盖成 in_progress)
+          const current = await getTask(redis, taskId).catch(() => null)
+          if (current && !TERMINAL_STATUSES.includes(current.status)) {
+            await updateBatchTaskStatus(redis, taskId, 'in_progress').catch(() => {})
+          }
+        }
         throw err
       }
     },

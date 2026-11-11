@@ -1160,10 +1160,12 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
     }
     const { id } = parsed.data
     try {
+      // F-108:详情必须带属主过滤,否则任意登录用户可枚举 id 读取他人图片记录。
+      // 不命中(不存在或非本人)统一走同一个 404,不泄露记录是否存在。
       const rows = await db
         .select()
         .from(zhsUserAgentImage)
-        .where(eq(zhsUserAgentImage.id, id))
+        .where(and(eq(zhsUserAgentImage.id, id), eq(zhsUserAgentImage.userUuid, request.userId!)))
         .limit(1)
       const row = rows[0]
       if (!row) return reply.status(404).send(error(404, '图片记录不存在'))
