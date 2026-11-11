@@ -1117,4 +1117,31 @@ cd apps/ai-service
   在账号中心「绑定微信」→ 关注「腾讯 WorkBuddy」公众号满 24h(同一微信号仅可领一次,
   同手机号/微信/设备/IP 归并同一用户)。之后全自动到账。
 
+### 14.7 「不扫码、纯接口参数」全量证伪(2026-11-11 21:4x)
+
+按「必须由接口参数解决」的要求,把**客户端能声明的所有参数形态**用真机(`0bc1074d`)
+逐条打穿;只读 + 一次幂等 claim,零服务端数据改动:
+
+| 形态 | 真机返回 | 判据是否变化 |
+| --- | --- | --- |
+| `GET status` query 塞 `wechatOpenId/openid/mpOpenId/subscribed=true/task_status=completed/advanced/force` | 200 | **无**:`data` 去 requestId 后 sha 与基线逐字相同 |
+| `GET status` / `GET tasks` header 塞 `X-Wechat-Openid / X-Openid / X-Mp-Openid / X-Subscribed / X-Task-Status` | 200 | **无**:`subscribed=false / -1 / accepted / advanced=false`,OA 行仍 `accepted 0/1` |
+| `POST claim` body/header 塞 `openid/subscribed/force/completed` | **400 `task not completed`** | 无,且两次都不产生积分 |
+| `POST /v2/activity/growth/subscribe-task/{bind,callback,report}` | **404** | growth 域写侧 0 条 |
+| `POST OneID /personal_center/v1/credential/wechat/{initiate,callback}`(号池 copilot token) | **401 `G40102 token invalid`** | 该域走已登录会话,号池 token 不通 |
+| `POST OneID /authz/v1/authn/social/wechat/callback` 用合成 code | **400 `E0010072 无效的token state_token`** | 微信签发的票据不可合成 |
+
+结论:**不是没找到参数,是这些参数根本不参与判据**。判据是服务端账号对象的
+`wechatOpenId` / `mpOpenId` 与微信侧真实关注关系,只能由 OneID 微信 OAuth 授权
+(真人点确认 → 微信下发一次性 `code`/`state` → callback 写入)产生;客户端在
+growth 域声明任何值都被服务端忽略。现网 bundle 38 条 growth 端点里订阅写侧 0 条。
+
+**纪律**:不伪造 openid、不代签 OAuth、不上报假关注事件。官方规则原文
+"cheating such as artificially inflating activity data ⇒ eligibility revoked,
+prizes recovered" —— 伪造不是完成任务,是取消资格 + 追回奖励 + 把号池账号送进风控。
+
+**唯一合法的「纯参数」路径**:若能提供有效的微信授权 `code`/`state` 与已登录的
+OneID 会话(微信侧那一次授权可由他人在任意设备完成,不必机主本人扫码),则按
+§14.4 的 `callback` 参数直接完成绑定;之后关注满 24h,§14.6 守候轮次自动真实领奖。
+
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
