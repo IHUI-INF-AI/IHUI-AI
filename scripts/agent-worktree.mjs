@@ -17,19 +17,21 @@
  *  - **回收射程不按分支命名收口**(2026-11-04 定档):旧命名闸 `wt/*` 只表达"这张检出是谁创建的",
  *    不表达任何安全属性,实测让 guardian 每 24h 派发的回收腿结构性空转(21 枚 linked 检出 0 枚
  *    `wt/*` ⇒ 候选恒 0)。安全实质由后四闸(非 locked ∧ 干净 ∧ HEAD 已并入 main ∧ 空闲 ≥ 阈值)
- *    表达,一条不弱化;落点闸(.worktrees/ 批准落点,仓外 C:/D:/E: 一律不进射程)保留。
+ *    表达,一条不弱化;落点闸扩为"主仓 .worktrees/ 或同盘兄弟检出"(仓外其它盘一律不进射程),安全实质仍由后四闸兜底。
  *  - git 一律显式 stdio(守门 193):不裸 execSync、不共用继承管道。
  *
  * 用法:
  *   node scripts/agent-worktree.mjs --create <名> [--base origin/main] [--apply]
  *   node scripts/agent-worktree.mjs --list [--json]
  *   node scripts/agent-worktree.mjs --remove <名> [--tag-lost] [--apply]
- *   node scripts/agent-worktree.mjs --reap [--older-than 7] [--apply]
+ *   node scripts/agent-worktree.mjs --reap [--older-than 1] [--apply]
  *   node scripts/agent-worktree.mjs --self-test
  */
-import { statSync } from 'node:fs'
+import { statSync, mkdtempSync, existsSync, rmSync } from 'node:fs'
 import { join, dirname, resolve, basename, relative, isAbsolute } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { execFileSync } from 'node:child_process'
+import { tmpdir } from 'node:os'
 import { gitRaw } from './lib/face-reader.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -85,7 +87,8 @@ export function parseWorktreeList(out) {
         .replace(/^refs\/heads\//, '')
     else if (cur && line === 'detached') cur.detached = true
     else if (cur && line.startsWith('prunable')) cur.prunable = true
-    else if (cur && line.startsWith('locked')) cur.locked = line.slice('locked'.length).trim() || true
+    else if (cur && line.startsWith('locked'))
+      cur.locked = line.slice('locked'.length).trim() || true
   }
   if (cur) rows.push(cur)
   return rows
@@ -103,6 +106,84 @@ export function isUnderWorktreesRoot(p, root = ROOT) {
 }
 
 /**
+ * 批准落点(2026-11-11 根治):原闸只认 `.worktrees/`,导致根层兄弟检出
+ * (`D:/IHUI-AI-wt-*`、`D:/IHUI-AI-ci-probe` 等并行会话产物)恒为候选 0、永不回收,
+ * 是"遗留工作树"积压的根因。现扩到"与主仓同盘的同级兄弟检出"——`basename` 以
+ * `<主仓名>-` 起头(如 `IHUI-AI-wt-x`);仓外其它盘(C:/E:)一律不进射程。
+ * gitdir 本身由调用方用 `gitDirPath` 排除,不在此处兜底。
+ */
+export function isReapLocationApproved(path, root = ROOT, worktreesRoot = WT_DIR) {
+  if (isUnderDir(path, worktreesRoot)) return true
+  const rp = resolve(root)
+  const p = resolve(path)
+  const sameDrive =
+    process.platform === 'win32' ? p[0]?.toLowerCase() === rp[0]?.toLowerCase() : true
+  if (sameDrive && dirname(p) === dirname(rp) && basename(p).startsWith(`${basename(rp)}-`))
+    return true
+  return false
+}
+
+/** Windows 长路径友好:把 posix/混合路径规整成 robocopy 可吃的 `D:\...` 形式。 */
+function toWinPath(p) {
+  const s = resolve(p)
+  if (/^[A-Za-z]:[\\/]/.test(s)) return s.replace(/\//g, '\\')
+  return s.replace(/^\/([a-zA-Z])\//, '$1:/').replace(/\//g, '\\')
+}
+
+/**
+ * 稳健删除 worktree 目录(2026-11-11 根治):`git worktree remove` 在 node_modules 长路径下
+ * 必报 `Filename too long` 失败(本机实测),导致回收器报"失败"却删不掉、工作树越积越多。
+ * 改用 robocopy /MIR 从空目录镜像删除 —— robocopy 走长路径 API,能删掉深层长路径文件;
+ * 删完 rmdir 空壳。robocopy 退出码 0–7 均成功,<8 才是失败;失败再退化回 git worktree remove。
+ */
+function robustRemoveWorktreeDir(path) {
+  try {
+    git(['worktree', 'unlock', path])
+  } catch {
+    /* 未锁也行 */
+  }
+  const empty = mkdtempSync(join(tmpdir(), 'wt-empty-'))
+  try {
+    try {
+      execFileSync(
+        'robocopy',
+        [
+          toWinPath(empty),
+          toWinPath(path),
+          '/MIR',
+          '/R:0',
+          '/W:0',
+          '/MT:16',
+          '/NFL',
+          '/NDL',
+          '/NJH',
+          '/NJS',
+        ],
+        { windowsHide: true, timeout: 600_000 },
+      )
+    } catch (e) {
+      const code = typeof e?.status === 'number' ? e.status : -1
+      if (code < 0 || code >= 8) {
+        const r = git(['worktree', 'remove', '--force', path])
+        if (!r.ok) return { ok: false, err: `${e?.message || ''};${r.err}` }
+      }
+    }
+    try {
+      rmSync(path, { recursive: true, force: true, maxRetries: 3 })
+    } catch {
+      /* 已空则忽略 */
+    }
+    return { ok: !existsSync(path), err: '' }
+  } finally {
+    try {
+      rmSync(empty, { recursive: true, force: true })
+    } catch {
+      /* 临时目录清不掉不影响主流程 */
+    }
+  }
+}
+
+/**
  * 回收判定(纯函数,构造面可证)。返回 `{action:'remove'|'skip', reason}`。
  *
  * 方向一律"宁可少收一个,不可丢一份现场":不在批准落点、形态判不出、locked、脏、
@@ -110,8 +191,7 @@ export function isUnderWorktreesRoot(p, root = ROOT) {
  *
  * 2026-11-04 定档(s9 票):命名闸 `wt/*` 已摘 —— 它只表达"这张检出是谁创建的",
  * 不表达任何安全属性,实测让回收腿结构性空转(0 枚候选)。安全实质由后四闸
- * (非 locked ∧ 干净 ∧ 已并入 ∧ 空闲 ≥ 阈值)表达,一条不弱化;落点闸保留
- * (仓外 C:/D:/E: 等其他落点一律不进射程)。两类检出分开走:
+ * (非 locked ∧ 干净 ∧ 已并入 ∧ 空闲 ≥ 阈值)表达,一条不弱化;落点闸扩为"主仓 .worktrees/ 或同盘兄弟检出"(仓外其它盘不进射程)。两类检出分开走:
  *  - detached:无现场归属,删除前必须 HEAD 已证并入(merged 闸即其存在前提);
  *  - 有分支:任意分支名都进射程,回收只删检出、不动分支(分支归 branch -d 与 §12h 裁决)。
  */
@@ -125,9 +205,15 @@ export function evaluateReapCandidate({
   lastActivityMs = 0,
   now = Date.now(),
   minIdleDays = 7,
+  root = ROOT,
   worktreesRoot = join(ROOT, '.worktrees'),
+  gitDirPath = null,
 } = {}) {
-  if (!isUnderDir(path, worktreesRoot)) return { action: 'skip', reason: '不在批准落点 .worktrees/ 下(仓外落点不扩)' }
+  // gitdir 本身(.git 指针指向处)永不进射程:删它会毁仓。
+  if (gitDirPath && resolve(path) === resolve(gitDirPath))
+    return { action: 'skip', reason: 'gitdir 本身不进射程' }
+  if (!isReapLocationApproved(path, root, worktreesRoot))
+    return { action: 'skip', reason: '不在批准落点(.worktrees/ 或主仓同盘兄弟检出)' }
   // 身份形态闸(替代旧命名闸):detached 与有分支两类之外判不出形态 ⇒ 保守保留。
   // 此闸不表达安全属性、只表达"这张检出归谁/是什么",故不再按分支名收口。
   if (!detached && !branch)
@@ -162,7 +248,12 @@ function git(args, { root = ROOT, input = null } = {}) {
   try {
     return { ok: true, status: 0, out: gitRaw(args, root, { input: input ?? undefined }), err: '' }
   } catch (e) {
-    return { ok: false, status: typeof e?.status === 'number' ? e.status : 1, out: '', err: String(e?.message ?? e) }
+    return {
+      ok: false,
+      status: typeof e?.status === 'number' ? e.status : 1,
+      out: '',
+      err: String(e?.message ?? e),
+    }
   }
 }
 
@@ -262,8 +353,8 @@ function selfTest() {
     '干净+已并入+超龄 ⇒ 回收',
   )
   assert(
-    evaluateReapCandidate({ ...base, branch: 'feature/x', now, worktreesRoot: '/repo/.worktrees' }).action ===
-      'remove',
+    evaluateReapCandidate({ ...base, branch: 'feature/x', now, worktreesRoot: '/repo/.worktrees' })
+      .action === 'remove',
     '非 wt/* 分支名不再被命名闸拦(2026-11-04 定档)',
   )
   assert(
@@ -288,31 +379,69 @@ function selfTest() {
     'detached 未证并入必须保留',
   )
   assert(
-    evaluateReapCandidate({ ...base, branch: '', now, worktreesRoot: '/repo/.worktrees' }).action === 'skip',
+    evaluateReapCandidate({ ...base, branch: '', now, worktreesRoot: '/repo/.worktrees' })
+      .action === 'skip',
     '形态判不出(无分支且非 detached)必须保留',
   )
   assert(
-    evaluateReapCandidate({ ...base, locked: true, now, worktreesRoot: '/repo/.worktrees' }).action === 'skip',
+    evaluateReapCandidate({ ...base, locked: true, now, worktreesRoot: '/repo/.worktrees' })
+      .action === 'skip',
     'locked 必须保留',
   )
   assert(
-    evaluateReapCandidate({ ...base, dirty: true, now, worktreesRoot: '/repo/.worktrees' }).action === 'skip',
+    evaluateReapCandidate({ ...base, dirty: true, now, worktreesRoot: '/repo/.worktrees' })
+      .action === 'skip',
     '脏工作区必须保留',
   )
   assert(
-    evaluateReapCandidate({ ...base, merged: false, now, worktreesRoot: '/repo/.worktrees' }).action === 'skip',
+    evaluateReapCandidate({ ...base, merged: false, now, worktreesRoot: '/repo/.worktrees' })
+      .action === 'skip',
     '独有 HEAD 必须保留',
   )
   assert(
-    evaluateReapCandidate({ ...base, path: '/elsewhere/wt-a', now, worktreesRoot: '/repo/.worktrees' }).action ===
-      'skip',
+    evaluateReapCandidate({
+      ...base,
+      path: '/elsewhere/wt-a',
+      now,
+      worktreesRoot: '/repo/.worktrees',
+    }).action === 'skip',
     '批准落点之外必须保留',
   )
   assert(
-    evaluateReapCandidate({ ...base, now, minIdleDays: 31, worktreesRoot: '/repo/.worktrees' }).action === 'skip',
+    evaluateReapCandidate({ ...base, now, minIdleDays: 31, worktreesRoot: '/repo/.worktrees' })
+      .action === 'skip',
     '活跃未满阈值必须保留',
   )
-  console.log('self-test: 全绿(20 组断言)')
+  // 2026-11-11 根治:根层兄弟检出(.worktrees/ 之外、与主仓同盘、以 `<主仓名>-` 起头)应进回收射程
+  assert(
+    evaluateReapCandidate({
+      path: '/repo/IHUI-AI-wt-x',
+      branch: 'wt/x',
+      merged: true,
+      lastActivityMs: 1,
+      now,
+      minIdleDays: 0,
+      root: '/repo/IHUI-AI',
+      worktreesRoot: '/repo/IHUI-AI/.worktrees',
+      gitDirPath: '/repo/IHUI-AI-git-repo',
+    }).action === 'remove',
+    '根层兄弟检出应进回收射程(根治:覆盖 .worktrees/ 之外)',
+  )
+  // gitdir 本身绝不进射程(即使同名前缀匹配也排除)
+  assert(
+    evaluateReapCandidate({
+      path: '/repo/IHUI-AI-git-repo',
+      merged: true,
+      lastActivityMs: 1,
+      now,
+      minIdleDays: 0,
+      root: '/repo/IHUI-AI',
+      worktreesRoot: '/repo/IHUI-AI/.worktrees',
+      gitDirPath: '/repo/IHUI-AI-git-repo',
+    }).action === 'skip',
+    'gitdir 本身不进射程',
+  )
+  console.log('self-test: 全绿(22 组断言)')
 }
 
 function main(argv) {
@@ -343,7 +472,7 @@ function main(argv) {
   }
 
   if (has('--reap')) {
-    const minIdle = Number(val('--older-than', '7'))
+    const minIdle = Number(val('--older-than', '1'))
     if (!Number.isFinite(minIdle) || minIdle < 0) {
       console.error(`❌ --older-than 需要非负天数,收到 ${val('--older-than', '')}`)
       process.exitCode = EXIT_UNKNOWN
@@ -356,9 +485,11 @@ function main(argv) {
       return
     }
     const now = Date.now()
+    const gitDir = git(['rev-parse', '--git-dir']).out.trim()
     const rows = []
     for (const w of parseWorktreeList(list.out)) {
       if (resolve(w.path) === resolve(ROOT)) continue
+      if (resolve(w.path) === resolve(gitDir)) continue
       const dirty = isDirty(w.path)
       const merged = git(['merge-base', '--is-ancestor', w.sha, 'main']).ok
       const lastActivityMs = lastActivityMsOf(w.path)
@@ -373,6 +504,7 @@ function main(argv) {
         now,
         minIdleDays: minIdle,
         worktreesRoot: WT_DIR,
+        gitDirPath: gitDir,
       })
       // 四闸读数逐条打印(2026-11-04 s9 票):让"为什么没收"可核,不再只有一句 reason。
       const idle =
@@ -399,16 +531,17 @@ function main(argv) {
     let removed = 0
     let failed = 0
     for (const r of doomed) {
-      const rm = git(['worktree', 'remove', r.path])
+      const rm = robustRemoveWorktreeDir(r.path)
       if (!rm.ok) {
-        console.error(`❌ 回收失败 ${r.path}:${rm.err.trim()}(先按 §12h 裁决现场)`)
+        console.error(`❌ 回收失败 ${r.path}:${rm.err}(先按 §12h 裁决现场)`)
         failed += 1
         continue
       }
       // 2026-11-04 定档(s9 票):自动回收只删检出,绝不自动删分支。
       // 分支存续归 `git branch -d` 与 §12h 合并裁决 —— 回收器结构上碰不到它。
       removed += 1
-      if (r.branch) console.log(`🏷 检出已回收;分支 ${r.branch} 保留(删除走 git branch -d 与 §12h 裁决)`)
+      if (r.branch)
+        console.log(`🏷 检出已回收;分支 ${r.branch} 保留(删除走 git branch -d 与 §12h 裁决)`)
     }
     git(['worktree', 'prune'])
     console.log(`✅ 回收 ${removed} 个${failed ? `,失败 ${failed} 个` : ''}(已 prune;分支一律保留)`)
@@ -503,9 +636,9 @@ function main(argv) {
       }
       console.log(`🏷 已打保活标签 ${lostTagOf(name, entry.sha)}`)
     }
-    const rm = git(['worktree', 'remove', path])
+    const rm = robustRemoveWorktreeDir(path)
     if (!rm.ok) {
-      console.error(`❌ 回收失败:${rm.err.trim()}(有未提交改动时 git 会拒绝——按 §12h 先裁决再收回)`)
+      console.error(`❌ 回收失败:${rm.err}(有未提交改动时 git 会拒绝——按 §12h 先裁决再收回)`)
       process.exitCode = EXIT_REFUSED
       return
     }
