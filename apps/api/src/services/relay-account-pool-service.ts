@@ -2,6 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+/* RECON-NOTE@2026-11-11 双链缝合:共同基线 bec0b20c(9db63619 前)重放 52991b53 的 raccoon 新增到 health 接线版,git merge-file 双向存活;消费端 isModelDown/normalizePoolUpstreamModelId/ok 连通过滤按 61d 语义恢复。取证 .ihui-agent/tmp/replant/。 */
 /**
  * 第三方 AI IDE 平台账号池服务(2026-10-22 立,对标码道网关 CodeArtsGateway)。
  *
@@ -653,6 +654,37 @@ function mapGrokbotImport(_acc: ImportAccountInput): null {
 }
 
 /**
+ * 商汤小浣熊(2026-11-11 立):auth.json 只有 access_token(JWT,30 天),**无 refresh_token**
+ * ⇒ 映射恒不给续期材料(适配器 refreshTokenSupported=false,调度器不得进保活窗口)。
+ * uid 键源与提取器同一枚(令牌 sub = `pu-<uuid>`);到期取载荷 expiresAt,缺失时回落到 JWT exp。
+ */
+function mapRaccoonImport(acc: ImportAccountInput): {
+  token: string
+  refreshToken: null
+  uid: string
+  name: string | null
+  expiresAt: Date | null
+  secrets: Record<string, unknown>
+} | null {
+  const a = acc as Record<string, unknown>
+  const { hits } = resolveRelayCredentialSlots(a, 'raccoon')
+  const token = hits[0]?.value ?? ''
+  if (!token) return null
+  return {
+    token,
+    // auth.json 实测无 refresh_token ⇒ 恒 null,不编造续期键
+    refreshToken: null,
+    uid: cstr(a['uid']) || extractUid(token),
+    name: cstr(a['name']) || null,
+    expiresAt:
+      parseFlexibleExpiry(a['expiresAt']) ??
+      parseFlexibleExpiry(a['expires_at']) ??
+      extractTokenExpiry(token),
+    secrets: a,
+  }
+}
+
+/**
  * 平台导入映射的唯一分派(2026-11-06 抽出)。
  *
  * 内容 = 原 `importAccounts` 内联三元链的**逐字搬迁**(各映射函数语义一字未改),抽出只为
@@ -682,7 +714,9 @@ function mapImportedAccount(providerCode: RelayProviderCode, acc: ImportAccountI
                     ? mapLingmaImport(acc)
                     : providerCode === 'grokbot'
                       ? mapGrokbotImport(acc)
-                      : null
+                      : providerCode === 'raccoon'
+                        ? mapRaccoonImport(acc)
+                        : null
 }
 
 /**
@@ -1858,6 +1892,10 @@ export function buildExportPayload(
         const v = s[k]
         if (v !== null && v !== undefined) base[k] = v
       }
+      // workbuddy 域声明(2026-11-11 补):入库走 extraMetadata.domain,re-export 必须回带,
+      // 否则本机池 → 生产池一跳就把国际版打回 CN 端点(与刷新 404 连挂摘除同一病根)。
+      const dom = cstr((row.extraMetadata as Record<string, unknown> | null)?.['domain'])
+      if (dom) base['domain'] = dom
       break
     }
     case 'qoder': {
@@ -1997,6 +2035,21 @@ export function buildExportPayload(
       for (const [k, v] of Object.entries(s)) base[k] = v
       base['token'] = creds.token
       if (creds.refreshToken) base['refreshToken'] = creds.refreshToken
+      break
+    }
+    case 'raccoon': {
+      // auth.json 形状 = { access_token, office_identity },单体 Bearer 无续期材料
+      base['token'] = creds.token
+      if (row.tokenExpiresAt) base['expiresAt'] = row.tokenExpiresAt.toISOString()
+      // office_identity 是个人版身份标记(非 owner_id):提取器把它放在 meta 里,
+      // 入池时随 secrets 整包落库 ⇒ 导出按 meta 取,取不到就不写(写回端会沿用本机现值)
+      const meta = (s['meta'] && typeof s['meta'] === 'object' ? s['meta'] : null) as Record<
+        string,
+        unknown
+      > | null
+      const identity =
+        cstr(s['officeIdentity']) || cstr(s['office_identity']) || cstr(meta?.['officeIdentity'])
+      if (identity) base['officeIdentity'] = identity
       break
     }
     case 'grokbot': {
