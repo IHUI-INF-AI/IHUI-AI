@@ -159,7 +159,14 @@ function robustRemoveWorktreeDir(path) {
           '/NJH',
           '/NJS',
         ],
-        { windowsHide: true, timeout: 600_000 },
+        {
+          windowsHide: true,
+          timeout: 600_000,
+          // 2026-11-11 实测根治:默认 maxBuffer=1MB 会被 node_modules 大树的逐文件错误行撑爆
+          // (spawnSync ENOBUFS ⇒ e.status 缺失 ⇒ 误入 code<0 兜底腿 ⇒ git worktree remove 又撞
+          // index.lock 超时 ⇒ 假失败)。静默开关(/NFL /NDL /NJH /NJS)挡不住错误行,必须扩容。
+          maxBuffer: 1 << 24,
+        },
       )
     } catch (e) {
       const code = typeof e?.status === 'number' ? e.status : -1
