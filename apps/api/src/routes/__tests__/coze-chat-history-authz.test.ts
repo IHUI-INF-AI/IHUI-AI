@@ -9,7 +9,17 @@ vi.hoisted(() => {
   process.env.JWT_SECRET ??= 'test-jwt-secret-for-vitest-at-least-32-chars'
 })
 
-// F-54 回归:coze_chat_history 无归属列 ⇒ 端点已下线(member-routes 硬编码 404)。
+// F-54 回归:coze_chat_history 无归属列 ⇒ 端点安全下线。
+// mock 查询层保留旧行为(按 botId+conversationId 返回他人全文),确保旧 handler 会 200 泄露。
+const mockFindCozeChatHistory = vi.hoisted(() =>
+  vi.fn(async () => ({
+    list: [{ id: 'm1', role: 'user', content: '他人会话机密内容' }],
+    total: 1,
+  })),
+)
+vi.mock('../../db/coze-chat-queries.js', () => ({
+  findCozeChatHistory: mockFindCozeChatHistory,
+}))
 vi.mock('../../db/my-member-queries.js', () => ({
   findMyMember: vi.fn(async () => null),
 }))
@@ -32,16 +42,17 @@ describe('F-54 Coze 聊天历史越权', () => {
     await app.close()
   })
 
-  it('任意用户请求他人 conversationId 均返回 404', async () => {
+  it('任意用户请求他人 conversationId 均返回 404,且不再触达历史查询', async () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/coze/chat/history/bot-1/conversation-of-user-b',
     })
     expect(res.statusCode).toBe(404)
     expect(res.json().code).toBe(404)
+    expect(mockFindCozeChatHistory).not.toHaveBeenCalled()
   })
 
-  it('端点下线后不返回任何会话内容', async () => {
+  it('即使查询层能返回数据,端点也不会泄露给任何登录用户', async () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/coze/chat/history/bot-1/conversation-mine',

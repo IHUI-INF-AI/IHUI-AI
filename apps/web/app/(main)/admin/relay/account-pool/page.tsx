@@ -126,6 +126,7 @@ const PROVIDER_OPTIONS = [
   'doubao',
   'lingma',
   'grokbot',
+  'raccoon',
 ] as const
 type ProviderCode = (typeof PROVIDER_OPTIONS)[number]
 
@@ -143,6 +144,7 @@ const LOCAL_LOGIN_LABEL: Partial<Record<ProviderCode, string>> = {
   doubao: '豆包',
   lingma: '灵码',
   grokbot: 'GrokBot',
+  raccoon: '小浣熊',
 }
 
 /**
@@ -171,6 +173,8 @@ const LOCAL_LOGIN_RESTARTS_CLIENT: ReadonlySet<ProviderCode> = new Set<ProviderC
   'zcode',
   'doubao',
   'loomy',
+  // 小浣熊 Electron 主进程运行中会用内存态覆写 auth.json ⇒ 与 GUI 族同口径先关后写
+  'raccoon',
 ])
 // 24h 用量摘要。后端契约字段均为 number,但后端尚未合并时可能整体缺失,
 // 故全部可选并做容错渲染(缺字段显示 "-",不阻塞 typecheck)。

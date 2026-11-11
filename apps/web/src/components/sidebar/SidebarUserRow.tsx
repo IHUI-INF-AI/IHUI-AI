@@ -279,6 +279,7 @@ export function SidebarUserRow({
         </div>
       ),
     },
+    { key: 'div1', divider: true },
     {
       key: 'profile',
       label: t('user'),
@@ -297,6 +298,7 @@ export function SidebarUserRow({
         onCloseMobile()
       },
     },
+    { key: 'div2', divider: true },
     ...actionItems,
     {
       key: 'settings',
@@ -307,6 +309,7 @@ export function SidebarUserRow({
         onCloseMobile()
       },
     },
+    { key: 'div3', divider: true },
     {
       key: 'logout',
       label: tc('logout'),
@@ -316,9 +319,10 @@ export function SidebarUserRow({
     },
   ]
 
-  // 未登录 = 同一套工具项 + 登录(替代原独立登录按钮的直接打开行为)
+  // 未登录 = 同一套工具项 + 分隔线 + 登录(替代原独立登录按钮的直接打开行为)
   const guestMenuItems: DropdownItem[] = [
     ...actionItems,
+    { key: 'div-login', divider: true },
     {
       key: 'login',
       label: tc('login'),

@@ -182,7 +182,7 @@ describe('CLI 凭据续期:失败档', () => {
     expect(facts.start.lastFailure?.code).toBe('auth');
     expect(calls.filter((c) => c.url.includes('/api/cloud-runs/run'))).toHaveLength(1);
     // 喊话是 ASCII 诊断文本(本文件既有设计),且不含凭据材料
-    const shouted = warn.mock.calls.map((c: unknown[]) => String(c[0])).join('\n');
+    const shouted = warn.mock.calls.map((c) => String(c[0])).join('\n');
     expect(shouted).toContain('auth');
     expect(shouted).not.toContain(secret);
   });

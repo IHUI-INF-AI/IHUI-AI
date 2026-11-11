@@ -597,39 +597,6 @@ export function scratchEffectiveMinAgeHours(requestedHours = SCRATCH_MIN_AGE_HOU
 }
 
 /**
- * 墓碑回收闸(2026-11-11 立):`rmScratch()` 在宿主 trash shim 失败时会把夹具**改名**成
- * `<原名>.stale-<Date.now()>` 留在 scratch 根里,注释承诺"交每日 Temp 体检回收"。
- * 但 scratch 腿的静默闸按**子树 mtime** 判龄 —— 夜间门测风暴(23:00–05:00)造出的几百枚墓碑,
- * 到次日 06:14 守护轮清扫时 mtime 不足 6 小时 ⇒ 整轮跳过,只能等后天那轮才收 ⇒
- * 账面恒堆一个风暴的量(11/11 06:14 轮实测:全根合计候选仅 11)。
- * 名字里的毫秒戳**就是死亡时刻**,判龄必须以它为准;子树遍历照旧,只用于量
- * 体积/保护区/重解析点,不再参与判龄。
- */
-export const SCRATCH_TOMBSTONE_MIN_AGE_MINUTES_DEFAULT = 60
-const MINUTE_MS = 60000
-
-/** 墓碑账龄合成:60 分钟是**下限**;env `IHUI_SCRATCH_TOMBSTONE_MIN_AGE_MINUTES` 与调用方参数只许抬高、调不穿(同 6h 族档口径)。 */
-export function scratchTombstoneEffectiveMinAgeMinutes(requestedMinutes) {
-  const req = Number(requestedMinutes)
-  return Math.max(
-    SCRATCH_TOMBSTONE_MIN_AGE_MINUTES_DEFAULT,
-    Number.isFinite(req) ? req : SCRATCH_TOMBSTONE_MIN_AGE_MINUTES_DEFAULT,
-  )
-}
-
-/**
- * 墓碑戳解析(纯函数):名字以 `.stale-<≥10 位数字>` 结尾 ⇒ 返回该毫秒数,否则 null。
- * 位数下限挡住 `.stale-123` 这类不像 `Date.now()` 的形状;未来戳/荒谬大值由
- * `now - ts < 闸` 一律拒删(失效方向 = 少删一次)。
- */
-export function scratchTombstoneStamp(name) {
-  const m = /\.stale-(\d{10,})$/.exec(String(name ?? ''))
-  if (!m) return null
-  const ts = Number(m[1])
-  return Number.isFinite(ts) ? ts : null
-}
-
-/**
  * scratch 腿的**单次**子树遍历:同时量「子树最新 mtime」与「文件数 / 字节 / 链接 / 保护区命中」。
  *
  * 为什么并成一次(2026-10-30):此前先 `newestMtimeMs()` 再 `measure()` —— 同一个老夹具要走
@@ -700,16 +667,9 @@ function scratchTreeStats(target, { nowMs, minAgeMs, budget = NEWEST_WALK_BUDGET
   return { fresh: false, newest: newest || null, files, bytes, links, protectedHit }
 }
 
-export function scanScratchFixtures({
-  root,
-  minAgeHours = SCRATCH_MIN_AGE_HOURS_DEFAULT,
-  now = Date.now(),
-  walkBudget = NEWEST_WALK_BUDGET,
-  tombstoneMinAgeMinutes = Number(process.env.IHUI_SCRATCH_TOMBSTONE_MIN_AGE_MINUTES),
-} = {}) {
+export function scanScratchFixtures({ root, minAgeHours = SCRATCH_MIN_AGE_HOURS_DEFAULT, now = Date.now(), walkBudget = NEWEST_WALK_BUDGET } = {}) {
   const scratchRoot = join(resolve(root), SCRATCH_DIR_NAME)
   const minAge = scratchEffectiveMinAgeHours(minAgeHours)
-  const tombMinAgeMs = scratchTombstoneEffectiveMinAgeMinutes(tombstoneMinAgeMinutes) * MINUTE_MS
   const skipped = { fresh: 0, protected: 0, link: 0, unreadable: 0, overBudget: 0, notOurs: 0 }
   const candidates = []
   // 保护区命中必须**点名**(名字 + 命中路径 + 体积),否则"交人核"这条唯一出路是哑的:
@@ -750,25 +710,11 @@ export function scanScratchFixtures({
       skipped.link++ // 链接本体也只报数:断链与否归持有者(同 `scan()` 的口径)
       continue
     }
-    // 墓碑分支(2026-11-11 立):`.stale-<ts>` 按名字里的死亡戳判龄,不按子树 mtime ——
-    // 否则夜间门测风暴的墓碑永远被 6h 静默闸错过(立因见常量处注释)。
-    // 子树照走,minAgeMs=0 ⇒ 不早退、体积/保护区/链接照量;后代"当秒仍在写"(mtime ≥ now)
-    // 仍会被判 fresh 拒删,墓碑腿没有放松这一层。
-    const tombStamp = scratchTombstoneStamp(e.name)
-    if (tombStamp !== null && now - tombStamp < tombMinAgeMs) {
-      skipped.fresh++
-      continue
-    }
     // 散文件与空目录都"没有后代可判龄" —— 它们不是"读不到",按条目自身 mtime 判龄
     // (2026-10-30 现读:scratch 根里 3 枚散文件 + 76 个空骨架全卡在"读不到",永远没人收)。
-    const info =
-      tombStamp !== null
-        ? st.isDirectory()
-          ? scratchTreeStats(full, { nowMs: now, minAgeMs: 0, selfMtimeMs: st.mtimeMs, budget: walkBudget })
-          : { fresh: false, newest: tombStamp, files: 1, bytes: st.size, links: 0, protectedHit: null }
-        : st.isDirectory()
-          ? scratchTreeStats(full, { nowMs: now, minAgeMs: minAge * HOUR_MS, selfMtimeMs: st.mtimeMs, budget: walkBudget })
-          : { fresh: now - st.mtimeMs < minAge * HOUR_MS, newest: st.mtimeMs, files: 1, bytes: st.size, links: 0, protectedHit: null }
+    const info = st.isDirectory()
+      ? scratchTreeStats(full, { nowMs: now, minAgeMs: minAge * HOUR_MS, selfMtimeMs: st.mtimeMs, budget: walkBudget })
+      : { fresh: now - st.mtimeMs < minAge * HOUR_MS, newest: st.mtimeMs, files: 1, bytes: st.size, links: 0, protectedHit: null }
     if (info === null) {
       skipped.unreadable++
       continue
@@ -795,8 +741,7 @@ export function scanScratchFixtures({
       name: e.name,
       path: full,
       dir: st.isDirectory(),
-      // 墓碑报"死了多久"(死亡戳起算),普通夹具报"静默多久"(子树最新 mtime 起算)
-      idleHours: Math.round(((now - (tombStamp !== null ? tombStamp : info.newest)) / HOUR_MS) * 10) / 10,
+      idleHours: Math.round(((now - info.newest) / HOUR_MS) * 10) / 10,
       files: info.files,
       bytes: info.bytes,
       links: info.links,

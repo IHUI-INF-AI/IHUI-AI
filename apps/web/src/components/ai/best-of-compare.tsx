@@ -137,7 +137,7 @@ export function BestOfCompare({ onAdopt, runId }: BestOfCompareProps) {
             data-testid="best-of-diff-toggle"
             onClick={() => setDiffMode((v) => !v)}
             className={cn(
-              'flex items-center gap-1 rounded-sm border border-input px-2 py-0.5 transition-colors',
+              'flex items-center gap-1 rounded-sm border px-2 py-0.5 transition-colors',
               diffMode ? 'bg-cta text-cta-foreground' : 'text-muted-foreground hover:bg-accent',
             )}
           >

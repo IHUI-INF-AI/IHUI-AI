@@ -29,6 +29,7 @@ import {
   formatSsrfRejection,
   isPrivateOrReservedIp,
 } from '@ihui/shared/utils/ssrf-guard';
+import type * as SsrfGuardModule from '@ihui/shared/utils/ssrf-guard';
 import type * as FetchUrlEgressModule from '../src/tools/fetch-url-egress.js';
 
 // 字面出口守卫(G-937973)在 SSRF 守卫**之前**判定 URL 字面量:探针端口听在 127.0.0.1,
@@ -220,7 +221,7 @@ describe('fetch_url 工具接入前后的行为对照(未桩真链路:本票的�
     const guardCalls: string[] = [];
     vi.resetModules();
     vi.doMock('@ihui/shared/utils/ssrf-guard', async () => {
-      const actual = await vi.importActual<typeof SsrfGuardModule>('@ihui/shared/utils/ssrf-guard');
+      const actual = await vi.importActual<SsrfGuardModule>('@ihui/shared/utils/ssrf-guard');
       return {
         ...actual,
         assertSafeFetchUrl: async (url: string) => {

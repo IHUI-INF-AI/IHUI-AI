@@ -50,7 +50,7 @@ function makeServer(name: string): McpServer {
 /** 构造已连接的 ManagedMcpClient(mock connectFn + callFn) */
 function makeConnectedClient(
   serverName: string,
-  callFn: (conn: McpConnection, method: string, params: Record<string, unknown>) => Promise<unknown>,
+  callFn: ReturnType<typeof vi.fn>,
 ): ManagedMcpClient {
   const client = new ManagedMcpClient(makeServer(serverName), {
     connectFn: vi.fn().mockResolvedValue(makeMockConn(serverName)),

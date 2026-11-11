@@ -765,7 +765,7 @@ describe('lsp_workspace_symbol(workspace/symbol 请求 + query 透传)', () => {
 
 describe('lsp_rename_symbol(textDocument/rename 请求 + newName 透传)', () => {
   it('发送 rename 请求,newName 透传(预览模式)', async () => {
-    writeFile('src/auth.ts', 'class AuthService {}\n');
+    const _filePath = writeFile('src/auth.ts', 'class AuthService {}\n');
     const r = await lsp_rename_symbol.execute(
       { file: 'src/auth.ts', line: 0, character: 6, newName: 'NewAuth' },
       ctx,
@@ -994,7 +994,7 @@ describe('错误处理:LSP server 未安装时降级', () => {
   }, 20_000);
 
   it('dispose 清理子进程和连接', () => {
-    getLspClientByLanguage(workspace, 'typescript');
+    const _client = getLspClientByLanguage(workspace, 'typescript')!;
     // dispose 不应抛异常
     expect(() => disposeLspClient()).not.toThrow();
   });

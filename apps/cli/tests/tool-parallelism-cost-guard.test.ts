@@ -163,12 +163,8 @@ describe('P0-1 Tool parallelism 多工具并行执行', () => {
       ],
       ctx: { workspacePath: '.' },
       maxIterations: 3,
-      onToolCall: (name) => {
-        callOrder.push(`call:${name}`);
-      },
-      onToolResult: (name) => {
-        callOrder.push(`result:${name}`);
-      },
+      onToolCall: (name) => callOrder.push(`call:${name}`),
+      onToolResult: (name) => callOrder.push(`result:${name}`),
     })
     // 所有 call 在所有 result 之前(并行执行特征)
     const lastCallIdx = Math.max(callOrder.indexOf('call:p_a'), callOrder.indexOf('call:p_b'))

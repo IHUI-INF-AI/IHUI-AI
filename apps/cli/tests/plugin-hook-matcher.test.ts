@@ -70,9 +70,7 @@ describe('runHook:合法匹配仍执行(正向对照)', () => {
       name: 'matcher-hit',
       version: '1.0.0',
       hooks: ['preToolCall:write_file'],
-      onHook: (event, ctx) => {
-        seen.push(`${event}/${ctx.toolName}`);
-      },
+      onHook: (event, ctx) => seen.push(`${event}/${ctx.toolName}`),
     });
     expect(await registry.runHook('preToolCall', { toolName: 'write_file' })).toBe(1);
     expect(seen).toEqual(['preToolCall/write_file']);
@@ -84,9 +82,7 @@ describe('runHook:合法匹配仍执行(正向对照)', () => {
       name: 'plain-subscriber',
       version: '1.0.0',
       hooks: ['preToolCall'],
-      onHook: (_event, ctx) => {
-        seen.push(String(ctx.toolName));
-      },
+      onHook: (_event, ctx) => seen.push(String(ctx.toolName)),
     });
     await registry.runHook('preToolCall', { toolName: 'write_file' });
     await registry.runHook('preToolCall', { toolName: 'read_file' });
@@ -99,9 +95,7 @@ describe('runHook:合法匹配仍执行(正向对照)', () => {
       name: 'wildcard',
       version: '1.0.0',
       hooks: ['postToolCall:*'],
-      onHook: (_event, ctx) => {
-        seen.push(String(ctx.toolName));
-      },
+      onHook: (_event, ctx) => seen.push(String(ctx.toolName)),
     });
     expect(await registry.runHook('postToolCall', { toolName: 'edit_file' })).toBe(1);
     expect(seen).toEqual(['edit_file']);
@@ -111,9 +105,7 @@ describe('runHook:合法匹配仍执行(正向对照)', () => {
       name: 'two-hits',
       version: '1.0.0',
       hooks: ['preToolCall', 'preToolCall:write_file'],
-      onHook: () => {
-        calls.push('once');
-      },
+      onHook: () => calls.push('once'),
     });
     expect(await both.runHook('preToolCall', { toolName: 'write_file' })).toBe(1);
     expect(calls).toEqual(['once']);
@@ -134,9 +126,7 @@ describe('runHook:不匹配不执行(反向对照)', () => {
       name: 'matcher-miss',
       version: '1.0.0',
       hooks: ['preToolCall:write_file'],
-      onHook: (event, ctx) => {
-        seen.push(`${event}/${ctx.toolName}`);
-      },
+      onHook: (event, ctx) => seen.push(`${event}/${ctx.toolName}`),
     });
     expect(await registry.runHook('preToolCall', { toolName: 'read_file' })).toBe(0);
     expect(seen).toEqual([]);
@@ -144,18 +134,14 @@ describe('runHook:不匹配不执行(反向对照)', () => {
 
   it('事件段不同 ⇒ 不执行(与旧实现一致)', async () => {
     const seen: string[] = [];
-    const registry = registryOf({ name: 'pre-only', version: '1.0.0', hooks: ['preToolCall'], onHook: () => {
-        seen.push('x');
-      } });
+    const registry = registryOf({ name: 'pre-only', version: '1.0.0', hooks: ['preToolCall'], onHook: () => seen.push('x') });
     expect(await registry.runHook('postToolCall', { toolName: 'write_file' })).toBe(0);
     expect(seen).toEqual([]);
   });
 
   it('空 matcher(`preToolCall:`)永不执行:拼错的清单不得升成全量订阅', async () => {
     const seen: string[] = [];
-    const registry = registryOf({ name: 'empty-matcher', version: '1.0.0', hooks: ['preToolCall:'], onHook: () => {
-        seen.push('x');
-      } });
+    const registry = registryOf({ name: 'empty-matcher', version: '1.0.0', hooks: ['preToolCall:'], onHook: () => seen.push('x') });
     expect(await registry.runHook('preToolCall', { toolName: 'write_file' })).toBe(0);
     expect(await registry.runHook('preToolCall', {})).toBe(0);
     expect(seen).toEqual([]);
@@ -163,9 +149,7 @@ describe('runHook:不匹配不执行(反向对照)', () => {
 
   it('派发上下文没有 toolName ⇒ 具名 matcher 不执行(证不了就是那个工具)', async () => {
     const seen: string[] = [];
-    const registry = registryOf({ name: 'no-toolname', version: '1.0.0', hooks: ['preToolCall:write_file'], onHook: () => {
-        seen.push('x');
-      } });
+    const registry = registryOf({ name: 'no-toolname', version: '1.0.0', hooks: ['preToolCall:write_file'], onHook: () => seen.push('x') });
     expect(await registry.runHook('preToolCall', { args: {} })).toBe(0);
     expect(seen).toEqual([]);
   });
@@ -227,9 +211,7 @@ describe('拆档不改行为:contributor 两枚 runner + 五枚汇总口', () =>
   it('runCommandContributors 数的是真被调到的插件数', async () => {
     const seen: string[] = [];
     const registry = registryOf(
-      { name: 'a', version: '1.0.0', commandContributors: ['cmd-a'], onCommandContribute: () => {
-        seen.push('a');
-      } },
+      { name: 'a', version: '1.0.0', commandContributors: ['cmd-a'], onCommandContribute: () => seen.push('a') },
       { name: 'b', version: '1.0.0', commandContributors: ['cmd-b'] },
       { name: 'c', version: '1.0.0', commandContributors: ['cmd-c'], onCommandContribute: () => { throw new Error('boom'); } },
     );

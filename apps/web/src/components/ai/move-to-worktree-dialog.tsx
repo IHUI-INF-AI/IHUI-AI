@@ -172,7 +172,7 @@ export function MoveToWorktreeDialog({
                   aria-checked={option === target}
                   data-target-option={option}
                   onClick={() => setTarget(option)}
-                  className="rounded-sm border border-input px-3 py-1.5 text-body transition-colors aria-checked:border-brand-accent-deep aria-checked:bg-primary/10"
+                  className="rounded-sm border px-3 py-1.5 text-body transition-colors aria-checked:border-brand-accent-deep aria-checked:bg-primary/10"
                 >
                   {t(TARGET_LABEL_KEY[option])}
                 </button>
@@ -258,7 +258,7 @@ export function MoveToWorktreeDialog({
                   aria-checked={b === selectedExisting}
                   data-existing-branch={b}
                   onClick={() => setSelectedExisting(b)}
-                  className="block w-full rounded-sm border border-input px-3 py-1.5 text-left font-mono text-label transition-colors aria-checked:border-brand-accent-deep aria-checked:bg-primary/10"
+                  className="block w-full rounded-sm border px-3 py-1.5 text-left font-mono text-label transition-colors aria-checked:border-brand-accent-deep aria-checked:bg-primary/10"
                 >
                   {b}
                 </button>

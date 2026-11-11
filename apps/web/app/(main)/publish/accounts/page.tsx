@@ -248,6 +248,7 @@ export default function AccountsPage() {
                   disabled: batchVerifying || accounts.length === 0,
                   onSelect: () => void batchVerify(),
                 },
+                { key: 'groups-divider', divider: true },
                 {
                   key: 'manageGroups',
                   label: t('accounts.manageGroups'),

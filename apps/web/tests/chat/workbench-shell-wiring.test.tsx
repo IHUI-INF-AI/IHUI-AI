@@ -157,6 +157,7 @@ vi.mock('@/components/ui/dropdown-menu', () => ({
   DropdownMenuItem: (props: { children: React.ReactNode }) => (
     <button type="button">{props.children}</button>
   ),
+  DropdownMenuSeparator: () => <hr />,
 }))
 vi.mock('@/components/feedback/ConfirmDialog', () => ({
   ConfirmDialog: () => <div data-fake-confirm="" />,

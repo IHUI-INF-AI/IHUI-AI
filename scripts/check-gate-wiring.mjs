@@ -2193,7 +2193,7 @@ async function main(argv = process.argv.slice(2)) {
     reds.push({
       script: n,
       status: 'red-r4',
-      reason: '已接线但 AGENTS 文档与 README 文档通篇未点名(文档看不见的门会被重复造或绕过)',
+      reason: '已接线但 AGENTS.md/README.md 通篇未点名(文档看不见的门会被重复造或绕过)',
     })
   }
 
@@ -2509,7 +2509,7 @@ async function main(argv = process.argv.slice(2)) {
     for (const x of r3FaceSummary.expired)
       console.log(`     ⚠ R3 扩面条目已过 reviewBy(仅 warning): ${x.path}(${x.state} · ${x.reviewBy})`)
     console.log(
-      `   R4(已接线但 AGENTS 文档与 README 文档通篇未点名,判红): ${undocumented.length ? `${undocumented.length} 枚` : '0 枚'}`,
+      `   R4(已接线但 AGENTS.md/README.md 通篇未点名,判红): ${undocumented.length ? `${undocumented.length} 枚` : '0 枚'}`,
     )
     console.log(`   R5(重复 id,判红): ${dupIds.length ? dupIds.join(' / ') : '0 枚'}`)
     console.log(

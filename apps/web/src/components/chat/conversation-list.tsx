@@ -45,6 +45,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
@@ -615,6 +616,7 @@ export function ConversationList({
                     </DropdownMenuItem>
                     {/* 按钮层级重构(2026-10-26):与侧栏 sidebar-chat-history 同步——
                         导出格式与压缩档位收进二级子菜单，一线只留高频动作。 */}
+                    <DropdownMenuSeparator />
                     <DropdownMenuSub>
                       <DropdownMenuSubTrigger data-testid="conversation-export-submenu">
                         <FileCode className="mr-2 h-3.5 w-3.5" />
@@ -659,6 +661,7 @@ export function ConversationList({
                         </DropdownMenuItem>
                       </DropdownMenuSubContent>
                     </DropdownMenuSub>
+                    <DropdownMenuSeparator />
                     <DropdownMenuItem
                       onClick={() => setPendingDeleteId(item.id)}
                       disabled={busyId === item.id}

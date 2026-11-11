@@ -375,24 +375,19 @@ const SHANGHAI_UTC_OFFSET_MS = 8 * 60 * 60 * 1000
 /**
  * 从 plan.billingPeriod 推断下次扣款时间(在给定基准上按 Asia/Shanghai 日历累加)。
  * 月末溢出与旧实现一致(1 月 31 日 → 3 月 2/3 日,2 月 29 日加一年 → 3 月 1 日)。
- * count 为累加周期数(RP-23:开发者链接到期 = 同一算式 × N,不再另写一份本地日历进位)。
  */
-export function calculateNextChargeTimeFrom(
-  billingPeriod: string | null | undefined,
-  base: Date,
-  count = 1,
-): Date {
+function calculateNextChargeTimeFrom(billingPeriod: string | null | undefined, base: Date): Date {
   const next = new Date(base.getTime() + SHANGHAI_UTC_OFFSET_MS)
   switch (billingPeriod) {
     case 'year':
-      next.setUTCFullYear(next.getUTCFullYear() + count)
+      next.setUTCFullYear(next.getUTCFullYear() + 1)
       break
     case 'week':
-      next.setUTCDate(next.getUTCDate() + 7 * count)
+      next.setUTCDate(next.getUTCDate() + 7)
       break
     case 'month':
     default:
-      next.setUTCMonth(next.getUTCMonth() + count)
+      next.setUTCMonth(next.getUTCMonth() + 1)
       break
   }
   return new Date(next.getTime() - SHANGHAI_UTC_OFFSET_MS)

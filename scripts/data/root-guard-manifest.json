@@ -1,15 +1,15 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-11T06:46:05.147Z",
+  "sealedAt": "2026-11-10T10:53:00.101Z",
   "sealedBy": "root-guard --seal",
-  "reason": "随并入 origin/main 的规则文件改动按索引面重封(确定性再生非语义改动)",
+  "reason": "同批重封 [267]:本枚修 scripts/git-guardian.mjs 永久保活巡检腿(成功间隔 6h→1h 且 alert 窗口解耦),须清单与规则同枚;另补封存量落后的 guardian-runner(HEAD 面内容早已推进而清单未跟)。判据行为零改动。本机主仓 .git 在并发清理中被移除,按远端 main 基树等价格落地,哈希仍由 root-guard.mjs 的 hashTarget 单源算出。",
   "targets": [
     {
       "id": "guardian-runner",
       "path": "scripts/guardian-runner.mjs",
       "mode": "file",
-      "sha256": "59ebe80f827bec0b077b8066aca67e7dd67a5d6b581c108b08caff1ef1f1a6a8"
+      "sha256": "19da9e0ee44a69cd66840181f78acfa87db0baf3949a76a237073da9fa57ae04"
     },
     {
       "id": "judgement-libs",
@@ -28,7 +28,7 @@
       "id": "git-guardian",
       "path": "scripts/git-guardian.mjs",
       "mode": "file",
-      "sha256": "c0a68ab692bce89ac6ae6718830ad4d35d11ca0de2af843521f7b85fc352a5fc"
+      "sha256": "0fd29ba87312b06acd6337c99e382353a3ac7dae7cb774c55687ee80ed0d28ee"
     },
     {
       "id": "gate-scope",
@@ -52,7 +52,7 @@
       "id": "land-gate-rerun",
       "path": "scripts/lib/land-gate-rerun.mjs",
       "mode": "file",
-      "sha256": "9691f27fe8aaf1c6aea1c963fb5b52562b56e495c9c74e8887127cbac8d3fd71"
+      "sha256": "27f008049249259622e06d9b136630f0ed1fe815291cea70d49eddfd8f49081f"
     },
     {
       "id": "guardian-pushgate-cache",

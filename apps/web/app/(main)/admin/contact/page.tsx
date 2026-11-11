@@ -156,14 +156,14 @@ export default function ContactPage() {
             <button
               disabled={page <= 1}
               onClick={() => setPage(page - 1)}
-              className="rounded-sm border border-input px-2 py-1 disabled:opacity-50"
+              className="rounded-sm border px-2 py-1 disabled:opacity-50"
             >
               {t('prevPage')}
             </button>
             <button
               disabled={page * pageSize >= total}
               onClick={() => setPage(page + 1)}
-              className="rounded-sm border border-input px-2 py-1 disabled:opacity-50"
+              className="rounded-sm border px-2 py-1 disabled:opacity-50"
             >
               {t('nextPage')}
             </button>

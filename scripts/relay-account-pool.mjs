@@ -62,7 +62,7 @@ const HELP = `反代账号池导入
   node scripts/relay-account-pool.mjs --file <accounts.json>       # 直接导入标准账号 JSON
   node scripts/relay-account-pool.mjs --tokens-file <tokens.txt> --provider <code>   # 「一行一个 token」的行文本入池
     [--name-prefix <前缀>]                 缺名称时的自动名前缀(名=<前缀->token-<12位指纹>)
-    [--provider <trae|workbuddy|qoder|codearts|codex|opencode|minimax|zcode|loomy|doubao|lingma|grokbot>]   文件顶层无 providerCode 时必须给;--tokens-file 无顶层 providerCode ⇒ 必须给
+    [--provider <trae|workbuddy|qoder|codearts|codex|opencode|minimax|zcode|loomy|doubao|lingma|grokbot|raccoon>]   文件顶层无 providerCode 时必须给;--tokens-file 无顶层 providerCode ⇒ 必须给
     [--dry-run]                              只校验预检,不写库
     [--no-health]                            跳过导入后的上游健康检查
     [--owner <users.id>]                     显式导入为该用户的个人池(优先级最高,压过默认)
@@ -127,6 +127,8 @@ const FROM_PROVIDERS = Object.freeze({
   doubao: { module: 'doubao-auth-extract.mjs', fn: 'extractDoubaoAccounts' },
   lingma: { module: 'lingma-auth-extract.mjs', fn: 'extractLingmaAccounts' },
   grokbot: { module: 'grokbot-auth-extract.mjs', fn: 'extractGrokbotAccounts' },
+  // 小浣熊:读 ~/.office-raccoon/agent/config/auth.json(access_token,无 refresh_token)
+  raccoon: { module: 'raccoon-auth-extract.mjs', fn: 'extractRaccoonAccounts' },
 })
 const FROM_POOL_KEYS = Object.keys(FROM_PROVIDERS)
 

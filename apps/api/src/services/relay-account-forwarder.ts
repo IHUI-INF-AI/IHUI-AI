@@ -91,7 +91,6 @@ import {
   type RelayPoolPolicy,
 } from './relay-pool-policy.js'
 import { recordAccountUsage } from './relay-account-usage.js'
-import { recordModelNotFound, recordModelSuccess } from './relay-pool-model-health.js'
 import { pickProxyForAccount, reportProxyFailure, reportProxySuccess } from './relay-proxy-pool.js'
 import { resolveModelAlias } from './relay-model-catalog.js'
 import {
@@ -554,8 +553,6 @@ function recordSuccess(
   rawModel: string,
 ): void {
   failureCounts.delete(row.id)
-  // 号池模型级健康:调用成功即清除该模型 down 结论(被动信号,零新增探测请求)
-  recordModelSuccess(row.providerCode, rawModel)
   // shared-state 写入的内存穿透部分是同步的(void 仅指 Redis 往返不阻塞响应路径)
   void clearAccountCooldown(row.id)
   const aKey = affinityKeyOf(req, rawModel)
@@ -579,8 +576,6 @@ function recordFailure(
   kind: FailureKind,
   reason: string,
   backoff?: RateBackoff,
-  /** 网关原始模型 id(可带 `<平台>/` 前缀);仅 not_found 分支用于模型级健康上报 */
-  model?: string,
 ): void {
   // 请求级错误(参数非法/超长/审核拦截):不罚号
   if (kind === 'request') return
@@ -588,8 +583,6 @@ function recordFailure(
   if (kind === 'not_found') {
     // 上游偶发 404 抖动:短冷却但不累计错误(防雪崩,对标 workbuddy ErrNotFound)
     void setAccountCooldown(row.id, now + RATE_COOLDOWN_MS)
-    // 号池模型级健康:404 上报(连续 2 次才 down;账户级 kind 一律不记。被动信号,零新增探测请求)
-    if (model) recordModelNotFound(row.providerCode, model)
   } else {
     const failures = (failureCounts.get(row.id) ?? 0) + 1
     failureCounts.set(row.id, failures)
@@ -1421,7 +1414,7 @@ async function attemptWithAccount(
     httpStatus?: number,
     backoff?: RateBackoff,
   ): AccountAttempt => {
-    recordFailure(row, kind, reason, backoff, rawModel)
+    recordFailure(row, kind, reason, backoff)
     return { ok: false, kind, reason, httpStatus }
   }
 
@@ -1806,7 +1799,7 @@ export async function forwardToAccountPool(
                 : terminal?.error !== undefined
                   ? String(terminal?.error)
                   : '上游未给收尾帧([DONE]/finish_reason)即结束 = 半包'
-            recordFailure(row, kind, `上游流中断(未正常收尾): ${detail}`, undefined, rawModel)
+            recordFailure(row, kind, `上游流中断(未正常收尾): ${detail}`)
             logger.warn('[relay-account-forwarder] 流式断流:本轮改判失败,不记成功', {
               accountId: row.id,
               providerCode: row.providerCode,

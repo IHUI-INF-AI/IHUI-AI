@@ -86,8 +86,9 @@ const MenuItem = React.memo(function MenuItem({
   onAction: (action: ContextMenuAction, item: ContextMenuItem) => void
   depth?: number
 }) {
-  // 2026-11-11 分割线清零:separator 项不再渲染任何分割线元素,分组间距由容器 space-y-0.5 承担
-  if (item.separator) return null
+  if (item.separator) {
+    return <div className="my-0.5 h-px bg-border/60" role="separator" aria-hidden />
+  }
 
   if (item.children && item.children.length > 0) {
     return (

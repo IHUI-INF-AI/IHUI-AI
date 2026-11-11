@@ -118,9 +118,7 @@
 .msg-item.user .bubble {
   background: var(--color-brand);
   color: var(--color-primary-foreground);
-  /* 描边实际由下方 border-image 渐变绘制;此处显式色仅作 border-image 不被支持时的回退,
-     取渐变同档配套变量,避免隐式落 currentColor(暗色下 primary-foreground 翻黑) */
-  border: 2rpx solid var(--color-white-45);
+  border: 2rpx solid;
   border-image: linear-gradient(
       275deg,
       var(--color-white-45) -32%,

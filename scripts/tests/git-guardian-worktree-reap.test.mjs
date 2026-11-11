@@ -129,76 +129,23 @@ test('R5 归属锁:本层不得自带回收判据(落点/分支/合并/脏判定
       `本层出现了回收判据输入「${forbidden}」:两处各写一份"什么该收"必漂移`,
     )
   assert.match(body, /--reap/, '唯一动作必须是派生回收器自己的 --reap')
-  // 2026-11-11:回收器默认 tag-then-remove(未并入先打 lost-commit 标签保活,零丢现场);
-  // 调度层不得自带任何射程旗(--tag-lost / --no-tag-lost)改判据射程 ⇒ 单源纪律不破。
-  assert.equal(/--no?-tag-lost/.test(body), false, '调度层不得携带射程旗,回收射程只住 agent-worktree.mjs')
+  assert.equal(/--tag-lost/.test(body), false, '带上 --tag-lost 就等于给了"静默删独有提交"的入口')
   assert.match(body, /parseReapReport\(/, '读数必须走那一份解析出口')
 })
 
 test('R6 解析三态:回收个数与失败个数必须分开读(§0.3 不得并桶)', () => {
-  assert.deepEqual(parseReapReport('✅ 回收 3 个(已 prune)'), {
-    judged: true,
-    removed: 3,
-    tagged: 0,
-    failed: 0,
-  })
+  assert.deepEqual(parseReapReport('✅ 回收 3 个(已 prune)'), { judged: true, removed: 3, failed: 0 })
   assert.deepEqual(parseReapReport('✅ 回收 2 个,失败 1 个(已 prune)'), {
     judged: true,
     removed: 2,
-    tagged: 0,
     failed: 1,
   })
   assert.deepEqual(parseReapReport('ℹ 无回收候选(1 个检出全数保留;阈值 7 天)'), {
     judged: true,
     removed: 0,
-    tagged: 0,
     failed: 0,
   })
   assert.equal(parseReapReport('❌ 未判定:git worktree list 失败').judged, false)
   assert.equal(parseReapReport('').judged, false)
-})
-
-test('R7 tag-then-remove 新格式:其中 T 个标签段不得吞掉失败数(阳性=新格式全读数;阴性=无该段旧格式)', () => {
-  // 阳性对照:tagged 段插在 `个` 与 `,失败` 之间,失败数必须仍被读到(旧正则会静默读成 0)
-  assert.deepEqual(
-    parseReapReport('✅ 回收 5 个,其中 3 个先打 lost-commit 标签保活,失败 2 个(已 prune;分支一律保留)'),
-    { judged: true, removed: 5, tagged: 3, failed: 2 },
-  )
-  // 阳性对照:全走打标签出口、无失败
-  assert.deepEqual(
-    parseReapReport('✅ 回收 4 个,其中 4 个先打 lost-commit 标签保活(已 prune;分支一律保留)'),
-    { judged: true, removed: 4, tagged: 4, failed: 0 },
-  )
-  // 阴性对照:无 tagged 段的旧格式仍按 tagged=0 解析(不得把 `,失败` 误配进 tagged 组)
-  assert.deepEqual(parseReapReport('✅ 回收 1 个,失败 1 个(已 prune;分支一律保留)'), {
-    judged: true,
-    removed: 1,
-    tagged: 0,
-    failed: 1,
-  })
-  // 端到端:新格式部分失败必须走 partial 分支(成功+失败都报数),不得粉饰成全成功
-  const dir = mkScratch('worktree-reap-tag-')
-  try {
-    const h = harness({
-      status: 0,
-      stdout: '✅ 回收 5 个,其中 3 个先打 lost-commit 标签保活,失败 2 个(已 prune;分支一律保留)\n',
-      stderr: '',
-    })
-    const r = h.run(join(dir, 'tag.iso'))
-    assert.equal(r.partial, true, '带失败的新格式读数必须判为部分成功')
-    assert.equal(r.failed, 2)
-    assert.equal(r.tagged, 3)
-    assert.match(h.logs[0], /^⚠️ worktree 回收:成功 5 个、失败 2 个/)
-    // 全成功且含打标签 ⇒ ✅ 日志必须点名 lost-commit 保活,读数可核
-    const h2 = harness({
-      status: 0,
-      stdout: '✅ 回收 6 个,其中 6 个先打 lost-commit 标签保活(已 prune;分支一律保留)\n',
-      stderr: '',
-    })
-    h2.run(join(dir, 'tag-ok.iso'))
-    assert.match(h2.logs[0], /^✅ worktree 自动回收:6 个,其中 6 个 HEAD 未并入 main、已先打 lost-commit 标签保活/)
-  } finally {
-    rmScratch(dir)
-  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

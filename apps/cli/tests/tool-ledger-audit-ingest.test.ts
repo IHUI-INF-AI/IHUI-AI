@@ -29,7 +29,7 @@ import { fileURLToPath } from 'node:url';
 const { streamChatMock, fetchApiMock, getTokenMock } = vi.hoisted(() => ({
   streamChatMock: vi.fn(),
   fetchApiMock: vi.fn(),
-  getTokenMock: vi.fn<() => string | null>(() => 'test-access-token'),
+  getTokenMock: vi.fn<[], string | null>(() => 'test-access-token'),
 }));
 
 import type * as ApiClient from '@ihui/api-client'

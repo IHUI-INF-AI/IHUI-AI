@@ -261,7 +261,7 @@ export function GoalCard() {
               data-testid="goal-edit-cancel"
               aria-label={t('editCancel')}
               onClick={() => setEditing(false)}
-              className="shrink-0 rounded-sm border border-input px-2 py-1 text-label text-muted-foreground transition-colors hover:bg-accent"
+              className="shrink-0 rounded-sm border px-2 py-1 text-label text-muted-foreground transition-colors hover:bg-accent"
             >
               {t('editCancel')}
             </button>
@@ -331,7 +331,7 @@ export function GoalCard() {
                 type="button"
                 data-testid="goal-progress-dec"
                 onClick={() => advance(-10)}
-                className="rounded-sm border border-input px-2 py-1 text-label transition-colors hover:bg-accent"
+                className="rounded-sm border px-2 py-1 text-label transition-colors hover:bg-accent"
               >
                 -10
               </button>
@@ -339,7 +339,7 @@ export function GoalCard() {
                 type="button"
                 data-testid="goal-progress-inc"
                 onClick={() => advance(10)}
-                className="rounded-sm border border-input px-2 py-1 text-label transition-colors hover:bg-accent"
+                className="rounded-sm border px-2 py-1 text-label transition-colors hover:bg-accent"
               >
                 +10
               </button>
@@ -347,7 +347,7 @@ export function GoalCard() {
                 type="button"
                 data-testid="goal-progress-set"
                 onClick={() => setProgress(goal.progress >= 100 ? 0 : 100)}
-                className="rounded-sm border border-input px-2 py-1 text-label text-muted-foreground transition-colors hover:bg-accent"
+                className="rounded-sm border px-2 py-1 text-label text-muted-foreground transition-colors hover:bg-accent"
               >
                 {goal.progress >= 100 ? t('resetProgress') : t('fullProgress')}
               </button>
@@ -396,7 +396,7 @@ export function GoalCard() {
                 type="button"
                 data-testid="goal-blocker-add"
                 onClick={handleAddBlocker}
-                className="flex shrink-0 items-center gap-0.5 rounded-sm border border-input px-2 py-1 text-label transition-colors hover:bg-accent"
+                className="flex shrink-0 items-center gap-0.5 rounded-sm border px-2 py-1 text-label transition-colors hover:bg-accent"
               >
                 <Plus className="h-3 w-3" />
                 {t('blockerAdd')}
@@ -422,7 +422,7 @@ export function GoalCard() {
                 onClick={() => {
                   void handleResume()
                 }}
-                className="flex items-center gap-1 rounded-sm border border-input px-2.5 py-1.5 text-label transition-colors hover:bg-accent"
+                className="flex items-center gap-1 rounded-sm border px-2.5 py-1.5 text-label transition-colors hover:bg-accent"
               >
                 <Play className="h-3 w-3" />
                 {t('resume')}
@@ -432,7 +432,7 @@ export function GoalCard() {
                 type="button"
                 data-testid="goal-pause"
                 onClick={() => setStatus('paused')}
-                className="flex items-center gap-1 rounded-sm border border-input px-2.5 py-1.5 text-label transition-colors hover:bg-accent"
+                className="flex items-center gap-1 rounded-sm border px-2.5 py-1.5 text-label transition-colors hover:bg-accent"
               >
                 <Pause className="h-3 w-3" />
                 {t('pause')}
@@ -442,7 +442,7 @@ export function GoalCard() {
               type="button"
               data-testid="goal-done"
               onClick={() => setStatus('done')}
-              className="flex items-center gap-1 rounded-sm border border-input px-2.5 py-1.5 text-label transition-colors hover:bg-accent"
+              className="flex items-center gap-1 rounded-sm border px-2.5 py-1.5 text-label transition-colors hover:bg-accent"
             >
               <CheckCircle2 className="h-3 w-3" />
               {t('done')}
@@ -454,7 +454,7 @@ export function GoalCard() {
                 clear()
                 toast.success(t('cleared'))
               }}
-              className="ml-auto flex items-center gap-1 rounded-sm border border-input px-2.5 py-1.5 text-label text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+              className="ml-auto flex items-center gap-1 rounded-sm border px-2.5 py-1.5 text-label text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
             >
               <Trash2 className="h-3 w-3" />
               {t('clear')}

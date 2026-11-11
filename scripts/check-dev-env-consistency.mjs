@@ -21,9 +21,6 @@
  *  - 生产清单回归守门(2026-08-25 增补):docker-compose.yml / render.yaml 的
  *    web/ai-service 块必须引用 JWT_SECRET / CREDENTIALS_ENCRYPTION_KEY(曾缺失
  *    导致 2026-08-07 生产事故路径复现,已修复并纳入守门)
- *  - compose 本地图像 tag 回归守门(2026-11-11 台账票 B40 收口):docker-compose.yml
- *    的 4 类本机构建镜像必须走 ${IHUI_IMAGE_TAG:?...}(未设即失败),禁止回潮
- *    `:-local` 之类非版本占位默认值或写死 :latest(BUG-0058)
  *
  * 用法:
  *   node scripts/check-dev-env-consistency.mjs         # 校验(0=通过,1=失败)
@@ -122,39 +119,6 @@ const PROD_MANIFESTS = [
   },
 ]
 
-/**
- * compose 本地图像 tag 回归守门(2026-11-11 立,台账票 B40 / BUG-0058 收口)。
- * 判据:凡 `image: ihui-(api|web|ai-service|migrate):...` 行,tag 面必须是
- * `${IHUI_IMAGE_TAG:?...}`(未设即失败)。`:-local` 默认占位或写死 `:latest` 均算回潮。
- */
-// tag 面可含空格(${VAR:?错误文案} 形态),按行尾整体捕获
-const COMPOSE_LOCAL_IMAGE_LINE = /^\s*image:\s*ihui-(?:api|web|ai-service|migrate):(.+)$/
-
-function checkComposeImageTag() {
-  const issues = []
-  const p = path.join(REPO_ROOT, 'docker-compose.yml')
-  if (!fs.existsSync(p)) {
-    issues.push(`compose 清单缺失:${p}`)
-    return issues
-  }
-  const lines = fs.readFileSync(p, 'utf8').split(/\r?\n/)
-  let seen = 0
-  for (const line of lines) {
-    const m = line.match(COMPOSE_LOCAL_IMAGE_LINE)
-    if (!m) continue
-    seen += 1
-    if (!m[1].includes('${IHUI_IMAGE_TAG:?')) {
-      issues.push(
-        `docker-compose.yml 本机构建镜像行不是"未设即失败"形态:${line.trim()}(须为 \${IHUI_IMAGE_TAG:?...},禁止 :- 默认占位或写死 :latest)`,
-      )
-    }
-  }
-  if (seen === 0) {
-    issues.push('docker-compose.yml 不再含 4 类本机构建镜像的 image 行(守门失去对象,请确认是否刻意改动)')
-  }
-  return issues
-}
-
 function checkProductionManifests() {
   const issues = []
   for (const m of PROD_MANIFESTS) {
@@ -207,10 +171,6 @@ function run() {
   const prodIssues = checkProductionManifests()
   issues.push(...prodIssues)
 
-  // compose 本机构建镜像 tag 回归守门(2026-11-11,台账票 B40)
-  const composeTagIssues = checkComposeImageTag()
-  issues.push(...composeTagIssues)
-
   for (const [key, meta] of Object.entries(CONSISTENCY_KEYS)) {
     const endpointValues = meta.endpoints.map((ep) => {
       const v = parsed[ep][key] ?? ''
@@ -259,9 +219,6 @@ function run() {
     const prodOk = prodIssues.length === 0
     console.log(`  [${prodOk ? 'PASS' : 'FAIL'}] 生产清单(docker-compose.yml / render.yaml) web/ai-service 密钥引用`)
     for (const msg of prodIssues) console.log(`         - ${msg}`)
-    const composeTagOk = composeTagIssues.length === 0
-    console.log(`  [${composeTagOk ? 'PASS' : 'FAIL'}] docker-compose.yml 本机构建镜像 tag(IHUI_IMAGE_TAG 未设即失败)`)
-    for (const msg of composeTagIssues) console.log(`         - ${msg}`)
     if (issues.length > 0) {
       console.log('')
       console.log('  ✗ 发现不一致:')

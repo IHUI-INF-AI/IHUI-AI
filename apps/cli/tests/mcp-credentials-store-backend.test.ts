@@ -146,7 +146,7 @@ describe('D146 凭据落盘档位(可见化 / 新写入即加密 / 迁移不覆�
     const keyRaw = await fs.readFile(path.join(scratch, 'mcp-cred-key.json'), 'utf-8');
     const parsed = JSON.parse(keyRaw) as Record<string, Record<string, unknown>>;
     expect(Object.keys(parsed)).toEqual(['ihuiMcpKeyV1']);
-    expect(Object.keys(parsed.ihuiMcpKeyV1!).sort()).toEqual(['ct', 'iv', 'mb']);
+    expect(Object.keys(parsed.ihuiMcpKeyV1).sort()).toEqual(['ct', 'iv', 'mb']);
     expect(keyRaw).not.toContain(FIXTURE);
   });
 
@@ -293,7 +293,7 @@ describe('D146 凭据落盘档位(可见化 / 新写入即加密 / 迁移不覆�
     // 结构判据不接受"多一个键"(否则双重包裹会被读成已加密)
     const extra = JSON.parse(resealed) as Record<string, Record<string, unknown>>;
     expect(Object.keys(extra)).toEqual(['ihuiVaultV1']);
-    expect(Object.keys(extra.ihuiVaultV1!).sort()).toEqual(['alg', 'ct', 'iv', 'kid']);
+    expect(Object.keys(extra.ihuiVaultV1).sort()).toEqual(['alg', 'ct', 'iv', 'kid']);
   });
 
   it('非信封形态不得被 parseCredentialEnvelope 认成"已加密"(否则明文会被静默放过)', () => {

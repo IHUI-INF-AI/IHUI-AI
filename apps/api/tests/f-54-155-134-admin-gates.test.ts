@@ -42,6 +42,7 @@ vi.mock('../src/plugins/require-permission.js', () => ({
 }))
 
 const spies = vi.hoisted(() => ({
+  findCozeChatHistory: vi.fn(),
   findMyMember: vi.fn(),
   sanitizeUgcInput: vi.fn((s: string) => s),
   recordBudgetUsage: vi.fn(),
@@ -51,6 +52,9 @@ const spies = vi.hoisted(() => ({
   getTraceDetail: vi.fn(),
 }))
 
+vi.mock('../src/db/coze-chat-queries.js', () => ({
+  findCozeChatHistory: spies.findCozeChatHistory,
+}))
 vi.mock('../src/db/my-member-queries.js', () => ({ findMyMember: spies.findMyMember }))
 vi.mock('../src/db/sensitive-words-queries.js', () => ({
   sanitizeUgcInput: spies.sanitizeUgcInput,
@@ -115,14 +119,15 @@ describe('F-54 coze 聊天历史:端点已下线(404)', () => {
   afterEach(() => vi.clearAllMocks())
 
   // F-54:表无属主列,归属无法判定 ⇒ 端点整体下线(不是按管理员放行);
-  // 任何角色都拿 404。
-  it.each([['0'], ['9']])('角色 roleId=%s 也是 404', async (role) => {
+  // 任何角色都拿 404,且不得触达下游查询。
+  it.each([['0'], ['9']])('角色 roleId=%s 也是 404,且下游查询零调用', async (role) => {
     const res = await server.inject({
       method: 'GET',
       url: '/coze/chat/history/bot-1/conv-1',
       headers: { 'x-test-role': role },
     })
     expect(res.statusCode).toBe(404)
+    expect(spies.findCozeChatHistory).toHaveBeenCalledTimes(0)
   })
 })
 
