@@ -62,7 +62,9 @@ vi.mock('../../db/resource-queries.js', () => ({
   findResourceByIdAndIncrementView: vi
     .fn()
     .mockResolvedValue(fixture.makeResource({ categoryName: null })),
-  findResourceById: vi.fn().mockResolvedValue(undefined),
+  // F-206 起详情改走 findResourceById(浏览量由 watch-aspect 统一计数);
+  // 这里必须给公开详情返回数据,否则测不到 fileUrl 收口。
+  findResourceById: vi.fn().mockResolvedValue(fixture.makeResource()),
   findResourcesByIds: vi.fn().mockResolvedValue([fixture.makeResource()]),
   createResource: vi.fn(),
   updateResource: vi.fn(),

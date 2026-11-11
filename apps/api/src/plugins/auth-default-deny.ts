@@ -94,6 +94,10 @@ const SELF_AUTHENTICATED_PREFIXES: readonly string[] = [
   '/api/memory/',
   '/api/agent-control/',
   '/api/chat/ws/',
+  // RP-40 超工 webhook 回调落账(RP-40 票):routes/super-agent-webhook.ts 回调腿对原始
+  // payload 做 HMAC-SHA256 验签(X-Webhook-Signature,经 internal-service-token 的
+  // secretsEqual 常量时间出口);匿名请求穿过闸后仍被该验签拒掉,变的只是"谁在拒"。
+  '/api/super-agent/webhook-callback/',
 ]
 
 /**

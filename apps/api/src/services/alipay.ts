@@ -28,8 +28,27 @@ import { readFileSync, existsSync } from 'node:fs'
 import { env } from 'node:process'
 import { join } from 'node:path'
 import { formatDateByTemplate } from '@ihui/shared'
+import { fetchWithinDeadline } from '../utils/fetch-deadline.js'
 
 const GATEWAY = env.ALIPAY_GATEWAY ?? 'https://openapi.alipay.com/gateway.do'
+/**
+ * 网关出站时限(与微信支付 / PayPal 同档 10s)。
+ * 六处 OpenAPI 原先裸 fetch:网关不回包时 Promise 永不 settle,连接一直占着。
+ * 统一走仓内 `fetchWithinDeadline`:到点 abort,拒绝原因带 label,调用方能观察到失败。
+ */
+export const ALIPAY_GATEWAY_TIMEOUT_MS = 10_000
+
+function postGateway(body: string, label: string): Promise<Response> {
+  return fetchWithinDeadline(
+    GATEWAY,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body,
+    },
+    { timeoutMs: ALIPAY_GATEWAY_TIMEOUT_MS, label },
+  )
+}
 // 自适应:pnpm filter 运行时 cwd=apps/api(用 certs/),项目根运行时用 apps/api/certs/
 const CERTS_DIR =
   env.ALIPAY_CERTS_DIR ??
@@ -311,11 +330,7 @@ export async function exchangeAuthCode(
   addCertParams(paramsObj)
   paramsObj.sign = signParams(paramsObj)
   const body = new URLSearchParams(paramsObj).toString()
-  const resp = await fetch(GATEWAY, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body,
-  })
+  const resp = await postGateway(body, 'alipay.system.oauth.token')
   const data = (await resp.json()) as {
     alipay_system_oauth_token_response: {
       access_token?: string
@@ -385,11 +400,7 @@ export async function tradeCreate(params: {
   addCertParams(paramsObj)
   paramsObj.sign = signParams(paramsObj)
   const body = new URLSearchParams(paramsObj).toString()
-  const resp = await fetch(GATEWAY, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body,
-  })
+  const resp = await postGateway(body, 'alipay.trade.create')
   const data = (await resp.json()) as {
     alipay_trade_create_response: {
       trade_no: string
@@ -426,11 +437,7 @@ export async function queryOrder(outTradeNo: string): Promise<Record<string, unk
   addCertParams(params)
   params.sign = signParams(params)
   const body = new URLSearchParams(params).toString()
-  const resp = await fetch(GATEWAY, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body,
-  })
+  const resp = await postGateway(body, 'alipay.trade.query')
   return (await resp.json()) as Record<string, unknown>
 }
 
@@ -462,11 +469,7 @@ export async function refundOrder(params: {
   addCertParams(paramsObj)
   paramsObj.sign = signParams(paramsObj)
   const body = new URLSearchParams(paramsObj).toString()
-  const resp = await fetch(GATEWAY, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body,
-  })
+  const resp = await postGateway(body, 'alipay.trade.refund')
   const data = (await resp.json()) as { alipay_trade_refund_response: Record<string, unknown> }
   const refundResp = data.alipay_trade_refund_response ?? {}
   return { success: refundResp.code === '10000', response: refundResp }
@@ -486,11 +489,9 @@ export async function closeOrder(outTradeNo: string): Promise<void> {
   addCertParams(params)
   params.sign = signParams(params)
   const body = new URLSearchParams(params).toString()
-  await fetch(GATEWAY, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body,
-  })
+  const resp = await postGateway(body, 'alipay.trade.close')
+  // 关单不看正文,但仍读完:deadline 要罩到响应体结束,半开连接不能留在那里。
+  await resp.text()
 }
 
 /** 下载账单 URL(对账用) */
@@ -510,11 +511,7 @@ export async function downloadBillUrl(
   addCertParams(params)
   params.sign = signParams(params)
   const body = new URLSearchParams(params).toString()
-  const resp = await fetch(GATEWAY, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body,
-  })
+  const resp = await postGateway(body, 'alipay.data.dataservice.bill.downloadurl.query')
   const data = (await resp.json()) as {
     alipay_data_dataservice_bill_downloadurl_query_response: { bill_download_url: string }
   }

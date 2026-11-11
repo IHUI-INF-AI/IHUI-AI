@@ -139,7 +139,7 @@ interface ListCirclePostsOpts {
   viewer?: PostViewer
 }
 
-export type PostVisibility = 'public' | 'private' | 'followers'
+type PostVisibility = 'public' | 'private' | 'followers'
 
 export interface PostViewer {
   /** 匿名读面(GET /circles/:id/posts 允许匿名)可能没有登录主体。 */

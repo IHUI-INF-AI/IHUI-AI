@@ -648,6 +648,9 @@ export async function cancelOrder(orderNo: string): Promise<OrderOperationResult
  * 2026-08-05 P0-2 修复:原实现用 rechargeToken 退款=再发一次 token(钱退+token 再入账)。
  * 改为 refundTokenDeduct 尽力扣回 —— 事务内行锁 + (refund:orderNo, opType=3) 幂等键,
  * 余额不足扣到 0,重复退款被 unique 索引拦截。
+ * 2026-11-10:扣回与 rechargeIfTokenOrder 同一判据,补 !productId。orderType=2 同时表示
+ * 自定义金额充值(productId 空,支付时入账)与 VIP 购买(productId=vipLevelId,支付时不入账)。
+ * 有 productId 的退款不得扣回从未入账的 token。
  *
  * P2 遗留(2026-08-06):退款无审核/二次确认流程——调用方(payment-gateway 退款端点)
  * 鉴权后直接置为 refunded,角色权限够即可一键退款,无审批/复核/风控(如大额/频次阈值)。
@@ -662,7 +665,9 @@ export async function refundOrder(orderNo: string): Promise<OrderOperationResult
   // 原实现先 updateOrderStatus('refunded') 再把扣回失败 try/catch 吞掉 —— 钱已退、token
   // 还留在用户账上且调用方拿到 success,属于静默资金损失。现在扣回失败直接抛给调用方,
   // 订单保持 paid 等待重试;refundTokenDeduct 按 refund:<orderNo> 幂等,重试不会二次扣减。
-  if ((order.orderType === 2 || order.orderType === 3) && order.userId) {
+  // 与 rechargeIfTokenOrder / creditTopupBonus 同一判据:有 productId 的 VIP/套餐单
+  // 支付时没有 rechargeToken,退款不能按金额把未入账 token 扣回去。
+  if ((order.orderType === 2 || order.orderType === 3) && order.userId && !order.productId) {
     await refundTokenDeduct(order.userId, order.amount, orderNo, '退款')
   }
   const refundedOrder = await updateOrderStatus(orderNo, 'refunded', 'paid')

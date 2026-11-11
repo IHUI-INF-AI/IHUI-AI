@@ -767,6 +767,23 @@ describe('O7 POST /oauth/token + /oauth/introspect + /oauth/revoke', () => {
     expect(revoked.json().active).toBe(false)
   })
 
+  it('introspect:黑名单 has 抛错时按已吊销拒绝,不得报 active=true', async () => {
+    const at = await signAccessToken({
+      userId: mockUser.id,
+      phone: mockUser.phone,
+      familyId: mockUser.familyId,
+      roleId: 0,
+    })
+    fakeBlacklistHas.mockRejectedValueOnce(new Error('redis down'))
+    const res = await app.inject({
+      method: 'POST',
+      url: '/oauth/introspect',
+      payload: { token: at },
+    })
+    expect(res.statusCode).toBe(200)
+    expect(res.json().active).toBe(false)
+  })
+
   it('introspect:垃圾串 → 200 + active=false(RFC 7662 不报 401)', async () => {
     const res = await app.inject({
       method: 'POST',
