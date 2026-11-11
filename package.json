@@ -167,6 +167,7 @@
     "openapi:check-drift": "pnpm openapi:export --out .ihui-agent/tmp/openapi.fresh.json && node scripts/openapi-check.mjs --fresh .ihui-agent/tmp/openapi.fresh.json",
     "miniapp:preview": "node scripts/miniapp-preview.mjs",
     "push:safe": "powershell -ExecutionPolicy Bypass -File scripts/git-push-retry.ps1",
+    "sync:push": "set PUSH_WINDOW=1&& set GUARD_SKIP_PARTIAL_CLONE_CHECK=1&& node scripts/git-sync-converge.mjs --branch main --rounds 3",
     "cert:fetch": "node scripts/fetch-wechat-platform-cert.mjs",
     "cert:check": "node scripts/cert-expiry-check.mjs",
     "cert:watchdog": "node scripts/cert-renew-watchdog.mjs",
