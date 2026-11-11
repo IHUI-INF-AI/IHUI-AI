@@ -45,7 +45,15 @@ export function UpdateNoticeCard({
   className,
 }: UpdateNoticeCardProps) {
   return (
-    <div className={cn('flex items-center gap-3 rounded-lg border bg-card p-3 shadow', className)}>
+    // 投影走唯一档位表 shadow-elevation-*(源 packages/design-tokens/src/elevation.ts):
+    // 裸 `shadow` 是 Tailwind 默认档(0 1px 3px rgb(0 0 0/0.1)),绕过 elevation 阶梯,
+    // 且暗色卡面上几乎不可见 —— check-shadow-single-source 会按违规拦。
+    <div
+      className={cn(
+        'flex items-center gap-3 rounded-lg border bg-card p-3 shadow-elevation-md',
+        className,
+      )}
+    >
       <RefreshCw className="h-5 w-5 shrink-0 text-primary" />
       <div className="flex-1 min-w-0 text-body">
         <p className="font-medium">{title}</p>
