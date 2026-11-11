@@ -26,7 +26,7 @@
  * - 5015:ai-service 不可用(网络错误 / 连接失败)
  * - 5016:内部凭据签发失败(JWT_SECRET 缺失等),本进程直接短路,不发空凭据出去
  * - 502:ai-service 返回错误(非 2xx 响应)
- * - 504:ai-service 响应超时(显式 30s deadline,与 5015 区分:超时可重试)
+ * - 504:ai-service 响应超时(复用 ai-service-fetch 的默认 60s deadline,与 5015 区分:超时可重试)
  *
  * ai-service MCP 端点(参考 apps/ai-service/app/routers/mcp.py,**全部挂在 /api 前缀下**,
  * 见 app/main.py 的 `include_router(mcp.router, prefix="/api")`):
@@ -45,9 +45,8 @@
  * 四条叠起来的净效果是"网关看着在,调用全挂";而④那种写法一旦哪天真被采信,就是
  * 任意 API Key 持有人说自己是别人。
  */
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsync, FastifyRequest } from 'fastify'
 import { z } from 'zod'
-import { config } from '../config/index.js'
 import { requireApiKeyAuth, modelInList } from '../plugins/api-key-auth.js'
 import { requireCapabilityRules } from '../utils/capability-guard.js'
 import { recordCall } from '../services/relay-billing-service.js'
@@ -57,6 +56,13 @@ import { persistableLatency } from '../utils/latency-persistence.js'
 import { success, error } from '../utils/response.js'
 // 内部调用主体:与 v1-knowledge-tools / v1-multimodal 同一个出口(单一真相源,不另签一份)
 import { mintInternalJwt } from './v1-shared.js'
+// F-49(2026-11-08):转发统一走仓内既有 deadline 实现(默认 60s + AiServiceTimeoutError),
+// 不在此另写超时逻辑 —— 超时语义与其它 ai-service 调用点保持单一真相源。
+import {
+  aiServiceFetch,
+  AiServiceTimeoutError,
+  DEFAULT_AI_SERVICE_TIMEOUT_MS,
+} from '../utils/ai-service-fetch.js'
 
 // =============================================================================
 // MCP tool 按次计费基准(非 token 计费,每次调用固定 1000 token 基准)。
@@ -65,14 +71,15 @@ import { mintInternalJwt } from './v1-shared.js'
 const MCP_TOOL_BASE_TOKENS = 1000
 
 /**
- * F-49(2026-11-08):转发 ai-service 的显式 deadline。
- * 与 `AI_SERVICE_TIMEOUT_MS`(30s)同档;超时映射 504,与「连不上 → 503」区分开。
+ * F-49(2026-11-08):是否为上游超时。
+ * 正常情况下由 ai-service-fetch 的 deadline 抛 AiServiceTimeoutError;
+ * 兜底识别底层 abort 以 TimeoutError 冒泡出来的形态(区别于业务错误与上游 5xx)。
  */
-const MCP_FORWARD_TIMEOUT_MS = 30_000
-
-/** 是否为 AbortSignal.timeout 触发的超时(区别于客户端断开等其它 abort) */
-function isAbortTimeout(e: unknown): boolean {
-  return (e as { name?: string } | null | undefined)?.name === 'TimeoutError'
+function isUpstreamTimeout(e: unknown): boolean {
+  return (
+    e instanceof AiServiceTimeoutError ||
+    (e as { name?: string } | null | undefined)?.name === 'TimeoutError'
+  )
 }
 
 // =============================================================================
@@ -103,6 +110,7 @@ const resourceReadBodySchema = z.object({
 /**
  * 转发请求到 ai-service MCP 端点。
  *
+ * @param request  当前 Fastify request(供 deadline 实现透传 traceparent,并取 requestId 记日志)
  * @param path     ai-service 路径,**含 `/api` 前缀**(如 `/api/mcp/tools`)
  * @param method   HTTP 方法
  * @param body     请求体(POST 时传入,GET 时传 undefined)
@@ -110,6 +118,7 @@ const resourceReadBodySchema = z.object({
  * @returns ForwardResult:成功 {ok:true, data} / 失败 {ok:false, code, httpStatus, message}
  */
 async function forwardToAiService(
+  request: FastifyRequest,
   path: string,
   method: 'GET' | 'POST',
   body?: unknown,
@@ -138,7 +147,6 @@ async function forwardToAiService(
     }
   }
 
-  const url = `${config.AI_SERVICE_URL}${path}`
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     Authorization: `Bearer ${token}`,
@@ -146,22 +154,32 @@ async function forwardToAiService(
 
   let resp: Response
   try {
-    resp = await fetch(url, {
+    // F-49(2026-11-08):此前这里是无 deadline 的裸 fetch —— 上游半开(不回 FIN)时永久挂起,
+    // socket/内存随并发累积。改走 ai-service-fetch 的 fetchWithDeadline(默认 60s,
+    // 超时抛 AiServiceTimeoutError),并把「超时」与「上游不可用/5xx」区分开:
+    // 超时是上游慢(504,可重试),连不上/网络错误是上游不可用(503)。
+    resp = await aiServiceFetch(request, path, {
       method,
       headers,
       body: body !== undefined ? JSON.stringify(body) : undefined,
-      // F-49(2026-11-08):无 deadline 的 fetch 在上游半开(不回 FIN)时会永久挂起,
-      // socket/内存随并发累积。给显式 deadline,并把「超时」与「上游不可用/5xx」区分开:
-      // 超时是上游慢(504,可重试),连不上/网络错误是上游不可用(503)。
-      signal: AbortSignal.timeout(MCP_FORWARD_TIMEOUT_MS),
     })
   } catch (e) {
-    if (isAbortTimeout(e)) {
+    if (isUpstreamTimeout(e)) {
+      // 记录 requestId:504 是"上游慢"而非本进程故障,排障时必须能把网关日志与对端请求对上。
+      request.log.warn(
+        {
+          requestId: request.id,
+          upstreamPath: path,
+          timeoutMs: DEFAULT_AI_SERVICE_TIMEOUT_MS,
+          code: 504,
+        },
+        '[mcp-gateway] ai-service 转发超时',
+      )
       return {
         ok: false,
         code: 504,
         httpStatus: 504,
-        message: `ai-service 响应超时(${MCP_FORWARD_TIMEOUT_MS}ms)`,
+        message: `ai-service 响应超时(${DEFAULT_AI_SERVICE_TIMEOUT_MS}ms)`,
       }
     }
     // 网络错误 → ai-service 不可用
@@ -235,7 +253,13 @@ const v1McpGatewayRoutes: FastifyPluginAsync = async (server) => {
         .send(error(1003, '模型不在白名单,请添加 mcp-* 到 API Key 的 allowedModels'))
     }
 
-    const result = await forwardToAiService('/api/mcp/tools', 'GET', undefined, apiKey.userId)
+    const result = await forwardToAiService(
+      request,
+      '/api/mcp/tools',
+      'GET',
+      undefined,
+      apiKey.userId,
+    )
     if (!result.ok) {
       return reply.status(result.httpStatus).send(error(result.code, result.message))
     }
@@ -267,6 +291,7 @@ const v1McpGatewayRoutes: FastifyPluginAsync = async (server) => {
 
     // 转发到 ai-service
     const result = await forwardToAiService(
+      request,
       '/api/mcp/tools/call',
       'POST',
       { name, arguments: args },
@@ -345,6 +370,7 @@ const v1McpGatewayRoutes: FastifyPluginAsync = async (server) => {
     // 本网关接受 POST + body {uri},转发时转为 GET + path 参数
     const encodedUri = encodeURIComponent(uri)
     const result = await forwardToAiService(
+      request,
       `/api/mcp/resources/${encodedUri}`,
       'GET',
       undefined,

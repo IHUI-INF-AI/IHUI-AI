@@ -131,22 +131,79 @@ interface RunResult {
   error: string | null;
 }
 
-/** 捕获式派发(需要把子进程输出并进 JSON 时用) */
+/**
+ * 把子进程输出字节解码成字符串。
+ *
+ * 为什么不能直接 `encoding: 'utf8'`:Windows PowerShell 5.1 / 控制台宿主的 Write-Host 中文
+ * 走本机代码页(简中 936=GBK),按 UTF-8 硬解会得到一屏乱码(实测 `relay install-shortcut`
+ * 的 WhatIf 行)。先严格 UTF-8 解、失败才回退 GBK:UTF-8 合法时不会误判成 GBK
+ * (GBK 双字节几乎覆盖任意字节对,先试 GBK 会把正常 UTF-8 中文撕成乱码)。
+ */
+function decodeChildOutput(buf: Buffer): string {
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(buf);
+  } catch {
+    try {
+      return new TextDecoder('gbk').decode(buf);
+    } catch {
+      return buf.toString('utf8');
+    }
+  }
+}
+
+/**
+ * 捕获式派发(需要把子进程输出并进 JSON 时用)。
+ *
+ * 为什么落**临时文件**而不是 pipe:
+ *  被派发脚本会再 spawn 孙进程(`switch-client-account.mjs` 用 `stdio:'inherit'` 派生 tsx)。
+ *  孙进程继承父进程的 stdout **写端**,而 `spawnSync` 的管道要等「所有写端关闭」才返回 ——
+ *  只要有一个后代进程在管道上多活一会儿,就卡到 timeout。实测 `relay list --provider qoder`
+ *  会卡满 180s(EXIT=124),而同一命令改走 inherit(无 --json)或直接跑编排器都是秒回。
+ *  文件没有写端引用计数问题:进程退出即拿到全部内容,不会因后代进程拖延。
+ */
 function runCaptured(command: string, args: string[], cwd: string): RunResult {
-  const r = spawnSync(command, args, {
-    cwd,
-    encoding: 'utf8',
-    windowsHide: true,
-    stdio: ['ignore', 'pipe', 'pipe'],
-    timeout: DISPATCH_TIMEOUT_MS,
-  });
-  if (r.error) return { status: 2, stdout: '', stderr: '', error: r.error.message };
-  return {
-    status: r.status ?? 2,
-    stdout: r.stdout ?? '',
-    stderr: r.stderr ?? '',
-    error: null,
-  };
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-relay-'));
+  const outPath = path.join(dir, 'out.txt');
+  const errPath = path.join(dir, 'err.txt');
+  let outFd: number | null = null;
+  let errFd: number | null = null;
+  try {
+    outFd = fs.openSync(outPath, 'w');
+    errFd = fs.openSync(errPath, 'w');
+    const r = spawnSync(command, args, {
+      cwd,
+      windowsHide: true,
+      stdio: ['ignore', outFd, errFd],
+      timeout: DISPATCH_TIMEOUT_MS,
+    });
+    fs.closeSync(outFd);
+    outFd = null;
+    fs.closeSync(errFd);
+    errFd = null;
+    if (r.error) return { status: 2, stdout: '', stderr: '', error: r.error.message };
+    return {
+      status: r.status ?? 2,
+      stdout: decodeChildOutput(fs.readFileSync(outPath)),
+      stderr: decodeChildOutput(fs.readFileSync(errPath)),
+      error: null,
+    };
+  } finally {
+    if (outFd !== null) {
+      try {
+        fs.closeSync(outFd);
+      } catch {
+        /* 已关或关失败都不影响结果 */
+      }
+    }
+    if (errFd !== null) {
+      try {
+        fs.closeSync(errFd);
+      } catch {
+        /* 同上 */
+      }
+    }
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 }
 
 /** 直通式派发(交互/流式场景用):子进程接管三条通道,退出码原样透传 */
@@ -172,6 +229,86 @@ function runStreamed(command: string, args: string[], cwd: string): number {
  * (client-oneclick-switch.mjs 的 runPoolListJson)也是"挑能 parse 的那一行",本层把这条
  * 约定固化成对外的稳定契约:stdout 只留 JSON,日志走 stderr。
  */
+/**
+ * 从「日志 + JSON 混在一起」的 stdout 里切出 JSON 载荷。
+ *
+ * 为什么不能逐行 `JSON.parse`:被派发脚本的输出形态有两种 ——
+ *  - `--list --counts` / `--list --provider`:整行紧凑 JSON(一行一个对象);
+ *  - `--to ... --json`(切号):**多行 pretty-print** JSON。
+ * 逐行判定对后者会把每一行都判成「非 JSON」,于是合法载荷被当垃圾扔掉。
+ *
+ * 做法:从每个 `{` / `[` 起做括号配平扫描(跳过字符串内的括号与转义),切出候选片段
+ * 再整体 `JSON.parse` 验证。成功即收,失败就从下一个字符继续找。日志行原样归 rest。
+ */
+function splitJsonPayloads(text: string): { payloads: string[]; rest: string[] } {
+  const payloads: string[] = [];
+  const rest: string[] = [];
+  let cursor = 0;
+
+  while (cursor < text.length) {
+    // 找下一个可能的载荷起点
+    let start = -1;
+    for (let i = cursor; i < text.length; i += 1) {
+      const ch = text[i];
+      if (ch === '{' || ch === '[') {
+        start = i;
+        break;
+      }
+    }
+    if (start === -1) {
+      rest.push(text.slice(cursor));
+      break;
+    }
+    // 起点之前的日志
+    if (start > cursor) rest.push(text.slice(cursor, start));
+
+    // 括号配平(字符串内的 {}[] 不算)
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    let end = -1;
+    for (let i = start; i < text.length; i += 1) {
+      const ch = text[i];
+      if (inString) {
+        if (escaped) escaped = false;
+        else if (ch === '\\') escaped = true;
+        else if (ch === '"') inString = false;
+        continue;
+      }
+      if (ch === '"') {
+        inString = true;
+      } else if (ch === '{' || ch === '[') {
+        depth += 1;
+      } else if (ch === '}' || ch === ']') {
+        depth -= 1;
+        if (depth === 0) {
+          end = i + 1;
+          break;
+        }
+      }
+    }
+
+    if (end === -1) {
+      // 配不平 ⇒ 从这里到结尾都不是完整载荷,按日志处理
+      rest.push(text.slice(start));
+      break;
+    }
+
+    const candidate = text.slice(start, end);
+    try {
+      JSON.parse(candidate);
+      payloads.push(candidate);
+      cursor = end;
+    } catch {
+      // 不是 JSON(可能只是日志里恰好出现一个 '{')⇒ 该字符当普通文本,继续往后找
+      rest.push(text.slice(start, start + 1));
+      cursor = start + 1;
+    }
+  }
+
+  return { payloads, rest };
+}
+
 function runJsonOnly(command: string, args: string[], cwd: string): number {
   const result = runCaptured(command, args, cwd);
   if (result.stderr) process.stderr.write(result.stderr);
@@ -180,29 +317,15 @@ function runJsonOnly(command: string, args: string[], cwd: string): number {
     return 2;
   }
 
-  const jsonLines: string[] = [];
-  const otherLines: string[] = [];
-  for (const line of result.stdout.split(/\r?\n/)) {
-    const trimmed = line.trim();
-    if (trimmed === '') continue;
-    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
-      try {
-        JSON.parse(trimmed);
-        jsonLines.push(trimmed);
-        continue;
-      } catch {
-        /* 不是完整 JSON 行,按日志处理 */
-      }
-    }
-    otherLines.push(line);
-  }
-  if (otherLines.length > 0) process.stderr.write(`${otherLines.join('\n')}\n`);
+  const { payloads, rest } = splitJsonPayloads(result.stdout);
+  const leftover = rest.join('').trim();
+  if (leftover !== '') process.stderr.write(`${leftover}\n`);
 
-  if (jsonLines.length === 0) {
+  if (payloads.length === 0) {
     console.error(chalk.red('❌ 被派发脚本未输出可解析 JSON(未判定,不冒充成功)'));
     return result.status === 0 ? 2 : result.status;
   }
-  for (const line of jsonLines) process.stdout.write(`${line}\n`);
+  for (const payload of payloads) process.stdout.write(`${payload}\n`);
   return result.status;
 }
 
@@ -392,7 +515,9 @@ function runSwitch(opts: SwitchOptions): number {
   if (opts.noLaunch) args.push('--no-launch');
   if (opts.json) args.push('--json');
 
-  return runStreamed(node, args, root);
+  // --json 也必须收口:切号腿会把 [db] 建连日志直接打到 stdout(实测),
+  // 不收口的话消费方拿到的是「日志 + 多行 JSON」,JSON.parse 直接失败。
+  return opts.json ? runJsonOnly(node, args, root) : runStreamed(node, args, root);
 }
 
 /**
