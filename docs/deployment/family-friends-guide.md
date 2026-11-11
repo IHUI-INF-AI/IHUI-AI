@@ -375,8 +375,8 @@ https://render.com/deploy?repo=https://github.com/你的用户名/IHUI-AI
 
 **别急**,截图发给我们:
 - 微信客服:`ok502319984`
-- 邮箱:[REDACTED-EMAIL]
-- 邮箱:[REDACTED-EMAIL]
+- 邮箱:IHUI-AI@aizhs.top
+- 邮箱:IHUI-AI@aizhs.top
 
 ---
 
@@ -387,8 +387,8 @@ https://render.com/deploy?repo=https://github.com/你的用户名/IHUI-AI
 | 渠道 | 账号 | 响应时间 |
 | ---- | ---- | -------- |
 | 微信客服 | `ok502319984` | 24h 内 |
-| 邮箱 | [REDACTED-EMAIL] | 24h 内 |
-| 邮箱 | [REDACTED-EMAIL] | 24h 内 |
+| 邮箱 | IHUI-AI@aizhs.top | 24h 内 |
+| 邮箱 | IHUI-AI@aizhs.top | 24h 内 |
 | GitHub Issue | https://github.com/IHUI-INF-AI/IHUI-AI/issues | 48h 内 |
 
 ---

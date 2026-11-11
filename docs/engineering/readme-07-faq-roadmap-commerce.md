@@ -991,7 +991,7 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 | **品牌名**   | 智汇 AI 集团                                           |
 | **公司地址** | 吉林省长春市高新区越达路 107 号 · 人工智能人才孵化基地 |
 | **联系电话** | 18643389808                                            |
-| **邮箱**     | [REDACTED-EMAIL]                                       |
+| **邮箱**     | IHUI-AI@aizhs.top                                       |
 | **微信客服** | ok502319984(微信搜索添加)                              |
 | **ICP 备案** | 吉ICP备2025027274号                                    |
 | **版权**     | © 2025 智汇AI集团 · 中国                               |
@@ -1006,7 +1006,7 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 | Issue 反馈  | https://github.com/IHUI-INF-AI/IHUI-AI/issues |
 | PR 贡献     | https://github.com/IHUI-INF-AI/IHUI-AI/pulls  |
 
-> 合作咨询、企业接入、技术交流请扫码上方微信或致信 [REDACTED-EMAIL],我们会在 24 小时内回复。
+> 合作咨询、企业接入、技术交流请扫码上方微信或致信 IHUI-AI@aizhs.top,我们会在 24 小时内回复。
 
 ---
 
