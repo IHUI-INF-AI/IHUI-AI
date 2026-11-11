@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest'
 import Fastify from 'fastify'
 
 vi.mock('../src/config/index.js', () => ({
@@ -117,6 +117,9 @@ function mockUnauthorized() {
 }
 
 const PREFIX = '/api/agent-extended'
+
+// RP-23:宿主时区循环用,测毕必须还原(见下方 afterEach)
+const ORIGINAL_TZ = process.env.TZ
 
 describe('agent-extended routes — 路由层 mock 测试', () => {
   const server = Fastify({ logger: false })
@@ -715,6 +718,86 @@ describe('agent-extended routes — 路由层 mock 测试', () => {
         expect(body).toHaveProperty('data')
         expect(body.code).toBe(0)
         expect(body.message).toBe('success')
+      }
+    })
+  })
+
+  // ===========================================================================
+  // 13. RP-23:POST /developer 的 expires_at 按 Asia/Shanghai 日历推进
+  //     (Z 夹具 + 三档宿主时区循环;实现退回宿主本地 setFullYear/setMonth 即翻红)
+  // ===========================================================================
+  describe('POST /developer expires_at 上海日历', () => {
+    afterEach(() => {
+      vi.useRealTimers()
+      if (ORIGINAL_TZ === undefined) delete process.env.TZ
+      else process.env.TZ = ORIGINAL_TZ
+    })
+
+    /** 从 mock db.execute 收到的 INSERT SQL AST(drizzle 0.45:SQL.queryChunks → Param.value)里取回 expires_at。 */
+    function capturedExpiresAt(): Date {
+      const call = mockDbExecute.mock.calls[mockDbExecute.mock.calls.length - 1]
+      const dates: Date[] = []
+      const seen = new Set<unknown>()
+      const walk = (node: unknown): void => {
+        if (node == null || typeof node !== 'object' || seen.has(node)) return
+        seen.add(node)
+        if (node instanceof Date) {
+          dates.push(node)
+          return
+        }
+        const rec = node as { value?: unknown; queryChunks?: unknown }
+        if (rec.value instanceof Date) dates.push(rec.value)
+        if (Array.isArray(rec.queryChunks)) rec.queryChunks.forEach(walk)
+      }
+      walk(call?.[0])
+      expect(dates.length).toBe(1)
+      return dates[0]
+    }
+
+    it('前置判据:改 process.env.TZ 确实改变 Date 本地读数(否则本节断言都是恒绿的)', () => {
+      const probe = new Date('2026-04-30T19:00:00.000Z')
+      process.env.TZ = 'UTC'
+      const inUtc = probe.getHours()
+      process.env.TZ = 'Asia/Shanghai'
+      const inShanghai = probe.getHours()
+      expect({ inUtc, inShanghai }).toEqual({ inUtc: 19, inShanghai: 3 })
+    })
+
+    it('按月:type=0 在"上海已是次日、UTC 仍是上月末"的基准上按上海月进位,三档宿主时区逐字同值', async () => {
+      for (const zone of ['UTC', 'Asia/Shanghai', 'America/New_York'] as const) {
+        process.env.TZ = zone
+        // 上海 2026-05-01 03:00 = 2026-04-30 19:00 UTC。宿主本地 getter 旧实现会落 5 月 30/31 日。
+        vi.setSystemTime(new Date('2026-04-30T19:00:00.000Z'))
+        mockDbExecute.mockResolvedValueOnce([{ id: 'd1' }])
+        const res = await server.inject({
+          method: 'POST',
+          url: `${PREFIX}/developer`,
+          body: { type: 0, count: 1 },
+        })
+        expect(res.statusCode).toBe(201)
+        expect({ zone, expiresAt: capturedExpiresAt().toISOString() }).toEqual({
+          zone,
+          expiresAt: '2026-05-31T19:00:00.000Z', // 上海 2026-06-01 03:00
+        })
+      }
+    })
+
+    it('按年:type=1 闰日 UTC 投影溢出时仍落上海 3 月 1 日,count 累加不逐月漂移', async () => {
+      for (const zone of ['UTC', 'Asia/Shanghai', 'America/New_York'] as const) {
+        process.env.TZ = zone
+        // 上海 2024-03-01 02:00 = 2024-02-29 18:00 UTC。宿主 UTC 旧实现 setFullYear(+2) 会溢到 3 月 2 日(UTC 口径)。
+        vi.setSystemTime(new Date('2024-02-29T18:00:00.000Z'))
+        mockDbExecute.mockResolvedValueOnce([{ id: 'd2' }])
+        const res = await server.inject({
+          method: 'POST',
+          url: `${PREFIX}/developer`,
+          body: { type: 1, count: 2 },
+        })
+        expect(res.statusCode).toBe(201)
+        expect({ zone, expiresAt: capturedExpiresAt().toISOString() }).toEqual({
+          zone,
+          expiresAt: '2026-02-28T18:00:00.000Z', // 上海 2026-03-01 02:00
+        })
       }
     })
   })
