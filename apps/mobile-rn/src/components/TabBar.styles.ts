@@ -12,7 +12,7 @@
 import { Platform, StyleSheet } from 'react-native'
 import type { ViewStyle, TextStyle, ImageStyle } from 'react-native'
 import { tokens as tk } from '../theme/active-tokens'
-import { rnRadius, withAlpha, rnSpacing } from '@ihui/design-tokens'
+import { ELEVATION_STEPS, rnRadius, withAlpha, rnSpacing } from '@ihui/design-tokens'
 import {
   TAB_BAR_FONT_SIZE_ACTIVE_PX,
   TAB_BAR_FONT_SIZE_PX,
@@ -129,11 +129,8 @@ export const tabBarStyles = {
     borderRadius: TAB_BAR_RADIUS,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: tk.border.light,
-    shadowColor: tk.gray.black,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.16,
-    shadowRadius: 20,
-    elevation: 12,
+    // 投影:液态玻璃停靠栏(浮层)→ 档位 lg(原 6/.16/20 + elevation 12)
+    ...ELEVATION_STEPS.lg,
     ...glassBlurLayer,
   } satisfies ViewStyle,
 
@@ -176,6 +173,7 @@ export const tabBarStyles = {
    * 玻璃层 backdropFilter 同一条通道)。
    * 光晕取 brandAccent.deep(亮 #4a7a96 / 暗 #a3c4d6)而不是 DEFAULT:同日玻璃底回调至 0.6 后,
    * 浅蓝 #8fb8cc 的光晕压在近乎实底的胶囊上看不见 —— 发光要可见,必须比底重一档。
+   * 豁免类别:品牌发光效果(非层级投影),不进 ELEVATION_STEPS;颜色走 brandAccent token。
    */
   iconGlow: {
     filter: `drop-shadow(0 0 ${TAB_BAR_GLOW_RADIUS_PX}px ${withAlpha(tk.brandAccent.deep, 0.85)})`,

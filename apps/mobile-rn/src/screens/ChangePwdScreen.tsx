@@ -23,6 +23,7 @@ const MIN_PWD_LEN = 6
 function ChangePwdScreen() {
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
+  const { onNavigate: navigate, onToast } = useHostPorts()
   const { t } = useI18n()
   const [oldPwd, setOldPwd] = useState('')
   const [newPwd, setNewPwd] = useState('')
@@ -63,11 +64,9 @@ function ChangePwdScreen() {
     }
   }
 
-  const { onNavigate, onToast } = useHostPorts()
-
   // XUI-068:旧密码想不起来时同样走 web 找回页,不要在本屏兜圈。
   const handleForgotOld = () => {
-    navigation.navigate('WebView', {
+    navigate('WebView', {
       url: `${WEB_BASE_URL}/forgot-password`,
       title: t('auth.forgotPassword'),
     })
@@ -95,7 +94,7 @@ function ChangePwdScreen() {
         onForgotOld={handleForgotOld}
         forgotLabel={t('auth.forgotPassword')}
         colorScheme={resolvedTheme}
-        onNavigate={onNavigate}
+        onNavigate={navigate}
         onToast={onToast}
       />
     </View>

@@ -43,7 +43,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { X } from 'lucide-react-native'
 import { useI18n } from '../i18n'
 
-import { rnGeometry, rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { ELEVATION_STEPS, rnGeometry, rnRadius, rnSpacing } from '@ihui/design-tokens'
 import { DIALOG_HEIGHT_RATIOS } from '../lib/dialog-geometry'
 import { useDialogMaxHeightStyle } from '../lib/use-dialog-height'
 
@@ -374,11 +374,8 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: rnRadius.xl,
     borderTopRightRadius: rnRadius.xl,
     overflow: 'hidden',
-    shadowColor: tokens.gray.black,
-    shadowOpacity: 0.1,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: -4 },
-    elevation: 8,
+    // 投影:底部浮层面板 → 档位 lg(原 -4/.1/16 + elevation 8)
+    ...ELEVATION_STEPS.lg,
   } as ViewStyle,
   header: {
     flexDirection: 'row',

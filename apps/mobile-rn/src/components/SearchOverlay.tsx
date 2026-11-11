@@ -43,7 +43,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Clock, Flame, Search } from 'lucide-react-native'
 import { fetchApi } from '@ihui/api-client'
-import { rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
+import { ELEVATION_STEPS, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import { POPULAR_SEARCHES } from '@ihui/shared/utils/search-suggestions'
 import { SearchInput, type SearchScreenItem } from '@ihui/rn-app'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -424,12 +424,8 @@ const styles = StyleSheet.create({
     borderRadius: rnRadiusFor.popover,
     borderWidth: 1,
     borderColor: tokens.border.light,
-    // 阴影(web ui-popover shadow-md 的 RN 档:elevation 平台 + shadow* 跨平台)
-    shadowColor: tokens.gray.black,
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 8,
+    // 投影:搜索浮层 → 档位 lg(原 8/.12/16 + elevation 8,对应 web ui-popover 阴影档)
+    ...ELEVATION_STEPS.lg,
     // 面板内左右留白(web SearchInput wrapperClassName p-1.5 ≈ 6px + 面板 p-1 的合成量级)
     paddingTop: rnSpacing['xs-loose'],
     paddingHorizontal: rnSpacing['xs-loose'],

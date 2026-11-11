@@ -17,12 +17,16 @@
  * sm/md/lg/xl 按 2/4/8 的 offset 与 radius 递增,opacity 0.05→0.16,符合移动端轻投影习惯。
  */
 
-/** RN ShadowStyle 四元组(此处仅描述形状,color 固定黑、由 opacity 控深浅) */
+/**
+ * RN ShadowStyle 四元组 + Android `elevation`(Android 无 shadow* 渲染,靠 elevation 出投影)。
+ * 两者同档携带,消费方 spread 一次即得 iOS / Android 同一层级,不必在各端分别补 elevation。
+ */
 export type RnElevation = {
   shadowColor: string
   shadowOffset: { width: number; height: number }
   shadowOpacity: number
   shadowRadius: number
+  elevation: number
 }
 
 export const ELEVATION_STEPS: Record<string, RnElevation> = {
@@ -31,30 +35,35 @@ export const ELEVATION_STEPS: Record<string, RnElevation> = {
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0,
     shadowRadius: 0,
+    elevation: 0,
   },
   sm: {
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
+    elevation: 2,
   },
   md: {
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 4,
+    elevation: 4,
   },
   lg: {
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.12,
     shadowRadius: 12,
+    elevation: 12,
   },
   xl: {
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.16,
     shadowRadius: 24,
+    elevation: 24,
   },
 }
 
@@ -67,13 +76,18 @@ export const ELEVATION_CSS: Record<string, string> = {
   xl: '0 8px 24px rgba(0,0,0,0.16)',
 }
 
-/** 同义的 CSS 变量名(web / CSS 端引用形式,守门与迁移脚本共用) */
+/**
+ * 同义的 CSS 变量名(web / CSS 端引用形式,守门与迁移脚本共用)。
+ * 必须指向 tokens.css 的 `--shadow-elevation-*`(由本文件 ELEVATION_CSS 经
+ * scripts/sync-css-tokens.mjs 派生)—— 旧值曾指向 `--shadow-premium*`,而那一族四档
+ * 现值全等 `0 2px 8px`,与上面的阶梯值不一致,等于同一档两个数。
+ */
 export const ELEVATION_CSS_VAR = {
   none: 'none',
-  sm: 'var(--shadow-premium-sm)',
-  md: 'var(--shadow-premium)',
-  lg: 'var(--shadow-premium-lg)',
-  xl: 'var(--shadow-premium-xl)',
+  sm: 'var(--shadow-elevation-sm)',
+  md: 'var(--shadow-elevation-md)',
+  lg: 'var(--shadow-elevation-lg)',
+  xl: 'var(--shadow-elevation-xl)',
 } as const
 
 export type ElevationStep = keyof typeof ELEVATION_STEPS

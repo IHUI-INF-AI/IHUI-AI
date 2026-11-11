@@ -12,7 +12,7 @@ import { appAlert } from './BottomPops'
 import { Building2, Gem, Receipt, Wallet } from 'lucide-react-native'
 import { tokens } from '../theme/active-tokens'
 
-import { rnRadius, rnType, rnSpacing } from '@ihui/design-tokens'
+import { ELEVATION_STEPS, rnRadius, rnType, rnSpacing } from '@ihui/design-tokens'
 import { Tappable } from '@ihui/ui-native'
 
 export type UserCardKey = 'order' | 'company' | 'token' | 'wallet'
@@ -115,11 +115,8 @@ const styles = StyleSheet.create({
     // 卡片按角色表 card→lg(8)(RADIUS_ROLES,2026-09-27 定档)
     borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.card,
-    shadowColor: tokens.gray.black,
-    shadowOffset: { width: 2, height: 2 },
-    shadowOpacity: 0.07,
-    shadowRadius: 4,
-    elevation: 2,
+    // 投影:功能卡 → 档位 md(原 2/2/.07/4 + elevation 2,视觉即 md)
+    ...ELEVATION_STEPS.md,
   },
   iconWrap: {
     width: 45,
