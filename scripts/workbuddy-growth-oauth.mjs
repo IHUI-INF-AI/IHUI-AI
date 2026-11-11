@@ -554,14 +554,14 @@ async function main() {
     console.log(
       `       body=${JSON.stringify(oaBindInitiateParams('https://www.workbuddy.cn/account-settings'))}`,
     )
-    console.log('       → {redirect_url} 微信 OAuth 授权链接(机主本人扫码)')
+    console.log('       → {redirect_url} 微信 OAuth 授权链接(机主在微信内确认授权;手机端 WorkBuddy App 走已装微信,无需扫码)')
     console.log(`       POST ${oaBindCallbackUrl()}`)
     console.log(`       body=${JSON.stringify(oaBindCallbackParams('<code>', '<state>'))}`)
     console.log(
       '       注:OneID 域走已登录会话(withCredentials);' +
         ' 号池的 copilot 域 accessToken 打过去是 401 G40102 token invalid',
     )
-    console.log('[登录] 另一条把 openid 带进账号的链 = 微信扫码登录(账号切换工具走这条):')
+    console.log('[登录] 另一条把 openid 带进账号的链 = 微信授权登录(手机端无需扫码):')
     console.log(`       POST ${oaSocialLoginUrl()}`)
     console.log(
       `       body=${JSON.stringify(oaSocialLoginParams('https://www.workbuddy.cn/'))}`,
