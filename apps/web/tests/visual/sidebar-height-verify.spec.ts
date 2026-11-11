@@ -91,8 +91,8 @@ test.describe('侧边栏按钮高度统一验证', () => {
         r.navLink1_height = navLinks[1].getBoundingClientRect().height
       }
 
-      // 新建任务按钮(2026-07-19 起 bg-foreground → bg-foreground/10,见 sidebar.tsx BTN_NEW_CONVERSATION_CLASS)
-      const newTask = aside.querySelector('nav button[class*="bg-foreground/10"]')
+      // 新建任务按钮(2026-11-11 起不再用 bg-foreground/10 常驻底色,改 data-testid 定位)
+      const newTask = aside.querySelector('nav button[data-testid="quick-new-task"]')
       if (newTask) {
         r.newTask_height = newTask.getBoundingClientRect().height
         r.newTask_class = newTask.className.substring(0, 150)

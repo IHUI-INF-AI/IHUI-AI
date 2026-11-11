@@ -47,11 +47,11 @@ const NavLink = React.memo(function NavLink({
   const isActive = useOptimisticNavStore((s) => (s.href === null ? active : s.href === item.href))
   const className = cn(
     NAV_ITEM_BASE_CLASS,
-    // 2026-11-10 用户要求:选中态底色与 sidebar 底对比过大,改用 sidebar-active 弱底(亮色 86% L / 暗色 8% L),
-    // 不再用满色 bg-cta(亮色纯黑 / 暗色纯白)形成强反差。
+    // 2026-11-11 用户最终定稿:选中态改反色 —— 亮色黑底白字 / 暗色白底黑字(bg-cta + text-cta-foreground,
+    // 该 token 对本身就是反色对:亮色 0%/100%,暗色 100%/0%)。弱底方案(86%→91% L)不再用于选中态。
     isActive
-      ? 'bg-sidebar-active text-foreground'
-      : 'text-foreground/70 hover:bg-sidebar-item-hover-bg hover:text-accent-foreground',
+      ? 'bg-cta text-cta-foreground font-semibold'
+      : 'text-muted-foreground hover:bg-sidebar-item-hover-bg hover:text-foreground',
     collapsed ? NAV_ITEM_COLLAPSED_CLASS : NAV_ITEM_EXPANDED_CLASS,
   )
   const refCb = (el: HTMLElement | null) => registerRef(item.href, el)
