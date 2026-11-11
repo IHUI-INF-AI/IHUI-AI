@@ -66,9 +66,10 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/checkin", tags=["checkin"])
 
-# 支持的账号平台(2026-10-10 平台化;2026-10-12 增 workbuddy):
+# 支持的账号平台(2026-10-10 平台化;2026-10-12 增 workbuddy;
+# 2026-11-11 增 doubao — 豆包 PC 客户端 200 额度/天,detail 读面实锤可通):
 # trae = 存量默认;qoder = 阿里 AI IDE;workbuddy = 腾讯 WorkBuddy(Buddy 加油站)。
-_ACCOUNT_PLATFORMS = ("trae", "workbuddy", "qoder", "minimax")
+_ACCOUNT_PLATFORMS = ("trae", "workbuddy", "qoder", "minimax", "doubao")
 
 _RECORDS_LIMIT_DEFAULT = 50
 _RECORDS_LIMIT_MAX = 200
@@ -214,6 +215,30 @@ def _validate_minimax_token(jwt: str, device_map: dict[str, Any]) -> None:
         )
 
 
+def _validate_doubao_token(jwt: str, device_map: dict[str, Any]) -> None:
+    """豆包:token = cookie 头(opaque,含 sessionid 会话核心票,非 JWT),
+    只校验非空 + 含 sessionid;device_map.expires_at(epoch 秒/毫秒)可选判过期。
+    捕获纪律:必须取客户端活跃 profile 的会话(本机 Default 是旧号残留)。"""
+    tok = (jwt or "").strip()
+    if len(tok) < 8 or "sessionid=" not in tok:
+        raise HTTPException(
+            status_code=400,
+            detail="豆包 token 须为含 sessionid 的完整 cookie 头,请从客户端活跃 profile 重新捕获",
+        )
+    raw = (device_map or {}).get("expires_at")
+    try:
+        exp = float(raw) if raw is not None else 0.0
+    except (TypeError, ValueError):
+        exp = 0.0
+    if exp > 1e12:
+        exp = exp / 1000.0
+    if exp > 0 and exp <= time.time():
+        raise HTTPException(
+            status_code=400,
+            detail="豆包会话已过期,请打开豆包客户端刷新登录态后重新捕获",
+        )
+
+
 def _validate_jwt(
     jwt: str,
     platform: str = "trae",
@@ -237,6 +262,9 @@ def _validate_jwt(
         return None
     if platform == "minimax":
         _validate_minimax_token(jwt, device_map or {})
+        return None
+    if platform == "doubao":
+        _validate_doubao_token(jwt, device_map or {})
         return None
     user_id = extract_user_id(jwt)
     if not user_id:
