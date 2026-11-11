@@ -115,7 +115,7 @@ describe('G-691 ① isError:true 必须读成失败,不得报成功(改前恒 su
  * ⇒ 正确顺序:**先 `ensureConnected()` 建连,再 `ping()` 把 `lastPingAt` 推到"刚刚"**。
  * 之后 `callTool` 才复用同一条连接,计数才会真涨。
  */
-async function makeLiveClient(callFn: ReturnType<typeof vi.fn>): Promise<ManagedMcpClient> {
+async function makeLiveClient(callFn: () => unknown): Promise<ManagedMcpClient> {
   const conn = makeMockConn();
   // 一个 callFn 统一分派:`ping` 必须成功(它只负责把 lastPingAt 推高),
   // `tools/call` 才走用例自己的失败序列。`callFn` 是 readonly 字段,

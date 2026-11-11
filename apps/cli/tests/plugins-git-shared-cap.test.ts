@@ -11,7 +11,7 @@ import { describe, expect, it, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { spawnSync, type StdioOptions } from 'node:child_process';
 import { execGit, formatGitResult } from '../src/tools/git-shared.js';
 
 const PROBE = 'IHUI-SECRET-PROBE';
@@ -24,7 +24,7 @@ const PROBE = 'IHUI-SECRET-PROBE';
  * `['ignore','pipe','pipe']` 绕开 stdin 管道(铁律,同 scripts/ 下收敛器族);实测 `windowsHide:true`
  * 单独不足以治(仍 EBUSY),stdin 管道才是病根。
  */
-const GIT_STDIO = ['ignore', 'pipe', 'pipe'] as const;
+const GIT_STDIO: StdioOptions = ['ignore', 'pipe', 'pipe'];
 
 function gitInit(repoDir: string): void {
   spawnSync('git', ['init'], { cwd: repoDir, encoding: 'utf-8', stdio: GIT_STDIO });
