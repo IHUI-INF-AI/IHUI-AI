@@ -52,6 +52,12 @@ MARKET_SCAN_PAGES = 20
 MARKET_PAGE_SIZE = 50
 DEFAULT_TIMEOUT = 60.0
 
+# 官方成长中心取任务列表的函数 `to()` 是「先 qa() 再 GET /v2/activity/growth/tasks」:
+# qa() = GET /v2/activity/growth/subscribe-task/status,服务端借这一问重算微信关注关系。
+# 只读列表会拿到旧判定,可能永远等不到公众号项翻面(见 docs/WORKBUDDY_TASKS.md §9.2)。
+SUBSCRIBE_TASK_STATUS_PATH = "/v2/activity/growth/subscribe-task/status"
+OA_SUBSCRIBE_TASK_CODE = "wb_wechat_oa_subscribe_task"
+
 ActionTableLoader = Callable[[], dict[str, Any]]
 DesktopRunner = Callable[..., Awaitable[wda.DirectApiResult]]
 GenericRunner = Callable[..., Awaitable[wda.DirectApiResult]]
@@ -113,6 +119,23 @@ def _web_claim_headers(token: str, uid: str) -> dict[str, str]:
         "User-Agent": "WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1",
         "X-User-Id": uid,
     }
+
+
+async def refresh_subscribe_task_status(
+    client: httpx.AsyncClient, token: str, uid: str
+) -> bool:
+    """读任务表前先问一次订阅状态(官方 qa() 时序),让服务端重算微信关注关系。
+
+    只读、幂等、零写侧;失败不阻断主链(fail-soft,返回 False 由 summary 记录)。
+    端点 GET-only(2026-11-11 真机:POST ⇒ 404),现网 bundle 中订阅写侧 0 条。
+    """
+    try:
+        r = await client.get(
+            f"{WEB_BASE}{SUBSCRIBE_TASK_STATUS_PATH}", headers=_growth_headers(token, uid)
+        )
+        return r.status_code == 200
+    except Exception:  # noqa: BLE001 — 刷新失败只是少一次重算,不能把全表判成读失败
+        return False
 
 
 async def _fetch_task_payload(
@@ -257,6 +280,10 @@ async def run_autopilot(
         "credits": 0,
         "undone": [],
         "unregistered": [],
+        # 判据在平台侧(微信身份 / 关注关系),引擎无可执行的 verified 链 ⇒
+        # 与「引擎没接线」分开登记,不让每轮巡检把它误报成未判定。
+        "pending_platform": [],
+        "subscribe_status_refreshed": False,
         "read_failed": False,
     }
     if not jwt or not uid:
@@ -270,6 +297,11 @@ async def run_autopilot(
             client = httpx.AsyncClient(timeout=timeout)
             await client.__aenter__()
         assert client is not None
+        # 官方时序:先刷新订阅状态(服务端重算关注关系)再读任务表。条件一旦判成立,
+        # 下面 plan 会把该项走 claim-only 自动领奖,无需任何人再执行命令。
+        summary["subscribe_status_refreshed"] = await refresh_subscribe_task_status(
+            client, jwt, uid
+        )
         payload = await _fetch_task_payload(client, jwt, uid)
         if payload is None:
             summary["read_failed"] = True
@@ -284,12 +316,27 @@ async def run_autopilot(
             if row.get("accept_status") == "claimed":
                 summary["claimed_already"].append(code)
                 continue
+            # 达标待领**先于**选路:判据是服务端状态词/progress,与「有没有 verified 链」无关。
+            # 旧实现先看 route_of ⇒ 无链但已达标(典型:公众号关注项被服务端判 completed)
+            # 会被误登记成 unregistered 而不领奖,白丢一整轮(默认 180 分钟)。
+            if _target_reached(row):
+                plan.append((code, row, "claim-only", {}))
+                continue
             route, meta = route_of(code, table)
             if route is None:
-                summary["unregistered"].append(code)
+                if code == OA_SUBSCRIBE_TASK_CODE:
+                    summary["pending_platform"].append(
+                        {
+                            "code": code,
+                            "reason": "wechat_oa_follow_relation",
+                            "accept_status": row.get("accept_status"),
+                            "progress": _prog_of(row),
+                        }
+                    )
+                else:
+                    summary["unregistered"].append(code)
                 continue
-            action = "claim-only" if _target_reached(row) else "run"
-            plan.append((code, row, action if action == "claim-only" else route, meta))
+            plan.append((code, row, route, meta))
 
         if dry_run:
             summary["plan"] = [

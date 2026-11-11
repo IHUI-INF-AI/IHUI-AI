@@ -906,6 +906,91 @@ POST /api/checkin/accounts/{account_id}/autopilot   body {"dry_run": false, "cla
   出现该码(18 条全 claimed 且无它,非 locked/404)——上游未即时下发,非引擎
   缺陷;调度器每轮自动扫,上游下发后下一轮自动 accept+执行+领奖(+200)。
 
+## 14. 剩余两项二次取证与接线(2026-11-11 晚)
+
+回应「剩余的也能做」:上一轮把 `skill_share` 接通后,还挂着的 `travel/depart`
+与 `wb_wechat_oa_subscribe_task` 重新取证。**结论分两半:travel 的写侧字段此前
+根本没取对,现已做成;公众号项的判据在微信身份,已把「条件成立→领奖」补齐并修掉
+一处会漏领的引擎缺陷。**
+
+### 14.1 travel/depart:字段是 `location_id`,不是「未取证」
+
+取证面换成**当前线上**成长中心页(§9.1 的更正已指出:该页是端内 iframe 远程加载,
+不在 asar 里),拉 `https://www.workbuddy.cn/profile/growth-center` 及其 21 个 chunk
+(`assets.workbuddy.cn/web/usercenter/6e3c25cf…/assets/GrowthI18nProvider-*.js` 等),
+原文:
+
+```js
+Fo=()=>t.get("/activity/growth/buddy/travel/config"),
+qo=()=>t.get("/activity/growth/buddy/travel/status"),
+Ho=e=>t.post("/activity/growth/buddy/travel/depart",{location_id:e}),
+Yo=()=>t.post("/activity/growth/buddy/travel/claim",{})
+```
+
+- 真机 `POST /v2/activity/growth/buddy/travel/depart {"location_id":1}` ⇒
+  **200 `code:0` / `state=traveling` / `record_id=53578839` / `buddy_id=25916511`**。
+  空体、`client_token` / `clientToken` / `buddy_id` / `instance_id` / `location` /
+  `duration_hours` 等 10 种形态一律 400 `invalid request` ⇒ 旧文档「字段名未判定」是
+  **试错面不对**,不是上游没有写侧。加 `X-Product-Code: workbuddy` 不是决定因素。
+- `GET travel/config` ⇒ `locations` 4 条(id 1 咖啡馆 / 2 商场店铺 / 3 健身房 /
+  4 古镇客栈),`duration_hours_min/max=1/4`、`reward_credit_min/max=5/10`。
+  引擎现读 `locations[0].id`,读不到才回落已取证的 `1`,不猜值。
+- **提前领奖会失败**:出发后 status 立刻带回预计 `reward_credit`(实测 6 / 9),
+  但 `letter=null` 且 `server_now < arrive_at` 时 `travel/claim` 回
+  `403 not arrived yet`。引擎加了 `_travel_claimable` 判据:只在明确「traveling 且
+  到达时间在未来」时拦下 claim,登记为正常进行态(不标 unjudged),到达后照常领。
+
+全池真机(2026-11-11 19:5x):20 号 `daily_limit_reached=true` 正常跳过;29 号出发成功
+(`record_id=53579071`, +9);33/3559/3564 已 `traveling`(+6 / +9 / +6)。
+号池 5 账号只对应 **3 个平台 uid**(14f939c3 / 25913b4a / 0bc1074d),出发按 uid 记账,
+故 29↔3559、33↔3564 同态。到达时间 23:47–23:48(4 小时行程)。
+
+### 14.2 公众号项:写侧通道确实不存在,但引擎少接了一段
+
+把 §9.1 的端点枚举在**现网 11-11 bundle** 上重跑,并把证据面扩到三处:
+
+| 取证面 | 结果 |
+| --- | --- |
+| 现网成长中心 21 chunk 全量路径 | 订阅相关只有 1 条:`GET /v2/activity/growth/subscribe-task/status`;**POST 写侧 0 条** |
+| 服务端 10 个候选写端点真探 | `subscribe-task/{refresh,check,claim,bind,verify,report}`、`/subscribe` 等 POST 全 **404 page not found**(连 status 自身 POST 也 404 ⇒ GET-only) |
+| 客户端 asar 全量字符串常量 15325 个 | 无 `follow_guide_*` / `oa_subscribe_*` 事件族;命中项全是 Pro 订阅套餐、微信分享二维码、`wechat_linked` 任务码,与关注计分无关 |
+
+服务端现读(`/v2/activity/growth/subscribe-task/status`):4 个号
+`subscribed=false / remaining_seconds=-1 / advanced=false / task_status=accepted`;
+任务行 `accepted 0/1`。20 号 `task_status=claimed` 但 `subscribed=false` ——
+它是号池里**唯一带 `account.wechatOpenId` 的 uid(14f939c3)**,该项早就领过。
+官方引导页规则原文:「保持关注公众号满 24 小时」「**同一微信号仅可领取一次奖励**」。
+⇒ 判据是微信账号维度的关注关系 + 24h 窗 + 身份绑定,不是可上报的事件计数;
+`skill_share` 那套 telemetry 链对本项**不适用**(8 种事件码零推进已复证)。
+
+**本轮补齐的三段(都是引擎真实缺口,不是登记说明)**:
+
+1. **官方 `to()` 时序**:`run_autopilot` 读任务表前先
+   `GET subscribe-task/status`(`refresh_subscribe_task_status`),让服务端重算关注关系。
+   只读列表会拿旧判定,可能永远等不到翻面(§9.2 早就写了,但 Python 自动腿没接)。
+2. **达标先于选路**:旧 `run_autopilot` 先 `route_of` 再判 `_target_reached`,
+   ⇒ 无 verified 链但服务端已判 `completed` 的任务(正是公众号项)会被误登记成
+   `unregistered` 而**不领奖**,白丢一整轮(默认 180 分钟)。现改为达标即
+   `claim-only`,条件一旦成立零人工到账。单测钉住。
+3. **分档**:`accepted 0/1` 的公众号项记 `pending_platform`(原因
+   `wechat_oa_follow_relation`),不再混进 `unregistered`,巡检摘要不再把它误报成
+   「引擎未判定」。
+
+### 14.3 验证与纪律
+
+- 相关单测:`test_workbuddy_tasks` + `test_workbuddy_autopilot` +
+  `test_workbuddy_direct_api` **147 例**、`test_checkin_scheduler` **68 例**,全绿。
+  新增用例锁:`depart` body 必须是 `{"location_id": …}` / config 读不到回落 1 /
+  未到达不 claim / 到达后 claim 积分差量 / 订阅刷新在任务表之前 /
+  公众号项分档 / `completed` 自动领奖。
+- 真机全池复跑 `_workbuddy_task_sweep()`(20:07–20:13,写侧真开):
+  **accounts=5 / families=30 / unjudged=0 / errors=0 / note=null**,
+  travel 六族全 `ok=True`,`subscribe_refreshed=True`,`unregistered=0`,
+  20 号 `claimed_already=19`,其余 4 号各 18 + `pending_platform=1`。
+- **不伪造关注**:本轮没有、也不会用事件上报去顶 `subscribed` 这个服务端布尔(§9.4)。
+  若日后机主给这些 uid 绑定微信身份,绑定的终局确认仍是微信侧动作(§11.5 ⑤),
+  绑定生效后无需任何人再执行命令 —— 第 2 段已把这一格收成全自动。
+
 
 
 
