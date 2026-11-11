@@ -355,8 +355,10 @@ def _needs_stream(body: str) -> bool:
 # 流式探测被拒后仍值得用非流式复测的状态码:多为"不支持流式参数/工具参数"类拒绝,
 # 不代表模型不可用;404/401/402/429 等明确不可用或账户级问题不复测,省一次请求。
 _STREAM_FALLBACK_STATUS = frozenset({400, 405, 422, 501})
-# 工具调用探测用量:极简 function tool + 64 tokens,成本可忽略。
-_TOOL_PROBE_MAX_TOKENS = 64
+# 工具调用探测用量:极简 function tool + 256 tokens,成本可忽略。
+# 不能压到 64:推理模型会先把预算花在思考上,截断后根本没机会发 tool_calls,
+# 实测会把 kimi-k3/k2.7 这类明确支持工具的模型误判成"未实际触发"。
+_TOOL_PROBE_MAX_TOKENS = 256
 # 长上下文针测的超时:16k token 预填充比 ping 慢,给 3 倍预算(60s)。
 CONTEXT_PROBE_TIMEOUT_S = PROBE_TIMEOUT_S * 3
 # 判定"请求内容与工具/function 有关"的关键词(400/422 时区分能力缺失与协议错误)。
@@ -393,8 +395,10 @@ def _context_probe_days() -> float:
 
 
 def _context_probes_per_cycle() -> int:
-    # 允许配 0 表示暂停长上下文针测(省钱开关)
-    return _env_int("MODEL_HEALTH_CONTEXT_PROBES_PER_CYCLE", 1, minimum=0)
+    # 0 = 暂停长上下文针测(省钱开关)。
+    # 默认 3:16k 预填充单次成本仍可忽略,而 40 多个可用模型的首次覆盖若按 1 个/轮
+    # 要跑将近一天,用户在前端只能看到零星几个模型有长上下文结论。
+    return _env_int("MODEL_HEALTH_CONTEXT_PROBES_PER_CYCLE", 3, minimum=0)
 
 
 def _build_probe_target(model_id: str, provider_hint: str) -> _ProbeTarget | None:
@@ -546,6 +550,10 @@ def _judge_tools_response(status_code: int, raw_text: str) -> tuple[bool | None,
         calls = message.get("tool_calls") if isinstance(message, dict) else None
         if isinstance(calls, list) and calls:
             return True, ""
+        if choices[0].get("finish_reason") == "length":
+            # 输出被 max_tokens 截断 ⇒ 无法判定(推理模型可能还在思考阶段),
+            # 记"未知"而不是"不支持",避免在界面上给可用模型打错标签。
+            return None, "输出被 max_tokens 截断,工具调用未判定"
         return False, "声明支持工具调用但未实际触发"
     if status_code in (400, 422) and any(k in lowered for k in _TOOL_KEYWORDS):
         return False, f"HTTP {status_code}: {body[:150]}"
@@ -1509,8 +1517,13 @@ class ModelHealthService:
                     summary = _redact_secrets(
                         f"HTTP {resp.status_code}: {raw[:150].replace(chr(10), ' ')}"
                     )
-                    # 5xx 属上游临时故障:能力未知,不误判为不支持长上下文
-                    return (None if resp.status_code >= 500 else False), summary[:200]
+                    # 5xx 属上游临时故障;429/401/402/403 属账户级(限流/欠费/鉴权),
+                    # 都只能记"未知",误记成 false 会让前端给模型打上"不支持长上下文"。
+                    account_level, _model_level = _classify_error(
+                        raw, resp.status_code
+                    )
+                    unknown = resp.status_code >= 500 or account_level
+                    return (None if unknown else False), summary[:200]
                 ok, error, _account, _model = _evaluate_200_body(raw)
                 if not ok:
                     return False, error[:200]
