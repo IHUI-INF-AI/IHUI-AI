@@ -29,7 +29,10 @@ test('① collectSealedPaths:点分 + accounts[0].nickname 方括号格式', () 
       phoneNumber: '13800000000',
     },
     accounts: [
-      { nickname: { $wbEncrypted: 1, envelope: 'a0n' }, phoneNumber: { $wbEncrypted: 1, envelope: 'a0p' } },
+      {
+        nickname: { $wbEncrypted: 1, envelope: 'a0n' },
+        phoneNumber: { $wbEncrypted: 1, envelope: 'a0p' },
+      },
       { nickname: 'plain' },
     ],
     allAccounts: [{ nickname: { $wbEncrypted: 1, envelope: 'aa0n' } }, {}],
@@ -107,12 +110,18 @@ test('③ sealFieldForTest → decryptSessionTree 往返还原(合成密钥离�
 
   // 换一把密钥:keyId 对不上必须拒解(不能静默出乱码)
   const other = W.normalizeAtRestKey('another-secret')
-  assert.throws(() => W.decryptSessionTree(sealed, other.key, other.keyId), (e) => e.code === 'key-mismatch')
+  assert.throws(
+    () => W.decryptSessionTree(sealed, other.key, other.keyId),
+    (e) => e.code === 'key-mismatch',
+  )
 })
 
 test('④ workbuddyAuthFilePath:逐版本等于拼接结果;未知/原型键一律点名抛错', () => {
   for (const edition of Object.keys(W.AUTH_FILE_BY_EDITION)) {
-    assert.equal(W.workbuddyAuthFilePath(edition), path.join(W.AUTH_DIR, W.AUTH_FILE_BY_EDITION[edition]))
+    assert.equal(
+      W.workbuddyAuthFilePath(edition),
+      path.join(W.AUTH_DIR, W.AUTH_FILE_BY_EDITION[edition]),
+    )
   }
   // 变异自证:把 lib 里那处改回自立第二份拼接 ⇒ 上面这条不红,红的是下面的形状锁
   for (const bad of ['nope', '', null, undefined, 'constructor', '__proto__', 'toString', 42]) {
@@ -166,7 +175,11 @@ test('⑤ getPathByJsonPath:与 collectSealedPaths 互逆对账;取不到一律 
   assert.equal(W.getPathByJsonPath(tree, 'auth[0]'), undefined, '对象盒 + 数字段 ⇒ 类型对不上')
   assert.equal(W.getPathByJsonPath(tree, 'account.phoneNumber.deeper'), undefined, '叶子后面还有段')
   assert.equal(W.getPathByJsonPath(tree, 'matrix[0][0]'), manual('matrix[0][0]'), '双层下标')
-  assert.equal(W.getPathByJsonPath([{ a: 1 }], '[0].a'), 1, '根即数组:collectSealedPaths 会吐出 `[0].a` 这一形')
+  assert.equal(
+    W.getPathByJsonPath([{ a: 1 }], '[0].a'),
+    1,
+    '根即数组:collectSealedPaths 会吐出 `[0].a` 这一形',
+  )
   assert.equal(W.getPathByJsonPath(null, 'a'), undefined)
   assert.equal(W.getPathByJsonPath('str', 'a'), undefined)
   // 读侧也不许沿原型链取(否则 '__proto__' 会摸到 Object.prototype)
@@ -174,27 +187,51 @@ test('⑤ getPathByJsonPath:与 collectSealedPaths 互逆对账;取不到一律 
 })
 
 test('⑥ setPathByJsonPath:写后读回全等、缺层自动建、类型不符与原型段一律拒绝且不碰节点', () => {
-  const build = () => ({ account: { nickname: 'nick' }, accounts: [{ phoneNumber: '13800000000' }] })
+  const build = () => ({
+    account: { nickname: 'nick' },
+    accounts: [{ phoneNumber: '13800000000' }],
+  })
   const tree = build()
   const r1 = W.setPathByJsonPath(tree, 'account.nickname', 'SEALED')
   assert.equal(r1, tree, '必须返回根节点(消费方按链式写法用)')
   assert.equal(W.getPathByJsonPath(tree, 'account.nickname'), 'SEALED')
-  assert.equal(W.getPathByJsonPath(tree, 'accounts[0].phoneNumber'), '13800000000', '其余键不得受影响')
+  assert.equal(
+    W.getPathByJsonPath(tree, 'accounts[0].phoneNumber'),
+    '13800000000',
+    '其余键不得受影响',
+  )
 
   W.setPathByJsonPath(tree, 'deep.a.b[0].c', 'V')
-  assert.deepEqual(W.getPathByJsonPath(tree, 'deep.a'), { b: [{ c: 'V' }] }, '数字段 ⇒ 建数组,其余 ⇒ 建对象')
+  assert.deepEqual(
+    W.getPathByJsonPath(tree, 'deep.a'),
+    { b: [{ c: 'V' }] },
+    '数字段 ⇒ 建数组,其余 ⇒ 建对象',
+  )
 
   // 反向安全锁:三种原型段拒绝写入,且断言副作用没发生(不是只断言抛错)
   const snapshot = JSON.stringify(tree)
-  for (const hostile of ['__proto__.polluted', 'a.__proto__', 'constructor.prototype.x', 'prototype.y', 'a.prototype']) {
-    assert.throws(() => W.setPathByJsonPath(tree, hostile, 'X'), (e) => e.code === 'extract-failed', hostile)
+  for (const hostile of [
+    '__proto__.polluted',
+    'a.__proto__',
+    'constructor.prototype.x',
+    'prototype.y',
+    'a.prototype',
+  ]) {
+    assert.throws(
+      () => W.setPathByJsonPath(tree, hostile, 'X'),
+      (e) => e.code === 'extract-failed',
+      hostile,
+    )
     assert.equal(JSON.stringify(tree), snapshot, `拒绝写入后节点必须逐字节不动: ${hostile}`)
   }
   assert.equal({}.polluted, undefined, 'Object.prototype 不得被污染')
 
   // 容器类型不符 ⇒ 抛错,且已有的那一层数据不得被悄悄清掉(变异自证:摘掉这条 throw ⇒ 本支翻红)
   const clash = { accounts: { nickname: 'keep-me' } }
-  assert.throws(() => W.setPathByJsonPath(clash, 'accounts[0].nickname', 'X'), (e) => e.code === 'extract-failed')
+  assert.throws(
+    () => W.setPathByJsonPath(clash, 'accounts[0].nickname', 'X'),
+    (e) => e.code === 'extract-failed',
+  )
   assert.deepEqual(clash, { accounts: { nickname: 'keep-me' } }, '类型不符时不得覆盖已有子树')
 
   // 叶子是原始值而路径要求中间层 ⇒ 就地建层(原值本就属于这一格)
@@ -204,7 +241,10 @@ test('⑥ setPathByJsonPath:写后读回全等、缺层自动建、类型不符�
 
   // 根节点不是对象 ⇒ 拒绝
   for (const badRoot of [null, undefined, 's', 42, []]) {
-    assert.throws(() => W.setPathByJsonPath(badRoot, 'a.b', 1), (e) => e.code === 'extract-failed')
+    assert.throws(
+      () => W.setPathByJsonPath(badRoot, 'a.b', 1),
+      (e) => e.code === 'extract-failed',
+    )
   }
 })
 
@@ -212,8 +252,16 @@ test('⑦ 路径语法两面同一条尺:坏形态在读写两侧都抛,且抛�
   const badPaths = ['', '.', 'a..b', 'a.', '.a', 'a[x]', 'a[0', 'a[0]x', 'accounts[0]..nickname']
   const tree = { a: { b: 1 } }
   for (const p of badPaths) {
-    assert.throws(() => W.getPathByJsonPath(tree, p), (e) => e.message.includes('路径形态不合法'), `读侧必须拒: ${JSON.stringify(p)}`)
-    assert.throws(() => W.setPathByJsonPath(tree, p, 1), (e) => e.message.includes('路径形态不合法'), `写侧必须拒: ${JSON.stringify(p)}`)
+    assert.throws(
+      () => W.getPathByJsonPath(tree, p),
+      (e) => e.message.includes('路径形态不合法'),
+      `读侧必须拒: ${JSON.stringify(p)}`,
+    )
+    assert.throws(
+      () => W.setPathByJsonPath(tree, p, 1),
+      (e) => e.message.includes('路径形态不合法'),
+      `写侧必须拒: ${JSON.stringify(p)}`,
+    )
   }
   // 变异自证:parseSealedPath 一旦被绕过(比如给读侧另写一份 split),这条即红
   assert.equal(W.getPathByJsonPath(tree, 'a.b'), 1)
@@ -224,8 +272,16 @@ test(
   { skip: process.platform !== 'win32' && 'CIM 探测通道只在 win32 成立' },
   () => {
     const okJson = JSON.stringify([
-      { ProcessId: 100, ParentProcessId: 10, CommandLine: 'WorkBuddy.exe --type=renderer --user-data-dir=C:\\wb\\app' },
-      { ProcessId: 10, ParentProcessId: 1, CommandLine: 'C:\\Program Files\\WorkBuddy\\WorkBuddy.exe' },
+      {
+        ProcessId: 100,
+        ParentProcessId: 10,
+        CommandLine: 'WorkBuddy.exe --type=renderer --user-data-dir=C:\\wb\\app',
+      },
+      {
+        ProcessId: 10,
+        ParentProcessId: 1,
+        CommandLine: 'C:\\Program Files\\WorkBuddy\\WorkBuddy.exe',
+      },
     ])
     const ok = listWorkbuddyMainProcesses(() => okJson)
     assert.ok(Array.isArray(ok), '仍须是数组,既有调用方按 length/遍历消费')
@@ -246,4 +302,91 @@ test(
     }
   },
 )
+
+// —— ⑨–⑪ 双版进程面(2026-11-11 立):国际版 exe=WorkBuddyAI.exe 曾被过滤器整个漏掉 ——
+
+test('⑨ chooseWorkbuddyMain 三臂:空=not-running / 单=直取 / 双未点名=ambiguous(文案含两版清单)', () => {
+  const stable = { pid: 111, userDataDir: 'C:/Users/U/.workbuddy/app' }
+  const ai = { pid: 222, userDataDir: 'C:/Users/U/.workbuddy-ai/app' }
+  assert.throws(
+    () => W.chooseWorkbuddyMain([]),
+    (e) => e.code === 'not-running',
+  )
+  assert.deepEqual(W.chooseWorkbuddyMain([stable]), stable)
+  assert.deepEqual(W.chooseWorkbuddyMain([ai], 'workbuddy-ai'), ai)
+  assert.deepEqual(W.chooseWorkbuddyMain([stable, ai], 'workbuddy'), stable)
+  assert.throws(
+    () => W.chooseWorkbuddyMain([stable, ai]),
+    (e) => {
+      assert.equal(e.code, 'ambiguous-process')
+      assert.match(e.message, /workbuddy-ai/, '歧义文案必须点名撞上的版本,调用方才看得见')
+      return true
+    },
+  )
+  // 点名点空(只跑稳定版却点名 ai):本函数把"单候选直取"留给调用方 ⇒ 返回那唯一枚，
+  // 一致性由 extractWorkbuddyAccount 的 edition-mismatch 臂判(2026-11-11 定档:
+  // 只有一个根时"点名点错"是提问侧的问题,不是歧义,不得吞成 ambiguous 文案)
+  assert.deepEqual(W.chooseWorkbuddyMain([stable], 'workbuddy-ai'), stable)
+  // 变异自证:判定若退化为 mains[0] 优先(忽略点名),本条即红
+  assert.equal(W.chooseWorkbuddyMain([stable, ai], 'workbuddy-ai').pid, 222)
+})
+
+test('⑩ CIM 探测面由 WB_EXE_BY_EDITION 派生:两版进程名都进 Filter,旧单名硬编码不得回潮', () => {
+  let seenScript = ''
+  const fakeExec = (_cmd, args) => {
+    seenScript = args[args.length - 1]
+    return '[]'
+  }
+  listWorkbuddyMainProcesses(fakeExec)
+  for (const exe of Object.values(W.WB_EXE_BY_EDITION)) {
+    assert.ok(seenScript.includes(exe), `Filter 必须含 ${exe}(派生自登记表,不是手写清单)`)
+  }
+  assert.ok(/OR/.test(seenScript), '多版本必须拼进同一条 Filter')
+  // 形状锁:探测面只许从 WB_EXE_BY_EDITION 取值拼,不许再出现手写的单进程名 Filter
+  const src = fs.readFileSync(new URL('../lib/workbuddy-auth-extract.mjs', import.meta.url), 'utf8')
+  assert.equal(
+    /Name='WorkBuddy\.exe'/.test(src),
+    false,
+    '旧版硬编码 Name=…WorkBuddy.exe 单名过滤器已废,回潮即红',
+  )
+  assert.match(src, /Object\.values\(WB_EXE_BY_EDITION\)/, 'Filter 必须由登记表派生(§0.6)')
+})
+
+test('⑪ 登记表成套性:版本表与进程名表键集互为镜像,缺一边即红', () => {
+  assert.deepEqual(
+    Object.keys(W.WB_EXE_BY_EDITION).sort(),
+    Object.keys(W.AUTH_FILE_BY_EDITION).sort(),
+  )
+  for (const [k, v] of Object.entries(W.WB_EXE_BY_EDITION)) {
+    assert.match(v, /^[A-Za-z0-9_-]+\.exe$/, `${k} 的进程名必须是裸 exe 名(WQL 拼接形状): ${v}`)
+  }
+})
+
+test('⑫ assertRealmMatchesEdition 双臂:claims 域优先,auth.domain 明文兜底,两臂皆空照旧拒', () => {
+  // 2026-11-11 本机取证:AI 版 5.9.3 的 accessToken/refreshToken envelope 是密封包装不是 JWT,
+  // claims 臂恒空;域的真正载体 = 解密树明文 auth.domain="www.workbuddy.ai"
+  W.assertRealmMatchesEdition('workbuddy', { domain: 'whatever' }) // 国内版直接放行,不看域
+  W.assertRealmMatchesEdition('workbuddy-ai', { domain: 'www.workbuddy.ai' })
+  W.assertRealmMatchesEdition('workbuddy-ai', null, 'www.workbuddy.ai')
+  W.assertRealmMatchesEdition('workbuddy-ai', { data: { domain: 'cn.workbuddy.ai' } })
+  assert.throws(
+    () => W.assertRealmMatchesEdition('workbuddy-ai', null, null),
+    (e) => e.code === 'realm-undetermined',
+  )
+  assert.throws(
+    () => W.assertRealmMatchesEdition('workbuddy-ai', {}, 'copilot.tencent.com'),
+    (e) => e.code === 'realm-undetermined',
+  )
+  // 变异自证:fallback 若被拼到 claims 之前(错域照收),这条即红
+  assert.throws(
+    () =>
+      W.assertRealmMatchesEdition(
+        'workbuddy-ai',
+        { domain: 'evil.example.com' },
+        'www.workbuddy.ai',
+      ),
+    (e) => e.code === 'realm-undetermined',
+    'claims 臂优先判否时不得被 fallback 臂洗白',
+  )
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

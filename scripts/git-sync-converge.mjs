@@ -729,6 +729,11 @@ export function readUnionExitCode(text) {
  * 缺值**不代猜**(`--take-theirs-doc` 后面紧跟另一个旗号或没有 token):本器不替人编一个
  * 默认路径 —— 编了就是把"人声明了"和"人声明错了"变成同形。留空让 union-converge 的
  * "值没给"用法错出口来判,那才是唯一有资格说这句话的地方。
+ *
+ * 2026-11-11 补两枚:`--fold-keep`(折叠层拒绝裁定的组由谁当选 keeper)与
+ * `--declare-side-loss`(人已判过的路径上逐行声明有意少带)。两者都是 union-converge
+ * 2026-10-20/10-25 之后新增的声明出口,本表一直没跟上 ⇒ 台账"同题两版并存"这一格
+ * 在收敛链上只能判红、人工裁定结果无处回灌(与本文件头注 §0.8 同一条病)。
  */
 export const DECLARATION_FLAGS = Object.freeze([
   '--take-theirs-doc',
@@ -737,6 +742,8 @@ export const DECLARATION_FLAGS = Object.freeze([
   '--resolve',
   '--union-capped',
   '--supersede',
+  '--fold-keep',
+  '--declare-side-loss',
 ])
 
 /**

@@ -57,7 +57,8 @@
 //  它存在**:合规来源②的值永远按被审面解析 —— 治理落盘后,prompt-templates/workbench-welcome 的
 //  引用自动转合规;落盘前它们按存量走棘轮。门内不写死任何档名副本。
 //
-// 接线:guardian-runner.mjs 主 checks 数组,id '314'(现读最大占用号 313),mode blocking,
+// 接线:guardian-runner.mjs 主 checks 数组,id '315'(2026-11-11 撞号让位:与 check-readme-recent-containment
+// 同抢 314,按在册口径「后来者改号」本门让到 315),mode blocking,
 //  skipEnv HUSKY_SKIP_BUTTON_BORDER_COLOR,stagedTriggers ['apps/','packages/']。
 //  ⚠️ 门 150 头注记过同型事故:注册必须进**主 checks 数组**(runner 迭代入口是
 //  `pushGate ? pushGateChecks : checks`,被并进 pushGateChecks 等于没装)—— 镜像 T1 钉这一条。
