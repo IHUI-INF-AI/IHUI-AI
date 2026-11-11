@@ -118,7 +118,6 @@ export const RN_ROUTE_MAP: Record<string, string> = {
   FeedbackDetail: '/pkg-mirror/feedback-detail/index',
   FeedbackHistory: '/pkg-mirror/feedback-history/index',
   Follow: '/pkg-user/following/index',
-  Groups: '/pkg-user/groups/index',
   Help: '/pkg-about/about/help',
   History: '/pkg-mirror/history/index',
   Home: '/pkg-mirror2/home/index',

@@ -5,50 +5,29 @@
 -->
 
 # AGENTS.md 体积归档 2026-10-23b(逐字移出原文,删副本不删证据)
-
 > 来源 = AGENTS.md @c45c9c0bb86286308d11ea27e0803484933b7c9f(移走时 HEAD 面 120,807 字节,超守门 207 预算 96,000 ⇒ 超出 24,807)。
 > 立因:合并 50897ac9b4 的活文档行 union 把 -23 批已移出的重复登记副本带回,并把 §1/§4/§5/§12/§15/§22
 > 各规则本体的收敛期漂移旧版整块带回尾部。规则条款全部留在 AGENTS.md 编号节本体,本件只收逐字移出的副本与叙述原文。
 > 逐字保留,供守门 166 的归档豁免逐行比对(不带任何前缀)。
-
 ## 速查区「认领即租约」旧口径副本(含 2026-10-22 三口径漂移取证叙述)
-
 - **认领即租约**:开始任务在 `- [ ]` 后追加 `（进行中@YYYY-MM-DD/持有者短名）`,三要素齐备才算认领(裸 `（进行中）` 自 2026-10-22 定档起**新增即拦** = CL4,HEAD 已欠着的只报数;年龄 >72h 判红 = CL1;守门 109 四档同用 HEAD 存量棘轮,只拦本次带进来的);完成翻勾并摘牌;**提交链上的门绝不代摘任何人的认领**,而超龄牌由兜底器物 `scripts/strip-stale-claim-marks.mjs` 代摘(器物自带派发层 `sweepStaleClaimMarks`,2026-10-22 补建;判据 import 守门 109 的 `claimMarkOf`+`resolveTtlHours`,本层零复算;只摘「完整租约 ∧ 超龄」——正在干活的席位会续租,天然落在射程外;落地走 `object-space-land` 并把旧形态逐行写进 `removed` ⇒ 活文档行 union 不得再从对侧取回这一型;裸标记由器物**默认代摘**(依据不是口头状态,而是同批的 CL4:新增已在提交链被拦住,而器物只读 HEAD 面 ⇒ 别人刚写下还没提交的牌进不了射程),机主原话写进留痕条目的 `ruling` 字段(`IHUI_CLAIM_STRIP_LEGACY_RULING="<原话>"`),行内只留 `#seq` 指针(实测注记最长 52 字),原牌日期/持有者/超龄量/摘除前后整行/基线与落地枚 sha 逐条落仓外留痕 `.ihui-agent/state/stale-claim-strip.jsonl`(90 天窗口老化,被裁条数必报,取不到判未判定)—— 注记本身会被活文档归并洗掉(实测一轮 64 枚只剩 6 枚),所以可追责的真相源是留痕 + 提交信息,不是台账行)。派单前先扫进行中项:`node scripts/check-task-claims.mjs`。**挂牌判据单源 = `scripts/lib/plan-task-index.mjs` 的 `claimMarkOf`**(2026-10-22 收三口径漂移:① 复选框后可带空白、② 带 `@日期/持有者` 的完整租约形写在行尾也算、③ 反引号码段内的裸标记属叙述不算;两把尺子曾各自读出 31 与 59,差值同时是"真牌隐身⇒两席领同一张票"和"叙述锁死真票⇒派单面虚低"两个方向的失真)。
-
 ## 速查区「完成即删要有器物」旧副本(--apply 每 30 分钟派发,已失效)
-
 - **完成即删要有器物(2026-10-20 立,2026-10-21 补 H4)**:① 门 229(`check-plan-closed-stock.mjs`,blocking,stagedTriggers=PROJECT_PLAN.md):S1 拦「跨枚滞留」= 被审面某已勾登记行的**复合主键在父提交面也是已勾** ⇒ 红;刚翻勾那一枚不拦(守门 71 头注 (c) 要的 closed 配平凭据);S2 全量档只报数。② 兜底清扫器 `strip-stale-closed-rows.mjs`(判据 import 门 229)走 `object-space-land` 摘滞留行并自带推送腿;H1 未勾行逐字节同序 / H2 行数差==清扫数 / H3 摘后滞留集==本轮跳过集(基线 HEAD^)/ H4 摘前先借门 71 的 historyMarkers+missingFrom 问"摘了会不会被按未勾还原",仍保护的一律跳过并点名;结论 `SWEEP-RESULT state=clean|stripped|all-held|refused|undetermined`,all-held 落 exit 3;`--apply` 由 guardian 每 30 分钟派发,单批 ≤400 条;应急 `HUSKY_SKIP_PLAN_CLOSED_STOCK=1` + `..._REASON`。
-
 ## 速查区「worktree/索引自愈」旧副本(无删除意图账)
-
 - **worktree/索引自愈**(`heal-worktree-tracked.mjs`,挂 guardian tick):①恢复被外部删除的跟踪文件(索引==HEAD ∧ HEAD 存在);②对齐幻影漂移(索引==HEAD ∧ 工作区==某祖先版本);③刷新落后索引(逐路径 update-index,绝不全局 reset);**MERGE_HEAD 在 ⇒ 各写索引层整轮让路**。
-
 ## 速查区「认领即租约」10-23 合并副本
-
 - **认领即租约**:开始任务在 `- [ ]` 后追加 `（进行中@YYYY-MM-DD/持有者短名）`,三要素齐备才算认领(裸 `（进行中）` 自 2026-10-22 定档起**新增即拦** = CL4,HEAD 已欠着的只报数;年龄 >72h 判红 = CL1;守门 109 四档同用 HEAD 存量棘轮,只拦本次带进来的);完成翻勾并摘牌。**提交链上的门绝不代摘任何人的认领**,超龄牌由兜底器物 `scripts/strip-stale-claim-marks.mjs` 代摘(器物自带派发层 `sweepStaleClaimMarks`,guardian 每 5 分钟派发;判据 import 守门 109 的 `claimMarkOf`+`resolveTtlHours`,本层零复算;只摘「完整租约 ∧ 超龄」——正在干活的席位会续租,天然落在射程外;裸标记由器物**默认代摘**,依据是同批的 CL4 已在提交链拦住新增、而器物只读 HEAD 面 ⇒ 别人刚写下还没提交的牌进不了射程)。落地走 `object-space-land` 并把旧形态逐行写进 `removed` ⇒ 活文档行 union 不得再从对侧取回这一型;机主原话写进留痕条目的 `ruling` 字段(`IHUI_CLAIM_STRIP_LEGACY_RULING="<原话>"`),行内只留 `#seq` 指针;原牌日期/持有者/超龄量/摘除前后整行/基线与落地枚 sha 逐条落仓外留痕 `.ihui-agent/state/stale-claim-strip.jsonl`(90 天窗口老化,被裁条数必报,取不到判未判定)——注记本身会被活文档归并洗掉,所以可追责的真相源是留痕 + 提交信息,不是台账行。**护栏只认"本批旧形态行被别席就地改写"这一件事**(2026-10-23 收窄):工作树副本常年不净不构成整批让路——取材面是 HEAD、落地有行级复活守卫、滞后回潮由 `scrub-declared-removals` 与 `union-converge` 的 `declaredDropCaps` 两条通道兜;让路只让被改写那几枚、其余照摘,让路行走 `planSweep` 的 `skipLines` 移入 held 并在结论行补 `deferred=` 报数;工作树副本读不到 ⇒ 仍让路(未判定不猜)。接线锁 `scripts/tests/strip-stale-claim-marks.test.mjs`(护栏③ 三条 + 原 `planFaceClean` 已退役的形状锁)。派单前先扫进行中项:`node scripts/check-task-claims.mjs`。**挂牌判据单源 = `scripts/lib/plan-task-index.mjs` 的 `claimMarkOf`**(① 复选框后可带空白、② 带 `@日期/持有者` 的完整租约形写在行尾也算、③ 反引号码段内的裸标记属叙述不算)。
-
 ## 速查区「完成即删要有器物(10-23 补齐留痕与节拍)」合并副本
-
 - **完成即删要有器物(2026-10-20 立,10-21 补 H4,10-23 补齐留痕与节拍)**:① 门 229(`check-plan-closed-stock.mjs`,blocking,stagedTriggers=PROJECT_PLAN.md):S1 拦「跨枚滞留」= 被审面某已勾登记行的**复合主键在父提交面也是已勾** ⇒ 红;刚翻勾那一枚不拦(守门 71 头注 (c) 要的 closed 配平凭据);S2 全量档只报数。② 兜底清扫器 `strip-stale-closed-rows.mjs`(判据 import 门 229)走 `object-space-land` 摘滞留行并自带推送腿;H1 未勾行逐字节同序 / H2 行数差==清扫数 / H3 摘后滞留集==本轮跳过集(基线 HEAD^)/ H4 摘前先借门 71 的 historyMarkers+missingFrom 问"摘了会不会被按未勾还原",仍保护的一律跳过并点名;结论 `SWEEP-RESULT state=clean|stripped|all-held|refused|undetermined`,all-held 落 exit 3;`--apply` 由 guardian 派发层 `sweepStaleClosedRows`(`intervalMs`,现读 5 分钟)派发,单批 ≤400 条;应急 `HUSKY_SKIP_PLAN_CLOSED_STOCK=1` + `..._REASON`。③ **摘了必须留痕**,否则两条回潮防线同时瞎、存量永远归不了零:落地后逐条往 `.ihui-agent/state/plan-row-drop.jsonl` 写 `rowBefore`(字段 at/seat/file/kind=stale-closed-sweep/commit/baseline),与认领牌的 `stale-claim-strip.jsonl` 对等;**凭据是"HEAD 有没有被推进",不是落地器退出码**;留痕必须排在落地成功之后(先写后落会把"面上还在"说成"已删" ⇒ 复洁器误剔 ⇒ 丢别人的行)。④ **union 认台账**:`union-converge` 的 `liveDocExpectedCounts` 增 `declaredDropCaps(oursText)` 维(判据 import `scrub-declared-removals` 的 `declaredRows`,§0.6 单一真相源)——台账命中 ∧ 本侧 0 份 ∧ 是登记行 ⇒ `want.delete`;本侧还留着就绝不扣;台账取不到 ⇒ 一条不扣(失效方向恒为多留一份);产出面 `unionLines` 与自证面 `verifyUnion` 共用这一张表,与 `yieldedIdCaps`(让号形态)合起来才堵满「本侧处置权已行使」这一整格。接线锁 `scripts/tests/closed-row-drop-ledger.test.mjs`。
-
 ## 速查区「计划/台账」索引重复登记副本(与现行行同名集一致)
-
 - 计划/台账: `check-plan-dup-pointer-ratchet.mjs` `check-plan-sha-resolvable.mjs` `check-plan-sha-form.mjs` `check-baseline-freshness.mjs` `check-agents-doc-size.mjs` `check-plan-id-pool.mjs` `check-plan-closed-stock.mjs` `check-plan-claims-vs-head.mjs` `check-live-doc-archive-reinflation.mjs`(门体已造、尚未纳入 runner 注册表) `check-task-claims.mjs` `check-sweeper-liveness.mjs`(2026-10-23 立:清扫背离巡检只读探针——派发在动 ∧ 留痕静默 >2h ∧ 可清存量 >0 ⇒ 器物空转;不走提交链,派发层 = git-guardian 的 `auditSweeperLiveness`) `check-plan-fields.mjs`
-
 ## 速查区「常驻工具」清单重复登记副本(与现行行同名集一致)
-
 - 常驻工具(非守门,勿因"不在 runner"当没装车): `watermark.mjs` `guardian-runner.mjs` `safe-commit.mjs` `git-guardian.mjs` `git-refs-heal.mjs` `git-backup-refresh.mjs` `heal-worktree-tracked.mjs` `git-sync-converge.mjs` `git-push-converge.mjs` `git-push-guard.mjs` `git-lock.mjs` `deploy-lock.mjs` `union-converge.mjs` `merge-live-doc.mjs` `live-doc-edit.mjs` `object-space-land.mjs` `gate-registry-insert.mjs` `plan-tasks.mjs` `plan-tasks-merge.mjs` `plan-pointer-purge.mjs` `plan-task-index.mjs` `plan-line-age.mjs` `bypass-git.mjs` `face-reader.mjs` `code-mask.mjs` `scratch-dir.mjs` `key-dir.mjs` `secret-path.mjs` `seal-c-root-stray.mjs` `scrub-temp-fixtures.mjs` `c-disk-breakdown.mjs` `plan-union-merge.mjs` `run-evidence.mjs` `visible-window-probe.mjs` `install-console-window-hook.mjs` `audit-pane-store-addressing.mjs` `commit-gate-attribution.mjs` `plan-bypass-ledger-report.mjs` `alert-volume-report.mjs` `provenance-ledger.mjs` `module-context.mjs` `notify-deploy-failure.ts` `desktop-build.mjs` `msvc-env.mjs` `desktop-unsigned-config.mjs` `plan-fields.mjs` `plan-field-line.mjs` `plan-row-conservation.mjs` `plan-fields-extract.mjs` `desktop-build-saas.mjs` `desktop-dev-saas.mjs` `gen-line-icons.mjs` `post-commit-hook.js` `release-desktop-local.mjs` `start-dev.ps1` `hook-run-hidden.vbs` `ensure-silent-tasks.mjs`
-
 ## 文件尾两次压缩历史叙述与 git 历史取回指引
-
 > **本文件为 2026-10-14 / 2026-10-21 两次压缩版**:规则条款全部保留;被压掉的历史原文**不在工作树** —— 2026-10-16 `7a77c44d86c` 已清除 `.ihui-agent/archive/` 全部存料(本节原引的三份归档,只有第一份曾存在过,且不在原登记的那个 sha 里)。要查时从 git 历史取:`git show 3017301fd0b:.ihui-agent/archive/AGENTS_full-pre-compact-2026-10-14.md`(实测 1,262,819 字节;原登记 `c7834a8f0388` / 1,261,607 字节均不成立)、二次压缩前原文 `git show 6efeeadc20c^:AGENTS.md`。本文与历史原文冲突时以本文为准;本文未写的历史案例按上述历史面查 —— 不再有独立的 archive 副本可翻。
-
 ## 「重复登记副本」指针注记批历史叙述
-
 <!-- 「重复登记副本」指针注记的两版历史原文(2026-10-13 立版 / 2026-10-13/14 收口版)已逐字移入 `.ihui-agent/archive/AGENTS_trim-2026-10-20.md`;2026-10-21 批又逐字移出四段(207 旧档原文 / 常驻工具旧版清单 / 门 193 补登重复副本 / 本条长段副本)到 `.ihui-agent/archive/AGENTS_trim-2026-10-21.md`;2026-10-21 第二批又逐字移出 51 行尾部重复登记副本(§22/§26 旧版、速查区门 89/常驻工具/索引/API 行的重复副本、门 193/出口台账/deprecated-source/Rust-MSVC/chcp/--dev 的尾部互重与已取代旧版;R13 条款、`check-egress-ip-drift`、`desktop-build`/`msvc-env`/`desktop-unsigned-config` 三名与 G-921 括注已就地并入保留行)到同档;规则条款以本节压缩版为准。 -->
-
 ## 2026-10-23 收敛期带回块(18 行重复登记副本,各编号节本体的漂移旧版)
-
 - **认领即租约**:开始任务在 `- [ ]` 后追加 `（进行中@YYYY-MM-DD/持有者短名）`,三要素齐备才算认领(裸 `（进行中）` 自 2026-10-22 定档起新增即拦 = CL4,HEAD 已欠着的只报数;年龄 >72h 判红 = CL1;守门 109 四档同用 HEAD 存量棘轮,只拦本次带进来的);完成翻勾并摘牌。**提交链上的门绝不代摘任何人的认领**,超龄牌由兜底器物 `scripts/strip-stale-claim-marks.mjs` 代摘(派发层 `sweepStaleClaimMarks` 每 5 分钟;判据 import 守门 109 的 `claimMarkOf`+`resolveTtlHours`,本层零复算;只摘「完整租约 ∧ 超龄」——在飞席位会续租,天然落在射程外;裸标记由器物默认代摘,依据是同批 CL4 已在提交链拦住新增、而器物只读 HEAD 面)。落地走 `object-space-land` 并把旧形态逐行写进 `LAND_CLASH_SCOPE.removed` ⇒ 活文档行 union 不得再从对侧取回这一型;机主原话写进留痕条目 `ruling`(`IHUI_CLAIM_STRIP_LEGACY_RULING="<原话>"`),行内只留 `#seq` 指针;原牌/持有者/超龄量/摘除前后整行/基线与落地 sha 逐条落仓外留痕 `.ihui-agent/state/stale-claim-strip.jsonl`(90 天窗口老化,被裁条数必报,取不到判未判定)——可追责的真相源是留痕 + 提交信息,不是台账行。**护栏只认"本批旧形态行被别席就地改写"**:工作树副本常年不净不构成整批让路(取材面是 HEAD、落地有行级复活守卫、滞后回潮由 `scrub-declared-removals` 与 `union-converge` 的 `declaredDropCaps` 兜);让路只让被改写那几枚,行走 `planSweep` 的 `skipLines` 移入 held 并在结论行补 `deferred=`;副本读不到 ⇒ 仍让路。接线锁 `scripts/tests/strip-stale-claim-marks.test.mjs`(含原 `planFaceClean` 已退役的形状锁)。派单前先扫进行中项:`node scripts/check-task-claims.mjs`。**挂牌判据单源 = `scripts/lib/plan-task-index.mjs` 的 `claimMarkOf`**(① 复选框后可带空白、② 带 `@日期/持有者` 的完整租约形写在行尾也算、③ 反引号码段内的裸标记属叙述不算)。
 - **未带指针而整行逐字节相同的未勾登记行,唯一合法摘除通道 = `node scripts/plan-tasks-merge.mjs --fold-identical-open-rows [--commit]`**:同文两份在派单清单里是两行 ⇒ 两个会话各领同一张票;该档把多重集折到 1,**不加任何注记**(机主 2026-10-13 明令),断言为「claimable 一枚不动 ∧ F4+F4b 副本计数恰好减去删除份数 ∧ 注记枚数不增」,任一不过即整批不落。同题不同号而正文已漂开的副本**不归它**(机器折半即有损,交人工),带指针的那一族仍走 `--dedupe-open-rows`;两面旗同给当场 exit 2。
 - **新登记必须有交代**:一条 `- [ ]` 要么带租约、要么写明在等什么、要么带新鲜日期;三样皆无 = 无交代,提交链差值棘轮只拦本次带进来的(守门 130 F7/F8)。**结构化侧车记录是第四种交代**:侧车 = `scripts/data/plan-fields.jsonl`(键 = 编号 + 标题前缀逐字),写它只有 `node scripts/plan-fields-extract.mjs --apply` 一条出口(只搬说辞、一个台账行都不改;抽取前后每行归属桶零变化才放行);行内 `〔归:…｜等:…〕` 标头是**投影**、人不手写,渲染与对账唯一实现 = `scripts/lib/plan-field-line.mjs`,机读判据 = `scripts/check-plan-fields.mjs`(blocking,只挂差值维:新增未勾行缺侧车 / 标头≠投影才红,存量只报数,§12e)。整行改写必须过的三维守恒(勾选态 ∧ 认领租约 ∧ 归属桶)实现位置 = `scripts/lib/plan-row-conservation.mjs`,调用方 import 它,不接受口头保证。

@@ -160,7 +160,7 @@ export function IntegrationsPanel() {
             aria-pressed={cfg.enabled}
             // @allow-rounded-full 通道开关胶囊(aria-pressed toggle,豁免 2 Switch 语义)
             className={cn(
-              'ml-auto rounded-sm border px-2 py-0.5 transition-colors',
+              'ml-auto rounded-sm border border-input px-2 py-0.5 transition-colors',
               cfg.enabled
                 ? 'bg-accent font-medium text-accent-foreground'
                 : 'text-muted-foreground hover:bg-accent/50',
@@ -182,7 +182,7 @@ export function IntegrationsPanel() {
                 aria-pressed={on}
                 onClick={() => toggleChannelEvent(ch, ev as AgentHookEvent)}
                 className={cn(
-                  'rounded-sm border px-1.5 py-0.5 text-[10px] transition-colors',
+                  'rounded-sm border border-input px-1.5 py-0.5 text-[10px] transition-colors',
                   on
                     ? 'bg-accent font-medium text-accent-foreground'
                     : 'text-muted-foreground hover:bg-accent/50',
@@ -216,7 +216,7 @@ export function IntegrationsPanel() {
                 type="button"
                 data-testid="integrations-github-copy-url"
                 onClick={() => void handleGithubCopy()}
-                className="flex items-center justify-center gap-1 rounded-sm border px-2 py-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                className="flex items-center justify-center gap-1 rounded-sm border border-input px-2 py-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
               >
                 <Copy className="h-3 w-3" />
                 {t('githubCopyUrl')}
@@ -226,7 +226,7 @@ export function IntegrationsPanel() {
                 data-testid="integrations-github-test"
                 onClick={() => void handleGithubTest()}
                 disabled={testing === 'github'}
-                className="rounded-sm border px-2 py-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-sm border border-input px-2 py-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {t('githubTest')}
               </button>
@@ -249,7 +249,7 @@ export function IntegrationsPanel() {
               data-testid="integrations-slack-test"
               onClick={() => void handleSlackTest()}
               disabled={testing === 'slack'}
-              className="w-full rounded-sm border px-2 py-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+              className="w-full rounded-sm border border-input px-2 py-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
             >
               {t('slackTest')}
             </button>
@@ -265,7 +265,7 @@ export function IntegrationsPanel() {
               type="button"
               data-testid="integrations-push-test"
               onClick={() => void handlePushTest()}
-              className="w-full rounded-sm border px-2 py-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              className="w-full rounded-sm border border-input px-2 py-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             >
               {permission === 'granted' ? t('pushTest') : t('pushRequest')}
             </button>

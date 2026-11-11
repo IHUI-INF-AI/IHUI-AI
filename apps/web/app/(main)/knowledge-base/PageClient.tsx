@@ -219,7 +219,7 @@ export default function KnowledgeBasePageClient() {
                 type="button"
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page <= 1}
-                className="inline-flex items-center rounded-sm border px-2.5 py-1 text-body transition-colors hover:bg-accent disabled:opacity-40"
+                className="inline-flex items-center rounded-sm border border-input px-2.5 py-1 text-body transition-colors hover:bg-accent disabled:opacity-40"
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
@@ -230,7 +230,7 @@ export default function KnowledgeBasePageClient() {
                 type="button"
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page >= totalPages}
-                className="inline-flex items-center rounded-sm border px-2.5 py-1 text-body transition-colors hover:bg-accent disabled:opacity-40"
+                className="inline-flex items-center rounded-sm border border-input px-2.5 py-1 text-body transition-colors hover:bg-accent disabled:opacity-40"
               >
                 <ChevronRight className="h-4 w-4" />
               </button>

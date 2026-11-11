@@ -58,7 +58,7 @@ afterEach(() => {
 
 function writeSessionFixture(): string {
   const session = createSession(path.join(scratch!, 'ws'), 'test-model');
-  session.history = [{ role: 'user', content: 'hello before crash' }];
+  session.history = [{ id: 'msg-1', role: 'user', content: 'hello before crash' }];
   saveSession(session);
   return session.id;
 }

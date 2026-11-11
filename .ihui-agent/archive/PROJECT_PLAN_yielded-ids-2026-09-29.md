@@ -5,84 +5,34 @@
 -->
 
 # 让号处置摘掉的登记行逐字留档(2026-09-29)
-
 > 这不是新记录,而是**处置凭据**:台账面 `PROJECT_PLAN.md` 里这些行曾因为两台机同时取号
 > 而撞号(同一编号两个标题)。让号 = 台账里那一行的行首编号必须消失,而守门 71 的自愈层
 > 把"编号标记整行消失"判成被旧基线抹掉并自动回捞 —— 于是没有本文件的留档时,让号会被反复撤销
 > (实测 2026-09-29 一夜三次)。本文件的存在就是 71 的那条放行出口:
 > 「原文能在 `.ihui-agent/archive/PROJECT_PLAN_*.md` 找到 ⇒ 不算丢」。
 > 内容一律 `git show <被审面>:PROJECT_PLAN.md` 逐字取,不做任何改写。
-
 ---
-
 - [x] ✅(2026-09-29) G-815404 **生产 API 崩溃循环 2 小时 39 分的根因不是"服务侧没实现",而是"实现被写进了错名文件"** —— 现象:IHUI-API 反复启动即死而 nssm 一直显示 Running(那只是拉活循环),公网 `/api/health` 500、`api.aizhs.top` 502、本地 8802 无监听。现读(Loki `{job="api"}`):同一条模块解析错 777 次,首 22:17:49 / 末 00:57:11(本机 UTC 偏移 0h),无 >5 分钟中断 ⇒ 约每 12 秒被 nssm 拉活一次;监控侧最后一条同身份抑制行落在 01:01:58,当前 API 进程启动于 01:18:03;stderr 原文只说 `v1-public.ts import { acquireUserConcurrencyForResponse } from '../services/user-concurrency-service.js'` "does not provide an export named …"。真因:G-727 那 13KB 服务侧实现躺在 `apps/api/src/services/user-concurrency-service.js` 且**已被 git 跟踪**,而正文是 TypeScript(泛型 `new Map<string, number>`)。本仓 ESM 一律用 `...js` 说明符 import `.ts`,平时由加载器把 `.js` 映射到 `.ts`;一旦真存在同名 `.js`,它优先命中 ⇒ `.ts` 被整个架空,而这份 `.js` 按 JS 解析必然语法错 —— 同一个文件名下同时发生"影子"与"语法错"两件事,而报错信息只说"没有那个导出",把人往"作者忘了写服务侧"的方向带(我第一遍就被带偏,重写了一份 `.ts`,已作废未入库)。落地枚 `6bf657df86`:内容平移 + 删错名文件,业务逻辑一行未改,新 `.ts` 与 `git show HEAD:<那个 .js>` 逐字节同形(删除不丢任何内容;旧 `.ts` 的导出集是新面的真子集,亦无丢失)。覆盖面现读:`.ihui-agent/tmp/g727/scan-shadow.cjs` 扫 `apps/ + packages/ + sdks/` 共 8371 个源文件 ⇒ 按 `.js` 说明符解析到**被跟踪 .js** 的站点 0 处、被跟踪 `.js` 与同名 `.ts` 并存在库 0 对,即这一型不是系统性问题、且已全清。**这一型为什么能活着进 HEAD**:契约测试 `apps/api/tests/user-concurrency-leak.test.ts`(270 行,写的全是 `.ts` 侧语义)一直是红的,而提交链 150+ 道门**没有一道跑测试**(守门 114 只判"能不能收集",不判"过不过"),所以崩到线上无人知。取证:该测试 13/13、连同 `v1-latency-persistence` 与 ai-feed 去重共 3 文件 41 例全过;`pnpm --filter @ihui/api typecheck` RC=0;服务恢复后 8802→200、`https://api.aizhs.top/api/health`→200、`https://aizhs.top/api/health`→200、`https://aizhs.top/`→200。落地过程本身留下一格值得记:共享索引被别的会话的 safe-commit Step1 清空 + 工作区自愈层每 2 分钟把 HEAD 里还跟踪着的 `.js` 还原回磁盘,两者合起来让"只删不提交"必然失败(实测 15 次没抢到窗口,如实报未判定),正解是把"删 .js"与"落 .ts"放进**同一枚提交**(`.ihui-agent/tmp/land-g727.sh`;HEAD 里没有它以后,自愈层结构上不再还原)。
 - [x] ✅(2026-09-29) G-815405 **上一条能持续 2 小时 39 分无人知道,是我自己上一轮引入的缺陷:按"预期现象"抑制告警却没有终态** —— 09-28 我在 `deploy/win/ihui-monitor.ps1` 的 `Send-Alert` 加"部署重启中-预期现象 ⇒ 只记日志不寄信"以治那 30+ 封换流窗口噪声邮件,当时只写了"这一轮不寄",没写"最多不寄多久"。而诊断的两个触发条件(`.deploy.lock` 在 / 最近 15 分钟内有构建)在"部署环被挡住、每 ~90 秒重跑一轮"这种状态下会**一直成立**("最近构建"每轮都被刷新),于是抑制变成永久豁免 —— 永久豁免的症状就是安静,与去重那侧"读不懂就静默当已寄过"是同一条禁令。修法落在共享模块 `deploy/win/alert-dedup.ps1` 的 `Test-AlertSuppressionGrace`(按身份计时,与按身份去重共用一份状态档案但键带 `grace:` 前缀,两把账互不顶),四态各自成立:`grace-window`(窗内抑制,理由必须带已累计分钟)/ `grace-reopened`(同身份已断满一个窗口 ⇒ 视为新一轮重新起锚 —— 不这样修就造出新假阳:上周一次部署留下的旧锚会让今天正常的 3 分钟换流在第一轮就直接寄信)/ `escalated`(连续超 `IHUI_MONITOR_EXPECTED_WINDOW_GRACE_MIN`,默认 20 分钟 = 4 轮巡检 ⇒ 落回正常发信路径并在正文点名"为什么这轮不再抑制")/ `undetermined`(档案读不懂或时刻解析不出 ⇒ **不抑制**,宁可多喊一次)。顺带修一处一直存在的写法错误:日志行的 `-replace '`n'` 用**单引号**,PowerShell 下那是字面的反引号+n 而不是换行符,所以"一条告警一行日志"只在诊断单行时成立 —— 我新增的超期说明带换行,第一次让这一格现形。取证:镜像 `scripts/tests/deploy-alert-dedup.test.mjs` 13/13(T9-T13 逐分支 + T14 反向源码锁:监控侧不得再回到无条件 return、必须真调用到期出口、宽限分钟必须可由 env 覆写);两条变异各自实测翻红(把到期判据短路 ⇒ T10 红"到期仍在抑制";把监控分支改回无条件 return ⇒ T14 红),还原后两个 `.ps1` 的 sha1 与变异前逐字相同;端到端跑**入库真身**(dot-source,状态与日志指到项目内 scratch、`-DryRun` 不真发信)—— 第 1/2 轮抑制并打出累计分钟,把锚点改到 25 分钟后第 3 轮落回发信路径,一条 `[ALERT]` 行内同时含"预期现象"与"[预期窗口已超期]";三个 `.ps1` 过 `[Parser]::ParseFile` 零语法错;IHUI-MONITOR 已重启并在 01:34:49 跑完一轮(改文件不重启 = 线上仍跑旧逻辑)。落地枚 `844bbf99d1`(走完整 pre-commit 链,未用 `--no-verify`)。
 - [ ] G-815406 **把"错名 `.js` 影子架空 `.ts` 说明符映射"这一型从散文规矩收成尺子**(归属:守门 98 `scripts/check-dangling-local-imports.mjs` 持有人;本会话按用户决定不顺手改别人的门)—— 上面第二笔那起生产事故的直接载体就是这个影子文件,它进了 HEAD、过了 150+ 道门、崩到线上才被看见。现读覆盖面为 **0**(8371 源文件里 0 处说明符解析到被跟踪 `.js`、0 对 `.js`/`.ts` 同名并存),所以**扩这一维不新增任何恒红面**,前置已经满足;倾向的做法是并进守门 98 的相对说明符解析维(它已经在解析 `./x.js`→`x.ts`),而不是新立一门(新门要动 `guardian-runner`/README/AGENTS 三张共享注册表,而这三张正是并发覆盖事故点)。判据要同时认两型才算有牙:① 同名 `.js` 与 `.ts` 并存 ⇒ 说明符按加载器优先级命中 `.js`;② 该 `.js` 正文含 TS 语法(泛型/类型标注/`interface`)⇒ 命中即必炸。反假绿两条:扫到 0 个候选判死不记绿;阳性对照拿枚带影子的历史 blob 喂同一判据(参照上一条里 `6bf657df86^` 的那份现成材料)。取证出口:`--self-test` 成对正反例 + §22c 镜像;紧急跳过变量随条目声明。
 - [ ] G-815407 **生产服务的实际入口(3 个 `deploy/prod-bundle/svc/run-*.ps1`)不在版本库里,而唯一看得见它的判据只报数不判红** —— 现读(2026-09-29,`nssm get IHUI-API AppParameters`):`IHUI-API` 跑的是 `D:\IHUI-AI\deploy\prod-bundle\svc\run-api.ps1`,该目录整目录被 `.gitignore` 忽略,`git ls-files deploy/prod-bundle` 零命中 ⇒ 这 207 行(含 PostgreSQL readiness 前置轮询、`SWAGGER_API_KEY` 读取、PATH 注入、上界推导)**没有任何提交链判据、没有 review、没有历史**。这正是 AGENTS §5e 写过的那一型("落进 `deploy/prod-bundle/` 的运维脚本必须同时落一份入库源,否则等于写进盲区"),而 `scripts/check-prod-bundle-shadow.mjs` 的 E1 对未登记项**刻意只报数不判红**(该目录只存在于部署机,当场判红就是恒红门,§12e),所以这一格的存在形态是"账面全绿"。存量清单(现读):`run-api.ps1` 207 行 / `run-web.ps1` 45 行 / `run-ai.ps1` 15 行,合计 267 行运行态真身。收口办法与 `monitor.ps1` 同法(入库源 + 三行转发壳,路径不变 ⇒ **不需要动 nssm、不需要重启服务**):`deploy/win/` 落真身、`prod-bundle/svc/run-*.ps1` 换成转发壳,然后把三对加进 `check-prod-bundle-shadow.mjs` 的 `PAIRS`,由 S0–S3 逐字节等值接管。三条前置,缺一条就别动:① `run-api.ps1` 内有 **1 处 `$PSScriptRoot`**,搬家会改它的解析基准(必须先定位那一处并改成显式仓库根);② 转发壳必须 `& $source @args` 且透传 `$LASTEXITCODE`(monitor.ps1 那处的既有教训);③ 收编后必须实测**下一次服务重启**能正常起来 —— 而此刻部署环因远端分叉已冻结 120+ 轮(`BLOCKED-DIVERGED`),服务不会被自动重启,所以这一票真正安全的落地时机是"分叉裁决完、部署环恢复切流之后",不是现在。**归属:分叉裁决完成后接下一班运维**;本票只登记,不在冻结窗口里动生产入口。
-
----
-
 ## 让号留痕(补记 @2026-09-29,由 scripts/plan-collide-renumber.mjs 追加)
-
 > 下列**改前整行原文**逐字取自被审面的 PROJECT_PLAN.md,不做任何改写。
 > 它们的存在就是门 71 的那条放行出口:原文能在 .ihui-agent/archive/PROJECT_PLAN_*.md 里找到 ⇒ 不算丢。
 > 落点归档件:.ihui-agent/archive/PROJECT_PLAN_yielded-ids-2026-09-29.md
-
 - 编号 G-937950 → G-957953(键位前沿 937953 + 跳距 20000,试 1 枚)
   - [x] ✅(2026-09-29) **G-937950 解掉"防丢 commit 门"红在干净 HEAD 这一格(它红着的每一分钟=这台机每次提交都被逼跳门),并交接三条量到的事实** —— ① **现象与处置**:全量守门审计现读 `check-commit-loss-guard`(提交链第 30a 项,blocking)在**干净 HEAD**上判红,理由是一条**不可达提交** `e67949dcfd`(09-29 07:31Z 那枚"登记 CI Ruff 只量不清决定")没有 tag 备份。按 §12f 那条优先级(与本次改动无关的恒红门 ⇒ 每次提交都被逼 `--no-verify` ⇒ 链上全部检查对每次提交作废),先处理它:给它打 `lost-commit/wip-e67949dcf` 并 `git pack-refs --all --prune` 固化(松散嵌套 tag 会被宿主清理层删掉,不 pack 等于下次再红,AGENTS §5b 同一条),复跑该门 **RC=0**。**内容有没有丢**:逐行验过 —— 该提交只动 `PROJECT_PLAN.md` 4 行,其中被当成"可能消失"的那一条(`为什么这次不落 52 条自动修复`)在**当次 HEAD 里逐字仍在**(是被一次改写搬了位置,不是丢失),所以本次只打 tag 保物证、**没有**做任何回补。② **量到一个设计缺口(交该门持有人,不由本票代裁)**:AGENTS §29 写着"绝大多数 lost-commit tag 来自 `check-commit-loss-guard.mjs` 自动 fsck 检测后批量打 tag",而**现读实现里没有任何创建 tag 的代码路径**(全文只有 `tag -l` 读取与一句"若需保留:git tag …"的建议文字)—— 即"自动备份"这半句在当前代码上不成立,后果是**每出现一枚悬空提交,提交链就红一次**,出路只剩"人补 tag"或"跳门"两种,而后者代价是全部检查作废。**判它是不是要修,依据是"这台机每天产生多少枚不可达提交"**,不是"看起来应该自动一点"。③ **main 的 CI 连红约 30.4 小时(427 轮连续失败,上一枚绿是 09-28 04:21Z),但当前失败项已经不由我修**:失败步骤是 `CI / lint-typecheck-test (push)` 作业里的"Provenance watermark check",点名两个新文件没注水印;而我在**当次 HEAD** 复跑 `node scripts/watermark.mjs verify` 读到 **11991/11991、残迹 0、载荷损坏 0、仅隐写 0、RC=0**,同两个文件的 HEAD blob 里横幅三行齐备 ⇒ **对侧已修**,**没有按旧账面去"修一个已经好了的东西"(这条纪律本身就是本仓记过多次的自伤型)**。另一条红的 `ai-service-schema-check` 不是必需检查,不挡 PR 通道。④ **日志回收:量到 168 份轮转副本 / 984.9 MB 可回收,判定不删,理由写在这里而不是"保守"**:该目录所在 D 盘当次实读**可用 437.76 GB(总 731.2 GB,已用 40%)⇒ 没有容量压力**;而这些轮转副本对多数服务是**唯一 surviving 的错误历史**(promtail 不采这些文件,删了就没有任何地方能再查那次报错),而且 `--apply` 需要越过大批量阀(40 份 / 512 MB),AGENTS 与本仓记忆都明令"不得为了把目录清小去调那两个参数"。**为腾出并不需要的空间销毁唯一证据,是净损失而不是清理** —— 这条判断留给下一个人,免得他看到"984.9 MB 可回收"就以为欠着活。取证:`node scripts/prune-rotated-nssm-logs.mjs`(缺省只读)与 `node scripts/c-disk-breakdown.mjs --root D:/`(卷口径,不用 df)当次现读,数字一律按当次重取。
-
----
-
-## 让号留痕(补记 @2026-09-29,由 scripts/plan-collide-renumber.mjs 追加)
-
-> 下列**改前整行原文**逐字取自被审面的 PROJECT_PLAN.md,不做任何改写。
-> 它们的存在就是门 71 的那条放行出口:原文能在 .ihui-agent/archive/PROJECT_PLAN_*.md 里找到 ⇒ 不算丢。
-> 落点归档件:.ihui-agent/archive/PROJECT_PLAN_yielded-ids-2026-09-29.md
-
 - 编号 G-937951 → G-977953(键位前沿 957953 + 跳距 20000,试 1 枚)
   - [ ] **G-937951 台账脏号的真实边界:232 行畸形号一行都不能机械修、112 组撞号两侧都已发布 —— 需要的是逐组裁决,交台账判据持有人(这一票等的就是这个裁决,不是环境条件,也不是别的会话)** —— 本轮把这件事量到底,结论是"不能批量做",数字与判据都现读可得,不必重新推导:① **畸形号 232 行**(族 G 223 / D 8 / O 1),但它们只收敛到 **32 个"修好后应该变成"的目标号**;把台账那一份规划器 `planMalformedStrip`(`scripts/lib/plan-task-index.mjs`,注意**它已经存在且就是判据自己的规划器,不要再写第二把尺子**)喂满 232 行,输出 **approved 0 / refused 232**,拒因全部是同一条:**目标号已被另一行占用**。换个更宽的问法也一样:按"编号+标题"整对查,可自由落位的 **0 个**,会撞上同名副本(产 F4 孪生、不新增 F9)**161 行**,会撞上不同标题(直接加入/新增 F9 组)**71 行**。② **F9 撞号 112 组**(`node scripts/plan-tasks.mjs --gate`,注意**不带 `--json` 那一档才有退出码**,`--gate --json` 恒 0 —— 已被这一格骗过一次并登记在案),逐组判"哪一侧未发布"的结果是 **112/112 两侧都已发布**(本机 HEAD ⊆ 已推远端 tip,用 `merge-base --is-ancestor` 验,不是猜),即**没有任何一侧可以按"只改未发布那一侧"的纪律让号而不动到已发布的历史**;让号器 `scripts/plan-collide-renumber.mjs` 也要求合并时刻的 `--theirs` 才能安全作业,现在没有待合的撞号场景。③ **所以正确的下一步不是"清一次"**:那 71 行是**让号的输入清单**(等下一个真分叉时刻由让号器消费),那 161 行是 F4/F6 的**折叠副本**问题而不是编号问题;唯一的增量刹车是 `live-doc-edit.mjs` 的**生产者侧守卫**(拒绝落地新增畸形号,本轮它确实拒了我一次并点名成因)。**等谁:台账判据持有人**拍板"112 组已发布撞号要不要长期作为存量只报数(现状就是这样,落地闸按差值棘轮不拦它),还是要一组一组人工裁决标题归属";在此之前**批量改号 = 篡改已发布历史,禁止**。数字一律现读,不得引用本行派单。
-
----
-
 ## 让号留痕(补记 @2026-09-30,由 scripts/plan-collide-renumber.mjs 追加)
-
-> 下列**改前整行原文**逐字取自被审面的 PROJECT_PLAN.md,不做任何改写。
-> 它们的存在就是门 71 的那条放行出口:原文能在 .ihui-agent/archive/PROJECT_PLAN_*.md 里找到 ⇒ 不算丢。
-> 落点归档件:.ihui-agent/archive/PROJECT_PLAN_yielded-ids-2026-09-29.md
-
 - 编号 G-978068 → G-998069(键位前沿 978069 + 跳距 20000,试 1 枚)
   - [x] ✅(2026-09-30) G-978068 **门 118「清单与内容同面」的自犯缺陷已修 —— HEAD 面 `无法判定` 归零** —— 全量档的门清单此前取 `git ls-files`(**索引**)而内容取 `HEAD:<path>`,于是任何人一次 `git add` 一份新门脚本(尚未提交)就让本门在 HEAD 档必然得到 `取不到 ⇒ exit 2 无法判定`,即一台与提交者无关的恒未判定门(§12e;`exit 2` 在提交链里与判红同罪)。现清单与内容同面:全量档 `ls-tree -r --name-only -z HEAD`、`--staged` 仍 `diff --cached` ⊕ 索引 blob。"已 staged 未入库"的门脚本单列 `在飞未入库 N` 逐条报名(不判红、不参与退出码,也不读成"这一格不存在" —— 本次现场就是 `scripts/check-merge-deletion-resurrection.mjs`,归他人)。**取证**:自检 71→**75 例**通过(新增 F11–F15:清单命令形状两档各一条 + pending 三态三条),**变异对照** = 把 `listArgsFor('head')` 退回 `ls-files` ⇒ 自检 rc 0→1(现跑实测,证明新例有牙不是记账);真仓 HEAD 面 `exit 2 / 取不到 1` → **exit 0 / 取不到 0 / 在飞未入库 1**,`--staged` 面 rc 0(经取材层 7 / 其余四态 0),镜像 `node --test scripts/tests/check-gate-face-discipline.test.mjs` rc 0。**未做**:本门仍在 HEAD 档对"在飞"只报名而不判红 —— 那是刻意(判红等于替别人挡路);他人那份新门入库后是否自带同面取材,归其持有人复验,本票不代裁。
-
----
-
 ## 让号留痕(补记 @2026-10-01,由 scripts/plan-collide-renumber.mjs 追加)
-
-> 下列**改前整行原文**逐字取自被审面的 PROJECT_PLAN.md,不做任何改写。
-> 它们的存在就是门 71 的那条放行出口:原文能在 .ihui-agent/archive/PROJECT_PLAN_*.md 里找到 ⇒ 不算丢。
-> 落点归档件:.ihui-agent/archive/PROJECT_PLAN_yielded-ids-2026-09-29.md
-
 - 编号 G-978121 → G-1018190(键位前沿 998190 + 跳距 20000,试 1 枚)
   - [ ] G-978121 21 个 IHUI 服务**全部没有 SCM 恢复动作**(现读 `FailureActions` 键不存在;`IHUI-PG-BACKUP` 已逐条验):进程异常退出后端不会自愈,而"备份/监控服务静默停摆"正是本仓记过两次的失效形态(RSSHub 停 3 天无人知、部署环冻结 11h50m)。加 `sc failure ... actions= restart/60000/…` 属**服务恢复策略**,且改的是 21 个在跑服务的机器状态 ⇒ 等机主拍板(哪些服务该自动重启、哪些宁可停着等人工),不得由会话逐个代决。
-
----
-
 ## 让号留痕(补记 @2026-10-02,由 scripts/plan-collide-renumber.mjs 追加)
-
-> 下列**改前整行原文**逐字取自被审面的 PROJECT_PLAN.md,不做任何改写。
-> 它们的存在就是门 71 的那条放行出口:原文能在 .ihui-agent/archive/PROJECT_PLAN_*.md 里找到 ⇒ 不算丢。
-> 落点归档件:.ihui-agent/archive/PROJECT_PLAN_yielded-ids-2026-09-29.md
-
 - 编号 G-1018220 → G-1038307(键位前沿 1018307 + 跳距 20000,试 1 枚)
   - [ ] G-1018220. 流式中切换模型 → 终止后自动带入新模型 〔【归并】重复登记副本(2026-09-29):同主键的另一条登记 「68 · 流式中切换模型→终止后自动带入新模型」,派单以那条为准,本行不再单独派单。〕 〔让号记录(2026-10-02 F9 清偿批②):原号 68 同号多题,按 G-312「改动面小的一侧让号」本族让出原号改用本号;原号留归同号留驻族,本行正文除编号位与本记录外逐字未动。〕
-
----
-
-## 让号留痕(补记 @2026-10-02,由 scripts/plan-collide-renumber.mjs 追加)
-
-> 下列**改前整行原文**逐字取自被审面的 PROJECT_PLAN.md,不做任何改写。
-> 它们的存在就是门 71 的那条放行出口:原文能在 .ihui-agent/archive/PROJECT_PLAN_*.md 里找到 ⇒ 不算丢。
-> 落点归档件:.ihui-agent/archive/PROJECT_PLAN_yielded-ids-2026-09-29.md
-
 - 编号 G-1038313 → G-1058502(键位前沿 1038502 + 跳距 20000,试 1 枚)
   - [x] ✅(2026-09-29) （【归并】重复登记副本·同题不同编号·2026-09-28·本行与同题登记的持有行重复,现摘掉编号只留指针,不翻勾、不并抄、正文逐字保留,派单以持有行为准）**G-1038313. 门 8 清账后遗留的三枚"有消费方的待实装路由"(2026-09-28 登记,现读=基线仅剩 3 处)**:① `GET /api/subagents/all` —— 消费者 `apps/web/app/(main)/agent-teams/page.tsx:58`(期望 `{dispatches}` 含 completed/failed/cancelled 全量);后端只有 `/subagents/active`(仅 pending/running,形状恰好相同但语义是子集,**不得**为省事把客户端改道 active —— 那会把"页面少了历史"写成"已修")。正解 = 在 `subagent-dispatch.ts` 补 all 列表路由(带 status/limit 透传)。②③ `PUT /api/ai/n8n/workflows/:id` 与 `POST .../toggle` —— 消费者 `apps/mobile-rn/src/screens/N8nModelScreen.tsx:146/192`(保存改名/启停今天必 404);后端 n8n 面只有列表透传与创建转发(miniapp-compat-routes.ts:1123/1190),n8n REST API 本身支持 workflows/:id 更新与 activate/deactivate,正解 = 在 n8n 代理补两枚透传(SSRF 校验与 env 缺省回 stub 的既有纪律照抄)。验收判据:两枚消费者页面真机/真会话各跑一次成功路径 + 基线 `scripts/api-routes-baseline.json` 清零 + 门 8 末行现读 0。**归属**:subagent 面 = agent-teams 线;n8n 两面 = n8n 代理持有人(本票只登记形状与消费者证据,不代裁实现位置)。 〔落地@2026-09-28/枚 2704c4d27〕三枚路由已入库:subagents/all(新→旧+status/limit)、/ai/n8n/workflows 面四枚(list stub/写 503/fetch-merge-put/toggle 回读真值);apps/api/tests/g299-new-routes.test.ts 4 例绿、门 8 死调用清零、基线 perFileCount 清表。**本票未翻勾的唯一理由=验收判据第一条未跑**:RN N8nModelScreen 真机走查(本机无设备)与 agent-teams 页真会话 200 取证(需起栈)——路由与契约已证,运行时成功路径待验,不得以单测冒充真机。（编号改派留痕:本行原登记为「G-299. 门 8 清账后遗留的三枚…」,与「本机交付被远端分支保护拒收」撞成一号两事;2026-09-28 由 live-doc-edit 的取号令牌在每次 CAS 里按当下 HEAD 现算改派为 G-312,旧编号在此留原文,便于任何按旧号引用的人查得到去向,而不是让它静默消失） (原编号 G-312;持有行题面「门8清账后遗留的三枚"有消费方的待实装路由"」) ✅(2026-09-29) **[归并·F1]** 本行与一条已闭环登记同复合主键 `G-312`(§1 规矩 2:一个编号只能有一行当前状态)⇒ 只落状态、写明归并到谁,**不删行、正文一字未改**;本票进度以主件那行为准。 〔让号记录(2026-10-03 F9 清偿批③·逐组裁决):原号 G-312 同号多题,按交接票 G-1018210 口径逐组裁决、改动面小的一侧让号,本族让出原号改用本号;原号留归纯登记位持有族,本行正文除编号位与本记录外逐字未动。〕
 - 编号 G-1038314 → G-1058503(键位前沿 1038502 + 跳距 20000,试 2 枚)
@@ -95,164 +45,55 @@
   - [x] ✅(2026-09-28) G-1038311 **本机交付被远端分支保护拒收——所有已提交内容现在只在这台机上,远端收不下**（**等机主拍板**,agent 不代做也不该代做:改的是 GitHub 仓库安全设置）。实测:枚 `5af500724b` 之后 push 仍被拒,`https://api.github.com/repos/IHUI-INF-AI/IHUI-AI/branches/main/protection` 现读 `required_status_checks.contexts=["CI / lint-typecheck-test (pull_request)"]` ∧ `enforce_admins:true` ⇒ **直推 main 永远产不出 pull_request 上下文的检查**,任何凭据都推不上去(与凭据无关;凭据那条另已由 5af500724b 收口,`credentials-unavailable` 分诊在 HEAD 里)。现读积压以 `git rev-list --count origin/main..HEAD` 末行为准(本批结束时仍在涨),`.workbuddy/git-push-guard-async.log` 今日 `protected branch hook declined` 70 次;Gitee/GitCode 镜像因此连带停更(凭据巡检现读 `mirror-to-cn` 已判 fail、落后超阈值)。**两条出路**:① 仓库 Settings→Branches→main 放开直接推送(本仓 §9b 是单分支直推模型,与"必须 PR + 必需状态检查"天然冲突);② 或正式改走 PR 通道(那要把 §16/§20"commit 即推送"的交付语义整条重写,属流程决策)。**在此之前任何"已推送/已交付"的结论都不成立**,`git log origin/main..HEAD` 的枚数就是真实积压。 （[归并] 本行与已完成登记同题(主键 「G-299」),是被并发并集留下的未翻勾副本 ⇒ 只落状态、正文逐字保留于前、不删行、不重复计账） 〔让号记录(2026-10-03 F9 清偿批③·逐组裁决):原号 G-299 同号多题,按交接票 G-1018210 口径逐组裁决、改动面小的一侧让号,本族让出原号改用本号;原号留归纯登记位持有族,本行正文除编号位与本记录外逐字未动。本键持有族(门8清账三路由)系后绑定者,按最大纯登记族规则持有;时间线倒挂属分叉取号竞态,非抢号。〕
 - 编号 G-1038312 → G-1058507(键位前沿 1038502 + 跳距 20000,试 6 枚)
   - [x] ✅(2026-09-28) G-1038312  **本机交付被远端分支保护拒收——所有已提交内容现在只在这台机上,远端收不下**（**等机主拍板**,agent 不代做也不该代做:改的是 GitHub 仓库安全设置）。实测:枚 `5af500724b` 之后 push 仍被拒,`https://api.github.com/repos/IHUI-INF-AI/IHUI-AI/branches/main/protection` 现读 `required_status_checks.contexts=["CI / lint-typecheck-test (pull_request)"]` ∧ `enforce_admins:true` ⇒ **直推 main 永远产不出 pull_request 上下文的检查**,任何凭据都推不上去(与凭据无关;凭据那条另已由 5af500724b 收口,`credentials-unavailable` 分诊在 HEAD 里)。现读积压以 `git rev-list --count origin/main..HEAD` 末行为准(本批结束时仍在涨),`.workbuddy/git-push-guard-async.log` 今日 `protected branch hook declined` 70 次;Gitee/GitCode 镜像因此连带停更(凭据巡检现读 `mirror-to-cn` 已判 fail、落后超阈值)。**两条出路**:① 仓库 Settings→Branches→main 放开直接推送(本仓 §9b 是单分支直推模型,与"必须 PR + 必需状态检查"天然冲突);② 或正式改走 PR 通道(那要把 §16/§20"commit 即推送"的交付语义整条重写,属流程决策)。**在此之前任何"已推送/已交付"的结论都不成立**,`git log origin/main..HEAD` 的枚数就是真实积压。 —— 取证：保护规则侧已由机主/并行会话解除：`git ls-remote origin refs/heads/main` 与本地一度逐字相等(积压 0)，门 29 恢复可跑。本票**不再等拍板**，但留下两件实测：① 本仓与远端又形成**新真分叉**(远端另一会话对 `scripts/check-sse-parser-parity.mjs` / `plan-tasks-merge.mjs` 及其三个测试文件有并行实现)，收敛落地闸按设计拒绝丢任一侧字面行 ⇒ 未落地，见新增的"归并出口"票；② `check-push-sync` 的 safe-commit 差分把"基线面(HEAD)不红"算成 exit 0，而同一条门 standalone 跑 HEAD 面实测 exit 1 ⇒ 判机器状态的门被差分定责到提交头上，另计一票 〔让号记录(2026-10-03 F9 清偿批③·逐组裁决):原号 G-299 同号多题,按交接票 G-1018210 口径逐组裁决、改动面小的一侧让号,本族让出原号改用本号;原号留归纯登记位持有族,本行正文除编号位与本记录外逐字未动。本键持有族(门8清账三路由)系后绑定者,按最大纯登记族规则持有;时间线倒挂属分叉取号竞态,非抢号。〕
-
 ## 让号留痕(补记 @2026-10-05,手工处置 G-1058618 撞号)
-
 > 背景:两会话撞号 G-1058618(备份链重建 / 门 133 假阳性)。备份链行按"后来者改号"先例让号至
 > G-1058619(枚 8f51a2c2ba),但守门 71 自愈层(4ce7332bf6)把让号前的原文按"被抹掉的登记行"回捞,
 > 台账又出现 G-1058618 备份链僵尸行 —— 本节即按门 71 放行出口留档:原文在此 ⇒ 不算丢 ⇒ 可删。
-
 - 编号 G-1058618 → G-1058619(撞号处置,非跳距让号)
   - [ ] **G-1058618 备份链重建:换机后 PG 18.6 新实例无 beifen 只读角色、密钥库无 db-backup/ 子目录(09-25 写入的 ihui-backup.txt 留在旧机)、调度器 IHUI-PG-BACKUP 与 D:\DevEnv\runtimes\pgsql 路径全部失效** —— 取证(2026-10-05 实测):本机角色仅 postgres/ihui/ihui_app(无 beifen);凭据权威目录 F:/BaiduSyncdisk/密钥 全量清点无 db-backup;超管口令 482 候选穷举全灭(G-269 行 2026-10-05 注记);当前唯一可用 dump 是人工触发直出的 ihui_dev_20261005_191010.dump(109.7MB),调度链无人在跑。重建路径三段:① 角色面(deploy/win/ihui-pg-backup-role.sql 的 beifen 段)——CREATE ROLE 仍需一次超管会话(trusted 标记只覆盖扩展判权,不覆盖角色);② 凭据面(密钥库建 db-backup/ihui-backup.txt,口令由机主定);③ 调度面(ihui-pg-backup.ps1 的 psql 二进制路径指到 C:\Program Files\PostgreSQL\18\bin;凭据读取已支持 IHUI_DB_BACKUP_* env 覆盖)。归属:待认领;依赖机主一次超管会话(或参照 G-269 2026-10-05 D 案先例另行评估)。
-
----
-
 ## 让号留痕(补记 @2026-10-21,由 scripts/plan-collide-renumber.mjs 追加)
-
-> 下列**改前整行原文**逐字取自被审面的 PROJECT_PLAN.md,不做任何改写。
-> 它们的存在就是门 71 的那条放行出口:原文能在 .ihui-agent/archive/PROJECT_PLAN_*.md 里找到 ⇒ 不算丢。
-> 落点归档件:.ihui-agent/archive/PROJECT_PLAN_yielded-ids-2026-09-29.md
-
 - 编号 G-922 → G-1162551(键位前沿 1142551 + 跳距 20000,试 1 枚)
   - [ ] G-922 **台账历史叙述区有 7 组逐字重复的小节标题待归并（O1×2 / O37×2 / O45×3 / O50×2 / O82续三×3 / O86附⑧×2 / O86附⑨×2）**〔登记@2026-10-21/工程执行席〕:现状 = 取号器已不再被它们顶死（判据改认登记行的编号声明位，枚 32ce073019de6d750a65133aec3146752ff3e655，`node scripts/next-plan-id.mjs --check` 现读 rc=0），但块级重复本身还在 —— 同一标题的小节在文档里出现两份意味着读者无法判断哪一份是当前状态（§1 复合主键那一型在标题面上）。出路 = 走 `node scripts/plan-tasks-merge.mjs --heal`（只读预演取分档，动手要 --commit）逐组辨"整块重复"与"同题续写"，整块重复的按 §1 就地改写成带序号的系列小节标题或并入主块；⚠️ 该归并器是第四台旁路落地器、结构上不跑钩子（G-816708 那一格它仍未自带台账自愈补跑），落地后必须按票号逐枚复量三态并跑 `node scripts/git-push-guard.mjs`。
-
----
-
 ## 让号留痕(补记 @2026-10-22,由 scripts/plan-collide-renumber.mjs 追加)
-
-> 下列**改前整行原文**逐字取自被审面的 PROJECT_PLAN.md,不做任何改写。
-> 它们的存在就是门 71 的那条放行出口:原文能在 .ihui-agent/archive/PROJECT_PLAN_*.md 里找到 ⇒ 不算丢。
-> 落点归档件:.ihui-agent/archive/PROJECT_PLAN_yielded-ids-2026-09-29.md
-
 - 编号 G-928 → G-1142551(键位前沿 1122551 + 跳距 20000,试 1 枚)
   - [ ]（进行中@2026-10-22/goal-20261022） G-928 **门 105 的 [G5] 档在 HEAD 面就是红的(存量,与任何单枚提交无关)**〔登记@2026-10-21/工程执行席〕:`apps/miniapp-taro/src/constants/ui-routes.generated.ts` 产物自述钉的 inputsSha256=652a825f681d… 与 HEAD 面现算=ba526191ddf3… 不等 ⇒ 产物陈旧;同轮现读其余三端钉(web / mobile-rn / extension)与离线包钉均 matched。出路 = 在低并发窗口重跑该产物的生成器并重钉自述,**重跑前先 `git status` 它的输入目录**(路由源与 `packages/i18n` 正被他席改动,现在重生成会把他人 in-flight 烘进产物 —— 这一型本仓记过:跑"读盘重生 〔压缩@2026-10-22〕
----
-
 ## 让号留痕(补记 @2026-10-23,人工执行 scripts/plan-collide-renumber.mjs 的同一口径)
-
 > 下列**改前整行原文**逐字取自被审面(HEAD 现读)的 PROJECT_PLAN.md,不做任何改写。
-> 它们的存在就是门 71 的那条放行出口:原文能在 .ihui-agent/archive/PROJECT_PLAN_*.md 里找到 ⇒ 不算丢。
-> 落点归档件:.ihui-agent/archive/PROJECT_PLAN_yielded-ids-2026-09-29.md
-
 - 编号 G-935 → G-1162551(键位前沿 1142551 + 跳距 20000;本侧键位行 2 行,退化标题行 1 枚仅补澄清注不改号)
   - [ ] （未取号:承 G-935 揭缺口 B）**窗格续传不可达**:pane-split 布局树不持久化⇒reload 后窗格不重挂;ChatPaneBody 无 recentMessages 预填链(仅根主体 ai-side-panel.tsx:803-814 有 prefill→capture→loadHistory→runAfterHistory);关叶即 dispose store;useConversationPaneCache 内存 Map 不落盘 ⇒ 窗格半截流 reload 零 resume 请求、孤儿快照 streamCompleted:false 永挂。修法=布局持久化+预填链+快照落盘;验收=resume 探针用例⑧b 由 annotation 转绿色断言 〔登记@2026-10-22/goal-r55/G-935 席〕
   - [ ] G-935 **多窗格聊天缺 e2e 真机核验(AGENTS §17 交付门槛)**〔登记@2026-10-21/工程执行席〕:本席落的四片(事件面 paneId / stream-handlers 注 store / 续传与工具面板窗格化 + 缓存按窗格隔离 + 跳转总线门控)全部只有组件级用例证据,**没有真浏览器核验** —— 共享机上另有多席在跑,起 pnpm dev 会抢 8802 watch 与 dev-lock,blast radius 不在本席可承担范围,故没起。出路 = 由专席在安静窗口按记忆已写明的登录契约(登录必须显式 `type`,邮箱通道不带 type 恒 401;admin 是 DB 触发器不可变行补不了 phone)补一枚 e2e:两窗格承载同一会话 ⇒ 各自流式/工具面板/滚动位互不顶(现读 〔压缩@2026-10-22〕
-
 - 让号@2026-10-24 G-870 → G-1202553(本机收敛撞号规避,机主人工通道;改前整行原文:- [ ] 〔归:—｜等:在等控制台写入路径〕 **G-870 把 `file.aizhs.top` 的 zone DNS 记录改指本机隧道(剩"历史死链自愈 + 微信 applinks"那一半)**〔登记@2026-10-21/在等控制台写入路径〕:本轮已把**用户可见缺陷本身**修掉了,走的是不依赖控制台的那条路 —— web 补 `/uploads/:path*` 精确代理到 8802(枚 7f94692c39fd71718d10a20d8f92cf1530689283)+ 两处 `.env` 的 `FILE_CDN_BASE` 改判为 `https://www.aizhs.top`(实测:探针文件在 127.0.0.1:8802 与 api.aizhs.top 两臂 200 image/png,而 www 臂改判前返回 Next 的 133KB 404 HTML,改判需部署环下一轮把 web 重建后才到端)。**还剩这一格的理由不是"没人想到"**:隧道路由表第 5 条 `file.aizhs.top → http://127.0.0.1:8802` 本来就存在,病灶在 zone 记录把流量送到别人家死服务器(同刻差分:api 200 / file 502),而改记录只有 Cloudflare 控制台登录态这一条写入路径 —— 本机无 API token(实测 `D:/DevEnv/secrets` 无相关条目),内置浏览器面板实测 `visibilityState=hidden`,行内「操作」下拉在合成指针事件下三次不弹 ⇒ 结构上推不动,不是没试。出路 = 控制台该隧道路由页第 5 行「操作 → 编辑 → 保存」(CF 会把记录重建指回隧道),或给我一个只能编辑该 zone DNS 的 token 并**写进 `D:/DevEnv/secrets/` 的文件(不进对话)**。验证:`curl -so /dev/null -w %{http_code} https://file.aizhs.top/uploads/_probe-20261021.png` 应从 502 变 **200**;它同时会让微信 Universal Link 与 iOS `associatedDomains`(现均写死该域)变成本来就对,代码配置一行不用动。)
-
----
-
 ## 让号留痕(补记 @2026-10-25,由本席人工键位裁决追加;让号器因旧号在本行出现 2 次整批拒落)
-
-> 下列**改前整行原文**逐字取自被审面的 PROJECT_PLAN.md,不做任何改写。
-> 它们的存在就是门 71 的那条放行出口:原文能在 .ihui-agent/archive/PROJECT_PLAN_*.md 里找到 ⇒ 不算丢。
-> 落点归档件:.ihui-agent/archive/PROJECT_PLAN_yielded-ids-2026-09-29.md
-
 - 编号 G-20 → G-1242600(键位人工裁决:键位改之,叙述出现处不动;与 scripts/plan-collide-renumber.mjs 同款注记形态)
   - [ ] 〔归:—｜等:机主微信开放平台〕 **G-20 把 `file.aizhs.top` 的 zone DNS 记录改指本机隧道(剩"历史死链自愈 + 微信 applinks"那一半)**〔登记@2026-10-21/在等控制台写入路径〕:本轮已把**用户可见缺陷本身**修掉了,走的是不依赖控制台的那条路 —— web 补 `/uploads/:path*` 精确代理到 8802(枚 7f94692c39fd71718d10a20d8f92cf1530689283)+ 两处 `.env` 的 `FILE_CDN_BASE` 改判为 `https://www.aizhs.top`(实测:探针文件在 127.0.0.1:8802 与 api.aizhs.top 两臂 200 image/png,而 www 臂改判前返回 Next 的 133KB 404 HTML,改判需部署环下一轮把 web 重建后才到端)。**还剩这一格的理由不是"没人想到"**:隧道路由表第 5 条 `file.aizhs.top → http://127.0.0.1:8802` 本来就存在,病灶在 zone 记录把流量送到别人家死服务器(同刻差分:api 200 / file 502),而改记录只有 Cloudflare 控制台登录态这一条写入路径 —— 本机无 API token(实测 `D:/DevEnv/secrets` 无相关条目),内置浏览器面板实测 `visibilityState=hidden`,行内「操作」下拉在合成指针事件下三次不弹 ⇒ 结构上推不动,不是没试。出路 = 控制台该隧道路由页第 5 行「操作 → 编辑 → 保存」(CF 会把记录重建指回隧道),或给我一个只能编辑该 zone DNS 的 token 并**写进 `D:/DevEnv/secrets/` 的文件(不进对话)**。验证:`curl -so /dev/null -w %{http_code} https://file.aizhs.top/uploads/_probe-20261021.png` 应从 502 变 **200**;它同时会让微信 Universal Link 与 iOS `associatedDomains`(现均写死该域)变成本来就对,代码配置一行不用动。〔改判@2026-10-23 两格: ①历史死链自愈达成——file 臂探针 _probe-20261023.png 十连采样 10/10=200 image/png(票时病灶消失; CF token 实测仅 zone:read 无 DNS 写, zone 记录本已指隧道); ②微信 applinks 等机主: 需开放平台 UniversalLink 填写+真实 APPLE_TEAM_ID+file 域 AASA 部署(现 404, route 设计宿主 8801 而隧道现指 8802 需部署环定夺)〕 〔副本正文并入·承载整段:〔归:—｜等:机主微信开放平台〕 **G-26 把 `file.aizhs.top` 的 zone DNS 记录改指本机隧道(剩"历史死链自愈 + 微信 applinks"那一半)**:本轮已把**用户可见缺陷本身**修掉了,走的是不依赖控制台的那条路 —— web 补 `/uploads/:path*` 精确代理到 8802(枚 7f94692c39fd71718d10a20d8f92cf1530689283)+ 两处 `.env` 的 `FILE_CDN_BASE` 改判为 `https://www.aizhs.top`(实测:探针文件在 127.0.0.1:8802 与 api.aizhs.top 两臂 200 image/png,而 www 臂改判前返回 Next 的 133KB 404 HTML,改判需部署环下一轮把 web 重建后才到端)。**还剩这一格的理由不是"没人想到"**:隧道路由表第 5 条 `file.aizhs.top → http://127.0.0.1:8802` 本来就存在,病灶在 zone 记录把流量送到别人家死服务器(同刻差分:api 200 / file 502),而改记录只有 Cloudflare 控制台登录态这一条写入路径 —— 本机无 API token(实测 `D:/DevEnv/secrets` 无相关条目),内置浏览器面板实测 `visibilityState=hidden`,行内「操作」下拉在合成指针事件下三次不弹 ⇒ 结构上推不动,不是没试。出路 = 控制台该隧道路由页第 5 行「操作 → 编辑 → 保存」(CF 会把记录重建指回隧道),或给我一个只能编辑该 zone DNS 的 token 并**写进 `D:/DevEnv/secrets/` 的文件(不进对话)**。验证:`curl -so /dev/null -w %{http_code} https://file.aizhs.top/uploads/_probe-20261021.png` 应从 502 变 **200**;它同时会让微信 Universal Link 与 iOS `associatedDomains`(现均写死该域)变成本来就对,代码配置一行不用动。  **G-23 把 `file.aizhs.top` 的 zone DNS 记录改指本机隧道(剩"历史死链自愈 + 微信 applinks"那一半)**:本轮已把**用户可见缺陷本身**修掉了,走的是不依赖控制台的那条路 —— web 补 `/uploads/:path*` 精确代理到 8802(枚 7f94692c39fd71718d10a20d8f92cf1530689283)+ 两处 `.env` 的 `FILE_CDN_BASE` 改判为 `https://www.aizhs.top`(实测:探针文件在 127.0.0.1:8802 与 api.aizhs.top 两臂 200 image/png,而 www 臂改判前返回 Next 的 133KB 404 HTML,改判需部署环下一轮把 web 重建后才到端)。**还剩这一格的理由不是"没人想到"**:隧道路由表第 5 条 `file.aizhs.top → http://127.0.0.1:8802` 本来就存在,病灶在 zone 记录把流量送到别人家死服务器(同刻差分:api 200 / file 502),而改记录只有 Cloudflare 控制台登录态这一条写入路径 —— 本机无 API token(实测 `D:/DevEnv/secrets` 无相关条目),内置浏览器面板实测 `visibilityState=hidden`,行内「操作」下拉在合成指针事件下三次不弹 ⇒ 结构上推不动,不是没试。出路 = 控制台该隧道路由页第 5 行「操作 → 编辑 → 保存」(CF 会把记录重建指回隧道),或给我一个只能编辑该 zone DNS 的 token 并**写进 `D:/DevEnv/secrets/` 的文件(不进对话)**。验证:`curl -so /dev/null -w %{http_code} https://file.aizhs.top/uploads/_probe-20261021.png` 应从 502 变 **200**;它同时会让微信 Universal Link 与 iOS `associatedDomains`(现均写死该域)变成本来就对,代码配置一行不用动。〕  **G-1202553 把 `file.aizhs.top` 的 zone DNS 记录改指本机隧道(剩"历史死链自愈 + 微信 applinks"那一半)**:本轮已把**用户可见缺陷本身**修掉了,走的是不依赖控制台的那条路 —— web 补 `/uploads/:path*` 精确代理到 8802(枚 7f94692c39fd71718d10a20d8f92cf1530689283)+ 两处 `.env` 的 `FILE_CDN_BASE` 改判为 `https://www.aizhs.top`(实测:探针文件在 127.0.0.1:8802 与 api.aizhs.top 两臂 200 image/png,而 www 臂改判前返回 Next 的 133KB 404 HTML,改判需部署环下一轮把 web 重建后才到端)。**还剩这一格的理由不是"没人想到"**:隧道路由表第 5 条 `file.aizhs.top → http://127.0.0.1:8802` 本来就存在,病灶在 zone 记录把流量送到别人家死服务器(同刻差分:api 200 / file 502),而改记录只有 Cloudflare 控制台登录态这一条写入路径 —— 本机无 API token(实测 `D:/DevEnv/secrets` 无相关条目),内置浏览器面板实测 `visibilityState=hidden`,行内「操作」下拉在合成指针事件下三次不弹 ⇒ 结构上推不动,不是没试。出路 = 控制台该隧道路由页第 5 行「操作 → 编辑 → 保存」(CF 会把记录重建指回隧道),或给我一个只能编辑该 zone DNS 的 token 并**写进 `D:/DevEnv/secrets/` 的文件(不进对话)**。验证:`curl -so /dev/null -w %{http_code} https://file.aizhs.top/uploads/_probe-20261021.png` 应从 502 变 **200**;它同时会让微信 Universal Link 与 iOS `associatedDomains`(现均写死该域)变成本来就对,代码配置一行不用动。〔同题原号 G-20〕〕〕〔同题原号 G-17〕
-
----
-
 ## 让号留痕(补记 @2026-10-25,由 scripts/plan-collide-renumber.mjs 追加)
-
-> 下列**改前整行原文**逐字取自被审面的 PROJECT_PLAN.md,不做任何改写。
-> 它们的存在就是门 71 的那条放行出口:原文能在 .ihui-agent/archive/PROJECT_PLAN_*.md 里找到 ⇒ 不算丢。
-> 落点归档件:.ihui-agent/archive/PROJECT_PLAN_yielded-ids-2026-09-29.md
-
 - 编号 G-03 → G-1262600(键位前沿 1242600 + 跳距 20000,试 1 枚)
   - [ ]〔归:—｜等:条件(§17 真会话留痕,装机包连不上后端)〕 （认领已释放@2026-10-15/全清-misc:本会话收尾,未执行,交回派单面） G-03. 流式中切换模型 → 终止后自动带入新模型 〔让号记录(2026-10-02 F9 清偿批②):原号 68 同号多题,按 G-312「改动面小的一侧让号」本族让出原号改用本号;原号留归同号留驻族,本行正文除编号位与本记录外逐字未动。〕 〔改号(2026-10-14):原G-1018221〕 (原编号 G-53;持有行题面「流式中切换模型→终止后自动带入新模型」) 〔副本正文并入·承载整段:流式中切换模型 → 终止后自动带入新模型   〔改号(2026-10-14):原G-1018221〕〕 〔副本正文并入·承载整段:（认领已释放@2026-10-15/全清-misc:本会话收尾,未执行,交回派单面） G-53. 流式中切换模型 → 终止后自动带入新模型   〔改号(2026-10-14):原G-1018221〕〕 〔改号(2026-10-24/机主授权合并人工键位裁决):原G-53——同上批〕
 - 编号 G-21 → G-1262601(键位前沿 1242600 + 跳距 20000,试 2 枚)
   - [ ] G-21 **归属:部署环告警去重持有人(deploy/win/alert-dedup.ps1 + ihui-deploy.ps1:257 Invoke-FailNotify)—— 去重身份 = 整条消息文本,而消息不含"这一轮的原因",于是原因换了也会被旧槽位静默压住** —— 实测:03:51 那轮消息带包名(`构建失败(workspace 包 @ihui/types dist 重建失败(exit 2))`)⇒ 独立槽位,正常喊;04:37 那轮消息是通用档(`构建失败(next build 连续 4 次失败,保持当前在线版本)`),**文本里没有任何病因**(真实病因是工作树缺两个模块:一个 HEAD 有而索引/磁盘无,一个引用先落被引用文件未写),于是它落进一个 1.9h 前就寄过的同名槽位,`ALERT 同身份失败告警本轮跳过` @ 〔压缩@2026-10-22〕〔改号(2026-10-14):原G-815948〕〔同题原号 G-815948〕
 - 编号 G-34 → G-1262602(键位前沿 1242600 + 跳距 20000,试 3 枚)
   - [ ] **G-34 索引里那份滞台台账副本正挡着「碰 PROJECT_PLAN.md 的提交」(归该暂存的持有者,运维不代改)**:09-29 08:21 现读——门 130 在 **HEAD 面 rc=0** 而 `--gate --staged` **rc=1**,因为共享索引里的 `PROJECT_PLAN.md` blob 比 HEAD 少 169 行、工作树副本更差(相对 HEAD 显 6122 增 / 16661 删),于是 F1/F4/F4b/F8 四维被差值棘轮全算成「本次新带入」。**这道红是对的**,它防的正是"一次不带 pathspec 的提交把上万行已入库登记写回旧态";处置只有持有者自己覆盖那一份暂存,别人(含运维会话)**不得删改他人的暂存面**(§12)。在它消掉之前,登记类动作一律走 `scripts/live-doc-edit.mjs`(底稿取当下 HEAD、对象空间落地),那一类提交不受这一格影响。 〔改号(2026-10-14):原G-916419〕 (原编号 G-916419;持有行题面「索引里那份滞台台账副本正挡着「碰PROJECTP」)
-
----
-
 ## 让号留痕(补记 @2026-10-31,由 scripts/plan-collide-renumber.mjs 追加)
-
-> 下列**改前整行原文**逐字取自被审面的 PROJECT_PLAN.md,不做任何改写。
-> 它们的存在就是门 71 的那条放行出口:原文能在 .ihui-agent/archive/PROJECT_PLAN_*.md 里找到 ⇒ 不算丢。
-> 落点归档件:.ihui-agent/archive/PROJECT_PLAN_yielded-ids-2026-09-29.md
-
 - 编号 O68 → O22819(键位前沿 2819 + 跳距 20000,试 1 枚)
   - [ ]〔归:台账器物面｜等:—〕 O68 **侧车归属改判无出口**:`scripts/data/plan-fields.jsonl` 的 `O02#跨端UI单一源` 记录仍是 2026-10-25 的 `waiting:none`,而行内标头已改归机主真机面 ⇒ v2 尺以侧车为准,派单反复把 O02 列成"现在可做"。现读唯一写侧车的出口 `plan-fields-extract.mjs --apply` 自带"桶零变化"守恒闸(防搬说辞改判定),仓内已无 reclassify 工具 ⇒ 需一条**声明式改判出口**(逐条给 before/after 桶 + why,复用 dispositionOfV2 复算,禁批量)。〔登记@2026-10-29:派单现读 12 行剔 10 仍出单 O02 为凭〕
-
----
-
-## 让号留痕(补记 @2026-10-31,由 scripts/plan-collide-renumber.mjs 追加)
-
-> 下列**改前整行原文**逐字取自被审面的 PROJECT_PLAN.md,不做任何改写。
-> 它们的存在就是门 71 的那条放行出口:原文能在 .ihui-agent/archive/PROJECT_PLAN_*.md 里找到 ⇒ 不算丢。
-> 落点归档件:.ihui-agent/archive/PROJECT_PLAN_yielded-ids-2026-09-29.md
-
 - 编号 O67 → O42819(键位前沿 22819 + 跳距 20000,试 1 枚)
   - [ ] O67 [deploy-feedback] [deploy_outcome/alert_firing] build-fail /deploy/build-fail 部署异常 ⇒ 排查链路并修复（登记@2026-10-28/deploy-feedback;来源:deploy_outcome;证据:dims=(none) action=build-fail 窗口=10080min count=1 first=2026-10-25T13:45:54.324Z last=2026-10-25T13:45:54.324Z route=/deploy/build-fail sample="deploy_outcome action=build-fail sha=[hex:40] d…"）〔归:机主生产机面｜等:—〕〔归机主依据@2026-10-28/gb23:face 修复后现读两候选仍皆无 —— G:\IHUI-AI\.DevEnv\ 只有 Temp/backups/cache/tools 无 ihui-prod,主仓 .ihui-agent/deploy-decisions.jsonl 也不在;生产账本只住生产机,此处取不到(证据 sha 已被 intake 折成 [hex:40] 占位,原值只能回生产账本取)〕
   - [ ] O67 (2026-10-31) safe-commit 发令前不点名「索引里非本票声明的已暂存件」——生产码与用例被拆进两枚提交、HEAD 一度带红:现状 = O43② 基线刻意取「此刻全量索引(含他人已暂存水位)」,只拦钩子窗口期**新进**的件,于是「发令前索引里已混着别人的件」这一型无人喊;本轮实测两起后果(执行席违规 `git add` 把 packages/i18n 与 apps/api/src/services/relay-task-center.ts 放进共享索引 → 被别席不带 pathspec 的普通提交卷走 → HEAD 面 relay-task-center.ts 是新的三态判据而 relay-task-center.test.ts 仍按旧 deps 形状打桩,主席把 HEAD 面测试原样取出复跑现读 `Tests 1 failed | 8 passed (9)`,红由枚 eb7fbad5ae 就地结清且已推送)。出路 = 在 safe-commit 发令前复量段补**一行只读点名**(逐条报「已暂存但不在本票声明集」的路径数与前 N 条;只警告不拒发 —— 多会话共写索引是本仓常态,拒发即造与提交内容无关的恒堵门 §12e),并把「执行席禁 git add」从散文升成机器判据(候选落点 = 主席收席时跑一把 staged 归属对账,发现非声明集件当场改名/退索引)。验证 = `node scripts/safe-commit.mjs --dry-run` 输出含该行且对纯净索引零误报;镜像件补一例「索引混入非声明件 ⇒ 点名但不拒发」。
-
----
-
-## 让号留痕(补记 @2026-10-31,由 scripts/plan-collide-renumber.mjs 追加)
-
-> 下列**改前整行原文**逐字取自被审面的 PROJECT_PLAN.md,不做任何改写。
-> 它们的存在就是门 71 的那条放行出口:原文能在 .ihui-agent/archive/PROJECT_PLAN_*.md 里找到 ⇒ 不算丢。
-> 落点归档件:.ihui-agent/archive/PROJECT_PLAN_yielded-ids-2026-09-29.md
-
 - 编号 O68 → O62819(键位前沿 42819 + 跳距 20000,试 1 枚)
   - [ ] O68 [deploy-feedback] [deploy_outcome/alert_firing] pass-entry-broken /deploy/pass-entry-broken 部署异常 ⇒ 排查链路并修复（登记@2026-10-28/deploy-feedback;来源:deploy_outcome;证据:dims=api+llm action=pass-entry-broken 窗口=1440min count=1 first=2026-10-27T17:30:26.786Z last=2026-10-27T17:30:26.786Z route=/deploy/pass-entry-broken sample="deploy_outcome action=pass-entry-broken sha=[hex:35]…"）
-  - [ ]〔归:台账器物面｜等:—〕 O68 **侧车归属改判无出口**:`scripts/data/plan-fields.jsonl` 的 `O02#跨端UI单一源` 记录仍是 2026-10-25 的 `waiting:none`,而行内标头已改归机主真机面 ⇒ v2 尺以侧车为准,派单反复把 O02 列成"现在可做"。现读唯一写侧车的出口 `plan-fields-extract.mjs --apply` 自带"桶零变化"守恒闸(防搬说辞改判定),仓内已无 reclassify 工具 ⇒ 需一条**声明式改判出口**(逐条给 before/after 桶 + why,复用 dispositionOfV2 复算,禁批量)。〔登记@2026-10-29:派单现读 12 行剔 10 仍出单 O02 为凭〕
-
----
-
-## 让号留痕(补记 @2026-10-31,由 scripts/plan-collide-renumber.mjs 追加)
-
-> 下列**改前整行原文**逐字取自被审面的 PROJECT_PLAN.md,不做任何改写。
-> 它们的存在就是门 71 的那条放行出口:原文能在 .ihui-agent/archive/PROJECT_PLAN_*.md 里找到 ⇒ 不算丢。
-> 落点归档件:.ihui-agent/archive/PROJECT_PLAN_yielded-ids-2026-09-29.md
-
 - 编号 O67 → O82819(键位前沿 62819 + 跳距 20000,试 1 枚)
-  - [ ] O67 [deploy-feedback] [deploy_outcome/alert_firing] build-fail /deploy/build-fail 部署异常 ⇒ 排查链路并修复（登记@2026-10-28/deploy-feedback;来源:deploy_outcome;证据:dims=(none) action=build-fail 窗口=10080min count=1 first=2026-10-25T13:45:54.324Z last=2026-10-25T13:45:54.324Z route=/deploy/build-fail sample="deploy_outcome action=build-fail sha=[hex:40] d…"）〔归:机主生产机面｜等:—〕〔归机主依据@2026-10-28/gb23:face 修复后现读两候选仍皆无 —— G:\IHUI-AI\.DevEnv\ 只有 Temp/backups/cache/tools 无 ihui-prod,主仓 .ihui-agent/deploy-decisions.jsonl 也不在;生产账本只住生产机,此处取不到(证据 sha 已被 intake 折成 [hex:40] 占位,原值只能回生产账本取)〕
   - [ ] O67 (2026-11-01) 门 128 几何维补 CSS 变量解值(根治两条假分叉)+ torpx 夹具按新 HEAD 重订——半成品已存档，必须从最新 HEAD 重做:现状 = WD 两族(BusinessFormCard 2/4/11、CategoryBar 6/8/10)经元素级取证判定为**假分叉**(小程序腿按 §4 纪律把同值同节点写成 `var(--spacing-*)`/`var(--text-*)`,而门的几何词汇表不解析 CSS 变量 ⇒ 把"没读到"当成"该侧无档"),已由枚 34c0749d1a 落两条带理由 webWaivers 止血(条目自己写了了结条件"门认 var 解值即撤豁免重锚")；HEAD 面现读仍红两条:`× CategoryBar [className|stylesheet] 几何仅 RN 档 8/10` 与 `× 台账腐烂:AgentRuntimePanel`(后者 webCounts=6 而本轮该族零记录，成因是 web 工具类未建模——`min-h-0` 等无可解析 Tailwind 配置),另有镜像件 `scripts/tests/check-cross-end-ui-parity-torpx.test.mjs` 现读 14 例 12 pass/2 fail(C3 反例 A / C8 端到端，夹具前提腐烂:HEAD 的 `ScreenStates.taro.css` 已无 `400rpx`，该族改内联命名常量)。2026-10-31 一席已做出可用实现(`var()` 从 tokens.css 受管块解值 + 与小程序 app.css 派生态互证 + 未判定逐枚点名 + 自检新档 LA + 撤两条豁免，量到 124/0 与 18/18)，**但它改在滞后 HEAD 的旧副本上**(落地器 O43 行级复活判据实测:门体消失 17 行/重现 256 行/复活 1 行，消失行含 `import { facePx } from './lib/length-units.mjs'` 等别人已入库内容，见于祖先 b8c557…) ⇒ 主席已把 `scripts/check-cross-end-ui-parity.mjs`、`scripts/lib/radius-tokens.mjs`、`scripts/lib/cross-end-ui-parity-selftest.mjs`、`scripts/cross-end-ui-parity-baseline.json`、该镜像件全部还原 HEAD(还原后现读 --self-test 123/0)，其产物与完整 diff 存 `.ihui-agent/tmp/chair/seat-k-salvage/`(含 `k.diff` 305 行)。出路 = 从**最新 HEAD** 重做:①开工前先 `git status --porcelain` 确认门体三面干净，禁在滞后副本上改判据面；②判据与取证照 `k.diff`(解值只纳长度档，`var(--font-*)`/`var(--color-*)` 显式不纳入；token 名不在源里 ⇒ 逐枚点名未判定，不记 0 不记同值)；③完成后按门自己的 emit 口径撤两条 webWaivers 并重锚(留着就是 §0.7 清单腐烂)，六个既有锚点键不许动；④torpx C3/C8 按新 HEAD 面重订期望，"真差异 15/200 仍必须报出"这条反例不得翻绿；⑤`台账腐烂:AgentRuntimePanel` 的合法出路只有两条，按实测选一并写明理由:给 web 腿补可解析 Tailwind 配置/样式源把未判定降到可判，或确认该族本轮确实无记录后按 emit 删键留痕——不得为消红放宽门。验证 = `node scripts/check-cross-end-ui-parity.mjs`(HEAD 面)rc=0；`--self-test` 例数只增不减；`node scripts/tests/check-cross-end-ui-parity-torpx.test.mjs` fail=0；门 77/11/36 末行；落地走 `object-space-land` 并保留存在性回读证据。
-
----
-
-## 让号留痕(补记 @2026-10-31,由 scripts/plan-collide-renumber.mjs 追加)
-
-> 下列**改前整行原文**逐字取自被审面的 PROJECT_PLAN.md,不做任何改写。
-> 它们的存在就是门 71 的那条放行出口:原文能在 .ihui-agent/archive/PROJECT_PLAN_*.md 里找到 ⇒ 不算丢。
-> 落点归档件:.ihui-agent/archive/PROJECT_PLAN_yielded-ids-2026-09-29.md
-
 - 编号 O62819 → O102819(键位前沿 82819 + 跳距 20000,试 1 枚)
   - [ ] O62819 [deploy-feedback] [deploy_outcome/alert_firing] pass-entry-broken /deploy/pass-entry-broken 部署异常 ⇒ 排查链路并修复（登记@2026-10-28/deploy-feedback;来源:deploy_outcome;证据:dims=api+llm action=pass-entry-broken 窗口=1440min count=1 first=2026-10-27T17:30:26.786Z last=2026-10-27T17:30:26.786Z route=/deploy/pass-entry-broken sample="deploy_outcome action=pass-entry-broken sha=[hex:35]…"）【让号@2026-10-31:原编号 O68;union-converge F9 归并新增撞号组,未推的本地面让号;改前整行原文逐字见 .ihui-agent/archive/PROJECT_PLAN_yielded-ids-2026-09-29.md】
   - [ ]〔归:台账器物面｜等:—〕 O62819 **侧车归属改判无出口**:`scripts/data/plan-fields.jsonl` 的 `O02#跨端UI单一源` 记录仍是 2026-10-25 的 `waiting:none`,而行内标头已改归机主真机面 ⇒ v2 尺以侧车为准,派单反复把 O02 列成"现在可做"。现读唯一写侧车的出口 `plan-fields-extract.mjs --apply` 自带"桶零变化"守恒闸(防搬说辞改判定),仓内已无 reclassify 工具 ⇒ 需一条**声明式改判出口**(逐条给 before/after 桶 + why,复用 dispositionOfV2 复算,禁批量)。〔登记@2026-10-29:派单现读 12 行剔 10 仍出单 O02 为凭〕【让号@2026-10-31:原编号 O68;union-converge F9 归并新增撞号组,未推的本地面让号;改前整行原文逐字见 .ihui-agent/archive/PROJECT_PLAN_yielded-ids-2026-09-29.md】
 - 编号 O67 → O62819(键位前沿 42819 + 跳距 20000,试 1 枚)
-
----
-
 ## 让号留痕(补记 @2026-11-03,由 scripts/plan-collide-renumber.mjs 追加)
-
-> 下列**改前整行原文**逐字取自被审面的 PROJECT_PLAN.md,不做任何改写。
-> 它们的存在就是门 71 的那条放行出口:原文能在 .ihui-agent/archive/PROJECT_PLAN_*.md 里找到 ⇒ 不算丢。
-> 落点归档件:.ihui-agent/archive/PROJECT_PLAN_yielded-ids-2026-09-29.md
-
 - 编号 Y-70 → Y-20079(键位前沿 79 + 跳距 20000,试 1 枚)
   - [ ] Y-70 (2026-11-02) **RN 全平台发布矩阵三格未收:华为缺 Connect API 客户端 / app_versions 无 store 维度 / 鸿蒙无产物**:发布面已由 `scripts/release-mobile-rn.mjs` 扩成 12 腿逐家现读(实读:签名件与 87MB release APK 在位、EAS Update 两渠道端到端实证可发、Google Play SA 已授权且 alpha 挂 0.0.6/26101921)。三格各差一件事:① 华为那枚 `华为appid 密钥.txt` 过 Publishing API 回 `205524993 client token auth failed`(端点已证可达,旁证 HMS OAuth 能签 token)⇒ 缺的是 AGC「用户与权限→Connect API」创建的 API 客户端 client_id/client_secret,补进密钥目录即通;② `app_versions.platform` 枚举 = ios/android/web/harmony/cli 无 store 维度 ⇒ 多渠道各一条 latest 表达不出来,需一次加列迁移(走门 49 B1–B9);③ 鸿蒙全仓零 `.ets`/`oh-package.json5`/`react-native-harmony` ⇒ 先做产物适配再回本腿。附带真缺陷:`/download/harmony` 被静默 fallback 成 desktop(`DownloadDetailContent.tsx:107`),须改显式态。（进行中@2026-11-02/qoder-rn-release）
-
----
-
-## 让号留痕(补记 @2026-11-03,由 scripts/plan-collide-renumber.mjs 追加)
-
-> 下列**改前整行原文**逐字取自被审面的 PROJECT_PLAN.md,不做任何改写。
-> 它们的存在就是门 71 的那条放行出口:原文能在 .ihui-agent/archive/PROJECT_PLAN_*.md 里找到 ⇒ 不算丢。
-> 落点归档件:.ihui-agent/archive/PROJECT_PLAN_yielded-ids-2026-09-29.md
-
 - 编号 D53 → D22046(键位前沿 2046 + 跳距 20000,试 1 枚)
   - [ ] （进行中@2026-11-02/qoder-docs）**D53 文档中心格式层与排版收口(7 簇:移动端整屏遮罩 / 6 处读数裁切 / hreflang 与 sitemap 死链 / 字号与圆角档位 / emoji 当图标 / markdown 渲染层与后台文档前台出口 / 防回潮门)**:现状=`/docs` 18 页硬编码 JSX 无格式渲染层、手机未登录正文被 `ai-panel-root` fixed 整屏盖住、4 语言 hreflang 实测 404;出路=7 席产物由主席 pathspec 落地后按 §20 五条结清
-
-
 ## 2026-11-03 并入 main 85f1c08855「结清」删行原文(逐字留档)
-
 main 侧提交 `85f1c08855` 以「结清 B67/B70/B71、G-1222560/59/56 与 Z-1 两条(证据见行内)」整行删除下列 7 行;合并(55c2cb04)按零丢失口径把原文逐字存此,plan 面尊重 main 的结清结论。
-
 - [ ]**G-1222560 危险登记:共享索引里此刻有三份 web 语言包是"语法坏掉的 JSON"(他人暂存的现场)。** 三面比对(2026-09-29 现读):`packages/i18n/messages/web/{en,ja,ko}.json` **工作树 = 可解析 / HEAD = 可解析 / 索引 = 不可解析**(报错位置 en 第 20050 行、ja 第 20040 行、ko 第 20029 行,都是 `Expected double-quoted property name`)。三条后果:① 任何会话按 `--staged` 跑 i18n 门都会被**别人的这份内容**判红(我这一轮就被它误判成"本枚提交引入红",`safe-commit` 的差分正确拒跳,我改走私有索引 `object-space-land` 落地,没有跳门也没有动别人文件);② 该持有者一次不带 pathspec 的提交会把**不可解析的语言包**写进 HEAD ⇒ web 构建与运行时 i18n 直接坏;③ 门在这一刻是对的 —— `check-i18n-keys` 自己喊了"6 个语言包读不出来 ⇒ parity 实际只比对了 2 门语言,拒绝当作通过",这句降级提示必须保留,不得为了变绿把它抹掉。**处置只有两条,且都由持有者做**:把工作树那份能 parse 的版本重新 `git add`(若那就是他要的内容),或 `git restore --staged -- <这三个文件>` 让出索引。**任何会话提交前的自证命令**(输出三列 OK 才算不受污染):`for f in en ja ko zh-CN zh-TW; do p=packages/i18n/messages/web/$f.json; echo -n "$f "; git show :$p | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{try{JSON.parse(d);console.log('index OK')}catch(e){console.log('index 坏')}})" 2>/dev/null; done` 〔改号(2026-10-14):原G-916433〕 〔副本正文并入·承载整段:危险登记:共享索引里此刻有三份 web 语言包是"语法坏掉的 JSON"(他人暂存的现场)。** 三面比对(2026-09-29 现读):`packages/i18n/messages/web/{en,ja,ko}.json` **工作树 = 可解析 / HEAD = 可解析 / 索引 = 不可解析**(报错位置 en 第 20050 行、ja 第 20040 行、ko 第 20029 行,都是 `Expected double-quoted property name`)。三条后果:① 任何会话按 `--staged` 跑 i18n 门都会被**别人的这份内容**判红(我这一轮就被它误判成"本枚提交引入红",`safe-commit` 的差分正确拒跳,我改走私有索引 `object-space-land` 落地,没有跳门也没有动别人文件);② 该持有者一次不带 pathspec 的提交会把**不可解析的语言包**写进 HEAD ⇒ web 构建与运行时 i18n 直接坏;③ 门在这一刻是对的 —— `check-i18n-keys` 自己喊了"6 个语言包读不出来 ⇒ parity 实际只比对了 2 门语言,拒绝当作通过",这句降级提示必须保留,不得为了变绿把它抹掉。**处置只有两条,且都由持有者做**:把工作树那份能 parse 的版本重新 `git add`(若那就是他要的内容),或 `git restore --staged -- <这三个文件>` 让出索引。**任何会话提交前的自证命令**(输出三列 OK 才算不受污染):`for f in en ja ko zh-CN zh-TW; do p=packages/i18n/messages/web/$f.json; echo -n "$f "; git show :$p | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{try{JSON.parse(d);console.log('index OK')}catch(e){console.log('index 坏')}})" 2>/dev/null; done` 〔副本正文并入·承载整段:危险登记:共享索引里此刻有三份 web 语言包是"语法坏掉的 JSON"(他人暂存的现场)。** 三面比对(2026-09-29 现读):`packages/i18n/messages/web/{en,ja,ko}.json` **工作树 = 可解析 / HEAD = 可解析 / 索引 = 不可解析**(报错位置 en 第 20050 行、ja 第 20040 行、ko 第 20029 行,都是 `Expected double-quoted property name`)。三条后果:① 任何会话按 `--staged` 跑 i18n 门都会被**别人的这份内容**判红(我这一轮就被它误判成"本枚提交引入红",`safe-commit` 的差分正确拒跳,我改走私有索引 `object-space-land` 落地,没有跳门也没有动别人文件);② 该持有者一次不带 pathspec 的提交会把**不可解析的语言包**写进 HEAD ⇒ web 构建与运行时 i18n 直接坏;③ 门在这一刻是对的 —— `check-i18n-keys` 自己喊了"6 个语言包读不出来 ⇒ parity 实际只比对了 2 门语言,拒绝当作通过",这句降级提示必须保留,不得为了变绿把它抹掉。**处置只有两条,且都由持有者做**:把工作树那份能 parse 的版本重新 `git add`(若那就是他要的内容),或 `git restore --staged -- <这三个文件>` 让出索引。**任何会话提交前的自证命令**(输出三列 OK 才算不受污染):`for f in en ja ko zh-CN zh-TW; do p=packages/i18n/messages/web/$f.json; echo -n "$f "; git show :$p | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{try{JSON.parse(d);console.log('index OK')}catch(e){console.log('index 坏')}})" 2>/dev/null; done` 〔改号(2026-10-14):原G-916433〕〕 〔副本正文并入·承载整段:危险登记:共享索引里此刻有三份 web 语言包是"语法坏掉的 JSON"(他人暂存的现场)。** 三面比对(2026-09-29 现读):`packages/i18n/messages/web/{en,ja,ko}.json` **工作树 = 可解析 / HEAD = 可解析 / 索引 = 不可解析**(报错位置 en 第 20050 行、ja 第 20040 行、ko 第 20029 行,都是 `Expected double-quoted property name`)。三条后果:① 任何会话按 `--staged` 跑 i18n 门都会被**别人的这份内容**判红(我这一轮就被它误判成"本枚提交引入红",`safe-commit` 的差分正确拒跳,我改走私有索引 `object-space-land` 落地,没有跳门也没有动别人文件);② 该持有者一次不带 pathspec 的提交会把**不可解析的语言包**写进 HEAD ⇒ web 构建与运行时 i18n 直接坏;③ 门在这一刻是对的 —— `check-i18n-keys` 自己喊了"6 个语言包读不出来 ⇒ parity 实际只比对了 2 门语言,拒绝当作通过",这句降级提示必须保留,不得为了变绿把它抹掉。**处置只有两条,且都由持有者做**:把工作树那份能 parse 的版本重新 `git add`(若那就是他要的内容),或 `git restore --staged -- <这三个文件>` 让出索引。**任何会话提交前的自证命令**(输出三列 OK 才算不受污染):`for f in en ja ko zh-CN zh-TW; do p=packages/i18n/messages/web/$f.json; echo -n "$f "; git show :$p | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{try{JSON.parse(d);console.log('index OK')}catch(e){console.log('index 坏')}})" 2>/dev/null; done` 〔改号(2026-10-14):原G-916433〕 〕〕〕〕【让号@2026-10-25:原编号 H04;union-converge F9 归并新增撞号组,未推的本地面让号;改前整行原文逐字见 .ihui-agent/archive/PROJECT_PLAN_yielded-ids-2026-09-29.md】〔同题原号 H04 G-19 G-916433〕 〔归属: unassigned（他人暂存现场,正文明确处置只由持有者做;持有者身份未具名）〕
 - [ ] **G-1222559 索引里那份滞台台账副本正挡着「碰 PROJECT_PLAN.md 的提交」(归该暂存的持有者,运维不代改)**:09-29 08:21 现读——门 130 在 **HEAD 面 rc=0** 而 `--gate --staged` **rc=1**,因为共享索引里的 `PROJECT_PLAN.md` blob 比 HEAD 少 169 行、工作树副本更差(相对 HEAD 显 6122 增 / 16661 删),于是 F1/F4/F4b/F8 四维被差值棘轮全算成「本次新带入」。**这道红是对的**,它防的正是"一次不带 pathspec 的提交把上万行已入库登记写回旧态";处置只有持有者自己覆盖那一份暂存,别人(含运维会话)**不得删改他人的暂存面**(§12)。在它消掉之前,登记类动作一律走 `scripts/live-doc-edit.mjs`(底稿取当下 HEAD、对象空间落地),那一类提交不受这一格影响。 〔改号(2026-10-14):原G-916419〕 (原编号 G-916419;持有行题面「索引里那份滞台台账副本正挡着「碰PROJECTP」)【让号@2026-10-25:原编号 G-86;union-converge F9 归并新增撞号组,未推的本地面让号;改前整行原文逐字见 .ihui-agent/archive/PROJECT_PLAN_yielded-ids-2026-09-29.md】 (原编号 G-84;持有行题面「索引里那份滞台台账副本正挡着「碰PROJECTP」) 〔归属: unassigned（正文明确“归该暂存的持有者、运维不代改”,该持有者身份未具名,提交历史无法定位）〕
 - [ ] G-1222556 CSRF存在性判据的两门射程外形态登记（只报名不定罪，不代改）：apps/api/src/plugins/csrf.ts:248 ?key=（request.query自报键即return）落在守门157（headers/cookies）与158（plugins/middleware/文件名射程）之外；同文件:247 x-goog-api-key已有台账2条裁决（reviewBy 2026-12-31）。注释自述理由（Gemini SDK经?key=带key，下游mapGeminiAuth验真，晚于本钩子故先放行）。归属两门持有人三选一：补query判据 / 台账裁决（把注释理由落成条目）/ 实证下游确验真。 〔拍板@2026-10-07 机主:选③——实证下游确验真+落台账条目;不扩query判据〕 〔改号(2026-10-14):原G-998183〕 〔副本正文并入·承载整段:CSRF存在性判据的两门射程外形态登记（只报名不定罪，不代改）：apps/api/src/plugins/csrf.ts:248 ?key=（request.query自报键即return）落在守门157（headers/cookies）与158（plugins/middleware/文件名射程）之外；同文件:247 x-goog-api-key已有台账2条裁决（reviewBy 2026-12-31）。注释自述理由（Gemini SDK经?key=带key，下游mapGeminiAuth验真，晚于本钩子故先放行）。归属两门持有人三选一：补query判据 / 台账裁决（把注释理由落成条目）/ 实证下游确验真。 〔副本正文并入·承载整段:CSRF存在性判据的两门射程外形态登记（只报名不定罪，不代改）：apps/api/src/plugins/csrf.ts:248 ?key=（request.query自报键即return）落在守门157（headers/cookies）与158（plugins/middleware/文件名射程）之外；同文件:247 x-goog-api-key已有台账2条裁决（reviewBy 2026-12-31）。注释自述理由（Gemini SDK经?key=带key，下游mapGeminiAuth验真，晚于本钩子故先放行）。归属两门持有人三选一：补query判据 / 台账裁决（把注释理由落成条目）/ 实证下游确验真。 〕〕〕〕〕〕 〔改号(2026-10-24/机主授权合并分批收敛):原G-25——与远端新纪元同号撞,让本地行〕【让号@2026-10-25:原编号 G-02;union-converge F9 归并新增撞号组,未推的本地面让号;改前整行原文逐字见 .ihui-agent/archive/PROJECT_PLAN_yielded-ids-2026-09-29.md】〔同题原号 G-02 G-85〕 〔归属: CSRF 两门持有人（正文“归属两门持有人三选一”,机主 2026-10-07 拍板选③）〕
@@ -260,15 +101,6 @@ main 侧提交 `85f1c08855` 以「结清 B67/B70/B71、G-1222560/59/56 与 Z-1 �
 - [ ]（进行中@2026-11-02/ATT-API） B70 考勤缺三条写路径:请假审批端点只改请假单自身不写考勤行;同文件里排班/招生/线索/催费都有批量端点而考勤只能一人一签;排班有导出而考勤无(教务要报表只能截图)—— 出路=审批通过同事务按区间幂等落 leave、批量点名回库确认并回 missedIds、按班级与日期区间出 CSV
 - [ ]（进行中@2026-11-02/ATT-TEST） B71 考勤 7 端点零行为测试:全仓关于考勤只有一枚文案契约测试,越权面(他人能否替别班学生签到)至今无人验过 —— 出路=补权限成对用例与越权用例并断言副作用未发生;人脸签到档按裁决不做(需第三方活体检测与合规授权),不得造空壳端点
 - [ ] 〔归:机主号池裁决面｜等:—〕 **Z-1 取号池已饱和:三族令牌全灭,新票登记不进** —— 现读占用面(台账 HEAD 面 ⊕ 47 份归档件 = 7083 万字符)命中 **G 99/99、O 90/99、D 99/99**;O 族剩的 9 枚(O68/O70/O72/O94~O99)虽未被命中,但**最长连续游程 6 < 段容量 10** ⇒ 令牌取不出。本席登记线上 WS 缺陷票时实测三连灭:O 族报游程不足、D 族报池内空闲 0、G 族候选窗 58~67 九枚被扫描关逐枚点名剔除,最终靠**具名 G-44**才落地。真因:扫描关把**正文引用与归档占位注释**算成占号(命中处逐条可验:「〔同题原号 H05〕」41 处、「新增差距 H05~H05」130 处、「G-25 授权卡标题」173 处),而 §1 又要求证据指针一律用「编号+标题原文」当内容锚点 ⇒ **越按规矩写引用,号池越窄**,两条规矩结构性互搏。出路三选一:①扩池(池式硬上限 2026-10-14 立、2026-10-24 降至两位数,属既有拍板);②引用不算占号(改扫描面 = 动防撞号防线,须带反证用例并保留"归档占位注释"那一维);③允许开新字母族 —— 本条即用 **Z-1 具名首号**验证该路可行(具名不经 keepIfFree,只过撞号与同题查重),落地后 Z 族即可正常发令牌。 〔【归并】重复登记副本(2026-11-02):同主键的另一条登记 「Z-1 · 取号池已饱和」(该版行内记具名 G-54),派单以那条为准,本行不再单独派单。〕
-
----
-
-## 让号留痕(补记 @2026-11-03,由 scripts/plan-collide-renumber.mjs 追加)
-
-> 下列**改前整行原文**逐字取自被审面的 PROJECT_PLAN.md,不做任何改写。
-> 它们的存在就是门 71 的那条放行出口:原文能在 .ihui-agent/archive/PROJECT_PLAN_*.md 里找到 ⇒ 不算丢。
-> 落点归档件:.ihui-agent/archive/PROJECT_PLAN_yielded-ids-2026-09-29.md
-
 - 编号 Y-3 → Y-40079(键位前沿 20079 + 跳距 20000,试 1 枚)
   - [ ] （进行中@2026-11-02/qoder-docs）**Y-3 文档中心格式层与排版收口(7 簇:移动端整屏遮罩 / 6 处读数裁切 / hreflang 与 sitemap 死链 / 字号与圆角档位 / emoji 当图标 / markdown 渲染层与后台文档前台出口 / 防回潮门)**:现状=`/docs` 18 页硬编码 JSX 无格式渲染层、手机未登录正文被 `ai-panel-root` fixed 整屏盖住、4 语言 hreflang 实测 404;出路=7 席产物由主席 pathspec 落地后按 §20 五条结清【让号@2026-11-03:原编号 D53;union-converge F9 归并新增撞号组,未推的本地面让号;改前整行原文逐字见 .ihui-agent/archive/PROJECT_PLAN_yielded-ids-2026-09-29.md】
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

@@ -25,7 +25,8 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import type { Tool, ToolContract } from '../src/tools/index.js';
+import type { Tool } from '../src/tools/index.js';
+import type { ToolContract } from '@ihui/types';
 import { clearTools, executeToolCall, registerTools, resetRateLimiter } from '../src/tools/index.js';
 import { ask_user_question } from '../src/tools/ask-user.js';
 import { writeAgentsMd } from '../src/commands/template.js';

@@ -160,6 +160,7 @@ export {
   SHARED_BUTTON_BASE_CLASS,
   SHARED_BUTTON_VARIANT_CLASSES,
   SHARED_BUTTON_SIZE_CLASSES,
+  SHARED_QUICK_ACTION_BORDER_CLASS,
 } from './button-variants.js'
 
 // 圆角档位唯一真相源(全端共用):Tailwind v3 preset 取 RADIUS_REM,JS 数值场景取 rnRadius。

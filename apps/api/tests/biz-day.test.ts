@@ -30,6 +30,16 @@ describe('biz-day:上海日界', () => {
   it('daysAgo 往前推的是"上海的自然日",不是 24h 的整数倍近似', () => {
     expect(bizDayStartUtc(1).getTime()).toBe(bizDayStartUtc(0).getTime() - 24 * 3600 * 1000)
   })
+  it('传入 at 时刻时按"该时刻所在的上海日"取值,负 daysAgo 往后推(RP-23:配额日重置点)', () => {
+    // 2026-10-24T17:00Z = 上海 10-25 01:00 → 所在上海日的零点 = 10-24 16:00Z
+    expect(bizDayStartUtc(0, new Date('2026-10-24T17:00:00Z')).getTime()).toBe(
+      new Date('2026-10-24T16:00:00Z').getTime(),
+    )
+    // 下一个上海零点(天重置点)= 10-25 16:00Z
+    expect(bizDayStartUtc(-1, new Date('2026-10-24T17:00:00Z')).getTime()).toBe(
+      new Date('2026-10-25T16:00:00Z').getTime(),
+    )
+  })
   it('shiftBizDayKey 跨月不串日', () => {
     expect(shiftBizDayKey('2026-03-01', -1)).toBe('2026-02-28')
     expect(shiftBizDayKey('2026-10-25', -6)).toBe('2026-10-19')
