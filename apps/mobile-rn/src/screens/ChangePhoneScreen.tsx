@@ -218,6 +218,7 @@ export function ChangePhoneScreen() {
           }}
           onSendCode={sendCode}
           onSubmit={handleSubmit}
+          onBack={() => navigation.goBack()}
           oldPhone={oldPhone}
           oldCode={oldCode}
           oldCodeMin={oldCodeMin}

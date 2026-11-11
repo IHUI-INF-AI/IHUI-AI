@@ -166,6 +166,7 @@ export function ModelRecordScreen() {
         error={error}
         onCopy={onCopy}
         images={RECORD_IMAGES}
+        previewIndex={previewIndex}
         onPreviewIndexChange={setPreviewIndex}
         colorScheme={resolvedTheme}
       />

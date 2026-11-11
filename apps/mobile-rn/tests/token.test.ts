@@ -392,4 +392,65 @@ describe('lib/token — runWithFreshToken(401 只重试一次)与 isCredentialRe
     expect(isCredentialRejected('not-an-error')).toBe(false)
   })
 })
+
+/**
+ * DBG-35(2026-11-07 bug-hunt):令牌轮换写入顺序必须与 miniapp-taro auth.ts 同序
+ * —— 先落 refresh 再落 access。两写之间进程被杀时,盘上留「旧 access + 新 refresh」
+ * (旧 access 未过期前可用、新 refresh 始终可续期,轮换中断可自愈);
+ * 反序则留「新 access + 已吊销的旧 refresh」⇒ 只能重登。这里钉落盘顺序本身。
+ */
+describe('lib/token — 轮换写入顺序:先 refresh 后 access(DBG-35 双端同序)', () => {
+  beforeEach(() => {
+    resetAsyncStorageMock()
+    _resetSecureStoreBackendForTest()
+    apiClientMocks.fetchApi.mockReset()
+    sharedMocks.bindTokenStoreToApiClient.mockClear()
+  })
+
+  it('refreshAccessToken 成功轮转后,落盘顺序是 [refresh, access]', async () => {
+    await initApi()
+    const bindCall = sharedMocks.bindTokenStoreToApiClient.mock.calls[0]!
+    const refresh = (
+      bindCall[1] as { refreshAccessToken: () => Promise<string | null> }
+    ).refreshAccessToken
+    expect(typeof refresh).toBe('function')
+
+    apiClientMocks.fetchApi.mockResolvedValueOnce({
+      success: true,
+      data: { accessToken: 'at-rotated', refreshToken: 'rt-rotated' },
+    })
+    // 只记本轮写入的 key 顺序:initApi 之前的落盘不算进断言
+    const writtenKeys: string[] = []
+    const setSpy = vi.spyOn(AsyncStorage, 'setItem').mockImplementation(async (k: string) => {
+      writtenKeys.push(k)
+    })
+    await expect(refresh()).resolves.toBe('at-rotated')
+    setSpy.mockRestore()
+
+    expect(writtenKeys).toEqual(['ihui_refresh_token', 'ihui_token'])
+    expect(getRefreshToken()).toBe('rt-rotated')
+    expect(getToken()).toBe('at-rotated')
+  })
+
+  it('服务端未轮换 refresh(只回 access)⇒ 只写 access,不动 refresh 位', async () => {
+    await initApi()
+    const bindCall = sharedMocks.bindTokenStoreToApiClient.mock.calls[0]!
+    const refresh = (
+      bindCall[1] as { refreshAccessToken: () => Promise<string | null> }
+    ).refreshAccessToken
+
+    apiClientMocks.fetchApi.mockResolvedValueOnce({
+      success: true,
+      data: { accessToken: 'at-only' },
+    })
+    const writtenKeys: string[] = []
+    const setSpy = vi.spyOn(AsyncStorage, 'setItem').mockImplementation(async (k: string) => {
+      writtenKeys.push(k)
+    })
+    await expect(refresh()).resolves.toBe('at-only')
+    setSpy.mockRestore()
+
+    expect(writtenKeys).toEqual(['ihui_token'])
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

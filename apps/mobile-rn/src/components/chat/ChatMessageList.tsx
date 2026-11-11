@@ -42,7 +42,7 @@ import {
   PermissionTierRow,
   SteerNoticeList,
 } from '../../components/ChatDisclosure'
-import { AI_GENERATED_LABEL, isErrorTurn, resendTargetText } from '@ihui/shared/chat'
+import { isErrorTurn, resendTargetText } from '@ihui/shared/chat'
 import type { ChatMessage } from '@ihui/shared'
 import type { ChatScreenMessage } from '@ihui/rn-app'
 import { ToolCallCard } from './ToolCallCard'
@@ -97,14 +97,6 @@ const styles = StyleSheet.create({
   },
   msgActionText: {
     fontSize: rnType.label.size,
-    color: tokens.text.secondary,
-  },
-  // AI 生成显式标识:正文之下、操作行之上;字号/行高取自 @ihui/shared/chat 单一常量
-  msgAiGeneratedLabel: {
-    marginTop: rpx(6),
-    paddingLeft: rpx(24),
-    fontSize: AI_GENERATED_LABEL.fontSizePx,
-    lineHeight: AI_GENERATED_LABEL.lineHeightPx,
     color: tokens.text.secondary,
   },
   msgBubble: {
@@ -631,15 +623,6 @@ export function ChatMessageItem({
             </Text>
           ) : null}
         </Tappable>
-        {/* AI 生成显式标识:仅 AI 回复、失败轮不标注(失败轮未产出内容);位于气泡下方、操作行上方 */}
-        {!isUser && !isFailed && (item.content.trim() !== '' || segments.length > 0) ? (
-          <Text
-            style={styles.msgAiGeneratedLabel}
-            accessibilityLabel={t(AI_GENERATED_LABEL.i18nKey)}
-          >
-            {t(AI_GENERATED_LABEL.i18nKey)}
-          </Text>
-        ) : null}
         {showActions ? (
           <View style={styles.msgActions}>
             <TouchableOpacity
