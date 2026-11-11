@@ -450,7 +450,8 @@ export async function checkQuota(
         costBalanceCents: groupInfo.sharedCostBalanceCents,
       }
     }
-    if (groupInfo.sharedCostBalanceCents === 0) {
+    // F-718:成本余额 <= 0(0=耗尽,<0=欠费)即拒绝;-1 仍是不限哨兵,需豁免。
+    if (groupInfo.sharedCostBalanceCents !== -1 && groupInfo.sharedCostBalanceCents <= 0) {
       return {
         allowed: false,
         reason: 'no_balance_cost',
@@ -496,8 +497,9 @@ export async function checkQuota(
     }
   }
 
-  // cost 余额检查(0 = 耗尽,>0 但无法预估单次成本时放行,由 recordCall 扣减时判定)
-  if (row.costBalanceCents === 0) {
+  // cost 余额检查(<= 0 视为耗尽:F-718 起余额不足会扣成负数形成欠费,负值同样必须拒绝;
+  // -1 为不限哨兵,需豁免)。>0 但无法预估单次成本时放行,由 recordCall 扣减时判定。
+  if (row.costBalanceCents !== -1 && row.costBalanceCents <= 0) {
     return {
       allowed: false,
       reason: 'no_balance_cost',
@@ -1376,7 +1378,8 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
   } else if (groupInfoForDeduct && groupInfoForDeduct.enabled) {
     // === 扣组池(2026-08-01 立;P0-8 修复 2026-08-05)===
     // P0-8 原实现:dbRead 读余额 → 应用层计算 → db UPDATE,并发 Lost Update 超用平台额度。
-    // 改为原子 CASE WHEN 条件更新(与个人余额同模式),-1(无限额度)保持 -1,余额不足不扣减。
+    // 改为原子 CASE WHEN 条件更新(与个人余额同模式),-1(无限额度)保持 -1;
+    // F-718:成本余额不足时扣成负数(欠费),不再保持原值,由 checkQuota 下次按 <= 0 拦截。
     let updatedGroup: { sharedTokenBalance: number; sharedCostBalanceCents: number } | undefined
     try {
       const groupRows = await db
@@ -1384,7 +1387,7 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
         .set({
           // F-181:命中缓存时 billableTokens=0,不占组池 token 配额
           sharedTokenBalance: sql`CASE WHEN ${apiKeyGroups.sharedTokenBalance} = -1 THEN -1 WHEN ${apiKeyGroups.sharedTokenBalance} >= ${billableTokens} THEN ${apiKeyGroups.sharedTokenBalance} - ${billableTokens} ELSE ${apiKeyGroups.sharedTokenBalance} END`,
-          sharedCostBalanceCents: sql`CASE WHEN ${apiKeyGroups.sharedCostBalanceCents} = -1 THEN -1 WHEN ${apiKeyGroups.sharedCostBalanceCents} >= ${costCentsToDeduct} THEN ${apiKeyGroups.sharedCostBalanceCents} - ${costCentsToDeduct} ELSE ${apiKeyGroups.sharedCostBalanceCents} END`,
+          sharedCostBalanceCents: sql`CASE WHEN ${apiKeyGroups.sharedCostBalanceCents} = -1 THEN -1 ELSE ${apiKeyGroups.sharedCostBalanceCents} - ${costCentsToDeduct} END`,
           updatedAt: new Date(),
         })
         .where(eq(apiKeyGroups.id, groupInfoForDeduct.groupId))
@@ -1427,10 +1430,11 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
       const rows = await db
         .update(developerApiKeys)
         .set({
-          // -1(无限额度)保持 -1;余额 >= 扣减量时扣减;否则保持不变(拒绝扣减,防负数)
+          // -1(无限额度)保持 -1;余额 >= 扣减量时扣减;F-718:余额不足时继续扣成负数(欠费),
+          // 而不是保持原值(原 ELSE 保持原值 ⇒ 1 分余额可永久免费调用),负余额由 checkQuota 拦截。
           // F-181:命中缓存时 billableTokens=0,个人 token 配额不扣
           tokenBalance: sql`CASE WHEN ${developerApiKeys.tokenBalance} = -1 THEN -1 WHEN ${developerApiKeys.tokenBalance} >= ${billableTokens} THEN ${developerApiKeys.tokenBalance} - ${billableTokens} ELSE ${developerApiKeys.tokenBalance} END`,
-          costBalanceCents: sql`CASE WHEN ${developerApiKeys.costBalanceCents} = -1 THEN -1 WHEN ${developerApiKeys.costBalanceCents} >= ${costCentsToDeduct} THEN ${developerApiKeys.costBalanceCents} - ${costCentsToDeduct} ELSE ${developerApiKeys.costBalanceCents} END`,
+          costBalanceCents: sql`CASE WHEN ${developerApiKeys.costBalanceCents} = -1 THEN -1 ELSE ${developerApiKeys.costBalanceCents} - ${costCentsToDeduct} END`,
           // 累计已用统计(总是累加,即使余额无限)
           tokenUsedTotal: sql`${developerApiKeys.tokenUsedTotal} + ${billableTokens}`,
           costUsedTotalCents: sql`${developerApiKeys.costUsedTotalCents} + ${costCentsToDeduct}`,

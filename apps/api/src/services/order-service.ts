@@ -30,7 +30,13 @@ import { rechargeToken, deductToken, refundTokenDeduct } from '../db/commission-
 import { db } from '../db/index.js'
 import { recordPayment } from './edu-ledger.js'
 import { eq, and, sql } from 'drizzle-orm'
-import { outboxEvents, pointTransactions, eduEnrollment, eduPaymentRecord } from '@ihui/database'
+import {
+  outboxEvents,
+  pointTransactions,
+  eduEnrollment,
+  eduPaymentRecord,
+  tokenFlows,
+} from '@ihui/database'
 import { isNull } from 'drizzle-orm'
 import { calculateTopupBonus } from './topup-discount-service.js'
 import { config } from '../config/index.js'
@@ -674,6 +680,27 @@ export async function abortRefund(orderNo: string): Promise<boolean> {
 }
 
 /**
+ * F-629:退款时回收该订单已发放的「充值赠送」token。
+ * 赠送流水以 related_order_no=`bonus:${orderNo}` 落账(见 creditTopupBonus),退款原先只按
+ * `refund:${orderNo}` 扣回本金,两笔流水互不匹配 ⇒ 赠送永久留在用户账上,「充值→退款」可循环套利。
+ * - 扣回量取实际入账流水的 quantity(不按当前阶梯重算:配置可能在支付后、退款前被改);
+ * - 幂等键 = refundTokenDeduct 内部 `refund:` 前缀 + 传入单号 ⇒ `refund:bonus:${orderNo}`,
+ *   与本金 `refund:${orderNo}` 互不冲突,重复退款仍被 unique 索引拦截;
+ * - 未发放(无流水 / quantity<=0)直接跳过,不报错。
+ */
+async function reclaimTopupBonus(order: Order): Promise<void> {
+  if (order.orderType !== 2 || !order.userId || order.productId) return
+  const rows = await db
+    .select({ quantity: tokenFlows.quantity })
+    .from(tokenFlows)
+    .where(and(eq(tokenFlows.relatedOrderNo, `bonus:${order.orderNo}`), eq(tokenFlows.opType, 0)))
+    .limit(1)
+  const issued = rows[0]?.quantity ?? 0
+  if (!Number.isFinite(issued) || issued <= 0) return
+  await refundTokenDeduct(order.userId, issued, `bonus:${order.orderNo}`, '退款扣回赠送')
+}
+
+/**
  * 状态机：退款完成（由退款流程调用）。
  *
  * 2026-08-02 P0 修复(B2):退款时退还 token 余额(token 充值订单/活动订单)。
@@ -687,6 +714,8 @@ export async function abortRefund(orderNo: string): Promise<boolean> {
  * P2 遗留(2026-08-06):退款无审核/二次确认流程——调用方(payment-gateway 退款端点)
  * 鉴权后直接置为 refunded,角色权限够即可一键退款,无审批/复核/风控(如大额/频次阈值)。
  * 资金敏感操作建议补人工审核或风控规则后再落库 refunded。
+ *
+ * F-629:本金扣回后同时回收该订单已发放的「充值赠送」token(见 reclaimTopupBonus)。
  */
 export async function refundOrder(
   orderNo: string,
@@ -708,6 +737,9 @@ export async function refundOrder(
   if ((order.orderType === 2 || order.orderType === 3) && order.userId && !order.productId) {
     try {
       await refundTokenDeduct(order.userId, order.amount, orderNo, '退款')
+      // F-629:本金扣回后在同一 try 内回收该订单已发放的赠送 token,
+      // 失败与本金扣回同语义(抛出 → 调用方重试;alreadyClaimed 先 abortRefund 回 paid)。
+      await reclaimTopupBonus(order)
     } catch (e) {
       // F-09:抢占路径下订单已置 refunded,扣回失败必须解除抢占回到 paid,
       // 保持 F-33「扣回失败 → 订单保持 paid 等待重试」的既有语义。

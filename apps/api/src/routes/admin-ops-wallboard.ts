@@ -35,6 +35,7 @@ import {
 import { shiftDate, todayString } from '../utils/checkin-helpers.js'
 import { success, error } from '../utils/response.js'
 import { requireAdmin } from '../plugins/require-permission.js'
+import { sumRelayCostCentsSql } from '../services/relay-cost.js'
 import type { EdgeLegKey, EdgeLegSample, EdgeStats } from '../services/edge-access.js'
 import { edgeSeries, latestEdgeSnapshot } from '../services/edge-access.js'
 import { getTrafficLiveSnapshot } from '../services/traffic-stats-service.js'
@@ -835,7 +836,7 @@ async function buildBusiness(): Promise<BusinessSnapshot | null> {
         .select({
           calls: sql<number>`count(*)::int`,
           tokens: sql<number>`coalesce(sum(${llmCallLogs.totalTokens}), 0)::bigint::int`,
-          costCents: sql<number>`coalesce(sum(((${llmCallLogs.metadata}->>'costCents')::numeric)), 0)::int`,
+          costCents: sumRelayCostCentsSql(),
           errRate: sql<
             number | null
           >`(avg(case when ${llmCallLogs.status} = 'error' then 1 else 0 end) * 100)::float8`,
@@ -959,7 +960,7 @@ async function buildBusiness(): Promise<BusinessSnapshot | null> {
       })),
       llmCallsToday: l?.calls ?? 0,
       llmTokensToday: l?.tokens ?? 0,
-      llmCostCentsToday: l?.costCents ?? 0,
+      llmCostCentsToday: Number(l?.costCents ?? 0),
       llmErrRate: pct2(l?.errRate),
       llmP95LatencyMs: l?.p95Latency ?? null,
       llmTopModels: llmModels.map((r) => ({ model: r.model, calls: r.calls })),

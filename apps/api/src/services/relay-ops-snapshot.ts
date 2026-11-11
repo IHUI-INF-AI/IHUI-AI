@@ -29,6 +29,7 @@ import {
 } from '@ihui/database'
 import { getCircuitState, getRecentCalls } from './relay-channel-router.js'
 import { listAlertRules, listRecentAlertEvents } from './relay-alert-rules-service.js'
+import { sumRelayCostCentsSql } from './relay-cost.js'
 
 // ===== 类型(与 REST 响应逐字段一致) =====
 
@@ -131,7 +132,7 @@ async function aggregatePeriod(start: Date, end: Date): Promise<RelayOpsPeriodAg
     .select({
       callCount: sql<number>`count(*)::int`,
       totalTokens: sql<number>`coalesce(sum(${llmCallLogs.totalTokens}), 0)::bigint::int`,
-      totalCostCents: sql<number>`coalesce(sum(((${llmCallLogs.metadata}->>'costCents')::numeric)), 0)::int`,
+      totalCostCents: sumRelayCostCentsSql(),
       errorCount: sql<number>`count(*) filter (where ${llmCallLogs.status} = 'error')::int`,
       avgLatencyMs: sql<number>`coalesce(avg(${llmCallLogs.latencyMs}), 0)::int`,
       p95LatencyMs: sql<number>`coalesce(percentile_cont(0.95) WITHIN GROUP (ORDER BY ${llmCallLogs.latencyMs})::int, 0)`,
@@ -143,7 +144,7 @@ async function aggregatePeriod(start: Date, end: Date): Promise<RelayOpsPeriodAg
   return {
     callCount,
     totalTokens: r.totalTokens,
-    totalCostCents: r.totalCostCents,
+    totalCostCents: Number(r.totalCostCents),
     errorCount: r.errorCount,
     errorRate: callCount > 0 ? r.errorCount / callCount : 0,
     avgLatencyMs: r.avgLatencyMs,
@@ -155,7 +156,7 @@ async function aggregateRange(start: Date, end: Date): Promise<RelayOpsRangeAggr
   const rows = await dbRead
     .select({
       callCount: sql<number>`count(*)::int`,
-      totalCostCents: sql<number>`coalesce(sum(((${llmCallLogs.metadata}->>'costCents')::numeric)), 0)::int`,
+      totalCostCents: sumRelayCostCentsSql(),
       errorCount: sql<number>`count(*) filter (where ${llmCallLogs.status} = 'error')::int`,
     })
     .from(llmCallLogs)
@@ -164,7 +165,7 @@ async function aggregateRange(start: Date, end: Date): Promise<RelayOpsRangeAggr
   const callCount = r.callCount
   return {
     callCount,
-    totalCostCents: r.totalCostCents,
+    totalCostCents: Number(r.totalCostCents),
     errorRate: callCount > 0 ? r.errorCount / callCount : 0,
   }
 }
