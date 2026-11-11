@@ -6,14 +6,14 @@
  * 本地模拟上游测试(2026-11-11 立)。
  *
  * 这条测试回答一个问题:**没有真实手机号时,整条链路能不能被验证到位?**
- * 答案只在 mock 层面成立 —— 服务端是本地替身,码也由替身签发,所以注册/邀请结算/新手任务/
+ * 答案只在 mock 层面成立 —— 服务端是本地替身,码也由替身签发,所以注册/新手任务/
  * 签到领取/流水全部可真跑、可回归;真站的身份验证控制(短信码)不在可模拟范围内,也不应模拟。
  *
  * 断言口径一律对齐线上实测形状(字段名逐字对照),任何形状漂移都会在这里红。
  */
 import test, { after } from 'node:test'
 import assert from 'node:assert/strict'
-import { createMockUpstream, POINTS, INVITE_CAP, NEW_USER_TASK_KEYS } from '../raccoon-mock-upstream.mjs'
+import { createMockUpstream, POINTS, NEW_USER_TASK_KEYS } from '../raccoon-mock-upstream.mjs'
 import { encryptCredential } from '../lib/raccoon-crypto.mjs'
 
 const OPEN = []
@@ -62,11 +62,10 @@ const register = (m, phone, code, extra = {}) =>
     ...extra,
   })
 
-test('预置主号:注册礼包 3000 已到账,邀请码与名额就位,balance 字段对齐线上', async () => {
+test('预置主号:注册礼包 3000 已到账,balance 字段对齐线上(无邀请字段)', async () => {
   const m = await boot()
   const seed = m.seeds[0]
   assert.equal(seed.phone, '13100000000')
-  assert.match(seed.invite.code, /^RC\d{6}$/)
 
   const bal = await get(m, '/api/web/points/v1/balance', seed.token)
   assert.equal(bal.status, 200)
@@ -81,9 +80,6 @@ test('预置主号:注册礼包 3000 已到账,邀请码与名额就位,balance 
   assert.deepEqual(Object.keys(states), [...NEW_USER_TASK_KEYS])
   assert.equal(states.register_pack, 'completed')
   assert.equal(states.desktop_login, 'unfinished')
-  assert.equal(tasks.body.data.invite.invite_code, seed.invite.code)
-  assert.equal(tasks.body.data.invite.remaining_reward_invitees, INVITE_CAP)
-  assert.equal(tasks.body.data.invite.register_reward_points, POINTS.INVITE_REGISTER)
 })
 
 test('发码:明文 phone 按真站措辞拒绝,加密 phone 才放行并回显 mock_code', async () => {
@@ -147,51 +143,16 @@ test('重复注册:同号二次注册被拒(mock 约定码 100009,已标注未�
   assert.equal(b.body.message, 'phone_registered')
 })
 
-test('邀请结算:被邀请人首次注册 ⇒ 主号 +1 人 / +1500 分 / 名额 -1,归属落库', async () => {
+test('注册回显:user_info 返回手机号全号,registration_attribution 缺省为 web', async () => {
   const m = await boot({ code: '334455' })
-  const inviter = m.seeds[0]
   await sendSms(m, '13100000005')
-  const reg = await register(m, '13100000005', '334455', {
-    invite_code: inviter.invite.code,
-    registration_attribution: { registration_source: 'web', invite_code: inviter.invite.code },
-  })
+  const reg = await register(m, '13100000005', '334455')
   assert.equal(reg.status, 200)
 
-  const after = await get(m, '/api/web/points/v1/tasks', inviter.token)
-  assert.equal(after.body.data.invite.registered_invitee_count, 1)
-  assert.equal(after.body.data.invite.granted_points, POINTS.INVITE_REGISTER)
-  assert.equal(after.body.data.invite.remaining_reward_invitees, INVITE_CAP - 1)
-
-  const bal = await get(m, '/api/web/points/v1/balance', inviter.token)
-  assert.equal(bal.body.data.available_points, POINTS.REGISTER_PACK + POINTS.INVITE_REGISTER)
-
-  const bills = await get(m, '/api/web/points/v2/bills?page=1&page_size=10', inviter.token)
-  const inv = bills.body.data.items.find((b) => b.biz_type === 'invite_reward')
-  assert.ok(inv, `应有 invite_reward 流水: ${JSON.stringify(bills.body.data.items)}`)
-  assert.equal(inv.points, POINTS.INVITE_REGISTER)
-
   const ui = await get(m, '/api/web/auth/v1/user_info', reg.body.data.access_token)
-  assert.equal(ui.body.data.registration_attribution.invite_code, inviter.invite.code)
-  assert.equal(ui.body.data.registration_attribution.inviter_user_id, inviter.uid)
-})
-
-test('无效邀请码:不结算、不臆造归属(归属断言会判不成立)', async () => {
-  const m = await boot({ code: '556677' })
-  const inviter = m.seeds[0]
-  await sendSms(m, '13100000006')
-  const reg = await register(m, '13100000006', '556677', {
-    invite_code: 'RC999999',
-    registration_attribution: { registration_source: 'web', invite_code: 'RC999999' },
-  })
-  assert.equal(reg.status, 200, '注册本身应成功(邀请码错误不该阻断注册)')
-  assert.equal(m.state.registers[0].inviteSettled, false)
-
-  const tasks = await get(m, '/api/web/points/v1/tasks', inviter.token)
-  assert.equal(tasks.body.data.invite.registered_invitee_count, 0, '无效码不得给主号计数')
-
-  const ui = await get(m, '/api/web/auth/v1/user_info', reg.body.data.access_token)
+  assert.equal(ui.body.data.phone, '13100000005', 'user_info 的 phone 应是全号(与线上实证一致)')
   assert.equal(ui.body.data.registration_attribution.registration_source, 'web')
-  assert.equal(ui.body.data.registration_attribution.invite_code, undefined, '归属里不得出现无效码')
+  assert.equal(ui.body.data.registration_attribution.invite_code, undefined, '无邀请时归属里不得出现邀请码')
 })
 
 test('桌面端发放:一次调用发一次性 3000 + 每日 300,popup 报最大一笔,二次调用 granted=false', async () => {

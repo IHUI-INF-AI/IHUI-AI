@@ -8,15 +8,15 @@
  * 为什么需要它: 真站的注册/发码最后一道关是**手机短信验证码**,码由服务端经运营商下发、
  * 只在机主手机上,客户端拿不到也没有任何接口能"造"一个服务端认可的码 —— 这是平台的身份
  * 验证控制,不能绕也不应绕。所以"模拟验证码"唯一正当的落点是**把服务端本身在本地模拟出来**:
- * 协议形状逐字段对齐线上实得,让客户端代码(加密口径/邀请传递/归属判定/计数回读/签到领取)
+ * 协议形状逐字段对齐线上实得,让客户端代码(加密口径/签到领取/新手任务态回读)
  * 在没有真实手机号的情况下也能端到端跑通并可回归。
  *
  * 覆盖的接口面(全部照线上实测形状复刻,docs/raccoon-relay-api.md 有取证记录):
  *   POST /api/web/auth/v1/send_sms                 发码(本地直接回显码,不接运营商)
- *   POST /api/web/auth/v1/register                 注册(phone/password 真解密,验码,结算邀请)
+ *   POST /api/web/auth/v1/register                 注册(phone/password 真解密,验码)
  *   GET  /api/web/auth/v1/user_info                用户态 + registration_attribution
  *   GET  /api/web/points/v1/balance                available/daily/monthly/reward/topup
- *   GET  /api/web/points/v1/tasks                  新手任务态 + 邀请统计
+ *   GET  /api/web/points/v1/tasks                  新手任务态
  *   GET  /api/web/points/v2/bills                  积分流水(分页)
  *   POST /api/web/desktop/v1/login/points/grant    桌面端登录奖励(一次性 3000)+ 每日 300
  *   POST /api/web/mobile/v1/login/points/grant     移动端登录奖励(一次性 3000)
@@ -38,8 +38,6 @@
  *   node scripts/raccoon-mock-upstream.mjs --random-code         # 每号一码(更接近真站)
  *
  * 配合 CLI(另开一个终端):
- *   node scripts/raccoon-invite.mjs --status --base http://127.0.0.1:8899 --home <临时 home>
- *   node scripts/raccoon-invite.mjs --phone 13100000000 --code 123456 --base http://127.0.0.1:8899
  *   node scripts/raccoon-pool-tasks.mjs --base http://127.0.0.1:8899 --token <mock token> --claim --claim-new-user --bills
  */
 import http from 'node:http'
@@ -48,22 +46,17 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { decryptCredential } from './lib/raccoon-crypto.mjs'
 
-/** 积分口径(与线上流水实测一致:注册礼包 3000 / 桌面端 3000 / 移动端 3000 / 每日 300 / 每邀注册 1500) */
+/** 积分口径(与线上流水实测一致:注册礼包 3000 / 桌面端 3000 / 移动端 3000 / 每日 300) */
 export const POINTS = Object.freeze({
   REGISTER_PACK: 3000,
   DESKTOP_ONCE: 3000,
   MOBILE_ONCE: 3000,
   DAILY: 300,
-  INVITE_REGISTER: 1500,
 })
-
-/** 邀请名额上限:线上 `registered + remaining` 实测为 20 */
-export const INVITE_CAP = 20
 
 /** 新手任务键(与 ai-service NEW_USER_TASKS 同集合) */
 export const NEW_USER_TASK_KEYS = Object.freeze(['register_pack', 'desktop_login', 'mobile_login'])
 
-const CLIENT_VERSION = '1.0.0'
 const DEFAULT_CODE = '123456'
 const DEFAULT_PORT = 8899
 const DEFAULT_SEED_PHONES = Object.freeze(['13100000000'])
@@ -83,23 +76,15 @@ function nowIso() {
 function createState() {
   return {
     uidSeq: 0,
-    inviteSeq: 0,
     accounts: [],
     byUid: new Map(),
     byToken: new Map(),
     byPhone: new Map(),
-    byInvite: new Map(),
     smsByPhone: new Map(),
     registers: [],
     grantCalls: [],
     seedPhones: [],
   }
-}
-
-function makeInviteCode(state) {
-  state.inviteSeq += 1
-  // 确定性递增便于断言;真站是随机串,形状差异不影响链路
-  return `RC${String(state.inviteSeq).padStart(6, '0')}`
 }
 
 /** 记一笔流水并加余额。bucket 决定进哪一个分项(daily 每日额度 / reward 任务奖励) */
@@ -139,13 +124,6 @@ function createAccount(state, { phone, password, nationCode = '86', registration
     seeded,
     points: { available: 0, daily: 0, monthly: 0, reward: 0, topup: 0 },
     newUserTasks: Object.fromEntries(NEW_USER_TASK_KEYS.map((k) => [k, 'unfinished'])),
-    invite: {
-      code: makeInviteCode(state),
-      registered_invitees: 0,
-      granted_points: 0,
-      remaining_reward_invitees: INVITE_CAP,
-      register_reward_points: POINTS.INVITE_REGISTER,
-    },
     registrationAttribution,
     lastDailyGrantDay: null,
     bills: [],
@@ -154,7 +132,6 @@ function createAccount(state, { phone, password, nationCode = '86', registration
   state.byUid.set(uid, acct)
   state.byToken.set(token, acct)
   state.byPhone.set(phone, acct)
-  state.byInvite.set(acct.invite.code, acct)
   return acct
 }
 
@@ -209,21 +186,6 @@ function grantLogin(acct, channel) {
       expire_at: new Date(Date.now() + 30 * 86400000).toISOString(),
     },
   }
-}
-
-/** 邀请结算:只在被邀请人首次注册这一笔里发生(线上无独立发放接口) */
-function settleInvite(state, inviter, invitee, inviteCode) {
-  inviter.invite.registered_invitees += 1
-  inviter.invite.granted_points += POINTS.INVITE_REGISTER
-  inviter.invite.remaining_reward_invitees = Math.max(0, inviter.invite.remaining_reward_invitees - 1)
-  applyGrant(inviter, POINTS.INVITE_REGISTER, { bizType: 'invite_reward', eventName: '邀请好友注册奖励' })
-  invitee.registrationAttribution = {
-    registration_source: 'web',
-    invite_code: inviteCode,
-    inviter_user_id: inviter.uid,
-  }
-  state.settleLog = state.settleLog ?? []
-  state.settleLog.push({ inviteCode, inviterUid: inviter.uid, inviteeUid: invitee.uid, points: POINTS.INVITE_REGISTER })
 }
 
 // =============================================================================
@@ -328,10 +290,8 @@ function createHandler(state, opts) {
         const record = {
           phone,
           passwordLen: password.length,
-          code: body.code == null ? null : String(body.code),
+          code: body.code === null || body.code === undefined ? null : String(body.code),
           nation_code: body.nation_code ?? null,
-          invite_code: body.invite_code ?? body.registration_attribution?.invite_code ?? null,
-          hasAttribution: Boolean(body.registration_attribution),
         }
         state.registers.push(record)
 
@@ -345,19 +305,6 @@ function createHandler(state, opts) {
 
         const acct = createAccount(state, { phone, password, nationCode: String(body.nation_code ?? '86') })
         applyRegisterPack(acct)
-
-        const inviteCode = record.invite_code
-        if (inviteCode) {
-          const inviter = state.byInvite.get(String(inviteCode))
-          if (inviter && inviter.uid !== acct.uid) {
-            settleInvite(state, inviter, acct, String(inviteCode))
-            record.inviteSettled = true
-          } else {
-            // 真站对无效邀请码的行为未实证 ⇒ mock 不臆造成功,只记未结算,归属断言会因此判不成立
-            record.inviteSettled = false
-            record.inviteUnknown = true
-          }
-        }
         return ok(res, { access_token: acct.token, id: acct.uid, phone: acct.phone })
       }
 
@@ -391,14 +338,6 @@ function createHandler(state, opts) {
       if (p === '/api/web/points/v1/tasks' && method === 'GET') {
         return ok(res, {
           new_user_task_states: NEW_USER_TASK_KEYS.map((k) => ({ key: k, status: acct.newUserTasks[k] })),
-          invite: {
-            invite_code: acct.invite.code,
-            granted_points: acct.invite.granted_points,
-            registered_invitee_count: acct.invite.registered_invitees,
-            remaining_reward_invitees: acct.invite.remaining_reward_invitees,
-            register_reward_points: acct.invite.register_reward_points,
-            marketing_text: 'mock 环境:邀请奖励仅在被邀请人首次注册时结算',
-          },
         })
       }
 
@@ -565,14 +504,14 @@ async function main() {
         base: m.base,
         port: m.port,
         code: m.state.smsByPhone.size === 0 ? (flags.has('random-code') ? null : String(vals.code ?? DEFAULT_CODE)) : null,
-        seeds: m.seeds.map((a) => ({ phone: a.phone, uid: a.uid, token: a.token, inviteCode: a.invite.code })),
+        seeds: m.seeds.map((a) => ({ phone: a.phone, uid: a.uid, token: a.token })),
       }),
     )
   } else {
     console.log('[mock] 小浣熊模拟上游已启动')
     console.log(`  base      ${m.base}`)
     console.log(`  短信码    ${flags.has('random-code') ? '每号一码(send_sms 响应里回显 mock_code)' : String(vals.code ?? DEFAULT_CODE)}`)
-    for (const a of m.seeds) console.log(`  主号      ${a.phone} uid=${a.uid} 邀请码=${a.invite.code}`)
+    for (const a of m.seeds) console.log(`  主号      ${a.phone} uid=${a.uid}`)
     for (const a of m.seeds) console.log(`             token=${a.token}`)
     console.log('  提示      仅监听 127.0.0.1,账号存内存,仅用于本地演练;真实注册仍需机主本人手机收码')
     console.log('  停止      Ctrl+C')
@@ -595,5 +534,5 @@ if (isDirectRun) {
   })
 }
 
-export const __test__ = { createState, createAccount, applyRegisterPack, grantLogin, settleInvite, maskPhone, parseArgs }
+export const __test__ = { createState, createAccount, applyRegisterPack, grantLogin, maskPhone, parseArgs }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
