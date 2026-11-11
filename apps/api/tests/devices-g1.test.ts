@@ -188,9 +188,13 @@ vi.mock('../src/db/index.js', async () => {
     const rows = store[tableName]
     const row = { id: randomUUID(), createdAt: new Date(), ...v }
     if (conflictCfg) {
-      const keys: string[] = conflictCfg.target.map((c: any) => snakeToCamel(c.name))
+      // target 允许单列(devices.ts 的 token 唯一键)或复合列(chat 等)
+      const targets: any[] = Array.isArray(conflictCfg.target) ? conflictCfg.target : [conflictCfg.target]
+      const keys: string[] = targets.map((c: any) => snakeToCamel(c.name))
       const found = rows!.find((r) => keys.every((k) => String(r[k]) === String(v[k])))
       if (found) {
+        // DO UPDATE 的 WHERE 不成立 ⇒ PG 不写这一行且 RETURNING 回 0 行(SDB-01 的并发兜底)
+        if (conflictCfg.setWhere && !matches(found, parsePreds(conflictCfg.setWhere))) return []
         for (const [sk, sv] of Object.entries(conflictCfg.set)) {
           // G1b:registerDevice 的 set 里出现 drizzle SQL 模板(如
           // `coalesce(${devices.fingerprint}, excluded.fingerprint)`,指纹只绑定
@@ -656,6 +660,137 @@ describe('G1 跨设备互联闭环', () => {
     expect(del.statusCode).toBe(200)
     const after = await asDevice('POST', '/api/devices/heartbeat', deviceToken)
     expect(after.statusCode).toBe(401)
+  })
+})
+
+/**
+ * SDB-01:device_tokens.token 全局唯一(device-tokens.ts:53 / 0225_create_device_tokens.sql:23),
+ * 注册接口若在冲突时无条件改 user_id,任何登录用户知道他人 FCM token 即可把该设备的
+ * 推送改投到自己账号。判据:非本人 token 一律拒绝且原行不被写;本人重复注册保持幂等。
+ */
+describe('推送令牌归属锁(SDB-01)', () => {
+  it('他人 token:409 拒绝,且原 owner 与元数据一个字都没被改', async () => {
+    const createdAt = new Date(Date.now() - 3_600_000)
+    const ownerRow = {
+      id: randomUUID(),
+      userId: USER_B,
+      token: 'fcm-token-owned-by-b',
+      platform: 'android',
+      deviceType: 'Pixel-7',
+      appVersion: '1.0.0',
+      locale: 'zh-CN',
+      isActive: true,
+      lastUsedAt: new Date(Date.now() - 1_800_000),
+      createdAt,
+      updatedAt: createdAt,
+    }
+    store.device_tokens!.push(ownerRow)
+    const snapshot = structuredClone(ownerRow)
+
+    const res = await asUser('PUT', '/api/devices/token', USER_A, {
+      token: ownerRow.token,
+      platform: 'android',
+      deviceType: 'HACKED',
+      appVersion: '9.9.9',
+      locale: 'en-US',
+    })
+
+    expect(res.statusCode).toBe(409)
+    expect(res.json().errorCode).toBe('DEVICE_TOKEN_OWNED_BY_OTHER')
+    // 行数不变 + 整行快照不变 ⇒ 改 owner 的 upsert(以及任何元数据写入)都没有执行
+    expect(store.device_tokens).toHaveLength(1)
+    expect(store.device_tokens![0]).toEqual(snapshot)
+  })
+
+  it('本人 token:幂等成功,刷新元数据且不新增行', async () => {
+    const old = new Date(Date.now() - 3_600_000)
+    const selfRow = {
+      id: randomUUID(),
+      userId: USER_A,
+      token: 'fcm-token-owned-by-a',
+      platform: 'android',
+      deviceType: 'old-device',
+      appVersion: '1.0.0',
+      locale: 'zh-CN',
+      isActive: false,
+      lastUsedAt: old,
+      createdAt: old,
+      updatedAt: old,
+    }
+    store.device_tokens!.push(selfRow)
+
+    const res = await asUser('PUT', '/api/devices/token', USER_A, {
+      token: selfRow.token,
+      platform: 'ios',
+      deviceType: 'iPhone15,2',
+      appVersion: '2.0.0',
+      locale: 'en-US',
+    })
+
+    expect(res.statusCode).toBe(200)
+    expect(res.json()).toEqual({
+      code: 0,
+      message: 'success',
+      data: { token: selfRow.token, platform: 'ios', registered: true },
+    })
+    expect(store.device_tokens).toHaveLength(1)
+    expect(store.device_tokens![0]).toMatchObject({
+      id: selfRow.id,
+      userId: USER_A,
+      platform: 'ios',
+      deviceType: 'iPhone15,2',
+      appVersion: '2.0.0',
+      locale: 'en-US',
+      isActive: true,
+    })
+    expect(new Date(store.device_tokens![0].lastUsedAt).getTime()).toBeGreaterThan(old.getTime())
+    expect(new Date(store.device_tokens![0].updatedAt).getTime()).toBeGreaterThan(old.getTime())
+  })
+
+  it('新 token:正常注册一行并归属当前用户', async () => {
+    const res = await asUser('PUT', '/api/devices/token', USER_A, {
+      token: 'fcm-brand-new-token',
+      platform: 'web',
+    })
+
+    expect(res.statusCode).toBe(200)
+    expect(res.json().data).toEqual({ token: 'fcm-brand-new-token', platform: 'web', registered: true })
+    expect(store.device_tokens).toHaveLength(1)
+    expect(store.device_tokens![0]).toMatchObject({
+      userId: USER_A,
+      token: 'fcm-brand-new-token',
+      platform: 'web',
+      isActive: true,
+    })
+    expect(store.device_tokens![0].id).toBeTruthy()
+  })
+
+  it('拒绝响应不回显原 owner 的用户信息', async () => {
+    const createdAt = new Date(Date.now() - 60_000)
+    store.device_tokens!.push({
+      id: randomUUID(),
+      userId: USER_B,
+      token: 'fcm-token-owner-secret',
+      platform: 'ios',
+      deviceType: 'iPhone15,2',
+      appVersion: '1.0.0',
+      locale: 'zh-CN',
+      isActive: true,
+      lastUsedAt: createdAt,
+      createdAt,
+      updatedAt: createdAt,
+    })
+
+    const res = await asUser('PUT', '/api/devices/token', USER_A, {
+      token: 'fcm-token-owner-secret',
+      platform: 'ios',
+    })
+
+    expect(res.statusCode).toBe(409)
+    expect(res.json().data).toBeUndefined()
+    expect(res.body).not.toContain(USER_B)
+    expect(res.body).not.toContain('iPhone15,2')
+    expect(res.body).not.toContain('zh-CN')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

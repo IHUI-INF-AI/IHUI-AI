@@ -13,11 +13,20 @@
  */
 import { z } from 'zod'
 
-import type { GithubApiRequest, GithubTransport, InstallationTokenProvider } from './jwt.js'
+import type {
+  GithubApiRequest,
+  GithubApiResponse,
+  GithubTransport,
+  InstallationTokenProvider,
+} from './jwt.js'
 import { splitRepoFullName } from './events.js'
 
-/** 单次最多拉取的改动文件数(GitHub 分页上限 100) */
+/** 单页最多拉取的改动文件数(GitHub `/pulls/:n/files` 的 per_page 硬上限) */
 export const MAX_REVIEW_FILES = 100
+/** 翻页页数上限:到顶仍有下一页时如实标 truncated */
+export const MAX_REVIEW_PAGES = 10
+/** 拉取总量上限(10 页 × 100);预算按文件数设,与页数上限同源不打架 */
+export const MAX_REVIEW_FILES_TOTAL = MAX_REVIEW_PAGES * MAX_REVIEW_FILES
 /** 单文件 patch 送入模型前的截断长度(防超大 PR 打爆上下文) */
 export const MAX_PATCH_CHARS_PER_FILE = 4000
 /** 整份 diff 的总预算 */
@@ -49,8 +58,10 @@ export function toPrCoordinates(
   return { owner: ownerRepo.owner, repo: ownerRepo.repo, pullNumber, installationId }
 }
 
-function filesPath(coord: PrCoordinates): string {
-  return `/repos/${coord.owner}/${coord.repo}/pulls/${coord.pullNumber}/files?per_page=${MAX_REVIEW_FILES}`
+function filesPath(coord: PrCoordinates, page: number): string {
+  const base = `/repos/${coord.owner}/${coord.repo}/pulls/${coord.pullNumber}/files?per_page=${MAX_REVIEW_FILES}`
+  // 首页保持不带 page(GitHub 缺省即 1,且既有调用方按该 URL 断言),从第 2 页起显式递增
+  return page <= 1 ? base : `${base}&page=${page}`
 }
 
 function reviewsPath(coord: PrCoordinates): string {
@@ -104,6 +115,27 @@ const prFileSchema = z.object({
   patch: z.string().optional(),
 })
 const prFilesSchema = z.array(prFileSchema)
+type PrFilePayload = z.infer<typeof prFileSchema>
+
+/**
+ * `GithubTransport` 的响应契约(jwt.ts)只声明 status/body,没有 header 位。
+ * 这里按可选扩展读 Link:transport 带 headers(普通对象,键可大写)就按官方 Link 判定;
+ * 没带则退回"整页 ⇒ 实际探下一页",两种路径都不靠页大小直接猜结论。
+ */
+type PrFilesResponse = GithubApiResponse & { headers?: Record<string, string> }
+
+const NEXT_LINK_PATTERN = /<[^>]*>\s*;\s*rel="?next"?/i
+
+/** undefined = 拿不到 header(无从判断);null = 有 header 但无 Link(确定页尾);string = Link 原文 */
+function readLinkHeader(response: PrFilesResponse): string | null | undefined {
+  if (!response.headers) return undefined
+  return response.headers.link ?? response.headers.Link ?? null
+}
+
+/** GitHub 只在确实还有下一页时才下发 rel="next" */
+export function hasNextPageLink(linkHeader: string): boolean {
+  return NEXT_LINK_PATTERN.test(linkHeader)
+}
 
 /**
  * 拉取 PR 改动文件与 patch。
@@ -114,28 +146,64 @@ export async function fetchPrDiff(
   coord: PrCoordinates,
   limits: { maxFiles?: number; maxPatchChars?: number; maxTotalChars?: number } = {},
 ): Promise<PrDiff> {
-  const response = await transport({
-    method: 'GET',
-    path: filesPath(coord),
-    headers: {},
-  })
-  if (response.status < 200 || response.status >= 300) {
-    throw new Error(`拉取 PR diff 失败(status=${response.status})`)
-  }
-  const parsed = prFilesSchema.safeParse(response.body)
-  if (!parsed.success) {
-    throw new Error('拉取 PR diff 失败(响应形态不符)')
+  const maxFiles = Math.max(
+    1,
+    Math.min(limits.maxFiles ?? MAX_REVIEW_FILES_TOTAL, MAX_REVIEW_FILES_TOTAL),
+  )
+  // 文件预算与页数上限取小:预算 150 只值得翻 2 页,不必打到 10 页
+  const pageLimit = Math.min(MAX_REVIEW_PAGES, Math.max(1, Math.ceil(maxFiles / MAX_REVIEW_FILES)))
+
+  const collected: PrFilePayload[] = []
+  let truncated = false
+  let page = 1
+
+  // GitHub 单页最多 100 个文件:只看首页会让大 PR 的漏审文件仍拿到 APPROVE,
+  // 因此按 Link/探页循环,直到确认页尾或触到自设上限。
+  for (;;) {
+    const response = (await transport({
+      method: 'GET',
+      path: filesPath(coord, page),
+      headers: {},
+    })) as PrFilesResponse
+    if (response.status < 200 || response.status >= 300) {
+      throw new Error(`拉取 PR diff 失败(status=${response.status})`)
+    }
+    const parsed = prFilesSchema.safeParse(response.body)
+    if (!parsed.success) {
+      throw new Error('拉取 PR diff 失败(响应形态不符)')
+    }
+    const items = parsed.data
+    collected.push(...items)
+
+    // 有 Link 就信官方声明;拿不到 header 时"整页"只代表可能还有,必须实际探一页才能下结论
+    const link = readLinkHeader(response)
+    const mayHaveNext =
+      link === undefined
+        ? items.length >= MAX_REVIEW_FILES
+        : link !== null && hasNextPageLink(link)
+    if (items.length === 0 || !mayHaveNext) break
+
+    if (page >= pageLimit) {
+      // 还有下一页却到自设上限:如实标截断,不得静默当成全量
+      truncated = true
+      break
+    }
+    if (collected.length >= maxFiles) {
+      truncated = true
+      break
+    }
+    page += 1
   }
 
-  const maxFiles = Math.min(limits.maxFiles ?? MAX_REVIEW_FILES, MAX_REVIEW_FILES)
+  if (collected.length > maxFiles) truncated = true
+
   const maxPatchChars = limits.maxPatchChars ?? MAX_PATCH_CHARS_PER_FILE
   const maxTotalChars = limits.maxTotalChars ?? MAX_DIFF_TOTAL_CHARS
 
   const files: PrFileChange[] = []
   let budget = maxTotalChars
-  let truncated = parsed.data.length > maxFiles
 
-  for (const item of parsed.data.slice(0, maxFiles)) {
+  for (const item of collected.slice(0, maxFiles)) {
     let patch = item.patch ?? null
     if (patch && patch.length > maxPatchChars) {
       patch = `${patch.slice(0, maxPatchChars)}\n…(patch 已截断)`
@@ -165,7 +233,7 @@ export async function fetchPrDiff(
     additions: files.reduce((sum, file) => sum + file.additions, 0),
     deletions: files.reduce((sum, file) => sum + file.deletions, 0),
     truncated,
-    filesTotal: parsed.data.length,
+    filesTotal: collected.length,
   }
 }
 

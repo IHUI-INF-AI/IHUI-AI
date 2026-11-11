@@ -464,8 +464,11 @@ export async function checkQuota(
   }
 
   // === 个人余额检查(无组,维持原逻辑,向后兼容)===
-  // -1 = 无限额度,直接放行
-  if (row.tokenBalance === -1 && row.costBalanceCents === -1) {
+  // SDB-04(2026-11-08):-1 是"不限"哨兵(与订阅窗口 -1 同语义),必须先显式识别,
+  // 否则 -1 < estimatedTokens 会把不限误判成超额,新 Key 订阅后 100% 被拒。
+  // 只豁免 token 维度;cost 仍按原判据(0 = 耗尽)卡住真正的余额不足。
+  const tokenUnlimited = row.tokenBalance === -1
+  if (tokenUnlimited && row.costBalanceCents === -1) {
     return {
       allowed: true,
       apiKeyId: row.id,
@@ -476,7 +479,7 @@ export async function checkQuota(
   }
 
   // token 余额检查(仅当 estimatedTokens > 0 时预检)
-  if (row.tokenBalance !== -1 && estimatedTokens > 0 && row.tokenBalance < estimatedTokens) {
+  if (!tokenUnlimited && estimatedTokens > 0 && row.tokenBalance < estimatedTokens) {
     return {
       allowed: false,
       reason: 'no_balance_token',
