@@ -22,35 +22,42 @@
  *  - 用户协议/隐私政策/联系我们 3 个 Dialog 按钮可见
  *  - 5 语言 i18n key 翻译完整(本测试只验 zh-CN 营销首页)
  *
- * 注:必须用 admin 账号(项目硬规则,2026-07-28 立);adminPage fixture 已提供登录态。
+ * 注:footer 属公开页(未登录可见),断言全部是布局与 i18n 文案,与登录态无关,
+ * 故用原生 test/page 而非登录态 fixture —— 本 spec 归 playwright.config.ts 的 public
+ * project(无 setup 依赖),缺 E2E_ADMIN_PASSWORD 时仍可独立执行。
  */
-import { setupTest as test, expect } from './fixtures'
+import { test, expect } from '@playwright/test'
 
 test.describe('SiteFooter v10/v11 防回归', () => {
-  test.beforeEach(async ({ adminPage }) => {
-    await adminPage.goto('/')
+  // dev(Turbopack)冷启动首访首页要现编译,30s 默认用例超时会在 beforeEach 的 goto
+  // 处被截断(实测报 "Test timeout of 30000ms exceeded" + net::ERR_ABORTED),
+  // 与本 spec 断言无关;给足编译窗口即可稳定,CI(next start)不受影响。
+  test.setTimeout(120_000)
+
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/')
     // 2026-08-26 修复:首页 footer 是 #home-scroll-container(full-page snap scroll,
     // 高度 calc(100vh-58px),overflow-y-scroll)的最后一个 section —— 未滚动时不在视口,
     // waitFor visible 恒超时。先等 footer 挂载,滚动容器到底,再等可见。
-    await adminPage.locator('footer').waitFor({ state: 'attached', timeout: 15000 })
-    await adminPage.evaluate(() => {
+    await page.locator('footer').waitFor({ state: 'attached', timeout: 15000 })
+    await page.evaluate(() => {
       const sc = document.getElementById('home-scroll-container')
       if (sc) sc.scrollTop = sc.scrollHeight
     })
     // 等待 footer 真实渲染(等动画/字体加载完成)
-    await adminPage.locator('footer').waitFor({ state: 'visible', timeout: 15000 })
+    await page.locator('footer').waitFor({ state: 'visible', timeout: 15000 })
   })
 
   // 3 视口断点:768 (md 边界) / 1024 (lg 边界) / 1280 (桌面)
   for (const width of [768, 1024, 1280]) {
-    test(`视口 ${width}px — footer 高度 + 元素可见性`, async ({ adminPage }) => {
-      await adminPage.setViewportSize({ width, height: 800 })
+    test(`视口 ${width}px — footer 高度 + 元素可见性`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 800 })
       // 等待响应式布局稳定
       // WAIT-POLICY:TIMING-0004 视觉/几何采样前动画稳定窗口,先等待再截图
-      await adminPage.waitForTimeout(500)
+      await page.waitForTimeout(500)
 
       // 1. footer 高度 ≥ 130px(v10 拉高底线)
-      const footer = adminPage.locator('footer')
+      const footer = page.locator('footer')
       const footerHeight = await footer.evaluate((el: HTMLElement) => el.offsetHeight)
       expect(
         footerHeight,
@@ -58,13 +65,13 @@ test.describe('SiteFooter v10/v11 防回归', () => {
       ).toBeGreaterThanOrEqual(130)
 
       // 2. 3 个 QR 二维码均可见(v10 h-16 w-16)
-      const qrCodes = adminPage.locator('footer .h-16.w-16')
+      const qrCodes = page.locator('footer .h-16.w-16')
       await expect(qrCodes, `视口 ${width}px 找不到 3 个 QR 二维码(h-16 w-16)`).toHaveCount(3)
       // 至少 1 个 QR 完全可见(其他可能被滚动遮住)
       await expect(qrCodes.first()).toBeVisible()
 
       // 3. ICP 图标可见且 width=20px(v10 h-5 w-5)
-      const icpIcon = adminPage.locator('footer img[alt*="ICP"], footer img[alt*="icp"]')
+      const icpIcon = page.locator('footer img[alt*="ICP"], footer img[alt*="icp"]')
       const icpCount = await icpIcon.count()
       if (icpCount > 0) {
         const icpWidth = await icpIcon.first().evaluate((el) => el.getBoundingClientRect().width)
@@ -76,7 +83,7 @@ test.describe('SiteFooter v10/v11 防回归', () => {
 
       // 4. 5 个 ECOSYSTEM_GROUPS 分组全渲染(v11 拆分国际/国产)
       // 通过 h5 标签查找分组标题(国际大模型/国产大模型 等 5 个)
-      const groupTitles = adminPage.locator('footer h5')
+      const groupTitles = page.locator('footer h5')
       const titleCount = await groupTitles.count()
       expect(
         titleCount,
@@ -88,7 +95,7 @@ test.describe('SiteFooter v10/v11 防回归', () => {
       // 改为 xl:grid-cols-5,1024-1279 保持 2 列)
       if (width >= 1280) {
         // 找包含 5 个 h5 子元素的 grid 容器
-        const ecosystemGrid = adminPage.locator('footer .grid.xl\\:grid-cols-5').first()
+        const ecosystemGrid = page.locator('footer .grid.xl\\:grid-cols-5').first()
         await expect(
           ecosystemGrid,
           `视口 ${width}px 找不到 xl:grid-cols-5 生态合作容器`,
@@ -96,30 +103,30 @@ test.describe('SiteFooter v10/v11 防回归', () => {
       }
 
       // 6. 用户协议/隐私政策/联系我们 3 个 Dialog 按钮可见
-      const userAgreement = adminPage.locator('footer button:has-text("用户协议")')
-      const privacyPolicy = adminPage.locator('footer button:has-text("隐私政策")')
-      const contactUs = adminPage.locator('footer button:has-text("联系我们")')
+      const userAgreement = page.locator('footer button:has-text("用户协议")')
+      const privacyPolicy = page.locator('footer button:has-text("隐私政策")')
+      const contactUs = page.locator('footer button:has-text("联系我们")')
       await expect(userAgreement).toBeVisible()
       await expect(privacyPolicy).toBeVisible()
       await expect(contactUs).toBeVisible()
 
       // 7. 国际大模型/国产大模型分组(中文版)
-      const intlModels = adminPage.locator('footer h5:has-text("国际大模型")')
-      const cnModels = adminPage.locator('footer h5:has-text("国产大模型")')
+      const intlModels = page.locator('footer h5:has-text("国际大模型")')
+      const cnModels = page.locator('footer h5:has-text("国产大模型")')
       await expect(intlModels).toBeVisible()
       await expect(cnModels).toBeVisible()
     })
   }
 
-  test('视口 1280px — 生态合作 5 列同行布局(每列 1 个或 2 个图标)', async ({ adminPage }) => {
+  test('视口 1280px — 生态合作 5 列同行布局(每列 1 个或 2 个图标)', async ({ page }) => {
     // 2026-08-26 修复:1024 → 1280 —— xl:grid-cols-5 需 ≥1280 视口(组件已从 lg 改为 xl)
-    await adminPage.setViewportSize({ width: 1280, height: 800 })
+    await page.setViewportSize({ width: 1280, height: 800 })
     // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
-    await adminPage.waitForTimeout(500)
+    await page.waitForTimeout(500)
 
     // v11 拆分后:5 分组 × 4-5 图标,xl+ 5 列同行
     // 验证国际大模型分组(4 个图标: GPT/Claude/Gemini/Llama) 都在 viewport 1280 同行
-    const intlGroup = adminPage
+    const intlGroup = page
       .locator('footer h5:has-text("国际大模型")')
       .locator('..')
       .locator('div.flex.flex-wrap')
@@ -128,7 +135,7 @@ test.describe('SiteFooter v10/v11 防回归', () => {
     expect(intlCount, `国际大模型分组应有 4 个图标(实际 ${intlCount})`).toBe(4)
 
     // 验证国产大模型分组(4 个图标: DeepSeek/Qwen/Doubao/Mistral)
-    const cnGroup = adminPage
+    const cnGroup = page
       .locator('footer h5:has-text("国产大模型")')
       .locator('..')
       .locator('div.flex.flex-wrap')
@@ -137,17 +144,17 @@ test.describe('SiteFooter v10/v11 防回归', () => {
     expect(cnCount, `国产大模型分组应有 4 个图标(实际 ${cnCount})`).toBe(4)
   })
 
-  test('国际化键 — 切换到英文后 footer Tooltip 仍显示英文模型名', async ({ adminPage }) => {
-    await adminPage.setViewportSize({ width: 1280, height: 800 })
+  test('国际化键 — 切换到英文后 footer Tooltip 仍显示英文模型名', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 })
     // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
-    await adminPage.waitForTimeout(500)
+    await page.waitForTimeout(500)
 
     // 切到英文
     // 2026-09-14 确定性修复(原 flaky):旧法 evaluate 写 localStorage + reload,竞态在
     // reload 后 en 语言消息异步就绪慢于 expect 重试窗口(全量负载下偶发)。改 addInitScript
     // 预置 locale —— 文档首次执行脚本即写入,首帧客户端渲染就是 en,无二次回写竞态
     // (zustand persist rehydrate 同步读该值;initialized 预置 true 跳过 hydration 等待)。
-    await adminPage.addInitScript(() => {
+    await page.addInitScript(() => {
       try {
         localStorage.setItem(
           'ihui-language',
@@ -157,12 +164,12 @@ test.describe('SiteFooter v10/v11 防回归', () => {
         // localStorage 不可用时静默
       }
     })
-    await adminPage.goto('/')
+    await page.goto('/')
     // 2026-10-20 修复:同一次会话里第二次 goto('/') 之后,文档里会同时存在两枚 SiteFooter
     // (Next 保留的上一页实例是 hidden 的)⇒ 旧写法 `locator('footer')` 当场 strict mode
     // violation(CI 实测:"locator('footer') resolved to 2 elements",用例 flaky 过一次)。
     // 改为只认**可见**的那一枚,并把它当作后续所有查询的锚点。
-    const siteFooter = adminPage.locator('footer:visible').first()
+    const siteFooter = page.locator('footer:visible').first()
     await siteFooter.waitFor({ state: 'visible', timeout: 15000 })
 
     // 英文版 footer 应包含 "International Models" / "Chinese Models"
