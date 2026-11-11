@@ -114,16 +114,20 @@ export async function sendSubscribeMessage(
 }
 
 /**
- * 构造人事审批通知模板 data(HR-3,2026-11-11 立)。
+ * 构造人事审批通知模板 data(HR-3,2026-11-11 立;字段 key 实测对齐 2026-11-11)。
  *
- * ⚠️ 字段 key(thing1/thing2/amount3/…)必须与微信公众平台申请的 HR 审批通知模板
- * 逐字对齐。下面按常见「审批提醒」模板形状给默认:标题(thing1)/内容(thing2)/
- * 时间(time3)/状态(thing4)。若机主申请的模板字段 key 不同,改这里的 key。
- * thing 类型限 20 字符;time 类型用 YYYY-MM-DD HH:mm。
+ * ⚠️ 字段 key 必须与微信公众平台申请的 HR 审批通知模板逐字对齐。本仓小程序
+ * 「AI丨智汇社」(AppID 见 WX_MINI_APPID)订阅消息「待审批通知」模板(模板编号 8538)
+ * 实测字段:申请人 {{name1.DATA}} / 申请时间 {{time2.DATA}} /
+ * 申请项目 {{thing4.DATA}} / 备注 {{thing6.DATA}}。
+ * - name.DATA 是姓名类(限 20 字符);thing.DATA 限 20 字符;time.DATA 用 YYYY-MM-DD HH:mm。
+ * - 此前误用 thing1/thing2/time3/thing4(标题/内容/时间/状态)会与该模板错位,
+ *   微信以 errcode 47003 拒发 ⇒ 已按实测 key 修正。
  */
 export function buildHrApprovalNotifyData(input: {
-  title: string
-  content: string
+  applicantName: string
+  leaveType: string
+  remark: string
   at: Date
 }): SubscribeMessageData {
   const time = new Intl.DateTimeFormat('zh-CN', {
@@ -136,10 +140,10 @@ export function buildHrApprovalNotifyData(input: {
     hour12: false,
   }).format(input.at)
   return {
-    thing1: { value: truncate20(input.title) },
-    thing2: { value: truncate20(input.content) },
-    time3: { value: time },
-    thing4: { value: truncate20('待处理') },
+    name1: { value: truncate20(input.applicantName) },
+    time2: { value: time },
+    thing4: { value: truncate20(input.leaveType) },
+    thing6: { value: truncate20(input.remark) },
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

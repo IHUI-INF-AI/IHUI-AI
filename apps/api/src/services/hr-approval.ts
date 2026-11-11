@@ -6,6 +6,7 @@ import { and, eq, isNull, desc, inArray } from 'drizzle-orm'
 import {
   hrApprovalFlow,
   hrApprovalInstance,
+  hrEmployee,
   hrLeaveRequest,
   type HrApprovalFlow,
   type HrApprovalInstance,
@@ -166,9 +167,24 @@ async function notifyStepApprover(
     try {
       const openId = await getWechatMiniOpenId(approverId)
       if (openId) {
+        // 取真实请假数据填模板字段(申请人姓名/假别/备注)
+        // 字段 key 与小程序「待审批通知」模板(编号8538)实测对齐:name1/time2/thing4/thing6
+        const [leave] = await db
+          .select({ leaveType: hrLeaveRequest.leaveType, reason: hrLeaveRequest.reason, employeeId: hrLeaveRequest.employeeId })
+          .from(hrLeaveRequest)
+          .where(eq(hrLeaveRequest.id, instance.leaveRequestId))
+          .limit(1)
+        const applicantName = leave?.employeeId
+          ? (await db.select({ name: hrEmployee.name }).from(hrEmployee).where(eq(hrEmployee.id, leave.employeeId)).limit(1))[0]?.name ?? '未知'
+          : '未知'
         const res = await sendSubscribeMessage(
           openId,
-          buildHrApprovalNotifyData({ title, content, at: now }),
+          buildHrApprovalNotifyData({
+            applicantName,
+            leaveType: leave?.leaveType ?? '请假',
+            remark: leave?.reason ?? title,
+            at: now,
+          }),
           '/pkg-hr/approval', // 审批待办小程序页(与 edu 的 /pkg-user/bill/index 同构:尽力跳转)
           env.WX_MINI_HR_APPROVAL_TMPL_ID,
         )
