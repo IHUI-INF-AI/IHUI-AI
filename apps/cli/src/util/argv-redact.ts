@@ -1,0 +1,62 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+
+/**
+ * argv 凭据脱敏(F-008)。
+ *
+ * `ihui login -p <密码>`、`--api-key <key>`、`--token <token>` 的**值**会原样躺在
+ * `process.argv` 里,而崩溃日志与 runs manifest 都按 `argv.join(' ')` 落盘 —— 于是
+ * 一次性凭据被写进长期可读的磁盘文件。值形状脱敏(redact.ts 的 `redactSecrets`)
+ * 只能兜住 `sk-…` 这类可识别形态,`secret123` 这种短口令整类漏掉;这里按**旗标位置**
+ * 打码,键名保留、只替换值,与值形状规则互补。
+ *
+ * 约束:非凭据参数逐字原样(既有回归按原始 argv 断言报告形状,不能顺手改写)。
+ */
+
+/** 值必须整段打码的旗标。 */
+const SENSITIVE_FLAGS: readonly string[] = ['-p', '--password', '--api-key', '--token'];
+
+/** 打码占位符(与票面一致)。 */
+export const ARGV_MASK = '***';
+
+function isSensitiveFlag(token: string): boolean {
+  return SENSITIVE_FLAGS.includes(token);
+}
+
+/**
+ * 把 argv 中凭据旗标的值替换成 `***`。
+ *
+ * 覆盖两种写法:
+ *   - 空格分隔:`['-p', 'secret123']` → `['-p', '***']`
+ *   - 等号形式:`['--api-key=sk_x']` → `['--api-key=***']`
+ *
+ * 旗标本身出现在末位(没有值)时保持原样;其余参数一律逐字返回。纯函数,不改入参。
+ */
+export function redactArgv(argv: readonly string[]): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < argv.length; i += 1) {
+    const token = argv[i];
+    if (token === undefined) continue;
+
+    const eq = token.indexOf('=');
+    if (eq > 0) {
+      const key = token.slice(0, eq);
+      out.push(isSensitiveFlag(key) ? `${key}=${ARGV_MASK}` : token);
+      continue;
+    }
+
+    if (!isSensitiveFlag(token)) {
+      out.push(token);
+      continue;
+    }
+
+    // 空格分隔形式:紧跟其后的 token 就是该旗标的值(commander 也这么消费),
+    // 因此即使它以 '-' 开头也属于"值",照打码;没有值则只保留键名。
+    out.push(token);
+    if (i + 1 < argv.length) {
+      out.push(ARGV_MASK);
+      i += 1;
+    }
+  }
+  return out;
+}
