@@ -17,8 +17,10 @@
  * 三条不可漂:
  *  ① 本层**不重抄**任何回收判据 —— 名字/落点/合并/脏/lock 全在 `agent-worktree.mjs` 那一份实现里;
  *     这里只问"什么时候跑"和"把结论落到日志"(与 scrubTempFixtures 同一条归属纪律)。
- *  ② 派生参数固定为 `--reap --apply --older-than <阈值>`,**不带 `--tag-lost`** ⇒ 未并入 main 的检出
- *     结构上只会被跳过,不存在"静默删掉独有提交"这条路径(§12h:合并决策权归人)。
+ *  ② 派生参数固定为 `--reap --apply --older-than <阈值>`,不带任何射程旗 ⇒ 判据单源在
+ *     `agent-worktree.mjs`。2026-11-11 起回收器默认双出口:已并入 main ⇒ 直接删检出;
+ *     未并入但干净+空闲 ⇒ 先打 `lost-commit/*` 标签保活 commit 再删(零丢现场,分支一律保留,
+ *     §12h 合并决策权仍归人)——不存在"静默删掉独有提交"这条路径。
  *  ③ 失败不占满节流窗:没跑成 ⇒ 1 小时后重试;tick 只在**有结论**后写(2026-10-30 temp-scrub
  *     "失败也写 24h 戳"同一处错误不得再犯)。
  */
@@ -31,10 +33,16 @@ import { log } from './git-guardian-log.mjs'
 
 const WORKTREE = resolveWorktree()
 const REAP_TICK = join(WORKTREE, '.ihui-agent', 'state', 'worktree-reap-tick.iso')
-/** 一天一轮足够:候选的前提是"空闲 ≥ 阈值(默认 7 天)",晚发现一天不改变安全性。 */
+/** 一天一轮足够:候选的前提是"空闲 ≥ 阈值(默认 1 天)",晚发现一天不改变安全性。 */
 const REAP_INTERVAL_MS = Number(process.env.IHUI_WORKTREE_REAP_INTERVAL_MS || 24 * 60 * 60 * 1000)
-/** 空闲阈值(天)。只影响"够不够老",不影响任何安全闸;`.worktrees` 之外与未合并的永不触碰。 */
-const REAP_MIN_IDLE_DAYS = Number(process.env.IHUI_WORKTREE_REAP_MIN_IDLE_DAYS || 7)
+/**
+ * 空闲阈值(天)。只影响"够不够老",不影响任何安全闸(脏/locked/落点/形态一条不弱化)。
+ * 2026-11-11 与回收器 CLI 默认对齐:5721eab5cb 已把 `--older-than` 默认收到 1 天,
+ * 调度层此前仍显式派 7 ⇒ 两档漂移,积压的 `D:/IHUI-AI-wt-*` 永远等不到阈值。
+ * 未并入 main 的干净空闲检出走 tag-then-remove(lost-commit 标签保活,零丢现场),
+ * 故收快不再以"可能丢独有提交"为代价。
+ */
+const REAP_MIN_IDLE_DAYS = Number(process.env.IHUI_WORKTREE_REAP_MIN_IDLE_DAYS || 1)
 const REAP_TIMEOUT_MS = Number(process.env.IHUI_WORKTREE_REAP_TIMEOUT_MS || 120_000)
 const REAP_RETRY_MS = Number(process.env.IHUI_WORKTREE_REAP_RETRY_MS || 60 * 60 * 1000)
 
@@ -46,14 +54,23 @@ export function worktreeReapDue(nowMs, tickMs, intervalMs = REAP_INTERVAL_MS) {
 
 /**
  * 从回收器的人类报告里取结论(不重抄判据,只读它已经大声报出来的结论)。
- * 三态:`✅ 回收 N 个(,失败 M 个)?` / `ℹ 无回收候选` / 其它(rc≠0、崩在半路)⇒ 未判定。
+ * 三态:`✅ 回收 N 个(,其中 T 个先打 lost-commit 标签保活)?(,失败 M 个)?` / `ℹ 无回收候选` /
+ * 其它(rc≠0、崩在半路)⇒ 未判定。
+ * 2026-11-11:回收器新增 tag-then-remove 出口后,`其中 T 个先打标签` 段会插在 `个` 与 `,失败` 之间;
+ * 旧正则在该场景下会把失败数静默读成 0(部分失败被粉饰成全成功)⇒ 本正则必须容下该段。
  */
 export function parseReapReport(text) {
   const s = String(text || '')
-  if (/ℹ 无回收候选/.test(s)) return { judged: true, removed: 0, failed: 0 }
-  const m = /✅ 回收 (\d+) 个(?:,失败 (\d+) 个)?/.exec(s)
-  if (m) return { judged: true, removed: Number(m[1]), failed: Number(m[2] || 0) }
-  return { judged: false, removed: null, failed: null }
+  if (/ℹ 无回收候选/.test(s)) return { judged: true, removed: 0, tagged: 0, failed: 0 }
+  const m = /✅ 回收 (\d+) 个(?:,其中 (\d+) 个先打 lost-commit 标签保活)?(?:,失败 (\d+) 个)?/.exec(s)
+  if (m)
+    return {
+      judged: true,
+      removed: Number(m[1]),
+      tagged: Number(m[2] || 0),
+      failed: Number(m[3] || 0),
+    }
+  return { judged: false, removed: null, tagged: null, failed: null }
 }
 
 export function reapWorktrees(opts = {}) {
@@ -130,9 +147,13 @@ export function reapWorktrees(opts = {}) {
     return { ran: true, ok: true, partial: true, ...p }
   }
   if (p.removed) {
+    const tagNote = p.tagged
+      ? `,其中 ${p.tagged} 个 HEAD 未并入 main、已先打 lost-commit 标签保活`
+      : ''
     logger(
-      `✅ worktree 自动回收:${p.removed} 个(仅"干净 + 已并入 main + 空闲 ≥ ${minIdleDays} 天";` +
-        '独有提交/脏/locked/.worktrees 之外一律保留)',
+      `✅ worktree 自动回收:${p.removed} 个${tagNote}(仅"干净 + 空闲 ≥ ${minIdleDays} 天";` +
+        '已并入 main 的直接删检出,未并入的标签保活 commit 后再删,分支一律保留归 §12h;' +
+        '脏/locked/.worktrees 之外一律保留)',
     )
   }
   return { ran: true, ok: true, ...p }
