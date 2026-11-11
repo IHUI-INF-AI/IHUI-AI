@@ -54,8 +54,12 @@ export const UNION_VALUE_FLAGS = Object.freeze([
 
 /**
  * 声明族：人对某一路径/某一行做的**声明式出口**。
- * 这六枚同时是本文件存在的另一半理由 —— `git-sync-converge` 逐条原样转发它们，
+ * 这几枚同时是本文件存在的另一半理由 —— `git-sync-converge` 逐条原样转发它们，
  * 两处各写一份必漂移（漂移过一次：转发面缺 `--accept-state-growth`，见票面）。
+ * 2026-11-11 补漏：`--fold-keep`（折叠层拒绝裁定的组由谁当选 keeper）与
+ * `--declare-side-loss`（人已判过的路径上逐行声明有意少带）是 union 2026-10-20/10-25
+ * 之后新增的两条声明出口，转发面一直没跟上 —— 结果是台账"同题两版并存"这一格
+ * 在收敛链上永远只能判红、人工裁定结果无处回灌（§0.8 只判不修逼人绕过的同一型）。
  */
 export const DECLARATION_FLAGS = Object.freeze([
   '--take-theirs-doc',
@@ -64,6 +68,8 @@ export const DECLARATION_FLAGS = Object.freeze([
   '--resolve',
   '--union-capped',
   '--supersede',
+  '--fold-keep',
+  '--declare-side-loss',
 ])
 
 /** 本器认识的全部旗 = 动作档 ∪ 带值档（两份不得各自演进，否则正当用法被自己拦死）。 */
