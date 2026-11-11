@@ -52,16 +52,31 @@ interface ParserEntry {
   fn: ParserFn
   /** 输入形态:binary / text */
   inputKind: 'binary' | 'text'
+  /**
+   * 该 parser 接受的扩展名。上传白名单与解析器选择都读这一份(SDB-42),
+   * 文本类省略即 TEXT_CONFIG_EXTS,二进制 parser 必须显式声明。
+   */
+  extensions?: readonly string[]
+  /** 二进制输入要求的文件头;声明后 parseBySource 会校验,挡掉改名上传的任意二进制。 */
+  magic?: Buffer
   /** 文件名特征(用于 parseByFile 自动识别) */
   filePatterns: RegExp[]
   description: string
 }
+
+/** 文本类配置的扩展名;上传白名单与文本 parser 共用,避免两处各写一份判断。 */
+const TEXT_CONFIG_EXTS = ['.json', '.yaml', '.yml', '.toml', '.ini', '.conf'] as const
+
+/** SQLite 文件头魔数(含结尾 NUL),cc-switch 官方 .db 的容器标识。 */
+const SQLITE_MAGIC = Buffer.from('SQLite format 3\u0000', 'binary')
 
 const PARSERS: ParserEntry[] = [
   {
     source: 'cc-switch',
     fn: parseCcSwitchSqlite,
     inputKind: 'binary',
+    extensions: ['.db'],
+    magic: SQLITE_MAGIC,
     filePatterns: [/cc-switch\.db$/i, /\.db$/i],
     description: 'cc-switch SQLite 数据库',
   },
@@ -69,6 +84,7 @@ const PARSERS: ParserEntry[] = [
     source: 'cc-switch',
     fn: parseCcSwitchJson,
     inputKind: 'text',
+    extensions: ['.json'],
     filePatterns: [/cc-switch.*\.json$/i, /^config\.json$/i],
     description: 'cc-switch 旧版 config.json',
   },
@@ -76,7 +92,9 @@ const PARSERS: ParserEntry[] = [
     source: 'codex++',
     fn: parseCodexPlus,
     inputKind: 'text',
-    filePatterns: [/codex-session-delete[/\\]settings\.json$/i, /settings\.json$/i],
+    // SDB-15:只认 codex++ 自己的目录。匹配表按顺序取第一个命中,一旦放宽成任意
+    // `settings.json`,就会抢在 claude-cli / cursor / gemini 之前把这些专用配置解析成 0 条。
+    filePatterns: [/codex-session-delete[/\\]settings\.json$/i],
     description: 'codex++ BackendSettings',
   },
   {
@@ -225,6 +243,11 @@ const PARSERS: ParserEntry[] = [
   },
 ]
 
+/** parser 实际允许的扩展名:显式声明优先,文本类回落到 TEXT_CONFIG_EXTS。 */
+function entryExtensions(entry: ParserEntry): readonly string[] {
+  return entry.extensions ?? TEXT_CONFIG_EXTS
+}
+
 /**
  * 列出所有支持的来源(去重,用于 UI 展示)。
  */
@@ -245,50 +268,80 @@ export function listSupportedSources(): Array<{
 /**
  * 上传配置文件的扩展名白名单(路由侧复用,单一真相源)。
  *
- * `.db` 是 cc-switch 官方 SQLite 库的扩展名(SDB-42):此前清单只有文本配置格式,
- * 官方 `.db` 上传在路由层就被 400 拒掉,等同于 cc-switch 导入下线。
+ * 汇总 PARSERS 各自声明的 extensions,不在此另写清单:`.db` 是 cc-switch 官方
+ * SQLite 库的扩展名(SDB-42),漏掉即等同于 cc-switch 导入下线;白名单与解析器
+ * 选择同源后,新增来源时白名单自动跟上,不会再出现"能选 parser 却传不上来"。
  */
-export const CONFIG_UPLOAD_ALLOWED_EXTS = [
-  '.json',
-  '.yaml',
-  '.yml',
-  '.toml',
-  '.ini',
-  '.conf',
-  '.db',
-] as const
+export const CONFIG_UPLOAD_ALLOWED_EXTS: readonly string[] = [
+  ...new Set(PARSERS.flatMap((p) => entryExtensions(p))),
+]
 
-/** 按文件名判定是否允许上传;与旧路由判据逐字同形(无扩展名按放行处理)。 */
+/** 取小写扩展名;无扩展名返回空串。 */
+function extOf(fileName: string): string {
+  const i = fileName.lastIndexOf('.')
+  return i >= 0 ? fileName.slice(i).toLowerCase() : ''
+}
+
+/** 按文件名判定是否允许上传;无扩展名一律拒(判不出解析器,也不该放行任意二进制)。 */
 export function isAllowedConfigUpload(fileName: string): boolean {
-  const ext = fileName.toLowerCase().slice(fileName.lastIndexOf('.'))
-  return !ext || (CONFIG_UPLOAD_ALLOWED_EXTS as readonly string[]).includes(ext)
+  const ext = extOf(fileName)
+  return ext !== '' && CONFIG_UPLOAD_ALLOWED_EXTS.includes(ext)
 }
 
 /**
- * 根据 source 选择 parser(同 source 多 parser 时按文件名特征分流)。
+ * 上传前置判定(路由唯一入口):按「来源 + 扩展名」确认这条上传能落到确定解析器。
  *
- * SDB-42:cc-switch 有 SQLite 与 JSON 两个 parser,旧实现只取第一条(SQLite),
- * 于是 `config.json` 从 HTTP 入口永远进不了 JSON 解析器。按 sourcePath 的
- * 文件名特征先匹配,匹配不到才回退第一条。
+ * 返回 null 表示可继续解析,否则是可直接回给用户的中文原因。白名单与解析器选择
+ * 同源于 PARSERS,路由不再自行按 source 猜二进制/文本。
+ */
+export function describeUploadRejection(
+  source: CliConfigSource,
+  fileName: string,
+): string | null {
+  if (!isAllowedConfigUpload(fileName)) {
+    return `仅支持配置文件格式: ${CONFIG_UPLOAD_ALLOWED_EXTS.join(', ')}`
+  }
+  try {
+    pickParserBySource(source, fileName)
+    return null
+  } catch (err) {
+    return (err as Error).message
+  }
+}
+
+/**
+ * 根据 source 选择 parser:先按扩展名,再按文件名特征。
+ *
+ * SDB-42:同 source 多 parser 时只认扩展名/文件名,判不出就明确拒绝——
+ * 旧实现"匹配不到回退第一条"会把 cc-switch 的 config.json 送进 SQLite 解析器。
  */
 function pickParserBySource(source: CliConfigSource, sourcePath?: string): ParserEntry {
   const candidates = PARSERS.filter((p) => p.source === source)
+  const single = candidates[0]
+  if (candidates.length === 1 && single) return single
   if (candidates.length === 0) {
     throw new Error(`不支持的导入来源: ${source}`)
   }
-  if (sourcePath && candidates.length > 1) {
-    const base = path.basename(sourcePath).toLowerCase()
-    const normalized = sourcePath.replace(/\\/g, '/').toLowerCase()
-    const matched = candidates.find((p) =>
+
+  const ext = extOf(sourcePath ?? '')
+  if (ext) {
+    const byExt = candidates.find((p) => entryExtensions(p).includes(ext))
+    if (byExt) return byExt
+  }
+
+  const base = path.basename(sourcePath ?? '').toLowerCase()
+  const normalized = (sourcePath ?? '').replace(/\\/g, '/').toLowerCase()
+  if (base) {
+    const byPattern = candidates.find((p) =>
       p.filePatterns.some((re) => re.test(base) || re.test(normalized)),
     )
-    if (matched) return matched
+    if (byPattern) return byPattern
   }
-  const fallback = candidates[0]
-  if (!fallback) {
-    throw new Error(`不支持的导入来源: ${source}`)
-  }
-  return fallback
+
+  const supported = candidates
+    .map((p) => `${entryExtensions(p).join('/')}(${p.description})`)
+    .join(' 或 ')
+  throw new Error(`${source} 无法从文件名判定输入形态,支持: ${supported}`)
 }
 
 /**
@@ -314,6 +367,16 @@ export async function parseBySource(
   if (entry.inputKind === 'text' && !fullInput.text && fullInput.buffer) {
     fullInput.text = fullInput.buffer.toString('utf8')
     fullInput.buffer = undefined
+  }
+  // `.db` 白名单一旦放开,任意二进制都能顶着这个扩展名进来;按 parser 声明的
+  // 文件头先验一次容器,把"改名上传"挡在解析器之前(sql.js 内部报错文案不可读)。
+  if (entry.magic && fullInput.buffer) {
+    const head = fullInput.buffer.subarray(0, entry.magic.length)
+    if (!head.equals(entry.magic)) {
+      throw new Error(
+        `文件内容不是有效的 SQLite 数据库(${entry.description}),请上传 cc-switch 的 .db 文件`,
+      )
+    }
   }
   const result: ParserResult = await entry.fn(fullInput)
   const previewId = generatePreviewId()

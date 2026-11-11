@@ -133,6 +133,12 @@ function parseRoles(
       verbose: typeof c.verbose === 'boolean' ? c.verbose : false,
     }
   }
+  // 全部角色都无效时 result 为空, 若当成功返回会让 crew 编排以「成功」空跑、产出为空且无错误面,
+  // 故按加载失败处理回落内置角色 (调用侧缓存写入点因此永远拿不到空结果)
+  if (Object.keys(result).length === 0) {
+    logger.warn(`[crew-role-loader] ${source} 无有效角色, 使用 fallback`)
+    return FALLBACK_ROLES
+  }
   return result
 }
 

@@ -23,6 +23,24 @@ export interface RateLimitResult {
   retryAfter?: number
 }
 
+/** 每档窗口的「加一 + 首次置 TTL」必须在同一次 EVAL 内完成(SDB-06)。
+ *
+ * 旧写法是先 `incr`、再按返回值 `=== 1` 补 `expire`:进程若在这两步之间崩溃、
+ * 或连接在 `expire` 前断开,key 就永远没有 TTL —— 计数只增不减,该 IP/用户被
+ * 永久限流(重启进程也不恢复),内存 Redis 里还会长期堆积这类死键。
+ * 而错过之后 `=== 1` 再也不会成立,所以只能靠脚本把两步合成一个原子单元。
+ * 同时对 `TTL < 0`(修复前遗留的无过期键)补一次 TTL,让存量坏键自愈。 */
+const RATE_LIMIT_SCRIPT = `
+local function bump(key, ttl)
+  local n = redis.call('INCR', key)
+  if n == 1 or redis.call('TTL', key) < 0 then redis.call('EXPIRE', key, ttl) end
+  return n
+end
+local minute = bump(KEYS[1], tonumber(ARGV[1]))
+local hour = bump(KEYS[2], tonumber(ARGV[2]))
+return {minute, hour}
+`
+
 export class RateLimiter {
   constructor(
     private readonly redis: IORedis,
@@ -49,13 +67,14 @@ export class RateLimiter {
     const minuteKey = `rl:m:${key}`
     const hourKey = `rl:h:${key}`
 
-    const [minuteCount, hourCount] = await Promise.all([
-      this.redis.incr(minuteKey),
-      this.redis.incr(hourKey),
-    ])
-    // 首次写入时设置 TTL
-    if (minuteCount === 1) await this.redis.expire(minuteKey, 60)
-    if (hourCount === 1) await this.redis.expire(hourKey, 3600)
+    const [minuteCount, hourCount] = (await this.redis.eval(
+      RATE_LIMIT_SCRIPT,
+      2,
+      minuteKey,
+      hourKey,
+      '60',
+      '3600',
+    )) as [number, number]
 
     if (minuteCount > this.requestsPerMinute) {
       return {

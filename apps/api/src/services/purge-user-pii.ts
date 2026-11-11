@@ -24,9 +24,12 @@
  *   单表失败被静默跳过却仍返回 userPiiTableCount / userRowAnonymized=true，
  *   注销接口照常回「已删除」—— 用户以为 PII 已清除，实际仍落库。现在任一步失败
  *   抛 PurgeUserPiiError 并整体回滚，接口以 500 如实失败，可重试（操作本身幂等）。
+ * - SDB-29:开发者 API Key / 分享 token 走「吊销」（revokeUserApiKeys / revokeUserShares）
+ *   而非删除，且必须在 PII 事务**之前**完成。删除 Key 会级联清掉 relay_usage
+ *   等计费/审计记录，而凭据失效只需要改状态。
  */
 
-import { eq } from 'drizzle-orm'
+import { and, eq, isNull } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import {
   users,
@@ -58,6 +61,9 @@ import {
   deviceTasks,
 } from '@ihui/database'
 import { revokeAllUserRefreshTokens } from '../db/queries.js'
+// SDB-29:复用用户端同一条吊销链路，避免注销侧另写一份状态语义
+import { revokeKey } from './developer-api-keys-service.js'
+import { revokeShare } from './api-key-share-service.js'
 import type { Database } from '../db/index.js'
 import type { AnyPgTable, AnyPgColumn } from 'drizzle-orm/pg-core'
 
@@ -114,11 +120,8 @@ const USER_SCOPED_TABLES: Array<{ table: AnyPgTable; userCol: AnyPgColumn; label
   { table: deviceTasks, userCol: deviceTasks.createdBy, label: 'device_tasks' },
   { table: devicePairCodes, userCol: devicePairCodes.userId, label: 'device_pair_codes' },
   { table: devices, userCol: devices.userId, label: 'devices' },
-  // SDB-29:开发者 API Key 与分享 token 是可直接调用付费接口的凭据,注销必须吊销。
-  // 先删 api_key_shares(其 created_by 为 RESTRICT、source_api_key_id 为 CASCADE),
-  // 再删 developer_api_keys,避免 RESTRICT 把 Key 留在 active 态。
-  { table: apiKeyShares, userCol: apiKeyShares.createdBy, label: 'api_key_shares' },
-  { table: developerApiKeys, userCol: developerApiKeys.userId, label: 'developer_api_keys' },
+  // SDB-29:developer_api_keys / api_key_shares 不在此清单 —— 凭据只吊销不删除
+  // （见 revokeUserApiKeys / revokeUserShares），避免级联清掉计费与审计记录。
 ]
 
 interface PurgeResult {
@@ -126,7 +129,7 @@ interface PurgeResult {
   userRowAnonymized: boolean
 }
 
-/** PII 擦除在某一步失败(整体已回滚)。stage 为表名或 refresh_tokens。 */
+/** PII 擦除在某一步失败(整体已回滚)。stage 为表名、developer_api_keys、api_key_shares、refresh_tokens。 */
 export class PurgeUserPiiError extends Error {
   readonly stage: string
   constructor(stage: string, cause: unknown) {
@@ -138,12 +141,64 @@ export class PurgeUserPiiError extends Error {
 }
 
 /**
+ * SDB-29:吊销该用户全部 developer API Key。
+ *
+ * 复用用户端 revokeKey（status='revoked'），不另写一份状态语义；
+ * 任一条吊销失败（含返回 false = 行不归属/已不存在）即中止整个注销，
+ * 不做「跳过继续」——漏一条就是一条仍可消耗余额的凭据。
+ */
+async function revokeUserApiKeys(userId: string): Promise<void> {
+  try {
+    const keys = await db
+      .select({ id: developerApiKeys.id })
+      .from(developerApiKeys)
+      .where(eq(developerApiKeys.userId, userId))
+    for (const { id } of keys) {
+      if (!(await revokeKey(id, userId))) {
+        throw new Error(`revoke api key ${id} returned false`)
+      }
+    }
+  } catch (err) {
+    throw new PurgeUserPiiError('developer_api_keys', err)
+  }
+}
+
+/**
+ * SDB-29:吊销该用户创建的分享 token（revoked_at = now()）。
+ *
+ * 只取 revoked_at IS NULL 的分享：已撤销的无需重复写，重复注销天然幂等。
+ * 源 Key 已先被吊销，鉴权侧 share 分支另有源 Key status / 账号状态兜底。
+ */
+async function revokeUserShares(userId: string): Promise<void> {
+  try {
+    const shares = await db
+      .select({ id: apiKeyShares.id })
+      .from(apiKeyShares)
+      .where(and(eq(apiKeyShares.createdBy, userId), isNull(apiKeyShares.revokedAt)))
+    for (const { id } of shares) {
+      if (!(await revokeShare(id, userId))) {
+        throw new Error(`revoke share ${id} returned false`)
+      }
+    }
+  } catch (err) {
+    throw new PurgeUserPiiError('api_key_shares', err)
+  }
+}
+
+/**
  * 清除指定用户的全部 PII。幂等：可重复调用，返回本次实际清理的子表数量。
  *
  * F-269:子表删除与主行匿名化在同一事务内完成；任一步失败抛出并整体回滚，
  * 不再「单表失败只记 warn、接口仍报已删除」。
+ *
+ * SDB-29:开发者凭据（API Key / 分享 token）在事务**之前**吊销。两者用全局 db
+ * （吊销函数属用户端共享实现，不吃本函数的 tx），失败即中止：此时账号仍可登录、
+ * PII 未被删除，用户重试即可；绝不会出现「PII 已清、凭据仍可用」的半截态。
  */
 export async function purgeUserPii(userId: string, tx?: Database): Promise<PurgeResult> {
+  await revokeUserApiKeys(userId)
+  await revokeUserShares(userId)
+
   const run = async (t: Database): Promise<PurgeResult> => {
     let cleaned = 0
     for (const { table, userCol, label } of USER_SCOPED_TABLES) {

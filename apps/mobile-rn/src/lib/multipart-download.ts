@@ -28,7 +28,7 @@
  * 只有清单里的 `totalBytes` + 每份 `size` 才能把"拼出来的包"和"服务端要发的包"对齐。
  */
 
-import { File, FileMode } from 'expo-file-system'
+import { File, FileMode } from '@/platform/fs'
 import { createSpeedMeter, DownloadCancellation, DownloadCancelledError } from './ranged-download'
 
 /** 8 路是实测档:Gitee 8 连接 15.36 MB/s 已接近本机出口的一半,再堆只增内存峰值。 */

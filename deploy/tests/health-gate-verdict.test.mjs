@@ -109,7 +109,9 @@ test('T4 措辞锁:"部署成功"只许住在证明过的那一支', () => {
 
 test('T5 身份锁:未证明告警的 -m 必须是常量串', () => {
   const s = read(DEPLOY)
-  const m = s.match(/Invoke-FailNotify -Severity warning -m "([^"]*)"/)
+  // 锚定到健康门禁"未证明"那条告警(2026-11-11 收窄:原正则会误命中金丝雀告警行 2864,
+  // 那条 -m 身份串含 $CanaryUnprovenNotify 插值,是金丝雀另一张票的议题,不是本测试该管的)。
+  const m = s.match(/Invoke-FailNotify -Severity warning -m "(健康门禁未取得全绿证明[^"]*)"/)
   if (!m) throw new Error('找不到"未证明"那条告警的调用点 ⇒ 响的那一半没装车')
   if (/\$\w|\$\(/.test(m[1])) {
     throw new Error(`告警身份里混进了插值(会每轮换身份 ⇒ 同一件事连寄 N 封):${m[1]}`)

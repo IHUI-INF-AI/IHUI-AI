@@ -293,10 +293,12 @@ export async function sendPush(target: PushTarget, message: PushMessage): Promis
   // P1 修复:push token 脱敏,防止日志泄露设备推送凭证(被未授权人员读取后可伪造推送)
   const maskedToken = target.token.length > 8 ? `${target.token.slice(0, 8)}***` : '***'
   console.info(`[push-stub] to=${maskedToken}, title=${message.title}, body=${message.body}`)
+  // SDB-47:没有通道 = 一条都没发出去,必须按失败回报(fail-closed),
+  // 与 email(stub sent:false)/SMS 口径一致;此前的 success:true 会让管理端群发显示「全部成功」。
   return {
     provider: 'stub',
-    success: true,
-    messageId: `stub-${Date.now()}`,
+    success: false,
+    error: 'push_not_configured',
   }
 }
 

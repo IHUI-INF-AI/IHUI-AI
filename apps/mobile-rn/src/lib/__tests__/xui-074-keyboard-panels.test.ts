@@ -15,11 +15,19 @@ const APP_ROOT = join(__dirname, '..', '..', '..')
 const read = (p: string) => readFileSync(join(APP_ROOT, p), 'utf8')
 
 describe('XUI-074:审批卡片与标注输入行的键盘/高度处理', () => {
-  it('ToolApprovalSheet 卡片有 maxHeight 且整卡可滚动', () => {
+  it('ToolApprovalSheet 卡片限高走 useDialogMaxHeightStyle(extraTall) 且整卡可滚动', () => {
     const src = read('src/components/ai/ToolApprovalSheet.tsx')
     expect(src).toContain('ScrollView')
     expect(src).toContain('KeyboardAvoidingView')
-    expect(src).toMatch(/maxHeight:\s*'85%'/)
+    // 契约变更:百分比 maxHeight 在 RN 0.86 Fabric 下不给 ScrollView 确定测量边界,
+    // 已改为数值上限 hook。原断言 maxHeight:'85%' 断言的是旧写法,故改断言新契约:
+    // 比例仍是 extraTall(0.85),在调用处叠加到卡片样式数组上。
+    const geometry = read('src/lib/dialog-geometry.ts')
+    expect(geometry).toMatch(/extraTall:\s*0\.85/)
+    expect(src).toMatch(/useDialogMaxHeightStyle\(DIALOG_HEIGHT_RATIOS\.extraTall\)/)
+    expect(src).toContain('style={[styles.card, cardMaxHeightStyle]}')
+    // 旧写法不得回流:百分比上限已明令禁用(见 dialog-geometry 文件头)。
+    expect(src).not.toMatch(/maxHeight:\s*'\d+%'/)
     expect(src).toMatch(/contentContainerStyle=\{styles\.cardContent\}/)
     expect(src).toContain('keyboardShouldPersistTaps="handled"')
   })

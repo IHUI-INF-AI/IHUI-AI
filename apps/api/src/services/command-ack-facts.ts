@@ -110,6 +110,39 @@ export class CommandAckFactNotAliveError extends Error {
 }
 
 /**
+ * "查无此记录"的唯一构造点。跨租户命中(主键被他人占用)也必须**逐字节复用**这句话术:
+ * 路由把 `err.message` 原样放进 500 响应体,另造一句"归属不符"本身就又成了存在性探针。
+ */
+function missingFactError(coords: {
+  parentSessionId: string
+  sourceCommandId: string
+}): CommandAckFactNotAliveError {
+  return new CommandAckFactNotAliveError(
+    'missing',
+    coords,
+    `事实表中查无 (${coords.parentSessionId}, ${coords.sourceCommandId}) —— 引用不存在的命令一律硬错,绝不当作存在`,
+  )
+}
+
+/**
+ * SDB-11 业主守卫:主键命中的既有行不属于本次调用方 ⇒ 按"查无此记录"判死。
+ *
+ * 为什么必须排在指纹比较**之前**:
+ * - 指纹相同 → replayed 会把他人 payload/entityRefs 原样回包(直接跨租户读);
+ * - 指纹不同 → key-reused,返回码本身是"该坐标有人在用"的探针,且它按指纹分叉,
+ *   等于给攻击者一个可反复试探他人请求体的预言机。
+ * 同 ownerKey 的重放/换体语义不变(这里直接放行,后续判据照旧)。
+ */
+function assertFactOwner(
+  existing: CommandAckFact,
+  ownerKey: string,
+  coords: { parentSessionId: string; sourceCommandId: string },
+): void {
+  if (existing.ownerKey === ownerKey) return
+  throw missingFactError(coords)
+}
+
+/**
  * E 格唯一判据:`fact` 是否可以作为**活着**的跨会话事实被引用。
  * 通过则原样返回事实;任何一档不满足都抛 `CommandAckFactNotAliveError`,绝无静默通过。
  * 纯函数:不碰 I/O,时钟由调用方注入(`now`),测试可零网络钉死各档。
@@ -119,13 +152,7 @@ export function assertCommandAckFactAlive(
   coords: { parentSessionId: string; sourceCommandId: string },
   now: Date,
 ): CommandAckFact {
-  if (fact === null) {
-    throw new CommandAckFactNotAliveError(
-      'missing',
-      coords,
-      `事实表中查无 (${coords.parentSessionId}, ${coords.sourceCommandId}) —— 引用不存在的命令一律硬错,绝不当作存在`,
-    )
-  }
+  if (fact === null) throw missingFactError(coords)
   if (fact.status !== 'completed') {
     throw new CommandAckFactNotAliveError(
       'not-terminal',
@@ -162,6 +189,8 @@ export type CommandAckRecordOutcome =
 
 /**
  * A 格幂等写入协调。语义(与内核 run-idempotency 的判据同源,载体换成表):
+ * 0. 主键冲突 + 既有事实属于**别的租户** → 一律按 `missing` 硬错(见 `assertFactOwner`),
+ *    既不是 replayed 也不是 key-reused —— 这两档都对外泄露"他人坐标存在",后者还按指纹分叉;
  * 1. 首写成功 → `created`;
  * 2. 主键冲突 + 指纹相同 → **先过 E 存活断言**(重放路径也必须问"还活着吗",损坏即硬错)
  *    再回 `replayed` —— 重发拿的是首次结果,不是重建一份;
@@ -180,6 +209,7 @@ export async function recordCommandAckFact(
 
   const existing = await store.getFact(coords.parentSessionId, coords.sourceCommandId)
   if (existing !== null) {
+    assertFactOwner(existing, fact.ownerKey, coords)
     if (existing.fingerprint === fact.fingerprint) {
       // processing 的同指纹重发 = "上一轮还在途",对齐内核 in-progress(409),不进 E 硬错;
       // E 的 not-terminal 档留给"引用事实做回放"的消费方(GET /alive、completed 重放前的兜底)。
@@ -194,6 +224,8 @@ export async function recordCommandAckFact(
   if (retried !== null) return { outcome: 'created', fact: retried }
   const reRead = await store.getFact(coords.parentSessionId, coords.sourceCommandId)
   if (reRead !== null) {
+    // 并发删除窗口里凭空冒出的行同样可能是别人的:守卫与首轮同一判据,不留旁路。
+    assertFactOwner(reRead, fact.ownerKey, coords)
     if (reRead.fingerprint === fact.fingerprint) {
       if (reRead.status === 'processing') return { outcome: 'in-progress' }
       assertCommandAckFactAlive(reRead, coords, now)

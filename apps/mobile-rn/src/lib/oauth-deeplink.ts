@@ -19,8 +19,8 @@
  * 互不干扰,本模块只处理 OAuth 回调,不影响 SSO 流程。
  */
 
-import * as Linking from 'expo-linking'
-import type { QueryParams } from 'expo-linking'
+import * as Linking from '@/platform/linking'
+import type { QueryParams } from '@/platform/linking'
 import {
   callOAuthCallback,
   consumePendingOAuthState,

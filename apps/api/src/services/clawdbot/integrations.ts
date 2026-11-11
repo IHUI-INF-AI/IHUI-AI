@@ -24,6 +24,22 @@ const BLOCKED_INTEGRATION_HOSTS = new Set<string>([
   'instance-data',
 ])
 
+/**
+ * SDB-19:WHATWG URL 对 http(s) 把 `\` 当 `/`,所以 `/\\attacker.example/x` 会解析成
+ * `https://attacker.example/x` —— 字符黑名单(`scheme://`、`//`)拦不住。这里先按一次
+ * 百分号解码再判,因为 `/%5Cattacker.example/x` 在 URL 层仍是同源,但任何下游代理/上游
+ * 解码后就会变成反斜杠形态;解不开的百分号序列同样判不出 ⇒ fail-closed。
+ */
+function hasBackslashPath(raw: string): boolean {
+  let decoded: string
+  try {
+    decoded = decodeURIComponent(raw)
+  } catch {
+    return true
+  }
+  return decoded.includes('\\')
+}
+
 export function isBlockedIntegrationHost(hostname: string): boolean {
   const h = (hostname || '').toLowerCase().replace(/\.$/, '')
   if (!h) return true
@@ -126,7 +142,21 @@ export class IntegrationManager extends EventEmitter {
           `Integration path 必须是相对片段,不接受绝对 URL(否则会改写已登记的落点主机并带走凭据):${request.path.slice(0, 80)}`,
         )
       }
+      if (hasBackslashPath(request.path)) {
+        throw new Error(
+          `Integration path 不得含反斜杠(含 %5c 编码,URL 解析会把它当 / 并改写主机):${request.path.slice(0, 80)}`,
+        )
+      }
       url = new URL(request.path, integration.baseUrl).toString()
+      // 最终兜底:字符判据只是"早拒",真正不能退让的是解析结果本身与登记主机同源。
+      // 反斜杠、编码反斜杠之外的任何解析差异(端口/协议/大小写归一)都在这里一次收口。
+      const base = new URL(integration.baseUrl)
+      const target = new URL(url)
+      if (target.origin !== base.origin) {
+        throw new Error(
+          `Integration path 解析后指向了已登记主机之外的落点(凭据会随之外带):${target.origin}`,
+        )
+      }
     } else {
       let parsed: URL
       try {

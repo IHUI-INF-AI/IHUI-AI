@@ -988,15 +988,19 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(429).send(error(429, '请稍候再试'))
       }
       const code = generateCode()
+      const result = await sendVerificationEmail(email, code, scene as EmailCodeScene)
+      if (!result.sent && !result.stub) {
+        // 2026-11-11:旧实现先写码(带 sentAt)再发信,投递失败仍占住 60s 重发窗口
+        // ⇒ 用户重试一律 429「请稍候再试」,「点了没反应」被固化整整一分钟。
+        // 没发出去就不该写码,让用户能立刻重试(失败原因由上面的 500 明示)。
+        return reply.status(500).send(error(500, '验证码发送失败'))
+      }
+      // 投递成功(或 dev stub 联调)才落码:expiresAt / sentAt 从此刻起算,与邮件到达时刻一致
       await putCodeEntry(email, {
         code,
         expiresAt: Date.now() + CODE_TTL_MS,
         sentAt: Date.now(),
       })
-      const result = await sendVerificationEmail(email, code, scene as EmailCodeScene)
-      if (!result.sent && !result.stub) {
-        return reply.status(500).send(error(500, '验证码发送失败'))
-      }
       // dev stub 模式下回传验证码,便于本地联调(生产环境 stub 不会触发,因为生产应配置真实 provider)
       // G-998138:档位经 config 唯一出口(旧写法在部署链漏设 NODE_ENV 时把 devCode 静默放给生产;
       // 旧测试 mock 的 config 缺 isProductionGuard ⇒ 旧判据回退)

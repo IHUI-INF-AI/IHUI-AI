@@ -883,6 +883,121 @@ async def execute_task_code(
 
 
 # ---------------------------------------------------------------------------
+# 分享技能类任务(2026-11-11 平台新上 skill_share;事件族取证自客户端 app.asar)
+#   accept → desktop 口径七事件(report_desktop 注入公共指纹) → 回读 progress。
+#   实证:5 个号池账号 progress 0→1 / accept_status=completed / claim +100。
+#   受理回执(200/code:0)不算成功,ok 只来自回读真前进。
+# ---------------------------------------------------------------------------
+
+_SHARE_SKILL_IDENTITY: Final[dict[str, str]] = {
+    "skillId": "ex_GDl31WahyIH0",
+    "skillName": "中国电商运营专家",
+    "skillType": "market",
+    "skillSource": "market",
+}
+
+
+def build_share_events(
+    event_codes: Iterable[str] | None = None, *, now_ms: int | None = None
+) -> list[dict[str, Any]]:
+    """构造 skill_share 事件族;字段形态对齐客户端 ``reportShare*`` 函数。
+
+    ``event_codes`` 来自动作表(单源),传空则给全族;未知码不猜、不落出站。
+    """
+    now = _now_ms() if now_ms is None else int(now_ms)
+    ident = dict(_SHARE_SKILL_IDENTITY)
+    catalog: list[dict[str, Any]] = [
+        {"eventCode": "skill_detail_show", **ident},
+        {
+            "eventCode": "skill_share_entry_click", **ident,
+            "entry": "skill_detail", "status": "safe",
+            "actionSuccessful": True, "tooltip": "", "clickAt": now,
+        },
+        {"eventCode": "share_invoke_result", "success": True, "shareType": "link"},
+        {"eventCode": "skill_share_security_result", **ident, "version": "", "status": "safe"},
+        {
+            "eventCode": "skill_share_channel_action", **ident,
+            "action": "link", "panelAction": "success", "isSuccessful": True,
+            "cost": 0, "id": str(uuid.uuid4()), "actionAt": now,
+        },
+        {"eventCode": "skill_share_deeplink_result", "triggerType": "custom_protocol_pc", "success": True},
+        {
+            "eventCode": "skill_share_conversion",
+            "entry": "deeplink_pc", "triggerSource": "share_link",
+            "cost": 0, "actionAt": now,
+        },
+    ]
+    wanted = {str(c) for c in (event_codes or ())}
+    return [dict(e) for e in catalog if not wanted or str(e["eventCode"]) in wanted]
+
+
+async def run_share_task(
+    client: httpx.AsyncClient,
+    token: str,
+    uid: str,
+    nickname: str,
+    task_code: str,
+    read_tasks: ReadTasks,
+    *,
+    event_codes: Iterable[str] | None = None,
+) -> DirectApiResult:
+    """分享类任务专用 runner:accept → desktop 七事件 → 回读 progress 真前进才算 ok。
+
+    不依赖 chat 端点(2026-11-11 实测:被风控账号 chat 403 时本链仍点亮 progress),
+    故覆盖全池;任何一步异常都结构化收敛,不上抛到调度器。
+    """
+    if not token or not uid:
+        return DirectApiResult(ok=False, reason=REASON_MISSING_CREDENTIAL, task_code=task_code)
+    before = parse_task_snapshot(await _safe_read(read_tasks))
+    if before is None:
+        return DirectApiResult(ok=False, reason=REASON_READ_TASKS_FAILED, task_code=task_code)
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+        "X-User-Id": uid,
+        "X-Domain": CHAT_BASE_CN,
+        "X-Product": "WorkBuddy",
+    }
+    try:
+        await client.post(
+            "https://www.workbuddy.cn/v2/activity/growth/tasks/accept",
+            headers=headers,
+            json={"task_codes": [task_code]},
+            timeout=30.0,
+        )
+    except Exception as exc:  # noqa: BLE001 — 收敛为结构化结果
+        return DirectApiResult(
+            ok=False, reason=REASON_STEP_FAILED, task_code=task_code,
+            before=before, error=redact(exc, (token,)),
+        )
+    report = await report_desktop(client, token, uid, nickname, build_share_events(event_codes))
+    outbound = (report.outbound,)
+    after: dict[str, dict[str, Any]] | None = None
+    for attempt in range(3):
+        if attempt:
+            await asyncio.sleep(1.5)
+        snapshot = parse_task_snapshot(await _safe_read(read_tasks))
+        if snapshot is not None:
+            after = snapshot
+            if _progress_advanced(before, after, task_code):
+                break
+    if after is None:
+        return DirectApiResult(
+            ok=False, reason=REASON_READ_TASKS_FAILED, task_code=task_code,
+            before=before, outbound=outbound,
+        )
+    if _progress_advanced(before, after, task_code):
+        return DirectApiResult(
+            ok=True, reason=REASON_OK, task_code=task_code,
+            before=before, after=after, outbound=outbound,
+        )
+    return DirectApiResult(
+        ok=False, reason=REASON_NO_PROGRESS_ADVANCE, task_code=task_code,
+        before=before, after=after, outbound=outbound,
+    )
+
+
+# ---------------------------------------------------------------------------
 # WorkBuddy desktop 口径事件链(2026-11-09 实测点亮召唤专家类任务)
 #   链:市场取真实 version → 真实 chat 拿服务端 requestId → summon×3 + actual_use
 #       同一数组 POST {chatBase}/v2/report → 回读 progress 真前进才算完成。

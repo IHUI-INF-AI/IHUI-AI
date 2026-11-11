@@ -93,6 +93,15 @@ def _transport_of(*rows: dict[str, Any], claim_credit: int = 100) -> httpx.MockT
     """固定任务表 + 可领奖的 MockTransport(写侧只允许 /claim)。"""
 
     def transport(req: httpx.Request) -> httpx.Response:
+        if req.url.path.endswith("/subscribe-task/status"):
+            return httpx.Response(
+                200,
+                json={"code": 0, "data": {"subscribe_task": {
+                    "task_code": ap.OA_SUBSCRIBE_TASK_CODE,
+                    "subscribed": False, "remaining_seconds": -1,
+                    "task_status": "accepted", "advanced": False,
+                }}},
+            )
         if req.url.path.endswith("/growth/tasks"):
             return httpx.Response(
                 200,
@@ -330,4 +339,239 @@ def test_real_action_table_desktop_routes() -> None:
         route, meta = ap.route_of(code, table)
         assert route == "desktop"
         assert meta.get("expert_id"), f"{code} 缺 expert_id"
+
+
+def test_share_chain_route_and_event_catalog():
+    """平台新上的 skill_share 必须已接线:选路 + 事件族与客户端取证一致。"""
+    table = ap.load_raw_action_table()
+    route, meta = ap.route_of("skill_share", table)
+    assert route == "share_chain"
+    assert "skill_share_conversion" in meta["event_codes"]
+    events = wda.build_share_events(meta["event_codes"])
+    assert len(events) == 7
+    assert all(isinstance(e.get("eventCode"), str) and e["eventCode"] for e in events)
+
+
+@pytest.mark.asyncio
+async def test_autopilot_dry_run_plans_share_chain(monkeypatch):
+    """引擎接线:未领的 skill_share 必须进 plan 且选路 share_chain(不落 unregistered)。"""
+    payload = {
+        "code": 0,
+        "data": {
+            "tasks": [
+                {
+                    "task_code": "skill_share",
+                    "accept_status": "accepted",
+                    "progress": {"current": 0, "target": 1},
+                }
+            ]
+        },
+    }
+
+    async def fake_fetch(client, jwt, uid):
+        return payload
+
+    monkeypatch.setattr(ap, "_fetch_task_payload", fake_fetch)
+    summary = await ap.run_autopilot(FAKE_TOKEN, FAKE_DM, dry_run=True)
+    assert any(
+        p["code"] == "skill_share" and p["route"] == "share_chain"
+        for p in summary["plan"]
+    )
+    assert "skill_share" not in summary["unregistered"]
+
+
+@pytest.mark.asyncio
+async def test_run_share_task_acceptance_200_without_progress_is_not_ok():
+    """受理回执不构成成功:任务行零前进 ⇒ ok=False(防伪造纪律)。"""
+    payload = {
+        "data": {
+            "tasks": [
+                {
+                    "task_code": "skill_share",
+                    "accept_status": "accepted",
+                    "progress": {"current": 0, "target": 1},
+                }
+            ]
+        }
+    }
+    transport = httpx.MockTransport(
+        lambda req: httpx.Response(200, json={"code": 0, "msg": "OK"})
+    )
+
+    async def read_tasks():
+        return payload
+
+    async with httpx.AsyncClient(transport=transport) as c:
+        result = await wda.run_share_task(
+            c, FAKE_TOKEN, FAKE_UID, "测试号", "skill_share", read_tasks
+        )
+    assert result.ok is False
+    assert result.reason == wda.REASON_NO_PROGRESS_ADVANCE
+
+
+@pytest.mark.asyncio
+async def test_run_share_task_progress_advance_is_ok():
+    """回读 progress 真前进 ⇒ ok=True,并带 after 供上层领奖。"""
+    calls = {"n": 0}
+
+    def payload(current):
+        return {
+            "data": {
+                "tasks": [
+                    {
+                        "task_code": "skill_share",
+                        "accept_status": "completed" if current else "accepted",
+                        "progress": {"current": current, "target": 1},
+                    }
+                ]
+            }
+        }
+
+    async def read_tasks():
+        calls["n"] += 1
+        return payload(1 if calls["n"] > 1 else 0)
+
+    transport = httpx.MockTransport(
+        lambda req: httpx.Response(200, json={"code": 0, "msg": "OK"})
+    )
+    async with httpx.AsyncClient(transport=transport) as c:
+        result = await wda.run_share_task(
+            c, FAKE_TOKEN, FAKE_UID, "测试号", "skill_share", read_tasks
+        )
+    assert result.ok is True
+    assert result.reason == wda.REASON_OK
+    assert (result.after or {}).get("skill_share", {}).get("progress_current") == 1
+
+
+# ---------------------------------------------------------------------------
+# 公众号关注项:官方 qa() 刷新时序 + 平台侧判据归类(2026-11-11 取证)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_subscribe_status_is_refreshed_before_task_list() -> None:
+    """官方 to() 时序:先 GET subscribe-task/status 让服务端重算,再 GET 任务表。
+
+    只读、幂等;顺序反了会拿旧判定,公众号项可能永远等不到翻面。
+    """
+    order: list[str] = []
+
+    def transport(req: httpx.Request) -> httpx.Response:
+        assert req.method == "GET", "订阅刷新只能是读侧"
+        order.append(req.url.path)
+        if req.url.path.endswith("/subscribe-task/status"):
+            return httpx.Response(
+                200,
+                json={"code": 0, "data": {"subscribe_task": {
+                    "subscribed": False, "task_status": "accepted",
+                }}},
+            )
+        return httpx.Response(200, json={"code": 0, "data": {"tasks": []}})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(transport)) as client:
+        summary = await ap.run_autopilot(
+            FAKE_TOKEN, FAKE_DM, dry_run=True, table={}, client=client
+        )
+    assert len(order) == 2
+    assert order[0].endswith("/subscribe-task/status")
+    assert order[1].endswith("/growth/tasks")
+    assert summary["subscribe_status_refreshed"] is True
+
+
+@pytest.mark.asyncio
+async def test_oa_pending_is_platform_condition_not_unregistered() -> None:
+    """accepted/0-1 的公众号项判据在微信身份 ⇒ 记 pending_platform,不冒充引擎未接线。"""
+    async with httpx.AsyncClient(
+        transport=_transport_of(
+            _row(ap.OA_SUBSCRIBE_TASK_CODE, accept="accepted", cur=0, tgt=1)
+        )
+    ) as client:
+        summary = await ap.run_autopilot(
+            FAKE_TOKEN, FAKE_DM, dry_run=True, table={}, client=client
+        )
+    assert summary["unregistered"] == []
+    assert [r["code"] for r in summary["pending_platform"]] == [ap.OA_SUBSCRIBE_TASK_CODE]
+    assert summary["pending_platform"][0]["reason"] == "wechat_oa_follow_relation"
+
+
+@pytest.mark.asyncio
+async def test_oa_completed_is_claimed_automatically() -> None:
+    """服务端一旦判完成 ⇒ claim-only 自动领奖,绑定/关注生效后零人工收口。"""
+    async with httpx.AsyncClient(
+        transport=_transport_of(
+            _row(ap.OA_SUBSCRIBE_TASK_CODE, accept="completed", cur=1, tgt=1),
+            claim_credit=100,
+        )
+    ) as client:
+        summary = await ap.run_autopilot(FAKE_TOKEN, FAKE_DM, table={}, client=client)
+    assert summary["claimed"] == [ap.OA_SUBSCRIBE_TASK_CODE]
+    assert summary["credits"] == 100
+    assert summary["unregistered"] == []
+
+
+@pytest.mark.asyncio
+async def test_subscribe_status_reading_keeps_full_server_verdict() -> None:
+    """状态端点不能只判 HTTP 200:服务端四个判据读数要完整留档。
+
+    公众号项卡住时要能区分「没绑微信 openid」和「已关注但 24h 窗没走完」,
+    task_status / advanced 丢了就只剩一个布尔,诊断退化成猜。
+    """
+    def transport(req: httpx.Request) -> httpx.Response:
+        if req.url.path.endswith("/subscribe-task/status"):
+            return httpx.Response(
+                200,
+                json={"code": 0, "data": {"subscribe_task": {
+                    "task_code": ap.OA_SUBSCRIBE_TASK_CODE,
+                    "subscribed": False,
+                    "remaining_seconds": -1,
+                    "task_status": "accepted",
+                    "advanced": False,
+                }}},
+            )
+        return httpx.Response(200, json={"code": 0, "data": {"tasks": []}})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(transport)) as client:
+        summary = await ap.run_autopilot(
+            FAKE_TOKEN, FAKE_DM, dry_run=True, table={}, client=client
+        )
+    st = summary["subscribe_status"]
+    assert st["http_ok"] is True
+    assert st["subscribed"] is False
+    assert st["remaining_seconds"] == -1
+    assert st["task_status"] == "accepted"
+    assert st["advanced"] is False
+    assert summary["subscribe_status_refreshed"] is True
+
+
+@pytest.mark.asyncio
+async def test_subscribe_status_read_failure_is_fail_soft() -> None:
+    """刷新失败只少一次重算,不能把全表判成读失败、更不能中断整轮。"""
+    def transport(req: httpx.Request) -> httpx.Response:
+        if req.url.path.endswith("/subscribe-task/status"):
+            return httpx.Response(503, json={"code": 503})
+        return httpx.Response(200, json={"code": 0, "data": {"tasks": []}})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(transport)) as client:
+        summary = await ap.run_autopilot(
+            FAKE_TOKEN, FAKE_DM, dry_run=True, table={}, client=client
+        )
+    assert summary["subscribe_status"] is None
+    assert summary["subscribe_status_refreshed"] is False
+    assert summary["read_failed"] is False
+
+
+def test_oa_bind_params_match_official_oneid_chain() -> None:
+    """绑定链参数取自现网 usercenter bundle,不许凭印象改 scene / 域名。"""
+    assert ap.oa_bind_initiate_url() == (
+        "https://api.account.tencent.com/personal_center/v1/credential/wechat/initiate"
+    )
+    assert ap.oa_bind_initiate_params("https://www.workbuddy.cn/account-settings") == {
+        "scene": "BIND_WECHAT",
+        "action": "bind",
+        "callback_uri": "https://www.workbuddy.cn/account-settings",
+        "extra_param": "",
+    }
+    assert ap.oa_bind_initiate_params("x", action="rebind")["scene"] == "REBIND_WECHAT"
+    assert ap.oa_bind_initiate_params("x", action="unbind")["scene"] == "UNBIND_WECHAT"
+    assert ap.oa_bind_callback_params("CODE", "STATE") == {"code": "CODE", "state": "STATE"}
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

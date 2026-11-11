@@ -49,6 +49,13 @@ import {
   retryPendingCheckinSyncs,
 } from './relay-account-pool-checkin-sync.js'
 import { ACCOUNT_SCHEDULABLE_HEALTH_STATES } from './relay-pool-stats-service.js'
+import {
+  buildPushPayload,
+  pullClientSession,
+  pushClientSession,
+  shouldAdoptClientRt,
+  shouldPushAfterRefresh,
+} from './relay-client-session-mirror.js'
 
 /** 临期刷新窗口:距过期 15 分钟内触发(上游 token 寿命 ~14 天,窗口足够宽) */
 const REFRESH_AHEAD_MS = 15 * 60 * 1000
@@ -774,6 +781,39 @@ export async function refreshOne(
   const adapter = getRelayAdapter(row.providerCode)
   if (!adapter?.refreshToken) return false
   const credentials = decryptAccountCredentials(row)
+  // 镜像仲裁 · 刷前 pull(2026-11-11 根治"双消费者轮换竞态"①):
+  // 采自本机客户端的 OAuth 票(minimax/qoder/workbuddy),客户端副本若在池上次刷新
+  // 之后自己轮换过 rt,池里这份就是上游已见过的旧票 —— 拿它刷新 = rt 重放,会被
+  // 反滥用判定吊销整条 grant(minimax 死票实证)。这里读客户端副本,确比池新就采纳。
+  // 失败/超时返回 null 不阻塞;纯镜像外的平台零开销。
+  const secretsDecoded = (credentials.secrets ?? null) as Record<string, unknown> | null
+  try {
+    const pulled = await pullClientSession({
+      providerCode: row.providerCode,
+      uid: row.uid,
+      secrets: (credentials.secrets ?? null) as Record<string, unknown> | null,
+    })
+    if (pulled?.refreshToken) {
+      if (
+        shouldAdoptClientRt({
+          clientRt: pulled.refreshToken,
+          poolRt: credentials.refreshToken ?? '',
+          clientMtimeIso: pulled.mtimeIso,
+          poolLastRefreshAt: row.lastRefreshAt,
+        })
+      ) {
+        logger.info('[relay-account-pool] 镜像采纳:客户端副本 rt 比池新,以客户端为准刷新', {
+          providerCode: row.providerCode,
+          uidTail: row.uid.slice(-8),
+          clientGeneration: pulled.generation ?? '-',
+        })
+        credentials.refreshToken = pulled.refreshToken
+        if (pulled.token && !credentials.token) credentials.token = pulled.token
+      }
+    }
+  } catch {
+    /* pull 自身已兜日志;这里兜底绝不阻塞刷新主流程 */
+  }
   try {
     const proxyUrl = await resolveEgressProxy(row, tally)
     const result = await adapter.refreshToken(ctxOf(row, credentials), { proxyUrl })
@@ -830,6 +870,24 @@ export async function refreshOne(
       .where(
         and(eq(aiRelayAccountPool.id, row.id), eq(aiRelayAccountPool.credVersion, row.credVersion)),
       )
+    // 镜像仲裁 · 刷后 push(2026-11-11 根治"双消费者轮换竞态"②):
+    // 池刚换出的新 rt 立刻写回本机客户端副本,客户端下次用票就是新票 —— 客户端不再
+    // 持有已被轮换掉的旧 rt,两端始终是同一个消费者序列,上游视角无重放。
+    // fire-and-forget,绝不阻塞/绝不影响刷新主流程;失败只留痕。
+    if (shouldPushAfterRefresh(row.providerCode, result.token)) {
+      void pushClientSession(
+        buildPushPayload({
+          row: { providerCode: row.providerCode, uid: row.uid, name: row.name, secretsEncDecoded: secretsDecoded },
+          token: result.token,
+          refreshToken: result.refreshToken ?? credentials.refreshToken,
+          expiresAt: result.expiresAt,
+          refreshExpiresAt: refreshExpiresAt,
+          secrets: secretsDecoded,
+        }),
+      ).catch(() => {
+        /* push 自身已兜日志 */
+      })
+    }
     return true
   } catch (e) {
     const failures = row.refreshFailureCount + 1

@@ -15,10 +15,9 @@ import {
   View,
 } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { useFonts } from 'expo-font'
+import { StatusBar, useFonts } from '@/platform/ui'
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
 import { NavigationContainer, DarkTheme, DefaultTheme } from '@react-navigation/native'
-import { StatusBar } from 'expo-status-bar'
 import { AuthProvider } from './src/context/AuthContext'
 import { ThemeProvider, useTheme } from './src/context/ThemeContext'
 import { I18nProvider } from './src/i18n'
@@ -157,6 +156,9 @@ const ROUTE_ROOT_BG: Record<string, (t: RnThemeTokens, dark: boolean) => string>
   // 2026-10-21 第六批:AboutScreen 照 web 补齐六段内容时加了 <NavBar>(cd57f5d3d38),
   // 却漏登记本表 ⇒ nav-chrome-route-parity 判据当场红。补 chrome 档(与 Settings/Help 同档)。
   About: (t) => t.surface.chrome,
+  // HrAttendance(2026-11-11 补录):考勤屏渲染 <NavBar> 且注册了路由,却漏登记本表
+  // ⇒ 状态栏 inset 带与导航行两截色(nav-chrome-route-parity 判据当场判红)。按表判据补 chrome 档。
+  HrAttendance: (t) => t.surface.chrome,
   ChatTools: (t, dark) => (dark ? t.gray[900] : t.surface.light),
   WebView: (t, dark) => (dark ? t.gray[900] : t.surface.light),
   Note: (t) => t.surface.light,

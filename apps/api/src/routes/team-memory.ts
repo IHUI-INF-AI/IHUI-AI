@@ -135,9 +135,10 @@ export const teamMemoryRoutes: FastifyPluginAsync = async (app) => {
     if (!userId) {
       return reply.status(401).send(error(401, '请先登录'))
     }
-    // BUG-5 同口径:创建面也要按 scope 成员权收敛(读/改/删已校验,唯独 POST 曾漏挂)
+    // BUG-5/SDB-31:创建面同样复用 isScopeMember(不另写一套成员判定),且必须在 INSERT 前拦下。
+    // 这里用 403 而非读侧的 404:创建是纯写动作,非成员必须收到显式拒绝,不能看起来成功。
     if (!(await isScopeMember(body.scopeId, userId, request.jwtPayload?.roleId ?? 0))) {
-      return reply.status(404).send(error(404, 'scope 不存在或无权限'))
+      return reply.status(403).send(error(403, '无权向该 scope 写入记忆'))
     }
     const created = await createTeamMemory({
       scopeId: body.scopeId,

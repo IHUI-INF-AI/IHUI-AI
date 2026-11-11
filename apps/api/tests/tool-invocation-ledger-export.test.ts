@@ -19,6 +19,8 @@
  *  ⑨ 参数即拒 —— filters 形状非法 ⇒ 入口即抛且不触库。
  *  ⑩ 路由层 —— admin 闸门(匿名 401)、Zod 400(非法 outcome / limit 越界)、
  *     出口自证 200、私钥缺失 503(不回未签名数据)。
+ *  ⑪ SDB-23 —— 纯日期 endDate 覆盖终点当天;命中行数超 limit 时信封标 truncated,
+ *     只交付前 limit 行,该标记随载荷进签名。
  *
  * 测试隔离铁律(AGENTS §5):全程不连生产 PostgreSQL(8810)/Redis(8811)——
  * db.select 用链式桩,密钥是测试内现生成的临时 RSA 对,只活在进程内存。
@@ -26,6 +28,7 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
 import Fastify from 'fastify'
 import { createSign, generateKeyPairSync } from 'node:crypto'
+import { PgDialect } from 'drizzle-orm/pg-core'
 
 vi.hoisted(() => {
   process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test'
@@ -39,7 +42,13 @@ const PUBLIC_KEY_PATH_ENV = 'AUDIT_EXPORT_SIGN_PUBLIC_KEY_PATH'
 const KEY_ID_ENV = 'AUDIT_EXPORT_SIGN_KEY_ID'
 
 // db 面桩掉:本票测的是"导出信封的签名与验签",不是 SQL(§5 测试隔离)。
-const ledgerRowsFixture = vi.hoisted(() => ({ rows: [] as unknown[] }))
+// lastWhere/lastLimit 只为 SDB-23 取证:把 SELECT 链上真实收到的条件与上限捞出来,
+// 交 PgDialect 编译成 SQL 后断言(断言的是编译面,不是源码文本)。
+const ledgerRowsFixture = vi.hoisted(() => ({
+  rows: [] as unknown[],
+  lastWhere: null as unknown,
+  lastLimit: null as number | null,
+}))
 
 vi.mock('../src/config/index.js', () => ({
   config: { AUDIT_LOG_HMAC_SECRET: 'k'.repeat(64), NODE_ENV: 'test' },
@@ -54,9 +63,15 @@ vi.mock('../src/db/index.js', () => ({
     select: () => {
       const chain = {
         from: () => chain,
-        where: () => chain,
+        where: (condition?: unknown) => {
+          ledgerRowsFixture.lastWhere = condition ?? null
+          return chain
+        },
         orderBy: () => chain,
-        limit: () => Promise.resolve(ledgerRowsFixture.rows),
+        limit: (n: number) => {
+          ledgerRowsFixture.lastLimit = n
+          return Promise.resolve(ledgerRowsFixture.rows)
+        },
       }
       return chain
     },
@@ -105,6 +120,12 @@ vi.mock('@ihui/auth', () => ({
   verifyAccessToken: vi
     .fn()
     .mockResolvedValue({ userId: '00000000-0000-4000-8000-000000000ad1', roleId: 1 }),
+  // authenticate 会拿 createBlacklist(redis) 建吊销表;缺这一项时它会抛 TypeError,
+  // 插件按 fail-closed 记成"表建不起来"⇒ 每个带 token 的请求都 401(与导出逻辑无关)。
+  createBlacklist: () => ({
+    has: async () => false,
+    add: async () => undefined,
+  }),
 }))
 vi.mock('../src/db/usercenter-queries.js', () => ({
   getUserStatus: vi.fn().mockResolvedValue(1),
@@ -117,6 +138,14 @@ import {
   type ToolInvocationLedgerExportRow,
 } from '../src/services/tool-invocation-ledger-export.js'
 import { auditEvidenceExportRoutes } from '../src/routes/audit-evidence-export.js'
+
+/** drizzle 0.45 的 SQL 片段没有 toSQL():渲染口径只有一条 —— 交给 PgDialect。 */
+const pgDialect = new PgDialect()
+
+function compileWhere(where: unknown): { sql: string; params: unknown[] } {
+  const q = pgDialect.sqlToQuery(where as Parameters<PgDialect['sqlToQuery']>[0])
+  return { sql: q.sql, params: q.params as unknown[] }
+}
 
 /** 两把测试密钥:主钥用于签名/验签,副钥用来构造"换签名"那一型。 */
 let primaryPrivate = ''
@@ -379,6 +408,99 @@ describe('86 B04 明细账签名导出(路由层:鉴权 / 参数 / 出口自证 
     } finally {
       await app.close()
       primeEnv()
+    }
+  })
+})
+
+describe('SDB-23 endDate 漏当天 / limit 截断无标记', () => {
+  it('SDB-23① 纯日期 endDate ⇒ 次日零点排他上界,终点当天 23:59 的账行仍在窗口内', async () => {
+    try {
+      const envelope = await buildSignedToolInvocationLedgerExport(
+        { endDate: '2026-11-08' },
+        100,
+        { exportedAt: '2026-11-27T00:00:00.000Z' },
+      )
+      const { sql, params } = compileWhere(ledgerRowsFixture.lastWhere)
+      // 不是 `<= 2026-11-08T00:00:00Z`(那会把当天整段漏出),而是 `< 次日零点`
+      expect(sql).toContain('< $2')
+      expect(sql).not.toContain('<=')
+      const bound = new Date(params[1] as string | Date)
+      expect(bound.toISOString()).toBe('2026-11-09T00:00:00.000Z')
+      expect(new Date('2026-11-08T23:59:59.999Z').getTime()).toBeLessThan(bound.getTime())
+      // 溢出探测:向查询层要 limit+1 行
+      expect(ledgerRowsFixture.lastLimit).toBe(101)
+      expect(envelope.payload.filters.endDate).toBe('2026-11-08')
+    } finally {
+      ledgerRowsFixture.lastWhere = null
+      ledgerRowsFixture.lastLimit = null
+    }
+  })
+
+  it('SDB-23② 带时间 endDate ⇒ 仍按 <= 原语义(不展开成次日零点)', async () => {
+    try {
+      await buildSignedToolInvocationLedgerExport(
+        { endDate: '2026-11-08T12:00:00.000Z' },
+        100,
+        { exportedAt: '2026-11-27T00:00:00.000Z' },
+      )
+      const { sql, params } = compileWhere(ledgerRowsFixture.lastWhere)
+      expect(sql).toContain('<= $2')
+      expect(new Date(params[1] as string | Date).toISOString()).toBe('2026-11-08T12:00:00.000Z')
+    } finally {
+      ledgerRowsFixture.lastWhere = null
+      ledgerRowsFixture.lastLimit = null
+    }
+  })
+
+  it('SDB-23③ 恰好 limit 行 ⇒ truncated=false;limit+1 行 ⇒ true 且只返回 limit 行', async () => {
+    const rows = [
+      makeLedgerRow(),
+      makeLedgerRow(),
+      makeLedgerRow(),
+    ] as unknown as ToolInvocationLedgerExportRow[]
+    const exactSpy = vi.fn(async () => rows)
+    const exact = await buildSignedToolInvocationLedgerExport({}, 3, {
+      selectRows: exactSpy,
+      exportedAt: '2026-11-27T00:00:00.000Z',
+    })
+    expect(exactSpy).toHaveBeenCalledWith({}, 4)
+    expect(exact.payload.truncated).toBe(false)
+    expect(exact.payload.lines).toHaveLength(3)
+    expect(verifySignedAuditExport(exact).status).toBe('verified')
+
+    const overflowRows = [...rows, makeLedgerRow()] as unknown as ToolInvocationLedgerExportRow[]
+    const overflow = await buildSignedToolInvocationLedgerExport({}, 3, {
+      selectRows: async () => overflowRows,
+      exportedAt: '2026-11-27T00:00:00.000Z',
+    })
+    expect(overflow.payload.truncated).toBe(true)
+    // 第 limit+1 行只是"还有更多"的物证,不进数据体
+    expect(overflow.payload.lines).toHaveLength(3)
+    expect(verifySignedAuditExport(overflow).status).toBe('verified')
+
+    // 截断标记随载荷进签名:把它抹成 false ⇒ 验签红(收件方不能把"截断"改写成"全量")
+    const tampered = JSON.parse(JSON.stringify(overflow)) as typeof overflow
+    tampered.payload.truncated = false
+    expect(verifySignedAuditExport(tampered).status).toBe('signature_invalid')
+  })
+
+  it('SDB-23④ 信封 rowCount 与 lines 实际行数一致(0 / =limit / >limit 三档)', async () => {
+    const cases = [
+      { rows: 0, limit: 3 },
+      { rows: 3, limit: 3 },
+      { rows: 5, limit: 3 },
+    ]
+    for (const c of cases) {
+      const fixture = Array.from({ length: c.rows }, () =>
+        makeLedgerRow(),
+      ) as unknown as ToolInvocationLedgerExportRow[]
+      const envelope = await buildSignedToolInvocationLedgerExport({}, c.limit, {
+        selectRows: async () => fixture,
+        exportedAt: '2026-11-27T00:00:00.000Z',
+      })
+      expect(envelope.payload.rowCount).toBe(envelope.payload.lines.length)
+      expect(envelope.payload.lines).toHaveLength(Math.min(c.rows, c.limit))
+      expect(verifySignedAuditExport(envelope).status).toBe('verified')
     }
   })
 })

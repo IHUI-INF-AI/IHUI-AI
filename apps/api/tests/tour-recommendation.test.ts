@@ -198,7 +198,9 @@ describe('tour-recommendation — 推荐算法', () => {
       mockDbSelect.mockReturnValue(
         selectFromWhere([{ id: 'c1', title: 'T1', views: 100, likes: 10 }], true, true),
       )
-      mockDbInsert.mockReturnValue({ values: vi.fn().mockResolvedValue(undefined) })
+      mockDbInsert.mockReturnValue({
+        values: vi.fn().mockReturnValue({ onConflictDoUpdate: vi.fn().mockResolvedValue(undefined) }),
+      })
       const list = await recommend({ userId: 'u1', strategy: 'hot' })
       expect(list).toHaveLength(1)
       expect(list[0]!.strategy).toBe('hot')
@@ -215,7 +217,9 @@ describe('tour-recommendation — 推荐算法', () => {
           true,
         ),
       )
-      mockDbInsert.mockReturnValue({ values: vi.fn().mockResolvedValue(undefined) })
+      mockDbInsert.mockReturnValue({
+        values: vi.fn().mockReturnValue({ onConflictDoUpdate: vi.fn().mockResolvedValue(undefined) }),
+      })
       const list = await recommend({ userId: 'u1', strategy: 'hot', excludeContentIds: ['c1'] })
       expect(list).toHaveLength(1)
       expect(list[0]!.contentId).toBe('c2')
@@ -225,7 +229,9 @@ describe('tour-recommendation — 推荐算法', () => {
       mockDbSelect.mockReturnValue(
         selectFromWhere([{ id: 'c1', title: 'T1', views: 100, likes: 10 }], true, true),
       )
-      const valuesMock = vi.fn().mockResolvedValue(undefined)
+      const valuesMock = vi
+        .fn()
+        .mockReturnValue({ onConflictDoUpdate: vi.fn().mockResolvedValue(undefined) })
       mockDbInsert.mockReturnValue({ values: valuesMock })
       await recommend({ userId: 'u1', strategy: 'hot' })
       expect(mockDbInsert).toHaveBeenCalledTimes(1)
@@ -250,7 +256,9 @@ describe('tour-recommendation — 推荐算法', () => {
       mockDbSelect.mockReturnValue(
         selectFromWhere([{ id: 'c1', title: 'T1', views: 100, likes: 10 }], true, true),
       )
-      mockDbInsert.mockReturnValue({ values: vi.fn().mockResolvedValue(undefined) })
+      mockDbInsert.mockReturnValue({
+        values: vi.fn().mockReturnValue({ onConflictDoUpdate: vi.fn().mockResolvedValue(undefined) }),
+      })
       const list = await recommend({ userId: 'u1' })
       expect(list[0]!.strategy).toBe('hot')
     })

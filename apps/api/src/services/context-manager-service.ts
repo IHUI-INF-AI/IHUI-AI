@@ -308,7 +308,9 @@ export async function getConversationHistory(input: GetHistoryInput): Promise<Ch
       .limit(limit)
 
     const messages: ChatMessage[] = []
-    for (const row of rows) {
+    // 必须先按行翻转为时间升序，再逐行展开 user/assistant；
+    // 若对展平后的 messages 整体 reverse，每轮的 assistant 会跑到 user 之前。
+    for (const row of [...rows].reverse()) {
       if (row.content) {
         messages.push({
           role: 'user',
@@ -326,8 +328,7 @@ export async function getConversationHistory(input: GetHistoryInput): Promise<Ch
       }
     }
 
-    // 反转为时间升序（数据库按倒序取，需反转）
-    return messages.reverse()
+    return messages
   } catch (err) {
     logger.error('[context-manager] getConversationHistory failed', { error: err })
     return []

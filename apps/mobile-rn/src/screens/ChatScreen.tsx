@@ -32,9 +32,9 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { useTheme } from '../context/ThemeContext'
-import { useAudioPlayer } from 'expo-audio'
-import * as DocumentPicker from 'expo-document-picker'
-import { File, Paths } from 'expo-file-system'
+import { useAudioPlayer } from '@/platform/audio'
+import * as DocumentPicker from '@/platform/document-picker'
+import { File, Paths } from '@/platform/fs'
 import {
   ActivityIndicator,
   Image,
@@ -55,7 +55,7 @@ import {
 import type { FlatList } from 'react-native'
 import Clipboard from '@react-native-clipboard/clipboard'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import * as MediaLibrary from 'expo-media-library'
+import * as MediaLibrary from '@/platform/media-library'
 import { captureRef } from 'react-native-view-shot'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'

@@ -46,6 +46,9 @@
  *
  * 退出码:0 已领到 / 1 未领到(仍未达标) / 2 未判定(环境·输入·读不到任务)。
  */
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import {
   fetchGrowthTasks,
   listPoolAccounts,
@@ -69,6 +72,112 @@ export function oaClaimUrl(code = OA_TASK_CODE) {
  */
 export const OA_SUBSCRIBE_STATUS_URL =
   'https://www.workbuddy.cn/v2/activity/growth/subscribe-task/status'
+
+/**
+ * 判定参数真正所在的账号体系(腾讯 OneID),2026-11-11 现网 usercenter bundle 取证。
+ *
+ * growth 域 38 条端点里订阅相关**只有上面这一条 GET**,真机对 bind/callback/report/
+ * refresh/accept/qrcode/config 等 16 条候选一律 404,带 ?scene/?code/?openid 也全被忽略。
+ * 服务端判据读的是账号对象里的 `wechatOpenId` / `mpOpenId` —— 由微信登录或
+ * 「账号设置 → 绑定微信」写入。下面这条就是官方绑定链的全部参数。
+ */
+export const ONEID_API_BASE = 'https://api.account.tencent.com'
+export const OA_FOLLOW_GUIDE_URL = 'https://www.workbuddy.cn/events/follow-guide/'
+export const OA_BIND_SCENES = Object.freeze({
+  bind: 'BIND_WECHAT',
+  rebind: 'REBIND_WECHAT',
+  unbind: 'UNBIND_WECHAT',
+})
+
+/** 绑定微信第一步端点(OneID 域;号池的 copilot 域 token 打过去是 401,需已登录会话) */
+export function oaBindInitiateUrl(channel = 'wechat') {
+  return `${ONEID_API_BASE}/personal_center/v1/credential/${channel}/initiate`
+}
+
+/** 绑定微信第二步端点(微信授权回跳) */
+export function oaBindCallbackUrl(channel = 'wechat') {
+  return `${ONEID_API_BASE}/personal_center/v1/credential/${channel}/callback`
+}
+
+/** `oauthInitiate` 请求体:scene / action / callback_uri / extra_param */
+export function oaBindInitiateParams(callbackUri, opts = {}) {
+  const { action = 'bind', extraParam = '' } = opts ?? {}
+  return {
+    scene: OA_BIND_SCENES[action] ?? OA_BIND_SCENES.bind,
+    action,
+    callback_uri: callbackUri,
+    extra_param: extraParam,
+  }
+}
+
+/** `oauthCallback` 请求体:微信授权回跳带回的 code / state */
+export function oaBindCallbackParams(code, state = '') {
+  return { code, state }
+}
+
+/**
+ * 另一条把 wechatOpenId 带进账号的链:**微信扫码登录**(账号切换工具走的就是这条)。
+ * 现网 bundle: ``getSocialLoginUrl`` / ``verifySocialLogin``。
+ */
+export function oaSocialLoginUrl(channel = 'wechat') {
+  return `${ONEID_API_BASE}/authz/v1/authn/social/${channel}/login`
+}
+
+export function oaSocialCallbackUrl(channel = 'wechat') {
+  return `${ONEID_API_BASE}/authz/v1/authn/social/${channel}/callback`
+}
+
+/** `getSocialLoginUrl` 请求体 */
+export function oaSocialLoginParams(callbackUri, opts = {}) {
+  const { app = 'workbuddy', extraParam = '', clientMode = 'widget' } = opts ?? {}
+  return {
+    callback_uri: callbackUri,
+    app,
+    extra_param: extraParam,
+    client_mode: clientMode,
+  }
+}
+
+/** `verifySocialLogin` 请求体:授权回跳 code/state 外套 params,并带登录态 state_token */
+export function oaSocialCallbackParams(code, stateToken, state = '') {
+  return { params: { code, state }, state_token: stateToken }
+}
+
+/** growth 域真机探测过的写侧候选(全部 404),留档防后人重复试 */
+export const OA_SUBSCRIBE_WRITE_CANDIDATES_PROBED = Object.freeze([
+  '/v2/activity/growth/subscribe-task/bind',
+  '/v2/activity/growth/subscribe-task/callback',
+  '/v2/activity/growth/subscribe-task/report',
+  '/v2/activity/growth/subscribe-task/accept',
+  '/v2/activity/growth/subscribe-task/refresh',
+  '/v2/activity/growth/subscribe-task/qrcode',
+  '/v2/activity/growth/subscribe-task/config',
+])
+
+/**
+ * 只读检查本地凭据快照里有没有微信身份字段(脱敏:只回布尔,不回显 openid)。
+ * `wechatOpenId` / `mpOpenId` 是服务端判「关注关系」的参数来源,缺了就永远 accepted 0/1。
+ */
+export function readLocalWechatBinding(uid) {
+  const empty = { found: false, wechatOpenId: false, mpOpenId: false, loginChannels: [] }
+  try {
+    const dir = path.join(os.homedir(), '.wb-switch', 'backups')
+    const f = fs
+      .readdirSync(dir)
+      .find((x) => x.startsWith(`workbuddy-desktop.pool-${uid}`) && x.endsWith('.info'))
+    if (!f) return empty
+    const tree = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'))
+    const a = tree?.account ?? {}
+    return {
+      found: true,
+      wechatOpenId: typeof a.wechatOpenId === 'string' && a.wechatOpenId.length > 0,
+      mpOpenId: typeof a.mpOpenId === 'string' && a.mpOpenId.length > 0,
+      loginChannels: Array.isArray(a.loginChannels) ? a.loginChannels : [],
+    }
+  } catch {
+    return empty
+  }
+}
 
 /** 组装鉴权头(本文件内两处 fetch 共用) */
 function authHeaders(cred) {
@@ -103,6 +212,7 @@ export function parseSubscribeStatus(status, text) {
       subscribed: null,
       remainingSeconds: null,
       taskStatus: '',
+      advanced: null,
       reason: '响应非 JSON',
     }
   }
@@ -113,6 +223,7 @@ export function parseSubscribeStatus(status, text) {
       subscribed: null,
       remainingSeconds: null,
       taskStatus: '',
+      advanced: null,
       reason: `响应里没有 subscribe_task.subscribed 布尔(http=${status} code=${j?.code ?? '-'})`,
     }
   }
@@ -122,6 +233,7 @@ export function parseSubscribeStatus(status, text) {
     subscribed: st.subscribed,
     remainingSeconds: Number.isFinite(rs) ? rs : null,
     taskStatus: String(st.task_status ?? ''),
+    advanced: typeof st.advanced === 'boolean' ? st.advanced : null,
     reason:
       httpOk && j?.code === 0
         ? ''
@@ -337,6 +449,7 @@ export function parseArgs(argv) {
   const opts = {
     status: false,
     watch: false,
+    params: false,
     intervalSec: 300,
     timeoutSec: 90_000,
     help: false,
@@ -346,6 +459,7 @@ export function parseArgs(argv) {
     const a = String(arr[i])
     if (a === '--status') opts.status = true
     else if (a === '--watch') opts.watch = true
+    else if (a === '--params') opts.params = true
     else if (a === '--help' || a === '-h') opts.help = true
     else if (a.startsWith('--interval=')) opts.intervalSec = Number(a.slice('--interval='.length))
     else if (a === '--interval') opts.intervalSec = Number(arr[i + 1] ?? 300)
@@ -361,6 +475,10 @@ export function parseArgs(argv) {
 const HELP = `用法:
   node scripts/workbuddy-growth-oauth.mjs --status
       只读:列出每个号「公众号关注」项的状态(关注关系 / 24h 倒计时 / 状态 / 进度 / 是否已到账)
+
+  node scripts/workbuddy-growth-oauth.mjs --params
+      只读:打印公众号项的**全部接口与参数**(读侧 / 领奖 / 写侧探测 / OneID 绑定链)
+      + 每个号的服务端读数与本地微信身份绑定缺口。不写任何端点。
 
   node scripts/workbuddy-growth-oauth.mjs --watch [--interval 300] [--timeout 90000]
       轮询到服务端把该项判成完成,到账即调 claim 领奖(关注动作需机主本人在微信完成)
@@ -402,7 +520,7 @@ async function readAll(accounts) {
 
 async function main() {
   const opts = parseArgs(process.argv.slice(2))
-  if (opts.help || (!opts.status && !opts.watch)) {
+  if (opts.help || (!opts.status && !opts.watch && !opts.params)) {
     console.log(HELP)
     return opts.help ? 0 : 2
   }
@@ -413,6 +531,65 @@ async function main() {
   }
 
   const rows = await readAll(accounts)
+
+  if (opts.params) {
+    console.log('=== 公众号关注项:全部接口与参数(2026-11-11 现网 bundle + 真机取证) ===')
+    console.log(`[读侧] GET ${OA_SUBSCRIBE_STATUS_URL}`)
+    console.log(
+      '       → data.subscribe_task{task_code, subscribed, remaining_seconds, task_status, advanced}',
+    )
+    console.log(`[领奖] POST ${oaClaimUrl()}`)
+    console.log(
+      '       → 未达标 http=400 {"code":400,"msg":"task not completed"};' +
+        ' 已领 {"already_claimed":true}',
+    )
+    console.log('[写侧] growth 域 38 端点里订阅写侧 0 条,下列候选真机全 404:')
+    for (const p of OA_SUBSCRIBE_WRITE_CANDIDATES_PROBED) console.log(`       - ${p}`)
+    console.log(`[引导] ${OA_FOLLOW_GUIDE_URL} (静态二维码,零 scene / 账号参数)`)
+    console.log(
+      '[绑定] 判据参数 wechatOpenId / mpOpenId 在 OneID 账号对象,' +
+        ' 由微信登录或「账号设置 → 绑定微信」写入:',
+    )
+    console.log(`       POST ${oaBindInitiateUrl()}`)
+    console.log(
+      `       body=${JSON.stringify(oaBindInitiateParams('https://www.workbuddy.cn/account-settings'))}`,
+    )
+    console.log('       → {redirect_url} 微信 OAuth 授权链接(机主本人扫码)')
+    console.log(`       POST ${oaBindCallbackUrl()}`)
+    console.log(`       body=${JSON.stringify(oaBindCallbackParams('<code>', '<state>'))}`)
+    console.log(
+      '       注:OneID 域走已登录会话(withCredentials);' +
+        ' 号池的 copilot 域 accessToken 打过去是 401 G40102 token invalid',
+    )
+    console.log('[登录] 另一条把 openid 带进账号的链 = 微信扫码登录(账号切换工具走这条):')
+    console.log(`       POST ${oaSocialLoginUrl()}`)
+    console.log(
+      `       body=${JSON.stringify(oaSocialLoginParams('https://www.workbuddy.cn/'))}`,
+    )
+    console.log(`       POST ${oaSocialCallbackUrl()}`)
+    console.log(
+      `       body=${JSON.stringify(oaSocialCallbackParams('<code>', '<state_token>'))}`,
+    )
+    console.log('\n=== 各号当前读数(只读) ===')
+    for (const r of rows) {
+      const b = readLocalWechatBinding(r.uid)
+      const s = r.sub
+      const t = r.task
+      console.log(
+        `[${r.uid.slice(0, 8)}] subscribed=${s?.subscribed ?? '?'} ` +
+          `remaining=${s?.remainingSeconds ?? '?'} task_status=${s?.taskStatus || '-'} ` +
+          `advanced=${s?.advanced ?? '?'} | 任务=${t?.accept_status ?? '?'} ` +
+          `${t?.progress.current ?? 0}/${t?.progress.target ?? 1} | ` +
+          `本地绑定 wechatOpenId=${b.wechatOpenId} mpOpenId=${b.mpOpenId} ` +
+          `channels=${b.loginChannels.join(',') || '-'} | jump=${t?.jump_url || '-'}`,
+      )
+    }
+    console.log(
+      '\n结论:缺 wechatOpenId 的号必须先由机主用微信完成绑定 + 关注满 24h;' +
+        ' 绑定生效后服务端翻 completed,现有引擎下一轮自动 claim,无需再改代码。',
+    )
+    return 0
+  }
 
   if (opts.status) {
     let desc = ''

@@ -220,12 +220,28 @@ function filterToQueryParams(filter: HookLogsFilter | undefined): URLSearchParam
 }
 
 /**
+ * 时间串 → epoch 毫秒(不可解析时返回 NaN)。
+ *
+ * SDB-22:此前直接用 ISO 字符串做字典序比较,`'.'(46) < 'Z'(90)` 会把同一秒内
+ * 带毫秒的日志(`...T12:00:00.123456Z`)判成更早,带 `+08:00` 偏移的更是几乎全被
+ * 过滤。时间必须按绝对时刻比较,故统一走 Date.parse,只在这里解析一次口径。
+ */
+function toEpochMs(value: unknown): number {
+  if (value === null || value === undefined || value === '') return Number.NaN
+  const ms = typeof value === 'number' ? value : Date.parse(String(value))
+  return Number.isFinite(ms) ? ms : Number.NaN
+}
+
+/**
  * 客户端兜底过滤(ai-service router 可能不识别过滤参数)。
  *
  * 直接在 api 层对返回的 logs 做过滤,确保过滤条件生效。
  */
 function applyLogsFilter(logs: unknown[], filter: HookLogsFilter | undefined): unknown[] {
   if (!filter) return logs
+  // 边界只解析一次:逐条重算既浪费,也容易让 since/until 两支写出不一致的判据。
+  const sinceMs = filter.since ? toEpochMs(filter.since) : null
+  const untilMs = filter.until ? toEpochMs(filter.until) : null
   return logs.filter((item) => {
     const log = item as Record<string, unknown>
     if (filter.event && log.event !== filter.event) return false
@@ -238,13 +254,13 @@ function applyLogsFilter(logs: unknown[], filter: HookLogsFilter | undefined): u
       const dur = Number(log.duration ?? 0)
       if (dur > filter.durationMax) return false
     }
-    if (filter.since) {
-      const at = String(log.triggeredAt ?? '')
-      if (at < filter.since) return false
-    }
-    if (filter.until) {
-      const at = String(log.triggeredAt ?? '')
-      if (at > filter.until) return false
+    if (sinceMs !== null || untilMs !== null) {
+      const atMs = toEpochMs(log.triggeredAt)
+      // 不可解析的时间既不早也不晚,放行会把脏数据算进结果,故按不匹配处理(fail-closed)。
+      // 这不是 HTTP 层的 400:本函数不接触响应对象,由路由层统一兜底会导致改动面扩散。
+      if (Number.isNaN(atMs)) return false
+      if (sinceMs !== null && (Number.isNaN(sinceMs) || atMs < sinceMs)) return false
+      if (untilMs !== null && (Number.isNaN(untilMs) || atMs > untilMs)) return false
     }
     return true
   })

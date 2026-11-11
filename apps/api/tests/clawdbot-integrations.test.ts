@@ -192,6 +192,65 @@ describe('clawdbot IntegrationManager 集成服务', () => {
     })
   })
 
+  describe('SDB-19 path 不得改写已登记主机(SSRF/凭据外带)', () => {
+    // 每条断言都先由 node 实测解析行为:`new URL('/\\\\attacker.example/x','https://api.example.com')`
+    // → host=attacker.example;`/%5Cattacker` 在 URL 层同源,但解码后是反斜杠形态。
+    const rejected = async (path: string) => {
+      mgr.register(mockIntegration('i1', { authType: 'api_key', apiKey: 'secret' }))
+      await expect(mgr.call({ integrationId: 'i1', method: 'GET', path })).rejects.toThrow(
+        'Integration path',
+      )
+      // 拒绝必须发生在发请求之前:凭据一次都不能寄出
+      expect(fetchSpy).not.toHaveBeenCalled()
+    }
+
+    it('拒绝 /\\attacker.example/x(反斜杠被 URL 当斜杠)', async () => {
+      await rejected('/\\attacker.example/x')
+    })
+
+    it('拒绝 \\attacker.example/x', async () => {
+      await rejected('\\attacker.example/x')
+    })
+
+    it('拒绝 /%5Cattacker.example/x(编码反斜杠)', async () => {
+      await rejected('/%5Cattacker.example/x')
+      await rejected('/%5cattacker.example/x')
+    })
+
+    it('拒绝 //attacker.example/x(原黑名单不回退)', async () => {
+      await rejected('//attacker.example/x')
+    })
+
+    it('拒绝解码失败的路径(fail-closed)', async () => {
+      await rejected('/100%')
+    })
+
+    it('正常相对路径通过且 origin 不变', async () => {
+      mgr.register(mockIntegration('i1'))
+      fetchSpy.mockResolvedValueOnce(mockResponse({ ok: true }) as never)
+      await mgr.call({ integrationId: 'i1', method: 'GET', path: '/v1/foo?x=1' })
+      const called = new URL(fetchSpy.mock.calls[0]![0] as string)
+      expect(called.origin).toBe('https://api.example.com')
+      expect(called.pathname).toBe('/v1/foo')
+    })
+
+    it('绝对 URL 一律被拒(含同源绝对 URL,现有契约只收相对片段)', async () => {
+      await rejected('https://api.example.com/v1/foo')
+      await rejected('https://evil.example/x')
+      await rejected('http://api.example.com/v1/foo')
+    })
+
+    it('同源兜底:控制字符被 URL 剥离后指向别的主机也会被拦', async () => {
+      mgr.register(mockIntegration('i1', { authType: 'api_key', apiKey: 'secret' }))
+      // 实测 `new URL('/\t/attacker.example/x', base)` 剥离制表符后是 `//attacker.example/x`
+      // ⇒ 主机被改写;字符黑名单看不到(`startsWith('//')` 为 false),只有 origin 兜底能拦。
+      await expect(
+        mgr.call({ integrationId: 'i1', method: 'GET', path: '/\t/attacker.example/x' }),
+      ).rejects.toThrow('已登记主机之外')
+      expect(fetchSpy).not.toHaveBeenCalled()
+    })
+  })
+
   describe('getStats', () => {
     it('返回 total/enabled', () => {
       mgr.register(mockIntegration('i1'))

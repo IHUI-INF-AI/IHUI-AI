@@ -429,6 +429,8 @@ describe('paypal service', () => {
       const orderBody = JSON.parse(String(orderCall![1].body))
       expect(orderBody.intent).toBe('CAPTURE')
       expect(orderBody.purchase_units[0].reference_id).toBe('PP20260728001')
+      // SDB-12:capture 资源不会回填 reference_id,webhook 按 custom_id 认领订单
+      expect(orderBody.purchase_units[0].custom_id).toBe('PP20260728001')
       expect(orderBody.purchase_units[0].amount.currency_code).toBe('USD')
       expect(orderBody.purchase_units[0].amount.value).toBe('10.99')
       expect(orderBody.application_context.brand_name).toBe('IHUI-AI')

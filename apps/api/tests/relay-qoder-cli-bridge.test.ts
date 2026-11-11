@@ -17,17 +17,20 @@
 import { describe, it, expect, vi, beforeAll, afterAll, beforeEach, afterEach } from 'vitest'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { spawn as realSpawn } from 'node:child_process'
+import { EventEmitter } from 'node:events'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   QoderBridgeError,
+  createBridgeStreamGuard,
   createRunnerTranslateState,
   isQoderBridgeEnabled,
   preflightQoderBridge,
   qoderCliChatChunks,
   renderQoderPrompt,
   translateRunnerMessage,
+  writeBridgeRequest,
   type BridgeChild,
   type BridgeSpawn,
 } from '../src/services/upstream-adapters/qoder-cli-bridge.js'
@@ -854,6 +857,128 @@ describe('renderQoderPrompt', () => {
     }
     expect(caught).toBeInstanceOf(QoderBridgeError)
     expect((caught as QoderBridgeError).statusCode).toBe(400)
+  })
+})
+
+// =============================================================================
+// 7. SDB-13:child/stdin 的异步 'error' 不得冒泡成 uncaughtException
+// =============================================================================
+
+describe('SDB-13: child/stdin 异步 error 兜底', () => {
+  /** 可发 'error' 的假子进程(EventEmitter);stdout 由脚本控制结束时机 */
+  function eventedChild(script: () => AsyncGenerator<string>): {
+    emitter: EventEmitter
+    child: BridgeChild
+    stdin: EventEmitter
+    written: string[]
+    killMock: ReturnType<typeof vi.fn>
+  } {
+    const emitter = new EventEmitter()
+    const written: string[] = []
+    const stdin = Object.assign(new EventEmitter(), {
+      write: (chunk: string) => {
+        written.push(chunk)
+        return true
+      },
+    })
+    const killMock = vi.fn(() => true)
+    Object.assign(emitter, {
+      stdin,
+      stdout: script(),
+      stderr: (async function* () {})(),
+      kill: killMock,
+    })
+    return { emitter, child: emitter as unknown as BridgeChild, stdin, written, killMock }
+  }
+
+  it("stdin 'error' → 抛 QoderBridgeError(不触发 uncaughtException),并 kill 子进程", async () => {
+    setFixtureEnv()
+    const gate = deferred()
+    const { child, stdin, killMock } = eventedChild(() =>
+      (async function* () {
+        yield asst('A')
+        await gate.promise // 模拟 stdout 尚未关闭
+      })(),
+    )
+    const { spawnImpl } = recordingSpawn([() => child])
+    const it = qoderCliChatChunks({ prompt: 'p', spawnImpl })[Symbol.asyncIterator]()
+    const first = await it.next()
+    expect(contentOf(first.value!)).toBe('A')
+
+    // 无监听时 EventEmitter 会直接 throw → 全局 uncaughtException;这里必须安静接住
+    const epipe = Object.assign(new Error('write EPIPE'), { code: 'EPIPE' })
+    expect(() => stdin.emit('error', epipe)).not.toThrow()
+
+    gate.resolve()
+    const caught = await it.next().then(
+      () => null,
+      (e: unknown) => e,
+    )
+    expect(caught).toBeInstanceOf(QoderBridgeError)
+    expect((caught as QoderBridgeError).message).toContain('runner stdin 异常')
+    expect((caught as QoderBridgeError).message).toContain('EPIPE')
+    expect((caught as QoderBridgeError).statusCode).toBe(0)
+    expect(killMock).toHaveBeenCalled()
+  })
+
+  it("child 'error'(spawn 失败)→ 同样转 QoderBridgeError,进程不崩", async () => {
+    setFixtureEnv()
+    const gate = deferred()
+    const { emitter, child, killMock } = eventedChild(() =>
+      (async function* () {
+        yield asst('A')
+        await gate.promise
+      })(),
+    )
+    const { spawnImpl } = recordingSpawn([() => child])
+    const it = qoderCliChatChunks({ prompt: 'p', spawnImpl })[Symbol.asyncIterator]()
+    await it.next()
+
+    expect(() => emitter.emit('error', new Error('spawn ENOENT'))).not.toThrow()
+
+    gate.resolve()
+    const caught = await it.next().then(
+      () => null,
+      (e: unknown) => e,
+    )
+    expect(caught).toBeInstanceOf(QoderBridgeError)
+    expect((caught as QoderBridgeError).message).toContain('runner 子进程异常')
+    expect((caught as QoderBridgeError).message).toContain('spawn ENOENT')
+    expect(killMock).toHaveBeenCalled()
+  })
+
+  it('已死后 write → 立即抛同一错误实例,不再写管道', () => {
+    const guard = createBridgeStreamGuard()
+    const write = vi.fn(() => true)
+    const stdin = Object.assign(new EventEmitter(), { write }) as unknown as NonNullable<
+      BridgeChild['stdin']
+    >
+    const first = guard.fail('runner stdin 异常', new Error('write EPIPE'))
+    expect(first).toBeInstanceOf(QoderBridgeError)
+    expect(guard.fatal).toBe(first)
+
+    let caught: unknown
+    try {
+      writeBridgeRequest(stdin, '{"prompt":"x"}\n', guard)
+    } catch (e) {
+      caught = e
+    }
+    expect(caught).toBe(first) // 同一实例:不重复撞异步错误
+    expect(write).not.toHaveBeenCalled()
+    // 后续错误不覆盖首个固化结果
+    expect(guard.fail('runner 子进程异常', new Error('spawn ENOENT'))).toBe(first)
+  })
+
+  it('正常路径:存活时写入放行,行为不变', () => {
+    const guard = createBridgeStreamGuard()
+    const write = vi.fn(() => true)
+    const stdin = Object.assign(new EventEmitter(), { write }) as unknown as NonNullable<
+      BridgeChild['stdin']
+    >
+    writeBridgeRequest(stdin, 'payload\n', guard)
+    expect(write).toHaveBeenCalledTimes(1)
+    expect(write).toHaveBeenCalledWith('payload\n')
+    expect(guard.fatal).toBeNull()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

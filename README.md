@@ -97,17 +97,15 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 4872 | `testFiles` |
+| 测试文件 | 4877 | `testFiles` |
 | CI 工作流 | 59 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 359 | `guardianGates` |
 | — blocking | 330 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 20846 | `trackedFiles` |
-
-上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-12。
+| 跟踪文件 | 20871 | `trackedFiles` |
+上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-11。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
-
 <!-- END GENERATED NUMBERS -->
 **一句话口径**:数字一律现读,文档里不写「约 N 个」——那种写法必然腐烂。
 ---
@@ -5505,7 +5503,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 📚 文档:刷新生成块数字(trackedFiles 20934→20936,并入 relay 长连接收口 2 个新文件) (52848a9f7e5)
 - 📚 文档:自动刷新最近更新块 + 游标跟进 cb64a7fd1c (86abb395e5b)
 - 🐞 修复:启动门只等必需后端三件套,/health 免租户(修 240s 假死) (3460206c423)
-
 **2026-11-10**
 - ⚡ 性能:全池推生产合并为单次 SSH 握手，能力探针与导出并行 (e4008a1a7a7)
 - 📚 文档:刷新生成块数字(trackedFiles 20930→20934,并入远端 4 个新脚本路径) (cb64a7fd1c4)
@@ -5558,12 +5555,10 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - ⚡ 性能:水印提交档分母收窄到本次携带,单门 24.5s→1.0s (0cf426141b0)
 - ⚡ 性能:30a 悬空集合单列缓存,提交链守门实测 309s→69s (775ca7e7837)
 - 🐞 修复:合并后按 token 档归一 inline-question-card 字号与字重 (10e5b33bb52)
-
 **2026-11-08**
 - 🚀 新功能/改进:补齐 AI 生成显式/隐式标识 (8d972f386c6)
 - 🚀 新功能/改进:补齐 AI 生成显式/隐式标识 (f4535c338e9)
 - 🚀 新功能/改进:Groups 屏薄壳承载落地(RN 壳同源渲染,词条取 web 原文) (e7d27e3e994)
-
 **2026-11-07**
 - 🐞 修复:补 web 端 apiKeys en/ko 译文(24 键,清门 4 pending) (5e1c14de23a)
 - 🐞 修复:四屏壳改桶导入,补门173共享屏直接 import 覆盖 (e71cd19a5d6)
@@ -5579,10 +5574,8 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🚀 新功能/改进:TokenValue 记录时间范围条下沉共享屏(数据型注入点,RN/小程序同源) (e7c52e45ba2)
 - 🚀 新功能/改进:8 条单端槽位裁决落锁,2 条真下沉 (72a500c1156)
 - 🔧 工程/其他:再 rebase 后生成器取胜, 刷新 ui-routes 钉值与 README 数字 (5c833a7bbc5)
-
 **2026-11-06**
 - 🚀 新功能/改进:补齐 Team/MessageCenter/ArticleList/Coupon 行为型 prop 跨端缺口并清理死契约 (a872076ccc9)
-
 **2026-11-10**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (9220756941)
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (ffb5f20a82)
@@ -5593,12 +5586,9 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:补 ask_user_question/skill/todo_read/todo_write 五语言功能名,守门55 归零 120/120 (d42e720dd0)
 **2026-11-10**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (0e10f84bd0)
-
 - 🐞 修复:typecheck-full 清缓存增补 .DevEnv/.workbuddy 排除——T1 被看门狗终止的真凶实测定位(cleanTsbuildinfo 对盘根 57000+ 子目录的 .DevEnv 深递归,30s 超时都跑不完);排除后 1248ms 过,全量轮 180s 完成落回执 (c592e24ceb)
-
 **2026-11-10**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (d2cb6d426c)
-
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (5f53dfa375)
 - 🔧 工程/其他:离线包按 HEAD 面重生成——清合并票记账「落地后需重生成」欠账;gen --head 输入=HEAD 面词包(他席在飞磁盘内容不烤包),3 gen.ts 同步(4 CDN b64 与 HEAD 恒等零变化),B2/stale 钉收敛;门298红点名为他席滞留磁盘档非本票声明集(pathspec 不进本次内容),经 safe-commit 归因 undetermined-red 后按仓库出路③走本旁路 (3dd977d158)
 - 🚀 新功能/改进:三端滚动边缘淡出 ScrollEdgeFades + 抽屉/底部遮罩细化 (87084cf084)
@@ -5606,7 +5596,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🔧 工程/其他:补多行gitBinary形态的反向牙,并更正上一轮的错误归因 (1913e2f971)
 - 📚 文档:README 中文数字块按 HEAD 面重算（与推门 check-doc-numbers 同面） (2db5df9981)
 - 📚 文档:README.en 数字块按 HEAD 面重算（与推门 check-doc-numbers 同面） (4b32f111c1)
-
 **2026-11-10**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (adf9c835cf)
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (0ad8d37a99)
@@ -5618,15 +5607,11 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:倒计时收敛夹具改认解构后的函数标识符,解 test 腿 miniapp 红 (73ff8614f0)
 - 🐞 修复:loomy chat 换实证网关 loomyad.xunfei.cn 并收口票形/模型名/错误信封 (7816076585)
 - ⚡ 性能:30a 内存治理——流式解析 + Buffer 取面 + 候选分批,并把 OOM 根因链查清 (c21c92594c)
-
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (b470d0ec08)
-
 **2026-11-10**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (dd1aeb0274)
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (3642b26464)
-
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (d3aa620a76)
-
 **2026-11-10**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (7b48014e26)
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (4e7adad235)
@@ -5644,6 +5629,8 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🔧 工程/其他:补齐 brand-mail-from 测试文件的溯源水印 (7582515bf7)
 - 🔧 工程/其他:miniapp-taro 五个语言包对齐上游已完成的键清理 (975c6ec472)
 - 🐞 修复:三条 From 旁路归一 + 守门 R5 防回归 (0a761c3280)
-
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (c224f786e6)
 <!-- END RECENT UPDATES -->
+| 测试文件 | 4872 | `testFiles` |
+| 跟踪文件 | 20842 | `trackedFiles` |
+| 跟踪文件 | 20847 | `trackedFiles` |

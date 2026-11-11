@@ -14,7 +14,8 @@
  *    `canonicalAuditExportPayload` / `getAuditExportPublicKeyInfo`)—— 同一把签名私钥、
  *    同一套失败归因,本文件不出现第二个 createSign。
  *  - **验签复用**:产出的信封形状与 `AuditExportPayload` 逐字段同形(algorithm/keyId/
- *    format/exportedAt/rowCount/dataDigest/filters/lines),收件方仍走
+ *    format/exportedAt/rowCount/dataDigest/filters/lines),另加一个随载荷签名的
+ *    `truncated`(仅追加键,旧验签器一并纳入确定性序列化,不判红),收件方仍走
  *    `verifySignedAuditExport` 一把尺子验两种信封;本文件的端到端测试也用它自证。
  *  - **确定性序列化单源**:`canonicalStringify`(@ihui/shared),同一次导出内容重放
  *    字节逐字一致(签名可复现的前提)。
@@ -24,7 +25,7 @@
  * 刻意不带 chainAnchor:链式可验证性住在 audit_logs_chain(每行 chainEntryId 回指链行),
  * 链锚(区间 prevHash→currentHash 连续性证明)只对携带哈希列的数据体有意义 —— 账行
  * JSON Lines 不带链哈希,挂锚等于"声称了但无法证明"(siem-exporter buildChainAnchor
- * 同一条判据),故信封保持 86C 旧形状,验签路径整步跳过链锚。
+ * 同一条判据),故信封不加链锚,验签路径整步跳过链锚。
  *
  * 刻意不导出原文列(rawInput/rawOutput/留存三列):原文受保留策略管控(rawRetentionDays
  * /rawPurgedAt),证据导出只交**摘要**(inputDigest/outputDigest)+ 四要素
@@ -37,7 +38,7 @@
  */
 import { createHash } from 'node:crypto'
 
-import { and, asc, eq, gte, lte } from 'drizzle-orm'
+import { and, asc, eq, gte, lt, lte } from 'drizzle-orm'
 import { z } from 'zod'
 import { canonicalStringify } from '@ihui/shared'
 import { toolInvocationLedger, type ToolInvocationLedger } from '@ihui/database'
@@ -52,7 +53,6 @@ import {
   signCanonicalExportPayload,
   type AuditExportFilterSnapshot,
   type AuditExportPayload,
-  type SignedAuditExport,
 } from './siem-exporter.js'
 import { TOOL_INVOCATION_LEDGER_OUTCOMES } from './tool-invocation-ledger-service.js'
 
@@ -92,9 +92,29 @@ export interface ToolInvocationLedgerExportFilters {
   toolName?: string
   sessionId?: string
   outcome?: (typeof TOOL_INVOCATION_LEDGER_OUTCOMES)[number]
-  /** 账行 createdAt 窗口(ISO 8601;闭区间两端)。 */
+  /**
+   * 账行 createdAt 窗口(ISO 8601)。startDate 为闭区间起点;
+   * endDate 纯日期(YYYY-MM-DD)按"当日全天"闭区间(即 < 次日零点),
+   * 带时间的值仍按 <= 该时刻(原语义)。
+   */
   startDate?: string
   endDate?: string
+}
+
+/**
+ * 明细账导出载荷 = 审计导出载荷 + `truncated`。
+ *
+ * `truncated` 进载荷而不是只放响应头:它随载荷一起被签名,收件方验签即能确认
+ * "少行"是导出方明说的上限截断,而不是传输途中被删掉的行。
+ */
+export interface ToolInvocationLedgerExportPayload extends AuditExportPayload {
+  /** true = 命中行数超过本次 limit,`lines` 只含前 limit 行(仍有账行未导出)。 */
+  truncated: boolean
+}
+
+export interface SignedToolInvocationLedgerExport {
+  payload: ToolInvocationLedgerExportPayload
+  signature: string
 }
 
 const toolInvocationLedgerExportFiltersSchema = z
@@ -151,9 +171,26 @@ function toExportRow(row: ToolInvocationLedger): ToolInvocationLedgerExportRow {
   }
 }
 
+/** 纯日期(YYYY-MM-DD)形状判定:只有这种值才需要展开成"次日零点"上界。 */
+const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/
+
+/**
+ * endDate 上界解析。
+ *
+ * `new Date('2026-11-08')` 解析为当日 00:00:00Z,直接 `<=` 会把终点当天整段漏出;
+ * 纯日期因此改判"次日零点、排他不含"。带时间的值原样返回并标 `inclusive`,
+ * 调用方先前按时刻点传参的语义逐字不变。
+ */
+export function resolveEndDateBound(endDate: string): { bound: Date; inclusive: boolean } {
+  const bound = new Date(endDate)
+  if (!DATE_ONLY_RE.test(endDate)) return { bound, inclusive: true }
+  return { bound: new Date(bound.getTime() + 24 * 60 * 60 * 1000), inclusive: false }
+}
+
 async function defaultSelectRows(
   filters: ToolInvocationLedgerExportFilters,
-  limit: number,
+  /** 查询行数上限 = 导出上限 + 1(多取一行用于溢出探测)。 */
+  queryLimit: number,
 ): Promise<ToolInvocationLedgerExportRow[]> {
   const conditions = []
   if (filters.userId !== undefined) {
@@ -172,7 +209,12 @@ async function defaultSelectRows(
     conditions.push(gte(toolInvocationLedger.createdAt, new Date(filters.startDate)))
   }
   if (filters.endDate !== undefined) {
-    conditions.push(lte(toolInvocationLedger.createdAt, new Date(filters.endDate)))
+    const { bound, inclusive } = resolveEndDateBound(filters.endDate)
+    conditions.push(
+      inclusive
+        ? lte(toolInvocationLedger.createdAt, bound)
+        : lt(toolInvocationLedger.createdAt, bound),
+    )
   }
 
   const rows = await db
@@ -182,7 +224,7 @@ async function defaultSelectRows(
     // 行序确定性:createdAt 同值时由 id 定序 —— 同一份数据两次导出行序必然一致,
     // 否则 dataDigest 会漂,签名可复现落空。
     .orderBy(asc(toolInvocationLedger.createdAt), asc(toolInvocationLedger.id))
-    .limit(limit)
+    .limit(queryLimit)
 
   return rows.map(toExportRow)
 }
@@ -191,7 +233,8 @@ export interface ToolInvocationLedgerExportDeps {
   /** 默认 = 直查 tool_invocation_ledger;注入只为不触库单测(§5 测试隔离),生产调用方从不传。 */
   selectRows?: (
     filters: ToolInvocationLedgerExportFilters,
-    limit: number,
+    /** 查询行数上限 = 导出上限 + 1(多取一行用于溢出探测,多余那行不进数据体)。 */
+    queryLimit: number,
   ) => Promise<ToolInvocationLedgerExportRow[]>
   /** 覆盖导出时刻(仅供单测做"同内容两次导出签名全等"判据;生产不传)。 */
   exportedAt?: string
@@ -224,10 +267,10 @@ function snapshotFilters(
 }
 
 /**
- * 生成已签名的明细账导出信封(形状与 siem-exporter 的 SignedAuditExport 同形)。
+ * 生成已签名的明细账导出信封(SignedAuditExport 形状 + 随载荷签名的 `truncated`)。
  *
  * @param filters 查询维度(Zod 校验,非法即抛;查询面不是权限面)
- * @param limit 行数上限(路由侧再限 50000)
+ * @param limit 行数上限(路由侧再限 50000);命中更多行时不静默少导,信封标 `truncated`
  * @throws zod 错误(filters 形状非法)/ AuditExportSignatureError(私钥不可用 / 签名失败)
  *   —— 绝不返回未签名信封(§5e 失败必须响)。
  */
@@ -235,17 +278,20 @@ export async function buildSignedToolInvocationLedgerExport(
   filters: unknown,
   limit = 10000,
   deps: ToolInvocationLedgerExportDeps = {},
-): Promise<SignedAuditExport> {
+): Promise<SignedToolInvocationLedgerExport> {
   const parsed = toolInvocationLedgerExportFiltersSchema.safeParse(filters)
   if (!parsed.success) {
     const detail = parsed.error.issues[0]?.message ?? 'filters'
     throw new Error(`invalid tool-invocation-ledger export filters: ${detail}`)
   }
   const selectRows = deps.selectRows ?? defaultSelectRows
-  const rows = await selectRows(parsed.data, limit)
+  // 多取一行探测溢出:探到的第 limit+1 行只作"还有更多"的物证,不进数据体。
+  const fetched = await selectRows(parsed.data, limit + 1)
+  const truncated = fetched.length > limit
+  const rows = truncated ? fetched.slice(0, limit) : fetched
   const lines = rows.map((row) => canonicalStringify(row as unknown as Record<string, unknown>))
 
-  const payload: AuditExportPayload = {
+  const payload: ToolInvocationLedgerExportPayload = {
     algorithm: AUDIT_EXPORT_SIGNATURE_ALGORITHM,
     // kid 由公钥推导 ⇒ 信封自证"该用哪把公钥验我"(与审计链导出同一把钥匙)。
     keyId: getAuditExportPublicKeyInfo().keyId,
@@ -255,9 +301,14 @@ export async function buildSignedToolInvocationLedgerExport(
     dataDigest: sha256Hex(canonicalStringify(lines)),
     filters: snapshotFilters(parsed.data),
     lines,
+    // 截断标记进载荷进签名:收件方验签即知"这份导出是否被上限截过"。
+    truncated,
   }
   const signature = signCanonicalExportPayload(canonicalAuditExportPayload(payload))
-  logger.debug('[tool-invocation-ledger-export] signed envelope built', { rowCount: lines.length })
+  logger.debug('[tool-invocation-ledger-export] signed envelope built', {
+    rowCount: lines.length,
+    truncated,
+  })
   return { payload, signature }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

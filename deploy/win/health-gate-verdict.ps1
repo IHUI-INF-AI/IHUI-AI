@@ -26,7 +26,9 @@
 # 2026-10-19 该票已落地(ihui-deploy.ps1 给 llm 加源站直探腿 + "公网 unknown 而源站 pass"折算为绿),
 # 但**折算发生在调用方**:调用方把折算后的 fails/unknown 传进来,本模块的 Proven(上文 57-62 行)只认
 # 这份折算后的证据表 —— 某一维公网 unknown 且折算后的 fails/unknown 均不含它 ⇒ 该维算绿。webOrigin/
-# apiOrigin/llmOrigin 键仍只用于上文 fail vs entry-broken 分流(78-84 行)。本模块自身零功能改动。
+# apiOrigin/llmOrigin 键用于 fail vs entry-broken 的【逐维】分流(2026-11-11 起:每个失败维取自身
+# origin,不再做 web+api 全局聚合,见下方 $originByDim)。本模块判序本体不动,只把 originOk 的聚合
+# 从全局改成逐维。
 #
 # 计数只许进日志与邮件正文(-Detail),**绝不进告警身份**(§5e-3 / 门 224 判据):
 # 轮次与计数每轮抖动 ⇒ 每轮一个新身份 ⇒ 同一场故障连寄 N 封。
@@ -76,20 +78,38 @@ function Get-HealthGateVerdict {
     # 即退回改前语义(公网 fail ⇒ 回滚),绝不因为多了一条腿就更容易放行。
     # 源站维"有没有传"必须对 Hashtable 与 OrderedDictionary **两种形状都成立**:
     # .ContainsKey() 只有 Hashtable 有,OrderedDictionary 调它会抛 InvalidOperation,
-    # 而异常一抛 $originOk 就停在 $false ⇒ 判成 fail ⇒ 把一个好构建回滚掉
+    # 而异常一抛就停在 fail ⇒ 把一个好构建回滚掉
     # (2026-10-19 拿真实生产数据干跑时才抓到;离线夹具全用普通哈希表,32 例一起骗人)。
     # 所以改用 .Keys -contains —— 两种字典都支持,且取不到就是"不成立",不猜。
+    #
+    # 2026-11-11 逐维救援(修真事故):旧写法把 originOk 收成一个全局 "webOrigin && apiOrigin"
+    # 的布尔 —— 既漏掉 llmOrigin,又硬性要求 web+api 同时 pass。于是切流窗口里 api/llm 公网被
+    # Cloudflare 隧道读成 521(源站直探三路全 200)时,只要末轮 web 不是它的同维、或 llm 整维
+    # 缺 origin 键,$originOk 就退化为 false ⇒ 整包判 'fail' ⇒ 每轮回滚一个好构建
+    # (2026-11-10 18:19 起 last-green.json 零前进,APK 修复 B 等一连串修复都上不了线)。
+    # 新写法改成**逐维**:对 lastFails 每一枚取其维度名 → 对应 *Origin(web/webOrigin、
+    # api/apiOrigin、llm/llmOrigin);只有**该失败维自身**的源站读数 ='pass' 才证明"这一格是
+    # 入口故障而非构建坏"。所有失败维各自的 origin 都='pass' ⇒ 'entry-broken'(不回滚);
+    # 任一失败维 origin 缺失或≠'pass' ⇒ 拿不到该维"源站健康"的证,按 fail-closed 仍 'fail'。
+    $originByDim = @{ web = 'webOrigin'; api = 'apiOrigin'; llm = 'llmOrigin' }
     $originOk = $false
-    $hasOrigin = ($last -and (($last.Keys -contains 'webOrigin') -or ($last.Keys -contains 'apiOrigin')))
-    if ($hasOrigin) {
-        $wo = [string]$last.webOrigin
-        $ao = [string]$last.apiOrigin
-        $originOk = ($wo -eq 'pass' -and $ao -eq 'pass')
+    if ($lastFails.Count -gt 0) {
+        $allPass = $true
+        foreach ($fr in $lastFails) {
+            $dim = [string]$fr -replace '\(.*$', ''
+            $okKey = if ($originByDim.ContainsKey($dim)) { $originByDim[$dim] } else { $null }
+            $dimOk = $false
+            if ($okKey -and $last -and ($last.Keys -contains $okKey)) {
+                $dimOk = ([string]$last.$okKey -eq 'pass')
+            }
+            if (-not $dimOk) { $allPass = $false; break }
+        }
+        $originOk = $allPass
     }
 
     # 判序:末轮明确失败 > 曾全绿 > 只剩未知。
-    #   · 末轮有明确 fail 且源站也不应答 → 'fail'(真坏了,回滚)
-    #   · 末轮有明确 fail 但源站两端都正常 → 'entry-broken'(入口坏了,回滚没用且不冒绿)
+    #   · 末轮有明确 fail 且【逐维】源站证不全 → 'fail'(真坏了或缺证,回滚)
+    #   · 末轮有明确 fail 但【每个失败维自身】源站都正常 → 'entry-broken'(入口坏了,回滚没用且不冒绿)
     #   · 某一轮三项全绿(且末轮无 fail)→ 'pass' Proven=$true
     #   · 其余 → 'pass-unproven'(与改前同放行,但绝不允许被读成"通过")
     # 真实调用方在拿到全绿那一轮就立刻 return,所以"先绿后坏"这一型在现网走不到这里 ——

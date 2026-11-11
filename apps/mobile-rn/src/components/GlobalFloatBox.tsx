@@ -23,7 +23,7 @@ import { Animated, Image, StyleSheet, Text, View, type ViewStyle } from 'react-n
 import { ChevronsLeft, ChevronsRight } from 'lucide-react-native'
 import { tokens } from '../theme/active-tokens'
 
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { ELEVATION_STEPS, rnRadius, rnSpacing } from '@ihui/design-tokens'
 import { Tappable } from '@ihui/ui-native'
 
 export interface GlobalFloatBoxProps {
@@ -186,12 +186,8 @@ const styles = StyleSheet.create({
     paddingVertical: CONTENT_PADDING,
     alignItems: 'center',
     justifyContent: 'center',
-    // 阴影(对齐 uniapp box-shadow 0 1px 3px rgba(0,0,0,0.06))
-    shadowColor: tokens.gray.black,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 3,
-    elevation: 2,
+    // 投影:小浮层 → 档位 sm(对齐 uniapp box-shadow 0 1px 3px rgba(0,0,0,0.06))
+    ...ELEVATION_STEPS.sm,
   } as ViewStyle,
   item: {
     alignItems: 'center',

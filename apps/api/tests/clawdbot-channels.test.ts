@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 vi.mock('../src/services/clawdbot/logger.js', () => ({
   logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
@@ -144,6 +144,59 @@ describe('clawdbot ChannelManager 渠道管理', () => {
       mgr.on('sent', handler)
       await mgr.sendMessage('ch1', 'hello', 'user1')
       expect(handler).toHaveBeenCalledWith({ channelId: 'ch1', content: 'hello', userId: 'user1' })
+    })
+  })
+
+  describe('Telegram 正文转义 (SDB-55)', () => {
+    const telegramChannel = (id: string): ChannelConfig => ({
+      id,
+      type: 'telegram',
+      name: `Channel ${id}`,
+      enabled: true,
+      config: { botToken: 'test-bot-token', chatId: 'test-chat-id' },
+    })
+
+    let fetchMock: ReturnType<typeof vi.fn>
+
+    beforeEach(() => {
+      fetchMock = vi.fn(async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({ ok: true }),
+      }))
+      vi.stubGlobal('fetch', fetchMock)
+    })
+
+    afterEach(() => {
+      vi.unstubAllGlobals()
+    })
+
+    const sentBody = (): { text: string; parse_mode?: string } => {
+      const init = fetchMock.mock.calls[0]![1] as RequestInit
+      return JSON.parse(String(init.body)) as { text: string; parse_mode?: string }
+    }
+
+    it('含 < > & 的正文按 HTML 实体转义且 parse_mode 仍为 HTML', async () => {
+      mgr.register(telegramChannel('tg1'))
+      const ok = await mgr.sendMessage('tg1', 'a < b && c > d')
+      expect(ok).toBe(true)
+      const body = sentBody()
+      expect(body.parse_mode).toBe('HTML')
+      expect(body.text).toBe('a &lt; b &amp;&amp; c &gt; d')
+    })
+
+    it('纯文本无特殊字符时正文保持不变(不双重转义)', async () => {
+      mgr.register(telegramChannel('tg1'))
+      const ok = await mgr.sendMessage('tg1', '部署完成 123')
+      expect(ok).toBe(true)
+      expect(sentBody().text).toBe('部署完成 123')
+    })
+
+    it('已含 &amp; 的输入会被再次转义为 &amp;amp; (不做幂等反转义)', async () => {
+      mgr.register(telegramChannel('tg1'))
+      const ok = await mgr.sendMessage('tg1', 'Tom &amp; Jerry')
+      expect(ok).toBe(true)
+      expect(sentBody().text).toBe('Tom &amp;amp; Jerry')
     })
   })
 

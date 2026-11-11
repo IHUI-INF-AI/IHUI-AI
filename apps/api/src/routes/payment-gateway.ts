@@ -1675,16 +1675,19 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       if (event.event_type === 'PAYMENT.CAPTURE.COMPLETED') {
         const resource = event.resource as {
           id?: string // capture id
-          custom_id?: string // 我们 set 的 reference_id(= outTradeNo)
+          custom_id?: string // 修复后下单同时写入的 outTradeNo
+          reference_id?: string // 修复前的旧订单只带这个
           amount?: { value?: string; currency_code?: string }
           status?: string
         }
-        const outTradeNo = resource.custom_id
+        // 老订单(2026-11-11 前下单)没有 custom_id,回退 reference_id,
+        // 避免已扣款订单在异步对账时彻底失联。
+        const outTradeNo = resource.custom_id ?? resource.reference_id
         const captureId = resource.id
         if (!outTradeNo || !captureId) {
           request.log.warn(
             { eventId: event.id, resource },
-            'paypal webhook missing custom_id or capture id',
+            'paypal webhook missing out trade no or capture id',
           )
           return reply.send(success({ received: true, skipped: 'no_out_trade_no' }))
         }

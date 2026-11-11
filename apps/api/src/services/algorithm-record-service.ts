@@ -161,7 +161,12 @@ export interface ImportStats {
   inserted: number
   updated: number
   skipped: number
+  /** 批次内因备案编号重复被后者覆盖掉的行数(可观测痕迹,不静默丢)。 */
+  duplicateRows: number
 }
+
+/** mapRow 的产物,同一 recordNo 只保留一条。 */
+type MappedRow = NonNullable<ReturnType<typeof mapRow>>
 
 interface DocxImport {
   kind: RecordKind
@@ -178,8 +183,15 @@ export async function importOneDocx({
   buffer,
 }: DocxImport): Promise<ImportStats> {
   const { header, rows } = await parseDocx(buffer)
-  const values = []
+  // 同一份清单里同一备案编号可能出现在多行(合并单元格 / 一个算法挂多个产品行)。
+  // 若原样拼进一条 INSERT ... ON CONFLICT DO UPDATE,同一目标行会被命中两次,
+  // PostgreSQL 直接报 "ON CONFLICT DO UPDATE command cannot affect row a second time",
+  // 整批失败 ⇒ 整份文件的数据一起丢。故入库前按 recordNo 去重:
+  // Map 保持首次出现的顺序,后行覆盖前行(清单靠后的行通常是补充/更正信息);
+  // 被覆盖的行计入 duplicateRows,由调用方写进日志,不静默丢。
+  const byRecordNo = new Map<string, MappedRow>()
   let skipped = 0
+  let duplicateRows = 0
   for (const row of rows) {
     const mapped = mapRow(header, row, kind, batch, sourceUrl)
     if (!mapped) {
@@ -190,12 +202,15 @@ export async function importOneDocx({
       skipped++
       continue
     }
-    values.push(mapped)
+    if (byRecordNo.has(mapped.recordNo)) duplicateRows++
+    byRecordNo.set(mapped.recordNo, mapped)
   }
+  const values = [...byRecordNo.values()]
   if (values.length > 0) {
-    // 全部以备案编号 record_no 为去重键 upsert：既有则更新、新出现则插入，
-    // 因此 values.length 即为“本次真正写入(含更新)的行数”。
-    await db
+    // 统计口径用 returning 的 xmax 判定(与 db/behavior-queries.ts 同型):
+    // xmax = 0 是本次新插入,否则是 ON CONFLICT 命中的既有行 ⇒ 计为 updated。
+    // 这样不必为统计再查一次库,也不会把"写入(含更新)"整体误报成 inserted。
+    const written = await db
       .insert(algorithmRecord)
       .values(values)
       .onConflictDoUpdate({
@@ -212,9 +227,18 @@ export async function importOneDocx({
           updatedAt: sql`now()`,
         },
       })
-    return { kind, files: 1, inserted: values.length, updated: 0, skipped }
+      .returning({ inserted: sql<boolean>`(xmax = 0)` })
+    const inserted = written.filter((r) => r.inserted).length
+    return {
+      kind,
+      files: 1,
+      inserted,
+      updated: written.length - inserted,
+      skipped,
+      duplicateRows,
+    }
   }
-  return { kind, files: 1, inserted: 0, updated: 0, skipped }
+  return { kind, files: 1, inserted: 0, updated: 0, skipped, duplicateRows }
 }
 
 /** 抓取并导入一个官方公告页(downloadfile 附件可为多个，逐个导入)。 */
@@ -237,8 +261,13 @@ async function importFromPage(
       const batch = fallbackBatch ?? extractBatchFromText(decodeURIComponent(link))
       const s = await importOneDocx({ kind, batch, sourceUrl: link, buffer: buf })
       log.info(
-        `[algorithm-record] ${kind} ${batch ?? '?'} 导入完成: 写入${s.inserted} 更新${s.updated} 跳过${s.skipped}`,
+        `[algorithm-record] ${kind} ${batch ?? '?'} 导入完成: 写入${s.inserted} 更新${s.updated} 跳过${s.skipped} 去重${s.duplicateRows}`,
       )
+      if (s.duplicateRows > 0) {
+        log.warn(
+          `[algorithm-record] ${kind} ${batch ?? '?'} 批次内 ${s.duplicateRows} 行备案编号重复,已按后者覆盖合并`,
+        )
+      }
       stats.push(s)
     } catch (e) {
       log.error(`[algorithm-record] ${kind} 附件导入失败 ${link}: ${(e as Error).message}`)

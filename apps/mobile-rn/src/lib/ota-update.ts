@@ -20,7 +20,7 @@
  */
 
 import { Platform } from 'react-native'
-import * as Updates from 'expo-updates'
+import { Updates } from '@/platform/updates'
 import RNRestart from 'react-native-restart'
 import { useSyncExternalStore } from 'react'
 

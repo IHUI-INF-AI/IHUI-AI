@@ -12,8 +12,9 @@
  * 安全前提:腾讯云回调本身**不带签名**。可用的两道闸是
  *  ① URL 上的共享 token(`SMS_CALLBACK_TOKEN`);
  *  ② 控制台侧固定出口 IP 白名单(`SMS_CALLBACK_IP_ALLOWLIST`)。
- * 两道都没配时函数仍返回 true(否则首次接入会一直 403),调用方必须打 warning 并把
- * 事件限定为"本地存在对应发送记录"才落库 —— 不能让任何人凭空给任意号码写退订。
+ * 两个变量都完全未设置时函数仍返回 true(否则首次接入会一直 403),调用方必须打 warning
+ * 并把事件限定为"本地存在对应发送记录"才落库 —— 不能让任何人凭空给任意号码写退订。
+ * 配置了却只有空白/逗号等无有效项的取值 ⇒ 视为配置错误直接拒绝(fail-closed)。
  */
 
 export type TencentCallbackKind = 'status' | 'reply' | 'unknown'
@@ -158,21 +159,36 @@ export interface CallbackAuthInput {
   allowlist?: string
 }
 
+function parseAllowlist(raw: string | undefined): string[] {
+  return (raw ?? '')
+    .split(',')
+    .map((s) => normalizeIp(s))
+    .filter(Boolean)
+}
+
+/** 至少一道闸在规范化后真正生效(与 isSmsCallbackAuthorized 同一判据)。
+ *  路由必须用它判"已配置":过去用未 trim 的原值判真值,纯空白 token / "," 白名单
+ *  会被当成"配了",而服务内 trim 后跳过 ⇒ 两闸同时失效、回调端点无鉴权对外开放。 */
+export function isSmsCallbackGateConfigured(input: {
+  expectedToken?: string
+  allowlist?: string
+}): boolean {
+  return Boolean(input.expectedToken?.trim()) || parseAllowlist(input.allowlist).length > 0
+}
+
 /** 两道闸:配了 token 就必须带对;配了 IP 白名单就必须来自白名单。
- *  都没配 ⇒ 放行(调用方打 warning),由调用方再用"本地有发送记录"兜底。 */
+ *  两个变量完全未设置时仍放行(保持旧语义,由调用方再用"本地有发送记录"兜底);
+ *  但显式配置过却规范化后拿不出任何有效项 = 配置错误,不能退化成"未配置"放行,一律拒绝。 */
 export function isSmsCallbackAuthorized(input: CallbackAuthInput): boolean {
+  if (input.expectedToken === undefined && input.allowlist === undefined) return true
   const expected = input.expectedToken?.trim()
+  const allow = parseAllowlist(input.allowlist)
+  if (!expected && allow.length === 0) return false
   if (expected) {
     const provided = input.providedToken?.trim() ?? ''
     if (!provided || !constantTimeEqual(provided, expected)) return false
   }
-  const allow = (input.allowlist ?? '')
-    .split(',')
-    .map((s) => normalizeIp(s))
-    .filter(Boolean)
-  if (allow.length > 0) {
-    if (!allow.includes(normalizeIp(input.ip))) return false
-  }
+  if (allow.length > 0 && !allow.includes(normalizeIp(input.ip))) return false
   return true
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

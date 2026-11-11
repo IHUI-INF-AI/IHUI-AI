@@ -25,9 +25,15 @@ deploy-feedback 条目与本模块无关,不要据此推断本族的状态)。
   `redemption_status{tiers[]}`),旧实现按顶层平铺取 ⇒ 恒 None,已修。
   travel/status 真形态 `{state,daily_limit_reached,duration_hours,reward_credit,…}`,
   旧判据要求的 `status/remain/energy/credit` 四件套不存在 ⇒ 恒未判定,已修。
-- **写侧:路由在、body 字段名未判定**:`tasks/accept`、`redeem`、`lottery/draw`、
-  `buddy/travel/depart` 对空体与 `{"code":…}`/`{"task_code":…}`/`{"codes":[…]}` 一律
+- **写侧:路由在、body 字段名 2026-11-11 已取证**:`tasks/accept`、`redeem`、
+  `lottery/draw` 曾对空体与 `{"code":…}`/`{"task_code":…}`/`{"codes":[…]}` 一律
   400「invalid request」(= 已进入参数校验,但没有一种形态被认出字段);
+  `buddy/travel/depart` 的真字段是 **`location_id`** —— 取证自现网成长中心 bundle
+  `Ho=e=>t.post("/activity/growth/buddy/travel/depart",{location_id:e})`,并真机复证
+  `{"location_id":1}` ⇒ 200 `code:0` / `state=traveling` / `record_id=…`(空体及
+  `client_token`/`buddy_id`/`instance_id`/`location` 等 10 种形态仍 400,不是同族字段)。
+  地点 id 现读 `/activity/growth/buddy/travel/config` 的 `locations[].id`,
+  读不到才回落真机 config 里已取证的 `id=1`(咖啡馆),不猜值。
   `makeup-cards/use` 的 400 直接点名 `invalid target_date format`;
   `buddy/travel/claim` 空体 ⇒ 403「no unclaimed travel」(= 可达、鉴权过、业务态无可领);
   `buddy/firstuid` 在两 CN 域 404(二进制取证的那条路径在本域不成立)。
@@ -172,8 +178,14 @@ PATH_GROWTH_TASKS_ACCEPT: Final = "/activity/growth/tasks/accept"
 PATH_GROWTH_STREAK: Final = "/activity/growth/streak"
 
 PATH_TRAVEL_STATUS: Final = "/activity/growth/buddy/travel/status"
+PATH_TRAVEL_CONFIG: Final = "/activity/growth/buddy/travel/config"
 PATH_TRAVEL_DEPART: Final = "/activity/growth/buddy/travel/depart"
 PATH_TRAVEL_CLAIM: Final = "/activity/growth/buddy/travel/claim"
+
+# 2026-11-11 真机 GET travel/config:locations = [{id:1 咖啡馆},{id:2 商场店铺},
+# {id:3 健身房},{id:4 古镇客栈}],四者 duration/reward 区间相同。config 读不到时
+# 才回落这个已取证过的合法 id,不是猜值(优先路径仍是现读 config)。
+_DEFAULT_TRAVEL_LOCATION_ID: Final = 1
 
 # 族五/六 redeem / lottery(2026-10-31 真机读写双侧实证):
 # - lottery/summary GET 200 ⇒ {"chances":N,"module":{"enabled":true}}
@@ -1278,11 +1290,59 @@ def parse_travel_state(data: Any) -> dict[str, Any] | None:
     if state is None:
         return None
     out: dict[str, Any] = {"state": state}
-    for key in ("buddy_id", "record_id", "depart_at", "arrive_at", "duration_hours", "reward_credit"):
+    for key in (
+        "buddy_id", "record_id", "depart_at", "arrive_at", "server_now",
+        "duration_hours", "reward_credit",
+    ):
         out[key] = _as_int(data.get(key))
     limit = data.get("daily_limit_reached")
     out["daily_limit_reached"] = limit if isinstance(limit, bool) else None
+    # 到达后才有信件;真机出发中形态是 letter=null。只作"是否到达"的辅助读数,
+    # 不拿它编造奖励数值(reward_credit 仍以服务端字段为准)。
+    out["letter"] = data.get("letter")
     return out
+
+
+def _travel_claimable(state: dict[str, Any]) -> bool:
+    """真机 2026-11-11:depart 成功后 status **立即**带回预计 `reward_credit`,
+    但还在路上时 `travel/claim` 回 `403 not arrived yet`(`letter=null`,
+    `server_now < arrive_at`)⇒ 每轮巡检打一次必然失败的 claim 会记成假未判定。
+
+    只在明确「traveling 且到达时间在未来」时拦下 claim;其余形态(含旧夹具
+    `idle` + 待发奖励)沿用既有 claim 判据,**不猜新 state 值域**。
+    """
+    if state.get("state") != "traveling":
+        return True
+    now, arrive = state.get("server_now"), state.get("arrive_at")
+    on_the_way = (
+        isinstance(now, int) and not isinstance(now, bool)
+        and isinstance(arrive, int) and not isinstance(arrive, bool)
+        and arrive > now
+    )
+    return not on_the_way
+
+
+async def _travel_location_id(
+    jwt: str, device_map: dict[str, Any], client: httpx.AsyncClient, timeout: float
+) -> int:
+    """出发地点 id:现读官方 `travel/config` 的 `locations[0].id`,读不到回落已取证的 1。
+
+    该端点是 GET-only(真机 POST ⇒ 404);字段 `location_id` 与 `locations[].id`
+    均取自现网 bundle + 真机 200,不是猜测。读失败只回落,不阻断出发。
+    """
+    status, payload, _mode = await _wb_request(
+        PATH_TRAVEL_CONFIG, jwt, device_map, {}, client=client, timeout=timeout, method="GET"
+    )
+    if status == 200 and isinstance(payload, dict):
+        data = payload.get("data")
+        if isinstance(data, dict):
+            for loc in data.get("locations") or []:
+                if not isinstance(loc, dict):
+                    continue
+                loc_id = loc.get("id")
+                if isinstance(loc_id, int) and not isinstance(loc_id, bool):
+                    return loc_id
+    return _DEFAULT_TRAVEL_LOCATION_ID
 
 
 async def run_travel(
@@ -1354,6 +1414,13 @@ async def _run_travel_inner(
             "travel/claim 未执行:真形态 reward_credit 读不到 ⇒ 判不出有无待发奖励(§0.3 不猜)"
         )
         unjudged = True
+    elif not _travel_claimable(state):
+        # 真机 2026-11-11:traveling 且 server_now < arrive_at ⇒ claim 必回
+        # 403 "not arrived yet"。这是正常进行态,不是失败也不是未判定。
+        reasons.append(
+            f"旅行中(record_id={state.get('record_id')})预计 +{pending_credit} 积分,"
+            f"arrive_at={state.get('arrive_at')} 未到达 ⇒ 本轮不 claim"
+        )
     elif pending_credit > 0:
         c_status, c_payload, c_mode = await _wb_request(
             PATH_TRAVEL_CLAIM, jwt, device_map, {}, client=client, timeout=timeout
@@ -1383,8 +1450,14 @@ async def _run_travel_inner(
         elif not depart_states:
             reasons.append("出发触发态未取证且未配置 ⇒ 本轮不出发(拒绝猜 state 值域)")
         elif state["state"] in depart_states:
+            location_id = await _travel_location_id(jwt, device_map, client, timeout)
             d_status, d_payload, d_mode = await _wb_request(
-                PATH_TRAVEL_DEPART, jwt, device_map, {}, client=client, timeout=timeout
+                PATH_TRAVEL_DEPART,
+                jwt,
+                device_map,
+                {"location_id": location_id},
+                client=client,
+                timeout=timeout,
             )
             if _failure_reason(d_status, d_payload, d_mode) is not None:
                 reasons.append("travel/depart 网络/HTTP 失败")

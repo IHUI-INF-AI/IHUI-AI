@@ -392,19 +392,18 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
                     },
                   })
                 }
-                if (result.backupAlerts.length === 0) {
-                  // SDB-43:自身检查失败(errors)时「0 条错误」不是健康读数,必须把原因带进正文。
+                // SDB-43:自身检查失败(errors)时「0 条错误」不是健康读数,必须把原因带进正文。
+                // 这一支**不得**挂在 `backupAlerts.length === 0` 之下:备份告警与检查失败同时发生时,
+                // 摘要会被整条丢掉 —— 那正是本票「既不升级也不上报」的残形。
+                if (result.errors.length > 0) {
                   await pushAlert({
                     title: '告警升级通知',
-                    message:
-                      result.errors.length > 0
-                        ? capAlertMessage(
-                            [
-                              `最近 24h 告警检查自身失败 ${result.errors.length} 项,无法判定:`,
-                              ...result.errors.map((e) => `- ${flattenUntrustedText(e)}`),
-                            ].join('\n'),
-                          )
-                        : `最近 24h 错误数 ${result.checked} 超过阈值,需要人工介入`,
+                    message: capAlertMessage(
+                      [
+                        `最近 24h 告警检查自身失败 ${result.errors.length} 项,无法判定:`,
+                        ...result.errors.map((e) => `- ${flattenUntrustedText(e)}`),
+                      ].join('\n'),
+                    ),
                     severity: 'critical',
                     source: 'alert-check-daily',
                     metadata: {
@@ -412,6 +411,18 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
                       resolved: result.resolved,
                       escalated: result.escalated,
                       errors: result.errors.length,
+                    },
+                  })
+                } else if (result.backupAlerts.length === 0) {
+                  await pushAlert({
+                    title: '告警升级通知',
+                    message: `最近 24h 错误数 ${result.checked} 超过阈值,需要人工介入`,
+                    severity: 'critical',
+                    source: 'alert-check-daily',
+                    metadata: {
+                      checked: result.checked,
+                      resolved: result.resolved,
+                      escalated: result.escalated,
                     },
                   })
                 }

@@ -19,7 +19,7 @@ import { useNotificationStore } from '../stores/notification'
 import { formatShortDateTime } from '../utils/date-utils'
 import { Bell, X } from 'lucide-react-native'
 import { useI18n } from '../i18n'
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { ELEVATION_STEPS, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { Tappable } from '@ihui/ui-native'
 
 /**
@@ -255,11 +255,8 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
     borderRadius: rnRadius.xl,
     padding: rnSpacing.md,
-    shadowColor: tokens.gray.black,
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 5,
+    // 投影:通知面板卡 → 档位 md(原 2/.1/10 + elevation 5)
+    ...ELEVATION_STEPS.md,
   } as ViewStyle,
   pressed: { opacity: 0.92 } as ViewStyle,
   header: {

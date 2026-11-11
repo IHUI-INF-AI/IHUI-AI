@@ -15,7 +15,7 @@
  * - 错误率（counter）
  */
 
-import { eq, sql } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import { db } from '../../db/index.js'
 import { tourContent, tourRecommendations } from '@ihui/database'
 
@@ -68,7 +68,8 @@ export async function computeAndReportCtr(contentId: string): Promise<number> {
     db
       .select({ count: sql<number>`count(*)::int` })
       .from(tourRecommendations)
-      .where(eq(tourRecommendations.contentId, contentId)),
+      // 分子必须只看已点击的推荐，否则两条查询条件相同，ctr 恒为 1
+      .where(and(eq(tourRecommendations.contentId, contentId), eq(tourRecommendations.clicked, true))),
   ])
   const total = served[0]?.count ?? 0
   const hits = clicked[0]?.count ?? 0
