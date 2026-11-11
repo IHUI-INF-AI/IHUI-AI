@@ -204,6 +204,47 @@ async def test_probe_tools_timeout_is_unknown():
     assert "Timeout" in error
 
 
+class _ToolChoiceFallbackClient:
+    """首次以 required 探测被 400 拒绝,退回 auto 后才真正调工具。"""
+
+    def __init__(self) -> None:
+        self.calls: list[dict] = []
+
+    async def post(self, _url, headers=None, **kwargs):
+        self.calls.append(dict(kwargs.get("json") or {}))
+        if len(self.calls) == 1:
+            return _Resp(400, '{"error":"tool_choice required is not supported"}')
+        return _Resp(
+            200,
+            json.dumps(
+                {
+                    "choices": [
+                        {
+                            "message": {
+                                "tool_calls": [
+                                    {
+                                        "id": "c1",
+                                        "type": "function",
+                                        "function": {"name": "get_weather", "arguments": "{}"},
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                }
+            ),
+        )
+
+
+async def test_probe_tools_required_falls_back_to_auto():
+    svc = ModelHealthService()
+    client = _ToolChoiceFallbackClient()
+    ok, error = await svc._probe_tools(client, "http://x", {}, "m")
+    assert ok is True, error
+    assert client.calls[0]["tool_choice"] == "required"
+    assert client.calls[1]["tool_choice"] == "auto"
+
+
 # ---------------------------------------------------------------------------
 # 长上下文针测文本
 # ---------------------------------------------------------------------------

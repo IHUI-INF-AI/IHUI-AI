@@ -78,7 +78,11 @@ UPSTREAM_SYNC_WAIT_S = 180.0
 # 单模型探测超时(秒)— 与 provider 级 ping 对齐,避免把 9-16s 的慢模型误杀
 PROBE_TIMEOUT_S = 20.0
 # 并发上限(控制对同一厂商的请求密度,避免把探测自己打成 429)
-PROBE_CONCURRENCY = 8
+# 2026-11-11:8 → 4。每轮每模型已从 1 个请求变成 2 个(可用性+工具),8 并发时
+# 平台中转账号池成片 ReadTimeout / 429,能力只能记"未知",探测本身成了噪声源。
+PROBE_CONCURRENCY = 4
+# 工具探测单独的超时:中转账号池慢,20s 会把"慢但支持"误记成未知
+_TOOL_PROBE_TIMEOUT_S = 45.0
 # 状态有效期(秒)— 超过两轮未复测则不再据此隐藏模型
 STATUS_TTL_S = PROBE_INTERVAL_S * 2
 # 同一模型连续失败次数达到此值才隐藏(仅 404 属模型级明确错误,可一次隐藏)
@@ -1467,18 +1471,33 @@ class ModelHealthService:
                     },
                 }
             ],
-            "tool_choice": "auto",
+            # 用 required 强制模型必须调工具:上游若把 tools 静默丢掉,只会返回纯文本,
+            # 这样"渠道不支持工具"与"模型这次碰巧没调"才分得开(否则全是模糊的未触发)。
+            # 字符串形态是安全的(部分网关只认字符串,对象形态会 400 code=11101)。
+            "tool_choice": "required",
             "max_tokens": _TOOL_PROBE_MAX_TOKENS,
             "stream": False,
         }
         try:
-            resp = await client.post(chat_url, headers=headers, json=payload)
+            # 工具探测单独放宽到 45s:平台中转账号池在探测并发下经常 20s 才回,
+            # 用可用性那档 20s 会把"慢但支持"记成未知。
+            resp = await client.post(
+                chat_url, headers=headers, json=payload, timeout=_TOOL_PROBE_TIMEOUT_S
+            )
             if resp.status_code in (400, 422) and _needs_completion_tokens(
                 resp.text or ""
             ):
                 payload.pop("max_tokens", None)
                 payload["max_completion_tokens"] = _TOOL_PROBE_MAX_TOKENS
-                resp = await client.post(chat_url, headers=headers, json=payload)
+                resp = await client.post(
+                    chat_url, headers=headers, json=payload, timeout=_TOOL_PROBE_TIMEOUT_S
+                )
+            # 只支持 auto/none 的上游会拒绝 required:退回 auto 再判一次
+            if resp.status_code in (400, 422) and "tool_choice" in (resp.text or ""):
+                payload["tool_choice"] = "auto"
+                resp = await client.post(
+                    chat_url, headers=headers, json=payload, timeout=_TOOL_PROBE_TIMEOUT_S
+                )
             return _judge_tools_response(resp.status_code, resp.text or "")
         except Exception as e:
             # 超时 / 网络异常不能误判为"不支持工具调用"(记未知)
