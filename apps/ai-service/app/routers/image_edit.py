@@ -75,42 +75,11 @@ async def image_edits(
     if output_format:
         extra["output_format"] = output_format
     try:
-        result = await provider.images_edits(
+        return await provider.images_edits(
             prompt, image_bytes, image.filename or "image.png",
             model=model, mask_bytes=mask_bytes or None,
             n=n, size=size, **extra,
         )
-        # AIGC 隐式标识:编辑产物逐张在字节层写入 PNG/JPEG 元数据并回填;
-        # 远端 URL 产物无法改写远端字节,如实记 embedded=False(不谎报已标识)。
-        from ..services.aigc_watermark import embed_data_url_aigc
-
-        implicit_records: list[dict[str, Any]] = []
-        for item in result.get("images") or []:
-            if not isinstance(item, dict):
-                continue
-            if item.get("b64_json"):
-                data_url, info = embed_data_url_aigc(
-                    f"data:image/png;base64,{item['b64_json']}",
-                    kind="image",
-                    source=f"{result.get('provider')}/{result.get('model')}",
-                )
-                if info.get("embedded"):
-                    item["b64_json"] = data_url.split(",", 1)[1]
-                item["aigc_implicit"] = info
-                implicit_records.append(info)
-            else:
-                info = {
-                    "embedded": False,
-                    "method": "none",
-                    "reason": "remote_url_not_persisted",
-                    "content_kind": "image",
-                    "keyword": "AIGC",
-                    "standard": "GB 45438-2025 / 《人工智能生成合成内容标识办法》",
-                }
-                item["aigc_implicit"] = info
-                implicit_records.append(info)
-        result["aigc_implicit"] = implicit_records
-        return result
     except ProviderError as e:
         logger.warning("token6688 图片编辑失败: %s", e)
         raise HTTPException(status_code=e.status_code or 502, detail=str(e)) from None

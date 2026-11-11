@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.scripts.json",
     "typecheck:tests": "tsc -p tsconfig.tests.json --noEmit",
     "test": "vitest run",
+    "selftest:audit-export-key-registry": "tsx tests/audit-export-key-registry.selftest.ts --self-test",
     "test:real": "vitest run --config vitest.real.config.ts",
     "init:vendors": "tsx scripts/init-vendor-configs.ts",
     "seed:test-users": "tsx scripts/seed-test-users.ts",

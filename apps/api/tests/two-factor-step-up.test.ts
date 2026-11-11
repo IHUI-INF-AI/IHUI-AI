@@ -206,7 +206,9 @@ describe('接线锁·敏感端点全覆盖（2026-10-28：闸必须住在花钱/
       sinks: ['apiKeysService.createKey', 'withdrawBodySchema'],
     },
     { file: '../src/routes/finance.ts', gates: 1, sinks: ['evaluateRisk'] },
-    { file: '../src/routes/distribution.ts', gates: 1, sinks: ['insert(withdrawalFlows)'] },
+    // 落库已收敛到 F-61 的 applyWithdrawal(事务内冻结余额+扣手续费),不再直接 insert 流水;
+    // 闸仍必须先于该资金动作。
+    { file: '../src/routes/distribution.ts', gates: 1, sinks: ['applyWithdrawal'] },
     { file: '../src/routes/user/withdrawal-routes.ts', gates: 1, sinks: ['availableWithdrawal'] },
     { file: '../src/routes/wallet.ts', gates: 1, sinks: ['applyWithdrawal'] },
     { file: '../src/routes/payment-gateway.ts', gates: 2, sinks: ['getBalance', 'getBalance'] },

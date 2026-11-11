@@ -16,7 +16,7 @@ import * as React from 'react'
 import { fetchApi } from '@/lib/api'
 
 /** 保留段锚点（与 shared `PreservedSegmentAnchor` 同形）。 */
-export interface BoundaryAnchor {
+interface BoundaryAnchor {
   index: number
   role: string
   messageId?: string | null
@@ -40,7 +40,7 @@ export interface BoundaryShape {
 }
 
 /** 查询回放的单条记录（id/createdAt 由网关补足）。 */
-export interface CompactionBoundaryRecord extends BoundaryShape {
+interface CompactionBoundaryRecord extends BoundaryShape {
   id: string
   conversationId: string
   messageId?: string | null
@@ -122,11 +122,11 @@ export function getLiveCompactionBoundary(conversationId: string | null): Bounda
   return liveBoundary.conversationId === conversationId ? liveBoundary.boundary : null
 }
 
-export function getCompactionBoundaryServerSnapshot(): null {
+function getCompactionBoundaryServerSnapshot(): null {
   return null
 }
 
-export function subscribeCompactionBoundary(listener: () => void): () => void {
+function subscribeCompactionBoundary(listener: () => void): () => void {
   boundaryListeners.add(listener)
   return () => {
     boundaryListeners.delete(listener)

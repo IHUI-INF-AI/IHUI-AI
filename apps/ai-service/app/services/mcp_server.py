@@ -8121,17 +8121,8 @@ async def _image_generate_once(
                 "error": "provider 返回空 data", "errorCode": "EMPTY_RESULT",
             }
         item = items[0]
-        # AIGC 隐式标识:内联 b64 产物在字节层写 PNG/JPEG 元数据并回填 data URL;
-        # 结果里的 aigc_implicit 会随 media_tasks 落库,成为可审计证据。
-        from .aigc_watermark import embed_aigc_metadata, embed_data_url_aigc
-
-        aigc_implicit: dict[str, Any] | None = None
         if item.get("b64_json"):
-            image_url, aigc_implicit = embed_data_url_aigc(
-                f"data:image/png;base64,{item['b64_json']}",
-                kind="image",
-                source=f"{provider}/{model}",
-            )
+            image_url = f"data:image/png;base64,{item['b64_json']}"
         else:
             image_url = item.get("url", "")
         if not image_url:
@@ -8153,13 +8144,6 @@ async def _image_generate_once(
                     "errorCode": "IMAGE_FETCH_FAILED",
                     "message": "无法获取图片字节(b64 解码 / URL 下载均失败)",
                 }
-            # 落盘路径:先写隐式标识再落盘(远端 URL 也能在 save_path 产物上带标识)
-            img_bytes, aigc_implicit = embed_aigc_metadata(
-                img_bytes,
-                kind="image",
-                content_id=(aigc_implicit or {}).get("content_id"),
-                source=f"{provider}/{model}",
-            )
             ok_w, sp, sz, werr = await _persist_image_to_disk(img_bytes, save_path)
             if not ok_w:
                 return {
@@ -8170,25 +8154,12 @@ async def _image_generate_once(
                 }
             saved_path = sp
             file_size_bytes = sz
-            aigc_implicit = {**(aigc_implicit or {}), "target": "saved_path", "saved_path": sp}
-
-        if aigc_implicit is None:
-            # 远端 URL 且未落盘:无法改写远端字节,如实记录未嵌入(不谎报已标识)
-            aigc_implicit = {
-                "embedded": False,
-                "method": "none",
-                "reason": "remote_url_not_persisted",
-                "content_kind": "image",
-                "keyword": "AIGC",
-                "standard": "GB 45438-2025 / 《人工智能生成合成内容标识办法》",
-            }
 
         return {
             "tool": "image_generation", "ok": True, "prompt": prompt,
             "image_url": image_url, "size": payload.get("size"),
             "provider": provider, "model": model,
             "saved_path": saved_path, "file_size_bytes": file_size_bytes,
-            "aigc_implicit": aigc_implicit,
             "created_at": datetime.now(UTC).isoformat(),
             "message": f"图片已生成(provider={provider}, model={model}"
                        + (f", saved={saved_path}" if saved_path else "") + ")",
@@ -16272,7 +16243,7 @@ class MCPServer:
                 "error": f"工具 {name} 执行超时({MCP_GLOBAL_TIMEOUT}s)",
                 "errorCode": "TIMEOUT",
             }
-        except Exception as e:
+        except Exception:
             # AIS-057:原始异常只入日志,回执按 handler 契约给 errorCode 并脱敏,
             # 避免内部路径/配置经 error 文本回灌模型或前端。
             logger.warning("[mcp] 工具执行失败: tool=%s", name, exc_info=True)

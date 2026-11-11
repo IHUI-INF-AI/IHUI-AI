@@ -20,8 +20,6 @@ import logging
 from pathlib import Path
 from typing import Any
 
-import pytest
-
 from app.services import mcp_server as ms
 
 

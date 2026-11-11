@@ -27,7 +27,7 @@ import { evaluateExtensionImportGate, type ExtensionImportGateVerdict } from '@i
 import { resolveProductForm, type ResolvedProductForm } from '../lib/product-form.js';
 
 /** 项目层里承载「待启用扩展 ID 列表」的字段名(住在 `plugins` 对象内;layer-policy 只把 plugins 校验成普通对象)。 */
-export const PLUGINS_EXTENSIONS_FIELD = 'extensions';
+const PLUGINS_EXTENSIONS_FIELD = 'extensions';
 
 /** 被导入期跳过的扩展(带被跳过的 id 与三态依据,供出声与测试读数)。 */
 export interface SkippedImportedExtension {

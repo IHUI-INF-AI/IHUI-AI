@@ -320,10 +320,14 @@ def test_unreadable_junit_is_not_treated_as_missing(tmp_path: Any, monkeypatch: 
     junit.write_text("<testsuite><testcase name='kept'><failure message='stay'/></testcase></testsuite>", encoding="utf-8")
     original = junit.read_bytes()
 
-    def deny(path: object) -> None:
+    def deny(path: object, *args: object, **kwargs: object) -> None:
         raise PermissionError(13, "denied", str(path))
 
-    monkeypatch.setattr("app.services.self_healing_llm.os.stat", deny)
+    # 只替换本模块的读数接缝。原写法 `setattr("...self_healing_llm.os.stat", deny)`
+    # 打的是全局 os 模块属性 ⇒ pytest 自身读文件也 PermissionError,进程级崩(xdist
+    # 报 INTERNALERROR:'(...test_unreadable_junit...,<WorkerController gw1>)'),
+    # 整个 worker 连同其它用例一起消失。语义不变:stat 抛 EACCES ⇒ JunitUnread。
+    monkeypatch.setattr("app.services.self_healing_llm._stat_for_read", deny)
 
     class Proc:
         stdout = "1 passed"
