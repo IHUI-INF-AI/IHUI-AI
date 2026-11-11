@@ -912,9 +912,15 @@ const TRAY_ARM_EMIT_RE = new RegExp(`"${TRAY_ACTION_EVENT}"\\s*,\\s*"([a-z_]+)"`
  * `exit_application(` 于 2026-09-28 加入:它是 lib.rs:322 自述的「真正终止进程的**唯一**序列」
  * (quit_app / tray.quit / 关窗决策共用),与旧的 `app.exit(0)` 同语义 —— 只是被提成函数,
  * 判据不认它就是把门自己的立项形态(原生立即退出)判成违规。
+ *
+ * `spawn_relay_switch(` 于 2026-11-11 加入:tray.relay_switch(操作员专属托盘项)的去向是
+ * **Rust 自己拉起独立控制台**跑仓内切号器(不经 webview、不经 IPC)。它属于"点了真有反应",
+ * 只是不在窗口一族里,不认它就会把一个真能弹控制台的分支判成"完全没反应"。
+ * 刻意只加**精确函数名**,**不加** `Command::new` 一类的通用进程创建形态 ——
+ * 通用形态会让任何分支里一句无关的进程创建被认作去向,等于把 H3 判据放空(§12f 反向)。
  */
 const TRAY_ARM_NATIVE_RE =
-  /\.(?:show|hide|set_focus|minimize|maximize|unminimize)\s*\(\s*\)|\bapp\s*\.\s*exit\s*\(|\barm_forced_exit\s*\(|\bexit_application\s*\(|\bstd\s*::\s*process\s*::\s*exit\s*\(/
+  /\.(?:show|hide|set_focus|minimize|maximize|unminimize)\s*\(\s*\)|\bapp\s*\.\s*exit\s*\(|\barm_forced_exit\s*\(|\bexit_application\s*\(|\bstd\s*::\s*process\s*::\s*exit\s*\(|\bspawn_relay_switch\s*\(/
 
 /**
  * 从被审面现读托盘项登记表:`pub const TRAY_MENU_ITEMS: [TrayMenuItem; N] = [ … ]`。
@@ -1666,6 +1672,38 @@ fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
         'H1',
       ),
       'H1',
+    ) && ok
+
+  // ===========================================================================
+  // H'' 组(2026-11-11):操作员专属托盘项 tray.relay_switch。
+  // 它的去向是 Rust 直接拉起独立控制台跑仓内切号器(`spawn_relay_switch`),不经 webview。
+  // 立据:H3 的原生族原本只认窗口一族与退出一族,不认"拉进程" —— 于是"点了真会弹控制台"
+  // 的分支会被判成"完全没反应",而代码本身是好的。处置照 H 立项时同一条:**扩覆盖面**
+  // (只加精确函数名,不加通用进程创建形态),并且正反两面都钉死。
+  // ===========================================================================
+  const hRustRelay = (body) => `
+fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
+    let relay_item = MenuItemBuilder::with_id("tray.relay_switch", labels[7]).build(app)?;
+        .on_menu_event(|app, event| match event.id().as_ref() {
+            "tray.relay_switch" => { ${body} }
+            _ => {}
+        })
+}
+`
+  ok =
+    check(
+      'H新增 relay_switch 分支调用 spawn_relay_switch(app) ⇒ 认作原生去向(不得判"没反应")',
+      auditTrayItemDestinations(hRustRelay('spawn_relay_switch(app);'), hEmitted).violations,
+      true,
+    ) && ok
+  ok =
+    checkHas(
+      'H新增 relay_switch 只在注释里写 spawn_relay_switch(app)、真代码为空 ⇒ 必红(剥注释失效就在这里变绿)',
+      auditTrayItemDestinations(
+        hRustRelay('/* 这里调 spawn_relay_switch(app) 就行 */ let _ = 0;'),
+        hEmitted,
+      ).violations.filter((v) => v.startsWith('H3')),
+      'H3',
     ) && ok
 
   // ===========================================================================
