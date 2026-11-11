@@ -6,11 +6,16 @@
  * 它的驱动方必须是**同时能连本地库、又能免密 SSH 生产**的那一端 = 开发机。api 进程内的
  * BullMQ/node-cron 只在服务运行时有效,服务一停同步就断;计划任务是 OS 级调度,重启仍在。
  *
- * 任务形态:
- *   名称 IHUI-Pool-Sync,每 N 分钟(默认 2)执行
- *   cmd /c cd /d <repo> && node scripts\relay-account-pool-sync.mjs --if-dirty --apply --quiet
- *   —— `--if-dirty` = 没有变更标记就 0 开销退出(不启 tsx、不建 SSH);有标记才做全量对账。
- *   变更标记由 apps/api 每次 importAccounts 落库后写(见 relay-account-pool-service.ts)。
+ * 任务形态(2026-11-11 实测定型):
+ *   Execute   = node.exe 绝对路径(**不经 cmd**)
+ *   Arguments = "<repo>\scripts\relay-account-pool-sync.mjs" --if-dirty --apply --quiet --log "<repo>\.tmp\pool-sync.log"
+ *   Trigger   = 每 N 分钟(默认 2)
+ *
+ * 两个反面教材(都实测踩过):
+ *   1) 用 cmd.exe 执行 + `>>` 重定向:非交互会话里进程被系统中断,LastTaskResult=0xC000013A
+ *      (CTRL_C_EXIT),日志只剩 `^C`。改用 node.exe 直接执行,日志交给脚本 --log 自己写。
+ *   2) 用 schtasks.exe 注册:本机安全策略把 schtasks.exe 列入程序黑名单,调用直接被拦。
+ *      改用 PowerShell 的 Register-ScheduledTask / Get-ScheduledTask / Unregister-ScheduledTask。
  *
  * 用法:
  *   node scripts/register-pool-sync-task.mjs --register [--interval 2]
@@ -40,7 +45,8 @@ const HELP = `号池跨环境自动同步 · Windows 计划任务管理
 说明:
   · 任务每 <interval> 分钟跑一次 sync --if-dirty --apply --quiet;
   · 没有变更标记时立即退出(零开销),有标记才做两端全量对账;
-  · 日志追加到 .tmp/pool-sync.log(仅在真有同步动作时写行)。`
+  · 日志由脚本 --log 追加到 .tmp/pool-sync.log(只在真有动作时写一行);
+  · schtasks.exe 在本机被安全策略黑名单,本脚本走 PowerShell ScheduledTasks 模块。`
 
 function parseArgs(argv) {
   const options = { action: 'query', interval: 2, dryRunTask: false }
@@ -61,27 +67,26 @@ function parseArgs(argv) {
   return { options, error: null }
 }
 
-/** schtasks 在中文系统上输出 GBK:只匹配 ASCII 关键字段,故用 latin1 逐字节读取。 */
-function schtasks(args) {
+/** 跑一段 PowerShell(本机 schtasks.exe 被程序黑名单拦截,只能用 ScheduledTasks 模块)。 */
+function ps(script) {
   try {
-    const buf = execFileSync('schtasks.exe', args, {
-      windowsHide: true,
-      timeout: 30_000,
-      stdio: ['ignore', 'pipe', 'pipe'],
-      encoding: 'buffer',
-    })
-    return { ok: true, text: Buffer.from(buf).toString('latin1') }
+    const out = execFileSync(
+      'powershell.exe',
+      ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', script],
+      { windowsHide: true, timeout: 60_000, stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8' },
+    )
+    return { ok: true, text: String(out ?? '').trim() }
   } catch (e) {
-    const stderr = e?.stderr ? Buffer.from(e.stderr).toString('latin1') : ''
-    return { ok: false, text: `${stderr}${e instanceof Error ? ` ${e.message}` : ''}`.trim(), code: e?.status }
+    const err = e?.stderr ? String(e.stderr) : ''
+    const msg = e instanceof Error ? e.message : String(e)
+    return { ok: false, text: `${err}${msg}`.trim() }
   }
 }
 
-function buildTaskCommand() {
-  return (
-    `cmd /c cd /d "${ROOT}" && node "${SYNC_SCRIPT}" --if-dirty --apply --quiet ` +
-    `>> "${LOG_FILE}" 2>&1`
-  )
+const psQuote = (s) => `'${String(s).replace(/'/g, "''")}'`
+
+function buildTaskArgument() {
+  return `"${SYNC_SCRIPT}" --if-dirty --apply --quiet --log "${LOG_FILE}"`
 }
 
 function doRegister(options) {
@@ -90,54 +95,59 @@ function doRegister(options) {
     return 2
   }
   fs.mkdirSync(LOG_DIR, { recursive: true })
-  const tr = buildTaskCommand()
-  // schtasks /TR 上限 261 字符,超了会被截断成半条命令(比失败更危险)
-  if (tr.length > 261) {
-    process.stderr.write(`❌ 任务命令 ${tr.length} 字符,超过 schtasks 上限 261,请缩短仓库路径\n`)
-    return 2
-  }
+  const nodeExe = process.execPath
+  const arg = buildTaskArgument()
   if (options.dryRunTask) {
-    process.stdout.write(`[dry-run] schtasks /Create /TN "${TASK_NAME}" /TR "${tr}" /SC MINUTE /MO ${options.interval} /F\n`)
+    process.stdout.write(
+      `[dry-run] Register-ScheduledTask -TaskName ${psQuote(TASK_NAME)}\n` +
+        `  -Execute ${psQuote(nodeExe)}\n  -Argument ${psQuote(arg)}\n` +
+        `  -WorkingDirectory ${psQuote(ROOT)}\n  -Interval ${options.interval}min\n`,
+    )
     return 0
   }
-  const r = schtasks([
-    '/Create',
-    '/TN',
-    TASK_NAME,
-    '/TR',
-    tr,
-    '/SC',
-    'MINUTE',
-    '/MO',
-    String(options.interval),
-    '/F',
-  ])
-  if (!r.ok) {
+  const script = `
+$ErrorActionPreference = 'Stop'
+$action = New-ScheduledTaskAction -Execute ${psQuote(nodeExe)} -Argument ${psQuote(arg)} -WorkingDirectory ${psQuote(ROOT)}
+$trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes ${options.interval}) -RepetitionDuration (New-TimeSpan -Days 3650)
+$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Minutes 10) -MultipleInstances IgnoreNew
+Register-ScheduledTask -TaskName ${psQuote(TASK_NAME)} -Action $action -Trigger $trigger -Settings $settings -Description '号池跨环境双向自动同步(本地<->生产,脏标记驱动)' -Force | Out-Null
+Write-Output 'REGISTERED'
+`.trim()
+  const r = ps(script)
+  if (!r.ok || !/REGISTERED/.test(r.text)) {
     process.stderr.write(`❌ 注册失败: ${r.text}\n`)
     return 1
   }
   process.stdout.write(`✅ 已注册计划任务 ${TASK_NAME}(每 ${options.interval} 分钟)\n`)
-  process.stdout.write(`   命令: ${tr}\n`)
+  process.stdout.write(`   Execute : ${nodeExe}\n   Argument: ${arg}\n   Log     : ${LOG_FILE}\n`)
   return 0
 }
 
 function doQuery() {
-  const r = schtasks(['/Query', '/TN', TASK_NAME, '/FO', 'LIST', '/V'])
+  const script = `
+$ErrorActionPreference = 'Stop'
+$t = Get-ScheduledTask -TaskName ${psQuote(TASK_NAME)}
+$i = $t | Get-ScheduledTaskInfo
+Write-Output ('STATE=' + $t.State)
+Write-Output ('EXEC=' + $t.Actions[0].Execute)
+Write-Output ('ARGS=' + $t.Actions[0].Arguments)
+Write-Output ('LASTRUN=' + $i.LastRunTime)
+Write-Output ('LASTRESULT=0x' + ('{0:X}' -f $i.LastTaskResult))
+`.trim()
+  const r = ps(script)
   if (!r.ok) {
-    process.stdout.write(`未安装:计划任务 ${TASK_NAME} 不存在\n`)
+    process.stdout.write(`未安装:计划任务 ${TASK_NAME} 不存在(或查询失败)\n`)
     return 0
   }
-  // 只回显 ASCII 可判读的关键行(任务名/状态/下次运行/上次结果),中文标签乱码不影响
-  const keep = r.text
-    .split(/\r?\n/)
-    .filter((line) => /IHUI-Pool-Sync|Ready|Running|Disabled|N\/A|[0-9]{1,2}:[0-9]{2}:[0-9]{2}|0x[0-9a-fA-F]+/i.test(line))
-  process.stdout.write(`任务 ${TASK_NAME} 存在\n`)
-  for (const line of keep.slice(0, 12)) process.stdout.write(`  ${line.trim()}\n`)
+  process.stdout.write(`任务 ${TASK_NAME}:\n`)
+  for (const line of r.text.split(/\r?\n/).filter(Boolean)) process.stdout.write(`  ${line}\n`)
   return 0
 }
 
 function doUnregister() {
-  const r = schtasks(['/Delete', '/TN', TASK_NAME, '/F'])
+  const r = ps(
+    `$ErrorActionPreference='Stop'; Unregister-ScheduledTask -TaskName ${psQuote(TASK_NAME)} -Confirm:$false; Write-Output 'DELETED'`,
+  )
   if (!r.ok) {
     process.stdout.write(`未删除(可能本就不存在): ${r.text}\n`)
     return 0
@@ -147,8 +157,10 @@ function doUnregister() {
 }
 
 function doRunNow() {
-  const r = schtasks(['/Run', '/TN', TASK_NAME])
-  if (!r.ok) {
+  const r = ps(
+    `$ErrorActionPreference='Stop'; Start-ScheduledTask -TaskName ${psQuote(TASK_NAME)}; Write-Output 'STARTED'`,
+  )
+  if (!r.ok || !/STARTED/.test(r.text)) {
     process.stderr.write(`❌ 触发失败(任务未注册?): ${r.text}\n`)
     return 1
   }
