@@ -128,6 +128,23 @@ describe('① 换票不换键 ⇒ 重导入命中已有行(本票缺陷本体的
     const b = resolveImportAccountUidProbe('minimax', [mmx('rec-95f3a1fe', 'ticket-B')])
     expect(b[0]?.uid).toBe(a[0]?.uid)
   })
+
+  it('zcode:选中票非 JWT(api key 档)⇒ 键仍取 zcodejwttoken / user_info.id,不落 token 哈希', () => {
+    // 立因(2026-11-11 生产实证):同一账号 zcode:cn(customer_id 键)与 zcode:global
+    // (api key 档 ⇒ 旧口径 token 哈希)各占一行。三份等价材料必须算出同一枚键。
+    const payload = (accessToken: string, extra: Record<string, unknown> = {}) =>
+      ({ 'oauth:bigmodel:access_token': accessToken, ...extra }) as ImportAccountInput
+    const fixtures = [
+      payload('apikey-A', { zcodejwttoken: jwt({ user_id: '83881793407924603' }) }),
+      payload('apikey-B', {
+        'oauth:bigmodel:user_info': JSON.stringify({ id: '83881793407924603' }),
+      }),
+      payload(jwt({ customer_id: '83881793407924603' })),
+    ]
+    for (const f of fixtures) {
+      expect(resolveImportAccountUidProbe('zcode', [f])[0]?.uid).toBe('83881793407924603')
+    }
+  })
 })
 
 describe('② 真不同账号不误合(反向对照)', () => {

@@ -171,6 +171,7 @@ async def pool_sync(body: PoolSyncIn, request: Request) -> dict[str, Any]:
                 _build_device_map(acc),
                 account_group="pool",
                 platform=body.platform,
+                adopt_pool_owner=True,
             )
             # create_account 恒建 enabled=true;disabled 载荷建后立即置位
             # (版本防降级跳过更新的路径同样要置位 —— 启用态永远以号池为准)

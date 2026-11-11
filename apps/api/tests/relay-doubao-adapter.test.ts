@@ -26,7 +26,7 @@ import crypto from 'node:crypto'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import type { AdapterAccountContext, StreamState } from '../src/services/relay-upstream-adapters.js'
+import type { AdapterAccountContext, StreamState, TranslatedChunk } from '../src/services/relay-upstream-adapters.js'
 import {
   __clearDoubaoConversationCache,
   buildCookieHeader,
