@@ -25,8 +25,8 @@ apps/desktop 的 Tauri 打包产物（不含前端资源）
 ```
 
 - `build.frontendDist`：`"shell"`（见 `src-tauri/tauri.conf.json`）——打包时内嵌的前端目录，现仅含占位页 `src-tauri/shell/index.html`。
-- `build.beforeBuildCommand`：`""`——打包前不再执行任何前端构建。
-- `scripts/ensure-web-out.mjs`（`apps/desktop/scripts/`）：旧的 web 产物校验/按需重建脚本，**文件仍在仓库，但已无任何配置或脚本引用它**（`beforeBuildCommand` 已置空）。历史行为：当 `web/out` 缺失或 web 源码比产物更新时执行 `pnpm --filter @ihui/web build:static`，强制重建可设 `FORCE_FRONTEND_BUILD=1`；该入口另可被 `TAURI_SKIP_FRONTEND=1` 短路。以上均已不参与当前构建链。
+- `build.beforeBuildCommand`：`"node ../../scripts/desktop-installer-assets.mjs"` —— 打包前只生成 NSIS 安装器所需的多档 DPI 图标资产，**不构建任何 web 产物**（薄壳口径不受影响；2026-11-12 按现读值更正，此前本文误写成 `""`）。
+- `scripts/ensure-web-out.mjs`（`apps/desktop/scripts/`）：旧的 web 产物校验/按需重建脚本，**文件仍在仓库，但已无任何配置或脚本引用它**。历史行为：当 `web/out` 缺失或 web 源码比产物更新时执行 `pnpm --filter @ihui/web build:static`，强制重建可设 `FORCE_FRONTEND_BUILD=1`；该入口另可被 `TAURI_SKIP_FRONTEND=1` 短路。以上均已不参与当前构建链。
 
 ## 离线行为与边界
 
@@ -38,7 +38,14 @@ apps/desktop 的 Tauri 打包产物（不含前端资源）
 - 探活与 WebView2 走同一代理路径（系统代理 / env 代理），回环与内网基址直连 bypass；`reqwest::ClientBuilder::build()` 失败只记日志、不判在线/离线、不 panic（BUG-0041）。
 - 线上页落到 `chrome-error://` 时自动重导航回前端，避免 IPC 全拒导致的「按钮点了没反应」。
 
-现存边界（2026-11-12 核准，勿再按旧 `longDescription` 理解为「无本地降级」）：`probe_health` 把非 2xx（含服务端 5xx）与出口门拒绝一律折叠成 `false`，通知文案统一为「网络连接不可用」，**服务端维护 / 部署中会被误报成断网**；离线页是纯 HTML/CSS 无脚本（CSP `script-src 'self'`），没有手动立即重试入口；系统 WebView2 Runtime 无最低版本门槛检查。
+本次并行改造落地（2026-11-12，与 `auto_refresh.rs` / `lib.rs` / `offline/index.html` / 新增的 Windows-only `webview2_runtime.rs` 一致）：
+
+- **探活结果分级**：`auto_refresh.rs` 新增 `ProbeOutcome { Healthy, Unreachable, ServerError(u16), GateDenied }`。`probe_health` 不再把非 2xx / 出口门拒绝折叠成 `false`；`probe_health_with_retry` 用单一纯函数 `merge_probe_outcomes` 合并失败档，优先级 `ServerError > GateDenied > Unreachable`。`should_go_offline` / `should_recover` 的签名与滞回语义**不变**（连续 3 轮失败才切、单次成功即恢复、每 30s）。通知文案与窗口标题按档分级，服务端 5xx 不再被报成「网络连接不可用」。
+- 离线页分级信息**不是**通过改导航 URL 传的：导航点仍是 6 个、`OFFLINE_URL` 不变（守住 `lib.rs` 的 `assert_eq!(nav_sites, 6)` 与守门 G8/G9）；改由 `auto_refresh.rs` 的进程内探针状态 + `render_offline_page()` 对 HTML 四个占位符 `{{OFFLINE_HEADING}}` / `{{OFFLINE_REASON_LABEL}}` / `{{OFFLINE_DETAIL}}` / `{{OFFLINE_RETRY_NOTE}}` 做替换，`lib.rs` 的 offline 协议 handler 直接返回渲染结果。四个占位符必须全部替换，Rust 单测 `render_offline_page_has_no_unreplaced_marker` 钉住「渲染后不得残留 `{{`」。
+- **立即重新检测**：离线页新增 `<a href="/retry">`，`lib.rs` 协议 handler 对 `/retry` 调用 `request_immediate_probe()` 并 302 回离线页（`?retry=1`），常驻循环把本轮 30s 等待置 0 立即探活；`RETRY_ACK` 让页面给一句一次性回执（再刷新回默认提示），避免用户点了没反馈。恢复仍由既有恢复分支导航（不新增导航点、不直接 302 到线上前端 —— 否则未恢复会卡在 `chrome-error://`）。离线页保持纯 HTML/CSS 无脚本，CSP 不变。
+- **WebView2 Runtime 最低版本门槛**：新增 `webview2_runtime.rs`（仅 Windows 编译），启动期用 `GetAvailableCoreWebView2BrowserVersionString` + `CompareBrowserVersions` 读版本，与 `MIN_WEBVIEW2_RUNTIME`（`114.0.1823.32`，出处 `embedded_browser.rs:496` 的内存档位 API 最低版本注释）比较；`Ok` 记 info、`BelowMinimum` 记 warn 并提示用户、`Unknown` 明确写「未能判定」（不判绿也不冒红）。
+
+现存边界（2026-11-12 核准，勿再按旧 `longDescription` 理解为「无本地降级」）：离线页仍是纯 HTML/CSS 无脚本（CSP `script-src 'self'`），分级文案由 Rust 侧占位符替换后一次性返回，页面自身不带脚本；壳侧离线能力仍限于「分级提示 + 手动重新检测 + 自动恢复」，不含任何本地业务前端。此前三条边界已在本次改造中修复并**不再是现状**：探活非 2xx / 出口门拒绝不再一律折叠成 `false`（服务端维护 / 部署中不再被误报成断网）、离线页已有手动立即重试入口、系统 WebView2 Runtime 已有最低版本门槛检查。
 
 ## 本地开发
 
@@ -105,6 +112,50 @@ DESKTOP_ALLOW_UNSIGNED=1 pnpm --filter @ihui/desktop build   # 仅本地自测�
 
 未设该 env 时行为不变、仍然判红——它是**显式开关**，不是自动降级。
 ⚠️ **两套签名别混**:`DESKTOP_ALLOW_UNSIGNED=1` 只关 Tauri 更新签名(minisign),不关 Windows Authenticode。未带 Tauri 签名的产物**不得**进更新源、不得发版、不得上传任何下载/更新 CDN;而 Authenticode 由 CI 的 SignPath 负责,本机 `release-desktop-local.mjs` 默认拒绝上传未签名包(应急加 `--allow-unsigned-upload`,且该包不得烘焙进公开更新源)。公开 Windows 发布一律走 `desktop-v*` tag 的 CI。
+
+## 三平台构建与 cfg 隔离
+
+**结论（2026-11-12 源码只读核实）：三平台 CI 与 cfg 隔离均成立，上一轮『跨平台名不副实』是误判。** `bundle.targets` 列 dmg/deb/rpm/appimage 不是名不副实：CI 真的在 macOS / Linux runner 上原生构建并分平台上传，Rust 侧的 Windows-only 依赖也真的被 cfg 隔离，非 Windows target 不会引用不存在的 crate / API。**不要改 `bundle.targets`。**
+
+### cfg 隔离证据（源码只读核实，无泄漏）
+
+- `Cargo.toml:67-92`：`webview2-com` / `windows-core` / `winapi` / `windows-sys` / `winreg` / `windows` 全部在 `[target.'cfg(windows)'.dependencies]` 下，非 Windows target 不解析这些依赖。
+- `window_chrome.rs:51-105`：文件顶层每一条 `use windows::...` 都逐一带 `#[cfg(target_os = "windows")]`，并成对提供 `#[cfg(not(target_os = "windows"))]` stub（如 610 / 756 / 761 / 764 / 1456）。
+- `embedded_browser.rs:500-535`、`:555-598`：`ICoreWebView2_19` / `webview2_com` / `windows_core` 的导入与 COM 调用全在 `#[cfg(windows)] { ... }` 块内（501、556 行），`set_memory_low` / `set_suspend` 各有 `#[cfg(not(windows))]` stub（531、594 行）；496 行「Runtime ≥ 114.0.1823.32」注释即 `MIN_WEBVIEW2_RUNTIME` 出处。
+- `checkin_capture.rs`：DPAPI（`426` `#[cfg(windows)]` fn + `411` / `419` 成对）、ToolHelp 强杀（`1633` / `1704` 成对）、`regutil`（`1862` mod + `2015` 非 Windows 分支）、注册表指纹（`2761` / `2783` 等 + 对应非 Windows 分支）等，`windows::` 引用全在 `#[cfg(windows)]` 函数 / 模块内。`2707-2709` 注释明确记着「本函数未按平台拆分，故这行必须自带 cfg 门，否则 Linux/macOS 编译单元里找不到它(E0425)；2026-10-10 真教训：本地 Windows cargo test 全绿，CI 三平台才炸」。
+- `lib.rs`：`get_system_locale`（`339` / `365` 成对）、`spawn_relay_switch`（`912` / `969` 成对）、`apply_tray_promotion`（`1109` cfg 函数内 winreg）、`active_window_impl`（`1458` / `1540` 同名 mod 双实现）、AppUserModelID（`3761` `#[cfg(target_os = "windows")]` 块内 windows_sys）—— Win32 API 全部包在 `#[cfg(windows)]` / `#[cfg(target_os = "windows")]` 模块或函数里，**未发现真实泄漏**。
+
+Windows-only 能力在非 Windows target 上的降级形态统一为：`#[cfg(windows)]` 实现 + `#[cfg(not(windows))]` stub（返回「仅支持 Windows」/「非 Windows 平台跳过」/ 空结果 / no-op），因此三平台编译单元都能通过；`mod` 声明本身无条件编译（`lib.rs` 注释亦写明「lib 是全平台编译单元」），平台差异全靠文件内 cfg 收口。
+
+### 为什么 `bundle.targets` 不可收口到 Windows
+
+`tauri.conf.json:59` 的 `targets: ["nsis", "app", "dmg", "deb", "rpm", "appimage"]` 不是装饰，三处外部契约强依赖它：
+
+- `.github/workflows/desktop-build.yml:27-35`：matrix 是 ubuntu / macos / windows 三条 runner，分别原生产出并上传 `deb + AppImage` / `dmg` / `nsis exe`（78-99 行按 `matrix.os` 分平台 upload）。
+- `.github/workflows/release-desktop.yml:86` / `:88`：有 `macos-universal` 与 `linux-x64` job，含 Developer ID 签名 + notarytool 公证 + staple（493-596 行），`324` 行 `Verify bundle produced (fail loudly)` 校验产物；收口后 macOS 公证拿不到 `.dmg` / `.app` 会 `exit 1`。
+- `scripts/lib/tauri-updater-platforms.mjs:36-40`：`UPDATER_PLATFORM_ORDER` 是 `windows-x86_64` / `linux-x86_64` / `darwin-x86_64` / `darwin-aarch64` 四平台 feed 契约；`docs/RELEASE.md:37` 写「desktop | GitHub Release(6 包)」。
+
+全仓**没有任何 `scripts/check-*.mjs` 断言 `bundle.targets`**，即这一约束没有脚本尺子看着，靠的是 CI 三平台强依赖：一旦收口到 Windows，`desktop-build.yml` 的 ubuntu / macos 两腿与 `release-desktop.yml` 的 macos-universal / linux-x64 会产出 0 包、macOS 公证 `exit 1`、四平台 updater feed 缺键。
+
+## 本地验证
+
+改动 `src-tauri/src/*.rs`、`offline/index.html` 后（离线页由 `render_offline_page()` 在编译期 `include_str!` 编进 exe，必须重新构建才生效），在 `apps/desktop/src-tauri/` 下执行：
+
+```bash
+cargo check -p ihui-desktop
+cargo test -p ihui-desktop --lib
+```
+
+`cargo test` 要链接测试二进制，需 MSVC 环境（`link.exe` 须是 MSVC 链接器，不能是 Git Bash 的 `/usr/bin/link.exe`）；`cargo check` 不链接，可直接在任意 shell 跑。仓库根目录下的提交链验证：
+
+```bash
+node scripts/guardian-runner.mjs --staged --timing          # 或走提交钩子
+node --test scripts/tests/desktop-thin-shell-wording.test.mjs
+node --test scripts/tests/desktop-page-host.test.mjs
+node --test scripts/tests/check-desktop-event-wiring.test.mjs
+```
+
+新建 `.rs` 文件必须带水印横幅：`node scripts/watermark.mjs inject <file>`，并用 `node scripts/watermark.mjs verify <file>` 复验。
 
 ## 操作员专属托盘入口：AI 客户端一键切号
 
