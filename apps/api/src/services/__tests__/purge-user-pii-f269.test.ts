@@ -38,6 +38,8 @@ vi.mock('../../db/index.js', async () => {
   type Buffer = { deletes: string[]; updates: Array<Record<string, unknown>> }
 
   const makeDb = (buffer: Buffer) => ({
+    // SDB-29:注销前先查该用户的 Key / 分享 id 再逐条吊销；本夹具无凭据行，返回空集。
+    select: () => ({ from: () => ({ where: async () => [] }) }),
     delete: (table: unknown) => ({
       where: async () => {
         const name = getTableName(table as Parameters<typeof getTableName>[0])

@@ -25,6 +25,11 @@ const D1JIEMA_BASE_URL = 'https://api.d1jiema.com/zc/data.php'
 const D1JIEMA_WEB_BASE_URL = 'https://www.d1jiema.com/zc/zhicode/basereq/getc.php'
 const D1JIEMA_TIMEOUT_MS = 10_000
 const PENDING_MARKER = '[尚未收到]'
+// 平台号码实测为 11 位中国手机号(165****7249 / 19138172097);这里放宽到 6-15 位纯数字,
+// 既能排掉 HTML/JSON 错误页,又不把潜在的固话/异形号一刀切死。
+const PHONE_SHAPE_RE = /^\d{6,15}$/
+// 余额是平台原样返回的数字文本(如 12.34),不是数字就意味着拿到了错误页
+const BALANCE_SHAPE_RE = /^-?\d+(?:\.\d+)?$/
 
 export class D1jiemaError extends Error {
   constructor(message: string) {
@@ -90,6 +95,37 @@ export function toSmsUsageKind(value: string): SmsUsageKind {
     : 'other'
 }
 
+/**
+ * 统一校验平台响应:非 2xx 一律失败 —— 平台错误页不以 `ERROR:` 开头,
+ * 放过去会被当成手机号/余额,或在查询类里被当成「没有记录」。
+ */
+async function readPlatformText(resp: Response): Promise<string> {
+  if (!resp.ok) {
+    throw new D1jiemaError(
+      `接码平台返回 HTTP ${resp.status}${resp.statusText ? ` ${resp.statusText}` : ''}`,
+    )
+  }
+  const contentType = resp.headers.get('content-type')?.toLowerCase() ?? ''
+  // 平台回纯文本,PHP 端点常把纯文本标成 text/html,故只拦非文本/非 JSON 的二进制类响应;
+  // 200 的 HTML 错误页由各调用方的形态/解析校验兜底。
+  if (contentType && !/^(?:text\/|application\/(?:json|[\w.+-]*\+json))/.test(contentType)) {
+    throw new D1jiemaError(`接码平台返回非文本响应(Content-Type: ${contentType})`)
+  }
+  const text = (await resp.text()).trim()
+  if (text.startsWith('ERROR:')) {
+    throw new D1jiemaError(text.slice('ERROR:'.length).trim() || '接码平台返回未知错误')
+  }
+  return text
+}
+
+/** 号码形态校验:错误页/提示文案不能当号码交给后续取码 */
+function assertPhoneShape(phone: string): string {
+  if (!PHONE_SHAPE_RE.test(phone)) {
+    throw new D1jiemaError('取号响应格式异常(不是纯数字手机号,疑似平台错误页)')
+  }
+  return phone
+}
+
 /** 统一平台调用:返回纯文本正文(已 trim),ERROR: 前缀归一为 D1jiemaError */
 async function callD1jiema(
   action: string,
@@ -109,11 +145,7 @@ async function callD1jiema(
   const timer = setTimeout(() => controller.abort(), D1JIEMA_TIMEOUT_MS)
   try {
     const resp = await fetch(url, { signal: controller.signal })
-    const text = (await resp.text()).trim()
-    if (text.startsWith('ERROR:')) {
-      throw new D1jiemaError(text.slice('ERROR:'.length).trim() || '接码平台返回未知错误')
-    }
-    return text
+    return await readPlatformText(resp)
   } catch (e) {
     if (e instanceof D1jiemaError) throw e
     if (e instanceof Error && e.name === 'AbortError') {
@@ -125,9 +157,13 @@ async function callD1jiema(
   }
 }
 
-/** 查询余额 → 平台原样返回余额数字文本 */
+/** 查询余额 → 平台原样返回余额数字文本(非数字视为错误页,不返回垃圾) */
 export async function getBalance(): Promise<string> {
-  return callD1jiema('leftAmount')
+  const raw = await callD1jiema('leftAmount')
+  if (!BALANCE_SHAPE_RE.test(raw)) {
+    throw new D1jiemaError('余额响应格式异常(不是数字,疑似平台错误页)')
+  }
+  return raw
 }
 
 /** 取号 → 返回手机号文本;随机取号遇脱敏号(平台偶发,如 165****7249)自动释放重取 */
@@ -139,11 +175,13 @@ export async function getPhone(p: GetPhoneParams): Promise<string> {
     cardType: p.cardType && p.cardType !== '全部' ? p.cardType : undefined,
   }
   // 指定号码不做脱敏重试(重试返回同号,无意义)
-  if (p.phone) return callD1jiema('getPhone', { ...baseParams, phone: p.phone })
+  if (p.phone) {
+    return assertPhoneShape(await callD1jiema('getPhone', { ...baseParams, phone: p.phone }))
+  }
   let lastMasked = ''
   for (let i = 0; i < GET_PHONE_MAX_TRIES; i++) {
     const phone = await callD1jiema('getPhone', baseParams)
-    if (!phone.includes('*')) return phone
+    if (!phone.includes('*')) return assertPhoneShape(phone)
     lastMasked = phone
     // 脱敏号无法取码(getMsg 报「手机号格式错误」),顺手释放回池(失败不阻断重取)
     await releasePhone(phone).catch(() => undefined)
@@ -215,9 +253,18 @@ function parseUsedLine(line: string): UsedRecord | null {
 
 /** 查询历史并结构化解析(本账号 24h 流水,短信原文未打码 → 可精确判定注册状态) */
 export async function queryUsedDetailed(): Promise<UsedRecord[]> {
-  return (await queryUsed())
+  const lines = await queryUsed()
+  // 空响应才是「确实没有记录」;有内容却一行都解析不出,说明拿到的是错误页/提示文案
+  if (lines.length === 0) return []
+  const records = lines
     .map(parseUsedLine)
     .filter((r): r is UsedRecord => r !== null)
+  if (records.length === 0) {
+    throw new D1jiemaError(
+      `历史记录响应无法解析(平台返回 ${lines.length} 行,均不符合「号码\\t扣费\\t短信原文」格式)`,
+    )
+  }
+  return records
 }
 
 /** 「号码相关短信」全局时间线记录项(内容对非收取者打码,只透出时间与标记) */
@@ -250,11 +297,16 @@ export async function getRelatedMsgs(phone: string): Promise<RelatedMsgRecord[]>
   const timer = setTimeout(() => controller.abort(), D1JIEMA_TIMEOUT_MS)
   try {
     const resp = await fetch(url, { signal: controller.signal })
-    const text = (await resp.text()).trim()
-    if (text.startsWith('ERROR:')) {
-      throw new D1jiemaError(text.slice('ERROR:'.length).trim() || '接码平台返回未知错误')
+    const text = await readPlatformText(resp)
+    // 空响应才算「确实没有记录」;有内容却匹配不到「时刻+标记」,说明是错误页/提示文案
+    if (!text) return []
+    const records = parseRelatedMsgs(text)
+    if (records.length === 0) {
+      throw new D1jiemaError(
+        `热度查询响应无法解析(平台返回 ${text.length} 字符,未匹配到「时刻+标记」格式)`,
+      )
     }
-    return parseRelatedMsgs(text)
+    return records
   } catch (e) {
     if (e instanceof D1jiemaError) throw e
     if (e instanceof Error && e.name === 'AbortError') {

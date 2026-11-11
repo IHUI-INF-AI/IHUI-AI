@@ -9,8 +9,9 @@
  * 唯独 POST 在 `requireLogin` 后直接 `createTeamMemory` ⇒ 任意登录用户可向别人的
  * 团队作用域(team UUID)写入记忆。
  *
- * 夹具:fastify.inject + mock db/鉴权,不连真实 PG。期望非成员 POST 团队作用域 ⇒ 404
- * 且不产生 insert;成员与自由文本作用域仍可写(防过度拦截)。
+ * 夹具:fastify.inject + mock db/鉴权,不连真实 PG。期望非成员 POST 团队作用域 ⇒ 403
+ * 且不产生 insert;成员与自由文本作用域仍可写(防过度拦截)。PUT/DELETE 同型写入口
+ * 一并覆盖,读侧(列表/详情)语义保持 404 不变。
  */
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
@@ -50,10 +51,14 @@ const store = vi.hoisted(() => ({
   selectQueue: [] as Array<unknown[]>,
   insertQueue: [] as unknown[][],
   insertValues: [] as unknown[],
+  updateCalls: 0,
+  deleteCalls: 0,
   reset: () => {
     store.selectQueue.length = 0
     store.insertQueue.length = 0
     store.insertValues.length = 0
+    store.updateCalls = 0
+    store.deleteCalls = 0
   },
 }))
 
@@ -85,11 +90,13 @@ vi.mock('../../db/index.js', () => {
       return c
     },
     update: () => {
+      store.updateCalls++
       const c: Record<string, unknown> = { set: () => c, where: () => c }
       c.returning = () => Promise.resolve([])
       return c
     },
     delete: () => {
+      store.deleteCalls++
       const c: Record<string, unknown> = { where: () => c }
       c.returning = () => Promise.resolve([])
       return c
@@ -141,7 +148,7 @@ describe('SDB-31 团队记忆 POST 的 scope 成员校验', () => {
     authState.userId = 'user-1'
   })
 
-  it('非团队成员 POST 团队作用域 → 404,且不写库', async () => {
+  it('非团队成员 POST 团队作用域 → 403,且不写库', async () => {
     store.selectQueue.push([]) // 成员枚举为空 ⇒ 非成员
     store.insertQueue.push([makeMemory(TEAM_UUID)]) // 若旧代码放行,这里会 200 写库
     const res = await app.inject({
@@ -149,7 +156,7 @@ describe('SDB-31 团队记忆 POST 的 scope 成员校验', () => {
       url: '/api/team-memory',
       payload: { scopeId: TEAM_UUID, kind: 'convention', title: 'x', content: '任意内容' },
     })
-    expect(res.statusCode).toBe(404)
+    expect(res.statusCode).toBe(403)
     expect(store.insertValues).toHaveLength(0)
   })
 
@@ -174,6 +181,56 @@ describe('SDB-31 团队记忆 POST 的 scope 成员校验', () => {
     })
     expect(res.statusCode).toBe(200)
     expect(store.insertValues).toHaveLength(1)
+  })
+
+  it('非团队成员 PUT 团队作用域记忆 → 被拦(404),且不执行 update', async () => {
+    store.selectQueue.push([makeMemory(TEAM_UUID)]) // getTeamMemory 命中
+    store.selectQueue.push([]) // 成员枚举为空 ⇒ 非成员
+    const res = await app.inject({
+      method: 'PUT',
+      url: `/api/team-memory/${MEMORY_ID}`,
+      payload: { title: '被篡改' },
+    })
+    // 改/删沿用 BUG-5 的 404 语义(先取行再判权,不暴露存在性),本次不动
+    expect(res.statusCode).toBe(404)
+    expect(store.updateCalls).toBe(0)
+  })
+
+  it('非团队成员 DELETE 团队作用域记忆 → 被拦(404),且不执行 delete', async () => {
+    store.selectQueue.push([makeMemory(TEAM_UUID)])
+    store.selectQueue.push([])
+    const res = await app.inject({ method: 'DELETE', url: `/api/team-memory/${MEMORY_ID}` })
+    expect(res.statusCode).toBe(404)
+    expect(store.deleteCalls).toBe(0)
+  })
+
+  it('列表:非成员访问团队作用域 → 404(读侧语义不变)', async () => {
+    store.selectQueue.push([])
+    const res = await app.inject({ method: 'GET', url: `/api/team-memory?scopeId=${TEAM_UUID}` })
+    expect(res.statusCode).toBe(404)
+  })
+
+  it('列表:团队成员访问团队作用域 → 200 且返回该 scope 数据', async () => {
+    store.selectQueue.push([{ id: 'm-1' }])
+    store.selectQueue.push([makeMemory(TEAM_UUID)])
+    const res = await app.inject({ method: 'GET', url: `/api/team-memory?scopeId=${TEAM_UUID}` })
+    expect(res.statusCode).toBe(200)
+    expect(res.json().data).toHaveLength(1)
+  })
+
+  it('详情:非成员访问团队作用域 → 404(读侧语义不变)', async () => {
+    store.selectQueue.push([makeMemory(TEAM_UUID)])
+    store.selectQueue.push([])
+    const res = await app.inject({ method: 'GET', url: `/api/team-memory/${MEMORY_ID}` })
+    expect(res.statusCode).toBe(404)
+  })
+
+  it('详情:团队成员访问团队作用域 → 200', async () => {
+    store.selectQueue.push([makeMemory(TEAM_UUID)])
+    store.selectQueue.push([{ id: 'm-1' }])
+    const res = await app.inject({ method: 'GET', url: `/api/team-memory/${MEMORY_ID}` })
+    expect(res.statusCode).toBe(200)
+    expect(res.json().data.id).toBe(MEMORY_ID)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

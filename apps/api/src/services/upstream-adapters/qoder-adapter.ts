@@ -393,8 +393,8 @@ export const qoderAdapter: RelayUpstreamAdapter = {
    * 双 base 回退判据与 _api_call 同:网络错/超时/404 = 端点不对换下一个;
    * 401 等其余非 2xx = 结论,抛错由调度器计数。
    * 2026-10-23 真机实证 200 回包:{device_token(新票opaque), refresh_token(轮转),
-   * expires_at(真实ISO,约30天), refresh_token_expires_at} —— 到期真源取响应
-   * expires_at;缺该字段才退 JWT exp / 24h 兜底(临期刷新+401自愈双保险)。
+   * expires_at(真实ISO,约30天), refresh_token_expires_at} —— 到期真源只取上游当场值:
+   * 响应 expires_at > 新票 JWT exp;两者都没有 ⇒ null(未知),不编造兜底时刻。
    */
   async refreshToken(
     ctx: AdapterAccountContext,
@@ -435,7 +435,9 @@ export const qoderAdapter: RelayUpstreamAdapter = {
         const token = pickTokenField(body, ['device_token', 'token', 'accessToken', 'access_token'])
         if (!token) throw new QoderUpstreamError(0, 'Qoder refresh 响应无 token')
         const newRt = pickTokenField(body, ['refresh_token', 'refreshToken']) || rt
-        // 到期真源优先级:响应 expires_at(真实 ISO)> 新票 JWT exp(没有)> 保守 24h
+        // 到期真源优先级:响应 expires_at(真实 ISO)> 新票 JWT exp;都没有 ⇒ null(= 未知,≠ 已过期)。
+        // 曾兜底 now+24h:编造的未来时刻会让临期刷新判据失效,票已死却不在刷新窗口,
+        // 与 2026-10-23「列记未来时刻而上游回 401」同型事故(契约见 TokenRefreshResult.expiresAt)。
         const expFrom = (b: unknown, keys: readonly string[]): Date | null => {
           const o = b !== null && typeof b === 'object' ? (b as Record<string, unknown>) : {}
           for (const k of keys) {
@@ -447,10 +449,7 @@ export const qoderAdapter: RelayUpstreamAdapter = {
           }
           return null
         }
-        const expiresAt =
-          expFrom(body, ['expires_at', 'expiresAt']) ??
-          extractTokenExpiry(token) ??
-          new Date(Date.now() + 24 * 3600_000)
+        const expiresAt = expFrom(body, ['expires_at', 'expiresAt']) ?? extractTokenExpiry(token)
         return {
           token,
           refreshToken: newRt,

@@ -906,7 +906,271 @@ POST /api/checkin/accounts/{account_id}/autopilot   body {"dry_run": false, "cla
   出现该码(18 条全 claimed 且无它,非 locked/404)——上游未即时下发,非引擎
   缺陷;调度器每轮自动扫,上游下发后下一轮自动 accept+执行+领奖(+200)。
 
+## 14. 剩余两项二次取证与接线(2026-11-11 晚)
 
+回应「剩余的也能做」:上一轮把 `skill_share` 接通后,还挂着的 `travel/depart`
+与 `wb_wechat_oa_subscribe_task` 重新取证。**结论分两半:travel 的写侧字段此前
+根本没取对,现已做成;公众号项的判据在微信身份,已把「条件成立→领奖」补齐并修掉
+一处会漏领的引擎缺陷。**
 
+### 14.1 travel/depart:字段是 `location_id`,不是「未取证」
+
+取证面换成**当前线上**成长中心页(§9.1 的更正已指出:该页是端内 iframe 远程加载,
+不在 asar 里),拉 `https://www.workbuddy.cn/profile/growth-center` 及其 21 个 chunk
+(`assets.workbuddy.cn/web/usercenter/6e3c25cf…/assets/GrowthI18nProvider-*.js` 等),
+原文:
+
+```js
+Fo=()=>t.get("/activity/growth/buddy/travel/config"),
+qo=()=>t.get("/activity/growth/buddy/travel/status"),
+Ho=e=>t.post("/activity/growth/buddy/travel/depart",{location_id:e}),
+Yo=()=>t.post("/activity/growth/buddy/travel/claim",{})
+```
+
+- 真机 `POST /v2/activity/growth/buddy/travel/depart {"location_id":1}` ⇒
+  **200 `code:0` / `state=traveling` / `record_id=53578839` / `buddy_id=25916511`**。
+  空体、`client_token` / `clientToken` / `buddy_id` / `instance_id` / `location` /
+  `duration_hours` 等 10 种形态一律 400 `invalid request` ⇒ 旧文档「字段名未判定」是
+  **试错面不对**,不是上游没有写侧。加 `X-Product-Code: workbuddy` 不是决定因素。
+- `GET travel/config` ⇒ `locations` 4 条(id 1 咖啡馆 / 2 商场店铺 / 3 健身房 /
+  4 古镇客栈),`duration_hours_min/max=1/4`、`reward_credit_min/max=5/10`。
+  引擎现读 `locations[0].id`,读不到才回落已取证的 `1`,不猜值。
+- **提前领奖会失败**:出发后 status 立刻带回预计 `reward_credit`(实测 6 / 9),
+  但 `letter=null` 且 `server_now < arrive_at` 时 `travel/claim` 回
+  `403 not arrived yet`。引擎加了 `_travel_claimable` 判据:只在明确「traveling 且
+  到达时间在未来」时拦下 claim,登记为正常进行态(不标 unjudged),到达后照常领。
+
+全池真机(2026-11-11 19:5x):20 号 `daily_limit_reached=true` 正常跳过;29 号出发成功
+(`record_id=53579071`, +9);33/3559/3564 已 `traveling`(+6 / +9 / +6)。
+号池 5 账号只对应 **3 个平台 uid**(14f939c3 / 25913b4a / 0bc1074d),出发按 uid 记账,
+故 29↔3559、33↔3564 同态。到达时间 23:47–23:48(4 小时行程)。
+
+### 14.2 公众号项:写侧通道确实不存在,但引擎少接了一段
+
+把 §9.1 的端点枚举在**现网 11-11 bundle** 上重跑,并把证据面扩到三处:
+
+| 取证面 | 结果 |
+| --- | --- |
+| 现网成长中心 21 chunk 全量路径 | 订阅相关只有 1 条:`GET /v2/activity/growth/subscribe-task/status`;**POST 写侧 0 条** |
+| 服务端 10 个候选写端点真探 | `subscribe-task/{refresh,check,claim,bind,verify,report}`、`/subscribe` 等 POST 全 **404 page not found**(连 status 自身 POST 也 404 ⇒ GET-only) |
+| 客户端 asar 全量字符串常量 15325 个 | 无 `follow_guide_*` / `oa_subscribe_*` 事件族;命中项全是 Pro 订阅套餐、微信分享二维码、`wechat_linked` 任务码,与关注计分无关 |
+
+服务端现读(`/v2/activity/growth/subscribe-task/status`):4 个号
+`subscribed=false / remaining_seconds=-1 / advanced=false / task_status=accepted`;
+任务行 `accepted 0/1`。20 号 `task_status=claimed` 但 `subscribed=false` ——
+它是号池里**唯一带 `account.wechatOpenId` 的 uid(14f939c3)**,该项早就领过。
+官方引导页规则原文:「保持关注公众号满 24 小时」「**同一微信号仅可领取一次奖励**」。
+⇒ 判据是微信账号维度的关注关系 + 24h 窗 + 身份绑定,不是可上报的事件计数;
+`skill_share` 那套 telemetry 链对本项**不适用**(8 种事件码零推进已复证)。
+
+**本轮补齐的三段(都是引擎真实缺口,不是登记说明)**:
+
+1. **官方 `to()` 时序**:`run_autopilot` 读任务表前先
+   `GET subscribe-task/status`(`refresh_subscribe_task_status`),让服务端重算关注关系。
+   只读列表会拿旧判定,可能永远等不到翻面(§9.2 早就写了,但 Python 自动腿没接)。
+2. **达标先于选路**:旧 `run_autopilot` 先 `route_of` 再判 `_target_reached`,
+   ⇒ 无 verified 链但服务端已判 `completed` 的任务(正是公众号项)会被误登记成
+   `unregistered` 而**不领奖**,白丢一整轮(默认 180 分钟)。现改为达标即
+   `claim-only`,条件一旦成立零人工到账。单测钉住。
+3. **分档**:`accepted 0/1` 的公众号项记 `pending_platform`(原因
+   `wechat_oa_follow_relation`),不再混进 `unregistered`,巡检摘要不再把它误报成
+   「引擎未判定」。
+
+### 14.3 验证与纪律
+
+- 相关单测:`test_workbuddy_tasks` + `test_workbuddy_autopilot` +
+  `test_workbuddy_direct_api` **147 例**、`test_checkin_scheduler` **68 例**,全绿。
+  新增用例锁:`depart` body 必须是 `{"location_id": …}` / config 读不到回落 1 /
+  未到达不 claim / 到达后 claim 积分差量 / 订阅刷新在任务表之前 /
+  公众号项分档 / `completed` 自动领奖。
+- 真机全池复跑 `_workbuddy_task_sweep()`(20:07–20:13,写侧真开):
+  **accounts=5 / families=30 / unjudged=0 / errors=0 / note=null**,
+  travel 六族全 `ok=True`,`subscribe_refreshed=True`,`unregistered=0`,
+  20 号 `claimed_already=19`,其余 4 号各 18 + `pending_platform=1`。
+- **不伪造关注**:本轮没有、也不会用事件上报去顶 `subscribed` 这个服务端布尔(§9.4)。
+  若日后机主给这些 uid 绑定微信身份,绑定的终局确认仍是微信侧动作(§11.5 ⑤),
+  绑定生效后无需任何人再执行命令 —— 第 2 段已把这一格收成全自动。
+
+### 14.4 参数接口全量取证与接线(2026-11-11 夜,「想办法拿到接口参数」)
+
+结论先行:**判定参数不在 growth 域,而在腾讯 OneID 账号对象**;growth 域的写侧是 0 条,
+但参数接口本身已经全部拿到并固化进代码,不再是「不知道该调什么」。
+
+**① 现网 bundle 端点全集**:`GrowthI18nProvider-DbC0nH7V.js` 里 `/activity/growth/*` 共
+38 条(含 travel / lottery / redeem / buddy / heatmap / tasks),订阅相关**只有 1 条**
+`GET /v2/activity/growth/subscribe-task/status` —— 官方取任务列表的 `to()` 就是
+`qa()`(问这条)再读列表。真机对 16 条候选端点探测:
+`bind / callback / report / refresh / accept / qrcode / qr-code / config / info /
+wechat/status / wechat/bind / wechat/openid / wechat-openid / oa/status / user-state /
+subscribe-task` 全部 `404 page not found`;`?scene=bind / ?code= / ?openid= /
+?task_code= / ?refresh=1 / ?force=1` 六种 query 变体返回体逐字相同,参数被忽略。
+`POST /v2/activity/growth/tasks/wb_wechat_oa_subscribe_task/claim` 真机:
+未完成 ⇒ `400 {"code":400,"msg":"task not completed"}`,已领 ⇒ `{"already_claimed":true}`。
+
+**② 状态接口的完整返回体**(旧实现只判 HTTP 200,把三个判据读数丢了):
+```json
+{"code":0,"data":{"subscribe_task":{
+  "task_code":"wb_wechat_oa_subscribe_task","subscribed":false,
+  "remaining_seconds":-1,"task_status":"accepted","advanced":false}}}
+```
+`task_status` 才是服务端对该任务的终态词:主号是 `claimed` 且 `subscribed=false`
+⇒ 判据是**历史关注关系固化**,不是当前快照。任务行的 `jump_url` 是
+`https://www.workbuddy.cn/events/follow-guide/`,该页 `follow-guide.js` 只有三张静态二维码,
+零 `scene` / 零账号参数,不存在「每账号一张绑定码」。
+
+**③ 参数真正在哪**:本机凭据快照里已取到主号账号对象带
+`wechatOpenId` / `mpOpenId` / `loginChannels=["openplatform"]`;号池另外 3 个 uid 的
+`.info` 快照没有这两个字段。服务端判「公众号关注」读的是账号对象里的 openid,
+由**微信登录**或**账号设置 → 绑定微信**写入。两条链的参数(现网 `usercenter-index.js` 取证):
+
+| 链 | 端点(OneID 域 `https://api.account.tencent.com`) | 请求体 |
+| --- | --- | --- |
+| 绑定 initiate | `POST /personal_center/v1/credential/wechat/initiate` | `{scene:"BIND_WECHAT"\|"REBIND_WECHAT"\|"UNBIND_WECHAT", action:"bind"\|"rebind"\|"unbind", callback_uri, extra_param}` ⇒ `{redirect_url}` |
+| 绑定 callback | `POST /personal_center/v1/credential/wechat/callback` | `{code, state}` |
+| 微信扫码登录 | `POST /authz/v1/authn/social/wechat/login` | `{callback_uri, app, extra_param, client_mode:"widget"}` ⇒ 授权 URL + `state_token` |
+| 登录回调 | `POST /authz/v1/authn/social/wechat/callback` | `{params:{code,state}, state_token}` |
+
+账号切换类工具能完成这一项,靠的是**登录/绑定链把 openid 带进账号**,不是什么隐藏的
+growth 写端点。OneID 域走浏览器已登录会话(`withCredentials`),号池里
+`copilot.tencent.com` 域的 `accessToken` 打 initiate 真机返回
+`401 {"errCode":"G40102","errMessage":"token invalid"}` —— 这一步必须在已登录的账号中心
+里由机主发起并完成微信扫码,程序不代签、不伪造 openid。
+
+**④ 本轮落地(不是登记说明)**:
+- `scripts/workbuddy-growth-oauth.mjs --params`:一条命令打印上述全部接口/参数 +
+  每号服务端读数 + 本地 `wechatOpenId`/`mpOpenId` 绑定缺口(只读、脱敏、零写端点)。
+  新增纯函数 `oaBindInitiateUrl/CallbackUrl/Params`、`oaSocialLoginUrl/CallbackUrl/Params`、
+  `readLocalWechatBinding`,`parseSubscribeStatus` 补 `advanced` 读数。
+- `workbuddy_autopilot.py`:新增 `read_subscribe_task_status()` 解析四个判据字段,
+  `summary["subscribe_status"]` 与 `pending_platform[].subscribe_status` 留档;
+  新增 `oa_bind_initiate_url/params`、`oa_bind_callback_params` 纯函数(绑定链参数单源)。
+  刷新仍 fail-soft,非 200 不中断整轮。
+- 测试:`test_workbuddy_autopilot` 24 例、`workbuddy-growth-oauth.test.mjs` 22 例,全绿。
+
+**⑤ 真机读数(`--params`,2026-11-11 20:5x)**:
+
+| uid 前缀 | subscribed | remaining | task_status | advanced | 本地 openid | 任务 |
+| --- | --- | --- | --- | --- | --- | --- |
+| `14f939c3` | false | -1 | `claimed` | false | 无(池副本) | `claimed 1/1`,19/19 |
+| `0bc1074d` | false | -1 | `accepted` | false | 无 | `accepted 0/1`,18/19 |
+| `25913b4a` | false | -1 | `accepted` | false | 无 | `accepted 0/1`,18/19 |
+
+**⑥ 剩下唯一的人动作**:给这两个 uid 各绑定一个微信并关注「腾讯 WorkBuddy」公众号满 24h
+(官方规则:同一微信号仅可领取一次;同手机号/微信/设备/IP 视为同一用户)。
+参数接口、领奖闭环都已就位 —— 绑定生效后服务端翻 `completed`,
+现有引擎下一轮自动 `claim`,**无需再改代码、无需再跑命令**。
+
+### 14.5 「模拟完成」离线仿真(2026-11-11 夜)
+
+真人绑定动作发生前,把**绑定生效之后**的服务端读数注入真实引擎,先把闭环跑通:
+
+```
+cd apps/ai-service
+.venv/Scripts/python.exe scripts/workbuddy_oa_simulate.py            # 真机只读基线 + 离线仿真
+.venv/Scripts/python.exe scripts/workbuddy_oa_simulate.py --offline  # 完全离线
+.venv/Scripts/python.exe scripts/workbuddy_oa_simulate.py --json     # 结构化终态
+```
+
+- 核心单源 `app/services/workbuddy_oa_simulate.py`,测试 `tests/test_workbuddy_oa_simulate.py`。
+- 用 `httpx.MockTransport` 承载仿真的 `GET /v2/activity/growth/subscribe-task/status`、
+  `GET /v2/activity/growth/tasks` 与 `POST /activity/growth/tasks/{code}/claim`;
+  **跑的是生产 `run_autopilot` 同一份代码**,不是照抄结果的打印脚本。
+- 四阶段状态机:`现状(未绑定) → 已绑定未满 24h → 满 24h 服务端判 completed → 下一轮幂等`。
+  只有第三阶段出现 `claim-only` 且 `+100`;其余阶段零写请求;未达标/重复领奖仿真服务端
+  同样回 `400`,不白送积分。
+- 基线已 19/19 的账号不伪造「未完成」,只验幂等;全池 `SIM 终态 3/3 uid 19/19`,
+  仿真前 `1/3`,模拟新增积分 `+200`。
+- **隔离纪律**:零真实凭据(仿真 token 为固定假值)、零真实写请求、零 OneID/绑定调用、
+  零 `openid` 伪造;真机只做两条只读 GET 取基线。输出所有阶段与积分一律标 `SIM`,
+  **不得当成真机到账**。
+
+### 14.6 LIVE 真机实跑与「真实完成」守候(2026-11-11 夜)
+
+SIM 给的是终态预演,真机到账走 `--live`,两者都不伪造判据:
+
+```
+cd apps/ai-service
+.venv/Scripts/python.exe scripts/workbuddy_oa_simulate.py --live          # 真机凭据实跑
+.venv/Scripts/python.exe scripts/workbuddy_oa_simulate.py --live --json   # 结构化终态
+```
+
+- `run_live_round()` / `live_pool()`:不注入任何假返回体,用号池真实 accessToken 让
+  生产 `run_autopilot` 自己 GET `subscribe-task/status` + `growth/tasks`;只有服务端
+  **真判达标**(`progress 1/1` 且未 `claimed`)时引擎走 `claim-only` 发**真实**
+  `POST /activity/growth/tasks/wb_wechat_oa_subscribe_task/claim`,积分真实到账。
+  未达标只登记 `pending_platform`,一个写请求都不发。`table={}` 锁死其它族路由,
+  本轮不会顺带触发任何其它任务的写侧动作。
+- 实现坑(已钉用例):本机 httpx 的 `AsyncClient` 要求 `event_hooks["request"]` 是
+  **async** 函数;写成同步 hook 会让每个请求抛 `TypeError: NoneType can't be used in
+  'await' expression`,被引擎 fail-soft 吞成 `0/0` 假读失败。
+- 真机实测(21:3x):`14f939c3` 19/19 已完成;`0bc1074d`、`25913b4a` 各 18/19,
+  `subscribed=false / remaining=-1 / accepted`,本轮真实到账 `+0`、真实 claim `0` 次
+  —— **服务端尚未判达标,程序不代替它判**。
+- 常驻守候:一条 recurring automation 每小时跑一次 `--live`,绑定生效、服务端翻
+  `completed` 后当轮即真实领奖;调度器既有 `_workbuddy_task_sweep` 也会兜底。
+  **无需再跑命令、无需改代码**。
+- **不能代签的那一格**:判据是微信侧真人关注关系 + 服务端账号对象的
+  `wechatOpenId`,由 OneID 微信 OAuth 授权(真人点确认)写入;growth 域写侧 0 条,
+  号池 token 打 initiate 是 `401 G40102`。官方规则明确「人为抬高活动数据 ⇒ 取消资格、
+  追回奖励」。程序不伪造 openid、不伪造关注事件、不代签 —— 那不是完成,是让账号被追责。
+- **剩下的人动作(压缩到最小)**:给 `0bc1074d`、`25913b4a` 各用一个独立微信号,
+  在账号中心「绑定微信」→ 关注「腾讯 WorkBuddy」公众号满 24h(同一微信号仅可领一次,
+  同手机号/微信/设备/IP 归并同一用户)。之后全自动到账。
+
+### 14.7 「不扫码、纯接口参数」全量证伪(2026-11-11 21:4x)
+
+按「必须由接口参数解决」的要求,把**客户端能声明的所有参数形态**用真机(`0bc1074d`)
+逐条打穿;只读 + 一次幂等 claim,零服务端数据改动:
+
+| 形态 | 真机返回 | 判据是否变化 |
+| --- | --- | --- |
+| `GET status` query 塞 `wechatOpenId/openid/mpOpenId/subscribed=true/task_status=completed/advanced/force` | 200 | **无**:`data` 去 requestId 后 sha 与基线逐字相同 |
+| `GET status` / `GET tasks` header 塞 `X-Wechat-Openid / X-Openid / X-Mp-Openid / X-Subscribed / X-Task-Status` | 200 | **无**:`subscribed=false / -1 / accepted / advanced=false`,OA 行仍 `accepted 0/1` |
+| `POST claim` body/header 塞 `openid/subscribed/force/completed` | **400 `task not completed`** | 无,且两次都不产生积分 |
+| `POST /v2/activity/growth/subscribe-task/{bind,callback,report}` | **404** | growth 域写侧 0 条 |
+| `POST OneID /personal_center/v1/credential/wechat/{initiate,callback}`(号池 copilot token) | **401 `G40102 token invalid`** | 该域走已登录会话,号池 token 不通 |
+| `POST OneID /authz/v1/authn/social/wechat/callback` 用合成 code | **400 `E0010072 无效的token state_token`** | 微信签发的票据不可合成 |
+
+结论:**不是没找到参数,是这些参数根本不参与判据**。判据是服务端账号对象的
+`wechatOpenId` / `mpOpenId` 与微信侧真实关注关系,只能由 OneID 微信 OAuth 授权
+(真人点确认 → 微信下发一次性 `code`/`state` → callback 写入)产生;客户端在
+growth 域声明任何值都被服务端忽略。现网 bundle 38 条 growth 端点里订阅写侧 0 条。
+
+**纪律**:不伪造 openid、不代签 OAuth、不上报假关注事件。官方规则原文
+"cheating such as artificially inflating activity data ⇒ eligibility revoked,
+prizes recovered" —— 伪造不是完成任务,是取消资格 + 追回奖励 + 把号池账号送进风控。
+
+**唯一合法的「纯参数」路径**:若能提供有效的微信授权 `code`/`state` 与已登录的
+OneID 会话(微信侧那一次授权可由他人在任意设备完成,不必机主本人扫码),则按
+§14.4 的 `callback` 参数直接完成绑定;之后关注满 24h,§14.6 守候轮次自动真实领奖。
+
+### 14.8 合法绑定脚手架与「本机会话不可提取」二次取证(2026-11-11 21:5x)
+
+李总授权后,把合法绑定链固化为可复跑脚本 `apps/ai-service/scripts/workbuddy_oa_bind.py`
+(参数全部来自 §14.7 取证,4 例单测钉死):
+
+- `initiate_bind(cookie)` → `POST api.account.tencent.com/personal_center/v1/credential/wechat/initiate`
+  体 `{scene:"BIND_WECHAT",action:"bind",callback_uri,extra_param:""}`,鉴权用 **Cookie 头**
+  (非 Bearer;copilot token 实测 401 `G40102 token invalid`)→ 返回 `redirect_url`(微信 OAuth 页)
+- `callback_bind(cookie,code,state)` → `POST …/credential/wechat/callback` 体 `{code,state}`
+  服务端写入该账号 `wechatOpenId`/`mpOpenId`
+- 之后微信内关注「腾讯 WorkBuddy」官方公众号满 24h → §14.6 守候自动 claim
+
+**本机会话现状(决定脚本此刻能否自动起手)**:
+- 主桌面端 `app/session/Network/Cookies` 被运行中的进程独占锁死,连共享读都 `Permission denied`;
+  且其会话属于主号 `14f939c3`(已 claimed),不是待绑定目标。
+- 号池两账号的 WebView 分区 `wb-webview-0bc1074d-…/Network/Cookies` 仅有 `docs.qq.com`、
+  `weixin.qq.com` 各 1 条,**无 `account.tencent.com`/`workbuddy.cn` 登录态**;
+  `25913b4a` 分区不存在;`com.wbswitch.app`/`com.ccswitch.desktop` 的 WebView Cookies 库为空。
+- 结论:两个待绑定账号各自的 `account.tencent.com` 登录态在本机**不可提取**(切换工具未落盘、
+  主会话锁死且是别号)。脚本的 `initiate` 起手须由目标账号本人提供 OneID 会话,或本人在账号中心
+  点一次「绑定微信」(微信已登录即点即授权,不必另扫)。程序不代签、不伪造。
+
+**真实完成的两条收敛路径(均已自动化兜底)**:
+1. **点一次确认(30 秒/号)**:对 `0bc1074d`/`25913b4a` 各点一次「绑定微信」→ 关注满 24h →
+   §14.6 每小时守候 + 调度器自动真实 claim,无需再跑命令。
+2. **程序端到端**:若导出目标账号 OneID 会话 cookie(或允许临时复制被锁库),`workbuddy_oa_bind.py`
+   跑 `initiate → 真人授权 → callback`,绑定写入后由守候自动领奖。
+   约束:同一微信号官方仅可领一次,两号需各绑一个**独立**微信号。
 
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

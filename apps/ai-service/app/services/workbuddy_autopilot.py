@@ -52,6 +52,12 @@ MARKET_SCAN_PAGES = 20
 MARKET_PAGE_SIZE = 50
 DEFAULT_TIMEOUT = 60.0
 
+# 官方成长中心取任务列表的函数 `to()` 是「先 qa() 再 GET /v2/activity/growth/tasks」:
+# qa() = GET /v2/activity/growth/subscribe-task/status,服务端借这一问重算微信关注关系。
+# 只读列表会拿到旧判定,可能永远等不到公众号项翻面(见 docs/WORKBUDDY_TASKS.md §9.2)。
+SUBSCRIBE_TASK_STATUS_PATH = "/v2/activity/growth/subscribe-task/status"
+OA_SUBSCRIBE_TASK_CODE = "wb_wechat_oa_subscribe_task"
+
 ActionTableLoader = Callable[[], dict[str, Any]]
 DesktopRunner = Callable[..., Awaitable[wda.DirectApiResult]]
 GenericRunner = Callable[..., Awaitable[wda.DirectApiResult]]
@@ -66,11 +72,12 @@ def load_raw_action_table(path: str | Path = _ACTION_TABLE_PATH) -> dict[str, An
 
 
 def route_of(code: str, table: dict[str, Any]) -> tuple[str | None, dict[str, Any]]:
-    """纯函数选路:返回 (route, meta)。route ∈ {'desktop','generic',None}。
+    """纯函数选路:返回 (route, meta)。route ∈ {'desktop','share_chain','generic',None}。
 
-    - desktop: 存在 verified desktop_expert 条目(meta 含 expert_id/market_keyword);
-    - generic: 全部步骤 kind=http 且 verified=true(Sequential 族等);
-    - None:    无 verified 链 ⇒ 只登记不执行(防伪造,零出站)。
+    - desktop:     存在 verified desktop_expert 条目(meta 含 expert_id/market_keyword);
+    - share_chain: 存在 verified share_chain 条目(meta 含 event_codes;平台新上的分享类任务);
+    - generic:     全部步骤 kind=http 且 verified=true(Sequential 族等);
+    - None:        无 verified 链 ⇒ 只登记不执行(防伪造,零出站)。
     """
     steps = table.get(code)
     if not isinstance(steps, list) or not steps:
@@ -79,6 +86,8 @@ def route_of(code: str, table: dict[str, Any]) -> tuple[str | None, dict[str, An
         if isinstance(step, dict) and step.get("kind") == "desktop_expert" and step.get("verified") is True:
             meta = {k: v for k, v in step.items() if k not in ("kind",)}
             return "desktop", meta
+        if isinstance(step, dict) and step.get("kind") == "share_chain" and step.get("verified") is True:
+            return "share_chain", {"event_codes": tuple(step.get("event_codes") or ())}
     if all(
         isinstance(s, dict) and s.get("kind", "http") == "http" and s.get("verified") is True
         for s in steps
@@ -110,6 +119,91 @@ def _web_claim_headers(token: str, uid: str) -> dict[str, str]:
         "User-Agent": "WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1",
         "X-User-Id": uid,
     }
+
+
+# 2026-11-11 现网官方 bundle 全量取证:growth 域 38 条端点里,订阅相关只有 1 条
+# GET /v2/activity/growth/subscribe-task/status。真机对 bind / callback / report /
+# refresh / accept / qrcode / config 等 16 条候选一律 404,带 ?scene/?code/?openid
+# 等参数也全部被忽略 ⇒ **判定所需参数不在 growth 域,写侧 0 条**。
+# 判据参数在腾讯 OneID 账号体系:账号对象的 wechatOpenId / mpOpenId,
+# 由微信登录或「账号设置 → 绑定微信」写入服务端账号库。下面是那条绑定链的参数。
+ONEID_API_BASE = "https://api.account.tencent.com"
+OA_BIND_INITIATE_PATH = "/personal_center/v1/credential/{channel}/initiate"
+OA_BIND_CALLBACK_PATH = "/personal_center/v1/credential/{channel}/callback"
+OA_BIND_SCENES = {
+    "bind": "BIND_WECHAT",
+    "rebind": "REBIND_WECHAT",
+    "unbind": "UNBIND_WECHAT",
+}
+SUBSCRIBE_STATUS_FIELDS = ("subscribed", "remaining_seconds", "task_status", "advanced")
+
+
+def oa_bind_initiate_url(channel: str = "wechat") -> str:
+    """账号中心「绑定微信」第一步的完整端点(OneID 域,不是 www.workbuddy.cn)。"""
+    return f"{ONEID_API_BASE}{OA_BIND_INITIATE_PATH.format(channel=channel)}"
+
+
+def oa_bind_initiate_params(
+    callback_uri: str, *, action: str = "bind", extra_param: str = ""
+) -> dict[str, str]:
+    """官方 ``oauthInitiate`` 的请求体(纯函数,可直接 POST)。
+
+    现网 usercenter bundle: ``oauthInitiate(type, {scene, action, callback_uri,
+    extra_param})`` ⇒ 返回 ``redirect_url``(微信 OAuth 授权链接)。
+    该域走 OneID 会话(withCredentials),号池里的 copilot 域 accessToken 打过去是
+    ``401 G40102 token invalid`` —— 必须由机主在已登录的账号中心里发起,程序不代签。
+    """
+    return {
+        "scene": OA_BIND_SCENES.get(action, OA_BIND_SCENES["bind"]),
+        "action": action,
+        "callback_uri": callback_uri,
+        "extra_param": extra_param,
+    }
+
+
+def oa_bind_callback_params(code: str, state: str = "") -> dict[str, str]:
+    """官方 ``oauthCallback`` 的请求体:微信授权回跳带回的 code / state。"""
+    return {"code": code, "state": state}
+
+
+async def read_subscribe_task_status(
+    client: httpx.AsyncClient, token: str, uid: str
+) -> dict[str, Any] | None:
+    """刷新订阅状态并**解析完整判据读数**,失败返回 None(fail-soft)。
+
+    真机返回体:``data.subscribe_task`` = ``{task_code, subscribed,
+    remaining_seconds, task_status, advanced}``。旧实现只判 HTTP 200,把
+    task_status / advanced 这两个服务端终态读数丢掉了。
+    """
+    try:
+        r = await client.get(
+            f"{WEB_BASE}{SUBSCRIBE_TASK_STATUS_PATH}", headers=_growth_headers(token, uid)
+        )
+        if r.status_code != 200:
+            return None
+        try:
+            body = r.json()
+        except ValueError:
+            body = {}
+    except Exception:  # noqa: BLE001 — 刷新失败只是少一次重算,不能把全表判成读失败
+        return None
+    data = body.get("data") if isinstance(body, dict) else None
+    task = data.get("subscribe_task") if isinstance(data, dict) else None
+    reading: dict[str, Any] = {"http_ok": True}
+    if isinstance(task, dict):
+        reading.update({k: task.get(k) for k in SUBSCRIBE_STATUS_FIELDS})
+    return reading
+
+
+async def refresh_subscribe_task_status(
+    client: httpx.AsyncClient, token: str, uid: str
+) -> bool:
+    """读任务表前先问一次订阅状态(官方 qa() 时序),让服务端重算微信关注关系。
+
+    只读、幂等、零写侧;失败不阻断主链(fail-soft,返回 False 由 summary 记录)。
+    端点 GET-only(2026-11-11 真机:POST ⇒ 404),现网 bundle 中订阅写侧 0 条。
+    """
+    return (await read_subscribe_task_status(client, token, uid)) is not None
 
 
 async def _fetch_task_payload(
@@ -254,6 +348,13 @@ async def run_autopilot(
         "credits": 0,
         "undone": [],
         "unregistered": [],
+        # 判据在平台侧(微信身份 / 关注关系),引擎无可执行的 verified 链 ⇒
+        # 与「引擎没接线」分开登记,不让每轮巡检把它误报成未判定。
+        "pending_platform": [],
+        "subscribe_status_refreshed": False,
+        # 服务端订阅判据完整读数(subscribed / remaining_seconds / task_status / advanced),
+        # 读不到为 None。公众号项卡住时用它区分「引擎没接线」和「平台侧缺微信身份」。
+        "subscribe_status": None,
         "read_failed": False,
     }
     if not jwt or not uid:
@@ -267,6 +368,11 @@ async def run_autopilot(
             client = httpx.AsyncClient(timeout=timeout)
             await client.__aenter__()
         assert client is not None
+        # 官方时序:先刷新订阅状态(服务端重算关注关系)再读任务表。条件一旦判成立,
+        # 下面 plan 会把该项走 claim-only 自动领奖,无需任何人再执行命令。
+        subscribe_reading = await read_subscribe_task_status(client, jwt, uid)
+        summary["subscribe_status_refreshed"] = subscribe_reading is not None
+        summary["subscribe_status"] = subscribe_reading
         payload = await _fetch_task_payload(client, jwt, uid)
         if payload is None:
             summary["read_failed"] = True
@@ -281,12 +387,30 @@ async def run_autopilot(
             if row.get("accept_status") == "claimed":
                 summary["claimed_already"].append(code)
                 continue
+            # 达标待领**先于**选路:判据是服务端状态词/progress,与「有没有 verified 链」无关。
+            # 旧实现先看 route_of ⇒ 无链但已达标(典型:公众号关注项被服务端判 completed)
+            # 会被误登记成 unregistered 而不领奖,白丢一整轮(默认 180 分钟)。
+            if _target_reached(row):
+                plan.append((code, row, "claim-only", {}))
+                continue
             route, meta = route_of(code, table)
             if route is None:
-                summary["unregistered"].append(code)
+                if code == OA_SUBSCRIBE_TASK_CODE:
+                    summary["pending_platform"].append(
+                        {
+                            "code": code,
+                            "reason": "wechat_oa_follow_relation",
+                            "accept_status": row.get("accept_status"),
+                            "progress": _prog_of(row),
+                            # 带上服务端读数,诊断时能一眼看出是「没绑微信 openid」
+                            # 还是「已关注但 24h 窗没走完」。
+                            "subscribe_status": subscribe_reading,
+                        }
+                    )
+                else:
+                    summary["unregistered"].append(code)
                 continue
-            action = "claim-only" if _target_reached(row) else "run"
-            plan.append((code, row, action if action == "claim-only" else route, meta))
+            plan.append((code, row, route, meta))
 
         if dry_run:
             summary["plan"] = [
@@ -323,6 +447,16 @@ async def run_autopilot(
                     client, jwt, uid, nickname, expert,
                     read_tasks=_read_tasks,
                     task_code=code,
+                )
+            elif route == "share_chain":
+                async def _read_tasks_share() -> Any:
+                    fresh = await _fetch_task_payload(client, jwt, uid)
+                    return _snapshot_of(fresh) if fresh is not None else None
+
+                result = await wda.run_share_task(
+                    client, jwt, uid, nickname, code,
+                    read_tasks=_read_tasks_share,
+                    event_codes=meta.get("event_codes") or (),
                 )
             else:  # generic
                 ctx = wda.build_context(jwt, dm, task_code=code)

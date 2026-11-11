@@ -41,30 +41,6 @@ export function productOfDir(dirName) {
 }
 
 /**
- * 控制台工具输出解码(2026-11-11 根因修)。
- *
- * tasklist 按**系统 OEM 代码页**输出字节(中文 Windows = GBK/936),而 Node 的
- * `encoding:'utf8'` 会把非 ASCII 映像名解成乱码(`商汤小浣熊.exe` ⇒ `����С���.exe`)⇒
- * 名字比较恒不等 ⇒ **在跑的进程被判成没在跑** ⇒ 关闭动作假绿、写回被客户端覆写。
- * 本机实测:小浣熊 10 个进程在跑,closeProduct 却返回 closed=true(启动时间证明一个都没退)。
- *
- * 判据定在字节层:先严格 UTF-8 解(已切 65001 的机器),抛错才按 GBK 解。
- * 次序不可倒 —— GBK 对任意字节序列几乎不失败(用 U+FFFD 顶替),先试它就永远退不回来。
- */
-function decodeConsoleOutput(buf) {
-  try {
-    return new TextDecoder('utf-8', { fatal: true }).decode(buf)
-  } catch {
-    try {
-      // GBK 与 ASCII 完全兼容 ⇒ 英文系统上的 ASCII 映像名解出来逐字不变
-      return new TextDecoder('gbk', { fatal: false }).decode(buf)
-    } catch {
-      return Buffer.from(buf).toString('utf8')
-    }
-  }
-}
-
-/**
  * 某产品的在跑进程 pid 列表。
  * tasklist 在 SYSTEM 身份下也能看到桌面用户会话的进程(PS 的 Get-Process 同名口径)。
  * 命令失败 ⇒ null(**未知**,不是"没在跑")—— 调用方据此拒绝盲写。
@@ -72,11 +48,10 @@ function decodeConsoleOutput(buf) {
 export function listProductPids(product, env = process.env) {
   if (!processControlEnabled(env)) return []
   const image = `${product}.exe`
-  let raw
+  let out
   try {
-    // 取原始字节再按 OEM 代码页解码:非 ASCII 映像名(中文安装包)走 encoding:'utf8' 必成乱码
-    raw = execFileSync('tasklist.exe', ['/FI', `IMAGENAME eq ${image}`, '/FO', 'CSV', '/NH'], {
-      encoding: 'buffer',
+    out = execFileSync('tasklist.exe', ['/FI', `IMAGENAME eq ${image}`, '/FO', 'CSV', '/NH'], {
+      encoding: 'utf8',
       windowsHide: true,
       timeout: 8000,
       env,
@@ -84,7 +59,6 @@ export function listProductPids(product, env = process.env) {
   } catch {
     return null
   }
-  const out = decodeConsoleOutput(raw)
   const pids = []
   for (const line of String(out).split(/\r?\n/)) {
     const m = /^"([^"]+)","(\d+)"/.exec(line.trim())
@@ -242,7 +216,38 @@ export function resolveProductExe(product, env = process.env) {
     const pf = String(env[pfVar] ?? '').trim()
     if (pf) roots.push(path.join(pf, product, image))
   }
+  // 兜底扫本机固定盘根:客户端装在非系统盘(实测 G 盘 Trae CN 目录)时,上面
+  // AppData/ProgramFiles 都扫不到;枚举本机固定盘根下的 product 目录补最后一道网。
+  // 关端后(relay 第 6 步)进程已不在,Win32_Process 取不到路径,正是靠这道兜底拉起。
+  for (const drive of listFixedDriveRoots(env)) {
+    roots.push(path.join(drive, product, image))
+  }
   return roots.find((p) => fs.existsSync(p)) ?? ''
+}
+
+/** 本机固定盘根(C:/ D:/ G:/ ...),用于客户端装在非系统盘时的 exe 兜底扫描(2026-11 修) */
+function listFixedDriveRoots(env = process.env) {
+  const out = []
+  try {
+    const ps = powershellPath(env)
+    const s = execFileSync(
+      ps,
+      ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command',
+       'Get-CimInstance Win32_LogicalDisk -Filter DriveType=3 | Select-Object -ExpandProperty DeviceID'],
+      { encoding: 'utf8', windowsHide: true, timeout: 8000, env },
+    )
+    for (const line of String(s).split(/\r?\n/)) {
+      const m = /^([A-Za-z]:)/.exec(line.trim())
+      if (m) out.push(m[1].toUpperCase() + '\\') // m[1] 已含冒号("C:"),只补反斜杠
+    }
+  } catch {
+    /* PS 不可用时落到 SystemDrive */
+  }
+  if (out.length === 0) {
+    const sys = String(env.SystemDrive || 'C:').replace(/[\\/]+$/, '').toUpperCase()
+    if (sys) out.push(sys + ':\\')
+  }
+  return out
 }
 
 /**
@@ -300,13 +305,17 @@ export function closeProduct(product, opts = {}) {
 /**
  * 以桌面用户身份重新拉起客户端。三条通道,按顺序试,每条起完都**验进程活着**才算数:
  *   1. 服务身份 → run-as-user.ps1 -NoWait(CreateProcessAsUser + 用户环境块);
- *   2. 非服务身份 → detached spawn(带 exe 所在目录当 cwd);
- *   3. 前两条**抛错**或发起了但 3 秒内量不到进程 → **shell 通道 `explorer.exe <exe>`**(等同人工双击)。
+ *   2. 桌面身份 → **explorer 双击语义**(`explorer.exe <exe>`)当主通道(2026-11-11 改);
+ *   3. 主通道**抛错**或发起了但窗口内量不到进程 → 补充通道(helper→explorer / explorer→spawn)。
  *
  * 第 3 条不是兜底摆设:2026-10-28 实测 Loomy 在"由脚本/服务派生"的语境下,1、2 两条都会让它
  * 在 Electron 主进程启动**之前**就退出码 0 消失(连它自己第一行启动日志都不写、无崩溃转储),
  * 而同样的两条通道起 notepad 都能活着 ⇒ 不是通道起不了 GUI 进程,是这个客户端要 shell 语义的启动。
  * 人"双击能打开、脚本打不开"就是这个差别的现场。
+ *
+ * 2026-11-11 再证(Trae 切号端到端实测):桌面语境下 spawn 当主通道会让 Electron 客户端"瞬退"——
+ * 进程冒一下就消失,单次采样误判"已起",explorer 永远轮不到 ⇒ 表现为"切号成功但没拉起"。
+ * 桌面身份改双击语义当主通道后端到端实测通过(launched=true via=explorer,单实例)。
  *
  * 第 1/2 条**抛错**也必须落到第 3 条:助手在权限不足或脚本自身报错时抛异常,旧写法被外层
  * catch 直接收成"拉不起来",于是"换一条通道再试"这格整条是空的(实测把 env 换成服务身份跑
@@ -334,17 +343,31 @@ export function launchProduct(exePath, opts = {}) {
   const verify = () => {
     if (!product || !(waitMs > 0)) return { launched: true, error: '' }
     const deadline = Date.now() + waitMs
+    // 连续两次探到才算数(防"瞬退"假阳性:进程冒一下就消失被误判已起)。窗口预算不足
+    // 1 秒(单测/极端)只采得到一把,单次探到也认 —— 判据跟窗口预算走,不硬编码。
+    const need = waitMs >= 1000 ? 2 : 1
     let unreadable = false
+    let streak = 0
     for (;;) {
       const pids = probe()
-      if (pids === null) unreadable = true
-      else if (pids.length > 0) return { launched: true, error: '' }
+      if (pids === null) { unreadable = true; streak = 0 }
+      else if (pids.length > 0) {
+        streak += 1
+        if (streak >= need) return { launched: true, error: '' }
+      } else streak = 0
       const left = deadline - Date.now()
       if (left <= 0) break
       sleepSync(Math.min(300, left))
     }
+    // 任一次探测读不回 ⇒ 按未判定放行(绝不把"没量到"读成"没起来",§0.3)
     if (unreadable) return { launched: true, error: '' }
-    return { launched: false, error: `已发起启动,但 ${Math.round(waitMs / 1000)} 秒内没检测到客户端进程` }
+    return {
+      launched: false,
+      error:
+        need > 1
+          ? `已发起启动,但 ${Math.round(waitMs / 1000)} 秒内未稳定检测到客户端进程(需连续 ${need} 次探到)`
+          : `已发起启动,但 ${Math.round(waitMs / 1000)} 秒内没检测到客户端进程`,
+    }
   }
   /** 主通道(1 或 2)的统一收口:发起 → 验;抛错 → 先验(可能子进程已起)再判失败,失败原因点名是哪条通道 */
   const verifiable = Boolean(product) && waitMs > 0
@@ -372,7 +395,9 @@ export function launchProduct(exePath, opts = {}) {
     /(\$|^system$|^local service$|^network service$)/i.test(String(env.USERNAME ?? '').toLowerCase())
   try {
     let first
+    let primaryKind = ''
     if (serviceIdentity && helper && fs.existsSync(helper)) {
+      primaryKind = 'helper'
       first = primary('helper', () =>
         run(
           powershellPath(env),
@@ -395,7 +420,32 @@ export function launchProduct(exePath, opts = {}) {
         ),
       )
     } else {
-      first = primary('spawn', () => {
+      // 桌面身份:主通道用 explorer(双击语义)—— 实测 Electron 系客户端在脚本派生语境下
+      // spawn 会瞬退(主进程还没起来就退出码 0 消失),而双击语义能稳定拉起。
+      primaryKind = 'explorer'
+      first = primary('explorer', () => {
+        run('explorer.exe', [exePath], { windowsHide: true, timeout: 15_000, env })
+      })
+    }
+    if (first.launched) return first
+    if (first.stopFallback) return { launched: false, error: first.error, via: first.via }
+    return viaShell(first.error, primaryKind)
+  } catch (e) {
+    return { launched: false, error: e instanceof Error ? e.message : String(e), via: '' }
+  }
+
+  /**
+   * 补充通道:主通道失败才到这里,按主通道身份换一条起法(同样**起完验进程**,不认"发起成功"):
+   *   主通道是 helper(服务身份)→ 交 shell(explorer,双击语义);
+   *   主通道是 explorer(桌面身份)→ 降级 detached spawn 派生。
+   */
+  function viaShell(firstError, primaryKind) {
+    const useSpawn = primaryKind === 'explorer'
+    const label = useSpawn ? 'spawn 补充通道' : 'shell 通道'
+    const via = useSpawn ? 'explorer+spawn' : 'primary+shell'
+    const okVia = useSpawn ? 'spawn' : 'shell'
+    try {
+      if (useSpawn) {
         const child = spawn(exePath, [], {
           cwd: path.dirname(exePath),
           detached: true,
@@ -403,29 +453,19 @@ export function launchProduct(exePath, opts = {}) {
           windowsHide: false,
         })
         child.unref()
-      })
-    }
-    if (first.launched) return first
-    if (first.stopFallback) return { launched: false, error: first.error, via: first.via }
-    return viaShell(first.error)
-  } catch (e) {
-    return { launched: false, error: e instanceof Error ? e.message : String(e), via: '' }
-  }
-
-  /** 第三条通道:交给 shell(explorer)起,语义等同人工双击;**起完照样验进程**,不认"发起成功" */
-  function viaShell(firstError) {
-    try {
-      run('explorer.exe', [exePath], { windowsHide: true, timeout: 15_000, env })
+      } else {
+        run('explorer.exe', [exePath], { windowsHide: true, timeout: 15_000, env })
+      }
     } catch (e) {
       return {
         launched: false,
-        error: `${firstError};shell 通道发起失败(${e instanceof Error ? e.message : String(e)})`,
-        via: 'primary+shell',
+        error: `${firstError};${label}发起失败(${e instanceof Error ? e.message : String(e)})`,
+        via,
       }
     }
     const second = verify()
-    if (second.launched) return { launched: true, error: '', via: 'shell' }
-    return { launched: false, error: `${firstError};${second.error}`, via: 'primary+shell' }
+    if (second.launched) return { launched: true, error: '', via: okVia }
+    return { launched: false, error: `${firstError};${second.error}`, via }
   }
 }
 

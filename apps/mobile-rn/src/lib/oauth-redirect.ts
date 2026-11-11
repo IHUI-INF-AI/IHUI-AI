@@ -14,7 +14,7 @@
  *        苹果 iOS(用 expo-apple-authentication 原生 SDK,见 apple.ts)。
  */
 
-import * as WebBrowser from 'expo-web-browser'
+import { WebBrowser } from '@/platform/linking'
 import {
   dingtalkLogin,
   oauthCallback,

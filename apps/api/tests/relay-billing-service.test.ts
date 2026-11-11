@@ -107,6 +107,12 @@ vi.mock('../src/services/webhook-relay-notifier.js', () => ({
 vi.mock('../src/services/api-key-share-service.js', () => ({
   incrementUsage: mockIncrementUsage,
 }))
+// SDB-04:checkQuota 的订阅窗口检查单独替身化(保留其余真实实现,
+// 含 recordCall 结算用的 consumeSubscriptionWindowUsage)。
+vi.mock('../src/services/subscription-window-service.js', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>()
+  return { ...actual, checkSubscriptionWindowQuota: vi.fn().mockResolvedValue({ allowed: true }) }
+})
 
 import {
   isFreeProvider,
@@ -115,6 +121,7 @@ import {
   getByokCommissionRate,
   recordCall,
   resolveTraceId,
+  checkQuota,
 } from '../src/services/relay-billing-service.js'
 import { runWithRequestScope } from '../src/plugins/principal.js'
 
@@ -541,6 +548,70 @@ describe('relay-billing-service — BYOK 计费链路', () => {
       await recordCall({ ...shareInput })
 
       expect(mockIncrementUsage).not.toHaveBeenCalled()
+    })
+  })
+
+  // ===========================================================================
+  // 8. SDB-04 — 余额闸必须识别 -1(不限),同时不放过真正的余额不足
+  // ===========================================================================
+  describe('checkQuota — -1(不限)哨兵识别(SDB-04)', () => {
+    function keyRow(overrides: Record<string, unknown> = {}) {
+      return {
+        id: 'key-1',
+        userId: 'user-1',
+        status: 'active',
+        tokenBalance: -1,
+        costBalanceCents: -1,
+        allowedIps: null,
+        blockedIps: null,
+        rateLimit5h: null,
+        rateLimit1d: null,
+        rateLimit7d: null,
+        ...overrides,
+      }
+    }
+
+    it('token/cost 均为 -1(仅 -1 窗口套餐的新 Key)→ 大额预估仍放行', async () => {
+      mockDbReadSelect.mockReturnValueOnce(chain([keyRow()]))
+
+      const result = await checkQuota('key-1', 10_000_000)
+
+      expect(result.allowed).toBe(true)
+      expect(result.tokenBalance).toBe(-1)
+    })
+
+    it('token=-1、cost>0 → token 维度不限,不因 -1 < 预估被误拒', async () => {
+      mockDbReadSelect.mockReturnValueOnce(chain([keyRow({ costBalanceCents: 100 })]))
+
+      const result = await checkQuota('key-1', 10_000_000)
+
+      expect(result.allowed).toBe(true)
+    })
+
+    it('token=-1 但 cost=0 → 仍按真实成本余额不足拒绝(no_balance_cost)', async () => {
+      mockDbReadSelect.mockReturnValueOnce(chain([keyRow({ costBalanceCents: 0 })]))
+
+      const result = await checkQuota('key-1', 100)
+
+      expect(result.allowed).toBe(false)
+      expect(result.reason).toBe('no_balance_cost')
+    })
+
+    it('有限 token 余额 < 预估 → 仍拒绝(no_balance_token),不放宽限额闸', async () => {
+      mockDbReadSelect.mockReturnValueOnce(chain([keyRow({ tokenBalance: 100 })]))
+
+      const result = await checkQuota('key-1', 1000)
+
+      expect(result.allowed).toBe(false)
+      expect(result.reason).toBe('no_balance_token')
+    })
+
+    it('有限 token 余额 >= 预估 → 放行', async () => {
+      mockDbReadSelect.mockReturnValueOnce(chain([keyRow({ tokenBalance: 1000 })]))
+
+      const result = await checkQuota('key-1', 1000)
+
+      expect(result.allowed).toBe(true)
     })
   })
 })

@@ -160,6 +160,7 @@ node scripts/guardian-runner.mjs --only=<id|script>   # 单门直跑的**唯一*
 - 2026-10-30 worktree 回收与 TEMP 清扫那一串补刀(①—④)属**已落地修复的取证叙述**,现判据住在 `scripts/lib/git-guardian-worktree-reap.mjs`、`scripts/scrub-temp-fixtures.mjs` 与各自镜像测试里;整区逐字在 `.ihui-agent/archive/AGENTS_trim-2026-11-04.md`。
 - worktree 共享 `node_modules` 的急救口径与迁移五步(2026-11-07 机主令,整段外置以守本文件体积上限)见 `docs/tickets/2026-11/ops-worktree-node-modules-20261107.md`。
 - **12h-补:提交 / 推送 / 合并 = agent 自主强制动作(2026-10-30 机主令,凌驾本仓一切"等机主确认 / 待拍板 / 你看要不要"惯例)**:每轮工作收尾**必须**自行走完提交→推送→回读(`local == remote`),需要合并的一律由 agent 依证据自主裁决并执行;**禁止**以"等你决定要不要提交/推送/合并"停手,也**禁止**把"未提交"当作可交付状态。`git push` 仍走本仓既有自动腿(post-commit `git-push-guard.mjs` 自动推送并回读 + `git-push-converge.mjs` 核验),不手写 push。唯一例外 = 与提交内容无关的不可逆破坏面(`reset --hard` / 回滚 / 强推),仍按 §7 / §22 的备份与人工口径。
+- **孤儿目录壳清扫腿(2026-11-11 立)**:并入 `--reap`,器物 `scripts/agent-worktree.mjs --purge-orphan`;调度 `scripts/lib/git-guardian-worktree-reap.mjs` 24h 派 `--reap --apply --older-than 1`(调度零改动);判据与动作单源 `scripts/agent-worktree.mjs`(§22c),两段式墓碑 + 常驻槽位/兄弟白名单 + 跨进程互斥锁,10 项代码审查收口见该文件头注。
 ## 13. 文件修改持久化强制规则(强制)
 写盘后必须 Read 验证修改生效,禁止只凭工具返回"成功"就声明完成(缓存/缓冲会让磁盘与预期不一致)。
 ## 14. Agent 自主验证强制规则(强制)

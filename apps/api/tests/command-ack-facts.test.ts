@@ -237,6 +237,57 @@ describe('A 格:recordCommandAckFact(onConflictDoNothing 幂等写)', () => {
   })
 })
 
+describe('SDB-11 跨租户:既有事实 ownerKey 不符按"查无此记录"判死', () => {
+  const coords = { parentSessionId: 'ps-1', sourceCommandId: 'cmd-1' }
+
+  /** 真正的 missing 文案:守卫必须逐字复用它,否则 500 body 的 message 自己就成了探针。 */
+  function canonicalMissingMessage(): string {
+    try {
+      assertCommandAckFactAlive(null, coords, NOW)
+      return ''
+    } catch (err) {
+      return (err as Error).message
+    }
+  }
+
+  it('异 ownerKey + 同指纹 ⇒ 抛 missing,绝不回 replayed(不把他人 fact 交出去)', async () => {
+    const store = new FakeStore()
+    store.seed({ ...factOf(), createdAt: NOW } as CommandAckFact)
+    try {
+      await recordCommandAckFact(store, factOf({ ownerKey: 'user:8' }), NOW)
+      expect.unreachable('必须抛出')
+    } catch (err) {
+      expect(err).toBeInstanceOf(CommandAckFactNotAliveError)
+      expect((err as CommandAckFactNotAliveError).reason).toBe('missing')
+      expect((err as Error).message).toBe(canonicalMissingMessage())
+      // 他人的指纹/载荷一个字节都不能借异常文案漏出去。
+      expect((err as Error).message).not.toContain('fp-1')
+    }
+    const row = await store.getFact(coords.parentSessionId, coords.sourceCommandId)
+    expect(row?.ownerKey).toBe('user:7')
+    expect(store.size()).toBe(1)
+  })
+
+  it('异 ownerKey + 异指纹 ⇒ 同样 missing,不返回 key-reused(不做存在性/指纹探针)', async () => {
+    const store = new FakeStore()
+    store.seed({ ...factOf(), createdAt: NOW } as CommandAckFact)
+    try {
+      await recordCommandAckFact(
+        store,
+        factOf({ ownerKey: 'user:8', fingerprint: 'fp-probe', payload: { ok: 2 } }),
+        NOW,
+      )
+      expect.unreachable('必须抛出')
+    } catch (err) {
+      expect((err as CommandAckFactNotAliveError).reason).toBe('missing')
+      expect((err as Error).message).toBe(canonicalMissingMessage())
+    }
+    const row = await store.getFact(coords.parentSessionId, coords.sourceCommandId)
+    expect(row?.fingerprint).toBe('fp-1')
+    expect(row?.payload).toEqual({ ok: 1 })
+  })
+})
+
 describe('A 格路由:POST /api/command-acks(鉴权/形状/幂等/跨存储)', () => {
   let app: FastifyInstance
   let store: FakeStore
@@ -446,6 +497,64 @@ describe('A 格路由:POST /api/command-acks(鉴权/形状/幂等/跨存储)', (
     expect((foreign.json() as { errorCode?: string }).errorCode).toBe(
       COMMAND_ACK_FACT_NOT_ALIVE_CODE,
     )
+  })
+
+  describe('SDB-11 跨租户:他人坐标一律按"查无此记录"判死', () => {
+    /** 真正的 missing 文案:守卫若另造句术,500 body 的 message 就成了存在性探针。 */
+    function canonicalMissingMessage(parentSessionId: string, sourceCommandId: string): string {
+      try {
+        assertCommandAckFactAlive(null, { parentSessionId, sourceCommandId }, NOW)
+        return ''
+      } catch (err) {
+        return (err as Error).message
+      }
+    }
+
+    it('用户 8 复用用户 7 的坐标 + 同指纹 ⇒ 500 NOT_ALIVE,不回包 fact,文案与 missing 逐字一致', async () => {
+      appFor(store, kv)
+      await app.ready()
+      const body = { parent_session_id: 'ps-11', source_command_id: 'cmd-11', payload: { secret: 'a' } }
+      await post(body)
+      const foreign = await post(body, '8')
+      expect(foreign.status).toBe(500)
+      expect(foreign.body.errorCode).toBe(COMMAND_ACK_FACT_NOT_ALIVE_CODE)
+      expect(foreign.body.data).toBeUndefined()
+      expect(foreign.body.message).toBe(canonicalMissingMessage('ps-11', 'cmd-11'))
+      expect(JSON.stringify(foreign.body)).not.toContain('secret')
+      const row = await store.getFact('ps-11', 'cmd-11')
+      expect(row?.ownerKey).toBe('user:7')
+      expect(store.size()).toBe(1)
+    })
+
+    it('用户 8 复用用户 7 的坐标 + 异指纹 ⇒ 500 而非 409,errorCode 不是 KEY_REUSED', async () => {
+      appFor(store, kv)
+      await app.ready()
+      await post({ parent_session_id: 'ps-12', source_command_id: 'cmd-12', payload: { v: 1 } })
+      const probe = await post(
+        { parent_session_id: 'ps-12', source_command_id: 'cmd-12', payload: { v: 2 } },
+        '8',
+      )
+      expect(probe.status).toBe(500)
+      expect(probe.body.errorCode).toBe(COMMAND_ACK_FACT_NOT_ALIVE_CODE)
+      expect(probe.body.errorCode).not.toBe(COMMAND_ACK_KEY_REUSED_CODE)
+      expect(probe.body.data).toBeUndefined()
+      const row = await store.getFact('ps-12', 'cmd-12')
+      expect(row?.payload).toEqual({ v: 1 })
+      expect(store.size()).toBe(1)
+    })
+
+    it('全新坐标 ⇒ 正常 201 写入;同租户重放 ⇒ 200 replayed(未误伤正常语义)', async () => {
+      appFor(store, kv)
+      await app.ready()
+      const body = { parent_session_id: 'ps-13', source_command_id: 'cmd-13', payload: { v: 1 } }
+      const created = await post(body, '8')
+      expect(created.status).toBe(201)
+      expect((created.body.data as Record<string, unknown>).replayed).toBe(false)
+      const replay = await post(body, '8')
+      expect(replay.status).toBe(200)
+      expect((replay.body.data as Record<string, unknown>).replayed).toBe(true)
+      expect(store.size()).toBe(1)
+    })
   })
 })
 

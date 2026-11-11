@@ -1,0 +1,6 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// 平台适配层:为鸿蒙(RNOH + ArkTS 自写桥)留替换点 —— 模糊视图统一从这里取。
+// BlurView/BlurTargetView 是组件类型,必须原样透出才能直接当 JSX 用。
+
+export { BlurView, BlurTargetView } from 'expo-blur'

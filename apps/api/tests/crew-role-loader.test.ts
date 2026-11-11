@@ -85,6 +85,85 @@ describe('crew-role-loader', () => {
     expect(warns.some((w) => w.includes('缺少必要字段'))).toBe(true)
   })
 
+  it('CREW_ROLES_JSON 为 {} → 空结果按失败处理, 回落内置角色', () => {
+    process.env.CREW_ROLES_JSON = '{}'
+    const roles = loadCrewRoles()
+    expect(Object.keys(roles).sort()).toEqual([
+      'executor',
+      'planner',
+      'reporter',
+      'researcher',
+      'reviewer',
+    ])
+    expect(Object.keys(roles).length).toBe(5)
+    expect(warns.some((w) => w.includes('无有效角色'))).toBe(true)
+  })
+
+  it('CREW_ROLES_JSON 所有角色都缺 goal/backstory → 回落内置角色', () => {
+    process.env.CREW_ROLES_JSON = JSON.stringify({
+      planner: { role: 'planner' },
+      reporter: { role: 'reporter', goal: 'G' },
+      _comment: '注释字段不算有效角色',
+    })
+    const roles = loadCrewRoles()
+    expect(Object.keys(roles).length).toBe(5)
+    expect(roles.planner?.backstory).toBeTruthy()
+    expect(roles.reporter?.backstory).toBeTruthy()
+  })
+
+  it('部分角色有效 → 只用有效角色, 不回落', () => {
+    process.env.CREW_ROLES_JSON = JSON.stringify({
+      planner: { role: 'planner', goal: 'G1', backstory: 'B1' },
+      reporter: { role: 'reporter' }, // 缺 goal/backstory, 跳过
+    })
+    const roles = loadCrewRoles()
+    expect(Object.keys(roles)).toEqual(['planner'])
+    expect(roles.planner?.goal).toBe('G1')
+    // 未回落: 其余内置角色不应出现
+    expect(roles.executor).toBeUndefined()
+  })
+
+  it('合法配置 → 行为与改前一致 (整体覆盖, 不回落)', () => {
+    process.env.CREW_ROLES_JSON = JSON.stringify({
+      planner: {
+        role: 'planner',
+        goal: 'LEGAL_GOAL',
+        backstory: 'LEGAL_BACKSTORY',
+        llmModelId: 'm1',
+        tools: ['t1'],
+        allowDelegation: true,
+        verbose: false,
+      },
+      reviewer: { role: 'reviewer', goal: 'RG', backstory: 'RB' },
+    })
+    const roles = loadCrewRoles()
+    expect(Object.keys(roles).sort()).toEqual(['planner', 'reviewer'])
+    expect(roles.planner).toEqual({
+      role: 'planner',
+      goal: 'LEGAL_GOAL',
+      backstory: 'LEGAL_BACKSTORY',
+      llmModelId: 'm1',
+      tools: ['t1'],
+      allowDelegation: true,
+      verbose: false,
+    })
+    expect(roles.reviewer?.tools).toEqual([])
+  })
+
+  it('空结果不进入成功缓存: 未 reset 时改 env 仍返回已缓存的回落角色', () => {
+    process.env.CREW_ROLES_JSON = '{}'
+    const first = loadCrewRoles()
+    expect(Object.keys(first).length).toBe(5)
+
+    // 若空对象被当成功结果缓存, 这里会拿到 {} 而不是 5 个角色
+    process.env.CREW_ROLES_JSON = JSON.stringify({
+      planner: { role: 'planner', goal: 'NEW', backstory: 'NEW' },
+    })
+    const second = loadCrewRoles()
+    expect(second).toBe(first)
+    expect(Object.keys(second).length).toBe(5)
+  })
+
   it('cached: 多次调用返回同一引用', () => {
     const a = loadCrewRoles()
     const b = loadCrewRoles()

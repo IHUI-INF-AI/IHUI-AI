@@ -358,8 +358,28 @@ export function rebindDatabase(db, oldUid, newUid) {
   }
   for (const [table, col] of Object.entries(uidCols)) {
     try {
-      const r = db.prepare(`UPDATE "${table}" SET "${col}" = ? WHERE "${col}" = ?`).run(newUid, oldUid)
-      changed[table] = Number(r.changes)
+      const oldCount = Number(
+        db.prepare(`SELECT COUNT(*) c FROM "${table}" WHERE "${col}" = ?`).get(oldUid).c,
+      )
+      const newCount = Number(
+        db.prepare(`SELECT COUNT(*) c FROM "${table}" WHERE "${col}" = ?`).get(newUid).c,
+      )
+      // 双号并存(历史多次切号/客户端写入累积,本机实读 user_configuration/project 各有两号各一行):
+      // 这些表的 user_id 列带 UNIQUE 约束,直接 UPDATE oldUid→newUid 会与已存在的 newUid 行冲突,
+      // SQLite 抛 SQLITE_CONSTRAINT ⇒ 该语句影响 0 行、oldUid 残留 ⇒ 下游 checkUidLeftovers 触发
+      // leftover-uid 保护、整链 abort、切号完不成(2026-11-11 实测 2187400009507360↔1501258536739520)。
+      // 切号语义 = oldUid 数据归属 newUid,故 oldUid 行确实存在时,先删已存在的 newUid 行
+      // (它将被 oldUid 重绑后的数据取代),再 UPDATE oldUid→newUid。
+      if (oldCount > 0 && newCount > 0) {
+        const d = db.prepare(`DELETE FROM "${table}" WHERE "${col}" = ?`).run(newUid)
+        changed[`${table}:dropped-newUid`] = Number(d.changes)
+      }
+      if (oldCount > 0) {
+        const r = db.prepare(`UPDATE "${table}" SET "${col}" = ? WHERE "${col}" = ?`).run(newUid, oldUid)
+        changed[table] = Number(r.changes)
+      } else {
+        changed[table] = 0
+      }
     } catch {
       changed[table] = 0 // 无该列(SQLCipher 版本差异)⇒ 不判错,记 0 由汇总层报数
     }

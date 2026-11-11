@@ -477,6 +477,146 @@ test('T4 作用域段:函数体带空行时 method 仍取得到(空行不得让�
 })
 
 // ─────────────────────────────────────────────────────────────────────────
+// T5 ⑤段不得跨**已闭合**的函数借 method(2026-11-11,edu-attendance.spec.ts:870 现场)
+// ─────────────────────────────────────────────────────────────────────────
+//
+// 复刻 apps/web/e2e/edu-attendance.spec.ts:809-873 的骨架:
+//   async function probeWriteContract(...) {   ← funcStartRe 认得出的函数,块内 method:'POST'
+//     …
+//   }                                          ← 块在这里闭合
+//   test('…', async ({ page }) => {            ← funcStartRe 认不出的形态(调用实参回调)
+//     page.evaluate(async (paths) => {         ← 同样认不出(匿名箭头)
+//       fetch(p, {credentials:'include'})      ← 裸 fetch(浏览器默认 GET)
+//     }, [ '/api/…/attendance/me', … ])        ← 路径字面量住在尾数组里 = 门的取证行
+// 向上找 funcStartLine 会**穿过**这两个认不出的回调,落到已闭合的 probeWriteContract 上,
+// 向下扫越过闭合界借走它的 `method:'POST'` ⇒ GET 误判 POST。
+// 修后:块尾(>起始行,即真的开了花括号块且配对成功)在 idx 之前,且被调词非具名 wrapper
+// (本夹具的取证行经 span 归到 `page.evaluate`,裸 fetch 同理不借)⇒ 整段 ⑤ 不借 ⇒ GET。
+// 后端对 /api/probe/list **只注册 GET** ⇒ 借到 POST 就判死,读数分开。
+test('T5 ⑤段:前一函数带 method:POST 且已闭合,后一函数(认不出的回调形态)裸 fetch ⇒ 归 GET', () => {
+  const dir = root()
+  try {
+    put(dir, 'scripts/api-routes-baseline.json', BASELINE)
+    put(
+      dir,
+      'apps/api/src/routes/probe.ts',
+      [
+        "server.get('/api/probe/list', async () => ([]))",
+        // 污染源那条**必须**注册 —— 否则它自己进判死清单,读数被第二个死调用搅浑。
+        "server.post('/api/probe/write', async () => ({}))",
+        '',
+      ].join('\n'),
+    )
+    put(
+      dir,
+      'apps/web/src/probe.ts',
+      [
+        'async function probeWrite() {',
+        "  const r = await fetchApi('/api/probe/write', {",
+        "    method: 'POST',", // ← 污染源(住在**已闭合**的函数里)
+        '  })',
+        '  return r',
+        '}',
+        '',
+        "test('read paths', async ({ page }) => {", // ← funcStartRe 认不出
+        '  const probed = await page.evaluate(',
+        '    async (paths) => {', // ← 同样认不出
+        '      const out = []',
+        '      for (const p of paths) {',
+        '        const res = await fetch(p, {', // ← 裸 fetch,浏览器默认 GET
+        "          credentials: 'include',",
+        '        })',
+        '        out.push(res)',
+        '      }',
+        '      return out',
+        '    },',
+        '    [',
+        "      '/api/probe/list',", // ← 门的取证行(应归 GET)
+        '    ],',
+        '  )',
+        '  return probed',
+        '})',
+        '',
+      ].join('\n'),
+    )
+    const r = run(dir, ['--warn-only', '--dump-missing', join(dir, 'missing.json')])
+    const missing = missingOf(dir)
+    assert.equal(calls(r.out, 'web'), 2, `两条调用点都该在调用集里\n${r.out}`)
+    assert.deepEqual(
+      missing.map((m) => m.path),
+      [],
+      `/api/probe/list 必须归 GET;判死 = ⑤ 段越过已闭合函数的界借走了 :3 的 method:'POST'\n${JSON.stringify(missing, null, 1)}`,
+    )
+    assert.equal(r.status, 0, `在册端点不得判红\n${r.out}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// ─────────────────────────────────────────────────────────────────────────
+// T6 防过度收窄 · 裸 fetch 住在闭合界**之前**(同一函数体内)⇒ ⑤ 仍要借到 POST
+// ─────────────────────────────────────────────────────────────────────────
+//
+// T5 的同一夹具,只把尾数组搬进 probeWrite 的闭合界**之内** —— 这正是 ⑤ 段的设计意图
+// (同函数体内 wrapper 的 method 归给体内调用,见 T2a 同款理由)。若实现把"起始行是
+// 具名函数就一律不借"(过度收窄),这条立刻翻红:后端对 /api/probe/write-again
+// **只注册 POST** ⇒ 归成 GET 就判死。
+test('T6 防过度收窄:裸 fetch 在闭合界之前(同一函数体)⇒ ⑤ 段仍借到 POST', () => {
+  const dir = root()
+  try {
+    put(dir, 'scripts/api-routes-baseline.json', BASELINE)
+    put(
+      dir,
+      'apps/api/src/routes/probe.ts',
+      [
+        "server.post('/api/probe/write', async () => ({}))",
+        "server.post('/api/probe/write-again', async () => ({}))",
+        '',
+      ].join('\n'),
+    )
+    put(
+      dir,
+      'apps/web/src/probe-in.ts',
+      [
+        'async function probeWrite(page) {',
+        "  const r = await fetchApi('/api/probe/write', {",
+        "    method: 'POST',", // ← 与调用行**同住一个未闭合的函数体**
+        '  })',
+        '  const probed = await page.evaluate(',
+        '    async (paths) => {',
+        '      const out = []',
+        '      for (const p of paths) {',
+        '        const res = await fetch(p, {',
+        "          credentials: 'include',",
+        '        })',
+        '        out.push(res)',
+        '      }',
+        '      return out',
+        '    },',
+        '    [',
+        "      '/api/probe/write-again',", // ← 闭合界之前 ⇒ 仍应借到 POST
+        '    ],',
+        '  )',
+        '  return { r, probed }',
+        '}',
+        '',
+      ].join('\n'),
+    )
+    const r = run(dir, ['--warn-only', '--dump-missing', join(dir, 'missing.json')])
+    const missing = missingOf(dir)
+    assert.equal(calls(r.out, 'web'), 2, `两条调用点都该在调用集里\n${r.out}`)
+    assert.deepEqual(
+      missing,
+      [],
+      `/api/probe/write-again 必须仍归 POST;判死 = ⑤ 段被过度收窄(闭合界之前也拒绝借)\n${JSON.stringify(missing, null, 1)}`,
+    )
+    assert.equal(r.status, 0, `在册端点不得判红\n${r.out}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// ─────────────────────────────────────────────────────────────────────────
 // 源码锁:两条加固的判据入口都在,且注释不得被删
 // ─────────────────────────────────────────────────────────────────────────
 
@@ -514,6 +654,27 @@ test('S1 源码锁:向前段与作用域段的加固判据都在', () => {
     LIB,
     /if \(i >= idx\) break/,
     '作用域段必须处理"本调用就写在该块内"的情形(它自己的 queryFn/mutationFn 归因归向后段)',
+  )
+  // 2026-11-11 加固:⑤ 段取 funcStartLine 后必须验块尾(块尾存在且在 idx 前 ⇒ 整段不借)
+  assert.match(
+    LIB,
+    /const funcBlockEnd = findBraceBlockEnd\(lines, funcStartLine\)/,
+    '⑤ 段必须用 findBraceBlockEnd 验"找到的函数起始行是否包含 idx" —— 缺它则 edu-attendance.spec.ts:870 型跨已闭合函数借 method 复现',
+  )
+  assert.match(
+    LIB,
+    /funcBlockEnd > funcStartLine && funcBlockEnd < idx/,
+    '⑤ 段"不借"必须窄口径:块尾真实存在(>起始行)且在 idx 前才认定不含 idx(否则 T2a 表达式体 wrapper 被误伤)',
+  )
+  assert.match(
+    LIB,
+    /\*\*只有本调用确实经过具名 wrapper 才继续借\*\*|calleeBase === 'fetchApi'/,
+    '⑤ 段闭合界后只有经具名 wrapper(fetchApi/同文件函数)才继续借;裸 fetch/page.evaluate 不借 —— 一律不借会把 self-media/wechat/page.tsx:310(调用点住在 wrapper 块外,⑤ 设计意图)判成 GET 死调用',
+  )
+  assert.match(
+    LIB,
+    /if \(!routed\) funcStartLine = -1/,
+    '⑤ 段"不借"的出口必须是 routed 判定(裸 fetch/page.evaluate/取不到被调词 ⇒ 不借)',
   )
   assert.match(
     EXPAND,

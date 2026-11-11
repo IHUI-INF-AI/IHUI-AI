@@ -149,6 +149,9 @@ _BALANCE_EXHAUSTED_KEYWORDS = (
     "spending-limit",
     "personal-team-blocked",
     "add credits",
+    "overdue-payment",
+    "overdue payment",
+    "account is in good standing",
     "余额不足",
     "额度不足",
     "剩余额度",
@@ -175,6 +178,8 @@ _MODEL_NOT_FOUND_KEYWORDS = (
     "use /v1/responses instead",
     "not allowed to access",
     "access-denied",
+    "accessdenied.unpurchased",
+    "only available on agentic harnesses",
     "模型不存在",
     "模型无效",
     "模型不可用",
@@ -893,6 +898,16 @@ class ModelHealthService:
                 if resp.status_code in (400, 422) and _needs_stream(resp.text or ""):
                     # 少数厂商只允许流式调用:换 stream=True 再试,避免把可用模型误判为死亡
                     payload["stream"] = True
+                    resp = await client.post(chat_url, headers=headers, json=payload)
+                if (
+                    resp.status_code == 403
+                    and "白名单" in (resp.text or "")
+                    and upstream_model != model_id
+                ):
+                    # 自家 relay 网关(workbuddy_relay 等)的白名单按带厂商前缀的 id 登记
+                    # (如 workbuddy/*),剥前缀探测会被 403「模型不在白名单」误杀;
+                    # 换回完整 id 复测一次,避免把真实可用的平台模型判成未验证。
+                    payload["model"] = model_id
                     resp = await client.post(chat_url, headers=headers, json=payload)
             latency_ms = int((time.monotonic() - start) * 1000)
             # 分类必须基于完整响应文本:关键词可能出现在前 180 字符之后,

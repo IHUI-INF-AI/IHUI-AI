@@ -151,6 +151,9 @@ export const adminPushRoutes: FastifyPluginAsync = async (server) => {
     const { title, body: msgBody, clickUrl, data, tokens, memberIds } = parsed.data
 
     const message: PushMessage = { title, body: msgBody, clickUrl, data }
+    // SDB-47:未配置通道时每条结果都是 success:false(failed=total),但管理端仅看 failed
+    // 无法区分「全部投递失败」与「根本没配通道」,故在响应顶层带出 provider(=stub 即桩)。
+    const provider = detectPushProvider()
 
     // 1. 优先使用显式 tokens
     if (tokens && tokens.length > 0) {
@@ -161,6 +164,7 @@ export const adminPushRoutes: FastifyPluginAsync = async (server) => {
       const successCount = results.filter((r) => r.success).length
       return reply.send(
         success({
+          provider,
           total: results.length,
           success: successCount,
           failed: results.length - successCount,
@@ -178,7 +182,14 @@ export const adminPushRoutes: FastifyPluginAsync = async (server) => {
       const activeTokens = rows.map((r) => r.token)
       if (activeTokens.length === 0) {
         return reply.send(
-          success({ total: 0, success: 0, failed: 0, results: [], note: '指定用户无激活设备' }),
+          success({
+            provider,
+            total: 0,
+            success: 0,
+            failed: 0,
+            results: [],
+            note: '指定用户无激活设备',
+          }),
         )
       }
       const results = await sendPushBatch(
@@ -188,6 +199,7 @@ export const adminPushRoutes: FastifyPluginAsync = async (server) => {
       const successCount = results.filter((r) => r.success).length
       return reply.send(
         success({
+          provider,
           total: results.length,
           success: successCount,
           failed: results.length - successCount,

@@ -33,7 +33,7 @@
  *   amountCents(用户充值金额,分) → USDT amount = amountCents / 100 / rate
  *   amountPaid(实收 USDT) → tokens credited = round(amountPaid × rate × 100)
  */
-import { eq, and, not, sql, desc, gt, inArray, type SQL } from 'drizzle-orm'
+import { eq, and, not, sql, desc, inArray, type SQL } from 'drizzle-orm'
 import { randomInt } from 'node:crypto'
 import { db, dbRead } from '../db/index.js'
 import { usdtPayments, systemConfigs, userMargins, tokenFlows } from '@ihui/database'
@@ -503,9 +503,9 @@ function isPendingAmountConflict(err: unknown): boolean {
  *
  * 逻辑:
  * 1. 读取订单,若非 pending 直接返回当前状态
- * 2. 若已过期(status='pending' AND expires_at < now)→ 标记 expired,返回
- * 3. 调用区块链 API 查询充值地址的近期转入交易
- * 4. 匹配金额 >= 应收金额的交易 → 返回 detected=true + txHash + amountPaid
+ * 2. 调用区块链 API 查询充值地址的近期转入交易(SDB-44:必须先于过期判定)
+ * 3. 匹配到有效交易 → 返回 detected=true + txHash + amountPaid(即便订单已越过 expiresAt)
+ * 4. 链上确实没有有效交易才把订单标记 expired;(链上检测失败则保持 pending)
  *
  * 区块链 API:
  * - TRC20:TronGrid /v1/accounts/{address}/transactions/trc20
@@ -533,15 +533,9 @@ export async function checkUsdtPaymentStatus(orderId: string): Promise<UsdtPayme
     }
   }
 
-  // 检查过期
-  const now = new Date()
-  if (order.expiresAt < now) {
-    await db
-      .update(usdtPayments)
-      .set({ status: 'expired' })
-      .where(and(eq(usdtPayments.orderId, orderId), eq(usdtPayments.status, 'pending')))
-    return { orderId, status: 'expired', detected: false, txHash: null, amountPaid: null }
-  }
+  // SDB-44:过期判定必须排在链上检测之后。越过 expiresAt 只说明「时间窗关了」,
+  // 不代表没收到钱;旧实现先落 expired 就再也不查链,已付款订单只能人工处理。
+  const expired = order.expiresAt < new Date()
 
   // 调用区块链 API 检测到账
   const expectedAmount = Number(order.amount)
@@ -555,15 +549,17 @@ export async function checkUsdtPaymentStatus(orderId: string): Promise<UsdtPayme
       detection = await checkErc20Payment(order.address, expectedAmount, sinceTimestamp)
     }
   } catch (err) {
-    // 区块链 API 故障不阻断,返回 pending 等待下次轮询
+    // SDB-44:链上检测失败/不可用 ≠ 没付款。这里不能落到下面的 expired 分支,
+    // 否则一次 API 抖动就把待收款订单写成过期;保留 pending 等下一轮重试。
     console.error(
-      `[usdt-payment] 区块链 API 查询失败(orderId=${orderId}):`,
+      `[usdt-payment] 区块链 API 查询失败,订单保持 pending 等待重试(orderId=${orderId}):`,
       err instanceof Error ? err.message : String(err),
     )
     return { orderId, status: 'pending', detected: false, txHash: null, amountPaid: null }
   }
 
   if (detection && isExactAmount(detection.amountPaid, expectedAmount)) {
+    // 命中即按已支付返回(即使已过期),由调用方走链上取证后入账
     return {
       orderId,
       status: 'pending',
@@ -571,6 +567,15 @@ export async function checkUsdtPaymentStatus(orderId: string): Promise<UsdtPayme
       txHash: detection.txHash,
       amountPaid: detection.amountPaid,
     }
+  }
+
+  // 链上确实没有有效交易,才允许把过期订单落 expired
+  if (expired) {
+    await db
+      .update(usdtPayments)
+      .set({ status: 'expired' })
+      .where(and(eq(usdtPayments.orderId, orderId), eq(usdtPayments.status, 'pending')))
+    return { orderId, status: 'expired', detected: false, txHash: null, amountPaid: null }
   }
 
   return { orderId, status: 'pending', detected: false, txHash: null, amountPaid: null }
@@ -1013,8 +1018,11 @@ export async function confirmUsdtPaymentWithOnChainCheck(
     .limit(1)
   if (!order) throw Object.assign(new Error('订单不存在'), { statusCode: 404 })
 
-  // 已确认/已过期等终态:委托 confirmUsdtPayment 做幂等返回
-  if (order.status !== 'pending') {
+  // SDB-44:expired 保留补救通道(过期后才到账/才被扫到的订单仍可入账),
+  // 但只放行 expired 这一档;confirmed 仍幂等返回,refunded/cancelled 等终态
+  // 继续走 confirmUsdtPayment 抛 400,不放宽状态门。
+  const isExpired = order.status === 'expired'
+  if (order.status !== 'pending' && !isExpired) {
     const fallbackAmount =
       order.amountPaid && order.amountPaid !== '0' ? Number(order.amountPaid) : Number(order.amount)
     return confirmUsdtPayment(orderId, txHash, fallbackAmount)
@@ -1028,9 +1036,29 @@ export async function confirmUsdtPaymentWithOnChainCheck(
   )
   if (!verification.verified || verification.amountOnChain === null) {
     console.info(
-      `[usdt-payment] 订单 ${orderId} 链上取证未通过,保持 pending: ${verification.reason}`,
+      `[usdt-payment] 订单 ${orderId} 链上取证未通过,保持${isExpired ? ' expired' : ' pending'}: ${verification.reason}`,
     )
-    return { orderId, status: 'pending', tokensCredited: 0, pendingReason: verification.reason }
+    return {
+      orderId,
+      status: isExpired ? 'expired' : 'pending',
+      tokensCredited: 0,
+      pendingReason: verification.reason,
+    }
+  }
+
+  if (isExpired) {
+    // SDB-44:过期补救。先原子地把 expired 回拨为 pending(仅当仍为 expired),
+    // 再复用 confirmUsdtPayment 的统一入账逻辑;不直接放宽 confirmUsdtPayment 的
+    // pending 门,避免其它入口借该函数复活终态订单。
+    const restored = await db
+      .update(usdtPayments)
+      .set({ status: 'pending' })
+      .where(and(eq(usdtPayments.orderId, orderId), eq(usdtPayments.status, 'expired')))
+      .returning({ orderId: usdtPayments.orderId })
+    if (restored.length === 0) {
+      // 并发下已被其它流程推进(如 confirmed):交给 confirmUsdtPayment 幂等/拦截
+      console.info(`[usdt-payment] 订单 ${orderId} 状态已变更,跳过过期补救回拨`)
+    }
   }
 
   // 以服务端取证金额入账(客户端 amountPaid 仅作提示,不作为入账依据)
@@ -1186,23 +1214,25 @@ export async function confirmUsdtPayment(
  * 批量轮询 pending 订单,检测到账并自动确认(供 BullMQ Worker 调用)。
  *
  * 逻辑:
- * 1. 查询 status='pending' AND expires_at > now 的订单(批量,默认 50 条)
- * 2. 对每条调 checkUsdtPaymentStatus
+ * 1. 查询 status='pending' 的订单(批量,默认 50 条;SDB-44 起不再按 expires_at 过滤,
+ *    否则在到期前最后一刻付款的订单会被整轮跳过)
+ * 2. 对每条调 checkUsdtPaymentStatus(先查链,确实无交易才落 expired)
  * 3. 若 detected=true,调 confirmUsdtPayment
  * 4. 返回统计
  *
  * 接入 BullMQ Worker 定时调用(cron 每 1 分钟)。
  */
 export async function pollPendingUsdtPayments(batchSize = 50): Promise<PollResult> {
-  const now = new Date()
-  // 查询未过期的 pending 订单(status='pending' AND expires_at > now)
+  // SDB-44:去掉 expires_at > now 过滤。原过滤会让「本轮刚跨过 expiresAt」的订单
+  // 永远等不到一次链上检测(而 checkUsdtPaymentStatus 已经做到先查链再判过期)。
+  // 过期订单若查链无交易会在 next check 中落 expired,因此不会无限重扫。
   // 2026-08-29 立:不能用 raw sql 模板传 Date —— 本环境(Node 24 + postgres-js 3.4.9)
   // 原生 Date 参数序列化会抛 ERR_INVALID_ARG_TYPE(Buffer.from 收到 Date),
-  // 必须用 drizzle 类型化操作符 gt()(drizzle 会按列映射先转 ISO 字符串)。
+  // 必须用 drizzle 类型化操作符(此处已无 Date 参数)。
   const validPending = await dbRead
     .select({ orderId: usdtPayments.orderId })
     .from(usdtPayments)
-    .where(and(eq(usdtPayments.status, 'pending'), gt(usdtPayments.expiresAt, now)))
+    .where(eq(usdtPayments.status, 'pending'))
     .limit(batchSize)
 
   let checked = 0

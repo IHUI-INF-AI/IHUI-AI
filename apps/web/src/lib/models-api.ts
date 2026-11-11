@@ -44,6 +44,12 @@ export type { ProviderHealth } from '@ihui/api-client'
 export interface SelectorModel extends LlmModel {
   /** 积分消耗倍数(0=免费/1=经济/3=标准/10=高级/30=旗舰,后端 free_provider_registry 推断) */
   points_multiplier?: number
+  /** 连通性探测状态(2026-11-11 立):down 已被后端过滤,不会出现。
+   *  只有 healthy 是真 ping 通过;pending(账户级错误/未探测)与 unknown(无状态)
+   *  都不可依赖。字段缺失按 unknown 处理。 */
+  health_status?: 'healthy' | 'pending' | 'unknown'
+  /** 探测失败时的简短脱敏错误(可能为空) */
+  health_error?: string
 }
 
 /**

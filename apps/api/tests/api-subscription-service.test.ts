@@ -392,17 +392,45 @@ describe('api-subscription-service — API 订阅核心 service', () => {
       expect(valuesArg.tokenBalance).toBe(-1)
     })
 
-    it('SDB-04 正向对照:窗口全为 >0 时仍取最大值(日=-1 的 -1 不得污染正常套餐)', async () => {
+    it('SDB-04 混合:任一日窗口 = -1 + 月窗口有限 → 总额仍为不限(-1)', async () => {
+      mockDbReadSelect.mockReturnValueOnce(
+        chain([
+          {
+            id: 'plan-mixed',
+            name: 'API 日不限/月限',
+            features: [],
+            validityDays: 30,
+            dailyTokenLimit: -1,
+            weeklyTokenLimit: 0,
+            monthlyTokenLimit: 200000,
+            modelWhitelist: null,
+            billingGroupCode: null,
+          },
+        ]),
+      )
+      txSelectQueue.push([]) // 无 active Key
+      const insertResult = insertChain([{ id: 'new-key-mixed' }])
+      mockDbInsert.mockReturnValueOnce(insertResult)
+
+      const result = await activateApiSubscription('user-3', 'plan-mixed')
+
+      expect(result.success).toBe(true)
+      expect(result.tokenQuota).toBe(-1)
+      const valuesArg = insertResult.values.mock.calls[0]![0]
+      expect(valuesArg.tokenBalance).toBe(-1)
+    })
+
+    it('SDB-04 正向对照:窗口全为 >0 时仍取最大值(有限窗口求和结果不变)', async () => {
       mockDbReadSelect.mockReturnValueOnce(
         chain([
           {
             id: 'plan-capped',
-            name: 'API 日限',
+            name: 'API 多档限额',
             features: [],
             validityDays: 30,
             dailyTokenLimit: 5000,
-            weeklyTokenLimit: 0,
-            monthlyTokenLimit: 0,
+            weeklyTokenLimit: 8000,
+            monthlyTokenLimit: 2000,
             modelWhitelist: null,
             billingGroupCode: null,
           },
@@ -415,8 +443,144 @@ describe('api-subscription-service — API 订阅核心 service', () => {
       const result = await activateApiSubscription('user-1', 'plan-capped')
 
       expect(result.success).toBe(true)
-      expect(result.tokenQuota).toBe(5000)
-      expect(updateResult.set).toHaveBeenCalledWith(expect.objectContaining({ tokenBalance: 6000 }))
+      expect(result.tokenQuota).toBe(8000)
+      expect(updateResult.set).toHaveBeenCalledWith(expect.objectContaining({ tokenBalance: 9000 }))
+    })
+
+    // =========================================================================
+    // SDB-05(2026-11-11):无限配额支路也必须落 token_flows 幂等流水,
+    // balance_after 写该支路真实结余(-1 = 无限),不能用 0 冒充"耗尽"。
+    // =========================================================================
+    it('SDB-05:无限配额激活 → 写流水,quantity/balanceAfter 均为 -1', async () => {
+      mockDbReadSelect.mockReturnValueOnce(
+        chain([{ id: 'plan-ent', name: 'API Enterprise', features: ['unlimited tokens'] }]),
+      )
+      // 事务外幂等查询:该订单无历史流水
+      mockDbReadSelect.mockReturnValueOnce(chain([]))
+      // 事务内:先二次幂等查询(空),再查 active Key(FOR UPDATE)
+      txSelectQueue.push([], [{ id: 'key-1', tokenBalance: 1000 }])
+      mockDbUpdate.mockReturnValueOnce(updateChain())
+      const flowInsert = insertChain([])
+      mockDbInsert.mockReturnValueOnce(flowInsert)
+
+      const result = await activateApiSubscription('user-1', 'plan-ent', 'order-u-1')
+
+      expect(result.success).toBe(true)
+      expect(result.tokenQuota).toBe(-1)
+      const flowValues = flowInsert.values.mock.calls[0]![0]
+      expect(flowValues).toEqual(
+        expect.objectContaining({
+          opType: 6,
+          quantity: -1,
+          // -1 = 该 Key 落库后的真实余额(无限),不能是 0
+          balanceAfter: -1,
+          relatedOrderNo: 'order-u-1',
+        }),
+      )
+    })
+
+    it('SDB-05:Key 已无限再购有限套餐 → 仍写流水(quantity=0,balanceAfter=-1)', async () => {
+      mockDbReadSelect.mockReturnValueOnce(
+        chain([{ id: 'plan-1', name: 'API Starter', features: ['500000 tokens/month'] }]),
+      )
+      mockDbReadSelect.mockReturnValueOnce(chain([]))
+      txSelectQueue.push([], [{ id: 'key-1', tokenBalance: -1 }])
+      const flowInsert = insertChain([])
+      mockDbInsert.mockReturnValueOnce(flowInsert)
+
+      const result = await activateApiSubscription('user-1', 'plan-1', 'order-u-3')
+
+      expect(result.success).toBe(true)
+      // 余额本就是无限,未发生变更
+      expect(mockDbUpdate).not.toHaveBeenCalled()
+      const flowValues = flowInsert.values.mock.calls[0]![0]
+      expect(flowValues).toEqual(
+        expect.objectContaining({
+          opType: 6,
+          quantity: 0,
+          balanceAfter: -1,
+          relatedOrderNo: 'order-u-3',
+        }),
+      )
+    })
+
+    it('SDB-05:同一幂等键重复调用(无限配额)→ 只有一条流水', async () => {
+      const planRow = {
+        id: 'plan-ent',
+        name: 'API Enterprise',
+        features: ['unlimited tokens'],
+      }
+      mockDbReadSelect.mockReturnValueOnce(chain([planRow]))
+      mockDbReadSelect.mockReturnValueOnce(chain([]))
+      txSelectQueue.push([], [{ id: 'key-1', tokenBalance: 1000 }])
+      mockDbUpdate.mockReturnValueOnce(updateChain())
+      const flowInsert = insertChain([])
+      mockDbInsert.mockReturnValueOnce(flowInsert)
+
+      const first = await activateApiSubscription('user-1', 'plan-ent', 'order-u-2')
+      expect(first.success).toBe(true)
+
+      // 回调重放:幂等查询命中已发放流水 → 直接返回,不再写第二条
+      mockDbReadSelect.mockReturnValueOnce(chain([planRow]))
+      mockDbReadSelect.mockReturnValueOnce(chain([{ id: 'flow-1' }]))
+      const second = await activateApiSubscription('user-1', 'plan-ent', 'order-u-2')
+
+      expect(second.success).toBe(false)
+      expect(second.reason).toBe('already_activated')
+      expect(mockDbInsert).toHaveBeenCalledTimes(1)
+    })
+
+    it('SDB-05 对照:有限配额流水与改前一致(quantity=quota,balanceAfter=累加后余额)', async () => {
+      mockDbReadSelect.mockReturnValueOnce(
+        chain([{ id: 'plan-1', name: 'API Starter', features: ['500000 tokens/month'] }]),
+      )
+      mockDbReadSelect.mockReturnValueOnce(chain([]))
+      txSelectQueue.push([], [{ id: 'key-1', tokenBalance: 1000 }])
+      mockDbUpdate.mockReturnValueOnce(updateChain())
+      const flowInsert = insertChain([])
+      mockDbInsert.mockReturnValueOnce(flowInsert)
+
+      const result = await activateApiSubscription('user-1', 'plan-1', 'order-f-1')
+
+      expect(result.success).toBe(true)
+      const flowValues = flowInsert.values.mock.calls[0]![0]
+      expect(flowValues).toEqual(
+        expect.objectContaining({
+          opType: 6,
+          quantity: 500000,
+          balanceAfter: 501000,
+          relatedOrderNo: 'order-f-1',
+        }),
+      )
+    })
+
+    it('SDB-05:同一 orderNo 先无限后有限 → 按既有幂等语义拦截,不写第二条', async () => {
+      const unlimitedPlan = {
+        id: 'plan-ent',
+        name: 'API Enterprise',
+        features: ['unlimited tokens'],
+      }
+      const finitePlan = { id: 'plan-1', name: 'API Starter', features: ['500000 tokens/month'] }
+
+      mockDbReadSelect.mockReturnValueOnce(chain([unlimitedPlan]))
+      mockDbReadSelect.mockReturnValueOnce(chain([]))
+      txSelectQueue.push([], [{ id: 'key-1', tokenBalance: 1000 }])
+      mockDbUpdate.mockReturnValueOnce(updateChain())
+      mockDbInsert.mockReturnValueOnce(insertChain([]))
+
+      const first = await activateApiSubscription('user-1', 'plan-ent', 'order-same')
+      expect(first.success).toBe(true)
+
+      // 同 orderNo 换套餐再激活:幂等键只认 orderNo + op_type=6,应被拦截
+      mockDbReadSelect.mockReturnValueOnce(chain([finitePlan]))
+      mockDbReadSelect.mockReturnValueOnce(chain([{ id: 'flow-1' }]))
+      const second = await activateApiSubscription('user-1', 'plan-1', 'order-same')
+
+      expect(second.success).toBe(false)
+      expect(second.reason).toBe('already_activated')
+      // 只有无限那笔落库,有限套餐未再发放/未再写流水
+      expect(mockDbInsert).toHaveBeenCalledTimes(1)
+      expect(mockDbUpdate).toHaveBeenCalledTimes(1)
     })
   })
 

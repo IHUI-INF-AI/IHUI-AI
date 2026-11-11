@@ -1494,18 +1494,45 @@ ${requirementPreview}
           return r.stdout ?? ''
         }
         runGit(['add', specRelPath], 15000)
-        runGit(
-          ['commit', '--no-verify', '-m', `chore(spec): pipeline ${pipelineId} 更新 spec`],
-          15000,
+        // SDB-41:提交必须带 pathspec。不带 `--` 时 git 会把 index 里所有已暂存文件
+        // (其它会话/他人预先 `git add` 的业务改动)一并裹进 chore(spec) 提交。
+        // 清单只取本流水线产出且确实在索引里发生变化的路径,避免空提交。
+        const changedFiles = runGit(
+          ['diff', '--cached', '--name-only', '--', specRelPath],
+          5000,
         )
-        commitSha = runGit(['rev-parse', 'HEAD'], 5000).trim()
-        stages.push({
-          name: 'commit',
-          status: 'success',
-          log: `commit: ${commitSha.slice(0, 8)}`,
-          startedAt: stage5Start,
-          finishedAt: now(),
-        })
+          .split('\n')
+          .map((line) => line.trim())
+          .filter(Boolean)
+        if (changedFiles.length === 0) {
+          stages.push({
+            name: 'commit',
+            status: 'skipped',
+            log: 'spec 无变更,跳过 commit',
+            startedAt: stage5Start,
+            finishedAt: now(),
+          })
+        } else {
+          runGit(
+            [
+              'commit',
+              '--no-verify',
+              '-m',
+              `chore(spec): pipeline ${pipelineId} 更新 spec`,
+              '--',
+              ...changedFiles,
+            ],
+            15000,
+          )
+          commitSha = runGit(['rev-parse', 'HEAD'], 5000).trim()
+          stages.push({
+            name: 'commit',
+            status: 'success',
+            log: `commit: ${commitSha.slice(0, 8)}`,
+            startedAt: stage5Start,
+            finishedAt: now(),
+          })
+        }
       } catch (e) {
         stages.push({
           name: 'commit',

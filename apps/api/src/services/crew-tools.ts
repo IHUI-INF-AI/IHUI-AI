@@ -135,6 +135,24 @@ const TERMINAL_WHITELIST = [
   'systeminfo',
 ]
 
+/**
+ * 白名单匹配(2026-11-11 修 SDB-51):按 token 序列逐项全等,而不是只拿首个 token 比较。
+ * 为什么必须这么改:白名单里的 `git status`/`node --version` 是多项条目,与单个 binary
+ * 全等比较永远不成立 ⇒ 这些能力长期被拒,而错误信息还把条目列为"允许"。
+ * 判据:命令的前 N 个 token 与条目逐 token 全等(N = 条目的 token 数);命令更长时多出的
+ * token 只作参数原样交给 execFile(shell:false,不解释执行),不给它们任何额外语义。
+ * 不用 startsWith/字符串前缀,否则 `git statusx`/`git status-fake` 这类伪造前缀会混进来。
+ * 单 token 条目(ls/cat…)的匹配结果与改前一致:只看首个 token。
+ */
+function matchTerminalWhitelist(tokens: string[]): string | null {
+  for (const entry of TERMINAL_WHITELIST) {
+    const words = entry.split(/\s+/).filter(Boolean)
+    if (words.length > tokens.length) continue
+    if (words.every((word, i) => tokens[i] === word)) return entry
+  }
+  return null
+}
+
 /** 工具集定义 */
 export const CREW_TOOLS: CrewTool[] = [
   // 1. LLM 二次调用
@@ -301,7 +319,8 @@ export const CREW_TOOLS: CrewTool[] = [
       if (tokens.length === 0) {
         return { success: false, error: '命令不能为空', duration: 0 }
       }
-      // 拒绝 shell 元字符(防止任何形式注入,execFile 虽无 shell 也作为防御纵深)
+      // 拒绝 shell 元字符:execFile 无 shell,多余参数不会被解释执行;这里仍拒绝分号、&&、管道、
+      // 重定向、反引号、$() 等,是为了不把"明显的注入企图"当合法参数放行(防御纵深)。
       if (/[;|&$`<>(){}*?!\\]/.test(cmd)) {
         return {
           success: false,
@@ -309,15 +328,15 @@ export const CREW_TOOLS: CrewTool[] = [
           duration: 0,
         }
       }
-      const binary = tokens[0]!
-      const isAllowed = TERMINAL_WHITELIST.some((w) => binary === w)
-      if (!isAllowed) {
+      // 按 token 序列匹配白名单(SDB-51):`git status` 这类多项条目才可能命中
+      if (!matchTerminalWhitelist(tokens)) {
         return {
           success: false,
-          error: `命令不在白名单内: ${binary}。允许: ${TERMINAL_WHITELIST.join(', ')}`,
+          error: `命令不在白名单内: ${tokens.slice(0, 2).join(' ')}。允许: ${TERMINAL_WHITELIST.join(', ')}`,
           duration: 0,
         }
       }
+      const binary = tokens[0]!
       // 2026-11-01 安全强化:白名单只约束"能起哪个进程",不约束"对它说什么"。
       // 原先 cat/head/tail/find/grep 全在白名单里而**参数面零收敛**,且 execFile 未带 cwd
       // ⇒ 进程跑在 API 的工作目录(= 仓库根,里面有 `.env`:数据库口令 + 各厂商模型密钥)。

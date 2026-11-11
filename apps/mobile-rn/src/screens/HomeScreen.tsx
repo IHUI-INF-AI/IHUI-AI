@@ -30,11 +30,11 @@ import { appAlert } from '../components/BottomPops'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Clipboard from '@react-native-clipboard/clipboard'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import * as MediaLibrary from 'expo-media-library'
-import * as ImagePicker from 'expo-image-picker'
-import * as DocumentPicker from 'expo-document-picker'
-import { Asset } from 'expo-asset'
-import { BlurTargetView } from 'expo-blur'
+import * as MediaLibrary from '@/platform/media-library'
+import * as ImagePicker from '@/platform/image-picker'
+import * as DocumentPicker from '@/platform/document-picker'
+import { Asset } from '@/platform/asset'
+import { BlurTargetView } from '@/platform/blur'
 import {
   BookOpen,
   Bot,

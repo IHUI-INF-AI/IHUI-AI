@@ -4,7 +4,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { Alert } from 'react-native'
-import { File, Paths } from 'expo-file-system'
+import { File, Paths } from '@/platform/fs'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { exportMyReport, exportMyReportJson, getMyReport } from '@ihui/api-client'

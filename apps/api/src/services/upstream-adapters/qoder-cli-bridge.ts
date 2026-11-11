@@ -264,13 +264,16 @@ function acquireBridgeLock(signal: AbortSignal | undefined): Promise<() => void>
 // 子进程最小接口(测试注入假 spawn 只需实现这几员)
 // =============================================================================
 
+export type BridgeEventListener = (event: string, listener: (...args: unknown[]) => void) => unknown
+
 export interface BridgeChild {
-  stdin: { write: (chunk: string) => unknown } | null
+  stdin: { write: (chunk: string) => unknown; on?: BridgeEventListener } | null
   stdout: AsyncIterable<unknown> | null
   stderr: AsyncIterable<unknown> | null
   kill: (signal?: NodeJS.Signals) => boolean
   pid?: number
-  once?: (event: string, listener: (...args: unknown[]) => void) => unknown
+  once?: BridgeEventListener
+  on?: BridgeEventListener
 }
 
 export type BridgeSpawn = (
@@ -299,6 +302,79 @@ function killBridgeChild(child: BridgeChild): void {
     child.kill()
   } catch {
     /* 已退出 */
+  }
+}
+
+// =============================================================================
+// 管道异步 'error' 兜底
+// =============================================================================
+
+/**
+ * 子进程/管道死亡状态。
+ *
+ * 立因:runner 崩溃后 stdin.write 的 EPIPE / ERR_STREAM_DESTROYED 是异步 'error'
+ * 事件,try/catch 接不到;无监听即 uncaughtException(index.ts 的全局处理器会
+ * process.exit(1)),一个坏 runner 打挂整个 API。这里把首个异步错误固化成
+ * QoderBridgeError 并记住"已死",后续写入直接抛同一实例,既不吞错也不重复撞事件。
+ */
+export interface BridgeStreamGuard {
+  readonly fatal: QoderBridgeError | null
+  /** 异步错误入口:只认首个,返回固化的错误实例 */
+  fail(source: string, cause: unknown): QoderBridgeError
+  /** 已死则抛首个错误 */
+  assertAlive(): void
+}
+
+export function createBridgeStreamGuard(): BridgeStreamGuard {
+  let fatal: QoderBridgeError | null = null
+  return {
+    get fatal() {
+      return fatal
+    },
+    fail(source, cause) {
+      if (fatal === null) {
+        const detail = cause instanceof Error ? cause.message : String(cause)
+        fatal = new QoderBridgeError(
+          statusCodeForBridgeFailure(detail),
+          `Qoder CLI 桥接: ${source}: ${detail}`,
+        )
+      }
+      return fatal
+    },
+    assertAlive() {
+      if (fatal !== null) throw fatal
+    },
+  }
+}
+
+/** 挂 child / stdin 的 'error' 监听(必须早于首次写入,否则崩溃仍会落到全局处理器) */
+function listenStreamErrors(child: BridgeChild, guard: BridgeStreamGuard): void {
+  const childOn = child.on
+  if (childOn) {
+    childOn.call(child, 'error', (...args: unknown[]) => {
+      guard.fail('runner 子进程异常', args[0])
+    })
+  }
+  const stdin = child.stdin
+  const stdinOn = stdin?.on
+  if (stdin && stdinOn) {
+    stdinOn.call(stdin, 'error', (...args: unknown[]) => {
+      guard.fail('runner stdin 异常', args[0])
+    })
+  }
+}
+
+/** 写入请求:同步抛错同样记为已死;已死时直接抛同一错误,不再触碰管道 */
+export function writeBridgeRequest(
+  stdin: NonNullable<BridgeChild['stdin']>,
+  payload: string,
+  guard: BridgeStreamGuard,
+): void {
+  guard.assertAlive()
+  try {
+    stdin.write(payload)
+  } catch (e) {
+    throw guard.fail('写入请求失败(runner 未启动?)', e)
   }
 }
 
@@ -536,6 +612,9 @@ export async function* qoderCliChatChunks(
       env: process.env,
     })
     spawned = child
+    // 监听必须早于首次写入:spawn 失败/runner 崩溃的 'error' 是异步事件,晚挂会漏
+    const guard = createBridgeStreamGuard()
+    listenStreamErrors(child, guard)
     if (!child.stdin) {
       throw new QoderBridgeError(0, 'Qoder CLI 桥接: 子进程 stdin 不可用')
     }
@@ -547,14 +626,7 @@ export async function* qoderCliChatChunks(
       sdkPath: paths.sdkPath,
       cliPath: paths.cliPath,
     })
-    try {
-      child.stdin.write(`${request}\n`)
-    } catch (e) {
-      throw new QoderBridgeError(
-        0,
-        `Qoder CLI 桥接: 写入请求失败(runner 未启动?): ${e instanceof Error ? e.message : String(e)}`,
-      )
-    }
+    writeBridgeRequest(child.stdin, `${request}\n`, guard)
 
     if (opts.signal) {
       onAbort = () => killBridgeChild(child)
@@ -569,6 +641,7 @@ export async function* qoderCliChatChunks(
 
     const state = createRunnerTranslateState(opts.model ?? 'auto')
     for await (const line of readLines(child.stdout)) {
+      guard.assertAlive()
       if (line.trim() === '') continue
       let msg: unknown
       try {
@@ -582,6 +655,8 @@ export async function* qoderCliChatChunks(
     }
 
     if (opts.signal?.aborted) return // 客户端断开/被取消:静默收尾(子进程已杀)
+    // 管道已死(stdin/child 异步 'error')优先如实上报,别把崩溃伪装成"没出终态"
+    guard.assertAlive()
     if (state.finished) return
     const exit = closed ? await withTimeout(closed, 3000) : null
     const detail = stderrTail !== '' ? `; stderr: ${stderrTail}` : ''

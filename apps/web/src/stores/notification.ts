@@ -16,6 +16,13 @@ interface NotificationState {
   messages: MessageItem[]
   unreadMessageCount: number
   setNotifications: (items: NotificationItem[]) => void
+  /**
+   * 列表缓存填充(2026-11-11,侧栏消息二级菜单需要真实内容)。
+   * 与 setNotifications 的差别:不按分页条目重算 unreadCount ——
+   * 角标真相源是服务端 unread-count(use-global-notification 初始化),
+   * 首页分页只提供"看得见的条目",不能把角标截断成单页未读数。
+   */
+  hydrateNotifications: (items: NotificationItem[]) => void
   addNotification: (item: NotificationItem) => void
   markAsRead: (id: string) => void
   markAllAsRead: () => void
@@ -39,6 +46,17 @@ export const useNotificationStore = create<NotificationState>()(
 
       setNotifications: (notifications) =>
         set({ notifications, unreadCount: notifications.filter((n) => !n.isRead).length }),
+
+      hydrateNotifications: (items) =>
+        set((s) => {
+          // WS 先到但还没进分页快照的条目保留下来,按时间倒序合并去重
+          const seen = new Set(items.map((n) => n.id))
+          const extra = s.notifications.filter((n) => !seen.has(n.id))
+          const merged = [...extra, ...items].sort(
+            (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+          )
+          return { notifications: merged }
+        }),
 
       addNotification: (item) =>
         set((s) => ({

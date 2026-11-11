@@ -18,6 +18,7 @@ import { auditLogs } from '@ihui/database'
 
 export interface AlertCheckResult {
   checked: number
+  /** 已恢复数:上一窗口(24h~48h 前)有错、本窗口(最近 24h)已无 —— 不是建表以来的 error 全量 */
   resolved: number
   escalated: number
   /** 备份链文件系统的问题(每条一个描述,已判定:缺失 / 空文件 / 过期) */
@@ -244,13 +245,21 @@ export async function checkBackupFilesystemFreshness(now: Date): Promise<BackupF
 }
 
 /**
+ * 告警统计的滚动窗口(小时)。
+ * 最近一个窗口用于 checked,紧邻的前一个窗口用于 resolved —— 两段窗口共用这一格,
+ * 改一处两边同时收放。刻意不复用 BACKUP_STALE_HOURS:那是备份新鲜度,改它会悄悄挪动告警口径。
+ */
+const ALERT_WINDOW_HOURS = 24
+
+/**
  * 执行每日告警检查。
  *
  * 策略：
  * 1. 扫描 audit_logs 中 action 含 error/denied/blocked 的最近 24h 记录
  * 2. 统计未处理的严重告警数量
  * 3. 超过阈值的标记为需要升级
- * 4. 24 小时前的旧告警视为已恢复的噪音
+ * 4. 上一窗口(24h~48h 前)有错、最近 24h 已无 ⇒ 视为已恢复的噪音(SDB-53:
+ *    原先只卡上界,把建表以来所有 error 都算成「已恢复」,单调递增且量级 = 历史全量)
  * 5. 巡检备份链目录的**每一个**在册库(现读:ihui_dev + keycloak),
  *    检测 备份缺失 / 空备份(0 字节)/ 超 24h 未更新;读不到目录按"无法判定"同样升级
  */
@@ -267,7 +276,10 @@ export function alertCheckJobStatus(
 export async function checkDailyAlerts(): Promise<AlertCheckResult> {
   const errors: string[] = []
   const now = new Date()
-  const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+  const windowMs = ALERT_WINDOW_HOURS * 60 * 60 * 1000
+  // 本窗口下界 = 24h 前;上一窗口下界 = 48h 前。两个界都由同一格窗口宽度推出,不各写一份 24。
+  const windowStart = new Date(now.getTime() - windowMs)
+  const previousWindowStart = new Date(now.getTime() - 2 * windowMs)
 
   let checked = 0
   let resolved = 0
@@ -279,17 +291,24 @@ export async function checkDailyAlerts(): Promise<AlertCheckResult> {
         count: sql<number>`count(*)::int`,
       })
       .from(auditLogs)
-      .where(and(ilike(auditLogs.action, '%error%'), gt(auditLogs.createdAt, twentyFourHoursAgo)))
+      .where(and(ilike(auditLogs.action, '%error%'), gt(auditLogs.createdAt, windowStart)))
 
     checked = recentAlerts[0]?.count ?? 0
 
-    // 统计 24h 前的旧告警（可视为已恢复的噪音）
+    // 统计「昨日有错、今日已无」那一档:窗口 (48h 前, 24h 前)。
+    // 只卡上界会把建表以来全部 error 都算成已恢复(SDB-53),所以下界不能省。
     const oldAlerts = await db
       .select({
         count: sql<number>`count(*)::int`,
       })
       .from(auditLogs)
-      .where(and(ilike(auditLogs.action, '%error%'), lt(auditLogs.createdAt, twentyFourHoursAgo)))
+      .where(
+        and(
+          ilike(auditLogs.action, '%error%'),
+          gt(auditLogs.createdAt, previousWindowStart),
+          lt(auditLogs.createdAt, windowStart),
+        ),
+      )
 
     resolved = oldAlerts[0]?.count ?? 0
   } catch (err) {

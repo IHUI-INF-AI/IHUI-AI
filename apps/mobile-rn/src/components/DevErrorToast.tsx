@@ -22,7 +22,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native'
 import { tokens } from '../theme/active-tokens'
 import { X } from 'lucide-react-native'
 
-import { rnRadius, rnRadiusFor, rnSpacing, rnType, rnCssLight } from '@ihui/design-tokens'
+import { ELEVATION_STEPS, rnRadius, rnRadiusFor, rnSpacing, rnType, rnCssLight } from '@ihui/design-tokens'
 import { Tappable } from '@ihui/ui-native'
 
 interface DevErrorEntry {
@@ -169,12 +169,8 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.lg,
     paddingHorizontal: BAR_PADDING_H,
     paddingVertical: BAR_PADDING_V,
-    // 投影(Android elevation / iOS shadow)
-    elevation: 8,
-    shadowColor: tokens.gray.black,
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
+    // 投影:错误 Toast 浮层 → 档位 lg
+    ...ELEVATION_STEPS.lg,
   },
   textCol: {
     flex: 1,

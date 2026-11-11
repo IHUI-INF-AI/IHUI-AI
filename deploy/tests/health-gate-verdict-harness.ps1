@@ -121,11 +121,28 @@ $v14 = Get-HealthGateVerdict -Rounds @((Round 'pass' 'pass' 'unknown'))
 T '14a 未折算 ⇒ pass-unproven(老调用方语义一字不变)' ($v14.Decision -eq 'pass-unproven') $v14.Decision
 T '14b Proven=false' ($v14.Proven -eq $false) "$($v14.Proven)"
 
-Write-Output '[15] 折算只作用于 unknown:公网明确 fail 不因源站 pass 被折成绿'
+Write-Output '[15] 失败维缺自身源站证 ⇒ 仍 fail(fail-closed:拿不到该维"源站健康"的证,不救成 entry-broken)'
 $v15 = Get-HealthGateVerdict -Rounds @((RoundP 'pass' 'pass' 'fail' 'pass' 'pass'))
 T '15a Decision 不是 pass(公网 fail 不享受折算)' ($v15.Decision -ne 'pass') $v15.Decision
 T '15b Proven=false' ($v15.Proven -eq $false) "$($v15.Proven)"
-T '15c Decision=entry-broken(公网 fail 但源站健康 ⇒ 入口故障,不回滚也不冒绿)' ($v15.Decision -eq 'entry-broken') $v15.Decision
+T '15c Decision=fail(llm 公网 fail 且无 llmOrigin 证 ⇒ fail-closed,不冒绿也不救成 entry-broken)' ($v15.Decision -eq 'fail') $v15.Decision
+
+Write-Output '[16] 真事故回归(2026-11-10):切流窗口 api/llm 公网 521、源站三路全 200 ⇒ 仍 entry-broken(不回滚好构建)'
+function RoundP3([string]$web, [string]$api, [string]$llm, [string]$wo, [string]$ao, [string]$lo) {
+    $r = Round $web $api $llm
+    $r.webOrigin = $wo; $r.apiOrigin = $ao; $r.llmOrigin = $lo
+    return $r
+}
+$v16 = Get-HealthGateVerdict -Rounds @((RoundP3 'pass' 'fail' 'fail' 'pass' 'pass' 'pass'))
+T '16a Decision=entry-broken(失败维 api/llm 各自的源站都 pass ⇒ 入口故障,不回滚)' ($v16.Decision -eq 'entry-broken') $v16.Decision
+T '16b 不是 fail(好构建不再被误回滚)' ($v16.Decision -ne 'fail') $v16.Decision
+T '16c 也不是 pass(不冒绿)' ($v16.Decision -ne 'pass') $v16.Decision
+T '16d OriginOk=true(逐维聚合)' ($v16.OriginOk -eq $true) "$($v16.OriginOk)"
+
+Write-Output '[17] 反向对照:任一失败维自身源站也不健康 ⇒ 仍 fail(真坏,按 fail-closed 回滚)'
+$v17 = Get-HealthGateVerdict -Rounds @((RoundP3 'pass' 'fail' 'fail' 'pass' 'pass' 'fail'))
+T '17a Decision=fail(llm 维源站也 fail ⇒ 不是入口故障,是真坏)' ($v17.Decision -eq 'fail') $v17.Decision
+T '17b OriginOk=false' ($v17.OriginOk -eq $false) "$($v17.OriginOk)"
 
 Write-Output ''
 Write-Output ("结果: pass=$pass fail=$fail")

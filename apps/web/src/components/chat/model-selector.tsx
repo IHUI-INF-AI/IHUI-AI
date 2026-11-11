@@ -61,6 +61,15 @@ import {
 export type { ModelOption, ModelTier, ModelUsageCategory } from '@/components/chat/model-tier-utils'
 
 /**
+ * 是否未通过连通性探测(2026-11-11 立;字段缺失也按未验证处理,避免误判为可用)。
+ * `verified` 只有后端 `health_status === 'healthy'`(真 ping 通过)才为 true;
+ * pending(账户级错误/未探测)与 unknown(无状态)都不可依赖,一律按未验证展示。
+ */
+function isUnverified(opt: ModelOption): boolean {
+  return opt.verified !== true
+}
+
+/**
  * 厂商图标的懒加载边界(形态与 ai-side-panel.tsx:170 的 BrandIconLazy 一致):
  * React.lazy 只出现在动态 import 里,图标全集因此不进入本路由组的初始编译图;
  * fallback 按同一 size 占位 ⇒ 加载完成不跳动。
@@ -280,8 +289,9 @@ function formatMultiplier(value: number): string {
 
 /**
  * 单个模型行(默认区与历史模型区共用,2026-08-29 抽出)。
- * 左侧:选中勾 + 厂商图标 + 名称 + 未配置⚠(可选) + 用途分类徽章(可选)
+ * 左侧:选中勾 + 厂商图标 + 名称 + 未验证/未配置/分类/能力徽章(均可选)
  * 右侧:会员/正式版/补贴 徽章 + 锁 + 积分倍数
+ * 2026-11-11:未验证(未探测通过)的行整体降权,但 hover/focus 时恢复可读性。
  */
 function ModelOptionRow({
   opt,
@@ -298,12 +308,15 @@ function ModelOptionRow({
   onSelect: () => void
 }) {
   const t = useTranslations('chat')
+  const unverified = isUnverified(opt)
   return (
     <DropdownMenu.Item
       onSelect={onSelect}
+      title={opt.healthError || undefined}
       className={cn(
         'flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-body outline-none',
         'focus:bg-accent focus:text-accent-foreground',
+        unverified && 'opacity-60 focus:opacity-100 data-[highlighted]:opacity-100',
       )}
     >
       <Check className={cn('h-4 w-4 shrink-0', active ? 'opacity-100' : 'opacity-0')} />
@@ -315,6 +328,12 @@ function ModelOptionRow({
       />
       <div className="flex min-w-0 flex-1 items-center gap-1.5">
         <span className="truncate font-medium">{opt.label}</span>
+        {/* 未验证徽章(2026-11-11 立):未探测通过/账户级错误,与已验证模型区分 */}
+        {unverified && (
+          <span className="inline-flex shrink-0 items-center rounded-sm bg-muted px-1 py-px text-[10px] font-medium leading-tight text-muted-foreground">
+            {t('modelUnverified')}
+          </span>
+        )}
         {/* 智汇AI 官方模型徽章 */}
         {opt.vendor === 'ihui_relay' && (
           <span className="inline-flex shrink-0 items-center rounded-sm bg-blue-500/10 px-1 py-px text-[10px] font-medium leading-tight text-blue-600 dark:bg-blue-500/15 dark:text-blue-400">
@@ -564,7 +583,7 @@ function MemberDiscountSection({ opt, children }: { opt: ModelOption; children: 
           role="dialog"
           aria-label={t('modelPopoverMemberTitle')}
           className={cn(
-            'fixed z-popover w-64 rounded-lg border bg-card p-3 text-card-foreground shadow-lg',
+            'fixed z-popover w-64 rounded-lg border bg-card p-3 text-card-foreground shadow-elevation-lg',
             'animate-in fade-in-0 zoom-in-95 duration-(--duration-unified) ease-unified',
           )}
           style={{ top: pos.top, left: pos.left }}
@@ -623,6 +642,8 @@ function createSeedOptions(): ModelOption[] {
     // 种子数据是人工挑选的当前可用主力,按"最新对话模型"处理
     category: 'chat',
     tier: 'latest',
+    // 2026-11-11 立:硬编码种子从未做过连通性探测,一律按未验证展示
+    verified: false,
   }))
 }
 
@@ -655,6 +676,10 @@ function buildOptionsFromApi(models: SelectorModel[]): ModelOption[] {
       // 2026-09-19 D23 立:语义能力四布尔(后端 derive_capabilities 产出),
       // 驱动历史模型区"按能力过滤"与行内能力徽章;缺失时按未知处理不误藏
       capabilities: m.capabilities,
+      // 2026-11-11 立:只有 health_status==='healthy' 才是真 ping 通过;
+      // 缺失/unknown/pending 均不可依赖,按未验证处理
+      verified: m.health_status === 'healthy',
+      healthError: m.health_error,
     })
   }
   return Array.from(merged.values())
@@ -680,6 +705,9 @@ function withPoolModels(base: ModelOption[], pool: PoolChatModel[]): ModelOption
       // 其余按品牌 code 原样分组,语义就是「这是我名下某个平台的号」
       vendor: m.provider,
       pointsMultiplier: 0,
+      // 2026-11-11 立:个人号池模型未做连通性探测,按未验证展示并说明原因
+      verified: false,
+      healthError: '个人号池模型,未做连通性探测',
     })
   }
   return base
@@ -944,7 +972,7 @@ export function ModelSelector({
     return groupByCategory(filtered)
   }, [archived, historyQuery, capFilter])
 
-  const grouped = React.useMemo(() => {
+  const groupedByVendor = React.useMemo(() => {
     const all = groupByVendor(primary)
     // 2026-08-27 修复:API 成功路径(options=后端过滤后模型)直接展示,
     // 不再做前端配置过滤——后端 /llm/models 已保证"可用且有配额",
@@ -966,6 +994,21 @@ export function ModelSelector({
     }
     return filtered
   }, [primary, cfgData, configuredTemplateCodes, value, useApiOnly])
+
+  /**
+   * 2026-11-11 立:未验证模型不与已验证模型混排 —— 从各厂商组抽离,
+   * 按 groupByVendor 的原有分组顺序统一收进 primary 末尾的独立组。
+   */
+  const { grouped, unverifiedPrimary } = React.useMemo(() => {
+    const verifiedGroups: Array<[string, ModelOption[]]> = []
+    const unverified: ModelOption[] = []
+    for (const [vendor, items] of groupedByVendor) {
+      const verifiedItems = items.filter((opt) => !isUnverified(opt))
+      if (verifiedItems.length > 0) verifiedGroups.push([vendor, verifiedItems])
+      unverified.push(...items.filter((opt) => isUnverified(opt)))
+    }
+    return { grouped: verifiedGroups, unverifiedPrimary: unverified }
+  }, [groupedByVendor])
 
   // API 成功路径下后端已保证模型可用,直接视为已配置(避免 agnes 等误显示 ⚠/缺失 ✅)
   const currentConfigured = useApiOnly
@@ -1035,7 +1078,7 @@ export function ModelSelector({
           align="end"
           sideOffset={6}
           className={cn(
-            'z-popover max-h-[60vh] w-fit max-w-[320px] overflow-y-auto rounded-lg border bg-card p-1 text-card-foreground shadow-md',
+            'z-popover max-h-[60vh] w-fit max-w-[320px] overflow-y-auto rounded-lg border bg-card p-1 text-card-foreground shadow-elevation-md',
             ' [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-sm [&::-webkit-scrollbar-thumb]:bg-muted-foreground/30',
           )}
         >
@@ -1075,6 +1118,7 @@ export function ModelSelector({
                 {refreshingModels ? t('modelRefreshRunning') : t('modelRefresh')}
               </span>
             </DropdownMenu.Item>
+            {grouped.length > 0 && <DropdownMenu.Separator className="my-1 h-px bg-border/60" />}
           </DropdownMenu.Group>
           {/* 自动选项(2026-08-06 改:自动模式显示 "Auto Mode" + "0.05x" 风格,
               实际无积分倍数,保持纯文本 "自动" + 描述) */}
@@ -1096,6 +1140,7 @@ export function ModelSelector({
               <Sparkles className="h-3.5 w-3.5 shrink-0 text-primary" />
               <span className="flex-1 truncate font-medium">{t('modelAuto')}</span>
             </DropdownMenu.Item>
+            <DropdownMenu.Separator className="my-1 h-px bg-border/60" />
           </DropdownMenu.Group>
           {grouped.map(([vendor, items]) => (
             <DropdownMenu.Group key={vendor}>
@@ -1125,13 +1170,46 @@ export function ModelSelector({
                   onSelect={() => onChange(opt.value)}
                 />
               ))}
+              <DropdownMenu.Separator className="my-1 h-px bg-border/60 last:hidden" />
             </DropdownMenu.Group>
           ))}
+
+          {/* 2026-11-11 立:未验证模型独立收口。不把未探测通过的模型混在各厂商组里
+              (当前 34/53 是 pending 的平台中转模型,混排会误导用户),组内仍按厂商顺序排列。 */}
+          {unverifiedPrimary.length > 0 && (
+            <DropdownMenu.Group>
+              <DropdownMenu.Separator className="my-1 h-px bg-border/60" />
+              <DropdownMenu.Label
+                className={cn(
+                  'flex items-center gap-1.5 px-2 py-1.5 text-label font-semibold uppercase tracking-wide',
+                  'bg-card text-muted-foreground',
+                )}
+              >
+                <span className="flex-1 truncate">
+                  {t('modelUnverifiedGroup', { count: unverifiedPrimary.length })}
+                </span>
+              </DropdownMenu.Label>
+              {unverifiedPrimary.map((opt) => (
+                <ModelOptionRow
+                  key={opt.value}
+                  opt={opt}
+                  active={opt.value === value && value !== AUTO_OPTION.value}
+                  warning={
+                    showConfigBadge &&
+                    !useApiOnly &&
+                    !isConfiguredVendor(opt.vendor, configuredTemplateCodes)
+                  }
+                  onSelect={() => onChange(opt.value)}
+                />
+              ))}
+            </DropdownMenu.Group>
+          )}
 
           {/* 2026-08-29 立:历史模型折叠区。默认收起,点开才显示过时版本与专用模型
               (嵌入/重排/语音/图像等),并按用途分类分组标注,避免上千个模型糊成一片。 */}
           {archived.length > 0 && (
             <DropdownMenu.Group>
+              <DropdownMenu.Separator className="my-1 h-px bg-border/60" />
               <DropdownMenu.Item
                 onSelect={(e) => {
                   // preventDefault 阻止 Radix 选中后自动关闭菜单

@@ -10,7 +10,10 @@
  * - parser 6 个(除 cc-switch-sqlite,需 SQLite buffer,留 e2e)
  * - detector:detectSources 返回结构(不依赖真实文件存在)
  */
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import os from 'node:os'
+import path from 'node:path'
 
 // 屏蔽 redis-cache 的 ioredis 引入(测试不依赖 Redis)
 vi.mock('../src/config/index.js', () => ({
@@ -18,6 +21,13 @@ vi.mock('../src/config/index.js', () => ({
     CREDENTIALS_ENCRYPTION_KEY: 'a'.repeat(32),
     REDIS_URL: 'redis://127.0.0.1:6399',
   },
+}))
+
+// parseByFile 会经 savePreview 落缓存;这里替身掉,避免测试真连 ioredis
+vi.mock('../src/services/cli-import/redis-cache.js', () => ({
+  savePreview: vi.fn(async () => {}),
+  loadPreview: vi.fn(async () => undefined),
+  deletePreview: vi.fn(async () => {}),
 }))
 
 import {
@@ -33,6 +43,7 @@ import { parseCodexCli } from '../src/services/cli-import/parsers/codex-cli.js'
 import { parseGeminiCli } from '../src/services/cli-import/parsers/gemini-cli.js'
 import { parseHermes } from '../src/services/cli-import/parsers/hermes.js'
 import { detectSources, getExpectedPaths } from '../src/services/cli-import/detector.js'
+import { parseByFile } from '../src/services/cli-import/index.js'
 
 // =============================================================================
 // mapper
@@ -511,6 +522,85 @@ describe('detector', () => {
       expect(typeof d.path).toBe('string')
       expect(typeof d.exists).toBe('boolean')
     }
+  })
+})
+
+// =============================================================================
+// parseByFile 规则优先级 (SDB-15)
+// =============================================================================
+
+describe('parseByFile 规则优先级 (SDB-15)', () => {
+  let root: string
+
+  beforeAll(async () => {
+    root = await mkdtemp(path.join(os.tmpdir(), 'ihui-sdb15-'))
+  })
+
+  afterAll(async () => {
+    await rm(root, { recursive: true, force: true })
+  })
+
+  /** 在临时目录下按相对路径写 settings.json,返回绝对路径。 */
+  async function writeSettings(relDir: string, content: unknown): Promise<string> {
+    const dir = path.join(root, relDir)
+    await mkdir(dir, { recursive: true })
+    const file = path.join(dir, 'settings.json')
+    await writeFile(file, JSON.stringify(content), 'utf8')
+    return file
+  }
+
+  it('~/.claude/settings.json 命中 claude-cli,而不是 codex++', async () => {
+    const file = await writeSettings('.claude', {
+      env: { ANTHROPIC_BASE_URL: 'https://api.anthropic.com', ANTHROPIC_AUTH_TOKEN: 'sk-ant-x' },
+      model: 'claude-sonnet-4-5',
+    })
+    const preview = await parseByFile(file)
+    expect(preview.source).toBe('claude-cli')
+    expect(preview.providers).toHaveLength(1)
+    expect(preview.providers[0]!.sourceAppType).toBe('claude')
+  })
+
+  it('%APPDATA%/Cursor/User/settings.json 命中 cursor', async () => {
+    const file = await writeSettings(path.join('AppData', 'Roaming', 'Cursor', 'User'), {
+      'cursor.ai.apiKey': 'sk-cursor',
+      'cursor.ai.baseUrl': 'https://api.openai.com/v1',
+      'cursor.ai.model': 'gpt-4o',
+    })
+    const preview = await parseByFile(file)
+    expect(preview.source).toBe('cursor')
+    expect(preview.providers).toHaveLength(1)
+  })
+
+  it('.gemini/settings.json 命中 gemini-cli', async () => {
+    const file = await writeSettings('.gemini', { model: 'gemini-2.0-flash' })
+    const preview = await parseByFile(file)
+    expect(preview.source).toBe('gemini-cli')
+    expect(preview.providers).toHaveLength(1)
+  })
+
+  it('.codex-session-delete/settings.json 仍命中 codex++', async () => {
+    const file = await writeSettings('.codex-session-delete', {
+      appVersion: 'v1.2.39',
+      profiles: [
+        {
+          id: 'p1',
+          name: 'Active',
+          apiBaseUrl: 'https://api.openai.com/v1',
+          apiKey: 'sk-x',
+          model: 'gpt-5',
+          isActive: true,
+        },
+      ],
+    })
+    const preview = await parseByFile(file)
+    expect(preview.source).toBe('codex++')
+    expect(preview.providers).toHaveLength(1)
+    expect(preview.providers[0]!.sourceId).toBe('p1')
+  })
+
+  it('未知来源的 settings.json 明确报错,不返回"成功但 0 条"', async () => {
+    const file = await writeSettings(path.join('UnknownApp', 'config'), { foo: 'bar' })
+    await expect(parseByFile(file)).rejects.toThrow(/无法识别文件来源/)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
