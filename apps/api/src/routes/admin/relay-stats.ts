@@ -11,7 +11,8 @@
  * 3. GET /relay/stats/trend?days=7       — 最近 N 天趋势(折线图,默认 7 最大 30)
  * 4. GET /relay/stats/top-users?limit=10 — 今日高消费用户排行
  *
- * 复用 llm_call_logs 表;costCents 从 metadata->>'costCents' 提取(COALESCE 兜底老数据 null)。
+ * 复用 llm_call_logs 表;成本取顶层列 `cost_cents`(分),经 services/relay-cost 归一/聚合,
+ * 不再读 metadata JSON 键(该键自 2026-08-01 起已不写入,读它汇总恒 0)。
  * 时区:业务"今日"按 Asia/Shanghai 计算日界,避免 UTC 漏算。
  */
 import type { FastifyPluginAsync } from 'fastify'
@@ -22,6 +23,7 @@ import { llmCallLogs, users } from '@ihui/database'
 import { success, error } from '../../utils/response.js'
 import { requireAdmin } from '../../plugins/require-permission.js'
 import { bizDayStartUtc } from '../../utils/biz-day.js'
+import { sumRelayCostCentsSql } from '../../services/relay-cost.js'
 
 // ===== 共享类型 =====
 interface PeriodAggregate {
@@ -52,7 +54,7 @@ async function aggregatePeriod(start: Date, end: Date): Promise<PeriodAggregate>
     .select({
       callCount: sql<number>`count(*)::int`,
       totalTokens: sql<number>`coalesce(sum(${llmCallLogs.totalTokens}), 0)::bigint::int`,
-      totalCostCents: sql<number>`coalesce(sum(((${llmCallLogs.metadata}->>'costCents')::numeric)), 0)::int`,
+      totalCostCents: sumRelayCostCentsSql(),
       errorCount: sql<number>`count(*) filter (where ${llmCallLogs.status} = 'error')::int`,
       avgLatencyMs: sql<number>`coalesce(avg(${llmCallLogs.latencyMs}), 0)::int`,
       p95LatencyMs: sql<number>`coalesce(percentile_cont(0.95) WITHIN GROUP (ORDER BY ${llmCallLogs.latencyMs})::int, 0)`,
@@ -64,7 +66,7 @@ async function aggregatePeriod(start: Date, end: Date): Promise<PeriodAggregate>
   return {
     callCount,
     totalTokens: r.totalTokens,
-    totalCostCents: r.totalCostCents,
+    totalCostCents: Number(r.totalCostCents),
     errorCount: r.errorCount,
     errorRate: callCount > 0 ? r.errorCount / callCount : 0,
     avgLatencyMs: r.avgLatencyMs,
@@ -76,7 +78,7 @@ async function aggregateRange(start: Date, end: Date): Promise<RangeAggregate> {
   const rows = await dbRead
     .select({
       callCount: sql<number>`count(*)::int`,
-      totalCostCents: sql<number>`coalesce(sum(((${llmCallLogs.metadata}->>'costCents')::numeric)), 0)::int`,
+      totalCostCents: sumRelayCostCentsSql(),
       errorCount: sql<number>`count(*) filter (where ${llmCallLogs.status} = 'error')::int`,
     })
     .from(llmCallLogs)
@@ -85,7 +87,7 @@ async function aggregateRange(start: Date, end: Date): Promise<RangeAggregate> {
   const callCount = r.callCount
   return {
     callCount,
-    totalCostCents: r.totalCostCents,
+    totalCostCents: Number(r.totalCostCents),
     errorRate: callCount > 0 ? r.errorCount / callCount : 0,
   }
 }
@@ -153,7 +155,7 @@ const relayStatsRoutes: FastifyPluginAsync = async (server) => {
           model: llmCallLogs.model,
           callCount: sql<number>`count(*)::int`,
           totalTokens: sql<number>`coalesce(sum(${llmCallLogs.totalTokens}), 0)::bigint::int`,
-          totalCostCents: sql<number>`coalesce(sum(((${llmCallLogs.metadata}->>'costCents')::numeric)), 0)::int`,
+          totalCostCents: sumRelayCostCentsSql(),
         })
         .from(llmCallLogs)
         .where(and(gte(llmCallLogs.createdAt, todayStart), lte(llmCallLogs.createdAt, now)))
@@ -165,13 +167,13 @@ const relayStatsRoutes: FastifyPluginAsync = async (server) => {
       const rest = rows.slice(10)
       const otherCallCount = rest.reduce((s, r) => s + r.callCount, 0)
       const otherTokens = rest.reduce((s, r) => s + r.totalTokens, 0)
-      const otherCost = rest.reduce((s, r) => s + r.totalCostCents, 0)
+      const otherCost = rest.reduce((s, r) => s + Number(r.totalCostCents), 0)
 
       const models = top.map((r) => ({
         model: r.model,
         callCount: r.callCount,
         totalTokens: r.totalTokens,
-        totalCostCents: r.totalCostCents,
+        totalCostCents: Number(r.totalCostCents),
         percentage: totalCall > 0 ? r.callCount / totalCall : 0,
       }))
       if (otherCallCount > 0) {
@@ -205,7 +207,7 @@ const relayStatsRoutes: FastifyPluginAsync = async (server) => {
         .select({
           date: dayCol.as('date'),
           callCount: sql<number>`count(*)::int`,
-          totalCostCents: sql<number>`coalesce(sum(((${llmCallLogs.metadata}->>'costCents')::numeric)), 0)::int`,
+          totalCostCents: sumRelayCostCentsSql(),
           errorCount: sql<number>`count(*) filter (where ${llmCallLogs.status} = 'error')::int`,
           avgLatencyMs: sql<number>`coalesce(avg(${llmCallLogs.latencyMs}), 0)::int`,
         })
@@ -234,7 +236,7 @@ const relayStatsRoutes: FastifyPluginAsync = async (server) => {
         daysArr.push({
           date: key,
           callCount,
-          totalCostCents: r?.totalCostCents ?? 0,
+          totalCostCents: Number(r?.totalCostCents ?? 0),
           errorRate: callCount > 0 ? errorCount / callCount : 0,
           avgLatencyMs: r?.avgLatencyMs ?? 0,
         })
@@ -261,20 +263,20 @@ const relayStatsRoutes: FastifyPluginAsync = async (server) => {
           userId: llmCallLogs.userId,
           username: users.username,
           callCount: sql<number>`count(*)::int`,
-          totalCostCents: sql<number>`coalesce(sum(((${llmCallLogs.metadata}->>'costCents')::numeric)), 0)::int`,
+          totalCostCents: sumRelayCostCentsSql(),
         })
         .from(llmCallLogs)
         .leftJoin(users, eq(llmCallLogs.userId, users.id))
         .where(and(gte(llmCallLogs.createdAt, todayStart), lte(llmCallLogs.createdAt, now)))
         .groupBy(llmCallLogs.userId, users.username)
-        .orderBy(desc(sql`sum(((${llmCallLogs.metadata}->>'costCents')::numeric))`))
+        .orderBy(desc(sumRelayCostCentsSql()))
         .limit(limit)
 
       const userList = rows.map((r) => ({
         userId: r.userId,
         username: r.username,
         callCount: r.callCount,
-        totalCostCents: r.totalCostCents,
+        totalCostCents: Number(r.totalCostCents),
       }))
 
       return reply.send(success({ users: userList }))

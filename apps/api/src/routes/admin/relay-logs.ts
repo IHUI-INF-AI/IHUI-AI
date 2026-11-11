@@ -29,6 +29,7 @@ import {
 } from '../../services/log-sanitizer.js'
 import { redactCredentialText } from '../../plugins/log-sanitizer.js'
 import { buildSensitiveKeySet, sanitizeData } from '../../plugins/response-sanitizer.js'
+import { sumRelayCostCentsSql } from '../../services/relay-cost.js'
 
 const listQuerySchema = paginationSchema.extend({
   userId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
@@ -462,7 +463,7 @@ const relayLogsRoutes: FastifyPluginAsync = async (server) => {
           successCount: sql<number>`count(*) filter (where ${llmCallLogs.status} = 'success')::int`,
           errorCount: sql<number>`count(*) filter (where ${llmCallLogs.status} = 'error')::int`,
           avgLatencyMs: sql<number>`coalesce(avg(${llmCallLogs.latencyMs}), 0)::int`,
-          totalCostCents: sql<number>`coalesce(sum(((${llmCallLogs.metadata}->>'costCents')::numeric)::int), 0)::int`,
+          totalCostCents: sumRelayCostCentsSql(),
         })
         .from(llmCallLogs)
         .where(where)
@@ -470,7 +471,13 @@ const relayLogsRoutes: FastifyPluginAsync = async (server) => {
         .orderBy(desc(sql`count(*)::int`))
         .limit(100)
 
-      return reply.send(success({ groupBy, rows }))
+      return reply.send(
+        success({
+          groupBy,
+          // ::bigint 由 postgres.js 以字符串返回,统一收口成 number,避免汇总串成字符串。
+          rows: rows.map((r) => ({ ...r, totalCostCents: Number(r.totalCostCents) })),
+        }),
+      )
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '查询调用日志统计失败'))
