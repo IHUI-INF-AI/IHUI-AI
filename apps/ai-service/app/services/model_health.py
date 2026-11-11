@@ -374,8 +374,12 @@ _STREAM_FALLBACK_STATUS = frozenset({400, 405, 422, 501})
 # 不能压到 64:推理模型会先把预算花在思考上,截断后根本没机会发 tool_calls,
 # 实测会把 kimi-k3/k2.7 这类明确支持工具的模型误判成"未实际触发"。
 _TOOL_PROBE_MAX_TOKENS = 256
-# 长上下文针测的超时:16k token 预填充比 ping 慢,给 3 倍预算(60s)。
-CONTEXT_PROBE_TIMEOUT_S = PROBE_TIMEOUT_S * 3
+# 长上下文针测的输出预算:验证码本身只有十几个字符,但推理模型会先花预算思考,
+# 24 tokens 会让它们"还没开口就被截断",在界面上被打成"不支持长上下文"(实测假阴性)。
+_CONTEXT_PROBE_MAX_TOKENS = 256
+# 长上下文针测的超时:16k token 预填充比 ping 慢,给 6 倍预算(120s)。
+# 免费推理模型在 16k 预填充下首字常要 60s 以上,3 倍会把"慢但可用"记成未知。
+CONTEXT_PROBE_TIMEOUT_S = PROBE_TIMEOUT_S * 6
 # 判定"请求内容与工具/function 有关"的关键词(400/422 时区分能力缺失与协议错误)。
 _TOOL_KEYWORDS = ("tool", "function", "tools", "functions")
 
@@ -1524,7 +1528,7 @@ class ModelHealthService:
         payload: dict[str, Any] = {
             "model": target.upstream_model,
             "messages": [{"role": "user", "content": text}],
-            "max_tokens": 24,
+            "max_tokens": _CONTEXT_PROBE_MAX_TOKENS,
             "stream": False,
         }
         try:
@@ -1540,7 +1544,7 @@ class ModelHealthService:
                     resp.text or ""
                 ):
                     payload.pop("max_tokens", None)
-                    payload["max_completion_tokens"] = 24
+                    payload["max_completion_tokens"] = _CONTEXT_PROBE_MAX_TOKENS
                     resp = await client.post(
                         target.chat_url, headers=target.headers, json=payload
                     )
@@ -1582,6 +1586,9 @@ class ModelHealthService:
                         )
                 if _check_context_probe_reply(reply, code):
                     return True, ""
+                if choices[0].get("finish_reason") == "length":
+                    # 输出被预算截断(推理模型仍在思考阶段)⇒ 无法判定,不记"不支持"
+                    return None, "输出被 max_tokens 截断,长上下文未判定"
                 return False, _redact_secrets(f"回复未包含验证码: {reply[:120]}")[:200]
         except httpx.TimeoutException as e:
             return None, type(e).__name__
