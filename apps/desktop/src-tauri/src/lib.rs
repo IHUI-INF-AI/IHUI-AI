@@ -935,7 +935,13 @@ fn spawn_relay_switch(app: &tauri::AppHandle) {
     }
 
     let mut cmd = std::process::Command::new("cmd");
-    cmd.arg("/c")
+    cmd
+        // `/d` 关掉 AutoRun:`HKCU\Software\Microsoft\Command Processor\AutoRun`(以及
+        // HKLM 同名项)里的命令会在 `/c` 之前先执行 —— 企业登录脚本/环境改造常这么做。
+        // 托盘这一下是本机特权动作(拉起一个能改客户端登录态的脚本),不能让一段与本动作
+        // 无关的注册表钩子先跑。缺了 `/d` 在干净机器上也能用,但那是"恰好没人配 AutoRun"。
+        .arg("/d")
+        .arg("/c")
         .arg(&script)
         // 工作目录必须是仓库根:切号器内部按相对路径找 .mjs 与 apps/api 的脚本。
         .current_dir(&repo)
