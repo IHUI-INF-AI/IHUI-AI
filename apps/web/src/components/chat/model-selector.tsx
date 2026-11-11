@@ -61,16 +61,12 @@ import {
 export type { ModelOption, ModelTier, ModelUsageCategory } from '@/components/chat/model-tier-utils'
 
 /**
- * 连通性探测扩展(2026-11-11 立)。
+ * 是否未通过连通性探测(2026-11-11 立;字段缺失也按未验证处理,避免误判为可用)。
  * `verified` 只有后端 `health_status === 'healthy'`(真 ping 通过)才为 true;
  * pending(账户级错误/未探测)与 unknown(无状态)都不可依赖,一律按未验证展示。
- * `healthError` 存后端返回的简短脱敏错误,仅作行标题提示。
  */
-type ModelOptionWithHealth = ModelOption & { verified?: boolean; healthError?: string }
-
-/** 是否未通过连通性探测(字段缺失也按未验证处理,避免误判为可用) */
 function isUnverified(opt: ModelOption): boolean {
-  return (opt as ModelOptionWithHealth).verified !== true
+  return opt.verified !== true
 }
 
 /**
@@ -304,7 +300,7 @@ function ModelOptionRow({
   showCategory,
   onSelect,
 }: {
-  opt: ModelOptionWithHealth
+  opt: ModelOption
   active: boolean
   warning: boolean
   /** 历史模型区需要显示用途分类(嵌入/语音/图像…),默认区都是对话类无需标注 */
