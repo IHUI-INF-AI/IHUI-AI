@@ -67,9 +67,10 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/checkin", tags=["checkin"])
 
 # 支持的账号平台(2026-10-10 平台化;2026-10-12 增 workbuddy;
-# 2026-11-11 增 doubao — 豆包 PC 客户端 200 额度/天,detail 读面实锤可通):
+# 2026-11-11 增 doubao — 豆包 PC 客户端 200 额度/天,detail 读面实锤可通;
+# 2026-11-11 增 raccoon — 商汤小浣熊每日 300 按真实登录事件发放,balance 只读核对):
 # trae = 存量默认;qoder = 阿里 AI IDE;workbuddy = 腾讯 WorkBuddy(Buddy 加油站)。
-_ACCOUNT_PLATFORMS = ("trae", "workbuddy", "qoder", "minimax", "doubao")
+_ACCOUNT_PLATFORMS = ("trae", "workbuddy", "qoder", "minimax", "doubao", "raccoon")
 
 _RECORDS_LIMIT_DEFAULT = 50
 _RECORDS_LIMIT_MAX = 200

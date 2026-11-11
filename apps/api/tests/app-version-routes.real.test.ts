@@ -201,7 +201,7 @@ describe('app-version-routes — 路由层真实 DB 集成测试', () => {
     expect(body.data.forceUpdate).toBe(false)
   })
 
-  it('GET /api/app-version/check-update — 当前版本未在表中记录时按 buildNumber=0 处理', async () => {
+  it('GET /api/app-version/check-update — 当前版本未登记 ⇒ 不报更新(不把未知当有)', async () => {
     await createVersion({
       version: '2.0.0',
       platform: 'ios',
@@ -213,7 +213,9 @@ describe('app-version-routes — 路由层真实 DB 集成测试', () => {
       url: '/api/app-version/check-update?platform=ios&version=999.0.0',
     })
     const body = res.json()
-    expect(body.data.hasUpdate).toBe(true)
+    // 2026-11-11:旧实现按 buildNumber=0 处理,手工包因此把旧版本当新版本推安装器。
+    // 未登记是「无法比较」,失效方向要保守;latestVersion 仍如实回给排查用。
+    expect(body.data.hasUpdate).toBe(false)
     expect(body.data.latestVersion).toBe('2.0.0')
   })
 

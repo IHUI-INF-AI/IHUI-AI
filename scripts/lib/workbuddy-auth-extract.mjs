@@ -23,7 +23,15 @@ import { execFileSync } from 'node:child_process'
 
 const INSPECTOR_PORT = 9229
 const INSPECTOR_BASE = `http://127.0.0.1:${INSPECTOR_PORT}`
-export const AUTH_DIR = path.join(os.homedir(), 'AppData', 'Local', 'CodeBuddyExtension', 'Data', 'Public', 'auth')
+export const AUTH_DIR = path.join(
+  os.homedir(),
+  'AppData',
+  'Local',
+  'CodeBuddyExtension',
+  'Data',
+  'Public',
+  'auth',
+)
 export const AUTH_FILE_BY_EDITION = {
   workbuddy: 'workbuddy-desktop.info',
   'workbuddy-ai': 'workbuddy-desktop-ai.info',
@@ -103,11 +111,28 @@ function withProbe(rows, probe) {
   return rows
 }
 
+const WB_EDITION_OPTIONS = Object.keys(AUTH_FILE_BY_EDITION)
+// 进程名 ↔ 版本登记(2026-11-11 本机取证):国际版主进程 exe = WorkBuddyAI.exe
+// (子进程 --user-data-dir=~/.workbuddy-ai/app,crashpad 注解 uid=51872886-… 坐实)。
+// 此前 CIM 只认 'WorkBuddy.exe' ⇒ AI 版明明在跑也判「未发现主进程」,池挂不上它的票
+// —— 能力断裂:版本表/快照文件名早已登记,进程发现没跟上。探测面由本表派生(§0.6)。
+const WB_EXE_BY_EDITION = Object.freeze({
+  workbuddy: 'WorkBuddy.exe',
+  'workbuddy-ai': 'WorkBuddyAI.exe',
+})
+
 export function listWorkbuddyMainProcesses(execFileImpl = execFileSync) {
-  if (process.platform !== 'win32') return withProbe([], { ok: true, reason: '非 win32 平台不适用' })
+  if (process.platform !== 'win32')
+    return withProbe([], { ok: true, reason: '非 win32 平台不适用' })
+  // 进程名清单由 WB_EXE_BY_EDITION 派生(§0.6):新增版本档,探测面自动跟上
+  // WQL 字符串用双引号(WQL 认单引号也认双引号,但双引号进 PowerShell 单引号串零转义,
+  // 逐字符传到 CIM 层 —— 2026-11-11 实测:反斜杠转义双引号形态在 execFile argv 通道被吃掉)
+  const nameFilter = Object.values(WB_EXE_BY_EDITION)
+    .map((n) => `Name="${n}"`)
+    .join(' OR ')
   const script =
-    "$ErrorActionPreference='Stop';" +
-    "Get-CimInstance Win32_Process -Filter \"Name='WorkBuddy.exe'\" | " +
+    '$ErrorActionPreference="Stop";' +
+    `Get-CimInstance Win32_Process -Filter '${nameFilter}' | ` +
     'Select-Object ProcessId,ParentProcessId,CommandLine | ConvertTo-Json -Compress'
   let out = ''
   try {
@@ -134,7 +159,9 @@ export function listWorkbuddyMainProcesses(execFileImpl = execFileSync) {
 
 /** user-data-dir → 版本:'workbuddy'(国内) / 'workbuddy-ai'(国际)。判不出返回 null */
 export function resolveEdition(userDataDir) {
-  const p = String(userDataDir || '').replace(/\\/g, '/').toLowerCase()
+  const p = String(userDataDir || '')
+    .replace(/\\/g, '/')
+    .toLowerCase()
   if (p.includes('/.workbuddy-ai')) return 'workbuddy-ai'
   if (p.includes('/.workbuddy/')) return 'workbuddy'
   return null
@@ -213,16 +240,24 @@ export function sealFieldForTest(plaintext, key, keyId, nonce = crypto.randomByt
 
 function openField(wrapper, key, keyId) {
   const envelope = JSON.parse(Buffer.from(wrapper.envelope, 'base64').toString('utf8'))
-  if (envelope.suite !== 1) throw new ExtractError(`不支持的加密套件 ${envelope.suite}`, 'unsupported-suite')
-  if (envelope.keyId !== keyId) throw new ExtractError('字段 keyId 与本机主密钥不匹配', 'key-mismatch')
-  const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(envelope.nonce, 'base64'), {
-    authTagLength: 16,
-  })
+  if (envelope.suite !== 1)
+    throw new ExtractError(`不支持的加密套件 ${envelope.suite}`, 'unsupported-suite')
+  if (envelope.keyId !== keyId)
+    throw new ExtractError('字段 keyId 与本机主密钥不匹配', 'key-mismatch')
+  const decipher = crypto.createDecipheriv(
+    'aes-256-gcm',
+    key,
+    Buffer.from(envelope.nonce, 'base64'),
+    {
+      authTagLength: 16,
+    },
+  )
   decipher.setAAD(buildFieldAad(keyId))
   decipher.setAuthTag(Buffer.from(envelope.authTag, 'base64'))
-  return Buffer.concat([decipher.update(Buffer.from(envelope.ciphertext, 'base64')), decipher.final()]).toString(
-    'utf8',
-  )
+  return Buffer.concat([
+    decipher.update(Buffer.from(envelope.ciphertext, 'base64')),
+    decipher.final(),
+  ]).toString('utf8')
 }
 
 export function decryptSessionTree(node, key, keyId) {
@@ -266,7 +301,8 @@ const UNSAFE_PATH_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
  */
 function parseSealedPath(jsonPath) {
   const text = String(jsonPath ?? '')
-  const bad = (reason) => new ExtractError(`路径形态不合法(${reason}):${JSON.stringify(jsonPath)}`, 'extract-failed')
+  const bad = (reason) =>
+    new ExtractError(`路径形态不合法(${reason}):${JSON.stringify(jsonPath)}`, 'extract-failed')
   if (text === '') throw bad('空路径')
   const segments = []
   let i = 0
@@ -322,7 +358,10 @@ export function getPathByJsonPath(node, jsonPath) {
 export function setPathByJsonPath(node, jsonPath, value) {
   const segments = parseSealedPath(jsonPath)
   if (node === null || typeof node !== 'object' || Array.isArray(node)) {
-    throw new ExtractError(`setPathByJsonPath 的根节点必须是对象:${JSON.stringify(jsonPath)}`, 'extract-failed')
+    throw new ExtractError(
+      `setPathByJsonPath 的根节点必须是对象:${JSON.stringify(jsonPath)}`,
+      'extract-failed',
+    )
   }
   let cursor = node
   for (let i = 0; i < segments.length - 1; i += 1) {
@@ -349,7 +388,8 @@ export function setPathByJsonPath(node, jsonPath, value) {
  * 非对象入参返回 null。
  */
 export function buildSessionTemplate(decryptedTree) {
-  if (!decryptedTree || typeof decryptedTree !== 'object' || Array.isArray(decryptedTree)) return null
+  if (!decryptedTree || typeof decryptedTree !== 'object' || Array.isArray(decryptedTree))
+    return null
   const clone = JSON.parse(JSON.stringify(decryptedTree))
   if (clone.auth && typeof clone.auth === 'object' && !Array.isArray(clone.auth)) {
     delete clone.auth.accessToken
@@ -385,9 +425,13 @@ async function evaluateOnTarget(target, expression) {
   await withTimeout(
     new Promise((resolve, reject) => {
       ws.addEventListener('open', resolve, { once: true })
-      ws.addEventListener('error', () => reject(new ExtractError('调试 WebSocket 连接失败', 'inspector-ws')), {
-        once: true,
-      })
+      ws.addEventListener(
+        'error',
+        () => reject(new ExtractError('调试 WebSocket 连接失败', 'inspector-ws')),
+        {
+          once: true,
+        },
+      )
     }),
     5000,
     '连接调试通道',
@@ -414,7 +458,8 @@ async function evaluateOnTarget(target, expression) {
       8000,
       '调试求值',
     )
-    if (reply.error) throw new ExtractError(`调试求值失败: ${reply.error.message}`, 'inspector-eval')
+    if (reply.error)
+      throw new ExtractError(`调试求值失败: ${reply.error.message}`, 'inspector-eval')
     const result = reply.result
     if (result?.exceptionDetails) {
       throw new ExtractError(
@@ -457,7 +502,8 @@ export async function readAtRestBootstrap(pid) {
       "(()=>{const r=typeof require==='function'?require:process.mainModule.require;" +
       "const e=r('electron');return JSON.stringify(e.workbuddyStorage.loggerGet())})()"
     const raw = await evaluateOnTarget(target, expr)
-    if (typeof raw !== 'string') throw new ExtractError('主进程未返回凭据保护 bootstrap', 'bad-bootstrap')
+    if (typeof raw !== 'string')
+      throw new ExtractError('主进程未返回凭据保护 bootstrap', 'bad-bootstrap')
     const bootstrap = JSON.parse(JSON.parse(raw))
     if (!bootstrap || typeof bootstrap.atRestSecretKey !== 'string' || !bootstrap.atRestSecretKey) {
       throw new ExtractError('bootstrap 缺少 atRestSecretKey', 'bad-bootstrap')
@@ -485,17 +531,26 @@ function decodeJwtClaims(token) {
   }
 }
 
-/** 国际版必须能从令牌声明里读出 workbuddy.ai 域,否则 realm 会落 CN */
-export function assertRealmMatchesEdition(edition, claims) {
+/**
+ * 国际版必须能确认 workbuddy.ai 域,否则下游 resolveRealm('') 会把号落 CN(错域)。
+ * 取材面(2026-11-11 取证修正):
+ *  ① JWT claims.domain / claims.data.domain —— 旧版唯一来源;
+ *  ② 会话明文 auth.domain —— 本机 AI 版(5.9.3)实读 auth.domain="www.workbuddy.ai",
+ *     而 accessToken/refreshToken 的 envelope 是密封包装{"suite":1,"keyId":…}、**不是 JWT**,
+ *     ① 对真票恒不可得 ⇒ AI 版历史上必然全部 realm-undetermined(能力断裂,不是票坏)。
+ * 两臂都拿不到 ⇒ 照旧拒(§0.3,"拿不到域"绝不静默放行)。
+ */
+export function assertRealmMatchesEdition(edition, claims, fallbackDomain = null) {
   if (edition !== 'workbuddy-ai') return
   const data = claims && typeof claims === 'object' ? claims.data : undefined
   const domain =
     (typeof claims?.domain === 'string' && claims.domain) ||
     (data && typeof data === 'object' && typeof data.domain === 'string' && data.domain) ||
+    (typeof fallbackDomain === 'string' && fallbackDomain) ||
     ''
   if (!/workbuddy\.ai$/i.test(domain.trim())) {
     throw new ExtractError(
-      '国际版登录令牌未携带 workbuddy.ai 域声明,导入后会被按国内域转发;请先不要把该号入池',
+      '国际版域声明取不到(令牌 claims 与 auth.domain 两臂皆空),导入后会被按国内域转发;不要把该号入池',
       'realm-undetermined',
     )
   }
@@ -506,24 +561,89 @@ export function fingerprintOf(token) {
 }
 
 /**
- * 提取当前运行中的 WorkBuddy 账号。
- * @returns {{providerCode:'workbuddy', accounts:Array<object>, meta:object}}
+ * 主进程候选消歧(纯函数,零 IO):单候选直取;多候选必须点名版本(IHUI_WB_EDITION/opts.edition)，
+ * 点不动就抛 ambiguous-process(文案带实际版本清单,调用方一眼看得见撞了哪几版)。
+ * 抛错返回值不区分 —— 一切"取不到"的出口都带原因(§0.3)。
  */
-export async function extractWorkbuddyAccount({ now = () => Date.now() } = {}) {
-  const mains = listWorkbuddyMainProcesses()
+export function chooseWorkbuddyMain(mains, wantEdition = null) {
   if (mains.length === 0) {
-    throw new ExtractError('未发现运行中的 WorkBuddy 主进程;请先启动并登录 WorkBuddy', 'not-running')
-  }
-  if (mains.length > 1) {
     throw new ExtractError(
-      `发现 ${mains.length} 个 WorkBuddy 主进程,不确定取哪一个;请只保留一个再重试`,
+      `未发现运行中的 WorkBuddy 主进程(探测面=${WB_EDITION_OPTIONS.map((k) => WB_EXE_BY_EDITION[k]).join('/')});请先启动并登录 WorkBuddy`,
+      'not-running',
+    )
+  }
+  if (mains.length === 1) return mains[0]
+  const chosen = wantEdition
+    ? mains.filter((m) => resolveEdition(m.userDataDir) === wantEdition)
+    : []
+  if (chosen.length !== 1) {
+    throw new ExtractError(
+      `发现 ${mains.length} 个 WorkBuddy 主进程(${mains.map((m) => resolveEdition(m.userDataDir) ?? '?').join(', ')}),不确定取哪一个;请只保留一个再重试,或点名版本(IHUI_WB_EDITION=workbuddy|workbuddy-ai)`,
       'ambiguous-process',
     )
   }
-  const { pid, userDataDir } = mains[0]
+  return chosen[0]
+}
+
+/**
+ * 号池统一名单一出口(2026-10-28 立,2026-11-11 抽出):官方绑定手机号优先,
+ * 其次昵称,最后 `workbuddy-<uid 前 8>`。Keycloak JWT 的 preferred_username 即注册手机号
+ * 全号;昵称/脱敏值不得当统一名。载荷名与 meta 名必须同源,故两处都调本函数。
+ */
+export function workbuddyUnifiedName({ account, claims }) {
+  const nickname = typeof account.nickname === 'string' ? account.nickname : ''
+  const pref = claims.preferred_username
+  const phone = typeof pref === 'string' && /^1[3-9]\d{9}$/.test(pref) ? pref : ''
+  return { phone, name: phone || nickname || `workbuddy-${String(account.uid).slice(0, 8)}` }
+}
+
+/**
+ * 落库载荷单枚构造(2026-11-11 抽出纯函数,零 IO ⇒ 可离线测试):
+ * 统一名 = 官方绑定手机号;域声明随行(见体内注)。edition 由调用方(已判定版本)显式传入。
+ */
+export function buildWorkbuddyImportAccount({ account, claims, auth, token, refreshToken, edition }) {
+  const { name } = workbuddyUnifiedName({ account, claims })
+  // 域声明随行入池(2026-11-11 根治):池内 realm 的唯一取材是 extraMetadata.domain
+  // (relay-pool-policy.domainKeyOfRow 与 workbuddy-adapter.resolveIdentity 同一把尺子),
+  // 其次才是 claims.domain。国际版票的 claims 不带域 ⇒ 行里没域 ⇒ 调度器按 CN 端点刷国际版票
+  // ⇒ HTTP 404 ×3 ⇒ 连续超限自动摘除(本机 51872886 实测)。auth.domain 是客户端自己的声明,
+  // 提取器既已读通就必须随行:domain 不属密封键集 ⇒ 经 foreignPassthroughMetadata 落
+  // extraMetadata;edition 属密封键集 ⇒ 落 secretsEnc;两侧导出均已回带 ⇒ 推生产同一个域。
+  const realmDomain = typeof auth.domain === 'string' ? auth.domain.trim() : ''
+  return {
+    name,
+    token,
+    refreshToken,
+    enabled: true,
+    edition,
+    ...(realmDomain ? { domain: realmDomain } : {}),
+  }
+}
+
+/**
+ * 提取当前运行中的 WorkBuddy 账号。
+ * opts.edition:两版并存(稳定版+AI 版主进程同跑)时点名取哪一版;单进程时无视但校验一致。
+ * @returns {{providerCode:'workbuddy', accounts:Array<object>, meta:object}}
+ */
+export async function extractWorkbuddyAccount({
+  now = () => Date.now(),
+  edition: wantEdition = process.env.IHUI_WB_EDITION?.trim() || null,
+} = {}) {
+  const mains = listWorkbuddyMainProcesses()
+  const chosen = chooseWorkbuddyMain(mains, wantEdition)
+  const { pid, userDataDir } = chosen
   const edition = resolveEdition(userDataDir)
   if (!edition) {
-    throw new ExtractError(`无法从 --user-data-dir 判定版本: ${userDataDir}`, 'edition-undetermined')
+    throw new ExtractError(
+      `无法从 --user-data-dir 判定版本: ${userDataDir}`,
+      'edition-undetermined',
+    )
+  }
+  if (wantEdition && wantEdition !== edition) {
+    throw new ExtractError(
+      `点名版本=${wantEdition} 与实际运行版本=${edition} 不一致`,
+      'edition-mismatch',
+    )
   }
   const authFile = workbuddyAuthFilePath(edition)
   if (!fs.existsSync(authFile)) {
@@ -547,39 +667,33 @@ export async function extractWorkbuddyAccount({ now = () => Date.now() } = {}) {
   const token = typeof auth.accessToken === 'string' ? auth.accessToken : ''
   const refreshToken = typeof auth.refreshToken === 'string' ? auth.refreshToken : ''
   if (!token) throw new ExtractError('会话文件里没有 accessToken', 'token-missing')
-  if (!refreshToken) throw new ExtractError('会话文件里没有 refreshToken(到期后无法续期)', 'refresh-missing')
+  if (!refreshToken)
+    throw new ExtractError('会话文件里没有 refreshToken(到期后无法续期)', 'refresh-missing')
 
   const claims = decodeJwtClaims(token)
   if (!claims?.sub || String(claims.sub) !== String(account.uid ?? '')) {
     throw new ExtractError('令牌 sub 与会话 uid 不一致,拒绝导入', 'uid-mismatch')
   }
-  assertRealmMatchesEdition(edition, claims)
+  assertRealmMatchesEdition(edition, claims, typeof auth.domain === 'string' ? auth.domain : null)
 
   const expiresAt = typeof claims.exp === 'number' ? new Date(claims.exp * 1000) : null
   if (expiresAt && expiresAt.getTime() <= now()) {
-    throw new ExtractError('当前 access token 已过期,请先在 WorkBuddy 里刷新/重新登录', 'token-expired')
+    throw new ExtractError(
+      '当前 access token 已过期,请先在 WorkBuddy 里刷新/重新登录',
+      'token-expired',
+    )
   }
 
-  const nickname = typeof account.nickname === 'string' ? account.nickname : ''
-  // 号池统一名称 = 官方绑定手机号(2026-10-28 立):Keycloak JWT 的 preferred_username
-  // 即注册手机号全号;昵称/脱敏值不得当统一名。只对 11 位全号形态生效。
-  const pref = claims.preferred_username
-  const phone = typeof pref === 'string' && /^1[3-9]\d{9}$/.test(pref) ? pref : ''
+  // 统一名与载荷名同源:同一出口算一次,载荷与 meta 不许各算一份(§0.6)
+  const { phone, name } = workbuddyUnifiedName({ account, claims })
   return {
     providerCode: 'workbuddy',
-    accounts: [
-      {
-        name: phone || nickname || `workbuddy-${String(account.uid).slice(0, 8)}`,
-        token,
-        refreshToken,
-        enabled: true,
-      },
-    ],
+    accounts: [buildWorkbuddyImportAccount({ account, claims, auth, token, refreshToken, edition })],
     meta: {
       edition,
       pid,
       uid: String(account.uid),
-      name: phone || nickname,
+      name,
       phone: phone || null,
       authFile,
       tokenExpiresAt: expiresAt ? expiresAt.toISOString() : null,
@@ -610,12 +724,17 @@ export const __test__ = {
   decodeJwtClaims,
   fingerprintOf,
   resolveMainProcessesFromRows,
+  chooseWorkbuddyMain,
+  WB_EXE_BY_EDITION,
   collectSealedPaths,
   getPathByJsonPath,
   setPathByJsonPath,
   buildSessionTemplate,
+  buildWorkbuddyImportAccount,
+  workbuddyUnifiedName,
   WB_CREDENTIAL_PATHS,
   AUTH_DIR,
   AUTH_FILE_BY_EDITION,
+  WB_EXE_BY_EDITION,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

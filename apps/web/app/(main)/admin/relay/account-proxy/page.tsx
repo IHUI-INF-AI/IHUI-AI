@@ -61,6 +61,7 @@ const PROVIDER_OPTIONS = [
   'doubao',
   'lingma',
   'grokbot',
+  'raccoon',
 ] as const
 // 与后端 updateBodySchema 同口径:只接受 http(s)/socks5
 const PROXY_PROTOCOLS = new Set(['http:', 'https:', 'socks5:'])

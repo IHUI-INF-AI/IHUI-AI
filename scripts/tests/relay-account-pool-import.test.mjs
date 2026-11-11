@@ -65,11 +65,11 @@ test('④ 版本判定:国内/国际目录必须分清,判不出返回 null', ()
 test('⑤ 国际版令牌没有 workbuddy.ai 域声明 ⇒ 拒绝入池', () => {
   assert.throws(
     () => W.assertRealmMatchesEdition('workbuddy-ai', { sub: 'u' }),
-    /未携带 workbuddy\.ai 域声明/,
+    /国际版域声明取不到/,
   )
   assert.throws(
     () => W.assertRealmMatchesEdition('workbuddy-ai', { domain: 'www.workbuddy.cn' }),
-    /未携带 workbuddy\.ai 域声明/,
+    /国际版域声明取不到/,
   )
   assert.doesNotThrow(() =>
     W.assertRealmMatchesEdition('workbuddy-ai', { domain: 'www.workbuddy.ai' }),

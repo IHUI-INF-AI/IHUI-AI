@@ -20,7 +20,8 @@
  *     2026-11-06 立):before/after 采本机字节 passport cookie 族(只读、零明文),
  *     清单钉随账号变、族键集合随写回齐否变 ⇒ 写回腿可自证切号前后变化;
  *   trae/trae-solo(携对话腿自证)/codearts/loomy(有正库面见上表)/
- *   lingma/grokbot(未装)⇒ 无对账面,如实标 no-continuity-face,不冒 ok。
+ *   lingma/grokbot(未装)/raccoon(auth.json 已接入,对话面未取证)⇒ 无对账面,如实标
+ *   no-continuity-face,不冒 ok。
  *
  * 凭证纪律:任何输出不含 token/refreshToken 明文(快照面零正文;loginAccountLocal 返回面零凭据)。
  * 退出码:0 continuity-ok 或 no-continuity-face / 1 continuity-broken(切号真丢了会话)/ 2 未判定。

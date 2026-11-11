@@ -413,6 +413,10 @@ export function judgeCapacity({ judges, accountRows, keyRows, sentinel, allowEmp
     grokbot:
       'GrokBot 本机凭证为密封串(sandSealedFile,提取器只取证不解封)——当前唯一出路:' +
       ' 后台「中转-号池-账号池」导入账号 JSON,或拿到明文凭据后 `--file` 导入',
+    raccoon:
+      '若系小浣熊凭据已死(access_token 30 天到期且无 refresh_token):在本机登录小浣熊桌面端后跑' +
+      ' `node scripts/relay-account-pool.mjs --from raccoon` 重新提取' +
+      '(读 ~/.office-raccoon/agent/config/auth.json;提取时默认走 IAM 取全号手机号当统一名)',
   })
 
   // S1:有 enabled 号但可调度 = 0(两池都扫)
