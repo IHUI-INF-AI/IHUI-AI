@@ -102,7 +102,16 @@ DESKTOP_ALLOW_UNSIGNED=1 pnpm --filter @ihui/desktop build   # 仅本地自测�
 
 ```json
 {
-  "tray_menu_items": ["new_chat", "show", "hide", "theme", "settings", "update", "relay_switch", "quit"]
+  "tray_menu_items": [
+    "new_chat",
+    "show",
+    "hide",
+    "theme",
+    "settings",
+    "update",
+    "relay_switch",
+    "quit"
+  ]
 }
 ```
 
