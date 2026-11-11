@@ -7,7 +7,8 @@
  *
  * 病灶:/openai/images、/openai/speech、/openai/transcriptions、/openai/responses
  *       四条平台 Key 代理只 recordUsage 不扣分,零积账号可无限调用付费上游。
- * 判据:四条 handler 都有 ensurePointsBalance 闸;有 usage 的响应能按 input/output tokens 结算。
+ * 判据:四条 handler 都有余额闸;无 token usage 的媒体端点按 points-guard 固定单价结算,
+ *       有 usage 的文本端点仍按 input/output tokens 结算。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { readFileSync } from 'node:fs'
@@ -40,14 +41,17 @@ describe('F-87 平台 Key 媒体端点必须计费', () => {
     mocks.spendPoints.mockClear()
   })
 
-  it('四条媒体 handler 都有余额闸(ensurePointsBalance 共 6 处:2 条既有 + 4 条新增)', () => {
-    const guards = source.match(/ensurePointsBalance\(request, reply,/g) ?? []
-    expect(guards).toHaveLength(6)
+  it('四条媒体 handler 都有余额闸:token 端点 3 处 + 媒体端点 4 处', () => {
+    // chat / embeddings / responses 走 model 倍率闸;images / speech / transcriptions /
+    // GET responses/:id 走不看 model 名的固定闸(免费模型名不能绕过)。
+    expect(source.match(/ensurePointsBalance\(request, reply,/g) ?? []).toHaveLength(3)
+    expect(source.match(/ensurePointsAvailable\(request, reply\)/g) ?? []).toHaveLength(4)
   })
 
-  it('images / responses 有调用后结算(chargePointsForCall 共 4 处)', () => {
-    const charges = source.match(/chargePointsForCall\(request,/g) ?? []
-    expect(charges).toHaveLength(4)
+  it('结算口径单一:token 端点 3 处 chargePointsForCall,媒体端点 3 处 chargeFlatPoints', () => {
+    expect(source.match(/chargePointsForCall\(request,/g) ?? []).toHaveLength(3)
+    // images / speech / transcriptions 无 token usage,必须按固定单价扣费。
+    expect(source.match(/chargeFlatPoints\(/g) ?? []).toHaveLength(3)
   })
 
   it('Responses API 的 input_tokens/output_tokens 能结算', async () => {

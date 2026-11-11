@@ -686,11 +686,21 @@ export async function deleteDepartment(id: string): Promise<void> {
 // 系统用户管理（users 表）
 // =============================================================================
 
+/**
+ * 部门用户列表的行投影(F-77):白名单式的业务字段集合。
+ * 密码哈希与 2FA 凭据(密文/备份码哈希/启用时间)永不出现在该投影里;
+ * twoFactorEnabled 只作布尔标记,供管理端展示「已开启 2FA」。
+ */
+export type DepartmentUser = Omit<
+  User,
+  'passwordHash' | 'twoFactorSecret' | 'twoFactorBackupCodes' | 'twoFactorEnabledAt'
+>
+
 /** 按部门查询用户列表（关联 userProfiles.departmentId）。 */
 export async function findUsersByDepartment(
   departmentId: string,
   opts: { page: number; pageSize: number },
-): Promise<{ list: User[]; total: number; page: number; pageSize: number }> {
+): Promise<{ list: DepartmentUser[]; total: number; page: number; pageSize: number }> {
   const where = eq(userProfiles.departmentId, departmentId)
   const [rows, totalRows] = await Promise.all([
     db
@@ -699,7 +709,6 @@ export async function findUsersByDepartment(
         phone: users.phone,
         email: users.email,
         username: users.username,
-        passwordHash: users.passwordHash,
         nickname: users.nickname,
         avatar: users.avatar,
         bio: users.bio,
@@ -715,10 +724,7 @@ export async function findUsersByDepartment(
         isSystemAdmin: users.isSystemAdmin,
         inviteCode: users.inviteCode,
         parentId: users.parentId,
-        twoFactorSecret: users.twoFactorSecret,
         twoFactorEnabled: users.twoFactorEnabled,
-        twoFactorBackupCodes: users.twoFactorBackupCodes,
-        twoFactorEnabledAt: users.twoFactorEnabledAt,
         createdAt: users.createdAt,
         updatedAt: users.updatedAt,
       })
