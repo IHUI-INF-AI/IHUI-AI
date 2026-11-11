@@ -21,6 +21,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { EventEmitter } from 'node:events';
+import { Readable } from 'node:stream';
 import type { ChildProcess } from 'node:child_process';
 // arch-exempt: 测试夹具只能取 §26 唯一落点(禁 os.tmpdir/裸 mkdtemp),属测试面而非生产依赖边(同 background-ledger.test.ts)
 import { mkScratch, rmScratch } from '../../../scripts/lib/scratch-dir.mjs';
@@ -70,8 +71,8 @@ import { clearTools, registerTools, type Tool } from '../src/tools/index.js';
 /** 假子进程:kill 立刻在微任务里回一发 close(真进程的形状:信号 → close)。 */
 function fakeChild(): ChildProcess {
   const child = new EventEmitter() as unknown as ChildProcess & { kill: (s?: string) => boolean };
-  child.stdout = new EventEmitter();
-  child.stderr = new EventEmitter();
+  child.stdout = new Readable({ read() {} });
+  child.stderr = new Readable({ read() {} });
   child.kill = () => {
     queueMicrotask(() => child.emit('close', null, 'SIGTERM'));
     return true;
@@ -228,8 +229,8 @@ describe('settleTasksOwnedByAgent —— 只结算归属该 agent 的在飞任�
 
   it('⑦ 真 close 先到(不是我们发的信号):结算不得改写已终态的任务(终态单向门)', async () => {
     const child = new EventEmitter() as unknown as ChildProcess & { kill: (s?: string) => boolean };
-    child.stdout = new EventEmitter();
-    child.stderr = new EventEmitter();
+    child.stdout = new Readable({ read() {} });
+    child.stderr = new Readable({ read() {} });
     child.kill = () => true;
     const id = registerTask(child, 'already over', { ownerAgentId: 'sa-d' });
     child.emit('close', 0, null); // 自己正常退出
