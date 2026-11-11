@@ -119,7 +119,12 @@ vi.mock('../src/db/index.js', () => {
       updateCalls.push(values)
       return step
     })
-    step.where = vi.fn(() => Promise.resolve())
+    // 与真实 drizzle 同形:where 返回 still-chainable 的 thenable(既可直接 await / .catch,
+    // 也可继续接 .returning —— SDB-32 的 CAS 回写要用命中行数)
+    step.where = vi.fn(() => {
+      const p = Promise.resolve()
+      return Object.assign(p, { returning: vi.fn(() => Promise.resolve([])) })
+    })
     step.returning = vi.fn(() => Promise.resolve([]))
     return step
   }

@@ -90,6 +90,15 @@ const AMOUNT_TAIL_SLOTS = 39
 const DETECT_PAGE_SIZE = 100
 const DETECT_MAX_PAGES = 8
 
+/**
+ * SDB-28:ERC20 链上复核(按 txHash 定位一笔历史交易)的翻页参数。
+ * 复核方向必须与「查最新交易」一致(sort=desc),否则地址累计超一页后
+ * 新交易永远落在后面的页里、订单永不入账;同时必须有上界,
+ * 避免极热地址无限翻页拖垮复核请求。
+ */
+const VERIFY_ERC20_PAGE_SIZE = 100
+const VERIFY_ERC20_MAX_PAGES = 10
+
 // =============================================================================
 // 充值地址格式校验
 // =============================================================================
@@ -898,25 +907,45 @@ async function verifyErc20OnChain(
   assertUsdtAddressFormat('ERC20', address)
 
   const apiKey = process.env.ETHERSCAN_API_KEY
-  const params = new URLSearchParams({
-    module: 'account',
-    action: 'tokentx',
-    address,
-    contractaddress: ERC20_USDT_CONTRACT,
-    page: '1',
-    offset: '100',
-    sort: 'asc',
-  })
-  if (apiKey) params.set('apikey', apiKey)
-  const url = `https://api.etherscan.io/api?${params}`
+  const notFoundReason = '未在平台地址转入记录中找到该交易(可能绑定他人或地址错误)'
+  let tx: EtherscanTokenTx | null = null
 
-  const response = await fetch(url)
-  if (!response.ok) throw new Error(`Etherscan 返回 ${response.status}`)
-  const data = (await response.json()) as EtherscanResponse
-  if (data.status !== '1' || !Array.isArray(data.result)) throw new Error('Etherscan 响应异常')
+  // SDB-28:复核按最新优先(sort=desc)并从第 1 页向后翻。旧实现固定升序第 1 页,
+  // 地址累计转入超过一页后,新交易永远不在结果集里 ⇒ 订单永久 pending。
+  // 上界 VERIFY_ERC20_MAX_PAGES 保证极热地址不会无限请求;翻到上界仍未命中
+  // 就是「未找到」(如实返回,不抛错)。
+  for (let page = 1; page <= VERIFY_ERC20_MAX_PAGES; page++) {
+    const params = new URLSearchParams({
+      module: 'account',
+      action: 'tokentx',
+      address,
+      contractaddress: ERC20_USDT_CONTRACT,
+      page: String(page),
+      offset: String(VERIFY_ERC20_PAGE_SIZE),
+      sort: 'desc',
+    })
+    if (apiKey) params.set('apikey', apiKey)
+    const url = `https://api.etherscan.io/api?${params}`
 
-  const tx = data.result.find((t) => t.hash.toLowerCase() === txHash.toLowerCase())
-  if (!tx) return fail('未在平台地址转入记录中找到该交易(可能绑定他人或地址错误)', null, null, null)
+    const response = await fetch(url)
+    if (!response.ok) throw new Error(`Etherscan 返回 ${response.status}`)
+    const data = (await response.json()) as EtherscanResponse
+
+    // 只有 Etherscan 明确回「No transactions found」才算确实没有该笔记录;
+    // 其余 status!=1(限流/接口异常/参数错误)一律抛错,由 verifyUsdtOnChain
+    // 归类为「链上取证失败」,不能与「没找到交易」混淆。
+    if (data.status !== '1' || !Array.isArray(data.result)) {
+      if (data.status === '0' && /No transactions found/i.test(data.message ?? '')) break
+      throw new Error(`Etherscan 响应异常: ${data.message || 'unknown'}`)
+    }
+
+    tx = data.result.find((t) => t.hash.toLowerCase() === txHash.toLowerCase()) ?? null
+    if (tx) break
+    // 不足一页 ⇒ 已经翻到最早一笔,继续翻只会拿到空页
+    if (data.result.length < VERIFY_ERC20_PAGE_SIZE) break
+  }
+
+  if (!tx) return fail(notFoundReason, null, null, null)
   if (tx.to.toLowerCase() !== address.toLowerCase())
     return fail('收款地址与平台地址不一致', null, tx.to, null)
 

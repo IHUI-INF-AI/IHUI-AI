@@ -770,11 +770,75 @@ async function resolveEgressProxy(
 }
 
 /**
+ * 单账号换票互斥锁(SDB-32,2026-11-11):巡检 refreshOne、本机重登 loginTraeLocal、
+ * 管理端 401 自愈、转发链路 refreshRowInPlace 四路刷新共用同一把账号级锁。
+ *
+ * 立因:refresh token 是轮换制,两路并发拿同一枚旧票去换 = 后者重放,上游会吊销整条
+ * grant。此前只有转发链路有进程内 Map 合并,跨进程/跨路径完全没有互斥。
+ * 非阻塞 try-acquire(与 sweep 锁同族):拿不到 = 别人正在换,本次不重复换、不排队。
+ */
+export const ACCOUNT_REFRESH_LOCK_TTL_MS = 2 * 60 * 1000
+
+/** 单账号换票锁名(四路刷新必须用同一个拼法,不允许各自再拼一份)。 */
+export function accountRefreshLockName(accountId: string): string {
+  return `relay-account-refresh:${accountId}`
+}
+
+/**
+ * 重读账号当前值(SDB-32「已被他人刷新」的返回口径):读失败/行不存在 ⇒ null,不抛。
+ * 用于 CAS 未命中与换票锁被占用两种情形 —— 此时库里那行才是权威值。
+ * 走主库(不用读副本):这条路径就是「刚有人写过、必须看到最新版本」,副本延迟会让
+ * 调用方拿着旧票再打一次上游。
+ */
+export async function readAccountForRefresh(
+  accountId: string,
+): Promise<AiRelayAccountPool | null> {
+  try {
+    const [row] = await db
+      .select()
+      .from(aiRelayAccountPool)
+      .where(eq(aiRelayAccountPool.id, accountId))
+      .limit(1)
+    return (row as AiRelayAccountPool | undefined) ?? null
+  } catch {
+    return null
+  }
+}
+
+/**
  * 刷新单账号;成功回写凭证,失败累计摘除。返回 true = 刷新成功。
  * 导出给管理面「按需查余额」共用同一把出口(回写/解摘/失败累计的口径只有一份)。
  * tally 只用于本轮巡检的观测(代理/直连计数),不影响产出。
+ *
+ * 互斥(SDB-32):换票+回写整段在账号级锁内,与其它三路刷新串行。
  */
 export async function refreshOne(
+  row: AiRelayAccountPool,
+  tally?: EgressProxyTally,
+): Promise<boolean> {
+  if (!getRelayAdapter(row.providerCode)?.refreshToken) return false
+  const lock = await tryAcquireSharedLock(
+    accountRefreshLockName(row.id),
+    ACCOUNT_REFRESH_LOCK_TTL_MS,
+  )
+  if (!lock) {
+    logger.info('[relay-account-pool] 换票锁被其他路径持有,本次不重复换票', {
+      accountId: row.id,
+      providerCode: row.providerCode,
+    })
+    // 「已被他人刷新」:版本已前进 ⇒ 对方确实换成了(成功才涨版本);否则只是对方在途,
+    // 本轮既不算刷新成功也不记失败 —— 失效方向是少刷,不误伤。
+    const current = await readAccountForRefresh(row.id)
+    return current !== null && current.credVersion !== row.credVersion
+  }
+  try {
+    return await refreshOneLocked(row, tally)
+  } finally {
+    await lock.release().catch(() => {})
+  }
+}
+
+async function refreshOneLocked(
   row: AiRelayAccountPool,
   tally?: EgressProxyTally,
 ): Promise<boolean> {
@@ -839,7 +903,7 @@ export async function refreshOne(
         })
       }
     }
-    await db
+    const applied = await db
       .update(aiRelayAccountPool)
       .set({
         tokenEnc: encryptField(result.token),
@@ -870,6 +934,17 @@ export async function refreshOne(
       .where(
         and(eq(aiRelayAccountPool.id, row.id), eq(aiRelayAccountPool.credVersion, row.credVersion)),
       )
+      .returning({ id: aiRelayAccountPool.id })
+    if (applied.length === 0) {
+      // CAS 未命中 = 快照之后已有别的路径换票成功。本次结果整笔作废:不写库(旧票绝不
+      // 覆盖新票),也不 push —— 否则会把客户端手里的新票顶回旧票。这不是错误。
+      logger.info('[relay-account-pool] 换票回写 CAS 未命中,按「已被他人刷新」处理', {
+        accountId: row.id,
+        providerCode: row.providerCode,
+        snapshotCredVersion: row.credVersion,
+      })
+      return true
+    }
     // 镜像仲裁 · 刷后 push(2026-11-11 根治"双消费者轮换竞态"②):
     // 池刚换出的新 rt 立刻写回本机客户端副本,客户端下次用票就是新票 —— 客户端不再
     // 持有已被轮换掉的旧 rt,两端始终是同一个消费者序列,上游视角无重放。
@@ -907,7 +982,7 @@ export async function refreshOne(
     // 连续 108 次 expired 也无人知道(§0.3:没判不写成判过,静默不写成健康)。
     const enteringRemove = shouldRemove && row.tempUnschedulable !== true
     const failedAt = new Date()
-    await db
+    const failedApplied = await db
       .update(aiRelayAccountPool)
       .set({
         refreshFailureCount: failures,
@@ -933,6 +1008,17 @@ export async function refreshOne(
       .where(
         and(eq(aiRelayAccountPool.id, row.id), eq(aiRelayAccountPool.credVersion, row.credVersion)),
       )
+      .returning({ id: aiRelayAccountPool.id })
+    if (failedApplied.length === 0) {
+      // CAS 未命中:别的路径已换票成功,本次失败结论随旧快照作废(不写计数、不摘除、
+      // 不投摘除告警) —— 告警只有在落库真的发生时才发,避免幽灵摘除。
+      logger.info('[relay-account-pool] 失败落账 CAS 未命中(已被他人刷新),本次不写失败态', {
+        accountId: row.id,
+        providerCode: row.providerCode,
+        snapshotCredVersion: row.credVersion,
+      })
+      return false
+    }
     if (enteringRemove) {
       try {
         const { pushAlertWithResult } = await import('./alert-notification-service.js')
