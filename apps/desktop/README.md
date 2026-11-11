@@ -115,7 +115,9 @@ DESKTOP_ALLOW_UNSIGNED=1 pnpm --filter @ihui/desktop build   # 仅本地自测�
 }
 ```
 
-改完重启桌面端即生效。数组顺序就是菜单顺序；**建议放在 `"quit"` 之前**（分组号 4 与「退出」的 3 不同，会自动独立成一组、前后各带一条分隔线，同时「退出」仍压在末尾 —— 放在 `quit` 之后会把退出挤到菜单中间）。
+改完重启桌面端即生效。**安装版与开发版是两套配置**，各写各的：安装版 identifier `com.ihui.desktop` → `%APPDATA%\com.ihui.desktop\desktop-behavior.json`；开发版（`pnpm dev:desktop:saas`，identifier `com.ihui.desktop.dev`，见 `tauri.dev.json`）→ `%APPDATA%\com.ihui.desktop.dev\desktop-behavior.json`。两个 identifier 不同是有意为之（single-instance 锁与 WebView 数据目录随之分家），所以两份都要写才两边都出现。
+
+数组顺序就是菜单顺序；**建议放在 `"quit"` 之前**（分组号 4 与「退出」的 3 不同，会自动独立成一组、前后各带一条分隔线，同时「退出」仍压在末尾 —— 放在 `quit` 之后会把退出挤到菜单中间）。
 
 点击后的行为：Rust 主进程直接拉起一个**独立控制台窗口**跑 `client-oneclick-switch.cmd`（交互式选号）；找不到仓库时弹原生提示说明原因（含是哪条路径没命中），不静默失败。
 
