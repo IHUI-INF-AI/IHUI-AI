@@ -15,6 +15,9 @@
  *
  * 幂等语义(A 格):`recordCommandAckFact` 走复合主键 `onConflictDoNothing` ——
  * 同坐标同指纹重发 = replayed(先过 E 存活,损坏即硬错);同坐标换请求体 = 409 key-reused。
+ * 这两档**只对同 ownerKey 成立**:主键被他人占用的坐标一律按 `missing` 判死(500
+ * COMMAND_ACK_FACT_NOT_ALIVE,与 GET /alive 对他人事实的处置同源),绝不回包他人事实、
+ * 也不回 key-reused —— 否则 409 的存在性 + 指纹分叉就把本端点变成他人坐标的探针。
  *
  * **跨存储语义(KV 与 PG 不能共享事务,票面点名)**:本端点写两个存储 ——
  *   ① 先落 **PG 事实**(真相源,跨会话/跨进程重启仍可回放),提交成功即不可逆;
