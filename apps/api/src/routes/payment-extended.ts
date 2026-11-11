@@ -13,7 +13,7 @@
  * 4. GET  /payments/subscription/status — 查询当前 VIP 订阅状态
  */
 
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsync, FastifyRequest } from 'fastify'
 import { env } from 'node:process'
 import { z } from 'zod'
 import { eq, and, desc, gte, sql } from 'drizzle-orm'
@@ -68,7 +68,7 @@ export const paymentExtendedRoutes: FastifyPluginAsync = async (server) => {
   server.addContentTypeParser('application/json', { parseAs: 'buffer' }, (req, body, done) => {
     const buf = body as Buffer
     const raw = buf.toString('utf8')
-    ;(req as unknown as { rawBody?: string }).rawBody = raw
+    ;(req as FastifyRequest & { rawBody?: string }).rawBody = raw
     if (!raw) {
       done(null, undefined)
       return
@@ -107,8 +107,7 @@ export const paymentExtendedRoutes: FastifyPluginAsync = async (server) => {
         const nonce = request.headers['wechatpay-nonce'] as string
         const signature = request.headers['wechatpay-signature'] as string
 
-        const rawBody =
-          (request as unknown as { rawBody?: string }).rawBody ?? JSON.stringify(request.body)
+        const rawBody = (request as FastifyRequest & { rawBody?: string }).rawBody
         // 无 body 的 POST(无 content-type 且 content-length 为 0)在 Fastify 里**根本不解析**
         // (handle-request.js:「Request has no body to parse」直接放行)⇒ request.body 是 undefined。
         // 原写法 `request.body as Record<string, unknown>` 把它当对象用,第一行属性访问就抛
@@ -122,6 +121,14 @@ export const paymentExtendedRoutes: FastifyPluginAsync = async (server) => {
 
         if (!outBillNo || !state) {
           return reply.send({ code: 'SUCCESS', message: 'OK' })
+        }
+
+        // F-16:验签原文只能是解析器挂上来的原始报文字节。缺失即拒绝(fail-closed),
+        // 禁止回落 JSON.stringify(body) —— 重序列化在空白/转义/数字格式上与原文不同,
+        // 等于让攻击者通过重排字段绕过验签,同时把真实回调挡在 401。
+        if (rawBody === undefined) {
+          request.log.warn({ outBillNo }, 'withdrawal callback missing raw body, reject')
+          return reply.code(400).send({ code: 'FAIL', message: '缺少原始报文' })
         }
 
         // 签名验证：verifyCallbackSignature 在无平台证书时 DEV 环境自动跳过，生产环境必须配置证书

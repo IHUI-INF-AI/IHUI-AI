@@ -93,10 +93,27 @@ function getVipBenefit(vipLevel: number) {
 }
 
 /**
+ * 余额不足信号:在事务内抛出以回滚刚写入的流水占位,由 deductWalletTokens 捕获后
+ * 转成既有的 `{ success: false, remaining }` 返回契约。
+ */
+class InsufficientBalanceError extends Error {
+  readonly remaining: number
+  constructor(remaining: number) {
+    super('insufficient token balance')
+    this.name = 'InsufficientBalanceError'
+    this.remaining = remaining
+  }
+}
+
+/**
  * 原子扣减用户钱包 token 余额,并在同一事务写 token_flows(opType=1)。
  *
- * 与 deductTokens 共用同一套 SQL 语义;抽成独立导出函数是为了让没有 Fastify server
- * 的调用方(Crew 子 LLM)也能接上真实扣费链路,而不是只记统计表。
+ * F-14:幂等键的「抢占」必须发生在扣减之前 —— 旧的 check-then-act
+ * (先 SELECT 1 判重,再 UPDATE 扣减,最后 INSERT 流水) 在并发下两次都查不到、
+ * 两次都扣减,后到的 INSERT 命中唯一冲突 DO NOTHING,已扣余额不回滚(双扣)。
+ * 现在顺序为:INSERT 流水占位(占住唯一键 (related_order_no, op_type))→ 扣减 →
+ * 回填 balance_after;INSERT 命中冲突即视为该笔已处理,直接按幂等返回。
+ * 余额不足时抛 InsufficientBalanceError 让事务整体回滚,占位流水一并消失。
  */
 async function deductWalletTokens(input: {
   userId: string
@@ -107,51 +124,71 @@ async function deductWalletTokens(input: {
   currentBalance?: number
 }): Promise<{ success: boolean; remaining: number }> {
   const { userId, amount, reason, idempotencyKey, currentBalance } = input
-  return db.transaction(async (tx) => {
-    const readBalance = async (): Promise<number> => {
-      if (currentBalance !== undefined) return currentBalance
-      const [row] = await tx
-        .select({ tokenQuantity: userMargins.tokenQuantity })
-        .from(userMargins)
-        .where(eq(userMargins.userId, userId))
-        .limit(1)
-      return row?.tokenQuantity ?? 0
-    }
-
-    // G3:事务内幂等检查(依赖 unique index (related_order_no, op_type))
-    if (idempotencyKey) {
-      const existing = await tx.execute(sql`
-        SELECT 1 FROM "token_flows"
-        WHERE "related_order_no" = ${idempotencyKey} AND "op_type" = 1
-        LIMIT 1
-      `)
-      if (existing.length > 0) {
-        return { success: true, remaining: await readBalance() }
+  try {
+    return await db.transaction(async (tx) => {
+      const readBalance = async (): Promise<number> => {
+        if (currentBalance !== undefined) return currentBalance
+        const [row] = await tx
+          .select({ tokenQuantity: userMargins.tokenQuantity })
+          .from(userMargins)
+          .where(eq(userMargins.userId, userId))
+          .limit(1)
+        return row?.tokenQuantity ?? 0
       }
+
+      // 先抢占幂等键:插入成功才允许扣减;命中唯一冲突 ⇒ 该笔已在处理/已处理。
+      let claimedFlowId: string | null = null
+      if (idempotencyKey) {
+        const claimed = await tx.execute(sql`
+          INSERT INTO "token_flows" ("user_id", "op_type", "quantity", "remark", "related_order_no", "created_at")
+          VALUES (${userId}, 1, ${amount}, ${reason ?? 'api_call'}, ${idempotencyKey}, now())
+          ON CONFLICT ("related_order_no", "op_type") DO NOTHING
+          RETURNING "id"
+        `)
+        const row = claimed[0] as { id?: string } | undefined
+        if (!row?.id) {
+          return { success: true, remaining: await readBalance() }
+        }
+        claimedFlowId = row.id
+      }
+
+      // 原子 UPDATE + WHERE 余额检查 + RETURNING(0 行 = 余额不足或用户不存在)
+      const updated = await tx
+        .update(userMargins)
+        .set({
+          tokenQuantity: sql`${userMargins.tokenQuantity} - ${amount}`,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(userMargins.userId, userId), sql`${userMargins.tokenQuantity} >= ${amount}`))
+        .returning({ tokenQuantity: userMargins.tokenQuantity })
+
+      if (updated.length === 0) {
+        // 扣减失败:抛出让事务回滚,占位流水不会留在库里被误判成「已处理」
+        throw new InsufficientBalanceError(await readBalance())
+      }
+
+      const newBalance = updated[0]!.tokenQuantity
+      if (claimedFlowId) {
+        // 占位流水补真实扣后余额(与扣减同一事务)
+        await tx.execute(sql`
+          UPDATE "token_flows" SET "balance_after" = ${newBalance}
+          WHERE "id" = ${claimedFlowId}
+        `)
+      } else {
+        await tx.execute(sql`
+          INSERT INTO "token_flows" ("user_id", "op_type", "quantity", "balance_after", "remark", "related_order_no", "created_at")
+          VALUES (${userId}, 1, ${amount}, ${newBalance}, ${reason ?? 'api_call'}, ${idempotencyKey ?? null}, now())
+          ON CONFLICT ("related_order_no", "op_type") DO NOTHING
+        `)
+      }
+      return { success: true, remaining: newBalance }
+    })
+  } catch (e) {
+    if (e instanceof InsufficientBalanceError) {
+      return { success: false, remaining: e.remaining }
     }
-
-    // 原子 UPDATE + WHERE 余额检查 + RETURNING(0 行 = 余额不足或用户不存在)
-    const updated = await tx
-      .update(userMargins)
-      .set({
-        tokenQuantity: sql`${userMargins.tokenQuantity} - ${amount}`,
-        updatedAt: new Date(),
-      })
-      .where(and(eq(userMargins.userId, userId), sql`${userMargins.tokenQuantity} >= ${amount}`))
-      .returning({ tokenQuantity: userMargins.tokenQuantity })
-
-    if (updated.length === 0) {
-      return { success: false, remaining: await readBalance() }
-    }
-
-    const newBalance = updated[0]!.tokenQuantity
-    await tx.execute(sql`
-      INSERT INTO "token_flows" ("user_id", "op_type", "quantity", "balance_after", "remark", "related_order_no", "created_at")
-      VALUES (${userId}, 1, ${amount}, ${newBalance}, ${reason ?? 'api_call'}, ${idempotencyKey ?? null}, now())
-      ON CONFLICT ("related_order_no", "op_type") DO NOTHING
-    `)
-    return { success: true, remaining: newBalance }
-  })
+    throw e
+  }
 }
 
 /**
