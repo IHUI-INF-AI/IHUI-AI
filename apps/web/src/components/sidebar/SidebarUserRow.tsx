@@ -353,7 +353,7 @@ export function SidebarUserRow({
         // 肉眼"不一样大"来自内部四处不同 —— 圆角 4px vs 6px、内边距 4px vs 10px、
         // 图标 14px vs 20px、字号 body vs sm。这里按 NAV_ITEM_BASE_CLASS 口径逐项对齐;
         // 同时去掉 justify-center,内容与导航项一样左对齐(与已登录态 userTrigger 同源)。
-        'flex h-9 w-full items-center gap-2.5 rounded-md px-2.5 text-sm font-medium transition-colors bg-foreground text-background hover:bg-foreground/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+        'flex h-9 w-full items-center gap-2.5 rounded-md px-2.5 text-body font-medium transition-colors bg-foreground text-background hover:bg-foreground/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
       )}
     >
       <LogIn className="h-5 w-5 shrink-0" />
@@ -368,7 +368,7 @@ export function SidebarUserRow({
       className={cn(
         // 整行 row 容器样式:与 NAV_ITEM_BASE_CLASS 全参数对齐 —— h-9 + px-2.5 + gap-2.5 +
         // rounded-md(6px) + text-sm,左对齐(不再居中),保证与上方导航项同一套几何。
-        'group/row flex h-9 w-full items-center gap-2.5 rounded-md px-2.5 text-sm transition-colors hover:bg-sidebar-item-hover-bg',
+        'font-[weight:inherit] group/row flex h-9 w-full items-center gap-2.5 rounded-md px-2.5 text-body transition-colors hover:bg-sidebar-item-hover-bg',
         // 按钮态样式:outline-none + focus-visible ring 保留键盘可访问性
         'outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring',
       )}
@@ -389,7 +389,7 @@ export function SidebarUserRow({
       {!collapsed && (
         <span
           className={cn(
-            'min-w-0 truncate text-sm font-medium text-foreground/70 transition-colors group-hover/row:text-foreground',
+            'min-w-0 truncate text-body font-medium text-foreground/70 transition-colors group-hover/row:text-foreground',
           )}
         >
           {user?.nickname ?? 'User'}
