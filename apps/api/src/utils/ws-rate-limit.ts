@@ -28,7 +28,15 @@ import { logger } from './logger.js'
 /** 窗口大小（毫秒），默认 1 秒。 */
 const WINDOW_MS = 1000
 
-/** 窗口内最大消息数（msg/sec），硬上限，超出即限流。 */
+/**
+ * 窗口内最大消息数（msg/sec），硬上限，超出即限流。
+ *
+ * F-711 选型：不做「30/s 稳态 + 50 突发」令牌桶，只保留单一 30/s 阈值。
+ * 理由：旧代码两档阈值顺序判断且 BURST(50) > MAX_PER_WINDOW(30)，等价单一
+ * `count <= 50`，稳态被抬到 50/s（比设计高 67%）；而本机 messageRateLimiter
+ * 已按每用户 60 条/分钟收口，跨实例窗口只需与设计口径一致的共享硬上限，
+ * 产品不接受额外突发，故删除突发档（见 5828640196）。
+ */
 const MAX_PER_WINDOW = 30
 
 /** ZSET TTL（秒），空闲后自动清理。 */
@@ -85,12 +93,17 @@ function rateKey(userId: string, roomId: string): string {
  *
  * @param userId 用户 ID
  * @param roomId 房间 ID
+ * @param nowMs 当前毫秒时间戳，仅测试注入可控时钟用，默认 Date.now()
  * @returns true 表示允许发送，false 表示被限流
  */
-export async function checkWsRateLimit(userId: string, roomId: string): Promise<boolean> {
+export async function checkWsRateLimit(
+  userId: string,
+  roomId: string,
+  nowMs: number = Date.now()
+): Promise<boolean> {
   if (!userId || !roomId) return true
   const key = rateKey(userId, roomId)
-  const now = Date.now()
+  const now = nowMs
   const windowStart = now - WINDOW_MS
   // 同毫秒内多消息:追加 CSPRNG 随机后缀保证 member 唯一
   // 2026-07-21 安全审计加固:用 randomBytes 替代 Math.random,

@@ -111,6 +111,18 @@ function toPageSize(v: string | undefined): number | undefined {
   return n === undefined ? undefined : clampPageSize(n)
 }
 
+/**
+ * F-703(2026-11-11):`SUM(agent_billings.model_input_token)` 是 int8,旧写法再 `::int`
+ * 在累计超 2^31 时抛 22003(numeric out of range)⇒ 智能体详情接口整体 500。
+ * SQL 侧改 `::bigint` 后 pg 驱动回 string,这里统一把聚合值收敛回 number 契约,
+ * 并保留 null/缺列 → 0 的兜底。
+ */
+export function toBigintNumber(v: unknown): number {
+  if (v === null || v === undefined || v === '') return 0
+  const n = Number(v)
+  return Number.isFinite(n) ? n : 0
+}
+
 // =============================================================================
 // 市场公开视图(2026-09-21):游客可浏览市场列表/分类/已发布详情
 // 兑现 2026-08-12 "/agents/stats 公开,与 /agents 列表一致" 的本意 —— 此前列表实际一直 401。
@@ -2768,12 +2780,12 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     if (!isUuidString(agentId)) return reply.status(404).send(error(404, '智能体不存在'))
     const detail = await getAgentDetail(agentId)
     if (!detail) return reply.status(404).send(error(404, '智能体不存在'))
-    // 统计信息: 该智能体的计费记录数与 token 总量
+    // F-703:token 累计会超 2^31,聚合保持 bigint(pg 驱动回 string),取值处收敛回 number
     const [billingStats] = await dbRead
       .select({
         billingCount: sql<number>`count(*)::int`,
-        totalInputTokens: sql<number>`COALESCE(sum(${agentBillings.modelInputToken}), 0)::int`,
-        totalOutputTokens: sql<number>`COALESCE(sum(${agentBillings.modelOutputToken}), 0)::int`,
+        totalInputTokens: sql<string>`COALESCE(sum(${agentBillings.modelInputToken}), 0)::bigint`,
+        totalOutputTokens: sql<string>`COALESCE(sum(${agentBillings.modelOutputToken}), 0)::bigint`,
         totalCost: sql<string>`COALESCE(sum(${agentBillings.changeBalance}), 0)::text`,
       })
       .from(agentBillings)
@@ -2783,8 +2795,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
         ...detail,
         stats: {
           billingCount: billingStats?.billingCount ?? 0,
-          totalInputTokens: billingStats?.totalInputTokens ?? 0,
-          totalOutputTokens: billingStats?.totalOutputTokens ?? 0,
+          totalInputTokens: toBigintNumber(billingStats?.totalInputTokens),
+          totalOutputTokens: toBigintNumber(billingStats?.totalOutputTokens),
           totalCost: billingStats?.totalCost ?? '0',
         },
       }),
