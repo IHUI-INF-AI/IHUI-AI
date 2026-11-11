@@ -262,6 +262,8 @@ interface MessageInputProps {
   modelLabel: string
   /** auto 模式下当前对话实际使用的模型(宿主传入),模型按钮据此显示真实模型名 */
   autoResolvedModel?: string
+  /** 浮窗档:工具栏只有 添加/模型/发送 三项,≤465 容器的 icon-only 降级属误伤,强制显示文字 */
+  forceToolbarText?: boolean
   /** 浮窗折叠态头部按钮(展开/停靠/最小化),与 AgentProgressTrigger 同行渲染在输入卡片内 */
   floatHeader?: React.ReactNode
   /** 浮窗折叠态拖拽回调,绑定在合并行上 */
@@ -283,6 +285,7 @@ export function MessageInput({
   onModelChange,
   modelLabel,
   autoResolvedModel,
+  forceToolbarText,
   floatHeader,
   onFloatDragStart,
   compactTop,
@@ -1429,7 +1432,10 @@ export function MessageInput({
                 - 推理强度轴(D130)+ 采样参数 → 模型弹层 footer(footer prop)。
                 容器降级阶梯见 globals.css .ai-input-toolbar(原生 CSS container query)。 */}
             <div
-              className="ai-input-toolbar flex min-w-0 flex-wrap items-center gap-1 overflow-visible px-2 pb-2 pt-1"
+              className={cn(
+                'ai-input-toolbar flex min-w-0 flex-wrap items-center gap-1 overflow-visible px-2 pb-2 pt-1',
+                forceToolbarText && 'ai-input-toolbar--force-text',
+              )}
               data-testid="ai-input-toolbar"
             >
               {/* ── 左簇:「实时状态」芯片(仅活跃时) + 「添加 +」───────────

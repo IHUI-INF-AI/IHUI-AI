@@ -1324,6 +1324,15 @@ html[data-workbench-immersive='true'] aside[data-main-sidebar] {
     display: none;
   }
 }
+/* 浮窗档误伤修复(2026-11-11 用户报"不显示模型名"):上面 465 降级是为「多文字项挤单行」
+ * 的老工具栏设计的;2026-11-04 重构后空闲态只剩 添加/模型/发送 三锚点(360 容器实测合计
+ * ≈170px),模型名被一并隐藏属误伤。AI 面板宿主(docked 与浮窗态)一律给工具栏加
+ * --force-text,同特异度后置覆盖回显示;工具栏本身 flex-wrap,极窄时换行不重叠。 */
+.ai-input-toolbar--force-text .model-selector-text,
+.ai-input-toolbar--force-text .mode-switcher-text,
+.ai-input-toolbar--force-text .model-selector-loading {
+  display: inline;
+}
 /* 移动端(<640)点击区不小于 40px(用户规则;桌面端沿用全项目 32px 图标档)。
  * 只作用于底栏自身的触发器:VoiceNote/权限弹层内部的小按钮不受影响,
  * 否则 28px 的弹层行内操作会被一并撑高。 */

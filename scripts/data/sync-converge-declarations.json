@@ -44,6 +44,34 @@
     {
       "path": "scripts/data/cross-end-screen-registry.json",
       "reason": "跨端屏表登记下发面:以对侧本轮登记为准,ui-routes.generated.ts 等派生件由生成器重算。"
+    },
+    {
+      "path": "apps/miniapp-taro/src/i18n/generated/remote-locale-manifest.gen.ts",
+      "reason": "生成类派生态:由 i18n 生成器从 packages/i18n/messages 与 assets/remote-locales 重算,取对侧后必须重生成对齐(固化规则:生成类文件取对侧后重生成)。"
+    },
+    {
+      "path": "apps/miniapp-taro/src/i18n/generated/remote-locales.gen.ts",
+      "reason": "生成类派生态:由 i18n 生成器从 packages/i18n/messages 与 assets/remote-locales 重算,取对侧后必须重生成对齐(固化规则:生成类文件取对侧后重生成)。"
+    },
+    {
+      "path": "apps/miniapp-taro/src/i18n/generated/zh-cn-pack.gen.ts",
+      "reason": "生成类派生态:由 i18n 生成器从词包源重算,取对侧后必须重生成对齐(固化规则:生成类文件取对侧后重生成)。"
+    },
+    {
+      "path": "README.md",
+      "reason": "四语 README 数字/近况块为生成态:固化规则「README×4 取对侧后必须运行 sync-readme-numbers.mjs 与 auto-update-readme-recent.mjs 重生成」;散文独有行由 lostAddedLines 复量把关。"
+    },
+    {
+      "path": "README.en.md",
+      "reason": "四语 README 数字/近况块为生成态:固化规则「README×4 取对侧后必须运行 sync-readme-numbers.mjs 与 auto-update-readme-recent.mjs 重生成」;散文独有行由 lostAddedLines 复量把关。"
+    },
+    {
+      "path": "README.ja.md",
+      "reason": "四语 README 数字/近况块为生成态:固化规则「README×4 取对侧后必须运行 sync-readme-numbers.mjs 与 auto-update-readme-recent.mjs 重生成」;散文独有行由 lostAddedLines 复量把关。"
+    },
+    {
+      "path": "README.ko.md",
+      "reason": "四语 README 数字/近况块为生成态:固化规则「README×4 取对侧后必须运行 sync-readme-numbers.mjs 与 auto-update-readme-recent.mjs 重生成」;散文独有行由 lostAddedLines 复量把关。"
     }
   ]
 }

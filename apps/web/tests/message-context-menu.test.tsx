@@ -11,7 +11,7 @@
  * - 各操作的图标映射(Copy/FileText/RefreshCw/MessageSquareWarning/Share2/Trash2/Clipboard)
  * - 危险项(danger=true)显示 destructive 颜色
  * - 禁用项(disabled=true)不可点击 + 半透明
- * - 分隔符(separator)渲染 1px 横线
+ * - 分隔符(separator)项不渲染分割线元素(2026-11-11 分割线清零,原「渲染 1px 横线」「点击 separator 不触发 onAction」用例随分割线移除)
  * - 子菜单(children)嵌套渲染
  * - 快捷键显示(shortcut)
  * - visible=false:不渲染
@@ -302,7 +302,7 @@ describe('MessageContextMenu — 分隔符 + 子菜单', () => {
     cleanup()
   })
 
-  it('separator 项:渲染 role=separator 元素', () => {
+  it('separator 项:不渲染分割线元素(2026-11-11 分割线清零)', () => {
     const items: ContextMenuItem[] = [
       { id: 'a', label: 'A', action: 'copy' },
       { id: 'sep', label: '', separator: true },
@@ -318,7 +318,7 @@ describe('MessageContextMenu — 分隔符 + 子菜单', () => {
       />,
     )
     const seps = container.querySelectorAll('[role="separator"]')
-    expect(seps.length).toBe(1)
+    expect(seps.length).toBe(0)
   })
 
   it('children 子菜单:嵌套渲染', () => {
@@ -609,29 +609,6 @@ describe('plainTextForClipboard — 简化纯文本工具', () => {
 describe('MessageContextMenu — 分隔符 + 菜单项交互隔离', () => {
   afterEach(() => {
     cleanup()
-  })
-
-  it('点击 separator 元素:不触发 onAction(separator 是 div,无 onClick 处理器)', () => {
-    const onAction = vi.fn()
-    const items: ContextMenuItem[] = [
-      { id: 'a', label: 'A', action: 'copy' },
-      { id: 'sep', label: '', separator: true },
-      { id: 'b', label: 'B', action: 'delete' },
-    ]
-    const { container } = render(
-      <MessageContextMenu
-        visible={true}
-        position={{ x: 100, y: 100 }}
-        items={items}
-        onAction={onAction}
-        onClose={vi.fn()}
-      />,
-    )
-    const separator = container.querySelector('[role="separator"]') as HTMLElement
-    expect(separator).toBeTruthy()
-    // 点击 separator 不应触发 onAction
-    fireEvent.click(separator)
-    expect(onAction).not.toHaveBeenCalled()
   })
 
   it('action=undefined 项:data-testid 退化为 id;点击不触发 onAction', () => {

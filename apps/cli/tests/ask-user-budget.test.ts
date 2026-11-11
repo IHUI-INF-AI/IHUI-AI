@@ -27,7 +27,7 @@ import {
   beginAskUserEscalationBudget,
   endAskUserEscalationBudget,
 } from '../src/tools/ask-user.js';
-import { resolveToolExecBudgetMs } from '../src/tools/index.js';
+import { resolveToolExecBudgetMs, type ToolResult } from '../src/tools/index.js';
 
 function setTTY(v: boolean): void {
   Object.defineProperty(process.stdin, 'isTTY', { value: v, configurable: true });
@@ -47,7 +47,7 @@ const ARGS = {
   ],
 };
 
-async function callOnce(): Promise<{ success: boolean; output: string; error?: string }> {
+async function callOnce(): Promise<ToolResult> {
   return ask_user_question.execute(ARGS, { workspacePath: '.' });
 }
 

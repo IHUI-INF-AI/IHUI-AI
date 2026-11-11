@@ -200,7 +200,7 @@ export function RepoWikiPanel() {
           data-testid="wiki-generate"
           onClick={() => void handleGenerate()}
           disabled={generating}
-          className="flex items-center justify-center gap-1 rounded-sm border px-2 py-1.5 text-label transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex items-center justify-center gap-1 rounded-sm border border-input px-2 py-1.5 text-label transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Sparkles className="h-3 w-3" />
           {generating ? t('generating') : t('generate')}
@@ -211,7 +211,7 @@ export function RepoWikiPanel() {
           onClick={toggleAutoCapture}
           aria-pressed={autoCapture}
           className={cn(
-            'flex items-center justify-center gap-1 rounded-sm border px-2 py-1.5 text-label transition-colors hover:bg-accent',
+            'flex items-center justify-center gap-1 rounded-sm border border-input px-2 py-1.5 text-label transition-colors hover:bg-accent',
             autoCapture && 'bg-accent font-medium text-accent-foreground',
           )}
         >
@@ -223,7 +223,7 @@ export function RepoWikiPanel() {
           data-testid="wiki-export"
           onClick={() => void handleExport()}
           disabled={cards.length === 0}
-          className="flex items-center justify-center gap-1 rounded-sm border px-2 py-1.5 text-label text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex items-center justify-center gap-1 rounded-sm border border-input px-2 py-1.5 text-label text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Copy className="h-3 w-3" />
           {t('export')}
@@ -233,7 +233,7 @@ export function RepoWikiPanel() {
           data-testid="wiki-clear"
           onClick={() => useRepoWikiStore.getState().clear()}
           disabled={cards.length === 0}
-          className="flex items-center justify-center gap-1 rounded-sm border px-2 py-1.5 text-label text-muted-foreground transition-colors hover:bg-accent hover:text-destructive disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex items-center justify-center gap-1 rounded-sm border border-input px-2 py-1.5 text-label text-muted-foreground transition-colors hover:bg-accent hover:text-destructive disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Trash2 className="h-3 w-3" />
           {t('clear')}

@@ -16,7 +16,7 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import type { GoalVerification } from '@ihui/api-client';
+import type { GoalHardCriterion, GoalVerification } from '@ihui/api-client';
 
 import {
   applyGoalVerificationToStopReason,
@@ -28,7 +28,7 @@ import {
   type GoalToolCallRecord,
 } from '../src/goal-verification.js';
 
-const criterion = (over: Record<string, unknown> = {}) => ({
+const criterion = (over: Partial<GoalHardCriterion> = {}): GoalHardCriterion => ({
   id: 'c1',
   statement: 'pnpm --filter @ihui/cli typecheck 必须 0 错误',
   evidence_kind: 'command',
@@ -55,8 +55,8 @@ describe('buildGoalEvidence —— 采集侧只如实搬运,不猜不补', () =>
       calls: [call()],
     });
     expect(evidence).toHaveLength(1);
-    expect(evidence[0].criterion_id).toBe('c1');
-    expect(evidence[0].outcome).toBe('met');
+    expect(evidence[0]!.criterion_id).toBe('c1');
+    expect(evidence[0]!.outcome).toBe('met');
     expect(unprobed).toEqual([]);
   });
 
@@ -65,7 +65,7 @@ describe('buildGoalEvidence —— 采集侧只如实搬运,不猜不补', () =>
       criteria: [criterion()],
       calls: [call({ exitCode: 2, ok: false, output: 'TS2345 error' })],
     });
-    expect(evidence[0].outcome).toBe('unmet');
+    expect(evidence[0]!.outcome).toBe('unmet');
   });
 
   it('没跑过该命令 ⇒ 不附证据,只点名"缺证据"(不得拿相近命令冒充)', () => {
@@ -75,7 +75,7 @@ describe('buildGoalEvidence —— 采集侧只如实搬运,不猜不补', () =>
     });
     expect(evidence).toEqual([]);
     expect(unprobed).toHaveLength(1);
-    expect(unprobed[0].reason).toContain('pnpm --filter @ihui/cli typecheck');
+    expect(unprobed[0]!.reason).toContain('pnpm --filter @ihui/cli typecheck');
   });
 
   it('命令族之外的工具调用不得当作 probe 证据(读文件读到同名字符串也不行)', () => {
@@ -120,8 +120,8 @@ describe('runGoalVerification —— 唯一不可让的取向:绝不 fail-open',
         independent_request_made: true,
       }),
     });
-    expect(v.treat_as_complete).toBe(false);
-    expect(v.goal_status).toBe('not_achieved');
+    expect(v!.treat_as_complete).toBe(false);
+    expect(v!.goal_status).toBe('not_achieved');
   });
 
   it('校验服务不可达 ⇒ undetermined + 原因可见,绝不当成通过', async () => {
@@ -131,10 +131,10 @@ describe('runGoalVerification —— 唯一不可让的取向:绝不 fail-open',
         throw new Error('ECONNREFUSED 127.0.0.1:8803');
       },
     });
-    expect(v.status).toBe('undetermined');
-    expect(v.treat_as_complete).toBe(false);
-    expect(v.unavailable_reason).toContain('ECONNREFUSED');
-    expect(v.independent_request_made).toBe(false);
+    expect(v!.status).toBe('undetermined');
+    expect(v!.treat_as_complete).toBe(false);
+    expect(v!.unavailable_reason).toContain('ECONNREFUSED');
+    expect(v!.independent_request_made).toBe(false);
   });
 
   it('返回体缺 treat_as_complete 章 ⇒ 按未判定处理(不采信 status 字面)', async () => {
@@ -142,8 +142,8 @@ describe('runGoalVerification —— 唯一不可让的取向:绝不 fail-open',
       ...base,
       requestVerification: async () => ({ status: 'achieved' }) as never,
     });
-    expect(v.status).toBe('undetermined');
-    expect(v.treat_as_complete).toBe(false);
+    expect(v!.status).toBe('undetermined');
+    expect(v!.treat_as_complete).toBe(false);
   });
 
   it('status 说 achieved 但盖章 false ⇒ 以章为准(结论由代码合成,不由模型自述)', async () => {
@@ -152,8 +152,8 @@ describe('runGoalVerification —— 唯一不可让的取向:绝不 fail-open',
       requestVerification: async () =>
         ({ status: 'achieved', treat_as_complete: false, criteria: [] }) as never,
     });
-    expect(v.treat_as_complete).toBe(false);
-    expect(v.independence_warnings.join(' ')).toContain('treat_as_complete');
+    expect(v!.treat_as_complete).toBe(false);
+    expect(v!.independence_warnings.join(' ')).toContain('treat_as_complete');
   });
 
   it('achieved 且盖章 true ⇒ 唯一允许宣布完成的一档', async () => {
@@ -167,8 +167,8 @@ describe('runGoalVerification —— 唯一不可让的取向:绝不 fail-open',
           independent_request_made: true,
         }) as never,
     });
-    expect(v.goal_status).toBe('achieved');
-    expect(v.treat_as_complete).toBe(true);
+    expect(v!.goal_status).toBe('achieved');
+    expect(v!.treat_as_complete).toBe(true);
   });
 });
 
@@ -368,7 +368,7 @@ describe('decideGoalContinuation —— 未过 ≠ 交账,连续未过才落 blo
     });
     expect(v).toEqual(snapshot);
     // 落 blocked 时改的是副本:原对象档位仍是 not_achieved,新档才可见
-    expect(v.goal_status).toBe('not_achieved');
+    expect(v!.goal_status).toBe('not_achieved');
     expect(d.verification.goal_status).toBe('blocked');
     expect(d.verification).not.toBe(v);
   });

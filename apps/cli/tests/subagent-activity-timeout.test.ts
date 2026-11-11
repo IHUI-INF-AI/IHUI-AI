@@ -25,6 +25,7 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { EventEmitter } from 'node:events';
+import { Readable } from 'node:stream';
 import type { ChildProcess } from 'node:child_process';
 import type { SubagentSpawnResponse } from '@ihui/types';
 
@@ -128,11 +129,12 @@ vi.mock('node:child_process', async (importOriginal) => {
     ...actual,
     fork: (): ChildProcess => {
       const proc = new EventEmitter() as EventEmitter & Partial<ChildProcess>;
-      proc.pid = 424_300 + fakes.procs.length;
+      // pid 在 ChildProcess 上是 readonly ⇒ 用 Object.assign 一次性写入夹具面
+      Object.assign(proc, { pid: 424_300 + fakes.procs.length });
       proc.send = vi.fn(() => true);
       proc.kill = vi.fn(() => true);
-      proc.stdout = new EventEmitter();
-      proc.stderr = new EventEmitter();
+      proc.stdout = new Readable({ read() {} });
+      proc.stderr = new Readable({ read() {} });
       const full = proc as unknown as ChildProcess;
       fakes.procs.push(full);
       return full;

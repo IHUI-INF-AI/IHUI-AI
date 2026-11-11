@@ -232,7 +232,7 @@ export default function ContactPage() {
         {info.phone ? (
           <View className="pt-[16rpx] pb-[16rpx]">
             <Button
-              className="w-full h-[100rpx] leading-[100rpx] bg-primary text-[var(--color-primary-foreground)] text-title font-semibold rounded-sm m-0 after:border-0"
+              className="w-full h-[100rpx] leading-[100rpx] bg-primary text-[var(--color-primary-foreground)] text-title font-semibold rounded-sm m-0 border-input after:border-0"
               onClick={() => call(info.phone)}
             >
               {tt('about.contact.callNow', '立即拨打客服')}

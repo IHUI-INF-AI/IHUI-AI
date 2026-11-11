@@ -233,7 +233,7 @@ export default function ComputerUsePage() {
             <button
               onClick={takeScreenshot}
               disabled={busy || !openInfo}
-              className="inline-flex items-center gap-1.5 rounded-sm border px-3 py-1.5 text-label font-medium transition hover:bg-accent disabled:opacity-40"
+              className="inline-flex items-center gap-1.5 rounded-sm border border-input px-3 py-1.5 text-label font-medium transition hover:bg-accent disabled:opacity-40"
             >
               <Camera className="h-3.5 w-3.5" /> {t('screenshot')}
             </button>
@@ -248,14 +248,14 @@ export default function ComputerUsePage() {
             <button
               onClick={extractText}
               disabled={busy || !openInfo}
-              className="inline-flex items-center gap-1.5 rounded-sm border px-3 py-1.5 text-label font-medium transition hover:bg-accent disabled:opacity-40"
+              className="inline-flex items-center gap-1.5 rounded-sm border border-input px-3 py-1.5 text-label font-medium transition hover:bg-accent disabled:opacity-40"
             >
               <FileText className="h-3.5 w-3.5" /> {t('extractText')}
             </button>
             <button
               onClick={() => refreshSnapshot()}
               disabled={busy || !openInfo}
-              className="inline-flex items-center gap-1.5 rounded-sm border px-3 py-1.5 text-label font-medium transition hover:bg-accent disabled:opacity-40"
+              className="inline-flex items-center gap-1.5 rounded-sm border border-input px-3 py-1.5 text-label font-medium transition hover:bg-accent disabled:opacity-40"
             >
               <ScanSearch className="h-3.5 w-3.5" /> {t('refreshSnapshot')}
             </button>

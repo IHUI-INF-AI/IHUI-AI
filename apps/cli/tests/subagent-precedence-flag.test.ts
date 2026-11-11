@@ -108,6 +108,7 @@ beforeEach(() => {
     assistantText: 'task done',
     iterations: 1,
     usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0, estimatedCostUsd: 0 },
+    branchGeneration: 0,
   });
 
   clearTools();

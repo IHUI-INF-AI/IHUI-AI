@@ -3,7 +3,35 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { clsx, type ClassValue } from 'clsx'
-import { twMerge } from 'tailwind-merge'
+import { extendTailwindMerge } from 'tailwind-merge'
+
+/**
+ * 自定义字号档必须在这里注册,否则 tailwind-merge 会把它们误归进"文字颜色"组 ——
+ * 2026-11-11 实证:裸 twMerge 下 `cn('text-label font-medium text-foreground/80')` 里
+ * `text-label` 与 `text-foreground/80` 被判同组冲突、后者胜出,`text-label` 被**静默吃掉**,
+ * 提示词模板 chips 的字号从上线起就没生效过(真机 DOM 里没有 text-label)。
+ * 名单与 tokens.css `@theme` 的 `--text-*` 逐一对应(11 档),新增字号档必须同步进这张表。
+ */
+const twMerge = extendTailwindMerge({
+  extend: {
+    classGroups: {
+      // 条目是**完整类名**(tailwind-merge v3 语义),不是 `text-` 后的值 —— 裸值注册等于没注册。
+      'font-size': [
+        'text-badge',
+        'text-caption',
+        'text-label',
+        'text-body-sm',
+        'text-body',
+        'text-strong',
+        'text-title',
+        'text-subtitle',
+        'text-heading',
+        'text-display',
+        'text-display-lg',
+      ],
+    },
+  },
+})
 
 export function cn(...inputs: ClassValue[]): string {
   return twMerge(clsx(inputs))

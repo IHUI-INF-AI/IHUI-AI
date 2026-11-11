@@ -50,6 +50,9 @@ import {
   SCRATCH_MIN_AGE_HOURS_DEFAULT,
   SCRATCH_DIR_NAME,
   SCRATCH_ROUND_CAP,
+  scratchTombstoneStamp,
+  scratchTombstoneEffectiveMinAgeMinutes,
+  SCRATCH_TOMBSTONE_MIN_AGE_MINUTES_DEFAULT,
 } from '../scrub-temp-fixtures.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -869,6 +872,167 @@ test('T31 保护区命中必须在 scratch 腿点名(名字/命中路径/体积)
       /* 清理失败不得改写判据结论 */
     }
     rmScratch(root)
+  }
+})
+
+// ─────────────────────────────────────────────────────────────────────────
+// T32–T37:墓碑回收腿(2026-11-11 立)。立因:`rmScratch()` 的 trash shim 失败时把夹具改名成
+// `.stale-<Date.now()>` 留在 scratch 根,注释承诺"交每日 Temp 体检回收";但 scratch 腿的 6h
+// 静默闸按**子树 mtime** 判龄 ⇒ 夜间门测风暴(23:00–05:00)造的墓碑在次日 06:14 守护轮
+// 整轮被跳过,账面恒堆一个风暴的量(11/11 实测:全根合计候选仅 11)。
+// ─────────────────────────────────────────────────────────────────────────
+
+/** 造一枚墓碑:目录名 `<base>.stale-<ts>`,整棵子树 mtime 设到 ts(死亡时刻) */
+const mkTombstone = (scratch, base, ts) => {
+  const dir = join(scratch, `${base}.stale-${ts}`)
+  mkdirSync(join(dir, 'deep'), { recursive: true })
+  writeFileSync(join(dir, 'deep', 'a.bin'), Buffer.alloc(1024, 1))
+  const t = new Date(ts)
+  const stack = [dir]
+  while (stack.length) {
+    const d = stack.pop()
+    utimesSync(d, t, t)
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      const f = join(d, e.name)
+      utimesSync(f, t, t)
+      if (e.isDirectory()) stack.push(f)
+    }
+  }
+  return dir
+}
+/** 墓碑族测试共用收尾:先拆二阶 scratch 根再 rmScratch(T26/T31 同款) */
+const teardownScratch = (scratch, root) => {
+  try {
+    rmSync(scratch, { recursive: true, force: true })
+  } catch {
+    /* 清理失败不得改写判据结论 */
+  }
+  rmScratch(root)
+}
+
+test('T32 墓碑按死亡戳进候选:2 小时前的墓碑必须被收(旧 6h 子树闸在这条必红)', () => {
+  const root = mkScratch('scrub-t32')
+  const scratch = join(root, SCRATCH_DIR_NAME)
+  try {
+    mkdirSync(scratch, { recursive: true })
+    const now = Date.now()
+    const ts = now - 2 * 3600 * 1000 // 死於 2h 前:子树 mtime 也 2h ⇒ 旧逻辑判 fresh,新逻辑按戳收
+    mkTombstone(scratch, 'gate-night-AAA', ts)
+    const r = scanScratchFixtures({ root, now })
+    assert.deepEqual(r.candidates.map((c) => c.name), [`gate-night-AAA.stale-${ts}`], '墓碑必须按名字戳进候选,不得被子树 mtime 闸错过')
+    assert.equal(r.skipped.fresh, 0, '不得记成"静默未到"')
+    assert.ok(r.candidates[0].bytes >= 1024 && r.candidates[0].files >= 1, '体积/文件数必须照量(minAgeMs=0 只改判龄,不改量法)')
+    assert.ok(Math.abs(r.candidates[0].idleHours - 2) < 0.2, `idleHours 从死亡戳起算(约 2h),实读 ${r.candidates[0].idleHours}`)
+    // 戳解析的纯函数面
+    assert.equal(scratchTombstoneStamp(`x.stale-${ts}`), ts)
+    assert.equal(scratchTombstoneStamp('x.stale-123'), null, '位数下限挡住不像 Date.now() 的形状')
+    assert.equal(scratchTombstoneStamp('x.stale-1731234567890.tmp'), null, '戳必须在名字结尾')
+    assert.equal(scratchTombstoneStamp('gate-baseline-AAA'), null, '普通夹具名不是墓碑')
+  } finally {
+    teardownScratch(scratch, root)
+  }
+})
+
+test('T33 墓碑账龄闸有牙:10 分钟前的戳不进候选,参数 0 调不穿 60 分钟下限', () => {
+  const root = mkScratch('scrub-t33')
+  const scratch = join(root, SCRATCH_DIR_NAME)
+  try {
+    mkdirSync(scratch, { recursive: true })
+    const now = Date.now()
+    mkTombstone(scratch, 'gate-recent-BBB', now - 10 * 60 * 1000)
+    const r = scanScratchFixtures({ root, now })
+    assert.equal(r.candidates.length, 0, '死亡未满 60 分钟的墓碑一条都不许删')
+    assert.equal(r.skipped.fresh, 1)
+    // 变异对照:把闸调成 0 分钟也调不穿下限(同 T27 对 6h 族档的口径)
+    const r2 = scanScratchFixtures({ root, now, tombstoneMinAgeMinutes: 0 })
+    assert.equal(r2.candidates.length, 0, 'tombstoneMinAgeMinutes=0 不得把 60 分钟下限调穿')
+  } finally {
+    teardownScratch(scratch, root)
+  }
+})
+
+test('T34 非墓碑的 6h 静默闸未被放宽:子树 mtime 2 小时的普通夹具仍不进候选', () => {
+  const root = mkScratch('scrub-t34')
+  const scratch = join(root, SCRATCH_DIR_NAME)
+  try {
+    mkdirSync(scratch, { recursive: true })
+    const dir = join(scratch, 'gate-day-CCC')
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(join(dir, 'x.bin'), Buffer.alloc(512, 1))
+    touchOldTree(dir, 2 / 24)
+    const r = scanScratchFixtures({ root, now: Date.now() })
+    assert.equal(r.candidates.length, 0, '墓碑腿不得顺手放宽普通夹具的 6h 闸(负向对照)')
+    assert.equal(r.skipped.fresh, 1)
+  } finally {
+    teardownScratch(scratch, root)
+  }
+})
+
+test('T35 墓碑内藏保护区:整条不删且点名(死亡戳不得绕过名字闸)', () => {
+  const root = mkScratch('scrub-t35')
+  const scratch = join(root, SCRATCH_DIR_NAME)
+  try {
+    mkdirSync(scratch, { recursive: true })
+    const now = Date.now()
+    const ts = now - 3 * 3600 * 1000
+    const dir = mkTombstone(scratch, 'gate-secrets-DDD', ts)
+    mkdirSync(join(dir, 'src', 'secrets'), { recursive: true })
+    writeFileSync(join(dir, 'src', 'secrets', 'keep.txt'), 'DO NOT DELETE')
+    const t = new Date(ts)
+    utimesSync(join(dir, 'src'), t, t)
+    utimesSync(join(dir, 'src', 'secrets'), t, t)
+    utimesSync(join(dir, 'src', 'secrets', 'keep.txt'), t, t)
+    const r = scanScratchFixtures({ root, now })
+    assert.equal(r.candidates.length, 0, '收着凭据目录的墓碑整条不得进候选')
+    assert.equal(r.skipped.protected, 1)
+    assert.equal(r.protectedPaths.length, 1)
+    assert.equal(r.protectedPaths[0].name, `gate-secrets-DDD.stale-${ts}`)
+    assert.ok(r.protectedPaths[0].bytes > 0, '被挡的墓碑也要量体积')
+    assert.equal(existsSync(join(dir, 'src', 'secrets', 'keep.txt')), true)
+  } finally {
+    teardownScratch(scratch, root)
+  }
+})
+
+test('T36 未来戳/荒谬戳一律拒删(失效方向 = 少删一次)', () => {
+  const root = mkScratch('scrub-t36')
+  const scratch = join(root, SCRATCH_DIR_NAME)
+  try {
+    mkdirSync(scratch, { recursive: true })
+    const now = Date.now()
+    mkTombstone(scratch, 'gate-future-EEE', now + 3600 * 1000)
+    mkTombstone(scratch, 'gate-absurd-FFF', 99999999999999)
+    const r = scanScratchFixtures({ root, now })
+    assert.equal(r.candidates.length, 0, 'now - ts 为负 ⇒ 一律当"未到龄",不得删')
+    assert.equal(r.skipped.fresh, 2)
+  } finally {
+    teardownScratch(scratch, root)
+  }
+})
+
+test('T37 墓碑账龄合成与 env 接线:60 分钟是下限,IHUI_SCRATCH_TOMBSTONE_MIN_AGE_MINUTES 只许抬高', () => {
+  assert.equal(scratchTombstoneEffectiveMinAgeMinutes(undefined), SCRATCH_TOMBSTONE_MIN_AGE_MINUTES_DEFAULT)
+  assert.equal(scratchTombstoneEffectiveMinAgeMinutes(0), 60, '0 不得调穿下限')
+  assert.equal(scratchTombstoneEffectiveMinAgeMinutes(120), 120, '请求比下限大时按请求走')
+  assert.ok(SCRATCH_TOMBSTONE_MIN_AGE_MINUTES_DEFAULT >= 60, '下限不得比 60 分钟更激进')
+  // env 接线的行为证明:90 分钟前的墓碑,默认档进候选;env=120 时必须改判"未到龄"
+  const root = mkScratch('scrub-t37')
+  const scratch = join(root, SCRATCH_DIR_NAME)
+  const prev = process.env.IHUI_SCRATCH_TOMBSTONE_MIN_AGE_MINUTES
+  try {
+    mkdirSync(scratch, { recursive: true })
+    const now = Date.now()
+    mkTombstone(scratch, 'gate-env-GGG', now - 90 * 60 * 1000)
+    delete process.env.IHUI_SCRATCH_TOMBSTONE_MIN_AGE_MINUTES
+    const r1 = scanScratchFixtures({ root, now })
+    assert.equal(r1.candidates.length, 1, '默认 60 分钟下限下,90 分钟前的墓碑应进候选')
+    process.env.IHUI_SCRATCH_TOMBSTONE_MIN_AGE_MINUTES = '120'
+    const r2 = scanScratchFixtures({ root, now })
+    assert.equal(r2.candidates.length, 0, 'env 抬到 120 分钟后同一条必须改判未到龄')
+  } finally {
+    if (prev === undefined) delete process.env.IHUI_SCRATCH_TOMBSTONE_MIN_AGE_MINUTES
+    else process.env.IHUI_SCRATCH_TOMBSTONE_MIN_AGE_MINUTES = prev
+    teardownScratch(scratch, root)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

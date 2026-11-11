@@ -158,7 +158,7 @@ async function driveTurn(opts: DriveOptions): Promise<{
   });
   vi.stubGlobal('fetch', fetchMock);
 
-  const messages: Array<{ role: string; content: string }> = [
+  const messages: Array<{ role: 'system' | 'user' | 'assistant' | 'tool'; content: string }> = [
     { role: 'system', content: 'sys' },
     { role: 'user', content: '把这张票做完' },
   ];

@@ -367,7 +367,7 @@ export default function UserLlmConfigsPage() {
                               setEditingProvider(null)
                               setProvDialogOpen(true)
                             }}
-                            className="rounded-sm border px-3 py-1 text-label transition-colors hover:border-brand-accent-deep hover:bg-primary/5"
+                            className="rounded-sm border border-input px-3 py-1 text-label transition-colors hover:border-brand-accent-deep hover:bg-primary/5"
                           >
                             {tpl.name}
                           </button>

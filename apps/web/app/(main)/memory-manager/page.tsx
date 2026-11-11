@@ -140,7 +140,7 @@ export default function MemoryManagerPage() {
           <button
             onClick={() => void handleExtract()}
             disabled={extracting}
-            className="inline-flex items-center gap-1.5 rounded-sm border px-3 py-1.5 text-body font-medium transition hover:bg-muted disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-sm border border-input px-3 py-1.5 text-body font-medium transition hover:bg-muted disabled:opacity-50"
           >
             {extracting ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -221,7 +221,7 @@ export default function MemoryManagerPage() {
           <div className="mt-2 flex justify-end gap-2">
             <button
               onClick={() => setNewOpen(false)}
-              className="rounded-sm border px-3 py-1.5 text-body transition hover:bg-muted"
+              className="rounded-sm border border-input px-3 py-1.5 text-body transition hover:bg-muted"
             >
               {t('cancel')}
             </button>
@@ -286,7 +286,7 @@ export default function MemoryManagerPage() {
                         void runOp(() => markMemoryImportant(entry.memory_id), entry.memory_id)
                       }
                       disabled={busyId === entry.memory_id || entry.importance >= 5}
-                      className="inline-flex items-center gap-1 rounded-sm border px-2 py-1 text-label transition hover:bg-muted disabled:opacity-40"
+                      className="inline-flex items-center gap-1 rounded-sm border border-input px-2 py-1 text-label transition hover:bg-muted disabled:opacity-40"
                     >
                       {busyId === entry.memory_id ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
