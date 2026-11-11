@@ -56,6 +56,11 @@ export interface ModelOption {
   family?: string
   /** 语义能力四布尔(2026-09-19 D23 立,后端 capabilities 透传):驱动能力过滤与徽章 */
   capabilities?: ModelCapabilities
+  /** 是否已通过连通性探测(2026-11-11 立):仅后端 health_status==='healthy' 时为 true;
+   *  pending(账户级错误/未探测)、unknown(无状态)与字段缺失都不可依赖,按未验证展示 */
+  verified?: boolean
+  /** 未验证原因/上游简短脱敏错误,仅作行标题提示 */
+  healthError?: string
 }
 
 export type { ModelTier, ModelUsageCategory, ModelCapabilities, ModelCapabilityKey }
