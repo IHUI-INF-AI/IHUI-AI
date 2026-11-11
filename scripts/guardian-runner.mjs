@@ -7619,6 +7619,27 @@ const checks = [
       '',
     ].join('\n'),
   },
+  // --- UI 按钮描边颜色对账(裸 border 藏全局默认,2026-11-11 实拍事故同源,1 项,blocking)---
+  // 判据与 OUT_OF_SCOPE(CSS `border:` 简写面、RN StyleSheet 分离声明面)逐条见脚本头注;
+  // 台账 scripts/button-border-color-baseline.json 棘轮(键 = 文件|border-color-implicit,只允许下降)。
+  // ⚠️ 同型事故(门 150 头注):注册必须进主 checks 数组 —— runner 迭代入口是
+  // `pushGate ? pushGateChecks : checks`,被并进 pushGateChecks 等于没装;镜像 T1 钉这一条。
+  {
+    id: '314',
+    label: '按钮描边颜色显式化对账(裸 border 无基础色 ⇒ border-color-implicit)',
+    script: 'check-button-border-color.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_BUTTON_BORDER_COLOR',
+    stagedTriggers: ['apps/', 'packages/'],
+    onFailHint: [
+      '  💡 按钮类元素写了描边宽度类(border/border-2/…)却没有无状态修饰的显式描边颜色类 ⇒',
+      '     非 hover 态落 @layer base 全局默认档(2026-11-11 实拍:同屏快捷按钮描边深浅不一)。',
+      '  修法:写 `border border-<色>`,或引用 packages/design-tokens/src/button-variants.ts 的',
+      '     共享描边档(值按被审面解析,门内不认字符串副本)。',
+      '  判据与 CSS/RN 面 OUT_OF_SCOPE 见 scripts/check-button-border-color.mjs 头注;台账只允许下降。',
+    ].join('\n'),
+  },
 ]
 
 // === push 门检查集(2026-08-31 新增) ===
