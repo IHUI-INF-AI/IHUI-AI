@@ -37,6 +37,9 @@ import { getPairingService } from './pairing.js'
 import { getVoiceService } from './voice.js'
 import { getBrowserAutomation } from './browser.js'
 
+/** 单个用户的对话历史上限(直聊与渠道路径共用同一裁剪口径) */
+const MAX_CONVERSATION_HISTORY = 100
+
 export interface ClawdbotConfig {
   gateway?: Partial<GatewayConfig>
   channels?: ChannelConfig[]
@@ -175,22 +178,26 @@ export class ClawdbotService extends EventEmitter {
   }
 
   private recordConversation(userId: string, processed: ProcessedMessage): void {
-    if (!this.conversations.has(userId)) this.conversations.set(userId, [])
-    const history = this.conversations.get(userId)!
-    history.push({
+    this.appendConversation(userId, {
       id: processed.original.id,
       role: 'user',
       content: processed.original.content,
       timestamp: processed.original.timestamp,
       metadata: { intent: processed.intent },
     })
-    if (history.length > 100) history.shift()
     this.memoryService.store({
       type: 'short_term',
       content: processed.original.content,
       importance: processed.intent.confidence,
       tags: [processed.intent.primary, processed.original.channelId],
     })
+  }
+
+  private appendConversation(userId: string, message: ConversationMessage): void {
+    if (!this.conversations.has(userId)) this.conversations.set(userId, [])
+    const history = this.conversations.get(userId)!
+    history.push(message)
+    if (history.length > MAX_CONVERSATION_HISTORY) history.shift()
   }
 
   async chat(userId: string, content: string): Promise<ConversationMessage> {
@@ -219,8 +226,15 @@ export class ClawdbotService extends EventEmitter {
       metadata: { intent: processed.intent },
     }
 
-    if (!this.conversations.has(userId)) this.conversations.set(userId, [])
-    this.conversations.get(userId)!.push(response)
+    // 直聊路径与渠道路径一致:先落本轮 user 轮,再落 assistant 轮,共用同一 100 条裁剪
+    this.appendConversation(userId, {
+      id: processed.original.id,
+      role: 'user',
+      content: processed.original.content,
+      timestamp: processed.original.timestamp,
+      metadata: { intent: processed.intent },
+    })
+    this.appendConversation(userId, response)
 
     this.emit('chat:response', { userId, response })
     return response

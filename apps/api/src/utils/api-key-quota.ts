@@ -162,9 +162,16 @@ export class ApiKeyQuota {
         updatedAt: now,
       })
       .where(
+        // F-13 修复(2026-11-11):WHERE 与 SET 必须用同一套重置判据。
+        // 旧写法只把重置写在 SET 的 CASE 里,窗口过期后 WHERE 仍按旧计数判超限 ⇒ 0 行命中,
+        // resetAt/hourlyUsed 永不归零,Key 用满一次即永久 429。
+        // 这里把 CASE 里的同一判据(窗口过期 OR 本次仍在限内)搬进 WHERE:
+        //  - 小时窗口过期 ⇒ 无条件放行本次并归零重计;
+        //  - 日窗口仅在"跨小时且跨自然日"时归零(同 SET 的 CASE 判据),否则仍按累计值判限。
+        // 行未被改写时不消耗配额,并发下第二次更新看到的是新 resetAt/新计数,超限保护不放宽。
         sql`${apiKeyQuotas.apiKeyId} = ${apiKeyId}
-            AND ${apiKeyQuotas.hourlyUsed} + ${cost} <= ${apiKeyQuotas.hourlyLimit}
-            AND ${apiKeyQuotas.dailyUsed} + ${cost} <= ${apiKeyQuotas.dailyLimit}`,
+            AND (${apiKeyQuotas.resetAt} <= ${nowIso} OR ${apiKeyQuotas.hourlyUsed} + ${cost} <= ${apiKeyQuotas.hourlyLimit})
+            AND ((${apiKeyQuotas.resetAt} <= ${nowIso} AND ${apiKeyQuotas.resetAt} < ${dayStartIso}) OR ${apiKeyQuotas.dailyUsed} + ${cost} <= ${apiKeyQuotas.dailyLimit})`,
       )
       .returning({
         hourlyUsed: apiKeyQuotas.hourlyUsed,

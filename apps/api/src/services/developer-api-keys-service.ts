@@ -15,13 +15,13 @@
  * - updateKey:带归属权校验,permissions 用 isValidApiKeyPermission 过滤(防御性)
  * - deleteKey:带归属权校验
  * - rotateSecret:生成新 secret + 哈希,返回 { apiKey, secret }
- * - getUsage:从 apiLogs 统计 + 读 apiKeyQuotas
+ * - getUsage:从 llmCallLogs(按 apiKeyId)统计 + 读 apiKeyQuotas
  *
  * 读写分离:写用 db,读用 dbRead(参照 developer.ts 现有模式)。
  */
 import { eq, desc, sql, and, inArray } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
-import { developerApiKeys, apiLogs, apiKeyQuotas } from '@ihui/database'
+import { developerApiKeys, llmCallLogs, auditLogs, apiKeyQuotas } from '@ihui/database'
 import type { DeveloperApiKey } from '@ihui/database'
 import {
   isValidApiKeyPermission,
@@ -365,7 +365,8 @@ export async function rotateSecret(
 
 /**
  * 查询 API Key 使用量(带归属权校验)。
- * 从 apiLogs 统计调用次数/最后使用时间/Top 端点,并读 apiKeyQuotas 配额信息。
+ * 从 llmCallLogs 按 apiKeyId 统计调用次数/最后使用时间,从 auditLogs 归因取 Top 端点,
+ * 并读 apiKeyQuotas 配额信息。
  */
 export async function getUsage(
   id: string,
@@ -383,28 +384,35 @@ export async function getUsage(
     .limit(1)
   if (!existing || existing.userId !== userId) return null
 
-  // apiLogs 通过 userId 关联(密钥使用时以密钥所有者身份记录)
+  // SDB-48:计量维度必须是 Key 本身。api_logs 没有 api_key_id 列(见 plugins/api-logger.ts),
+  // 按 userId 聚合会让同一用户的多个 Key 共用一份用量;llm_call_logs.api_key_id 是计费流水上的
+  // Key 归因列(有 llm_call_logs_api_key_idx 索引),按它聚合才能区分 Key。
   const [countRow] = await dbRead
     .select({ callCount: sql<number>`count(*)::int` })
-    .from(apiLogs)
-    .where(eq(apiLogs.userId, userId))
+    .from(llmCallLogs)
+    .where(eq(llmCallLogs.apiKeyId, id))
 
   const [lastRow] = await dbRead
-    .select({ lastUsedAt: apiLogs.createdAt })
-    .from(apiLogs)
-    .where(eq(apiLogs.userId, userId))
-    .orderBy(desc(apiLogs.createdAt))
+    .select({ lastUsedAt: llmCallLogs.createdAt })
+    .from(llmCallLogs)
+    .where(eq(llmCallLogs.apiKeyId, id))
+    .orderBy(desc(llmCallLogs.createdAt))
     .limit(1)
 
+  // 端点维度保持 HTTP 口径(path/method):llm_call_logs 只有 model、无端点列,
+  // 而 audit_logs.details 是仓库既有的「Key → 端点」归因面(见 plugins/audit.ts:37-42),
+  // 按 details->>'apiKeyId' 过滤即可在不改语义的前提下拿到该 Key 的 Top 端点。
+  const endpointPath = sql<string>`coalesce(${auditLogs.details}->>'routePattern', ${auditLogs.details}->>'url')`
+  const endpointMethod = sql<string>`${auditLogs.details}->>'method'`
   const topEndpoints = await dbRead
     .select({
-      path: apiLogs.path,
-      method: apiLogs.method,
+      path: endpointPath,
+      method: endpointMethod,
       count: sql<number>`count(*)::int`,
     })
-    .from(apiLogs)
-    .where(eq(apiLogs.userId, userId))
-    .groupBy(apiLogs.path, apiLogs.method)
+    .from(auditLogs)
+    .where(sql`${auditLogs.details}->>'apiKeyId' = ${id}`)
+    .groupBy(endpointPath, endpointMethod)
     .orderBy(desc(sql`count(*)::int`))
     .limit(5)
 
