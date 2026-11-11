@@ -238,6 +238,25 @@ export function parseGateRegistry(text) {
   return { entries, error: null }
 }
 
+/**
+ * 落地面档声明文件(HEAD 面)。内容形态:
+ *   { "files": ["check-stale-copy.mjs"] }   ← script 文件名,与注册表条目同名
+ * 读的是"门体是否支持 --files 落地面",不是"门判什么" —— 判据仍住在门体自己那份实现里。
+ */
+export const LAND_FACE_DECL_REF = 'HEAD:scripts/data/land-gate-rerun-faces.json'
+
+/** 解析落地面档声明;结构漂 ⇒ 抛错(调用方落 note,不静默折成空)。 */
+export function parseFilesFaceDecl(text) {
+  const j = JSON.parse(String(text))
+  const list = Array.isArray(j?.files) ? j.files : []
+  const out = new Set()
+  for (const x of list) {
+    const s = String(x || '').trim()
+    if (s && !s.includes('/') && !s.includes('\\')) out.add(s)
+  }
+  return out
+}
+
 /** 从单个条目文本抽字段(两种引号形态;抽不到就缺省,不猜)。
  *  取材面必须先遮注释(2026-10-24 实测):注册表注释里就有一句
  *  `… | grep -oE "id: '[0-9]+" | sort -u -V | tail -1` —— 不遮时 `\bid:` 会先命中这句散文,
@@ -666,6 +685,25 @@ export function rerunAffectedGates({ root = REPO_ROOT, paths = [], env = process
       })
     }
   }
+  // 落地面档声明(2026-11-11 立,单一真相源=scripts/data/land-gate-rerun-faces.json):
+  // 有的门体自持取材面(现读:门 30c 恒按共享索引判),落地时索引里挂着**别的会话**的在飞文件
+  // ⇒ 每轮把别人的陈旧副本算成本次落地判红,且单臂 200-300s(实测 200-300s,预算常被撞满)。
+  // 这类门在这份数据里点名后,由本通道把"本次落地声明面"以 --files 注入;门体判据一字不动。
+  // 为什么不用注册表条目字段:guardian-runner.mjs 是并发会话高频在飞文件,改它=把别人的
+  // 未提交改动一起带进提交(2026-11-11 实测踩过),而本声道只吃 HEAD 面,单独一份数据即可。
+  let filesFaceScripts = new Set()
+  try {
+    const faceText = catBatch(root, [LAND_FACE_DECL_REF], {
+      timeout: 60000,
+      maxBuffer: 1 << 28,
+    }).get(LAND_FACE_DECL_REF)
+    if (faceText) filesFaceScripts = parseFilesFaceDecl(faceText)
+    else res.notes.push(`${LAND_FACE_DECL_REF} 不存在 ⇒ 本轮按"无落地面档"跑(不是判过)`)
+  } catch (e) {
+    res.notes.push(
+      `${LAND_FACE_DECL_REF} 读取失败(${String(e?.message ?? e).split('\n')[0]})⇒ 本轮按"无落地面档"跑(不是判过)`,
+    )
+  }
   if (regText !== null) {
     const parsed = parseGateRegistry(regText)
     if (parsed.error) {
@@ -685,6 +723,8 @@ export function rerunAffectedGates({ root = REPO_ROOT, paths = [], env = process
       // 共享索引里可能挂着他人暂存文件,--staged 档会把别人的面算进本轮结论。
       const BUILTIN_SCRIPTS = new Set(['check-mypy.mjs', 'check-staged-typecheck.mjs'])
       const REGISTRY_CAP = 30
+      // 落地面注入的上限:声明面通常 10-20 条,给足余量又避免 argv 爆长(Windows 命令行 32K)。
+      const RUN_FILES_CAP = 200
       const toRun = affected.filter((g) => !BUILTIN_SCRIPTS.has(g.script))
       const deferred = toRun.slice(REGISTRY_CAP)
       for (const g of deferred) {
@@ -715,6 +755,11 @@ export function rerunAffectedGates({ root = REPO_ROOT, paths = [], env = process
         // 并发批量池只改"等谁",argv 仍逐字同串行档 ⇒ 锚点参数在 batchPlan 这一层拼,与筛臂同处。
         const gateArgs = g.args.filter((a) => a !== '--staged')
         if (g.rerunAnchor) gateArgs.push('--rev', 'HEAD', '--anchor', 'HEAD^')
+        // 落地面档(2026-11-11 立):有的门体自持取材面(恒按共享索引判),声明在
+        // scripts/data/land-gate-rerun-faces.json 里,由本通道把"本次落地声明面"以 --files 注入。
+        if (filesFaceScripts.has(g.script) && declared.length) {
+          gateArgs.push('--files', ...declared.slice(0, RUN_FILES_CAP))
+        }
         batchPlan.push({ g, scriptPath, args: gateArgs })
       }
       const outcomes = runGateBatch(
