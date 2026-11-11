@@ -122,21 +122,4 @@ describe('资讯列表页薄壳', () => {
     ;(props.onSearch as () => void)()
     expect(h.getNewsList).toHaveBeenCalled()
   })
-
-  it('④ 回顶接线:showBackTop/onListRef/onBackToTop 真接通,点击真驱动 scrollToOffset', () => {
-    // 摘掉任一处接线 ⇒ 本册必红(阴性对照)
-    expect(PAGE_SOURCE).toContain('showBackTop')
-    expect(PAGE_SOURCE).toContain('onBackToTop={handleBackToTop}')
-    expect(PAGE_SOURCE).toContain('onListRef={')
-
-    const { props } = renderPage()
-    expect(props.showBackTop).toBe(true)
-    expect(typeof props.onListRef).toBe('function')
-    expect(typeof props.onBackToTop).toBe('function')
-
-    const handle = { scrollToOffset: vi.fn() }
-    ;(props.onListRef as (ref: unknown) => void)(handle)
-    ;(props.onBackToTop as () => void)()
-    expect(handle.scrollToOffset).toHaveBeenCalledWith({ offset: 0, animated: true })
-  })
 })

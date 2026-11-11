@@ -26,6 +26,7 @@ vi.mock('@tarojs/taro', () => ({
   getCurrentPages: () => mockGetCurrentPages(),
 }))
 
+import { REFRESH_TOKEN_STORAGE_KEY, TOKEN_STORAGE_KEY } from '@ihui/shared/constants'
 import {
   getToken,
   setToken,
@@ -58,6 +59,22 @@ describe('miniapp-taro auth 工具', () => {
   it('setRefreshToken + getRefreshToken', () => {
     setRefreshToken('rt-001')
     expect(getRefreshToken()).toBe('rt-001')
+  })
+
+  it('refreshToken 只留内存,明文不进 storage;access 仍落盘', () => {
+    setToken('at-short')
+    setRefreshToken('rt-secret-value')
+    expect(getRefreshToken()).toBe('rt-secret-value')
+    expect(taroStorage[TOKEN_STORAGE_KEY]).toBe('at-short')
+    expect(taroStorage[REFRESH_TOKEN_STORAGE_KEY]).toBeUndefined()
+    const dumped = Object.entries(taroStorage)
+      .map(([key, value]) => `${key}=${String(value)}`)
+      .join('\n')
+    expect(dumped).not.toContain('rt-secret-value')
+
+    setRefreshToken('')
+    expect(getRefreshToken()).toBe('')
+    expect(taroStorage[REFRESH_TOKEN_STORAGE_KEY]).toBeUndefined()
   })
 
   it('setUserInfo + getUserInfo 完整往返', () => {

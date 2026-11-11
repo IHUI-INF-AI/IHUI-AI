@@ -233,6 +233,7 @@ export default function Phone() {
         onSelectNation={() => {}}
         onSendCode={onSendCode}
         onSubmit={onSubmit}
+        onBack={() => Taro.navigateBack()}
         oldPhone={currentPhone ? maskedPhone : undefined}
         oldCode={oldCode}
         oldCodeMin={oldCodeCountdown.count}

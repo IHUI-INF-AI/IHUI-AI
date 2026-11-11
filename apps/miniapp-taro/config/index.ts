@@ -115,17 +115,8 @@ export default defineConfig(async (merge) => {
         { from: 'src/mini.project.json', to: `${outputRoot}/mini.project.json` },
         // 微信原生 darkmode:Taro vite-runner 从 src/theme.json 读取,copy 保证与 dist/app.json 同级(themeLocation 引用)
         { from: 'src/theme.json', to: `${outputRoot}/theme.json` },
-        // 2026-09-10 字体仅 H5 使用 —— weapp 端**不带自托管字体**(三条具体原因,逐条有实测出处):
-        // ① 微信 loadFontFace 只接受 https 网络地址或 base64 Data URL,**不吃本地字体文件路径**
-        //    ⇒ 把 TTF 拷进 static/ 也加载不出来,只会白占主包体积;
-        // ② 主包余量实测只剩 130,035 B(scripts/check-artifact-budget.mjs --target miniapp
-        //    的告警水位读数)—— 放不下任何一档中文字体(最小的一档也远超这个量);
-        // ③ 2026-07-27 远程字体因 TLS/域名问题被移除(app.tsx:241-243 记着现场:
-        //    https://aizhs.top/fonts/ 在小程序环境 TLS 连接失败 + 渲染层
-        //    ERR_CACHE_MISS/ERR_CONNECTION_CLOSED,loadFontFace 调用已删、全仓零 url 引用)。
-        // 结论:weapp 端走**系统字体**(中文回退栈见 base.css 的 var(--font-sans, …)),
-        // 与 web 端自托管 HarmonyOS Sans SC 的差异属平台能力差异,已登记于
-        // scripts/data/cross-end-allowed-diffs.json(platform:font-stack-cjk)。
+        // 2026-09-10 字体仅 H5 使用(weapp 端 loadFontFace 已于 2026-07-27 移除,
+        // 全仓零 url 引用),防止 7.4MB TTF 被默认 static 拷贝打进小程序主包。
         // H5 仍以 /static/fonts/ 路径提供,app.tsx 的 @font-face 无需改动。
         ...(taroEnv === 'h5'
           ? [{ from: 'src/assets/h5-fonts/', to: `${outputRoot}/static/fonts/` }]

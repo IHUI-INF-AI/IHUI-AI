@@ -31,6 +31,7 @@ export default function BusinessLicense() {
         colorScheme={resolvedTheme}
         onBack={() => Taro.navigateBack()}
         imageSource={{ uri: LICENSE_IMAGE }}
+        previewVisible={false}
         onPreviewVisibleChange={onPreview}
       />
     </ThemeRoot>
