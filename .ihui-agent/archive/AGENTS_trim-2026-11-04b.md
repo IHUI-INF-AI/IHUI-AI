@@ -5,10 +5,8 @@
 -->
 
 # AGENTS.md 逐字归档件(第二批)—— 2026-11-04 门 207 体积清偿
-
 > 形态:整行逐字移动,原位置合并成一条指针;本文件内容与被移走时逐字节相同。
 > 内容 = 重复登记副本(safe-commit 五步法、跳门留痕、归档退役、2026-11-01 点名行)与历史清偿 marker。活口径一律以 AGENTS.md 正文为准;本件只作可追溯性。
-
 - **归档机制已退役(2026-10-16;长叙述逐字移 `.ihui-agent/archive/AGENTS_trim-2026-11-03.md`@2026-11-03)**:口径见上「完成即删」——翻勾后整行删除,不留档、不归档、不写占位注释;三件退役器物(自动归档器 archive-completed-tasks.mjs、13c 那道门 check-project-plan-archive.mjs、根 package.json 的 archive 脚本位)已从仓里移除,现读 `git ls-files | grep -c archive-completed-tasks` **必须为 0**;若 ≠0 = 退役件被当作"本机纯新增在飞件"收编回流(10-21 发生过、10-29 已按本条清偿),处置 = 删除回流件,**不得恢复旧命令**(§0.8;活判据出口已迁户 `scripts/lib/plan-block-partition.mjs`)。未勾登记行照旧受守门 71 保护;删行自由不豁免其他守门。
 - **2026-11-01 同日新装车/补点名的门(R4 义务;本文件原有三条重复副本,2026-11-03 合成这一条,原文逐字见 `.ihui-agent/archive/AGENTS_trim-2026-11-03.md`)**:`check-redirect-target-origin-pinned.mjs`(278 回跳落点必须显式交 `allowedOrigins`)、`check-like-wildcard-escape.mjs`(279 LIKE 通配符转义单源;D1 绝对零 / D2 差值棘轮 / D3 台账)、`check-pool-isolation.mjs`(号池隔离列)、`check-autonomy-leg-health.mjs`(自主能力各腿在位/连败封票;判机器状态 ⇒ **刻意不进提交链** §12e,调度=git-guardian 巡检轮)、`check-dev-db-rotation-window.mjs`(开发库口令轮换窗口对账;同档不进提交链)。判据详解住各门体头注,编号/档位以 runner 现值为准。
 - **强制 `scripts/safe-commit.mjs` 五步法**(真实事故根治):①暂存文件清单回显 → ②只 add 本任务文件(禁 `git add .`/`-A`)→ ③commit 带 pathspec(只提交声明集)→ ④推送 → ⑤回读验证 local == remote。禁止裸 `git commit`。

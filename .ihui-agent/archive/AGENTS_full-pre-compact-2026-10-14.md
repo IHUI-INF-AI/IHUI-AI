@@ -4,34 +4,20 @@
 -->
 
 # AGENTS.md 压缩前完整原文 · 逐字归档(2026-10-14)
-
 本文件是 `AGENTS.md` 于 2026-10-14 压缩整理**之前的完整原文,逐字未改、未重排、未重包**。
 出处:`AGENTS.md` @ HEAD `c7834a8f0388aa006ca746cb1cc4a3006336c23d`(blob `910d371d25660fbf33cc4c700eb5264a93986053`),1,261,607 字节 / 2594 行。
-
 压缩动因:活文档体积过大、历史/实测/取证叙述冗长,导致 AI 抓不到强制规则重点。本次压缩把「强制规则核心条款」留在活文档,
 把「历史案例 / 实测取证 / 过程叙述 / 已失效原文残留」逐字移入本归档;活文档对应位置留精简指针(指向本文件)。
-
 规则本身**一条未减**:所有被守门脚本/镜像测试断言的字符串锚点、章节编号(`§1`–`§42`)、守门速查条目均原样保留在活文档。
 凡活文档与本归档正文有出入之处,以活文档为准;本归档是「不许丢东西」的最后一道保险。
-
 ## 归档正文(逐字,自原文件第 1 行起)
-
-<!--
-  © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
-  Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
   [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
--->
-
 # AGENTS.md — IHUI-AI 项目 Agent 指南
-
 > 作用域:`D:/IHUI-AI` 仓库根目录及所有子目录（2026-09-12 修正:仓库早已从 `G:` 迁到 `D:`，旧盘符路径已全部改为从脚本自身位置推导）。
 > 历史案例归档见 `.ihui-agent/archive/AGENTS_history.md`。
 > 本文件为精简版(2026-07-25 重构,原 783 行 → ≤400 行),保留所有强制规则核心条款。
-
 ---
-
 ## 1. 任务计划文档规则(强制)
-
 - 项目**唯一**任务计划文档是 `PROJECT_PLAN.md`(根目录),所有任务计划、进度更新、待办清单、状态变更**只写**此文件,**不得**在 `.ihui-agent/`、`docs/`、根目录或其他位置新建计划/TODO/ROADMAP 文件。
 - 完成任务后 `[ ]` → `[x] ✅(日期)`;新增任务追加到对应优先级(P0/P1/P2)末尾。commit message:`feat`/`fix`/`docs`/`chore`/`test`/`refactor` 前缀。
 - **任务认领(2026-09-23 立)**:agent 开始任务前,在对应 `- [ ]` 后追加 `（进行中）` 标记(全角括号),例 `- [ ]（进行中）O20d 守门...`;完成后按上条改 `[x] ✅(日期)` 并删除 `（进行中）`。扫描 `PROJECT_PLAN.md` 可区分三态:无人认领(`- [ ]` 无标记)/ 进行中(`- [ ]（进行中）`)/ 已完成(`- [x]`)。派单前先扫进行中项,避免重复认领。扫描工具:`node scripts/check-task-claims.mjs`。
@@ -45,9 +31,7 @@
   - **新登记必须有交代(2026-09-27 立,G-254 / 守门 130 新增 F7+F8 两维)**:一条 `- [ ]` 只有满足三者之一才算"交代得清"——① 带租约 `（进行中@日期/持有者）`;② 正文写明它在等什么(归属四态:等人拍板 / 等环境条件 / 归他人持有者);③ 有新鲜锚点(行内日期或进展日期)。**三样都没有 = 无交代**,提交链按**差值棘轮**只拦"本次带进来的无交代行"(`git show <新提交>^..<新提交>` 与当下基准面逐行比对,存量不算在本次头上),因为与提交内容无关的恒红门唯一结局是逼人 `--no-verify` 连带废掉全部守门(§12e)。**登记一件活时顺手写下它为什么还开着,是这本账不再无限膨胀的唯一止血点** —— 现读:未勾选 313 行里 128 行无交代,而真待办只有 203 行,"越做越多"涨的是账不是活。
   - **寿命这一维不进提交链**:`node scripts/plan-tasks.mjs --stale`(或 `--strict`)才点名"超 21 天无进展"。行龄取 `git blame` 的作者时刻与行内日期的**较新者**(`scripts/lib/plan-line-age.mjs`,覆盖面由 `parseTaskRows` 一份判据闭合 ⇒ 量不到的行必须为 0,否则喊"未判定"),所以**不需要也不许**给人工回填"追溯出生日":回填等于替每行伪造一个新鲜时刻,寿命判据当场被架空。到期处置只有两条 —— 续进展(改日期)或写清它在等什么;**门绝不替你勾掉任何一行**。
   - **派单先看可派单口径**:`node scripts/plan-tasks.mjs --open --dispatchable`(= 未认领 ∧ 不是同题副本 ∧ 现在可做)。默认 `--open` 仍是全部无人认领行(向后兼容,不改变既有派单语义);两者差集就是"挂着但今天做不了"的账。数字一律现读,勿照本节点名。 同一口径还有两把防打架的旗(2026-10-09 落地并接线,票 G-1105307):`--conflicts` 把每一行正文点名的落点文件与 `git status` 的在飞集合逐条对账,出三态(冲突 / 干净 / 引用不到 —— **判不到的一律保留该行,绝不因为"没问到"就替人排除**);`--exclude-inflight` 在此之上真的把"落点正被别人改动"的行从出单里摘掉,并在末行报摘了几条 —— **这是临时让位不是完成**,被摘的行下一轮照样出现在 `--open` 里,不许拿它当"已清偿"。两者只在 `--open` 路径生效;git 问不到 ⇒ 打印"未判定"并且一条都不摘。多席并机时先跑 `--open --dispatchable --exclude-inflight`,再对被摘的那批逐条确认是真在飞还是滞后副本:本仓 2026-10-09 实测 917 个脏路径里多数属**滞后副本**(工作树等于该路径某祖先版本 ⇒ 零独有内容),判方向要用这条祖先证明,不能用"它脏不脏"。
-
 ### 归档机制
-
 - 已完成任务条目(`### XXX(已完成 ✅ ...)` 标题)**禁止直接删除**,必须两步走:① 把完整任务条目(标题 + 正文)移动到 `.ihui-agent/archive/PROJECT_PLAN_YYYY-MM-DD.md`;② 在 `PROJECT_PLAN.md` 原位置留 HTML 注释占位:`<!-- 已归档(YYYY-MM-DD):XXX 任务,完整内容在 .ihui-agent/archive/PROJECT_PLAN_*.md -->`。
 - **自动归档**:`scripts/archive-completed-tasks.mjs` 扫描**已完成**条目(默认阈值 0 = 完成即归档;`--days N` 是降速档,不是默认),post-commit 钩子自动 `--auto-commit`。归档 commit 设 `IHUI_ARCHIVE_COMMIT=1` 防递归。
 - **排空步骤已在提交链上(2026-09-28 接)**:`.husky/post-commit` 在调归档器**之前**先跑 `node scripts/ledger-strip-open-rows.mjs --apply`。理由:"标题写着已完成、体内还裹着未勾选登记"的块是归档器**结构上不许搬**的那一类(搬走等于把别人正开着的活账归档),没有这一步,"完成即归档"只对干净块成立,而实测大部分块都不干净(台账是几百次并发登记写出来的)。三条安全前提写在这里,下一个人不必重新猜:① 该脚本走**对象空间**(`commit-tree` + CAS),而 `commit-tree` **不跑钩子** ⇒ 结构上不会自触发递归,与归档器同一形态;② 它自带五条零损失不变量(行数不变 ∧ 消失 0 ∧ 非空行净新增只可能是区头 ∧ 被拒块归零 ∧ 勾选两态不缩水),任一不成立就**整批不落**并 exit 非零,所以"钩子跑了"不等于"台账被改了";③ 它**排在归档器前面**,同一轮里排空完就能搬。应急开关 `HUSKY_SKIP_LEDGER_STRIP=1` 只关这一步,不影响归档(两级开关刻意分开;`HUSKY_SKIP_ARCHIVE=1` 关的是整块,含本步)。
@@ -72,32 +56,19 @@
   - **规矩:块内未勾选行必须"移出块",不得"改判据放过"。** 那些行按 §1 的 F4 口径「两条都是没做完的事、绝不动勾选」就是活账;把它们随已完成块搬进归档件 = 派单口径静默少行。本轮实测教训:520 行里 329 行带归并指针,一度被误判成"派单口径已逐出 ⇒ 归档器与派单口径不同形",据此要放宽 `entryHasOpenRows` —— 该改动作废并留档,因为"逐出派单口径"是为了**不重复派单**,不是说它做完了。唯一无损出路是把 `- [ ]` 行移到台账末尾的 `待办剥离区` —— **该动作已收编成常驻出口** `node scripts/ledger-strip-open-rows.mjs`(缺省档零副作用只出报告,`--apply` 才落地;落地面 = HEAD blob + 临时索引 commit-tree + CAS,**从不写工作树**,因为那份副本常年是别人的在飞现场)。它落地前五条守恒断言任一不过即拒绝写盘(区标题不得自认已完成 ∧ 非空行零消失 ∧ 新增只能是区头与移出行 ∧ 产出面被拒块归零 ∧ 未勾选与已勾选两态都不缩水),迭代到不动点(摘行会改块边界,一轮过会把"还剩几个"报成假 0)。它解的正是"归档器拒绝整块搬运 ⇒ 那些行永久挡住完成即归档"这一型死锁:只换位置,不删行、不改勾选、不动其余顺序,落地前四条守恒断言(区标题不得自认已完成 ∧ 行多重集零消失 ∧ 新增只能是区头 ∧ 派单口径未勾选择不缩水)必须全绿。
   - **这一轮连出的第四笔账(当前无判据、无修法,须同笔两处才能收)**:归档把"幸存者"搬走之后,留在台账里的副本指针就地失去终点 ⇒ **归档越干净,隐形族越多**。收口必须**同时**改两处:① `rewriteDup` 在加指针前先问该族是否还有终端代表;② 归并落地的验收断言从「F4 必须归零」升级为「F4=0 ∨ 剩余副本各有终端」。**只改 ① 会让归并器每次自我拒绝**(副本归不了零 ⇒ 停手 ⇒ 自动档永不生效),与恒红门同罪。这条收敛链属台账判据持有人裁决,不得由"排空台账"这一轮顺手改。
   - **同一轮的后半已经落地(2026-09-28,枚 7a075820d / 4064e68a6)**:① 活文档归并改成**搬运感知 max** —— `scripts/lib/ledger-move-aware.mjs` 复用归档器那一份块解析判"某行是否已被 `已归档` 占位代表",已代表的不再从对侧取回;失效方向刻意是**多带一行回来**(占位找不到 / 归属解析不出 / 该行被就地改写过 / 归档件取不到 ⇒ 一律照旧取回并打印未判定原因),因为少带一行 = 丢别人的内容。这解掉了"我搬完 → 别人那份滞台副本被合回来 → 台账又涨"的循环。② 守门 84 补 **R1r 行级复活判据**(判索引面、差值棘轮、锚点 = 该文件在 HEAD^→HEAD 那一步自身的复活数且祖先窗口必须剔掉 HEAD 与 HEAD^,否则棘轮被自己喂饱成假绿),`object-space-land` 的同一判据已提取成 `scripts/lib/stale-content-analysis.mjs` 供两处共用 —— 上线当场即点名 6 个路径正把已归档台账行搬进暂存,而旧的整 blob 判据对这一型全部沉默。
-
 ### 唯一例外
-
 - `/goal` 模式:`.ihui-agent/goal-runtime/STATE.md` + `loop-run-log.md`(临时,目标结束后删除);skills:`.ihui-agent/skills/SKILL.md`(AI 工具配置,非计划文档)。
-
----
-
 ## 2. 项目概览
-
 IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清单(2026-10-03 减 apps/assistant:签到助手服务端化并入 ai-service,见 apps/ai-service/app/services/checkin_* 与 web /checkin 页):
-
 - `apps/api`(Fastify 5 + Drizzle ORM 0.38 + PostgreSQL)
 - `apps/web`(Next.js 16.2.12 + React 19 + Tailwind 4 + shadcn/ui)
 - `apps/ai-service`(FastAPI + LangGraph + LiteLLM + MCP)
 - `apps/miniapp-taro`(Taro 4 + React)
 - `apps/desktop` / `apps/extension` / `apps/mobile-rn` / `apps/cli`(各端独立)
 - `packages/`(database / auth / types / ui / config / eslint-config / tsconfig)
-
----
-
 ## 3. 代码风格
-
 - 做减法,最小化代码,零冗余。复用现有代码和模式,不创建文档文件(除非明确要求),不加 copyright/license header。
-
 ### TypeScript 类型零技术债(强制)
-
 - **尽最大程度禁用 `any`**,优先用 `unknown` + 类型守卫 / `as const` / 泛型 / 条件类型 / 工具类型(`Pick`/`Omit`/`Record`/`Partial`/`Required`/`ReturnType`/`Parameters`)/ 精确接口替代,禁止把 `any` 当"类型兜底"逃避设计。
 - **深度分析 TS 用法**:函数签名(入参/出参/泛型约束)、对象字段、API 响应、props、state 必须显式标注精确类型;能由 `tsc` 推断且可读性良好的局部变量可省略,但禁止"省略 = 不写类型"扩散到公共 API。
 - **必须用 `any` 的例外(三选一)**:① 第三方库无 `@types` 或类型声明缺失;② 泛型推断失败且无法用 `unknown` + 守卫替代;③ 跨包循环依赖无法用类型导入断言解决。**必须**附行内注释 `// FIXME(any): 原因 + 移除计划 + 截止版本`,后续 PR 必须清理。
@@ -107,9 +78,7 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
   - **目标态(已评估,推迟启用)**:`@typescript-eslint/no-unsafe-assignment` / `no-unsafe-member-access` / `no-unsafe-call` / `no-unsafe-return` / `no-unsafe-argument` 五条规则设为 `error`。**2026-07-28 评估结论**:实测启用 `recommendedTypeChecked` + `projectService` 后,(a) 性能不可接受 — cli 包(最小)lint 时间 2.7s -> 51.9s(慢 19 倍),web/api 包预计 30s -> 600s+;(b) 历史错误多 — cli 包已报 30+ 处(`require-await` / `no-unsafe-assignment` / `no-base-to-string` / `restrict-template-expressions` / `no-unnecessary-type-assertion`),全量预计 300+ 处;(c) 配置陷阱 — `eslint.config.js` 不被 tsconfig include 需 `allowDefaultProject`,JS 文件需单独豁免 `no-unsafe-*`。**启用前置条件(全部满足才可启用)**:1. lint 性能优化方案落地(eslint cache 持久化 / 仅 staged 文件 typed-lint / CI 才跑全量 typed-lint);2. 历史类型错误清零(`require-await` 等非 unsafe 错误先修);3. `allowDefaultProject` 配置就绪。
   - **测试文件豁免**:`**/*.test.ts` / `**/*.spec.ts` / `**/tests/**` / `**/test/**` / `**/e2e/**` 路径下的 mock/stub 代码允许 `any`(mock 类型断言必需),启用 typed-linting 后通过 `files` overrides 关闭上述规则。
   - CI `pnpm typecheck` 全绿方可合并。
-
 ### 共享层优先(强制)
-
 - **写新代码前必须先查共享层**,确认是否已有现成实现。禁止在端内(apps/*)重新实现 `packages/` 已提供的功能。
 - **检查清单(按顺序)**:
   1. **hooks**: `packages/shared/src/hooks/` — 基础 hook(clipboard/debounce/countdown/form/mounted/pagination 等)和业务 hook(auth/chat/agents/articles/agent-runtime/confirm-dialog 等)共 16 个。各端 `hooks/` 目录应只做 re-export wrapper + 平台 adapter,不得独立实现。
@@ -123,15 +92,9 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
   - 如果确认平台特有(依赖 DOM/RN API/Taro API)→ 可在端内实现,但必须在文件头注释说明 `// 平台特有:依赖 [DOM/RN/Taro] API,不适合共享`。
 - **工厂模式优先**:跨端 hook/util 用工厂函数 + 依赖注入(参考 `createUseClipboard` / `createAuthStore`),各端传入平台 adapter。不得用 `if (Platform.OS === 'web')` 条件分支在共享层处理平台差异。
 - **守门**:PR review 时检查是否有端内文件重新实现了共享层已有功能。发现重复 → 要求改为 import 共享层。
-
----
-
 ## 4. 前端 UI 约束
-
 - compact 紧凑、elegant 优雅。hover 用 subtle 颜色变化,**不要蓝色发光边框**。复用 `packages/ui-react` 的 Card/Button/Input/Dialog。每个页面 < 250 行。时间用 `Intl.DateTimeFormat`,头像用 initials。状态徽章:draft 灰 / published 绿。积分正数绿色,负数红色。
-
 ### 品牌 CTA / 主按钮色同源(强制,2026-09-24 收口)
-
 - **唯一写法(2026-09-26 回翻定稿)**:主按钮、选中胶囊、悬浮加号这类"品牌实底 + 其上文字",RN/共享包写 `brand.cta`(底)+ `brand.ctaForeground`(文字)**成对**;CSS/类名侧用 `--color-cta` + `--color-cta-foreground`(小程序 `CategoryBar`/FAB 同值)。**这一档黑/白反转**:亮=纯黑底(`#000000`)/ 纯白字(`#FFFFFF`),暗=纯白底(`#FFFFFF`)/ 纯黑字(`#000000`),与 `--color-primary` 同一明暗行为,`.dark` 显式覆盖。对账由「跨端色值同源对账」守门负责(编号以 `scripts/guardian-runner.mjs` 现值为准,勿照抄文档)。
 - **为什么保留独立档名而不并进 `--color-primary`**:primary 在 web 端兼任墨色(`text-primary` 1803 处),改它等于给全站正文染色;CTA 保持独立档名、取值与同主题 primary 全等,语义 = "品牌实底 + 其上文字"。(2026-09-24 曾取 `#4A7A96` 明暗同值以避开"大色块与页面反极",2026-09-26 用户明确要求回翻为黑/白反转,该设计已废。)
 - ~~**唯一写法(2026-09-24 已废)**:主按钮/选中胶囊用 `brand.DEFAULT` + `brand.foreground`,CSS 侧 `--color-primary` + `--color-primary-foreground`。~~ 该行描述的正是被本票替换掉的旧档:DEFAULT 亮=纯黑 / 暗=纯白,大色块与页面反极。**现存唯一写法见本节第一条**(`brand.cta` / `--color-cta`)。保留本行仅为让早期条目里的 `brand.DEFAULT` 措辞能被追溯到已废。
@@ -140,20 +103,13 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 - **禁止端内自立 CTA 档**:`brand.ctaFill` / `ctaText` 这类"浅色等于 web、深色另取一档"的**混血**键不得再加回 —— 当年删它不是因为"不许有 CTA 档",而是因为**它在端里自立、且两档取值互不相同**(那才是"手机上改了 web 没改"的成因)。`--color-cta` 走的是相反路径:先落 `tokens.css` 源头(2026-09-26 起 `.dark` 显式覆盖、黑/白反转)、再进同源对账门的映射表,所以它合法而旧键仍属禁止。要调主按钮观感就改 `tokens.css` 的 `--color-cta`(亮档)与 `.dark --color-cta`(暗档)**同一处**,三端一起动;不得在某一端单独覆盖。
 - **成对即合规,不得再当债务**:主 CTA 的唯一写法是 `brand.cta` 实底 + `brand.ctaForeground` 文字(旧档 `brand.DEFAULT` + `brand.foreground` 已废,见上),所以这套配对**必须**被所有前景/容器对账判据认作合法 —— 按规矩写就红的门只有一个结局:逼人 `--no-verify`,连带废掉全部守门。拦的是**没有配对前景**的实底卡片与**跨档错配**(底取 `brand.cta`、字却取 `text.primary`/`surface.light` —— 前者黑/白反转下两态与底同色纯隐形,后者按档位法则本就非配对前景)。守门 83 的 R1_BG 已同时认 `brand.DEFAULT|brand.cta`,就是为了"判据必须覆盖门自己产出的形态"。
 - **禁止端内自立 CTA 档**:`brand.ctaFill` / `ctaText` 这类"浅色等于 web、深色另取一档"的混血键已全部删除,**不得再加回**。要调暗色主按钮的观感(例如觉得纯白刺眼),改 `tokens.css` 的 `.dark --color-primary` **一处**,web / 小程序 / RN 同时动;不得在某一端单独覆盖 —— 那正是"手机上改了 web 没改"的成因。
-
 > ⚠️ 本行已于 2026-09-24 被上面「禁止端内自立 CTA 档」新条目就地改写取代;保留原文只为不丢行,勿照它执行。
-
 - **成对即合规,不得再当债务**(同日补):上面这条是主 CTA 的唯一写法,所以深色档案下"brand.DEFAULT 实底 + brand.foreground 文字"**必须**被所有前景/容器对账判据认作合法 —— 按规矩写就红的门只有一个结局:逼人 `--no-verify`,连带废掉全部守门。拦的是**没有配对前景**的白卡片与**跨档错配**(底取 brand、字取 `text.primary`/`surface.light`)。
-
 > ⚠️ 本行已于 2026-09-24 被上面「成对即合规」新条目就地改写取代;保留原文只为不丢行,勿照它执行。
-
 - **RN 侧 `dark:` 类必须与 App 主题同源才允许依赖**(强制):共享 preset 是 `darkMode: 'class'`,`dark:*` 工具类读 NativeWind 自己的 colorScheme store。`apps/mobile-rn/src/theme/color-scheme-sync.ts` + `ThemeProvider` 负责把 App 解析出的主题(light/dark/system→系统)落进该 store —— 缺这一步,`dark:` 只跟系统外观,与 App 内主题开关长期分裂(而前景/容器对账门把"同行有 `dark:` 变体"记为已配对,不同步时那些配对只是纸面正确)。**新增深色取用二选一**:走 `tokens.*`(模块级单例,重载 JS 生效,共享包默认),或走 `dark:` 变体(依赖上述同步);不得混用两套、更不得在端内自造第三个色源。回归:`apps/mobile-rn/tests/theme-colorscheme-sync.test.ts`。
-
 - 真要新增品牌档:先在 `tokens.css` 落一个 CSS 变量,再到守门 90 的映射表登记依据;确属 RN 专属(如 `brand.dark` 品牌绿)才能进 `RN_ONLY_BRAND_KEYS` 并写明理由 —— 豁免项若已不存在同样算红(防清单腐烂)。
 - 悬空引用由 R3 直接拦(编译不一定红,运行时是 `undefined` 颜色)。并行会话的暂存区里若还残留 `tokens.brand.ctaFill/ctaText`,改法只有一行:`ctaFill` → `DEFAULT`、`ctaText` → `foreground`。
-
 ### 描边不得取墨档(强制,2026-09-26 立)
-
 - **规矩**:任何描边 —— RN/共享包的 `borderColor` / `borderBottomColor` / `border: \`1px solid …\``模板串、web 与小程序的`border-primary`/`ring-primary` 类名 —— **一律不得取墨档**。用户原话:「我们项目设计没有这样的纯黑色的描边」。
 - **禁的四档**:`brand.DEFAULT`、`brand.foreground`、`brand.ctaForeground`、`text.primary`(亮=近纯黑,暗=近纯白)。它们兼任墨色与文字色,当描边用就是在容器外圈画一道硬黑线。
 - **合法出路只有两条,都是项目已有档**:中性描边 → `border.light` / `border.medium`(= web 的 `border-border`);强调描边 → `brandAccent.light` / `brandAccent.deep`(= web 的 `border-brand-accent-deep`,亮 `#4a7a96` / 暗 `#a3c4d6`,端内在 R8 之前已有 7 处这么写)。不得在端内自拼 `#000` / `rgba(0,0,0,…)`,也不得为消红去改判据。
@@ -162,20 +118,16 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 - **覆盖面(同日两次补,现行口径以这条为准)**:R8 判**三种书写形态**——RN style 对象(`border\w*:` 取墨档)、Tailwind 类名(`border-primary`/`ring-primary`)、**CSS 声明**(`border*: … var(--color-primary)`,含 TSX 内联字符串形态)。文件面**不再维护端名单**:`R8_DIRS = ['apps','packages']` 整面取,只靠 `e2e/tests/__tests__` 与 `*.test/spec.*` 排除叙述行;扩展名含 `tsx|jsx|ts|js|css|scss`。立项时前两种形态各自漏过一块(extension 不在 R5 端表里 → 类名形态在扩展端失明;.css 不在扩展名里 → **19 处** CSS 声明整面隐身),两处都已随同笔提交清零,基线 `inkBorderCounts` 仍为**空 = 零容忍**。**给守门扩面必须同批改两半**:内容判据的 scope 函数 + 枚举/预筛的目录表与扩展名;本条的第一版就只改了 scope,`git ls-files` 仍用旧表,结果**整块改动静默失效而门照报绿**。防线两条:① 拿真仓 HEAD 喂新判据,它必须点名已知存量(阳性对照);② 镜像测试锁源码——枚举面必须引用新表、旧表不得再出现、预筛常量必须含新形态。
 - **历史成因(值得留着)**:本门自己的修复提示曾写着「`brand.DEFAULT` / `--color-primary` 只保留墨色、**描边**、文字色三义」—— 散文把这一档列为描边的合法语义,判据又只管"前景 vs 容器配对"、从不算描边取哪档,**两边一起漏**,所以这一型活了很久还一路报绿。现该措辞已就地改掉。
 - **守门**:并入 83(见下方速查),新增判据 **R8**,基线键 `inkBorderCounts` 现为**空 = 零容忍**(立门当日 HEAD 实测 148 处:RN style 面 33 + web/小程序类名面 115,已全部并回上述两档)。行内豁免 `border-ink-exempt: <原因>` 必须带原因且**逐行**生效;上一行算豁免的前提是它是纯注释行。
-
 ### 圆角单一源头(强制,2026-09-23 全端收口)
-
 - **唯一真相源**:`packages/design-tokens/src/radius.js` 的 `RADIUS_STEPS` = `xs 2 / sm 4 / md 6 / lg 8 / xl 12 / 2xl 16`(px;`DEFAULT`=8 对齐 web `--radius: 0.5rem`)。改档位只改这一处。`tailwind-preset.js` 必须写 `borderRadius: RADIUS_REM`,`tokens.css` / `app.css` 的 `--radius-*` 必须与之逐档同值。
 - **"哪类元素取哪档"也有唯一真相源(2026-09-27 立)**:同文件的 `RADIUS_ROLES` = `tiny→xs / control→sm / chip→md / card→lg / panel→xl / hero→2xl`,JS 侧按 `rnRadiusFor.<角色>` 取,文档侧是 `docs/UI_GUIDELINES.md` §3.1 的展开。**立因**:项目此前只定义了档位**值**,从未定义角色→值,于是两端各按直觉选 —— 同一张 `UserInfoCard` 小程序 8px、App 12px,`ModelList` 一端 8 一端 12,而守门 77 一路报绿(它只判"有没有绕档位表写死数字")。§3.1 表格当时还写着 `rounded-sm`=2px、`rounded`=4px,与档位表差一档 —— 照文档写必错,那两行已随本表更正。**新增角色必须同笔有消费方**,不得先建表再等人用(与 `geometry.js` 同一条规矩)。
 - **各端取用形态(不得自创写法)**:
-
   | 场景                                         | 唯一写法                                                                      |
   | -------------------------------------------- | ----------------------------------------------------------------------------- |
   | web / ui-react / extension(Tailwind v4 类名) | `rounded-xs` ~ `rounded-2xl`;CSS 里 `var(--radius-<step>)`                    |
   | miniapp-taro / mobile-rn(NativeWind v3 类名) | 同上,**禁止** `rounded-[24rpx]` 这类任意值                                    |
   | RN StyleSheet / 任意内联 style               | `borderRadius: rnRadius.lg`(`import { rnRadius } from '@ihui/design-tokens'`) |
   | `.css/.scss/.html` 任何端                    | `border-radius: var(--radius-lg)`,禁止 px/rpx 字面量                          |
-
 - **类名语义按 web 对齐(修文档漂移)**:v3 preset 曾把 `rounded-sm` 定成 2px、web v4 是 4px,同名不同值即"手机上圆角和全局不一致"的根因;现 `sm=4px`,2px 由 **`rounded-xs`** 承载。裸 `rounded` 全端统一 8px(web 现实)。旧条目里"`rounded-sm`(2px)"作废。
 - **禁止绕档**:每文件自定 `const *_RADIUS = <数字>`(含 `BAR_RX` 这类**名字不带 RADIUS** 的圆角常量)、用 `rpx()` 算圆角、`rounded-[任意值]`、StyleSheet 里写数字字面量、**以及写字符串形态 `borderRadius: '8px'` / `"6px 6px 0 0"`**(字符串曾是守门盲区,2026-09-23 对抗排查补上;多值串须拆成四个角属性引用档位)。
   - **上面那句"多值串须拆成四个角属性"曾只是散文**(2026-09-27 O81 票⑯实测推翻其覆盖声明):守门 77 的 B3 判 CSS 声明时是**整串判** —— 值里出现 `var(` 就整条放行,于是 `border-radius: var(--radius-xl) 24rpx 0 0`(第一个角引用档位、其余角写死字面量)这类多值声明**整型隐身**,HEAD 实存 4 处;另一型是 Tailwind **任意属性形态** `[border-radius:6rpx]` —— 判据的值前导字符类不含左方括号,整型隐身 1 处,而那个 6rpx(=3px)根本不在档位表上。**两型都是门 150 的"未判定"清单反手指出来的**(它按逐值读,所以看得见),即"两台尺子互相指认无人看守"这一缝在本仓第二次现形。现 B3 改为**逐值判**(每个角各自要求档位引用/豁免,`var(`/`calc(`/`0` 放过),值字符类同时排除右方括号(否则后半串 className 被当成一个值读),5 处站点同笔换成档位引用或 `rounded-full`。取证:门 77 自检 53→58 例(正反成对:多值必拦 / 全 var 不误伤 / 任意属性必拦 / 任意属性引档位放行)+ 镜像 8→10 例(夹具端到端逐条点名 `24rpx`、`6rpx`、`dot.tsx`,另两条源码形状反向锁:整串短路写法不得回来、前导字符类必须含 `[`)。
@@ -183,34 +135,25 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 - **生成式 HTML/CSS 字符串**(cli 分享页、`packages/shared/src/design/design-templates.ts`、扩展 content script、api 的 `swagger-theme.ts` 等拼 CSS 文本处):**不得写死数字**,用同表插值 `border-radius: ${RADIUS_CSS_PX.md}`(`import { RADIUS_CSS_PX } from '@ihui/design-tokens'`),不新增第二份真相。
 - **真圆/胶囊豁免**:头像 / 装饰点 / 红点 / 进度环 / Switch 拇指 / 半高胶囊输入框**不得方档化把形状改坏**。优先 `size / 2` 表达式;确需保留数值必须在同行或紧邻上行写 `radius-exempt: <一句话原因>`(JS/TSX 用 `//`,CSS 用 `/* */`,静态 .svg 用 `<!-- -->`),不得静默写死。
 - **守门**:`scripts/check-radius-single-source.mjs`(guardian 第 **77** 项,blocking)三判据 —— A 档位表四处对账(改一处忘改另一处即红)、B 端内取用必须引用档位(B1 数值与字符串形态 / B2 本地常量 / B3 CSS 字面量 / B4 任意值类 / B5 SVG rx-ry / **B6 引用 `rnRadius`、`rnRadiusFor`、`RADIUS_CSS_PX` 却没在本文件 import** —— 本门判 HEAD 而 `pnpm typecheck` 只跑 worktree,悬空标识符属于"两边都不红"那一类)、C 覆盖面对账(含圆角的跟踪文件要么落在 SCAN_DIRS,要么在 `OUT_OF_SCOPE` 写明为什么不适用)。**B 的棘轮锚点是「该文件 HEAD 版本自身的违规数」**,不是手工清单 —— 只拦"这次改动把绕档加回来了",不拦仓库既有债。2026-09-24 换锚的起因:并行会话的索引层重建把 309 个路径整文件回写成迁移前的旧基线(**HEAD 积累 1179 处**),静态清单对此完全绿灯;同时全量审计改判 **HEAD blob 而非工作树**,因为滞后的旧草稿会被按磁盘读误记成本仓债务(一道与真实改动无关的红门只会逼人 `--no-verify`,连带废掉全部守门)。`scripts/radius-single-source-baseline.json` 降级为人工兜底,**现须为空**(镜像测试钉死)。判据**不锚定行首**,故 `width:16px; border-radius:50%` 同行多声明、TS 里生成的 CSS 一样可见。按文件自验:`--files <a> <b>`;紧急跳过 `HUSKY_SKIP_RADIUS_GUARD=1`;自检 `--self-test`(81 例,含真实表端到端对账、静态/内联 SVG 两种语义、NaN 防回归、HEAD 锚点四方向正反例、多行 import 不误伤、`rnRadiusFor` 点/括号双形态与 B6 清单同源钉),镜像测试 `node --test scripts/tests/check-radius-single-source.test.mjs`(20 例,含"锚点必须是 HEAD 而非静态清单"的装车证明与"B6 名单门体/文档同源一份"钉)。容器纯圆违规仍由 `scripts/check-rounded-full.mjs`(第 11 项)管,两条互补不互替。
-
 ### Button 高度档位守门(强制,2026-09-07 立)
-
 - **`@ihui/ui-react` 的 `<Button>` 禁止用 className `h-*` / `w-*` 覆盖高度宽度**,必须用 `size` 档位:`xs`(h-7 px-3 text-xs, 28px)/ `sm`(h-8, 32px)/ `default`(h-9, 36px)/ `lg`(h-10, 40px)/ `icon-2xs`(h-7 w-7, 28px)/ `icon-xs`(h-8 w-8)/ `icon-sm`(h-8 w-8)/ `icon`(h-8 w-8)。需要新高度先在 `packages/ui-react/src/components/button.tsx` size 表立档,禁止逐处打补丁。**2026-09-21 修正文档漂移**:`icon-xs`/`icon-sm`/`icon` 三档当前**同值**(均为 32px,仅保留名称以兼容既有调用),28px 图标请用 `icon-2xs`;此前本文档误写为 h-7/h-8/h-9 三档不同 —— 这正是"按文档用 `icon-xs` 期望 28px → 不达预期 → 再以 `className="h-7 w-7"` 覆盖 → 触发本守门"违规链的成因。守门脚本(`check-button-height.mjs`)的档位清单已改为从 button.tsx **动态解析**,不再手抄。
 - **豁免(不属 Button token 体系)**:原生 `<button>` 自绘按钮(IDE 面板 / spec-panel / chat 密集工具条的 24px 紧凑档为有意设计)、`Input` / `SelectTrigger` / `Skeleton` / 图标 svg 等非 Button 元素;Button 上的 `h-5`/`h-6`(24px/20px 紧凑档,存量 45 处表格行操作钮/侧栏密集场景)暂豁免,后续统一时先立对应档位再迁移。
 - 守门:`scripts/check-button-height.mjs`(精确 JSX 开标签解析,零误报;拦 h-7 及以上覆盖 + 校验 size 值合法性)+ pre-commit blocking(紧急跳过 `HUSKY_SKIP_BUTTON_HEIGHT_GUARD=1`)。
-
 ### 中文字体 + 图标垂直对齐硬约束(强制)
-
 - **根治方案**:`apps/web/app/globals.css` 设 `--text-vcenter-offset: 0.3px` + 全局规则 `:where(button, a, [role='button'], [role='menuitem']):has(>svg):has(>span) > span { transform: translateY(var(--text-vcenter-offset)); }`,button/a 内 "icon + 中文 span" 同行布局自动应用,text-xs (12px) 用专用 0.7px 规则。配套:`apps/web/src/lib/nav-styles.ts` 5 个共享类 + `<CenteredText>` 组件(`apps/web/src/components/common/CenteredText.tsx`)。
 - **编码强制 — icon + 文字必须包 `<span>`(2026-09-15 组件层根治)**:根因是补偿规则 `:has(>span) > span` 只能命中 `<span>` 元素,裸文本节点永远无法对齐(复发 3 次以上)。**根治:`@ihui/ui-react` 的 `<Button>` 已内置 `wrapRawTextChildren`,裸文本 children 自动包裹 `<span>`,使用 Button 无需手写。** 手写原生 `<button>`/`<a>`/`[role=button]` 时仍**必须**自行把文字包 `<span>`(自检口诀:**button 里有 svg,则每个直接文字都写 `<span>文字</span>`**)。守门:`apps/web/e2e/icon-text-alignment.spec.ts`(阈值 |delta| ≤ 0.15px)+ code review 必查项。
 - **守门**:`apps/web/e2e/icon-text-alignment.spec.ts` 阈值 |delta| ≤ 0.15px,漏改 → CI fail。**严禁** `-mt-px` / `margin-top: -1px` 反向微调 hack。
 - **数字计数徽章强制规范(2026-09-15 立,复发根治;2026-09-27 收掉模板自身的胶囊矛盾)**:按钮/标签内嵌数字计数(如待办数、队列数)**禁止**裸 `<span class="px-1">数字</span>` 手搓 — 行高、字形侧空、位数变化都会导致数字在色块内偏移。**必须**使用确定性居中模板:`inline-flex h-4 min-w-4 items-center justify-center rounded-md bg-*/… px-1 text-[10px] font-semibold leading-none tabular-nums`。要点:`inline-flex + justify-center` 保证任意位数水平居中;`h-4 + leading-none + items-center` 保证垂直居中(不依赖字体行高);`min-w-4` 保证单位数不掉宽;`tabular-nums` 保证多位数字等宽不抖动。
   - **该模板原写的是 `rounded`(=8px),这是一处自相矛盾**:2026-09-23 档位表收口后 `rounded` 等于 8px,套在 `h-4`(16px) 上正好是**半高胶囊** —— 强制模板在产出本节另一条绝对规则("禁止胶囊")所禁止的形态,而守门 11 的"红点底"豁免族替它背书,于是按模板写出来的徽章永远清不掉。现改 `rounded-md`(6px);**模板的中心一字未动**(确定性居中仍靠 inline-flex + justify-center + leading-none + tabular-nums + min-w-4),只是半径不再等于盒高一半。`apps/miniapp-taro/src/components/UnreadBadge.tsx` 与 `MessageTabs.tsx` 两处未读数徽章即照旧模板产出、已随本次收口。
 - **flex 自居中 span 豁免 vcenter 补偿(2026-09-15)**:全局补偿规则(`packages/design-tokens/src/styles/tokens.css`)已改为 `> span:not([class~='flex']):not([class*='inline-flex'])` — 徽章等 inline-flex span 由 flexbox 自居中,整盒再被 translate 下推 0.3/0.7px 会"偏下"(用户实测复发)。**手写 flex 徽章 span 天然豁免,无需任何反向 hack;严禁给徽章再加 -mt/translate 反补**。
-
 ### 页头返回键单一源头(强制,2026-09-25 立)
-
 - **起因(用户实拍)**:"小程序端所有返回按钮怎么是返回两个字"。web 端 2026-09-08 就把返回键收进顶栏唯一实现(`GlobalTopBar.tsx` 的 `TopBarBackButton`,lucide `<ChevronLeft />`,36×36 方块,守门 46 拦私接),**但小程序端没人跟着收口**:20 处把「返回」两个汉字当箭头渲染(各页自写 `tt('common.back','返回')` + 各自的字号/颜色)、8 处用字符 `‹` 当箭头。守门 102 当时的字符集只有右向 `›»→》` —— **一条门只管自己立项那一型,就是这一型的洞**(判据必须覆盖门自己产出的形态,同 §4 圆角那一条的教训)。
 - **唯一写法**:小程序端一律 `<BackChevron onTap={…} />`(`apps/miniapp-taro/src/components/BackChevron.tsx`,内部 `LineIcon name="chevron-left"` 复用 `components/LineIcon/icons.ts` 既有素材 ⇒ 零新素材、零新色值;方块 72rpx=36px 与 web 的 36×36 同档)。返回动作(`navigateBack` / `switchTab` 降级 / 回登录页)语义**留在调用方**,组件只管外观。web/RN 侧对应写法是 `ChevronLeft`(lucide-react / lucide-react-native)。**禁止**在页头返回位写文字、写 `‹`,或端内自造第二种几何(负 margin 凑命中区、每页各自 `w-[80rpx]` 预留宽度 —— 后者会被组件行内 `width` 静默盖掉)。
 - **文字标签的合法例外**:错误态卡片按钮、步骤回退链接这类**「返回」是按钮文案而非导航箭头**的位置保留文字,在**可点元素起始行或其紧邻上行**写 `back-label-exempt: <原因>`。它与 `glyph-arrow-exempt` 是两条独立通道,不得混用(给 GA1 开第二道口就等于没有那条锁)。带宾语的标签(`backHome` / `backLogin` / `prevMonth`)按判据结构上不纳,**不得为消红去改 i18n 文案**。
 - **守门**:并入 102(见下一节末条),新增判据 **GA4** 与 S0 机制清单第 4 条(`components/BackChevron.tsx` 被摘线或无人 import 即红)。
 - **其余三端的同一型(2026-09-25 收口;现值一律按当次实测取,勿照本行数字派单)**:`packages/app/src/features/**` + `apps/mobile-rn/src/screens/**` + `apps/extension` 的页头返回已全部收进 RN 侧唯一实现 **`packages/app/src/components/BackChevron.tsx`**(经 `@ihui/rn-app` 导出;lucide-react-native `ChevronLeft`,命中块 36×36 对齐 web `TopBarBackButton`)。**`colorScheme` 是必填 prop 而非 `= 'light'` 默认值** —— 守门 91 只把"带默认值的形参"认作静默脱主题开关,必填改由 `tsc` 强制,比门更严。HEAD 面实测 `<Text>{t('common.back')}</Text>` 仍有 42 处、`{'‹'}` 0 处:那 42 处是**错误态/空态卡片按钮、翻页、弹窗关闭** —— 那里「返回」是文案不是箭头,换裸箭头反而不表意,逐条带 `back-label-exempt: <原因> until YYYY-MM-DD`(该族已登记进守门 108 的 `FAMILY_LIFETIME_DAYS`,取 365 天:它是结构性定性不是待偿债务,短周期到期只会逼人删标记、删了又被 GA4 判红,两道门互咬)。**这两处"已知残余"已于同日由后续票收掉(2026-09-26 按 HEAD 复验;照旧执行会去找不存在的洞)**:① S0 现登记 5 条,含 RN 共享层那份 `packages/app/src/components/BackChevron.tsx`(该门注释原文即"只登记端内那一份时,共享层被摘线无人喊红");② 混合形态 `← 返回` 由新增判据 **GA5** 纳管,两处真站点的落地形态是 `ModelConfigDialog.tsx` **保留字形 + 带原因 `back-label-exempt`**(实测 `←`=1 / 豁免=1 / `ChevronLeft`=0 —— 正确处置是带理由豁免而非矢量化:该组件作用域内既无 `t` 也无 `tokens`,换矢量要改别人的组件签名)与 `Selecter.tsx` 删字形留文字 + 豁免注明"i18n 与矢量通道双缺"。
-
 <!-- ⚠️ 本行是上面那条的**改写前原文**(2026-09-25 由提交 259fb1262d9 收口后已失效:其中"packages/app 223 处/168 文件""mobile-rn 5 处""共享层两个 NavBar 与 PayResultScreen 用 ‹"四项现值全变),照它派单会把已做完的 180 处重做一遍。保留只为不丢行(§12),勿照它执行。 -->
-
 - **未收口的同一型(如实登记,不是已完成)**:`packages/app/src/features/**` 有 **223 处 / 168 文件**、`apps/mobile-rn/src/screens/**` 有 5 处仍是 `<Text>{t('common.back')}</Text>`;共享层两个 NavBar 与 `PayResultScreen` 用 `‹`。它们由 102 的**按文件 HEAD 棘轮**兜住"不得再加",清理另计一批。
-
 > ⚠️ **上面那格的"223 处未收口 / 清理另计一批"已被 2026-09-26 的实测取代 —— 照它派单会去清一批不存在的东西。**
 > 现读(HEAD 面,五个 UI 目录):`common.back` 共 **243 处**,其中 **194 处是 `label=` / `aria` / 配置字段**
 > —— 那是喂给 `<BackChevron label={…}/>` 的**无障碍名称**,不是渲染出来的文字(设计要求:可见文案求箭头、
@@ -221,47 +164,30 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 > 与判据要求的三个落点一致。所以守门 102 的 GA4 报 **0** 不是"判据没看见",而是"该收的收进了唯一实现、
 > 该留的按理由留"。**这一批没有剩余清理项**;真要动这 49 处,得先逐条论证它其实是箭头位 —— 那属于改判据,
 > 不属于清存量。`‹` 字符在 HEAD 面还剩 10 处,但都不在可证 affordance 语境(GA1 实判 0)。
-
 ### 区段头「更多」入口单一源头(强制,2026-09-24 立)
-
 - **三端唯一实现**:RN = `packages/app/src/components/MoreLink.tsx`(经 `@ihui/rn-app` 导出);web = `apps/web/src/components/common/view-more-link.tsx`;小程序 = `LineIcon name="chevron-right"`(`components/LineIcon/icons.ts` 已含该图标,零新素材)。**禁止在任何端再自拼第四份**「标签 + 箭头」。
 - **箭头必须是矢量图标,禁止用字符 `›` / `»` / `>` 充当**。字符与文字没有共用度量,`align-items:center` 居中的是各自行盒:实测「更」12px 墨迹偏上 1.0px,而 `›` 在 14/16/18/20px 档偏下 1.0 至 1.5px —— 是**相加**关系,所以"标签小、箭头大"的旧写法错位 2.0 至 2.5px。算式与完整根因见 `docs/UI_GUIDELINES.md` §4.6。
 - **标签与箭头必须同一光学尺寸(RN/web 12px、小程序 24rpx)+ 同一缩放倍率**:旧写法箭头带 `allowFontScaling={false}` 而标签允许缩放,用户调大系统字号即分叉。RN 侧把倍率同时喂 `Text.maxFontSizeMultiplier` 与图标 `size`(clamp 1..1.4),并保留 `includeFontPadding: false`(Android 字体留白不对称,端内已有 8 处同写法)。
 - **禁止反向微调补丁**:`marginBottom: -2` / `translateY` / 负 margin 凑数(与本节上方"严禁 -mt-px"同一条禁令,换机型即失效)。
 - **文案统一 `common.more`**(更多 / More / もっと見る / 더 보기),不得再写"查看更多 / 查看全部 / 完整榜单";但 `accessibilityLabel` **刻意保留长口径**(如"查看更多模型")—— 可见文案求短,无障碍名称须脱离上下文成立。
-
 <!-- ⚠️ 本行是守门 102 的**立项原文**(三类判据),已于 2026-09-25 被下方"四类判据"条就地改写取代;其中"字符集只有 ›»→》""三端唯一实现""--self-test 45 例"三项均已是旧值,照它派单会漏掉左向字形与 GA4。保留本行只为不丢行(§12),勿照它执行。 -->
-
 - **守门**:`scripts/check-glyph-arrow-icon.mjs`(guardian 第 **102** 项,blocking)三类判据:**GA1** 整格字符箭头 `›»→》`(或 `{'>'}`)在可证 affordance 语境(自身或 ≤8 层祖先带 `on*Press/Click/Tap` 或 `role="button"`,或祖先为 `Link/Pressable/Touchable*/Button`)当图标;**GA2** 「更多」类标签与**同词干** `*Arrow*` 样式配对后箭头字号 > 标签字号(单位不同不判红,计入 undetermined);**S0** 三端唯一实现被摘线或无人 import(防"造好没装车")。口径同 77/83:全量判 HEAD blob、`--staged` 判索引、**棘轮锚点 = 该文件 HEAD 自身违规数**(行尾字符箭头存量 70 处只报数不拦,免得恒红逼人绕过钩子连带废掉全部门);行内豁免 `glyph-arrow-exempt: <原因>`(须带原因);取证 `--self-test` 45 例(含阳性对照与棘轮四向)+ 镜像测试 13 例。紧急跳过 `HUSKY_SKIP_GLYPH_ARROW_ICON=1`。
-
 - **守门**:`scripts/check-glyph-arrow-icon.mjs`(guardian 第 **102** 项,blocking)四类判据:**GA1** 整格字符箭头 `›»→》‹←`(或 `{'>'}`)在可证 affordance 语境(自身或 ≤8 层祖先带 `on*Press/Click/Tap` 或 `role="button"`,或祖先为 `Link/Pressable/Touchable*/Button`)当图标 —— **左向 `‹`/`←` 于 2026-09-25 补入**(立项时只有右向四字,于是小程序 NavBar 与 7 个页面头拿 `‹` 当返回图标长期零判据);**GA2** 「更多」类标签与**同词干** `*Arrow*` 样式配对后箭头字号 > 标签字号(单位不同不判红,计入 undetermined);**GA4**(同日新增)整格子内容是「返回」类文案(`t('common.back')` 这类键名末段为 `back`/`back<数字>` 的 i18n 调用,或字面量 `返回`)且处在可证 affordance 语境 ⇒ 即"把返回两个字当返回箭头";**带宾语的标签刻意不纳**(`backHome`/`backLogin`/`prevMonth` —— 那些是按钮文案,换成裸箭头反而不表意);**S0** 共享唯一实现被摘线或无人 import(防"造好没装车"),现登记 4 条:三端「更多」箭头 + `components/BackChevron.tsx`。GA1 与 GA4 **共用同一遍遍历**(`walkAffordanceChildren`),两条对"可证 affordance"的定义必须同形 —— 各写一遍必然在栈深/祖先窗口上漂移。口径同 77/83:全量判 HEAD blob、`--staged` 判索引、**棘轮锚点 = 该文件 HEAD 自身违规数**(行尾字符箭头存量 70 处只报数不拦,免得恒红逼人绕过钩子连带废掉全部门);行内豁免**两条独立通道** `glyph-arrow-exempt: <原因>`(GA1/GA2,只认命中同行)与 `back-label-exempt: <原因>`(GA4,认命中行、可点元素起始行、及其紧邻上行)—— **宽严刻意不对称**且各由自检钉住:GA1 若也按块放行,一个标记就能救整棵子树,"一行救不了别处"那条反向锁就没了;GA4 若只认同行,人按直觉把标记写在可点块上就永远不生效(初版即如此,四处真实站点全部落空 ⇒ 恒红)。**原因不得由注释闭合符冒充**(裸标记 + `*/` 曾被读成"带了原因"⇒ 整行免检;该洞自 §22c 立项起就在 GA1 里,由 GA4 的自检反手抓出,现两条通道同锁,全仓零裸标记存量故改严无债务)。取证 `--self-test` 66 例(含阳性对照、棘轮四向、预筛必须是判据字面量超集的对账)+ 镜像测试 14 例(含"GA1/GA4 豁免宽严不得悄悄对齐"与"预筛漏字形=门对该形态全盲"两条锁)。紧急跳过 `HUSKY_SKIP_GLYPH_ARROW_ICON=1`。
-
 ### 禁止分割线(强制)
-
 - 禁止 `<hr>` / `divide-y` / `divide-x` / 单边 `border-t/b/l/r` 当分割线。允许:容器完整描边(`border border-border`)、背景色对比(`bg-card` vs `bg-background`)、间距分隔(`gap-*`)。
-
 #### 单边 border 的明确区分(解决两位开发者的分歧)
-
 历史上出现两种冲突理解:一位开发者认为**所有** `border-t` 一律禁止;另一位认为显式 `border-t border-border/50` 一律允许。现统一为以下规则,**所有** `border-t/b/l/r` 用法必须归入下列两类之一,不得作为纯分割线使用:
-
 - **允许(结构性边框,非分割线)**:
   1. 卡片/面板边缘:作为完整边框系统的一部分,例如带 `border` 的容器其 header 条用 `border-b` 作为容器底边(边框系统的收口,而非在两项之间画线);
   2. 引用块 / 语义强调左边框:`border-l-4` 等作为语义强调(如 blockquote、强调条),而非分隔两项内容的线;
   3. IDE diff 面板等编辑器内 chrome:有意为之的编辑器界面元素。
 - **禁止(纯分割线)**:仅在**列表项之间**或**区块之间**用 `border-t/b/l/r` 画一条分隔线,此类场景必须用 `space-y-*` 间距,或 `bg-muted` / `bg-card` 背景对比替代。
-
 > 注:低透明度单边边框(如 `border-t border-border/50`)是典型的"伪分割线",单独守门脚本 `scripts/check-no-divider.mjs` 对其作 **WARN** 告警(非阻塞),提示开发者确认是否为纯分隔用途;纯分隔线务必改用间距或背景对比。此后若确需单边边框,仅限上述"允许"三类情形。
-
 ### 禁止渐变遮罩(强制)
-
 - 任何容器禁止 `mask-image` / `-webkit-mask-image` / `linear-gradient` 用作边缘淡出。用显式 UI 元素("查看更多"按钮 / 计数徽章 / 分页)替代。
-
 ### 禁用原生提示窗(强制)
-
 - **禁止**使用原生浏览器提示:`title` 属性 / `alert()` / `confirm()` / `prompt()`。必须使用项目自有的 `Tooltip` 组件(`@/components/feedback`)统一提示样式。
-
 ### 图标统一用图标库(强制)
-
 - **UI 图标一律用矢量图标库,禁止 emoji 充当图标。** 图标指导航项 / Tab / 按钮 / 状态指示 / 徽章 / 占位默认图标 / 关闭·发送·播放等操作图标 / 章节标题前缀 icon / 等级奖牌等界面元素。
 - **web 端**:统一 `lucide-react`(`import { X } from 'lucide-react'`),渲染 `<X className="h-4 w-4" />`;配置数组里的 `icon: 'emoji'` 须改为 `icon: LucideIcon` 组件引用后在渲染处用 `<item.icon className="..." />`。
 - **移动端(React Native)**:统一 `lucide-react-native`(`import { X } from 'lucide-react-native'`),渲染 `<X size={16} color={'#6b7280'} />`;颜色按原 `Text` 的 `text-*` 类或 style 颜色意图转十六进制,尺寸按原 fontSize(-xs→12 / -sm→14 / -lg→18 / -2xl→24)。
@@ -269,9 +195,7 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 - **禁止**在 UI 图标位置使用 emoji(如 🏆 🤖 🔥 ✅ ❌ 🎤 🔔 等)。新增图标须先查 `lucide-react` / `lucide-react-native` / Taro `static/images/icons/` 是否有对应名称,无则用近义图标,不得回退 emoji。
 - **例外(不强制)**:文档 / 营销页正文里的装饰性 emoji(提示 💡、技术栈列表、章节叙述中的 emoji)属于内容文案,不在此限;但同一页面应风格统一,优先用图标库。
 - 守门:`scripts/check-no-emoji-icons.mjs` 扫描 UI 图标位 emoji(icon 字段 / JSX 渲染位 / 三元条件图标),豁免注释、i18n 参数、表情面板、`'★'.repeat` 评分字符串、表格布尔标记、docs/marketing 正文;guardian-runner 第 11h 项(pre-commit staged 模式阻塞 commit)。
-
 ### 品牌/平台图标必须是官方真实图标(强制)
-
 - **展示第三方品牌 / 平台身份的图标(模型、推广平台、接入平台、社交渠道等),一律使用该品牌官方发布的真实图标,严禁手绘、自造、近似模仿或用字母占位图代替。** 手绘品牌图标属于品牌失真,被用户发现即为交付事故(2026-09 头条/WordPress/微博图标事故教训)。
 - **官方图标获取链路(按优先级)**:
   1. 官网 favicon 直取:`https://<domain>/favicon.ico`;
@@ -286,28 +210,20 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 - **深色模式可见性**:黑色系官方图标在注册表中标 `invertInDark: true`(深色下反色为白);彩色官方 favicon 无需反色,靠 `bg-primary/10` 容器衬托。
 - **素材卫生**:被替代的旧图标文件必须同任务删除,不留孤儿资源;`.ico` 仅在拿不到 `.png/.svg` 时使用。
 - 违反本条 = 未完成:用户要求"官方图标"时,交付物必须逐个可溯源到官方域名,可附来源 URL 清单。
-
 ### 圆角容器内 absolute 子元素避让
-
 - 父容器 `rounded-xl` + `overflow-hidden` 时,贴边子元素**禁止** `h-full`/`w-full`,用 `top-<radius> bottom-<radius>`(纵向)或 `left-<radius> right-<radius>`(横向)替代。映射:`rounded-lg`→`top-2 bottom-2` / `rounded-xl`→`top-3 bottom-3` / `rounded-2xl`→`top-4 bottom-4`。
 - 拖拽手柄用双层 div 结构(外层命中区 + 内层可见细线),**禁止** `before:` 伪元素方案。
-
 ### 浮动弹层内边距规范(2026-09-21 立,起因:context-usage-ring 弹层漏 padding 内容贴边)
-
 新建弹层/浮层必须按内容类型对齐以下四档,**禁止自创中间值**:
-
 | 类型          | 判定特征                                                            | 容器内边距                              | 参考实现                                                              |
 | ------------- | ------------------------------------------------------------------- | --------------------------------------- | --------------------------------------------------------------------- |
 | 内容面板      | role=dialog,含标题/表单/信息块(permission、通知、设置卡)            | `p-3`                                   | permission-mode-popover、permission-history-panel、context-usage-ring |
 | 菜单/选项列表 | role=menu / select 列表,纯按钮项                                    | `p-1`                                   | Select、TagsView 右键菜单、canvas-overlay                             |
 | 轻提示/徽标   | tooltip、角标、状态胶囊                                             | `px-2 py-1`(mini 用 `px-1.5 py-0.5`)    | ByokIncomeChart、activity-bar                                         |
 | 复合面板      | 输入行+列表的 overflow-hidden 面板(mention、selector、终端 overlay) | 外层零 padding,**行级自带** `px-3 py-*` | file-mention-popover、context-selector-popover                        |
-
 - 反例存档:自定义 portal 弹层从 Radix 迁出时最易漏搬 `p-3`(PopoverContent 自带),新建 portal 容器必须显式写内边距档位。
 - 同族组件必须同档:同一直弹层家族(如 permission 系列)不允许 p-2/p-3 混用。
-
 ### 跨端样式同步铁律(强制)
-
 - web 与 miniapp-taro 视觉必须完全一致(除平台独占差异:登录页小程序端无、rem2rpx 自适应缩放、原生导航栏/tabBar 用 `Taro.setNavigationBarColor`/`setTabBarStyle` 而非 CSS var 等)。**任何一端改了样式/组件/主题,必须同步另一端**——这是交付门槛,不是可选项。
 - **单一真相源**:design-tokens 在 `packages/design-tokens/src/styles/tokens.css`(`@theme` + `:root` + `.dark`)。miniapp-taro 的 `app.css :root/.dark` 由 `scripts/sync-miniapp-tokens.mjs` 自动同步(**禁止手改 app.css 的 token 块**;改 token 改源头 + 跑同步。2026-09-25 该生成器由端内 `apps/miniapp-taro/scripts/sync-design-tokens.mjs` **搬到根 `scripts/`**(旧路径已删,`pnpm --filter @ihui/miniapp-taro sync-tokens` 入口不变)—— 搬的理由是架构门 103 逼出来的:守门 36 与生成器必须共用**一份**取源实现,而取源住在 `scripts/lib/design-token-blocks.mjs`;端内脚本向上摸工具层是 D2 反向依赖(且 tooling 声明 `exported:false`),把实现下沉进 contract 包又让根工具层按路径穿透包实现细节(D3),而工具层**按包名解析不到 workspace 链接**(实测给根 package.json 加 `@ihui/design-tokens` 后 pnpm 写出的根链接是悬空的,门 78 当场判红,已回退)。摆在工具层 ⇒ 四个端的同名机制全在一处,零穿透零豁免。旧文档那句"根 `scripts/` 下没有同名文件"就此作废,照它跑 `node scripts/sync-design-tokens.mjs` 现在仍会报模块找不到 —— 新名字是 `sync-miniapp-tokens.mjs`)。另有 `scripts/check-miniapp-taro-design-tokens.mjs` 与 `scripts/check-miniapp-tokens-sync.mjs`(后者为 guardian-runner 第 36 项实际调用项)校验同步一致性。
 - **主题系统**:miniapp-taro 主题根为 `ThemeRoot`(`@/components/ThemeRoot`,内部调用 `useThemeRoot()`),每个路由页 .tsx 顶层须 `<ThemeRoot>...</ThemeRoot>`。设置页切换主题必须调用 `@/lib/theme` 的 `setThemePreference`(同步原生导航栏/tabBar 配色 + 广播事件),**禁止**只用 `Taro.setStorageSync('theme', ...)` 而不同步原生 chrome(否则导航栏/tabBar 不变色)。
@@ -320,17 +236,10 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 - ⚠️ **v3 端禁止裸 rpx 长度写进 `text-` / `border-` 任意值**(2026-09-25 立,守门 93 新增 **R7** 是它唯一的判据):`text-[28rpx]` / `border-[2rpx]` 会被 Tailwind v3 解析成**颜色属性**(`color: 28rpx` / `border-color: 2rpx`),整条声明无效且不报错。决定对错的是**单位不是前缀** —— `px`/`rem`/`em` 在 v3 下本就正确落 `font-size`/`border-width`,**不得**给它们加 `length:`(纯噪音);只有 rpx 这一族坏,因为 v3 的类型推断不认 rpx。正确写法:`text-[length:28rpx]`。颜色形态 `text-[var(--color-x)]` / `text-[color:…]` 不受本条约束。存量 1,331 处已清零,故 R7 在 HEAD 上是零容忍。
 - ⚠️ **但 `apps/miniapp-taro` 实际跑的是 Tailwind v4.3.3,不是端内 `package.json` 声明的 v3**(2026-09-25 实测,详见 PROJECT_PLAN O62附⑤):`weapp-tailwindcss@5.2.9` 引用的是 **`@tailwindcss/postcss`**(v4 专属入口 —— v4 的 main 导出会**直接报错拒绝**被当 postcss 插件用),产物 base 层也带 v4 指纹(`border:0 solid` 合并写法、`--tw-gradient-position`,且无 v3 独有的 `--tw-bg-opacity`)。**取版本别只读 `package.json`** —— 那样会得到相反结论(本会话就错过一次:用 `resolve('tailwindcss/package.json')` 探到 `MODULE_NOT_FOUND` 就否掉了正确说法,真实依赖名是 `@tailwindcss/postcss`)。两条后果:① 上面 R7 拦的裸 rpx 错属性在 **v3 与 v4 上行为一致**(已用 v4 + 真实源码逐字复测),所以判据与那 1,341 处改写**不因版本换人而作废**;② 但"miniapp 的 `/alpha` 靠 `tailwind-alpha-plugin`"这个前提**尚未证实** —— v4 走 `color-mix` 是另一条路,插件的确定价值在 **mobile-rn(NativeWind v3)**。带真 theme 复测前,**不要把 R6 对 miniapp 那一侧的登记要求当成已证事实扩严**。
 - ⚠️ **上面两条 `/alpha` 相关规则的实际适用范围已收窄,读的时候带上这条**(2026-09-25 实测,详见 PROJECT_PLAN O62附⑥):守门 R6 的"必须登记进 `ALPHA_USAGE`"只对**真 v3 消费端**(`apps/mobile-rn/src` + `packages/app/src`)生效 —— `apps/miniapp-taro` 跑的是 v4(见上一条),而 **v4 对 `/alpha` 是原生的**(带真 `@theme` 复测 7/7 命中,含项目自定义色与 `[0.12]` 这类任意值,声明体 `color-mix(in srgb, …)`)。收窄后量到的结论要如实说:**`tailwind-alpha-plugin` 至今零真实使用者**(全仓 64 处 `/alpha` 用量全在 miniapp,登记表已按用量归零为 `{}`),连 `--color-*-rgb` 三元组变量也**只有注释在引用、产物 0 处使用**。**别把它当已交付能力引用** —— 它是等 mobile-rn 真写 `/alpha` 时才生效的机制。要扩面先跑 `node scripts/sync-alpha-usage.mjs`(表由它导出,**不要手改**);R6 报"未登记"时的修复出口也是这条命令,不是"去 ALPHA_USAGE 加一行"。
-
 - **守门**:`scripts/check-miniapp-taro-style-parity.mjs`(RULE-1~5:禁用色板 BLOCK / 其他 hex WARN / app.css 回归 BLOCK / 路由页 ThemeRoot BLOCK / tsx 内联 hex WARN / 已删除装饰类复用 BLOCK),接入 pre-commit(`HUSKY_SKIP_MINIAPP_PARITY=1` 跳过)+ `pnpm check:all`。新增路由页忘挂 `ThemeRoot`、改回深色科技风、复用已删装饰类,均会阻塞提交。
-
----
-
 ## 5. 后端约束
-
 - Drizzle ORM 0.38 + postgres-js。用 Zod 校验请求参数。复用 `packages/auth` 的 authenticate 函数;admin 路由用 preHandler 统一校验(roleId >= 1)。幂等操作用 `onConflictDoNothing`。slug 从 name 自动生成。API 响应统一 `{ code, message, data }` 格式。
-
 ### 鉴权面公开化必须显式列举(强制,2026-09-23 立)
-
 - **禁止**用兜底正则把 `/api/<前缀>/[^/]+` 这类"参数路由"形态当作公开面 —— 它会连同**静态子路由**一起放行。实测 `agents.ts` 的 `^/api/agents/[^/]+$` 让 `/agents/health` 游客可访问,而 `/agents/need-tasks` 的 handler 依赖 `request.userId`,游客走到它不是 401 而是 **500**:fail-open 直接崩在鉴权层后面,比 401 更难发现。
 - 正确做法:**显式白名单列路径**(如 `/api/agents`、`/api/agents/list`、`/api/categories/list`),详情路由用正则时**必须**配一张静态段排除表(`AGENTS_PROTECTED_STATIC_SEGMENTS`)。**新增 `/agents/<静态段>` 的 GET 路由时必须同步登记该表**,否则会被当成游客详情放行。
 - 游客视图的公开数据由 handler 自证:强制 `status=published` + `sanitizePublicAgent` 脱敏,并且测试要断言"未发布读不到 + 脱敏字段不出现",不得只断言 200。
@@ -353,9 +262,7 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
   一份配置的提交结构上满足不了 ⇒ 挂 blocking 就是每台每次被逼 `--no-verify`,连带废掉全部守门,§12e 同型),
   这条定级由镜像测试 T6 钉住:**它一旦被接进 `guardian-runner`,那条测试就红** —— 想接必须先带着
   "为什么现在能接"的证据改那条测试,而不是悄悄接线。
-
 ### 认证不等于授权:身份只能从承载层显式入参进来(强制,2026-09-27 立,批 59/60)
-
 - **规矩**:任何"按 id 读/改/删某条归属型记录"的入口,**令牌主体必须由承载层用显式入参传给被调方**,不得(a)取到手后原地丢弃,也不得(b)从"被操作记录"的字段里反推,更不得(c)接受请求体/参数里自报的同名字段。`app/routers/sessions.py` 的 13 个端点全部 `Depends(get_current_user_id)` 却**一次都没用** —— 那就是"过了认证等于没鉴权"的成批形态。
 - **身份不得住在客户端可整写的字段里**:`threads` 没有 user_id 列,属主与角色只活在 `metadata` JSON 里,而 `thread/metadata`(merge=False)与 `POST /sessions/threads`(body.metadata)都是客户端可写的。实测三条后果(修复前):一次整写把 `userId` 抹掉 ⇒ 重启后线程**无属主** ⇒ 按"无从对账"语义任何登录连接都能继续用它对话;patch 里塞 `userId:"victim"` ⇒ 把会话**认领给别人**;自报身份**赢了**令牌主体。
 - **唯一写法**:清单与规则只有一份 —— `app/services/session_store.py` 的 `IDENTITY_METADATA_KEYS` + `scrub_identity_keys`(创建时剥调用方自带值)+ `carry_identity_keys`(更新时以已落库那份为准)。引擎侧 `_restamp_identity` 与存储侧 `create_thread`/`update_thread_metadata` 都调它,**不得在端点里再抄一份键名判断**。跨线程待决表(`_permission_requests`/`_elicitation_requests`)一律存"带主记录"(future + thread_id + user_id),注册点盖章,结算点判定共用 `_principal_allows`。
@@ -363,23 +270,15 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 - **两条同形的拒绝口径**:`elicitationId` 这类"唯一把手"端点,"没这条"与"不是你的"必须**同形回包**(否则端点变成存在性预言机);而 `approval.respond` 那类请求自带 `threadId`,回 `foreign_thread` 不增加信息,可以区分 —— 差别写在处理器注释里,别抄成统一样式。
 - **测试口径**:越权用例必须断言"**副作用没发生**"(future 未 done、待决表未动、`grant_spy == []`、删除返回 `deleted=False` 且 store 未被调用),只断言错误码会放过"先改了再抛 403"。同时必须成对留正向对照(同属主仍能完成、无属主线程行为逐字未变)—— 只留前者,门就可能只是把功能改坏了。
 - 取证入口:`python -m pytest apps/ai-service/tests/test_thread_identity_immutable.py apps/ai-service/tests/test_engine_ownership_from_connection.py`;两相控制探针 `.ihui-agent/tmp/b59/probe_meta2.py`(同一份脚本跑修复前 HEAD 归档报 VULNERABLE、跑工作树报 SAFE)。
-
 ### 测试隔离铁律(强制,2026-09-12 立)
-
 - **测试一律禁止连生产库**。pytest 用例不得对生产 PostgreSQL(`8810`)/ Redis(`8811`)产生任何写入副作用;需要 DB 的路径必须 mock 或注入隔离实例。
 - 共享连接池(fastapi 侧 `app.core.db_pool.get_shared_pool`)是唯一生产入口,**所有**用例必须通过 `monkeypatch` 替换为 mock,不得直接 acquire。
 - autouse fixture 只兜住"默认安全",用例体内若先于 `monkeypatch` 触发真实写入(如 `TestLoadActiveTests::test_duplicate_skill_skipped` 在 patch 前 `await create_test(...)`),仍会污染库 —— 新增用例必须自查执行顺序。
 - 回归事故:`agent_ab_tests` 曾累计 17 行 `skill-a` 垃圾数据,并使 `len(stopped)==2` / `totalTests==3` 断言漂移。修复落点为 `apps/ai-service/tests/conftest.py::_isolate_ab_test_db`。
 - 自检:<全量回归跑两次> + <跑前跑后 `agent_ab_tests` 行数不变> 才算通过。
-
----
-
 ## 5b. `.git` 存续治理(强制,2026-09-12 立)
-
 **背景**:本机宿主 safe-delete 层会**整体删除**工作区 `.git`,累计触发 15 次(commit/husky、rebase、filter-repo、`reset --hard`、`git stash create`、本机直推 Gitee/GitCode 后 5s 窗口)。`CODEBUDDY_SAFE_DELETE_ENABLED=0` **已证明防不住**。
-
 **现状结构(不可改回)**:
-
 | 路径                                                                                                                                                                                                                                                                       | 角色                                                        |
 | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
 | `D:/IHUI-AI/.git`                                                                                                                                                                                                                                                          | **28 字节指针文件**(`gitdir: D:/IHUI-AI-git-repo`),不是目录 |
@@ -387,11 +286,9 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 | `D:/IHUI-AI.git-backup-20260912`                                                                                                                                                                                                                                           | gitdir 完整备份,守护的本地恢复源                            |
 | **守护**:计划任务 **`IHUI-AI git-guardian`**(每 2 分钟)→ `"C:/Program Files/nodejs/node.exe" D:/IHUI-AI/scripts/git-guardian.mjs`。本机**未安装 nssm**,故未采用 `--daemon` 常驻服务形态,改用脚本自带的 schtasks 兜底(2026-09-12 15:30 实测启用;16:12 实测**自愈已生效**)。 |
 | 分层自愈:`指针 → 环境 → HEAD 语法 → 嵌套 ref → 本地备份 → 远端`;每步破坏性覆盖前先归档现场。实测自愈 **0.9s**(refs 自愈实测 **0.14s**)。                                                                                                                                   |
-
 **守护**:计划任务 **`IHUI-AI git-guardian`**(每 2 分钟)→ `"C:/Program Files/nodejs/node.exe" D:/IHUI-AI/scripts/git-guardian.mjs`。本机**未安装 nssm**,故未采用 `--daemon` 常驻服务形态,改用脚本自带的 schtasks 兜底(2026-09-12 15:30 实测启用;16:12 实测**自愈已生效**)。
 分层自愈:`指针 → 环境 → HEAD 语法 → 嵌套 ref → 本地备份 → 远端`;每步破坏性覆盖前先归档现场。实测自愈 **0.9s**(refs 自愈实测 **0.14s**)。
 **守护**:计划任务 **`IHUI-AI git-guardian`**(每 2 分钟)→ `"C:/Program Files/nodejs/node.exe" D:/IHUI-AI/scripts/git-guardian.mjs`。改用脚本自带的 schtasks 兜底(2026-09-12 15:30 实测启用;16:12 实测**自愈已生效**)。
-
 > **本句原先还写"本机未安装 nssm,故未采用 `--daemon` 常驻服务形态" —— 该前提已失真并于 2026-09-24 更正**:实测 `C:\Windows\System32\nssm.exe` 在位(331264 字节),且存在 NSSM 服务 **`IHUI-GIT-GUARD`**(`git-guardian.mjs --daemon`,进程自 2026-09-15 08:48:42 常驻),与上面那条每 2 分钟的计划任务**同时运行**。即"守护"当前是**双执行体并存**(常驻 daemon + 2 分钟 tick)。本票只如实登记、不动任何一侧:砍哪一侧属 `.git` 存续决策(§5b 的分层自愈依赖"每 2 分钟必有一次巡检"来兜底,而 daemon 侧是否等价覆盖尚未取证),且它**没有任何到人出口**(实测 `grep -niE "mail|smtp|resend|notify|ftqq|sct|pushplus|alert" scripts/git-guardian.mjs` 零命中),故不影响 §5e 通道口径。
 > 分层自愈:`指针 → 环境 → HEAD 语法 → 嵌套 ref → 本地备份 → 远端`;每步破坏性覆盖前先归档现场。实测自愈 **0.9s**(refs 自愈实测 **0.14s**)。
 >
@@ -400,56 +297,42 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 > ② `git remote get-url origin` 实测 **`ssh://git@ssh.github.com:443/IHUI-INF-AI/IHUI-AI.git`**,且 `ls-remote` / `fetch` / 后台 `git-push-guard` 推送全通;上方"origin 实测为 HTTPS `github.com`,`ssh://git@ssh.github.com:443` 形态在本机从未成立"在这一台机上**不成立**。
 > ③ `git config --local http.proxy` 实测 **unset**;上方"本机已另配仓库级持久代理(因为钩子进程不继承 shell env)"在这一台机上**不成立**(ssh-over-443 通道不需要它)。
 > **口径(本条的真正约束):凡「盘符 / gitdir 形态 / 远端 URL / 代理 / **服务承载体(nssm·计划任务·daemon) / PowerShell 解释器身份**」六类,每次使用前按当次实测取值**,不得把另一台机的现状当本机事实写进判据,也不得据此推断"通道坏了"。 —— **本行 2026-09-24 被并发旧基线回写带走过一次,同日原地补注使其重新成为"本侧修改"** —— 后两类是 2026-09-28 由本轮实测补进来的(G-320):本侧 checkout 量到 `Get-Service IHUI*`=0 条、`C:\Windows\System32\nssm.exe` 不存在,而 `powershell.exe` 实读 **5.1.26100.6584**、`pwsh.exe` 只在绝对路径 `C:/Program Files/PowerShell/7/pwsh.exe`(7.6.4)且不在该会话 PATH。**它们不属于原四类,所以四类口径守不住它们**——这正是"文档里的本机事实"最典型的腐烂方式:写的人没打算让它过期,读的人把它当成了不变量。
-
 ### 嵌套 ref 存续(2026-09-12 立,与 `.git` 同源问题)
-
 **现象**:`refs/remotes/origin/main` 反复变 `[gone]`、`refs/tags/backup/push4-*` 反复"仅远端" → 守门 `30a`(commit 丢失防护)**抖动性阻塞**(刚 fetch 完绿,宿主一清理又红)。曾误判为"真的丢 commit"。
-
 **机理(对照实验,可复现)**:宿主清理层删除 gitdir 下 **depth ≥ 2** 的嵌套命名空间目录:
-
 | ref 路径                                       | 层级 | 结果                   |
 | ---------------------------------------------- | ---- | ---------------------- |
 | `refs/heads/main`                              | 1    | ✅ 存活                |
 | `refs/tags/nightly-*`                          | 1    | ✅ 存活                |
 | `refs/remotes/origin/main`                     | 2    | ❌ 目录被删 → `[gone]` |
 | `refs/tags/backup/push4-*`、`refs/tags/<ns>/*` | 2    | ❌ 目录被删 → "仅远端" |
-
 且 `git update-ref` 对这类嵌套 ref **返回 0 却不落盘**(静默失败)—— 所以"fetch 成功"不等于"ref 存在"。
-
 **边界精化(2026-09-15 受控实验二次实证)**:
-
 - `git update-ref` 对 **refs/heads 一级松散 ref 可靠**(新建 `refs/heads/<name>` 与覆盖既有 loose 均真实落盘);静默失败**仅限 depth ≥ 2 嵌套命名空间**(`refs/remotes/**`、`refs/tags/<ns>/**`)。
 - 假成功链路:update-ref 先成功创建嵌套目录(如 `refs/remotes/origin/`)→ ref 文件被秒清 → 同命令内紧接的 `rev-parse` 读回 `packed-refs` 旧值。**"读回旧值"不代表 packed-refs 被改过**,勿朝 packed 损坏方向排查。
 - bash 直写(`printf >` / `cp`)与 bash `mv` 对 gitdir 任意路径均真实落盘——清理层只针对 git ref 命名空间,不是文件系统级拦截;`git pack-refs --all --prune` 重写 `packed-refs` 本身可靠。
 - 因此**对齐 `origin/main` 的唯一正解**:`git fetch origin main` → `node scripts/git-refs-heal.mjs`(FETCH_HEAD 权威值 → 固化 packed-refs)。**禁止**手工 `git update-ref` / 松散直写 `origin/main`(写了也会被清,且假成功会误导排查方向)。
-
 **解法(载体替换,非 workaround)**:把嵌套 ref 固化进 `packed-refs`(gitdir **顶层单文件** → 清理不到),期望值另存 `refs-manifest.json`(同为顶层文件)。松散文件被删也照样解析。
-
 - 期望值清单:`<gitdir>/refs-manifest.json`(含 `refs/remotes/origin/main`、`refs/tags/<ns>/*`)
 - 固化:`git pack-refs --all --prune`(松散文件被 prune,只剩 packed)
 - 手工命令:
-
   ```bash
   node scripts/git-refs-heal.mjs                   # 离线:按清单重建缺失 ref + 固化(无需网络)
   node scripts/git-refs-heal.mjs --status          # 只看健康
   node scripts/git-refs-heal.mjs --refresh-remote  # 联网:从 origin 校准全量 tag/heads 后固化
   ```
-
 - 守护已在每个 tick 检查 `refsOk`,缺失即离线重建并写审计日志 —— **一般无需人工介入**。
 - **`origin/main` 以 `FETCH_HEAD` 为准**:fetch 写入的松散 remote-tracking ref 在 **1 秒内**即被清理,
   若 `packed-refs` 残留旧值,同 sha 也会显示 `## main...origin/main [ahead 1]`。
   修复器已内建该规则(`git-refs-heal.mjs` / 守护 `healRefs()` 均读取 FETCH_HEAD 权威值)。
 - **禁止**把嵌套 ref 的存续寄托在松散文件上(必被清理);**禁止**用 `HUSKY_SKIP_COMMIT_LOSS_CHECK=1` 绕过 30a —— 先跑 `git-refs-heal.mjs` 判定是真丢 commit 还是 ref 抖动。
-
 **铁律**:
-
 - **禁止**把 `.git` 改回目录形态:`git init` 必须带 `--separate-git-dir=D:/IHUI-AI-git-repo`;不带参数重建会把 544MB 实体拉回工作区,直接暴露给宿主删除。
 - **禁止**删除/清理 `D:/IHUI-AI-git-repo`、`D:/IHUI-AI.git-backup-20260912`,以及两目录的 `*.broken-*` 归档。
 - **现场归档一律落在 `gitArchiveDir()`(现 `D:\DevEnv\backups\git\`),手工抢修也不得例外**:把 `.git*` 的归档 `mv` 到**工作区根目录**等于把恢复现场送回宿主清理层的射程内(§5b 背景),而 §15b 已把项目根排除在备份落点之外。2026-09-24 03:13 一次手工 `mv` 就在一级目录留下 7 项 `.git.broken-remote-*`(3.2MB refs 快照 + 4 个 24 字节 `gitdir: G:/...` 旧指针),由守门 44(根目录整洁,blocking)检出后收口 —— 判据本身有效,缺的是"人工路径也必须走 `gitArchiveDir()`"这句。
 - **禁止**手工 `git init` 抢修`:git` 消失 —— 先等守护(≤2 分钟;急可 `schtasks /run /tn "IHUI-AI git-guardian"` 立即触发),再查 `.workbuddy/git-guardian.log`(健康时**不写行**,别把「无日志」当没跑)。
 - git 调用**不得依赖环境**:脚本一律 `execFileSync(<绝对路径 git>, ['-c','safe.directory=*', ...])`;服务账户(LocalSystem)与交互账户的 `safe.directory` 互不相通。
 - **提交/推送**:**本机就是生产机**(`IHUI-API` 的 nssm `AppDirectory=D:\IHUI-AI\apps\api`、`IHUI-DEPLOYLOOP` 的 `AppDirectory=D:\IHUI-AI`,部署日志实测)。**【2026-09-24 深夜就地更正:这句在本侧 checkout 不成立 —— 用户明确指正"本机不是生产机,是开发机",三重实测印证:`Get-Service -Name IHUI*` 计数 0、`Win32_Service` 按 `DisplayName -Like *IHUI*` 零条、`Get-NetTCPConnection -State Listen` 对 8801/8802/8803/8810/8811 全部零命中(web/api/PG/Redis 无一在跑),而 `schtasks /fo CSV` 里仍有 16 条 `IHUI*` 计划任务 —— 形态是"任务在、服务与端口不在"。与 §5b/§15b 同族:上面那串 nssm `AppDirectory` 是 `D:` 那份 checkout 的历史事实,不得当本机现值照抄。后果是实打实的:本会话有 agent 据此把 D20/D29 的建表迁移按住,理由是"部署环会自动应用迁移=生产爆炸半径",该理由在本机不存在。口径:凡"要不要因为怕影响生产而暂缓"的判断,**先实测服务与端口**,查不到=开发机,按常规动作走;但反过来也别把"没有服务"读成"随便动" —— 无 PG 端口意味着迁移在本地连应用与验证都做不了,验收只能走守门 49 的离线判据(B1–B5)并明写"`--db` 模式本机不可用",不得让绿钩子冒充"迁移已验证"。取证陷阱:`powershell.exe -Command "... \$_.Name ..."`(双引号+转义)会**静默返回空**,看似"什么都没找到";判"零命中"必须换单引号包整段命令复测,否则把工具失效当成了事实。】**本行曾被 `978480078d0`(converge 的 worktree-preserving 合并)整文件回写吞掉一次,同日原地重打。`origin` 实测为 **HTTPS** `https://github.com/IHUI-INF-AI/IHUI-AI.git`,且 **HTTPS 直连 `github.com:443` 时通时不通**(同一分钟内 `git fetch` 可成功而 `git push`/`git ls-remote` 连拒 4 次)。唯一稳定通道是**本机代理 `http://127.0.0.1:7897`** —— `deploy/win/ihui-deploy.ps1` 每轮就是用它 fetch(日志行 `git 网络走代理 http://127.0.0.1:7897`),所以"部署环能取到远端而 agent 推不动"不是玄学,是**没走代理**。旧文档写的 `ssh://git@ssh.github.com:443/...` + 仓库级 `core.sshCommand` 形态**在本机从未成立**:`core.sshCommand` 未设置,`ssh.github.com` 握手可通但 `~/.ssh/id_ed25519`、`id_remote_control` 逐把 `git ls-remote` 均 `Permission denied (publickey)`(无任何已登记公钥,登记属账号侧动作)。⚠️ `~/.git-credentials` 在本机**并不存在**,不要按它取 token(HTTPS 走的是凭据管理器)。**agent 需要 git 网络时的两种写法**:临时用 `export http_proxy=http://127.0.0.1:7897 https_proxy=…`(或 `git -c http.proxy=…`);**本机已另配仓库级持久代理** `git config --local http.proxy/https.proxy = http://127.0.0.1:7897`(2026-09-23 立),因为 post-commit 的 `git-push-guard` 与其后台 worker 是钩子派生的 git 进程、**不继承任何 shell 的 env**,没有仓库级配置就仍然直连撞墙(此前"commit 成功、push 反复 failed"的真因即此)。该配置落在指针文件指向的 `D:/IHUI-AI-git-repo/config` 里,**不在工作树内 ⇒ 不受"旧基线整文件回写"影响**,也不会被并发会话抹掉;换网或代理关停时用 `git config --local --unset http.proxy` 撤销即可。新克隆/新机需重跑一次这条配置。本机**不直推 Gitee/GitCode**,交给 `mirror-to-cn.yml` 镜像收敛。自 2026-09-12 15:30 起 gitdir 已移出工作区(仅剩 28 字节指针),本地 git 写操作不再暴露给宿主批量删除层。
-
 > **⚠️ 上面那句「无 PG 端口意味着迁移在本地连应用与验证都做不了」已被 2026-09-29 实测推翻，勿照它派单、也不要据此把票挂成「等环境条件」**：
 > 那次实测列的是 **8801/8802/8803/8810/8811** 五个端口，而**本机 PG 与 Redis 从来不在那两位上**。2026-09-29 现读：
 > `postgres`(PID 5416)在 **`0.0.0.0:5432`**(服务 `postgresql-x64-18` = Running/Auto，版本 18.6)、`memurai` 在 `127.0.0.1:6379`、
@@ -466,7 +349,6 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 > 附带量到的一条同类陷阱:`powershell.exe` 在本机是 **5.1.26100**(§27 那句「本机 powershell.exe 实为 7.6.2」是
 > D: 那份 checkout 的事实),且本机**没有 `pwsh`**;`#requires -Version 7` 因此在本机是**拦自己**而不是拦 5.1 的坑,
 > 而 `psql` 不在 PATH(真身 `C:/Program Files/PostgreSQL/18/bin`,守门 49 的 `--db` 档据此判过「ENONET 跳过」)。
-
 - **🚫 agent 禁止手写 `git push`(2026-09-18 立,"已推完还在等"事故根治)**:①origin 的推送由 post-commit 钩子 `git-push-guard.mjs` 自动完成(内置 ahead 检测+推送+回读验证,幂等)——commit 落地即已推送,**手动盲推必撞 already-pushed 非快进报错**并诱发后台反复干等;②Gitee/GitCode 由 `mirror-to-cn.yml` CI 在 push 后自动镜像(+每日 2 次兜底),**本地手推镜像仓=违反架构**且制造 DIVERGED 竞态。③收尾核验同步状态**只允许** `node scripts/git-push-converge.mjs`(只读判定,六态 ALREADY/PUSHING/PUSHED/SKIP/BEHIND/DIVERGED,不做任何非必要推送);仅在 guard/CI 均失效的应急场景才人工推,且必须先跑该脚本确认状态。多会话并发期:本会话交付已被远端包含(merge-base --is-ancestor 验证)即为完成,本地 HEAD 落后不追、不与并发会话抢 reset/ff。
 - **⚡ 推送异步化(2026-09-18 立,根治第二段)**:guard 检测到 ahead 时默认 spawn 后台 worker 推送(pre-push 质量门不降级,实测单遍 216.8s)并立即返回——**commit 命令秒回,不再被推送拖住**;状态在 `.workbuddy/push-state.json`(running/done/failed,失败由下次 guard 自动重试),converge 读该状态显示 PUSHING;核验若见 PUSHING=正在推,等 1-2 分钟再查即可,勿手动干预。强制同步推送:GUARD_ASYNC=0。(2026-09-18 晚修复:异步 spawn 的 fd 误用 `out.close()` 必抛 TypeError→静默回退同步推送+双重推送竞态,已改 `closeSync`;push-gate 缓存改**内容指纹键控**(HEAD:apps/HEAD:packages 子树+脏文件内容 hash),合并/文档提交不再重跑全量门。)
 - **🔄 主动收敛(2026-09-18 晚立,根治第三段)**:推送遇 non-FF(并发会话推力)时**禁止手工 fetch/merge/push 循环**(实测 3 轮 25 分钟),统一跑 `node scripts/git-sync-converge.mjs`(默认 3 轮:fetch→祖先判定→`merge-tree --write-tree` 索引层合并(**零触碰他人未提交文件**)+commit-tree+update-ref→guard 推送,直至收敛;冲突才需人工)。只读核验仍用 `git-push-converge.mjs`。
@@ -481,9 +363,7 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 - **本地恢复源必须增量刷新(2026-09-24 立,补 §5b 唯一的空白层)**:`git-guardian` 只**读**恢复源(`backupOk` 判存在 + `cpSync(BACKUP → GITDIR)`),此前**没有任何环节更新它**。实测 2026-09-24 04:40:`G:/IHUI-AI.git-backup-20260912` 的 main 停在 `f481c39a0`(09-23 20:13),本机 main 已前进 **97 个提交** ⇒ 宿主再删一次 `.git`,从该源恢复等价于**回滚 97 个提交**;若其中含未推送提交,即 09-23 15:49"15 条未推送 commit 对象永久丢失"的同型事故重演。刷新器 `scripts/git-backup-refresh.mjs` 对备份做**增量 fetch**(`+refs/heads/*` + `+refs/tags/*`、`--update-head-ok`,备份是 `.git` 的非裸 cpSync 副本,默认会被 git 硬拒)、`read-tree --reset HEAD` 重建其索引(不触碰任何工作树)、并复制 `refs-manifest.json`(使离线恢复后立刻具备嵌套 ref 自愈)。取证:`--self-test` 9 例(第 7/8 例专测非裸副本形态 —— 真仓首跑就是被它咬出 `refusing to fetch into branch 'refs/heads/main' checked out`;裸仓测不到)、`--check` 在追平前 exit 1、真刷后 exit 0。触发点:计划任务 **`IHUI Git Backup Refresh`**(每 15 分钟,经**纯 ASCII** `scripts/git-backup-refresh-hidden.vbs` 以 SW_HIDE 派生,注册前已用 `cscript //nologo` 实跑预检)。手动:`node scripts/git-backup-refresh.mjs`;判健康:`node scripts/git-backup-refresh.mjs --check`(零副作用)。
   - **触发点已改挂守护 tick(2026-09-24 同日补)**:实测 `Get-ScheduledTask` 全量列表里**已经没有** `IHUI Git Backup Refresh`(与 §26 记的 `IHUI C-Drive AutoMaintain` 凭空消失同型,而同目录其余 `IHUI*` 任务全在位可列 ⇒ 不是查法失效),恢复源因此又落后 100+ 枚提交。现由 `git-guardian` 每轮 `refreshRecoverySource()`:先 `--check`(零副作用、便宜)早退,判落后才跑增量刷新。**教训:关键自愈层不得挂在一个会自己消失的东西上** —— 计划任务可以当兜底,不能当唯一挂点。
 - **禁止 `git pull --rebase`**:2026-09-12 15:2x 一次 rebase 崩溃导致真 gitdir 目录被原生删除。同步一律用 `git fetch <remote> main` + `git merge --ff-only FETCH_HEAD`。
-
 **诊断**:
-
 ```bash
 node scripts/git-guardian.mjs --status      # pointer/gitdir/git/HEAD/dirty/备份/嵌套ref 全量健康
 node scripts/git-guardian.mjs --check       # 只检查,异常 exit 1(CI/巡检用)
@@ -492,62 +372,41 @@ schtasks /query /tn "IHUI-AI git-guardian"  # 守护任务实况(本机无 nssm;
 schtasks /query /tn "IHUI-AI git-guardian"  # 守护任务实况(另有 NSSM 服务 IHUI-GIT-GUARD 常驻 --daemon,见 §5b 上方更正;急用 schtasks /run 立即触发)
 tail -20 .workbuddy/git-guardian.log        # 自愈审计流水(健康时不写行)
 ```
-
----
-
 ## 5c. 溯源水印与生成产物(强制,2026-09-12 立)
-
 **三层水印**(`scripts/watermark.mjs`):L1 可见横幅(`// © 2026 IHUI AI …` + `// Provenance-watermarked. …`)、L2 横幅内零宽载荷(`// [IHUI-AI-PROVENANCE]:<zw>`)、L3 文件末尾独立不可见行。
 **判据(2026-09-12 加严)**:载荷必须**可解码且等于 `WATERMARK_TEXT`**,仅"存在"不算数。四态:`完好` / `残迹`(有横幅无载荷)/ `载荷损坏`(存在但解码不符)/ `未覆盖`。后三者 `watermark.mjs verify` 与 `check-watermark-coverage` 均 **exit 1**。
-
 - 新建源文件后必跑:`node scripts/watermark.mjs inject <file>`;然后 `node scripts/check-watermark-coverage.mjs`(pre-commit + CI 门禁,只统计 git 跟踪文件)。
 - **门禁是自愈式(2026-09-12 立,根治"恒红只能靠跳过"的历史痛点)**:`check-watermark-coverage.mjs` 检出缺口后**自动 `clean+inject` 回写并 `git add` 回暂存区**,修复后 `exit 0`。因此**任何**来源(生成器 / `sed` / 批量脚本 / 手工编辑)产出的无水印或载荷损坏文件,都不可能进入提交 —— 无需再 `HUSKY_SKIP_WATERMARK_GUARD=1`。
   - 纯判定不改文件(CI / 审计):`node scripts/check-watermark-coverage.mjs --no-fix`。
   - 安全闸:单次缺口 > 200 个时**拒绝**自动回写并报错(疑似批量改写事故,须先排查来源再整体 `inject`),避免静默整体重写。
   - CI 侧仍用 `node scripts/watermark.mjs verify` **严格判定**(不自动修复),保证"本地能自愈、远端不掩盖"。
 - **生成器仍应自带注入(更早一步,非唯一防线)**:任何 `writeFileSync` 产出 git 跟踪文件后,必须紧随一次水印注入,失败即 `process.exit(1)`:
-
   ```js
   execFileSync(process.execPath, [resolve(repoRoot, 'scripts/watermark.mjs'), 'inject', outFile], {
     stdio: 'inherit',
   })
-  ```
-
   - 用 `process.execPath` + 绝对路径,**不要**裸 `node` / `spawn('node')`(依赖 PATH,服务/CI 下会失败)。
   - 参考实现:`scripts/gen-i18n-compressed.mjs`。
   - 事故:该生成器此前不写横幅 → 产物 `src/i18n/generated/remote-locales.gen.ts` 长期缺载,使 `check-watermark-coverage` 对已跟踪文件恒红,提交只能靠 `HUSKY_SKIP_WATERMARK_GUARD=1` 绕过。
-
 - **禁止对含载荷文件做文本级批量改写**(reflow、空白归一、正则替换、`sed -i`、编码往返、批量重写):`U+200B`/`U+200C`/`U+200D`/`U+2060` 属 Unicode **Cf 类**不可见字符,会被这类操作静默改写。
   - 事故:`apps/ai-service/**` 等 **144 个已跟踪文件、218 处载荷**被破坏,解码成 `PROVENCE-2026` / `IHUHU-AI` / `IIUIUIUI-AI` / 混入控制字符 —— 旧版门禁只验存在性,损坏长期隐形。修复后 `verify` 新增"载荷损坏"计数并阻断。
   - 需批量改名/改动时:先 `clean` → 改 → 再 `inject`;或直接 `inject`(工具已能识别损坏并清洗重注)。
 - 注入是**幂等**的(同一载荷 → 同一字节),重复生成不产生 diff;`clean → inject` 往返**零漂移**(已回归验证:可见内容逐字节不变)。
 - `clean` 按**行首锚定**(`© YYYY IHUI AI` / `Provenance-watermarked.` / `[IHUI-AI-PROVENANCE]:`)识别横幅,**不会**误伤源码里的 `BANNER_ID` 常量或正则定义。
 - **禁止**为加水印而整体重写文件内容(会破坏零宽溯源链),一律用 `watermark.mjs`。
-
----
-
 ## 5d. 模型密钥引导与 `.env` 回填(强制,2026-09-12 立)
-
 **密钥不入仓、不入聊天记录。** 本机模型密钥的唯一权威来源是百度网盘同步目录 `BaiduSyncdisk/密钥/模型/`(每厂商一个 txt,内容为裸 token)。**盘符不得写死**:本机实测真实库在 **`F:/BaiduSyncdisk/密钥/模型/`**,而 `D:/BaiduSyncdisk` 根本不存在 —— 旧版本节与两处脚本都按 `D:` 写,结果是"读不到文件"被下游门禁报成"凭据失效"(2026-09-24 镜像活性假故障的根因)。解析统一走 `scripts/lib/key-dir.mjs`(`resolveKeyDir('模型')` / `resolveKeyDir('git仓库')`,按 F→D→E→G→C 取第一个存在者);目录仍可用环境变量 `IHUI_MODEL_KEY_DIR` / `IHUI_MODEL_KEY_DIR_GIT` / `IHUI_SECRETS_ROOT` 或 `--key-dir` 覆盖。
-
 - 回填流程:先 `node scripts/env-backfill-model-keys.mjs --verify` 巡检(不写盘),确认无误后 `--verify --apply` 写盘。
 - 硬性约束:只写 `.env` 中**值为空**的键;已有值一律跳过、**绝不覆盖**;apply 前自动备份到 `.ihui-agent/env-backup/`(已被 `.gitignore` 忽略)。
 - 输出恒为脱敏态 `前6位***后2位 (len=N)`,任何情况下不打印完整 key。`.env` 由 `.gitignore` 第 98 行忽略,**永不入库**。
 - 多候选消歧:同一源文件出现多把 key 时(如 AGNES 曾有两把),`--verify` 会逐把请求厂商官方 `/models` 端点,取**真能鉴权通过**的那把 —— 不靠猜测、不靠索引。
 - 判读规则:`网络不可达` **不等于** key 无效(本机访问不到 Google,`GEMINI_API_KEY` 探测必然超时);只有 `鉴权通过` 才是有效判据。
 - 换机器 / 重装后若 ai-service 静默降级,首选动作就是跑一次本脚本巡检。
-
----
-
 ## 5e. 运维到人通知 = 邮件单通道(2026-09-24 收口)
-
 - **告警/运维到人只有邮件一条通道**。此前并行的第三方推送腿(免费额度 5 条/天的推送网关 + 其凭据环境变量/密钥文件/状态文件)已**整体摘除**:代码、环境变量读取、状态文件读写、文档段落均不留残余;摘除原因与演进记录只存在于 PROJECT_PLAN/归档。第三方凭据文件按策略不删(删凭据不是本仓动作),只是不再被任何代码读取。
 - **配额模型 = 只按身份去重、无总量封顶**:同一条告警(alertname+instance 指纹)在去重窗口(默认 4h)内只寄一封,不同告警一律照寄。"每日 N 封"计数闸全部禁止 —— 第三方额度是**他人配额**,撞顶即静默丢投递,自保才有意义;SMTP 是我们自己的,自设总量上限等于把"告警静默"再复制一遍。显式开关(`BRIDGE_MAIL_ENABLED` 这类)只允许关"要不要发",不得关"发几封"。
-
 ### 5e-1. 告警的"可整改性"准入(强制,2026-10-03 立,27 封同因告警根治)
-
 **一条判据挂到到人通道之前,必须先回答:它红了,收到信的人能做什么?** 答不上来 ⇒ 不许挂。
-
 - **反例(本条的立因)**:盘根卫生(`scripts/check-disk-root-hygiene.mjs`)判 `G:\` 一级条目是否在 `config/disk-root-allowlist.json` 的封闭集合内。其中 `G:\.pytest_tmp` 与 `G:\.pytest_tmp_runs` 是 **pytest 基础设施的设计落点**(`apps/ai-service/pyproject.toml` 的 `--basetemp=../../../.pytest_tmp` + `tests/conftest.py` 的 `pytest_configure` per-run 隔离树),每跑一次测试必然 `rm_rf` + 重建 —— 收信人**无论怎么做都消不掉**。于是 2026-09-30 立尺至 10-03 三周里同一原因寄出 **27 封**(约每轮巡检一封),而违规条目集合**逐字未变**。这不是"提醒得不够勤",是训练收信人忽略这封信。
 - **三个出口,按序选**:
   1. **能整改** ⇒ 保留告警,但必须同时给出**可执行的下一步**(具体命令/路径/回收方式)。只报"违规存在"而不给出路,等同于制造噪声。
@@ -555,26 +414,19 @@ tail -20 .workbuddy/git-guardian.log        # 自愈审计流水(健康时不写
   3. **不能整改且不合法,判据本身有问题** ⇒ 拆判据或撤掉这格到人通道,改挂日志。
 - **配套:到人通知的"同一故障"必须按稳定语义身份判,不得吃明细清单**。`notifyGuardRed` 的去重指纹若取自告警正文全文,而正文是**会自然抖动的清单**(worktree 列表、待清文件列表),则多会话并发增删条目时清单一动指纹就变,`shouldAlert` 判"新故障"立即重发,去重窗口形同虚设。⇒ 调 `notifyGuardRed` 时传 `dedupKey`,身份只取**违规类别 + 计数**,明细仍进正文(不丢诊断价值)。注意配套的 `stableAlertFingerprint` **刻意不做数字归一** —— `alertFingerprint` 把 `\d+` 一律打成 `#`(为压"38→39 个路径"这类实时计数抖动),若复用它,`stray=2` 与 `stray=5` 会撞同一指纹,**真实恶化被静默**。压抖动不得压事实。
 - **验收口径**:判据在**"内容逐字不变"**的状态下连续观察 ≥3 个去重窗口,寄出封数必须等于故障真实发生次数,而不是巡检轮数。`node scripts/check-disk-root-hygiene.mjs --strict` 与 `.workbuddy/git-guardian.log` 的 `判红通报已寄出` 计数是现读入口。
-
 ### 5e-2. 删除类运维动作不得推回用户(强制,2026-10-03 立)
-
 - **推回用户 = 违规**。"需要你手动跑 X / 你在界面上点 Y 才生效"这类话**禁止对用户说**。删除残留、清缓存、回收 worktree、重启服务、拉起进程都是 agent 自己的活:自己查端口/进程/占用,自己清,清完自己健康验证,然后只汇报结果。判据同 `~/.workbuddy/MEMORY.md` 的"运维动作不许推回用户"。
 - **唯一例外是"需要用户职权"的动作**(付费授权、对外发消息、删别人工具的凭据),判据是**权限/授权在用户手里**,不是"我做不到"。**"我被某道门挡住了"不是例外理由** —— 那是"还没找到正确路径"。
 - **大批量删除的正解是 `robocopy /MIR` 镜像空目录,不是逐文件删**(2026-10-03 实证,1.5G / 9.9 万文件 3.5 分钟清零):
-
   ```powershell
   New-Item -ItemType Directory -Force -Path "G:\t-empty" | Out-Null
   robocopy "G:\t-empty" "G:\t-x" /MIR /NFL /NDL /NJH /NJS /NP /R:1 /W:1
   Remove-Item "G:\t-x","G:\t-empty" -Force -Recurse   # robocopy 只清空内容,空壳要另删
-  ```
-
   - **为什么不用 node `fs.rmSync` 逐文件/分批**:宿主 safe-delete bulk guard 阈值 50 文件/**turn**,分批只在**多次进程调用**间重置计数,单进程内分批无效 ⇒ 9.9 万文件要 2000 次进程调用(约 2 小时)。**探针结论:计数按 turn,不按调用**。
   - **为什么 `robocopy` 有效**:它是独立进程,不经 node 的 fs 层 ⇒ 不触发该守卫。exit code **2 = 额外文件已删除(成功)**,≥8 才是真失败。
   - **删大目录前先 `rename` 到短路径**:`G:\IHUI-AI\.worktrees\x` 这类深路径下 `git worktree remove` 会报 `Filename too long` 留下残壳(失败时**不会**自动 deregister,须补 `git worktree prune`),而残壳目录体积不减、又撞守卫。`renameSync` 到 `G:\t-x` 形态可一次解掉两个问题 —— **rename 不删文件,不受删除守卫管**。
   - **Git Bash 传参会吞 robocopy 的 `/MIR`**(报用法帮助),必须走 PowerShell 工具调。
-
 - **递归删除前必须先核验三件事**:① 已从 `git worktree list` 等登记面摘除;② 无进程持有(`tasklist` 实测);③ 无未入库工作(未提交改动逐条看过、唯一提交已被 ref 兜底)。三项缺一不许删,要在提交正文里写明核验结果。本机实例(`api-head-wt`):三件均过 —— 已 deregister、无进程持有、唯一提交 `c0bdc7b448` 在对象库可恢复,且其 1.4G 内容全是 `pnpm install` 可重建的 `.pnpm` 依赖 + 与主仓重复的源码副本,零独有内容。
-
 - **失败必须响**:第三方推送时代"邮件只是兜底、失败可以忍"的前提已不存在。邮件寄不出去必须留可诊断痕迹(日志吼 + UNDELIVERED 标记文件,参照 `scripts/check-credential-health.mjs` 的 `UNDELIVERED` 机制与 bridge `alert-bridge-mail-UNDELIVERED.json`),下一次成功投递自动清除;不得静默。
 - **发信一律经 `apps/api/scripts/notify-deploy-failure.ts`,不得在任何脚本里自拼 SMTP/Resend**(版式唯一真相源 `apps/api/src/services/email-templates.ts`,由守门 81 `check-brand-email-channel.mjs` 硬拦)。**通道与 From 的硬事实**:① 优先 SMTP,且经 `smtp.qq.com` 中继时 **From 的邮箱段必须等于登录账号**,否则被 550 拒 —— 旧规则"发件人统一 `智汇AI官方 <IHUI-AI@aizhs.top>`"配 QQ 账号正是本条成因(SMTP 恒被拒 → 恒回落纯文本 Resend → 用户收到的邮件永远没样式);② `aizhs.top` 只在 **Resend(已验证域)** 通道作 From,回落链 SMTP → Resend 且 payload 必带 `html`;③ 多行中文正文必须走 `--message-file`(无 BOM UTF-8),命令行参数会过一层控制台代码页(GBK);④ 调用方**一律不得传 `--env-file`**(tsx v4 会劫持它转发给 node,路径不存在时 node 直接 `exit 9`)。运维告警收件人由 `apps/api/.env` 的 `ALERT_EMAIL_TO` 控制(缺该键 ⇒ `alert-notification-service` 的 email 通道被整条排除,含数据库备份缺失 / 24h 错误超阈 / AI 资讯源失败 / 转发配额四类告警,且只在全通道皆空时才 warn)。
 - **凭据残留的两类处置边界(2026-09-24 实测划定)**:① **服务环境块**里已无人读取的推送键要**事务式**摘除 —— `nssm set … AppEnvironmentExtra` 是**整块覆盖**语义,同块往往还挂着别的关键值(本机 `IHUI-DEPLOYLOOP` 块内就有 `IHUI_ADMIN_PASSWORD`),写坏等于把部署环打回"凭据过期"那次两天冻结。正确姿势 = 先 `reg` 读整块 → 备份到 `D:\DevEnv\backups\env\` → 只滤掉目标前缀 → **逐条逐字节比对剩余项全等**才 `SetValue` → 写回后**再读再比**,不等即从备份整块还原(本机实测:`IHUI_ADMIN_PASSWORD` 摘前/摘后 SHA 同为 `43CA897ACBFC`,条数 2→1)。② **HKCU 用户级同名键不得摘**:它不是本仓遗留,`~/.workbuddy/skills/serverchan` 与 `~/.agents/skills/serverchan` 的 `SKILL.md` 声明 `env_vars: SERVERCHAN_SENDKEY`、`scripts/send.sh` 直接读它 —— 删了是**删别人工具的凭据**,§5e 说的"本仓代码不再读"从不等于"全机无人读"。同理,孤儿运行态文件(如 `deploy/win/.sct-notify-state.json`,实测 mtime 停在生成方被移除的那一刻、全仓唯一引用是一道**断言它不得存在**的反向测试)可删,而"名字像垃圾"不构成删除依据。
@@ -583,45 +435,24 @@ tail -20 .workbuddy/git-guardian.log        # 自愈审计流水(健康时不写
 - **"这条通道是否已摘干净"必须按"服务实际执行的是哪份文件"取径,不得按 `git ls-files`**。判据:`nssm get <svc> AppParameters`(逐个服务),顺着那个路径看内容 —— `deploy/prod-bundle/` 被 `.gitignore:383` 整目录忽略,里面的运行副本**可以完全没有入库源**,对跟踪文件做的 grep 对它零覆盖。实测教训(2026-09-24):两票按跟踪文件做出的"零残留"证明都成立,而 `IHUI-MONITOR` 跑的 `deploy/prod-bundle/monitor.ps1` 仍内联着第三方推送凭据常量与三条纯文本推送通道,其唯一通道当日已被对端配额打死(`monitor-alerts.log` 累计 55338 行推送失败),期间它判出的 `api(8802) 未监听`/公网 500 一封都没到人。现该文件已改为**入库源的转发器**(与 bridge 同一收敛法),真身 `deploy/win/ihui-monitor.ps1`。新写运维脚本若落在 `deploy/prod-bundle/`,必须同时落一份入库源 + 转发壳,否则等于写进盲区。
 - 到人链路的**现役生产者清单**(改通道要逐个覆盖,缺一不可):`ihui-alert-bridge`(→`monitoring/alertbridge/alert-webhook-bridge.cjs`)、`IHUI-DEPLOYLOOP`(→`deploy/win/ihui-deploy.ps1`)、`IHUI-MONITOR`(→`deploy/prod-bundle/monitor.ps1` 转发 `deploy/win/ihui-monitor.ps1`)、`scripts/check-credential-health.mjs`、`scripts/git-guardian.mjs`、`.github/workflows/blue-green-deploy.yml`。**改完必须重启对应服务**才生效:PowerShell/Node 都在启动时把脚本读进内存,改文件不动运行中的进程 —— 只 commit 不重启 = 线上仍跑旧逻辑(旧版含每日封顶),而本地一切看上去已修好。
   - **`scripts/git-guardian.mjs` 这一行此前是"设计意图",不是现状**(2026-09-24 补齐):实测该文件里 `mail|smtp|resend|notify|alert` **零命中** —— 它每 2 分钟巡检、判红只落 `.workbuddy/git-guardian.log`,所以"守护发现问题 = 到人"从来不成立。现已接上派发出口(经 `notify-deploy-failure.ts`,不自拼 SMTP,受守门 81 管),按 alert 身份 + 内容指纹 4h 去重、未送达 30min 退避、**无每日总量封顶**,发信失败不改自愈与退出码;核验入口 `--notify-dry-run` / `--notify-test <名>` / `--status` 的 `.notify` 字段。**教训同 §26**:清单里写"某生产者会喊人",必须实测它真有一条到人的出口,否则记账与事实分叉,而分叉形态永远是"安静"。
-
----
-
 ## 6. 验证命令
-
-```bash
 pnpm turbo build typecheck lint test          # 全量验证(必须全绿)
 pnpm --filter @ihui/api typecheck             # 单独验证后端
 pnpm --filter @ihui/web typecheck             # 单独验证前端
 cd apps/ai-service && mypy app --ignore-missing-imports --strict   # Python 类型(app 源码路径 apps/ai-service/app,继承 pyproject.toml [tool.mypy])
 pnpm check:pytest                          # Python 用例唯一入口(= apps/ai-service 的 test:py → scripts/run-ai-service-tests.mjs):缺省档实跑、--collect-only 证收集面;收集到 0 条 / 取不到 venv 解释器 / 输出无可解析总结 ⇒ 非零并点名,绝不得读成"通过"。透传参数走 `pnpm check:pytest -- tests/test_x.py`
 pnpm dev                                       # 启动所有服务(web + api + ai-service,端口见 docs/port-management.md)
-```
-
----
-
 ## 7. 删除/重构安全规则(强制)
-
 删除任何 git 对象(分支/stash/commit/文件)前必须回答:① 该内容承载的**功能**是什么?② 当前 monorepo 中是否有**等价的功能实现**?③ 没有 → **不可以删除**,必须先迁移/开发替代。禁止基于"路径不兼容"或"看起来是垃圾"擅自 drop。stash drop / branch -D 同样适用。
-
----
-
 ## 8. goal 模式工作流(强制)
-
 触发 `/goal <目标条件>` 时按本节流程执行。
-
 ### 目标条件硬门槛(单条最大 4000 字符)
-
 必须同时包含:核心任务 + 验证标准(命令退出码/测试输出/文件状态/HTTP 响应)+ 约束边界 + 质量要求 + 异常处理。缺一即拒绝启动。示例见对话上下文。
-
 ### 运行时文件(强制)
-
 进入 goal 模式第一轮执行前必须在 `.ihui-agent/goal-runtime/` 创建:
-
 - `STATE.md`:目标条件 + 状态机(`active`/`paused`/`achieved`/`blocked`/`budget_limited`)+ 当前轮次 + Token 累计 + 最近评估结论 + 硬性指标清单。
 - `loop-run-log.md`:逐轮追加(轮次号 + 执行摘要 + 工具调用统计 + 评估结论 `yes|no` + 一行理由)。
-
 ### 7 步执行循环
-
 1. 目标解析与初始化(拆分硬性/软性指标,初始化 STATE.md)
 2. 单轮任务执行(聚焦核心问题,输出执行摘要)
 3. 独立评估校验(基于真实结果,禁止模型自评 yes)
@@ -629,37 +460,24 @@ pnpm dev                                       # 启动所有服务(web + api + 
 5. 最终交付校验(逐条核对硬性指标)
 6. 状态清除与交还控制权(输出交付报告)
 7. 整合与清理(目标摘要追加到 PROJECT_PLAN.md,删除 STATE.md + loop-run-log.md)
-
 **子命令**:`<目标条件>` 启动第一轮;`(无参数)`/`status` 查询;`pause`/`hold` 暂停;`resume`/`continue` 续跑;`clear`/`stop`/`off`/`reset` 终止清理;`budget <数值>` 设 Token 上限;`log`/`history` 输出日志。
-
 ### 红线规则
-
 - 单目标最大自动迭代 **20 轮**,超出 blocked。
 - 高危操作(删分支/强推/删库表/影响生产)**必须暂停**请求人工确认。
 - 严格围绕目标,禁止扩展需求、做无关重构。
 - 每轮**完整承接上下文**(压缩后必须重读 STATE.md)。
 - 连续 5 轮工具失败 → blocked。
-
 ### 失败回滚
-
 - `blocked` / `budget_limited` 状态下**禁止** agent 自主执行 `git reset --hard` / `git checkout .` / `git clean -f`。
 - 必须在 PROJECT_PLAN.md 记录:已修改文件 + 当前分支 + 起始 commit sha + 未完成原因。
 - 回滚决策权归属用户。
-
----
-
 ## 9. 多端同步开发强制规则(强制)
-
 - **默认全端连通**:每一个任务默认 8 端(web/api/ai-service/desktop/extension/mobile-rn/miniapp-taro/cli)同步开发,"匹配连通好"= 代码同步(共享 types/UI/schema 跨端一致)+ 链路打通(跨端调用无契约/类型/路由/404 错)+ 验证齐绿(各端 typecheck+build+test 全绿)。禁止只改一端交付、单端验证声明完成、分期交付(平台独占豁免除外)。
 - **平台独占豁免需显式标注**:仅天然只属特定端(desktop 系统托盘/extension 上下文菜单/miniapp-taro 微信支付/cli 终端集成/纯文档守门脚本)可豁免,必须在 PROJECT_PLAN.md 标注"平台独占"或"单端文档/脚本",未标注按全端同步执行。
 - **多端并行派单**:主 agent 优先用 §11 多 Subagent 并行模式按端拆分,每个 subagent 管自己端的代码+typecheck+build;主 agent 负责跨端契约对齐(共享类型/API 路由/schema)和全链路连通验证,不得下放给单个 subagent。
 - **登录/SSO 链路跨端自动同步(强制,2026-09-04 立)**:凡改动登录相关 UI/文案/逻辑,必须**主动**同步所有相关端,不得等用户提醒。关键结构事实:① 共享登录 UI 仅覆盖 mobile-rn(`packages/app/src/features/login/LoginScreen.tsx`),**miniapp-taro 登录页是独立实现**(`apps/miniapp-taro/src/pages/login/login.tsx`),两端都要动;② SSO deep-link scheme:mobile-rn/desktop 用 `ihui://sso/callback`,miniapp-taro 用 `ihui-miniapp://sso/callback`,后端白名单由 `apps/api/.env` 的 `SSO_ALLOWED_DEEP_LINK_SCHEMES` 控制,新增 scheme 必须同步登记;③ web OAuth 中转页 `apps/web/app/(auth)/callback/OAuthCallbackHandler.tsx` 的 `redirect=mobile-rn` 分支负责跳 `ihui://oauth/callback` 回 App(支付宝回调参数为 `auth_code`);④ web 端 SSO 出口页为 `apps/web/app/sso/*`(支持 custom scheme 回跳)。
 - **守门**(warn-only):`scripts/check-multi-end-sync.mjs` 检测 staged 跨端分布 4 场景(纯豁免目录→pass;触及 packages/* 未标注→warn;触及≥2 端→pass;触及 1 端未标注→warn),集成于 pre-commit 第 21 项。
-
----
-
 ## 9b. 单分支开发强制规则(强制)
-
 - **禁止创建乱七八糟分支,所有改动统一往 main 合并**。除 main 之外**不允许**新建任何本地/远程分支(`feat/*` / `fix/*` / `hotfix/*` / `add-*` / `rescue/*` / 自定义前缀全部禁止)。**前提已于 2026-09-27 改变(2026-09-28 就地补注,勿照旧文执行)**:origin/main 开了分支保护(受保护检查上下文 = `CI / lint-typecheck-test (push)`,`enforce_admins: false`)。这条在本机有**两半事实,不得只读一半**:① 持 admin 凭据的会话**仍可直推 main**(2026-09-28 实测:提交后 push 成功并 `git ls-remote` 回读一致);② 走 PR 的通道受那条检查约束,而 **main 自身 CI 一红就把整条 PR 通道堵住**(同日实测 `main@3fab392c7` 的 `lint-typecheck-test` job failure)—— 所以"main 的 CI 红"从账面难看升级为全队交付阻塞。按本条字面执行(任何旁支都判红)会让每台每次提交都被守门 41 拦住,唯一结局是各会话 `--no-verify` 连带废掉约 186 道门(§12e/§12f 同型)。现行口径:本条防的是**旁支长期滞留**,不是"存在旁支"—— 在飞窗口(默认 48h,`IHUI_SINGLE_BRANCH_GRACE_HOURS` 可调)内的 PR 工作分支不判红、超窗仍判;`backup/` 与 `ihui-backup/` 引用**永不判红**(§5b 明令禁止删除备份、§22 要求备份引用本地+远端双留,门喊"删掉它"等于替人犯 §5b 的禁令)。两类豁免都只报数并**逐条点名**,不静默。
 - **唯一例外**:`/goal` 模式目标条件强制要求独立分支时,允许创建 `goal/<目标名>` 临时分支(AGENTS.md §8);`goal/*` 完成后**必须立即删除**,不留历史快照。
 - **必要分支判断标准**:**单次任务无法在 main 上原子完成**才允许创建(如 8 端并行多 subagent、紧急 hotfix 需独立回滚通道);**普通功能开发、Bug 修复、refactor、文档/守门脚本改动一律禁止创建分支**,全部在 main 上直接 commit。
@@ -671,81 +489,48 @@ pnpm dev                                       # 启动所有服务(web + api + 
   - 集成位置:`scripts/guardian-runner.mjs` id 41(blocking),守门不通过则禁止 commit + push。
   - 豁免:§8 goal 模式临时分支(必须带 `goal/` 前缀,且在 `.ihui-agent/goal-runtime/STATE.md` 标注 `active` 状态才算合法)。2026-09-28 起与之并列的还有:linked worktree 的 checkout 分支及其 `origin/` 镜像(§12d)、镜像远端与幻影引用(既有)、**在飞窗口内的 PR 分支**、**`backup/` 与 `ihui-backup/` 引用** —— 后两类只报数并逐条点名,因为"让门喊人删备份引用"与 §5b 的禁删令直接冲突。**不得**把当下那几条旁支名抄进门体当白名单消红(名单必然腐烂,§4 对 `RN_ONLY_BRAND_KEYS` 记过同型;已由镜像 T10 反向钉死)。
 - **历史教训**(2026-07-30 立):仓库曾积累 12 个分支(本地 6 + 远程 7 + 1 upstream),其中 `add-ihui-ai` / `goal/*` / `rescue/*` 等 13 个无价值分支全部已合并或已被 main 覆盖;3 个未合并分支的内容(LLM 三提供商/i18n 五端/console.log→logger/awesome-prs)均已在 main 后续 commit 中包含或演进,merge 会回退 main 功能。教训:**分支不是"工作单元",是"协作单元"**——单 agent 单任务无需分支,直接 main 提交即可。
-
----
-
 ## 10. 交付报告一致性硬约束(强制)
-
 同一份 .md 报告中**不得**同时出现:"无后续建议" / "完整收尾" / "对话可关闭" 与 "P1-P5" / "优化项" / "TODO" / "后续任务"。守门:`scripts/check-delivery-report-consistency.mjs` + pre-commit 第 12 项。
-
----
-
 ## 11. 多 Subagent 并行开发强制规则(强制)
-
 ### 任务分配格式(强制)
-
 派发子任务时必须用以下格式,缺一拒绝执行:
-
-```
 ## 任务目标
 <一句话>
-
 ## 受影响文件(绝对路径,只允许以下文件)
 - <repo-root>\path\to\file1
 - <repo-root>\path\to\file2
-
 ## 禁止修改
 - 任何不在上述清单的文件
-
 ## 验证命令(子任务完成后必须自行运行)
 - pnpm --filter @ihui/web typecheck
 - pnpm --filter @ihui/api test
-
 ## 约束边界
 - <API 契约/类型/样式/行为约束>
-
 ## 交付物
 - 完整代码 + 自验通过 + 一句话总结
-
 ## 我方现状(强制,2026-10-04 立 · G-830)
 <每条前提一行,格式:`<claim> | <token> | git grep -c -F <token> HEAD -- <scope…>`;
  claim 只能是 exists / absent,默认 scope 是产品代码面 `apps packages`。
  禁止只写结论文本("我方已有 X")而不给 token 与可重跑命令。>
-```
-
 ### 我方现状格:前提自检(强制,2026-10-04 立,G-830)
-
 **为什么这道强制格存在(票面实证,不是假想)**:G-830 那一轮 5 枚并行代理里**三处由派单线给的前提被证伪** —— 派单人写下的"我方已有 `scripts/check-virtualization-coverage.mjs`"在 HEAD 面根本不存在;"SQLite 打开原语在 `apps/cli/src/db.ts:275-281`"该文件在 HEAD 也不存在。后果与"正向捏造"同型:**一句假的"我方已有"直接关掉一条真 P0 待办,而账面什么都看不出来** —— 台账上只留下一行读起来通顺的登记,没人看得出它是编的。
-
 **为什么这类前提必然腐烂**:本仓台账里大量票的前提是**登记当时成立**的("现全仓 0 处"、"现读只有 2 处")。HEAD 会被后续几十枚提交推进,几个月后同一句前提已经不成立,而照抄它去改范围**会砍错对象**。所以前提不能是结论,只能是**可重跑命令**。
-
 **机器检查(本节不是纯文档,判据住在代码里)**:
-
-```
 node scripts/check-dispatch-premise.mjs --ticket <票面.json> [--out <产物.json>]
 node scripts/check-dispatch-premise.mjs --self-test
 node --test scripts/tests/check-dispatch-premise.test.mjs
-```
-
 - 票面 JSON 形如 `{"ticket":"G-xxx","premises":[{"claim":"exists","token":"<标识>","probe":"git grep -c -F <标识> HEAD -- apps packages"}]}`。
 - **作用域强制排除台账、文档与门自身**(`PROJECT_PLAN.md` / `.ihui-agent` / `AGENTS.md` / `README.md` / `docs` / 本门与它的镜像测试):票面把标识写进台账之后,全仓 `git grep` 读数至少是 1 而那一处命中就是引用它的那篇文档自己 —— 不排除,这道门会被"台账引用了它"洗成永绿机(实测:`check-virtualization-coverage` 在 HEAD 全仓 = 1 命中,唯一命中文件 `HEAD:PROJECT_PLAN.md`;强制排除后 = 0)。
 - ⚠️ **门不得读自己**(2026-10-04 落地当轮实测):本门与它的镜像测试里写满了 `check-virtualization-coverage` 这个 token 作反例素材,若默认作用域含 `scripts`,门会读到自己的素材 —— 同一命令读数当场从 0 抬到 12,正例翻绿。**判"前提是否腐烂"的门必须扫被审面,不能扫自己**;写派单模板时同理:模板正文里出现的标识不得让该模板自己的前提自证成立。
 - 退出码:`0` 逐条仍成立 / `1` **至少一条前提已腐烂**(红字 + 结构化字段 + 读数产物落盘)/ `2` 判不出(缺 `--ticket`、票面读不了或缺 `premises`、probe 不是 `git grep -c -F … HEAD` 形状、仓库不可问)。**"没写前提"与"前提为假"必须分开** —— 缺 `premises` 判 2,绝不判通过。
 - 读数产物(默认 `.dispatch-premise-report.json`)记 `ticket / head / scope / probes[] / verdict / rot`,派单那一刻的读数**必须留下来可追责**,只往 stdout 打印不算交付。
-
 **代理回报"路径不存在"时按硬停手处理**:不得改范围、不得自行换成"看起来等价"的落点、不得把票面结论当既定事实往下做 —— 先回票面人,由票面人现读当前 HEAD 面后重新派单。
-
 ### 联动规则
-
 - 与第 7 节(删除安全)协同:subagent 不得删除非任务清单内文件。
 - 与第 16 节(push保护)和 §20 协同:subagent 完成后由主 agent 统一 push。
 - **subagent working tree 自检(2026-07-30 立,真实事故)**:subagent 完成任务后**必须**执行 `git status --short` 自检,确认 working tree 状态符合预期——只有任务清单内文件被修改/新增。如果发现意外文件(其他 agent 改动被 `git stash pop` 带回 / lint-staged 副作用 / IDE 自动 stage / 文件被清成 1 行等异常),**立即停止**并报告主 agent,**禁止**继续 commit/push/补救。主 agent 收到异常报告后按 §12 + §22 处理(revert / 隔离 add / `--no-verify` 跳过其他 agent 代码问题)。
 - **stash 操作后强制 Read 验证(2026-07-30 立)**:subagent 在执行 `git stash push` / `git stash pop` / `git stash apply` 后,**必须**用 Read 工具验证任务清单内文件内容完整(防止 stash 误操作把文件清成 1 行或吞掉内容)。Read 返回内容与预期不符 → 立即停止,报告主 agent,**禁止**基于未验证的"假设文件完整"继续操作。
-
----
-
 ## 12. 多会话并行操作同一仓库强制规则(强制)
-
 - 多会话/多 agent 在同一仓库并行工作时,**禁止**任何破坏性 git 操作:`git restore` / `git stash push` / `git clean -f` / `git reset --hard` / `Remove-Item` 删除其他 agent 创建的文件(包括"看着像垃圾"的 `commit_msg.txt` / 临时测试文件 / 调试日志)。
 - commit 阶段**只 add 本任务相关文件**:`git add <file1> <file2>`,**禁止** `git add .` / `git add -A` / `git add -u`。
 - **提交活文档前必须做"工作树 ⊇ HEAD"行级对账(2026-09-24 立,一夜三次自伤换来的)**:`README.md` / `AGENTS.md` / `PROJECT_PLAN.md` 这类多会话共写的文件,工作树副本**常年滞后于 HEAD**(实测分别少 57 / 48 / 54 行),而 `safe-commit` 的 Step ④ 是 `git commit -- <pathspec>` —— 按路径取**工作树**版本,于是"只 add 本任务文件"的规范提交照样把别人已入库的行整批写回旧态,`git status`、diff 行数、typecheck、守门 71 全都看不出来。动作:① 提交前 `node scripts/merge-live-doc.mjs --file <该文档>`(exit 1 = 存在真丢失);② 需归并时 `--apply`(它按锚点把 HEAD 缺失块插回工作树,并区分"被吃掉"与"被就地改写",后者不插回以免新老并存);③ 归并后必须报"仍判 lost = 0 且长行重复新增 = 0"。判据是**字符二元组** Jaccard ≥ 0.6 —— 前缀与按空格切词在中文里都会漏(工具自己栽过一次,README 里一度同时留下 `**第 93 项 X**` 与 `**守门 X**` 两行),已由 `--self-test` 8 例钉死。登记条目见 PLAN 的 O46④/O46⑩。
@@ -761,9 +546,7 @@ node --test scripts/tests/check-dispatch-premise.test.mjs
 - 正确流程:预检(`git status --porcelain`)→ 隔离 add 本任务文件 → 验证 staged 仅含本任务文件。
 - **任务完成必须自动 commit(2026-09-20 用户指令,强制)**:任务/批次完成且验证全绿后,agent **必须立即自动 commit**——不经询问、不等用户确认、禁止以"不擅自 commit"为由把已验证的工作留在未提交状态。push 仍按 §16/§20 执行(用户未要求时不主动 push)。commit 形态仍受本节约束(多 agent 并行必须 safe-commit.mjs;单 agent 直接 add 声明文件;禁止 `git add .` / `-A` / `-u`)。
 - pre-push / pre-commit hook 失败因**其他 agent 引入的代码问题**(schema drift / 其他模块 TS/lint 错误 / 其他 agent 未完成 migration 等,不在本任务范围):**直接用 `--no-verify` 跳过 hook** 完成自己的 commit + push;**禁止**修改其他 agent 代码"帮他们修" / `git reset --hard` / 把"等其他 agent 修复再 push"作为交付结论 / 用 AskUserQuestion 询问用户;自己 commit + push 前只需保证**本任务改动文件** typecheck + lint + build 全绿即可;`--no-verify` 合法场景**仅限**"hook 失败原因是其他 agent 代码",若失败原因是**本任务自己代码**必须修复后正常 commit。
-
 ### 强制使用 safe-commit.mjs(2026-08-06 立,真实事故根治)
-
 - **触发背景**:commit `aa15bec23` "fix(web): message-list 消息操作按钮..." 意外包含 `message-input.tsx`(其他 agent 改的 `rounded-t-xl`)。根因:`message-input.tsx` 在 pre-commit hook 执行**前**已被 IDE/其他 agent staged,`takeStagingSnapshot` 把它当成本任务文件,`restoreStaging` 不会 unstage。所有领域级守门(`check-commit-scope` / `check-staged-pollution`)都放过(同目录 `apps/web/src/components/chat/`,scope=web 匹配)。领域级守门**无法防御同目录文件级污染**。
 - **强制规则**:多 agent 并行环境(≥2 个 agent 同时工作)下,agent commit **必须**用 `node scripts/safe-commit.mjs -m "<message>" -- <file1> [file2 ...]`,**禁止**直接 `git add <file> && git commit -m "..."`。
 - **safe-commit.mjs 5 步法(零信任)**:① `git reset HEAD` 清空整个暂存区(无论谁 staged 的)→ ② `git add -A -- <声明的文件>` 只暂存自己声明的文件 → ③ 校验 `git diff --cached --name-only` === 声明文件(有意外文件立即 exit 1)→ ④ `git commit -- <pathspec>` 原生 pathspec 终极兜底 → ⑤ `git show --name-only HEAD` 验证 commit 内容只包含预期文件。
@@ -781,9 +564,7 @@ node --test scripts/tests/check-dispatch-premise.test.mjs
   - **禁止手动 `git gc` / `git repack` / `git prune`**:需要时用 `node scripts/safe-gc.mjs`(自动检查无锁后执行)。autoGc 已禁用(`gc.auto=0` + `maintenance.auto=false`),无需也不应手动触发 gc。
   - **锁异常处理(2026-09-18 心跳机制升级)**:持锁方 safe-commit/safe-gc 会 spawn 心跳子进程每 5s 续期 `meta.ts`——**活进程的锁绝不会被抢占**;仅当"锁年龄超 300s **且** 持有者 pid 已死"或超 1800s 硬上限(pid 复用兜底)才强制抢占。锁等待超时(safe-commit 15min / post-commit 3min)报错并提示持有者是否存活;紧急可删 `.git/ihui-git-write.lock`(先确认无 git 写进程)。绕过:`IHUI_GIT_NO_LOCK=1`(仅应急,禁用后自行承担并发风险)。
   - **新环境初始化**:重新 clone 后必须执行一次 `node scripts/git-hygiene-init.mjs`(恢复 gc.auto=0 / maintenance.auto=false 防护配置,这些是 local config,clone 不保留)。
-
 ### .git 整目录消失事故链根治(2026-09-10 立,当日 7 次事故复盘)
-
 - **根因**:多会话共享同一工作区时,并发 git 手术互踩——会话 A 重建/删除 `.git` 期间,会话 B 的 git 命令撞上 `.git` 缺失,B 误判"仓库损坏"也触发重建/清理,互相把对方的 `.git` 删掉;refs 写入"被吞"多为重建窗口期读写竞态的表象。
 - **强制规则**:
   1. `.git` 异常时**先诊断后动手**:`node scripts/git-lock.mjs check` 确认无其他会话持锁 + `ps`/审计日志确认无并行 git 进程,才允许删除/重建。
@@ -791,9 +572,7 @@ node --test scripts/tests/check-dispatch-premise.test.mjs
   3. 修复 refs 后必须**回读验证**:`git update-ref ... && git rev-parse <ref>` 输出一致才算成功;批量修复后 `git pack-refs --all` 持久化。
   4. **禁止把 `.git` 迁出工作区/改指针文件**(2026-09-10 已验证:并行会话的恢复逻辑会把指针文件当"损坏"清除,反而制造新事故)。
   5. `git ls-remote` 为远端真值唯一来源,本地 `origin/main` 引用异常时用显式 SHA 操作,勿信本地引用。 **但"拿到了 sha"不等于能拿它做判据(2026-09-29 补,G-473 同窗口踩两次)**:`ls-remote` 只问引用、**不下载对象** ⇒ "用显式 SHA 操作"这条路上必须先插一步 `git fetch --no-tags origin <该 sha>`(或直接跑 `node scripts/git-sync-converge.mjs`,它先 fetch 再合)。漏了不报错,只会**误判**:`merge-base --is-ancestor <远端sha> HEAD` 因对象缺失而失败 ⇒ 被读成"不是祖先"(一次 fetch 被说成一次真分叉需人工);`rev-list --left-right --count <远端sha>...HEAD` 失败 ⇒ 被读成"无 ahead commit,可能是 shallow clone 等异常状态"(把没取回说成仓库形态坏了)。三处已改成显式"未判定 + 一步出路":`union-converge`(CLI 退 2,且本器绝不代跑 fetch)、`git-push-guard`(异常措辞前先 `cat-file -t`)、`git-sync-converge`("未判定"不再被并进"亦判需人工")。取证:`node --test scripts/tests/converge-object-presence-g473.test.mjs` 6 例(摘掉探测那一支的变异会翻红两条)。
-
 ### 部署/构建全局锁(2026-08-09 立,并发部署事故根治)
-
 - **事故背景**(8-09 实锤):多 Agent/自动化任务并行触发 `build-next-prod.ps1` 时,两个构建同时备份/清理/写入 `apps/web/.next` → 8801 短暂 502 + 监控报警,产物存在损坏风险。原 `apps/web/scripts/check-lock.js` 只有 dev-vs-build 互斥,**没有 build-vs-build 互斥**;且 `build-next-prod.ps1` 曾引用不存在的 `scripts/check-lock.js`,锁从未生效。
 - **锁机制**:`node scripts/deploy-lock.mjs acquire|release|check`(锁 = 项目根 `.deploy.lock` 目录,mkdir 原子性)。build 与 build/dev 全部互斥;dev+dev 共存;stale(10min)+ 超时(10min)自动兜底。
 - **判活问的是"哪个 pid"——这一格在 2026-09-25 冻结过生产 11h50m**(登记 G-193):`acquire` 是一次性 CLI,打印"锁已获取"就退出,所以 meta 里那个 `pid` **不是持锁者**,拿它判活等于没有判据 —— 要么恒"已退出"(别人构建中途被抢),要么该号被系统复用给别的过程(实测:`meta.ts=11:16:32 pid=888`,而当时占着 888 的是 `C:\Windows\System32\nssm.exe`,**StartTime 11:19:13,比锁晚 160 秒**,一个进程不可能在它存在之前写锁)⇒ `alive=true` 永远成立 ⇒ 每轮白等 600s 后 exit=1,部署环从 11:16 起没产出新构建,而 `git status`、typecheck、154 道门全都看不出来。两条修法同时落地:**① `--owner-pid`**(调用方自己的 `$PID`,这才是这段锁真正的主人;`build-next-prod.ps1` 已传)**② 硬上限 30min**——"名义存活"与"锁龄超上限"同时成立只可能是复用 ⇒ 归档现场后抢占(与 §12 `git-lock` 的 1800s 复用兜底是同一条设计)。**判据矛盾时的失效方向**:宁可抢一把明显超时的锁(现场先归档,可复核),不可无限 wait(那等于把"没人能说清"变成"生产一直不更新")。`release` 在这一格**仍不代删别人的锁**,但必须点名"pid 疑似被复用"并指出出路是下一次 `acquire`。
@@ -802,11 +581,8 @@ node --test scripts/tests/check-dispatch-premise.test.mjs
 - **手动构建必须遵守**:触发 web 构建前先 `node scripts/deploy-lock.mjs check`(exit 0=可构建;exit 1=有其他构建/部署进行中,等待后重试)。**禁止**绕过锁直接 `next build` 或并发触发 `build-next-prod.ps1`。
 - **锁异常处理**:超时自动报错;持有者已退出的悬挂锁**不限锁龄**立即抢占(2026-08-27 判据);"名义存活但锁龄超 30min 硬上限"= pid 复用,同样归档后抢占(见上节 G-193);紧急可删项目根 `.deploy.lock`(先确认无构建进程)。`.deploy.lock/` 已 gitignore。
 - **禁止**用 `-CleanCache` 或其它参数绕过锁;多 Agent 协作时若需排队构建,等待而不是强删锁。
-
 ### 12b. 协作收尾 SOP (2026-08-18 立, §22c 配套)
-
 当发现其他 agent 正在并行做同一任务时(working tree 与 origin/main 不一致, 或远端新 commit 提到类似功能), 不要立即重写对方主体逻辑, 改走协作收尾路径:
-
 1. **核查现状**: 用 `git diff HEAD --stat` + `git log origin/main..HEAD` 确认
    - 远端是否已 commit (a01fcf4 这种情况)
    - 本地 working tree 是否含对方未提交的改动
@@ -818,26 +594,18 @@ node --test scripts/tests/check-dispatch-premise.test.mjs
    「不动其他 agent 的主体逻辑」+ 列出具体修复点
 6. **push-guard 自动捎带**: push 后 push-guard 会自动捎带其他 agent 的 commit,
    因为 git-pull-rebase --autostash 已同步
-
 ### 12c. 并发 commit 防混淆 SOP (2026-08-19 立)
-
 当多个 agent 同时 commit 同一文件时, 可能出现:
-
 - 你的 commit message 描述的是 A, 但 diff 里包含 B 的修改 (race condition)
 - 因为另一个 agent 在你 commit 期间 `git add` 了相同/不同文件
-
 防混淆措施:
-
 1. **精确 add**: 用 `git add <具体路径>`, **禁止** `git add .` / `git add -A` / `git add -u`
 2. **commit 前验证**: `git diff --cached --stat` 必须与预期文件清单完全一致
 3. **commit 后审查**: `git show HEAD --stat` 立即检查 commit 内容, 若含无关文件 → `git reset HEAD~1` 重提
 4. **避免同时改同一文件**: 如果发现其他 agent 在改相同文件, 等他完成后再动
 5. **接受混合 commit**: 当混合 commit 已 push 到 main 且功能正确, 不要 force-amend, 加一个空 commit 标注"混合 commit 说明"即可
-
 历史案例: d6e8906 + f028e5517b 期间出现"scripts 改动 + api 改动 + mobile-rn 改动"被同一 commit 收录, 后续审计应见此节说明。
-
 ### 12d. git worktree 多会话隔离规范(2026-08-31 立,stash 丢失 + 守门误伤事故根治)
-
 - **触发背景**(真实事故链,同日三连):① 多会话共享 working tree,某会话 `git stash push/pop` 冲突导致另一会话已完成的 llm_gateway.py 拦截代码在提交中丢失(提交 diff 只剩 63+/58- 格式化差异);② 守门第 8 项 check-api-routes 全量扫描工作区,104 处"前端调用无后端路由"全部来自其他会话未完成文件,正常提交被阻塞;③ push 门全量 typecheck 报上千 TS 错误全部来自其他会话工作区噪音,推送反复被阻;④ 2026-08-31 补充事故:d22d233091 的 commit message 声称含 §12d 规范但 AGENTS.md 实际 diff 仅 1 行——§12d 本体在提交前被并行会话覆盖工作区而丢失,**commit message 声称的规范条目必须与实际 diff 一致**。根因:**多会话共享同一 working tree + 同一 git index**。
 - **第一优先:单写者原则**——同一时刻只允许一个会话写 working tree;并行会话开工前先确认其他会话已收尾(无未提交改动、无进行中 stash)。
 - **确需并行写时必须用 worktree 隔离**(与 §9b 单分支规则协同):
@@ -855,74 +623,50 @@ node --test scripts/tests/check-dispatch-premise.test.mjs
 - **stash 清理零损失流程(2026-08-31 实例:backup/stash-temp-other-sessions-8e1863c)**:`git tag backup/stash-<名>-<sha7> '<stash-ref>'` → `git rev-parse` 验证 tag 与 stash SHA 一致 → `git stash drop '<stash-ref>'`。tag 指向原 stash commit,内容永不丢失,随时 `git stash apply <tag>` 可恢复。
 - **stash 后当日 apply 落地(2026-09-08 立,stash 丢失事故根治)**:任何 `git stash push` 的内容**必须当日 `apply` 落地或 tag 零损失备份**——stash 是黑盒(不提醒/不过期/不可见),滞留 stash 在并行会话合流推进下必然造成"功能被回滚"假象(2026-09-08 实证:压缩入口整合 + IM 聊天室重写 775 行双双滞留 2-3 天)。守门:`scripts/check-stale-stashes.mjs`——guardian-runner 第 30b 项(blocking,≥48h 含源码改动未备份→阻塞 commit)+ dev-web.mjs/apps/web predev 启动 warn 扫描;跳过 `HUSKY_SKIP_STALE_STASH_CHECK=1`。
 - **全面禁止 git stash(2026-09-18 立,机制级根治,取代"当日 apply"条——从源头禁止,不再产生新 stash)**:任何情况下禁止 `git stash push` / `git stash`(含路径限定、含 -a/-u),**推了就是要生效**——改动必须直接 commit(走 safe-commit.mjs 多 agent 流程)或用本节 worktree 隔离,绝不允许藏进 stash。已落地 git 层面硬拦截:`.husky/reference-transaction` hook 在 prepared 阶段对 refs/stash 新建事务 exit 1 → `git stash push` 直接 `fatal: reference-transaction hook aborted`(`--no-verify` 也无法绕过;git 无 pre-stash hook,refs/stash 写入走引用事务故可拦)。hook 只拦"新建"不拦"清理"(drop/pop/clear 放行),纯 sh 内建实现不依赖 grep/sed。唯一例外=清理存量 stash:`IHUI_ALLOW_STASH=1` 前缀执行,且必须先按上方零损失流程 tag 备份、在会话报告声明放行原因。
-- **红线**:
   - ❌ 禁止一切 `git stash`(2026-09-18 起全面禁止,见上方"全面禁止 git stash"条款,hook 已硬拦截;历史事故:无路径限定全仓快照曾致 stash@{0} 沦为 1781 文件巨型快照)——改动直接 commit 或 worktree 隔离
   - ❌ 禁止在非 worktree 场景用 detached HEAD 承载长期开发(commit 游离无引用)
   - ❌ 禁止 commit message 声称未落盘的规范/代码条目——commit 前 `git show --stat`(或 `git diff HEAD --stat`)核对声称内容与实际 diff 一致(2026-08-31 d22d233091 事故教训)
   - ✅ worktree 收编前 `git log <sha> --stat` 核对内容,收编后 `git worktree list` 确认清理
   - ✅ 怀疑脚本被外部进程(水印/注入)污染时:`node --check` 取证 → `git show HEAD:<path>` 验证基线 → `git restore --source=HEAD --worktree -- <path>` 恢复 → 冒烟(2026-08-31 git-lock.mjs 修复实例:水印进程追加零宽 Unicode 行致 SyntaxError)
-
----
-
 ### 12e. workspace 加依赖禁用 `pnpm install --filter`(2026-09-23 立,自伤实测)
-
 - 实测:为 `apps/extension` 加 `@ihui/design-tokens` workspace 依赖时跑 `pnpm install --filter @ihui/extension`,pnpm 按"只装被选中项目所需"重链接,**顺带剪掉根 `node_modules` 里未被该包引用的链接** —— `lint-staged` 就此消失,`.husky/pre-commit` 第一步即崩,每次 commit 都失败并逼出 `--no-verify`,连带 109 道守门全废(而 `git status` 与 typecheck 都看不出依赖树被削)。
 - **规则**:本仓任何"新增/调整 workspace 依赖"一律跑**全量 `pnpm install`**(不带 `--filter`);改完必须验证 `node_modules/lint-staged/bin/lint-staged.js` 与 `node_modules/.bin` 关键入口在位,再提交。
 - 排查同类问题的顺序:`grep "Cannot find module" .workbuddy/hook-logs/pre-commit.log`,先怀疑依赖树被动过,再怀疑守门判据。**但"根 `node_modules/.bin` 缺 shim"这一型既不看 package.json 也不报 Cannot find module** —— 它表现为 lint-staged 第一步 `'eslint' 不是内部或外部命令` → 每次 commit 必红 → 各会话合法 `--no-verify` → 约 110 道守门对全队同时失效(2026-09-24 实测连吃三次)。此型 `pnpm install` 与 `pnpm install --force` 都在 1.2 秒内回 "Already up to date"(pnpm 认为树是好的),**上一行那个 remedy 不起作用**;唯一生效的是 `node scripts/repair-node-bin-links.mjs`,且**判据只认实测版本号**:`node_modules/.bin/eslint --version` 与 `tsc --version` 必须都出版本号(或 `pnpm exec eslint --version`)。
 - 排查同类问题的顺序:`grep "Cannot find module" .workbuddy/hook-logs/pre-commit.log`,先怀疑依赖树被动过,再怀疑守门判据。
-
 ### 12f. 恒红门优先级(强制,2026-09-27 立 —— 一天之内同型三道实测)
-
 - **规矩:任何 blocking 检查红在"干净 HEAD"上(被它点名的文件都不脏),修它的优先级高于一切新增工作,包括你手上那张功能票。** 理由不是账面好看而是后果全局化:一道与本次改动无关的恒红门 ⇒ 每个会话每次提交都**合法地**走 `--no-verify` ⇒ 链上全部检查对每一次提交作废。实测 2026-09-27 一天内连出三道(影子副本漂移 / 注册的门体文件被外部清理层删掉后又被一次 `git add -A` 记成暂存删除 / mypy 红在已入库代码上),期间**这台机的每次提交都是零检查入库**,而 `git status`、typecheck、其余检查全部报绿 —— 失效形态是安静,不是吵闹。
 - **判"这道红是不是我的错"只看一件事:它红在哪个面上。** 涉事文件 `git status --porcelain -- <文件>` 为空 ⇒ 是已入库缺陷,按上一条优先修;有输出 ⇒ 别人在飞,只报不动(§12 边界不变,不得为变绿去改别人的文件)。
 - **跳门次数有两个来源,合起来才是总量:`.workbuddy/safe-commit-attestation.jsonl`**。①**跳门决策**由 `safe-commit` 写(kind=mine/not-ours/unattributed,含 `failedGates`、`ranFullBatch`、`declaredFiles`);②**旁路落地**由 `object-space-land.mjs` / `live-doc-edit.mjs` 写同一本台账(kind=bypass-landing,`gatesRun:false` + `landedSha` + `source`),因为 commit-tree + CAS **结构上不跑任何钩子** —— 2026-09-29 现读该文件当天 0 条而同窗口非合并提交 222 枚,旧写法"只有一个真值来源"会让人把"0 条"读成"今天没人跳门",比不写这句更糟。要回答"这周有多少次提交是在检查全废的状态下进的库",跑只读统计器 `scripts/plan-bypass-ledger-report.mjs --since <日期>`,它按日输出 normal/skipped/bypass/unknown 四态;**任一态取不到就点名"未判定",绝不以 0 冒充**(钩子日志过大只读尾部时 normal 是**下界**,这一维也必须被喊出来)。`ranFullBatch=false` 仍比跳门更严重(那一批检查压根没跑)。**仍开着的一格**:`plan-tasks-merge.mjs` 的落地站点未接②,它产出的每一枚提交今天仍会落进 unknown(承 G-725,见台账对应行)。所以"修好三道"完全可能只是"修好我恰好看到的三道"——门禁红的量算入口另有其物:`scripts/alert-volume-report.mjs`(该文件不在位即属**未交付**,调用方必须报"未判定",不得拿 0 当结论)。
 - **"注册在位而门体文件不在"这一格所有接线判据都看不见**(守门 89 的候选集按"脚本在不在被审面"枚举,脚本不在就连候选都不生成),2026-09-27 已补成常驻判据 **R9**:注册面与存在性面**必须同面同轮**(`--staged` 读索引注册 ⇒ 存在性也读索引),注册表解析到 0 条 ⇒ 判"尺子失效"而不是通过。手工核验一句:`git cat-file -e HEAD:scripts/<门体>`。
 - **修红不得顺手放宽判据。** 若真因是"被审代码换了写法",必须**同一枚提交里同时**改审它的正则 —— 否则"把它升级成 blocking"这个动作本身就是在给一台瞎掉的尺子背书(守门 117 记过同型:参数改成可选标注后正则只认旧形态 ⇒ 输出"未对齐 0 个"并 exit 0,一道刚升档的安全门变成永远绿灯的尺子)。
-
 ## 13. 文件修改持久化强制规则(强制)
-
 - 任何文件修改后**必须立即用 Read 验证**修改已落地(防止文件系统缓存不一致)。
 - 大文件(>500 行)修改后,Read 验证时**必须读取修改区域 ±50 行**,确认上下文完整。
 - 若 Read 返回内容与预期不符(陈旧缓存),**必须**重读最多 3 次,仍不符则停止并报告用户。
 - **禁止**基于未验证的"假设修改已成功"继续后续操作。
-
----
-
 ## 14. Agent 自主验证强制规则(强制)
-
 - Agent **必须独立完成**它能完成的验证(browser_use / API 测试 / 文件检查 / 命令执行),**禁止**要求用户代为验证。
 - **禁止**在交付报告中写"请你刷新浏览器查看效果" / "请你启动 dev server 验证" / "请你手动测试"等甩锅措辞。
 - 验证失败时,记录失败原因 + 已尝试方法 + 建议下一步,**不**得假装验证通过。
-
----
-
 ## 15. 工作区卫生强制规则(强制)
-
 **禁止项**:① 在 `G:\` 根目录创建任何文件;② 项目数据(扩展打包/Chrome profile/构建副本/临时 DB/临时配置)写到项目外路径;③ 硬编码 `C:\temp\ihui-*`/`$env:TEMP\ihui-*` 等项目外路径;④ agent 用 RunCommand/PowerShell/Out-File/Set-Content/New-Item 在项目外直接创建文件;⑤ 在 `G:\` 根目录运行 Qt 类外部工具或执行 pnpm 命令(会创建 `.pnpm-store` v11 冲突);⑥ 硬编码中文绝对路径(GBK 乱码)。路径推导用 `$PSScriptRoot`/`__dirname`/`import.meta.url`。唯一例外:纯系统日志(`debug.log`/`next-server.log`)可写 `$env:TEMP`。
-
 **必须用项目内路径**(根 `g:\IHUI-AI`):扩展打包→`apps/extension/.output/chrome-mv3/`;Chrome profile→`.ihui-agent/tmp/chrome-profile/`;临时副本→`.ihui-agent/tmp/<任务名>/`;临时脚本→`.ihui-agent/tmp/<脚本名>.ps1`;临时文件统一放 `.ihui-agent/tmp/`(已 gitignore),任务完成后清理。
-
 **守门脚本**:
-
 - `check-workspace-hygiene.mjs`(第 25 项 BLOCKING:项目外路径写入;WARNING:硬编码中文路径)
 - `check-parent-pollution.mjs`(第 26 项 BLOCKING:项目父目录递归 2 层+桌面根级+用户主目录巡查,命中=文件名强信号 `search_*.ps1`/`*_result.txt` 或内容双信号)。**2026-09-23 结构性加固**:新增 `CREDENTIAL_DIR_NAMES` 共 8 项,对 `secrets`/`secret`/`credentials`/`credential`/`密钥`/`certs`/`certificates`/`.pybcrypt` **整目录不扫不删**(目录名按 `toLowerCase()` 比对,大小写不敏感;既往逐 `USER_LEGIT_PATTERNS` 按 filename 豁免已被证明会漏第三把密钥);另新增 `BACKUP_DIR_NAMES` + `BACKUP_DIR_PREFIXES` 整目录豁免,防"卫生守门删掉数据备份"。
 - `cleanup-external-junk.ps1`(G:\ 垃圾清理,16 目录+31 文件,`-Force` 跳过确认)
 - `g-root-guardian.ps1` v2.0(G:\ 实时守门,FileSystemWatcher+白名单优先 5 层判定,~110-222ms 删除,Windows 计划任务自启)+ 配套 `g-root-blacklist.json`/install/uninstall/status 脚本
 - post-commit 自动 `--auto-clean --quiet`(仅清文件名强信号);定时 08:00 巡查;跳过 `HUSKY_SKIP_HYGIENE=1`。**⚠️ `--auto-clean` 对强信号命中直接 `unlinkSync` 实删文件、无任何二次确认** —— 清理类任务的铁律:先跑不带 `--auto-clean` 的 `node scripts/check-parent-pollution.mjs` 看命中清单并逐项验明身份,**命中项落在凭据/密钥目录内或名字含 key/secret/token 的,一律先补豁免再清理,顺序不可颠倒**(2026-09-22 实测用户口令表 `D:/DevEnv/secrets/ihui-app-password.txt` 因 `ihui-` 前缀被判为 agent 垃圾 —— 若不先补目录级豁免而直接跑 `pnpm hygiene:parent:clean`,它**会被无声删除**;该文件现仍完好)。历史案例见 `.ihui-agent/archive/AGENTS_history.md`。
-
 ### 15b. 项目外落点唯一制(强制,2026-09-23 立)
-
 用户规定:**任何文件都不得写在项目文件夹之外**,只允许下述四个经批准的落点;不再新增第五个。
 禁止在家目录、盘根、`AppData` 下随手建目录 —— 本机曾因此散落 `D:\tmp-*`、`D:\c`、`D:\d`、
 `D:\IHUI-AI-backup-*.tar`(8.3GB)等十几个游离项,已收口。
-
 | 落点                                 | 用途                                                                                                                                  | 依据 |
 | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- | ---- |
 | `D:\IHUI-AI\`(含 `.ihui-agent\tmp\`) | 源码、构建产物、一切临时物                                                                                                            | §15  |
 | `D:\DevEnv\backups\`                 | **唯一备份目录**:`git\ sql\ deploy\ archives\ desktop\ pg\ env\ releases\`。项目内不得留备份(`backups/` 曾压 64MB DB 快照,已外迁)     | §15b |
 | `D:\DevEnv\{cache,tools,runtimes}\`  | 工具链缓存唯一根;家目录里的工具状态一律 `robocopy /MOVE` + **junction** 改道(禁改 `HKCU\Environment\Path`),旧路径经 junction 仍可解析 | §26  |
 | `D:\DevEnv\Temp\`                    | `TEMP`/`TMP`/`TMPDIR`(HKCU,需新开终端才继承)                                                                                          | §26  |
-
 > **上表的 `D:` 是"D 盘那份 checkout"的历史值,不得当本机现值照抄**(2026-09-24 实测,登记于 PROJECT_PLAN —— **本行 2026-09-24 被并发旧基线回写带走过一次,同日原地补注使其重新成为"本侧修改"**
 > 第三十三批 续五⑦):`gitArchiveDir()`(`scripts/lib/gitdir.mjs`)按**工作树所在盘**推导,工作树在
 > `G:\IHUI-AI` 时它返回 **`G:/DevEnv/backups/git`**;而 `D:\DevEnv`(Temp/backups/kc-tools/logs)与
@@ -930,9 +674,7 @@ node --test scripts/tests/check-dispatch-premise.test.mjs
 > **规则:凡脚本需要归档/备份/临时落点,一律 `import` 出口函数(`gitArchiveDir()` / `gitdirArchivePath()` /
 > `resolveBackupDir()`),禁止再硬编码盘符** —— 硬编码的结果是"备份落点解析到不存在的路径",
 > 表现为 `git-guardian --status` 的 `backupOk:false` 这类静默失效(§5b 已记过一次同型)。
-
 **显式例外与已改道项(改道用 junction,故旧路径仍可用)**:
-
 1. `D:\IHUI-AI-git-repo` —— 真 gitdir。§5b 实测宿主层会整体删除工作区内 `.git`,故必须在外;
    `scripts/git-rebuild-local.mjs:169` 硬编码该路径,`git-refs-heal.mjs` / `git-guardian.mjs` 依赖其
    `refs-manifest.json`。同族的 `IHUI-AI.git-backup-20260912` 与 `IHUI-AI-git-repo.broken-*` 由
@@ -959,176 +701,105 @@ node --test scripts/tests/check-dispatch-premise.test.mjs
    `announcements/index.ts:117`、`refresh-cli-token.mjs:34` 与 `apps/cli` 内约 30 处裸 `homedir()`
    完全不认它。**设 env 必造双根分裂**;junction 则对硬编码路径同样生效。
    语义统一属独立技术债(动它需同步改 `plugin-marketplace.test.ts:114-129` 等被钉死的断言),不在本策略范围。
-
 **新写文件前的三问**:① 是源码/产物吗 → 项目内;② 是备份吗 → `D:\DevEnv\backups\<类>\`;
 ③ 是临时物吗 → `TEMP`。三者都不是 → 停下来问用户,不得自建新目录。
-
----
-
 ## 16. Push 阶段跨 Agent 改动保护规则(强制)
-
 - 本 agent 完成 commit + push 后,不再触碰 working tree,不执行 `git pull` / `git fetch` / `git rebase` / `git push --force`。
 - 抹除其他 agent 改动 → **协作事故**;混入其他 agent 改动到自己 commit → **污染事故**;修改其他 agent 文件"帮他们修" → **越权事故**。
 - `--no-verify` 跳过 hook 的合法性:见 §12 最后一条(hook 失败因其他 agent 代码 → 合法跳过;本任务代码 → 禁止跳过);`--no-verify` 不是流程事故,前提是本任务改动文件已通过 typecheck + lint + build。
-
----
-
 ## 17. UI 改动验证强制规则(强制)
-
 **触发条件**:UI 样式/布局/交互改动(CSS/className/style/组件结构/Tailwind 类/shadcn props)。
-
 **强制动作**(缺一不可,违反视为交付事故):
-
 1. 改码前 browser ping `http://localhost:8801` 确认服务在线,不通则先启动 web+api+ai-service(端口见 `docs/port-management.md`)。
 2. 改码后确认 web+api 服务在跑(browser 实际访问)。
 3. 用 browser_use subagent 渲染目标页面,截图自验 4 状态:默认/hover/active/dark mode。
 4. 读 DOM 数值验证样式生效(`getAttribute`/`getComputedStyle`,禁止只靠截图)。
 5. 交付附 4 状态截图 + "已自验通过"声明;服务起不来禁止交付。
-
 **commit message trailer**:含 `apps/web/**/*.css` 改动必须附 `Verified-DOM: http://localhost:8801/<path> (<DOM 属性=数值> ...)`,commit-msg hook 自动守门。
-
 **Next.js CSS 缓存陷阱**:改 globals.css/styles 后 HMR 不一定重编译 CSS chunk,必须 curl 当前 CSS chunk 验证新值;`grep -c` 返回 0 → kill 旧 next-server 重启 `pnpm --filter @ihui/web dev`,等 15s 重新 curl 确认。
-
 **工具故障应急**:dev server 永远只在集成终端内部运行(`RunCommand long_running_process`+`blocking=false`),禁止 `Start-Process` 派生独立窗口。RunCommand 连续 2 次返回空输出 → 判定失联 → 告知用户在集成终端面板手动执行。工具反复失败时先 Grep project_memory.md 查已知约束。
-
 **豁免**(允许跳过 browser_use):① 纯后端 API(curl 验证);② 纯类型/工具函数(typecheck+test);③ dev server 30 分钟无法修复(降级单元测试);④ CI 环境(e2e)。历史案例见 `.ihui-agent/archive/AGENTS_history.md`。
-
----
-
 ## 18. 启动项目语义(强制)
-
 用户说"启动项目" = 前后端全链路同步启动:web + api + ai-service(端口见 `docs/port-management.md`),必要时检查并启动数据库 / Redis。禁止只启动前端就交付。
-
----
-
 ## 19. i18n 约束规则(强制)
-
 ### 翻译文件语言纯度
-
 - **zh-CN.json**:基准语言文件,其他 4 语言必须 parity(key 集合完全一致)。
 - **zh-TW.json**:繁体中文,禁止简体字(pre-commit 第 2b 项,opencc 字形转换检测,阻塞)。
 - **ko.json**:韩语,禁止中文残留(第 2c 项,字符范围检测,阻塞)。
 - **ja.json**:日语,禁止中文残留(第 2d 项,warn-only,日文汉字词易误报)。
 - **en.json**:英文,禁止中文残留 + 禁止破碎机翻(第 2e 项,阻塞)。
-
 - **parity 绿不等于内容语种对(2026-09-26 立,由 D20 实测逼出;同日已配尺子 = 守门 133)**:上面五门判的是**键集**与"**有没有**中文残留",所以"某一块整体落成另一语言"这一型结构上看不见。实测抓到三种形态,当时全部门禁都是绿的:① `aiChat.org` 的 **ja 装了繁体、zh-TW 装了谚文**;② `chat.exportMenu.exportPdf` 是 **ja←zh-TW←ko←ja 的三向轮转**(判据必须按**码位**量,按字形肉眼判会把谚文 `을 익스포트` 与假名 `をエクスポート` 看成同一种东西);③ `aiChat.toast.orgSaved` 被机械写成 `orgSaved:{orgSaved:"…"}` **自套一层**,`t('toast.orgSaved')` 取到对象 ⇒ 功能成功但提示永远不响。**批量落 i18n 后必须做两件事**:逐语种量"这块内容是不是这门语言",以及全量扫"同名自套一层"。**尺子**:`scripts/check-i18n-locale-content-language.mjs`(唯一码位族表在 `scripts/lib/i18n-script-families.mjs`,五族区间两两不相交由 `rangesAreDisjoint()` 机器证明)。**三条能力边界要照抄进判断**:汉字族内部**简繁码位判不了**(日本新字体与中国简化字同码位:気/会/図/点),所以只在"族级矛盾"上判红;`en` 整门 L1 刻意跳过(品牌原文必须留汉字);超过 4000 叶的大块计"未判定"而非通过 —— `--strict` 因此**恒 exit 2 直到未判定被清**,那是它拒绝出合格证,不是仓库故障。**定级**:L1 默认档只报数、`--strict` 判红(建门实测候选 16 处,当场 blocking 就是恒红门 ⇒ 逼人跳门连带废掉全部守门,§12e 同型);L2 按每文件 HEAD 自身存量棘轮(建门实测**存量 5 处,不是本节先前写的"现仓 0 处"** —— 该数字已被下面这条实测推翻并就地改写,照旧文派单会去找一个不存在的零存量)。问责入口 `pnpm check:i18n-locale-content-language`(默认档,已串进 `check:all`)/ `pnpm check:i18n-locale-content-language:strict`。**建门当天顺带抓到两件事**:① 门自己第一版把"块级 4000 叶上限"误套在**文件**级 ⇒ `web/*.json` 22,702 叶只扫 4,000,连真事故都看不见;② 上面①②③三处内容**我曾按 `b4d2305c6` 改对过一次,被并发提交 `9ccfd31a8` 拿旧基线整文件写回,五道 i18n 门与部署环一路绿灯**,直到这道新门复验才现形(内容由 `55e772b78` 重新改对)。⇒ **通用教训:语言包这类多会话共写文件,"我改过了"不构成事实,判据必须在被审面上现读。**
-
 ### JSON 重复键禁止
-
 - 同一对象内禁止重复 key(`JSON.parse` 时最后一个生效,前面被 shadowed)。
 - 添加新键前 Grep 确认同级命名空间无同名块(models/nav/sort/market 等高频命名空间尤需注意)。
-
 ### 翻译策略(source of truth:`scripts/brand-glossary.json`)
-
 - 品牌名/公司名/字体名/技术术语:优先 canonical 英文名(智谱清言→Zhipu AI, 宋体→SimSun, 物联网→IoT)。
 - 人名:fictional/示例数据用拼音(李思涵→Li Sihan / 리쓰한 / リ・スハン);称呼符合目标语言习惯(李总→이 대표)。
 - 占位符 `{var}` / `{{var}}` 必须原样保留。
 - zh-TW 用繁体字形(简体→繁体);ko 用 Hangul;ja 汉字词允许(登録/確認/削除)但简体字残留改日文习惯;en 禁破碎机翻(如 AgentDevPlatform)。
-
 **守门工具**:`scan-i18n-zh-residue.mjs <locale>`(zh-TW/ko 阻塞,ja warn)/ `check-i18n-broken-en.mjs`(en 破碎机翻,阻塞)/ `check-i18n-keys.mjs --staged`(key 完整性+parity+白名单+**含点键**+**同层重复 key**,后两项 2026-09-20 起阻塞)/ `brand-glossary.json`(canonical 映射表)+ `apply-brand-glossary.mjs [--dry-run]` / `i18n-diff.mjs`(差异检测,输出 pending.json)/ `i18n-apply.mjs [--check]`(应用器,按 zh-CN 重排 key+parity 校验)/ `check-i18n-namespace-passing.mjs`(检测 useTranslations('xxx') 限定命名空间 + 把 t 传给 @ihui/ui-react 共享登录组件的 bug 模式,warn-only)。
-
 - **KR:语言包相对父提交丢键必须点名**(2026-09-27 立,`check-i18n-keys.mjs` 新增判据)。本门其余判据全是**横向**比(语言之间 parity)或查引用(键有没有人用),所以"五语言一致缩水"这一型结构上看不见 —— 而语言包少键的端上表现是**直接回显键名**(实测某端队列条渲染出裸串 `ai.pane.inputNotices.queue.denied.reorder`;本机在飞语言包副本 cli 一门少 **320** 键、extension 五语言各少 **23** 键,而 parity 全绿)。KR 只在 `--staged` 档判「索引 vs 该文件的父提交」——这是它的定义,不是"混面取数";全量档**刻意不判**(其"父"只能是 HEAD^,那会把历史上每一次正当清理天天重判成违规 ⇒ 恒红门,§12e 同型),仓库尚无父提交时打印"不适用"而不是判死。出口只有两条:① 把键补回;② 在 `scripts/data/i18n-key-removals.json` 按**文件**逐条声明 `file + keys + reason + until`(到期由 KR 自己判,镜像 KR-3 钉死;**刻意不做目录级通配** —— 一条理由不该给五个文件背书,而五个文件的丢键集合本来可以各不相同)。删键是允许的,**静默删键**不行。取证:镜像 `scripts/tests/check-i18n-keys.test.mjs` 的 KR-1…KR-4(KR-1 自带"同一份输入 parity 不红"的对照 —— 那才是本判据存在的全部理由;KR-4 是形状锁,防"函数在而无人调"),另有真仓 A/B/C 私有索引注入(注入未声明丢包必红 / 逐文件声明后不再计债 / 声明过期必红)。
-
 **AI 翻译流水线**(强制,零用户算力):zh-CN.json 新增/修改 key 后必须执行:① `i18n-diff.mjs` 检测差异生成 pending.json;② AI agent 读 pending.json+brand-glossary.json 自行翻译;③ 写 i18n-translations.json(`{ translations: { [lang]: { [key]: value } } }`);④ `i18n-apply.mjs` 应用到 4 语言;⑤ `check-i18n-keys.mjs` 验 parity;⑥ `scan-i18n-zh-residue.mjs ko/zh-TW` 验无残留。
-
 **守门集成**:web(第 2f-web 项 blocking,仅 staged 涉及 zh-CN.json 时);miniapp-taro(第 2f-miniapp-taro 项 blocking,`--target=miniapp-taro`);多 agent 并行时其他 agent 改 target locale 不触发阻塞。
-
----
-
 ## 20. 任务完成硬定义 — 杜绝"commit 后忘记 push"协作事故(强制)
-
 ### 任务完成的硬定义(5 条全满足才可声明"完成")
-
 1. ✅ **本地有 commit**:`git log --oneline -1` 显示本次任务的 commit SHA
 2. ✅ **工作区干净**:`git status --short` 无本任务残留 untracked / modified
 3. ✅ **origin 同步**:`git push origin <branch>` 成功,stdout 含 `X..Y <branch> -> <branch>`
 4. ✅ **HEAD 对齐**:`git rev-parse HEAD` === `git rev-parse origin/<branch>`
 5. ✅ **守门脚本通过**:`node scripts/git-push-guard.mjs` exit 0
-
 ### 4 道自动防线
-
 1. **pre-commit**:`check-push-sync.mjs`(guardian 第 29 项 blocking),commit 前检测本地 ahead(`git rev-list --count origin/<branch>..HEAD`),>0 阻塞;跳过 `HUSKY_SKIP_PUSH_SYNC=1`(不推荐);归档 commit `IHUI_ARCHIVE_COMMIT=1` 豁免。
 2. **post-commit(主防线)**:`git-push-guard.mjs` 自动检测 ahead → push + 验证 local == remote,失败阻断提示手动 push;跳过 `HUSKY_SKIP_PUSH=1`(不推荐)。
 3. **pre-push**:`.husky/pre-push` 第 2 段跑 `guardian-runner --push-gate`(2026-08-31 改版 / 2026-09-03 push-scope 增强:check-typecheck.mjs 包装,**判据优先 PUSH_SCOPE_FILES 本次推送改动范围,暂存区兜底**——报错文件均不在改动范围内时降级警告放行,防并行会话工作区噪音误伤,见 §12d),失败阻止 push(commit 仍本地保留);跳过 `HUSKY_SKIP_TYPECHECK=1`(不推荐)。
 4. **手动兜底**:`node scripts/git-push-guard.mjs` 任何时候可手跑,打印 local vs remote HEAD,完全对齐 exit 0。
-
 ### 红线(违反视为协作事故)
-
 - ❌ 禁止 commit 后只输出"已 commit"就声明任务完成,必须 push + 验证
 - ❌ 禁止交付报告遗漏 "local HEAD == remote HEAD" commit SHA 对照
 - ❌ 禁止用 `--no-verify` 绕过 `git-push-guard`(除非 typecheck 自验通过且显式说明)
 - ❌ 禁止把 "git push 失败" 作为交付结论(必须修复后重推或显式说明阻塞原因)
-
 ### 交付报告必含证据
-
-```
 ## Git 同步证据
 - 本地 commit: <sha>
 - origin commit: <sha>
 - 同步状态: local == remote ✅ / 落后 N 个 commit ⚠️
 - 守门脚本: node scripts/git-push-guard.mjs exit 0
-```
-
 ### 工具失联处理流程
-
 - **触发条件**:RunCommand 连续 ≥2 次返回 `{Exited, exit_code 0, 空输出}`(连 `Write-Output "test"` / `git --version` 都无输出),判定平台级故障。
 - **红线**:禁止把 git 命令清单甩给用户作为交付物;禁止把"用户手动执行"作为完成结论;禁止用"工具失联"停止 retry;必须自己完成 commit+push+验证;工具失联时报告"blocked"状态不声明完成;工具恢复后立即执行 git 流程;唯一例外是用户主动说"我来手动执行"。
 - **retry 策略**:首次失联用 `Write-Output "alive-test"` 探测 → 每隔 1-2 轮 retry RunCommand(可派 subagent 尝试) → 持续 retry 不放弃 → 恢复后立即执行完整 git 流程(add → commit → push → git-push-guard 验证)。
 - 历史案例见 `.ihui-agent/archive/AGENTS_history.md`。
-
----
-
 ## 21. 功能开发同步更新 README 规则(强制)
-
 ### 触发条件
-
 任务**新增 / 修改 / 删除**以下任一类别能力:
-
 - 新功能模块(新增 P3 深度层 / IM 渠道 / 沙箱后端等)
 - 现有功能重大调整(API 路由变更 / 架构重构 / schema 迁移)
 - 守门规则 / 工程约束新增(本节本身即触发例)
 - 项目对外能力清单变化(支持的平台 / 厂商 / 模型 / 端)
-
 ### 强制动作(缺一不可,违反视为交付事故)
-
 1. **同步修改根目录 `README.md`**:在对应章节(功能特性 / 架构 / 平台支持 / 守门规则)更新文字 + 表格。
 2. **README 改动必须与本任务代码同 commit 提交**:禁止"代码先 push、README 下一轮补"的分期模式。
 3. **README 必须可被 git 远端可见**:commit + push 后 `git rev-parse origin/main` 必须包含 README 改动(由 §20 git-push-guard 自动验证)。
 4. **交付报告必须含 "README 更新证据"**:列出修改的章节 + 行数变化。
 5. **禁止以"下一步建议"形式把 README 同步留给下一轮**:本任务触发条件则 README 同步属本任务一部分,不得列为 P1/P2 遗留项或"最优下一步建议",违反视为交付事故。
-
 ### 豁免场景(允许不更新 README)
-
 - 纯 bug 修复(不改变对外能力)
 - 纯重构(不改变功能契约)
 - 纯测试 / 文档 / 守门脚本改动(不改变运行时能力)
 - 纯配置 / 依赖升级(不改变功能清单)
 - 单端内部优化(不改变跨端契约)
-
 ### 守门(warn-only)
-
 - `scripts/check-readme-sync.mjs`:staged 中有 `apps/` / `packages/` 下功能代码改动但 `README.md` 不在 staged → warn 提醒。
 - 集成位置:`.husky/pre-commit` 第 22 项(warn-only,不阻塞 commit,只提醒)。
-- 历史案例见 `.ihui-agent/archive/AGENTS_history.md`。
-
----
-
 ## 22. 防止 commit / push / merge 提交丢失硬性规则(强制)
-
 ### 触发背景(2026-07-25 立,真实事故)
-
 reflog 记录 18:12-18:20 期间发生 **6 次 `reset: moving to HEAD~` 操作**,导致 3 个本地 commit 在 main 历史中消失:
-
 - `15b984f90` "fix(api): P0 安全债并行修复"(ws-chat/ws-tasks IDOR + payment-gateway 金额反查)
 - `5ef36e59d` "fix(web): sidebar 折叠按钮图标 16→20px" 第一次
 - `b120c6e20` "fix(web): sidebar 折叠按钮图标 16→20px" 第二次
-
 幸运的是这 3 个 commit 的工作内容已通过后续 commit(`ce3116ebd` merge + `ff7f744e0` 重做)重新整合到 origin/main,但 commit 本身已不可追溯,git log 不再显示原始 commit hash。
-
 **根因**:多 agent 并行 + 某 agent 自动化流程使用 `git reset` 时,未考虑对其他 agent 本地 commit 的影响,导致 reset 把整个 commit 链(包括其他 agent 的工作)一并丢弃。
-
 ### 硬性规则(违反视为协作事故)
-
 1. **禁止**在共享分支(任何已 push 过的分支,包括 main)使用 `git reset --hard`。
 2. **禁止**使用 `git reset HEAD~N` / `git reset --soft HEAD~N` 撤销本地 commit(在多 agent 并行环境下,该 commit 可能被其他 agent 依赖)。
 3. **禁止**使用 `git push --force` / `git push --force-with-lease`(已 push commit 的"撤销"必须用 `git revert`)。
@@ -1136,22 +807,15 @@ reflog 记录 18:12-18:20 期间发生 **6 次 `reset: moving to HEAD~` 操作**
 5. **撤销本地未 push commit 推荐 `git revert`**(同样产生新 commit 保留历史);仅在确认 commit 内容无价值、且无其他 agent 引用时,才考虑 `git reset`(不推荐,需记录在 commit message)。
 6. **禁止** `git stash drop` / `git stash clear`,除非先 `git stash show <id> --stat` 确认 stash 内容已合并到 working tree 或其他 commit;lint-staged 自动创建的 stash 必须保留至少到 commit 成功后下一次 git gc 周期(默认 14 天)。
 7. **多 agent 并行 reset 前必须**:`git log --all --oneline | grep <other-agent-commit-sha>` 确认无其他 agent 引用;并在 `PROJECT_PLAN.md` 记录"reset 影响范围 + 已 tag 备份的 commit hash"。
-
 ### 已被 reset 丢失的 commit 永久记录(tag 备份)
-
 3 个被 reset 的 commit 已用以下 tag 永久保留(防止 git gc 清理):
-
 - `lost-commit/P0-security-debt` → `15b984f90`(P0 安全债)
 - `lost-commit/sidebar-fold-btn-1` → `5ef36e59d`(sidebar 按钮第一次)
 - `lost-commit/sidebar-fold-btn-2` → `b120c6e20`(sidebar 按钮第二次)
 - `backup/pre-drop-recovery` → `251956eb6`(恢复前主分支快照)
-
 可通过 `git show <tag-name>` 查看完整 commit 内容;`git tag -l "lost-commit/*"` 列出所有丢失 commit tag。
-
 ### 守门(blocking 升级已完成,2026-07-25)
-
 `scripts/check-commit-loss-guard.mjs`(guardian-runner 第 30a 项,2026-07-25 升级为 blocking):
-
 - ✅ **已升级 blocking**:`guardian-runner.mjs` 第 30a 项以 `node scripts/check-commit-loss-guard.mjs --blocking --filter-stash` 调用
 - pre-commit 前扫描 `git reflog --all --date=iso` 最近 50 步(2026-07-26 扩),检测是否含 `reset: moving to HEAD~` 模式
 - 扫描 `git fsck --unreachable --no-reflogs` 检测是否有悬空 commit
@@ -1162,11 +826,8 @@ reflog 记录 18:12-18:20 期间发生 **6 次 `reset: moving to HEAD~` 操作**
 - **悬空 commit 备份**:被 reset / drop 的 commit 一旦出现在 `git fsck --unreachable` 输出中且无 `lost-commit/*` tag 备份,即为"未备份悬空 commit",会阻塞 commit——需先执行 `git tag lost-commit/<name> <hash> -m "lost via reset"` 永久保留(防止 git gc 清理),再重新 commit
 - 紧急跳过:`HUSKY_SKIP_COMMIT_LOSS_CHECK=1 git commit ...`
 - 详细档案:见 [docs/lost-commit-archive.md](./docs/lost-commit-archive.md)
-
 ### 自动化 tag 同步(2026-07-26 立)
-
 `scripts/sync-lost-commit-tags.mjs`(本任务新增)+ `.husky/post-commit` 第 5 段集成:
-
 - **自动 push**:每次 commit 后自动 `git push origin --atomic refs/tags/lost-commit/* refs/tags/backup/*`,防止本地 git gc 清理 tag 后无远端备份
 - **手动 fetch**:`node scripts/sync-lost-commit-tags.mjs --fetch` 一键从 origin 拉回所有 lost-commit/backup tag
 - **手动 check**:`node scripts/sync-lost-commit-tags.mjs --check` 校验本地+远端 tag 一致性 + tag 对象可达性
@@ -1174,7 +835,6 @@ reflog 记录 18:12-18:20 期间发生 **6 次 `reset: moving to HEAD~` 操作**
 - **紧急跳过**:`HUSKY_SKIP_TAG_SYNC=1`
 - **触发背景**:2026-07-26 04:23 真实事故 — 本地 tag 被 git gc 清理,远端虽有但 fetch 失败(因为 fetch 默认不包含 tag,需要明确 refspec)
 - **详细档案**:见 [docs/lost-commit-archive.md](./docs/lost-commit-archive.md) "🛡️ 防护机制" 段
-
 **改道完整性已由机器看守(2026-09-24 立,守门 `check-home-junctions.mjs`)**:上面那三条人肉命令长期
 等于没有校验 —— 实测 `AppData\Roaming\npm` 长成 **2.05GB**、`AppData\Local\pnpm-cache` **758MB** 都是实体目录
 (同期 `~\.ihui`、桌面端两处 `com.ihui.desktop` 早已是 junction ⇒ 机制有效,**缺的只是回潮哨兵**)。
@@ -1184,7 +844,6 @@ reflog 记录 18:12-18:20 期间发生 **6 次 `reset: moving to HEAD~` 操作**
 防止有人把它们加进来逼后人去挪别人的运行态(挪 `.qoder-cn` 等于丢记忆)。
 同日已按 §26 机制把这两处收口(镜像复制→逐文件字节校验→源改名→`mklink /J`→经 junction 回读一致→才删源),
 C 盘可用 44G → **45.75G**。
-
 **但"能判"不等于"能修"(2026-09-24 补第二层)**:门 96 上线后当天,`D:\DevEnv\cache\userhome` 整棵被清
 (13:15 前后,同分钟 `cache/Temp/tools` 被重建),16 项登记里 **已改道 0 / 违规 9**、4770MB 回到 C 盘。
 门判红是对的,可它是 **blocking** 而修复只有人肉五步 —— 结果是**每一次提交都被逼成绕过钩子**,
@@ -1200,7 +859,6 @@ C 盘可用 44G → **45.75G**。
 `healHomeJunctions()`(与 `healRootSeal` 同位、**早退之前**;每日 03:00 体检兜不住 23 小时空窗)。
 实测:9 项违规 → 8 项已改道并逐字节校验一致(含 `.cargo` 947MB/21760 文件);剩 `~\.codex` 被别的会话
 正在跑的 `codex-windows-sandbox-service` 占用 ⇒ 进冷却,该服务退出后 2 分钟内自动补回,**不杀别人的进程**。
-
 **第三层:悬空目标必须能重建,冷却不得拦住人工窗口(2026-09-24 同日补,前向更正上面最后一句)**
 上面"该服务退出后自动补回"是**错的**:`CodexSandboxService.OpenAI.Codex` 是 StartMode=Auto 的
 LocalSystem 服务(实测 PID 6196,exe 在 `WindowsApps\OpenAI.Codex_*` 里、**不在 `~\.codex` 内**),
@@ -1209,9 +867,7 @@ LocalSystem 服务(实测 PID 6196,exe 在 `WindowsApps\OpenAI.Codex_*` 里、**
 的 `Attributes` 含 `ReparsePoint` 且 `Target` 指向 D 盘)。实测 **5732 个文件逐字节校验一致后改道**,
 门 96 从"违规 1 / C 盘 108.8MB"到 **违规 0 / exit 0**。动手前必须先确认**只有该服务自身**匹配 codex
 (无并发 CLI/IDE 会话),否则不 stop。
-
 补这一层时暴露了两个真缺陷,都由自检抓出(不是演练抓的 —— **演练只能证明"会红",判据才证明"不会修"**):
-
 1. **`repairOne` 的判序**:第一行是 `if (!existsSync(srcPath)) return 'absent'`,而**悬空 junction 的
    `existsSync` 返回 `false`**(它跟随重解析点,目标已被删)。于是"源不存在、无需改道"把这一整型吞掉,
    表现就是上面演练里"守护跑完什么都没补"。门 96 自己判的是 `!existsSync(p) && !isLink(p)`(两半都有),
@@ -1222,37 +878,22 @@ LocalSystem 服务(实测 PID 6196,exe 在 `WindowsApps\OpenAI.Codex_*` 里、**
    已停好的窗口判成了"跳过"。故加 `--apply --no-cooldown`:**绕过判定但保留既有条目**(守护侧仍需拦住
    "每 2 分钟重抄 108MB 再撞同一个 EBUSY"),且本轮再失败时**不再续冷却**,否则下一个人工窗口照样被拦。
    两处都由镜像测试用正则钉死(`scripts/tests/re-home-junctions.test.mjs`),因为它们是行为分支,不是注释。
-
 ### 历史案例
-
 `.ihui-agent/archive/AGENTS_history.md` 记录每次 reset 事故 + 已采取的 tag 备份措施。
-
----
-
 ## 22b. staged-typecheck 闸门:全量 include + 错误过滤(2026-08-18 立,根治改版)
-
 ### 触发背景
-
 pre-commit 第 16 项「条件 typecheck 闸门」原策略:临时 tsconfig 只 include staged 文件 → 模块扩展(declare module 'fastify' 等)未被加载 → 报 TS2339 假阳性(如 `pushNotification` / `isMultipart` / `file`)。多 agent 并行时,任何 agent 改一下 ws-notifications.ts 都会让其他 agent 的 web 包 typecheck 失败 100% 误阻塞。
-
 ### 核心策略(根治)
-
 `scripts/check-staged-typecheck.mjs`:
-
 - **临时 tsconfig 沿用 package 原始 tsconfig 的【全量 include】**,完整加载所有模块扩展与全局类型,消除 TS2339 假阳性。
 - **tsc 输出按行解析**,只把【错误文件属于 staged 文件】的错误视为失败;其他 agent 引入的非 staged 文件错误自动过滤、不阻塞。
 - tsc 未能真正运行(如 pnpm/tsc 未找到、进程崩溃、空输出)按失败处理,**禁止静默通过**。
 - 临时 tsconfig 清理加重试(Windows transient file lock 兼容);`.gitignore` 已加 `**/tsconfig.staged-typecheck.json` 防残留误入库。
-
 ### 守门集成
-
 - `scripts/guardian-runner.mjs` 第 16 项 blocking(已有调用 `node scripts/check-staged-typecheck.mjs --staged`)
 - 跳过方法:`HUSKY_SKIP_STAGED_TYPECHECK=1 git commit ...`(应急)
 - 适用范围:任意 staged .ts/.tsx 文件(不限 apps/web)
 - 自动跳过:apps/ai-service(Python,走 mypy)、apps/desktop(无 typecheck script)、packages/eslint-config / packages/tsconfig(纯配置包)等无 typecheck script / tsconfig 的 package
-
-### 红线规则
-
 - ❌ 禁止把临时 tsconfig 的 include 缩窄到 staged 文件(会回退到旧 partial-include 假阳性 bug)
 - ❌ 禁止把 `**/tsconfig.staged-typecheck.json` 从 .gitignore 移除(Windows 偶发 unlink 失败可能残留)
 - ❌ 禁止把 `sawAnyTscError` 移除(若 tsc 未能真正运行,必须按失败处理,不能静默通过)
@@ -1260,17 +901,10 @@ pre-commit 第 16 项「条件 typecheck 闸门」原策略:临时 tsconfig 只 
 - ✅ 修改源脚本 `check-staged-typecheck.mjs` 的核心函数时,必须同步:
   1. 测试文件 `scripts/tests/check-staged-typecheck.test.mjs` 中的镜像常量
   2. 跑 `scripts/check-staged-typecheck-mirror-sync.mjs` 验证指纹一致
-
----
-
 ## 22c. 镜像常量守门模式规范(2026-08-18 立)
-
 ### 背景
-
 部分核心工具脚本(如 `scripts/check-staged-typecheck.mjs`)导出大量内部辅助函数,而测试文件 `scripts/tests/*.test.mjs` 由于路径隔离 / 模块副作用 / 静态导出冲突等原因,**无法直接 `import` 源函数**。沿用"测试文件里复制一份相同实现的镜像常量"做法虽然能跑通断言,但形成两套并行真相:任何对源函数签名的修改(参数顺序、返回值结构、过滤规则常量)必须**手动同步**到测试文件;一旦遗漏,测试将持续"假绿"(通过旧逻辑断言已不存在的字段),守门形同虚设。
-
 ### 根治路径(三步)
-
 1. **源函数 export**:把核心函数从源脚本顶部 export 出去,确保测试环境可解析(注意 `.mjs` 必须用 `export` 关键字,且不引入副作用代码)。
 2. **测试直接 import**:测试文件 `import { __test__ as <别名> } from '../source.mjs'`,消除"两份真相"。
 3. **守门脚本检测 export 锚点**:`scripts/check-staged-typecheck-mirror-sync.mjs` 持续校验:
@@ -1278,18 +912,13 @@ pre-commit 第 16 项「条件 typecheck 闸门」原策略:临时 tsconfig 只 
    - `__test__` 必须包含指定的函数键(本场景:`getOriginalInclude` / `normalizePath` / `filterTscOutputForStagedFiles`)
    - 测试文件必须存在对应 `import { __test__ as ... } from '../source.mjs'` 语句
    - 任意锚点缺失即 exit 1 报错(提示"镜像常量漂移,需走 §22c 协作收尾")
-
 ### 守门脚本工作机制(`check-staged-typecheck-mirror-sync.mjs`)
-
 - **阶段 A · 检测源文件存在**:确认 `scripts/check-staged-typecheck.mjs` 存在于工作区(防止路径漂移)。
 - **阶段 B · 检测 export const **test** 锚点**:用正则匹配 `export const __test__ = { ... }`,并校验三个键 (`getOriginalInclude` / `normalizePath` / `filterTscOutputForStagedFiles`) 均出现在对象字面量中(防止 export 但漏字段)。
 - **阶段 C · 检测测试文件 import**:确认 `scripts/tests/check-staged-typecheck.test.mjs` 存在 `import { __test__ as ... } from '../check-staged-typecheck.mjs'` 语句(防止 import 路径写错 / 别名错配)。
 - **触发场景**:任何对 `check-staged-typecheck.mjs` 的核心函数修改后,pre-commit hook 自动跑该守门脚本;若 export 锚点漂移,立即阻断 commit 并提示同步测试 import。
-
 ### 可复用模板
-
 检测模式(正则 + 字符串匹配 + import 锚点)可复用到其他类似场景:
-
 ```javascript
 // 伪代码:三阶段检测模板
 const source = readFileSync('scripts/<source>.mjs', 'utf8')
@@ -1301,81 +930,44 @@ assert(
   /import\s*\{\s*__test__\s+as\s+\w+\s*\}\s*from\s*['"]\.\.\/<source>\.mjs['"]/.test(test),
   'phase C: missing __test__ import in test file',
 )
-```
-
 可复用到:任何"测试文件无法直接 import 源函数"的工具脚本场景(如 `scripts/check-commit-scope.mjs` / `scripts/check-staged-pollution.mjs` 等)。
-
 > 📌 配套使用: 本模板的入口守护需搭配 §22d `isDirectRun` 模式使用, 避免 import 时 main() 误触发。
-
-### 红线规则
-
 - ❌ 禁止在测试文件中**复制**源函数实现(产生镜像常量漂移风险)
 - ❌ 禁止修改源函数签名后**不更新** `__test__` 对象的导出键(守门立即失败是预期行为,不是 bug)
 - ❌ 禁止删除 `check-staged-typecheck-mirror-sync.mjs` 中的任何一项锚点检测(削弱守门强度)
 - ✅ 修改源函数后必须 `pnpm test scripts/tests/check-staged-typecheck.test.mjs` + 跑 mirror-sync 守门脚本双验证
 - ✅ 新增工具脚本若需要被测试直接 import,必须遵循"源文件 export `__test__` + 测试 import + 守门脚本三阶段检测"模板
 - ✅ **判据的对象是某个真实文件的"形态"(标题式 / 路径式 / 字段名 / 分隔符)时,镜像测试至少一条用例的输入必须逐字取自那个真实文件**(或从 HEAD 现读一条),不得全部用自造夹具。实测于 2026-09-25 G-182:`archive-completed-tasks.mjs` 的匹配式与 `PROJECT_PLAN.md` 的真实标题形态漂了 11 天,而它的 15 个镜像测试**全绿** —— 因为夹具复刻的是实现的形状;更糟的是其中一条测试还把「必须以 `### [x]` 开头」当成规格去断言,**测试从防线变成了缺陷的掩体**。⇒ **镜像测试若只复读实现,它就只是复读机。**
-
----
-
 ## 22d. `isDirectRun` 模式规范:ESM 脚本"双形态"入口守护(2026-08-18 立)
-
-### 背景
-
 部分 `.mjs` 工具脚本(如 `scripts/check-staged-typecheck.mjs`)需要同时支持两种使用形态:
-
 1. **CLI 直接执行**:`node scripts/foo.mjs`(命令行手动跑 / pre-commit hook 调用 → 必须自动执行 `main()`)。
 2. **模块被 import**:`import { __test__ } from './foo.mjs'`(测试文件复用导出符号 → **绝不**触发 `main()` 副作用)。
-
 ESM(`.mjs`)模块与 CJS(`.cjs` / `.js` + `"type": "module"`)的求值模型:**顶层代码仅在被 import 时执行一次**,但**直接 `node foo.mjs` 时同样会执行顶层代码**。这意味着 — 如果脚本顶层直接写 `main().catch(...)`,测试一旦 `import` 该模块,就会**连带触发 CLI 主流程**(批量跑 typecheck、写临时 tsconfig、调 git diff),把测试环境搞炸,或更糟 — 在测试用例之间留下真实副作用(临时文件未清理、staged 状态污染)。
-
 ### 根因:`import.meta.url` vs `process.argv[1]`
-
 - **`import.meta.url`**:ESM 模块加载器注入,恒为**当前模块文件**的 `file://` URL(无论是被 import 还是直接 node 执行,值都相同:指向 `foo.mjs` 自身)。
 - **`process.argv[1]`**:Node 启动时传入的第一个脚本参数,只在**直接 node 执行**时等于本模块路径;被 import 时为 undefined 或与本模块无关。
-
 因此判定**"本模块是不是被直接 node 执行"** 可用:`import.meta.url === pathToFileURL(process.argv[1]).href`。两者相等 ⇒ 直接执行,触发 `main()`;否则 ⇒ 被 import,跳过副作用。
-
 > ⚠️ **跨平台陷阱**:Windows 路径是反斜杠 `C:\foo\bar.mjs`,不能直接拼成 `file://` URL,否则 `import.meta.url`(始终是标准 `file:///`)与字符串永远不匹配。**必须**经 `node:url` 的 `pathToFileURL()` 归一化。
-
-### 可复用模板
-
 在 `.mjs` 脚本**底部顶层**(所有 export 之后)粘贴以下 4 行(已适配 Windows / Linux / macOS,推荐用项目现存形式而非手写字符串拼接):
-
-```javascript
 import { pathToFileURL } from 'node:url'
-
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
-
 if (isDirectRun) {
   main().catch((e) => {
     console.error(`❌ ${e?.message ?? e}\n${e?.stack ?? ''}`)
     process.exit(2)
-  })
 }
-
 export const __test__ = {/* 暴露给测试的核心函数 */}
-```
-
 位置约束:
-
 - `__test__` 的 `export` 必须放在 **`if (isDirectRun)` 之后**(否则 ESM 提升可能在测试 import 时机前完成,语义仍正确但不直观;且与 §22c "镜像常量守门" 的 `import { __test__ as ... }` 锚点要求一致,便于 grep)。
 - `main()` 自身声明应保持文件靠前位置(便于阅读),`if (isDirectRun)` 仅触发调用,**不**延迟或重写 `main`。
 - `process.exit(2)` 复用 §22b 中"异常 vs 失败"的退出码约定(2 = 脚本自身异常,1 = 业务失败)。
-
 ### 与 §22c 的关系
-
 `isDirectRun` 是 **§22c 镜像常量守门模式的使能条件**。没有它,§22c 的"源文件 export `__test__` + 测试 import"做法会因为 `main()` 顶层自动执行而不可行 — 测试一旦 import 就会触发 CLI 主流程,副作用污染测试环境(写临时文件、调 git 改 staged 状态、写控制台横幅噪音),`vitest` / `node --test` 都会在 setup 阶段立即崩。`isDirectRun` 把"CLI 入口"和"模块导出"两种用法的副作用隔离开,使 §22c 的 export / import 双真相消除得以落地。
-
 两者协作的最小工作流:
-
 1. 源 `.mjs` 脚本加 `isDirectRun` 守护(本节模板)。
 2. 源脚本 export `__test__ = { fn1, fn2, ... }`(§22c 第 1 步)。
 3. 测试文件 `import { __test__ as X } from '../source.mjs'`(§22c 第 2 步)— 因 `isDirectRun=false`,`main()` 不执行,仅拿到导出对象。
 4. 守门脚本 `scripts/check-staged-typecheck-mirror-sync.mjs` 三阶段检测 export / key / import 锚点(§22c 第 3 步)。
-
-### 红线规则
-
 - ❌ 禁止在 **CommonJS / `.cjs`** 脚本中使用 `isDirectRun`(`.cjs` 没有 `import.meta`,需走 `require.main === module` 判定,本规范不适用;混用会导致 `SyntaxError: Cannot use 'import.meta' outside a module`)。
 - ❌ 禁止把 `main()` 写成**同步函数**后用 `if (isDirectRun) { main() }`(同步抛错会抛出 toplevel,无法被 `.catch` 包裹,且 ESLint `no-top-level-await` 外的同步 throw 在 Node 18+ 表现不一致;必须保持 `main()` 是 `async` 或返回 `Promise`)。
 - ❌ 禁止手写字符串拼接 `import.meta.url === 'file:///' + process.argv[1]` 替代 `pathToFileURL`(Windows 反斜杠永远不匹配,直接判定失败 → CLI 永不触发 main → 静默失控)。
@@ -1383,152 +975,93 @@ export const __test__ = {/* 暴露给测试的核心函数 */}
 - ❌ 禁止把 `export const __test__` 移到 `if (isDirectRun)` **之前**且不放 `export`(否则测试 import 时拿到 undefined,§22c 守门 phase B 立即失败 — 这是预期行为,不是 bug)。
 - ✅ 修改源脚本的 `main()` 调用约定时必须同步 §22c 守门(双验证 `pnpm test` + `node scripts/check-staged-typecheck-mirror-sync.mjs`),否则 `__test__` 导出语义与 import 时机解耦,可能让测试在 CI 通过而在本地 import 时副作用泄漏。
 - ✅ 新增任何"需要双形态(CLI + import)"的 `.mjs` 工具脚本,必须沿用本节 4 行模板 + §22c export 规范,**不**为单次用例复制粘贴变体。
-
----
-
 ## 23. `.gitignore __*` 规则静默忽略 `__tests__/` 目录教训(强制)
-
-### 触发背景(2026-07-25 立,真实事故)
-
 `.gitignore` 第 154 行 `__*` 规则(本意是忽略"Agent 临时脚本",如 `__round1.log` / `__audit_dump`)会**静默忽略**所有以 `__` 开头的路径,包括合法的 `__tests__/` 测试目录。**关键陷阱**:`git status` 对 ignore 的文件**完全不显示**(既不 untracked 也不 modified),开发者肉眼完全看不到。
-
 ### 真实事故(2026-07-25 阶段 13 集成测试)
-
 集成测试 subagent 在 `apps/web/__tests__/storage-adapter.test.ts` 写完测试文件,本任务合 stage 13 计划清单:
-
 - 创建文件 → `git status` 不显示
 - 编辑文件 → `git status` 不显示
 - 准备 commit 时,`git add __tests__/` → 无任何文件可加(`__*` 规则吞掉)
 - 险些导致整个 stage 13 测试集成**永久丢失**;直到最后 `git check-ignore -v apps/web/__tests__/` 才追查到 `__*` 规则源头
-
 修复方法:把目录重命名为 `tests/`(避开 `__*` 规则)→ 后续 16 个 `__tests__/` 目录已审计,**全部未被 `__*` 规则命中**(未含 `.gitkeep` 且 `git check-ignore` 返回空),本任务仅作为守门+教训记录,不要求批量迁移。
-
 ### 硬性规则(违反视为事故)
-
 1. **项目内测试目录必须用 `tests/`**(推荐)或 `spec/` / `__tests__/` + `.gitkeep`(不推荐);**禁止**新建无 `.gitkeep` 的 `__tests__/` 目录。`__tests__/` 命名只在"目录内全部文件被故意 ignore + 留 `.gitkeep` 占位"时使用。
 2. **创建测试目录前必须** `git check-ignore -v <path>` 确认不被 ignore(空输出=安全,非空=被命中);`__` 前缀目录需逐个验证。
 3. **CI / pre-commit 必跑** `node scripts/check-test-paths.mjs`(本任务新增,§守门脚本速查),命中 `__tests__/` 无 `.gitkeep` 且被 gitignore 吞掉 → 阻塞(退出码 1)。
-
 ### 守门脚本:`scripts/check-test-paths.mjs`
-
 - 扫描 `apps/` + `packages/` + `scripts/` 下所有 `__tests__/` 目录
 - 每个 `__tests__/` 调 `git check-ignore -v` 复核 + 检查 `.gitkeep`
 - 同时检测 `*.tmp` / `*.bak` 目录 + 非白名单隐藏目录
 - exit 0 (无阻断) / exit 1 (有 `__tests__/` 被吞掉阻断项)
 - 详细用法:脚本头部 docstring
-
 ### 关联案例
-
 - 阶段 13 集成测试 subagent:险些丢失 `apps/web/__tests__/storage-adapter.test.ts`
 - 历史事故:曾出现"测试写了不显示 → commit 漏文件 → CI 假绿"模式,本节规则根治
-
 ---- **2026-07-26**:Commit 丢失防护机制强化。本地 lost-commit/* tag 被 git gc 清理事故暴露后,新增 sync-lost-commit-tags.mjs 自动 push + fetch 机制,创建 docs/lost-commit-archive.md 永久档案,check-commit-loss-guard.mjs 升级为 5 段检查(reflog 50 步 + 远程 tag 校验 + tag 对象可达性)。
-
----
-
 ## 24. 新增功能须用户确认强制规则(强制)
-
-### 触发条件
-
 任务类型 ∈ {新增功能模块 / 新增 API 路由 / 新增页面 / 新增端能力 / 新增对外能力清单 / 在 PROJECT_PLAN.md 中无对应条目的自发性功能开发}。
-
 > 判定"新增功能"而非"修改/修复"的核心标准:**是否引入了 PROJECT_PLAN.md 当前任务清单之外的新能力**。是 → 触发本规则;否(属于现有功能的修复/重构/优化/适配)→ 不触发。
-
 ### 强制动作(缺一不可,违反视为越权事故)
-
 1. **暂停开发**:识别到"新增功能"意图后,**禁止**直接动手写代码,必须先用 `AskUserQuestion` 工具向用户确认是否开发该功能。
 2. **明确边界**:确认问题必须包含 ① 功能目标一句话描述 ② 受影响范围(端/文件/契约) ③ 是否纳入 PROJECT_PLAN.md(及其优先级 P0/P1/P2)。
 3. **等待显式同意**:用户回复"同意/可以/做吧/开发"等肯定语义后才能开始;用户回复"不用/暂缓/先不做"则**禁止开发**;模糊回复需再次确认。
 4. **补登记 PROJECT_PLAN.md**:用户同意后,将该功能追加到 PROJECT_PLAN.md 对应优先级末尾(遵循 §1),再开始编码。
 5. **commit message 前缀**:新增功能 commit 用 `feat:` 前缀(§1 已规定)。
-
-### 红线(违反视为协作事故)
-
 - ❌ **禁止**未确认直接开发新功能(包括"顺手加一个"、"我看这里缺个"、"我加个小特性")。
 - ❌ **禁止**把新功能伪装成"修复/重构"绕过确认(如新增路由写成"重构路由文件")。
 - ❌ **禁止**在 `/goal` 模式下借目标执行之机擅自扩展目标范围外的新功能(违反 §8 红线"严格围绕目标,禁止扩展需求")。
 - ❌ **禁止**用"已写完了,你看下要不要保留"代替事前确认。
-
 ### 豁免场景(允许不确认直接开发)
-
 - **用户在本轮对话已明确要求开发该功能**(如"帮我加个 XXX 功能"、"做个 XXX")——用户意图已显式,无需再次确认。
 - **/goal 模式目标条件内包含的功能**(目标已包含 = 已确认)。
 - **纯 bug 修复 / 重构 / 类型修复 / 测试 / 文档 / 配置**(不引入新能力)。
 - **守门脚本 / 工程约束自身的增量**(本节即触发例,属工程治理而非业务功能)。
 - **PROJECT_PLAN.md 已有条目的细化执行**(任务已登记 = 已确认范围)。
-
 ### 与其他规则协同
-
 - 与 §8(goal 模式)协同:goal 模式下不得借目标扩需求,新增功能必须先暂停 goal 询问用户。
 - 与 §9(多端同步)协同:用户确认新功能后,默认按 8 端同步开发,除非显式标注"平台独占"。
 - 与 §21(README 同步)协同:新功能开发必须同 commit 更新 README(§21 触发条件命中)。
 - 与 §7(删除安全)协同:新功能开发中如需删除/重构现有代码,仍遵循 §7 三问。
-
----
-
 ## 25. `verify-*.mjs` / `verify-*.ts` 临时验证文件归档规则(强制)
-
-### 触发条件
-
 Agent 在调试 / 验证 / 探查某项功能时,常在 `apps/web/` / `apps/api/` 等源码根目录随手写一个 `verify-xxx.mjs` 脚本(如 `verify-permission-popover-v2.mjs` / `verify-permission-popover-v3.mjs` / `verify-login-tabs.mjs`)快速跑一次。这类临时文件**禁止**提交到 git,必须归档到 `.ihui-agent/tmp/<任务名>/`。
-
 ### 强制动作(缺一不可,违反视为协作事故)
-
 1. **临时文件必须放 `.ihui-agent/tmp/<任务名>/`**:例如 `.ihui-agent/tmp/perm-popover-debug/verify-v2.mjs`。
 2. _*禁止放 apps/* 根目录_*:`apps/web/verify-*.mjs` / `apps/api/verify-*.ts` 等位置**严禁** commit。
 3. **禁止放 .ihui-agent/ 根目录**:`.ihui-agent/verify-*.mjs` 与守门脚本混在一起,难追溯。
 4. **路径推导用项目内路径**:`$PSScriptRoot` / `__dirname` / `import.meta.url`,不写硬编码绝对路径(§15 卫生规则)。
 5. **任务完成后清理**:`rm -rf .ihui-agent/tmp/<任务名>/`(已 gitignore,自动忽略)。
 6. **commit 阶段禁 add**:`git add <本任务文件>`(§12 多会话保护),**禁止** `git add .` / `git add -A` 一次性把所有 verify-*.mjs 加进去。
-
-### 红线(违反视为协作事故)
-
 - ❌ **禁止** `apps/web/verify-*.mjs` 等源码根目录临时文件 commit(会被守门脚本警告 + 污染 main 分支)。
 - ❌ **禁止** 用 "这是为了验证 XXX 功能" 借口把临时文件 commit 进来。
 - ❌ **禁止** 留 `verify-v1.mjs` / `verify-v2.mjs` / `verify-v3.mjs` 等版本号后缀文件(版本号在 git history 里有)。
-
 ### 豁免场景(允许放源码目录)
-
 - 守门脚本:`scripts/check-*.mjs` / `scripts/verify-*.mjs`(正式工具,有 README/CLI/help)。
 - 测试文件:`*.test.ts` / `*.spec.ts` / `tests/` / `__tests__/`(符合 §23 测试目录规则)。
 - 长期保留的 E2E 脚本:`scripts/e2e-*.mjs`(已纳入 CI,有意保留)。
-
 ### 守门脚本:`scripts/check-verify-tmp-files.mjs`
-
 - 扫描 `apps/*/verify-*.mjs` / `apps/*/verify-*.ts` / `scripts/verify-*.mjs`(白名单外)
 - 发现任意 1 个 → 警告(不阻断,只提示)
 - 集成位置:CI / guardian-runner 后续项(暂 warn-only,后续按需升级 blocking)
 - 退出码:0(有警告但通过)+ 输出警告列表
-
-### 与其他规则协同
-
 - 与 §12(多会话并行)协同:`git add` 阶段只加本任务文件,不批量加 verify-*.mjs。
 - 与 §13(文件修改持久化)协同:Read 验证 verify-*.mjs 的修改生效。
 - 与 §15(工作区卫生)协同:临时文件必须项目内路径(`.ihui-agent/tmp/`),不写 `G:\` 根目录或 `C:\temp\`。
 - 与 §23(测试目录)协同:`verify-*.mjs` 命名 ≠ 测试文件,不能伪装成 `*.test.mjs` 绕过守门。
-
----
-
 ## 守门脚本速查(pre-commit 项,按类别)
-
 - **事务体内取消探测对账**(guardian id 以 `scripts/guardian-runner.mjs` 现值为准 —— 本枚落地取到 **195**,并发会话可能挪号;**blocking**,`stagedTriggers=apps/` + `packages/`,紧急跳过 `HUSKY_SKIP_TXN_CANCEL_BOUNDARY=1`,票 G-815960):`scripts/check-txn-cancel-boundary.mjs` 拦的是**"取消探测住在事务体内"**这一型 —— 上游把这条纪律写在注释里(SQLite adapter 是同步事务,不 await ⇒ 检查与提交之间没有异步重入窗口),我方语义等价物是 postgres.js 的 `db.transaction(async tx => …)`,它是真异步的:体内出现 `throwIfAborted()` / `signal.aborted` / `isCancelled()` 并据此抛出或短路,控制流会从 `await` 处被夺走 ⇒ **回滚与"谁观察到取消"的次序不可判定**,取消落在事务边界内而不是边界外。判据:`db.transaction(`(含同文件别名绑定与标识符传入的声明体)回调体内探测取消即红;检查必须在**边界外**。三态不并桶:命中 / 放过(边界外、正则体内、声明形态三桶各自报数)/ 未判定逐条点名 —— HEAD 现读 **文件 9007 / 事务体 87 / 命中 0 / 未判定 12**(这三个数是**落地那轮的现读、不是现值**,现值一律跑 `node scripts/check-txn-cancel-boundary.mjs` 看末行,不得照本文数字派单),那 12 处全是 IndexedDB 的同名 `db.transaction(STORE_NAME,'readwrite')` 与测试里的裸 `transaction(`(接收者判不出按规矩落未判定,既不冒红也不记绿),`--strict` 今天恒 rc=2 是**拒绝出合格证**而非仓库故障,清偿动作是给门补"回调实参 vs 仓库名实参"的判别或由持有人逐条裁决,**禁止建豁免清单**(登记表必然腐烂)。取材同 70/77/83/98/101/103/118(全量判 HEAD blob、`--staged` 判索引 blob、`--worktree` 仅人工、两面旗同给 exit 2、清单与内容同面同轮经 `scripts/lib/face-reader.mjs` 的 `catBatch`、空枚举判死不记绿、改动集未触及射程时回落 HEAD 并喊出来)。遮噪只引 `scripts/lib/code-mask.mjs` 那一份,双视图分工写进门注:切体用"连字符串与正则体也抹"那一档(串里的伪括号会把配平读成 unbalanced),住在正则体内的形态由另一视图显式归入放过桶。取证 `--self-test` 23 条(含"摘掉剥注释那一步即翻红"的有牙证明,以及两处由测试逼出来的自伤:别名形态早退守卫只看字面 `transaction(` 会让 `const txn = db.transaction` 整型隐身;标识符回调解体成功后又被当实参重跑 ⇒ 成功解析却谎报未判定)+ §22c 镜像 7 例(T1 是**双向**装车锁:注册表查得到而头注仍自称未落地 ⇒ 红,查不到而自称已接线 ⇒ 也红;T3 临时仓四臂:注入必红 / 移出边界必绿 / 只在注释必绿 / 注释+真站点仍红)。**成本口径**:`--staged` 面 0.33s 而全量档 43s,所以触发面必须收窄到 apps/packages —— 文档类提交根本不唤起它,否则每台每次多付 43s 就是把人推向跳门(§12e 同型)。
-
 - **自检用例登记侧的求值配对对账**(guardian id 以 `scripts/guardian-runner.mjs` 现值为准 —— 本枚落地取到 **156**,并发会话可能挪号;**定级 warn**(理由见下),`stagedTriggers=scripts/`,紧急跳过 `HUSKY_SKIP_SELFTEST_REGISTRANT=1`(由 runner 分发循环 honors,门体自身不读该 env):`scripts/check-selftest-registrant-evaluates.mjs` 拦的是**「登记一条自检用例的函数把实参存起来却从不求值,而有人正往它嘴里喂函数」**这一型 —— 那种 self-test 打印的"N/N 通过"是假的。判红必须两条同时成立:**R-REG** 登记不求值(裸存 `{name, ok}` / `!!x` / `Boolean(x)` / `x ? 'PASS':'FAIL'`;求值证据两种都认 —— 体内调用该形参,或存进去的键在全文被当函数调 `c.fn()`,后者就是 thunk 族合规的根据)+ **R-CASE** 同一**自检宿主**内确实有以该登记函数为名的调用、其第二实参是裸箭头函数或裸 function(`(() => {…})()` 自调用、`a === b` 比较式、单个标识符一律不算)。**只满足 R-REG 一律只报数**:接线当天现读潜伏 36 处 + 未判定 4 处(登记函数被抄出 29 种写法、55 个登记点,而被抄最多的恰是不求值那一族 ⇒ 是"没有共用出口、靠抄邻居"的结构问题,不是 36 个人的疏忽),当场把这 36 道判红就是与任何提交都无关的恒红门,唯一结局是各会话跳钩子、连带链上全部守门作废(§12f 同型),所以问责出口是 `node scripts/check-selftest-registrant-evaluates.mjs --strict`(有未判定即 rc=2,拒绝出具合格证;刻意不写 `pnpm check:*` 别名 —— 那要改此刻在他人手里的根 `package.json`,写一个跑不通的出路比不写更糟)。三型**不计潜伏也不判红**:`cond === true` 这类值比较族(传函数得 false ⇒ 当场翻红,不是静默绿)、形参被喂进别的调用(本门承认看不见那一层是否求值 ⇒ 未判定)、宿主函数之外的两参数 push(`walk` / `scanSource` / `route(method, handler)` 那一族数据收集器,现读 30 处 —— 不加宿主限定它们全被算成潜伏,而 `route('GET', () => …)` 是合法写法 ⇒ 假红)。射程只到仓库根 `scripts/*.mjs`(`lib/` 与 `tests/` 不在面内:node:test 的 `test(name, fn)` 本来就该传函数)。登记函数须声明在自检宿主体内(现读宿主名只有 `selfTest` / `runSelfTest` / `selfTestRun` 三类)—— **已知漏报**:宿主另取它名的文件不进射程。修复出口只有一条:把登记侧改成求值形态(体内调用,或改 thunk 族 `push({name, fn})` + `c.fn()`),**禁止把用例改成布尔去过门**。行内出口 `selftest-registrant-exempt: <原因>`(须带原因、只救本行;原因不得由 `*/` 冒充)。**残余两格,归下一票**:① 该豁免族尚未进守门 108 的存活期表(改的是 `check-exemption-expiry.mjs`,不在本票文件清单内);② 41→36 的差来自口径(本门把登记点限定在自检宿主内,并把值比较族/装箱族另档计),两个数不得互相顶账。口径同 70/77/83/98/101/103/118:全量判 **HEAD blob**、`--staged` 判**索引 blob**、`--worktree` 仅人工、两面旗同给 exit 2、取不到判"无法判定"、枚举到 0 个在射程文件判死不记绿;遮罩只引 `scripts/lib/code-mask.mjs` 那一份(它不认正则字面量 ⇒ 那一型表现为"看不见某文件的登记函数",方向是少判不误判,由镜像的覆盖面自证兜住)。取证 `--self-test` 与 §22c 镜像各以命令末行现读为准(镜像含 T4 真临时 git 仓的端到端三臂:注入必红 / thunk 必绿 / 同一形状只写进注释必绿,以及 T5"未注册不得被读成已装车 + 定级被改成 blocking 必读得出")。**立门凭据**是 `check-single-branch.mjs` 的实录:13 条用例全传箭头函数而登记侧写 `!!ok` ⇒ 恒真 ⇒ 一路打印"13/13 通过"却一条都没判过,同一文件一处单位错误(秒差 ÷ 3,600,000,把 48h 豁免窗算成 ~5.5 年)在该掩护下长期隐形(该门已由枚 `aea810c81` 修好,不在本门射程内,但它是本门存在的理由)。
-
 - **名字承诺/实现兑现对账**(guardian id 以 `scripts/guardian-runner.mjs` 现值为准 —— 本枚取号器落地时给到 **137**，并发会话可能挪号；blocking，`stagedTriggers=apps/ packages/ scripts/ deploy/ monitoring/ sdks/`，紧急跳过 `HUSKY_SKIP_DIGEST_NAME_REALITY=1`)：`scripts/check-digest-name-reality.mjs` —— 拦的是**「函数或字段的名字承诺了摘要/脱敏，实现却没兑现」这一型**：读判据的人相信名字，而名字可以是张空支票。立项因由是本会话同轮量到的 4 处：`cross_account_guard._fingerprint_hash()` 文档写「计算指纹哈希」而实现是 `return "|".join(parts)`（明文，内含 UA/时区/伪经纬度），被原样持久化成设备图谱的跨账号比较键；`apps/cli/src/doom-loop-detector.ts` 的 `hashInput()` 字段全程叫 `inputHash`、实现是 `JSON.stringify(整个工具入参)`，随 `pattern` 明文 POST 进服务端长期落库；`deploy/scripts/ai-diagnose.mjs` 注释承诺「发送前一律抹掉」而正则只盖三族；`packages/types/src/device.ts` 写「指纹不可逆」而实现是有界字典上的 FNV-1a。**三条与门缺一不可**（只看"没有哈希调用"会把 Redis 的 hash 结构键名、显示档 `mask*`、JWT 的 `signature` 段名、内存内比较键满天误报）：① 命名承诺（**词元匹配非子串**，`hashtags` 不得被读成 `has`+`tags`=hash 承诺）② 可达返回/赋值面内无任何真散列调用 ③ 值流向持久化/出网出口或被当等值标识用。判不出的一律落 **未判定** 并报数（`digest` 在「散文摘要」与「密码学摘要」两义同形，机械分不开 —— 本仓最高频的失效型是"把没判写成判过了"，所以 `--strict` 下有未判定即 **exit 2，拒绝出具合格证**）。口径同 70/77/83/98/103/118：全量判 **HEAD blob**、`--staged` 判**索引 blob**、`--worktree` 仅人工、两面旗同给 exit 2、枚举到 0 个候选判死；`--staged` 棘轮锚点 = 该文件 HEAD 自身存量。**行内出口 `digest-name-exempt: <原因>` 必须带原因、且只认声明行与其紧邻上一行**（写两行注释把标记顶到上上行 = 豁免不生效，本门落地当天主会话自己踩过并改正），已挂守门 108 的 30 天存活期档 —— 命名债一律**改名收口**而不是用豁免遮（`oauth2.ts` 那处 `hashed` 列表里混着明文 legacy secret，就是改名为 `storedCandidates` 而非豁免）。**假阳性清单如实登记**：首跑 3 处命中经逐条复核，`fingerprints`（哈希值的集合）与 `hashIdx`（URL 片段 `#` 的位置下标）是同词不同义、带原因豁免；判据有牙的证明是**阳性对照** —— 把修复前那枚父提交（`69a3d72f2`）的 `cross_account_guard.py` 与 `doom-loop-detector.ts` 原文喂同一判据 ⇒ 命中 2/2 文件，而修复后的 HEAD ⇒ 命中 0。取证 `--self-test` 35 条 + §22c 镜像测试（含"从注册表按大括号配对取出本门那一条再判 blocking+skipEnv"的装车证明、"摘线不得被读成已装车"的反向对照、"预筛必须是判据关键字超集"、"真散列形态必须落放过"）。手动问责入口 `pnpm check:digest-name`（走 `--strict`）。**两条写门过程中由主会话接手修掉的缺陷（F 代理撞轮次上限死在半途，记下来防再犯）**：① `JS_ASSIGN_RE` 定义了却从未接进 `findUnits` ⇒ `const digest = 拼接` 整型隐身，既不判红也不记未判定（自检 23 抓到的是"静默放过"），接上后候选声明 351→496；② `git grep` 的 `--cached` 被放在模式**之后** ⇒ `--staged` 档 `fatal: unable to resolve revision: --cached`，而 runner 给每道门追加 `--staged`，**接上就是每一次提交恒红**。
 - **后台任务类型三面 parity**(guardian id 以 `scripts/guardian-runner.mjs` 现值为准 —— 本枚落地时取到 **136**,并发会话可能挪号;blocking,`stagedTriggers=apps/ai-service/app/services/` + `apps/ai-service/app/api/`,紧急跳过 `HUSKY_SKIP_BG_TASK_TYPE_PARITY=1`):`scripts/check-background-task-type-parity.mjs` —— V3 #51 立。钉的是"**声明了任务类型却没有执行器**"和"**有执行器却没人接线**"两型:声明面(`run_in_background` 广告给模型的 task_type 集合)↔ 实现面(`task_executors.py` 注册表)↔ 接线面(生产调用点)三面必须一致,任一面多出即红;回显型 executor(sleep/echo 冒充执行)直接判红。**存量按"在账未接线"报数不判红**(落地当天现读:六类中仅 2 类接线、6 类在账)—— 当场判红就是一台与任何提交都无关的恒红门,唯一结局是逼人 `--no-verify` 连带废掉全部守门(§12e 同型)。取证 `--self-test` 30 条 + §22c 镜像 6 例(其中 T2 按**大括号配对取出本门那一条注册项**再判 `mode: 'blocking'+skipEnv+stagedTriggers —— 上一版取「脚本名前后各 400 字符」当条目范围,会跨进邻门:别人有 blocking 就算我有;它原先还断言 `blocking: true`,而本仓 runner 167 处全是 `mode: 'blocking'`,那条断言对任何正确注册的门都恒红)。 **注册曾被并发会话按旧副本整块写回**:落地当天 `grep -c check-background-task-type-parity scripts/guardian-runner.mjs` 由 1 变 0,而 AGENTS 仍点名它 ⇒ 门在、判据对、无人调度,且没有一道门会喊(它头注没自称已接线所以 R1/R2 不响,镜像 T2 的「未注册」分支也照样绿)。教训:接完门必须在 **HEAD 面**复现 grep 计数,不能只看落地器打印的成功;编号一律现读,不得照抄本文。**尚无 §22c 镜像测试,已登记为残余**。
 - **百分比裁剪单一出口对账**(`scripts/check-percent-clamp-single-source.mjs`,G-815966 第二票,**镜像判据档 · 刻意不在提交链** ⇒ 没有紧急跳过变量,它不在钩子链上;问责入口 `pnpm check:percent-clamp` = 该门 `--strict`):判的是「出口 `packages/shared/src/utils/clamp-percent.ts` 之外,任何文件再手搓一份 0–100 百分比裁剪」——形态清单五条(`Math.max(0, Math.min(100,…))` / `Math.min(100, Math.max(0,…))` / 两种三目 / `clamp(x,0,100)`),只认 0..100 这一档,0..1 归一化与 0..255 通道刻意不拦。**遮罩与原文两把都要**:等长遮罩只压白命中行,而"这一行是不是代码"必须拿原文非空白字符数判,少这一步门会把解释自己的散文判成站点(守门 131 同课)。口径同 70/77/83/98/101/103/118(全量判 HEAD blob、`--staged` 判索引、`--worktree` 仅人工、两旗同给 exit 2、**出口被摘线判"尺子失明"并参与退出码**);HEAD 现读站点 0 处 ⇒ 接线不产生恒红面,但"接不接提交链"归该器持有人,不得由补点名的人顺手接。**两条如实登记(都发生在本票落地当天)**:① 该门体曾以**未跟踪 orphan** 形态在盘上躺 5 天(mtime 2026-10-01)而它的镜像测试 `scripts/tests/clamp-percent-single-source.test.mjs` 早已入库并被后续提交修过语法 ⇒ 干净检出上"有测试、无门体",且门体在全仓零调度器、零具名入口(门 89 的 R3/R4 合成盲区:测试不引用门体名字,R4 要等入口出现才看得见);现门体与 `pnpm check:percent-clamp` 同枚入库(`50c79ca22d`)。② **门体判据与那份镜像测试目前是两套实现且已漂开**(门 5 形态 / 测试 3 形态,且测试自带一份正则而非调用生产入口)——这违反 §22c"禁止在测试文件中复制源函数实现",清偿动作是"测试改调生产入口 + 形态集合对账",在漂开修掉之前,本行的"五条形态"不得被读成"测试也覆盖五条"。
 - **测试判据复制对账**(guardian id 以 `scripts/guardian-runner.mjs` 现值为准 —— 本枚落地取到 **191**,并发会话可能挪号;**warn**(定级理由见下),`stagedTriggers=scripts/check-` + `scripts/tests/`,紧急跳过 `HUSKY_SKIP_TEST_JUDGE_REPLICATED=1`,问责档 `node scripts/check-test-judge-not-replicated.mjs --strict`):`scripts/check-test-judge-not-replicated.mjs` 把 §22c 那句"禁止在测试文件里复制源判据"第一次变成**跨门**判据 —— 此前它只有散文,而散文在本仓的失效形态永远是安静。两条判据:**F1** 门体与它的镜像测试各写了一份**同名同料**的形态清单/正则集(复制判据);**F2** 测试 import 了门体、却在本文件内另声明一份清单并拿它当断言输入(半复制)。立项由头是一枚真事故:`scripts/tests/clamp-percent-single-source.test.mjs` 自带 3 形态正则而门体有 5 条,测试一路 4/4 报绿、两边早漂开,甚至在门体根本不在 HEAD 的那 5 天里被人当"活的"改过语法 —— **测试被维护、判据没人对账**。该例的实现已收口(枚 `d10fbebd14`:改调 `gate.*` 生产入口 + 自带"门体不得比本测试历史上覆盖得更窄"的锁),**那是那一道门自己的锁,不是这把尺子**,两票不互相顶账。三态绝不并桶:命中 / 放过(经门导出口裁定的 `import` 通道、以及钉"源码写法"的形状锁)/ 未判定逐条点名。**定级 warn 是设计前提不是偷懒**:真仓 HEAD 面现读 `命中 27 · 放过 137 · 未判定 143`,当场 blocking 就是一台与任何提交都无关的恒红门,唯一结局是各会话 `--no-verify`、连带全链约 190 道门对该提交作废(§12e);**升 blocking 的前置 = 命中归零 且 未判定被逐条定性**(现读:未判定非零 ⇒ `--strict` 今天出不了合格证)。口径同 70/77/83/98/101/103/118:全量判 HEAD blob、`--staged` 判索引 blob、`--worktree` 仅人工、两面旗同给 exit 2、取不到不回落、**枚举到 0 个候选判死不记绿**;清单与内容同面同轮;遮罩只引 `scripts/lib/code-mask.mjs` 那一份。行内出口 `judge-replica-exempt: <原因>`(须带原因、只救本行)—— **该族已同笔登记进守门 108 的 `FAMILY_LIFETIME_DAYS` 取 30 天**(2026-10-06,枚 `ff25b5692`)—— 它豁免的是"待拆的第二份真相"这笔**待偿的收口债**(唯一出路 = 把判据从门体导出、测试改调生产入口),不是 `back-label-exempt` 那种结构性定性,所以不取 365 天、也不走 108 对未登记族兜的 90 天默认档。这条跨文件规矩现在由本门镜像测试 **T10** 钉住:族名现取门体自己的 `EXEMPT_MARK`,登记与否现取 108 自己的 `isFamilyRegistered`,天数现取那张表 ⇒ 两处都不靠人记得,也不在测试里手抄第二份。取证 `--self-test` 与 §22c 镜像各以命令末行现读为准(含**阳性对照钉出处不钉 HEAD**:`d10fbebd14^` 那份测试原文喂同一判据必须命中、同一站点收口后必须落"放过";两条变异各摘一种放过通道 ⇒ 各自翻红,证明"形状锁 vs 复制判据"这一分界有牙也不误冒红)。**已知边界写在门体头注**:只比 `scripts/check-*.mjs` 与其镜像(`scripts/lib/**` 不在射程)、同料比对是 16 字符窗口分桶(门体形态被写在测试正则**中段**时看不见)。
 - **注册表工作树超集对账**(guardian id 以 `scripts/guardian-runner.mjs` 现值为准 —— 本枚落地取到 **192**,并发会话可能挪号;**blocking**,`stagedTriggers=package.json` + `scripts/guardian-runner.mjs`,紧急跳过 `HUSKY_SKIP_REGISTRY_WORKTREE_SUPERSET=1`,问责/巡检档 `node scripts/check-registry-worktree-superset.mjs --strict`):`scripts/check-registry-worktree-superset.mjs` 拦的是**别人一次不带 pathspec 的提交就能把已入库入口静默写回旧态**这一型 —— 立因是当天实测:`check:percent-clamp` 已进 HEAD(枚 `50c79ca22d`),而本机 `pnpm run check:percent-clamp` 回 `ERR_PNPM_NO_SCRIPT`(pnpm 读的是**工作树**那份,而那份属另一路会话、没有这一行)。三道既有判据对这一格**全部结构失明**,都是现读确认过的:守门 166 的 `stagedTriggers` 逐字只有三份活文档;守门 84 判"暂存 blob == 某祖先 blob",而"旧副本 ⊖ 一行 ⊕ 他们一行"**不等于任何祖先** ⇒ 它沉默;`heal-worktree-tracked` 要求"索引 == HEAD",别人暂过存就整条不成立、且它只判"文件被 ` D`"不判"文件在、少几行"。两判据分开报、不折成一个数:**P1** 候选面整条不见 HEAD 已有的条目(pnpm `scripts` 键 / runner 的 `id:`+`script:` 注册块);**P2** 该条目被改写成别的形态(**必须逐行等值,行数等值糊不过去** —— 变异自证就是把比较改成"只剩行数",当场红在 S10)。为什么它可以直挂 blocking:真仓现读 28 份注册表、`P1/P2/未判定` 三档**全 0**,上线不新增恒红面(与 §12e 那条判断顺序一致:**先现读存量再决定定级**)。**只在 `--staged` 面问责**:runner 一律下发 `--staged`,而工作树副本常年属别人 —— 拿磁盘判就是每台每次被逼跳门。判不了的两格如实登记、不得读成通过:JSON 键序/缩进重排这类**语义等值而逐行不等**落"未判定"并点名(出路是给语义等值配一份比较器,**不是**放宽判据);覆盖面只到 `package.json` 的 `scripts` 映射与 runner 的注册块,`devDependencies`、`pnpm-workspace.yaml`、runner 非注册块改动**未覆盖**。有意删除的出口只有一条:台账 `scripts/data/registry-superset-exemptions.json`(2026-10-06 由枚 `ff25b5692` 从 `.ihui-agent/` 下的 jsonl 搬进被审面;换 JSON 不换 jsonl 的理由:逐行式里坏一行只让那一行失去凭据、其余豁免照旧生效,那正是"没人发现自己台账烂了一半"的形状,而 JSON 坏了整份读不出 ⇒ 只能报"无法判定"),逐条 `path + entry + reason + reviewBy`(reason 必须非空、`reviewBy` 是 ISO 日期且**过期即该条豁免即时失效**),**裸标记不放行**(S13/S13b 成对钉住)。**这两格已各自有判据,不再只是"路径不好"**:① 台账腐烂四型(缺字段 / `reviewBy` 过期 ⇒ 该条豁免即时失效并让那次写回重新显形 / 登记了而被审面没命中 ⇒ 清单腐烂 / 整份台账不在候选面 ⇒ 点名且**绝不折成"零豁免"记绿**;坏 JSON ⇒ exit 2 无法判定,既不记绿也不判红)都住在门 192 自己那把尺子里,台账的清单与正文**同面同轮**(候选面取正文,基准面只用来问"出口在不在基准上",取不到不回落);② 立票时实测到的比"不受版本控制"更糟一层 —— 那份 jsonl **在这台机盘上也从来就不存在**(`ls` + `find` 双零命中),于是门一直安静地按"零豁免"走,而谁真去写那一行,它只在那一台机上生效。取证:`--self-test` 40/40、镜像 15/15(新增 T10–T15,一律经门体 `__test__` 导出裁定而非复制判据)、真仓缺省档与 `--worktree --strict` 均 RC=0。**仍开着的一格**:①—④ 只随 `--strict` 判红、提交链档逐条点名不判红(理由 = "台账没被 add"是面的状态,不是本次提交人的账,当场判红就是把别人没 add 的东西算成他的,§12e);升档动作与三条前置写在门头注取证 `--self-test` 22 条 + §22c 镜像 9 例(含临时 git 仓端到端"删一行必红 / 补回必绿"、未跟踪文件不参与、空枚举判死、两面旗同给 exit 2)。
 - **计划文档 commit 引用可兑现性对账**(`scripts/check-plan-sha-resolvable.mjs`,**warn 级、刻意不接提交链**,手动问责 `pnpm check:plan-sha`;紧急跳过无需——它不在钩子链上):量的是「`PROJECT_PLAN.md` 里那些 `提交 \`abc1234\``式引用**今天还能不能真的问到对象**」。**三态绝不并桶**:可解析 / **取不到**(对象库里没有 = 指针已腐烂)/ **形状判不出**(全数字 8 位像日期或 CI run id、长度 13–39 像 integrity 片段、紧跟`#`像色值)—— 第三种既有独立计数也有锁,**不得**并进腐烂(那是把"没看清"写成"有问题"),也**不得**并进通过(那是把"没看清"写成"没问题")。立项现读:可解析 999 / 取不到 61 枚·97 次出现 / 判不出 58 枚·115 次;而**票面那句"44 枚"在任何口径下都不是 44**(全量 61、出现 97、只算有锚点 49、只算反引号+提交式 46、长度≥9 的 39、≤8 的 22)⇒ 派单与问责一律以命令末行现读为准,不采台账数字。**为什么 warn**:"引用能否兑现"与"本次提交改了什么"无关,挂 blocking 就是一台恒红门,唯一结局是逼人`--no-verify` 连带废掉全部守门(§12e 同型);`--strict` 现读 exit 1 —— 那是它**拒绝出具合格证**,不是仓库故障。**明令禁止**`--update` 式"把当前读数冻成基线":那等于给腐烂发通行证。口径同 70/77/83/98/101/103/118(全量判 HEAD blob、`--staged`判索引、两旗同给 exit 2、取不到判"无法判定"、枚举到 0 条判死),取证`--self-test` 32 条 + §22c 镜像 10 例。**写尺子过程中由自检抓出并锁死的三处判据自身缺陷**(都会以"数字看着合理"的形态存在,只有构造面能抓):`startsWith` 判序写反 ⇒ 全仓短 sha 静默落未判定;`selectFace`返回对象而非面名 ⇒ 三面同读 HEAD;索引档漏前导冒号 ⇒`--staged` 恒"取不到"。**未闭环的一格**:腐烂桶里混着形状相同但语义不同的东西(`6b8cd0f6` 实为 user_id、`c12612dc` 实为 adb 设备号),按形状判不出 ⇒ 需逐条人工定性才能从桶里摘出;`.ihui-agent/archive/*` 未纳入射程。
-
 - **批量写计数诚实性对账**(guardian id 以 `scripts/guardian-runner.mjs` 现值为准 —— 本枚落地时取到 134,并发会话可能挪号;`blocking`,`stagedTriggers=apps/api/src/routes/` + `apps/api/src/db/`,紧急跳过 `HUSKY_SKIP_BATCH_WRITE_COUNT_HONESTY=1`):`scripts/check-batch-write-count-honesty.mjs` —— 拦的是本仓 2026-09-26 一整批同型静默失真的**形状**:`db.delete/update ... where inArray(ids)` 之后把**请求侧数组的 `.length`** 当 `affected` / `deleted` / `restored` 回给前端。那一型的问题是"改了 0 行"与"改成功"在响应上完全同形 —— `where` 带 `eq(roleId)` / `eq(memberId)` 过滤时,传进来的 id 一个都不命中也照样回 `deleted: 3`,后台显示"已删除 3 项"而库里一行没动。当轮人肉清出 8 处(`chat.ts` batch、`admin-sys/role-routes.ts` cancelAll+selectAll、`admin-demand-square.ts`、`admin/_shared.ts` 的 `registerCrud` 批量删〔**19 处 admin 路由复用同一个工厂**〕、`message.ts` 批量删、`workspace.ts` batch-delete/batch-restore),统一出口是 `apps/api/src/utils/batch-outcome.ts`(`dedupeIds` + `batchWriteOutcome(requested, confirmed)` ⇒ `{requestedIds, affected, missedIds}`),db 层一律 `.returning({id})` 回报**库确认集合**,响应新增 `missedIds` 逐条点名(既有键名与 status code 逐字不变)。**四条放过通道,每条都有正反用例**:① 同一写链带 `.returning(`;② 计数根标识符 ≤2 跳可追到归属预查询(`business-card-routes.ts` 那种"先查 owned 再删"的**正确写法**不得判红);③ 该文件 import 了唯一出口;④ 行内 `batch-count-exempt: <原因>`(须带原因,裸标记不计)。**刻意不判的两型**:布尔 `deleted: true`(全仓惯例,HEAD 面实测 257 处、10+ 条用例当契约钉,要改属全 API 语义决策、交人定,不是这道门能顺手做的)与读查询 `count: rows.length`(不是写)。**判不了的形状如实登记**:写链在 db 层而计数在 handler(`workspace.ts` 那一型收口前看不见)、`send` 在嵌套箭头里、`deleted: (await …).length` 非点号链形态 —— 这些落 `未判定` 并报数,**`--strict` 下有未判定即 exit 2**(拒绝出合格证)。**口径同 70/77/83/98/103/118**:全量判 HEAD blob、`--staged` 判索引 blob、`--worktree` 仅人工、两面旗同给 exit 2、取不到判"无法判定"、枚举到 0 个候选判死;棘轮锚点 = 该文件 HEAD 自身违规数,所以存量未清时判红不会变成人人跳门。**两处遮噪方向不同**(本门自己踩过):判写链要"剥注释 + 保留字符串"(标识符落在字符串里的形态要看得见),判 `import` 说明符则连字符串一起抹会直接失明。取证 `--self-test`(35 条 = 构造面 27 + 临时 git 仓端到面 8)+ 镜像 10 例(含"禁 `process.cwd()` 定根 / 禁自派生 git 读内容 / 默认档必须判 HEAD"三条反向锁)。立门前阳性对照用**修复前的 HEAD blob** 喂同一判据:`_shared.ts ⇒ 342:deleted:idList.length`、`message.ts ⇒ 348:deleted:body.ids.length`,证明判据真能命中本仓实际产出的形态。
 - **守门 134 的两次补强(2026-09-27,不改动上面那条历史登记的正文;其"35 条 / 10 例"是落地时读数,现值一律跑该门 `--self-test` 与 `node --test` 看末行)**:① **B2「委托假 ack」判据** —— 布尔 `deleted/removed/…` 所在函数体**没有**直接写链(B1 因此失明),但体内 `await` 了本仓一个具名导出函数,而**被调函数体**含 `db|tx|trx` 写链且链上没有 `.returning(`、体内也没走 `batchWriteOutcome(` ⇒ 判红。**只解析一跳**(沿 import 说明符,含 `.js→.ts` 与目录 `index.ts`),解析不到 ⇒ `b2Undetermined` 逐条点名,**既不冒红也不记绿**;调用方与被调方必须**同面同轮**取(一次 `catBatch` 读满),否则并行会话推进的瞬间会产出自洽却错位的尺子。② **布尔档键族从 `deleted` 扩到 `deleted|removed|restored|revoked|cleared`,并把棘轮锚点粒度下沉到「文件 × 判据 × ack 键」** —— 只到"文件 × 判据"层的锚点会让"把一处 `deleted` 假 ack 改写成 `removed` 假 ack"**净零逃逸**,那是扩键**新造**的通道(BK1 在临时仓把它钉成必红;变异回文件级锚点 ⇒ BK1 当场翻红)。扩键同时补四条"证据在别处"的放过认法:一跳委托的 RETURNING(按 ack 键筛被调体写动词,筛完无匹配退回旧口径**而不是判红**)、`db.execute(sql…)` 括号内的 `RETURNING` 字样(认这条要用"剥注释、保留字符串"的取材档 —— **证据就在字符串里**,连字符串一起抹等于把它抹掉)、接收者不在 `db|tx|trx` 白名单(内存 Map/store 是唯一状态源 ⇒ 无"库侧行"概念,**不属本型**)、同响应里另有简写形态的行数载体。**五处已逐体核实为诚实的落点由判据自己认出来,不是抄进豁免清单**(豁免清单必然腐烂)。**恒红门检查是这类扩面的生死线**:真仓 HEAD 面 `--strict` 必须 exit 0 —— 存量若已在同波次清偿,新判据落地时产出的任何红都只可能是"判据认不出某类形态",而不是"又发现一批欠账"。**通用规矩:给已有判据扩键/扩面,必须先清偿再收紧,并让"已诚实"的一侧由判据自身识别。**
 - **守门 134 第三次补强(2026-09-27,承上一条 B2/扩键登记,数字一律现读勿照抄)**:把 **裸 SQL 写链**并进写链池。病灶的载体不止 drizzle 方法链 —— `db.execute(sql\`DELETE FROM … WHERE …\`)`也是写;此前判据只把`.delete()/.update()`当写链,裸 SQL 只当"证据"(认里面的`RETURNING`字样),于是"SQL 发了写、命中 0 行、响应回布尔 true"这一格无人看守。现由`findRawSqlWriteChains` 一份实现同时供**写链判定**与**RETURNING 证据**(`hasRawSqlReturning` 降为它的投影,禁止两处各扫一遍),**V 与 B1 同看这一维**;B1 只认**缺 RETURNING** 的那一条,带 RETURNING 的按证据放过 ⇒ 不新增恒红面;括号配平不到时"同体有 ack 才落未判定(U3,`--strict` 拒绝出合格证),否则只报数"。
   - **普查先于立判据,并且普查反手抓到尺子自己的假阴**:`UPDATE\s+"?[A-Za-z_]\b` 这种带动词词界的写法对 `UPDATE ai_model_config_models`(整型表名)**永不成立** ⇒ 真仓 HEAD 上 4 条整型写隐身;修尺子后同一把才认出 73 条写链、9 处与 ack 共处一体的候选,再逐条读体分成 W1(5 处已诚实)/ W2(1 处有 RETURNING 却弃之判定)/ W3(1 处无 RETURNING 且无条件回 true)。**"扫到 0"必须先怀疑尺子,再相信世界**(本仓第二次实录)。
   - **刻意没做的两格,都给了可判的触发条件而不是"视情况"**:① **B2 那一跳未接裸 SQL 维** —— 双向扫过 10 个具名裸 SQL writer × 全部 ack 落点,HEAD 面该组合 0 条,无存量可验就补属投机("加守卫前先证明坏状态可达");触发条件:任一 ack 落点的最小函数体 `await` 了一个"体内含无 RETURNING 裸 SQL 写"的具名函数 ⇒ 必补。② **`updated` / `created` 未进 `BOOL_ACK_KEYS`** —— 键族扩面属全 API 语义决策,且必须先逐键拍板再清偿存量(§12e 同型);触发条件:一旦拍板纳入,必须同时把"RETURNING 证据"从**体内任一处**收窄到**该条调用**,否则"UPDATE 带 RETURNING 但零命中走 `?? {updated:true}` 兜底"那一型仍然隐身。
   - 代码侧配套:`user-llm-configs-v2.ts` 的 UPDATE 补 `RETURNING id` 并按命中集取值、`ai-extended.ts` 的"没发写"与"零命中"两支由 `true` 改 `false`(键名与状态码一字未改;`git grep .updated` 实测无任何调用方读这两处的布尔)。
-
 - **2026-10-13 三道接线守门**(id 204/205/206,均 **blocking**,登记于 `scripts/guardian-runner.mjs`,三门 HEAD 面接线前现读均 rc=0 ⇒ 不产生恒红面)。① `scripts/check-error-attribution-single-source.mjs`(错误归因唯一出口对账,G-816012;紧急跳过 `HUSKY_SKIP_ERROR_ATTRIBUTION_SINGLE_SOURCE=1`,`stagedTriggers=apps/ packages/ scripts/`)—— 三判据:反第二份归因实现 / 引用出口须有端外生产消费者 / 反向锁站点键=文件+行+列+原文;② `scripts/check-enum-fallback-terminal.mjs`(未知枚举兜底档,G-815963;紧急跳过 `HUSKY_SKIP_ENUM_FALLBACK_TERMINAL=1`,`stagedTriggers=apps/ packages/ scripts/`)—— 未知枚举兜到初始态/可写档即红,取材面已移植到 `scripts/lib/face-reader.mjs`(全量判 HEAD blob、`--staged` 判索引 blob、`--worktree` 仅人工逃生舱),`--self-test` 含三面变异自证;③ `scripts/check-error-code-not-text-matching.mjs`(错误码不得按文本判;紧急跳过 `HUSKY_SKIP_ERROR_CODE_TEXT_MATCHING=1`,`stagedTriggers=apps/ packages/`,刻意不含 scripts/)—— 本门 2026-09-30 曾一度注册又摘出,其解阻前置(出口 `apps/cli/src/tools/failure-classification.ts` 入库)已达成,2026-10-13 重新接线为 id 206。**本节下方若干条标着「尚未接提交链」的旧行自此仅作历史记录,现行定级与接线状态一律以 `scripts/guardian-runner.mjs` 现值为准**(镜像 T11 钉住"注册在位 ⇒ 必须 blocking + skipEnv + stagedTriggers")。
 - **i18n**(2/2b/2c/2d/2e/2f/2g-web/2f-mobile-rn/2f-cli):check-i18n-keys(parity+白名单)/ scan-i18n-zh-residue(zh-TW/ko 阻塞,ja warn)/ check-i18n-broken-en(阻塞)/ i18n-diff(翻译流水线,2f-web + 2f-miniapp-taro 阻塞)/ check-i18n-namespace-passing(命名空间传递,warn)/ check-cli-i18n-parity(cli 端 parity,warn,2f-cli)/ validate-i18n-integrity(门 30,blocking,i18n JSON 截断防护——lint-staged prettier 写大 JSON 失败出截断版的事故门)
 - **代码质量**(1/3/4/4b/4c/5/6/7/8/9/10):API key 泄露 / schema drift / 陈旧 dist / UTF-8 完整性 / lint-staged / sanitizer / dedupe / 路由一致性 / safeParse(warn)/ OpenAPI(info)
@@ -1554,36 +1087,25 @@ Agent 在调试 / 验证 / 探查某项功能时,常在 `apps/web/` / `apps/api/
 - **计划登记行防丢**(71):check-plan-line-loss.mjs(blocking,2026-09-22 立,`stagedTriggers=PROJECT_PLAN.md`)—— 共享工作区里并发会话按"内存中那份旧计划文档"整文件提交,会把别人**已入库**的登记行按旧基线回写掉(2026-09-22 一小时内两次发生,本会话 10 条 G-152/G-166/D107b 进度行被抹)。既有 13c `check-project-plan-archive.mjs` 只认 `### XXX(已完成 ✅)` 任务标题行,条目内 bullet 登记行不在其视野,故补此闸。**登记编号族含 `G-x`/`Dx`/`Px`/`Wx` 与 `守门 NN`**(2026-09-23 补最后一族:各道闸门在计划里的登记行用的正是 `**守门 NN …**` 前缀 —— 实测一枚并发暂存版本整块删掉别人的守门 72 登记(40 行),只认 G/D/P/W 完全看不见);自愈结论一律写 `.workbuddy/plan-heal.log`(旧版丢 `/dev/null` 配 `|| true`,再叠加未 `.trim()` 的 sha,自愈静默失效一整天)。判据按**编号标记的原文前缀**在待提交内容里全文搜:整行消失 → 拦;只改写文案、保留编号 → 不报(不误伤正常编辑);原文能在 `.ihui-agent/archive/PROJECT_PLAN_*.md` 找到(§1 归档)→ 放行。写闸过程中真修掉一个自造假阳:标记若按"编号 + 后续文本"重拼,`D107b` 会被拆成源文本里不存在的 `D107 b`,使正常提交被误判丢失。自检 `node scripts/check-plan-line-loss.mjs --self-test`(9 例正反成对,含 missingFrom 双目标比对);**自愈面**:`.husky/post-commit` 第 6 段每次提交后扫最近历史自动回捞(并发会话 routinely 用 `--no-verify` 绕过 pre-commit,故这一层必须有),手动 `--heal` 只写工作区、`--heal --commit` 顺带前向提交(基线一律取 HEAD,不代收别人未提交的内容)。**2026-09-23 两处加固(都是"本地全绿也发现不了"那一类)**:① 自愈比对改成**工作区与 HEAD 分别判缺失** —— commit-tree 旁路(`git-sync-converge` 索引层合并、临时索引提交)**不跑钩子**,它把已入库行从 HEAD 合掉时共享工作区常还留着那行,单目标会"无缺失"提前返回 → HEAD 永久缺行(本次 G-154 登记行即此因),现由 converge 落合并提交后就地补跑一次自愈;② `rev-parse`/`hash-object` 未 `.trim()`,尾部换行使 `read-tree` 报 `Not a valid object name`,**自愈提交自上线起从未成功过**,而 post-commit 写作 `|| true` 所以毫无声响 —— 判据只能在**独立仓库**做端到端取证才暴露(临时 repo 造一次真旁路合行 → A/B:旧版判"无缺失",新版识别并建前向恢复提交)。跳过 `HUSKY_SKIP_PLAN_HEAL=1`;紧急跳过本闸 `HUSKY_SKIP_PLAN_LINE_LOSS=1`(会把别人的登记行写没,慎用)
 - **Dockerfile 构建上下文对账**(72):check-dockerfile-copy-paths.mjs(blocking,2026-09-22 立)—— 堵的是"本地全绿也发现不了"的一类:提交 `79b906463f` 给根 package.json 加 `postinstall: node scripts/fix-expo-metro-junction.mjs`,而 `deploy/docker/Dockerfile.{api,web,cli,migrate}` 只 COPY 清单就跑 `pnpm install` ⇒ 镜像缺该脚本,CI 上 build-api/build-web 同时 `MODULE_NOT_FOUND`(本机无 docker,typecheck/lint/单测全都不会知道)。两条判据只用仓库内信息:**A** 凡 COPY `pnpm-workspace.yaml`(根上下文标记)的 Dockerfile,必须 COPY 钩子里 `node <file>` 引用的每个脚本(只 COPY 单文件,勿 COPY 整个 `scripts/` 以保层缓存);**B** 每条非通配、非 `--from=` 的 COPY 源必须存在于**构建上下文**,上下文由 `.github/workflows` 的 `context:`/`file:` 成对解析,解析不到即跳过并在结论行如实报 `B 核了 N/M`;**C** `pnpm --filter <spec> run <script>` 对闭包里**没有该脚本**的包是**静默跳过而非报错**,若被跳过的包自带 `build`(产出 dist)则下游按 `main`/`exports` 读 dist 必 `Module not found` —— 判据 = 从 workspace 包图展开闭包(`pkg`=自身、`pkg^...`=仅依赖、`pkg...`=自身+依赖,取反与上游方向放过),点名"有 build 却缺被调用脚本"的包。**A/B 修完 build-api 绿了,build-web 仍恒红就是 C 类**(Dockerfile.web 跑 `--filter @ihui/web... run build:static`,而 web 的 7 个可构建依赖全都没有 `build:static` ⇒ 一个都没构建 ⇒ `@ihui/api-client` 解析失败;同仓 Dockerfile.api 用 `run build` 人人都有故一直绿,两条只差脚本名)。**存在性一律按提交内容(`git ls-tree -r HEAD`)判,不按工作树**——并行会话可能删了文件但未暂存,按 `existsSync` 会产出与真实构建相反的假阳性(实测踩过)。`COPY . .` 与 `pnpm-lock.yaml*` 不参与判定。自检 `--self-test`(10 例,含 C 的 5 例正反对照)+ `node --test scripts/tests/check-dockerfile-copy-paths.test.mjs`(10 例,含"真仓包图上旧行必红且点名 api-client、修后必绿、api 作同仓对照"与 `expandFilterSpec` 三形态);紧急跳过 `HUSKY_SKIP_DOCKERFILE_COPY_GUARD=1`
 - **mobile-rn 深色前景/容器对账**(83,原 75):check-brand-foreground.mjs(blocking,2026-09-23 立)—— 四条判据:**R1** 零豁免,同一 style 块内 `tokens.brand.DEFAULT` 作背景 × `surface.light`/`text.primary` 作前景(深色档案下 brand.DEFAULT=纯白 ⇒ 白底白字);**R4** 同一关系被拆到**兄弟 key**(`retryBtn` × `retryText`)时按命名配对判,走基线棘轮;**R2** `surface.light` 背景 / α≥0.5 白 rgba / 无 `dark:` 变体的 `bg-white` 作容器底,每文件计数对 `scripts/brand-foreground-baseline.json` 只减不增;**R3** 数 brand.DEFAULT 填充/描边但**不计 §4 成对 CTA**(同块或兄弟键用 `brand.foreground` 作前景)—— 见本节上方「品牌 CTA / 主按钮色同源」,按规矩写就红的门只会逼人 `--no-verify`;**无配对的白卡片照旧计**(自检里两条阳性对照钉住)。**内容口径**:全量与 `--update-baseline` 判 **HEAD blob**,`--staged` 判暂存 —— 共享工作树滞后 HEAD,按磁盘算会在恒红/假绿间来回跳并把错数写回基线(2026-09-24 一天内 R3 登记被整文件回退三次的直接成因)。`--staged` / `--update-baseline` / `--self-test`;紧急跳过 `HUSKY_SKIP_BRAND_FOREGROUND=1`。
-
-- **mobile-rn 深色前景/容器对账**(83,原 75):check-brand-foreground.mjs(blocking,2026-09-23 立)—— 四条判据:**R1** 零豁免,同一 style 块内 `tokens.brand.DEFAULT` 作背景 × `surface.light`/`text.primary` 作前景(深色档案下 brand.DEFAULT=纯白 ⇒ 白底白字);**R4** 同一关系被拆到**兄弟 key**(`retryBtn` × `retryText`)时按命名配对判,走基线棘轮;**R2** `surface.light` 背景 / α≥0.5 白 rgba / 无 `dark:` 变体的 `bg-white` 作容器底,每文件计数对 `scripts/brand-foreground-baseline.json` 只减不增;**R3** 数 brand.DEFAULT 填充/描边但**不计 §4 成对 CTA**(同块或兄弟键用 `brand.foreground` 作前景)—— 见本节上方「品牌 CTA / 主按钮色同源」,按规矩写就红的门只会逼人 `--no-verify`;**无配对的白卡片照旧计**(自检里两条阳性对照钉住)。**内容口径**:全量与 `--update-baseline` 判 **HEAD blob**,`--staged` 判暂存 —— 共享工作树滞后 HEAD,按磁盘算会在恒红/假绿间来回跳并把错数写回基线(2026-09-24 一天内 R3 登记被整文件回退三次的直接成因)。`--staged` / `--update-baseline` / `--self-test`;紧急跳过 `HUSKY_SKIP_BRAND_FOREGROUND=1`。
 - **mobile-rn 深色前景/容器对账**(83,原 75):check-brand-foreground.mjs(blocking,2026-09-23 立)—— R1 零豁免:同一 style 块内 `tokens.brand.DEFAULT` 作背景 × `surface.light`/`text.primary` 作前景(深色档案下 brand.DEFAULT=纯白 ⇒ 白底白字);R2 基线棘轮:`surface.light` 背景 / α≥0.5 白 rgba / 无 `dark:` 变体的 `bg-white` 作容器底,每文件计数对 `scripts/brand-foreground-baseline.json`(现 13 文件 24 处,均为媒体上的合法浮层或已带 `dark:` 变体)只减不增。`--staged` / `--update-baseline` / `--self-test`(11 例);紧急跳过 `HUSKY_SKIP_BRAND_FOREGROUND=1`。
 - **反回退对账**(84,原 76):check-stale-revert.mjs(blocking,2026-09-23 立)—— 堵共享工作区**静默回滚**:§12d converge 用 merge-tree/commit-tree 只推进 HEAD+index、**不 checkout**,工作区落后 HEAD 时 `git add <file>` 交的是旧基线(实测 503 文件落后 486 提交),等于把别人该路径的后续改动静默回滚,而 diff 只显"改了几行"。判据 R1 = 暂存 blob != HEAD blob **且字节级等于该路径某祖先提交版本** → 拦并点名回到的 commit;真新编辑不可能恰好等于历史 blob,故误报极低。三条护栏:merge/cherry-pick/revert 上下文整轮豁免、暂存删除只 warn(`git rm` 合法,机器分不清就被删)、判定文件 >300 跳过(性能护栏,防逼人 --no-verify 连带关掉全部守门)。取证 `--self-test` 8 例(含"写回 v1 必判红"阳性对照)+ 临时 index 端到端演练 3/3;**有意回退一律改用 `git revert` 生成前向提交**。紧急跳过 `HUSKY_SKIP_STALE_REVERT_GUARD=1`。
-
 <!-- 合并归并说明:本行下方两条登记分属两个会话同日新增的闸门(78 workspace 依赖链接对账 / 79 提交内容含冲突标记),两侧均保留,不构成互斥。
      (2026-9-24 校正:原写法把冲突标记门写成 77,而 77 是「全 8 端圆角单一源头对账」——同日撞号正是本节要防的事,登记新门前请按守门速查逐条核对 id。) -->
-
 - **workspace 依赖链接对账**(78):check-workspace-dep-links.mjs(blocking,2026-09-23 立)—— 堵的是同一族"**本地全绿、出事的是别人**"的故障,现共**五维**,每维的修复动作不同,红点会点名是哪一维:**① 声明↔链接**:`package.json` 声明 `workspace:*` 而 `node_modules` 里没有那条链接(§12e 的 `pnpm install --filter` 后遗症)。2026-09-23 实例:`@ihui/extension` 缺 `@ihui/design-tokens` → rollup `failed to resolve import` → `pnpm -r build` 连 4 次全红 → 部署进入 30 分钟冷却循环、线上停在旧提交,而 **typecheck/lint/单测全都不会红**(TS 走 tsconfig paths,不看 node_modules)。判据 = 每个包 dependencies/devDependencies/peerDependencies 里所有 `workspace:` 声明,必须在 `<pkg>/node_modules/<dep>` 或根 `node_modules/<dep>` 可解析(`existsSync` 跟随符号链接 ⇒ **悬空链接同样判红**)。**② 链接↔内容**(2026-09-24 补,`findGuttedLinks`):每条**符号链接**的目标必须是真包(有可 parse 且带 `name` 的 `package.json`)——`existsSync` 对"指向**空目录**的链接"仍返回 true,而 09-24 本机全机门禁停摆正是这一型:`node_modules/typescript`、`node_modules/eslint` 指向 `.pnpm` 里的空目录,`.bin` 只剩 16 项 ⇒ lint-staged 第一步 `✖ eslint --fix` 阻止提交 ⇒ **每一次提交都被迫 `--no-verify`,约 110 道守门对全队同时失效**,而 `git status`/typecheck/其余报告全都看不出来。刻意**不**比 name(pnpm 别名 `foo@npm:bar` 必产假阳);真目录(file:/workspace: 直连)不参与;`--strict` 档另把本维延伸到 `node_modules/.pnpm/*/node_modules/*` **传递闭包**(实测真仓浅扫 717 条 / 深扫 10,015 条,均 0 红,深扫 +1.3s);**深扫刻意不进提交链** —— 并发 `pnpm install` 半复制态会一次闪出上百条,而本门 blocking,恒红门的唯一结局就是各会话跳门、连带全部守门作废(本仓最高反面教训);`.pnpm` 里含 `_tmp_` 的安装中临时键**跳过并如实计数**,不判红。**③ shim 完整性(仅报数)**:直接声明的依赖有 `bin` 而该处 `.bin` 无同名 shim;不判红是因为它**在并发 install 窗口内会闪**(实测 0↔113 跳),判红落在 `pnpm check:dep-links:strict`(已串进 `check:all`)。稳态真仓实测 **0 条**缺失、25 个包各有 `.bin`(apps/api 45 项 / web 33 / extension 24 / shared 15 …)⇒ 旧条目写的"真仓 102 条含 apps/api 15 条""apps/api 根本没有自身 `.bin`"**是那次削损的现场读数,不是基线,已于 2026-09-24 全量安装后复测证伪并就地更正**;同时 pnpm 只为**直接声明的依赖**建 shim(根里 hoist 上来的 `expo`/`react-native` 不在根 `package.json` 内,按定义没有),`declaredFor(owner)` 就是为剔除这类假阳而存在。**④ 钩子命令可解析性(判红,不需基线假设)**:`lint-staged` 配置里必然被 spawn 的命令(现 `eslint`/`prettier`)必须在**根** `node_modules/.bin` 解析得到。两处刻意的窄口径:**不**接受"`node_modules/<cmd>` 包目录存在"作为通过(故障当天恰是"包体完好、shim 没了":`node node_modules/eslint/bin/eslint.js --version` 出 v10.8.1,而按 PATH 找 `eslint` 报「不是内部或外部命令」);**不**查全局 PATH(本会话 `where eslint` 能命中全局版,而钩子进程的 PATH 里没有 ⇒ 拿全局命中当"能解析"就是造一台**在故障现场报绿的尺子**)。**⑤ shim 指向的入口文件(判红)**:shim 在位而它 exec 的那个 `bin/*.js` 被删 ⇒ ④ 全绿、lint-staged 一 spawn 就 `Cannot find module`。`resolveShimEntry` 双路兜底(先剥 shim 文本的 `%~dp0`/`$basedir` 模板,再退回包清单的 `bin` 字段),两路都探不到一律记 `unresolved` **不判红**;两个写门时自己踩到的坑已由反向对照钉死 —— pnpm 的 `.CMD` **第一个候选是 `"%~dp0\node.exe"`**(存在性分支头),按"第一个命中"取值会让本门在**完好仓库**上恒红;`%~dp0` 本身就是 `.bin`,再拼一层 `..` 会多跳一级把目标算到 `node_modules` 外面。两条反假绿护栏:扫不到任何 workspace 包 → `exit 1`(不报绿);根 `node_modules` 不存在 → 显式提示"先 pnpm install"并**无法判定**(不记为通过);**扫到 0 条链接一律判红**(空扫不报绿,浅/深合计口径,默认档与改前逐字等值)。`--staged` **不**随暂存收窄范围,恒全量判定(全量 25 包约 0.2s)—— 这类破损与"本次改了什么"无关:手动删链接、他机跑过 `--filter`、清理工具动过依赖树,按 staged 收范围恰好放过整类。取证:`--self-test` + `node --test scripts/tests/check-workspace-dep-links.test.mjs`(例数以各自末行现测为准,不写死防漂移;含**装车证明** runner 里确有 id 78 + blocking + skipEnv、"真仓 eslint/prettier 第五维必须判绿"的**反恒红**对照、以及"深扫只在 strict 生效"的接线方向对照)。**修复动作按维度分**:① ② 靠全量 `pnpm install`(不带 `--filter`);③ ④ ⑤ 靠 `node scripts/repair-node-bin-links.mjs` —— 因为 **shim 不会被 `pnpm install` 或 `pnpm install --force` 重建**(两条都只回 `Already up to date`,1.2s 收工)。验收一律实测命令本身(`.bin/eslint --version` + `.bin/tsc --version` 都出版本号、`pnpm --filter @ihui/api typecheck` 真跑、门 78 全量 exit 0),只看 `node_modules/eslint` 在不在等于没测;`repair-node-bin-links.mjs --check` 在修复后的现读是「根依赖 16 个包 / bin 声明 9 个:`.bin` 完整,无缺失」。另留一条**归属纪律**:本机第一次补回 shim 的 mtime(11:22:56)与另一会话 `repair-node-bin-links.mjs` 入库(11:35)、与我自跑 `pnpm install --force` 都在同窗口,**归属未定 —— 只记事实,不记成果**。紧急跳过 `HUSKY_SKIP_WORKSPACE_DEP_LINKS=1`。
-
 - **提交内容含冲突标记**(79):check-no-conflict-markers.mjs(blocking,2026-09-23 立)—— 2026-09-23 15:49 `.git` 被宿主清除,恢复期某会话在共享工作区跑真实 `git merge`,留下 103 个未合并路径与 94 个带字面标记的工作区文件;而全链守门**没有任何一道**看"被提交的内容含冲突标记",于是 `apps/cli/tests/file-edit.test.ts` 带着 `<<<<<<<` 一路进 HEAD 树,整轮 merge 结束都没被发现。判据 = 同文件内**成对**出现的行首 `<<<<<<< ` 与 `>>>>>>> `(中间允许夹整行 `=======`);**强制成对**是硬要求 —— 单行 `=======` 在 Markdown setext 标题下划线、表格分隔、ASCII 示意图里都合法,只判单行会满天假红(实测全仓 `^=======$` 命中远多于成对命中);未配对的孤立标记不计红但如实报数("只剩一半"= 标记被手删的强信号)。三模式:`--staged`(只判索引内容,`git show :<path>`,取不到退回工作区;路径清单含 `U` 未合并态,因 merge 冲突时 git 把该文件标为 unmerged,只按 ACMR 过滤会恰好漏掉本门要拦的那一类)/ 缺省(判所有跟踪文件工作区内容,`git ls-files`,实测 16561 候选 1.5s)/ `--rev <sha|HEAD>`(判提交树,`git grep -Ilz` 定位候选 + blob 复核,供事后核验)。护栏:自豁免(本门脚本与测试必含字面量,按文件名前缀跳过)、>2MB 大文件、二进制(前 8KB 含 NUL),三类**均在输出里如实计数**;退出码 0/1/2(2=git 候选解析失败等脚本自身异常,绝不静默放行)。取证 `--self-test` 23 例(含正反成对对照 + 真实 merge 未合并路径现场:成对判红 / 单行 setext 判绿 / 索引脏即红而仅工作区脏判绿 / rev 隔离 / 自豁免与大文件二进制计数)+ §22c 镜像测试 11 例。修复口径:**用 `git checkout --ours/--theirs` 或按 §12b 协作收尾重新归并,禁止手删三行标记当作已解决**;紧急跳过 `HUSKY_SKIP_CONFLICT_MARKERS=1`。
-
 - **热路径 git 只读调用超时**(80):check-git-read-timeout.mjs(blocking,2026-09-23 立)—— 堵"提交像死掉了"这类无界挂起:`scripts/check-port-registry.mjs` 一处 `execSync('git ls-files')` 无 `timeout`,在共享工作区挂住 **80 分钟而 CPU 只用 2.84s**(等锁/等 IO 型),而 `git status`、typecheck 全看不出异常。全仓首参锚定实测 **159 处** git 派生调用**无一带 timeout** ⇒ 不是个别疏忽,是没有约束。口径刻意收窄三条(与门 52 同取向:宁漏不误报):① 只判钩子/守护链可达的 `HOT` 文件清单,不判测试夹具与端内代码;② 只判**动词为字面量**的调用 —— `git(args)` / `runGit(args)` 这类包装器动词未知,整体加超时会连带 bound 写操作,而 **`commit`/`add`/`reset`/`mktree` 中途被 SIGTERM 可能留下 `.git/index.lock`**,把一次挂起换成全局阻塞;③ 只判只读动词表内的调用。写动词与包装器**不判但如实计数**(输出行含 `写动词不判 N 处 / 包装器不判 M 处`),绝不静默成"看起来全绿"。字符串与注释内的命中一律丢弃(`markHidden`)——该缺陷是自检抓出来的:判据会把 `const fixture = "execFileSync('git', …)"` 这种测试夹具源码当真调用判红。`timeout` 两种写法都认(`timeout: <ms>` 与简写 `{ timeout }`)。**动词提取按 token 位置逐个走,并对 `-C <dir>` / `-c k=v` 这类带值选项连值一起跳**(`pickVerb`)——旧正则要求数组首元素即动词,于是 `execFileSync(GIT_BIN, ['-C', repoDir, 'status'])` 与 `['-c','safe.directory=*','for-each-ref']` 这两种最常见形态**根本匹配不到**:门恒报"0 处"而实际有 2 处无界只读调用(`git-push-guard.mjs`,已随本次清零)。判据盲区由并行会话的交付报告指出、以自检用例钉住;教训是**"扫到 0"必须先怀疑判据,再相信世界**。`HOT` 现 18 项(新增 `apps/cli/src/worktree.ts`)。**存量已随本门一并清零**(runner 3 处 + converge 4 处 + commit-loss-guard 默认值 1 处),不留基线债。取证 `--self-test` 12 例(含夹具/注释不判、简写属性不假红、写动词计数、-C 与 -c 带值选项取动词)+ `node --test scripts/tests/check-git-read-timeout.test.mjs` 7 例(含**装车证明**)。紧急跳过 `HUSKY_SKIP_GIT_READ_TIMEOUT=1`。 **登记新门前先查编号占用**(`grep -oE "^    id: .[0-9]+.," scripts/guardian-runner.mjs | sort -V | uniq -d` 应只出历史遗留项):同日多会话在数组同一位置各加一道门必然撞号 —— 实测 75/76 已各重复一次,本门最初登记的 79 也与并线进来的 check-no-conflict-markers 同号,故改号为 80 并在镜像测试里钉死"本门编号在 runner 中必须出现恰好一次"。
-- **品牌邮件通道对账**(81):check-brand-email-channel.mjs(blocking,2026-09-23 立)—— 拦绕过品牌模板层的 ops 自发纯文本邮件("能发出去、typecheck/lint 全绿,用户收到的邮件没样式",与守门 72/78 同族):R1 `Send-MailMessage` 调用语句缺 `-BodyAsHtml` / R2 `api.resend.com/emails`(含 host+path 分行形态)同一发送上下文无 `html` 字段 / R3 有发信动作(`createTransport`/`sendMail`/`api.resend.com`)却不引用 `email-templates` 也不调用 `notify-deploy-failure`;范围 `deploy/**`+`scripts/**`(不含 tests)+workflows `*.yml`,注释行/裸域名不判(宁漏不误报),行内豁免 `brand-mail-exempt: <原因>`,存量走 `scripts/brand-email-channel-baseline.json` 只减不增(建门实测:ps1 自拼通道已被并行会话清除,副产品揪出第三条通道 `scripts/check-credential-health.mjs` 已入基线待迁移)。**修法的唯一姿势:ops 邮件一律经 `apps/api/scripts/notify-deploy-failure.ts`(版式由 `email-templates.ts` 单点决定),不得端内自拼传输层**。取证 `--self-test` 30 例(正反成对+临时仓双取材面)+ 镜像测试 8 例(含装车证明);`--staged` 暂存集为空/取不到 → 退化全量(守门 70 教训);紧急跳过 `HUSKY_SKIP_BRAND_MAIL_GUARD=1`。
-
 - **品牌邮件通道对账**(81):check-brand-email-channel.mjs(blocking,2026-09-23 立)—— 拦绕过品牌模板层的 ops 自发纯文本邮件("能发出去、typecheck/lint 全绿,用户收到的邮件没样式",与守门 72/78 同族):R1 `Send-MailMessage` 调用语句缺 `-BodyAsHtml` / R2 `api.resend.com/emails`(含 host+path 分行形态)同一发送上下文无 `html` 字段 / R3 有发信动作(`createTransport`/`sendMail`/`api.resend.com`)却不引用 `email-templates` 也不调用 `notify-deploy-failure`;范围 `deploy/**`+`scripts/**`(不含 tests)+workflows `*.yml`,注释行/裸域名不判(宁漏不误报),行内豁免 `brand-mail-exempt: <原因>`,存量走 `scripts/brand-email-channel-baseline.json` 只减不增(建门实测:ps1 自拼通道已被并行会话清除,副产品揪出第三条通道 `scripts/check-credential-health.mjs` 已入基线待迁移)。**修法的唯一姿势:ops 邮件一律经 `apps/api/scripts/notify-deploy-failure.ts`(版式由 `email-templates.ts` 单点决定),不得端内自拼传输层**。取证 `--self-test` 30 例(正反成对+临时仓双取材面)+ 镜像测试 8 例(含装车证明);`--staged` 暂存集为空/取不到 → 退化全量(守门 70 教训);紧急跳过 `HUSKY_SKIP_BRAND_MAIL_GUARD=1`。
 - **品牌邮件通道对账**(81):check-brand-email-channel.mjs(blocking,2026-09-23 立)—— 拦绕过品牌模板层的 ops 自发纯文本邮件("能发出去、typecheck/lint 全绿,用户收到的邮件没样式",与守门 72/78 同族):R1 `Send-MailMessage` 调用语句缺 `-BodyAsHtml` / R2 `api.resend.com/emails`(含 host+path 分行形态)同一发送上下文无 `html` 字段 / R3 有发信动作(`createTransport`/`sendMail`/`api.resend.com`)却不引用 `email-templates` 也不调用 `notify-deploy-failure`;范围 `deploy/**`+`scripts/**`(不含 tests)+workflows `*.yml`,注释行/裸域名不判(宁漏不误报),行内豁免 `brand-mail-exempt: <原因>`,存量走 `scripts/brand-email-channel-baseline.json` 只减不增(**2026-09-24 实测基线 `counts` 已为 `{}`** —— 建门时揪出的第三条通道 `scripts/check-credential-health.mjs` 已迁到同一派发器,未用 `brand-mail-exempt:` 糊过去)。**范围已两度扩面**(2026-09-24):原只扫 `deploy/**`+`scripts/**`,而告警邮件正文的实际出口在 `monitoring/alertbridge/*.cjs` —— 目录与扩展名**双重不可见**;现含 `monitoring/**` + `.cjs/.mts` + `apps/api/scripts/**`,并新增两条判据:**R3b** 接了唯一出口却自带一份 HTML 版式(三段与门:邮件版式标记 ∧ ±10 行样式指纹 ∧ 本文件确在邮件语境,注释行不计)—— R1/R2/R3a 只看"有没有走模板",对这一型全盲;**R4 告警接收面** `monitoring/alertmanager/**` 的 yml/yaml/tmpl 出现 `email_configs`/`smtp_*`(AM 原生邮件 = 无版式纯文本)、IM 中转 receiver(名字与 host/路径**都**认,`feishu-copy` 改名躲不过)、或 `webhook_configs` 里 url ≠ `BRIDGE_URL` ⇒ 红;注释行不判红但 `amCommentLiterals` 如实计数。**全仓不扫 yml**(根 compose / prometheus / loki 的历史注释里就写着 `dingtalk-webhook`,全仓扫必假红 —— 面外写进断言)。`stagedTriggers` 与扫描面**必须同步扩**,否则"只改 bridge/模板的提交"根本不唤起本门(判据存在而永不调用 = 没有,守门 70/76 同型;该字段今晚被并发整文件回写抹掉**三次**,由镜像测试"装车证明"抓回)。**修法的唯一姿势:ops 邮件一律经 `apps/api/scripts/notify-deploy-failure.ts`(版式由 `email-templates.ts` 单点决定),不得端内自拼传输层;Alertmanager 出口只有 bridge 一条**。取证 `--self-test` 61 例(正反成对+临时仓双取材面)+ 镜像测试 20 例(含装车证明与 `BRIDGE_URL` 与渲染器逐字等值的漂移即红断言);`--staged` 暂存集为空/取不到 → 退化全量(守门 70 教训);紧急跳过 `HUSKY_SKIP_BRAND_MAIL_GUARD=1`。
 - **主题接线对账**(91):check-theme-prop-wiring.mjs(blocking,2026-09-24 立)—— 堵"顶栏深色 + 正文浅色"这类**同屏双色档案**:`packages/app` 213 个 theme-driven 组件的形参默认值是 `colorScheme = 'light'`,调用方漏传就静默脱主题,类型系统完全不红(`colorScheme?:` 可选)。三判据 —— **missing**(渲染点未传该属性)/ **literal**(写死 `'light'` 或 `'dark'`)/ **spread-unknown**(仅 `{...props}` 展开且回溯不出来源,判不出即如实报数,不静默放行)。建门实测:此前一轮用"JSX 元素文本里有没有 `colorScheme` 字样"统计出"漏传 0 处",**该结论是错的** —— 换成花括号深度扫描 + 组件清单自动推导后真实命中 **118 处 / 117 文件**,即 115 个屏一直在静默锁死浅色档案。**盲区已补(比漏修更值得记)**:写死的 `'light'` 有 5 处藏在**对象构造里**而非 JSX 属性上(`const props = { colorScheme: 'light' }; return <SharedX {...props} />`),"字面量"判据只解析 attrs 故从不判红,"未接线"判据见到 spread 就笼统归"判不出" —— 这 5 屏以"待人工核"的名义静默锁死浅色,**门一直是瞎的**。现由 `resolveSpreadThemeValue()` 回溯对象构造再判:对象里有字面量 → 判红;对象里确实没这个键 → 判 missing;props 来自函数形参且本文件无对象字面量 → 仍承认判不出,不猜。**基线 `scripts/theme-prop-wiring-baseline.json` 现须为空 `{counts:{}}`(零容忍)**,`--strict` 口径为"0 未接线 / 0 字面量 / 0 判不出"。行内豁免 `theme-wiring-exempt: <原因>`(须带原因)。取证 `--self-test`(**含阳性对照**:注释里写 `colorScheme: 'light'` 不得误判、不传 `src` 时行为与旧版一致)+ §22c 镜像测试 `scripts/tests/check-theme-prop-wiring.test.mjs`(含**装车证明**:runner 里必须真有 id 91 + blocking + skipEnv,且本门编号在 runner 中恰好出现一次)。**内容口径(2026-09-25 补齐,此前它是全链最后一道按磁盘判的主题门)**:全量判 **HEAD blob**、`--staged` 判**索引 blob**、`--worktree` 仅人工逃生舱;枚举与内容同面同轮;取不到 ⇒ **exit 2「无法判定」**(不冒红也不记绿),`--staged --worktree` 同给判死,全量枚举到 0 个 .tsx 判死;git 面必须先 `prefetch`(一次 `cat-file --batch`)再 `read`,未预取即 read 抛错而非静默跳过。立项当场即由此把他人**未提交**的 `ChatScreen.tsx` 摘 prop 判成本仓违规(HEAD 其实合规)。取证 `--self-test` 的 F1–F4 在 `mkScratch` 临时仓里造"索引≠磁盘"现场,并由**三条变异**分别证明 F1/F4 不是恒真;紧急跳过 `HUSKY_SKIP_THEME_PROP_WIRING=1`。
 - **HEAD 悬空具名导入对账**(98):`scripts/check-dangling-local-imports.mjs`(blocking,2026-09-24 立)—— 与守门 77 B6 同族的**另一半**:77 管"用了标识符却没 import",本门管"`import { X } from './y'` 而 y 根本不导出 X"。两者都只在编译期可见,而 `pnpm typecheck` 只跑共享工作区 —— 工作区恰好是旧基线时**两边都不红**。2026-09-24 一天内各中一次:`rnRadius['2xl']` 两处未 import 让真机 release 包启动即 SIGABRT(Metro 不查类型,打包成功≠能跑);`PermissionTierRow` 经 `git log --all -S` 证明**从未在任何提交里存在过**,而引用它的注释还写着"已抽到 ChatDisclosure"。判据 D1(具名导入无对应导出)/ D2(相对路径解析不到);口径与 77/83/90 一致:全量判 **HEAD blob**、`--staged` 判索引 blob、**棘轮锚点恒为该文件 HEAD 自身违规数**(把锚点写成 0 会让存量 300+ 文件整片报红 ⇒ 逼人 `--no-verify` ⇒ 全部守门作废);宁漏不误报 —— `export *` 目标不可枚举即放过,缩进/注释/模板字符串里的 import 形态一律不判。真仓 HEAD 实测 8042 源文件、悬空 6 处且**全在测试面**,生产代码 0 处。取证 `--self-test` 19 例 + §22c 镜像测试 5 例(含"存量只允许落在测试文件"与 runner 装车证明)。紧急跳过 `HUSKY_SKIP_DANGLING_IMPORTS=1`。
 - **架构契约对账**(103):`scripts/check-architecture-policy.mjs`(blocking,2026-09-25 立)—— 与其余全部守门**方向相反**的一道:其余是"发现一类违规 → 写一条判据"(打地鼠),本门读 `config/architecture-policy.yaml` 这张**声明表**,从声明反查违规。四类红:**T1** 表与现实脱节(模块改名/目录搬走而表没跟上 —— 表一过期,依赖它的所有判断都在对着空气打分)/ **C1** 单文件行上限(阈值 6000,**取自 HEAD 实测最大文件 5258 行之上**,依据写在 yaml 注释里)/ **D1 D2** 依赖方向(包 import 端、或 `requires` 未声明就 import;以及反向按 rank 更深一层)/ **D3** 深导入(绕过 `public_entrypoints` 直接摸别的包内部 —— 它是"端内重复实现"的入口)。**渐进收口是设计前提**:存量模块一律 `managed: false` ⇒ 只报数不判红(立项实测全量 exit 0、报数 3 处、`managed:true` 0 个),翻 true 前先用 `--managed-trial <id>` 看条数,**不得为消红去改阈值或把不该对外的模块标成 exported**。行内豁免 `arch-exempt: <原因>`(须带原因)。口径同 70/77/83/98/101:全量判 **HEAD blob**、`--staged` 判索引 blob,策略表自身按 HEAD→索引→工作树降级取且**退到工作树会大声提示**;取不到判"无法判定",不冒红也不记绿。取证 `--self-test` 51 例(成对正反 + 两面口径差异 + 解析器坏了必须大声失败)+ 镜像测试 10 例(含 runner 装车证明与"同一代码 managed 两侧结论不同"的判据有牙证明)。编号说明:任务书原定 102,落地前已被 `check-glyph-arrow-icon` 占用,按"后来者改号"顺延 103。紧急跳过 `HUSKY_SKIP_ARCH_POLICY=1`。
 - **守门 77 B6 的括号形态盲区(2026-09-24 补)**:B6 首版的使用形态正则是 `rnRadius\s*\.`,而本门 `targetOf()` 对 2xl 档**规定的写法恰是 `rnRadius['2xl']`**(`rnRadius.2xl` 不是合法 JS)—— 门让你怎么写,门就看不见怎么写。现判据改为 `\s*(?:\.|\[)` 两种形态同视,`--self-test` 补 3 例成对正反对照,镜像测试补"括号形态必须被看见"的装车证明。教训:**判据必须覆盖自己产出的那一种形态**,否则它只拦得住别人、拦不住自己。
-
 ### 计划任务与 .vbs 的硬约束(2026-09-20 立,由本人引入的弹窗回归收口)
-
 - **🚫 计划任务禁止直接执行控制台程序**:InteractiveToken 下 `/tr "node.exe xxx"` 会让 Windows **显示控制台窗口**(每 2 分钟闪一扇黑窗)。一律经 `wscript.exe "<name>-hidden.vbs"` 包装(`objShell.Run(cmd, 0, False)` = SW_HIDE);`-WindowStyle Hidden` 与 `powershell -WindowStyle Hidden` **仍会闪**,不作为豁免手段。现存正例:`git-guardian-hidden.vbs` / `cleanup-zombie-processes-hidden.vbs` / `kill-git-selector-hidden.vbs`。
 - **🅰 `.vbs` 文件必须纯 ASCII**:`cscript`/`wscript` 按 **ANSI(本机 GBK)代码页**解码 `.vbs`,UTF-8 中文注释会被错切成伪引号 → **编译期**语法错 → wscript 弹 "Windows Script Host" 对话框,而 `schtasks` 仍报成功(与 §27 的 PowerShell/ANSI 同类陷阱)。`.vbs` 里**不得写中文注释**,说明一律英文;`git-guardian.mjs --install` 已内置"注册前用 `cscript //nologo` 实跑一次、非零退出即拒绝注册"的预检。
 - **`WshShell.Run` 命令串引号规则**:裸程序名**不能**加引号(`"node.exe" arg` 会按字面文件名解析而失败),仅路径真含空格时才加引号;参数照常加引号。
 - **`WScript.Shell.Environment()("不存在的键")` 返回 Null**,`Len(Null)` 亦为 Null,后续比较抛 "Type mismatch" 并静默中止。读环境变量必须 `& ""` 归一:`raw = shell.Environment("Process").Item("X") & ""`。
 - **Electron 宿主无视 `NODE_OPTIONS`**:实测 Qoder/Trae 自带运行时内 `process.env.NODE_OPTIONS === undefined`(Electron 主动剥离),故机器级 windowsHide 钩子**只覆盖独立 `node.exe`**,覆盖不到 IDE 内部的 git 调用。后者若弹窗,只能关 IDE 自带 git 集成或改其调用方,不要误以为环境变量层能解决。
-
 - **圆角容器背景溢出守门**(11b): `scripts/check-rounded-overflow.mjs`(warn) —— 拦"父 rounded-lg/xl/2xl/md 无 overflow-hidden × 子 bg-* 贴边无 rounded-* 无 margin 且非 absolute/fixed"六条件齐备的圆角冒角,--staged 只咬新增行,违规 exit 1(`scripts/check-rounded-overflow.mjs:457`,判定 `isViolation:229`);真跑全量 rc=0(3s);无 --self-test;紧急跳过 `HUSKY_SKIP_ROUNDED_OVERFLOW=1`(脚本自读 :56)。
 - **TagsView 选中态描边定稿守门**(11c): `scripts/check-tagsview-visual.mjs`(blocking) —— 拦 TagsView active 态丢 `outline-2+outline-border` 定稿、全站出现 `outline-black`/`dark:outline-white` 回潮、pinned/inactive 背景 token 被换、测试反向断言被删,违规 exit 1(`scripts/check-tagsview-visual.mjs:188`,全站扫描段 `extractQuotedStrings:64`);真跑全量 rc=0(1s);无 --self-test;⚠️失败提示与头注称 `HUSKY_SKIP_TAGSVIEW_GUARD=1` 可跳,实际脚本与 runner 条目均不读该 env——无真实应急通道。
 - **单文件行数守门**(11e): `scripts/check-file-size.mjs`(blocking) —— 拦 --staged 新增文件超 800 行(`FILE_SIZE_LIMIT`/`--limit` 可改阈值),exit 1(`scripts/check-file-size.mjs:216`),全量模式仅报告 exit 0;真跑全量 rc=0(1s);无 --self-test;紧急跳过 `HUSKY_SKIP_FILE_SIZE=1`(脚本自读 :51)。
@@ -1632,47 +1154,32 @@ Agent 在调试 / 验证 / 探查某项功能时,常在 `apps/web/` / `apps/api/
 - **web 死 i18n key 审计别名 wrapper**(无 id,wiring 仅 template 层引用): `scripts/scan-web-dead-i18n-keys.mjs`(手动别名) —— 自身零判据:转发全部参数到 `scan-dead-i18n-keys.mjs --target=web` 并透传退出码(`:11-15` spawnSync,status 透传),实际判据/报告在统一入口(check:all 走 `--target all --exit 1`,CI 审计 workflow 跑其镜像测试);真跑 rc=0(3s,经委托链);无 --self-test,但镜像测试 node --test 真跑 rc=0(7 例)(其本体);无应急通道;⚠️门 89 判其接线为 template 弱接线,登记时勿当作独立闸。
 - **守门接线层对账**(89): `scripts/check-gate-wiring.mjs`(blocking) —— 本门是其余全部守门的"装车检",查接线层四类结构缺陷:**R1/R2** 脚本头部或 AGENTS.md 声称"已接 pre-commit/pre-push/CI 必跑/第 N 项"而五处权威点(`guardian-runner` 的 `script:` ∪ `scripts/lib/pre-commit-hook.js` ∪ `.husky/*` ∪ 根 `package.json` ∪ `.github/workflows`+cert)全部零命中 → 拦;**R4**(2026-09-24 由"仅报数"升档,前置=真仓缺口 48→0 已清零)门已接线但 AGENTS.md/README.md 通篇未点名 → 拦(判据刻意宽松:出现去后缀同名即算,故只会漏报不会误拦);**R5** 同一 `id` 登记两道门 → 拦(串 skipEnv 与失败归属);**R7** 台账 `type=dispatcher` 的依据文件不存在或文件里没提该脚本 → 拦。R3(五处零命中且无肯定式声称)/R6(共用 skipEnv)/弱接线(仅 CI)只如实报数不判红。**取材口径分两面**:接线面(哪些脚本被登记为已接)一律按 **HEAD** 判 —— 共享工作区的工作区文件会滞后,产出相反结论;而**文档面**(AGENTS.md / README.md 有没有点名)按 **HEAD ∪ 索引**判(2026-09-24 改),因为"同一枚提交里既注册新门又补点名行"是正确姿势,只读 HEAD 会让这枚提交被自己判红 ⇒ 逼人 `--no-verify` ⇒ 全部守门作废;索引取不到退回 HEAD,口径在结论行如实报出,且**绝不读工作区**(只躺在工作区没 `git add` 的文档行不算点名,已由自检 M9d/M9e 一红一绿的可逆对照钉死)。;台账 `scripts/gate-wiring-allowlist.json` 只能救 R3,凡声称已接线者台账不救。⚠️ 本门对自身 `SELF_EXEMPT`(创建当期 HEAD 里还没有它),所以"它自己被摘线"由镜像测试 T13 钉死。真跑 `node scripts/check-gate-wiring.mjs` exit 0(已接线 143 / 台账豁免 13 / R4 0 枚,数字以命令末行现测为准);自检 `--self-test`(例数以末行为准,含 M8a/M8b 的 R4 双向端到端证明 + M9a-M9e 的文档取材口径五形态对照)+ `node --test scripts/tests/check-gate-wiring.test.mjs`(例数以末行为准,含 T13 装车证明与 T14/T15 取材对照);紧急跳过 `HUSKY_SKIP_GATE_WIRING=1`。
 - **跨端主题透线对账**(91): `scripts/check-theme-prop-wiring.mjs`(blocking) —— packages/app 的主题驱动组件(形参解构含 `colorScheme` 且一律带 `= 'light'` 默认值)必须在每个 JSX 渲染点被**真的传参**:默认值就是"静默失效开关"，写死或漏传都不报错、typecheck 也不红。拦两类真事故形态 —— L1 调用方写死 `colorScheme="light"`(实测导航栏深色而页面体浅色，同一屏两套档案)、L2 漏传(当前 0 处，本门把它钉死在 0；刻意不把 213 处形参改成必填:无收益且会与并行会话在 213 个文件上对撞)。组件集**不靠手工清单**(清单过期正是上一道门漏判的原因)，改为扫 `packages/app/src` 导出组件名 + **import 解析**(含 alias / 默认导入 / 命名空间成员)，只有解析到 `@ihui/rn-app` 或包内相对路径才算共享主题组件 —— 端内同名自绘版(NavBar/TabBar/Carousel/UserInfoCard)因此不会误判；`{...spread}` 转发的渲染点单列「不确定」如实报数(不静默放过、也不误判为红)。实测真仓 `--staged` exit 0；应急跳过 `HUSKY_SKIP_THEME_PROP_WIRING=1`。
-
 - **顶部状态栏避让单一源头**(97):`scripts/check-statusbar-single-source.mjs`(blocking,2026-09-24 立)—— 真机实测(Redmi 720x1640 / density 320)状态栏 inset = 68px = **34dp**;而 399 个 `*Screen.tsx` 里真读 inset 的只有 3 个:83 处在页头/根容器写死 `paddingTop: 48` 硬蒙量级(换机型即失配)、113 处完全没有顶距 ⇒ 页头与系统时钟/电量**叠字**。**唯一注入点 = `apps/mobile-rn/App.tsx` 的 `<SafeAreaView edges={['top']}>`**;状态栏是平台概念,所以 `packages/app`(跨端共享屏)一律不碰顶距,共享层 NavBar 那个默认 0、零调用方的 `statusBarHeight` prop 属第二个真相源,**已删**,不得再加回。三判据:**S1** 单点在位(该文件必须真有 `SafeAreaView` 且 `edges` 含 `'top'` —— 防"装好被摘线",机制不在而门仍报绿等于没有)/ **S2** 第二取值口(代码里出现 `StatusBar.currentHeight` 或 `statusBarHeight` 即红;前者 iOS 恒 `undefined` ⇒ 0)/ **S3** 魔法顶距(`container|page|root|wrapper|header|headerRow|screen|body` 的对象内 `paddingTop: 24..60` 字面量即红,**零容忍** —— 83 处已随本票清零,所以不需要基线)。口径同守门 77/83:全量判 HEAD blob、`--staged` 判索引 blob,不判滞后的共享工作树。行内豁免 `statusbar-exempt: <一句话原因>`(**M2:逐行生效且必须带原因**,一行标记救不了同文件另一处)。**M1 泄压阀**:含 JSX `<Modal` 的文件(Drawer/SideMenu/BottomPops/HandPlatePops 等)渲染在导航树外、不继承单点,其顶距命中只报数不判红(`--all` 逐条列出);注释里提 `<Modal` **不配豁免**。S2 的 `statusBarHeight` 只拦"布局取值"(`paddingTop/top/marginTop/= …`),共享层"调用方注入、默认 0"的 prop 声明不判红。扫描面为整包 `packages/app` + `apps/mobile-rn`(App.tsx 自身也在 S2/S3 射程内);全量经一次 `git grep` 预筛(627→87,38s→5s,模式串为判据字面量严格超集,筛不动退回全量)。取证 `--self-test` **40 例**(含 Modal 豁免、逐行豁免、单点被摘等 E2E 阳性对照)+ §22c 镜像测试 12 例(装车证明 + `--json` 可 parse + AGENTS/README 点名)。**两条写门过程中的教训值得留**:① 第一版"沉浸式豁免名单"是拿"出现 `position:'absolute'` + `top:0`"探的,8 个候选全是假阳(命中的是眼睛按钮和下拉框)—— 判据探不到就别硬编,默认值本身就是正确答案;② `readFileSync` 漏 import 被外层 `catch` 吞成"取不到内容",一个编码错误伪装成业务结论,故**工作树面不得套 try**。紧急跳过 `HUSKY_SKIP_STATUSBAR_SINGLE_SOURCE=1`。
 - **暂存删除存续性对账**(99):`scripts/check-staged-deletions.mjs`(blocking,2026-09-24 立,Agent A 交付)—— 堵守门 65(整树删除拦截,只看规模 ≥1000/≥20%)与 `heal-worktree-tracked`(对暂存删除按设计"只报数、不代裁")之间的**空档**:删除规模不大、但仓库仍在引用它的暂存删除(`D `),任何人跑一次不带 pathspec 的普通 commit 就把已入库的功能与测试从版本树里删掉 —— 一次静默回滚,而 `git status`/diff/守门 65 全都看不见。判"误删"依据两条同时成立才判红:**E1 引用仍在**(索引 blob 里的相对 import / require / 动态 import / barrel `export *` / 别名路径含父目录名 / 整仓库路径字面量,覆盖代码+配置,`.md` 叙述与夹具/产物/记账 JSON/生成物不算)∧ **E2 无替代路径**(同名同后缀文件不在索引其他目录,有 = 已迁移放行)。只成立一条 → 不计红但**如实报数**(绝不静默成"看起来全绿");引用方(barrel)自己也一起删 = 正当删除形态,放行。护栏:名字 <4 字符 / 候选引用方 >2000 / 删除面 >400(那是 65 的地盘)一律 `undetermined` 只报数;豁免清单 `scripts/staged-deletions-allowlist.json`(坏 JSON 显式报错,不静默当空清单)。**不加 stagedTriggers —— 暂存删除可触及任意路径,任何提交都不得跳过**。口径:判索引 blob(与 70/77/83 同取向),全程只读。取证 `--self-test` 33 例(正反成对:barrel 仍 export 必红 / 引用方一起删必绿 / 歧义、注释、夹具、生成物各一反例)+ §22c 镜像测试 `scripts/tests/check-staged-deletions.test.mjs` 12 例(含"未注册时绿、注册后必须 blocking + skipEnv"的装车前置断言)。紧急跳过 `HUSKY_SKIP_STAGED_DELETIONS=1`。
 - **合并新增文件存续性对账**(100):`scripts/check-merge-addition-loss.mjs`(blocking,2026-09-24 立)—— 堵的是**合并提交在文件面上的静默吞并**,与守门 71(只管 PROJECT_PLAN 登记行)、84(只管「暂存内容 == 祖先 blob」)都不重叠:2026-09-24 实测一枚写着「台账按 union 归并,双方每一行均存活」的合并 `9a0f7610e9`,把对侧**独有的 35 个新增路径整批抹掉**、连带 72 个文件回退成旧基线(相对共同祖先净 **−12014 行**),而它**不产生冲突、也不进 diff 报告** —— 「一侧新增、另一侧从未有过」的路径在「取某一侧整棵树」的合并里会直接消失。判据一条,且结构上排除了误伤正常合并:**A1** 路径 P ∈ 某父提交树 ∧ P ∉ 本次合并的共同基底(`git merge-base --all <parents>`)⇒ P 必须 ∈ 合并结果;「∉ 基底」正是把「对侧曾删除它」这一唯一正当解释排除掉。真要在合并里删除,必须**合并之后**单独 `git rm`(那时所有父都不含它,自动放过)。**口径是本门的生命线**:默认只判 `origin/main..HEAD` 里的合并 —— 已入库的历史事故若每轮重判,会让之后每一次提交恒红,唯一结局是人人绕过钩子、连带废掉全部守门;别人推来的合并由 `--all-new` 增量台账(`.workbuddy/merge-addition-loss-audited.json`)判到**一次**,`--limit N` 留给人工回看。取证 `--self-test` 9 例(真临时仓:正常合并必绿 / 整树回写必红并点名 / 未推必拦与已推必放用同一条判据 / 台账不重复判红)+ §22c 镜像测试 5 例。含两条**写门时自己踩到**的缺陷:① `rev-list --parents` 的第一个 token 是提交**自己**,`slice(2)` 会把合并误判成单父 ⇒ 整门恒绿;② 树缓存键必须先剥到 tree oid,按 `'HEAD'` 这种符号名缓存会在 ref 移动后读到旧树(自检第一轮就是把真事故判成了绿)。紧急跳过 `HUSKY_SKIP_MERGE_ADDITION_LOSS=1`。
 - **本轮四道门的口径/落点收口(2026-09-24 立,一批内完成)**:① **守门 94 `check-error-code-coverage.mjs`** 此前**以 uncaught 异常 exit 1 冒充判据失败**——成因不在判据,而在它按磁盘读输入,而共享工作树的 `packages/i18n/messages/web/zh-CN.json` 副本滞后 HEAD(HEAD 有 `ai.pane.errorCatalog`)。现统一为 `makeFaceReader` 单一取材层(默认 **HEAD blob** / `--staged` 判索引 / `--worktree` 仅逃生舱,两个面旗同给判死),清单与内容同面同轮;取不到输入 ⇒ `UndeterminedError` ⇒ **exit 2 显式"无法判定"**,绝不冒烟成判据红也绝不记绿。② **守门 84 `check-stale-revert.mjs` 的 `MAX_FILES=300` 护栏原先一超限就整门跳过**,而共享工作区常年滞后数百文件 ⇒ 恰在最需要它的时候失明;现把**乘数级路径**(`guardian-runner.mjs` / 各道 `check-*.mjs` / `scripts/lib/` / `.husky/` 钩子 / 根 `package.json` / `pnpm-*.yaml` / `.github/workflows/` / 门的测试)从护栏里摘出来恒照判——它们被写回旧版不表现为"少一个功能",而是**一批守门静默失效**(当天 `guardian-runner.mjs` 落后 61 行、离一次 `git add` 只差一步)。③ **`union-converge` 的"对侧自己动过"原以文件为粒度**,两侧同改同一文件会整文件取对侧而丢本侧改动;现走 `git merge-file` 真三方,**冲突/二进制/非普通 mode 一律折进落地闸并点名文件**(不猜、不选边),另加第四条断言 `lostAddedLines` 保住两侧相对基底的新增行。④ **`git-guardian` 有了真实的到人出口**(见 §5e:它此前在"现役生产者清单"里挂着名字却零命中):判红经 `notify-deploy-failure.ts` 派发,按 alert 身份 + 内容指纹 4h 去重、未送达 30min 退避、**无每日总量封顶**,发信失败不改自愈与退出码。取证:门 94 镜像 6 例 / 门 84 镜像 4 例(含"顶过上限仍判红"与"真新编辑不判红"成对)/ union 自检 20 例 + 镜像 9 例 / 守护通知镜像 19 例;两门新入守门 80 的 HOT 清单(它们现在派生 git)。
 - **合并吞并的修复出口 `scripts/union-converge.mjs`**(2026-09-24 立,守门 100 的另一半)—— 判据只说"红了",不修就等于把红留给下一个人(§12e 同型)。构造是**集合运算不是启发式**:合并树 = 本侧整棵树 ∪ 对侧「相对共同基底自己动过的路径」逐个取对侧版本 ∪ 活文档(PROJECT_PLAN / AGENTS / README)按「每行重数 = 本侧 + max(0, 对侧相对基底的新增)」union(2026-09-29 起:带「重复登记副本」指针的行只许从无到有带 1 份,少带的份数当着落地点名并写进合并提交信息);**对侧的删除不随合并传播**(确要删必须在合并之后显式 `git rm`,那才是 A1 认得的合法形态)。落地前自证 `丢本侧路径 = 0 ∧ 丢对侧路径 = 0 ∧ 三份文档未存活行 = 0`,落地后**用守门 100 本人的 A1 复核这枚合并**(用它的判据验它的产物);写盘一律临时索引 + commit-tree + CAS update-ref,从不 checkout、不碰共享工作区(§12d)。触发点两处:① `git-sync-converge` 的 merge-tree **冲突分支**先交它归并,收不住才退回"需人工"(人工最容易犯的错就是选边,而本次事故正是这么来的);② `git-guardian` 每轮的 `auditMergeAdditionLoss()` 调 `check-merge-addition-loss.mjs --all-new` 增量台账 —— 提交链上那道门按设计只判未推的合并,而 converge / 手工 commit-tree **不跑钩子**,别人造好推来的合并只能靠这一层看到一次(**只判不修**:自动重做合并风险远大于收益)。取证 `--self-test` 8 例 + §22c 镜像测试 4 例(含"选边式合并必须判失败"反向对照与两条挂点装车证明);手动:`node scripts/union-converge.mjs [--apply|--theirs <sha>|--self-test]`。
-
 - **prod-bundle 影子副本对账**:`scripts/check-prod-bundle-shadow.mjs`(2026-09-24 立,挂在 `pnpm check:all` 与 `node scripts/check-prod-bundle-shadow.mjs`)—— §5e 说"落进 `deploy/prod-bundle/` 的运维脚本必须同时落一份入库源,否则等于写进盲区",但这句话过去**只有散文没有尺子**。本门登记「入库源 ↔ 生产实际执行的那份」逐字节必须等值,三条判据:S1 入库源必须真被 git 跟踪(不被跟踪就没有对账对象)、S2 运行副本必须真被忽略(否则登记表过期,同样判红)、S3 两侧 sha1 全等,不等即红并给出差异行数。任一侧取不到 ⇒ **exit 2 显式"无法判定"**,绝不记绿。首跑抓到并入库的是数据库备份那一对:`deploy/prod-bundle/pg-backup{,-scheduler}.ps1`(整目录被 `.gitignore` 忽略、全仓零入库源,而它每天 03:00 产出 94MB 生产库 dump)。本门**刻意没有改成转发壳**——把 runner 换成转发壳后重启服务,`pg_dump` 出现 3.5 分钟零输出挂死(旧 runner 同库同日 34 秒跑完),在解释清之前不动生产备份;因此两侧都是全文,靠本门钉住等值。自检 `--self-test`(5 例,含"入库源被摘线必红"与"缺一侧必计无法判定")。紧急跳过 `HUSKY_SKIP_PROD_BUNDLE_SHADOW=1`。
   - 同批登记两条实测事实,免得下一个人重新猜:(a) 备份脚本靠什么凭据认证**至今没答上** —— 脚本显式 `$dbPw = ""`、注释写"pg_hba 本地 trust 免密",而实测机器级与用户级都没有 `PGPASSWORD`、`systemprofile` 与 Administrator 下都没有 `pgpass.conf`、`postgres` 对错误口令回 `password authentication failed`、空口令被拒;任何**带控制台上下文**的 `pg_dump`/`psql` 会阻塞在口令提示(`stdin` 重定向也拦不住,libpq 走 ReadConsoleW)。兜底不是没有:`apps/api/src/services/alert-check-service.ts` 巡检两条备份链目录,判"备份缺失 / 0 字节"并走邮件。(b) 调度器 `Run-Backup` 用 `& script.ps1` 调子脚本,而 PowerShell 的 `&` **不因被调脚本 `exit 1` 抛异常** ⇒ `catch` 永不触发;实测一次真实失败(日志先打 `[ERROR] 备份失败`)之后仍打"备份完成"。修它要改生产 runner 并重启服务(该服务"启动即备份"),与凭据问题一并处理。
 - **按凭据存在性豁免对账**(guardian id 以 `scripts/guardian-runner.mjs` 现值为准 —— 本枚落地取到 **157**,blocking,`stagedTriggers=apps/api/src/plugins/` + `apps/api/src/routes/` + `apps/api/src/utils/`,紧急跳过 `HUSKY_SKIP_CREDENTIAL_PRESENCE_BYPASS`,问责档 `pnpm check:credential-presence`):`scripts/check-credential-presence-bypass.mjs` 拦的是**"看见凭据头名在场就跳过安全判定"** —— `if (request.headers['x-anything']) return` 把防线换成了客户端可以自填的一个字符串。它没有编译期症状,typecheck / lint / 其余门全绿,只有"别人机器上少了一次 401"才看得见(与 §5「认证不等于授权」同族,那一族在 TS 侧此前只有 Python 那把尺子 117)。**判据一条**:红 = 安全面内 `if (条件) return` 的条件**整体就是**一个 `request.headers[...]` / `request.cookies.…` 引用(既无比较也无验真调用)**且** 该 if 之后同一函数体内仍有执行动作(throw / 4xx / verify)。**两条放过通道各由自检钉住**:① 条件带 `===` / `!==` / `secretsEqual` / `timingSafeEqual` / `isVerified…(` / `verify…(` —— 判据必须认下 #23 那轮真实修法产出的形态,否则按规矩写就红,唯一结局是逼人 `--no-verify` 连带全部守门作废(§12e);② if 之后**没有** enforcement 的是控制流短路(实测 `mapGeminiAuth` 正是这一形),把它判红就是假阳 —— **假阳比漏报更贵**,它指使人去修没坏的东西,还会把口径说歪成"问题很多"。**出路只有两条**:行内 `credential-presence-exempt: <原因>`(须带原因、只救本行或紧邻上行,**已同笔登记进守门 108 的 30 天存活期档**,跨文件锁在镜像 T10 —— 不登记就会被邻居 E4 判成"新引入的未登记豁免族",即这道门自己的合法出口被钉红),或台账 `scripts/data/credential-presence-exemptions.json` 的 `file + anchor + reason + reviewBy` 四字段(**锚点用内容不用行号**,§1 第 3 条);缺字段 / 复核日过期 / 登记了而被审面没命中(清单腐烂)三种都判红 —— 登记表必然腐烂,所以腐烂必须是红而不是安静。立项现读:候选 2 处全在 `plugins/csrf.ts`,其中 `request.cookies.auth_token` 是 #23 那轮**从没任何人登记过**的豁免、由本门第一次点出来(靠 sameSite=lax 三处实测 + 路由侧仍验 JWT),另 3 处括号配平 / 取不出名字如实报未判定。**口径同 70/77/83/98/101/103/118**:全量判 HEAD blob、`--staged` 判索引 blob 且**收窄到本次暂存集**(刻意不学守门 150 判整张索引面 —— 那会让任何触及射程的提交拿到一道自己清不掉的红,已登记 G-458)、`--worktree` 仅人工且仍走 `readWorktreeFile`(不在门里留磁盘读)、两面旗同给 exit 2、取不到不回落、全量枚举到 0 判死、`--strict` 下有未判定即 exit 2 拒绝出合格证;遮罩只引 `scripts/lib/code-mask.mjs` 那一份实现且判据面**只遮注释、保留字符串**(头名住在字符串字面量里,连字符串一起抹会让门对自己立项那一型失明 —— 第一版就错在这里,由"真仓必须看得见存量"那条自检抓出;同批还修了 `readCondition` 把外层括号留在条件文本里、导致所有命中被自己放行的失明)。取证 `--self-test` 与 §22c 镜像各以命令末行现读为准(镜像 T1/T2 的**装车证明读 HEAD 面的 runner 而非磁盘** —— 磁盘那份常年滞后,会把刚经对象空间落地的注册判成"未装";另有摘线方向锁、台账缺席端到端必红并点名站点、取材面形状锁、暂存档收窄锁、遮罩单份锁、豁免族存活期锁)。
-
 ### 守门手动触发 / 紧急跳过抽查
-
 - **手动触发全量守门**:`node scripts/guardian-runner.mjs --staged`(pre-commit 模式,传给所有脚本);不带 `--staged` 为全量扫描。
 - **执行语义(2026-09-22 由 fail-fast 改为跑完再汇总)**:任一 blocking 门失败不再中断本轮 —— 全部 96 项跑完后末尾列「失败门清单 + 单独复现命令」再 exit(1)。原 fail-fast 会遮蔽其后所有门(实测同一工作区真实存在 5 道红,旧行为只显示 1 道,且让人误判"新注册的门没生效")。**两条不变量**:① 子门 `exit 75`(中断)仍**立即**以 75 向上传播,不收敛成 1(§5b ⑦ 的 push guard 重试链依赖它);② 逃生舱 `GUARDIAN_STOP_ON_FIRST=1` 完整恢复旧的"首个失败立即 exit(1)"。绿的路径耗时不变(原本就要跑完),仅失败轮次变长。
 - **commit 污染防护(scope 一致性)**:`.husky/commit-msg` 的 `check-commit-scope-consistency.mjs`(AGENTS.md §16 配套);紧急跳过 `HUSKY_SKIP_SCOPE_CHECK=1 git commit ...`。
 - **commit 丢失防护**:guardian 第 30a 项 `check-commit-loss-guard.mjs`(AGENTS.md §22 配套);紧急跳过 `HUSKY_SKIP_COMMIT_LOSS_CHECK=1 git commit ...`。
-
 > post-commit 钩子:`git-push-guard.mjs` 自动 push + 验证 local == remote(见 §20)。
-
----
-
 ## 26. C 盘防护强制规则(强制)
-
 ### 触发背景(2026-07-27 立,真实事故)
-
 C 盘 120 GB 频繁告急,根因排查发现:
-
 - **第三方 AI IDE 自身缓存 12.88 GB**(国内版 CN 7.68 + 旧版 3.46 + 国内旧版 1.74)
 - **Chrome OptGuideOnDeviceModel 4 GB**(Chrome 内置 AI 模型,用户不用)
 - **Local\Temp 累积 1.6 GB**(第三方 AI IDE 旧版安装包 + pip 安装临时)
 - **项目历史违规写入 `C:\temp\ihui-*` 0.33 GB**
-
 已通过环境变量迁移 + 符号链接 + 自动维护计划任务根治。
-
 ### 开发工具缓存路径强制规则(强制)
-
 **所有开发工具的全局缓存/存储/临时目录必须指向 D 盘**(2026-09-23 全量实测校正 —— 下表旧版写的
 `D:\caches\*` 是**死路径**,本机不存在 `D:\caches`,且 `CARGO_HOME`/`RUSTUP_HOME`/`OLLAMA_MODELS`
 当时**根本没设**,即"文档说已迁、实际还在 C 盘";真实外置根是 `D:\DevEnv\`)。
-
 | 工具                | 环境变量 / 配置                             | 实测路径                                                                            |
 | ------------------- | ------------------------------------------- | ----------------------------------------------------------------------------------- |
 | Temp/TMP            | `TEMP` / `TMP` / `TMPDIR`                   | `D:\DevEnv\Temp`(2026-09-23 才真正写入 HKCU)                                        |
@@ -1693,7 +1200,6 @@ C 盘 120 GB 频繁告急,根因排查发现:
 | **服务身份 TEMP**   | **没有 env 可改**(HKCU 迁移对它无效)        | 必须显式选目录 + 用完删除,详见下方"junction 管不了身份"                             |
 | Go                  | `GOPATH` / `GOMODCACHE` / `GOCACHE`         | `D:\DevEnv\cache\go{,\pkg\mod}` / `...\go-build`                                    |
 | Playwright          | `PLAYWRIGHT_BROWSERS_PATH`                  | `D:\DevEnv\cache\playwright`                                                        |
-
 | 工具                | 环境变量 / 配置                           | 实测路径                                                            |
 | ------------------- | ----------------------------------------- | ------------------------------------------------------------------- |
 | Temp/TMP            | `TEMP` / `TMP` / `TMPDIR`                 | `D:\DevEnv\Temp`(2026-09-23 才真正写入 HKCU)                        |
@@ -1711,7 +1217,6 @@ C 盘 120 GB 频繁告急,根因排查发现:
 | IHUI CLI 状态       | junction(`%USERPROFILE%\.ihui`)           | `D:\DevEnv\cache\userhome\.ihui`                                    |
 | Go                  | `GOPATH` / `GOMODCACHE` / `GOCACHE`       | `D:\DevEnv\cache\go{,\pkg\mod}` / `...\go-build`                    |
 | Playwright          | `PLAYWRIGHT_BROWSERS_PATH`                | `D:\DevEnv\cache\playwright`                                        |
-
 **改道机制定为 junction,不 env 优先**:家目录工具态一律 `robocopy <src> <dst> /E /MOVE` →
 `mklink /J <旧路径> <新路径>`。理由:工具态常有**硬编码**读取方(如 `~/.cargo\bin` 在
 `HKCU\Environment\Path` 首位、守门脚本按 `%USERPROFILE%` 拼路径),junction 让旧路径继续可解析,
@@ -1778,29 +1283,19 @@ nssm 服务(IHUI-API / IHUI-DEPLOYLOOP 以 LocalSystem 运行)拿到的仍是 `C
 **该方法唯一的真实危险**:`robocopy` 非零返回码(如 `.codex` 持锁 rc=9)会让内容已搬走但**不建 junction**,
 路径直接消失 —— 必须回读"旧路径是否存在 + 新路径文件数/字节"再补 junction(本次即手工补建后凭据零丢失)。
 **校验必须逐文件比对相对路径 + 字节数**(`robocopy /E` 不带 `/MOVE` 先做镜像副本),通过后才删源。
-
 **禁止 agent 在代码或脚本中硬编码 C 盘路径**作为写入目标:
-
 - ❌ `C:\temp\*` / `C:\Users\荣耀\AppData\Local\Temp\*`(用 `os.tmpdir()` / `$env:TEMP` 替代,会自动走 D 盘)
 - ❌ `C:\Users\荣耀\AppData\Local\*\cache`(用工具自带配置或环境变量)
 - ❌ `C:\Users\荣耀\AppData\Roaming\AICodingIDE*\*`(第三方 AI IDE 自身管理,agent 不触碰)
-
 **唯一例外**:系统日志(`debug.log` / `next-server.log`)可走 `$env:TEMP`(已指向 D 盘)。
-
 ### 自动维护计划任务
-
 | `IHUI C-Drive AutoMaintain` | 每天 3am | `wscript.exe scripts/c-drive-maintain-hidden.vbs` → `pwsh -File c-drive-auto-maintain.ps1` | **六段**:①Chrome 缓存 ②Temp 旧目录 ③本项目 C 盘产物 ④盘根封口体检 ⑤系统自产残骸(卡死打印队列/内核转储/孤儿浏览器构建) ⑥回潮源封禁(Chrome 政策,写前先验政策名真在 chrome.dll 里) |
-
 | 任务名                      | 触发     | 实际执行体                                                                                 | 功能                                  |
 | --------------------------- | -------- | ------------------------------------------------------------------------------------------ | ------------------------------------- |
 | `IHUI C-Drive AutoMaintain` | 每天 3am | `wscript.exe scripts/c-drive-maintain-hidden.vbs` → `pwsh -File c-drive-auto-maintain.ps1` | 清理 Chrome/Temp 缓存 + 报告 C 盘状态 |
-
 **⚠️ 注册名含空格,不是连字符**(`schtasks /query /fo CSV` 实读回 = `\IHUI C-Drive AutoMaintain`)。按文档里旧写的 `IHUI-C-Drive-AutoMaintain` 去查,`schtasks` 回「系统找不到指定的文件」—— 2026-09-23 我就是因此**误判成"任务从未注册"**,而它当时确实还没注册(23:55 才注册),但**名字陷阱会让人在任何一天都得出同样的错结论**。Git Bash 下查还要加 `MSYS_NO_PATHCONV=1`,否则 `/query` 被改写成路径。判存在与否只认 `schtasks /query /fo CSV | grep -i c-drive` 这种全量列名法,不要拿文档里的名字去点名查。
-
 **2026-09-23 曾实测:该任务在本机并不存在**(当时代号未注册,`D:\DevEnv\logs\c-drive-maintain.log` 也从未生成)。当时的表是**设计意图**而非现状,曾据此以为"每天在清"⇒ 实际零执行,这是 C 盘能攒下 13.2GB `.next` 构建备份的直接原因之一。
-
 **同日 23:59 经用户授权后已真正注册**(状态=现状,不再是设计意图):
-
 > **该"现状"于 2026-09-24 再次失真,已三路取证终判为「当前不存在」**(本节下方表格里的"每天 3am"因此也是设计意图而非实况):
 > ① `schtasks /query /fo CSV | grep -i c-drive` **零命中**(这正是本节规定的权威查法);
 > ② `Get-ScheduledTask | Where TaskName -match 'C-Drive|Maintain'` 返回**空**;
@@ -1809,7 +1304,6 @@ nssm 服务(IHUI-API / IHUI-DEPLOYLOOP 以 LocalSystem 运行)拿到的仍是 `C
 > `D:\DevEnv\logs\c-drive-maintain.log` 今天(09-24 10:59)那条记录是**人工 `-DryRun` 预演**,不是 03:00 自动执行(全文 `[DRY]` 无 `[DEL]`,合计释放 0 MB),
 > 所以"每天在清"在今天并没有发生。**注册动作 = 影响全机的每日自动删除,仍须用户授权,agent 不得自行 `schtasks /create` 恢复**;
 > 上一条"回读 `schtasks /Query /XML` 实证 `LogonType=S4U`"当时为真,但那份定义现已不在 —— 名字陷阱的解释**不成立**(权威全量列表法连空格名一起扫,零命中)。
->
 > **同日 17:1x 已按用户授权重新注册,并留配对证明(本条从"设计意图"重新变回现状)**:
 > ① **注册前实跑预检**(§26 硬约束):在 `scripts/` 放一份与 `c-drive-maintain-hidden.vbs` 同体、仅把参数换成
 > `-DryRun` 的副本,用 `cscript //nologo` 真跑一遍 —— `cscript` 退出 0、日志新增 76 行、
@@ -1821,14 +1315,12 @@ nssm 服务(IHUI-API / IHUI-DEPLOYLOOP 以 LocalSystem 运行)拿到的仍是 `C
 > `<Command>wscript.exe</Command>` ⇒ 三项齐备才算注册落地(不得把 `schtasks` 打印的"成功"当成功);
 > ④ 权威存在法同一时刻由 0 命中翻成 **1 命中**(`\IHUI C-Drive AutoMaintain`)。
 > **盘符按当次实测取**:本机工作树是 `G:\IHUI-AI`,注册的 `/tr` 就指 `G:\…`,不得照抄本节正文里的 `D:/…`(§5b/§15b 已各记过一次盘符失真)。
->
 > **同批根掉了一句会再骗一次的东西**:守门 92 `check-c-drive-pollution.mjs` 原先在结论后**无条件打印**
 > "计划任务 IHUI C-Drive AutoMaintain 每天 03:00 已注册(S4U,wscript 包装)",而脚本内**一次 `schtasks` 都没调过**
 > —— 一道只读污染门正在替一个当时并不存在的防护背书。现改为**实测三态判据** `registered / unregistered / undetermined`
 > (查法仍是全量 `/FO CSV /NH` + 名字不区分大小写匹配,**禁止**点名查),非 win32 / ENOENT / 超时 / 空输出 /
 > 输出形态解不出任务路径一律 `未判定` 并写原因,**绝不计为通过**;本门仍只读、未注册不改退出码(warn-only 语义由断言钉死)。
 > 配对证明:注册前该判据实测 `unregistered`(346 项零命中),注册后 `registered`(347 项命中 1 条),两次退出码均 0。
-
 - **动作链按本节下方「计划任务禁止直接执行控制台程序」硬约束走**:`wscript.exe` → 纯 ASCII 的 `scripts/c-drive-maintain-hidden.vbs` → `pwsh -NoProfile -ExecutionPolicy Bypass -File …ps1`。注册前用 `cscript //nologo` 实跑过一份**只带 `-DryRun` 的同体副本**做语法+拉起链证明(实测写出 `[WARN] … DRY RUN(全脚本不删任何东西)`),因此注册过程零删除。
 - **登录类型已升 S4U**(与凭据巡检同一套 `scripts/task-set-s4u.vbs`),否则 3am 无人登录时不会跑。回读 `schtasks /Query /XML` 实证:`LogonType=S4U`、`Command=wscript.exe`、`StartBoundary=03:00`、下次运行 `2026-09-24 03:00`。
 - **它的删除面是"按名字"的,不是"按目录整片"**(2026-09-24 把行为收拢到与这句话一致,之前并非如此):盘根只认 `IHUI-*` / `.empty-tmp*` / `.pnpm-store`;`C:\tmp` 与 `C:\temp` 内只删 `ihui-*` / `IHUI-*` / `next-backup-*` / `probe-*` / `wb-ext-debug.log`;`%LOCALAPPDATA%\Temp` **默认也只删这四类名字**,原来是对"所有 mtime>3 天的目录"整片删(09-23 一次误跑就是因此清掉约 29.8MB 无主旧目录)—— 宽口径整片清扫现在必须显式设 `IHUI_TEMP_WIDE_SWEEP=1` 才恢复,未开启时把"被跳过多少个、合计多少 MB"如实打印,不静默。唯一剩下的非按名字删除面是 `C:\Windows\Temp` 里 mtime>3 天的**文件**(系统临时文件,保留原语义),日志里以 `[NOTE]` + 逐条留痕明示。
@@ -1837,19 +1329,14 @@ nssm 服务(IHUI-API / IHUI-DEPLOYLOOP 以 LocalSystem 运行)拿到的仍是 `C
 - **TEMP 漂移(2026-09-24 已根治写入侧,残余只是"活进程不刷新")**:HKCU `TEMP` 已指 `D:\DevEnv\Temp`,但活着的宿主/终端进程仍持 `C:\Users\Administrator\AppData\Local\Temp`(实测 `node -p os.tmpdir()` 即旧值),新开终端/重启宿主后自愈。**更严重的那一半是"服务身份根本不读 HKCU"** —— LocalSystem 的 TEMP 是 `C:\Windows\Temp`,已按上文③把守门扫描面补齐,并把 `deploy/win/ihui-deploy.ps1` 的构建重定向日志改为**用完即删**(实测存量 526 项 / 6.86MB 清完、下一轮构建结束后 2 个文件自行消失)。判据与污染可见性由守门 `check-c-drive-pollution.mjs`(只读、永不删;编号见 runner)承担。 —— ⚠️ **本机事实 2026-10-04 现读曾漂到 `D:\tmp`,当日已按机主拍板收口**:那轮 `reg query HKCU\Environment /v TEMP` 与 `node -p os.tmpdir()` **都报 `D:\tmp`**(不是本句那句 `D:\DevEnv\Temp`)⇒ "残余只是活进程不刷新"当时不成立,注册表本身已指向另一个落点,而 `D:\tmp` 不在 §15b 的四个批准落点内。机主拍板「改回批准落点」后:`HKCU` 的 `TEMP`/`TMP`/`TMPDIR` 当日写回 `D:\DevEnv\Temp`(改前整块备份 `D:\DevEnv\backups\env\hkcu-environment-20261004.reg`);**`D:\tmp` 未搬也未做 junction** —— 它被在飞进程持有(含 agent 宿主),按 §12 只报不动,活进程仍持旧值、新开终端/重启宿主后自愈。**回收侧配套(同批,枚 `bcd82b4116`)**:`scripts/scrub-temp-fixtures.mjs` 的根集合改由唯一出口 `defaultRoots()` 推导 = 活 `tmpdir()` ∪ `devEnvRoot()` 派生 ∪ **逐盘探 A..Z 的 `caches\Temp`/`tmp`/`DevEnv\Temp`(存在才进)** ∪ `IHUI_TEMP_SCRUB_ROOTS`。立因:工作树在 `G:\` 而历史残留躺在 `D:\caches\Temp`,只扫 `tmpdir()` 会把"另一块盘还有 17.83 GB"读成候选 0 —— 与"扫到 0 先怀疑尺子"是同一条禁令。调度 = `git-guardian` 24h 节流(健康轮次与 daemon tick 两处),读数**只认「汇总」那一行**(取首条 `候选 N` 只读到第一个根)。仍开的一格:盘根卫生守门 `config/disk-root-allowlist.json` 的 `roots` 只有 `G:\` ⇒ D 盘根零判据。台账 = G-1058525;**凡 TEMP/TMP 一律现读、禁止按本文取字面值**(§5b 六类现值同一条纪律,TEMP 是第七类)。
 - **家目录实体目录再少两处**(2026-09-24):桌面端 `%LOCALAPPDATA%\com.ihui.desktop`(515 文件/39.25MB)与 `%APPDATA%\com.ihui.desktop`(auth/tray/window-state)已按本节 junction 机制改道到 `D:\DevEnv\cache\userhome\appdata-{local,roaming}-com.ihui.desktop`;流程是"镜像复制 ⇒ 逐文件(相对路径+字节)校验 ⇒ 源改名为 `.pre-junction-<ts>` ⇒ `mklink /J` ⇒ 经 junction 回读数量一致 ⇒ 才删源",任一步不符即改名回退。改道前已确认桌面端不在运行(该目录最后写入 09-06,机上 13 个 `msedgewebview2.exe` 全属他应用)。同批删除 `AppData\Local\智汇AI` 与 `AppData\Local\ihui-node-hooks` 两个**空**孤儿目录(后者说明机器级 windowsHide 钩子当前未装:`HKCU\Environment\NODE_OPTIONS` 实测未设)。
 - **仍未闭环的一条**:TEMP 漂移 —— HKCU `TEMP` 已指 `D:\DevEnv\Temp`,但活着的宿主/终端进程仍持 `C:\Users\Administrator\AppData\Local\Temp`(实测 `node -p os.tmpdir()` 即旧值),所以走 `os.tmpdir()` 的脚本会继续落 C 盘;新开终端/重启宿主后自愈。判据与污染可见性由守门 **93** `check-c-drive-pollution.mjs`(只读、永不删)承担。 —— ⚠️ **本机事实 2026-10-04 现读曾漂到 `D:\tmp`,当日已按机主拍板收口**:那轮 `reg query HKCU\Environment /v TEMP` 与 `node -p os.tmpdir()` **都报 `D:\tmp`**(不是本句那句 `D:\DevEnv\Temp`)⇒ "残余只是活进程不刷新"当时不成立,注册表本身已指向另一个落点,而 `D:\tmp` 不在 §15b 的四个批准落点内。机主拍板「改回批准落点」后:`HKCU` 的 `TEMP`/`TMP`/`TMPDIR` 当日写回 `D:\DevEnv\Temp`(改前整块备份 `D:\DevEnv\backups\env\hkcu-environment-20261004.reg`);**`D:\tmp` 未搬也未做 junction** —— 它被在飞进程持有(含 agent 宿主),按 §12 只报不动,活进程仍持旧值、新开终端/重启宿主后自愈。**回收侧配套(同批,枚 `bcd82b4116`)**:`scripts/scrub-temp-fixtures.mjs` 的根集合改由唯一出口 `defaultRoots()` 推导 = 活 `tmpdir()` ∪ `devEnvRoot()` 派生 ∪ **逐盘探 A..Z 的 `caches\Temp`/`tmp`/`DevEnv\Temp`(存在才进)** ∪ `IHUI_TEMP_SCRUB_ROOTS`。立因:工作树在 `G:\` 而历史残留躺在 `D:\caches\Temp`,只扫 `tmpdir()` 会把"另一块盘还有 17.83 GB"读成候选 0 —— 与"扫到 0 先怀疑尺子"是同一条禁令。调度 = `git-guardian` 24h 节流(健康轮次与 daemon tick 两处),读数**只认「汇总」那一行**(取首条 `候选 N` 只读到第一个根)。仍开的一格:盘根卫生守门 `config/disk-root-allowlist.json` 的 `roots` 只有 `G:\` ⇒ D 盘根零判据。台账 = G-1058525;**凡 TEMP/TMP 一律现读、禁止按本文取字面值**(§5b 六类现值同一条纪律,TEMP 是第七类)。
-
 **同日修 `c-drive-auto-maintain.ps1` 的三处失效**(全部实测取证):
-
 1. 原"清理本项目产物"段扫的是 `C:\temp\ihui-*`,而我们实际写到 `C:\tmp\*`(构建备份)、`%LOCALAPPDATA%\Temp\ihui-*`(测试夹具)、以及盘根本身 —— **扫错目录 = 每天跑也零效果**。现覆盖这三处 + 盘根 `IHUI-*`/`.empty-tmp*`/`.pnpm-store`。
 2. `ForceDelete` 只有 `DeleteDirectory` 分支,对**文件**路径必然抛后被 catch 吞掉 ⇒ 静默"清理成功但什么都没删"(盘根 `IHUI-probe-*.ps1` 就属于这一类)。现按 Leaf/Directory 分流。
 3. 新增 `-DryRun`,**拦在 `ForceDelete` 这个唯一删除出口上**而非某一段里。教训实测:最初只把 DryRun 写在第三段,预演模式下第一段(Chrome 缓存)和第二段(Temp >3 天目录)**照样被真删了**(DeletePermanently 不进回收站);当时释放约 29.8MB,均为 `Temp` 下 mtime>3 天的目录,项目文件/备份/凭据全在 D 盘未受影响。现每段逐条留痕(`[DEL]`/`[DRY]`),不再静默删除。
-
 **手动触发**:`pwsh -File scripts/c-drive-auto-maintain.ps1`
 **查看日志**:`D:\DevEnv\logs\c-drive-maintain.log`(旧文档写 `D:\caches\...`,该目录本机不存在,日志从未写出)
 **查看任务状态**:`Get-ScheduledTask -TaskName "IHUI-*"` / `schtasks /Query /TN "IHUI-C-Drive-AutoMaintain"`
-
 ### 2026-09-23 已办与剩余阻碍
-
 **已办**:① **10.3GB 游离备份收口进 `D:\DevEnv\backups\`**(根目录散落的 `IHUI-AI-backup-*.tar` 8.3G、
 `IHUI-AI-backup-20260911.git` 727M、`IHUI-AI_workbak_20260910` 537M、两个根 `.sql`、`IHUI AI Desktop` 94M
 等,同卷 `mv` + 每步回读"源已无 + 目标体积一致");② **C 盘 20G → 31G 可用**;③ **12 项家目录改道**
@@ -1860,16 +1347,13 @@ nssm 服务(IHUI-API / IHUI-DEPLOYLOOP 以 LocalSystem 运行)拿到的仍是 `C
 顺带修掉该服务把 `TEMP`/`TMP` 钉死在 `C:\Users\...\AppData\Local\Temp` 的配置(nssm LocalSystem
 自带环境块,HKCU 的 TEMP 迁移对它无效,它一直在往 C 写)。原环境块备份在
 `D:\DevEnv\backups\env\ollama-service-env-original.txt`。
-
 **剩余客观阻碍(不是遗漏)**:`~/.workbuddy` 3.1GB 内含 `binaries\PortableGit`
 (被 `scripts/lib/gitdir.mjs` 的 `resolvePortableGitCandidates()` 当 git 二进制首选解析)不得搬,其 `logs`/`traces` 约 2GB 属该 IDE
 自管;`.qoder-cn`/`.qoder` 是本会话宿主状态,改道即丢记忆。`scripts/kill-git-selector-hidden.vbs`
 已改为随自身目录定位目标脚本,但其包装的 `kill-git-selector.ps1` **在仓库里并不存在**(死代码);
 `scripts/release-desktop-local.mjs` 需要 `%USERPROFILE%\.tauri\ihui-updater.key`,而**旧句"本机无 `.tauri` ⇒ 桌面发布在此机必 `exit 1`"已于 2026-10-01 实测作废**:`.tauri\ihui-updater.key` 348 B、`ihui-updater-password.txt` 33 B **都在位**,mtime 2026-09-07(早于该句登记日 09-23 三周)⇒ 登记当时就不成立;那句还写着 `:67,74` 的行号指针,而 §1 明令证据指针禁写行号(任何一次 append 后都会挪位)。桌面端能否发布在本机的真判据是"跑一次取签名密钥的那条路径并看它报什么",不是这条散文
 → 桌面端发布在此机必 `exit 1`(需发布机或补生成密钥)。
-
 ### 守门(已实现,guardian-runner 第 45 项)
-
 - `scripts/check-c-drive-paths.mjs`(guardian-runner 第 45 项,warn-only,2026-08-13 立):扫描 staged 文件中硬编码的 C 盘写入路径(`C:\temp\` / `C:\Users\*\AppData\Local\Temp\` 等,排除 `os.tmpdir()` / `$env:TEMP` / 注释 / 文档)。
 - **`scripts/check-c-drive-pollution.mjs`(guardian-runner 已注册项,warn-only,2026-09-23 立。**编号同日重排 5 次(85→90→91→92→93→96),文档一律不写死,以 runner 里该 `script:` 所在条目的 `id` 为准**)—— 补上第 45 项看不见的那一半**。成因:第 45 项只扫**源码字面量**,而 C 盘残骸恰恰是从 `os.tmpdir()` / `$env:TEMP` 这类"源码里没写 C"的路径流出去的;`check-parent-pollution`(只扫项目父目录 `D:\`)和 `check-root-dir-clean`(只扫项目根)同样不看 C 盘文件系统 —— 全链 90+ 道门没有一道实地扫过 C,于是 13.2GB `.next` 备份和单日 45 个 git 夹具可以在全量审计恒绿的情况下一直堆在 C 盘。本门实地扫 `C:\` 根 + `C:\tmp` + `C:\temp` + 活 TEMP,按名字白名单只认**本项目产物**(他人条目进"未识别清单",只登记不定性、不清理);并单独判 **TEMP 漂移**(注册表 `HKCU\Environment\TEMP` 已指 `D:\DevEnv\Temp` 而活进程仍持 `C:\Users\...\AppData\Local\Temp`)—— 这就是"改了指针但残骸天天还在长"的机制,新建终端/重启宿主后自愈。
 - **`scripts/check-c-drive-pollution.mjs`(guardian-runner 第 93 项,warn-only,2026-09-23 立)—— 补上第 45 项看不见的那一半**。成因:第 45 项只扫**源码字面量**,而 C 盘残骸恰恰是从 `os.tmpdir()` / `$env:TEMP` 这类"源码里没写 C"的路径流出去的;`check-parent-pollution`(只扫项目父目录 `D:\`)和 `check-root-dir-clean`(只扫项目根)同样不看 C 盘文件系统 —— 全链 90+ 道门没有一道实地扫过 C,于是 13.2GB `.next` 备份和单日 45 个 git 夹具可以在全量审计恒绿的情况下一直堆在 C 盘。本门实地扫 `C:\` 根 + `C:\tmp` + `C:\temp` + 活 TEMP,按名字白名单只认**本项目产物**(他人条目进"未识别清单",只登记不定性、不清理);并单独判 **TEMP 漂移**(注册表 `HKCU\Environment\TEMP` 已指 `D:\DevEnv\Temp` 而活进程仍持 `C:\Users\...\AppData\Local\Temp`)—— 这就是"改了指针但残骸天天还在长"的机制,新建终端/重启宿主后自愈。
@@ -1883,29 +1367,17 @@ nssm 服务(IHUI-API / IHUI-DEPLOYLOOP 以 LocalSystem 运行)拿到的仍是 `C
 - **临时夹具唯一落点:`scripts/lib/scratch-dir.mjs`(`mkScratch` / `rmScratch`,2026-09-23 立)**。两条选址硬约束都由实测踩坑固化:① 不得用 `os.tmpdir()`(活进程 TEMP 可能仍钉在 C 盘);② 不得落在仓库树内 —— git 夹具要模拟"非 git 目录",放在 `.ihui-agent/tmp/` 里时 `git rev-parse --show-toplevel` 会向上逃逸到真仓库,使该用例恒红(已用 HEAD 副本 A/B 实证,是当初先试后撤的方案)。现锚定**工作树同盘的 `DevEnv/Temp/ihui-scratch`**(§15b 批准的临时物落点),与 `gitArchiveDir()` 同一套盘符推导;`IHUI_SCRATCH_DIR` 为换机/CI 逃生舱,指向仓库内时按硬约束直接拒建而非静默产出会逃逸的夹具。回归:`node --test scripts/tests/scratch-dir.test.mjs`(4 例)。
 - **行为(与 guardian-runner.mjs 实际一致)**:本脚本违规时 exit 1(供统计),guardian-runner 以 warn 模式捕获后计为"警告"、**不阻塞 commit**;仅 blocking 项失败才 exit 1 阻塞 commit。
 - 紧急跳过(应急,默认不推荐):`HUSKY_SKIP_C_DRIVE_PATHS=1 git commit ...`
-
-### 历史案例
-
 - 2026-07-27:C 盘 28 GB → 42 GB,释放 13.85 GB(第三方 AI IDE 旧版残留 + Chrome OptGuideOnDeviceModel + Temp 旧文件)
 - 后续配置 11 个环境变量永久指向 D 盘,杜绝开发工具缓存再写 C 盘
 - 第三方 AI IDE 自身缓存由其自管理,项目维护脚本不再代清理
-
----
-
 ## 27. PowerShell 7 强制规则(强制,2026-08-13 立)
-
-### 触发背景
-
 Windows PowerShell 5.1(`powershell.exe`)已 EOL(微软停止维护),且存在已知 bug:
-
 - `Out-File -Encoding UTF8` 实际写 UTF-16 LE(BOM 处理 bug)
 - ANSI 代码页读 UTF-8 写入的 `.ps1` 文件时,`if/else` 块解析截断(`Missing closing '}'` 误报)
 - 中文路径/文件名处理在 5.1 上不稳定
 - 跨平台兼容性差(Linux/macOS 跑不通)
 - 真实事故:2026-08-13 C 盘 130MB 修复任务,D 盘诊断脚本二次报 `Missing closing '}'`,根因是 5.1 读 pwsh 7 写入的 UTF-8 文件的 BOM bug
-
 ### 强制规则(违反视为交付事故)
-
 1. **agent 跑 PowerShell 必须用 `pwsh.exe`**(PowerShell 7+):
    - ✅ `pwsh -File scripts/foo.ps1`
    - ✅ `& "C:/Program Files/PowerShell/7/pwsh.exe" -File ...`
@@ -1913,15 +1385,11 @@ Windows PowerShell 5.1(`powershell.exe`)已 EOL(微软停止维护),且存在已
    - ❌ `powershell.exe -Command ...`
    - 唯一例外:Windows 系统 5.1 专属 cmdlet 需在脚本里 `Set-Alias` 显式标注
 2. **所有项目内 `.ps1` 文件第一行必须 `#requires -Version 7`**:在 5.1 上跑会**直接报错退出**,这正是强制效果
-
 - **适用面例外(2026-09-28 G-225 出路②落地)**:`deploy/**` 的 `.ps1` **不吃该 pragma**,守门 `scripts/check-pwsh-version.mjs` 对该面**不判红只报名**(报告行 `[EXEMPT]` 给出该面总数与缺 pragma 数,现读一律看该行,不引用文档数字)。原因不是遗漏而是可用性决定:`#requires` 在 5.1 上是**直接拒绝执行**,而这些脚本由 nssm 服务与计划任务拉起 —— 别机/服务身份若仍是 5.1,补 pragma 等于让部署/备份/监控服务停摆。**因此不得按本节那句"所有项目内 .ps1"推断运维脚本已受版本强制**;那句话现在只覆盖非豁免面。这一族的真判据在**调用侧**:代码面凡调用 `deploy/**.ps1` 必须显式指名 `pwsh`/`pwsh.exe` 或经 `*.vbs` 包装(§26),裸 `powershell -File deploy/…` 即 `[CALLER]` 命中;默认档与提交链只报数,问责跑 `--strict`,升 blocking 的前置是真仓 HEAD 面现读为 0。门内逐字打印的盲区:调用侧只判 JS/TS 系,`.ps1/.sh/.bat/.vbs` 的调用面因 `code-mask` 不认其注释语法而**不判** —— 那是"没判",不是"已确认没有"。
-
 3. **CI / 守门脚本必须用 `pwsh`** 跑
 4. **路径统一用正斜杠 `/`**:`C:/Program Files/PowerShell/7/`,避免 5.1 反斜杠转义 bug
 5. **`.ps1` 文件用 UTF-8 with BOM 写**:PowerShell 5.1 默认以 ANSI 代码页读 `.ps1`,`Out-File -Encoding UTF8` 在 5.1 上写的是 UTF-16 LE,必须用 `[System.IO.File]::WriteAllText($path, $content, [System.Text.UTF8Encoding]::new($true))`
-
 ### 守门(blocking)
-
 - `scripts/check-pwsh-version.mjs`:检查 `.ps1` 前 5 行是否含 `#requires -Version 7`,缺失则 exit 1。ROOT 由脚本自身位置推导(不写死盘符)
   - `--staged`:仅检查 **git index 中已暂存的** `.ps1`(`.husky/pre-commit` 用此模式)
   - 缺省:全树扫描(人工 / CI 全量审计用)
@@ -1929,31 +1397,17 @@ Windows PowerShell 5.1(`powershell.exe`)已 EOL(微软停止维护),且存在已
 - 检查范围:项目内 `.ps1`(`scripts/`、`apps/*/scripts/`、`.ihui-agent/scripts/` 等)
 - 白名单:`*.venv/*`、`venv/*`、`node_modules/*`、`.git/*`、`tmp/*`、`deploy/*`、`.ihui-agent/*`、`site-packages/*`(playwright 驱动)、`.workbuddy/quarantine/*`(污染治理隔离归档)
 - **2026-09-15 修复(本守门自身 P0 回归)**:`--staged` 自挂载起只在用法注释里声明、**从未实现**,实现中只有无条件的全树 `scan(ROOT)`,导致工作区里未跟踪且被 gitignore 的遗留 `.ps1`(实测 `.android-toolchain/*.ps1`、`.tmp-wechat-test/watch.ps1`)**阻断每一次提交**——而它们在干净 checkout / CI 里根本不存在。已真正实现 `--staged`,并补齐 `deploy/*` 等白名单口径。
-
 ### 安装指引(机器上没装 PowerShell 7)
-
 ```powershell
 winget install --id Microsoft.PowerShell -e --source winget
 # 或一键脚本
 iex "& { $(irm https://aka.ms/install-powershell.ps1) } -UseMSI"
-```
-
 ### 历史教训
-
 - 2026-08-13:CredentialHelperSelector 弹窗修复任务全程用 `powershell`(5.1),导致 D 盘诊断脚本二次报 `Missing closing '}'`(5.1 对 BOM 处理 bug)。改用 `pwsh` + `#requires -Version 7` 后立即通过。教训:RunCommand 默认 PowerShell 解释器**不是 7 也不是 5 的中性选择**——必须显式指定 `pwsh`。
-
----
-
 ## 28. 根目录整洁铁律(强制,2026-08-15 立)
-
-### 触发背景
-
 根目录曾散落 10+ 临时产物:`debug.log` / `aha_electron_2026.0810.log` / `cookies.txt` /
 `page_eval/prompts/response/usage.html` / 过时 `start-dev.ps1`(D 盘旧路径 + 8810 旧端口) /
 `browser_test_output/` 等。2026-08-15 一次性清理后,立此铁律防回潮。
-
-### 强制规则(违反视为交付事故)
-
 1. **一级目录只允许白名单内条目**,白名单封闭维护于 `scripts/check-root-dir-clean.mjs`(4 组 Set):
    - `ALLOWED_FILES`:配置(`package.json`/`pnpm-*.yaml`/`turbo.json`/`eslint.config.mjs`/`tsconfig.base.json`/`knip.jsonc`/`docker-compose.yml`/`railway.json`/`render.yaml`/`app.json`)+ 标准文档(`README*.md`/`LICENSE`/`SECURITY.md`/`CONTRIBUTING.md`/`CODE_OF_CONDUCT.md`)+ 项目强制(`AGENTS.md`/`PROJECT_PLAN.md`)
    - `ALLOWED_DIRS`:`apps`/`packages`/`scripts`/`docs`/`deploy`/`monitoring`/`reports`/`sdks`/`cert`/`products`/`logs`/`node_modules`/`tmp`/`test-results`
@@ -1962,61 +1416,38 @@ iex "& { $(irm https://aka.ms/install-powershell.ps1) } -UseMSI"
 3. **新增合法根目录文件/目录必须显式审批**:把条目加进 `scripts/check-root-dir-clean.mjs` 白名单并随 commit 提交,禁止绕过白名单。
 4. **任务收尾必查**:交付前跑 `node scripts/check-root-dir-clean.mjs --staged`,0 违规才算完成。
 5. **忽略产物也纳入视野(2026-09-23 补)**:守门原对"被 git 忽略的一级目录条目"整体跳过(该豁免必要 —— 忽略条目本由 `.gitignore` 承接,若一并拦截则各类构建产物与本地目录会让每次提交皆红;注意 `tmp/`、`logs/` 等已在 `ALLOWED_DIRS`,驱动这条豁免的是"未进白名单却被忽略"的产物),致本规则第 2 条的禁令对被忽略文件零覆盖 —— 实测一次性翻出 14 个静默残留(`_knip.log`/`.tmp-tsc.log`/`build-oidc.log` 等),`git status` 与守门都看不见。现新增**只告警层**(不计失败、不改退出语义:全量恒 0,`--staged` 仍只对非忽略违规 exit 1)。看到该告警即删除或移入 `tmp/`、`logs/`。
-
-### 守门(blocking)
-
 - `scripts/check-root-dir-clean.mjs`:扫描一级目录,白名单外条目 `--staged` 模式 exit 1
 - 集成位置:`scripts/guardian-runner.mjs` pre-commit 第 44 项(2026-08-15 立)
 - 逃生舱(应急,默认不推荐):`HUSKY_SKIP_ROOT_DIR_GUARD=1 git commit ...`
-
 ### 配套
-
 - `.gitignore` 已补 `browser_test_output/`、`cookies.txt` 防回潮(未跟踪垃圾不污染 `git status`)
-
----
-
 ## 29. dangling commit 备份策略(2026-08-19 立)
-
 ### 由来
-
 `commit-loss-check` 守门会拦截 dangling commits,要求先备份为 tag 再继续操作。
 本仓库实践:所有 dangling commits 备份为 `lost-commit/wip-*` tag(以 commit 短 hash 命名,
 例如 `lost-commit/0141d221`、`lost-commit/wip-batch-00f2429`)。
-
 截至 2026-08-19,本地 `lost-commit/*` tag 数量 = **4188** 个,远超 §22「已被 reset 丢失的 commit
 永久记录」清单的 3 个手工备份 tag — 绝大多数来自 `check-commit-loss-guard.mjs` 自动 fsck
 悬空检测后批量打 tag 的产物(典型为 merge commit / stash pop 失败的中间 commit)。
-
 抽样 `git show --stat lost-commit/{0141d221,02000bfd,043af88d}` 均显示为 Merge commit,
 作者 `AI智汇社 <lizong@aizhs.top>`,日期集中在 2026-08-17 — 与 §22 守门日志一致。
-
 ### 保留周期
-
 建议 **30 天**。超出后一次性 GC(由仓库维护者人工触发,不在守门脚本里自动跑):
-
-```bash
 # 1. 先确认无重要未提交工作(红线!)
 git status               # 应 clean
 git stash list           # 应为空
 git diff --stat          # 应无改动
-
 # 2. 列出所有 lost-commit tag(预演,确认数量级合理)
 git tag -l 'lost-commit/*' | wc -l   # 当前 4188
-
 # 3. 本地一次性删除
 git tag -l 'lost-commit/*' | xargs git tag -d
-
 # 4. 同步删除远程 tag(仅当你确认远端也允许清理时;默认保留远端)
 #    警告:此操作会真正影响 origin ref 列表,需在 PR 中明确说明
 git tag -l 'lost-commit/*' | xargs -I{} git push origin :refs/tags/{}
-
 # 5. 验证 (强校验,任何 missing/unreachable 都应人工复核)
 git fsck --unreachable --no-reflogs
 git tag -l 'lost-commit/*' | wc -l   # 应为 0
-```
-
 ### 为什么必须人工触发而不是脚本自动化
-
 - **守门不擅自删 tag**: `check-commit-loss-guard.mjs` 的职责是"检出 + 备份",
   不应承担"GC 清理"职责 — 后者一旦误删,会真正丢失 dangling commit 的可达路径,
   即使远端有备份也增加了恢复成本。
@@ -2024,9 +1455,7 @@ git tag -l 'lost-commit/*' | wc -l   # 应为 0
   人类在 PR 里显式 ack,而不是 nightly cron 自动跑。
 - **§22 守门只挡新增**: pre-commit 第 30a 项(`--blocking --filter-stash`)只关心
   "这一次操作是否会产生 dangling",不关心历史积累。
-
 ### 红线
-
 - ❌ **不要把 lost-commit tag push 到 origin 之外的 fork / mirror**(会污染外部 ref 列表)。
   §22「自动化 tag 同步」明确禁止了向非 origin 的推送。
 - ❌ **GC 前未确认 `git status clean` + `git stash list` 为空**(会丢失未提交改动)。
@@ -2034,61 +1463,37 @@ git tag -l 'lost-commit/*' | wc -l   # 应为 0
   因为 fsck 检出的是"创建时刻"的悬挂,不代表当下已被 merge 进 main)。
 - ❌ **amend 含 dangling 备份说明的 commit**(本节一旦 commit,内容视为定稿;
   后续 GC 时间窗的调整应新加 §29a / §29b,不要回头改这一节)。
-
-### 配套
-
 - §22「防止 commit / push / merge 提交丢失硬性规则」— 提供守门 + 备份机制
 - §22「自动化 tag 同步」(`scripts/sync-lost-commit-tags.mjs`)— 保证远端有副本
 - `docs/lost-commit-archive.md` — 丢失 commit 的永久档案(人工可读清单)
 - `.ihui-agent/archive/AGENTS_history.md` — 历史 GC 案例(本节首次落地后应补一条案例)
-
----
-
 <!-- AGENTS.md 瘦身 slice-A(2026-09-30):以下原 1952–2473 行(522 行 / 约 497KB)整区逐字归档于 .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md(HEAD d990bfa6bc);
      非条目行(标题/表格/代码块)逐字保留,顶层条目压成指针行:守门号、门脚本名、blocking/warn、HUSKY_SKIP_* 全部保留,原文按行号在归档件逐字找回。 -->
-
 ## 42. React SyntheticEvent 闭包陷阱(强制)
-
 ### 触发背景(2026-08-12 立,真实 bug)
-
 `apps/web/src/components/chat/model-selector.tsx` 原 `onMouseLeave` 在 `setTimeout` 回调闭包内访问 `e.currentTarget`:
-
 ```tsx
 setTimeout(() => {
   setPopoverAnchor((prev) => (prev?.el === e.currentTarget ? null : prev))
 }, 100)
-```
-
 React 17+ 的 SyntheticEvent 在事件处理函数返回后 `currentTarget` 会被置 `null`,异步回调触发时 `prev?.el === null` 永远为 `false`,关闭分支永远不进 → model picker 常驻显示。
-
 ### 陷阱机制
-
 - React 事件处理函数(`onClick={e => ...}` 等)**同步作用域内** `e.target` / `e.currentTarget` 有效。……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L32–L32
 - 一旦进入异步回调(`setTimeout` / `setInterval` / `requestAnimationFrame` / `requestIdleCallback` / `queueMicrotask` / 未捕获 `e` 的 promise)或 memoized / 延迟执行的闭包场景,……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L33–L33
-
 ### 强制做法(违反视为 defect 事故,强制)
-
 1. **同步缓存**:在事件处理函数**同步作用域**先缓存所需字段,再在异步中使用。例:`const id = e.currentTarget.dataset.id` → 异步闭包内读 `id`,严禁直接读 `e.currentTarget.dataset.id`。
 2. **用 ref 管理 DOM**:`anchorRef.current` 替代 `e.currentTarget`,适合需在多个回调 / 清理函数中引用同一 DOM。
 3. **异步闭包内禁止访问 `e.` 任何属性/方法**(`currentTarget` / `target` / `preventDefault` / `stopPropagation`)。
-
 ### 守门
-
 `scripts/check-event-closure-leak.mjs`(guardian-runner 第 42 项,blocking):用括号配对算法提取异步回调第一个参数(箭头函数体),在其内搜 `e.X` 模式,命中 → exit 1 阻塞 commit。
 参考修复:`apps/web/src/components/chat/model-selector.tsx` MemberDiscountSection。
-
 ## 30. 代理与会话面的状态词汇与撤销语义(强制,2026-09-27 立,G-104 规格补强的单一落点)
-
 - **为什么住在本文而不是任务行**……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L47–L50
 - **两套撤销语义必须分离**……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L51–L53
 - **子智能体 / 后台进程的状态词汇是一等契约**……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L54–L56
 - **钩子无终态不得渲染成"完成"**……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L57–L59
 - **自动档写活文档必须按被审面取底稿,并自带"状态不得倒退"的零损失断言(强制,2026-09-28 立,近 24h 实测 18 行翻勾被退回逼出)**〔scripts/archive-completed-tasks.mjs · scripts/lib/face-reader.mjs〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L60–L62
-
----
-
 ## 关键参考文档
-
 | 文档                      | 说明                                                          |
 | ------------------------- | ------------------------------------------------------------- |
 | `PROJECT_PLAN.md`         | 唯一任务计划文档(必读)                                        |
@@ -2096,25 +1501,18 @@ React 17+ 的 SyntheticEvent 在事件处理函数返回后 `currentTarget` 会�
 | `docs/architecture.md`    | 系统架构文档                                                  |
 | `docs/port-management.md` | 端口注册表(88xx 段)                                           |
 | `docs/learning-assets.md` | 学习资产登记(34 个工作流反馈来源,新增/删除工作流必须同步更新) |
-
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
-
 | 路径                             | 角色                                                        |
 | -------------------------------- | ----------------------------------------------------------- |
 | `D:/IHUI-AI/.git`                | **28 字节指针文件**(`gitdir: D:/IHUI-AI-git-repo`),不是目录 |
 | `D:/IHUI-AI-git-repo`            | 真实 gitdir(544MB),在工作区之外                             |
 | `D:/IHUI-AI.git-backup-20260912` | gitdir 完整备份,守护的本地恢复源                            |
-
 - **唯一写法**〔scripts/guardian-runner.mjs〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L84–L84
 - **唯一写法**……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L85–L85
-
 > ⚠️ 本行已于 2026-09-24 被上面「唯一写法(2026-09-24 改档)」就地改写取代(旧档 brand.DEFAULT/foreground 已废);保留原文只为不丢行,勿照它执行。
-
 - 悬空引用由该门的"品牌键"判据直接拦(编译不一定红,运行时是 `undefined` 颜色)。并行会话的暂存区里若还残留 `tokens.brand.ctaFill/ctaText`,改法只有一行:`ctaFill` → `DEFAULT`、`ctaText` → `foreground`。……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L89–L89
 - **清单↔锁 specifier 对账**〔scripts/check-lock-manifest-consistency.mjs · blocking · HUSKY_SKIP_LOCK_MANIFEST_GUARD〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L90–L90
-
   - **`--take-ours <path>` 是"声明式例外",不是选边后门**(2026-09-24 加):两侧同改且真三方报冲突时,默认一律 `needHuman` 交人工 —— 但**报冲突不等于必须交人工**:若合并树的内容已让对侧那一版判据**必红**,取本侧就是被内容强制的唯一解。当天实例:`scripts/tests/check-cross-end-tokens.test.mjs` 两侧在同一段各写各的,对侧留着回归锁"brand 里不得再有 CTA 档",而 `packages/design-tokens` **只有本侧改过**(对侧动过数实测 0)⇒ 合并树必含 `brand.cta` ⇒ 那把锁 100% 失败;取证是**跑两版**:本侧版 `pass 11 / fail 0`,对侧版 `pass 7 / fail 1`(红的正是那把锁)。使用该例外必须**逐条附这样的取证**,且工具会把声明过的项目打进输出与合并提交信息(`;取本侧(已声明+可复核): <path>`)⇒ 无从静默。判据底线不变:落地前 `丢本侧路径 = 0 ∧ 丢对侧路径 = 0 ∧ 活文档未存活行 = 0`,落地后由守门 100 的 A1 复核。镜像测试钉住三件事:默认必须 `needHuman`、声明后 `keptOurs` 必须点名、且**一条例外不得连带丢掉对侧其它独有新增**。
-
 - **mobile-rn 深色前景/容器对账**〔scripts/brand-foreground-baseline.js · blocking · HUSKY_SKIP_BRAND_FOREGROUND〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L94–L94
 - **mobile-rn 深色前景/容器对账**〔scripts/brand-foreground-baseline.js · blocking · HUSKY_SKIP_BRAND_FOREGROUND〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L95–L95
 - **mobile-rn 深色前景/容器对账**〔scripts/brand-foreground-baseline.js · blocking · HUSKY_SKIP_BRAND_FOREGROUND〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L96–L96
@@ -2134,34 +1532,24 @@ React 17+ 的 SyntheticEvent 在事件处理函数返回后 `currentTarget` 会�
 - **硬编码中文基线棘轮**〔scripts/hardcoded-zh-baseline.js · scripts/scan-hardcoded-zh.mjs · blocking · HUSKY_SKIP_HARDCODED_ZH_GUARD〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L113–L113
 - **架构契约对账**〔scripts/check-architecture-policy.mjs · blocking · HUSKY_SKIP_ARCH_POLICY〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L114–L114
 - **架构契约对账**〔scripts/check-architecture-policy.mjs · blocking · HUSKY_SKIP_ARCH_POLICY〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L115–L115
-
 > ⚠️ 本行为守门 103 的**立项原文**,其中"策略表自身按 HEAD→索引→工作树降级"已被 2026-09-25 同日的批量归并留成旧副本 —— 现行判据是**按档定向取材**(`policyFaceOrder`:全量 HEAD 优先 / `--staged` 索引优先),原文照抄会重新引入"改表那枚提交不被审"的盲视;现行条目见本节内"镜像测试 13 例"那一条,勿照本行执行。保留本行只为不丢行(§12)。
-
 - **`merge-live-doc` 的第三种定性:同锚点 ⇒ 就地改写(2026-09-25 补,`--self-test` 13→16 例)**〔scripts/merge-live-doc.mjs · scripts/tests/merge-live-doc-anchor.test.mjs〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L119–L119
-
 > ⚠️ 本行是守门 103 的**中间态副本**(2026-09-25 同日两次改写之间的一次),其中"取材面双向条件不变量"这条断言**已被删除** —— 它两条前提都不成立(改注释/requires 会让表不同而 managed 集合不变;尺子若吞到行尾则两档因"扫描 N 文件"天然不等),留着会教人把它当判据复原。现行是"镜像测试 13 例"那一条(T12 改用纯函数+构造面、新增 T12b 尺子反例、T8 改为自带构造的 false 侧)。勿照本行执行;保留只为不丢行(§12)。
-
 - ⚠️ **上面那条 `/alpha` 判据目前到不了小程序产物**(2026-09-25 实测,登记于 PROJECT_PLAN O62附②):`apps/miniapp-taro/config/index.ts` 的 `tailwindcss: { enable: true, config: {}……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L123–L123
-
 - **prod-bundle 影子副本对账**〔scripts/check-prod-bundle-shadow.mjs · scripts/guardian-runner.mjs · blocking · HUSKY_SKIP_PROD_BUNDLE_SHADOW〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L125–L125
 - **架构契约对账**〔scripts/check-architecture-policy.mjs · blocking · HUSKY_SKIP_ARCH_POLICY〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L126–L126
 - **`merge-live-doc` 的第三种定性:同锚点 ⇒ 就地改写(2026-09-25 补,`--self-test` 13→16 例)**〔scripts/merge-live-doc.mjs · scripts/tests/merge-live-doc-anchor.test.mjs〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L127–L127
 - **架构契约对账**〔scripts/check-architecture-policy.mjs · blocking · HUSKY_SKIP_ARCH_POLICY〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L128–L128
-
 <!-- ⚠️ 本行与上方同名条目(第 1339 行)同体,是同日两次改写被并集留下的旧副本;现行以第 1339 行为准。其中"10 例/12 例"之类的镜像测试例数、以及任何具体收口块数,都按当次实测取,勿照本行派单。保留本行只为不丢行(AGENTS §12)。 -->- **架构契约对账**(103):`scripts/check-architecture-policy.mjs`(blocking,2026-09-25 立)—— 与其余全部守门**方向相反**的一道:其余是"发现一类违规 → 写一条判据"(打地鼠),本门读 `config/architecture-policy.yaml` 这张**声明表**,从声明反查违规。四类红:**T1** 表与现实脱节(模块改名/目录搬走而表没跟上 —— 表一过期,依赖它的所有判断都在对着空气打分)/ **C1** 单文件行上限(阈值 6000,**取自 HEAD 实测最大文件 5258 行之上**,依据写在 yaml 注释里)/ **D1 D2** 依赖方向(包 import 端、或 `requires` 未声明就 import;以及反向按 rank 更深一层)/ **D3** 深导入(绕过 `public_entrypoints` 直接摸别的包内部 —— 它是"端内重复实现"的入口)。**渐进收口是设计前提**:存量模块一律 `managed: false` ⇒ 只报数不判红(立项实测全量 exit 0、报数 3 处、`managed:true` 0 个)(⚠️ 这几个数字是**立项状态、不是现值**;现值一律跑 `node scripts/check-architecture-policy.mjs` 看 `managed:true` 行),翻 true 前先用 `--managed-trial <id>` 看条数,**不得为消红去改阈值或把不该对外的模块标成 exported**。行内豁免 `arch-exempt: <原因>`(须带原因)。口径同 70/77/83/98/101:全量判 **HEAD blob**、`--staged` 判索引 blob。**策略表自身的取材按档定向**(`policyFaceOrder`):全量档 HEAD 优先、**`--staged` 档索引优先**,两者都再降级到工作树;取不到判"无法判定",不冒红也不记绿。⚠️ 这里 2026-09-25 修掉一处**本门对自身改动的盲视**:原实现两个面都 HEAD 优先,于是"修改策略表自身"的那枚提交完全不进本门审查 —— 实测往索引版 `apps/cli.requires` 注入一条 `apps/api`(端应用 `exported:false`,T1 必判红)后全量与 `--staged` 双双 exit 0,而 `--staged` 输出照旧打印旧表的 `managed:true` 清单。这个洞偏偏落在"规矩 2:翻 `managed:true` 前先试跑"所要求的动作上(提交链是唯一无验的一环),且源码旧注释"表是输入不是被审对象"正是它的设计理由,已就地推翻。取证 `--self-test` 51 例(成对正反 + 两面口径差异 + 解析器坏了必须大声失败)+ 镜像测试 13 例(含 runner 装车证明、"同一代码 managed 两侧结论不同"、T12 的**纯函数+构造面**取材面证明、以及 T12b 的尺子反例;变异回旧顺序只有 T12 红)。**本门自身踩过的判据教训(勿再犯)**:这里曾写过一条"索引表≠HEAD 表 ⇒ 两档收口集合必异形"的条件断言,两条前提都不成立(改注释/requires 都会让表不同而集合不变;尺子若吞到行尾则两档因"扫描 N 文件"天然不等)⇒ 一支误红、一支无牙,已删。**证明取材面这类行为只能用纯函数+构造面**,不得依赖仓库瞬时状态。**收口进度不写进文档**:某模块是否 `managed:true` 一律按当次实测取(`--staged` 输出行即现值),理由与本门刚修的那类缺陷同源 —— 登记过期数字会替人做出"已经收口"的判断。编号说明:任务书原定 102,落地前已被 `check-glyph-arrow-icon` 占用,按"后来者改号"顺延 103。紧急跳过 `HUSKY_SKIP_ARCH_POLICY=1`。
-
 - ⚠️ **中文出参会被控制台码页吃掉(2026-09-25 实测,和上一条同为"码页"但方向相反)**:上面说中文当 **argv** 传出去无损;但 node 往 stdout 打的**路径**含中文(`密钥/...`)时,PowerShell 按 **GBK 码页**解码 ⇒ 拿回的是乱码字符串……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L132–L132
 - **凭据目录现状**……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L133–L133
 - **"服务身份能不能跑到这一步"要用它那份环境验,不得用我的终端验(2026-09-25 实测)**……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L134–L140
-
   - **认领升级为租约(2026-09-25 立,守门 109 `check-task-claims.mjs --check-gate`)**:裸 `（进行中）` 只是文本 —— 没有持有者、没有时间戳、不判年龄,于是 agent 一死标记就永久留在 HEAD,下一个派单会话按上一条扫描**要么看不见那件活、要么把它当"别人正在做"而按住不做**(本仓记录里已反复出现,不需要构造)。**新格式**:`- [ ]（进行中@YYYY-MM-DD/持有者短名）`,三要素齐备才算一次认领;裸 `（进行中）` 仍被解析但**只计数不判红**(实测存量 36 条全是裸标记,当场判红就是一台恒红门)。年龄 > 72h(`IHUI_CLAIM_LEASE_TTL_HOURS` / `--ttl-hours` 可调)判红并点名行号与持有者;写了 `@日期` 却缺 `/持有者` 同样判红 —— 半个租约比没有租约更危险,它看起来像被管过。同一行既"进行中"又 `[x]` 判红(协议自相矛盾 = 释放失败的现场)。**门绝不自动摘除任何人的认领**(那属 §16 越权),出路只有三条:续租(改日期)/ 完成翻勾并摘牌 / 显式让渡给某持有者。派单前除扫进行中项,还要跑一次三轴基线自检 `node scripts/check-baseline-freshness.mjs --preflight`(见 §守门脚本速查)。
-
 - **单一真相源**〔scripts/sync-design-tokens.mjs · scripts/check-miniapp-taro-design-tokens.mjs · scripts/check-miniapp-tokens-sync.mjs〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L143–L143
 - **发给 provider 的 function parameters 必须由校验面单向投影**……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L144–L144
 - **候选序解析器必须同时提供「出处」出口**〔scripts/lib/key-dir.mjs〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L145–L145
 - **架构契约对账**〔scripts/check-architecture-policy.mjs · scripts/module-context.mjs · blocking · HUSKY_SKIP_ARCH_POLICY〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L146–L146
 - **第三方来源台账对账**〔scripts/provenance-ledger.mjs · scripts/lib/third-party-roots.mjs · blocking · HUSKY_SKIP_PROVENANCE_LEDGER〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L147–L148
-
 - **豁免到期账**〔scripts/check-exemption-expiry.mjs · scripts/exemption-expiry-baseline.js · blocking · HUSKY_SKIP_EXEMPTION_EXPIRY〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L150–L150
 - **任务认领租约对账**〔scripts/check-task-claims.mjs · scripts/plan-tasks-merge.mjs · blocking · HUSKY_SKIP_TASK_CLAIM_LEASE〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L151–L151
 - **产物预算对账**〔scripts/check-artifact-budget.mjs · blocking · HUSKY_SKIP_ARTIFACT_BUDGET〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L152–L152
@@ -2169,7 +1557,6 @@ React 17+ 的 SyntheticEvent 在事件处理函数返回后 `currentTarget` 会�
 - **工具契约声明对账**〔scripts/check-tool-contract-declared.mjs · blocking · HUSKY_SKIP_TOOL_CONTRACT_DECLARED〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L154–L154
 - **测试收集存续性对账**〔scripts/check-test-collection-runs.mjs · blocking · HUSKY_SKIP_TEST_COLLECTION〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L155–L155
 - 三件同批事实:以上五道门都按 §12 的"活文档与注册表单写者"由主会话统一接线(`guardian-runner.mjs` / `package.json` / 本节 / README 守门章节同枚提交),各实现票按任务书**没有**碰过这些共享注册文件 —— 并行改注册表必然互相覆盖注册块(门 ……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L156–L156
-
 - **小程序端「源 ↔ 派生产物」存续性对账**〔scripts/check-miniapp-generated.mjs · blocking · HUSKY_SKIP_MINIAPP_GENERATED〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L158–L159
 - ⚠️ **中文出参会被控制台码页吃掉(2026-09-25 实测,和上一条同为"码页"但方向相反)**:上面说中文当 **argv** 传出去无损;但 node 往 stdout 打的**路径**含中文(`密钥/...`)时,PowerShell 按 **GBK 码页**解码 ⇒ 拿回的是乱码字符串……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L160–L160
 - **凭据目录现状**……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L161–L161
@@ -2187,16 +1574,13 @@ React 17+ 的 SyntheticEvent 在事件处理函数返回后 `currentTarget` 会�
 - **声明策略消费者对账**〔scripts/check-declared-policy-has-consumer.mjs · blocking · HUSKY_SKIP_DECLARED_POLICY_CONSUMER〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L191–L191
 - **文件写盘安全对账**〔scripts/check-file-write-safety.mjs · blocking · HUSKY_SKIP_FILE_WRITE_SAFETY〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L192–L192
 - **工具族注册对账**〔scripts/check-tool-family-registered.mjs · blocking · HUSKY_SKIP_TOOL_FAMILY_REGISTERED〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L193–L193
-
 - **工具执行预算对账**〔scripts/check-tool-exec-budget.mjs · blocking · HUSKY_SKIP_TOOL_EXEC_BUDGET〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L195–L195
 - **记忆端点属主绑定对账**〔scripts/check-memory-owner-binding.mjs · blocking · HUSKY_SKIP_MEMORY_OWNER_BINDING〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L196–L196
 - **记忆端点属主绑定对账**〔scripts/check-memory-owner-binding.mjs · blocking · HUSKY_SKIP_MEMORY_OWNER_BINDING〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L197–L197
 - **钩子失败的归因是量出来的,不是抄来的(2026-09-25 立,`scripts/lib/commit-gate-attribution.mjs`)**〔scripts/lib/commit-gate-attribution.mjs · scripts/lib/pre-commit-hook.js〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L198–L198
 - **守门接线层对账**〔scripts/check-gate-wiring.mjs · scripts/lib/pre-commit-hook.js · scripts/lib/guardian-triggers.mjs · scripts/gate-wiring-allowlist.js · scripts/tests/check-gate-wiring.test.mjs · blocking · HUSKY_SKIP_GATE_WIRING〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L199–L199
 - **记忆端点属主绑定对账**〔scripts/check-memory-owner-binding.mjs · blocking · HUSKY_SKIP_MEMORY_OWNER_BINDING〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L200–L200
-
 <!-- ⚠️ 本行是守门 102 的**四类判据原文**(2026-09-25 第二轮收口前),已被下方"六类判据"条就地取代:缺 GA5 混写与 GA6 双箭头两条,S0 也只登记 4 个机制。照它派单会以为 RN 共享层那份 BackChevron 有人看守。保留原文只为不丢行(AGENTS §12),勿照它执行。 -->
-
 - **守门**〔scripts/check-glyph-arrow-icon.mjs · blocking · HUSKY_SKIP_GLYPH_ARROW_ICON〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L204–L204
 - **GA1 存量已清零(2026-09-25 第三轮;取代上一行末「行尾字符箭头存量 70 处」那个读数)**……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L205–L217
 - **守门 102 的 HEAD 存量已全清 + 覆盖面换成实测(2026-09-26,终读:S0/GA1/GA2/GA4/GA5/GA6 全部 0)**……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L218–L234
@@ -2227,11 +1611,7 @@ React 17+ 的 SyntheticEvent 在事件处理函数返回后 `currentTarget` 会�
 - **跨语言出站路由声明对账**〔scripts/check-declared-outbound-routes.mjs · blocking · HUSKY_SKIP_DECLARED_OUTBOUND_ROUTES〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L269–L269
 - **工具名本地化**〔scripts/tests/check-tool-display-resolvable.test.mjs · blocking · HUSKY_SKIP_TOOL_NAME_COVERAGE HUSKY_SKIP_TOOL_DISPLAY_RESOLVABLE〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L270–L270
 - **i18n JSON 同层重复键守门**〔scripts/check-i18n-duplicate-namespaces.mjs · blocking · HUSKY_SKIP_I18N_DUP_NS〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L271–L271
-
->
-
 - **D3(2026-09-26 G-196 新增):别名导入解析不到文件必拦**〔blocking〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L275–L275
-
 > ⚠️ **上面这段里两个数在 2026-09-26 的三路并行审计中被测错,现值以这一格为准**:渲染位「返回」是 **47 处**
 > (不是 49 —— 多出的 2 条,一条是 JSDoc 里逐字引用了 JSX,一条是 `ariaLabel=` 驼峰属性不被 `aria-`/`label=` 滤网命中);
 > `‹` 字符是 **2 行**(不是 10;`{'‹'}` 在 HEAD 面 0 处,第 3 处只存在于被并发会话污染的工作树里)。
@@ -2240,25 +1620,18 @@ React 17+ 的 SyntheticEvent 在事件处理函数返回后 `currentTarget` 会�
 > **所以那个 0 读作"没有已判定的违规",不读作"这一族文件都被看过"**;盲区现在由 `backBlind` 探针点名,不再静默。
 > 同一轮还量到"第二/三份自绘返回键"6+3 处、以及 web 端 16 处 `router.back()` 落在守门 46 扫描面之外 ——
 > 清单、file:line 与处置顺序在 PROJECT_PLAN 第五十波·续末③ 的 A/B/C/D 四格,**派单前先读它**。
-
 - **锁异常处理**……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L286–L287
 - **跨语言出站路由声明对账**〔scripts/check-declared-outbound-routes.mjs · blocking · HUSKY_SKIP_DECLARED_OUTBOUND_ROUTES〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L288–L289
-
 ### 跨端 UI 单一源:小程序端与 App(RN)端必须长成同一张脸(强制,2026-09-26 立,O81)
-
 - **交付标准**……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L293–L293
 - **自动生效只有一种实现方式**……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L294–L294
 - **可见真值仍只有一处**……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L295–L295
 - **对账**〔scripts/check-cross-end-ui-parity.mjs · scripts/cross-end-ui-parity-baseline.js · blocking · HUSKY_SKIP_CROSS_END_UI_PARITY〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L296–L296
-
 > ⚠️ 本行原文写的是"圆角与色档**不在本门射程**(守门 77 / 93 各管一段,一台尺子只量一段)"——**那句前提是错的**,而它就是 2026-09-27 用户报"为什么还有那么多地方没按统一圆角"的根因:守门 77 判的是「档位值同源 + 端内不得绕档写死数字」,两端各自规矩引用 token 时它一路报绿(实测扫 6373 文件 0 违规);而"同一个界面元素在小程序取 `rounded-lg`(8px)、在 App 取 `rnRadius.xl`(12px)"这一型**两边都不判** —— 两台尺子互相指认,这一格无人看守。现由 128 独占判 RD 维;`radiusCount` 与 `diffCount` **必须分家立锚点**,否则"修一处几何、换一处圆角"会净零逃逸(守门 134 扩布尔档键时同一课)。
-
 - **差异必须显式登记**……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L300–L300
 - **不得做的事**……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L301–L301
-
 - **可见真值仍只有一处**……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L303–L303
 - **守门**〔scripts/check-prompt-injection-registry.mjs · scripts/guardian-runner.mjs · blocking · HUSKY_SKIP_PROMPT_INJECTION_REGISTRY〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L304–L304
-
 - **parity 绿不等于内容语种对(2026-09-26 立,由 D20 实测逼出)**……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L306–L306
 - **RN 函数形态 style 被 cssInterop 吃掉**〔scripts/check-rn-interop-fn-style.mjs · blocking · HUSKY_SKIP_RN_INTEROP_FN_STYLE〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L307–L307
 - **RN 函数形态 style 被 cssInterop 吃掉**〔scripts/check-rn-interop-fn-style.mjs · scripts/plan-tasks.mjs · scripts/plan-tasks-merge.mjs · scripts/plan-task-state-baseline.js · blocking · HUSKY_SKIP_RN_INTEROP_FN_STYLE〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L308–L311
@@ -2274,18 +1647,13 @@ React 17+ 的 SyntheticEvent 在事件处理函数返回后 `currentTarget` 会�
 - **记忆端点属主绑定对账**〔scripts/check-memory-owner-binding.mjs · scripts/lib/face-reader.mjs · scripts/check-gate-face-discipline.mjs · blocking · HUSKY_SKIP_MEMORY_OWNER_BINDING〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L323–L324
 - **对象空间落地与活文档编辑的常驻出口 = `scripts/object-space-land.mjs` / `scripts/live-doc-edit.mjs` / `scripts/gate-registry-insert.mjs`(+ 共用 plumbing `scripts/lib/bypass-git.mjs`),不是守门**〔scripts/object-space-land.mjs · scripts/live-doc-edit.mjs · scripts/gate-registry-insert.mjs · scripts/lib/bypass-git.mjs〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L325–L325
 - **批量写计数诚实性对账**〔scripts/guardian-runner.mjs · scripts/check-batch-write-count-honesty.mjs · scripts/tests/check-batch-write-count-honesty.test.mjs · blocking · HUSKY_SKIP_BATCH_WRITE_COUNT_HONESTY〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L326–L326
-
 - **同一把尺子的另外三维(2026-09-27 补,读数一律现读)**……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L328–L333
 - **ApiResult 失败分支身份对账**〔scripts/check-api-failure-throw.mjs · scripts/lib/code-mask.mjs · blocking · HUSKY_SKIP_API_FAILURE_THROW〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L334–L335
-
 - **@ 多维提及引擎接线与单一源对账**〔scripts/check-mention-engine-wired.mjs · blocking · HUSKY_SKIP_MENTION_ENGINE_WIRED〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L337–L337
-
 - **模式×权限档×审批三轴矩阵对账**〔scripts/check-mode-permission-matrix.mjs · blocking · HUSKY_SKIP_MODE_PERMISSION_MATRIX〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L339–L339
 - **状态词汇跨语言与端内抄本对账**〔scripts/check-agent-status-vocabulary-parity.mjs · scripts/lib/code-mask.mjs · blocking · HUSKY_SKIP_STATUS_VOCABULARY_PARITY〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L340–L340
 - **本轮新增的两维与一条通路规矩(2026-09-29 立,D145 / D142 / D159 的交付)**〔scripts/tests/d159-approval-env-wiring.test.mjs · scripts/data/sse-dispatch-coverage.js〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L341–L341
-
 - **RN 包装器双层页头对账**〔scripts/guardian-runner.mjs · scripts/check-rn-double-header.mjs · scripts/gate-registry-insert.mjs · scripts/heal-worktree-tracked.mjs · blocking · HUSKY_SKIP_RN_DOUBLE_HEADER〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L343–L343
-
 - **README 表格完整性对账**〔scripts/guardian-runner.mjs · scripts/check-readme-table-integrity.mjs · scripts/readme-table-unwrap.mjs · scripts/readme-table-integrity-baseline.js · blocking · HUSKY_SKIP_README_TABLE_INTEGRITY〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L345–L345
 - **ApiResult 失败分支身份对账**〔scripts/check-api-failure-throw.mjs · scripts/lib/code-mask.mjs · blocking · HUSKY_SKIP_API_FAILURE_THROW〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L346–L346
 - **硬编码中文基线棘轮**〔scripts/hardcoded-zh-baseline.js · scripts/scan-hardcoded-zh.mjs · blocking · HUSKY_SKIP_HARDCODED_ZH_GUARD〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L347–L347
@@ -2319,43 +1687,28 @@ React 17+ 的 SyntheticEvent 在事件处理函数返回后 `currentTarget` 会�
 - **守门 134 第三次补强(2026-09-27,承上一条 B2/扩键登记,数字一律现读勿照抄)**……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L392–L392
 - **同词不同义的两张名单不得并置在同一个 barrel(强制,2026-09-27 D113 票⑲ 立)**……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L393–L393
 - **经对象空间通道"往上落"时,声明路径的底稿必须取自被审面,不得取自磁盘副本(2026-09-28 立,主会话自己撞上的一型)**〔scripts/object-space-land.mjs〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L394–L394
-
 - **临时夹具落点两把只读尺子**〔scripts/check-scratch-root-no-nesting.mjs · scripts/check-fixture-tmpdir.mjs · scripts/lib/scratch-dir.mjs · blocking〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L396–L396
-
 > **口径(本条的真正约束):凡「盘符 / gitdir 形态 / 远端 URL / 代理」四类,每次使用前按当次实测取值**,不得把另一台机的现状当本机事实写进判据,也不得据此推断"通道坏了"。 —— **本行 2026-09-24 被并发旧基线回写带走过一次,同日原地补注使其重新成为"本侧修改"**
-
 - **禁止创建乱七八糟分支,所有改动统一往 main 合并**〔scripts/check-single-branch.mjs〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L398–L401
-
 > ⚠️ 本行是「归档机制」一节里那条现行登记的**重复副本**,且原文数字已被 2026-09-28 实测推翻:默认阈值是 **0 = 完成即归档**(不是"≥7 天"),大批量阀现值是 `MASS_MAX_ENTRIES` / `MASS_MAX_BYTES`(现读 500 段 / 256 KB,且已改为"最旧优先贪心取前缀"而非整批拒绝),而 `--dry-run` 在阀**之前**返回 ⇒ 不判字节。现行文本见本节上方带"(2026-09-28 改)"的那条;凡数字一律跑脚本现读,勿照本行执行(保留只为不丢行,§12)。
-
 - **静默失效双探测(2026-09-28 立;warn / 手动问责,刻意不进提交链,因此**〔scripts/check-service-binary-paths.mjs · scripts/check-public-path-probe.mjs · scripts/git-guardian.mjs · scripts/run-evidence.mjs · blocking〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L405–L405
 - **主机时区漂移对账**〔scripts/check-host-timezone.mjs · warn〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L406–L406
 - **教育欠费口径单一出口对账**〔scripts/guardian-runner.mjs · scripts/check-edu-arrears-single-source.mjs · scripts/lib/jsx-scope.mjs · scripts/check-radius-role-conformance.mjs · blocking · HUSKY_SKIP_EDU_ARREARS_SINGLE_SOURCE〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L407–L408
 - **自动归档**〔scripts/archive-completed-tasks.mjs〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L409–L410
-
-> ⚠️ 本行是「归档机制」一节里那条现行登记的**重复副本**,且原文数字已被 2026-09-28 实测推翻:默认阈值是 **0 = 完成即归档**(不是"≥7 天"),大批量阀现值是 `MASS_MAX_ENTRIES` / `MASS_MAX_BYTES`(现读 500 段 / 256 KB,且已改为"最旧优先贪心取前缀"而非整批拒绝),而 `--dry-run` 在阀**之前**返回 ⇒ 不判字节。现行文本见本节上方带"(2026-09-28 改)"的那条;凡数字一律跑脚本现读,勿照本行执行(保留只为不丢行,§12)。
-> ⚠️ 本行是「归档机制」一节里那条现行登记的**重复副本**,且原文数字已被 2026-09-28 实测推翻:默认阈值是 **0 = 完成即归档**(不是"≥7 天"),大批量阀现值是 `MASS_MAX_ENTRIES` / `MASS_MAX_BYTES`(现读 500 段 / 256 KB,且已改为"最旧优先贪心取前缀"而非整批拒绝),而 `--dry-run` 在阀**之前**返回 ⇒ 不判字节。现行文本见本节上方带"(2026-09-28 改)"的那条;凡数字一律跑脚本现读,勿照本行执行(保留只为不丢行,§12)。
-
 - **C5 组件名档(2026-09-28 票㉗)**:根容器按**它自己的**组件名判类别,取证次序 = 元素自身名字/样式键 > 组件名 > 颜色实用类(`bg-card`/`text-*` 只是背景档,不是身份)。两条防假阳的规矩必须同时成立:① **只在 JSX 根启用**,子元素不吃(按钮装在面板里仍是 control);② 归属按 `declarationRanges()` + `ownerOfLine()` 取**最内层声明** —— 不加这一层,同文件内联的小组件会被外层组件名顶判(实测一次造出 79 处假阳,`ModelConfigDialog.tsx` 里的 `RatioSelector` 就是那一型)。名字给不出唯一角色 ⇒ **不启用并逐条报名**(清单在 `--json` 的 componentUndetermined 字段,`--all` 逐行打印),绝不猜一档;该档摘线时镜像 **T19** 必读红,不得被"合规 3211 处"冒充。
   同批修掉两处**取证越界**,它们的症状都不是"多算",而是"把能判的格写成判不出":`classStringsInLine` 原按"距 class 锚点 ≤60 字符连采 3 段字符串"收类名,会把**兄弟属性**的值(`data-testid="plan-review-panel"`)当类名收,凭空造出一条类别证据去撞 `bg-card` ⇒ HEAD 唯一那处 role-conflict 就是这么来的;现要求两段字面量之间只可能是 `cn(` / `,` / `||` / `?` / `+` 这类表达式连接符,出现 `=` / `>` / `}` 即停(镜像 **T21** 成对:兄弟属性不得采、同属性第二段不得漏)。`jsx-scope` 词法器原把 `return <X/>`(不套括号)的前一词元当标识符 ⇒ 判成泛型/比较式,整棵子树不建元素而只计 corrupt;现按"可接表达式的关键字"(return/yield/await/else/do/throw/in/of)放行,同时 **`a < b` 必须仍不建元素**(镜像 **T20** 成对,幽灵祖先比漏判更贵)。修后 HEAD 面 corrupt **443→344**(99 个文件的容器维回到可判),并同批清偿 C5 新露出的 6 处 panel 根容器(md/lg→xl)。
   问责入口 `pnpm check:radius-role`(走 `--strict`);`--strict` 现 exit 0 —— 未判定归零之后,这道门不再拒绝出合格证。**还有一格刻意不做**:`弱证据待裁` 那一族(类别信号只有颜色实用类、元素无名也非组件根)不得批量改档 —— 那是拿 20–70% 判错率的证据重新设计界面,正解是给它补真实身份,门只逐条报名。
-
 - **迁移正文不可变对账**(guardian id 以 `scripts/guardian-runner.mjs` 现值为准 —— 本枚注册取到 **185**,并发会话可能挪号;blocking,`stagedTriggers=packages/database/ + apps/api/src/`,紧急跳过 `HUSKY_SKIP_MIGRATION_IMMUTABLE=1`):`scripts/check-migration-immutable.mjs` 拦的是"**一条已进 journal、已在别人库上跑过的 .sql 被就地改正文**"—— 同一版本号于是有两份 schema,旧库不会重放、新库拿到另一份,而账面仍然"迁移都跑成功"(drizzle 只按 journal 的 `when` 与库内 hash 记账,**从不回看 .sql 正文**)。此前本仓只有散文约定;而且不是假想:`215d4c1e10`(2026-09-26)就改掉过 `20260927100000_tenant_rls_policies_batch1.sql` 首次入库时的正文,那次改动本身有理,但它证明的是"这条路真会走到",走到之后没有任何东西会红。两条判据对照面不同、**不得互相顶账**:**IM1** 被审面正文与该路径历史上第一次以 `A` 出现时的 blob 比,**存量只报数**(`--strict` 才问责 —— 与本次提交无关的恒红门只会逼人跳门)/ **IM2** 索引面 vs HEAD 面,本次把已入库正文改了 ⇒ 判红(这条不需要基线清单,也不会因存量恒红)。**归一化三条口径**是"只改水印/空白必绿、加一行注释必红"的前提:① 先剥水印结构行(唯一实现 `scripts/lib/watermark-lines.mjs` 的 `stripWatermarkStructure`,本门不得再抄一份正则)② 逐行 `trim` ③ 丢掉归一后为空的行。**守门 49 在飞的 B11 与本门是两问**:B11 问"库内 `__drizzle_migrations.hash` 与当前正文配不配"(要连库,本机长期未判定),本门问"当前正文与 git 里首次入库那次提交配不配"(只需对象库,提交链跑得动)—— 两边都判红**不是重复计账**,接线时不得摘掉其中一条。取材同 70/77/83/98/101/118:全量判 HEAD blob、`--staged` 判索引、`--worktree` 仅人工、两面旗同给 exit 2、清单与内容同面同轮、取不到判"未判定"**不回落**、**枚举到 0 判死不记绿**。阳性对照**钉出处不钉 HEAD**:显式 SHA `0f94717464` vs `215d4c1e10` 从对象库现取喂同一判据必红、同 SHA 自比必绿(T4)—— 账还清那天"HEAD 上还能量到存量"这句话当场失效。取证 `--self-test` 21 条 + §22c 镜像 `node --test scripts/tests/check-migration-immutable.test.mjs` 10 例(主会话现跑复验:自检 RC=0 / 镜像 pass 10 fail 0 / `--check`、全量与 `--staged` 三面均 RC=0,两旗同给 RC=2)。
-
 - **受管 `.env` 键值被清空对账**(`scripts/check-env-drift.mjs`,2026-09-26 立 G-223;**定级=守护巡检档,刻意不在提交链**,因此**没有**紧急跳过变量,问责跑 `node scripts/check-env-drift.mjs`;调度器 = `scripts/git-guardian.mjs` 每 2 分钟一轮,必须挂在 `!CHECK_ONLY` 分支、健康轮次早退之前 —— 挂错位置等于永不执行,该文件已踩过两次):量的是"**这台机上的 `.env` 此刻有没有被整体替换清空**"这一维 —— 它判的是**机器状态**而不是提交内容,挂 blocking 就是每台每次被逼 `--no-verify` 连带废掉全部守门(§12e)。立因是实测:`apps/api/.env` 曾被一次按时间戳的整体复制清空 55 个键值,而症状**什么都不响** —— `DATABASE_URL`/`JWT_SECRET` 恰好非空所以应用不崩,唯一到人通道(邮件)静默寄不出去,只在 `deploy-loop.log` 留一行 `MAIL 两条通道均未送达`。取证 `--self-test` + 镜像 `scripts/tests/check-env-drift.test.mjs`。**这一格此前在文档面完全隐形**(守门 89 的 R4 就是为此而存在:已接线而无人点名,门会被重复造或绕)。
 - **元运维巡检轮**(`scripts/check-ops-patrol.mjs`,2026-09-29 立;**告警档,刻意不进提交链**,无紧急跳过变量;调度器 = `scripts/git-guardian.mjs` 的巡检 tick;问责/取证 `--self-test`、`--strict`、镜像 `scripts/tests/check-ops-patrol.test.mjs`):回答"**看守者本身还活着吗**"。本仓 190+ 道门全在判仓库内容,而下面这些故障的共同形态是"某件事**没有发生**",账面完全安静:P1 Prometheus 运行副本落后于仓库源且新规则从不热加载(实测线上少一条)/ P2 Alertmanager 生效副本与仓库模板漂移(多出 `max_alerts: 50`、缺整段维护窗口抑制 —— 与 §5e"禁止自设总量上限"直接冲突)/ P3 主机时钟连续约 12 小时同步失败而所有"多久一次/去重窗口"判据都踩着它 / P4 `D:\DevEnv` 的 Temp·logs·archives 无任何上限保护 / P5 部署环·备份·凭据巡检·网盘同步的心跳无人判"多久没响" / P6 告警规则**引用根本不存在的指标序列**(⇒ 那条规则永远不会响而台账读成"这一维已覆盖")。定级理由同上:判机器运行时状态的挂进提交链就是恒红门。
 - **孤儿删除的引用对账**(`scripts/check-orphan-deletion-refs.mjs`,2026-09-29 立;**warn/告警档,刻意不进提交链**,无紧急跳过变量;调度器 = `scripts/git-guardian.mjs`;取证 `--self-test`,**尚无 §22c 镜像测试 —— 那一格归本门持有人**):拦的是这一型的**前置条件** —— 索引与磁盘里已没有某文件,而 HEAD 的树里仍有人引用它。立因是 09-29 一晚两次把生产 web 构建打挂(两轮各 4 次失败,线上停在 03:47 那版),第一现场报 `wxt build`/`next build` 失败,真凶是 9–10 个处于 `D `(已暂存删除)态的跟踪文件,而构建取的是**工作树**。为什么既有判据看不见:守门 98 判 HEAD、守门 99 判索引,本型恰在**两面之间**;而旁路落地(commit-tree + CAS)不跑钩子,提交链上那两道门对这批提交从未执行;`heal-worktree-tracked` 一直如实报数,但"报数"在没人看日志时等于安静。
-
 ### 内部机器调用的豁免必须"验过才免"(强制,2026-09-28 立)
-
 - **规矩**……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L420–L420
 - **唯一出口**……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L421–L421
 - **同一条豁免与它所跳过的校验必须共用同一个判定实现**……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L422–L422
 - **越权用例必须断言"未发出查询/未产生副作用"**……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L423–L423
 - **已知无尺子的一格**……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L424–L424
-
 ### 会话状态:登出标记必须比凭据活得久、且不同层(强制,2026-09-28 立)
-
 - **规矩**……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L426–L426
 - **判据唯一出口**……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L427–L427
 - **写序**……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L428–L428
@@ -2377,9 +1730,7 @@ React 17+ 的 SyntheticEvent 在事件处理函数返回后 `currentTarget` 会�
 - **跳门次数只有一个真值来源:`.workbuddy/safe-commit-attestation.jsonl`**〔scripts/alert-volume-report.mjs〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L478–L478
 - **图源池与境外图片 URL 对账**〔scripts/check-image-source-domains.mjs · scripts/tests/image-source-pool-parity.test.mjs · blocking · HUSKY_SKIP_IMAGE_SOURCE_POOL〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L479–L479
 - **半径上限:一刀切 ≤ 2xl(16px)(2026-09-29 用户定档)**……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L480–L480
-
 > ⚠️ 本行是 §4「真圆/胶囊:靠量出来的形状,不靠标记」那条现行登记的**重复副本**,且它教的通道已被 2026-09-27 O81 票㊵ **整体废除**(用户定档:不允许任何豁免、不允许胶囊型)—— 照本行去写 `radius-exempt` 会被守门 77 的 B8 直接判红。现行文本见上文那条,勿照本行执行;保留只为不丢行(§12)。
-
 - **任务状态一致性(2026-09-26 立,守门 130 配套)**……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L482–L482
   **三层水印**(`scripts/watermark.mjs`):L1 可见横幅(`// © 2026 IHUI AI …` + `// Provenance-watermarked. …`)、L2 横幅内零宽载荷(`// [IHUI-AI-PROVENANCE]:<zw>`)、L3 独立不可见行(注入时落在文件末尾)。
   **判据(2026-09-12 加严,2026-09-29 补第五态)**:载荷必须**可解码且等于 `WATERMARK_TEXT`**,仅"存在"不算数。五态:`完好` / `残迹`(有横幅无载荷)/ `载荷损坏`(存在但解码不符)/**`仅隐写`(有可解码载荷但可见横幅整块不见)**/ `未覆盖`。除"完好"外,`watermark.mjs verify` 与 `check-watermark-coverage` 均 **exit 1**。
@@ -2390,9 +1741,7 @@ React 17+ 的 SyntheticEvent 在事件处理函数返回后 `currentTarget` 会�
 - **上限判据必须量得到"跨行书写的盒子"(2026-09-29 定档)**……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L489–L489
 - **测不到的尺寸:上限由构造封顶,不由推断放行(2026-09-29 定档)**……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L490–L490
 - **HEAD 悬空具名导入对账**〔scripts/check-dangling-local-imports.mjs · blocking · HUSKY_SKIP_DANGLING_IMPORTS〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L491–L491
-
 - **收敛链的三道"崩溃 ≠ 裁决"口径(2026-09-29 立,G-815406 / G-814402 / G-815922 三票同批落地)**〔scripts/git-sync-converge.mjs · scripts/union-converge.mjs · scripts/lib/plan-task-index.mjs · scripts/tests/union-converge.test.mjs · scripts/tests/git-sync-converge.test.mjs〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L493–L493
-
 - **维护性写归属/CAS/回报计数三态对账**〔scripts/guardian-runner.mjs · scripts/check-write-owner-predicate.mjs · blocking · HUSKY_SKIP_WRITE_OWNER_PREDICATE〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L495–L495
 - **守门 134 第三次补强(2026-09-27,承上一条 B2/扩键登记,数字一律现读勿照抄)**……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L496–L496
 - **计划文档 commit 引用可兑现性对账**〔scripts/check-plan-sha-resolvable.mjs · blocking〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L497–L497
@@ -2426,8 +1775,6 @@ React 17+ 的 SyntheticEvent 在事件处理函数返回后 `currentTarget` 会�
 - **门脚本取材面纪律对账**〔scripts/check-gate-face-discipline.mjs · blocking · HUSKY_SKIP_GATE_FACE_DISCIPLINE〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L536–L536
 - **旁路落地声明面对账**〔scripts/check-bypass-landing-scope.mjs · scripts/tests/check-bypass-landing-scope.test.mjs · blocking · HUSKY_SKIP_BYPASS_LANDING_SCOPE〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L537–L537
 - **跳门变量承诺/兑现对账**(172,blocking,紧急跳过 `HUSKY_SKIP_SKIP_ENV_PROMISE=1`):`scripts/check-skip-env-promise.mjs` —— 文档(AGENTS.md/README.md)承诺的 `HUSKY_SKIP_X=1` 应急出路必须有人真读:全仓零读点 = 假承诺,按了静默无效,唯一出路退化成 `--no-verify`,一次绕过等于全部守门对该提交作废(§12e 同型)。承诺面×兑现面(六目录代码)双面对账,读点语法 7 档(process.env / env[""] / skipEnv 注册块 / sh $NAME / ps $env: 等),JS 读点必在 code-mask 剥注释面找(否则门给假通道发合格证);三态不并桶(wired/fake/undetermined);差值棘轮只拦新增 fake(存量 --strict 问责档才判);0 承诺判死 exit 2;行内出口 `skip-env-promise-exempt: <原因>`(须带原因)。自检与镜像例数以命令末行为准。2026-09-30 由持有人会话接线(44cddee6e3 / 8ea4ecb95b),落账(5fe67b1ab7)未同步点名行 ⇒ 本行由 slice-A 收尾会话补登;补登时以 stem 级口径(`findUndocumentedGates` 去后缀匹配)静态复算 R4 文档面全通过。
-- **计划文档 commit 引用可兑现性对账**(`scripts/check-plan-sha-resolvable.mjs`,**warn 级、刻意不接提交链**,手动问责 `pnpm check:plan-sha`;紧急跳过无需——它不在钩子链上):量的是「`PROJECT_PLAN.md` 里那些 `提交 \`abc1234\``式引用**今天还能不能真的问到对象**」。**三态绝不并桶**:可解析 / **取不到**(对象库里没有 = 指针已腐烂)/ **形状判不出**(全数字 8 位像日期或 CI run id、长度 13–39 像 integrity 片段、紧跟`#`像色值)—— 第三种既有独立计数也有锁,**不得**并进腐烂(那是把"没看清"写成"有问题"),也**不得**并进通过(那是把"没看清"写成"没问题")。立项现读:可解析 999 / 取不到 61 枚·97 次出现 / 判不出 58 枚·115 次;而**票面那句"44 枚"在任何口径下都不是 44**(全量 61、出现 97、只算有锚点 49、只算反引号+提交式 46、长度≥9 的 39、≤8 的 22)⇒ 派单与问责一律以命令末行现读为准,不采台账数字。**为什么 warn**:"引用能否兑现"与"本次提交改了什么"无关,挂 blocking 就是一台恒红门,唯一结局是逼人`--no-verify` 连带废掉全部守门(§12e 同型);`--strict` 现读 exit 1 —— 那是它**拒绝出具合格证**,不是仓库故障。**明令禁止**`--update` 式"把当前读数冻成基线":那等于给腐烂发通行证。口径同 70/77/83/98/101/103/118(全量判 HEAD blob、`--staged`判索引、两旗同给 exit 2、取不到判"无法判定"、枚举到 0 条判死),取证`--self-test` 32 条 + §22c 镜像 10 例。**写尺子过程中由自检抓出并锁死的三处判据自身缺陷**(都会以"数字看着合理"的形态存在,只有构造面能抓):`startsWith` 判序写反 ⇒ 全仓短 sha 静默落未判定;`selectFace`返回对象而非面名 ⇒ 三面同读 HEAD;索引档漏前导冒号 ⇒`--staged` 恒"取不到"。**未闭环的一格**:腐烂桶里混着形状相同但语义不同的东西(`6b8cd0f6` 实为 user_id、`c12612dc` 实为 adb 设备号),按形状判不出 ⇒ 需逐条人工定性才能从桶里摘出;`.ihui-agent/archive/*` 未纳入射程。
-- **守门 134 第三次补强(2026-09-27,承上一条 B2/扩键登记,数字一律现读勿照抄)**:把 **裸 SQL 写链**并进写链池。病灶的载体不止 drizzle 方法链 —— `db.execute(sql\`DELETE FROM … WHERE …\`)`也是写;此前判据只把`.delete()/.update()`当写链,裸 SQL 只当"证据"(认里面的`RETURNING`字样),于是"SQL 发了写、命中 0 行、响应回布尔 true"这一格无人看守。现由`findRawSqlWriteChains` 一份实现同时供**写链判定**与**RETURNING 证据**(`hasRawSqlReturning` 降为它的投影,禁止两处各扫一遍),**V 与 B1 同看这一维**;B1 只认**缺 RETURNING** 的那一条,带 RETURNING 的按证据放过 ⇒ 不新增恒红面;括号配平不到时"同体有 ack 才落未判定(U3,`--strict` 拒绝出合格证),否则只报数"。
 - **i18n**(2/2b/2c/2d/2e/2f/2g-web/2f-mobile-rn/2f-cli):check-i18n-keys(parity+白名单)/ scan-i18n-zh-residue(zh-TW/ko 阻塞,ja warn)/ check-i18n-broken-en(阻塞)/ i18n-diff(翻译流水线,2f-web + 2f-miniapp-taro 阻塞)/ check-i18n-namespace-passing(命名空间传递,warn)/ check-cli-i18n-parity(cli 端 parity,warn,2f-cli)
 - React 事件处理函数(`onClick={e => ...}` 等)**同步作用域内** `e.target` / `e.currentTarget` 有效。
 - 一旦进入异步回调(`setTimeout` / `setInterval` / `requestAnimationFrame` / `requestIdleCallback` / `queueMicrotask` / 未捕获 `e` 的 promise)或 memoized / 延迟执行的闭包场景,SyntheticEvent 会被事件池复用/清空,`e.target` / `e.currentTarget` 失效或为 `null`(React 17+ 不再 pooled,但 `currentTarget` 一定在 handler 返回后置 null)。
@@ -2453,8 +1800,6 @@ React 17+ 的 SyntheticEvent 在事件处理函数返回后 `currentTarget` 会�
 - **清单↔锁 specifier 对账**(101):`scripts/check-lock-manifest-consistency.mjs`(blocking,2026-09-24 立)—— 堵的是**依赖真值**这一整类"本地全绿、生产构建必炸":`package.json` 声明与 `pnpm-lock.yaml` 的 `importers.<pkg>` specifier 不一致时,pnpm **整段跳过该包的链接步骤**(不报错、不改锁、`pnpm install` 与 `pnpm install --force` 都只回 "Already up to date"),本地 node_modules 早就装好 ⇒ typecheck/lint/单测/其余守门全绿,直到 bundler 报 Module not found 打死生产构建。立因实例:当天 `apps/web` 写 `"xlsx": "^0.18.5"` 而锁记 `npm:@e965/xlsx@^0.20.3`,症状是"97 个声明依赖精确缺 3 条"——**只缺某一个 importer 的全部新增项**这个形状本身就是指纹(第一反应容易误判成"stale dist / 服务进程锁住文件",两者当日都被实测证伪:短停 IHUI-WEB 后 `--force` 仍 285ms 回绿)。三条判据 R1 缺记账 / R2 specifier 不等 / R3 反向孤儿**只报数不判红**;两个必须建模的 pnpm 合法行为,否则 22 枚存量误红逼人绕过钩子:**维度 A** 读 `pnpm-workspace.yaml` 的 `overrides`(真仓 50 条,裸名与 `pkg@<=版本` 两形态),lock 等于 override 目标即放过(19 条),但**严格侧保留**——某依赖只有唯一一条裸名 override 而 lock 仍停在 manifest 原值 ⇒ 判 `override-not-applied` 红(否则维度 A 就成了无条件放过);**维度 B** peerDependencies 不比 specifier(pnpm 记进 devDeps 段且写解析后的范围,3 条),但仍要求"任一段有条目",缺条目照红。**口径是本门生命线**:`--staged` 判**索引 blob**、全量判 **HEAD blob**(同 70/77/83/98/99),只允许同一轮读同一个面(含包清单枚举也走同一面,否则"glob 读盘 + 内容读 git"会造出自洽但基准错位的假绿尺子),`--worktree` 仅作人工排查逃生舱、两个面旗标同时给 ⇒ exit 2;取不到(缺路径/unmerged/非 blob/二进制/git 失败/列出 0 路径/toplevel 不匹配)一律 **exit 2 显式"无法判定"并点名路径**,绝不记绿。不挂 `stagedTriggers` —— 前缀语义表达不出"任意 `*/package.json`",而漏挂等于没有这道门(守门 81 教训),实测 282ms/342ms,每轮跑得起。取证 `--self-test` 34 例 + §22c 镜像测试 24 例,含三条端到端**假绿/假红钉死**对照(临时 git 仓:索引坏而盘上好 ⇒ staged 必红;索引好而盘上别人半编辑 ⇒ staged 必绿;该面取不到 ⇒ exit 2)与"改写真 decision/真事故值必红"的阳性对照;写门过程中自检另抓出 `splitOverrideKey` 把 13 条 `>=` 版本选择器误判成父作用域(整类隐身)这一自造缺陷。紧急跳过 `HUSKY_SKIP_LOCK_MANIFEST_GUARD=1`。
 - **mobile-rn 深色前景/容器对账**(83,原 75):check-brand-foreground.mjs(blocking,2026-09-23 立)—— 四条判据:**R1** 零豁免,同一 style 块内 `tokens.brand.DEFAULT` 作背景 × `surface.light`/`text.primary` 作前景(深色档案下 brand.DEFAULT=纯白 ⇒ 白底白字);**R4** 同一关系被拆到**兄弟 key**(`retryBtn` × `retryText`)时按命名配对判,走基线棘轮;**R2** `surface.light` 背景 / α≥0.5 白 rgba / 无 `dark:` 变体的 `bg-white` 作容器底,每文件计数对 `scripts/brand-foreground-baseline.json` 只减不增;**R3** 数 brand.DEFAULT 填充/描边但**不计 §4 成对 CTA**(同块或兄弟键用 `brand.foreground` 作前景)—— 见本节上方「品牌 CTA / 主按钮色同源」,按规矩写就红的门只会逼人 `--no-verify`;**无配对的白卡片照旧计**(自检里两条阳性对照钉住)。**内容口径**:全量与 `--update-baseline` 判 **HEAD blob**,`--staged` 判暂存 —— 共享工作树滞后 HEAD,按磁盘算会在恒红/假绿间来回跳并把错数写回基线(2026-09-24 一天内 R3 登记被整文件回退三次的直接成因)。`--staged` / `--update-baseline` / `--self-test`;紧急跳过 `HUSKY_SKIP_BRAND_FOREGROUND=1`。 ⚠️ 本行为 2026-09-24 就地改写**前**的原文,保留以不丢行(§12);现行文本见下方「品牌实底前景/容器对账(RN + 共享包 + web 类名面)」条,勿照本行执行。
 - **mobile-rn 深色前景/容器对账**(83,原 75):check-brand-foreground.mjs(blocking,2026-09-23 立)—— R1 零豁免:同一 style 块内 `tokens.brand.DEFAULT` 作背景 × `surface.light`/`text.primary` 作前景(深色档案下 brand.DEFAULT=纯白 ⇒ 白底白字);R2 基线棘轮:`surface.light` 背景 / α≥0.5 白 rgba / 无 `dark:` 变体的 `bg-white` 作容器底,每文件计数对 `scripts/brand-foreground-baseline.json`(现 13 文件 24 处,均为媒体上的合法浮层或已带 `dark:` 变体)只减不增。`--staged` / `--update-baseline` / `--self-test`(11 例);紧急跳过 `HUSKY_SKIP_BRAND_FOREGROUND=1`。 ⚠️ 本行为 2026-09-24 就地改写**前**的原文,保留以不丢行(§12);现行文本见下方「品牌实底前景/容器对账(RN + 共享包 + web 类名面)」条,勿照本行执行。
-- **mobile-rn 深色前景/容器对账**(83,原 75):check-brand-foreground.mjs(blocking,2026-09-23 立)—— 四条判据:**R1** 零豁免,同一 style 块内 `tokens.brand.DEFAULT` 作背景 × `surface.light`/`text.primary` 作前景(深色档案下 brand.DEFAULT=纯白 ⇒ 白底白字);**R4** 同一关系被拆到**兄弟 key**(`retryBtn` × `retryText`)时按命名配对判,走基线棘轮;**R2** `surface.light` 背景 / α≥0.5 白 rgba / 无 `dark:` 变体的 `bg-white` 作容器底,每文件计数对 `scripts/brand-foreground-baseline.json` 只减不增;**R3** 数 brand.DEFAULT 填充/描边但**不计 §4 成对 CTA**(同块或兄弟键用 `brand.foreground` 作前景)—— 见本节上方「品牌 CTA / 主按钮色同源」,按规矩写就红的门只会逼人 `--no-verify`;**无配对的白卡片照旧计**(自检里两条阳性对照钉住)。**内容口径**:全量与 `--update-baseline` 判 **HEAD blob**,`--staged` 判暂存 —— 共享工作树滞后 HEAD,按磁盘算会在恒红/假绿间来回跳并把错数写回基线(2026-09-24 一天内 R3 登记被整文件回退三次的直接成因)。`--staged` / `--update-baseline` / `--self-test`;紧急跳过 `HUSKY_SKIP_BRAND_FOREGROUND=1`。 ⚠️ 本行为 2026-09-24 就地改写**前**的原文,保留以不丢行(§12);现行文本见下方「品牌实底前景/容器对账(RN + 共享包 + web 类名面)」条,勿照本行执行。
-- **品牌实底前景/容器对账(RN + 共享包 + web 类名面)**(83,原 75):check-brand-foreground.mjs(blocking,2026-09-23 立)—— 五条判据,`brand.DEFAULT` 与 `brand.cta` **同形认**(只认 DEFAULT 会让迁移后的主实底整片隐身 —— 判据必须覆盖门自己产出的形态):**R1** 零豁免,同块内 `backgroundColor: (tokens|tk).brand.(DEFAULT|cta)` × `surface.light`/`text.primary` 作前景;**R4** 同一关系拆到**兄弟 key**(`retryBtn` × `retryText`)按命名配对判,走棘轮(现 127 处);**R2** 拦"浅色当容器底"(`surface.light` / α≥0.5 白 rgba / 无 `dark:` 变体的 `bg-white`),棘轮现 24 处;**R3** 数品牌实底填充/描边,**按档配对**免债:DEFAULT 底 ↔ `brand.foreground`、cta 底 ↔ `brand.ctaForeground`,**跨档配对仍计**(DEFAULT 底 × ctaForeground 深色档案下=白底白字),棘轮现 235 处;**R5** web/ui-react 的 **Tailwind 类名形态**(R1–R4 全解析 RN style 对象,对 `bg-primary`+`text-primary-foreground` 这一 §4 已废配对原本整侧盲视),同行成对才算,变体前缀(`data-[state=checked]:bg-primary`)与染色底(`bg-primary/10`)不算,`r5-cta-exempt: 原因` 豁免,基线 `webClassPairCounts` **现为空 = 零容忍**(立项实测 22 处/14 文件,含 `@ihui/ui-react` Button 的 6 个 variant,当日由并行提交 `4e0b24689a` 迁完)。**R5 两条已知限制如实登记**:跨行配对不计(宁窄不误)、变体前缀不算实底(排除前缀的字符类与排除 `/90` 的是同一个,放宽任一即破坏口径)。**内容口径**:全量与 `--update-baseline` 判 **HEAD blob**,`--staged` 判暂存 —— 共享工作树滞后 HEAD,按磁盘算会恒红/假绿来回跳并把错数写回基线(2026-09-24 一天内 R3 登记被整文件回退三次的直接成因)。基线 6 键:`counts`/`ctaCounts`/`r4Counts`/`webClassPairCounts` + 两个文档性注记键(`pairedCtaNotVisibleToRule`/`ctaFillRenameLedger`)—— `--update-baseline` **必须保留注记键**,旧写法整文件重写会把他人审计台账冲掉(本轮并入远端时实测踩过)。取证:`--self-test` **94 条断言**(含 3 条阳性对照 + 变异对照)+ `node --test scripts/tests/check-brand-foreground.test.mjs` **13 例**;`--staged` / `--update-baseline` / `--self-test`;紧急跳过 `HUSKY_SKIP_BRAND_FOREGROUND=1`。
 - **品牌实底前景/容器对账(RN + 共享包 + web 类名面)**(83,原 75):check-brand-foreground.mjs(blocking,2026-09-23 立)—— 五条判据,`brand.DEFAULT` 与 `brand.cta` **同形认**(只认 DEFAULT 会让迁移后的主实底整片隐身 —— 判据必须覆盖门自己产出的形态):**R1** 零豁免,同块内 `backgroundColor: (tokens|tk).brand.(DEFAULT|cta)` × `surface.light`/`text.primary` 作前景;**R4** 同一关系拆到**兄弟 key**(`retryBtn` × `retryText`)按命名配对判,走棘轮(现 127 处);**R2** 拦"浅色当容器底"(`surface.light` / α≥0.5 白 rgba / 无 `dark:` 变体的 `bg-white`),棘轮现 24 处;**R3** 数品牌实底填充/描边,**按档配对**免债:DEFAULT 底 ↔ `brand.foreground`、cta 底 ↔ `brand.ctaForeground`,**跨档配对仍计**(DEFAULT 底 × ctaForeground 深色档案下=白底白字),棘轮现 235 处;**R5** web/ui-react 的 **Tailwind 类名形态**(R1–R4 全解析 RN style 对象,对 `bg-primary`+`text-primary-foreground` 这一 §4 已废配对原本整侧盲视),同行成对才算,变体前缀(`data-[state=checked]:bg-primary`)与染色底(`bg-primary/10`)不算,`r5-cta-exempt: 原因` 豁免,基线 `webClassPairCounts` **现为空 = 零容忍**(立项实测 22 处/14 文件,含 `@ihui/ui-react` Button 的 6 个 variant,当日由并行提交 `4e0b24689a` 迁完)。**R5 两条已知限制如实登记**:跨行配对不计(宁窄不误)、变体前缀不算实底(排除前缀的字符类与排除 `/90` 的是同一个,放宽任一即破坏口径)。**内容口径**:全量与 `--update-baseline` 判 **HEAD blob**,`--staged` 判暂存 —— 共享工作树滞后 HEAD,按磁盘算会恒红/假绿来回跳并把错数写回基线(2026-09-24 一天内 R3 登记被整文件回退三次的直接成因)。基线 6 键:`counts`/`ctaCounts`/`r4Counts`/`webClassPairCounts` + 两个文档性注记键(`pairedCtaNotVisibleToRule`/`ctaFillRenameLedger`)—— `--update-baseline` **必须保留注记键**,旧写法整文件重写会把他人审计台账冲掉(本轮并入远端时实测踩过)。取证:`--self-test` **94 条断言**(含 3 条阳性对照 + 变异对照)+ `node --test scripts/tests/check-brand-foreground.test.mjs` **13 例**;`--staged` / `--update-baseline` / `--self-test`;紧急跳过 `HUSKY_SKIP_BRAND_FOREGROUND=1`。
 - ⚠️ 本行原为守门 83 的**第三条重复登记**,且把取证量写死成"`--self-test` 11 例"(实为 94 条断言)。2026-09-24 就地改写为指向条:该门的现行条目见**上方两条**(编号 83,判据 R1–R5);保留本行只为不丢行,勿照它执行。
 - **守门 83 追加 R7(2026-09-25,JSX 渲染嵌套级跨档配对)**:R1 只看同一 style 块、R4 只认命名兄弟(`X`/`XText`),但真实代码里"底"与"它的文字"常毫无命名关系 —— `balanceCard: {backgroundColor: tk.brand.cta}` 配 `balanceLabel: {color: tk.surface.light}`,深色档 `surface.light=#262626` 压 `#4A7A96` = **3.25:1,低于 AA 4.5:1**。R7 用递归下降扫 JSX(深度感知、跳字符串/注释,吃三元、`.map()` 体、泛型 `<FlatList<T>>`、多行与数组 `style={[a, b && c]}`),把前景归到**最近一个自带背景的祖先**;该祖先须整族为品牌档且所有候选前景全不匹配才判,命名兄弟让给 R4 不重复计;并覆盖内联 `color=` 的 icon/spinner(如 `<Plus color={tk.surface.card}>` 落在 cta 悬浮钮上 —— R1/R4 一条都看不见)。**HEAD 实测 16 处 / 9 文件**冻进基线键 `nestMismatchCounts`(只减不增),人工出口 `r7-nest-exempt: <原因>`(**须带原因,不得用它清账**)。构建期自查出两类假阳性并已钉成回归:① 嵌套元素 `style=` 并入宿主 key 集(致 `commentEmptyText` 冒充 `commentNickname` 的底)② 与 R4 重叠的命名兄弟重复计债。取证:`--self-test` 133 条断言(含 34 条 R7,含"把真文件 ctaForeground 改回 surface.light 必命中、换回必 0"的判别力证明)+ 镜像测试 17 例。**性能**:R7 在 557 文件上 137ms(R1+R3+R4 合计 174ms);本门 27–45s 的大头是既有的逐文件 `git show` 取材成本,不是新判据。
@@ -2477,7 +1822,6 @@ React 17+ 的 SyntheticEvent 在事件处理函数返回后 `currentTarget` 会�
 - ⚠️ **上面那条 `/alpha` 判据目前到不了小程序产物**(2026-09-25 实测,登记于 PROJECT_PLAN O62附②):`apps/miniapp-taro/config/index.ts` 的 `tailwindcss: { enable: true, config: {} }` 让端内 `tailwind.config.ts`(content globs + `presets:[@ihui/design-tokens/tailwind-preset]` + 本插件)在真实构建中**从未被加载** —— 实测真实 build 后 dist 的 154 个 wxss 里,源码用到的 **687 个 Tailwind utility / 11,105 处用法有 0 个产出规则**,`.flex{` 与 preflight 指纹双双缺失;阳性对照是同一份 dist 里 `app.css` 手写类名 75/98 可查到规则,故不是检索姿势问题。**后果**:改这条配置等于让整端 11,105 处用法同时开始产出 CSS,而现状很可能是手写 CSS 已补偿过(自有类名 2,228 个),开启后好坏只能由微信开发者工具真机渲染判定 ⇒ 属未决决策项,不是已收口项。**同时提醒同源对账门的边界**:门 36/37/93/`check-miniapp-taro-style-parity` 全部只核源码与 token 源头,**没有一道看产物**;它们五道全绿而到端 CSS 为零,是可能且已发生的。新增跨端同源门时,请先问自己判的是"写的同源"还是"生效的同源"。**⚠️ 本条的"0 产出"现值已作废**(同上,`edb225c909` + `f17b5fbdda`):真产物落地率 740/771 = 96.0%,`app.css` 现有一个由 `sync-miniapp-tokens.mjs` 派生的 `@theme` 注册区;但"没有一道同源门看产物"这半句仍然成立 —— 看产物的是 `check-miniapp-css-landing.mjs`(手动/CI,未接提交链)。
 - **prod-bundle 影子副本对账**:`scripts/check-prod-bundle-shadow.mjs`(2026-09-24 立;**2026-09-25 接进提交链 = guardian id `104`,blocking,紧急跳过 `HUSKY_SKIP_PROD_BUNDLE_SHADOW=1`**)—— 此前它只挂在 `pnpm check:all`,`grep -c check-prod-bundle-shadow scripts/guardian-runner.mjs` = 0,即"门存在、判据正确、没有任何调度器跑它",正是本仓最高频的**造好没装车**。§5e 那句"落进 `deploy/prod-bundle/` 的运维脚本必须同时落一份入库源,否则等于写进盲区"从此才有尺子。本门登记「入库源 ↔ 生产实际执行的那份」逐字节必须等值,判据:S0 入库源缺失(跟踪文件,任何检出都该在 ⇒ 判红,不是机器态)、S1 入库源必须真被 git 跟踪(不被跟踪就没有对账对象)、S2 运行副本必须真被忽略(否则登记表过期)、S3 两侧 sha1 全等,不等即红并点名两侧路径。**退出码按"机器态 vs 内容态"三态分流**:整目录 `deploy/prod-bundle/` 被 `.gitignore` 忽略 ⇒ 运行副本**只存在于部署机**,若在非部署机/CI/干净检出上判红,结局是逼人 `--no-verify` 连带 130+ 道门全废(§4/§12e 同型),故"缺运行副本"= **未判定,exit 0 但逐条喊出原因**(禁静默绿,也禁静默红);git 问不到 = exit 2 优先于 1。聚合抽成导出纯函数 `decide()`,机器态分流可用构造输入证明、不必真机改名。刻意**不挂 `stagedTriggers`**:会漂移那侧是被忽略的运行副本,结构上永不出现在暂存区,按 staged 收窄等于放过本门立门那一型。首跑抓到并入库的是数据库备份那一对:`deploy/prod-bundle/pg-backup{,-scheduler}.ps1`(整目录被忽略、全仓零入库源,而它每天 03:00 产出 94MB 生产库 dump)。本门**刻意没有改成转发壳**——把 runner 换成转发壳后重启服务,`pg_dump` 出现 3.5 分钟零输出挂死(旧 runner 同库同日 34 秒跑完),在解释清之前不动生产备份;因此两侧都是全文,靠本门钉住等值。自检 `--self-test`(例数以命令末行现测为准,含"入库源被摘线必红""缺运行副本计未判定不判红"成对正反例;**必须连跑两次**——该门曾 `--self-test` 第二次起恒 exit 2,只能跑一次的取证等于没取证)。
 - **架构契约对账**(103):`scripts/check-architecture-policy.mjs`(blocking,2026-09-25 立)—— 与其余全部守门**方向相反**的一道:其余是"发现一类违规 → 写一条判据"(打地鼠),本门读 `config/architecture-policy.yaml` 这张**声明表**,从声明反查违规。四类红:**T1** 表与现实脱节(模块改名/目录搬走而表没跟上 —— 表一过期,依赖它的所有判断都在对着空气打分)/ **C1** 单文件行上限(阈值 6000,**取自 HEAD 实测最大文件 5258 行之上**,依据写在 yaml 注释里)/ **D1 D2** 依赖方向(包 import 端、或 `requires` 未声明就 import;以及反向按 rank 更深一层)/ **D3** 深导入(绕过 `public_entrypoints` 直接摸别的包内部 —— 它是"端内重复实现"的入口)。**渐进收口是设计前提**:存量模块一律 `managed: false` ⇒ 只报数不判红(立项实测全量 exit 0、报数 3 处、`managed:true` 0 个)(⚠️ 这几个数字是**立项状态、不是现值**;现值一律跑 `node scripts/check-architecture-policy.mjs` 看 `managed:true` 行),翻 true 前先用 `--managed-trial <id>` 看条数,**不得为消红去改阈值或把不该对外的模块标成 exported**。行内豁免 `arch-exempt: <原因>`(须带原因)。口径同 70/77/83/98/101:全量判 **HEAD blob**、`--staged` 判索引 blob,策略表自身按 HEAD→索引→工作树降级取且**退到工作树会大声提示**;取不到判"无法判定",不冒红也不记绿。取证 `--self-test` 51 例(成对正反 + 两面口径差异 + 解析器坏了必须大声失败)+ 镜像测试 10 例(含 runner 装车证明与"同一代码 managed 两侧结论不同"的判据有牙证明)。编号说明:任务书原定 102,落地前已被 `check-glyph-arrow-icon` 占用,按"后来者改号"顺延 103。紧急跳过 `HUSKY_SKIP_ARCH_POLICY=1`。
-- **`merge-live-doc` 的第三种定性:同锚点 ⇒ 就地改写(2026-09-25 补,`--self-test` 13→16 例)**。上面两句判据只分"吃掉 vs 存活":容器短路管"旧行逐字活在新行里",Jaccard 管"两行很像"。**改行中段**时两者同时失效(旧行不逐字存活、长行大改后相似度掉到阈值下),于是正当的就地改写被判成"真丢失"并要人跑 `--apply` —— 而 `--apply` 会把旧行原样插回 ⇒ **同一件事新旧两行并存**,本节上方那对重复的"提交活文档前必须做…"登记行、以及守门 83 的三条同体行,制造路径之一就是这个。现规则:三份活文档都是「一件事一行」且行首有稳定锚点(`- **名称**` / `### 标题`),**同一锚点在"HEAD 缺失集"与"工作树独有集"里各只出现一次** ⇒ 判 `superseded`(不插回)。唯一性是生命线:锚点在任一侧数量 ≠ 1 就不猜,退回原判据(宁可多报交人工,也不能把"整段登记被删"洗成"他改写了")。取证两层:①`node scripts/merge-live-doc.mjs --self-test` 16 例(⑭改写⇒0 / ⑮删除⇒仍 lost / ⑯同锚点两条⇒不猜);②CLI 级装车证明 `scripts/tests/merge-live-doc-anchor.test.mjs`(3 例 A/B/C)—— 本文件顶层就是 CLI 且**没有 §22d `isDirectRun` 守卫**(`lib/live-doc-similarity.mjs` 就是为此被抽出来的),所以测试只能把脚本 spawn 起来验,不能 import 判据函数;C 例自证夹具确实"不像",防止 A 臂退化成容器短路的测试。**误判的代价不是"多一行报告",是逼人跑 `--apply`,而 `--apply` 造出的重复行下一次又被判成需要归并 —— 这是它自己的正反馈环。**
 - **架构契约对账**(103):`scripts/check-architecture-policy.mjs`(blocking,2026-09-25 立)—— 与其余全部守门**方向相反**的一道:其余是"发现一类违规 → 写一条判据"(打地鼠),本门读 `config/architecture-policy.yaml` 这张**声明表**,从声明反查违规。四类红:**T1** 表与现实脱节(模块改名/目录搬走而表没跟上 —— 表一过期,依赖它的所有判断都在对着空气打分)/ **C1** 单文件行上限(阈值 6000,**取自 HEAD 实测最大文件 5258 行之上**,依据写在 yaml 注释里)/ **D1 D2** 依赖方向(包 import 端、或 `requires` 未声明就 import;以及反向按 rank 更深一层)/ **D3** 深导入(绕过 `public_entrypoints` 直接摸别的包内部 —— 它是"端内重复实现"的入口)。**渐进收口是设计前提**:存量模块一律 `managed: false` ⇒ 只报数不判红(立项实测全量 exit 0、报数 3 处、`managed:true` 0 个)(⚠️ 这几个数字是**立项状态、不是现值**;现值一律跑 `node scripts/check-architecture-policy.mjs` 看 `managed:true` 行),翻 true 前先用 `--managed-trial <id>` 看条数,**不得为消红去改阈值或把不该对外的模块标成 exported**。行内豁免 `arch-exempt: <原因>`(须带原因)。口径同 70/77/83/98/101:全量判 **HEAD blob**、`--staged` 判索引 blob。**策略表自身的取材按档定向**(`policyFaceOrder`):全量档 HEAD 优先、**`--staged` 档索引优先**,两者都再降级到工作树;取不到判"无法判定",不冒红也不记绿。⚠️ 这里 2026-09-25 修掉一处**本门对自身改动的盲视**:原实现两个面都 HEAD 优先,于是"修改策略表自身"的那枚提交完全不进本门审查 —— 实测往索引版 `apps/cli.requires` 注入一条 `apps/api`(端应用 `exported:false`,T1 必判红)后全量与 `--staged` 双双 exit 0,而 `--staged` 输出照旧打印旧表的 `managed:true` 清单。这个洞偏偏落在"规矩 2:翻 `managed:true` 前先试跑"所要求的动作上(提交链是唯一无验的一环),且源码旧注释"表是输入不是被审对象"正是它的设计理由,已就地推翻。取证 `--self-test` 51 例(成对正反 + 两面口径差异 + 解析器坏了必须大声失败)+ 镜像测试 12 例(含 runner 装车证明、"同一代码 managed 两侧结论不同"、以及 T12 的**取材面双向条件不变量** —— 索引表≠HEAD 表则两档结论必不同形、相同则必同形;变异回旧顺序只有 T12 红)。**收口进度不写进文档**:某模块是否 `managed:true` 一律按当次实测取(`--staged` 输出行即现值),理由与本门刚修的那类缺陷同源 —— 登记过期数字会替人做出"已经收口"的判断。编号说明:任务书原定 102,落地前已被 `check-glyph-arrow-icon` 占用,按"后来者改号"顺延 103。紧急跳过 `HUSKY_SKIP_ARCH_POLICY=1`。
 - ⚠️ **中文出参会被控制台码页吃掉(2026-09-25 实测,和上一条同为"码页"但方向相反)**:上面说中文当 **argv** 传出去无损;但 node 往 stdout 打的**路径**含中文(`密钥/...`)时,PowerShell 按 **GBK 码页**解码 ⇒ 拿回的是乱码字符串 ⇒ `Test-Path` 判"不存在" ⇒ 脚本静默退回兜底凭据,表现得像"口令文件没建"。**凡"把一个值读回来继续用"的场合(路径/文件名/URL),调 node 前必须显式 `[Console]::OutputEncoding = UTF8` 并在 finally 还原**;只在控制台显示乱码的是"输出面",这条不成立 —— 值一旦参与判据就不是显示问题。同类修法也适用于 §5e 说的"多行中文正文走 --message-file"。
 - **凭据目录现状**(2026-09-25 起):`db-backup/ihui-backup.txt` = 只读备份账号 `beifen` 的口令;`IHUI生产账号/pgsql管理员-postgres-*.txt` = 该库 `postgres` 的口令(此前**从未设过**,详见 `deploy/win/ihui-pg-backup-role.sql` 顶部的执行记录)。两份都在仓库外、都在 §5d 权威目录里,都不进日志/聊天/提交。
@@ -2503,8 +1847,6 @@ React 17+ 的 SyntheticEvent 在事件处理函数返回后 `currentTarget` 会�
 - 三件同批事实:以上五道门都按 §12 的"活文档与注册表单写者"由主会话统一接线(`guardian-runner.mjs` / `package.json` / 本节 / README 守门章节同枚提交),各实现票按任务书**没有**碰过这些共享注册文件 —— 并行改注册表必然互相覆盖注册块(门 93 记过同型事故)。
 - **小程序端「源 ↔ 派生产物」存续性对账**(105):`scripts/check-miniapp-generated.mjs`(**blocking;2026-09-25 由 warn 升档,前置条件实测达成**)—— 管四件"生成器造好了但没人跑"的派生产物:i18n 离线包 `remote-locales.gen.ts`、`static/images/icons/*.svg`、`LineIcon/icons.ts`、`assets/tabbar/*.png`。六条判据(G1–G6;G5 由 G-680 加、G6 由 G-415 A8 加):**G1** 源里有而产物没有 ⇒ 判红(端上会缺词、图片 404 且**不报错**);**G2** 产物里有而源已无 ⇒ 默认只报数,`--strict` 才判红(删产物属 §7 删除安全);**G3** `icons.ts` 有键而 `icons/` 无同名 svg ⇒ **永不判红**(图标源在"图片全量外置 CDN"那轮被清空,判红等于造一道恒红门);**G4** 模板字符串拼出的动态路径结构上判不了 ⇒ 如实计数,绝不静默成"看起来全绿";**G5** 离线包自述钉不等 ⇒ 判陈旧;**G6** 调用点 <LineIcon name=字面量> 必须在 icons.ts 键集(取不到素材时组件 return null,界面只是空白且不报错),动态拼接与标签配不平计未判定并逐条点名 —— 真仓 HEAD 现读字面量 272 处 / 动态 35 处,故这一维接线不产生恒红面。取材面同 70/77/83/98/101:全量判 HEAD blob、`--staged` 判索引 blob、`--worktree` 只作人工与 dev 链逃生舱;取不到 ⇒ **exit 2「无法判定」**。定级 warn 的实证理由:立项当天全量面就有 8 处 G1 + 9 处孤儿在红,挂 blocking 会让每次提交都被逼 `--no-verify`(§12e 那型);**升 blocking 的前置条件是 G1 存量清零 —— 该前置已于 2026-09-25 实测达成并升档**(全量面 `未发现漏生成`、exit 0;R2 孤儿与 G3 图标按设计**不是** blocking 判据,默认只报数,所以升档不新增任何恒红面)。升档的直接起因是本会话自己改了 i18n 键名(`policyForbidsExecution` → `policySkipsApproval`)却没重生成离线包,门判出 4 处 B2 却因为是 warn 而**没拦住任何提交**,于是静默上线一版"小程序取不到该词"的产物 —— **warn 的代价不是"少一道闸",是"门判对了也没人被打断"**。修法单命令、不需要人工裁:`pnpm --filter @ihui/miniapp-taro gen:i18n`。取证 `--self-test`(15 例,成对正反例、零副作用);紧急跳过 `HUSKY_SKIP_MINIAPP_GENERATED=1`;它同时被 `dev-weapp.mjs` 消费 —— 判据要在有人跑它的那一刻才成立。
   - **为什么"产物存在"不等于"能力在线"(本门立论,值得推广到别的生成器)**:这四个生成器里此前**只有 i18n 那个进了构建链**,其余三个既无构建入口也无门禁 ⇒ "造好没装车"只能靠人记得手动跑;而 dev 链不跑 i18n 生成器,意味着**开发时离线语言包常年是旧的**,只有 release 才被发现。同类盲区见守门 64(适配器接线)/ 70(硬编码中文)/ 81(邮件通道):**判据必须在真跑它的那一刻才成立,否则等于没有。**
-- ⚠️ **中文出参会被控制台码页吃掉(2026-09-25 实测,和上一条同为"码页"但方向相反)**:上面说中文当 **argv** 传出去无损;但 node 往 stdout 打的**路径**含中文(`密钥/...`)时,PowerShell 按 **GBK 码页**解码 ⇒ 拿回的是乱码字符串 ⇒ `Test-Path` 判"不存在" ⇒ 脚本静默退回兜底凭据,表现得像"口令文件没建"。**凡"把一个值读回来继续用"的场合(路径/文件名/URL),调 node 前必须显式 `[Console]::OutputEncoding = UTF8` 并在 finally 还原**;只在控制台显示乱码的是"输出面",这条不成立 —— 值一旦参与判据就不是显示问题。同类修法也适用于 §5e 说的"多行中文正文走 --message-file"。
-- **凭据目录现状**(2026-09-25 起):`db-backup/ihui-backup.txt` = 只读备份账号 `beifen` 的口令;`IHUI生产账号/pgsql管理员-postgres-*.txt` = 该库 `postgres` 的口令(此前**从未设过**,详见 `deploy/win/ihui-pg-backup-role.sql` 顶部的执行记录)。两份都在仓库外、都在 §5d 权威目录里,都不进日志/聊天/提交。
 - **发给 provider 的 function parameters 必须由校验面单向投影**(2026-09-25 立,A13):统一出口是 `@ihui/types` 的 `projectToolInputSchema` / `toolsToProviderSchema` (`packages/types/src/schema-projection.ts`),**禁止端内手搓 `parameters` 对象或自拼第二份 JSON Schema** —— "运行时怎么校验"与"模型被告知怎么填"必须是同一份描述的两个投影,否则两边各自漂移而 typecheck 全绿。等价性由 158/158 个真工具对象的同瞬间 A/B 证明(线字节 + 属性名集合 + required 集合三项全等)。 **⚠️ 那句"158/158"当场不可复核,现已换成可重跑判据(2026-09-25)**:158 出自提交 `dd5142f2255` 的一次性 A/B 脚本,而那个脚本**没入库**、**口径也不同** —— 它按 `文件#name` 计数,把 re-export 的同一工具重复计了 56 次,所以 158 ≠ 门 111 的 104。更糟的是那条 A/B **今天再跑仍报 158/158,而它是恒真式**:它比的"旧侧" `toolsToProviderSchema` 在 `dd5142f2255` 之后自己就改成调投影器了,等于拿新实现和它自己比 ⇒ "已证明"三个字当时成立、事后失效,而账面什么都看不出来。现在这句话的唯一入库载体是 `apps/cli/tests/a13-projection-equivalence.test.ts`:旧侧取 `git show dd5142f2255^` 的**历史源码逐字快照**(`tests/fixtures/toJsonProperty.legacy.ts`,头注禁止演进),断言①门数到的工具集合与运行时枚举到的**逐名相等**、②逐工具三项全等(线字节 / properties 键集 / required 集)、③两条变异对照各红在对应判据、④枚举到 0 个工具判死不判绿。**登记一条已知局限**:运行时侧读磁盘而门侧判 HEAD ⇒ 他人在飞新增的真工具会让"逐名相等"点名它,红可能来自别人未提交的文件(§77/§83 同型)。
 - **压缩分母对账**(112):`scripts/check-compaction-denominator.mjs`(blocking,2026-09-25 立)—— 钉的是 A30 那条实测缺口:provider 的 context window 是 **input 与 output 共享的同一个窗口**,所以"什么时候该压缩"的分母必须**先扣掉本轮留给输出的预留**;不扣就是拿"占满整个共享窗口的 88%"当阈值,而同一窗口里模型还要生成回复 —— 故障形态是**越接近上限越容易炸,现象却写成"压缩判过了还是 400/overflow",极难归因到分母**。立门前先确认"没有等价实现"再确认"没有这个名字"(两步都跑:本仓实测 `grep -rniE "outputReserve|effectiveContextWindow" apps/cli/src packages/context-compaction/src` = 0)。唯一出口 `effectiveContextWindow({contextWindow, maxOutputTokens, buffer, enabled})`,预留封顶 `MAX_OUTPUT_RESERVE_TOKENS`;凡「token 数 ÷ `contextLimit`/`contextWindow`」而分母未经该出口 ⇒ 红。**只从包主入口导出,不得新建子路径** —— 架构契约表没登记 `packages/context-compaction` 的子入口,深导入会被守门 103 判 D3 红(本仓踩过)。**行为后果如实登记**:分母只会变小 ⇒ **压缩更早触发**,这是用户可感知的变化,回退有两条路(构造参数 `outputReserveEnabled:false` / 环境变量 `IHUI_COMPACTION_OUTPUT_RESERVE=0`);存量 8 文件/12 处进 `scripts/compaction-denominator-baseline.json` 只减不增,其中 **api 端 `/chat/stream` 的溢出面尚未收口** —— 那是留下的账,不得读成"已修完"。口径同 77/83/98/103:全量判 HEAD blob、`--staged` 判索引 blob、取不到 ⇒ **exit 2 无法判定**、枚举到 0 个文件判死不记绿。取证 `--self-test` 15 条(成对正反例 + 空枚举反向对照)+ §22c 镜像测试;紧急跳过 `HUSKY_SKIP_COMPACTION_DENOMINATOR=1`。
 - **路由身份键对账**(113):`scripts/check-tool-arg-routing-identity.mjs`(blocking,`stagedTriggers=apps/cli/src/tools/`,2026-09-25 立) —— 钉的是**"谁的数据"不得由模型决定**:路由身份一律由宿主在 closure / ctx 绑定,绝不得出现在模型可见参数集合里。键清单的**唯一源**是 `packages/types/src/tool-contract.ts` 的 `ROUTING_IDENTITY_KEYS`(门与类型层共用一份实现,禁止第二份;该常量被摘线本门即 exit 2 并点名,而不是"清单空 ⇒ 全绿")。三类落点都判:直接 `parameters` 字面量、具名 helper 单跳回溯、契约 `shape.input.properties` 跨文件解析;键名归一化(小写去 `_`/`-`)故 `sessionId`/`session_id`/`SESSION_ID` 同视。**刻意只收 16 个"填错会把结果送到别人那里"的键** —— `messageId`/`toolCallId`/`taskId`/`fileId`/`path` 属内容引用或业务句柄,纳进来会误拦正当用法(加键先问那一句,镜像测试反向钉死)。投影出口侧不是"未判到":静态验 `schema-projection.ts` 里 `properties[name]` 的键名逐字取自 `Object.entries(parameters)`、无字面量下标/改名 ⇒ 判 `name-preserving`;解析不出即计未判定并 exit 2。口径同 77/83/98/103/112(全量判 HEAD blob、`--staged` 判索引、暂存集空退全量并如实点名、枚举 0 个判死)。**首跑 16 处已冻棘轮基线,但那不是清偿**:`memory.ts` 把 `user_id` 标成 `required`,而服务端 `routes/memory.ts:118` 只认 `request.userId!` ⇒ 真是"模型不可能满足的必填参数"(功能面 bug);`debug.ts`/`terminal.ts` 的 11 处是工具自句柄,须把排除理由正式登记进键清单注释,**不得用行内豁免遮掉**。取证 `--self-test` 23 例 + §22c 镜像 7 例;紧急跳过 `HUSKY_SKIP_TOOL_ARG_ROUTING_IDENTITY=1`。
@@ -2670,7 +2012,6 @@ React 17+ 的 SyntheticEvent 在事件处理函数返回后 `currentTarget` 会�
   **越权用例必须断言"未发出查询"**,只断言 403/401 会放过"先改了再抛 403"与"授权判定发生在查库之后"两种写法
   (取证:`capture.whereArgs` 为空 / `whereSeen === 0`)。Python 侧同一层由守门 117 管,TS 侧此前无门 —— 本条是散文规矩,
   新增同类端点时按上面两条写并配一条"别人持有的行 ⇒ 0 命中"用例即可,不要为消红去削判据。
-- **守门 134 第三次补强(2026-09-27,承上一条 B2/扩键登记,数字一律现读勿照抄)**:把 **裸 SQL 写链**并进写链池。病灶的载体不止 drizzle 方法链 —— `db.execute(sql\`DELETE FROM … WHERE …\`)`也是写;此前判据只把`.delete()/.update()`当写链,裸 SQL 只当"证据"(认里面的`RETURNING`字样),于是"SQL 发了写、命中 0 行、响应回布尔 true"这一格无人看守。现由`findRawSqlWriteChains` 一份实现同时供**写链判定**与**RETURNING 证据**(`hasRawSqlReturning` 降为它的投影,禁止两处各扫一遍),**V 与 B1 同看这一维**;B1 只认**缺 RETURNING** 的那一条,带 RETURNING 的按证据放过 ⇒ 不新增恒红面;括号配平不到时"同体有 ack 才落未判定(U3,`--strict` 拒绝出合格证),否则只报数"。
 - **整数主键序列落后对账**(`scripts/check-sequence-lag.mjs`,**手动问责档,刻意不进提交链**;紧急跳过无需 —— 它不在钩子链上;问责入口 `pnpm check:sequence-lag`、修复 `pnpm check:sequence-lag:fix`):拦的是"**写入方把撞主键降成一条 warning**"这一型。立项实测(2026-09-27):`publish_history` / `publish_notifications` 的 id 序列落后表内 `max(id)` 9 / 14 名 ⇒ 调度器每次 INSERT 撞 `*_pkey`，而两处写入方都是 `except Exception → logger.warning`，结果是**发布审计静默丢失**(任务判 failed 而库里查不到任何历史行)，`git status` / typecheck / 其余守门全都不响。顺这条扫全库:228 张有序列表 **8 张落后**(含 `publish_tasks` 23 vs 6、`ai_model_config_models` 2228 vs 325)，已逐张只向前 `setval` 推平。判据 `next = last_value + (is_called ? 1 : 0)`，`next <= max(id)` 即落后;**修复铁律**只在落后时前推、领先一档绝不产出回拨目标(回拨等于自己制造新的撞键)、空表不判也不 `setval`。定级为手动档是设计前提:一次全库扫描约 40s，且序列属**库/机器状态**，提交者结构上满足不了 —— 挂 blocking 就是每台每次被逼 `--no-verify`、连带废掉全部守门(§12e 同型)。两条自我纠错记录值得抄:① 落地首跑本门自己漏扫(枚举把"有序列"下推到 SQL 前，JS 里先按表去重 ⇒ 第一个 int 列无序列的表整张被跳过)，报的却是"无落后"——靠**覆盖面自证**(权威候选张数 vs 实扫张数不等即喊"不闭合"、`--strict` 下 exit 2)才现形，凡全量枚举型判据都要配这一条;② 门读 gitignored `.env` 取 DSN 被守门 118 判成"按磁盘判被审内容"，处置不是跳门也不是削判据，而是按该门已登记口径把仓库锚点命名为小写并在头注写明"本门仅有的两处磁盘读是 DSN 与其指向的库实时状态"。同批把判定层收进 `apps/ai-service/app/services/publish/db_write_guard.py`(撞主键判 **error** 并给出可复制的修复命令，`scheduler._write_history` 与 `notifications` 两处共用一份判定，禁止各写各的)。取证:`--self-test` 7 条 + §22c 镜像 `scripts/tests/check-sequence-lag.test.mjs` 11 例(含"领先一档不得给 setval 目标""枚举面必须自带序列过滤""无 DSN 必须算无法判定不记通过"三条形状锁)+ Python 侧 `tests/test_db_write_guard_honesty.py` 4 例。
 - **对账**:`scripts/check-cross-end-ui-parity.mjs`(guardian 第 **128** 项,blocking,紧急跳过 `HUSKY_SKIP_CROSS_END_UI_PARITY=1`)。同名配对组件的单位归一后比几何档集合(`72rpx` ≡ `36px` ≡ `36dp`;Tailwind `h-9` = 36、`text-sm` = 14),差档即点名;**棘轮锚点 = `scripts/cross-end-ui-parity-baseline.json`**(立项读数:19 对同名组件 / 18 对有差异 / 174 处差异档),所以它只拦"把两端差异加大",不会把存量债变成人人跳门(§12e)。圆角与色档**不在本门射程**(守门 77 / 93 各管一段,一台尺子只量一段)。
 - **对话流挂载与契约登记对账**(guardian id 以 runner 现值为准 —— 本枚取到 **140**,blocking,`stagedTriggers=apps/web/src/components/chat/` + `packages/shared/src/sse/`,紧急跳过 `HUSKY_SKIP_V362_CONV_MOUNT=1`):`scripts/check-v3-62-conversation-mount.mjs` 是 V3 #62/#63 的常驻尺子,钉三件 —— `BusinessFormSection` 必须真被 `MessageList` 挂载(61/63 两票立项时的真实状态就是"宿主、store、渲染点全在,唯独没人挂",与守门 64/70/81/115/138 同族)、`form_request` 的契约登记段与消费点必须逐字段同形(wire 是 snake_case `request_id/reject_reason`,camel 侧同名字段由测试的双向可赋值断言锁住)、以及 `sse/contract.ts` 与 `apps/ai-service/app/core/sse_contract.py` 既有那份 parity 门不得被「顺手并进 SSE_EVENTS」绕过 —— 本票的帧**刻意单列一段**(`FORM_FRAME_EVENTS`),因为 ai-service 侧零生产点,并进去会立刻造出一台恒红门(§12e 同型),解阻前置三条已写在该段注释里。取证 `--self-test` + §22c 镜像 `scripts/tests/check-v3-62-conversation-mount.test.mjs`;口径同 70/77/83/98/103/118/138(全量判 HEAD blob、`--staged` 判索引、两旗同给判死、取不到 exit 2、枚举到 0 个候选判死)。
@@ -2703,8 +2044,6 @@ React 17+ 的 SyntheticEvent 在事件处理函数返回后 `currentTarget` 会�
 - **引擎 JSON-RPC 通道的同一族规矩(2026-09-27 第五十八批落地)**:调用方身份**只能取承载层绑定的 `params.userId`**(`apps/ai-service/app/routers/engine.py::_bind_principal` 是唯一注入点),**禁止从被点名的那条线程取 `user_id` 当 principal** —— 那是"拿受害者当授权凭据",判据会退化成"受害者 vs 受害者自己"。属主比对只许经由咽喉点 `_require_thread` + 唯一谓词 `_principal_allows`;**结算/带外回传通道不得另建第二份比对**(带外回传"不经过咽喉点"是漏洞而不是绕行理由 —— 本仓门 36 头注曾用同型措辞把这件事写成设计)。三条不可漂的口径:① 越权与"资源不存在"**同码同消息形状**,不给存在性 oracle;② 属主闸排在"已关闭/状态类"判定**之前**,否则状态码差异本身就在泄露"这条 id 是真的";③ **未鉴权通道(principal=None)维持改动前行为,并在代码里写明这是回退、不是授权结论**(否则非 dev 路径跟着静默放行)。存量已归零 ⇒ 这一族不需要基线清单,新引入的同类写法直接红。**越权用例的断言口径同上一条**:`applied:false` 不够,必须同时断言"那条审批的 future 从未被结算、持久授权从未被授予"。
   - **同轮登记的两格未修(附归属,不由实现票自行裁决)**:① `thread/metadata` 处理器以 `merge=False` 整写 metadata,会把持久化的 `userId`/`roleId` 冲掉 ⇒ 进程重启后该线程变无凭据、②式比对空转,反向 patch 还能伪造恢复出的属主;唯一修法(把这两个键并入 merge 白名单)会撞 batch-46 钉死的"持久 metadata 恰等于客户端 KV"精确等值契约 —— **两条契约谁让步属批次决策**,该代理按纪律已把自己那次改动撤回原状,现在这一格无判据。② 只读面(`thread.search` / `thread.items.list` / `thread.turns.list` / `thread.read`)与 `thread.delete` / `thread.archive` 仍按裸 threadId 跨用户工作,HTTP `GET /api/sessions/threads` 也一样(它手里就有 `get_current_user_id`,却不传给已支持的 `owner_user_id`)—— 收窄会改变前端可见列表,属对外语义决策,需产品拍板后另计一票。
 - **取证包装器 `scripts/run-evidence.mjs`(常驻出口,不是守门、不在提交链)** —— 把**「跑失败」与「根本没跑到」变成机器可分辨的两件事**。用法 `node scripts/run-evidence.mjs <证据文件> [--timeout=ms] [--label=…] -- <命令 …>`,读侧 `--verify <证据文件>`。它把 stdout/stderr **直接接进同一个文件句柄**(不经 shell、不经管道),跑完在末行写 `#EVIDENCE-RC=<码>`;`--verify` 判三态:`complete`(给真实 RC)/ `truncated`(无 RC 行 ⇒ **exit 3**)/ `killed`(被信号终止且留痕 ⇒ exit 3)。**为什么必须有它(2026-09-27 一天内三次自伤,全是同一结构)**:① `… | tail -3; echo $?` 拿到的是 `tail` 的退出码,我据此说过"两道门已消红",而那两个 0 与门毫无关系;② `timeout 200 node scripts/git-push-converge.mjs | tail -5` 把工具输出**掐成一行**且整链 exit 0,我当场读成"权威核验入口只打一行就成功 ⇒ §22 双备份在静默失效",差一步就把这条假 P0 登记进台账 —— 不带管道重跑就是完整三行 + `BEHIND`;③ 复现某道门时**少传 runner 会传的 `--blocking`**,真红被读成绿,错误归因进了台账(后另起一条明文推翻)。三条的共同点是**证据里没有"我跑完了"的记号**,于是截断/被杀/参数错全都伪装成"跑过且没问题"。**退出码语义**:0=被包装命令成功;1=其真实失败;3=INCOMPLETE(结论无效,必须重跑而不是下判断);**75 原样传播**(本仓 push guard 的"中断重试"链依赖它,不得收敛成 1)。**一条与既有规矩的接合**:本仓早有"取不到判'无法判定'、绝不记绿"(守门 94/103/118 等多处),但那只覆盖**门自己的输出面**;agent 在终端里手跑判据时的那次取证**从来没有载体能区分"没跑完"** —— 本工具补的就是这一格,所以它是**出口不是判据**。**命名纪律**:它不以 `check|scan|guard` 开头 ⇒ 守门 89 结构上看不见它(同 `scripts/c-disk-breakdown.mjs` 那一格),不变量由 `--self-test` **17 条**(含 T14 真把包装器 SIGKILL 掉、证明被杀那份**没有** RC 行、判非 complete)+ §22c 镜像 8 例钉住(T5 反向锁:它被误接进 `guardian-runner` 即红 —— 每次提交都被一台取证包装器判红就是恒红门);镜像 T7/T8 另证"被包装命令的真实 RC 会留在证据里"与"自检跑完不得留残留取证件"。**规矩:此后凡要把判据结论写进台账/交付报告,取证一律经本工具落件并以 `--verify` 读回;拿不到 `complete` 就写"未判定",不得写"通过"也不得写"失败"。**
-- **计划文档 commit 引用可兑现性对账**(`scripts/check-plan-sha-resolvable.mjs`,**warn 级、刻意不接提交链**,手动问责 `pnpm check:plan-sha`;紧急跳过无需——它不在钩子链上):量的是「`PROJECT_PLAN.md` 里那些 `提交 \`abc1234\``式引用**今天还能不能真的问到对象**」。**三态绝不并桶**:可解析 / **取不到**(对象库里没有 = 指针已腐烂)/ **形状判不出**(全数字 8 位像日期或 CI run id、长度 13–39 像 integrity 片段、紧跟`#`像色值)—— 第三种既有独立计数也有锁,**不得**并进腐烂(那是把"没看清"写成"有问题"),也**不得**并进通过(那是把"没看清"写成"没问题")。立项现读:可解析 999 / 取不到 61 枚·97 次出现 / 判不出 58 枚·115 次;而**票面那句"44 枚"在任何口径下都不是 44**(全量 61、出现 97、只算有锚点 49、只算反引号+提交式 46、长度≥9 的 39、≤8 的 22)⇒ 派单与问责一律以命令末行现读为准,不采台账数字。**为什么 warn**:"引用能否兑现"与"本次提交改了什么"无关,挂 blocking 就是一台恒红门,唯一结局是逼人`--no-verify` 连带废掉全部守门(§12e 同型);`--strict` 现读 exit 1 —— 那是它**拒绝出具合格证**,不是仓库故障。**明令禁止**`--update` 式"把当前读数冻成基线":那等于给腐烂发通行证。口径同 70/77/83/98/101/103/118(全量判 HEAD blob、`--staged`判索引、两旗同给 exit 2、取不到判"无法判定"、枚举到 0 条判死),取证`--self-test` 32 条 + §22c 镜像 10 例。**写尺子过程中由自检抓出并锁死的三处判据自身缺陷**(都会以"数字看着合理"的形态存在,只有构造面能抓):`startsWith` 判序写反 ⇒ 全仓短 sha 静默落未判定;`selectFace`返回对象而非面名 ⇒ 三面同读 HEAD;索引档漏前导冒号 ⇒`--staged` 恒"取不到"。**未闭环的一格**:腐烂桶里混着形状相同但语义不同的东西(`6b8cd0f6` 实为 user_id、`c12612dc` 实为 adb 设备号),按形状判不出 ⇒ 需逐条人工定性才能从桶里摘出;`.ihui-agent/archive/*` 未纳入射程。
-- **守门 134 第三次补强(2026-09-27,承上一条 B2/扩键登记,数字一律现读勿照抄)**:把 **裸 SQL 写链**并进写链池。病灶的载体不止 drizzle 方法链 —— `db.execute(sql\`DELETE FROM … WHERE …\`)`也是写;此前判据只把`.delete()/.update()`当写链,裸 SQL 只当"证据"(认里面的`RETURNING`字样),于是"SQL 发了写、命中 0 行、响应回布尔 true"这一格无人看守。现由`findRawSqlWriteChains` 一份实现同时供**写链判定**与**RETURNING 证据**(`hasRawSqlReturning` 降为它的投影,禁止两处各扫一遍),**V 与 B1 同看这一维**;B1 只认**缺 RETURNING** 的那一条,带 RETURNING 的按证据放过 ⇒ 不新增恒红面;括号配平不到时"同体有 ack 才落未判定(U3,`--strict` 拒绝出合格证),否则只报数"。
 - **同词不同义的两张名单不得并置在同一个 barrel(强制,2026-09-27 D113 票⑲ 立)**:共享包里"名字像同一件事、语义是两件事"的两个导出合并进同一 `export *` 面时,tsc **只在两份同时被导出时**报 TS2308,而"消费方拿到哪一份"是运行时问题。实测形态:`packages/shared/src/chat/task-status.ts` 的 `FILE_WRITE_TOOLS` 是"这次调用算不算改了文件"的**识别**白名单(`ReadonlySet`,web `tool-call-card.tsx` 按 `.has()` 消费),与新增的"这句话要不要把写类工具交给模型"的**能力**清单同词不同义 —— 后者若同名并进 `chat/index.ts`,出口就变成数组,而类型层不会在调用点红给你看。三条规矩:① 新策略模块**只走子路径**(`@ihui/shared/<dir>/<file>`),② 名单名带语义限定词(`FILE_*_INTENT_TOOLS`),③ 在 barrel 里留一句"为什么它不在这里" —— 否则下一个接手的人会把它当"漏加的出口"补回去。反向锁已入库:`packages/shared/src/chat/__tests__/file-tool-intent.test.ts` 同时判"barrel 里不得出现该 export"与"task-status 那份必须在"(只判一边等于允许整块被摘线)。
 - **经对象空间通道"往上落"时,声明路径的底稿必须取自被审面,不得取自磁盘副本(2026-09-28 立,主会话自己撞上的一型)**:`scripts/object-space-land.mjs` 的 CAS 循环、"零损失"结构等值断言、`git show --name-only` 回读,**保护的都是"别人在索引与树里的行"**;而对我自己声明的那几个路径,它按**工作树字节**取版本。于是磁盘副本滞后时,一次只打算"加 4 行"的提交会顺带把并行会话当天按守门 KR 合法删除的 25 行写回、并删掉 HEAD 里 3 行活内容 —— `git status`、diff 行数、typecheck、链上 181 道门全部报绿(实测 `c99b163ee5`,由另一路会话在收它自己的孤儿键时反手指认,不是任何一道门抓到的)。**"整份 blob 逐字节等于某祖先版本才算陈旧"那一判据(守门 84 / `heal-worktree-tracked` 用的就是它)对这一型结构上失明**,因为落地内容是 `旧副本 ⊕ 我的新行`,不等于任何历史版本;可判的形态是**行级复归** —— 某行 ① base 面没有 ② 要落的内容里有 ③ 该路径某祖先里有(真新增的行第三条不成立,所以这条判据不会把正当编辑判红)。**两条落地纪律**:① 改代码文件先 `git checkout HEAD -- <path>`(动之前把磁盘那份留底到 `.ihui-agent/tmp/`)再在 HEAD 现值上编辑,或改用 `live-doc-edit.mjs` 的整行改写档 —— 它本来就从被审面取底稿,这也是活文档必须走它而不是走 pathspec 的又一个理由;② 落地后一律 `git show --numstat <新提交>^..<新提交>` 逐枚复验,出现意料之外的删除行就当场回补(§12 那句"提交前的报告有时效边界"在这里同样成立)。**修复那枚提交的形态值得照抄**:做成**纯删除、零新增**(`24446960ce`,224 行删除 / 0 行新增)—— 零新增在结构上就不可能再把任何人的行写回旧态,而复验只需要看 numstat 一眼。**同批又踩到两格,都归进这一条**:① **"读的时候干净"不等于"落的时候干净"** —— 我在 04:36 确认五个 web 语言包的磁盘副本与 HEAD 同形并据此删了一行,而 04:38:37 一枚并发提交给同一批包各加了 15 行;若不重取底稿就直接交磁盘字节,那 15 行会被写回旧态,而 `git status` 在我读取的那一刻报的是**干净**。⇒ **底稿必须在落地那一刻现取被审面**(本仓出口:`object-space-land.mjs` 的 `LAND_BLOBS` + `LAND_BLOB_PROOF`,内容 = `git show HEAD:<path>` 逐行 ⊖/⊕ 本票行,不读盘),落地后一律 `git diff <新提交>^..<新提交> --numstat` 复验"净效应是否恰为我声明的那几行"。② **`execFileSync(git show …).trim()` 会吃掉 blob 的末尾换行** —— 一个 `String().trim()` 把六个文件各制造一行伪改动(`1 insert / 2 delete`),而这类扰动在 JSON/Markdown 上完全无声;⇒ **凡"从 git 取 blob 再落盘",全程走 Buffer 原字节**,只在明确判过末字节不是 `0x0A` 时才补那一个字节。
 - **临时夹具落点两把只读尺子**(2026-09-28 立,`scripts/check-scratch-root-no-nesting.mjs` / `scripts/check-fixture-tmpdir.mjs`;定级 **warn**,判据输入全部由被审面自身推导,无豁免清单):前者问"scratch 根内是否又长出一个 scratch 根"——`scripts/lib/scratch-dir.mjs` 的仓库根由脚本自身位置推导,被 `copyScriptWithClosure` 拷进演练仓后算出的 driveRoot 成了夹具自己的盘根,于是夹具里长出二阶树(§26 那条"junction 穿透"不同源但同型);枚举**有界**(深度/预算)且**不穿重解析点** —— 递归删一条没判重解析点的路径就等于清空别处真实数据。三态 `ok / drift / undetermined`,目录不存在或量不到一律报名字与原因,**绝不记为通过**;它**只报不删**,清理属 §7 删除安全。后者问"§26 写的『临时夹具唯一落点 = scratch-dir』有没有真被遵守":默认档逐条报名(现读 59 处 / 26 文件),`--strict` 才判红,射程为空如实回退 HEAD。**两条都是 warn 的设计前提**:它们判的是本机目录形态与测试面写法存量,提交者结构上无法当场满足 —— 挂 blocking 就是每台每次被逼 `--no-verify`,一次绕过等于该枚提交上全部守门作废(§12e)。修复动作:落点改走 `mkScratch`/`rmScratch`,不是放宽判据、也不是把报名改成静默。
@@ -2788,9 +2127,7 @@ React 17+ 的 SyntheticEvent 在事件处理函数返回后 `currentTarget` 会�
 - **收敛链的三道"崩溃 ≠ 裁决"口径(2026-09-29 立,G-815406 / G-814402 / G-815922 三票同批落地)**:`scripts/git-sync-converge.mjs` 是本机**唯一**的合并+推送出口,而它依赖的台账闸门尺子(`planStateRegressions`,住在 `scripts/union-converge.mjs`)与它是**两条不同的失败面** —— 一旦用静态顶层 `import` 把整条依赖图拉进来,任一依赖崩了就**连与台账闸门无关的快路径一起死**,账面只剩一截 Node 堆栈(2026-09-29 实测:他人未提交的 `scripts/lib/plan-task-index.mjs` 副本少 2 个导出 ⇒ 全队推送通道停摆,而 `git status`、typecheck、156 道门全都不响)。三条不可漂的写法:**① 闸门尺子异步装载** —— `ensureUnionModule()` 失败**不拦启动**,只让**第①把尺子**落 `[台账闸门未判定]` 前缀的点名行,调用方按该前缀单独一支 exit 1(fail-closed:不得推进合并,也**绝不**返回 `[]` 冒充"没有放大")。**② 归并子进程分四态**,唯一实现 `classifyUnionAttempt(text)` → `landed / undetermined / crashed / need-human`(措辞出口 `unionOutcomeMessage`):`crashed` 的两种形状是 Node 模块/异常指纹**或一个字都没打**,而它**绝不许**被说成"需人工" —— 那一句会把人引去手工解冲突,而手工最容易犯的错是**选边**(2026-09-24 就有一枚选边合并抹掉对侧 35 个独有路径、净 −12014 行,提交信息还写着"每一行均存活")。两处归并出口(冲突分支、无冲突但状态被放大分支)**必须同引这一份判据**,不得各写一遍字符串匹配。**③ 显式点名 `--theirs` 时"本地纯落后"不算无事可做** —— 调用方点了目标,唯一能回答"要不要合"的是 `isAncestor(theirs, head)`;旧短路会打印"无需合并"并 exit 0,一次已验证交付差点这么没了(G-814402)。**取子进程输出必须 stdout ⊕ stderr 首行**(import 期崩溃时 stdout 是空的,只回吐 `message` 就只剩 `Command failed` 一行)。**两条配套纪律**:(a) 归并器"取不到远端当次真值 / 目标对象不在本机"两支一律落 `undetermined` + `exit 2` + 机器可读 token `UNDETERMINED 未判定`,出路文案只许一份实现(`unreachableObjectGuidance`;缺本机 HEAD 时只给免联网那一条,不得印出跑不通的命令);(b) **"这条锁这段时间没响"有两种成因 —— 判据没牙,或判据根本没跑**,后者在账面上完全安静,所以定责前先把**两侧都取 HEAD 版**配起来跑一遍再逐名比红名单。**验收载体**:成对镜像 `scripts/tests/union-converge.test.mjs` 的 R-A…R-Q 与 `scripts/tests/git-sync-converge.test.mjs`(T1…T7),含变异自证(摘掉 `!explicit` 或摘掉 stderr 拼接必须翻红)。
 - **维护性写归属/CAS/回报计数三态对账**(guardian id 以 `scripts/guardian-runner.mjs` 现值为准,`blocking`,紧急跳过 `HUSKY_SKIP_WRITE_OWNER_PREDICATE=1`):`scripts/check-write-owner-predicate.mjs` 量的是"**一条 UPDATE 有没有把它不拥有的列一起写掉**"这一型 —— 上游出处 `apps/zcode-cli/packages/adapters/src/storage/session-store/repositories/sessions.ts:285-306`:同一条语句里**归属列在 where、被改列的旧值也在 where(CAS)、SET 只有它自己的那一列**,回报口径是 `Number(result.changes) === 1`(改了几行问库,不问请求);成文理由写在 `:285-286`——"路径自愈曾复用全字段 updateSession,把读取快照中的标题、权限、回滚和归档状态覆盖到并发新值上"。**我方现状(HEAD 面现读,数字一律以命令末行为准)**:审判面 578 文件 / 写站点 **1106**,三态 `sql-scoped` / `pre-scoped` / `missing` / `undetermined` 的读数跑 `node scripts/check-write-owner-predicate.mjs` 自取。四条不可漂的设计:① **`missing` 不等于敞口** —— 守门 134 的 B2 放过通道承认"调用方已用带 owner 的预查询把 id 集限死"是正确写法,所以判据允许**同文件一跳**与**跨文件沿 import 一跳**(沿 `134` 那份 `moduleSpecCandidates`/`parseImportBindings`,**本门内不得再抄一份** —— 两处实现必漂移),放行条件是"**全部**可解析调用点都带证据",一带一无仍判 `missing`(一个守法调用方不给整条 SQL 发合格证);② **CAS 与回报两维只报数、永不进判红集合**(哪一屏该强制 CAS 属人工裁决,判红=给全站 update 造恒红门,与 134 的分工由镜像 T17 钉死);③ **提交链走差值棘轮**(锚点=该文件 HEAD 自身 `missing` 存量,**新文件锚点 0** —— 旧写法对新增文件无差别读 HEAD 面会当场抛"无法判定",于是每一次"新加一个 db 文件"的提交都被恒挡);④ **`--strict` 有未判定即 exit 2**(拒绝出具合格证;它就是手动/CI 问责档,刻意不串进 `check:all`,因为现读仍有未判定堆积)。**落地过程本身值得记两笔**:接手时那份实现"头注写跨文件一跳、代码只查同一函数体",属**文实不符**的第三种形态(不是漏实现,是实现与自己的说明相反,而账面全绿);另一处是 `decide` 旧写法 `if (!strict) return 0` ⇒ 提交链档**零拦截**而读起来像"跑过了"(守门 70 那条"不带参数永远 exit 0"同型)。两处都由镜像测试与构造面用例现形,不是靠人读代码发现的。**已知判不了格**:SET 里"多带了一列"需要人工规则(零判据);经 `registerCrud`/路由表间接派发的 db 函数找不到静态调用点(落 `undetermined`);裸 SQL 的"什么算一条写"沿用 134 那份 ⇒ 它的接收者白名单不含 `dbScoped`,那一型**两侧都看不见**,射程决策归 134 持有人。
 - **工作队列必须有死亡机制(强制,2026-09-29 立)**:任何"只报数不判红"的工作队列(弱证据待裁 / 未判定 / 在账未接线)都必须带**具名裁决账** —— 每条四件套 `锚点(内容锚,不含行号)+ reason + owner + reviewBy`,三条红:字段不齐(站点继续可见,不因写坏而免检)、到期未复裁(站点**回到队列**)、站点已不在被审面(**清单腐烂**)。理由:`- [ ]` 式的开放队列只增不减,读报告的人会把它当"已被想过",而判据失效的表现永远是安静(与守门 70/76/81/118 同一条禁令)。**裁决账不是豁免通道**:豁免裁定"这一处不算错",裁决只登记"这一处证据不足,由具名的人限期再看" —— 两者失效方向不同,不得互相借用,更不得用它绕过"无行内豁免通道"这类明令。**同一轮记的还有收口口径**:把重复实现搬进共用层时,要搬的是**整条链**——派生与头解析一起搬;只把派生委派给层的 transport、解析留在门里,按守门 118 的定性仍是半接线(「管子共用不等于面共用」)。层内的形态锁按**字面**逐项判 stdio[0]=pipe / `input: Buffer.from(` / 数字 timeout / maxBuffer,`gitRaw` 委派与 `timeout,` 简写它都读不到 —— 这不是判据过严,而是它拒绝"靠别处保证了"这种推理(`stdio[0]='ignore'` 喂清单时 git 不报错,只表现为"每个对象都取不到")。红在这样的锁上时**修实现不修锁**;而行为是否未变,不得用被改动的脚本自证,要拿 `git archive` 出的旧实现(脚本**连它 import 的层**)在同一被审面上跑 A/B 逐字比对。
-- ✅ **自检 / 镜像 harness 的 "cond" 必须是已求值的布尔,不是函数**(2026-09-28 立,门 150 票㉛ 实测)。本仓的 `t(name, cond)` 普遍用 `!!cond` 判通过,而 **`() => {...}` 永远是 truthy** —— 所以 `t('某判据有牙', () => A5(src).violations.length === 1)` 这条断言**从写下起从未求值**,账面记的是"绿",量到的是"这个函数对象存在"。门 150 一次量到 **8 条**(用例 73b 与 98–104,由同日票㉙ 写下并以"105 例自检全绿"入账)。更糟的是它们**同时**踩在第二个洞上:断言体用的 helper `A5` 声明在它们之后(TDZ),真求值会当场抛 —— "没跑过"与"跑不通"叠在一起,而账面只有 ✅。**修法三层同补,缺一层都会复发**:① harness 判 `typeof cond === 'function'` 直接记红并写明"cond 是函数 ⇒ 断言从未求值(应写成 `(() => {...})()`)`;② helper 提到所有用例之前定义;③ 用例一律 `(() => {...})()`立即求值。**为什么这比"少一条测试"严重**:一条恒绿的断言会替人做出"这一格已被看过"的判断,而它结构上不可能红 —— 与守门 70/76/81 记过的"判据失效的表现永远是安静"是同一条禁令,只是这次失效的不是判据而是**自检的记账**。取证:镜像 **T23** 钉 harness 的函数分支,变异回`if (cond)` 即红。
 - **源码替换符(U+FFFD)对账**(guardian id 以 `scripts/guardian-runner.mjs` 现值为准 —— 本枚落地取到 164,并发会话可能挪号;**blocking**,`stagedTriggers=apps/` + `packages/` + `scripts/` + `sdks/`,紧急跳过 `HUSKY_SKIP_REPLACEMENT_CHARS=1`,问责档 `node scripts/check-replacement-chars.mjs --strict`):`scripts/check-replacement-chars.mjs` 补的是 AGENTS §3「字节级 UTF-8 完整性」那一族的**缺失维度** —— 守门 4c 判非法字节序列,而 `U+FFFD` 编成 `EF BF BD` **完全合法**,所以"合法编码承载损坏内容"这一型在它上面结构隐形(2026-09-29 实测 HEAD 面 5 个文件 718 处、百余道门全绿)。三判据:**RC1** 索引面按「该文件 HEAD 自身处数」套棘轮(存量只报数,新增/加回才红 —— 与改动无关的恒红门只会逼人 `--no-verify` 连带废掉全部守门,§12e)/ **RC2** 全量档判 HEAD blob 且逐文件点名存量 / **RC3** 取材失败计「未判定」并点名、枚举到 0 个源码文件**判死不记绿**。损坏形态实测是「多字节字 + 紧随其后的一个低 ASCII(空格/换行/数字)」整体换成 `U+FFFD`+`?` —— 连注释内部换行与 ASCII 数字一起吞,所以找回只能按注释区间整段搬,门自带该出口 `--recover <path>`(按「代码括号」= 紧邻前/后一行代码,找最近零损坏祖先的原文;取不到就如实报名,**禁止编造**)。**已知看不见的一格**:同场事故还会把非 ASCII 换成裸 `?`(实测 534 处),与正当问号不可区分 ⇒ 不判,也不报"已确认没有"。取证 `--self-test` 10 条(含阳性对照与"取不到不得冒充 0")+ §22c 镜像 `node --test scripts/tests/check-replacement-chars.test.mjs`(T1/T2 读 **HEAD 面** runner 的装车与摘线双向锁 / T3 取材面形状锁 / T4 遮罩只许一份 / T5-T6 判据有牙成对例)。
-- **同一机制已落到部署锁(2026-09-27,ZCode 吸收线批次 50;机制与三条不许漂的写法见 §5b 的"判活再加一环"条)**:`.deploy.lock` 的 meta 除 `pid/ownerPid/ts` 外再记 `host` + `pidStart`,而 **`pidStart` 量的必须是"判活所问的那个 pid"**(有 `--owner-pid` 就是 owner,没有才退回 CLI pid)—— 主体写错(例如去量调用方自己)会让每次对账都假报"已复用",那条"确证"就变成"确证可以抢",比没有身份凭据更糟;镜像自测 S41/S49 各钉一头。判读三态里**只有 `mismatch` 多给一条抢占授权**(先归档现场再抢,不必把锁龄爬到 30min 硬上限,且不走"持有者已退出"的秒抢通道),`match` / `unverifiable` / 旧 meta 没记身份两元 ⇒ **与改动前逐字同结论**;`--owner-pid` 与 `HARD_CAP_MS` 一字未动,只是从"唯一出路"降级成"第二道兜底"。`check` 与 `release` **不**现测(只读快路径 / 删锁永远是持有者自己的动作),`check` 只如实打印锁里记着什么并补一句"未现测、身份未对账" —— **打印了 `pidStart` 不等于核对过身份**。二次确认那一轮必须把同一个 `identity` 一起传进去,否则"只靠身份确证成立"的那次抢占会在二次确认时被读成"判据不再成立",新通道永远只喊不抢。取证(本会话当轮现跑):`node scripts/deploy-lock.mjs --self-test` 63 条全绿、`node --test scripts/tests/proc-identity.test.mjs` 19 例、既有三条锁镜像 50 例、`node scripts/git-lock.mjs check` rc 0、`node scripts/deploy-lock.mjs check` rc 1(真仓此刻确有 `mode=dev` 的锁,该命令按设计"有锁即 1",新输出行如实标出 `host=(未记) pidStart=(未记)` 与"旧 meta 无凭据 ⇒ 身份无从对账");真实进程对照:新起进程现测启动时刻与当刻 epoch **delta=0**、不存在 pid ⇒ `unverifiable`、人为把记录值提前 700s ⇒ `mismatch`,单次现测 **211ms**、5s 内命中缓存 0ms。**本批没做**:未新增守门(它判的是"锁此刻归谁",属机器状态,挂进提交链就是与提交内容无关的恒红门,§12e 同型);dev 侧四个 npm 生命周期(`predev`/`dev:clean`/`dev:stable`/`prebuild`)仍无 owner 可声明、因而身份两元对它们无从对账(上面"如实登记未完成的部分"那条继续成立)。- **上面那条"落地判据"本日已满足(2026-09-27)**:版本化探针 `scripts/visible-window-probe.mjs` 已入库,`git cat-file -e HEAD:scripts/visible-window-probe.mjs` 成立,且它在本机一次性快照里真量到过 **18 个可见窗口 / 1254 条进程记录 / 畸形行 0** —— 不是恒 0。三态硬要求写在实现里:每一维区分"量到 N"/"量不到(点名原因)"/"确实是 0";PowerShell **被自己的 timeout 终止 / ENOENT / 非零退出** 三种失败各有各的文案(实现收尾时正是先把"超时"误标成"派生失败"才补上这条分流)。手动入口 `node scripts/visible-window-probe.mjs --snapshot | --watch <ms> [--json]`,镜像测试 `node --test scripts/tests/visible-window-probe.test.mjs`。**它刻意不进提交链与 `check:all`**:判的是机器运行时状态,提交者结构上满足不了 ⇒ 挂 blocking 就是每台每次被逼 `--no-verify`、连带约 185 道门对该提交作废(§12e 同型)。**上面那句"静态门绿不等于运行时不弹窗"仍然成立** —— 探针给的是"有没有弹"的事实,不替代门 52 的"新代码有没有写 windowsHide"。
 - **排空步骤已在提交链上(2026-09-28 接)**:`.husky/post-commit` 在调归档器**之前**先跑 `node scripts/ledger-strip-open-rows.mjs --apply`。理由:"标题写着已完成、体内还裹着未勾选登记"的块是归档器**结构上不许搬**的那一类(搬走等于把别人正开着的活账归档),没有这一步,"完成即归档"只对干净块成立,而实测大部分块都不干净(台账是几百次并发登记写出来的)。三条安全前提写在这里,下一个人不必重新猜:① 该脚本走**对象空间**(`commit-tree` + CAS),而 `commit-tree` **不跑钩子** ⇒ 结构上不会自触发递归,与归档器同一形态;② 它自带五条零损失不变量(行数不变 ∧ 消失 0 ∧ 非空行净新增只可能是区头 ∧ 被拒块归零 ∧ 勾选两态不缩水),任一不成立就**整批不落**并 exit 非零,所以"钩子跑了"不等于"台账被改了";③ 它**排在归档器前面**,同一轮里排空完就能搬。应急开关 `HUSKY_SKIP_LEDGER_STRIP=1` 只关这一步,不影响归档(两级开关刻意分开;`HUSKY_SKIP_ARCHIVE=1` 关的是整块,含本步)。5. `git ls-remote` 为远端真值唯一来源,本地 `origin/main` 引用异常时用显式 SHA 操作,勿信本地引用。 **但"拿到了 sha"不等于能拿它做判据(2026-09-29 补,G-473 同窗口踩两次)**:`ls-remote` 只问引用、**不下载对象** ⇒ "用显式 SHA 操作"这条路上必须先插一步 `git fetch --no-tags origin <该 sha>`(或直接跑 `node scripts/git-sync-converge.mjs`,它先 fetch 再合)。漏了不报错,只会**误判**:`merge-base --is-ancestor <远端sha> HEAD` 因对象缺失而失败 ⇒ 被读成"不是祖先"(一次 fetch 被说成一次真分叉需人工);`rev-list --left-right --count <远端sha>...HEAD` 失败 ⇒ 被读成"无 ahead commit,可能是 shallow clone 等异常状态"(把没取回说成仓库形态坏了)。三处已改成显式"未判定 + 一步出路":`union-converge`(CLI 退 2,且本器绝不代跑 fetch)、`git-push-guard`(异常措辞前先 `cat-file -t`)、`git-sync-converge`("未判定"不再被并进"亦判需人工")。取证:`node --test scripts/tests/converge-object-presence-g473.test.mjs` 6 例(摘掉探测那一支的变异会翻红两条)。
   自动出了角色档射程(HEAD 现读 153 处),**这一格不再需要任何标记**;`非正方盒 + 半径≥短边一半 ⇒ 胶囊` ——
   **一条不许误读的现状**:胶囊候选目前**只开队列、不判红** —— 盒形量算仍会把子节点的 `h-4 w-4` 算进父元素
@@ -2884,31 +2221,11 @@ React 17+ 的 SyntheticEvent 在事件处理函数返回后 `currentTarget` 会�
 - **图片占位内容对账**〔scripts/check-image-placeholders.mjs · 手动问责档 warn,刻意不接提交链(判的是部署机上 gitignored 目录的内容,提交者结构上满足不了;问责入口 `pnpm check:image-placeholders` / `--list`,现行定级与判据见下方完整原文条)〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L519–L519
   - `git worktree add --detach ../IHUI-AI-wt-<任务名>`(detached HEAD,不占分支名,不违反 §9b)
   - 收编后立即 `git worktree remove ../IHUI-AI-wt-<任务名>` + `git worktree prune`
-- **🚫 agent 禁止手写 `git push`(2026-09-18 立,"已推完还在等"事故根治)**:①origin 的推送由 post-commit 钩子 `git-push-guard.mjs` 自动完成(内置 ahead 检测+推送+回读验证,幂等)——commit 落地即已推送,**手动盲推必撞 already-pushed 非快进报错**并诱发后台反复干等;②Gitee/GitCode 由 `mirror-to-cn.yml` CI 在 push 后自动镜像(+每日 2 次兜底),**本地手推镜像仓=违反架构**且制造 DIVERGED 竞态。③收尾核验同步状态**只允许** `node scripts/git-push-converge.mjs`(只读判定,六态 ALREADY/PUSHING/PUSHED/SKIP/BEHIND/DIVERGED,不做任何非必要推送);仅在 guard/CI 均失效的应急场景才人工推,且必须先跑该脚本确认状态。多会话并发期:本会话交付已被远端包含(merge-base --is-ancestor 验证)即为完成,本地 HEAD 落后不追、不与并发会话抢 reset/ff。
-- **⚡ 推送异步化(2026-09-18 立,根治第二段)**:guard 检测到 ahead 时默认 spawn 后台 worker 推送(pre-push 质量门不降级,实测单遍 216.8s)并立即返回——**commit 命令秒回,不再被推送拖住**;状态在 `.workbuddy/push-state.json`(running/done/failed,失败由下次 guard 自动重试),converge 读该状态显示 PUSHING;核验若见 PUSHING=正在推,等 1-2 分钟再查即可,勿手动干预。强制同步推送:GUARD_ASYNC=0。(2026-09-18 晚修复:异步 spawn 的 fd 误用 `out.close()` 必抛 TypeError→静默回退同步推送+双重推送竞态,已改 `closeSync`;push-gate 缓存改**内容指纹键控**(HEAD:apps/HEAD:packages 子树+脏文件内容 hash),合并/文档提交不再重跑全量门。)
-- **🔄 主动收敛(2026-09-18 晚立,根治第三段)**:推送遇 non-FF(并发会话推力)时**禁止手工 fetch/merge/push 循环**(实测 3 轮 25 分钟),统一跑 `node scripts/git-sync-converge.mjs`(默认 3 轮:fetch→祖先判定→`merge-tree --write-tree` 索引层合并(**零触碰他人未提交文件**)+commit-tree+update-ref→guard 推送,直至收敛;冲突才需人工)。只读核验仍用 `git-push-converge.mjs`。
-- **🪟 后台进程禁弹窗(2026-09-18 晚立)**:Windows 下 `spawn(detached:true)` + 控制台程序**必弹新 cmd 窗口**——所有 detached spawn 必须带 `windowsHide: true`(guard worker/锁心跳/desktop-dev-saas 已全量修复,仓库既有正例 dev-with-warmup.mjs)。**同理所有 `shell:true` 的 spawnSync/execSync 必须带 `windowsHide: true`**——shell 派生链无 CREATE_NO_WINDOW 时,pnpm -r typecheck 等会为每个子包拉起可见 cmd.exe(2026-09-18 WMI 实锤:一次全量 typecheck ~30 次闪窗,13 处派生点已全量修复)。新增派生点遗漏此参数=用户桌面反复弹窗事故。**⚠️ 默认终端=Windows Terminal 时上述措施全部失效(2026-09-18 深夜 WMI 二次实锤根治)**:WT 宿主忽略 SW_HIDE(windowsHide 无效)且不理 HKCU\Console 离屏档案,同一负载实测 135 个可见窗口样本;已把 `HKCU\Console\%%Startup` 的 DelegationConsole/DelegationTerminal 双双设为 `{B23D10C0-E52E-411E-9D5B-C09FDF709C7D}`(Windows 控制台主机 conhost)——conhost 尊重 SW_HIDE 与离屏档案,复跑同负载可见窗口归零。**禁止改回 WT 委托**;排查弹窗先查此键,取证脚本=.ihui-agent/tmp/console-watch.ps1(WMI 事件+15ms 可见窗口采样,后台 PS 任务约 2 分钟即被杀,足够覆盖一次守门链)。
-  - ⚠️ **上面那句给的取证脚本从未入库(2026-09-27 实测三面 + 历史全零命中)**:`.ihui-agent/tmp/console-watch.ps1` 在工作树不存在、`git ls-files` 零命中、`HEAD` 树零条、`git log --all --diff-filter=A -- '*console-watch*'` 也拿不到 ⇒ 它从来没有被版本化过,只是某次会话留在本机临时目录的产物,换机/重装/他人接手一律跑不通。这与本仓记过的 `pnpm c-drive:clean-ours`(根 `package.json` 从来没有这个脚本)、守门 46/11c/50 的假 `HUSKY_SKIP_*` 通道是同一条禁令的反面形态:**文档不得写跑不通的出路**。**在这条指针被换成真实入口之前**,弹窗这一维在提交链上只有**静态**那道门(`scripts/check-no-visible-spawn.mjs`,守门 52,判"派生控制台程序时有没有写 `windowsHide`"),而**静态判据绿不等于运行时不弹窗** —— 五次复发里至少有两次(WT 委托那一次、fork 风暴那一次)恰恰是"逐点参数都补了、现象仍在",只能靠运行时量窗口样本定性。登记事实:**"运行时可见窗口计数"这一维当前无版本化尺子**;补它的一票已立项,落地判据 = `git cat-file -e HEAD:<探针脚本>` 成立且该脚本真能报出"此刻开着的窗口"(阳性对照,不接受恒 0)。
-- **🧬 机器级根治 windowsHide 默认值(2026-09-20 立,"git 窗口一直弹"第四次复发收口)**:实测 Node v24 `child_process` 的 `windowsHide` **默认 `false`**;当父进程**无控制台**(detached+文件 fd 的 guard worker、计划任务、Qoder/Trae/WorkBuddy 等 GUI 宿主派生)时,派生任何控制台程序(git/cmd/pnpm/node)**必分配一个可见控制台**。逐点补参数不可持续(仅 `scripts/`+`.husky/` 热路径就 74 处漏,全仓 ~600 处,且新写脚本继续产生)。**根治**:`node scripts/install-console-window-hook.mjs --apply` —— 把 `scripts/lib/windows-hide-default.mjs` 复制到**仓库外**稳定目录(默认 `<TEMP 上级>/ihui-node-hooks`,本机 = `D:\caches\ihui-node-hooks`;放仓库外是因为 `NODE_OPTIONS` 指向的文件一旦缺失会让**全机所有 node 进程启动失败**,仓库移动/删除不得波及。钩子源文件**必须是 `.mjs`**:`.gitignore` 第 207 行 `*.cjs` 会把 `.cjs` 静默忽略,§23 同类陷阱,一旦被忽略其他机器就装不上),并以 `--import=file:///...` 写入 HKCU 用户级 `NODE_OPTIONS`。钩子给 7 个派生方法补默认 `windowsHide: true`,**显式传 `false` 一律尊重**;落盘前必先用暂存副本做"node 能否带此 NODE_OPTIONS 启动 + 7 个方法是否真被替换"双试跑,不通过则**拒绝写入**,原值备份于同目录 `node-options-backup.json`。实测**ESM 具名导入 `import { spawnSync }` 同样被拦**(loader 早于 builtin ESM facade 创建)。**换机/重装/新克隆后必须跑一次 `--apply`**;`--verify` 巡检不写盘,`--remove` 卸载。**不得因此省略逐点参数**:干净 checkout、他人机器、CI 没有此 env 时仍靠显式 `windowsHide: true` 生效,新增派生点照旧必须写。
-- **🔒 机制守门(2026-09-20 同日补,防第 5 次复发)**:`scripts/check-no-visible-spawn.mjs`(guardian-runner 第 **52** 项,blocking)——括号配平提取 `spawn/spawnSync/exec/execSync/execFile/execFileSync/fork` 调用,**首参可"肯定"为控制台程序**(白名单含 git/node/pnpm/cmd/pwsh/schtasks/ffmpeg…,并覆盖绝对路径与"路径+参数"两种形态)且 options 缺 `windowsHide` 即拦截。刻意**宁漏不误报**(未知变量名一律放过),避免阻塞他人提交;测试代码路径降为 warn(测试由终端 runner 派生,子进程继承已有控制台不新分配窗口)。`--staged` 供 pre-commit 用(runner 自动下发),`node scripts/check-no-visible-spawn.mjs` 为全量审计,`--self-test` 跑 14 例逻辑自检。§22c 镜像测试:`scripts/tests/check-no-visible-spawn.test.mjs`。
-- **🔗 异步推送配套适配(2026-09-18 晚)**:①check-push-sync(pre-commit #29)遇 push-state running(未过期)放行——否则每次 commit 后 270s 窗口内的下一次 commit 必被 #29 阻塞→--no-verify→80 项守门全跳过;②guard worker 串行化:在途 worker 未落定时新 worker 先等后跑,杜绝多个 270s typecheck 并行打满 CPU。③**推送门中断分类(2026-09-18 深夜)**:typecheck 进程被外部杀死(CTRL_C 注入/宿主清树,exit 3221225786/141/143/130/137,实测日志 39 次)≠ 类型检查结论——check-typecheck 按**临时失败 exit 75** 退出→guardian-runner 原样传播→pre-push 写 `.workbuddy/push-gate-last-result.json` 标记+exit 75→guard worker 见新鲜 75 标记**先带 hook 重试**拿真实结论,仍失败才按用户规则 --no-verify 兜底(此前"被杀"被误判成"他人代码失败"直接绕过真实门禁)。④降级判据第三兜底 `head-diff`:push-scope 与暂存区均为空时用 `git diff --name-only origin/main HEAD` 推断推送范围(实测 4 例"无可判定改动范围,无降级"硬拦);⑤push-state 死 pid 自愈:guard 启动发现 running+死 pid → 顺手改写 failed 终态。⑥**typecheck 再入守卫(2026-09-18 深夜,WMI 实测 24.6 万 cmd/2min fork 风暴根治)**:根包 `pnpm typecheck`=typecheck-full.mjs,pnpm -r 一旦把根包纳入执行即无限递归(每层再起 pnpm -r,指数级进程树,实测 ~2000 cmd/秒持续 26 分钟,即用户"一直闪弹 cmd"的主源);typecheck-full 已加 `IHUI_TYPECHECK_FULL_CHILD` 环境变量再入守卫(子层检测到立即 exit 0),勿删。
-- **计划文档 commit 引用可兑现性对账**(`scripts/check-plan-sha-resolvable.mjs`,**warn 级、刻意不接提交链**,手动问责 `pnpm check:plan-sha`;紧急跳过无需——它不在钩子链上):量的是「`PROJECT_PLAN.md` 里那些 `提交 \`abc1234\``式引用**今天还能不能真的问到对象**」。**三态绝不并桶**:可解析 / **取不到**(对象库里没有 = 指针已腐烂)/ **形状判不出**(全数字 8 位像日期或 CI run id、长度 13–39 像 integrity 片段、紧跟`#`像色值)—— 第三种既有独立计数也有锁,**不得**并进腐烂(那是把"没看清"写成"有问题"),也**不得**并进通过(那是把"没看清"写成"没问题")。立项现读:可解析 999 / 取不到 61 枚·97 次出现 / 判不出 58 枚·115 次;而**票面那句"44 枚"在任何口径下都不是 44**(全量 61、出现 97、只算有锚点 49、只算反引号+提交式 46、长度≥9 的 39、≤8 的 22)⇒ 派单与问责一律以命令末行现读为准,不采台账数字。**为什么 warn**:"引用能否兑现"与"本次提交改了什么"无关,挂 blocking 就是一台恒红门,唯一结局是逼人`--no-verify` 连带废掉全部守门(§12e 同型);`--strict` 现读 exit 1 —— 那是它**拒绝出具合格证**,不是仓库故障。**明令禁止**`--update` 式"把当前读数冻成基线":那等于给腐烂发通行证。口径同 70/77/83/98/101/103/118(全量判 HEAD blob、`--staged`判索引、两旗同给 exit 2、取不到判"无法判定"、枚举到 0 条判死),取证`--self-test` 32 条 + §22c 镜像 10 例。**写尺子过程中由自检抓出并锁死的三处判据自身缺陷**(都会以"数字看着合理"的形态存在,只有构造面能抓):`startsWith` 判序写反 ⇒ 全仓短 sha 静默落未判定;`selectFace`返回对象而非面名 ⇒ 三面同读 HEAD;索引档漏前导冒号 ⇒`--staged` 恒"取不到"。**未闭环的一格**:腐烂桶里混着形状相同但语义不同的东西(`6b8cd0f6` 实为 user_id、`c12612dc` 实为 adb 设备号),按形状判不出 ⇒ 需逐条人工定性才能从桶里摘出;`.ihui-agent/archive/*` 未纳入射程。
-- **守门 134 第三次补强(2026-09-27,承上一条 B2/扩键登记,数字一律现读勿照抄)**:把 **裸 SQL 写链**并进写链池。病灶的载体不止 drizzle 方法链 —— `db.execute(sql\`DELETE FROM … WHERE …\`)`也是写;此前判据只把`.delete()/.update()`当写链,裸 SQL 只当"证据"(认里面的`RETURNING`字样),于是"SQL 发了写、命中 0 行、响应回布尔 true"这一格无人看守。现由`findRawSqlWriteChains` 一份实现同时供**写链判定**与**RETURNING 证据**(`hasRawSqlReturning` 降为它的投影,禁止两处各扫一遍),**V 与 B1 同看这一维**;B1 只认**缺 RETURNING** 的那一条,带 RETURNING 的按证据放过 ⇒ 不新增恒红面;括号配平不到时"同体有 ack 才落未判定(U3,`--strict` 拒绝出合格证),否则只报数"。
-- **C5 组件名档(2026-09-28 票㉗)**:根容器按**它自己的**组件名判类别,取证次序 = 元素自身名字/样式键 > 组件名 > 颜色实用类(`bg-card`/`text-*` 只是背景档,不是身份)。两条防假阳的规矩必须同时成立:① **只在 JSX 根启用**,子元素不吃(按钮装在面板里仍是 control);② 归属按 `declarationRanges()` + `ownerOfLine()` 取**最内层声明** —— 不加这一层,同文件内联的小组件会被外层组件名顶判(实测一次造出 79 处假阳,`ModelConfigDialog.tsx` 里的 `RatioSelector` 就是那一型)。名字给不出唯一角色 ⇒ **不启用并逐条报名**(清单在 `--json` 的 componentUndetermined 字段,`--all` 逐行打印),绝不猜一档;该档摘线时镜像 **T19** 必读红,不得被"合规 3211 处"冒充。
-  同批修掉两处**取证越界**,它们的症状都不是"多算",而是"把能判的格写成判不出":`classStringsInLine` 原按"距 class 锚点 ≤60 字符连采 3 段字符串"收类名,会把**兄弟属性**的值(`data-testid="plan-review-panel"`)当类名收,凭空造出一条类别证据去撞 `bg-card` ⇒ HEAD 唯一那处 role-conflict 就是这么来的;现要求两段字面量之间只可能是 `cn(` / `,` / `||` / `?` / `+` 这类表达式连接符,出现 `=` / `>` / `}` 即停(镜像 **T21** 成对:兄弟属性不得采、同属性第二段不得漏)。`jsx-scope` 词法器原把 `return <X/>`(不套括号)的前一词元当标识符 ⇒ 判成泛型/比较式,整棵子树不建元素而只计 corrupt;现按"可接表达式的关键字"(return/yield/await/else/do/throw/in/of)放行,同时 **`a < b` 必须仍不建元素**(镜像 **T20** 成对,幽灵祖先比漏判更贵)。修后 HEAD 面 corrupt **443→344**(99 个文件的容器维回到可判),并同批清偿 C5 新露出的 6 处 panel 根容器(md/lg→xl)。
-  问责入口 `pnpm check:radius-role`(走 `--strict`);`--strict` 现 exit 0 —— 未判定归零之后,这道门不再拒绝出合格证。**还有一格刻意不做**:`弱证据待裁` 那一族(类别信号只有颜色实用类、元素无名也非组件根)不得批量改档 —— 那是拿 20–70% 判错率的证据重新设计界面,正解是给它补真实身份,门只逐条报名。
-  **三层水印**(`scripts/watermark.mjs`):L1 可见横幅(`// © 2026 IHUI AI …` + `// Provenance-watermarked. …`)、L2 横幅内零宽载荷(`// [IHUI-AI-PROVENANCE]:<zw>`)、L3 独立不可见行(注入时落在文件末尾)。
-  **判据(2026-09-12 加严,2026-09-29 补第五态)**:载荷必须**可解码且等于 `WATERMARK_TEXT`**,仅"存在"不算数。五态:`完好` / `残迹`(有横幅无载荷)/ `载荷损坏`(存在但解码不符)/**`仅隐写`(有可解码载荷但可见横幅整块不见)**/ `未覆盖`。除"完好"外,`watermark.mjs verify` 与 `check-watermark-coverage` 均 **exit 1**。
-  **判据(2026-09-12 加严,2026-09-29 补第五态)**:载荷必须**可解码且等于 `WATERMARK_TEXT`**,仅"存在"不算数。五态:`完好` / `残迹`(有横幅无载荷)/ `载荷损坏`(存在但解码不符)/ **`仅隐写`(有可解码载荷但可见横幅整块不见)** / `未覆盖`。除"完好"外,`watermark.mjs verify` 与 `check-watermark-coverage` 均 **exit 1**。
-- **同一机制已落到部署锁(2026-09-27,ZCode 吸收线批次 50;机制与三条不许漂的写法见 §5b 的"判活再加一环"条)**:`.deploy.lock` 的 meta 除 `pid/ownerPid/ts` 外再记 `host` + `pidStart`,而 **`pidStart` 量的必须是"判活所问的那个 pid"**(有 `--owner-pid` 就是 owner,没有才退回 CLI pid)—— 主体写错(例如去量调用方自己)会让每次对账都假报"已复用",那条"确证"就变成"确证可以抢",比没有身份凭据更糟;镜像自测 S41/S49 各钉一头。判读三态里**只有 `mismatch` 多给一条抢占授权**(先归档现场再抢,不必把锁龄爬到 30min 硬上限,且不走"持有者已退出"的秒抢通道),`match` / `unverifiable` / 旧 meta 没记身份两元 ⇒ **与改动前逐字同结论**;`--owner-pid` 与 `HARD_CAP_MS` 一字未动,只是从"唯一出路"降级成"第二道兜底"。`check` 与 `release` **不**现测(只读快路径 / 删锁永远是持有者自己的动作),`check` 只如实打印锁里记着什么并补一句"未现测、身份未对账" —— **打印了 `pidStart` 不等于核对过身份**。二次确认那一轮必须把同一个 `identity` 一起传进去,否则"只靠身份确证成立"的那次抢占会在二次确认时被读成"判据不再成立",新通道永远只喊不抢。取证(本会话当轮现跑):`node scripts/deploy-lock.mjs --self-test` 63 条全绿、`node --test scripts/tests/proc-identity.test.mjs` 19 例、既有三条锁镜像 50 例、`node scripts/git-lock.mjs check` rc 0、`node scripts/deploy-lock.mjs check` rc 1(真仓此刻确有 `mode=dev` 的锁,该命令按设计"有锁即 1",新输出行如实标出 `host=(未记) pidStart=(未记)` 与"旧 meta 无凭据 ⇒ 身份无从对账");真实进程对照:新起进程现测启动时刻与当刻 epoch **delta=0**、不存在 pid ⇒ `unverifiable`、人为把记录值提前 700s ⇒ `mismatch`,单次现测 **211ms**、5s 内命中缓存 0ms。**本批没做**:未新增守门(它判的是"锁此刻归谁",属机器状态,挂进提交链就是与提交内容无关的恒红门,§12e 同型);dev 侧四个 npm 生命周期(`predev`/`dev:clean`/`dev:stable`/`prebuild`)仍无 owner 可声明、因而身份两元对它们无从对账(上面"如实登记未完成的部分"那条继续成立)。- **上面那条"落地判据"本日已满足(2026-09-27)**:版本化探针 `scripts/visible-window-probe.mjs` 已入库,`git cat-file -e HEAD:scripts/visible-window-probe.mjs` 成立,且它在本机一次性快照里真量到过 **18 个可见窗口 / 1254 条进程记录 / 畸形行 0** —— 不是恒 0。三态硬要求写在实现里:每一维区分"量到 N"/"量不到(点名原因)"/"确实是 0";PowerShell **被自己的 timeout 终止 / ENOENT / 非零退出** 三种失败各有各的文案(实现收尾时正是先把"超时"误标成"派生失败"才补上这条分流)。手动入口 `node scripts/visible-window-probe.mjs --snapshot | --watch <ms> [--json]`,镜像测试 `node --test scripts/tests/visible-window-probe.test.mjs`。**它刻意不进提交链与 `check:all`**:判的是机器运行时状态,提交者结构上满足不了 ⇒ 挂 blocking 就是每台每次被逼 `--no-verify`、连带约 185 道门对该提交作废(§12e 同型)。**上面那句"静态门绿不等于运行时不弹窗"仍然成立** —— 探针给的是"有没有弹"的事实,不替代门 52 的"新代码有没有写 windowsHide"。
-- **按凭据存在性豁免对账**(guardian id 以 `scripts/guardian-runner.mjs` 现值为准 —— 注册时取到 **157**,并发会话可能挪号;**blocking**,`stagedTriggers=apps/api/src/plugins` + `apps/api/src/routes` + `apps/api/src/utils`,紧急跳过 `HUSKY_SKIP_CREDENTIAL_PRESENCE_BYPASS=1`):`scripts/check-credential-presence-bypass.mjs`(G-459)拦的是**"把某个凭据类头/cookie 在场当成安全判定的结论"**这一型 —— 立因不是假想:`apps/api/src/plugins/csrf.ts` 曾写 `if (request.headers['x-internal-service-token']) return`,头名在场即对**全部路由**跳过 CSRF,任何进程带这个头(值随便填)就拿到免死金牌;#23 改成 `isVerifiedInternalMachineCall(request)`(唯一出口 `apps/api/src/utils/internal-principal.ts`,复用那一份 `secretsEqual`:SHA-256 定长摘要 + `timingSafeEqual`,配置缺失 fail-closed)。但**型还在** —— 下一个内部凭据族照样能写成 `if (request.headers['x-anything']) return`,而 typecheck / lint / 其余门全都不响。三条设计约束:① **判据必须覆盖门自己认可的写法**,条件里出现 `===`/`secretsEqual`/`timingSafeEqual`/`isVerified…(`/`verify…(`/`startsWith(`/`.has(` 一律放过(把修法形态判红等于逼人 `--no-verify`);② **凭据名不写死站点清单**,按**词元**比对(`x-id-token` 算,`tokenizer`/`hashtags` 不算),某站是否"已裁过"由台账 `scripts/data/credential-presence-exemptions.json` 判 —— 条目缺 `reason`/`reviewBy`、复核日过期、登记了而被审面没命中(清单腐烂)三种都是红;行内出口 `credential-presence-exempt: <原因>`(须带原因,只救本行或紧邻上行),该族**同笔**登记进守门 108 的 `FAMILY_LIFETIME_DAYS`(30 天,待偿的裁决债)—— 不登记就走 90 天默认档,而第一处真被写出的行内豁免还会被 108 的 E4 判成"新引入的未登记豁免族"(一道门自己的合法出口被邻居钉红 = 两道门互咬,`radius-role`/`border-ink` 同课),这条跨文件锁由镜像 T10 钉住,不靠人记得;③ **判不出就报名** —— 括号配平失败、取不出名字、体起始跨行算不出 ⇒ 落「未判定」逐条点名,`--strict` 下有未判定即 exit 2 拒绝出合格证。口径同 70/77/83/98/101/103/118/135:全量判 HEAD blob、`--staged` 判索引 blob、`--worktree` 仅人工、两面旗同给判死、取不到不回落、枚举到 0 个候选判死不记绿;清单与正文同面同轮;遮罩只引 `scripts/lib/code-mask.mjs` 那一份(判据看代码面,而豁免标记写在注释里 ⇒ 标记在原文行上判)。手动 `node scripts/check-credential-presence-bypass.mjs [--staged|--worktree|--json|--strict|--self-test]`。**这一型现在有一把更宽的尺子(2026-10-04 现读更正,此前此处写着"零判据",并把前置指向另一个编号,两句都已失效)**:`scripts/check-gate-presence-exemption.mjs`(编号以 `scripts/guardian-runner.mjs` 现值为准,blocking,`stagedTriggers=apps/` + `packages/`)覆盖面 = `apps/api/src/plugins/**` ∪ `apps/api/src/middleware/**`(不存在即自然为空)∪ apps/packages 里文件名含 `csrf|auth|permission|rate.?limit|internal` 的源码,三态(命中 / 放过 / 未判定)不并桶,阳性对照钉的是**修复前那枚 csrf.ts 历史 blob**而不是 HEAD。⇒ "下一个内部凭据族写成按存在性放行"已在本门射程之外**不再成立**,但**仍然开着的两格**要如实登记:① 该门刻意不判"条件先存进变量再判"(`const authToken = …cookies?.auth_token` 后 `if (authToken) return`)、头值做 `==`/`===` 字面比较而非常数时间比较、`continue` 形态放行、以及 Python 侧同类形态(那属守门 117 的另一型);② 旧指针所指的那个编号**已被一条无关的 SSO 深链票占用**(现读该号 8 行全部是已完成形态),按 §1"证据指针必须可核验、失效指针必须消掉 —— 按旧号找到的是别人那一格,比没有指针更糟"从本句起删除,不得再照它找账。5. `git ls-remote` 为远端真值唯一来源,本地 `origin/main` 引用异常时用显式 SHA 操作,勿信本地引用。
-- ✅ **自检 / 镜像 harness 的 "cond" 必须是已求值的布尔,不是函数**(2026-09-28 立,门 150 票㉛ 实测)。本仓的 `t(name, cond)` 普遍用 `!!cond` 判通过,而 **`() => {...}` 永远是 truthy** —— 所以 `t('某判据有牙', () => A5(src).violations.length === 1)` 这条断言**从写下起从未求值**,账面记的是"绿",量到的是"这个函数对象存在"。门 150 一次量到 **8 条**(用例 73b 与 98–104,由同日票㉙ 写下并以"105 例自检全绿"入账)。更糟的是它们**同时**踩在第二个洞上:断言体用的 helper `A5` 声明在它们之后(TDZ),真求值会当场抛 —— "没跑过"与"跑不通"叠在一起,而账面只有 ✅。**修法三层同补,缺一层都会复发**:① harness 判 `typeof cond === 'function'` 直接记红并写明"cond 是函数 ⇒ 断言从未求值(应写成 `(() => {...})()`)`;② helper 提到所有用例之前定义;③ 用例一律 `(() => {...})()`立即求值。**为什么这比"少一条测试"严重**:一条恒绿的断言会替人做出"这一格已被看过"的判断,而它结构上不可能红 —— 与守门 70/76/81 记过的"判据失效的表现永远是安静"是同一条禁令,只是这次失效的不是判据而是**自检的记账**。取证:镜像 **T23** 钉 harness 的函数分支,变异回`if (cond)` 即红。
 自动出了角色档射程(现读数一律跑本门末行,本文不钉数字),**这一格不再需要任何标记**;`非正方盒 + 半径≥短边一半 ⇒ 胶囊`——
 **现行口径(2026-09-28 票㉛ 已升为判红)**:胶囊这一侧要**三个条件同时成立**才判 —— ① 盒形**只取该元素自己的属性区**
 (到开标签闭合`>`为止,不含任何子节点)且**闭合可确定**;② **非正方盒**;③ **短边 ≥ 16px**。
 第 ① 条的由来:宽窗口`elementWindow`从开标签向下取 6 行,会把子节点的`h-4 w-4` 算进父盒
 (`w-40` 下拉被量成 160×10、`h-9 px-4`按钮被量成 16×36)⇒ 现由`boxDimsOwn` 单独承担,判不出闭合即**只报名不判红**。
-  第 ③ 条是装饰族的物理下限:细于 16px 的进度条 / 骨架行 / 指示点仍**只开队列**(§4 明令不得方档化,判红等于逼设计改方角)。
 - **错误码文本判分支对账**〔scripts/check-error-code-not-text-matching.mjs · scripts/lib/code-mask.mjs · 手动档,**尚未接提交链**(2026-09-30 曾一度接进 runner,复跑后已摘出;重新接线由台账"解阻前置"管) · 尚未接提交链(刻意,判据与出口表见正文)〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L190–L190
 - **图片占位内容对账**〔scripts/check-image-placeholders.mjs · 手动问责档 warn,刻意不接提交链(问责入口 `pnpm check:image-placeholders`)〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L519–L519
   - **落点(2026-09-30 改,用户拍板"项目产物不外流"):`git worktree add --detach .worktrees/wt-<任务名>`**(项目内 `.worktrees/`,已 gitignore;旧落点 `../IHUI-AI-wt-<任务名>` 即盘根散落目录,2026-09-30 已清理 13 个残留并立盘根卫生巡检档 `check-disk-root-hygiene.mjs`(warn,判"项目产物是否外流到盘根"与"worktree 落点是否合法"两维;出口 = git-guardian 每 30 分钟巡检 + `--strict` 手动问责,刻意不接提交链 —— 判的是机器/磁盘状态,提交者结构上满足不了)防回潮)。detached HEAD,不占分支名,不违反 §9b
@@ -2923,25 +2240,15 @@ React 17+ 的 SyntheticEvent 在事件处理函数返回后 `currentTarget` 会�
   `scripts/release-desktop-local.mjs:67,74` 需要 `%USERPROFILE%\.tauri\ihui-updater.key`,本机无 `.tauri`
 - ⚠️ 本行是「错误码文本判分支对账」那条现行登记的**重复副本**，而它那份〔…〕元数据写的是「已接提交链 + 判红档 + 有跳过变量」，现读 `git grep -c check-error-code-not-text-matching HEAD --注册表 = **空** ⇒ 这句撒谎正被守门 89 的 R2 每次提交判红（红的是文档撒谎，不是门缺件）。现行条目见本节内那句开头为「尚未接提交链」的那一条（它写明该门为何被摘出、重新接线的前置，以及应急变量届时随条目声明）；保留本行只为不丢行（§12），勿照它派单。
 - **错误码文本判分支对账**(**尚未接提交链** —— 本轮一度按 判红档 接进 注册表,现读整轮守门复跑后已摘出;重新接线由台账那条"解阻前置"管):`scripts/check-error-code-not-text-matching.mjs` 拦的是**"把文本当判据决定失败分支"**这一型 —— `if (err.message.includes('429')) retry()` 看着能跑,实际把重试/降级/拒绝的走向绑在第三方的一句英文上;上游改了措辞、或同一个码在另一条链路上换了文案,分支就静默换人,而 typecheck/lint/单测全都不会红(本仓"失效形态是安静"那一族)。四条算子同形认(`.includes/.indexOf/.lastIndexOf/.startsWith/.endsWith/.search/.match/.test` + 正则宿主 `/re/.test(x)`):参数必须是**字面量**才判(标识符实参一律放过,`RETRYABLE_CODES.includes(code)` 是正当形态);**不要求**必须摆在 if/三元里 —— "先算 severity 再按它分流"的两步式是本仓实际写法,要求分支上下文会让整型隐身,误伤面由"文本来源表达式 + 字面量实参"两道窄口径兜住。**取材遮噪方向与本仓多数门刻意相反**:只遮注释、**保留字符串**(本门要判的就是那个字面量,连字符串一起抹 = 对该型全盲而账面报"零违规" —— 最贵的假绿);两档共用 `scripts/lib/code-mask.mjs` 那一份分词器,任何一门不得留第二份遮噪。跨行拼接(算子在一行、字面量在下一行)**只数不判红但必须打印**("单行判据的已知盲区"不报名就会被读成"仓库里没有这种形态")。口径同 70/77/83/98/101/103/118:全量判 **HEAD blob**、`--staged` 判**索引 blob**、`--worktree` 仅人工、两面旗同给 exit 2、取不到判"无法判定"不回落、**枚举到 0 个候选判死不记绿**;棘轮锚点 = **该文件 HEAD 自身违规数**(HEAD 现读扫描 1036 文件 · 文本判分支 156 处:literal-in-text-op=132 / regex-receiver-on-text=18 / status-as-text=4 / regex-in-text-op=2 —— 存量当场判红就是恒红门)。行内出口 `error-code-exempt: <原因>`(**须带原因**,已登记进守门 108 的 **30 天**存活期档 —— 它豁免的是"待偿的补码债":出路只有给抛出方补 `ToolError(code,…)` 或把判定挪到结构化字段,不给 365 天结构性定性、也不走 90 天默认档)。**唯一出口是数据驱动的需求表** `OUTLET_REQUIREMENTS`(两处文件:`apps/cli/src/tools/index.ts` 的再导出 + `apps/cli/src/tools/failure-classification.ts` 的原声明),出口被摘线时本门判"没有出路"并**参与退出码**;本门自己还没入库那一格报 `self-not-landed`,不冒充 ok 也不冒充 stripped。**为什么摘出来(现读事实,不是预防措施)**:`git show HEAD:apps/cli/src/tools/failure-classification.ts` 取不到该文件 ⇒ 出口在位性判据在**干净 HEAD** 上判红,而它一红每台每次都被逼 `--no-verify`、一次绕过等于该提交上约 194 道守门全部作废(§12e/§12f 同型,这次是我自己接早了造的)。**判据与出口表都没有放宽** —— 判据要的出口是对的,只是还没入库;门体、镜像测试(11/11 RC=0)、`--self-test`(26 条 RC=0)、守门 108 那一档豁免全部原样留在面上。**一条落地过程本身值得抄的教训**:这台尺子由上一轮代理写完就停在轮次上限,自报"自检 26 条全绿 / 已注册 runner 第 162 项",主会话现读发现它**连解析都没过**(第 491 行 `ok('…', () => {` 用了普通箭头函数、闭合却按兄弟块的 IIFE 形态写成 `})())` ⇒ 整个文件 SyntaxError ⇒ 任何"跑过"的记录都是叙述),另有一处自检夹具**绕过权威入口**(`detectOutlet(text)` 单参调用,缺省回落到需求表第一行的名单 ⇒ 对第二行需求恒判 stripped;生产路径一直传 `req.exports`,所以是夹具错不是判据错)与一处镜像测试自身的 Windows 缺陷(`await import(绝对路径)` 未走 `pathToFileURL` ⇒ 恒抛,而抛错会被读成"这一格判过了";同文件第 27 行对门体已经走对了,唯独漏这一处)。三处都改完才有资格说判据存在。应急跳过变量在重新接线时随条目声明为 `该条目声明的应急变量`。
-- **计划文档 commit 引用可兑现性对账**(`scripts/check-plan-sha-resolvable.mjs`,**warn 级、刻意不接提交链**,手动问责 `pnpm check:plan-sha`;紧急跳过无需——它不在钩子链上):量的是「`PROJECT_PLAN.md` 里那些 `提交 \`abc1234\``式引用**今天还能不能真的问到对象**」。**三态绝不并桶**:可解析 / **取不到**(对象库里没有 = 指针已腐烂)/ **形状判不出**(全数字 8 位像日期或 CI run id、长度 13–39 像 integrity 片段、紧跟`#`像色值)—— 第三种既有独立计数也有锁,**不得**并进腐烂(那是把"没看清"写成"有问题"),也**不得**并进通过(那是把"没看清"写成"没问题")。立项现读:可解析 999 / 取不到 61 枚·97 次出现 / 判不出 58 枚·115 次;而**票面那句"44 枚"在任何口径下都不是 44**(全量 61、出现 97、只算有锚点 49、只算反引号+提交式 46、长度≥9 的 39、≤8 的 22)⇒ 派单与问责一律以命令末行现读为准,不采台账数字。**为什么 warn**:"引用能否兑现"与"本次提交改了什么"无关,挂 blocking 就是一台恒红门,唯一结局是逼人`--no-verify` 连带废掉全部守门(§12e 同型);`--strict` 现读 exit 1 —— 那是它**拒绝出具合格证**,不是仓库故障。**明令禁止**`--update` 式"把当前读数冻成基线":那等于给腐烂发通行证。口径同 70/77/83/98/101/103/118(全量判 HEAD blob、`--staged`判索引、两旗同给 exit 2、取不到判"无法判定"、枚举到 0 条判死),取证`--self-test` 32 条 + §22c 镜像 10 例。**写尺子过程中由自检抓出并锁死的三处判据自身缺陷**(都会以"数字看着合理"的形态存在,只有构造面能抓):`startsWith` 判序写反 ⇒ 全仓短 sha 静默落未判定;`selectFace`返回对象而非面名 ⇒ 三面同读 HEAD;索引档漏前导冒号 ⇒`--staged` 恒"取不到"。**未闭环的一格**:腐烂桶里混着形状相同但语义不同的东西(`6b8cd0f6` 实为 user_id、`c12612dc` 实为 adb 设备号),按形状判不出 ⇒ 需逐条人工定性才能从桶里摘出;`.ihui-agent/archive/*` 未纳入射程。
-- **守门 134 第三次补强(2026-09-27,承上一条 B2/扩键登记,数字一律现读勿照抄)**:把 **裸 SQL 写链**并进写链池。病灶的载体不止 drizzle 方法链 —— `db.execute(sql\`DELETE FROM … WHERE …\`)`也是写;此前判据只把`.delete()/.update()`当写链,裸 SQL 只当"证据"(认里面的`RETURNING`字样),于是"SQL 发了写、命中 0 行、响应回布尔 true"这一格无人看守。现由`findRawSqlWriteChains` 一份实现同时供**写链判定**与**RETURNING 证据**(`hasRawSqlReturning` 降为它的投影,禁止两处各扫一遍),**V 与 B1 同看这一维**;B1 只认**缺 RETURNING** 的那一条,带 RETURNING 的按证据放过 ⇒ 不新增恒红面;括号配平不到时"同体有 ack 才落未判定(U3,`--strict` 拒绝出合格证),否则只报数"。
 - **错误码文本判分支对账**(⚠️ 本行是该门的**重复登记副本**,它替自己那一份旧决定背书,而那份决定早已被就地改写:本门当前**不在提交链**。这种"副本比现行条目更肯定"的形态,后果不是账面难看 —— 守门 89 的 R2 会按副本那句去查五处权威点,查不到即对**每一次**碰文档/脚本的提交判红,而恒红的唯一出路是各会话跳门、连带链上全部对账作废(§12e/§12f 同型)。现行条目见本节内"尚未接提交链"那一条,勿照本行执行;保留只为不丢行(§1 禁止无声删除)。)
 - **小程序端「源 ↔ 派生产物」存续性对账**(105):`scripts/check-miniapp-generated.mjs`(**blocking;2026-09-25 由 warn 升档,前置条件实测达成**)—— 管四件"生成器造好了但没人跑"的派生产物:i18n 离线包 `remote-locales.gen.ts`、`static/images/icons/*.svg`、`LineIcon/icons.ts`、`assets/tabbar/*.png`。四条判据:**G1** 源里有而产物没有 ⇒ 判红(端上会缺词、图片 404 且**不报错**);**G2** 产物里有而源已无 ⇒ 默认只报数,`--strict` 才判红(删产物属 §7 删除安全);**G3** `icons.ts` 有键而 `icons/` 无同名 svg ⇒ **永不判红**(图标源在"图片全量外置 CDN"那轮被清空,判红等于造一道恒红门);**G4** 模板字符串拼出的动态路径结构上判不了 ⇒ 如实计数,绝不静默成"看起来全绿"。取材面同 70/77/83/98/101:全量判 HEAD blob、`--staged` 判索引 blob、`--worktree` 只作人工与 dev 链逃生舱;取不到 ⇒ **exit 2「无法判定」**。定级 warn 的实证理由:立项当天全量面就有 8 处 G1 + 9 处孤儿在红,挂 blocking 会让每次提交都被逼 `--no-verify`(§12e 那型);**升 blocking 的前置条件是 G1 存量清零 —— 该前置已于 2026-09-25 实测达成并升档**(全量面 `未发现漏生成`、exit 0;R2 孤儿与 G3 图标按设计**不是** blocking 判据,默认只报数,所以升档不新增任何恒红面)。升档的直接起因是本会话自己改了 i18n 键名(`policyForbidsExecution` → `policySkipsApproval`)却没重生成离线包,门判出 4 处 B2 却因为是 warn 而**没拦住任何提交**,于是静默上线一版"小程序取不到该词"的产物 —— **warn 的代价不是"少一道闸",是"门判对了也没人被打断"**。修法单命令、不需要人工裁:`pnpm --filter @ihui/miniapp-taro gen:i18n`。取证 `--self-test`(15 例,成对正反例、零副作用);紧急跳过 `HUSKY_SKIP_MINIAPP_GENERATED=1`;它同时被 `dev-weapp.mjs` 消费 —— 判据要在有人跑它的那一刻才成立。
 - **小程序端「源 ↔ 派生产物」存续性对账**(105):`scripts/check-miniapp-generated.mjs`(**warn,刻意不 blocking**)—— 管四件"生成器造好了但没人跑"的派生产物:i18n 离线包 `remote-locales.gen.ts`、`static/images/icons/*.svg`、`LineIcon/icons.ts`、`assets/tabbar/*.png`。四条判据:**G1** 源里有而产物没有 ⇒ 判红(端上会缺词、图片 404 且**不报错**);**G2** 产物里有而源已无 ⇒ 默认只报数,`--strict` 才判红(删产物属 §7 删除安全);**G3** `icons.ts` 有键而 `icons/` 无同名 svg ⇒ **永不判红**(图标源在"图片全量外置 CDN"那轮被清空,判红等于造一道恒红门);**G4** 模板字符串拼出的动态路径结构上判不了 ⇒ 如实计数,绝不静默成"看起来全绿"。取材面同 70/77/83/98/101:全量判 HEAD blob、`--staged` 判索引 blob、`--worktree` 只作人工与 dev 链逃生舱;取不到 ⇒ **exit 2「无法判定」**。定级 warn 的实证理由:立项当天全量面就有 8 处 G1 + 9 处孤儿在红,挂 blocking 会让每次提交都被逼 `--no-verify`(§12e 那型);**升 blocking 的前置条件是 G1 存量清零**。取证 `--self-test`(15 例,成对正反例、零副作用);紧急跳过 `HUSKY_SKIP_MINIAPP_GENERATED=1`;它同时被 `dev-weapp.mjs` 消费 —— 判据要在有人跑它的那一刻才成立。
-- ✅ **自检 / 镜像 harness 的 "cond" 必须是已求值的布尔,不是函数**(2026-09-28 立,门 150 票㉛ 实测)。本仓的 `t(name, cond)` 普遍用 `!!cond` 判通过,而 **`() => {...}` 永远是 truthy** —— 所以 `t('某判据有牙', () => A5(src).violations.length === 1)` 这条断言**从写下起从未求值**,账面记的是"绿",量到的是"这个函数对象存在"。门 150 一次量到 **8 条**(用例 73b 与 98–104,由同日票㉙ 写下并以"105 例自检全绿"入账)。更糟的是它们**同时**踩在第二个洞上:断言体用的 helper `A5` 声明在它们之后(TDZ),真求值会当场抛 —— "没跑过"与"跑不通"叠在一起,而账面只有 ✅。**修法三层同补,缺一层都会复发**:① harness 判 `typeof cond === 'function'` 直接记红并写明"cond 是函数 ⇒ 断言从未求值(应写成 `(() => {...})()`)`;② helper 提到所有用例之前定义;③ 用例一律 `(() => {...})()`立即求值。**为什么这比"少一条测试"严重**:一条恒绿的断言会替人做出"这一格已被看过"的判断,而它结构上不可能红 —— 与守门 70/76/81 记过的"判据失效的表现永远是安静"是同一条禁令,只是这次失效的不是判据而是**自检的记账**。取证:镜像 **T23** 钉 harness 的函数分支,变异回`if (cond)` 即红。
-- **同一机制已落到部署锁(2026-09-27,ZCode 吸收线批次 50;机制与三条不许漂的写法见 §5b 的"判活再加一环"条)**:`.deploy.lock` 的 meta 除 `pid/ownerPid/ts` 外再记 `host` + `pidStart`,而 **`pidStart` 量的必须是"判活所问的那个 pid"**(有 `--owner-pid` 就是 owner,没有才退回 CLI pid)—— 主体写错(例如去量调用方自己)会让每次对账都假报"已复用",那条"确证"就变成"确证可以抢",比没有身份凭据更糟;镜像自测 S41/S49 各钉一头。判读三态里**只有 `mismatch` 多给一条抢占授权**(先归档现场再抢,不必把锁龄爬到 30min 硬上限,且不走"持有者已退出"的秒抢通道),`match` / `unverifiable` / 旧 meta 没记身份两元 ⇒ **与改动前逐字同结论**;`--owner-pid` 与 `HARD_CAP_MS` 一字未动,只是从"唯一出路"降级成"第二道兜底"。`check` 与 `release` **不**现测(只读快路径 / 删锁永远是持有者自己的动作),`check` 只如实打印锁里记着什么并补一句"未现测、身份未对账" —— **打印了 `pidStart` 不等于核对过身份**。二次确认那一轮必须把同一个 `identity` 一起传进去,否则"只靠身份确证成立"的那次抢占会在二次确认时被读成"判据不再成立",新通道永远只喊不抢。取证(本会话当轮现跑):`node scripts/deploy-lock.mjs --self-test` 63 条全绿、`node --test scripts/tests/proc-identity.test.mjs` 19 例、既有三条锁镜像 50 例、`node scripts/git-lock.mjs check` rc 0、`node scripts/deploy-lock.mjs check` rc 1(真仓此刻确有 `mode=dev` 的锁,该命令按设计"有锁即 1",新输出行如实标出 `host=(未记) pidStart=(未记)` 与"旧 meta 无凭据 ⇒ 身份无从对账");真实进程对照:新起进程现测启动时刻与当刻 epoch **delta=0**、不存在 pid ⇒ `unverifiable`、人为把记录值提前 700s ⇒ `mismatch`,单次现测 **211ms**、5s 内命中缓存 0ms。**本批没做**:未新增守门(它判的是"锁此刻归谁",属机器状态,挂进提交链就是与提交内容无关的恒红门,§12e 同型);dev 侧四个 npm 生命周期(`predev`/`dev:clean`/`dev:stable`/`prebuild`)仍无 owner 可声明、因而身份两元对它们无从对账(上面"如实登记未完成的部分"那条继续成立)。- **上面那条"落地判据"本日已满足(2026-09-27)**:版本化探针 `scripts/visible-window-probe.mjs` 已入库,`git cat-file -e HEAD:scripts/visible-window-probe.mjs` 成立,且它在本机一次性快照里真量到过 **18 个可见窗口 / 1254 条进程记录 / 畸形行 0** —— 不是恒 0。三态硬要求写在实现里:每一维区分"量到 N"/"量不到(点名原因)"/"确实是 0";PowerShell **被自己的 timeout 终止 / ENOENT / 非零退出** 三种失败各有各的文案(实现收尾时正是先把"超时"误标成"派生失败"才补上这条分流)。手动入口 `node scripts/visible-window-probe.mjs --snapshot | --watch <ms> [--json]`,镜像测试 `node --test scripts/tests/visible-window-probe.test.mjs`。**它刻意不进提交链与 `check:all`**:判的是机器运行时状态,提交者结构上满足不了 ⇒ 挂 blocking 就是每台每次被逼 `--no-verify`、连带约 185 道门对该提交作废(§12e 同型)。**上面那句"静态门绿不等于运行时不弹窗"仍然成立** —— 探针给的是"有没有弹"的事实,不替代门 52 的"新代码有没有写 windowsHide"。
 - **错误码文本判分支对账**〔scripts/check-error-code-not-text-matching.mjs · scripts/lib/code-mask.mjs · 手动档,**尚未接提交链**(2026-09-30 曾一度接进 runner,复跑后已摘出;重新接线由台账"解阻前置"管,现行定级与取材口径见下方完整原文条;重新接线时才随条目声明应急跳过变量)〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L190–L190
-- **按凭据存在性豁免对账**(guardian id 以 `scripts/guardian-runner.mjs` 现值为准 —— 注册时取到 **157**,并发会话可能挪号;**blocking**,`stagedTriggers=apps/api/src/plugins` + `apps/api/src/routes` + `apps/api/src/utils`,紧急跳过 `HUSKY_SKIP_CREDENTIAL_PRESENCE_BYPASS=1`):`scripts/check-credential-presence-bypass.mjs`(G-459)拦的是**"把某个凭据类头/cookie 在场当成安全判定的结论"**这一型 —— 立因不是假想:`apps/api/src/plugins/csrf.ts` 曾写 `if (request.headers['x-internal-service-token']) return`,头名在场即对**全部路由**跳过 CSRF,任何进程带这个头(值随便填)就拿到免死金牌;#23 改成 `isVerifiedInternalMachineCall(request)`(唯一出口 `apps/api/src/utils/internal-principal.ts`,复用那一份 `secretsEqual`:SHA-256 定长摘要 + `timingSafeEqual`,配置缺失 fail-closed)。但**型还在** —— 下一个内部凭据族照样能写成 `if (request.headers['x-anything']) return`,而 typecheck / lint / 其余门全都不响。三条设计约束:① **判据必须覆盖门自己认可的写法**,条件里出现 `===`/`secretsEqual`/`timingSafeEqual`/`isVerified…(`/`verify…(`/`startsWith(`/`.has(` 一律放过(把修法形态判红等于逼人 `--no-verify`);② **凭据名不写死站点清单**,按**词元**比对(`x-id-token` 算,`tokenizer`/`hashtags` 不算),某站是否"已裁过"由台账 `scripts/data/credential-presence-exemptions.json` 判 —— 条目缺 `reason`/`reviewBy`、复核日过期、登记了而被审面没命中(清单腐烂)三种都是红;行内出口 `credential-presence-exempt: <原因>`(须带原因,只救本行或紧邻上行),该族**同笔**登记进守门 108 的 `FAMILY_LIFETIME_DAYS`(30 天,待偿的裁决债)—— 不登记就走 90 天默认档,而第一处真被写出的行内豁免还会被 108 的 E4 判成"新引入的未登记豁免族"(一道门自己的合法出口被邻居钉红 = 两道门互咬,`radius-role`/`border-ink` 同课),这条跨文件锁由镜像 T10 钉住,不靠人记得;③ **判不出就报名** —— 括号配平失败、取不出名字、体起始跨行算不出 ⇒ 落「未判定」逐条点名,`--strict` 下有未判定即 exit 2 拒绝出合格证。口径同 70/77/83/98/101/103/118/135:全量判 HEAD blob、`--staged` 判索引 blob、`--worktree` 仅人工、两面旗同给判死、取不到不回落、枚举到 0 个候选判死不记绿;清单与正文同面同轮;遮罩只引 `scripts/lib/code-mask.mjs` 那一份(判据看代码面,而豁免标记写在注释里 ⇒ 标记在原文行上判)。手动 `node scripts/check-credential-presence-bypass.mjs [--staged|--worktree|--json|--strict|--self-test]`。**这一型现在有一把更宽的尺子(2026-10-04 现读更正,此前此处写着"零判据",并把前置指向另一个编号,两句都已失效)**:`scripts/check-gate-presence-exemption.mjs`(编号以 `scripts/guardian-runner.mjs` 现值为准,blocking,`stagedTriggers=apps/` + `packages/`)覆盖面 = `apps/api/src/plugins/**` ∪ `apps/api/src/middleware/**`(不存在即自然为空)∪ apps/packages 里文件名含 `csrf|auth|permission|rate.?limit|internal` 的源码,三态(命中 / 放过 / 未判定)不并桶,阳性对照钉的是**修复前那枚 csrf.ts 历史 blob**而不是 HEAD。⇒ "下一个内部凭据族写成按存在性放行"已在本门射程之外**不再成立**,但**仍然开着的两格**要如实登记:① 该门刻意不判"条件先存进变量再判"(`const authToken = …cookies?.auth_token` 后 `if (authToken) return`)、头值做 `==`/`===` 字面比较而非常数时间比较、`continue` 形态放行、以及 Python 侧同类形态(那属守门 117 的另一型);② 旧指针所指的那个编号**已被一条无关的 SSO 深链票占用**(现读该号 8 行全部是已完成形态),按 §1"证据指针必须可核验、失效指针必须消掉 —— 按旧号找到的是别人那一格,比没有指针更糟"从本句起删除,不得再照它找账。5. `git ls-remote` 为远端真值唯一来源,本地 `origin/main` 引用异常时用显式 SHA 操作,勿信本地引用。
-  **现行口径(2026-09-28 票㉛ 已升为判红)**:胶囊这一侧要**三个条件同时成立**才判 —— ① 盒形**只取该元素自己的属性区**
-  第 ③ 条是装饰族的物理下限:细于 16px 的进度条 / 骨架行 / 指示点仍**只开队列**(§4 明令不得方档化,判红等于逼设计改方角)。
 - **错误码文本判分支对账**〔scripts/check-error-code-not-text-matching.mjs · scripts/lib/code-mask.mjs · 手动档,**尚未接提交链**(2026-09-30 曾一度接进 runner,复跑后已摘出;重新接线由台账"解阻前置"管)〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L190–L190
 - **错误码文本判分支对账**〔scripts/check-error-code-not-text-matching.mjs · scripts/lib/code-mask.mjs · 手动档,当前不在提交链上(2026-09-30 曾一度注册,复跑整轮检查后已撤下;要重新挂上,先清台账那条"解阻前置"并同枚声明应急跳过变量)〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L190–L190
 - **错误码文本判分支对账**〔scripts/check-error-code-not-text-matching.mjs · scripts/lib/code-mask.mjs · 手动档,当前不在提交链上〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L190–L190 —— 本行旧副本的元数据曾写着一个调度器文件名、一个阻塞级标记与一个应急跳过变量,那是 2026-09-30 一度挂上、复跑整轮后又被撤下的那条声称;撤下后端 89 的 R2 对**每一次**提交判红(声称挂上而五处权威点零命中),而恒红门的唯一结局是各会话跳钩子、连带链上其余全部对账对该提交作废(§12e/§12f 同型)。按现状改写、不删行(§1 禁止无声删除);该门的现行条目见本节内标着「尚未挂上提交链」的那几条,将来要不要重新挂上由台账那条解阻前置管。
 - **错误码文本判分支对账**〔scripts/check-error-code-not-text-matching.mjs · scripts/lib/code-mask.mjs · 当前无应急跳过变量(它不在钩子链上)〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L190–L190
 - **错误码文本判分支对账**〔scripts/check-error-code-not-text-matching.mjs · scripts/lib/code-mask.mjs · 手动档,尚未接提交链(重新接线由台账"解阻前置"管)〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L190–L190
-  **三层水印**(`scripts/watermark.mjs`):L1 可见横幅(`// © 2026 IHUI AI …` + `// Provenance-watermarked. …`)、L2 横幅内零宽载荷(`// [IHUI-AI-PROVENANCE]:<zw>`)、L3 独立不可见行(注入时落在文件末尾)。
-  **判据(2026-09-12 加严,2026-09-29 补第五态)**:载荷必须**可解码且等于 `WATERMARK_TEXT`**,仅"存在"不算数。五态:`完好` / `残迹`(有横幅无载荷)/ `载荷损坏`(存在但解码不符)/**`仅隐写`(有可解码载荷但可见横幅整块不见)**/ `未覆盖`。除"完好"外,`watermark.mjs verify` 与 `check-watermark-coverage` 均 **exit 1**。
-  **判据(2026-09-12 加严,2026-09-29 补第五态)**:载荷必须**可解码且等于 `WATERMARK_TEXT`**,仅"存在"不算数。五态:`完好` / `残迹`(有横幅无载荷)/ `载荷损坏`(存在但解码不符)/ **`仅隐写`(有可解码载荷但可见横幅整块不见)** / `未覆盖`。除"完好"外,`watermark.mjs verify` 与 `check-watermark-coverage` 均 **exit 1**。
   自动出了角色档射程(现读数一律跑本门末行,本文不钉数字),**这一格不再需要任何标记**;`非正方盒 + 半径≥短边一半 ⇒ 胶囊`——
   (到开标签闭合`>`为止,不含任何子节点)且**闭合可确定**;② **非正方盒**;③ **短边 ≥ 16px**。
   第 ① 条的由来:宽窗口`elementWindow`从开标签向下取 6 行,会把子节点的`h-4 w-4` 算进父盒
@@ -2999,39 +2306,9 @@ React 17+ 的 SyntheticEvent 在事件处理函数返回后 `currentTarget` 会�
   - **这一段的事实(2026-10-02 按当次 `apps/web/package.json` 现读改写,不得再照旧文派单)**:旧句"`predev` / `dev:clean` / `dev:stable` / `prebuild` 四处**没法声明 owner**…dev 侧靠硬上限兜底、不是已有心跳"已经整体不成立 —— 今天这四条里没有一条拿锁:`predev` = 陈旧 stash 巡检、`prebuild` = extension 构建 + 下载同步(都不再出现 `deploy-lock.mjs acquire`);三条 dev 入口(`dev` / `dev:clean` / `dev:stable`)统一走 `scripts/dev-with-warmup.mjs`,由启动器**自己** `acquire({ownerPid: process.pid, token})` 再起 `next dev`,并派一个 detached 的 `deploy-lock.mjs heartbeat --watch-pid <启动器 pid>` 每 30s 续 `ts`;`pnpm --filter @ihui/web build` 改走 `deploy-lock.mjs run --mode build`(拿锁、跑命令、交还同进程,命令退出码原样传播)。所以事实是:**build 侧与 dev 侧都已有活着的主人 + 心跳**,剩下的不是"没心跳"而是"这一维没有守门" —— 它判的是锁此刻归谁,属机器状态,挂进提交链就是每台每次被逼 `--no-verify`,故刻意不接(§12e 同型)。
 - **同一机制已落到部署锁(2026-09-27,ZCode 吸收线批次 50;机制与三条不许漂的写法见 §5b 的"判活再加一环"条)**:`.deploy.lock` 的 meta 除 `pid/ownerPid/ts` 外再记 `host` + `pidStart`,而 **`pidStart` 量的必须是"判活所问的那个 pid"**(有 `--owner-pid` 就是 owner,没有才退回 CLI pid)—— 主体写错(例如去量调用方自己)会让每次对账都假报"已复用",那条"确证"就变成"确证可以抢",比没有身份凭据更糟;镜像自测 S41/S49 各钉一头。判读三态里**只有 `mismatch` 多给一条抢占授权**(先归档现场再抢,不必把锁龄爬到 30min 硬上限,且不走"持有者已退出"的秒抢通道),`match` / `unverifiable` / 旧 meta 没记身份两元 ⇒ **与改动前逐字同结论**;`--owner-pid` 与 `HARD_CAP_MS` 一字未动,只是从"唯一出路"降级成"第二道兜底"。`check` 与 `release` **不**现测(只读快路径 / 删锁永远是持有者自己的动作),`check` 只如实打印锁里记着什么并补一句"未现测、身份未对账" —— **打印了 `pidStart` 不等于核对过身份**。二次确认那一轮必须把同一个 `identity` 一起传进去,否则"只靠身份确证成立"的那次抢占会在二次确认时被读成"判据不再成立",新通道永远只喊不抢。取证(本会话当轮现跑):`node scripts/deploy-lock.mjs --self-test` 63 条全绿、`node --test scripts/tests/proc-identity.test.mjs` 19 例、既有三条锁镜像 50 例、`node scripts/git-lock.mjs check` rc 0、`node scripts/deploy-lock.mjs check` rc 1(真仓此刻确有 `mode=dev` 的锁,该命令按设计"有锁即 1",新输出行如实标出 `host=(未记) pidStart=(未记)` 与"旧 meta 无凭据 ⇒ 身份无从对账");真实进程对照:新起进程现测启动时刻与当刻 epoch **delta=0**、不存在 pid ⇒ `unverifiable`、人为把记录值提前 700s ⇒ `mismatch`,单次现测 **211ms**、5s 内命中缓存 0ms。**本批没做**:未新增守门(它判的是"锁此刻归谁",属机器状态,挂进提交链就是与提交内容无关的恒红门,§12e 同型);dev 侧**已无「拿锁却声明不出 owner」的 npm 生命周期** —— `predev` 只跑陈旧 stash 巡检、`prebuild` 只做 extension 构建与下载同步,两者今天都不再出现 `deploy-lock.mjs acquire`;`dev` / `dev:clean` / `dev:stable` 三条入口统一走 `scripts/dev-with-warmup.mjs`,由启动器自己 `acquire({ ownerPid: process.pid, token })` 再起 `next dev`,并派一个 detached 的 `heartbeat --watch-pid <启动器 pid>` 每 30s 续 `ts`;`pnpm --filter @ihui/web build` 那把走 `deploy-lock.mjs run --mode build`(拿锁、跑命令、交还在同一个进程里,命令退出码原样传播)。
 - **同一机制已落到部署锁(2026-09-27,ZCode 吸收线批次 50;机制与三条不许漂的写法见 §5b 的"判活再加一环"条)**:`.deploy.lock` 的 meta 除 `pid/ownerPid/ts` 外再记 `host` + `pidStart`,而 **`pidStart` 量的必须是"判活所问的那个 pid"**(有 `--owner-pid` 就是 owner,没有才退回 CLI pid)—— 主体写错(例如去量调用方自己)会让每次对账都假报"已复用",那条"确证"就变成"确证可以抢",比没有身份凭据更糟;镜像自测 S41/S49 各钉一头。判读三态里**只有 `mismatch` 多给一条抢占授权**(先归档现场再抢,不必把锁龄爬到 30min 硬上限,且不走"持有者已退出"的秒抢通道),`match` / `unverifiable` / 旧 meta 没记身份两元 ⇒ **与改动前逐字同结论**;`--owner-pid` 与 `HARD_CAP_MS` 一字未动,只是从"唯一出路"降级成"第二道兜底"。`check` 与 `release` **不**现测(只读快路径 / 删锁永远是持有者自己的动作),`check` 只如实打印锁里记着什么并补一句"未现测、身份未对账" —— **打印了 `pidStart` 不等于核对过身份**。二次确认那一轮必须把同一个 `identity` 一起传进去,否则"只靠身份确证成立"的那次抢占会在二次确认时被读成"判据不再成立",新通道永远只喊不抢。取证(本会话当轮现跑):`node scripts/deploy-lock.mjs --self-test` 63 条全绿、`node --test scripts/tests/proc-identity.test.mjs` 19 例、既有三条锁镜像 50 例、`node scripts/git-lock.mjs check` rc 0、`node scripts/deploy-lock.mjs check` rc 1(真仓此刻确有 `mode=dev` 的锁,该命令按设计"有锁即 1",新输出行如实标出 `host=(未记) pidStart=(未记)` 与"旧 meta 无凭据 ⇒ 身份无从对账");真实进程对照:新起进程现测启动时刻与当刻 epoch **delta=0**、不存在 pid ⇒ `unverifiable`、人为把记录值提前 700s ⇒ `mismatch`,单次现测 **211ms**、5s 内命中缓存 0ms。**本批没做**:未新增守门(它判的是"锁此刻归谁",属机器状态,挂进提交链就是与提交内容无关的恒红门,§12e 同型);dev 侧**已无「拿锁却声明不出 owner」的 npm 生命周期** —— `predev` 只跑陈旧 stash 巡检、`prebuild` 只做 extension 构建与下载同步,两者今天都不再出现 `deploy-lock.mjs acquire`;`dev` / `dev:clean` / `dev:stable` 三条入口统一走 `scripts/dev-with-warmup.mjs`,由启动器自己 `acquire({ ownerPid: process.pid, token })` 再起 `next dev`,并派一个 detached 的 `heartbeat --watch-pid <启动器 pid>` 每 30s 续 `ts`;`pnpm --filter @ihui/web build` 那把走 `deploy-lock.mjs run --mode build`(拿锁、跑命令、交还在同一个进程里,命令退出码原样传播)。- **上面那条"落地判据"本日已满足(2026-09-27)**:版本化探针 `scripts/visible-window-probe.mjs` 已入库,`git cat-file -e HEAD:scripts/visible-window-probe.mjs` 成立,且它在本机一次性快照里真量到过 **18 个可见窗口 / 1254 条进程记录 / 畸形行 0** —— 不是恒 0。三态硬要求写在实现里:每一维区分"量到 N"/"量不到(点名原因)"/"确实是 0";PowerShell **被自己的 timeout 终止 / ENOENT / 非零退出** 三种失败各有各的文案(实现收尾时正是先把"超时"误标成"派生失败"才补上这条分流)。手动入口 `node scripts/visible-window-probe.mjs --snapshot | --watch <ms> [--json]`,镜像测试 `node --test scripts/tests/visible-window-probe.test.mjs`。**它刻意不进提交链与 `check:all`**:判的是机器运行时状态,提交者结构上满足不了 ⇒ 挂 blocking 就是每台每次被逼 `--no-verify`、连带约 185 道门对该提交作废(§12e 同型)。**上面那句"静态门绿不等于运行时不弹窗"仍然成立** —— 探针给的是"有没有弹"的事实,不替代门 52 的"新代码有没有写 windowsHide"。
-- **同一机制已落到部署锁(2026-09-27,ZCode 吸收线批次 50;机制与三条不许漂的写法见 §5b 的"判活再加一环"条)**:`.deploy.lock` 的 meta 除 `pid/ownerPid/ts` 外再记 `host` + `pidStart`,而 **`pidStart` 量的必须是"判活所问的那个 pid"**(有 `--owner-pid` 就是 owner,没有才退回 CLI pid)—— 主体写错(例如去量调用方自己)会让每次对账都假报"已复用",那条"确证"就变成"确证可以抢",比没有身份凭据更糟;镜像自测 S41/S49 各钉一头。判读三态里**只有 `mismatch` 多给一条抢占授权**(先归档现场再抢,不必把锁龄爬到 30min 硬上限,且不走"持有者已退出"的秒抢通道),`match` / `unverifiable` / 旧 meta 没记身份两元 ⇒ **与改动前逐字同结论**;`--owner-pid` 与 `HARD_CAP_MS` 一字未动,只是从"唯一出路"降级成"第二道兜底"。`check` 与 `release` **不**现测(只读快路径 / 删锁永远是持有者自己的动作),`check` 只如实打印锁里记着什么并补一句"未现测、身份未对账" —— **打印了 `pidStart` 不等于核对过身份**。二次确认那一轮必须把同一个 `identity` 一起传进去,否则"只靠身份确证成立"的那次抢占会在二次确认时被读成"判据不再成立",新通道永远只喊不抢。取证(本会话当轮现跑):`node scripts/deploy-lock.mjs --self-test` 63 条全绿、`node --test scripts/tests/proc-identity.test.mjs` 19 例、既有三条锁镜像 50 例、`node scripts/git-lock.mjs check` rc 0、`node scripts/deploy-lock.mjs check` rc 1(真仓此刻确有 `mode=dev` 的锁,该命令按设计"有锁即 1",新输出行如实标出 `host=(未记) pidStart=(未记)` 与"旧 meta 无凭据 ⇒ 身份无从对账");真实进程对照:新起进程现测启动时刻与当刻 epoch **delta=0**、不存在 pid ⇒ `unverifiable`、人为把记录值提前 700s ⇒ `mismatch`,单次现测 **211ms**、5s 内命中缓存 0ms。**本批没做**:未新增守门(它判的是"锁此刻归谁",属机器状态,挂进提交链就是与提交内容无关的恒红门,§12e 同型);dev 侧**已无「拿锁却声明不出 owner」的 npm 生命周期** —— `predev` 只跑陈旧 stash 巡检、`prebuild` 只做 extension 构建与下载同步,两者今天都不再出现 `deploy-lock.mjs acquire`;`dev` / `dev:clean` / `dev:stable` 三条入口统一走 `scripts/dev-with-warmup.mjs`,由启动器自己 `acquire({ ownerPid: process.pid, token })` 再起 `next dev`,并派一个 detached 的 `heartbeat --watch-pid <启动器 pid>` 每 30s 续 `ts`;`pnpm --filter @ihui/web build` 那把走 `deploy-lock.mjs run --mode build`(拿锁、跑命令、交还在同一个进程里,命令退出码原样传播)。- **上面那条"落地判据"本日已满足(2026-09-27)**:版本化探针 `scripts/visible-window-probe.mjs` 已入库,`git cat-file -e HEAD:scripts/visible-window-probe.mjs` 成立,且它在本机一次性快照里真量到过 **18 个可见窗口 / 1254 条进程记录 / 畸形行 0** —— 不是恒 0。三态硬要求写在实现里:每一维区分"量到 N"/"量不到(点名原因)"/"确实是 0";PowerShell **被自己的 timeout 终止 / ENOENT / 非零退出** 三种失败各有各的文案(实现收尾时正是先把"超时"误标成"派生失败"才补上这条分流)。手动入口 `node scripts/visible-window-probe.mjs --snapshot | --watch <ms> [--json]`,镜像测试 `node --test scripts/tests/visible-window-probe.test.mjs`。**它刻意不进提交链与 `check:all`**:判的是机器运行时状态,提交者结构上满足不了 ⇒ 挂 blocking 就是每台每次被逼 `--no-verify`、连带约 185 道门对该提交作废(§12e 同型)。**上面那句"静态门绿不等于运行时不弹窗"仍然成立** —— 探针给的是"有没有弹"的事实,不替代门 52 的"新代码有没有写 windowsHide"。
-- **同一机制已落到部署锁(2026-09-27,ZCode 吸收线批次 50;机制与三条不许漂的写法见 §5b 的"判活再加一环"条)**:`.deploy.lock` 的 meta 除 `pid/ownerPid/ts` 外再记 `host` + `pidStart`,而 **`pidStart` 量的必须是"判活所问的那个 pid"**(有 `--owner-pid` 就是 owner,没有才退回 CLI pid)—— 主体写错(例如去量调用方自己)会让每次对账都假报"已复用",那条"确证"就变成"确证可以抢",比没有身份凭据更糟;镜像自测 S41/S49 各钉一头。判读三态里**只有 `mismatch` 多给一条抢占授权**(先归档现场再抢,不必把锁龄爬到 30min 硬上限,且不走"持有者已退出"的秒抢通道),`match` / `unverifiable` / 旧 meta 没记身份两元 ⇒ **与改动前逐字同结论**;`--owner-pid` 与 `HARD_CAP_MS` 一字未动,只是从"唯一出路"降级成"第二道兜底"。`check` 与 `release` **不**现测(只读快路径 / 删锁永远是持有者自己的动作),`check` 只如实打印锁里记着什么并补一句"未现测、身份未对账" —— **打印了 `pidStart` 不等于核对过身份**。二次确认那一轮必须把同一个 `identity` 一起传进去,否则"只靠身份确证成立"的那次抢占会在二次确认时被读成"判据不再成立",新通道永远只喊不抢。取证(本会话当轮现跑):`node scripts/deploy-lock.mjs --self-test` 63 条全绿、`node --test scripts/tests/proc-identity.test.mjs` 19 例、既有三条锁镜像 50 例、`node scripts/git-lock.mjs check` rc 0、`node scripts/deploy-lock.mjs check` rc 1(真仓此刻确有 `mode=dev` 的锁,该命令按设计"有锁即 1",新输出行如实标出 `host=(未记) pidStart=(未记)` 与"旧 meta 无凭据 ⇒ 身份无从对账");真实进程对照:新起进程现测启动时刻与当刻 epoch **delta=0**、不存在 pid ⇒ `unverifiable`、人为把记录值提前 700s ⇒ `mismatch`,单次现测 **211ms**、5s 内命中缓存 0ms。**本批没做**:未新增守门(它判的是"锁此刻归谁",属机器状态,挂进提交链就是与提交内容无关的恒红门,§12e 同型);dev 侧**已无「拿锁却声明不出 owner」的 npm 生命周期** —— `predev` 只跑陈旧 stash 巡检、`prebuild` 只做 extension 构建与下载同步,两者今天都不再出现 `deploy-lock.mjs acquire`;`dev` / `dev:clean` / `dev:stable` 三条入口统一走 `scripts/dev-with-warmup.mjs`,由启动器自己 `acquire({ ownerPid: process.pid, token })` 再起 `next dev`,并派一个 detached 的 `heartbeat --watch-pid <启动器 pid>` 每 30s 续 `ts`;`pnpm --filter @ihui/web build` 那把走 `deploy-lock.mjs run --mode build`(拿锁、跑命令、交还在同一个进程里,命令退出码原样传播)。- **上面那条"落地判据"本日已满足(2026-09-27)**:版本化探针 `scripts/visible-window-probe.mjs` 已入库,`git cat-file -e HEAD:scripts/visible-window-probe.mjs` 成立,且它在本机一次性快照里真量到过 **18 个可见窗口 / 1254 条进程记录 / 畸形行 0** —— 不是恒 0。三态硬要求写在实现里:每一维区分"量到 N"/"量不到(点名原因)"/"确实是 0";PowerShell **被自己的 timeout 终止 / ENOENT / 非零退出** 三种失败各有各的文案(实现收尾时正是先把"超时"误标成"派生失败"才补上这条分流)。手动入口 `node scripts/visible-window-probe.mjs --snapshot | --watch <ms> [--json]`,镜像测试 `node --test scripts/tests/visible-window-probe.test.mjs`。**它刻意不进提交链与 `check:all`**:判的是机器运行时状态,提交者结构上满足不了 ⇒ 挂 blocking 就是每台每次被逼 `--no-verify`、连带约 185 道门对该提交作废(§12e 同型)。**上面那句"静态门绿不等于运行时不弹窗"仍然成立** —— 探针给的是"有没有弹"的事实,不替代门 52 的"新代码有没有写 windowsHide"。
   **那一格已于 2026-10-02 收口**:`dev` / `dev:clean` / `dev:stable` 三条入口统一成"唯一一条命令 = 启动器",
   改 next dist 的预取守卫、缓存治理与 `--purge` 整清全部排在 acquire 之后、spawn 之前 ⇒ 既在锁内、又在 next dev 之前(不违反「严禁运行中清缓存」那条铁律)。
   - `node --test scripts/tests/deploy-lock.test.mjs`(HB-M1…M10:M10 是"破坏性步骤必须在 acquire 之后、next dev 之前"的顺序形状锁,RU6d/HB-M8 各带"退回旧形态必读红"的反向对照)。
-- **计划文档 commit 引用可兑现性对账**(`scripts/check-plan-sha-resolvable.mjs`,**warn 级、刻意不接提交链**,手动问责 `pnpm check:plan-sha`;紧急跳过无需——它不在钩子链上):量的是「`PROJECT_PLAN.md` 里那些 `提交 \`abc1234\``式引用**今天还能不能真的问到对象**」。**三态绝不并桶**:可解析 / **取不到**(对象库里没有 = 指针已腐烂)/ **形状判不出**(全数字 8 位像日期或 CI run id、长度 13–39 像 integrity 片段、紧跟`#`像色值)—— 第三种既有独立计数也有锁,**不得**并进腐烂(那是把"没看清"写成"有问题"),也**不得**并进通过(那是把"没看清"写成"没问题")。立项现读:可解析 999 / 取不到 61 枚·97 次出现 / 判不出 58 枚·115 次;而**票面那句"44 枚"在任何口径下都不是 44**(全量 61、出现 97、只算有锚点 49、只算反引号+提交式 46、长度≥9 的 39、≤8 的 22)⇒ 派单与问责一律以命令末行现读为准,不采台账数字。**为什么 warn**:"引用能否兑现"与"本次提交改了什么"无关,挂 blocking 就是一台恒红门,唯一结局是逼人`--no-verify` 连带废掉全部守门(§12e 同型);`--strict` 现读 exit 1 —— 那是它**拒绝出具合格证**,不是仓库故障。**明令禁止**`--update` 式"把当前读数冻成基线":那等于给腐烂发通行证。口径同 70/77/83/98/101/103/118(全量判 HEAD blob、`--staged`判索引、两旗同给 exit 2、取不到判"无法判定"、枚举到 0 条判死),取证`--self-test` 32 条 + §22c 镜像 10 例。**写尺子过程中由自检抓出并锁死的三处判据自身缺陷**(都会以"数字看着合理"的形态存在,只有构造面能抓):`startsWith` 判序写反 ⇒ 全仓短 sha 静默落未判定;`selectFace`返回对象而非面名 ⇒ 三面同读 HEAD;索引档漏前导冒号 ⇒`--staged` 恒"取不到"。**未闭环的一格**:腐烂桶里混着形状相同但语义不同的东西(`6b8cd0f6` 实为 user_id、`c12612dc` 实为 adb 设备号),按形状判不出 ⇒ 需逐条人工定性才能从桶里摘出;`.ihui-agent/archive/*` 未纳入射程。
-- **守门 134 第三次补强(2026-09-27,承上一条 B2/扩键登记,数字一律现读勿照抄)**:把 **裸 SQL 写链**并进写链池。病灶的载体不止 drizzle 方法链 —— `db.execute(sql\`DELETE FROM … WHERE …\`)`也是写;此前判据只把`.delete()/.update()`当写链,裸 SQL 只当"证据"(认里面的`RETURNING`字样),于是"SQL 发了写、命中 0 行、响应回布尔 true"这一格无人看守。现由`findRawSqlWriteChains` 一份实现同时供**写链判定**与**RETURNING 证据**(`hasRawSqlReturning` 降为它的投影,禁止两处各扫一遍),**V 与 B1 同看这一维**;B1 只认**缺 RETURNING** 的那一条,带 RETURNING 的按证据放过 ⇒ 不新增恒红面;括号配平不到时"同体有 ack 才落未判定(U3,`--strict` 拒绝出合格证),否则只报数"。
-- ✅ **自检 / 镜像 harness 的 "cond" 必须是已求值的布尔,不是函数**(2026-09-28 立,门 150 票㉛ 实测)。本仓的 `t(name, cond)` 普遍用 `!!cond` 判通过,而 **`() => {...}` 永远是 truthy** —— 所以 `t('某判据有牙', () => A5(src).violations.length === 1)` 这条断言**从写下起从未求值**,账面记的是"绿",量到的是"这个函数对象存在"。门 150 一次量到 **8 条**(用例 73b 与 98–104,由同日票㉙ 写下并以"105 例自检全绿"入账)。更糟的是它们**同时**踩在第二个洞上:断言体用的 helper `A5` 声明在它们之后(TDZ),真求值会当场抛 —— "没跑过"与"跑不通"叠在一起,而账面只有 ✅。**修法三层同补,缺一层都会复发**:① harness 判 `typeof cond === 'function'` 直接记红并写明"cond 是函数 ⇒ 断言从未求值(应写成 `(() => {...})()`)`;② helper 提到所有用例之前定义;③ 用例一律 `(() => {...})()`立即求值。**为什么这比"少一条测试"严重**:一条恒绿的断言会替人做出"这一格已被看过"的判断,而它结构上不可能红 —— 与守门 70/76/81 记过的"判据失效的表现永远是安静"是同一条禁令,只是这次失效的不是判据而是**自检的记账**。取证:镜像 **T23** 钉 harness 的函数分支,变异回`if (cond)` 即红。
-- **🚫 agent 禁止手写 `git push`(2026-09-18 立,"已推完还在等"事故根治)**:①origin 的推送由 post-commit 钩子 `git-push-guard.mjs` 自动完成(内置 ahead 检测+推送+回读验证,幂等)——commit 落地即已推送,**手动盲推必撞 already-pushed 非快进报错**并诱发后台反复干等;②Gitee/GitCode 由 `mirror-to-cn.yml` CI 在 push 后自动镜像(+每日 2 次兜底),**本地手推镜像仓=违反架构**且制造 DIVERGED 竞态。③收尾核验同步状态**只允许** `node scripts/git-push-converge.mjs`(只读判定,六态 ALREADY/PUSHING/PUSHED/SKIP/BEHIND/DIVERGED,不做任何非必要推送);仅在 guard/CI 均失效的应急场景才人工推,且必须先跑该脚本确认状态。多会话并发期:本会话交付已被远端包含(merge-base --is-ancestor 验证)即为完成,本地 HEAD 落后不追、不与并发会话抢 reset/ff。
-- **⚡ 推送异步化(2026-09-18 立,根治第二段)**:guard 检测到 ahead 时默认 spawn 后台 worker 推送(pre-push 质量门不降级,实测单遍 216.8s)并立即返回——**commit 命令秒回,不再被推送拖住**;状态在 `.workbuddy/push-state.json`(running/done/failed,失败由下次 guard 自动重试),converge 读该状态显示 PUSHING;核验若见 PUSHING=正在推,等 1-2 分钟再查即可,勿手动干预。强制同步推送:GUARD_ASYNC=0。(2026-09-18 晚修复:异步 spawn 的 fd 误用 `out.close()` 必抛 TypeError→静默回退同步推送+双重推送竞态,已改 `closeSync`;push-gate 缓存改**内容指纹键控**(HEAD:apps/HEAD:packages 子树+脏文件内容 hash),合并/文档提交不再重跑全量门。)
-- **🔄 主动收敛(2026-09-18 晚立,根治第三段)**:推送遇 non-FF(并发会话推力)时**禁止手工 fetch/merge/push 循环**(实测 3 轮 25 分钟),统一跑 `node scripts/git-sync-converge.mjs`(默认 3 轮:fetch→祖先判定→`merge-tree --write-tree` 索引层合并(**零触碰他人未提交文件**)+commit-tree+update-ref→guard 推送,直至收敛;冲突才需人工)。只读核验仍用 `git-push-converge.mjs`。
-- **🪟 后台进程禁弹窗(2026-09-18 晚立)**:Windows 下 `spawn(detached:true)` + 控制台程序**必弹新 cmd 窗口**——所有 detached spawn 必须带 `windowsHide: true`(guard worker/锁心跳/desktop-dev-saas 已全量修复,仓库既有正例 dev-with-warmup.mjs)。**同理所有 `shell:true` 的 spawnSync/execSync 必须带 `windowsHide: true`**——shell 派生链无 CREATE_NO_WINDOW 时,pnpm -r typecheck 等会为每个子包拉起可见 cmd.exe(2026-09-18 WMI 实锤:一次全量 typecheck ~30 次闪窗,13 处派生点已全量修复)。新增派生点遗漏此参数=用户桌面反复弹窗事故。**⚠️ 默认终端=Windows Terminal 时上述措施全部失效(2026-09-18 深夜 WMI 二次实锤根治)**:WT 宿主忽略 SW_HIDE(windowsHide 无效)且不理 HKCU\Console 离屏档案,同一负载实测 135 个可见窗口样本;已把 `HKCU\Console\%%Startup` 的 DelegationConsole/DelegationTerminal 双双设为 `{B23D10C0-E52E-411E-9D5B-C09FDF709C7D}`(Windows 控制台主机 conhost)——conhost 尊重 SW_HIDE 与离屏档案,复跑同负载可见窗口归零。**禁止改回 WT 委托**;排查弹窗先查此键,取证脚本=.ihui-agent/tmp/console-watch.ps1(WMI 事件+15ms 可见窗口采样,后台 PS 任务约 2 分钟即被杀,足够覆盖一次守门链)。
-  - ⚠️ **上面那句给的取证脚本从未入库(2026-09-27 实测三面 + 历史全零命中)**:`.ihui-agent/tmp/console-watch.ps1` 在工作树不存在、`git ls-files` 零命中、`HEAD` 树零条、`git log --all --diff-filter=A -- '*console-watch*'` 也拿不到 ⇒ 它从来没有被版本化过,只是某次会话留在本机临时目录的产物,换机/重装/他人接手一律跑不通。这与本仓记过的 `pnpm c-drive:clean-ours`(根 `package.json` 从来没有这个脚本)、守门 46/11c/50 的假 `HUSKY_SKIP_*` 通道是同一条禁令的反面形态:**文档不得写跑不通的出路**。**在这条指针被换成真实入口之前**,弹窗这一维在提交链上只有**静态**那道门(`scripts/check-no-visible-spawn.mjs`,守门 52,判"派生控制台程序时有没有写 `windowsHide`"),而**静态判据绿不等于运行时不弹窗** —— 五次复发里至少有两次(WT 委托那一次、fork 风暴那一次)恰恰是"逐点参数都补了、现象仍在",只能靠运行时量窗口样本定性。登记事实:**"运行时可见窗口计数"这一维当前无版本化尺子**;补它的一票已立项,落地判据 = `git cat-file -e HEAD:<探针脚本>` 成立且该脚本真能报出"此刻开着的窗口"(阳性对照,不接受恒 0)。
-- **🧬 机器级根治 windowsHide 默认值(2026-09-20 立,"git 窗口一直弹"第四次复发收口)**:实测 Node v24 `child_process` 的 `windowsHide` **默认 `false`**;当父进程**无控制台**(detached+文件 fd 的 guard worker、计划任务、Qoder/Trae/WorkBuddy 等 GUI 宿主派生)时,派生任何控制台程序(git/cmd/pnpm/node)**必分配一个可见控制台**。逐点补参数不可持续(仅 `scripts/`+`.husky/` 热路径就 74 处漏,全仓 ~600 处,且新写脚本继续产生)。**根治**:`node scripts/install-console-window-hook.mjs --apply` —— 把 `scripts/lib/windows-hide-default.mjs` 复制到**仓库外**稳定目录(默认 `<TEMP 上级>/ihui-node-hooks`,本机 = `D:\caches\ihui-node-hooks`;放仓库外是因为 `NODE_OPTIONS` 指向的文件一旦缺失会让**全机所有 node 进程启动失败**,仓库移动/删除不得波及。钩子源文件**必须是 `.mjs`**:`.gitignore` 第 207 行 `*.cjs` 会把 `.cjs` 静默忽略,§23 同类陷阱,一旦被忽略其他机器就装不上),并以 `--import=file:///...` 写入 HKCU 用户级 `NODE_OPTIONS`。钩子给 7 个派生方法补默认 `windowsHide: true`,**显式传 `false` 一律尊重**;落盘前必先用暂存副本做"node 能否带此 NODE_OPTIONS 启动 + 7 个方法是否真被替换"双试跑,不通过则**拒绝写入**,原值备份于同目录 `node-options-backup.json`。实测**ESM 具名导入 `import { spawnSync }` 同样被拦**(loader 早于 builtin ESM facade 创建)。**换机/重装/新克隆后必须跑一次 `--apply`**;`--verify` 巡检不写盘,`--remove` 卸载。**不得因此省略逐点参数**:干净 checkout、他人机器、CI 没有此 env 时仍靠显式 `windowsHide: true` 生效,新增派生点照旧必须写。
-- **🔒 机制守门(2026-09-20 同日补,防第 5 次复发)**:`scripts/check-no-visible-spawn.mjs`(guardian-runner 第 **52** 项,blocking)——括号配平提取 `spawn/spawnSync/exec/execSync/execFile/execFileSync/fork` 调用,**首参可"肯定"为控制台程序**(白名单含 git/node/pnpm/cmd/pwsh/schtasks/ffmpeg…,并覆盖绝对路径与"路径+参数"两种形态)且 options 缺 `windowsHide` 即拦截。刻意**宁漏不误报**(未知变量名一律放过),避免阻塞他人提交;测试代码路径降为 warn(测试由终端 runner 派生,子进程继承已有控制台不新分配窗口)。`--staged` 供 pre-commit 用(runner 自动下发),`node scripts/check-no-visible-spawn.mjs` 为全量审计,`--self-test` 跑 14 例逻辑自检。§22c 镜像测试:`scripts/tests/check-no-visible-spawn.test.mjs`。
-- **🔗 异步推送配套适配(2026-09-18 晚)**:①check-push-sync(pre-commit #29)遇 push-state running(未过期)放行——否则每次 commit 后 270s 窗口内的下一次 commit 必被 #29 阻塞→--no-verify→80 项守门全跳过;②guard worker 串行化:在途 worker 未落定时新 worker 先等后跑,杜绝多个 270s typecheck 并行打满 CPU。③**推送门中断分类(2026-09-18 深夜)**:typecheck 进程被外部杀死(CTRL_C 注入/宿主清树,exit 3221225786/141/143/130/137,实测日志 39 次)≠ 类型检查结论——check-typecheck 按**临时失败 exit 75** 退出→guardian-runner 原样传播→pre-push 写 `.workbuddy/push-gate-last-result.json` 标记+exit 75→guard worker 见新鲜 75 标记**先带 hook 重试**拿真实结论,仍失败才按用户规则 --no-verify 兜底(此前"被杀"被误判成"他人代码失败"直接绕过真实门禁)。④降级判据第三兜底 `head-diff`:push-scope 与暂存区均为空时用 `git diff --name-only origin/main HEAD` 推断推送范围(实测 4 例"无可判定改动范围,无降级"硬拦);⑤push-state 死 pid 自愈:guard 启动发现 running+死 pid → 顺手改写 failed 终态。⑥**typecheck 再入守卫(2026-09-18 深夜,WMI 实测 24.6 万 cmd/2min fork 风暴根治)**:根包 `pnpm typecheck`=typecheck-full.mjs,pnpm -r 一旦把根包纳入执行即无限递归(每层再起 pnpm -r,指数级进程树,实测 ~2000 cmd/秒持续 26 分钟,即用户"一直闪弹 cmd"的主源);typecheck-full 已加 `IHUI_TYPECHECK_FULL_CHILD` 环境变量再入守卫(子层检测到立即 exit 0),勿删。
-- **C5 组件名档(2026-09-28 票㉗)**:根容器按**它自己的**组件名判类别,取证次序 = 元素自身名字/样式键 > 组件名 > 颜色实用类(`bg-card`/`text-*` 只是背景档,不是身份)。两条防假阳的规矩必须同时成立:① **只在 JSX 根启用**,子元素不吃(按钮装在面板里仍是 control);② 归属按 `declarationRanges()` + `ownerOfLine()` 取**最内层声明** —— 不加这一层,同文件内联的小组件会被外层组件名顶判(实测一次造出 79 处假阳,`ModelConfigDialog.tsx` 里的 `RatioSelector` 就是那一型)。名字给不出唯一角色 ⇒ **不启用并逐条报名**(清单在 `--json` 的 componentUndetermined 字段,`--all` 逐行打印),绝不猜一档;该档摘线时镜像 **T19** 必读红,不得被"合规 3211 处"冒充。
-  同批修掉两处**取证越界**,它们的症状都不是"多算",而是"把能判的格写成判不出":`classStringsInLine` 原按"距 class 锚点 ≤60 字符连采 3 段字符串"收类名,会把**兄弟属性**的值(`data-testid="plan-review-panel"`)当类名收,凭空造出一条类别证据去撞 `bg-card` ⇒ HEAD 唯一那处 role-conflict 就是这么来的;现要求两段字面量之间只可能是 `cn(` / `,` / `||` / `?` / `+` 这类表达式连接符,出现 `=` / `>` / `}` 即停(镜像 **T21** 成对:兄弟属性不得采、同属性第二段不得漏)。`jsx-scope` 词法器原把 `return <X/>`(不套括号)的前一词元当标识符 ⇒ 判成泛型/比较式,整棵子树不建元素而只计 corrupt;现按"可接表达式的关键字"(return/yield/await/else/do/throw/in/of)放行,同时 **`a < b` 必须仍不建元素**(镜像 **T20** 成对,幽灵祖先比漏判更贵)。修后 HEAD 面 corrupt **443→344**(99 个文件的容器维回到可判),并同批清偿 C5 新露出的 6 处 panel 根容器(md/lg→xl)。
-  问责入口 `pnpm check:radius-role`(走 `--strict`);`--strict` 现 exit 0 —— 未判定归零之后,这道门不再拒绝出合格证。**还有一格刻意不做**:`弱证据待裁` 那一族(类别信号只有颜色实用类、元素无名也非组件根)不得批量改档 —— 那是拿 20–70% 判错率的证据重新设计界面,正解是给它补真实身份,门只逐条报名。
-  **三层水印**(`scripts/watermark.mjs`):L1 可见横幅(`// © 2026 IHUI AI …` + `// Provenance-watermarked. …`)、L2 横幅内零宽载荷(`// [IHUI-AI-PROVENANCE]:<zw>`)、L3 独立不可见行(注入时落在文件末尾)。
-  **判据(2026-09-12 加严,2026-09-29 补第五态)**:载荷必须**可解码且等于 `WATERMARK_TEXT`**,仅"存在"不算数。五态:`完好` / `残迹`(有横幅无载荷)/ `载荷损坏`(存在但解码不符)/**`仅隐写`(有可解码载荷但可见横幅整块不见)**/ `未覆盖`。除"完好"外,`watermark.mjs verify` 与 `check-watermark-coverage` 均 **exit 1**。
-  **判据(2026-09-12 加严,2026-09-29 补第五态)**:载荷必须**可解码且等于 `WATERMARK_TEXT`**,仅"存在"不算数。五态:`完好` / `残迹`(有横幅无载荷)/ `载荷损坏`(存在但解码不符)/ **`仅隐写`(有可解码载荷但可见横幅整块不见)** / `未覆盖`。除"完好"外,`watermark.mjs verify` 与 `check-watermark-coverage` 均 **exit 1**。
-- **按凭据存在性豁免对账**(guardian id 以 `scripts/guardian-runner.mjs` 现值为准 —— 注册时取到 **157**,并发会话可能挪号;**blocking**,`stagedTriggers=apps/api/src/plugins` + `apps/api/src/routes` + `apps/api/src/utils`,紧急跳过 `HUSKY_SKIP_CREDENTIAL_PRESENCE_BYPASS=1`):`scripts/check-credential-presence-bypass.mjs`(G-459)拦的是**"把某个凭据类头/cookie 在场当成安全判定的结论"**这一型 —— 立因不是假想:`apps/api/src/plugins/csrf.ts` 曾写 `if (request.headers['x-internal-service-token']) return`,头名在场即对**全部路由**跳过 CSRF,任何进程带这个头(值随便填)就拿到免死金牌;#23 改成 `isVerifiedInternalMachineCall(request)`(唯一出口 `apps/api/src/utils/internal-principal.ts`,复用那一份 `secretsEqual`:SHA-256 定长摘要 + `timingSafeEqual`,配置缺失 fail-closed)。但**型还在** —— 下一个内部凭据族照样能写成 `if (request.headers['x-anything']) return`,而 typecheck / lint / 其余门全都不响。三条设计约束:① **判据必须覆盖门自己认可的写法**,条件里出现 `===`/`secretsEqual`/`timingSafeEqual`/`isVerified…(`/`verify…(`/`startsWith(`/`.has(` 一律放过(把修法形态判红等于逼人 `--no-verify`);② **凭据名不写死站点清单**,按**词元**比对(`x-id-token` 算,`tokenizer`/`hashtags` 不算),某站是否"已裁过"由台账 `scripts/data/credential-presence-exemptions.json` 判 —— 条目缺 `reason`/`reviewBy`、复核日过期、登记了而被审面没命中(清单腐烂)三种都是红;行内出口 `credential-presence-exempt: <原因>`(须带原因,只救本行或紧邻上行),该族**同笔**登记进守门 108 的 `FAMILY_LIFETIME_DAYS`(30 天,待偿的裁决债)—— 不登记就走 90 天默认档,而第一处真被写出的行内豁免还会被 108 的 E4 判成"新引入的未登记豁免族"(一道门自己的合法出口被邻居钉红 = 两道门互咬,`radius-role`/`border-ink` 同课),这条跨文件锁由镜像 T10 钉住,不靠人记得;③ **判不出就报名** —— 括号配平失败、取不出名字、体起始跨行算不出 ⇒ 落「未判定」逐条点名,`--strict` 下有未判定即 exit 2 拒绝出合格证。口径同 70/77/83/98/101/103/118/135:全量判 HEAD blob、`--staged` 判索引 blob、`--worktree` 仅人工、两面旗同给判死、取不到不回落、枚举到 0 个候选判死不记绿;清单与正文同面同轮;遮罩只引 `scripts/lib/code-mask.mjs` 那一份(判据看代码面,而豁免标记写在注释里 ⇒ 标记在原文行上判)。手动 `node scripts/check-credential-presence-bypass.mjs [--staged|--worktree|--json|--strict|--self-test]`。**这一型现在有一把更宽的尺子(2026-10-04 现读更正,此前此处写着"零判据",并把前置指向另一个编号,两句都已失效)**:`scripts/check-gate-presence-exemption.mjs`(编号以 `scripts/guardian-runner.mjs` 现值为准,blocking,`stagedTriggers=apps/` + `packages/`)覆盖面 = `apps/api/src/plugins/**` ∪ `apps/api/src/middleware/**`(不存在即自然为空)∪ apps/packages 里文件名含 `csrf|auth|permission|rate.?limit|internal` 的源码,三态(命中 / 放过 / 未判定)不并桶,阳性对照钉的是**修复前那枚 csrf.ts 历史 blob**而不是 HEAD。⇒ "下一个内部凭据族写成按存在性放行"已在本门射程之外**不再成立**,但**仍然开着的两格**要如实登记:① 该门刻意不判"条件先存进变量再判"(`const authToken = …cookies?.auth_token` 后 `if (authToken) return`)、头值做 `==`/`===` 字面比较而非常数时间比较、`continue` 形态放行、以及 Python 侧同类形态(那属守门 117 的另一型);② 旧指针所指的那个编号**已被一条无关的 SSO 深链票占用**(现读该号 8 行全部是已完成形态),按 §1"证据指针必须可核验、失效指针必须消掉 —— 按旧号找到的是别人那一格,比没有指针更糟"从本句起删除,不得再照它找账。5. `git ls-remote` 为远端真值唯一来源,本地 `origin/main` 引用异常时用显式 SHA 操作,勿信本地引用。
-  自动出了角色档射程(现读数一律跑本门末行,本文不钉数字),**这一格不再需要任何标记**;`非正方盒 + 半径≥短边一半 ⇒ 胶囊` ——
-  **现行口径(2026-09-28 票㉛ 已升为判红)**:胶囊这一侧要**三个条件同时成立**才判 —— ① 盒形**只取该元素自己的属性区**
-  (到开标签闭合 `>` 为止,不含任何子节点)且**闭合可确定**;② **非正方盒**;③ **短边 ≥ 16px**。
-  第 ① 条的由来:宽窗口 `elementWindow` 从开标签向下取 6 行,会把子节点的 `h-4 w-4` 算进父盒
-  (`w-40` 下拉被量成 160×10、`h-9 px-4` 按钮被量成 16×36)⇒ 现由 `boxDimsOwn` 单独承担,判不出闭合即**只报名不判红**。
-  第 ③ 条是装饰族的物理下限:细于 16px 的进度条 / 骨架行 / 指示点仍**只开队列**(§4 明令不得方档化,判红等于逼设计改方角)。
-- **同一机制已落到部署锁(2026-09-27,ZCode 吸收线批次 50;机制与三条不许漂的写法见 §5b 的"判活再加一环"条)**:`.deploy.lock` 的 meta 除 `pid/ownerPid/ts` 外再记 `host` + `pidStart`,而 **`pidStart` 量的必须是"判活所问的那个 pid"**(有 `--owner-pid` 就是 owner,没有才退回 CLI pid)—— 主体写错(例如去量调用方自己)会让每次对账都假报"已复用",那条"确证"就变成"确证可以抢",比没有身份凭据更糟;镜像自测 S41/S49 各钉一头。判读三态里**只有 `mismatch` 多给一条抢占授权**(先归档现场再抢,不必把锁龄爬到 30min 硬上限,且不走"持有者已退出"的秒抢通道),`match` / `unverifiable` / 旧 meta 没记身份两元 ⇒ **与改动前逐字同结论**;`--owner-pid` 与 `HARD_CAP_MS` 一字未动,只是从"唯一出路"降级成"第二道兜底"。`check` 与 `release` **不**现测(只读快路径 / 删锁永远是持有者自己的动作),`check` 只如实打印锁里记着什么并补一句"未现测、身份未对账" —— **打印了 `pidStart` 不等于核对过身份**。二次确认那一轮必须把同一个 `identity` 一起传进去,否则"只靠身份确证成立"的那次抢占会在二次确认时被读成"判据不再成立",新通道永远只喊不抢。取证(本会话当轮现跑):`node scripts/deploy-lock.mjs --self-test` 63 条全绿、`node --test scripts/tests/proc-identity.test.mjs` 19 例、既有三条锁镜像 50 例、`node scripts/git-lock.mjs check` rc 0、`node scripts/deploy-lock.mjs check` rc 1(真仓此刻确有 `mode=dev` 的锁,该命令按设计"有锁即 1",新输出行如实标出 `host=(未记) pidStart=(未记)` 与"旧 meta 无凭据 ⇒ 身份无从对账");真实进程对照:新起进程现测启动时刻与当刻 epoch **delta=0**、不存在 pid ⇒ `unverifiable`、人为把记录值提前 700s ⇒ `mismatch`,单次现测 **211ms**、5s 内命中缓存 0ms。**本批没做**:未新增守门(它判的是"锁此刻归谁",属机器状态,挂进提交链就是与提交内容无关的恒红门,§12e 同型);dev 侧四个 npm 生命周期(`predev`/`dev:clean`/`dev:stable`/`prebuild`)仍无 owner 可声明、因而身份两元对它们无从对账(上面"如实登记未完成的部分"那条继续成立)。- **上面那条"落地判据"本日已满足(2026-09-27)**:版本化探针 `scripts/visible-window-probe.mjs` 已入库,`git cat-file -e HEAD:scripts/visible-window-probe.mjs` 成立,且它在本机一次性快照里真量到过 **18 个可见窗口 / 1254 条进程记录 / 畸形行 0** —— 不是恒 0。三态硬要求写在实现里:每一维区分"量到 N"/"量不到(点名原因)"/"确实是 0";PowerShell **被自己的 timeout 终止 / ENOENT / 非零退出** 三种失败各有各的文案(实现收尾时正是先把"超时"误标成"派生失败"才补上这条分流)。手动入口 `node scripts/visible-window-probe.mjs --snapshot | --watch <ms> [--json]`,镜像测试 `node --test scripts/tests/visible-window-probe.test.mjs`。**它刻意不进提交链与 `check:all`**:判的是机器运行时状态,提交者结构上满足不了 ⇒ 挂 blocking 就是每台每次被逼 `--no-verify`、连带约 185 道门对该提交作废(§12e 同型)。**上面那句"静态门绿不等于运行时不弹窗"仍然成立** —— 探针给的是"有没有弹"的事实,不替代门 52 的"新代码有没有写 windowsHide"。
-  **三层水印**(`scripts/watermark.mjs`):L1 可见横幅(`// © 2026 IHUI AI …` + `// Provenance-watermarked. …`)、L2 横幅内零宽载荷(`// [IHUI-AI-PROVENANCE]:<zw>`)、L3 独立不可见行(注入时落在文件末尾)。
-  **判据(2026-09-12 加严,2026-09-29 补第五态)**:载荷必须**可解码且等于 `WATERMARK_TEXT`**,仅"存在"不算数。五态:`完好` / `残迹`(有横幅无载荷)/ `载荷损坏`(存在但解码不符)/**`仅隐写`(有可解码载荷但可见横幅整块不见)**/ `未覆盖`。除"完好"外,`watermark.mjs verify` 与 `check-watermark-coverage` 均 **exit 1**。
-  **判据(2026-09-12 加严,2026-09-29 补第五态)**:载荷必须**可解码且等于 `WATERMARK_TEXT`**,仅"存在"不算数。五态:`完好` / `残迹`(有横幅无载荷)/ `载荷损坏`(存在但解码不符)/ **`仅隐写`(有可解码载荷但可见横幅整块不见)** / `未覆盖`。除"完好"外,`watermark.mjs verify` 与 `check-watermark-coverage` 均 **exit 1**。
   `scripts/lib/gitdir.mjs` 的 `resolvePortableGitCandidates()`(候选序 = 环境变量 > versions 目录扫描 > 旧 1.2.0 兜底)解析 git 二进制的首选;`.qoder-cn` 承载本项目记忆与工作区状态)。
   (被 `scripts/lib/gitdir.mjs` 的 `resolvePortableGitCandidates()` 当 git 二进制首选解析)不得搬,其 `logs`/`traces` 约 2GB 属该 IDE
   `scripts/release-desktop-local.mjs` 需要 `%USERPROFILE%\.tauri\ihui-updater.key`,而**旧句"本机无 `.tauri` ⇒ 桌面发布在此机必 `exit 1`"已于 2026-10-01 实测作废**:`.tauri\ihui-updater.key` 348 B、`ihui-updater-password.txt` 33 B **都在位**,mtime 2026-09-07(早于该句登记日 09-23 三周)⇒ 登记当时就不成立;那句还写着 `:67,74` 的行号指针,而 §1 明令证据指针禁写行号(任何一次 append 后都会挪位)。桌面端能否发布在本机的真判据是"跑一次取签名密钥的那条路径并看它报什么",不是这条散文
@@ -3042,15 +2319,10 @@ React 17+ 的 SyntheticEvent 在事件处理函数返回后 `currentTarget` 会�
   - **授权判据列隔离**〔scripts/check-authorization-column-isolation.mjs · blocking · HUSKY_SKIP_AUTHZ_COLUMN_ISOLATION〕—— 拦"归属判据所在的 SELECT 顺带取了展示列":展示字段损坏会把授权查询拖成 500 而不是 403/404(鉴权失败该是 404,不是 500);判据本体单份住在脚本内,门内零自行判定;自检 `--self-test` 39/39(正反成对),镜像 13/13(guardian id 188)。
 - **已知无尺子的一格**(如实登记,别误以为这里有门):"新内部凭据族又写成按存在性放行"这一型目前**零判据**,票#23 只修了量到的那一处;判据草案与前置见 PROJECT_PLAN G-367。
 - **按凭据存在性豁免对账**(guardian id 以 `scripts/guardian-runner.mjs` 现值为准 —— 注册时取到 **157**,并发会话可能挪号;**blocking**,`stagedTriggers=apps/api/src/plugins` + `apps/api/src/routes` + `apps/api/src/utils`,紧急跳过 `HUSKY_SKIP_CREDENTIAL_PRESENCE_BYPASS=1`):`scripts/check-credential-presence-bypass.mjs`(G-459)拦的是**"把某个凭据类头/cookie 在场当成安全判定的结论"**这一型 —— 立因不是假想:`apps/api/src/plugins/csrf.ts` 曾写 `if (request.headers['x-internal-service-token']) return`,头名在场即对**全部路由**跳过 CSRF,任何进程带这个头(值随便填)就拿到免死金牌;#23 改成 `isVerifiedInternalMachineCall(request)`(唯一出口 `apps/api/src/utils/internal-principal.ts`,复用那一份 `secretsEqual`:SHA-256 定长摘要 + `timingSafeEqual`,配置缺失 fail-closed)。但**型还在** —— 下一个内部凭据族照样能写成 `if (request.headers['x-anything']) return`,而 typecheck / lint / 其余门全都不响。三条设计约束:① **判据必须覆盖门自己认可的写法**,条件里出现 `===`/`secretsEqual`/`timingSafeEqual`/`isVerified…(`/`verify…(`/`startsWith(`/`.has(` 一律放过(把修法形态判红等于逼人 `--no-verify`);② **凭据名不写死站点清单**,按**词元**比对(`x-id-token` 算,`tokenizer`/`hashtags` 不算),某站是否"已裁过"由台账 `scripts/data/credential-presence-exemptions.json` 判 —— 条目缺 `reason`/`reviewBy`、复核日过期、登记了而被审面没命中(清单腐烂)三种都是红;行内出口 `credential-presence-exempt: <原因>`(须带原因,只救本行或紧邻上行),该族**同笔**登记进守门 108 的 `FAMILY_LIFETIME_DAYS`(30 天,待偿的裁决债)—— 不登记就走 90 天默认档,而第一处真被写出的行内豁免还会被 108 的 E4 判成"新引入的未登记豁免族"(一道门自己的合法出口被邻居钉红 = 两道门互咬,`radius-role`/`border-ink` 同课),这条跨文件锁由镜像 T10 钉住,不靠人记得;③ **判不出就报名** —— 括号配平失败、取不出名字、体起始跨行算不出 ⇒ 落「未判定」逐条点名,`--strict` 下有未判定即 exit 2 拒绝出合格证。口径同 70/77/83/98/101/103/118/135:全量判 HEAD blob、`--staged` 判索引 blob、`--worktree` 仅人工、两面旗同给判死、取不到不回落、枚举到 0 个候选判死不记绿;清单与正文同面同轮;遮罩只引 `scripts/lib/code-mask.mjs` 那一份(判据看代码面,而豁免标记写在注释里 ⇒ 标记在原文行上判)。手动 `node scripts/check-credential-presence-bypass.mjs [--staged|--worktree|--json|--strict|--self-test]`。**已知无尺子的一格**(如实登记,别误以为这里有门):"新内部凭据族又写成按存在性放行"在**本门射程之外**(它只覆盖 `apps/api` 三目录)目前零判据,判据草案与前置见 PROJECT_PLAN G-367。5. `git ls-remote` 为远端真值唯一来源,本地 `origin/main` 引用异常时用显式 SHA 操作,勿信本地引用。
-- **按凭据存在性豁免对账**(guardian id 以 `scripts/guardian-runner.mjs` 现值为准 —— 注册时取到 **157**,并发会话可能挪号;**blocking**,`stagedTriggers=apps/api/src/plugins` + `apps/api/src/routes` + `apps/api/src/utils`,紧急跳过 `HUSKY_SKIP_CREDENTIAL_PRESENCE_BYPASS=1`):`scripts/check-credential-presence-bypass.mjs`(G-459)拦的是**"把某个凭据类头/cookie 在场当成安全判定的结论"**这一型 —— 立因不是假想:`apps/api/src/plugins/csrf.ts` 曾写 `if (request.headers['x-internal-service-token']) return`,头名在场即对**全部路由**跳过 CSRF,任何进程带这个头(值随便填)就拿到免死金牌;#23 改成 `isVerifiedInternalMachineCall(request)`(唯一出口 `apps/api/src/utils/internal-principal.ts`,复用那一份 `secretsEqual`:SHA-256 定长摘要 + `timingSafeEqual`,配置缺失 fail-closed)。但**型还在** —— 下一个内部凭据族照样能写成 `if (request.headers['x-anything']) return`,而 typecheck / lint / 其余门全都不响。三条设计约束:① **判据必须覆盖门自己认可的写法**,条件里出现 `===`/`secretsEqual`/`timingSafeEqual`/`isVerified…(`/`verify…(`/`startsWith(`/`.has(` 一律放过(把修法形态判红等于逼人 `--no-verify`);② **凭据名不写死站点清单**,按**词元**比对(`x-id-token` 算,`tokenizer`/`hashtags` 不算),某站是否"已裁过"由台账 `scripts/data/credential-presence-exemptions.json` 判 —— 条目缺 `reason`/`reviewBy`、复核日过期、登记了而被审面没命中(清单腐烂)三种都是红;行内出口 `credential-presence-exempt: <原因>`(须带原因,只救本行或紧邻上行),该族**同笔**登记进守门 108 的 `FAMILY_LIFETIME_DAYS`(30 天,待偿的裁决债)—— 不登记就走 90 天默认档,而第一处真被写出的行内豁免还会被 108 的 E4 判成"新引入的未登记豁免族"(一道门自己的合法出口被邻居钉红 = 两道门互咬,`radius-role`/`border-ink` 同课),这条跨文件锁由镜像 T10 钉住,不靠人记得;③ **判不出就报名** —— 括号配平失败、取不出名字、体起始跨行算不出 ⇒ 落「未判定」逐条点名,`--strict` 下有未判定即 exit 2 拒绝出合格证。口径同 70/77/83/98/101/103/118/135:全量判 HEAD blob、`--staged` 判索引 blob、`--worktree` 仅人工、两面旗同给判死、取不到不回落、枚举到 0 个候选判死不记绿;清单与正文同面同轮;遮罩只引 `scripts/lib/code-mask.mjs` 那一份(判据看代码面,而豁免标记写在注释里 ⇒ 标记在原文行上判)。手动 `node scripts/check-credential-presence-bypass.mjs [--staged|--worktree|--json|--strict|--self-test]`。**已知无尺子的一格**(如实登记,别误以为这里有门):"新内部凭据族又写成按存在性放行"在**本门射程之外**(它只覆盖 `apps/api` 三目录)目前零判据,判据草案与前置见 PROJECT_PLAN G-367。5. `git ls-remote` 为远端真值唯一来源,本地 `origin/main` 引用异常时用显式 SHA 操作,勿信本地引用。
-- **按凭据存在性豁免对账**(guardian id 以 `scripts/guardian-runner.mjs` 现值为准 —— 注册时取到 **157**,并发会话可能挪号;**blocking**,`stagedTriggers=apps/api/src/plugins` + `apps/api/src/routes` + `apps/api/src/utils`,紧急跳过 `HUSKY_SKIP_CREDENTIAL_PRESENCE_BYPASS=1`):`scripts/check-credential-presence-bypass.mjs`(G-459)拦的是**"把某个凭据类头/cookie 在场当成安全判定的结论"**这一型 —— 立因不是假想:`apps/api/src/plugins/csrf.ts` 曾写 `if (request.headers['x-internal-service-token']) return`,头名在场即对**全部路由**跳过 CSRF,任何进程带这个头(值随便填)就拿到免死金牌;#23 改成 `isVerifiedInternalMachineCall(request)`(唯一出口 `apps/api/src/utils/internal-principal.ts`,复用那一份 `secretsEqual`:SHA-256 定长摘要 + `timingSafeEqual`,配置缺失 fail-closed)。但**型还在** —— 下一个内部凭据族照样能写成 `if (request.headers['x-anything']) return`,而 typecheck / lint / 其余门全都不响。三条设计约束:① **判据必须覆盖门自己认可的写法**,条件里出现 `===`/`secretsEqual`/`timingSafeEqual`/`isVerified…(`/`verify…(`/`startsWith(`/`.has(` 一律放过(把修法形态判红等于逼人 `--no-verify`);② **凭据名不写死站点清单**,按**词元**比对(`x-id-token` 算,`tokenizer`/`hashtags` 不算),某站是否"已裁过"由台账 `scripts/data/credential-presence-exemptions.json` 判 —— 条目缺 `reason`/`reviewBy`、复核日过期、登记了而被审面没命中(清单腐烂)三种都是红;行内出口 `credential-presence-exempt: <原因>`(须带原因,只救本行或紧邻上行),该族**同笔**登记进守门 108 的 `FAMILY_LIFETIME_DAYS`(30 天,待偿的裁决债)—— 不登记就走 90 天默认档,而第一处真被写出的行内豁免还会被 108 的 E4 判成"新引入的未登记豁免族"(一道门自己的合法出口被邻居钉红 = 两道门互咬,`radius-role`/`border-ink` 同课),这条跨文件锁由镜像 T10 钉住,不靠人记得;③ **判不出就报名** —— 括号配平失败、取不出名字、体起始跨行算不出 ⇒ 落「未判定」逐条点名,`--strict` 下有未判定即 exit 2 拒绝出合格证。口径同 70/77/83/98/101/103/118/135:全量判 HEAD blob、`--staged` 判索引 blob、`--worktree` 仅人工、两面旗同给判死、取不到不回落、枚举到 0 个候选判死不记绿;清单与正文同面同轮;遮罩只引 `scripts/lib/code-mask.mjs` 那一份(判据看代码面,而豁免标记写在注释里 ⇒ 标记在原文行上判)。手动 `node scripts/check-credential-presence-bypass.mjs [--staged|--worktree|--json|--strict|--self-test]`。**已知无尺子的一格**(如实登记,别误以为这里有门):"新内部凭据族又写成按存在性放行"在**本门射程之外**(它只覆盖 `apps/api` 三目录)目前零判据,判据草案与前置见 PROJECT_PLAN G-367。5. `git ls-remote` 为远端真值唯一来源,本地 `origin/main` 引用异常时用显式 SHA 操作,勿信本地引用。
-- **按凭据存在性豁免对账**(guardian id 以 `scripts/guardian-runner.mjs` 现值为准 —— 注册时取到 **157**,并发会话可能挪号;**blocking**,`stagedTriggers=apps/api/src/plugins` + `apps/api/src/routes` + `apps/api/src/utils`,紧急跳过 `HUSKY_SKIP_CREDENTIAL_PRESENCE_BYPASS=1`):`scripts/check-credential-presence-bypass.mjs`(G-459)拦的是**"把某个凭据类头/cookie 在场当成安全判定的结论"**这一型 —— 立因不是假想:`apps/api/src/plugins/csrf.ts` 曾写 `if (request.headers['x-internal-service-token']) return`,头名在场即对**全部路由**跳过 CSRF,任何进程带这个头(值随便填)就拿到免死金牌;#23 改成 `isVerifiedInternalMachineCall(request)`(唯一出口 `apps/api/src/utils/internal-principal.ts`,复用那一份 `secretsEqual`:SHA-256 定长摘要 + `timingSafeEqual`,配置缺失 fail-closed)。但**型还在** —— 下一个内部凭据族照样能写成 `if (request.headers['x-anything']) return`,而 typecheck / lint / 其余门全都不响。三条设计约束:① **判据必须覆盖门自己认可的写法**,条件里出现 `===`/`secretsEqual`/`timingSafeEqual`/`isVerified…(`/`verify…(`/`startsWith(`/`.has(` 一律放过(把修法形态判红等于逼人 `--no-verify`);② **凭据名不写死站点清单**,按**词元**比对(`x-id-token` 算,`tokenizer`/`hashtags` 不算),某站是否"已裁过"由台账 `scripts/data/credential-presence-exemptions.json` 判 —— 条目缺 `reason`/`reviewBy`、复核日过期、登记了而被审面没命中(清单腐烂)三种都是红;行内出口 `credential-presence-exempt: <原因>`(须带原因,只救本行或紧邻上行),该族**同笔**登记进守门 108 的 `FAMILY_LIFETIME_DAYS`(30 天,待偿的裁决债)—— 不登记就走 90 天默认档,而第一处真被写出的行内豁免还会被 108 的 E4 判成"新引入的未登记豁免族"(一道门自己的合法出口被邻居钉红 = 两道门互咬,`radius-role`/`border-ink` 同课),这条跨文件锁由镜像 T10 钉住,不靠人记得;③ **判不出就报名** —— 括号配平失败、取不出名字、体起始跨行算不出 ⇒ 落「未判定」逐条点名,`--strict` 下有未判定即 exit 2 拒绝出合格证。口径同 70/77/83/98/101/103/118/135:全量判 HEAD blob、`--staged` 判索引 blob、`--worktree` 仅人工、两面旗同给判死、取不到不回落、枚举到 0 个候选判死不记绿;清单与正文同面同轮;遮罩只引 `scripts/lib/code-mask.mjs` 那一份(判据看代码面,而豁免标记写在注释里 ⇒ 标记在原文行上判)。手动 `node scripts/check-credential-presence-bypass.mjs [--staged|--worktree|--json|--strict|--self-test]`。**已知无尺子的一格**(如实登记,别误以为这里有门):"新内部凭据族又写成按存在性放行"在**本门射程之外**(它只覆盖 `apps/api` 三目录)目前零判据,判据草案与前置见 PROJECT_PLAN G-367。5. `git ls-remote` 为远端真值唯一来源,本地 `origin/main` 引用异常时用显式 SHA 操作,勿信本地引用。
 - **声明策略消费者对账**(121):`scripts/check-declared-policy-has-consumer.mjs`(blocking,`stagedTriggers=apps/,packages/`,2026-09-25 立) —— 判五类"声明"必须有生产面消费者(带链 import 且取用):MAX_AGE/TTL/RETENTION 策略常量、`*BudgetContract*`、packages/types 的 `*Contract` 导出类型与情态谓词、`(prune|cleanup|purge|expire|sweep)` 导出清理函数。注释/字符串/纯 re-export/测试面/scripts 层都不算消费者。立票实测:`apps/cli/src/sessions/state-store.ts` 的 `pruneOldSessions`(7 天保留)全仓零调用方 ⇒ 已挂到 `saveSession` 写前(60s 节流 + `IHUI_SESSION_PRUNE_DISABLED` 出口 + 裁剪异常不冒泡,"宁可不删");`ToolResultBudgetContract` 的唯一合理消费点在 `tools/index.ts` 的 executor 边界,该文件在飞 ⇒ 未接线登记,摘除会砸坏守门 111 的 CONTRACT_GROUPS(§7 有承接功能不得删)。⚠️ **本行是该门立项时(2026-09-25)的重复副本,上面那条带「C7 第四族」的才是现行条目** —— 本行的候选/未接线例数与"判五类"的族清单都已被后续现读取代(C7 工厂族未写进本行,按本行派单会去找一个不存在的五类口径,而门实际判六类),勿照本行执行;保留只为不丢行(§12 禁止无声删除)。
 - **守门**:`scripts/check-glyph-arrow-icon.mjs`(guardian 第 **102** 项,blocking)六类判据:**GA1** 整格字符箭头 `›»→》‹←`(或 `{'>'}`)在可证 affordance 语境(自身或 ≤8 层祖先带 `on*Press/Click/Tap` 或 `role="button"`,或祖先为 `Link/Pressable/Touchable*/Button`)当图标 —— **左向 `‹`/`←` 于 2026-09-25 补入**(立项时只有右向四字,于是小程序 NavBar 与 7 个页面头拿 `‹` 当返回图标长期零判据);**GA2** 「更多」类标签与**同词干** `*Arrow*` 样式配对后箭头字号 > 标签字号(单位不同不判红,计入 undetermined);**GA4**(同日新增)整格子内容是「返回」类文案(`t('common.back')` 这类键名末段为 `back`/`back<数字>` 的 i18n 调用,或字面量 `返回`)且处在可证 affordance 语境 ⇒ 即"把返回两个字当返回箭头";**带宾语的标签刻意不纳**(`backHome`/`backLogin`/`prevMonth` —— 那些是按钮文案,换成裸箭头反而不表意);**GA5**(同日新增)「返回」与字形的**混写**两型:`← 返回` 整格(GA1 要整格只有字形、GA4 要整格只有文案,混排两条都不纳),以及字形与返回调用**分居同一元素的两个子节点**(`← {t('common.back')}` —— `walkAffordanceChildren` 走 `loneChildText`,多子元素的元素根本不入选 ⇒ 前三条结构上全盲);**GA6**(同日新增,跨文件判据)小程序页面渲染页内返回键(`BackChevron` 或 `<NavBar/>`)却是**原生导航栏** ⇒ 同屏两个箭头 + 双层 chrome,读 Taro 页面 config、页内未写则继承 `app.config.ts` 的全局 window,两处都取不到 ⇒ 计入「未判定」点名(不记绿也不冒红);**S0** 共享唯一实现被摘线或无人 import(防"造好没装车"),现登记 5 条:三端「更多」箭头 + 页头返回键的**两份同名实现**(小程序端内与 RN 共享层 `packages/app` —— 只登记一份时另一份被摘线无人喊红)。GA1 与 GA4 **共用同一遍遍历**(`walkAffordanceChildren`),两条对"可证 affordance"的定义必须同形 —— 各写一遍必然在栈深/祖先窗口上漂移。口径同 77/83:全量判 HEAD blob、`--staged` 判索引、**棘轮锚点 = 该文件 HEAD 自身违规数**(行尾字符箭头存量 70 处只报数不拦,免得恒红逼人绕过钩子连带废掉全部门);豁免**三条互不串门的通道**:`glyph-arrow-exempt: <原因>`(GA1/GA2,只认命中同行)、 `back-label-exempt: <原因>`(GA4/GA5,认命中行、可点元素起始行、及其紧邻上行)、**文件级** `nav-chrome-exempt: <原因>`(GA6 —— 它的"错"是页面配置 × 页面渲染的组合,不落在某一行上,逐行豁免无意义)。三个族都已登记进守门 108 的存活期表(`back-label`/`nav-chrome` 取 365 天:结构性定性而非待偿债务,短周期到期逼人删标记、删了又被判红,两道门互咬)。前两条**宽严刻意不对称**且各由自检钉住:GA1 若也按块放行,一个标记就能救整棵子树,"一行救不了别处"那条反向锁就没了;GA4 若只认同行,人按直觉把标记写在可点块上就永远不生效(初版即如此,四处真实站点全部落空 ⇒ 恒红)。**原因不得由注释闭合符冒充**(裸标记 + `*/` 曾被读成"带了原因"⇒ 整行免检;该洞自 §22c 立项起就在 GA1 里,由 GA4 的自检反手抓出,现两条通道同锁,全仓零裸标记存量故改严无债务)。取证 `--self-test` 81 例(含阳性对照、棘轮四向、预筛必须是判据字面量**超集**的对账 —— GA5 的 `«` 与 GA6 的 `BackChevron`/`NavBar`/`navigationStyle` 三个标识符少一个,门就在自己立项那一型上失明;GA6 的继承链三态、GA5-B 的"去掉判据即翻绿"存在性证明)+ 镜像测试 16 例(含"GA1/GA4 豁免宽严不得悄悄对齐"、"预筛漏字形=门对该形态全盲"、**"GA5/GA6 必须真挂在 `scan()` 上"**(守门 70/76/81 同型:函数在、自检过,但 `scan()` 没调它 = 提交链上一路绿灯)、"GA6 不得按磁盘读 config"、"新增豁免族必须进 108 存活期表")。紧急跳过 `HUSKY_SKIP_GLYPH_ARROW_ICON=1`。
   IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清单:
-
 ### 12g. 派生 git 必须显式接管 stdio(2026-10-03 立,本机 Windows/node 面 EBUSY 实测)
-
 - **规矩**:本机(node/WorkBuddy 宿主,Windows)任何**派生 git** —— `execFileSync('git', […], { cwd, encoding, windowsHide, timeout })` 及其一切变体 —— **必须显式写 `stdio`**。不写时稳定 `spawnSync git EBUSY`;成组对照 30 组实测:**不写 stdio 0/30 成功**,写 `['ignore','pipe','pipe']` **30/30 成功**。同刻在 bash 里直接跑 git 正常 ⇒ 已排除 git 被锁与并发。
 - **间歇性是这坑的要害** —— 实测有一次测到"不写 stdio 6/6 通过",与"0/30 失败"直接矛盾。⇒ **单次/小样本探测会给出"这行 stdio 不必要"的假象;任何"这行是否必要"的判断必须成组(≥20 次)对照,一次成功不构成"不需要"的证据。** 与本仓「判据失效的表现永远是安静」同族:间歇性宿主态最容易被读成"问题不存在"。
 - **绝对路径不是豁免**:`GIT_BIN` / `GIT` / `gitBinary()` / `resolveGitBin()` 全被解析成绝对路径,但 EBUSY 是**派生面**的病,与 PATH 无关(实测绝对路径同样复现)。它们只是"判据扫不到",不是"没病"。
@@ -3062,27 +2334,15 @@ React 17+ 的 SyntheticEvent 在事件处理函数返回后 `currentTarget` 会�
 - **仍未闭环的一条**:TEMP 漂移 —— HKCU `TEMP` 已指 `D:\DevEnv\Temp`,但活着的宿主/终端进程仍持 `C:\Users\Administrator\AppData\Local\Temp`(实测 `node -p os.tmpdir()` 即旧值),所以走 `os.tmpdir()` 的脚本会继续落 C 盘;新开终端/重启宿主后自愈。判据与污染可见性由守门 **93** `check-c-drive-pollution.mjs`(只读、永不删)承担。
 - **声明策略消费者对账**(121):`scripts/check-declared-policy-has-consumer.mjs`(blocking,`stagedTriggers=apps/,packages/`,2026-09-25 立) —— 判五类"声明"必须有生产面消费者(带链 import 且取用):MAX_AGE/TTL/RETENTION 策略常量、`*BudgetContract*`、packages/types 的 `*Contract` 导出类型与情态谓词、`(prune|cleanup|purge|expire|sweep)` 导出清理函数。注释/字符串/纯 re-export/测试面/scripts 层都不算消费者。立票实测:`apps/cli/src/sessions/state-store.ts` 的 `pruneOldSessions`(7 天保留)全仓零调用方 ⇒ 已挂到 `saveSession` 写前(60s 节流 + `IHUI_SESSION_PRUNE_DISABLED` 出口 + 裁剪异常不冒泡,"宁可不删");`ToolResultBudgetContract` 的唯一合理消费点在 `tools/index.ts` 的 executor 边界,该文件在飞 ⇒ 未接线登记,摘除会砸坏守门 111 的 CONTRACT_GROUPS(§7 有承接功能不得删)。全量现测(2026-10-05 现跑,勿照旧数派单):候选 168 / 未接线 34 处只报数(subagents/state-store.ts 与 apps/api cleanup 族同型,清偿另计批)。**C7 第四族(票 G-816034)**:`create*Handler` / `create*Transport` 导出工厂也进候选集 —— 现读 21 候选 / 6 处零生产调用方 / 形态读不出 0;其中 2 处是**假未接线**(小程序两份 transport 的消费者真在 `apps/miniapp-taro/src/app.tsx`,只是写在第一个顶层声明之前,而 `parseFile` 的 uses 从第一个声明起算 —— C1~C5 立项即有的既有失明,本票不改它,已写进门内「已知限制」),真零调方 4 处含 `apps/web/src/hooks/use-chat/stream-handlers.ts:177 createToolDeltaHandler`。自检 50 例 + 镜像 12 例;紧急跳过 `HUSKY_SKIP_DECLARED_POLICY_CONSUMER=1`。
 - **声明策略消费者对账**(121):`scripts/check-declared-policy-has-consumer.mjs`(blocking,`stagedTriggers=apps/,packages/`,2026-09-25 立) —— 判五类"声明"必须有生产面消费者(带链 import 且取用):MAX_AGE/TTL/RETENTION 策略常量、`*BudgetContract*`、packages/types 的 `*Contract` 导出类型与情态谓词、`(prune|cleanup|purge|expire|sweep)` 导出清理函数。注释/字符串/纯 re-export/测试面/scripts 层都不算消费者。立票实测:`apps/cli/src/sessions/state-store.ts` 的 `pruneOldSessions`(7 天保留)全仓零调用方 ⇒ 已挂到 `saveSession` 写前(60s 节流 + `IHUI_SESSION_PRUNE_DISABLED` 出口 + 裁剪异常不冒泡,"宁可不删");`ToolResultBudgetContract` 的唯一合理消费点在 `tools/index.ts` 的 executor 边界,该文件在飞 ⇒ 未接线登记,摘除会砸坏守门 111 的 CONTRACT_GROUPS(§7 有承接功能不得删)。全量现测:候选 131 / 未接线 32 处 29 文件只报数(subagents/state-store.ts 与 apps/api cleanup 族 9 处同型,清偿另计批)。自检 22 例 + 镜像 8 例;紧急跳过 `HUSKY_SKIP_DECLARED_POLICY_CONSUMER=1`。
-- **同一机制已落到部署锁(2026-09-27,ZCode 吸收线批次 50;机制与三条不许漂的写法见 §5b 的"判活再加一环"条)**:`.deploy.lock` 的 meta 除 `pid/ownerPid/ts` 外再记 `host` + `pidStart`,而 **`pidStart` 量的必须是"判活所问的那个 pid"**(有 `--owner-pid` 就是 owner,没有才退回 CLI pid)—— 主体写错(例如去量调用方自己)会让每次对账都假报"已复用",那条"确证"就变成"确证可以抢",比没有身份凭据更糟;镜像自测 S41/S49 各钉一头。判读三态里**只有 `mismatch` 多给一条抢占授权**(先归档现场再抢,不必把锁龄爬到 30min 硬上限,且不走"持有者已退出"的秒抢通道),`match` / `unverifiable` / 旧 meta 没记身份两元 ⇒ **与改动前逐字同结论**;`--owner-pid` 与 `HARD_CAP_MS` 一字未动,只是从"唯一出路"降级成"第二道兜底"。`check` 与 `release` **不**现测(只读快路径 / 删锁永远是持有者自己的动作),`check` 只如实打印锁里记着什么并补一句"未现测、身份未对账" —— **打印了 `pidStart` 不等于核对过身份**。二次确认那一轮必须把同一个 `identity` 一起传进去,否则"只靠身份确证成立"的那次抢占会在二次确认时被读成"判据不再成立",新通道永远只喊不抢。取证(本会话当轮现跑):`node scripts/deploy-lock.mjs --self-test` 63 条全绿、`node --test scripts/tests/proc-identity.test.mjs` 19 例、既有三条锁镜像 50 例、`node scripts/git-lock.mjs check` rc 0、`node scripts/deploy-lock.mjs check` rc 1(真仓此刻确有 `mode=dev` 的锁,该命令按设计"有锁即 1",新输出行如实标出 `host=(未记) pidStart=(未记)` 与"旧 meta 无凭据 ⇒ 身份无从对账");真实进程对照:新起进程现测启动时刻与当刻 epoch **delta=0**、不存在 pid ⇒ `unverifiable`、人为把记录值提前 700s ⇒ `mismatch`,单次现测 **211ms**、5s 内命中缓存 0ms。**本批没做**:未新增守门(它判的是"锁此刻归谁",属机器状态,挂进提交链就是与提交内容无关的恒红门,§12e 同型);dev 侧**已无「拿锁却声明不出 owner」的 npm 生命周期** —— `predev` 只跑陈旧 stash 巡检、`prebuild` 只做 extension 构建与下载同步,两者今天都不再出现 `deploy-lock.mjs acquire`;`dev` / `dev:clean` / `dev:stable` 三条入口统一走 `scripts/dev-with-warmup.mjs`,由启动器自己 `acquire({ ownerPid: process.pid, token })` 再起 `next dev`,并派一个 detached 的 `heartbeat --watch-pid <启动器 pid>` 每 30s 续 `ts`;`pnpm --filter @ihui/web build` 那把走 `deploy-lock.mjs run --mode build`(拿锁、跑命令、交还在同一个进程里,命令退出码原样传播)。- **上面那条"落地判据"本日已满足(2026-09-27)**:版本化探针 `scripts/visible-window-probe.mjs` 已入库,`git cat-file -e HEAD:scripts/visible-window-probe.mjs` 成立,且它在本机一次性快照里真量到过 **18 个可见窗口 / 1254 条进程记录 / 畸形行 0** —— 不是恒 0。三态硬要求写在实现里:每一维区分"量到 N"/"量不到(点名原因)"/"确实是 0";PowerShell **被自己的 timeout 终止 / ENOENT / 非零退出** 三种失败各有各的文案(实现收尾时正是先把"超时"误标成"派生失败"才补上这条分流)。手动入口 `node scripts/visible-window-probe.mjs --snapshot | --watch <ms> [--json]`,镜像测试 `node --test scripts/tests/visible-window-probe.test.mjs`。**它刻意不进提交链与 `check:all`**:判的是机器运行时状态,提交者结构上满足不了 ⇒ 挂 blocking 就是每台每次被逼 `--no-verify`、连带约 185 道门对该提交作废(§12e 同型)。**上面那句"静态门绿不等于运行时不弹窗"仍然成立** —— 探针给的是"有没有弹"的事实,不替代门 52 的"新代码有没有写 windowsHide"。
-  自动出了角色档射程(现读数一律跑本门末行,本文不钉数字),**这一格不再需要任何标记**;`非正方盒 + 半径≥短边一半 ⇒ 胶囊`——
-  **现行口径(2026-09-28 票㉛ 已升为判红)**:胶囊这一侧要**三个条件同时成立**才判 —— ① 盒形**只取该元素自己的属性区**
-  (到开标签闭合`>`为止,不含任何子节点)且**闭合可确定**;② **非正方盒**;③ **短边 ≥ 16px**。
-  第 ① 条的由来:宽窗口`elementWindow`从开标签向下取 6 行,会把子节点的`h-4 w-4` 算进父盒
-  (`w-40` 下拉被量成 160×10、`h-9 px-4`按钮被量成 16×36)⇒ 现由`boxDimsOwn` 单独承担,判不出闭合即**只报名不判红**。
-  **那一格已于 2026-10-02 收口**:`dev` / `dev:clean` / `dev:stable` 三条入口统一成"唯一一条命令 = 启动器",
-  改 next dist 的预取守卫、缓存治理与 `--purge` 整清全部排在 acquire 之后、spawn 之前 ⇒ 既在锁内、又在 next dev 之前(不违反「严禁运行中清缓存」那条铁律)。
-  - `node --test scripts/tests/deploy-lock.test.mjs`(HB-M1…M10:M10 是"破坏性步骤必须在 acquire 之后、next dev 之前"的顺序形状锁,RU6d/HB-M8 各带"退回旧形态必读红"的反向对照)。
 - **同一机制已落到部署锁(2026-09-27,ZCode 吸收线批次 50;机制与三条不许漂的写法见 §5b 的"判活再加一环"条)**:`.deploy.lock` 的 meta 除 `pid/ownerPid/ts` 外再记 `host` + `pidStart`,而 **`pidStart` 量的必须是"判活所问的那个 pid"**(有 `--owner-pid` 就是 owner,没有才退回 CLI pid)—— 主体写错(例如去量调用方自己)会让每次对账都假报"已复用",那条"确证"就变成"确证可以抢",比没有身份凭据更糟;镜像自测 S41/S49 各钉一头。判读三态里**只有 `mismatch` 多给一条抢占授权**(先归档现场再抢,不必把锁龄爬到 30min 硬上限,且不走"持有者已退出"的秒抢通道),`match` / `unverifiable` / 旧 meta 没记身份两元 ⇒ **与改动前逐字同结论**;`--owner-pid` 与 `HARD_CAP_MS` 一字未动,只是从"唯一出路"降级成"第二道兜底"。`check` 与 `release` **不**现测(只读快路径 / 删锁永远是持有者自己的动作),`check` 只如实打印锁里记着什么并补一句"未现测、身份未对账" —— **打印了 `pidStart` 不等于核对过身份**。二次确认那一轮必须把同一个 `identity` 一起传进去,否则"只靠身份确证成立"的那次抢占会在二次确认时被读成"判据不再成立",新通道永远只喊不抢。取证(本会话当轮现跑):`node scripts/deploy-lock.mjs --self-test` 63 条全绿、`node --test scripts/tests/proc-identity.test.mjs` 19 例、既有三条锁镜像 50 例、`node scripts/git-lock.mjs check` rc 0、`node scripts/deploy-lock.mjs check` rc 1(真仓此刻确有 `mode=dev` 的锁,该命令按设计"有锁即 1",新输出行如实标出 `host=(未记) pidStart=(未记)` 与"旧 meta 无凭据 ⇒ 身份无从对账");真实进程对照:新起进程现测启动时刻与当刻 epoch **delta=0**、不存在 pid ⇒ `unverifiable`、人为把记录值提前 700s ⇒ `mismatch`,单次现测 **211ms**、5s 内命中缓存 0ms。**本批没做**:未新增守门(它判的是"锁此刻归谁",属机器状态,挂进提交链就是与提交内容无关的恒红门,§12e 同型);dev 侧四个 npm 生命周期(`predev`/`dev:clean`/`dev:stable`/`prebuild`)仍无 owner 可声明、因而身份两元对它们无从对账(上面"如实登记未完成的部分"那条继续成立)。
   **仍开着的一格(如实登记,不得读成已全覆盖)**:`dev` 链里 `clean-turbopack-cache.mjs` 跑在启动器拿锁**之前**,
   那一段清缓存与并发构建的重叠窗口与本票改动前同样存在(改前那把 predev 锁也覆盖不到它);
-  - `node --test scripts/tests/deploy-lock.test.mjs`(HB-M1…M9,含"摘掉再入守卫就会白等超时"的端到端臂)。
     IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清单(2026-10-03 减 apps/assistant:签到助手服务端化并入 ai-service,见 apps/ai-service/app/services/checkin_* 与 web /checkin 页):
     第 ③ 条是装饰族的物理下限:细于 16px 的进度条 / 骨架行 / 指示点仍**只开队列**(§4 明令不得方档化,判红等于逼设计改方角)。
     **三层水印**(`scripts/watermark.mjs`):L1 可见横幅(`// © 2026 IHUI AI …`+`// Provenance-watermarked. …`)、L2 横幅内零宽载荷(`// [IHUI-AI-PROVENANCE]:<zw>`)、L3 独立不可见行(注入时落在文件末尾)。
     **判据(2026-09-12 加严,2026-09-29 补第五态)**:载荷必须**可解码且等于 `WATERMARK_TEXT`**,仅"存在"不算数。五态:`完好`/`残迹`(有横幅无载荷)/ `载荷损坏`(存在但解码不符)/**`仅隐写`(有可解码载荷但可见横幅整块不见)**/ `未覆盖`。除"完好"外,`watermark.mjs verify`与`check-watermark-coverage`均 **exit 1**。
     **判据(2026-09-12 加严,2026-09-29 补第五态)**:载荷必须**可解码且等于`WATERMARK_TEXT`**,仅"存在"不算数。五态:`完好`/`残迹`(有横幅无载荷)/ `载荷损坏`(存在但解码不符)/ **`仅隐写`(有可解码载荷但可见横幅整块不见)** / `未覆盖`。除"完好"外,`watermark.mjs verify`与`check-watermark-coverage`均 **exit 1**。`scripts/lib/gitdir.mjs`的`resolvePortableGitCandidates()`(候选序 = 环境变量 > versions 目录扫描 > 旧 1.2.0 兜底)解析 git 二进制的首选;`.qoder-cn`承载本项目记忆与工作区状态)。
     (被`scripts/lib/gitdir.mjs`的`resolvePortableGitCandidates()`当 git 二进制首选解析)不得搬,其`logs`/`traces`约 2GB 属该 IDE`scripts/release-desktop-local.mjs`需要`%USERPROFILE%\.tauri\ihui-updater.key`,而**旧句"本机无 `.tauri`⇒ 桌面发布在此机必`exit 1`"已于 2026-10-01 实测作废**:`.tauri\ihui-updater.key` 348 B、`ihui-updater-password.txt`33 B **都在位**,mtime 2026-09-07(早于该句登记日 09-23 三周)⇒ 登记当时就不成立;那句还写着`:67,74` 的行号指针,而 §1 明令证据指针禁写行号(任何一次 append 后都会挪位)。桌面端能否发布在本机的真判据是"跑一次取签名密钥的那条路径并看它报什么",不是这条散文
-    IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清单(2026-10-03 减 apps/assistant:签到助手服务端化并入 ai-service,见 apps/ai-service/app/services/checkin_* 与 web /checkin 页):
-
 - **§22d 入口守卫对账**(guardian id 以 `scripts/guardian-runner.mjs` 现值为准 —— 本枚取号器落地给到 **194**,并发会话可能挪号;**blocking**,`stagedTriggers=scripts/`,紧急跳过 `HUSKY_SKIP_DIRECT_RUN_GUARD=1`,问责档 `node scripts/check-direct-run-guard.mjs --strict`):`scripts/check-direct-run-guard.mjs` 把 §22d 那条"双形态脚本必须有 `isDirectRun` 守卫"第一次变成跨门判据 —— 此前它只有散文,而散文在本仓的失效形态永远是安静:台账 G-1058651 这一轮逐枚补守卫时现读 `scripts/**.mjs` 仍有 **54** 枚顶层裸 `main()`,**没有任何一道门看守**,同一天里新增的门自己又贡献了 2 枚。**守卫形态认三种**(`isDirectRun` 标识符 / `import.meta.url === pathToFileURL(…)` / `=== fileURLToPath(import.meta.url)` 等值形)—— 只认第一种会把已合规的门算进存量,本票的枚举口径就因此错过两回(见台账该行注记)。**判据面必须是"剥注释与字符串"的代码面**(遮罩只引 `scripts/lib/code-mask.mjs` 那一份):守卫写在注释里、或 `main()` 出现在字符串/模板里都不算违规也不算放过。**差值棘轮**:锚点 = 该文件在 HEAD 面自身的命中数 ⇒ 存量只报数、只拦"本次带进来的新增" —— 与提交者无关的恒红门会逼人 `--no-verify`,一次绕过等于该提交上全部守门作废(§12e)。**唯一出口是具名台账** `scripts/data/direct-run-guard-exemptions.json`(`path + reason + reviewBy` 三件套:缺字段 / 过期 / 登记了而被审面没命中(清单腐烂)都判红;台账整份不在被审面 ⇒ 按"零豁免"判并**大声报出原因**,绝不静默通过),**没有行内豁免通道** —— 这一型的正解只有"把守卫补上",没有"标一下跳过"。**三态绝不并桶**:命中 / 放过 / 未判定逐条点名,`--strict` 下有未判定即 **exit 2 拒绝出合格证**;射程内枚举到 0 判死不记绿;取材同 70/77/83/98/101/103/118(全量判 HEAD blob、`--staged` 判索引 blob、`--worktree` 仅人工、两面旗同给 exit 2、清单与内容同面同轮)。**落地当天由本门第一次量出的两格如实登记**:① **6 枚"未判定"不是仓库缺陷而是共用遮罩层的病** —— `code-mask` 的分词判"正则还是除法"只看上一个有效 token、`lastWord` **跨行不重置**,于是上一行以 `return true` 收尾、本行行首的 `/re/` 被认成除法,半截正则吞掉 `]`,代码面留下配不平的 `[`(受害者:`check-brand-email-channel` / `check-commit-scope-consistency` / `check-desktop-event-wiring` / `check-digest-name-reality` / `check-tool-contract-declared` / `gen-doc-numbers`);修它要动共用分词器,**会同时换掉守门 131/135/148/150/156 的读数基线**,故另计一票,不由本门放宽判据、也不由本门自写第二份遮罩。② 本门镜像测试里那条"未注册不得自称已接线"的方向锁,当下判的是"未接线";注册枚(`8732f89683`)之后它必须翻成"读到 blocking + skipEnv 成套",**它两态都绿过才算有牙**。取证 `--self-test`(例数以命令末行现读为准,含"守卫只写在注释里仍判命中"与"三形态各算一次放过"成对)与 §22c 镜像(含真 git 临时仓五臂:索引注入裸 `main()` 必红 / 补守卫必绿 / 守卫写进注释仍必红 / 存量先入库则必绿 / 存量之上再带新的一枚只判红那一枚)。
 - **迁移完整性**(39):mobile-rn screen 迁移守门(阻塞,防独立实现回升,白名单:Debug/DevEnter/SharedDemo/profileMenuData)
 - **短 sha 出处指针防回潮**(196):`scripts/check-plan-sha-form.mjs`(warn,`stagedTriggers=PROJECT_PLAN.md + scripts/data/plan-sha-noncommit.json`,跳过 `HUSKY_SKIP_PLAN_SHA_FORM=1`)。G-1079146 清偿批的机器闸:台账出处指针只认完整 sha,短 sha 腐烂分四堆的防回潮档;自检 26/26(`--self-test`),台账 2 条可核验样例。脚本入库枚 `c370020d8d`,runner 接线 2026-10-09 由接管席收口(机主授权归并外部持有者敞口)。
@@ -3092,28 +2352,16 @@ React 17+ 的 SyntheticEvent 在事件处理函数返回后 `currentTarget` 会�
   - 豁免:§8 goal 模式临时分支(必须带 `goal/` 前缀,且在 `.ihui-agent/goal-runtime/STATE.md` 标注 `active` 状态才算合法)。2026-09-28 起与之并列的还有:linked worktree 的 checkout 分支及其 `origin/` 镜像(§12d)、镜像远端与幻影引用(既有)、**远端已无该分支而本机远程跟踪引用仍挂着的那一类(stale,2026-10-09 补)** —— 它是"幻影引用"那一档的孪生空档:幻影认的是 sha 取不到,而这一类 sha **完全可解析**(内容还在本机对象库,常常另有 `backup/` tag 指着它),所以既有那一档结构上认不出。当天实测 `origin/wip/collect-2026-09-30` 就是这一型:远端 `ls-remote --heads` 只回 `main` 与 `ihui-backup/*`,而它挂在 `packed-refs` 里 ⇒ **每次提交都被这道门钉红**,而旧提示给的出路 (`git push origin --delete <分支>`)对一条远端不存在的分支必然失败 —— "给一条跑不通的出路"和"没有出路"在后果上等价(各会话 `--no-verify`,连带全部守门对该提交作废,§12e/§12f)。**唯一正解是 `git fetch origin --prune`,且必须连期望清单一起摘**:`git-refs-heal` 按 `refs-manifest.json` 每 2 分钟把清单里的嵌套 ref 造回来,只 prune 盘面等于两分钟后复红(当天实测复现),根因出口是 `node scripts/git-refs-heal.mjs --refresh-remote`。、**在飞窗口内的 PR 分支**、**`backup/` 与 `ihui-backup/` 引用** —— 后两类只报数并逐条点名,因为"让门喊人删备份引用"与 §5b 的禁删令直接冲突。**不得**把当下那几条旁支名抄进门体当白名单消红(名单必然腐烂,§4 对 `RN_ONLY_BRAND_KEYS` 记过同型;已由镜像 T10 反向钉死)。
 - **合并复活已删文件对账**(168):`scripts/check-merge-deletion-resurrection.mjs`(blocking,2026-09-30 立)—— 守门 100 的**另一半**:100 拦「合并吞掉对侧独有新增」,本门拦「**本侧显式删除的路径被合并整批写回**」——「对侧的删除不随合并传播」的孪生面是「我们的删除在对侧眼里就是对侧还留着这个路径」。立项实测定型两次:2026-10-09 第三次复删的前置是先把各处活文档(根 AGENTS/README、台账、docs 工程分册共四处)的反引号点名改成描述式 —— 守门 184 把反引号点名当**存在性承诺**,所以顺序只能是先改点名再删文件,反过来就是把一道 blocking 门点红在自己头上。端内那份零消费者、零深导入的 SectionHeader 副本(小程序腿,与 adapters 那条腿同名) 显式删除(零消费者、零深导入)落地两次都被并集合并写回。判据两条、取证不依赖同一前件:**DR1** P ∈ tree(共同基底) ∧ P ∈ 对侧父 ∧ P ∉ 本侧父 ∧ P ∈ 结果 ⇒ 判红;**DR2** 补 DR1 在多轮「删除→复活」上的结构性失明(第一轮复活后分叉点已推进到已删一侧,下一枚合并的基底里已没有它)—— P ∉ 本侧父 ∧ P ∈ 结果 ∧ 本侧可达范围内存在一笔非合并提交删掉了它 ⇒ 判红(对侧独有新增拿不出删除出处 ⇒ 不判,那是守门 100 的地盘;真仓形态相同的 `9a6e4de011` 正因查不到删除出处被正确放过);同一路径两条取证只计一条(两份基线互相顶掉,真值就读不出)。正当豁免两条、都带证据且非永久免检:① 删除提交信息含显式短语 `intentional-delete:`(证据住提交对象里,每次现读,结构上烂不成免检表);② `scripts/data/deletion-survival-allowlist.json` 带 `path+reason+reviewBy` 且未过期(缺字段/过期/形状漂判红)。未判定档逐条点名,`--strict` 下有未判定即 exit 2 拒绝出合格证;「窗口内无合并」与「解析失败」不并桶(前者如实报 EMPTY WINDOW 不记绿,后者 exit 2)。口径同 100:默认只判未入 origin/main 的合并,历史事故不得把后来每次提交钉红;增量台账 `.workbuddy/merge-deletion-resurrection-audited.json` 让每枚合并只判一次,`--limit N` 留给人工回看。取材一律经 `scripts/lib/face-reader.mjs`(守门 52/80/118 各判的那一型在本门结构上不出现)。取证 `--self-test` 43 例 + §22c 镜像测试 11 例(含 T1 方向锁:未注册时头注必须自称「尚未接线」,注册后注册项必须读到 blocking+skipEnv 成套)。紧急跳过 `HUSKY_SKIP_MERGE_DELETION_RESURRECTION=1`。
 - **合并复活已删文件对账**(168):`scripts/check-merge-deletion-resurrection.mjs`(blocking,2026-09-30 立)—— 守门 100 的**另一半**:100 拦「合并吞掉对侧独有新增」,本门拦「**本侧显式删除的路径被合并整批写回**」——「对侧的删除不随合并传播」的孪生面是「我们的删除在对侧眼里就是对侧还留着这个路径」。立项实测定型两次:`小程序端 components 目录那份同名未接线旧副本(非 adapters 腿)` 显式删除(零消费者、零深导入)落地两次都被并集合并写回。判据两条、取证不依赖同一前件:**DR1** P ∈ tree(共同基底) ∧ P ∈ 对侧父 ∧ P ∉ 本侧父 ∧ P ∈ 结果 ⇒ 判红;**DR2** 补 DR1 在多轮「删除→复活」上的结构性失明(第一轮复活后分叉点已推进到已删一侧,下一枚合并的基底里已没有它)—— P ∉ 本侧父 ∧ P ∈ 结果 ∧ 本侧可达范围内存在一笔非合并提交删掉了它 ⇒ 判红(对侧独有新增拿不出删除出处 ⇒ 不判,那是守门 100 的地盘;真仓形态相同的 `9a6e4de011` 正因查不到删除出处被正确放过);同一路径两条取证只计一条(两份基线互相顶掉,真值就读不出)。正当豁免两条、都带证据且非永久免检:① 删除提交信息含显式短语 `intentional-delete:`(证据住提交对象里,每次现读,结构上烂不成免检表);② `scripts/data/deletion-survival-allowlist.json` 带 `path+reason+reviewBy` 且未过期(缺字段/过期/形状漂判红)。未判定档逐条点名,`--strict` 下有未判定即 exit 2 拒绝出合格证;「窗口内无合并」与「解析失败」不并桶(前者如实报 EMPTY WINDOW 不记绿,后者 exit 2)。口径同 100:默认只判未入 origin/main 的合并,历史事故不得把后来每次提交钉红;增量台账 `.workbuddy/merge-deletion-resurrection-audited.json` 让每枚合并只判一次,`--limit N` 留给人工回看。取材一律经 `scripts/lib/face-reader.mjs`(守门 52/80/118 各判的那一型在本门结构上不出现)。取证 `--self-test` 43 例 + §22c 镜像测试 11 例(含 T1 方向锁:未注册时头注必须自称「尚未接线」,注册后注册项必须读到 blocking+skipEnv 成套)。紧急跳过 `HUSKY_SKIP_MERGE_DELETION_RESURRECTION=1`。
-  **现行口径(2026-09-28 票㉛ 已升为判红)**:胶囊这一侧要**三个条件同时成立**才判 —— ① 盒形**只取该元素自己的属性区**
-  自动出了角色档射程(现读数一律跑本门末行,本文不钉数字),**这一格不再需要任何标记**;`非正方盒 + 半径≥短边一半 ⇒ 胶囊`——
-  (到开标签闭合`>`为止,不含任何子节点)且**闭合可确定**;② **非正方盒**;③ **短边 ≥ 16px**。
-  第 ① 条的由来:宽窗口`elementWindow`从开标签向下取 6 行,会把子节点的`h-4 w-4` 算进父盒
-  (`w-40` 下拉被量成 160×10、`h-9 px-4`按钮被量成 16×36)⇒ 现由`boxDimsOwn` 单独承担,判不出闭合即**只报名不判红**。
-  **那一格已于 2026-10-02 收口**:`dev` / `dev:clean` / `dev:stable` 三条入口统一成"唯一一条命令 = 启动器",
-  改 next dist 的预取守卫、缓存治理与 `--purge` 整清全部排在 acquire 之后、spawn 之前 ⇒ 既在锁内、又在 next dev 之前(不违反「严禁运行中清缓存」那条铁律)。
-  - `node --test scripts/tests/deploy-lock.test.mjs`(HB-M1…M10:M10 是"破坏性步骤必须在 acquire 之后、next dev 之前"的顺序形状锁,RU6d/HB-M8 各带"退回旧形态必读红"的反向对照)。
 - **派生结论通道对账**(199):`scripts/check-spawn-output-channel.mjs`(blocking,`stagedTriggers=scripts/`,紧急跳过 `HUSKY_SKIP_SPAWN_OUTPUT_CHANNEL=1`,问责档 `node scripts/check-spawn-output-channel.mjs --strict`)—— 拦的是与守门 189 **方向相反**的那一型:`stdio` 把 stdout 丢掉(标量 `'ignore'` 对三通道同时生效)或直通终端(`'inherit'`),而**同一作用域里又去读它** ⇒ 结论恒为 `null`,门把"自己没拿到"写成「机器态未判定」并 exit 0,账面读起来像"这台机没跑成",实际是门把尺子的输出扔了(立因:守门 152 自接线起在提交链上从未真的判过一次,而同一把尺子 standalone 给 `scanned: 1429`;票 G-1108372、修复枚 `0604d21605bba58c079ba540107792abb0787533`)。判据唯一实现 `scripts/lib/spawn-output-channel.mjs`,**作用域 = 最内层函数体**:整文件找同名变量实测产 7 处假阳(本仓调用点普遍叫 `r`),所以上下文取不到的顶层调用一律落**未判定**并点名 —— 宁漏不误报,假阳的代价是让人去改本来正常的代码。与 189 / `check-spawn-stdio.mjs`(那两道判"缺 stdio、写 `'pipe'` 也算病")**刻意不并门**:并进去会把**正当**的 `stdio:'ignore'`(确实不吃输出的调用)判红 = 恒红门(§12e)。**没有行内豁免、没有基线台账**:这一型只有"把通道改回管道"一条正解,`SELF_EXEMPT` 只挡门自身与其镜像测试(判据必含违例形态文本,否则门给自己立项那一型判红)。定级 blocking 的前置 = 接线当轮 HEAD 面现读**命中 0**(扫描 1028 文件)⇒ 不新增恒红面;`--strict` 现 rc=2(未判定 34 条,顶层作用域一族)⇒ 合格证那一半仍开着,清偿是把作用域解析做实,**不得把未判定折成通过**。取证 `--self-test` 15 条 + §22c 镜像 `node --test scripts/tests/check-spawn-output-channel.test.mjs` 9 例(M1 装车证明读 **HEAD 面** runner、M2 摘线方向锁、M3 唯一实现锁含"断言里逐字写函数名会命中本文件"的拼接自证、M5 私有索引三臂(注入必红/只写进注释必绿/不吃输出的 ignore 必绿)、M7 空枚举判死、M9 同名变量互顶反例)。
 - **台账同题多号对账(203 —— 编号以 `scripts/guardian-runner.mjs` 现值为准;本节旧稿一度自称 200 且 runner 里 0 命中 ⇒ 文档谎称已接线,2026-10-13 三处同批收口:200 已被 `check-provider-health-vocabulary.mjs` 占用,改号 203 并真接线)**:`scripts/check-plan-task-duplicates.mjs`(2026-10-13 立,机主拍板"彻底根治同题跨号,不要搞那么多号")—— 拦"同一件事在台账上挂着多个编号"的漂移:取号令牌只查号空闲不查题已登记、union 并集把两侧各自旧态副本整批带回(G-461)、F4 逐字判据抓不住正文有漂移的同题副本(G-1104165),三者叠加让同题登记越积越多(立项现读 21 组/199 行,单组最多 22 行)⇒ 派单口径被同题灌水,"任务永远做不完"。判据:**标题指纹** = 未勾登记行的标题段(粗体内文本;粗体恰是票号时取其后至"——"前;无粗体取票号后至"——"前)归一化(小写/去编号引用/去日期/去〔〕注记段/去空白标点;长度门槛按中英文字符加权 16);指纹相同且票号不同 ⇒ 同题组。豁免:指针行(行首【归并】或行内含"【归并】重复登记副本/同题多号收拢"+"不再单独派单/让号/派单以那条为准"——自述不参与派单的行不算独立任务)、已勾行、同号多行(那是 F4/F10 的地盘)。**接线①(写盘闸,同批)**:`live-doc-edit.mjs` 的写盘闸 `judgeNewLineDupes` 对**全部新行**做双维判别 —— 主键维(编号+题面前缀,同台账层 `compositeKeyOf` 同一份判据)+ **指纹维**(同题换号也拦,正是台账同题多号组的成因);让号是正当动作 ⇒ 旧行同批删掉/加指针时给额度放行(`fpQuota`),逐键应急 `LIVE_LEDGER_DUP_OK=<主键>=<原因>`;判据经 `import { extractTaskFingerprint }` 从本门取,不许自抄(§22c)。**接线②(提交链,2026-10-13 补)**:runner **门 203**(`args:['--ratchet']`,blocking,skipEnv `HUSKY_SKIP_PLAN_DUP_TITLE`,stagedTriggers `PROJECT_PLAN.md`/本门/live-doc-edit)。**差值棘轮 `--ratchet`**:锚点 = `HEAD:PROJECT_PLAN.md`,候选面 = `--staged`(缺省,取材走 `scripts/lib/face-reader.mjs`,取不到面 exit 2 不回落不记绿);判据是**成员键计数**(指纹 \t 自持号)只许变少 —— 组数维对"清一组+新增一组"恒绿、集合维对"同键多抄一份"恒绿,计数同时闭合两个空档;存量组只报数(§12e 防恒红门),本次新增成员键判红 exit 1。档位:默认档只报数,`--strict` 判红;`--ratchet` 档上线即绿(HEAD/索引面均 0 组)⇒ 不新增恒红面。取证 `--self-test` **18 例**(8 例判据本体 + 6 例棘轮 + 4 例取面)。**新登记一律走 `{{NEXT_ID}}` 令牌(同题会被当场拒)**,手填编号绕过取号器的形态由写盘闸指纹维(接线①)与门 203(接线②)双层拦下。
-  - **同样禁止用 7-12 位短 sha 当出处指针(G-1079146 立,2026-10-08 由散文升为硬约束)**:与上一条同因 —— 短 sha 的可解析性**寄生在本机对象库 + 本机 lineage**,浅克隆、`gc`、并发推进都会让"当时能问到的号"后来问不到;台账实测分档腐烂率 7-8 位 **30.2%** / 9-12 位 2.0% / 40 位 **0%**(数字出自 `scripts/check-plan-sha-resolvable.mjs` 的量算,现值一律跑它,勿照本行派单)。写法只有两条:**要么全量 40 位,要么换内容锚点**(编号 + 标题原文 / 判据标识符)。取值步骤已接在**两条登记入口**(`scripts/live-doc-edit.mjs` 与 `scripts/safe-commit.mjs` 的活文档写入路径):新行含 sha 形态串而 `git rev-parse --verify <该串>^{commit}` 问不到 ⇒ 打印该提交的全量 40 位并**拒绝落该行**;git 本身问不到(浅历史 / 仓库不可问 / 派生失败)一律落**未判定并放行报名,绝不冒红**;应急出口只有一个 `LIVE_SHA_ALLOW=<token>=<原因>`(逐 token 带原因,无原因不收录)。刻意不建"存量 sha 形态"清单、也不把该判据接进提交链 —— 它判的是历史指针可否兑现,与本次提交内容无关,挂 blocking 就是每台每次被逼 `--no-verify` 连带废掉全部守门(§12e 同型)。
 - **移动端 release 打包 API 基址内联对账(202)**:`scripts/check-mobile-api-base-bake.mjs`(blocking,stagedTriggers `.github/workflows/`+`apps/mobile-rn/`+门体自身,紧急跳过 `HUSKY_SKIP_MOBILE_API_BASE_BAKE=1`)—— 拦"基址没被内联进产物":`EXPO_PUBLIC_*` 只挂在 `expo prebuild` 步的 env 上时,真正求值并内联的打包器(gradle `createBundleReleaseJsAndAssets` / xcodebuild `Bundle React Native` 跑 metro+babel)看不到它 ⇒ 产物内联 `config.ts` 回退值 `http://localhost:8802`,而包 targetSdk=36 无 usesCleartextTraffic 连明文回环也被拦 ⇒ 线上 App 每个请求都失败(2026-10-13 装机实测:登录页恒「网络连接异常」,真机走查四项无法开验)。判据:工作流里基址必须出现在**打包步或 job 级** env(只挂 prebuild 步判红);单一真相 = `apps/mobile-rn/eas.json` 的 `build.production.env`,换基址必须两处同步。取证 `--self-test`(正反成对,含"变量只挂 prebuild 步必红"的事故原状臂);§22c 镜像 `node --test scripts/tests/check-mobile-api-base-bake.test.mjs`(M1 注册锁读 runner、事故形态 vs 合法形态对照、"取不到面不得折成通过"反向臂)。
-  IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清单:
 - **判据门**:`scripts/check-git-stdio-discipline.mjs`(**守门 193** —— 编号以 `scripts/guardian-runner.mjs` 现值为准;本节旧稿与豁免台账文案一度自称 189,而 runner 里 189 根本不存在,已于 2026-10-10 三处同批收口)。判据要点:从 `(` 起做**括号配平取整个调用文本**、在那一整个字符串上判 `stdio` 是否为属性名 —— **绝不逐行匹配**,否则 prettier 折行就把判据改瞎(本仓已吃过这个亏)。**只判属性名不判取值**;**判据落在该次调用的 options 内**,不落"该文件有没有 stdio"。**ES6 属性简写同样算已接管**(2026-10-10 补:`{ stdio, ... }` 与 `{ stdio: [...] }` 在运行期完全等价,原正则要求冒号,把 `scripts/git-heal-broken-links.mjs` 那类写法误判成红 —— 误判的方向是"合规被读成违规",危害小于反向但同样会把 blocking 门变成恒红);**值位置不算属性名**(`{ encoding: stdio }` 不合规),`xstdio:` / `my_stdio:` / `{ stdioX }` 一律仍判红。**禁行内豁免**,豁免只走具名台账 `scripts/check-git-stdio-exemptions.json`。
 - **真仓现读**:判红 **0 处**;射程 scripts(含 `scripts/lib` 91 个)/ 跟踪源码文件 1030 个(其中 `scripts/tests` 457 个),另有 exemptedByLedger 4 条走具名豁免(到期未动即自动失效并重新判红)。**本行不钉数字** —— 旧稿那版「判红 304 处 / 156 个文件」是立门当时(2026-10-03)的读数,已被现读推翻,留着只会让人照旧数派单;任何相关判断一律跑门读末行。**自检 23 例 / 镜像 16 例**(镜像 T13 可能因 `AD` 态文件在环境性红,那不是本门缺陷)。
   IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清单(2026-10-03 减 apps/assistant:签到助手服务端化并入 ai-service,见 apps/ai-service/app/services/checkin_* 与 web /checkin 页):
-  第 ③ 条是装饰族的物理下限:细于 16px 的进度条 / 骨架行 / 指示点仍**只开队列**(§4 明令不得方档化,判红等于逼设计改方角)。
   **三层水印**(`scripts/watermark.mjs`):L1 可见横幅(`// © 2026 IHUI AI …`+`// Provenance-watermarked. …`)、L2 横幅内零宽载荷(`// [IHUI-AI-PROVENANCE]:<zw>`)、L3 独立不可见行(注入时落在文件末尾)。
   **判据(2026-09-12 加严,2026-09-29 补第五态)**:载荷必须**可解码且等于 `WATERMARK_TEXT`**,仅"存在"不算数。五态:`完好`/`残迹`(有横幅无载荷)/ `载荷损坏`(存在但解码不符)/**`仅隐写`(有可解码载荷但可见横幅整块不见)**/ `未覆盖`。除"完好"外,`watermark.mjs verify`与`check-watermark-coverage`均 **exit 1**。
   **判据(2026-09-12 加严,2026-09-29 补第五态)**:载荷必须**可解码且等于`WATERMARK_TEXT`**,仅"存在"不算数。五态:`完好`/`残迹`(有横幅无载荷)/ `载荷损坏`(存在但解码不符)/ **`仅隐写`(有可解码载荷但可见横幅整块不见)** / `未覆盖`。除"完好"外,`watermark.mjs verify`与`check-watermark-coverage`均 **exit 1**。`scripts/lib/gitdir.mjs`的`resolvePortableGitCandidates()`(候选序 = 环境变量 > versions 目录扫描 > 旧 1.2.0 兜底)解析 git 二进制的首选;`.qoder-cn`承载本项目记忆与工作区状态)。
   (被`scripts/lib/gitdir.mjs`的`resolvePortableGitCandidates()`当 git 二进制首选解析)不得搬,其`logs`/`traces`约 2GB 属该 IDE`scripts/release-desktop-local.mjs`需要`%USERPROFILE%\.tauri\ihui-updater.key`,而**旧句"本机无 `.tauri`⇒ 桌面发布在此机必`exit 1`"已于 2026-10-01 实测作废**:`.tauri\ihui-updater.key` 348 B、`ihui-updater-password.txt`33 B **都在位**,mtime 2026-09-07(早于该句登记日 09-23 三周)⇒ 登记当时就不成立;那句还写着`:67,74` 的行号指针,而 §1 明令证据指针禁写行号(任何一次 append 后都会挪位)。桌面端能否发布在本机的真判据是"跑一次取签名密钥的那条路径并看它报什么",不是这条散文
-  IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清单(2026-10-03 减 apps/assistant:签到助手服务端化并入 ai-service,见 apps/ai-service/app/services/checkin_* 与 web /checkin 页):
 - **行首裸编号是本仓登记行的默认形态,必须算主键(2026-09-27 O87 续,`scripts/lib/plan-task-index.mjs`)**:`TASK_ID_PATTERN`(门 71 导出的编号族)只认 `G-/D/O/B/P/W/V3/守门`,而 `titleOf` 又在正文第一个 `.` 处截断 ⇒ `- [ ]75. file_search…`、`- [ ] **86A. 证据流水…**` 这类行的复合主键恒为 null,**F1/F4/归并器对整族结构失明** —— 后果实测:75/51/62 三票的实现与常驻尺子都在 HEAD 且 RC=0,台账仍报未勾选,于是被再派一次。**判据(照抄别重新发明)**:① 编号必须落在剥掉复选框与状态装饰后的**正文开头**,② ≤3 位、可带**单个大写字母后缀**,③ `.`/`、` 之后第一个非空字符不得是数字(否则 `**12.3 万**` 这类量值开头会成百地冒成"第二次登记")。**两条同源缺陷各由一条测试钉住**:M14 钉族缺失本身;M15 钉"**放宽编号判据时,标题跳过必须走同一个出口**" —— 我第一版在 `titleOf` 里另抄了一份窄正则(不认 `**` 与字母后缀),结果标题仍被 cut 在编号后面那个 `.` 上、只剩 `"86A"`(3 字 <4)⇒ composite 仍 null,**刚修判据的那一族上自己失明**;变异取证:把 `stripLeadingNumeric` 退回窄版 ⇒ M14+M15 同时翻红(`pass 14 / fail 2`),逐字还原(`cmp`)后 16/16 绿。**这一族的"行首"判据与门 71 的"登记行"判据是两件事**:门 71 的防丢面仍按裸族认登记行,所以整块回写这类形态目前只有台账层(F1/F4)看得见,门 71 那一面要不要同步扩,归该门持有人决定,不得由本层顺手改。 **2026-10-10 补第三档(枚 5912439747cb27fd9dcceeb21103809161dfd5ce)**:`titleOf` 在 strict/lenient 两档都给不出可用题面时,仅当第一个分界符之后一位内紧跟 `**` 或反引号,才取其后的强调段/标识符段作题面(新出口 `emphasisLedTitle`,它吃 `stripLeadingNumeric` 的产物而不是裸正文 —— "标题跳过必须走同一个出口"那条禁令对它同样成立);分界符字符集抽成唯一常量 `TITLE_TRUNC_CHARS` 由三把 RegExp 共用,`scripts/tests/plan-tasks.test.mjs` 的 M22 形状锁同枚重锚到该常量 —— 旧断言钉的是"带收尾 ] 的裸字面量恰好出现一次",抽成常量后它必然读成 0,而 0 恰是这条判据要防的另一半(判据整块消失)。**扩档当场量到的族**:"行首裸序号 + 题面写在 `**` 强调段里"HEAD 现读 7 行,成键行 1461→1468 且**已成键行逐字不变**(新建镜像 `scripts/tests/plan-task-index.test.mjs` 6 例,含"摘掉第三档必读红"的变异自证)。**扩档的副作用如实登记**:该族里有 1 组带 4 条缺指针的待办副本,问责档 `pnpm check:plan-task-state` 现读「基线棘轮:F4 副本行 由基线 0 涨到 4」;提交链跑的是 `--staged --gate` 差值档,实测封缄 RC=0 ⇒ 没有被钉红,而该门 onFailHint 第 ④ 条明令严禁用 `--update-baseline` 抬基线消红,所以唯一正解是归并 —— 但归并器今天会把整族全部待办行都标成副本、使该族失去终端代表,那一格由 G-1117436 收(修法必须同笔两处:加指针前先为该组保留 1 条终端 + 落地验收从「F4 必须归零」升级为「F4=0 ∨ 剩余副本各有终端」。
 - **provider 健康四档单一真相源对账**(guardian id 以 `scripts/guardian-runner.mjs` 现值为准 —— 本枚取号器给到 **200**,并发会话可能挪号;**blocking**,注册条目随门下发 `args: ['--strict']`,`stagedTriggers=apps/` + `packages/`,紧急跳过 `HUSKY_SKIP_PROVIDER_HEALTH_VOCAB=1`):`scripts/check-provider-health-vocabulary.mjs` 钉的是 2026-10-07 机主拍板「并表」之后**不许再分叉**那一格 —— provider 健康档位 unknown/healthy/degraded/down 是落库列 + REST 字段 + 前端徽章的三重对外契约,canonical 住在 `apps/web/app/(main)/settings/llm/types-v2.ts` 的 `PROVIDER_HEALTH_STATUSES`(as const),派生类型 `ProviderHealthStatus` 由它算出,而 `apps/web/app/(main)/models/channels/channels-api.ts` 的 `RelayKeyPoolHealthStatus` 已改成指向同一来源的本域**别名**(不再写字面量 ⇒ "逐档等值"由单源天然成立)。**为什么立这道门**:票面原写的落点 `apps/web/src/components/settings/llm/types-v2.ts` 与 `apps/api` 侧那张表都是错的(现跑 `git grep -n "RelayKeyPoolHealthStatus" HEAD -- apps/api/src` 零命中),而"并表是语义决策、腐烂是时间问题"——没有门的登记表一定回退(§4 对 `RN_ONLY_BRAND_KEYS` 同一条教训)。**三条判据**:**PV1** canonical 必须是那张 as const 数组且派生类型由它算(改成字面量联合即红)/ **PV2** 全仓不得出现第二份**同值**档位声明(接线当轮 HEAD 面现读:扫描 409 候选 · 同值副本 0 ⇒ 可直挂 blocking 而不新增恒红面;真子集 2 处**只报名**,补齐到全档即翻红,那是预期行为不是门坏了)/ **PV3** 别名形态必须仍解析到 canonical,被换回字面量即红。**同名不同域按值不判并登记**:web 侧另一张 `ProviderHealthStatus` 是 ok/invalid_key/unreachable/not_configured 的四档不同语义、`packages/api-client` 的 7 档、`unhealthy` 族,把它们并进射程就是拿别人的正当写法替本门发合格证;`.py` 侧 StrEnum 跨语言对账机主已裁决**不扩**。**无行内豁免通道**(正当写法本来就绿 —— 这一型不存在"合理动作被误伤"因而需要逃生舱),只有门内那份具名覆盖边界台账;将来要开行内出口**必须同笔**登记进守门 108 的 `FAMILY_LIFETIME_DAYS`,否则邻居的 E4 会把第一处真用它判成"新引入的未登记豁免族"= 两道门互咬。**条目必须带 `--strict`**:本门默认档只报数,不带它的 blocking 就是一台永远不红的尺子(守门 117 那条"不带它升档是假的"同型)。**口径同 70/77/83/98/101/103/118/151**:全量判 HEAD blob、`--staged` 判索引 blob、`--worktree` 仅人工、两面旗同给 exit 2、取不到不回落、枚举到 0 个候选判死不记绿,遮罩只引 `scripts/lib/code-mask.mjs` 那一份。**注册与文档点名同笔**(守门 89 的 R2 判"谎称已接线"、R4 判"已接线而文档通篇不点名",拆开落就是替每一次碰文档的提交造恒红门)。取证 `--self-test` 与 §22c 镜像各以命令末行现读为准 —— 镜像含 **T5/T15 的接线方向锁双向臂**(未接线时头注不得自称已接线;接线后必须 blocking + skipEnv + `--strict` 成套,夹具四臂自证有牙)、**T13 两旗同给必 exit 2**、**T14 唯一真相源被摘线 ⇒ CLI 必 exit 2 且输出不得出现合格字样**(配补回即 RC=0 的正向臂)。已知边界如实登记:`--worktree` 档看不见未跟踪文件,运行时算出的档位无静态判据。台账 G-814416 / G-1058634。
 - **跨端 Button 共享档位值的唯一源(2026-09-29 O92 立;同日按用户拍板改成「基座 + 追加」)**:`packages/design-tokens/src/button-variants.ts` 导出 `SHARED_BUTTON_BASE_CLASS` / `SHARED_BUTTON_VARIANT_CLASSES`(default / destructive / outline / ghost)/ `SHARED_BUTTON_SIZE_CLASSES`(sm / lg),`packages/ui-react/src/components/button.tsx` 与 `packages/ui-native/src/button.tsx` 各自那次 `cva()` 必须先 spread 这三张表、**再在基座之外追加**平台修饰。**禁止在任一端再抄一份同档 class string,也禁止把共享键整档写成字面量** —— 整档覆盖会让共享值只约束"没覆盖的那一端",而账面读起来仍像两端同源(这就是本票消灭的形态);常驻锁 `scripts/tests/shared-button-tier-base.test.mjs`(读 HEAD 面,键集从 `button-variants.ts` 现读推导、不建第二份名单)把这一条钉死:共享键被任一端写成字面量即红,T4 阳性对照用构造文本证明判据有牙、T5 反向对照证明"基座+追加"不误报。共享单元之所以是**配置对象**而不是 cva 实例:cva 没有官方 compose / merge,各端的平台修饰必须能追加,只能由两端各自展开后 build。主 CTA 档一律 `bg-cta` + `text-cta-foreground` 成对(见本节"品牌 CTA / 主按钮色同源"),`ui-native` 早期写的 `bg-primary` + `text-primary-foreground` 已归位 —— 两档在亮/暗档案下取值全等,所以这是语义归位不是改观感,且 `bg-cta` 由 `tailwind-preset.js` 的 `cta.DEFAULT` / `cta.foreground` 真实供给(该文件头注写明未注册时它会**静默生成不出任何规则**)。**耦合边界(2026-10-10 机主拍板「统一网页端和手机端按钮样式」后的现读口径)**:表里每一档放**两端共同持有的那组原子**,而"底与字色"从这天起也算共同持有 —— `outline` 基座 = `border border-input bg-background text-foreground`、`ghost` 基座 = `bg-transparent text-foreground`、`size lg` 基座 = `h-10 px-8`(取 web 定稿,RN 原 `h-12 px-6` 跟上来);web 只在基座之外追加 `shadow*` / `hover:*` / `rounded-sm`,RN 无追加(RN 没有 CSS 继承,底与字色只能显式给,所以它们必须是基座的一部分,而不是某一端的特化值)。此前 `ghost` 与 `lg` 被记成"共同集合为空 ⇒ 空串",那是**用空串遮住一处真分叉**:同一档名在两端是不同的串,而账面读起来仍像同源。常驻锁同批补三条正断言 —— T7 基座原子必须在两端最终串都在位、T8 端内追加不得与基座同族取不同值(同族双值由 Tailwind 的输出顺序裁决,不是由我们裁决)、T10 共享档不得再用空串占位;双面证据:并档前 HEAD 面 9 绿 1 红(红在 T10 并点名 `variant.ghost` 与 `size.lg`),并档后 10 绿。**仍未统一的三格(不得读成"整个 Button 已同源")**:① 圆角 —— web 在 lg 追加 `rounded-sm`(4px),而 RN 的 cva 基座整表是 `rounded-md`(6px),归圆角角色档那一票;② 字号 —— web 的 sm 追加 `text-xs`,而 RN 的文字尺寸由组件内部 Text 固定为 `text-sm`,size 档只作用在盒上;③ 默认档高度 —— RN 独占 `md=h-10`(40) 而 web 的 `default=h-9`(36),现读 RN 侧 size 显式传参 0 处、全部走 defaultVariants ⇒ 两端默认按钮仍差 4px。三格都不是"同一档名取不同值",已登记台账待统一批(动②③等于全站 RN 按钮改尺寸,需跨端回归)。并由常驻锁 `scripts/tests/shared-button-tier-base.test.mjs` 的 T11/T12 钉住:统一其中任一格都会让 T11 红一次并要求同步本句与台账 G-1115908(T12 用构造面证明它有牙),不得静默演进。本票"观感一字未变"不是靠读代码声明的:改动前后两端每个档位最终 class 的 **token 多重集**逐档对账(30 档全等),同一把尺子喂一处真变异(ghost 多写一个 token)必红并点名该档、还原必绿。
@@ -3129,46 +2377,13 @@ React 17+ 的 SyntheticEvent 在事件处理函数返回后 `currentTarget` 会�
 - **静默失效双探测(2026-09-28 立;warn 档;2026-10-07 机主拍板「统一 warn 定级 + 官方紧急跳过变量」后已注册进提交链的 warn 位(随链跑但不阻塞),紧急跳过 HUSKY_SKIP_SERVICE_BINARY_PATHS=1)**:`scripts/check-service-binary-paths.mjs`(问责入口 `pnpm check:service-paths`)判 Windows 服务三件事,缺一即瞎 —— `sc query` 的 STATE、`nssm get <svc> Application` 指向的文件是否真存在、服务自身配置里声明的端口是否真应答;其中"取不到值"与"值为空"**以 nssm 退出码分岔**(实测其 stdout 是 UTF-16LE 无 BOM,NUL 占比 0.5),绝不并桶。立因是实测事故:`IHUI-RSSHUB` 因 `.workbuddy` 自升级把 `node\versions\22.22.2-2` 换成 `-3` 而**静默停 3 天**,183 道门禁无一看见、Alertmanager 当时 0 条告警。`scripts/check-public-path-probe.mjs`(问责入口 `pnpm check:public-path`,并由 `scripts/git-guardian.mjs` 在 `!CHECK_ONLY` 分支每 30 分钟探测一次)把**换流窗口(outage 口径,锚 `deploy-loop.log` 的 ASCII 签名)**与**常态公网(ratio 口径 + 本地控制组)**分成两条互不顶账的序列 —— 一条掩盖另一条就等于没量;取证一律经 `scripts/run-evidence.mjs` 封缄,一份"0 次失败"而没跑完的证据判 `truncated`/exit 3,**不成为合格证**。两台都判**机器运行时状态**,提交者结构上满足不了 ⇒ 挂 blocking 就是每台每次被逼 `--no-verify`、连带全部守门作废(AGENTS §12e 同型),所以定级 warn/告警,且不新建计划任务。
   - **守门 128 的第三条腿 = web(2026-09-30 立,`scripts/check-cross-end-ui-parity.mjs` 的 WD 维)**:§4「跨端样式同步铁律」第一句就写着「web 与 miniapp-taro 视觉必须完全一致」,而 128 的配对源只有 miniapp 与 RN 两面 —— 即**用户报"搜索输入井三端 4/6/8px"时,那三格里只有一格在射程内,另外两格(小程序 ↔ web)结构上永不可见**。现补:`webPair` = **同名同文件**配对的 web 侧(与主腿同为 `pairKey` 归一、同受 `candRank` 选腿判据约束,绝不新增 `normKey`/`platformSuffix` 变体),并复用主腿 `scan()` 的圆角档读取(含各组件自己 import 的样式表),所以 web 与 RN/小程序用**同一把尺子**,不是第二套解析。**四条不许漂的写法**:① **锚点四键单立**(`webCounts` / `webRadiusCounts` / `webElementRadiusCounts` / `webWaivers`)—— web 与主腿的锚点**永远不得互相顶账**(自检 WD2 成对锁:主腿降一格不得放行 web 上升,反之亦然;两把尺子互相改基准是本仓最贵的一类事故);② **首锚例外只开一次**(`anchorRegression` 认"该键空 → 有"为一次入账),此后只降不升,所以下一个人不能拿"首锚"当永久通道;③ **整腿未判定 ⇒ 大声并 exit 1,不得借另两腿的绿出合格证**,也**不得连带 kill 掉另两腿的结论**(web 腿崩 ⇒ `blocked.web` 点名 + 人读行 `⚠️ 整腿未判定`,而 `blocked.main` 仍照常打印);④ 读数边界必须跟数字一起印 —— **WD 只接了 RD(文件级档集合)量纲**,几何 / 元素名(RE)/ 图标载体三维在 web 腿**未判**,所以 `web 腿 … 判红 0 / 未判定 0` 这句**不得被读成"web 与小程序已同值"**;`undeterminedSide` 只计一侧无档的情形(那可能只是另一侧没写档),另一侧有档而集合不同照旧是真分叉(`Loading` 8 vs 2 就是这么量出来的)。**同批被这次开腿逼出的落地器缺陷**(与判据无关,但同属"账面绿而结论无效"):阳性对照的载体 `runAtRef()` 把"跑到"判成 `rc === 0`,而退出码里的 1 是**相对当今天台账的棘轮红了** —— 给 web 腿钉上首锚之后,任何一枚早于今天的 ref 必然超锚,于是那函数会把"有结论"读成"跑不动"(T24 当场翻红)。正解不是把锚点调大、也不是换一枚 ref,而是把"跑到"改判成**结构完整的判定**(rc 0/1 皆可,但 `findings` 必须非空且 JSON 可解),并由 **T24b 反向锁**钉住"根本不存在的 ref 仍须判没跑到"—— 只放宽退出码而不加存在性断言,等于让"崩在半路而恰好打了点字"冒充结论。**同批补的第二维 = 分腿拆对(`pairingRejects.<族>.legs`)**:装上 web 腿后立刻撞到 —— 拆对名单原本是**一张全局名单**,而 collect 里主腿与 web 腿共用同一个 `rejSet`,所以"只想拆 web 那份同名死副本"的一条声明会连带把**主腿在册的配对**一起摘线(实测 LoginPopUp / UserInfoCard 在主腿有账)。表现不是报错,是那一维静默归零 ⇒ 缺省不写 legs = 两腿都拆(既有 `FloatBox` 声明逐字不改行为),而 ②"仍挂锚点"与 ③"整族找不到"两条判据都必须**按腿各查各的表**:用主腿名单去核 web 键会同时造出假红(逼人删掉正当声明)与放过真腐烂。`anchorRegression` 同批改:豁免短路原本只读 `prior.waivers`,等于"给这条腿写了理由就能让那条腿的锚点凭空蒸发",现两腿各用自己的表。**12 族读数已逐条裁毕**(现读 `node scripts/check-cross-end-ui-parity.mjs` 的 web 腿行:拆对 4 / 带理由豁免 6 / 改像素 1 / 留在账上待拍板 1):拆对的是 Loading·VoiceInput·LoginPopUp·UserInfoCard(全部经人工查明是零消费者死副本或同名不同物,**这是个案裁决不是机制**,机制化 = 给 web 腿补端入口可达性剔除(✅ 2026-10-11 现读:该机制已于 2026-10-08 落地 —— SEED_DIRS.web=apps/web/app + @/ 按 web tsconfig + 真仓剔 6 对逐条点名 + 可选端挂起留痕,pairingRejects 现只剩 FloatBox,镜像 T30 钉住 ⇒ **不得再照本句去新建第二套剔除机制**));豁免的 6 族里 `ConfirmDialog` 与 `SearchBar` 的"仅小程序档"其实是**尺子没跟到包 import 那一层**(web 侧同值住在 `packages/ui-react` 的 dialog/button/search-input 里),理由文本把这点写明,免得下一个人去给单端补数字;改像素的是 `Tooltip`(小程序输入气泡裸 `rounded`=8 → `rounded-md`,与 web 同档,也才是 popover 档);**唯一刻意不豁免**的是 `VideoPlayer` —— 它的 4 是单侧自绘 chrome(可豁免),但 8 是同一元素两端不同档(web 舞台 lg vs 小程序/RN 直角),方向属全端观感决策,让它留在账上可见(锚点 2)而不是用一条家庭式豁免把真分叉一起遮掉。顺带点名一处**裸 `rounded` 不进提取式**的盲区(补认会同时移动 77/150/128 三本账 ⇒ 必须同批重锚,已单列 G-978049②而不是顺手改)。
   - **守门 128 的第三条腿 = web(2026-09-30 立,`scripts/check-cross-end-ui-parity.mjs` 的 WD 维)**:§4「跨端样式同步铁律」第一句就写着「web 与 miniapp-taro 视觉必须完全一致」,而 128 的配对源只有 miniapp 与 RN 两面 —— 即**用户报"搜索输入井三端 4/6/8px"时,那三格里只有一格在射程内,另外两格(小程序 ↔ web)结构上永不可见**。现补:`webPair` = **同名同文件**配对的 web 侧(与主腿同为 `pairKey` 归一、同受 `candRank` 选腿判据约束,绝不新增 `normKey`/`platformSuffix` 变体),并复用主腿 `scan()` 的圆角档读取(含各组件自己 import 的样式表),所以 web 与 RN/小程序用**同一把尺子**,不是第二套解析。**四条不许漂的写法**:① **锚点四键单立**(`webCounts` / `webRadiusCounts` / `webElementRadiusCounts` / `webWaivers`)—— web 与主腿的锚点**永远不得互相顶账**(自检 WD2 成对锁:主腿降一格不得放行 web 上升,反之亦然;两把尺子互相改基准是本仓最贵的一类事故);② **首锚例外只开一次**(`anchorRegression` 认"该键空 → 有"为一次入账),此后只降不升,所以下一个人不能拿"首锚"当永久通道;③ **整腿未判定 ⇒ 大声并 exit 1,不得借另两腿的绿出合格证**,也**不得连带 kill 掉另两腿的结论**(web 腿崩 ⇒ `blocked.web` 点名 + 人读行 `⚠️ 整腿未判定`,而 `blocked.main` 仍照常打印);④ 读数边界必须跟数字一起印 —— **WD 只接了 RD(文件级档集合)量纲**,几何 / 元素名(RE)/ 图标载体三维在 web 腿**未判**,所以 `web 腿 … 判红 0 / 未判定 0` 这句**不得被读成"web 与小程序已同值"**;`undeterminedSide` 只计一侧无档的情形(那可能只是另一侧没写档),另一侧有档而集合不同照旧是真分叉(`Loading` 8 vs 2 就是这么量出来的)。**同批被这次开腿逼出的落地器缺陷**(与判据无关,但同属"账面绿而结论无效"):阳性对照的载体 `runAtRef()` 把"跑到"判成 `rc === 0`,而退出码里的 1 是**相对当今天台账的棘轮红了** —— 给 web 腿钉上首锚之后,任何一枚早于今天的 ref 必然超锚,于是那函数会把"有结论"读成"跑不动"(T24 当场翻红)。正解不是把锚点调大、也不是换一枚 ref,而是把"跑到"改判成**结构完整的判定**(rc 0/1 皆可,但 `findings` 必须非空且 JSON 可解),并由 **T24b 反向锁**钉住"根本不存在的 ref 仍须判没跑到"—— 只放宽退出码而不加存在性断言,等于让"崩在半路而恰好打了点字"冒充结论。**同批补的第二维 = 分腿拆对(`pairingRejects.<族>.legs`)**:装上 web 腿后立刻撞到 —— 拆对名单原本是**一张全局名单**,而 collect 里主腿与 web 腿共用同一个 `rejSet`,所以"只想拆 web 那份同名死副本"的一条声明会连带把**主腿在册的配对**一起摘线(实测 LoginPopUp / UserInfoCard 在主腿有账)。表现不是报错,是那一维静默归零 ⇒ 缺省不写 legs = 两腿都拆(既有 `FloatBox` 声明逐字不改行为),而 ②"仍挂锚点"与 ③"整族找不到"两条判据都必须**按腿各查各的表**:用主腿名单去核 web 键会同时造出假红(逼人删掉正当声明)与放过真腐烂。`anchorRegression` 同批改:豁免短路原本只读 `prior.waivers`,等于"给这条腿写了理由就能让那条腿的锚点凭空蒸发",现两腿各用自己的表。**12 族读数已逐条裁毕**(现读 `node scripts/check-cross-end-ui-parity.mjs` 的 web 腿行:拆对 4 / 带理由豁免 6 / 改像素 1 / 留在账上待拍板 1):拆对的是 Loading·VoiceInput·LoginPopUp·UserInfoCard(全部经人工查明是零消费者死副本或同名不同物,**这是个案裁决不是机制**,机制化 = 给 web 腿补端入口可达性剔除(✅ 2026-10-11 现读:该机制已于 2026-10-08 落地 —— SEED_DIRS.web=apps/web/app + @/ 按 web tsconfig + 真仓剔 6 对逐条点名 + 可选端挂起留痕,pairingRejects 现只剩 FloatBox,镜像 T30 钉住 ⇒ **不得再照本句去新建第二套剔除机制**));豁免的 6 族里 `ConfirmDialog` 与 `SearchBar` 的"仅小程序档"其实是**尺子没跟到包 import 那一层**(web 侧同值住在 `packages/ui-react` 的 dialog/button/search-input 里),理由文本把这点写明,免得下一个人去给单端补数字;改像素的是 `Tooltip`(小程序输入气泡裸 `rounded`=8 → `rounded-md`,与 web 同档,也才是 popover 档);**同日按用户拍板收口的一族 = `VideoPlayer`**(拍板原话「要统一有小圆角」):三端视频舞台一律取 `lg`(8px,也是 `RADIUS_ROLES` 容器那一档),web 现档未动、小程序三处舞台容器 + RN 舞台 style 跟上来 ⇒ web 腿只剩"仅 web 档 4"(自绘控制 chrome,与主腿既有豁免同型),台账该族锚点随实测 2→1。**顺带一条本族才成立的书写规矩:微信 `<Video>` 是原生组件,父级 `overflow-hidden` 结构上裁不到它 ⇒ 圆角必须同时给到它自己的 className,只给容器会出现"容器圆、画面方";RN 同形(`overflow:'hidden'` + `borderRadius: rnRadius.lg`,不写字面量)。**仍开着的一格:`packages/app/src/features/video-player/VideoPlayerScreen.tsx` 的 `noUrlBox`(同一 16:9 槽位的空态框)落地时被并行会话持有(` M`)⇒ 按 §12 只报不动,由持有方收尾时一并带上。顺带点名一处**裸 `rounded` 不进提取式**的盲区(补认会同时移动 77/150/128 三本账 ⇒ 必须同批重锚,已单列 G-978049②而不是顺手改)。
-  - **同样禁止用 7-12 位短 sha 当出处指针(G-1079146 立,2026-10-08 由散文升为硬约束)**:与上一条同因 —— 短 sha 的可解析性**寄生在本机对象库 + 本机 lineage**,浅克隆、`gc`、并发推进都会让"当时能问到的号"后来问不到;台账实测分档腐烂率 7-8 位 **30.2%** / 9-12 位 2.0% / 40 位 **0%**(数字出自 `scripts/check-plan-sha-resolvable.mjs` 的量算,现值一律跑它,勿照本行派单)。写法只有两条:**要么全量 40 位,要么换内容锚点**(编号 + 标题原文 / 判据标识符)。取值步骤已接在**两条登记入口**(`scripts/live-doc-edit.mjs` 与 `scripts/safe-commit.mjs` 的活文档写入路径):新行含 sha 形态串而 `git rev-parse --verify <该串>^{commit}` 问不到 ⇒ 打印该提交的全量 40 位并**拒绝落该行**;git 本身问不到(浅历史 / 仓库不可问 / 派生失败)一律落**未判定并放行报名,绝不冒红**;应急出口只有一个 `LIVE_SHA_ALLOW=<token>=<原因>`(逐 token 带原因,无原因不收录)。刻意不建"存量 sha 形态"清单、也不把该判据接进提交链 —— 它判的是历史指针可否兑现,与本次提交内容无关,挂 blocking 就是每台每次被逼 `--no-verify` 连带废掉全部守门(§12e 同型)。
     **现行口径(2026-09-28 票㉛ 已升为判红)**:胶囊这一侧要**三个条件同时成立**才判 —— ① 盒形**只取该元素自己的属性区**
-    第 ③ 条是装饰族的物理下限:细于 16px 的进度条 / 骨架行 / 指示点仍**只开队列**(§4 明令不得方档化,判红等于逼设计改方角)。
     自动出了角色档射程(现读数一律跑本门末行,本文不钉数字),**这一格不再需要任何标记**;`非正方盒 + 半径≥短边一半 ⇒ 胶囊`——
     (到开标签闭合`>`为止,不含任何子节点)且**闭合可确定**;② **非正方盒**;③ **短边 ≥ 16px**。
     第 ① 条的由来:宽窗口`elementWindow`从开标签向下取 6 行,会把子节点的`h-4 w-4` 算进父盒
     (`w-40` 下拉被量成 160×10、`h-9 px-4`按钮被量成 16×36)⇒ 现由`boxDimsOwn` 单独承担,判不出闭合即**只报名不判红**。
     **那一格已于 2026-10-02 收口**:`dev` / `dev:clean` / `dev:stable` 三条入口统一成"唯一一条命令 = 启动器",
     改 next dist 的预取守卫、缓存治理与 `--purge` 整清全部排在 acquire 之后、spawn 之前 ⇒ 既在锁内、又在 next dev 之前(不违反「严禁运行中清缓存」那条铁律)。
-  - `node --test scripts/tests/deploy-lock.test.mjs`(HB-M1…M10:M10 是"破坏性步骤必须在 acquire 之后、next dev 之前"的顺序形状锁,RU6d/HB-M8 各带"退回旧形态必读红"的反向对照)。
     IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清单:
-    **三层水印**(`scripts/watermark.mjs`):L1 可见横幅(`// © 2026 IHUI AI …`+`// Provenance-watermarked. …`)、L2 横幅内零宽载荷(`// [IHUI-AI-PROVENANCE]:<zw>`)、L3 独立不可见行(注入时落在文件末尾)。
-    **判据(2026-09-12 加严,2026-09-29 补第五态)**:载荷必须**可解码且等于 `WATERMARK_TEXT`**,仅"存在"不算数。五态:`完好`/`残迹`(有横幅无载荷)/ `载荷损坏`(存在但解码不符)/**`仅隐写`(有可解码载荷但可见横幅整块不见)**/ `未覆盖`。除"完好"外,`watermark.mjs verify`与`check-watermark-coverage`均 **exit 1**。
-    **判据(2026-09-12 加严,2026-09-29 补第五态)**:载荷必须**可解码且等于`WATERMARK_TEXT`**,仅"存在"不算数。五态:`完好`/`残迹`(有横幅无载荷)/ `载荷损坏`(存在但解码不符)/ **`仅隐写`(有可解码载荷但可见横幅整块不见)** / `未覆盖`。除"完好"外,`watermark.mjs verify`与`check-watermark-coverage`均 **exit 1**。`scripts/lib/gitdir.mjs`的`resolvePortableGitCandidates()`(候选序 = 环境变量 > versions 目录扫描 > 旧 1.2.0 兜底)解析 git 二进制的首选;`.qoder-cn`承载本项目记忆与工作区状态)。
-    (被`scripts/lib/gitdir.mjs`的`resolvePortableGitCandidates()`当 git 二进制首选解析)不得搬,其`logs`/`traces`约 2GB 属该 IDE`scripts/release-desktop-local.mjs`需要`%USERPROFILE%\.tauri\ihui-updater.key`,而**旧句"本机无 `.tauri`⇒ 桌面发布在此机必`exit 1`"已于 2026-10-01 实测作废**:`.tauri\ihui-updater.key` 348 B、`ihui-updater-password.txt`33 B **都在位**,mtime 2026-09-07(早于该句登记日 09-23 三周)⇒ 登记当时就不成立;那句还写着`:67,74` 的行号指针,而 §1 明令证据指针禁写行号(任何一次 append 后都会挪位)。桌面端能否发布在本机的真判据是"跑一次取签名密钥的那条路径并看它报什么",不是这条散文
-  - **同样禁止用 7-12 位短 sha 当出处指针(G-1079146 立,2026-10-08 由散文升为硬约束)**:与上一条同因 —— 短 sha 的可解析性**寄生在本机对象库 + 本机 lineage**,浅克隆、`gc`、并发推进都会让"当时能问到的号"后来问不到;台账实测分档腐烂率 7-8 位 **30.2%** / 9-12 位 2.0% / 40 位 **0%**(数字出自 `scripts/check-plan-sha-resolvable.mjs` 的量算,现值一律跑它,勿照本行派单)。写法只有两条:**要么全量 40 位,要么换内容锚点**(编号 + 标题原文 / 判据标识符)。取值步骤已接在**两条登记入口**(`scripts/live-doc-edit.mjs` 与 `scripts/safe-commit.mjs` 的活文档写入路径):新行含 sha 形态串而 `git rev-parse --verify <该串>^{commit}` 问不到 ⇒ 打印该提交的全量 40 位并**拒绝落该行**;git 本身问不到(浅历史 / 仓库不可问 / 派生失败)一律落**未判定并放行报名,绝不冒红**;应急出口只有一个 `LIVE_SHA_ALLOW=<token>=<原因>`(逐 token 带原因,无原因不收录)。刻意不建"存量 sha 形态"清单、也不把该判据接进提交链 —— 它判的是历史指针可否兑现,与本次提交内容无关,挂 blocking 就是每台每次被逼 `--no-verify` 连带废掉全部守门(§12e 同型)。
-    自动出了角色档射程(现读数一律跑本门末行,本文不钉数字),**这一格不再需要任何标记**;`非正方盒 + 半径≥短边一半 ⇒ 胶囊`——
-    **现行口径(2026-09-28 票㉛ 已升为判红)**:胶囊这一侧要**三个条件同时成立**才判 —— ① 盒形**只取该元素自己的属性区**
-    (到开标签闭合`>`为止,不含任何子节点)且**闭合可确定**;② **非正方盒**;③ **短边 ≥ 16px**。
-    第 ① 条的由来:宽窗口`elementWindow`从开标签向下取 6 行,会把子节点的`h-4 w-4` 算进父盒
-    (`w-40` 下拉被量成 160×10、`h-9 px-4`按钮被量成 16×36)⇒ 现由`boxDimsOwn` 单独承担,判不出闭合即**只报名不判红**。
-    IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清单:
-  - `node --test scripts/tests/deploy-lock.test.mjs`(HB-M1…M10:M10 是"破坏性步骤必须在 acquire 之后、next dev 之前"的顺序形状锁,RU6d/HB-M8 各带"退回旧形态必读红"的反向对照)。
-    第 ③ 条是装饰族的物理下限:细于 16px 的进度条 / 骨架行 / 指示点仍**只开队列**(§4 明令不得方档化,判红等于逼设计改方角)。
-    **三层水印**(`scripts/watermark.mjs`):L1 可见横幅(`// © 2026 IHUI AI …`+`// Provenance-watermarked. …`)、L2 横幅内零宽载荷(`// [IHUI-AI-PROVENANCE]:<zw>`)、L3 独立不可见行(注入时落在文件末尾)。
-    **判据(2026-09-12 加严,2026-09-29 补第五态)**:载荷必须**可解码且等于 `WATERMARK_TEXT`**,仅"存在"不算数。五态:`完好`/`残迹`(有横幅无载荷)/ `载荷损坏`(存在但解码不符)/**`仅隐写`(有可解码载荷但可见横幅整块不见)**/ `未覆盖`。除"完好"外,`watermark.mjs verify`与`check-watermark-coverage`均 **exit 1**。
-    **判据(2026-09-12 加严,2026-09-29 补第五态)**:载荷必须**可解码且等于`WATERMARK_TEXT`**,仅"存在"不算数。五态:`完好`/`残迹`(有横幅无载荷)/ `载荷损坏`(存在但解码不符)/ **`仅隐写`(有可解码载荷但可见横幅整块不见)** / `未覆盖`。除"完好"外,`watermark.mjs verify`与`check-watermark-coverage`均 **exit 1**。`scripts/lib/gitdir.mjs`的`resolvePortableGitCandidates()`(候选序 = 环境变量 > versions 目录扫描 > 旧 1.2.0 兜底)解析 git 二进制的首选;`.qoder-cn`承载本项目记忆与工作区状态)。
-    (被`scripts/lib/gitdir.mjs`的`resolvePortableGitCandidates()`当 git 二进制首选解析)不得搬,其`logs`/`traces`约 2GB 属该 IDE`scripts/release-desktop-local.mjs`需要`%USERPROFILE%\.tauri\ihui-updater.key`,而**旧句"本机无 `.tauri`⇒ 桌面发布在此机必`exit 1`"已于 2026-10-01 实测作废**:`.tauri\ihui-updater.key` 348 B、`ihui-updater-password.txt`33 B **都在位**,mtime 2026-09-07(早于该句登记日 09-23 三周)⇒ 登记当时就不成立;那句还写着`:67,74` 的行号指针,而 §1 明令证据指针禁写行号(任何一次 append 后都会挪位)。桌面端能否发布在本机的真判据是"跑一次取签名密钥的那条路径并看它报什么",不是这条散文
-    自动出了角色档射程(现读数一律跑本门末行,本文不钉数字),**这一格不再需要任何标记**;`非正方盒 + 半径≥短边一半 ⇒ 胶囊`——
-    **现行口径(2026-09-28 票㉛ 已升为判红)**:胶囊这一侧要**三个条件同时成立**才判 —— ① 盒形**只取该元素自己的属性区**
-    (到开标签闭合`>`为止,不含任何子节点)且**闭合可确定**;② **非正方盒**;③ **短边 ≥ 16px**。
-    第 ① 条的由来:宽窗口`elementWindow`从开标签向下取 6 行,会把子节点的`h-4 w-4` 算进父盒
-    (`w-40` 下拉被量成 160×10、`h-9 px-4`按钮被量成 16×36)⇒ 现由`boxDimsOwn` 单独承担,判不出闭合即**只报名不判红**。
 - **台账同题多号对账(200)**:`scripts/check-plan-task-duplicates.mjs`(2026-10-13 立,机主拍板"彻底根治同题跨号,不要搞那么多号")—— 拦"同一件事在台账上挂着多个编号"的漂移:取号令牌只查号空闲不查题已登记、union 并集把两侧各自旧态副本整批带回(G-461)、F4 逐字判据抓不住正文有漂移的同题副本(G-1104165),三者叠加让同题登记越积越多(立项现读 21 组/199 行,单组最多 22 行)⇒ 派单口径被同题灌水,"任务永远做不完"。判据:**标题指纹** = 未勾登记行的标题段(粗体内文本;粗体恰是票号时取其后至"——"前;无粗体取票号后至"——"前)归一化(小写/去编号引用/去日期/去〔〕注记段/去空白标点;长度门槛按中英文字符加权 16);指纹相同且票号不同 ⇒ 同题组。豁免:指针行(行首【归并】或行内含"【归并】重复登记副本/同题多号收拢"+"不再单独派单/让号/派单以那条为准"——自述不参与派单的行不算独立任务)、已勾行、同号多行(那是 F4/F10 的地盘)。**接线**(同批):`live-doc-edit.mjs` 的 `{{NEXT_ID}}` 展开前调 `findSameFingerprint` 对底稿查同题,命中 ⇒ `duplicate-title` 拒发号(根治源头;逃生 `LIVE_ID_ALLOW_DUP_TITLE=1` 显式放行留痕)。**存量收拢**(同批):21 组按"规范票号最早行=持有行"给其余 174 行加〔【归并】同题多号收拢〕指针,收拢后 `--strict` 判红 0。档位:默认档只报数,`--strict` 判红;上线即判红 0(收拢同批落地)⇒ 不新增恒红面。取证 `--self-test` 8 例(同题不同号必红/不同题必绿/同号归 F4/指针行豁免/编号引用不污染/状语归一/已勾不审/过短不参与)。**新登记一律走 `{{NEXT_ID}}` 令牌(同题会被当场拒)**,手填编号绕过查重的形态由本门默认档报数兜底。
-  - **同样禁止用 7-12 位短 sha 当出处指针(G-1079146 立,2026-10-08 由散文升为硬约束)**:与上一条同因 —— 短 sha 的可解析性**寄生在本机对象库 + 本机 lineage**,浅克隆、`gc`、并发推进都会让"当时能问到的号"后来问不到;台账实测分档腐烂率 7-8 位 **30.2%** / 9-12 位 2.0% / 40 位 **0%**(数字出自 `scripts/check-plan-sha-resolvable.mjs` 的量算,现值一律跑它,勿照本行派单)。写法只有两条:**要么全量 40 位,要么换内容锚点**(编号 + 标题原文 / 判据标识符)。取值步骤已接在**两条登记入口**(`scripts/live-doc-edit.mjs` 与 `scripts/safe-commit.mjs` 的活文档写入路径):新行含 sha 形态串而 `git rev-parse --verify <该串>^{commit}` 问不到 ⇒ 打印该提交的全量 40 位并**拒绝落该行**;git 本身问不到(浅历史 / 仓库不可问 / 派生失败)一律落**未判定并放行报名,绝不冒红**;应急出口只有一个 `LIVE_SHA_ALLOW=<token>=<原因>`(逐 token 带原因,无原因不收录)。刻意不建"存量 sha 形态"清单、也不把该判据接进提交链 —— 它判的是历史指针可否兑现,与本次提交内容无关,挂 blocking 就是每台每次被逼 `--no-verify` 连带废掉全部守门(§12e 同型)。
-    IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清单:
-  - `node --test scripts/tests/deploy-lock.test.mjs`(HB-M1…M10:M10 是"破坏性步骤必须在 acquire 之后、next dev 之前"的顺序形状锁,RU6d/HB-M8 各带"退回旧形态必读红"的反向对照)。
-    第 ③ 条是装饰族的物理下限:细于 16px 的进度条 / 骨架行 / 指示点仍**只开队列**(§4 明令不得方档化,判红等于逼设计改方角)。
-    **三层水印**(`scripts/watermark.mjs`):L1 可见横幅(`// © 2026 IHUI AI …`+`// Provenance-watermarked. …`)、L2 横幅内零宽载荷(`// [IHUI-AI-PROVENANCE]:<zw>`)、L3 独立不可见行(注入时落在文件末尾)。
-    **判据(2026-09-12 加严,2026-09-29 补第五态)**:载荷必须**可解码且等于 `WATERMARK_TEXT`**,仅"存在"不算数。五态:`完好`/`残迹`(有横幅无载荷)/ `载荷损坏`(存在但解码不符)/**`仅隐写`(有可解码载荷但可见横幅整块不见)**/ `未覆盖`。除"完好"外,`watermark.mjs verify`与`check-watermark-coverage`均 **exit 1**。
-    **判据(2026-09-12 加严,2026-09-29 补第五态)**:载荷必须**可解码且等于`WATERMARK_TEXT`**,仅"存在"不算数。五态:`完好`/`残迹`(有横幅无载荷)/ `载荷损坏`(存在但解码不符)/ **`仅隐写`(有可解码载荷但可见横幅整块不见)** / `未覆盖`。除"完好"外,`watermark.mjs verify`与`check-watermark-coverage`均 **exit 1**。`scripts/lib/gitdir.mjs`的`resolvePortableGitCandidates()`(候选序 = 环境变量 > versions 目录扫描 > 旧 1.2.0 兜底)解析 git 二进制的首选;`.qoder-cn`承载本项目记忆与工作区状态)。
-    (被`scripts/lib/gitdir.mjs`的`resolvePortableGitCandidates()`当 git 二进制首选解析)不得搬,其`logs`/`traces`约 2GB 属该 IDE`scripts/release-desktop-local.mjs`需要`%USERPROFILE%\.tauri\ihui-updater.key`,而**旧句"本机无 `.tauri`⇒ 桌面发布在此机必`exit 1`"已于 2026-10-01 实测作废**:`.tauri\ihui-updater.key` 348 B、`ihui-updater-password.txt`33 B **都在位**,mtime 2026-09-07(早于该句登记日 09-23 三周)⇒ 登记当时就不成立;那句还写着`:67,74` 的行号指针,而 §1 明令证据指针禁写行号(任何一次 append 后都会挪位)。桌面端能否发布在本机的真判据是"跑一次取签名密钥的那条路径并看它报什么",不是这条散文
   - **「重复登记副本」指针注记:存量已清零,今后一条也不许再产生(2026-10-13 立,用户指令"彻底根治")**:`〔【归并】重复登记副本…〕`、`**[归并]**`、`（【归并】…）` 等注记形态曾把计划文档堆到 1963 条勾选行里 1137 条是副本指针(其中 1074 条是渲染不可见的登记行注记)。现已由 `node scripts/plan-pointer-purge.mjs --apply` 一次性清偿并**对象空间落地**(`715d495a9b5`,从不写工作树;落地前四条守恒断言 + 门 203 同源自校验必须全绿:L1 同题外部持有行删除 879 / L2 指纹族内归并 345 / L3 纯指针 1 / L4 剥注记保留 163 / 认领标记转移 5,台账 `.ihui-agent/archive/plan-pointer-purge-2026-10-13.md`)。守住清偿成果的是**两道互不可替**的门(2026-10-14 补正:首版只登记了 13d,当天实测它单独守不住):① **守门 13d**(`scripts/check-plan-dup-pointer-ratchet.mjs`,pre-commit blocking,差值棘轮:只拦"本次提交让登记行注记变多";全量档判 **HEAD 真相面**而非工作树 —— 工作树副本滞后 HEAD 且含他人在飞编辑,按它判就是 §12e 禁的恒红门)。② **门 71 的归档豁免射程**(`check-plan-line-loss.mjs` 的 `ARCHIVE_FILE_RE`,纳入清偿台账 `plan-pointer-purge-*.md`):为什么 ② 不可省 —— 门 71 自愈回捞器走 `commit-tree`+CAS **旁路落地,pre-commit 钩子结构性不跑** ⇒ 13d(只在提交时跑)永远拦不到它;实测对打两轮:清偿删 40 条(`7826f3b0741`)⇒ 门 71 把正当移除读成"被并发旧基线抹掉"原样回捞(`2560d82194`/`6e8d2e089e` 各还原 40)⇒ 清偿成果永远守不住。射程放宽**只扩文件名**,豁免的实体条件(被删行逐字原文在已入库归档 blob 里找得到)一字未松,`archivedCopy` 仍按面读 blob 不退回磁盘 readdir;不在台账里的真删照旧判丢(镜像测试 `check-plan-line-loss.test.mjs` 的「射程锁」双向钉住)。⇒ 教训:**旁路落地的机器(回捞器/自愈/落地循环)不跑钩子,任何只活在 pre-commit 的门对它一律无效,防它必须在它自己的判据源头接。****分族键指纹优先**(与门 203 的 `extractTaskFingerprint` 同源,首版按复合主键分族实测 139 键撞车:不同票号抄同一段正文,剥掉注记后露出同一副指纹,清偿自己成了新一批同题多号)。**登记一件事只有一个入口规矩**:同主键的新登记必须翻勾旧行或就地改写(§1 第 22 行的机器闸已在),不要给旧行贴指针注记 —— 计划文档不是"标注了指针"的清单,是"只剩一份活账"的清单;指针注记既不删除也不派单,只是把同一个错抄了两遍。**第三件(2026-10-14,`39dce564971`+同批脚本枚):无注记重复行的收口也闭环了** —— 自动档(`--heal`)已停产指针注记与 F10 折叠(`buildMerge noPointer`:F4/F4b 只报数;折叠注记与 F4 指针同字面,旁路落地拦不到 ⇒ 生产侧掐断,人工显式档保留写指针能力);purge 增 **L5(同题折并 F10)/L6(同主键归并 F4)** 两层真删行归并(准入闸:① 候选正文被幸存行逐字承载 ② 行尾让号/拍板段移植到幸存行且不命中 13d 判据字面;不满足者逐行跳过点名 —— 实测 G-317 约 2000 字独有发现、G-341 假阳整票、L10371 截断回放三行被闸救下;台账防覆盖:同日重跑自动换 `-2/-3` 后缀,整文件重写式台账绝不变相抹旧记录);门 13d 扩**维② F10 差值棘轮**(--staged 面 vs HEAD 面 foldTwins 可折数只拦变多,应急出口 `DUP_RATCHET_ALLOW_TWIN_GROWTH=<原因>`;F4/F4b 归守门 130 差值维,不重复设门)—— 该维首跑就拦下改号会话滞留暂存面的写回(F10 3→23),把"静默写回旧态"变成响亮失败。

@@ -5,10 +5,8 @@
 -->
 
 # PROJECT_PLAN 已完成任务归档（2026-09-23 批量归档）
-
 > 从 PROJECT_PLAN.md 移出的全部 `- [x]` 已完成条目（1854 行）。
 > 归档操作：用户要求清掉已完成任务，保留未完成项。
-
 ---
 - [x] ✅(2026-09-23) `apps/web/e2e/page-indicator-geometry.spec.ts` 7 例全红(含 HEAD 之外的 8801 旧产物同样全红):`beforeEach` 的 `INDICATOR_SELECTOR = '.group\\/indicator'` 已随 PageIndicator 改版失效(`05f049ba09` 一带),实际激活态几何是 16x8 竖向胶囊 / 8x8 圆点,而 spec 仍按 24x10 / 10x10 校准。**判据**:修好后 `playwright test e2e/page-indicator-geometry.spec.ts` 7 例转绿,或选择器与尺寸档重新对齐当前实现。**归因**:本次仅登记不越权修(§12)。
 - [x] ✅(2026-09-23) `apps/web/e2e/sidebar-visual.spec.ts:211` TS2345(见下节)。
@@ -81,13 +79,11 @@
 - [x] ✅(2026-09-23) **契约测试 5 族 → 15 族,132/132 passed**。两处判据缺陷被这轮逼出来并修掉:① 采集器只认**跨行**常量表(`\n]` / `\n}` 收尾),单行表 `const AI_STEP_KEYS = ['ai.step1',…] as const` 整表采不到,把 3 个**在用**键误判成孤儿键 —— 补单行形态;② `Family` 加 `maxHits`(缺省 0),给"翻译即断历史数据"的协议字面值用,写成申报额度而不是把该族移出测试(多一处就红,比一刀切豁免严)。
 - [x] ✅(2026-09-23) **zh-TW 门的一处漏检被实测暴露**:同一批值,门报 10 处简体残留,按 opencc 全量扫是 **11 处** —— 差的 `eduProcurement.ai.conflictNote` 值内含转义引号 `\"記賬\"`,门的**行正则取不到该值** ⇒ 对"值含转义引号"的行永久漏检。本票复用门自己的 `opencc-js` cn→tw 转换器做**行级**替换修数据(带"改动数必须等于预期否则拒写"安全闸,不做 parse→stringify 整体重写以免重排多行数组);**门本体的漏检未在本票修**(共享扫描器正被并发会话执行,改它会干扰其自验),登记待另票。
 - [x] ✅(2026-09-23) **存量分类账(第一次给出可解释的口径,而不是"还剩 10138 行")**:
-
   | 类 | 含义 | 行 | 文件 |
   |---|---|---|---|
   | A 内容文案 | §19 例外:`compare/` 2088、`use-cases/` 1738、`docs/` 1362、资讯 139、营销 48 | **5375** | 110 |
   | B 他人持有 | 脏 / 未跟踪,本会话不可改 | 93 | 9 |
   | C 可动真界面 chrome | 已入库且无他人持有 | **4670** | 566 |
-
   **并给出为什么 A 不能划进豁免区**:A 类里 `use-cases` 17 页只有 5 页有 ja/ko/zh-TW 镜像页(那 5 页是刻意的 SEO 按-locale-出页),而 `docs/` 21 页与 `compare/` 47 页**一个 locale 变体都没有** = 4450 行内容从未本地化。把这三条路径整体划成豁免,等于把"半途而废的本地化"固化,还会连带放过这些页面里夹的真按钮/标签文案。所以 A 类继续留在基线里冻结,只是**记账时单独列示**,不再和 UI 债务混成一个数字。
 - [x] ✅(2026-09-23) **并发事实与提交边界**:① `edu/edu-management/study-plan/` 10 文件里 9 个由**另一会话**以同 ns、同扁平键名先行落地(我只派了一个代理),该代理按 §12b 采纳其主体逻辑未重写,并补了对方留下的编译断裂(旧导出 `PLAN_TYPE_LABELS`/`PLAN_STATUS_LABELS` 已删,`StudyPlanStatsDialog` 仍 import 旧名)⇒ 本票这些源文件属**混合提交**,词表以磁盘最终态为准,未引入第二套键名;② 语言包仍带他人未提交的 `ai.pane.reviewStats.*` 8 枚 ⇒ 继续走对象空间(HEAD blob 只加本票 557 键),`diff-tree` 自证差异面恰为声明的 25 路径,落地即回读对象与树规模。
 - [x] ✅(2026-09-23,本票补记)**第一次落地被并发会话的无 CAS `update-ref` 从 main 线上抹掉,前向恢复时又挖出一个方法级缺陷**:
@@ -841,7 +837,6 @@
 - [x] ✅(2026-08-01) 在 `apps/api/src/routes/index.ts` 注册 v1-responses / v1-assistants / v1-protocol-completeness 3 个新对外端点路由(v1-batches 按计划不注册,BullMQ queue 模块未建,注册会暴露 mock 端点)
 - [x] ✅(2026-08-01) 在 `apps/api/src/services/relay-billing-service.ts` 计费:已注册的 3 路由(v1-responses/v1-assistants/v1-protocol-completeness)直接调用 `recordCall` 走通用计费透传 model/promptTokens/completionTokens,无需新增分支;v1-batches 50% 折扣待 BullMQ 落地后实现(透传 metadata `{batch:true, discount:0.5}`)
 - [x] ✅(2026-07-31) 在 `apps/web/app/(main)/developer/api-docs/page.tsx` 同步 5 个新端点文档 + 错误码表追加(responses/batches/assistants/fine_tuning/files 相关错误码)
-- [x] ✅(2026-07-31) 全链路 typecheck 全绿(api + web) + commit + push + git-push-guard 验证(§20 五条全绿)
 - [x] ✅(2026-08-01) 在 `apps/api/src/routes/index.ts` 注册 authPasskeyRoutes(P0-22)+ adminTopupConfigRoutes(P0-21)+ paymentUsdtRoutes(P0-23)3 个遗漏路由
 - [x] ✅(2026-08-01) 修正 `packages/database/src/schema/user-passkeys.ts` 字段与 migration 对齐(以 migration 为准:publicKey bytea / counter bigint / transports text[] / id uuid / 补 aaguid)
 - [x] ✅(2026-08-01) 修正 `packages/database/src/schema/usdt-payments.ts` 字段与 service 对齐(以 service 为准:orderId / address / expiresAt / amountPaid / id uuid)
@@ -923,7 +918,6 @@
   - 根因:`apps/api` 代码(agents.ts / miniapp-compat-routes.ts)直接 SQL 引用 `user_token_balance` 表,但 TS schema 与 migration 从未定义,运行时 500 "关系 user_token_balance 不存在"
   - 新建 `packages/database/src/schema/user-token-balance.ts`(4 字段:userUuid 主键 / balance / frozenBalance / updatedAt,numeric(20,4) 支持积分小数)
   - Drizzle migration `20260804140000_user_token_balance.sql`(IF NOT EXISTS 幂等)
-  - schema/index.ts 追加 export
   - 修复后 `GET /api/token/balance` 返回 `{ balance: 0, frozenBalance: 0 }`(code=0)
 - [x] ✅(2026-08-04) _*i18n 同步:5 个 auth.app* key 翻译到 4 语言_*
   - 5 key:auth.appLogin / appQrWaiting / appQrExpired / appQrRetry / appQrFailed
@@ -1483,7 +1477,6 @@
 - [x] ✅(2026-08-11) 月视图:日历网格，彩色小点标记每日各餐类型
 - [x] ✅(2026-08-11) 编辑弹窗:日期/餐类型(Select)/菜品名/配料(textarea)/营养/图片URL/备注
 - [x] ✅(2026-08-11) 模板管理:创建/编辑/删除模板(7天×4餐网格编辑)，一键应用到指定周
-- [x] ✅(2026-08-11) typecheck exit 0 + 页面 HTTP 200 ✅
 - [x] ✅(2026-08-11) 新建 `/edu/edu-management/study-plan` 页面(含学期/班级选择、月计划列表、周视图、日视图、条目CRUD、进度追踪、计划状态流转)
 - [x] ✅(2026-08-11) 管理员创建月计划(标题/班级/学期/时间范围/描述)+ 自动拆解为周计划(API调用split端点)
 - [x] ✅(2026-08-11) 周计划列表展示(按时间轴)，可查看/编辑
@@ -1503,13 +1496,9 @@
 - [x] ✅(2026-08-11) 数据库:edu_parent_student_binding 表(含索引)+ 迁移 0206
 - [x] ✅(2026-08-11) API:绑定管理(6 端点)+ 孩子数据聚合查询(课程/菜谱/学习计划/考勤/成绩 5 端点)
 - [x] ✅(2026-08-11) 前端:家长门户(我的孩子+绑定管理 Tabs)+ 5 个独立孩子数据查看页面 + 绑定管理页面
-- [x] ✅(2026-08-11) 侧边栏入口 + i18n 翻译补充
-- [x] ✅(2026-08-11) typecheck + lint 全绿
 - [x] ✅(2026-08-11) 数据库:edu_exam_score + edu_ranking_snapshot 表(含索引)+ 迁移 0207
 - [x] ✅(2026-08-11) API:成绩CRUD + 排名计算+快照 + 统计(平均/分布)+ 趋势+薄弱环节(10 端点)
 - [x] ✅(2026-08-11) 前端:成绩管理页面(录入/列表/排名/统计 4 Tab)+ 趋势分析(折线图+雷达图+薄弱环节)
-- [x] ✅(2026-08-11) 侧边栏入口 + i18n 翻译补充
-- [x] ✅(2026-08-11) typecheck + lint 全绿
 - [x] ✅(2026-08-11) 数据库:教师时间表(edu_teacher_schedule)+ 排课规则表(edu_scheduling_rule)+ 调课申请表(edu_schedule_change)
 - [x] ✅(2026-08-11) API:自动排课(基于教师时间/教室/班级约束)、冲突检测、调课申请/审批
 - [x] ✅(2026-08-11) 前端:排课管理页面(排课规则配置/教师时间表/调课管理3Tab)
@@ -1518,22 +1507,15 @@
 - [x] ✅(2026-08-11) 数据库:作业提交记录表(edu_homework_submission)
 - [x] ✅(2026-08-11) API:作业提交/批改/完成率统计
 - [x] ✅(2026-08-11) 前端:作业管理页面(统计卡片/提交列表/批改Dialog/状态筛选)
-- [x] ✅(2026-08-11) 侧边栏新增导航入口 + i18n 翻译补充
-- [x] ✅(2026-08-11) typecheck + lint + build 全绿
 - [x] ✅(2026-08-11) 数据库:线索表(edu_lead)+ 试听预约表(edu_trial_booking)+ 报名记录表(edu_enrollment)
 - [x] ✅(2026-08-11) API:线索管理CRUD+状态流转、试听预约/确认、报名处理
 - [x] ✅(2026-08-11) 前端:招生管理页面(线索管理/试听预约/报名记录 3Tab)
-- [x] ✅(2026-08-11) 侧边栏新增导航入口 + i18n 翻译补充
-- [x] ✅(2026-08-11) typecheck + lint + build 全绿
 - [x] ✅(2026-08-11) 数据库:学费标准表(edu_tuition_fee)+ 缴费记录表(edu_payment_record)+ 退费记录表(edu_refund_record)
 - [x] ✅(2026-08-11) API:学费配置、缴费/退费、欠费汇总、退费审批
 - [x] ✅(2026-08-11) 前端:财务管理页面(学费标准/缴费记录/退费管理 3Tab)
-- [x] ✅(2026-08-11) 侧边栏新增导航入口 + i18n 翻译补充
-- [x] ✅(2026-08-11) typecheck + lint + build 全绿
 - [x] ✅(2026-08-11) 课程表:批量复制上周课表、教师冲突检测、导出课程表数据
 - [x] ✅(2026-08-11) 菜谱:营养分析汇总(热量/蛋白质/碳水)、采购清单自动生成、菜品图片上传
 - [x] ✅(2026-08-11) 学习计划:完成率统计报表、进度时间线、教师审核
-- [x] ✅(2026-08-11) typecheck + lint + build 全绿
 - [x] ✅(2026-08-12) LLM 调用指数退避重试:agent_loop_v2 新增 `llm_retry_max=3`/`llm_retry_backoff=1.5` + `_llm_call_with_retry`(抖动防风暴,CancelledError 不重试)
 - [x] ✅(2026-08-12) 错误六分类:`_classify_error`(timeout/connection/http_5xx/http_4xx/cancelled/unknown),checkpoint metadata + hook error 事件带 error_type
 - [x] ✅(2026-08-12) Agent 失败进元学习闭环:meta_learner_scheduler `_collect_all_failure_cases` 新增收集 checkpoint status=failed(此前只收 skill 失败)→ lesson 沉淀 → 注入 agent system prompt

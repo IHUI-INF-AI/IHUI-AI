@@ -5,43 +5,28 @@
 -->
 
 # 归档票僵尸开放行摘除留痕(2026-10-20,goal-zombie-sweep)
-
 摘除 4 行:它们的票号在别处已有「已归档 ✅」权威行(同票号 + 同标题),且开放行**不带任何租约牌**;本席逐票做过实质核验(不是照票面措辞),摘除依据逐条见下。保留行 = 各票的归档权威行,一字未动。
-
 **这些开放行为什么会存在**:计划文档被并发并集(`git-sync-converge` 活文档行级 union)按旧基线整批复位带回 —— 与 AGENTS §1 记的回潮通道③同型:按整行字符串比份数,认不出"对侧已按台账清掉"的行。同型先例:G-175(2026-10-18)、f1f4 六行(2026-10-19)、G-932(2026-10-20 本席前一枚)。
-
 ## 逐票核验与摘除依据
-
 ### G-863(开放行 L14881,1071B)
 - 权威行:L15039 等 3 处 `已归档(2026-10-14/15:✅)` 同题归档。
 - 实质核验:票面验收判据"同一帧内两批各 25 个 ⇒ 总收录不超过 30"已落地为测试用例(`apps/web/src/components/chat/__tests__/attachment-limits.test.tsx` 的 `G-863 跨批空窗:同帧两批各 25(批间 await 微任务) ⇒ 总收录 30,不超容`);同文件注记明说旧实现 `countedBatchRef` 读快照计数已被改写。⇒ 票面工程交付成立。(该测试未实跑——o2 工作树无 node_modules,主仓副本与 origin/main 逐字相同但亦无 vitest 二进制;不为跑两条测试装全套依赖,此处如实登记。)
-
 ### G-815991(开放行 L14904,1096B)
 - 权威行:L7477 等 31 处 `已归档(2026-10-09:✅)` 同题归档。
 - 实质核验:本票处置即"登记事实 + 一条重开触发条件"(5 处 `export {}` 空契约,守门 121 结构射程外,不得为"看起来有门"先造恒红门)——登记型交付,归档全文(含触发条件)在 `.ihui-agent/archive/PROJECT_PLAN_2026-10-09_auto-archive.md`。
-
 ### G-362 续行(开放行 L15398,1639B;该行无票号头,按标题匹配)
 - 权威行:L8609 `已归档(2026-10-07:✅(2026-09-29))` 同题归档;行内自记"编号改派留痕(2026-09-28):原 G-362「桌面端启动后先进托盘」与另一条先入的登记撞成一号两事…正文一字未动"(现号 G-362 归托盘票 L10265,本行是审面根因票的续行)。
 - 实质核验:票面两格修法均已在 HEAD 落地 —— ① 审面改"台账 ⊕ 同面归档件":`scripts/lib/plan-task-index.mjs` 的 `archiveFaceEntries`(HEAD 面 `ls-tree`/索引面 `ls-files`,禁 `readdirSync`)+ `archivedEntryIndex` + `auditPlan({archivedKeys})` 的腐烂指针双出口(face/archived)判定;② 取号面归档号基础设施同文件在位。
-
 ### G-102(开放行 L28952,5955B)
 - 权威行:L14432/L15210 `已归档(2026-10-15:✅)` 同题归档(归档晚于行内 2026-10-11 值守席核查注记)。
 - 实质核验:10-11 注记当日判"三出口生产面消费者均为 0、编排没接、判据挂在半空";现读 HEAD 已补接线 —— `apps/web/src/hooks/use-agent-stream.ts:218` 生产消费 `createStreamFaultTracker`,配专测 `apps/web/src/hooks/__tests__/use-agent-stream-fault-tier.test.ts`;实现与判据在 `packages/shared/src/chat/stream-fault-tier.ts`(自 `src/sse` 迁来)及其测试 `packages/shared/src/chat/__tests__/stream-fault-tier.test.ts`。⇒ 10-11 挂起的那半格已补齐,10-11 注记全文在 `.ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md` 有保存。
-
 ## 诚实登记:同扫描候选但本席未动的一条
-
 **G-160(开放行 L14779,14086B,F9 基线新增撞号清偿批②)未摘**。原因:① 其票面批次提交(30d7b0ad1c/6d2d068daf/75d1ef2ca3/417781d655e/a9f2db494d)经 `merge-base --is-ancestor` 逐个核验**均不在今日 origin/main 祖先里**,且 `backup/cleanup-2026-10-10-origin-verify` tag 亦非今天 origin/main 祖先 ⇒ 该仓历史被收敛线改写,"提交在主线"这一类证据在本票上不成立;② 多把钥匙(如 G-299/G-334)现读仍带开放行,票面自记"若回捞层再按旧基线复位致红集回升,以 plan-tasks.mjs 本尊现读为准、按同款口径再折并"的未收动态 ⇒ 实质无法干净核验。归收敛线/归并侧持有人,本席不单边摘。
-
 **摘除方式**:object-space-land.mjs 工作树模式(LAND_ROOT 指向基于 origin/main 的独立 worktree;水印预检 + 陈旧落地守卫 + CAS 防覆盖 + 提交面回读 + 门 71 自愈兜底),不碰主仓工作树、不碰主索引、不自带推送。
-
 被摘除行逐字原文如下(作为门 71 的归档凭据进审面):
-
 ### G-863(L14881)
-
 ### G-815991(L14904)
-
 ### G-362 续行(L15398)
-
 ### G-102(L28952)
 - [ ] G-863 **附件容量按"屏当时快照"计,跨批并发可轻微超容;语音入口未接汇总提示**(G-833 交付如实登记的残留;归属:web 聊天附件链) —— 实现代理原话:"同帧跨批调用容量以屏当时快照计(批内有 `countedBatchRef` 防护,跨批极端并发可轻微超容);严格原子需 upstate 迁移,另计。"另:`apps/web` 语音路径产出的 webm **恒过** 扩展名白名单,且其返回值被忽略 ⇒ 它不走 `reportAttachmentRejections`,那一入口的拒绝仍是静默。落点:`use-message-references.ts` 的 `screenAttachmentFiles`(:125)之后做**一次性提交式**容量检查(把"计数"从读快照改成写前 CAS 语义),以及语音入口接同一汇总出口。验收:`pnpm --filter @ihui/web exec vitest run --retry=0 src/components/chat/__tests__/attachment-limits.test.tsx`(12 例已建)必须仍全绿 + 新增一例"同一帧内两批各 25 个 ⇒ 总收录不超过 30"。⚠️ 上限值只在 `use-message-references.ts:80/:82` 声明一处,修这两格**不得**再抄第二份数字。
 - [ ] G-815991 **"空契约"这一型判不了,如实登记而不是假装已覆盖**(上游 `packages/contracts/src/capabilities/index.ts:1-2`:头注自称 "provider and model capability descriptions",实体只有 `export {};`,且**不在** `src/index.ts` 的 56 条导出清单内,`grep -rl "capabilities/index"` 零消费者 ⇒ 一张有用途声称、零内容的空契约)。**我方现状**:`git grep -nE "^export \{\};?$" HEAD -- apps packages` = **5 处**(未逐个定性)。**为什么判不了**:守门 121 判的是"声明了必须被引用",而**零导出**没有任何标识符可以被引用 ⇒ 结构上落在它的射程外;要判就得新立"文件头注声称某用途 ∧ 该文件零导出 ∧ 无引用"三条件合取的形态,收益低(5 处存量、无故障先例)。**处置**:登记事实 + 一条重开触发条件 —— **一旦某次事故的现象是"某个能力在契约面上根本不存在而账面一路绿"**(即空契约被下游当真实依赖引用),本票立即升为正式判据候选;在那之前不得为了"看起来有门"先造一台恒红门。

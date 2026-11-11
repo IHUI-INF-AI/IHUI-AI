@@ -5,10 +5,8 @@
 -->
 
 # AGENTS.md 逐字归档件 —— 2026-11-04 门 207 体积清偿
-
 > 搬运方式:整区逐字移动,原位置只留一句指针注记(见 AGENTS.md 同日期那一条)。本文件内容与被移走时逐字节相同。
 > 现读口径:以下 5 行描述的是**已落地的修复**,判据实现住在代码与镜像测试里;本文其余条款仍是活口径。
-
 - 2026-10-30 补刀:该次撤装只删了 VBS、**没注销计划任务** ⇒ IHUI-Worktree-Reap 每 10 分钟拉起 wscript 找不到脚本(不可见模态框)并永久阻塞,状态恒为 Running;已注销任务、结束卡死进程。`ensure-silent-tasks.mjs` 新增**幽灵任务**判据(IHUI 任务 action 的本地目标不存在 ⇒ 违规),杜绝"注册了任务但目标已删"复发。批量回收出口 = `node scripts/agent-worktree.mjs --reap`(默认 dry-run;只收 `.worktrees/` 下干净、已并入 main、非 locked 且超龄的 `wt/*`,独有 HEAD 一律保留)。
 - 2026-10-30 补刀②(机主"彻底根治/杜绝"):最后一环是"判据在、工具在、没人调度"。现把回收挂进 `git-guardian` 两处执行体(main 健康轮次 `!CHECK_ONLY` + daemon tick,各自 24h 节流);唯一动作 = 派生 `node scripts/agent-worktree.mjs --reap --apply --older-than 7`,**不带 `--tag-lost`** ⇒ 未并入 main 的检出结构上只会被跳过。实现单源 `scripts/lib/git-guardian-worktree-reap.mjs`(本层不重抄任何回收判据),节流戳 `.ihui-agent/state/worktree-reap-tick.iso`,失败只冷却 1 小时。
 - 同日 TEMP 清扫根治(同一次排查发现它**从未成功过**):`scrub-temp-fixtures.mjs` 的 scratch 腿改用独立账龄 `--scratch-older-than-hours`(默认 6h,不再被守护传的 `--older-than 7` 乘 24 抬成 168h),子树判龄与体积并成一次遍历 + 活夹具早退(7 根并集实测 783s → 6.2s);`git-guardian` 侧改为**有结论才写节流戳**、失败 1 小时后重试、超时 300s → 20min(旧配置每轮必 `ETIMEDOUT`,失败又白占 24h ⇒ 事实上从未删过一条)。
