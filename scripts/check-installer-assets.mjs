@@ -820,6 +820,78 @@ export function checkWorkAreaDownshift({ uiSrc }) {
     )
   return v
 }
+/**
+ * 按钮位图内禀尺寸 == 控件槽位尺寸(SS_BITMAP 不缩放,差 1px 就裁边/留边)。
+ *
+ * 立因(2026-11-12 实测):btn-toggle-*.bmp 是 55x31(52x28 轨道 + 3px 硬投影),
+ * 而安装页/卸载页槽位仍写 40x24 —— SendMessage BM_SETIMAGE 后位图按左上角对齐、
+ * 不缩放不居中,右边 15px 与底部 7px 直接被裁,用户看到的是「开关只画了一半、
+ * 投影没了」。此前八条不变量全在比「控件 vs 控件」,没有一条比「控件 vs 位图」,
+ * 所以这类错配能一路走到出包。
+ *
+ * 尺寸事实源 = scripts/desktop-installer-assets.mjs 的资产表(生成 BMP 的同一条记录),
+ * 不读盘上 BMP —— 门在「资产尚未生成」的环境里也能判,且永不与生成器漂移。
+ *
+ * @param {{ sources: {name: string, src: string}[], genSrc: string }} p
+ * @returns {string[]} 违规描述(空数组 = 通过)
+ */
+export function checkButtonSlotMatchesBitmap({ sources, genSrc }) {
+  const table = new Map()
+  for (const m of genSrc.matchAll(
+    /\[\s*'([\w.-]+)',\s*'[\w.-]+',\s*'[^']*',\s*(\d+),\s*(\d+),\s*\d+\s*\]/g,
+  )) {
+    table.set(`${m[1]}.bmp`, { w: Number(m[2]), h: Number(m[3]) })
+  }
+  if (table.size === 0) {
+    return ['解析不到资产表([name, kind, label, w, h, ...] 记录一条都没命中)']
+  }
+
+  const defines = new Map()
+  for (const { src } of sources) {
+    for (const m of src.matchAll(/^[ \t]*!define[ \t]+(IHUI_\w+)[ \t]+(-?\d+)/gm)) {
+      defines.set(m[1], Number(m[2]))
+    }
+  }
+  const resolve = (tok) => {
+    if (/^-?\d+$/.test(tok)) return Number(tok)
+    const m = tok.match(/^\$\{(IHUI_\w+)\}$/)
+    if (m && defines.has(m[1])) return defines.get(m[1])
+    return null
+  }
+
+  const v = []
+  for (const { name, src } of sources) {
+    for (const line of src.split(/\r?\n/)) {
+      const m = line.match(
+        /!insertmacro[ \t]+IHUI_BTN[ \t]+\$\w+[ \t]+([\w.-]+\.bmp)[ \t]+(\S+)[ \t]+(\S+)[ \t]+(\S+)[ \t]+(\S+)[ \t]+(\S+)/,
+      )
+      if (!m) continue
+      const bmp = m[1]
+      const want = table.get(bmp)
+      if (!want) {
+        v.push(`${name}: ${bmp} 不在资产表里(名字拼错 = 运行期 LoadImage 失败,整页降级原生 UI)`)
+        continue
+      }
+      const W = resolve(m[4])
+      const H = resolve(m[5])
+      if (W === null || H === null) {
+        v.push(`${name}: ${bmp} 槽位宽高取不到数值(${m[4]} ${m[5]})—— 无法对账,先补 define`)
+        continue
+      }
+      if (W !== want.w || H !== want.h) {
+        const dw = Math.abs(W - want.w)
+        const dh = Math.abs(H - want.h)
+        const what = W < want.w || H < want.h ? '右/下缘被裁掉' : '露出页面底色(留边)'
+        v.push(
+          `${name}: ${bmp} 位图 ${want.w}x${want.h},槽位却写 ${W}x${H} —— SS_BITMAP 不缩放,` +
+            `${what} ${dw}x${dh}px(2026-11-12 开关被裁 15x7 的成因)`,
+        )
+      }
+    }
+  }
+  return v
+}
+
 if (isDirectRun) {
   const UI_SRC_FOR_GEO = readFileSync(process.env.IHUI_NSI_PATH || NSI, 'utf8')
   const INSTALLER_SRC_FOR_GEO = readFileSync(
@@ -831,8 +903,19 @@ if (isDirectRun) {
     process.env.IHUI_ASSET_GEN_PATH || join(ROOT, 'scripts/desktop-installer-assets.mjs'),
     'utf8',
   )
+  const UNINST_SRC_FOR_GEO = readFileSync(
+    process.env.IHUI_UNINSTALLER_NSI_PATH || join(ROOT, 'apps/desktop/src-tauri/windows/ihui-uninstaller.nsi'),
+    'utf8',
+  )
 
   const geoFail = [
+    ...checkButtonSlotMatchesBitmap({
+      sources: [
+        { name: 'ihui-ui.nsi', src: UI_SRC_FOR_GEO },
+        { name: 'ihui-uninstaller.nsi', src: UNINST_SRC_FOR_GEO },
+      ],
+      genSrc: GEN_SRC_FOR_GEO,
+    }),
     ...checkHoleEqualsButton({ uiSrc: UI_SRC_FOR_GEO }),
     ...checkBadgeConcentric({ uiSrc: UI_SRC_FOR_GEO, genSrc: GEN_SRC_FOR_GEO }),
     ...checkAnchorsMatchTicks({ installerSrc: INSTALLER_SRC_FOR_GEO, genSrc: GEN_SRC_FOR_GEO }),
@@ -859,7 +942,8 @@ if (isDirectRun) {
   console.log(
     '[check-installer-assets] PASS —— 洞=按钮矩形、百分比同心、埋点=刻度、重装页卡片/指示器几何、' +
       'Function 体内不引用后置 Var、目录页输入框垂直居中、重装页 DPI 重锚走完窗口框+裁剪区域' +
-      '且两轮紧邻定档(与 GUIINIT 同口径,region 宏收尾) 八条跨文件不变量成立',
+      '且两轮紧邻定档(与 GUIINIT 同口径,region 宏收尾)、按钮槽位=位图内禀尺寸(SS_BITMAP 不缩放) ' +
+      '九条跨文件不变量成立',
   )
 }
 

@@ -144,13 +144,14 @@ test('注入违规:目录页输入框退回旧的顶对齐几何(Y=306)必须被
 })
 
 test('注入违规:生成器容器矩形改了而 define 不动必须被拦(证明它在跟位图对账)', () => {
-  // 只动位图侧(容器高 36→18),define 保持 309/22 → 垂直居中与"高不超出容器"两条同时红。
+  // 只动位图侧(容器高 40→18),define 保持 309/22 → 垂直居中与"高不超出容器"两条同时红。
   // 若判据只是"define 自比"而不读生成器,这一例必然假绿。
-  const mutated = gen.replace('y="302" width="412" height="36"', 'y="302" width="412" height="18"')
+  const mutated = gen.replace('y="300" width="412" height="40"', 'y="300" width="412" height="18"')
   assert.notEqual(mutated, gen, '注入失败:找不到目录页容器 <rect> 的 y/height')
   const r = withFixtures({ 'gen.mjs': mutated }, (env) => runGuard(env))
   assert.notEqual(r.code, 0, r.text.slice(-600))
   assert.match(r.text, /垂直居中/)
+  assert.match(r.text, /Y 应为 298,实际 309/)
   assert.match(r.text, /输入框高度 22 超出容器高 18/)
 })
 
@@ -246,7 +247,7 @@ test('不误伤:重锚宏体内加注释/调整空行(几何链一字未动)必�
   const mutated = mutateReanchorMacro(ui, (body) => body + '\n  ; 只加一条注释,几何链一字未动\n')
   const r = withFixtures({ 'ui.nsi': mutated }, (env) => runGuard(env))
   assert.equal(r.code, 0, r.text.slice(-600))
-  assert.match(r.text, /八条跨文件不变量成立/)
+  assert.match(r.text, /九条跨文件不变量成立/)
 })
 
 test('注入违规:圆角宏的临时量挪回 $R0(会把 PageReinstall 的版本比较结果清掉)必须被拦', () => {
@@ -277,7 +278,7 @@ test('不误伤:与重锚链无关的真实改动(改顶档 DPI 阈值 + 重锚�
   mutated = mutateReanchorMacro(mutated, (body) => body + '\n  ; 只加一条注释,几何链一字未动\n')
   const r = withFixtures({ 'ui.nsi': mutated }, (env) => runGuard(env))
   assert.equal(r.code, 0, r.text.slice(-600))
-  assert.match(r.text, /八条跨文件不变量成立/)
+  assert.match(r.text, /九条跨文件不变量成立/)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
@@ -289,6 +290,7 @@ test('不误伤:与重锚链无关的真实改动(改顶档 DPI 阈值 + 重锚�
 //   checkWorkAreaDownshift    = 第 8 条不变量的算式判据;
 //   macroBodyOf / nsiDefineValue = 宏体与 `!define` 取值的提取式,本文件的确定性矩阵用它俩取输入。
 import {
+  checkButtonSlotMatchesBitmap,
   checkWorkAreaDownshift,
   macroBodyOf,
   nsiDefineValue,
@@ -383,4 +385,50 @@ test('矩阵判据自身:删掉一条降档轴后必须"拒绝出结论",而不�
   )
   assert.notEqual(broken, uiSrc, '夹具失效:这条替换没删掉任何东西')
   assert.throws(() => parseGuiInit(broken), /解析不全/)
+})
+
+// 第 9 条(2026-11-12 立):按钮槽位尺寸 == 位图内禀尺寸。
+// 立因:开关位图 55x31(含 3px 硬投影),槽位却写 40x24 —— SS_BITMAP 不缩放不居中,
+// 右 15px 与底 7px 被静默裁掉,界面上就是「开关画了一半、投影没了」。
+// 这条不变量此前完全缺位(八条全在比控件 vs 控件),所以必须同时钉正反两面:
+//   ① 真源码 0 违规;② 把槽位改回 40x24 必须点名是哪个位图、差多少。
+test('第 9 条不变量:槽位必须等于位图内禀尺寸,裁切错配必须点名', () => {
+  const uninst = readFileSync(join(W, 'ihui-uninstaller.nsi'), 'utf8')
+  const sources = [
+    { name: 'ihui-ui.nsi', src: uiSrc },
+    { name: 'ihui-uninstaller.nsi', src: uninst },
+  ]
+
+  assert.deepEqual(checkButtonSlotMatchesBitmap({ sources, genSrc: gen }), [])
+
+  // 反向对照:槽位写小(裁切)—— 必须红,且消息能直接定位
+  const shrunk = uiSrc.replace('${IHUI_TGL_Y1} 55 31', '${IHUI_TGL_Y1} 40 24')
+  assert.notEqual(shrunk, uiSrc, '夹具失效:这条替换没改到任何槽位')
+  const shrinkFail = checkButtonSlotMatchesBitmap({
+    sources: [{ name: 'ihui-ui.nsi', src: shrunk }, sources[1]],
+    genSrc: gen,
+  })
+  assert.equal(shrinkFail.length, 1, shrinkFail.join('\n'))
+  assert.match(shrinkFail[0], /btn-toggle-on\.bmp 位图 55x31.*40x24/)
+  assert.match(shrinkFail[0], /裁掉 15x7px/)
+
+  // 反向对照:槽位写大(露底)也必须红 —— 判据不是"只要不小于就放行"
+  const grown = uiSrc.replace('${IHUI_TGL_Y1} 55 31', '${IHUI_TGL_Y1} 60 36')
+  const growFail = checkButtonSlotMatchesBitmap({
+    sources: [{ name: 'ihui-ui.nsi', src: grown }, sources[1]],
+    genSrc: gen,
+  })
+  assert.equal(growFail.length, 1, growFail.join('\n'))
+  assert.match(growFail[0], /留边/)
+
+  // 反向对照:位图名拼错 → 运行期 LoadImage 失败、整页降级,必须红
+  const typo = uiSrc.replace('$IHUIOTG btn-toggle-on.bmp', '$IHUIOTG btn-tggle-on.bmp')
+  const typoFail = checkButtonSlotMatchesBitmap({
+    sources: [{ name: 'ihui-ui.nsi', src: typo }, sources[1]],
+    genSrc: gen,
+  })
+  assert.ok(
+    typoFail.some((m) => /btn-tggle-on\.bmp 不在资产表里/.test(m)),
+    typoFail.join('\n'),
+  )
 })
