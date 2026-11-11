@@ -512,13 +512,24 @@ export function extractUsage(obj: Record<string, unknown>, eventName: string): O
   const completion = num(src.output_tokens) ?? num(src.completion_tokens)
   const cached = num(src.cached_tokens) ?? num(src.cache_creation_input_tokens)
   const reasoning = num(src.reasoning_tokens) ?? num(src.reasoning_output_tokens)
-  if (prompt === null && completion === null && cached === null && reasoning === null) return null
+  const total = num(src.total_tokens)
+  if (
+    prompt === null &&
+    completion === null &&
+    cached === null &&
+    reasoning === null &&
+    total === null
+  ) {
+    return null
+  }
   const p = prompt ?? 0
-  const c = completion ?? 0
+  // SDB-08:只有 total_tokens 时旧判据返回 null ⇒ 下游既无 prompt 也无 completion,整单按 0 计费。
+  // 按既有 OpenAiUsage 契约映射:prompt 记 0,completion 由 total 反推(缺 output 时)。
+  const c = completion ?? (total !== null ? Math.max(0, total - p) : 0)
   return {
     prompt_tokens: p,
     completion_tokens: c,
-    total_tokens: num(src.total_tokens) ?? p + c,
+    total_tokens: total ?? p + c,
     prompt_tokens_details: { cached_tokens: cached ?? 0 },
     completion_tokens_details: { reasoning_tokens: reasoning ?? 0 },
   }

@@ -1060,6 +1060,33 @@ const SANDBOX_FILE_TOOL_BINARIES = new Set<string>([
   'gunzip',
   // 2026-11-01 安全强化:git 的操作数(clone 目标目录、--work-tree=、-C 等)同样是写面
   'git',
+  // SDB-40:这几个只读列举/元信息命令与文件操作类同属"参数即路径"面,此前只在
+  // 二进制白名单里,`ls -R C:/Users`、`wc -l /etc/passwd`、`stat <外部路径>`、
+  // `test -f <外部路径>` 因此绕过路径收敛直接执行,把工作区外的目录树/存在性/
+  // 行数字节数回传给调用方。现统一并入本集合走同一套 isInsideRoot。
+  // `[` 是 test 的 POSIX 同义形态,不并进来等于留一条等价旁路。
+  'ls',
+  'dir',
+  'wc',
+  'stat',
+  'test',
+  '[',
+])
+
+/**
+ * SDB-40:这些命令的操作数**只**可能是路径(或 test/`[` 的表达式操作数),
+ * 不存在 grep/awk 那种"模式串也长得像路径"的参数形态,所以不能沿用
+ * "只有看起来像路径才校验"的过滤 —— `ls sub`、`wc -l a.txt` 这类不带
+ * `./` 前缀的相对路径会被 looksLikePath 跳过。这里改为:除开关项
+ * (以 `-` 开头)外,每个参数都按 cwd 相对/绝对路径收敛校验。
+ */
+const SANDBOX_OPERAND_ONLY_PATH_BINARIES = new Set<string>([
+  'ls',
+  'dir',
+  'wc',
+  'stat',
+  'test',
+  '[',
 ])
 
 const SANDBOX_BINARY_WHITELIST = new Set<string>([
@@ -1290,6 +1317,8 @@ class SandboxExecutor {
       //   · --flag=value 取 = 右侧;-f<value>(路径型短选项)取后缀;
       //   · 纯旗标(-v/--verbose)跳过;裸路径参数照查。
       const pathShortOptions = new Set(['f', 'C'])
+      // SDB-40:ls/dir/wc/stat/test 的操作数全是路径面,不做"看起来像路径"过滤
+      const checkAllOperands = SANDBOX_OPERAND_ONLY_PATH_BINARIES.has(binary)
       for (const arg of tokens.slice(1)) {
         if (!arg) continue
         let candidate: string
@@ -1315,7 +1344,7 @@ class SandboxExecutor {
             String.fromCharCode(92) +
             '/])',
         ).test(candidate)
-        if (!looksLikePath) continue
+        if (!looksLikePath && !checkAllOperands) continue
         let abs: string
         try {
           abs = isAbsolute(candidate)
