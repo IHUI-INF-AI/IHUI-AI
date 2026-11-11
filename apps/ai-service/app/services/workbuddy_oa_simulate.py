@@ -23,7 +23,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import copy
+from collections.abc import Awaitable
 from typing import Any
 
 import httpx
@@ -225,9 +227,26 @@ async def simulate_account(baseline: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+async def _run_accounts(
+    coros: list[Awaitable[dict[str, Any]]], *, max_concurrency: int = 1
+) -> list[dict[str, Any]]:
+    """有界并发跑一批账号协程;保持输入顺序,gather 彼此不牵连。"""
+    if max_concurrency < 1:
+        max_concurrency = 1
+    sem = asyncio.Semaphore(max_concurrency)
+
+    async def _bounded(coro: Awaitable[dict[str, Any]]) -> dict[str, Any]:
+        async with sem:
+            return await coro
+
+    return await asyncio.gather(*(_bounded(c) for c in coros))
+
+
 async def simulate_pool(baselines: list[dict[str, Any]]) -> dict[str, Any]:
-    """全池仿真;顺序执行即可,全部请求都在各自 MockTransport 内闭环。"""
-    accounts = [await simulate_account(b) for b in baselines]
+    """全池仿真;各账号在各自 MockTransport 内闭环,可安全并发加速(上限 8)。"""
+    accounts = await _run_accounts(
+        [simulate_account(b) for b in baselines], max_concurrency=8
+    )
     all_requests = [r for a in accounts for s in a["stages"] for r in s["requests"]]
     writes = [r for a in accounts for s in a["stages"] for r in s["write_requests"]]
     return {
@@ -336,9 +355,16 @@ async def run_live_round(
     }
 
 
-async def live_pool(credentials: list[dict[str, Any]]) -> dict[str, Any]:
-    """全池真机实跑;顺序执行,各自独立 client。"""
-    accounts = [await run_live_round(c) for c in credentials]
+async def live_pool(
+    credentials: list[dict[str, Any]], *, max_concurrency: int = 1
+) -> dict[str, Any]:
+    """全池真机实跑;默认串行(真机 API 有频限,避免 429),各账号独立 client。
+
+    ``max_concurrency`` 仅在未来号池显著扩大、且已确认服务端频限宽松时再放开。
+    """
+    accounts = await _run_accounts(
+        [run_live_round(c) for c in credentials], max_concurrency=max_concurrency
+    )
     credits = sum(int(a.get("credits") or 0) for a in accounts)
     writes = [r for a in accounts for r in a.get("real_write_requests") or []]
     return {
