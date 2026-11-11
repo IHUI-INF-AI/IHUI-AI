@@ -70,6 +70,8 @@ const HELP = `号池跨环境双向同步(本地库 ⇄ 生产库)
     [--prod-host <alias>]      SSH 别名(默认 ssh.aizhs.top)
     [--prod-checkout <path>]   生产 checkout 根(默认 D:\\DevEnv\\ihui-prod)
     [--json] [--quiet]
+    [--log <path>]             追加写一行摘要到该文件(计划任务用:不依赖 shell 重定向,
+                               因为 cmd 在非交互会话里会被系统中断,实测 0xC000013A)
 
 规则:仅一侧有 → 补缺;两侧都有 → 凭证指纹相同则跳过、不同则 updatedAt 新者胜;
       删除不传播(跨环境删号必须人工显式执行)。
@@ -92,6 +94,7 @@ function parseArgs(argv) {
     prodCheckout: 'D:\\DevEnv\\ihui-prod',
     json: false,
     quiet: false,
+    logFile: '',
     help: false,
   }
   for (let i = 0; i < argv.length; i++) {
@@ -131,6 +134,11 @@ function parseArgs(argv) {
     else if (arg === '--prod-checkout') options.prodCheckout = (argv[++i] ?? '').trim()
     else if (arg === '--json') options.json = true
     else if (arg === '--quiet') options.quiet = true
+    else if (arg === '--log') {
+      const v = (argv[++i] ?? '').trim()
+      if (!v) return { options: null, error: '--log 需要文件路径' }
+      options.logFile = v
+    }
     else return { options: null, error: `未知参数: ${arg}` }
   }
   if (options.help) return { options, error: null }
@@ -411,6 +419,16 @@ function emitReport(plan, options, extra) {
   }
 }
 
+/** 计划任务用的轻量日志:不重定向 stdout(非交互会话下 cmd 会被系统中断,实测 0xC000013A)。 */
+function logLine(options, text) {
+  if (!options?.logFile) return
+  try {
+    fs.appendFileSync(options.logFile, `[${new Date().toISOString()}] ${text}\n`, 'utf8')
+  } catch {
+    /* 日志写失败不影响同步 */
+  }
+}
+
 async function main(argv) {
   const parsed = parseArgs(argv)
   if (parsed.error) {
@@ -425,6 +443,7 @@ async function main(argv) {
 
   // 计划任务快速通道:无脏标记 = 本轮 0 开销(不建 SSH、不启 tsx)
   if (options.ifDirty && !options.force && !fs.existsSync(options.dirtyFile)) {
+    logLine(options, 'skip: 无变更标记')
     if (!options.quiet) process.stdout.write('无变更标记,跳过本轮同步\n')
     return 0
   }
@@ -448,7 +467,9 @@ async function main(argv) {
     local = filterByOwnerScope(await snapshotLocal(tsxCli, options), scope)
     prod = filterByOwnerScope(await snapshotProd(options), scope)
   } catch (e) {
-    process.stderr.write(`❌ 快照失败(未判定,本轮不写任何库): ${e instanceof Error ? e.message : String(e)}\n`)
+    const msg = e instanceof Error ? e.message : String(e)
+    process.stderr.write(`❌ 快照失败(未判定,本轮不写任何库): ${msg}\n`)
+    logLine(options, `sync FAIL 快照失败: ${msg}`)
     return 2
   }
 
@@ -479,6 +500,12 @@ async function main(argv) {
     ? '全库'
     : `个人池 ${[...scope.personal].map((o) => maskPoolOwner(o)).join(',')} + 运营池`
   emitReport(plan, options, { ok, push, pull, scopeDesc })
+  logLine(
+    options,
+    `sync ${ok ? 'ok' : 'FAIL'} 本地=${plan.stats.localTotal} 生产=${plan.stats.prodTotal} ` +
+      `推=${plan.stats.toPush} 拉=${plan.stats.toPull} 一致=${plan.stats.unchanged} ` +
+      `失败推=${push.failed} 失败拉=${pull.failed}${options.dryRun ? ' (dry-run)' : ''}`,
+  )
 
   // 脏标记只在真正落库且无失败时清除:失败保留标记,下一轮自动重试
   if (!options.dryRun && ok) {
