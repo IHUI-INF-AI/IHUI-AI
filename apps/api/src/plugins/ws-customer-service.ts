@@ -107,6 +107,78 @@ export function judgeCsInboundMessage(msgObj: unknown): CsInboundVerdict {
   return { ok: true, data: parsed.data }
 }
 
+/** 会话接入判据所需的会话形状(只取鉴权用到的字段,便于单测直接构造)。 */
+export interface CsSessionLike {
+  userId: string
+  agentId?: string | null
+  status: string
+}
+
+/**
+ * 不可再接入的终态。会话 status 的枚举口径目前在仓库内不一致:
+ * packages/types 声明 pending/open/resolved/closed/rejected,而 DB 查询层实际写
+ * waiting/active/closed。这里按「只拦终态」取宽口径,避免误伤 waiting/active/open/pending。
+ */
+const CS_SESSION_TERMINAL_STATUSES: ReadonlySet<string> = new Set([
+  'closed',
+  'resolved',
+  'rejected',
+])
+
+/** 会话接入判定结论:ok=允许加入;否则带可审计原因。 */
+export type CsJoinVerdict =
+  | { ok: true }
+  | {
+      ok: false
+      reason:
+        | 'session_missing'
+        | 'session_not_owner'
+        | 'session_closed'
+        | 'agent_not_assigned'
+        | 'session_not_active'
+    }
+
+/**
+ * F-109:客户只能接入自己的、未终结的会话;坐席只能接入自己名下且 active 的会话。
+ * 判定与 WS 副作用分离(纯函数),路由侧据此 close + 释放槽位。
+ */
+export function judgeSessionJoin(
+  session: CsSessionLike | null | undefined,
+  userId: string,
+  isAgent: boolean,
+  agentId?: string,
+): CsJoinVerdict {
+  if (!session) return { ok: false, reason: 'session_missing' }
+  if (isAgent) {
+    if (!agentId || session.agentId !== agentId) return { ok: false, reason: 'agent_not_assigned' }
+    if (session.status !== 'active') return { ok: false, reason: 'session_not_active' }
+    return { ok: true }
+  }
+  if (session.userId !== userId) return { ok: false, reason: 'session_not_owner' }
+  if (CS_SESSION_TERMINAL_STATUSES.has(session.status)) {
+    return { ok: false, reason: 'session_closed' }
+  }
+  return { ok: true }
+}
+
+/**
+ * F-110:坐席只能向「自己名下 + active」的会话广播,否则丢弃并记 warn 审计。
+ */
+export function judgeAgentBroadcast(
+  session: CsSessionLike | null | undefined,
+  agentId: string,
+):
+  | { ok: true }
+  | {
+      ok: false
+      reason: 'session_missing' | 'agent_not_assigned' | 'session_not_active'
+    } {
+  if (!session) return { ok: false, reason: 'session_missing' }
+  if (session.agentId !== agentId) return { ok: false, reason: 'agent_not_assigned' }
+  if (session.status !== 'active') return { ok: false, reason: 'session_not_active' }
+  return { ok: true }
+}
+
 /**
  * 客服实时会话 WebSocket 插件。
  *
@@ -188,40 +260,200 @@ const wsCustomerServicePlugin: FastifyPluginAsync = async (server) => {
     const sessionIdParam = (request.query as { sessionId?: string }).sessionId
     const roleParam = ((request.query as { as?: string }).as ?? 'customer') as 'customer' | 'agent'
 
-    ;(async () => {
-      const userId = await wsAuth(socket, token)
-      if (!userId) return
-      // 2026-08-02 P1 安全审计:单用户并发连接数限制
-      if (!userConnectionLimiter.acquire(userId)) {
-        server.log.warn({ userId }, 'ws-customer-service 拒绝连接:单用户连接数超限')
-        socket.close(WS_CLOSE.TOO_MANY_CONNECTIONS, '单用户连接数超限')
-        return
-      }
+    // F-111(2026-11-08):acquire 之后的每一条早退分支都必须释放槽位,否则同一账号
+    // 8 次「非坐席/会话不存在/越权」即可把自己永久锁死;异步 IIFE 必须兜底 catch。
+    let acquiredUserId: string | undefined
+    const releaseSlot = (): void => {
+      if (!acquiredUserId) return
+      userConnectionLimiter.release(acquiredUserId)
+      messageRateLimiter.reset(acquiredUserId)
+      acquiredUserId = undefined
+    }
 
-      // ===== 坐席连接 =====
-      if (roleParam === 'agent') {
-        const agent = await findAgentByUserId(userId)
-        if (!agent) {
-          socket.close(4004, '非坐席账号')
+    void (async () => {
+      // 挂上 close 监听后置 true:此后槽位由 close 释放,finally 不再重复释放
+      let handedOff = false
+      try {
+        const userId = await wsAuth(socket, token)
+        if (!userId) return
+        // 2026-08-02 P1 安全审计:单用户并发连接数限制
+        if (!userConnectionLimiter.acquire(userId)) {
+          server.log.warn({ userId }, 'ws-customer-service 拒绝连接:单用户连接数超限')
+          socket.close(WS_CLOSE.TOO_MANY_CONNECTIONS, '单用户连接数超限')
           return
         }
-        await updateAgentStatus(agent.id, 'online')
-        // 坐席上线后触发派单
-        void dispatchQueue()
+        acquiredUserId = userId
 
-        // 坐席连接没有固定 sessionId，监听全局（此处简化：坐席通过消息携带 sessionId）
-        // 用 "agent:<userId>" 作为虚拟会话键，便于心跳管理
-        const virtualKey = `agent:${agent.id}`
-        if (!connections.has(virtualKey)) connections.set(virtualKey, new Set())
-        connections.get(virtualKey)!.add(socket)
-        meta.set(socket, { userId, sessionId: virtualKey, role: 'agent' })
+        // ===== 坐席连接 =====
+        if (roleParam === 'agent') {
+          const agent = await findAgentByUserId(userId)
+          if (!agent) {
+            socket.close(4004, '非坐席账号')
+            return
+          }
+          await updateAgentStatus(agent.id, 'online')
+          // 坐席上线后触发派单
+          void dispatchQueue()
 
+          // 坐席连接没有固定 sessionId，监听全局（此处简化：坐席通过消息携带 sessionId）
+          // 用 "agent:<userId>" 作为虚拟会话键，便于心跳管理
+          const virtualKey = `agent:${agent.id}`
+          if (!connections.has(virtualKey)) connections.set(virtualKey, new Set())
+          connections.get(virtualKey)!.add(socket)
+          meta.set(socket, { userId, sessionId: virtualKey, role: 'agent' })
+
+          socket.send(
+            JSON.stringify({
+              type: 'cs_connected',
+              data: { sessionId: '', role: 'agent', agentId: agent.id },
+            }),
+          )
+
+          socket.on('message', async (data: Buffer) => {
+            if (data.toString() === 'ping') {
+              socket.send('pong')
+              return
+            }
+            // 2026-08-02 P1 安全审计:消息速率限制(防 flooding)
+            if (!messageRateLimiter.allow(userId)) {
+              server.log.warn({ userId }, 'ws-customer-service(坐席)拒绝消息:速率超限')
+              socket.close(WS_CLOSE.RATE_LIMITED, '消息发送过快')
+              return
+            }
+            let msgObj: unknown
+            try {
+              msgObj = JSON.parse(data.toString())
+            } catch {
+              socket.send(JSON.stringify({ type: 'error', data: { message: 'JSON 格式错误' } }))
+              return
+            }
+            // 2026-08-02 P1 安全审计:Zod schema 校验消息结构
+            if (typeof msgObj !== 'object' || msgObj === null) {
+              socket.send(JSON.stringify({ type: 'error', data: { message: '消息格式非法' } }))
+              return
+            }
+            const rawMsg = msgObj as { type?: string }
+            if (rawMsg.type !== 'cs_message') return
+            // 2026-09-30 strict 化:判定走共享单点,拒绝一律计数 + 告警(不静默剥键)
+            const verdict = judgeCsInboundMessage(msgObj)
+            if (!verdict.ok) {
+              server.log.warn(
+                { userId, reason: verdict.reason },
+                'ws-customer-service(坐席)消息被 strict 边界拒绝',
+              )
+              socket.send(JSON.stringify({ type: 'error', data: { message: '消息格式非法' } }))
+              return
+            }
+            if (verdict.data.type !== 'cs_message') return
+            const sessionId = verdict.data.data.sessionId
+            if (!sessionId) return
+            const targetSession = String(sessionId)
+            // F-110(2026-11-08):targetSession 来自客户端,广播前必须确认是本人名下
+            // 且仍在进行中的会话,否则任意坐席可向他人会话注入「官方客服」消息。
+            let target
+            try {
+              target = await findSessionBySessionId(targetSession)
+            } catch (err) {
+              server.log.warn(
+                { err, userId, sessionId: targetSession },
+                'ws-customer-service(坐席)会话查询失败,丢弃消息',
+              )
+              return
+            }
+            const authz = judgeAgentBroadcast(target, agent.id)
+            if (!authz.ok) {
+              server.log.warn(
+                { userId, agentId: agent.id, sessionId: targetSession, reason: authz.reason },
+                'ws-customer-service(坐席)拒绝向非本人/非活跃会话广播',
+              )
+              return
+            }
+            broadcast(targetSession, {
+              type: 'cs_message',
+              data: {
+                id: `${targetSession}_${Date.now()}`,
+                content: verdict.data.data.content,
+                senderId: agent.id,
+                senderName: agent.nickname,
+                senderRole: 'agent',
+                createdAt: new Date().toISOString(),
+              },
+            })
+          })
+
+          socket.on('close', async () => {
+            const conns = connections.get(virtualKey)
+            if (conns) {
+              conns.delete(socket)
+              if (conns.size === 0) connections.delete(virtualKey)
+            }
+            // 坐席断开：若没有其他连接则置 offline
+            await updateAgentStatus(agent.id, 'offline').catch(() => {})
+            // 2026-08-02 P1 安全审计:释放连接槽位 + 清除速率窗口
+            releaseSlot()
+          })
+          handedOff = true
+          return
+        }
+
+        // ===== 客户连接 =====
+        let session
+        if (sessionIdParam) {
+          const found = await findSessionBySessionId(sessionIdParam)
+          if (!found) {
+            socket.close(4004, '会话不存在')
+            return
+          }
+          // F-109(2026-11-08):会话存在不等于归属当前用户 —— 必须比对 userId,
+          // 且已终结会话不可再接入。不泄露会话是否存在,统一按 4004 拒绝。
+          const joinVerdict = judgeSessionJoin(found, userId, false)
+          if (!joinVerdict.ok) {
+            if (joinVerdict.reason === 'session_not_owner') {
+              server.log.warn(
+                { userId, sessionId: sessionIdParam },
+                'ws-customer-service 拒绝连接:会话不属于当前用户',
+              )
+            }
+            socket.close(4004, '会话不存在')
+            return
+          }
+          session = found
+        } else {
+          session = await createSession({ userId, source: 'web' })
+        }
+
+        const sessionId = session.sessionId
+        if (!connections.has(sessionId)) connections.set(sessionId, new Set())
+        connections.get(sessionId)!.add(socket)
+        meta.set(socket, { userId, sessionId, role: 'customer' })
+
+        // 推送连接确认（含排队位置与是否已分配坐席）
         socket.send(
           JSON.stringify({
             type: 'cs_connected',
-            data: { sessionId: '', role: 'agent', agentId: agent.id },
+            data: {
+              sessionId,
+              role: 'customer',
+              queuePosition: session.queuePosition,
+              agentAssigned: !!session.agentId,
+              status: session.status,
+            },
           }),
         )
+
+        // 若会话仍在排队，尝试立即分配坐席
+        if (session.status === 'waiting') {
+          const assigned = await dispatchQueue()
+          if (assigned === 0) {
+            // 暂无可用坐席，推送队列位置
+            socket.send(
+              JSON.stringify({
+                type: 'cs_queue',
+                data: { position: session.queuePosition, total: session.queuePosition },
+              }),
+            )
+          }
+        }
 
         socket.on('message', (data: Buffer) => {
           if (data.toString() === 'ping') {
@@ -230,7 +462,7 @@ const wsCustomerServicePlugin: FastifyPluginAsync = async (server) => {
           }
           // 2026-08-02 P1 安全审计:消息速率限制(防 flooding)
           if (!messageRateLimiter.allow(userId)) {
-            server.log.warn({ userId }, 'ws-customer-service(坐席)拒绝消息:速率超限')
+            server.log.warn({ userId }, 'ws-customer-service(客户)拒绝消息:速率超限')
             socket.close(WS_CLOSE.RATE_LIMITED, '消息发送过快')
             return
           }
@@ -238,182 +470,69 @@ const wsCustomerServicePlugin: FastifyPluginAsync = async (server) => {
           try {
             msgObj = JSON.parse(data.toString())
           } catch {
-            socket.send(JSON.stringify({ type: 'error', data: { message: 'JSON 格式错误' } }))
+            socket.send(JSON.stringify({ type: 'error', data: { message: 'Invalid JSON' } }))
             return
           }
           // 2026-08-02 P1 安全审计:Zod schema 校验消息结构
-          if (typeof msgObj !== 'object' || msgObj === null) {
-            socket.send(JSON.stringify({ type: 'error', data: { message: '消息格式非法' } }))
-            return
-          }
-          const rawMsg = msgObj as { type?: string }
-          if (rawMsg.type !== 'cs_message') return
-          // 2026-09-30 strict 化:判定走共享单点,拒绝一律计数 + 告警(不静默剥键)
+          // 2026-09-30 strict 化:判定走共享单点,未登记键/形状非法 → 计数 + 告警 + 丢弃
           const verdict = judgeCsInboundMessage(msgObj)
           if (!verdict.ok) {
             server.log.warn(
               { userId, reason: verdict.reason },
-              'ws-customer-service(坐席)消息被 strict 边界拒绝',
+              'ws-customer-service(客户)消息被 strict 边界拒绝',
             )
             socket.send(JSON.stringify({ type: 'error', data: { message: '消息格式非法' } }))
             return
           }
-          if (verdict.data.type !== 'cs_message') return
-          const sessionId = verdict.data.data.sessionId
-          if (!sessionId) return
-          const targetSession = String(sessionId)
-          broadcast(targetSession, {
-            type: 'cs_message',
-            data: {
-              id: `${targetSession}_${Date.now()}`,
-              content: verdict.data.data.content,
-              senderId: agent.id,
-              senderName: agent.nickname,
-              senderRole: 'agent',
-              createdAt: new Date().toISOString(),
-            },
-          })
+          const msg = verdict.data
+          if (msg.type === 'cs_message') {
+            const content = msg.data.content.trim()
+            if (!content) return
+            broadcast(sessionId, {
+              type: 'cs_message',
+              data: {
+                id: `${sessionId}_${Date.now()}`,
+                content,
+                senderId: userId,
+                senderName: '用户',
+                senderRole: 'customer',
+                createdAt: new Date().toISOString(),
+              },
+            })
+          } else if (msg.type === 'cs_typing') {
+            broadcast(sessionId, {
+              type: 'cs_typing',
+              data: { userId, isTyping: msg.data.isTyping === true },
+            })
+          }
         })
 
-        socket.on('close', async () => {
-          const conns = connections.get(virtualKey)
+        socket.on('close', () => {
+          const conns = connections.get(sessionId)
           if (conns) {
             conns.delete(socket)
-            if (conns.size === 0) connections.delete(virtualKey)
+            if (conns.size === 0) {
+              connections.delete(sessionId)
+              // 客户端全部断开：关闭会话（不立即关闭，给重连留窗口；此处简化为标记关闭）
+              void closeSession(sessionId).catch(() => {})
+            }
           }
-          // 坐席断开：若没有其他连接则置 offline
-          await updateAgentStatus(agent.id, 'offline').catch(() => {})
           // 2026-08-02 P1 安全审计:释放连接槽位 + 清除速率窗口
-          userConnectionLimiter.release(userId)
-          messageRateLimiter.reset(userId)
+          releaseSlot()
         })
-        return
+        handedOff = true
+      } finally {
+        if (!handedOff) releaseSlot()
       }
-
-      // ===== 客户连接 =====
-      let session
-      if (sessionIdParam) {
-        session = await findSessionBySessionId(sessionIdParam)
-        // F-109(2026-11-08):会话存在不等于归属当前用户 —— 必须比对 userId,
-        // 且已关闭会话不可再接入。不泄露会话是否存在,统一按 4004 拒绝。
-        if (!session || session.userId !== userId || session.status === 'closed') {
-          socket.close(4004, '会话不存在')
-          return
-        }
-        // F-109(2026-11-08):sessionId 来自客户端 query,必须校验会话属主。
-        // 否则任意登录用户可拿他人 sessionId 接管客服会话(读他人消息/冒充客户发消息)。
-        if (session.userId !== userId) {
-          server.log.warn(
-            { userId, sessionId: sessionIdParam },
-            'ws-customer-service 拒绝连接:会话不属于当前用户',
-          )
-          socket.close(4003, '无权访问该会话')
-          return
-        }
-      } else {
-        session = await createSession({ userId, source: 'web' })
+    })().catch((err: unknown) => {
+      server.log.error({ err }, 'ws-customer-service 连接处理异常')
+      releaseSlot()
+      try {
+        socket.close(1011, '内部错误')
+      } catch {
+        // socket 可能已关闭
       }
-
-      const sessionId = session.sessionId
-      if (!connections.has(sessionId)) connections.set(sessionId, new Set())
-      connections.get(sessionId)!.add(socket)
-      meta.set(socket, { userId, sessionId, role: 'customer' })
-
-      // 推送连接确认（含排队位置与是否已分配坐席）
-      socket.send(
-        JSON.stringify({
-          type: 'cs_connected',
-          data: {
-            sessionId,
-            role: 'customer',
-            queuePosition: session.queuePosition,
-            agentAssigned: !!session.agentId,
-            status: session.status,
-          },
-        }),
-      )
-
-      // 若会话仍在排队，尝试立即分配坐席
-      if (session.status === 'waiting') {
-        const assigned = await dispatchQueue()
-        if (assigned === 0) {
-          // 暂无可用坐席，推送队列位置
-          socket.send(
-            JSON.stringify({
-              type: 'cs_queue',
-              data: { position: session.queuePosition, total: session.queuePosition },
-            }),
-          )
-        }
-      }
-
-      socket.on('message', (data: Buffer) => {
-        if (data.toString() === 'ping') {
-          socket.send('pong')
-          return
-        }
-        // 2026-08-02 P1 安全审计:消息速率限制(防 flooding)
-        if (!messageRateLimiter.allow(userId)) {
-          server.log.warn({ userId }, 'ws-customer-service(客户)拒绝消息:速率超限')
-          socket.close(WS_CLOSE.RATE_LIMITED, '消息发送过快')
-          return
-        }
-        let msgObj: unknown
-        try {
-          msgObj = JSON.parse(data.toString())
-        } catch {
-          socket.send(JSON.stringify({ type: 'error', data: { message: 'Invalid JSON' } }))
-          return
-        }
-        // 2026-08-02 P1 安全审计:Zod schema 校验消息结构
-        // 2026-09-30 strict 化:判定走共享单点,未登记键/形状非法 → 计数 + 告警 + 丢弃
-        const verdict = judgeCsInboundMessage(msgObj)
-        if (!verdict.ok) {
-          server.log.warn(
-            { userId, reason: verdict.reason },
-            'ws-customer-service(客户)消息被 strict 边界拒绝',
-          )
-          socket.send(JSON.stringify({ type: 'error', data: { message: '消息格式非法' } }))
-          return
-        }
-        const msg = verdict.data
-        if (msg.type === 'cs_message') {
-          const content = msg.data.content.trim()
-          if (!content) return
-          broadcast(sessionId, {
-            type: 'cs_message',
-            data: {
-              id: `${sessionId}_${Date.now()}`,
-              content,
-              senderId: userId,
-              senderName: '用户',
-              senderRole: 'customer',
-              createdAt: new Date().toISOString(),
-            },
-          })
-        } else if (msg.type === 'cs_typing') {
-          broadcast(sessionId, {
-            type: 'cs_typing',
-            data: { userId, isTyping: msg.data.isTyping === true },
-          })
-        }
-      })
-
-      socket.on('close', () => {
-        const conns = connections.get(sessionId)
-        if (conns) {
-          conns.delete(socket)
-          if (conns.size === 0) {
-            connections.delete(sessionId)
-            // 客户端全部断开：关闭会话（不立即关闭，给重连留窗口；此处简化为标记关闭）
-            void closeSession(sessionId).catch(() => {})
-          }
-        }
-        // 2026-08-02 P1 安全审计:释放连接槽位 + 清除速率窗口
-        userConnectionLimiter.release(userId)
-        messageRateLimiter.reset(userId)
-      })
-    })()
+    })
   })
 
   getWsAutoRecoveryManager().setFastify(server)

@@ -13,6 +13,7 @@ import {
   listByUser,
   getJobOwner,
   getQueueStats,
+  type GenerationJobData,
 } from '../services/ai/generation-queue-service.js'
 import { toUserFriendlyMessage } from '@ihui/shared'
 
@@ -31,7 +32,8 @@ const JOB_STATES = [
 const enqueueSchema = z.object({
   taskId: z.string().min(1, 'taskId 不能为空'),
   type: z.enum(['text', 'image', 'video', 'audio', 'multimodal']),
-  userId: z.string().min(1, 'userId 不能为空'),
+  // F-107:任务归属不再接受 body 传参,一律取鉴权主体(req.userId)。
+  // 旧客户端多传的 userId 被 zod 默认剥离(非 strict),不构成归属声明。
   prompt: z.string().min(1, 'prompt 不能为空'),
   modelId: z.string().min(1, 'modelId 不能为空'),
   params: z.record(z.string(), z.unknown()).default({}),
@@ -80,7 +82,14 @@ const plugin: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const { priority, dedupeWindowMs, ...data } = parsed.data
+    const { priority, dedupeWindowMs, ...rest } = parsed.data
+    // F-107:归属强制取鉴权主体,不接受 body 代填。本仓没有管理员代调用语义,
+    // 故不设 admin 例外;若将来新增代调用,必须显式 requireAdmin 并单独评审。
+    const ownerId = req.userId
+    if (!ownerId) {
+      return reply.status(401).send(error(401, '未登录'))
+    }
+    const data: GenerationJobData = { ...rest, userId: ownerId }
     try {
       const jobId = await enqueue(data, priority ?? 'normal', dedupeWindowMs)
       return reply.status(202).send(success({ jobId, queued: true }))
