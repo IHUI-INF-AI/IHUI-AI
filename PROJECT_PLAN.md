@@ -13228,9 +13228,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 19H. **缺陷普查 SDB SDB-19** [P2] clawdbot 集成调用可用反斜杠改写主机，凭据被带到任意主机（SSRF）（证据 docs/tickets/2026-11/findings-services-db.md#SDB-19）
 - [ ] 20H. **缺陷普查 SDB SDB-20** [P2] 流式结束的 stop() 收尾无 signal/超时，上游卡住则 SSE 永不收尾（证据 docs/tickets/2026-11/findings-services-db.md#SDB-20）
 - [ ] 21H. **缺陷普查 SDB SDB-21** [P3] CTR 的 served 与 clicked 用同一条查询，命中即恒等于 1（证据 docs/tickets/2026-11/findings-services-db.md#SDB-21）
-- [ ] 22H. **缺陷普查 SDB SDB-22** [P3] Hook 日志时间过滤用字符串字典序比较（证据 docs/tickets/2026-11/findings-services-db.md#SDB-22）
-- [ ] 23H. **缺陷普查 SDB SDB-23** [P3] 工具调用台账导出：endDate 漏当天、limit 截断无标记（证据 docs/tickets/2026-11/findings-services-db.md#SDB-23）
-- [ ] 24H. **缺陷普查 SDB SDB-24** [P3] CREW_ROLES_JSON 全无效时不回落内置角色，编排静默空跑（证据 docs/tickets/2026-11/findings-services-db.md#SDB-24）
 - [ ] 25H. **缺陷普查 SDB SDB-25** [P3] 短信回调的空白/逗号配置使双闸同时失效（fail-open）（证据 docs/tickets/2026-11/findings-services-db.md#SDB-25）
 - [ ] 26H. **缺陷普查 SDB SDB-26** [P3] PR 审阅只取 files 首页且 truncated 在恰好 100 个文件时为 false（证据 docs/tickets/2026-11/findings-services-db.md#SDB-26）
 - [ ] 27H. **缺陷普查 SDB SDB-27** [P1] USDT 全站共用单一收款地址，检测只按「金额 ≥ 应收 + 时间窗」取首笔，他人同额付款会被记到先被轮询的订单（证据 docs/tickets/2026-11/findings-services-db.md#SDB-27）
@@ -13259,9 +13256,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 50H. **缺陷普查 SDB SDB-50** [P3] CodebaseIndexer.index 写索引前不建 .ihui，首次索引必 ENOENT（证据 docs/tickets/2026-11/findings-services-db.md#SDB-50）
 - [ ] 51H. **缺陷普查 SDB SDB-51** [P3] terminal_run 白名单含空格项，却只拿首个 token 全等比较，git status 等始终被拒（证据 docs/tickets/2026-11/findings-services-db.md#SDB-51）
 - [ ] 52H. **缺陷普查 SDB SDB-52** [P3] algorithm-record 同批出现重复 record_no 时整批 upsert 报错，整份文件数据丢失（证据 docs/tickets/2026-11/findings-services-db.md#SDB-52）
-- [ ] 53H. **缺陷普查 SDB SDB-53** [P3] resolved 统计的是「全历史 error 累计」，不是「已恢复」（证据 docs/tickets/2026-11/findings-services-db.md#SDB-53）
 - [ ] 54H. **缺陷普查 SDB SDB-54** [P3] 导入判据的正则比调度器 RRULE 解析更窄，合法周期计划被落成「启用但永不到期」的 once 行（证据 docs/tickets/2026-11/findings-services-db.md#SDB-54）
-- [ ] 55H. **缺陷普查 SDB SDB-55** [P3] Telegram 渠道固定 parse_mode:'HTML' 但正文不转义，含 </& 的消息必发失败（证据 docs/tickets/2026-11/findings-services-db.md#SDB-55）
 - [ ] 56H. **缺陷普查 SDB SDB-56** [P3] clawdbot /chat 只把 assistant 轮写入历史，用户上一轮提问永久丢失且内存无上限（证据 docs/tickets/2026-11/findings-services-db.md#SDB-56）
 - [ ] RP-74 守护常驻 tick 只覆盖 29 面、main 链仍有约 37 面长腿没搬 ⇒ 出路:按「该面读数谁在消费」分批搬,每批同批扩 `scripts/tests/git-guardian-daemon-audit-fanout.test.mjs` 的 TICK_REQUIRED 并带变异自证;并给 `scripts/check-sweeper-liveness.mjs` 加 dispatch-parity 第三族(键表从 `git-guardian.mjs` 源码现解析 (腿→tickFile→intervalMs),不抄第二份清单)(登记@2026-11-04;现读 main 派发面 99 / tick 面 32、`.ihui-agent/state/` 冻结戳 46 份;B 档=单轮 ≥5 分钟、真换口令、重启服务那族,理由钉在 `git-guardian.mjs` 挂点旁)
 - [ ] 〔归:机主收款地址面｜等:—〕 RP-37 `USDT_TRC20_ADDRESS` 仍空:地址值是机主掌握的收款信息(七份 env 备份从未有非空值;同族 `USDT_ERC20_ADDRESS` 早有值),而 sponsor 页 `CryptoDonation.tsx:36` 已硬编码 `TMtTpPEMduWurHLi6Fe8XjfcP5Y5AMMnbG` 并上线(枚 ff5ea30d1c87ee76499b9cd3848145c5f030309a)⇒ 同一信息已交付两处、env 一处为空。校验面已收口:TRON 正则 + `assertUsdtAddressFormat` 两调用点共用,新增 14 例绿(含 ERC20 不误拒/400/500 两失败路径/脏地址不落库);fail-closed 37 例绿。余两格归配置面:① env 填哪个地址(现成 sponsor 值或专用充值地址);② 两套 ERC20 地址(现读 sponsor 值与 env 值前缀不同)收敛为 env 权威。〔结清@2026-10-24/主会话-强制令:校验与失败路径已绿,余为地址值配置格〕
