@@ -2426,6 +2426,11 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     const session = await claimAuthorizationCode(parsed.data.code)
     if (!session || session.expiresAt < new Date())
       return reply.status(400).send(error(400, '授权码无效或已过期'))
+    // F-57:授权码必须由签发它的那个客户端兑换(与 /auth/oauth/token 同一判据)。
+    // 比的是**认证通过的应用**而不是 body.client_id —— Basic 认证头优先于 body,
+    // 只比 body 会让"自有凭证 + 别人的 client_id"绕过这道闸。
+    if (session.clientId !== client.app.clientId)
+      return reply.status(400).send(error(400, '授权码与 client_id 不匹配'))
     const pkce = gatePkceForSession({
       session: {
         codeChallenge: session.codeChallenge ?? null,
@@ -2686,6 +2691,9 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     const session = await findSessionByCode(parsed.data.code)
     if (!session || session.isUsed || session.expiresAt < new Date())
       return reply.status(400).send(error(400, '授权码无效或已过期'))
+    // F-57:同 /auth/oauth/token —— 授权码与认证通过的客户端不一致即拒绝(400 invalid_grant 形状)
+    if (session.clientId !== client.app.clientId)
+      return reply.status(400).send(error(400, '授权码与 client_id 不匹配'))
     const pkce = gatePkceForSession({
       session: {
         codeChallenge: session.codeChallenge ?? null,
@@ -2729,6 +2737,9 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       const session = await findSessionByCode(parsed.data.code)
       if (!session || session.isUsed || session.expiresAt < new Date())
         return reply.status(400).send(error(400, '授权码无效或已过期'))
+      // F-57:同 /auth/oauth/token —— 授权码与认证通过的客户端不一致即拒绝(400 invalid_grant 形状)
+      if (session.clientId !== client.app.clientId)
+        return reply.status(400).send(error(400, '授权码与 client_id 不匹配'))
       const pkce = gatePkceForSession({
         session: {
           codeChallenge: session.codeChallenge ?? null,
@@ -2760,6 +2771,17 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       const parsed = oauthRefreshSchema.safeParse(request.body)
       if (!parsed.success)
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      // F-57:refresh token 不是"谁拿到都能续"的公共凭据(RFC 6749 §6),先认证出示它的客户端。
+      // 复用 authenticateOAuthClient:公开客户端(无 secret)与 legacy 机密客户端走各自既有分支,
+      // 不在这里一刀切要求 secret。认证不过 → 既有 401 invalid_client 形状。
+      // 注:oauthRefreshSchema 只声明 refresh_token/client_id,client_secret 从原始 body 取,
+      // 否则 client_secret_post 被 Zod 剥掉、机密客户端只剩 Basic 一种写法。
+      const client = await authenticateOAuthClient(request, {
+        client_id: parsed.data.client_id,
+        client_secret: body.client_secret,
+      })
+      if (!client.ok)
+        return reply.status(client.status).send(error(client.status, client.description))
       const result = await rotateRefreshTokenFlow(parsed.data.refresh_token)
       if (!result.ok) return reply.status(result.status).send(error(result.status, result.message))
       return reply.send(

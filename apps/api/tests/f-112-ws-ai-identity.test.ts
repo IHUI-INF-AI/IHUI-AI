@@ -28,6 +28,19 @@ describe('F-112 ws/ai 出站身份以服务端为准', () => {
     expect(merged).toEqual({ userId: 'me', provider: 'openai', trace: 't-1' })
   })
 
+  it.each(['userId', 'provider', 'user_id'])(
+    'mergeServerMetadata:保留键 %s 一律服务端后写,其余键原样保留',
+    (key) => {
+      const merged = mergeServerMetadata({ [key]: 'victim', trace: 't-1' }, { [key]: 'server' })
+      expect(merged[key]).toBe('server')
+      expect(merged.trace).toBe('t-1')
+    },
+  )
+
+  it('mergeServerMetadata:客户端无 metadata 时只含服务端身份', () => {
+    expect(mergeServerMetadata(undefined, { userId: 'me' })).toEqual({ userId: 'me' })
+  })
+
   it('resolveCozeIdentity:bot/user 只取连接态', () => {
     expect(resolveCozeIdentity({ botId: 'conn-bot', userId: 'conn-user' })).toEqual({
       botId: 'conn-bot',
@@ -35,15 +48,34 @@ describe('F-112 ws/ai 出站身份以服务端为准', () => {
     })
   })
 
+  it('resolveCozeIdentity:消息体夹带 bot_id/user_id 时不改变结果', () => {
+    const clientCtx = {
+      botId: 'conn-bot',
+      userId: 'conn-user',
+      bot_id: 'attacker-bot',
+      user_id: 'victim',
+    } as unknown as { botId: string; userId: string }
+    expect(resolveCozeIdentity(clientCtx)).toEqual({ botId: 'conn-bot', userId: 'conn-user' })
+  })
+
   it('源码不再采信客户端可写的 userId / bot_id / user_id', () => {
     // 合并顺序必须是服务端身份在后
     expect(wsAiSource).not.toMatch(/userId,\s*\.\.\.metadata/)
     expect(wsAiSource).not.toMatch(/userId,\s*provider,\s*\.\.\.metadata/)
+    // 两处出站 metadata 都走统一合并函数,且第一参是客户端 metadata、第二参才是服务端身份
+    expect(wsAiSource.match(/metadata:\s*mergeServerMetadata\(/g)?.length).toBe(2)
+    expect(wsAiSource.match(/mergeServerMetadata\(metadata,\s*\{[^}]*\}\)/g)?.length).toBe(2)
+  })
+
+  it('源码 Coze 分支的身份只来自连接态,不读消息体字段', () => {
     // Coze 分支不得读消息体里的身份字段
     expect(wsAiSource).not.toMatch(/msg\.bot_id/)
     expect(wsAiSource).not.toMatch(/msg\.user_id/)
-    // 两处出站 metadata 都走统一合并函数
-    expect(wsAiSource.match(/metadata:\s*mergeServerMetadata\(/g)?.length).toBe(2)
+    // bot/user 两处都经 resolveCozeIdentity 从连接态取值
+    expect(wsAiSource.match(/=\s*resolveCozeIdentity\(/g)?.length).toBe(2)
+    // 出站 body 的 user_id 只可能是该结果
+    expect(wsAiSource).toMatch(/user_id:\s*reqUserId/)
+    expect(wsAiSource).not.toMatch(/user_id:\s*\(?msg\./)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
