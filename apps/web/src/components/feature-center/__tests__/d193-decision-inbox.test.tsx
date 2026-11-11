@@ -31,6 +31,9 @@ vi.mock('@ihui/api-client', () => ({
   listPendingDecisions: h.listPendingDecisions,
   // SidebarUserRow 挂载时会拉一次通知列表做消息二级菜单缓存,这里给空列表即可
   getNotifications: vi.fn(async () => ({ success: true, data: { list: [], total: 0 } })),
+  // 已读双写(本地 + 服务端)用到的两个接口
+  markAllNotificationsRead: vi.fn(async () => ({ success: true, data: { success: true } })),
+  markNotificationRead: vi.fn(async () => ({ success: true, data: { success: true } })),
 }))
 
 // ---------------------------------------------------------------------------

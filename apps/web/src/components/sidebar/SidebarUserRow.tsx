@@ -48,7 +48,12 @@ import {
 import { LANGUAGES } from './nav-data'
 import { useChatStore } from '@/stores/chat'
 import { useAiPanelStore } from '@/stores/ai-panel'
-import { getNotifications, listPendingDecisions } from '@ihui/api-client'
+import {
+  getNotifications,
+  listPendingDecisions,
+  markAllNotificationsRead,
+  markNotificationRead,
+} from '@ihui/api-client'
 
 /**
  * 从 WS 通知条目的业务载荷里读会话深链 id(G2 自动化结果推送,2026-10-30)。
@@ -204,6 +209,24 @@ export function SidebarUserRow({
     onCloseMobile()
   }
 
+  /**
+   * 2026-11-11 用户反馈:点「全部已读」后红点又回来 —— 旧实现只改本地 store,
+   * 服务端仍是未读,重新挂载时 unread-count / 列表快照把红点原样拉回。
+   * 这里改为双写:先乐观更新本地(即时反馈),再落服务端(刷新后不回潮)。
+   */
+  const handleMarkAllRead = () => {
+    markAllAsRead()
+    void markAllNotificationsRead().catch(() => {
+      // 落库失败只影响下次刷新的一致性,不打断当前交互
+    })
+  }
+
+  /** 单条已读同样双写,否则刷新后该条红点复活 */
+  const handleNoticeRead = (id: string) => {
+    markAsRead(id)
+    void markNotificationRead(id).catch(() => {})
+  }
+
   // 2026-11-11 用户要求:悬停「站内消息」直接展开二级菜单显示消息内容,
   // 不必先点开完整通知弹窗。最多取最近 6 条(store 已是最新在前),
   // 点击条目 = 标记已读 + 自动化终态通知直接深链回会话;底部「查看全部通知」进入完整通知中心。
@@ -253,7 +276,7 @@ export function SidebarUserRow({
         </span>
       ),
       onSelect: () => {
-        markAsRead(n.id)
+        handleNoticeRead(n.id)
         if (n.sessionId) handleNoticeSessionLink(n.sessionId)
       },
     }
@@ -577,7 +600,7 @@ export function SidebarUserRow({
       >
         <NotificationCenter
           items={noticeItems}
-          onMarkAllRead={() => markAllAsRead()}
+          onMarkAllRead={handleMarkAllRead}
           pendingDecisions={pendingDecisions ?? undefined}
           onDecisionItemClick={handleDecisionItemClick}
           onSessionLinkClick={handleNoticeSessionLink}
