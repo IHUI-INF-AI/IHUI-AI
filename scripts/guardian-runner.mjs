@@ -7625,7 +7625,7 @@ const checks = [
   // ⚠️ 同型事故(门 150 头注):注册必须进主 checks 数组 —— runner 迭代入口是
   // `pushGate ? pushGateChecks : checks`,被并进 pushGateChecks 等于没装;镜像 T1 钉这一条。
   {
-    id: '314',
+    id: '315',
     label: '按钮描边颜色显式化对账(裸 border 无基础色 ⇒ border-color-implicit)',
     script: 'check-button-border-color.mjs',
     args: [],

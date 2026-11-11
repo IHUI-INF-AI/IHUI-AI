@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// 守门 314 的镜像测试 —— 钉三件事:装车位置(主 checks 数组,不是 pushGateChecks)、判据形态
+// 守门 315 的镜像测试 —— 钉三件事:装车位置(主 checks 数组,不是 pushGateChecks)、判据形态
 // (含 2026-11-11 scanJsx 修复的归属不回退)、台账棘轮(存在且 --emit-baseline 只允许下降)。
 // 跑法:node --test scripts/tests/check-button-border-color.test.mjs
 // @ts-check
@@ -40,7 +40,7 @@ function arrRange(src, name) {
   return { from, to: i, text: src.slice(from + 1, i) }
 }
 
-test('T1 装车证明:314 必须在 checks 数组内(不是 pushGateChecks),blocking/skipEnv/stagedTriggers 逐字一致', () => {
+test('T1 装车证明:315 必须在 checks 数组内(不是 pushGateChecks),blocking/skipEnv/stagedTriggers 逐字一致', () => {
   // runner 读**磁盘**:本门 2026-11-11 新建,注册条目尚未与提交同枚入库,HEAD blob 里没有它;
   // 同枚提交后此取材可换 headBlob —— 钉的不变量(落哪个数组、要素逐字)两种取材下都成立。
   const src = readFileSync(RUNNER, 'utf8')
@@ -54,9 +54,9 @@ test('T1 装车证明:314 必须在 checks 数组内(不是 pushGateChecks),bloc
     !pushOnly.text.includes('check-button-border-color.mjs'),
     '本门不得同时挂在 pushGateChecks 上 ⇒ 两处注册会互相顶失败归属',
   )
-  const at = src.indexOf("id: '314'")
-  assert.ok(at >= 0, "注册表里没有 id: '314'")
-  assert.ok(at > checks.from && at < checks.to, "id: '314' 落在 checks 区间之外")
+  const at = src.indexOf("id: '315'")
+  assert.ok(at >= 0, "注册表里没有 id: '315'")
+  assert.ok(at > checks.from && at < checks.to, "id: '315' 落在 checks 区间之外")
   const block = src.slice(at, src.indexOf('\n  },', at) + 5)
   assert.match(block, /script: 'check-button-border-color\.mjs'/, 'script 字段不符')
   assert.match(block, /mode: 'blocking'/, '定级不是 blocking')
@@ -105,7 +105,7 @@ test('T4 台账存在、形状合规,且 --emit-baseline 只允许下降', async
   const ledger = JSON.parse(readFileSync(LEDGER, 'utf8'))
   assert.ok(ledger.anchors && typeof ledger.anchors === 'object', '台账缺 anchors 字段')
   for (const [k, v] of Object.entries(ledger.anchors)) {
-    assert.match(k, /\|border-color-implicit$/, `台账键形态不符:${k}`)
+    assert.match(k, /\|(border-color-implicit|border-color-missing-rn)$/, `台账键形态不符:${k}`)
     assert.ok(Number.isInteger(v) && v >= 0, `台账值须为非负整数:${k}=${v}`)
   }
   const log = []
