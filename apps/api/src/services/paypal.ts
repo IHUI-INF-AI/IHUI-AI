@@ -160,6 +160,9 @@ export async function createOrder(params: CreateOrderParams): Promise<CreateOrde
     purchase_units: [
       {
         reference_id: params.outTradeNo,
+        // PayPal 不会把 reference_id 回填到 capture 资源的 custom_id,
+        // 异步 webhook 按 custom_id 认领订单,必须下单时同时写入。
+        custom_id: params.outTradeNo,
         description: params.description,
         amount: {
           currency_code: params.currency,
