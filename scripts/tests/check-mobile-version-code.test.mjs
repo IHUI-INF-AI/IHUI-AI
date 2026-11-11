@@ -14,7 +14,8 @@
  */
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
@@ -224,6 +225,70 @@ test('M9 取材失败判"未判定":app.config.js 未进索引 ⇒ --staged exit
     // 同一现场 --worktree 有内容 ⇒ 绿(证明 exit 2 是"这一面没有"而非门坏了)
     const w = runGate(dir, ['--worktree'])
     assert.equal(w.code, 0, `工作树面有合法配置必须绿:\n${w.out}`)
+  } finally {
+    rmScratch(dir, { bestEffort: true })
+  }
+})
+
+/**
+ * P1 构建期版本双写一致性(2026-11-11 真机事故的根治取证)。
+ * 事故形态:手工构建只注入 IHUI_MOBILE_VERSION=0.0.21,漏了同名的
+ * EXPO_PUBLIC_IHUI_MOBILE_VERSION ⇒ 原生 0.0.21 / JS bundle 0.0.12,
+ * 端内把线上旧版 0.0.20 判成「有更新」,自动拉安装器后永久卡在 installing。
+ * 判据随模块导出,本测试直接问它,不在测试里重抄一条正则(§0.6/§22c)。
+ */
+test('P1 版本双写不一致必须构建期抛错;两处同源才放行', () => {
+  const dir = mkScratch('mvc-parity-')
+  try {
+    writeFileSync(join(dir, 'package.json'), PKG, 'utf8')
+    // 拿真实配置源码(与门 21「Expo 同构方式」一致:写成 .cjs 后 createRequire)
+    const src = readFileSync(join(REPO, 'apps', 'mobile-rn', 'app.config.js'), 'utf8')
+    writeFileSync(join(dir, 'app.config.cjs'), src, 'utf8')
+    const mod = createRequire(join(dir, 'package.json'))(join(dir, 'app.config.cjs'))
+    const parity = mod.assertMobileVersionParity
+    assert.equal(typeof parity, 'function', '判据必须随模块导出,测试不得另抄一份')
+
+    // 两处都缺省 ⇒ 同时回退 pkg.version,仍然同源
+    assert.equal(parity('', ''), null)
+    assert.equal(parity(undefined, undefined), null)
+    assert.equal(parity('0.0.21', '0.0.21'), '0.0.21')
+    // 只给一侧 / 两处不等 ⇒ 一律当场拦死(旧实现正是静默放行第一种)
+    for (const [native, bundle] of [
+      ['0.0.21', ''],
+      ['', '0.0.21'],
+      ['0.0.21', '0.0.20'],
+    ]) {
+      assert.throws(() => parity(native, bundle), /双写不一致/, `(${native},${bundle}) 必须被拦`)
+    }
+
+    const base = JSON.parse(APPJSON).expo
+    base.extra = { ...base.extra, WX_UNIVERSAL_LINK: 'https://aizhs.top/' }
+    const keys = ['IHUI_MOBILE_VERSION', 'EXPO_PUBLIC_IHUI_MOBILE_VERSION']
+    const saved = keys.map((k) => [k, process.env[k]])
+    try {
+      process.env.IHUI_MOBILE_VERSION = '0.0.21'
+      delete process.env.EXPO_PUBLIC_IHUI_MOBILE_VERSION
+      // 真实配置求值(不是只测纯函数):漏注入那一侧必须让构建当场失败
+      assert.throws(
+        () => mod({ config: base }),
+        /双写不一致/,
+        '只给一个 env 的真实构建必须失败,不能发出「原生号 ≠ 界面号」的包',
+      )
+      process.env.EXPO_PUBLIC_IHUI_MOBILE_VERSION = '0.0.21'
+      assert.equal(mod({ config: base }).version, '0.0.21', '成对注入时 displayVersion 取该值')
+      delete process.env.IHUI_MOBILE_VERSION
+      delete process.env.EXPO_PUBLIC_IHUI_MOBILE_VERSION
+      assert.equal(
+        mod({ config: base }).version,
+        JSON.parse(PKG).version,
+        '两处都缺省时回落 package.json,与门 B 的兜底口径一致',
+      )
+    } finally {
+      for (const [k, v] of saved) {
+        if (v === undefined) delete process.env[k]
+        else process.env[k] = v
+      }
+    }
   } finally {
     rmScratch(dir, { bestEffort: true })
   }

@@ -119,6 +119,31 @@ test('validateDesired:合法默认值零红;非 https / 非自有域 / 坏 semve
   assert.ok(validateDesired({ platform: 'android', ...DESIRED, buildNumber: 0 }).length > 0)
 })
 
+/**
+ * 2026-11-11 真机事故:线上 android latest=0.0.20 的 downloadUrl 是 OSS 临时签名直链,
+ * bucket 被禁用后安装器拿到 XML 错误页 ⇒ (33) packageinfo is null ⇒ 更新卡永久卡住。
+ * 这一型坏数据必须从登记入口就被拦下;同时留反向对照,别把判据写成"一律红"。
+ */
+test('validateDesired:临时签名直链 / 非 apk 路径一律拦下,稳定件零红', () => {
+  const signed =
+    'https://apk.aizhs.top/download/ihui-ai-0.0.20-26110801.apk' +
+    '?OSSAccessKeyId=LTAI5t5zKymL181mcd4NFd71&Expires=1825651699&Signature=MnZ8wEu6vUtWFPxw%2Fey4pnPzNWo%3D'
+  const red = validateDesired({ platform: 'android', ...DESIRED, downloadUrl: signed })
+  assert.ok(
+    red.some((r) => /临时签名参数/.test(r)),
+    `必须点名签名参数,不得静默放行:\n${red.join('\n')}`,
+  )
+  assert.ok(
+    validateDesired({
+      platform: 'android',
+      ...DESIRED,
+      downloadUrl: 'https://www.aizhs.top/remote-images/download/',
+    }).some((r) => /\.apk/.test(r)),
+  )
+  // 反向对照:单一真源里的稳定件必须零红
+  assert.deepEqual(validateDesired({ platform: 'android', ...DESIRED }), [])
+})
+
 test('parseArgs:两腿凭据来自环境变量,缺省指向线上站点', () => {
   const a = parseArgs([], { IHUI_ADMIN_TOKEN: 'jwt-x', DATABASE_URL: 'postgres://dev' })
   assert.equal(a.via, 'api')
