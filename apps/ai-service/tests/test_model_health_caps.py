@@ -373,6 +373,25 @@ def test_caps_verified_shape_with_and_without_state(monkeypatch):
     }
 
 
+def test_build_probe_target_keeps_full_id_for_relay(monkeypatch):
+    """relay 网关的白名单按带前缀 id 登记:不得剥成裸模型名(否则 403 污染三项能力)。"""
+    monkeypatch.setattr(mh, "_resolve_credentials", lambda code: ("k", "http://127.0.0.1:8802/v1"))
+    target = mh._build_probe_target("workbuddy/kimi-k3-1", "workbuddy_relay")
+
+    assert target is not None
+    assert target.code == "workbuddy_relay"
+    assert target.upstream_model == "workbuddy/kimi-k3-1"
+
+
+def test_build_probe_target_strips_prefix_for_direct_provider(monkeypatch):
+    """直连厂商认的是裸模型名:网关前缀必须剥掉。"""
+    monkeypatch.setattr(mh, "_resolve_credentials", lambda code: ("k", "https://api.agnes-ai.cn/v1"))
+    target = mh._build_probe_target("agnes/agnes-2.5-flash", "agnes")
+
+    assert target is not None
+    assert target.upstream_model == "agnes-2.5-flash"
+
+
 async def test_context_probe_rotation_prefers_never_tested(monkeypatch):
     monkeypatch.setenv("MODEL_HEALTH_CONTEXT_PROBES_PER_CYCLE", "1")
     monkeypatch.setenv("MODEL_HEALTH_CONTEXT_PROBE_TOKENS", "500")
