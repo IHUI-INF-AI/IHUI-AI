@@ -12570,9 +12570,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 70F. **缺陷普查 XUI XUI-072** [P2] 小程序课程详情成功与失败 toast 并存（证据 docs/tickets/2026-11/findings-crossui.md#XUI-072）
 - [ ] 71F. **缺陷普查 XUI XUI-073** [P2] 小程序充值失败丢失 orderNo（证据 docs/tickets/2026-11/findings-crossui.md#XUI-073）
 - [ ] 72F. **缺陷普查 XUI XUI-074** [P2] ToolApprovalSheet / ImageAnnotator 键盘与高度处理缺失（证据 docs/tickets/2026-11/findings-crossui.md#XUI-074）
-- [ ] 5G. **缺陷普查 API F-05** [P2] 分销统计三接口按 beneficiaryId 越权读取他人佣金与下级关系（证据 docs/tickets/2026-11/findings-api.md#F-05）
 - [ ] 7G. **缺陷普查 API F-07** [P2] /api/workspace/background-agents 可列出/查看/取消所有用户的后台 Agent（证据 docs/tickets/2026-11/findings-api.md#F-07）
-- [ ] 8G. **缺陷普查 API F-08** [P2] /api/agent-control/result 缺归属绑定，可伪结算他人待处理动作（证据 docs/tickets/2026-11/findings-api.md#F-08）
 - [ ] 12G. **缺陷普查 API F-12** [P2] 已支付订单副作用重放与支付回调并发，积分/Outbox 双发（证据 docs/tickets/2026-11/findings-api.md#F-12）
 - [ ] 15G. **缺陷普查 API F-15** [P2] 邀请码占用无 status 条件，同一码并发注册双发奖励（证据 docs/tickets/2026-11/findings-api.md#F-15）
 - [ ] 17G. **缺陷普查 API F-17** [P1] 提现回调先消费 nonce、失败仍 ACK SUCCESS，事务失败后资金永久冻结（证据 docs/tickets/2026-11/findings-api.md#F-17）
@@ -12583,11 +12581,9 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 24G. **缺陷普查 API F-24** [P3] 导出/用量按 UTC 边界过滤日期区间，且结束边界丢毫秒（证据 docs/tickets/2026-11/findings-api.md#F-24）
 - [ ] 25G. **缺陷普查 API F-25** [P3] /v1/assistants 游标分页排序键非唯一，跨页可能重复/漏行（证据 docs/tickets/2026-11/findings-api.md#F-25）
 - [ ] 26G. **缺陷普查 API F-26** [P3] parsePaging 只夹 pageSize 不夹 page，超大 page 使 OFFSET 溢出为 Infinity → 500（证据 docs/tickets/2026-11/findings-api.md#F-26）
-- [ ] 27G. **缺陷普查 API F-27** [P1] 原子回滚未校验 checkpointId 与快照元数据路径，可越出工作区任意写文件（证据 docs/tickets/2026-11/findings-api.md#F-27）
 - [ ] 29G. **缺陷普查 API F-29** [P2] /spec/pipeline-rollback 接受绝对 backupDir，可读取工作区外任意目录的 *.bak（证据 docs/tickets/2026-11/findings-api.md#F-29）
 - [ ] 30G. **缺陷普查 API F-30** [P2] /git/status、/git/review-diff、/github/status 缺工作区权限校验，绕过 ACL 读任意注册根（证据 docs/tickets/2026-11/findings-api.md#F-30）
 - [ ] 31G. **缺陷普查 API F-31** [P3] agents.ts 分页 toInt 无上下界，负数直入 OFFSET/LIMIT，超大值全表载入（证据 docs/tickets/2026-11/findings-api.md#F-31）
-- [ ] 32G. **缺陷普查 API F-32** [P1] 微信/支付宝/PayPal 支付回调在 Saga 返回失败时仍 ACK SUCCESS 并写入幂等完成（证据 docs/tickets/2026-11/findings-api.md#F-32）
 - [ ] 33G. **缺陷普查 API F-33** [P1] refundOrder 先落 refunded 再吞掉 token 扣回失败，可退款后保留 token（证据 docs/tickets/2026-11/findings-api.md#F-33）
 - [ ] 34G. **缺陷普查 API F-34** [P2] 多模态任务失败退款为 fire-and-forget，异常被内部吞掉（证据 docs/tickets/2026-11/findings-api.md#F-34）
 - [ ] 35G. **缺陷普查 API F-35** [P2] 两段式计费 settlePreDeduction 失败只记日志，预扣金额永久停留（证据 docs/tickets/2026-11/findings-api.md#F-35）
@@ -12606,7 +12602,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 50G. **缺陷普查 API F-50** [P2] /anthropic/* 未挂 preHandler 鉴权，非生产档位下可匿名调用平台 Key（证据 docs/tickets/2026-11/findings-api.md#F-50）
 - [ ] 51G. **缺陷普查 API F-51** [P2] 火山异步生图在 HTTP 请求线程内最长轮询 300 秒，且不感知客户端断开（证据 docs/tickets/2026-11/findings-api.md#F-51）
 - [ ] 52G. **缺陷普查 API F-52** [P2] 终端历史列表每次请求全库 SCAN + 2N 次 Redis 往返，且无分页（证据 docs/tickets/2026-11/findings-api.md#F-52）
-- [ ] 53G. **缺陷普查 API F-53** [P0] /auth/profile 仅凭会话即可改绑邮箱，账号可被持久接管（证据 docs/tickets/2026-11/findings-api.md#F-53）
 - [ ] 57G. **缺陷普查 API F-57** [P2] 授权码/刷新令牌未与客户端绑定（3 个兼容换取端点 + refresh 分支）（证据 docs/tickets/2026-11/findings-api.md#F-57）
 - [ ] 58G. **缺陷普查 API F-58** [P2] /members/register/mobile 要求验证码却完全不校验，公开注册可绕过短信验证（证据 docs/tickets/2026-11/findings-api.md#F-58）
 - [ ] 59G. **缺陷普查 API F-59** [P2] 任意登录用户可创建 enterprise 租户；租户 admin 可降级/移除 owner（证据 docs/tickets/2026-11/findings-api.md#F-59）
