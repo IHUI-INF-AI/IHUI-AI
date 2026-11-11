@@ -4013,6 +4013,9 @@ async def list_models(request: Request) -> dict[str, Any]:
         else:
             m["health_status"] = state.status
             m["health_error"] = (state.error or "")[:200]
+        # 2026-11-11 立:实测能力(流式/工具调用/长上下文),null=未测/未知。
+        # 仅标注,不参与 filter_available 的 down 判定(不支持不等于隐藏)。
+        m["caps_verified"] = model_health.get_caps_verified(str(mid))
     return {
         "models": default_models,
         "default": settings.litellm_model,
