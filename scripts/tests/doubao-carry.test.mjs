@@ -462,6 +462,32 @@ test('⑧a buildReplayText:只收 user/assistant 非空消息,带头尾标', () 
   assert.match(t, /--- 原始对话结束 ---/)
 })
 
+test('⑧a-2 buildReplayText:图片/语音消息(ct=20/101 JSON)替换为占位标记', () => {
+  const img = JSON.stringify({ entities: [{ entity_type: 2, entity_content: { image: { key: 'k' } } }, { entity_type: 2, entity_content: { image: { key: 'k2' } } }] })
+  const audio = JSON.stringify({ record_id: '1', status: 5 })
+  const t = buildReplayText({ name: '含图会话' }, [
+    { role: 'user', content: img },
+    { role: 'assistant', content: audio },
+    { role: 'user', content: '看这张图' },
+  ])
+  assert.match(t, /用户:\[发送了图片、图片\]/)
+  assert.match(t, /AI:\[语音转写\]/)
+  assert.match(t, /用户:看这张图/)
+  assert.ok(!t.includes('entity_content'))
+})
+
+test('⑧a-3 buildReplayText:超大会话安全阀截断,总长不超上限且头尾保留', () => {
+  const big = Array.from({ length: 4000 }, (_, i) => ({
+    role: i % 2 ? 'assistant' : 'user',
+    content: `第${i}条消息内容 padding-${'-'.repeat(80)}`,
+  }))
+  const t = buildReplayText({ name: '大会话' }, big)
+  assert.ok(t.length <= 200_000 + 200, `len=${t.length}`)
+  assert.match(t, /【\.\.\.中间省略 \d+ 条消息,完整记录见原归档\.\.\.】/)
+  assert.match(t, /第0条消息内容/) // 头部保留
+  assert.match(t, /第3999条消息内容/) // 尾部保留
+})
+
 test('⑧b replayFingerprint:同会话稳定,消息/时间变化即换指纹', () => {
   const conv = { conversationId: '111', createTime: 1 }
   const a = replayFingerprint(conv, [{ messageId: 'x' }, { messageId: 'y' }])

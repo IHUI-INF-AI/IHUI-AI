@@ -1190,8 +1190,17 @@ const PUSH_TIMEOUT_MS = 900_000
  */
 function pushOnce(noVerify, egressRetried = false) {
   const args = noVerify ? ['push', '--no-verify', 'origin', branch] : ['push', 'origin', branch]
+  // pre-push 钩子从 stdin 读 `<local ref> <local sha> <remote ref> <remote sha>` 派生
+  // PUSH_SCOPE_FILES(`.husky/pre-push` 的 push-scope 段)。而 worker 是 `stdio:['ignore',…]`
+  // detached 派生的 ⇒ 它的 stdin 是 /dev/null,原先 `inherit` 继承到的仍是这条空流 ⇒ 钩子
+  // 算不出范围 ⇒ 47p 水印门在**自动推送路径上恒「未判定」**(不是通过也不是红)。
+  // 而这一档恰恰是 commit-tree / 私有索引旁路落地时唯一的水印防线(pre-commit 已被绕过),
+  // 未判定等于防线不存在。此处按钩子的输入契约显式喂那一行,内容与真人
+  // `git push origin main` 传给钩子的逐字同形。
+  const stdinLine = `refs/heads/${branch} ${localHead} refs/heads/${branch} ${remoteHead}\n`
   const r = spawnSync('git', egressRetried ? [...GIT_EGRESS_DIRECT_ARGS, ...args] : args, {
-    stdio: ['inherit', 'pipe', 'pipe'],
+    stdio: ['pipe', 'pipe', 'pipe'],
+    input: stdinLine,
     encoding: 'utf8',
     cwd: repoRoot,
     env: process.env,
