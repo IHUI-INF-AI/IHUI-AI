@@ -13275,5 +13275,3 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
   - 已完成 并发闸单一真相源:`SuperAgentHost.maxWorkersFor(owner)` 为唯一读数出口,泵把 `subagentDispatchService` 租户上限解析器注册为它;宿主已占槽的派单带 `capacityReserved` 跳过优先级档,未占槽通用派单的三层闸语义不变(测试钉住)。
   - 外腿:RP-40 事件源真实适配器(已单列待办)/ RP-42 慢路径(ai-service `POST /api/super-agent/slow-path/judge` 已落,recorded 积压接判未接)/ RP-43 web 工作台面板(已单列待办)。
 
-- [ ] RP-44 (2026-11-11) **[ops][原子写] install-auto-deploy-task.cmd:16 仍是 `/create … /f` 先拆后建非原子(DBG-84 同族残余)**:ps1 本体已改 `/query` 探在否→在则 `/change` 就地更新、不在才 `/create` 不带 `/f`(install-auto-deploy-task.ps1:22-26,52-89),而 .cmd 入口仍带 `/f`(其 DBG-80 标记系 /tr 引号修复,非同一事)。修法=.cmd 对齐 ps1 口径并扩 `scripts/tests/install-auto-deploy-task-cmd.test.mjs` 钉住〔登记@2026-11-11/goal-复核席A〕
-- [ ] RP-45 (2026-11-11) **[api][时区] DBG-7 同族散点:本地日历累加仍在三处**:apps/api `routes/payment-recurring.ts:79-90`、`routes/agent-extended.ts:1754-1756`、`utils/api-key-quota.ts:55` 用 setFullYear/setDate/setMonth(宿主本地日历)推进计费/配额周期;修法=照 `services/subscription-service.ts:373-394` 的 Asia/Shanghai UTC 投影+setUTC* 口径逐处改并各补镜像测试钉住〔登记@2026-11-11/goal-复核席A〕
