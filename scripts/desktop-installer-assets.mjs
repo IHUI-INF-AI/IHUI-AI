@@ -7,7 +7,7 @@
 //
 // 产出(scale ∈ {1, 1.25, 1.5, 1.75, 2},对应 Windows 标准缩放 100%/125%/150%/175%/200%):
 //   installer-assets/assets-100|125|150|175|200/
-//     splash.bmp + splash1..15.bmp  开屏动画帧(AdvSplash 多帧序列,720x450 逻辑尺寸)
+//     splash.bmp + splash1..9.bmp   开屏动画帧(10 帧,880x600 满幅,与向导页同画布)
 //     welcome.bmp / dir.bmp / instfiles.bmp / finish.bmp / reinstall.bmp  五个安装向导页满幅背景(880x600 逻辑)
 //     unconfirm.bmp / uninstfiles.bmp / unfinish.bmp  卸载器三页满幅背景(两步导轨,几何与安装页同源)
 //     btn-*.bmp                     位图按钮(主 CTA / 幽灵按钮 / 裸文字链接钮 / 快捷方式开关 / 窗口钮)
@@ -24,7 +24,7 @@
 //   ② 安装/卸载进度页"开口环":v2 的完整双环被百分比 STATIC(实色底 640..840×187..253)拦腰截断
 //      (环左右两段消失,实拍确认)。改为上/下两段弧,端点收在控件带外 7px —— 缺口恰是控件带,
 //      截断从渲染缺陷变成"数字悬浮在开口仪表环中"的设计语言(见 pctAperture)。
-//   ③ 开屏 16 帧分镜重排:星轨入场 → 辉光绽放 + logo 显影 → 双环扩散 → 字标收距 → 标语收束;
+//   ③ 开屏 10 帧分镜重排:星轨入场 → 辉光绽放 + logo 显影 → 双环扩散 → 字标收距 → 标语收束;
 //      开屏底 = 垂直渐变(逐行等值,LZMA 免费),不用径向大场。
 //   压缩纪律(2026-09-27 沙箱 A/B 实测,同一 sandbox.nsi 只换资产):v2 资产编出 6.9MB,
 //      首版「全幅暗角 + 全屏托底辉光 + 宽模糊带」编出 **26.2MB(+19.3MB)** —— 全幅 2D 平滑场
@@ -35,12 +35,12 @@
 //      PCT 槽 640..840×187..253 · STG 槽 288..832×334..356 · reinstall 说明行 288..832×302..326 ·
 //      reinstall 卡片内部 #1A1A1A · dir 输入容器内部 #1A1A1A · 各页按钮槽(按钮位图自带实底角)。
 //
-//   所有取值直接映射 @ihui/design-tokens tokens.css 暗色块(.dark),禁止自造色值:
-//   bg #242424(--color-background) · card #1A1A1A(--color-card) · rail #1e2e36(--color-brand-accent-light)
-//   主文字 #FAFAFA · 正文 #D4D4D4 · 次级 #737373 · 描边 #525252 · 轨道 #3D3D3D
-//   accent #a3c4d6 / accent 前景 #16262e / 渐变 #b8d4e3→#a3c4d6 / tint 16% · 32%
-//   CTA 纯白底黑字(.dark --color-primary / --color-primary-foreground)
-//   唯一圆角 token:--global-border-radius = 8px(导轨步骤标记/按钮/输入容器/窗口四角统一 8px)
+//   色值/圆角唯一真相源 = packages/design-tokens/src/styles/tokens.css 的 .dark 块,
+//   由 scripts/lib/installer-palette.mjs 在生成时解析(2026-11-12 起不再手抄字面量):
+//   bg/card/rail/ink/inkSoft/muted/primary/primaryInk/btnStroke/accent/accentInk/
+//   gradFrom/gradTo/tint/tintStrong 各自对应一个 --color-* 变量,键缺失即抛错。
+//   派生色不落清单:轨道描边 = btnStroke @75%,导轨 todo 副标题 = accent @34%。
+//   唯一圆角 token:--global-border-radius(导轨步骤标记/按钮/输入容器/窗口四角统一)。
 //   按钮高度唯一档位(web <Button> size 表):CTA/浏览 lg = h-10 40px · 输入框 sm = h-8 32px
 //   开关 Switch = h-7 28px(与 web <Switch size="lg"> 逐像素对齐,见 switchScene)
 //   渲染管线:SVG(内嵌 icon.png 抠底 logo,系统字体微软雅黑) → sharp → RGB raw → 24bit BMP
@@ -58,6 +58,7 @@ import { createRequire } from 'node:module';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
+import { readInstallerPalette } from './lib/installer-palette.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..');
@@ -69,28 +70,14 @@ const sharp = require('sharp');
 
 const VERSION = JSON.parse(readFileSync(join(ROOT, 'apps/desktop/package.json'), 'utf8')).version;
 
-// ---- 设计令牌(全部映射 @ihui/design-tokens tokens.css 暗色块,勿自造值) ----
-
-const C = {
-  bg: '#242424', // 内容区底(.dark --color-background hsl(0 0% 14%))
-  card: '#1A1A1A', // 容器/输入框(.dark --color-card hsl(0 0% 10%))
-  rail: '#1e2e36', // 左侧品牌导轨(.dark --color-brand-accent-light)
-  ink: '#FAFAFA', // 主文字(.dark --color-foreground)
-  inkSoft: '#D4D4D4', // 正文(.dark --color-text-medium)
-  muted: '#737373', // 次级文字(.dark --color-text-tertiary)
-  hairline: '#3D3D3D', // 次级线/进度轨道底(white-10 于 bg 上合成)
-  primary: '#FFFFFF', // CTA 底(.dark --color-primary 纯白)
-  primaryInk: '#000000', // CTA 文字(.dark --color-primary-foreground 纯黑)
-  btnStroke: '#525252', // 幽灵按钮/容器描边(.dark --color-border-medium)
-  accent: '#a3c4d6', // 品牌灰蓝(.dark --color-brand-accent)
-  accentInk: '#16262e', // accent 之上的前景(.dark --color-brand-accent-foreground)
-  gradFrom: '#b8d4e3', // 品牌渐变起(.dark --color-brand-accent-grad-from)
-  gradTo: '#a3c4d6', // 品牌渐变止(.dark --color-brand-accent-grad-to)
-  tint: 'rgba(163, 196, 214, 0.16)', // .dark --color-brand-accent-tint
-  tintStrong: 'rgba(163, 196, 214, 0.32)', // .dark --color-brand-accent-tint-strong
-};
-// 唯一圆角 token:web --global-border-radius = 8px(AGENTS.md 圆角梯度 rounded-lg)
-const RADIUS = 8;
+// ---- 设计令牌:唯一真相源 = packages/design-tokens/src/styles/tokens.css 的 .dark 块 ----
+// 2026-11-12 收口:原先这里手抄了 16 个字面量,注释却声称"全部映射 tokens.css"——
+// 没有任何读取动作,token 改了 5 档 BMP 一张都不会跟着变。现在每次生成都经
+// scripts/lib/installer-palette.mjs 解析;键缺失/值不可解析直接抛错,不回落硬编码副本。
+// 派生色不再手写:轨道描边 = btnStroke @75%,导轨 todo 副标题 = accent @34%(见下方使用点)。
+const { palette: C, radius: RADIUS } = readInstallerPalette(
+  join(ROOT, 'packages/design-tokens/src/styles/tokens.css'),
+);
 const FONT = 'Microsoft YaHei UI, Microsoft YaHei, PingFang SC, sans-serif';
 
 // ---- 版面几何(逻辑像素,100% 档)----
@@ -410,7 +397,8 @@ function rail(logo, active, steps = STEPS, doneOnly = false) {
           : `<rect x="32" y="${my}" width="26" height="26" rx="${RADIUS}" fill="none" stroke="${C.btnStroke}" stroke-width="1.2"/>
 <text x="45" y="${my + 18}" font-family="${FONT}" font-size="12" fill="${C.muted}" text-anchor="middle">${String(i + 1).padStart(2, '0')}</text>`;
     const labelFill = state === 'active' ? C.ink : state === 'done' ? C.inkSoft : C.muted;
-    const subFill = state === 'active' ? C.accent : '#4C5B63';
+    // 英文副标题只有"实色 accent / accent 降透明"两态,不再自造第三个色值(令牌单一真相源)。
+    const subOpacity = state === 'active' ? 1 : 0.34;
     // 连接线:仅在有下一步时画,已完成段用 accent,其余用描边色
     const link =
       i < steps.length - 1
@@ -420,7 +408,7 @@ function rail(logo, active, steps = STEPS, doneOnly = false) {
 ${marker}
 ${link}
 <text x="70" y="${my + 18}" font-family="${FONT}" font-size="14" font-weight="${state === 'active' ? 700 : 400}" fill="${labelFill}">${esc(zh)}</text>
-<text x="70" y="${my + 33}" font-family="${FONT}" font-size="9" fill="${subFill}" letter-spacing="2">${esc(en)}</text>`;
+<text x="70" y="${my + 33}" font-family="${FONT}" font-size="9" fill="${C.accent}" opacity="${subOpacity}" letter-spacing="2">${esc(en)}</text>`;
   }).join('\n');
 
   return `
@@ -500,7 +488,7 @@ ${pageChrome(logo, 1, STEPS, undefined, false, atmoTop({ rise: 100, seed: 11 }) 
 ${kicker(C_L, 176, 'STEP 02')}
 ${title(C_L, 232, '选择安装位置')}
 ${body14(C_L, 262, '默认安装到 D:\\智汇AI,也可以更改为其他目录。')}
-<rect x="${C_L}" y="302" width="412" height="36" rx="${RADIUS}" fill="${C.card}" stroke="${C.btnStroke}" stroke-width="1.5"/>
+<rect x="${C_L}" y="300" width="412" height="40" rx="${RADIUS}" fill="${C.card}" stroke="${C.btnStroke}" stroke-width="1.5"/>
 ${body14(C_L, 380, '体积轻巧 · 数据云端存储 · 卸载不留残余', C.muted, 13)}
 ${body14(C_L, 404, '提示:直接编辑上方路径,或点击右侧「浏览…」选择目录。', C.muted, 13)}
 <path d="M 704 350 C 742 356, 714 382, 724 394" fill="none" stroke="${C.accent}" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="1 6" opacity="0.45"/>
@@ -514,7 +502,8 @@ ${heroCore(768, 398, logo, 0.62, 'd')}
 //    实机就是"数字和百分号错位、而且偏小"。让文字引擎去对齐,才是根源解。
 function meterTrack(ticks = PB_TICKS) {
   return [
-    `<rect x="${PB_X - 1}" y="${PB_Y - 1}" width="${PB_W + 2}" height="${PB_H + 2}" rx="${(PB_H + 2) / 2}" fill="none" stroke="${C.hairline}" stroke-width="1"/>`,
+    // 轨道描边 = border-medium @75%(派生,不新增色值;与 rail 连接线同族)。
+    `<rect x="${PB_X - 1}" y="${PB_Y - 1}" width="${PB_W + 2}" height="${PB_H + 2}" rx="${(PB_H + 2) / 2}" fill="none" stroke="${C.btnStroke}" stroke-opacity="0.75" stroke-width="1"/>`,
     `<rect x="${PB_X}" y="${PB_Y}" width="${PB_W}" height="${PB_H}" rx="${PB_H / 2}" fill="#1A1A1A"/>`,
     `<rect x="${PB_X + 3}" y="${PB_Y + 1}" width="${PB_W - 6}" height="1" rx="0.5" fill="#FFFFFF" opacity="0.05"/>`,
     ...ticks.map(
@@ -781,14 +770,14 @@ function buttonScene(kind, text, w, h, labelSize) {
 </svg>`;
     case 'browse':
       // 次级按钮(2026-09-22 用户反馈"裸文字 + 下划线太难看"):卡底 #1A1A1A + 1.5px 描边
-      // + 8px 圆角 + ink 文字,与 CTA 主按钮(渐变实心)构成清晰的主次对。
-      // 之前那版"裸文字 + 下划线"是为了响应"去掉背景色容器",但下划线的链接感在桌面
-      // 工具里读起来像没做完 —— 用户要的其实是"别用实心色块",不是"别做成按钮"。
-      // BMP 无透明通道 → 圆角外那一圈必须铺页面底色 C.bg,否则漏出浅色底,
-      // 看起来就像套了第二层边框(正是用户报的"乱七八糟")。
+      // + 唯一圆角档 RADIUS + ink 文字,与 CTA 主按钮构成清晰的主次对。
+      // 2026-11-12 修:圆角此前用 RADIUS-1(7px),与同族 ghost/close/CTA 的 8px 不一致;
+      // 位图高 40 而运行期槽位只有 36 → SS_BITMAP 不缩放,底缘圆角与描边被切掉 4px。
+      // 现统一为 40px 档:位图 104×40、容器 y=300..340、运行期 IHUI_BROWSE_Y/H 同值。
+      // BMP 无透明通道 → 圆角外那一圈必须铺页面底色 C.bg,否则漏出浅色底。
       return `${common}
 <rect width="${w}" height="${h}" fill="${C.bg}"/>
-<rect x="0.75" y="0.75" width="${w - 1.5}" height="${h - 1.5}" rx="${RADIUS - 1}" fill="${C.card}" stroke="${C.btnStroke}" stroke-width="1.5"/>
+<rect x="0.75" y="0.75" width="${w - 1.5}" height="${h - 1.5}" rx="${r}" fill="${C.card}" stroke="${C.btnStroke}" stroke-width="1.5"/>
 <text x="${w / 2}" y="${baseline}" font-family="${FONT}" font-size="${labelSize}" fill="${C.ink}" text-anchor="middle">${esc(text)}</text>
 </svg>`;
     case 'close':
@@ -885,7 +874,9 @@ const BUTTONS = [
   ['btn-continue', 'primary', '继续 ›', 144, 40, 15],
   ['btn-finish', 'primary', '完成', 144, 40, 15],
   ['btn-cancel', 'ghost', '取消', 96, 40, 14],
-  // 浏览钮 104×40:裸文字链接样式(无容器),槽位 x 728..832
+  // 浏览钮 104×40:与目录页输入容器(y=300 h=40)同一行、同高同基线,槽位 x 728..832。
+  // 尺寸必须与 ihui-ui.nsi 的 IHUI_BROWSE_W/H 逐像素相等 —— SS_BITMAP 不缩放,
+  // 差 4px 就会切掉按钮底缘的圆角与描边(2026-11-12 修复的尺寸错配)。
   ['btn-browse', 'browse', '浏览…', 104, 40, 14],
   ['btn-toggle-on', 'toggle-on', '', 55, 31, 12],
   ['btn-toggle-off', 'toggle-off', '', 55, 31, 12],
