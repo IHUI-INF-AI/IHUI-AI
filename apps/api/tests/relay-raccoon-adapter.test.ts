@@ -349,7 +349,7 @@ describe('raccoon getQuota', () => {
     expect(q?.quota?.remaining).toBe(6300)
     expect(q?.quota?.packs).toEqual([
       { name: 'daily(每日登录发放)', remaining: 300 },
-      { name: 'reward(任务/邀请奖励)', remaining: 6000 },
+      { name: 'reward(任务奖励)', remaining: 6000 },
     ])
   })
 

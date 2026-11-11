@@ -81,14 +81,10 @@ created_at / last_login_at / wechat_bound / email`。
 
 ⇒ 适配器 `getQuota` 与 `checkHealth` 的载体；`quotaSupported: true`（已实证）。
 
-### 3.3 任务与邀请 — `GET /api/web/points/v1/tasks`
+### 3.3 任务态 — `GET /api/web/points/v1/tasks`
 
 ```json
 { "code": 0, "data": {
-    "invite": { "invite_code": "<32hex>", "granted_points": 0,
-      "register_reward_points": 1500, "registered_invitee_count": 0,
-      "remaining_reward_invitees": 20 },
-    "invitee_task_states": [],
     "new_user_task_states": [
       { "key": "register_pack",  "status": "completed"  },
       { "key": "desktop_login",  "status": "completed"  },
@@ -171,95 +167,6 @@ body: {}
 - `GET  /api/web/llm/v2/model_catalog` —— 模型目录（桌面启动即打，200 实证过 origin）
 - `POST /api/web/mcp/web_search/v1/mcp` —— 联网搜索 MCP
 
-### 3.8 邀请链路 —— 只有「被邀请人首次注册」这一个写入点
-
-官方活动规则（`https://xiaohuanxiong.com/events/tasks` 正文逐条抄录）：
-
-| 好友完成的行为 | 邀请人可得 | 新用户可得 |
-| --- | --- | --- |
-| 通过邀请链接完成注册 | **1500** | 新人礼包 3000 |
-| 首次登录桌面端 | 500 | 桌面端礼包 3000 |
-| 首次登录移动端 | 不发放 | 移动端礼包 3000 |
-| 7 日内活跃 3 天 | 500 | 1000 |
-| 30 日内首次付费 | 500 | 2000 |
-
-单人上限 3000 / 名额 20 位 / 奖励积分自到账起 1 年有效。
-
-**关键结构事实**：邀请奖励**没有独立发放接口**。已逐一实测排除，别再重复挖：
-
-| 排除项 | 实测结果 |
-| --- | --- |
-| `POST /{desktop,mobile,points}/v1/invite/points/grant` 等 6 条 grant 变体 | 全 `404 page not found` |
-| `/desktop/v1/login/points/grant` 带 `{"source":"invite*"}` | 200 但 `granted:false` —— 接口忽略 source，只认登录事件 |
-| 邮件注册（`register` 传 `email`） | `nation_code unsupport`（1/0/86/CN/US 均拒；852 走回 phone 分支） |
-| 邮箱专用端点 `register/email`、`email_code`、`send_email` 等 7 条 | 全 404 |
-| 移动端/app 注册通道 `/mobile/v1/register` 等 7 条 | 全 404 |
-| 补绑邀请码（settings / iam confirm / 邀请落地页） | settings 只回 `capabilities`；`iam/confirm` 空体即 success 但不写归属；`/invite` 是**组织邀请**落地页，带参数也显示「邀请暂不可用」 |
-| 测试号白名单（19900000000 等 3 号 × 123456/000000/888888） | 全部 `sms_code_verify_error` |
-
-**唯一写入点** = 注册事务里的 `registration_attribution`（`app.asar` 模块 6717：
-URL `?invite_code=` → `registration_attribution.invite_code`；`?inviter_user_id=` 同理）。
-所以号池侧对邀请只能做两件事：**核对进度** + **用邀请码注册一次**。
-
-#### 3.8.1 注册契约（实测到最后一关）
-
-```
-POST /api/web/auth/v1/register
-{ "nation_code": "86",
-  "phone": "<enc>", "password": "<enc>",
-  "code": "<6 位短信验证码>",
-  "invite_code": "<32hex>",
-  "registration_attribution": { "registration_source": "web", "invite_code": "<32hex>" } }
-```
-
-参数校验逐级递进（每一步都是真弹回包，可据此判断口径是否对上）：
-
-| 请求体 | 回包 |
-| --- | --- |
-| `{}` | `100004 params_unsupport_error / param nation_code unsupport` |
-| `{nation_code:"86"}` | `100003 params_encryted_error / param phone encrypted error` |
-| `+phone(enc)` | `100003 / param password encrypted error` |
-| `+password(enc)` | `100007 sms_code_verify_error / sms code verify failed` |
-
-**`register` 不校验 captcha**，只校验那 6 位短信码 —— 这是全链路唯一无法自动化的点。
-`invite_code`（顶层）与 `registration_attribution.invite_code`、`inviter_user_id` 三种写法
-服务端都接受（均推进到 `sms_code_verify_error`），工具里两者同时带。
-
-#### 3.8.2 凭据加密（复刻自站点自身 bundle）
-
-`phone` / `password` / `email` 三个字段走站点自己的 AES 封装：
-
-```
-源: /_next/static/chunks/4528.<hash>.js 模块 54528（encryptCredential）
-key: config.publicKey = "senseraccoon2023"（16 字节 ⇒ AES-128）
-算法: CFB 模式 + NoPadding，每次随机 16 字节 IV
-形状: Base64( IV[16B] ‖ AES-128-CFB(plaintext) )
-```
-
-实现落在 `scripts/lib/raccoon-crypto.mjs`（含解密，供本地往返断言）。判据：
-用本模块加密后，`register` 的报错从 `param phone encrypted error` 推进到下一个字段。
-
-#### 3.8.3 发码边界
-
-`POST /api/web/auth/v1/send_sms { nation_code, phone(enc), scene?, captcha_token }`
-对 `login / register / signup / bind_phone / reset_password / change_phone / verify_email`
-**一律**先过阿里云人机验证（`100006 captcha_verify_error`，`data:{captcha_result:false,sms_result:false}`）。
-乱填 `captcha_token:"x"` 同样被拒 ⇒ 服务端真校验 token，非本地判断。
-站点用 `o.alicdn.com/captcha-frontend/aliyunCaptcha`，需真实浏览器交互才能取 token。
-
-**因此：短信验证码只能由机主手机接收。** 这不是实现缺陷，是平台设计。
-
-#### 3.8.4 落地
-
-| 面 | 落点 |
-| --- | --- |
-| 加密/解密 | `scripts/lib/raccoon-crypto.mjs` |
-| 邀请工具 | `scripts/raccoon-invite.mjs`（`--status` / `--dry-run` / `--phone --code`） |
-| 全链路测试 | `scripts/tests/raccoon-invite.test.mjs`（本地 mock 复刻四个真实响应形状，含真解密） |
-| 引擎侧统计 | `checkin_raccoon.parse_tasks` 的 `invite` 块（码/已邀/剩余/累计/每邀奖励） |
-
-`--status` 真跑实测：`邀请码 172b…b38b / 每邀 1500 / 已邀 0 人 / 名额 20 / 累计 0 分`。
-mock 全链路 10 项断言全绿：加密被服务端真解出、邀请码双带、归属核对成立、计数 +1 与积分 +1500。
 
 ## 4. 其余 asar 字面量端点（存在性证据，未逐个真弹）
 
@@ -281,16 +188,14 @@ mock 全链路 10 项断言全绿：加密被服务端真解出、邀请码双�
 | 签到引擎 | `apps/ai-service/app/services/checkin_raccoon.py`（**真领取**：desktop grant 每日 300；`claim_new_user` 领 mobile 一次性） |
 | 签到映射 | `relay-account-pool-checkin-sync.ts` PROVIDER_TO_CHECKIN.raccoon |
 | 任务 CLI | `scripts/raccoon-pool-tasks.mjs`（`--claim` / `--claim-new-user` / `--bills`，默认只读） |
-| 邀请工具 | `scripts/raccoon-invite.mjs`（`--status` 核对 / `--phone --code` 带邀请码注册）；加密在 `scripts/lib/raccoon-crypto.mjs` |
 | 签到白名单 | `internal_checkin_pool.py` `_POOL_PLATFORMS` + `routers/checkin.py` `_ACCOUNT_PLATFORMS` |
 
 > 2026-11-11 全链实测：`--from raccoon --dry-run` 预检通过（uid=`pu-…`、到期 30 天后、
 > `hasRefreshToken:false`、`phoneSource=user_info`）；签到引擎实弹
 > `status=already / credits=9300 / warning=新手任务三项全部 completed`；
 > 补领后余额 6300 → 9300，四条流水齐全（见 §3.5）。
-> 邀请：`raccoon-invite --status` 真跑读到 `码 172b…b38b / 每邀 1500 / 已邀 0 / 名额 20`；
-> 注册链路已推进到最后一关（`sms_code_verify_error`），全链路在本地模拟上游上 **19 项断言全绿**
-> （工具与跑法见 §7；真站仍只差机主本人一条短信码）。
+> 每日签到在本地模拟上游上 **11 项断言全绿**（`raccoon-mock-drill.mjs`，工具与跑法见 §7；
+> 真站注册的最后一道关是机主本人一条短信验证码，与每日签到无关）。
 
 ## 6. 合规边界（机主定档）
 
@@ -301,10 +206,6 @@ mock 全链路 10 项断言全绿：加密被服务端真解出、邀请码双�
   这意味着「手机端登录奖励」可以在不装 App 的情况下领到——属于促销条款灰区，
   因此代码里默认**关**（`claim_new_user` 默认读 `IHUI_RACCOON_CLAIM_NEW_USER`，缺省 0），
   只在显式开启时才动账号级一次性权益；每日 300 属正常签到腿，默认开。
-- **邀请**：关系写入只在被邀请人首次注册事务里发生，且该事务要一条真实短信验证码
-  （发码被阿里云人机验证拦住）。因此邀请这条腿在当前形态下**只能由机主提供一次验证码**
-  才能真实成立；工具把除验证码外的全部环节收敛成一条命令（§3.8.4），不伪造任何事件。
-  本地 mock 只用于验证代码路径，不产生线上积分。
 - 批量注册薅新手奖励 = 促销滥用，不做（号池只收机主本人已注册账号）。
 
 ## 7. 本地模拟上游（无真号演练）
@@ -330,14 +231,14 @@ mock 全链路 10 项断言全绿：加密被服务端真解出、邀请码双�
 | 文件 | 作用 | 跑法 |
 | --- | --- | --- |
 | `scripts/raccoon-mock-upstream.mjs` | 模拟上游服务（10 个端点，字段口径逐字对齐线上） | `node scripts/raccoon-mock-upstream.mjs --port 8899` |
-| `scripts/raccoon-mock-drill.mjs` | 一键跑完整剧本（发码→注册→邀请结算→归属→新手任务→幂等→回读） | `node scripts/raccoon-mock-drill.mjs` |
+| `scripts/raccoon-mock-drill.mjs` | 一键跑每日签到剧本（发码→注册→新手任务→幂等→回读余额） | `node scripts/raccoon-mock-drill.mjs` |
 | `scripts/tests/raccoon-mock-upstream.test.mjs` | 模拟上游自身的契约测试 | `node --test scripts/tests/raccoon-mock-upstream.test.mjs` |
 
-演练跑的是**生产代码本身**（`raccoon-invite.mjs` / `raccoon-pool-tasks.mjs`），只把基址换掉：
+演练跑的是**生产代码本身**（`raccoon-pool-tasks.mjs` 客户端编排层 + `checkin_raccoon.py` 引擎层），只把基址换掉：
 
 ```
 node scripts/raccoon-mock-upstream.mjs --port 8899        # 终端 A
-node scripts/raccoon-mock-drill.mjs                       # 终端 B:一键全链路,19 项断言
+node scripts/raccoon-mock-drill.mjs                       # 终端 B:一键每日签到,11 项断言
 ```
 
 ### 7.3 覆盖的端点
@@ -345,10 +246,10 @@ node scripts/raccoon-mock-drill.mjs                       # 终端 B:一键全�
 | 方法 | 路径 | 行为 |
 | --- | --- | --- |
 | POST | `/api/web/auth/v1/send_sms` | 真解密 phone；码由替身签发并回显 `mock_code` |
-| POST | `/api/web/auth/v1/register` | 真解密 phone/password；验码；带邀请码则结算邀请 |
+| POST | `/api/web/auth/v1/register` | 真解密 phone/password；验码（演练注册用，仅建账号、不结算任何奖励） |
 | GET | `/api/web/auth/v1/user_info` | 全号 phone + `registration_attribution` |
 | GET | `/api/web/points/v1/balance` | `available/daily/monthly/reward/topup` + `owner_id` |
-| GET | `/api/web/points/v1/tasks` | 三枚新手任务态 + `invite` 块 |
+| GET | `/api/web/points/v1/tasks` | 三枚新手任务态 |
 | GET | `/api/web/points/v2/bills` | 流水分页（`page` / `page_size`） |
 | POST | `/api/web/desktop/v1/login/points/grant` | 一次性 3000 + 每日 300 同批发放，popup 只报最大一笔 |
 | POST | `/api/web/mobile/v1/login/points/grant` | 一次性 3000，重复调用 `granted=false` |
@@ -368,11 +269,11 @@ node scripts/raccoon-mock-drill.mjs                       # 终端 B:一键全�
 
 | 面 | 证据 |
 | --- | --- |
-| 协议契约 | `raccoon-mock-upstream.test.mjs` 13/13 |
-| 邀请全链路 | `raccoon-mock-drill.mjs` 19/19，主号 `已邀 0→1`、`累计 0→1500`、新号 6300 分、四条流水齐全 |
-| 签到引擎真打替身 | `ok=true / status=checked / credits=9300 / credits_delta=6300 / creditsSource=balance_reload` |
-| 引擎单测 | `pytest tests/test_checkin_raccoon.py` 42 passed |
-| 脚本侧回归 | `node --test` 三个套件 32/32 |
+| 协议契约 | `raccoon-mock-upstream.test.mjs` 12/12 |
+| 每日签到演练 | `raccoon-mock-drill.mjs` 11/11，账号A 余额 6300、账号B 引擎积分 9300（增量 +6300）、当日重复 `status=already`、四条流水齐全 |
+| 签到引擎真打替身 | `ok=true / status=already / credits=9300 / credits_delta=6300 / creditsSource=balance_reload` |
+| 引擎单测 | `pytest tests/test_checkin_raccoon.py` 37 passed |
+| 脚本侧回归 | `node --test` 两套件 21/21（pool-tasks 9/9 + mock-upstream 12/12） |
 
 引擎侧顺带修掉一个观测缺陷：`credits` 原先按 `grant` 返回的 popup 推算，而 popup 只报一笔
 （桌面端同批还会发每日 300），导致余额与 delta 一起报少 300。现改为**发放后回读 balance** 为准，

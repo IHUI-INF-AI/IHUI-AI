@@ -7,7 +7,7 @@
  *
  * 默认只读;带 --claim/--claim-new-user 才写。
  *  1) 余额核对   GET  /api/web/points/v1/balance
- *  2) 任务态核对 GET  /api/web/points/v1/tasks(新手任务/邀请统计/邀请码)
+ *  2) 任务态核对 GET  /api/web/points/v1/tasks(新手任务态)
  *  3) 每日领取   POST /api/web/desktop/v1/login/points/grant
  *                幂等:今日已发 ⇒ granted=false;首发 ⇒ popup 带 points/source
  *  4) 新手奖励   POST /api/web/mobile/v1/login/points/grant
@@ -100,15 +100,6 @@ export function judgeTasks(res) {
   return {
     verdict: 'ok',
     newUserTasks: byKey,
-    invite: d.invite
-      ? {
-          code: d.invite.invite_code ?? null,
-          grantedPoints: Number(d.invite.granted_points ?? 0),
-          registeredInvitees: Number(d.invite.registered_invitee_count ?? 0),
-          remainingRewardInvitees: Number(d.invite.remaining_reward_invitees ?? 0),
-          registerRewardPoints: Number(d.invite.register_reward_points ?? 0),
-        }
-      : null,
   }
 }
 
@@ -166,10 +157,6 @@ export function suggestNext(balance, tasks, grant) {
     if (t.mobile_login === 'unfinished') out.push('新手任务 mobile_login 未完成 ⇒ 跑 --claim-new-user 领移动端登录奖励(账号级一次性)')
     if (t.desktop_login === 'unfinished') out.push('新手任务 desktop_login 未完成 ⇒ 跑 --claim 领桌面端登录奖励')
     if (t.register_pack === 'unfinished') out.push('新手任务 register_pack 未完成 ⇒ 到 设置→积分 面板点领取')
-    const inv = tasks.invite
-    if (inv && inv.grantedPoints === 0 && inv.remainingRewardInvitees > 0) {
-      out.push(`邀请未开张(邀请码 ${inv.code} 已生成):每邀 1 位好友注册得 ${inv.registerRewardPoints},好友完成任务再得等额;上限 ${inv.remainingRewardInvitees} 位`)
-    }
   }
   if (balance.verdict === 'ok') {
     out.push(`当前可用 ${balance.availablePoints} 分(每日登录发放 ${balance.dailyPoints};奖励池 ${balance.rewardPoints})`)
@@ -265,7 +252,6 @@ async function main() {
     }
     if (tasks.verdict === 'ok') {
       console.log('新手任务:', JSON.stringify(tasks.newUserTasks))
-      if (tasks.invite) console.log(`邀请:码=${tasks.invite.code} 已得=${tasks.invite.grantedPoints} 已邀=${tasks.invite.registeredInvitees}/${tasks.invite.remainingRewardInvitees + tasks.invite.registeredInvitees}`)
     } else console.log(`任务:${tasks.verdict}(${tasks.code ?? ''})`)
     if (bills && bills.verdict === 'ok') {
       console.log('最近流水:')

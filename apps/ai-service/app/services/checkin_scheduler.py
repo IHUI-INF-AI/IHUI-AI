@@ -36,6 +36,7 @@ GET /api/checkin/scheduler/status 只读暴露运行状态(Phase1c)。
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
 import os
 import random
@@ -74,6 +75,7 @@ from app.services.checkin_outbound import (
     checkin_outbound_gate,
     rate_limit_pause_seconds,
 )
+from app.services.checkin_store import POOL_SYNC_OWNER
 
 _BATCH_JITTER_MIN = float(os.environ.get("CHECKIN_BATCH_JITTER_MIN", "8"))
 _BATCH_JITTER_MAX = float(os.environ.get("CHECKIN_BATCH_JITTER_MAX", "45"))
@@ -526,6 +528,40 @@ def plan_startup_compensation(
         if prev is None or scheduled > prev[0]:
             latest[beat.side] = (scheduled, beat)
     return [beat for _scheduled, beat in sorted(latest.values(), key=lambda item: item[0])]
+
+
+# ---------------------------------------------------------------------------
+# 小浣熊本机凭据同步辅助(与 relay 导入同源:relay-account-pool.mjs --from raccoon)
+# ---------------------------------------------------------------------------
+
+
+def _b64url_decode(seg: str) -> bytes:
+    pad = "=" * (-len(seg) % 4)
+    return base64.urlsafe_b64decode(seg + pad)
+
+
+def _decode_jwt_claims(token: str) -> dict[str, Any] | None:
+    """只解 JWT payload(中段),不验签 —— 凭据来自本机客户端 auth.json,受信。"""
+    parts = (token or "").split(".")
+    if len(parts) != 3:
+        return None
+    try:
+        return json.loads(_b64url_decode(parts[1]))
+    except Exception:  # noqa: BLE001 — 任意解码失败都视为非 JWT
+        return None
+
+
+def _resolve_local_pool_owner() -> str:
+    """本机个人池归属,与 relay 导入默认口径一致(~/.wb-switch/pool-owner)。"""
+    p = os.path.expanduser("~/.wb-switch/pool-owner")
+    try:
+        with open(p, encoding="utf-8") as f:
+            val = f.read().strip()
+        if val:
+            return val
+    except OSError:
+        pass
+    return POOL_SYNC_OWNER
 
 
 class CheckinScheduler:
@@ -1271,8 +1307,8 @@ class CheckinScheduler:
         return body if isinstance(token, str) and token else None
 
     async def _sync_local_credentials(self) -> None:
-        """本机凭据同步(每 15 分钟)。两条腿互相独立,任一条失败不影响另一条。"""
-        for leg in (self._sync_minimax_local, self._sync_workbuddy_local):
+        """本机凭据同步(每 15 分钟)。三条腿互相独立,任一条失败不影响另一条。"""
+        for leg in (self._sync_minimax_local, self._sync_workbuddy_local, self._sync_raccoon_local):
             try:
                 await leg()
             except Exception as e:  # noqa: BLE001 — 单腿异常不得拖垮另一条
@@ -1491,6 +1527,78 @@ class CheckinScheduler:
             logger.info(
                 "[checkin_scheduler] WorkBuddy 抽到 uid=%s 的会话,但签到账号无对应 uid,未写库",
                 uid,
+            )
+
+    async def _sync_raccoon_local(self) -> None:
+        """小浣熊本机凭据同步:读取客户端 auth.json,保活签到账号。
+
+        小浣熊 access_token(30 天)由客户端在登录/启动期刷新,本地 auth.json 是唯一真源
+        (无 refresh_token)。本腿每 15 分钟把它同步进 checkin_accounts,使每日签到真领取
+        (desktop grant)长期可用,不会因令牌静默过期而 401。
+
+        与 relay 导入(relay-account-pool.mjs --from raccoon)同源:owner 取本机
+        ~/.wb-switch/pool-owner(缺省回退 system:relay-pool),故两条路不会建重复行
+        (create_account 按 owner+platform+身份 去重合并)。auth.json 缺失/非 JWT 时静默跳过。
+        """
+        auth_path = os.path.expanduser("~/.office-raccoon/agent/config/auth.json")
+        if not os.path.exists(auth_path):
+            return
+        try:
+            data = json.loads(await asyncio.to_thread(Path(auth_path).read_text, encoding="utf-8"))
+        except (OSError, ValueError):
+            return
+        token = data.get("access_token")
+        if not isinstance(token, str) or not token:
+            return
+        identity = data.get("office_identity")
+        if not isinstance(identity, str) or not identity:
+            identity = None
+        claims = _decode_jwt_claims(token)
+        if claims is None:
+            logger.warning("[checkin_scheduler] 小浣熊 auth.json 的 access_token 非 JWT,跳过同步")
+            return
+        uid = claims.get("sub") or claims.get("uid")
+        if not isinstance(uid, str) or not uid:
+            return
+        exp = claims.get("exp")
+        owner = _resolve_local_pool_owner()
+        device_map = {"uid": uid, "office_identity": identity, "source": "local-raccoon-client"}
+        if isinstance(exp, int) and exp > 0:
+            device_map["expires_at"] = exp
+        rows = await checkin_store.list_accounts_by_platform("raccoon")
+        matching = [r for r in rows if (r.get("device_map") or {}).get("uid") == uid]
+        if matching:
+            updated = 0
+            for row in matching:
+                dm = row["device_map"]
+                if isinstance(exp, int) and exp > 0 and dm.get("expires_at") == exp:
+                    continue  # 令牌未变,免写库抖动
+                if not await checkin_store.update_jwt(row["id"], row["owner_user_id"], token):
+                    continue
+                new_dm = dict(dm)
+                new_dm["uid"] = uid
+                if identity:
+                    new_dm["office_identity"] = identity
+                if isinstance(exp, int) and exp > 0:
+                    new_dm["expires_at"] = exp
+                await checkin_store.save_device_map(row["id"], new_dm)
+                await checkin_store.clear_open_cooldowns(row["id"])
+                updated += 1
+            if updated:
+                logger.info(
+                    "[checkin_scheduler] 本机小浣熊凭据已同步 %d 个账号(uid=%s)", updated, uid
+                )
+        else:
+            # 首入:从本机 auth.json 直接建行,使每日签到无需手工导入即可跑
+            await checkin_store.create_account(
+                owner_user_id=owner,
+                name="小浣熊",
+                jwt=token,
+                device_map=device_map,
+                platform="raccoon",
+            )
+            logger.info(
+                "[checkin_scheduler] 本机小浣熊凭据已建行(uid=%s, owner=%s)", uid, owner
             )
 
     def _record_wb_sweep(
