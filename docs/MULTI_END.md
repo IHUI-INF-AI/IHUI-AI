@@ -100,7 +100,7 @@ IHUI-AI 是全栈 AI 平台,采用 TS Monorepo(pnpm workspace + Turborepo)组织
 ### 2.5 apps/desktop(Tauri 2.1 薄壳,2026-09-29 按 HEAD 实改)
 
 - **形态**:桌面端 = Tauri 薄壳 + 直连线上站点:frontendDist 指向 src-tauri/shell 占位页,窗口 url 直接加载 https://aizhs.top/ 首页(2026-10-13 起启动页由 /agents 改为首页,用户拍板;薄壳不打包本地 web 产物仍依 V3 #72)
-- **版本与风险**:桌面端 AI 版本由线上站点决定,本仓不可校验:线上不可用=桌面端一起不可用、无法本地降级、无法离线首屏(仅有薄壳占位页与 Rust 侧 offline:// 重连提示,本地无可渲染 UI)
+- **版本与风险**:桌面端 AI 版本由线上站点决定,本仓不可校验;线上不可用时**业务能力不可用**(AI 对话、模型调用、会话同步都在服务端),但壳侧有本地降级:`auto_refresh` 探活失败会切到内置 `offline/index.html` 兜底页(本地可渲染 UI),切页前通知工作区保存草稿,恢复后回到离线前地址。兜底页不承载业务逻辑,无法离线进行 AI 对话。2026-11-12 起探活结果分 `Unreachable` / `ServerError` / `GateDenied` 三档,通知、窗口标题与离线页按档显示,并提供「立即重新检测」入口(详见 `apps/desktop/README.md` 的「离线行为与边界」)。
 - **框架**:Tauri 2.1(Rust 后端 `src-tauri/`);`apps/desktop/package.json` 实际依赖仅 `@tauri-apps/cli` + `rimraf`,本端无 React/Vite/前端目录(旧条目"React 18 + Vite"与"`src/i18n/`"失真,已删——端内平台特有部分全在 `src-tauri/` 的 Rust 侧,见 `apps/desktop/README.md`)
 - **能力**:系统托盘 + 深链接(`@tauri-apps/plugin-deep-link`)+ 文件系统 + 自动更新(`@tauri-apps/plugin-updater`)+ 通知 + shell(均在 Rust 侧)
 - **共享包复用**:桌面端**不**直接依赖 `@ihui/api-client` / `@ihui/types` / `@ihui/ui-react`——旧条目称"复用"与 `apps/desktop/package.json` 矛盾,已按事实改正;这些包由线上站点加载的 `apps/web` 前端消费,不是本端 npm 依赖
