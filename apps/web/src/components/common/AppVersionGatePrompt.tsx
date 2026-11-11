@@ -123,16 +123,22 @@ export function AppVersionGatePrompt(): React.JSX.Element | null {
   const releaseNotes = decision.releaseNotes?.trim() ?? ''
 
   return (
+    // 层级取 z-max(10003)而非 z-modal(2000):强更弹窗在 GlobalShell 里与
+    // PWA 安装/SW 更新卡片同处一列,同层时「后渲染者在上」⇒ 那两张卡片会飘在
+    // 阻塞遮罩之上。toast 由 sonner 自带 z-index(999999999)托底,不受影响。
     <div
-      className="fixed inset-0 z-modal flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-max flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm"
       role="alertdialog"
       aria-modal="true"
       aria-labelledby="app-version-gate-title"
       aria-describedby="app-version-gate-body"
       data-gate-state={state}
     >
-      <div className="w-full max-w-md rounded-xl border bg-card p-6 shadow-lg">
-        <div className="flex items-start gap-3">
+      {/* 高度上限:强更弹窗必须保证「立即更新 / 关闭页面」永远可点 ——
+          旧版没有 max-h,releaseNotes 一长(>20 行)就把整个 dialog 顶出视口,
+          按钮沉到屏幕外且不可滚动,用户被彻底卡住。 */}
+      <div className="flex max-h-[calc(100vh-2rem)] w-full max-w-md flex-col rounded-xl border bg-card p-6 shadow-elevation-xl">
+        <div className="flex min-h-0 items-start gap-3 overflow-y-auto">
           <RefreshCw className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
           <div className="min-w-0 flex-1">
             <h2 id="app-version-gate-title" className="text-base font-semibold">
@@ -144,7 +150,8 @@ export function AppVersionGatePrompt(): React.JSX.Element | null {
             {releaseNotes ? (
               <div className="mt-3 rounded-lg bg-muted p-3">
                 <p className="text-label font-medium">{t('gateReleaseNotes')}</p>
-                <p className="mt-1 whitespace-pre-wrap text-label text-muted-foreground">
+                {/* 长更新说明由外层滚动容器承接;break-words 兜住无空格长串(URL/SHA) */}
+                <p className="mt-1 whitespace-pre-wrap break-words text-label text-muted-foreground">
                   {releaseNotes}
                 </p>
               </div>
@@ -154,7 +161,7 @@ export function AppVersionGatePrompt(): React.JSX.Element | null {
             ) : null}
           </div>
         </div>
-        <div className="mt-5 flex items-center justify-end gap-2">
+        <div className="mt-5 flex shrink-0 items-center justify-end gap-2">
           {/*
             这里**只有** manual(立即更新)与 quit(关闭页面)两个动作。
             skip/cancel 侧门在强更会话里被 gateAllowsAction 恒判 allowed=false,

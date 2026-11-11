@@ -40,13 +40,14 @@ export function classifyUpdateError(error: string | null | undefined): UpdateErr
 /**
  * UpdatePrompt — 桌面端应用更新下拉提示窗(2026-07-31 立,平台独占:仅桌面端)。
  *
- * 设计(v2 增强动效版):
- * - 从屏幕顶部滑入 + 缩放 + 淡入(0.45s 弹性入场)
- * - 整卡发光呼吸:品牌色光晕 2.4s 周期脉冲扩散
- * - 卡片边框旋转光环:conic-gradient 渐变 4s/圈沿边框旋转
- * - 按钮旋转光环:conic-gradient 双段光环 2.5s/圈 + 外发光模糊
- * - 图标微脉动:2s 周期 1→1.08 缩放
- * - 无顶部彩条(已移除,改为整卡动效)
+ * 设计(2026-11-12 视觉收口后的真实形态):
+ * - 从顶部滑入 + 缩放 + 淡入(0.45s 弹性入场,`animate-update-slide-in`)
+ * - 图标微脉动:仅 available 态,2s 周期 1→1.08 缩放
+ * - 卡片本体**没有任何发光/旋转光环** —— 旧注释曾写"整卡发光呼吸 + conic-gradient
+ *   旋转边框",但那些 CSS 从未与 AGENTS.md §4「不要蓝色发光边框」兼容,且 ::before
+ *   外发光会被卡片自身的 overflow-hidden 裁掉。现口径:一层实线 border + bg-card,
+ *   颜色全部走 --color-* 令牌,明暗主题自动反转。
+ * - 位置让开桌面端自绘顶栏(decorations:false,顶栏约 50px):top-14 起,不压标签栏与拖动区
  *
  * 状态(强制更新,无按钮,纯展示进度):
  * - available:下拉窗 + "正在准备更新..."(自动进入下载)
@@ -97,16 +98,21 @@ export function UpdatePrompt() {
   return (
     <div
       className={cn(
-        'fixed left-1/2 top-4 z-modal w-80 max-w-[calc(100vw-2rem)]',
+        // top-14(56px)让开自绘顶栏:GlobalTopBar 是 pt-1/pb-1 + h-9(桌面 8+36+6≈50px),
+        // 旧值 top-4 会把卡片压在标签栏与窗口拖动区上,窄窗口下直接盖住前两个标签。
+        'fixed left-1/2 top-14 z-modal w-80 max-w-[calc(100vw-2rem)]',
         '-translate-x-1/2',
       )}
       role="alert"
-      aria-live="assertive"
+      // role=alert 已隐含 aria-live=assertive,不再重复声明;进度条那行单独 aria-live=off
+      // (百分比每 tick 变一次,整卡 assertive 会把读屏用户刷成连播)。
+      aria-atomic="false"
     >
       <div
         className={cn(
-          'animate-update-slide-in update-orbit-border overflow-hidden rounded-xl border border-border bg-card',
-          isAnimated && 'update-card-glow',
+          // 旧版的 update-orbit-border / update-card-glow 已在 globals.css 整族删除
+          // (硬编码靛蓝 rgba(129,140,248,…) 发光,违反 §4),类名一并去掉,避免留下死类引用。
+          'animate-update-slide-in overflow-hidden rounded-xl border border-border bg-card',
         )}
       >
         <div className="relative z-10 p-3">
@@ -116,9 +122,9 @@ export function UpdatePrompt() {
               className={cn(
                 'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
                 status === 'error'
-                  ? 'bg-red-500/10 text-red-500'
+                  ? 'bg-danger/10 text-danger-text'
                   : status === 'done' || status === 'up-to-date'
-                    ? 'bg-green-500/10 text-green-500'
+                    ? 'bg-success/10 text-success-text'
                     : 'bg-primary/10 text-primary',
                 isAnimated && 'animate-update-icon-pulse',
               )}
@@ -133,7 +139,7 @@ export function UpdatePrompt() {
             </div>
 
             <div className="flex-1 min-w-0">
-              <p className="text-body font-semibold leading-tight text-foreground">
+              <p className="truncate text-body font-semibold leading-tight text-foreground">
                 {status === 'error'
                   ? t('error')
                   : status === 'up-to-date'
@@ -157,14 +163,16 @@ export function UpdatePrompt() {
 
           {/* 错误信息(D194:按 classifyUpdateError 分型取词,撤回态不并显通用失败) */}
           {status === 'error' && (
-            <p className="mt-2.5 text-label leading-relaxed text-red-500/80">{errorText}</p>
+            <p className="mt-2.5 text-label leading-relaxed text-danger-text">{errorText}</p>
           )}
 
           {/* 状态展示区(强制更新:无按钮,纯展示进度) */}
           <div className="mt-3.5 flex items-center gap-2.5">
             {status === 'up-to-date' && (
-              <div className="flex h-9 flex-1 items-center justify-center gap-2.5 rounded-lg bg-green-600/10 px-4">
-                <span className="text-body font-medium text-green-600">{t('upToDateDesc')}</span>
+              <div className="flex h-9 flex-1 items-center justify-center gap-2.5 rounded-lg bg-success/10 px-4">
+                <span className="truncate text-body font-medium text-success-text">
+                  {t('upToDateDesc')}
+                </span>
               </div>
             )}
 
@@ -176,7 +184,10 @@ export function UpdatePrompt() {
             )}
 
             {status === 'downloading' && (
-              <div className="flex h-9 flex-1 items-center justify-center gap-2.5 rounded-lg bg-cta/10 px-4">
+              <div
+                className="flex h-9 flex-1 items-center justify-center gap-2.5 rounded-lg bg-cta/10 px-4"
+                aria-live="off"
+              >
                 {/* 进度环 */}
                 <svg className="h-5 w-5 -rotate-90" viewBox="0 0 36 36" fill="none">
                   <circle
@@ -219,8 +230,8 @@ export function UpdatePrompt() {
 
             {status === 'done' && (
               <div className="flex flex-col gap-2">
-                <div className="flex h-9 items-center justify-center gap-2 rounded-lg bg-green-600/10 px-4">
-                  <span className="text-body font-medium text-green-600 tabular-nums">
+                <div className="flex h-9 items-center justify-center gap-2 rounded-lg bg-success/10 px-4">
+                  <span className="truncate text-body font-medium text-success-text tabular-nums">
                     {t('autoRestartIn', { countdown: restartCountdown })}
                   </span>
                 </div>
@@ -244,14 +255,16 @@ export function UpdatePrompt() {
             )}
 
             {status === 'error' && (
-              <div className="flex h-9 flex-1 items-center justify-center gap-2.5 rounded-lg bg-red-500/10 px-4">
+              <div className="flex h-9 flex-1 items-center justify-center gap-2.5 rounded-lg bg-danger/10 px-4">
                 {retryCount < maxRetries ? (
                   <>
-                    <RefreshCw className="h-4 w-4 animate-spin text-red-500" />
-                    <span className="text-body font-medium text-red-500">{t('autoRetrying')}</span>
+                    <RefreshCw className="h-4 w-4 shrink-0 animate-spin text-danger-text" />
+                    <span className="truncate text-body font-medium text-danger-text">
+                      {t('autoRetrying')}
+                    </span>
                   </>
                 ) : (
-                  <span className="text-body font-medium text-red-500">{errorText}</span>
+                  <span className="truncate text-body font-medium text-danger-text">{errorText}</span>
                 )}
               </div>
             )}
