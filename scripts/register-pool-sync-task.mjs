@@ -45,8 +45,10 @@ const HELP = `号池跨环境自动同步 · Windows 计划任务管理
 说明:
   · 任务每 <interval> 分钟跑一次 sync --if-dirty --apply --quiet;
   · 没有变更标记时立即退出(零开销),有标记才做两端全量对账;
+  · Execute 优先选**路径稳定**的 node(系统安装 → 用户级安装 → 当前进程),
+    逐个校验主版本达 engines 下限;绝不把带版本号的目录写死进任务(升级即失效);
   · 日志由脚本 --log 追加到 .tmp/pool-sync.log(只在真有动作时写一行);
-  · 健康自检不在这里:node scripts/relay-account-pool-sync.mjs --status(任务状态+日志+脏标记+生产 checkout);
+  · 健康自检不在这里:node scripts/relay-account-pool-sync.mjs --status(任务状态+执行面+日志+脏标记+生产 checkout+tsx);
   · schtasks.exe 在本机被安全策略黑名单,本脚本走 PowerShell ScheduledTasks 模块。`
 
 function parseArgs(argv) {
@@ -86,6 +88,52 @@ function ps(script) {
 
 const psQuote = (s) => `'${String(s).replace(/'/g, "''")}'`
 
+/** engines 下限(与 package.json 的 `>=22.13.0` 同源判据:只看主版本,不复制具体补丁号)。 */
+const MIN_NODE_MAJOR = 22
+
+/**
+ * 选一个**路径稳定**的 node 给计划任务(2026-11-12 立,拆定时炸弹)。
+ *
+ * 立因(实测):任务最初注册成 `process.execPath`,即
+ *   `C:\Users\Administrator\.workbuddy\binaries\node\versions\22.22.2-6\node.exe`
+ * —— 路径里带**版本号目录**。WorkBuddy 升级 Node 后旧版本目录会被清理,任务里的绝对路径
+ * 就指向不存在的文件:每 2 分钟照常"启动"、立即失败、脏标记越积越多,而两端从此悄悄分叉。
+ * 这类失效没有任何响声(§12f),只能靠选稳定路径 + `--status` 的存在性检查双保险。
+ *
+ * 顺序:**系统安装的 node 优先**(路径与版本无关、随安装升级而原地更新),
+ * 最后才回落 `process.execPath`(WorkBuddy 内置,带版本目录,仅兜底)。
+ * 每个候选都必须真跑一次 `--version` 且主版本达 engines 下限 —— 存在但太老的 node 不能用,
+ * 否则会把"能启动但语法不认"的失败引进任务里。
+ */
+function resolveStableNode() {
+  const candidates = [
+    { path: 'C:\\Program Files\\nodejs\\node.exe', source: '系统安装(nodejs 官方安装包)' },
+    { path: path.join(process.env['LOCALAPPDATA'] ?? '', 'Programs', 'nodejs', 'node.exe'), source: '用户级安装' },
+    { path: process.execPath, source: '当前进程(WorkBuddy 内置,路径含版本目录)' },
+  ]
+  const rejected = []
+  for (const c of candidates) {
+    if (!c.path || !fs.existsSync(c.path)) {
+      rejected.push(`${c.path || '(空)'} — 不存在`)
+      continue
+    }
+    let version = ''
+    try {
+      version = execFileSync(c.path, ['--version'], { encoding: 'utf8', timeout: 15_000 }).trim()
+    } catch (e) {
+      rejected.push(`${c.path} — 跑不起来(${e instanceof Error ? e.message : String(e)})`)
+      continue
+    }
+    const major = Number(/^v(\d+)\./.exec(version)?.[1] ?? 0)
+    if (!(major >= MIN_NODE_MAJOR)) {
+      rejected.push(`${c.path} — 版本 ${version} 低于 engines 下限 v${MIN_NODE_MAJOR}`)
+      continue
+    }
+    return { node: c.path, source: c.source, version, rejected }
+  }
+  return { node: null, source: '', version: '', rejected }
+}
+
 function buildTaskArgument() {
   return `"${SYNC_SCRIPT}" --if-dirty --apply --quiet --log "${LOG_FILE}"`
 }
@@ -96,13 +144,23 @@ function doRegister(options) {
     return 2
   }
   fs.mkdirSync(LOG_DIR, { recursive: true })
-  const nodeExe = process.execPath
+  const picked = resolveStableNode()
+  if (!picked.node) {
+    process.stderr.write(
+      `❌ 找不到可用的 node(需 v${MIN_NODE_MAJOR}+):\n` +
+        picked.rejected.map((r) => `   · ${r}`).join('\n') +
+        '\n   先装 nodejs 后再注册;或用当前 node 强制注册(路径可能随版本失效)。\n',
+    )
+    return 2
+  }
+  const nodeExe = picked.node
   const arg = buildTaskArgument()
   if (options.dryRunTask) {
     process.stdout.write(
       `[dry-run] Register-ScheduledTask -TaskName ${psQuote(TASK_NAME)}\n` +
         `  -Execute ${psQuote(nodeExe)}\n  -Argument ${psQuote(arg)}\n` +
-        `  -WorkingDirectory ${psQuote(ROOT)}\n  -Interval ${options.interval}min\n`,
+        `  -WorkingDirectory ${psQuote(ROOT)}\n  -Interval ${options.interval}min\n` +
+        `  node 来源: ${picked.source} / ${picked.version}\n`,
     )
     return 0
   }
@@ -120,7 +178,16 @@ Write-Output 'REGISTERED'
     return 1
   }
   process.stdout.write(`✅ 已注册计划任务 ${TASK_NAME}(每 ${options.interval} 分钟)\n`)
-  process.stdout.write(`   Execute : ${nodeExe}\n   Argument: ${arg}\n   Log     : ${LOG_FILE}\n`)
+  process.stdout.write(
+    `   Execute : ${nodeExe}\n   node 来源: ${picked.source} / ${picked.version}\n` +
+      `   Argument: ${arg}\n   Log     : ${LOG_FILE}\n`,
+  )
+  if (picked.source.includes('版本目录')) {
+    process.stdout.write(
+      '   ⚠️ 用的是 WorkBuddy 内置 node(路径含版本目录):WorkBuddy 升级 Node 后此路径可能失效,\n' +
+        '      届时 node scripts/relay-account-pool-sync.mjs --status 会报错并提示重跑本命令。\n',
+    )
+  }
   return 0
 }
 
