@@ -1,0 +1,49 @@
+{
+  "$comment": "跨端下发面的持久取对侧声明(git-sync-converge 自动读取)。声明只回答『两侧同改时优先要谁』,不替代判据:取对侧是否丢本侧独有行,仍由 union-converge 的 verifyUnion/lostAddedLines/吞并复量逐条复量,真丢即判红转人工。新增条目前请确认该路径确属对侧下发/本侧可重算的派生面。",
+  "takeTheirs": [
+    {
+      "path": "apps/miniapp-taro/src/app.config.ts",
+      "reason": "跨端页面清单下发面:与本轮对侧同批改写,取对侧后派生路由件由生成器重算;本侧独有行由 lostAddedLines 复量把关。"
+    },
+    {
+      "path": "apps/miniapp-taro/src/assets/remote-locales/en.b64.txt",
+      "reason": "远端语言包压缩载荷:由 gen-i18n-compressed 从 packages/i18n/messages 重算,取对侧后重生成。"
+    },
+    {
+      "path": "apps/miniapp-taro/src/assets/remote-locales/ja.b64.txt",
+      "reason": "远端语言包压缩载荷:由 gen-i18n-compressed 从 packages/i18n/messages 重算,取对侧后重生成。"
+    },
+    {
+      "path": "apps/miniapp-taro/src/assets/remote-locales/ko.b64.txt",
+      "reason": "远端语言包压缩载荷:由 gen-i18n-compressed 从 packages/i18n/messages 重算,取对侧后重生成。"
+    },
+    {
+      "path": "apps/miniapp-taro/src/assets/remote-locales/zh-TW.b64.txt",
+      "reason": "远端语言包压缩载荷:由 gen-i18n-compressed 从 packages/i18n/messages 重算,取对侧后重生成。"
+    },
+    {
+      "path": "packages/i18n/messages/miniapp-taro/en.json",
+      "reason": "跨端 i18n 文案下发面:以对侧本轮文案为准,派生语言包由生成器重算;本侧独有键由复量判红。"
+    },
+    {
+      "path": "packages/i18n/messages/miniapp-taro/ja.json",
+      "reason": "跨端 i18n 文案下发面:以对侧本轮文案为准,派生语言包由生成器重算;本侧独有键由复量判红。"
+    },
+    {
+      "path": "packages/i18n/messages/miniapp-taro/ko.json",
+      "reason": "跨端 i18n 文案下发面:以对侧本轮文案为准,派生语言包由生成器重算;本侧独有键由复量判红。"
+    },
+    {
+      "path": "packages/i18n/messages/miniapp-taro/zh-CN.json",
+      "reason": "跨端 i18n 文案下发面:以对侧本轮文案为准,派生语言包由生成器重算;本侧独有键由复量判红。"
+    },
+    {
+      "path": "packages/i18n/messages/miniapp-taro/zh-TW.json",
+      "reason": "跨端 i18n 文案下发面:以对侧本轮文案为准,派生语言包由生成器重算;本侧独有键由复量判红。"
+    },
+    {
+      "path": "scripts/data/cross-end-screen-registry.json",
+      "reason": "跨端屏表登记下发面:以对侧本轮登记为准,ui-routes.generated.ts 等派生件由生成器重算。"
+    }
+  ]
+}

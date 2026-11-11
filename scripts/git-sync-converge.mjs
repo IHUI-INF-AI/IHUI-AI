@@ -42,6 +42,7 @@ import {
   mkdirSync,
   openSync,
   closeSync,
+  existsSync,
   readFileSync,
   renameSync,
   rmSync,
@@ -799,6 +800,58 @@ export function declarationArgs(argv = process.argv) {
     if (value === undefined || String(value).startsWith('--')) continue
     out.push(flag, value)
     i++
+  }
+  const seen = new Set()
+  const merged = []
+  for (let i = 0; i < out.length; i += 2) {
+    const key = `${out[i]}\u0000${out[i + 1]}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    merged.push(out[i], out[i + 1])
+  }
+  for (const [flag, value] of persistedDeclarations()) {
+    const key = `${flag}\u0000${value}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    merged.push(flag, value)
+  }
+  return merged
+}
+
+/**
+ * 持久声明文件(2026-11-11 根治"每轮重复 11 条 --take-theirs")。
+ *
+ * 背景:跨端下发面(app.config.ts / 远端语言包 / miniapp i18n / 屏表登记)在并发多端同步下
+ * 几乎每轮都和远端同时改,`union-converge` 对此要人工逐路径声明取对侧 —— 于是每次推送
+ * 都变成"复制粘贴一串旗标再等 5-20 分钟",实测一天卡十几次。
+ *
+ * 安全性**不靠这份文件**:取对侧会不会丢本侧独有行,仍由 union-converge 自己的
+ * `verifyUnion` / `lostAddedLines` / 吞并复量逐条复量 —— 真出现本侧独有内容时它照样判红转人工。
+ * 这里只是把"人已经逐轮重复过的同一批声明"落成数据,让例行走同一份判据,而不是省略判据。
+ * 文件读不到/格式坏 ⇒ 当作没有声明(不编默认、不静默放行),失败方向仍是拦。
+ */
+export const PERSISTED_DECLARATIONS_REL = 'scripts/data/sync-converge-declarations.json'
+
+/** @returns {Array<[string,string]>} 形态与 declarationArgs 的扁平对一致 */
+export function persistedDeclarations(root = process.cwd()) {
+  const p = resolve(root, PERSISTED_DECLARATIONS_REL)
+  if (!existsSync(p)) return []
+  let j
+  try {
+    j = JSON.parse(readFileSync(p, 'utf8'))
+  } catch (e) {
+    console.warn(
+      `[git-sync-converge] 持久声明读不动(${PERSISTED_DECLARATIONS_REL}):${String(e && e.message).split('\n')[0]}`,
+    )
+    return []
+  }
+  const list = Array.isArray(j?.takeTheirs) ? j.takeTheirs : []
+  const out = []
+  for (const item of list) {
+    const spec = typeof item === 'string' ? item : item && item.path
+    const s = String(spec || '').trim()
+    if (!s || s.startsWith('--')) continue
+    out.push(['--take-theirs', s])
   }
   return out
 }

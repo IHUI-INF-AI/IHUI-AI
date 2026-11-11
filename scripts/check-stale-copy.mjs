@@ -142,6 +142,37 @@ const RED_FLAG_DELETE = [
 ]
 
 /**
+ * 纯解析:`--files <路径…>`(落地档)⇒ 路径数组;没给或给空 ⇒ null(⇒ 维持 staged 档)。
+ * 只吃紧随其后的非旗 token,遇旗即停(与仓库内其它 CLI 的取法同形)。
+ */
+export function filesFaceOf(argv = process.argv) {
+  const list = Array.isArray(argv) ? argv : []
+  const i = list.indexOf('--files')
+  if (i < 0) return null
+  const out = []
+  for (let k = i + 1; k < list.length; k++) {
+    const a = String(list[k])
+    if (a.startsWith('--')) break
+    if (a) out.push(a)
+  }
+  return out.length ? out : null
+}
+
+/**
+ * 落地档的父集:HEAD 若是合并提交,取它自己的父(结果 blob 等于任一父 ⇒ 归因该父,不判本次)。
+ * 非合并/取不到 ⇒ null,退回单父判据。
+ */
+export function headMergeParents() {
+  const line = shSafe(`git rev-list --parents -n 1 HEAD`)
+  const parts = String(line || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+  if (parts.length <= 2) return null
+  return parts.slice(1).map((rev) => ({ rev }))
+}
+
+/**
  * 本次 staged 面的父集:非合并提交 ⇒ null(判据逐字走改前的单父写法);
  * 合并未收口 ⇒ [HEAD, MERGE_HEAD...](见 lib/merge-delta.mjs 的 `deltaParents`)。
  * 取不到父提交 = 未判定,抛 Undetermined,绝不折成空集(空集会把上游既有内容记成本次动作)。
@@ -328,27 +359,37 @@ async function main() {
     console.log('⏭  HUSKY_SKIP_STALE_COPY=1 — 跳过陈旧副本守门')
     return
   }
+  // ── 面:staged 档(pre-commit 默认) vs 落地档(`--files <路径…>`) ──
+  // 2026-11-11 根治:落地后复跑通道里共享索引挂着**其他会话**的 123 个在飞文件,
+  // 旧形态恒按 `git diff --cached` 判 ⇒ 每轮必红(~50 条不属于本次落地的"陈旧副本"),
+  // 且单臂 200-300s,是"每次推送卡 5 分钟"的直接成因。
+  // `--files` 由 land-gate-rerun 的注册表臂按「本次落地声明面」注入:只判这几条,
+  // blob 取 `HEAD:<path>`(落地面),父集取 HEAD 自己的父 —— 判据本身一字未改。
+  const filesFace = filesFaceOf(process.argv)
   // pre-commit 场景:只看 staged 区(git diff --cached),即本次要提交的内容
   // core.quotePath=false:中文路径不被引号转义,保证 slice(3) 定位准确
-  const statusRaw = shSafe('git -c core.quotePath=false diff --cached --name-status')
+  const statusRaw = filesFace ? '' : shSafe('git -c core.quotePath=false diff --cached --name-status')
   // name-status 行以制表符分隔状态与路径(R/C 改名行还有第二路径);slice(3) 定位
   // 对含中文/改名行会错位,必须按 \t 分割
-  const entries = statusRaw
-    .split('\n')
-    .filter(Boolean)
-    .map((l) => {
-      const tab = l.indexOf('\t')
-      return { x: l[0], path: l.slice(tab + 1).trim() }
-    })
-    .filter((e) => !e.path.startsWith('.ihui-agent/') && !e.path.includes('loop-runtime'))
+  const entries = filesFace
+    ? filesFace.map((path) => ({ x: 'M', y: 'M', path }))
+    : statusRaw
+        .split('\n')
+        .filter(Boolean)
+        .map((l) => {
+          const tab = l.indexOf('\t')
+          return { x: l[0], path: l.slice(tab + 1).trim() }
+        })
+        .filter((e) => !e.path.startsWith('.ihui-agent/') && !e.path.includes('loop-runtime'))
 
   const blocked = []
   const checked = { deleted: [], stale: [] }
 
   // 合并未收口时,上游既有的 M/D 不得记成本次动作;非合并(父集只有 HEAD)保持原判据。
+  // 落地档取 HEAD 自身的父(见 headMergeParents),不读共享索引的 MERGE_HEAD(那是别人的面)。
   let mergeParents
   try {
-    mergeParents = stagingParentSet(ROOT)
+    mergeParents = filesFace ? headMergeParents() : stagingParentSet(ROOT)
   } catch (e) {
     console.error(`❌ 无法判定本次提交的父集:${String(e?.message ?? e).split('\n')[0]}`)
     process.exit(2)
@@ -378,8 +419,25 @@ async function main() {
     }
     if (e.y !== 'M' && e.x !== 'M') return null
     // 已修改文件:blob 级陈旧副本检测(blob 在基线祖先中出现过)
-    const blob = await gitOut(['rev-parse', `:${path}`])
-    if (!blob) return null
+    // 落地档取 HEAD 的那一份(落地面);staged 档取索引(本次要提交的那一份)。
+    const blob = filesFace
+      ? await gitOut(['rev-parse', `HEAD:${path}`])
+      : await gitOut(['rev-parse', `:${path}`])
+    if (!blob) {
+      // 落地档里取不到 blob = 该路径在 HEAD 面被删除(不是"新内容")。
+      if (!filesFace) return null
+      if (!RED_FLAG_DELETE.some((r) => r.test(path))) return null
+      if (
+        mergeParents &&
+        !attributableToMergeParents({
+          kind: 'removed',
+          curOid: null,
+          parentOids: parentOidsOf(path),
+        })
+      )
+        return null
+      return { blocked: { path, kind: '删除红旗文件(迁移/测试/守门脚本)' } }
+    }
     // 合并面:结果 blob 与任一父相同 ⇒ 该改动归因那枚父提交,不判本次的"陈旧副本"。
     if (
       mergeParents &&
@@ -439,8 +497,9 @@ async function main() {
 }
 
 // §22d:CLI 与"被测试 import"双形态。没有这道守卫,镜像测试一 import 就会跑完整判据
-// (并可能 process.exit(1)),把测试环境搞炸。未知旗标(如 runner 追加的 --staged)忽略,
-// 本门恒按 staged 区判定,不需要面旗。
+// (并可能 process.exit(1)),把测试环境搞炸。
+// 面:缺省 = staged 档(pre-commit);`--files <路径…>` = 落地档(land-gate-rerun 注册表臂注入,
+// 只判本次落地声明面,blob 取 HEAD)。其余未知旗标(如 runner 追加的 --staged)仍忽略。
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) {
   const runCli = async () => {
@@ -461,5 +520,7 @@ export const __test__ = {
   RED_FLAG_DELETE,
   stagingParentSet,
   attributableToMergeParents,
+  filesFaceOf,
+  headMergeParents,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
