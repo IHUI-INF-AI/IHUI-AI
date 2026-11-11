@@ -51,7 +51,9 @@ from app.services.checkin_outbound import checkin_outbound_gate
 
 logger = get_logger(__name__)
 
-RACCOON_HOST: Final = "https://xiaohuanxiong.com"
+# 基址可由 IHUI_RACCOON_HOST 覆盖: 只用于把引擎指向本地模拟上游(scripts/raccoon-mock-upstream.mjs)
+# 做离线演练;缺省仍是线上域名 ⇒ 生产路径零变化。真站身份验证(短信码)不可模拟,见 docs/raccoon-relay-api.md §7。
+RACCOON_HOST: Final = (os.getenv("IHUI_RACCOON_HOST") or "https://xiaohuanxiong.com").rstrip("/")
 PATH_BALANCE: Final = "/api/web/points/v1/balance"
 PATH_TASKS: Final = "/api/web/points/v1/tasks"
 PATH_GRANT_DESKTOP: Final = "/api/web/desktop/v1/login/points/grant"
@@ -263,11 +265,26 @@ def parse_tasks(body: dict[str, Any] | None) -> dict[str, Any]:
             if key in NEW_USER_TASKS and isinstance(status, str):
                 states[key] = status
     invite = data.get("invite") if isinstance(data.get("invite"), dict) else {}
-    invite_code = invite.get("invite_code")
+
+    def _num(v: Any) -> int:
+        return int(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else 0
+
+    # 邀请块(2026-11-11 补全): 邀请是**没有独立领取接口**的一条腿 —— 奖励只在被邀请人
+    # 首次注册那一刻由服务端结算(docs/raccoon-relay-api.md §3.7)。号池侧能做的就是持续
+    # 核对这四个数: 码、已邀人数、剩余计奖名额、累计已得。少一个就没法判「还能拉几位」。
+    invite_stats = {
+        "code": invite.get("invite_code") if isinstance(invite.get("invite_code"), str) else None,
+        "granted_points": _num(invite.get("granted_points")),
+        "registered_invitees": _num(invite.get("registered_invitee_count")),
+        "remaining_reward_invitees": _num(invite.get("remaining_reward_invitees")),
+        "register_reward_points": _num(invite.get("register_reward_points")),
+    }
+    invite_code = invite_stats["code"]
     return {
         "code": code if isinstance(code, int) and not isinstance(code, bool) else None,
         "states": states,
         "invite_code": invite_code if isinstance(invite_code, str) else None,
+        "invite": invite_stats,
         "message": str(body.get("message") or body.get("msg") or ""),
         "raw_keys": raw_keys,
     }
@@ -324,6 +341,19 @@ async def raccoon_grant_login_reward(
     parsed = parse_grant(body if isinstance(body, dict) else None)
     parsed["http_status"] = status if status > 0 else None
     return parsed
+
+
+async def _reload_available(
+    token: str, *, timeout: float = DEFAULT_TIMEOUT, client: httpx.AsyncClient | None = None
+) -> int | None:
+    """回读可用积分。任何一环不成立都返回 None(调用方按未判定处理,不猜)。"""
+    status, body = await _api_get(PATH_BALANCE, token, timeout=timeout, client=client)
+    if status != 200 or not isinstance(body, dict):
+        return None
+    parsed = parse_balance(body)
+    if parsed["code"] != 0:
+        return None
+    return parsed["available"]
 
 
 async def raccoon_checkin_account(
@@ -435,6 +465,28 @@ async def raccoon_checkin_account(
             result["message"] += f";移动端登录奖励 +{extra}"
         elif mobile["granted"] is None:
             result["warning"] = "移动端奖励发放未判定(granted 非布尔)"
+
+    # 3.5) 余额以**回读**为准。发放接口的 popup 只报一笔,同一批可能还带其它笔
+    # (实测桌面端一次性 3000 + 每日 300 同次到账,popup 仅报 3000),按 popup 推算会把
+    # 余额与 delta 一起报少 —— 那是观测口径问题,不是上游少发。
+    # 但回读也可能滞后(余额未推进),那时不能把 delta 抹成 0:保留发放回执的推算值并标来源。
+    after_available = await _reload_available(token, timeout=timeout, client=client)
+    estimated_credits = baseline["available"] + (result.get("credits_delta") or 0)
+    if result.get("status") == "checked":
+        if after_available is not None and after_available > baseline["available"]:
+            result["credits"] = after_available
+            result["credits_delta"] = after_available - baseline["available"]
+            result["creditsSource"] = "balance_reload"
+            result["message"] += f";余额回读 {baseline['available']} → {after_available}"
+        elif after_available is not None:
+            result["credits"] = estimated_credits
+            result["creditsSource"] = "popup_estimate"
+            result["message"] += f";余额回读仍为 {after_available}(未推进),credits 取发放回执推算"
+        else:
+            result["creditsSource"] = "popup_estimate"
+            result["warning"] = ";".join(
+                x for x in (result.get("warning"), "余额回读失败,credits 为推算值") if x
+            )
 
     # 4) 新手任务态顺带核对(只读;失败不阻塞主判定)
     t_status, t_body = await _api_get(PATH_TASKS, token, timeout=timeout, client=client)

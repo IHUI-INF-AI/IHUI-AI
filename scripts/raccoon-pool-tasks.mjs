@@ -21,12 +21,14 @@
  * 用法:
  *   node scripts/raccoon-pool-tasks.mjs [--json] [--token <jwt>] [--file <auth.json>]
  *                                       [--claim] [--claim-new-user] [--bills]
+ *                                       [--base http://127.0.0.1:8899]  # 指向本地模拟上游演练
  */
 import fs from 'node:fs'
 import { pathToFileURL } from 'node:url'
 import { decodeJwtPayload, extractRaccoonAccounts } from './lib/raccoon-auth-extract.mjs'
 
-const API_BASE = 'https://xiaohuanxiong.com'
+// 基址可用 --base / IHUI_RACCOON_BASE 覆盖,只用于指向本地模拟上游做演练;缺省线上。
+let API_BASE = (process.env.IHUI_RACCOON_BASE || 'https://xiaohuanxiong.com').replace(/\/$/, '')
 const CLIENT_VERSION = 'v1.2.0'
 
 const HEADERS_BASE = {
@@ -197,8 +199,11 @@ async function resolveToken(argv) {
 
 async function main() {
   const argv = process.argv.slice(2)
+  const baseIdx = argv.indexOf('--base')
+  if (baseIdx >= 0 && argv[baseIdx + 1]) API_BASE = String(argv[baseIdx + 1]).replace(/\/$/, '')
   if (argv.includes('--help')) {
     console.log('用法:node scripts/raccoon-pool-tasks.mjs [--json] [--token <jwt>|--file <auth.json>] [--claim] [--claim-new-user] [--bills]')
+    console.log('      [--base <http://127.0.0.1:8899>]  指向本地模拟上游(scripts/raccoon-mock-upstream.mjs)演练')
     console.log('  默认只读(余额 + 任务态)。')
     console.log('  --claim           领取每日额度(POST desktop grant;幂等,已领返回 granted=false)')
     console.log('  --claim-new-user  领取移动端登录奖励(POST mobile grant;账号级一次性)')
@@ -224,8 +229,12 @@ async function main() {
   const newUser = wantNewUser ? judgeGrant(await postJson('/api/web/mobile/v1/login/points/grant', resolved.token, 'mobile-android')) : null
   const bills = wantBills ? judgeBills(await getJson('/api/web/points/v2/bills?page=1&page_size=10', resolved.token)) : null
 
+  // 领取动作本身会改任务态 ⇒ 有领取就以领取后的回读为准。否则拿领取前的快照,
+  // 会把刚刚 completed 的任务报成 unfinished(号池据此重复派单/误报)。
+  const taskResAfter = grant || newUser ? await getJson('/api/web/points/v1/tasks', resolved.token) : null
+
   const balance = judgeBalance(balAfter ?? balRes)
-  const tasks = judgeTasks(taskRes)
+  const tasks = judgeTasks(taskResAfter ?? taskRes)
   const suggestions = suggestNext(balance, tasks, grant)
   const report = {
     provider: 'raccoon',
