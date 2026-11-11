@@ -3462,6 +3462,9 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       .orderBy(sql`SUM(${eduExamScore.score}) DESC`)
 
     const totalStudents = raw.length
+    // F-21:snapshot_date 是上海业务日列,日键必须走唯一出口 bizDayKey();
+    // 旧的 UTC 日键会让上海 00:00–08:00 生成的快照落到前一天。
+    const snapshotDate = bizDayKey()
     const snapshotValues = raw.map((r, i) => ({
       classId: parsed.data.classId,
       examName: parsed.data.examName,
@@ -3469,7 +3472,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       score: Number(r.totalScore),
       rank: i + 1,
       totalStudents,
-      snapshotDate: new Date().toISOString().split('T')[0]!,
+      snapshotDate,
     }))
 
     if (snapshotValues.length > 0) {
