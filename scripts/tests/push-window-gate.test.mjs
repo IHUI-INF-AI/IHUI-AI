@@ -277,6 +277,21 @@ test('端到端:https origin + PUSH_WINDOW=1 ⇒ 放行(桩内真落地,不联�
 })
 
 // ─── 装车反向锁:判据在、主流程没用它 = 没有 ─────────────
+test('装车锁:pushOnce 必须显式喂 pre-push 的 ref 行(worker 的 stdin 是 /dev/null)', () => {
+  assert.match(GUARD_SRC, /stdio:\s*\['pipe',\s*'pipe',\s*'pipe'\]/, 'pushOnce 的 stdin 必须是可取管道')
+  assert.match(GUARD_SRC, /input:\s*stdinLine/, '必须把 ref 行喂给 git push')
+  assert.match(
+    GUARD_SRC,
+    /refs\/heads\/\$\{branch\} \$\{localHead\} refs\/heads\/\$\{branch\} \$\{remoteHead\}/,
+    'ref 行必须与 pre-push 钩子的输入契约同形',
+  )
+  assert.doesNotMatch(
+    GUARD_SRC,
+    /stdio:\s*\['inherit',\s*'pipe',\s*'pipe'\]/,
+    '不得回退到 inherit:worker 是 stdio[ignore] detached 派生的,继承到的 stdin 恒为 /dev/null',
+  )
+})
+
 test('装车锁:guard 必须真调这两道闸,且读的是 origin URL 原文', () => {
   assert.match(GUARD_SRC, /from '\.\/lib\/push-window-gate\.mjs'/, 'guard 未引用闸模块')
   assert.ok(GUARD_SRC.includes('judgePushRemoteUrl(originUrl)'), '协议闸未被主流程调用')
