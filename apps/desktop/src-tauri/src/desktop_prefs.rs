@@ -66,13 +66,13 @@ pub enum CloseDecision {
 #[derive(Debug, Clone, Copy)]
 pub struct TrayMenuItem {
     pub id: &'static str,
-    /// `tray_menu_labels()` 的下标(0..=6,顺序与历史 7 项一致)。
+    /// `tray_menu_labels()` 的下标(0..=7,前 7 项与历史顺序逐字一致;第 8 项是操作员专属)。
     pub label_index: usize,
     /// 分组号:相邻两项分组不同 ⇒ 中间有一条分隔线(复刻历史形态)。
     pub group: u8,
 }
 
-pub const TRAY_MENU_ITEMS: [TrayMenuItem; 7] = [
+pub const TRAY_MENU_ITEMS: [TrayMenuItem; 8] = [
     TrayMenuItem { id: "new_chat", label_index: 0, group: 0 },
     TrayMenuItem { id: "show", label_index: 1, group: 1 },
     TrayMenuItem { id: "hide", label_index: 2, group: 1 },
@@ -80,10 +80,27 @@ pub const TRAY_MENU_ITEMS: [TrayMenuItem; 7] = [
     TrayMenuItem { id: "settings", label_index: 4, group: 2 },
     TrayMenuItem { id: "update", label_index: 5, group: 2 },
     TrayMenuItem { id: "quit", label_index: 6, group: 3 },
+    // 2026-11-11:操作员专属项。**默认不进 default 列表**(见 default_tray_menu_items),
+    // 需在 <app_config_dir>/desktop-behavior.json 的 tray_menu_items 里显式加
+    // "relay_switch" 才出现 —— 详见 is_operator_only_tray_item 的立因。
+    TrayMenuItem { id: "relay_switch", label_index: 7, group: 4 },
 ];
 
 /// 「退出」这一项的 id:不变量 2 要求菜单里永远有它(否则用户没法从托盘退进程)。
 pub const TRAY_MENU_QUIT_ID: &str = "quit";
+
+/// 操作员专属托盘项 id:拉起本机号池切号器(见 lib.rs 的 spawn_relay_switch)。
+pub const TRAY_MENU_RELAY_SWITCH_ID: &str = "relay_switch";
+
+/// 这一项是否**只对操作员有意义**、因而不该出现在默认菜单里。
+///
+/// 立因(2026-11-11):号池切号的前提是这台机器有 IHUI-AI 仓库 + relay 号池库 +
+/// `apps/api/.env` 凭据。普通终端用户一个都不具备,给他们菜单里放这一项,
+/// 点下去只能得到"仓库/号池未就绪"的报错 —— 那是产品面污染,不是功能。
+/// 所以它登记在册(操作员可在 desktop-behavior.json 里显式启用),但默认不导出。
+pub fn is_operator_only_tray_item(id: &str) -> bool {
+    id == TRAY_MENU_RELAY_SWITCH_ID
+}
 
 /// 按 id 查登记项(归一化之后一定查得到,因为未知 id 已被丢弃)。
 pub fn tray_menu_item(id: &str) -> Option<TrayMenuItem> {
@@ -91,8 +108,14 @@ pub fn tray_menu_item(id: &str) -> Option<TrayMenuItem> {
 }
 
 /// 默认菜单项列表由登记表导出 —— 不是第二份手抄的名字。
+///
+/// 只排除 `is_operator_only_tray_item` 项,其余逐字同形(默认仍是历史那 7 项)。
 pub fn default_tray_menu_items() -> Vec<String> {
-    TRAY_MENU_ITEMS.iter().map(|item| item.id.to_string()).collect()
+    TRAY_MENU_ITEMS
+        .iter()
+        .filter(|item| !is_operator_only_tray_item(item.id))
+        .map(|item| item.id.to_string())
+        .collect()
 }
 
 /// 桌面端行为偏好。**每个字段都有默认值**,且默认值只由下面手写的 `impl Default` 决定。
@@ -502,9 +525,45 @@ mod tests {
         // 登记表与默认值必须互证(否则 label_index 漂了没人喊)。
         for id in default_tray_menu_items() {
             let item = tray_menu_item(&id).unwrap_or_else(|| panic!("默认项 {id} 不在登记表里"));
-            assert!(item.label_index < 7, "{id} 的标签下标越界");
+            // 上界跟着登记表长度走,不写死 7 —— 写死会让"新登记项下标越界"漏过判据
+            // (2026-11-11 加第 8 项 relay_switch 时实测:硬编码 7 会把合法项判红)。
+            assert!(item.label_index < TRAY_MENU_ITEMS.len(), "{id} 的标签下标越界");
         }
         assert!(tray_menu_item("not_a_real_id").is_none());
+    }
+
+    #[test]
+    fn registry_label_indexes_are_dense_and_unique() {
+        // label_index 是 tray_menu_labels() 数组的下标:登记表里若有重号或空洞,
+        // 拿到的是别人的文案(而且菜单照样建得出来,静态看不出坏)。
+        let mut seen: Vec<usize> = TRAY_MENU_ITEMS.iter().map(|item| item.label_index).collect();
+        seen.sort_unstable();
+        assert_eq!(
+            seen,
+            (0..TRAY_MENU_ITEMS.len()).collect::<Vec<_>>(),
+            "label_index 必须 0..N 密排且不重复(改登记表就得同步 tray_menu_labels 的条目数)"
+        );
+        for item in TRAY_MENU_ITEMS.iter() {
+            assert!(tray_menu_item(item.id).is_some(), "登记项 {} 查不回来", item.id);
+        }
+    }
+
+    #[test]
+    fn default_menu_excludes_operator_only_items() {
+        // 号池切号只对操作员机有意义(需仓库 + 号池库 + .env)。默认出现在所有用户的
+        // 托盘里 = 产品面污染(点了只会报"未就绪")。故默认导出必须排除它,
+        // 但它仍须登记在册 —— 否则操作员在 desktop-behavior.json 里写了也会被
+        // normalize_prefs 当未知 id 丢掉。
+        let defaults = default_tray_menu_items();
+        assert!(
+            !defaults.iter().any(|id| is_operator_only_tray_item(id)),
+            "默认托盘菜单不得包含操作员专属项"
+        );
+        assert_eq!(defaults.len(), 7, "默认托盘项必须与历史 7 项逐字同形");
+        assert!(
+            tray_menu_item(TRAY_MENU_RELAY_SWITCH_ID).is_some(),
+            "操作员项仍须登记在册,否则 desktop-behavior.json 里写了也会被归一化丢掉"
+        );
     }
 
     // ── 5. decide_close_action:行为 × 托盘在/不在 的表 ──

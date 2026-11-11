@@ -94,6 +94,26 @@ DESKTOP_ALLOW_UNSIGNED=1 pnpm --filter @ihui/desktop build   # 仅本地自测�
 未设该 env 时行为不变、仍然判红——它是**显式开关**，不是自动降级。
 ⚠️ **两套签名别混**:`DESKTOP_ALLOW_UNSIGNED=1` 只关 Tauri 更新签名(minisign),不关 Windows Authenticode。未带 Tauri 签名的产物**不得**进更新源、不得发版、不得上传任何下载/更新 CDN;而 Authenticode 由 CI 的 SignPath 负责,本机 `release-desktop-local.mjs` 默认拒绝上传未签名包(应急加 `--allow-unsigned-upload`,且该包不得烘焙进公开更新源)。公开 Windows 发布一律走 `desktop-v*` tag 的 CI。
 
+## 操作员专属托盘入口：AI 客户端一键切号
+
+托盘菜单里有一个**默认不显示**的项 `relay_switch`（文案「AI 客户端一键切号」）。它只在**操作员机**上有意义 —— 前提是本机有 IHUI-AI 仓库（含 `scripts/client-oneclick-switch.cmd`）、Node 22 + `tsx`、以及 relay 号池库与 `apps/api/.env`。普通用户机上这些一个都没有，所以它**不进默认菜单**（`desktop_prefs::default_tray_menu_items` 显式排除，默认仍是历史那 7 项）。
+
+启用方式：在 `<app_config_dir>/desktop-behavior.json` 的 `tray_menu_items` 里追加 `"relay_switch"`（Windows 上是 `%APPDATA%\com.ihui.desktop\desktop-behavior.json`）：
+
+```json
+{
+  "tray_menu_items": ["new_chat", "show", "hide", "theme", "settings", "update", "quit", "relay_switch"]
+}
+```
+
+改完重启桌面端即生效。数组顺序就是菜单顺序（想让它排在「退出」之前，自己调即可）。
+
+点击后的行为：Rust 主进程直接拉起一个**独立控制台窗口**跑 `client-oneclick-switch.cmd`（交互式选号）；找不到仓库时弹原生提示说明原因（含是哪条路径没命中），不静默失败。
+
+仓库根定位顺序（每一档都验 `scripts/client-oneclick-switch.cmd` 真的在，不靠目录名猜）：`IHUI_AI_REPO` 环境变量 → 从当前 exe 逐级上溯 6 层（覆盖 `target/debug` → `src-tauri` → `apps/desktop` → 仓库）→ `%USERPROFILE%\IHUI-AI` 与 `G:\IHUI-AI`。
+
+**为什么不做成设置页按钮**：主窗口/admin 窗口都加载远程 `https://aizhs.top`，`capabilities/default.json` 的 BUG-17 加固（2026-11-06）已把 "spawn 子进程" 一族移出 remote 授权面，理由写明是"线上页（含任意 XSS）可直调"。在 Rust 里 spawn 一个能跑仓内脚本的进程属 RCE 级能力，挂到远程页按钮上等于把那轮 P0 加固反向推翻。托盘点击是**本机用户的直接操作**、由 Rust 主进程自己处理、不经过 webview，因此不构成新的远程攻击面。
+
 ## 重要提示
 
 - **要修改对话 UI（消息渲染、工具卡、审批、Plan/Terminal 等），请在 `apps/web` 进行**，不要在 `apps/desktop` 内另起炉灶。桌面端只是线上 web 站点的壳，改 `apps/web` 后**部署上线**即对 web 端与桌面端同时生效（无需重发桌面包）。
