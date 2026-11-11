@@ -67,7 +67,7 @@
     ],
     "category": "Productivity",
     "shortDescription": "智汇AI",
-    "longDescription": "智汇AI 桌面端,基于 Tauri 2 + WebView2。桌面端 = Tauri 薄壳 + 直连线上站点:frontendDist 指向 src-tauri/shell 占位页,窗口 url 直接加载 https://aizhs.top/ 首页(2026-10-13 起启动页由 /agents 改为首页,用户拍板;薄壳不打包本地 web 产物仍依 V3 #72)。桌面端 AI 版本由线上站点决定,本仓不可校验:线上不可用=桌面端一起不可用、无法本地降级、无法离线首屏(仅有薄壳占位页与 Rust 侧 offline:// 重连提示,本地无可渲染 UI)。",
+    "longDescription": "智汇AI 桌面端,基于 Tauri 2 + WebView2。桌面端 = Tauri 薄壳 + 直连线上站点:frontendDist 指向 src-tauri/shell 占位页,窗口 url 直接加载 https://aizhs.top/ 首页(2026-10-13 起启动页由 /agents 改为首页,用户拍板;薄壳不打包本地 web 产物仍依 V3 #72)。桌面端 AI 版本由线上站点决定,本仓不可校验:线上不可用时业务能力不可用,但壳侧有本地降级 —— auto_refresh 探活失败会导航到内置 offline 兜底页(本地可渲染 UI),切页前经 desktop-before-close 通知工作区保存草稿,恢复后自动回到离线前地址。兜底页不承载业务逻辑,无法离线进行 AI 对话。",
     "windows": {
       "webviewInstallMode": {
         "type": "embedBootstrapper",

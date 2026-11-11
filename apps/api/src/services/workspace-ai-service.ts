@@ -2126,6 +2126,20 @@ export const checkpointManager = new CheckpointManager()
 
 export type BgAgentStatus = 'running' | 'completed' | 'failed' | 'cancelled'
 
+/**
+ * F-40:后台 Agent 表的上限与终态保留时长(秒)。
+ *
+ * 修前 `agents`/`tasks` 两张模块级 Map 只增不删:cancel 只改状态,任务完成后的 Promise
+ * 永久留在表里,长驻进程的 prompt/result/events 无上限增长。这里给出有界策略,
+ * 并用"写入时惰性清理"(sweep)落地 —— 不挂 setInterval,进程级定时器会拖住测试与退出。
+ */
+export const MAX_BACKGROUND_AGENTS = 200
+export const BG_AGENT_TERMINAL_TTL_SEC = 3600
+
+function isTerminalBgStatus(status: BgAgentStatus): boolean {
+  return status === 'completed' || status === 'failed' || status === 'cancelled'
+}
+
 export interface BackgroundAgent {
   agentId: string
   prompt: string
@@ -2134,11 +2148,13 @@ export interface BackgroundAgent {
   userUuid: string
   status: BgAgentStatus
   createdAt: number
+  /** F-40:进入终态(completed/failed/cancelled)的时刻;running 为 null。 */
+  finishedAt: number | null
   events: Array<{ ts: number; type: string; data: unknown }>
   result: string | null
 }
 
-class BackgroundAgentManager {
+export class BackgroundAgentManager {
   private agents = new Map<string, BackgroundAgent>()
   private tasks = new Map<string, Promise<void>>()
 
@@ -2150,6 +2166,8 @@ class BackgroundAgentManager {
     maxIterations?: number
     systemPrompt?: string
   }): string {
+    // F-40:写入时惰性清理,先腾位置再入表(不挂定时器)。
+    this.sweep()
     const agentId = randomUUID().slice(0, 12)
     const agent: BackgroundAgent = {
       agentId,
@@ -2159,12 +2177,13 @@ class BackgroundAgentManager {
       userUuid: params.userUuid ?? 'anonymous',
       status: 'running',
       createdAt: nowSec(),
+      finishedAt: null,
       events: [],
       result: null,
     }
     this.agents.set(agentId, agent)
 
-    const task = (async () => {
+    const task: Promise<void> = (async () => {
       let outcome: { ok: boolean; result?: unknown; message?: string }
       try {
         const result = await agentLoop.run({
@@ -2187,6 +2206,8 @@ class BackgroundAgentManager {
         return
       }
       if (agent.status !== 'running') {
+        // F-40:迟到丢弃也是一次终态处置,记录时刻供 TTL 回收。
+        agent.finishedAt = nowSec()
         agent.events.push({
           ts: nowSec(),
           type: 'late-result-discarded',
@@ -2198,9 +2219,11 @@ class BackgroundAgentManager {
       if (outcome.ok) {
         agent.result = (outcome.result as { result: unknown }).result as string | null
         agent.status = 'completed'
+        agent.finishedAt = nowSec()
         agent.events.push({ ts: nowSec(), type: 'done', data: outcome.result })
       } else {
         agent.status = 'failed'
+        agent.finishedAt = nowSec()
         agent.result = outcome.message ?? 'unknown error'
         agent.events.push({
           ts: nowSec(),
@@ -2209,10 +2232,58 @@ class BackgroundAgentManager {
         })
       }
       this.persist(agent)
-    })()
+    })().finally(() => {
+      // F-40:任务结算即摘掉 Promise 引用;身份复核避免删掉同 id 的新任务。
+      // 回调在微任务里执行,此时 task 已完成初始化,比对的正是本次任务的 Promise。
+      if (this.tasks.get(agentId) === task) this.tasks.delete(agentId)
+    })
     this.tasks.set(agentId, task)
     void params.systemPrompt
     return agentId
+  }
+
+  /**
+   * F-40:惰性回收 —— 仅由写入面(`start` 入表前、`cancel` 落终态后)调用,不挂定时器。
+   *
+   * ① 先清"终态且 finishedAt 早于 TTL"的 agent;
+   * ② 仍超上限时,按 createdAt 从旧到新淘汰终态 agent —— running 的一律不动
+   *   (运行中的任务被删会让调用方拿不到结果,内存上限只能靠终态腾挪)。
+   */
+  sweep(): void {
+    const now = nowSec()
+    for (const [agentId, agent] of this.agents) {
+      if (
+        isTerminalBgStatus(agent.status) &&
+        agent.finishedAt !== null &&
+        now - agent.finishedAt > BG_AGENT_TERMINAL_TTL_SEC
+      ) {
+        this.reap(agentId)
+      }
+    }
+    if (this.agents.size <= MAX_BACKGROUND_AGENTS) return
+    const terminalAgents = Array.from(this.agents.values())
+      .filter((agent) => isTerminalBgStatus(agent.status))
+      .sort((a, b) => a.createdAt - b.createdAt)
+    for (const agent of terminalAgents) {
+      if (this.agents.size <= MAX_BACKGROUND_AGENTS) break
+      this.reap(agent.agentId)
+    }
+  }
+
+  private reap(agentId: string): void {
+    this.agents.delete(agentId)
+    this.tasks.delete(agentId)
+  }
+
+  /** F-40 测试钩子:直接注入 agent,避免测试真跑 agentLoop。 */
+  seedForTest(agent: BackgroundAgent): void {
+    this.agents.set(agent.agentId, agent)
+  }
+
+  /** F-40 测试钩子:清空 agents/tasks 两张表。 */
+  resetForTest(): void {
+    this.agents.clear()
+    this.tasks.clear()
   }
 
   /**
@@ -2235,7 +2306,10 @@ class BackgroundAgentManager {
     const agent = this.get(agentId, userId)
     if (!agent || agent.status !== 'running') return false
     agent.status = 'cancelled'
+    agent.finishedAt = nowSec()
     this.persist(agent)
+    // F-40:取消是写入面,顺手回收已过期/超限的终态 agent。
+    this.sweep()
     return true
   }
 
