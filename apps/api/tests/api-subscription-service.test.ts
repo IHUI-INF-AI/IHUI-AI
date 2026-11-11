@@ -392,17 +392,45 @@ describe('api-subscription-service — API 订阅核心 service', () => {
       expect(valuesArg.tokenBalance).toBe(-1)
     })
 
-    it('SDB-04 正向对照:窗口全为 >0 时仍取最大值(日=-1 的 -1 不得污染正常套餐)', async () => {
+    it('SDB-04 混合:任一日窗口 = -1 + 月窗口有限 → 总额仍为不限(-1)', async () => {
+      mockDbReadSelect.mockReturnValueOnce(
+        chain([
+          {
+            id: 'plan-mixed',
+            name: 'API 日不限/月限',
+            features: [],
+            validityDays: 30,
+            dailyTokenLimit: -1,
+            weeklyTokenLimit: 0,
+            monthlyTokenLimit: 200000,
+            modelWhitelist: null,
+            billingGroupCode: null,
+          },
+        ]),
+      )
+      txSelectQueue.push([]) // 无 active Key
+      const insertResult = insertChain([{ id: 'new-key-mixed' }])
+      mockDbInsert.mockReturnValueOnce(insertResult)
+
+      const result = await activateApiSubscription('user-3', 'plan-mixed')
+
+      expect(result.success).toBe(true)
+      expect(result.tokenQuota).toBe(-1)
+      const valuesArg = insertResult.values.mock.calls[0]![0]
+      expect(valuesArg.tokenBalance).toBe(-1)
+    })
+
+    it('SDB-04 正向对照:窗口全为 >0 时仍取最大值(有限窗口求和结果不变)', async () => {
       mockDbReadSelect.mockReturnValueOnce(
         chain([
           {
             id: 'plan-capped',
-            name: 'API 日限',
+            name: 'API 多档限额',
             features: [],
             validityDays: 30,
             dailyTokenLimit: 5000,
-            weeklyTokenLimit: 0,
-            monthlyTokenLimit: 0,
+            weeklyTokenLimit: 8000,
+            monthlyTokenLimit: 2000,
             modelWhitelist: null,
             billingGroupCode: null,
           },
@@ -415,8 +443,8 @@ describe('api-subscription-service — API 订阅核心 service', () => {
       const result = await activateApiSubscription('user-1', 'plan-capped')
 
       expect(result.success).toBe(true)
-      expect(result.tokenQuota).toBe(5000)
-      expect(updateResult.set).toHaveBeenCalledWith(expect.objectContaining({ tokenBalance: 6000 }))
+      expect(result.tokenQuota).toBe(8000)
+      expect(updateResult.set).toHaveBeenCalledWith(expect.objectContaining({ tokenBalance: 9000 }))
     })
   })
 

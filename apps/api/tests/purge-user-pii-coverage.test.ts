@@ -107,11 +107,20 @@ vi.mock('../src/db/index.js', async () => {
   })
 
   const tx = { delete: deleteRows, update: updateRows }
+  // SDB-29:注销前先按 user_id 查出待吊销的 Key / 分享 id；本夹具无凭据行，返回空集。
+  const selectRows = () => {
+    const chain: Record<string, unknown> = {}
+    chain.from = () => chain
+    chain.where = () => Promise.resolve([])
+    return chain
+  }
   return {
     db: {
       ...tx,
+      select: selectRows,
       transaction: async <T>(fn: (t: typeof tx) => Promise<T>): Promise<T> => fn(tx),
     },
+    dbRead: { select: selectRows },
   }
 })
 

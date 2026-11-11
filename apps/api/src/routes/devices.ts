@@ -59,7 +59,7 @@ const PAIR_EXCHANGE_WINDOW_SEC = 360
 
 export const devicesRoutes: FastifyPluginAsync = async (server) => {
   // PUT /api/devices/token - 注册/更新当前用户的推送设备令牌
-  // 同一 token 在 device_tokens 表中唯一;重复上报时 upsert 刷新元数据并置为 active。
+  // 同一 token 在 device_tokens 表中唯一;本人重复上报时 upsert 刷新元数据并置为 active。
   server.put('/devices/token', async (request, reply) => {
     await authenticate(request)
     const parsed = registerDeviceTokenSchema.safeParse(request.body)
@@ -69,8 +69,21 @@ export const devicesRoutes: FastifyPluginAsync = async (server) => {
     const userId = request.userId!
     const { token, platform, deviceType, appVersion, locale } = parsed.data
 
+    // token 全局唯一,若"冲突即改写 user_id",任何登录用户知道他人 FCM token 就能把
+    // 该设备的推送改投到自己账号(SDB-01)。先判归属:不是本人就拒绝,原行一个字都不动。
+    // 响应只回冲突本身,不回显原 owner 的任何信息。
+    const rejectOwned = () =>
+      reply.status(409).send(error(409, '推送令牌已被其他账号占用', 'DEVICE_TOKEN_OWNED_BY_OTHER'))
+
+    const [existing] = await db
+      .select({ userId: deviceTokens.userId })
+      .from(deviceTokens)
+      .where(eq(deviceTokens.token, token))
+      .limit(1)
+    if (existing && existing.userId !== userId) return rejectOwned()
+
     const now = new Date()
-    await db
+    const rows = await db
       .insert(deviceTokens)
       .values({
         userId,
@@ -96,7 +109,12 @@ export const devicesRoutes: FastifyPluginAsync = async (server) => {
           lastUsedAt: now,
           updatedAt: now,
         },
+        // 预查与 upsert 之间有并发窗口:把归属判据下推进 DO UPDATE 的 WHERE,
+        // 被他人抢先注册时条件不成立 ⇒ 0 行,原 owner 保持不变(而非改判 owner)。
+        setWhere: eq(deviceTokens.userId, userId),
       })
+      .returning({ id: deviceTokens.id })
+    if (rows.length === 0) return rejectOwned()
 
     return reply.send(success({ token, platform, registered: true }))
   })
