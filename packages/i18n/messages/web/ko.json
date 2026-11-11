@@ -11579,6 +11579,11 @@
     "modelRefreshRunning": "모델 목록을 새로 고치는 중…",
     "modelUnverified": "미검증",
     "modelUnverifiedGroup": "미검증 모델 ({count})",
+    "capStream": "스트림",
+    "capTools": "도구",
+    "capContext": "긴 문맥",
+    "capUnknownHint": "미검증",
+    "capFailHint": "실측 실패",
     "favorite": "즐겨찾기 추가",
     "unfavorite": "즐겨찾기 해제",
     "activityExpandMore": "나머지 {n}개 표시",
@@ -16911,6 +16916,7 @@
     "officialApp": "공식 계정",
     "officialPromotion": "공식 프로모션 플랫폼",
     "officialWechat": "내 위챗",
+    "openOnGitee": "Gitee에서 열기",
     "openOnGithub": "GitHub에서 열기",
     "paymentPlatforms": "결제 플랫폼",
     "payments": {
@@ -18652,20 +18658,6 @@
       ],
       "label": "공지"
     },
-    "miniappModal": {
-      "brand": "브랜드",
-      "connect": "문의하기",
-      "content": "내용",
-      "explore": "둘러보기",
-      "qrAlt": "미니프로그램 QR 코드",
-      "scanTip": "WeChat을 열고 스캔하여 미니프로그램 진입",
-      "title": "WeChat 미니프로그램",
-      "typewriter": {
-        "ctaPrimary": "지금 상담하기",
-        "ctaSecondary": "자세히 보기",
-        "miniappBtn": "미니프로그램 열기"
-      }
-    },
     "news": {
       "empty": "뉴스가 아직 없습니다",
       "title": "최신 뉴스",
@@ -18715,7 +18707,6 @@
       "title": "요금제 선택",
       "titleEn": "플랜 선택"
     },
-    "qrAlt": "미니프로그램 QR코드",
     "roi": {
       "cache": {
         "calculation": "Claude API ¥0.3/회 → 캐시 적중 ¥0.024/회 = 92% 절약",
@@ -18769,7 +18760,6 @@
       "title": "정량 수익 · ROI 데이터",
       "titleEn": "QUANTIFIED ROI"
     },
-    "scanTip": "스캔하여 미니프로그램 체험",
     "scenarios": {
       "costReduction": {
         "benefit": "연 18-30만 절약",
@@ -18818,15 +18808,7 @@
       "ctaPrimary": "지금 체험",
       "ctaSecondary": "더 알아보기",
       "explore": "101 LLM 원스톱 액세스",
-      "miniappBtn": "WeChat 미니프로그램",
-      "qrAlt": "미니프로그램 QR코드",
-      "scanTip": "스캔하여 미니프로그램 체험",
-      "title": "제목",
-      "typewriter": {
-        "ctaPrimary": "지금 상담하기",
-        "ctaSecondary": "자세히 보기",
-        "miniappBtn": "미니프로그램 열기"
-      }
+      "title": "제목"
     },
     "welcome": {
       "benefits": {
@@ -26977,8 +26959,7 @@
   },
   "typewriter": {
     "ctaPrimary": "지금 문의",
-    "ctaSecondary": "자세히 보기",
-    "miniappBtn": "위챗 미니앱"
+    "ctaSecondary": "자세히 보기"
   },
   "device": {
     "title": "기기 관리",

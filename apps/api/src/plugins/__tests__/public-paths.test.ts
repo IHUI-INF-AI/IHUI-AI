@@ -118,6 +118,36 @@ describe('BUG-4 公开面单一真相源', () => {
       expect(isTenantBypassPath('/v1x/foo')).toBe(false)
     })
 
+    // 2026-11-11:客户端启动即调的版本检查,必须同时存在于鉴权清单和租户清单。
+    // 事故回顾:另一会话把它只加进 AUTH_PUBLIC_PREFIX_PATHS,租户钩子仍返回 401,
+    // 线上小程序冷启动卡死数小时,直到排查者用 grep 定位到"加错清单"才修复。
+    // 本用例双面锁死,任何一侧漏登记都在 CI 阶段即红。
+    it('/api/app-version/ 必须免登录且免租户(双清单回归锁)', () => {
+      expect(isAuthPublicPath('/api/app-version/latest')).toBe(true)
+      expect(isAuthPublicPath('/api/app-version/')).toBe(true)
+      expect(isTenantBypassPath('/api/app-version/latest')).toBe(true)
+      expect(isTenantBypassPath('/api/app-version/')).toBe(true)
+    })
+
+    // 2026-11-11:公开内容面(tools/news/articles/announcements)是免登录读接口、
+    // 全局共享不按租户隔离,客户端未登录冷启动即拉取;严格模式下漏登记即启动 401。
+    // 双清单锁死,防止重演 app-version "加错清单"同类事故。写端点仍挂 requireAdmin/
+    // requireAuth(前缀豁免只免租户校验、不免鉴权),不打穿任何面。
+    it('公开内容面(tools/news/articles/announcements)必须免登录且免租户', () => {
+      // 这四个在鉴权清单是**精确条目**(裸前缀,无尾斜杠),故鉴权维度只精确匹配前缀本身;
+      // 租户维度经 matchesPrefix 段边界匹配,前缀及其子段都豁免。两维度语义本就不同,分开断言。
+      const prefixes = ['/api/tools', '/api/news', '/api/articles', '/api/announcements']
+      for (const prefix of prefixes) {
+        expect(isAuthPublicPath(prefix)).toBe(true)
+        expect(isTenantBypassPath(prefix)).toBe(true)
+        // 租户维度:前缀的子段也被豁免(段边界安全,兄弟路径除外)
+        expect(isTenantBypassPath(`${prefix}/abc`)).toBe(true)
+      }
+      // 段边界:同前缀兄弟路径不得被前缀豁免误放行
+      expect(isTenantBypassPath('/api/toolsXYZ')).toBe(false)
+      expect(isTenantBypassPath('/api/newsfeed')).toBe(false)
+    })
+
     it('/api/public/xxx 属鉴权与网络公开面,但不自动获得免租户待遇', () => {
       expect(isAuthPublicPath('/api/public/banner')).toBe(true)
       expect(isNetworkPublicPath('/api/public/banner')).toBe(true)

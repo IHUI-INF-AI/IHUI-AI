@@ -15,7 +15,7 @@
 
 import { createHmac, createHash, randomBytes } from 'node:crypto'
 import { env } from 'node:process'
-import { issueStsCredentials } from './storage-service.js'
+import { getOssConfig } from './storage-service.js'
 
 export type OssProviderType = 'aliyun' | 'tencent' | 'aws'
 
@@ -27,7 +27,7 @@ export interface StsCredentials {
   expiration: string
   bucket: string
   region: string
-  /** 推荐的 objectKey,格式 `${userId}/${Date.now()}-${random}.${ext}` */
+  /** 服务端生成的 objectKey,格式 `uploads/${userId}/${Date.now()}-${random}.${ext}` */
   objectKey: string
 }
 
@@ -40,19 +40,123 @@ export interface OssStsProvider {
 export interface StsContext {
   userId: string
   ext: string
+  /**
+   * 服务端拼好的 objectKey(routes/oss.ts 生成)。
+   * provider 只负责回传,绝不接受客户端传入的 key —— 否则策略收敛到本人目录也白搭。
+   */
+  objectKey: string
 }
 
 // =============================================================================
-// objectKey 生成
+// objectKey / 策略构造(F-70:纯函数,供回归测试直接断言,不触网)
 // =============================================================================
 
-/** 生成 objectKey:${userId}/${Date.now()}-${random8}.${ext} */
+/** 直传落点前缀,与 storage-service 分片上传的 `uploads/<userId>/...` 对齐。 */
+export const OSS_UPLOAD_PREFIX = 'uploads'
+
+/** 直传单对象大小上限 50MB(与 routes/oss.ts 的 createUploadPreHandler maxSize 同口径)。 */
+export const OSS_MAX_OBJECT_BYTES = 50 * 1024 * 1024
+
+/** 清洗用户目录段:只留字母数字/_/-,防止 `../`、`/` 撑开策略作用域。 */
+export function safeUserSegment(userId: string): string {
+  return userId.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64) || 'anonymous'
+}
+
+/** 策略收敛后的用户目录:`uploads/<userId>`(不含通配符)。 */
+export function ossUserPrefix(userId: string): string {
+  return `${OSS_UPLOAD_PREFIX}/${safeUserSegment(userId)}`
+}
+
+/** 生成 objectKey:`uploads/${userId}/${Date.now()}-${random8}.${ext}` */
 export function generateObjectKey(userId: string, ext: string): string {
   const safeExt = ext.replace(/[^a-zA-Z0-9]/g, '').slice(0, 8) || 'bin'
-  const safeUser = userId.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64) || 'anonymous'
   // 2026-08-02 P2 安全加固：用 CSPRNG 替换 Math.random，防止攻击者枚举他人文件路径
   const random = randomBytes(8).toString('hex')
-  return `${safeUser}/${Date.now()}-${random}.${safeExt}`
+  return `${ossUserPrefix(userId)}/${Date.now()}-${random}.${safeExt}`
+}
+
+/** 服务端固定的 RoleSessionName:忽略客户端传值,避免拿他人目录名去申请凭证。 */
+export function buildSessionName(userId: string): string {
+  return `ihui-${safeUserSegment(userId).slice(-8)}`
+}
+
+/** 腾讯云 CAM 策略(version 2.0)。 */
+export interface TencentStsPolicy {
+  version: string
+  statement: Array<{
+    effect: 'allow'
+    action: string[]
+    resource: string[]
+    condition?: Record<string, Record<string, number>>
+  }>
+}
+
+/**
+ * 腾讯策略:仅本人目录,且 content-length ≤ 50MB。
+ * CAM 的数值条件键按 `numeric_less_than_equal` 书写(等价 S3 的 content-length-range)。
+ */
+export function buildTencentStsPolicy(
+  region: string,
+  bucket: string,
+  userId: string,
+): TencentStsPolicy {
+  return {
+    version: '2.0',
+    statement: [
+      {
+        effect: 'allow',
+        action: ['name/cos:PutObject'],
+        resource: [`qcs::cos:${region}:::${bucket}/${ossUserPrefix(userId)}/*`],
+        condition: { numeric_less_than_equal: { 'cos:content-length': OSS_MAX_OBJECT_BYTES } },
+      },
+    ],
+  }
+}
+
+/** 阿里云 RAM 策略(V1)。 */
+export interface AliyunStsPolicy {
+  Version: string
+  Statement: Array<{
+    Effect: 'Allow'
+    Action: string[]
+    Resource: string[]
+    Condition: { NumericLessThanEquals: Record<string, number> }
+  }>
+}
+
+/** 阿里策略:仅本人目录,且 ContentLength ≤ 50MB。 */
+export function buildAliyunStsPolicy(bucket: string, userId: string): AliyunStsPolicy {
+  return {
+    Version: '1',
+    Statement: [
+      {
+        Effect: 'Allow',
+        Action: ['oss:PutObject'],
+        Resource: [`acs:oss:*:*:${bucket}/${ossUserPrefix(userId)}/*`],
+        Condition: { NumericLessThanEquals: { 'oss:ContentLength': OSS_MAX_OBJECT_BYTES } },
+      },
+    ],
+  }
+}
+
+/** AWS 会话策略(IAM Policy,交给 STS AssumeRole 的 Policy 参数)。 */
+export interface AwsStsPolicy {
+  Version: string
+  Statement: Array<{ Effect: 'Allow'; Action: string[]; Resource: string[] }>
+}
+
+/** AWS 策略:只允许本人目录 PutObject / AbortMultipartUpload,不继承角色默认权限。 */
+export function buildAwsStsPolicy(bucket: string, userId: string): AwsStsPolicy {
+  return {
+    Version: '2012-10-17',
+    Statement: [
+      {
+        Effect: 'Allow',
+        Action: ['s3:PutObject', 's3:AbortMultipartUpload'],
+        Resource: [`arn:aws:s3:::${bucket}/${ossUserPrefix(userId)}/*`],
+      },
+    ],
+  }
 }
 
 // =============================================================================
@@ -68,7 +172,7 @@ function hmacHex(key: string | Buffer, data: string): string {
 }
 
 // =============================================================================
-// Aliyun OSS Provider — 委托给 storage-service.ts(已用 @alicloud/openapi-client)
+// Aliyun OSS Provider — @alicloud/openapi-client 直调 AssumeRole(策略见 buildAliyunStsPolicy)
 // =============================================================================
 
 class AliyunOssProvider implements OssStsProvider {
@@ -79,15 +183,85 @@ class AliyunOssProvider implements OssStsProvider {
     durationSeconds: number,
     ctx: StsContext,
   ): Promise<StsCredentials> {
-    const result = await issueStsCredentials(sessionName, durationSeconds)
+    const config = getOssConfig()
+    if (!config) {
+      throw new Error(
+        'OSS 配置缺失(OSS_ACCESS_KEY_ID/OSS_ACCESS_KEY_SECRET/OSS_ROLE_ARN/OSS_BUCKET)',
+      )
+    }
+
+    // F-70:storage-service.issueStsCredentials 的策略是整桶 `bucket/*` 且无大小条件,
+    // 直传凭证必须收敛到本人目录 —— 故在此用同一 SDK 自建策略,不动 storage-service 的签名面。
+    // 动态 import @alicloud/openapi-client(类型声明见 src/types/optional-deps.d.ts)
+    const OpenApi = (await import('@alicloud/openapi-client')) as unknown as {
+      default: new (config: unknown) => {
+        callApi(
+          params: unknown,
+          request: unknown,
+          runtime: unknown,
+        ): Promise<{ body: Record<string, unknown> }>
+      }
+      Config: new (input: Record<string, unknown>) => unknown
+      Params: new (input: Record<string, unknown>) => unknown
+      OpenApiRequest: new (input: Record<string, unknown>) => unknown
+    }
+
+    const client = new OpenApi.default(
+      new OpenApi.Config({
+        accessKeyId: config.accessKeyId,
+        accessKeySecret: config.accessKeySecret,
+        endpoint: 'sts.aliyuncs.com',
+        protocol: 'HTTPS',
+      }),
+    )
+
+    const params = new OpenApi.Params({
+      action: 'AssumeRole',
+      version: '2015-04-01',
+      protocol: 'HTTPS',
+      pathname: '/',
+      method: 'POST',
+      authType: 'AK',
+      bodyType: 'json',
+      reqBodyType: 'formData',
+      style: 'RPC',
+    })
+
+    const request = new OpenApi.OpenApiRequest({
+      query: {
+        RoleArn: config.roleArn,
+        RoleSessionName: sessionName.slice(0, 32) || 'ihui-upload',
+        DurationSeconds: String(durationSeconds),
+        Policy: JSON.stringify(buildAliyunStsPolicy(config.bucket, ctx.userId)),
+      },
+    })
+
+    const response = await client.callApi(params, request, {})
+    const creds = response.body?.Credentials as
+      | {
+          AccessKeyId: string
+          AccessKeySecret: string
+          SecurityToken: string
+          Expiration: string
+        }
+      | undefined
+
+    if (!creds) {
+      // 失败体不是凭据,但也别整体透传:只回传 Code / RequestId(与 storage-service 同口径)
+      const err = response.body as { Code?: unknown; RequestId?: unknown } | undefined
+      const code = typeof err?.Code === 'string' ? err.Code : 'no_code'
+      const reqId = typeof err?.RequestId === 'string' ? ` req=${err.RequestId}` : ''
+      throw new Error(`STS AssumeRole 失败: ${code}${reqId}`)
+    }
+
     return {
-      accessKeyId: result.AccessKeyId,
-      accessKeySecret: result.AccessKeySecret,
-      securityToken: result.SecurityToken,
-      expiration: result.Expiration,
-      bucket: result.bucket,
-      region: result.region,
-      objectKey: generateObjectKey(ctx.userId, ctx.ext),
+      accessKeyId: creds.AccessKeyId,
+      accessKeySecret: creds.AccessKeySecret,
+      securityToken: creds.SecurityToken,
+      expiration: creds.Expiration,
+      bucket: config.bucket,
+      region: config.region,
+      objectKey: ctx.objectKey,
     }
   }
 }
@@ -130,17 +304,8 @@ class TencentCosProvider implements OssStsProvider {
       )
     }
 
-    // 最小权限策略:仅允许 cos:PutObject
-    const policy = {
-      version: '2.0',
-      statement: [
-        {
-          effect: 'allow',
-          action: ['name/cos:PutObject'],
-          resource: [`qcs::cos:${region}:::${bucket}/*`],
-        },
-      ],
-    }
+    // F-70:最小权限策略落点收敛到本人目录 + 单对象 ≤50MB(见 buildTencentStsPolicy)
+    const policy = buildTencentStsPolicy(region, bucket, ctx.userId)
 
     const body = JSON.stringify({
       RoleArn: roleArn,
@@ -204,7 +369,7 @@ class TencentCosProvider implements OssStsProvider {
       expiration,
       bucket,
       region,
-      objectKey: generateObjectKey(ctx.userId, ctx.ext),
+      objectKey: ctx.objectKey,
     }
   }
 }
@@ -260,6 +425,8 @@ class AwsS3Provider implements OssStsProvider {
       RoleArn: roleArn,
       RoleSessionName: sessionName.slice(0, 32) || 'ihui-upload',
       DurationSeconds: String(durationSeconds),
+      // F-70:补最小会话策略,避免继承角色默认权限(整桶可写)
+      Policy: JSON.stringify(buildAwsStsPolicy(bucket, ctx.userId)),
     }).toString()
 
     const host = `sts.${region}.amazonaws.com`
@@ -306,7 +473,7 @@ class AwsS3Provider implements OssStsProvider {
       expiration: parsed.expiration ?? new Date(Date.now() + durationSeconds * 1000).toISOString(),
       bucket,
       region,
-      objectKey: generateObjectKey(ctx.userId, ctx.ext),
+      objectKey: ctx.objectKey,
     }
   }
 }

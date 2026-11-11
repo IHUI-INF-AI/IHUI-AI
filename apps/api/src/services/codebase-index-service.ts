@@ -290,6 +290,11 @@ class CodebaseIndexService {
     const { query, repoId, language, symbolName, topK = 10, scoreThreshold = 0, ownerUuid } = opts
     const { fetchLimit, outCap } = rowBudget(symbolName, topK)
 
+    // 归属缺失必须在消耗 embedding **之前** 拒绝(SDB-39):
+    // 谓词已经 fail-closed(1=0),但先算 embedding 等于每次空跑一次外部调用,
+    // 会话成本不会因为"结果恒空"而消失。
+    if (!ownerUuid) return []
+
     const queryEmbedding = await this._getEmbedding(query)
     if (!queryEmbedding || queryEmbedding.length !== 1536) {
       // 无法生成 embedding → 返回空(调用方应 fallback 到 regex)

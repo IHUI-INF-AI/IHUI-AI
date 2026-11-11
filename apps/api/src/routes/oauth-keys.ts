@@ -5,7 +5,7 @@
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify'
 import { generateKeyPairSync } from 'node:crypto'
 import { z } from 'zod'
-import { and, desc, eq } from 'drizzle-orm'
+import { and, count, desc, eq } from 'drizzle-orm'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
 import { db, dbRead, type Database } from '../db/index.js'
@@ -187,6 +187,31 @@ export const oauthKeysRoutes: FastifyPluginAsync = async (server) => {
         .where(eq(oauthPrivateKeys.id, keyId))
         .limit(1)
       if (!existing) return reply.status(404).send(error(404, '密钥不存在'))
+      // F-55(2026-11-11):active 密钥按 provider(clientId)维度供给 JWKS/ID Token 签名
+      // (见 oauth-authorization-server.ts queryActiveSigningKeys)。吊销某 provider 的最后
+      // 一把 active 密钥会让该 provider 的 JWKS 直接为空,故恰剩 1 把时拒绝(409);
+      // 已失效密钥的重复吊销是幂等的,照旧放行。
+      if (existing.isActive === 1) {
+        const [activeCountRow] = await db
+          .select({ value: count() })
+          .from(oauthPrivateKeys)
+          .where(
+            and(
+              eq(oauthPrivateKeys.clientId, existing.clientId),
+              eq(oauthPrivateKeys.isActive, 1),
+            ),
+          )
+        if (activeCountRow?.value === 1) {
+          return reply
+            .status(409)
+            .send(
+              error(
+                409,
+                '该密钥是当前唯一生效的签名密钥,吊销会导致 JWKS 为空;请先轮换出新的生效密钥',
+              ),
+            )
+        }
+      }
       // revoked 由本写链的 RETURNING 命中集派生(2026-09-27):上面的存在性预读只防得住
       // "根本没这行",防不住"读到之后 UPDATE 命中 0 行"(读-判-写窗口内行被并发删除)。
       const revokedRows = await db

@@ -52,8 +52,9 @@ import { toMediaImageUrl } from '@/lib/media-proxy'
  */
 
 // 生态合作 5 类分组(2026-07-30 v11 拆分:原 4 类 → 5 类,模型拆为国际/国产 2 组)
-// - 移动端/平板:grid-cols-2(2 列,5 类需换行 2-3 行)
-// - 桌面 lg+:min-[1024px]:grid-cols-5(5 列,5 类 1 行;1024 边界 8 个图标分 2 组各 4 个,每列 4 个图标只换 1 行,布局更舒展)
+// - 手机:grid-cols-2;768-1023 单栏堆叠时 min-[768px]:grid-cols-3(避免整行只剩 2 组的大空当)
+// - 1024-1919:min-[1024px]:grid-cols-2(外层切三栏,中栏 ~373px,每列 ~185px)
+// - 1920+:xl:grid-cols-5(自定义断点 xl=1920px,5 类 1 行)
 const ECOSYSTEM_GROUPS: readonly { titleKey: string; items: readonly Icon[] }[] = [
   { titleKey: 'supportedPlatforms', items: SUPPORTED },
   { titleKey: 'internationalModels', items: INTERNATIONAL_MODELS },
@@ -256,25 +257,31 @@ export function SiteFooter({ className }: { className?: string }) {
   // (用户反馈"左边底部有点空,跟右侧不太对称,可以再加点什么内容吗 比如仓库地址?一键跳转?")
   // - 复制按钮:点击复制完整仓库地址 + toast 提示
   // - 跳转按钮:外部链接(新窗口打开)
-  // 2026-10-23 机主令:删掉 Gitee/GitCode 两条"国内镜像"入口。两个理由都成立且各自独立:
-  //   ① 渠道早已弃用(mirror-to-cn.yml 已删、远端已移除),这两个链接指向的仓不再更新;
-  //   ② 它们连组织名都是错的(写的是 IHUI-INF-AI,镜像实际在别的 owner 下)⇒ 一直是死链。
+  // 2026-11-11 机主令:恢复 Gitee 入口(国内主通道)。复用 2026-11-03 起实际存活、
+  // 且与 /releases/ 资产直链同 owner 的仓库 JLSLSSZWHYXGS_0/IHUI-AI;
+  // 2026-10-23 删掉的旧条目写的是 IHUI-INF-AI(错误 owner,死链),两者不是同一个地址。
+  // GitCode 镜像渠道已废弃,不再提供。
   // 仓库数据放在组件内常量(非 props,简单场景无需提升到 footer-data.ts)
   const REPOS: ReadonlyArray<{
-    key: 'github'
+    key: 'github' | 'gitee'
     url: string
     display: string
-    nameKey: 'githubRepo'
-    openKey: 'openOnGithub'
-    icon: 'github'
+    openKey: 'openOnGithub' | 'openOnGitee'
+    icon: 'github' | 'gitee'
   }> = [
     {
       key: 'github',
       url: 'https://github.com/IHUI-INF-AI/IHUI-AI',
       display: 'github.com/IHUI-INF-AI/IHUI-AI',
-      nameKey: 'githubRepo',
       openKey: 'openOnGithub',
       icon: 'github',
+    },
+    {
+      key: 'gitee',
+      url: 'https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI',
+      display: 'gitee.com/JLSLSSZWHYXGS_0/IHUI-AI',
+      openKey: 'openOnGitee',
+      icon: 'gitee',
     },
   ]
 
@@ -328,11 +335,11 @@ export function SiteFooter({ className }: { className?: string }) {
             - 栏 2: 生态合作 4 类分组 — grid-cols-2 min-[768px]:grid-cols-4 响应式自适应屏幕宽度
             - 栏 3: 官方推广 + QR(不变)
             v10: gap-3(从 v9 gap-1 放大),与 footer 整体拉高对齐
-            2026-08-26 修复:min-[768px] → min-[1100px] —— Tailwind 断点基于视口而非内容区,
-            768/1024 视口内容区仅 268/470px(60px 侧边栏 + flex 压缩),3 栏在窄区坍缩
-            (生态 grid 宽 16px,h5 宽 0 → footer-regression.spec 失败)。1100+ 内容区 ~700px
-            才展开 3 栏;768-1099 用 grid-cols-1 单栏堆叠(各栏 ~230px,生态 2 列放得下)。 */}
-        <div className="grid grid-cols-1 gap-3 min-[1100px]:grid-cols-[1fr_1.5fr_1fr] min-[1100px]:items-start">
+            2026-11-11 改:min-[1100px] → min-[1024px] —— 实测视口 1094 时 footer 内容区
+            已有 894px(3 栏 248/373/249px 完全放得下),原 1100 断点却判成单栏,
+            生态合作/官方推广整块掉到公司信息下方(机主截图反馈)。768-1023 仍单栏堆叠。
+            注:项目断点自定义(lg=576px),这里必须用任意断点表达 1024 边界。 */}
+        <div className="grid grid-cols-1 gap-3 min-[1024px]:grid-cols-[1fr_1.5fr_1fr] min-[1024px]:items-start">
           {/* 栏 1: 公司信息(顶) + 4 个 Dialog 按钮(底)
               - flex flex-col justify-between 让按钮沉底,消除公司信息下方空白
               - 公司信息用 space-y-1,按钮用 flex flex-wrap gap-x-2 gap-y-1 */}
@@ -371,11 +378,11 @@ export function SiteFooter({ className }: { className?: string }) {
             </div>
             {/* 2026-08-12 加:Row 1 栏 1 底部"代码仓库"小节(用户反馈"左边底部有点空,
                 跟右侧不太对称,可以再加点什么内容吗 比如仓库地址?一键跳转?")
-                - 2026-08-12 扩展:3 个仓库(GitHub + Gitee + GitCode 国内镜像)
+                - 2026-11-11 更新:2 个仓库(GitHub + Gitee 国内主通道);GitCode 镜像已废弃
                 - 视觉:每个仓库一行 = 平台 icon + 仓库地址 + 复制按钮 + 跳转按钮
                 - 交互:复制→toast 提示,跳转→新窗口打开
                 - 样式:text-[10px] 比 link 区更小,作为辅助信息不抢视觉焦点
-                - GitHub logo 用 inline SVG(lucide-react 不提供品牌图标) */}
+                - GitHub/Gitee logo 用 inline SVG(lucide-react 不提供品牌图标) */}
             <div className="space-y-0.5 text-[10px] text-muted-foreground/80">
               {REPOS.map((repo) => (
                 <div key={repo.key} className="flex items-center gap-1">
@@ -389,7 +396,17 @@ export function SiteFooter({ className }: { className?: string }) {
                       <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.4 3-.405 1.02.005 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" />
                     </svg>
                   )}
-                  <code className="truncate font-mono">{repo.display}</code>
+                  {repo.icon === 'gitee' && (
+                    <svg
+                      className="h-3 w-3 flex-shrink-0"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      aria-hidden="true"
+                    >
+                      <path d="M11.984 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.016 0zm6.09 5.333c.328 0 .593.266.592.593v1.482a.594.594 0 0 1-.593.592H9.777c-.982 0-1.778.796-1.778 1.778v5.63c0 .327.266.592.593.592h5.63c.982 0 1.778-.796 1.778-1.778v-.296a.593.593 0 0 0-.592-.593h-4.15a.592.592 0 0 1-.592-.592v-1.482a.593.593 0 0 1 .593-.592h6.815c.327 0 .593.265.593.592v3.408a4 4 0 0 1-4 4H5.926a.593.593 0 0 1-.593-.593V9.778a4.444 4.444 0 0 1 4.445-4.444h8.296Z" />
+                    </svg>
+                  )}
+                  <code className="min-w-0 truncate font-mono">{repo.display}</code>
                   <Tooltip content={t('copyRepoUrl')}>
                     <button
                       type="button"
@@ -425,15 +442,13 @@ export function SiteFooter({ className }: { className?: string }) {
           </div>
 
           {/* 栏 2: 生态合作 5 类分组(响应式自适应,2026-07-30 v11 拆分大模型为国际/国产 2 组)
-              - grid-cols-2(移动端/平板 2 列)+ min-[1024px]:grid-cols-5(桌面 lg+ 5 列 1 行)
-              - 1024 边界修复:768-1023px 用 min-[768px]:grid-cols-2 留出更多列宽,避免 5 列过挤图标溢出
-              - v10: gap-1(从 v9 gap-0.5 放宽),icons 用 flex flex-wrap gap-1
-              2026-08-26 修复:lg:grid-cols-5 → xl:grid-cols-5 —— 1024 视口内容区仅 470px,
-              lg(≥1024) 触发 5 列后每列 ~40px,h5 内容放不下 → grid 坍缩到 16px。
-              xl(≥1280) 内容区 726px 才够 5 列;1024-1279 保持 grid-cols-2(每列 ~220px)。 */}
+              - grid-cols-2(手机)→ min-[768px]:grid-cols-3(平板单栏堆叠时 3 列,消除整行只剩 2 组的大空当)
+              - min-[1024px]:grid-cols-2(≥1024 外层切三栏,生态列仅 ~370px,2 列每列 ~185px)
+              - xl:grid-cols-5(自定义断点 xl=1920px,超大屏 5 列 1 行)
+              2026-11-11:补 tablet 3 列档;1024-1919 保持 2 列(5 列每列 ~40px,h5 放不下会坍缩) */}
           <div className="space-y-1">
             <h4 className={SECTION_TITLE}>{t('ecosystem')}</h4>
-            <div className="grid grid-cols-2 gap-1 xl:grid-cols-5">
+            <div className="grid grid-cols-2 gap-1 min-[768px]:grid-cols-3 min-[1024px]:grid-cols-2 xl:grid-cols-5">
               {ECOSYSTEM_GROUPS.map((g) => (
                 <div key={g.titleKey} className="space-y-1">
                   <h5 className="text-[11px] font-medium text-foreground/50">{t(g.titleKey)}</h5>

@@ -151,10 +151,13 @@ describe('token-balance-service 并发安全', () => {
         const key = currentTxIdempotencyKey
         return Promise.resolve(key && flows.has(key) ? [{ '?': 1 }] : [])
       }
-      // 写流水:INSERT INTO "token_flows" ...
+      // 写流水(占位幂等键):INSERT INTO "token_flows" ... ON CONFLICT DO NOTHING RETURNING id
+      // 新实现先占位再扣减:冲突(已占用)返回 0 行 ⇒ 视为幂等返回;首次插入返回 id ⇒ 继续扣减
       if (sqlText.includes('INSERT INTO') || sqlText.includes('insert into')) {
-        if (currentTxIdempotencyKey) flows.add(currentTxIdempotencyKey)
-        return Promise.resolve([])
+        const key = currentTxIdempotencyKey
+        if (key && flows.has(key)) return Promise.resolve([])
+        if (key) flows.add(key)
+        return Promise.resolve([{ id: `flow-${flows.size}` }])
       }
       return Promise.resolve([])
     })
@@ -182,11 +185,19 @@ describe('token-balance-service 并发安全', () => {
     mockDbTransaction.mockImplementation(async (fn: any) => {
       const txIndex = txCallCount // 捕获当前事务序号
       txCallCount++
-      const next = txChain.then(() => {
+      const next = txChain.then(async () => {
         // fn 执行前设置事务上下文(此时前面的 fn 已完成,变量可安全复用)
         currentTxAmount = requestAmounts[txIndex] ?? 0
         currentTxIdempotencyKey = requestIdempotencyKeys[txIndex]
-        return fn(mockTx)
+        // 事务回滚语义:fn 抛错时占位流水一并撤销(否则余额不足的事务会留下假流水)
+        const snapshot = new Set(flows)
+        try {
+          return await fn(mockTx)
+        } catch (e) {
+          flows.clear()
+          for (const k of snapshot) flows.add(k)
+          throw e
+        }
       })
       txChain = next.then(
         () => undefined,

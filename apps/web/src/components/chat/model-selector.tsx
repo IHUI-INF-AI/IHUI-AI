@@ -49,9 +49,11 @@ import { FALLBACK_MODELS, DEMO_TIER_MODELS, VENDOR_LABEL } from '@/components/ch
 import { fetchConfigs } from '@/lib/user-llm-configs'
 import { providerToTemplateCode, BACKEND_BUILTIN_FREE_CODES } from '@/lib/llm-templates'
 import {
+  buildCapabilitySegments,
   filterByCapabilities,
   groupByCategory,
   splitByTier,
+  type CapsVerified,
   type ModelOption,
   type ModelCapabilityKey,
   type ModelUsageCategory,
@@ -326,36 +328,40 @@ function ModelOptionRow({
         size={14}
         className="shrink-0 text-muted-foreground"
       />
-      <div className="flex min-w-0 flex-1 items-center gap-1.5">
-        <span className="truncate font-medium">{opt.label}</span>
-        {/* 未验证徽章(2026-11-11 立):未探测通过/账户级错误,与已验证模型区分 */}
-        {unverified && (
-          <span className="inline-flex shrink-0 items-center rounded-sm bg-muted px-1 py-px text-[10px] font-medium leading-tight text-muted-foreground">
-            {t('modelUnverified')}
-          </span>
-        )}
-        {/* 智汇AI 官方模型徽章 */}
-        {opt.vendor === 'ihui_relay' && (
-          <span className="inline-flex shrink-0 items-center rounded-sm bg-blue-500/10 px-1 py-px text-[10px] font-medium leading-tight text-blue-600 dark:bg-blue-500/15 dark:text-blue-400">
-            {t('modelOfficialBadge')}
-          </span>
-        )}
-        {/* 智汇 Auto-Model 专属卖点徽章:服务端随机低档池,标称倍率全场最低,省钱入口(2026-08-31 立) */}
-        {opt.id?.toLowerCase() === 'ihui/auto-model' && (
-          <span className="inline-flex shrink-0 items-center rounded-sm bg-emerald-500/10 px-1 py-px text-[10px] font-medium leading-tight text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400">
-            {t('modelSmartSaveBadge')}
-          </span>
-        )}
-        {/* 未配置时的琥珀 ⚠ 徽章(2026-08-06 调整位置:从右移到名称旁,腾出右侧给倍数) */}
-        {warning && (
-          <TriangleAlert
-            className="h-3 w-3 shrink-0 text-amber-500"
-            aria-label={t('modelNotConfigured')}
-          />
-        )}
-        {showCategory && <ModelCategoryBadge category={opt.category} />}
-        {/* 2026-09-19 D23 立:能力徽章(vision/fim,紫色系与用途分类天蓝区分;缺失时整体不显示=未知不标注) */}
-        <ModelCapBadges capabilities={opt.capabilities} />
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <span className="truncate font-medium">{opt.label}</span>
+          {/* 未验证徽章(2026-11-11 立):未探测通过/账户级错误,与已验证模型区分 */}
+          {unverified && (
+            <span className="inline-flex shrink-0 items-center rounded-sm bg-muted px-1 py-px text-[10px] font-medium leading-tight text-muted-foreground">
+              {t('modelUnverified')}
+            </span>
+          )}
+          {/* 智汇AI 官方模型徽章 */}
+          {opt.vendor === 'ihui_relay' && (
+            <span className="inline-flex shrink-0 items-center rounded-sm bg-blue-500/10 px-1 py-px text-[10px] font-medium leading-tight text-blue-600 dark:bg-blue-500/15 dark:text-blue-400">
+              {t('modelOfficialBadge')}
+            </span>
+          )}
+          {/* 智汇 Auto-Model 专属卖点徽章:服务端随机低档池,标称倍率全场最低,省钱入口(2026-08-31 立) */}
+          {opt.id?.toLowerCase() === 'ihui/auto-model' && (
+            <span className="inline-flex shrink-0 items-center rounded-sm bg-emerald-500/10 px-1 py-px text-[10px] font-medium leading-tight text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400">
+              {t('modelSmartSaveBadge')}
+            </span>
+          )}
+          {/* 未配置时的琥珀 ⚠ 徽章(2026-08-06 调整位置:从右移到名称旁,腾出右侧给倍数) */}
+          {warning && (
+            <TriangleAlert
+              className="h-3 w-3 shrink-0 text-amber-500"
+              aria-label={t('modelNotConfigured')}
+            />
+          )}
+          {showCategory && <ModelCategoryBadge category={opt.category} />}
+          {/* 2026-09-19 D23 立:能力徽章(vision/fim,紫色系与用途分类天蓝区分;缺失时整体不显示=未知不标注) */}
+          <ModelCapBadges capabilities={opt.capabilities} />
+        </div>
+        {/* 2026-11-11 立:名称下方实测能力摘要(流式 · 工具 · 长上下文),未知也显示问号保持行结构一致 */}
+        <ModelCapsSummary opt={opt} />
       </div>
       {/* 右侧:会员/正式版/补贴 徽章 + 锁 + 倍数(2026-08-06 立)
          2026-08-12 bugfix:原 onMouseEnter/onMouseLeave 写在父 div 上,
@@ -365,6 +371,62 @@ function ModelOptionRow({
         <ModelTierTags opt={opt} />
       </MemberDiscountSection>
     </DropdownMenu.Item>
+  )
+}
+
+/**
+ * 实测能力摘要行(2026-11-11 立):名称下方的 10px 灰色一行,
+ * 三段 "流式 · 工具 · 长上下文" 用 ` · ` 分隔。
+ * - 已验证段 text-muted-foreground,失败段 amber,未知段 muted-foreground/60
+ * - 失败/未知段 title 优先展示后端错误,否则固定说明(尚未实测/实测未通过)
+ * - capsVerified 整体缺失时仍显示三段问号,保证所有行结构一致
+ */
+export function ModelCapsSummary({ opt }: { opt: ModelOption }) {
+  const t = useTranslations('chat')
+  const segments = buildCapabilitySegments(opt, {
+    stream: t('capStream'),
+    tools: t('capTools'),
+    context: t('capContext'),
+  })
+  // 后端可能追加分段错误字段(类型未固定声明),存在即优先展示
+  const caps = opt.capsVerified as
+    | (CapsVerified & { tools_error?: string; context_error?: string })
+    | undefined
+  return (
+    <span className="flex min-w-0 items-center overflow-hidden whitespace-nowrap text-[10px] leading-tight">
+      {segments.map((seg, index) => {
+        const title =
+          seg.state === 'ok'
+            ? undefined
+            : (seg.key === 'tools'
+                ? caps?.tools_error
+                : seg.key === 'context'
+                  ? caps?.context_error
+                  : undefined) ||
+              opt.healthError ||
+              t(seg.state === 'fail' ? 'capFailHint' : 'capUnknownHint')
+        return (
+          <span key={seg.key} className="flex min-w-0 items-center">
+            {index > 0 && (
+              <span aria-hidden className="px-0.5 text-muted-foreground/40">
+                ·
+              </span>
+            )}
+            <span
+              title={title}
+              className={cn(
+                'truncate',
+                seg.state === 'ok' && 'text-muted-foreground',
+                seg.state === 'fail' && 'text-amber-600 dark:text-amber-500',
+                seg.state === 'unknown' && 'text-muted-foreground/60',
+              )}
+            >
+              {seg.text}
+            </span>
+          </span>
+        )
+      })}
+    </span>
   )
 }
 
@@ -648,7 +710,7 @@ function createSeedOptions(): ModelOption[] {
 }
 
 /** /llm/models 响应 → 选择器选项(2026-11-07 从 effect 抽出:刷新按钮复用同一套映射) */
-function buildOptionsFromApi(models: SelectorModel[]): ModelOption[] {
+export function buildOptionsFromApi(models: SelectorModel[]): ModelOption[] {
   const merged = new Map<string, ModelOption>()
   for (const m of models) {
     // 1. 已知模型查表(精确 / 子串)
@@ -680,6 +742,8 @@ function buildOptionsFromApi(models: SelectorModel[]): ModelOption[] {
       // 缺失/unknown/pending 均不可依赖,按未验证处理
       verified: m.health_status === 'healthy',
       healthError: m.health_error,
+      // 2026-11-11 立:实测能力原样透传,缺失即 undefined(=三段未知)
+      capsVerified: m.caps_verified,
     })
   }
   return Array.from(merged.values())

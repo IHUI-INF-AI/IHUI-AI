@@ -6,7 +6,7 @@
  * v1-realtime.ts — OpenAI Realtime API 兼容 WebSocket 端点。
  *
  * 端点: GET /v1/realtime?model=xxx
- * 鉴权: query 参数 api_key 或 header Authorization: Bearer ihui_xxx
+ * 鉴权: header Authorization: Bearer ihui_xxx(推荐);query 参数 api_key 仅兼容并告警(F-86)
  *
  * 协议兼容 OpenAI Realtime API:
  *   - 客户端→服务端事件:session.update / input_audio_buffer.append / .commit /
@@ -24,13 +24,20 @@
  *   import { v1RealtimeRoutes } from './v1-realtime.js'
  *   server.register(v1RealtimeRoutes)  // 无前缀,路由为 /v1/realtime
  */
-import type { FastifyPluginAsync, FastifyRequest } from 'fastify'
-import { wsUpgradeRequiresCredential } from '../plugins/ws-helpers.js'
+import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify'
 import { eq } from 'drizzle-orm'
 import WebSocket from 'ws'
-import { dbRead } from '../db/index.js'
+import { db } from '../db/index.js'
 import { declareCapability } from '../utils/capability-guard.js'
-import { developerApiKeys } from '@ihui/database'
+import { developerApiKeys, users } from '@ihui/database'
+import {
+  checkAllowedModels,
+  checkExpiresAt,
+  checkPerModelRateLimit,
+  ipInList,
+} from '../plugins/api-key-auth.js'
+import { checkKeyIpAcl } from '../services/key-rate-window-service.js'
+import { checkQuota, recordCall } from '../services/relay-billing-service.js'
 
 // ===========================================================================
 // 类型定义 — OpenAI Realtime API 事件结构(参考官方文档)
@@ -348,35 +355,207 @@ const CLOSE_CODE = {
 } as const
 
 // ===========================================================================
-// API Key 校验(轻量级 Bearer 校验)
+// API Key 校验(F-86:复用共享鉴权判据,WS upgrade 专用)
 // ===========================================================================
+//
+// F-86(2026-11-11):原实现只查 developer_api_keys.status === 'active',
+// expiresAt / allowedIps / allowedModels / per-model rateLimit 全部被绕过,
+// 且 api_key 从 query 读取(会进入访问日志)。
+// WS upgrade 无法直接挂 requireApiKeyAuth preHandler(升级前没有 socket,且历史客户端
+// 只带 key、不带 X-Api-Secret),故抽出异步校验函数,判据全部复用既有导出:
+// api-key-auth 的 checkExpiresAt / checkAllowedModels / ipInList / checkPerModelRateLimit、
+// key-rate-window-service 的 checkKeyIpAcl、relay-billing-service 的 checkQuota。
 
-/**
- * 校验 API Key 是否有效(developer_api_keys 表,status=active)。
- *
- * 后续替换为共享 api-key-auth(requireApiKeyAuth),
- * 以复用 P0-7 安全粒度检查(expiresAt / allowedIps / allowedModels 等)。
- */
-async function validateApiKey(apiKey: string): Promise<boolean> {
-  const [row] = await dbRead
-    .select({ status: developerApiKeys.status })
-    .from(developerApiKeys)
-    .where(eq(developerApiKeys.key, apiKey))
-    .limit(1)
-  return row?.status === 'active'
+/** WS 鉴权失败原因。 */
+export type RealtimeAuthFailureReason =
+  | 'missing_key'
+  | 'invalid_key'
+  | 'expired'
+  | 'ip_denied'
+  | 'model_denied'
+  | 'rate_limited'
+  | 'quota_exceeded'
+  | 'backend_unavailable'
+
+/** WS 鉴权结果(ok=true 时携带计费所需的 key/user 标识)。 */
+export type RealtimeAuthResult =
+  | { ok: true; apiKeyId: string; userId: string }
+  | { ok: false; reason: RealtimeAuthFailureReason; message: string; retryAfter?: number }
+
+/** 鉴权所需的 Key 快照(纯数据,便于单测不连库)。 */
+export interface RealtimeKeySnapshot {
+  id: string
+  userId: string
+  status: string
+  /** users.status:0=禁用 1=正常 3=注销 */
+  userStatus: number
+  expiresAt: Date | null
+  allowedIps: string[] | null
+  blockedIps: string[] | null
+  allowedModels: string[] | null
 }
 
-/** 从请求中提取 API Key:优先 query 参数 api_key,其次 header Authorization: Bearer。 */
-function extractApiKey(request: FastifyRequest): string | null {
-  const query = request.query as { api_key?: string }
-  if (query.api_key) return query.api_key
+function authFailed(reason: RealtimeAuthFailureReason, message: string): RealtimeAuthResult {
+  return { ok: false, reason, message }
+}
 
+/**
+ * 纯判据:与 plugins/api-key-auth.authenticateApiKey 共用同一套检查函数
+ * (checkExpiresAt / checkKeyIpAcl / checkAllowedModels),不另写匹配算法。
+ */
+export function evaluateRealtimeKey(
+  snapshot: RealtimeKeySnapshot,
+  model: string,
+  requestIp: string,
+): RealtimeAuthResult {
+  // 与主鉴权链路一致:Key 状态 + 账号状态(SDB-29)双检
+  if (snapshot.status !== 'active' || snapshot.userStatus !== 1) {
+    return authFailed('invalid_key', 'Invalid or revoked API key')
+  }
+  const expiresCheck = checkExpiresAt(snapshot.expiresAt)
+  if (!expiresCheck.ok) return authFailed('expired', expiresCheck.reason ?? 'API Key 已过期')
+  const ipCheck = checkKeyIpAcl(
+    { blockedIps: snapshot.blockedIps, allowedIps: snapshot.allowedIps, requestIp },
+    ipInList,
+  )
+  if (!ipCheck.ok) return authFailed('ip_denied', ipCheck.reason ?? 'IP 不在白名单')
+  const modelCheck = checkAllowedModels(snapshot.allowedModels, model)
+  if (!modelCheck.ok) return authFailed('model_denied', modelCheck.reason ?? '模型不在白名单')
+  return { ok: true, apiKeyId: snapshot.id, userId: snapshot.userId }
+}
+
+/** 余额/配额预检的保守 token 预估(与主鉴权链路无 max_tokens 时的默认值一致)。 */
+const REALTIME_ESTIMATED_TOKENS = 1000
+
+/**
+ * 从请求中提取 API Key:优先 header Authorization: Bearer(F-86:header 为主)。
+ * query api_key 仅作兼容保留,命中时记 warn(会进访问日志),下一版本移除。
+ */
+export function extractApiKey(
+  request: FastifyRequest,
+): { key: string; source: 'header' | 'query' } | null {
   const auth = request.headers.authorization
-  if (auth && auth.startsWith('Bearer ')) {
+  if (typeof auth === 'string' && auth.startsWith('Bearer ')) {
     const key = auth.slice('Bearer '.length).trim()
-    if (key) return key
+    if (key) return { key, source: 'header' }
+  }
+  // 兼容期:历史客户端把 key 放在 query
+  const query = request.query as { api_key?: string } | undefined
+  if (query?.api_key) {
+    request.log.warn(
+      { path: request.url.split('?')[0] },
+      'v1/realtime: api_key 放在 query 已废弃(会进入访问日志),请改用 Authorization: Bearer',
+    )
+    return { key: query.api_key, source: 'query' }
   }
   return null
+}
+
+/**
+ * WS 鉴权 + 配额预检(F-86)。
+ * 失败一律 fail-close:该端点直连平台上游 Realtime Key,不能放行未验证/无额度的连接。
+ */
+export async function authenticateRealtimeApiKey(
+  request: FastifyRequest,
+  model: string,
+): Promise<RealtimeAuthResult> {
+  const credential = extractApiKey(request)
+  if (!credential) return authFailed('missing_key', 'API key required')
+
+  let joined: { key: typeof developerApiKeys.$inferSelect; userStatus: number } | undefined
+  try {
+    // P1-3 口径:鉴权关键路径走主库(避免副本延迟导致新 Key 查不到)
+    const rows = await db
+      .select({ key: developerApiKeys, userStatus: users.status })
+      .from(developerApiKeys)
+      .innerJoin(users, eq(developerApiKeys.userId, users.id))
+      .where(eq(developerApiKeys.key, credential.key))
+      .limit(1)
+    joined = rows[0]
+  } catch (err) {
+    request.log.error({ err }, 'v1/realtime: api key lookup failed')
+    return authFailed('backend_unavailable', '鉴权服务暂不可用')
+  }
+  if (!joined) return authFailed('invalid_key', 'Invalid API key')
+
+  const row = joined.key
+  const evaluated = evaluateRealtimeKey(
+    {
+      id: row.id,
+      userId: row.userId,
+      status: row.status,
+      userStatus: joined.userStatus,
+      expiresAt: row.expiresAt,
+      allowedIps: (row.allowedIps as string[] | null) ?? null,
+      blockedIps: (row.blockedIps as string[] | null) ?? null,
+      allowedModels: (row.allowedModels as string[] | null) ?? null,
+    },
+    model,
+    request.ip,
+  )
+  if (!evaluated.ok) return evaluated
+
+  // per-model RPM/TPM:与主鉴权链路同一个共享函数(Redis 滑动窗口)
+  const rl = await checkPerModelRateLimit(
+    row.id,
+    model,
+    REALTIME_ESTIMATED_TOKENS,
+    row.perModelRpmLimit?.[model],
+    row.perModelTpmLimit?.[model],
+  )
+  if (!rl.allowed) {
+    return {
+      ok: false,
+      reason: 'rate_limited',
+      message: rl.reason === 'tpm' ? '超过单模型 TPM 限制' : '超过单模型 RPM 限制',
+      retryAfter: rl.retryAfter,
+    }
+  }
+  if (rl.backendUnavailable) {
+    // 该端点 100% billable ⇒ 限流后端不可用时 fail-close(与 API_KEY_RATE_LIMIT_FAIL_MODE 默认 close 一致)
+    return authFailed('rate_limited', '限流后端不可用,请稍后重试')
+  }
+
+  // 余额/配额预检:复用 relay-billing-service.checkQuota(含 Key 级窗口 + 组池/个人余额)
+  try {
+    const quota = await checkQuota(row.id, REALTIME_ESTIMATED_TOKENS, { clientIp: request.ip })
+    if (!quota.allowed) {
+      const reasonMap: Record<string, string> = {
+        no_balance_token: 'Token 余额不足',
+        no_balance_cost: '成本余额不足',
+        key_not_found: 'API Key 不存在',
+        key_revoked: 'API Key 已被吊销',
+        subscription_window_exceeded: '订阅窗口额度已用尽',
+        ip_blocked: 'IP 在黑名单',
+        ip_not_allowed: 'IP 不在白名单',
+        key_rate_window_exceeded: '超过 Key 级限流窗口',
+      }
+      return authFailed('quota_exceeded', reasonMap[quota.reason ?? ''] ?? '额度不足,无法建立会话')
+    }
+  } catch (err) {
+    request.log.error({ err }, 'v1/realtime: quota precheck failed')
+    return authFailed('backend_unavailable', '额度服务暂不可用')
+  }
+
+  return { ok: true, apiKeyId: row.id, userId: row.userId }
+}
+
+/**
+ * 升级前 fail-fast:只拦"完全无凭据"的握手。
+ * F-86:原 `wsUpgradeRequiresCredential()` 默认只看 query token,会让
+ * `Authorization: Bearer` 客户端在升级前就被 401;这里按本端点凭据形态判定
+ * (header Bearer / query api_key 兼容 / query token 兼容)。
+ */
+export function realtimeUpgradeRequiresCredential() {
+  return async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    const auth = request.headers.authorization
+    const hasHeader = typeof auth === 'string' && auth.startsWith('Bearer ') && auth.length > 7
+    const q = request.query as Record<string, string | undefined> | undefined
+    const hasQuery = Boolean(q?.api_key || q?.token)
+    if (!hasHeader && !hasQuery) {
+      await reply.status(401).send({ code: 401, message: 'WS 连接缺少凭据' })
+    }
+  }
 }
 
 // ===========================================================================
@@ -590,6 +769,64 @@ function safeClose(socket: WebSocket, code: number, reason: string): void {
   }
 }
 
+/** 上游 response.done 的 usage 形状(OpenAI Realtime)。 */
+interface RealtimeUsageFrame {
+  type?: string
+  response?: {
+    id?: string
+    usage?: { input_tokens?: number; output_tokens?: number; total_tokens?: number }
+  }
+}
+
+/**
+ * F-86:按上游 response.done 的真实 usage 记量(每个 response 记一次,按响应 id 去重),
+ * 复用 relay-billing-service.recordCall(内部已做成本计算/余额扣减/try-catch)。
+ * 没有 usage 的帧(含 dashscope 未透出 usage 的转换帧)不记 —— 见票据遗留缺口。
+ */
+export function meterRealtimeResponseUsage(
+  raw: string,
+  ctx: {
+    apiKeyId: string
+    userId: string
+    model: string
+    clientIp: string
+    billedResponseIds: Set<string>
+  },
+): void {
+  let frame: RealtimeUsageFrame
+  try {
+    frame = JSON.parse(raw) as RealtimeUsageFrame
+  } catch {
+    return
+  }
+  if (frame.type !== 'response.done' || !frame.response) return
+  const usage = frame.response.usage
+  if (!usage) return
+  const promptTokens = Math.max(0, Number(usage.input_tokens ?? 0))
+  const completionTokens = Math.max(0, Number(usage.output_tokens ?? 0))
+  const totalTokens = Math.max(0, Number(usage.total_tokens ?? promptTokens + completionTokens))
+  if (totalTokens <= 0) return
+  const responseId = frame.response.id ?? ''
+  if (responseId) {
+    if (ctx.billedResponseIds.has(responseId)) return
+    ctx.billedResponseIds.add(responseId)
+  }
+  void recordCall({
+    apiKeyId: ctx.apiKeyId,
+    userId: ctx.userId,
+    model: ctx.model,
+    prompt: '',
+    response: null,
+    promptTokens,
+    completionTokens,
+    totalTokens,
+    latencyMs: 0,
+    status: 'success',
+    clientIp: ctx.clientIp,
+    metadata: { protocol: 'realtime', realtimeResponseId: responseId || null },
+  })
+}
+
 // ===========================================================================
 // 核心连接处理
 // ===========================================================================
@@ -601,34 +838,38 @@ function safeClose(socket: WebSocket, code: number, reason: string): void {
  * 3. 上游配置校验
  * 4. 建立上游 WebSocket 连接
  * 5. 双向消息透传(+ dashscope 协议转换)
+ * 6. 上游 response.done 带 usage 时按真实用量记量(F-86)
  */
 async function handleRealtimeConnection(socket: WebSocket, request: FastifyRequest): Promise<void> {
-  // --- 1. 鉴权 ---
-  const apiKey = extractApiKey(request)
-  if (!apiKey) {
-    safeClose(socket, CLOSE_CODE.AUTH_FAILED, 'API key required')
-    return
-  }
-  const valid = await validateApiKey(apiKey)
-  if (!valid) {
-    safeClose(socket, CLOSE_CODE.AUTH_FAILED, 'Invalid API key')
-    return
-  }
-
-  // --- 2. 模型白名单校验 ---
+  // --- 1. 模型参数(Key 的 allowedModels 判据需要 model) ---
   const query = request.query as { model?: string }
   const model = query.model ?? ''
   if (!model) {
     safeClose(socket, CLOSE_CODE.MODEL_NOT_ALLOWED, 'Missing model parameter')
     return
   }
+
+  // --- 2. 鉴权 + 配额预检(F-86:status/expiresAt/IP/allowedModels/限流/余额) ---
+  const auth = await authenticateRealtimeApiKey(request, model)
+  if (!auth.ok) {
+    request.log.warn({ reason: auth.reason }, 'v1/realtime connection rejected')
+    safeClose(
+      socket,
+      auth.reason === 'model_denied' ? CLOSE_CODE.MODEL_NOT_ALLOWED : CLOSE_CODE.AUTH_FAILED,
+      auth.message,
+    )
+    return
+  }
+  const { apiKeyId, userId } = auth
+
+  // --- 3. 模型白名单校验 ---
   // 2026-09-13 修复:白名单大小写不敏感(GPT-4o-Realtime 等同 gpt-4o-realtime,仅比较归一)
   if (!MODEL_WHITELIST.includes(model.trim().toLowerCase() as (typeof MODEL_WHITELIST)[number])) {
     safeClose(socket, CLOSE_CODE.MODEL_NOT_ALLOWED, `Model "${model}" not allowed`)
     return
   }
 
-  // --- 3. 上游配置校验 ---
+  // --- 4. 上游配置校验 ---
   const provider = resolveProvider(model)
   if (!provider) {
     safeClose(socket, CLOSE_CODE.MODEL_NOT_ALLOWED, `No upstream provider for model "${model}"`)
@@ -643,7 +884,7 @@ async function handleRealtimeConnection(socket: WebSocket, request: FastifyReque
     return
   }
 
-  // --- 4. 建立上游 WebSocket 连接 ---
+  // --- 5. 建立上游 WebSocket 连接 ---
   const wsUrl = buildUpstreamWsUrl(provider, model, upstreamBase)
   let upstream: WebSocket
   try {
@@ -657,7 +898,10 @@ async function handleRealtimeConnection(socket: WebSocket, request: FastifyReque
     return
   }
 
-  // --- 5. 双向消息透传 ---
+  // --- 6. 双向消息透传 ---
+
+  // F-86:同一 response 的 usage 只记一次(上游可能重发/重复帧)
+  const billedResponseIds = new Set<string>()
 
   // 上游 → 客户端(dashscope 做协议转换,OpenAI 原样透传)
   upstream.on('message', (data: Buffer | ArrayBuffer | Buffer[]) => {
@@ -667,6 +911,15 @@ async function handleRealtimeConnection(socket: WebSocket, request: FastifyReque
         : data instanceof ArrayBuffer
           ? Buffer.from(data).toString('utf8')
           : Buffer.concat(data as ReadonlyArray<Buffer>).toString('utf8')
+
+    // F-86:记量只读帧、不改帧;失败由 recordCall 内部兜住,不影响透传
+    meterRealtimeResponseUsage(raw, {
+      apiKeyId,
+      userId,
+      model,
+      clientIp: request.ip,
+      billedResponseIds,
+    })
 
     const converted = provider === 'dashscope' ? convertFromDashscope(raw) : raw
     safeSend(socket, converted)
@@ -744,7 +997,7 @@ export const v1RealtimeRoutes: FastifyPluginAsync = async (server) => {
     '/v1/realtime',
     {
       websocket: true,
-      preValidation: wsUpgradeRequiresCredential(),
+      preValidation: realtimeUpgradeRequiresCredential(),
       preHandler: [declareCapability('realtime:connect')],
     },
     (socket: WebSocket, request: FastifyRequest) => {

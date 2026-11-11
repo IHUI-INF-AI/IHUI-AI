@@ -1069,47 +1069,54 @@ export const adminOrderRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
       }
       const { ids } = body.data
-      const fetched = await dbRead
-        .select({ id: eduOrders.id, status: eduOrders.status })
-        .from(eduOrders)
-        .where(inArray(eduOrders.id, ids))
-      const foundMap = new Map(fetched.map((o) => [o.id, o]))
-      const cancellableIds: string[] = []
+      // F-66(P2):判态与写入必须在**主库同一事务**内完成。
+      // 旧实现先 dbRead(读副本)预读筛 pending,再 `UPDATE ... WHERE id IN (cancellableIds)`
+      // 且不带 status 谓词:预读与写之间支付回调把订单改成 paid,仍会被改写成 cancelled;
+      // 两表 UPDATE 也不在同一事务,第二张表失败会留下"只有 edu_orders 被取消"的半截状态。
+      // 现改为:预读走主库事务(仅用于给出 skipped 原因),写入一律条件更新(status='pending'),
+      // 命中集以 RETURNING 为准;两表写同事务,第二张表失败 ⇒ 第一张表一起回滚。
       const skipped: Array<{ id: string; reason: string }> = []
-      for (const id of ids) {
-        const o = foundMap.get(id)
-        if (!o) {
-          skipped.push({ id, reason: '订单不存在' })
-          continue
+      const confirmedIds = await db.transaction(async (tx): Promise<string[]> => {
+        const fetched = await tx
+          .select({ id: eduOrders.id, status: eduOrders.status })
+          .from(eduOrders)
+          .where(inArray(eduOrders.id, ids))
+        const foundMap = new Map(fetched.map((o) => [o.id, o]))
+        const cancellableIds: string[] = []
+        for (const id of ids) {
+          const o = foundMap.get(id)
+          if (!o) {
+            skipped.push({ id, reason: '订单不存在' })
+            continue
+          }
+          if (o.status !== 'pending') {
+            skipped.push({ id, reason: `状态 ${o.status} 不可取消` })
+            continue
+          }
+          cancellableIds.push(id)
         }
-        if (o.status !== 'pending') {
-          skipped.push({ id, reason: `状态 ${o.status} 不可取消` })
-          continue
-        }
-        cancellableIds.push(id)
-      }
-      // 守门 134 计数诚实性(格 1):cancelled 必须由两表 `.returning({id})` 回库确认且**双侧都命中**
-      // 的集合派生,不得取循环拼出的 cancellableIds.length(请求侧自算 = "改了 0 行"与"改成功"同形)。
-      // 计数与 missedIds 走唯一出口 utils/batch-outcome.ts,不在端内复算。
-      const confirmedIds: string[] = []
-      if (cancellableIds.length > 0) {
-        const eduReturned = await db
+        if (cancellableIds.length === 0) return []
+        // 守门 134 计数诚实性(格 1):cancelled 必须由两表 `.returning({id})` 回库确认且**双侧都命中**
+        // 的集合派生,不得取循环拼出的 cancellableIds.length(请求侧自算 = "改了 0 行"与"改成功"同形)。
+        // 计数与 missedIds 走唯一出口 utils/batch-outcome.ts,不在端内复算。
+        // 条件更新必须带 status='pending':预读命中的行在本次 UPDATE 执行前可能已被支付回调改态。
+        const eduReturned = await tx
           .update(eduOrders)
           .set({ status: 'cancelled', cancelTime: new Date(), updatedAt: new Date() })
-          .where(inArray(eduOrders.id, cancellableIds))
+          .where(and(inArray(eduOrders.id, cancellableIds), eq(eduOrders.status, 'pending')))
           .returning({ id: eduOrders.id })
-        // Phase 3: 同步批量取消到统一 orders 表
-        const unifiedReturned = await db
+        const eduConfirmedIds = eduReturned.map((r) => r.id)
+        if (eduConfirmedIds.length === 0) return []
+        // Phase 3: 同步批量取消到统一 orders 表(仅处理上一张表真正改成功的 id);
+        // 本句失败会抛出,由 db.transaction 回滚上面的 edu_orders 更新。
+        const unifiedReturned = await tx
           .update(ordersTable)
           .set({ status: 'cancelled', cancelTime: new Date(), updatedAt: new Date() })
-          .where(inArray(ordersTable.id, cancellableIds))
+          .where(and(inArray(ordersTable.id, eduConfirmedIds), eq(ordersTable.status, 'pending')))
           .returning({ id: ordersTable.id })
-        const eduSet = new Set(eduReturned.map((r) => r.id))
         const unifiedSet = new Set(unifiedReturned.map((r) => r.id))
-        for (const id of cancellableIds) {
-          if (eduSet.has(id) && unifiedSet.has(id)) confirmedIds.push(id)
-        }
-      }
+        return eduConfirmedIds.filter((id) => unifiedSet.has(id))
+      })
       const outcome = batchWriteOutcome(ids, confirmedIds)
       await logAction({
         userId: request.userId,

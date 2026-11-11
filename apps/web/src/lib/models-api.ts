@@ -50,6 +50,14 @@ export interface SelectorModel extends LlmModel {
   health_status?: 'healthy' | 'pending' | 'unknown'
   /** 探测失败时的简短脱敏错误(可能为空) */
   health_error?: string
+  /** 实测能力(2026-11-11 立,后端可选字段,缺失按未知处理)。
+   *  null = 未测/未知;context.tokens 为长上下文针测规模(如 16000)。
+   *  与 verified(可用性已验证)是两个独立维度。 */
+  caps_verified?: {
+    stream: boolean | null
+    tools: boolean | null
+    context: { ok: boolean | null; tokens: number }
+  }
 }
 
 /**

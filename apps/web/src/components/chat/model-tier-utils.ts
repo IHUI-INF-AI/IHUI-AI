@@ -61,6 +61,69 @@ export interface ModelOption {
   verified?: boolean
   /** 未验证原因/上游简短脱敏错误,仅作行标题提示 */
   healthError?: string
+  /** 实测能力(2026-11-11 立,后端 `caps_verified` 原样透传;缺失=未知)。
+   *  null = 未测/未知,与 verified(可用性已验证)相互独立。 */
+  capsVerified?: CapsVerified
+}
+
+/** 实测能力(与后端 `caps_verified` 同形) */
+export interface CapsVerified {
+  stream: boolean | null
+  tools: boolean | null
+  context: { ok: boolean | null; tokens: number }
+}
+
+export type CapabilityState = 'ok' | 'fail' | 'unknown'
+
+export interface CapabilitySegment {
+  key: 'stream' | 'tools' | 'context'
+  state: CapabilityState
+  /** 已拼好 ✓/✗/? 的展示文案(长上下文通过时为 "长上下文16K") */
+  text: string
+}
+
+/** tokens → 测试规模标签(以 1000 取整,如 16000 → "16K") */
+export function formatContextTokens(tokens: number): string {
+  return `${Math.round(tokens / 1000)}K`
+}
+
+const CAP_SYMBOL: Record<CapabilityState, string> = {
+  ok: '✓',
+  fail: '✗',
+  unknown: '?',
+}
+
+function toCapState(ok: boolean | null | undefined): CapabilityState {
+  if (ok === true) return 'ok'
+  if (ok === false) return 'fail'
+  return 'unknown'
+}
+
+/**
+ * 能力摘要三段(流式 · 工具 · 长上下文)。
+ * `capsVerified` 整体缺失时也返回三段问号,保证每一行结构一致;
+ * 是否已验证(verified)不参与判定 —— 未验证模型同样展示实测能力。
+ */
+export function buildCapabilitySegments(
+  opt: Pick<ModelOption, 'capsVerified'>,
+  labels: { stream: string; tools: string; context: string },
+): CapabilitySegment[] {
+  const caps = opt.capsVerified
+  const stream = toCapState(caps?.stream)
+  const tools = toCapState(caps?.tools)
+  const context = toCapState(caps?.context?.ok)
+  return [
+    { key: 'stream', state: stream, text: `${labels.stream}${CAP_SYMBOL[stream]}` },
+    { key: 'tools', state: tools, text: `${labels.tools}${CAP_SYMBOL[tools]}` },
+    {
+      key: 'context',
+      state: context,
+      text:
+        context === 'ok'
+          ? `${labels.context}${formatContextTokens(caps?.context?.tokens ?? 0)}`
+          : `${labels.context}${CAP_SYMBOL[context]}`,
+    },
+  ]
 }
 
 export type { ModelTier, ModelUsageCategory, ModelCapabilities, ModelCapabilityKey }
