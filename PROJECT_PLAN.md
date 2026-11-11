@@ -13391,8 +13391,5 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] RP-22 (2026-11-11) **[ops][原子写] install-auto-deploy-task.cmd:16 仍是 `/create … /f` 先拆后建非原子(DBG-84 同族残余)**:ps1 本体已改 `/query` 探在否→在则 `/change` 就地更新、不在才 `/create` 不带 `/f`(install-auto-deploy-task.ps1:22-26,52-89),而 .cmd 入口仍带 `/f`(其 DBG-80 标记系 /tr 引号修复,非同一事)。修法=.cmd 对齐 ps1 口径并扩 `scripts/tests/install-auto-deploy-task-cmd.test.mjs` 钉住〔登记@2026-11-11/goal-复核席A〕
 - [ ] RP-23 (2026-11-11) **[api][时区] DBG-7 同族散点:本地日历累加仍在三处**:apps/api `routes/payment-recurring.ts:79-90`、`routes/agent-extended.ts:1754-1756`、`utils/api-key-quota.ts:55` 用 setFullYear/setDate/setMonth(宿主本地日历)推进计费/配额周期;修法=照 `services/subscription-service.ts:373-394` 的 Asia/Shanghai UTC 投影+setUTC* 口径逐处改并各补镜像测试钉住〔登记@2026-11-11/goal-复核席A〕
 
-- [ ] B21 [deploy-feedback] [deploy_outcome/alert_firing] pass-entry-broken /deploy/pass-entry-broken 部署异常 ⇒ 排查链路并修复（登记@2026-11-11/deploy-feedback;来源:deploy_outcome;证据:dims=api+llm action=pass-entry-broken 窗口=1440min count=1 first=2026-11-11T11:47:23.816Z last=2026-11-11T11:47:23.816Z route=/deploy/pass-entry-broken cause="已切流但公网入口读不到(源站直探正常)"）
 
-- [ ] B26 [deploy-feedback] [deploy_outcome/alert_firing] pass-unproven /deploy/pass-unproven 部署异常 ⇒ 排查链路并修复（登记@2026-11-11/deploy-feedback;来源:deploy_outcome;证据:dims=web action=pass-unproven 窗口=1440min count=1 first=2026-11-11T12:34:46.803Z last=2026-11-11T12:34:46.803Z route=/deploy/pass-unproven cause="已切流但无任何一轮三项全绿"）
 
-- [ ] B29 [deploy-feedback] [deploy_outcome/alert_firing] rollback /deploy/rollback 部署异常 ⇒ 排查链路并修复（登记@2026-11-11/deploy-feedback;来源:deploy_outcome;证据:dims=api+llm action=rollback 窗口=1440min count=1 first=2026-11-11T11:35:47.075Z last=2026-11-11T11:35:47.075Z route=/deploy/rollback cause="健康门禁未过,新构建整份退回上一可用包"）
