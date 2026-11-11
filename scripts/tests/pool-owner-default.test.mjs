@@ -45,7 +45,24 @@ function mkHome(content) {
 /** 归属读取替身:仍走真判据(§0.6 不复制),只把解析基准换成夹具目录 */
 const ownerResolverFor = (home) => () => PoolOwner.resolveDefaultPoolOwner({ home })
 
-/** 跑一次编排器 main(下游导入注入替身,绝不真起子进程/真写库),回收 stdout 与裁决 */
+/**
+ * 生产推送替身(2026-11-12 立,治本文件真实事故)。
+ *
+ * 立因:`relay-account-pool.mjs` 自 2026-11-07 起 `prodPush` **默认 true**(本机入池后自动
+ * 推一份到生产)。本文件写于 11-06,只注入了 `runImporter`,于是每条用例都真的经 SSH 打生产、
+ * 等远端导入器返回 —— 用例 ① 因此判红(远端对空账号载荷退出 1),而且每条白等 12 秒。
+ * 这直接违反本文件头声明的隔离契约(§5:不连生产库、不起导入子进程)。
+ *
+ * 修法不是"给 argv 补个 --no-sync-prod"那种靠旗标的形状(下次默认值再翻一次又静默破),
+ * 而是**两道锁**:① argv 带 --no-sync-prod(正常路径根本不进推送分支);
+ * ② pushProd 注入成抛错替身(万一哪天有人删了旗标,立刻响亮失败而不是偷偷连生产)。
+ */
+const FORBID_PROD_PUSH = async () => {
+  throw new Error('本用例禁止生产推送(§5 隔离):归属裁决与生产 SSH 无关,不该走到这里')
+}
+const NO_PROD_PUSH_ARG = '--no-sync-prod'
+
+/** 跑一次编排器 main(下游导入与生产推送都注入替身,绝不真起子进程/真写库/真连生产) */
 async function runMain(argv, home) {
   const calls = []
   const lines = []
@@ -58,11 +75,12 @@ async function runMain(argv, home) {
   }
   let exit = -1
   try {
-    exit = await Cli.main(argv, {
+    exit = await Cli.main([...argv, NO_PROD_PUSH_ARG], {
       runImporter: async (payloadText, providerCode, options, decision) => {
         calls.push({ payloadText, providerCode, options, decision })
         return { code: 0, error: null }
       },
+      pushProd: FORBID_PROD_PUSH,
       resolveDefaultOwner: ownerResolverFor(home),
     })
   } finally {
