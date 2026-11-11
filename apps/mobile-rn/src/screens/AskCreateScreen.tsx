@@ -4,7 +4,7 @@
 
 import { useMemo, useState } from 'react'
 import { Linking } from 'react-native'
-import * as ImagePicker from 'expo-image-picker'
+import * as ImagePicker from '@/platform/image-picker'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useTheme } from '../context/ThemeContext'
 import { useNavigation } from '@react-navigation/native'

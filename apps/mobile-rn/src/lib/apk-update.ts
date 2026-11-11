@@ -31,7 +31,7 @@
 
 import { Linking, Platform } from 'react-native'
 import { useSyncExternalStore } from 'react'
-import * as FileSystem from 'expo-file-system/legacy'
+import { LegacyFs as FileSystem } from '@/platform/fs'
 import { checkAppVersion } from '@ihui/api-client'
 import {
   createSpeedMeter,

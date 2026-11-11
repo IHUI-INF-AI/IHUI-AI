@@ -5,7 +5,7 @@
 // 平台特有:依赖 expo-document-picker + RN FormData 文件对象({uri,type,name}),不适合共享
 import { useCallback, useRef } from 'react'
 import { View } from 'react-native'
-import * as DocumentPicker from 'expo-document-picker'
+import * as DocumentPicker from '@/platform/document-picker'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import {

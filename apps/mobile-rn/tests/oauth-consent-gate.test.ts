@@ -44,6 +44,11 @@ vi.mock('expo-web-browser', () => ({
   openAuthSessionAsync: mocks.openAuthSessionAsync,
 }))
 
+// 平台适配层门面 `@/platform/linking` 同时再导出 expo-linking ⇒ 本套件虽只用 WebBrowser,
+// 收集期也会把真包拉进来(expo-linking → expo-modules-core,模块求值期读裸全局 __DEV__,
+// jsdom 下不存在 ⇒ 整份套件 0 条跑)。与 expo-web-browser 同属外部边界,一并替身。
+vi.mock('expo-linking', () => ({}))
+
 vi.mock('@ihui/api-client', async (importOriginal) => {
   // 不用内联 import() 类型注解(撞 @typescript-eslint/consistent-type-imports);
   // 真实 barrel 只当未知键值表铺开,仅覆写两条网络出口。

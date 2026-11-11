@@ -7,7 +7,7 @@ import { useTheme } from '../context/ThemeContext'
 import { appAlert } from '../components/BottomPops'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import * as ImagePicker from 'expo-image-picker'
+import * as ImagePicker from '@/platform/image-picker'
 import { getProfile, resolveFileUrl, updateProfile, uploadFileMultipart } from '@ihui/api-client'
 import { apiFailureToText } from '@ihui/shared/utils'
 import {

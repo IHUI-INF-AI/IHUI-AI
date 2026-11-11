@@ -22,7 +22,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ActivityIndicator, Linking, ScrollView, StyleSheet, Text, View } from 'react-native'
-import { CameraView, useCameraPermissions } from 'expo-camera'
+import { CameraView, useCameraPermissions } from '@/platform/camera'
 import { useNavigation, type NavigationProp } from '@react-navigation/native'
 import { ChevronLeft, QrCode, RefreshCw, ScanLine } from 'lucide-react-native'
 import QRCodeSvg from 'react-native-qrcode-svg'

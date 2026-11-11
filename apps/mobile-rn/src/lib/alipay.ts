@@ -6,7 +6,7 @@
  * 支付宝支付封装(mobile-rn 端)。
  * 用 expo-web-browser 打开支付宝网页支付 URL(无需原生模块)。
  */
-import * as WebBrowser from 'expo-web-browser'
+import { WebBrowser } from '@/platform/linking'
 
 /**
  * 调起支付宝网页支付。

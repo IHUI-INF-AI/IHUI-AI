@@ -330,4 +330,106 @@ def test_real_action_table_desktop_routes() -> None:
         route, meta = ap.route_of(code, table)
         assert route == "desktop"
         assert meta.get("expert_id"), f"{code} 缺 expert_id"
+
+
+def test_share_chain_route_and_event_catalog():
+    """平台新上的 skill_share 必须已接线:选路 + 事件族与客户端取证一致。"""
+    table = ap.load_raw_action_table()
+    route, meta = ap.route_of("skill_share", table)
+    assert route == "share_chain"
+    assert "skill_share_conversion" in meta["event_codes"]
+    events = wda.build_share_events(meta["event_codes"])
+    assert len(events) == 7
+    assert all(isinstance(e.get("eventCode"), str) and e["eventCode"] for e in events)
+
+
+@pytest.mark.asyncio
+async def test_autopilot_dry_run_plans_share_chain(monkeypatch):
+    """引擎接线:未领的 skill_share 必须进 plan 且选路 share_chain(不落 unregistered)。"""
+    payload = {
+        "code": 0,
+        "data": {
+            "tasks": [
+                {
+                    "task_code": "skill_share",
+                    "accept_status": "accepted",
+                    "progress": {"current": 0, "target": 1},
+                }
+            ]
+        },
+    }
+
+    async def fake_fetch(client, jwt, uid):
+        return payload
+
+    monkeypatch.setattr(ap, "_fetch_task_payload", fake_fetch)
+    summary = await ap.run_autopilot(FAKE_TOKEN, FAKE_DM, dry_run=True)
+    assert any(
+        p["code"] == "skill_share" and p["route"] == "share_chain"
+        for p in summary["plan"]
+    )
+    assert "skill_share" not in summary["unregistered"]
+
+
+@pytest.mark.asyncio
+async def test_run_share_task_acceptance_200_without_progress_is_not_ok():
+    """受理回执不构成成功:任务行零前进 ⇒ ok=False(防伪造纪律)。"""
+    payload = {
+        "data": {
+            "tasks": [
+                {
+                    "task_code": "skill_share",
+                    "accept_status": "accepted",
+                    "progress": {"current": 0, "target": 1},
+                }
+            ]
+        }
+    }
+    transport = httpx.MockTransport(
+        lambda req: httpx.Response(200, json={"code": 0, "msg": "OK"})
+    )
+
+    async def read_tasks():
+        return payload
+
+    async with httpx.AsyncClient(transport=transport) as c:
+        result = await wda.run_share_task(
+            c, FAKE_TOKEN, FAKE_UID, "测试号", "skill_share", read_tasks
+        )
+    assert result.ok is False
+    assert result.reason == wda.REASON_NO_PROGRESS_ADVANCE
+
+
+@pytest.mark.asyncio
+async def test_run_share_task_progress_advance_is_ok():
+    """回读 progress 真前进 ⇒ ok=True,并带 after 供上层领奖。"""
+    calls = {"n": 0}
+
+    def payload(current):
+        return {
+            "data": {
+                "tasks": [
+                    {
+                        "task_code": "skill_share",
+                        "accept_status": "completed" if current else "accepted",
+                        "progress": {"current": current, "target": 1},
+                    }
+                ]
+            }
+        }
+
+    async def read_tasks():
+        calls["n"] += 1
+        return payload(1 if calls["n"] > 1 else 0)
+
+    transport = httpx.MockTransport(
+        lambda req: httpx.Response(200, json={"code": 0, "msg": "OK"})
+    )
+    async with httpx.AsyncClient(transport=transport) as c:
+        result = await wda.run_share_task(
+            c, FAKE_TOKEN, FAKE_UID, "测试号", "skill_share", read_tasks
+        )
+    assert result.ok is True
+    assert result.reason == wda.REASON_OK
+    assert (result.after or {}).get("skill_share", {}).get("progress_current") == 1
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
