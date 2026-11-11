@@ -30,6 +30,11 @@ import { isTrustedTopLevelExtensionSender, type RuntimeSenderLike } from '../lib
 import { ContentToolbar } from './content/content-toolbar'
 import { computePositionWithMemory, type RectLike } from '../src/content/position-memory'
 import { executeDomAction } from '../lib/agent-control'
+import {
+  decideHighlightToggle,
+  highlightedWordFromApplied,
+  highlightWordToRestore,
+} from '../lib/highlight-state'
 import type { BrowserControlActionType } from '@ihui/types'
 // 2026-09-12 W6:内容脚本无 React 上下文,复用 background.ts 的翻译表 + locale 读取模式
 import { translate, mergeMessages, isLocale, type Locale, type Messages } from '@ihui/i18n'
@@ -85,7 +90,8 @@ let hideTimer: ReturnType<typeof setTimeout> | null = null
 // 2026-11-07 DBG-68: 右键弹层 TTL 定时器句柄 —— 新弹层创建时必须清掉旧定时器,
 // 否则旧定时器到期会按 id 删掉"当前"弹层(查词失败 6s 内点重试即复现)。
 let ctxPopupTimer: ReturnType<typeof setTimeout> | null = null
-let highlightEnabled = false
+/** 当前高亮词。唯一状态;刷新后由 highlight.get 从 background 的 storage 词回填。 */
+let highlightedWord: string | null = null
 const translationCache = new Map<string, string>()
 // 2026-11-07 DBG-67: 缓存键从 text.slice(0,32) 改为全文后,加上限防无界增长(FIFO 驱逐)。
 const TRANSLATION_CACHE_MAX = 100
@@ -261,20 +267,48 @@ function insertTranslation(_original: string, translated: string) {
   hideToolbar()
 }
 
-async function handleHighlight() {
-  const text = getActiveSelectionText()
-  if (!text) return
-  highlightEnabled = !highlightEnabled
+function paintHighlight(word: string | null): void {
+  highlightedWord = word
   try {
-    if (highlightEnabled) {
-      highlightInElement(document.body, text, document)
+    if (word) {
+      clearHighlights(document.body)
+      highlightInElement(document.body, word, document)
     } else {
       clearHighlights(document.body)
     }
   } catch (err) {
     console.warn('[IHUI AI] highlight failed:', err)
   }
+}
+
+async function handleHighlight() {
+  const text = getActiveSelectionText()
+  if (!text) return
+  const decision = decideHighlightToggle(highlightedWord, text)
+  paintHighlight(decision.word)
+  try {
+    await sendMessage({
+      type: 'highlight.toggle',
+      payload: { word: text, enabled: decision.enabled, scope: 'page' },
+      requestId: `hl-${Date.now()}`,
+    })
+  } catch (err) {
+    console.warn('[IHUI AI] highlight toggle failed:', err)
+  }
   hideToolbar()
+}
+
+async function restoreHighlightFromBackground(): Promise<void> {
+  try {
+    const stored = await sendMessage<string | null>(
+      { type: 'highlight.get', payload: undefined, requestId: `hl-get-${Date.now()}` },
+      3000,
+    )
+    const word = highlightWordToRestore(highlightedWord, stored)
+    if (word) paintHighlight(word)
+  } catch (err) {
+    console.warn('[IHUI AI] restore highlight failed:', err)
+  }
 }
 
 async function handleVocab() {
@@ -499,6 +533,7 @@ export default defineContentScript({
   main(ctx: ContentScriptContext) {
     // W6:预加载语言(异步),使工具栏/弹窗文案跟随侧边栏语言设置
     void loadActiveLocale()
+    void restoreHighlightFromBackground()
     document.addEventListener('mouseup', () => {
       setTimeout(onSelectionChange, 10)
     })
@@ -559,11 +594,12 @@ export default defineContentScript({
         return true
       }
       if (m.type === 'highlight.applied' && m.payload?.word) {
-        if (m.payload.matches === 0) {
-          clearHighlights(document.body)
-        } else {
-          highlightInElement(document.body, m.payload.word, document)
-        }
+        paintHighlight(
+          highlightedWordFromApplied({
+            word: m.payload.word,
+            matches: m.payload.matches,
+          }),
+        )
         sendResponse({ ok: true })
         return true
       }

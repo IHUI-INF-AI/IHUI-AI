@@ -27,6 +27,7 @@ export type ExtMessage =
   | { type: 'locale.get'; payload: undefined; requestId: string }
   | { type: 'vocab.lookup'; payload: VocabLookupPayload; requestId: string }
   | { type: 'highlight.toggle'; payload: HighlightPayload; requestId: string }
+  | { type: 'highlight.get'; payload: undefined; requestId: string }
   | { type: 'tab.queryActive'; payload: undefined; requestId: string }
   | { type: 'sidePanel.open'; payload: { tabId?: number }; requestId: string }
   | { type: 'agent.action'; payload: AgentActionRequest; requestId: string }

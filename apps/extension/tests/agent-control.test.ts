@@ -122,12 +122,30 @@ describe('executeBackgroundAction', () => {
     expect(res.data?.warning).toMatch(/fullpage/)
   })
 
-  it('screenshot captureVisibleTab 抛错时 propagate reject(exec 先于 timeout settle)', async () => {
-    // executeBackgroundAction 用 Promise.race([exec, timeout]):
-    //   - exec reject 时 race 立即 reject(timeout 的 resolve 不影响)
-    //   - 源码未 catch exec 的 reject,所以整个函数 reject
-    captureVisibleTab.mockRejectedValue(new Error('no active tab'))
-    await expect(executeBackgroundAction('screenshot', {}, 200)).rejects.toThrow('no active tab')
+  it('screenshot 抛错时回执 EXECUTION_FAILED,并清掉超时定时器', async () => {
+    vi.useFakeTimers()
+    try {
+      captureVisibleTab.mockRejectedValue(new Error('no active tab'))
+      const res = await executeBackgroundAction('screenshot', {}, 30_000)
+      expect(res.success).toBe(false)
+      expect(res.errorCode).toBe('EXECUTION_FAILED')
+      expect(res.error).toBe('no active tab')
+      expect(vi.getTimerCount()).toBe(0)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('成功返回后超时定时器被清掉', async () => {
+    vi.useFakeTimers()
+    try {
+      captureVisibleTab.mockResolvedValue('data:image/png;base64,YQ==')
+      const res = await executeBackgroundAction('screenshot', { area: 'viewport' }, 30_000)
+      expect(res.success).toBe(true)
+      expect(vi.getTimerCount()).toBe(0)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('navigate 调用 chrome.tabs.update 切换 URL', async () => {
