@@ -100,13 +100,15 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 测试文件 | 4844 | `testFiles` |
 | CI 工作流 | 59 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
-| 工程守门 | 357 | `guardianGates` |
-| — blocking | 328 | `guardianBlocking` |
+| 工程守门 | 358 | `guardianGates` |
+| — blocking | 329 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 20944 | `trackedFiles` |
+| 跟踪文件 | 20945 | `trackedFiles` |
 
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-11。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
+
+> ⚠️ 未判定 1 项:`guardianGates`(runner 里有 1 个重复 id ⇒ 撞号,条目数不可信)
 
 <!-- END GENERATED NUMBERS -->
 **一句话口径**:数字一律现读,文档里不写「约 N 个」——那种写法必然腐烂。
@@ -2676,6 +2678,7 @@ powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\uninstall-g-root-gua
 | —         | 手动 / `pnpm check:host-timezone` + git-guardian 每 30 分钟巡检            | `check-host-timezone.mjs`             | 主机时区漂移对账(2026-09-30 立):本机曾被 pwsh.exe 静默改成 UTC 25 天(内核时间变更事件实名),期间一批按主机时区算时间的代码一直按 UTC 判 —— 支付宝签名 time 差 8 小时、账单日在北京 00:00-08:00 取错、备份实跑 11:00、告警量算把无偏移时间戳默认成 UTC。四判据 H1 注册表/tzutil/新起 node 三通道互证、H2 从内核事件问"是谁改的"(事件为空判**未判定**,不写"没人改过")、H3 活日志最新戳 vs 注册表偏移之差 ⇒ 判"仍有进程按旧区算时间"(基准绝不用跑判据那个进程自己的缓存区,那是循环论证;实测 Node/ICU 进程改区后仍按旧区算 ⇒ 重启它们,而 PowerShell 7/.NET 自行刷新 ⇒ 不必重启,所以顺序是"量出来红才重启那一个"),H4 NTP 偏移。声明表 `config/host-timezone.json`。**定级=手动 + 守护巡检,刻意不进提交链**(判机器状态,挂 blocking 就是每台每次被逼 `--no-verify` 连带废掉全部守门,§12e),判红经 `notify-deploy-failure` 邮件到人;镜像测试钉"一旦接进 `guardian-runner` 那条测试就红"。取证:自检 31/31 + 镜像 11/11。 |
 | —         | 手动 / `pnpm check:aasa-health`                                                                   | `check-aasa-public-health.mjs`          | AASA(apple-app-site-association)公网可达 + 内容一致性**只读哨兵**(2026-10-28 立):靶清单由 `apps/mobile-rn/app.json` 的 `ios.associatedDomains` 推出,期望形状动态导入唯一真相源 `packages/shared/src/constants/apple-app-site-association.ts`,导入不了 ⇒ 该维**未判定**,不回落另写期望。 |
 | —         | CI:8end-consistency-cert.yml + guardian-runner.mjs                                                | `check-adapter-style-parity.mjs`        | miniapp-taro adapter 层硬编码颜色守门(2026-09-03 立):基线模式,存量记录在 `scripts/adapter-style-parity-baseline.json` 放行,任何新增硬编码颜色即 BLOCK,推动存量只减不增。 |
+| 314       | guardian-runner.mjs(blocking,提交链)                                                            | `check-readme-recent-containment.mjs`   | README RECENT 块外禁增守门(2026-11-11 立,5833953de0 复发防线):END RECENT UPDATES 之后只许删不许增;活性 changelog 唯一写入口 `auto-update-readme-recent.mjs`。原登记撞号 175(与在前的 `check-process-exit-attribution.mjs` 冲突)⇒ 按「后来者改号」让到 314。 |
 > 这 48 道门**早就接在提交链 / CI 上,但 AGENTS.md 与 README.md 通篇没点过它们的名字** —— 后果不是"文档不好看",而是下一个人查不到它就又造一道同职责的门(本仓已四次为此补装车),或在守门报错时找不到该找谁。
 > 下表「一句话」一律**取自该门自身头部 docstring 或 runner 的 label 字段**,不转述不美化;「接线点」按 `scripts/check-gate-wiring.mjs` 认定的五处权威口径**实测**得出(`.husky/pre-commit` 自 2026-09-22 起只是薄壳,真实 pre-commit 逻辑在 `scripts/lib/pre-commit-hook.js`)。
 ### 守门补登:已接线但文档从未点名的 48 道(2026-09-24 立,守门 89 的 R4 维度清零票)
