@@ -248,7 +248,8 @@ describe('runFullScreenSession —— 一次完整会话', () => {
     // 退出之后迟到的事件**不得**再往 stdout 写任何东西:还原序列已经发出去了,
     // 再写一次就是把用户的 shell 画花(而且没有任何界面会显示它)。
     const afterQuit = io.written.length
-    emit?.({ type: 'token', text: 'late token after quit' })
+    // emit 只在 host.send 闭包里被赋值,外层流分析读不到 ⇒ 经显式 cast 取回声明类型面
+    ;(emit as ((e: AgentEvent) => void) | null)?.({ type: 'token', text: 'late token after quit' })
     await new Promise((r) => setImmediate(r))
     expect(io.written.length).toBe(afterQuit)
     expect(io.written.join('')).not.toContain('late token after quit')
