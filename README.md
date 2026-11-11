@@ -21,7 +21,7 @@
 > **IHUI-AI —— 一个人对整个 AI SaaS 行业的降维打击。**
 </td></tr></table>
 <p align="center">
-  <strong>邮箱</strong> · <a href="mailto:[REDACTED-EMAIL]">[REDACTED-EMAIL]</a><br/>
+  <strong>邮箱</strong> · <a href="mailto:IHUI-AI@aizhs.top">IHUI-AI@aizhs.top</a><br/>
   <strong>8 端全覆盖</strong> · <strong>大模型</strong> · <strong>LangGraph + MCP + A2A 三栈</strong> · <strong>平台自动发布</strong> · <strong>AI 教育全栈</strong> · <strong>完整商业闭环</strong> · <strong>P3 AI 工程深度层</strong> · <strong>多语言 i18n(7 端 35 JSON)</strong>
   <img src="apps/web/public/images/logo.png" width="140" alt="IHUI-AI Logo" />
 </p>
@@ -3875,7 +3875,7 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 | **品牌名**   | 智汇 AI 集团                                           |
 | **公司地址** | 吉林省长春市高新区越达路 107 号 · 人工智能人才孵化基地 |
 | **联系电话** | 18643389808                                            |
-| **邮箱**     | [REDACTED-EMAIL]                                       |
+| **邮箱**     | IHUI-AI@aizhs.top                                       |
 | **邮箱**     | IHUI-AI@aizhs.top                                       |
 | **微信客服** | ok502319984(微信搜索添加)                              |
 | **ICP 备案** | 吉ICP备2025027274号                                    |
@@ -3888,7 +3888,7 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 | Facebook    | https://www.facebook.com/share/17kQMPNhQb/    |
 | Issue 反馈  | https://github.com/IHUI-INF-AI/IHUI-AI/issues |
 | PR 贡献     | https://github.com/IHUI-INF-AI/IHUI-AI/pulls  |
-> 合作咨询、企业接入、技术交流请扫码上方微信或致信 [REDACTED-EMAIL],我们会在 24 小时内回复。
+> 合作咨询、企业接入、技术交流请扫码上方微信或致信 IHUI-AI@aizhs.top,我们会在 24 小时内回复。
 > 合作咨询、企业接入、技术交流请扫码上方微信或致信 IHUI-AI@aizhs.top,我们会在 24 小时内回复。
 ---
 ## 高密度曝光度 · 主流 AI 引擎深度适配(2026-07-26 立)

@@ -283,7 +283,7 @@ const FOOTER_LINES: string[] = [
   '制定方：吉林省爱智汇人工智能科技有限公司',
   '公司地址：吉林省长春市高新区越达路107号人工智能人才孵化基地',
   '客服电话：19944894487',
-  '官方邮箱：[REDACTED-EMAIL]',
+  '官方邮箱：IHUI-AI@aizhs.top',
 ]
 
 export function UsageRulesScreen({ t, onBack, colorScheme = 'light' }: UsageRulesScreenProps) {
