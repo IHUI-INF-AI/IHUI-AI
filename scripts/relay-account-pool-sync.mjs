@@ -514,7 +514,7 @@ Write-Output ('LASTRESULT=0x' + ('{0:X}' -f $i.LastTaskResult))
     const failed = /\bFAIL\b/.test(last)
     const tail = last.replace(/^\[.+?\]\s*/, '')
     if (failed) warn(`最近一轮失败(${humanAge(ageMs)}): ${tail}`)
-    else good(`最近一轮有动作 ${humanAge(ageMs)}: ${tail}`)
+    else good(`最近一轮有动作 ${humanAge(ageMs)}: ${tail}(空转轮不写日志,存活看上面的计划任务时间)`)
     if (Number.isFinite(ageMs) && ageMs > 24 * 3600 * 1000) {
       rows.push('ℹ️ 超过一天没有同步记录 —— 无新账号变更时属正常(空转不写日志)')
     }
