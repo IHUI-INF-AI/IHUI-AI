@@ -707,6 +707,11 @@ class RAGService:
         sources: list[RAGSource] = []
         expanded = 0
         for _entry_id, entry, score in results:
+            # AIS-033:属主兜底过滤。search(user_id=...) 已按 metadata.user_id 裁剪,
+            # 这里再按条目自身属主核一次 —— 下层若回归/替身返回混合数据,本层仍不得
+            # 把他人文档放进 sources(entry 无 user_id 的旧条目同样 fail-closed)。
+            if user_id is not None and entry.get("user_id") != user_id:
+                continue
             if session_id is not None and entry.get("session_id") != session_id:
                 continue
             content = str(entry.get("content", ""))
