@@ -29,6 +29,7 @@ import {
   closeSession,
   listHistorySessions,
   getScrollback,
+  TERMINAL_HISTORY_PAGE_MAX,
 } from '../services/terminal-service.js'
 
 export const terminalRoutes: FastifyPluginAsync = async (server) => {
@@ -68,6 +69,12 @@ export const terminalRoutes: FastifyPluginAsync = async (server) => {
   const resizeSchema = z.object({
     cols: z.number().int().min(1).max(500),
     rows: z.number().int().min(1).max(200),
+  })
+
+  // F-52:历史列表分页入参。limit 上限硬性拒绝(不静默截断),cursor 为不透明偏移串。
+  const historyQuerySchema = z.object({
+    limit: z.coerce.number().int().min(1).max(TERMINAL_HISTORY_PAGE_MAX).optional(),
+    cursor: z.string().regex(/^\d+$/).optional(),
   })
 
   // GET /terminal/sessions — 列出当前用户的 session
@@ -134,13 +141,24 @@ export const terminalRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ closed: true }))
   })
 
-  // GET /terminal/sessions/history — 列出最近 7 天历史会话(Redis terminal:session:* 元数据)
+  // GET /terminal/sessions/history — 分页列出最近 7 天历史会话(Redis 用户索引)
   server.get('/terminal/sessions/history', async (request, reply) => {
     await requireAuth(request, reply)
+    if (reply.sent) return
     if (!request.userId) return
 
-    const sessions = await listHistorySessions(request.userId)
-    return reply.send(success({ sessions }))
+    const parsed = historyQuerySchema.safeParse(request.query ?? {})
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+
+    try {
+      const page = await listHistorySessions(request.userId, parsed.data)
+      return reply.send(success(page))
+    } catch (e) {
+      const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 400
+      return reply.status(statusCode).send(error(statusCode, (e as Error).message || '参数错误'))
+    }
   })
 
   // GET /terminal/recordings — 终端录制列表(G-962 B8;web use-terminal-session 读 data.recordings)

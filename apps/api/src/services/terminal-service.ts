@@ -15,7 +15,7 @@
  *    `terminal:scrollback:{sessionId}`(LPUSH + LTRIM 50000 + EXPIRE 7 天)。
  *    onData 注册监听器时异步回放历史 scrollback(WS 连接即可看到上下文)。
  * 3. 会话元数据持久化:Redis hash `terminal:session:{sessionId}` 存 { shell, cwd, kind, userId, createdAt, exitCode }。
- *    listHistorySessions 扫描 terminal:session:* 返回最近 7 天历史。
+ *    listHistorySessions 按用户索引 `terminal:user:{userId}:sessions`(ZSET)分页返回最近 7 天历史。
  *
  * 安全:
  * - cwd 从外部传入但仅允许已存在的目录(防止穿越到任意路径)
@@ -229,6 +229,21 @@ function sessionMetaKey(sessionId: string): string {
   return `terminal:session:${sessionId}`
 }
 
+/**
+ * F-52:用户维度历史索引(ZSET,score=createdAt,member=sessionId)。
+ * 读侧按 zrevrange 分页,不再对全库 `terminal:session:*` 做 SCAN + 逐条 hgetall。
+ */
+function historyIndexKey(userId: string): string {
+  return `terminal:user:${userId}:sessions`
+}
+
+/** 历史列表分页:默认条数 / 单页上限(禁止无上限返回) */
+const HISTORY_PAGE_DEFAULT = 20
+export const TERMINAL_HISTORY_PAGE_MAX = 100
+/** 无索引旧数据的退化扫描硬上限(最多扫这么多 key 就停,避免放大 Redis 压力) */
+const HISTORY_LEGACY_SCAN_MAX_KEYS = 1000
+const HISTORY_LEGACY_SCAN_COUNT = 100
+
 /** 异步推送 scrollback 到 Redis list(失败静默,不阻塞 PTY) */
 async function pushScrollback(sessionId: string, chunk: string): Promise<void> {
   if (!chunk) return
@@ -287,6 +302,9 @@ async function persistSessionMeta(
       ...(meta.sshUser ? { sshUser: meta.sshUser } : {}),
     })
     await redis.expire(key, SCROLLBACK_TTL_SECONDS)
+    // F-52:同步维护用户索引(score=createdAt),读侧据此分页
+    await redis.zadd(historyIndexKey(meta.userId), String(meta.createdAt), sessionId)
+    await redis.expire(historyIndexKey(meta.userId), SCROLLBACK_TTL_SECONDS)
   } catch {
     /* 静默 */
   }
@@ -1008,45 +1026,178 @@ export function writeInput(sessionId: string, data: string): boolean {
 
 // ==================== 公共 API:历史会话查询(REST 用) ====================
 
+/** 历史会话分页结果(nextCursor 为不透明偏移串,null 表示已到末页) */
+export interface TerminalHistoryPage {
+  sessions: TerminalHistorySession[]
+  nextCursor: string | null
+}
+
+interface HistoryRow {
+  id: string
+  meta: Record<string, string>
+  scrollbackLines: number
+}
+
+function historyPaginationError(message: string): Error {
+  const err = new Error(message) as Error & { statusCode?: number; errorCode?: string }
+  err.statusCode = 400
+  err.errorCode = 'invalid_history_pagination'
+  return err
+}
+
+/** limit 校验:缺省 20,超过上限直接拒绝(不静默截断,便于调用方发现越界) */
+function parseHistoryLimit(limit: number | undefined): number {
+  if (limit === undefined) return HISTORY_PAGE_DEFAULT
+  if (!Number.isInteger(limit) || limit < 1) {
+    throw historyPaginationError('limit 必须是正整数')
+  }
+  if (limit > TERMINAL_HISTORY_PAGE_MAX) {
+    throw historyPaginationError(`limit 不能超过 ${TERMINAL_HISTORY_PAGE_MAX}`)
+  }
+  return limit
+}
+
+/** cursor 校验:当前实现为偏移量字符串(只接受非负整数) */
+function parseHistoryCursor(cursor: string | undefined): number {
+  if (cursor === undefined || cursor === '') return 0
+  if (!/^\d+$/.test(cursor)) throw historyPaginationError('cursor 非法')
+  const offset = Number(cursor)
+  if (!Number.isSafeInteger(offset)) throw historyPaginationError('cursor 非法')
+  return offset
+}
+
 /**
- * 列出用户最近 7 天的历史会话(从 Redis 扫描 terminal:session:* keys)。
- *
- * 注意:此函数返回历史元数据(已退出的会话),不含实时数据流。
- * 配合 getScrollback 可恢复历史输出。
+ * 批量读取会话元数据 + scrollback 行数:一次 pipeline 往返,
+ * 替代原实现对每个 key 串行 hgetall/llen(2N 次 RTT)。
  */
-export async function listHistorySessions(userId: string): Promise<TerminalHistorySession[]> {
+async function readHistoryRows(redis: IORedis, sessionIds: string[]): Promise<HistoryRow[]> {
+  if (sessionIds.length === 0) return []
+  const pipe = redis.pipeline()
+  for (const id of sessionIds) {
+    pipe.hgetall(sessionMetaKey(id))
+    pipe.llen(scrollbackKey(id))
+  }
+  const replies = (await pipe.exec()) ?? []
+  const rows: HistoryRow[] = []
+  for (let i = 0; i < sessionIds.length; i++) {
+    const id = sessionIds[i]!
+    const metaReply = replies[i * 2]
+    const linesReply = replies[i * 2 + 1]
+    const meta = (metaReply?.[1] ?? null) as Record<string, string> | null
+    if (!meta || typeof meta !== 'object' || Object.keys(meta).length === 0) continue
+    rows.push({
+      id,
+      meta,
+      scrollbackLines: Number(linesReply?.[1] ?? 0) || 0,
+    })
+  }
+  return rows
+}
+
+/** 历史元数据 → 对外响应项(保持既有字段不变) */
+function toHistorySession(row: HistoryRow): TerminalHistorySession {
+  const { meta } = row
+  return {
+    id: row.id,
+    shell: meta.shell ?? '',
+    kind: (meta.kind === 'ssh' ? 'ssh' : 'local') as TerminalConnectKind,
+    cwd: meta.cwd ?? '',
+    sshHost: meta.sshHost || undefined,
+    sshUser: meta.sshUser || undefined,
+    createdAt: Number(meta.createdAt ?? 0),
+    lastActivityAt: Number(meta.lastActivityAt ?? 0),
+    exitCode: meta.exitCode !== undefined ? Number(meta.exitCode) : undefined,
+    scrollbackLines: row.scrollbackLines,
+  }
+}
+
+/** 索引路径:zrevrange 分页取 id,再 pipeline 批量读元数据 */
+async function listIndexedHistory(
+  redis: IORedis,
+  userId: string,
+  indexKey: string,
+  offset: number,
+  limit: number,
+): Promise<TerminalHistoryPage> {
+  // 多取 1 条用于判断是否还有下一页
+  const ids = await redis.zrevrange(indexKey, offset, offset + limit)
+  const pageIds = ids.slice(0, limit)
+  const rows = await readHistoryRows(redis, pageIds)
+  // 元数据可能已过 TTL 或索引残留,仍以 hash 内的 userId 为准过滤
+  const sessions = rows.filter((row) => row.meta.userId === userId).map(toHistorySession)
+  return {
+    sessions,
+    nextCursor: ids.length > limit ? String(offset + limit) : null,
+  }
+}
+
+/**
+ * 退化路径:老数据未建索引时按 SCAN 找,但**硬上限**:最多扫
+ * HISTORY_LEGACY_SCAN_MAX_KEYS 个 key,且命中 offset+limit+1 条即停;
+ * 元数据用 pipeline 批量读取。上线后需执行一次索引回填(见报告/迁移说明)。
+ */
+async function listLegacyHistory(
+  redis: IORedis,
+  userId: string,
+  offset: number,
+  limit: number,
+): Promise<TerminalHistoryPage> {
+  const want = offset + limit + 1
+  const matched: TerminalHistorySession[] = []
+  let cursor = '0'
+  let scanned = 0
+  do {
+    const [next, keys] = await redis.scan(
+      cursor,
+      'MATCH',
+      'terminal:session:*',
+      'COUNT',
+      HISTORY_LEGACY_SCAN_COUNT,
+    )
+    cursor = next
+    scanned += keys.length
+    const rows = await readHistoryRows(
+      redis,
+      keys.map((key) => key.replace('terminal:session:', '')),
+    )
+    for (const row of rows) {
+      if (row.meta.userId !== userId) continue
+      matched.push(toHistorySession(row))
+      if (matched.length >= want) break
+    }
+  } while (matched.length < want && cursor !== '0' && scanned < HISTORY_LEGACY_SCAN_MAX_KEYS)
+
+  // 旧数据 key 顺序无保证,按创建时间降序保持原响应语义
+  matched.sort((a, b) => b.createdAt - a.createdAt)
+  return {
+    sessions: matched.slice(offset, offset + limit),
+    nextCursor: matched.length > offset + limit ? String(offset + limit) : null,
+  }
+}
+
+/**
+ * 列出用户最近 7 天的历史会话(分页)。
+ *
+ * 优先走 `terminal:user:{userId}:sessions` ZSET 索引(score=createdAt,member=sessionId);
+ * 索引为空时退化到有硬上限的 SCAN。返回历史元数据(已退出的会话),不含实时数据流。
+ */
+export async function listHistorySessions(
+  userId: string,
+  opts: { limit?: number; cursor?: string } = {},
+): Promise<TerminalHistoryPage> {
+  const limit = parseHistoryLimit(opts.limit)
+  const offset = parseHistoryCursor(opts.cursor)
   const redis = getRedis()
-  if (!redis) return []
+  if (!redis) return { sessions: [], nextCursor: null }
   try {
-    const result: TerminalHistorySession[] = []
-    let cursor = '0'
-    do {
-      const [next, keys] = await redis.scan(cursor, 'MATCH', 'terminal:session:*', 'COUNT', 100)
-      cursor = next
-      for (const key of keys) {
-        const meta = await redis.hgetall(key)
-        if (!meta || !meta.userId || meta.userId !== userId) continue
-        const sessionId = key.replace('terminal:session:', '')
-        const scrollbackLines = await redis.llen(scrollbackKey(sessionId))
-        result.push({
-          id: sessionId,
-          shell: meta.shell ?? '',
-          kind: (meta.kind === 'ssh' ? 'ssh' : 'local') as TerminalConnectKind,
-          cwd: meta.cwd ?? '',
-          sshHost: meta.sshHost || undefined,
-          sshUser: meta.sshUser || undefined,
-          createdAt: Number(meta.createdAt ?? 0),
-          lastActivityAt: Number(meta.lastActivityAt ?? 0),
-          exitCode: meta.exitCode !== undefined ? Number(meta.exitCode) : undefined,
-          scrollbackLines,
-        })
-      }
-    } while (cursor !== '0')
-    // 按创建时间降序(最新在前)
-    result.sort((a, b) => b.createdAt - a.createdAt)
-    return result
+    const indexKey = historyIndexKey(userId)
+    const indexed = await redis.zcard(indexKey)
+    if (indexed > 0) {
+      return await listIndexedHistory(redis, userId, indexKey, offset, limit)
+    }
+    return await listLegacyHistory(redis, userId, offset, limit)
   } catch {
-    return []
+    return { sessions: [], nextCursor: null }
   }
 }
 

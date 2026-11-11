@@ -35,7 +35,9 @@
 
 import type { FastifyPluginAsync } from 'fastify'
 import { createHash } from 'node:crypto'
-import { existsSync, readdirSync, readFileSync, type Dirent } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
+import { readdir, readFile } from 'node:fs/promises'
+import type { Dirent } from 'node:fs'
 import { basename, isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { z } from 'zod'
@@ -83,49 +85,84 @@ interface ArtifactListItem {
   payload_ref: string
 }
 
-/** 扫产物根目录,收集归属 userId 的元数据行。
- *  容错口径:根目录不可读 / 子目录缺 artifact.json / 记录畸形或 id 与目录名不符 /
- *  owner.json 缺失或非本人 ⇒ 该条静默跳过(与下载端点"不可分辨"语义一致)。 */
-function collectOwnedArtifacts(root: string, userId: string): ArtifactListItem[] {
-  const items: ArtifactListItem[] = []
+/** 目录扫描并发上限(F-42):目录大时也不占满文件句柄、不把事件循环打满。 */
+const SCAN_CONCURRENCY = 8
+
+/** 读取单条产物元数据并做归属校验;缺失/畸形/非本人 ⇒ null(静默跳过)。
+ *  容错口径:子目录缺 artifact.json / 记录畸形或 id 与目录名不符 /
+ *  owner.json 缺失或非本人(与下载端点"不可分辨"语义一致)。 */
+async function readOwnedArtifact(
+  root: string,
+  dirName: string,
+  userId: string,
+): Promise<ArtifactListItem | null> {
+  const dir = join(root, dirName)
+  let parsed
+  try {
+    parsed = artifactSchema.safeParse(
+      JSON.parse(await readFile(join(dir, 'artifact.json'), 'utf-8')),
+    )
+  } catch {
+    return null // artifact.json 缺失/畸形
+  }
+  if (!parsed.success) return null
+  const record = parsed.data
+  if (record.id !== dirName) return null // 目录名必须与记录 id 一致(防串目录/伪造)
+  let ownerId = ''
+  try {
+    ownerId = String(JSON.parse(await readFile(join(dir, 'owner.json'), 'utf-8')).user_id ?? '')
+  } catch {
+    ownerId = ''
+  }
+  if (!ownerId || ownerId !== userId) return null // 归属过滤(owner 缺失同样隐匿)
+  return {
+    id: record.id,
+    kind: record.kind,
+    name: record.title,
+    version: record.version,
+    created_at: record.created_at,
+    session_id: record.session_id,
+    payload_ref: record.payload_ref,
+  }
+}
+
+/** 有上限的并发映射:同时在飞的任务不超过 concurrency 个,结果按入参下标还原。 */
+async function mapWithConcurrency<T, R>(
+  items: readonly T[],
+  concurrency: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = new Array(items.length)
+  let cursor = 0
+  const worker = async (): Promise<void> => {
+    while (cursor < items.length) {
+      const index = cursor
+      cursor += 1
+      const item = items[index]
+      if (item !== undefined) results[index] = await fn(item)
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, worker))
+  return results
+}
+
+/** 扫产物根目录,收集归属 userId 的元数据行(F-42:全异步 + 有上限并发)。
+ *  每个条目两次元数据读并发受限,不再在请求路径上做同步 readdir/readFile;
+ *  根目录不存在/不可读 ⇒ 空列表(新环境零产物容错)。
+ *  注:响应 total 需精确、created_at 倒序也需全量元数据(web hasMore 依赖 total),
+ *  故仍遍历全部条目,但单次请求的磁盘 IO 全部异步且并发 ≤ SCAN_CONCURRENCY。 */
+async function collectOwnedArtifacts(root: string, userId: string): Promise<ArtifactListItem[]> {
   let entries: Dirent[]
   try {
-    entries = readdirSync(root, { withFileTypes: true })
+    entries = await readdir(root, { withFileTypes: true })
   } catch {
-    return items // 根目录不存在/不可读 ⇒ 空列表(新环境零产物容错)
+    return [] // 根目录不存在/不可读 ⇒ 空列表(新环境零产物容错)
   }
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue
-    const dir = join(root, entry.name)
-    let parsed
-    try {
-      parsed = artifactSchema.safeParse(
-        JSON.parse(readFileSync(join(dir, 'artifact.json'), 'utf-8')),
-      )
-    } catch {
-      continue // artifact.json 缺失/畸形
-    }
-    if (!parsed.success) continue
-    const record = parsed.data
-    if (record.id !== entry.name) continue // 目录名必须与记录 id 一致(防串目录/伪造)
-    let ownerId = ''
-    try {
-      ownerId = String(JSON.parse(readFileSync(join(dir, 'owner.json'), 'utf-8')).user_id ?? '')
-    } catch {
-      ownerId = ''
-    }
-    if (!ownerId || ownerId !== userId) continue // 归属过滤(owner 缺失同样隐匿)
-    items.push({
-      id: record.id,
-      kind: record.kind,
-      name: record.title,
-      version: record.version,
-      created_at: record.created_at,
-      session_id: record.session_id,
-      payload_ref: record.payload_ref,
-    })
-  }
-  return items
+  const names = entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name)
+  const rows = await mapWithConcurrency(names, SCAN_CONCURRENCY, (name) =>
+    readOwnedArtifact(root, name, userId),
+  )
+  return rows.filter((row): row is ArtifactListItem => row !== null)
 }
 
 /** kind × fmt 支持矩阵(与功能规格逐字一致;不在表内一律 400)。 */
@@ -209,7 +246,7 @@ export const artifactRoutes: FastifyPluginAsync = async (app) => {
       }
       const { page, pageSize } = parsed.data
 
-      const items = collectOwnedArtifacts(artifactsRootDir(), userId)
+      const items = await collectOwnedArtifacts(artifactsRootDir(), userId)
       // created_at 倒序;同时间戳以 id 倒序作稳定次键(分页翻页不重不漏)
       items.sort((a, b) =>
         a.created_at !== b.created_at

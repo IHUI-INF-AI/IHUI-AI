@@ -51,6 +51,7 @@ const listUsersQuerySchema = z.object({
   deptId: z.transform(emptyToUndefined).pipe(z.coerce.number().int().optional()),
 })
 import { buildResponseSchema, paginationQuerySchema } from '../utils/api-schemas.js'
+import { toSafeMoneyInt } from './admin/stats.js'
 
 const listProjectsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -259,7 +260,7 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
             .from(users)
             .where(and(gte(users.createdAt, yesterdayStart), lt(users.createdAt, todayStart))),
           db
-            .select({ total: sql<number>`coalesce(sum(amount), 0)::int` })
+            .select({ total: sql<number>`coalesce(sum(amount), 0)::bigint` })
             .from(orders)
             .where(and(eq(orders.status, 'paid'), gte(orders.createdAt, todayStart))),
           db
@@ -278,11 +279,11 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
         const yesterdayUsers = yesterdayNewUsers[0]?.c ?? 0
         const todayProjects = todayNewProjects[0]?.c ?? 0
         const yesterdayProjects = yesterdayNewProjects[0]?.c ?? 0
-        const todayRevenue = Number(((todayRevenueRow[0]?.total ?? 0) / 100).toFixed(2))
+        const todayRevenue = Number((toSafeMoneyInt(todayRevenueRow[0]?.total) / 100).toFixed(2))
 
         // 昨日营收(单独查询,避免 Promise.all 过长)
         const yesterdayRevenueRow = await db
-          .select({ total: sql<number>`coalesce(sum(amount), 0)::int` })
+          .select({ total: sql<number>`coalesce(sum(amount), 0)::bigint` })
           .from(orders)
           .where(
             and(
@@ -291,7 +292,9 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
               lt(orders.createdAt, todayStart),
             ),
           )
-        const yesterdayRevenue = Number(((yesterdayRevenueRow[0]?.total ?? 0) / 100).toFixed(2))
+        const yesterdayRevenue = Number(
+          (toSafeMoneyInt(yesterdayRevenueRow[0]?.total) / 100).toFixed(2),
+        )
 
         return reply.send(
           success({
