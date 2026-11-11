@@ -386,8 +386,8 @@ export function auditFileText(rel, src, sharedMap) {
  *  台账 $rn-inline-injected),同文件再增裸宽照常判红。
  * 射程由调用方把住(RN_DIR_RE ∩ .ts/.tsx);web 的 .ts 无 StyleSheet 面,不进。
  */
-const RN_BW_RE = /\bborder(?:-(?:Top|Bottom|Left|Right|Start|End))?Width\s*:/g
-const RN_BC_RE = /\bborder(?:-(?:Top|Bottom|Left|Right|Start|End))?Color\s*:/
+const RN_BW_RE = /\bborder(?:Top|Bottom|Left|Right|Start|End)?Width\s*:/g
+const RN_BC_RE = /\bborder(?:Top|Bottom|Left|Right|Start|End)?Color\s*:/
 
 export function auditRnStyleText(rel, src) {
   const out = { violations: [], undetermined: [], compliant: 0 }
@@ -398,7 +398,7 @@ export function auditRnStyleText(rel, src) {
   while ((m = RN_BW_RE.exec(kept))) {
     // 零宽豁免:borderWidth: 0 不画边,补色无意义(遗留票复核 11/14 处为此形态,见上注)
     const after = kept.slice(m.index + m[0].length, m.index + m[0].length + 16)
-    if (/^0\s*(?:[,}\r\n;]|$)/.test(after)) {
+    if (/^\s*0\s*(?:[,}\r\n;]|$)/.test(after)) {
       out.compliant++
       continue
     }
@@ -561,7 +561,8 @@ export function emitBaseline(violations, baseline) {
   for (const k of Object.keys(anchors)) if (!(k in counts)) anchors[k] = 0
   return {
     $note:
-      '按钮描边颜色显式化锚点(键 = 文件|border-color-implicit,值 = 该文件在被审面上的存量违规数)。' +
+      '按钮描边颜色显式化锚点(键 = 文件|border-color-implicit 或 文件|border-color-missing-rn,' +
+      '值 = 该文件在被审面上的存量违规数)。' +
       '只拦"这次改动把无基础色的描边加回来了",存量另计批清偿;键消失即视为台账被回写,拒绝落盘。',
     anchors,
   }
@@ -801,6 +802,7 @@ export async function main(argv = process.argv.slice(2), repoRoot = ROOT) {
         scannedFiles: res.files.length,
         borderElems: res.borderElems,
         compliant: res.compliant,
+        rnCompliant: res.rnCompliant,
         violationCount: res.violations.length,
         violations: res.violations,
         red: res.red,
@@ -826,6 +828,7 @@ export async function main(argv = process.argv.slice(2), repoRoot = ROOT) {
     for (const w of res.warns) console.log(`  ⚠ ${w}`)
     console.log(
       `判定面 ${FACE_TXT[res.face]}:扫 ${res.files.length} 个在射程文件、读到 ${res.borderElems} 个带描边词元的元素` +
+        `、RN StyleSheet 配对合规 ${res.rnCompliant} 处` +
         `(共享档常量 ${res.sharedConsts.length} 条按被审面解析;台账锚点 ${Object.keys(res.baseline?.anchors || {}).length} 条)`,
     )
     if (res.anchorInfo?.tightened?.length) {
@@ -1081,6 +1084,54 @@ export async function selfTest(repoRoot = ROOT) {
     const r = A(src)
     return r.violations.length === 0 && r.borderElems === 0
   })
+  t('㉖ RN StyleSheet 对象级配对判据(FAMILY_RN):配对合规/裸宽判红/方向变体/兄弟对象色不救/零宽豁免/展开未判定', () => {
+    const R = (src) => auditRnStyleText('packages/app/src/x.ts', src)
+    const pair = R('const s = StyleSheet.create({ c: { borderWidth: 1, borderColor: "#eee" } })')
+    const naked = R('const s = StyleSheet.create({ c: { borderWidth: 1 } })')
+    const dirOk = R('const s = StyleSheet.create({ c: { borderTopWidth: 1, borderTopColor: k } })')
+    const dirBad = R('const s = StyleSheet.create({ c: { borderTopWidth: 1 } })')
+    const sib = R('const s = StyleSheet.create({ a: { borderWidth: 1 }, b: { borderColor: x } })')
+    const zero = R('const s = StyleSheet.create({ c: { borderWidth: 0, style: "none" } })')
+    const zeroDir = R('const s = StyleSheet.create({ c: { borderLeftWidth: 0 } })')
+    const spread = R('const s = StyleSheet.create({ c: { ...tk.border, borderWidth: 1 } })')
+    return (
+      pair.violations.length === 0 &&
+      pair.compliant === 1 &&
+      naked.violations.length === 1 &&
+      naked.violations[0].family === FAMILY_RN &&
+      dirOk.violations.length === 0 &&
+      dirOk.compliant === 1 &&
+      dirBad.violations.length === 1 &&
+      sib.violations.length === 1 &&
+      zero.violations.length === 0 &&
+      zero.compliant === 1 &&
+      zeroDir.violations.length === 0 &&
+      zeroDir.compliant === 1 &&
+      spread.violations.length === 0 &&
+      spread.undetermined.length === 1 &&
+      spread.undetermined[0].reason === 'rn-style-spread'
+    )
+  })
+  t('㉗ RN 违规行号 = borderWidth 键行(多行对象);嵌套对象取最内层界', () => {
+    const src = ['const s = StyleSheet.create({', '  c: {', '    padding: 4,', '    borderWidth: 1,', '  },', '})'].join('\n')
+    const r = auditRnStyleText('packages/app/src/x.ts', src)
+    const nested = auditRnStyleText('packages/app/src/y.ts', 'const s = StyleSheet.create({ row: { p: 4, box: { borderWidth: 1 } } })')
+    return r.violations.length === 1 && r.violations[0].line === 4 && nested.violations.length === 1
+  })
+  t('㉘ RN 射程:packages/app 与 apps/mobile-rn 的 .ts/.tsx 在射程;web/共享包 .ts 与测试面不在', () => {
+    return (
+      isInScope('packages/app/src/components/SearchInput.tsx') &&
+      isInScope('packages/app/src/features/plan/plan-styles.ts') &&
+      isInScope('apps/mobile-rn/src/components/SideMenu.tsx') &&
+      !isInScope('apps/web/src/lib/utils.ts') &&
+      !isInScope('packages/shared/src/ui/x.ts') &&
+      !isInScope('packages/app/tests/text-field.test.tsx')
+    )
+  })
+  t('㉙ 字面段已带基础色 + 动态标识符 ⇒ 合规(色检查先于 dynamic,7 处未判定自愈路径)', () => {
+    const r = A("<button className={cn('border border-input px-2', active && 'bg-accent')}>ok</button>")
+    return r.violations.length === 0 && r.compliant === 1 && r.undetermined.length === 0
+  })
 
   const { pass, fail, cases } = report()
   for (const r of cases) console.log(`${r.pass ? '✅' : '❌'} ${r.name}${r.pass ? '' : ` —— ${r.got}`}`)
@@ -1104,6 +1155,8 @@ if (isDirectRun) {
 export const __test__ = {
   ROOT,
   FAMILY,
+  FAMILY_RN,
+  RN_DIR_RE,
   BUTTON_VARIANTS_REL,
   BASELINE_REL,
   OUT_OF_SCOPE,
@@ -1115,6 +1168,7 @@ export const __test__ = {
   extractClassInfo,
   sharedBorderConstsOf,
   auditFileText,
+  auditRnStyleText,
   anchorKey,
   countByKey,
   applyRatchet,
