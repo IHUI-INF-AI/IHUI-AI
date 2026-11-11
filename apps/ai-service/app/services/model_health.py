@@ -899,6 +899,16 @@ class ModelHealthService:
                     # 少数厂商只允许流式调用:换 stream=True 再试,避免把可用模型误判为死亡
                     payload["stream"] = True
                     resp = await client.post(chat_url, headers=headers, json=payload)
+                if (
+                    resp.status_code == 403
+                    and "白名单" in (resp.text or "")
+                    and upstream_model != model_id
+                ):
+                    # 自家 relay 网关(workbuddy_relay 等)的白名单按带厂商前缀的 id 登记
+                    # (如 workbuddy/*),剥前缀探测会被 403「模型不在白名单」误杀;
+                    # 换回完整 id 复测一次,避免把真实可用的平台模型判成未验证。
+                    payload["model"] = model_id
+                    resp = await client.post(chat_url, headers=headers, json=payload)
             latency_ms = int((time.monotonic() - start) * 1000)
             # 分类必须基于完整响应文本:关键词可能出现在前 180 字符之后,
             # 只按截断文本分类会漏判余额耗尽/模型不存在等语义。
