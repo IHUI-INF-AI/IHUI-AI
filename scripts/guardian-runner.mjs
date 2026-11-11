@@ -276,11 +276,11 @@ const checks = [
   },
   {
     id: '11e',
-    label: '📏 单文件行数上限 (仅拦新增)',
+    label: '📏 单文件行数/字节上限 (仅拦新增与异常膨胀)',
     script: 'check-file-size.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["apps/"],
+    stagedTriggers: ["**/*"],
   },
   {
     id: '11f',
