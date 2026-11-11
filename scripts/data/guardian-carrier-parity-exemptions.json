@@ -18,6 +18,12 @@
       "owner": "scripts/git-guardian.mjs 的 --install 分支",
       "reason": "它只在 `--install` 那条 argv 分支里被语句位调用,是一次性安装动作而非周期腿;A9 按语句位收它会把它算成腿,故在此点名说明它不该上常驻面(合前缀的同类安装动作没有,故仅此一条)。",
       "expires": "2027-02-01"
+    },
+    {
+      "name": "~initRoundShardResume",
+      "owner": "scripts/git-guardian.mjs 的一次性 main 路径(计划任务档,2026-11-11 深挖定位)",
+      "reason": "它读 guardian-round-cursor.json 做『轮起点断点续跑』—— 属一次性进程的轮初始化职责:daemon 常驻启动期自会做一次轮初始化,后续 10s tick 是『续跑中的轮内 tick』,若搬进常驻面每 tick 重入会反复重置轮起点(有副作用)。故它结构上只该挂 main,登记豁免说明而非改执行路径。",
+      "expires": "2027-02-01"
     }
   ]
 }
