@@ -73,6 +73,7 @@ __all__ = [
     "ResumeOutcome",
     "ResumeResult",
     "ResumeRunner",
+    "RunRegistration",
     "SessionNotFoundError",
     "SteerableLoop",
     "budget_snapshot",
@@ -223,6 +224,26 @@ _records: dict[str, _RunRecord] = {}
 _lock = asyncio.Lock()
 
 
+class RunRegistration(StrEnum):
+    """`register_run` 的登记结论(封闭集,AIS-005)。
+
+    旧实现是覆盖写且无返回值 ⇒ 同会话第二个 run 会**顶掉**第一个的登记:原 run 从此
+    失去暂停/续跑载体,而两个 run 同时改文件、耗额度(双跑)。这里把结论显式化:
+
+    - ``REGISTERED``:本次真的占住该会话;
+    - ``REUSED``:同属主已有一个**未终态**的 run 在飞 —— 不覆盖,沿用原登记;
+    - ``CONFLICT``:未终态 run 属于别人 —— 不覆盖,也不泄露对方身份;
+    - ``SKIPPED``:空 session/owner,不建记录(既有语义)。
+
+    返回值刻意不改参数表:既有调用方忽略返回值即等价于旧行为(仅"不覆盖"生效)。
+    """
+
+    REGISTERED = "registered"
+    REUSED = "reused"
+    CONFLICT = "conflict"
+    SKIPPED = "skipped"
+
+
 def _purge_expired(now: float) -> None:
     """清掉过期条目。只在写入路径调用(读路径全表扫描会把 O(n) 摊到每次请求上)。"""
     expired = [sid for sid, rec in _records.items() if rec.expires_at <= now]
@@ -236,17 +257,32 @@ async def register_run(
     owner_user_id: str,
     loop: PausableLoop,
     max_turns: int | None = None,
-) -> None:
+) -> RunRegistration:
     """登记一个开始执行的 run。`owner_user_id` 必须是**令牌主体**,不得取请求体字段。
 
     `max_turns` 省略 = 不设轮次上限(零行为变化);执行方也可以每轮经 `note_turn`
     投影同一个上限,两处取值同源(loop 的 max_iterations),不在本层另算一套。
+
+    AIS-005:同会话已有**未终态**的 run 时一律不覆盖(见 `RunRegistration`)——
+    覆盖写会让原 run 失去控制面载体,而两个 run 同时执行就是同会话双跑。paused
+    记录不算未终态(那是"停在这里等续跑"),照旧允许新一轮登记。
     """
     if not session_id or not owner_user_id:
         # 空属主不建记录:一条无主记录等于把该会话交给"任何人都能暂停/续跑"的判定
-        return
+        return RunRegistration.SKIPPED
     now = _clock()
     async with _lock:
+        existing = _records.get(session_id)
+        if existing is not None and existing.expires_at <= now:
+            _records.pop(session_id, None)
+            existing = None
+        if existing is not None and not existing.paused and existing.loop is not None:
+            # 在途(未终态)冲突:原 run 还在跑,登记面不得换主。
+            return (
+                RunRegistration.REUSED
+                if existing.owner_user_id == owner_user_id
+                else RunRegistration.CONFLICT
+            )
         if len(_records) >= _MAX_RECORDS:
             _purge_expired(now)
             while len(_records) >= _MAX_RECORDS:
@@ -266,6 +302,7 @@ async def register_run(
                 max_turns=max_turns if max_turns is not None and max_turns > 0 else None,
             ),
         )
+        return RunRegistration.REGISTERED
 
 
 async def detach_run(

@@ -75,6 +75,25 @@ class OllamaProvider(BaseProvider):
         return payload
 
     @staticmethod
+    def _stream_error_frame(
+        chunk: dict[str, Any], default_model: str
+    ) -> dict[str, Any] | None:
+        """Ollama 流内错误帧({"error": "..."})→ error 事件;非错误帧返回 None。
+
+        上游 OOM / 模型加载失败时 /api/chat 会在流里吐一行 error 对象,
+        必须按终态错误收口,不能当普通 chunk 跳过后再兜底 done(会被判成功)。
+        """
+        err = chunk.get("error")
+        if not err:
+            return None
+        text = err if isinstance(err, str) else json.dumps(err, ensure_ascii=False)
+        return {
+            "type": "error",
+            "message": f"Ollama 流式响应错误: {text}",
+            "model": chunk.get("model") or default_model,
+        }
+
+    @staticmethod
     def _extract_usage(data: dict[str, Any]) -> dict[str, Any]:
         """Ollama eval_count / prompt_eval_count → 标准 usage 格式。"""
         eval_count = data.get("eval_count", 0)
@@ -150,6 +169,15 @@ class OllamaProvider(BaseProvider):
                         )
                         continue
                     msg = chunk.get("message", {})
+                    # 先判错误帧:上游 OOM / 模型加载失败会输出 {"error": "..."},
+                    # 必须立即收口为 error,不得跳过后续补空 usage done。
+                    error_frame = self._stream_error_frame(chunk, _final_model)
+                    if error_frame is not None:
+                        logger.error(
+                            "Ollama 流式返回 error 帧, 终止流: %s", error_frame["message"],
+                        )
+                        yield error_frame
+                        return
                     if msg.get("content"):
                         yield {"type": "chunk", "content": msg["content"]}
                     if msg.get("tool_calls"):
