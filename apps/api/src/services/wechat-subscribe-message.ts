@@ -34,6 +34,17 @@ export function isSubscribeMessageConfigured(): boolean {
   return isWechatMiniConfigured() && Boolean(env.WX_MINI_REMIND_TMPL_ID)
 }
 
+/**
+ * 人事审批通知订阅是否已配置(HR-3,2026-11-11 立)。
+ * HR 用独立模板(WX_MINI_HR_APPROVAL_TMPL_ID),与 edu 催费模板分开申请:
+ * 订阅消息模板的字段 key(thing1/thing2/…)由微信按模板生成,催费模板的
+ * thing8/thing3/amount4/thing10 是学费催缴语义,HR 复用会发错内容。
+ * 未配置 ⇒ HR 通知只走站内信(优雅降级,绝不打断审批主流程)。
+ */
+export function isHrApprovalSubscribeConfigured(): boolean {
+  return isWechatMiniConfigured() && Boolean(env.WX_MINI_HR_APPROVAL_TMPL_ID)
+}
+
 /** 按 userId 反查小程序 openid(user_third_party_accounts, platform='wechat') */
 export async function getWechatMiniOpenId(userId: string): Promise<string | null> {
   const [row] = await db
@@ -71,13 +82,16 @@ export function buildFeeReminderData(studentName: string, dueAmount: number): Su
   }
 }
 
-/** 下发订阅消息(POST cgi-bin/message/subscribe/send) */
+/** 下发订阅消息(POST cgi-bin/message/subscribe/send)。
+ *  templateId 缺省用催费模板(edu 既有调用);HR 审批通知传独立模板 ID 覆盖(HR-3)。 */
 export async function sendSubscribeMessage(
   openId: string,
   data: SubscribeMessageData,
   page?: string,
+  templateId?: string,
 ): Promise<SubscribeSendResult> {
   const accessToken = await getAccessToken()
+  const resolvedTemplateId = templateId || env.WX_MINI_REMIND_TMPL_ID
   const resp = await fetch(
     `https://api.weixin.qq.com/cgi-bin/message/subscribe/send?access_token=${accessToken}`,
     {
@@ -85,7 +99,7 @@ export async function sendSubscribeMessage(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         touser: openId,
-        template_id: env.WX_MINI_REMIND_TMPL_ID,
+        template_id: resolvedTemplateId,
         page,
         data,
       }),
@@ -97,5 +111,35 @@ export async function sendSubscribeMessage(
   // errcode 0 为成功;43101 表示用户未订阅/授权已消耗完,属预期失败
   if (body.errcode === 0) return { ok: true }
   return { ok: false, errcode: body.errcode, errmsg: body.errmsg }
+}
+
+/**
+ * 构造人事审批通知模板 data(HR-3,2026-11-11 立)。
+ *
+ * ⚠️ 字段 key(thing1/thing2/amount3/…)必须与微信公众平台申请的 HR 审批通知模板
+ * 逐字对齐。下面按常见「审批提醒」模板形状给默认:标题(thing1)/内容(thing2)/
+ * 时间(time3)/状态(thing4)。若机主申请的模板字段 key 不同,改这里的 key。
+ * thing 类型限 20 字符;time 类型用 YYYY-MM-DD HH:mm。
+ */
+export function buildHrApprovalNotifyData(input: {
+  title: string
+  content: string
+  at: Date
+}): SubscribeMessageData {
+  const time = new Intl.DateTimeFormat('zh-CN', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(input.at)
+  return {
+    thing1: { value: truncate20(input.title) },
+    thing2: { value: truncate20(input.content) },
+    time3: { value: time },
+    thing4: { value: truncate20('待处理') },
+  }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

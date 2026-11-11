@@ -2703,8 +2703,36 @@
     {
       "version": "7",
       "idx": 388,
+      "when": 1794326410000,
+      "tag": "20261111010000_hr_job_run",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 389,
       "when": 1794388500000,
       "tag": "20261111171500_app_versions_latest_signed_url_repair",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 390,
+      "when": 1794388560000,
+      "tag": "20261111180000_hr_shift_daily",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 391,
+      "when": 1794388620000,
+      "tag": "20261111180100_hr_approval_flow",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 392,
+      "when": 1794388680000,
+      "tag": "20261111180200_ai_task_template",
       "breakpoints": true
     }
   ]
