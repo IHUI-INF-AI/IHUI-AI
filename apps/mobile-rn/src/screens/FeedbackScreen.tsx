@@ -16,7 +16,7 @@
 import { rnSpacing, rnType } from '@ihui/design-tokens'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import * as ImagePicker from 'expo-image-picker'
+import * as ImagePicker from '@/platform/picker'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { FeedbackScreen as SharedFeedbackScreen } from '@ihui/rn-app'
 import { fetchApi, uploadFileMultipart } from '@ihui/api-client'

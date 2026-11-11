@@ -4,7 +4,7 @@
 
 // 平台特有:依赖 React Native API(Platform / Dimensions / PixelRatio / I18nManager),不适合共享
 import { Dimensions, I18nManager, PixelRatio, Platform } from 'react-native'
-import { modelId as deviceModelId } from 'expo-device'
+import { modelId as deviceModelId } from '@/platform/device'
 import { createDeviceFingerprintCollector, type DeviceFingerprintInput } from '@ihui/types'
 
 /**

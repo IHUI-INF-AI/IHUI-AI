@@ -32,9 +32,9 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio'
 import { BlurTargetView } from 'expo-blur'
-import * as FileSystem from 'expo-file-system'
-import * as ImagePicker from 'expo-image-picker'
-import * as MediaLibrary from 'expo-media-library'
+import * as FileSystem from '@/platform/fs'
+import * as ImagePicker from '@/platform/picker'
+import * as MediaLibrary from '@/platform/media-library'
 import { tokens } from '../theme/active-tokens'
 import {
   CategoryInlineBar,

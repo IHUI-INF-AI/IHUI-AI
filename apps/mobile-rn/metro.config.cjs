@@ -334,6 +334,14 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
       // 归一化路径不可解析时,继续走默认链(下方会抛出原始错误)
     }
   }
+  // 平台适配层别名(2026-11-11):'@/*' → src/*,与 tsconfig paths 对齐。
+  // 本文件自建的 resolveRequest 位于 Expo 的 tsconfigPaths 解析器之外,必须自行重定向,
+  // 否则 '@/platform/fs' 在真机/预览下无法解析(红屏)。
+  if (moduleName.startsWith('@/')) {
+    const srcBase = path.join(__dirname, 'src', moduleName.slice(2))
+    const resolved = tryResolveWithExts(srcBase, path.dirname(srcBase), platform)
+    if (resolved) return { type: 'sourceFile', filePath: resolved }
+  }
   // 调试日志
   if (process.env.METRO_DEBUG_RESOLVE) {
     console.error(

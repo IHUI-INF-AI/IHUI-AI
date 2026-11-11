@@ -34,7 +34,7 @@
  *   - **不留半包**:总字节数与探针值不符即报错,不把残包交给安装器(装到一半失败比重下更糟)。
  */
 
-import { File, FileMode } from 'expo-file-system'
+import { File, FileMode } from '@/platform/fs'
 
 /** 4 条是干净 A/B 里聚合最快的可用档(1 条 10.5 KB/s、4 条 94 KB/s、8 条 × 2MB 集体饿死)。 */
 export const DEFAULT_CONCURRENCY = 4

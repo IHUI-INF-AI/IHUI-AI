@@ -36,7 +36,7 @@ import {
 import { appAlert } from '../components/BottomPops'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useNavigation } from '@react-navigation/native'
-import * as ImagePicker from 'expo-image-picker'
+import * as ImagePicker from '@/platform/picker'
 import Clipboard from '@react-native-clipboard/clipboard'
 import { deleteConversation, listConversations, type ConversationDetail } from '@ihui/api-client'
 import { getRnTokens, type RnThemeTokens } from '@ihui/design-tokens'

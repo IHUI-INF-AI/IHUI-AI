@@ -5,7 +5,7 @@
 import { useCallback, useRef, useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
 import { Keyboard, Platform, Share } from 'react-native'
-import { File, Paths } from 'expo-file-system'
+import { File, Paths } from '@/platform/fs'
 import { appAlert } from '../components/BottomPops'
 import { exportCareerReport, getCareerAdvice, type CareerReportFormat } from '@ihui/api-client'
 import { useNavigation } from '@react-navigation/native'

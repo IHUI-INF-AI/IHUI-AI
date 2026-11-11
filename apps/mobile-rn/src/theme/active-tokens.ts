@@ -15,7 +15,7 @@
  */
 import { Appearance, DevSettings } from 'react-native'
 import RNRestart from 'react-native-restart'
-import { File, Paths } from 'expo-file-system'
+import { File, Paths } from '@/platform/fs'
 import { rnDarkTokens, rnLightTokens, type RnThemeTokens } from '@ihui/design-tokens'
 
 export type RnThemeMode = 'light' | 'dark'
