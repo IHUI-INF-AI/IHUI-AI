@@ -479,27 +479,36 @@ test('D23 staged 装车:新增 h-px bg-border ⇒ exit 1(发丝线与单边描�
   }
 })
 
-test('D24 staged:三型排除结构件(分隔件/导引轨/分割器)不冒红,裸线照判(反向锁)', () => {
+test('D24 staged:三型排除结构件(交互式手柄/导引轨/分割器)不冒红,菜单线与裸线照判(反向锁,2026-11-11 收窄)', () => {
   const dir = createRepo({
     'apps/web/app/x/page.tsx':
       'export function P() {\n  return <div className="p-3 space-y-1">a</div>\n}\n',
   })
   try {
+    // 正向锁:三型结构件(型①收窄后须带拖拽交互特征)不许被卷进射程
     stage(
       dir,
       'apps/web/app/x/page.tsx',
-      'export function P() {\n  return <div className="p-3 space-y-1">a</div>\n  <DropdownMenuSeparator className="-mx-1 my-1 h-px bg-muted" />\n  <div role="separator" className="h-px bg-border" />\n  <div className="absolute top-0 bottom-0 w-px bg-border" />\n  <div className="w-full h-px bg-border" />\n}\n',
+      'export function P() {\n  return <div className="p-3 space-y-1">a</div>\n  <div role="separator" aria-orientation="vertical" onPointerDown={grab} className="h-px bg-border" />\n  <div className="absolute top-0 bottom-0 w-px bg-border" />\n  <div className="w-full h-px bg-border" />\n}\n',
     )
     const r = runStaged(dir)
-    assert.equal(r.status, 0, `三型结构件不该被卷进射程\n${r.stdout}`)
-    // 反向锁:同一文件再加一枚裸 h-px bg-border ⇒ 必须拦(排除不许被拿来遮红)
+    assert.equal(r.status, 0, `三型结构件(含交互式手柄)不该被卷进射程\n${r.stdout}`)
+    // 反向锁①(2026-11-11 豁免收窄):菜单分隔组件不带交互特征 ⇒ 必须拦(旧豁免不许复活)
     stage(
       dir,
       'apps/web/app/x/page.tsx',
-      'export function P() {\n  return <div className="p-3 space-y-1">a</div>\n  <DropdownMenuSeparator className="-mx-1 my-1 h-px bg-muted" />\n  <div role="separator" className="h-px bg-border" />\n  <div className="absolute top-0 bottom-0 w-px bg-border" />\n  <div className="w-full h-px bg-border" />\n  <div className="h-px bg-border" />\n}\n',
+      'export function P() {\n  return <div className="p-3 space-y-1">a</div>\n  <div role="separator" aria-orientation="vertical" onPointerDown={grab} className="h-px bg-border" />\n  <div className="absolute top-0 bottom-0 w-px bg-border" />\n  <div className="w-full h-px bg-border" />\n  <DropdownMenuSeparator className="-mx-1 my-1 h-px bg-muted" />\n  <div role="separator" className="h-px bg-border" />\n}\n',
     )
     const r2 = runStaged(dir)
-    assert.equal(r2.status, 1, `裸发丝线必须照判\n${r2.stdout}`)
+    assert.equal(r2.status, 1, `菜单分隔线与裸 role=separator 纯线不再豁免,必须拦提交\n${r2.stdout}`)
+    // 反向锁②:再加一枚裸 h-px bg-border ⇒ 照判(排除不许被拿来遮红)
+    stage(
+      dir,
+      'apps/web/app/x/page.tsx',
+      'export function P() {\n  return <div className="p-3 space-y-1">a</div>\n  <div role="separator" aria-orientation="vertical" onPointerDown={grab} className="h-px bg-border" />\n  <div className="absolute top-0 bottom-0 w-px bg-border" />\n  <div className="w-full h-px bg-border" />\n  <DropdownMenuSeparator className="-mx-1 my-1 h-px bg-muted" />\n  <div role="separator" className="h-px bg-border" />\n  <div className="h-px bg-border" />\n}\n',
+    )
+    const r3 = runStaged(dir)
+    assert.equal(r3.status, 1, `裸发丝线必须照判\n${r3.stdout}`)
   } finally {
     rmScratch(dir)
   }
@@ -602,18 +611,18 @@ test('D27 staged 装车:border-t border-[var(--color-border)] ⇒ exit 1;彩色�
   }
 })
 
-test('D28 全量档锁:只报数不判两族(h-px bg-border / role="separator")不得冒红', () => {
+test('D28 全量档锁:发丝线只报数不判,收窄后裸 role="separator" 入数、交互式手柄不入(2026-11-11)', () => {
   const dir = createRepo({
     'apps/web/app/x/page.tsx':
-      'export function P() {\n  return (\n    <div>\n      <div className="h-px bg-border" />\n      <div role="separator" className="h-px bg-border" />\n    </div>\n  )\n}\n',
+      'export function P() {\n  return (\n    <div>\n      <div className="h-px bg-border" />\n      <div role="separator" className="h-px bg-border" />\n      <div role="separator" aria-orientation="vertical" onPointerDown={grab} className="h-px bg-border" />\n    </div>\n  )\n}\n',
   })
   try {
     const r = runHead(dir)
-    assert.equal(r.status, 0, `全量档两族只报数不判,exit 必须 0\n${r.stdout}`)
+    assert.equal(r.status, 0, `全量档只报数不判,exit 必须 0\n${r.stdout}`)
     assert.equal(
       (r.stdout.match(/\[bg hairline divider\]/g) || []).length,
-      1,
-      `裸 h-px 报数 1 条;role="separator" 必须维持放过,不许改成红\n${r.stdout}`,
+      2,
+      `裸 h-px 与裸 role="separator" 各报 1 条(2026-11-11 收窄:菜单线不再豁免);带交互特征的手柄必须维持放过,不许入数\n${r.stdout}`,
     )
     assert.match(r.stdout, /存量/, '只报数:落在存量档而非拦截档')
   } finally {

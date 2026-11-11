@@ -454,7 +454,7 @@ export default function AgentStepRecorderPage() {
                 <button
                   onClick={() => void loadRun(runId, Math.max(1, page - 1))}
                   disabled={page <= 1}
-                  className="rounded-sm border px-3 py-1 transition hover:bg-muted disabled:opacity-40"
+                  className="rounded-sm border border-input px-3 py-1 transition hover:bg-muted disabled:opacity-40"
                 >
                   {t('prev')}
                 </button>
@@ -464,7 +464,7 @@ export default function AgentStepRecorderPage() {
                 <button
                   onClick={() => void loadRun(runId, Math.min(totalPages, page + 1))}
                   disabled={page >= totalPages}
-                  className="rounded-sm border px-3 py-1 transition hover:bg-muted disabled:opacity-40"
+                  className="rounded-sm border border-input px-3 py-1 transition hover:bg-muted disabled:opacity-40"
                 >
                   {t('next')}
                 </button>

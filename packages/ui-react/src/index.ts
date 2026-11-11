@@ -55,7 +55,6 @@ export {
   SelectContent,
   SelectLabel,
   SelectItem,
-  SelectSeparator,
   SelectScrollUpButton,
   SelectScrollDownButton,
 } from './components/select'

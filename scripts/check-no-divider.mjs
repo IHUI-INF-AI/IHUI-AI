@@ -28,7 +28,9 @@
  * 族 4/6 的形状重载补档(2026-10-23 L29015):**背景色发丝线** —— `h-px bg-border` /
  * RN `{ height: 1, backgroundColor: tk.border.light }` 与单边描边是同一个视觉动作(线由背景色画),
  * 并入同一把差值棘轮。形状被三型结构件重载,全部在命中**之前**按可机械判定指纹排除(§12e:
- * 把这三型判红就是恒红门):菜单/下拉 `role="separator"`(含 Separator 组件定义行)、
+ * 把这三型判红就是恒红门):交互式手柄 `role="separator"`(2026-11-11 豁免收窄:须同时带拖拽/
+ * 调整交互特征 `aria-orientation`/`onPointerDown`/`onMouseDown`/`tabIndex` 才放过 —— 菜单分割线
+ * 曾借旧"语义分隔件"豁免整族漏网,机主定档清零 ⇒ 菜单类分隔组件命中纯线形状照判)、
  * 时间线/树 `absolute`+上界成对 + `w-px` 竖向导引轨、`pane-split` 分割器的 `w-full h-px`;
  * 三型指纹与 `check-hairline-separator.mjs` 共用 `structuralTypeOf`(§0.6,同一把尺子)。
  * 反向锁:裸 `h-px bg-border` 照判;`absolute` + `h-px` 横轴**不**享轨出口;
@@ -119,11 +121,13 @@ check-no-divider.mjs — 分割线守门
   - .css 里的单边声明(border-top: 1px solid var(--color-border)):同一把差值棘轮 BLOCKING
   - RN/Taro 样式对象单边宽({ borderTopWidth: 1, ... }):同一把差值棘轮 BLOCKING
   - 背景色发丝线(h-px bg-border / RN { height: 1, backgroundColor: 中性 }):同一把差值棘轮 BLOCKING
-    排除:role="separator" 菜单线 / absolute+上界成对 + w-px 竖导引轨 / w-full h-px 分割器
+    排除:带拖拽交互特征(aria-orientation/onPointerDown/onMouseDown/tabIndex)的 role="separator" 手柄
+        / absolute+上界成对 + w-px 竖导引轨 / w-full h-px 分割器
+        (2026-11-11 收窄:菜单类分隔组件 DropdownMenuSeparator / .Separator / divider:true 不再豁免,照判)
   - 代码文件字符串里的生成式 CSS(邮件/落地页/第三方主题):WARN 逐条报数,不拦提交
   放过:整圈边框 / 双轴 / ≥2px 粗边 / 彩色或 transparent / 横竖同格(网格收口) /
         竖边+同轴 m?p? 缩进轨(引用块左条)/ 宽度 0 擦除(last:border-0、border-bottom:none) /
-        发丝线三型结构件(separator/导引轨/分割器)/ 发丝线彩色 bg 与文字色档(bg-muted-foreground)
+        发丝线三型结构件(交互式手柄/导引轨/分割器)/ 发丝线彩色 bg 与文字色档(bg-muted-foreground)
 `)
   process.exit(0)
 }
@@ -328,15 +332,19 @@ export function classifyDividerLine(line) {
 
 // ─────────────────────── 族 7:背景色发丝线(class 面,并入族 4 的棘轮) ───────────────────────
 // `h-px bg-border` 与 `border-b border-border` 画的是同一条视觉线 —— 线由背景色画(L29015 票)。
-// 形状被三型结构件重载:菜单/下拉 role="separator"、时间线/树竖向导引轨、pane-split 分割器。
+// 形状被三型结构件重载:交互式手柄 role="separator"(带拖拽交互特征)、时间线/树竖向导引轨、pane-split 分割器。
 // 排除指纹全部走在命中**之前**,且只认机械形状不做语义猜测;判据宁窄勿宽,漏的由全量档报数暴露。
 
 /** 轴 token:h-px / h-[1px](横向发丝)、w-px / w-[1px](纵向发丝)。任意值只吃 1px,其余不判 */
 const HAIRLINE_AXIS_RE = /^[hw]-(?:px|\[1px\])$/
 
-/** 排除指纹①:语义分隔件 —— 组件定义行与调用点都是"菜单里的那条 separator",不是页面分隔线 */
-const EX_SEP_RE =
-  /role\s*=\s*["']?separator|\.Separator\b|Separator\s+className=|["']-mx-1 my-1 h-px/
+/**
+ * 排除指纹①(2026-11-11 收窄为"交互式手柄"):拖拽/调整交互特征。
+ * 缘由:菜单分割线借旧"语义分隔件"豁免整族漏网(Radix Separator 调用点、定义行默认类
+ * `-mx-1 my-1 h-px`、divider:true 渲染线全在旧指纹内),机主定档清零 ⇒ role="separator" /
+ * 宿主 *Separator 只有**同时**带下列特征之一才放过;菜单类分隔组件命中纯线形状照判。
+ */
+const HANDLE_INTERACTION_RE = /aria-orientation|onPointerDown|onMouseDown|tabIndex/
 
 /**
  * 这一枚 class 是不是背景档、是不是中性。与描边族同一张表(NEUTRAL_COLOR_ROOTS + gray 系色阶)。
@@ -360,7 +368,7 @@ export function classifyBgToken(cls) {
 // ── 三型结构件的**唯一**指纹实现(§0.6)──────────────────────────────────────
 // `check-hairline-separator.mjs` 已 import 本段,两边不再是"两把尺子":
 // 同一枚发丝线在族 7 与本门得到同一判定。判据只认机械形状,不做语义猜测:
-//   型① role="separator" / 宿主 *Separator / `.Separator` 定义行;
+//   型① role="separator" / 宿主 *Separator **且**同时带拖拽交互特征(2026-11-11 收窄,菜单线不再豁免);
 //   型② 竖轴 w-px + (absolute 且上界成对,或 h-full/flex-1 撑满);
 //   型③ cursor-col/row-resize / pane-split|resizer|*-handle / 通宽 w-full+h-px。
 // 反向锁:横向 absolute+h-px 不享轨出口;裸 h-px 照判(见 11d 自检 S60–S63)。
@@ -479,21 +487,21 @@ export function ownerNameOf(text, idx) {
  * @returns {{type:string, why:string}|null} null = 不属三型(交棘轮)
  */
 export function structuralTypeOf({ relPath = '', text = '', idx = 0, surface = '' }) {
-  // 型① 语义分隔件(ARIA role / 宿主 *Separator / Separator 定义行)
-  if (
-    /role\s*=\s*["'{][^}]*\bseparator\b/.test(elementWindow(text, idx)) ||
-    EX_SEP_RE.test(surface)
-  ) {
-    return {
-      type: 'semantic-separator',
-      why: 'role="separator" / *Separator 原语 / Separator 定义行 ⇒ ARIA 语义分隔件',
-    }
-  }
+  // 型① 交互式手柄(2026-11-11 由"语义分隔件"收窄):role="separator" / 宿主 *Separator 必须
+  // **同时**带拖拽/调整交互特征(aria-orientation、onPointerDown/onMouseDown、tabIndex)才放过。
+  // 收窄缘由:菜单分割线借旧豁免整族漏网(Radix Separator 调用点、定义行默认类 `-mx-1 my-1 h-px`、
+  // divider:true 渲染线全在旧指纹内),机主定档清零 ⇒ 菜单类分隔组件命中纯线形状照判。
+  // §12e 宁窄勿宽的反向照顾:带文本标题的折叠结构件(compression-divider)本就不带纯线形状,
+  // 不靠这条豁免活着,不必为它开"文本节点"出口。
+  const win = elementWindow(text, idx)
   const tag = jsxTagNameAt(text, idx)
-  if (tag && /(^|\.)[A-Za-z]*Separator$/.test(tag)) {
+  const sepHost =
+    /role\s*=\s*["'{][^}]*\bseparator\b/.test(win) ||
+    (tag !== null && /(^|\.)[A-Za-z]*Separator$/.test(tag))
+  if (sepHost && HANDLE_INTERACTION_RE.test(win)) {
     return {
       type: 'semantic-separator',
-      why: `宿主组件是 ${tag} ⇒ Radix 分隔件原语(自带 role=separator)`,
+      why: `role="separator" / ${tag ?? '宿主'} 带拖拽交互特征(aria-orientation/onPointerDown/onMouseDown/tabIndex) ⇒ 交互式手柄`,
     }
   }
   const tokens = []
@@ -1611,16 +1619,30 @@ export function selfTest() {
     ok(hit2('  <div className="h-px bg-card" />')?.level === 'blocking')
     ok(hit2('  <div className="h-px bg-background" />')?.level === 'blocking')
   })
-  t('S61 族 7 排除①语义分隔件:separator 三态放过,裸线照判(反向锁)', () => {
-    ok(hit2('  <DropdownMenuSeparator className="-mx-1 my-1 h-px bg-muted" />') === null)
-    ok(hit2('  <div role="separator" className="h-px bg-border" />') === null)
-    ok(hit2('  <Separator className="h-px bg-muted" />') === null)
+  t('S61 族 7 排除①收窄为交互式手柄(2026-11-11):拖拽手柄放过,菜单分隔线判红', () => {
+    // 交互式手柄:role=separator + 拖拽/调整特征(aria-orientation / onPointerDown / tabIndex)⇒ 放过
     ok(
       hit2(
-        '  const Separator = ({ className }) => <div className={cn(".Separator h-px", className)} />',
+        '  <div role="separator" aria-orientation="vertical" onPointerDown={start} className="w-px bg-border" />',
       ) === null,
+      '拖拽手柄必须放过',
     )
-    // 反向锁:没有分隔件结构件的同一形状必须照判(排除不许被拿来遮红)
+    ok(
+      hit2('  <Separator aria-orientation="horizontal" className="h-px bg-muted" />') === null,
+      '*Separator 宿主 + 交互特征放过',
+    )
+    // 菜单类分隔组件不再享豁免:命中纯线形状 ⇒ 判红
+    ok(
+      hit2('  <DropdownMenuSeparator className="-mx-1 my-1 h-px bg-muted" />')?.level ===
+        'blocking',
+      '菜单分隔线判红(旧豁免的后门)',
+    )
+    ok(hit2('  <Separator className="h-px bg-muted" />')?.level === 'blocking', '无交互特征判红')
+    ok(
+      hit2('  <div role="separator" className="h-px bg-border" />')?.level === 'blocking',
+      'role=separator 无交互特征判红',
+    )
+    // 反向锁:没有任何分隔件的同一形状必须照判(排除不许被拿来遮红)
     ok(hit2('  <div className="h-px bg-muted" />')?.level === 'blocking')
   })
   t('S62 族 7 排除②导引轨:absolute+上界成对 + w-px 放过;裸 h-full/flex-1 照判(与尺子 railSuspect 同判)', () => {

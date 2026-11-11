@@ -36,8 +36,9 @@
 #   ① 每次 build 覆盖同名 tag ⇒ 回滚没有可指的旧引用;
 #   ② 无法回答"正在跑的是哪一次提交构建出来的";
 #   ③ 一旦将来给 CI 加上 push:true,:latest 会被原样推上公网,变成真正的漂移源。
-# 默认值 local 是**非版本占位**(语义 = 本机构建产物,不得用于生产),不是猜出来的版本号;
-# 发布/回滚必须显式注入 IHUI_IMAGE_TAG=某个 git sha 或发布 tag。
+# IHUI_IMAGE_TAG **未设即失败**(compose 解析期报 required variable 错,不会带着占位 tag 起服务):
+# 默认值 local 这类非版本占位已被移除 —— 静默回落占位 tag 会让"忘了注入"与"刻意本机"不可区分。
+# 发布/回滚必须显式注入 IHUI_IMAGE_TAG=某个 git sha 或发布 tag;本机试跑同样显式给一个(如 HEAD sha)。
 # ============================================================================
 # 可观测性服务 Profile(2026-07-25 立)
 # ============================================================================
@@ -52,7 +53,7 @@ services:
     build:
       context: .
       dockerfile: deploy/docker/Dockerfile.api
-    image: ihui-api:${IHUI_IMAGE_TAG:-local}
+    image: ihui-api:${IHUI_IMAGE_TAG:?IHUI_IMAGE_TAG must be set}
     container_name: ihui-api
     # 非 root:镜像(Dockerfile.api)内已 USER apijs,这里显式声明与之一致;
     # 并补 CPU/内存上限,避免单容器吃满宿主机。
@@ -169,7 +170,7 @@ services:
     build:
       context: .
       dockerfile: deploy/docker/Dockerfile.api
-    image: ihui-api:${IHUI_IMAGE_TAG:-local}
+    image: ihui-api:${IHUI_IMAGE_TAG:?IHUI_IMAGE_TAG must be set}
     container_name: ihui-worker
     user: apijs
     deploy:
@@ -241,7 +242,7 @@ services:
     build:
       context: .
       dockerfile: deploy/docker/Dockerfile.web
-    image: ihui-web:${IHUI_IMAGE_TAG:-local}
+    image: ihui-web:${IHUI_IMAGE_TAG:?IHUI_IMAGE_TAG must be set}
     container_name: ihui-web
     # nginx 官方(非 unprivileged)镜像的 master 需 root 写 pid/log,强行 user:
     # 会破坏启动;非 root 改造须换 nginxinc/nginx-unprivileged 基础镜像,
@@ -273,19 +274,16 @@ services:
         condition: service_healthy
     networks:
       - ihui-net
-    healthcheck:
-      test: ['CMD', 'wget', '--spider', '-q', 'http://127.0.0.1:8801/']
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 20s
+    # (2026-11-11 台账票 B40 顺手收口:此处原有第二个 healthcheck 块与上方 /health 块
+    #  重复(YAML 重复键,docker compose config 直接报 mapping key already defined),已删;
+    #  保留上方带注释、指向 nginx.web.conf /health 端点的那一份。)
 
   # AI 服务(FastAPI + LangGraph + LiteLLM + MCP)
   ai-service:
     build:
       context: ./apps/ai-service
       dockerfile: Dockerfile
-    image: ihui-ai-service:${IHUI_IMAGE_TAG:-local}
+    image: ihui-ai-service:${IHUI_IMAGE_TAG:?IHUI_IMAGE_TAG must be set}
     container_name: ihui-ai-service
     # 镜像(apps/ai-service/Dockerfile)内已 USER aiuser,显式声明与之一致。
     user: aiuser
@@ -389,7 +387,7 @@ services:
     build:
       context: .
       dockerfile: deploy/docker/Dockerfile.migrate
-    image: ihui-migrate:${IHUI_IMAGE_TAG:-local}
+    image: ihui-migrate:${IHUI_IMAGE_TAG:?IHUI_IMAGE_TAG must be set}
     container_name: ihui-migrate
     # 镜像(Dockerfile.migrate)内已 USER migratejs,显式声明与之一致。
     user: migratejs

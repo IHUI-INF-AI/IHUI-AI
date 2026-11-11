@@ -90,4 +90,20 @@ test('P5 不扩二:--reap 执行段形状锁——自动回收绝不派生删分
   assert.match(body, /回收 \$\{removed\} 个/, '成功结论行前缀契约(调度器按它读数)')
   assert.match(body, /locked=.*dirty=.*merged=.*idle=/, 'dry-run 必须逐条打印四闸读数(空转修没修好要靠它核)')
 })
+
+test('P8 删除腿形态锁:robocopy 必须带 maxBuffer(2026-11-11 实测 9/24 假失败根因)', () => {
+  const src = readFileSync(
+    join(dirname(fileURLToPath(import.meta.url)), '..', 'agent-worktree.mjs'),
+    'utf8',
+  )
+  const from = src.indexOf('function robustRemoveWorktreeDir')
+  const to = src.indexOf('export function evaluateReapCandidate')
+  assert.ok(from > 0 && to > from, '切不到 robustRemoveWorktreeDir(锚点漂了 ⇒ 本条恒真,§22c 形态锁)')
+  const rc = src.indexOf("'robocopy'", from)
+  assert.ok(rc > 0 && rc < to, 'robocopy 调用不在删除腿内')
+  const seg = src.slice(rc, src.indexOf('} catch', rc))
+  // 阴性对照:摘掉 maxBuffer ⇒ 默认 1MB 被大树错误行撑爆(ENOBUFS ⇒ e.status 缺失 ⇒ 误入 code<0 兜底腿假失败)
+  assert.match(seg, /maxBuffer\s*:/, 'robocopy 缺 maxBuffer ⇒ ENOBUFS 假失败根因复发')
+  assert.match(seg, /timeout\s*:/, 'robocopy 必须保留超时上限(守门 80:热路径派生一律带上限)')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
