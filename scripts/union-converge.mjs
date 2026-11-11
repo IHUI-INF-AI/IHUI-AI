@@ -3741,7 +3741,9 @@ function selfTest() {
         gF('add', '-A')
         gF('commit', '-qm', 'theirs')
         const theirsF = gF('rev-parse', 'HEAD').trim()
-        gF('update-ref', REFF, oursF, baseF)
+        // CAS 旧值必须是此刻 ref 的真实位置 theirsF(main 已被上一行 commit 推进)——
+        // 57bac66a17f 误写成 baseF,自检从 2026-11-09 起在此处必红。
+        gF('update-ref', REFF, oursF, theirsF)
         const pF = plan(oursF, theirsF, dF)
         const shortRows = (list) => list.filter((s) => String(s).includes('未存活行'))
         ok(

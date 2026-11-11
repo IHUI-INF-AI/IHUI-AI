@@ -38,7 +38,8 @@
  *   --fetch       从 origin 拉回全部 tag(以 origin 为权威校准本地)
  *   --auto-push   把本地**未上 origin**的 tag 推到 origin(用 --atomic 防止半失败)
  *   --dry-run     配合 --auto-push 用,只打印将要 push 的 tag 不实际 push
- *   --force       强制 push(覆盖远端),默认不允许
+ *   --force       绕过限流与积压闸门。不得用无保护的 force 覆盖远端已有且 SHA 不同的
+ *                 backup/* 与 lost-commit/*;远端 SHA 不同时拒绝覆盖并点名
  *   --json        配合 --check 用,输出 JSON 格式结果(给 CI/上层调用方)
  *   --help        打印帮助并 exit 0
  *
@@ -69,13 +70,14 @@
  *   - 手动验证: git gc 后跑 --fetch 拉回 + --check 确认一致
  *   - 定时任务: 每周一检查 tag 完整性(见 docs/lost-commit-archive.md 防护机制)
  */
-import { execSync } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
+import { readFileSync, writeFileSync } from 'node:fs'
 // 2026-10-16 取材层收口(face-reader 棘轮:型 C 自拼 batch 零容忍 + 型 A 裸 git 只减不增):
 // 三处只读 git 派生全部改走共用层 —— for-each-ref / ls-remote 走 `gitRaw`(绝对路径 git +
 // safe.directory + quotepath + 显式 stdio + EBUSY 兜底),`cat-file --batch-check` 走
 // `catBatchCheck`(层内统一的 stdio[0]=pipe / 去重 / 块护栏 / missing 解析)。
 // 失败语义不变:取不到 ⇒ 该面折空表 / 全体判不可达并点名原因(宁可响,绝不假绿,§0.3)。
-import { gitRaw, catBatchCheck } from './lib/face-reader.mjs'
+import { gitRaw, catBatchCheck, gitBinary } from './lib/face-reader.mjs'
 
 const C = {
   red: '\x1b[31m',
@@ -171,23 +173,99 @@ const LIST_CAP = envPositiveInt('IHUI_TAG_LIST_CAP', 20)
 // 本机 GitHub 直连被墙,这条不是可选优化:没有它,凡是走网络的 tag 同步就是无界阻塞。
 const NET_TIMEOUT_ARGS = ['-c', 'http.lowSpeedLimit=1000', '-c', 'http.lowSpeedTime=20']
 
-function run(cmd, opts = {}) {
+/**
+ * 参数数组派生 git,不经 shell。
+ * tag 名是合法 ref 的一部分,可以含 `;` `&` `|` 等;拼进 execSync 字符串后会被 cmd.exe 当命令执行。
+ * shell 固定 false,且排在 opts 展开之后,调用方盖不掉。
+ */
+function runGit(args, opts = {}) {
+  if (!Array.isArray(args) || args.some((a) => typeof a !== 'string')) {
+    throw new Error('runGit 只接受字符串参数数组,拒绝把命令拼进 shell')
+  }
+  const { allowFail = false, ...execOpts } = opts
   try {
-    return execSync(cmd, {
+    const out = execFileSync(gitBinary(), args, {
       encoding: 'utf8',
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      // 返回值被消费(.trim() 后 return)⇒ stdout 仍须 pipe,只把 stdin 切掉
-      stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
       // 兜底硬上限(2026-10-21):调用方没显式给 timeout 时也必须封顶;显式 opts 仍可覆盖。
       // 与 NET_TIMEOUT_ARGS 分工:这一层管"进程被 kill",那一层管"git 自己先放弃" ——
       // 前者在 Windows 上杀不干净孙进程,所以网络命令两个都要。
       timeout: 120000,
-      ...opts,
-    }).trim()
+      ...execOpts,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY。
+      // 返回值被消费(.trim() 后 return)⇒ stdout 仍须 pipe;调用方可以改 stdin(push 用 pipe)。
+      stdio: execOpts.stdio ?? ['ignore', 'pipe', 'pipe'],
+      shell: false,
+    })
+    return String(out ?? '').trim()
   } catch (e) {
-    if (opts.allowFail) return ''
+    if (allowFail) return ''
     throw e
+  }
+}
+
+/**
+ * cmd.exe / sh 会把这些字符当成拆命令、管道或重定向。
+ * 合法 git ref 可以包含它们,所以备份族必须走参数数组;非备份族一律拒绝,不许进任何派生命令。
+ */
+const SHELL_EXEC_META = /[;&|`$<>%"'\r\n]/
+
+function isDangerousNonBackupRef(tag) {
+  return typeof tag === 'string' && !isBackupNamespace(tag) && SHELL_EXEC_META.test(tag)
+}
+
+/** 备份族里,远端已有同名且 peel 后 SHA 不同的 tag。这些不许被 force 覆盖。 */
+function backupShaConflicts(localMap, remoteMap) {
+  const out = []
+  for (const [tag, local] of localMap) {
+    if (!isBackupNamespace(tag)) continue
+    if (!remoteMap.has(tag)) continue
+    const remote = remoteMap.get(tag)
+    if (remote !== local) out.push({ tag, local, remote })
+  }
+  out.sort((a, b) => a.tag.localeCompare(b.tag))
+  return out
+}
+
+/**
+ * 组装 `git push --atomic`(每个 refspec 独立参数)。
+ * 永不带 `--force` / `+refs/...`:空 refspec 会退化成推当前分支,直接拒绝。
+ */
+function buildTagPushArgv(tags) {
+  if (!Array.isArray(tags) || tags.length === 0) {
+    throw new Error('拒绝空 refspec 的 push(空参数会推当前分支)')
+  }
+  const argv = [...NET_TIMEOUT_ARGS, 'push', '--atomic', 'origin']
+  for (const tag of tags) {
+    if (typeof tag !== 'string' || tag.length === 0) throw new Error('拒绝空 tag 名')
+    if (isDangerousNonBackupRef(tag)) {
+      throw new Error(`拒绝把非备份族危险 ref 放进推送命令: ${tag}`)
+    }
+    if (/[\s]/.test(tag) || tag.startsWith('-')) {
+      throw new Error(`拒绝把可疑 ref 放进推送命令: ${tag}`)
+    }
+    argv.push(`refs/tags/${tag}`)
+  }
+  if (argv.some((a) => a === '--force' || a === '--force-with-lease' || a.startsWith('+'))) {
+    throw new Error('推送参数不得包含无保护的 force')
+  }
+  return argv
+}
+
+function readThrottleStamp(marker) {
+  try {
+    const n = Number(String(readFileSync(marker, 'utf8')).trim())
+    return Number.isFinite(n) ? n : 0
+  } catch {
+    return 0
+  }
+}
+
+function writeThrottleStamp(marker, now) {
+  try {
+    writeFileSync(marker, String(now))
+  } catch {
+    /* 标记写失败不阻断同步结论 */
   }
 }
 
@@ -210,7 +288,7 @@ function printHelp() {
   console.log('')
   console.log('标志:')
   console.log('  --dry-run     配合 --auto-push 用,只打印不实际 push')
-  console.log('  --force       强制 push(覆盖远端),默认不允许')
+  console.log('  --force       绕过限流与积压闸门;不得覆盖远端已有且 SHA 不同的备份 tag')
   console.log('  --json        配合 --check 用,输出 JSON 格式')
   console.log('  --help        打印本帮助')
   console.log('')
@@ -259,7 +337,7 @@ function listLocalTagMap() {
 
 /** origin 是否**配置了**(不是"配了但连不上"):无该 remote 时 get-url 非零退出 ⇒ ''。 */
 function hasOriginRemote() {
-  return run('git remote get-url origin', { allowFail: true }).length > 0
+  return runGit(['remote', 'get-url', 'origin'], { allowFail: true }).length > 0
 }
 
 /**
@@ -678,10 +756,10 @@ function fetchMode() {
   }
   console.log(`${C.cyan}${C.bold}📥 从 origin 拉回全部 tag(以 origin 为权威校准本地)${C.reset}`)
 
-  const cmd = 'git fetch origin "+refs/tags/*:refs/tags/*"'
-  console.log(`  ${C.dim}$ ${cmd}${C.reset}`)
+  const fetchArgv = [...NET_TIMEOUT_ARGS, 'fetch', 'origin', '+refs/tags/*:refs/tags/*']
+  console.log(`  ${C.dim}$ git fetch origin "+refs/tags/*:refs/tags/*"${C.reset}`)
   try {
-    const stdout = run(cmd)
+    const stdout = runGit(fetchArgv, { timeout: 180000 })
     if (stdout) console.log(stdout)
     console.log(`\n${C.green}✅ fetch 完成,正在校验一致性...${C.reset}`)
     // fetch 后自动 check
@@ -709,12 +787,12 @@ function autoPushMode() {
 
   // ── 限流:间隔内重复调用直接跳过(避免连续 commit 反复 ls-remote)──
   // 注意: linked worktree 下 .git 是文件,须经 git rev-parse --git-dir 解析真实目录
-  const gitDir = run('git rev-parse --git-dir', { allowFail: true }) || '.git'
+  const gitDir = runGit(['rev-parse', '--git-dir'], { allowFail: true }) || '.git'
   const marker = `${gitDir}/ihui-last-tag-sync`
   const now = Date.now()
   if (!isForce) {
     try {
-      const last = Number(run(`cat ${marker}`, { allowFail: true }) || 0)
+      const last = readThrottleStamp(marker)
       if (last && now - last < THROTTLE_MS) {
         console.log(
           `${C.dim}🏷️  tag 同步限流中(距上次 ${Math.round((now - last) / 1000)}s < ${Math.round(THROTTLE_MS / 1000)}s),跳过${C.reset}`,
@@ -737,8 +815,13 @@ function autoPushMode() {
   // ── 增量:只推远端缺失的 tag(2026-09-17 根治全量推 10+ 分钟阻塞)──
   // 远端真值取不到 ⇒ 直接 exit 2:**绝不**把"拿不到清单"当成"远端什么都没有",
   // 那会让 4283 枚本地 tag 全判成待推、再撞积压阈值静默跳过(远端备份形同虚设)。
-  const remoteAll = new Set(requireRemoteTagMap('auto-push').keys())
-  let missing = allLocal.filter((t) => !remoteAll.has(t))
+  const remoteMap = requireRemoteTagMap('auto-push')
+  const conflicts = backupShaConflicts(localMap, remoteMap)
+  const conflictNames = new Set(conflicts.map((c) => c.tag))
+  // 只推远端没有的名字。备份族同名不同 SHA 不在此列:那是覆盖,不是补缺。
+  const onlyLocal = allLocal.filter((t) => !remoteMap.has(t))
+  let dangerous = onlyLocal.filter((t) => isDangerousNonBackupRef(t))
+  let missing = onlyLocal.filter((t) => !isDangerousNonBackupRef(t) && !conflictNames.has(t))
   // 2026-09-24 加 IHUI_TAG_ONLY:剩余缺失项里大多数是**空壳 tag**(对象已不在本机),
   // 逐枚推 = 每枚都要跑一遍推送门再被远端拒收(实测 109 枚要约 3 小时),而可推的只有个位数。
   // 允许调用方给一份精确清单(逗号分隔的短名),只推这些 —— 前提是清单由完整性判据产出:
@@ -748,18 +831,37 @@ function autoPushMode() {
     .map((s) => s.trim().replace(/^refs\/tags\//, ''))
     .filter(Boolean)
   if (only.length) {
-    const set = new Set(missing)
-    const notMissing = only.filter((t) => !set.has(t))
+    const onlyLocalSet = new Set(onlyLocal)
+    const notMissing = only.filter((t) => !onlyLocalSet.has(t))
     if (notMissing.length)
       console.log(
         `${C.yellow}⚠️  IHUI_TAG_ONLY 里 ${notMissing.length} 个不在"仅本地"集合(已远端或不存在),忽略:${C.reset} ${notMissing.slice(0, 3).join(', ')}`,
       )
-    missing = missing.filter((t) => only.includes(t))
+    const onlySet = new Set(only)
+    dangerous = dangerous.filter((t) => onlySet.has(t))
+    missing = missing.filter((t) => onlySet.has(t))
     console.log(`${C.cyan}按 IHUI_TAG_ONLY 精确投递:${missing.length} 个${C.reset}`)
   }
 
+  if (dangerous.length > 0) {
+    console.error(
+      `${C.red}❌ 拒绝把非备份族危险 ref 放进命令(不经 shell 拼字符串,也不当成可执行命令):${C.reset} ${nameList(dangerous)}`,
+    )
+  }
+  // --force 只绕过限流与积压。远端 backup/*、lost-commit/* 已有且 SHA 不同时拒绝覆盖并点名。
+  if (isForce && conflicts.length > 0) {
+    console.error(
+      `${C.red}❌ 拒绝覆盖远端备份 tag(远端已有且 SHA 不同,不用无保护的 --force):${C.reset} ${nameList(conflicts.map((c) => c.tag))}`,
+    )
+    for (const c of conflicts.slice(0, LIST_CAP)) {
+      console.error(`   ${c.tag} 本地 ${c.local} ≠ 远端 ${c.remote}`)
+    }
+  }
+  const refusal = dangerous.length > 0 || (isForce && conflicts.length > 0)
+
   if (missing.length === 0) {
-    run(`printf %s ${now} > ${marker}`, { allowFail: true })
+    if (refusal) process.exit(1)
+    writeThrottleStamp(marker, now)
     console.log(
       `${C.green}✅ 全部 ${allLocal.length} 个 tag 远端已存在,无需 push(增量同步,秒级完成)${C.reset}`,
     )
@@ -782,11 +884,14 @@ function autoPushMode() {
       `${C.dim}   IHUI_TAG_PUSH_CHUNK=20 node scripts/sync-lost-commit-tags.mjs --auto-push --force${C.reset}`,
     )
     console.log(
+      `${C.dim}   --force 只绕过本闸门,不会覆盖远端已有且 SHA 不同的 backup/* 与 lost-commit/*。${C.reset}`,
+    )
+    console.log(
       `${C.dim}   注: 本地 tag 已足以防 git gc 修剪(标签即引用, gc 不会删可达对象); 远端备份仅防本机丢失。${C.reset}`,
     )
     // 写限流标记: 积压未变时后续 commit 直接跳过 ls-remote(再省 10s+)
-    run(`printf %s ${Date.now()} > ${marker}`, { allowFail: true })
-    process.exit(0)
+    writeThrottleStamp(marker, Date.now())
+    process.exit(refusal ? 1 : 0)
   }
   if (missing.length <= 20) {
     for (const tag of missing) console.log(`     ${C.cyan}${tag}${C.reset}`)
@@ -798,7 +903,7 @@ function autoPushMode() {
   if (isDryRun) {
     console.log(`
 ${C.green}✅ dry-run 完成(未实际 push)${C.reset}`)
-    process.exit(0)
+    process.exit(refusal ? 1 : 0)
   }
 
   // 分块 push + 硬超时:任何单块绝不长时间挂起
@@ -811,14 +916,18 @@ ${C.green}✅ dry-run 完成(未实际 push)${C.reset}`)
   }
 
   for (const [idx, chunk] of chunks.entries()) {
-    const refspecs = chunk.map((t) => `refs/tags/${t}`).join(' ')
-    const forceFlag = isForce ? '--force ' : ''
-    const cmd = `git ${NET_TIMEOUT_ARGS.join(' ')} push ${forceFlag}--atomic origin ${refspecs}`
+    let argv
+    try {
+      argv = buildTagPushArgv(chunk)
+    } catch (e) {
+      console.error(`${C.red}❌ 拒绝推送:${C.reset} ${e?.message ?? e}`)
+      process.exit(1)
+    }
     console.log(
-      `  ${C.dim}[${idx + 1}/${chunks.length}] $ git push --atomic origin <${chunk.length} tags>${forceFlag ? ' (--force)' : ''}${C.reset}`,
+      `  ${C.dim}[${idx + 1}/${chunks.length}] $ git push --atomic origin <${chunk.length} tags>${C.reset}`,
     )
     try {
-      run(cmd, { timeout: PUSH_TIMEOUT_MS, stdio: ['pipe', 'pipe', 'pipe'] })
+      runGit(argv, { timeout: PUSH_TIMEOUT_MS, stdio: ['pipe', 'pipe', 'pipe'] })
       pushed += chunk.length
     } catch (e) {
       // 单块失败不阻断:标记未更新,下次提交会重试该块
@@ -869,11 +978,19 @@ ${C.green}✅ dry-run 完成(未实际 push)${C.reset}`)
   }
 
   if (pushed > 0) {
-    run(`printf %s ${Date.now()} > ${marker}`, { allowFail: true })
+    writeThrottleStamp(marker, Date.now())
+    if (refusal) {
+      console.error(
+        `${C.red}❌ 已推送 ${pushed} 个远端缺失 tag,但拒绝覆盖上面点名的备份 tag / 危险 ref${C.reset}`,
+      )
+      process.exit(1)
+    }
     console.log(`
 ${C.green}✅ tag 增量 push 完成:${pushed} 个已同步(本地+远端一致)${C.reset}`)
     process.exit(0)
   }
+
+  if (refusal) process.exit(1)
 
   console.log(`
 ${C.yellow}⚠️  无 tag 成功推送(已由限流/超时保护,不阻断 commit)${C.reset}`)
@@ -923,5 +1040,8 @@ export const __test__ = {
   reachabilityBatch,
   listLocalTagMap,
   lsRemoteTagMap,
+  isDangerousNonBackupRef,
+  backupShaConflicts,
+  buildTagPushArgv,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -39,11 +39,6 @@
  *       都当一个颜色档,于是长出 `.bg-muted-rgb` 这种脏档;那批归 `:root` 的 alpha 区管);
  *    ③ 取不到区/源头沿用本文件既有的「无法判定」语义,不新增退出码。
  *    档位集合与 `-rgb` 剔除都走生成器导出的那**一份**实现,门不自己筛(§4「取源只能有一份实现」)。
- * 4. **第四维:base 受管段**(2026-11-10 追加):`app.css` 里那段「共享基础样式」必须与
- *    `packages/design-tokens/src/styles/base.css` **同源**。前三面只覆盖 tokens.css 的派生档位 ——
- *    base.css 是**另一份源**(reset 与字体回退栈),它改了而没人跑同步器时,前三面**全绿**。
- *    判据走生成器导出的 `mergeAppCssBase`(同源实现:目标端投影 + 按值归一 + 原位写回),
- *    门**不抄第二份**「取 base 段 + 比对」的正则(§4/§22c)。
  *
  * 取材面(2026-09-25 收口,同守门 93/77/83/91/103 口径):默认判 **HEAD blob**,`--staged` 判
  * **索引 blob**(这次提交会带走的那一份 —— 盘上随后改对不算修好),`--worktree` 只作人工逃生舱,
@@ -57,7 +52,7 @@
  *   node scripts/check-miniapp-tokens-sync.mjs --worktree  人工排查(盘上内容,提交链不走这档)
  *   node scripts/check-miniapp-tokens-sync.mjs --quiet     只出错才说话
  *   node scripts/check-miniapp-tokens-sync.mjs --self-test 判据自检(纯内存夹具,不碰真仓)
- * 退出码:0 = 一致;1 = 值漂移 / 缺档 / `@theme` 脏档 / base 段漂移;2 = 无法判定(含两个面旗同给)
+ * 退出码:0 = 一致;1 = 值漂移 / 缺档 / `@theme` 脏档;2 = 无法判定(含两个面旗同给)
  */
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { dirname, join } from 'node:path'
@@ -69,10 +64,8 @@ import {
   deriveMiniappManaged,
   deriveThemeRegistryDecls,
   isAlphaRgbTriple,
-  mergeAppCssBase,
   THEME_SELECTORS,
   TOKENS_SOURCE_REL,
-  BASE_CSS_REL,
   APP_CSS_REL,
 } from './sync-miniapp-tokens.mjs'
 
@@ -100,13 +93,13 @@ const FACE_TXT = {
 }
 
 /**
- * 按判定面取**三份**输入(源 + base + 副本),一次 `cat-file --batch` 同面同轮读完。
+ * 按判定面取**两份**输入(源 + 副本),一次 `cat-file --batch` 同面同轮读完。
  * 混面会在并发会话的瞬间产出假红/假绿;取不到一律抛 `Undetermined`(调用方折成 exit 2),
  * **不回落**到另一个面 —— 回落就是把"没判"写成"判过了"。
  * root/face 都是入参:镜像测试因此能在临时 git 仓里造"索引≠磁盘"的现场,不依赖真仓瞬时状态。
  */
 export function readFaceInputs(repoRoot, face) {
-  const rels = [TOKENS_SOURCE_REL, BASE_CSS_REL, APP_CSS_REL]
+  const rels = [TOKENS_SOURCE_REL, APP_CSS_REL]
   if (face === 'worktree') {
     const out = {}
     for (const rel of rels) {
@@ -168,32 +161,6 @@ export function compare({ tokensCss, appCss }) {
   // 就是第二份真相,而两边不同形的代价固定是"一边判红、一边说不是我写的"(本文件头注第 1 条)。
   const rgbInTheme = [...have['@theme'].keys()].filter((n) => isAlphaRgbTriple(n))
   return { mismatches, missing, extras, rgbInTheme }
-}
-
-/**
- * 第四维:app.css 的 **base 受管段**必须与 `packages/design-tokens/src/styles/base.css` 同源。
- *
- * 为什么这一维是独立的一面(而不是"前三面之外再加一条"):base.css 与 tokens.css 是**两份不同的源**
- * —— tokens.css 管色档/间距/字号,base.css 管 html/body/page 的 reset 与字体回退栈。前面三面
- * 只覆盖 tokens.css 的派生档位,**base.css 改一个字而没人跑同步器,前三面全绿**:实测过这种形态
- * (小程序端 base 段还挂着旧的字体回退栈,而 app.css 的 :root/.dark/@theme 三面逐位同值)。
- *
- * 判据走**生成器那一份实现**:判"app.css 的 base 段是不是该有的样子"这件事只有一个答案 ——
- * 让生成器自己算(`mergeAppCssBase`:按目标端投影 `:where()`、按值归一化空白、原位写回),
- * 写回结果与盘上逐字相同 ⇒ 同源;不相同 ⇒ 漂移。门自己再写一份"取 base 段 + 比对"的正则就是
- * **第二份真相**(§4/§22c:同一判据两处不同形,代价固定是"一边判红、一边说不是我写的")。
- * 因此本门 import 生成器的出口,不在这里抄第二份实现。
- *
- * 归一化按**值**不按排版:app.css 里那段被 prettier 折过行(base.css 原件是单行),按字节比永远不等
- * ⇒ --check 恒红,且每次自动写回都把它改回单行 ⇒ 与格式门互相打架(生成器 2026-10-28 实测)。
- * 排版差异不是漂移,真要换内容时才整段写回。
- *
- * @returns {{drifted:boolean}} drifted=true ⇒ 该段与 base.css 不同源(该跑同步器)
- * @throws {Undetermined} app.css 里既无 base 受管段也无它的 @import ⇒ 判不出(不得冒绿)
- */
-export function compareBaseSection({ appCss, baseCss }) {
-  const merged = mergeAppCssBase(appCss, baseCss)
-  return { drifted: merged !== appCss }
 }
 
 /** 自检:全部纯内存夹具,成对正反 —— 只证"会红"不证"不该红时不红"的判据等于没有。 */
@@ -360,39 +327,6 @@ function selfTest() {
     JSON.stringify(themeBase)
   )
 
-  // ── B 组:base 受管段(第四维)。成对 ——
-  // 只证"漂移会红"而不证"派生态不红",本门就成了一台恒红门(§12e 同型)。
-  const baseSrc = `html,\nbody,\npage {\n  margin: 0;\n  font-family: var(--font-sans, 'PingFang SC', sans-serif);\n}\n`
-  const baseApp = mergeAppCssBase(
-    "@import '../../../packages/design-tokens/src/styles/base.css';\n",
-    baseSrc,
-  )
-  ok(
-    'B1 base 段同源(生成器原样写回的那一份)⇒ 不得判漂移(反恒红)',
-    compareBaseSection({ appCss: baseApp, baseCss: baseSrc }).drifted === false,
-  )
-  ok(
-    'B2 base 段被人改过(改了字体栈却没跑同步器)⇒ 必判漂移(有牙)',
-    compareBaseSection({
-      appCss: baseApp.replace("'PingFang SC'", "'Microsoft YaHei'"),
-      baseCss: baseSrc,
-    }).drifted === true,
-  )
-  ok(
-    'B3 排版差异(同一份内容折行不同)不是漂移 —— 按值归一,不得按字节比',
-    compareBaseSection({
-      appCss: baseApp.replace('html,\nbody,\npage {', 'html, body, page {'),
-      baseCss: baseSrc,
-    }).drifted === false,
-  )
-  ok(
-    'B4 base 段内容变了(多一条声明)⇒ 必判漂移',
-    compareBaseSection({
-      appCss: baseApp.replace('margin: 0;', 'margin: 0;\n  padding: 0;'),
-      baseCss: baseSrc,
-    }).drifted === true,
-  )
-
   for (const r of results) console.log(r)
   const failed = results.filter((r) => r.startsWith('❌')).length
   console.log(failed ? `self-test 失败 ${failed} 条` : `✅ self-test 全通过(${results.length} 条)`)
@@ -424,7 +358,6 @@ function main() {
   }
   const tokensCss = inputs[TOKENS_SOURCE_REL]
   const appCss = inputs[APP_CSS_REL]
-  const baseCss = inputs[BASE_CSS_REL]
 
   const { mismatches, missing, extras, rgbInTheme } = compare({ tokensCss, appCss })
   const managed =
@@ -437,25 +370,13 @@ function main() {
     )
     process.exit(2)
   }
-  // 第四维:base 受管段与 base.css 是否同源。判据 = 生成器自己算一遍(mergeAppCssBase),
-  // 门不抄第二份实现。取不到/判不出 ⇒ exit 2「无法判定」,绝不记绿。
-  let baseDrift
-  try {
-    baseDrift = compareBaseSection({ appCss, baseCss }).drifted
-  } catch (e) {
-    const known = e instanceof Undetermined
-    console.error(
-      `[check-miniapp-tokens-sync] base 受管段判不出(${FACE_TXT[face]})⇒ 无法判定(不记为通过):${known ? e.message : (e?.stack ?? e)}`
-    )
-    process.exit(2)
-  }
   // 两个数都要报:受管档总数 + 真的逐位同值的条数。只报前者的话,"副本整块为空"与
   // "副本完全同步"在结论行上长得一样(都是 All N),而前者是这台门最该喊的那一刻。
   const verified = managed - missing.length - mismatches.length
-  if (mismatches.length === 0 && missing.length === 0 && rgbInTheme.length === 0 && !baseDrift) {
+  if (mismatches.length === 0 && missing.length === 0 && rgbInTheme.length === 0) {
     if (!quiet)
       console.log(
-        `[check-miniapp-tokens-sync] All ${managed} 个受管档逐位同值且无缺档(逐位同值 ${verified}/${managed};另有 ${extras} 个端内自有档,只报数不判红);base 受管段与 ${BASE_CSS_REL} 同源(取材面:${FACE_TXT[face]})`
+        `[check-miniapp-tokens-sync] All ${managed} 个受管档逐位同值且无缺档(逐位同值 ${verified}/${managed};另有 ${extras} 个端内自有档,只报数不判红)(取材面:${FACE_TXT[face]})`
       )
     process.exit(0)
   }
@@ -467,17 +388,13 @@ function main() {
     console.error(
       `  @theme ${n}: --color-*-rgb 三元组不得进 @theme(v4 把任何 --color-* 都当一个颜色档,进了就长出 .bg-*-rgb 脏档)—— 脏档`
     )
-  if (baseDrift)
-    console.error(
-      `  base 受管段: 与 ${BASE_CSS_REL} 不同源(该段已漂移:改了 base.css 却没跑同步器,或有人手改了受管段)—— 漂移`
-    )
   console.error(
     '  修复:pnpm --filter @ihui/miniapp-taro sync-tokens(原位写回,幂等,不动端内自有档与注释)'
   )
   // 结论行必须落在**末行**:镜像测试按末行断言"这句话是关于哪个取材面的"。
   // 把修复提示放在它下面,末行就没有面了 —— 那等于报告里读不出结论的口径(2026-09-25 实测踩过)。
   console.error(
-    `[check-miniapp-tokens-sync] Found ${mismatches.length} 处值漂移 / ${missing.length} 处缺档 / ${rgbInTheme.length} 条 @theme 脏档 / ${baseDrift ? 1 : 0} 处 base 段漂移(逐位同值 ${verified}/${managed};取材面:${FACE_TXT[face]})`
+    `[check-miniapp-tokens-sync] Found ${mismatches.length} 处值漂移 / ${missing.length} 处缺档 / ${rgbInTheme.length} 条 @theme 脏档(逐位同值 ${verified}/${managed};取材面:${FACE_TXT[face]})`
   )
   process.exit(1)
 }
@@ -486,5 +403,5 @@ function main() {
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) main()
 
-export const __test__ = { compare, compareBaseSection, faceFromArgv, readFaceInputs }
+export const __test__ = { compare, faceFromArgv, readFaceInputs }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

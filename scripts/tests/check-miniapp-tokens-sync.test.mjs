@@ -147,39 +147,12 @@ function gitAt(dir, args) {
 const APP_REL = 'apps/miniapp-taro/src/app.css'
 
 /**
- * 给夹具 app.css 装上 base 受管段 —— 走**生成器同源实现**(`gen.mergeAppCssBase`),不手抄标记。
- * 已经自带受管段的(GENERATED 那种)原样保留(幂等)。
- *
- * 为什么必须装:守门 36 的第四维判「app.css 的 base 段与 base.css 同源」,而 base.css 也是它的
- * **输入面** —— 夹具仓不带 base.css 时,门只能判「取不到 ⇒ 无法判定」(exit 2),那不是"有牙",
- * 是"夹具没装这一面"(§0.3:没判 ≠ 判过)。
- */
-function withBaseSection(appCss, baseCss) {
-  if (appCss.includes('共享基础样式')) return appCss
-  return gen.mergeAppCssBase(
-    "@import '../../../packages/design-tokens/src/styles/base.css';\n" + appCss,
-    baseCss,
-  )
-}
-
-/**
  * 建演练仓。**默认建成一个真 git 仓并提交夹具内容** —— 守门 36 的默认判定面是 HEAD blob,
  * 不建提交的话每条夹具用例都会以"取不到"红,而那与判据无关(是夹具失效)。
  * `git:false` = 完全不建仓(证明"取不到 ⇒ 无法判定"而不是回落到磁盘冒绿);
  * `commit:false` = 有仓但没有 HEAD(同一份磁盘内容,判死与判绿只差在这个面上)。
- *
- * `baseCss` = 演练仓里**落盘的** base.css(第四维的判定源);
- * `baseCssInApp` = 装进 app.css 受管段的那一份(默认与 baseCss 相同 —— 不同即"改了 base.css
- * 却没跑同步器"的那个现场)。
  */
-function buildGateFixture({
-  appCss,
-  tokensCss,
-  baseCss = BASE,
-  baseCssInApp = null,
-  git = true,
-  commit = true,
-}) {
+function buildGateFixture({ appCss, tokensCss, git = true, commit = true }) {
   const dir = mkScratch('miniapp-tokens-sync')
   copyScriptWithClosure(SCRIPTS_DIR, 'check-miniapp-tokens-sync.mjs', join(dir, 'scripts'), [
     'lib/design-token-blocks.mjs',
@@ -189,17 +162,10 @@ function buildGateFixture({
   ])
   const appDir = join(dir, 'apps', 'miniapp-taro', 'src')
   mkdirSync(appDir, { recursive: true })
-  if (appCss !== null)
-    writeFileSync(join(appDir, 'app.css'), withBaseSection(appCss, baseCssInApp ?? baseCss))
+  if (appCss !== null) writeFileSync(join(appDir, 'app.css'), appCss)
   const tokDir = join(dir, 'packages', 'design-tokens', 'src', 'styles')
   mkdirSync(tokDir, { recursive: true })
   writeFileSync(join(tokDir, 'tokens.css'), tokensCss)
-  // base.css 是第四维的**判定源**,必须与另两面同面同轮取到(取不到 ⇒ 门只能判"无法判定")。
-  writeFileSync(join(tokDir, 'base.css'), baseCss)
-  // 生成器(端到端用例要真跑一次写回)需要 style.ts:端内色值派生面。
-  const styleDst = join(dir, gen.STYLE_TS_REL)
-  mkdirSync(dirname(styleDst), { recursive: true })
-  writeFileSync(styleDst, STYLE_TS)
   if (!git) return dir
   gitAt(dir, ['init', '-q', '-b', 'main'])
   if (!commit) return dir
@@ -218,9 +184,9 @@ function buildFaceFixture({ tokensCss, appCssHead, appCssIndex, appCssWorktree }
   const index = appCssIndex ?? appCssHead
   const worktree = appCssWorktree ?? index
   const appAbs = join(dir, APP_REL)
-  writeFileSync(appAbs, withBaseSection(index, BASE), 'utf8')
+  writeFileSync(appAbs, index, 'utf8')
   gitAt(dir, ['add', '--', APP_REL])
-  writeFileSync(appAbs, withBaseSection(worktree, BASE), 'utf8')
+  writeFileSync(appAbs, worktree, 'utf8')
   return dir
 }
 
@@ -299,8 +265,8 @@ test('T1 门判定的受管集恰为生成器导出的那几族(副本全空 ⇒
   for (const d of semantic) {
     assert.match(
       d.name,
-      /^--(?:spacing|text|shadow-elevation|radius)(?:-|$)/,
-      `非色档注册只许来自四族(spacing/text/shadow-elevation/radius —— v4 认它们生成 tool class),混入别族会长出脏档:${d.name}`
+      /^--(?:spacing|text|shadow-elevation)-/,
+      `非色档注册只许来自三族(v4 认它们生成 tool class),混入别族会长出脏档:${d.name}`
     )
     assert.notEqual(d.name, '--text-vcenter-offset', 'web 专用补偿不得进注册区(会生成 .text-vcenter-offset 脏档)')
   }
@@ -726,31 +692,15 @@ test('T10 真仓 CLI:三面各 exit 0/1(不得 2),末行写明取材面,红只�
     const r = spawnSync(
       process.execPath,
       [join(SCRIPTS_DIR, 'check-miniapp-tokens-sync.mjs'), ...flag],
-      {
-        cwd: REPO,
-        encoding: 'utf8',
-        windowsHide: true,
-        timeout: 120000,
-        stdio: ['ignore', 'pipe', 'pipe'],
-        // 门体同代自检(gate-body-provenance):**门体改动在飞、尚未入库**时,直跑会判
-        // "门体与被判修订不同代"并 exit 2 —— 那说的是**门体这一代**,不是本用例要验的
-        // 「取材面」行为。显式按工作树门体判(该层唯一的显式声明口),门体换代另有
-        // scripts/tests/gate-body-provenance.test.mjs 自己的用例管。
-        env: { ...process.env, IHUI_GATE_BODY_SOURCE: 'worktree' },
-      }
+      { cwd: REPO, encoding: 'utf8', windowsHide: true, timeout: 120000, stdio: ['ignore', 'pipe', 'pipe'] }
     )
     const out = `${r.stdout ?? ''}${r.stderr ?? ''}`
     assert.ok(
       r.status === 0 || r.status === 1,
       `${flag.join(' ') || '(默认)'} ⇒ exit ${r.status}(2 = 无法判定,真仓三面都不该判不了):\n${out}`
     )
-    // 判的是**末行**而不是整段输出:结论行没有面,下一个人就无从知道这句话关于哪个面。
-    // 门体同代自检那一层会**在门自己的输出之后**再打一行留痕(`[gate-body] …`),那是包装层的
-    // 留痕、不是门的结论行 ⇒ 取"最后一行非 [gate-body] 的输出"作断言对象。
-    const last = out
-      .split(/\r?\n/)
-      .filter((l) => l.trim() && !l.startsWith('[gate-body]'))
-      .pop()
+    // 判的是**末行**而不是整段输出:结论行没有面,下一个人就无从知道这句话关于哪个面
+    const last = out.trim().split(/\r?\n/).pop()
     assert.match(last, EXPECT[flag.join(' ')], `末行未明写取材面:${last}`)
     if (r.status === 1) {
       for (const line of out.split(/\r?\n/).filter((l) => /^ {2}\S+ --\S+?:/.test(l)))
@@ -775,7 +725,7 @@ test('T15 索引内容与磁盘内容不同时 ⇒ --staged 判索引(盘上随�
   try {
     assert.equal(
       readFileSync(join(dir, APP_REL), 'utf8'),
-      withBaseSection(`:root {\n  --color-primary: #fff;\n}\n${THEME}`, BASE),
+      `:root {\n  --color-primary: #fff;\n}\n${THEME}`,
       '夹具失效:工作树没回到同步态,那"读索引≠读磁盘"就没被区分开'
     )
     const staged = runGateCli(dir, ['--staged'])
@@ -847,10 +797,10 @@ test('T18 readFaceInputs:三面各取各自内容;取不到 ⇒ 抛错而不是�
     assert.match(gate.readFaceInputs(dir, 'head')[APP_REL], /#111/)
     assert.match(gate.readFaceInputs(dir, 'staged')[APP_REL], /#222/)
     assert.match(gate.readFaceInputs(dir, 'worktree')[APP_REL], /#333/)
-    // 键集合稳定:main() 按这三个常量取值,换了键就是"取不到 ⇒ exit 2"的隐形来源
+    // 键集合稳定:main() 按这两个常量取值,换了键就是"取不到 ⇒ exit 2"的隐形来源
     assert.deepEqual(
       Object.keys(gate.readFaceInputs(dir, 'head')).sort(),
-      [gen.APP_CSS_REL, gen.BASE_CSS_REL, gen.TOKENS_SOURCE_REL].sort()
+      [gen.APP_CSS_REL, gen.TOKENS_SOURCE_REL].sort()
     )
   } finally {
     rmScratch(dir)
@@ -1016,109 +966,5 @@ test('T21 注册区的写回侧与判定侧各自的装车点必须在位', () =
     false,
     '注册集混进 alpha 三元组 ⇒ v4 会长出 .bg-muted-rgb 这类脏档'
   )
-})
-
-// ─── T24 第四维(base 受管段):有牙 + 反恒红,成对 ───
-// 为什么这一族必须存在:前三面只覆盖 tokens.css 的派生档位 —— 改了 base.css 而没人跑同步器时,
-// 前三面**全绿**,而小程序端的字体回退栈是陈的。判据在而没人调 = 全链恒绿(守门 70/76/81/102 同型)。
-test('T24 base 段与 base.css 不同源(改了 base.css 却没跑同步器)⇒ CLI exit 1 且点名 base 段', () => {
-  const dir = buildGateFixture({
-    tokensCss: TOKENS,
-    appCss: GENERATED,
-    // 落盘的 base.css 是**改过**的那一份;app.css 里装的是改之前的那一段 ⇒ 现场成立
-    baseCss: BASE.replace("'PingFang SC'", "'Microsoft YaHei'"),
-    baseCssInApp: BASE,
-  })
-  try {
-    const r = runGateCli(dir)
-    assert.equal(r.code, 1, `base 段漂移却判绿 ⇒ 第四维对 CLI 全盲:\n${r.out}`)
-    assert.match(r.out, /base 受管段/, r.out)
-    assert.match(r.out, /漂移/, r.out)
-    // 结论行必须在末行:红的时候读不到"关于哪个面",报告就退回旧形态
-    assert.match(r.out.trim().split(/\r?\n/).pop(), /取材面:HEAD blob/, r.out)
-  } finally {
-    rmScratch(dir)
-  }
-})
-
-test('T24b 反向对照:base 段与 base.css 同源 ⇒ 不得判漂移(反恒红,否则这台门只会被 --no-verify 绕过)', () => {
-  const dir = buildGateFixture({ tokensCss: TOKENS, appCss: GENERATED })
-  try {
-    const r = runGateCli(dir)
-    assert.equal(r.code, 0, `同源被判红 ⇒ 本门成了一台恒红门:\n${r.out}`)
-    assert.match(r.out, /base 受管段与 .* 同源/, r.out)
-  } finally {
-    rmScratch(dir)
-  }
-})
-
-// ─── T25 端到端:改 base.css 不跑同步器 ⇒ 门红;跑过同步器 ⇒ 门绿 ───
-// 这一条是验收点本体:两半必须成对,只证"会红"不证"跑过同步器就绿"的判据等于没有。
-test('T25 端到端(演练仓 · 真同步器):改了 base.css 不跑同步器 ⇒ 红;跑过同步器 ⇒ 绿', () => {
-  const NEW_BASE = BASE.replace("'PingFang SC'", "'Microsoft YaHei'")
-  const dir = buildGateFixture({
-    tokensCss: TOKENS,
-    appCss: GENERATED,
-    baseCss: NEW_BASE,
-    baseCssInApp: BASE,
-  })
-  try {
-    const red = runGateCli(dir)
-    assert.equal(red.code, 1, `改了 base.css 不跑同步器 ⇒ 必须判红:\n${red.out}`)
-    assert.match(red.out, /base 受管段/, red.out)
-    // 真跑一次同步器(生成器原样出口),再判同一面(HEAD 面 ⇒ 写回后须入库,否则判的还是旧那份)
-    const gen = runGeneratorCli(dir)
-    assert.equal(gen.code, 0, `同步器跑挂了:\n${gen.out}`)
-    gitAt(dir, ['add', '-A'])
-    gitAt(dir, ['commit', '-q', '-m', 'sync'])
-    const green = runGateCli(dir)
-    assert.equal(green.code, 0, `跑过同步器仍判红 ⇒ 写回链与判定链不同形:\n${green.out}`)
-    assert.match(green.out, /base 受管段与 .* 同源/, green.out)
-  } finally {
-    rmScratch(dir)
-  }
-})
-
-// ─── T26 同源锁:第四维的判据必须走生成器那一份实现 ───
-// 抄第二份 base 段正则 = 两把尺子 = 必然漂(§4/§22c)。锁在**代码面**上判,不看散文。
-test('T26 第四维必须 import 生成器的 mergeAppCssBase,门里不得出现第二份 base 段标记', () => {
-  const gateSrc = readFileSync(join(SCRIPTS_DIR, 'check-miniapp-tokens-sync.mjs'), 'utf8')
-  assert.match(gateSrc, /from '\.\/sync-miniapp-tokens\.mjs'/, '必须从生成器模块 import')
-  assert.match(gateSrc, /mergeAppCssBase/, '门必须用生成器的 mergeAppCssBase(同源实现)')
-  assert.match(
-    gateSrc,
-    /compareBaseSection[\s\S]*mergeAppCssBase\(/,
-    '门的第四维必须真的**调用**它(import 了不调 = 没有)',
-  )
-  assert.equal(
-    /共享基础样式\(自动同步自/.test(gateSrc),
-    false,
-    '门里抄了 base 段标记 ⇒ 第二份真相(标记的真源住在生成器)',
-  )
-  assert.equal(typeof gate.compareBaseSection, 'function')
-})
-
-// ─── T27 提交链触发面:base.css 改动必须唤起小程序 app.css 回写 ───
-// 形状锁(不是行为锁):hook 整段跑不动,这里钉的是"登记表与粗触发真的把 base.css 接进去了"。
-// 其余 'tokens' 行的面必须钉回 tokens.css —— 粗触发扩容的代价不得由别人的行付。
-test('T27 触发面:base.css 进粗触发,小程序行精确面含两份源,其余 tokens 行面一字不改', () => {
-  const hook = readFileSync(join(SCRIPTS_DIR, 'lib', 'pre-commit-hook.js'), 'utf8')
-  assert.match(
-    hook,
-    /const BASE_CSS_REL = 'packages\/design-tokens\/src\/styles\/base\.css'/,
-    'base.css 必须登记成第二份源',
-  )
-  assert.match(
-    hook,
-    /stagedList\.includes\(TOKENS_CSS_REL\) \|\| stagedList\.includes\(BASE_CSS_REL\)/,
-    '粗触发必须并上 base.css(否则改 base.css 不唤起任何回写)',
-  )
-  const rows = [...hook.matchAll(/trigger: 'tokens',\s*\n\s*pathTrigger: ([^\n]+)/g)].map((m) => m[1])
-  assert.equal(rows.length, 5, `'tokens' 行应仍是 5 行(实测 ${rows.length})`)
-  const miniapp = rows.find((v) => v.includes('BASE_CSS_REL'))
-  assert.ok(miniapp, '小程序 app.css 行的精确面必须含 base.css')
-  assert.match(miniapp, /TOKENS_CSS_REL/, '小程序行的精确面必须同时含 tokens.css')
-  const pinned = rows.filter((v) => v.trim().replace(/,$/, '') === 'TOKENS_CSS_REL')
-  assert.equal(pinned.length, 4, `其余 4 行必须把面钉回 TOKENS_CSS_REL(实测 ${pinned.length})`)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

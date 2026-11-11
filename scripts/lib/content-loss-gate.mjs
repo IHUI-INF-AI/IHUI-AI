@@ -142,13 +142,10 @@ export function textKeySet(text, path) {
       // 2026-11-05:JSONL 里 `//` 开头的注释行是仓库既有写法(`scripts/data/intentional-file-deletions.jsonl`
       // 首行即 "// 有意整文件删除…"),它们不是数据行。原先逐行 JSON.parse 连注释也解,一份带注释的
       // 台账只要被本侧改过就会让整份键面判"解不开"并阻断落地(实测旁路删除硬门的台账补录后触发)。
-      // 2026-11-10 补:`#` 开头的注释行同样是仓库既有写法且由文件自身声明 ——
-      // `scripts/data/migration-rewrite-ledger.jsonl` 头注逐字写着「每行一条 JSON,`#` 开头为注释」,
-      // 基底/本侧/对侧三方首行都是 `#`。只认 `//` 会把这份正常台账整份判成"解不开",
-      // 按 §0.3 拒绝落地并锁死合流。故按文件自述惯例一并跳过 `#` 行;数据行的解析与键面判红口径不变。
+      // 这里按 JSONL 注释惯例跳过 `//` 行;数据行的解析与键面判红口径不变。
       const lines = String(text)
         .split(/\r?\n/)
-        .filter((l) => l.trim() && !l.trimStart().startsWith('//') && !l.trimStart().startsWith('#'))
+        .filter((l) => l.trim() && !l.trimStart().startsWith('//'))
       for (const line of lines) jsonKeySet(JSON.parse(line), '', keys)
       return { keys }
     }

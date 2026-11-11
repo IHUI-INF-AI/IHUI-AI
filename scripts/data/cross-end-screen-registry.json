@@ -1280,31 +1280,6 @@
       "shared": "packages/app/src/features/study-progress/StudyProgressScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/StudyProgressScreen.tsx",
       "miniapp": "pages/study/index"
-    },
-    {
-      "shared": "packages/app/src/features/groups/GroupsScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/GroupsScreen.tsx",
-      "miniapp": "pkg-user/groups/index"
-    },
-    {
-      "shared": "packages/app/src/features/api-keys/ApiKeysScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/ApiKeysScreen.tsx",
-      "miniapp": "pkg-user/api-keys/index"
-    },
-    {
-      "shared": "packages/app/src/features/patrol/PatrolScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/PatrolScreen.tsx",
-      "miniapp": "pkg-user/patrol/index"
-    },
-    {
-      "shared": "packages/app/src/features/repo-wiki/RepoWikiScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/RepoWikiScreen.tsx",
-      "miniapp": "pkg-user/repo-wiki/index"
-    },
-    {
-      "shared": "packages/app/src/features/team-knowledge/TeamKnowledgeScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/TeamKnowledgeScreen.tsx",
-      "miniapp": "pkg-user/team-knowledge/index"
     }
   ]
 }

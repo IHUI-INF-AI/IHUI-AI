@@ -55,7 +55,7 @@ import { appendFileSync, mkdirSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { requireFlagValue } from './lib/flag-value.mjs'
-import { deployDecisionsFace } from './lib/deploy-decisions-face.mjs'
+import { deployDecisionsFaces } from './lib/deploy-decisions-face.mjs'
 // §0.6 单一真相源:action 闭集与其信号映射同生共死,本文件不再自抄清单。
 import { OUTCOME_SIGNAL_RULES, assertActionParity } from './lib/deploy-decision-actions.mjs'
 import { identityOf, loadContract, validateSignal } from './lib/incident-cluster.mjs'
@@ -208,6 +208,42 @@ export function readDecisionText(text) {
       else bad.push(entry)
     }
   })
+  return { rows, bad, torn }
+}
+
+/**
+ * 多台账面合并去重(2026-11-11 立,B37 读账侧):部署环写生产 checkout,主仓影子副本里也有
+ * 同一批事件行(同事件同文本)⇒ 按 trim 后的原始行文本去重,同一事件不双计;bad/torn 同口径
+ * 去重后累计。纯函数(texts 注入 ⇒ self-test 可不碰文件系统证合并判据)。
+ */
+export function mergeDecisionFaces(texts) {
+  const rows = []
+  const bad = []
+  const torn = []
+  const seen = new Set()
+  for (const f of texts) {
+    const parsed = readDecisionText(f.text)
+    const raws = String(f.text ?? '').split(/\r?\n/)
+    const keyOf = (n) => String(raws[n - 1] ?? '').trim()
+    for (const r of parsed.rows) {
+      const k = keyOf(r.line)
+      if (seen.has(k)) continue
+      seen.add(k)
+      rows.push(r)
+    }
+    for (const b of parsed.bad) {
+      const k = keyOf(b.line)
+      if (seen.has(k)) continue
+      seen.add(k)
+      bad.push(b)
+    }
+    for (const t of parsed.torn) {
+      const k = keyOf(t.line)
+      if (seen.has(k)) continue
+      seen.add(k)
+      torn.push(t)
+    }
+  }
   return { rows, bad, torn }
 }
 
@@ -518,6 +554,19 @@ export function runSelfTest() {
   })
   ok('演练计数与正常出口分开(synthetic=1 / skipped=0 / signals=1)', mixed.synthetic === 1 && mixed.skipped === 0 && mixed.signals.length === 1)
 
+  // —— B37 多面合并去重(2026-11-11):影子副本同事件同文本 ⇒ 只计一次,独有行不得丢 ——
+  const sharedLine = JSON.stringify(mk({ action: 'canary-rollback', ts: '2026-11-04T09:00:00.000Z' }))
+  const onlyProd = JSON.stringify(mk({ action: 'rollback', ts: '2026-11-04T08:00:00.000Z' }))
+  const onlyRepo = JSON.stringify(mk({ action: 'build-fail', ts: '2026-11-04T07:00:00.000Z' }))
+  const mergedFaces = mergeDecisionFaces([
+    { text: `${sharedLine}\n${onlyProd}\n` },
+    { text: `${sharedLine}\n${onlyRepo}\n` },
+  ])
+  ok('多面合并:同文本行去重只计一次,两面独有行都保留', mergedFaces.rows.length === 3
+    && mergedFaces.rows.filter((r) => JSON.stringify(r.object) === sharedLine).length === 1)
+  const mergedDupBad = mergeDecisionFaces([{ text: '{broken\n' }, { text: '{broken\n' }])
+  ok('多面合并:同文本坏行同样去重(bad 不双计)', mergedDupBad.bad.length === 1)
+
   for (const c of checks) console.log(`${c.ok ? 'PASS' : 'FAIL'}  ${c.name}${c.ok ? '' : ` — ${c.why}`}`)
   const failed = checks.filter((c) => !c.ok)
   console.log(`# deploy-outcome-intake self-test ${checks.length - failed.length}/${checks.length}`)
@@ -539,33 +588,41 @@ function main(argv) {
     console.error(`未判定:${e?.message ?? e}`)
     return 2
   }
-  // 取材面走唯一出口(2026-10-28 立):--in 显式给了仍优先;否则按「生产 checkout 优先、
-  // 回落主仓」选面 —— 部署环写的是 `<DevEnv>/ihui-prod/.ihui-agent/` 那本账,主仓副本只是
-  // 影子(实测主仓 2 行 vs 生产 85 行);钉死主仓会把"链没跑过"读错来源(立因见 lib 头注)。
-  let inPath
+  // 取材面走唯一出口(2026-10-28 立):--in 显式给了仍优先;否则取**全部存在**的面合并去重
+  // (2026-11-11,B37):旧单选面「生产 checkout 优先、回落主仓」只读一本账,而影子副本里
+  // 也有同批事件行 ⇒ 读哪本变成掷骰子。合并判据与去重见 mergeDecisionFaces,立因见 lib 头注。
+  let texts
   if (args.input) {
-    inPath = resolve(args.input)
+    const inPath = resolve(args.input)
+    try {
+      texts = [{ kind: 'input', path: inPath, text: readFileSync(inPath, 'utf8') }]
+    } catch (e) {
+      console.error(`未判定:输入读不到 ${inPath}(${e?.code ?? e?.message ?? e})`)
+      return 2
+    }
   } else {
-    const face = deployDecisionsFace()
-    if (!face.found) {
+    const { faces, candidates } = deployDecisionsFaces()
+    if (!faces.length) {
       console.error(
-        `未判定:两候选台账都不在(${face.candidates.map((c) => c.path).join(' , ')}),不拿不存在的面当空集`,
+        `未判定:两候选台账都不在(${candidates.map((c) => c.path).join(' , ')}),不拿不存在的面当空集`,
       )
       return 2
     }
-    inPath = resolve(face.path)
-    if (process.env.IHUI_DEPLOY_DECISIONS_DEBUG === '1') console.log(`DEPLOY-INTAKE face=${face.kind} ${face.path}`)
+    texts = []
+    for (const f of faces) {
+      try {
+        texts.push({ kind: f.kind, path: f.path, text: readFileSync(f.path, 'utf8') })
+      } catch (e) {
+        console.error(`未判定:输入读不到 ${f.path}(${e?.code ?? e?.message ?? e})`)
+        return 2
+      }
+    }
+    if (process.env.IHUI_DEPLOY_DECISIONS_DEBUG === '1')
+      console.log(`DEPLOY-INTAKE faces=${texts.map((t) => `${t.kind}:${t.path}`).join(' , ')}`)
   }
   const outPath = resolve(args.out ?? DEFAULT_OUT)
 
-  let text
-  try {
-    text = readFileSync(inPath, 'utf8')
-  } catch (e) {
-    console.error(`未判定:输入读不到 ${inPath}(${e?.code ?? e?.message ?? e})`)
-    return 2
-  }
-  const parsed = readDecisionText(text)
+  const parsed = mergeDecisionFaces(texts)
   // 撕裂行(末段半条、由并发追加造成)剔除并显式计数:它不是一条完整记录,
   // 让它把整本台账拖成"未判定"就是 §8 记下的那一型可整改性缺口。
   for (const t of parsed.torn) console.error(`TORN-LINE line=${t.line} ${t.reason}`)
@@ -613,7 +670,7 @@ function main(argv) {
     console.log(
       JSON.stringify({
         contract: { version: contract.version, reviewBy: contract.reviewBy },
-        params: { minutes: args.minutes, input: inPath, out: outPath },
+        params: { minutes: args.minutes, input: texts.map((t) => t.path).join(' + '), out: outPath },
         judged: badRows === 0,
         signals: result.signals.length,
         skipped: result.skipped,
@@ -656,6 +713,7 @@ export const __test__ = {
   parseExistingSignals,
   planIntake,
   readDecisionText,
+  mergeDecisionFaces,
   runSelfTest,
   sanitizeShortHex,
 }

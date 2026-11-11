@@ -390,21 +390,11 @@ test('E2E: 还原后 commit 不含被 unstage 的文件', () => {
 test('setupRestoreOnExit: 注册 exit/SIGINT/SIGTERM 3 个监听器', () => {
   const script = `
     const { setupRestoreOnExit } = require(${JSON.stringify(STAGING_SNAPSHOT_PATH)})
-    const before = {
-      exit: process.listenerCount('exit'),
-      sigint: process.listenerCount('SIGINT'),
-      sigterm: process.listenerCount('SIGTERM'),
-    }
     setupRestoreOnExit(null, { silent: true })
-    const after = {
+    console.log(JSON.stringify({
       exit: process.listenerCount('exit'),
       sigint: process.listenerCount('SIGINT'),
       sigterm: process.listenerCount('SIGTERM'),
-    }
-    console.log(JSON.stringify({
-      exit: after.exit - before.exit,
-      sigint: after.sigint - before.sigint,
-      sigterm: after.sigterm - before.sigterm,
     }))
   `
   const result = runInChild(script)

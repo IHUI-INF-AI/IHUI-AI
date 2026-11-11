@@ -69,7 +69,6 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import {
   Undetermined,
   catBatch,
-  gitRaw,
   listFaceFiles,
   readWorktreeFile,
   selectFace,
@@ -337,14 +336,15 @@ export function evaluateStrictChanged({ journalEntries, changedSqlNames, snapsho
 }
 
 function gitDiffNames(args) {
-  // 走统一承载层(门 193):裸 'git' 依赖 PATH,服务账户 / GUI 宿主下取不到且失败是静默的。
-  // 层内已含绝对路径 + quotepath + 显式 stdio 两态 + 三段超时;取不到时抛带 stderr 的错,
-  // 这里原样升成 Unjudged —— 保住本文件"判不了就喊未判定"的既有语义(不是折成"没有改动")。
-  try {
-    return gitRaw(args, ROOT, { timeout: 60_000 })
-  } catch (e) {
-    throw new Unjudged(`git diff 失败:${String(e?.message ?? e).trim().slice(0, 160)}`)
-  }
+  const r = spawnSync('git', args, {
+    cwd: ROOT,
+    encoding: 'utf8',
+    timeout: 60_000,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+  })
+  if (r.status !== 0) throw new Unjudged(`git diff 失败:${String(r.stderr ?? '').trim().slice(0, 160)}`)
+  return r.stdout ?? ''
 }
 
 /**

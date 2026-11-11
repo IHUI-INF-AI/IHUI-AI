@@ -31,7 +31,6 @@ import { join } from 'node:path'
 import { gitRaw } from '../lib/face-reader.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { __test__ as gate } from '../check-staged-downgrade.mjs'
-import { ancestorBlobOf, ancestorCommitList, prewarmAncestorLists } from '../lib/ancestor-downgrade.mjs'
 import { downgradeGuardOf } from '../gen-ui-mirror.mjs'
 
 const REL = 'f.ts'
@@ -319,119 +318,6 @@ test('T17 疑退档:真仓那枚旧档的形态(带 HEAD 已退役符号)⇒ 三
     assert.ok(r.suspects[0].missing >= 10 && r.suspects[0].extra >= 1)
   } finally {
     rmScratch(dir)
-  }
-})
-
-test('T18 祖先清单记忆: 同路径连问两个候选各自命中各自的祖先,HEAD 一变必重新取材', () => {
-  const { dir, g } = makeRepo('alpha\n')
-  try {
-    commitAs(dir, g, 'beta\n', 'v2')
-    commitAs(dir, g, 'gamma\n', 'v3')
-    const [c3, c2, c1] = g(['rev-list', 'HEAD', '--', REL]).split(/\r?\n/)
-    const b1 = g(['rev-parse', `${c1}:${REL}`])
-    const b2 = g(['rev-parse', `${c2}:${REL}`])
-
-    // 第一问 c1 的旧 blob:记忆在这一步建立(清单 = [c2, c1],HEAD 自身不算祖先)
-    const m1 = ancestorBlobOf(REL, b1, { root: dir })
-    assert.equal(m1.judged, true)
-    assert.equal(m1.match?.commit, c1, 'c1 的旧档必须命中 c1 自己')
-    assert.equal(m1.scanned, 2)
-    // 第二问 c2 的旧 blob:必须重新比对,绝不能复用上一问的命中(记忆只记忆清单,不记忆结论)
-    const m2 = ancestorBlobOf(REL, b2, { root: dir })
-    assert.equal(m2.match?.commit, c2, '第二问必须命中 c2,不得串用第一问的 c1')
-    // 从未存在过的候选仍必须判"不是回写"(不得因记忆而假命中)
-    const m3 = ancestorBlobOf(REL, 'f'.repeat(40), { root: dir })
-    assert.equal(m3.judged, true)
-    assert.equal(m3.match, null)
-
-    // 记忆命中形态:同一 HEAD 下两次取材必须返回**同一个对象**(否则等于没记忆)
-    const l1 = ancestorCommitList(REL, { root: dir })
-    const l2 = ancestorCommitList(REL, { root: dir })
-    assert.equal(l1, l2, '同一 HEAD/路径/窗口必须复用同一次取材')
-    assert.equal(l1.list.length, 2)
-    // HEAD 一变(新提交)⇒ 键变 ⇒ 必须重新取材,不许拿旧清单判新面
-    commitAs(dir, g, 'delta\n', 'v4')
-    const l3 = ancestorCommitList(REL, { root: dir })
-    assert.notEqual(l3, l2, 'HEAD 变了必须重新取材')
-    assert.equal(l3.list.length, 3)
-    assert.equal(l3.list[0], c3, '新清单必须以"HEAD 之外最近一枚改过该路径的提交"开头')
-  } finally {
-    rmScratch(dir)
-  }
-})
-
-test('T19 并行走查预热:两路径清单与顺序取材逐枚一致,且预热的清单真能用于判定', () => {
-  const REL2 = 'g.ts'
-  const dir = mkScratch('staged-downgrade-')
-  try {
-    const g = (args) => String(gitRaw(args, dir)).trim()
-    g(['init', '-q'])
-    g(['config', 'user.email', 'test@local'])
-    g(['config', 'user.name', 'test'])
-    g(['config', 'core.autocrlf', 'false'])
-    writeFileSync(join(dir, REL), 'a1\n', 'utf8')
-    writeFileSync(join(dir, REL2), 'b1\n', 'utf8')
-    g(['add', REL, REL2])
-    g(['commit', '-q', '-m', 'v1'])
-    writeFileSync(join(dir, REL), 'a2\n', 'utf8')
-    g(['add', REL])
-    g(['commit', '-q', '-m', 'a2'])
-    writeFileSync(join(dir, REL2), 'b2\n', 'utf8')
-    g(['add', REL2])
-    g(['commit', '-q', '-m', 'b2'])
-    const head = g(['rev-parse', 'HEAD'])
-    // 顺序取材 = 判据本来的那一趟命令(预热只许改并发,清单必须逐枚相同)
-    const expected = (rel) =>
-      g(['rev-list', '--max-count=80', 'HEAD', '--', rel])
-        .split(/\r?\n/)
-        .filter((c) => c && c !== head)
-    const warm = prewarmAncestorLists([REL, REL2], { root: dir })
-    assert.equal(warm.warmed, 2, `预热必须把两条都写进记忆(现读 ${warm.warmed} / ${warm.why ?? 'ok'})`)
-    for (const rel of [REL, REL2]) {
-      const got = ancestorCommitList(rel, { root: dir })
-      assert.equal(got.judged, true)
-      assert.deepEqual(got.list, expected(rel), `${rel} 的清单必须与顺序取材逐枚一致`)
-      assert.equal(got.scanned, got.list.length)
-      assert.equal(got.list.includes(head), false, 'HEAD 自身不得出现在祖先清单里')
-    }
-    assert.notDeepEqual(expected(REL), expected(REL2), '夹具必须让两路径的祖先面真的不同(否则等价性无意义)')
-    // 预热的清单要能直接支撑判定:最老那枚提交的 blob 必须命中它自己
-    const oldest = g(['rev-list', '--max-parents=0', 'HEAD']).split(/\r?\n/)[0]
-    for (const rel of [REL, REL2]) {
-      const blob = g(['rev-parse', `${oldest}:${rel}`])
-      const m = ancestorBlobOf(rel, blob, { root: dir })
-      assert.equal(m.judged, true)
-      assert.equal(m.match?.commit, oldest, `${rel} 的最老档必须命中 ${oldest.slice(0, 10)}`)
-    }
-  } finally {
-    rmScratch(dir)
-  }
-})
-
-test('T20 预热失效方向:候选不足 / HEAD 取不到 ⇒ 一条都不写记忆,顺序走查照旧', () => {
-  const { dir, g } = makeRepo('v1\n')
-  try {
-    commitAs(dir, g, 'v2\n', 'v2')
-    const one = prewarmAncestorLists([REL], { root: dir })
-    assert.equal(one.warmed, 0)
-    assert.match(String(one.why), /少于 2 条/)
-    // 未预热 ⇒ 顺序取材仍必须给出完整清单(预热不是判据的前置条件)
-    assert.equal(ancestorCommitList(REL, { root: dir }).list.length, 1)
-  } finally {
-    rmScratch(dir)
-  }
-  const empty = mkScratch('staged-downgrade-')
-  try {
-    const g = (args) => String(gitRaw(args, empty)).trim()
-    g(['init', '-q'])
-    const r = prewarmAncestorLists(['a.ts', 'b.ts'], { root: empty })
-    assert.equal(r.warmed, 0)
-    assert.match(String(r.why), /HEAD/)
-    // 取不到 HEAD 不许当成"没有祖先":judged 必须是 false(§0.3)
-    const q = ancestorCommitList('a.ts', { root: empty })
-    assert.equal(q.judged, false)
-  } finally {
-    rmScratch(empty)
   }
 })
 
