@@ -245,4 +245,113 @@ async def simulate_pool(baselines: list[dict[str, Any]]) -> dict[str, Any]:
             "claim_paths": sorted({r["path"] for r in writes}),
         },
     }
+
+
+def _live_num(value: Any) -> float | None:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def next_action_of(subscribe_status: dict[str, Any] | None, done: int, total: int) -> str:
+    """把服务端读数翻成人能执行的一句话(不猜、不伪造判定)。"""
+    if total and done >= total:
+        return "已完成(全表 claimed)"
+    st = subscribe_status or {}
+    if st.get("subscribed") is not True:
+        return "需本人在账号中心绑定微信 + 关注公众号"
+    remaining = _live_num(st.get("remaining_seconds"))
+    if remaining is not None and remaining > 0:
+        return f"已关注,还需约 {round(remaining / 3600, 1)} 小时才判达标"
+    if st.get("task_status") != "completed" or st.get("advanced") is not True:
+        return "等待服务端把 task_status 翻为 completed"
+    return "已达标,下一轮引擎自动 claim"
+
+
+async def run_live_round(
+    credential: dict[str, Any],
+    *,
+    client: httpx.AsyncClient | None = None,
+    request_log: list[dict[str, str]] | None = None,
+    transport: httpx.AsyncBaseTransport | None = None,
+) -> dict[str, Any]:
+    """**真机**一轮:零假返回体、零代签、零伪造 openid。
+
+    - 生产引擎 ``run_autopilot`` 自己真机 GET 订阅状态 + 任务表;
+    - 只有服务端真判达标(progress 1/1 且未 claimed)时,引擎走 ``claim-only``
+      发出**真实** ``POST /activity/growth/tasks/{code}/claim``,积分真实到账;
+    - 未达标只登记 ``pending_platform``,一个写请求都不发;
+    - ``table={}`` 锁死其它族路由,本轮不会触发任何其它任务的写侧动作。
+
+    ``client`` / ``request_log`` 仅供测试注入(MockTransport),不触网。
+    """
+    token, uid = credential.get("token"), credential.get("uid")
+    nickname = credential.get("nickname") or str(uid or "")[:8]
+    if not token or not uid:
+        return {"uid": uid, "nickname": nickname, "error": "missing_credential"}
+    log = request_log if request_log is not None else []
+    own_client = client is None
+    if own_client:
+        # httpx AsyncClient 的 request hook 必须可 await(同步 hook 会让每个请求
+        # 抛 "NoneType can't be used in await expression",被引擎 fail-soft 吞成读失败)。
+        async def _hook(req: httpx.Request) -> None:
+            log.append({"method": req.method, "path": req.url.path})
+
+        client = httpx.AsyncClient(
+            timeout=30, event_hooks={"request": [_hook]}, transport=transport
+        )
+        await client.__aenter__()
+    try:
+        assert client is not None
+        summary = await ap.run_autopilot(
+            token,
+            {"uid": uid, "nickname": nickname},
+            table={},
+            client=client,
+            dry_run=False,
+        )
+    finally:
+        if own_client and client is not None:
+            await client.aclose()
+    done = len(summary.get("claimed_already") or []) + len(summary.get("claimed") or [])
+    total = int(summary.get("total_tasks") or 0)
+    writes = [r for r in log if r["method"] != "GET"]
+    return {
+        "mode": "live",
+        "uid": uid,
+        "nickname": nickname,
+        "simulated": False,
+        "subscribe_status": summary.get("subscribe_status"),
+        "total_tasks": total,
+        "done": done,
+        "claimed": list(summary.get("claimed") or []),
+        "credits": summary.get("credits"),  # 真实到账积分
+        "pending_platform": list(summary.get("pending_platform") or []),
+        "engine_ok": summary.get("ok"),
+        "read_failed": summary.get("read_failed"),
+        "real_write_requests": writes,
+        "requests": list(log),
+        "next_action": next_action_of(summary.get("subscribe_status"), done, total),
+    }
+
+
+async def live_pool(credentials: list[dict[str, Any]]) -> dict[str, Any]:
+    """全池真机实跑;顺序执行,各自独立 client。"""
+    accounts = [await run_live_round(c) for c in credentials]
+    credits = sum(int(a.get("credits") or 0) for a in accounts)
+    writes = [r for a in accounts for r in a.get("real_write_requests") or []]
+    return {
+        "mode": "live",
+        "accounts": accounts,
+        "totals": {
+            "accounts": len(accounts),
+            "full": sum(
+                1 for a in accounts if a.get("total_tasks") and a.get("done") == a["total_tasks"]
+            ),
+            "real_credits": credits,
+            "real_write_requests": len(writes),
+            "claim_paths": sorted({r["path"] for r in writes}),
+        },
+    }
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

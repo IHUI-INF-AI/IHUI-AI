@@ -19,6 +19,8 @@ from __future__ import annotations
 
 import asyncio
 
+import httpx
+
 from app.services import workbuddy_oa_simulate as sim
 
 
@@ -107,4 +109,73 @@ def _post(path: str):
     import httpx
 
     return httpx.Request("POST", "https://www.workbuddy.cn" + path)
+
+
+def _live(baseline: dict, phase: str) -> tuple[dict, sim.SimulatedGrowthServer]:
+    """用注入的 MockTransport 跑 LIVE 路径(不触网),验证它真的会发 claim。"""
+    server = sim.SimulatedGrowthServer(baseline, phase)
+    cred = {"uid": "u-live", "nickname": "真机形态号", "token": "FAKE_LIVE_TOKEN"}
+
+    async def go() -> dict:
+        async with server.client() as client:
+            return await sim.run_live_round(cred, client=client)
+
+    return asyncio.run(go()), server
+
+
+def test_live_round_really_claims_when_server_says_completed() -> None:
+    r, server = _live(sim.build_offline_baseline("u-live", "真机形态号"), "matured")
+    assert r["mode"] == "live" and r["simulated"] is False
+    assert r["done"] == 19 and r["total_tasks"] == 19
+    assert r["claimed"] == [sim.OA_CODE]
+    assert r["credits"] == sim.SIM_CREDIT
+    assert r["engine_ok"] is True and r["read_failed"] is False
+    # LIVE 路径不再是 dry_run:引擎确实发出了真实形态的 claim POST
+    assert [x["path"] for x in server.requests if x["method"] == "POST"] == [
+        f"/activity/growth/tasks/{sim.OA_CODE}/claim"
+    ]
+    assert r["next_action"] == "已完成(全表 claimed)"
+
+
+def test_live_round_never_writes_before_binding_matures() -> None:
+    for phase in ("current", "bound_waiting"):
+        r, server = _live(sim.build_offline_baseline("u-live", "真机形态号"), phase)
+        assert r["done"] == 18
+        assert r["credits"] == 0
+        assert r["claimed"] == []
+        assert [x for x in server.requests if x["method"] != "GET"] == []
+        assert r["pending_platform"][0]["code"] == sim.OA_CODE
+
+
+def test_live_client_hook_is_async_and_real_claim_gets_logged() -> None:
+    """回归:同步 request hook 会让自建 client 每个请求抛 TypeError,被引擎吞成 0/0。"""
+    baseline = sim.build_offline_baseline("u-live", "真机形态号")
+    server = sim.SimulatedGrowthServer(baseline, "matured")
+    cred = {"uid": "u-live", "nickname": "真机形态号", "token": "FAKE_LIVE_TOKEN"}
+    r = asyncio.run(
+        sim.run_live_round(
+            cred, transport=httpx.MockTransport(server.handler)
+        )
+    )
+    assert r["read_failed"] is False
+    assert r["total_tasks"] == 19
+    assert r["done"] == 19
+    assert r["credits"] == sim.SIM_CREDIT
+    assert r["claimed"] == [sim.OA_CODE]
+    assert len(r["real_write_requests"]) == 1
+    assert r["real_write_requests"][0]["path"] == (
+        f"/activity/growth/tasks/{sim.OA_CODE}/claim"
+    )
+
+
+def test_next_action_reads_real_server_verdict() -> None:
+    assert "绑定微信" in sim.next_action_of({"subscribed": False}, 18, 19)
+    assert "小时" in sim.next_action_of(
+        {"subscribed": True, "remaining_seconds": 3600, "task_status": "accepted"}, 18, 19
+    )
+    assert "completed" in sim.next_action_of(
+        {"subscribed": True, "remaining_seconds": 0, "task_status": "accepted", "advanced": False},
+        18, 19,
+    )
+    assert sim.next_action_of(None, 19, 19) == "已完成(全表 claimed)"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

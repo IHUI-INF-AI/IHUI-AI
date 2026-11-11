@@ -2,17 +2,17 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-"""公众号任务「模拟完成」CLI 薄壳(核心逻辑单源在 app/services/workbuddy_oa_simulate.py)。
-
-一条命令把全池账号从真机现状跑到「绑定生效 + 关注满 24h」后的模拟终态:
+"""公众号任务「模拟终态 + 真机真实完成」CLI 薄壳(核心单源在 app/services)。
 
     cd apps/ai-service
-    .venv/Scripts/python.exe scripts/workbuddy_oa_simulate.py           # 真机只读基线 + 离线仿真
-    .venv/Scripts/python.exe scripts/workbuddy_oa_simulate.py --offline # 完全离线(内置基线)
-    .venv/Scripts/python.exe scripts/workbuddy_oa_simulate.py --json    # 结构化结果
+    .venv/Scripts/python.exe scripts/workbuddy_oa_simulate.py           # SIM:真机只读基线 + 离线仿真
+    .venv/Scripts/python.exe scripts/workbuddy_oa_simulate.py --offline # SIM:完全离线
+    .venv/Scripts/python.exe scripts/workbuddy_oa_simulate.py --live    # LIVE:真机凭据实跑,条件成立即真实领奖
+    .venv/Scripts/python.exe scripts/workbuddy_oa_simulate.py --live --json
 
-!! 仿真只改变注入 MockTransport 的响应体,不写服务端、不伪造 openid。
-   真机基线只读 GET 两条端点;模拟终态的 19/19 与积分均标注 SIM。
+!! SIM 只改注入 MockTransport 的返回体,19/19 与积分一律标 SIM,不当真机到账。
+!! LIVE 不注入任何假返回体:引擎真机读表,只有服务端**真判达标**才发真实 claim;
+   未达标零写请求。两条模式都不伪造 openid、不代签、不上报关注事件。
 """
 
 from __future__ import annotations
@@ -45,8 +45,8 @@ def offline_baselines() -> list[dict]:
     ]
 
 
-async def live_readonly_baselines() -> list[dict]:
-    """号池凭据 + 真机**只读** GET 两条端点,取回最真实的基线。"""
+def pool_credentials() -> list[dict]:
+    """只读本机号池凭据文件(不触网);token 只在进程内使用,绝不打印。"""
     out: list[dict] = []
     for f in sorted(glob.glob(POOL_GLOB)):
         try:
@@ -55,8 +55,18 @@ async def live_readonly_baselines() -> list[dict]:
             continue
         acc, auth = raw.get("account") or {}, raw.get("auth") or {}
         token, uid = auth.get("accessToken"), acc.get("uid")
-        if not token or not uid:
-            continue
+        if token and uid:
+            out.append(
+                {"uid": uid, "nickname": acc.get("nickname") or uid[:8], "token": token}
+            )
+    return out
+
+
+async def live_readonly_baselines() -> list[dict]:
+    """号池凭据 + 真机**只读** GET 两条端点,取回最真实的基线。"""
+    out: list[dict] = []
+    for cred in pool_credentials():
+        uid, token = cred["uid"], cred["token"]
         headers = ap._growth_headers(token, uid)
         try:
             async with httpx.AsyncClient(timeout=30) as client:
@@ -73,7 +83,7 @@ async def live_readonly_baselines() -> list[dict]:
         out.append(
             {
                 "uid": uid,
-                "nickname": acc.get("nickname") or uid[:8],
+                "nickname": cred["nickname"],
                 "source": "live-readonly",
                 "payload": tasks.json(),
                 "status": status.json(),
@@ -124,7 +134,55 @@ def print_report(report: dict) -> None:
     print("=" * 108)
 
 
+def print_live_report(report: dict) -> None:
+    t = report["totals"]
+    print("=" * 108)
+    print("WorkBuddy 公众号任务 · LIVE 真机实跑(真实凭据 / 真实领奖 / 零伪造判据)")
+    print("=" * 108)
+    for a in report["accounts"]:
+        st = a.get("subscribe_status") or {}
+        print(f"\n[{a['nickname']}] uid={a['uid'][:8]}…  任务 {a['done']}/{a['total_tasks']}")
+        print(f"  服务端读数 : {_short_status(st)}")
+        print(
+            f"  本轮真实   : 领奖 {len(a['claimed'])} 项, 真实到账积分 +{a['credits']}, "
+            f"真实写请求 {len(a['real_write_requests'])} 次"
+        )
+        print(f"  下一步     : {a['next_action']}")
+    print("\n" + "=" * 108)
+    print(
+        f"LIVE 终态: {t['full']}/{t['accounts']} 个 uid 全 19/19; "
+        f"本轮真实到账 +{t['real_credits']}; 真实 claim 请求 {t['real_write_requests']} 次"
+    )
+    print("claim 路径:", ", ".join(t["claim_paths"]) or "本轮无(服务端尚未判达标)")
+    pending = [
+        a for a in report["accounts"]
+        if a.get("total_tasks") and a.get("done") < a["total_tasks"]
+    ]
+    if pending:
+        print("\n待真人动作(程序不能代签,也不伪造 openid / 关注关系):")
+        for a in pending:
+            print(f"  - {a['uid'][:8]}… ({a['nickname']}): 账号中心绑定一个独立微信号 → 关注公众号满 24h")
+        print("  绑定生效后服务端翻 completed,本命令或调度器下一轮会真实 claim,无需再改代码。")
+    else:
+        print("\n全池已真实完成,无需人工动作。")
+    print("=" * 108)
+
+
 async def _run(args: argparse.Namespace) -> int:
+    if args.live and args.offline:
+        print("[ERROR] --live 与 --offline 互斥", file=sys.stderr)
+        return 2
+    if args.live:
+        credentials = pool_credentials()
+        if not credentials:
+            print("[ERROR] 本机号池凭据为空,无法真机实跑", file=sys.stderr)
+            return 2
+        report = await sim.live_pool(credentials)
+        if args.json:
+            print(json.dumps(report, ensure_ascii=False, indent=2))
+        else:
+            print_live_report(report)
+        return 0
     baselines = offline_baselines() if args.offline else await live_readonly_baselines()
     if not baselines:
         print("[ERROR] 没有可用基线(号池凭据缺失或只读请求失败),可加 --offline 复现", file=sys.stderr)
@@ -138,8 +196,9 @@ async def _run(args: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    p = argparse.ArgumentParser(description="公众号任务绑定生效后的自动领奖闭环仿真")
-    p.add_argument("--offline", action="store_true", help="完全离线,用内置基线,不读号池/不触网")
+    p = argparse.ArgumentParser(description="公众号任务仿真终态 / 真机真实领奖")
+    p.add_argument("--offline", action="store_true", help="SIM:完全离线,用内置基线,不读号池/不触网")
+    p.add_argument("--live", action="store_true", help="LIVE:真机凭据实跑,服务端判达标即真实领奖")
     p.add_argument("--json", action="store_true", help="输出结构化 JSON")
     return asyncio.run(_run(p.parse_args(argv)))
 
