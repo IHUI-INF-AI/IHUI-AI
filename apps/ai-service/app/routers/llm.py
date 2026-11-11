@@ -3931,6 +3931,18 @@ async def list_models(request: Request) -> dict[str, Any]:
             "[llm/models] availability filter: %d → %d (filtered out %d unavailable)",
             total_before, len(default_models), filtered_out,
         )
+        # 2026-11-12 立:只给用户前沿模型。同族只留最新两代,旧代从对外目录摘掉
+        # (清单见 model_catalog_policy;探针也因此不再为它们浪费请求)。
+        from ..services.model_catalog_policy import filter_frontier
+
+        before_frontier = len(default_models)
+        default_models = filter_frontier(default_models)
+        logger.info(
+            "[llm/models] frontier filter: %d → %d (legacy %d)",
+            before_frontier,
+            len(default_models),
+            before_frontier - len(default_models),
+        )
         # 2026-11-07 立:模型级健康过滤 —— provider 整体健康时,单个坏死模型也要消失
         from ..services.model_health import model_health
 
