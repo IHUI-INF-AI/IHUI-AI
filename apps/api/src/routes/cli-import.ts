@@ -47,8 +47,7 @@ import {
   parseBySource,
   savePreview,
   deletePreview,
-  isAllowedConfigUpload,
-  CONFIG_UPLOAD_ALLOWED_EXTS,
+  describeUploadRejection,
 } from '../services/cli-import/index.js'
 
 // =============================================================================
@@ -311,15 +310,10 @@ export const cliImportRoutes: FastifyPluginAsync = async (server) => {
         if (!fileBuffer) {
           fileBuffer = await part.toBuffer()
           fileName = part.filename
-          // 2026-07-24 安全加固:配置文件大小限制 + 扩展名白名单(防 CWE-434)
+          // 2026-07-24 安全加固:配置文件大小限制(防 CWE-434)
           const CONFIG_FILE_MAX_SIZE = 5 * 1024 * 1024 // 5MB
           if (fileBuffer.length > CONFIG_FILE_MAX_SIZE) {
             return reply.status(400).send(error(400, '配置文件不能超过 5MB'))
-          }
-          if (!isAllowedConfigUpload(fileName ?? '')) {
-            return reply
-              .status(400)
-              .send(error(400, `仅支持配置文件格式: ${CONFIG_UPLOAD_ALLOWED_EXTS.join(', ')}`))
           }
         }
       }
@@ -332,12 +326,19 @@ export const cliImportRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, '缺少上传的配置文件'))
     }
 
+    // 扩展名白名单 + 解析器选择同源于 services/cli-import 的 parser 注册表
+    // (SDB-42):放在 source 解析完之后判定,避免"文件字段先到、source 后到"时漏判,
+    // 也避免路由再按 source 自己猜该走二进制还是文本。
+    const rejectReason = describeUploadRejection(source, fileName ?? '')
+    if (rejectReason) {
+      return reply.status(400).send(error(400, rejectReason))
+    }
+
     try {
-      const isBinary = source === 'cc-switch'
       const preview = await parseBySource(source, {
         sourcePath: fileName ?? source,
-        buffer: isBinary ? fileBuffer : undefined,
-        text: isBinary ? undefined : fileBuffer.toString('utf8'),
+        // 统一传 buffer,由 parseBySource 按 parser 的 inputKind 转文本/保留二进制
+        buffer: fileBuffer,
         extra: {
           ...(authJsonText ? { authJsonText } : {}),
           ...(settingsJsonText ? { settingsJsonText } : {}),

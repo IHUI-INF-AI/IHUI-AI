@@ -184,24 +184,45 @@ export async function recommend(req: RecommendationRequest): Promise<Recommendat
     items = items.filter((i) => !req.excludeContentIds!.includes(i.contentId))
   }
 
-  // 持久化到 tour_recommendations
+  // 持久化到 tour_recommendations。
+  // 表上有唯一键 (user_id, content_id, strategy)，同一份推荐会随请求重复出现；
+  // 裸 insert 第二次必然冲突抛 500，所以按唯一键 upsert，只刷新可变字段。
+  // 不能把 clicked/dismissed 写回 false：那是用户行为，重刷推荐不应抹掉。
   if (items.length > 0) {
-    await db.insert(tourRecommendations).values(
-      items.map((i) => ({
-        userId: req.userId,
-        contentId: i.contentId,
-        score: i.score,
-        reason: i.reason,
-        strategy: i.strategy,
-        clicked: false,
-        dismissed: false,
-      })),
-    )
+    await db
+      .insert(tourRecommendations)
+      .values(
+        items.map((i) => ({
+          userId: req.userId,
+          contentId: i.contentId,
+          score: i.score,
+          reason: i.reason,
+          strategy: i.strategy,
+          clicked: false,
+          dismissed: false,
+        })),
+      )
+      .onConflictDoUpdate({
+        target: [
+          tourRecommendations.userId,
+          tourRecommendations.contentId,
+          tourRecommendations.strategy,
+        ],
+        set: {
+          score: sql`excluded.score`,
+          reason: sql`excluded.reason`,
+          servedAt: new Date(),
+        },
+      })
   }
   return items
 }
 
-/** 标记推荐被点击（用于 CTR 统计）。 */
+/**
+ * 标记推荐被点击（用于 CTR 统计）。
+ * 点击行为属于「用户点了这条内容」，与该内容由哪条策略推荐无关；
+ * 只按单一 strategy 更新会让其它策略行永久停留未点击，故此处按 (user, content) 全量置位。
+ */
 export async function markClicked(userId: string, contentId: string): Promise<void> {
   await db
     .update(tourRecommendations)

@@ -15,37 +15,75 @@ import { rollbackCanary as dbRollbackCanary } from './canary-service.js'
  * - CANARY_CONFIG_NAME           DB 中 canary_configs 表的配置名（用于调用 canary-service 回滚）
  */
 
-const ERROR_RATE_THRESHOLD = Number(process.env.CANARY_ERROR_RATE_THRESHOLD ?? 0.05)
+const CONFIGURED_THRESHOLD = Number(process.env.CANARY_ERROR_RATE_THRESHOLD ?? 0.05)
+// env 写错(NaN/Infinity)时任何比较都为 false ⇒ 恒判"不健康"并秒回滚,回落默认值兜住。
+const ERROR_RATE_THRESHOLD = Number.isFinite(CONFIGURED_THRESHOLD) ? CONFIGURED_THRESHOLD : 0.05
 const CHECK_INTERVAL_MS = Number(process.env.CANARY_CHECK_INTERVAL_MS ?? 60000)
 
 let checkInterval: NodeJS.Timeout | null = null
 
+/**
+ * 三态健康判定：unknown 表示"没有可用的错误率样本"(NaN / 空结果 / 查询失败),
+ * 它既不等于健康也不等于不健康，绝不能据此回滚。
+ */
+export type CanaryHealthState = 'healthy' | 'unhealthy' | 'unknown'
+
 export interface CanaryHealthStatus {
-  errorRate: number
+  /** 错误率；未知时保持 null，不用 0 顶替("没有请求"≠"零错误率") */
+  errorRate: number | null
   threshold: number
+  /** 兼容旧布尔判据：仅 state === 'unhealthy' 时为 false(未知不判不健康) */
   healthy: boolean
   rolledBack: boolean
+  state: CanaryHealthState
+  /** state === 'unknown' 时的可观测原因 */
+  reason?: string
 }
 
 /**
  * 检查金丝雀版本健康状态。从 Prometheus 读取错误率，超阈值时自动回滚。
  */
 export async function checkCanaryHealth(): Promise<CanaryHealthStatus> {
-  const errorRate = await fetchCanaryErrorRate()
-  const healthy = errorRate < ERROR_RATE_THRESHOLD
+  const { errorRate, reason } = await fetchCanaryErrorRate()
 
-  if (!healthy) {
-    logger.warn('[auto-rollback] canary error rate exceeded threshold', {
-      errorRate,
+  if (errorRate === null) {
+    // 低流量窗口 0/0 会让 Prometheus 返回 "NaN"；旧判据 NaN < 阈值 === false
+    // 把"未知"当成"不健康"，会反复回滚一个健康版本。未知一律只记录原因。
+    logger.warn('[auto-rollback] canary health unknown, skip rollback', { reason })
+    return {
+      errorRate: null,
       threshold: ERROR_RATE_THRESHOLD,
-    })
-    await rollbackCanary(
-      `auto-rollback: error rate ${errorRate} exceeded threshold ${ERROR_RATE_THRESHOLD}`,
-    )
-    return { errorRate, threshold: ERROR_RATE_THRESHOLD, healthy: false, rolledBack: true }
+      healthy: true,
+      rolledBack: false,
+      state: 'unknown',
+      reason,
+    }
   }
 
-  return { errorRate, threshold: ERROR_RATE_THRESHOLD, healthy: true, rolledBack: false }
+  if (errorRate < ERROR_RATE_THRESHOLD) {
+    return {
+      errorRate,
+      threshold: ERROR_RATE_THRESHOLD,
+      healthy: true,
+      rolledBack: false,
+      state: 'healthy',
+    }
+  }
+
+  logger.warn('[auto-rollback] canary error rate exceeded threshold', {
+    errorRate,
+    threshold: ERROR_RATE_THRESHOLD,
+  })
+  await rollbackCanary(
+    `auto-rollback: error rate ${errorRate} exceeded threshold ${ERROR_RATE_THRESHOLD}`,
+  )
+  return {
+    errorRate,
+    threshold: ERROR_RATE_THRESHOLD,
+    healthy: false,
+    rolledBack: true,
+    state: 'unhealthy',
+  }
 }
 
 /**
@@ -76,12 +114,17 @@ export async function rollbackCanary(reason: string): Promise<void> {
   }
 }
 
+interface CanaryErrorRateSample {
+  errorRate: number | null
+  reason?: string
+}
+
 /**
  * 从 Prometheus 查询金丝雀版本错误率。
  * 查询指标：canary 请求中 5xx 状态码占比。
- * 若 Prometheus 不可达，返回 0（假设健康，避免误回滚）。
+ * 取不到有效数值时返回 errorRate=null(未知)并带原因，绝不返回 0 伪装成健康。
  */
-async function fetchCanaryErrorRate(): Promise<number> {
+async function fetchCanaryErrorRate(): Promise<CanaryErrorRateSample> {
   const prometheusUrl = process.env.PROMETHEUS_URL ?? 'http://localhost:8815'
   const query = encodeURIComponent(
     'sum(rate(http_requests_by_status{status=~"5..",served_by="canary"}[1m])) / ' +
@@ -96,22 +139,36 @@ async function fetchCanaryErrorRate(): Promise<number> {
     })
     if (!res.ok) {
       logger.warn('[auto-rollback] prometheus query failed', { status: res.status })
-      return 0
+      return { errorRate: null, reason: `prometheus query failed with HTTP ${res.status}` }
     }
 
     const data = (await res.json()) as {
       status: string
       data?: { result?: Array<{ value?: [number, string] }> }
     }
-    if (data.status !== 'success' || !data.data?.result?.length) return 0
+    if (data.status !== 'success' || !data.data?.result?.length) {
+      return { errorRate: null, reason: 'prometheus returned no sample' }
+    }
 
-    const value = data.data.result[0]?.value?.[1]
-    return value ? Number(value) : 0
+    const raw = data.data.result[0]?.value?.[1]
+    const value = Number(raw)
+    // 与后台大屏 promQuery/sampleNum 同一判据:取不到有限数即视为"无样本"。
+    // 低流量窗口 0/0 会返回字面量 "NaN",若不拦截会参与 `NaN < 阈值` 恒 false 的误判。
+    if (!Number.isFinite(value)) {
+      return {
+        errorRate: null,
+        reason: `prometheus returned non-finite error rate: ${String(raw)}`,
+      }
+    }
+    return { errorRate: value }
   } catch (err) {
     logger.warn('[auto-rollback] failed to fetch error rate from prometheus', {
       error: err instanceof Error ? err.message : String(err),
     })
-    return 0
+    return {
+      errorRate: null,
+      reason: `prometheus query error: ${err instanceof Error ? err.message : String(err)}`,
+    }
   }
 }
 
