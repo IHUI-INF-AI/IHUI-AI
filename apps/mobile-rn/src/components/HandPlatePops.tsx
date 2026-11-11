@@ -48,7 +48,7 @@ import {
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { ELEVATION_STEPS, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { Tappable } from '@ihui/ui-native'
 
 export interface HandPlatePaymentMethod {
@@ -444,11 +444,8 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: rnRadius.xl,
     borderTopRightRadius: rnRadius.xl,
     overflow: 'hidden',
-    shadowColor: tokens.gray.black,
-    shadowOpacity: 0.1,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: -4 },
-    elevation: 8,
+    // 投影:底部浮层面板 → 档位 lg(原 -4/.1/16 + elevation 8)
+    ...ELEVATION_STEPS.lg,
   } as ViewStyle,
   grabZone: {
     paddingTop: HANDLE_AREA_PADDING_V,

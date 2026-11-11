@@ -36,7 +36,7 @@ import { voiceSttFromReactNative } from '@ihui/api-client'
 import { getToken } from '../lib/token'
 import type { VoiceInputMinimalProps } from '@ihui/types'
 
-import { rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
+import { ELEVATION_STEPS, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import { Tappable } from '@ihui/ui-native'
 
 export interface VoiceInputProps extends VoiceInputMinimalProps {
@@ -375,11 +375,8 @@ const styles = StyleSheet.create({
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
     zIndex: 10,
-    elevation: 4,
-    shadowColor: tokens.gray.black,
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
+    // 投影:语音输入浮条 → 档位 md(原 4/.12/8 + elevation 4)
+    ...ELEVATION_STEPS.md,
   } as ViewStyle,
   popupItem: {
     alignItems: 'center',

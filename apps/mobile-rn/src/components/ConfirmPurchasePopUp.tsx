@@ -34,7 +34,7 @@ import {
   type ViewStyle,
 } from 'react-native'
 
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { ELEVATION_STEPS, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
 import { Tappable } from '@ihui/ui-native'
 export interface ConfirmPurchaseProduct {
@@ -386,11 +386,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: CARD_PADDING_HORIZONTAL,
     paddingVertical: CARD_PADDING_VERTICAL,
     alignItems: 'center',
-    shadowColor: tokens.gray.black,
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 8,
+    // 投影:购买确认弹窗卡 → 档位 lg(原 4/.12/12 + elevation 8)
+    ...ELEVATION_STEPS.lg,
   } as ViewStyle,
   iconWrap: {
     width: ICON_BG_SIZE,
