@@ -13059,8 +13059,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 624G. **缺陷普查 API F-625** [P3] live-probe 的 withTimeout 不取消底层请求，超时后连接继续占用（证据 docs/tickets/2026-11/findings-api.md#F-625）
 - [ ] 625G. **缺陷普查 API F-626** [P3] 模型别名解析走只读副本且无缓存，删除/禁用别名仍有复制延迟窗口生效（证据 docs/tickets/2026-11/findings-api.md#F-626）
 - [ ] 626G. **缺陷普查 API F-627** [P3] 候选循环内重复 JSON.stringify(body)，图片/长上下文请求最多 3 次大对象序列化（证据 docs/tickets/2026-11/findings-api.md#F-627）
-- [ ] 627G. **缺陷普查 API F-628** [P1] 中转成本汇总读 metadata->>'costCents'，而写侧已迁到顶层列 → 汇总恒 0（证据 docs/tickets/2026-11/findings-api.md#F-628）
-- [ ] 628G. **缺陷普查 API F-629** [P1] 充值退款不回收“充值赠送”token，可循环套利（证据 docs/tickets/2026-11/findings-api.md#F-629）
 - [ ] 629G. **缺陷普查 API F-630** [P2] 运营大屏“近 14 日新增用户”SQL 二次 +8h，每天 16:00 后算到次日（证据 docs/tickets/2026-11/findings-api.md#F-630）
 - [ ] 630G. **缺陷普查 API F-631** [P2] 开发者账单月份取 UTC（toISOString().slice(0,7)）（证据 docs/tickets/2026-11/findings-api.md#F-631）
 - [ ] 631G. **缺陷普查 API F-632** [P3] 积分消耗日历用 UTC 日，签到已改上海日，口径注释失效（证据 docs/tickets/2026-11/findings-api.md#F-632）
@@ -13120,8 +13118,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 696G. **缺陷普查 API F-697** [P3] 移动端设备分布把全部 distinct User-Agent 拉回进程再分三桶（证据 docs/tickets/2026-11/findings-api.md#F-697）
 - [ ] 698G. **缺陷普查 API F-699** [P1] 学习计划完成率 count(case) 无 ::int，聚合字符串拼接算出 442%（证据 docs/tickets/2026-11/findings-api.md#F-699）
 - [ ] 699G. **缺陷普查 API F-700** [P2] 管理端钱包统计 SUM(integer)::int，累计 token 超 2^31 即 22003 → 500（证据 docs/tickets/2026-11/findings-api.md#F-700）
-- [ ] 700G. **缺陷普查 API F-701** [P2] 中转账号 24h 用量 sum(...)::int 溢出被 catch 吞掉，整批账号降级为全 0（证据 docs/tickets/2026-11/findings-api.md#F-701）
-- [ ] 701G. **缺陷普查 API F-702** [P2] 渠道配额月度用量 coalesce(sum(...),0)::bigint::int，当月 token 超 2^31 抛错（证据 docs/tickets/2026-11/findings-api.md#F-702）
 - [ ] 702G. **缺陷普查 API F-703** [P3] 智能体详情 SUM(agentBillings.modelInputToken)::int 溢出 → 详情接口 500（证据 docs/tickets/2026-11/findings-api.md#F-703）
 - [ ] 703G. **缺陷普查 API F-704** [P2] 运营大屏当日 token ::bigint::int 溢出 → 业务纵深整块“不可用”（证据 docs/tickets/2026-11/findings-api.md#F-704）
 - [ ] 704G. **缺陷普查 API F-705** [P3] A/B 实验统计 exposureCount += SUM(int) 字符串拼接，返回 "0100"（证据 docs/tickets/2026-11/findings-api.md#F-705）
@@ -13137,7 +13133,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 714G. **缺陷普查 API F-715** [P3] 死信队列只在 push 时清理：过期死信在 get/list 中仍可见且可重投（证据 docs/tickets/2026-11/findings-api.md#F-715）
 - [ ] 715G. **缺陷普查 API F-716** [P3] readNoProxy 首个已配置变量未命中即 return，注释声称“继续找另一个大小写档位”（证据 docs/tickets/2026-11/findings-api.md#F-716）
 - [ ] 716G. **缺陷普查 API F-717** [P1] 预扣金额按“扣除前读值 − 扣除后返回值”反推，并发下多退或少登记（证据 docs/tickets/2026-11/findings-api.md#F-717）
-- [ ] 717G. **缺陷普查 API F-718** [P1] 余额不足时 CASE 保持原值 + 准入只挡 0 ⇒ 1 分余额的 Key 永久免费，且返佣照提（证据 docs/tickets/2026-11/findings-api.md#F-718）
 - [ ] 718G. **缺陷普查 API F-719** [P1] 兑换码/单边 token 充值只加 tokenBalance，而准入要求 costBalanceCents≠0 ⇒ 付费充值不可用（证据 docs/tickets/2026-11/findings-api.md#F-719）
 - [ ] 719G. **缺陷普查 API F-720** [P2] Qoder 类积分上游的 credits 不进计费 ⇒ 该维度完全未计费（证据 docs/tickets/2026-11/findings-api.md#F-720）
 - [ ] 720G. **缺陷普查 API F-721** [P1] refundTaskCall 退款非原子：并发或副本滞后会重复退款（凭空增余额）（证据 docs/tickets/2026-11/findings-api.md#F-721）
