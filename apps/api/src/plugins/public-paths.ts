@@ -149,11 +149,6 @@ export const TENANT_BYPASS_PREFIX_PATHS: readonly string[] = [
   // 不顺带放过 /api/super-agent/ 其余需登录面。
   '/api/super-agent/webhook-callback/',
   '/api/tbox/events',
-  // OpenAI 兼容机器面(API Key 自证身份):调用方只会带 Authorization/X-Api-Key,**不带**租户头,
-  // 典型如 ai-service 的模型连通性探测与平台中转模型(workbuddy/*)调用。TENANT_STRICT_MODE 缺省
-  // 即严格后,不在这里豁免就等于让这 33 个模型全线 401(2026-11-11 实测:带租户头 200、不带 401)。
-  '/v1/',
-  '/v1beta/',
   '/api/csrf-token',
   '/api/configs',
   '/api/settings',
@@ -165,6 +160,12 @@ export const TENANT_BYPASS_PREFIX_PATHS: readonly string[] = [
   '/api/ai-pricing',
   '/api/vip/levels',
   '/api/vip/products',
+  // App 内更新卡 / 站点下载栏的版本检查:匿名客户端启动即调、SSR 解析腿(填 downloads.json)
+  // 也调,均无可带的租户标识;且 app_version 表无 tenant 列、/latest 路由读侧不查租户 ——
+  // 该端点本就设计为「公开 + 不分租户」。漏列这里 ⇒ 严格租户闸稳定 401 ⇒ 下载栏 android/mobile
+  // 落 snapshot/registry-unreachable、App 更新卡 /latest 误判 undetermined(2026-11-11 实测两族 29 封/7 天)。
+  // 与 AUTH_PUBLIC_PREFIX_PATHS 同前缀登记,免登录且免租户,与端点语义对齐。
+  '/api/app-version/',
   '/docs',
   '/openapi.json',
 ]
