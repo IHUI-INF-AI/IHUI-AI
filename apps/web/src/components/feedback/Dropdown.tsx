@@ -20,6 +20,8 @@ export interface DropdownItem {
   children?: DropdownItem[]
   // 2026-09-21 新增:右侧尾缀内容(未读徽标 / 当前项勾选),ml-auto 右对齐
   trailing?: React.ReactNode
+  // 2026-11-11 新增:子菜单容器附加类名(如站内消息子菜单需要更宽的内容卡)
+  contentClassName?: string
 }
 
 const ITEM_CLASS = cn(
@@ -62,8 +64,9 @@ function DropdownItems({ items }: { items: DropdownItem[] }) {
                 <DropdownMenu.SubContent
                   sideOffset={4}
                   className={cn(
-                    'z-popover min-w-[10rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md',
+                    'z-popover min-w-[10rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-elevation-md',
                     'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-(--duration-unified) ease-unified',
+                    item.contentClassName,
                   )}
                 >
                   <DropdownItems items={item.children} />
@@ -111,7 +114,7 @@ export function Dropdown({
           side={side}
           sideOffset={4}
           className={cn(
-            'z-popover min-w-[10rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md',
+            'z-popover min-w-[10rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-elevation-md',
             'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-(--duration-unified) ease-unified',
             className,
           )}

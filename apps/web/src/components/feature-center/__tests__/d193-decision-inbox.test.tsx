@@ -21,10 +21,17 @@ const h = vi.hoisted(() => ({
 }))
 
 vi.mock('next-intl', () => ({
-  useTranslations: (_ns: string) => (key: string) => key,
+  useTranslations:
+    (_ns: string) =>
+    (key: string) =>
+      key,
 }))
 
-vi.mock('@ihui/api-client', () => ({ listPendingDecisions: h.listPendingDecisions }))
+vi.mock('@ihui/api-client', () => ({
+  listPendingDecisions: h.listPendingDecisions,
+  // SidebarUserRow 挂载时会拉一次通知列表做消息二级菜单缓存,这里给空列表即可
+  getNotifications: vi.fn(async () => ({ success: true, data: { list: [], total: 0 } })),
+}))
 
 // ---------------------------------------------------------------------------
 // NotificationCenter(展示层,props 驱动)
@@ -142,26 +149,32 @@ vi.mock('@/lib/downloads', () => ({
 }))
 vi.mock('@/components/data/Avatar', () => ({ Avatar: () => null }))
 vi.mock('@/components/sidebar/nav-data', () => ({ LANGUAGES: [] }))
-// Dropdown 渲染成可点的按钮(跳过 divider 项),Modal 透传 open 态 —— 挂载级走真实弹窗开关。
-vi.mock('@/components/feedback', () => ({
-  Dropdown: ({
-    items,
-  }: {
-    items: Array<{ key: string; divider?: boolean; label?: unknown; onSelect?: () => void }>
-  }) => (
-    <div>
-      {items
-        .filter((it) => !it.divider && typeof it.onSelect === 'function')
-        .map((it) => (
-          <button key={it.key} data-testid={`dd-${it.key}`} onClick={it.onSelect}>
-            {it.key}
-          </button>
-        ))}
-    </div>
-  ),
-  Modal: ({ open, children }: { open: boolean; children: React.ReactNode }) =>
-    open ? <div data-testid="d193-modal">{children}</div> : null,
-}))
+// Dropdown 渲染成可点的按钮,Modal 透传 open 态 —— 挂载级走真实弹窗开关。
+// 注意:「站内消息」现在是带二级菜单的父项(no onSelect),真正打开完整通知中心的是
+// 二级菜单底部的「查看全部通知」(dd-messages-view-all),因此这里递归展开 children。
+vi.mock('@/components/feedback', () => {
+  type MockItem = {
+    key: string
+    label?: unknown
+    onSelect?: () => void
+    children?: MockItem[]
+  }
+  const renderItem = (it: MockItem): React.ReactNode => {
+    if (typeof it.onSelect === 'function') {
+      return (
+        <button key={it.key} data-testid={`dd-${it.key}`} onClick={it.onSelect}>
+          {it.key}
+        </button>
+      )
+    }
+    return it.children?.length ? <div key={it.key}>{it.children.map(renderItem)}</div> : null
+  }
+  return {
+    Dropdown: ({ items }: { items: MockItem[] }) => <div>{items.map(renderItem)}</div>,
+    Modal: ({ open, children }: { open: boolean; children: React.ReactNode }) =>
+      open ? <div data-testid="d193-modal">{children}</div> : null,
+  }
+})
 
 import { SidebarUserRow } from '../../sidebar/SidebarUserRow'
 
@@ -190,7 +203,7 @@ describe('D193 SidebarUserRow 决策收件箱装车链', () => {
       },
     })
     render(<SidebarUserRow collapsed={false} onCloseMobile={h.onCloseMobile} />)
-    fireEvent.click(screen.getByTestId('dd-messages'))
+    fireEvent.click(screen.getByTestId('dd-messages-view-all'))
     const modal = await screen.findByTestId('d193-modal')
     await waitFor(() => expect(screen.getByTestId('decision-inbox-item')).toBeTruthy())
     expect(h.listPendingDecisions).toHaveBeenCalledTimes(1)
@@ -206,7 +219,7 @@ describe('D193 SidebarUserRow 决策收件箱装车链', () => {
   it('取数失败静默落空态(只读查询不打扰)', async () => {
     h.listPendingDecisions.mockRejectedValue(new Error('502'))
     render(<SidebarUserRow collapsed={false} onCloseMobile={h.onCloseMobile} />)
-    fireEvent.click(screen.getByTestId('dd-messages'))
+    fireEvent.click(screen.getByTestId('dd-messages-view-all'))
     await screen.findByTestId('d193-modal')
     await waitFor(() => expect(screen.getByTestId('decision-inbox-empty')).toBeTruthy())
     expect(screen.getByTestId('decision-inbox-empty').textContent).toBe('pendingDecisionsEmpty')
@@ -216,12 +229,14 @@ describe('D193 SidebarUserRow 决策收件箱装车链', () => {
     h.listPendingDecisions.mockResolvedValue({
       success: true,
       data: {
-        items: [{ id: 'eli_x', threadId: null, type: 'elicitation', summary: '', createdAt: null }],
+        items: [
+          { id: 'eli_x', threadId: null, type: 'elicitation', summary: '', createdAt: null },
+        ],
         total: 1,
       },
     })
     render(<SidebarUserRow collapsed={false} onCloseMobile={h.onCloseMobile} />)
-    fireEvent.click(screen.getByTestId('dd-messages'))
+    fireEvent.click(screen.getByTestId('dd-messages-view-all'))
     await waitFor(() => expect(screen.getByTestId('decision-inbox-item')).toBeTruthy())
     fireEvent.click(screen.getByTestId('decision-inbox-item'))
     expect(h.setConversationId).not.toHaveBeenCalled()
