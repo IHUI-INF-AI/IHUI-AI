@@ -524,12 +524,45 @@ function mapMinimaxImport(acc: ImportAccountInput): {
 }
 
 /**
+ * ZCode 载荷里的账号级稳定标识(2026-11-11 补链,生产重复行实证)。
+ *
+ * 立因:uid 原口径只看「选中的那枚票」是否 JWT。选中票在 z.ai 档是 project api key
+ * (非 JWT)⇒ 退化到 token 哈希;同一账号换档重导就多一行(生产实测 `zcode:cn`
+ * uid=83881793407924603 与 `zcode:global` uid=auto:af97…,两份独立物料里的
+ * `zcodejwttoken` 声明与 `oauth:bigmodel:user_info.id` 同为 83881793407924603)。
+ * 载荷本身另有两处与 JWT 声明同源的账号级材料 ⇒ 退化前先取它们,token 哈希只作最后兜底。
+ */
+function zcodePayloadStableUid(a: Record<string, unknown>): string {
+  const jwt = stableClaimUid(parseJwtClaims(cstr(a['zcodejwttoken'])), ['customer_id', 'user_id'])
+  if (jwt) return jwt
+  const raw = a['oauth:bigmodel:user_info']
+  let obj: unknown = raw
+  if (typeof raw === 'string') {
+    try {
+      obj = JSON.parse(raw)
+    } catch {
+      obj = null
+    }
+  }
+  if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
+    const id = (obj as Record<string, unknown>)['id']
+    if (typeof id === 'string') {
+      const s = stableKeyMaterial(id)
+      if (s) return s.slice(0, 128)
+    }
+  }
+  return ''
+}
+
+/**
  * ZCode:credentials.json 扁平图直通,token 主选 oauth:bigmodel:access_token。
  *
  * 2026-11-06 Y-24 收稳定身份键:本机实提那枚票解出的 JWT 声明里带
  * `customer_id / user_id / username`(账号级),而 `oauth:bigmodel:user_info.id` 与
  * `customer_id` **同指纹**(同为 `c20d04f8`,两份互独立材料互相印证)⇒ 该 id 不是票派生量,
  * 换票不改。故 uid = 声明 `customer_id`(缺则 `user_id`);两者皆缺才回落 token 哈希。
+ * 2026-11-11:选中票非 JWT 时,先取 `zcodejwttoken` / `user_info.id`(见 zcodePayloadStableUid),
+ * 避免同一账号因换档落到 token 哈希上另起一行。
  */
 function mapZcodeImport(acc: ImportAccountInput): {
   token: string
@@ -553,7 +586,10 @@ function mapZcodeImport(acc: ImportAccountInput): {
     token,
     refreshToken: null,
     // Y-24:键源 = 票内账号级声明,token 不进键(声明皆缺才回落 token 哈希)
-    uid: stableClaimUid(parseJwtClaims(token), ['customer_id', 'user_id']) || autoUid(token),
+    uid:
+      stableClaimUid(parseJwtClaims(token), ['customer_id', 'user_id']) ||
+      zcodePayloadStableUid(a) ||
+      autoUid(token),
     name: `zcode${region ? `:${region}` : ''}`,
     expiresAt: null,
     secrets: {

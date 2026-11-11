@@ -78,6 +78,7 @@ class FakeStore:
         device_map: dict[str, Any],
         account_group: str = "",
         platform: str = "trae",
+        adopt_pool_owner: bool = False,
     ) -> dict[str, Any]:
         identity = checkin_store.derive_account_identity(platform, jwt, device_map) or ""
         incoming_ver = checkin_store._pool_cred_version_of(device_map)
@@ -387,10 +388,10 @@ async def test_pool_sync_single_failure_does_not_block_batch(client, fake_store,
     """第二条建号抛错 → failed,第一条照常 synced。"""
     real_create = fake_store.create_account
 
-    async def flaky(owner, name, jwt, device_map, account_group="", platform="trae"):
+    async def flaky(owner, name, jwt, device_map, account_group="", platform="trae", adopt_pool_owner=False):
         if device_map.get("pool_account_id") == "22222222-2222-2222-2222-222222222222":
             raise RuntimeError("boom")
-        return await real_create(owner, name, jwt, device_map, account_group, platform)
+        return await real_create(owner, name, jwt, device_map, account_group, platform, adopt_pool_owner)
 
     monkeypatch.setattr(checkin_store, "create_account", flaky)
     resp = await client.post(

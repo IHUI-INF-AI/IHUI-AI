@@ -165,6 +165,12 @@ export interface UpstreamSocketOpenOptions {
   /** 建连超时(ms);缺省由传输层取 15s */
   connectTimeoutMs?: number
   /**
+   * WS 心跳周期(ms):发 ping 数 pong,连丢 SOCKET_HEARTBEAT_MISS_LIMIT 个周期 ⇒ 判半开。
+   * 缺省由传输层取 DEFAULT_SOCKET_HEARTBEAT_MS(30s);<=0 表示关闭心跳。
+   * (2026-11-11 补:传输层已于 14dcbd290d 开始读 opts.heartbeatMs,契约侧漏登记本字段)
+   */
+  heartbeatMs?: number
+  /**
    * fetch 注入点(sse 模式用)。转发层必须传入自己的账号级 fetch,
    * 否则账号代理与连接期出口守卫都会被绕过(见 relay-socket-transport 文件头约束 1)。
    */
@@ -366,10 +372,7 @@ export interface RelayUpstreamAdapter {
    * 构造上游长连接请求(socketSupported=true 时必实现)。
    * 与 buildChatRequest 并列:同一份 NormalizedChatRequest,两种运输方式。
    */
-  buildSocketRequest?(
-    ctx: AdapterAccountContext,
-    req: NormalizedChatRequest,
-  ): UpstreamSocketRequest
+  buildSocketRequest?(ctx: AdapterAccountContext, req: NormalizedChatRequest): UpstreamSocketRequest
   /**
    * 长连接帧 → OpenAI chunk(可选)。
    * 省略时转发层按 SSE 语义透传文本帧,复用 translateStreamChunk 翻译
@@ -478,9 +481,7 @@ export function isRefreshableProviderCode(providerCode: string): boolean {
 export function hasVerifiedQuotaEndpoint(
   adapter: Pick<RelayUpstreamAdapter, 'getQuota' | 'quotaSupported'> | null | undefined,
 ): adapter is RelayUpstreamAdapter & { getQuota: NonNullable<RelayUpstreamAdapter['getQuota']> } {
-  return (
-    !!adapter && typeof adapter.getQuota === 'function' && adapter.quotaSupported !== false
-  )
+  return !!adapter && typeof adapter.getQuota === 'function' && adapter.quotaSupported !== false
 }
 
 /**

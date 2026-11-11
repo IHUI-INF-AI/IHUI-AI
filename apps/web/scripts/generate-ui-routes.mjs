@@ -22,7 +22,7 @@ import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 
-import { renderPin } from '../../../scripts/lib/generated-input-pin.mjs' // arch-exempt: ui-routes 派生码生成脚本属构建工具面(非运行时依赖边),须与守门 105 自述钉共用同一 renderPin 源;正解=「工具支持层」在策略表建档并降到 apps 之下 until 2026-12-28
+import { renderStablePin } from '../../../scripts/lib/generated-input-pin.mjs' // arch-exempt: ui-routes 派生码生成脚本属构建工具面(非运行时依赖边),须与守门 105 自述钉共用同一 renderPin 源;正解=「工具支持层」在策略表建档并降到 apps 之下 until 2026-12-28
 
 const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const repoRoot = path.resolve(webRoot, '..', '..')
@@ -133,11 +133,12 @@ const routeLines = routes.map((r) => `  { path: '${r.path}', param: ${r.param}, 
 
 // 自述钉:由输入字节算出的 inputsSha256 烘进产物头(单一实现 lib/generated-input-pin.mjs)。
 // 门侧同面重算同集输入即可判「产物是否按当前输入生成」;skipped 计数与输入清单同块自述。
-const pinLines = renderPin({
+const pinLines = renderStablePin({
   generator: 'apps/web/scripts/generate-ui-routes.mjs',
   sourceCommit: sourceCommit(),
   inputs,
   generatedAt: new Date().toISOString(),
+  existingText: existsSync(outFile) ? readFileSync(outFile, 'utf8') : null,
   extraLines: [
     `skipped: excludedTopSegments(sso|h5|api)=${excludedTop} pages; duplicatePaths(保留先扫描到的)=${duplicatePaths}`,
   ],

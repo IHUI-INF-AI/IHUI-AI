@@ -3,15 +3,15 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 扫码 tab 的协议同意采集接线断言(2026-10-27 立)。
+ * 扫码 tab 的协议同意采集接线断言(2026-10-27 立,2026-11-11 改为内联同意)。
  *
  * 背景:共享 LoginForm 只在 agreementMode==='inline' 且 tab!=='qr' 时渲染勾选框,
  * web 走 notice-dialog 且扫码 tab 不触发提交 ⇒ 停在扫码面板的访客从未被要求同意条款。
- * 本测试钉住扫码面板侧的行为:
- *   - 进入扫码即弹**现有** AgreementNoticeDialog(测试用轻量替身,只保留 open/回调契约);
- *   - 未同意 ⇒ 不挂载 AppQrPanel、不发 /api/auth/qr/generate;
- *   - 同意后 ⇒ 出码,且 /qr/generate 请求体带 agreementAccepted:true(后端唯一真相源的写入点);
- *   - 拒绝后 ⇒ 显示现有 auth.agreeRequired 文案,可重新打开同一弹窗。
+ * 2026-11-11 机主决定取消"进入即弹模态框",改为面板内联"同意并继续"。
+ * 本测试钉住新行为:
+ *   - 进入扫码**不自动弹窗**,只显示内联同意条;
+ *   - 未点同意 ⇒ 不挂载 AppQrPanel、不发 /api/auth/qr/generate;
+ *   - 点击内联同意后 ⇒ 出码,且 /qr/generate 请求体带 agreementAccepted:true。
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, cleanup, screen, fireEvent, waitFor } from '@testing-library/react'
@@ -36,28 +36,7 @@ vi.mock('next-intl', () => ({ useTranslations: () => (key: string) => key }))
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn() }),
 }))
-// @ihui/ui-react 轻量替身(同 login/__tests__ 范式):只保留协议弹窗的 open / 回调契约。
-vi.mock('@ihui/ui-react', () => ({
-  AgreementNoticeDialog: ({
-    open,
-    onAgree,
-    onCancel,
-  }: {
-    open: boolean
-    onAgree: () => void
-    onCancel: () => void
-  }) =>
-    open ? (
-      <div data-testid="agreement-notice-dialog">
-        <button type="button" data-testid="agreement-notice-agree" onClick={onAgree}>
-          agree
-        </button>
-        <button type="button" data-testid="agreement-notice-disagree" onClick={onCancel}>
-          disagree
-        </button>
-      </div>
-    ) : null,
-}))
+// @ihui/ui-react 不再被 QrCodeLogin 依赖(协议改成面板内联),无需替身。
 vi.mock('@tanstack/react-query', () => ({
   useQueryClient: () => ({ invalidateQueries: h.invalidateQueries }),
 }))
@@ -105,17 +84,18 @@ afterEach(() => {
 })
 
 describe('QrCodeLogin 协议同意采集', () => {
-  it('进入扫码即弹协议弹窗,未同意不发 /qr/generate', async () => {
+  it('进入扫码不自动弹窗,只显示内联同意条,未同意不发 /qr/generate', async () => {
     render(<QrCodeLogin platform="app" refreshKey={0} />)
 
-    expect(await screen.findByTestId('agreement-notice-dialog')).toBeTruthy()
+    expect(await screen.findByTestId('qr-agreement-agree')).toBeTruthy()
+    expect(screen.queryByTestId('agreement-notice-dialog')).toBeNull()
     await new Promise((r) => setTimeout(r, 50))
     expect(h.fetchApi).not.toHaveBeenCalled()
   })
 
-  it('同意后出码,且 /qr/generate 请求体带 agreementAccepted:true', async () => {
+  it('点击内联同意后出码,且 /qr/generate 请求体带 agreementAccepted:true', async () => {
     render(<QrCodeLogin platform="app" refreshKey={0} />)
-    fireEvent.click(await screen.findByTestId('agreement-notice-agree'))
+    fireEvent.click(await screen.findByTestId('qr-agreement-agree'))
 
     await waitFor(() => {
       expect(h.fetchApi).toHaveBeenCalledWith(
@@ -126,19 +106,7 @@ describe('QrCodeLogin 协议同意采集', () => {
         }),
       )
     })
-    // 弹窗关闭后不再重复弹出
-    expect(screen.queryByTestId('agreement-notice-dialog')).toBeNull()
-  })
-
-  it('拒绝同意 → 不出码、不发请求,显示现有文案并可重开弹窗', async () => {
-    render(<QrCodeLogin platform="app" refreshKey={0} />)
-    fireEvent.click(await screen.findByTestId('agreement-notice-disagree'))
-
-    expect(await screen.findByText('auth.agreeRequired')).toBeTruthy()
-    expect(h.fetchApi).not.toHaveBeenCalled()
-
-    fireEvent.click(screen.getByText('auth.agreementNoticeAgree'))
-    expect(await screen.findByTestId('agreement-notice-dialog')).toBeTruthy()
+    expect(screen.queryByTestId('qr-agreement-agree')).toBeNull()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

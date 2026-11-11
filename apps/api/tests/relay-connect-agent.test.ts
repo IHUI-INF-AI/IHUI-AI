@@ -15,8 +15,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { createServer, type Server } from 'node:http'
 import net from 'node:net'
 import type { AddressInfo } from 'node:net'
-import { WebSocketServer, type WebSocket } from 'ws'
-import WebSocket from 'ws'
+import WebSocket, { WebSocketServer } from 'ws'
 import { createConnectProxyAgent, isSupportedProxyUrl } from '../src/services/relay-connect-agent.js'
 
 let backend: WebSocketServer | null = null
