@@ -3056,5 +3056,27 @@
       "_evidence": "2026-11-09 实测 mp 领奖端点（chatBase + X-Client-Platform: miniprogram）；默认 auto_claim=false"
     }
   ],
+  "skill_share": [
+    {
+      "kind": "share_chain",
+      "verified": true,
+      "event_codes": [
+        "skill_detail_show",
+        "skill_share_entry_click",
+        "share_invoke_result",
+        "skill_share_security_result",
+        "skill_share_channel_action",
+        "skill_share_deeplink_result",
+        "skill_share_conversion"
+      ],
+      "verified_evidence": {
+        "date": "2026-11-11",
+        "method": "客户端 app.asar 取证 skill_share_* 事件族 → accept 批量端点 → desktop 口径 /v2/report 七事件数组(report_desktop 注入公共指纹) → 回读 progress 0→1 → claim",
+        "criterion": "回读 accept_status=completed 且 progress 1/1；200 受理回执不算成功",
+        "scope": "号池 5 个 enabled workbuddy 账号全部点亮并领奖"
+      },
+      "_evidence": "app.asar reportShareEntryClick / reportShareChannelAction / reportShareDeeplinkResult / reportShareConversion；2026-11-11 本机真机实证"
+    }
+  ],
   "__fallback__": []
 }

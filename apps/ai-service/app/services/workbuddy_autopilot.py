@@ -66,11 +66,12 @@ def load_raw_action_table(path: str | Path = _ACTION_TABLE_PATH) -> dict[str, An
 
 
 def route_of(code: str, table: dict[str, Any]) -> tuple[str | None, dict[str, Any]]:
-    """纯函数选路:返回 (route, meta)。route ∈ {'desktop','generic',None}。
+    """纯函数选路:返回 (route, meta)。route ∈ {'desktop','share_chain','generic',None}。
 
-    - desktop: 存在 verified desktop_expert 条目(meta 含 expert_id/market_keyword);
-    - generic: 全部步骤 kind=http 且 verified=true(Sequential 族等);
-    - None:    无 verified 链 ⇒ 只登记不执行(防伪造,零出站)。
+    - desktop:     存在 verified desktop_expert 条目(meta 含 expert_id/market_keyword);
+    - share_chain: 存在 verified share_chain 条目(meta 含 event_codes;平台新上的分享类任务);
+    - generic:     全部步骤 kind=http 且 verified=true(Sequential 族等);
+    - None:        无 verified 链 ⇒ 只登记不执行(防伪造,零出站)。
     """
     steps = table.get(code)
     if not isinstance(steps, list) or not steps:
@@ -79,6 +80,8 @@ def route_of(code: str, table: dict[str, Any]) -> tuple[str | None, dict[str, An
         if isinstance(step, dict) and step.get("kind") == "desktop_expert" and step.get("verified") is True:
             meta = {k: v for k, v in step.items() if k not in ("kind",)}
             return "desktop", meta
+        if isinstance(step, dict) and step.get("kind") == "share_chain" and step.get("verified") is True:
+            return "share_chain", {"event_codes": tuple(step.get("event_codes") or ())}
     if all(
         isinstance(s, dict) and s.get("kind", "http") == "http" and s.get("verified") is True
         for s in steps
@@ -323,6 +326,16 @@ async def run_autopilot(
                     client, jwt, uid, nickname, expert,
                     read_tasks=_read_tasks,
                     task_code=code,
+                )
+            elif route == "share_chain":
+                async def _read_tasks_share() -> Any:
+                    fresh = await _fetch_task_payload(client, jwt, uid)
+                    return _snapshot_of(fresh) if fresh is not None else None
+
+                result = await wda.run_share_task(
+                    client, jwt, uid, nickname, code,
+                    read_tasks=_read_tasks_share,
+                    event_codes=meta.get("event_codes") or (),
                 )
             else:  # generic
                 ctx = wda.build_context(jwt, dm, task_code=code)
