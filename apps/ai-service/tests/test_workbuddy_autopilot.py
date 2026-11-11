@@ -507,4 +507,71 @@ async def test_oa_completed_is_claimed_automatically() -> None:
     assert summary["claimed"] == [ap.OA_SUBSCRIBE_TASK_CODE]
     assert summary["credits"] == 100
     assert summary["unregistered"] == []
+
+
+@pytest.mark.asyncio
+async def test_subscribe_status_reading_keeps_full_server_verdict() -> None:
+    """状态端点不能只判 HTTP 200:服务端四个判据读数要完整留档。
+
+    公众号项卡住时要能区分「没绑微信 openid」和「已关注但 24h 窗没走完」,
+    task_status / advanced 丢了就只剩一个布尔,诊断退化成猜。
+    """
+    def transport(req: httpx.Request) -> httpx.Response:
+        if req.url.path.endswith("/subscribe-task/status"):
+            return httpx.Response(
+                200,
+                json={"code": 0, "data": {"subscribe_task": {
+                    "task_code": ap.OA_SUBSCRIBE_TASK_CODE,
+                    "subscribed": False,
+                    "remaining_seconds": -1,
+                    "task_status": "accepted",
+                    "advanced": False,
+                }}},
+            )
+        return httpx.Response(200, json={"code": 0, "data": {"tasks": []}})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(transport)) as client:
+        summary = await ap.run_autopilot(
+            FAKE_TOKEN, FAKE_DM, dry_run=True, table={}, client=client
+        )
+    st = summary["subscribe_status"]
+    assert st["http_ok"] is True
+    assert st["subscribed"] is False
+    assert st["remaining_seconds"] == -1
+    assert st["task_status"] == "accepted"
+    assert st["advanced"] is False
+    assert summary["subscribe_status_refreshed"] is True
+
+
+@pytest.mark.asyncio
+async def test_subscribe_status_read_failure_is_fail_soft() -> None:
+    """刷新失败只少一次重算,不能把全表判成读失败、更不能中断整轮。"""
+    def transport(req: httpx.Request) -> httpx.Response:
+        if req.url.path.endswith("/subscribe-task/status"):
+            return httpx.Response(503, json={"code": 503})
+        return httpx.Response(200, json={"code": 0, "data": {"tasks": []}})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(transport)) as client:
+        summary = await ap.run_autopilot(
+            FAKE_TOKEN, FAKE_DM, dry_run=True, table={}, client=client
+        )
+    assert summary["subscribe_status"] is None
+    assert summary["subscribe_status_refreshed"] is False
+    assert summary["read_failed"] is False
+
+
+def test_oa_bind_params_match_official_oneid_chain() -> None:
+    """绑定链参数取自现网 usercenter bundle,不许凭印象改 scene / 域名。"""
+    assert ap.oa_bind_initiate_url() == (
+        "https://api.account.tencent.com/personal_center/v1/credential/wechat/initiate"
+    )
+    assert ap.oa_bind_initiate_params("https://www.workbuddy.cn/account-settings") == {
+        "scene": "BIND_WECHAT",
+        "action": "bind",
+        "callback_uri": "https://www.workbuddy.cn/account-settings",
+        "extra_param": "",
+    }
+    assert ap.oa_bind_initiate_params("x", action="rebind")["scene"] == "REBIND_WECHAT"
+    assert ap.oa_bind_initiate_params("x", action="unbind")["scene"] == "UNBIND_WECHAT"
+    assert ap.oa_bind_callback_params("CODE", "STATE") == {"code": "CODE", "state": "STATE"}
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
