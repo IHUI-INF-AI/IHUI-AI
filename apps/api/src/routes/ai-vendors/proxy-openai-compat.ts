@@ -29,6 +29,11 @@ import {
   requireAuth,
 } from './_shared.js'
 import { ensurePointsBalance, chargePointsForCall } from './proxy-llm.js'
+import {
+  FLAT_POINTS,
+  ensurePointsAvailable,
+  chargeFlatPoints,
+} from '../../services/points-guard.js'
 import { MEDIA_FILE_UPLOAD_BODY_LIMIT, MEDIA_BASE64_BODY_LIMIT } from '../../config/body-limits.js'
 
 /** 各厂商能力矩阵(接通上游真实存在的端点,避免死端点) */
@@ -306,16 +311,22 @@ export const openaiCompatVendorRoutes: FastifyPluginAsync = async (server) => {
         },
         async (request, reply) => {
           const body = imageBody.parse(request.body ?? {})
-          // F-87:平台 Key 代理必须先做余额闸(与 chat/embeddings 同尺),
-          // 否则零积账号可无限调用付费文生图。
-          if (!(await ensurePointsBalance(request, reply, body.model ?? ''))) return
+          // F-87:平台 Key 代理必须先做余额闸(不依赖 model 名,免费模型名不能绕过);
+          // 图片响应无 token usage,token 计价恒被跳过 ⇒ 成功出图后按 FLAT_POINTS.image * n 固定单价扣费。
+          if (!(await ensurePointsAvailable(request, reply))) return
           const data = await callVendor(vendor, `${baseUrl}/images/generations`, reply, {
             method: 'POST',
             body: JSON.stringify(body),
           })
           if (data === null) return
           recordUsage(request.userId!, vendor)
-          await chargePointsForCall(request, body.model ?? '', data, request.id)
+          const imageCount = body.n ?? 1
+          await chargeFlatPoints(
+            request,
+            FLAT_POINTS.image * imageCount,
+            `OpenAI 兼容文生图扣分(vendor=${vendor}, model=${body.model ?? 'default'}, n=${imageCount})`,
+            request.id,
+          )
           return reply.send(success(data))
         },
       )
@@ -350,8 +361,9 @@ export const openaiCompatVendorRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const body = openaiSpeechBody.parse(request.body ?? {})
-      // F-87:TTS 走平台 Key,此前完全不计费 —— 至少先挡住零积账号。
-      if (!(await ensurePointsBalance(request, reply, body.model ?? ''))) return
+      // F-87:TTS 走平台 Key 且无 token usage ⇒ 余额闸(不看 model 名)先行,
+      // 成功拿到音频后按 FLAT_POINTS.audio 固定单价扣费。
+      if (!(await ensurePointsAvailable(request, reply))) return
       const key = requireVendorKey('openai', reply)
       if (!key) return
       const resp = await fetchWithTimeout(
@@ -384,6 +396,12 @@ export const openaiCompatVendorRoutes: FastifyPluginAsync = async (server) => {
       const format = body.response_format ?? 'mp3'
       const buf = Buffer.from(await resp.arrayBuffer())
       recordUsage(request.userId!, 'openai')
+      await chargeFlatPoints(
+        request,
+        FLAT_POINTS.audio,
+        `OpenAI TTS 扣分(model=${body.model ?? 'gpt-4o-mini-tts'})`,
+        request.id,
+      )
       return reply.send(
         success({ audio: `data:audio/${format};base64,${buf.toString('base64')}`, format }),
       )
@@ -418,8 +436,9 @@ export const openaiCompatVendorRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const body = openaiTranscriptionBody.parse(request.body ?? {})
-      // F-87:STT 同样走平台 Key,余额闸先行。
-      if (!(await ensurePointsBalance(request, reply, body.model ?? ''))) return
+      // F-87:STT 同样走平台 Key;multipart 转写无 token usage,余额闸(不看 model 名)先行,
+      // 成功后按 FLAT_POINTS.audio 固定单价扣费。
+      if (!(await ensurePointsAvailable(request, reply))) return
       const key = requireVendorKey('openai', reply)
       if (!key) return
       const file = await request.file()
@@ -464,6 +483,12 @@ export const openaiCompatVendorRoutes: FastifyPluginAsync = async (server) => {
           ? await resp.json()
           : { text: await resp.text() }
         recordUsage(request.userId!, 'openai')
+        await chargeFlatPoints(
+          request,
+          FLAT_POINTS.audio,
+          `OpenAI STT 扣分(model=${body.model ?? 'whisper-1'})`,
+          request.id,
+        )
         return reply.send(success(data))
       } catch (e) {
         const msg = (e as Error).name === 'AbortError' ? '请求超时' : (e as Error).message
@@ -584,6 +609,9 @@ export const openaiCompatVendorRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const { responseId } = responseIdParam.parse(request.params)
+      // F-87:结果检索走平台 Key;属已付费调用的后续读取,只做余额闸(零积账号不可用),
+      // 不额外扣费(不发明新价格)。
+      if (!(await ensurePointsAvailable(request, reply))) return
       const key = requireVendorKey('openai', reply)
       if (!key) return
       try {

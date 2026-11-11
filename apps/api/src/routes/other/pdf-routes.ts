@@ -21,6 +21,7 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { randomUUID } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { readFile } from 'node:fs/promises'
 import { join, resolve, sep } from 'node:path'
 import { z } from 'zod'
 import { success, error } from '../../utils/response.js'
@@ -33,9 +34,19 @@ const pdfFileIdQuerySchema = z.object({
 
 // P2 修复(2026-08-06):PDF 工具读取/输出的文件位于公开目录 uploads/public(静态白名单只暴露 public/)
 const PDF_UPLOAD_DIR = process.env.UPLOAD_DIR ?? join(process.cwd(), 'uploads', 'public')
+const PDF_UPLOAD_BASE = resolve(PDF_UPLOAD_DIR)
+
+/**
+ * 一次合并的文件数上限(F-76 P2):不设上限时,填几万条重复 fileId 即可让单请求
+ * 同步读整文件 + PDFDocument.load 循环,打爆内存并阻塞事件循环。
+ */
+export const MAX_MERGE_FILES = 20
 
 const mergeSchema = z.object({
-  fileIds: z.array(z.uuid()).min(2, '至少需要 2 个文件'),
+  fileIds: z
+    .array(z.uuid())
+    .min(2, '至少需要 2 个文件')
+    .max(MAX_MERGE_FILES, `一次最多合并 ${MAX_MERGE_FILES} 个文件`),
 })
 
 const splitSchema = z.object({
@@ -58,11 +69,16 @@ const watermarkSchema = z.object({
  * 源文件定位:落盘名 = fileId 本身(files.ts:235-236 的 `join(UPLOAD_DIR, fileId)`,无扩展名)。
  * 路径遍历防御与 GET /pdf-service/result/:id 同一条判据(解析后必须仍在 PDF_UPLOAD_DIR 内)。
  */
-function readStoredPdf(id: string): Buffer {
+async function readStoredPdf(id: string): Promise<Buffer> {
   const resolved = resolve(join(PDF_UPLOAD_DIR, id))
-  if (!resolved.startsWith(resolve(PDF_UPLOAD_DIR) + sep)) throw new Error('无效的文件路径')
-  if (!existsSync(resolved)) throw new Error('源文件不存在')
-  return readFileSync(resolved)
+  if (!resolved.startsWith(PDF_UPLOAD_BASE + sep)) throw new Error('无效的文件路径')
+  try {
+    return await readFile(resolved)
+  } catch (e) {
+    // ENOENT 映射为既有中文文案;不把原始 errno 文本回给客户端。
+    if ((e as NodeJS.ErrnoException).code === 'ENOENT') throw new Error('源文件不存在')
+    throw e
+  }
 }
 
 /** 结果落盘名 = taskId,与 result/:id 的读出口同一条路径规则;返回 201 后前端可直接下载。 */
@@ -162,7 +178,7 @@ export const pdfRoutes: FastifyPluginAsync = async (server) => {
     try {
       const out = await PDFDocument.create()
       for (const id of body.data.fileIds) {
-        const src = await PDFDocument.load(readStoredPdf(id))
+        const src = await PDFDocument.load(await readStoredPdf(id))
         const pages = await out.copyPages(src, src.getPageIndices())
         pages.forEach((pg) => out.addPage(pg))
       }
@@ -186,7 +202,7 @@ export const pdfRoutes: FastifyPluginAsync = async (server) => {
     if (!body.success)
       return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
     try {
-      const src = await PDFDocument.load(readStoredPdf(body.data.fileId))
+      const src = await PDFDocument.load(await readStoredPdf(body.data.fileId))
       const picked = parseRanges(body.data.ranges, src.getPageCount())
       const out = await PDFDocument.create()
       const pages = await out.copyPages(src, picked)
@@ -216,7 +232,7 @@ export const pdfRoutes: FastifyPluginAsync = async (server) => {
       const fontSize = body.data.fontSize ?? 40
       const opacity = body.data.opacity ?? 0.15
       const rotation = body.data.rotation ?? 45
-      const doc = await PDFDocument.load(readStoredPdf(body.data.fileId))
+      const doc = await PDFDocument.load(await readStoredPdf(body.data.fileId))
       // 不传 font：pdf-lib 对未嵌字体的标准 Helvetica 走 drawText 默认档。Helvetica 不含 CJK，
       // 中文水印需要嵌入字体子集（另一件事）—— 此处绝不为"看起来能跑"把中文静默渲成空白。
       for (const page of doc.getPages()) {

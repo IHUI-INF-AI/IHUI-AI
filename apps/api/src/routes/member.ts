@@ -47,6 +47,7 @@ import {
   deleteSystemUser,
   MemberConflictError,
 } from '../db/member-queries.js'
+import type { DepartmentUser } from '../db/member-queries.js'
 import { isSystemAdminUser } from '../db/queries.js'
 import {
   findGroupList,
@@ -1427,8 +1428,13 @@ export const adminMemberRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
       const result = await findUsersByDepartment(idParsed.data.id, parsed.data)
-      // 剥离密码哈希
-      const list = result.list.map(({ passwordHash: _pw, ...rest }) => rest)
+      // 查询层已是白名单投影;此处再剥一层 passwordHash,防上游回退成整行时凭据出网(纵深防御)
+      const list = result.list.map((user) => {
+        const { passwordHash: _pw, ...rest } = user as DepartmentUser & {
+          passwordHash?: string | null
+        }
+        return rest
+      })
       return reply.send(success({ ...result, list }))
     },
   )
