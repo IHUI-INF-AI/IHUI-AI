@@ -20,6 +20,11 @@ import {
   Languages,
   Download,
   Check,
+  Info,
+  CheckCircle2,
+  AlertTriangle,
+  XCircle,
+  type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth'
@@ -29,6 +34,7 @@ import { useLanguageStore, type Language } from '@/stores/language'
 import { useNotificationStore } from '@/stores/notification'
 import { useAnalytics } from '@/hooks/use-analytics'
 import { useDownloadTrack } from '@ihui/shared/hooks'
+import { formatDateOnly, formatTimeOnly } from '@/lib/date-utils'
 import { DOWNLOADS, isDownloadAvailable, isExternalDownloadHref } from '@/lib/downloads'
 import { liveEntryView } from '@/config/downloads-live-meta'
 import { useLiveDownloads } from '@/hooks/use-live-downloads'
@@ -42,7 +48,7 @@ import {
 import { LANGUAGES } from './nav-data'
 import { useChatStore } from '@/stores/chat'
 import { useAiPanelStore } from '@/stores/ai-panel'
-import { listPendingDecisions } from '@ihui/api-client'
+import { getNotifications, listPendingDecisions } from '@ihui/api-client'
 
 /**
  * 从 WS 通知条目的业务载荷里读会话深链 id(G2 自动化结果推送,2026-10-30)。
@@ -53,6 +59,21 @@ function readNoticeSessionId(payload: unknown): string | null {
   if (!payload || typeof payload !== 'object') return null
   const sid = (payload as Record<string, unknown>).sessionId
   return typeof sid === 'string' && sid.length > 0 ? sid : null
+}
+
+/** 二级菜单里的消息时间:当天只显示时分,跨天显示日期(时区口径由 date-utils 统一)。 */
+function formatNoticeTime(iso: string): string {
+  const day = formatDateOnly(iso)
+  return day === formatDateOnly(new Date()) ? formatTimeOnly(iso) : day
+}
+
+/** 消息类型视觉档(飞书式列表行:左侧圆形类型图标 + 标题/摘要 + 右侧时间)。
+ *  与 NotificationCenter 的 TYPE_META 同源同义,新增类型时两处一起改。 */
+const NOTICE_META: Record<NoticeItem['type'], { icon: LucideIcon; tone: string }> = {
+  info: { icon: Info, tone: 'bg-primary/10 text-primary' },
+  success: { icon: CheckCircle2, tone: 'bg-green-500/10 text-green-600 dark:text-green-400' },
+  warning: { icon: AlertTriangle, tone: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400' },
+  error: { icon: XCircle, tone: 'bg-red-500/10 text-red-600 dark:text-red-400' },
 }
 
 /** 侧边栏底部用户区:头像 + 用户名 + 下拉菜单。
@@ -78,6 +99,8 @@ export function SidebarUserRow({
   const notifications = useNotificationStore((s) => s.notifications)
   const unreadCount = useNotificationStore((s) => s.unreadCount)
   const markAllAsRead = useNotificationStore((s) => s.markAllAsRead)
+  const markAsRead = useNotificationStore((s) => s.markAsRead)
+  const hydrateNotifications = useNotificationStore((s) => s.hydrateNotifications)
   const { trackClick } = useAnalytics()
   const trackDownload = useDownloadTrack()
   // 下载栏的版本号/落点改由运行期真值投影(/downloads.json);取不到时保持构建期底稿
@@ -108,6 +131,25 @@ export function SidebarUserRow({
       cancelled = true
     }
   }, [msgOpen])
+
+  // 2026-11-11:站内消息二级菜单要显示"真实内容",但 store 此前只接 WS 推送、
+  // 从不拉服务端列表 —— 角标有数字、菜单却恒为空。这里登录后拉一次首页列表做缓存,
+  // 角标仍以服务端 unread-count 为准(hydrateNotifications 不重算计数)。
+  React.useEffect(() => {
+    if (!showAuthed) return
+    let cancelled = false
+    getNotifications({ page: 1, pageSize: 20 })
+      .then((res) => {
+        if (cancelled || !res.success || !res.data?.list) return
+        hydrateNotifications(res.data.list)
+      })
+      .catch(() => {
+        // 静默失败:消息预览是增强项,拉取失败不影响侧栏其余功能
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [showAuthed, hydrateNotifications])
 
   // 点击待决策条目:有 threadId → 切会话(与 sidebar-chat-history handleSelect 同机制);
   // 无 threadId → 只开面板。随后开 AI 面板 + 关弹窗 + 收起移动端侧栏。
@@ -162,8 +204,62 @@ export function SidebarUserRow({
     onCloseMobile()
   }
 
+  // 2026-11-11 用户要求:悬停「站内消息」直接展开二级菜单显示消息内容,
+  // 不必先点开完整通知弹窗。最多取最近 6 条(store 已是最新在前),
+  // 点击条目 = 标记已读 + 自动化终态通知直接深链回会话;底部「查看全部通知」进入完整通知中心。
+  // 2026-11-11 二次改:列表行按飞书消息列表样式 —— 圆形类型图标 + 加粗标题/灰色摘要 + 右侧时间与未读红点。
+  const messagePreviewItems: DropdownItem[] = noticeItems.slice(0, 6).map((n) => {
+    const Meta = NOTICE_META[n.type]
+    const Icon = Meta.icon
+    return {
+      key: `notice-${n.id}`,
+      label: (
+        <span className="flex w-full min-w-0 items-start gap-2.5 py-0.5">
+          <span
+            className={cn(
+              'mt-px flex h-8 w-8 shrink-0 items-center justify-center rounded-full',
+              Meta.tone,
+            )}
+          >
+            <Icon className="h-4 w-4" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="flex items-center gap-2">
+              <span
+                className={cn(
+                  'min-w-0 flex-1 truncate text-body',
+                  n.read ? 'text-foreground/70' : 'font-medium text-foreground',
+                )}
+              >
+                {n.title}
+              </span>
+              <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">
+                {formatNoticeTime(n.createdAt)}
+              </span>
+            </span>
+            {n.description && (
+              <span className="mt-0.5 block truncate text-label text-muted-foreground">
+                {n.description}
+              </span>
+            )}
+          </span>
+          <span
+            className={cn(
+              'mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full',
+              !n.read ? 'bg-red-500' : 'bg-transparent',
+            )}
+          />
+        </span>
+      ),
+      onSelect: () => {
+        markAsRead(n.id)
+        if (n.sessionId) handleNoticeSessionLink(n.sessionId)
+      },
+    }
+  })
+
   // 原 SidebarActions 的 5 个工具项(除"设置"已有外,其余全部迁入):
-  // 站内消息(未读徽标,点击弹 Modal)/ 语言(子菜单,当前项勾选)/
+  // 站内消息(未读徽标 + 悬停二级菜单预览)/ 语言(子菜单,当前项勾选)/
   // 下载客户端(子菜单,即将上线的平台 disabled)/ 主题切换(明暗一键切换)。
   const actionItems: DropdownItem[] = [
     {
@@ -176,7 +272,22 @@ export function SidebarUserRow({
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         ) : null,
-      onSelect: () => setMsgOpen(true),
+      contentClassName: 'w-80',
+      // 空态也要保留「查看全部通知」入口 —— 绝不能因为没拉到条目就把整条消息入口做成死路。
+      children: [
+        ...(messagePreviewItems.length > 0
+          ? messagePreviewItems
+          : [{ key: 'messages-empty', label: t('messagesEmpty'), disabled: true } as DropdownItem]),
+        {
+          key: 'messages-view-all',
+          label: (
+            <span className="w-full border-t border-border/60 pt-1.5 text-center text-label text-muted-foreground">
+              {t('messagesViewAll')}
+            </span>
+          ),
+          onSelect: () => setMsgOpen(true),
+        },
+      ],
     },
     {
       key: 'language',
@@ -444,8 +555,13 @@ export function SidebarUserRow({
       />
       {/* 站内消息弹窗(承继原 SidebarActions MessageCenter 的 PortalPanel):
           NotificationCenter 为"裸内容"组件,自带"通知中心"头部 + 全部已读 + max-h-60vh 滚动,
-          Modal 提供卡片外观与右上角关闭按钮。 */}
-      <Modal open={msgOpen} onClose={() => setMsgOpen(false)} size="sm">
+          Modal 提供卡片外观与右上角关闭按钮。p-0:让列表行贴边到卡片圆角,内边距由头部/行自己控。 */}
+      <Modal
+        open={msgOpen}
+        onClose={() => setMsgOpen(false)}
+        size="md"
+        className="overflow-hidden p-0"
+      >
         <NotificationCenter
           items={noticeItems}
           onMarkAllRead={() => markAllAsRead()}
