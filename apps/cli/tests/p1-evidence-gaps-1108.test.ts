@@ -31,6 +31,7 @@ import {
   type Tool,
   type ToolSchema,
 } from '../src/tools/index.js';
+import type { HookResult } from '../src/hooks/index.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
@@ -124,21 +125,21 @@ describe('F-003 杀进程树接线:终端降级路径与后台任务都要团灭
 // ==================== F-097 中央钩子派发 ====================
 
 const hookSpies = vi.hoisted(() => ({
-  runPreToolCall: vi.fn(async (..._args: unknown[]) => ({
+  runPreToolCall: vi.fn(async (..._args: unknown[]): Promise<HookResult> => ({
     proceed: false,
-    terminal: 'blocked' as const,
+    terminal: 'blocked',
     feedback: '',
     reason: 'central-pre-blocked',
   })),
-  runPostToolCall: vi.fn(async (..._args: unknown[]) => ({
+  runPostToolCall: vi.fn(async (..._args: unknown[]): Promise<HookResult> => ({
     proceed: true,
-    terminal: 'succeeded' as const,
+    terminal: 'succeeded',
     feedback: '',
   })),
 }));
 
 vi.mock('../src/hooks/index.js', async (importOriginal) => {
-  const actual = await importOriginal();
+  const actual = await importOriginal<Record<string, unknown>>();
   return {
     ...actual,
     runPreToolCall: hookSpies.runPreToolCall,
@@ -150,7 +151,7 @@ vi.mock('../src/hooks/index.js', async (importOriginal) => {
 const F097_SCHEMA: ToolSchema = {
   name: 'f097_probe_tool',
   description: '',
-  parameters: { type: 'object', properties: { a: { type: 'string', description: '' } } },
+  parameters: { type: 'object', properties: { a: { type: 'string', description: '' } }, required: [] },
 };
 
 const f097Tool: Tool = {

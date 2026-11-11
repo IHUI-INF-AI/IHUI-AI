@@ -19,6 +19,7 @@ import {
 import { isSystemAdmin, requireAdmin, requireAuth } from '../plugins/require-permission.js'
 import { requireActiveUser } from '../plugins/auth.js'
 import { calculateAgentPermission } from '../services/agent-service.js'
+import { calculateNextChargeTimeFrom } from '../services/subscription-service.js'
 // requireStepUpForTwoFactorUser 的唯一消费点(/withdrawal/create)已在 2026-10-31
 // 安全强化第 10 批 R10 随该端点下线一并移除 —— 提现资金动作现只走 /api/wallet/withdraw,
 // 那里有同源的 step-up 闸。此处不再 import（保留这行注释是为了让后来者知道它没被"漏掉"）。
@@ -1748,14 +1749,9 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
       }
       const type = Number(body.type ?? 0)
       const count = Math.max(1, Number(body.count ?? 1))
-      const now = new Date()
-      const expiresAt = new Date(now)
-      if (type === 1) {
-        expiresAt.setFullYear(now.getFullYear() + count)
-      } else {
-        expiresAt.setMonth(now.getMonth() + count)
-      }
-      body.expires_at = expiresAt
+      // RP-23:到期时间按 Asia/Shanghai 日历累加(与计费周期唯一实现同源),
+      // 宿主本地 setFullYear/setMonth 在非 +8 时区会把到期日拨偏一天/一小时。
+      body.expires_at = calculateNextChargeTimeFrom(type === 1 ? 'year' : 'month', new Date(), count)
       if (body.status === undefined) body.status = 1
       if (!body.order_no) {
         // 2026-07-21 安全审计加固:用 CSPRNG 替换 Math.random 生成开发者链接 order_no

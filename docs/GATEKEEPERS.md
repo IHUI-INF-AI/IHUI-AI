@@ -470,6 +470,16 @@ git commit
 
 ---
 
+## 3e. UI 按钮描边颜色尺(314,2026-11-11 落地,blocking)
+
+### 第 314 项 check-button-border-color.mjs(按钮描边颜色显式化对账)
+
+- **判什么**:会渲染界面的源码(.tsx/.jsx)里的**按钮类元素**(标签 `button`/`Button*`、样式键/类名头词元命中 button|btn|control;行归属用 `lib/jsx-scope.mjs` 修复后的 scanJsx,`footer={<button …/>}` 归按钮本体)若类串里有**无状态修饰的描边宽度类**(`border`/`border-2`/`border-x`…)却**没有任何无状态修饰的显式描边颜色类**(`border-<色>`/`border-[var(--…)]`/`border-[#…]`;`hover:`/`data-*:` 等只算状态覆盖)⇒ 判红族 `border-color-implicit`(裸 border 落 `@layer base` 全局默认档,2026-11-11 实拍"同屏快捷按钮描边深浅不一"同源)。合规来源两种:类串直写 `border-<色>`,或引用 `button-variants.ts` 共享描边档(**值按被审面解析,门内不写死副本**)。无按钮类证据的描边元素(卡片/面板)不在射程,按第四个数单列、`--all` 逐条报名。CSS `border:` 简写面与 RN StyleSheet 分离声明面在第一版 OUT_OF_SCOPE 逐条报名(带 why)。
+- **面**:默认 HEAD、`--staged` 索引、`--worktree` 人工逃生舱;台账 `scripts/button-border-color-baseline.json`(键 = 文件|border-color-implicit,锚点 = 该文件在被审面的自身违规数,只允许下降;台账读工作树,门 299 同例)。建门现读存量(HEAD 面):59 处 / 35 文件,top:goal-card.tsx 9、integrations-panel.tsx 4、computer-use/memory-manager/repo-wiki-panel/CloudRunsView 各 3。注:治理档 `SHARED_QUICK_ACTION_BORDER_CLASS` 此刻在 stash@{0} 未落盘,门不依赖其存在。
+- **出口**:`node scripts/check-button-border-color.mjs [--staged|--worktree|--files <a> <b>|--json|--all|--strict|--emit-baseline|--self-test]`;应急 `HUSKY_SKIP_BUTTON_BORDER_COLOR=1`。新门未与被判面同枚提交时带面旗直跑报"门体与被判面不同代" ⇒ `$env:IHUI_GATE_BODY_SOURCE='worktree'` 显式声明。
+
+---
+
 ## 4. post-commit git-push-guard.mjs
 
 `scripts/git-push-guard.mjs` 是 [AGENTS.md §21](../AGENTS.md) 任务完成硬定义的核心防线,解决"commit 后忘记 push"协作事故。

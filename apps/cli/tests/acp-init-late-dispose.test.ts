@@ -22,6 +22,7 @@ import {
   attachLateDispose,
   disposeLateHandles,
   disposeLateInitHandles,
+  type LateDisposableInit,
 } from '../src/acp/server.js';
 
 function flushAsync(): Promise<void> {
@@ -48,8 +49,8 @@ afterEach(() => {
 describe('① 验收格:abort 早于 create resolve ⇒ disposeLate 被调用', () => {
   it('竞态中 abort 先胜出,init 后台 resolve 后迟到句柄被收走', async () => {
     const ac = new AbortController();
-    let resolveInit!: (v: { pluginRegistry: unknown }) => void;
-    const init = new Promise<{ pluginRegistry: unknown }>((r) => {
+    let resolveInit!: (v: LateDisposableInit) => void;
+    const init = new Promise<LateDisposableInit>((r) => {
       resolveInit = r;
     });
     const raced = raceInitAgainstAbort(init, ac.signal);
@@ -67,13 +68,13 @@ describe('① 验收格:abort 早于 create resolve ⇒ disposeLate 被调用', 
   it('调用时信号已 aborted ⇒ 立即判 aborted,不等卡住的 init', async () => {
     const ac = new AbortController();
     ac.abort();
-    let resolveInit!: () => void;
-    const init = new Promise<{ pluginRegistry: unknown }>((r) => {
+    let resolveInit!: (v: LateDisposableInit) => void;
+    const init = new Promise<LateDisposableInit>((r) => {
       resolveInit = r;
     });
     const raced = raceInitAgainstAbort(init, ac.signal);
     await expect(raced).resolves.toEqual({ kind: 'aborted' });
-    resolveInit!(); // 之后才 resolve:不影响结论
+    resolveInit({}); // 之后才 resolve:不影响结论
     await flushAsync();
   });
 });

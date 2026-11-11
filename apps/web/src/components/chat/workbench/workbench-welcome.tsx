@@ -21,6 +21,7 @@ import { useTranslations } from 'next-intl'
 import { AtSign, Compass, Layers, Hammer, Slash } from 'lucide-react'
 
 import { PromptTemplates } from '@/components/ai/prompt-templates'
+import { SHARED_QUICK_ACTION_BORDER_CLASS } from '@ihui/design-tokens'
 import { cn } from '@/lib/utils'
 
 export interface WorkbenchWelcomeProps {
@@ -102,8 +103,9 @@ export function WorkbenchWelcome({ onPrefill }: WorkbenchWelcomeProps) {
               draggable={false}
               onClick={() => onPrefill(c.text)}
               className={cn(
-                'group flex items-start gap-2.5 rounded-sm border border-border/60 bg-card/40 px-3 py-2.5 text-left',
-                'transition-colors hover:border-primary/40 hover:bg-accent/60',
+                'group flex items-start gap-2.5 rounded-sm bg-card/40 px-3 py-2.5 text-left',
+                SHARED_QUICK_ACTION_BORDER_CLASS,
+                'transition-colors hover:bg-accent/60',
                 'motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
               )}
             >
