@@ -425,6 +425,18 @@
   --shadow-elevation-lg: 0 4px 16px rgba(0, 0, 0, 0.12);
   --shadow-elevation-xl: 0 8px 24px rgba(0, 0, 0, 0.16);
   /* css-tokens:managed:end */
+
+  /* Tailwind 默认阴影档名 → elevation 阶梯别名(2026-11-11 收口)
+   * 存量组件大量使用 shadow-sm/md/lg/xl/2xl(Tailwind 自带一套独立数值,是第二条源),
+   * 在此整体改指 elevation 阶梯,保证「同一个投影只有一个数」;禁止在本段写任何字面量。
+   * --shadow-inner 属 inset 效果(凹陷/高光),不并入 elevation。 */
+  --shadow-2xs: var(--shadow-elevation-sm);
+  --shadow-xs: var(--shadow-elevation-sm);
+  --shadow-sm: var(--shadow-elevation-sm);
+  --shadow-md: var(--shadow-elevation-md);
+  --shadow-lg: var(--shadow-elevation-lg);
+  --shadow-xl: var(--shadow-elevation-xl);
+  --shadow-2xl: var(--shadow-elevation-xl);
 }
 
 /* ============ Tailwind v3 端 alpha 通道三元组(2026-09-25 立) ============
@@ -555,14 +567,17 @@
   --z-max: 10003;
 }
 
-/* ============ 全局投影 token(共享 — 2026-07-24 迁移) ============ */
+/* ============ 全局投影 token(共享 — 2026-07-24 迁移) ============
+   2026-11-11 收口:本族曾是独立第二源(四档现值全等 `0 2px 8px var(--color-black-6)`,
+   与 --shadow-elevation-* 的阶梯值对不上)。现全部降级为**别名**,唯一数值源只剩
+   elevation.ts → ELEVATION_CSS → 上方受管块的 --shadow-elevation-*。 */
 :root {
-  --global-box-shadow: 0 2px 8px var(--color-black-6);
-  --shadow-premium-sm: 0 2px 8px var(--color-black-6);
-  --shadow-premium: 0 2px 8px var(--color-black-6);
-  --shadow-premium-lg: 0 2px 8px var(--color-black-6);
-  --shadow-premium-xl: 0 2px 8px var(--color-black-6);
-  --shadow-premium-hover: 0 2px 8px var(--color-black-6);
+  --global-box-shadow: var(--shadow-elevation-md);
+  --shadow-premium-sm: var(--shadow-elevation-sm);
+  --shadow-premium: var(--shadow-elevation-md);
+  --shadow-premium-lg: var(--shadow-elevation-lg);
+  --shadow-premium-xl: var(--shadow-elevation-xl);
+  --shadow-premium-hover: var(--shadow-elevation-lg);
 }
 
 /* 全局 utility:button/a 内 "文字 span" 自动加垂直对齐偏移(根治中文字体偏下)。
