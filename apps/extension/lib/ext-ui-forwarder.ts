@@ -19,6 +19,7 @@
 import type { AgentActionErrorCode, AgentActionRequest, AgentActionResponse } from '@ihui/types'
 import type { DomActionResult } from '@ihui/dom-actions'
 import { executeAgentActionRequest } from './agent-control'
+import { settleWithTimeout } from './settle-with-timeout'
 
 /** background ↔ sidepanel 的 ext_ui 转发消息类型(非 wire 协议,仅扩展内部) */
 export const EXT_UI_FORWARD_MESSAGE_TYPE = 'agent.action.ext_ui'
@@ -65,16 +66,11 @@ export async function forwardExtUiToSidepanel(
       errorCode: 'TARGET_NOT_CONNECTED',
       error: err instanceof Error ? err.message : String(err),
     }))
-  const timeoutPromise = new Promise<DomActionResult>((resolve) => {
-    setTimeout(() => {
-      resolve({
-        success: false,
-        errorCode: 'TIMEOUT',
-        error: `sidepanel no response after ${timeoutMs}ms`,
-      })
-    }, timeoutMs)
-  })
-  return Promise.race([sendPromise, timeoutPromise])
+  return settleWithTimeout(sendPromise, timeoutMs, () => ({
+    success: false,
+    errorCode: 'TIMEOUT',
+    error: `sidepanel no response after ${timeoutMs}ms`,
+  }))
 }
 
 /**

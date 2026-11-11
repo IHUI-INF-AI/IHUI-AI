@@ -13,7 +13,7 @@
  * 5. 安装时初始化 token + 启动 refresh alarm
  * 6. 转发 chrome.action.onClicked 打开 sidePanel
  */
-import { initApi, getRefreshToken, getToken, clearAllTokens } from '../lib/token'
+import { initApi, getRefreshToken, getToken, clearAllTokens, setTokenPair } from '../lib/token'
 import {
   doRefresh,
   installRefreshAlarmListener,
@@ -33,6 +33,8 @@ import {
 } from '../lib/message-trust'
 import { isTokenRequestFromUntrustedSender } from '../lib/token-gate'
 import { restrictLocalStorageToTrustedContexts } from '../lib/storage-access'
+import { parseExternalAuthTokenMessage } from '../lib/external-auth'
+import { HIGHLIGHT_WORD_STORAGE_KEY } from '../lib/highlight-state'
 import { hydrateAuth } from '../src/stores/auth-store'
 import { createChromePlatform } from '@ihui/browser-platform'
 import { translate, mergeMessages, isLocale, type Locale, type Messages } from '@ihui/i18n'
@@ -263,9 +265,9 @@ async function handleHighlightToggle(payload: {
 }): Promise<{ word: string; matches: number }> {
   // 高亮由 content script 本地执行,这里只更新配置 + 广播到所有 tab
   if (payload.enabled) {
-    await platform.storage.localSet('ihui_highlight_word', payload.word)
+    await platform.storage.localSet(HIGHLIGHT_WORD_STORAGE_KEY, payload.word)
   } else {
-    await platform.storage.localRemove('ihui_highlight_word')
+    await platform.storage.localRemove(HIGHLIGHT_WORD_STORAGE_KEY)
   }
   // 通知所有 tab 应用高亮(matches=0 表示清除)
   // 注意:platform.tabs.listTabs() 默认只返回当前窗口,这里需要广播到所有窗口的所有 tab,
@@ -342,6 +344,10 @@ async function routeMessage(msg: ExtMessage): Promise<ExtResponse> {
       case 'highlight.toggle': {
         const data = await handleHighlightToggle(msg.payload)
         return reply(msg.requestId, data)
+      }
+      case 'highlight.get': {
+        const word = await platform.storage.localGet<string>(HIGHLIGHT_WORD_STORAGE_KEY)
+        return reply(msg.requestId, typeof word === 'string' && word.length > 0 ? word : null)
       }
       case 'tab.queryActive': {
         const tab = await platform.tabs.queryActiveTab()
@@ -529,6 +535,31 @@ function registerMessageListener(): void {
   })
 }
 
+/**
+ * 2026-11-11 DBG-66 收口: 第三方登录 token 回传通道。
+ * 8 平台登录跳 web 端完成 OAuth 后,回调页经 chrome.runtime.sendMessage(extensionId, ...)
+ * 把 token 对送回扩展 —— Chrome 只放行 manifest externally_connectable 白名单内的来源,
+ * 这里再过一道 lib/external-auth 的纯判据(sender.url + 消息形状),落 tokenStore 并排续期。
+ * 侧栏仍停在登录页时由 storage.local 的 token 键变化事件接管(见 SidepanelApp)。
+ */
+function registerExternalAuthListener(): void {
+  if (!chrome.runtime.onMessageExternal) return
+  chrome.runtime.onMessageExternal.addListener((msg, sender, sendResponse) => {
+    const pair = parseExternalAuthTokenMessage(msg, sender?.url)
+    if (!pair) return false
+    void setTokenPair(pair)
+      .then(() => {
+        scheduleRefreshAlarm(pair.accessToken)
+        sendResponse({ ok: true })
+      })
+      .catch((err: unknown) => {
+        console.warn('[IHUI AI] external auth token persist failed:', err)
+        sendResponse({ ok: false, error: err instanceof Error ? err.message : String(err) })
+      })
+    return true // 异步回执
+  })
+}
+
 export default defineBackground(() => {
   // 2026-11-07 DBG-61 收口: chrome.storage.session 默认访问级 TRUSTED_CONTEXTS ⇒ 内容脚本
   // 上下文里 chrome.storage.session 整个为 undefined,content.ts 的
@@ -586,6 +617,7 @@ export default defineBackground(() => {
 
   startAutoRefresh()
   registerMessageListener()
+  registerExternalAuthListener()
   registerWorkPanelMessageHandler()
   registerInstallHook()
   registerActionClick()

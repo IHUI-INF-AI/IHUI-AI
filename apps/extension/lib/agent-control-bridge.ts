@@ -288,10 +288,20 @@ function onRuntimeMessage(msg: unknown, sender?: RuntimeSenderLike): void {
     }
   }
   if (assignment) _assignmentTokens.remember(req.requestId, assignment.token)
+  const started = Date.now()
   void dispatchAgentActionRequest(req)
     .then(reportResult)
-    .catch((err) => {
+    .catch((err: unknown) => {
+      const error = err instanceof Error ? err.message : String(err)
       console.warn('[IHUI AI] agent-control bridge: action failed:', err)
+      void reportResult({
+        requestId: req.requestId,
+        success: false,
+        error,
+        errorCode: 'EXECUTION_FAILED',
+        durationMs: Date.now() - started,
+        executedBy: 'extension',
+      })
     })
 }
 

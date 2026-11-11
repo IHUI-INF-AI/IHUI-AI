@@ -29,6 +29,11 @@ import { FALLBACK_MODELS as SHARED_FALLBACK_MODELS } from '@ihui/shared'
 import { Button, Input } from '@ihui/ui-react'
 import { useOutletContext } from 'react-router-dom'
 import { useI18n } from '../../../src/i18n'
+import {
+  PENDING_PROMPT_STORAGE_KEY,
+  pendingPromptTextFromMessage,
+  pendingPromptTextFromStorage,
+} from '../../../lib/pending-prompt'
 import { pickRetryTarget } from './chat-send-utils'
 import {
   branchTargetServerId,
@@ -235,6 +240,37 @@ export default function ChatPage() {
     const el = scrollRef.current
     if (el) el.scrollTop = el.scrollHeight
   }, [messages])
+
+  // 右键/选区「发送到 AI」:侧栏晚打开时 session 里还有文本,已打开时收广播。
+  useEffect(() => {
+    if (typeof chrome === 'undefined' || !chrome.runtime?.onMessage || !chrome.storage?.session) {
+      return
+    }
+    const session = chrome.storage.session
+    const apply = (text: string) => {
+      setInput(text)
+      void session.remove(PENDING_PROMPT_STORAGE_KEY)
+    }
+    const listener = (msg: unknown) => {
+      const text = pendingPromptTextFromMessage(msg)
+      if (text) apply(text)
+    }
+    chrome.runtime.onMessage.addListener(
+      listener as Parameters<typeof chrome.runtime.onMessage.addListener>[0],
+    )
+    void session
+      .get(PENDING_PROMPT_STORAGE_KEY)
+      .then((res) => {
+        const text = pendingPromptTextFromStorage(res)
+        if (text) apply(text)
+      })
+      .catch(() => {})
+    return () => {
+      chrome.runtime.onMessage.removeListener(
+        listener as Parameters<typeof chrome.runtime.onMessage.removeListener>[0],
+      )
+    }
+  }, [])
 
   /**
    * 票 68 / G-53:终止在途流的唯一出口。「流式中切换模型」与(下面 D38 的)「打断并执行」做的是
