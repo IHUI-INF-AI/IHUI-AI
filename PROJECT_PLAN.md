@@ -12570,7 +12570,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 70F. **缺陷普查 XUI XUI-072** [P2] 小程序课程详情成功与失败 toast 并存（证据 docs/tickets/2026-11/findings-crossui.md#XUI-072）
 - [ ] 71F. **缺陷普查 XUI XUI-073** [P2] 小程序充值失败丢失 orderNo（证据 docs/tickets/2026-11/findings-crossui.md#XUI-073）
 - [ ] 72F. **缺陷普查 XUI XUI-074** [P2] ToolApprovalSheet / ImageAnnotator 键盘与高度处理缺失（证据 docs/tickets/2026-11/findings-crossui.md#XUI-074）
-- [ ] 1G. **缺陷普查 API F-01** [P0] public-socket 管理员校验漏 await，任意登录用户获得全部运维接口（证据 docs/tickets/2026-11/findings-api.md#F-01）
 - [ ] 5G. **缺陷普查 API F-05** [P2] 分销统计三接口按 beneficiaryId 越权读取他人佣金与下级关系（证据 docs/tickets/2026-11/findings-api.md#F-05）
 - [ ] 7G. **缺陷普查 API F-07** [P2] /api/workspace/background-agents 可列出/查看/取消所有用户的后台 Agent（证据 docs/tickets/2026-11/findings-api.md#F-07）
 - [ ] 8G. **缺陷普查 API F-08** [P2] /api/agent-control/result 缺归属绑定，可伪结算他人待处理动作（证据 docs/tickets/2026-11/findings-api.md#F-08）
@@ -12578,7 +12577,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 10G. **缺陷普查 API F-10** [P1] USDT 入账 user_margins 读改写无 FOR UPDATE，并发丢更新（证据 docs/tickets/2026-11/findings-api.md#F-10）
 - [ ] 11G. **缺陷普查 API F-11** [P2] 教育积分账本锁「上一行」无法串行化追加，首次分享奖励可并发双发（证据 docs/tickets/2026-11/findings-api.md#F-11）
 - [ ] 12G. **缺陷普查 API F-12** [P2] 已支付订单副作用重放与支付回调并发，积分/Outbox 双发（证据 docs/tickets/2026-11/findings-api.md#F-12）
-- [ ] 13G. **缺陷普查 API F-13** [P2] API Key 配额到达上限后永不重置（窗口失效，永久 429）（证据 docs/tickets/2026-11/findings-api.md#F-13）
 - [ ] 14G. **缺陷普查 API F-14** [P2] deductTokens 幂等检查与扣减非原子，并发可双扣（证据 docs/tickets/2026-11/findings-api.md#F-14）
 - [ ] 15G. **缺陷普查 API F-15** [P2] 邀请码占用无 status 条件，同一码并发注册双发奖励（证据 docs/tickets/2026-11/findings-api.md#F-15）
 - [ ] 16G. **缺陷普查 API F-16** [P1] 提现回调验签用 JSON.stringify(request.body)，且无 scoped rawBody 解析器（证据 docs/tickets/2026-11/findings-api.md#F-16）
@@ -13202,11 +13200,8 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 726G. **缺陷普查 API F-727** [P2] Batch 50% 折扣只写进 metadata，实际按全价扣费（证据 docs/tickets/2026-11/findings-api.md#F-727）
 - [ ] 727G. **缺陷普查 API F-728** [P2] 失败/中断调用只退金额不退 token，且 v1-responses 把错误文案计入输出 token（证据 docs/tickets/2026-11/findings-api.md#F-728）
 - [ ] 2H. **缺陷普查 SDB SDB-02** [P2] api_subscriptions.order_no 幂等键无唯一约束，先查后插（读副本）可并发重复建订阅（证据 docs/tickets/2026-11/findings-services-db.md#SDB-02）
-- [ ] 27H. **缺陷普查 SDB SDB-27** [P1] USDT 全站共用单一收款地址，检测只按「金额 ≥ 应收 + 时间窗」取首笔，他人同额付款会被记到先被轮询的订单（证据 docs/tickets/2026-11/findings-services-db.md#SDB-27）
 - [ ] 45H. **缺陷普查 SDB SDB-45** [P3] 签到同步把「对端根本没有该账号」当可重试失败，永久重推并误报升级告警（证据 docs/tickets/2026-11/findings-services-db.md#SDB-45）
 - [ ] 46H. **缺陷普查 SDB SDB-46** [P3] 共享标记/手机号补全：凭证取自读副本快照、版本号取自主库 RETURNING，向签到侧推「旧凭证 + 更高版本」（证据 docs/tickets/2026-11/findings-services-db.md#SDB-46）
-- [ ] 48H. **缺陷普查 SDB SDB-48** [P3] Key 用量按 userId 聚合，同一用户多个 API Key 显示同一份用量（证据 docs/tickets/2026-11/findings-services-db.md#SDB-48）
-- [ ] 56H. **缺陷普查 SDB SDB-56** [P3] clawdbot /chat 只把 assistant 轮写入历史，用户上一轮提问永久丢失且内存无上限（证据 docs/tickets/2026-11/findings-services-db.md#SDB-56）
 - [ ] 〔归:机主收款地址面｜等:—〕 RP-37 `USDT_TRC20_ADDRESS` 仍空:地址值是机主掌握的收款信息(七份 env 备份从未有非空值;同族 `USDT_ERC20_ADDRESS` 早有值),而 sponsor 页 `CryptoDonation.tsx:36` 已硬编码 `TMtTpPEMduWurHLi6Fe8XjfcP5Y5AMMnbG` 并上线(枚 ff5ea30d1c87ee76499b9cd3848145c5f030309a)⇒ 同一信息已交付两处、env 一处为空。校验面已收口:TRON 正则 + `assertUsdtAddressFormat` 两调用点共用,新增 14 例绿(含 ERC20 不误拒/400/500 两失败路径/脏地址不落库);fail-closed 37 例绿。余两格归配置面:① env 填哪个地址(现成 sponsor 值或专用充值地址);② 两套 ERC20 地址(现读 sponsor 值与 env 值前缀不同)收敛为 env 权威。〔结清@2026-10-24/主会话-强制令:校验与失败路径已绿,余为地址值配置格〕
 - [ ] RP-76 **OPPO 传包 API 凭据补取** [P1] （进行中@2026-11-09/主会话）取 Edith 传包 API 凭据 client_id(18 位) / client_secret(64 位),落网盘凭据件、更新机读台账 oppo 块、跑 --self-test 与 token 实测。现状:前次会话 OPPO 登录态掉线,须机主在浏览器手动登录一次,自动登录不可代做;详情页只有 appid + appKey,不等于传包 API 凭据。
 - [ ] RP-77 **小米自动发布接口凭据补取** [P1] （进行中@2026-11-09/主会话）到「自动发布接口」页取开发者邮箱 + 接口私钥,落网盘凭据件并更新机读台账 xiaomi 块。现状:dev.mi.com 自动登录撞风控 :10025,须机主手动登录一次。
