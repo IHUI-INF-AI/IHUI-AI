@@ -4,7 +4,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
-import * as DocumentPicker from 'expo-document-picker'
+import * as DocumentPicker from '@/platform/picker'
 import { fetchApi } from '@ihui/api-client'
 import { apiFailureToText } from '@ihui/shared/utils'
 import {

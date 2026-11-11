@@ -5,8 +5,8 @@
 // 平台特有:依赖 Metro require()(静态资源打包契约)与 expo-asset / expo-media-library(相册写入)
 
 import { useCallback } from 'react'
-import { Asset } from 'expo-asset'
-import * as MediaLibrary from 'expo-media-library'
+import { Asset } from '@/platform/asset'
+import * as MediaLibrary from '@/platform/media-library'
 import { RecruitmentScreen as SharedRecruitmentScreen } from '@ihui/rn-app'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'

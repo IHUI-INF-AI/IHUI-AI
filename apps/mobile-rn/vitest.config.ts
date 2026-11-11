@@ -122,6 +122,8 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
+      // 2026-11-11 平台适配层:业务代码用 '@/platform/*' 引用门面,与 tsconfig paths 对齐
+      '@': resolve(__dirname, 'src'),
       'react-native': resolve(__dirname, 'tests/__mocks__/react-native.ts'),
       // 2026-08-28 修复:lucide-react-native(Icon.mjs)import react-native-svg,
       // 真实包入口指向 Flow 源码导致 esbuild SyntaxError 'typeof' → 5 suite 加载失败。

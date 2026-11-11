@@ -52,7 +52,8 @@ export const API_BASE_URL =
 // 设备侧 localhost 不是宿主机(连不上);更严重的是它会把**生产 token** 送到 dev API ——
 // 两边 JWT 密钥不同 ⇒ refresh 判 401 ⇒ App 按"服务端明确否定"清会话(实测:机主账号被登出)。
 // 开发档豁免:__DEV__ / NODE_ENV≠production 时本机回环正是开发形态。
-const IS_DEV_BUILD = typeof __DEV__ === 'boolean' ? __DEV__ : process.env.NODE_ENV !== 'production'
+const IS_DEV_BUILD =
+  typeof __DEV__ === 'boolean' ? __DEV__ : process.env.NODE_ENV !== 'production'
 if (
   !IS_DEV_BUILD &&
   /^(?:https?:\/\/)?(?:localhost|127\.0\.0\.1|10\.0\.2\.2)(?::\d+)?(?:\/|$)/.test(ENV_API_BASE_URL)
@@ -76,12 +77,10 @@ if (
  *     哪个具体层剥掉的不判、也不许照猜去改:判据只认"www 臂今天承载不了 WS 握手"这一条实测。
  *   - `/ws/ticket`(REST 换票)与 `/ws/broadcast`、`/ws/live-chat` 同源同域,一起跟着走。
  *
- * 因此:REST 与 WS **自 2026-11-11 起统一走 api 臂**(Cloudflare Tunnel,稳定,不依赖家宽
- * 公网 IP)。此前 REST 走 www 臂(EdgeOne → 家宽源站),但家用宽带为动态 IP,一旦漂移
- * EdgeOne 源站即失联(实测稳定 521),而本机无 EdgeOne API 凭据无法自动修 ⇒ 改为统一走 api。
- * **www.aizhs.top 仍需一直活着**:`EXPO_PUBLIC_*` 是 metro 转换期内联进 JS 的,已经装在
- * 用户机上的旧包仍硬编码 `www.aizhs.top`,撤掉那条臂等于把没升级的用户整体断网;www 恢复
- * 后旧包即自动回血,新版(本改动)则走 api,双链路冗余。
+ * 因此:REST 走 www 臂(EdgeOne → 家宽源站,ttfb 现测 0.23~0.29s),WS 钉回 api 臂
+ * (Cloudflare Tunnel,跨境慢但能握手)。**两个域名都必须一直活着** ——
+ * `EXPO_PUBLIC_*` 是 metro 转换期内联进 JS 的,已经装在用户机上的旧包仍然指向
+ * `api.aizhs.top`,撤掉那条臂等于把没升级的用户整体断网。
  *
  * 回退到 `API_BASE_URL`(而不是某个写死的域):开发构建里两者同为本机回环,行为零变化;
  * 生产由 `eas.json` / 两条 release 工作流显式钉住,漏钉即由镜像回归点名。

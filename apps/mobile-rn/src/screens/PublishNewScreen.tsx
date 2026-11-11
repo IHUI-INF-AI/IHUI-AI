@@ -26,7 +26,7 @@ import {
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import * as DocumentPicker from 'expo-document-picker'
+import * as DocumentPicker from '@/platform/picker'
 import { Check, Paperclip, Send, Upload } from 'lucide-react-native'
 import { fetchApi } from '@ihui/api-client'
 import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'

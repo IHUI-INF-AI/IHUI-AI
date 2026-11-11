@@ -7,7 +7,7 @@
  * 仅保留 RN 独占(expo-web-browser 打开登录页 + expo-linking deep link 监听)。
  */
 import * as WebBrowser from 'expo-web-browser'
-import * as Linking from 'expo-linking'
+import * as Linking from '@/platform/linking'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { WEB_BASE_URL, SSO_CLIENT_ID, SSO_REDIRECT_URI, API_BASE_URL } from './config'
 import {
