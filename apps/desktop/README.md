@@ -28,6 +28,18 @@ apps/desktop 的 Tauri 打包产物（不含前端资源）
 - `build.beforeBuildCommand`：`""`——打包前不再执行任何前端构建。
 - `scripts/ensure-web-out.mjs`（`apps/desktop/scripts/`）：旧的 web 产物校验/按需重建脚本，**文件仍在仓库，但已无任何配置或脚本引用它**（`beforeBuildCommand` 已置空）。历史行为：当 `web/out` 缺失或 web 源码比产物更新时执行 `pnpm --filter @ihui/web build:static`，强制重建可设 `FORCE_FRONTEND_BUILD=1`；该入口另可被 `TAURI_SKIP_FRONTEND=1` 短路。以上均已不参与当前构建链。
 
+## 离线行为与边界
+
+薄壳不内嵌业务前端，**AI 对话、模型调用与会话同步都依赖线上服务，离线无法进行 AI 对话** —— 这是架构约束，不是换壳能解决的（模型与 API 在服务端）。壳侧的降级链已实现在 `src-tauri/src/auto_refresh.rs`，兜底页为 `src-tauri/offline/index.html`：
+
+- 启动探活决定首屏：窗口以 `visible: false` 创建，在线由 `page_load_finished` 点亮，离线直接切内置 `http://offline.localhost/index.html`，不白屏。
+- 稳态每 30 秒 HEAD `/api/health`，同轮重试 2 次，**连续 3 轮全失败**才切页（≈90s 滞回，2026-09-22 抖动事故后立）；恢复只需单次成功。
+- 切页前 emit `desktop-before-close` 通知前端存草稿（G-379），并记下 `resume_url`；恢复后回到离线前地址，而非一律回首页。
+- 探活与 WebView2 走同一代理路径（系统代理 / env 代理），回环与内网基址直连 bypass；`reqwest::ClientBuilder::build()` 失败只记日志、不判在线/离线、不 panic（BUG-0041）。
+- 线上页落到 `chrome-error://` 时自动重导航回前端，避免 IPC 全拒导致的「按钮点了没反应」。
+
+现存边界（2026-11-12 核准，勿再按旧 `longDescription` 理解为「无本地降级」）：`probe_health` 把非 2xx（含服务端 5xx）与出口门拒绝一律折叠成 `false`，通知文案统一为「网络连接不可用」，**服务端维护 / 部署中会被误报成断网**；离线页是纯 HTML/CSS 无脚本（CSP `script-src 'self'`），没有手动立即重试入口；系统 WebView2 Runtime 无最低版本门槛检查。
+
 ## 本地开发
 
 桌面端开发有两条路，按「窗口加载谁」区分：
