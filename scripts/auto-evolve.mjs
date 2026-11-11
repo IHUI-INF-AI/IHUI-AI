@@ -165,6 +165,14 @@ const JWT_TTL_SECONDS = 8 * 3600
 /** 取票参数形状(唯一入口,镜像测试钉死此处;第二份拼装即 §22c 反面) */
 export const DISPATCH_ARGS = ['--open', '--dispatchable', '--exclude-inflight']
 const ESCAPE_MAIL_THROTTLE_MS = 60 * 60 * 1000
+/**
+ * budget 逃生邮件单独走 24h 节流(2026-11-11 立,治刷屏):「每日派发预算耗尽 ⇒ 调度器停派至明日」
+ * 是**当日恒成立的持续态**,1h 共享节流下它每天能寄 ~4 封(台账 7d 22 封 / 1 个 alertId,同一句文案),
+ * 多寄的每一封都不带新信息。独立 tick 文件只吃 budget 一枚 id ⇒ 不动其它逃生邮件(nonprogress /
+ * runner-* 是真新故障,保持 1h)。首封当日仍立即出;跨天自然重开。
+ */
+const ESCAPE_BUDGET_THROTTLE_MS = 24 * 60 * 60 * 1000
+const ESCAPE_BUDGET_TICK = join(ROOT, '.ihui-agent', 'state', 'auto-evolve-escape-budget-tick.json')
 
 export class GateShapeError extends Error {}
 
@@ -1108,18 +1116,23 @@ export function resolveMailTo(envFile = API_ENV) {
   return (quoted ? quoted[1] : raw).trim()
 }
 
-function escapeThrottled(now = Date.now()) {
+function escapeThrottled(now = Date.now(), alertId = '') {
+  // budget 走独立 24h tick(见 ESCAPE_BUDGET_THROTTLE_MS 头注);其余逃生邮件沿用共享 1h tick。
+  const isBudget = String(alertId || '') === 'auto-evolve:budget'
+  const file = isBudget ? ESCAPE_BUDGET_TICK : ESCAPE_TICK
+  const win = isBudget ? ESCAPE_BUDGET_THROTTLE_MS : ESCAPE_MAIL_THROTTLE_MS
   try {
-    const last = JSON.parse(readFileSync(ESCAPE_TICK, 'utf8')).at
-    return now - Number(last) < ESCAPE_MAIL_THROTTLE_MS
+    const last = JSON.parse(readFileSync(file, 'utf8')).at
+    return now - Number(last) < win
   } catch {
     return false
   }
 }
 
-function markEscape(now = Date.now()) {
-  mkdirSync(dirname(ESCAPE_TICK), { recursive: true })
-  writeFileSync(ESCAPE_TICK, JSON.stringify({ at: now }), 'utf8')
+function markEscape(now = Date.now(), alertId = '') {
+  const file = String(alertId || '') === 'auto-evolve:budget' ? ESCAPE_BUDGET_TICK : ESCAPE_TICK
+  mkdirSync(dirname(file), { recursive: true })
+  writeFileSync(file, JSON.stringify({ at: now }), 'utf8')
 }
 
 /**
@@ -2903,8 +2916,8 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
     if (dispatched >= gates.dailyDispatchBudget) {
       record({ mode: dryRun ? 'dryrun' : 'dispatch', action: 'budget-exhausted', note: summary })
       console.log(`⏸ ${summary} ⇒ 预算耗尽,停派`)
-      if (!dryRun && !escapeThrottled()) {
-        markEscape()
+      if (!dryRun && !escapeThrottled(undefined, 'auto-evolve:budget')) {
+        markEscape(undefined, 'auto-evolve:budget')
         sendEscapeMail(
           gates,
           'auto-evolve:budget',
