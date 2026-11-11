@@ -83,19 +83,21 @@ T '3e 公网取不到 + 源站 pass ⇒ Rescued(折算为绿,原样)' ($resc.Res
 $wf = Get-GateWebDimension -Public (P 'fail' 502 'HTTP 502') -Origin (P 'pass' 200)
 T '3f 公网明确 fail ⇒ 仍进 Fails(源站 pass 不救,fail-closed 原样)' (@($wf.Fails).Count -eq 1 -and $wf.CacheBlind -eq $false) ($wf.Fails -join ',')
 
-Write-Output '[4] 反向锁:判定面一位未动(同一组输入,改前改后同判)'
-function Rnd([string]$w, [string]$a, [string]$l, [string]$wo, [string]$ao) {
+Write-Output '[4] 反向锁:判序本体一位未动(fail/entry-broken/pass/pass-unproven);源站证据已改逐维(失败维须带自身 *Origin)'
+# 2026-11-11 修:42d29418d3 把 originOk 由全局聚合改成逐维后,Rnd 必须给三个维度都带源站读数;
+# 旧 Rnd 只带 webOrigin/apiOrigin,llm 失败维缺 llmOrigin ⇒ 逐维 fail-closed 判 fail,4a 误红。
+function Rnd([string]$w, [string]$a, [string]$l, [string]$wo, [string]$ao, [string]$lo) {
     $f = @(); $u = @()
     foreach ($x in @(@('web', $w), @('api', $a), @('llm', $l))) {
         if ($x[1] -eq 'fail') { $f += "$($x[0])(HTTP 502)" } elseif ($x[1] -ne 'pass') { $u += $x[0] }
     }
-    return @{ web = $w; api = $a; llm = $l; webOrigin = $wo; apiOrigin = $ao; fails = $f; unknown = $u }
+    return @{ web = $w; api = $a; llm = $l; webOrigin = $wo; apiOrigin = $ao; llmOrigin = $lo; fails = $f; unknown = $u }
 }
-$inc1 = Get-HealthGateVerdict -Rounds @((Rnd 'pass' 'pass' 'fail' 'pass' 'pass'))
-T '4a 末轮仅 llm fail 且源站两端 pass ⇒ entry-broken(不回滚,2019-10 以来的判序)' ($inc1.Decision -eq 'entry-broken') $inc1.Decision
-$inc2 = Get-HealthGateVerdict -Rounds @((Rnd 'pass' 'pass' 'fail' 'pass' 'fail'))
-T '4b 末轮 fail 且源站不成立 ⇒ fail(回滚判据一位未动)' ($inc2.Decision -eq 'fail') $inc2.Decision
-$inc3 = Get-HealthGateVerdict -Rounds @((Rnd 'pass' 'pass' 'pass' 'pass' 'pass'))
+$inc1 = Get-HealthGateVerdict -Rounds @((Rnd 'pass' 'pass' 'fail' 'pass' 'pass' 'pass'))
+T '4a 末轮仅 llm fail 且失败维 llm 自身源站 pass ⇒ entry-broken(逐维:入口故障,不回滚)' ($inc1.Decision -eq 'entry-broken') $inc1.Decision
+$inc2 = Get-HealthGateVerdict -Rounds @((Rnd 'pass' 'pass' 'fail' 'pass' 'pass' 'fail'))
+T '4b 末轮 fail 且失败维 llm 源站不成立 ⇒ fail(回滚判据一位未动)' ($inc2.Decision -eq 'fail') $inc2.Decision
+$inc3 = Get-HealthGateVerdict -Rounds @((Rnd 'pass' 'pass' 'pass' 'pass' 'pass' 'pass'))
 T '4c 三项全绿 ⇒ pass + Proven' ($inc3.Decision -eq 'pass' -and $inc3.Proven -eq $true) $inc3.Decision
 
 Write-Output '[5] 装车证明:取证函数真的进了主脚本(造好没装车 = 没有)'
