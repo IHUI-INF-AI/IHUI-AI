@@ -63,11 +63,7 @@ const ImportAnalysisDialog = dynamic(
 import { WorkspaceSelector } from '@/components/ai/workspace-selector'
 import { Tooltip, TooltipProvider } from '@/components/feedback'
 import { useChatStore, type ChatMessage } from '@/stores/chat'
-import {
-  AI_PANEL_MAX_WIDTH,
-  AI_PANEL_MIN_WIDTH,
-  useAiPanelStore,
-} from '@/stores/ai-panel'
+import { AI_PANEL_MAX_WIDTH, AI_PANEL_MIN_WIDTH, useAiPanelStore } from '@/stores/ai-panel'
 import { useEnvironmentInfoStore } from '@/stores/environment-info'
 import { useTerminalDockStore } from '@/stores/terminal-dock'
 import { useModeStore } from '@/stores/mode'
@@ -1597,12 +1593,7 @@ export function AISidePanel() {
       }
       const fabPos = useAiPanelStore.getState().floatFabPosition
       if (fabPos) {
-        const nextFab = clampFabPosition(
-          fabPos.x,
-          fabPos.y,
-          window.innerWidth,
-          window.innerHeight,
-        )
+        const nextFab = clampFabPosition(fabPos.x, fabPos.y, window.innerWidth, window.innerHeight)
         if (nextFab.x !== fabPos.x || nextFab.y !== fabPos.y) setFloatFabPosition(nextFab)
       }
     }
@@ -1672,8 +1663,7 @@ export function AISidePanel() {
     // 有动效偏好时先把面板淡出,再切到 FAB 分支:直接 setFloatMinimized 会让整块面板
     // 瞬间消失(硬闪)。焦点接力 effect 依赖 floatMinimized,因此会同步延后到切换之后。
     const reduceMotion =
-      typeof window !== 'undefined' &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
     if (reduceMotion) {
       setFloatMinimized(true)
       return
@@ -1743,36 +1733,36 @@ export function AISidePanel() {
     [],
   )
 
-  const handleSheetSwipeStart = React.useCallback(
-    (e: React.PointerEvent<HTMLElement>) => {
-      // 鼠标只认主键;触摸/触控笔不区分 button
-      if (e.pointerType === 'mouse' && e.button !== 0) return
-      // Portal 里的菜单/弹窗会经 React 树冒泡到 header(见 handleFloatDragStart 同款注释):
-      // 不拦就会在菜单项按下时抢指针,手机端点「⋯ → 最小化」直接失效。
-      if (!e.currentTarget.contains(e.target as Node)) return
-      // 标题栏里的按钮/菜单/输入不参与下拉,否则点「关闭」会变成拖拽
-      const target = e.target as HTMLElement
-      if (target.closest('button, a, input, textarea, [role="menuitem"], [role="dialog"]')) return
-      const el = panelRootRef.current
-      if (!el) return
-      if (swipeTimerRef.current !== null) window.clearTimeout(swipeTimerRef.current)
-      el.style.transition = 'none'
-      swipeRef.current = { pointerId: e.pointerId, startY: e.clientY, dy: 0 }
-      e.currentTarget.setPointerCapture(e.pointerId)
-    },
-    [],
-  )
-
-  const handleSheetSwipeMove = React.useCallback((e: React.PointerEvent<HTMLElement>) => {
-    const swipe = swipeRef.current
-    if (!swipe || swipe.pointerId !== e.pointerId) return
-    const dy = Math.max(0, Math.min(e.clientY - swipe.startY, viewport.height))
-    swipe.dy = dy
+  const handleSheetSwipeStart = React.useCallback((e: React.PointerEvent<HTMLElement>) => {
+    // 鼠标只认主键;触摸/触控笔不区分 button
+    if (e.pointerType === 'mouse' && e.button !== 0) return
+    // Portal 里的菜单/弹窗会经 React 树冒泡到 header(见 handleFloatDragStart 同款注释):
+    // 不拦就会在菜单项按下时抢指针,手机端点「⋯ → 最小化」直接失效。
+    if (!e.currentTarget.contains(e.target as Node)) return
+    // 标题栏里的按钮/菜单/输入不参与下拉,否则点「关闭」会变成拖拽
+    const target = e.target as HTMLElement
+    if (target.closest('button, a, input, textarea, [role="menuitem"], [role="dialog"]')) return
     const el = panelRootRef.current
     if (!el) return
-    el.style.transform = `translate3d(0, ${dy}px, 0)`
-    el.style.opacity = String(Math.max(0.4, 1 - dy / Math.max(240, viewport.height * 0.6)))
-  }, [viewport.height])
+    if (swipeTimerRef.current !== null) window.clearTimeout(swipeTimerRef.current)
+    el.style.transition = 'none'
+    swipeRef.current = { pointerId: e.pointerId, startY: e.clientY, dy: 0 }
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }, [])
+
+  const handleSheetSwipeMove = React.useCallback(
+    (e: React.PointerEvent<HTMLElement>) => {
+      const swipe = swipeRef.current
+      if (!swipe || swipe.pointerId !== e.pointerId) return
+      const dy = Math.max(0, Math.min(e.clientY - swipe.startY, viewport.height))
+      swipe.dy = dy
+      const el = panelRootRef.current
+      if (!el) return
+      el.style.transform = `translate3d(0, ${dy}px, 0)`
+      el.style.opacity = String(Math.max(0.4, 1 - dy / Math.max(240, viewport.height * 0.6)))
+    },
+    [viewport.height],
+  )
 
   const handleSheetSwipeEnd = React.useCallback(
     (e: React.PointerEvent<HTMLElement>) => {
@@ -2005,7 +1995,6 @@ export function AISidePanel() {
                 onModelChange={setModel}
                 modelLabel={t('model')}
                 autoResolvedModel={conversationModel}
-                forceToolbarText
                 onFloatDragStart={handleFloatDragStart}
                 onTriggerClick={() => setFloatCollapsed(false)}
                 compactTop
@@ -2231,7 +2220,6 @@ export function AISidePanel() {
         onModelChange={setModel}
         modelLabel={t('model')}
         autoResolvedModel={conversationModel}
-        forceToolbarText
       />
 
       {/* AI 主动提问已改为消息流内联卡(MessageList trailing 插槽),不再渲染弹窗 */}
@@ -2355,7 +2343,9 @@ export function AISidePanel() {
             floatMode && 'outline-none',
             // 三态切换动效(见 animations.css):挂载入场 / 档位切换入场 / 最小化退场互斥,
             // 避免两个 transform 动画互相覆盖。
-            leaving ? 'ai-panel-out' : cn(floatMode && 'ai-surface-in-mount', modeFx && 'ai-mode-in'),
+            leaving
+              ? 'ai-panel-out'
+              : cn(floatMode && 'ai-surface-in-mount', modeFx && 'ai-mode-in'),
             floatMode
               ? isMobileSmall
                 ? 'fixed inset-0 z-sticky' // 手机浮窗:全屏覆盖
@@ -2616,6 +2606,7 @@ export function AISidePanel() {
                           <span className="truncate">{tp('splitRight')}</span>
                         </DropdownMenu.Item>
                       )}
+                      <DropdownMenu.Separator className="my-1 h-px bg-border" />
                       <DropdownMenu.Label className="px-2.5 pb-0.5 pt-1 text-[11px] font-medium text-muted-foreground">
                         {tc('headerActions.groupTools')}
                       </DropdownMenu.Label>
@@ -2636,6 +2627,7 @@ export function AISidePanel() {
                         <span className="min-w-0 flex-1 truncate">{tc('openTerminal')}</span>
                         {terminalDockOpen && <Check className="h-3.5 w-3.5 shrink-0" />}
                       </DropdownMenu.Item>
+                      <DropdownMenu.Separator className="my-1 h-px bg-border" />
                       <DropdownMenu.Label className="px-2.5 pb-0.5 pt-1 text-[11px] font-medium text-muted-foreground">
                         {tc('headerActions.groupSession')}
                       </DropdownMenu.Label>
@@ -2663,6 +2655,7 @@ export function AISidePanel() {
                           </span>
                         </DropdownMenu.Item>
                       )}
+                      <DropdownMenu.Separator className="my-1 h-px bg-border" />
                       <DropdownMenu.Item
                         data-testid="ai-panel-close"
                         className={HEADER_MENU_ITEM_CLASS}

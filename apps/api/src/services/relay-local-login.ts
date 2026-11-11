@@ -53,7 +53,7 @@ export const LOCAL_LOGIN_UNSUPPORTED_REASONS: Partial<Record<RelayProviderCode, 
   grokbot: '本机凭证是 sandSealedFile 密封串,没有明文 token 可重建',
 }
 
-/** 由 scripts/local-login.mjs 接管写回的九平台 */
+/** 由 scripts/local-login.mjs 接管写回的十平台 */
 const LOCAL_SCRIPT_PROVIDERS: ReadonlySet<string> = new Set([
   'codex',
   'opencode',
@@ -64,6 +64,8 @@ const LOCAL_SCRIPT_PROVIDERS: ReadonlySet<string> = new Set([
   'workbuddy',
   'doubao',
   'loomy',
+  // 2026-11-11:落点 ~/.office-raccoon/agent/config/auth.json,两键单体 JSON,可直接重建
+  'raccoon',
 ])
 
 /**
@@ -80,6 +82,8 @@ const RUN_AS_USER_PROVIDERS: ReadonlySet<string> = new Set([
   'workbuddy',
   'doubao',
   'loomy',
+  // 小浣熊落点在 ~/.office-raccoon(LocalSystem 下会指向 systemprofile,写错人)
+  'raccoon',
 ])
 
 /**

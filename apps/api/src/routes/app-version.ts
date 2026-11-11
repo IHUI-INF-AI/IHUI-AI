@@ -459,8 +459,16 @@ const appVersionRoutes: FastifyPluginAsync = async (server) => {
       )
     }
 
-    const currentBuild = current?.buildNumber ?? 0
-    const hasUpdate = latest.buildNumber > currentBuild
+    // 2026-11-11 真机事故:旧写法 `current?.buildNumber ?? 0` 把「客户端版本未登记」
+    // 等同「当前包是 0 号」⇒ 任何 latest 行都判成有更新。手工构建包的 JS 版本 0.0.12
+    // 未登记,于是把线上旧版 0.0.20 当新版本,冷启动自动下载并拉起安装器;
+    // 而那行的 downloadUrl 是过期的 OSS 签名直链,系统安装器拿到非 APK 内容,
+    // 报 (33) packageinfo is null,APP 状态机又停在 installing ⇒ 首页卡片关不掉。
+    // 未登记属于「无法比较」(AGENTS §0.3 未判定),失效方向必须保守:不报更新,
+    // 而不是把未知当有。客户端 lib/apk-update.ts 的 decideHasUpdate 还要求
+    // serverHasUpdate !== false,所以这一格同时是端内更新卡的总开关。
+    // 真正发版时当前版本一定已登记(发布腿会调 register-app-version-latest),不会漏发。
+    const hasUpdate = current ? latest.buildNumber > current.buildNumber : false
     return reply.send(
       success({
         hasUpdate,
