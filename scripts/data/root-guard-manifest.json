@@ -4,6 +4,8 @@
   "sealedAt": "2026-11-11T09:34:55.366Z",
   "sealedBy": "root-guard --seal",
   "reason": "复核 HEAD 面: guardian-runner.mjs 于 7a8a30ae04(15:15) 改动后未同批重封,清单仍绑 14:47 版 59ebe80f 致 root-guard --check fail-closed 并阻断一切提交;按 HEAD 面重封为 ba2261554667,清偿存量债解阻收尾(规则文件已在 HEAD,清单单独成枚提交推送)",
+  "sealedAt": "2026-11-11T10:20:51.806Z",
+  "reason": "根护栏重封:main 已合入 guardian-runner 规则面改动(RP-72/门314/315 等),原清单未同枚重封致部署环 fail-closed。按 4f4e686ec39 面重封放行切流。",
   "targets": [
     {
       "id": "guardian-runner",
