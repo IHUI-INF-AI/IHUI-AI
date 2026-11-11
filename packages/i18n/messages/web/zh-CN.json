@@ -16917,6 +16917,7 @@
     "officialApp": "公众号",
     "officialPromotion": "官方推广平台",
     "officialWechat": "我的微信",
+    "openOnGitee": "前往 Gitee",
     "openOnGithub": "前往 GitHub",
     "paymentPlatforms": "支付平台",
     "payments": {
@@ -18658,20 +18659,6 @@
       ],
       "label": "公告"
     },
-    "miniappModal": {
-      "brand": "品牌",
-      "connect": "联系我们",
-      "content": "内容",
-      "explore": "探索",
-      "qrAlt": "小程序二维码",
-      "scanTip": "打开微信扫一扫,进入小程序",
-      "title": "微信小程序",
-      "typewriter": {
-        "ctaPrimary": "立即咨询",
-        "ctaSecondary": "了解更多",
-        "miniappBtn": "打开小程序"
-      }
-    },
     "news": {
       "empty": "暂无资讯",
       "title": "最新资讯",
@@ -18721,7 +18708,6 @@
       "title": "选择适合您的方案",
       "titleEn": "CHOOSE YOUR PLAN"
     },
-    "qrAlt": "小程序二维码",
     "roi": {
       "cache": {
         "calculation": "Claude API ¥0.3/次 → 缓存命中 ¥0.024/次 = 省 92%",
@@ -18775,7 +18761,6 @@
       "title": "可量化收益 · ROI 数据",
       "titleEn": "QUANTIFIED ROI"
     },
-    "scanTip": "扫码体验小程序",
     "scenarios": {
       "costReduction": {
         "benefit": "省 ¥18-30 万/年",
@@ -18824,15 +18809,7 @@
       "ctaPrimary": "立即体验",
       "ctaSecondary": "了解更多",
       "explore": "101 模型 大模型 · 一个 API Key 全部访问 · 省 ¥18 万/年",
-      "miniappBtn": "微信小程序",
-      "qrAlt": "小程序二维码",
-      "scanTip": "扫码体验小程序",
-      "title": "标题",
-      "typewriter": {
-        "ctaPrimary": "立即咨询",
-        "ctaSecondary": "了解更多",
-        "miniappBtn": "打开小程序"
-      }
+      "title": "标题"
     },
     "welcome": {
       "benefits": {
@@ -26983,8 +26960,7 @@
   },
   "typewriter": {
     "ctaPrimary": "立即咨询",
-    "ctaSecondary": "了解更多",
-    "miniappBtn": "微信小程序"
+    "ctaSecondary": "了解更多"
   },
   "device": {
     "title": "设备管理",

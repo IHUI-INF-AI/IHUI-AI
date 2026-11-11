@@ -16917,6 +16917,7 @@
     "officialApp": "公眾號",
     "officialPromotion": "官方推廣平臺",
     "officialWechat": "我的微信",
+    "openOnGitee": "前往 Gitee",
     "openOnGithub": "前往 GitHub",
     "paymentPlatforms": "支付平臺",
     "payments": {
@@ -18658,20 +18659,6 @@
       ],
       "label": "公告"
     },
-    "miniappModal": {
-      "brand": "品牌",
-      "connect": "聯系我們",
-      "content": "內容",
-      "explore": "探索",
-      "qrAlt": "小程序二維碼",
-      "scanTip": "打開微信掃一掃,進入小程序",
-      "title": "微信小程序",
-      "typewriter": {
-        "ctaPrimary": "立即諮詢",
-        "ctaSecondary": "瞭解更多",
-        "miniappBtn": "打開小程序"
-      }
-    },
     "news": {
       "empty": "暫無資訊",
       "title": "最新資訊",
@@ -18721,7 +18708,6 @@
       "title": "選擇適合您的方案",
       "titleEn": "CHOOSE YOUR PLAN"
     },
-    "qrAlt": "小程序二維碼",
     "roi": {
       "cache": {
         "calculation": "Claude API ¥0.3/次 → 緩存命中 ¥0.024/次 = 省 92%",
@@ -18775,7 +18761,6 @@
       "title": "可量化收益 · ROI 數據",
       "titleEn": "QUANTIFIED ROI"
     },
-    "scanTip": "掃碼體驗小程序",
     "scenarios": {
       "costReduction": {
         "benefit": "省 ¥18-30 萬/年",
@@ -18824,15 +18809,7 @@
       "ctaPrimary": "立即體驗",
       "ctaSecondary": "瞭解更多",
       "explore": "101 模型 大模型 · 一個 API Key 全部訪問 · 省 ¥18 萬/年",
-      "miniappBtn": "微信小程序",
-      "qrAlt": "小程序二維碼",
-      "scanTip": "掃碼體驗小程序",
-      "title": "標題",
-      "typewriter": {
-        "ctaPrimary": "立即諮詢",
-        "ctaSecondary": "瞭解更多",
-        "miniappBtn": "打開小程序"
-      }
+      "title": "標題"
     },
     "welcome": {
       "benefits": {
@@ -26954,8 +26931,7 @@
   },
   "typewriter": {
     "ctaPrimary": "立即諮詢",
-    "ctaSecondary": "瞭解更多",
-    "miniappBtn": "微信小程式"
+    "ctaSecondary": "瞭解更多"
   },
   "device": {
     "title": "裝置管理",

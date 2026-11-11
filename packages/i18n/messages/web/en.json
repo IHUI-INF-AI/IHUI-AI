@@ -16913,6 +16913,7 @@
     "officialApp": "Official Account",
     "officialPromotion": "Official Promotion Platforms",
     "officialWechat": "My WeChat",
+    "openOnGitee": "Open on Gitee",
     "openOnGithub": "Open on GitHub",
     "paymentPlatforms": "Payment Platforms",
     "payments": {
@@ -18654,20 +18655,6 @@
       ],
       "label": "Announcement"
     },
-    "miniappModal": {
-      "brand": "Brand",
-      "connect": "Contact Us",
-      "content": "Content",
-      "explore": "Explore",
-      "qrAlt": "Mini Program QR Code",
-      "scanTip": "Open WeChat and scan to enter the mini program",
-      "title": "WeChat Mini Program",
-      "typewriter": {
-        "ctaPrimary": "Get Consultation",
-        "ctaSecondary": "Learn More",
-        "miniappBtn": "Open Mini-program"
-      }
-    },
     "news": {
       "empty": "No news yet",
       "title": "Latest News",
@@ -18717,7 +18704,6 @@
       "title": "Choose Your Plan",
       "titleEn": "CHOOSE YOUR PLAN"
     },
-    "qrAlt": "Mini-program QR code",
     "roi": {
       "cache": {
         "calculation": "Claude API ¥0.3/call → cache hit ¥0.024/call = 92% saved",
@@ -18771,7 +18757,6 @@
       "title": "Quantified ROI · Data-Backed Benefits",
       "titleEn": "QUANTIFIED ROI"
     },
-    "scanTip": "Scan to experience the mini-program",
     "scenarios": {
       "costReduction": {
         "benefit": "Save ¥18-30k/year",
@@ -18820,15 +18805,7 @@
       "ctaPrimary": "Try Now",
       "ctaSecondary": "Learn More",
       "explore": "101 Models · One API Key for All · Save ¥180K/year",
-      "miniappBtn": "WeChat Mini Program",
-      "qrAlt": "Mini-program QR code",
-      "scanTip": "Scan to experience the mini-program",
-      "title": "Title",
-      "typewriter": {
-        "ctaPrimary": "Get Consultation",
-        "ctaSecondary": "Learn More",
-        "miniappBtn": "Open Mini-program"
-      }
+      "title": "Title"
     },
     "welcome": {
       "benefits": {
@@ -26979,8 +26956,7 @@
   },
   "typewriter": {
     "ctaPrimary": "Contact now",
-    "ctaSecondary": "Learn more",
-    "miniappBtn": "WeChat MiniApp"
+    "ctaSecondary": "Learn more"
   },
   "device": {
     "title": "Device Management",
