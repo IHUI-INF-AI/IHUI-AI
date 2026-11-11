@@ -26,6 +26,7 @@ from app.services.model_health import (
     _build_context_probe_text,
     _check_context_probe_reply,
     _judge_tools_response,
+    _judge_tools_stream,
     _sse_chunk_has_content,
     _stream_chat,
 )
@@ -196,6 +197,61 @@ def test_judge_tools_response_rejects_when_error_mentions_tools(status_code):
 def test_judge_tools_response_unknown_for_server_error():
     ok, _error = _judge_tools_response(503, "upstream unavailable")
     assert ok is None, "5xx 不能误判为不支持工具调用"
+
+
+def test_judge_tools_stream_detects_tool_call():
+    """WorkBuddy 这类上游只在 SSE 帧里下发 tool_calls:流式判定必须能认出来。"""
+    body = (
+        'data: {"choices":[{"delta":{"role":"assistant","content":""},"finish_reason":null}]}\n\n'
+        'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"c1","type":"function",'
+        '"function":{"name":"get_weather","arguments":""}}]},"finish_reason":null}]}\n\n'
+        'data: {"choices":[{"delta":{},"finish_reason":"tool_calls"}]}\n\n'
+        "data: [DONE]\n\n"
+    )
+    assert _judge_tools_stream(200, body) == (True, "")
+
+
+def test_judge_tools_stream_text_only_is_false():
+    body = (
+        'data: {"choices":[{"delta":{"content":"北京晴天"},"finish_reason":null}]}\n\n'
+        'data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\n'
+        "data: [DONE]\n\n"
+    )
+    ok, error = _judge_tools_stream(200, body)
+    assert ok is False
+    assert "未实际触发" in error
+
+
+def test_judge_tools_stream_empty_name_is_unknown():
+    """分片到了但函数名始终为空(流被切断)不能判"不支持"。"""
+    body = (
+        'data: {"choices":[{"delta":{"tool_calls":[{"index":0,'
+        '"function":{"name":"","arguments":"{}"}}]},"finish_reason":null}]}\n\n'
+    )
+    ok, _error = _judge_tools_stream(200, body)
+    assert ok is None
+
+
+def test_judge_tools_stream_falls_back_to_json_body():
+    """上游无视 stream 参数直接回 JSON:复用非流式判据。"""
+    body = json.dumps(
+        {
+            "choices": [
+                {
+                    "message": {
+                        "tool_calls": [
+                            {"id": "1", "type": "function", "function": {"name": "get_weather"}}
+                        ]
+                    }
+                }
+            ]
+        }
+    )
+    assert _judge_tools_stream(200, body) == (True, "")
+
+
+def test_judge_tools_stream_5xx_is_unknown():
+    assert _judge_tools_stream(503, "upstream unavailable")[0] is None
 
 
 async def test_probe_tools_timeout_is_unknown():
