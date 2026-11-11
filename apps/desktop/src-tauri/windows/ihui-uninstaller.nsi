@@ -1,5 +1,5 @@
 ; =====================================================================
-; 卸载器主题「墨光 · Ink Aurora」(2026-09-22)
+; 卸载器主题「星澜 · Nebula」(2026-09-27 三版沿用 09-22 的两条页面路线)
 ;
 ; 为什么单独成文件:卸载器与安装器是两套上下文(un. 前缀函数、独立 onInit、
 ; 独立页面栈),混进 ihui-ui.nsi 会让那份已截图验证过的实现重新进入易变区。
@@ -234,8 +234,11 @@ Function un.IHUIConfirmPage
   !insertmacro IHUI_LOADIMG btn-toggle-off.bmp $UNTGLOFF
   !insertmacro IHUI_LOADIMG btn-toggle-on.bmp $UNTGLON
   StrCpy $UNDATA 0
-  ; 开关行与完成页首行同几何(IHUI_TGL_X / IHUI_TGL_Y1),标签文字已烧进位图
-  !insertmacro IHUI_BTN $UNTGL btn-toggle-off.bmp ${IHUI_TGL_X} ${IHUI_TGL_Y1} 40 24 un.IHUIOnTgl
+  ; 开关行与完成页首行同几何(IHUI_TGL_X / IHUI_TGL_Y1),标签文字已烧进位图。
+  ; ⚠️ 2026-11-12 修复尺寸错配:btn-toggle-*.bmp 是 55x31(52x28 轨道 + 3px 硬投影),
+  ;   旧槽位 40x24 会把开关右半与底部投影裁掉 —— LoadImage 不缩放、SS_BITMAP 不居中,
+  ;   真机上就是"半个开关"。改与完成页完全同值 55x31,三页开关逐像素一致。
+  !insertmacro IHUI_BTN $UNTGL btn-toggle-off.bmp ${IHUI_TGL_X} ${IHUI_TGL_Y1} 55 31 un.IHUIOnTgl
   !insertmacro IHUI_BTN $UNCTA btn-continue.bmp ${IHUI_CTA_X} ${IHUI_BTN_Y} ${IHUI_CTA_W} 40 un.IHUIOnNext
   !insertmacro IHUI_BTN $UNCANCEL btn-cancel.bmp ${IHUI_CANCEL_X} ${IHUI_BTN_Y} ${IHUI_CANCEL_W} 40 un.IHUIOnCancel
   ; 品牌关闭钮(右上角 X):不复用 IHUI_CLOSEBTN —— 它的回调写死安装侧 IHUIOnClose,
@@ -315,7 +318,10 @@ Function un.IHUIUninstShow
   System::Call "user32::MoveWindow(p r1, i 0, i 0, i $IHUIWW, i $IHUIWH, i 1)"
   SetCtlColors $1 FAFAFA 242424
   System::Call "gdi32::CreateSolidBrush(i 0x00242424) p .R6"
-  System::Call "user32::SetClassLongPtrW(p $HWNDPARENT, i -10, p R6)"
+  ; ⚠️ 2026-11-12 根因修复(与安装侧 ihui-ui.nsi:1424 同源):32 位 NSIS stub 没有
+  ;   SetClassLongPtrW,旧写法 System::Call 静默失败 ⇒ 窗口类背景刷一直是系统默认白,
+  ;   挖洞区/完成页内层露出纯白块。必须用 SetClassLongW,第三参按 LONG 用 i 传。
+  System::Call "user32::SetClassLongW(p $HWNDPARENT, i -10, i R6)"
   !insertmacro IHUI_LOADIMG uninstfiles.bmp $0
   System::Call "user32::CreateWindowExW(p 0, w 'STATIC', w '', i 0x5400010E, i 0, i 0, i $IHUIWW, i $IHUIWH, p r1, p 0, p 0, p 0) p .s"
   Pop $UNBG
@@ -332,9 +338,13 @@ Function un.IHUIUninstShow
   SetCtlColors $UNPB2 FAFAFA 242424
   SendMessage $UNPB2 0x0172 0 $0
   ; 百分比大字 + 阶段文案
-  ; 百分比大字 / 阶段文案字体:与安装页同规格(56px 与 13px 两档),
+  ; 百分比大字 / 阶段文案字体:与安装页同规格(IHUI_PCT_PX/IHUI_STG_PX 两档),
   ; 卸载器是独立进程,拿不到安装侧创建的字体句柄,必须自己建。
+  ; ⚠️ 2026-11-12 修复:lfHeight 必须取负(负 = 字符高度,正 = 含 internal leading 的
+  ;   单元格高度)。安装侧与重装页都做了 IntOp $8 0 - $8,只有卸载侧漏了 —— 同一张
+  ;   uninstfiles.bmp 上数字比安装页小一档、基线偏移,与开口环不再同心。
   !insertmacro IHUI_PX $8 ${IHUI_PCT_PX}
+  IntOp $8 0 - $8
   System::Call "gdi32::CreateFontW(i r8, i 0, i 0, i 0, i 700, i 0, i 0, i 0, i 1, i 0, i 0, i 5, i 0, w 'Microsoft YaHei UI') p .s"
   Pop $UNBIGF
   !insertmacro IHUI_TEXTCTL $UNPCT ${IHUI_PCT_STYLE} "0%" ${IHUI_PCT_X} ${IHUI_PCT_Y} ${IHUI_PCT_W} ${IHUI_PCT_H}
@@ -342,6 +352,7 @@ Function un.IHUIUninstShow
   StrCpy $UNPLAST 0
   SendMessage $UNPCT 0x0030 $UNBIGF 1
   !insertmacro IHUI_PX $8 ${IHUI_STG_PX}
+  IntOp $8 0 - $8
   System::Call "gdi32::CreateFontW(i r8, i 0, i 0, i 0, i 400, i 0, i 0, i 0, i 1, i 0, i 0, i 5, i 0, w 'Microsoft YaHei UI') p .s"
   Pop $0
   !insertmacro IHUI_TEXTCTL $UNSTG 0x50000000 " " ${IHUI_STG_X} ${IHUI_STG_Y} ${IHUI_STG_W} ${IHUI_STG_H}
@@ -352,9 +363,11 @@ Function un.IHUIUninstShow
   System::Call "user32::SetWindowPos(p $UNPB2, p 0, i 0, i 0, i 0, i 0, i 0x0033)"
   System::Call "user32::SetWindowPos(p $UNPCT, p 0, i 0, i 0, i 0, i 0, i 0x0033)"
   System::Call "user32::SetWindowPos(p $UNSTG, p 0, i 0, i 0, i 0, i 0, i 0x0033)"
-  ; 文本控件默认吃按钮面色(浅灰)→ 在暗底上形成两块白斑,必须显式设色
+  ; 文本控件默认吃按钮面色(浅灰)→ 在暗底上形成两块白斑,必须显式设色。
+  ; 2026-11-12 修:阶段文案取 inkSoft D4D4D4(--color-text-medium),与安装侧
+  ; ihui-ui.nsi:1474 一致;此前写成 FAFAFA,卸载页阶段文案比安装页亮一档、发飘。
   SetCtlColors $UNPCT FAFAFA 242424
-  SetCtlColors $UNSTG FAFAFA 242424
+  SetCtlColors $UNSTG D4D4D4 242424
   ; 取消钮:直接给原生 2 换品牌皮(安装页 v10 已证实的唯一可靠通路)
   !insertmacro IHUI_INST_SLOT 2 btn-cancel.bmp ${IHUI_CANCEL_X} ${IHUI_BTN_Y} ${IHUI_CANCEL_W} 40
   !insertmacro IHUI_UNPROGRESS 12 "正在准备卸载"
@@ -423,7 +436,10 @@ Function un.IHUIFinishTheme
   ;   (MUI_BGCOLOR 已在模板 U4 里 /redef 成 242424,这里再钉一次防 MUI 版本漂移)
   SetCtlColors $1 FAFAFA 242424
   System::Call "gdi32::CreateSolidBrush(i 0x00242424) p .R6"
-  System::Call "user32::SetClassLongPtrW(p $HWNDPARENT, i -10, p R6)"
+  ; ⚠️ 2026-11-12 根因修复(与安装侧 ihui-ui.nsi:1424 同源):32 位 NSIS stub 没有
+  ;   SetClassLongPtrW,旧写法 System::Call 静默失败 ⇒ 窗口类背景刷一直是系统默认白,
+  ;   挖洞区/完成页内层露出纯白块。必须用 SetClassLongW,第三参按 LONG 用 i 传。
+  System::Call "user32::SetClassLongW(p $HWNDPARENT, i -10, i R6)"
   ; 把 MUI 完成页自带的标题 / 正文 / 头图**全部**移屏。
   ; ⚠️ 绝不能按 ID 段扫:nsDialogs 的控件 ID 计数器是**跨页累加**的,跑到完成页时
   ;   MUI 那三个控件的 ID 早已越过 1000..1100(实锤:按 ID 扫之后蓝色向导头图仍在、

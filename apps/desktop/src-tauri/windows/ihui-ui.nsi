@@ -6,7 +6,8 @@
 ; 依赖: ihui-assets-path.nsh(!define IHUI_ASSETROOT 资产根目录,
 ;        由 scripts/desktop-installer-assets.mjs 生成,勿手工编辑)。
 ;
-; 设计系统「墨光 · Ink Aurora」(2026-09-22 改版,取代 2026-09-19 纯黑白杂志风):
+; 设计系统「星澜 · Nebula」(2026-09-27 三版;取代 2026-09-22「墨光 · Ink Aurora」,
+;   后者取代 2026-09-19 纯黑白杂志风。骨架与几何未动,只换画在位图上的东西):
 ;   880x600 逻辑尺寸 · 左侧 248px 品牌导轨 #1e2e36(.dark --color-brand-accent-light)
 ;   导轨常驻四步进度指示器(01 欢迎 / 02 安装位置 / 03 正在安装 / 04 完成)+ 品牌渐变边条
 ;   内容区 x 288..832(左内边距 40)· 底色 #242424(.dark --color-background)
@@ -19,8 +20,10 @@
 ;   版面几何单一真相源见下方 "版面几何" define 块,与 scripts/desktop-installer-assets.mjs 常量一一对应
 ;
 ; 已验证技术约束(试验台+nsDialogs.c 源码级结论,勿回退):
-;   1. 32 位 NSIS stub 无 GetWindowLongPtrW/SetWindowLongPtrW —— 一律用
-;      GetWindowLongW/SetWindowLongW(样式值 32 位足够)。
+;   1. 32 位 NSIS stub 无 GetWindowLongPtrW/SetWindowLongPtrW/**SetClassLongPtrW** ——
+;      一律用 GetWindowLongW/SetWindowLongW/**SetClassLongW**(第三参按 LONG 用 i 传)。
+;      安装侧 2026-10-16 已根治,卸载侧同类调用 2026-11-12 补齐 —— 用错 API 时
+;      System::Call 静默失败,窗口类背景刷一直是系统默认白,挖洞区透出纯白块。
 ;   2. 点击控件必须经 nsDialogs::CreateControl 创建: 它挂内层 dialog 并登记
 ;      NSCONTROL_ID_PROP; 手工 CreateWindowExW 的控件未登记, ${NSD_OnClick}
 ;      在 SetControlCallback 里静默失败,且 DialogProc 的 WM_COMMAND 只查内层
@@ -137,7 +140,7 @@ Var IHUIRF13      ; 重装页说明行品牌字体(13 逻辑 px)
 !define IHUI_RUNVALUE "IHUI-AI-Desktop"
 
 ; =====================================================================
-; 版面几何(2026-09-22「墨光」视觉改版)—— 运行期控件坐标单一真相源
+; 版面几何(2026-09-27「星澜 · Nebula」三版沿用 09-22 骨架)—— 运行期控件坐标单一真相源
 ;   位图侧常量在 scripts/desktop-installer-assets.mjs(W/H/RAIL_W/C_L/C_R/
 ;   BTN_Y/CTA_X/PB_*/PCT_SLOT/STAGE_SLOT)。位图已把导轨、步骤条、标题、
 ;   进度轨道全部烧死,运行期只叠加"会变的部分"。改任一侧必须同步另一侧,
@@ -158,9 +161,10 @@ Var IHUIRF13      ; 重装页说明行品牌字体(13 逻辑 px)
                               ; (旧值 28 → 文字贴顶、框底空一行,即用户报的"没居中")。
                               ; 收到 22 ≈ 15px 字 + 上下余量,文字自然落在容器中线。
 !define IHUI_BROWSE_X   728   ; 浏览钮(次级按钮:卡底 + 1.5px 描边)728..832
-!define IHUI_BROWSE_Y   302
+!define IHUI_BROWSE_Y   300   ; 与 dir.bmp 输入容器 y=300 h=40 同基线
 !define IHUI_BROWSE_W   104
-!define IHUI_BROWSE_H   36    ; 与路径容器同高同基线(302..338),两者读作一行控件
+!define IHUI_BROWSE_H   40    ; ⚠️ 必须等于 btn-browse.bmp 的 104x40 —— SS_BITMAP 不缩放。
+                              ; 旧值 36 把位图底缘 4px(含圆角+描边)裁掉,2026-11-12 修复。
 !define IHUI_TGL_X      288   ; 完成页三行开关(与 finish.bmp 烧入标签同 y)
 !define IHUI_TGL_Y1     340
 !define IHUI_TGL_Y2     392
@@ -1279,8 +1283,9 @@ Function IHUIDirPage
   ${EndIf}
   !insertmacro IHUI_PAGE_PRE
   !insertmacro IHUI_PAGEBG dir.bmp
-  ; 输入框(挂内层宿主; BMP 圆角容器面板 x=288 w=412 y=300 h=40,中心 y=320;
-  ;  输入框 sm 档 h-8=32px 垂直居中: y=304..336; 容器内缩 14 → x 302 w 384 右缘 686)
+  ; 输入框(挂内层宿主; dir.bmp 圆角容器 x=288 w=412 y=300 h=40,中心 y=320;
+  ;  IHUI_EDIT_* = (302,309,384,22):容器内缩 14 → 右缘 686;单行 Edit 顶对齐文字,
+  ;  309 = 300 + (40-22)/2,由 check-installer-assets.mjs 的 checkEditInContainerCentered 跨文件对账)
   !insertmacro IHUI_PX $2 ${IHUI_EDIT_X}
   !insertmacro IHUI_PX $3 ${IHUI_EDIT_Y}
   !insertmacro IHUI_PX $4 ${IHUI_EDIT_W}
@@ -1289,7 +1294,8 @@ Function IHUIDirPage
   Pop $IHUIDIR
   SetCtlColors $IHUIDIR FAFAFA 1A1A1A
   !insertmacro IHUI_SETFONT $IHUIDIR
-  ; 浏览钮 104x40 @ 728..832:裸文字链接样式(品牌色文字+下划线),无背景容器无描边;
+  ; 浏览钮 104x40 @ 728..832:卡底 + 1.5px 描边 + 唯一圆角档,与输入容器同高同基线;
+  ;  位图尺寸与控件槽位逐像素相等(LoadImage 不缩放),见 IHUI_BROWSE_H 注释;
   !insertmacro IHUI_BTN $IHUIBROWSE btn-browse.bmp ${IHUI_BROWSE_X} ${IHUI_BROWSE_Y} ${IHUI_BROWSE_W} ${IHUI_BROWSE_H} IHUIOnBrowse
   !insertmacro IHUI_BTN $IHUISTART btn-start.bmp ${IHUI_CTA_X} ${IHUI_BTN_Y} ${IHUI_CTA_W} 40 IHUIOnNext
   !insertmacro IHUI_BTN $IHUICANCEL btn-cancel.bmp ${IHUI_CANCEL_X} ${IHUI_BTN_Y} ${IHUI_CANCEL_W} 40 IHUIOnCancel
@@ -1618,7 +1624,8 @@ Function IHUIFinishPage
   !insertmacro IHUI_HIDE_ALL
   !insertmacro IHUI_PAGE_PRE
   !insertmacro IHUI_PAGEBG finish.bmp
-  ; 三个开关行(h-7=28px 胶囊,行 y=396/440/484 与 finish.bmp 烧入标签一一对应):
+  ; 三个开关行(55x31 画布 = 52x28 轨道 + 3px 硬投影,行 y=340/392/444
+  ;  与 finish.bmp 烧入标签一一对应;方块开关,不是胶囊):
   ;   行1 完成后立即打开智汇AI(默认开) · 行2 开机自动启动(默认关) · 行3 创建桌面快捷方式(默认开)
   ; 开关位图 = web <Switch size="lg"> 逐像素复刻(52x28 轨道 + 3px 硬投影 = 55x31
   ; 画布),与 packages/ui-react switch.tsx 同源,禁止任何额外样式
