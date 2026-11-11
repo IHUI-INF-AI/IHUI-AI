@@ -16916,6 +16916,7 @@
     "officialApp": "公式アカウント",
     "officialPromotion": "公式プロモートプラットフォーム",
     "officialWechat": "マイWeChat",
+    "openOnGitee": "Giteeで開く",
     "openOnGithub": "GitHubで開く",
     "paymentPlatforms": "決済プラットフォーム",
     "payments": {
@@ -18657,20 +18658,6 @@
       ],
       "label": "お知らせ"
     },
-    "miniappModal": {
-      "brand": "ブランド",
-      "connect": "お問い合わせ",
-      "content": "コンテンツ",
-      "explore": "探索",
-      "qrAlt": "ミニプログラムQRコード",
-      "scanTip": "WeChatを開いてスキャンし、ミニプログラムに入る",
-      "title": "WeChatミニプログラム",
-      "typewriter": {
-        "ctaPrimary": "今すぐ相談",
-        "ctaSecondary": "詳しく見る",
-        "miniappBtn": "ミニプログラムを開く"
-      }
-    },
     "news": {
       "empty": "ニュースはまだありません",
       "title": "最新ニュース",
@@ -18720,7 +18707,6 @@
       "title": "プランを選択",
       "titleEn": "プランを選ぶ"
     },
-    "qrAlt": "ミニプログラムQRコード",
     "roi": {
       "cache": {
         "calculation": "Claude API ¥0.3/回 → キャッシュヒット ¥0.024/回 = 92%節約",
@@ -18774,7 +18760,6 @@
       "title": "定量 ROI · データ裏付け収益",
       "titleEn": "QUANTIFIED ROI"
     },
-    "scanTip": "スキャンしてミニプログラムを体験",
     "scenarios": {
       "costReduction": {
         "benefit": "年間18-30万節約",
@@ -18823,15 +18808,7 @@
       "ctaPrimary": "今すぐ体験",
       "ctaSecondary": "もっと知る",
       "explore": "101 LLM大モデル · 1つの API キーで全部アクセス · 年間 ¥18万節約",
-      "miniappBtn": "WeChatミニプログラム",
-      "qrAlt": "ミニプログラムQRコード",
-      "scanTip": "スキャンしてミニプログラムを体験",
-      "title": "タイトル",
-      "typewriter": {
-        "ctaPrimary": "今すぐ相談",
-        "ctaSecondary": "詳しく見る",
-        "miniappBtn": "ミニプログラムを開く"
-      }
+      "title": "タイトル"
     },
     "welcome": {
       "benefits": {
@@ -26982,8 +26959,7 @@
   },
   "typewriter": {
     "ctaPrimary": "今すぐ相談",
-    "ctaSecondary": "詳細を見る",
-    "miniappBtn": "微信ミニアプリ"
+    "ctaSecondary": "詳細を見る"
   },
   "device": {
     "title": "端末管理",

@@ -6,27 +6,21 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import Image from 'next/image'
 import { useTranslations } from 'next-intl'
-import { Smartphone, MessageSquare, GraduationCap } from 'lucide-react'
-import { Button, CloseButton } from '@ihui/ui-react'
+import { MessageSquare, GraduationCap } from 'lucide-react'
+import { Button } from '@ihui/ui-react'
 import { useMounted } from '@/hooks/use-mounted'
-import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useChatStore } from '@/stores/chat'
 
-/** 层栈 id(见 @/lib/overlay-stack):小程序二维码弹窗的 Esc 只在栈顶时被消费 */
-const MINIAPP_QR_OVERLAY_ID = 'miniapp-qr-modal'
-
 /**
- * 第 1 页:打字机欢迎语 + 3 CTA + 小程序二维码弹窗
+ * 第 1 页:打字机欢迎语 + 2 CTA
  *
  * 还原自原版 client/src/views/Home.vue 的 first-page 区块。
  * 功能:
  *  - WELCOME IHUI INF . AI 品牌欢迎语(EDIX 字体)
  *  - 打字机效果(typing-text + cursor-blink)轮播 4 句话
- *  - 3 CTA:立即体验 / 了解更多 / 微信小程序
- *  - 小程序二维码弹窗(ESC 关闭 + 背景滚动锁定)
+ *  - 2 CTA:立即体验 / 了解更多
  *  - prefers-reduced-motion 降级(静态显示首句)
  */
 
@@ -128,71 +122,10 @@ function TypewriterHero() {
   )
 }
 
-/** 小程序二维码弹窗(ESC 关闭 + 背景滚动锁定) */
-function MiniAppQrModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const t = useTranslations('marketing.miniappModal')
-
-  React.useEffect(() => {
-    if (!open) return
-    // 层栈注册:open → 入栈(成为栈顶);close/unmount → 出栈。
-    pushOverlay(MINIAPP_QR_OVERLAY_ID)
-    const onKeydown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        // 只让栈顶那一层消费 Esc:多层同时打开时,一次 Esc 关最上层
-        if (!isTopOverlay(MINIAPP_QR_OVERLAY_ID)) return
-        onClose()
-      }
-    }
-    document.addEventListener('keydown', onKeydown)
-    const prevOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.removeEventListener('keydown', onKeydown)
-      document.body.style.overflow = prevOverflow
-      popOverlay(MINIAPP_QR_OVERLAY_ID)
-    }
-  }, [open, onClose])
-
-  if (!open) return null
-
-  return (
-    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions -- 模态遮罩点击外部关闭;键盘用户通过关闭按钮(X)提供等价交互
-    <div
-      className="fixed inset-0 z-modal flex items-center justify-center bg-white/50 p-3 dark:bg-black/50"
-      role="dialog"
-      aria-modal="true"
-      aria-label={t('title')}
-      onClick={onClose}
-    >
-      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- 模态内容区阻止冒泡,键盘用户通过关闭按钮(X)提供等价交互 */}
-      <div
-        className="w-full max-w-xs ui-hero rounded-2xl border bg-card p-3 shadow-lg"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between pb-3">
-          <span className="text-body font-semibold">{t('title')}</span>
-          <CloseButton aria-label="close" onClick={onClose} />
-        </div>
-        <div className="flex flex-col items-center gap-3 pt-2">
-          <Image
-            src="/footer/erweima/footer-icon-2.png"
-            alt={t('qrAlt')}
-            width={192}
-            height={192}
-            className="h-48 w-48 rounded-lg border object-contain"
-          />
-          <p className="text-center text-label text-muted-foreground">{t('scanTip')}</p>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 export function TypewriterHeroSection() {
   const t = useTranslations('marketing')
   const router = useRouter()
   const openPanel = useAiPanelStore((s) => s.openPanel)
-  const [modalOpen, setModalOpen] = React.useState(false)
 
   // 2026-09-08 改:不再跳转 /ask(问答社区),改为拉起 AI 侧边面板 + 预填「你是什么模型？」
   // 并自动发送(draftInput + draftAutoSend 由 MessageInput 消费),直接发起对话
@@ -222,18 +155,7 @@ export function TypewriterHeroSection() {
           <GraduationCap className="mr-1.5 h-4 w-4" />
           {t('typewriter.ctaSecondary')}
         </Button>
-        <Button
-          size="lg"
-          variant="secondary"
-          onClick={() => setModalOpen(true)}
-          aria-label={t('typewriter.miniappBtn')}
-        >
-          <Smartphone className="mr-1.5 h-4 w-4" />
-          {t('typewriter.miniappBtn')}
-        </Button>
       </div>
-
-      <MiniAppQrModal open={modalOpen} onClose={() => setModalOpen(false)} />
     </div>
   )
 }
