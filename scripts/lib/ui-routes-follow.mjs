@@ -18,7 +18,7 @@
  * 本模块只读、只计算,不做任何落盘;写盘只发生在各端生成器里。
  */
 
-import { gitRaw } from './face-reader.mjs'
+import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -74,9 +74,7 @@ const WEB_RN_MAP = 'scripts/data/web-rn-screen-map.jsonl'
 export function readRepoFile(rel, face = 'worktree') {
   if (face === 'head') {
     try {
-      // 走统一承载层(门 193):裸 'git' 依赖 PATH —— 服务账户 / GUI 宿主下取不到,
-      // 而这里的 catch 会把"取不到"静默折成 null(读成"文件不存在")。层内是绝对路径。
-      return gitRaw(['show', `HEAD:${rel}`], repoRoot, { timeout: 60_000 })
+      return execFileSync('git', ['show', `HEAD:${rel}`], { cwd: repoRoot, encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
     } catch {
       return null
     }
@@ -89,7 +87,7 @@ export function readRepoFile(rel, face = 'worktree') {
 export function existsRepoFile(rel, face = 'worktree') {
   if (face === 'head') {
     try {
-      gitRaw(['cat-file', '-e', `HEAD:${rel}`], repoRoot, { timeout: 30_000 })
+      execFileSync('git', ['cat-file', '-e', `HEAD:${rel}`], { cwd: repoRoot, stdio: 'ignore', windowsHide: true })
       return true
     } catch {
       return false

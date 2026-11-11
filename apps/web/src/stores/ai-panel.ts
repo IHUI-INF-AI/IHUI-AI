@@ -10,6 +10,9 @@ import { persist } from 'zustand/middleware'
 
 import { createPersistConfig } from './persist-helpers'
 import { useChatStore } from './chat'
+// 形态档唯一真相源(2026-11-11):openPanel 必须按视口能力决定「打开成什么形态」,
+// 不能只把 open 置 true —— 停靠位在 640–1279 不存在,只置 open 等于「点了没反应」。
+import { getPanelBucket, readViewportWidth } from '@/lib/ai-panel-bucket'
 
 /** AI 侧边 docked 面板默认宽度
  * - 2026-09-30 重构(输入框底栏单行化,深度对标 Trae/Qoder/Codex):
@@ -37,8 +40,9 @@ export interface ActiveWorkspace {
   techStack?: string[]
 }
 
-/** 浮窗默认位置(右上角偏移) */
-export const FLOAT_DEFAULT_POSITION = { x: -1, y: -1 } // -1 = 未初始化,首次使用时计算右上角
+/** 浮窗位置哨兵:-1 = 未初始化。真实落点由 lib/ai-panel-bucket 的 resolveFloatRect 解析成
+ *  「工作区左下角、向上展开」,并统一做视口收口;不持久化(每次刷新回默认锚点)。 */
+export const FLOAT_DEFAULT_POSITION = { x: -1, y: -1 }
 
 interface AiPanelState {
   /** 面板是否展开(全局唯一,任何路由可触发) */
@@ -95,6 +99,14 @@ interface AiPanelState {
   floatCollapsed: boolean
   /** 浮窗位置(视口坐标,持久化) */
   floatPosition: { x: number; y: number }
+  /**
+   * FAB(最小化图标)拖拽后的独立位置(2026-11-11 立)。
+   * null = 从未拖过 ⇒ 跟随浮窗矩形左下角(与最小化瞬间视觉连续)。
+   * 不能复用 floatPosition:那是 360×600 浮窗的钳制范围,会把 48px 圆钮锁在左侧带内。
+   * 会话级不持久化;展开/收起都保留(否则「拖到右缘 → 展开 → 最小化」会被浮窗
+   * 360 宽度拉回左侧),仅在用户**重新拖动浮窗面板**时作废(面板成为落点真相源)。
+   */
+  floatFabPosition: { x: number; y: number } | null
   /** 工作展示区折叠态:true = 隐藏右侧 work-area,AI 面板占满(2026-08-17 用户需求) */
   workAreaCollapsed: boolean
   /**
@@ -124,6 +136,7 @@ interface AiPanelState {
   setWorkAreaFullscreen: (v: boolean) => void
   setFloatCollapsed: (v: boolean) => void
   setFloatPosition: (pos: { x: number; y: number }) => void
+  setFloatFabPosition: (pos: { x: number; y: number } | null) => void
 }
 
 /**
@@ -134,7 +147,7 @@ interface AiPanelState {
  */
 export const useAiPanelStore = create<AiPanelState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       // open=true:AI 对话框默认弹出展开(用户规则 2026-07-20 确认)
       open: true,
       width: AI_PANEL_DEFAULT_WIDTH,
@@ -149,12 +162,32 @@ export const useAiPanelStore = create<AiPanelState>()(
       floatMinimized: false,
       floatCollapsed: false,
       floatPosition: FLOAT_DEFAULT_POSITION,
+      floatFabPosition: null,
       workAreaCollapsed: false,
       workAreaFullscreen: false,
 
-      openPanel: () => set({ open: true }),
+      /**
+       * 打开面板(所有外部入口的唯一出口)。
+       * 2026-11-11 立:按**调用时**的视口能力落形态,不依赖组件挂载时序 ——
+       * - docked(≥1280):只置 open(桌面手动浮窗保留),并复位最小化;
+       * - float(640–1279)/ sheet(<640):停靠位不存在,必须强制浮窗 + 复位折叠/最小化,
+       *   否则 open=true 也没有任何可见表面(历史 P0「点了没反应」的根因)。
+       */
+      openPanel: () => {
+        const bucket = getPanelBucket(readViewportWidth())
+        if (bucket === 'docked') {
+          set({ open: true, floatMinimized: false })
+          return
+        }
+        set({ open: true, floatMode: true, floatMinimized: false, floatCollapsed: false })
+      },
+      // 关闭 = 收起表面;sheet/float 档由组件渲染 FAB(非 closed 必有可见表面的不变量)
       closePanel: () => set({ open: false }),
-      togglePanel: () => set((s) => ({ open: !s.open })),
+      togglePanel: () => {
+        const state = get()
+        if (state.open) state.closePanel()
+        else state.openPanel()
+      },
       setWidth: (w) =>
         set({
           width: Math.min(AI_PANEL_MAX_WIDTH, Math.max(AI_PANEL_MIN_WIDTH, w)),
@@ -191,6 +224,7 @@ export const useAiPanelStore = create<AiPanelState>()(
       setWorkAreaFullscreen: (v: boolean) => set({ workAreaFullscreen: v }),
       setFloatCollapsed: (v: boolean) => set({ floatCollapsed: v }),
       setFloatPosition: (pos: { x: number; y: number }) => set({ floatPosition: pos }),
+      setFloatFabPosition: (pos) => set({ floatFabPosition: pos }),
     }),
     {
       ...createPersistConfig<AiPanelState>('ihui-ai-panel', (s) => ({
@@ -199,17 +233,16 @@ export const useAiPanelStore = create<AiPanelState>()(
         // 会话级工作区映射持久化(2026-09-04):刷新后各对话绑定关系保留
         conversationWorkspaces: s.conversationWorkspaces,
       })),
-      // 强制 open=true:rehydrate 时即使 localStorage 残留旧版本 open=false 也覆盖为 true。
-      // 保证"AI 对话框默认弹出"规则在所有刷新场景下生效。
-      // 旧版本曾持久化 floatMode,但 ai-side-panel.tsx 的移动端 effect(isMobile && !floatMode)
-      // floatMode/floatPosition 不持久化(2026-08-01 立,用户规则"默认状态应该在侧边栏和工作区中间"):
-      // 旧版本曾持久化 floatMode,但 ai-side-panel.tsx 的移动端 effect(isMobile && !floatMode)
-      // - v0→v1:仅 width < 680 提升到 680(漏了 width > 680)
-      // 现改为会话级状态:每次刷新回到 docked 默认态,移动端 effect 仅在当前会话生效不污染桌面端。
-      // - v2→v3:强制设为 460 验证 migrate 生效(用户确认生效)
-      //
-      // 2026-08-02 version 0→1→2→3→4 迁移(用户规则"默认宽度设置为380");
-      // 2026-09-30 version 4→5:底栏单行化重设默认宽 480(旧值 300/380 下新底栏必然溢出)
+      // rehydrate 覆盖(2026-11-11 整理,逐条写清「为什么」):
+      // - open=true:"AI 对话框默认弹出"规则(2026-07-20 用户确认),旧 localStorage 残留 open=false 也覆盖。
+      // - floatMode / floatPosition 不持久化(2026-08-01 用户规则「默认状态在侧边栏与工作区中间」):
+      //   刷新一律回停靠默认态;<1280 时由 ai-side-panel 的形态档 effect 立即迁到浮窗,
+      //   不依赖持久化值(否则窄屏刷新会先闪一帧停靠位)。
+      // - workAreaFullscreen / floatMinimized / floatCollapsed 同为会话级 UI 态:防旧值把面板锁成 FAB
+      //   或把工作面锁在全屏。
+      // - permissionAxes 是请求级偏好、未进 partialize,此处再钉一次,防手改 localStorage 残留高危双轴。
+      // 宽度迁移史:v0→v1 提到 680(当时漏了 >680);v2→v3 强制 460(验证 migrate 生效);
+      // 2026-08-02 v3→v4 默认 380(用户规则);2026-09-30 v4→v5 重设 480(旧值下底栏必然溢出)。
       version: 5,
       migrate: (persistedState: unknown, version: number) => {
         const s = (persistedState as Partial<AiPanelState>) || {}
@@ -233,6 +266,8 @@ export const useAiPanelStore = create<AiPanelState>()(
         floatMinimized: false,
         floatCollapsed: false,
         floatPosition: FLOAT_DEFAULT_POSITION,
+        // FAB 独立位置同为会话级:刷新回「跟随浮窗矩形」的默认锚点
+        floatFabPosition: null,
       }),
     },
   ),

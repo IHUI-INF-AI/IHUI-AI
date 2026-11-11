@@ -33,8 +33,8 @@
  * 退出码:0 = 清单内 ref 全部可解析;1 = 仍有缺失(需人工)
  */
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
+import { basename, dirname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import {
   resolveGitBin,
@@ -70,26 +70,54 @@ function dropLostTagExpectations() {
  */
 const GIT_MAX_BUFFER_BYTES = 64 * 1024 * 1024
 
-function git(args, allowFail = false) {
+/**
+ * 派生 git 的原始结果。`git()` 的 allowFail 把所有失败折成 null,调用方分不清
+ * 「进程没跑成」和「命令跑了、git 自己否定」。需要三态的判据(对象是否存在)走这里。
+ * @returns {{ok:true,stdout:string,status:number,signal:null,code:null,stderr:string}|{ok:false,reason?:string,status:number|null,signal:string|null,code:string|null,stderr:string,killed?:boolean,error?:Error}}
+ */
+function runGit(args) {
   const bin = resolveGitBin()
   if (!bin) {
-    if (allowFail) return null
-    throw new Error('git 不可用:候选可执行文件均不可调用')
+    return { ok: false, reason: 'git-unavailable', status: null, signal: null, code: 'NO_GIT', stderr: '' }
   }
   try {
-    return execFileSync(bin, ['-c', 'safe.directory=*', '-C', WORKTREE, ...args], {
+    const stdout = execFileSync(bin, ['-c', 'safe.directory=*', '-C', WORKTREE, ...args], {
       encoding: 'utf8',
       // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      // 返回值被消费(.trim() 后 return)⇒ stdout 仍须 pipe,只把 stdin 切掉
+      // 返回值被消费 ⇒ stdout 仍须 pipe,只把 stdin 切掉
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true, // GUI 宿主下派生 git 不显控制台窗口(AGENTS.md §5b)
       maxBuffer: GIT_MAX_BUFFER_BYTES,
       timeout: 180000,
-    }).trim()
+      // DBG-88 补刀(2026-11-11 实测):本仓是 blob:none 部分克隆,`cat-file -e` 对不在本地的
+      // 对象会触发 lazy-fetch **真联网**(单次 49-55s),远端否定的 stderr 是
+      // `fatal: remote error: upload-pack: not our ref …` —— 既不匹配 MISSING_OBJECT_RE、
+      // stderr 也非空,安静否定被并成 undetermined,还违反本器"全程不联网"的契约(§头部)。
+      // 对象存在性问的只是**本地对象库**;manifest 里的 backup/*、lost-commit/* 目标全是
+      // commit —— blob:none 下 commit/tree 本就全量在本地,关掉惰性取回不改变判定语义。
+      // 显式 fetch(--refresh-remote)是独立子命令,不受此变量影响。
+      env: { ...process.env, GIT_NO_LAZY_FETCH: '1' },
+    })
+    return { ok: true, stdout: String(stdout ?? ''), status: 0, signal: null, code: null, stderr: '' }
   } catch (e) {
-    if (allowFail) return null
-    throw e
+    return {
+      ok: false,
+      status: e && e.status != null ? e.status : null,
+      signal: e && e.signal ? e.signal : null,
+      code: e && typeof e.code === 'string' ? e.code : null,
+      stderr: e && e.stderr != null ? String(e.stderr) : '',
+      killed: Boolean(e && e.killed),
+      error: e,
+    }
   }
+}
+
+function git(args, allowFail = false) {
+  const r = runGit(args)
+  if (r.ok) return r.stdout.trim()
+  if (allowFail) return null
+  if (r.reason === 'git-unavailable') throw new Error('git 不可用:候选可执行文件均不可调用')
+  throw r.error
 }
 
 // GITDIR / REFS_MANIFEST 已在文件顶部由共享库解析(动态,不再硬编码 D: 盘,2026-09-15)
@@ -107,29 +135,107 @@ function isNestedRef(ref) {
  * 期望清单的读出口(2026-10-30 改为 export):`prune-redundant-lost-tags.mjs` 清仓时必须
  * 把同一条目的期望值一起摘掉 —— 否则存续层下一轮就把删掉的引用**离线重建回来**(实测 22:08
  * 一次重建 8,086 枚)。清单的形状/落点/失败语义只许有一份(AGENTS §0.6),所以这里开出口,
- * 不在调用方另抄一个 JSON 读写。读不到一律回 `{}`(存续层语义:没清单就什么都不重建)。
+ * 不在调用方另抄一个 JSON 读写。
+ *
+ * 三态(DBG-89):文件不存在 ⇒ 空表(没清单就什么都不重建);合法对象 ⇒ 该表;
+ * 坏 JSON / 非对象 / 读失败 ⇒ **不得**折成 `{}`。折成空表再 save 会把两万条期望永久盖掉。
  */
-export function readManifest() {
+export function parseManifestText(text) {
+  let m
   try {
-    const m = JSON.parse(readFileSync(REFS_MANIFEST, 'utf8'))
-    return m && typeof m === 'object' ? m : {}
+    m = JSON.parse(text)
   } catch {
-    return {}
+    return { state: 'corrupt', reason: 'json-invalid' }
   }
+  if (!m || typeof m !== 'object' || Array.isArray(m)) {
+    return { state: 'corrupt', reason: 'not-object' }
+  }
+  return { state: 'ok', map: m }
+}
+
+export function readManifestAt(path) {
+  let text
+  try {
+    text = readFileSync(path, 'utf8')
+  } catch (e) {
+    if (e && e.code === 'ENOENT') return { state: 'missing', map: {} }
+    return { state: 'undetermined', reason: `read-${e && e.code ? e.code : 'failed'}` }
+  }
+  return parseManifestText(text)
+}
+
+/** 给会接着写盘的调用方:坏文件/读失败时 ok=false,map 不是空期望。 */
+export function takeManifestForMutation(path) {
+  const r = readManifestAt(path)
+  if (r.state === 'ok' || r.state === 'missing') return { ok: true, map: r.map, state: r.state }
+  return { ok: false, state: r.state, reason: r.reason || '', map: null }
+}
+
+function manifestMapForCaller(result) {
+  if (result.state === 'ok') return result.map
+  if (result.state === 'missing') return {}
+  const err = new Error(
+    `refs-manifest.json 未判定(${result.state}${result.reason ? ': ' + result.reason : ''}),拒绝按空期望继续`,
+  )
+  err.code = 'REFS_MANIFEST_UNJUDGED'
+  throw err
+}
+
+export function readManifest() {
+  return manifestMapForCaller(readManifestAt(REFS_MANIFEST))
 }
 
 /** 清单落点(开给调用方做"读不到就别写"的前置判断 —— 存续层清单被清空 = 所有期望值一起丢)。 */
 export const REFS_MANIFEST_PATH = REFS_MANIFEST
 
-/** 期望清单的写出口(与 readManifest 同一条序列化形态,调用方不得自己 stringify)。 */
-export function saveManifest(map) {
+let manifestWriteSeq = 0
+
+/**
+ * 同目录临时文件 + rename。崩溃落在临时文件上,目标要么仍是上一份完整内容,要么已是新文件。
+ * rename 失败只删临时文件,不动目标(禁止先 unlink 目标再改名 —— 那一窗口比半截 JSON 更糟)。
+ */
+function atomicWriteFile(dest, body) {
+  const dir = dirname(dest)
+  const tmp = join(dir, `.${basename(dest)}.${process.pid}.${Date.now()}.${++manifestWriteSeq}.tmp`)
   try {
-    writeFileSync(REFS_MANIFEST, JSON.stringify(map, null, 1) + '\n', 'utf8')
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(tmp, body, 'utf8')
+    renameSync(tmp, dest)
+    return true
+  } catch (e) {
+    try {
+      unlinkSync(tmp)
+    } catch {
+      /* 临时文件可能没写成 */
+    }
+    throw e
+  }
+}
+
+/**
+ * 期望清单的写出口(与 readManifest 同一条序列化形态,调用方不得自己 stringify)。
+ * 目标已存在且不是合法对象时拒绝覆盖:调用方哪怕手里拿着 `{}` 也盖不掉坏文件。
+ */
+export function saveManifestAt(dest, map) {
+  if (!map || typeof map !== 'object' || Array.isArray(map)) return false
+  const prior = readManifestAt(dest)
+  if (prior.state !== 'ok' && prior.state !== 'missing') {
+    console.error(
+      `清单拒绝覆盖(${prior.state}${prior.reason ? ': ' + prior.reason : ''}):坏文件不得按空期望重写`,
+    )
+    return false
+  }
+  try {
+    atomicWriteFile(dest, JSON.stringify(map, null, 1) + '\n')
     return true
   } catch (e) {
     console.error('清单写入失败:', String(e.message || e))
     return false
   }
+}
+
+export function saveManifest(map) {
+  return saveManifestAt(REFS_MANIFEST, map)
 }
 
 /** 当前全部 ref(name → sha),含 packed 与松散 */
@@ -170,17 +276,52 @@ function refResolvable(ref) {
 }
 
 /**
- * sha 指向的对象是否真的还读得出来。
- * ⚠️ 谓词写法:`cat-file -e` 成功时**输出是空串**,而 git(..., allowFail=true) 只在失败时返回 null。
- *    用 `!!git(...)` 判断会把"对象存在"读成"不存在"⇒ 每条好 ref 都被当成死的删掉。
+ * 把 `cat-file -e` 的原始结果分成三态。只有 `missing` 允许从期望清单剔除。
+ *
+ * 本机实测(只读,`git cat-file -e`):
+ *   - 对象在:exit 0,stdout 空串(用真值判断会把"在"读成"不在")
+ *   - 40 位名字合法但对象不在:exit 1,stderr 空。这是 -e 的安静否定,不是派生失败
+ *   - 名字不被接受:exit 128 + `Not a valid object name`
+ *   - 派生失败(EBUSY/ETIMEDOUT/无 git/被信号杀死):status 为 null,或带 spawn code/signal
+ * 最后一档若并进「不存在」,一次瞬时失败就会删掉 backup/* 与 lost-commit/* 期望。
  */
+const MISSING_OBJECT_RE = /not a valid object name|could not get object info|\bbad object\b/i
+const UNDETERMINED_STDERR_RE =
+  /ambiguous|unable to|permission denied|index\.lock|resource temporarily|timed out|not a git repository/i
+
+export function classifyObjectProbe(r) {
+  if (!r || (r.ok !== true && r.ok !== false)) return 'undetermined'
+  if (r.ok === true) return 'exists'
+  if (r.reason === 'git-unavailable' || r.killed || r.signal) return 'undetermined'
+  if (typeof r.code === 'string' && r.code) return 'undetermined'
+  if (r.status === null || r.status === undefined) return 'undetermined'
+  const stderr = String(r.stderr || '')
+  if (UNDETERMINED_STDERR_RE.test(stderr)) return 'undetermined'
+  if (MISSING_OBJECT_RE.test(stderr)) return 'missing'
+  if (r.status === 1 && stderr.trim() === '') return 'missing'
+  return 'undetermined'
+}
+
+function defaultObjectProbe(sha) {
+  return runGit(['cat-file', '-e', String(sha)])
+}
+
 /**
  * 对象是否可解析。`export` 是给 `git-guardian.mjs` 复用的 —— 守护每 2 分钟跑的 `healRefs()`
- * 与本文件的离线重建必须共用同一份判定(此前它只挂在 `__test__` 上,守护 import 直接
- * `SyntaxError: does not provide an export named`,是运行时抓到而不是靠人眼)。
+ * 与本文件的离线重建必须共用同一份判定。
+ *
+ * 返回三态,不要收成布尔:
+ *   true  对象在(含 cat-file -e 成功时的空 stdout)
+ *   false git 已跑完并确认对象不在 —— 只有这一档可以删期望
+ *   null  命令失败/未判定 —— 调用方不得删期望。`!null` 仍为真,守护的写前自证会拒绝落盘,方向是对的
+ * 第二参只给测试注入探针;生产调用不传,走真实 git。
  */
-export function objectExists(sha) {
-  return /^[0-9a-f]{7,40}$/.test(String(sha || '')) && git(['cat-file', '-e', sha], true) !== null
+export function objectExists(sha, probe = defaultObjectProbe) {
+  if (!/^[0-9a-f]{7,40}$/.test(String(sha || ''))) return false
+  const kind = classifyObjectProbe(probe(String(sha)))
+  if (kind === 'exists') return true
+  if (kind === 'missing') return false
+  return null
 }
 
 /**
@@ -189,12 +330,36 @@ export function objectExists(sha) {
  * `objects/xx/` 而变成**死引用**(本机当日 fsck 报坏链 83,108 条 / 缺失目标 35,319 个)。
  * 按死值重建 = 亲手写出一枚指向不存在对象的 ref,而**坏指针会让每一次 `git fetch` 直接 fatal**
  * (⇒ 推送链全死;git-push-guard 2.9b 已在推送侧拦这个)。死的只能剔除 + 如实计数,等联网校准。
+ *
+ * exists 的三态:true → 可重建;false → 确认死亡(可剔除);其它(null/undefined)→ held,
+ * **不得**并进 dead。真值判断会把「没问成」当成「对象没了」。
  */
 export function splitDeadRefs(broken, exists) {
   const dead = []
   const rebuildable = []
-  for (const [ref, sha] of broken) (exists(sha) ? rebuildable : dead).push([ref, sha])
-  return { dead, rebuildable }
+  const held = []
+  for (const [ref, sha] of broken) {
+    const v = exists(sha)
+    if (v === true) rebuildable.push([ref, sha])
+    else if (v === false) dead.push([ref, sha])
+    else held.push([ref, sha])
+  }
+  return { dead, rebuildable, held }
+}
+
+/** 只摘确认死亡的期望。held(未判定)一条都不动,backup/* 与 lost-commit/* 同此。 */
+export function applyDeadExpectationDrops(map, split) {
+  const dropped = []
+  for (const [ref] of (split && split.dead) || []) {
+    if (Object.prototype.hasOwnProperty.call(map, ref)) {
+      delete map[ref]
+      dropped.push(ref)
+    }
+  }
+  return {
+    dropped,
+    held: ((split && split.held) || []).map(([ref]) => ref),
+  }
 }
 
 /** 直写松散 ref(node fs —— `git update-ref` 对嵌套命名空间返回 0 却不落盘) */
@@ -332,7 +497,14 @@ function refreshFromRemote() {
     console.error('   http_proxy=http://127.0.0.1:7897 https_proxy=http://127.0.0.1:7897')
     return false
   }
-  const map = readManifest()
+  const taken = takeManifestForMutation(REFS_MANIFEST)
+  if (!taken.ok) {
+    console.error(
+      `❌ refs-manifest.json ${taken.state}${taken.reason ? ' (' + taken.reason + ')' : ''} ⇒ 拒绝用远端结果覆盖(坏清单不是空期望)`,
+    )
+    return 'unjudged'
+  }
+  const map = taken.map
   const remoteRefNames = new Set()
   lastRemoteRefs = remoteRefNames
   let added = 0
@@ -370,7 +542,18 @@ function refreshFromRemote() {
 
 function status() {
   const cur = currentRefs()
-  const map = readManifest()
+  const taken = takeManifestForMutation(REFS_MANIFEST)
+  if (!taken.ok) {
+    return {
+      gitdir: GITDIR,
+      manifestCount: null,
+      currentCount: cur === null ? null : Object.keys(cur).length,
+      state: 'unjudged',
+      reason: `refs-manifest.json ${taken.state}${taken.reason ? ' ' + taken.reason : ''} ⇒ 坏清单不得按空期望计,也不覆盖`,
+      missing: [],
+    }
+  }
+  const map = taken.map
   const entries = Object.entries(map)
   // 问不到 ref 面 ⇒ 未判定:不报"全缺失",也不给任何写动作提供空底表(§0.3)
   if (cur === null) {
@@ -492,12 +675,88 @@ function selfTest() {
   t('objectExists:cat-file -e 成功输出空串也必须判"存在"(真值陷阱)', () => {
     const head = git(['rev-parse', 'HEAD'], true)
     if (!head) throw new Error('取不到 HEAD,本例无环境')
-    if (!objectExists(head))
+    if (objectExists(head) !== true)
       throw new Error(`活对象 ${head.slice(0, 8)} 被判成不存在 ⇒ 每轮都会删清单`)
-    if (objectExists('deadbeefdeadbeefdeadbeefdeadbeefdeadbeef'))
-      throw new Error('不存在的 sha 被判成存在')
-    if (objectExists('') || objectExists(null) || objectExists('not-a-sha'))
+    if (objectExists('deadbeefdeadbeefdeadbeefdeadbeefdeadbeef') !== false)
+      throw new Error('不存在的 sha 必须判 false;null 是未判定,两者不得并档')
+    if (objectExists('') !== false || objectExists(null) !== false || objectExists('not-a-sha') !== false)
       throw new Error('空值/非法值应判不存在,不得去问 git')
+  })
+
+  t('objectExists 三态:命令失败不得并进「不存在」(否则会删 backup/lost-commit 期望)', () => {
+    const sha = 'a'.repeat(40)
+    if (classifyObjectProbe({ ok: true, stdout: '' }) !== 'exists')
+      throw new Error('空 stdout 的成功被读成不存在(真值陷阱回潮)')
+    if (classifyObjectProbe({ ok: false, status: 1, code: null, signal: null, stderr: '' }) !== 'missing')
+      throw new Error('cat-file -e 安静 exit 1 应判对象不存在')
+    if (
+      classifyObjectProbe({
+        ok: false,
+        status: 128,
+        code: null,
+        signal: null,
+        stderr: 'fatal: Not a valid object name deadbeef\n',
+      }) !== 'missing'
+    )
+      throw new Error('Not a valid object name 应判不存在')
+    for (const sample of [
+      { ok: false, status: null, code: 'EBUSY', signal: null, stderr: '' },
+      { ok: false, status: null, code: 'ETIMEDOUT', signal: 'SIGTERM', killed: true, stderr: '' },
+      { ok: false, reason: 'git-unavailable', status: null, code: 'NO_GIT', stderr: '' },
+      { ok: false, status: 128, code: null, signal: null, stderr: 'fatal: ambiguous argument abc\n' },
+      { ok: false, status: 128, code: null, signal: null, stderr: 'fatal: not a git repository\n' },
+      { ok: false, status: 128, code: null, signal: null, stderr: '' },
+    ]) {
+      if (classifyObjectProbe(sample) !== 'undetermined')
+        throw new Error(`命令失败被判成了可删档: ${JSON.stringify(sample)}`)
+    }
+    if (objectExists(sha, () => ({ ok: false, status: null, code: 'EBUSY', signal: null, stderr: '' })) !== null)
+      throw new Error('EBUSY 必须是 null(未判定),不得是 false')
+    if (objectExists(sha, () => ({ ok: false, status: 1, code: null, signal: null, stderr: '' })) !== false)
+      throw new Error('安静 exit 1 应是 false')
+    const backup = 'refs/tags/backup/snap'
+    const lost = 'refs/tags/lost-commit/auto-abc'
+    const ghost = 'refs/remotes/origin/gone/x'
+    const map = { [backup]: sha, [lost]: sha, [ghost]: shaDead }
+    const probe = (s) =>
+      s === shaDead
+        ? { ok: false, status: 1, code: null, signal: null, stderr: '' }
+        : { ok: false, status: null, code: 'EBUSY', signal: null, stderr: '' }
+    const split = splitDeadRefs(
+      [
+        [backup, sha],
+        [lost, sha],
+        [ghost, shaDead],
+      ],
+      (s) => objectExists(s, probe),
+    )
+    if (split.dead.some(([ref]) => ref.startsWith('refs/tags/')))
+      throw new Error(`未判定的 tag 期望进了 dead: ${JSON.stringify(split.dead)}`)
+    applyDeadExpectationDrops(map, split)
+    if (map[backup] !== sha || map[lost] !== sha) throw new Error('瞬时失败删了 backup/* 或 lost-commit/* 期望')
+    if (map[ghost] !== undefined) throw new Error('已确认不存在的对象应仍可剔除')
+  })
+
+  t('坏清单不得解析成空期望,写入必须是同目录临时文件 + rename', () => {
+    const bad = parseManifestText('{"refs/tags/backup/x":')
+    if (bad.state !== 'corrupt' || bad.map) throw new Error('坏 JSON 被解析出了期望表')
+    if (parseManifestText('[]').state !== 'corrupt') throw new Error('数组不是期望表,不得当成空清单')
+    const empty = parseManifestText('{}')
+    if (empty.state !== 'ok' || Object.keys(empty.map).length !== 0) throw new Error('合法空对象应是 ok')
+    let code = ''
+    try {
+      manifestMapForCaller(bad)
+    } catch (e) {
+      code = e.code || ''
+    }
+    if (code !== 'REFS_MANIFEST_UNJUDGED') throw new Error(`坏清单被当成了空期望: ${code}`)
+    const src2 = readFileSync(new URL('./git-refs-heal.mjs', import.meta.url), 'utf8')
+    const atomic = src2.slice(src2.indexOf('function atomicWriteFile'), src2.indexOf('function atomicWriteFile') + 900)
+    if (!/renameSync\(tmp,\s*dest\)/.test(atomic)) throw new Error('清单不是 rename 替换')
+    if (!/dirname\(dest\)/.test(atomic)) throw new Error('临时文件不在目标同目录')
+    if (/writeFileSync\(\s*dest\b/.test(atomic)) throw new Error('仍在直接覆盖目标文件')
+    const saveBody = src2.slice(src2.indexOf('function saveManifestAt'), src2.indexOf('function saveManifestAt') + 700)
+    if (!/prior\.state !== 'ok'/.test(saveBody)) throw new Error('坏文件仍会被覆盖')
   })
 
   t('ref 面解析:问不到⇒null(未判定)、空输出⇒{}、有行⇒表 —— 三者不得并桶', () => {
@@ -511,9 +770,11 @@ function selfTest() {
       throw new Error(`解析结果不对:${JSON.stringify(ok)}`)
     // 反向断言:派生 git 若没带显式 maxBuffer,ENOBUFS 会把大输出静默变成 null ⇒ 整维失明
     const src = readFileSync(new URL('./git-refs-heal.mjs', import.meta.url), 'utf8')
-    const call = src.slice(src.indexOf('function git('), src.indexOf('function git(') + 900)
+    const call = src.slice(src.indexOf('function runGit('), src.indexOf('function runGit(') + 900)
     if (!/maxBuffer:\s*GIT_MAX_BUFFER_BYTES/.test(call))
-      throw new Error('git() 丢了显式 maxBuffer ⇒ 大输出会静默报 ENOBUFS')
+      throw new Error('runGit() 丢了显式 maxBuffer ⇒ 大输出会静默报 ENOBUFS')
+    const gitFn = src.slice(src.indexOf('function git('), src.indexOf('function git(') + 400)
+    if (!/runGit\(args\)/.test(gitFn)) throw new Error('git() 不再走 runGit,maxBuffer 会从派生路径上脱落')
     if (!(GIT_MAX_BUFFER_BYTES >= 16 * 1024 * 1024))
       throw new Error(`maxBuffer 余量太小(${GIT_MAX_BUFFER_BYTES})`)
   })
@@ -608,7 +869,12 @@ function main() {
       if (!ref || ref.endsWith('^{}')) continue
       names.add(ref)
     }
-    const map = readManifest()
+    const taken = takeManifestForMutation(REFS_MANIFEST)
+    if (!taken.ok) {
+      console.error(`❌ 干跑: refs-manifest.json ${taken.state} ⇒ 未判定,不把坏清单当成空期望`)
+      process.exit(2)
+    }
+    const map = taken.map
     const drop = dropLostTagExpectations()
     const res = pruneAbsentExpectations(map, names, {
       dropLostCommitTagExpectations: drop,
@@ -638,7 +904,11 @@ function main() {
     process.exit(res.declined ? 2 : 0)
   }
 
-  if (args.includes('--refresh-remote') && !refreshFromRemote()) process.exit(1)
+  if (args.includes('--refresh-remote')) {
+    const refreshed = refreshFromRemote()
+    if (refreshed === 'unjudged') process.exit(2)
+    if (!refreshed) process.exit(1)
+  }
 
   // 1) 以"当前可见 ref"为准更新清单(自维护:新出现的嵌套 ref 自动纳入)
   const cur = currentRefs()
@@ -648,7 +918,14 @@ function main() {
     )
     process.exit(2)
   }
-  const map = readManifest()
+  const taken = takeManifestForMutation(REFS_MANIFEST)
+  if (!taken.ok) {
+    console.error(
+      `❌ refs-manifest.json ${taken.state}${taken.reason ? ' (' + taken.reason + ')' : ''} ⇒ 拒绝按空期望覆盖(坏 JSON 不是「没有期望」)`,
+    )
+    process.exit(2)
+  }
+  const map = taken.map
   let learned = 0
   for (const [ref, sha] of Object.entries(cur)) {
     if (!isNestedRef(ref)) continue
@@ -741,18 +1018,33 @@ function main() {
 
   console.log(`[refs-heal] 🔧 ${broken.length} 个嵌套 ref 缺失,按清单重建:`)
   // 2b) 写之前先验对象存在性:清单值可能已随 objects/ 被抹 ⇒ 重建出来就是坏指针(见 splitDeadRefs)
-  const { dead, rebuildable } = splitDeadRefs(broken, objectExists)
-  if (dead.length) {
-    for (const [ref] of dead) delete map[ref]
-    saveManifest(map)
+  //     null(命令失败/未判定)进 held,不进 dead:一次 EBUSY 不得删掉 backup/* 与 lost-commit/*。
+  const { dead, rebuildable, held } = splitDeadRefs(broken, objectExists)
+  const drop = applyDeadExpectationDrops(map, { dead, held })
+  if (held.length) {
     console.log(
-      `  ⛔ 跳过 ${dead.length} 个"清单值指向已不存在对象"的 ref(已从清单剔除,留着每轮都会白重建):`,
+      `  ⚠️ ${held.length} 个 ref 的对象存在性未判定(命令失败,不是对象不存在),期望项保留、本轮不剔除`,
+    )
+    for (const [ref] of held.slice(0, 5)) console.log(`    - ${ref}`)
+    if (held.length > 5) console.log(`    …另有 ${held.length - 5} 个`)
+  }
+  if (drop.dropped.length) {
+    if (!saveManifest(map)) {
+      console.error('❌ 确认不存在的期望项未能写回清单,本轮不把内存剔除当成已落盘')
+      process.exit(2)
+    }
+    console.log(
+      `  ⛔ 跳过 ${drop.dropped.length} 个"清单值指向已不存在对象"的 ref(已从清单剔除,留着每轮都会白重建):`,
     )
     for (const [ref, sha] of dead.slice(0, 5)) console.log(`    - ${ref} = ${sha.slice(0, 12)}`)
     if (dead.length > 5) console.log(`    …另有 ${dead.length - 5} 个`)
     console.log('    恢复途径:联网跑一次 --refresh-remote 从 origin 重新校准这些 ref 的值。')
   }
   if (rebuildable.length === 0) {
+    if (held.length) {
+      console.error('[refs-heal] ❌ 存在性未判定,未删期望项;不把命令失败当成对象不存在')
+      process.exit(2)
+    }
     console.log('[refs-heal] ✅ 清单内可重建的 ref 全部一致(死引用已剔除,不再反复重建)')
     process.exit(0)
   }
@@ -762,9 +1054,12 @@ function main() {
   }
   packRefs()
 
-  // 3) 回读校验(不信任写入动作): 既要可解析,也要与清单值一致
+  // 3) 回读校验(不信任写入动作): 既要可解析,也要与清单值一致。
+  //    未判定项不在本轮重建范围内,不得把它算成重建失败,也不得因此删期望。
+  const heldSet = new Set(held.map(([ref]) => ref))
   const still = Object.entries(map)
     .filter(([ref, sha]) => {
+      if (heldSet.has(ref)) return false
       const resolved = git(['rev-parse', ref], true)
       return !refExpectationSatisfied(ref, sha, resolved)
     })
@@ -772,6 +1067,10 @@ function main() {
   if (still.length) {
     console.error(`❌ 重建后仍有 ${still.length} 个 ref 不可解析或值不符: ${still.join(', ')}`)
     process.exit(1)
+  }
+  if (held.length) {
+    console.error(`[refs-heal] ❌ 另有 ${held.length} 个 ref 存在性未判定,其期望项已保留`)
+    process.exit(2)
   }
   console.log(
     `[refs-heal] ✅ 已重建 ${rebuildable.length} 个 ref 并固化进 packed-refs(无需联网;死引用 ${dead.length} 个已剔除并计数)`,
@@ -787,8 +1086,15 @@ export const __test__ = {
   splitDeadRefs,
   isNestedRef,
   objectExists,
+  classifyObjectProbe,
+  applyDeadExpectationDrops,
   readManifest,
   saveManifest,
+  parseManifestText,
+  readManifestAt,
+  saveManifestAt,
+  takeManifestForMutation,
+  manifestMapForCaller,
   parseRefsTable,
   GIT_MAX_BUFFER_BYTES,
 }

@@ -5,7 +5,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execSync, spawnSync } from 'node:child_process'
-import { writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
+import { hostname, userInfo } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
@@ -69,6 +70,37 @@ function remoteHasTag(workDir, tagName) {
     stdio: ['ignore', 'pipe', 'pipe'],
   }).trim()
   return out.length > 0
+}
+
+// 参数数组派生,不经 shell。危险 ref 名的夹具必须走这里,禁止拼进命令字符串。
+function gitArgv(cwd, args) {
+  return spawnSync('git', args, {
+    cwd,
+    encoding: 'utf8',
+    shell: false,
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+}
+
+function pinLocalOrigin(work, origin) {
+  const r = gitArgv(work, ['remote', 'get-url', 'origin'])
+  assert.equal(r.status, 0, r.stderr)
+  const got = r.stdout.trim().replace(/\\/g, '/')
+  const want = origin.replace(/\\/g, '/')
+  assert.equal(got, want, `测试远端必须是本地 bare,不得打到真 origin: ${got}`)
+  const hooked = gitArgv(work, ['config', 'core.hooksPath', '.git/hooks'])
+  assert.equal(hooked.status, 0, hooked.stderr)
+}
+
+function remoteTagSha(workDir, tagName) {
+  const r = gitArgv(workDir, ['ls-remote', 'origin', `refs/tags/${tagName}`])
+  const prefix = `refs/tags/${tagName}`
+  const line = r.stdout
+    .split('\n')
+    .map((l) => l.trim())
+    .find((l) => l.split('\t')[1] === prefix)
+  return line ? line.split('\t')[0] : ''
 }
 
 // 辅助:查询本地是否有指定 tag
@@ -674,6 +706,143 @@ test('增长产线停用: --auto-push 未显式开启 ⇒ exit 0 且一枚 tag �
     const on = runScript(['--auto-push'], { cwd: work, env: { IHUI_TAG_AUTOPUSH_ENABLED: '1' } })
     assert.equal(on.status, 0, `开闸应 exit 0,实际 ${on.status}\nstdout: ${on.stdout}`)
     assert.ok(remoteHasTag(work, 'lost-commit/pending-push'), '开闸后该 tag 必须推上去')
+  } finally {
+    rmScratch(work)
+    rmScratch(origin)
+  }
+})
+
+test('DBG-90 单元:非备份族危险 ref 拒绝进命令;备份族含 ;&| 仍是一个参数且不带 --force', () => {
+  assert.equal(TagSync.isDangerousNonBackupRef('nightly;echo>x'), true)
+  assert.equal(TagSync.isDangerousNonBackupRef('rel&calc'), true)
+  assert.equal(TagSync.isDangerousNonBackupRef('rel|rm'), true)
+  assert.equal(TagSync.isDangerousNonBackupRef('backup/ok;echo>x'), false)
+  assert.equal(TagSync.isDangerousNonBackupRef('lost-commit/a|b'), false)
+  assert.equal(TagSync.isDangerousNonBackupRef('desktop-v1.0.0'), false)
+  const tag = 'backup/a;b&c|d>e'
+  const argv = TagSync.buildTagPushArgv([tag, 'lost-commit/ok'])
+  assert.equal(argv.includes('--force'), false)
+  assert.equal(argv.includes('--force-with-lease'), false)
+  assert.ok(argv.every((a) => !a.startsWith('+')))
+  const originAt = argv.indexOf('origin')
+  assert.ok(originAt > argv.indexOf('push'))
+  assert.deepEqual(argv.slice(originAt + 1), [`refs/tags/${tag}`, 'refs/tags/lost-commit/ok'])
+  assert.throws(() => TagSync.buildTagPushArgv(['nightly;calc']))
+  assert.throws(() => TagSync.buildTagPushArgv([]))
+  const src = readFileSync(SCRIPT_PATH, 'utf8')
+  assert.doesNotMatch(src, /execSync\s*\(/)
+  assert.doesNotMatch(src, /\$\{refspecs\}/)
+  assert.doesNotMatch(src, /\$\{forceFlag\}/)
+  assert.doesNotMatch(src, /git push --force/)
+  assert.doesNotMatch(src, /shell:\s*true/)
+})
+
+test('DBG-90: 备份族 ref 含 ; 与 & 按参数数组推到本地 bare,不经 cmd 执行', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  // `|` `>` 在 Windows 上进不了 ref 文件名;这里用能落盘的 `;` `&`。命令输出(主机名/用户名)不在 ref 名里。
+  const host = hostname().trim()
+  const user = userInfo().username.trim()
+  const semi = 'backup/ok;hostname'
+  const amp = 'backup/amp&whoami'
+  assert.ok(host.length > 1 && !semi.includes(host) && !amp.includes(host))
+  assert.ok(user.length > 1 && !semi.includes(user) && !amp.includes(user))
+  try {
+    pinLocalOrigin(work, origin)
+    assert.equal(gitArgv(work, ['tag', semi, 'HEAD']).status, 0)
+    assert.equal(gitArgv(work, ['tag', amp, 'HEAD']).status, 0)
+    const r = runScript(['--auto-push'], { cwd: work })
+    const all = `${r.stdout}\n${r.stderr}`
+    assert.equal(all.includes(host), false, `cmd 把 ; 后面的 hostname 执行了\n${all}`)
+    assert.equal(all.includes(user), false, `cmd 把 & 后面的 whoami 执行了\n${all}`)
+    assert.equal(r.status, 0, `备份族含元字符应仍能推送\n${all}`)
+    assert.doesNotMatch(all, /git push --force/)
+    assert.equal(remoteTagSha(work, semi).length, 40, `远端 ref 被 ; 拆开了\n${all}`)
+    assert.equal(remoteTagSha(work, amp).length, 40, `远端 ref 被 & 拆开了\n${all}`)
+  } finally {
+    rmScratch(work)
+    rmScratch(origin)
+  }
+})
+
+test('DBG-90: 非备份族危险 ref 不得进推送命令,也不得被 cmd 执行', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  const host = hostname().trim()
+  const evil = 'nightly;hostname'
+  assert.ok(host.length > 1 && !evil.includes(host))
+  try {
+    pinLocalOrigin(work, origin)
+    assert.equal(gitArgv(work, ['tag', 'backup/plain', 'HEAD']).status, 0)
+    const tagged = gitArgv(work, ['tag', evil, 'HEAD'])
+    assert.equal(tagged.status, 0, `前置:该 ref 合法\n${tagged.stderr}`)
+    const r = runScript(['--auto-push'], { cwd: work })
+    const all = `${r.stdout}\n${r.stderr}`
+    assert.notEqual(r.status, 0, `危险 ref 被拒绝时不得 exit 0\n${all}`)
+    assert.match(all, /拒绝把非备份族危险 ref/)
+    assert.ok(all.includes(evil), `必须点名该 ref\n${all}`)
+    assert.equal(all.includes(host), false, `拒绝之后仍把 ;hostname 交给了 cmd\n${all}`)
+    assert.equal(remoteTagSha(work, evil), '', '危险 ref 不得出现在远端')
+    assert.equal(remoteTagSha(work, 'backup/plain').length, 40, '同批安全 tag 仍应推上去')
+    assert.doesNotMatch(all, /git push --force/)
+  } finally {
+    rmScratch(work)
+    rmScratch(origin)
+  }
+})
+
+test('DBG-91 单元:备份族同名不同 SHA 被点名,非备份族分歧不进这张拒绝表', () => {
+  const local = new Map([
+    ['backup/keep', 'a'.repeat(40)],
+    ['lost-commit/keep', 'b'.repeat(40)],
+    ['backup/same', 'c'.repeat(40)],
+    ['desktop-v9', 'd'.repeat(40)],
+  ])
+  const remote = new Map([
+    ['backup/keep', 'e'.repeat(40)],
+    ['lost-commit/keep', 'f'.repeat(40)],
+    ['backup/same', 'c'.repeat(40)],
+    ['desktop-v9', '1'.repeat(40)],
+  ])
+  const rows = TagSync.backupShaConflicts(local, remote)
+  assert.deepEqual(
+    rows.map((r) => r.tag),
+    ['backup/keep', 'lost-commit/keep'],
+  )
+  assert.equal(rows[0].local, 'a'.repeat(40))
+  assert.equal(rows[0].remote, 'e'.repeat(40))
+})
+
+test('DBG-91: --force 不得覆盖远端已有且 SHA 不同的 backup/* 与 lost-commit/*', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  try {
+    pinLocalOrigin(work, origin)
+    assert.equal(gitArgv(work, ['tag', 'backup/keep', 'HEAD']).status, 0)
+    assert.equal(gitArgv(work, ['tag', 'lost-commit/keep', 'HEAD']).status, 0)
+    const firstPush = gitArgv(work, [
+      'push',
+      'origin',
+      'refs/tags/backup/keep',
+      'refs/tags/lost-commit/keep',
+    ])
+    assert.equal(firstPush.status, 0, `前置推送失败\n${firstPush.stderr}\n${firstPush.stdout}`)
+    const shaA = gitArgv(work, ['rev-parse', 'HEAD']).stdout.trim()
+    assert.equal(remoteTagSha(work, 'backup/keep'), shaA)
+    assert.equal(remoteTagSha(work, 'lost-commit/keep'), shaA)
+    assert.equal(gitArgv(work, ['commit', '--allow-empty', '-m', 'second']).status, 0)
+    assert.equal(gitArgv(work, ['tag', '-f', 'backup/keep', 'HEAD']).status, 0)
+    assert.equal(gitArgv(work, ['tag', '-f', 'lost-commit/keep', 'HEAD']).status, 0)
+    assert.equal(gitArgv(work, ['tag', 'backup/fresh', 'HEAD']).status, 0)
+    const shaB = gitArgv(work, ['rev-parse', 'HEAD']).stdout.trim()
+    assert.notEqual(shaA, shaB)
+    const r = runScript(['--auto-push', '--force'], { cwd: work })
+    const all = `${r.stdout}\n${r.stderr}`
+    assert.notEqual(r.status, 0, `拒绝覆盖时不得 exit 0\n${all}`)
+    assert.match(all, /拒绝覆盖远端备份 tag/)
+    assert.ok(all.includes('backup/keep'), `必须点名 backup/keep\n${all}`)
+    assert.ok(all.includes('lost-commit/keep'), `必须点名 lost-commit/keep\n${all}`)
+    assert.doesNotMatch(all, /push --force/)
+    assert.equal(remoteTagSha(work, 'backup/keep'), shaA, 'backup/keep 被覆盖成了本地重建提交')
+    assert.equal(remoteTagSha(work, 'lost-commit/keep'), shaA, 'lost-commit/keep 被覆盖成了本地重建提交')
+    assert.equal(remoteTagSha(work, 'backup/fresh'), shaB, '远端缺失的新备份 tag 仍应推上去')
   } finally {
     rmScratch(work)
     rmScratch(origin)

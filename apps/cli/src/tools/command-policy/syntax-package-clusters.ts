@@ -51,7 +51,7 @@ export const CARGO_SPEC: CommandSpec = {
   },
 };
 
-export const PACKAGE_MANAGER_SUBCOMMANDS: Readonly<Record<string, SubcommandSpec>> = {
+const PACKAGE_MANAGER_SUBCOMMANDS: Readonly<Record<string, SubcommandSpec>> = {
   install: { effects: ['write', 'network'], options: INSTALL_OPTIONS },
   i: { effects: ['write', 'network'], options: INSTALL_OPTIONS },
   add: { effects: ['write', 'network'], options: INSTALL_OPTIONS },

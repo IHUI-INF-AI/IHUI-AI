@@ -506,7 +506,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: rnSpacing.md,
       height: 30,
       justifyContent: 'center',
-      borderRadius: rnRadius.lg,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.card,
@@ -534,7 +534,7 @@ function createStyles(tk: AppThemeTokens) {
     badge: {
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: rnSpacing['2xs'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       fontSize: rnType.badge.size,
       overflow: 'hidden',
     },
@@ -546,7 +546,7 @@ function createStyles(tk: AppThemeTokens) {
     panel: {
       gap: rnSpacing.sm,
       padding: rnSpacing.md,
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,
     },
     panelMetaRow: {

@@ -134,6 +134,14 @@ const log = (color, msg) => console.log(`${color}${msg}${C.reset}`)
 const ALIGN_DRIFT_TIMEOUT_MS = Number(process.env.IHUI_ALIGN_DRIFT_TIMEOUT_MS || 600_000)
 
 /**
+ * 收尾对齐子进程内部的批量读封顶(ms)。缺省必须**小于**外层 ALIGN_DRIFT_TIMEOUT_MS,
+ * 否则内层先撞满(face-reader 缺省 120s),外层那 600s 一次也用不上 —— 见下面调用点的注释。
+ */
+const ALIGN_BATCH_TIMEOUT_MS = Number(
+  process.env.IHUI_ALIGN_BATCH_TIMEOUT_MS || ALIGN_DRIFT_TIMEOUT_MS - 120_000,
+)
+
+/**
  * 合并提交的身份必须随调用一起给,不能依赖"当前用户配过 global config"。
  * 实测(2026-09-27 05:15,deploy\win\.converge.err.log):本器由 IHUI-DEPLOYLOOP 以服务身份
  * (LocalSystem)后台发起,而 user.name/user.email 只配在交互账户的
@@ -2359,6 +2367,13 @@ function main() {
           // "有界",不是"够大就永不超时")。同文件 `attemptUnionConverge` 的
           // IHUI_UNION_CONVERGE_TIMEOUT_MS 是同一族做法(默认 1500s + env 可调),口径一致。
           timeout: ALIGN_DRIFT_TIMEOUT_MS,
+          // 2026-11-11 根治"对齐永远做不完 ⇒ 工作树留着旧副本 ⇒ 脚本装载期炸"这一族:
+          // 外层给了 600s,可内层 face-reader 的 IHUI_BATCH_TIMEOUT_MS 缺省只有 120s。
+          // 实测(2026-11-11 09:22/10:04)本机对 1022/1030 条漂移规格跑 `cat-file --batch-check`
+          // 连续撞满 120s,内层先死 ⇒ rc=2"判定面无法取材",外层那 600s 一次也没用上,
+          // 于是 git-push-guard.mjs / push-window-gate.mjs 等工作树副本一直是旧版(与 HEAD 差
+          // 今天的 SSH 白名单修订),下一次推送在**装载期**就失败。两层封顶必须同族,内层留余量。
+          env: { ...process.env, IHUI_BATCH_TIMEOUT_MS: String(ALIGN_BATCH_TIMEOUT_MS) },
         },
       )
         .trim()

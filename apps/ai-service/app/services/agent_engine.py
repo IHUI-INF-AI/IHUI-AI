@@ -6271,7 +6271,8 @@ class AgentEngine:
                     )
                     # 批 58 接线:缩放事实以 developer 片段回灌历史(对标 codex
                     # image_resize_notice.rs——模型须知道看到的非原图,防误判细节)。
-                    # tool output 来源;append 进 loop 消息流,异常静默降级。
+                    # tool output 来源;append 进 loop 消息流。片段写失败只记日志,
+                    # 图片字节本身仍返回(读图已经成功)。
                     try:
                         from app.core.image_preparation import (
                             ResizedImage,
@@ -6295,9 +6296,16 @@ class AgentEngine:
                             _msgs = getattr(_loop, "_messages", None)
                             if isinstance(_msgs, list):
                                 _msgs.append(_frag)
-                    except Exception:
-                        pass
-            except Exception:
+                    except Exception as notice_exc:  # noqa: BLE001 - 说明片段失败不否定已读到的图片
+                        logger.warning(
+                            "view_image 缩放说明片段写入失败(图片结果仍返回): %s",
+                            notice_exc,
+                        )
+            except Exception as prep_exc:  # noqa: BLE001 - 降采样失败回退原始字节,不把读图说成失败
+                logger.warning(
+                    "view_image 提示图像降采样失败(回退原始 dataUrl): %s",
+                    prep_exc,
+                )
                 prepared_note = ""
             with contextlib.suppress(Exception):
                 await self._emit_engine_event(
@@ -7485,8 +7493,15 @@ class AgentEngine:
                     await _asyncio.sleep(duration_ms / 1000.0)
             except asyncio.CancelledError:
                 raise
-            except Exception:
-                pass
+            except Exception as e:  # noqa: BLE001 - 等待失败必须回传,不能当成睡完
+                slept_ms = round((time.monotonic() - started) * 1000)
+                logger.warning("clock_sleep 等待失败(已耗时 %sms): %s", slept_ms, e)
+                thread.touch()
+                return {
+                    "error": f"clock_sleep 等待失败: {e}",
+                    "slept_ms": slept_ms,
+                    "interrupted": interrupted,
+                }
             slept_ms = round((time.monotonic() - started) * 1000)
             thread.touch()
             return {"slept_ms": slept_ms, "interrupted": interrupted}

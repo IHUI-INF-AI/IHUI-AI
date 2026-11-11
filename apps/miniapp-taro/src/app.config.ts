@@ -203,11 +203,6 @@ export default defineAppConfig({
         'circle-detail/index',
         'ranking-detail/index',
         'identity-verify/index',
-        'groups/index',
-        'api-keys/index',
-        'patrol/index',
-        'repo-wiki/index',
-        'team-knowledge/index',
       ],
     },
     {

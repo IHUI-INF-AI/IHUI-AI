@@ -625,6 +625,12 @@ export function catBatchCheck(root, oids) {
  * 所以本出口**不做** hex-only 过滤 —— 那会把 `<oid>^{tree}` 这类合法规格整型丢掉。
  *
  * 输出与输入**按行对齐**,所以直接按索引回填;`missing` 与空行都归 null(交调用方判"取不到")。
+ *
+ * `opts.env` 透传给派生层(2026-11-11):本仓是 `blob:none` 部分克隆,`--batch-check` 要回
+ * type/size 就得把对象取到本地,缺失时会**真联网 lazy-fetch** —— 实测 2674 条规格 120s 一个
+ * 字节都不输出(`spawnSync ... ETIMEDOUT`),把"判本地对象库"变成"等网"。调用方要离线判据时
+ * 传 `{ env: { GIT_NO_LAZY_FETCH: '1' } }`,缺失即 missing ⇒ null(与 `git-refs-heal.mjs`
+ * 的同名约束同源)。只透传、不改缺省:是否联网由调用方按自己的契约决定(§0.6)。
  * @returns {Map<string, string|null>}
  */
 export function catBatchOids(root, specs, opts = {}) {
@@ -641,6 +647,7 @@ export function catBatchOids(root, specs, opts = {}) {
       maxBuffer: opts.maxBuffer ?? GIT_MAX_BUFFER,
       timeout: opts.timeout ?? BATCH_TIMEOUT,
       stdio: ['pipe', 'pipe', 'pipe'],
+      ...(opts.env ? { env: opts.env } : {}),
     })
   } catch (e) {
     throw new Undetermined(

@@ -85,39 +85,6 @@ export function renderPin({ generator, sourceCommit, inputs, generatedAt, extraL
 }
 
 /**
- * 稳定钉:在 renderPin 之上加一条「输入未变则沿用旧钉」的收敛规则。
- *
- * 立因(2026-11-11 实测,量化):`generatedAt` 取 `new Date()`、`sourceCommit` 取当前 HEAD,
- * 两者**每跑一次都变** ⇒ 即使输入一字未改,产物字节也必变 ⇒ 新 blobOid ⇒ 落点账本判可收编
- * ⇒ `auto-commit-quiet` 落一枚"派生产物按 HEAD 面重生成并落地"的提交,而 HEAD 一变
- * `sourceCommit` 又变 ⇒ 下一轮再来。全史已积 209 枚同形提交(其中 2026-11-11 01:06/01:12 两枚
- * 间隔 6 分钟),是「重生成 → 收编」自激链的发动机。
- *
- * 口径依据:本文件头注已写明这两个字段「既不参与判据也不参与幂等比对」,而当时只做了
- * 比对侧(maskGeneratedAt),**写入侧没跟上**。本函数把同一口径补到写入侧:
- * 当现有产物里的 `inputsSha256` 与本次现算一致(generator 同名、钉完好)时,
- * 沿用它记录的 sourceCommit / generatedAt ⇒ 输入未变则产物**逐字节不变** ⇒ 不产生新 blobOid。
- *
- * 语义仍是准确的:generatedAt 从此表示「这份内容最后一次真正变化的时刻」,比"每次重跑的时刻"更有信息量。
- * 输入一变(哈希不同)则照常渲染新钉,行为与 renderPin 完全一致。
- *
- * @param {{generator:string, sourceCommit?:string, inputs:Array<{rel:string,text:string|null}>, generatedAt:string, extraLines?:string[], existingText?:string|null}} opts
- *   existingText:目标产物当前磁盘内容(不存在传 null);其余字段同 renderPin。
- */
-export function renderStablePin({ existingText = null, ...opts }) {
-  if (existingText) {
-    const prev = parsePin(existingText)
-    if (prev.present && !prev.malformed && prev.generator === opts.generator) {
-      const { digest } = digestInputs(opts.inputs)
-      if (prev.digest === digest) {
-        return renderPin({ ...opts, sourceCommit: prev.sourceCommit, generatedAt: prev.generatedAt })
-      }
-    }
-  }
-  return renderPin(opts)
-}
-
-/**
  * 从产物文本里取钉。
  * @returns {{present:boolean, malformed:boolean, reason?:string, digest:?string, perInput:Array<{rel:string,sha:string}>, generator:?string, sourceCommit:?string, generatedAt:?string}}
  *   present=false ⇒ 面上没有钉(判「未判定」,不是通过也不是红);

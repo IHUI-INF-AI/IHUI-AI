@@ -1810,5 +1810,111 @@ async def test_start_does_not_schedule_startup_compensation_when_disabled(monkey
     await sched.stop()
 
 
+# ---------------------------------------------------------------------------
+# DBG-12: 手动签到读冷却失败必须失败闭合(不得按无冷却放行)
+# ---------------------------------------------------------------------------
+
+
+def _stub_manual_checkin(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    cooldowns: Any,
+    engine_calls: list[int],
+    record_calls: list[int],
+) -> None:
+    """手动签到依赖打桩:不触 DB / 引擎。cooldowns 为协程或会抛的可调用。"""
+
+    async def fake_get_jwt(account_id: int, owner: str) -> dict[str, Any]:
+        return {
+            "id": account_id,
+            "name": "手签号",
+            "jwt": "j",
+            "platform": "trae",
+            "owner_seen": owner,
+        }
+
+    async def fake_checkin_one(self: Any, account: dict[str, Any]) -> dict[str, Any]:
+        engine_calls.append(int(account["id"]))
+        return {"ok": True, "action": "checkin"}
+
+    async def fake_record(self: Any, account_id: int, result: dict[str, Any]) -> dict[str, Any]:
+        record_calls.append(account_id)
+        return {"id": account_id, "ok": result.get("ok")}
+
+    monkeypatch.setattr(checkin_store, "get_decrypted_jwt", fake_get_jwt)
+    monkeypatch.setattr(checkin_store, "get_active_cooldowns", cooldowns)
+    monkeypatch.setattr(cs.checkin_outbound_gate, "paused_remaining", lambda: 0.0)
+    monkeypatch.setattr(cs.CheckinScheduler, "checkin_one", fake_checkin_one)
+    monkeypatch.setattr(cs.CheckinScheduler, "record_result", fake_record)
+
+
+async def test_run_checkin_now_rejects_when_cooldown_read_fails(monkeypatch):
+    """读冷却抛错不得当成无冷却放行:拒绝本次签到,引擎与落库一发都不打。"""
+    engine_calls: list[int] = []
+    record_calls: list[int] = []
+    spy = _SpyLogger()
+
+    async def fake_cooldowns() -> dict[int, datetime]:
+        raise RuntimeError("db jitter")
+
+    monkeypatch.setattr(cs, "logger", spy)
+    _stub_manual_checkin(
+        monkeypatch,
+        cooldowns=fake_cooldowns,
+        engine_calls=engine_calls,
+        record_calls=record_calls,
+    )
+
+    with pytest.raises(cs.RateLimitedError, match="读取冷却状态失败"):
+        await cs.checkin_scheduler.run_checkin_now(7, "owner-1")
+    assert engine_calls == []
+    assert record_calls == []
+    assert any("失败闭合" in msg and "db jitter" in msg for msg in spy.events("warning"))
+    assert not any("按无冷却放行" in msg for msg in spy.events())
+
+
+async def test_run_checkin_now_still_blocks_active_cooldown(monkeypatch):
+    """读冷却成功且账号仍在冷却期:照旧 CooldownActiveError,不打引擎。"""
+    engine_calls: list[int] = []
+    record_calls: list[int] = []
+    until = datetime.now(UTC) + timedelta(hours=1)
+
+    async def fake_cooldowns() -> dict[int, datetime]:
+        return {7: until}
+
+    _stub_manual_checkin(
+        monkeypatch,
+        cooldowns=fake_cooldowns,
+        engine_calls=engine_calls,
+        record_calls=record_calls,
+    )
+
+    with pytest.raises(cs.CooldownActiveError):
+        await cs.checkin_scheduler.run_checkin_now(7, "owner-1")
+    assert engine_calls == []
+    assert record_calls == []
+
+
+async def test_run_checkin_now_proceeds_when_cooldown_read_is_empty(monkeypatch):
+    """读冷却成功且该账号无冷却:正常签到(失败闭合不误伤空结果)。"""
+    engine_calls: list[int] = []
+    record_calls: list[int] = []
+
+    async def fake_cooldowns() -> dict[int, datetime]:
+        return {}
+
+    _stub_manual_checkin(
+        monkeypatch,
+        cooldowns=fake_cooldowns,
+        engine_calls=engine_calls,
+        record_calls=record_calls,
+    )
+
+    record = await cs.checkin_scheduler.run_checkin_now(7, "owner-1")
+    assert record["id"] == 7
+    assert engine_calls == [7]
+    assert record_calls == [7]
+
+
 # [IHUI-AI-PROVENANCE-TAIL]
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

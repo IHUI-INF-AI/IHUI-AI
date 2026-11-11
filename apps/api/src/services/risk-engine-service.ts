@@ -392,7 +392,7 @@ function pickAny(ctx: RiskContext, key: string): unknown {
  * 供批量注册检测等规则前置采集使用(auth register 等入口)。
  * F-378:DB 不可用时抛 RiskDataUnavailableError,由入口降级为 503(fail-closed)。
  */
-export class RiskDataUnavailableError extends Error {
+class RiskDataUnavailableError extends Error {
   constructor(cause: unknown) {
     super(`risk data unavailable: ${(cause as Error).message}`)
     this.name = 'RiskDataUnavailableError'

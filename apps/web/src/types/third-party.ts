@@ -228,6 +228,12 @@ export interface ThirdPartyAccount {
 export interface ThirdPartyLoginResponse {
   token: string
   refreshToken?: string
+  /**
+   * access token 有效期(秒)。后端共用回调响应体(apps/api/src/routes/auth-extended.ts
+   * `buildOAuthCallbackResponse`)一直带这个键,此前 web 类型没声明;DBG-66 把它透传给
+   * 扩展发送端(@/lib/ext-auth-relay),供扩展侧排 token 刷新计划。缺键 ⇒ 扩展按缺省 TTL 处理。
+   */
+  expiresIn?: number
   user: {
     id: string
     username: string

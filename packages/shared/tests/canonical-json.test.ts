@@ -5,10 +5,11 @@
 /**
  * 86F ②:canonical JSON 唯一实现的行为钉。
  *
- * 合一取的是**链计算用的那份**(`audit-log-service.ts` 原私有实现)逐字 ——
- * 链上存量 current_hash 全部由它算出,任何"顺手修正"都会让重算与存量断裂。
- * 本文件把这些既有形态(含 JSON 域外的 `undefined` 分支)逐字钉死:
- * 谁改了任何一个分支,这里先红,而不是等生产链断。
+ * JSON 域内(链上存量 current_hash 的计算面)与 `audit-log-service.ts` 原私有
+ * 实现逐字节等价 —— 任何"顺手修正"域内分支都会让重算与存量断裂,本文件域内
+ * 用例即防此。JSON 域外分支(Date/undefined/function/Symbol/BigInt/循环引用)
+ * 已按 DBG-24/DBG-20129(2026-11-11)修正为对任意 unknown 输入防御,域外用例
+ * 钉新契约。
  */
 import { describe, expect, it } from 'vitest'
 import { canonicalStringify } from '../src/utils/canonical-json.js'
@@ -50,17 +51,32 @@ describe('canonicalStringify(86F 唯一实现 = 链计算版逐字)', () => {
     )
   })
 
-  it('JSON 域外分支逐字保留(既有形态,不在本票修正)', () => {
-    // 顶层 undefined:原链计算版走 JSON.stringify(undefined) ⇒ JS undefined 而非字符串。
-    // 两消费面输入都来自 PG/JSONB 读出值,JSON 域内不存在 undefined,该分支不可达 ——
-    // 如实钉住现状,不静默修正("两处并一处"与"改行为"是两件事)。
-    expect(canonicalStringify(undefined)).toBeUndefined()
-    // 对象成员 undefined:键保留、值落 "undefined" 字面(与 JSON.stringify 整键消失不同)。
-    expect(canonicalStringify({ a: undefined })).toBe('{"a":undefined}')
-    // 数组成员 undefined:递归得到 JS undefined,而 Array.prototype.join 把 undefined
-    // 当空串 ⇒ [undefined] 落 '[]'、[1,undefined,2] 落 '[1,,2]'(既有形态,如实钉住)。
-    expect(canonicalStringify([undefined])).toBe('[]')
-    expect(canonicalStringify([1, undefined, 2])).toBe('[1,,2]')
+  it('JSON 域外分支按 DBG-24/DBG-20129 修正:恒返回 string、对齐 JSON.stringify、防御任意输入', () => {
+    // 顶层 undefined:原返回 primitive undefined(类型撒谎 ⇒ Buffer.from 崩),现落 'null'
+    expect(canonicalStringify(undefined)).toBe('null')
+    // 对象成员 undefined:整键消失(对齐 JSON.stringify,原落非法 '{"a":undefined}')
+    expect(canonicalStringify({ a: undefined, b: 1 })).toBe('{"b":1}')
+    expect(canonicalStringify({ a: undefined })).toBe('{}')
+    // 数组成员 undefined:落 null(对齐 JSON.stringify,原落 '[1,,2]')
+    expect(canonicalStringify([undefined])).toBe('[null]')
+    expect(canonicalStringify([1, undefined, 2])).toBe('[1,null,2]')
+    // Date:原落 "{}"(与 JSON.stringify 分叉),现同 JSON.stringify 的 ISO 串
+    const d = new Date('2026-09-28T10:00:00.000Z')
+    expect(canonicalStringify(d)).toBe('"2026-09-28T10:00:00.000Z"')
+    expect(canonicalStringify({ at: d })).toBe('{"at":"2026-09-28T10:00:00.000Z"}')
+    // function/Symbol:顶层与数组成员落 null,对象成员整键消失(同 JSON.stringify 语义)
+    expect(canonicalStringify(() => 1)).toBe('null')
+    expect(canonicalStringify(Symbol('x'))).toBe('null')
+    expect(canonicalStringify({ f: () => 1, s: Symbol('s'), n: 1 })).toBe('{"n":1}')
+    // BigInt:原直接抛 TypeError,现十进制字符串表示
+    expect(canonicalStringify(10n)).toBe('"10"')
+    // 循环引用:原无限递归栈溢出,现抛受控 TypeError
+    const cyc: Record<string, unknown> = { a: 1 }
+    cyc.self = cyc
+    expect(() => canonicalStringify(cyc)).toThrow(TypeError)
+    // 共享引用非循环:同一对象出现在兄弟位置仍合法
+    const shared = { x: 1 }
+    expect(canonicalStringify({ p: shared, q: shared })).toBe('{"p":{"x":1},"q":{"x":1}}')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

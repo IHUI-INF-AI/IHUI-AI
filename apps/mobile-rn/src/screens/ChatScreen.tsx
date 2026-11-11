@@ -249,6 +249,8 @@ import {
 import { addAnnotation, rehydrateSelectionAnnotations } from '../lib/selection-annotations-store'
 import { formatSlashHelp } from '../lib/slash-commands'
 import { rpx } from '../utils/rpx'
+import { parseMessageContent } from '../utils/message-parse'
+import { API_BASE_URL } from '../lib/config'
 
 import { rnGeometry, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import type { ChatModelType } from '@ihui/types'
@@ -484,6 +486,53 @@ const formatDetailValue = (v: unknown, yesLabel: string, noLabel: string): strin
 
 /** 文件上传支持类型徽章(P1.5,expo-document-picker 已装,DocumentPicker + uploadFileMultipart 真实上传) */
 const FILE_TYPE_BADGES: readonly string[] = ['PDF', 'Word', 'Excel', 'TXT'] as const
+
+/**
+ * 录音时长与 message-parse 的时长位同宽(最多 3 位整数)。
+ * 更长的尾巴会留在正文里,气泡旁边多出一截纯文本。
+ */
+const VOICE_DURATION_MAX_SEC = 999
+
+/** 与 VOICE_MARKER_RE 同一组扩展名:没有它,标记不会被切成 audio 段。 */
+const REPLAYABLE_AUDIO_EXT_RE = /\.(?:m4a|mp3|wav|aac|ogg|opus)(?:$|\?)/i
+
+/**
+ * 把已上传录音收成这条屏已经会渲染成语音气泡的正文。
+ *
+ * RootNavigator 的 `autoSendVoice` 契约是 `{ url, durationSec }`,渲染出口是
+ * `parseMessageContent` 的 audio 段(ChatMessageList → VoiceBubble,对方点得开、听得见)。
+ * 裸拼接 `[语音] ${url} ${durationSec}` 在相对路径、无音频扩展名、非整数时长时
+ * 整段留在 text 里,对方看到的是纯文本。收不成唯一 audio 段就返回 null,
+ * 调用方不得把这段原文当文本消息发出。
+ */
+export function voiceBubbleContent(url: string, durationSec: number): string | null {
+  const playUrl = replayableAudioUrl(url)
+  if (!playUrl) return null
+  const sec = voiceDurationSec(durationSec)
+  const content = `[语音] ${playUrl} ${sec}`
+  const segs = parseMessageContent(content)
+  const audio = segs.length === 1 ? segs[0] : undefined
+  if (!audio || audio.type !== 'audio') return null
+  if (audio.url !== playUrl || audio.durationSec !== sec) return null
+  return content
+}
+
+function replayableAudioUrl(raw: string): string | null {
+  const trimmed = raw.trim()
+  if (!trimmed || /\s/.test(trimmed)) return null
+  const absolute = /^https?:\/\//i.test(trimmed)
+    ? trimmed
+    : trimmed.startsWith('/')
+      ? `${API_BASE_URL.replace(/\/$/, '')}${trimmed}`
+      : null
+  if (!absolute || !REPLAYABLE_AUDIO_EXT_RE.test(absolute)) return null
+  return absolute
+}
+
+function voiceDurationSec(durationSec: number): number {
+  if (!Number.isFinite(durationSec) || durationSec <= 0) return 0
+  return Math.min(VOICE_DURATION_MAX_SEC, Math.round(durationSec))
+}
 
 // DrawerTab 中 home/ai/mine 是 MainStack 路由(走 Main navigator);
 // square/share 是 RootStack 路由(直接 navigate,见 handleDrawerNavigate)。
@@ -1710,10 +1759,11 @@ export function ChatScreen() {
   const closeFunctionPanel = (): void => setFunctionPanelVisible(false)
 
   /**
-   * 2026-10-16 录音消息:长按录音松手 → 上传本地 m4a → 以「[语音] <url> <秒>」
-   * 作为用户消息发送(renderMessage 的 audio 段渲染成可回听的语音气泡)。
+   * 2026-10-16 录音消息:长按录音松手 → 上传本地 m4a → 按已有语音气泡结构发送
+   * (`voiceBubbleContent`:能被 parseMessageContent 切成唯一 audio 段,对方可回听)。
    * 上传走既有 uploadFileMultipart(后端白名单已开 m4a/mp3/wav/aac);
    * 发送复用 send(登录/VIP/流式入队校验齐全),不新造 LLM 调用链。
+   * 收不成气泡的地址不发,避免把标记原文当纯文本送出去。
    */
   const handleVoiceRecorded = useCallback(
     async (uri: string, durationSec: number): Promise<void> => {
@@ -1725,8 +1775,12 @@ export function ChatScreen() {
           name: `voice-${Date.now()}.m4a`,
         })
         if (up.success && up.data?.path) {
-          const url = resolveFileUrl(up.data.path)
-          void sendRef.current(`[语音] ${url} ${durationSec}`)
+          const content = voiceBubbleContent(resolveFileUrl(up.data.path), durationSec)
+          if (!content) {
+            showToast('warning', t('home.voiceUploadRetry'))
+            return
+          }
+          void sendRef.current(content)
         } else {
           showToast('warning', t('home.voiceUploadRetry'))
         }
@@ -2742,9 +2796,11 @@ export function ChatScreen() {
 
   /**
    * 2026-10-16 录音消息(HomeScreen 入口):在首页大输入框长按录音 → 上传 →
-   * 跳 Chat 带 autoSendVoice,本 effect 把它作为本会话首条用户消息发出
+   * 跳 Chat 带 autoSendVoice `{ url, durationSec }`。本 effect 把它收成
+   * 已有语音气泡正文再作为本会话首条用户消息发出
    * (与 autoSendPrompt 同一 send 出口,登录/VIP/流式校验齐全)。
    * 不要求 conversationId:新会话从首页进来时本就还没有 id,等它永远等不到。
+   * 收不成 audio 段则不发,避免对方只看到 `[语音] url duration` 纯文本。
    */
   const autoSendVoiceDoneRef = useRef(false)
   useEffect(() => {
@@ -2752,8 +2808,13 @@ export function ChatScreen() {
     if (!voice?.url || autoSendVoiceDoneRef.current) return
     if (isStreaming) return
     autoSendVoiceDoneRef.current = true
-    void sendRef.current(`[语音] ${voice.url} ${voice.durationSec}`)
-  }, [route.params?.autoSendVoice, isStreaming])
+    const content = voiceBubbleContent(voice.url, voice.durationSec)
+    if (!content) {
+      showToast('warning', t('home.voiceUploadRetry'))
+      return
+    }
+    void sendRef.current(content)
+  }, [route.params?.autoSendVoice, isStreaming, showToast, t])
 
   // ── 手动压缩上下文(2026-09-02 立,对齐 web 端 message-input.tsx compactButton):
   // POST /api/chat/compact → compressed=true → 成功 toast + getMessages 刷新消息列表

@@ -2377,6 +2377,43 @@ export default function P() {
     )
     return a.anchors['x.tsx|control'] === 0 && a.anchors['x.tsx|panel'] === 1 && a.tightened.length === 1
   }))
+  // 117:属性表达式里的 JSX 必须建元素并归属到它自己 —— 这是 2026-11-11 用户实拍
+  // "删除弹窗按钮圆角过大"能长期漏网的盲区本体:`footer={<button className="h-7 rounded-xl"/>}`
+  // 的按钮行原先被归到外层 `Modal`(panel)的开标签区间,`rounded-xl` 按 panel 档判成合规放行。
+  // 夹具逐字取自 ConfirmDialog 修复前的形态(内联固定串,不随 HEAD 演进失效 —— 同 PROBE_REF 那条教训)。
+  t('117 属性表达式里的 JSX 建独立元素:footer 按钮按 control 判红,不再被外层 Modal 顶成 panel 合规', (() => {
+    const src = [
+      'export function D() {',
+      '  return (',
+      '    <Modal',
+      '      open={true}',
+      '      footer={',
+      '        <>',
+      '          <button',
+      '            className="h-7 rounded-xl px-3 text-label"',
+      '          >',
+      '            cancel',
+      '          </button>',
+      '        </>',
+      '      }',
+      '    >',
+      '      body',
+      '    </Modal>',
+      '  )',
+      '}',
+    ].join('\n')
+    const r = A(src)
+    const v = r.violations.find((x) => x.role === 'control')
+    /** 反臂:同一段里按钮若真取 sm,必须判合规 —— 只钉"判红"不钉"判对",恒红也算通过。 */
+    const ok = A(src.replace('rounded-xl', 'rounded-sm')).violations.length === 0
+    return (
+      !!v &&
+      v.form === 'rounded-xl' &&
+      v.expectedStep === 'sm' &&
+      v.line === 8 &&
+      ok
+    )
+  })())
   // "两处算同一件事必漂移"是本仓记过最多次的失败型:回退判定只有一份(门 135 的
   // `shouldRetreatToHead`),本门不得再写一个 —— 那条反向源码锁由镜像 T35 钉。
   const { pass, fail, cases } = report()

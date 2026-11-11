@@ -64,10 +64,14 @@ receivers:
         max_alerts: 0
 
 inhibit_rules:
-  # critical 告警抑制同一 alertname + service 的 warning 告警,避免告警风暴
+  # critical 告警抑制同一 alertname 的 warning 告警,避免告警风暴
+  # 2026-11-11 DBG-74 收口(票面第二处):原 equal:['alertname','service'] 里的 service 标签
+  # 在本告警集恒不存在(alerts.yml 无任何规则输出 service,route 的 group_by:['service']
+  # 同样落空)——两侧都缺时 AM 按空串相等仍能命中,但只要未来一侧带上 service 就恒不命中;
+  # 按票面对齐真实标签集,只留 alertname。
   - source_matchers: ['severity="critical"']
     target_matchers: ['severity="warning"']
-    equal: ['alertname', 'service']
+    equal: ['alertname']
 
   # ===== 级联抑制(告警名对齐 alerts.yml 的 PostgresDown/RedisDown/ApiDown/AiServiceDown 等)=====
   # 明细见 noise-rules.yml(本文件的 inhibit_rules 段为合并后的可用稿,已同步)

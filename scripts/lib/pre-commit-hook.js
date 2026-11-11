@@ -952,12 +952,6 @@ if (!runLintStaged()) {
 //      一样会被摘掉 ⇒ 于是"门报了绿而提交仍是陈旧的"= 把恒红洗成静默恒红。实测见 ①。
 //      所以:写回出口挂在本表(表持有快照,add 得动),判定门只判不写。
 const TOKENS_CSS_REL = 'packages/design-tokens/src/styles/tokens.css'
-// base.css 是**第二份源**(html/body/page 的 reset + 字体回退栈):小程序 app.css 的
-// 「共享基础样式」受管段由它派生。它以前不在任何触发面里 ⇒ 改 base.css 而没人跑同步器时,
-// app.css 的 base 段静默漂移,而守门 36 的前三面(tokens 的 :root/.dark/@theme)**全绿**
-// —— 三面只覆盖 tokens.css 的派生档位,base.css 那一面当时根本没有判据。
-// 2026-11-10 起 base.css 改动同样唤起小程序 app.css 回写(第四维已由守门 36 兜住)。
-const BASE_CSS_REL = 'packages/design-tokens/src/styles/base.css'
 // 粗触发 'v3-src' 的取值面(2026-10-10 起)。V3_USAGE_DIRS 是它的历史名字:v3 用量三端源码,
 // 同时**就是**「ALPHA_USAGE 用量表」那一行的真实触发面 —— 一份清单两处用,不复制第二份。
 // END_SRC_DIRS 在它之外补上 apps/web/ 与 apps/extension/:四端 ui-routes 的输入面有两端落在
@@ -981,15 +975,10 @@ const rowFaceOn = (t, stagedList) => {
 
 const TOKEN_SYNC_TARGETS = [
   {
-    // 2026-11-10:base.css 的派生物就在这份 app.css 的「共享基础样式」受管段里 ⇒
-    // 触发面并到 base.css(粗触发 'tokens' 扩容后,本行用 pathTrigger 把面写全:
-    // tokens.css + base.css;其余 'tokens' 行一律用 pathTrigger 把面钉回 tokens.css,
-    // 扩容粗触发的代价不得由别人的行付)。
     label: 'miniapp-taro app.css',
     file: 'apps/miniapp-taro/src/app.css',
     cmd: 'pnpm --filter @ihui/miniapp-taro sync-tokens',
     trigger: 'tokens',
-    pathTrigger: `${TOKENS_CSS_REL} ${BASE_CSS_REL}`,
     failMode: 'block',
     check: 'check-miniapp-tokens-sync.mjs',
   },
@@ -1001,12 +990,10 @@ const TOKEN_SYNC_TARGETS = [
     // file 为两个空格分隔路径:下游是 `git diff --quiet -- <file>` / `git add <file>` 的 shell 拼接,
     // 两个 pathspec 都合法;登记一个漏另一个会让第二份副本永不自动入库(两份必须同进同退)。
     // failMode=block 的依据:立项当日对真仓 --check exit 0,连跑两次写回 0 字节(幂等)。
-    // 2026-11-10:pathTrigger 把面钉回 tokens.css(粗触发扩容不得由本行付账)。
     label: 'miniapp 原生 chrome 副本(theme.json + THEME_CHROME)',
     file: 'apps/miniapp-taro/src/theme.json apps/miniapp-taro/src/lib/theme.ts',
     cmd: 'node scripts/sync-miniapp-chrome.mjs --quiet',
     trigger: 'tokens',
-    pathTrigger: TOKENS_CSS_REL,
     failMode: 'block',
     check: 'check-miniapp-chrome.mjs',
   },
@@ -1015,7 +1002,6 @@ const TOKEN_SYNC_TARGETS = [
     file: 'apps/mobile-rn/global.css',
     cmd: 'node scripts/sync-rn-global-css.mjs --quiet',
     trigger: 'tokens',
-    pathTrigger: TOKENS_CSS_REL,
     failMode: 'block',
     check: 'check-rn-global-css-sync.mjs',
   },
@@ -1025,7 +1011,6 @@ const TOKEN_SYNC_TARGETS = [
     file: 'packages/design-tokens/src/rn-tokens.ts',
     cmd: 'node scripts/sync-rn-tokens.mjs --quiet',
     trigger: 'tokens',
-    pathTrigger: TOKENS_CSS_REL,
     failMode: 'block',
     check: 'check-cross-end-tokens.mjs',
   },
@@ -1036,7 +1021,6 @@ const TOKEN_SYNC_TARGETS = [
     file: 'apps/extension/entrypoints/content/content-toolbar.tsx',
     cmd: 'node scripts/sync-extension-tokens.mjs --quiet',
     trigger: 'tokens',
-    pathTrigger: TOKENS_CSS_REL,
     failMode: 'block',
     check: 'sync-extension-tokens.mjs',
   },
@@ -1150,22 +1134,20 @@ if (!TOOL_ONLY && process.env.HUSKY_SKIP_TOKENS_SYNC !== '1') {
       .split('\n')
       .filter(Boolean)
       .map((f) => f.replace(/\\/g, '/'))
-    // 每个目标自带触发面:token 派生看 tokens.css **与 base.css**(base.css 是第二份源,
-    // 它的派生物是小程序 app.css 的 base 受管段),端源码派生看 v3-src(2026-10-10 起含 web/extension)。
+    // 每个目标自带触发面:token 派生看 tokens.css,端源码派生看 v3-src(2026-10-10 起含 web/extension)。
     // git 在 Windows 下可能给反斜杠路径,统一成正斜杠再比(旧实现手写两条字面量比较,加一端就漏一端)
     const triggersOn = {
-      tokens:
-        stagedList.includes(TOKENS_CSS_REL) || stagedList.includes(BASE_CSS_REL),
+      tokens: stagedList.includes(TOKENS_CSS_REL),
       'v3-src': stagedList.some((f) => END_SRC_DIRS.some((d) => f.startsWith(d))),
     }
     // 第一道筛(粗触发)写法原样保留 —— sync-rn-global-css.test.mjs 的 T8 装车锁按字面读它;
-    // 第二道筛是行自己的精确面 pathTrigger(没有就沿用粗触发,原有各行的有效面一字不改)。
+    // 第二道筛是行自己的精确面 pathTrigger(没有就沿用粗触发,原有 6 行的有效面一字不改)。
     const matched = TOKEN_SYNC_TARGETS.filter((t) => triggersOn[t.trigger]).filter((t) =>
       rowFaceOn(t, stagedList),
     )
     if (matched.length === 0) {
       console.log(
-        `⏭  派生自动同步(本次 staged 不含任何登记行的触发面:无 ${TOKENS_CSS_REL} / ${BASE_CSS_REL},也不在端源码面内, 跳过)`,
+        `⏭  派生自动同步(本次 staged 不含任何登记行的触发面:无 ${TOKENS_CSS_REL},也不在端源码面内, 跳过)`,
       )
     } else {
       for (const t of matched) {

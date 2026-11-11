@@ -17,6 +17,7 @@ import {
   SESSION_EXPIRED_EVENT,
 } from '../../lib/token'
 import { startAutoRefresh, scheduleRefreshAlarm, doRefresh } from '../../lib/token-utils'
+import { TOKEN_STORAGE_KEY } from '../../lib/config'
 import { useNotificationWebSocket } from '../../lib/use-websocket'
 import { NotificationProvider, useNotificationStore } from '../../lib/notification-store'
 import { isComponentType } from '../../lib/is-component-type'
@@ -176,6 +177,32 @@ function SidepanelInner() {
     globalThis.addEventListener?.(SESSION_EXPIRED_EVENT, onSessionExpired)
     return () => {
       globalThis.removeEventListener?.(SESSION_EXPIRED_EVENT, onSessionExpired)
+    }
+  }, [authed])
+
+  // 2026-11-11 DBG-66 收口: 第三方登录在 web 端完成后,background 经 onMessageExternal 把
+  // token 对写进 storage.local —— 此刻侧栏还停在登录页(挂载时的探测早已跑完,不会再触发),
+  // 没有第二触发点就会"登录成功回扩展仍停在登录页"。盯 token 键的出现直接接管登录态;
+  // authed 后取消订阅(登录后的续期写入不走这条路,不产生重复 getProfile)。
+  useEffect(() => {
+    if (authed) return
+    if (typeof chrome === 'undefined' || !chrome.storage?.onChanged) return
+    const onChanged = (changes: { [key: string]: chrome.storage.StorageChange }, areaName: string) => {
+      if (areaName !== 'local') return
+      const v = changes[TOKEN_STORAGE_KEY]?.newValue
+      if (typeof v !== 'string' || !v) return
+      void (async () => {
+        setTokenState(v)
+        setAuthed(true)
+        scheduleRefreshAlarm(v)
+        startAutoRefresh()
+        const res = await getProfile()
+        if (res.success) setUser(res.data)
+      })().catch(() => {})
+    }
+    chrome.storage.onChanged.addListener(onChanged)
+    return () => {
+      chrome.storage.onChanged.removeListener(onChanged)
     }
   }, [authed])
 

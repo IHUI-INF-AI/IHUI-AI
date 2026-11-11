@@ -3511,6 +3511,79 @@
   animation: cursor-blink 1s step-end infinite;
 }
 
+/* ============ AI 面板三态切换(2026-11-11) ============
+   最小化 FAB / 浮窗 / 停靠三态之间是 DOM 与定位的离散跳变,
+   直接切换会「硬闪」。统一用淡入 + 轻微缩放/位移遮住落点变化:
+   - ai-surface-in-mount:浮窗分支首次挂载(最小化→展开)
+   - ai-mode-in:档位切换(docked ↔ float)时临时补一次入场(名字必须与挂载类不同,
+     否则同一节点上换类不会重启动画)
+   - ai-panel-out:最小化前 280ms 退场,再切到 FAB 分支(与 FAB 的 260ms 入场首尾相接,
+     整体 ~540ms;面板面积大,需要更长的淡出才「柔和」,FAB 不再加长以免显得迟滞)
+   注意都不设 fill-mode:动画结束后交还给元素自身的 translate/scale 工具类。 */
+@keyframes ai-surface-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes ai-panel-out {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.965) translateY(6px);
+  }
+}
+@keyframes ai-fab-in {
+  from {
+    opacity: 0;
+    transform: scale(0.86) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+/* 档位切换专用:animation-name 必须与挂载类不同 —— 同名动画在同一个节点上
+   从 .ai-surface-in-mount 换成 .ai-surface-in 时浏览器不会重启动画,淡入会失效。 */
+@keyframes ai-mode-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.ai-surface-in-mount {
+  animation: ai-surface-in 400ms var(--ease-unified);
+}
+.ai-mode-in {
+  animation: ai-mode-in 400ms var(--ease-unified);
+}
+.ai-panel-out {
+  animation: ai-panel-out 280ms var(--ease-unified);
+  pointer-events: none;
+}
+.ai-fab-in {
+  animation: ai-fab-in 260ms var(--ease-unified);
+}
+@media (prefers-reduced-motion: reduce) {
+  .ai-surface-in-mount,
+  .ai-mode-in,
+  .ai-panel-out,
+  .ai-fab-in {
+    animation: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .stream-caret-host > :last-child::after {
     animation: none;

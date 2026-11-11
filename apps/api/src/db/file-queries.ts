@@ -52,8 +52,8 @@ export interface SearchFilesOpts {
   limit?: number
 }
 
-export const SEARCH_FILES_DEFAULT_LIMIT = 50
-export const SEARCH_FILES_MAX_LIMIT = 100
+const SEARCH_FILES_DEFAULT_LIMIT = 50
+const SEARCH_FILES_MAX_LIMIT = 100
 
 /**
  * 搜索当前用户可访问的文件。
@@ -66,7 +66,10 @@ export async function searchFiles(opts: SearchFilesOpts): Promise<File[]> {
     .where(eq(projectMembers.userId, opts.userId))
 
   // F-18: 回收站(deletedAt 非空)的文件不得出现在列表/搜索/最近结果里
-  const conds = [isNull(files.deletedAt), or(eq(files.uploadedBy, opts.userId), inArray(files.projectId, userProjectIds))]
+  const conds = [
+    isNull(files.deletedAt),
+    or(eq(files.uploadedBy, opts.userId), inArray(files.projectId, userProjectIds)),
+  ]
   if (opts.q) conds.push(ilike(files.name, `%${opts.q}%`))
   if (opts.projectId) conds.push(eq(files.projectId, opts.projectId))
   if (opts.mimeType) conds.push(eq(files.mimeType, opts.mimeType))
@@ -157,7 +160,12 @@ export async function findRecentFiles(userId: string, limit: number): Promise<Fi
   return db
     .select()
     .from(files)
-    .where(and(isNull(files.deletedAt), or(eq(files.uploadedBy, userId), inArray(files.projectId, userProjectIds))))
+    .where(
+      and(
+        isNull(files.deletedAt),
+        or(eq(files.uploadedBy, userId), inArray(files.projectId, userProjectIds)),
+      ),
+    )
     .orderBy(desc(files.createdAt))
     .limit(limit)
 }

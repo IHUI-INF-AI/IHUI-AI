@@ -113,13 +113,15 @@ class BoundedTtlDict:
         with self._lock:
             if self._sweep_on_write:
                 self._sweep_locked(now)
-            exists = key in self._store
-            if not exists and len(self._store) >= self._max_keys:
+            # 先释放目标槽再问容量。过期键对外视为不在,未 sweep 时仍占着槽;
+            # 按"不在"先淘汰再 pop 自己,满容时会多删一个仍有效的键。
+            # 释放后重新入列尾:更新仍然挪到队尾。
+            replacing = self._store.pop(key, None) is not None
+            if not replacing and len(self._store) >= self._max_keys:
                 # 满了:逐出最早写入的键(保留最新),而不是拒绝整次写入后静默返回
                 evicted_key, _ = self._store.popitem(last=False)
                 self.evictions += 1
                 del evicted_key
-            self._store.pop(key, None)  # 重新入列尾,保持"首写序"单调
             self._store[key] = (now, value)
 
     def __getitem__(self, key: str) -> Any:

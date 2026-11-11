@@ -24,7 +24,6 @@ from typing import Any
 
 from app.services import mcp_server
 from app.services import task_executors as te
-from app.services.background_tasks import background_task_manager
 from app.services.workflow_runner import ERR_FORBIDDEN, run_workflow
 
 

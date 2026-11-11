@@ -447,6 +447,8 @@ import { urlPreviewRoutes } from './url-preview.js'
 // Subagent 派单 UI(落地 AGENTS.md §11 派单格式)
 import { subagentDispatchRoutes } from './subagent-dispatch.js'
 import { superAgentRoutes } from './super-agent.js'
+// RP-40:超级智能体 webhook 回调落账重放(挂载按 IHUI_SUPER_AGENT_PUMP 门控,见下方注册处)
+import { superAgentWebhookRoutes } from './super-agent-webhook.js'
 // 跨支柱编排中枢(2026-07-23 立,6 支柱协同 + LLM 预算 + 统一遥测)
 import { orchestrationRoutes } from './orchestration.js'
 // A 套壳:SaaS Admin API 代理(迁移自 web 端 app/api/admin-saas/[...path]/route.ts)
@@ -1291,6 +1293,11 @@ export function registerRoutes(server: FastifyInstance) {
   // Subagent 派单 UI(AGENTS.md §11 派单格式 + mesh 拓扑可视化)
   server.register(subagentDispatchRoutes, { prefix: '/api' })
   server.register(superAgentRoutes, { prefix: '/api' })
+  // RP-40 webhook 回调落账重放:与泵循环同一 IHUI_SUPER_AGENT_PUMP 门控。
+  // 未开启 = 本插件不注册(回调端点 404、来源管理 404、零落账、零端口),零行为变化。
+  if (process.env.IHUI_SUPER_AGENT_PUMP === 'true') {
+    server.register(superAgentWebhookRoutes, { prefix: '/api' })
+  }
   // 跨支柱编排中枢(2026-07-23 立,6 支柱协同 + LLM 预算 + 统一遥测)
   server.register(orchestrationRoutes, { prefix: '/api' })
   // P3 深度层:AI 教育引擎 SRS 间隔复习(SM-2 算法)+ LangGraph 升级(interrupt HITL + 5 模式 streaming + Time Travel)

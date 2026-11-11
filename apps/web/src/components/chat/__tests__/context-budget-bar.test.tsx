@@ -198,4 +198,66 @@ describe('G-376 反例②:不传事件 / 字段缺失 ⇒ 与改动前逐字一�
     expect(after.container.querySelector('[data-testid="context-budget-bar"]')).toBeNull()
   })
 })
+
+// DBG-10:resetAt 是网关按东八区次日 0 点算出的真实 UTC 时刻。展示若不钉 timeZone,
+// Intl 用运行时区,非中国时区会把 0 点显示成偏移后的墙上时钟。
+const RESET_FORMAT: Intl.DateTimeFormatOptions = {
+  month: 'numeric',
+  day: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+}
+
+/** 同一时刻的东八区墙上时钟。与组件选项同形,只多 timeZone,用来当期望值。 */
+const shanghaiWall = (iso: string): string =>
+  new Intl.DateTimeFormat('zh-CN', { ...RESET_FORMAT, timeZone: 'Asia/Shanghai' }).format(
+    new Date(iso),
+  )
+
+describe('DBG-10 resetAt 展示固定 Asia/Shanghai', () => {
+  const previousTz = process.env.TZ
+
+  afterEach(() => {
+    if (previousTz === undefined) delete process.env.TZ
+    else process.env.TZ = previousTz
+  })
+
+  it('进程时区改到洛杉矶后,东八区次日 0 点仍显示 11/11 00:00', () => {
+    process.env.TZ = 'America/Los_Angeles'
+    // 2026-11-11 00:00 +08 = 2026-11-10T16:00:00.000Z(网关 nextShanghaiMidnightISO 的形态)
+    const resetAt = '2026-11-10T16:00:00.000Z'
+    const localWall = new Intl.DateTimeFormat('zh-CN', RESET_FORMAT).format(new Date(resetAt))
+    const expected = shanghaiWall(resetAt)
+    // 时区切换没生效时本地墙钟会等于东八区,这条断言就没有牙齿,必须先红
+    expect(localWall).not.toBe(expected)
+    expect(localWall).toBe('11/10 08:00')
+    expect(expected).toBe('11/11 00:00')
+
+    setBudgetEvent({ ...trusted, resetAt })
+    const text = badge(render(<ContextBudgetBar />).container)
+    expect(text).toContain(`${expected} 重置`)
+    expect(text).not.toContain(localWall)
+  })
+
+  it('非零点时刻同样按东八区墙上时钟,而不是把本地小时数原样印出来', () => {
+    process.env.TZ = 'America/Los_Angeles'
+    // 2026-06-15 15:30 +08;洛杉矶夏令时(UTC-7)墙上是当天 00:30
+    const resetAt = '2026-06-15T07:30:00.000Z'
+    const localWall = new Intl.DateTimeFormat('zh-CN', RESET_FORMAT).format(new Date(resetAt))
+    const expected = shanghaiWall(resetAt)
+    expect(localWall).not.toBe(expected)
+
+    setBudgetEvent({ ...trusted, resetAt })
+    const text = badge(render(<ContextBudgetBar />).container)
+    expect(text).toContain(`${expected} 重置`)
+    expect(text).not.toContain(localWall)
+  })
+
+  it('非法 resetAt 不渲染重置文案,额度条其余部分照旧', () => {
+    setBudgetEvent({ ...trusted, resetAt: 'not-a-date' })
+    const text = badge(render(<ContextBudgetBar />).container)
+    expect(text).not.toContain('重置')
+    expect(text).toBe(TRUSTED_TEXT)
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

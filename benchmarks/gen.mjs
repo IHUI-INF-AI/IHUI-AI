@@ -5,9 +5,9 @@
 
 // benchmark 任务套件生成器：node benchmarks/gen.mjs → 生成 benchmarks/tasks/
 // 每个任务: workspace/(待修复/待实现 fixture) solved/(参考解) task.md(中文 prompt) verify.mjs(自动判定)
-import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const TASKS_DIR = join(root, 'tasks');
@@ -20,33 +20,16 @@ import { resolve } from 'node:path';
 const mod = await import(pathToFileURL(resolve('${file}')).href);
 `;
 
-// Python verify: 内嵌测试代码, spawn python 执行(自动探测可用解释器)
+// Python verify: 内嵌测试代码。解释器锁 Python 3.12，版本不符就失败并点名，不换别的大版本。
 const pyVerify = (moduleName, lines) =>
 `import { spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-const candidates = [
-  ...(process.env.BENCH_PYTHON ? [process.env.BENCH_PYTHON] : []),
-  'python',
-  'python3',
-  resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'apps', 'ai-service', '.venv', 'Scripts', 'python.exe'),
-  resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'apps', 'ai-service', '.venv', 'bin', 'python'),
-];
-let py = null;
-for (const c of candidates) {
-  if (!c) continue;
-  if (c.includes('/') || c.includes('\\\\')) {
-    if (existsSync(c)) { py = c; break; }
-  } else {
-    const probe = spawnSync(c, ['--version'], { encoding: 'utf8', windowsHide: true });
-    if (probe.status === 0) { py = c; break; }
-  }
-}
-if (!py) {
-  console.error('未找到可用 Python 解释器, 可设置 BENCH_PYTHON');
+import { pythonCandidatesFrom, resolvePinnedPython, probePython } from '../../lib/python-pin.mjs';
+const resolved = resolvePinnedPython(pythonCandidatesFrom(import.meta.url), probePython);
+if (!resolved.ok) {
+  console.error(resolved.message);
   process.exit(1);
 }
+const py = resolved.python;
 const code = [
 ${lines.map((l) => "  '" + l.replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "',").join('\n')}
 ].join('\\n');
@@ -58,7 +41,7 @@ if (r.status !== 0) {
 console.log('PASS');
 `;
 
-const tasks = [
+export const tasks = [
   // ---------- JS bug 修复 ----------
   {
     id: '01-fix-sum-off-by-one',
@@ -403,14 +386,17 @@ console.log('PASS');
 import { pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
 import { readFileSync } from 'node:fs';
+import { judgeRenameDry } from '../../lib/dry-judge.mjs';
+const muSrc = readFileSync(resolve('mathUtils.mjs'), 'utf8');
+const appSrc = readFileSync(resolve('app.mjs'), 'utf8');
+const dry = judgeRenameDry(muSrc, appSrc);
+assert.equal(dry.ok, true, dry.reason || 'DRY');
 const mu = await import(pathToFileURL(resolve('mathUtils.mjs')).href);
 const app = await import(pathToFileURL(resolve('app.mjs')).href);
 assert.equal(typeof mu.sum, 'function');
 assert.equal(mu.sum(2, 3), 5);
 assert.equal('addNumbers' in mu, false);
 assert.equal(app.total(1, 2, 3), 6);
-const appSrc = readFileSync(resolve('app.mjs'), 'utf8');
-assert.equal(appSrc.includes('addNumbers'), false);
 console.log('PASS');
 `,
   },
@@ -431,15 +417,20 @@ console.log('PASS');
 import { pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
 import { existsSync, readFileSync } from 'node:fs';
-assert.equal(existsSync(resolve('shared.mjs')), true);
+import { judgeExtractDry } from '../../lib/dry-judge.mjs';
+assert.equal(existsSync(resolve('shared.mjs')), true, 'shared.mjs 必须存在');
+const aSrc = readFileSync(resolve('a.mjs'), 'utf8');
+const bSrc = readFileSync(resolve('b.mjs'), 'utf8');
+const dry = judgeExtractDry(aSrc, bSrc);
+assert.equal(dry.ok, true, dry.reason || 'DRY');
 const shared = await import(pathToFileURL(resolve('shared.mjs')).href);
 assert.equal(typeof shared.slugify, 'function');
 const a = await import(pathToFileURL(resolve('a.mjs')).href);
 const b = await import(pathToFileURL(resolve('b.mjs')).href);
 assert.equal(a.slugify('Hello World'), 'hello-world');
 assert.equal(b.slugify('Foo  Bar '), 'foo-bar');
-assert.equal(readFileSync(resolve('a.mjs'), 'utf8').includes('./shared.mjs'), true);
-assert.equal(readFileSync(resolve('b.mjs'), 'utf8').includes('./shared.mjs'), true);
+assert.equal(a.slugify('Hello World'), shared.slugify('Hello World'));
+assert.equal(b.slugify('Foo  Bar '), shared.slugify('Foo  Bar '));
 console.log('PASS');
 `,
   },
@@ -479,34 +470,77 @@ console.log('PASS');
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { judgeWrittenTests, utilsBehaviorMismatches } from '../../lib/test-author-judge.mjs';
 const testFile = resolve('utils.test.mjs');
 assert.equal(existsSync(testFile), true, 'utils.test.mjs 必须存在');
 const src = readFileSync(testFile, 'utf8');
-const assertCount = (src.match(/assert\\./g) || []).length;
-assert.ok(assertCount >= 6, '至少 6 条断言, 实际 ' + assertCount);
-assert.ok(src.includes('node:assert'), '必须使用 node:assert');
-const r = spawnSync('node', ['utils.test.mjs'], { encoding: 'utf8', cwd: process.cwd(), windowsHide: true });
+const judged = judgeWrittenTests(src);
+assert.equal(judged.ok, true, judged.reason || '测试不合格');
+const utils = await import(pathToFileURL(resolve('utils.mjs')).href);
+const mismatches = utilsBehaviorMismatches(utils);
+assert.equal(mismatches.length, 0, mismatches.join('\\n'));
+const r = spawnSync(process.execPath, ['utils.test.mjs'], { encoding: 'utf8', cwd: process.cwd(), windowsHide: true });
 assert.equal(r.status, 0, 'node utils.test.mjs 必须通过:\\n' + (r.stderr || ''));
 console.log('PASS');
 `,
   },
 ];
 
-rmSync(TASKS_DIR, { recursive: true, force: true });
-mkdirSync(TASKS_DIR, { recursive: true });
-for (const t of tasks) {
-  const dir = join(TASKS_DIR, t.id);
+/** 只删除生成器拥有的任务目录。tasks/ 里其余目录原样保留。 */
+export function removeOwnedTaskDirs(tasksDir, ownedIds) {
+  if (!existsSync(tasksDir)) return { removed: [], preserved: [] };
+  const existing = readdirSync(tasksDir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name);
+  const owned = new Set(ownedIds);
+  const removed = [];
+  const preserved = [];
+  for (const name of existing) {
+    if (owned.has(name)) {
+      rmSync(join(tasksDir, name), { recursive: true, force: true });
+      removed.push(name);
+    } else {
+      preserved.push(name);
+    }
+  }
+  return { removed, preserved };
+}
+
+export function writeOwnedTask(tasksDir, task) {
+  const dir = join(tasksDir, task.id);
   mkdirSync(join(dir, 'workspace'), { recursive: true });
   mkdirSync(join(dir, 'solved'), { recursive: true });
-  const solvedAll = { ...t.files, ...t.solved };
-  for (const [p, c] of Object.entries(t.files)) {
-    writeFileSync(join(dir, 'workspace', p), c);
+  const solvedAll = { ...task.files, ...task.solved };
+  for (const [filePath, content] of Object.entries(task.files)) {
+    writeFileSync(join(dir, 'workspace', filePath), content);
   }
-  for (const [p, c] of Object.entries(solvedAll)) {
-    writeFileSync(join(dir, 'solved', p), c);
+  for (const [filePath, content] of Object.entries(solvedAll)) {
+    writeFileSync(join(dir, 'solved', filePath), content);
   }
-  writeFileSync(join(dir, 'task.md'), t.task + '\\n');
-  writeFileSync(join(dir, 'verify.mjs'), t.verify);
+  writeFileSync(join(dir, 'task.md'), task.task + '\n');
+  writeFileSync(join(dir, 'verify.mjs'), task.verify);
 }
-console.log('generated ' + tasks.length + ' tasks under ' + TASKS_DIR);
+
+export function generateOwnedTasks(tasksDir = TASKS_DIR, taskList = tasks) {
+  mkdirSync(tasksDir, { recursive: true });
+  const sync = removeOwnedTaskDirs(
+    tasksDir,
+    taskList.map((task) => task.id),
+  );
+  for (const task of taskList) writeOwnedTask(tasksDir, task);
+  return { ...sync, generated: taskList.length };
+}
+
+function main() {
+  const result = generateOwnedTasks(TASKS_DIR, tasks);
+  console.log(
+    `generated ${result.generated} owned tasks under ${TASKS_DIR}; preserved ${result.preserved.length} unowned dirs`,
+  );
+}
+
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+if (isDirectRun) {
+  main();
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

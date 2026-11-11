@@ -44,6 +44,18 @@ export default defineConfig({
       'http://localhost:8803/*',
       'https://*.aizhs.top/*',
     ],
+    // 2026-11-11 DBG-66 收口: 第三方登录 token 回传通道 —— web 端 OAuth 回调页经
+    // chrome.runtime.sendMessage(extensionId, ...) 把 token 对送回扩展。白名单与
+    // host_permissions 同域(生产 aizhs.top + 本地开发),background 侧再过
+    // lib/external-auth 的 sender.url 判据(纵深防御)。
+    externally_connectable: {
+      matches: [
+        'https://aizhs.top/*',
+        'https://*.aizhs.top/*',
+        'http://localhost:8802/*',
+        'http://localhost:8803/*',
+      ],
+    },
     icons: {
       16: 'icon/16.png',
       32: 'icon/32.png',

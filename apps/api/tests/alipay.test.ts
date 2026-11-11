@@ -17,7 +17,14 @@ import {
   verifyNotify,
   buildSignedUrl,
   refundOrder,
+  exchangeAuthCode,
+  tradeCreate,
+  queryOrder,
+  closeOrder,
+  downloadBillUrl,
+  ALIPAY_GATEWAY_TIMEOUT_MS,
 } from '../src/services/alipay.js'
+import { isDeadlineAbort } from '../src/utils/fetch-deadline.js'
 
 describe('alipay — 支付宝支付服务', () => {
   afterEach(() => {
@@ -262,6 +269,90 @@ describe('alipay — 支付宝支付服务', () => {
       )
       // 变异自证:改回 `r${Date.now()}${randomBytes(3)}` 时两次必定不等,本断言翻红。
       expect(requestNos).toEqual(['refund_ORD-F09', 'refund_ORD-F09'])
+    })
+  })
+
+  describe('网关无响应必须在时限内失败', () => {
+    beforeEach(() => {
+      const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 })
+      vi.stubEnv('ALIPAY_APP_ID', '2021000')
+      vi.stubEnv(
+        'ALIPAY_PRIVATE_KEY',
+        privateKey.export({ type: 'pkcs8', format: 'pem' }) as string,
+      )
+      vi.stubEnv('ALIPAY_CERT_MODE', '')
+      vi.stubEnv('ALIPAY_APP_CERT_PATH', '')
+      vi.stubEnv('ALIPAY_MINIAPP_APP_ID', '2021000mini')
+      vi.useFakeTimers()
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('挂起的对端在时限内以可观察的 deadline 错误失败,时限前不结算', async () => {
+      const fetchMock = vi.fn((_url: string, init?: RequestInit): Promise<Response> => {
+        return new Promise((_resolve, reject) => {
+          const signal = init?.signal as (AbortSignal & { reason?: unknown }) | undefined
+          if (!signal) return
+          const fail = (): void => {
+            const reason = signal.reason
+            reject(reason instanceof Error ? reason : new Error('alipay gateway aborted'))
+          }
+          if (signal.aborted) fail()
+          else signal.addEventListener('abort', fail, { once: true })
+        })
+      })
+      vi.stubGlobal('fetch', fetchMock as unknown as typeof fetch)
+
+      const jobs: Array<Promise<unknown>> = [
+        exchangeAuthCode('auth-hang'),
+        tradeCreate({
+          outTradeNo: 'T-HANG',
+          amount: 1,
+          subject: 'hang',
+          buyerId: '2088000000000000',
+          opAppId: '2021000mini',
+        }),
+        queryOrder('Q-HANG'),
+        refundOrder({ outTradeNo: 'R-HANG', refundAmount: 1, reason: 'hang' }),
+        closeOrder('C-HANG'),
+        downloadBillUrl('2026-11-01'),
+      ]
+      const settled = jobs.map(() => false)
+      const outcomes = jobs.map((job, index) =>
+        job.then(
+          () => {
+            settled[index] = true
+            return { failed: false as const }
+          },
+          (err: unknown) => {
+            settled[index] = true
+            return { failed: true as const, err }
+          },
+        ),
+      )
+
+      expect(fetchMock).toHaveBeenCalledTimes(6)
+      for (const call of fetchMock.mock.calls) {
+        expect(call[1]?.signal).toBeTruthy()
+      }
+
+      await vi.advanceTimersByTimeAsync(ALIPAY_GATEWAY_TIMEOUT_MS - 1)
+      expect(settled.every((done) => !done)).toBe(true)
+
+      await vi.advanceTimersByTimeAsync(1)
+      const results = await Promise.all(outcomes)
+      expect(settled.every((done) => done)).toBe(true)
+      expect(results.every((item) => item.failed)).toBe(true)
+      for (const item of results) {
+        if (!item.failed) continue
+        expect(isDeadlineAbort(item.err)).toBe(true)
+        expect(item.err).toBeInstanceOf(Error)
+        expect((item.err as Error).message).toContain(String(ALIPAY_GATEWAY_TIMEOUT_MS))
+        expect((item.err as Error).message).toContain('alipay.')
+      }
+      expect(vi.getTimerCount()).toBe(0)
     })
   })
 })

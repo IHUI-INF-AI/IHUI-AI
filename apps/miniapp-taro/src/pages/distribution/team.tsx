@@ -9,7 +9,6 @@ import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { getDistributionTeam } from '@/api'
-import { getDistributionTree } from '@ihui/api-client'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { formatDateByTemplate } from '@ihui/shared'
 import { formatPrice } from '@ihui/shared/utils/format'
@@ -18,7 +17,6 @@ import { useTheme } from '@/rn-compat/theme'
 import {
   TeamScreen as SharedTeamScreen,
   type TeamMember,
-  type TeamTreeNode,
 } from '@ihui/rn-app/features/team/TeamScreen'
 
 /** 页面数据层行:共享 TeamMember 的必需字段 + 本页筛选/排序/指标展示所需字段 */
@@ -56,16 +54,10 @@ export default function DistributionTeam() {
   const [searchText, setSearchText] = useState('')
   const [activeTab, setActiveTab] = useState<SortTab>('orderNum')
   const [selectedDate, setSelectedDate] = useState('')
-  // 分销层级树(对齐 RN TeamScreen:加载/失败态独立,不影响统计与成员列表)
-  const [tree, setTree] = useState<TeamTreeNode[] | undefined>(undefined)
-  const [treeLoading, setTreeLoading] = useState(false)
-  const [treeFailed, setTreeFailed] = useState(false)
-  const [treeTotalLevels, setTreeTotalLevels] = useState(0)
 
   const pageRef = useRef(1)
   const hasMoreRef = useRef(true)
   const loadingRef = useRef(false)
-  const treeLoadingRef = useRef(false)
 
   const load = async (reset = false) => {
     if (loadingRef.current) return
@@ -113,35 +105,12 @@ export default function DistributionTeam() {
     }
   }
 
-  /** 层级树独立请求(对齐 RN):失败只置树区块错误态,不影响成员列表 */
-  const loadTree = async () => {
-    if (treeLoadingRef.current) return
-    treeLoadingRef.current = true
-    setTreeLoading(true)
-    setTreeFailed(false)
-    try {
-      const res = await getDistributionTree()
-      if (!res.success) {
-        setTreeFailed(true)
-        return
-      }
-      setTree(res.data?.tree ?? [])
-      setTreeTotalLevels(res.data?.totalLevels ?? 0)
-    } catch {
-      setTreeFailed(true)
-    } finally {
-      treeLoadingRef.current = false
-      setTreeLoading(false)
-    }
-  }
-
   // G-933 冷启动抢跑门控:GET /api/distribution/invited-users 属需鉴权端点
   // (`apps/api/src/routes/distribution.ts:24` addHook authenticate)。
   // 触底翻页是用户动作,那时早已落定,不加门;由共享屏 onEndReached 承接。
   useDidShow(() => {
     gate.waitUntilReady(() => {
       void load(true)
-      void loadTree()
     })
   })
 
@@ -208,10 +177,7 @@ export default function DistributionTeam() {
         refreshing={false}
         error={error ?? ''}
         onSelectTab={() => {}}
-        onRefresh={() => {
-          void load(true)
-          void loadTree()
-        }}
+        onRefresh={() => void load(true)}
         onBack={() => void Taro.navigateBack()}
         onRetry={() => void load(true)}
         keyword={searchText}
@@ -246,12 +212,6 @@ export default function DistributionTeam() {
           viewSubordinates: tt('distribution.team.viewSubordinates', '查看下级'),
         }}
         onPressMember={(memberId) => goSubordinates(memberId)}
-        tree={tree}
-        treeLoading={treeLoading}
-        treeFailed={treeFailed}
-        treeTotalLevels={treeTotalLevels}
-        onRetryTree={() => void loadTree()}
-        onPressTreeMember={(memberId) => goSubordinates(memberId)}
       />
     </ThemeRoot>
   )

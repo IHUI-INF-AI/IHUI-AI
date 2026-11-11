@@ -82,7 +82,6 @@ import {
   headBlobOf,
   intentionalRevertOf,
   describeMatch,
-  prewarmAncestorLists,
 } from './lib/ancestor-downgrade.mjs'
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -262,12 +261,6 @@ export function judge({
       return { state: 'undetermined', judged: judgedSet.size, why: `索引面正文取不到:${String(e?.message ?? e).split('\n')[0]}` }
     }
   }
-  // 并行走查预热(2026-11-10 提速):本轮每条候选路径都要问一趟祖先清单,而每条一趟
-  // `git rev-list --max-count=<win> HEAD -- <rel>` 在深历史上是 2.5~3.4s;顺序跑 N 条 = N × 单条。
-  // 预热把**同一条命令、同一窗口、同一 HEAD** 的 N 条并发跑完(探针实测 2.1~2.7x,15/15 逐枚一致),
-  // 写进 `ancestor-downgrade` 的进程内记忆;预热没跑成 / 某条失败 / 期间 HEAD 变了 ⇒ 那条不进记忆,
-  // 下面各档照旧顺序取材 —— 判据与结论一字不变,只少等。
-  prewarmAncestorLists([...paths, ...worktreePaths], { root, windowSize })
   // 索引面三档(逐字 / 归一化 / 标识符集合)
   for (const p of paths) {
     const headOid = oids.get(`HEAD:${p}`)

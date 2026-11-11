@@ -4,7 +4,7 @@
 
 """scheduler_service 综合测试(自研任务调度)。
 
-覆盖维度(21 tests):
+覆盖维度:
 1. 单例 + 工具函数(_build_trigger / _now_iso)
 2. add_task 3 种 trigger_type 成功 + 无效 trigger_type / 缺失必填字段失败
 3. remove_task 成功 / 任务不存在(幂等)
@@ -458,4 +458,304 @@ class TestRedisUnavailableFallback:
             assert len(s._memory_logs["mem-1"]) == 1
         finally:
             await s.shutdown()
+
+
+# =============================================================================
+# 11. 未带时区的本地时刻 = Asia/Shanghai(DBG-13)
+# =============================================================================
+
+
+class TestShanghaiLocalTime:
+    def test_naive_cron_is_9am_shanghai_not_5pm_beijing(self):
+        """用户填 9 点且不带时区:下一拍是上海 09:00,不是 UTC 09:00(北京 17:00)。"""
+        trig = _build_trigger("cron", {"hour": 9, "minute": 0})
+        assert trig.timezone == ss._CN_TZ
+        before = datetime(2026, 11, 10, 8, 30, tzinfo=ss._CN_TZ)
+        nxt = trig.get_next_fire_time(None, before)
+        assert nxt is not None
+        local = nxt.astimezone(ss._CN_TZ)
+        assert (local.hour, local.minute, local.date()) == (9, 0, before.date())
+
+    def test_naive_date_is_shanghai(self):
+        """date 的朴素 ISO 时刻按东八区钉住,不是主机本地时区。"""
+        trig = _build_trigger("date", {"run_date": "2026-11-10T09:00:00"})
+        assert trig.run_date.hour == 9
+        assert trig.run_date.minute == 0
+        assert trig.run_date.utcoffset() == timedelta(hours=8)
+
+    def test_aware_date_keeps_the_instant(self):
+        """已经带偏移的时刻保持那一个瞬间,不被再解释成上海 9 点。"""
+        trig = _build_trigger("date", {"run_date": "2026-11-10T09:00:00+00:00"})
+        assert trig.run_date.astimezone(UTC).hour == 9
+        assert trig.run_date.utcoffset() == timedelta(0)
+
+    def test_explicit_utc_cron_stays_utc(self):
+        """调用方写了 timezone=UTC 时尊重它:上海看到的是 17 点。"""
+        trig = _build_trigger("cron", {"hour": 9, "minute": 0, "timezone": "UTC"})
+        before = datetime(2026, 11, 10, 8, 30, tzinfo=UTC)
+        nxt = trig.get_next_fire_time(None, before)
+        assert nxt is not None
+        assert nxt.astimezone(UTC).hour == 9
+        assert nxt.astimezone(ss._CN_TZ).hour == 17
+
+    def test_invalid_timezone_is_value_error(self):
+        with pytest.raises(ValueError, match="timezone"):
+            _build_trigger("cron", {"hour": 9, "timezone": "Not/AZone"})
+
+    @pytest.mark.asyncio
+    async def test_add_task_rejects_invalid_timezone(self, sched):
+        res = await sched.add_task(
+            "tz-bad",
+            "cron",
+            {"hour": 9, "timezone": "Not/AZone"},
+            _shell_cb(),
+            is_admin=True,
+        )
+        assert res["ok"] is False
+        assert res["errorCode"] == "INVALID_TRIGGER"
+        sched._scheduler.add_job.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_scheduler_uses_shanghai(self, monkeypatch):
+        """AsyncIOScheduler 的 timezone 与签到侧同为 Asia/Shanghai。"""
+        from app.core.config import settings
+
+        monkeypatch.setattr(settings, "redis_url", "")
+        captured: dict[str, Any] = {}
+
+        class _Cap:
+            def __init__(self, *args: Any, **kwargs: Any) -> None:
+                captured["timezone"] = kwargs.get("timezone")
+
+            def start(self) -> None:
+                return None
+
+            def shutdown(self, wait: bool = True) -> None:
+                return None
+
+        monkeypatch.setattr(ss, "AsyncIOScheduler", _Cap)
+        s = TaskScheduler()
+        await s.start()
+        try:
+            assert captured["timezone"] == ss._CN_TZ
+            assert s._started is True
+        finally:
+            await s.shutdown()
+
+
+# =============================================================================
+# 12. 调度器建不起来时不得假装已排程(DBG-17)
+# =============================================================================
+
+
+async def _redis_task_keys(fake: Any) -> list[Any]:
+    keys: list[Any] = []
+    async for key in fake.scan_iter(match=ss._REDIS_KEY_PREFIX + "*"):
+        keys.append(key)
+    return keys
+
+
+class TestSchedulerBuildFailure:
+    @pytest.mark.asyncio
+    async def test_constructor_failure_is_visible_and_does_not_persist(self, monkeypatch):
+        """start() 建调度器失败必须把异常交给调用方;之后 add/update 不写 Redis、不回 ok。"""
+        from app.core.config import settings
+
+        fake = fakeredis.aioredis.FakeRedis(decode_responses=True)
+        monkeypatch.setattr(settings, "redis_url", "redis://127.0.0.1:6399")
+        monkeypatch.setattr(ss.aioredis, "from_url", lambda *a, **kw: fake)
+
+        class _Boom:
+            def __init__(self, *args: Any, **kwargs: Any) -> None:
+                raise RuntimeError("scheduler boom")
+
+        monkeypatch.setattr(ss, "AsyncIOScheduler", _Boom)
+        s = TaskScheduler()
+        with pytest.raises(RuntimeError, match="scheduler boom"):
+            await s.start()
+        assert s._is_stub() is False
+        assert s._started is False
+        assert s._scheduler is None
+
+        added = await s.add_task(
+            "t-down",
+            "cron",
+            {"hour": 9, "minute": 0},
+            {"type": "http_webhook", "url": "http://example.com/hook"},
+        )
+        assert added["ok"] is False
+        assert added["errorCode"] == "SCHEDULER_UNAVAILABLE"
+        assert added.get("stub") is not True
+        assert await _redis_task_keys(fake) == []
+
+        await fake.hset(
+            ss._REDIS_KEY_PREFIX + "keep",
+            mapping={
+                "task_id": "keep",
+                "trigger_type": "cron",
+                "trigger_config": json.dumps({"hour": 9, "minute": 0}),
+                "callback": json.dumps(
+                    {"type": "http_webhook", "url": "http://example.com/hook"}
+                ),
+                "conversation_id": "",
+                "enabled": "true",
+                "created_at": "",
+                "next_run_at": "",
+            },
+        )
+        updated = await s.update_task("keep", trigger_config={"hour": 18, "minute": 0})
+        assert updated["ok"] is False
+        assert updated["errorCode"] == "SCHEDULER_UNAVAILABLE"
+        raw = await fake.hgetall(ss._REDIS_KEY_PREFIX + "keep")
+        assert json.loads(raw["trigger_config"]) == {"hour": 9, "minute": 0}
+
+        disabled = await s.update_task("keep", enabled=False)
+        assert disabled["ok"] is True
+        raw = await fake.hgetall(ss._REDIS_KEY_PREFIX + "keep")
+        assert raw["enabled"] == "false"
+        await fake.aclose()
+
+    @pytest.mark.asyncio
+    async def test_start_method_failure_same_contract(self, monkeypatch):
+        """构造成功但 start() 抛错:同样上抛,并且不把任务写成已排程。"""
+        from app.core.config import settings
+
+        fake = fakeredis.aioredis.FakeRedis(decode_responses=True)
+        monkeypatch.setattr(settings, "redis_url", "redis://127.0.0.1:6399")
+        monkeypatch.setattr(ss.aioredis, "from_url", lambda *a, **kw: fake)
+
+        class _BadStart:
+            def __init__(self, *args: Any, **kwargs: Any) -> None:
+                return None
+
+            def start(self) -> None:
+                raise RuntimeError("start boom")
+
+            def shutdown(self, wait: bool = True) -> None:
+                return None
+
+        monkeypatch.setattr(ss, "AsyncIOScheduler", _BadStart)
+        s = TaskScheduler()
+        with pytest.raises(RuntimeError, match="start boom"):
+            await s.start()
+        assert s._is_stub() is False
+        assert s._scheduler is None
+        added = await s.add_task(
+            "t-start",
+            "interval",
+            {"seconds": 30},
+            {"type": "http_webhook", "url": "http://example.com/hook"},
+        )
+        assert added == {
+            "ok": False,
+            "errorCode": "SCHEDULER_UNAVAILABLE",
+            "message": "调度器未启动,任务不会被触发",
+        }
+        assert await _redis_task_keys(fake) == []
+        await fake.aclose()
+
+
+# =============================================================================
+# 13. 同一触发点多进程只跑一次(DBG-18)
+# =============================================================================
+
+
+class TestSingleFire:
+    def test_cron_slot_matches_across_clock_skew(self):
+        """整点两侧差 2 秒仍是上海 09:00 这一拍,不是 UTC 09:00。"""
+        cfg = {"hour": 9, "minute": 0}
+        early = datetime(2026, 11, 10, 8, 59, 58, tzinfo=ss._CN_TZ)
+        late = datetime(2026, 11, 10, 9, 0, 2, tzinfo=ss._CN_TZ)
+        expect = ss._slot_token(datetime(2026, 11, 10, 9, 0, tzinfo=ss._CN_TZ))
+        utc_nine = ss._slot_token(datetime(2026, 11, 10, 9, 0, tzinfo=UTC))
+        assert ss._fire_slot("cron", cfg, early) == expect
+        assert ss._fire_slot("cron", cfg, late) == expect
+        assert expect != utc_nine
+
+    def test_interval_slot_is_shared_phase(self):
+        cfg = {"seconds": 60}
+        boundary = datetime(2026, 11, 10, 9, 0, 0, tzinfo=ss._CN_TZ)
+        early = boundary - timedelta(seconds=2)
+        late = boundary + timedelta(seconds=2)
+        nxt = boundary + timedelta(seconds=70)
+        assert ss._fire_slot("interval", cfg, early) == ss._fire_slot("interval", cfg, late)
+        assert ss._fire_slot("interval", cfg, late) != ss._fire_slot("interval", cfg, nxt)
+
+    def test_naive_date_slot_is_shanghai_instant(self):
+        slot = ss._fire_slot(
+            "date",
+            {"run_date": "2026-11-10T09:00:00"},
+            datetime(2026, 11, 10, 12, 0, tzinfo=ss._CN_TZ),
+        )
+        expect = ss._slot_token(datetime(2026, 11, 10, 9, 0, tzinfo=ss._CN_TZ))
+        assert slot == expect
+
+    @pytest.mark.asyncio
+    async def test_two_processes_execute_once(self, monkeypatch):
+        """两个调度器共享 Redis,同一任务同一触发点只执行一次;另一个任务不受影响。"""
+        frozen = datetime(2026, 11, 10, 9, 0, 3, tzinfo=ss._CN_TZ)
+
+        def _frozen_now(tz: Any = None) -> datetime:
+            if tz is None:
+                return frozen.astimezone(UTC)
+            return frozen.astimezone(tz)
+
+        monkeypatch.setattr(ss, "_now", _frozen_now)
+        redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+        calls: list[str] = []
+
+        async def _exec(callback: dict[str, Any]) -> None:
+            calls.append(str(callback.get("tag")))
+
+        async def _run(task_id: str, tag: str) -> None:
+            s = TaskScheduler()
+            s._redis = redis
+            s._started = True
+            s._execute_callback = _exec  # type: ignore[method-assign]
+            await s._job_wrapper(
+                task_id,
+                {"type": "mcp_tool", "tool_name": "x", "tag": tag},
+                "cron",
+                {"hour": 9, "minute": 0},
+            )
+
+        await _run("same", "a")
+        await _run("same", "b")
+        await _run("other", "c")
+        assert calls == ["a", "c"]
+
+        lone = TaskScheduler()
+        lone._redis = None
+        lone._execute_callback = _exec  # type: ignore[method-assign]
+        await lone._job_wrapper(
+            "same",
+            {"type": "mcp_tool", "tool_name": "x", "tag": "mem"},
+            "cron",
+            {"hour": 9, "minute": 0},
+        )
+        assert calls == ["a", "c", "mem"]
+        await redis.aclose()
+
+    @pytest.mark.asyncio
+    async def test_lock_outage_does_not_drop_the_run(self):
+        """抢锁的 Redis 调用失败时这一拍仍然执行(锁层抖动不把任务静默丢掉)。"""
+        calls: list[str] = []
+
+        class _BoomRedis:
+            async def set(self, *args: Any, **kwargs: Any) -> bool:
+                raise ConnectionError("redis down")
+
+        async def _exec(callback: dict[str, Any]) -> None:
+            calls.append("ran")
+
+        s = TaskScheduler()
+        s._redis = _BoomRedis()  # type: ignore[assignment]
+        s._execute_callback = _exec  # type: ignore[method-assign]
+        await s._job_wrapper(
+            "t",
+            {"type": "mcp_tool", "tool_name": "x"},
+            "interval",
+            {"seconds": 60},
+        )
+        assert calls == ["ran"]
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

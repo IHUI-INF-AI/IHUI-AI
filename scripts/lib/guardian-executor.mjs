@@ -896,17 +896,6 @@ export async function runGuardianBatch({
     '211',
     '203',
     '229',
-    // 2026-11-09 机主要求"提交最多一分钟":298(33.6s)/302(36.0s) 原默认落在串行段,池外纯等 77s。
-    // 逐门核过写盘去向:298 只 append 自己的 intentional-revert.jsonl 留痕;302 只写自己的
-    // cross-end-parity-last.json 报告,且只读自己上轮结论,无跨门 import;262 的 writeFileSync
-    // 全在 selfTest() 内,提交路径纯只读;236/292/303/280 零写盘。符合入池标准。
-    '298',
-    '302',
-    '236',
-    '262',
-    '292',
-    '303',
-    '280',
   ])
   // === 只读门并行池(方案A;逃生舱:GUARDIAN_SERIAL=1 退回全串行,GUARDIAN_PAR=<n> 调并发度) ===
   // 契约(与串行版逐字对齐的三条):

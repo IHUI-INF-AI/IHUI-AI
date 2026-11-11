@@ -7,7 +7,8 @@
 # =============================================================================
 # 备份:pg_dump -Fc 逐库导出 → D:\DevEnv\backups\pg\<库名>_YYYYMMDD_HHMMSS.dump(并补齐网盘同步目录的缺口)
 #       清单 = ihui_dev + keycloak(2026-09-28 起;为何是这两个、为何不含测试库,见下方 $backupDatabases 注释)
-# 清理:本地与云侧同窗轮转(最近 7 天);识别式只认 ihui*/keycloak* 的 .dump/.sql.gz,
+# 清理:本地与云侧同窗轮转(最近 7 天),仅本轮导出成功且零失败才删过期旧档;失败则旧档全部保留且失败仍可见。
+#       识别式只认 ihui*/keycloak* 的 .dump/.sql.gz,
 #       所以同目录里的 pg_hba 现场存档与 backup.log 不会被顺手带走
 # 用法(手动): pwsh.exe -NoProfile -ExecutionPolicy Bypass -File deploy\win\ihui-pg-backup.ps1
 #       (§27:deploy/** 的 .ps1 不吃 #requires 声明,调用侧必须显式 pwsh —— 本行就是调用侧登记)
@@ -397,6 +398,13 @@ function Resolve-PgBinCandidateDirs {
     return @($dirs | Where-Object { $_ } | Select-Object -Unique)
 }
 
+function Test-BackupRotationAllowed {
+    param([int]$ExportOkCount, [int]$FailureCount)
+    # 有成功导出且失败数为 0 才允许删过期旧档;任一失败或零导出都保留。
+    return (($ExportOkCount -gt 0) -and ($FailureCount -eq 0))
+}
+
+$exportOkCount = 0
 $pgBinDir = $null
 $pgCandidates = @(Resolve-PgBinCandidateDirs)
 foreach ($d in $pgCandidates) {
@@ -643,6 +651,7 @@ foreach ($db in $backupDatabases) {
     if (-not (Test-Path -LiteralPath $psql)) {
         # 复核只是"备份角色对这个库读不读得到"的现读;缺 psql 时不得把它记成该库失败
         Write-Host "  [WARN] 缺 psql.exe,跳过 $db 的复核查询(导出已成功)" -ForegroundColor Yellow
+        $exportOkCount++
         continue
     }
     $check = & $psql -w -h localhost -p $dbPort -U $dbUser -d $db -t -A -c "SELECT count(*) FROM information_schema.tables WHERE table_schema='public';"
@@ -652,20 +661,37 @@ foreach ($db in $backupDatabases) {
         continue
     }
     Write-Host "  $db public 表数量: $($check.Trim())"
+    $exportOkCount++
 }
 
 $cutoff = (Get-Date).AddDays(-$retentionDays)
-
-Write-Host "[清理] 本地保留 $retentionDays 天..." -ForegroundColor Cyan
-$expired = @(Get-BackupArtifacts $backupDir | Where-Object { $_.LastWriteTime -lt $cutoff })
-$reclaimed = 0
-foreach ($f in $expired) {
-    $reclaimed += $f.Length
-    Remove-Item -LiteralPath $f.FullName -Force -ErrorAction SilentlyContinue
-    Write-Host "  删除过期档:$($f.Name)"
+# 删旧档只允许发生在「本轮真的写出了新档,且没有任何失败」之后。
+# 全失败若仍按 cutoff 删,连续失败会把最后一份可用备份删光,所以先问 $roundExportOk。
+$roundExportOk = Test-BackupRotationAllowed -ExportOkCount $exportOkCount -FailureCount $failures.Count
+$holdWhy = if ($failures.Count -gt 0) {
+    "本轮有 $($failures.Count) 项失败($($failures -join '; '))"
+} else {
+    "本轮没有成功的导出"
 }
-$kept = @(Get-BackupArtifacts $backupDir)
-Write-Host "[OK] 本地保留 $($kept.Count) 份,回收 $([math]::Round($reclaimed/1MB,1)) MB" -ForegroundColor Green
+
+if ($roundExportOk) {
+    Write-Host "[清理] 本地保留 $retentionDays 天..." -ForegroundColor Cyan
+    $expired = @(Get-BackupArtifacts $backupDir | Where-Object { $_.LastWriteTime -lt $cutoff })
+    $reclaimed = 0
+    foreach ($f in $expired) {
+        $reclaimed += $f.Length
+        Remove-Item -LiteralPath $f.FullName -Force -ErrorAction SilentlyContinue
+        Write-Host "  删除过期档:$($f.Name)"
+    }
+    $kept = @(Get-BackupArtifacts $backupDir)
+    Write-Host "[OK] 本地保留 $($kept.Count) 份,回收 $([math]::Round($reclaimed/1MB,1)) MB" -ForegroundColor Green
+} else {
+    $holdTag = if ($failures.Count -gt 0) { '[ERROR]' } else { '[WARN]' }
+    $holdColor = if ($failures.Count -gt 0) { 'Red' } else { 'Yellow' }
+    Write-Host "$holdTag 跳过本地过期档删除:$holdWhy。旧档全部保留" -ForegroundColor $holdColor
+    $kept = @(Get-BackupArtifacts $backupDir)
+    Write-Host "[HOLD] 本地仍保留 $($kept.Count) 份(含超过 $retentionDays 天的旧档)" -ForegroundColor Yellow
+}
 
 # 云备份同步(云同步腿):把保留窗口内**每一份**还没进同步盘的 dump 补过去(同步盘自动云同步)
 #
@@ -697,17 +723,25 @@ if ($cloudDir) {
         # 云侧也要轮转:此前这条腿**完全没有清理代码**,15 份档 1.44GB 且在以 36.7 GiB/年 累积 ——
         # 网盘配额是别人给的额度,撞顶的后果不是报错而是同步客户端静默停止上传,
         # 那时异地腿的失败形态与"从没配过"一模一样。窗口与本地一致(7 天),只认同一识别式。
-        $cloudExpired = @(Get-BackupArtifacts $cloudDir | Where-Object { $_.LastWriteTime -lt $cutoff })
-        $cloudReclaimed = 0
-        foreach ($f in $cloudExpired) {
-            # 只删**本地已不再有**的那份:本地仍在窗口内而云侧过期,说明这是同一轮的时钟差,
-            # 宁可多留一天也不能把异地腿删得比本地还少。
-            if (Test-Path -LiteralPath (Join-Path $backupDir $f.Name)) { continue }
-            $cloudReclaimed += $f.Length
-            Remove-Item -LiteralPath $f.FullName -Force -ErrorAction SilentlyContinue
-            Write-Host "  删除云侧过期档:$($f.Name)"
+        # 与本地同一前提:本轮未成功(零导出或任何失败)时不删,避免连续失败把最后一份异地档删光。
+        if ($roundExportOk) {
+            $cloudExpired = @(Get-BackupArtifacts $cloudDir | Where-Object { $_.LastWriteTime -lt $cutoff })
+            $cloudReclaimed = 0
+            foreach ($f in $cloudExpired) {
+                # 只删**本地已不再有**的那份:本地仍在窗口内而云侧过期,说明这是同一轮的时钟差,
+                # 宁可多留一天也不能把异地腿删得比本地还少。
+                if (Test-Path -LiteralPath (Join-Path $backupDir $f.Name)) { continue }
+                $cloudReclaimed += $f.Length
+                Remove-Item -LiteralPath $f.FullName -Force -ErrorAction SilentlyContinue
+                Write-Host "  删除云侧过期档:$($f.Name)"
+            }
+            Write-Host "[OK] 云侧保留 $(@(Get-BackupArtifacts $cloudDir).Count) 份,回收 $([math]::Round($cloudReclaimed/1MB,1)) MB" -ForegroundColor Green
+        } else {
+            $cloudHoldTag = if ($failures.Count -gt 0) { '[ERROR]' } else { '[WARN]' }
+            $cloudHoldColor = if ($failures.Count -gt 0) { 'Red' } else { 'Yellow' }
+            Write-Host "$cloudHoldTag 跳过云侧过期档删除:$holdWhy。云侧旧档全部保留" -ForegroundColor $cloudHoldColor
+            Write-Host "[HOLD] 云侧仍保留 $(@(Get-BackupArtifacts $cloudDir).Count) 份" -ForegroundColor Yellow
         }
-        Write-Host "[OK] 云侧保留 $(@(Get-BackupArtifacts $cloudDir).Count) 份,回收 $([math]::Round($cloudReclaimed/1MB,1)) MB" -ForegroundColor Green
     } catch {
         Write-Host "[WARN] 云备份同步失败(不影响本地备份): $_" -ForegroundColor Yellow
     }

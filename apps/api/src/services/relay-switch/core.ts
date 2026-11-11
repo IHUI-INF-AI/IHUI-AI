@@ -279,7 +279,7 @@ export function listSnapshots(paths: SwitchPaths): SnapshotInfo[] {
   return out
 }
 
-export function classifySwitchPath(
+function classifySwitchPath(
   target: string,
   stat: (path: string) => unknown = statSync,
 ): 'absent' | 'present' {

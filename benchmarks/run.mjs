@@ -10,13 +10,15 @@
 //   node benchmarks/run.mjs [--task id1,id2]    真实执行 CLI agent 并判定, 汇总通过率
 // 环境变量:
 //   IHUI_CMD           自定义 CLI 命令(空格分隔, 如 "node g:/x/dist/index.js")
-//   BENCH_TIMEOUT_MS   单任务 agent 超时(默认 300000)
+//   BENCH_TIMEOUT_MS   单任务 agent 超时(默认 300000)。超时杀掉子进程树。
+//   BENCH_TRIALS       每任务重复次数(默认 1)。报告保留每一次成败，不折叠成 best-of-N。
 //   BENCH_MODEL        agent 模型(如 agnes/agnes-2.5-flash),缺省用 CLI 默认模型
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { spawnSync } from 'node:child_process';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { spawnCaptured } from './lib/proc-tree.mjs';
+import { assembleReport, exitCodeForPassRate, gateLogin, parseTrialCount } from './lib/report.mjs';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const TASKS_DIR = join(root, 'tasks');
@@ -44,13 +46,13 @@ function resolveCmd() {
 }
 
 // ---- 在临时目录执行 verify.mjs ----
-function runVerify(taskDir, workDir) {
-  const r = spawnSync('node', [join(taskDir, 'verify.mjs')], { cwd: workDir, encoding: 'utf8', timeout: 60000, windowsHide: true });
+async function runVerify(taskDir, workDir) {
+  const r = await spawnCaptured(process.execPath, [join(taskDir, 'verify.mjs')], { cwd: workDir, timeout: 60000 });
   return { pass: r.status === 0, output: (r.stdout || '') + (r.stderr || '') };
 }
 
 // ---- selftest: solved 必过, workspace 必挂 ----
-function selftest(ids) {
+async function selftest(ids) {
   const rows = [];
   let ok = 0;
   for (const id of ids) {
@@ -61,8 +63,8 @@ function selftest(ids) {
       const wsDir = join(tmp, 'ws');
       cpSync(join(taskDir, 'solved'), solvedDir, { recursive: true });
       cpSync(join(taskDir, 'workspace'), wsDir, { recursive: true });
-      const onSolved = runVerify(taskDir, solvedDir);
-      const onWorkspace = runVerify(taskDir, wsDir);
+      const onSolved = await runVerify(taskDir, solvedDir);
+      const onWorkspace = await runVerify(taskDir, wsDir);
       const pass = onSolved.pass && !onWorkspace.pass;
       if (pass) ok++;
       rows.push({ id, solvedPass: onSolved.pass, workspaceFails: !onWorkspace.pass, ok: pass });
@@ -86,13 +88,23 @@ async function run(ids) {
   // 每次 agent 执行前自动 login（确保 token 有效;密码经 BENCH_ADMIN_PASSWORD 注入,不入仓库）
   const benchPwd = process.env.BENCH_ADMIN_PASSWORD;
   if (!benchPwd) { console.error('[LOGIN] 缺少 BENCH_ADMIN_PASSWORD'); process.exit(1); }
+  const trialsParsed = parseTrialCount(process.env.BENCH_TRIALS);
+  if (!trialsParsed.ok) {
+    console.error(trialsParsed.error);
+    return 2;
+  }
+  const trialCount = trialsParsed.value;
   const loginExe = cmd[0];
   const loginArgs = [...cmd.slice(1), 'login', '-a', 'admin', '-p', benchPwd];
-  const loginR = spawnSync(loginExe, loginArgs, { encoding: 'utf8', timeout: 30000, windowsHide: true });
-  if (loginR.status !== 0) console.error('[LOGIN] 失败:\n' + (loginR.stderr || loginR.stdout || '').split('\n').slice(0, 5).join('\n'));
-  else console.log('[LOGIN] admin token 刷新成功');
-  // 任务间隔 + 失败重试: provider(如 stepfun)对连续快速请求限速,全量跑时表现为批量 ~10s 快速失败。
-  // 每个任务后 sleep 间隔;失败任务隔一个冷却期后重试(全新临时工作区),取最好成绩。
+  const loginR = await spawnCaptured(loginExe, loginArgs, { timeout: 30000 });
+  const loginGate = gateLogin(loginR.status);
+  if (loginGate.abort) {
+    const detail = (loginR.stderr || loginR.stdout || loginR.error?.message || '').split('\n').slice(0, 5).join('\n');
+    console.error('[LOGIN] 失败 status=' + String(loginR.status) + (detail ? '\n' + detail : ''));
+    return loginGate.code;
+  }
+  console.log('[LOGIN] admin token 刷新成功');
+  // 任务间隔。重复次数由 BENCH_TRIALS 决定，每一次都写入报告；失败不会被后一次成功替换掉。
   const gapMs = Number(process.env.BENCH_GAP_MS || 5000);
   const cooldownMs = Number(process.env.BENCH_COOLDOWN_MS || 15000);
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -100,77 +112,100 @@ async function run(ids) {
     const taskDir = join(TASKS_DIR, id);
     const prompt = readFileSync(join(taskDir, 'task.md'), 'utf8').trim();
     const workDir = mkdtempSync(join(tmpdir(), 'bench-'));
-    const t0 = Date.now();
-    let agentExit = null;
     try {
+      const prepStart = Date.now();
       cpSync(join(taskDir, 'workspace'), workDir, { recursive: true });
+      const prepMs = Date.now() - prepStart;
       // BENCH_MODEL: 指定 agent 模型(如 agnes/agnes-2.5-flash)。IHUI_DEFAULT_MODEL 环境变量
       // 在一次性 agent 命令路径不生效(settings.json defaultModel 优先),故显式传 -m。
       const modelArgs = process.env.BENCH_MODEL ? ['-m', process.env.BENCH_MODEL] : [];
-      const r = spawnSync(
+      const agentStart = Date.now();
+      const r = await spawnCaptured(
         cmd[0],
         [...cmd.slice(1), 'agent', prompt, ...modelArgs, '--output-format', 'json', '--permission-mode', 'bypassPermissions', '--allow-dangerous'],
         {
           cwd: workDir,
-          encoding: 'utf8',
           timeout: timeoutMs,
           env: { ...process.env, IHUI_YOLO: '1' },
-          windowsHide: true,
         },
       );
-      agentExit = r.status;
+      const agentMs = Date.now() - agentStart;
       if (r.status !== 0) console.log(`[${id}] agent 异常退出, stderr:\n` + String(r.stderr || '').split('\n').slice(0, 10).join('\n'));
-      const verify = runVerify(taskDir, workDir);
-      return { id, agentExit, verifyPass: verify.pass, durationMs: Date.now() - t0, verifyOutput: verify.pass ? '' : verify.output.split('\n').slice(0, 8).join('\n') };
+      const verifyStart = Date.now();
+      const verify = await runVerify(taskDir, workDir);
+      const verifyMs = Date.now() - verifyStart;
+      return {
+        agentExit: r.status,
+        verifyPass: verify.pass,
+        prepMs,
+        agentMs,
+        verifyMs,
+        verifyOutput: verify.pass ? '' : verify.output.split('\n').slice(0, 8).join('\n'),
+      };
     } finally {
       rmSync(workDir, { recursive: true, force: true });
     }
   }
-  const results = [];
+  const taskRuns = [];
   for (const id of ids) {
-    console.log(`\n=== [${id}] 启动 agent ===`);
-    let res = await runOne(id);
-    if (!res.verifyPass) {
-      console.log(`[${id}] 首次失败(冷却 ${cooldownMs}ms 后重试一次)`);
-      await sleep(cooldownMs);
-      const retry = await runOne(id);
-      retry.retried = true;
-      if (retry.verifyPass) res = retry;
+    const trials = [];
+    for (let attempt = 1; attempt <= trialCount; attempt += 1) {
+      if (attempt > 1) {
+        const prevFailed = !trials[trials.length - 1].verifyPass;
+        await sleep(prevFailed ? Math.max(gapMs, cooldownMs) : gapMs);
+      }
+      console.log(`\n=== [${id}] 试验 ${attempt}/${trialCount} ===`);
+      const trial = await runOne(id);
+      trials.push(trial);
+      console.log(
+        `[${id}] 第${attempt}次 agentExit=${trial.agentExit} verify=${trial.verifyPass ? 'PASS' : 'FAIL'} agent=${trial.agentMs}ms prep=${trial.prepMs}ms verifyTime=${trial.verifyMs}ms`,
+      );
+      if (!trial.verifyPass && trial.verifyOutput) console.log(trial.verifyOutput);
     }
-    results.push(res);
-    console.log(`[${id}] agentExit=${res.agentExit} verify=${res.verifyPass ? 'PASS' : 'FAIL'} (${res.durationMs}ms${res.retried ? ', 重试后通过' : ''})`);
-    if (!res.verifyPass && res.verifyOutput) console.log(res.verifyOutput);
+    const passCount = trials.filter((trial) => trial.verifyPass).length;
+    const failCount = trials.length - passCount;
+    console.log(`[${id}] 成功 ${passCount} 次 / 失败 ${failCount} 次`);
+    taskRuns.push({ id, trials });
     await sleep(gapMs);
   }
-  const passed = results.filter((r) => r.verifyPass).length;
-  const rate = ids.length ? ((passed / ids.length) * 100).toFixed(1) : '0.0';
+  const report = assembleReport({ date: new Date().toISOString(), cmd, taskRuns });
   mkdirSync(REPORTS_DIR, { recursive: true });
   const reportPath = join(REPORTS_DIR, 'benchmark-report.json');
-  writeFileSync(reportPath, JSON.stringify({ date: new Date().toISOString(), cmd, total: ids.length, passed, passRate: Number(rate), results }, null, 2));
-  console.log(`\n===== 汇总: ${passed}/${ids.length} 通过 (通过率 ${rate}%) =====`);
+  writeFileSync(reportPath, JSON.stringify(report, null, 2));
+  console.log(`\n===== 汇总: ${report.trialPassed}/${report.trialTotal} 次试验通过 (通过率 ${report.passRate}%) =====`);
   console.log(`报告: ${reportPath}`);
-  return passed / Math.max(ids.length, 1) >= 0.8 ? 0 : 1;
+  return exitCodeForPassRate(report.passRate);
 }
 
 // ---- main ----
-const args = process.argv.slice(2);
-const ids = discover();
-if (ids.length === 0) {
-  console.error('无任务: 先运行 node benchmarks/gen.mjs');
-  process.exit(2);
-}
-let filtered = ids;
-const taskIdx = args.indexOf('--task');
-if (taskIdx !== -1 && args[taskIdx + 1]) {
-  const want = new Set(args[taskIdx + 1].split(',').map((s) => s.trim()).filter(Boolean));
-  filtered = ids.filter((i) => want.has(i));
-  if (filtered.length === 0) {
-    console.error('未匹配任务, 可用: ' + ids.join(', '));
-    process.exit(2);
+async function main() {
+  const args = process.argv.slice(2);
+  const ids = discover();
+  if (ids.length === 0) {
+    console.error('无任务: 先运行 node benchmarks/gen.mjs');
+    return 2;
   }
+  let filtered = ids;
+  const taskIdx = args.indexOf('--task');
+  if (taskIdx !== -1 && args[taskIdx + 1]) {
+    const want = new Set(args[taskIdx + 1].split(',').map((s) => s.trim()).filter(Boolean));
+    filtered = ids.filter((i) => want.has(i));
+    if (filtered.length === 0) {
+      console.error('未匹配任务, 可用: ' + ids.join(', '));
+      return 2;
+    }
+  }
+  if (args.includes('--selftest') || args.includes('--skip-llm')) return selftest(filtered);
+  return run(filtered);
 }
-if (args.includes('--selftest') || args.includes('--skip-llm')) {
-  process.exit(selftest(filtered));
+
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+if (isDirectRun) {
+  main()
+    .then((code) => process.exit(code))
+    .catch((error) => {
+      console.error(error?.stack || error?.message || error);
+      process.exit(2);
+    });
 }
-process.exit(await run(filtered));
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

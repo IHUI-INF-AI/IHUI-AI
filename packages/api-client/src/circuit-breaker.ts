@@ -51,6 +51,8 @@ export class CircuitBreaker {
   private state: CircuitState = 'closed'
   private readonly window: WindowEntry[] = []
   private failureCount = 0
+  /** DBG-27:成功数独立计数,不再由 total-failures 推导 */
+  private successCount = 0
   private openedAt = 0
   private halfOpenSuccesses = 0
   private halfOpenProbeInFlight = false
@@ -72,9 +74,12 @@ export class CircuitBreaker {
       this.halfOpenProbeInFlight = true
       try {
         const result = await fn()
+        // DBG-27:半开探针结果计入滑动窗口,getStats 不再对探针流量失明
+        this.pushWindow(Date.now(), false)
         this.recordHalfOpenSuccess()
         return result
       } catch (err) {
+        this.pushWindow(Date.now(), true)
         this.recordHalfOpenFailure()
         throw err
       } finally {
@@ -100,7 +105,8 @@ export class CircuitBreaker {
     this.evictExpired()
     const total = this.window.length
     const failures = this.failureCount
-    const successes = total - failures
+    // DBG-27:successes 用独立计数器(与窗口同步增删),不再由 total-failures 推导
+    const successes = this.successCount
     const failureRate = total === 0 ? 0 : failures / total
     return { successes, failures, total, failureRate }
   }
@@ -109,6 +115,7 @@ export class CircuitBreaker {
     this.state = 'closed'
     this.window.length = 0
     this.failureCount = 0
+    this.successCount = 0
     this.openedAt = 0
     this.halfOpenSuccesses = 0
     this.halfOpenProbeInFlight = false
@@ -140,6 +147,7 @@ export class CircuitBreaker {
       this.state = 'closed'
       this.window.length = 0
       this.failureCount = 0
+      this.successCount = 0
       this.openedAt = 0
       this.halfOpenSuccesses = 0
     }
@@ -161,9 +169,11 @@ export class CircuitBreaker {
     if (this.window.length >= MAX_WINDOW_ENTRIES) {
       const evicted = this.window.shift()
       if (evicted?.isFailure) this.failureCount -= 1
+      else if (evicted) this.successCount -= 1
     }
     this.window.push({ ts, isFailure })
     if (isFailure) this.failureCount += 1
+    else this.successCount += 1
   }
 
   private evictExpired(now: number = Date.now()): void {
@@ -171,6 +181,7 @@ export class CircuitBreaker {
     while (this.window.length > 0 && this.window[0]!.ts < cutoff) {
       const evicted = this.window.shift()!
       if (evicted.isFailure) this.failureCount -= 1
+      else this.successCount -= 1
     }
   }
 }

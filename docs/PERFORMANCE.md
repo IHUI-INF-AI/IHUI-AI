@@ -349,7 +349,7 @@ gh workflow run ws-loadtest.yml -f users=500 -f run-time=120s
 
 **失败处理**:error 级别断言失败 → CI 阻塞 PR 合并;warn 级别 → 仅提醒。
 
-### 7.3 字体子集化(2026-11-10 起为「按字重分档 + 400 档分段 unicode-range 按需面」)
+### 7.3 字体子集化(2026-11-10 起为「按字重分档」)
 
 中文字体(HarmonyOS Sans SC)单面源文件 8MB,必须子集化。
 
@@ -360,23 +360,17 @@ GB2312 一级 3755 字缺 2178)。运行时动态中文(用户昵称、知识库
 
 | 档 | 产物文件 | 字符集 | 实测体积 | 用途 |
 |----|----------|--------|----------|------|
-| Regular(400) | `HarmonyOS_SansSC_Regular.gb2312-l12.woff2` | 源码扫描 ∪ GB2312 一级 ∪ 二级(8736 码位) | 988 KB | 正文,动态中文全覆盖 |
-| Regular(400)·补面 | `HarmonyOS_SansSC_Regular.gbk-rare.woff2` | GBK 生僻字补集(14274 码位 / 2215444 B / 3885 段) | 2164 KB | 与上列 400 档主面按 unicode-range 精确互补(cmap 交集为空),浏览器命中哪面才按需下载哪面 |
-| Medium(500) | `HarmonyOS_SansSC_Medium.gb2312-l1.woff2` | 源码扫描 ∪ GB2312 一级(5856 码位) | 596 KB | 强调/次级标题 |
-| Bold(600–700) | `HarmonyOS_SansSC_Bold.gb2312-l1.woff2` | 同上(5856 码位) | 599 KB | 标题;本家族官方无 Semibold 面,600 由该面代打(已在 `@font-face` 显式声明 `font-weight: 600 700`) |
-| Thin(100) / Light(300) | `HarmonyOS_SansSC_{Thin,Light}.subset.woff2` | 源码扫描窄档(4214 码位) | 373 / 375 KB | 全站几乎不用,不为它付体积 |
+| Regular(400) | `HarmonyOS_SansSC_Regular.gb2312-l12.woff2` | 源码扫描 ∪ GB2312 一级 ∪ 二级(8703 码位) | 982 KB | 正文,动态中文全覆盖 |
+| Medium(500) | `HarmonyOS_SansSC_Medium.gb2312-l1.woff2` | 源码扫描 ∪ GB2312 一级(5766 码位) | 582 KB | 强调/次级标题 |
+| Bold(600–700) | `HarmonyOS_SansSC_Bold.gb2312-l1.woff2` | 同上 | 585 KB | 标题;本家族官方无 Semibold 面,600 由该面代打(已在 `@font-face` 显式声明 `font-weight: 600 700`) |
+| Thin(100) / Light(300) | `HarmonyOS_SansSC_{Thin,Light}.subset.woff2` | 源码扫描窄档 | 373 / 375 KB | 全站几乎不用,不为它付体积 |
 | 营销首页专用 | `HarmonyOS_SansSC_home-subset-v1-{400,500,700}.woff2` | 首页去重字(更窄) | 69 / 70 / 70 KB | FEO 决策,见 `apps/web/app/(marketing)/marketing-fonts.css` |
-
-> 码位与体积逐字取自 `scripts/data/font-subset-manifest.json`(唯一真相源,勿手抄)。
-> **残余缺字**:昇(U+6607)/ 啰(U+5570)/ 厏(U+538F) 已由 400 档 gbk-rare 面覆盖
-> (真 Chromium + CDP 实测自托管命中,全仓 4463 个源文件重扫);仅剩 U+9FFF 鿿 在 GBK 外
-> 且连源字体都不含,如实落系统字体(Microsoft YaHei)。
 
 | 文件 | 用途 |
 |------|------|
 | `scripts/subset-fonts.py` | 子集化唯一出口(pyftsubset;含前置自检 + 缺字哨兵自检) |
-| `scripts/font-subset-chars.txt` | 宽档并集字符清单(8737 码位,供守门与工具读取) |
-| `scripts/font-subset-unicode-range.txt` | 分档/分面 unicode-range 描述(globals.css 现 7 面,400 档两面按 unicode-range 分段互补) |
+| `scripts/font-subset-chars.txt` | 宽档并集字符清单(8703 码位,供守门与工具读取) |
+| `scripts/font-subset-unicode-range.txt` | 并集 unicode-range 描述 |
 | `scripts/data/font-subset-manifest.json` | 逐面码位数/体积/哨兵结果(守门对账用) |
 
 **重新生成**(需官方 `HarmonyOS_Sans_SC_*.ttf` 源文件;仓库不入库源字体):
@@ -390,7 +384,7 @@ python scripts/subset-fonts.py --src-dir "<HarmonyOS_Sans_SC 目录>"
 ```
 
 **CSS 引用**:见 `apps/web/app/globals.css` 的 `@font-face { font-family: 'HarmonyOS Sans SC'; … }`
-声明块(共 7 面声明,400 档两面按 unicode-range 分段互补;按内容锚点定位,不写行号 —— 行号一次 append 就挪位)。
+声明块(按内容锚点定位,不写行号 —— 行号一次 append 就挪位)。
 
 **跨端**:小程序 / RN 未自托管本字体,走系统字体(见 AGENTS §4 跨端样式同步铁律);
 本节的分档只作用于 web 端 `--font-sans` 首位家族。

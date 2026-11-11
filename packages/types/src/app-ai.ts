@@ -627,6 +627,8 @@ export interface AiAssistantScreenProps {
   onKeywordChange: (kw: string) => void
   onRefresh: () => void
   onPressItem: (item: AiAssistantItem) => void
+  /** 点击"更多分类"按钮跳转分类详情页(可选,不传则不显示"更多"按钮) */
+  onPressCategory?: (categoryId: string, title: string) => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
 }
@@ -994,7 +996,7 @@ export interface ModelRecordQueryResult {
  *
  * 2026-11 扩展:原形态只有 4 张备案图片(静态合规公示),现补齐到与 web
  * `apps/web/app/(main)/settings/model-record/page.tsx` 同等能力(统计/筛选/列表/分页/复制)。
- * images / onPreviewIndexChange 两个原字段**保留且降为可选**,
+ * images / previewIndex / onPreviewIndexChange 三个原字段**保留且降为可选**,
  * 原调用点(RN 壳)照旧可用,不构成破坏性变更。
  */
 export interface ModelRecordScreenProps {
@@ -1018,6 +1020,7 @@ export interface ModelRecordScreenProps {
   onCopy: (text: string) => void
   /** 备案公示图片(合规公示,列表与分页之后渲染) */
   images?: (number | { uri: string })[]
+  previewIndex?: number
   onPreviewIndexChange?: (index: number) => void
   colorScheme?: 'light' | 'dark'
 }

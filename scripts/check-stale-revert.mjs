@@ -278,9 +278,17 @@ function git(args, opts = {}) {
   return gitRaw(rest, root, { maxBuffer: 1 << 28, ...opts })
 }
 
-/** 一次 cat-file --batch-check 解出所有对象规格 → Map(spec -> blob|null) */
+/**
+ * 一次 cat-file --batch-check 解出所有对象规格 → Map(spec -> blob|null)
+ *
+ * 2026-11-11 根治"本门在 partial clone 上挂死":本仓 `remote.origin.partialclonefilter=blob:none`,
+ * 而 `--batch-check` 要回 type/size,缺失对象会触发**联网 lazy-fetch**。实测(漂移对齐档)2674 条
+ * 深历史规格 120s 零输出 ⇒ `spawnSync ... ETIMEDOUT`,整轮从"判本地对象库"变成"等网",
+ * 工作树副本因此长期停在旧版。本门的判据面本来就只有**本地对象库**,故显式关掉惰性取回:
+ * 取不到即 missing ⇒ null,调用方按"取不到/不判"处理(保守一侧,不放宽任何判定)。
+ */
 export function resolveBlobs(repoRoot, specs) {
-  return catBatchOids(repoRoot, specs)
+  return catBatchOids(repoRoot, specs, { env: { GIT_NO_LAZY_FETCH: '1' } })
 }
 
 /**

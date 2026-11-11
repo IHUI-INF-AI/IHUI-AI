@@ -77,6 +77,18 @@ export function clearTenantCache(): void {
 }
 
 /**
+ * 无租户标识时是否拒绝。
+ * 缺省、空串，以及除显式 `false` 以外的任何值都是严格模式（fail-closed）。
+ * 单租户兼容必须显式 `TENANT_STRICT_MODE=false`，不能靠「没配」绕过隔离。
+ */
+export function isTenantStrictMode(
+  raw: string | undefined = process.env.TENANT_STRICT_MODE,
+): boolean {
+  if (raw === undefined) return true
+  return raw.trim().toLowerCase() !== 'false'
+}
+
+/**
  * 多租户中间件：
  * - 从 header/subdomain 解析租户标识并校验存在性 + 状态
  * - 装饰 request.tenantId / request.tenant
@@ -89,28 +101,22 @@ const tenantPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
 
     const identifier = resolveTenantIdentifier(request)
     if (!identifier) {
-      // 2026-07-22 P0 Round 3 鲁棒性加固:多租户环境 fail-closed
-      // TENANT_STRICT_MODE=true 时,未携带租户标识 → 401 拒绝(防绕过租户隔离)
-      // 默认 false(单租户兼容,向后兼容)
-      if (process.env.TENANT_STRICT_MODE === 'true') {
-        reply.status(401).send({
+      // 缺省即严格:未携带租户标识 → 401。只有显式 TENANT_STRICT_MODE=false 才放行单租户。
+      if (isTenantStrictMode()) {
+        return reply.status(401).send({
           code: 401,
           message: '多租户严格模式已启用,请求必须携带租户标识(X-Tenant-Id 或 Authorization)',
         })
-        return
       }
-      // 非严格模式放行(单租户兼容)
       return
     }
 
     const tenant = await lookupTenant(identifier)
     if (!tenant) {
-      reply.status(404).send({ code: 404, message: '租户不存在' })
-      return
+      return reply.status(404).send({ code: 404, message: '租户不存在' })
     }
     if (tenant.status === 0) {
-      reply.status(403).send({ code: 403, message: '租户已停用' })
-      return
+      return reply.status(403).send({ code: 403, message: '租户已停用' })
     }
 
     request.tenantId = tenant.id

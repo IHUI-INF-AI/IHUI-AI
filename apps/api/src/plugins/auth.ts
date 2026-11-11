@@ -54,9 +54,9 @@ declare module '@fastify/jwt' {
  * 被偷的 token 等于没被吊销。这里补 Redis 黑名单(`@ihui/auth` 的 TokenBlacklist):
  * 每个请求一次 EXISTS(单次 RTT),命中即 401。
  *
- * 失败方向:**放行**(`has` 默认 fail-open)+ error 日志。理由与 account-lockout 同口径 ——
- * Redis 是限流/缓存/队列的共同依赖,它挂时系统已大面积降级;为了一项吊销把全站打成 401,
- * 代价远大于它挡的威胁(那窗口本来就只有 15 分钟)。Redis 恢复后吊销立即生效。
+ * 失败方向:**拒绝**(fail-closed)。`TokenBlacklist.has` 默认在 Redis 抛错或 exists
+ * 不是 0/1 时视为已吊销;黑名单对象本身建不起来时,在调用 has 之前同样视为已吊销,
+ * 不放行。已吊销 token 不得因 Redis 或初始化故障复活。
  * 多实例:键在共享 Redis,天然一致。
  */
 let tokenBlacklist: ReturnType<typeof createBlacklist> | null = null
@@ -79,7 +79,7 @@ export function getTokenBlacklist(): ReturnType<typeof createBlacklist> | null {
     return tokenBlacklist
   } catch (e) {
     tokenBlacklistInitFailed = true
-    logger.error('[auth] blacklist 初始化失败,access 吊销检查停用', { err: (e as Error).message })
+    logger.error('[auth] blacklist 初始化失败,access 按已吊销拒绝', { err: (e as Error).message })
     return null
   }
 }
@@ -103,7 +103,8 @@ export async function revokeAccessToken(token: string, expiresAt: Date): Promise
 export async function isAccessTokenRevoked(token: string): Promise<boolean> {
   if (!token) return false
   const blacklist = getTokenBlacklist()
-  if (!blacklist) return false
+  // 对象建不起来:与 has() 默认 fail-closed 一致,视为已吊销,不放行。
+  if (!blacklist) return true
   return blacklist.has(token)
 }
 
@@ -249,8 +250,9 @@ async function authenticateInner(request: FastifyRequest): Promise<JWTPayload> {
 
   // 2026-10-30:吊销检查 —— 登出/踢下线后 access token 必须立即失效,不等自然过期。
   // 放在验签与 challenge 闸之后:前面已经否掉的 token 不必再查 Redis。
+  // 黑名单对象建不起来与 has() 默认一样失败闭合:视为已吊销,不在调用 has 之前放行。
   const blacklist = getTokenBlacklist()
-  if (blacklist && (await blacklist.has(token))) {
+  if (!blacklist || (await blacklist.has(token))) {
     const err = new Error('Token has been revoked')
     ;(err as Error & { statusCode: number }).statusCode = 401
     throw err

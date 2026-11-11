@@ -25,6 +25,7 @@ import { createChromePlatform } from '@ihui/browser-platform'
 // 实现层 navigateTab 已会抛错,这里先判是为了给出结构化错误码 —— agent 侧拿到的
 // 应是 {success:false, errorCode} 而不是一次未捕获异常。
 import { checkNavigableUrl } from '@ihui/shared/utils/navigable-url'
+import { settleWithTimeout } from './settle-with-timeout'
 
 const platform = createChromePlatform()
 
@@ -60,17 +61,20 @@ export async function executeBackgroundAction(
       error: `not a background action: ${action}`,
     }
   }
-  const exec = doBackgroundAction(action, params)
-  const timeout = new Promise<DomActionResult>((resolve) => {
-    setTimeout(() => {
-      resolve({
-        success: false,
-        errorCode: 'TIMEOUT',
-        error: `action ${action} timed out after ${timeoutMs}ms`,
-      })
-    }, timeoutMs)
-  })
-  return Promise.race([exec, timeout])
+  return settleWithTimeout(
+    doBackgroundAction(action, params),
+    timeoutMs,
+    () => ({
+      success: false,
+      errorCode: 'TIMEOUT',
+      error: `action ${action} timed out after ${timeoutMs}ms`,
+    }),
+    (err) => ({
+      success: false,
+      errorCode: 'EXECUTION_FAILED',
+      error: err instanceof Error ? err.message : String(err),
+    }),
+  )
 }
 
 async function doBackgroundAction(
@@ -226,16 +230,10 @@ export async function forwardRequestToContentScript(
       error: err.message,
     }))
 
-  const timeoutPromise = new Promise<DomActionResult>((resolve) => {
-    setTimeout(() => {
-      resolve({
-        success: false,
-        errorCode: 'TIMEOUT',
-        error: `content script no response after ${timeoutMs}ms`,
-      })
-    }, timeoutMs)
-  })
-
-  return Promise.race([sendPromise, timeoutPromise])
+  return settleWithTimeout(sendPromise, timeoutMs, () => ({
+    success: false,
+    errorCode: 'TIMEOUT',
+    error: `content script no response after ${timeoutMs}ms`,
+  }))
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

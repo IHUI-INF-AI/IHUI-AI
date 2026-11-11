@@ -10,11 +10,11 @@
  * 事故背景(8-06 / 8-05 / 7-26):本地 .git 元数据损坏时,修复繁琐且易错。
  * 本脚本把「从远端重建本地 .git」全流程自动化:
  *   1. 健康检查(git cat-file 校验 HEAD commit/tree)
- *   2. 损坏 → 备份 .git 为 .git.broken-<ts>(保留现场)
+ *   2. 损坏 → 归档 gitdir,HEAD 与 objects 对上原件才允许往下删
  *   3. 从 origin clone --no-checkout 到 §26 唯一夹具落点(DevEnv/Temp/ihui-scratch 下,
  *    与真 gitdir 同盘、在仓库树外;注:不要在盘根目录 clone,Windows 会失败)
  *   4. 用健康 .git 替换损坏 .git
- *   5. git reset 重建 index —— 工作区文件完全不动
+ *   5. git reset 重建 index —— 工作区文件完全不动,禁止 checkout -- .
  *   6. 输出后续操作指引(git status 查看差异 → 重新 add/commit 未推送改动)
  *
  * ⚠️ 布局约束(2026-09-12 起):本仓库为 separate-git-dir 布局,工作区 .git 仅是指向
@@ -29,7 +29,7 @@
  * 前提:远端 origin 健康(本脚本依赖远端恢复;工作区文件始终保留,不会丢失)。
  */
 import { execSync } from 'node:child_process'
-import { existsSync, readFileSync, rmSync, mkdirSync, statSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, readFileSync, rmSync, mkdirSync, statSync, writeFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { gitdirArchivePath } from './lib/gitdir.mjs'
@@ -78,6 +78,150 @@ function remoteUrl(repoRoot) {
 }
 
 /**
+ * DBG-85: `git-lock.mjs check` 经 run(allowFail) 的结果。
+ * exit 0 = 无锁,stdout 可能是空串;exit 1 = 有锁,run 返回 null。
+ * null 必须拒绝继续。空串不是有锁。
+ * @param {string|null} checkResult
+ */
+function lockHeldBlocksRebuild(checkResult) {
+  return checkResult === null
+}
+
+/**
+ * cat-file -e 成功时 run() 得到字符串(通常是空串);失败得到 null。
+ * 布尔值不算成功 —— 旧写法 `!== null || true` 会把失败折成 true。
+ * @param {unknown} value
+ */
+function probeSucceeded(value) {
+  return typeof value === 'string'
+}
+
+/**
+ * DBG-86: 健康判据。HEAD 文本为空,或任一对象探针不是成功字符串,都是不健康。
+ * @param {string|null} head
+ * @param {unknown} commitProbe
+ * @param {unknown} treeProbe
+ */
+function judgeRepoHealthy(head, commitProbe, treeProbe) {
+  if (typeof head !== 'string' || head.trim() === '') return false
+  return probeSucceeded(commitProbe) && probeSucceeded(treeProbe)
+}
+
+/**
+ * DBG-87: 归档至少要能搬回去(目录 + 非空 HEAD + objects 目录)。
+ * 不要求对象健康 —— 损坏现场本身就是要留下来的东西。
+ * @param {{exists?:boolean,isDirectory?:boolean,headText?:string|null,hasObjects?:boolean}|null} probe
+ * @returns {{ok:true}|{ok:false,reason:string}}
+ */
+function judgeArchiveRestorable(probe) {
+  if (!probe || typeof probe !== 'object') return { ok: false, reason: '归档探针缺失' }
+  if (probe.exists !== true) return { ok: false, reason: '归档不存在' }
+  if (probe.isDirectory !== true) return { ok: false, reason: '归档不是目录' }
+  if (typeof probe.headText !== 'string' || probe.headText.trim() === '') {
+    return { ok: false, reason: '归档缺 HEAD 或 HEAD 为空' }
+  }
+  if (probe.hasObjects !== true) return { ok: false, reason: '归档缺 objects' }
+  return { ok: true }
+}
+
+/**
+ * 删原 gitdir 之前的完整性:在可恢复之上,HEAD 必须与原件逐字一致。
+ * @param {{exists?:boolean,isDirectory?:boolean,headText?:string|null,sourceHeadText?:string|null,hasObjects?:boolean}|null} probe
+ * @returns {{ok:true}|{ok:false,reason:string}}
+ */
+function judgeArchiveComplete(probe) {
+  const base = judgeArchiveRestorable(probe)
+  if (!base.ok) return base
+  if (typeof probe.sourceHeadText !== 'string' || probe.sourceHeadText.trim() === '') {
+    return { ok: false, reason: '原 gitdir 的 HEAD 读不到,无法对账归档' }
+  }
+  if (probe.headText !== probe.sourceHeadText) {
+    return { ok: false, reason: '归档 HEAD 与原 gitdir 不一致' }
+  }
+  return { ok: true }
+}
+
+/** 归档判据不是 ok 时,绝不允许删原 gitdir。 */
+function mayRemoveOriginalGitdir(archiveVerdict) {
+  return archiveVerdict?.ok === true
+}
+
+/**
+ * DBG-87: clone 没有留下 HEAD 时怎么收场。
+ * 原件已删且归档完整 ⇒ restore;原件还在 ⇒ abort-keep;删了但归档不完整 ⇒ unrecoverable。
+ * @param {{cloneHasHead?:boolean,originalRemoved?:boolean,archiveComplete?:boolean}} [state]
+ * @returns {'proceed'|'restore'|'abort-keep'|'unrecoverable'}
+ */
+function cloneFailureAction({ cloneHasHead, originalRemoved, archiveComplete } = {}) {
+  if (cloneHasHead === true) return 'proceed'
+  if (originalRemoved === true && archiveComplete === true) return 'restore'
+  if (originalRemoved === true) return 'unrecoverable'
+  return 'abort-keep'
+}
+
+/**
+ * DBG-50: 重建 index 只用 mixed reset,不动工作区。
+ * `checkout -- .` / `reset --hard` 会丢掉并发会话未提交改动。
+ */
+function indexRebuildPlan() {
+  return { command: 'reset', touchesWorktree: false }
+}
+
+/** @param {unknown} command */
+function commandDiscardsWorktree(command) {
+  const text = String(command ?? '')
+  if (/checkout\s+--\s+\./.test(text)) return true
+  if (/reset\s+--hard\b/.test(text)) return true
+  if (/\brestore\b/.test(text) && /(^|\s)\.(?:\s|$)/.test(text)) return true
+  return false
+}
+
+/**
+ * 读 gitdir 的结构探针。读失败按「不存在」返回,调用方不得把读失败当成完整。
+ * @param {string} dir
+ * @param {string|null|undefined} [sourceHeadText]
+ */
+function readGitdirProbe(dir, sourceHeadText = undefined) {
+  const probe = {
+    exists: false,
+    isDirectory: false,
+    headText: null,
+    sourceHeadText,
+    hasObjects: false,
+  }
+  try {
+    if (!existsSync(dir)) return probe
+    probe.exists = true
+    const st = statSync(dir)
+    probe.isDirectory = st.isDirectory()
+    if (!probe.isDirectory) return probe
+    const headPath = join(dir, 'HEAD')
+    if (existsSync(headPath) && statSync(headPath).isFile()) {
+      probe.headText = readFileSync(headPath, 'utf8')
+    }
+    const objectsPath = join(dir, 'objects')
+    probe.hasObjects = existsSync(objectsPath) && statSync(objectsPath).isDirectory()
+  } catch {
+    return probe
+  }
+  return probe
+}
+
+/**
+ * 把已通过可恢复判据的归档拷回 targetGitDir,并再验一次落点。
+ * 拷贝失败或落点对不上都抛错,调用方不得把它印成「已恢复」。
+ * @param {string} archiveDir
+ * @param {string} targetGitDir
+ */
+function restoreGitdirFromArchive(archiveDir, targetGitDir) {
+  const verdict = judgeArchiveRestorable(readGitdirProbe(archiveDir))
+  if (!verdict.ok) throw new Error(`归档无法用于恢复: ${verdict.reason}`)
+  cpSync(archiveDir, targetGitDir, { recursive: true, force: true })
+  const restored = judgeArchiveRestorable(readGitdirProbe(targetGitDir))
+  if (!restored.ok) throw new Error(`恢复后校验失败: ${restored.reason}`)
+}
+
+/**
  * 健康检查:HEAD commit/tree 对象可读 + refs 有效。
  * 注意本机已知坑:git fetch 写 refs/remotes/* 会静默不落盘,因此**不要**把
  * 「fetch 后的 ahead/behind 判断」当作健康/同步的唯一判据;需要比对远端时
@@ -88,11 +232,12 @@ function isHealthy(repoRoot) {
   if (!head) return false
   // 2026-11-05 治理债④:原 `!== null || true` 使本行恒真 ⇒ 对象缺失也报「健康」(§0.3)。
   // `git cat-file -e` 成功时不打字,run(…, true) 返回 '';失败返回 null —— 只认这两态。
+  // 布尔 true 不是成功:那是 `|| true` 折出来的值,不得再判成健康。
   // 另:revspec 必须加双引号。本机 execSync 经 cmd.exe,裸 `^{commit}` 的 `^` 会被当脱字符吃掉
-  // ⇒ git 收到 `abc{commit}` 恒失败 ⇒ 摘掉 `|| true` 后判据会反过来变成「恒假」。实测见交付报告。
-  const commitOk = run(`git -C ${repoRoot} cat-file -e "${head}^{commit}"`, true) !== null
-  const treeOk = run(`git -C ${repoRoot} cat-file -e "${head}^{tree}"`, true) !== null
-  return !!head && !!commitOk && !!treeOk
+  // ⇒ git 收到 `abc{commit}` 恒失败 ⇒ 摘掉恒真式后判据会反过来变成「恒假」。
+  const commitProbe = run(`git -C ${repoRoot} cat-file -e "${head}^{commit}"`, true)
+  const treeProbe = run(`git -C ${repoRoot} cat-file -e "${head}^{tree}"`, true)
+  return judgeRepoHealthy(head, commitProbe, treeProbe)
 }
 
 /**
@@ -155,7 +300,7 @@ function main() {
   // 正是它要防的那场事故。现改为:check 判 null(有锁)即 fail-fast,取到锁才继续。
   const lockUnit = 'git-rebuild-local'
   const lockScript = join(repoRoot, 'scripts', 'git-lock.mjs')
-  if (run(`node "${lockScript}" check`, true) === null) {
+  if (lockHeldBlocksRebuild(run(`node "${lockScript}" check`, true))) {
     console.error('❌ git 写锁被其他会话/进程持有:此时重建会互相删除对方的 .git')
     console.error('   请等待其完成后再试;严禁绕过锁强行重建')
     process.exit(1)
@@ -221,17 +366,31 @@ function main() {
   console.log(`   远端: ${url}`)
   console.log(`   真 gitdir: ${targetGitDir}${isSeparate ? ' (separate-git-dir)' : ''}`)
 
-  // 0. 破坏性覆盖前先归档现场;归档失败则放弃重建,绝不硬来
+  // 0. 破坏性覆盖前先归档并校验完整。对不上就停,绝不先删 .git。
+  let originalRemoved = false
+  let archiveComplete = false
   if (existsSync(targetGitDir)) {
     console.log(`   ⓪ 归档现有 gitdir → ${archiveDir}`)
+    const sourceProbe = readGitdirProbe(targetGitDir)
     try {
       execSync(`cp -r "${targetGitDir}" "${archiveDir}"`, { stdio: 'ignore', windowsHide: true })
     } catch (e) {
       console.error(`❌ 归档现有 gitdir 失败: ${String(e.message ?? e)}`)
       console.error('   放弃破坏性重建,仓库保持原状。请排查磁盘/权限后重试。')
+      rmScratch(cloneDir, { bestEffort: true })
+      process.exit(1)
+    }
+    const archiveVerdict = judgeArchiveComplete(readGitdirProbe(archiveDir, sourceProbe.headText))
+    if (!mayRemoveOriginalGitdir(archiveVerdict)) {
+      console.error(`❌ 归档不完整(${archiveVerdict.reason}),拒绝删除 gitdir`)
+      console.error(`   原 gitdir 保持不动: ${targetGitDir}`)
+      console.error(`   未通过校验的归档: ${archiveDir}`)
+      rmScratch(cloneDir, { bestEffort: true })
       process.exit(1)
     }
     rmSync(targetGitDir, { recursive: true, force: true })
+    originalRemoved = true
+    archiveComplete = true
   }
 
   // 1. 从远端 clone(不 checkout,仅获取 .git)
@@ -239,9 +398,26 @@ function main() {
   mkdirSync(cloneDir, { recursive: true })
   const cloneCmd = `git clone --no-checkout "${url}" "${cloneDir}"`
   const cloneOut = run(cloneCmd, true)
-  if (!existsSync(join(cloneDir, '.git', 'HEAD'))) {
+  const cloneHasHead = existsSync(join(cloneDir, '.git', 'HEAD'))
+  const failureAction = cloneFailureAction({ cloneHasHead, originalRemoved, archiveComplete })
+  if (failureAction !== 'proceed') {
     console.error(`❌ clone 失败: ${cloneOut ?? '未知错误'}`)
-    console.error('   远端可能不可达;请检查网络后重试。工作区文件未受影响')
+    if (failureAction === 'restore') {
+      try {
+        restoreGitdirFromArchive(archiveDir, targetGitDir)
+        console.error(`   已按归档恢复 gitdir → ${targetGitDir}`)
+        console.error('   远端可能不可达。仓库指针已回到归档副本,请检查网络后重试。')
+      } catch (e) {
+        console.error(`❌ 按归档恢复失败: ${String(e?.message ?? e)}`)
+        console.error(`   原 gitdir 仍缺。请手动把 ${archiveDir} 搬回 ${targetGitDir}`)
+      }
+    } else if (failureAction === 'unrecoverable') {
+      console.error('   原 gitdir 已删除且归档不可用,无法自动恢复。')
+      console.error(`   归档位置: ${archiveDir}`)
+    } else {
+      console.error('   原 gitdir 未被删除,仓库保持原状。')
+    }
+    rmScratch(cloneDir, { bestEffort: true })
     process.exit(1)
   }
 
@@ -255,13 +431,18 @@ function main() {
 
   // 3. 重建 index(工作区不动),恢复分支跟踪
   console.log('   ③ 重建 index(git reset) — 工作区文件不动')
-  run(`git -C ${repoRoot} reset`, true)
+  const indexPlan = indexRebuildPlan()
+  if (indexPlan.touchesWorktree || commandDiscardsWorktree(indexPlan.command)) {
+    console.error('❌ 拒绝执行会丢弃未提交工作区的 index 重建命令')
+    process.exit(1)
+  }
+  run(`git -C ${repoRoot} ${indexPlan.command}`, true)
   const branch = run(`git -C ${repoRoot} symbolic-ref --short HEAD`, true)
   if (!branch) {
-    // clone 默认分支可能是别的,切回 main 并跟踪
+    // clone 默认分支可能是别的,切回 main 并跟踪。
+    // 这里只建分支;不得改成 checkout -- . ,那会无差别丢掉并发会话的未提交改动。
     run(`git -C ${repoRoot} checkout -b main origin/main`, true)
   }
-  run(`git -C ${repoRoot} checkout -- .`, true) // 还原他人最新提交引入的文件差异
 
   // 4. 恢复完整远端与仓库配置
   console.log('   ④ 恢复完整远端与仓库配置')
@@ -298,5 +479,13 @@ export const __test__ = {
   externalGitDir,
   isHealthy,
   remoteUrl,
+  lockHeldBlocksRebuild,
+  judgeRepoHealthy,
+  judgeArchiveRestorable,
+  judgeArchiveComplete,
+  mayRemoveOriginalGitdir,
+  cloneFailureAction,
+  indexRebuildPlan,
+  commandDiscardsWorktree,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

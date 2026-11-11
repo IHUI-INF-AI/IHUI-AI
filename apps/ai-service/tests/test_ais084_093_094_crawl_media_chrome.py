@@ -24,7 +24,6 @@ from app.routers import media_tasks as mt
 from app.services import chrome_import as ci
 from app.tools import web_crawl_tools as wct
 
-
 # ===========================================================================
 # AIS-084:抓取族与 fetch_url 同过网络审批门
 # ===========================================================================
@@ -154,10 +153,9 @@ class _FakeClient:
 @pytest.mark.asyncio
 async def test_send_following_redirects_passes_stream_flag(monkeypatch: pytest.MonkeyPatch) -> None:
     """AIS-093:代理必须让 httpx 以 stream 模式发送(否则正文先全量进内存)。"""
-    from app.routers.media_tasks import _send_following_redirects
-
     import app.routers.media_tasks as _mt
     import app.services.screenshot_service as _ss
+    from app.routers.media_tasks import _send_following_redirects
 
     monkeypatch.setattr(_ss, "_validate_url_ssrf", lambda u: (True, ""))
     monkeypatch.setattr(_ss, "resolve_pinned_target", lambda u: (u, "example.com"))

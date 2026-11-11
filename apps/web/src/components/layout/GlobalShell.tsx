@@ -35,6 +35,7 @@ import { TopBarBackAutoRegister } from '@/components/layout/TopBarBackAutoRegist
 import { Button } from '@ihui/ui-react'
 import { TOPBAR_BTN_BASE, TOPBAR_BTN_W9 } from '@/lib/nav-styles'
 import { useAiPanelStore } from '@/stores/ai-panel'
+import { getPanelBucket, readViewportWidth } from '@/lib/ai-panel-bucket'
 import { useMounted } from '@/hooks/use-mounted'
 import { useAuthStore } from '@/stores/auth'
 import { NavLoadingOverlay } from '@/components/common/NavLoadingOverlay'
@@ -86,24 +87,23 @@ import { startAutoRefresh } from '@/lib/tokenUtils'
 // 每次路由切换连带重渲染。它自身依赖的返回键 store / 状态订阅不受影响(Context 与内部订阅可穿透 memo)。
 const GlobalTopBarMemo = React.memo(GlobalTopBar)
 
-// 2026-09-14 CLS 真根治:AISidePanel 的等宽占位必须挂到 dynamic 的 loading 插槽。
-// 根因:next/dynamic({ ssr:false }) 内部自带 Suspense 边界(fallback = loading ?? null),
-// 组件挂起被**内层**边界接住 —— 外层 React.Suspense 的等宽占位 fallback 从未渲染过
+// 2026-09-14 CLS 根治记录(历史,当时 AISidePanel 走 next/dynamic):
+// next/dynamic({ ssr:false }) 内部自带 Suspense 边界(fallback = loading ?? null),组件挂起
+// 被**内层**边界接住 —— 外层 React.Suspense 的等宽占位 fallback 从未渲染过
 // (实测 t+800ms 面板挂载把 work-area 从 x=160 推到 x=466,一次性 CLS 0.21,
-// web-vitals.spec.ts 实锤)。Sidebar 能用外层 fallback 是因为它同步挂起(useSearchParams),
-// 没有 dynamic 内层边界,两者机制不同。
+// web-vitals.spec.ts 实锤)。故当时把等宽占位挂到 dynamic 的 loading 插槽。
+// 2026-09-30 起 AISidePanel 改回静态 import(见上方修订),不再有内层边界,
+// 本占位现在只是外层 Suspense 的语义兜底(正常不会渲染)。
 // 占位几何与真实容器对齐:width 引用 layout.tsx inline script 预设的 --ai-panel-width
-// (读 localStorage ihui-ai-panel state.width,范围 320-720,fallback 380),
-// hidden + min-[640px]:block 复制真实容器响应式显隐,mr-1.5 py-2 shrink-0 对齐展开态。
+// (读 localStorage ihui-ai-panel state.width,范围 320-720,fallback 380)。
 /**
- * AI 面板加载占位(2026-09-30 升级为骨架屏)
+ * AI 面板加载占位(2026-09-30 升级为骨架屏 · 现为语义兜底)
  *
- * 为什么需要:next/dynamic({ ssr:false }) 的 loading 插槽在**首帧**渲染,直到面板
- * 客户端分包到位才被替换。此前它是一个纯空白 div —— 几何对(所以不产生 CLS),
- * 但用户看到的是"右侧一块空白,过一会突然冒出面板",体感像没加载出来。
- *
- * 升级为骨架屏:外层几何**一字不动**(见下方 CLS 注释),只在内部画同构骨架
- * (header 条 + 消息区 + 输入区),让用户一眼看出"面板正在加载"。
+ * 历史:此组件曾是 next/dynamic 的 loading 插槽 —— 首帧渲染到分包到位才被替换,
+ * 空白 div 让用户体感"右侧一块空白,过一会突然冒出面板",故升级为同构骨架屏。
+ * 现状:AISidePanel 静态 import 后真实 HTML 随文档到达,本占位几乎不会出现在用户眼前;
+ * 保留它是为了让外层 Suspense 的 fallback 仍有正确几何(万一未来某个子组件再次挂起,
+ * 也不会出现"从 0 宽度弹开"的 CLS)。
  *
  * 几何约束(改动前必读,破一条就回归历史 bug):
  * - width: var(--ai-panel-width) —— 与真实容器同一变量,挂载时不跳变
@@ -114,7 +114,8 @@ const GlobalTopBarMemo = React.memo(GlobalTopBar)
 export const AiPanelPlaceholder = () => (
   <div
     aria-hidden
-    // 2026-10-15:与 docked 面板共用同一条显隐规则(平板档 640-1023px 收起)。
+    // 2026-11-11:与 docked 面板共用同一条显隐规则(640–1279px 收起,
+    // 该区间按 lib/ai-panel-bucket 一律走浮窗,停靠列不存在)。
     // 两者必须同步,否则面板藏了而占位仍占 --ai-panel-width,右侧留一条空列 —— 正是要治的病。
     // 属性静态常驻、显隐交给 globals.css 的 media query,首帧即正确,无 hydration CLS。
     data-viewport-tablet-collapsed="true"
@@ -249,10 +250,25 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
   // 运行时同步 CSS 变量(跟随用户拖拽 AI 面板宽度 / 关闭面板)
   // +6:AI 面板右边缘与工作区卡片之间固定 6px 间距(用户强制要求,不可更改)
   // 浮窗模式(floatMode)或最小化时:occupy=0,面板 fixed 定位不占 flex 空间
+  // 2026-11-11:再叠加形态档判定 —— 640–1279 按 lib/ai-panel-bucket 一律走浮窗,
+  // 停靠列在该区间不存在。只看 store.floatMode 会在「首帧/缩放到该区间而面板内 effect
+  // 尚未跑」的窗口里把 occupy 算成 width+6,右侧工作区被凭空让出一条空列。
+  // 监听 resize:窗口跨档时不依赖 store 变更也能立刻收口。
   React.useEffect(() => {
-    const docked = aiOpen && !aiFloatMode && !aiFloatMinimized
-    const occupy = docked ? aiWidth + 6 : 0
-    document.documentElement.style.setProperty('--ai-panel-occupy', `${occupy}px`)
+    const sync = () => {
+      const docked =
+        aiOpen &&
+        getPanelBucket(readViewportWidth()) === 'docked' &&
+        !aiFloatMode &&
+        !aiFloatMinimized
+      document.documentElement.style.setProperty(
+        '--ai-panel-occupy',
+        `${docked ? aiWidth + 6 : 0}px`,
+      )
+    }
+    sync()
+    window.addEventListener('resize', sync)
+    return () => window.removeEventListener('resize', sync)
   }, [aiOpen, aiWidth, aiFloatMode, aiFloatMinimized])
 
   // 小尺寸侧边栏折叠(2026-09-09 修订注释,反映现行双层方案):

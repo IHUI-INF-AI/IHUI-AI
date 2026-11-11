@@ -7,7 +7,6 @@ import fp from 'fastify-plugin'
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { normalizeHeaderStrict } from '../utils/http-normalize.js'
 
 // 租户上下文（AsyncLocalStorage 等价于 Python ContextVar）
 interface TenantContext {
@@ -87,12 +86,13 @@ export function getCurrentTenant(): TenantContext | undefined {
 }
 
 const tenantDbIsolationPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
-  // onRequest: 从 header 获取 tenant_id，设置上下文（归一化 + 字符集校验，与 tenant.ts 一致）
+  // 只承接 tenant.ts 已校验的 request.tenantId。不读 x-tenant-id，也不在这里发 SET LOCAL：
+  // 请求生命周期不在事务里，事务外的 SET LOCAL 不生效，会把「已经隔离」变成空操作。
+  // search_path 只允许 withTenant 在同一事务句柄上设置。
   server.addHook('onRequest', async (request: FastifyRequest) => {
-    const tenantId = normalizeHeaderStrict(request.headers['x-tenant-id'])
-    if (tenantId) {
-      request.tenantDbContext = { tenantId, schema: getTenantSchema(tenantId) }
-    }
+    const tenantId = request.tenantId
+    if (!tenantId) return
+    request.tenantDbContext = { tenantId, schema: getTenantSchema(tenantId) }
   })
 
   server.decorate('withTenant', withTenant)

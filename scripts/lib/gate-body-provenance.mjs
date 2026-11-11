@@ -30,8 +30,7 @@
  *     门体判」,本层如实打一行留痕后放行 —— 这是**显式判面声明**,不是环境变量式跳过/降级。
  */
 
-import { execFileSync } from 'node:child_process'
-import { catBatch, catBatchOids } from './face-reader.mjs'
+import { execFileSync, spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { dirname, join, posix, relative, resolve } from 'node:path'
@@ -329,36 +328,45 @@ export function gateBodyClosure(root, entryRel) {
 
 /* ─────────────────────────────── 判面取 blob ─────────────────────────────── */
 
-/**
- * `cat-file --batch` 一次读完一批(避免逐文件派生 git —— §5b 的 fork 风暴同型)。
- *
- * 2026-11-10 收口:原本在此自拼 `spawnSync(... cat-file --batch ...)`(stdio[0]=pipe / maxBuffer /
- * 头解析三处本仓都真踩过,正是守门 193 型 C「自拼 batch 却不走本层」要钉死的形态)。现统一走
- * 取材层 `catBatch`(取正文)+ `catBatchOids`(取 oid),两处都按行对齐回 spec,missing 归 null,
- * 与旧实现的 `{exists, oid, text}` 形状逐字等价;git 取数故障仍按原契约抛
- * `GateBodyProvenanceError(GATE_BODY_GIT_UNREADABLE)`,不把"取不到"折成别的状态。
- */
+/** `cat-file --batch` 一次读完一批(避免逐文件派生 git —— §5b 的 fork 风暴同型)。 */
 function catFileBatch(root, specs) {
   if (specs.length === 0) return new Map()
-  let texts
-  let oids
-  try {
-    texts = catBatch(root, specs)
-    oids = catBatchOids(root, specs)
-  } catch (e) {
+  const res = spawnSync(resolveGitBin() || 'git', ['-C', root, 'cat-file', '--batch'], {
+    input: `${specs.join('\n')}\n`,
+    // 必须按字节读:判据文件里有中文,size 是字节数,用 utf8 字符串切片会把游标切歪。
+    maxBuffer: 32 * 1024 * 1024,
+    timeout: GIT_TIMEOUT_MS,
+    windowsHide: true,
+    stdio: ['pipe', 'pipe', 'pipe'],
+  })
+  if (res.error || res.status === null || res.status !== 0) {
     throw new GateBodyProvenanceError(
-      `门体自检取不到 git 读数(cat-file --batch): ${e?.message ?? (e?.stderr || '').toString().trim()}`,
+      `门体自检取不到 git 读数(cat-file --batch): ${res.error?.message ?? (res.stderr || '').toString().trim()}`,
       { code: 'GATE_BODY_GIT_UNREADABLE' },
     )
   }
+  const buf = res.stdout
   const out = new Map()
+  let cursor = 0
   for (const spec of specs) {
-    const text = texts.get(spec)
-    if (text === null || text === undefined) {
+    const headerEnd = buf.indexOf(0x0a, cursor)
+    if (headerEnd < 0) throw new GateBodyProvenanceError(`门体自检解析失败(缺头部):${spec}`, { code: 'GATE_BODY_GIT_UNREADABLE' })
+    const header = buf.subarray(cursor, headerEnd).toString('utf8').trim()
+    const parts = header.split(' ')
+    if (parts[parts.length - 1] === 'missing') {
       out.set(spec, { exists: false, oid: null, text: null })
+      cursor = headerEnd + 1
       continue
     }
-    out.set(spec, { exists: true, oid: oids.get(spec) ?? null, text })
+    const oid = parts[0]
+    const size = Number(parts[2])
+    if (!Number.isFinite(size)) {
+      throw new GateBodyProvenanceError(`门体自检解析失败(大小未知):${spec}`, { code: 'GATE_BODY_GIT_UNREADABLE' })
+    }
+    const start = headerEnd + 1
+    const text = buf.subarray(start, start + size).toString('utf8')
+    cursor = start + size + 1
+    out.set(spec, { exists: true, oid, text })
   }
   return out
 }

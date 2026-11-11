@@ -25,7 +25,11 @@ import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 
 import { sag2Search, type Sag2SearchItem } from '@/api/sag2-lexical'
+import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 import { Highlighted } from './highlighted'
+
+/** 层栈 id(见 @/lib/overlay-stack):本弹层的 Esc 只在栈顶时消费 */
+const GLOBAL_SEARCH_OVERLAY_ID = 'global-search-palette'
 
 const OVERLAY_CLASS =
   'fixed inset-0 z-popover flex items-start justify-center bg-foreground/25 p-4 pt-[12vh] backdrop-blur-sm'
@@ -61,6 +65,8 @@ export function GlobalSearchPalette() {
   const inputRef = useRef<HTMLInputElement | null>(null)
 
   // 快捷键：Ctrl/Cmd+K 切换；打开时 Esc 关闭（与项目其它遮罩的 Esc 语义一致）。
+  // 监听常驻（关闭态也要能收 Ctrl+K），但 Esc 只在层栈顶时消费：
+  // 与其它浮层同开时，一次 Esc 只退最上面那层，不再把全部层一起关掉。
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const withMeta = event.metaKey || event.ctrlKey
@@ -69,11 +75,21 @@ export function GlobalSearchPalette() {
         setOpen((value) => !value)
         return
       }
-      if (event.key === 'Escape') setOpen(false)
+      if (event.key === 'Escape') {
+        if (!isTopOverlay(GLOBAL_SEARCH_OVERLAY_ID)) return
+        setOpen(false)
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
+
+  // 层栈注册：打开时入栈，关闭/卸载时出栈（顺序与 push/pop 严格配对）。
+  useEffect(() => {
+    if (!open) return
+    pushOverlay(GLOBAL_SEARCH_OVERLAY_ID)
+    return () => popOverlay(GLOBAL_SEARCH_OVERLAY_ID)
+  }, [open])
 
   useEffect(() => {
     if (!open) return
@@ -156,13 +172,7 @@ export function GlobalSearchPalette() {
 
   if (!open) return null
 
-  const emptyHint = error
-    ? error
-    : busy
-      ? t('loading')
-      : total === 0
-        ? t('globalSearchEmpty')
-        : ''
+  const emptyHint = error ? error : busy ? t('loading') : total === 0 ? t('globalSearchEmpty') : ''
 
   return (
     <div
@@ -222,7 +232,9 @@ export function GlobalSearchPalette() {
           aria-label={t('globalSearchTitle')}
         >
           {emptyHint ? (
-            <p className="font-[weight:inherit] px-3 py-6 text-center text-body text-muted-foreground">{emptyHint}</p>
+            <p className="font-[weight:inherit] px-3 py-6 text-center text-body text-muted-foreground">
+              {emptyHint}
+            </p>
           ) : (
             items.map((item, index) => (
               <button

@@ -16,6 +16,7 @@ subject → 本库 sso_identities 首登即建号(app/services/sso_identity_stor
 的 find_or_create_identity),并以与 apps/api 共享的 JWT_SECRET 签发 HS256
 access token(claims 严格对齐 app/core/jwt_auth.py 的验证规则,aud=ihui-ai-users)。
 JWT_SECRET 未配置(开发环境)时降级为仅回传身份。未配置真实 IdP 时明确 501。
+JIT 建号或 JWT 签发一旦抛错,必须以 500 失败返回,不得再以 code 0 假装登录成功。
 """
 
 from __future__ import annotations
@@ -154,12 +155,12 @@ async def _do_exchange(provider_name: str, code: str) -> dict[str, Any]:
     try:
         # SSO-P2: JIT provisioning(首登建号)+ 与 apps/api 共享密钥的 HS256 签发。
         # find_or_create_identity 为同步 sqlite 调用,项目惯例允许在 async 路由直调
-        # (参照 approval_persistence);任何失败降级为仅回传身份,不让回调 500。
+        # (参照 approval_persistence)。建号或签发失败必须显式失败:吞掉异常会让
+        # 回调以 code 0 成功返回,但 data 里没有 access_token。
         data.update(_provision_and_sign(identity))
-    except Exception as e:  # noqa: BLE001 - JIT/签发失败必须降级,不阻塞登录回调
-        logger.warning("sso JIT provisioning/签发失败(降级仅回传身份): %s", e)
-        data["provisioned"] = False
-        data["message"] = "JIT 建号/JWT 签发失败，仅回传身份"
+    except Exception as e:  # noqa: BLE001 - 建号/签发失败类型不固定,但都必须显式失败
+        logger.exception("sso JIT provisioning/签发失败")
+        raise HTTPException(status_code=500, detail="JIT 建号/JWT 签发失败") from e
     return {"code": 0, "message": "ok", "data": data}
 
 

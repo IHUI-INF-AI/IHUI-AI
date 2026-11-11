@@ -16,6 +16,7 @@ import Fastify, { type FastifyInstance } from 'fastify'
 
 const mocks = vi.hoisted(() => ({
   checkAuth: vi.fn(),
+  findConversationById: vi.fn(),
   guardModelAdmission: vi.fn(),
   recordBudgetStop: vi.fn(),
   recordContextLedger: vi.fn(),
@@ -56,7 +57,7 @@ vi.mock('../../db/index.js', () => ({
 vi.mock('../../db/chat-queries.js', () => ({
   bindConversationWorkspace: vi.fn(),
   createMessage: vi.fn(),
-  findConversationById: vi.fn(),
+  findConversationById: mocks.findConversationById,
   patchConversationMetadata: vi.fn(),
   replaceMessages: vi.fn(),
   setConversationAdditionalDirectories: vi.fn(),
@@ -107,6 +108,8 @@ beforeEach(() => {
     request.userId = USER
     return true
   })
+  // F-03(2026-11-08):会话归属先于预算闸门,桩成"存在且属于当前用户"
+  mocks.findConversationById.mockReset().mockResolvedValue({ id: CONV, userId: USER })
   mocks.guardModelAdmission.mockReset().mockResolvedValue(null)
   mocks.recordBudgetStop.mockReset().mockResolvedValue(true)
   mocks.recordContextLedger.mockReset().mockResolvedValue(true)

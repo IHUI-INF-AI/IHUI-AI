@@ -56,7 +56,6 @@ export function MessageCenterScreen({
   notification,
   onMarkRead,
   onDeleteConversation,
-  renderConversationActions,
   renderTabBody,
   hasMore,
   loadingMore,
@@ -75,10 +74,6 @@ export function MessageCenterScreen({
     tabs ?? TABS.map((key) => ({ key, label: t(`messageCenter.tab.${key}`) }))
   /** 会话区块:未指定 conversationsTab 时保持旧行为(所有 tab 都渲染) */
   const showConversations = conversationsTab === undefined || conversationsTab === activeTab
-  /** 会话区有内容时不再叠「暂无消息」空态(否则两端都会出现会话行+空态同屏) */
-  const hasConversationSection = Boolean(
-    showConversations && conversations && conversations.length > 0,
-  )
   /** 自定义 tab 体(如私信);返回 null/undefined 时走默认会话 + 消息列表 */
   const customBody = renderTabBody ? renderTabBody(activeTab) : null
   const hasCustomBody = customBody !== null && customBody !== undefined
@@ -209,14 +204,14 @@ export function MessageCenterScreen({
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         >
           {/* 会话列表(对齐 Uniapp message 页聊天列表 chatList + handleChatClick) */}
-          {hasConversationSection && conversations ? (
+          {showConversations && conversations && conversations.length > 0 ? (
             <View style={styles.convSection}>
               <Text style={styles.convTitle}>{t('messageCenter.conversations')}</Text>
               {conversations.map((conv: MessageConversationItem) => (
                 <Tappable
                   key={conv.id}
                   style={styles.convItem}
-                  onPress={onPressConversation ? () => onPressConversation(conv) : undefined}
+                  onPress={() => onPressConversation?.(conv)}
                   accessibilityRole="button"
                 >
                   <View style={styles.convAvatarWrap}>
@@ -257,8 +252,6 @@ export function MessageCenterScreen({
                       </Text>
                     ) : null}
                   </View>
-                  {/* 平台特有行级动作槽位(如小程序聚合行的「标记已读」);不传则整块不渲染 */}
-                  {renderConversationActions ? renderConversationActions(conv) : null}
                   {/* 删除会话(小程序 MessageActions 的 onDelete 同形):回调不传则整颗按钮不渲染 */}
                   {onDeleteConversation ? (
                     <Tappable
@@ -293,9 +286,7 @@ export function MessageCenterScreen({
             </View>
           ) : null}
           {items.length === 0 ? (
-            hasConversationSection ? null : (
-              <EmptyState title={emptyText ?? t('messageCenter.empty')} colorScheme={colorScheme} />
-            )
+            <EmptyState title={emptyText ?? t('messageCenter.empty')} colorScheme={colorScheme} />
           ) : (
             items.map((item: MessageCenterItem) => (
               <NotificationCard
@@ -432,11 +423,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     convName: { flex: 1, fontSize: rnType.strong.size, fontWeight: '600', color: tk.text.primary },
     convTime: { fontSize: rnType.label.size, color: tk.text.tertiary },
-    convPreview: {
-      marginTop: rnSpacing['2xs'],
-      fontSize: rnType.bodySm.size,
-      color: tk.text.secondary,
-    },
+    convPreview: { marginTop: rnSpacing['2xs'], fontSize: rnType.bodySm.size, color: tk.text.secondary },
     convPinBtn: { paddingHorizontal: rnSpacing.xs, justifyContent: 'center' },
     convActionBtn: { paddingHorizontal: rnSpacing.xs, justifyContent: 'center' },
     loadMoreBtn: {

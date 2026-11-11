@@ -100,6 +100,41 @@ def test_ttl_zero_is_explicitly_no_expiry() -> None:
     assert is_expired(0.0, 1, 2.0) is True
 
 
+@pytest.mark.parametrize("sweep_on_write", [False, True])
+def test_set_refresh_expired_key_does_not_evict_live(sweep_on_write: bool) -> None:
+    """满容时刷新对外已视为不在的过期键,不得再淘汰仍有效的键。
+
+    过期键在 `in` 里算不在,但没被清扫时仍占物理槽。若先按"不在"淘汰最早的键,
+    再 pop 自己、再写入,最早那个有效键会被多删一次,容量被同一槽计了两遍。
+    """
+    now = [0.0]
+    store = BoundedTtlDict(
+        max_keys=3,
+        ttl_seconds=10,
+        sweep_on_write=sweep_on_write,
+        slide_on_read=True,
+        clock=lambda: now[0],
+    )
+    now[0] = 0.0
+    store.set("live-old", "keep")
+    now[0] = 1.0
+    store.set("stale", "old")
+    now[0] = 2.0
+    store.set("live-new", "also")
+    now[0] = 9.0
+    assert store.get("live-old") == "keep"  # 原位续期,写入序仍是最早
+    now[0] = 11.5
+    assert "stale" not in store
+    assert "stale" in list(store.keys())
+    evictions = store.evictions
+    store.set("stale", "fresh")
+    assert store.evictions == evictions
+    assert store.get("live-old") == "keep"
+    assert store.get("live-new") == "also"
+    assert store.get("stale") == "fresh"
+    assert len(store) == 3
+
+
 # ------------------------------------------------------------------ 归属检查真的会触发
 
 

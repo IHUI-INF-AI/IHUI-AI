@@ -2,22 +2,23 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// 2026-11-07 DBG-38 P0 回归钉:
-// remote 授权面(default.json,同时覆盖 https://aizhs.top 线上页)不得再持有任何
-// 无路径 scope 的裸文件 I/O / 剪贴板读权限 —— 这些权限使线上前端任一 XSS 即等效 RCE。
-// 这些权限已迁移到 local-fs-io.json(仅本地 webview 生效,线上 XSS 面不可达)。
-// 本地消费面经全仓 grep 确认零引用(apps/desktop/src 无 readTextFile/writeTextFile/
-// readDir/listDir/statFile/clipboardReadText 调用),故 remote 面移除后功能无损。
+// 2026-11-07 DBG-38 P0 回归钉(2026-11-10 复核):
+// 带 remote 的 capability(default.json 覆盖 https://aizhs.top,且不含 www)不得持有
+// 无路径 scope 的裸文件 I/O / 剪贴板读权限 —— 线上 XSS 即可读写本机文件、抓剪贴板。
+// 这些权限在 local-fs-io.json:无 remote,只进 ExecutionContext::Local,本地 webview 仍可用。
+// clipboard-set 不在收回清单。BUG-17 已把它移出 remote;本锁不要求加回,以免线上 XSS 覆写剪贴板。
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
+import { join } from 'node:path'
 import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 
-const DEFAULT_CAP = fileURLToPath(new URL('../src-tauri/capabilities/default.json', import.meta.url))
-const LOCAL_CAP = fileURLToPath(new URL('../src-tauri/capabilities/local-fs-io.json', import.meta.url))
+const CAP_DIR = fileURLToPath(new URL('../src-tauri/capabilities/', import.meta.url))
+const DEFAULT_CAP = join(CAP_DIR, 'default.json')
+const LOCAL_CAP = join(CAP_DIR, 'local-fs-io.json')
 
-// 这六个是 DBG-38 点名的无路径 scope 裸文件 I/O / 剪贴板读权限(RCE 面)。
-// 注意:allow-clipboard-set(写剪贴板)不在其列 —— 写剪贴板非窃取面,且 agent-control 在用,保留。
+// 无路径 scope 的裸文件 I/O / 剪贴板读(RCE / 凭据窃取面)。
+// allow-clipboard-set(写剪贴板)不在其列,也不要求出现在 remote 面。
 const DANGEROUS_FS_PERMS = [
   'allow-read-text-file',
   'allow-read-binary-file',
@@ -31,9 +32,15 @@ function readJson(path) {
   return JSON.parse(readFileSync(path, 'utf8'))
 }
 
+function permissionIds(caps) {
+  return (caps.permissions ?? [])
+    .map((entry) => (typeof entry === 'string' ? entry : entry?.identifier))
+    .filter((id) => typeof id === 'string')
+}
+
 test('remote 面(default.json)不再授予任何裸文件 I/O / 剪贴板读权限', () => {
   const caps = readJson(DEFAULT_CAP)
-  const perms = caps.permissions.filter((p) => typeof p === 'string')
+  const perms = permissionIds(caps)
   const leaked = perms.filter((id) => DANGEROUS_FS_PERMS.includes(id))
   assert.deepEqual(
     leaked,
@@ -42,15 +49,45 @@ test('remote 面(default.json)不再授予任何裸文件 I/O / 剪贴板读权�
   )
 })
 
-test('remote 面仍保留 clipboard-set(写剪贴板,非窃取面,agent-control 在用)', () => {
+test('收回文件权限时不删掉远程面仍需要的非文件权限', () => {
   const caps = readJson(DEFAULT_CAP)
   const perms = caps.permissions.filter((p) => typeof p === 'string')
-  assert.equal(perms.includes('allow-clipboard-set'), true, 'clipboard-set 被误删,agent-control 粘贴功能会失联')
+  for (const id of [
+    'core:default',
+    'deep-link:default',
+    'updater:default',
+    'dialog:default',
+    'notification:default',
+    'allow-get-app-info',
+    'allow-store-read-entry',
+    'allow-store-write-entry',
+  ]) {
+    assert.equal(perms.includes(id), true, `远程面仍需要的非文件权限被删: ${id}`)
+  }
+  assert.equal(
+    perms.includes('allow-clipboard-set'),
+    false,
+    'clipboard-set 已由 BUG-17 移出 remote,DBG-38 不得为了旧锁把它加回',
+  )
+})
+
+test('带 aizhs 或 www 的 remote 能力不得再授予裸文件 I/O / 剪贴板读', () => {
+  const files = readdirSync(CAP_DIR).filter((name) => name.endsWith('.json'))
+  assert.ok(files.includes('default.json'), 'capabilities 目录缺少 default.json')
+  for (const name of files) {
+    const caps = readJson(join(CAP_DIR, name))
+    const urls = Array.isArray(caps.remote?.urls) ? caps.remote.urls : []
+    const hitsTrustedRemote = urls.some((url) => /aizhs\.top|www/i.test(String(url)))
+    if (!hitsTrustedRemote) continue
+    const perms = permissionIds(caps)
+    const leaked = perms.filter((id) => DANGEROUS_FS_PERMS.includes(id))
+    assert.deepEqual(leaked, [], `${name} 的 remote 受信域仍泄漏: ${leaked.join(', ')}`)
+  }
 })
 
 test('裸文件 I/O 权限已迁移到 local-fs-io.json(仅本地 webview,不授予 remote)', () => {
   const caps = readJson(LOCAL_CAP)
-  const perms = caps.permissions.filter((p) => typeof p === 'string')
+  const perms = permissionIds(caps)
   for (const id of DANGEROUS_FS_PERMS) {
     assert.equal(perms.includes(id), true, `local-fs-io.json 缺 ${id}:迁移不完整`)
   }
@@ -60,6 +97,7 @@ test('裸文件 I/O 权限已迁移到 local-fs-io.json(仅本地 webview,不授
     false,
     'local-fs-io.json 不应带 remote 授权,否则线上 XSS 面仍可达这些权限',
   )
+  assert.notEqual(caps.local, false, 'local-fs-io 必须对本地 origin 生效,禁止 local:false')
   assert.deepEqual(caps.windows?.sort(), ['admin', 'main'], 'local-fs-io.json 应只作用于本地 main/admin 窗口')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

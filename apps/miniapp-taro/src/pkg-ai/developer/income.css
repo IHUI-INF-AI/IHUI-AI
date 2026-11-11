@@ -9,23 +9,7 @@
 .income-page {
   min-height: 100vh;
   background: var(--color-background);
-  /* 品牌族之后必须列确定的中文现代黑体:首位 'AlimamaFangYuanTi' 在小程序端
-   * 无可用字体面(2026-07-27 移除 loadFontFace、weapp 不支持本地 @font-face、
-   * 主包余量放不下中文字体),RN 端实测该族名也既非 family 也非 PostScript
-   * name,仅 H5 端由 app.tsx FontLoader 运行时注入 @font-face 才生效;此处
-   * 保留它只为同族历史书写面兼容,真正生效的是其后的中文黑体兜底。若缺了
-   * 确定黑体而直落裸 sans-serif,默认被设成宋体的机器即当场换衬线(与 web
-   * 端门 313 T4 同一类病)。族序列与 chat.css:1228 /
-   * pages/user/index.css:201 逐字同源。 */
-  font-family:
-    'AlimamaFangYuanTi',
-    'PingFang SC',
-    'Microsoft YaHei',
-    'Noto Sans SC',
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    sans-serif;
+  font-family: 'AlimamaFangYuanTi', sans-serif;
 }
 
 /* 顶部导航 — 对齐 RN header(row/gap 12/paddingH 10/paddingV 12) */
