@@ -116,7 +116,6 @@ import {
   DropdownMenuSub,
   DropdownMenuSubTrigger,
   DropdownMenuSubContent,
-  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
 import {
   Dialog,
@@ -1098,7 +1097,6 @@ export function SidebarChatHistory({
             {/* 按钮层级重构(2026-10-26):原来 9 枚导出/压缩项全部平铺在一线，菜单长达 16 行。
                 现按用户口径收级——导出/分享各格式归入「导出 / 分享会话」二级子菜单，
                 压缩两档归入「压缩会话」二级子菜单；一线只留高频动作。 */}
-            <DropdownMenuSeparator />
             <DropdownMenuSub>
               <DropdownMenuSubTrigger data-testid="conversation-export-submenu">
                 <Download className="mr-2 h-3.5 w-3.5" />
@@ -1147,7 +1145,6 @@ export function SidebarChatHistory({
                   <FileJson className="mr-2 h-3.5 w-3.5" />
                   <span>{te('exportJson')}</span>
                 </DropdownMenuItem>
-                <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={(e) => {
                     e.stopPropagation()
@@ -1208,7 +1205,6 @@ export function SidebarChatHistory({
                 </DropdownMenuItem>
               </DropdownMenuSubContent>
             </DropdownMenuSub>
-            <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={(e) => {
                 e.stopPropagation()

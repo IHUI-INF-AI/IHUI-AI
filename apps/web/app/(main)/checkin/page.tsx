@@ -88,7 +88,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
@@ -2008,7 +2007,6 @@ export default function CheckinPage() {
                   </DropdownMenuItem>
                   {desktop && !embedBrowser && (
                     <>
-                      <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={() => void openCapture()}>
                         <span>TRAE</span>
                         <span className="ml-auto pl-3 text-label text-muted-foreground">
