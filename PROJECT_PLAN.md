@@ -13394,3 +13394,5 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] B21 [deploy-feedback] [deploy_outcome/alert_firing] pass-entry-broken /deploy/pass-entry-broken 部署异常 ⇒ 排查链路并修复（登记@2026-11-11/deploy-feedback;来源:deploy_outcome;证据:dims=api+llm action=pass-entry-broken 窗口=1440min count=1 first=2026-11-11T11:47:23.816Z last=2026-11-11T11:47:23.816Z route=/deploy/pass-entry-broken cause="已切流但公网入口读不到(源站直探正常)"）
 
 - [ ] B26 [deploy-feedback] [deploy_outcome/alert_firing] pass-unproven /deploy/pass-unproven 部署异常 ⇒ 排查链路并修复（登记@2026-11-11/deploy-feedback;来源:deploy_outcome;证据:dims=web action=pass-unproven 窗口=1440min count=1 first=2026-11-11T12:34:46.803Z last=2026-11-11T12:34:46.803Z route=/deploy/pass-unproven cause="已切流但无任何一轮三项全绿"）
+
+- [ ] B29 [deploy-feedback] [deploy_outcome/alert_firing] rollback /deploy/rollback 部署异常 ⇒ 排查链路并修复（登记@2026-11-11/deploy-feedback;来源:deploy_outcome;证据:dims=api+llm action=rollback 窗口=1440min count=1 first=2026-11-11T11:35:47.075Z last=2026-11-11T11:35:47.075Z route=/deploy/rollback cause="健康门禁未过,新构建整份退回上一可用包"）
