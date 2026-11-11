@@ -61,9 +61,11 @@
 
 两个关键设计:
 
-1. **凭证指纹去重**(`credentialFingerprint`):只算 `token / refreshToken / enabled / tokenExpiresAt`。
-   `importAccounts` 的覆盖分支会**无条件** `credVersion+1`,若每轮都"同步"一遍相同内容,会把
-   签到侧的防降级 CAS 基准刷成噪音,日志也会被无意义写入淹没。指纹相同就完全不碰库。
+1. **凭证指纹 = 业务核心四元组**(`token / refreshToken / tokenExpiresAt / enabled`)。
+   导出时由 `buildExportPayload` 从**库列**直取,放进 `__sync.core`,与平台原生载荷的
+   表征差异无关。为什么不用整载荷哈希:原生载荷含 `sourcePath / region / rawCredentials`
+   这类**本机环境字段**,两端天然不同 —— 2026-11-11 实测整载荷哈希会让"一致数"归零、
+   每轮全量互推。指纹相同就完全不碰库,避免 `credVersion` 被空写刷成噪音。
    `name` 不参与指纹 —— 两端展示名可能各自更"好看"(手机号 vs uid),不应互相覆盖。
 
 2. **删除不传播 + 删除不复活**:跨环境删号是破坏性动作。引擎**永不自动删**;
@@ -79,8 +81,8 @@
 | `scripts/lib/pool-providers.mjs` | 平台清单 ESM 镜像(TS 唯一真相源的只读副本,单测防漂移) |
 | `scripts/register-pool-sync-task.mjs` | Windows 计划任务注册/查询/注销/立即触发 |
 | `scripts/tests/pool-sync-plan.test.mjs` | 13 例回归:六条规则 + 分组 + 脏行 + 防漂移 |
-| `apps/api/scripts/relay-account-import.ts` | 新增 `--export-all`(一次导出全平台)与导出字段 `updatedAt` |
-| `apps/api/src/services/relay-account-pool-service.ts` | `importAccounts` 成功后写脏标记 `markPoolSyncDirty()` |
+| `apps/api/scripts/relay-account-import.ts` | 新增 `--export-all`(一次导出全平台);导出走 `buildExportPayload` **平台原生形状** + `validateExportRoundTrip` 硬校验,元数据放 `__sync` 命名空间 |
+| `apps/api/src/services/relay-account-pool-service.ts` | ① `buildExportPayload` 补 `raccoon` 分支(此前 default 直接拒出,小浣熊永远无法同步);② `importAccounts` 成功后写脏标记 `markPoolSyncDirty()` |
 
 ## 5. 运行方式
 
@@ -94,6 +96,11 @@ node scripts/relay-account-pool-sync.mjs --apply
 # 只推 / 只拉 / 只某平台
 node scripts/relay-account-pool-sync.mjs --apply --push-only
 node scripts/relay-account-pool-sync.mjs --apply --provider raccoon
+
+# 限定归属(默认只同步 ~/.wb-switch/pool-owner 的个人池 + 运营池;
+# 生产库可能有他人账号,--all-owners 会把它们一起拉进开发机,别随手开)
+node scripts/relay-account-pool-sync.mjs --apply --owners 30763d9f-...
+node scripts/relay-account-pool-sync.mjs --dry-run --all-owners
 
 # 计划任务:注册 / 查询 / 注销 / 立刻跑一次
 node scripts/register-pool-sync-task.mjs --register --interval 2
@@ -115,8 +122,12 @@ node scripts/register-pool-sync-task.mjs --run-now
    当前两台机器均为同一运维体系、NTP 同步,偏差可忽略;若发现异常先查 `w32tm /query /status`。
 4. **明文凭证只在内存与 SSH stdin 流动**:本地临时目录 `mkdtemp` 后 finally 删净,
    生产临时目录命令末尾 `rmdir`,失败补一次清理;任何日志不打印 token。
-5. **生产 checkout 必须含 `--export-all`**(否则拉回报"未找到导出边界标记")。
-   推送方向不依赖生产新代码(它只跑导入器);拉回方向依赖。
+5. **生产 checkout 必须含 `--export-all` 与 `__sync.core`**(否则拉回报"未找到导出边界标记"
+   或"一致数归零")。推送方向不依赖生产新代码;拉回方向与指纹一致性都依赖它。
+6. **默认归属范围 = 机主个人池 + 运营池**(读 `~/.wb-switch/pool-owner`)。生产库若有
+   他人账号,默认不会拉到开发机;全库对账须显式 `--all-owners`。
+7. **secrets 附属材料不参与指纹**:设备密钥、会话模板、zcode 原始凭据图等非凭证类
+   附属物变更不会被自动同步(core 四元组不含它们)。需要时人工重导覆盖。
 
 ## 7. 故障排查
 
@@ -128,3 +139,5 @@ node scripts/register-pool-sync-task.mjs --run-now
 | 号被"复活" | 在拉回窗口内删除 | 超窗口后不再复活;或人工清对端 |
 | 任务不跑 | 计划任务未注册 / 用户未登录 | `--query` 看状态;`--run-now` 试触发 |
 | 同步后签到侧异常 | `credVersion` 被频繁 bump | 确认指纹去重生效(相同内容不应写库) |
+| `一致=0` 且冲突全是 `差 0s` | 两端导出代码版本不同(一端无 `__sync.core`) | 把生产 checkout 拉到与本地同一 commit |
+| 某平台永远不同步 | `buildExportPayload` 缺该平台映射(如 2026-11-11 的 raccoon) | 补导出映射,并用 `--export-all` 的"被跳过"明细确认 |

@@ -2030,6 +2030,15 @@ export function buildExportPayload(
       if (creds.refreshToken) base['refreshToken'] = creds.refreshToken
       break
     }
+    case 'raccoon': {
+      // auth.json 形状 {access_token, refresh_token};导入侧只认顶层 token
+      // (RELAY_IMPORT_CREDENTIAL_SLOTS.raccoon = [{top:['token']}])。uid 由 JWT 的 sub 复现,
+      // 统一名由 applyExportNameFidelity 回填 name/phone ⇒ 不需要额外键。
+      // 2026-11-11 补:此前 default 直接拒出,导致小浣熊号永远无法参与跨环境同步。
+      base['token'] = creds.token
+      if (creds.refreshToken) base['refreshToken'] = creds.refreshToken
+      break
+    }
     case 'grokbot': {
       return 'grokbot 本机凭证为 sandSealedFile 密封串,无明文凭据可导出(解封方案未取证)'
     }

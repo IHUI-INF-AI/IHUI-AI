@@ -469,20 +469,26 @@ async function syncPullFromProd(options, deps) {
     process.stderr.write(`ℹ️ 生产库 ${provider} 无账号可拉回\n`)
     return 0
   }
-  // 按归属分组:owner=null 落运营池(不传 --owner);非空落该个人池
+  // 按归属分组:owner=null 落运营池(不传 --owner);非空落该个人池。
+  // 归属优先取 __sync.ownerUserId —— 2026-11-11 起导出改平台原生形状,元数据放 __sync。
   const groups = new Map()
   for (const a of accounts) {
-    const owner =
-      typeof a?.ownerUserId === 'string' && a.ownerUserId.trim() ? a.ownerUserId.trim() : null
+    const sync = a && typeof a === 'object' && a.__sync && typeof a.__sync === 'object' ? a.__sync : {}
+    const ownerRaw = sync.ownerUserId !== undefined ? sync.ownerUserId : a?.ownerUserId
+    const owner = typeof ownerRaw === 'string' && ownerRaw.trim() ? ownerRaw.trim() : null
     if (!groups.has(owner)) groups.set(owner, [])
     groups.get(owner).push(a)
   }
   let worst = 0
   for (const [owner, list] of groups) {
-    // 归属已由 --owner 显式传,载荷里剥掉 ownerUserId(避免未知字段进 extraMetadata)
+    // 归属已由 --owner 显式传,载荷里剥掉同步元数据(__sync/ownerUserId/updatedAt/providerCode),
+    // 避免未知字段进 extraMetadata 污染行
     const cleaned = list.map((a) => {
       const copy = { ...a }
       delete copy.ownerUserId
+      delete copy.__sync
+      delete copy.updatedAt
+      delete copy.providerCode
       return copy
     })
     const groupPayload = JSON.stringify({ providerCode: provider, accounts: cleaned })

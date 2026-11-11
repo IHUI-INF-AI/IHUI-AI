@@ -20,6 +20,9 @@
  * 用法:
  *   node scripts/relay-account-pool-sync.mjs [--apply|--dry-run]
  *     [--provider <code>]        只同步该平台(可重复给;缺省全平台)
+ *     [--owners <id,id>]         只同步这些 users.id 的个人池(缺省读 ~/.wb-switch/pool-owner)
+ *     [--all-owners]             同步全库所有归属(默认关闭:生产库可能有他人账号,
+ *                                全量拉回会把别人的号带进开发机 —— 安全边界,别随手开)
  *     [--push-only|--pull-only]  只推 / 只拉
  *     [--pull-window-days <n>]   「仅生产有」视为新增的时效窗口(缺省 7 天;更老的缺失
  *                                当作本地已删除,只报告不复活,避免删号被另一端拉回)
@@ -37,7 +40,7 @@ import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { runProcess } from './relay-account-pool.mjs'
 import { groupForImport, planPoolSync } from './lib/pool-sync-plan.mjs'
-import { maskPoolOwner } from './lib/pool-owner.mjs'
+import { maskPoolOwner, resolveDefaultPoolOwner } from './lib/pool-owner.mjs'
 import { RELAY_PROVIDER_CODES } from './lib/pool-providers.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -54,6 +57,8 @@ const HELP = `号池跨环境双向同步(本地库 ⇄ 生产库)
 用法:
   node scripts/relay-account-pool-sync.mjs [--apply|--dry-run]
     [--provider <code>]        只同步该平台(可重复给;缺省全平台)
+    [--owners <id,id>]         只同步这些 users.id 的个人池(缺省读 ~/.wb-switch/pool-owner)
+    [--all-owners]             同步全库所有归属(默认关闭:会把他人账号拉进开发机)
     [--push-only|--pull-only]  只推 / 只拉
     [--pull-window-days <n>]   「仅生产有」视为新增的时效窗口(缺省 7 天)
     [--if-dirty]               仅当脏标记存在才跑(计划任务用)
@@ -71,6 +76,8 @@ function parseArgs(argv) {
     apply: false,
     dryRun: true,
     providers: [],
+    owners: [],
+    allOwners: false,
     pushOnly: false,
     pullOnly: false,
     pullWindowDays: 7,
@@ -98,7 +105,14 @@ function parseArgs(argv) {
         return { options: null, error: `不支持的平台: ${v}(可选 ${RELAY_PROVIDER_CODES.join('|')})` }
       }
       if (!options.providers.includes(v)) options.providers.push(v)
-    } else if (arg === '--push-only') options.pushOnly = true
+    } else if (arg === '--owners') {
+      const v = (argv[++i] ?? '').trim()
+      if (!v) return { options: null, error: '--owners 需要逗号分隔的 users.id 列表' }
+      for (const id of v.split(',').map((x) => x.trim()).filter(Boolean)) {
+        if (!options.owners.includes(id)) options.owners.push(id)
+      }
+    } else if (arg === '--all-owners') options.allOwners = true
+    else if (arg === '--push-only') options.pushOnly = true
     else if (arg === '--pull-only') options.pullOnly = true
     else if (arg === '--pull-window-days') {
       const v = Number((argv[++i] ?? '').trim())
@@ -146,17 +160,22 @@ function extractExport(stdout) {
   return JSON.parse(text.slice(b + BEGIN.length, e).trim())
 }
 
-/** 把 --export-all 的 providers 分桶摊平成数组,逐账号补 providerCode。 */
+/** 把 --export-all 的 providers 分桶摊平成数组,平台代码写进 __sync(不污染原生载荷)。 */
 function flattenProviders(payload) {
   const out = []
   if (payload && payload.providers && typeof payload.providers === 'object') {
     for (const [code, bucket] of Object.entries(payload.providers)) {
-      for (const acc of bucket?.accounts ?? []) out.push({ ...acc, providerCode: code })
+      for (const acc of bucket?.accounts ?? []) {
+        out.push({ ...acc, __sync: { ...(acc.__sync ?? {}), providerCode: code } })
+      }
     }
     return out
   }
   if (payload && Array.isArray(payload.accounts) && payload.providerCode) {
-    return payload.accounts.map((a) => ({ ...a, providerCode: String(payload.providerCode) }))
+    return payload.accounts.map((a) => ({
+      ...a,
+      __sync: { ...(a.__sync ?? {}), providerCode: String(payload.providerCode) },
+    }))
   }
   return out
 }
@@ -183,9 +202,43 @@ async function snapshotProd(options) {
   return flattenProviders(extractExport(r.stdout))
 }
 
+/**
+ * 归属范围:默认只同步「机主个人池 + 运营池」。
+ *
+ * 立因(2026-11-11 实测):生产库 48 条 vs 本地 30 条 —— 生产是活库,里面可能有他人账号;
+ * 全量拉回会把别人的号带进开发机(数据边界问题),全量推送则会把开发机的测试号灌进生产。
+ * 所以默认读 ~/.wb-switch/pool-owner 锁定机主 id;确要全库对账必须显式 --all-owners。
+ */
+function resolveOwnerScope(options) {
+  if (options.allOwners) return null
+  const personal = new Set(options.owners)
+  if (personal.size === 0) {
+    const def = resolveDefaultPoolOwner()
+    if (def?.owner) personal.add(def.owner)
+  }
+  if (personal.size === 0) {
+    return {
+      error:
+        '归属未判定:带 --owners <users.id>,或在本机 ~/.wb-switch/pool-owner 写入本人 users.id' +
+        '(确要全库对账用 --all-owners)',
+    }
+  }
+  return { personal, includeOps: true }
+}
+
+/** 只保留范围内的归属;运营池(owner=null)默认包含。 */
+function filterByOwnerScope(accounts, scope) {
+  if (!scope) return accounts
+  return accounts.filter((a) => {
+    const owner =
+      typeof a.ownerUserId === 'string' && a.ownerUserId.trim() ? a.ownerUserId.trim() : null
+    if (owner === null) return scope.includeOps
+    return scope.personal.has(owner)
+  })
+}
+
 /** 按 owner 分组(导入器一次只吃一个归属,混批会把归属串台)。 */
-function groupByOwner(batches) {
-  const map = new Map()
+function groupByOwner(batches) {  const map = new Map()
   for (const b of batches) {
     const k = b.ownerUserId ?? 'ops'
     if (!map.has(k)) map.set(k, { ownerUserId: b.ownerUserId, batches: [] })
@@ -226,7 +279,17 @@ async function applyPull(batches, tsxCli, options) {
         failed += Number(m[5])
       }
       if (r.code !== 0 && !options.quiet) {
-        process.stderr.write(`⚠️ 拉回落库有失败(owner=${maskPoolOwner(group.ownerUserId)} 退出码 ${r.code})\n`)
+        // 不能只说"退出码 1":导入器的失败原因(校验/解密/归属)全在输出尾巴里,
+        // 吞掉它会让排障退化成猜谜 —— 打印最后 12 行,且不带任何 token(导入器本身不打印明文)。
+        const tail = `${r.stdout ?? ''}${r.error ?? ''}`
+          .split(/\r?\n/)
+          .map((l) => l.trim())
+          .filter(Boolean)
+          .slice(-12)
+          .join('\n')
+        process.stderr.write(
+          `⚠️ 拉回落库有失败(owner=${maskPoolOwner(group.ownerUserId)} 退出码 ${r.code})\n${tail}\n`,
+        )
       }
     } finally {
       fs.rmSync(dir, { recursive: true, force: true })
@@ -309,6 +372,7 @@ function emitReport(plan, options, extra) {
       uid: s.uid,
       updatedAt: s.updatedAt,
     })),
+    scope: extra.scopeDesc ?? null,
     providers: options.providers.length ? options.providers : 'all',
   }
   if (options.json) {
@@ -318,7 +382,7 @@ function emitReport(plan, options, extra) {
   if (options.quiet && plan.stats.toPush === 0 && plan.stats.toPull === 0 && extra.ok) return
   const head = options.dryRun ? '预检(不落库)' : '同步'
   process.stdout.write(
-    `${head}: 本地=${plan.stats.localTotal} 生产=${plan.stats.prodTotal} ` +
+    `${head}: 范围=${extra.scopeDesc ?? '-'} 本地=${plan.stats.localTotal} 生产=${plan.stats.prodTotal} ` +
       `待推=${plan.stats.toPush} 待拉=${plan.stats.toPull} 一致=${plan.stats.unchanged} 冲突=${plan.stats.conflicts}\n`,
   )
   for (const c of plan.conflicts.slice(0, 10)) {
@@ -365,11 +429,18 @@ async function main(argv) {
     return 2
   }
 
+  // 归属范围先定,避免把生产上他人账号拉进开发机(见 resolveOwnerScope 注释)
+  const scope = resolveOwnerScope(options)
+  if (scope?.error) {
+    process.stderr.write(`❌ ${scope.error}\n`)
+    return 2
+  }
+
   let local
   let prod
   try {
-    local = await snapshotLocal(tsxCli, options)
-    prod = await snapshotProd(options)
+    local = filterByOwnerScope(await snapshotLocal(tsxCli, options), scope)
+    prod = filterByOwnerScope(await snapshotProd(options), scope)
   } catch (e) {
     process.stderr.write(`❌ 快照失败(未判定,本轮不写任何库): ${e instanceof Error ? e.message : String(e)}\n`)
     return 2
@@ -398,7 +469,10 @@ async function main(argv) {
   }
 
   const ok = push.code === 0 && push.failed === 0 && pull.code === 0 && pull.failed === 0
-  emitReport(plan, options, { ok, push, pull })
+  const scopeDesc = options.allOwners
+    ? '全库'
+    : `个人池 ${[...scope.personal].map((o) => maskPoolOwner(o)).join(',')} + 运营池`
+  emitReport(plan, options, { ok, push, pull, scopeDesc })
 
   // 脏标记只在真正落库且无失败时清除:失败保留标记,下一轮自动重试
   if (!options.dryRun && ok) {

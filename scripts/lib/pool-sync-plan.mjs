@@ -33,33 +33,96 @@ export const DEFAULT_PULL_WINDOW_DAYS = 7
 /**
  * 归一化一条账号到同步比较用的最小充分形状。
  * 缺失/类型不符的字段一律降级为安全默认值,绝不 throw —— 同步器遇到脏行应继续处理其余行。
+ *
+ * 元数据优先从 `__sync` 命名空间取(导出器把 uid/owner/updatedAt/enabled 放这里,
+ * 避免污染平台原生载荷);旧简化形状没有 __sync 时回退到顶层字段,向后兼容。
  */
 export function normalizeSyncAccount(raw) {
-  const ownerRaw = raw?.ownerUserId
-  const owner =
-    typeof ownerRaw === 'string' && ownerRaw.trim() ? ownerRaw.trim() : null
+  const src = raw && typeof raw === 'object' ? raw : {}
+  const sync = src.__sync && typeof src.__sync === 'object' ? src.__sync : {}
+  const ownerRaw = sync.ownerUserId !== undefined ? sync.ownerUserId : src.ownerUserId
+  const owner = typeof ownerRaw === 'string' && ownerRaw.trim() ? ownerRaw.trim() : null
+  const enabledRaw = sync.enabled !== undefined ? sync.enabled : src.enabled
   return {
     ownerUserId: owner,
-    providerCode: String(raw?.providerCode ?? '').trim(),
-    uid: String(raw?.uid ?? '').trim(),
-    name: raw?.name == null ? '' : String(raw.name),
-    token: typeof raw?.token === 'string' ? raw.token : '',
-    refreshToken:
-      typeof raw?.refreshToken === 'string' && raw.refreshToken ? raw.refreshToken : '',
-    enabled: raw?.enabled !== false,
-    tokenExpiresAt: typeof raw?.tokenExpiresAt === 'string' ? raw.tokenExpiresAt : '',
-    updatedAt: typeof raw?.updatedAt === 'string' ? raw.updatedAt : '',
+    providerCode: String(sync.providerCode ?? src.providerCode ?? '').trim(),
+    uid: String(sync.uid ?? src.uid ?? '').trim(),
+    name: src.name == null ? '' : String(src.name),
+    enabled: enabledRaw !== false,
+    tokenExpiresAt: typeof src.tokenExpiresAt === 'string' ? src.tokenExpiresAt : '',
+    updatedAt: String(sync.updatedAt ?? src.updatedAt ?? ''),
+    /** 原始载荷(含平台原生字段),指纹与落库都以它为准。 */
+    payload: src,
   }
 }
 
+/** 稳定序列化:键排序,保证同一份内容在任何键序下得到同一哈希。 */
+function stableStringify(value) {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value) ?? 'null'
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`
+  const keys = Object.keys(value).sort()
+  return `{${keys.map((k) => `${JSON.stringify(k)}:${stableStringify(value[k])}`).join(',')}}`
+}
+
 /**
- * 凭证指纹:只覆盖"会导致上游行为变化"的字段。
- * 用 sha256 截 16 位即可 —— 这是去重判据,不是安全边界。
+ * 剥掉"展示类 / 易变"字段:这些键不参与指纹。
+ *
+ * 立因(2026-11-11 实测教训):第一版用整载荷哈希,结果两端 name 不同(name 是展示名,
+ * 导入器有"只接受权威名"的保护,不会无条件覆盖)⇒ 每轮都判定"内容不同"→ 无限乒乓。
+ * 同步只该传播**凭证与业务状态**,展示名各自保留更合适。
+ */
+function stripVolatile(value) {
+  if (Array.isArray(value)) return value.map(stripVolatile)
+  if (value && typeof value === 'object') {
+    const out = {}
+    for (const [k, v] of Object.entries(value)) {
+      // 展示名(导入器有"只接受权威名"保护,不会无条件覆盖,纳入必然乒乓)
+      // + 同步元数据(时间/归属/平台已在键里,纳入会让每轮都判"不同")
+      if (/^(name|displayName|nickname|label|remark|note|updatedAt|ownerUserId|providerCode|__sync)$/i.test(k)) continue
+      out[k] = stripVolatile(v)
+    }
+    return out
+  }
+  return value
+}
+
+/**
+ * 凭证指纹 =
+ *   ① 有 `__sync.core`(2026-11-11 起的导出)⇒ 业务核心四元组哈希:
+ *      token / refreshToken / tokenExpiresAt / enabled;
+ *   ② 没有 core(旧简化形状)⇒ 整载荷稳定哈希(剥掉展示名与同步元数据)兜底。
+ *
+ * 为什么不用整载荷哈希:平台原生载荷含 sourcePath / region / rawCredentials 这类
+ * **本机环境字段**,两端天然不同 ⇒ 会把"其实一致"判成冲突(2026-11-11 实测一致数归零,
+ * 每轮全量互推)。号池的实质是"凭证能不能用",四元组就是它的最小充分表示。
+ *
+ * 已知取舍:secrets 里非凭证类的附属材料(设备密钥、会话模板)变更不参与指纹,
+ * 因此不会被自动同步;需要时人工重导覆盖(见 docs/engineering/account-pool-cross-env-sync.md)。
  */
 export function credentialFingerprint(account) {
-  const a = normalizeSyncAccount(account)
+  const raw =
+    account && typeof account === 'object' && account.payload ? account.payload : account
+  const src = raw && typeof raw === 'object' ? raw : {}
+  const meta = src.__sync && typeof src.__sync === 'object' ? src.__sync : {}
+  const enabledBit = (meta.enabled !== undefined ? meta.enabled : src.enabled) !== false ? 1 : 0
+  const core = meta.core && typeof meta.core === 'object' ? meta.core : null
+  if (core) {
+    return createHash('sha256')
+      .update(
+        stableStringify([
+          String(core.token ?? ''),
+          String(core.refreshToken ?? ''),
+          String(core.tokenExpiresAt ?? ''),
+          enabledBit,
+        ]),
+      )
+      .digest('hex')
+      .slice(0, 16)
+  }
+  const { __sync: _ignored, ...rest } = src
+  void _ignored
   return createHash('sha256')
-    .update(JSON.stringify([a.token, a.refreshToken, a.enabled ? 1 : 0, a.tokenExpiresAt]))
+    .update(`${stableStringify(stripVolatile(rest))}|enabled:${enabledBit}`)
     .digest('hex')
     .slice(0, 16)
 }
@@ -197,17 +260,21 @@ export function planPoolSync({
 export function groupForImport(items) {
   const buckets = new Map()
   for (const item of items) {
-    const a = normalizeSyncAccount(item.account ?? item)
+    const raw = item && typeof item === 'object' && item.account ? item.account : item
+    const a = normalizeSyncAccount(raw)
     const bucketKey = `${a.ownerUserId ?? OPS_OWNER}|${a.providerCode}`
     if (!buckets.has(bucketKey)) {
       buckets.set(bucketKey, { ownerUserId: a.ownerUserId, providerCode: a.providerCode, accounts: [] })
     }
-    // 剥掉同步元字段:updatedAt 不是导入字段,留着会进 extraMetadata 污染行;
-    // ownerUserId 由命令行显式传(否则归属判定会走另一条路径)。
-    const { updatedAt: _dropUpdatedAt, ownerUserId: _dropOwner, ...rest } = a
-    void _dropUpdatedAt
-    void _dropOwner
-    buckets.get(bucketKey).accounts.push(rest)
+    // 剥掉同步元数据(含旧简化形状的顶层字段):导入器只认平台原生字段,
+    // 多一个键就会进 extraMetadata 污染行;归属与平台由命令行/文件顶层显式给。
+    const { __sync, updatedAt, ownerUserId, providerCode, ...payload } =
+      raw && typeof raw === 'object' ? raw : {}
+    void __sync
+    void updatedAt
+    void ownerUserId
+    void providerCode
+    buckets.get(bucketKey).accounts.push(payload)
   }
   return [...buckets.values()]
 }
