@@ -879,8 +879,10 @@ function replayLine(m) {
   return `${who}:${raw}`
 }
 
-/** 回放文本总长上限(字符)。超出则头尾保留、中间省略,防止单条消息超限 invalid param */
-export const REPLAY_TEXT_MAX_CHARS = 300_000
+/** 回放文本总长上限(字符)。超出则头尾保留、中间省略,防止单条消息超限 invalid param
+ *  2026-11-11 二分实测:260K 字符过、264K 字符被拒(common invalid param),
+ *  服务端上限疑为 262144(256K);取 200K 留足余量。 */
+export const REPLAY_TEXT_MAX_CHARS = 200_000
 
 /**
  * 旧对话 → 单条回放文本(结构清晰,供新会话里 AI/人共同读)。
