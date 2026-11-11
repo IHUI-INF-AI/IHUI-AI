@@ -160,14 +160,14 @@ async function blacklistToken(
 
 /**
  * 黑名单叠加判定:introspection 必须反映吊销结果,否则"revoked 但仍 active"。
- * Redis 异常时按 **未吊销** 处理并记日志 —— 与 `TokenBlacklist.has` 的默认 fail-open 一致,
- * 避免 Redis 抖动把所有 token 都判成 inactive(那等于全站登出)。
+ * 与 `TokenBlacklist.has` 的默认 fail-closed 一致:Redis 异常或 has 本身抛错时
+ * 按 **已吊销** 拒绝,不把查不到的吊销状态当成未吊销。
  */
 async function isBlacklisted(server: FastifyRequest['server'], token: string): Promise<boolean> {
   try {
     return await new TokenBlacklist(server.redis).has(token)
   } catch {
-    return false
+    return true
   }
 }
 

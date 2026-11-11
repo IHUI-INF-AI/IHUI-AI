@@ -47,7 +47,9 @@ describe('F-605 异常检测身份上下文', () => {
   it('钩子排在 authenticate 之后:检测器拿到真实 userId', async () => {
     const app = Fastify({ logger: false })
     app.decorateRequest('anomalyScore', 0)
-    app.decorateRequest('anomalyReasons', [] as string[])
+    // Fastify 5 拒绝引用类型默认值(数组/对象),必须用 getter/setter 或 null 占位;
+    // 插件在运行期直接赋值 request.anomalyReasons,占位值只需可写。
+    app.decorateRequest('anomalyReasons', null as unknown as string[])
     await app.register(anomalyDetectorPlugin)
     app.get(
       '/api/protected',
@@ -73,7 +75,7 @@ describe('F-605 异常检测身份上下文', () => {
     detect.result = { score: 70, recommendation: 'challenge', reasons: ['geo'], dimensions: [] }
     const app = Fastify({ logger: false })
     app.decorateRequest('anomalyScore', 0)
-    app.decorateRequest('anomalyReasons', [] as string[])
+    app.decorateRequest('anomalyReasons', null as unknown as string[])
     await app.register(anomalyDetectorPlugin)
     let handlerRuns = 0
     app.get(

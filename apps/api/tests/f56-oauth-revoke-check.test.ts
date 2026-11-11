@@ -36,9 +36,11 @@ describe('F-56 OAuth 授权面叠加吊销检查', () => {
     expect(oauthSrc).not.toMatch(/introspectAccessToken\(bearer\.slice/)
   })
 
-  it('Redis 不可用时保持与 authenticate 一致的放行口径', () => {
-    // 放行口径落在唯一出口 auth.ts 上,授权面不再自带一份
-    expect(authSrc).toContain('if (!blacklist) return false')
+  it('黑名单建不起来时按已吊销拒绝,与 authenticate 同一口径', () => {
+    // 失败闭合落在唯一出口 auth.ts 上,授权面不再自带一份
+    expect(authSrc).toContain('if (!blacklist) return true')
+    expect(authSrc).toContain('if (!blacklist || (await blacklist.has(token)))')
+    expect(authSrc).not.toContain('if (!blacklist) return false')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
