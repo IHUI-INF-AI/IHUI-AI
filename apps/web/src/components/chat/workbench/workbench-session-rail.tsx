@@ -45,7 +45,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { ConfirmDialog } from '@/components/feedback/ConfirmDialog'
@@ -302,7 +301,6 @@ function RailRowMenu({
           <Archive className="mr-2 h-3.5 w-3.5" aria-hidden />
           {t('actions.archive')}
         </DropdownMenuItem>
-        <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={onDelete} className="text-destructive">
           <Trash2 className="mr-2 h-3.5 w-3.5" aria-hidden />
           {t('actions.delete')}

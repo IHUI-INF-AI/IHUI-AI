@@ -15,7 +15,6 @@ export interface DropdownItem {
   icon?: React.ComponentType<{ className?: string }>
   disabled?: boolean
   danger?: boolean
-  divider?: boolean
   onSelect?: () => void
   // 2026-09-21 新增:子菜单(Qoder 风格"语言 >"/"下载客户端 >")
   children?: DropdownItem[]
@@ -41,14 +40,11 @@ function ItemBody({ item }: { item: DropdownItem }) {
   )
 }
 
-/** 递归渲染 items:普通项 / 分隔线 / 子菜单(children) */
+/** 递归渲染 items:普通项 / 子菜单(children) */
 function DropdownItems({ items }: { items: DropdownItem[] }) {
   return (
     <>
       {items.map((item) => {
-        if (item.divider) {
-          return <DropdownMenu.Separator key={item.key} className="my-1 h-px bg-muted" />
-        }
         if (item.children?.length) {
           return (
             <DropdownMenu.Sub key={item.key}>
