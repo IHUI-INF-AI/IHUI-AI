@@ -75,6 +75,10 @@ describe('M1 D73 消费点:容器在宿主里被真的渲染(拦「件在库零�
     expect(host.match(/<PaneSplitContainer\b/g) ?? []).toHaveLength(1)
   })
 
+  it('分屏渲染必须排除浮窗档(360px 里再分栏每栏不足 170px,输入框必溢出)', () => {
+    expect(host).toMatch(/d73Expanded\s*&&\s*!floatMode\s*\?/)
+  })
+
   it('两个委托 prop 都真的传了(renderPaneContent + onForkConversation)', () => {
     expect(host).toContain('renderPaneContent=')
     expect(host).toContain('onForkConversation=')
