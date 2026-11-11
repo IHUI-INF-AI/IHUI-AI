@@ -5,10 +5,8 @@
 -->
 
 # PROJECT_PLAN 副本行物理归并留痕(G-1102638)
-
 > 每条 = 删除行原文逐字留痕(守门 71 归档豁免按「原文可在本目录 PROJECT_PLAN_*.md 找到」成立)。
 > 行已真删(机主拍板〔拍板@2026-10-08 机主:真删+立即执行〕),本文件是唯一账外副本,git 历史亦可溯。
-
 - L6032 [pointer-row] → 归档 PROJECT_PLAN_2026-09-23_bulk-archive.md:L1841 (head refs/heads/)
 - [ ] 副本指针(编号 62)：同主键第二份未勾选副本,只加指针不动勾选;当前状态见带 v3wave3 租约的那条(该条写明 ChatSearchBar 前提被推翻与 use-chat-search 投影现场)。
 - L6033 [pointer-row] → 归档 PROJECT_PLAN_2026-09-28_auto-archive.md:L6863 (head refs/heads/)

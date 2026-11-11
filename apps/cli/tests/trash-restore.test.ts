@@ -193,8 +193,12 @@ describe('③ 未判定档:不删不写不冒充成功(§0.3)', () => {
     plantTrash('z2-multi', { originalPath: path.resolve(ws, 'a.txt'), relativeTrashPath: '0-a.txt', sizeBytes: 1, kind: 'file' }, Buffer.from('a'));
     const second = path.join(trashDirOf('z2-multi'), 'manifest.json');
     const m = JSON.parse(fs.readFileSync(second, 'utf-8')) as TrashManifest;
-    m.entries = [...m.entries, { originalPath: path.resolve(ws, 'b.txt'), relativeTrashPath: '1-b.txt', sizeBytes: 1, kind: 'file' }];
-    fs.writeFileSync(second, JSON.stringify(m), 'utf-8');
+    // entries 是 readonly 面 ⇒ 造一份新的清单对象,不原地改写
+    const m2: TrashManifest = {
+      ...m,
+      entries: [...m.entries, { originalPath: path.resolve(ws, 'b.txt'), relativeTrashPath: '1-b.txt', sizeBytes: 1, kind: 'file' }],
+    };
+    fs.writeFileSync(second, JSON.stringify(m2), 'utf-8');
     const r = restoreFromTrash(ws, 'z2-multi');
     expect(r.ok).toBe(false);
     expect(r.code).toBe('no-such-entry');

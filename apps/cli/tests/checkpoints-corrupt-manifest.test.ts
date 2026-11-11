@@ -2,13 +2,13 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest'
+import { describe, expect, it, beforeEach, afterEach, vi, type Mock } from 'vitest'
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import { CheckpointManager } from '../src/checkpoints/index.js'
 import { HunkCheckpointManager } from '../src/checkpoints/hunks.js'
-import { quarantineManifest } from '../src/checkpoints/manifest-integrity.js'
+import { quarantineManifest, type CorruptManifestEntry } from '../src/checkpoints/manifest-integrity.js'
 
 /**
  * G-671(2026-10-01)checkpoint manifest 损坏隔离 —— 票面验收:
@@ -21,7 +21,7 @@ describe('G-671 checkpoint manifest 损坏隔离', () => {
   let workspaceDir: string
   let baseDir: string
   let mgr: CheckpointManager
-  let warnSpy: ReturnType<typeof vi.fn>
+  let warnSpy: Mock<(entry: CorruptManifestEntry) => void>
 
   const makeCpDir = (id: string, manifestContent: string | null) => {
     const dir = path.join(baseDir, id)
@@ -37,7 +37,7 @@ describe('G-671 checkpoint manifest 损坏隔离', () => {
     baseDir = path.join(os.homedir(), '.ihui', 'checkpoints', sid)
     fs.mkdirSync(baseDir, { recursive: true })
     workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-g671-'))
-    warnSpy = vi.fn()
+    warnSpy = vi.fn<(entry: CorruptManifestEntry) => void>()
     mgr = new CheckpointManager({
       sessionId: sid,
       workspacePath: workspaceDir,

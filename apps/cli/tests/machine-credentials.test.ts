@@ -261,7 +261,7 @@ describe('token-manager 续期隔离(机器凭据不写 refresh、不打网络)'
     const expired = makeJwt(Math.floor(Date.now() / 1000) - 60);
     writeSettings({ apiKey: expired, refreshToken: 'rt-old', defaultModel: 'm-keep' });
     const fresh = makeJwt(Math.floor(Date.now() / 1000) + 7200);
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn<(input: unknown, init?: unknown) => Promise<Response>>(async () =>
       new Response(
         JSON.stringify({
           code: 0,
@@ -514,7 +514,9 @@ describe('ihui serve 入站鉴权:agent token 或机器凭据透传', () => {
     expect(d.ok).toBe(true);
     if (d.ok) {
       expect(d.subject).toBe('machine-key');
-      expect(d.scopes).toContain('chat:read');
+      if (d.subject === 'machine-key') {
+        expect(d.scopes).toContain('chat:read');
+      }
     }
   });
 

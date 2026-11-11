@@ -84,13 +84,20 @@ const runStaged = (cwd) => runScript(cwd, ['--staged'])
 
 // ─────────── 判据直连(走源脚本 `__test__`,不复算) ───────────
 
-test('H01 判据:三型结构件各一例放过(语义分隔件 / 导引轨 / 可拖拽分隔器)', () => {
+test('H01 判据:三型结构件各一例放过(交互式手柄 / 导引轨 / 可拖拽分隔器)+ 裸 role=separator 判红(2026-11-11 收窄)', () => {
+  // 型①收窄后:role="separator" 必须同时带拖拽交互特征才放过(菜单线那一型不再豁免)
   const semantic = gate.scanSource(
     'apps/web/src/components/ui/dropdown-menu.tsx',
-    'const S = () => <div role="separator" className="-mx-1 my-1 h-px bg-border" />\n',
+    'const S = () => <div role="separator" aria-orientation="horizontal" tabIndex={0} className="-mx-1 my-1 h-px bg-border" />\n',
   ).hits[0]
   assert.equal(semantic?.kind, 'exempt', JSON.stringify(semantic))
   assert.equal(semantic?.type, 'semantic-separator')
+  // 反向锁:同形状去掉交互特征(裸 role=separator 纯线)⇒ divider,旧豁免不许复活
+  const bare = gate.scanSource(
+    'apps/web/src/components/ui/dropdown-menu.tsx',
+    'const S = () => <div role="separator" className="-mx-1 my-1 h-px bg-border" />\n',
+  )
+  assert.equal(gate.countDividers(bare), 1, JSON.stringify(bare.hits))
 
   const rail = gate.scanSource(
     'apps/web/app/(main)/agent-workbench/components/SessionTree.tsx',
@@ -214,10 +221,10 @@ test('H06 全量档:存量只报数、exit 0(§12e 存量未清不得判红)', (
   }
 })
 
-test('H07 全量档:三型结构件在报告里带"凭什么放过"的原话', () => {
+test('H07 全量档:交互式手柄在报告里带"凭什么放过"的原话;裸 role=separator 入存量账(2026-11-11 收窄)', () => {
   const dir = createRepo({
     'apps/web/app/x/page.tsx':
-      'export function P() {\n  return <div role="separator" className="my-1 h-px bg-border" />\n}\n',
+      'export function P() {\n  return (\n    <div>\n      <div role="separator" aria-orientation="horizontal" onPointerDown={grab} className="my-1 h-px bg-border" />\n      <div role="separator" className="my-1 h-px bg-border" />\n    </div>\n  )\n}\n',
   })
   try {
     const r = runHead(dir)
@@ -225,8 +232,9 @@ test('H07 全量档:三型结构件在报告里带"凭什么放过"的原话', (
     const out = plain(r.stdout)
     assert.match(out, /\[放过\]/, `结构件应被点名放过\n${out}`)
     assert.match(out, /semantic-separator/)
-    assert.match(out, /ARIA 语义分隔件/, '必须给出指纹原话,否则复核无从下手')
-    assert.match(out, /真分隔线 存量 0 枚 新增 0 枚/)
+    assert.match(out, /交互式手柄/, '必须给出收窄后的指纹原话,否则复核无从下手')
+    // 反向锁:同文件去掉交互特征的裸 role=separator 纯线不再豁免 ⇒ 必须入存量账
+    assert.match(out, /真分隔线 存量 1 枚 新增 0 枚/)
   } finally {
     rmScratch(dir)
   }
@@ -304,17 +312,26 @@ test('H11 staged:比 HEAD 多加一条 ⇒ exit 1;减一条(清偿)⇒ exit 0', 
   }
 })
 
-test('H12 staged:三型结构件新增不拦(否则型①就是恒红门)', () => {
+test('H12 staged:交互式手柄新增不拦(否则型①就是恒红门);菜单线新增照拦(2026-11-11 收窄反向锁)', () => {
   const dir = createRepo({ 'apps/web/app/x/page.tsx': 'export const z = 1\n' })
   try {
+    // 正向锁:型①收窄后,带拖拽交互特征的 role="separator" 手柄新增不拦
     stage(
       dir,
       'apps/web/app/y/page.tsx',
-      'export function Q() {\n  return <div role="separator" className="my-1 h-px bg-border" />\n}\n',
+      'export function Q() {\n  return <div role="separator" aria-orientation="horizontal" onPointerDown={grab} className="my-1 h-px bg-border" />\n}\n',
     )
     const r = runStaged(dir)
-    assert.equal(r.status, 0, `语义分隔件不该拦\n${plain(r.stdout)}`)
+    assert.equal(r.status, 0, `交互式手柄不该拦\n${plain(r.stdout)}`)
     assert.match(plain(r.stdout), /semantic-separator/)
+    // 反向锁(2026-11-11 收窄):同形状去掉交互特征(菜单线那一型)⇒ 新文件基线 0,必须拦
+    stage(
+      dir,
+      'apps/web/app/z/page.tsx',
+      'export function R() {\n  return <DropdownMenuSeparator className="-mx-1 my-1 h-px bg-border" />\n}\n',
+    )
+    const r2 = runStaged(dir)
+    assert.equal(r2.status, 1, `菜单分隔线新增必须拦\n${plain(r2.stdout)}`)
   } finally {
     rmScratch(dir)
   }
@@ -400,7 +417,13 @@ test('H17 两把尺子合一:同一枚发丝线在 11d 族 7 与本门同一判�
   expectHit('<div className="h-px bg-border" />\n', 'h-px')
   expectHit('<div className="w-px bg-border" />\n', 'w-px')
 
-  expectExempt('<div role="separator" className="h-px bg-border" />\n', 'h-px', 'semantic-separator')
+  // 2026-11-11 收窄:型①只认带拖拽交互特征的手柄;裸 role="separator" 纯线两边同一判 divider
+  expectExempt(
+    '<div role="separator" aria-orientation="horizontal" tabIndex={0} className="h-px bg-border" />\n',
+    'h-px',
+    'semantic-separator',
+  )
+  expectHit('<div role="separator" className="h-px bg-border" />\n', 'h-px')
   expectExempt(
     '<div className="absolute top-0 bottom-0 w-px bg-border" />\n',
     'w-px',

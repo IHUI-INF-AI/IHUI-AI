@@ -119,6 +119,7 @@ beforeEach(() => {
     assistantText: 'task done',
     iterations: 1,
     usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0, estimatedCostUsd: 0 },
+    branchGeneration: 0,
   });
 
   clearTools();
@@ -328,6 +329,7 @@ describe('isolation=worktree — git worktree 隔离生命周期', () => {
       assistantText: '',
       iterations: 1,
       usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0, estimatedCostUsd: 0 },
+      branchGeneration: 0,
     });
     const tool = createSubagentTool(baseParentOpts);
     await tool.execute({ task: 'wt fail', isolation: 'worktree' }, { workspacePath: '/test-ws' });
@@ -475,6 +477,7 @@ describe('SubagentStart/SubagentStop hook 埋点', () => {
       assistantText: '',
       iterations: 0,
       usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0, estimatedCostUsd: 0 },
+      branchGeneration: 0,
     });
     const tool = createSubagentTool(baseParentOpts);
     await tool.execute({ task: 'empty' }, { workspacePath: '/test-ws' });

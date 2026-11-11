@@ -80,7 +80,7 @@ describe('内容绑定档:第一次批准建立绑定,同内容之后才由租�
     const tool = makeTool('write')
     registerTools([tool])
     const confirm = vi.fn(async () => true)
-    const ctx = { permissions: { ask: ['write_file'] }, confirmDangerous: confirm }
+    const ctx = { workspacePath: '.', permissions: { ask: ['write_file'] }, confirmDangerous: confirm }
 
     // ① 尚无绑定 ⇒ 执行入口必须问人(不是静默放宽,也不是静默拒绝)
     const first = await executeToolCall({ name: 'write_file', arguments: APPROVED }, ctx)
@@ -125,7 +125,7 @@ describe('内容绑定档:第一次批准建立绑定,同内容之后才由租�
     const tool = makeTool('write')
     registerTools([tool])
     const confirm = vi.fn(async () => true)
-    const ctx = { permissions: { ask: ['write_file'] }, confirmDangerous: confirm }
+    const ctx = { workspacePath: '.', permissions: { ask: ['write_file'] }, confirmDangerous: confirm }
     expect(
       recordApprovedInvocation({
         toolName: 'write_file',
@@ -149,7 +149,7 @@ describe('租约摘要漂移 ⇒ 执行入口必须重新要确认', () => {
     const confirm = vi.fn(async () => false)
     const r = await executeToolCall(
       { name: 'write_file', arguments: APPROVED },
-      { permissions: { ask: ['write_file'] }, confirmDangerous: confirm },
+      { workspacePath: '.', permissions: { ask: ['write_file'] }, confirmDangerous: confirm },
     )
     expect(r.success).toBe(true)
     expect(tool.execute).toHaveBeenCalledTimes(1)
@@ -162,7 +162,7 @@ describe('租约摘要漂移 ⇒ 执行入口必须重新要确认', () => {
     registerTools([tool])
     const r = await executeToolCall(
       { name: 'write_file', arguments: { path: 'src/a.ts', text: '被改过的内容' } },
-      { permissions: { ask: ['write_file'] } },
+      { workspacePath: '.', permissions: { ask: ['write_file'] } },
     )
     expect(r.success).toBe(false)
     expect(String(r.error)).toContain('摘要漂移')
@@ -176,7 +176,7 @@ describe('租约摘要漂移 ⇒ 执行入口必须重新要确认', () => {
     const confirm = vi.fn(async () => true)
     const r = await executeToolCall(
       { name: 'write_file', arguments: { path: 'src/a.ts', text: '改后再批' } },
-      { permissions: { ask: ['write_file'] }, confirmDangerous: confirm },
+      { workspacePath: '.', permissions: { ask: ['write_file'] }, confirmDangerous: confirm },
     )
     expect(r.success).toBe(true)
     expect(confirm).toHaveBeenCalledTimes(1)
@@ -189,7 +189,7 @@ describe('租约摘要漂移 ⇒ 执行入口必须重新要确认', () => {
     const confirm = vi.fn(async () => false)
     const r = await executeToolCall(
       { name: 'write_file', arguments: APPROVED },
-      { permissions: { allow: ['write_file'] }, confirmDangerous: confirm },
+      { workspacePath: '.', permissions: { allow: ['write_file'] }, confirmDangerous: confirm },
     )
     expect(r.success).toBe(true)
     expect(confirm).not.toHaveBeenCalled()
@@ -204,13 +204,13 @@ describe('租约摘要漂移 ⇒ 执行入口必须重新要确认', () => {
     // 摘要漂移三处拦)⇒ 这一步不是"被拒",只是"不再走租约放宽"。真正的再授权证明在下面。
     const withoutLease = await executeToolCall(
       { name: 'write_file', arguments: APPROVED },
-      { permissions: { ask: ['write_file'] } },
+      { workspacePath: '.', permissions: { ask: ['write_file'] } },
     )
     expect(withoutLease.success).toBe(true)
     grant()
     const ok = await executeToolCall(
       { name: 'write_file', arguments: APPROVED },
-      { permissions: { ask: ['write_file'] } },
+      { workspacePath: '.', permissions: { ask: ['write_file'] } },
     )
     expect(ok.success).toBe(true)
     expect(tool.execute).toHaveBeenCalledTimes(2)

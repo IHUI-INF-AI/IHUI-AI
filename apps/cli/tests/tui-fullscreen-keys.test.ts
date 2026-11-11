@@ -377,9 +377,10 @@ describe('createLocalHost —— 取消必须能打断在飞请求', () => {
     const p = host.send('hi', () => {}, outer.signal)
     await Promise.resolve()
     expect(seen).not.toBeNull()
-    expect(seen?.aborted).toBe(false)
+    // seen 只在 core 闭包里被赋值,外层流分析读不到 ⇒ 经显式 cast 取回声明类型面
+    expect((seen as AbortSignal | null)?.aborted).toBe(false)
     host.cancel()
-    expect(seen?.aborted).toBe(true)
+    expect((seen as AbortSignal | null)?.aborted).toBe(true)
     await p
   })
 
@@ -396,7 +397,7 @@ describe('createLocalHost —— 取消必须能打断在飞请求', () => {
     const outer = new AbortController()
     outer.abort()
     await host.send('hi', () => {}, outer.signal)
-    expect(seen?.aborted).toBe(true)
+    expect((seen as AbortSignal | null)?.aborted).toBe(true)
   })
 
   it('core 抛错时 send 把错误冒给会话层(不吞 = 画面会留一条 error 交代)', async () => {

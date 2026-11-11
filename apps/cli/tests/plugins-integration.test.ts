@@ -81,7 +81,9 @@ describe('PluginRegistry.runHook 集成', () => {
       name: 'filtered-plugin',
       version: '1.0.0',
       hooks: ['preToolCall:write_file'], // 只关心 write_file 的 preToolCall
-      onHook: (event) => calls.push(event),
+      onHook: (event) => {
+        calls.push(event);
+      },
     });
     // 触发 preToolCall:write_file(应匹配)
     await registry.runHook('preToolCall', { toolName: 'write_file' });
@@ -96,7 +98,9 @@ describe('PluginRegistry.runHook 集成', () => {
       name: 'pre-only',
       version: '1.0.0',
       hooks: ['preToolCall'],
-      onHook: (event) => calls.push(event),
+      onHook: (event) => {
+        calls.push(event);
+      },
     });
     await registry.runHook('postToolCall', { toolName: 'write_file' });
     expect(calls).toEqual([]);
@@ -127,19 +131,25 @@ describe('PluginRegistry.runHook 集成', () => {
       name: 'a',
       version: '1.0.0',
       hooks: ['preToolCall'],
-      onHook: () => calls.push('a'),
+      onHook: () => {
+        calls.push('a');
+      },
     });
     registry.register({
       name: 'b',
       version: '1.0.0',
       hooks: ['preToolCall'],
-      onHook: () => calls.push('b'),
+      onHook: () => {
+        calls.push('b');
+      },
     });
     registry.register({
       name: 'c',
       version: '1.0.0',
       hooks: ['postToolCall'], // 不匹配 preToolCall
-      onHook: () => calls.push('c'),
+      onHook: () => {
+        calls.push('c');
+      },
     });
     const n = await registry.runHook('preToolCall', { toolName: 'x' });
     expect(n).toBe(2);
@@ -378,8 +388,12 @@ describe('Plugin 全流程集成:loadPlugins + registerAll + runSetups + runHook
       name: 'prog-plug',
       version: '1.0.0',
       hooks: ['preToolCall'],
-      setup: () => calls.push('setup'),
-      onHook: (event) => calls.push(`hook:${event}`),
+      setup: () => {
+        calls.push('setup');
+      },
+      onHook: (event) => {
+        calls.push(`hook:${event}`);
+      },
     };
     registry.register(def);
     const failed = await registry.runSetups();

@@ -419,7 +419,7 @@ export default function AgentPlanProgressPage() {
               <li key={p.plan_id}>
                 <button
                   onClick={() => openRecent(p)}
-                  className="w-full rounded-sm border p-3 text-left transition hover:border-primary/50 hover:bg-muted/30"
+                  className="w-full rounded-sm border border-input p-3 text-left transition hover:border-primary/50 hover:bg-muted/30"
                 >
                   <div className="mb-1 flex items-center justify-between gap-3">
                     <code className="truncate rounded bg-muted px-1.5 py-0.5 text-label text-muted-foreground">
