@@ -10,6 +10,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { EventEmitter } from 'node:events';
+import { Readable } from 'node:stream';
 import type { ChildProcess } from 'node:child_process';
 import { mkScratch, rmScratch } from '../../../scripts/lib/scratch-dir.mjs'; // arch-exempt: 测试夹具只能取 §26 唯一落点(禁 os.tmpdir/裸 mkdtemp),属测试面而非生产依赖边;正解=给"测试支持层"在策略表建档并降到 apps 之下 until 2026-12-28
 import {
@@ -150,7 +151,7 @@ describe('后台任务注册表', () => {
       expect(meta.status).toBe('exited');
       expect(meta.startedAt).toBeDefined();
       // 元数据不应包含 stdoutBuf
-      expect((meta as Record<string, unknown>).stdoutBuf).toBeUndefined();
+      expect(meta).not.toHaveProperty('stdoutBuf');
     });
   });
 
@@ -753,11 +754,11 @@ describe('G-937958 notified claim 时序(读已完成任务不预支 claim)', ()
 // ==================== G-937959 输出投影:运行中头窗 / 终态尾窗 ====================
 
 describe('G-937959 输出投影(运行中读头、终态读尾、省略量入账)', () => {
-  function fakeChild(): ChildProcess {
+  function fakeChild(): ChildProcess & { stdout: Readable; stderr: Readable } {
     // 与注册表的捕获面同形:process.stdout?.on('data') / stderr 同 —— 流也得是 EventEmitter
-    const child = new EventEmitter() as unknown as ChildProcess & { stdout: EventEmitter; stderr: EventEmitter };
-    child.stdout = new EventEmitter();
-    child.stderr = new EventEmitter();
+    const child = new EventEmitter() as unknown as ChildProcess & { stdout: Readable; stderr: Readable };
+    child.stdout = new Readable({ read() {} });
+    child.stderr = new Readable({ read() {} });
     return child;
   }
   const TAIL_CAP = 1024 * 1024;

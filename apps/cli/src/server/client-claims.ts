@@ -246,7 +246,12 @@ async function httpProbe(port: number, timeoutMs = 300): Promise<{ generation?: 
  */
 export async function discoverLiveClaims(
   root: string = getIhuiRoot(),
-  opts: ClaimCheckOptions = {},
+  opts: Omit<ClaimCheckOptions, 'probeEndpoint'> & {
+    /** 发现侧先把探测 await 成同步快照再交给判据(selectLiveEndpoints 面仍要求同步),故这里接受 async 探针 */
+    readonly probeEndpoint?:
+      | ((port: number) => { generation?: string } | null)
+      | ((port: number) => Promise<{ generation?: string } | null>);
+  } = {},
 ): Promise<DiscoverResult> {
   const { claims, broken } = readClaims(root);
   const scanned = claims.length + broken.length;
