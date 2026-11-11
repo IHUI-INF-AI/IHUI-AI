@@ -21,6 +21,7 @@ import type { FastifyPluginAsync, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import { randomBytes } from 'node:crypto'
 import { checkAuth } from '../plugins/auth.js'
+import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
 
 // ============================================================================
@@ -163,8 +164,8 @@ export const callbackLogRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // GET /callback-log/list — 回调日志列表（支持 biz_type/source/status 过滤 + 分页）
-  server.get('/list', async (request, reply) => {
-    if (!(await checkAuth(request, reply))) return
+  // F-71: 日志为全站维度（无 userId 归属），读/删一律管理员专属。
+  server.get('/list', { preHandler: requireAdmin }, async (request, reply) => {
     const query = z
       .object({
         biz_type: z.string().optional(),
@@ -193,8 +194,7 @@ export const callbackLogRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // GET /callback-log/:id — 回调详情（含请求/响应体）
-  server.get('/:id', async (request, reply) => {
-    if (!(await checkAuth(request, reply))) return
+  server.get('/:id', { preHandler: requireAdmin }, async (request, reply) => {
     const { id } = z.object({ id: z.string() }).parse(request.params)
     const entry = store.get(id)
     if (!entry) {
@@ -204,8 +204,7 @@ export const callbackLogRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // DELETE /callback-log/:id — 删除回调日志
-  server.delete('/:id', async (request, reply) => {
-    if (!(await checkAuth(request, reply))) return
+  server.delete('/:id', { preHandler: requireAdmin }, async (request, reply) => {
     const { id } = z.object({ id: z.string() }).parse(request.params)
     if (!store.has(id)) {
       return reply.status(404).send(error(404, '日志不存在'))

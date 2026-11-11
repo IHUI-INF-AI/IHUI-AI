@@ -9,13 +9,15 @@
  *   - POST /api/ai/anthropic/chat   → {base}/v1/messages(原生全参数透传,max_tokens 缺省 4096)
  *   - GET  /api/ai/anthropic/models → {base}/v1/models(官方模型列表)
  *
- * 鉴权:callVendor 自动携带 x-api-key + anthropic-version(见 VENDORS.anthropic.authHeader)。
+ * 鉴权:callVendor 自动携带 x-api-key + anthropic-version(见 VENDORS.anthropic.authHeader);
+ * 路由级 preHandler 为 requireAuth(与 proxy-openai-compat 同口径,不依赖 ai-vendors.ts 的
+ * 注册层钩子 —— 那条钩子见 `Upgrade: websocket` 即早退,可被伪造头绕过)。
  */
 import { z } from 'zod'
 import type { FastifyPluginAsync } from 'fastify'
 import { buildSchema } from '../../utils/swagger.js'
 import { success } from '../../utils/response.js'
-import { callVendor, recordUsage, VENDORS } from './_shared.js'
+import { callVendor, recordUsage, VENDORS, requireAuth } from './_shared.js'
 import { ensurePointsBalance, chargePointsForCall } from './proxy-llm.js'
 import { MEDIA_BASE64_BODY_LIMIT } from '../../config/body-limits.js'
 
@@ -59,6 +61,7 @@ export const anthropicVendorRoutes: FastifyPluginAsync = async (server) => {
     '/anthropic/chat',
     {
       bodyLimit: MEDIA_BASE64_BODY_LIMIT,
+      preHandler: requireAuth,
       schema: buildSchema({
         summary: 'Anthropic Claude 对话补全',
         description:
@@ -127,6 +130,7 @@ export const anthropicVendorRoutes: FastifyPluginAsync = async (server) => {
   server.get(
     '/anthropic/models',
     {
+      preHandler: requireAuth,
       schema: buildSchema({
         summary: 'Anthropic Claude 模型列表',
         description: '代理调用 https://api.anthropic.com/v1/models 动态获取官方全量模型',
