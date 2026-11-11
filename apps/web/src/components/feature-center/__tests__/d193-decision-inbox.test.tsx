@@ -145,16 +145,16 @@ vi.mock('@/lib/downloads', () => ({
 }))
 vi.mock('@/components/data/Avatar', () => ({ Avatar: () => null }))
 vi.mock('@/components/sidebar/nav-data', () => ({ LANGUAGES: [] }))
-// Dropdown 渲染成可点的按钮(跳过 divider 项),Modal 透传 open 态 —— 挂载级走真实弹窗开关。
+// Dropdown 渲染成可点的按钮,Modal 透传 open 态 —— 挂载级走真实弹窗开关。
 vi.mock('@/components/feedback', () => ({
   Dropdown: ({
     items,
   }: {
-    items: Array<{ key: string; divider?: boolean; label?: unknown; onSelect?: () => void }>
+    items: Array<{ key: string; label?: unknown; onSelect?: () => void }>
   }) => (
     <div>
       {items
-        .filter((it) => !it.divider && typeof it.onSelect === 'function')
+        .filter((it) => typeof it.onSelect === 'function')
         .map((it) => (
           <button key={it.key} data-testid={`dd-${it.key}`} onClick={it.onSelect}>
             {it.key}

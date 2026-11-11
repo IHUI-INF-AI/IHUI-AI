@@ -316,8 +316,6 @@ export const TagsViewChevronButton = React.memo(function TagsViewChevronButton()
           label: tCommon('refresh'),
           onSelect: () => router.refresh(),
         },
-        // divider 分隔 destructive 项(§4 禁止 hr/divide-y,但 Radix Separator 是组件级分割,合法)
-        { key: 'div1', divider: true },
         {
           key: 'all',
           label: tCommon('closeAll'),

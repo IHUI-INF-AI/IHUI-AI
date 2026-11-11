@@ -29,6 +29,7 @@ const S1: ToolSchema = {
     properties: {
       inner: {
         type: 'object',
+        description: '',
         additionalProperties: false,
         properties: { a: { type: 'string', description: '' } },
       },
@@ -57,10 +58,12 @@ describe('嵌套对象层闭集(①)', () => {
         properties: {
           lvl1: {
             type: 'object',
+            description: '',
             additionalProperties: false,
             properties: {
               lvl2: {
                 type: 'object',
+                description: '',
                 additionalProperties: false,
                 properties: { ok: { type: 'string', description: '' } },
               },
@@ -86,8 +89,10 @@ describe('数组臂(②)', () => {
         properties: {
           list: {
             type: 'array',
+            description: '',
             items: {
               type: 'object',
+              description: '',
               additionalProperties: false,
               properties: { a: { type: 'string', description: '' } },
             },
@@ -119,6 +124,7 @@ describe('反向对照三例必须仍 valid(③)', () => {
         properties: {
           inner: {
             type: 'object',
+            description: '',
             properties: { a: { type: 'string', description: '' } },
           },
         },
@@ -139,6 +145,7 @@ describe('反向对照三例必须仍 valid(③)', () => {
         properties: {
           inner: {
             type: 'object',
+            description: '',
             // 值为 string 的开映射:未声明键按值类型判,不再算 unknown_field
             additionalProperties: { type: 'string', description: '' },
             properties: { a: { type: 'string', description: '' } },
@@ -179,6 +186,7 @@ describe('隐私锁(④)+ 收集式(⑤)', () => {
           need: { type: 'number', description: '' },
           inner: {
             type: 'object',
+            description: '',
             additionalProperties: false,
             properties: { a: { type: 'string', description: '' } },
           },

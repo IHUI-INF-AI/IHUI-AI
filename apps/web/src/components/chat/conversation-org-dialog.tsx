@@ -122,7 +122,7 @@ export function ConversationOrgDialog({
                     type="button"
                     onClick={() => setFolderInput(f)}
                     className={cn(
-                      'inline-flex max-w-full items-center rounded-sm border px-1.5 py-0.5 text-[11px] transition-colors',
+                      'inline-flex max-w-full items-center rounded-sm border border-input px-1.5 py-0.5 text-[11px] transition-colors',
                       'hover:bg-muted',
                     )}
                   >

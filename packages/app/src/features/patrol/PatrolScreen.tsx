@@ -876,7 +876,7 @@ function createStyles(tk: AppThemeTokens) {
     chips: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.xs },
     chip: {
       paddingHorizontal: rnSpacing['xs-loose'],
-      paddingVertical: 2,
+      paddingVertical: rnSpacing['2xs'],
       borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.light,

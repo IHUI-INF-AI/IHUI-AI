@@ -282,7 +282,7 @@ describe('ripgrep 定位器:候选顺序与钉死语义', () => {
     expect(pinned).toEqual(['/opt/rg/pinned']);
 
     // win 形态:Codex 缓存位在,且名字带 .exe
-    const wc = m.rgCandidates({ IHUI_RG_PATH: '', PATH: ['C:\\x'] }, 'C:\\Users\\u', 'win32');
+    const wc = m.rgCandidates({ IHUI_RG_PATH: '', PATH: 'C:\\x' }, 'C:\\Users\\u', 'win32');
     expect(wc).toContain(path.join('C:\\Users\\u', 'AppData', 'Local', 'OpenAI', 'Codex', 'bin', winName));
     expect(wc[wc.length - 1]).toBe(winName);
   });
