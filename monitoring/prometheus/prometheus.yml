@@ -145,9 +145,15 @@ scrape_configs:
   #   而那正是这台机上从未成立过的一句话:**任何"占位符 + 全量派生"的组合都是静默失效**
   #   (与 AGENTS §5d"读不到被下游报成失效"同型)。
   #   password_file 里放的是**路径**不是凭据,可安全入库,且换口令只改 secret 文件、不动仓库。
-  #   注意:该文件缺失时 Prometheus 会拒绝**整份**配置(不是只拒这一个 job)—— 这是吵的失败,
-  #   比今天这种"配置加载成功、只有一个数悄悄是 0"好;但把本配置派生到没有该 secret 的机器前,
-  #   必须先确认文件在位。
+  #   2026-11-11 DBG-76 收口,订正本块旧断言"文件缺失时 Prometheus 拒绝整份配置"——不成立。
+  #   已读 prometheus 3.14.0 实际依赖的 prometheus/common v0.70.1 源码坐实:toSecret 对
+  #   password_file 返回 NewFileSecret(file) 时【不读文件】,FileSecret.Fetch 每次请求才
+  #   os.ReadFile(为支持口令轮换);HTTPClientConfig.Validate 只查互斥、不查存在性。
+  #   ⇒ 失败半径天然隔离:文件缺失只有 windows 这一个 job 抓取逐次报错、target 变 DOWN →
+  #   up{job="windows"}==0 → WindowsExporterDown 响亮告警;api/ai-service/loki 抓取与全部
+  #   rule_files 不受影响(CI 的 promtool check config 同样不解引用,见 observability-drills.yml)。
+  #   不拆 scrape_config_files:拆出去本文件 CI 的 job 一致性检查就见不到 windows job 反而误报。
+  #   换机未带 secret 时:windows 告警响、其余监控照常,补好该 secret 文件即自愈。
   - job_name: 'windows'
     metrics_path: '/metrics'
     scheme: 'http'
