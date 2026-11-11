@@ -1229,6 +1229,65 @@ function pushOnce(noVerify, egressRetried = false) {
 /** 对一趟 push 的结果做分诊(判据在 lib/push-attempt-triage.mjs,与测试共用一份实现)。 */
 const triageOf = (r) => triagePushAttempt({ status: r.status, stdout: r.stdout, stderr: r.stderr })
 
+/**
+ * non-fast-forward ⇒ 自动跑一次收敛器(2026-11-11 根治)。
+ *
+ * 旧形态到此只打印"出路(唯一入口):node scripts/git-sync-converge.mjs"然后 exit 1,
+ * 于是每次并发分叉都变成"人来复制粘贴一条命令、再等 5-20 分钟",实测一天卡十几次。
+ * 分叉本身是远端被别的会话推进造成的,与本次提交的质量无关 ⇒ 这一步完全可以自动做。
+ *
+ * 为什么可以直接调用:收敛器自带写锁、索引层合并、worktree-preserving,本链路不自己
+ * fetch/merge(下面 4.1 那条"不在这里跑 fetch/merge"仍然成立 —— 跑的是收敛器这唯一入口)。
+ * 递归闸:IHUI_AUTO_CONVERGE_DEPTH 每次 +1,到 2 次即停,绝不在两个脚本之间打乒乓;
+ * IHUI_DISABLE_AUTO_CONVERGE=1 可整条关掉(排障用)。
+ * @param {string} why
+ * @returns {boolean} 收敛器是否以 0 退出
+ */
+function autoConverge(why) {
+  if (process.env.IHUI_DISABLE_AUTO_CONVERGE === '1') return false
+  const depth = Number(process.env.IHUI_AUTO_CONVERGE_DEPTH || '0')
+  if (!Number.isFinite(depth) || depth >= 2) {
+    log('warn', `  自动收敛已连跑 ${depth} 次仍分叉 ⇒ 停手转人工(防乒乓)`)
+    return false
+  }
+  log('info', `  自动收敛(${why};第 ${depth + 1} 次,worktree-preserving,自带写锁)`)
+  const r = spawnSync(
+    process.execPath,
+    [resolve(repoRoot, 'scripts/git-sync-converge.mjs'), '--branch', branch, '--rounds', '1'],
+    {
+      cwd: repoRoot,
+      stdio: 'inherit',
+      env: { ...process.env, IHUI_AUTO_CONVERGE_DEPTH: String(depth + 1) },
+      windowsHide: true,
+    },
+  )
+  return r.status === 0
+}
+
+/**
+ * 收敛 + 落终态:收敛器退出 0 **不等于**本次提交已到远端(它可能空转)。
+ * 判据仍取祖先测(本枚在不在远端历史里),成立才写 done。
+ * @param {string} label 日志里的分叉原因
+ * @returns {boolean} 是否已确认本次交付在远端
+ */
+function convergeAndSettle(label) {
+  if (!autoConverge(label)) return false
+  const v = resolveRemoteHead(branch, { root: repoRoot })
+  if (v.sha && localHead && isAncestor(localHead, v.sha, { root: process.cwd() })) {
+    writePushState('done', localHead, {
+      kind: 'auto-converged',
+      reason: 'non-fast-forward ⇒ 自动收敛并推送成功(本次交付已在远端历史里)',
+    })
+    log(
+      'ok',
+      `自动收敛完成:${C.green}${localHead.substring(0, 7)}${C.reset} 已进入远端 ${v.sha.substring(0, 7)} 的历史`,
+    )
+    return true
+  }
+  log('warn', '  收敛器未把本次提交送进远端历史 ⇒ 落 diverged(未判定≠成功)')
+  return false
+}
+
 let pushResult = pushOnce(false)
 let attempt = triageOf(pushResult)
 
@@ -1242,8 +1301,10 @@ let attempt = triageOf(pushResult)
 if (attempt.kind === 'non-fast-forward') {
   log('err', `git push 被远端拒收 — ${describeVerdict(attempt)}`)
   log('err', '  绝不使用 --no-verify:跳本地钩子既不改变分叉,又把整条推送质量门关掉')
-  log('err', '  不在本链路里跑 fetch/merge:并发会话下那是竞态源头,收敛器已带锁')
+  // 2026-11-11 根治:分叉是并发推送的常态,不再把收敛器当"人工出路"——
+  // 先自动跑一次;真收敛不了再落 diverged 并给人工入口。
   const nextCmd = attempt.nextCommand ?? CONVERGE_COMMAND
+  if (convergeAndSettle('远端被并发会话推进,本地分叉')) process.exit(0)
   log('info', `  出路(唯一入口):${C.cyan}${nextCmd}${C.reset}`)
   writePushState('diverged', localHead, {
     kind: attempt.kind,
@@ -1303,6 +1364,8 @@ if (pushResult.status !== 0) {
   if (attempt.kind === 'non-fast-forward') {
     // 只有"重试那一趟才暴露出分叉"才会走到这里(首趟已在 4.1 拦下)。同样绝不写 done,
     // 也绝不把这一型落到下面的"可能原因"里 —— 那正是每个人都去查一遍代理和凭据的成因。
+    // 2026-11-11:与 4.1 同一处置(自动收敛;断路闸在 autoConverge 里)。
+    if (convergeAndSettle('重试趟暴露分叉,远端已被并发会话推进')) process.exit(0)
     writePushState('diverged', localHead, {
       kind: attempt.kind,
       reason: attempt.why + lastEgressNote,
