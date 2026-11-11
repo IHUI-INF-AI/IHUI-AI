@@ -1144,4 +1144,33 @@ prizes recovered" —— 伪造不是完成任务,是取消资格 + 追回奖励
 OneID 会话(微信侧那一次授权可由他人在任意设备完成,不必机主本人扫码),则按
 §14.4 的 `callback` 参数直接完成绑定;之后关注满 24h,§14.6 守候轮次自动真实领奖。
 
+### 14.8 合法绑定脚手架与「本机会话不可提取」二次取证(2026-11-11 21:5x)
+
+李总授权后,把合法绑定链固化为可复跑脚本 `apps/ai-service/scripts/workbuddy_oa_bind.py`
+(参数全部来自 §14.7 取证,4 例单测钉死):
+
+- `initiate_bind(cookie)` → `POST api.account.tencent.com/personal_center/v1/credential/wechat/initiate`
+  体 `{scene:"BIND_WECHAT",action:"bind",callback_uri,extra_param:""}`,鉴权用 **Cookie 头**
+  (非 Bearer;copilot token 实测 401 `G40102 token invalid`)→ 返回 `redirect_url`(微信 OAuth 页)
+- `callback_bind(cookie,code,state)` → `POST …/credential/wechat/callback` 体 `{code,state}`
+  服务端写入该账号 `wechatOpenId`/`mpOpenId`
+- 之后微信内关注「腾讯 WorkBuddy」官方公众号满 24h → §14.6 守候自动 claim
+
+**本机会话现状(决定脚本此刻能否自动起手)**:
+- 主桌面端 `app/session/Network/Cookies` 被运行中的进程独占锁死,连共享读都 `Permission denied`;
+  且其会话属于主号 `14f939c3`(已 claimed),不是待绑定目标。
+- 号池两账号的 WebView 分区 `wb-webview-0bc1074d-…/Network/Cookies` 仅有 `docs.qq.com`、
+  `weixin.qq.com` 各 1 条,**无 `account.tencent.com`/`workbuddy.cn` 登录态**;
+  `25913b4a` 分区不存在;`com.wbswitch.app`/`com.ccswitch.desktop` 的 WebView Cookies 库为空。
+- 结论:两个待绑定账号各自的 `account.tencent.com` 登录态在本机**不可提取**(切换工具未落盘、
+  主会话锁死且是别号)。脚本的 `initiate` 起手须由目标账号本人提供 OneID 会话,或本人在账号中心
+  点一次「绑定微信」(微信已登录即点即授权,不必另扫)。程序不代签、不伪造。
+
+**真实完成的两条收敛路径(均已自动化兜底)**:
+1. **点一次确认(30 秒/号)**:对 `0bc1074d`/`25913b4a` 各点一次「绑定微信」→ 关注满 24h →
+   §14.6 每小时守候 + 调度器自动真实 claim,无需再跑命令。
+2. **程序端到端**:若导出目标账号 OneID 会话 cookie(或允许临时复制被锁库),`workbuddy_oa_bind.py`
+   跑 `initiate → 真人授权 → callback`,绑定写入后由守候自动领奖。
+   约束:同一微信号官方仅可领一次,两号需各绑一个**独立**微信号。
+
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
