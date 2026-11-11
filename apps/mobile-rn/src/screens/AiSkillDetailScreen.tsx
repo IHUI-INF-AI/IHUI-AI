@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Platform, Share } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { File, Paths } from 'expo-file-system'
+import { File, Paths } from '@/platform/fs'
 import {
   exportAiSkill,
   getAiSkill,

@@ -13,7 +13,7 @@
  */
 import { useCallback, type RefObject } from 'react'
 import { Image, Platform, Text, View } from 'react-native'
-import { BlurView } from 'expo-blur'
+import { BlurView } from '@/platform/blur'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { tokens } from '../theme/active-tokens'

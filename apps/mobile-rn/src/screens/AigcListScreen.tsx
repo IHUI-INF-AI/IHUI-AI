@@ -8,7 +8,7 @@ import Video from 'react-native-video'
 import { getAigcTasks, type AigcTask } from '@ihui/api-client'
 import { toUserFriendlyMessage } from '@ihui/shared/utils'
 import type { AudioPort } from '@ihui/types'
-import { useAudioPlayer } from 'expo-audio'
+import { useAudioPlayer } from '@/platform/audio'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import {

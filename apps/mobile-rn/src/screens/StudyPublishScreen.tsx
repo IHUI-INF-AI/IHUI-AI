@@ -7,7 +7,7 @@ import { StyleSheet, View, type ViewStyle } from 'react-native'
 import { appAlert } from '../components/BottomPops'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import * as ImagePicker from 'expo-image-picker'
+import * as ImagePicker from '@/platform/image-picker'
 import { getCategories } from '@ihui/api-client/endpoints/course'
 import { createPublishTask } from '@ihui/api-client'
 import {

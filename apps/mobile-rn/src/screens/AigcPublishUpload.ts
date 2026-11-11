@@ -21,7 +21,7 @@ import {
   type UploadedFile,
 } from '@ihui/api-client'
 import type { ApiResult } from '@ihui/types'
-import { File, UploadType } from 'expo-file-system'
+import { File, UploadType } from '@/platform/fs'
 
 /** 传输层进度样本(字节数原始值,便于测试断言来源) */
 export interface UploadProgressSample {
