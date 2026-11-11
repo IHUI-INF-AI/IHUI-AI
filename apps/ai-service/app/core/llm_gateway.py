@@ -1740,6 +1740,20 @@ def trim_messages(
 
 _VALID_ROLES = {"system", "user", "assistant"}
 
+# AIS-002:原生适配器 done 事件里表示"上游异常结束/内容被拦截"的 finishReason
+# (openai 的 content_filter、gemini 的 SAFETY/… )。length/MAX_TOKENS 属截断提示
+# (G-425 只透传给端上判断),不在此列,避免把正常截断流整体判失败。
+_NATIVE_ERROR_FINISH_REASONS = frozenset({
+    "error",
+    "failed",
+    "content_filter",
+    "safety",
+    "recitation",
+    "blocklist",
+    "prohibited_content",
+    "spii",
+})
+
 
 def _normalize_agent_tool_calls(tool_calls: Any) -> Any:
     """把 agent loop 自定义 tool_calls 形态 {id,name,args} 转成 OpenAI 原生形态。
@@ -3576,6 +3590,8 @@ class LLMGateway:
                 _native_errored = False
                 _native_error_message = ""
                 _native_saw_done = False
+                # AIS-002:是否已经透传过 error 事件(决定收口时要不要补终态帧)
+                _native_error_frame_sent = False
                 # 借来的异步生成器必须"谁借谁关":下面 error→fallback 分支那句
                 # `yield …; return` 就是把 astream_iter 弃在半路的一型 —— 它此刻仍停在
                 # provider 的 `async with client.stream(...)` 内部(见
@@ -3605,6 +3621,7 @@ class LLMGateway:
                                     str(evt.get("message", ""))[:300],
                                 )
                                 _native_errored = True
+                                _native_error_frame_sent = True
                                 _native_error_message = str(
                                     evt.get("message", "") or ""
                                 )[:2000]
@@ -3679,10 +3696,38 @@ class LLMGateway:
                                     _native_ttft = time.perf_counter() - _native_metrics_t0
                             if isinstance(evt, dict) and evt.get("type") == "done":
                                 _native_saw_done = True
+                                # AIS-002:上游以 done 帧收尾但 finishReason 表示
+                                # 异常结束/内容被拦截时,同样不能按成功记账。
+                                _native_fr = str(
+                                    evt.get("finishReason")
+                                    or evt.get("finish_reason")
+                                    or ""
+                                ).strip()
+                                if _native_fr.lower() in _NATIVE_ERROR_FINISH_REASONS:
+                                    _native_errored = True
+                                    _native_error_message = _native_error_message or (
+                                        f"native stream finishReason={_native_fr}"
+                                    )
                             if isinstance(evt, dict) and evt.get("usage"):
                                 _native_final_usage = normalize_usage(evt["usage"])
                                 _native_usage_from_upstream = True
                             yield evt
+                except Exception as exc:  # noqa: BLE001 - 上游生成器异常统一按失败收口
+                    # AIS-002:provider 生成器可能先 yield 内容再 raise(而非产出
+                    # error 事件)。旧实现让异常直接冒出 astream,调用方既拿不到终态帧、
+                    # 也无从区分"正常结束"与"截断"。已产出内容 ⇒ 记失败并补终态帧;
+                    # 未产出内容 ⇒ 维持原异常语义,交给路由层既有 fallback/错误处理。
+                    if not native_sent_content:
+                        raise
+                    _native_errored = True
+                    _native_error_message = f"{type(exc).__name__}: {exc}"[:2000]
+                    logger.warning(
+                        "LLM 原生流式异常(model=%s, provider=%s, sent_before=%s): %s",
+                        used_model,
+                        _metrics_provider(used_model),
+                        native_sent_content,
+                        _native_error_message,
+                    )
                 finally:
                     # return / 正常耗尽 / 消费者提前收流(GeneratorExit)三条出口都走这里;
                     # 已耗尽时 aclose 是合法 no-op,不会对正常完成路径做"二次回滚"。
@@ -3733,6 +3778,15 @@ class LLMGateway:
                             "tool_calls": [
                                 native_tool_acc[k] for k in sorted(native_tool_acc)
                             ],
+                        }
+                    if not _native_saw_done and not _native_error_frame_sent:
+                        # AIS-002:异常路径没有 provider 的 error 帧可透传,这里补一条
+                        # error 作为流终态,调用方才能区分"正常结束"与"中途截断"。
+                        # error 事件路径已透传过 error 帧,不重复发。
+                        yield {
+                            "type": "error",
+                            "message": _native_error_message
+                            or "native stream error",
                         }
                     return
                 if _native_final_usage is None:

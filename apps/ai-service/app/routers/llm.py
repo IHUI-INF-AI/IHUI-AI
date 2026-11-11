@@ -5128,6 +5128,11 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                             evt.get("message"),
                                         ),
                                     }
+                                    # AIS-001:流内 error 是终态,必须写回 accumulated —— 收尾的
+                                    # 正常回调判据是 `not accumulated.get("error")`,不写标记
+                                    # 就会把半截内容按成功落库(finally 的中断补发也认这个标记)。
+                                    accumulated["error"] = str(err_evt["message"])
+                                    accumulated["errorCode"] = err_evt["errorCode"]
                                     yield _sse(SSE_ERROR, err_evt)
                                     return
                             # 流结束:flush 提问解析器残留(与 1154-1161 行一致)
@@ -5311,6 +5316,11 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                             evt.get("message"),
                                         ),
                                     }
+                                    # AIS-001:流内 error 是终态,必须写回 accumulated —— 收尾的
+                                    # 正常回调判据是 `not accumulated.get("error")`,不写标记
+                                    # 就会把半截内容按成功落库(finally 的中断补发也认这个标记)。
+                                    accumulated["error"] = str(err_evt["message"])
+                                    accumulated["errorCode"] = err_evt["errorCode"]
                                     yield _sse(SSE_ERROR, err_evt)
                                     return
                             # 流结束:flush 提问解析器残留(与第一轮一致)

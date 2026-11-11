@@ -67,6 +67,7 @@ from ..services.agent_resume_semantics import (
 from ..services.agent_run_control import (
     PauseOutcome,
     ResumeOutcome,
+    RunRegistration,
     SessionNotFoundError,
     detach_run,
     pause_session,
@@ -1624,8 +1625,22 @@ async def execute_agent(
                 # V3 #84 生产者侧:耐久视野声明透传(省略 = None = 非耐久,零差异)。
                 durable_horizon_seconds=req.durable_horizon_seconds,
             )
-            await register_run(session_id, owner_user_id=current_user, loop=loop)
-            registered = True
+            registration = await register_run(
+                session_id, owner_user_id=current_user, loop=loop
+            )
+            # AIS-005:同会话已有未终态的 run 时不得覆盖登记(覆盖会让原 run 失去控制面
+            # 载体);本轮仍按既有语义继续执行,只是不接管 pause/resume 的登记面。
+            registered = registration not in (
+                RunRegistration.REUSED,
+                RunRegistration.CONFLICT,
+            )
+            if not registered:
+                logger.warning(
+                    "同会话已有在飞 run,本次不接管控制面登记:session=%s user=%s outcome=%s",
+                    session_id,
+                    current_user,
+                    registration,
+                )
             v2_result = await loop.run([{"role": "user", "content": req.goal}])
         finally:
             if registered:
@@ -1812,9 +1827,6 @@ async def execute_agent_stream(
 
                 session_id = req.session_id or f"session-{asyncio.get_running_loop().time()}"
 
-                # O19:登记属主,供 tasks/stream 与 /agents/{id}/stream 做事件级属主过滤
-                record_ownership(session_id, current_user)
-                owned_sessions.append(session_id)
                 # V3 #47 第二格(2026-09-26):角色必须过桥。此前本端点从不读
                 # request.state.role_id ⇒ `_build_loop_v2_tools` 与 call_tool 都按默认 0
                 # 走,admin 在主执行链上永远拿不到 `_ADMIN_ONLY_TOOLS` 里的能力;
@@ -1842,7 +1854,33 @@ async def execute_agent_stream(
                 # 才有人能够得着 —— 此前 loop 实例是生成器的局部变量,HTTP 面无任何
                 # session→loop 索引,所以 loop_v2 里那个 `pause()` 是零调用方的死代码。
                 # owner 取的是令牌主体 current_user,不是 req.session_id 之类的自报值。
-                await register_run(session_id, owner_user_id=current_user, loop=loop)
+                registration = await register_run(
+                    session_id, owner_user_id=current_user, loop=loop
+                )
+                if registration in (RunRegistration.REUSED, RunRegistration.CONFLICT):
+                    # AIS-005:同会话已有一个未终态的 run。此时既不能覆盖它的登记
+                    # (原 run 会失去暂停/续跑载体),也不能再起第二轮(双跑双写)。
+                    # 拒绝本轮并显式告知客户端,让它稍后重试而不是以为任务已接单。
+                    logger.warning(
+                        "同会话在途冲突,拒绝本轮流:session=%s user=%s outcome=%s",
+                        session_id,
+                        current_user,
+                        registration,
+                    )
+                    busy_event: dict[str, Any] = {
+                        "type": SSE_ERROR,
+                        "task_id": task_id,
+                        "session_id": session_id,
+                        "message": "该会话已有一个执行中的任务,本次请求未启动(请稍后重试)",
+                        "errorCode": "SESSION_BUSY",
+                    }
+                    busy_eid = sse_buffer.append(task_id, busy_event)
+                    yield _format_sse(busy_eid, busy_event)
+                    return
+                # O19:登记属主,供 tasks/stream 与 /agents/{id}/stream 做事件级属主过滤。
+                # 放在登记成功之后:被拒的连接不得覆盖/释放在飞 run 的属主记录。
+                record_ownership(session_id, current_user)
+                owned_sessions.append(session_id)
                 registered_sessions.append(session_id)
                 # 订阅事件 → SSE(统一订阅集合 agent_events.AGENT_SUBSCRIBE_EVENTS,
                 # 补齐 thinking.delta/plan.step/session.end/permission.mode,
@@ -2115,8 +2153,13 @@ async def execute_agent_stream(
             if run_task is not None and not run_task.done():
                 run_task.cancel()
                 await asyncio.gather(run_task, return_exceptions=True)
-            # G9: 立即清理缓冲区,避免已完成会话的过期事件占内存(TTL 仍兜底重连场景)
-            sse_buffer.clear(task_id)
+            # AIS-005:收尾**不再**立即 clear(task_id)。缓冲原本的语义就是"任务结束后
+            # 仍有空闲 TTL 秒的重放窗口"(SSEEventBuffer.ttl_seconds,见 core/sse_buffer.py
+            # 的 _cleanup:空闲 TTL + 存活上限两条锚点),而收尾一 clear 就把该窗口事实上
+            # 关死:断线重连带旧 Last-Event-ID 只能判 UNKNOWN_TASK,客户端拿不到
+            # done/usage/error 终态,还会按新 task_id 再起一轮(同会话双跑)。
+            # 内存不靠这里回收:单 task 双上限(500 条 / 1 MiB)+ TTL/存活上限本就兜底,
+            # 且清理是惰性的 —— 不引入新定时器。
             # V3 #65:解绑控制面里的 loop 引用。paused 记录**故意保留**
             # (detach_run 内部判定):流式作用域一退出,run_ownership 就被下面释放,
             # 若把暂停记录一并删掉,resume 就失去进程内属主依据、只能退回持久层。

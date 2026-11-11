@@ -22,6 +22,7 @@ safety_settings 默认策略(2026-09-06 合规修订):
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import AsyncIterator
 from typing import Any, cast
 
@@ -29,6 +30,8 @@ import httpx
 
 from ..core.llm_gateway import get_http_client
 from .base_provider import BaseProvider, ProviderError
+
+logger = logging.getLogger(__name__)
 
 # Gemini 4 个安全类别,默认用平台默认档 BLOCK_MEDIUM_AND_ABOVE(中等概率即拦截)。
 # 合规要求:不主动放宽内容安全档位(原 BLOCK_ONLY_HIGH 为过度放宽,已撤销)。
@@ -77,6 +80,32 @@ class GeminiProvider(BaseProvider):
         """
         return {"x-goog-api-key": api_key}
 
+    @staticmethod
+    def _parse_tool_args(raw: Any) -> dict[str, Any]:
+        """function.arguments → functionCall.args;非法 JSON 安全降级为空对象。"""
+        if isinstance(raw, dict):
+            return raw
+        if not isinstance(raw, str) or not raw.strip():
+            return {}
+        try:
+            parsed = json.loads(raw)
+        except (TypeError, ValueError):
+            return {}
+        return parsed if isinstance(parsed, dict) else {}
+
+    @staticmethod
+    def _tool_response(content: Any) -> dict[str, Any]:
+        """tool 消息 content → functionResponse.response(Gemini 要求对象)。"""
+        if isinstance(content, dict):
+            return content
+        if isinstance(content, str):
+            try:
+                parsed = json.loads(content)
+            except (TypeError, ValueError):
+                return {"result": content}
+            return parsed if isinstance(parsed, dict) else {"result": parsed}
+        return {"result": content}
+
     def _convert_messages(
         self,
         messages: list[dict[str, Any]],
@@ -84,21 +113,69 @@ class GeminiProvider(BaseProvider):
         """OpenAI messages → Gemini contents + system_instruction。
 
         Gemini 用 role user/model(非 user/assistant),system 单独传。
+        工具历史按 Gemini 原生协议映射(AIS-010):
+        - assistant.tool_calls → 该 model turn 的 functionCall parts;
+        - role=tool → user turn 的 functionResponse parts(连续的并行结果合并进同一 turn);
+        - 用 tool_call.id → function.name 建映射,并行同名工具不会串号。
         """
         system: list[str] = []
         contents: list[dict[str, Any]] = []
+        name_by_call_id: dict[str, str] = {}
+        # 当前 role=tool 批次累积的 parts;遇到非 tool 消息即结束本批次
+        tool_parts: list[dict[str, Any]] | None = None
         for m in messages:
             role = m.get("role")
             content = m.get("content", "")
+            if role == "tool":
+                call_id = str(m.get("tool_call_id") or "")
+                name = name_by_call_id.get(call_id) or str(m.get("name") or "")
+                if not name:
+                    logger.warning(
+                        "Gemini 工具结果缺少可用工具名,已跳过: tool_call_id=%r", call_id
+                    )
+                    continue
+                if tool_parts is None:
+                    tool_parts = []
+                    contents.append({"role": "user", "parts": tool_parts})
+                tool_parts.append({
+                    "functionResponse": {
+                        "name": name,
+                        "response": self._tool_response(content),
+                    },
+                })
+                continue
+            tool_parts = None
             if role == "system":
                 if isinstance(content, str):
                     system.append(content)
                 else:
                     system.append(json.dumps(content, ensure_ascii=False))
-            else:
-                gemini_role = "user" if role == "user" else "model"
-                parts = [{"text": content}] if isinstance(content, str) else [{"text": json.dumps(content, ensure_ascii=False)}]
-                contents.append({"role": gemini_role, "parts": parts})
+                continue
+            if role == "assistant" and m.get("tool_calls"):
+                parts: list[dict[str, Any]] = []
+                text = content if isinstance(content, str) else (
+                    json.dumps(content, ensure_ascii=False) if content is not None else ""
+                )
+                if text:
+                    parts.append({"text": text})
+                for tc in m.get("tool_calls") or []:
+                    fn = tc.get("function") or {}
+                    name = str(fn.get("name") or "")
+                    call_id = str(tc.get("id") or "")
+                    if call_id:
+                        name_by_call_id[call_id] = name
+                    parts.append({
+                        "functionCall": {
+                            "name": name,
+                            "args": self._parse_tool_args(fn.get("arguments")),
+                        },
+                    })
+                if parts:
+                    contents.append({"role": "model", "parts": parts})
+                continue
+            gemini_role = "user" if role == "user" else "model"
+            parts = [{"text": content}] if isinstance(content, str) else [{"text": json.dumps(content, ensure_ascii=False)}]
+            contents.append({"role": gemini_role, "parts": parts})
         system_text = "\n\n".join(system) if system else None
         return system_text, contents
 
