@@ -304,6 +304,29 @@ describe('email-service — sendEmail Fallback 链路', () => {
     )
   })
 
+  it('SMTP 失败 + Resend 成功:国内收件人反向兜底,最终 provider=resend sent=true', async () => {
+    // 2026-11-11 生产实测:国内邮箱 primary=smtp 投递失败 ⇒ /auth/email/code 返回 500,
+    // 同期海外邮箱走 Resend 返回 200。国内通道故障时不该把可用的 Resend 通道闲置。
+    // 证伪:去掉 sendEmail 里 primary==='smtp' 的反向兜底分支 ⇒ 本例必红(sent=false)。
+    mockConfig.SMTP_ENABLED = true
+    mockConfig.SMTP_HOST = 'smtp.example.com'
+    mockConfig.RESEND_API_KEY = 're_test123'
+
+    mockSmtpSendMail.mockClear()
+    mockSmtpSendMail.mockRejectedValueOnce(new Error('550 From mismatch'))
+    fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({ id: 'msg-fallback' }) })
+
+    const result = await sendEmail({
+      to: 'user@qq.com',
+      subject: 'x',
+      html: '<p>x</p>',
+    })
+
+    expect(result.sent).toBe(true)
+    expect(result.provider).toBe('resend')
+    expect(fetchMock).toHaveBeenCalledOnce()
+  })
+
   it('回归保护:SES 删除后发送结果永不携带 provider=tencent', async () => {
     // Resend 成功
     mockConfig.RESEND_API_KEY = 're_test123'
