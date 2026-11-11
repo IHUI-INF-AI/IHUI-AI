@@ -452,14 +452,92 @@ function humanAge(ms) {
 }
 
 /**
- * 一键健康自检(--status,2026-11-11 立)。
+ * 判定计划任务快照(纯函数,2026-11-12 抽出以便单测)。
+ *
+ * 抽出的理由:这段判据是**静默失效的唯一出口** —— 任务没注册、执行体被清理、工作目录被移走、
+ * 结果非 0,四种情况都不会自己喊。判据写在 IO 闭包里就只能靠人肉看输出,写错了也没人知道;
+ * 抽成纯函数后可以用替身喂各种快照,把每条分支钉住。
+ *
+ * @param {{taskCode:number, taskOut:string, exists?:(p:string)=>boolean}} input
+ * @returns {Array<{level:'ok'|'warn'|'info', text:string}>}
+ */
+function judgeTaskSnapshot({ taskCode, taskOut, exists = fs.existsSync }) {
+  const out = []
+  const push = (level, text) => out.push({ level, text })
+  const text = String(taskOut ?? '')
+  if (taskCode !== 0 || !/STATE=/.test(text)) {
+    push(
+      'warn',
+      `计划任务 ${TASK_NAME} 未注册 —— 脏标记没人消费,自动同步等于没开` +
+        `(跑 node scripts/register-pool-sync-task.mjs --register)`,
+    )
+    return out
+  }
+  const field = (k) => new RegExp(`${k}=(.+)`).exec(text)?.[1]?.trim() ?? ''
+  const state = field('STATE') || '?'
+  const lastRun = field('LASTRUN') || '?'
+  const lastResult = field('LASTRESULT') || '?'
+  const resultOk = lastResult === '0x0'
+  const stateOk = state === 'Ready' || state === 'Running'
+  // 0x41301 = SCHED_S_TASK_RUNNING(Windows 自己的"正在运行"返回码,不是失败)。
+  // 立因(2026-11-12 实测误报):只判 `!=0x0` 会把"恰好在跑"读成"这轮失败",
+  // 而同步一轮要几十秒,随机撞上的概率不低 —— 假红比不报还坏,会让人开始忽略自检。
+  const runningNow = state === 'Running' && lastResult === '0x41301'
+  if (runningNow) {
+    push('ok', `计划任务 ${TASK_NAME}: 正在运行中(上次 ${lastRun},结果 0x41301=SCHED_S_TASK_RUNNING)`)
+  } else if (resultOk && stateOk) {
+    push('ok', `计划任务 ${TASK_NAME}: ${state},上次 ${lastRun},结果 ${lastResult}`)
+  } else {
+    push(
+      'warn',
+      `计划任务 ${TASK_NAME}: ${state},上次 ${lastRun},结果 ${lastResult}` +
+        `${resultOk ? '' : '(非 0 = 这轮同步失败,看日志)'}`,
+    )
+  }
+
+  // 执行面三件套:注册时写下的路径**现在还在不在**。
+  // 立因(实测):任务一度注册成 WorkBuddy 内置 node 的绝对路径,该路径含版本号目录 ——
+  // WorkBuddy 升级 Node 后旧目录被清理,任务照常"启动"、立即失败、脏标记越积越多,
+  // 而两端从此悄悄分叉。这类失效没有任何响声,只能主动查存在性。
+  // 判据不写死具体路径(换机器/换安装方式都不能误判),只比对"注册时写下的值 vs 现在是否存在"。
+  const execPath = field('EXEC')
+  const workDir = field('WORKDIR')
+  const scriptArg = /"([^"]+\.mjs)"/.exec(field('ARGS'))?.[1] ?? ''
+  if (execPath && !exists(execPath)) {
+    push(
+      'warn',
+      `任务执行体已失效: ${execPath} 不存在` +
+        ` —— 多半是 node 升级后旧版本目录被清理,重跑 node scripts/register-pool-sync-task.mjs --register`,
+    )
+  }
+  if (workDir && !exists(workDir)) {
+    push('warn', `任务工作目录不存在: ${workDir} —— 仓库被移动/改名?重跑 --register 刷新`)
+  }
+  if (scriptArg && !exists(scriptArg)) {
+    push('warn', `任务引用的同步脚本不存在: ${scriptArg} —— 重跑 --register`)
+  }
+  if (execPath && exists(execPath)) {
+    const isVersionedNode = /[\\/]versions[\\/]/.test(execPath)
+    push(
+      'info',
+      `任务执行体: ${execPath}` +
+        (isVersionedNode ? '(路径含 node 版本目录 —— 升级 Node 后需重跑 --register)' : ''),
+    )
+  }
+  return out
+}
+
+/**
+ * 一键健康自检(--status,2026-11-11 立;2026-11-12 扩到六项)。
  *
  * 立因:自动同步的失效模式全是**静默**的 ——
  *   ① 换机器/重装后忘了注册计划任务 → 脏标记天天写,没人消费,本地生产悄悄分叉;
  *   ② 生产 checkout 落后远端(缺 --export-all)→ 每轮快照失败,日志里几行字没人翻;
  *   ③ 生产 checkout HEAD 是本地 rebase 出来的提交(远端没有)→ 下次 pull 必分叉(已踩两次);
- *   ④ 计划任务 LastTaskResult 非 0 → 同步其实一次都没成功。
- * 这些都不该靠人想起来去看,给一条命令看完四件事;退出码 1 便于外部监控复用。
+ *   ④ 计划任务 LastTaskResult 非 0 → 同步其实一次都没成功;
+ *   ⑤ 任务注册时写下的 node 绝对路径被清理(版本目录)→ 照常启动、立即失败、无声无息;
+ *   ⑥ 本机 tsx 缺失 → 快照导不出,每一轮都失败。
+ * 这些都不该靠人想起来去看,给一条命令看完;退出码 1 便于外部监控复用。
  */
 async function reportStatus(options) {
   const rows = []
@@ -470,7 +548,7 @@ async function reportStatus(options) {
   }
   const good = (text) => rows.push(`✅ ${text}`)
 
-  // ① 计划任务:注册状态 / 上次结果 / 上次时间
+  // ① 计划任务:注册状态 / 上次结果 / 上次时间 / 执行面三件套
   const psScript = `
 $ErrorActionPreference = 'Stop'
 $t = Get-ScheduledTask -TaskName '${TASK_NAME}'
@@ -478,6 +556,9 @@ $i = $t | Get-ScheduledTaskInfo
 Write-Output ('STATE=' + $t.State)
 Write-Output ('LASTRUN=' + $i.LastRunTime)
 Write-Output ('LASTRESULT=0x' + ('{0:X}' -f $i.LastTaskResult))
+Write-Output ('EXEC=' + $t.Actions[0].Execute)
+Write-Output ('WORKDIR=' + $t.Actions[0].WorkingDirectory)
+Write-Output ('ARGS=' + $t.Actions[0].Arguments)
 `.trim()
   const taskRun = await runProcess(
     'powershell.exe',
@@ -485,16 +566,10 @@ Write-Output ('LASTRESULT=0x' + ('{0:X}' -f $i.LastTaskResult))
     {},
   )
   const taskOut = `${taskRun.stdout ?? ''}`
-  if (taskRun.code !== 0 || !/STATE=/.test(taskOut)) {
-    warn(`计划任务 ${TASK_NAME} 未注册 —— 脏标记没人消费,自动同步等于没开(跑 node scripts/register-pool-sync-task.mjs --register)`)
-  } else {
-    const state = /STATE=(.+)/.exec(taskOut)?.[1]?.trim() ?? '?'
-    const lastRun = /LASTRUN=(.+)/.exec(taskOut)?.[1]?.trim() ?? '?'
-    const lastResult = /LASTRESULT=(\S+)/.exec(taskOut)?.[1]?.trim() ?? '?'
-    const resultOk = lastResult === '0x0'
-    const stateOk = state === 'Ready' || state === 'Running'
-    if (resultOk && stateOk) good(`计划任务 ${TASK_NAME}: ${state},上次 ${lastRun},结果 ${lastResult}`)
-    else warn(`计划任务 ${TASK_NAME}: ${state},上次 ${lastRun},结果 ${lastResult}${resultOk ? '' : '(非 0 = 这轮同步失败,看日志)'}`)
+  for (const r of judgeTaskSnapshot({ taskCode: taskRun.code, taskOut })) {
+    if (r.level === 'warn') warn(r.text)
+    else if (r.level === 'ok') good(r.text)
+    else rows.push(`ℹ️ ${r.text}`)
   }
 
   // ② 最近的同步日志(计划任务每轮一行;只写"有动作"的轮次与失败)
@@ -558,6 +633,16 @@ Write-Output ('LASTRESULT=0x' + ('{0:X}' -f $i.LastTaskResult))
     } else if (Number.isFinite(ahead)) {
       good(`生产 HEAD 与 origin/main 同链(${(/^[0-9a-f]{7,}$/i.exec(lines[1] ?? '') ?? [''])[0] || lines[0]})`)
     }
+  }
+
+  // ⑤ 本机执行面:tsx 与导入器是否在位(缺了快照就导不出,同步必失败)
+  // 这一项查的是"任务真跑起来那一刻会不会摔",而非任务注册信息 —— 与 ①b 互补:
+  // ①b 查注册时写下的路径还在不在,这里查同步脚本自己依赖的东西还在不在。
+  const tsxCli = resolveTsx()
+  if (!tsxCli) {
+    warn('本机缺 tsx(apps/api/node_modules/tsx)—— 快照导不出,同步必失败;先在仓根 pnpm install')
+  } else {
+    good(`本机 tsx 就位(${path.relative(ROOT, tsxCli).replace(/\\/g, '/')})`)
   }
 
   process.stdout.write(`号池同步健康自检\n`)
@@ -678,5 +763,6 @@ export {
   extractExport as __extractExport,
   humanAge as __humanAge,
   parseArgs as __parseArgs,
+  judgeTaskSnapshot as __judgeTaskSnapshot,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

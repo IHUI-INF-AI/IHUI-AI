@@ -118,27 +118,37 @@ node scripts/register-pool-sync-task.mjs --run-now
 node scripts/relay-account-pool-sync.mjs --status
 ```
 
-`--status` 覆盖的四个**静默失效**面(自动同步不会自己报警,只能被查出来):
+`--status` 覆盖的六个**静默失效**面(自动同步不会自己报警,只能被查出来):
 
 | 检查项 | 失效后果 | 判定 |
 | --- | --- | --- |
 | 计划任务注册状态 + `LastTaskResult` | 换机器/重装后忘注册 → 脏标记天天写没人消费,两端悄悄分叉 | `STATE=Ready` 且 `0x0` 才算健康 |
+| **任务执行面**(EXEC / 工作目录 / 脚本路径是否还在) | node 升级后旧版本目录被清理 → 任务照常"启动"、立即失败、无声无息 | 任一不存在即报警 |
 | 最近一轮同步日志 | 失败只有一行字躺在 `.tmp/pool-sync.log` | 末行含 `FAIL` 即报警 |
 | 脏标记存在时长 | 标记滞留 > 10 分钟 = 计划任务没在消费 | 超时报警(正常 2 分钟内清掉) |
 | 生产 checkout 能力 + HEAD 同链 | 缺 `--export-all` 每轮必败;HEAD 有远端不存在的本地提交则下次 pull 必分叉 | `CAP_OK` 且 `origin/main..HEAD` 计数为 0 |
+| **本机 tsx 是否在位** | 缺 tsx ⇒ 快照导不出,每一轮都失败 | 缺失即报警(先 `pnpm install`) |
 
 ```bash
 号池同步健康自检
-  ✅ 计划任务 IHUI-Pool-Sync: Ready,上次 11/12/2026 00:18:51,结果 0x0
-  ✅ 最近一轮有动作 6 分钟前: sync ok 本地=50 生产=50 推=1 拉=4 一致=45 失败推=0 失败拉=0
+  ✅ 计划任务 IHUI-Pool-Sync: Ready,上次 11/12/2026 00:49:36,结果 0x0
+  ℹ️ 任务执行体: C:\Program Files\nodejs\node.exe
+  ✅ 最近一轮有动作 20 秒前: sync ok 本地=52 生产=52 推=3 拉=4 一致=45 失败推=0 失败拉=0
   ✅ 无待同步变更(脏标记已清空)
   ✅ 生产 checkout 支持 --export-all
-  ✅ 生产 HEAD 与 origin/main 同链(148cefdd7fc)
+  ✅ 生产 HEAD 与 origin/main 同链(adb2d40849d)
+  ✅ 本机 tsx 就位(apps/api/node_modules/tsx/dist/cli.mjs)
 
 结论: 自动同步链路健康
 ```
 
-**计划任务的两个已踩坑点(2026-11-11 实测定型)**:
+**两个判据细节(都是实测定型,改之前先看这里)**:
+
+- **`0x41301` 不是失败**:它是 Windows 的 `SCHED_S_TASK_RUNNING`。同步一轮几十秒,随机撞上
+  "正在跑"的概率不低;只判 `!=0x0` 会把在跑读成失败 —— **假红比不报更坏**,会让人开始忽略自检。
+- **执行面判据不写死路径**:只比对"注册时写下的值 vs 现在是否存在",换机器/换安装方式都不会误判。
+
+**计划任务的三个已踩坑点(2026-11-11/12 实测定型)**:
 
 1. **`schtasks.exe` 在本机被安全策略列入程序黑名单**,调用直接被拦 —— 本脚本改走
    PowerShell 的 `Register-ScheduledTask / Get-ScheduledTask / Unregister-ScheduledTask`。
@@ -146,10 +156,22 @@ node scripts/relay-account-pool-sync.mjs --status
    `LastTaskResult = 0xC000013A`(CTRL_C_EXIT),日志只剩 `^C`。改用 **`node.exe` 绝对路径直接执行**,
    日志交给同步脚本的 `--log` 自己追加(每轮一行摘要)。
 
-任务形态:`Execute=node.exe`、`Argument=<repo>\scripts\relay-account-pool-sync.mjs --if-dirty
---apply --quiet --log <repo>\.tmp\pool-sync.log`、`Trigger=每 2 分钟`。
+3. **node 路径不能落到带版本号的目录**(2026-11-12 拆弹)。任务最初注册成 `process.execPath`,
+  即 `…\.workbuddy\binaries\node\versions\22.22.2-6\node.exe` —— 路径里带版本号目录,
+  WorkBuddy 升级 Node 后旧目录会被清理,任务里的绝对路径就指向不存在的文件:每 2 分钟照常
+  "启动"、立即失败、脏标记越积越多,而两端从此**悄悄分叉且没有任何响声**。
+   现在 `--register` 按 `系统安装 node → 用户级安装 → process.execPath` 顺序挑,**逐个真跑
+   `--version` 并校验主版本达 engines 下限**(存在但太老的 node 不能用,否则会把"能启动但
+   语法不认"的失败引进任务)。当前选中的是 `C:\Program Files\nodejs\node.exe`(v24.19.0)。
+   `--status` 的"任务执行面"一栏会持续核对注册时写下的路径是否还在。
+
+任务形态:`Execute=C:\Program Files\nodejs\node.exe`、`Argument=<repo>\scripts\relay-account-pool-sync.mjs
+--if-dirty --apply --quiet --log <repo>\.tmp\pool-sync.log`、`Trigger=每 2 分钟`。
 日志:`.tmp/pool-sync.log`(仅在真有同步动作时写行,格式 `sync ok 本地=… 生产=… 推=… 拉=…`)。
-若 WorkBuddy/Node 升级导致 node 路径变化,重跑 `--register` 即可刷新。
+若 node 升级/仓库搬家导致路径变化,重跑 `--register` 即可刷新(`--status` 会先告诉你)。
+
+**活体闭环实测(2026-11-12 换执行体后当场验)**:写入脏标记 → 任务自动消费 → 日志新增
+`sync ok 本地=52 生产=52 推=3 拉=4 一致=45 失败推=0 失败拉=0` → 标记清除、`LastTaskResult=0x0`。
 
 ## 6. 边界与已知限制
 
@@ -183,7 +205,9 @@ node scripts/relay-account-pool-sync.mjs --status
 | `本地快照导出失败` | tsx 缺失 / .env 数据库不可达 | `pnpm install`;查 `DATABASE_APP_URL` |
 | 每轮都有相同 `toPush` | 对端写入后 `updatedAt` 更新更快 | 看 `--dry-run --json` 的 conflicts;必要时核对时钟 |
 | 号被"复活" | 在拉回窗口内删除 | 超窗口后不再复活;或人工清对端 |
-| 任务不跑 | 计划任务未注册 / 用户未登录 | `--query` 看状态;`--run-now` 试触发 |
+| 任务不跑 | 计划任务未注册 / 用户未登录 | `--status` 看状态;`--run-now` 试触发 |
+| `--status` 报"执行体已失效" | 注册时写下的 node 绝对路径被清理(版本目录升级) | 重跑 `node scripts/register-pool-sync-task.mjs --register`,会自动选中系统安装的稳定 node |
+| `--status` 报"结果 0x41301" | 这是 `SCHED_S_TASK_RUNNING`,不是失败 | 无需处置;等这一轮跑完再看(`--status` 已单独识别该码) |
 | 同步后签到侧异常 | `credVersion` 被频繁 bump | 确认指纹去重生效(相同内容不应写库) |
 | `一致=0` 且冲突全是 `差 0s` | 两端导出代码版本不同(一端无 `__sync.core`) | 把生产 checkout 拉到与本地同一 commit |
 | 某平台永远不同步 | `buildExportPayload` 缺该平台映射(如 2026-11-11 的 raccoon) | 补导出映射,并用 `--export-all` 的"被跳过"明细确认 |

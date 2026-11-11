@@ -19,6 +19,7 @@ import {
   __extractExport as extractExport,
   __flattenProviders as flattenProviders,
   __humanAge as humanAge,
+  __judgeTaskSnapshot as judgeTaskSnapshot,
   __syncMain as syncMain,
 } from '../relay-account-pool-sync.mjs'
 import { RELAY_PROVIDER_CODES } from '../lib/pool-providers.mjs'
@@ -172,4 +173,102 @@ test('humanAge: 非法输入回落为"未知",不产生 NaN 文案', () => {
   assert.equal(humanAge(90_000), '1 分钟前')
   assert.equal(humanAge(3 * 3600_000), '3 小时前')
   assert.equal(humanAge(2 * 86400_000), '2 天前')
+})
+
+// ─────────── 计划任务快照判据(健康自检的核心,静默失效的唯一出口) ───────────
+
+const STABLE_NODE = 'C:\\Program Files\\nodejs\\node.exe'
+const VERSIONED_NODE = 'C:\\Users\\Administrator\\.workbuddy\\binaries\\node\\versions\\22.22.2-6\\node.exe'
+const REPO = 'G:\\IHUI-AI'
+const SYNC_ARG = `"${REPO}\\scripts\\relay-account-pool-sync.mjs" --if-dirty --apply --quiet`
+
+/** 造一份 Get-ScheduledTask 的输出文本。 */
+function snap(over = {}) {
+  const v = {
+    state: 'Ready',
+    lastRun: '11/12/2026 00:49:36',
+    lastResult: '0x0',
+    exec: STABLE_NODE,
+    workdir: REPO,
+    args: SYNC_ARG,
+    ...over,
+  }
+  return (
+    `STATE=${v.state}\nLASTRUN=${v.lastRun}\nLASTRESULT=${v.lastResult}\n` +
+    `EXEC=${v.exec}\nWORKDIR=${v.workdir}\nARGS=${v.args}`
+  )
+}
+/** 存在性替身:默认全在;传 missing 里的路径视为不存在。 */
+const existsExcept = (...missing) => (p) => !missing.some((m) => p === m)
+const levels = (rows) => rows.map((r) => r.level)
+const joined = (rows) => rows.map((r) => r.text).join('\n')
+
+// ⑮ 未注册:必须点名"自动同步等于没开"并给出注册命令(否则没人知道该做什么)
+test('judgeTask: 任务不存在 ⇒ 一条 warn,且带 --register 出路', () => {
+  const rows = judgeTaskSnapshot({ taskCode: 1, taskOut: 'No MSFT_ScheduledTask objects found' })
+  assert.deepEqual(levels(rows), ['warn'])
+  assert.match(joined(rows), /未注册/)
+  assert.match(joined(rows), /--register/)
+})
+
+// ⑯ 健康态:ok + 一条 info(执行体来源),info 不得把稳定路径说成"版本目录"
+test('judgeTask: Ready+0x0+路径齐全 ⇒ 无 warn,稳定 node 不提示版本目录', () => {
+  const rows = judgeTaskSnapshot({ taskCode: 0, taskOut: snap(), exists: existsExcept() })
+  assert.deepEqual(levels(rows), ['ok', 'info'])
+  assert.match(joined(rows), /relay-account-pool-sync|IHUI-Pool-Sync/)
+  assert.doesNotMatch(joined(rows), /版本目录/)
+})
+
+// ⑰ **误报回归锁**:Running + 0x41301 是 Windows 的 SCHED_S_TASK_RUNNING,不是失败。
+//    立此锁的现场:自检初版只判 `!=0x0`,恰好在跑时误报"这轮同步失败"——假红会让人开始忽略自检。
+test('judgeTask: Running + 0x41301 判为"正在运行",不得报失败', () => {
+  const rows = judgeTaskSnapshot({
+    taskCode: 0,
+    taskOut: snap({ state: 'Running', lastResult: '0x41301' }),
+    exists: existsExcept(),
+  })
+  assert.ok(!levels(rows).includes('warn'), `不该有 warn: ${joined(rows)}`)
+  assert.match(joined(rows), /正在运行/)
+})
+
+// ⑱ 真的失败码(0x1)必须红,不能因为 State=Ready 就放过
+test('judgeTask: 结果 0x1 ⇒ warn 且提示看日志', () => {
+  const rows = judgeTaskSnapshot({ taskCode: 0, taskOut: snap({ lastResult: '0x1' }), exists: existsExcept() })
+  assert.deepEqual(levels(rows), ['warn', 'info'])
+  assert.match(joined(rows), /非 0 = 这轮同步失败/)
+})
+
+// ⑲ 定时炸弹本体:注册时的 node 绝对路径被清理 ⇒ 必须红,并指向重跑 --register
+test('judgeTask: 执行体路径不存在 ⇒ warn 指认 node 升级并给 --register 出路', () => {
+  const rows = judgeTaskSnapshot({
+    taskCode: 0,
+    taskOut: snap({ exec: VERSIONED_NODE }),
+    exists: existsExcept(VERSIONED_NODE),
+  })
+  assert.deepEqual(levels(rows), ['ok', 'warn'])
+  assert.match(joined(rows), /执行体已失效/)
+  assert.match(joined(rows), /--register/)
+})
+
+// ⑳ 工作目录 / 同步脚本被移动 ⇒ 各自点名(不能合并成一句"环境异常")
+test('judgeTask: 工作目录与脚本路径缺失分别点名', () => {
+  const rows = judgeTaskSnapshot({
+    taskCode: 0,
+    taskOut: snap(),
+    exists: existsExcept(REPO, `${REPO}\\scripts\\relay-account-pool-sync.mjs`),
+  })
+  const text = joined(rows)
+  assert.match(text, /工作目录不存在/)
+  assert.match(text, /同步脚本不存在/)
+})
+
+// ㉑ 仍在用版本目录 node 但路径还有效 ⇒ 只提示不判红(能工作就不该报故障)
+test('judgeTask: 版本目录 node 仍存在 ⇒ info 提示升级后需重跑,不判红', () => {
+  const rows = judgeTaskSnapshot({
+    taskCode: 0,
+    taskOut: snap({ exec: VERSIONED_NODE }),
+    exists: existsExcept(),
+  })
+  assert.deepEqual(levels(rows), ['ok', 'info'])
+  assert.match(joined(rows), /版本目录/)
 })
