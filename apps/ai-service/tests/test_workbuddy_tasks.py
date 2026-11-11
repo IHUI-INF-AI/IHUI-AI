@@ -43,6 +43,7 @@ from app.services.workbuddy_tasks import (
     PATH_GROWTH_TASKS,
     PATH_GROWTH_TASKS_ACCEPT,
     PATH_TRAVEL_CLAIM,
+    PATH_TRAVEL_CONFIG,
     PATH_TRAVEL_DEPART,
     PATH_TRAVEL_STATUS,
 )
@@ -1019,6 +1020,75 @@ class TestTravel:
         assert out["ok"] is True and out["unjudged"] is False
         assert "今日出发次数已用尽" in (out["reason"] or "")
         assert not any(PATH_TRAVEL_DEPART in p for p in rec.paths())
+
+    async def test_depart_body_uses_attested_location_id(self, monkeypatch: pytest.MonkeyPatch):
+        """2026-11-11 取证:depart 只认 {"location_id": <id>},空体/其它字段一律 400。
+
+        地点 id 现读官方 travel/config(这里给 id=3 健身房),不得写死、不得猜字段名。
+        """
+        monkeypatch.setattr(settings, "workbuddy_tasks_travel_depart_states", "idle")
+        rec = Recorder(
+            {
+                PATH_TRAVEL_CONFIG: ok_envelope(
+                    {"locations": [{"id": 3, "code": "gym"}, {"id": 4, "code": "ancient_town"}]}
+                ),
+                PATH_TRAVEL_DEPART: ok_envelope({"state": "traveling"}),
+                PATH_TRAVEL_STATUS: ok_envelope(travel_state()),
+            }
+        )
+        async with rec.client() as client:
+            out = await wt.run_travel(TOKEN, {}, dry_run=False, client=client)
+        depart_bodies = [b for _m, u, b in rec.calls if PATH_TRAVEL_DEPART in u]
+        assert depart_bodies == [{"location_id": 3}]
+        assert out["accepted"] == ["travel-depart"]
+
+    async def test_depart_falls_back_to_attested_default_when_config_unreadable(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
+        """config 404 ⇒ 回落真机 config 里已取证的 id=1,不是凭空猜一个数字。"""
+        monkeypatch.setattr(settings, "workbuddy_tasks_travel_depart_states", "idle")
+        rec = Recorder(
+            {
+                PATH_TRAVEL_DEPART: ok_envelope({}),
+                PATH_TRAVEL_STATUS: ok_envelope(travel_state()),
+            }
+        )
+        async with rec.client() as client:
+            out = await wt.run_travel(TOKEN, {}, dry_run=False, client=client)
+        depart_bodies = [b for _m, u, b in rec.calls if PATH_TRAVEL_DEPART in u]
+        assert depart_bodies == [{"location_id": 1}]
+        assert out["accepted"] == ["travel-depart"]
+
+    async def test_traveling_before_arrival_does_not_claim(self):
+        """真机 2026-11-11:出发后立刻带预计奖励,但 claim 回 403 'not arrived yet'。
+
+        这是正常进行态:不得打必然失败的 claim,也不得标成 unjudged。
+        """
+        st = travel_state(
+            state="traveling", reward_credit=9, depart_at=100, arrive_at=1000,
+            server_now=200, letter=None, daily_limit_reached=True,
+        )
+        rec = Recorder({PATH_TRAVEL_STATUS: ok_envelope(st)})
+        async with rec.client() as client:
+            out = await wt.run_travel(TOKEN, {}, dry_run=False, client=client)
+        assert out["ok"] is True and out["unjudged"] is False
+        assert out["claimed"] == [] and out["credit_delta"] is None
+        assert "未到达" in (out["reason"] or "")
+        assert not any(PATH_TRAVEL_CLAIM in p for p in rec.paths())
+
+    async def test_arrived_travel_claims_expected_credit(self):
+        """到达(server_now >= arrive_at)后走既有 claim 链,积分差量照实回读。"""
+        st = travel_state(
+            state="traveling", reward_credit=9, depart_at=100, arrive_at=1000,
+            server_now=1100, letter={"title": "明信片"}, daily_limit_reached=True,
+        )
+        rec = Recorder(
+            {PATH_TRAVEL_STATUS: ok_envelope(st), PATH_TRAVEL_CLAIM: ok_envelope({})}
+        )
+        async with rec.client() as client:
+            out = await wt.run_travel(TOKEN, {}, dry_run=False, client=client)
+        assert out["claimed"] == ["travel"] and out["credit_delta"] == 9
+        assert out["unjudged"] is False
 
     async def test_unparseable_travel_state_is_unjudged(self):
         rec = Recorder({PATH_TRAVEL_STATUS: ok_envelope({"oops": 1})})
