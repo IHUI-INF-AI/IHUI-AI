@@ -14,7 +14,7 @@ import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 // 自述钉唯一实现(G-816040):inputsSha256 烘进产物头,门侧同面重算同集输入判陈旧
-import { renderPin } from '../../../scripts/lib/generated-input-pin.mjs' // arch-exempt: ui-routes 派生码生成脚本属构建工具面(非运行时依赖边),须与守门 105 自述钉共用同一 renderPin 源;正解=「工具支持层」在策略表建档并降到 apps 之下 until 2026-12-28
+import { renderStablePin } from '../../../scripts/lib/generated-input-pin.mjs' // arch-exempt: ui-routes 派生码生成脚本属构建工具面(非运行时依赖边),须与守门 105 自述钉共用同一 renderPin 源;正解=「工具支持层」在策略表建档并降到 apps 之下 until 2026-12-28
 
 const scriptDir = dirname(fileURLToPath(import.meta.url))
 const appRoot = resolve(scriptDir, '..')
@@ -287,11 +287,12 @@ function main() {
 
   assertConsumerContract()
 
-  const pinLines = renderPin({
+  const pinLines = renderStablePin({
     generator: 'apps/miniapp-taro/scripts/generate-ui-routes.mjs',
     sourceCommit: sourceCommit(),
     inputs,
     generatedAt: new Date().toISOString(),
+    existingText: existsSync(outFile) ? readFileSync(outFile, 'utf8') : null,
     extraLines: [
       `scanned: ${scannedCount} source files(navigateTo url 参数探测,requiresParams 的依据)`,
       `skipped: pagesWithoutOwnConfig=${routes.length - withTitle}(标题回落 app window / tabBar 文案)`,
