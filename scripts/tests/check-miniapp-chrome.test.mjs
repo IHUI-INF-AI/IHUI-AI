@@ -77,7 +77,7 @@ function runCli(dir, script, args = []) {
 // ─── T1 装车:生成器挂进 TOKEN_SYNC_TARGETS(触发面 tokens、两份副本同进同退) ───
 test('T1 pre-commit-hook 的 TOKEN_SYNC_TARGETS 真有 miniapp-chrome 这一行且形状正确', () => {
   const hook = readFileSync(join(SCRIPTS_DIR, 'lib', 'pre-commit-hook.js'), 'utf8')
-  const m = /label: '[^']*chrome[^']*',\s*\n\s*file: '([^']+)',\s*\n\s*cmd: 'node scripts\/sync-miniapp-chrome\.mjs --quiet',\s*\n\s*trigger: 'tokens',(?:\s*\n\s*pathTrigger: [^,]+,)?\s*\n\s*failMode: '(block|warn)',/.exec(hook)
+  const m = /label: '[^']*chrome[^']*',\s*\n\s*file: '([^']+)',\s*\n\s*cmd: 'node scripts\/sync-miniapp-chrome\.mjs --quiet',\s*\n\s*trigger: 'tokens',\s*\n\s*failMode: '(block|warn)',/.exec(hook)
   assert.ok(m, 'TOKEN_SYNC_TARGETS 里找不到 sync-miniapp-chrome 的注册块(或字段顺序漂了)')
   const files = m[1].split(' ')
   assert.deepEqual(

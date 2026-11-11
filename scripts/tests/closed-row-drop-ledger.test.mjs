@@ -25,6 +25,10 @@ import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 const here = (rel) => fileURLToPath(new URL(rel, import.meta.url))
 const SWEEPER_SRC = readFileSync(here('../strip-stale-closed-rows.mjs'), 'utf8')
 const UNION_SRC = readFileSync(here('../union-converge.mjs'), 'utf8')
+// 2026-11-01 纯搬运拆分:liveDocExpectedCounts / declaredDropCaps 判据体自 union-converge.mjs
+// 逐字搬入 lib/union-converge-judgments.mjs(具名导出面不变)。接线锁跟着判据体住的新位置找,
+// 并补断 union-converge 的消费面 import —— 判据语义一字未动,摘任一接线仍须当场红。
+const JUDG_SRC = readFileSync(here('../lib/union-converge-judgments.mjs'), 'utf8')
 
 const ROW_A = '- [x] ✅(2026-10-23) G-1 甲任务已结清(留痕夹具)'
 const ROW_B = '- [x] ✅(2026-10-23) G-2 乙任务已结清(留痕夹具)'
@@ -141,12 +145,21 @@ test('②d 台账取不到 ⇒ 一条不扣(失效方向是多留一份,绝不�
 })
 
 test('③接线锁:union 的期望表必须调用 declaredDropCaps(被删 ⇒ 回潮通道重新打开)', () => {
-  const fnAt = UNION_SRC.indexOf('export function liveDocExpectedCounts')
+  // 判据体 2026-11-01 起住 lib(见文件头注):期望表体内必须留着 declaredDropCaps 那一扣。
+  const fnAt = JUDG_SRC.indexOf('export function liveDocExpectedCounts')
   assert.ok(fnAt > 0)
-  const body = UNION_SRC.slice(fnAt, fnAt + 6000)
+  const body = JUDG_SRC.slice(fnAt, fnAt + 6000)
   assert.ok(
     /declaredDropCaps\(/.test(body),
     'liveDocExpectedCounts 必须扣掉摘除台账命中的行(产出面与自证面共用这张表,故只在这处接)',
+  )
+  // 消费面:union-converge 必须从 lib import 回这张期望表 —— 摘掉这条接线,生产归并器
+  // 就再也不跑这张表,回潮通道在 lib 面上照旧"装着"却无人消费(与摘掉①同效,必须红)。
+  assert.ok(
+    /import\s*\{[^}]*\bliveDocExpectedCounts\b[^}]*\}\s*from\s*'\.\/lib\/union-converge-judgments\.mjs'/.test(
+      UNION_SRC,
+    ),
+    'union-converge 必须从 lib/union-converge-judgments.mjs import liveDocExpectedCounts(消费面接线被摘 ⇒ 这里红)',
   )
   assert.ok(
     typeof U.declaredDropCaps === 'function',
@@ -158,6 +171,12 @@ test('③b 接线锁:union 必须 import 摘除台账(§0.6 单一真相源,不�
   assert.ok(
     /import \{ declaredRows \} from '\.\/scrub-declared-removals\.mjs'/.test(UNION_SRC),
     'declaredRows 必须从复洁器 import —— 两处各写一份必漂移',
+  )
+  // 判据体搬入 lib 后(2026-11-01),declaredDropCaps 现读台账的那根接线也住在 lib:
+  // 摘掉它不会抛(try/catch 吞成空集 = 一条不扣 = 回潮通道静默重开),只能靠这条 import 锁拦。
+  assert.ok(
+    /import \{[^}]*\bdeclaredRows\b[^}]*\} from '\.\.\/scrub-declared-removals\.mjs'/.test(JUDG_SRC),
+    'lib 判据层的 declaredDropCaps 必须从复洁器 import declaredRows —— 台账只许这一本,复算与静默降级都不许',
   )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

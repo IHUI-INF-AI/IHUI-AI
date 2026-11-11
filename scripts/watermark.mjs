@@ -28,9 +28,7 @@
  *   清单面与内容面**同面同轮**;那个面取不到 ⇒ 报「无法判定」exit 2,**绝不回落另一个面、绝不记绿**。
  *   给显式 file 参数 ⇒ 判的是你点名的**盘上那份**(工作树面)—— 与 --staged 冲突(那要判索引 blob,
  *   而你指的是磁盘),直接拒绝。inject / clean / decode 是**写盘/读盘子命令**,恒作用于磁盘,不涉面。
- *   `--files-from <清单>`(2026-11-03):批量面收窄到清单内路径(push scope;空清单 ⇒ 未判定 exit 2)。
- *   (2026-11-10)该档同样可与 `--staged` 搭配:面仍是**索引 blob**,只是分母取清单 ∩ 索引清单 ——
- *   提交档因此不必每次把整张索引面(2 万+ blob)解码一遍。与 --worktree / 显式点名文件仍互斥。
+ *   `--files-from <清单>`(2026-11-03):批量 HEAD 面收窄到清单内路径(push scope;空清单 ⇒ 未判定 exit 2)。
  *
  * verify / list-uncovered 批量档的判定口径 = (面清单 ∩ --files-from 清单) ∩ 可注入类型(见 scanCoverage)
  *   面清单唯一实现:`scripts/lib/watermark-scope.mjs` 的 `coverageFileSetForFace`。
@@ -679,11 +677,10 @@ function pickFace(argv) {
 }
 
 /**
- * `--files-from <清单>`(2026-11-03,push scope / 提交档专用):把**批量面**收窄到清单内的路径。
- * 清单由 `.husky/pre-push` 的 PUSH_SCOPE_FILES 派生(或提交档的"本次携带"面),门 47 只判这些文件。
- * 空清单/读不到 ⇒ 报错:空清单不是"全部通过",是"判不了这一次"(§0.3)。
- * 只允许与批量面(head / staged)搭配 —— 显式点名文件判的是盘上那份、--worktree 也读盘,
- * 两个面混用必漂移。**收窄的只是分母,单文件判据一字未动**(见 scanCoverage 的 restrictTo)。
+ * `--files-from <清单>`(2026-11-03,push scope 专用):把**批量面**收窄到清单内的路径。
+ * 清单由 `.husky/pre-push` 的 PUSH_SCOPE_FILES 派生,门 47 只判本次推送涉及的文件。
+ * 空清单/读不到 ⇒ 报错:空清单不是"全部通过",是"判不了本次推送"(§0.3)。
+ * 只允许与默认 HEAD 面搭配 —— 显式点名文件判的是盘上那份,两个面混用必漂移。
  */
 function parseFilesFrom(argv) {
   const idx = argv.indexOf('--files-from')
@@ -1007,10 +1004,8 @@ async function main() {
       const why = ff.error || pick.error
       console.error(`[watermark] ❌ 无法判定:${why}`)
       process.exitCode = 2
-    } else if (ff.files && (pick.files.length || pick.face === 'worktree')) {
-      // 2026-11-10:清单档放行 --staged(面仍是索引 blob,只是分母收窄);工作树面仍拒绝 ——
-      // 那读的是盘上那份,与"判索引/HEAD blob"是两个面,混判必漂移。
-      console.error('[watermark] ❌ 无法判定:--files-from 只能与批量面(HEAD / --staged)搭配,不得点名文件或换到工作树面')
+    } else if (ff.files && (pick.files.length || pick.face !== 'head')) {
+      console.error('[watermark] ❌ 无法判定:--files-from 只能与批量 HEAD 面搭配,不得再点名文件或换面')
       process.exitCode = 2
     } else {
       if (!pick.files.length) assertRepoRoot(ROOT, 'watermark 批量档')
@@ -1029,10 +1024,8 @@ async function main() {
       const why = ff.error || pick.error
       console.error(`[watermark] ❌ 无法判定:${why}`)
       process.exitCode = 2
-    } else if (ff.files && (pick.files.length || pick.face === 'worktree')) {
-      // 2026-11-10:清单档放行 --staged(面仍是索引 blob,只是分母收窄);工作树面仍拒绝 ——
-      // 那读的是盘上那份,与"判索引/HEAD blob"是两个面,混判必漂移。
-      console.error('[watermark] ❌ 无法判定:--files-from 只能与批量面(HEAD / --staged)搭配,不得点名文件或换到工作树面')
+    } else if (ff.files && (pick.files.length || pick.face !== 'head')) {
+      console.error('[watermark] ❌ 无法判定:--files-from 只能与批量 HEAD 面搭配,不得再点名文件或换面')
       process.exitCode = 2
     } else {
       if (!pick.files.length) assertRepoRoot(ROOT, 'watermark 批量档')

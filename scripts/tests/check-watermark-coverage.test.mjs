@@ -249,18 +249,9 @@ test('T6 收窄有牙(G-1018220):存量欠账不在携带面 ⇒ 提交档放行
     assert.equal(staged.rc, 0, `索引==HEAD 的存量欠账不该算在本次提交头上:${staged.out}`)
     assert.equal(readFileSync(join(dir, 'src', 'demo.mjs'), 'utf8'), before, '门不得替别人已入库的副本注入(污染 + 越权两型)')
     assert.ok(!String(indexBlob(dir, 'src/demo.mjs')).includes(BANNER), '不携带 ⇒ 不注入')
-    // 2026-11-10 分母收窄后,提交档不再解码整张索引面 ⇒ 它**算不出**存量欠账,也不再点名那一格。
-    // 这里改钉"诚实的表述":必须写明本档只判本次携带、存量由全量档统计,而不是打印一个 0 冒充存量干净。
-    assert.match(staged.out, /本次提交携带的 0 个文件水印完整/, '通过行必须写明本档只判了本次携带的文件')
-    assert.match(
-      staged.out,
-      /存量欠账由 --full-face \/ CI 全量档统计/,
-      '必须说清存量欠账由哪一档统计(算不出来就不许报数字)',
-    )
-    assert.doesNotMatch(staged.out, /索引存量欠账 0 个/, '不得留一个算不出来却照旧打印的 0')
+    assert.match(staged.out, /demo\.mjs/, '不判红也必须点名那一格,否则"放过"与"没看见"在账面上同形')
     const full = runGate(dir, ['--no-fix', '--full-face'])
     assert.equal(full.rc, 1, `全量档必须继续判存量红,否则收窄等于把红洗成绿:${full.out}`)
-    assert.match(full.out, /src\/demo\.mjs/, '存量红仍由全量档点名')
     assert.match(full.out, /本次为显式全量面/, '显式全量档必须在输出里写明"本次为显式全量面"(2026-11-09 口径)')
   } finally {
     rmScratch(dir)
@@ -387,29 +378,9 @@ test('P2 --files-from 空清单/混面 ⇒ exit 2(空清单不是"全部通过",
     assert.match(empty.out, /清单为空/, '必须点名"清单为空",不得静默返回 0 条缺口冒充全绿')
     const mixed = softRun(['list-uncovered', '--files-from', 'README.md', 'src/demo.mjs'])
     assert.equal(mixed.rc, 2, `--files-from + 显式点名文件必须 exit 2,实得 ${mixed.rc}:${mixed.out}`)
-    assert.match(mixed.out, /只能与批量面/, '混面必须显式拒绝')
+    assert.match(mixed.out, /只能与批量 HEAD 面搭配/, '混面必须显式拒绝')
     const faceMix = softRun(['list-uncovered', '--files-from', 'README.md', '--worktree'])
     assert.equal(faceMix.rc, 2, `--files-from + --worktree 必须 exit 2,实得 ${faceMix.rc}:${faceMix.out}`)
-  } finally {
-    rmScratch(dir)
-  }
-})
-
-test('P2b --files-from 可与 --staged 搭配(2026-11-10 提交档收窄):面仍是索引 blob,只动分母', () => {
-  const dir = makeRepo({ commit: true })
-  try {
-    // 两枚索引面坏 blob:一枚在清单内、一枚在清单外 —— 后者的存在正是"收窄"能否成立的对照。
-    writeFileSync(join(dir, 'src', 'other.mjs'), NO_BANNER_SRC, 'utf8')
-    git(['add', 'src/other.mjs'], dir)
-    git(['commit', '-m', 'gap-other', '--no-verify'], dir)
-    const wholeFace = runWatermark(dir, ['list-uncovered', '--staged'])
-    assert.match(wholeFace, /src\/demo\.mjs/, '整面档必须点名 demo.mjs(对照前提)')
-    assert.match(wholeFace, /src\/other\.mjs/, '整面档必须点名 other.mjs(对照前提)')
-    const manifest = join(dir, 'carried.txt')
-    writeFileSync(manifest, 'src/demo.mjs\n', 'utf8')
-    const narrowed = runWatermark(dir, ['list-uncovered', '--staged', '--files-from', manifest])
-    assert.match(narrowed, /src\/demo\.mjs/, '清单内的坏 blob 仍必须被点名(收窄没有把判据弄瞎)')
-    assert.doesNotMatch(narrowed, /src\/other\.mjs/, '清单外路径不进分母')
   } finally {
     rmScratch(dir)
   }

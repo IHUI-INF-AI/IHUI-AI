@@ -45,6 +45,8 @@ import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { readDecisions } from './deploy-decision.mjs'
+import { deployDecisionsFaces } from './lib/deploy-decisions-face.mjs'
+import { mergeDecisionFaces } from './deploy-outcome-intake.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const DEFAULT_DECISIONS = join(ROOT, '.ihui-agent', 'deploy-decisions.jsonl')
@@ -718,7 +720,7 @@ function main(argv) {
     console.error(`❌ ${e.message}`)
     return 2
   }
-  const decisionsPath = asText(args.decisions) || DEFAULT_DECISIONS
+  const explicitDecisions = asText(args.decisions)
   const ledgerPath = asText(args.ledger) || DEFAULT_LEDGER
   const policyPath = asText(args.policy) || DEFAULT_POLICY
   const applyWriteback = Boolean(args.apply)
@@ -733,14 +735,32 @@ function main(argv) {
   if (applyWriteback && args['dry-run'])
     return undetermined('--apply 与 --dry-run 互斥(前者要落盘、后者明确不落盘)')
 
-  if (!existsSync(decisionsPath))
-    return undetermined(`决策台账不存在(部署环尚未产生过决策):${decisionsPath}`)
-
+  // 取材面(2026-11-11,B37 读账侧,与 deploy-outcome-intake 同口径):--decisions 显式给了仍读单一路径
+  // (夹具/隔离面,行为不变);否则读**全部存在面**并按 trim 后原始行文本去重合并(唯一出口
+  // mergeDecisionFaces,零复算)——旧默认钉死主仓影子副本,会漏掉部署环真正落笔的生产 checkout 台账。
   let decisions
-  try {
-    decisions = readDecisions(decisionsPath)
-  } catch (e) {
-    return undetermined(`决策台账读不了:${e?.message ?? e}`)
+  if (explicitDecisions) {
+    if (!existsSync(explicitDecisions))
+      return undetermined(`决策台账不存在(部署环尚未产生过决策):${explicitDecisions}`)
+    try {
+      decisions = readDecisions(explicitDecisions)
+    } catch (e) {
+      return undetermined(`决策台账读不了:${e?.message ?? e}`)
+    }
+  } else {
+    const { faces, candidates } = deployDecisionsFaces({ repoRoot: ROOT })
+    if (!faces.length)
+      return undetermined(
+        `决策台账两候选面都不存在(部署环尚未产生过决策):${candidates.map((c) => c.path).join(' , ')}`,
+      )
+    try {
+      const texts = faces.map((f) => ({ path: f.path, text: readFileSync(f.path, 'utf8') }))
+      decisions = mergeDecisionFaces(texts).rows
+        .map((r) => r.object)
+        .filter((o) => o && o.v === SCHEMA_VERSION)
+    } catch (e) {
+      return undetermined(`决策台账读不了:${e?.message ?? e}`)
+    }
   }
 
   let policy

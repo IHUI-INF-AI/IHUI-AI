@@ -1950,17 +1950,13 @@ test('规格快路径:索引面 :path 在 catBatch 与 catBatchOids 上给同一
 test('gitRaw binary 档:带 input 时 encoding 不得参与输入编码(Unknown encoding: buffer 回归)', () => {
   const dir = mkScratch('ihui-face-bin-')
   try {
-    // 守门 193：派生 git 必须显式接管 stdio（本机实测不写 ⇒ EBUSY 0/30，写上 ⇒ 30/30）。
-    // ⚠️ options 必须落在**具名变量**里：门的取数面从 `spawnSync(` 起括号配平，而首参
-    // `gitBinary()` 自带一对括号，配平会在它的 `)` 处归零 ⇒ span 只取到 `(args)`，
-    // 内联的 options 落在 span 之外被判「无 stdio 属性名」。这是门对「首参是函数调用」的
-    // 取数盲区（非本处缺陷），具名 options 正好走它已支持的 namedOptionsStdio 那一支。
-    const gitOpts = {
-      encoding: 'utf8',
-      windowsHide: true,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    }
-    const run = (args) => spawnSync(gitBinary(), ['-c', 'safe.directory=*', '-C', dir, ...args], gitOpts)
+    const run = (args) =>
+      spawnSync(gitBinary(), ['-c', 'safe.directory=*', '-C', dir, ...args], {
+        encoding: 'utf8',
+        windowsHide: true,
+        // 守门 193：派生 git 必须显式接管 stdio（本机实测不写 ⇒ EBUSY 0/30，写上 ⇒ 30/30）。
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
     run(['init', '-q'])
     writeFileSync(join(dir, 'a.txt'), 'hello\n')
     run(['add', 'a.txt'])

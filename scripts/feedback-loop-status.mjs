@@ -56,7 +56,8 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { extractTicketNo, loadSourcesConfig, normalizeAt, SOURCES_PATH } from './audit-decision-chain.mjs'
-import { deployDecisionsFace } from './lib/deploy-decisions-face.mjs'
+import { deployDecisionsFaces } from './lib/deploy-decisions-face.mjs'
+import { mergeDecisionFaces } from './deploy-outcome-intake.mjs'
 import { identityOf } from './lib/incident-cluster.mjs'
 import { keyOfRow } from './lib/plan-task-index.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
@@ -172,6 +173,51 @@ export function readJsonl(path) {
   return { path, state: badLines.length > 0 ? 'partial' : 'ok', why: '', records, badLines, totalLines }
 }
 
+/**
+ * 部署决策台账读取(2026-11-11,B37 读账侧):默认模式读**全部存在面**再合并去重 —— 部署环写生产
+ * checkout,主仓影子副本里也有同一批事件行(同事件同文本),单选面把"读哪本账"变成掷骰子。
+ * 去重口径复用 deploy-outcome-intake 的 mergeDecisionFaces(唯一出口,零复算);--state-dir
+ * (夹具/平铺布局)口径不变:只读该目录那一份。
+ */
+export function readDecisionsMerged({ root = ROOT, stateDir = null } = {}) {
+  if (stateDir) return readJsonl(join(resolve(stateDir), SOURCE_FILES.decisions))
+  let faces
+  try {
+    faces = deployDecisionsFaces({ repoRoot: root }).faces
+  } catch {
+    faces = []
+  }
+  if (!faces.length) return readJsonl(join(root, '.ihui-agent', SOURCE_FILES.decisions))
+  if (faces.length === 1) return readJsonl(faces[0].path)
+  const texts = []
+  const unread = []
+  for (const f of faces) {
+    try {
+      texts.push({ path: f.path, text: readFileSync(f.path, 'utf8') })
+    } catch (e) {
+      unread.push(`${f.path}(${e?.code ?? e?.message ?? e})`)
+    }
+  }
+  if (!texts.length) return readJsonl(faces[0].path)
+  if (texts.length === 1) return readJsonl(texts[0].path)
+  const merged = mergeDecisionFaces(texts)
+  const records = []
+  const badLines = []
+  for (const r of merged.rows) {
+    if (isPlainObject(r.object)) records.push({ ...r.object, __line: r.line })
+    else badLines.push({ line: r.line, why: '不是 JSON 对象' })
+  }
+  for (const b of merged.bad) badLines.push({ line: b.line, why: b.reason })
+  return {
+    path: texts.map((t) => t.path).join(' + '),
+    state: badLines.length || unread.length ? 'partial' : 'ok',
+    why: unread.length ? `面读不出:${unread.join(' , ')}` : '',
+    records,
+    badLines,
+    totalLines: records.length + badLines.length + merged.torn.length,
+  }
+}
+
 /** 路径面:默认三本在 .ihui-agent/state/、部署决策在 .ihui-agent/;--state-dir 则四本平铺。 */
 export function resolvePaths({ root = ROOT, stateDir = null } = {}) {
   if (stateDir) {
@@ -186,11 +232,12 @@ export function resolvePaths({ root = ROOT, stateDir = null } = {}) {
   // 部署决策台账按「线上 oracle 面」解析,不钉死主仓:部署环(nssm IHUI-DEPLOYLOOP)跑的是
   // 生产 checkout,决策行落在那一侧(实测 2026-10-28 22:48:主仓 3 行 vs 生产 88 行,含当轮
   // pass sha=75b5ffdc897),钉死主仓会让 deployed 阶段永远看不见真部署、把已闭环的事故报成未部署。
-  // 复用 lib/deploy-decisions-face.mjs 的唯一出口(生产优先 → 回落主仓),不在此另立第二套候选。
+  // 复用 lib/deploy-decisions-face.mjs 的唯一出口(2026-11-11 B37 扩为「全部存在面」):这里取首面
+  // (生产优先)作展示/回落路径,实际读取与合并去重在 readDecisionsMerged,不在此另立第二套候选。
   let decisions = join(root, '.ihui-agent', SOURCE_FILES.decisions)
   try {
-    const face = deployDecisionsFace({ repoRoot: root })
-    if (face.found && face.path) decisions = face.path
+    const { faces } = deployDecisionsFaces({ repoRoot: root })
+    if (faces.length) decisions = faces[0].path
   } catch {
     /* 面解析异常 ⇒ 保持主仓候选;readJsonl 会判 missing/error 并在报告里点名路径,读错面可见 */
   }
@@ -739,7 +786,7 @@ export function buildStatus({
     signals: readJsonl(paths.signals),
     feedback: readJsonl(paths.feedback),
     dispatch: readJsonl(paths.dispatch),
-    decisions: readJsonl(paths.decisions),
+    decisions: readDecisionsMerged({ root, stateDir }),
   }
   const labels = {
     signals: '信号台账(incident-signals)',
