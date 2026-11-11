@@ -12,6 +12,7 @@ import { logger } from './logger.js'
 import { generateCompactId } from '../../utils/crypto-random.js'
 import { fetchWithinDeadline } from '../../utils/fetch-deadline.js'
 import { OUTBOUND_REQUEST_TIMEOUT_MS, interpretPlatformResponse } from '../im-outbound-policy.js'
+import { escapeHtml } from '@ihui/shared/artifact'
 
 /**
  * G-815413:本文件此前 8 处 `await fetch(` 全部**没有 signal** —— 平台不响应时这些调用
@@ -409,12 +410,16 @@ async function sendTelegram(
   if (!botToken || !chatId) {
     throw new Error('telegram 渠道缺少 botToken/chatId 配置')
   }
+  // SDB-55:parse_mode:'HTML' 下正文按实体解析,AI 输出里的 `<`/`>`/`&`(代码、比较符号)
+  // 会让 Telegram 返回 400 can't parse entities 并丢掉整条通知 —— 提交前按 HTML 文本节点转义。
+  // 复用 @ihui/shared/artifact 的唯一 escapeHtml,不在渠道层再抄一份(§0.6)。
+  const safeText = escapeHtml(content)
   const resp = await channelFetch(
     `https://api.telegram.org/bot${botToken}/sendMessage`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: chatId, text: content, parse_mode: 'HTML' }),
+      body: JSON.stringify({ chat_id: chatId, text: safeText, parse_mode: 'HTML' }),
     },
     'clawdbot→telegram sendMessage',
   )
