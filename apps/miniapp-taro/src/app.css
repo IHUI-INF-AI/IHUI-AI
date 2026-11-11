@@ -173,7 +173,7 @@ progress {
   --color-secondary-foreground: hsl(0 0% 9%);
   --color-muted: hsl(0 0% 92%);
   --color-muted-foreground: hsl(0 0% 40%);
-  --color-accent: hsl(0 0% 88%);
+  --color-accent: hsl(0 0% 95%);
   --color-accent-foreground: hsl(0 0% 9%);
   --color-destructive: hsl(0 100% 60%);
   --color-destructive-foreground: hsl(0 0% 98%);
@@ -581,7 +581,7 @@ iframe#webpack-dev-server-client-overlay {
   --color-secondary-foreground: hsl(0 0% 9%);
   --color-muted: hsl(0 0% 92%);
   --color-muted-foreground: hsl(0 0% 40%);
-  --color-accent: hsl(0 0% 88%);
+  --color-accent: hsl(0 0% 95%);
   --color-accent-foreground: hsl(0 0% 9%);
   --color-destructive: hsl(0 100% 60%);
   --color-destructive-foreground: hsl(0 0% 98%);
@@ -705,7 +705,10 @@ iframe#webpack-dev-server-client-overlay {
   --color-warning-text: hsl(38 92% 30%);
   --color-danger-text: #b91c1c;
 
-  /* ===== Tailwind v3 alpha 通道三元组(自动同步自 tokens.css,勿手动编辑;
+  /* 2026-11-11 收口:此处曾有 --shadow-2xs/xs/sm/md/lg/xl/2xl 七个别名(第二套档名),
+     全仓已统一为 --shadow-elevation-*(唯一源 elevation.ts),别名删除、不得回填。 */
+
+/* ===== Tailwind v3 alpha 通道三元组(自动同步自 tokens.css,勿手动编辑;
      给 bg/text/border-*-/<透明度> 用,见 packages/design-tokens/src/tailwind-alpha-plugin.js)===== */
   --color-foreground-rgb: 10, 10, 10;
   --color-primary-rgb: 0, 0, 0;
@@ -807,7 +810,7 @@ iframe#webpack-dev-server-client-overlay {
   --color-secondary-foreground: hsl(0 0% 98%);
   --color-muted: hsl(0 0% 14.9%);
   --color-muted-foreground: hsl(0 0% 63.9%);
-  --color-accent: hsl(0 0% 24%);
+  --color-accent: hsl(0 0% 19%);
   --color-accent-foreground: hsl(0 0% 98%);
   --color-destructive: hsl(0 100% 60%);
   --color-destructive-foreground: hsl(0 0% 98%);
