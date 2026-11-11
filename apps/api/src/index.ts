@@ -47,6 +47,12 @@ import {
 } from './jobs/ops-retention-cleanup.js'
 import { startImageTaskWorker, stopImageTaskWorker } from './workers/image-task-worker.js'
 import { startBackupCronScheduler, stopBackupCronScheduler } from './jobs/backup-jobs-cron.js'
+import { startHrJobsScheduler, stopHrJobsScheduler } from './jobs/hr-jobs-cron.js'
+import {
+  startHrApprovalEscalationScheduler,
+  stopHrApprovalEscalationScheduler,
+} from './jobs/hr-approval-cron.js'
+import { startAiTaskCronScheduler, stopAiTaskCronScheduler } from './jobs/ai-task-cron.js'
 // G-916430③(机主拍板 2026-10-07):mail 欠投递读方 + :80 CDN 视野并入 API 进程内定时读方,
 // 不新增服务拓扑。UNDELIVERED 标记此前除提交链守门外无运行时消费者,:80 不在任何值守班眼里。
 import {
@@ -299,6 +305,15 @@ function startBackgroundSchedulers(server: Awaited<ReturnType<typeof buildServer
   // 启动数据库备份定时调度(读 backup_settings;备份设置页可改,2026-09-16 立)
   void startBackupCronScheduler()
 
+  // 启动人事定时任务调度(HR-1,2026-11-11 立:每日补缺勤/每日异常汇总/每月部门统计;ENABLE_HR_JOBS=false 禁用)
+  startHrJobsScheduler()
+
+  // 启动审批超时升级调度(HR-3,2026-11-11 立:每 30 分钟扫 due_at 过期实例升级;ENABLE_HR_APPROVAL_ESCALATION=false 禁用)
+  startHrApprovalEscalationScheduler()
+
+  // 启动 AI 任务模板 cron 调度(HR-4,2026-11-11 立:每 5 分钟扫 triggerType=cron 模板执行;ENABLE_AI_TASK_CRON=false 禁用)
+  startAiTaskCronScheduler()
+
   // 启动生产值守进程内定时读方(每 10 分钟:.ihui-agent/state/状态目录的 UNDELIVERED 标记 + :80 CDN 活性;
   // G-916430③ 机主拍板,ENABLE_OPS_WATCH_READER=false 禁用)
   if (process.env.ENABLE_OPS_WATCH_READER !== 'false') {
@@ -410,6 +425,9 @@ async function start() {
       syncStopPhase('stopRelayAlertEvaluationScheduler', stopRelayAlertEvaluationScheduler),
       syncStopPhase('stopImageTaskWorker', stopImageTaskWorker),
       syncStopPhase('stopBackupCronScheduler', stopBackupCronScheduler),
+      syncStopPhase('stopHrJobsScheduler', stopHrJobsScheduler),
+      syncStopPhase('stopHrApprovalEscalationScheduler', stopHrApprovalEscalationScheduler),
+      syncStopPhase('stopAiTaskCronScheduler', stopAiTaskCronScheduler),
       syncStopPhase('stopOpsWatchReaderScheduler', stopOpsWatchReaderScheduler),
       syncStopPhase('stopAgentAutomationScheduler', stopAgentAutomationScheduler),
       syncStopPhase('stopPatrolScheduler', stopPatrolScheduler),

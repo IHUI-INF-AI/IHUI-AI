@@ -205,6 +205,10 @@ import leaderboardRoutes from './leaderboard.js'
 import aiEducationRoutes from './ai-education.js'
 import eduAiManagementRoutes from './edu-ai-management.js'
 import { hrAttendanceRoutes } from './hr-attendance.js'
+import { hrJobRoutes } from './hr-jobs.js'
+import { hrDailyRoutes } from './hr-daily.js'
+import { hrApprovalRoutes } from './hr-approval.js'
+import { aiTaskTemplatesRoutes } from './ai-task-templates.js'
 // 教育食堂采购记账(2026-09-19 立):AI 小票三轮核对 + 台账/供应商/统计/导出
 import eduCanteenRoutes from './edu-canteen.js'
 // F3 真实缺口补齐(2026-08-15):技能分类管理 + 元学习闭环路由
@@ -981,6 +985,14 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(eduAiManagementRoutes, { prefix: '/api/edu-ai-management' })
   // 人事部(独立板块,2026-11-09 立):考勤 + 部门/员工主数据 + 请假,复用 @ihui/attendance-core 判定内核
   server.register(hrAttendanceRoutes, { prefix: '/api/hr-attendance' })
+  // 人事考勤第 1 期(HR-2,2026-11-11 立):日结/假期额度/补卡申请
+  server.register(hrDailyRoutes, { prefix: '/api/hr-daily' })
+  // 人事审批流(HR-3,2026-11-11 立):多级审批规则 + 审批实例 + 超时升级
+  server.register(hrApprovalRoutes, { prefix: '/api/hr-approval' })
+  // AI 编排层(HR-4,2026-11-11 立):任务模板 + 执行留痕
+  server.register(aiTaskTemplatesRoutes, { prefix: '/api/ai-tasks' })
+  // 人事定时任务(HR-1,2026-11-11 立):GET 清单 + POST 手动补跑 + GET 执行历史(均 manage 权限)
+  server.register(hrJobRoutes, { prefix: '/api/hr-jobs' })
   // 教育食堂采购记账：AI 小票三轮核对 + 台账/供应商/统计/导出（2026-09-19 立）
   server.register(eduCanteenRoutes, { prefix: '/api/edu-canteen' })
 
