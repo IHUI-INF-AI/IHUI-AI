@@ -81,6 +81,11 @@ interface CliOptions {
    * 复制第二份清单,§0.6),缺省按"给了 --owner 就是显式旗标,否则 none"如实回填。
    */
   ownerSource: string
+  /**
+   * 导出模式(--export <provider>):把该平台全部账号(含明文凭证)打成标准导入 JSON 写 stdout,
+   * 供「生产→本地」同步拉回(scripts/relay-account-pool.mjs --sync-pull);不读输入、不落库。
+   */
+  exportMode: boolean
 }
 
 const HELP = `账号池导入(服务端落库)
@@ -97,6 +102,8 @@ const HELP = `账号池导入(服务端落库)
                               缺省按"给了 --owner 记 explicit-flag,否则 none"回填。
                               词汇唯一真相源 = scripts/lib/pool-owner.mjs 的 OWNER_SOURCES,
                               本脚本只透传不解释。
+    [--export <provider>]    导出该平台全部账号(含明文凭证)为标准 JSON 到 stdout,供「生产→本地」
+                              同步拉回(scripts/relay-account-pool.mjs --sync-pull);不读输入、不落库。
 
 批量模式(2026-11-10):--file 可重复给,同一进程内逐文件导入(每文件须自带顶层 providerCode,
   此时不接受 --provider),退出码取最坏一档;用于全池推生产时只付一次 tsx 冷启。
@@ -121,11 +128,24 @@ function parseArgs(argv: string[]): {
     json: false,
     ownerUserId: null,
     ownerSource: '',
+    exportMode: false,
   }
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]
     if (arg === '--help' || arg === '-h') return { help: true, options: null, error: null }
     else if (arg === '--stdin') options.stdin = true
+    else if (arg === '--export') {
+      const v = argv[++i] ?? ''
+      if (!isRelayProviderCode(v)) {
+        return {
+          help: false,
+          options: null,
+          error: `--export 需要平台名(可选 ${RELAY_PROVIDERS.join('|')})`,
+        }
+      }
+      options.exportMode = true
+      options.providerCode = v
+    }
     else if (arg === '--dry-run') options.dryRun = true
     else if (arg === '--no-health') options.health = false
     else if (arg === '--json') options.json = true
@@ -170,8 +190,12 @@ function parseArgs(argv: string[]): {
   if (options.stdin && options.files.length > 0) {
     return { help: false, options: null, error: '--stdin 与 --file 只能二选一' }
   }
-  if (!options.stdin && options.files.length === 0) {
-    return { help: false, options: null, error: '缺少输入:--file <json> 或 --stdin' }
+  if (!options.exportMode && !options.stdin && options.files.length === 0) {
+    return {
+      help: false,
+      options: null,
+      error: '缺少输入:--file <json> 或 --stdin(导出用 --export <provider>)',
+    }
   }
   if (options.files.length > 1 && options.providerCode) {
     return {
@@ -289,6 +313,9 @@ async function main(argv: string[]): Promise<number> {
   }
   const opts = parsed.options
 
+  // 导出模式(生产→本地同步入口):只读该平台全部账号,把标准导入 JSON 写 stdout,不落库。
+  if (opts.exportMode) return exportProvider(opts)
+
   // 批量模式(2026-11-10):一个 node 进程内逐文件导入,退出码取最坏的一档。
   // 用途 = scripts/relay-account-pool-push-all.mjs 全池推生产:9 个平台只需一次 tsx 冷启。
   if (!opts.stdin && opts.files.length > 1) {
@@ -318,6 +345,59 @@ async function main(argv: string[]): Promise<number> {
     return 2
   }
   return importOne(opts, rawText)
+}
+
+/**
+ * 导出某平台全部账号(含明文凭证),供「生产→本地」同步拉回。
+ * 输出 = 标准导入 JSON({providerCode, accounts:[...]});每账号自带 uid/name/token/
+ * refreshToken/enabled/ownerUserId(归属 null = 运营池)。明文只在 stdio/SSH 通道内流动,
+ * 不落日志、不落文件。凭证解不开/为空的行跳过并在 stderr 如实报数(不冒充"导出完整")。
+ */
+async function exportProvider(opts: CliOptions): Promise<number> {
+  const providerCode = opts.providerCode
+  if (!providerCode) {
+    process.stderr.write('❌ --export 需要平台名(--export <provider>)\n')
+    return 2
+  }
+  const rows = await dbRead
+    .select()
+    .from(aiRelayAccountPool)
+    .where(eq(aiRelayAccountPool.providerCode, providerCode))
+  const accounts: Array<Record<string, unknown>> = []
+  let skipped = 0
+  for (const row of rows) {
+    let creds: { token: string; refreshToken: string | null }
+    try {
+      creds = decryptAccountCredentials(row)
+    } catch {
+      skipped++
+      continue
+    }
+    const token = String(creds.token ?? '').trim()
+    if (!token) {
+      skipped++
+      continue
+    }
+    const item: Record<string, unknown> = {
+      uid: row.uid,
+      name: row.name,
+      token,
+      enabled: row.isEnabled,
+      ownerUserId: row.ownerUserId ?? null,
+    }
+    // refreshToken 为空时省略该键:导入侧校验只接受字符串,显式 null 会判 refreshToken-invalid
+    if (creds.refreshToken) item.refreshToken = creds.refreshToken
+    if (row.tokenExpiresAt) item.tokenExpiresAt = row.tokenExpiresAt.toISOString()
+    accounts.push(item)
+  }
+  if (skipped > 0) {
+    process.stderr.write(`ℹ️ ${providerCode} 导出:${skipped} 行凭证解不开/为空已跳过\n`)
+  }
+  // 边界标记包裹:本进程的 dotenv/[db] 诊断也写 stdout ⇒ 下游只截取标记之间的 JSON 段
+  process.stdout.write(
+    `__POOL_EXPORT_BEGIN__\n${JSON.stringify({ providerCode, accounts })}\n__POOL_EXPORT_END__\n`,
+  )
+  return 0
 }
 
 /** 单份输入的完整导入流程(预检 → 落库 → 体检);批量模式由 main 逐文件调用,共享同一套判据。 */

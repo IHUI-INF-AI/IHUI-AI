@@ -141,4 +141,42 @@ test('⑧ 主进程定位:用户数据目录只挂在子进程上,须上溯到�
   )
   assert.ok(mains.every((m) => !String(m.userDataDir).includes('--type=')))
 })
+
+test('⑨ 本地⇄生产自动同步:默认推生产 / --no-sync-prod 关闭 / --sync-pull 独立通道', () => {
+  // 默认:导入本地即自动推生产(2026-11-11 李总「必须本地与生产自动同步互通」)
+  const def = C.parseArgs(['--from', 'workbuddy'])
+  assert.equal(def.error, null)
+  assert.equal(def.options.prodPush, true, '默认必须开启生产同步')
+  assert.equal(def.options.pushProdExplicit, false)
+
+  // 显式关闭:只落本机,不推生产
+  const off = C.parseArgs(['--from', 'workbuddy', '--no-sync-prod'])
+  assert.equal(off.error, null)
+  assert.equal(off.options.prodPush, false)
+
+  // dry-run 永不推生产(预检不落任何库);显式 --push-prod 与 --dry-run 仍判矛盾
+  const dry = C.parseArgs(['--file', 'a.json', '--provider', 'trae', '--dry-run'])
+  assert.equal(dry.error, null)
+  assert.equal(dry.options.prodPush, false)
+  assert.match(
+    C.parseArgs(['--file', 'a.json', '--provider', 'trae', '--dry-run', '--push-prod']).error ??
+      '',
+    /互斥/,
+  )
+
+  // 运营池号默认不推生产个人池
+  const ops = C.parseArgs(['--file', 'a.json', '--provider', 'trae', '--ops-pool'])
+  assert.equal(ops.error, null)
+  assert.equal(ops.options.prodPush, false)
+
+  // 反向互通:--sync-pull 是「生产→本地」独立通道,不与手工输入入口混用
+  const pull = C.parseArgs(['--sync-pull', 'trae'])
+  assert.equal(pull.error, null)
+  assert.equal(pull.options.syncPull, 'trae')
+  assert.match(C.parseArgs(['--sync-pull', 'trae', '--file', 'a.json']).error ?? '', /互斥/)
+  assert.match(
+    C.parseArgs(['--sync-pull', 'trae', '--dry-run']).error ?? '',
+    /不能与 --dry-run 同用/,
+  )
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
