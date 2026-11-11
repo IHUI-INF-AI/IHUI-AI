@@ -32,6 +32,20 @@ const PROFILE = {
   tokenReleaseAt: '2026-10-27T23:00:00.000Z',
   account: { username: 'u1', nonPlainTextMobile: '193******93' },
 }
+/** 会话模板夹具 = 采集时的整份 userInfo 去凭证后的形态(SESSION_TEMPLATE_OMIT 同口径) */
+const TEMPLATE = {
+  userId: UID,
+  host: 'https://api.trae.cn',
+  account: {
+    username: 'u2',
+    nonPlainTextMobile: '193******93',
+    avatar_url: 'https://example/avatar.png',
+    loginScope: 'trae',
+    scope: 'marscode',
+  },
+  userRegion: 'cn',
+  tokenReleaseAt: '2026-10-27T23:00:00.000Z',
+}
 
 test('① 参数面:三模式互斥;--to 缺参/吃旗报错;无模式未判定;--help 短路', () => {
   assert.equal(S.parseArgs([]).error, '缺少模式:--list | --current | --to <uid|名称>')
@@ -62,15 +76,36 @@ test('② userInfo 重建:profile 快照优先,Date→ISO,userId 钉成字符串
   assert.equal(info.refreshToken, 'RT-abc')
 })
 
-test('③ userInfo 兜底档:无 profile ⇒ 默认 host/名称账户;tokenReleaseAt 退 lastRefreshAt 再退 updatedAt', () => {
-  const noProfile = S.buildClientUserInfo(BASE)
-  assert.equal(noProfile.host, 'https://api.trae.cn')
-  assert.deepEqual(noProfile.account, { username: '193******93' })
-  assert.equal(noProfile.tokenReleaseAt, '2026-10-28T01:00:00.000Z')
-  const noRefreshAt = S.buildClientUserInfo({ ...BASE, lastRefreshAt: null })
-  assert.equal(noRefreshAt.tokenReleaseAt, '2026-10-28T02:00:00.000Z')
-  const noName = S.buildClientUserInfo({ ...BASE, name: '' })
-  assert.deepEqual(noName.account, { username: `trae-${UID.slice(0, 8)}` })
+test('③ userInfo 档案三级:无 profile ⇒ sessionTemplate 重建+池凭据打补丁;都无 ⇒ 最小静态档兜底(不再拒绝)', () => {
+  // 模板重建:整份账号档案保留(16 字段形状),凭证与 uid 以池票为准
+  const viaTemplate = S.buildClientUserInfo({ ...BASE, sessionTemplate: TEMPLATE })
+  assert.equal(viaTemplate.host, 'https://api.trae.cn')
+  assert.deepEqual(viaTemplate.account, TEMPLATE.account)
+  assert.equal(viaTemplate.userRegion, 'cn')
+  assert.equal(viaTemplate.token, 'AT-xyz')
+  assert.equal(viaTemplate.userId, UID)
+  assert.equal(viaTemplate.refreshToken, 'RT-abc')
+  assert.equal(viaTemplate.expiredAt, '2026-11-07T00:00:00.000Z')
+  assert.equal(viaTemplate.refreshExpiredAt, '2027-04-21T00:00:00.000Z')
+  assert.equal(viaTemplate.tokenReleaseAt, '2026-10-28T01:00:00.000Z', '池 lastRefreshAt 优先于模板旧值')
+  // profile 与模板都无 ⇒ 最小静态档兜底写回(2026-11-11 晚修订:登录本机路径实证
+  // 16 字段静态模板可出登录态,客户端首刷自愈真档案;拒绝写反对手机号已丢的号无解)
+  const minimal = S.buildClientUserInfo(BASE)
+  assert.equal(minimal.host, 'https://api.trae.cn')
+  assert.deepEqual(minimal.userRegion, { region: 'CN', _aiRegion: 'CN' })
+  assert.equal(Object.keys(minimal.account).length, 16, '最小档 16 字段齐全')
+  assert.equal(minimal.account.scope, 'marscode')
+  assert.equal(minimal.account.loginScope, 'trae')
+  assert.equal(minimal.account.username, '193******93', 'name 兜底 username')
+  assert.equal(minimal.token, 'AT-xyz')
+  assert.equal(minimal.userId, UID)
+  // 空壳 profile:{} 与缺失同罪,同样走最小档兜底
+  const shell = S.buildClientUserInfo({ ...BASE, profile: {}, sessionTemplate: null })
+  assert.equal(Object.keys(shell.account).length, 16)
+  // 最小档不带凭证键污染
+  assert.equal('refreshToken' in minimal, true, 'rt 存在时照写')
+  const noRt = S.buildClientUserInfo({ ...BASE, refreshToken: null })
+  assert.equal('refreshToken' in noRt, false)
 })
 
 test('④ 空值纪律:缺 token/uid 抛 SwitchError;无 rt/无到期 ⇒ 不写键', () => {
@@ -82,11 +117,11 @@ test('④ 空值纪律:缺 token/uid 抛 SwitchError;无 rt/无到期 ⇒ 不写
     refreshToken: null,
     tokenExpiresAt: null,
     refreshExpiresAt: undefined,
+    sessionTemplate: TEMPLATE,
   })
   assert.equal('refreshToken' in bare, false)
   assert.equal('expiredAt' in bare, false)
   assert.equal('refreshExpiredAt' in bare, false)
-  assert.equal('tokenReleaseAt' in bare, false)
 })
 
 test('⑤ iso():Date/字符串 → ISO;空与坏值 → null', () => {
@@ -120,7 +155,7 @@ test('⑥ storage 补丁:AUTH 信封往返自证、设备齐才写 dc 键、入�
 })
 
 test('⑦ 信封往返自证:encryptEnvelope → decryptEnvelope 逐字节还原', () => {
-  for (const text of ['{}', JSON.stringify(S.buildClientUserInfo(BASE)), '中文 mixed\ne'] ) {
+  for (const text of ['{}', JSON.stringify(S.buildClientUserInfo({ ...BASE, profile: PROFILE })), '中文 mixed\ne'] ) {
     assert.equal(decryptEnvelope(encryptEnvelope(text)), text)
   }
 })

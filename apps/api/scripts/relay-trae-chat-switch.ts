@@ -175,6 +175,13 @@ function decodePoolRow(row: any) {
     secrets?.profile && typeof secrets.profile === 'object' && !Array.isArray(secrets.profile)
       ? (secrets.profile as Record<string, unknown>)
       : null
+  // 会话模板(采集时的整份 userInfo 去凭证):profile 缺失时写回端的账号档案基底(2026-11-11 立)
+  const sessionTemplate =
+    secrets?.sessionTemplate &&
+    typeof secrets.sessionTemplate === 'object' &&
+    !Array.isArray(secrets.sessionTemplate)
+      ? (secrets.sessionTemplate as Record<string, unknown>)
+      : null
   const deviceKeyPem = typeof secrets?.deviceKeyPem === 'string' ? secrets.deviceKeyPem : ''
   const devicePubPem = typeof secrets?.devicePubPem === 'string' ? secrets.devicePubPem : ''
   const device =
@@ -377,6 +384,7 @@ export async function main(argv: string[]): Promise<number> {
       refreshExpiresAt: row.refreshExpiresAt,
       name: row.name,
       profile: dec.profile,
+      sessionTemplate: dec.sessionTemplate,
       lastRefreshAt: row.lastRefreshAt,
       updatedAt: row.updatedAt,
     })
