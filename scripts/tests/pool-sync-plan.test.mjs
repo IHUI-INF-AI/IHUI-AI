@@ -1,3 +1,7 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
 /**
  * 号池跨环境同步决策核心的回归测试(2026-11-11 立)。
  *
@@ -225,6 +229,45 @@ test('⑱ 指纹:载荷里的本机环境字段(sourcePath/region)不同不算�
   assert.equal(credentialFingerprint(a), credentialFingerprint(b))
 })
 
+test('⑲ 分组产出必须是平台原生载荷(凭据不能套在 payload 里)', () => {
+  const raw = {
+    accessToken: 'at-native',
+    recordKey: 'rk',
+    __sync: {
+      uid: 'u1',
+      providerCode: 'minimax',
+      ownerUserId: 'o1',
+      enabled: true,
+      updatedAt: '2026-11-11T00:00:00Z',
+      core: { token: 'at-native', refreshToken: '', tokenExpiresAt: '' },
+    },
+  }
+  // ① 直接传原始导出项
+  const direct = groupForImport([{ account: raw }])
+  assert.equal(direct[0].accounts[0].accessToken, 'at-native')
+  assert.ok(!('payload' in direct[0].accounts[0]), '不能把归一化对象当载荷')
+  assert.ok(!('__sync' in direct[0].accounts[0]), '__sync 必须剥掉')
+
+  // ② 传 plan 产出的归一化对象(真实调用链形态)也要能取到原生字段
+  const normalized = normalizeSyncAccount(raw)
+  const viaPlan = groupForImport([{ account: normalized }])
+  assert.equal(viaPlan[0].accounts[0].accessToken, 'at-native')
+  assert.equal(viaPlan[0].accounts[0].recordKey, 'rk')
+})
+
+test('⑳ 分组:原生载荷里的 uid/name 保留(平台自身字段不剥),只剥同步元数据', () => {
+  const raw = {
+    value: 'session-value',
+    uid: 'native-uid',
+    name: '原生名',
+    __sync: { uid: 'sync-uid', providerCode: 'loomy', enabled: true },
+  }
+  const batches = groupForImport([{ account: raw }])
+  assert.equal(batches[0].accounts[0].value, 'session-value')
+  assert.equal(batches[0].accounts[0].uid, 'native-uid')
+  assert.equal(batches[0].accounts[0].name, '原生名')
+})
+
 test('⑰ 指纹与键序无关(同一内容不同键序必须同哈希)', () => {
   const a = { x: 1, y: { p: 2, q: 3 }, __sync: { uid: 'u1', providerCode: 'trae' } }
   const b = { y: { q: 3, p: 2 }, x: 1, __sync: { uid: 'u1', providerCode: 'trae' } }
@@ -245,3 +288,4 @@ test('⑬ 防漂移:ESM 镜像的 provider 清单必须与 TS 唯一真相源逐
     'scripts/lib/pool-providers.mjs 与 TS 源不一致:改平台清单必须两边同步',
   )
 })
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

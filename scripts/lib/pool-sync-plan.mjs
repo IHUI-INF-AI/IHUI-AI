@@ -1,3 +1,7 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
 /**
  * 号池跨环境同步的**决策核心**(2026-11-11 立,纯函数、零 IO、可单测)。
  *
@@ -43,7 +47,11 @@ export function normalizeSyncAccount(raw) {
   const ownerRaw = sync.ownerUserId !== undefined ? sync.ownerUserId : src.ownerUserId
   const owner = typeof ownerRaw === 'string' && ownerRaw.trim() ? ownerRaw.trim() : null
   const enabledRaw = sync.enabled !== undefined ? sync.enabled : src.enabled
+  // 幂等:传进来的可能已经是本函数的产物(plan → groupForImport 链路),此时载荷在 .payload 里
+  const payload =
+    src.__normalized === true && src.payload && typeof src.payload === 'object' ? src.payload : src
   return {
+    __normalized: true,
     ownerUserId: owner,
     providerCode: String(sync.providerCode ?? src.providerCode ?? '').trim(),
     uid: String(sync.uid ?? src.uid ?? '').trim(),
@@ -52,7 +60,7 @@ export function normalizeSyncAccount(raw) {
     tokenExpiresAt: typeof src.tokenExpiresAt === 'string' ? src.tokenExpiresAt : '',
     updatedAt: String(sync.updatedAt ?? src.updatedAt ?? ''),
     /** 原始载荷(含平台原生字段),指纹与落库都以它为准。 */
-    payload: src,
+    payload,
   }
 }
 
@@ -266,15 +274,25 @@ export function groupForImport(items) {
     if (!buckets.has(bucketKey)) {
       buckets.set(bucketKey, { ownerUserId: a.ownerUserId, providerCode: a.providerCode, accounts: [] })
     }
-    // 剥掉同步元数据(含旧简化形状的顶层字段):导入器只认平台原生字段,
-    // 多一个键就会进 extraMetadata 污染行;归属与平台由命令行/文件顶层显式给。
-    const { __sync, updatedAt, ownerUserId, providerCode, ...payload } =
-      raw && typeof raw === 'object' ? raw : {}
-    void __sync
-    void updatedAt
-    void ownerUserId
-    void providerCode
-    buckets.get(bucketKey).accounts.push(payload)
+    // 落库载荷必须是**平台原生载荷**(normalize 把它保在 payload 里),不能是归一化后的
+    // 元数据对象 —— 否则导入器会看到 {uid,name,payload:{accessToken}} 而报"缺少 accessToken"
+    // (2026-11-11 实测:minimax/doubao/codearts/zcode/loomy 八条因此全被拒收)。
+    const src = a.payload && typeof a.payload === 'object' ? a.payload : raw
+    const {
+      __sync: _dropSync,
+      __normalized: _dropMarker,
+      updatedAt: _dropUpdatedAt,
+      ownerUserId: _dropOwner,
+      providerCode: _dropProvider,
+      ...native
+    } = src && typeof src === 'object' ? src : {}
+    void _dropSync
+    void _dropMarker
+    void _dropUpdatedAt
+    void _dropOwner
+    void _dropProvider
+    buckets.get(bucketKey).accounts.push(native)
   }
   return [...buckets.values()]
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
