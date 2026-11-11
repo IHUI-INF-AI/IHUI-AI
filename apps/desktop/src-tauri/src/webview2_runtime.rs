@@ -140,4 +140,41 @@ pub fn check_and_report(app: &tauri::AppHandle) {
         ),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 真机实证:调用真实系统 FFI,判据是「不 panic 且落在三档之一」。
+    ///
+    /// 刻意不断言「必须 >= 门槛」—— 那等于要求每台跑测试的机器都装了新版 Runtime,
+    /// 没装时 rightful 地落 `Unknown`,这仍应是通过(本模块的承诺是"不崩、不误判绿")。
+    /// 想看在跑的是哪个版本:`cargo test -p ihui-desktop --lib -- --nocapture`。
+    #[test]
+    fn runtime_probe_never_panics_and_reports_one_of_three() {
+        let status = runtime_status();
+        match &status {
+            RuntimeStatus::Ok { current } => {
+                println!(
+                    "[webview2-runtime][test] 满足门槛: current={} minimum={}",
+                    current, MIN_WEBVIEW2_RUNTIME
+                );
+            }
+            RuntimeStatus::BelowMinimum { current, minimum } => {
+                println!("[webview2-runtime][test] 低于门槛: current={} minimum={}", current, minimum);
+            }
+            RuntimeStatus::Unknown { reason } => {
+                println!("[webview2-runtime][test] 未判定: {}", reason);
+            }
+        }
+        if let RuntimeStatus::Ok { current } | RuntimeStatus::BelowMinimum { current, .. } = &status {
+            // 读到版本还必须是版本串的形状(a.b.c.d 至少三段),防止把乱码当成版本。
+            assert!(
+                current.split('.').count() >= 3 && current.chars().all(|c| c.is_ascii_digit() || c == '.'),
+                "Runtime 版本串形状异常: {:?}",
+                current
+            );
+        }
+    }
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
