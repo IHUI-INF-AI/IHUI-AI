@@ -32,8 +32,8 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { useTheme } from '../context/ThemeContext'
-import { useAudioPlayer } from 'expo-audio'
-import * as DocumentPicker from '@/platform/picker'
+import { useAudioPlayer } from '@/platform/audio'
+import * as DocumentPicker from '@/platform/document-picker'
 import { File, Paths } from '@/platform/fs'
 import {
   ActivityIndicator,

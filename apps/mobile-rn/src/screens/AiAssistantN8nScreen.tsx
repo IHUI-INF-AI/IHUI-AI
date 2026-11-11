@@ -61,8 +61,8 @@ import { dialogContentHeightStyle } from '../lib/dialog-geometry'
 import Clipboard from '@react-native-clipboard/clipboard'
 import * as FileSystem from '@/platform/fs'
 import * as MediaLibrary from '@/platform/media-library'
-import * as ImagePicker from '@/platform/picker'
-import * as DocumentPicker from '@/platform/picker'
+import * as ImagePicker from '@/platform/image-picker'
+import * as DocumentPicker from '@/platform/document-picker'
 import {
   AlertTriangle,
   Bot,

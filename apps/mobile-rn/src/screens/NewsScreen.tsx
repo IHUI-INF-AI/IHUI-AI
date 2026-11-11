@@ -10,7 +10,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { StyleSheet, View, type FlatList, type ViewStyle } from 'react-native'
-import { BlurTargetView } from 'expo-blur'
+import { BlurTargetView } from '@/platform/blur'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Clipboard from '@react-native-clipboard/clipboard'
 import { useNavigation } from '@react-navigation/native'

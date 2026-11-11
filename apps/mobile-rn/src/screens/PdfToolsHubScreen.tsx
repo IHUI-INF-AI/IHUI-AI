@@ -6,7 +6,7 @@ import { useCallback } from 'react'
 import { Linking } from 'react-native'
 import { useNavigation, useRoute } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import * as DocumentPicker from '@/platform/picker'
+import * as DocumentPicker from '@/platform/document-picker'
 import * as FileSystem from '@/platform/fs'
 import {
   pdfServiceResultUrl,

@@ -15,10 +15,9 @@ import {
   View,
 } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { useFonts } from 'expo-font'
+import { StatusBar, useFonts } from '@/platform/ui'
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
 import { NavigationContainer, DarkTheme, DefaultTheme } from '@react-navigation/native'
-import { StatusBar } from 'expo-status-bar'
 import { AuthProvider } from './src/context/AuthContext'
 import { ThemeProvider, useTheme } from './src/context/ThemeContext'
 import { I18nProvider } from './src/i18n'

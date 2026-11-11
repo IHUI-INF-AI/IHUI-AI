@@ -27,7 +27,7 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
-import { AudioModule, RecordingPresets, setAudioModeAsync, useAudioRecorder } from 'expo-audio'
+import { AudioModule, RecordingPresets, setAudioModeAsync, useAudioRecorder } from '@/platform/audio'
 import { tokens } from '../theme/active-tokens'
 import { useI18n } from '../i18n'
 import { formatShortDuration } from '@ihui/shared/utils'

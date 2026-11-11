@@ -20,8 +20,8 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { appAlert } from '../components/BottomPops'
-import * as ImagePicker from '@/platform/picker'
-import { AudioModule, RecordingPresets, setAudioModeAsync, useAudioRecorder } from 'expo-audio'
+import * as ImagePicker from '@/platform/image-picker'
+import { AudioModule, RecordingPresets, setAudioModeAsync, useAudioRecorder } from '@/platform/audio'
 import type { MessageInputAgentVariable, MessageInputFile, MessageInputFileType } from '@ihui/types'
 
 let fileIdCounter = 0

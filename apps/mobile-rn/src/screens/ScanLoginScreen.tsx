@@ -5,7 +5,7 @@
 // 平台特有:依赖 expo-camera 相机与条码扫描 API,不进共享层。
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native'
-import { CameraView, useCameraPermissions } from 'expo-camera'
+import { CameraView, useCameraPermissions } from '@/platform/camera'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { SafeAreaView } from 'react-native-safe-area-context'

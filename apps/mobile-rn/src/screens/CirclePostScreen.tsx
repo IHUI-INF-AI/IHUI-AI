@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import * as ImagePicker from '@/platform/picker'
+import * as ImagePicker from '@/platform/image-picker'
 import { getCircles, submitCirclePost, uploadFileMultipart } from '@ihui/api-client'
 import { CirclePostScreen as SharedCirclePostScreen, type CircleOption } from '@ihui/rn-app'
 import { useI18n } from '../i18n'

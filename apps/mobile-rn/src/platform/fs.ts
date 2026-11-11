@@ -4,7 +4,8 @@
 
 export { File, Paths, FileMode, UploadType } from 'expo-file-system'
 export * as FileSystem from 'expo-file-system'
-// 透明转发:业务侧沿用 `import * as FileSystem from ...`,命名空间对象上必须直接可见全部根 API。
-export * from 'expo-file-system'
+// 透明转发:业务侧沿用 `import * as FileSystem from ...`,命名空间对象上必须直接可见
+// 根 API 的 File / Paths —— 上一条具名导出已覆盖,不再 `export *` 整包透传(避免把
+// 全部根 API 一并拉进 facade,收窄耦合面)。
 // legacy 面(createDownloadResumable / getContentUriAsync 等)与新版 API 不是同一套,单独成域
 export * as LegacyFs from 'expo-file-system/legacy'

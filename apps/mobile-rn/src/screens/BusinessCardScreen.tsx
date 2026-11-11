@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
 import { Share } from 'react-native'
 import { appAlert } from '../components/BottomPops'
-import * as ImagePicker from '@/platform/picker'
+import * as ImagePicker from '@/platform/image-picker'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import {
