@@ -26,7 +26,9 @@ export function StatCard({
   loading = false,
   className,
 }: StatCardProps) {
-  const positive = (trend ?? 0) >= 0
+  // trend 是相对涨跌(百分比 + 涨跌箭头),不是积分正负。
+  // 涨红跌绿走文字令牌;主数值保持中性,积分正绿负红不在这张卡上。
+  const rising = (trend ?? 0) >= 0
   return (
     <div className={cn('rounded-lg border bg-card p-3 text-card-foreground shadow', className)}>
       <div className="flex items-center justify-between gap-2">
@@ -40,7 +42,7 @@ export function StatCard({
           </div>
         )}
       </div>
-      <div className="mt-2 text-display font-bold tabular-nums tracking-tight">
+      <div data-stat-value="" className="mt-2 text-display font-bold tabular-nums tracking-tight">
         {loading ? (
           <span className="inline-block h-7 w-20 animate-pulse rounded bg-muted" />
         ) : (
@@ -50,14 +52,13 @@ export function StatCard({
       {trend !== undefined && !loading && (
         <div className="mt-1 flex flex-nowrap items-center gap-1 text-label">
           <span
+            data-stat-trend={rising ? 'rise' : 'fall'}
             className={cn(
               'inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap font-medium',
-              positive
-                ? 'text-emerald-600 dark:text-emerald-500'
-                : 'text-red-600 dark:text-red-500',
+              rising ? 'text-danger-text' : 'text-success-text',
             )}
           >
-            {positive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+            {rising ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
             {Math.abs(trend).toFixed(1)}%
           </span>
           {trendLabel && (

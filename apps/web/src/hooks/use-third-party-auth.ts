@@ -11,6 +11,7 @@ import type { LoginRegion } from '@ihui/ui-react'
 
 import { useAuthStore, type AuthUser } from '@/stores/auth'
 import { fetchApi } from '@/lib/api'
+import { notifyExtensionAuth } from '@/lib/ext-auth-relay'
 import {
   getAllPlatformConfigs,
   getPlatformConfig,
@@ -92,6 +93,13 @@ function applyLoginData(data: ThirdPartyLoginResponse): void {
     phone: undefined,
   }
   setUser(user)
+  // DBG-66:web 登录成功链路把 token 送回已安装扩展(判据/形状/降级见 @/lib/ext-auth-relay)。
+  // 永不抛错:扩展未装 / ID 未配置 / 发送被拒都不影响本侧登录。
+  notifyExtensionAuth({
+    accessToken: data.token,
+    refreshToken: data.refreshToken,
+    expiresIn: data.expiresIn,
+  })
 }
 
 export interface UseThirdPartyAuthReturn {

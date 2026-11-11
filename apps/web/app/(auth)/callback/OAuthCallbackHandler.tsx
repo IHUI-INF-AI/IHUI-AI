@@ -11,6 +11,7 @@ import { CheckCircle2, XCircle, Loader2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { fetchApi } from '@/lib/api'
+import { notifyExtensionAuth } from '@/lib/ext-auth-relay'
 import { useAuthStore } from '@/stores/auth'
 import { buildMainDomainUrl, isAuthSubdomainHost } from '@/lib/auth-domains'
 import { resolvePostLoginLanding, type PostLoginUser } from '@/lib/post-login-landing'
@@ -98,7 +99,7 @@ function OAuthCallbackHandlerInner({ provider }: OAuthCallbackHandlerProps) {
     const timers: ReturnType<typeof setTimeout>[] = []
     const body = JSON.stringify({ code, state })
 
-    fetchApi<{ token: string; refreshToken?: string; user: unknown }>(apiPath, {
+    fetchApi<{ token: string; refreshToken?: string; expiresIn?: number; user: unknown }>(apiPath, {
       method: 'POST',
       body,
     })
@@ -116,6 +117,13 @@ function OAuthCallbackHandlerInner({ provider }: OAuthCallbackHandlerProps) {
         }
         setToken(res.data.token, res.data.refreshToken)
         setUser(res.data.user as never)
+        // DBG-66:登录成功落 store 后把 token 送回已安装扩展(判据/形状/降级见 @/lib/ext-auth-relay)。
+        // 永不抛错:扩展未装 / ID 未配置 / 发送被拒都不影响本侧登录与后续跳转。
+        notifyExtensionAuth({
+          accessToken: res.data.token,
+          refreshToken: res.data.refreshToken,
+          expiresIn: res.data.expiresIn,
+        })
         setStatus('success')
         // admin 账号(roleId ≥ 1)经第三方登录完成后的建议落点为生产在线监控大屏,与主站
         // LoginDialog 共用同一落点判据(@/lib/post-login-landing)。

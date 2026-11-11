@@ -197,8 +197,10 @@ describe('M4 D73 边界 1:根窗格单例主体 + 非根窗格独立主体(票60
 })
 
 describe('M5 D73 零回归:未拆分时主体直挂,观感与挂载前一致', () => {
-  it('展开判定存在,且未展开分支直接渲染主体(不套容器)', () => {
-    expect(host).toMatch(/d73Expanded\s*\?/)
+  it('展开判定存在(且浮窗档不上窗格树),未展开分支直接渲染主体(不套容器)', () => {
+    // 2026-11-11:门控从 `d73Expanded ?` 改为 `d73Expanded && !floatMode ?` ——
+    // 360px 浮窗里再分两栏每栏不到 170px;拆分布局保留在 store,停靠回 ≥1280 自动复原。
+    expect(host).toMatch(/d73Expanded && !floatMode \?/)
     expect(host).toMatch(/\)\s*:\s*\(\s*\n?\s*d73ConversationBody\(/)
   })
 
@@ -208,7 +210,9 @@ describe('M5 D73 零回归:未拆分时主体直挂,观感与挂载前一致', (
   })
 
   it('拆分入口在收起态才出现(已展开时不得再给重复的拆分钮)', () => {
-    expect(host).toMatch(/!d73Expanded && !isMobileSmall && \(/)
+    // 2026-11-11:门控从「非手机」改为「非浮窗」—— 360px 浮窗内再分两栏,
+    // 每栏不到 170px 输入框必然溢出;浮窗/手机两档都不该给拆分入口。
+    expect(host).toMatch(/!d73Expanded && !floatMode && \(/)
   })
 
   it('窗格承载上限留在宿主(布局层容量决策),且判定层词表仍由 multi-pane 提供', () => {
