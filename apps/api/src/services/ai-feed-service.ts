@@ -9,7 +9,7 @@
  * - 数据源管理：listSources / getSourceStats
  * - 资讯条目查询：listFeedItems / getFeedItem / getTrendChart
  * - 采集触发：collectAllSources（并发采集所有 enabled 源，更新 lastFetchAt/Count）
- * - LLM 分类摘要：processLlmBatch（批处理 llmCategory/llmSummary 缺失的条目）
+ * - LLM 分类摘要：processLlmBatch（批处理 llmCategory 缺失的条目）、summarizeFeedItems（补 llmSummary）
  * - 标题翻译：translateTitles（批处理 titleEn 缺失的条目）
  *
  * 设计原则：
@@ -1336,8 +1336,12 @@ industry
 /**
  * 手动触发 LLM 分类与摘要批处理。
  *
- * 选取 llmProcessedAt 为空（未处理）的条目，批量更新 llmCategory/llmSummary/llmProcessedAt。
+ * 选取 llmProcessedAt 为空（未处理）的条目，批量更新 llmCategory/llmProcessedAt。
  * 配置 AI_SERVICE_URL 时调用 LLM 服务做分类；未配置或调用失败时回退到关键词规则。
+ *
+ * SDB-49：本批绝不写 llmSummary —— 该列由 summarizeFeedItems 独占产出。
+ * 旧实现用 `item.summary ?? null` 无条件回填，与并发摘要批抢写同一列：
+ * 已生成的 LLM 摘要被原文/NULL 覆盖，NULL 又让下一轮重新摘要并重复付费。
  */
 export async function processLlmBatch(limit?: number): Promise<LlmBatchResult> {
   // LLM_BATCH_ENABLED 全局开关：false 时静默停用，不调用 LLM 也不改数据。
@@ -1389,7 +1393,6 @@ export async function processLlmBatch(limit?: number): Promise<LlmBatchResult> {
       .update(aiFeedHotItem)
       .set({
         llmCategory: category,
-        llmSummary: item.summary ?? null,
         // 关键词回退时保留 NULL：llm_processed_at 缺失=LLM 尚未真正处理(留待重试)
         llmProcessedAt: llmSucceeded ? new Date() : null,
         updatedAt: new Date(),
@@ -1571,10 +1574,11 @@ export async function summarizeFeedItems(limit?: number): Promise<LlmBatchResult
         temperature: 0,
       })
       if (llmResult && llmResult.trim().length > 0) {
+        // SDB-49：只在 llmSummary 仍为空时落库，避免覆盖并发批次已写入的摘要
         await db
           .update(aiFeedHotItem)
           .set({ llmSummary: llmResult.trim().slice(0, 2000), updatedAt: new Date() })
-          .where(eq(aiFeedHotItem.id, item.id))
+          .where(and(eq(aiFeedHotItem.id, item.id), isNull(aiFeedHotItem.llmSummary)))
         processed++
       } else {
         // LLM 失败(401/stub/返回空):回退原文 summary 或标题截断兜底落库,仍计 failed
@@ -1583,7 +1587,7 @@ export async function summarizeFeedItems(limit?: number): Promise<LlmBatchResult
           await db
             .update(aiFeedHotItem)
             .set({ llmSummary: fallback.trim(), updatedAt: new Date() })
-            .where(eq(aiFeedHotItem.id, item.id))
+            .where(and(eq(aiFeedHotItem.id, item.id), isNull(aiFeedHotItem.llmSummary)))
         }
         failed++
       }
