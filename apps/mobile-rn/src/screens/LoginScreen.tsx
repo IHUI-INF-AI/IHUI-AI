@@ -625,6 +625,7 @@ export function LoginScreen() {
   const handleSendEmailCode = useCallback(async () => {
     if (!email.trim()) {
       form.setError('auth.invalidEmail')
+      appAlert(t('auth.invalidEmail'))
       return
     }
     setEmailCodeSending(true)
@@ -634,10 +635,15 @@ export function LoginScreen() {
       if (res.success) {
         setEmailCountdown(CODE_COUNTDOWN_SECONDS)
       } else {
+        // 2026-11-11:setError 只落页面顶部一条细错误条,键盘弹起时几乎不可见,
+        // 而倒计时只在成功分支启动 ⇒ 失败时用户感知就是「点了没反应」。补一次模态提示。
+        // 保留 setError 的字面量:login-error-identity.test.ts 把这一行当站点锚点逐字对账。
         form.setError(apiFailureToText(res, t('auth.loginFailed')))
+        appAlert(t('auth.loginFailed'), apiFailureToText(res, t('auth.loginFailed')))
       }
     } catch {
       form.setError(t('auth.loginFailed'))
+      appAlert(t('auth.loginFailed'))
     } finally {
       setEmailCodeSending(false)
     }

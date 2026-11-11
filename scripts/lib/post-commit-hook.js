@@ -386,6 +386,19 @@ if (process.env.IHUI_PLAN_HEAL_COMMIT !== '1' && process.env.HUSKY_SKIP_PLAN_HEA
   }
 }
 
+// ─── 6.5 旧底稿整份回退哨兵(2026-11-11 立,提交面报警) ────────────────────
+// 与守门批量检查里的门 84(暂存面,pre-commit,--no-verify 可绕过)互补:本腿判**提交面**,
+// 挂在 post-commit(--no-verify 跳不过 post-commit),每次落提交即扫刚落的那一枚,
+// 命中整份退回旧版(≥阈值 3 个路径的 blob 等于自身祖先版本)即大声写日志报警。
+// 不自行回捞/不提交(避免与 §6 的回捞腿递归纠缠):推送前的 pre-push 哨兵才是硬拦截,
+// 这里只做"早一拍发现",让出问题的会话在推送前就看见。
+// 跳过:HUSKY_SKIP_STALE_BASELINE_SENTINEL=1
+if (process.env.HUSKY_SKIP_STALE_BASELINE_SENTINEL !== '1') {
+  runLogged('post-commit-stale-sentinel', 'node scripts/check-stale-baseline-sentinel.mjs --commit HEAD --alarm', {
+    timeout: 120000,
+  })
+}
+
 // ─── 10. 跨端登记自动链路 —— web↔RN↔小程序 登记表自动追加(2026-10-25 立)─────────
 // (任务口径把这条叫"第 7 段";本文件 7 号已被上面「快档延后守门补跑」占,0 号更有两处,
 //  故按末尾续号登记为 10,不再添第三处重号。)
