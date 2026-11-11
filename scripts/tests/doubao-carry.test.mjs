@@ -482,7 +482,7 @@ test('⑧a-3 buildReplayText:超大会话安全阀截断,总长不超上限且�
     content: `第${i}条消息内容 padding-${'-'.repeat(80)}`,
   }))
   const t = buildReplayText({ name: '大会话' }, big)
-  assert.ok(t.length <= 300_000 + 200, `len=${t.length}`)
+  assert.ok(t.length <= 200_000 + 200, `len=${t.length}`)
   assert.match(t, /【\.\.\.中间省略 \d+ 条消息,完整记录见原归档\.\.\.】/)
   assert.match(t, /第0条消息内容/) // 头部保留
   assert.match(t, /第3999条消息内容/) // 尾部保留
