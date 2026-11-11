@@ -213,8 +213,9 @@ export function SidebarUserRow({
     const Icon = Meta.icon
     return {
       key: `notice-${n.id}`,
+      itemClassName: 'items-start rounded-md px-2.5 py-2',
       label: (
-        <span className="flex w-full min-w-0 items-start gap-2.5 py-0.5">
+        <span className="flex w-full min-w-0 items-start gap-2.5">
           <span
             className={cn(
               'mt-px flex h-8 w-8 shrink-0 items-center justify-center rounded-full',
@@ -233,7 +234,7 @@ export function SidebarUserRow({
               >
                 {n.title}
               </span>
-              <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">
+              <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
                 {formatNoticeTime(n.createdAt)}
               </span>
             </span>
@@ -245,7 +246,7 @@ export function SidebarUserRow({
           </span>
           <span
             className={cn(
-              'mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full',
+              'mt-2 h-1.5 w-1.5 shrink-0 rounded-full',
               !n.read ? 'bg-red-500' : 'bg-transparent',
             )}
           />
@@ -272,19 +273,31 @@ export function SidebarUserRow({
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         ) : null,
-      contentClassName: 'w-80',
+      contentClassName: 'w-80 p-2',
       // 空态也要保留「查看全部通知」入口 —— 绝不能因为没拉到条目就把整条消息入口做成死路。
       children: [
         ...(messagePreviewItems.length > 0
           ? messagePreviewItems
-          : [{ key: 'messages-empty', label: t('messagesEmpty'), disabled: true } as DropdownItem]),
+          : [
+              {
+                key: 'messages-empty',
+                // 不设 disabled:空态只是占位文案,禁用态的半透明反而更脏
+                itemClassName:
+                  'cursor-default justify-center px-2.5 py-6 text-label text-muted-foreground focus:bg-transparent',
+                label: (
+                  <span className="flex items-center gap-1.5">
+                    <Bell className="h-3.5 w-3.5" />
+                    {t('messagesEmpty')}
+                  </span>
+                ),
+              } as DropdownItem,
+            ]),
         {
           key: 'messages-view-all',
-          label: (
-            <span className="w-full border-t border-border/60 pt-1.5 text-center text-label text-muted-foreground">
-              {t('messagesViewAll')}
-            </span>
-          ),
+          // 底部入口做成整块分隔式 footer:去掉圆角与左侧内边距,顶部一条细分隔线
+          itemClassName:
+            'mt-1 justify-center rounded-none border-t border-border/60 px-2.5 pt-2 text-label font-medium text-muted-foreground',
+          label: t('messagesViewAll'),
           onSelect: () => setMsgOpen(true),
         },
       ],
