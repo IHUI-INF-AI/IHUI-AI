@@ -103,9 +103,13 @@ const tenantPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     if (!identifier) {
       // 缺省即严格:未携带租户标识 → 401。只有显式 TENANT_STRICT_MODE=false 才放行单租户。
       if (isTenantStrictMode()) {
+        // 2026-11-11 排障加固:带上被拒的具体路径。此前 message 不含路径,线上出现
+        // "客户端启动即调的公开面漏登记进 TENANT_BYPASS" 这类 401 时,只能靠猜测
+        // 哪条路径没豁免(2026-11-11 /api/app-version/latest 实测:加错清单,排障数小时)。
+        // 列出路径后,一眼即可对照 plugins/public-paths.ts 的清单定位漏登记项。
         return reply.status(401).send({
           code: 401,
-          message: '多租户严格模式已启用,请求必须携带租户标识(X-Tenant-Id 或 Authorization)',
+          message: `多租户严格模式已启用,请求必须携带租户标识(X-Tenant-Id 或 Authorization);path=${parsePath(request.url)}`,
         })
       }
       return

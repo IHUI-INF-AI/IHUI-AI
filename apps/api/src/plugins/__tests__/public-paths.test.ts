@@ -118,6 +118,17 @@ describe('BUG-4 公开面单一真相源', () => {
       expect(isTenantBypassPath('/v1x/foo')).toBe(false)
     })
 
+    // 2026-11-11:客户端启动即调的版本检查,必须同时存在于鉴权清单和租户清单。
+    // 事故回顾:另一会话把它只加进 AUTH_PUBLIC_PREFIX_PATHS,租户钩子仍返回 401,
+    // 线上小程序冷启动卡死数小时,直到排查者用 grep 定位到"加错清单"才修复。
+    // 本用例双面锁死,任何一侧漏登记都在 CI 阶段即红。
+    it('/api/app-version/ 必须免登录且免租户(双清单回归锁)', () => {
+      expect(isAuthPublicPath('/api/app-version/latest')).toBe(true)
+      expect(isAuthPublicPath('/api/app-version/')).toBe(true)
+      expect(isTenantBypassPath('/api/app-version/latest')).toBe(true)
+      expect(isTenantBypassPath('/api/app-version/')).toBe(true)
+    })
+
     it('/api/public/xxx 属鉴权与网络公开面,但不自动获得免租户待遇', () => {
       expect(isAuthPublicPath('/api/public/banner')).toBe(true)
       expect(isNetworkPublicPath('/api/public/banner')).toBe(true)

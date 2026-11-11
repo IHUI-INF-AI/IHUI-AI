@@ -149,6 +149,10 @@ export const TENANT_BYPASS_PREFIX_PATHS: readonly string[] = [
   // 不顺带放过 /api/super-agent/ 其余需登录面。
   '/api/super-agent/webhook-callback/',
   '/api/tbox/events',
+  // 客户端启动即调的版本检查:小程序/Web 冷启动在登录前就要读 check-update,调用方不带租户头。
+  // 该前缀已同时列于 AUTH_PUBLIC_PREFIX_PATHS(免登录);此处补免租户,否则 TENANT_STRICT_MODE
+  // 缺省严格后启动即 401。双清单一致性由 public-paths.test.ts 的回归锁钉住(2026-11-11 立)。
+  '/api/app-version/',
   // OpenAI 兼容机器面(API Key 自证身份):调用方只会带 Authorization/X-Api-Key,**不带**租户头,
   // 典型如 ai-service 的模型连通性探测与平台中转模型(workbuddy/*)调用。TENANT_STRICT_MODE 缺省
   // 即严格后,不在这里豁免就等于让这 33 个模型全线 401(2026-11-11 实测:带租户头 200、不带 401)。
