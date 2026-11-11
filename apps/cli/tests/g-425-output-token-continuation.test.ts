@@ -170,13 +170,13 @@ async function driveTurn(opts: DriveOptions): Promise<{
   let callIndex = 0;
   fetchMock.mockImplementation(async (_url: unknown, init: { body?: string }) => {
     requestBodies.push(JSON.parse(String(init?.body ?? '{}')));
-    const stream = opts.streams[Math.min(callIndex, opts.streams.length - 1)];
+    const stream = opts.streams[Math.min(callIndex, opts.streams.length - 1)]!;
     callIndex += 1;
     return sseResponse(stream);
   });
   vi.stubGlobal('fetch', fetchMock);
 
-  const messages: Array<{ role: string; content: string }> = [
+  const messages: Array<{ role: 'system' | 'user' | 'assistant' | 'tool'; content: string }> = [
     { role: 'system', content: 'sys' },
     { role: 'user', content: '说一句长话' },
   ];

@@ -6,6 +6,7 @@
 
 import { FileText } from 'lucide-react'
 
+import { SHARED_QUICK_ACTION_BORDER_CLASS } from '@ihui/design-tokens'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 
@@ -50,9 +51,10 @@ export function PromptTemplates({
               type="button"
               onClick={() => onSelect(tpl.content)}
               className={cn(
-                'inline-flex items-center gap-1.5 rounded-sm border bg-background px-3 py-1.5',
+                'inline-flex items-center gap-1.5 rounded-sm bg-background px-3 py-1.5',
+                SHARED_QUICK_ACTION_BORDER_CLASS,
                 'text-label font-medium text-foreground/80 transition-all',
-                'hover:border-primary/40 hover:bg-accent hover:text-foreground hover:-translate-y-px',
+                'hover:bg-accent hover:text-foreground hover:-translate-y-px',
               )}
             >
               <FileText className="h-3.5 w-3.5 text-muted-foreground" />
@@ -72,8 +74,9 @@ export function PromptTemplates({
           type="button"
           onClick={() => onSelect(tpl.content)}
           className={cn(
-            'group flex items-start gap-2 rounded-sm border bg-card p-2.5 text-left transition-colors',
-            'hover:border-primary/40 hover:bg-accent',
+            'group flex items-start gap-2 rounded-sm bg-card p-2.5 text-left transition-colors',
+            SHARED_QUICK_ACTION_BORDER_CLASS,
+            'hover:bg-accent',
           )}
         >
           <FileText className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground group-hover:text-primary" />

@@ -58,7 +58,7 @@ afterEach(() => {
 
 function writeSessionFixture(): string {
   const session = createSession(path.join(scratch!, 'ws'), 'test-model');
-  session.history = [{ role: 'user', content: 'hello before crash' }];
+  session.history = [{ id: 'msg-1', role: 'user', content: 'hello before crash' }];
   saveSession(session);
   return session.id;
 }
@@ -93,7 +93,7 @@ describe('G-816014 resume 必经点收敛悬挂压缩时间线', () => {
     const resolved = resolveSession({ resume: id });
 
     expect(resolved.sessionId).toBe(id);
-    expect(resolved.history).toEqual([{ role: 'user', content: 'hello before crash' }]);
+    expect(resolved.history).toEqual([{ id: 'msg-1', role: 'user', content: 'hello before crash' }]);
 
     // 断言值写死:原 6 条一字不动在前,追加的 2 条终态在后,atMs = 假时钟钉死值。
     expect(readLedger(id)).toEqual([

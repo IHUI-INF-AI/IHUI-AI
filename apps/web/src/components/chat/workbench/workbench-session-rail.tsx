@@ -45,7 +45,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { ConfirmDialog } from '@/components/feedback/ConfirmDialog'
@@ -132,7 +131,7 @@ export function WorkbenchSessionRail({ items, selectedId, onSelect }: WorkbenchS
               {group.items.map((item) => {
                 const selected = isRailRowSelected(item.id, selectedId)
                 return (
-                  <li key={item.id} className="relative">
+                  <li key={item.id} className="relative group">
                     <button
                       type="button"
                       aria-current={selected ? 'true' : undefined}
@@ -163,34 +162,38 @@ export function WorkbenchSessionRail({ items, selectedId, onSelect }: WorkbenchS
                       <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground/70 group-hover:hidden">
                         {formatRelativeTime(item.lastMessageAt, locale)}
                       </span>
-                      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- 菜单锚点容器只做事件隔离(stopPropagation),不承载交互;真实交互由内部 RailRowMenu 的按钮提供(键盘可达),等价键盘路径 = 聚焦该按钮后 Enter/空格 */}
-                      <span
-                        // 常挂载 + 透明度淡入:Radix popper 的锚点不能处于 display:none,
-                        // hidden/group-hover 会让右键直开时定位塌到原点(可见性只做视觉层)
-                        className="inline-flex shrink-0 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 data-[menu-open]:opacity-100"
-                        data-menu-open={menuOpenId === item.id ? '' : undefined}
-                        onPointerDown={(e) => e.stopPropagation()}
-                        onClick={(e) => e.stopPropagation()}
-                        onContextMenu={(e) => e.stopPropagation()}
-                        title={tg('actions.menu')}
-                      >
-                        <RailRowMenu
-                          item={item}
-                          open={menuOpenId === item.id}
-                          onOpenChange={(o) => setMenuOpenId(o ? item.id : null)}
-                          onRename={() => {
-                            setRenaming(item)
-                            setRenameValue(item.title)
-                          }}
-                          onDelete={() => setDeleting(item)}
-                          onToggleFavorite={() => favMutation.mutate(item.id)}
-                          onTogglePin={() =>
-                            pinMutation.mutate({ id: item.id, pinned: !item.pinned })
-                          }
-                          onArchive={() => archiveMutation.mutate(item.id)}
-                        />
-                      </span>
+                      {/* 菜单已外提为行 button 的兄弟(HTML 不允许 button 嵌 button);
+                          占位保留原 ⋯ 的 24×24 流内空间,行可见布局不变 */}
+                      <span className="h-6 w-6 shrink-0" aria-hidden />
                     </button>
+                    {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- 菜单锚点容器只做事件隔离(stopPropagation),不承载交互;真实交互由内部 RailRowMenu 的原生 button 提供(键盘可达,Tab 序在行 button 之后) */}
+                    <span
+                      // 常挂载 + 透明度淡入:Radix popper 的锚点不能处于 display:none,
+                      // hidden/group-hover 会让右键直开时定位塌到原点(可见性只做视觉层)
+                      // 绝对定位行右侧、垂直居中,与原行内菜单按钮同位;组 hover 由 li.group 提供
+                      className="absolute right-1 top-1/2 inline-flex -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 data-[menu-open]:opacity-100"
+                      data-menu-open={menuOpenId === item.id ? '' : undefined}
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onClick={(e) => e.stopPropagation()}
+                      onContextMenu={(e) => e.stopPropagation()}
+                      title={tg('actions.menu')}
+                    >
+                      <RailRowMenu
+                        item={item}
+                        open={menuOpenId === item.id}
+                        onOpenChange={(o) => setMenuOpenId(o ? item.id : null)}
+                        onRename={() => {
+                          setRenaming(item)
+                          setRenameValue(item.title)
+                        }}
+                        onDelete={() => setDeleting(item)}
+                        onToggleFavorite={() => favMutation.mutate(item.id)}
+                        onTogglePin={() =>
+                          pinMutation.mutate({ id: item.id, pinned: !item.pinned })
+                        }
+                        onArchive={() => archiveMutation.mutate(item.id)}
+                      />
+                    </span>
                   </li>
                 )
               })}
@@ -269,14 +272,13 @@ function RailRowMenu({
   return (
     <DropdownMenu open={open} onOpenChange={onOpenChange}>
       <DropdownMenuTrigger asChild>
-        <span
-          role="button"
-          tabIndex={-1}
+        <button
+          type="button"
           aria-label={t('actions.menu')}
-          className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <MoreVertical className="h-3.5 w-3.5" aria-hidden />
-        </span>
+        </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-44">
         <DropdownMenuItem onSelect={onRename}>
@@ -299,7 +301,6 @@ function RailRowMenu({
           <Archive className="mr-2 h-3.5 w-3.5" aria-hidden />
           {t('actions.archive')}
         </DropdownMenuItem>
-        <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={onDelete} className="text-destructive">
           <Trash2 className="mr-2 h-3.5 w-3.5" aria-hidden />
           {t('actions.delete')}

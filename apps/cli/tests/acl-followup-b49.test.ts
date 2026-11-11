@@ -25,7 +25,7 @@ import { spawnSync } from 'node:child_process';
 import { removeWorktree, createWorktree, createWorktreeWithFallback, reclaimWorktreeMarker, reconcileWorktreeArtifacts } from '../src/subagents/worktree.js';
 import { worktreeMarkerPath } from '../src/worktree.js';
 import { checkPathWritePermission } from '../src/tools/index.js';
-import { announceGuardUnjudged, buildFileAccessRules, buildGuardUnjudgedNotice, clearGuardRulesCache, decideFileAccess, evaluateFileAccess, isStrictMode } from '../src/sandbox/file-access-policy.js';
+import { announceGuardUnjudged, buildFileAccessRules, buildGuardUnjudgedNotice, clearGuardRulesCache, decideFileAccess, evaluateFileAccess, isStrictMode, type GuardManifestOutcome } from '../src/sandbox/file-access-policy.js';
 import { mkScratch, rmScratch } from '../../../scripts/lib/scratch-dir.mjs'; // arch-exempt: 测试夹具只能取 §15b/§26 唯一落点(禁 os.tmpdir/裸 mkdtemp、不得在仓库树内造 git 夹具=门 208);正解=给"测试支持层"在策略表建档 until 2026-12-28
 
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
@@ -241,7 +241,7 @@ describe('④ unjudged 透出到消费点(cell 2:出声,但不改判据、不升
     expect(notice).toContain('[file-acl unjudged');
   });
   it('同一(工作区×原因)只报一次;换工作区另报(不刷屏也不漏报)', () => {
-    const g = { state: 'unjudged', rules: [], count: 0, reason: 'R' } as const;
+    const g: GuardManifestOutcome = { state: 'unjudged', rules: [], count: 0, reason: 'R' };
     expect(announceGuardUnjudged(repo, g, 'site')).toBe(true);
     expect(announceGuardUnjudged(repo, g, 'site')).toBe(false);
     expect(announceGuardUnjudged(path.join(repo, 'other'), g, 'site')).toBe(true);

@@ -365,7 +365,7 @@ export function HomePage3Magazine() {
             onClick={() => refetch()}
             disabled={isRefetching}
             data-testid="magazine-retry"
-            className="inline-flex items-center gap-1.5 rounded-sm border px-3 py-1.5 text-label font-medium transition-colors hover:bg-accent hover:text-foreground disabled:opacity-60"
+            className="inline-flex items-center gap-1.5 rounded-sm border border-input px-3 py-1.5 text-label font-medium transition-colors hover:bg-accent hover:text-foreground disabled:opacity-60"
           >
             {isRefetching ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
