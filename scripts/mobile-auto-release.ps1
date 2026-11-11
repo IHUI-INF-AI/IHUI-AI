@@ -549,7 +549,7 @@ try {
   $buildErrFile = Join-Path $StateDir 'build-stderr.txt'
   Remove-Item -LiteralPath $buildErrFile -ErrorAction SilentlyContinue
   & pwsh -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoRoot 'scripts/build-mobile-rn-release.ps1') `
-    -VersionName $version -VersionCode $versionCode -Abi 'arm64-v8a' `
+    -VersionName $version -VersionCode $versionCode -Abi 'armeabi-v7a,arm64-v8a' `
     -ApiBaseUrl $apiBase -WebBaseUrl $webBase -WsBaseUrl $wsBase 2> $buildErrFile
   $buildExit = $LASTEXITCODE
   if ($buildExit -ne 0) {

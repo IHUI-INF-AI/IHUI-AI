@@ -412,7 +412,7 @@ export function utcVersionCode(at = new Date()) {
 }
 
 /**
- * 本机一条命令兜底:Windows 上先走正式出包链(单 ABI 以对齐体积基线)。
+ * 本机一条命令兜底:Windows 上先走正式出包链(双 ABI armeabi-v7a+arm64-v8a,商店要求 64 位且兼容 32 位)。
  * versionCode 缺省走 UTC 时间码 —— 出包脚本自己的缺省是"机上已装版本+1",那可能低于商店已收的号。
  */
 export function runBuild({ versionCode = null, versionName = null, root = ROOT, run = sh, platform = process.platform } = {}) {
@@ -425,7 +425,7 @@ export function runBuild({ versionCode = null, versionName = null, root = ROOT, 
     join(root, 'scripts', 'build-mobile-rn-release.ps1'),
     '-NoPublish',
     '-Abi',
-    'arm64-v8a',
+    'armeabi-v7a,arm64-v8a',
     '-ApiBaseUrl',
     'https://www.aizhs.top',
     '-WebBaseUrl',

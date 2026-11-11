@@ -1,4 +1,4 @@
-﻿﻿# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+﻿# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
@@ -36,7 +36,7 @@
       本脚本在缺凭据时于构建前抛错,产物验收还会再按证书指纹判死(双保险)
 
   用法:
-    pwsh -File scripts/build-mobile-rn-release.ps1                  # 默认双 ABI(arm64-v8a+x86_64)
+    pwsh -File scripts/build-mobile-rn-release.ps1                  # 默认双 ABI(armeabi-v7a+arm64-v8a:64 位+32 位兼容)
     pwsh -File scripts/build-mobile-rn-release.ps1 -VersionCode 2   # 指定版本号(上架必须递增)
     pwsh -File scripts/build-mobile-rn-release.ps1 -Abi x86_64      # 单 ABI(模拟器/快速验证)
     pwsh -File scripts/build-mobile-rn-release.ps1 -FullAbi         # 含 x86(32位, 一般不必要)
@@ -51,7 +51,7 @@
 .PARAMETER ShowVersionCode
   只解析并打印本次会用的 versionCode 与依据,不构建(给取证脚本与人工先确认落点用)
 .PARAMETER Abi
-  目标 ABI(逗号分隔, 如 arm64-v8a,x86_64); 缺省为 arm64-v8a,x86_64(32 位真机已放弃, 见 PROJECT_PLAN G-977963)
+  目标 ABI(逗号分隔, 如 armeabi-v7a,arm64-v8a); 缺省为 armeabi-v7a,arm64-v8a(商店要求 64 位+32 位兼容, 机主拍板 2026-11-11 推翻 G-977963 的"放弃 32 位真机")
 .PARAMETER FullAbi
   构建全部 ABI(含 x86 32 位)
 .PARAMETER SkipVerify
@@ -198,14 +198,15 @@ function Get-BundleText {
   } finally { $zip.Dispose() }
 }
 
-# 目标 ABI 的缺省值只住这一处(本文件在版本树里;机主拍板 2026-10-09,G-977963:收成 arm64-v8a,x86_64,
-# 放弃 32 位真机与 x86 32 位模拟器)。
+# 目标 ABI 的缺省值只住这一处(本文件在版本树里;机主拍板 2026-11-11:恢复 armeabi-v7a,
+# 商店要求"64 位且兼容 32 位",推翻 2026-10-09 G-977963 的"放弃 32 位真机")。
+# 历史注:当时 armeabi-v7a 在本机必挂(:configureCMakeRelWithDebInfo[armeabi-v7a] 报
+# unsupported argument 'armv7-a');2026-11-11 实测 NDK 27 + CMake 3.22/3.30 下该错误不再复现,
+# v7a 配置构建可通过(仅 react-native-worklets 有 pnpm 深路径的 CMAKE_OBJECT_PATH_MAX 告警)。
 # 为什么**不**拿 apps/mobile-rn/android/gradle.properties 当缺省源:那条路径被
-# apps/mobile-rn/.gitignore 的 /android 规则整目录忽略,属 Expo prebuild 的产物 —— 重跑 prebuild 就回到
-# 模板四档,刚被放弃的 armeabi-v7a 那一路自己长回来,而它在本机必挂
-# (:configureCMakeRelWithDebInfo[armeabi-v7a] 报 unsupported argument 'armv7-a')。
+# apps/mobile-rn/.gitignore 的 /android 规则整目录忽略,属 Expo prebuild 的产物 —— 重跑 prebuild 就回到模板四档。
 # 所以对那一行只做**一致性判定并大声报**,不取它的值;判据抽成纯函数,自检用构造面逐臂证。
-$DefaultAbi = 'arm64-v8a,x86_64'
+$DefaultAbi = 'armeabi-v7a,arm64-v8a'
 function Resolve-AbiArg {
   param([string]$Abi, [switch]$FullAbi, [string]$DefaultAbi, [string]$PropsAbi)
   if ($FullAbi) { return @{ Arg = '-PreactNativeArchitectures=armeabi-v7a,arm64-v8a,x86,x86_64'; Drift = ''; Note = 'FullAbi(显式全量)' } }
@@ -278,11 +279,11 @@ if ($SelfTestApk -ne '') {
     Remove-Item -LiteralPath $tmpEnv -Force -ErrorAction SilentlyContinue
   }
   Chk 'config-default-counts-as-loopback' ((Test-LoopbackUrl $b3.Api) -and (Test-LoopbackUrl $b3.Web))
-  Chk 'default-abi-is-the-two-approved-tiers' ($DefaultAbi -eq 'arm64-v8a,x86_64')
-  $a1 = Resolve-AbiArg -Abi '' -FullAbi:$false -DefaultAbi $DefaultAbi -PropsAbi 'arm64-v8a,x86_64'
-  Chk 'abi-arm-consistent-no-drift' (($a1.Drift -eq '') -and ($a1.Arg -like '*arm64-v8a,x86_64'))
-  $a2 = Resolve-AbiArg -Abi '' -FullAbi:$false -DefaultAbi $DefaultAbi -PropsAbi 'armeabi-v7a,arm64-v8a,x86,x86_64'
-  Chk 'abi-drift-detected-and-named' (($a2.Drift -like 'armeabi-v7a*') -and ($a2.Arg -like "*$DefaultAbi*"))
+  Chk 'default-abi-is-the-two-approved-tiers' ($DefaultAbi -eq 'armeabi-v7a,arm64-v8a')
+  $a1 = Resolve-AbiArg -Abi '' -FullAbi:$false -DefaultAbi $DefaultAbi -PropsAbi 'armeabi-v7a,arm64-v8a'
+  Chk 'abi-arm-consistent-no-drift' (($a1.Drift -eq '') -and ($a1.Arg -like '*armeabi-v7a,arm64-v8a'))
+  $a2 = Resolve-AbiArg -Abi '' -FullAbi:$false -DefaultAbi $DefaultAbi -PropsAbi 'arm64-v8a,x86_64'
+  Chk 'abi-drift-detected-and-named' (($a2.Drift -like 'arm64-v8a*') -and ($a2.Arg -like "*$DefaultAbi*"))
   $a3 = Resolve-AbiArg -Abi 'arm64-v8a' -FullAbi:$false -DefaultAbi $DefaultAbi -PropsAbi 'armeabi-v7a,x86'
   Chk 'abi-explicit-Abi-skips-consistency' (($a3.Arg -like '*=arm64-v8a') -and ($a3.Drift -eq ''))
   $a4 = Resolve-AbiArg -Abi '' -FullAbi:$false -DefaultAbi $DefaultAbi -PropsAbi ''

@@ -7,7 +7,7 @@ name: Publish Android to Stores
 # 自动发布到应用商店(2026-11-08 立)
 #
 # 与 mobile-apk-build.yml 的分工:那边是 **dev 包**(debug 签名、禁发布、只做自装验证);
-# 本文件是 **正式包 + 商店提交**:正式签名(keystore 只从 Secrets 注入)、arm64 单 ABI(对齐体积基线)、
+# 本文件是 **正式包 + 商店提交**:正式签名(keystore 只从 Secrets 注入)、armeabi-v7a+arm64-v8a 双 ABI(64 位且兼容 32 位)、
 # 产物验收用 release 档(验签 + 体积),发布腿交给 scripts/publish-stores.mjs。
 #
 # 双触发(用户 2026-11-08 选定):
@@ -179,13 +179,13 @@ jobs:
           echo "凭据已就位(keystore $(wc -c < "$HOME/.android/ihui-release.keystore") B)"
 
       # 不加 -PallowDebugSigning:那面旗是 dev 包专用;正式包必须由上面的四键签出
-      - name: Build release APK + AAB (正式签名, arm64 单 ABI)
+      - name: Build release APK + AAB (正式签名, armeabi-v7a+arm64-v8a 双 ABI)
         working-directory: apps/mobile-rn/android
         run: >-
           ./gradlew :app:assembleRelease :app:bundleRelease --no-daemon
           -PversionCode="$IHUI_VERSION_CODE"
           -PversionName="$IHUI_MOBILE_VERSION"
-          -PreactNativeArchitectures=arm64-v8a
+          -PreactNativeArchitectures=armeabi-v7a,arm64-v8a
 
       - name: Prepare artifacts
         run: |
