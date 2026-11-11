@@ -46,6 +46,7 @@ const HELP = `号池跨环境自动同步 · Windows 计划任务管理
   · 任务每 <interval> 分钟跑一次 sync --if-dirty --apply --quiet;
   · 没有变更标记时立即退出(零开销),有标记才做两端全量对账;
   · 日志由脚本 --log 追加到 .tmp/pool-sync.log(只在真有动作时写一行);
+  · 健康自检不在这里:node scripts/relay-account-pool-sync.mjs --status(任务状态+日志+脏标记+生产 checkout);
   · schtasks.exe 在本机被安全策略黑名单,本脚本走 PowerShell ScheduledTasks 模块。`
 
 function parseArgs(argv) {

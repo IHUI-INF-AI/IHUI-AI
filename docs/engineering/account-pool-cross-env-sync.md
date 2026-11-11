@@ -113,6 +113,29 @@ node scripts/register-pool-sync-task.mjs --register --interval 2
 node scripts/register-pool-sync-task.mjs --query
 node scripts/register-pool-sync-task.mjs --unregister
 node scripts/register-pool-sync-task.mjs --run-now
+
+# 健康自检(一条命令看完四件事,只读不写库;退出码 0 健康 / 1 有问题)
+node scripts/relay-account-pool-sync.mjs --status
+```
+
+`--status` 覆盖的四个**静默失效**面(自动同步不会自己报警,只能被查出来):
+
+| 检查项 | 失效后果 | 判定 |
+| --- | --- | --- |
+| 计划任务注册状态 + `LastTaskResult` | 换机器/重装后忘注册 → 脏标记天天写没人消费,两端悄悄分叉 | `STATE=Ready` 且 `0x0` 才算健康 |
+| 最近一轮同步日志 | 失败只有一行字躺在 `.tmp/pool-sync.log` | 末行含 `FAIL` 即报警 |
+| 脏标记存在时长 | 标记滞留 > 10 分钟 = 计划任务没在消费 | 超时报警(正常 2 分钟内清掉) |
+| 生产 checkout 能力 + HEAD 同链 | 缺 `--export-all` 每轮必败;HEAD 有远端不存在的本地提交则下次 pull 必分叉 | `CAP_OK` 且 `origin/main..HEAD` 计数为 0 |
+
+```bash
+号池同步健康自检
+  ✅ 计划任务 IHUI-Pool-Sync: Ready,上次 11/12/2026 00:18:51,结果 0x0
+  ✅ 最近一轮有动作 6 分钟前: sync ok 本地=50 生产=50 推=1 拉=4 一致=45 失败推=0 失败拉=0
+  ✅ 无待同步变更(脏标记已清空)
+  ✅ 生产 checkout 支持 --export-all
+  ✅ 生产 HEAD 与 origin/main 同链(148cefdd7fc)
+
+结论: 自动同步链路健康
 ```
 
 **计划任务的两个已踩坑点(2026-11-11 实测定型)**:
@@ -143,8 +166,16 @@ node scripts/register-pool-sync-task.mjs --run-now
    他人账号,默认不会拉到开发机;全库对账须显式 `--all-owners`。
 7. **secrets 附属材料不参与指纹**:设备密钥、会话模板、zcode 原始凭据图等非凭证类
    附属物变更不会被自动同步(core 四元组不含它们)。需要时人工重导覆盖。
+8. **两端保活都在刷新同一批号 ⇒ 冲突数不必追到 0**。保活 cron(每 5 分钟)在本机与生产各自
+   刷新 token 并 bump `credVersion`,于是同一账号在两端轮流变成"更新的一方",每轮都会有几条
+   `冲突 … → 本地胜/生产胜(差 N 秒)`。这是**正常收敛形态**,不是故障:裁决每次都取更新的那份,
+   两端最终持有的是同一个有效 token。判定健康看两条 —— **两端总数相等**、**`一致` 数稳定**;
+   若 `待推`/`待拉` 长期不降且总数不等,才是真问题。
 
 ## 7. 故障排查
+
+**先跑 `node scripts/relay-account-pool-sync.mjs --status`** —— 四类静默失效(没注册任务 / 上轮失败 /
+脏标记滞留 / 生产 checkout 缺能力或分叉)它一条命令全查,能省掉大半排障。下表是它判定"有问题"后的细分。
 
 | 现象 | 原因 | 处置 |
 |---|---|---|

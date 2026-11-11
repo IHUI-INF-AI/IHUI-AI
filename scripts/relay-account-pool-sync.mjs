@@ -34,6 +34,7 @@
  *     [--dirty-file <path>]      脏标记路径(缺省 ~/.wb-switch/pool-sync-dirty)
  *     [--prod-host <alias>]      SSH 别名(默认 ssh.aizhs.top)
  *     [--prod-checkout <path>]   生产 checkout 根(默认 D:\DevEnv\ihui-prod)
+ *     [--status]                 一键健康自检(计划任务/日志/脏标记/生产 checkout 能力),不写库
  *     [--json] [--quiet]
  *
  * 退出码:0 无失败(含"无变更"与"未到脏") / 1 有失败 / 2 参数或环境未判定。
@@ -52,6 +53,8 @@ const API_DIR = path.join(ROOT, 'apps', 'api')
 const IMPORTER = path.join(API_DIR, 'scripts', 'relay-account-import.ts')
 const PROD_TEMP = 'D:\\DevEnv\\Temp'
 const DEFAULT_DIRTY_FILE = path.join(os.homedir(), '.wb-switch', 'pool-sync-dirty')
+const DEFAULT_LOG_FILE = path.join(ROOT, '.tmp', 'pool-sync.log')
+const TASK_NAME = 'IHUI-Pool-Sync'
 const BEGIN = '__POOL_EXPORT_BEGIN__'
 const END = '__POOL_EXPORT_END__'
 const SSH_OPTS = ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=20']
@@ -69,6 +72,7 @@ const HELP = `号池跨环境双向同步(本地库 ⇄ 生产库)
     [--dirty-file <path>]      脏标记路径(缺省 ~/.wb-switch/pool-sync-dirty)
     [--prod-host <alias>]      SSH 别名(默认 ssh.aizhs.top)
     [--prod-checkout <path>]   生产 checkout 根(默认 D:\\DevEnv\\ihui-prod)
+    [--status]                 一键健康自检(不写库):计划任务 / 日志 / 脏标记 / 生产 checkout 能力
     [--json] [--quiet]
     [--log <path>]             追加写一行摘要到该文件(计划任务用:不依赖 shell 重定向,
                                因为 cmd 在非交互会话里会被系统中断,实测 0xC000013A)
@@ -95,6 +99,7 @@ function parseArgs(argv) {
     json: false,
     quiet: false,
     logFile: '',
+    status: false,
     help: false,
   }
   for (let i = 0; i < argv.length; i++) {
@@ -115,7 +120,13 @@ function parseArgs(argv) {
     } else if (arg === '--owners') {
       const v = (argv[++i] ?? '').trim()
       if (!v) return { options: null, error: '--owners 需要逗号分隔的 users.id 列表' }
-      for (const id of v.split(',').map((x) => x.trim()).filter(Boolean)) {
+      const ids = v.split(',').map((x) => x.trim()).filter(Boolean)
+      // 显式给了 --owners 却一个 id 都解析不出(如 " , "):必须拒绝。
+      // 静默回落默认机主 = 用户以为在同步 A 归属,实际同步了 B —— 方向错、范围错,且毫无提示。
+      if (ids.length === 0) {
+        return { options: null, error: `--owners 未解析出任何 users.id(收到 "${v}")` }
+      }
+      for (const id of ids) {
         if (!options.owners.includes(id)) options.owners.push(id)
       }
     } else if (arg === '--all-owners') options.allOwners = true
@@ -129,6 +140,7 @@ function parseArgs(argv) {
       options.pullWindowDays = v
     } else if (arg === '--if-dirty') options.ifDirty = true
     else if (arg === '--force') options.force = true
+    else if (arg === '--status') options.status = true
     else if (arg === '--dirty-file') options.dirtyFile = (argv[++i] ?? '').trim()
     else if (arg === '--prod-host') options.prodHost = (argv[++i] ?? '').trim()
     else if (arg === '--prod-checkout') options.prodCheckout = (argv[++i] ?? '').trim()
@@ -429,6 +441,131 @@ function logLine(options, text) {
   }
 }
 
+/** 人类可读的「多久以前」。 */
+function humanAge(ms) {
+  if (!Number.isFinite(ms) || ms < 0) return '未知'
+  const s = Math.floor(ms / 1000)
+  if (s < 60) return `${s} 秒前`
+  if (s < 3600) return `${Math.floor(s / 60)} 分钟前`
+  if (s < 86400) return `${Math.floor(s / 3600)} 小时前`
+  return `${Math.floor(s / 86400)} 天前`
+}
+
+/**
+ * 一键健康自检(--status,2026-11-11 立)。
+ *
+ * 立因:自动同步的失效模式全是**静默**的 ——
+ *   ① 换机器/重装后忘了注册计划任务 → 脏标记天天写,没人消费,本地生产悄悄分叉;
+ *   ② 生产 checkout 落后远端(缺 --export-all)→ 每轮快照失败,日志里几行字没人翻;
+ *   ③ 生产 checkout HEAD 是本地 rebase 出来的提交(远端没有)→ 下次 pull 必分叉(已踩两次);
+ *   ④ 计划任务 LastTaskResult 非 0 → 同步其实一次都没成功。
+ * 这些都不该靠人想起来去看,给一条命令看完四件事;退出码 1 便于外部监控复用。
+ */
+async function reportStatus(options) {
+  const rows = []
+  let healthy = true
+  const warn = (text) => {
+    healthy = false
+    rows.push(`⚠️ ${text}`)
+  }
+  const good = (text) => rows.push(`✅ ${text}`)
+
+  // ① 计划任务:注册状态 / 上次结果 / 上次时间
+  const psScript = `
+$ErrorActionPreference = 'Stop'
+$t = Get-ScheduledTask -TaskName '${TASK_NAME}'
+$i = $t | Get-ScheduledTaskInfo
+Write-Output ('STATE=' + $t.State)
+Write-Output ('LASTRUN=' + $i.LastRunTime)
+Write-Output ('LASTRESULT=0x' + ('{0:X}' -f $i.LastTaskResult))
+`.trim()
+  const taskRun = await runProcess(
+    'powershell.exe',
+    ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', psScript],
+    {},
+  )
+  const taskOut = `${taskRun.stdout ?? ''}`
+  if (taskRun.code !== 0 || !/STATE=/.test(taskOut)) {
+    warn(`计划任务 ${TASK_NAME} 未注册 —— 脏标记没人消费,自动同步等于没开(跑 node scripts/register-pool-sync-task.mjs --register)`)
+  } else {
+    const state = /STATE=(.+)/.exec(taskOut)?.[1]?.trim() ?? '?'
+    const lastRun = /LASTRUN=(.+)/.exec(taskOut)?.[1]?.trim() ?? '?'
+    const lastResult = /LASTRESULT=(\S+)/.exec(taskOut)?.[1]?.trim() ?? '?'
+    const resultOk = lastResult === '0x0'
+    const stateOk = state === 'Ready' || state === 'Running'
+    if (resultOk && stateOk) good(`计划任务 ${TASK_NAME}: ${state},上次 ${lastRun},结果 ${lastResult}`)
+    else warn(`计划任务 ${TASK_NAME}: ${state},上次 ${lastRun},结果 ${lastResult}${resultOk ? '' : '(非 0 = 这轮同步失败,看日志)'}`)
+  }
+
+  // ② 最近的同步日志(计划任务每轮一行;只写"有动作"的轮次与失败)
+  const logFile = options.logFile || DEFAULT_LOG_FILE
+  let logLines = []
+  try {
+    logLines = fs.readFileSync(logFile, 'utf8').split(/\r?\n/).filter(Boolean)
+  } catch {
+    logLines = []
+  }
+  if (logLines.length === 0) {
+    rows.push(`ℹ️ 暂无同步日志(${logFile})—— 只记录真有变更/真失败的轮次;空转不写,存活看上面的计划任务时间`)
+  } else {
+    const last = logLines[logLines.length - 1]
+    const stamp = /^\[(.+?)\]/.exec(last)?.[1]
+    const ageMs = stamp ? Date.now() - new Date(stamp).getTime() : NaN
+    const failed = /\bFAIL\b/.test(last)
+    const tail = last.replace(/^\[.+?\]\s*/, '')
+    if (failed) warn(`最近一轮失败(${humanAge(ageMs)}): ${tail}`)
+    else good(`最近一轮有动作 ${humanAge(ageMs)}: ${tail}`)
+    if (Number.isFinite(ageMs) && ageMs > 24 * 3600 * 1000) {
+      rows.push('ℹ️ 超过一天没有同步记录 —— 无新账号变更时属正常(空转不写日志)')
+    }
+  }
+
+  // ③ 脏标记:存在说明有待同步的变更
+  if (fs.existsSync(options.dirtyFile)) {
+    let ageMs = NaN
+    try {
+      ageMs = Date.now() - fs.statSync(options.dirtyFile).mtimeMs
+    } catch {
+      /* ignore */
+    }
+    if (Number.isFinite(ageMs) && ageMs > 10 * 60 * 1000) {
+      warn(`脏标记已存在 ${humanAge(ageMs)} 未消化 —— 计划任务大概率没在跑(正常 2 分钟内清掉)`)
+    } else {
+      rows.push(`ℹ️ 有待同步变更(脏标记 ${humanAge(ageMs)}),下一轮自动处理`)
+    }
+  } else {
+    good('无待同步变更(脏标记已清空)')
+  }
+
+  // ④ 生产 checkout 能力:能否导出全平台 / HEAD 是否分叉出远端
+  const remoteCmd =
+    `cd /d "${options.prodCheckout}" & ` +
+    `findstr /C:"export-all" apps\\api\\scripts\\relay-account-import.ts >nul && echo CAP_OK || echo CAP_MISSING & ` +
+    `git rev-parse --short HEAD & git rev-parse --short origin/main & ` +
+    `git rev-list --count origin/main..HEAD`
+  const prodRun = await runProcess('ssh', [...SSH_OPTS, options.prodHost, remoteCmd], {})
+  if (prodRun.code !== 0) {
+    warn(`生产不可达或 checkout 异常(退出码 ${prodRun.code})—— 本轮同步必然失败`)
+  } else {
+    const lines = `${prodRun.stdout ?? ''}`.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
+    const capOk = lines.includes('CAP_OK')
+    const aheadIdx = lines.findIndex((l) => /^\d+$/.test(l) && !/^[0-9a-f]{7,}$/.test(l))
+    const ahead = aheadIdx >= 0 ? Number(lines[aheadIdx]) : NaN
+    if (capOk) good('生产 checkout 支持 --export-all')
+    else warn('生产 checkout 缺 --export-all —— 每轮快照都会失败,需在生产 git pull 到最新')
+    if (Number.isFinite(ahead) && ahead > 0) {
+      warn(`生产 checkout 有 ${ahead} 个远端不存在的本地提交 —— 下次 pull 必分叉(应 reset 到 origin/main 并保留改动为未提交)`)
+    } else if (Number.isFinite(ahead)) {
+      good(`生产 HEAD 与 origin/main 同链(${(/^[0-9a-f]{7,}$/i.exec(lines[1] ?? '') ?? [''])[0] || lines[0]})`)
+    }
+  }
+
+  process.stdout.write(`号池同步健康自检\n`)
+  for (const row of rows) process.stdout.write(`  ${row}\n`)
+  process.stdout.write(healthy ? '\n结论: 自动同步链路健康\n' : '\n结论: 存在问题,见上面 ⚠️\n')
+  return healthy ? 0 : 1
+}
+
 async function main(argv) {
   const parsed = parseArgs(argv)
   if (parsed.error) {
@@ -441,9 +578,13 @@ async function main(argv) {
     return 0
   }
 
+  // 健康自检:只读,不建 tsx、不写任何库
+  if (options.status) return reportStatus(options)
+
   // 计划任务快速通道:无脏标记 = 本轮 0 开销(不建 SSH、不启 tsx)
+  // 空转**不写日志**:每 2 分钟一行会让日志按 720 行/天膨胀,而存活证据由计划任务自身的
+  // LastRunTime / LastTaskResult 提供(--status 已读)。日志只保留真有动作/真失败的轮次。
   if (options.ifDirty && !options.force && !fs.existsSync(options.dirtyFile)) {
-    logLine(options, 'skip: 无变更标记')
     if (!options.quiet) process.stdout.write('无变更标记,跳过本轮同步\n')
     return 0
   }
@@ -531,5 +672,11 @@ if (isDirectRun) {
     })
 }
 
-export { main as __syncMain, flattenProviders as __flattenProviders, extractExport as __extractExport }
+export {
+  main as __syncMain,
+  flattenProviders as __flattenProviders,
+  extractExport as __extractExport,
+  humanAge as __humanAge,
+  parseArgs as __parseArgs,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
