@@ -57,6 +57,16 @@ vi.mock('@ihui/auth', () => ({
   // buildTokenPair 使用这两个常量计算 refreshToken 过期时间,必须在 mock 中提供
   ACCESS_TOKEN_TTL_SECONDS: 900,
   REFRESH_TOKEN_TTL_SECONDS: 30 * 24 * 60 * 60,
+  // 2026-11-11:生产 authenticateInner 已改 fail-closed——getTokenBlacklist() 返回 null
+  // 即判 token「已吊销」⇒ 401。测试环境 createBlacklist 内部 new IORedis 恒连不上 ⇒ null
+  // ⇒ 合法 token 被 401。覆盖为内存假黑名单(has 恒 false)。不回退生产 fail-closed 语义。
+  createBlacklist: vi.fn(() => ({
+    async has() {
+      return false
+    },
+    async add() {},
+    async revoke() {},
+  })),
 }))
 
 // 2026-08-06 修复:auth.ts P2-14 安全加固新增 getUserStatus 查询,

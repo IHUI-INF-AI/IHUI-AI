@@ -32,7 +32,17 @@ const { INTERNAL_SECRET } = vi.hoisted(() => ({
 // 夹具形态与 apps/api/tests/skills-market-publish-ownership.test.ts 同谱:
 // 只 mock 路由模块的导入依赖,readMarket / MARKET_SEED 走**真身**(本票测的就是本体)。
 vi.mock('jose', () => ({ decodeJwt: () => ({}) }))
-vi.mock('@ihui/auth', () => ({ verifyAccessToken: vi.fn() }))
+vi.mock('@ihui/auth', () => ({ verifyAccessToken: vi.fn()   // 2026-11-11:生产 authenticateInner 已改 fail-closed——getTokenBlacklist() 返回 null
+  // 即判 token「已吊销」⇒ 401。测试环境 createBlacklist 内部 new IORedis 恒连不上 ⇒ null
+  // ⇒ 合法 token 被 401。覆盖为内存假黑名单(has 恒 false)。不回退生产 fail-closed 语义。
+  createBlacklist: vi.fn(() => ({
+    async has() {
+      return false
+    },
+    async add() {},
+    async revoke() {},
+  })),
+}))
 vi.mock('../src/db/usercenter-queries.js', () => ({
   getUserStatus: vi.fn().mockResolvedValue(1),
 }))
