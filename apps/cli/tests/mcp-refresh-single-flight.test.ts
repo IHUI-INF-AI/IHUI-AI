@@ -97,7 +97,7 @@ type FetchResponder = (body: string, callIndex: number) => Promise<{
 }>;
 let responder: FetchResponder;
 
-const mockFetch = vi.fn(async (input: string | URL, init?: RequestInit): Promise<Response> => {
+const mockFetch = vi.fn(async (_input: string | URL, init?: RequestInit): Promise<Response> => {
   const body = typeof init?.body === 'string' ? init.body : '';
   refreshGrantCalls += body.includes('grant_type=refresh_token') ? 1 : 0;
   fetchCalls += 1;

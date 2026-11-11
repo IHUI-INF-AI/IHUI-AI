@@ -2005,6 +2005,7 @@ export function AISidePanel() {
                 onModelChange={setModel}
                 modelLabel={t('model')}
                 autoResolvedModel={conversationModel}
+                forceToolbarText
                 onFloatDragStart={handleFloatDragStart}
                 onTriggerClick={() => setFloatCollapsed(false)}
                 compactTop
@@ -2230,6 +2231,7 @@ export function AISidePanel() {
         onModelChange={setModel}
         modelLabel={t('model')}
         autoResolvedModel={conversationModel}
+        forceToolbarText
       />
 
       {/* AI 主动提问已改为消息流内联卡(MessageList trailing 插槽),不再渲染弹窗 */}
@@ -2614,7 +2616,6 @@ export function AISidePanel() {
                           <span className="truncate">{tp('splitRight')}</span>
                         </DropdownMenu.Item>
                       )}
-                      <DropdownMenu.Separator className="my-1 h-px bg-border" />
                       <DropdownMenu.Label className="px-2.5 pb-0.5 pt-1 text-[11px] font-medium text-muted-foreground">
                         {tc('headerActions.groupTools')}
                       </DropdownMenu.Label>
@@ -2635,7 +2636,6 @@ export function AISidePanel() {
                         <span className="min-w-0 flex-1 truncate">{tc('openTerminal')}</span>
                         {terminalDockOpen && <Check className="h-3.5 w-3.5 shrink-0" />}
                       </DropdownMenu.Item>
-                      <DropdownMenu.Separator className="my-1 h-px bg-border" />
                       <DropdownMenu.Label className="px-2.5 pb-0.5 pt-1 text-[11px] font-medium text-muted-foreground">
                         {tc('headerActions.groupSession')}
                       </DropdownMenu.Label>
@@ -2663,7 +2663,6 @@ export function AISidePanel() {
                           </span>
                         </DropdownMenu.Item>
                       )}
-                      <DropdownMenu.Separator className="my-1 h-px bg-border" />
                       <DropdownMenu.Item
                         data-testid="ai-panel-close"
                         className={HEADER_MENU_ITEM_CLASS}
