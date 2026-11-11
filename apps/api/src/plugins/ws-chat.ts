@@ -85,6 +85,10 @@ const isSocketUnusable = (s: WebSocket): boolean =>
  * 客户端连接: ws://host/ws/room/:roomId?token=<access_token>&nickname=<昵称>[&since=<毫秒时间戳>]
  *   `since` = 该客户端上次收到的消息时刻;断线重连时带上,服务端把回放缓冲里该时刻之后的
  *   消息按序补发(缺省即不补发)。
+ *   F-712 新游标:可并列带 `lastTs`(同 since,毫秒) + `lastSeq`(消息的进程内回放序号),
+ *   服务端按「ts 更大,或同毫秒内 seq 更大」精确续传,同毫秒不再漏帧;只带 since/lastTs
+ *   时按 `ts >= since` 兜底(同刻消息重发,客户端按消息 id 去重,宁重勿漏)。
+ *   `lastTs` 与 `since` 同时出现时以 `lastTs` 为准;`lastSeq` 缺省走旧口径。
  * 入站消息: 可选 `clientMessageId`(幂等键)——同一连接/同一用户在去重窗口内重复投递的
  *   同一 ID 只处理一次,重复帧直接丢弃。
  * 消息类型: text / image / file / system / typing
@@ -531,7 +535,13 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
   })
 
   server.get('/ws/room/:roomId', { websocket: true }, (socket, request) => {
-    const query = request.query as { token?: string; nickname?: string; since?: string }
+    const query = request.query as {
+      token?: string
+      nickname?: string
+      since?: string
+      lastTs?: string
+      lastSeq?: string
+    }
     const roomId = (request.params as { roomId: string }).roomId
     // 2026-07-24 安全审计:roomId 格式校验(防 channel 注入 + 防 Redis key 注入)
     // 允许 UUID 或 字母数字_- 组合(最长 128 字符)
@@ -717,21 +727,26 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
         // 2026-11-01 断线重连补发:客户端带 since(=上次收到的消息时刻)时,把回放缓冲里
         // 该时刻之后的消息按序补发(缺省即不补发)。Redis 不可用时 replayMessages 降级
         // 返回空数组 ⇒ 静默跳过,不影响正常连接(见本文件头注的降级约定)。
+        // 2026-11-11 F-712:同毫秒多条消息时毫秒游标无法区分先后 ⇒ 增加 lastSeq。
+        // ts 锚点优先 lastTs(新协议),回退旧 since;只给 ts 时 replayMessages 用
+        // `>=` 兜底(同刻消息重发,客户端按 id 去重);ts+seq 齐备时按
+        // `ts > lastTs || (ts === lastTs && seq > lastSeq)` 精确续传。
         const joinedAt = Date.now()
-        if (query.since !== undefined) {
-          const since = Number(query.since)
-          if (Number.isFinite(since) && since > 0) {
-            try {
-              const missed = await replayMessages(roomId, since)
-              for (const m of missed) {
-                // 只补发加入时刻之前的:加入之后的消息会实时到达,再补一次就是重复帧
-                const ts = (m as { ts?: number }).ts
-                if (typeof ts === 'number' && ts > joinedAt) continue
-                send(socket, m)
-              }
-            } catch (err) {
-              server.log.warn({ err, roomId }, 'ws-chat 回放补发失败,降级跳过')
+        const rawSinceTs = query.lastTs ?? query.since
+        const since = rawSinceTs !== undefined ? Number(rawSinceTs) : NaN
+        if (Number.isFinite(since) && since > 0) {
+          const rawSeq = query.lastSeq !== undefined ? Number(query.lastSeq) : NaN
+          const sinceSeq = Number.isFinite(rawSeq) && rawSeq >= 0 ? rawSeq : undefined
+          try {
+            const missed = await replayMessages(roomId, since, sinceSeq)
+            for (const m of missed) {
+              // 只补发加入时刻之前的:加入之后的消息会实时到达,再补一次就是重复帧
+              const ts = (m as { ts?: number }).ts
+              if (typeof ts === 'number' && ts > joinedAt) continue
+              send(socket, m)
             }
+          } catch (err) {
+            server.log.warn({ err, roomId }, 'ws-chat 回放补发失败,降级跳过')
           }
         }
 
