@@ -470,10 +470,19 @@ interface ImageTask {
   result?: string[]
   /** 失败原因(仅 failed 时存在)。 */
   error?: string
+  /** 认领令牌(仅 processing 期间存在;F-48:只有令牌持有者能推进状态)。 */
+  claimToken?: string
+  /** 认领时间 ISO(记账租约;超过租约视为认领者崩溃,允许重新认领)。 */
+  claimedAt?: string
 }
 
 const IMG_TASK_PREFIX = 'imgtask:'
 const IMG_TASK_TTL_SECONDS = 24 * 60 * 60
+/** 认领租约(毫秒):认领者持有上限,超时视为认领者崩溃,允许其他 worker 重新认领。 */
+const IMG_TASK_CLAIM_LEASE_MS = 15 * 60 * 1000
+const IMG_TASK_CLAIM_LEASE_SECONDS = Math.floor(IMG_TASK_CLAIM_LEASE_MS / 1000)
+/** 认领租约键前缀。刻意与 `imgtask:` 分开,避免被 listPendingImageTasks 的 KEYS 扫到。 */
+const IMG_TASK_CLAIM_PREFIX = 'imgtask-claim:'
 
 /** Redis 客户端(插件注册时捕获);为 null 或命令异常时降级进程内 Map。 */
 let imageTaskRedis: Redis | null = null
@@ -513,6 +522,8 @@ function parseImageTask(raw: string | null): ImageTask | null {
     createdAt: typeof o.createdAt === 'string' ? o.createdAt : new Date().toISOString(),
     ...(result && result.length > 0 ? { result } : {}),
     ...(typeof o.error === 'string' ? { error: o.error } : {}),
+    ...(typeof o.claimToken === 'string' ? { claimToken: o.claimToken } : {}),
+    ...(typeof o.claimedAt === 'string' ? { claimedAt: o.claimedAt } : {}),
   }
 }
 
@@ -548,12 +559,94 @@ export async function getImageTask(id: string): Promise<ImageTask | null> {
 }
 
 /**
- * 推进任务为 succeeded(供未来 worker 调用:消费上游生图结果后置)。
+ * 原子认领任务(F-48)。
+ *
+ * 先 `SET imgtask-claim:{id} {token} EX 900 NX` 抢租约 —— 这一步在 Redis 内原子,
+ * 同一任务的并发 worker 只有一个能拿到,拿不到的直接返回 null 让出(不调上游、不计费)。
+ * 拿到租约者才把任务置 processing 并写上令牌;认领前若任务已终结则归还租约并放弃。
+ * Redis 不可用时降级进程内 Map:同一事件循环内 check 与 set 之间无 await,天然互斥。
+ *
+ * @returns 认领令牌(认领成功)或 null(已被他人认领 / 任务已终结)
+ */
+export async function claimImageTask(id: string): Promise<string | null> {
+  const token = crypto.randomUUID()
+  const claimKey = `${IMG_TASK_CLAIM_PREFIX}${id}`
+  if (imageTaskRedis) {
+    try {
+      const acquired = await imageTaskRedis.set(
+        claimKey,
+        token,
+        'EX',
+        IMG_TASK_CLAIM_LEASE_SECONDS,
+        'NX',
+      )
+      if (acquired !== 'OK') return null
+      const current = await getImageTask(id)
+      if (!isImageTaskClaimable(current)) {
+        await imageTaskRedis.del(claimKey)
+        return null
+      }
+      await saveImageTask({
+        ...current,
+        status: 'processing',
+        claimToken: token,
+        claimedAt: new Date().toISOString(),
+      })
+      return token
+    } catch {
+      // Redis 异常 → 走下面的进程内降级(与既有存储降级一致)。
+    }
+  }
+  const current = inMemoryImageTasks.get(id)
+  if (!isImageTaskClaimable(current)) return null
+  inMemoryImageTasks.set(id, {
+    ...current,
+    status: 'processing',
+    claimToken: token,
+    claimedAt: new Date().toISOString(),
+  })
+  return token
+}
+
+/** 认领租约是否过期(仅 processing 有意义;缺 claimedAt 的历史记录按过期处理,便于回收)。 */
+function isImageTaskClaimExpired(task: ImageTask): boolean {
+  if (task.status !== 'processing') return false
+  const at = Date.parse(task.claimedAt ?? '')
+  return !Number.isFinite(at) || Date.now() - at >= IMG_TASK_CLAIM_LEASE_MS
+}
+
+/** 任务当前是否可认领:pending,或 processing 但租约已过期(崩溃恢复)。 */
+function isImageTaskClaimable(task: ImageTask | null | undefined): task is ImageTask {
+  if (!task) return false
+  return task.status === 'pending' || isImageTaskClaimExpired(task)
+}
+
+/** 归还认领租约(仅当租约键仍是本 worker 的令牌时删除,避免误删他人租约)。 */
+async function releaseImageTaskClaim(id: string, token?: string): Promise<void> {
+  if (!token || !imageTaskRedis) return
+  const claimKey = `${IMG_TASK_CLAIM_PREFIX}${id}`
+  try {
+    if ((await imageTaskRedis.get(claimKey)) === token) await imageTaskRedis.del(claimKey)
+  } catch {
+    // 释放失败不影响任务状态;租约键由 TTL 自行过期。
+  }
+}
+
+/**
+ * 推进任务为 succeeded(供 worker 调用:消费上游生图结果后置)。
  * 保留既有 model/prompt/createdAt;result 为图片 URL/base64 数组。
  * 任务不存在时仍写入一条 succeeded 记录(id + result,model/prompt 留空)。
+ *
+ * claimToken 传入时做令牌校验:任务已被他人重新认领则拒绝写入并返回 false
+ * (避免租约过期的旧 worker 覆盖新认领者的处理结果)。
  */
-export async function completeImageTask(id: string, result: string[]): Promise<void> {
+export async function completeImageTask(
+  id: string,
+  result: string[],
+  claimToken?: string,
+): Promise<boolean> {
   const existing = await getImageTask(id)
+  if (claimToken && existing?.claimToken && existing.claimToken !== claimToken) return false
   const task: ImageTask = {
     id,
     status: 'succeeded',
@@ -563,15 +656,24 @@ export async function completeImageTask(id: string, result: string[]): Promise<v
     result: Array.isArray(result) ? result : [],
   }
   await saveImageTask(task)
+  await releaseImageTaskClaim(id, claimToken)
+  return true
 }
 
 /**
- * 推进任务为 failed(供未来 worker 调用:上游生图失败 / 超时后置)。
+ * 推进任务为 failed(供 worker 调用:上游生图失败 / 超时后置)。
  * 保留既有 model/prompt/createdAt,附 error 原因。
  * 任务不存在时仍写入一条 failed 记录(id + error,model/prompt 留空)。
+ *
+ * claimToken 语义同 completeImageTask:非当前认领者的失败结果被丢弃。
  */
-export async function failImageTask(id: string, errMsg: string): Promise<void> {
+export async function failImageTask(
+  id: string,
+  errMsg: string,
+  claimToken?: string,
+): Promise<boolean> {
   const existing = await getImageTask(id)
+  if (claimToken && existing?.claimToken && existing.claimToken !== claimToken) return false
   const task: ImageTask = {
     id,
     status: 'failed',
@@ -581,10 +683,13 @@ export async function failImageTask(id: string, errMsg: string): Promise<void> {
     error: typeof errMsg === 'string' ? errMsg : String(errMsg),
   }
   await saveImageTask(task)
+  await releaseImageTaskClaim(id, claimToken)
+  return true
 }
 
 /**
- * 扫描全部 pending 任务(worker 消费用)。
+ * 扫描待处理任务(worker 消费用):pending,以及 processing 但认领租约已过期
+ * (认领者崩溃/重启,靠租约过期回收,避免任务永久卡在 processing)。
  * Redis 优先:KEYS imgtask:* 后逐个解析;降级扫进程内 Map。
  */
 export async function listPendingImageTasks(): Promise<ImageTask[]> {
@@ -595,7 +700,7 @@ export async function listPendingImageTasks(): Promise<ImageTask[]> {
       for (const k of keys) {
         const raw = await imageTaskRedis.get(k)
         const t = parseImageTask(raw)
-        if (t && t.status === 'pending') out.push(t)
+        if (t && (t.status === 'pending' || isImageTaskClaimExpired(t))) out.push(t)
       }
       return out
     } catch {
@@ -603,9 +708,15 @@ export async function listPendingImageTasks(): Promise<ImageTask[]> {
     }
   }
   for (const t of inMemoryImageTasks.values()) {
-    if (t.status === 'pending') out.push(t)
+    if (t.status === 'pending' || isImageTaskClaimExpired(t)) out.push(t)
   }
   return out
+}
+
+/** 仅供测试:替换任务存储的 Redis 客户端并清空进程内降级存储。 */
+export function __setImageTaskRedisForTest(redis: Redis | null): void {
+  imageTaskRedis = redis
+  inMemoryImageTasks.clear()
 }
 
 /**

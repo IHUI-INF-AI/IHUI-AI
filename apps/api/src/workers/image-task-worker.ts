@@ -22,9 +22,9 @@ import { logger } from '../utils/logger.js'
 import { forwardToChannel } from '../services/relay-upstream-forwarder.js'
 import {
   listPendingImageTasks,
+  claimImageTask,
   completeImageTask,
   failImageTask,
-  getImageTask,
 } from '../routes/v1-multimodal.js'
 
 let scheduledTask: ScheduledTask | null = null
@@ -45,10 +45,14 @@ export async function processImageTasks(): Promise<{
     if (pending.length === 0) return { processed: 0, ok: 0, failed: 0 }
     logger.info(`[image-worker] 发现 ${pending.length} 个 pending 任务`)
     for (const task of pending) {
+      // 原子认领:重复投递 / 多副本并发时只有一个 worker 拿到令牌,其余直接跳过,
+      // 不会重复调上游、重复计费(F-48)。
+      const claimToken = await claimImageTask(task.id)
+      if (!claimToken) {
+        logger.debug('[image-worker] 任务已被其他 worker 认领,跳过', { taskId: task.id })
+        continue
+      }
       try {
-        // 标记 processing(防重复消费)
-        const fresh = await getImageTask(task.id)
-        if (!fresh || fresh.status !== 'pending') continue
         const result = await forwardToChannel({
           model: task.model,
           endpoint: 'images',
@@ -72,18 +76,22 @@ export async function processImageTasks(): Promise<{
             )
             .filter((u) => u !== '')
           if (urls.length > 0) {
-            await completeImageTask(task.id, urls)
+            await completeImageTask(task.id, urls, claimToken)
             ok++
           } else {
-            await failImageTask(task.id, '上游返回空产出')
+            await failImageTask(task.id, '上游返回空产出', claimToken)
             failed++
           }
         } else {
-          await failImageTask(task.id, '上游渠道不可用或返回失败')
+          await failImageTask(task.id, '上游渠道不可用或返回失败', claimToken)
           failed++
         }
       } catch (e) {
-        await failImageTask(task.id, e instanceof Error ? e.message : String(e)).catch(() => {})
+        await failImageTask(
+          task.id,
+          e instanceof Error ? e.message : String(e),
+          claimToken,
+        ).catch(() => {})
         failed++
         logger.warn('[image-worker] 任务处理异常', {
           err: e instanceof Error ? e.message : String(e),

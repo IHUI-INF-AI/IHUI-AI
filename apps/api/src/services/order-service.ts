@@ -24,6 +24,7 @@ import type { FastifyInstance } from 'fastify'
 import { executeSaga, type SagaResult } from './distributed-transaction.js'
 import { earnPoints, spendPoints } from './points-service.js'
 import { logger } from '../utils/logger.js'
+import { bizDayKey } from '../utils/biz-day.js'
 import { writeToOutbox } from '../utils/outbox.js'
 import { rechargeToken, deductToken, refundTokenDeduct } from '../db/commission-queries.js'
 import { db } from '../db/index.js'
@@ -221,7 +222,10 @@ async function applyEduTuitionOrder(order: Order): Promise<void> {
   const enrollmentRow = enrollment[0]
   if (!enrollmentRow || enrollmentRow.studentId !== order.userId) return
   const amountYuan = Math.round(order.amount / 100)
-  const today = new Date().toISOString().slice(0, 10)
+  // F-21: 业务日键走唯一出口(Asia/Shanghai)。原先取 UTC 日(toISOString 后截前 10 位),
+  // 上海 00:00–08:00 的支付会被记到前一天(月初 1 日直接落到上月),
+  // 而 edu-ledger 的 todayIso() 用的是 bizDayKey() —— 同一 date 列两种口径。
+  const today = bizDayKey()
   // 入账走账目唯一出口:写流水 + 重算派生缓存。
   // 旧写法在此处直接 `paidAmount + amountYuan`,而幂等只靠上面那一次 select ——
   // 查与写不在同一事务、当时也没有唯一约束,两个并发回调能同时通过查重把同一笔款**累加两次**
