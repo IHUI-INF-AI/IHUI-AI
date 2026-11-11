@@ -14,8 +14,8 @@
  *   - 不引入 cron 库,/loop 用 setInterval
  */
 
-import { spawnSync } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
+import { killProcessTree } from '../util/kill-tree.js';
 import * as crypto from 'node:crypto';
 // Worktree 并行隔离层:后台任务结束后自动清理其 worktree
 import { runHook } from '../hooks/index.js';
@@ -1627,31 +1627,9 @@ export async function killTask(
   // 进程组团灭(2026-09-10 CI 根修):runSandboxedAsync 以 detached+shell 派生,
   // SIGTERM 只杀 shell,孙进程(如 sleep)继承 stdio 管道,shell 死后 close 事件
   // 仍不触发 → 任务状态永久卡在 running(ubuntu CI 实测 SIGKILL 亦无效)。
-  // detached 进程组 → kill(-pid) 团灭整组,管道随即关闭。
-  if (t.process.pid) {
-    if (process.platform === 'win32') {
-      // F-003:Windows 没有进程组语义,`child.kill` 只结束 cmd.exe 本身;
-      // 用 taskkill /T /F 把 shell 及其派生的整棵树一起收掉。
-      try {
-        spawnSync('taskkill', ['/pid', String(t.process.pid), '/T', '/F'], {
-          windowsHide: true,
-          stdio: 'ignore',
-        });
-      } catch {
-        /* taskkill 不可用,下面单进程补刀 */
-      }
-    } else {
-      try {
-        process.kill(-t.process.pid, 'SIGKILL');
-      } catch {
-        /* 进程组可能已退出 */
-      }
-    }
-  }
-  // 强杀
-  try {
-    t.process.kill('SIGKILL');
-  } catch { /* ignore */ }
+  // F-003:统一走按 pid 的进程树回收 —— Windows taskkill /T /F 收整棵树,
+  // POSIX kill(-pid) 团灭整组(detached 进程组),失败再降级单进程补刀。
+  killProcessTree(t.process.pid);
   const second = await waitForTask(id, 2000);
   if (second.state === 'settled') {
     return { killed: true, exitConfirmed: true };

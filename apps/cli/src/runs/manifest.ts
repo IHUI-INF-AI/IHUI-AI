@@ -15,15 +15,16 @@
  */
 
 import { createHash, randomUUID } from 'node:crypto'
-import { mkdirSync, renameSync, statSync, writeFileSync, type Stats } from 'node:fs'
+import { mkdirSync, renameSync, statSync, unlinkSync, type Stats } from 'node:fs'
 import { redactSecrets } from '../redact.js'
 import { homedir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { readCliPackage } from '../util/pkg-version.js'
 // runId 会直接当目录名(manifest/latest 落盘):收敛 + 根内断言统一走 util/path-guard。
 import { assertPathInside, safePathSegment } from '../util/path-guard.js'
-// DBG-42:manifest.json 与 latest.json 同属"随时被读者打开的观测件",必须同一份原子出口。
-import { writeFileAtomicSync } from '../util/atomic-write.js'
+// F-008:清单里含 argv(可能带一次性凭据),落盘统一走凭据唯一写入口(0600 + chmod 纠偏)。
+import { writePrivateFile } from '../lib/private-file.js'
+import { redactArgv } from '../util/argv-redact.js'
 
 export interface RunManifest {
   runId: string
@@ -109,9 +110,10 @@ export function buildRunManifest(options: RunManifestOptions = {}): RunManifest 
   return {
     runId: safePathSegment(options.runId ?? randomUUID()),
     startedAt: (options.now ?? (() => new Date()))().toISOString(),
-    // F-008:argv 原样落盘会把 `--api-key` / `curl -H "Authorization: ..."` 这类
-    // 一次性凭据写进长期可读的运行清单;逐元素走同一份脱敏出口(URL query 也覆盖)。
-    argv: (options.argv ?? process.argv.slice(2)).map((arg) => redactSecrets(arg)),
+    // F-008:argv 原样落盘会把 `-p/--password/--api-key/--token` 的值写进长期可读的
+    // 运行清单。先按旗标位置打码(键名保留、其余参数原样),再逐元素走值形状脱敏出口
+    // (兜住 `curl -H "Authorization: ..."`、URL query 这类无旗标形态)。
+    argv: redactArgv(options.argv ?? process.argv.slice(2)).map((arg) => redactSecrets(arg)),
     ppid: options.ppid === undefined ? (process.ppid ?? null) : options.ppid,
     envFlags: {
       ci: Boolean(env.CI),
@@ -143,14 +145,27 @@ export function writeRunManifest(options: RunManifestOptions = {}): { dir: strin
     const dir = assertPathInside(root, join(root, manifest.runId), 'run 目录')
     // 0600/0700:清单里含 argv/envFlags,默认 0644 会让同机其他用户可读。
     mkdirSync(dir, { recursive: true, mode: 0o700 })
-    // DBG-42:此处原为裸 writeFileSync —— 与下方 latest 的 tmp+rename 不同,崩溃/并发会让
-    // `ihui runs` 读到半截 manifest 并整片丢失这次运行记录。改走同一份原子出口。
-    writeFileAtomicSync(join(dir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`, { mode: 0o600 })
+    // DBG-42 + F-008:tmp+rename 保住原子性(崩溃/并发不会让 `ihui runs` 读到半截
+    // manifest),tmp 由 writePrivateFile 以 0600 创建(rename 保留权限位),不允许清单
+    // 里的一次性凭据落成 0644。rename 失败时清掉自己的 tmp,不留残件。
+    const manifestPath = join(dir, 'manifest.json')
+    const manifestTmp = `${manifestPath}.${process.pid}.tmp`
+    writePrivateFile(manifestTmp, `${JSON.stringify(manifest, null, 2)}\n`)
+    try {
+      renameSync(manifestTmp, manifestPath)
+    } catch (err) {
+      try {
+        unlinkSync(manifestTmp)
+      } catch {
+        // 清 tmp 失败不改判据结论:主错误已在下行抛出
+      }
+      throw err
+    }
     // latest 用「临时文件 + rename」落盘:并发两个 CLI 进程同时启动时,直接覆写
     // 会让读者读到半截 JSON(rename 在同卷上是原子的)。临时名带 pid,互不踩。
     const latest = join(root, 'latest.json')
     const tmp = `${latest}.${process.pid}.tmp`
-    writeFileSync(tmp, `${JSON.stringify({ runId: manifest.runId, dir, startedAt: manifest.startedAt }, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 })
+    writePrivateFile(tmp, `${JSON.stringify({ runId: manifest.runId, dir, startedAt: manifest.startedAt }, null, 2)}\n`)
     renameSync(tmp, latest)
     return { dir, manifest }
   } catch {

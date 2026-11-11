@@ -159,6 +159,17 @@ function pct2(v: number | null | undefined): number | null {
   return typeof v === 'number' && Number.isFinite(v) ? Number(v.toFixed(2)) : null
 }
 
+/** int8 聚合(pg 驱动按字符串回传)统一收口成响应契约的 number;缺失 → 0。
+ *  聚合列一律 `::bigint`(不落 `::int`),避免当日 token/金额超 2^31 时整块 500。 */
+function aggNum(v: number | string | null | undefined): number {
+  return Number(v ?? 0)
+}
+
+/** 同上,但「没量到」保持 null(错误率/延迟/7 日活跃的未判定语义)。 */
+function aggNumOrNull(v: number | string | null | undefined): number | null {
+  return v === null || v === undefined ? null : Number(v)
+}
+
 /** range 序列 → [[epochMs, value], …],值不合法的点直接丢弃。 */
 function rangeToSeries(list: PromRangeSample[] | null): Array<[number, number]> {
   const s = list?.[0]
@@ -779,28 +790,28 @@ async function buildBusiness(): Promise<BusinessSnapshot | null> {
       // is_vip 值域(-1 游客 / 0 普通 / 1 VIP / 2 操盘手)见 users schema 注释。
       dbRead
         .select({
-          total: sql<number>`count(*)::int`,
-          todayNew: sql<number>`count(*) filter (where ${users.createdAt} >= ${todayStart.toISOString()}::timestamptz)::int`,
-          active: sql<number>`count(*) filter (where ${users.status} = 1)::int`,
-          vip: sql<number>`count(*) filter (where ${users.isVip} = 1)::int`,
-          trader: sql<number>`count(*) filter (where ${users.isVip} = 2)::int`,
-          invited: sql<number>`count(*) filter (where ${users.parentId} is not null)::int`,
-          invited7d: sql<number>`count(*) filter (where ${users.parentId} is not null and ${users.createdAt} >= ${bizDayStartUtc(6).toISOString()}::timestamptz)::int`,
-          level0: sql<number>`count(*) filter (where ${users.level} = 0)::int`,
-          level1: sql<number>`count(*) filter (where ${users.level} = 1)::int`,
-          level2: sql<number>`count(*) filter (where ${users.level} = 2)::int`,
-          level3: sql<number>`count(*) filter (where ${users.level} = 3)::int`,
+          total: sql<number>`count(*)::bigint`,
+          todayNew: sql<number>`count(*) filter (where ${users.createdAt} >= ${todayStart.toISOString()}::timestamptz)::bigint`,
+          active: sql<number>`count(*) filter (where ${users.status} = 1)::bigint`,
+          vip: sql<number>`count(*) filter (where ${users.isVip} = 1)::bigint`,
+          trader: sql<number>`count(*) filter (where ${users.isVip} = 2)::bigint`,
+          invited: sql<number>`count(*) filter (where ${users.parentId} is not null)::bigint`,
+          invited7d: sql<number>`count(*) filter (where ${users.parentId} is not null and ${users.createdAt} >= ${bizDayStartUtc(6).toISOString()}::timestamptz)::bigint`,
+          level0: sql<number>`count(*) filter (where ${users.level} = 0)::bigint`,
+          level1: sql<number>`count(*) filter (where ${users.level} = 1)::bigint`,
+          level2: sql<number>`count(*) filter (where ${users.level} = 2)::bigint`,
+          level3: sql<number>`count(*) filter (where ${users.level} = 3)::bigint`,
         })
         .from(users),
       dbRead
         .select({
-          paid: sql<number>`count(*)::int`,
-          amountCents: sql<number>`coalesce(sum(${orders.amount}), 0)::bigint::int`,
+          paid: sql<number>`count(*)::bigint`,
+          amountCents: sql<number>`coalesce(sum(${orders.amount}), 0)::bigint`,
         })
         .from(orders)
         .where(and(gte(orders.createdAt, todayStart), sql`${orders.status} = 'paid'`)),
       dbRead
-        .select({ paid: sql<number>`count(*)::int` })
+        .select({ paid: sql<number>`count(*)::bigint` })
         .from(orders)
         .where(
           and(
@@ -811,13 +822,13 @@ async function buildBusiness(): Promise<BusinessSnapshot | null> {
         ),
       dbRead
         .select({
-          calls: sql<number>`count(*)::int`,
+          calls: sql<number>`count(*)::bigint`,
           // 不得 coalesce 成 0:今天一条请求都没有时,0.00% 会被大屏读成「零错误率」(§0.3)。
           // 无行 ⇒ avg 为 NULL ⇒ 大屏落「—/未判定」。
           errRate: sql<
             number | null
           >`(avg(case when ${apiLogs.statusCode} >= 500 then 1 else 0 end) * 100)::float8`,
-          avgLatency: sql<number | null>`avg(${apiLogs.duration})::int`,
+          avgLatency: sql<number | null>`avg(${apiLogs.duration})::bigint`,
         })
         .from(apiLogs)
         .where(gte(apiLogs.createdAt, todayStart)),
@@ -825,7 +836,7 @@ async function buildBusiness(): Promise<BusinessSnapshot | null> {
         .select({
           path: apiLogs.path,
           method: apiLogs.method,
-          calls: sql<number>`count(*)::int`,
+          calls: sql<number>`count(*)::bigint`,
         })
         .from(apiLogs)
         .where(gte(apiLogs.createdAt, todayStart))
@@ -834,22 +845,22 @@ async function buildBusiness(): Promise<BusinessSnapshot | null> {
         .limit(5),
       dbRead
         .select({
-          calls: sql<number>`count(*)::int`,
-          tokens: sql<number>`coalesce(sum(${llmCallLogs.totalTokens}), 0)::bigint::int`,
+          calls: sql<number>`count(*)::bigint`,
+          tokens: sql<number>`coalesce(sum(${llmCallLogs.totalTokens}), 0)::bigint`,
           costCents: sumRelayCostCentsSql(),
           errRate: sql<
             number | null
           >`(avg(case when ${llmCallLogs.status} = 'error' then 1 else 0 end) * 100)::float8`,
           p95Latency: sql<
             number | null
-          >`percentile_cont(0.95) WITHIN GROUP (ORDER BY ${llmCallLogs.latencyMs})::int`,
+          >`percentile_cont(0.95) WITHIN GROUP (ORDER BY ${llmCallLogs.latencyMs})::bigint`,
         })
         .from(llmCallLogs)
         .where(gte(llmCallLogs.createdAt, todayStart)),
       dbRead
         .select({
           model: llmCallLogs.model,
-          calls: sql<number>`count(*)::int`,
+          calls: sql<number>`count(*)::bigint`,
         })
         .from(llmCallLogs)
         .where(gte(llmCallLogs.createdAt, todayStart))
@@ -859,9 +870,9 @@ async function buildBusiness(): Promise<BusinessSnapshot | null> {
       // 签到今日汇总:单表独立 catch ⇒ 这张表出问题不拖垮整块业务纵深
       dbRead
         .select({
-          users: sql<number>`count(distinct ${signInRecords.userId})::int`,
-          points: sql<number>`coalesce(sum(${signInRecords.rewardPoints}), 0)::int`,
-          maxStreak: sql<number>`coalesce(max(${signInRecords.consecutiveDays}), 0)::int`,
+          users: sql<number>`count(distinct ${signInRecords.userId})::bigint`,
+          points: sql<number>`coalesce(sum(${signInRecords.rewardPoints}), 0)::bigint`,
+          maxStreak: sql<number>`coalesce(max(${signInRecords.consecutiveDays}), 0)::bigint`,
         })
         .from(signInRecords)
         .where(eq(signInRecords.signInDate, signInToday))
@@ -870,7 +881,7 @@ async function buildBusiness(): Promise<BusinessSnapshot | null> {
       dbRead
         .select({
           date: sql<string>`to_char(${signInRecords.signInDate}, 'YYYY-MM-DD')`,
-          users: sql<number>`count(distinct ${signInRecords.userId})::int`,
+          users: sql<number>`count(distinct ${signInRecords.userId})::bigint`,
         })
         .from(signInRecords)
         .where(gte(signInRecords.signInDate, signInWeekAgo))
@@ -882,7 +893,7 @@ async function buildBusiness(): Promise<BusinessSnapshot | null> {
       dbRead
         .select({
           date: sql<string>`to_char(${users.createdAt} + interval '8 hours', 'YYYY-MM-DD')`,
-          count: sql<number>`count(*)::int`,
+          count: sql<number>`count(*)::bigint`,
         })
         .from(users)
         .where(gte(users.createdAt, bizDayStartUtc(13)))
@@ -893,7 +904,7 @@ async function buildBusiness(): Promise<BusinessSnapshot | null> {
       // sign_in_records 有 (user_id, sign_in_date) 唯一索引 ⇒ 这条 count distinct 走索引即可。
       dbRead
         .select({
-          users: sql<number>`count(distinct ${signInRecords.userId})::int`,
+          users: sql<number>`count(distinct ${signInRecords.userId})::bigint`,
         })
         .from(signInRecords)
         .where(gte(signInRecords.signInDate, signInWeekAgo))
@@ -907,7 +918,7 @@ async function buildBusiness(): Promise<BusinessSnapshot | null> {
     // 签到块:今日汇总取不到 ⇒ 整块 null(渲染"未判定");近 7 日取不到 ⇒ 只留空数组,
     // 不把"没量到"写成 7 根 0 柱(0 根柱在大屏上等于"连着七天没人签到")
     const st = signToday?.[0]
-    const signInUsersToday = st?.users ?? 0
+    const signInUsersToday = aggNum(st?.users)
     let signIn: SignInSnapshot | null = null
     if (signToday !== null) {
       const byDate = new Map((signWeek ?? []).map((r) => [r.date, r.users]))
@@ -915,14 +926,14 @@ async function buildBusiness(): Promise<BusinessSnapshot | null> {
       if (signWeek !== null) {
         for (let i = 6; i >= 0; i--) {
           const date = shiftDate(signInToday, -i)
-          last7d.push({ date, users: byDate.get(date) ?? 0 })
+          last7d.push({ date, users: aggNum(byDate.get(date)) })
         }
       }
       signIn = {
         todayUsers: signInUsersToday,
-        todayRewardPoints: st?.points ?? 0,
-        maxStreakDays: st?.maxStreak ?? 0,
-        unsignedActiveUsers: Math.max(0, (u?.active ?? 0) - signInUsersToday),
+        todayRewardPoints: aggNum(st?.points),
+        maxStreakDays: aggNum(st?.maxStreak),
+        unsignedActiveUsers: Math.max(0, aggNum(u?.active) - signInUsersToday),
         last7d,
       }
     }
@@ -934,36 +945,41 @@ async function buildBusiness(): Promise<BusinessSnapshot | null> {
       userGrowth = []
       for (let i = 13; i >= 0; i--) {
         const date = bizDayKeyAgo(i)
-        userGrowth.push({ date, count: byDate.get(date) ?? 0 })
+        userGrowth.push({ date, count: aggNum(byDate.get(date)) })
       }
     }
     return {
-      usersTotal: u?.total ?? 0,
-      usersTodayNew: u?.todayNew ?? 0,
-      usersActive: u?.active ?? 0,
-      usersVip: u?.vip ?? 0,
-      usersTrader: u?.trader ?? 0,
-      usersInvited: u?.invited ?? 0,
-      usersInvited7d: u?.invited7d ?? 0,
-      usersByLevel: [u?.level0 ?? 0, u?.level1 ?? 0, u?.level2 ?? 0, u?.level3 ?? 0],
-      activeUsers7d: activeUsers7dRows?.[0]?.users ?? null,
-      ordersTodayPaid: o?.paid ?? 0,
-      ordersTodayAmountCents: o?.amountCents ?? 0,
-      ordersYesterdayPaid: oy?.paid ?? 0,
-      apiCallsToday: a?.calls ?? 0,
+      usersTotal: aggNum(u?.total),
+      usersTodayNew: aggNum(u?.todayNew),
+      usersActive: aggNum(u?.active),
+      usersVip: aggNum(u?.vip),
+      usersTrader: aggNum(u?.trader),
+      usersInvited: aggNum(u?.invited),
+      usersInvited7d: aggNum(u?.invited7d),
+      usersByLevel: [
+        aggNum(u?.level0),
+        aggNum(u?.level1),
+        aggNum(u?.level2),
+        aggNum(u?.level3),
+      ],
+      activeUsers7d: aggNumOrNull(activeUsers7dRows?.[0]?.users),
+      ordersTodayPaid: aggNum(o?.paid),
+      ordersTodayAmountCents: aggNum(o?.amountCents),
+      ordersYesterdayPaid: aggNum(oy?.paid),
+      apiCallsToday: aggNum(a?.calls),
       apiErrRate: pct2(a?.errRate),
-      apiAvgLatencyMs: a?.avgLatency ?? null,
+      apiAvgLatencyMs: aggNumOrNull(a?.avgLatency),
       topEndpoints: apiTop.map((r) => ({
         path: r.path,
         method: r.method,
-        calls: r.calls,
+        calls: aggNum(r.calls),
       })),
-      llmCallsToday: l?.calls ?? 0,
-      llmTokensToday: l?.tokens ?? 0,
+      llmCallsToday: aggNum(l?.calls),
+      llmTokensToday: aggNum(l?.tokens),
       llmCostCentsToday: Number(l?.costCents ?? 0),
       llmErrRate: pct2(l?.errRate),
-      llmP95LatencyMs: l?.p95Latency ?? null,
-      llmTopModels: llmModels.map((r) => ({ model: r.model, calls: r.calls })),
+      llmP95LatencyMs: aggNumOrNull(l?.p95Latency),
+      llmTopModels: llmModels.map((r) => ({ model: r.model, calls: aggNum(r.calls) })),
       signIn,
       userGrowth,
     }
@@ -1044,7 +1060,7 @@ async function buildAlerts(): Promise<AlertsSnapshot | null> {
       .orderBy(desc(monitorAlerts.firedAt))
       .limit(8)
     const firingRows = await dbRead
-      .select({ n: sql<number>`count(*)::int` })
+      .select({ n: sql<number>`count(*)::bigint` })
       .from(monitorAlerts)
       .where(sql`${monitorAlerts.status} = 'firing'`)
     const firingNameRows = await dbRead
@@ -1054,7 +1070,7 @@ async function buildAlerts(): Promise<AlertsSnapshot | null> {
     return {
       promActive,
       promActiveCount: promActive ? promActive.length : null,
-      firingTotal: firingRows[0]?.n ?? 0,
+      firingTotal: aggNum(firingRows[0]?.n),
       firingNames: firingNameRows[0]?.names ?? [],
       recent: recentRows.map((r) => ({
         ...r,
@@ -1144,7 +1160,7 @@ async function buildTrend(minutes: number, step: number): Promise<TrendSnapshot>
     dbRead
       .select({
         hour: sql<string>`to_char(${apiLogs.createdAt} AT TIME ZONE 'Asia/Shanghai', 'HH24')`,
-        calls: sql<number>`count(*)::int`,
+        calls: sql<number>`count(*)::bigint`,
       })
       .from(apiLogs)
       .where(gte(apiLogs.createdAt, bizDayStartUtc(0)))
@@ -1162,7 +1178,7 @@ async function buildTrend(minutes: number, step: number): Promise<TrendSnapshot>
     cpuPct: rangeToSeries(cpu),
     memPct: rangeToSeries(mem),
     p95Ms: rangeToSeries(p95),
-    hourlyCalls: (hourlyRows ?? []).map((r) => ({ hour: r.hour, calls: r.calls })),
+    hourlyCalls: (hourlyRows ?? []).map((r) => ({ hour: r.hour, calls: aggNum(r.calls) })),
   }
 }
 
