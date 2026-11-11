@@ -219,7 +219,7 @@ const NavGroupSection = React.memo(function NavGroupSection({
         aria-controls={contentId}
         aria-label={groupLabel}
         data-testid={`nav-group-${group.label}-toggle`}
-        className="group/grp flex h-9 w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground/60 transition-colors hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+        className="group/grp flex h-9 w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-body font-semibold uppercase tracking-wider text-muted-foreground/60 transition-colors hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
       >
         {group.label === 'hotGroupLabel' ? (
           <>

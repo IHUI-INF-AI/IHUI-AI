@@ -300,7 +300,7 @@ const CustomNavSection = React.memo(function CustomNavSection({
           type="button"
           onClick={openDialog}
           className={cn(
-            'flex h-9 w-full min-w-0 items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium leading-none whitespace-nowrap transition-colors',
+            'flex h-9 w-full min-w-0 items-center gap-2.5 rounded-md px-2.5 py-2 text-body font-medium leading-none whitespace-nowrap transition-colors',
             'text-muted-foreground/60 hover:bg-sidebar-item-hover-bg hover:text-foreground',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
           )}
