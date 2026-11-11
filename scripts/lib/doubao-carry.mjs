@@ -854,11 +854,42 @@ function buildReplayEnvelope(text) {
   }
 }
 
-/** 旧对话 → 单条回放文本(结构清晰,供新会话里 AI/人共同读) */
+/**
+ * 单条消息 → 回放行。非文本内容(图片 ct=20 / 语音转写 ct=101 等)的 content
+ * 是 JSON 串,原样拼进去既无意义又会撑爆请求体,替换为占位标记。
+ * 判据:content 以 '{' 开头且能解析出已知 JSON 形态(entities/record_id)。
+ */
+function replayLine(m) {
+  const who = m.role === 'user' ? '用户' : 'AI'
+  const raw = String(m.content ?? '').trim()
+  if (raw.startsWith('{')) {
+    try {
+      const j = JSON.parse(raw)
+      if (Array.isArray(j.entities)) {
+        const kinds = j.entities
+          .map((e) => e?.entity_content && ('image' in e.entity_content ? '图片' : '附件'))
+          .filter(Boolean)
+        return `${who}:[发送了${kinds.length ? kinds.join('、') : '多媒体内容'}]`
+      }
+      if ('record_id' in j) return `${who}:[语音转写]`
+    } catch {
+      // 非 JSON,按原文处理
+    }
+  }
+  return `${who}:${raw}`
+}
+
+/** 回放文本总长上限(字符)。超出则头尾保留、中间省略,防止单条消息超限 invalid param */
+export const REPLAY_TEXT_MAX_CHARS = 300_000
+
+/**
+ * 旧对话 → 单条回放文本(结构清晰,供新会话里 AI/人共同读)。
+ * 2026-11-11 实证:1962 条大 会话全文 1.53MB,单条消息超服务端上限报 common invalid param。
+ */
 export function buildReplayText(conv, messages) {
   const turns = (messages ?? [])
     .filter((m) => (m.role === 'user' || m.role === 'assistant') && String(m.content ?? '').trim() !== '')
-    .map((m) => `${m.role === 'user' ? '用户' : 'AI'}:${String(m.content).trim()}`)
+    .map(replayLine)
   const name = String(conv?.name ?? '').trim() || '(未命名)'
   const header = [
     '【对话迁移】以下为旧账号的历史对话记录,请作为上下文保留:',
@@ -866,7 +897,35 @@ export function buildReplayText(conv, messages) {
     `消息数:${turns.length}`,
     '--- 原始对话开始 ---',
   ]
-  return [...header, ...turns, '--- 原始对话结束 ---'].join('\n')
+  let body = turns
+  const footer = ['--- 原始对话结束 ---']
+  const total = [...header, ...turns, ...footer].join('\n').length
+  if (total > REPLAY_TEXT_MAX_CHARS) {
+    // 头部保留 60%,尾部保留 35%,中间注明省略幅度
+    const budget = REPLAY_TEXT_MAX_CHARS - header.join('\n').length - footer.join('\n').length - 80
+    const headN = Math.floor(budget * 0.6)
+    const tailN = Math.floor(budget * 0.35)
+    // 按行贪心填充头尾
+    const headLines = []
+    let used = 0
+    let idx = 0
+    while (idx < turns.length && used + turns[idx].length + 1 <= headN) {
+      headLines.push(turns[idx])
+      used += turns[idx].length + 1
+      idx += 1
+    }
+    const tailLines = []
+    used = 0
+    let j = turns.length - 1
+    while (j > idx && used + turns[j].length + 1 <= tailN) {
+      tailLines.unshift(turns[j])
+      used += turns[j].length + 1
+      j -= 1
+    }
+    const omitted = turns.length - headLines.length - tailLines.length
+    body = [...headLines, `【...中间省略 ${omitted} 条消息,完整记录见原归档...】`, ...tailLines]
+  }
+  return [...header, ...body, ...footer].join('\n')
 }
 
 /** 会话指纹:同一归档重复回放防重(comversationId+createTime+消息数+首末消息 id) */
