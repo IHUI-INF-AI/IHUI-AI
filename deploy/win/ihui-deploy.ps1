@@ -32,6 +32,10 @@ param(
     [switch]$deployLatest,    # 忽略是否落后,强制部署到当前 origin/main
     [switch]$rollbackOnly,    # 仅用上次 .rollback 恢复
     [switch]$CanaryRollback,  # 配合 -rollbackOnly:本次回滚由 IHUI-DEPLOYLOOP 的金丝雀观察窗判死触发(记账/告警用词随之)
+    # 部署环金丝雀判红维不含 web-origin 时的告警入口(2026-11-11 立,B37 收口):该分支只撤灰度、
+    # 不走回滚子进程,而告警唯一出口在本文件(Invoke-FailNotify)⇒ 由本入口复用既有通道只发信,
+    # 不取锁、不构建、不切流、不回滚、不写台账(台账由部署环写 canary-unproven)。空串=不启用。
+    [string]$CanaryUnprovenNotify = '',
     [switch]$force            # 跳过健康门禁直接切流(谨慎)
 )
 
@@ -2344,14 +2348,180 @@ function Build-Web {
     }
 }
 
+# ── 目录替换:先拷到不存在的临时目录,再改名换上(DBG-78 / DBG-79)──────────────
+# PowerShell 的 Copy-Item -Recurse 在目标已是目录时,会把源目录整个套进目标
+# (`.rollback\.next-blue\BUILD_ID`),而不是覆盖目标。先删目标再拷,删除只成功一半时
+# 就是这条套娃;调用方接着按「根上有没有 BUILD_ID」会判成没有可用回滚构建。
+# 这里目标路径在拷贝时必须还不存在。旧目录只整份改名挪走,失败则原目录不动。
+function Install-DirByStaging {
+    param(
+        [Parameter(Mandatory)][string]$Source,
+        [Parameter(Mandatory)][string]$Destination,
+        [string]$MarkerRelativePath = 'BUILD_ID',
+        [scriptblock]$CopyTree = { param($LiteralPath, $Destination) Copy-Item -LiteralPath $LiteralPath -Destination $Destination -Recurse -Force -ErrorAction Stop },
+        [scriptblock]$MoveItem = { param($LiteralPath, $Destination) Move-Item -LiteralPath $LiteralPath -Destination $Destination -ErrorAction Stop },
+        [scriptblock]$RemoveTree = { param($LiteralPath) Remove-Item -LiteralPath $LiteralPath -Recurse -Force -ErrorAction Stop }
+    )
+    $srcFull = [System.IO.Path]::GetFullPath($Source.TrimEnd('\')).TrimEnd('\')
+    $dstFull = [System.IO.Path]::GetFullPath($Destination.TrimEnd('\')).TrimEnd('\')
+    if ([string]::Equals($srcFull, $dstFull, [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw 'staging-copy: unchanged: source and destination are the same'
+    }
+    if ($dstFull.StartsWith($srcFull + '\', [System.StringComparison]::OrdinalIgnoreCase) -or
+        $srcFull.StartsWith($dstFull + '\', [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw 'staging-copy: unchanged: source and destination overlap'
+    }
+    if (-not (Test-Path -LiteralPath $Source -PathType Container)) {
+        throw "staging-copy: unchanged: source missing: $Source"
+    }
+    $srcMarker = Join-Path $Source $MarkerRelativePath
+    if (-not (Test-Path -LiteralPath $srcMarker)) {
+        throw "staging-copy: unchanged: source marker missing: $srcMarker"
+    }
+    $parent = Split-Path -Parent $Destination
+    if (-not $parent -or -not (Test-Path -LiteralPath $parent -PathType Container)) {
+        throw "staging-copy: unchanged: destination parent missing: $parent"
+    }
+    $leaf = Split-Path -Leaf $Destination
+    $token = [guid]::NewGuid().ToString('N')
+    $stage = Join-Path $parent "$leaf.stage-$token"
+    $retired = Join-Path $parent "$leaf.retired-$token"
+    if ((Test-Path -LiteralPath $stage) -or (Test-Path -LiteralPath $retired)) {
+        throw 'staging-copy: unchanged: temp path already exists'
+    }
+    $hadDest = Test-Path -LiteralPath $Destination
+    try {
+        & $CopyTree $Source $stage
+        $stageMarker = Join-Path $stage $MarkerRelativePath
+        if (-not (Test-Path -LiteralPath $stageMarker)) {
+            throw "staging-copy: unchanged: marker not at stage root: $stageMarker"
+        }
+        $nestedMarker = Join-Path (Join-Path $stage (Split-Path -Leaf $Source)) $MarkerRelativePath
+        if (Test-Path -LiteralPath $nestedMarker) {
+            throw "staging-copy: unchanged: source nested inside stage: $nestedMarker"
+        }
+        if ($hadDest) {
+            & $MoveItem $Destination $retired
+        }
+        try {
+            & $MoveItem $stage $Destination
+        } catch {
+            $moveErr = $_.Exception.Message
+            if ($hadDest -and (Test-Path -LiteralPath $retired) -and -not (Test-Path -LiteralPath $Destination)) {
+                try {
+                    & $MoveItem $retired $Destination
+                } catch {
+                    throw "staging-copy: dest-missing: replace failed ($moveErr); restore failed: $($_.Exception.Message); previous tree left at $retired"
+                }
+                throw "staging-copy: unchanged: replace failed ($moveErr); previous directory restored"
+            }
+            if ($hadDest -and (Test-Path -LiteralPath $Destination)) {
+                throw "staging-copy: unchanged: replace failed before destination was moved ($moveErr)"
+            }
+            throw "staging-copy: dest-missing: replace failed ($moveErr)"
+        }
+        if (-not (Test-Path -LiteralPath (Join-Path $Destination $MarkerRelativePath))) {
+            throw 'staging-copy: dest-corrupt: marker missing after replace'
+        }
+        $leftover = $null
+        if ($hadDest -and (Test-Path -LiteralPath $retired)) {
+            try { & $RemoveTree $retired } catch { $leftover = $retired }
+        }
+        return @{ Ok = $true; Leftover = $leftover }
+    } catch {
+        $msg = $_.Exception.Message
+        if ($msg -notlike 'staging-copy:*') { $msg = "staging-copy: unchanged: $msg" }
+        # 目标已回到原位(或从未被换走)时,临时副本是残留,删掉。
+        # dest-missing / dest-corrupt 时临时目录可能是仅存的一份新树,不再删。
+        if ($msg -like 'staging-copy: unchanged:*' -and (Test-Path -LiteralPath $stage)) {
+            try { & $RemoveTree $stage } catch { $msg = "$msg; stage leftover: $stage ($($_.Exception.Message))" }
+        }
+        throw $msg
+    }
+}
+
+# 健康复验通过之前,唯一的 .rollback 不许删。$HealthPassed 缺省即保留(失效方向是多留一份)。
+function Remove-RollbackPointIfHealthy {
+    param(
+        [Parameter(Mandatory)][string]$RollbackDir,
+        [bool]$HealthPassed = $false
+    )
+    if (-not $HealthPassed) { return $false }
+    if (Test-Path -LiteralPath $RollbackDir) {
+        Remove-Item -LiteralPath $RollbackDir -Recurse -Force -ErrorAction Stop
+    }
+    return $true
+}
+
+# 发停止后轮询,直到状态是 Stopped,或明确失败。StopPending / Running 都不算停。
+# 不调用 Fail、不 exit:调用方拿到 Ok=$false 必须自己停手。
+function Wait-IhuiServiceStopped {
+    param(
+        [Parameter(Mandatory)][scriptblock]$RequestStop,
+        [Parameter(Mandatory)][scriptblock]$QueryStatus,
+        [int]$TimeoutSec = 90,
+        [int]$PollMilliseconds = 500,
+        [scriptblock]$Sleep = { param($Milliseconds) Start-Sleep -Milliseconds $Milliseconds },
+        [scriptblock]$OnPoll = $null
+    )
+    if ($TimeoutSec -lt 1) { throw 'TimeoutSec must be >= 1' }
+    try {
+        & $RequestStop
+    } catch {
+        return @{ Ok = $false; Status = 'StopRequestFailed'; Reason = 'stop-request-failed'; Detail = $_.Exception.Message }
+    }
+    $deadline = (Get-Date).AddSeconds($TimeoutSec)
+    $last = 'Unknown'
+    while ($true) {
+        try {
+            $last = [string](& $QueryStatus)
+        } catch {
+            return @{ Ok = $false; Status = 'QueryFailed'; Reason = 'query-failed'; Detail = $_.Exception.Message }
+        }
+        if ($last -eq 'Stopped') {
+            return @{ Ok = $true; Status = 'Stopped'; Reason = 'stopped'; Detail = '' }
+        }
+        if ($last -eq 'Missing') {
+            return @{ Ok = $false; Status = 'Missing'; Reason = 'missing'; Detail = 'service not found' }
+        }
+        if ((Get-Date) -ge $deadline) {
+            return @{ Ok = $false; Status = $last; Reason = 'timeout'; Detail = "status=$last" }
+        }
+        if ($OnPoll) { & $OnPoll $last }
+        & $Sleep $PollMilliseconds
+    }
+}
+
 # ── 回滚:恢复上次构建产物 + 重启 ──
 function Start-Web {
     try { sc.exe start IHUI-WEB | Out-Null } catch { throw "启动 IHUI-WEB 失败: $_" }
 }
 function Stop-Web {
-    # 原文(sc.exe 的错误号随现场变:1056/1062/1073…)交 -Detail 进正文,消息身份只留固定类别;
-    # 病因身份吃报错指纹(G-21):错误号换型 = 换病因,另开槽位喊出,不得被旧槽静默压住。
-    try { sc.exe stop IHUI-WEB | Out-Null } catch { Fail "停止 IHUI-WEB 失败" -Detail "原始报错:$_" -Reason "$_" }
+    # DBG-78: sc.exe stop 只是发出停止。进程还占着 .next 时删目录会失败,随后的拷贝把新树套进残留目录。
+    # 必须等到状态真是 Stopped,否则 Fail 退出 —— 不许带着 StopPending 往下删/换目录。
+    # 1062 = 服务本来就没在跑,不算失败。其它 sc 退出码进 Reason(换码=换病因,G-21),原文进 Detail。
+    $timeoutSec = 90
+    if ($env:IHUI_DEPLOY_WEB_STOP_SEC -match '^[1-9]\d*$') { $timeoutSec = [int]$env:IHUI_DEPLOY_WEB_STOP_SEC }
+    try {
+        $wait = Wait-IhuiServiceStopped -TimeoutSec $timeoutSec -PollMilliseconds 500 -RequestStop {
+            $PSNativeCommandUseErrorActionPreference = $false
+            $null = & sc.exe stop IHUI-WEB 2>&1
+            $rc = $LASTEXITCODE
+            if ($null -eq $rc) { throw 'SC_RC=unknown' }
+            if ($rc -ne 0 -and $rc -ne 1062) { throw "SC_RC=$rc" }
+        } -QueryStatus {
+            $svc = Get-Service -Name 'IHUI-WEB' -ErrorAction SilentlyContinue
+            if (-not $svc) { return 'Missing' }
+            return [string]$svc.Status
+        } -OnPoll { Update-DeployLockHeartbeat }
+    } catch {
+        Fail "停止 IHUI-WEB 失败" -Detail "原始报错:$($_.Exception.Message)" -Reason 'web-stop-threw'
+    }
+    if (-not $wait.Ok) {
+        $reason = "web-stop-$($wait.Reason)"
+        if ($wait.Detail -match 'SC_RC=(\d+)') { $reason = "web-stop-sc-rc=$($Matches[1])" }
+        Fail "停止 IHUI-WEB 失败" -Detail "状态=$($wait.Status) 原因=$($wait.Reason) $($wait.Detail)" -Reason $reason
+    }
 }
 function Restart-Web {
     try { sc.exe stop IHUI-WEB | Out-Null } catch {}
@@ -2363,7 +2533,7 @@ function Restart-Web {
 # ── 回滚:仅 web(恢复 .rollback 构建 + 重启 web;api/ai 不受部署影响不重启)──
 function Do-Rollback {
     Log "开始回滚:恢复上次 web 构建产物"
-    Update-DeployLockHeartbeat        # 整盘 Copy-Item .rollback → .next 要几分钟,回滚期间同样在持有锁
+    Update-DeployLockHeartbeat        # 整盘把 .rollback 换上 .next 要几分钟,回滚期间同样在持有锁
 
     # ── 蓝绿回滚(2026-10-28 立):旧色构建一直在 ⇒ 改 router 指向即可,不必整盘替换 ──
     # 单实例时代回滚 = Copy-Item .rollback → .next(整盘数分钟)+ 停-起(期间 8801 无人监听)。
@@ -2404,7 +2574,7 @@ function Do-Rollback {
                         }
                         return
                     }
-                    # router 在位时,下面那条"整盘 Copy-Item .rollback → .next + Stop-Web/Start-Web"
+                    # router 在位时,下面那条"整盘 staging 替换 .next + Stop-Web/Start-Web"
                     # 结构上做不成:8801 归 IHUI-WEB-ROUTER,单实例 IHUI-WEB 是停着的回滚形态,
                     # 把它拉起来只会与 router 抢端口(实测 EADDRINUSE ⇒ 进程退出 ⇒ nssm 落 Paused),
                     # 结果是"回滚报告说恢复了,而 8801 其实没人应答"。所以这里当场 fail-closed,
@@ -2422,22 +2592,41 @@ function Do-Rollback {
     }
 
     $rb = "$WebDir\.rollback"
-    if (-not (Test-Path "$rb\BUILD_ID")) { Fail "无可用 .rollback 构建,无法回滚" }
+    if (-not (Test-Path -LiteralPath (Join-Path $rb 'BUILD_ID'))) { Fail "无可用 .rollback 构建,无法回滚" }
+    # DBG-78: Stop-Web 要么等到 Stopped 才返回,要么 Fail 退出。这里还没动 .next / .rollback。
     Stop-Web
-    Remove-Item "$WebDir\.next" -Recurse -Force -ErrorAction SilentlyContinue
-    Copy-Item $rb "$WebDir\.next" -Recurse -Force
-    Remove-Item $rb -Recurse -Force -ErrorAction SilentlyContinue
+    try {
+        $swap = Install-DirByStaging -Source $rb -Destination "$WebDir\.next"
+    } catch {
+        $swapErr = $_.Exception.Message
+        # 目录没被换走时把服务拉回来。换到一半且旧目录也没回来时不要对着残目录启动。
+        if ($swapErr -like 'staging-copy: unchanged:*') {
+            try { Start-Web } catch { $swapErr = "$swapErr; 拉回 IHUI-WEB 失败: $($_.Exception.Message)" }
+        }
+        $swapReason = if ($swapErr -like 'staging-copy: dest-missing:*') { 'rollback-staging-dest-missing' } else { 'rollback-staging-unchanged' }
+        Fail "整盘回滚未能替换 .next, .rollback 仍保留" -Detail $swapErr -Reason $swapReason
+    }
+    if ($swap.Leftover) { Log "WARN  旧 .next 残留未删(新目录已就位,健康复验前不删 .rollback): $($swap.Leftover)" }
     Start-Web
     Start-Sleep -Seconds 8
     if (Test-HealthGate) {
         Ok "回滚完成,健康检查通过"
+        # 复验已通过才许摘掉这份唯一回滚包。失败分支不调用。
+        try {
+            [void](Remove-RollbackPointIfHealthy -RollbackDir $rb -HealthPassed $true)
+        } catch {
+            Log "WARN  回滚已通过健康复验,但 .rollback 未摘除: $($_.Exception.Message)"
+        }
         # 回滚=本轮未切流:窗口按 rolledback 收口,监控立即放行(不再把回滚后的真实故障当"部署中"压住)。
         if ($script:DeployWindowEnabled -and $script:DeployWindowRunId) {
             try {
                 Close-IhuiDeployWindow -Path $script:DeployWindowFile -RunId $script:DeployWindowRunId -Result 'rolledback' -Reason '回滚完成' | Out-Null
             } catch { Log "WARN  回滚窗口收口失败(不影响回滚结果):$_" }
         }
-    } else { Fail "回滚后健康仍异常,需人工介入" }
+    } else {
+        Log "回滚后健康未过, .rollback 保留(可再退)"
+        Fail "回滚后健康仍异常,需人工介入"
+    }
 }
 
 # =============================================================================
@@ -2667,6 +2856,17 @@ function Invoke-Diagnose {
 
 if ($diagnose) { Invoke-Diagnose; exit 0 }
 
+if ($CanaryUnprovenNotify) {
+    # 金丝雀非 web 维判红的告警(2026-11-11,B37 收口):沿用本脚本既有告警通道形态
+    # (Invoke-FailNotify:身份去重 + 静默窗 + 族窗 + 邮件),只发信后退出,不碰锁/构建/切流/回滚/台账。
+    try {
+        Invoke-FailNotify -Severity warning -m "金丝雀观察窗异常(判红维=$CanaryUnprovenNotify 不含 web-origin):已撤灰度、未回滚 web 整包(web 包退不回该 api/llm 源站维)" -Detail '需人工核查对应源站;明细见 deploy-loop.log 本轮 CANARY 行与 .ihui-agent/deploy-decisions.jsonl 最近一条 action=canary-unproven' -Reason "canary-nonweb-dims=$CanaryUnprovenNotify"
+    } catch {
+        Write-Output "ALERT 金丝雀非 web 维告警发信异常:$_"
+    }
+    exit 0
+}
+
 # ── 零停机蓝绿式部署主流程 ──
 New-BackupDir
 Set-Location $Root
@@ -2687,7 +2887,9 @@ if ($rollbackOnly) {
         # 告警也只能走本脚本这一条既有出口:守护进程 ihui-deploy-loop.ps1 里**没有**
         # Invoke-FailNotify(它只活在本文件),在那边直接调用只会抛"命令不存在"并被 catch 吞掉。
         if ($CanaryRollback) {
-            [void](Write-DeployDecision -Action 'canary-rollback' -PrevSha $moSha -GateVerdict 'fail' -Reason '金丝雀观察窗判定异常,自动恢复上一可用包')
+            # -Dims 取部署环经环境变量传来的判红维(空串时 Write-DeployDecision 自动跳过 --dims,
+            # 不会写出 dims=(none) 把真值盖掉;同先例:build-fail -Dims 'web' / 健康门禁 -Dims $script:HealthGateFailDims)。
+            [void](Write-DeployDecision -Action 'canary-rollback' -PrevSha $moSha -GateVerdict 'fail' -Dims $env:IHUI_CANARY_FAIL_DIMS -Reason '金丝雀观察窗判定异常,自动恢复上一可用包')
             try { Invoke-FailNotify -Severity warning -m "金丝雀观察窗异常,已自动回滚:旧版本重新在线,需人工核查部署日志的 CANARY 行" -Detail "错误率/延迟比对明细见 .ihui-agent/deploy-decisions.jsonl 最近一条 action=canary-rollback" -Reason "canary-regression" } catch { Log "ALERT 金丝雀回滚告警发信异常(不影响已回滚):$_" }
         } else {
             [void](Write-DeployDecision -Action 'manual-rollback' -PrevSha $moSha -GateVerdict 'not-run' -Reason '人工执行 -rollbackOnly,已恢复上一可用包')
@@ -3645,10 +3847,18 @@ Log "备份当前 web 构建 → .rollback"
 # 蓝绿后「在服务的那一份」随活跃色摆动 ⇒ 备份源必须是活跃色目录,不能写死 .next
 # (写死就会把一份早已下线的旧构建当成回滚点,回滚后线上反而倒退)。
 $curNext = Get-WebActiveBuildDir
-if (Test-Path "$curNext\BUILD_ID") {
+if (Test-Path -LiteralPath (Join-Path $curNext 'BUILD_ID')) {
     $rb = "$WebDir\.rollback"
-    Remove-Item $rb -Recurse -Force -ErrorAction SilentlyContinue
-    Copy-Item $curNext $rb -Recurse -Force
+    # DBG-79: 不许先删 .rollback 再 Copy-Item。删一半时源目录会被套进残留目标,根上没有 BUILD_ID。
+    try {
+        $bk = Install-DirByStaging -Source $curNext -Destination $rb
+    } catch {
+        Fail "生成回滚点失败,不构建不切流" -Detail "$($_.Exception.Message)" -Reason 'rollback-point-staging-failed'
+    }
+    if (-not (Test-Path -LiteralPath (Join-Path $rb 'BUILD_ID'))) {
+        Fail "回滚点替换后 BUILD_ID 不在 .rollback 根上,不构建不切流" -Reason 'rollback-point-marker-missing'
+    }
+    if ($bk.Leftover) { Log "WARN  旧回滚点残留未删(新回滚点已就位): $($bk.Leftover)" }
     Ok "已备份当前构建为回滚点"
 } else { Log "未发现现有 .next\BUILD_ID,跳过备份(冷启动)" }
 
@@ -4175,8 +4385,8 @@ if (-not (Test-HealthGate)) {
     # 旧写法在成功分支立刻删回滚点,于是守护进程那侧的观察窗一旦判异常就**无包可退**
     # (`-rollbackOnly` 会以"无可用 .rollback 构建"失败),那条自动回滚腿等于写在纸上。
     # 删除责任移到唯一知道观察窗结论的一方:ihui-deploy-loop.ps1 在校验通过时摘、
-    # 判死时用它回滚。稳态不会累积多份 —— 下一轮部署的备份步(上方 `Remove-Item $rb` →
-    # `Copy-Item`)会把整份回滚点替换掉,最多多留一份整包副本。
+    # 判死时用它回滚。稳态不会累积多份 —— 下一轮部署的备份步(Install-DirByStaging)会先把现网构建
+    # 复制到临时目录再换名替换 .rollback,最多多留一份整包副本。
 
     # ── 重启 api(2026-09-13 加):api 为源码直跑,pull 后需重载才能吃到后端新代码 ──
     # 阶段标记放在重启之前:api/ai 重启是监控最容易被叫醒的那一段。

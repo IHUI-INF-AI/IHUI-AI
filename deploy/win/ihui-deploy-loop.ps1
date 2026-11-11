@@ -512,7 +512,9 @@ function Invoke-CanaryGate {
         Log "CANARY 未判定:采样失败(rc=$sampleRc)⇒ 不回滚,也不冒充通过"
         return $false
     }
-    $dArgs = @($scriptPath, '--decide', '--policy', $samplePolicy, '--candidate', $candidate, '--json', '--record-decision', '--deploy-sha', $script:LastDeploySha, '--ledger', $ledger)
+    # --defer-fail-record(2026-11-11 立,B37):判红时不抢先写台账,记录时机交回下面 dRc=3 处置分支
+    # (分支按判红维决定回滚谁、由谁记账;抢先一行会被子脚本回滚那一行同桶覆盖,dims 丢失)。
+    $dArgs = @($scriptPath, '--decide', '--policy', $samplePolicy, '--candidate', $candidate, '--json', '--record-decision', '--defer-fail-record', '--deploy-sha', $script:LastDeploySha, '--ledger', $ledger)
     # ── 灰度「实切量」读数(2026-11-01 立)──────────────────────────────────────
     # 立因:分流器把车道只写进响应头(排障用),契约文件写的是**期望比例**,决策台账写的是**判定
     # 结论** —— 灰度期结束后"到底放过多少量"没有任何持久产物(演练里的 22/400 只在夹具内由客户端
@@ -620,6 +622,33 @@ function Invoke-CanaryGate {
             foreach ($ln in ($stopOut -split "`r?`n")) { if ($ln.Trim()) { Log ("  [gray] {0}" -f $ln.Trim()) } }
             Log "GRAY 已撤灰度(-Action stop;契约比例归零)"
         }
+        # ── 判红维决定"退什么"(2026-11-11 立,B37 第二格)──────────────────────────
+        # --json 的 payload 是 $dOut 里以 '{' 开头的那一行;dims=判红端点 id(web-origin/api-origin/llm-origin)。
+        # 回滚动作只恢复 web 整包(.next)——判红维全是 api/llm 源站时,退 web 包修不了那一维,
+        # 白闪一次还留下"已回滚"的假账。非 web 维 ⇒ 只撤灰度(上面已完成)+ 环直记 canary-unproven(fail,dims)。
+        $canaryFailDims = @()
+        try {
+            $dJsonLine = ($dOut -split "`r?`n" | Where-Object { $_.Trim().StartsWith('{') } | Select-Object -Last 1)
+            if ($dJsonLine) { $canaryFailDims = @((ConvertFrom-Json $dJsonLine).dims) }
+        } catch {
+            Log "CANARY 判红维读不出($_)⇒ 保守按整包回滚处置"
+        }
+        $canaryFailDims = @($canaryFailDims | Where-Object { $_ })
+        if ($canaryFailDims.Count -gt 0 -and -not ($canaryFailDims -contains 'web-origin')) {
+            $dimsJoined = ($canaryFailDims -join ',')
+            Log ("CANARY 异常(判红维={0} 不含 web-origin)⇒ 只撤灰度、不回滚 web 整包(web 包退不回 api/llm 源站那一维)" -f $dimsJoined)
+            $recOut = (& $Node (Join-Path $Root 'scripts\deploy-decision.mjs') --action canary-unproven --verdict fail --dims $dimsJoined --sha ([string]$script:LastDeploySha) --ledger $ledger --reason ("金丝雀判红维={0} 不含 web-origin ⇒ 只撤灰度不回滚 web;明细见本轮 CANARY 行" -f $dimsJoined) 2>&1 | Out-String)
+            foreach ($ln in ($recOut -split "`r?`n")) { if ($ln.Trim()) { Log ("  [decision] {0}" -f $ln.Trim()) } }
+            # 告警出口(2026-11-11 收口 B37 残余缺口):本分支不走回滚子进程,改经子脚本
+            # -CanaryUnprovenNotify 入口发信 —— 沿用 ihui-deploy.ps1 既有告警通道形态(Invoke-FailNotify:
+            # 身份去重+静默窗+族窗+邮件),守护自身仍不写第二份告警实现(纪律:告警唯一出口在子脚本)。
+            $alOut = (& $PwshExe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $WinDir 'ihui-deploy.ps1') -CanaryUnprovenNotify $dimsJoined 2>&1 | Out-String)
+            foreach ($ln in ($alOut -split "`r?`n")) { if ($ln.Trim()) { Log ("  [alert] {0}" -f $ln.Trim()) } }
+            return $true
+        }
+        # 判红维含 web-origin,或 dims 读不出/为空 ⇒ 保守走整包回滚;判红维经环境变量交给子脚本记账
+        # (子脚本 Write-DeployDecision -Dims 为空串时自动跳过 --dims,不会写出 dims=(none) 覆盖真值)。
+        $env:IHUI_CANARY_FAIL_DIMS = ($canaryFailDims -join ',')
         Log "CANARY 异常 ⇒ 自动回滚(调 ihui-deploy.ps1 -rollbackOnly -CanaryRollback 退回上一可用包)"
         # -CanaryRollback 让子脚本按 canary-rollback 记账并发告警:本守护进程里**没有**
         # Invoke-FailNotify(它只活在 ihui-deploy.ps1),在这里直调只会抛"命令不存在"被 catch 吞掉 ——
