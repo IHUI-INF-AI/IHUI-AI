@@ -153,8 +153,82 @@ test('⑫ 归一化:缺失字段降级为安全默认,不 throw', () => {
   const n = normalizeSyncAccount({})
   assert.equal(n.ownerUserId, null)
   assert.equal(n.enabled, true)
-  assert.equal(n.token, '')
+  assert.equal(n.uid, '')
   assert.equal(n.updatedAt, '')
+  assert.deepEqual(n.payload, {})
+})
+
+test('⑭ `__sync` 元数据优先于顶层字段,且原生载荷保持纯净', () => {
+  const raw = {
+    token: 'native-token',
+    accessToken: 'native-access',
+    __sync: { uid: 'uid-from-sync', providerCode: 'minimax', ownerUserId: 'o9', updatedAt: 'X', enabled: false },
+  }
+  const n = normalizeSyncAccount(raw)
+  assert.equal(n.uid, 'uid-from-sync')
+  assert.equal(n.providerCode, 'minimax')
+  assert.equal(n.ownerUserId, 'o9')
+  assert.equal(n.enabled, false)
+  // 原生载荷不该被 __sync 污染
+  assert.equal(n.payload.accessToken, 'native-access')
+})
+
+test('⑮ 指纹:展示名差异不算变更,启用态差异算变更', () => {
+  const base = {
+    accessToken: 'at-1',
+    __sync: { uid: 'u1', providerCode: 'minimax', enabled: true },
+  }
+  const renamed = {
+    accessToken: 'at-1',
+    name: '另一个展示名',
+    __sync: { uid: 'u1', providerCode: 'minimax', enabled: true },
+  }
+  const disabled = {
+    accessToken: 'at-1',
+    __sync: { uid: 'u1', providerCode: 'minimax', enabled: false },
+  }
+  assert.equal(credentialFingerprint(base), credentialFingerprint(renamed))
+  assert.notEqual(credentialFingerprint(base), credentialFingerprint(disabled))
+})
+
+test('⑯ 指纹:core 四元组任一变化都必须被识别', () => {
+  const mk = (core, extra = {}) => ({
+    ...extra,
+    __sync: { uid: 'u1', providerCode: 'minimax', enabled: true, core },
+  })
+  const base = mk({ token: 'at-1', refreshToken: 'rt-1', tokenExpiresAt: '2026-12-01T00:00:00Z' })
+  assert.notEqual(
+    credentialFingerprint(base),
+    credentialFingerprint(mk({ token: 'at-2', refreshToken: 'rt-1', tokenExpiresAt: '2026-12-01T00:00:00Z' })),
+  )
+  assert.notEqual(
+    credentialFingerprint(base),
+    credentialFingerprint(mk({ token: 'at-1', refreshToken: 'rt-2', tokenExpiresAt: '2026-12-01T00:00:00Z' })),
+  )
+  assert.notEqual(
+    credentialFingerprint(base),
+    credentialFingerprint(mk({ token: 'at-1', refreshToken: 'rt-1', tokenExpiresAt: '2027-01-01T00:00:00Z' })),
+  )
+  // 启用态变化同样要识别
+  assert.notEqual(
+    credentialFingerprint(base),
+    credentialFingerprint({
+      __sync: { uid: 'u1', providerCode: 'minimax', enabled: false, core: { token: 'at-1', refreshToken: 'rt-1', tokenExpiresAt: '2026-12-01T00:00:00Z' } },
+    }),
+  )
+})
+
+test('⑱ 指纹:载荷里的本机环境字段(sourcePath/region)不同不算变更', () => {
+  const core = { token: 'same-token', refreshToken: '', tokenExpiresAt: '' }
+  const a = { value: 'v', sourcePath: 'C:\\Users\\A\\.tool', region: 'cn', __sync: { uid: 'u1', providerCode: 'zcode', enabled: true, core } }
+  const b = { value: 'v', sourcePath: 'D:\\prod\\.tool', region: 'us', __sync: { uid: 'u1', providerCode: 'zcode', enabled: true, core } }
+  assert.equal(credentialFingerprint(a), credentialFingerprint(b))
+})
+
+test('⑰ 指纹与键序无关(同一内容不同键序必须同哈希)', () => {
+  const a = { x: 1, y: { p: 2, q: 3 }, __sync: { uid: 'u1', providerCode: 'trae' } }
+  const b = { y: { q: 3, p: 2 }, x: 1, __sync: { uid: 'u1', providerCode: 'trae' } }
+  assert.equal(credentialFingerprint(a), credentialFingerprint(b))
 })
 
 test('⑬ 防漂移:ESM 镜像的 provider 清单必须与 TS 唯一真相源逐项一致', () => {
