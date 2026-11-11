@@ -173,6 +173,16 @@ def test_judge_tools_response_declared_but_not_triggered():
     assert "未实际触发" in error
 
 
+def test_judge_tools_response_truncated_is_unknown():
+    """max_tokens 截断时不能判"不支持":推理模型可能还没轮到发 tool_calls。"""
+    body = json.dumps(
+        {"choices": [{"message": {"content": ""}, "finish_reason": "length"}]}
+    )
+    ok, error = _judge_tools_response(200, body)
+    assert ok is None
+    assert "截断" in error
+
+
 @pytest.mark.parametrize("status_code", [400, 422])
 def test_judge_tools_response_rejects_when_error_mentions_tools(status_code):
     ok, error = _judge_tools_response(
@@ -237,6 +247,29 @@ async def test_context_probe_flags_wrong_reply(monkeypatch):
     ok, error = await svc._probe_context(target, 500)
     assert ok is False
     assert "验证码" in error
+
+
+@pytest.mark.parametrize("status_code", [429, 500])
+async def test_context_probe_account_level_or_5xx_is_unknown(monkeypatch, status_code):
+    """限流/上游故障只能记"未知",不能给模型打上"不支持长上下文"。"""
+    svc = ModelHealthService()
+    resp = _Resp(status_code, '{"error":"rate limit exceeded"}')
+
+    class _Client:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc):
+            return False
+
+        async def post(self, *args, **kwargs):
+            return resp
+
+    monkeypatch.setattr(mh.httpx, "AsyncClient", lambda **kwargs: _Client())
+    target = mh._ProbeTarget("alpha", "http://x", {}, None, "m")
+    ok, error = await svc._probe_context(target, 500)
+    assert ok is None
+    assert str(status_code) in error
 
 
 # ---------------------------------------------------------------------------
