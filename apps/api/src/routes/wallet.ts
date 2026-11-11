@@ -84,12 +84,12 @@ const walletRoutes: FastifyPluginAsync = async (server) => {
     }
 
     const [rechargeSum] = await db
-      .select({ total: sql<number>`coalesce(sum(quantity), 0)::int` })
+      .select({ total: sql<number>`coalesce(sum(quantity), 0)::bigint` })
       .from(tokenFlows)
       .where(and(eq(tokenFlows.userId, userId), eq(tokenFlows.opType, 0)))
 
     const [withdrawSum] = await db
-      .select({ total: sql<number>`coalesce(sum(abs(quantity)), 0)::int` })
+      .select({ total: sql<number>`coalesce(sum(abs(quantity)), 0)::bigint` })
       .from(tokenFlows)
       .where(and(eq(tokenFlows.userId, userId), eq(tokenFlows.opType, 1)))
 
@@ -97,8 +97,8 @@ const walletRoutes: FastifyPluginAsync = async (server) => {
       success({
         balance: margin.tokenQuantity,
         frozenBalance: margin.frozenQuantity,
-        totalRecharge: rechargeSum?.total ?? 0,
-        totalWithdraw: withdrawSum?.total ?? 0,
+        totalRecharge: toCount(rechargeSum?.total),
+        totalWithdraw: toCount(withdrawSum?.total),
       }),
     )
   })
@@ -200,7 +200,7 @@ const walletRoutes: FastifyPluginAsync = async (server) => {
       .limit(pageSize)
       .offset(offset)
     const [countResult] = await db
-      .select({ count: sql<number>`count(*)::int` })
+      .select({ count: sql<number>`count(*)::bigint` })
       .from(tokenFlows)
       .where(and(...conditions))
 
@@ -216,7 +216,7 @@ const walletRoutes: FastifyPluginAsync = async (server) => {
           remark: decryptWithdrawalRemark(f.remark),
           createdAt: f.createdAt.toISOString(),
         })),
-        total: countResult?.count ?? 0,
+        total: toCount(countResult?.count),
         page,
         pageSize,
       }),
@@ -242,7 +242,7 @@ const walletRoutes: FastifyPluginAsync = async (server) => {
       .limit(pageSize)
       .offset(offset)
     const [countResult] = await db
-      .select({ count: sql<number>`count(*)::int` })
+      .select({ count: sql<number>`count(*)::bigint` })
       .from(tokenFlows)
       .where(and(...conditions))
 
@@ -258,7 +258,7 @@ const walletRoutes: FastifyPluginAsync = async (server) => {
           remark: f.remark,
           createdAt: f.createdAt.toISOString(),
         })),
-        total: countResult?.count ?? 0,
+        total: toCount(countResult?.count),
         page,
         pageSize,
       }),
@@ -302,6 +302,16 @@ function startOfDay(d: Date): Date {
   return x
 }
 
+/**
+ * 将 bigint 聚合结果归一化为 number。
+ * PG int8 经驱动常以字符串返回,这里统一转 number;空值/非法值兜底 0,保持接口 number 契约。
+ */
+export function toCount(value: unknown): number {
+  if (value === null || value === undefined) return 0
+  const n = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(n) ? n : 0
+}
+
 export const adminWalletRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', requireAdmin)
 
@@ -321,68 +331,73 @@ export const adminWalletRoutes: FastifyPluginAsync = async (server) => {
       activeWallets,
     ] = await Promise.all([
       dbRead
-        .select({ total: sql<number>`coalesce(sum(${tokenFlows.quantity}), 0)::int` })
+        .select({ total: sql<number>`coalesce(sum(${tokenFlows.quantity}), 0)::bigint` })
         .from(tokenFlows)
         .where(eq(tokenFlows.opType, 0)),
       dbRead
-        .select({ total: sql<number>`coalesce(sum(abs(${tokenFlows.quantity})), 0)::int` })
+        .select({ total: sql<number>`coalesce(sum(abs(${tokenFlows.quantity})), 0)::bigint` })
         .from(tokenFlows)
         .where(eq(tokenFlows.opType, 1)),
       dbRead
-        .select({ total: sql<number>`coalesce(sum(${tokenFlows.quantity}), 0)::int` })
+        .select({ total: sql<number>`coalesce(sum(${tokenFlows.quantity}), 0)::bigint` })
         .from(tokenFlows)
         .where(eq(tokenFlows.opType, 4)),
       dbRead
-        .select({ total: sql<number>`coalesce(sum(${tokenFlows.quantity}), 0)::int` })
+        .select({ total: sql<number>`coalesce(sum(${tokenFlows.quantity}), 0)::bigint` })
         .from(tokenFlows)
         .where(eq(tokenFlows.opType, 5)),
       dbRead
         .select({
-          count: sql<number>`count(*)::int`,
-          amount: sql<number>`coalesce(sum(${tokenFlows.quantity}), 0)::int`,
+          count: sql<number>`count(*)::bigint`,
+          amount: sql<number>`coalesce(sum(${tokenFlows.quantity}), 0)::bigint`,
         })
         .from(tokenFlows)
         .where(and(eq(tokenFlows.opType, 0), gte(tokenFlows.createdAt, todayStart))),
       dbRead
         .select({
-          count: sql<number>`count(*)::int`,
-          amount: sql<number>`coalesce(sum(abs(${tokenFlows.quantity})), 0)::int`,
+          count: sql<number>`count(*)::bigint`,
+          amount: sql<number>`coalesce(sum(abs(${tokenFlows.quantity})), 0)::bigint`,
         })
         .from(tokenFlows)
         .where(and(eq(tokenFlows.opType, 1), gte(tokenFlows.createdAt, todayStart))),
       dbRead
         .select({
           date: sql<string>`to_char(date_trunc('day', ${tokenFlows.createdAt}), 'YYYY-MM-DD')`,
-          recharge: sql<number>`coalesce(sum(${tokenFlows.quantity}) filter (where ${tokenFlows.opType} = 0), 0)::int`,
-          withdraw: sql<number>`coalesce(sum(abs(${tokenFlows.quantity})) filter (where ${tokenFlows.opType} = 1), 0)::int`,
-          commission: sql<number>`coalesce(sum(${tokenFlows.quantity}) filter (where ${tokenFlows.opType} = 4), 0)::int`,
+          recharge: sql<number>`coalesce(sum(${tokenFlows.quantity}) filter (where ${tokenFlows.opType} = 0), 0)::bigint`,
+          withdraw: sql<number>`coalesce(sum(abs(${tokenFlows.quantity})) filter (where ${tokenFlows.opType} = 1), 0)::bigint`,
+          commission: sql<number>`coalesce(sum(${tokenFlows.quantity}) filter (where ${tokenFlows.opType} = 4), 0)::bigint`,
         })
         .from(tokenFlows)
         .where(gte(tokenFlows.createdAt, sevenDaysAgo))
         .groupBy(sql`date_trunc('day', ${tokenFlows.createdAt})`)
         .orderBy(sql`date_trunc('day', ${tokenFlows.createdAt})`),
       dbRead
-        .select({ count: sql<number>`count(*)::int` })
+        .select({ count: sql<number>`count(*)::bigint` })
         .from(userMargins)
         .where(sql`${userMargins.tokenQuantity} > 0`),
     ])
 
     return reply.send(
       success({
-        totalRecharge: rechargeSum[0]?.total ?? 0,
-        totalWithdraw: withdrawSum[0]?.total ?? 0,
-        totalCommission: commissionSum[0]?.total ?? 0,
-        totalAdminAdjust: adjustSum[0]?.total ?? 0,
+        totalRecharge: toCount(rechargeSum[0]?.total),
+        totalWithdraw: toCount(withdrawSum[0]?.total),
+        totalCommission: toCount(commissionSum[0]?.total),
+        totalAdminAdjust: toCount(adjustSum[0]?.total),
         todayRecharge: {
-          count: todayRecharge[0]?.count ?? 0,
-          amount: todayRecharge[0]?.amount ?? 0,
+          count: toCount(todayRecharge[0]?.count),
+          amount: toCount(todayRecharge[0]?.amount),
         },
         todayWithdraw: {
-          count: todayWithdraw[0]?.count ?? 0,
-          amount: todayWithdraw[0]?.amount ?? 0,
+          count: toCount(todayWithdraw[0]?.count),
+          amount: toCount(todayWithdraw[0]?.amount),
         },
-        daily,
-        activeWallets: activeWallets[0]?.count ?? 0,
+        daily: daily.map((d) => ({
+          date: d.date,
+          recharge: toCount(d.recharge),
+          withdraw: toCount(d.withdraw),
+          commission: toCount(d.commission),
+        })),
+        activeWallets: toCount(activeWallets[0]?.count),
       }),
     )
   })
@@ -426,7 +441,7 @@ export const adminWalletRoutes: FastifyPluginAsync = async (server) => {
         .limit(pageSize)
         .offset(offset),
       dbRead
-        .select({ count: sql<number>`count(*)::int` })
+        .select({ count: sql<number>`count(*)::bigint` })
         .from(tokenFlows)
         .where(where),
     ])
@@ -438,7 +453,7 @@ export const adminWalletRoutes: FastifyPluginAsync = async (server) => {
           remark: decryptWithdrawalRemark(f.remark),
           createdAt: f.createdAt.toISOString(),
         })),
-        total: totalRows[0]?.count ?? 0,
+        total: toCount(totalRows[0]?.count),
         page,
         pageSize,
       }),

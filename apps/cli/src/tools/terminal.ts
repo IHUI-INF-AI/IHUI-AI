@@ -26,7 +26,7 @@ import { runPreToolCall } from '../hooks/index.js';
 import { execSandboxed, precheckSandboxedCommand, type SandboxPolicy } from './sandbox/index.js';
 import { buildFilteredEnv, DEFAULT_BLOCKED_ENV_VARS, TERMINAL_CLI_CREDENTIAL_ALLOWLIST } from '../sandbox/index.js';
 import { loadSettings, type SandboxSettings } from '../commands/settings.js';
-import { killProcessTree } from '../util/spawn-isolated.js';
+import { killProcessTree } from '../util/kill-tree.js';
 
 // ==================== 沙箱接入(默认关闭,向后兼容) ====================
 
@@ -97,6 +97,7 @@ try {
 
 // PTY 实例最小接口(与 node-pty 的 IPty 兼容,避免静态 import 失败)
 interface IPty {
+  pid: number;
   write(data: string): void;
   resize(cols: number, rows: number): void;
   kill(signal?: string): void;
@@ -106,6 +107,8 @@ interface IPty {
 
 // 统一会话进程句柄(node-pty IPty 或 ChildProcess fallback 共用)
 interface SessionProc {
+  // F-003:清理点要按进程树回收,句柄必须带出根 pid(PTY 与 spawn 都能给)
+  readonly pid?: number;
   write(data: string): void;
   resize?(cols: number, rows: number): void;
   kill(signal?: string): void;
@@ -162,6 +165,7 @@ function spawnPty(command: string, cwd: string, cols: number, rows: number): Ses
   }) as unknown as IPty;
   pty.write(`${command}\r`); // 立即注入命令
   return {
+    pid: pty.pid,
     write: (data: string) => pty.write(data),
     resize: (c: number, r: number) => pty.resize(c, r),
     kill: (signal?: string) => pty.kill(signal),
@@ -184,15 +188,20 @@ function spawnFallback(command: string, cwd: string, _cols: number, _rows: numbe
     cwd,
     env,
     stdio: ['pipe', 'pipe', 'pipe'],
+    // F-003:POSIX 下自成进程组,清理点才能 kill(-pid) 收掉整组;输入输出都走 pipe,
+    // 不涉及交互式终端的 stdin/stdout 继承,detached 不会改变读写行为。
+    // Windows 无进程组语义,detached 只会多分配控制台窗口 ⇒ 不设,团灭走 taskkill /T。
+    detached: process.platform !== 'win32',
   });
   return {
+    pid: child.pid,
     write: (data: string) => { child.stdin?.write(data); },
     // F-003:降级路径是 shell:true,`child.kill` 只杀 shell,命令自己派生/后台化的
     // 子进程(sleep、npm 起的 node、cmd 启动的 exe)继承 stdio 继续活着 —— 会话关掉
     // 了进程还在。先给目标 shell 信号,再走进程树回收(Windows taskkill /T,F / POSIX 组)。
     kill: (signal?: string) => {
       try { child.kill(signal as NodeJS.Signals); } catch { /* ignore */ }
-      killProcessTree(child);
+      killProcessTree(child.pid);
     },
     onData: (cb) => {
       const h1 = (chunk: Buffer) => cb(chunk.toString('utf-8'));
@@ -217,6 +226,9 @@ function pruneStaleSessions(): void {
   for (const [id, s] of sessions) {
     if (now - s.lastActivityAt > SESSION_TIMEOUT_MS) {
       try { s.proc?.kill('SIGTERM'); } catch { /* ignore */ }
+      // F-003:会话句柄的 kill 只管直接子进程(PTY 的 shell / spawn 的 shell),
+      // 命令自己派生的孙进程还在 ⇒ 补一发按 pid 的进程树回收。
+      killProcessTree(s.proc?.pid);
       sessions.delete(id);
     }
   }
@@ -481,6 +493,9 @@ export const terminal_close: Tool = {
     if (!session) return { success: false, output: '', error: `会话 ${sessionId} 不存在` };
 
     try { session.proc?.kill('SIGTERM'); } catch { /* ignore */ }
+    // F-003:terminal_close 同样只收到 shell 层就会漏掉孙进程(dev server 继续占端口),
+    // 按会话根 pid 再收一次整棵树(Windows taskkill /T /F;POSIX kill(-pid))。
+    killProcessTree(session.proc?.pid);
     sessions.delete(sessionId);
     return {
       success: true,

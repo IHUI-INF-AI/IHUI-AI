@@ -25,9 +25,13 @@ const SENSITIVE_PATTERNS: ReadonlyArray<{ pattern: RegExp; replacement: string }
   { pattern: /\b(sk-[A-Za-z0-9_\-]{8})[A-Za-z0-9_\-]{12,}\b/g, replacement: '$1***REDACTED***' },
   // 1b. 下划线形态的 sk_ key(部分代理/国产网关用 sk_ 前缀;旧表只认 sk-,整类漏印)
   { pattern: /\b(sk_[A-Za-z0-9_\-]{8})[A-Za-z0-9_\-]{8,}\b/g, replacement: '$1***REDACTED***' },
-  // 2. Bearer token: Bearer xxx(短 token 阈值对齐 password:前缀 4 + 后缀至少 4,
-  //    `Bearer abcd1234` 这类 8 字符 token 不得再整段漏过)
-  { pattern: /(Bearer\s+[A-Za-z0-9_\-\.]{4})[A-Za-z0-9_\-\.]{4,}/gi, replacement: '$1***REDACTED***' },
+  // 1c. 短 sk 形态兜底:上面两条要求 16/20 位,`sk-abcdef` / `sk_123456` 这类 6 位起的
+  //     值同样按凭据处理。`(?![\w*\-])` 一举两防:既要求命中到值末尾,也避免把前两条
+  //     已产出的 `sk-xxx***REDACTED***` 尾巴再套一层(前缀可见性不被二次吃掉)。
+  { pattern: /\b(sk[-_][A-Za-z0-9_\-]{2})[A-Za-z0-9_\-]{2,}(?![\w*\-])/g, replacement: '$1***REDACTED***' },
+  // 2. Bearer token: Bearer xxx(F-007:阈值 ≥6 —— 可见前缀 4 + 至少 2,
+  //    `Bearer abcdef` 这类 6 字符 token 不得再整段漏过;1~5 字符仍按阈值保留)
+  { pattern: /(Bearer\s+[A-Za-z0-9_\-\.]{4})[A-Za-z0-9_\-\.]{2,}/gi, replacement: '$1***REDACTED***' },
   // 2b. Authorization: <scheme> <token>(Basic 走第 6 类、Bearer 走第 2 类,这里只兜其余 scheme)
   { pattern: /(Authorization\s*:\s*(?!(?:Basic|Bearer)\b)[A-Za-z0-9_\-]+\s+)([A-Za-z0-9_\-\.]{4})[A-Za-z0-9_\-\.]{4,}/gi, replacement: '$1$2***REDACTED***' },
   // 2c. x-api-key / x-api-secret 头赋值(旧表完全没有这两类头)
@@ -190,11 +194,23 @@ export function redactObject(obj: Record<string, unknown>): Record<string, unkno
  */
 
 /**
- * 键名档敏感词根(封闭常量:不得在别处再抄一份判据,新增词根须回到本票验收口径)。
- * 语义逐词根:token(含 accessToken/refresh_token)、secret、password、api_key/apiKey/api-key、
- * authorization、credential、cookie。大小写不敏感;无 g 旗标,`test` 无 lastIndex 累积问题。
+ * 键名档敏感词根 —— 唯一常量(F-006 审计入参键名档与 F-007 的键名集共用这一份,不得再抄第二份漂移)。
+ * 语义逐词根:token(含 accessToken/refresh_token)、secret、password、passwd、api_key/apiKey/api-key、
+ * authorization、credential、cookie。大小写不敏感。
  */
-const SENSITIVE_KEY_PATTERN = /token|secret|password|api[_-]?key|authorization|credential|cookie/i;
+const SENSITIVE_KEY_ROOTS = [
+  'token',
+  'secret',
+  'password',
+  'passwd',
+  'api[_-]?key',
+  'authorization',
+  'credential',
+  'cookie',
+] as const;
+
+/** 键名判据由上面词根编译而来;无 g 旗标,`test` 无 lastIndex 累积问题。 */
+const SENSITIVE_KEY_PATTERN = new RegExp(SENSITIVE_KEY_ROOTS.join('|'), 'i');
 
 /** 大文本档键名(封闭集合,精确匹配,不做模糊包含 —— 误把普通串压成字符数比漏印更难排查) */
 const LARGE_TEXT_KEYS: ReadonlySet<string> = new Set(['content', 'old_string', 'new_string']);
