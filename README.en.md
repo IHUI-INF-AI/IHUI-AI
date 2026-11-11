@@ -87,7 +87,7 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 | 工程守门 | 357 | `guardianGates` |
 | — blocking | 328 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 20938 | `trackedFiles` |
+| 跟踪文件 | 20939 | `trackedFiles` |
 
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-10。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -98,6 +98,22 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-11**
+- 🔧 Chore/Other:收编守护落档产出(2 件,凭落点账本) (702e0df09c)
+- 🔧 Chore/Other:重算四端 ui-routes 与 rn-route-map + knip/README 数字同步 (68c0e32d3a)
+- 🐞 Fix:同平台重复治理 —— zcode 键源补链 + 签到归属迁移收养 (2c72a450ec)
+- 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (f40d9ae05f)
+- 🐞 Fix:系统管理员凭据轮换例外 —— 仅放行 password_hash 变更 (727f76a0c5)
+- 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (2696dd5c87)
+- 🐞 Fix:导出/回放腿按 2026-11-11 真机实证修正三处假绿 (d959839357)
+- 🔧 Chore/Other:壳声明件跟随新落承载页(260 条说明符) (b0edc59ca8)
+- 🔧 Chore/Other:自动落 2 枚小程序壳承载页(共 2 枚待产) (f8075c6c40)
+- 🐞 Fix:补齐 UpstreamSocketOpenOptions.heartbeatMs 契约并收口两脚本类型错(清 T1) (6756238fb0)
+- 🚀 Feature/Improvement:登录锁定支持账号豁免名单,默认关闭 (ab97a2a5fc)
+- 🐞 Fix:清掉测试面 typecheck 里长连接 lane 的 6 个存量错误 (9573af5378)
+- 📚 Docs:自动刷新最近更新块 (9f1dafe915)
+- 🐞 Fix:扫码面板取消自动弹协议窗,改为内联同意并继续 (23e6125fd9)
+
 **2026-11-11**
 - 📚 Docs:自动刷新最近更新块(收敛循环) (deda1ac0ff)
 - 🚀 Feature/Improvement:上游会话续写缓存 —— 同会话多轮透传 conversation_id,不再每次重建对话 (ec105c4023)
@@ -208,9 +224,6 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 **2026-11-10**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (d3aa620a76)
-
-**2026-11-10**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (b470d0ec08)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)

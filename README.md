@@ -44018,3 +44018,19 @@ A: Yes. Test file and case counts: see the generated table / 67 e2e spec / 4721 
 - 🔧 工程/其他:再 rebase 后生成器取胜, 刷新 ui-routes 钉值与 README 数字 (5c833a7bbc)
 **2026-11-06**
 - 🚀 新功能/改进:补齐 Team/MessageCenter/ArticleList/Coupon 行为型 prop 跨端缺口并清理死契约 (a872076ccc)
+| 跟踪文件 | 20939 | `trackedFiles` |
+**2026-11-11**
+- 🔧 工程/其他:收编守护落档产出(2 件,凭落点账本) (702e0df09c)
+- 🔧 工程/其他:重算四端 ui-routes 与 rn-route-map + knip/README 数字同步 (68c0e32d3a)
+- 🐞 修复:同平台重复治理 —— zcode 键源补链 + 签到归属迁移收养 (2c72a450ec)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (f40d9ae05f)
+- 🐞 修复:系统管理员凭据轮换例外 —— 仅放行 password_hash 变更 (727f76a0c5)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (2696dd5c87)
+- 🐞 修复:导出/回放腿按 2026-11-11 真机实证修正三处假绿 (d959839357)
+- 🔧 工程/其他:壳声明件跟随新落承载页(260 条说明符) (b0edc59ca8)
+- 🔧 工程/其他:自动落 2 枚小程序壳承载页(共 2 枚待产) (f8075c6c40)
+- 🐞 修复:补齐 UpstreamSocketOpenOptions.heartbeatMs 契约并收口两脚本类型错(清 T1) (6756238fb0)
+- 🚀 新功能/改进:登录锁定支持账号豁免名单,默认关闭 (ab97a2a5fc)
+- 🐞 修复:清掉测试面 typecheck 里长连接 lane 的 6 个存量错误 (9573af5378)
+- 📚 文档:自动刷新最近更新块 (9f1dafe915)
+- 🐞 修复:扫码面板取消自动弹协议窗,改为内联同意并继续 (23e6125fd9)
