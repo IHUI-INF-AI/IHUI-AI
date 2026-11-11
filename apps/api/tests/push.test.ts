@@ -24,11 +24,12 @@ vi.mock('../src/db/index.js', () => ({
   db: { execute: vi.fn().mockResolvedValue([]) },
 }))
 
+// 夹具按 SDB-47 后的真实契约:stub 分支不再返回成功
 vi.mock('../src/services/push-provider.js', () => ({
   detectPushProvider: vi.fn(() => 'stub'),
   sendPushBatch: vi
     .fn()
-    .mockResolvedValue([{ provider: 'stub', success: true, messageId: 'stub-1' }]),
+    .mockResolvedValue([{ provider: 'stub', success: false, error: 'push_not_configured' }]),
 }))
 
 import { pushRoutes, adminPushRoutes } from '../src/routes/push'

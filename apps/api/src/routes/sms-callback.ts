@@ -34,6 +34,7 @@ import {
   classifyTencentCallback,
   coerceCallbackBody,
   isSmsCallbackAuthorized,
+  isSmsCallbackGateConfigured,
   judgeTencentReport,
   parseTencentCallback,
   type TencentCallbackKind,
@@ -66,7 +67,9 @@ async function handleCallback(
 ): Promise<void> {
   const expectedToken = env.SMS_CALLBACK_TOKEN
   const allowlist = env.SMS_CALLBACK_IP_ALLOWLIST
-  const hasGate = Boolean(expectedToken || allowlist)
+  // 用与服务同一份归一化判据:未 trim 的原值判真值时,纯空白 token / "," 白名单会被
+  // 当成"已配置",而服务内 trim 后两闸全跳过 ⇒ 端点实际无鉴权。这里必须先拦掉。
+  const hasGate = isSmsCallbackGateConfigured({ expectedToken, allowlist })
 
   // 无鉴权闸 = 端点关闭。腾讯会把 503 当可重试错误,配好闸后回执会补上来,
   // 而放行则意味着任何人都能替全站用户退订、或把失败回执改成送达。

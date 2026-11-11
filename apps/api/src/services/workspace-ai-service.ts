@@ -1602,11 +1602,9 @@ class CodebaseIndexer {
       totalFiles: files.length,
       totalLines,
     }
-    writeFileSync(
-      join(workspacePath, '.ihui', 'codebase-index.json'),
-      JSON.stringify(index, null, 2),
-      'utf-8',
-    )
+    // 首次索引的工作区通常还没有 `.ihui`：走 writeJson 统一出口先建父目录，
+    // 否则整树遍历完才在写盘处 ENOENT，遍历 IO 全白费。
+    writeJson(join(workspacePath, '.ihui', 'codebase-index.json'), index)
     return index
   }
 
