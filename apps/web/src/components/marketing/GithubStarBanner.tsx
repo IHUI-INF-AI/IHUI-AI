@@ -84,15 +84,6 @@ export function GithubStarBanner(): React.JSX.Element {
           <MessageCircle className="h-3.5 w-3.5" />
           <span>社区讨论</span>
         </Link>
-        <Link
-          href="https://github.com/e2b-dev/awesome-ai-agents/pull/1313"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="group inline-flex items-center gap-1.5 ui-control rounded-sm border bg-card px-2.5 py-1 text-label text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/5"
-        >
-          <Star className="h-3.5 w-3.5" />
-          <span>支持 awesome PR</span>
-        </Link>
       </div>
       <Link
         href="https://aizhs.top"
