@@ -202,7 +202,14 @@ function runCaptured(command: string, args: string[], cwd: string): RunResult {
         /* 同上 */
       }
     }
-    fs.rmSync(dir, { recursive: true, force: true });
+    // 清理失败不能盖掉已拿到的结果:超时被杀的子进程在 Windows 上可能仍持有文件句柄
+    // (rmSync 抛 EBUSY),而它抛在 finally 里会让整条命令崩掉、把业务结果吞了。
+    // 残留落在系统 TEMP 下,由系统回收,不影响退出码与输出。
+    try {
+      fs.rmSync(dir, { recursive: true, force: true });
+    } catch {
+      /* 刻意忽略:清理是尽力而为 */
+    }
   }
 }
 
