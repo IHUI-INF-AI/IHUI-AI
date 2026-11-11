@@ -3,9 +3,11 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 86F 合一行为锁:唯一实现必须与**原 audit-log-service 私有版**逐字节同形
- * (链上存量 current_hash 由它算,任何"顺手修正"都是行为变更)。
+ * 86F 合一行为锁:JSON 域内必须与**原 audit-log-service 私有版**逐字节同形
+ * (链上存量 current_hash 由它算,任何"顺手修正"域内分支都是行为变更)。
  * 成对正反例:同内容换键序 ⇒ 同串;换内容 ⇒ 必不同串。
+ * JSON 域外分支已按 DBG-24/DBG-20129(2026-11-11)修正(域外形态不在 JSONB
+ * 读出值域内,不触碰存量哈希)。
  */
 import { describe, expect, it } from 'vitest'
 import { canonicalStringify } from '../canonical-json'
@@ -35,11 +37,21 @@ describe('canonicalStringify(唯一实现=原链哈希版逐字)', () => {
     expect(canonicalStringify({ a: null })).not.toBe(canonicalStringify({ a: 0 }))
   })
 
-  it('undefined 分支保留原形态(JSON.stringify(undefined) 非字符串)——不可达面不修,修=行为变更', () => {
-    // 原 audit-log-service 私有版对 undefined 返回 JSON.stringify(undefined)(JS undefined);
-    // 本锁钉"逐字同形",不是"这形态正确"。两消费面的真实输入(链 8 字段数组、
-    // AuditLogChainRow 全 `| null`、JSONB 读出值)都在 JSON 域,该分支不可达(头注已登记)。
-    expect(canonicalStringify(undefined)).toBeUndefined()
+  it('undefined 分支已按 DBG-24 修正:恒返回 string(原返回 primitive undefined 系类型撒谎)', () => {
+    // 原实现对 undefined 返回 JSON.stringify(undefined)(JS undefined),下游
+    // Buffer.from(undefined) 直接崩;现顶层 undefined 落 'null',对象成员整键消失。
+    expect(canonicalStringify(undefined)).toBe('null')
+    expect(canonicalStringify({ a: undefined })).toBe('{}')
+  })
+
+  it('Date/循环引用/BigInt 防御已按 DBG-20129 收口', () => {
+    expect(canonicalStringify(new Date('2026-09-28T10:00:00.000Z'))).toBe(
+      '"2026-09-28T10:00:00.000Z"',
+    )
+    const cyc: Record<string, unknown> = {}
+    cyc.me = cyc
+    expect(() => canonicalStringify(cyc)).toThrow(TypeError)
+    expect(canonicalStringify(42n)).toBe('"42"')
   })
 
   it('嵌套数组里的对象同样排序(递归覆盖,不是只排顶层)', () => {

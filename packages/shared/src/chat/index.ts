@@ -171,5 +171,3 @@ export * from './delivery-ack'
 export * from './output-style'
 // 冷启动分两半：列表没量到不显示成空，深链时刻没量到不恢复路径。
 export * from './cold-start'
-// AI 生成内容显式标识：文案键 + 字号/行高/颜色语义的跨端单一真相源
-export * from './aigc-label'

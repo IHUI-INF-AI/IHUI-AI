@@ -99,11 +99,7 @@ export function ArticleListScreen({
   )
   const [showTopBtn, setShowTopBtn] = useState(false)
   const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    // RN 事件走 nativeEvent.contentOffset;小程序 Taro 事件只有 detail.scrollTop
-    // (rn-compat 的 ScrollView 原样透传 Taro 事件),两种形态都认,否则小程序端回顶永不出现
-    const detail = (e as unknown as { detail?: { scrollTop?: number } }).detail
-    const y = e.nativeEvent?.contentOffset?.y ?? detail?.scrollTop ?? 0
-    setShowTopBtn(y > 200)
+    setShowTopBtn(e.nativeEvent.contentOffset.y > 200)
   }
 
   return (

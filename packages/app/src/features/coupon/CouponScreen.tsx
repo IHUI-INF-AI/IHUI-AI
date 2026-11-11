@@ -131,8 +131,8 @@ export function CouponScreen({
         />
       )}
 
-      {/* 底部「领券中心」:宿主传入 onOpenCouponCenter 才渲染(RN 端导航到 Promotion 领券中心;
-          小程序端去优惠券列表页)。absolute + alignSelf center 在 flex 容器内水平居中,不依赖具体屏宽。 */}
+      {/* 底部「领券中心」:宿主传入 onOpenCouponCenter 才渲染(RN 暂无领券列表页 ⇒ 不传即零变化)。
+          absolute + alignSelf center 在 flex 容器内水平居中,不依赖具体屏宽。 */}
       {onOpenCouponCenter ? (
         <TouchableOpacity style={styles.couponCenterBtn} onPress={onOpenCouponCenter}>
           <Text style={styles.couponCenterText}>{t('coupon.couponCenter')}</Text>

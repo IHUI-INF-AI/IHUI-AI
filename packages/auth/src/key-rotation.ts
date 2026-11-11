@@ -201,13 +201,20 @@ export class JwtKeyRotator {
     }
   }
 
-  /** 获取当前活跃密钥 (用于签发新 token)。 */
-  getActiveKey(): Uint8Array {
+  /**
+   * 获取当前活跃密钥 (用于签发新 token)。
+   *
+   * 2026-11-11 DBG-22:改 async 并先 await readyPromise —— 同步版从不等待 Redis
+   * 状态恢复,轮换窗口内会返回过期的 env 默认密钥/版本。
+   */
+  async getActiveKey(): Promise<Uint8Array> {
+    await this.readyPromise
     return this.current.key
   }
 
-  /** 获取当前版本号。 */
-  getActiveVersion(): number {
+  /** 获取当前版本号(见 DBG-22:须等待 Redis 状态恢复后才可信)。 */
+  async getActiveVersion(): Promise<number> {
+    await this.readyPromise
     return this.current.version
   }
 
@@ -307,6 +314,9 @@ export class JwtKeyRotator {
    * 使用当前活跃密钥签发 access token。
    */
   async signAccessToken(payload: JWTPayload): Promise<string> {
+    // DBG-21 同根因:未 await readyPromise 时签发也会用内存默认(env)密钥,
+    // Redis 恢复后该密钥不在验证集合内 ⇒ 轮换窗口签发的 token 批量 401。
+    await this.readyPromise
     return new SignJWT({
       phone: payload.phone,
       familyId: payload.familyId,
@@ -326,6 +336,9 @@ export class JwtKeyRotator {
    * 拒绝 refresh token 被当作 access token。
    */
   async verifyWithGracePeriod(token: string): Promise<JWTPayload> {
+    // DBG-21:先等 Redis 轮换状态载入完成,否则窗口内 getVerificationKeys() 只有
+    // env 默认密钥,已轮换(V2)签发的 token 会批量 401。
+    await this.readyPromise
     const keys = this.getVerificationKeys()
     let lastErr: unknown = null
     for (const kv of keys) {
@@ -421,8 +434,8 @@ export async function rotateJwtKey(newKey: Uint8Array): Promise<KeyVersion> {
   return getJwtKeyRotator().rotateKey(newKey)
 }
 
-/** 便捷：获取当前活跃密钥。 */
-export function getActiveJwtKey(): Uint8Array {
+/** 便捷：获取当前活跃密钥(见 DBG-22:async,等待 Redis 状态恢复)。 */
+export async function getActiveJwtKey(): Promise<Uint8Array> {
   return getJwtKeyRotator().getActiveKey()
 }
 
