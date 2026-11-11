@@ -129,6 +129,9 @@ const WEB_TIMEZONE =
   process.env.TRAE_USER_TIMEZONE?.trim() ||
   Intl.DateTimeFormat().resolvedOptions().timeZone ||
   'Asia/Shanghai'
+/** 收尾 stop 的兜底超时(ms):上游 stop 端点慢/挂起时最多等这么久,否则生成器
+ *  finally 永不返回 ⇒ SSE 悬挂、账号并发槽位(每账号上限 3)被长期占用(SDB-20) */
+const STOP_TIMEOUT_MS = 3_000
 
 /**
  * web 渠道请求头(线上实证:solo.trae.cn main bundle 858726/857014)。
@@ -645,12 +648,19 @@ export const traeAdapter: RelayUpstreamAdapter = {
     // 收尾 stop:尽力而为,失败忽略
     const stopUrl = `${TRAE_REMOTE_BASE}/chat_sessions/${encodeURIComponent(chatSessionId)}/stop`
     const stop = async (): Promise<void> => {
+      // 收尾必须有独立超时(SDB-20):stop 挂起时生成器 finally 不能永等。
+      // 调用方 signal 只叠加不替代 —— 只跟它走则在它不 abort 时完全无超时。
+      // 注意 signal 必须现算:提前创建会让 3s 从生成开始时起跑、等流结束早已 abort。
+      const signal = opts.signal
+        ? AbortSignal.any([opts.signal, AbortSignal.timeout(STOP_TIMEOUT_MS)])
+        : AbortSignal.timeout(STOP_TIMEOUT_MS)
       await fetchImpl(stopUrl, {
         method: 'POST',
         headers: buildWebHeaders(jwt, 'json'),
         // 线上 stopSession({chat_session_id, user_message_id})(8974:1005545);
         // 缺 user_message_id 时上游只返回 code -1(找不到最后一条用户消息)
         body: JSON.stringify({ chat_session_id: chatSessionId, user_message_id: messageId }),
+        signal,
       }).then(async (r) => {
         await r.body?.cancel()
       })

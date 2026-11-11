@@ -44,6 +44,17 @@ const GROUP_PRIVACY = 'privacy'
 /** 隐私设置里的键名(前端 PrivacyPrefs 用的同一个键)。 */
 const KEY_RAW_RETENTION_OPT_OUT = 'llmRawRetentionOptOut'
 
+/**
+ * 偏好值「真」的唯一字面量。写入口与预热读值共用它,免得两侧各写一份后分叉
+ * (比如一边改成 '1' 或大小写不敏感)。
+ */
+const OPT_OUT_VALUE_TRUE = 'true'
+
+/** 单点收口:偏好值是否表示「不留存原文」。 */
+function isOptOutValueTrue(value: string | null | undefined): boolean {
+  return value === OPT_OUT_VALUE_TRUE
+}
+
 /** userId → 是否选择"不留存 LLM 调用原文"。只缓存 true,false 走缺省不存。 */
 const optOutCache = new Set<string>()
 let preloaded = false
@@ -95,14 +106,14 @@ export async function setRawRetentionOptOut(userId: string, optedOut: boolean): 
     if (existing.length > 0) {
       await db
         .update(userPreferences)
-        .set({ value: optedOut ? 'true' : 'false' })
+        .set({ value: optedOut ? OPT_OUT_VALUE_TRUE : 'false' })
         .where(eq(userPreferences.id, existing[0]!.id))
     } else {
       await db.insert(userPreferences).values({
         userId,
         group: GROUP_PRIVACY,
         key: KEY_RAW_RETENTION_OPT_OUT,
-        value: optedOut ? 'true' : 'false',
+        value: optedOut ? OPT_OUT_VALUE_TRUE : 'false',
       })
     }
   } catch (e) {
@@ -139,8 +150,8 @@ export async function preloadRawRetentionOptOuts(): Promise<void> {
     for (const r of rows) {
       const row = r as { userId?: string; value?: string | null }
       if (!row.userId) continue
-      // 只认字面量 "true"(与全仓其它布尔开关同一口径)
-      if (row.value === 'true') optOutCache.add(row.userId)
+      // 与写入口同口径:写的是 OPT_OUT_VALUE_TRUE,读也只认这一个出口。
+      if (isOptOutValueTrue(row.value)) optOutCache.add(row.userId)
     }
     preloaded = true
     logger.info('[raw-retention-optout] 预热完成', { count: optOutCache.size })
