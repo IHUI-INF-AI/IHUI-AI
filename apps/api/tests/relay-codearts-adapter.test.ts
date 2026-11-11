@@ -255,6 +255,46 @@ describe('codearts refreshToken(打桩 fetch)', () => {
     expect(form.get('code_verifier')).toBe('cv-test')
   })
 
+  it('SDB-07:刷新响应缺 expiration ⇒ expiresAt = null(未知,不得编造兜底时刻)', async () => {
+    mockFetch.mockResolvedValue({
+      status: 200,
+      ok: true,
+      text: async () =>
+        JSON.stringify({
+          refresh_token: 'rt-rotated',
+          credentials: {
+            access_key_id: 'HSTAKnew',
+            secret_access_key: 'sknew',
+            security_token: 'sts-new',
+          },
+        }),
+    })
+    const result = await codeartsAdapter.refreshToken!(makeCtx())
+    expect(result).not.toBeNull()
+    expect(result?.expiresAt).toBeNull()
+    // 旧实现会兜底 now+2h;任何 Date 都是编造,必须为空
+    expect(result?.expiresAt).not.toBeInstanceOf(Date)
+  })
+
+  it('SDB-07:有真实 expiration ⇒ 逐字换算(不加不减、不改用兜底)', async () => {
+    mockFetch.mockResolvedValue({
+      status: 200,
+      ok: true,
+      text: async () =>
+        JSON.stringify({
+          refresh_token: 'rt-rotated',
+          credentials: {
+            access_key_id: 'HSTAKnew',
+            secret_access_key: 'sknew',
+            security_token: 'sts-new',
+            expiration: '2027-03-04T05:06:07Z',
+          },
+        }),
+    })
+    const result = await codeartsAdapter.refreshToken!(makeCtx())
+    expect(result?.expiresAt).toEqual(new Date('2027-03-04T05:06:07Z'))
+  })
+
   it('STS5.1806(refresh_token 已使用)→ 抛错(凭证报废,交调度器计数摘除)', async () => {
     mockFetch.mockResolvedValue({
       status: 400,

@@ -109,8 +109,13 @@ export interface SessionDetail {
 export type StreamEvent = CrewStreamEvent
 
 class CrewOrchestrator {
-  /** G7: 会话级 usage 累计(会话结束清理) */
-  private _sessionUsage = new Map<string, UsageAccumulator>()
+  /**
+   * G7: usage 累计器按 **runId** 存放,不按 sessionId。
+   * SDB-30:同一次会话可以被重跑/取消后重连,若按 session 归集,后一次执行会覆盖前一次的
+   * 累计值,前一次 generator 的 finally 还会把后一次的累计删掉 —— 用量单元必须与「单次执行」
+   * 对齐,否则终态事件报出的 usage 归属不到那次运行。
+   */
+  private _runUsage = new Map<string, UsageAccumulator>()
 
   /** G9: 会话取消标记(外部可通过 cancel(sessionId) 中断正在执行的 generator) */
   private _cancelled = new Set<string>()
@@ -130,8 +135,8 @@ class CrewOrchestrator {
     this._cancelled.delete(sessionId)
   }
 
-  /** G7: 初始化会话 usage 累计器 */
-  private initUsage(sessionId: string): UsageAccumulator {
+  /** G7: 初始化单次 run 的 usage 累计器 */
+  private initUsage(runId: string): UsageAccumulator {
     const u: UsageAccumulator = {
       promptTokens: 0,
       completionTokens: 0,
@@ -139,19 +144,19 @@ class CrewOrchestrator {
       model: '',
       calls: 0,
     }
-    this._sessionUsage.set(sessionId, u)
+    this._runUsage.set(runId, u)
     return u
   }
 
-  /** G7: 累计 LLM 调用 usage */
+  /** G7: 累计单次 run 内 LLM 调用的 usage */
   private accUsage(
-    sessionId: string,
+    runId: string,
     r: {
       usage: { promptTokens: number; completionTokens: number; totalTokens: number }
       modelUsed: string
     },
   ): void {
-    const u = this._sessionUsage.get(sessionId)
+    const u = this._runUsage.get(runId)
     if (!u) return
     u.promptTokens += r.usage.promptTokens
     u.completionTokens += r.usage.completionTokens
@@ -160,10 +165,10 @@ class CrewOrchestrator {
     u.calls++
   }
 
-  /** G7: 取出并清理会话 usage */
-  private clearUsage(sessionId: string): UsageAccumulator | undefined {
-    const u = this._sessionUsage.get(sessionId)
-    this._sessionUsage.delete(sessionId)
+  /** G7: 取出并清理单次 run 的 usage */
+  private clearUsage(runId: string): UsageAccumulator | undefined {
+    const u = this._runUsage.get(runId)
+    this._runUsage.delete(runId)
     return u
   }
 
@@ -207,13 +212,14 @@ class CrewOrchestrator {
     if (startedRows.length === 0) return { success: false, runId, error: '会话正在执行中' }
 
     const config = (session.config ?? {}) as SessionConfig
-    this.initUsage(sessionId) // G7: 初始化 usage 累计
+    this.initUsage(runId) // G7: 每次执行各一份 usage(重跑互不影响)
     try {
       const result = await this.runSimplified(
         sessionId,
         session.inputMessage,
         session.userId,
         config,
+        runId,
       )
       await this.updateSessionStatus(sessionId, 'completed', result)
       return {
@@ -221,7 +227,7 @@ class CrewOrchestrator {
         sessionId,
         runId,
         result,
-        usage: this.clearUsage(sessionId),
+        usage: this.clearUsage(runId),
         userId: session.userId,
       }
     } catch (e) {
@@ -231,7 +237,7 @@ class CrewOrchestrator {
         success: false,
         runId,
         error: msg,
-        usage: this.clearUsage(sessionId),
+        usage: this.clearUsage(runId),
         userId: session.userId,
       }
     }
@@ -264,7 +270,7 @@ class CrewOrchestrator {
     }
 
     const config = (session.config ?? {}) as SessionConfig
-    this.initUsage(sessionId) // G7: 初始化 usage 累计
+    this.initUsage(runId) // G7: 每次执行各一份 usage(重跑互不影响)
     this.clearCancelled(sessionId) // G9: 重置取消标记(允许重连后重新执行)
     yield { type: 'start', content: '多智能体协作开始', sessionId, runId }
 
@@ -314,9 +320,10 @@ class CrewOrchestrator {
               sessionId,
               i,
               taskId,
+              runId,
             )
           } else {
-            output = await this.callLlm(prompt, config, sessionId, session.userId)
+            output = await this.callLlm(prompt, config, sessionId, session.userId, runId)
           }
           await this.updateTaskStatus(taskId, 'completed', output)
         } catch (e) {
@@ -345,7 +352,7 @@ class CrewOrchestrator {
           type: 'error',
           content: '客户端断开连接,会话已取消',
           sessionId,
-          usage: this.clearUsage(sessionId),
+          usage: this.clearUsage(runId),
           userId: session.userId,
           runId,
         }
@@ -360,7 +367,7 @@ class CrewOrchestrator {
         type: 'complete',
         content: finalResult,
         sessionId,
-        usage: this.clearUsage(sessionId),
+        usage: this.clearUsage(runId),
         userId: session.userId,
         runId,
       }
@@ -371,13 +378,13 @@ class CrewOrchestrator {
         type: 'error',
         content: `执行异常: ${msg}`,
         sessionId,
-        usage: this.clearUsage(sessionId),
+        usage: this.clearUsage(runId),
         userId: session.userId,
         runId,
       }
     } finally {
-      // G9: 兜底清理,避免客户端断连导致的 _sessionUsage / _cancelled 泄漏
-      this.clearUsage(sessionId)
+      // G9: 兜底清理,避免客户端断连导致的 _runUsage / _cancelled 泄漏
+      this.clearUsage(runId)
       this.clearCancelled(sessionId)
     }
   }
@@ -475,6 +482,7 @@ class CrewOrchestrator {
     sessionId: string,
     taskIndex: number,
     taskId: string,
+    runId: string,
   ): AsyncGenerator<CrewStreamEvent, string, void> {
     const tools = getCrewToolDefinitions()
     const MAX_ROUNDS = 5
@@ -497,7 +505,7 @@ class CrewOrchestrator {
         userId, // G7: 传 userId 记成本
         sessionId, // G7: 传 sessionId 关联会话
       })
-      this.accUsage(sessionId, result) // G7: 累计 usage
+      this.accUsage(runId, result) // G7: 累计 usage(按 run 归属)
 
       // 无工具调用 → 返回最终内容
       if (!result.toolCalls || result.toolCalls.length === 0) {
@@ -576,7 +584,7 @@ class CrewOrchestrator {
       userId, // G7: 传 userId 记成本
       sessionId, // G7: 传 sessionId 关联会话
     })
-    this.accUsage(sessionId, finalResult) // G7: 累计 usage
+    this.accUsage(runId, finalResult) // G7: 累计 usage(按 run 归属)
     return finalResult.content
   }
 
@@ -586,6 +594,7 @@ class CrewOrchestrator {
     config: SessionConfig,
     sessionId?: string,
     userId?: string,
+    runId?: string,
   ): Promise<string> {
     const result = await callRealLlm({
       modelId: config.modelId || undefined,
@@ -594,7 +603,7 @@ class CrewOrchestrator {
       userId, // G7: 传 userId 记成本
       sessionId, // G7: 传 sessionId 关联会话
     })
-    if (sessionId) this.accUsage(sessionId, result) // G7: 累计 usage
+    if (runId) this.accUsage(runId, result) // G7: 累计 usage(按 run 归属)
     return result.content
   }
 
@@ -603,6 +612,7 @@ class CrewOrchestrator {
     inputMessage: string,
     userId: string,
     config: SessionConfig,
+    runId: string,
   ): Promise<string> {
     const taskPlan = this.planTasks(inputMessage)
     const context: Record<string, string> = { input: inputMessage }
@@ -628,7 +638,7 @@ class CrewOrchestrator {
 
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
-          output = await this.callLlm(prompt, config, sessionId, userId)
+          output = await this.callLlm(prompt, config, sessionId, userId, runId)
           break
         } catch (e) {
           lastError = e as Error

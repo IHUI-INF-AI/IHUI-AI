@@ -29,6 +29,15 @@ import { apiSubscriptions, apiSubscriptionWindowUsage, type ApiSubscription } fr
 const UTC8_OFFSET_MS = 8 * 60 * 60 * 1000
 const DAY_MS = 24 * 60 * 60 * 1000
 
+/**
+ * 「不过期」的到期时刻哨兵值(SDB-03)。
+ *
+ * 为什么不写 NULL:api_subscriptions.end_at 在 schema 里是 NOT NULL,
+ * 且本次修复不允许加迁移;写年份 9999 后,所有既有读取处
+ * (gt(end_at, now) / end_at 排序 / toISOString 展示)无需改动即天然生效。
+ */
+const PERMANENT_END_AT = new Date('9999-12-31T23:59:59.999Z')
+
 /** 窗口类型。 */
 export type WindowType = 'daily' | 'weekly' | 'monthly'
 
@@ -342,7 +351,8 @@ export interface CreateSubscriptionInput {
   planName: string
   orderId?: string | null
   orderNo?: string | null
-  validityDays: number
+  /** 有效期(天):0 = 不过期(永久);undefined/null = 未填,按既有默认 30 天 */
+  validityDays?: number | null
   dailyTokenLimit: number
   weeklyTokenLimit: number
   monthlyTokenLimit: number
@@ -372,10 +382,17 @@ export async function createSubscriptionForOrder(
       if (existing) return existing as ApiSubscription
     }
 
+    // SDB-03:文档语义「0 = 不过期」不能与「未填」混同。有效期的唯一判据就在本层:
+    // undefined/null(以及运行期的 NaN)⇒ 既有默认 30 天;显式 0 ⇒ 永久;
+    // 负数/非有限值 ⇒ 拒绝创建(管理端 zod 已拦,这里防绕过),绝不静默改成 30 天。
+    const rawValidity = input.validityDays
     const validityDays =
-      Number.isFinite(input.validityDays) && input.validityDays > 0
-        ? Math.floor(input.validityDays)
-        : 30
+      rawValidity === undefined || rawValidity === null
+        ? 30
+        : Number.isFinite(rawValidity) && rawValidity >= 0
+          ? Math.floor(rawValidity)
+          : null
+    if (validityDays === null) return null
 
     const [current] = await dbRead
       .select({ endAt: apiSubscriptions.endAt })
@@ -391,7 +408,13 @@ export async function createSubscriptionForOrder(
       .limit(1)
 
     const startAt = current?.endAt && current.endAt.getTime() > now.getTime() ? current.endAt : now
-    const endAt = new Date(startAt.getTime() + validityDays * DAY_MS)
+    // 0 = 不过期 → 直接落到哨兵值;续费基准若已是哨兵(前一份是永久订阅),
+    // 叠加后不再算出 10000 年,统一收敛到哨兵(永久订阅吸收后续续费)。
+    const computedEndAt = new Date(startAt.getTime() + validityDays * DAY_MS)
+    const endAt =
+      validityDays === 0 || computedEndAt.getTime() > PERMANENT_END_AT.getTime()
+        ? PERMANENT_END_AT
+        : computedEndAt
 
     const [row] = await db
       .insert(apiSubscriptions)

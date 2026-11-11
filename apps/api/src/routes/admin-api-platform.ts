@@ -20,6 +20,13 @@ const permissionsSchema = z
   .array(z.string())
   .refine((arr) => arr.every(isValidApiKeyPermission), '包含非法权限点')
 
+/**
+ * 套餐有效期(天),SDB-03:0 = 不过期(永久),与「不传」严格区分——
+ * 不传时保持 optional 透传,由 plans.validity_days 的 DB 默认 30 天兜底,
+ * 这里绝不能加 .default(30),否则会把显式 0 吞成 30 天。
+ */
+const validityDaysSchema = z.number().int().min(0).max(3650).optional()
+
 const createAppSchema = z.object({
   name: z.string().min(1).max(100),
   userId: z.uuid(),
@@ -43,7 +50,7 @@ const createPackageSchema = z.object({
   sortOrder: z.number().int().default(0),
   // 结构化商品字段(2026-10-09):API 订阅套餐必填面(窗口限额/白名单/原价/有效期)
   billingPeriod: z.enum(['day', 'week', 'month', 'year']).optional(),
-  validityDays: z.number().int().min(0).max(3650).optional(),
+  validityDays: validityDaysSchema,
   originalPrice: z.number().int().min(0).optional(),
   dailyTokenLimit: z.number().int().min(-1).optional(),
   weeklyTokenLimit: z.number().int().min(-1).optional(),
@@ -62,7 +69,7 @@ const updatePackageSchema = z.object({
   isActive: z.boolean().optional(),
   sortOrder: z.number().int().optional(),
   billingPeriod: z.enum(['day', 'week', 'month', 'year']).optional(),
-  validityDays: z.number().int().min(0).max(3650).optional(),
+  validityDays: validityDaysSchema,
   originalPrice: z.number().int().min(0).optional(),
   dailyTokenLimit: z.number().int().min(-1).optional(),
   weeklyTokenLimit: z.number().int().min(-1).optional(),

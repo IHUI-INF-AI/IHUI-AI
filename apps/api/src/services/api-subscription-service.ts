@@ -497,7 +497,9 @@ export async function activateApiSubscription(
         planId,
         planName: planRow.name,
         orderNo: orderNo ?? null,
-        validityDays: Number(planRow.validityDays ?? 30),
+        // SDB-03:有效期语义(0 = 永久 / 未填 = 30 天)只在 createSubscriptionForOrder
+        // 判定,这里原样透传,避免第二份默认值把 0 吞掉。
+        validityDays: planRow.validityDays,
         dailyTokenLimit: windowLimits.daily,
         weeklyTokenLimit: windowLimits.weekly,
         monthlyTokenLimit: windowLimits.monthly,
