@@ -1195,10 +1195,17 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       if (email !== undefined) {
         const current = await findUserById(request.userId!)
         if (!current) return reply.status(404).send(error(404, '用户不存在'))
-        if (email !== current.email) {
+        // 大小写不敏感比较:邮箱域名与本地部大小写不影响归属,仅大小写变化视为同值(幂等)。
+        if (email.toLowerCase() !== (current.email ?? '').toLowerCase()) {
           return reply
             .status(403)
-            .send(error(403, '邮箱改绑需通过 /api/auth/me 校验当前密码后操作'))
+            .send(
+              error(
+                403,
+                '邮箱改绑需通过 /api/auth/me 校验当前密码后操作',
+                'EMAIL_REBIND_REQUIRES_ME',
+              ),
+            )
         }
       }
       // 基础字段走 users 表

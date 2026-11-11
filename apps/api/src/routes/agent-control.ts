@@ -134,7 +134,8 @@ const _pending = new Map<string, PendingRequest>()
  * - unattributed:存量客户端不带 `responded` —— 按旧语义放行,但计数如实登记,
  *   这条数字归零之前,"回执身份"只覆盖已升级的端(报告第 6 条的"纸面/强制"分界)。
  * - ownerMismatch:回执的登录用户不是该 pending 的属主(F-08,2026-11-08)—— 一律拒(对外 404),
- *   且不得销毁 pending(真正的属主稍后仍可回)。
+ *   且不得销毁 pending(真正的属主稍后仍可回)。含"pending 自身缺 userId"的历史在途条目:
+ *   缺失即按不匹配处理(fail-closed),不得因两侧缺省相等而放行。
  */
 const _droppedResults = {
   tokenMismatch: 0,
@@ -499,7 +500,15 @@ export const agentControlRoutes: FastifyPluginAsync = async (server) => {
     // 归属校验(F-08,2026-11-08):只有 pending 的属主能结算。带不带 `responded` 都先过这一关;
     // 不匹配不 resolve、不删 pending(真正的属主稍后仍可回)。对外与"不存在"同形(404),
     // 不泄漏"他人有一条同名 pending"。
-    if (pending.userId !== request.userId) {
+    // fail-closed(2026-11-11):升级前写入的在途条目没有 userId,两侧都可能"缺省相等"而放行,
+    // 故先单独判一次并留痕(计数 + 警告日志),再走常规不匹配分支。
+    if (!pending.userId) {
+      request.log.warn(
+        { requestId: res.requestId },
+        'agent-control result 收到无属主的待处理条目(缺 userId),按 fail-closed 拒绝',
+      )
+    }
+    if (!pending.userId || pending.userId !== request.userId) {
       _droppedResults.ownerMismatch++
       return reply.status(404).send(error(404, 'request 不存在或已失效'))
     }
