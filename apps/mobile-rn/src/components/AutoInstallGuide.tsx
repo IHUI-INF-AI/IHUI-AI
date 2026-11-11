@@ -20,7 +20,7 @@
 import * as React from 'react'
 import { StyleSheet, Text, View } from 'react-native'
 import { ShieldCheck } from 'lucide-react-native'
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { ELEVATION_STEPS, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { tokens } from '../theme/active-tokens'
 import { Tappable } from '@ihui/ui-native'
 import {
@@ -107,11 +107,8 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: tokens.border.medium,
-    shadowColor: tokens.gray.black,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.16,
-    shadowRadius: 12,
-    elevation: 8,
+    // 投影:引导浮层卡 → 档位 lg(原手写 4/.16/12 + elevation 8,收口到 ELEVATION_STEPS)
+    ...ELEVATION_STEPS.lg,
   },
   header: { flexDirection: 'row', alignItems: 'flex-start', gap: rnSpacing.md },
   iconBadge: {
@@ -149,11 +146,8 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.brand.cta,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: tokens.border.medium,
-    shadowColor: tokens.gray.black,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 2,
+    // 投影:主行动按钮(小控件)→ 档位 sm
+    ...ELEVATION_STEPS.sm,
   },
   actionBtnPressed: { opacity: 0.85 },
   actionText: {

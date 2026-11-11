@@ -26,7 +26,7 @@ import {
   type ListRenderItem,
 } from 'react-native'
 
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { ELEVATION_STEPS, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
 
 /** 单个 Agent 条目(与 AgentList 弹出选择列表共用契约) */
@@ -248,11 +248,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: tokens.border.light,
     padding: rnSpacing.md,
-    shadowColor: tokens.gray.black,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
+    // 投影:列表卡片 → 档位 sm(原 1/.05/3 + elevation 2,视觉即 sm)
+    ...ELEVATION_STEPS.sm,
   },
   cardTop: {
     alignItems: 'flex-start',
