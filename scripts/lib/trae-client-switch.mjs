@@ -285,37 +285,97 @@ export function iso(value) {
 
 /**
  * 池行(已解密)→ 客户端 userInfo 明文。
- * 字段形状 = 客户端自己写进信封的那套(host/userRegion/tokenReleaseAt/account 等),
- * 优先用回灌时存的档案快照 profile;没有快照才走兜底值(切过去的号客户端
- * 首刷后会重新回灌真档案,兜底形状只保证"能登录",不保证区域参数)。
+ * 字段形状 = 客户端自己写进信封的那套(host/userRegion/tokenReleaseAt/account 等)。
+ * 账号档案基底三级判定(2026-11-11 立,晚同日修订):
+ *   1. profile 快照(回灌时存的 secretsEnc.profile)—— 首选;
+ *   2. sessionTemplate(采集时的整份 userInfo 去凭证)—— profile 缺失时用模板重建,池内最新凭证打补丁;
+ *   3. 两者都无 ⇒ **最小静态档兜底写回**(buildMinimalAccount),不再拒绝。
+ *      立因(2026-11-11 机主实测两轮):
+ *      a. username 单字段兜底客户端认不了——切完 UI 未登录,残缺信封禁造;
+ *      b. 但「拒绝写回」过狠——relay-local-login.ts 的「登录本机」路径早已实证:
+ *         Trae 信封只要求 userId + 静态档 + 凭证即可出登录态(邮箱/头像等缺了不影响),
+ *         客户端登录后首刷会回灌真档案,sync-trae-client-session(每10分钟)再回灌池。
+ *         所以正确姿势 = 16 字段最小静态模板写回(能登录),而非拒绝。
+ *      c. 手机号已丢的号(如 2187/3770)没有「真实登录补采」这条路,兜底是唯一解。
  */
+function buildMinimalAccount(uid, name) {
+  return {
+    username: (typeof name === 'string' && name.trim()) || uid,
+    iss: '',
+    iat: Math.floor(Date.now() / 1000),
+    organization: '',
+    work_country: '',
+    email: '',
+    avatar_url: '',
+    description: '',
+    scope: 'marscode',
+    loginScope: 'trae',
+    nonPlainTextMobile: '',
+    storeCountryCode: '',
+    storeCountrySrc: '',
+    storeRegion: '',
+    userTag: '',
+    migrateToSG: false,
+  }
+}
+
 export function buildClientUserInfo(input) {
   const token = typeof input?.token === 'string' ? input.token : ''
   const uid = input?.uid === undefined || input?.uid === null ? '' : String(input.uid)
   if (!token) throw new SwitchError('池内该号缺 access token(密文解不出?)', 'no-token')
   if (!uid) throw new SwitchError('池内该号缺 uid', 'no-uid')
-  const p = input.profile && typeof input.profile === 'object' ? input.profile : {}
+  const p = input.profile && typeof input.profile === 'object' ? input.profile : null
   const name = typeof input.name === 'string' ? input.name : ''
-  const userInfo = {
-    token,
-    userId: uid,
-    host: typeof p.host === 'string' && p.host ? p.host : 'https://api.trae.cn',
-    account:
-      p.account && typeof p.account === 'object'
-        ? p.account
-        : { username: name || `trae-${uid.slice(0, 8)}` },
+  // 档案有效性以「非空 account」为准:profile:{} 这类空壳与缺失同罪(照样造残缺信封)
+  const acctOf = (x) =>
+    x && typeof x.account === 'object' && x.account && !Array.isArray(x.account) && Object.keys(x.account).length > 0
+      ? x.account
+      : null
+  const pAcct = acctOf(p)
+  if (pAcct) {
+    const userInfo = {
+      token,
+      userId: uid,
+      host: typeof p.host === 'string' && p.host ? p.host : 'https://api.trae.cn',
+      account: pAcct,
+    }
+    const refreshToken = typeof input.refreshToken === 'string' ? input.refreshToken : ''
+    if (refreshToken) userInfo.refreshToken = refreshToken
+    const expiredAt = iso(input.tokenExpiresAt)
+    if (expiredAt) userInfo.expiredAt = expiredAt
+    const refreshExpiredAt = iso(input.refreshExpiresAt)
+    if (refreshExpiredAt) userInfo.refreshExpiredAt = refreshExpiredAt
+    if (typeof p.userRegion === 'string' && p.userRegion) userInfo.userRegion = p.userRegion
+    const release =
+      (typeof p.tokenReleaseAt === 'string' && p.tokenReleaseAt) ||
+      iso(input.lastRefreshAt) ||
+      iso(input.updatedAt)
+    if (release) userInfo.tokenReleaseAt = release
+    return userInfo
   }
+  // 模板路径:sessionTemplate = 采集时的整份 userInfo 凭证已剔除(SESSION_TEMPLATE_OMIT 同口径),
+  // 防御性再清一次凭证键,池内最新凭据打补丁;uid 强制以票为准(防模板串号)。
+  // 模板也没有 ⇒ 最小静态档兜底(见函数头注释 b/c:能登录,客户端首刷后自愈真档案)。
+  const tpl =
+    input.sessionTemplate && typeof input.sessionTemplate === 'object' && !Array.isArray(input.sessionTemplate)
+      ? input.sessionTemplate
+      : {
+          host: 'https://api.trae.cn',
+          userRegion: { region: 'CN', _aiRegion: 'CN' },
+          account: buildMinimalAccount(uid, name),
+        }
+  const userInfo = { ...tpl }
+  for (const k of ['token', 'refreshToken', 'expiredAt', 'refreshExpiredAt']) delete userInfo[k]
+  userInfo.token = token
+  userInfo.userId = uid
   const refreshToken = typeof input.refreshToken === 'string' ? input.refreshToken : ''
   if (refreshToken) userInfo.refreshToken = refreshToken
   const expiredAt = iso(input.tokenExpiresAt)
   if (expiredAt) userInfo.expiredAt = expiredAt
   const refreshExpiredAt = iso(input.refreshExpiresAt)
   if (refreshExpiredAt) userInfo.refreshExpiredAt = refreshExpiredAt
-  if (typeof p.userRegion === 'string' && p.userRegion) userInfo.userRegion = p.userRegion
-  const release =
-    (typeof p.tokenReleaseAt === 'string' && p.tokenReleaseAt) ||
-    iso(input.lastRefreshAt) ||
-    iso(input.updatedAt)
+  userInfo.host = typeof tpl.host === 'string' && tpl.host ? tpl.host : 'https://api.trae.cn'
+  const release = iso(input.lastRefreshAt) || iso(input.updatedAt)
   if (release) userInfo.tokenReleaseAt = release
   return userInfo
 }

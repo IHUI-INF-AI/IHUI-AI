@@ -216,6 +216,13 @@ async function runSwitch(options: {
     secrets?.profile && typeof secrets.profile === 'object' && !Array.isArray(secrets.profile)
       ? (secrets.profile as Record<string, unknown>)
       : null
+  // 会话模板(采集时的整份 userInfo 去凭证):profile 缺失时写回端的账号档案基底(2026-11-11 立)
+  const sessionTemplate =
+    secrets?.sessionTemplate &&
+    typeof secrets.sessionTemplate === 'object' &&
+    !Array.isArray(secrets.sessionTemplate)
+      ? (secrets.sessionTemplate as Record<string, unknown>)
+      : null
   const deviceKeyPem = typeof secrets?.deviceKeyPem === 'string' ? secrets.deviceKeyPem : ''
   const devicePubPem = typeof secrets?.devicePubPem === 'string' ? secrets.devicePubPem : ''
   const device =
@@ -233,6 +240,7 @@ async function runSwitch(options: {
     lastRefreshAt: row.lastRefreshAt,
     updatedAt: row.updatedAt,
     profile,
+    sessionTemplate,
   })
 
   const storageFile = sw.findStorageFile()
@@ -241,7 +249,7 @@ async function runSwitch(options: {
     return 2
   }
   const warn: string[] = []
-  if (!profile) warn.push('无档案快照 ⇒ host/区域等用兜底值,客户端首刷后自动回灌真档案')
+  if (!profile) warn.push('无档案快照 ⇒ 用会话模板重建账号档案(profile 与模板都缺时写回端拒绝,不再造残缺信封)')
   if (!device) warn.push('无设备材料 ⇒ 不写 icube-dc 键,沿用现机设备档(池侧续期走旧通道)')
 
   if (options.dryRun) {
