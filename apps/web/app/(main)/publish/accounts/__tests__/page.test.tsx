@@ -114,22 +114,27 @@ vi.mock('@/components/feedback', () => ({
       key: string
       label?: React.ReactNode
       disabled?: boolean
+      divider?: boolean
       onSelect?: () => void
     }>
   }) => (
     <div>
       {trigger}
       <div data-testid="dropdown-items">
-        {items.map((it) => (
-          <button
-            key={it.key}
-            data-testid={`menu-${it.key}`}
-            disabled={!!it.disabled}
-            onClick={it.onSelect}
-          >
-            {it.label}
-          </button>
-        ))}
+        {items.map((it) =>
+          it.divider ? (
+            <div key={it.key} data-testid={`divider-${it.key}`} />
+          ) : (
+            <button
+              key={it.key}
+              data-testid={`menu-${it.key}`}
+              disabled={!!it.disabled}
+              onClick={it.onSelect}
+            >
+              {it.label}
+            </button>
+          ),
+        )}
       </div>
     </div>
   ),
@@ -243,9 +248,8 @@ describe('账户管理页"开发者"下拉(2026-09-07 收纳重构)', () => {
     expect(screen.getAllByText('accounts.batchImport')).toHaveLength(1)
     expect(screen.getAllByText('accounts.batchVerify')).toHaveLength(1)
     expect(screen.getAllByText('accounts.developer')).toHaveLength(1)
-    // 2026-11-11 分割线清零:功能菜单与"添加账号"之间的 groups-divider 项已移除,菜单内不得出现分割线
-    expect(screen.queryByTestId('menu-groups-divider')).toBeNull()
-    expect(screen.queryByTestId('divider-groups-divider')).toBeNull()
+    // 功能菜单与"添加账号"之间有分隔线
+    expect(screen.getByTestId('divider-groups-divider')).toBeTruthy()
     // 头部保留主操作"添加账号"(空态提示与弹窗标题也复用该文案,断言存在即可)
     expect(screen.getAllByText('accounts.add').length).toBeGreaterThan(0)
   })

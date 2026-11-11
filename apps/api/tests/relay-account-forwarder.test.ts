@@ -147,11 +147,6 @@ import {
   providerFromModelPrefix,
   stripPoolProviderPrefix,
 } from '../src/services/relay-account-forwarder.js'
-// 2026-11-11:号池模型级健康被动信号接线(404 上报 / 成功清除)
-import {
-  isModelDown,
-  resetPoolModelHealthForTest,
-} from '../src/services/relay-pool-model-health.js'
 import {
   classifyUpstreamFailure as classifyTraeFailure,
   type FailureKind,
@@ -1478,82 +1473,6 @@ describe('stripPoolProviderPrefix', () => {
 
   it('按 `/` 边界判定,不做字符串截断', () => {
     expect(stripPoolProviderPrefix('trae', 'traeX/foo')).toBe('traeX/foo')
-  })
-})
-
-// ── 2026-11-11:号池模型级连通过滤的被动信号接线(转发器 → relay-pool-model-health)──
-describe('relay-pool-model-health 被动信号接线', () => {
-  beforeEach(() => {
-    resetPoolModelHealthForTest()
-  })
-
-  it('上游 404:单次不 down,连续 2 次才 down(防抖动误杀)', async () => {
-    providerRows = [{ providerCode: 'trae', configId: 7 }]
-    // 单枚号 + 每轮手动清冷却:一次 forward 只打一枪,连击数才可信
-    // accountRow 默认 id 带自增后缀,overrides 固定为可读 id,冷却清理按同名来
-    const nfRow = accountRow('acct-nf1', { id: 'acct-nf1' })
-    accountRows = [nfRow]
-    registerRelayAdapter(fakeAdapter({ providerCode: 'trae' }))
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => new Response('{"error":{"message":"model not found"}}', { status: 404 })),
-    )
-    const model = 'trae/dead-model'
-    await forwardToAccountPool(baseReq(model), model)
-    expect(isModelDown('trae', 'dead-model')).toBe(false)
-    await clearAccountCooldown('acct-nf1') // 404 会挂 60s 冷却,清掉让同号可再选
-    await forwardToAccountPool(baseReq(model), model)
-    expect(isModelDown('trae', 'dead-model')).toBe(true)
-    // 前缀形态与裸名同键(归一比对,不误判)
-    expect(isModelDown('trae', model)).toBe(true)
-  })
-
-  it('账户级失败(401)不记模型状态', async () => {
-    providerRows = [{ providerCode: 'trae', configId: 7 }]
-    accountRows = [
-      accountRow('acct-auth1', { id: 'acct-auth1' }),
-      accountRow('acct-auth2', { id: 'acct-auth2' }),
-    ]
-    registerRelayAdapter(fakeAdapter({ providerCode: 'trae' }))
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => new Response('{"error":{"message":"unauthorized"}}', { status: 401 })),
-    )
-    const model = 'trae/auth-model'
-    await forwardToAccountPool(baseReq(model), model)
-    await forwardToAccountPool(baseReq(model), model)
-    expect(isModelDown('trae', 'auth-model')).toBe(false)
-  })
-
-  it('调用成功清除 down 结论(回血)', async () => {
-    providerRows = [{ providerCode: 'trae', configId: 7 }]
-    const recRow = accountRow('acct-rec1', { id: 'acct-rec1' })
-    accountRows = [recRow]
-    registerRelayAdapter(fakeAdapter({ providerCode: 'trae' }))
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => new Response('{"error":{"message":"model not found"}}', { status: 404 })),
-    )
-    const model = 'trae/recover-model'
-    await forwardToAccountPool(baseReq(model), model)
-    await clearAccountCooldown('acct-rec1')
-    await forwardToAccountPool(baseReq(model), model)
-    expect(isModelDown('trae', 'recover-model')).toBe(true)
-    // 上游恢复:200 SSE 正常收尾 → recordSuccess → 结论清除
-    const upstream = 'data: {"choices":[{"delta":{"content":"OK"}}]}\n\ndata: [DONE]\n\n'
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(
-        async () =>
-          new Response(upstream, { status: 200, headers: { 'Content-Type': 'text/event-stream' } }),
-      ),
-    )
-    await clearAccountCooldown('acct-rec1')
-    const res = await forwardToAccountPool(baseReq(model), model)
-    expect(res?.ok).toBe(true)
-    if (!res || !res.ok) return
-    await res.response.text()
-    await vi.waitFor(() => expect(isModelDown('trae', 'recover-model')).toBe(false))
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

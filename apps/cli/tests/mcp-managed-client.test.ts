@@ -277,12 +277,10 @@ describe('ManagedMcpClient ping', () => {
 describe('ManagedMcpClient 重连指数退避', () => {
   // callFn mock:conn 为 null 时抛错(模拟真实 callMcpServer 行为),否则返回成功
   function makeCallFn() {
-    return vi.fn<(conn: McpConnection, method: string, params: Record<string, unknown>) => Promise<unknown>>(
-      async (conn: McpConnection | null) => {
-        if (!conn) throw new Error('no connection');
-        return { content: [] };
-      },
-    );
+    return vi.fn((conn: McpConnection | null) => {
+      if (!conn) throw new Error('no connection');
+      return { content: [] };
+    });
   }
 
   it('connectFn 失败时 backoff 翻倍(1s → 2s → 4s)', async () => {

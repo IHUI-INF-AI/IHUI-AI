@@ -47,7 +47,7 @@ describe('getGhRateLimitHint 输出匹配(判据①)', () => {
     const hint = getGhRateLimitHint('gh pr list', output, mkCtx())
     expect(hint).toBeDefined()
     expect(hint).toContain('<system-reminder>')
-    expect(hint!.toLowerCase()).toContain('rate limit')
+    expect(hint.toLowerCase()).toContain('rate limit')
   })
 
   it('非限流输出 ⇒ 不附加', () => {

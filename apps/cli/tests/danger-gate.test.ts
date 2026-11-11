@@ -11,7 +11,6 @@ import { describe, it, expect, afterEach, vi } from 'vitest'
 import {
   createDangerGate,
   type DangerGateDecision,
-  type DangerGateOptions,
   type DangerGatePrompt,
 } from '../src/tools/danger-gate.js'
 import type { Tool } from '../src/tools/index.js'
@@ -55,7 +54,6 @@ describe('三条路各一正例', () => {
   it('approved:prompt 返回 true ⇒ 放行,路由 approved', async () => {
     const rec = recorder()
     const allowed = await createDangerGate({
-      allowDangerous: false,
       silent: true,
       prompt: async () => true,
       onDecision: rec.onDecision,
@@ -68,7 +66,6 @@ describe('三条路各一正例', () => {
   it('denied:prompt 返回 false ⇒ 拒绝,路由 denied + cause prompt-declined', async () => {
     const rec = recorder()
     const allowed = await createDangerGate({
-      allowDangerous: false,
       silent: true,
       prompt: async () => false,
       onDecision: rec.onDecision,
@@ -89,18 +86,15 @@ describe('fail-closed 边:没人应答绝不等于放行', () => {
   })
 
   it('allowDangerous 缺省(undefined)同样不构成放行依据', async () => {
-    // 类型上 allowDangerous 必填(省略即编译不过);本例刻意构造缺字段对象,
-    // 验证运行时 fail-closed:undefined 同样不构成放行依据(与本文件 sneaky 用例同形)。
-    const noFlag = { silent: true } as unknown as DangerGateOptions
-    expect(await createDangerGate(noFlag)(tool, args)).toBe(false)
+    expect(await createDangerGate({ silent: true })(tool, args)).toBe(false)
   })
 
   it('prompt 返回 undefined / null ⇒ denied(cause prompt-empty)', async () => {
     const recU = recorder()
-    expect(await createDangerGate({ allowDangerous: false, silent: true, prompt: async () => undefined, onDecision: recU.onDecision })(tool, args)).toBe(false)
+    expect(await createDangerGate({ silent: true, prompt: async () => undefined, onDecision: recU.onDecision })(tool, args)).toBe(false)
     expect(recU.decisions[0]?.cause).toBe('prompt-empty')
     const recN = recorder()
-    expect(await createDangerGate({ allowDangerous: false, silent: true, prompt: async () => null, onDecision: recN.onDecision })(tool, args)).toBe(false)
+    expect(await createDangerGate({ silent: true, prompt: async () => null, onDecision: recN.onDecision })(tool, args)).toBe(false)
     expect(recN.decisions[0]?.cause).toBe('prompt-empty')
   })
 
@@ -109,7 +103,7 @@ describe('fail-closed 边:没人应答绝不等于放行', () => {
     const bomb: DangerGatePrompt = async () => {
       throw new Error('editor disconnected')
     }
-    await expect(createDangerGate({ allowDangerous: false, silent: true, prompt: bomb, onDecision: rec.onDecision })(tool, args)).resolves.toBe(false)
+    await expect(createDangerGate({ silent: true, prompt: bomb, onDecision: rec.onDecision })(tool, args)).resolves.toBe(false)
     expect(rec.decisions[0]?.route).toBe('denied')
     expect(rec.decisions[0]?.cause).toBe('prompt-error')
   })
@@ -117,7 +111,7 @@ describe('fail-closed 边:没人应答绝不等于放行', () => {
   it('非 true 的 truthy 答复不算肯定(只认 === true)', async () => {
     const rec = recorder()
     const sneaky = (async () => 'yes') as unknown as DangerGatePrompt
-    expect(await createDangerGate({ allowDangerous: false, silent: true, prompt: sneaky, onDecision: rec.onDecision })(tool, args)).toBe(false)
+    expect(await createDangerGate({ silent: true, prompt: sneaky, onDecision: rec.onDecision })(tool, args)).toBe(false)
     expect(rec.decisions[0]?.cause).toBe('prompt-declined')
   })
 })
@@ -143,7 +137,7 @@ describe('提示面:silent 与默认 fail-loud 是两个档案', () => {
     const info = vi.spyOn(console, 'info').mockImplementation(() => {})
     const error = vi.spyOn(console, 'error').mockImplementation(() => {})
     await createDangerGate({ allowDangerous: true, silent: true })(tool, args)
-    await createDangerGate({ allowDangerous: false, silent: true })(tool, args)
+    await createDangerGate({ silent: true })(tool, args)
     expect(info).not.toHaveBeenCalled()
     expect(error).not.toHaveBeenCalled()
   })
@@ -154,7 +148,7 @@ describe('提示面:silent 与默认 fail-loud 是两个档案', () => {
     await createDangerGate({ allowDangerous: true })(tool, args)
     expect(info).toHaveBeenCalledTimes(1)
     expect(String(info.mock.calls[0]?.[0])).toContain(tool.name)
-    await createDangerGate({ allowDangerous: false })(tool, args)
+    await createDangerGate({})(tool, args)
     expect(error).toHaveBeenCalledTimes(1)
     expect(String(error.mock.calls[0]?.[0])).toContain('no-prompt')
   })

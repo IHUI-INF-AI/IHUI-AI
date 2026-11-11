@@ -19,13 +19,11 @@
  * 唯一结局是人人 `--no-verify` 连带废掉全部守门。故先给三型的**可机械判定指纹**,
  * 命中的一律放过并**给出"凭什么放过"的原话**;其余才进差值棘轮。
  *
- *   型① 交互式手柄(semantic-separator,2026-11-11 由"语义分隔件"收窄)—— 可拖拽/可聚焦的调整手柄:
- *        · 同元素带 `role="separator"`,或宿主组件名以 `Separator` 结尾(Radix 原语自带 role),
- *          **且同时**带拖拽/调整交互特征:`aria-orientation` / `onPointerDown` / `onMouseDown` / `tabIndex`;
- *        · 收窄缘由:菜单分割线借旧"语义分隔件"豁免整族漏网(Radix Separator 调用点、定义行
- *          默认类 `-mx-1 my-1 h-px`、divider:true 渲染线全在旧指纹内),机主 2026-11-11 定档清零
- *          ⇒ 菜单类分隔组件命中纯线形状照判,替代方案 = DropdownMenu.Label 分组 + 间距。
- *        凭什么放过:那条线是可聚焦、可拖拽、可用方向键调整的手柄,不是装饰性的分隔。
+ *   型① 语义分隔件(semantic-separator)—— 菜单/下拉/选择器里的分隔项:
+ *        · 同元素带 `role="separator"`(ARIA 语义:这段 UI **就是**一个分隔件);
+ *        · 或宿主组件名以 `Separator` 结尾(`<DropdownMenuPrimitive.Separator>` /
+ *          `<SelectPrimitive.Separator>` —— Radix 原语自己带 role,JSX 行上不写 role)。
+ *        凭什么放过:被屏幕阅读器当作结构语义读出,不是"两块内容之间画条线"。
  *
  *   型② 导引轨(guide-rail)—— 时间线 / 树 / 进度轴的连线:
  *        · 同一元素的 class 表达式里 `absolute` 在场;
@@ -159,8 +157,7 @@ check-hairline-separator.mjs — 发丝分隔线守门(用背景色画 1px 线)
     web/miniapp  h-px|w-px|h-[1px]|w-[1px] 配中性底色 bg-border|bg-muted|…
     RN/内联样式  height|width: 1|StyleSheet.hairlineWidth(×1|×2) 配中性 backgroundColor
   放过(三型结构件,逐型降噪,不自创第四条):
-    ① role="separator" / 宿主组件 *Separator **且**带拖拽交互特征 aria-orientation|onPointerDown|onMouseDown|tabIndex
-       (交互式手柄;2026-11-11 收窄,菜单类分隔组件不再豁免)
+    ① role="separator" / 宿主组件 *Separator(语义分隔件)
     ② absolute + 竖轴上界成对 + w-px(时间线/树导引轨)
     ③ cursor-col|row-resize / pane-split|resizer|*-handle(可拖拽分隔器)
   放过(形状收窄):彩色底(非中性档)、粗于发丝的尺寸(不进候选)、宽度 0 擦除
@@ -590,7 +587,7 @@ export async function run({ staged, worktree }) {
     `  真分隔线: 存量 ${stock} 枚 / 超基线新增 ${newViolations} 枚${staged ? '(锚点 = 该文件 HEAD 面命中数)' : '(全量档只报数,§12e)'}`,
   )
   console.log(
-    `  结构件放过: ${excusedTotal} 枚 (交互式手柄 ${totals['semantic-separator']}, 导引轨 ${totals['guide-rail']}, 可拖拽分隔器 ${totals['draggable-splitter']})`,
+    `  结构件放过: ${excusedTotal} 枚 (语义分隔件 ${totals['semantic-separator']}, 导引轨 ${totals['guide-rail']}, 可拖拽分隔器 ${totals['draggable-splitter']})`,
   )
   console.log(
     `  形状收窄放过: ${totals['accent-background']} 枚 (彩色底 ${totals['accent-background']})`,
@@ -638,7 +635,7 @@ export async function run({ staged, worktree }) {
   console.log(`${C.dim}修复方法(与守门 11d 同一套出口):${C.reset}`)
   console.log(`  1. 列表/区块之间用 space-y-* 间距分隔(§4 允许)`)
   console.log(`  2. 或用 bg-muted / bg-card 区块底色对比区分(§4 允许)`)
-  console.log(`  3. 菜单内分隔 ⇒ 用 DropdownMenu.Label 分组 + 间距(2026-11-11 起 Radix Separator 菜单线不再豁免;型①只认带交互特征的 role="separator" 拖拽手柄)`)
+  console.log(`  3. 确属语义分隔件 ⇒ 用 Radix DropdownMenu.Separator / role="separator"(型①)`)
   console.log(`  4. 确属时间线/树导引轨 ⇒ absolute + top/bottom 撑满(型②),不要裸 h-px`)
   console.log(`  5. 确属面板分割 ⇒ 走 pane-split-container(型③),不要各页自画`)
   console.log('')
@@ -646,7 +643,7 @@ export async function run({ staged, worktree }) {
   const conclusion =
     `发丝分隔线守门结论:面=${faceLabel} 扫描 ${files.length} 文件 | ` +
     `真分隔线 存量 ${stock} 枚 新增 ${newViolations} 枚 | ` +
-    `结构件放过 ${excusedTotal} 枚(交互式手柄 ${totals['semantic-separator']} / 导引轨 ${totals['guide-rail']} / 可拖拽分隔器 ${totals['draggable-splitter']}) | ` +
+    `结构件放过 ${excusedTotal} 枚(语义分隔件 ${totals['semantic-separator']} / 导引轨 ${totals['guide-rail']} / 可拖拽分隔器 ${totals['draggable-splitter']}) | ` +
     `彩色底放过 ${totals['accent-background']} 枚 | 未判定 ${undeterminedItems.length} 枚 ⇒ `
 
   if (newViolations > 0) {
@@ -683,23 +680,13 @@ export function selfTest() {
   const scan = (body, rel = 'apps/web/src/components/x.tsx') => scanSource(rel, body)
   const kindOf = (body, rel) => scan(body, rel).hits[0]
 
-  t('T01 型①交互式手柄:role="separator" + 拖拽交互特征 ⇒ 放过;裸 role=separator 菜单线判红(2026-11-11 收窄)', () => {
+  t('T01 型①语义分隔件:同元素 role="separator" ⇒ 放过', () => {
     const h = kindOf(
-      'export const M = () => <div role="separator" aria-orientation="horizontal" tabIndex={0} className="my-0.5 h-px bg-border" />\n',
+      'export const M = () => <div role="separator" className="my-0.5 h-px bg-border/60" aria-hidden />\n',
     )
     ok(h && h.kind === 'exempt' && h.type === 'semantic-separator', JSON.stringify(h))
-    // 反向锁:同是 role="separator" 但没有任何交互特征 ⇒ 菜单线那一型,收窄后照判
-    const r = kindOf(
-      'export const M = () => <div role="separator" className="my-0.5 h-px bg-border" aria-hidden />\n',
-    )
-    ok(r && r.kind === 'divider', JSON.stringify(r))
   })
-  t('T02 型①交互式手柄:*Separator 宿主必须同时带交互特征;菜单 Separator 定义行判红(2026-11-11 收窄)', () => {
-    const pass = kindOf(
-      '  <DropdownMenuSeparator aria-orientation="horizontal" onPointerDown={grab} className="h-px bg-border" />\n',
-    )
-    ok(pass && pass.kind === 'exempt' && pass.type === 'semantic-separator', JSON.stringify(pass))
-    // 旧夹具(Radix 包装定义行,JSX 行不写 role、无交互特征)⇒ 现在是清零对象,照判
+  t('T02 型①语义分隔件:宿主组件 *Separator(JSX 行不写 role)⇒ 放过', () => {
     const src = [
       'const DropdownMenuSeparator = React.forwardRef(({ className, ...props }, ref) => (',
       '  <DropdownMenuPrimitive.Separator',
@@ -711,7 +698,7 @@ export function selfTest() {
       '',
     ].join('\n')
     const h = kindOf(src)
-    ok(h && h.kind === 'divider', JSON.stringify(h))
+    ok(h && h.kind === 'exempt' && h.type === 'semantic-separator', JSON.stringify(h))
   })
   t('T03 型②导引轨:absolute + top/bottom 成对 + w-px ⇒ 放过', () => {
     const h = kindOf('<span className="absolute top-0 bottom-0 w-px bg-border" />\n')

@@ -1075,6 +1075,7 @@ export function ModelSelector({
                 {refreshingModels ? t('modelRefreshRunning') : t('modelRefresh')}
               </span>
             </DropdownMenu.Item>
+            {grouped.length > 0 && <DropdownMenu.Separator className="my-1 h-px bg-border/60" />}
           </DropdownMenu.Group>
           {/* 自动选项(2026-08-06 改:自动模式显示 "Auto Mode" + "0.05x" 风格,
               实际无积分倍数,保持纯文本 "自动" + 描述) */}
@@ -1096,6 +1097,7 @@ export function ModelSelector({
               <Sparkles className="h-3.5 w-3.5 shrink-0 text-primary" />
               <span className="flex-1 truncate font-medium">{t('modelAuto')}</span>
             </DropdownMenu.Item>
+            <DropdownMenu.Separator className="my-1 h-px bg-border/60" />
           </DropdownMenu.Group>
           {grouped.map(([vendor, items]) => (
             <DropdownMenu.Group key={vendor}>
@@ -1125,6 +1127,7 @@ export function ModelSelector({
                   onSelect={() => onChange(opt.value)}
                 />
               ))}
+              <DropdownMenu.Separator className="my-1 h-px bg-border/60 last:hidden" />
             </DropdownMenu.Group>
           ))}
 
@@ -1132,6 +1135,7 @@ export function ModelSelector({
               (嵌入/重排/语音/图像等),并按用途分类分组标注,避免上千个模型糊成一片。 */}
           {archived.length > 0 && (
             <DropdownMenu.Group>
+              <DropdownMenu.Separator className="my-1 h-px bg-border/60" />
               <DropdownMenu.Item
                 onSelect={(e) => {
                   // preventDefault 阻止 Radix 选中后自动关闭菜单

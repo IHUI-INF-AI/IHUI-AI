@@ -363,6 +363,7 @@ export function CodeEditorPane() {
                 >
                   <Plus className="h-3 w-3" />
                 </button>
+                <span className="mx-0.5 h-3 w-px bg-border" aria-hidden />
                 {/* 行级归因开关:开启时 AI 行/改后行整行着色,关闭时清空 decoration */}
                 <button
                   onClick={() => setAttributionEnabled((v) => !v)}

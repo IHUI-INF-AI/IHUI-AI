@@ -89,6 +89,7 @@ export const SUPPORTED_PROVIDERS = Object.freeze([
   'workbuddy',
   'doubao',
   'loomy',
+  'raccoon',
 ])
 
 const PROVIDER_LABEL = Object.freeze({
@@ -101,6 +102,7 @@ const PROVIDER_LABEL = Object.freeze({
   workbuddy: 'WorkBuddy',
   doubao: '豆包',
   loomy: 'Loomy',
+  raccoon: '小浣熊',
 })
 
 function asText(v) {
@@ -327,6 +329,8 @@ export const CLIENT_IMAGES = Object.freeze({
   zcode: ['ZCode'],
   doubao: ['Doubao'],
   loomy: ['Loomy'],
+  // 小浣熊安装目录与主 exe 都是中文名(D:\小浣熊\商汤小浣熊.exe,本机实测)
+  raccoon: ['商汤小浣熊'],
 })
 
 /**
@@ -349,6 +353,7 @@ export const CLIENT_PATH_HINTS = Object.freeze({
   zcode: ['zcode'],
   doubao: ['doubao'],
   loomy: ['loomy'],
+  raccoon: ['小浣熊', 'raccoon', 'xiaohuanxiong'],
 })
 
 /**
@@ -2004,6 +2009,95 @@ export function applyLoomy(payload, opts = {}) {
 }
 
 // =============================================================================
+// 小浣熊 — %USERPROFILE%\.office-raccoon\agent\config\auth.json
+// =============================================================================
+
+/** 小浣熊登录态相对家目录的落点(与 scripts/lib/raccoon-auth-extract.mjs 的 AUTH_REL 同形) */
+const RACCOON_AUTH_REL = path.join('.office-raccoon', 'agent', 'config', 'auth.json')
+
+/**
+ * 商汤小浣熊(2026-11-11 立):落点是两键单体 JSON
+ * `{ access_token, office_identity }`(本机实测,详见 docs/raccoon-relay-api.md §2)。
+ *
+ * - access_token 换成本次载荷的 Bearer 票(JWT HS256,有效期 30 天);
+ * - office_identity 是**个人版身份标记**(字面量 personal,**不是** owner_id)⇒ 沿用本机现值,
+ *   其次载荷(secrets 顶层 / 提取器 meta),两处都取不到就不写该键(不猜身份);
+ * - auth.json 无 refresh_token ⇒ 不写续期键(适配器 refreshTokenSupported=false);
+ * - 运行中的 Electron 主进程会在退出时用内存态覆写落点 ⇒ 由 CLIENT_IMAGES 统一先关后写。
+ */
+export function applyRaccoon(payload, opts = {}) {
+  const extract = opts.extract ?? {}
+  let file = payload.target ? path.resolve(payload.target) : ''
+  if (!file) {
+    const candidates = uniq(
+      clientEnvs(opts).map((env) => {
+        const home = asText(env.USERPROFILE) || asText(env.HOME)
+        return home ? path.join(home, RACCOON_AUTH_REL) : ''
+      }),
+    )
+    if (candidates.length === 0) {
+      throw new WriteError('解析不出小浣熊数据目录(USERPROFILE/HOME 全缺)', 'no-target')
+    }
+    const existingTarget = firstExisting(candidates)
+    if (existingTarget) {
+      file = existingTarget
+    } else {
+      const usable = firstUsableDir(candidates)
+      if (!usable) {
+        throw new WriteError(
+          `本机没有小浣熊数据目录(${path.dirname(candidates[0])})。请先安装客户端并登录一次`,
+          'no-target',
+        )
+      }
+      file = usable
+    }
+  }
+
+  const exists = fs.existsSync(file)
+  const existing = exists ? readJsonObject(file, '小浣熊 auth.json') : {}
+  // 替换前登录 uid:令牌 sub(= pu-<uuid>),解不出就如实 null
+  const replacedUid = (() => {
+    if (typeof extract.decodeJwtPayload !== 'function') return null
+    const prev = extract.decodeJwtPayload(asText(existing.access_token))
+    return prev && typeof prev.sub === 'string' ? prev.sub : null
+  })()
+
+  const meta = asObj(payload.secrets.meta) ?? {}
+  const identity =
+    asText(existing.office_identity) ||
+    asText(payload.secrets.officeIdentity) ||
+    asText(payload.secrets.office_identity) ||
+    asText(meta.officeIdentity)
+
+  const out = { ...existing, access_token: payload.token }
+  if (identity) out.office_identity = identity
+  // 无续期通道的平台:清掉可能残留的续期键,免得与"不可续"的事实打架
+  delete out.refresh_token
+
+  const backupFile = backupOf(file)
+  atomicWrite(file, `${JSON.stringify(out, null, 2)}\n`)
+
+  // 写后自检:按客户端读法把文件读回来,凭证与身份键必须逐键全等
+  assertReadBack('小浣熊 auth.json', () => {
+    const back = readJsonObject(file, '小浣熊 auth.json')
+    if (asText(back.access_token) !== payload.token) return false
+    return identity ? asText(back.office_identity) === identity : true
+  })
+
+  return writeResult('raccoon', file, backupFile, {
+    uid: payload.uid,
+    replacedUid,
+    notes: [
+      'auth.json 无 refresh_token(本机实测)⇒ 只写单体 access_token,过期需重新登录后重采',
+      identity
+        ? `office_identity 保持 ${identity}(个人版身份标记,非 owner_id)`
+        : 'office_identity 本机与载荷都取不到 ⇒ 未写该键(不猜身份)',
+    ],
+    restartHint: '重启小浣熊客户端后生效(运行中的客户端会用内存态覆写 auth.json,故必须先关后写)',
+  })
+}
+
+// =============================================================================
 // CLI
 // =============================================================================
 
@@ -2017,10 +2111,11 @@ export const ADAPTERS = Object.freeze({
   workbuddy: applyWorkbuddy,
   doubao: applyDoubao,
   loomy: applyLoomy,
+  raccoon: applyRaccoon,
 })
 
 async function loadExtract() {
-  const [codex, opencode, minimax, zcode, codearts, workbuddy, doubao, loomy] = await Promise.all([
+  const [codex, opencode, minimax, zcode, codearts, workbuddy, doubao, loomy, raccoon] = await Promise.all([
     import(pathToFileURL(path.join(HERE, 'lib', 'codex-auth-extract.mjs')).href),
     import(pathToFileURL(path.join(HERE, 'lib', 'opencode-auth-extract.mjs')).href),
     import(pathToFileURL(path.join(HERE, 'lib', 'minimax-auth-extract.mjs')).href),
@@ -2029,6 +2124,7 @@ async function loadExtract() {
     import(pathToFileURL(path.join(HERE, 'lib', 'workbuddy-auth-extract.mjs')).href),
     import(pathToFileURL(path.join(HERE, 'lib', 'doubao-auth-extract.mjs')).href),
     import(pathToFileURL(path.join(HERE, 'lib', 'loomy-auth-extract.mjs')).href),
+    import(pathToFileURL(path.join(HERE, 'lib', 'raccoon-auth-extract.mjs')).href),
   ])
   return {
     resolveCodexHome: codex.resolveCodexHome,
@@ -2058,6 +2154,8 @@ async function loadExtract() {
     stripDoubaoAppPrefix: doubao.stripDoubaoAppPrefix,
     decryptOsCryptString: doubao.decryptOsCryptString,
     loomyCandidateRoamingDirs: (env) => loomy.candidateRoamingDirs(env),
+    // 小浣熊写回只需要 JWT 解码(取替换前 uid 与到期元数据),复用提取器的唯一实现
+    decodeJwtPayload: raccoon.decodeJwtPayload,
   }
 }
 
@@ -2206,6 +2304,7 @@ export const __test__ = {
   applyWorkbuddy,
   applyDoubao,
   applyLoomy,
+  applyRaccoon,
   WriteError,
   CREDENTIAL_KEYS,
 }

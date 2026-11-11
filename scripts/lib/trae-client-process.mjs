@@ -41,6 +41,30 @@ export function productOfDir(dirName) {
 }
 
 /**
+ * 控制台工具输出解码(2026-11-11 根因修)。
+ *
+ * tasklist 按**系统 OEM 代码页**输出字节(中文 Windows = GBK/936),而 Node 的
+ * `encoding:'utf8'` 会把非 ASCII 映像名解成乱码(`商汤小浣熊.exe` ⇒ `����С���.exe`)⇒
+ * 名字比较恒不等 ⇒ **在跑的进程被判成没在跑** ⇒ 关闭动作假绿、写回被客户端覆写。
+ * 本机实测:小浣熊 10 个进程在跑,closeProduct 却返回 closed=true(启动时间证明一个都没退)。
+ *
+ * 判据定在字节层:先严格 UTF-8 解(已切 65001 的机器),抛错才按 GBK 解。
+ * 次序不可倒 —— GBK 对任意字节序列几乎不失败(用 U+FFFD 顶替),先试它就永远退不回来。
+ */
+function decodeConsoleOutput(buf) {
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(buf)
+  } catch {
+    try {
+      // GBK 与 ASCII 完全兼容 ⇒ 英文系统上的 ASCII 映像名解出来逐字不变
+      return new TextDecoder('gbk', { fatal: false }).decode(buf)
+    } catch {
+      return Buffer.from(buf).toString('utf8')
+    }
+  }
+}
+
+/**
  * 某产品的在跑进程 pid 列表。
  * tasklist 在 SYSTEM 身份下也能看到桌面用户会话的进程(PS 的 Get-Process 同名口径)。
  * 命令失败 ⇒ null(**未知**,不是"没在跑")—— 调用方据此拒绝盲写。
@@ -48,10 +72,11 @@ export function productOfDir(dirName) {
 export function listProductPids(product, env = process.env) {
   if (!processControlEnabled(env)) return []
   const image = `${product}.exe`
-  let out
+  let raw
   try {
-    out = execFileSync('tasklist.exe', ['/FI', `IMAGENAME eq ${image}`, '/FO', 'CSV', '/NH'], {
-      encoding: 'utf8',
+    // 取原始字节再按 OEM 代码页解码:非 ASCII 映像名(中文安装包)走 encoding:'utf8' 必成乱码
+    raw = execFileSync('tasklist.exe', ['/FI', `IMAGENAME eq ${image}`, '/FO', 'CSV', '/NH'], {
+      encoding: 'buffer',
       windowsHide: true,
       timeout: 8000,
       env,
@@ -59,6 +84,7 @@ export function listProductPids(product, env = process.env) {
   } catch {
     return null
   }
+  const out = decodeConsoleOutput(raw)
   const pids = []
   for (const line of String(out).split(/\r?\n/)) {
     const m = /^"([^"]+)","(\d+)"/.exec(line.trim())

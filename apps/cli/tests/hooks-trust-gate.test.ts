@@ -14,13 +14,10 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as path from 'node:path';
-import type { HookGateResult, HookSpecLite } from '../src/hooks/trust.js';
 
 const { spawnMock, gateHookMock } = vi.hoisted(() => ({
   spawnMock: vi.fn(),
-  gateHookMock: vi.fn<(spec: HookSpecLite, absCwd: string) => HookGateResult>(
-    () => ({ allowed: true }),
-  ),
+  gateHookMock: vi.fn(() => ({ allowed: true as boolean })),
 }));
 
 vi.mock('node:child_process', async (importOriginal) => {

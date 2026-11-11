@@ -59,6 +59,7 @@ from app.services import (
     checkin_pool_writeback,
     checkin_proxy_pool,
     checkin_qoder,
+    checkin_raccoon,
     checkin_store,
     checkin_workbuddy,
     checkin_workbuddy_local,
@@ -1219,6 +1220,12 @@ class CheckinScheduler:
             return await checkin_doubao.doubao_probe_status(
                 name, acc["jwt"], device_map, client=client
             )
+        if platform == "raccoon":
+            # 小浣熊:balance 只读探针(daily>0 ⇒ 今日已发)。真领取在主窗口调
+            # POST /api/web/desktop/v1/login/points/grant(2026-11-11 15:2x 改正)
+            return await checkin_raccoon.raccoon_probe_status(
+                name, acc["jwt"], device_map, client=client
+            )
         ok_s, checked_in, credits, code_s, msg_s = await status_check(
             name, acc["jwt"], device_map, client=client
         )
@@ -1930,6 +1937,10 @@ class CheckinScheduler:
                     # 豆包余额 = detail.progress.total_amount(2026-11-11 实锤可读)。
                     db_dm = dict(acc.get("device_map") or {})
                     result = await checkin_doubao.doubao_query_credits(acc["jwt"], db_dm)
+                elif acc.get("platform") == "raccoon":
+                    # 小浣熊余额 = balance.available_points(真弹 200,见 docs §3.2)
+                    db_dm = dict(acc.get("device_map") or {})
+                    result = await checkin_raccoon.raccoon_query_credits(acc["jwt"], db_dm)
                 else:
                     result = await checkin_credits.query_remaining_credits(acc["jwt"])
                 if result.get("error") is not None or not isinstance(
@@ -2038,6 +2049,13 @@ class CheckinScheduler:
                 # 豆包每日 200 额度(幂等预检 detail → claim),随零点/主窗口跑;
                 # 频控/风控期 710010702 → BusinessError 冷却 3600s,不熔断
                 result = await checkin_doubao.doubao_checkin_account(
+                    account["name"], account["jwt"], device_map, client=client
+                )
+            elif platform == "raccoon":
+                # 小浣熊每日 300:POST /api/web/desktop/v1/login/points/grant 真领取
+                # (幂等:今日已发 ⇒ granted=false ⇒ already;首发 ⇒ checked + delta)
+                # 移动端一次性奖励不在轮询里领,由 claim_new_user/env 单独控制
+                result = await checkin_raccoon.raccoon_checkin_account(
                     account["name"], account["jwt"], device_map, client=client
                 )
             else:

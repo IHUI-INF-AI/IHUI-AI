@@ -17,21 +17,19 @@
  *  - **回收射程不按分支命名收口**(2026-11-04 定档):旧命名闸 `wt/*` 只表达"这张检出是谁创建的",
  *    不表达任何安全属性,实测让 guardian 每 24h 派发的回收腿结构性空转(21 枚 linked 检出 0 枚
  *    `wt/*` ⇒ 候选恒 0)。安全实质由后四闸(非 locked ∧ 干净 ∧ HEAD 已并入 main ∧ 空闲 ≥ 阈值)
- *    表达,一条不弱化;落点闸扩为"主仓 .worktrees/ 或同盘兄弟检出"(仓外其它盘一律不进射程),安全实质仍由后四闸兜底。
+ *    表达,一条不弱化;落点闸(.worktrees/ 批准落点,仓外 C:/D:/E: 一律不进射程)保留。
  *  - git 一律显式 stdio(守门 193):不裸 execSync、不共用继承管道。
  *
  * 用法:
  *   node scripts/agent-worktree.mjs --create <名> [--base origin/main] [--apply]
  *   node scripts/agent-worktree.mjs --list [--json]
  *   node scripts/agent-worktree.mjs --remove <名> [--tag-lost] [--apply]
- *   node scripts/agent-worktree.mjs --reap [--older-than 1] [--apply]
+ *   node scripts/agent-worktree.mjs --reap [--older-than 7] [--apply]
  *   node scripts/agent-worktree.mjs --self-test
  */
-import { statSync, mkdtempSync, existsSync, rmSync } from 'node:fs'
+import { statSync } from 'node:fs'
 import { join, dirname, resolve, basename, relative, isAbsolute } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { execFileSync } from 'node:child_process'
-import { tmpdir } from 'node:os'
 import { gitRaw } from './lib/face-reader.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -87,8 +85,7 @@ export function parseWorktreeList(out) {
         .replace(/^refs\/heads\//, '')
     else if (cur && line === 'detached') cur.detached = true
     else if (cur && line.startsWith('prunable')) cur.prunable = true
-    else if (cur && line.startsWith('locked'))
-      cur.locked = line.slice('locked'.length).trim() || true
+    else if (cur && line.startsWith('locked')) cur.locked = line.slice('locked'.length).trim() || true
   }
   if (cur) rows.push(cur)
   return rows
@@ -106,105 +103,16 @@ export function isUnderWorktreesRoot(p, root = ROOT) {
 }
 
 /**
- * 批准落点(2026-11-11 根治):原闸只认 `.worktrees/`,导致根层兄弟检出
- * (`D:/IHUI-AI-wt-*`、`D:/IHUI-AI-ci-probe` 等并行会话产物)恒为候选 0、永不回收,
- * 是"遗留工作树"积压的根因。现扩到"与主仓同盘的同级兄弟检出"——`basename` 以
- * `<主仓名>-` 起头(如 `IHUI-AI-wt-x`);仓外其它盘(C:/E:)一律不进射程。
- * gitdir 本身由调用方用 `gitDirPath` 排除,不在此处兜底。
- */
-export function isReapLocationApproved(path, root = ROOT, worktreesRoot = WT_DIR) {
-  if (isUnderDir(path, worktreesRoot)) return true
-  const rp = resolve(root)
-  const p = resolve(path)
-  const sameDrive =
-    process.platform === 'win32' ? p[0]?.toLowerCase() === rp[0]?.toLowerCase() : true
-  if (sameDrive && dirname(p) === dirname(rp) && basename(p).startsWith(`${basename(rp)}-`))
-    return true
-  return false
-}
-
-/** Windows 长路径友好:把 posix/混合路径规整成 robocopy 可吃的 `D:\...` 形式。 */
-function toWinPath(p) {
-  const s = resolve(p)
-  if (/^[A-Za-z]:[\\/]/.test(s)) return s.replace(/\//g, '\\')
-  return s.replace(/^\/([a-zA-Z])\//, '$1:/').replace(/\//g, '\\')
-}
-
-/**
- * 稳健删除 worktree 目录(2026-11-11 根治):`git worktree remove` 在 node_modules 长路径下
- * 必报 `Filename too long` 失败(本机实测),导致回收器报"失败"却删不掉、工作树越积越多。
- * 改用 robocopy /MIR 从空目录镜像删除 —— robocopy 走长路径 API,能删掉深层长路径文件;
- * 删完 rmdir 空壳。robocopy 退出码 0–7 均成功,<8 才是失败;失败再退化回 git worktree remove。
- */
-function robustRemoveWorktreeDir(path) {
-  try {
-    git(['worktree', 'unlock', path])
-  } catch {
-    /* 未锁也行 */
-  }
-  const empty = mkdtempSync(join(tmpdir(), 'wt-empty-'))
-  try {
-    try {
-      execFileSync(
-        'robocopy',
-        [
-          toWinPath(empty),
-          toWinPath(path),
-          '/MIR',
-          '/R:0',
-          '/W:0',
-          '/MT:16',
-          '/NFL',
-          '/NDL',
-          '/NJH',
-          '/NJS',
-        ],
-        {
-          windowsHide: true,
-          timeout: 600_000,
-          // 2026-11-11 实测根治:默认 maxBuffer=1MB 会被 node_modules 大树的逐文件错误行撑爆
-          // (spawnSync ENOBUFS ⇒ e.status 缺失 ⇒ 误入 code<0 兜底腿 ⇒ git worktree remove 又撞
-          // index.lock 超时 ⇒ 假失败)。静默开关(/NFL /NDL /NJH /NJS)挡不住错误行,必须扩容。
-          maxBuffer: 1 << 24,
-        },
-      )
-    } catch (e) {
-      const code = typeof e?.status === 'number' ? e.status : -1
-      if (code < 0 || code >= 8) {
-        const r = git(['worktree', 'remove', '--force', path])
-        if (!r.ok) return { ok: false, err: `${e?.message || ''};${r.err}` }
-      }
-    }
-    try {
-      rmSync(path, { recursive: true, force: true, maxRetries: 3 })
-    } catch {
-      /* 已空则忽略 */
-    }
-    return { ok: !existsSync(path), err: '' }
-  } finally {
-    try {
-      rmSync(empty, { recursive: true, force: true })
-    } catch {
-      /* 临时目录清不掉不影响主流程 */
-    }
-  }
-}
-
-/**
- * 回收判定(纯函数,构造面可证)。返回 `{action:'remove'|'tag-then-remove'|'skip', reason}`。
+ * 回收判定(纯函数,构造面可证)。返回 `{action:'remove'|'skip', reason}`。
  *
  * 方向一律"宁可少收一个,不可丢一份现场":不在批准落点、形态判不出、locked、脏、
- * 活跃未满阈值、量不到最后活动时间 —— 任一命中即保留。到达"非 locked∧干净∧空闲≥阈值"
- * 这一关后,再按"是否并入 main"分两条零风险出口:
- *  - 已并入 ⇒ `remove`(只删检出,分支归 branch -d 与 §12h 裁决);
- *  - 未并入 ⇒ 默认 `tag-then-remove`(先打 lost-commit 标签保活 commit,再删目录,绝不静默丢现场);
- *    仅当 `tagUnmerged=false`(保守 `--no-tag-lost` 模式)才退回 `skip`。
+ * HEAD 未并入 main、活跃未满阈值、量不到最后活动时间 —— 任一命中即保留。
  *
  * 2026-11-04 定档(s9 票):命名闸 `wt/*` 已摘 —— 它只表达"这张检出是谁创建的",
  * 不表达任何安全属性,实测让回收腿结构性空转(0 枚候选)。安全实质由后四闸
- * (非 locked ∧ 干净 ∧ 已并入 ∨ 未并入但 tag 保活 ∧ 空闲 ≥ 阈值)表达,一条不弱化;
- * 落点闸扩为"主仓 .worktrees/ 或同盘兄弟检出"(仓外其它盘不进射程)。两类检出分开走:
- *  - detached:无现场归属,删除前必须 HEAD 已证并入(merged 闸即其存在前提),或改打标签;
+ * (非 locked ∧ 干净 ∧ 已并入 ∧ 空闲 ≥ 阈值)表达,一条不弱化;落点闸保留
+ * (仓外 C:/D:/E: 等其他落点一律不进射程)。两类检出分开走:
+ *  - detached:无现场归属,删除前必须 HEAD 已证并入(merged 闸即其存在前提);
  *  - 有分支:任意分支名都进射程,回收只删检出、不动分支(分支归 branch -d 与 §12h 裁决)。
  */
 export function evaluateReapCandidate({
@@ -217,44 +125,27 @@ export function evaluateReapCandidate({
   lastActivityMs = 0,
   now = Date.now(),
   minIdleDays = 7,
-  root = ROOT,
   worktreesRoot = join(ROOT, '.worktrees'),
-  gitDirPath = null,
-  tagUnmerged = false,
 } = {}) {
-  // gitdir 本身(.git 指针指向处)永不进射程:删它会毁仓。
-  if (gitDirPath && resolve(path) === resolve(gitDirPath))
-    return { action: 'skip', reason: 'gitdir 本身不进射程' }
-  if (!isReapLocationApproved(path, root, worktreesRoot))
-    return { action: 'skip', reason: '不在批准落点(.worktrees/ 或主仓同盘兄弟检出;仓外落点不扩)' }
+  if (!isUnderDir(path, worktreesRoot)) return { action: 'skip', reason: '不在批准落点 .worktrees/ 下(仓外落点不扩)' }
   // 身份形态闸(替代旧命名闸):detached 与有分支两类之外判不出形态 ⇒ 保守保留。
   // 此闸不表达安全属性、只表达"这张检出归谁/是什么",故不再按分支名收口。
   if (!detached && !branch)
     return { action: 'skip', reason: '既无分支也未标注 detached(形态判不出,保守保留)' }
   if (locked) return { action: 'skip', reason: 'worktree 被 lock' }
   if (dirty) return { action: 'skip', reason: '工作区有未提交/未跟踪改动(保留现场)' }
-  // 空闲闸:量不到活动时间 / 未满阈值 ⇒ 保留(给在途会话留出窗口,避免误删当天在用工件)。
+  if (!merged)
+    return {
+      action: 'skip',
+      reason: detached
+        ? 'detached 的 HEAD 未证并入 main(无现场归属,并入即删除前提 ⇒ 保留)'
+        : 'HEAD 未并入 main(按 §12h 先裁决,不静默删)',
+    }
   if (!Number.isFinite(lastActivityMs) || lastActivityMs <= 0)
     return { action: 'skip', reason: '量不到最后活动时间(保守保留)' }
   const idleDays = (now - lastActivityMs) / 86_400_000
   if (idleDays < minIdleDays)
     return { action: 'skip', reason: `最近活动 ${idleDays.toFixed(1)} 天 < 阈值 ${minIdleDays} 天` }
-  // 到达此处:非 locked、干净、空闲 ≥ 阈值。安全实质一致(都不丢现场),按并入状态分两出口。
-  if (!merged) {
-    if (!tagUnmerged)
-      return {
-        action: 'skip',
-        reason: detached
-          ? 'detached 的 HEAD 未证并入 main(保守 --no-tag-lost:不加标签不删;改去掉该标志即走打标签保活再删)'
-          : 'HEAD 未并入 main(保守 --no-tag-lost:不加标签不删;改去掉该标志即走打标签保活再删)',
-      }
-    return {
-      action: 'tag-then-remove',
-      reason: detached
-        ? `detached 无现场归属、HEAD 未证并入 main 但干净空闲 ${idleDays.toFixed(1)} 天 ≥ ${minIdleDays} 天 ⇒ 先打 lost-commit 标签保活再删(零丢现场)`
-        : `干净空闲 ${idleDays.toFixed(1)} 天 ≥ ${minIdleDays} 天但 HEAD 未并入 main ⇒ 先打 lost-commit 标签保活再删(零丢现场,分支 ${branch} 保留归 §12h)`,
-    }
-  }
   return {
     action: 'remove',
     reason: detached
@@ -271,12 +162,7 @@ function git(args, { root = ROOT, input = null } = {}) {
   try {
     return { ok: true, status: 0, out: gitRaw(args, root, { input: input ?? undefined }), err: '' }
   } catch (e) {
-    return {
-      ok: false,
-      status: typeof e?.status === 'number' ? e.status : 1,
-      out: '',
-      err: String(e?.message ?? e),
-    }
+    return { ok: false, status: typeof e?.status === 'number' ? e.status : 1, out: '', err: String(e?.message ?? e) }
   }
 }
 
@@ -288,17 +174,7 @@ function mtimeMsOf(p) {
   }
 }
 
-/**
- * 最后活动时间:只取**巡检不会污染**的信号 —— 工作树目录自身 mtime、`.git` 指针文件 mtime、
- * 以及 HEAD 提交时间(`git log -1 --format=%ct`,scanner 从不改写 HEAD)。
- *
- * 2026-11-11 根治:旧实现还纳入了 gitdir 的 admin 目录(`D:/IHUI-AI-git-repo/worktrees/<名>`)
- * 及其 index/HEAD 文件 mtime,但这些会被守护巡检自身的 `git worktree list` / `git status`
- * (刷新 index) / `git worktree prune` 反复改写,导致"最后活动时间"永远≈今天、`idle≈0`,
- * 进而让空闲闸 `idleDays < 阈值` 恒成立 ⇒ 一切候选被跳过、回收器结构性空转(即本次遗留积压的
- * 第二道根因)。去掉 admin 目录及其 index/HEAD,改用 HEAD 提交时间作主信号,idle 才真实。
- * (配合 dirty 闸:凡有未提交/未跟踪改动一律保留,故"干净且 HEAD 旧"即可安全判为闲置。)
- */
+/** 最后活动时间:取 worktree 根/`.git`/admin 目录(index、HEAD)与 HEAD 提交时间的最大值。 */
 function lastActivityMsOf(path) {
   let ts = 0
   const push = (ms) => {
@@ -306,6 +182,14 @@ function lastActivityMsOf(path) {
   }
   push(mtimeMsOf(path))
   push(mtimeMsOf(join(path, '.git')))
+  const gd = git(['rev-parse', '--git-dir'], { root: path })
+  if (gd.ok) {
+    const raw = gd.out.trim()
+    const admin = isAbsolute(raw) ? raw : join(path, raw)
+    push(mtimeMsOf(admin))
+    push(mtimeMsOf(join(admin, 'index')))
+    push(mtimeMsOf(join(admin, 'HEAD')))
+  }
   const last = git(['log', '-1', '--format=%ct'], { root: path })
   if (last.ok) push(Number(last.out.trim()) * 1000)
   return ts
@@ -378,8 +262,8 @@ function selfTest() {
     '干净+已并入+超龄 ⇒ 回收',
   )
   assert(
-    evaluateReapCandidate({ ...base, branch: 'feature/x', now, worktreesRoot: '/repo/.worktrees' })
-      .action === 'remove',
+    evaluateReapCandidate({ ...base, branch: 'feature/x', now, worktreesRoot: '/repo/.worktrees' }).action ===
+      'remove',
     '非 wt/* 分支名不再被命名闸拦(2026-11-04 定档)',
   )
   assert(
@@ -404,134 +288,31 @@ function selfTest() {
     'detached 未证并入必须保留',
   )
   assert(
-    evaluateReapCandidate({ ...base, branch: '', now, worktreesRoot: '/repo/.worktrees' })
-      .action === 'skip',
+    evaluateReapCandidate({ ...base, branch: '', now, worktreesRoot: '/repo/.worktrees' }).action === 'skip',
     '形态判不出(无分支且非 detached)必须保留',
   )
   assert(
-    evaluateReapCandidate({ ...base, locked: true, now, worktreesRoot: '/repo/.worktrees' })
-      .action === 'skip',
+    evaluateReapCandidate({ ...base, locked: true, now, worktreesRoot: '/repo/.worktrees' }).action === 'skip',
     'locked 必须保留',
   )
   assert(
-    evaluateReapCandidate({ ...base, dirty: true, now, worktreesRoot: '/repo/.worktrees' })
-      .action === 'skip',
+    evaluateReapCandidate({ ...base, dirty: true, now, worktreesRoot: '/repo/.worktrees' }).action === 'skip',
     '脏工作区必须保留',
   )
   assert(
-    evaluateReapCandidate({ ...base, merged: false, now, worktreesRoot: '/repo/.worktrees' })
-      .action === 'skip',
+    evaluateReapCandidate({ ...base, merged: false, now, worktreesRoot: '/repo/.worktrees' }).action === 'skip',
     '独有 HEAD 必须保留',
   )
   assert(
-    evaluateReapCandidate({
-      ...base,
-      path: '/elsewhere/wt-a',
-      now,
-      worktreesRoot: '/repo/.worktrees',
-    }).action === 'skip',
+    evaluateReapCandidate({ ...base, path: '/elsewhere/wt-a', now, worktreesRoot: '/repo/.worktrees' }).action ===
+      'skip',
     '批准落点之外必须保留',
   )
   assert(
-    evaluateReapCandidate({ ...base, now, minIdleDays: 31, worktreesRoot: '/repo/.worktrees' })
-      .action === 'skip',
+    evaluateReapCandidate({ ...base, now, minIdleDays: 31, worktreesRoot: '/repo/.worktrees' }).action === 'skip',
     '活跃未满阈值必须保留',
   )
-  // 2026-11-11 根治:根层兄弟检出(.worktrees/ 之外、与主仓同盘、以 `<主仓名>-` 起头)应进回收射程
-  assert(
-    evaluateReapCandidate({
-      path: '/repo/IHUI-AI-wt-x',
-      branch: 'wt/x',
-      merged: true,
-      lastActivityMs: 1,
-      now,
-      minIdleDays: 0,
-      root: '/repo/IHUI-AI',
-      worktreesRoot: '/repo/IHUI-AI/.worktrees',
-      gitDirPath: '/repo/IHUI-AI-git-repo',
-    }).action === 'remove',
-    '根层兄弟检出应进回收射程(根治:覆盖 .worktrees/ 之外)',
-  )
-  // gitdir 本身绝不进射程(即使同名前缀匹配也排除)
-  assert(
-    evaluateReapCandidate({
-      path: '/repo/IHUI-AI-git-repo',
-      merged: true,
-      lastActivityMs: 1,
-      now,
-      minIdleDays: 0,
-      root: '/repo/IHUI-AI',
-      worktreesRoot: '/repo/IHUI-AI/.worktrees',
-      gitDirPath: '/repo/IHUI-AI-git-repo',
-    }).action === 'skip',
-    'gitdir 本身不进射程',
-  )
-  // 2026-11-11 根治:未并入但干净+空闲的检出,默认走 tag-then-remove(先打标签保活再删,零丢现场)
-  assert(
-    evaluateReapCandidate({
-      path: '/repo/IHUI-AI-wt-orphan',
-      detached: true,
-      merged: false,
-      lastActivityMs: 1,
-      now,
-      minIdleDays: 0,
-      root: '/repo/IHUI-AI',
-      worktreesRoot: '/repo/IHUI-AI/.worktrees',
-      gitDirPath: '/repo/IHUI-AI-git-repo',
-      tagUnmerged: true,
-    }).action === 'tag-then-remove',
-    '未并入+干净+空闲 ⇒ tag-then-remove(根治:覆盖改写历史遗留)',
-  )
-  // 保守模式(--no-tag-lost)下未并入一律保留,向后兼容
-  assert(
-    evaluateReapCandidate({
-      path: '/repo/IHUI-AI-wt-orphan',
-      detached: true,
-      merged: false,
-      lastActivityMs: 1,
-      now,
-      minIdleDays: 0,
-      root: '/repo/IHUI-AI',
-      worktreesRoot: '/repo/IHUI-AI/.worktrees',
-      gitDirPath: '/repo/IHUI-AI-git-repo',
-      tagUnmerged: false,
-    }).action === 'skip',
-    '保守 --no-tag-lost:未并入一律保留',
-  )
-  // 脏工作区优先于 tag-then-remove(即使未并入也不删,保住未提交改动)
-  assert(
-    evaluateReapCandidate({
-      path: '/repo/IHUI-AI-wt-orphan',
-      detached: true,
-      dirty: true,
-      merged: false,
-      lastActivityMs: 1,
-      now,
-      minIdleDays: 0,
-      root: '/repo/IHUI-AI',
-      worktreesRoot: '/repo/IHUI-AI/.worktrees',
-      gitDirPath: '/repo/IHUI-AI-git-repo',
-      tagUnmerged: true,
-    }).action === 'skip',
-    '脏工作区优先跳过(tag-then-remove 不覆盖脏闸)',
-  )
-  // 未达空闲阈值也不删
-  assert(
-    evaluateReapCandidate({
-      path: '/repo/IHUI-AI-wt-orphan',
-      detached: true,
-      merged: false,
-      lastActivityMs: now - 5 * 86_400_000,
-      now,
-      minIdleDays: 31,
-      root: '/repo/IHUI-AI',
-      worktreesRoot: '/repo/IHUI-AI/.worktrees',
-      gitDirPath: '/repo/IHUI-AI-git-repo',
-      tagUnmerged: true,
-    }).action === 'skip',
-    '未达空闲阈值:tag-then-remove 也不触发',
-  )
-  console.log('self-test: 全绿(26 组断言)')
+  console.log('self-test: 全绿(20 组断言)')
 }
 
 function main(argv) {
@@ -562,7 +343,7 @@ function main(argv) {
   }
 
   if (has('--reap')) {
-    const minIdle = Number(val('--older-than', '1'))
+    const minIdle = Number(val('--older-than', '7'))
     if (!Number.isFinite(minIdle) || minIdle < 0) {
       console.error(`❌ --older-than 需要非负天数,收到 ${val('--older-than', '')}`)
       process.exitCode = EXIT_UNKNOWN
@@ -575,11 +356,9 @@ function main(argv) {
       return
     }
     const now = Date.now()
-    const gitDir = git(['rev-parse', '--git-dir']).out.trim()
     const rows = []
     for (const w of parseWorktreeList(list.out)) {
       if (resolve(w.path) === resolve(ROOT)) continue
-      if (resolve(w.path) === resolve(gitDir)) continue
       const dirty = isDirty(w.path)
       const merged = git(['merge-base', '--is-ancestor', w.sha, 'main']).ok
       const lastActivityMs = lastActivityMsOf(w.path)
@@ -594,8 +373,6 @@ function main(argv) {
         now,
         minIdleDays: minIdle,
         worktreesRoot: WT_DIR,
-        gitDirPath: gitDir,
-        tagUnmerged: !has('--no-tag-lost'),
       })
       // 四闸读数逐条打印(2026-11-04 s9 票):让"为什么没收"可核,不再只有一句 reason。
       const idle =
@@ -605,63 +382,36 @@ function main(argv) {
       const gates = `locked=${w.locked ? 'Y' : 'N'} dirty=${dirty ? 'Y' : 'N'} merged=${merged ? 'Y' : 'N'} idle=${idle}`
       rows.push({ ...w, ...verdict, gates })
     }
-    const doomed = rows.filter((r) => r.action === 'remove' || r.action === 'tag-then-remove')
-    const tagCount = rows.filter((r) => r.action === 'tag-then-remove').length
+    const doomed = rows.filter((r) => r.action === 'remove')
     for (const r of rows) {
-      const mark = r.action === 'remove' ? '🗑' : r.action === 'tag-then-remove' ? '🏷🗑' : '⏭'
       console.log(
-        `${mark} ${r.path} [${r.branch || (r.detached ? '(detached)' : '(无分支)')}] ${r.gates} ⇒ ${r.reason}`,
+        `${r.action === 'remove' ? '🗑' : '⏭'} ${r.path} [${r.branch || (r.detached ? '(detached)' : '(无分支)')}] ${r.gates} ⇒ ${r.reason}`,
       )
     }
     if (!doomed.length) {
-      console.log(`ℹ 无回收候选(${rows.length} 个检出全数保留;阈值 ${minIdle} 天${has('--no-tag-lost') ? ',保守模式' : ''})`)
+      console.log(`ℹ 无回收候选(${rows.length} 个检出全数保留;阈值 ${minIdle} 天)`)
       return
     }
     if (!apply) {
-      console.log(
-        `ℹ dry-run:将回收 ${doomed.length} 个(其中 ${tagCount} 个先打 lost-commit 标签保活再删;加 --apply 执行)`,
-      )
+      console.log(`ℹ dry-run:将回收 ${doomed.length} 个(加 --apply 执行)`)
       return
     }
     let removed = 0
-    let tagged = 0
     let failed = 0
     for (const r of doomed) {
-      if (r.action === 'tag-then-remove') {
-        const wtName = basename(r.path)
-        const tag = lostTagOf(wtName, r.sha)
-        // 标签可能已存在(上次 --apply 被中断,标签已打但目录未删):已指向同一 sha 即视为已保活,
-        // 直接继续删目录,不再因"标签已存在"而跳过删除(否则会留下永远删不掉的残留)。
-        const existing = git(['rev-parse', '-q', '--verify', tag])
-        if (existing.ok && existing.out.trim() === r.sha) {
-          console.log(`🏷 保活标签 ${tag} 已存在(指向同 sha ${r.sha.slice(0, 10)}),跳过重复打标;即将删目录`)
-        } else {
-          const t = git(['tag', tag, r.sha])
-          if (!t.ok) {
-            console.error(`❌ 打保活标签失败 ${tag}:${t.err.trim()} ⇒ 跳过(保住工作,不删)`)
-            failed += 1
-            continue
-          }
-          console.log(`🏷 已打保活标签 ${tag}(HEAD ${r.sha.slice(0, 10)});即将删目录`)
-        }
-        tagged += 1
-      }
-      const rm = robustRemoveWorktreeDir(r.path)
+      const rm = git(['worktree', 'remove', r.path])
       if (!rm.ok) {
-        console.error(`❌ 回收失败 ${r.path}:${rm.err}(先按 §12h 裁决现场)`)
+        console.error(`❌ 回收失败 ${r.path}:${rm.err.trim()}(先按 §12h 裁决现场)`)
         failed += 1
         continue
       }
       // 2026-11-04 定档(s9 票):自动回收只删检出,绝不自动删分支。
       // 分支存续归 `git branch -d` 与 §12h 合并裁决 —— 回收器结构上碰不到它。
       removed += 1
-      if (r.branch && r.action === 'remove')
-        console.log(`🏷 检出已回收;分支 ${r.branch} 保留(删除走 git branch -d 与 §12h 裁决)`)
+      if (r.branch) console.log(`🏷 检出已回收;分支 ${r.branch} 保留(删除走 git branch -d 与 §12h 裁决)`)
     }
     git(['worktree', 'prune'])
-    console.log(
-      `✅ 回收 ${removed} 个${tagged ? `,其中 ${tagged} 个先打 lost-commit 标签保活` : ''}${failed ? `,失败 ${failed} 个` : ''}(已 prune;分支一律保留)`,
-    )
+    console.log(`✅ 回收 ${removed} 个${failed ? `,失败 ${failed} 个` : ''}(已 prune;分支一律保留)`)
     if (failed) process.exitCode = EXIT_REFUSED
     return
   }
@@ -753,9 +503,9 @@ function main(argv) {
       }
       console.log(`🏷 已打保活标签 ${lostTagOf(name, entry.sha)}`)
     }
-    const rm = robustRemoveWorktreeDir(path)
+    const rm = git(['worktree', 'remove', path])
     if (!rm.ok) {
-      console.error(`❌ 回收失败:${rm.err}(有未提交改动时 git 会拒绝——按 §12h 先裁决再收回)`)
+      console.error(`❌ 回收失败:${rm.err.trim()}(有未提交改动时 git 会拒绝——按 §12h 先裁决再收回)`)
       process.exitCode = EXIT_REFUSED
       return
     }

@@ -33,13 +33,9 @@ export const BIZ_TIMEZONE = 'Asia/Shanghai'
 /** 上海 = UTC+8(无夏令时,常量安全)。 */
 const SHANGHAI_OFFSET_MS = 8 * 3600 * 1000
 
-/**
- * Shanghai 当天(或 daysAgo 前那当天;负数=往后推)00:00 对应的 UTC 时刻,供 `gte(createdAt, …)` 使用。
- * at 缺省取当前时刻;传入任意时刻时按"该时刻所在的上海日"取值(RP-23:配额日重置点等
- * 需要以固定基准算日界的调用点用它,不再在端内写第四份时区算术)。
- */
-export function bizDayStartUtc(daysAgo = 0, at: Date = new Date()): Date {
-  const shanghaiNow = new Date(at.getTime() + SHANGHAI_OFFSET_MS)
+/** Shanghai 当天(或 daysAgo 前那当天)00:00 对应的 UTC 时刻,供 `gte(createdAt, …)` 使用。 */
+export function bizDayStartUtc(daysAgo = 0): Date {
+  const shanghaiNow = new Date(Date.now() + SHANGHAI_OFFSET_MS)
   return new Date(
     Date.UTC(
       shanghaiNow.getUTCFullYear(),

@@ -84,6 +84,8 @@ _PLATFORM_LABELS: Final[dict[str, str]] = {
     "workbuddy": "WorkBuddy",
     "qoder": "Qoder",
     "minimax": "MiniMax",
+    "doubao": "豆包",
+    "raccoon": "小浣熊",
 }
 
 # O64 号池↔签到同步:同步账号的固定系统 owner。调度器 list_enabled_accounts

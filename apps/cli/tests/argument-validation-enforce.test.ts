@@ -73,7 +73,7 @@ function demoSchema(): ToolSchema {
           properties: { a: { type: 'number', description: 'a' } },
           required: ['a'],
         },
-        tags: { type: 'array', description: 'tags', items: { type: 'string', description: 'tag' } },
+        tags: { type: 'array', description: 'tags', items: { type: 'string' } },
         note: { type: 'string', description: 'string | null 语义位的可选字符串' },
         mode: { type: 'string', description: 'mode', enum: ['fast', 'slow'] },
       },
@@ -170,7 +170,7 @@ describe('① normalizeToolArguments(容错解析的三条判序)', () => {
             type: 'object',
             description: 'c',
             properties: {
-              filters: { type: 'array', description: 'f', items: { type: 'string', description: 'filter' } },
+              filters: { type: 'array', description: 'f', items: { type: 'string' } },
             },
             required: [],
           },

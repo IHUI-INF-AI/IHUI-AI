@@ -35,7 +35,7 @@ describe('debug 会话注册表回收', () => {
   it('注册表被清空时,回收数仍然喊出来(不静默丢)', async () => {
     seedSession('bg_only_idle', { idle: true });
 
-    const res = await debug_list_sessions.execute({}, { workspacePath: '.' });
+    const res = await debug_list_sessions.execute({}, {});
 
     expect(res.output).toMatch(/无活跃 debug session/);
     expect(res.output).toMatch(/回收 1/);
@@ -67,7 +67,7 @@ describe('debug 会话注册表回收', () => {
     seedSession('bg_keep', {});
     expect(sessionCount()).toBe(base + 6);
 
-    const res = await debug_list_sessions.execute({}, { workspacePath: '.' });
+    const res = await debug_list_sessions.execute({}, {});
 
     expect(res.success).toBe(true);
     // 回收可见:输出必须点名回收了几条(静默变短等于伪造完整性)

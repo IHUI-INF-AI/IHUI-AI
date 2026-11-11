@@ -13,6 +13,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
@@ -144,6 +145,7 @@ export function AgentPicker({ variant = 'pill' }: { variant?: 'pill' | 'row' }) 
             {t('agentPicker.defaultDesc')}
           </span>
         </DropdownMenuItem>
+        {personas.length > 0 && <DropdownMenuSeparator className="my-1 h-px bg-border/60" />}
         {personas.length > 0 && (
           <DropdownMenuLabel className="px-2 py-1 text-label font-semibold uppercase tracking-wide text-muted-foreground">
             {t('agentPicker.groupTitle')}

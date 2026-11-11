@@ -81,6 +81,9 @@
  *   D. **不造第二把尺**:trae / trae-solo 正库是 SQLCipher 加密库,携对话腿
  *      (trae-chat-carry)自带解密-重绑-重加密三道自证(§0.6)。
  *   E. lingma / grokbot 本机未安装,无数据面可取证,不虚设条目(装上后按此先取证再登记)。
+ *      raccoon(2026-11-11 接入)本机已装、登录态在 `~/.office-raccoon/agent/config/auth.json`
+ *      (两键单体 JSON),但**对话数据面尚未取证** ⇒ 同样不虚设对账条目;切号后只校验
+ *      auth.json 的 access_token 是否为目标票(login-local-verified 走 no-continuity-face)。
  *
  * 纪律:只读输入(对副本 checkpoint WAL,不碰在跑客户端的活库);清单只含 id 哈希与计数,
  * 绝不含消息正文/token;compare 的差集按会话 id 点名,供人工/后续腿判断。

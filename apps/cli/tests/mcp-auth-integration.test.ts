@@ -18,7 +18,7 @@
  */
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import { resolveMcpAuthHeaders } from '../src/tools/mcp-runtime.js';
-import type { MCPAuth, McpServer } from '../src/commands/mcp-config.js';
+import type { McpServer } from '../src/commands/mcp-config.js';
 import * as credentialsModule from '../src/tools/mcp-credentials.js';
 import * as oauthModule from '../src/tools/mcp-oauth.js';
 
@@ -258,8 +258,7 @@ describe('resolveMcpAuthHeaders', () => {
         name: 'legacy-config',
         transport: 'http',
         url: 'https://mcp.example.com',
-        // 旧配置真实形态就是没有 type(运行时向后兼容判据),类型面上只能经 unknown 造出该形状
-        auth: { token: 'legacy-token' } as unknown as MCPAuth,
+        auth: { token: 'legacy-token' } as { token: string },
       };
       const headers = await resolveMcpAuthHeaders(server);
       expect(headers['Authorization']).toBe('Bearer legacy-token');

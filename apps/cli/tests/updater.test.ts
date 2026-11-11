@@ -227,7 +227,7 @@ describe('updater', () => {
       expect(warnSpy).toHaveBeenCalled();
       // 闸门放行也会留一行痕迹,升级提示按内容定位(仍要求同时含新/旧版本号)
       const callArg =
-        warnSpy.mock.calls.map((c: unknown[]) => String(c[0] ?? '')).find((s: string) => s.includes('2.0.0')) ?? '';
+        warnSpy.mock.calls.map((c) => String(c[0] ?? '')).find((s) => s.includes('2.0.0')) ?? '';
       expect(callArg).toContain('2.0.0');
       expect(callArg).toContain('1.0.0');
     });

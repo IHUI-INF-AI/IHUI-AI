@@ -255,6 +255,7 @@ export function VoiceToolbar(props: VoiceToolbarProps) {
                 )}
               />
             </DropdownMenu.Item>
+            <DropdownMenu.Separator className="my-1 h-px bg-border/60" />
             <DropdownMenu.Item
               onSelect={() => toggleVoicePlayback(instanceId)}
               className={cn(
@@ -277,6 +278,7 @@ export function VoiceToolbar(props: VoiceToolbarProps) {
                 )}
               />
             </DropdownMenu.Item>
+            <DropdownMenu.Separator className="my-1 h-px bg-border/60" />
             <DropdownMenu.Item
               onSelect={() => toggleVoiceHandsFree(instanceId)}
               className={cn(

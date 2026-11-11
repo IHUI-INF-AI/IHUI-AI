@@ -146,11 +146,11 @@ export function getMostRecentSession(): Session | null {
  *
  * 返回修复后的 history + 移除条数 + 修复原因清单(供 /repair 命令展示)。
  */
-export function repairSessionHistory<T extends RepairableMessage>(
-  history: T[],
+export function repairSessionHistory(
+  history: ChatMessage[],
   options?: { keepTrailingUser?: boolean },
 ): {
-  repaired: T[];
+  repaired: ChatMessage[];
   removed: number;
   reasons: string[];
 } {
@@ -158,7 +158,11 @@ export function repairSessionHistory<T extends RepairableMessage>(
   // (主动修复时应删除末尾无响应的 interjection 残留);LLM 请求链路如需保留当前输入
   // (末尾 user),由调用方显式传 { keepTrailingUser: true } —— 与 message-repair.ts
   // Rule 5 的 keepTrailingUser 语义一致,CLI 发送链路不经过本函数,无行为变化。
-  return repairMessages(history, options);
+  return repairMessages(history as RepairableMessage[], options) as {
+    repaired: ChatMessage[];
+    removed: number;
+    reasons: string[];
+  };
 }
 
 /**

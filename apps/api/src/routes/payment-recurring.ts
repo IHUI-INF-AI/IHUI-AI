@@ -28,7 +28,6 @@ import { placeOrder, completeOrder } from '../services/order-service.js'
 import {
   scanAndChargeDueContracts,
   chargeOneContractNow,
-  calculateNextChargeTimeFrom,
 } from '../services/subscription-service.js'
 import {
   signContract,
@@ -72,18 +71,27 @@ const scanAndChargeBodySchema = z.object({
 // 辅助函数
 // =============================================================================
 
-/**
- * RP-23:签约下次扣款时间按 Asia/Shanghai 日历推进,与 subscription-service 的
- * 计费周期唯一实现同源(宿主本地 setFullYear/setDate/setMonth 会在非 +8 时区把周期拨偏)。
- */
-function calculateNextChargeTime(
-  billingPeriod: string | null | undefined,
-  base: Date = new Date(),
-): Date {
-  return calculateNextChargeTimeFrom(billingPeriod, base)
+function calculateNextChargeTime(billingPeriod: string | null | undefined): Date {
+  const now = new Date()
+  switch (billingPeriod) {
+    case 'year': {
+      const next = new Date(now)
+      next.setFullYear(next.getFullYear() + 1)
+      return next
+    }
+    case 'week': {
+      const next = new Date(now)
+      next.setDate(next.getDate() + 7)
+      return next
+    }
+    case 'month':
+    default: {
+      const next = new Date(now)
+      next.setMonth(next.getMonth() + 1)
+      return next
+    }
+  }
 }
-
-export const __test__ = { calculateNextChargeTime }
 
 async function setUserVipAutoRenew(userId: string, autoRenew: 0 | 1): Promise<void> {
   await db

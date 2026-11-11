@@ -25,7 +25,6 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { EventEmitter } from 'node:events';
-import { Readable } from 'node:stream';
 import type { ChildProcess } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
@@ -55,12 +54,11 @@ vi.mock('node:child_process', async (importOriginal) => {
     ...actual,
     fork: (): ChildProcess => {
       const proc = new EventEmitter() as EventEmitter & Partial<ChildProcess>;
-      // pid 在 ChildProcess 上是 readonly ⇒ 用 Object.assign 一次性写入夹具面
-      Object.assign(proc, { pid: 424_300 + fakes.procs.length });
+      proc.pid = 424_300 + fakes.procs.length;
       proc.send = vi.fn(() => true);
       proc.kill = vi.fn(() => true);
-      proc.stdout = new Readable({ read() {} });
-      proc.stderr = new Readable({ read() {} });
+      proc.stdout = new EventEmitter();
+      proc.stderr = new EventEmitter();
       const full = proc as unknown as ChildProcess;
       fakes.procs.push(full);
       return full;

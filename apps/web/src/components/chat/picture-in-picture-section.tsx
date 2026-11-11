@@ -115,7 +115,7 @@ export function PictureInPictureSection({ conversationId }: { conversationId: st
                 e.stopPropagation()
                 openPipWindow()
               }}
-              className="shrink-0 rounded-sm border border-input px-2 py-0.5 text-label font-medium transition hover:bg-accent"
+              className="shrink-0 rounded-sm border px-2 py-0.5 text-label font-medium transition hover:bg-accent"
             >
               {t('pictureInPicture.openWindow')}
             </button>

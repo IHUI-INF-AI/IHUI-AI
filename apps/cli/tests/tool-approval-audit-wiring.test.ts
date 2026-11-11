@@ -33,7 +33,7 @@ import { fileURLToPath } from 'node:url';
 const { streamChatMock, fetchApiMock, getTokenMock } = vi.hoisted(() => ({
   streamChatMock: vi.fn(),
   fetchApiMock: vi.fn(),
-  getTokenMock: vi.fn<() => string | null>(() => 'test-access-token'),
+  getTokenMock: vi.fn<[], string | null>(() => 'test-access-token'),
 }));
 
 import type * as ApiClient from '@ihui/api-client'
@@ -176,7 +176,7 @@ describe('A 层:上报函数本体', () => {
       toolName: 'run_command',
       route: 'approved',
       // 调用方多塞的东西也必须被丢掉:上报体的参数清单是封闭的,不是"透传整包"
-      ...({ args: DANGEROUS_ARGS, userId: 'someone-else' } as unknown as Record<string, never>),
+      ...({ args: DANGEROUS_ARGS, userId: 'someone-else' } as Record<string, never>),
     });
     const body = bodyOfCall();
     const keys = collectKeys(body);

@@ -107,7 +107,7 @@ describe('G-757 恢复结论的到人出口', () => {
     const scene = seedCrashScene('https://example.com/g757/repo.git');
 
     const stderrLines: string[] = [];
-    vi.spyOn(process.stderr, 'write').mockImplementation(((chunk: unknown) => {
+    const _spy = vi.spyOn(process.stderr, 'write').mockImplementation(((chunk: unknown) => {
       stderrLines.push(String(chunk));
       return true;
     }) as never);

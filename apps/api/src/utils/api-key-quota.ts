@@ -13,7 +13,6 @@
 import { eq, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { apiKeyQuotas } from '@ihui/database'
-import { bizDayStartUtc } from './biz-day.js'
 
 /** 配额检查结果。 */
 export interface QuotaCheckResult {
@@ -49,11 +48,12 @@ function nextHourReset(now: Date = new Date()): Date {
 
 /**
  * 计算下一个自然日零点（天重置点）。
- * RP-23:自然日 = Asia/Shanghai 日界,走 utils/biz-day.ts 唯一出口;
- * 宿主本地 setDate/setHours 在非 +8 时区会把重置点挪到错误的钟点。
  */
 function nextDayReset(now: Date = new Date()): Date {
-  return bizDayStartUtc(-1, now)
+  const next = new Date(now)
+  next.setHours(0, 0, 0, 0)
+  next.setDate(next.getDate() + 1)
+  return next
 }
 
 /**
@@ -111,8 +111,9 @@ export class ApiKeyQuota {
   async recordUsage(apiKeyId: string, cost: number = 1): Promise<void> {
     const now = new Date()
     const nextHour = nextHourReset(now)
-    // 上海今日零点:resetAt 早于它说明跨过自然日,daily 一并重置(RP-23:与 nextDayReset 同口径)
-    const dayStart = bizDayStartUtc(0, now)
+    // 今日零点:resetAt 早于它说明跨过自然日,daily 一并重置
+    const dayStart = new Date(now)
+    dayStart.setHours(0, 0, 0, 0)
     // 2026-08-29 立:raw sql 模板不能直接传 Date —— 本环境(Node 24 + postgres-js
     // 3.4.9)原生 Date 参数序列化抛 ERR_INVALID_ARG_TYPE,必须先转 ISO 字符串
     const nowIso = now.toISOString()
@@ -147,7 +148,8 @@ export class ApiKeyQuota {
 
     const now = new Date()
     const nextHour = nextHourReset(now)
-    const dayStart = bizDayStartUtc(0, now)
+    const dayStart = new Date(now)
+    dayStart.setHours(0, 0, 0, 0)
     // 2026-08-29 立:raw sql 模板不能直接传 Date,先转 ISO 字符串(同 recordUsage)
     const nowIso = now.toISOString()
     const nextHourIso = nextHour.toISOString()
@@ -240,6 +242,4 @@ export class ApiKeyQuota {
     throw new Error('初始化 API Key 配额失败')
   }
 }
-
-export const __test__ = { nextHourReset, nextDayReset }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

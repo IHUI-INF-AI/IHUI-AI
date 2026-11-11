@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
  * check-readme-recent-containment.mjs — README RECENT 块外禁增守门(2026-11-11 立)
@@ -36,8 +35,7 @@
  */
 
 import { execFileSync } from 'node:child_process'
-// 判面层接线(门312 R1):git 二进制解析与工作树读取单源,不在门内自写取材。
-import { readWorktreeFile, gitBinary } from './lib/face-reader.mjs'
+import path from 'node:path'
 
 export const BEGIN = '<!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->'
 export const END = '<!-- END RECENT UPDATES -->'
@@ -83,19 +81,19 @@ export function isDeletionSubsequence(base, sub) {
  * 单文件判定(纯函数,便于 --self-test 红绿对照)。
  * @returns {{verdict:'pass'|'red', detail:string}}
  */
-export function judgePair(headText, stagedText, _file) {
-  const head = headText === null || headText === undefined ? null : String(headText)
-  const staged = stagedText === null || stagedText === undefined ? null : String(stagedText)
+export function judgePair(headText, stagedText, file) {
+  const head = headText == null ? null : String(headText)
+  const staged = stagedText == null ? null : String(stagedText)
 
   // 文件在两个面都不存在 ⇒ 不适用;仅被审面不存在 ⇒ 删除,只缩不长,放行。
-  if (head === null && staged === null) return { verdict: 'pass', detail: '两面部不存在,不适用' }
-  if (staged === null) return { verdict: 'pass', detail: '被审面已删除该文件(只缩不长),放行' }
+  if (head == null && staged == null) return { verdict: 'pass', detail: '两面部不存在,不适用' }
+  if (staged == null) return { verdict: 'pass', detail: '被审面已删除该文件(只缩不长),放行' }
 
-  const headM = head === null ? { status: 'absent' } : locateMarkers(head)
+  const headM = head == null ? { status: 'absent' } : locateMarkers(head)
   const stagM = locateMarkers(staged)
 
   // 新文件(HEAD 无、被审面有):必须自带合法锚点对,否则整份文件都是"块外新增"。
-  if (head === null || headM.status === 'absent') {
+  if (head == null || headM.status === 'absent') {
     if (stagM.status === 'ok') return { verdict: 'pass', detail: '新文件自带合法 BEGIN/END 锚点对' }
     return { verdict: 'red', detail: '新文件不带 RECENT 锚点对 —— 全文都算块外内容,须由 auto-update-readme-recent.mjs 写入口建立锚点' }
   }
@@ -137,12 +135,16 @@ export function judgePair(headText, stagedText, _file) {
 }
 
 function gitRaw(args, root) {
-  return execFileSync(gitBinary(), args, { cwd: root, encoding: 'utf8', maxBuffer: 1 << 30, stdio: ['ignore', 'pipe', 'pipe'] })
+  return execFileSync('git', args, { cwd: root, encoding: 'utf8', maxBuffer: 1 << 30 })
 }
 
 function readFace(root, rel, face) {
   if (face === 'worktree') {
-    return readWorktreeFile(root, rel)
+    try {
+      return readFileSyncLocal(path.join(root, rel))
+    } catch {
+      return null
+    }
   }
   try {
     // staged 面 = 索引 0 阶段 blob(`:0:<rel>`);HEAD 面照写。`git show staged:...` 不是合法对象名。
@@ -151,6 +153,9 @@ function readFace(root, rel, face) {
     return null // show 失败可能是"该面不存在此文件"(删除),也可能是真读不出
   }
 }
+
+// 顶部不引 fs,这里就地引(保持 import 区只有 child_process/path 的轻面)。
+import { readFileSync as readFileSyncLocal } from 'node:fs'
 
 function main(argv) {
   const root = process.cwd()
@@ -214,4 +219,3 @@ function runSelfTest() {
 if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1].replace(/\\/g, '/')}`).href) {
   process.exit(main(process.argv.slice(2)))
 }
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

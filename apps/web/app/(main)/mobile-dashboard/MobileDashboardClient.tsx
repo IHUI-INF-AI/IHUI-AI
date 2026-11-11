@@ -104,7 +104,7 @@ export function MobileDashboardClient() {
             <button
               type="button"
               onClick={() => void refetch()}
-              className="inline-flex items-center gap-1.5 rounded-sm border border-input px-3 py-1.5 text-body hover:bg-muted"
+              className="inline-flex items-center gap-1.5 rounded-sm border px-3 py-1.5 text-body hover:bg-muted"
             >
               <RefreshCw className="h-4 w-4" />
               重试

@@ -79,7 +79,7 @@ async function portReachable(host: string, port: number): Promise<boolean> {
 }
 
 beforeAll(async () => {
-  server = http.createServer((_req, res) => {
+  server = http.createServer((req, res) => {
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
     res.end(fixtureHtml(0))
   })

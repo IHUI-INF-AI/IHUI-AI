@@ -191,7 +191,7 @@ export function ResourceLibrary({ type }: ResourceLibraryProps) {
                   key={record.recordId}
                   type="button"
                   onClick={() => setPreview(record)}
-                  className="space-y-1 rounded-sm border border-input p-2 text-left transition-colors hover:bg-accent"
+                  className="space-y-1 rounded-sm border p-2 text-left transition-colors hover:bg-accent"
                 >
                   <div className="relative flex h-24 items-center justify-center overflow-hidden rounded bg-muted">
                     {record.type === 'image' && record.resultUrl ? (
@@ -225,7 +225,7 @@ export function ResourceLibrary({ type }: ResourceLibraryProps) {
                   type="button"
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={currentPage <= 1}
-                  className="rounded-sm border border-input px-3 py-1 text-body transition-colors hover:bg-accent disabled:opacity-50"
+                  className="rounded-sm border px-3 py-1 text-body transition-colors hover:bg-accent disabled:opacity-50"
                 >
                   {t('prev')}
                 </button>
@@ -233,7 +233,7 @@ export function ResourceLibrary({ type }: ResourceLibraryProps) {
                   type="button"
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={currentPage >= totalPages}
-                  className="rounded-sm border border-input px-3 py-1 text-body transition-colors hover:bg-accent disabled:opacity-50"
+                  className="rounded-sm border px-3 py-1 text-body transition-colors hover:bg-accent disabled:opacity-50"
                 >
                   {t('next')}
                 </button>

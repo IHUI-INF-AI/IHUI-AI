@@ -49,13 +49,7 @@ const exit0 = isWindows ? 'cmd /c exit 0' : "sh -c 'exit 0'";
 process.env.IHUI_TRUST_WORKSPACE = '1';
 
 function fakeTool(name: string): Tool {
-  return {
-    name,
-    description: '',
-    parameters: {},
-    required: [],
-    execute: async () => ({ success: true, output: '' }),
-  };
+  return { name, description: '', parameters: {}, required: [] };
 }
 
 let stderrSpy: ReturnType<typeof vi.spyOn>;
@@ -74,7 +68,7 @@ afterEach(() => {
 
 /** 收集本次出声写到 stderr 的全部文本(出声是本票的核心可见面,必须能断言)。 */
 function stderrText(): string {
-  return stderrSpy.mock.calls.map((call: unknown[]) => String(call[0] ?? '')).join('');
+  return stderrSpy.mock.calls.map((call) => String(call[0] ?? '')).join('');
 }
 
 describe('产品形态能力表(判据单源)', () => {

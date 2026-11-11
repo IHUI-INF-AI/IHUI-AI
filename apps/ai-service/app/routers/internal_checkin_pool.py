@@ -37,9 +37,9 @@ from app.services.checkin_store import POOL_SYNC_OWNER
 router = APIRouter(prefix="/internal/checkin", tags=["checkin-internal"])
 
 # 平台白名单与用户态 /api/checkin 同源(_ACCOUNT_PLATFORMS 的签到面):
-# trae / workbuddy / qoder / minimax / doubao(2026-11-11 增)。
+# trae / workbuddy / qoder / minimax / doubao(2026-11-11 增)/ raccoon(2026-11-11 增)。
 # 映射在 api 侧,这里零映射逻辑。
-_POOL_PLATFORMS = ("trae", "workbuddy", "qoder", "minimax", "doubao")
+_POOL_PLATFORMS = ("trae", "workbuddy", "qoder", "minimax", "doubao", "raccoon")
 
 
 async def _require_internal(request: Request) -> None:

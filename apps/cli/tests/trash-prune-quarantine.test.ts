@@ -42,7 +42,7 @@ function writeManifest(trashId: string, rows: Array<{ flat: string; missing?: bo
       originalPath: path.join(ws, 'origin', r.flat),
       relativeTrashPath: r.flat,
       sizeBytes: null,
-      kind: 'file' as const,
+      kind: 'file',
       ...(r.retentionMs === undefined ? {} : { retentionMs: r.retentionMs }),
     };
   });
