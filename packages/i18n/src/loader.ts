@@ -102,7 +102,9 @@ export function getMessagesForLocale(locale: Locale, messages: Record<Locale, Me
   // BUG-73:选包即登记 ICU 判据语言 —— 非 web 端不往 t() 传 locale,但它们必然
   // 经本函数取当前语言包,这一步就是"在 loader 层按消息包语言兜底透传"的落点。
   // 回落 zh-CN 时登记实际生效的那一门,不登记请求了却未命中的语言。
-  const resolved = messages[locale] ?? messages['zh-CN']
+  // DBG-28:zh-CN 也缺失时兜底空 Messages,保证返回值与标注类型 Messages 一致
+  // (原实现返回 undefined,调用方按 Messages 取键即崩)。
+  const resolved = messages[locale] ?? messages['zh-CN'] ?? {}
   setIcuLocale(messages[locale] ? locale : 'zh-CN')
   return resolved
 }

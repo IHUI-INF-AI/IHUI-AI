@@ -52,8 +52,7 @@
  *   process.on('exit') 在 SIGINT(Ctrl+C)/SIGTERM 时不触发,需要单独监听。
  *   setupRestoreOnExit() 封装 exit + SIGINT + SIGTERM 三种退出路径的还原逻辑。
  */
-// 取材层(Node 26 的 require(esm) 可直接载入 .mjs):绝对 git + stdio 接管 + timeout(守门 193 同款)。
-const { gitRaw } = require('./face-reader.mjs')
+const { execSync, execFileSync } = require('child_process')
 const { appendFileSync, mkdirSync } = require('node:fs')
 const { resolve, dirname } = require('node:path')
 
@@ -68,10 +67,15 @@ function takeStagingSnapshot(options = {}) {
   try {
     // core.quotepath=false: 非 ASCII 路径(如中文)输出原始 UTF-8,而非 octal 转义
     // 避免 replace(/\\/g, '/') 误伤 octal 转义中的反斜杠(如 \344 → /344)
-    const output = gitRaw(
-      ['diff', '--cached', '--name-only', '--diff-filter=ACMR'],
-      cwd,
-      {},
+    const output = execSync(
+      'git -c core.quotepath=false diff --cached --name-only --diff-filter=ACMR',
+      {
+        encoding: 'utf8',
+        cwd,
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
+        windowsHide: true,
+      },
     )
     const snapshot = new Set(
       output
@@ -152,7 +156,14 @@ function writeRestoreLog(result, skipReason, options) {
 function captureIndexIntegrity(options = {}) {
   const cwd = options.cwd || process.cwd()
   const indexFile = process.env.GIT_INDEX_FILE || ''
-  const run = (args, at = cwd) => gitRaw(args, at, {})
+  const run = (args, at = cwd) =>
+    execFileSync('git', args, {
+      encoding: 'utf8',
+      cwd: at,
+      // 不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY(2026-10-04 实测)
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    })
   const countZ = (out) => out.split('\u0000').filter(Boolean).length
   try {
     // 从仓库根统计,避免调用方在子目录时 ls-files 只返回该前缀下的条目而误判“索引为空”
@@ -313,10 +324,15 @@ function restoreStaging(initialSnapshot, options = {}) {
   }
   try {
     // core.quotepath=false: 非 ASCII 路径(如中文)输出原始 UTF-8,而非 octal 转义
-    const currentOutput = gitRaw(
-      ['diff', '--cached', '--name-only', '--diff-filter=ACMR'],
-      cwd,
-      {},
+    const currentOutput = execSync(
+      'git -c core.quotepath=false diff --cached --name-only --diff-filter=ACMR',
+      {
+        encoding: 'utf8',
+        cwd,
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
+        windowsHide: true,
+      },
     )
     const currentStaged = new Set(
       currentOutput
@@ -349,10 +365,14 @@ function restoreStaging(initialSnapshot, options = {}) {
     // 改 execFileSync(argv) ⇒ 无 shell、无引号膨胀;再按 50 个一批切分,避开 OS 命令行上限。
     const UNSTAGE_BATCH = 50
     for (let i = 0; i < addedFiles.length; i += UNSTAGE_BATCH) {
-      gitRaw(
+      execFileSync(
+        'git',
         ['restore', '--staged', '--', ...addedFiles.slice(i, i + UNSTAGE_BATCH)],
-        cwd,
-        {},
+        {
+          stdio: ['ignore', 'ignore', 'inherit'],
+          cwd,
+          windowsHide: true,
+        },
       )
     }
     if (!silent) {
@@ -460,10 +480,15 @@ function auditStagingFiles(options = {}) {
 
   let stagedFiles = []
   try {
-    const output = gitRaw(
-      ['diff', '--cached', '--name-only', '--diff-filter=ACMR'],
-      cwd,
-      {},
+    const output = execSync(
+      'git -c core.quotepath=false diff --cached --name-only --diff-filter=ACMR',
+      {
+        encoding: 'utf8',
+        cwd,
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
+        windowsHide: true,
+      },
     )
     stagedFiles = output
       .split('\n')

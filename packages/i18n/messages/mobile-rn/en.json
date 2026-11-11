@@ -2521,11 +2521,7 @@
     "copySecret": "Copy",
     "secretCopied": "Secret copied to clipboard",
     "rateLimit": "Rate limit",
-    "rateLimitUnit": "req/min",
-    "subtitle": "Manage your developer API keys for third-party app access",
-    "permissionsRequired": "Select at least one permission",
-    "rateLimitPerMinute": "Rate {rateLimit}/min",
-    "callsTotal": "{times} calls in total"
+    "rateLimitUnit": "req/min"
   },
   "devices": {
     "title": "Devices",
@@ -5424,59 +5420,12 @@
     "toast": {
       "runDone": "Patrol finished",
       "resumed": "Resumed",
-      "paused": "Paused",
-      "saveFailed": "Save failed"
+      "paused": "Paused"
     },
     "action": {
       "delete": "Delete",
       "runNow": "Run now",
-      "history": "History",
-      "pause": "Pause",
-      "resume": "Resume",
-      "edit": "Edit",
-      "openConversation": "Open conversation"
-    },
-    "deleteConfirm": {
-      "title": "Delete patrol task",
-      "content": "Delete \"{name}\"? Patrol history will be removed as well. This cannot be undone."
-    },
-    "delete": "Delete",
-    "cancel": "Cancel",
-    "save": "Save",
-    "weekdayMo": "Mon",
-    "weekdayTu": "Tue",
-    "weekdayWe": "Wed",
-    "weekdayTh": "Thu",
-    "weekdayFr": "Fri",
-    "weekdaySa": "Sat",
-    "weekdaySu": "Sun",
-    "form": {
-      "createTitle": "New Patrol Task",
-      "editTitle": "Edit Patrol Task",
-      "desc": "Set patrol type, target and schedule",
-      "name": "Name",
-      "namePlaceholder": "e.g. Daily CI patrol",
-      "patrolType": "Patrol type",
-      "target": "Target",
-      "targetPlaceholder": "e.g. repository URL / page URL / log scope",
-      "prompt": "Additional instructions",
-      "promptPlaceholder": "What to focus on (optional)…",
-      "frequency": "Frequency",
-      "freqHourly": "Hourly",
-      "freqDaily": "Daily",
-      "freqWeekly": "Weekly",
-      "time": "Time",
-      "weekdays": "Days of week",
-      "rrule": "Schedule (RRULE)",
-      "rrulePlaceholder": "FREQ=DAILY;BYHOUR=9;BYMINUTE=0",
-      "errName": "Please enter a name",
-      "errDays": "Please select at least one day",
-      "errRrule": "Please enter a schedule"
-    },
-    "runs": {
-      "title": "Patrol history",
-      "empty": "No patrol runs yet",
-      "loading": "Loading…"
+      "history": "History"
     }
   },
   "selfHealing": {
@@ -7633,27 +7582,7 @@
       "eraseCard": "Data Erasure"
     },
     "groups": {
-      "addMember": "Add member",
-      "allGroups": "All groups",
-      "confirmDelete": "Delete this group?",
-      "createGroup": "Create Group",
-      "createdAt": "Created at",
-      "custom": "Custom",
-      "delete": "Delete",
-      "deleteTitle": "Delete group",
-      "description": "Description",
-      "edit": "Edit",
-      "empty": "No groups yet. Create your first group",
-      "error": "Failed",
-      "groupName": "Group name",
-      "groupNameRequired": "Group name is required",
-      "memberList": "Members",
-      "members": "Members",
-      "membersUnavailable": "The backend exposes no member list endpoint, so only the member count is shown.",
-      "owner": "Owner",
-      "save": "Save",
-      "title": "My Groups",
-      "userId": "User ID"
+      "title": "My Groups"
     },
     "stt": {
       "error": "Failed"

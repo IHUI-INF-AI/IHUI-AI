@@ -145,6 +145,9 @@ export const TENANT_BYPASS_PREFIX_PATHS: readonly string[] = [
   '/api/ai/callback',
   // 信源入口:同 ai-callback 属"机器回调",调用方不携带租户头(带 HMAC 签名);只放完整路径。
   '/api/webhooks/github',
+  // RP-40 超工 webhook 回调落账:同为机器回调(HMAC 验签),只放该端点前缀,
+  // 不顺带放过 /api/super-agent/ 其余需登录面。
+  '/api/super-agent/webhook-callback/',
   '/api/tbox/events',
   '/api/csrf-token',
   '/api/configs',

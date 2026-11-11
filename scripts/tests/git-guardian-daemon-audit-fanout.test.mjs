@@ -155,9 +155,17 @@ const TICK_REQUIRED = [
   'dispatchE2eAutofill',
   'dispatchGateRot',
   'dispatchRelayCapacity',
-  // B 档 7 条(auditMergeAdditionLoss / dispatchGuardMail / ensureGuardDaemonAlive / ensureS4u /
-  // refreshRecoverySource / reportBaselineFreshness / rotateRunLogs)按票面不搬,不进本清单;
-  // healRefs 只在 tick 面(T2 要求双在),也不进。理由逐条钉在 git-guardian.mjs:13576 挂点旁。
+  // ── P11/RP-74 收尾(2026-11-11):第二批已搬 tick 的 4 面同批补进本表 —— 搬腿必须同批扩表,
+  // 否则 T1 拦不住"日后谁把它从 tick 摘回去"。tick 面挂点见 git-guardian.mjs「第二批
+  // (2026-11-07 补搬)」注释:这 4 枚原属 B 档,因"调用点补 legThrottle 戳后才敢上常驻面"
+  // 已双在(main 挂点一枚未动)⇒ 不再算未搬面。
+  'auditMergeAdditionLoss',
+  'refreshRecoverySource',
+  'rotateRunLogs',
+  'reportBaselineFreshness',
+  // B 档现余 3 面未搬(dispatchGuardMail 单轮 ≥5 分钟 / ensureGuardDaemonAlive 重启服务 /
+  // ensureS4u 真换口令),按票面不进本清单;healRefs 只在 tick 面(T2 要求双在),也不进。
+  // 理由逐条钉在 git-guardian.mjs 的「刻意不搬的 3 枚」挂点旁。
 ]
 
 const src = readFileSync(GUARDIAN_SRC, 'utf8')

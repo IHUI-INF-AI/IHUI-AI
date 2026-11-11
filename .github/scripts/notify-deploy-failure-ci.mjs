@@ -101,7 +101,7 @@ const escapeHtml = (s) =>
 
 const subject = `【智汇通报】部署失败 — ${environment}`
 const html = `<!doctype html>
-<html><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei','Noto Sans SC',sans-serif;color:#111">
+<html><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#111">
   <h2 style="color:#b42318;margin:0 0 12px">部署失败告警</h2>
   <p style="margin:0 0 16px">CI 部署工作流在 <strong>${escapeHtml(environment)}</strong> 环境失败。</p>
   <table cellpadding="6" cellspacing="0" style="border-collapse:collapse;font-size:14px">

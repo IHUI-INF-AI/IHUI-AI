@@ -32,7 +32,7 @@ vi.mock('node:child_process', async (importOriginal) => {
 
 vi.mock('node:fs', async (importOriginal) => {
   const actual = await importOriginal<typeof FsModule>();
-  const readFile = (async (p: unknown) => {
+  const readFile = (async (p: unknown, opts?: unknown) => {
     if (h.keyPath && String(p) === h.keyPath) {
       h.keyReads += 1;
       // 第 1 次是"有没有旧封套"⇒ ENOENT 走新建;第 2 次是"刚写下的那份"⇒ 读不到
@@ -41,7 +41,7 @@ vi.mock('node:fs', async (importOriginal) => {
       err.code = code;
       throw err;
     }
-    return actual.promises.readFile(p as never);
+    return actual.promises.readFile(p as never, opts as never);
   }) as typeof actual.promises.readFile;
   return { ...actual, promises: { ...actual.promises, readFile } };
 });

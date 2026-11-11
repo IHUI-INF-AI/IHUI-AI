@@ -16,14 +16,45 @@
 //      但存在窗口期,对方一写就前功尽弃;
 //   ③ 私有 index 全程零接触共享面 ⇒ 无论对方怎么写暂存区,都不影响本提交。
 //
-// 用法:node .ihui-agent/tmp/commit-with-private-index.mjs <msgFile> <file...>
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+// 用法:node scripts/lib/commit-with-private-index.mjs <msgFile> <file...>
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { dirname, isAbsolute, join, resolve } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { batchExecFileSync, gitBinary } from './face-reader.mjs'
 import { advanceSharedIndexPaths, treeSignatures } from './shared-index-advance.mjs'
 
-const GITDIR = 'D:/IHUI-AI-git-repo'
-const REPO = 'D:/IHUI-AI'
+/**
+ * DBG-95:仓根由脚本位置推导(scripts/lib → 仓根),不得写死盘符 ——
+ * 同一份仓在 `G:/` 与 `D:/` 都存活过(§5b),写死会把每次 git 调用的 `-C` 钉到错误仓。
+ * @param {string} metaUrl 通常传 import.meta.url
+ */
+export function repoRootFromHere(metaUrl) {
+  return resolve(dirname(fileURLToPath(metaUrl)), '..', '..')
+}
+
+export const REPO = repoRootFromHere(import.meta.url)
+
+/**
+ * DBG-95:真 gitdir 现读工作树 `.git`,绝不写死 `*-git-repo` 目录名。
+ * `.git` 目录 ⇒ 其自身;`gitdir: <路径>` 指针文件 ⇒ 按指针解析(相对指针以工作树为基);
+ * 缺失/读不成 ⇒ 回退 `<repo>/.git`。
+ * @param {string} repo
+ */
+export function gitDirFromRepo(repo) {
+  const dotGit = join(repo, '.git')
+  try {
+    if (existsSync(dotGit) && statSync(dotGit).isDirectory()) return resolve(dotGit)
+    const firstLine = readFileSync(dotGit, 'utf8').split('\n')[0].trim()
+    const m = firstLine.match(/^gitdir:\s*(.+)$/)
+    if (m) {
+      const cand = m[1].trim()
+      return isAbsolute(cand) ? resolve(cand) : resolve(repo, cand)
+    }
+  } catch {
+    /* 读失败走统一回退,不在这里冒充判成了别的落点 */
+  }
+  return resolve(dotGit)
+}
 
 /**
  * 派生 git 一律走取材层(AGENTS §5b「git 调用不得依赖环境」;face-reader 的型 A 棘轮把
@@ -66,38 +97,6 @@ function gitTry(args, env = process.env) {
   }
 }
 
-const [msgFile, ...files] = process.argv.slice(2)
-if (!msgFile || !files.length) {
-  console.error('用法:node commit-with-private-index.mjs <msgFile> <file...>')
-  process.exit(2)
-}
-
-const privIndex = join(GITDIR, `tmp-privindex-${process.pid}-${Date.now()}`)
-
-// 清掉可能残留的上一次私有 index(只碰自己命名空间里的 tmp-privindex-*,不碰共享面)
-for (const stale of ['tmp-privindex-prev']) {
-  const p = join(GITDIR, stale)
-  if (existsSync(p)) rmSync(p, { force: true })
-}
-
-const env = { ...process.env, GIT_INDEX_FILE: privIndex }
-
-/**
- * 私有 GIT_DIR 叠层(2026-11-04 立,治共享 `.git/COMMIT_EDITMSG` 并发串号)。
- *
- * `-F <本席文件>` **不能**阻止串号:git 在 commit-msg 钩子之后会**再读一次**
- * `$GIT_DIR/COMMIT_EDITMSG`,而这个文件在共用工作区里只有一份 —— 别席一提交,内容就换成他的,
- * 本席这枚提交的 subject 于是变成别人的标题(26bc403762 / 67ed343 实测)。
- * 这里给子 git 一份**只属于本席**的 GIT_DIR(`commondir` 指回真 gitdir,refs/objects/config
- * 仍然共享,只隔离 per-worktree 元数据),COMMIT_EDITMSG 只落在本席目录里,别人够不到。
- */
-const privGitDir = `${privIndex}.gitdir`
-rmSync(privGitDir, { recursive: true, force: true })
-mkdirSync(privGitDir, { recursive: true })
-writeFileSync(join(privGitDir, 'HEAD'), readFileSync(join(GITDIR, 'HEAD'), 'utf8'))
-writeFileSync(join(privGitDir, 'commondir'), `${GITDIR}\n`)
-const privCommitEnv = { ...env, GIT_DIR: privGitDir, GIT_WORK_TREE: REPO }
-
 /** `%s` 语义:第一段逐行 trim、跳过 `#` 注释行、以单空格连接(与 git format_subject 同形)。 */
 function subjectOf(text) {
   const out = []
@@ -113,116 +112,169 @@ function subjectOf(text) {
   return out.join(' ')
 }
 
-try {
-  // ① 私有 index 从 HEAD 造 ⇒ 起点就是"什么都没改",不继承共享暂存区的任何东西
-  const r0 = gitTry(['read-tree', 'HEAD'], env)
-  if (r0.err) {
-    console.error(`❌ 私有 index 初始化失败:${r0.err.split('\n')[0]}`)
-    process.exit(1)
+/**
+ * DBG-95:提交流程只在 CLI 直跑时执行(见文末 isDirectRun 守卫)。
+ * 旧形态整个流程裸写在模块顶层 ⇒ 任何 `import()` 都会按宿主 argv 真跑一次提交,
+ * 末尾 `process.exit` 还会劫持调用方进程。现在被 import 时一个 git 调用都不发。
+ */
+async function main() {
+  const [msgFile, ...files] = process.argv.slice(2)
+  if (!msgFile || !files.length) {
+    console.error('用法:node scripts/lib/commit-with-private-index.mjs <msgFile> <file...>')
+    process.exit(2)
   }
 
-  // ② 只加自己声明的文件(逐个 add,不用 pathspec 提交,故不受 128 pathspec 那个坑)
-  const added = []
-  const failed = []
-  for (const f of files) {
-    const r = gitTry(['add', '-A', '--', f], env)
-    if (r.err) failed.push(`${f} :: ${r.err.split('\n')[0]}`)
-    else added.push(f)
-  }
-  if (failed.length) {
-    console.error(`❌ 有 ${failed.length} 个文件未能加入私有 index:`)
-    for (const x of failed) console.error('   ' + x)
-    process.exit(1)
+  const GITDIR = gitDirFromRepo(REPO)
+  const privIndex = join(GITDIR, `tmp-privindex-${process.pid}-${Date.now()}`)
+
+  // 清掉可能残留的上一次私有 index(只碰自己命名空间里的 tmp-privindex-*,不碰共享面)
+  for (const stale of ['tmp-privindex-prev']) {
+    const p = join(GITDIR, stale)
+    if (existsSync(p)) rmSync(p, { force: true })
   }
 
-  // ③ 校验私有 index 逐字等于声明面(本仓铁律:提交面必须自己验过,不能想当然)
-  const staged = git(['-c', 'core.quotePath=false', 'diff', '--cached', '--name-only', '--no-renames'], env)
-    .split('\n')
-    .filter(Boolean)
-    .sort()
-  const want = files.slice().sort()
-  if (staged.join('|') !== want.join('|')) {
-    console.error('❌ 私有 index 内容与声明面不一致,拒绝提交(宁可不出手也不投错面)')
-    console.error('   实际:' + JSON.stringify(staged))
-    console.error('   声明:' + JSON.stringify(want))
-    process.exit(1)
-  }
-  console.log(`✅ 私有 index 就绪(${staged.length} 个):${staged.join(', ')}`)
+  const env = { ...process.env, GIT_INDEX_FILE: privIndex }
 
-  // ④ 读共享暂存区当前面,仅用于事后报告"我们全程没碰过它"
-  const before = gitTry(['-c', 'core.quotePath=false', 'diff', '--cached', '--name-only', '--no-renames'])
-  const beforeN = before.ok ? before.ok.split('\n').filter(Boolean).length : 0
-
-  // ④b 留住本席声明路径在**父提交树**里的签名 —— 后置推进按它判"他席是否在窗口内动过同一路径"
-  //      (红线 C:动过就只报数,不覆盖)。刻意不用"提交那一刻共享索引的现值":别席若在我提交前
-  //      就已 staged 同一路径,他的内容会变成我的"期望值"而被当成没动过、直接覆盖。
-  const headBefore = git(['rev-parse', 'HEAD'])
-  const beforeSig = treeSignatures({ gitCwd: REPO, sha: headBefore, paths: files })
-
-  // ⑤ 提交(不带 pathspec:pathspec 会另设 GIT_INDEX_FILE 指向临时 index,
-  //    与我们这份私有 index 打架,且删除类路径必然 128)
-  let out = ''
-  let code = 0
-  try {
-    out = git(['commit', '-F', msgFile], privCommitEnv)
-    code = 0
-  } catch (e) {
-    out = ((e?.stdout ?? '') + (e?.stderr ?? '')).toString()
-    code = e?.status ?? 1
-  }
-
-  // ⑤b 提交后自证:回读 `%s`,与**本席写进消息文件的那一行**逐字比对。
-  //     不一致 ⇒ 立即上报,绝不 amend(多席在途时改写会丢别人的工作)。
-  if (code === 0) {
-    const expectedSubject = subjectOf(readFileSync(msgFile, 'utf8'))
-    const gotSubject = git(['log', '-1', '--format=%s', 'HEAD'])
-    if (gotSubject !== expectedSubject) {
-      console.error('❗ 提交已落地,但 subject 与本席写入不一致(疑似 COMMIT_EDITMSG 并发串号):')
-      console.error(`  want=${JSON.stringify(expectedSubject)}`)
-      console.error(`  got =${JSON.stringify(gotSubject)}`)
-      console.error('  按硬线停止:不改写、不 amend;请登记勘误台账后上报。')
-      code = 1
-    } else {
-      console.log(`✅ subject 回读一致:${gotSubject}`)
-    }
-  }
-
-  const after = gitTry(['-c', 'core.quotePath=false', 'diff', '--cached', '--name-only', '--no-renames'])
-  const afterN = after.ok ? after.ok.split('\n').filter(Boolean).length : 0
-
-  // ⑥ 后置:把本席声明路径在共享索引里推进到新提交树(唯一实现 = shared-index-advance.mjs)。
-  //    不做这一步,提交后这些路径在共享索引里停在父树,`git status` 呈 MM —— 谁下一条裸
-  //    `git commit` 就会把旧 blob 带回去(本仓历史上的同一个根)。
-  if (code === 0) {
-    const sha = git(['rev-parse', 'HEAD'])
-    const adv = advanceSharedIndexPaths({
-      gitCwd: REPO,
-      committedSha: sha,
-      paths: files,
-      expectBefore: beforeSig.size ? beforeSig : undefined,
-    })
-    console.log(
-      adv.ok
-        ? `↺ 共享索引已推进(${adv.advanced.length} 条,仅本席路径):${adv.advanced.join(', ')}`
-        : `⚠️ 共享索引未推进(${adv.reason ?? 'unknown'}),只报数不覆盖:${adv.skipped.join(', ') || '-'}`,
-    )
-  }
-
-  console.log(`\n=== 提交结果:exit ${code} ===`)
-  console.log(
-    out
-      .split('\n')
-      .filter((l) => l.trim())
-      .slice(-12)
-      .join('\n'),
-  )
-  console.log(`\n共享暂存区:提交前 ${beforeN} 个 → 提交后 ${afterN} 个(我们全程未接触,数字变化来自对方会话)`)
-  console.log(`新 HEAD: ${git(['rev-parse', '--short', 'HEAD'])}`)
-  process.exit(code)
-} finally {
-  // 私有 index / 私有 gitdir 是我们自己的临时物,清掉;共享面一概不动
-  if (existsSync(privIndex)) rmSync(privIndex, { force: true })
+  /**
+   * 私有 GIT_DIR 叠层(2026-11-04 立,治共享 `.git/COMMIT_EDITMSG` 并发串号)。
+   *
+   * `-F <本席文件>` **不能**阻止串号:git 在 commit-msg 钩子之后会**再读一次**
+   * `$GIT_DIR/COMMIT_EDITMSG`,而这个文件在共用工作区里只有一份 —— 别席一提交,内容就换成他的,
+   * 本席这枚提交的 subject 于是变成别人的标题(26bc403762 / 67ed343 实测)。
+   * 这里给子 git 一份**只属于本席**的 GIT_DIR(`commondir` 指回真 gitdir,refs/objects/config
+   * 仍然共享,只隔离 per-worktree 元数据),COMMIT_EDITMSG 只落在本席目录里,别人够不到。
+   */
+  const privGitDir = `${privIndex}.gitdir`
   rmSync(privGitDir, { recursive: true, force: true })
-  writeFileSync('.ihui-agent/tmp/last-private-index.txt', privIndex, 'utf8')
+  mkdirSync(privGitDir, { recursive: true })
+  writeFileSync(join(privGitDir, 'HEAD'), readFileSync(join(GITDIR, 'HEAD'), 'utf8'))
+  writeFileSync(join(privGitDir, 'commondir'), `${GITDIR}\n`)
+  const privCommitEnv = { ...env, GIT_DIR: privGitDir, GIT_WORK_TREE: REPO }
+
+  try {
+    // ① 私有 index 从 HEAD 造 ⇒ 起点就是"什么都没改",不继承共享暂存区的任何东西
+    const r0 = gitTry(['read-tree', 'HEAD'], env)
+    if (r0.err) {
+      console.error(`❌ 私有 index 初始化失败:${r0.err.split('\n')[0]}`)
+      process.exit(1)
+    }
+
+    // ② 只加自己声明的文件(逐个 add,不用 pathspec 提交,故不受 128 pathspec 那个坑)
+    const added = []
+    const failed = []
+    for (const f of files) {
+      const r = gitTry(['add', '-A', '--', f], env)
+      if (r.err) failed.push(`${f} :: ${r.err.split('\n')[0]}`)
+      else added.push(f)
+    }
+    if (failed.length) {
+      console.error(`❌ 有 ${failed.length} 个文件未能加入私有 index:`)
+      for (const x of failed) console.error('   ' + x)
+      process.exit(1)
+    }
+
+    // ③ 校验私有 index 逐字等于声明面(本仓铁律:提交面必须自己验过,不能想当然)
+    const staged = git(['-c', 'core.quotePath=false', 'diff', '--cached', '--name-only', '--no-renames'], env)
+      .split('\n')
+      .filter(Boolean)
+      .sort()
+    const want = files.slice().sort()
+    if (staged.join('|') !== want.join('|')) {
+      console.error('❌ 私有 index 内容与声明面不一致,拒绝提交(宁可不出手也不投错面)')
+      console.error('   实际:' + JSON.stringify(staged))
+      console.error('   声明:' + JSON.stringify(want))
+      process.exit(1)
+    }
+    console.log(`✅ 私有 index 就绪(${staged.length} 个):${staged.join(', ')}`)
+
+    // ④ 读共享暂存区当前面,仅用于事后报告"我们全程没碰过它"
+    const before = gitTry(['-c', 'core.quotePath=false', 'diff', '--cached', '--name-only', '--no-renames'])
+    const beforeN = before.ok ? before.ok.split('\n').filter(Boolean).length : 0
+
+    // ④b 留住本席声明路径在**父提交树**里的签名 —— 后置推进按它判"他席是否在窗口内动过同一路径"
+    //      (红线 C:动过就只报数,不覆盖)。刻意不用"提交那一刻共享索引的现值":别席若在我提交前
+    //      就已 staged 同一路径,他的内容会变成我的"期望值"而被当成没动过、直接覆盖。
+    const headBefore = git(['rev-parse', 'HEAD'])
+    const beforeSig = treeSignatures({ gitCwd: REPO, sha: headBefore, paths: files })
+
+    // ⑤ 提交(不带 pathspec:pathspec 会另设 GIT_INDEX_FILE 指向临时 index,
+    //    与我们这份私有 index 打架,且删除类路径必然 128)
+    let out = ''
+    let code = 0
+    try {
+      out = git(['commit', '-F', msgFile], privCommitEnv)
+      code = 0
+    } catch (e) {
+      out = ((e?.stdout ?? '') + (e?.stderr ?? '')).toString()
+      code = e?.status ?? 1
+    }
+
+    // ⑤b 提交后自证:回读 `%s`,与**本席写进消息文件的那一行**逐字比对。
+    //     不一致 ⇒ 立即上报,绝不 amend(多席在途时改写会丢别人的工作)。
+    if (code === 0) {
+      const expectedSubject = subjectOf(readFileSync(msgFile, 'utf8'))
+      const gotSubject = git(['log', '-1', '--format=%s', 'HEAD'])
+      if (gotSubject !== expectedSubject) {
+        console.error('❗ 提交已落地,但 subject 与本席写入不一致(疑似 COMMIT_EDITMSG 并发串号):')
+        console.error(`  want=${JSON.stringify(expectedSubject)}`)
+        console.error(`  got =${JSON.stringify(gotSubject)}`)
+        console.error('  按硬线停止:不改写、不 amend;请登记勘误台账后上报。')
+        code = 1
+      } else {
+        console.log(`✅ subject 回读一致:${gotSubject}`)
+      }
+    }
+
+    const after = gitTry(['-c', 'core.quotePath=false', 'diff', '--cached', '--name-only', '--no-renames'])
+    const afterN = after.ok ? after.ok.split('\n').filter(Boolean).length : 0
+
+    // ⑥ 后置:把本席声明路径在共享索引里推进到新提交树(唯一实现 = shared-index-advance.mjs)。
+    //    不做这一步,提交后这些路径在共享索引里停在父树,`git status` 呈 MM —— 谁下一条裸
+    //    `git commit` 就会把旧 blob 带回去(本仓历史上的同一个根)。
+    if (code === 0) {
+      const sha = git(['rev-parse', 'HEAD'])
+      const adv = advanceSharedIndexPaths({
+        gitCwd: REPO,
+        committedSha: sha,
+        paths: files,
+        expectBefore: beforeSig.size ? beforeSig : undefined,
+      })
+      console.log(
+        adv.ok
+          ? `↺ 共享索引已推进(${adv.advanced.length} 条,仅本席路径):${adv.advanced.join(', ')}`
+          : `⚠️ 共享索引未推进(${adv.reason ?? 'unknown'}),只报数不覆盖:${adv.skipped.join(', ') || '-'}`,
+      )
+    }
+
+    console.log(`\n=== 提交结果:exit ${code} ===`)
+    console.log(
+      out
+        .split('\n')
+        .filter((l) => l.trim())
+        .slice(-12)
+        .join('\n'),
+    )
+    console.log(`\n共享暂存区:提交前 ${beforeN} 个 → 提交后 ${afterN} 个(我们全程未接触,数字变化来自对方会话)`)
+    console.log(`新 HEAD: ${git(['rev-parse', '--short', 'HEAD'])}`)
+    process.exit(code)
+  } finally {
+    // 私有 index / 私有 gitdir 是我们自己的临时物,清掉;共享面一概不动
+    if (existsSync(privIndex)) rmSync(privIndex, { force: true })
+    rmSync(privGitDir, { recursive: true, force: true })
+    writeFileSync(join(REPO, '.ihui-agent', 'tmp', 'last-private-index.txt'), privIndex, 'utf8')
+  }
 }
+
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+// AGENTS §22d 双形态入口守卫(DBG-95):只有 CLI 直跑才执行提交流程,被 import 时**绝不**发一次 git 调用
+// (本器默认动作是构造私有 index 并 commit,被 import 就跑 = 在测试进程里做提交,末尾 exit 还会劫持宿主)。
+if (isDirectRun) {
+  main().catch((e) => {
+    console.error(`❌ ${e?.message ?? e}\n${e?.stack ?? ''}`)
+    process.exit(2)
+  })
+}
+
+export const __test__ = { REPO, repoRootFromHere, gitDirFromRepo }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -20,6 +20,7 @@ user_uuid 是 ai-service 本地稳定标识,签发的 JWT 以它作 sub/userId/f
 - 线程安全:threading.Lock 串行化所有连接访问,check_same_thread=False
   (find_or_create 全程持锁,SELECT→INSERT 无进程内竞态);
 - 幂等:UNIQUE(provider, subject) 约束,存在即更新返回;
+  跨进程首登并发若撞上该约束,回滚后重读已有行并继续更新,不把冲突抛成失败;
 - db 路径模块级惰性单例、可注入(默认 data/sso_identities.db,目录自建),
   测试用 set_db_path(tmp_path / ...) 隔离;
 - 仅同步 API(无 async),符合本仓"同步 sqlite 函数被 async 路由直接调用"
@@ -28,12 +29,15 @@ user_uuid 是 ai-service 本地稳定标识,签发的 JWT 以它作 sub/userId/f
 
 from __future__ import annotations
 
+import logging
 import sqlite3
 import threading
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 # ==================== 常量 ====================
 
@@ -107,6 +111,68 @@ def _get_conn() -> sqlite3.Connection:
 # ==================== 核心 API ====================
 
 
+def _rollback_if_open(conn: sqlite3.Connection) -> None:
+    """事务还开着才回滚。
+
+    COMMIT 已经成功,或语句错误已经让 SQLite 结束事务之后,再执行 ROLLBACK
+    会抛 OperationalError("cannot rollback - no transaction is active")。
+    这个新异常从 except 里冒出去,会盖住 try 中的真实错误。
+    """
+    if conn.in_transaction:
+        conn.execute("ROLLBACK")
+
+
+def _select_identity(
+    conn: sqlite3.Connection, provider: str, subject: str
+) -> sqlite3.Row | None:
+    row = conn.execute(
+        "SELECT id, user_uuid FROM sso_identities WHERE provider=? AND subject=?",
+        (provider, subject),
+    ).fetchone()
+    if not isinstance(row, sqlite3.Row):
+        return None
+    return row
+
+
+def _touch_existing(
+    conn: sqlite3.Connection,
+    row: sqlite3.Row,
+    email: str,
+    name: str,
+    now: str,
+) -> None:
+    """把已有映射的 email/name 刷成本次登录值。"""
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        conn.execute(
+            "UPDATE sso_identities SET email=?, name=?, updated_at=? WHERE id=?",
+            (email, name, now, row["id"]),
+        )
+        conn.execute("COMMIT")
+    except BaseException:
+        _rollback_if_open(conn)
+        raise
+
+
+def _identity_view(
+    *,
+    user_uuid: str,
+    created: bool,
+    provider: str,
+    subject: str,
+    email: str,
+    name: str,
+) -> dict[str, Any]:
+    return {
+        "user_uuid": user_uuid,
+        "created": created,
+        "provider": provider,
+        "subject": subject,
+        "email": email,
+        "name": name,
+    }
+
+
 def find_or_create_identity(
     provider: str, subject: str, email: str, name: str
 ) -> dict[str, Any]:
@@ -114,6 +180,9 @@ def find_or_create_identity(
 
     JIT 语义:外部 IdP 首次登录(无本地映射行)即建号生成 user_uuid,
     无需预置账号;再次登录复用同一 user_uuid(created=False)。
+    跨进程并发首登若在 SELECT 之后、INSERT 之前被别的进程插入同一
+    (provider, subject),UNIQUE 冲突不向上抛:回滚后重读那一行,刷成
+    本次 email/name,并按复用身份返回(created=False),调用方照常签发。
 
     返回:
         {"user_uuid": str, "created": bool,
@@ -124,30 +193,17 @@ def find_or_create_identity(
     now = _now_iso()
     conn = _get_conn()
     with _lock:
-        row = conn.execute(
-            "SELECT id, user_uuid FROM sso_identities "
-            "WHERE provider=? AND subject=?",
-            (provider, subject),
-        ).fetchone()
+        row = _select_identity(conn, provider, subject)
         if row is not None:
-            conn.execute("BEGIN IMMEDIATE")
-            try:
-                conn.execute(
-                    "UPDATE sso_identities SET email=?, name=?, updated_at=? WHERE id=?",
-                    (email, name, now, row["id"]),
-                )
-                conn.execute("COMMIT")
-            except BaseException:
-                conn.execute("ROLLBACK")
-                raise
-            return {
-                "user_uuid": str(row["user_uuid"]),
-                "created": False,
-                "provider": provider,
-                "subject": subject,
-                "email": email,
-                "name": name,
-            }
+            _touch_existing(conn, row, email, name, now)
+            return _identity_view(
+                user_uuid=str(row["user_uuid"]),
+                created=False,
+                provider=provider,
+                subject=subject,
+                email=email,
+                name=name,
+            )
         user_uuid = str(uuid.uuid4())
         conn.execute("BEGIN IMMEDIATE")
         try:
@@ -158,17 +214,36 @@ def find_or_create_identity(
                 (provider, subject, email, name, user_uuid, now, now),
             )
             conn.execute("COMMIT")
+        except sqlite3.IntegrityError:
+            _rollback_if_open(conn)
+            raced = _select_identity(conn, provider, subject)
+            if raced is None:
+                raise
+            logger.info(
+                "sso 首登并发撞上已有身份,改为复用: provider=%s subject=%s",
+                provider,
+                subject,
+            )
+            _touch_existing(conn, raced, email, name, now)
+            return _identity_view(
+                user_uuid=str(raced["user_uuid"]),
+                created=False,
+                provider=provider,
+                subject=subject,
+                email=email,
+                name=name,
+            )
         except BaseException:
-            conn.execute("ROLLBACK")
+            _rollback_if_open(conn)
             raise
-        return {
-            "user_uuid": user_uuid,
-            "created": True,
-            "provider": provider,
-            "subject": subject,
-            "email": email,
-            "name": name,
-        }
+        return _identity_view(
+            user_uuid=user_uuid,
+            created=True,
+            provider=provider,
+            subject=subject,
+            email=email,
+            name=name,
+        )
 
 
 # ==================== 清理(可选,测试/关闭钩子) ====================

@@ -40,7 +40,7 @@
 
 /* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
 
-import { gitRaw } from './lib/face-reader.mjs'
+import { execFileSync } from 'node:child_process'
 import {
   existsSync,
   lstatSync,
@@ -117,8 +117,12 @@ export function parseWorktreePorcelain(text) {
  * `D:/IHUI-AI-git-repo`),漏掉它会把主树自己的正确链接误判成违规。
  */
 export function listScanRoots(repoRoot = ROOT) {
-  // 走统一承载层(门 193):裸 'git' 依赖 PATH —— 服务账户 / GUI 宿主下取不到,失败是静默的。
-  const text = gitRaw(['worktree', 'list', '--porcelain'], repoRoot, { timeout: 30_000 })
+  const text = execFileSync('git', ['-C', repoRoot, 'worktree', 'list', '--porcelain'], {
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 30_000,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
   const entries = parseWorktreePorcelain(text)
   const seen = new Set(entries.map((e) => normalizePath(e.path)))
   const self = normalizePath(repoRoot)

@@ -977,7 +977,7 @@ describe('POST /api/chat/compact — API 端手动压缩上下文', () => {
       expect(opts.customSummary).toBe('手动压缩语义摘要')
       // 压缩结果原子性持久化(replaceMessages);归档走旁路(db mock 失败仅 console.warn 不阻塞)
       expect(vi.mocked(replaceMessages)).toHaveBeenCalledTimes(1)
-      expect(vi.mocked(replaceMessages)).toHaveBeenCalledWith(CONV_ID, compressedMessages)
+      expect(vi.mocked(replaceMessages)).toHaveBeenCalledWith(CONV_ID, compressedMessages, USER_ID)
     } finally {
       restore()
     }

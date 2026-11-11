@@ -6,6 +6,7 @@
 
 APScheduler AsyncIOScheduler 实现 cron/date/interval 三种触发器,
 任务持久化到 Redis hash(TTL 30d),Redis 不可用降级内存,未配置 redis_url 时 stub。
+未带时区的触发时刻按 Asia/Shanghai 解释;同一触发点用 Redis SET NX 只执行一次。
 """
 from __future__ import annotations
 
@@ -18,8 +19,9 @@ import signal
 import subprocess
 import uuid
 from collections.abc import Awaitable
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta, tzinfo
 from typing import Any, cast
+from zoneinfo import ZoneInfo
 
 import httpx
 import redis.asyncio as aioredis
@@ -36,6 +38,20 @@ _REDIS_KEY_PREFIX = "mcp:scheduled_task:"
 _REDIS_LOG_PREFIX = "mcp:scheduled_task_log:"
 _REDIS_TTL_SECONDS = 30 * 24 * 3600  # 30d
 _LOG_KEEP = 50
+
+# 与 checkin_scheduler._CN_TZ 同写法(ZoneInfo;APScheduler 3.x 接受 stdlib tzinfo)。
+# 用户没写时区的「本地 9 点」按 Asia/Shanghai 解释;调度器停在 UTC 时会在北京 17 点响。
+_CN_TZ = ZoneInfo("Asia/Shanghai")
+
+# 同一任务、同一触发点的抢占键。SET NX EX,与 workspace_lock / 内部回放票据同一原语。
+# 抢到不释放:慢一拍的进程不能在锁过期前把这一拍再跑一遍。
+_REDIS_FIRE_PREFIX = "mcp:scheduled_task_fire:"
+_FIRE_LOCK_TTL_SECONDS = 6 * 3600
+# 进程时钟相差几秒、或卡在整点两侧时,仍要把这一拍算成同一个触发点。
+_FIRE_SKEW = timedelta(seconds=5)
+_SLOT_LOOKBACK = timedelta(hours=2)
+_SLOT_WALK_CAP = 20000
+_SLOT_ANCHOR = datetime(2000, 1, 1)
 
 _VALID_TRIGGER_TYPES = ("cron", "date", "interval")
 
@@ -65,32 +81,166 @@ _CRON_FIELDS = {
 _INTERVAL_FIELDS = {"seconds", "minutes", "hours", "days"}
 
 
+def _now(tz: tzinfo | None = None) -> datetime:
+    if tz is None:
+        return datetime.now(UTC)
+    return datetime.now(tz)
+
+
 def _now_iso() -> str:
-    return datetime.now(UTC).isoformat()
+    return _now().isoformat()
+
+
+def _trigger_timezone(trigger_config: dict[str, Any]) -> ZoneInfo:
+    """未带时区 → Asia/Shanghai;显式 IANA 名则照用。非法名抛 ValueError。"""
+    raw = trigger_config.get("timezone")
+    if raw is None or (isinstance(raw, str) and raw.strip() == ""):
+        return _CN_TZ
+    if not isinstance(raw, str):
+        raise ValueError(f"无效 timezone: {raw!r}")
+    name = raw.strip()
+    try:
+        return ZoneInfo(name)
+    except Exception as e:
+        raise ValueError(f"无效 timezone: {name!r}") from e
 
 
 def _build_trigger(trigger_type: str, trigger_config: dict[str, Any]) -> Any:
-    """根据 trigger_type 构造 APScheduler Trigger,失败抛 ValueError。"""
+    """根据 trigger_type 构造 APScheduler Trigger,失败抛 ValueError。
+
+    没写 timezone 的本地时刻按 Asia/Shanghai 解释,不跟随调度器默认 UTC,
+    也不跟随主机本地时区(主机曾被静默改成过 UTC)。
+    """
+    tz = _trigger_timezone(trigger_config)
     if trigger_type == "cron":
         kwargs = {k: v for k, v in trigger_config.items() if k in _CRON_FIELDS}
         if not kwargs:
             raise ValueError(
                 "cron trigger_config 需至少一个字段: " + ",".join(sorted(_CRON_FIELDS))
             )
-        return CronTrigger(**kwargs)
+        return CronTrigger(timezone=tz, **kwargs)
     if trigger_type == "date":
         run_date = trigger_config.get("run_date")
         if not run_date:
             raise ValueError("date trigger_config 必填 run_date(ISO8601)")
-        return DateTrigger(run_date=run_date)
+        return DateTrigger(run_date=run_date, timezone=tz)
     if trigger_type == "interval":
         kwargs = {k: v for k, v in trigger_config.items() if k in _INTERVAL_FIELDS}
         if not kwargs:
             raise ValueError(
                 "interval trigger_config 需至少一个字段: " + ",".join(sorted(_INTERVAL_FIELDS))
             )
-        return IntervalTrigger(**kwargs)
+        return IntervalTrigger(timezone=tz, **kwargs)
     raise ValueError(f"无效 trigger_type: {trigger_type}")
+
+
+def _slot_token(moment: datetime) -> str:
+    """触发点身份:同一瞬间在各进程上必须得到同一个字符串。"""
+    return str(int(round(moment.timestamp() * 1000)))
+
+
+def _minute_bucket(moment: datetime) -> str:
+    return str(int(moment.timestamp()) // 60 * 60)
+
+
+def _latest_fire_at_or_before(trigger: Any, horizon: datetime) -> datetime | None:
+    """规范触发器在 horizon 之前(含)的最后一拍。窗口外的年频任务靠首跳,不从锚点逐秒爬。"""
+    window_start = horizon - _SLOT_LOOKBACK
+    try:
+        candidate = trigger.get_next_fire_time(None, window_start)
+    except Exception:
+        return None
+    last: datetime | None = None
+    steps = 0
+    while isinstance(candidate, datetime) and candidate <= horizon and steps < _SLOT_WALK_CAP:
+        last = candidate
+        try:
+            nxt = trigger.get_next_fire_time(last, last)
+        except Exception:
+            break
+        steps += 1
+        if not isinstance(nxt, datetime) or nxt <= last:
+            break
+        candidate = nxt
+    return last
+
+
+def _cron_probe(trigger_config: dict[str, Any]) -> Any:
+    """算触发点用的 cron:start_date 钉在公共锚点,不取各进程自己的启动时刻。"""
+    tz = _trigger_timezone(trigger_config)
+    kwargs = {k: v for k, v in trigger_config.items() if k in _CRON_FIELDS}
+    if not kwargs:
+        raise ValueError(
+            "cron trigger_config 需至少一个字段: " + ",".join(sorted(_CRON_FIELDS))
+        )
+    return CronTrigger(timezone=tz, start_date=_SLOT_ANCHOR.replace(tzinfo=tz), **kwargs)
+
+
+def _interval_probe(trigger_config: dict[str, Any]) -> Any:
+    tz = _trigger_timezone(trigger_config)
+    kwargs = {k: v for k, v in trigger_config.items() if k in _INTERVAL_FIELDS}
+    if not kwargs:
+        raise ValueError(
+            "interval trigger_config 需至少一个字段: " + ",".join(sorted(_INTERVAL_FIELDS))
+        )
+    start = trigger_config.get("start_date") or _SLOT_ANCHOR.replace(tzinfo=tz)
+    return IntervalTrigger(timezone=tz, start_date=start, **kwargs)
+
+
+def _interval_fire_moment(trigger_config: dict[str, Any], now: datetime) -> datetime:
+    """按公共相位取「这一拍」。整点两侧差几秒的两个进程落到同一拍。"""
+    trig = _interval_probe(trigger_config)
+    length = float(trig.interval_length)
+    if length <= 0:
+        raise ValueError("interval 长度必须为正")
+    start_ts = float(trig.start_date.timestamp())
+    elapsed = now.timestamp() - start_ts
+    if elapsed < 0:
+        base_ts = start_ts
+    else:
+        base_ts = start_ts + int(elapsed // length) * length
+    base = datetime.fromtimestamp(base_ts, UTC)
+    nxt = datetime.fromtimestamp(base_ts + length, UTC)
+    if timedelta(0) <= (nxt - now) <= _FIRE_SKEW:
+        return nxt
+    return base
+
+
+def _fire_slot(
+    trigger_type: str | None,
+    trigger_config: dict[str, Any] | None,
+    now: datetime | None = None,
+) -> str:
+    """同一任务在同一触发点上的锁身份。算不出时退回分钟桶,避免用各自的微秒对不上。"""
+    moment = now if isinstance(now, datetime) else _now(_CN_TZ)
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=_CN_TZ)
+    if trigger_type not in _VALID_TRIGGER_TYPES or not isinstance(trigger_config, dict):
+        return _minute_bucket(moment)
+    try:
+        if trigger_type == "date":
+            run_date = _build_trigger("date", trigger_config).run_date
+            if isinstance(run_date, datetime):
+                return _slot_token(run_date)
+        elif trigger_type == "interval":
+            return _slot_token(_interval_fire_moment(trigger_config, moment))
+        elif trigger_type == "cron":
+            picked = _latest_fire_at_or_before(
+                _cron_probe(trigger_config), moment + _FIRE_SKEW
+            )
+            if isinstance(picked, datetime):
+                return _slot_token(picked)
+    except Exception:
+        logger.debug("[scheduler_service] 计算触发点失败,退回分钟桶", exc_info=True)
+    return _minute_bucket(moment)
+
+
+def _unavailable_result() -> dict[str, Any]:
+    return {
+        "ok": False,
+        "errorCode": "SCHEDULER_UNAVAILABLE",
+        "message": "调度器未启动,任务不会被触发",
+    }
 
 
 class TaskScheduler:
@@ -103,6 +253,7 @@ class TaskScheduler:
         self._memory_logs: dict[str, list[dict[str, Any]]] = {}
         self._use_memory: bool = False
         self._started: bool = False
+        self._runner_id = f"{os.getpid()}-{uuid.uuid4().hex}"
 
     # ===== 生命周期 =====
 
@@ -121,18 +272,22 @@ class TaskScheduler:
                 self._use_memory = True
         else:
             logger.info("[scheduler_service] redis_url 未配置,stub 模式")
-        self._scheduler = AsyncIOScheduler(timezone="UTC")
         try:
+            self._scheduler = AsyncIOScheduler(timezone=_CN_TZ)
             self._scheduler.start()
         except Exception as e:
-            # BUG-34②:启动失败绝不能静默进入"已启动"态 —— 旧代码只 warning 后仍置
-            # _started=True,此后 add_task 跳过 add_job 却照写 Redis 并返 ok=True,
-            # 任务"创建成功"但永不触发。这里置空 scheduler + 不置 _started,
-            # 由 add_task 的 SCHEDULER_UNAVAILABLE 显式拒绝,并把日志升到 error。
-            logger.error("[scheduler_service] scheduler.start 失败,拒绝进入已启动态: %s", e)
+            # 建调度器或 start() 失败:不能进入已启动态,也不能吞掉异常让调用方以为已经排上。
+            # main.py 会接住这个异常并继续起服务;add_task 看到调度器不在就返回
+            # SCHEDULER_UNAVAILABLE,任务不写 Redis。_is_stub() 仍只表示「没配 redis_url」,
+            # 失败不是 stub 成功。
+            logger.error("[scheduler_service] scheduler 启动失败,调度器不可用: %s", e)
+            sched = self._scheduler
             self._scheduler = None
             self._started = False
-            return
+            if sched is not None:
+                with contextlib.suppress(Exception):
+                    sched.shutdown(wait=False)
+            raise
         if self._redis is not None:
             try:
                 await self._load_pending_tasks()
@@ -173,13 +328,9 @@ class TaskScheduler:
     ) -> dict[str, Any]:
         if self._is_stub():
             return {"ok": True, "task_id": "stub-" + uuid.uuid4().hex, "stub": True}
-        # BUG-34②:调度器没真正起来时绝不返 ok(否则任务落库却永不触发)。
+        # 调度器没真正起来时绝不返 ok,也绝不落库(否则任务写进 Redis 却永不触发)。
         if self._scheduler is None or not self._started:
-            return {
-                "ok": False,
-                "errorCode": "SCHEDULER_UNAVAILABLE",
-                "message": "调度器未启动,任务不会被触发",
-            }
+            return _unavailable_result()
         if trigger_type not in _VALID_TRIGGER_TYPES:
             return {
                 "ok": False,
@@ -216,7 +367,7 @@ class TaskScheduler:
                 self._scheduler.add_job(
                     self._job_wrapper,
                     trigger=trigger,
-                    args=[tid, callback],
+                    args=[tid, callback, trigger_type, trigger_config],
                     id=tid,
                     replace_existing=True,
                 )
@@ -321,6 +472,9 @@ class TaskScheduler:
             trigger = _build_trigger(trigger_type, new_trigger_config)
         except ValueError as e:
             return {"ok": False, "errorCode": "INVALID_TRIGGER", "message": str(e)}
+        # 重新启用却排不进去时,不能改完存储再回 ok(调用方会当成已经排上)。
+        if new_enabled and (self._scheduler is None or not self._started):
+            return _unavailable_result()
         current["trigger_config"] = new_trigger_config
         current["callback"] = new_callback
         current["enabled"] = new_enabled
@@ -335,7 +489,7 @@ class TaskScheduler:
                     self._scheduler.add_job(
                         self._job_wrapper,
                         trigger=trigger,
-                        args=[task_id, new_callback],
+                        args=[task_id, new_callback, trigger_type, new_trigger_config],
                         id=task_id,
                         replace_existing=True,
                     )
@@ -385,7 +539,43 @@ class TaskScheduler:
         with contextlib.suppress(Exception):
             proc.kill()
 
-    async def _job_wrapper(self, task_id: str, callback: dict[str, Any]) -> None:
+    async def _claim_fire(self, task_id: str, slot: str) -> bool:
+        """同一任务同一触发点只放行一个进程。
+
+        无 Redis(内存降级,单进程)直接放行。有 Redis 时 SET key value NX EX,
+        与 workspace_lock、内部回放票据同一原语;成功后不删除,慢进程不能重入这一拍。
+        Redis 故障时放行,避免锁层抖动把全部任务静默丢掉。
+        """
+        if self._redis is None:
+            return True
+        key = f"{_REDIS_FIRE_PREFIX}{task_id}:{slot}"
+        try:
+            ok = await self._redis.set(
+                key,
+                self._runner_id,
+                nx=True,
+                ex=_FIRE_LOCK_TTL_SECONDS,
+            )
+        except Exception as e:
+            logger.warning("[scheduler_service] 触发点抢锁失败,本进程继续执行: %s", e)
+            return True
+        return bool(ok)
+
+    async def _job_wrapper(
+        self,
+        task_id: str,
+        callback: dict[str, Any],
+        trigger_type: str | None = None,
+        trigger_config: dict[str, Any] | None = None,
+    ) -> None:
+        slot = _fire_slot(trigger_type, trigger_config, _now(_CN_TZ))
+        if not await self._claim_fire(task_id, slot):
+            logger.info(
+                "[scheduler_service] 任务 %s 触发点 %s 已由其他进程执行,跳过",
+                task_id,
+                slot,
+            )
+            return
         try:
             await self._execute_callback(callback)
         except Exception as e:
@@ -536,7 +726,12 @@ class TaskScheduler:
                 self._scheduler.add_job(
                     self._job_wrapper,
                     trigger=trigger,
-                    args=[task["task_id"], task["callback"]],
+                    args=[
+                        task["task_id"],
+                        task["callback"],
+                        task["trigger_type"],
+                        task["trigger_config"],
+                    ],
                     id=task["task_id"],
                     replace_existing=True,
                 )

@@ -33,7 +33,6 @@ import type {
   Banner,
   Teacher,
   MemberInfo,
-  VipPayInfo,
   VipOrderResult,
   StudyRecord,
   ExamPaper,
@@ -272,15 +271,11 @@ export type Live = Pick<ApiLive, 'title'> & {
   watchCount?: number
 }
 
-/** 直播列表 */
-export const getLiveList = (params?: { page?: number; pageSize?: number; status?: string }) =>
-  get<{ list: Live[]; total: number }>('/live/list', params)
-
 /** 直播详情 */
 export const getLiveDetail = (id: string | number) => get<Live>(`/live/${id}`)
 
 // 直播订阅端点已下沉 @ihui/api-client(endpoints/live.ts),端内不再自拼路径。
-// 显式具名再导出:本文件另有同名的本地 getLiveList,不能用 export * 整模块转出。
+// 显式具名再导出:本文件历史上有同名本地 getLiveList(已删),为防未来重名仍不能用 export * 整模块转出。
 export { getLiveSubscriptions, unsubscribeLive } from '@ihui/api-client'
 
 /* ============ 订单 ============ */
@@ -947,8 +942,6 @@ export const getVipPrivilege = () =>
 // VipPayInfo / VipOrderResult 已下沉到 @ihui/api-client(endpoints/member.ts),上方 re-export
 export const upgradeVip = (vipLevelId: string) =>
   post<VipOrderResult>('/vip/order', { vipLevelId, quantity: 1 })
-export const getVipOrderPayInfo = (orderNo: string) =>
-  get<{ status: string; payInfo?: VipPayInfo }>(`/vip/order/${orderNo}/payinfo`)
 
 // MemberInfo 已下沉到 @ihui/api-client(endpoints/member.ts),上方 re-export
 // 旧端点 member/info 两后端零注册(2026-10-17 现读)⇒ 会员页三统计与积分页余额全落 404。
@@ -1126,15 +1119,6 @@ export const getWalletBalance = () => unwrapApi(_getBalance())
 
 /* ============ 分销 ============ */
 
-export interface DistributionInfo {
-  level: number
-  totalCommission: number
-  available: number
-  pendingCommission: number
-  withdrawn: number
-  teamCount: number
-  inviteCode: string | null
-}
 export const getDistributionInfo = () =>
   get<{
     totalCommission: number
@@ -1171,11 +1155,6 @@ export const getWithdrawalRecords = (params?: { page?: number; pageSize?: number
     }>
     total: number
   }>('/distribution/withdrawals', params)
-export const getCommissionRecords = (params?: { page?: number; pageSize?: number }) =>
-  get<{
-    list: Array<{ id: string; amount: number; type: string; time: string; nickname?: string }>
-    total: number
-  }>('/distribution/commission', params)
 export const withdraw = (data: { amount: number; type: string }) =>
   post('/distribution/withdraw', { amount: data.amount, method: data.type })
 export const getDistributionRank = () =>
@@ -1993,8 +1972,6 @@ export const getBuyList = (params: ApiParams) => get('/api/developer/income', pa
 /* ============ 广场发布管理 ============ */
 /** 发布广场列表 */
 export const getPlazaList = (params: ApiParams) => get('/plaza/list', params)
-/** 发布广场详情 */
-export const getPlazaInfoById = (id: string | number) => get(`/plaza/${id}`)
 
 /* ============ 视频分片上传 ============ */
 

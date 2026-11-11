@@ -32,14 +32,6 @@
  *   `.gitignore` 依旧把构建产物与本机临时面挡在分母外(仅 worktree 逃生舱并上未跟踪面);
  *   未跟踪面只属于工作树面 ⇒ head/staged 面下不再出现"未跟踪面上另有 N 个"那一档。
  *
- * 2026-11-10 提交档分母收窄(性能,不改判据):`--staged` 档旧实现让对面解码**整张索引面**
- *   (实测 20,859 个 blob,单次 20~30s),而一次提交往往只带 1~4 个文件。现改为把**本次提交携带**的
- *   路径(`git diff --cached --name-only`,即下面 decideCoverage 用的同一份携带面)落成临时清单,
- *   传给 `list-uncovered --staged --files-from` —— 面**仍是索引 blob**,只是分母取"携带 ∩ 索引"。
- *   单文件判据、自愈规则、退出码三态、归因行一字未动;暂存面为空时本档本来是通过(无可判文件),
- *   故空携带面**不调** list-uncovered(对面把空清单判 exit 2,那是 push 档的语义)。
- *   代价:索引存量欠账不再由本档统计,通过行如实改成"由 --full-face / CI 全量档统计"。
- *
  * 自愈纪律(乙,2026-10-15 立):**只有 `--staged`(本次提交真要带走的那一面)才允许 `git add`**。
  *   全量档 / `--push-gate` 档改为**只写工作区、不碰索引**并如实报「请随下一次提交带上」。
  *   WHY:工作区可回滚,索引不可 —— 在永不 commit 的档位 add,就是把改动悬在共享索引里等别人
@@ -584,25 +576,6 @@ function listUncovered(faceArgs = []) {
   }
 }
 
-/**
- * 把**分母**收窄到 paths 再问 list-uncovered(2026-11-10)。
- * 提交档每次只携带 1~4 个文件,却要对面解码整张索引面(2 万+ blob,实测 31.6s)—— 这里用对面
- * 既有的 `--files-from` 收窄扫描面,不另写文件枚举(路径清单由调用方给,来源是同一份携带面)。
- * paths 为空时**不得**调用:对面把空清单判为「未判定 exit 2」,而空面在本门是"没有文件可判"。
- * @param {string[]} faceFlag 形如 ['--staged']
- * @param {string[]} paths 非空路径清单
- * @returns {{paths: string[]|null, error: string|null}}
- */
-function listUncoveredNarrow(faceFlag, paths) {
-  let manifest = null
-  try {
-    manifest = writeFileManifest(paths)
-    return listUncovered([...faceFlag, '--files-from', manifest.file])
-  } finally {
-    if (manifest) manifest.cleanup()
-  }
-}
-
 /** 判定面清单(与内容同面同轮;唯一实现住在 watermark-scope.mjs,本门不拼第二把尺子)。 */
 function trackedFiles(face) {
   return coverageFileSetForFace({ root: REPO_ROOT, face })
@@ -793,8 +766,8 @@ function sweepDupBanners({ face, scope, isExcluded }) {
   return { dupBanner, dupSamples, swept: sweepFiles.length }
 }
 
-/** 把收窄后的路径写成 watermark.mjs `--files-from` 能吃的临时清单(>300 文件也不撑命令行)。 */
-function writeFileManifest(paths) {
+/** 把收窄后的 HEAD 路径写成 watermark.mjs `--files-from` 能吃的临时清单(>300 文件也不撑命令行)。 */
+function writePushScopeManifest(paths) {
   const dir = mkdtempSync(join(tmpdir(), 'ihui-push-scope-'))
   const file = join(dir, 'files.txt')
   writeFileSync(file, paths.join('\n') + '\n', 'utf8')
@@ -859,9 +832,6 @@ async function main() {
   let pushScopeNote = ''
   /** 显式全量面(--full-face 或 push 侧清单头 face=full):唯一允许判整张 HEAD 面的两种调用。 */
   let explicitFull = intent.explicitFull === true
-  // 携带面**只量一次**(paths 与 error 必须来自同一轮派生;两次派生 = 两个时刻的索引)。
-  // 提交档的 list-uncovered 也要它当分母,故提前到分支之前取。
-  const carried = face === 'staged' ? carriedFiles() : { paths: null, error: null }
   if (PUSH_SCOPE) {
     // 范围凭据缺失 = 未判定。**不得**退回整张 HEAD 面:那个面上的自愈会写到本次改动之外。
     const cred = readPushScope({ readManifestFile: (p) => readFileSync(p, 'utf8') })
@@ -901,7 +871,7 @@ async function main() {
       let manifest = null
       try {
         if (narrowed.length > 0) {
-          manifest = writeFileManifest(narrowed)
+          manifest = writePushScopeManifest(narrowed)
           uncovered = listUncovered(['--files-from', manifest.file])
         } else {
           // scope 已取到,只是本次 push 没碰任何 HEAD 面文件(纯删除/非可判类型):这不是"判不了"。
@@ -929,30 +899,14 @@ async function main() {
     uncovered = listUncovered([])
     sweepScope = scope
     faceInfo = '(本次为显式全量面:--full-face)'
-  } else if (face === 'staged') {
-    // 提交档(2026-11-10 分母收窄):面**仍是索引 blob**,但扫描面收窄到**本次提交真正携带**的文件。
-    // 旧实现在这里让对面把整张索引面(2 万+ blob)全部解码一遍,单次 30s 量级,而一次提交往往
-    // 只带 1~4 个文件。收窄复用对面既有的 `--files-from`,清单就是下面 decideCoverage 用的同一份
-    // 携带面(carriedFiles)—— 本门不拼第二套文件枚举。
-    scope = trackedFiles('staged')
-    if (carried.error || carried.paths.length === 0) {
-      // ① 取不到携带面 ⇒ 交给 decideCoverage 判「未判定」(不在这里猜"本次什么都没带");
-      // ② 携带面为空 ⇒ 本档改前就是通过(没有文件可判),而对面把空清单判为「未判定 exit 2」——
-      //    两者语义不同,故暂存面为空时**不调** list-uncovered,直接给空缺口集。
-      uncovered = { paths: [], error: null }
-    } else {
-      uncovered = listUncoveredNarrow(['--staged'], carried.paths)
-    }
-    faceInfo = '(判定面=staged)'
-    // 双横幅巡检同样只盘本次携带、且仍在索引里的文件(删除路径取不到 blob,不进巡检面)。
-    const stillInIndex = new Set(scope.indexFiles)
-    sweepScope = { indexFiles: (carried.paths ?? []).filter((f) => stillInIndex.has(f)), files: [] }
   } else {
     scope = trackedFiles(face)
     uncovered = listUncovered(faceArgs)
     faceInfo = face === 'head' ? '' : `(判定面=${face})`
     sweepScope = scope
   }
+  // 携带面**只量一次**(paths 与 error 必须来自同一轮派生;两次派生 = 两个时刻的索引)
+  const carried = face === 'staged' ? carriedFiles() : { paths: null, error: null }
   const decision = decideCoverage({
     scope,
     uncovered: uncovered.paths,
@@ -1047,9 +1001,7 @@ async function main() {
 
   if (missing.length === 0) {
     // 措辞必须与**判过的面**一致:提交档只判了本次携带的文件,不能声称"已跟踪文件水印完整"
-    // —— 那会把"没判的那一格"写成"判过了"(本仓最高频失效型)。
-    // 2026-11-10 分母收窄后,本档不再解码整张索引面 ⇒ 索引存量欠账**这里算不出来**,
-    // 于是如实说明"本档只判本次携带、存量由全量档统计",不再打印一个 0 冒充"存量干净"。
+    // —— 那会把"没判的那一格"写成"判过了"(本仓最高频失效型),也正好掩盖 untouchedGaps 那一档。
     console.log(
       explicitFull
         ? `[watermark-coverage] ✅ ${faceInfo}已判文件水印完整`
@@ -1057,8 +1009,8 @@ async function main() {
           ? `[watermark-coverage] ✅ ${pushScopeNote},已判文件水印完整`
           : face === 'staged'
             ? `[watermark-coverage] ✅ 本次提交携带的 ${carried.paths ? carried.paths.length : 0} 个文件水印完整` +
-                `(本档只判本次携带的索引 blob,未携带的索引存量不在本档分母内 —— 存量欠账由 --full-face / CI 全量档统计)` +
-                (carried.paths && carried.paths.length === 0
+                `(索引存量欠账 ${untouchedGaps.length} 个只报数,由全量档/其持有者问责)` +
+                (untouchedGaps.length === 0 && carried.paths && carried.paths.length === 0
                   ? ' —— 暂存面为空,本次不携带任何文件'
                   : '')
             : `[watermark-coverage] ✅ ${face === 'head' ? 'HEAD 面' : '工作树面(人工逃生舱)'}已枚举文件水印完整${face === 'worktree' ? '(未跟踪产物另列,不计入)' : ''}`,
@@ -1109,9 +1061,8 @@ async function main() {
       console.error('     注入已写入工作区, 请手动 `git add` 后重试提交。')
       return 1
     }
-    // 回读校验打在**索引面**(add 之后),这才等于"本次提交带走的那一份达标了"。
-    // 分母同样收窄到刚补齐的这几个文件(2026-11-10):整面回读一次又是 30s 量级,而这里只关心它们。
-    const re = listUncoveredNarrow(['--staged'], missing)
+    // 回读校验打在**索引面**(add 之后),这才等于"本次提交带走的那一份达标了"
+    const re = listUncovered(['--staged'])
     const stillMissing =
       re.paths === null
         ? missing

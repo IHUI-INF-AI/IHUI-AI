@@ -30,6 +30,11 @@ import { isTrustedTopLevelExtensionSender, type RuntimeSenderLike } from '../lib
 import { ContentToolbar } from './content/content-toolbar'
 import { computePositionWithMemory, type RectLike } from '../src/content/position-memory'
 import { executeDomAction } from '../lib/agent-control'
+import {
+  decideHighlightToggle,
+  highlightedWordFromApplied,
+  highlightWordToRestore,
+} from '../lib/highlight-state'
 import type { BrowserControlActionType } from '@ihui/types'
 // 2026-09-12 W6:内容脚本无 React 上下文,复用 background.ts 的翻译表 + locale 读取模式
 import { translate, mergeMessages, isLocale, type Locale, type Messages } from '@ihui/i18n'
@@ -85,7 +90,8 @@ let hideTimer: ReturnType<typeof setTimeout> | null = null
 // 2026-11-07 DBG-68: 右键弹层 TTL 定时器句柄 —— 新弹层创建时必须清掉旧定时器,
 // 否则旧定时器到期会按 id 删掉"当前"弹层(查词失败 6s 内点重试即复现)。
 let ctxPopupTimer: ReturnType<typeof setTimeout> | null = null
-let highlightEnabled = false
+/** 当前高亮词。唯一状态;刷新后由 highlight.get 从 background 的 storage 词回填。 */
+let highlightedWord: string | null = null
 const translationCache = new Map<string, string>()
 // 2026-11-07 DBG-67: 缓存键从 text.slice(0,32) 改为全文后,加上限防无界增长(FIFO 驱逐)。
 const TRANSLATION_CACHE_MAX = 100
@@ -221,11 +227,7 @@ function insertTranslation(_original: string, translated: string) {
       border-radius: ${RADIUS_CSS_PX.sm};
       font-size: 12px;
       line-height: 1.5;
-      /* 中文兜底族必须显式列出:本样式注入到宿主页面,缺中文族时中文会落宿主机的
-       * "默认 sans-serif"(可能被设成宋体),与相邻英文/数字观感割裂(2026-11-10,门 313 同根) */
-      font-family:
-        -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei',
-        'Noto Sans SC', sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       box-sizing: border-box;
     }
   `
@@ -265,20 +267,48 @@ function insertTranslation(_original: string, translated: string) {
   hideToolbar()
 }
 
-async function handleHighlight() {
-  const text = getActiveSelectionText()
-  if (!text) return
-  highlightEnabled = !highlightEnabled
+function paintHighlight(word: string | null): void {
+  highlightedWord = word
   try {
-    if (highlightEnabled) {
-      highlightInElement(document.body, text, document)
+    if (word) {
+      clearHighlights(document.body)
+      highlightInElement(document.body, word, document)
     } else {
       clearHighlights(document.body)
     }
   } catch (err) {
     console.warn('[IHUI AI] highlight failed:', err)
   }
+}
+
+async function handleHighlight() {
+  const text = getActiveSelectionText()
+  if (!text) return
+  const decision = decideHighlightToggle(highlightedWord, text)
+  paintHighlight(decision.word)
+  try {
+    await sendMessage({
+      type: 'highlight.toggle',
+      payload: { word: text, enabled: decision.enabled, scope: 'page' },
+      requestId: `hl-${Date.now()}`,
+    })
+  } catch (err) {
+    console.warn('[IHUI AI] highlight toggle failed:', err)
+  }
   hideToolbar()
+}
+
+async function restoreHighlightFromBackground(): Promise<void> {
+  try {
+    const stored = await sendMessage<string | null>(
+      { type: 'highlight.get', payload: undefined, requestId: `hl-get-${Date.now()}` },
+      3000,
+    )
+    const word = highlightWordToRestore(highlightedWord, stored)
+    if (word) paintHighlight(word)
+  } catch (err) {
+    console.warn('[IHUI AI] restore highlight failed:', err)
+  }
 }
 
 async function handleVocab() {
@@ -494,11 +524,16 @@ export default defineContentScript({
   // 新银行域)默认全收,黑名单永远追不上。与 wxt.config.ts 的 host_permissions /
   // web_accessible_resources.matches 同一份域清单:只在这些 host 上需要选区工具栏
   // 与 agent.action.dom,其余站点一律不注入。
-  matches: ['http://localhost:8802/*', 'http://localhost:8803/*', 'https://*.aizhs.top/*'],
+  matches: [
+    'http://localhost:8802/*',
+    'http://localhost:8803/*',
+    'https://*.aizhs.top/*',
+  ],
   runAt: 'document_idle',
   main(ctx: ContentScriptContext) {
     // W6:预加载语言(异步),使工具栏/弹窗文案跟随侧边栏语言设置
     void loadActiveLocale()
+    void restoreHighlightFromBackground()
     document.addEventListener('mouseup', () => {
       setTimeout(onSelectionChange, 10)
     })
@@ -514,79 +549,78 @@ export default defineContentScript({
     })
 
     // 接收 background 主动消息
-    chrome.runtime.onMessage.addListener(
-      (msg, sender: RuntimeSenderLike | undefined, sendResponse) => {
-        if (!msg || typeof msg !== 'object') return false
-        // 2026-11-08 同型根因 D 类:内容脚本是唯一能直接改宿主 DOM 的执行端,消息只应由
-        // background 下发。sender.id === runtime.id 不够 —— 内容脚本自身也满足该条件,
-        // 因此要求 tab === undefined(排除内容脚本,只留顶层扩展上下文)。
-        if (!isTrustedTopLevelExtensionSender(sender, chrome.runtime.id)) {
-          console.warn(
-            '[IHUI AI] content: 丢弃非白名单来源的消息',
-            sender?.id ?? '(none)',
-            sender?.url ?? '(no-url)',
-          )
-          return false
-        }
-        const m = msg as {
-          type?: string
-          payload?: {
-            word?: string
-            matches?: number
-            text?: string
-            rect?: RectLike
-          } & CtxVocabResult
-        }
-        // Agent DOM action forwarded from background (AI browser control)
-        if (m.type === 'agent.action.dom') {
-          const req = m.payload as unknown as {
-            action: string
-            params: Record<string, unknown>
-            timeout?: number
-          }
-          void executeDomAction(
-            req.action as BrowserControlActionType,
-            req.params,
-            req.timeout ?? 30000,
-          )
-            .then((result) => sendResponse(result))
-            .catch((err) => {
-              // 2026-11-07 DBG-64 收口: 原实现无 .catch —— AI 下发非法 selector 时
-              // document.querySelector 抛 SyntaxError ⇒ promise reject 无人接, sendResponse
-              // 永不调用, background 只能等满 30s 报 TIMEOUT。此处回执错误, 让 background 立即收尾。
-              console.warn('[IHUI AI] content: dom action 执行失败:', err)
-              sendResponse({ ok: false, error: err instanceof Error ? err.message : String(err) })
-            })
-          return true
-        }
-        if (m.type === 'highlight.applied' && m.payload?.word) {
-          if (m.payload.matches === 0) {
-            clearHighlights(document.body)
-          } else {
-            highlightInElement(document.body, m.payload.word, document)
-          }
-          sendResponse({ ok: true })
-          return true
-        }
-        // 右键菜单触发的查询结果 → 弹 popup
-        // 只要带回词就出弹层：失败时 background 回的是 translation='' + 说明（离线/不可达）。
-        // 原条件要求 translation 非空 ⇒ 失败整条静默，用户以为右键没生效、反复重试。
-        if (m.type === 'vocab.result' && m.payload?.word) {
-          showContextResultPopup(
-            {
-              word: m.payload.word,
-              translation: m.payload.translation,
-              phonetic: m.payload.phonetic,
-              definitions: m.payload.definitions,
-            },
-            m.payload.rect ?? lastSelectionRect,
-          )
-          sendResponse({ ok: true })
-          return true
-        }
+    chrome.runtime.onMessage.addListener((msg, sender: RuntimeSenderLike | undefined, sendResponse) => {
+      if (!msg || typeof msg !== 'object') return false
+      // 2026-11-08 同型根因 D 类:内容脚本是唯一能直接改宿主 DOM 的执行端,消息只应由
+      // background 下发。sender.id === runtime.id 不够 —— 内容脚本自身也满足该条件,
+      // 因此要求 tab === undefined(排除内容脚本,只留顶层扩展上下文)。
+      if (!isTrustedTopLevelExtensionSender(sender, chrome.runtime.id)) {
+        console.warn(
+          '[IHUI AI] content: 丢弃非白名单来源的消息',
+          sender?.id ?? '(none)',
+          sender?.url ?? '(no-url)',
+        )
         return false
-      },
-    )
+      }
+      const m = msg as {
+        type?: string
+        payload?: {
+          word?: string
+          matches?: number
+          text?: string
+          rect?: RectLike
+        } & CtxVocabResult
+      }
+      // Agent DOM action forwarded from background (AI browser control)
+      if (m.type === 'agent.action.dom') {
+        const req = m.payload as unknown as {
+          action: string
+          params: Record<string, unknown>
+          timeout?: number
+        }
+        void executeDomAction(
+          req.action as BrowserControlActionType,
+          req.params,
+          req.timeout ?? 30000,
+        )
+          .then((result) => sendResponse(result))
+          .catch((err) => {
+            // 2026-11-07 DBG-64 收口: 原实现无 .catch —— AI 下发非法 selector 时
+            // document.querySelector 抛 SyntaxError ⇒ promise reject 无人接, sendResponse
+            // 永不调用, background 只能等满 30s 报 TIMEOUT。此处回执错误, 让 background 立即收尾。
+            console.warn('[IHUI AI] content: dom action 执行失败:', err)
+            sendResponse({ ok: false, error: err instanceof Error ? err.message : String(err) })
+          })
+        return true
+      }
+      if (m.type === 'highlight.applied' && m.payload?.word) {
+        paintHighlight(
+          highlightedWordFromApplied({
+            word: m.payload.word,
+            matches: m.payload.matches,
+          }),
+        )
+        sendResponse({ ok: true })
+        return true
+      }
+      // 右键菜单触发的查询结果 → 弹 popup
+      // 只要带回词就出弹层：失败时 background 回的是 translation='' + 说明（离线/不可达）。
+      // 原条件要求 translation 非空 ⇒ 失败整条静默，用户以为右键没生效、反复重试。
+      if (m.type === 'vocab.result' && m.payload?.word) {
+        showContextResultPopup(
+          {
+            word: m.payload.word,
+            translation: m.payload.translation,
+            phonetic: m.payload.phonetic,
+            definitions: m.payload.definitions,
+          },
+          m.payload.rect ?? lastSelectionRect,
+        )
+        sendResponse({ ok: true })
+        return true
+      }
+      return false
+    })
 
     if (typeof window !== 'undefined' && detectLanguage('hello world') === 'en') {
       console.info('[IHUI AI] content script loaded')

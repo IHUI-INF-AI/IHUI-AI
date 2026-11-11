@@ -4,6 +4,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
+import { View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { getCommissionRates, getOverview, type CommissionOverview } from '@ihui/api-client'
@@ -50,17 +51,17 @@ function EarnCommissionScreen() {
     ])
   }
 
-  // 共享屏根容器已等价提供 flex:1 + 主题背景(见 packages/app 共享屏 styles.root),
-  // 本壳不再套自己那层 View —— 删一层纯壳 JSX,RN 与小程序腿(经 @rn-shells 执行同一份壳)同时受益。
   return (
-    <SharedEarnCommissionScreen
-      t={t}
-      onBack={() => navigation.goBack()}
-      overview={overview}
-      onOpenVip={onOpenVip}
-      rates={rates}
-      colorScheme={resolvedTheme}
-    />
+    <View style={{ flex: 1 }}>
+      <SharedEarnCommissionScreen
+        t={t}
+        onBack={() => navigation.goBack()}
+        overview={overview}
+        onOpenVip={onOpenVip}
+        rates={rates}
+        colorScheme={resolvedTheme}
+      />
+    </View>
   )
 }
 

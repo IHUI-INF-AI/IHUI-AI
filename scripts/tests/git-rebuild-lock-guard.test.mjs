@@ -12,24 +12,26 @@
  * 时反而跳过整个取锁块直接往下重建**,正是它 2026-09-10 注释里承诺要防的那场事故
  * (两会话互删 .git)。该脚本无 --self-test、无镜像测试,所以这个写反活了两个月。
  *
- * 判据形状(不是复制实现):读源码断言
- * ① check 的判据必须是 `=== null`(有锁即 fail-fast),`!== null` 旧写法必须消失;
+ * 判据形状(不是复制实现):读源码 + import 生产函数
+ * ① check 必须交给 lockHeldBlocksRebuild;null(有锁)拒绝,空串(无锁)不拒绝;
  * ② 该判据下方 12 行内必须有 `process.exit(1)`;
  * ③ acquire 的失败判据仍是 `=== null`;
- * ④ 拿到锁后必须注册 release(否则 fail 路径之外会漏释放)。
+ * ④ 拿到锁后必须注册 release(否则 fail 路径之外会漏释放);
+ * ⑤ `check` 上的 `!== null` 反向写法必须为零。
  */
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
+import { __test__ as rebuild } from '../git-rebuild-local.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const SRC_PATH = join(here, '..', 'git-rebuild-local.mjs')
 const src = readFileSync(SRC_PATH, 'utf8')
 const lines = src.split(/\r?\n/)
 
-const CHECK_RE = /run\(`node "\$\{lockScript\}" check`, true\)\s*(===|!==)\s*null/
+const CHECK_RE = /lockHeldBlocksRebuild\(run\(`node "\$\{lockScript\}" check`, true\)\)/
 
 function findCheckLine() {
   const idx = lines.findIndex((l) => CHECK_RE.test(l))
@@ -37,14 +39,15 @@ function findCheckLine() {
   return idx
 }
 
-test('DBG-85 ①:check 判据必须是 === null(有锁即 fail-fast)', () => {
+test('DBG-85 ①:锁被持有(check 结果 null)必须拒绝继续', () => {
   const idx = findCheckLine()
-  const m = CHECK_RE.exec(lines[idx])
+  assert.match(lines[idx], CHECK_RE)
+  assert.equal(rebuild.lockHeldBlocksRebuild(null), true)
+  assert.equal(rebuild.lockHeldBlocksRebuild(''), false)
   assert.equal(
-    m[1],
-    '===',
-    `check 判据写成了 ${m[1]} null —— 有锁时会跳过取锁直接重建 .git(DBG-85 复发)。` +
-      `git-lock.mjs 契约:exit 0 = 无锁,exit 1 = 有锁;run 失败返回 null。`,
+    rebuild.lockHeldBlocksRebuild('locked: unit=other'),
+    false,
+    'exit 0 的 stdout 不是有锁;有锁时 run(allowFail) 返回 null',
   )
 })
 
@@ -73,7 +76,9 @@ test('DBG-85 ④:取到锁之后必须注册 release', () => {
 })
 
 test('DBG-85 ⑤:旧的反向写法在全文必须零出现', () => {
-  const bad = lines.filter((l) => CHECK_RE.test(l) && CHECK_RE.exec(l)[1] === '!==')
+  const bad = lines.filter((l) =>
+    /run\(`node "\$\{lockScript\}" check`, true\)\s*!==\s*null/.test(l),
+  )
   assert.deepEqual(bad, [], `发现 ${bad.length} 处 !== null 反向写法(DBG-85 复发形态)`)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

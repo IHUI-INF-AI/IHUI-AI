@@ -553,7 +553,7 @@ HUSKY_SKIP_TYPECHECK=1 git push   # 紧急 push,不推荐
 
 > `--no-verify` 不是流程事故,前提是本任务改动文件已通过 typecheck + lint + build 验证(见 [AGENTS.md §16](../AGENTS.md))。**2026-11-03 起该前提不再构成授权**:默认永不跳钩,见 §6.1。
 
-### 6.3 跨端门应急跳过变量(2026-11-03 五门 / 2026-11-05 补三门 / 2026-11-06 补 86 号 / 2026-11-10 补 313 号)
+### 6.3 跨端门应急跳过变量(2026-11-03 五门 / 2026-11-05 补三门 / 2026-11-06 补 86 号)
 
 | 门 | 脚本 | 跳过变量 | 默认档 |
 |----|------|----------|--------|
@@ -566,9 +566,8 @@ HUSKY_SKIP_TYPECHECK=1 git push   # 紧急 push,不推荐
 | 300 | `scripts/check-api-endpoint-delta.mjs` | `HUSKY_SKIP_API_ENDPOINT_DELTA=1` | blocking(未登记端内独有前缀) |
 | 301 | `scripts/check-web-mp-route-carriers.mjs` | `HUSKY_SKIP_WEB_MP_ROUTE_CARRIERS=1` | blocking(缺承载/路由不存在/冲突) |
 | 86 | `scripts/check-verify-tmp-files.mjs` | `HUSKY_SKIP_VERIFY_TMP_FILES=1` | blocking(2026-11-06 由 warn 升档;前置 = 全量档存量 0) |
-| 313 | `scripts/check-typography-face-coverage.mjs` | `HUSKY_SKIP_TYPOGRAPHY_FACE_COVERAGE=1` | blocking(立门当轮三臂+T4 存量 0;基线只经 `--update-baseline` 写) |
 
-> 表中变量名一律以 `scripts/guardian-runner.mjs` 的 `skipEnv` 现值为准(`AGENTS.md §0.8`,枚数现读勿照抄本行);跳过只免本次退出码,不销账、不删台账,且必须留痕(守门 89 同款纪律)。
+> 九个变量名以 `scripts/guardian-runner.mjs` 的 `skipEnv` 现值为准(`AGENTS.md §0.8`);跳过只免本次退出码,不销账、不删台账,且必须留痕(守门 89 同款纪律)。
 
 ---
 
@@ -718,10 +717,8 @@ if (!run('🔍 检查 xxx...', 'node scripts/check-xxx.mjs --staged')) {
 - **工作流/部署脚本死引用(298,blocking,跳过 `HUSKY_SKIP_DEAD_SCRIPT_REFS=1`)**:`check-dead-script-refs.mjs` 判 `deploy/**` 与 `.github/workflows/**` 引用的 `scripts/*.ts|mjs` 是否存在:cwd 按 `working-directory`(步骤级>job 级 defaults)、`pnpm --filter` exec、shell `cd`、Dockerfile `WORKDIR`、相对/祖先路径解析;能定 cwd 判真死 exit 1,定不了 exit 2 不折绿;回滚态(HEAD 有、工作树缺)只报数。`--staged` 复验、`--self-test` 自检。
 - **自主环判据不变量守卫(299,blocking,跳过 `HUSKY_SKIP_AUTONOMY_INVARIANTS=1` 须附定向说明)**:`check-autonomy-invariants.mjs` 治多会话共树的**整片旧基线回写**这一型。立因(2026-11-05 实测):一席的在飞副本若是当天落地前的基线(当次现读工作树 `scripts/auto-evolve.mjs` 2851 行 vs HEAD 2263 行,且**缺当天全部 6 项判据**),它提交时是整文件回写,会把 HEAD 上今天的判据静默抹掉;而门 84 R1 要"暂存 blob == 某祖先"(它带新增 ⇒ 不等于任何祖先,放行)、`check-immutable-guard` 只管受保护面(调度器刻意不在面上)、分档对账测试住在 CI/nightly 层 ⇒ **提交链上原本没人抓得住**。判据 = **绝对要求,非差值棘轮**:清单 `scripts/data/autonomy-invariants.json` 的每条锚点必须在被审面逐字实有 —— 这里的失效型就是"悄悄少一条",拿该文件自身历史违规数当锚点等于自我豁免。清单取不到/JSON 坏/`entries` 空/某份文件取不到面 ⇒ 一律未判定不折绿(§0.3)。解禁某条锚点的唯一出路 = 改清单并在**同一枚提交**里带上改名后的新锚点(不留"清单还认旧名"的僵尸);无行内豁免位。射程由 `stagedTriggers` 收在调度器 + 阶梯 + 健康尺 + 清单 + 门体本身。自检 9 例含"整片回写成旧版 ⇒ drift"这条反向牙。
 - **新增共享屏必须壳或台账二选一**:`packages/app/src/features/**` 新增 `*Screen.tsx` 时,同一提交内必须给 `apps/mobile-rn/src/screens/` 落对应薄壳(可先 `node scripts/gen-rn-shell-scaffold.mjs --screen <spec> --write` 生成骨架再人工补数据源),或在 `scripts/data/rn-host-shell-manual.json` 登记 owner/expires/evidence;两者都没有 ⇒ `check-rn-host-shell-coverage.mjs` 判红并打印造壳命令。
-- **字体面覆盖与回退链对账(313,blocking,跳过 `HUSKY_SKIP_TYPOGRAPHY_FACE_COVERAGE=1` 须附定向说明)**:`check-typography-face-coverage.mjs`。立因(2026-11-10 用户报"界面里字体一个粗一个细,看着不像一个字体";字体这一层此前全仓无门可守,字号/圆角/描边都有门)。五臂:
+- **字体面覆盖与回退链对账(313,blocking,跳过 `HUSKY_SKIP_TYPOGRAPHY_FACE_COVERAGE=1` 须附定向说明)**:`check-typography-face-coverage.mjs`。立因(2026-11-10 用户报"界面里字体一个粗一个细,看着不像一个字体";字体这一层此前全仓无门可守,字号/圆角/描边都有门)。三臂:
   - **T1 字重必须有面**:档位表(`typography.ts` 的 `FONT_WEIGHTS`/`TYPE_STEPS.weight` + `tokens.css` 的 `--text-*--font-weight`)请求的每个字重,必须在 `apps/web/app/globals.css` 里被某条 `@font-face` 的**显式字重区间**覆盖。HarmonyOS Sans 官方只有 Thin/Light/Regular/Medium/Bold/Black **无 Semibold** ⇒ 600 由 Bold 面以 `font-weight: 600 700` 显式代打,渲染不变而隐式猜测被写死;日后补真 Semibold 必须把该行收回 700,否则 600 被继续抢走。
   - **T2 子集防缩水**:`scripts/data/font-subset-manifest.json` 各 GB2312 档汉字数不得低于 `scripts/data/typography-face-baseline.json` 基线(唯一写入口 `--update-baseline`,只钉 gb2312 档 —— 窄档由源码扫描得出,钉它会造出"删一个中文字就红"的恒红门,§12e);`globals.css` 引用的每个 `/fonts/*.woff2` 必须在该判定面上存在;缺字哨兵 `ok` 必须为真。旧值实测 2292 汉字(GB2312 一级缺 2178),业务样本缺字率 13.87% ⇒ 动态中文落系统字体换脸,即用户所见。
   - **T3 回退链与假粗**:`--font-sans` 必须含中文现代黑体族且排在 `ui-sans-serif`/`system-ui` 之前(否则缺字落"系统默认 sans-serif",在默认被设成宋体的机器上当场换脸;注释里的裸族名不算数,判据先剥注释);单面 display 家族(EDIX)必须声明字重区间,否则 `font-bold` 走浏览器**合成假粗**,与同版面真 Bold 并存即"两套字"。
-  - **T4 书写面兜底**:凡含品牌族的字体栈,裸 `sans-serif` / `ui-sans-serif` 之前必须有确定的中文黑体族;已知会渲染中文的书写面(营销 Home 窄子集链、`.font-edix` 链、小程序标题链、扩展注入样式、CLI SSO 过渡页、CI 邮件 HTML 等)登记为射程,新出现的品牌族书写面未登记当场点名(`--worktree` 实测 13 处中文兜底齐备)。
-  - **T5 分段面互补**:同族同字重区间内的多面 `unicode-range` 必须严格互补,且各面声明 range 的覆盖码位/段数/sha 与 `font-subset-manifest.json` 产出面逐一实测一致;同字重组内混用「声明了 range 的面」与「未声明的面」、两面 range 重叠、并集有洞/越界一律判红,防罕见字被先声明面抢走换脸。
-  重做子集唯一出口 = `python scripts/subset-fonts.py --src-dir <官方 HarmonyOS_Sans_SC TTF 目录>`(含前置自检与缺字哨兵,缺任一即 exit 2 未判定)。复验 `--staged`;自检 `--self-test` + `node --test scripts/tests/check-typography-face-coverage.test.mjs`(29 例,含 T1–T5 变异夹具反向牙:600 面被收回 / EDIX 退回单点 / 中文族被删 / 子集缩水 / T4 书写面漏中文黑体 / T5 分段面 range 重叠·混用·缺声明)。
+  重做子集唯一出口 = `python scripts/subset-fonts.py --src-dir <官方 HarmonyOS_Sans_SC TTF 目录>`(含前置自检与缺字哨兵,缺任一即 exit 2 未判定)。复验 `--staged`;自检 `--self-test` + `node --test scripts/tests/check-typography-face-coverage.test.mjs`(12 例,含四条变异夹具反向牙:600 面被收回 / EDIX 退回单点 / 中文族被删 / 子集缩水)。

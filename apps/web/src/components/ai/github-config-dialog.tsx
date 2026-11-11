@@ -253,7 +253,7 @@ export function GithubConfigDialog() {
           type="button"
           onClick={() => closeGithubConfig()}
           disabled={busy !== null}
-          className="inline-flex h-8 items-center justify-center rounded-xl border border-border px-3 text-label text-muted-foreground transition-colors hover:bg-accent disabled:opacity-50"
+          className="inline-flex h-8 items-center justify-center rounded-sm border border-border px-3 text-label text-muted-foreground transition-colors hover:bg-accent disabled:opacity-50"
           data-testid="github-token-cancel"
         >
           {tcommon('cancel')}

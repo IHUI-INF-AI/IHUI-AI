@@ -1,0 +1,27 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+
+/**
+ * DBG-23(2026-11-11 bug-hunt)回归锁:
+ * isAdmin 口径与后端 packages/auth/src/data-scope.ts(getDataScopeForRole 的
+ * roleId === 1 → ALL)收敛为单一口径 —— 本仓系统管理员 role_id=1,
+ * 原 roleId>=1 会把 manager(=2)误判为管理员。
+ */
+import { describe, it, expect } from 'vitest'
+import { isAdmin } from '../src/auth/auth-utils'
+
+describe('isAdmin 单一口径(DBG-23)', () => {
+  it('仅 roleId===1 判管理员;manager(2)及其他一律不判', () => {
+    expect(isAdmin({ roleId: 1 })).toBe(true)
+    expect(isAdmin({ roleId: 2 })).toBe(false)
+    expect(isAdmin({ roleId: 3 })).toBe(false)
+    expect(isAdmin({ roleId: 0 })).toBe(false)
+    expect(isAdmin(null)).toBe(false)
+  })
+
+  it('字符串 role 兼容面不变(admin/administrator)', () => {
+    expect(isAdmin({ role: 'ADMIN' })).toBe(true)
+    expect(isAdmin({ role: 'administrator' })).toBe(true)
+    expect(isAdmin({ role: 'manager' })).toBe(false)
+  })
+})

@@ -31,7 +31,7 @@ export interface FindUsersOpts {
  * twoFactorBackupCodes(以及同表任何新增敏感列)。admin 接口据此直接下发,不再依赖
  * "先查整行再删字段"的兜底剥壳。
  */
-export const userCenterPublicFields = {
+const userCenterPublicFields = {
   id: users.id,
   phone: users.phone,
   email: users.email,

@@ -10,6 +10,8 @@ import type { UserInfo } from '@ihui/types'
 
 vi.mock('../src/i18n', () => ({
   useI18n: () => ({ t: (key: string) => key }),
+  // UserInfoCard 的到期时间读模块镜像;缺这个出口时组件在收集期就加载失败。
+  getCurrentLocale: () => 'zh-CN',
 }))
 
 import UserInfoCard from '../src/components/UserInfoCard'

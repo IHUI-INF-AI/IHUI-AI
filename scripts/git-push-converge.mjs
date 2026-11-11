@@ -26,7 +26,8 @@
  *   3. 远端是本地祖先(本地领先) → push(origin 走 guard 同步通道自愈,
  *      2026-09-19;镜像仓直推 600s 上限)
  *   4. 本地是远端祖先(本地落后) → SKIP(远端有并发新提交,由 ff 流程处理,不强推)
- *   5. 分叉 → DIVERGED(不强推,交人工/合并流程;除非 --force-with-lease)
+ *   5. 分叉 → DIVERGED(不强推,交人工/合并流程;--force-with-lease 仅在
+ *      ls-remote 确认到 40 位远端 sha 时按该 sha 显式强推,拿不到不推)
  *   每仓独立超时(默认 180s),单仓网络卡死不拖垮其他仓。
  *
  * 读数诚实性(2026-09-28 立,本文件的那处账面失真):
@@ -47,7 +48,7 @@
  *   node scripts/git-push-converge.mjs                         # 默认仅核验 origin(唯一远端)
  *   node scripts/git-push-converge.mjs --remotes=origin,mirror # 显式指定仓(应急通道)
  *   node scripts/git-push-converge.mjs --branch=dev            # 指定分支(默认 main)
- *   node scripts/git-push-converge.mjs --force-with-lease      # 分叉时允许 lease 强推(慎用)
+ *   node scripts/git-push-converge.mjs --force-with-lease      # 分叉时按已确认远端 sha 显式 lease 强推(慎用)
  *
  * ⚠️ 默认 remotes=origin(2026-09-18 收紧):仓库现只有 origin 一个远端
  *    (国内镜像仓 Gitee/GitCode 已于 2026-10-23 整体弃用,远端配置与镜像作业同时删除),
@@ -104,7 +105,7 @@ const USAGE = Object.freeze([
   '  --help / -h              只打用法,rc=0:不 fetch、不 push、不写任何状态',
   '  --remotes=<a,b>          指定远端(默认 origin)',
   '  --branch=<name>          指定分支(默认 main)',
-  '  --force-with-lease       分叉时允许 lease 强推(慎用)',
+  '  --force-with-lease       分叉时按本次确认的远端 sha 显式 lease 强推;拿不到 sha 则不推',
   '  --timeout=<ms>           单仓网络超时(默认 180000)',
   '  --root=<目录>             测试注入缝:改 push-state/HEAD 的取材树,生产链不得传',
   '  默认档 = fetch→收敛→push(会改动 origin,非只读);要只读核验请跑 node scripts/check-push-sync.mjs。',
@@ -169,6 +170,26 @@ const remotes = getArg('remotes', 'origin')
 const branch = getArg('branch', 'main')
 const allowLease = hasFlag('force-with-lease')
 const TIMEOUT_MS = Number(getArg('timeout', '180000'))
+
+/**
+ * lease 的期望只认这一轮已经确认过的远端 sha。
+ * ls-remote 给出 40 位小写 sha;空串、短 sha、跟踪 ref 名字都算没确认到。
+ * 没确认到就不得强推:裸 `--force-with-lease` 读的是 refs/remotes/<remote>/<branch>,
+ * 那枚 ref 可能缺失、停在旧值,或被中途 fetch 刷成比本次确认值更新的 tip。
+ */
+function confirmedRemoteSha(sha) {
+  return typeof sha === 'string' && /^[0-9a-f]{40}$/.test(sha) ? sha : null
+}
+
+/**
+ * 对象不在本地时的 fetch 必须写回判据用的远端跟踪 ref。
+ * `git fetch <remote> <branch>` 没有目标 refspec:配置里的 fetch refspec 一旦不在,
+ * 就只写 FETCH_HEAD,refs/remotes/<remote>/<branch> 保持陈旧。
+ * 前缀 `+` 允许非快进,分叉后跟踪 ref 仍能刷到远端真 tip。
+ */
+function trackingFetchRefspec(remoteName, branchName) {
+  return `+refs/heads/${branchName}:refs/remotes/${remoteName}/${branchName}`
+}
 
 // ─── git 执行(带超时,失败返回 null) ───
 function git(argsArr, { timeout = TIMEOUT_MS } = {}) {
@@ -315,9 +336,11 @@ for (const remote of remotes) {
     console.log(`${label} ✅ ALREADY(远端=本地,跳过推送)`)
     continue
   }
-  // 2. 判定领先关系(无需网络:本地已有该对象即可判定,否则按需 fetch)
-  if (!git(['cat-file', '-e', remoteSha])) {
-    git(['fetch', remote, branch], { timeout: TIMEOUT_MS })
+  // 2. 判定领先关系(无需网络:本地已有该对象即可判定,否则按需 fetch)。
+  // cat-file -e 成功时 stdout 为空。git() 失败才返回 null;空串是成功,不能用 ! 判断。
+  // 这一步的 fetch 必须更新 refs/remotes/<remote>/<branch>,不能只写 FETCH_HEAD。
+  if (git(['cat-file', '-e', remoteSha]) === null) {
+    git(['fetch', remote, trackingFetchRefspec(remote, branch)], { timeout: TIMEOUT_MS })
   }
   const remoteIsAncestor =
     git(['merge-base', '--is-ancestor', remoteSha, localHead]) !== null &&
@@ -400,24 +423,32 @@ for (const remote of remotes) {
     }
     continue
   }
-  // 既非祖先关系 → 分叉
+  // 既非祖先关系 → 分叉。
+  // 期望值必须是本轮 ls-remote 确认过的 sha。不带期望时 git 改读跟踪 ref;
+  // 跟踪 ref 缺失/陈旧,或被上面的 fetch 刷到更新的 tip,lease 都会在远端已前进时仍通过。
+  // 拿不到 40 位确认值就不得强推,也不回退成 --force / 裸 --force-with-lease。
   if (allowLease) {
-    const leaseRes = gitWithOutput([
-      'push',
-      '--force-with-lease',
-      remote,
-      `HEAD:refs/heads/${branch}`,
-    ])
-    if (leaseRes.ok) {
-      results.push({ remote, status: 'FORCE_PUSHED' })
-      console.log(`${label} ⚠️  FORCE_PUSHED(lease,分叉 ${remoteSha.slice(0, 11)})`)
-      continue
+    const expectSha = confirmedRemoteSha(remoteSha)
+    if (!expectSha) {
+      console.log(`${label}    └ 未拿到已确认的远端 sha,不得 lease 强推`)
+    } else {
+      const leaseRes = gitWithOutput([
+        'push',
+        `--force-with-lease=refs/heads/${branch}:${expectSha}`,
+        remote,
+        `HEAD:refs/heads/${branch}`,
+      ])
+      if (leaseRes.ok) {
+        results.push({ remote, status: 'FORCE_PUSHED' })
+        console.log(`${label} ⚠️  FORCE_PUSHED(lease,分叉 ${expectSha.slice(0, 11)})`)
+        continue
+      }
+      console.log(
+        `${label}    └ lease 强推未成功(本次现推 exit=${
+          leaseRes.code === null ? '未取到' : leaseRes.code
+        }):${tailEvidence(leaseRes.text) || '未取到输出(未判定)'}`,
+      )
     }
-    console.log(
-      `${label}    └ lease 强推未成功(本次现推 exit=${
-        leaseRes.code === null ? '未取到' : leaseRes.code
-      }):${tailEvidence(leaseRes.text) || '未取到输出(未判定)'}`,
-    )
   }
   results.push({ remote, status: 'DIVERGED' })
   console.log(`${label} ⚠️  DIVERGED(远端 ${remoteSha.slice(0, 11)} 与本地分叉;先 ff/merge 再收敛)`)

@@ -228,8 +228,16 @@ export function scanJsx(src, opts = {}) {
     return j
   }
 
-  let i = 0
-  while (i < text.length) {
+  /**
+   * 扫描 [from, to) 区间。属性区必须**递归进 walk**:`footer={<button …/>}` 这类属性表达式里的
+   * JSX 若不建元素,它的行就会被外层组件的开标签区间抢走归属(实测 ConfirmDialog:footer 里的
+   * 按钮被归到 `Modal` ⇒ 按 panel 判 `rounded-xl` 合规放行,而它实际是 control 该取 sm)。
+   * 外层元素在 walk 属性区期间**临时在栈顶**,嵌套元素才看得见"我渲染在这个组件里"的祖先链;
+   * 自闭合的外层 walk 完即弹,不污染后续兄弟。
+   */
+  function walk(from, to) {
+    let i = from
+    while (i < to) {
     const c = text[i]
     if (c === '"' || c === "'" || c === '`') {
       i = jumpString(i)
@@ -320,7 +328,7 @@ export function scanJsx(src, opts = {}) {
     let selfClosed = false
     let endPos = -1
     const startLine = lineAt(i)
-    while (j < text.length) {
+    while (j < to) {
       const d = text[j]
       if (d === '"' || d === "'" || d === '`') {
         j = jumpString(j)
@@ -363,9 +371,14 @@ export function scanJsx(src, opts = {}) {
       if (!cands.has(l)) cands.set(l, [])
       cands.get(l).push(idx)
     }
-    if (!selfClosed) stack.push(idx)
+    stack.push(idx)
+    /** 属性区递归(见 `walk` 头注):嵌套 JSX 建独立元素,外层为自闭合时 walk 完即弹栈。 */
+    walk(i + 1 + name.length, endPos)
+    if (selfClosed) stack.pop()
     i = endPos + 1
+    }
   }
+  walk(0, text.length)
 
   // 行归属:开标签区间最窄的那个元素赢(嵌套元素比祖先窄);并列则 ambiguous 交调用方退回旧判序。
   const byLine = new Map()

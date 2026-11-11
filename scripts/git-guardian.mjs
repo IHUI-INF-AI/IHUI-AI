@@ -189,6 +189,8 @@ import {
 // worktree 自动回收调度层(2026-10-30):判据/执行在 scripts/agent-worktree.mjs --reap,
 // 本层只负责节流与结论落日志(归属纪律同 TEMP 清扫)。
 import { reapWorktrees } from './lib/git-guardian-worktree-reap.mjs'
+// 自陈述版本的判定口径:本进程 import 闭包单源(§0.6 不在守护里再拼一份 import 解析)
+import { relativeImportClosure } from './lib/scratch-module-closure.mjs'
 // 回收站「到期清理」调度层(2026-11-05 立,goal-b49 W7 未竟 1):判据与执行全在端内
 // (apps/cli/src/tools/trash-prune-entry.ts + packages/shared/src/delete-guard/),
 // 本层只负责 24h 节流地派生它、读它那一行结论、并把「自动退休」这一档寄到人通道。
@@ -450,6 +452,64 @@ export function log(msg) {
   }
 }
 
+// —— RP-75 ② 单轮分片 + 断点续跑(2026-11-11 立) ——
+// 现场:单轮实测跨 1h+(2026-11-07 手动轮 18min 零日志、锁 mtime 冻死),调度器每趟被
+// "多实例"拒掉 ⇒ 轮永远跑不完、节流戳结构性缺失、A8 恒判 rotting。
+// 分片纪律:轮按既有段界(markRoundStage 落点)切成片,单片预算 ≤120s(env 只可下调);
+// 预算到即在段界让出余轮并落游标,下一轮跳过已完成段从断点续跑。
+// 续跑粒度:非节流腿所在段(post-heal/post-heals)按段跳过;其余腿早已带 legThrottle 戳,
+// 重跑已完成段 = 读一枚戳即过 —— 续跑由既有戳件自动达成,不另造第二份清单(A9 已判齐平,§0.6)。
+// 位置纪律:本块必须排在 markRoundStage 之前 —— A11 结构锁按「markRoundStage 到下一节标记」
+// 切片验只读态短路,本块的 CHECK_ONLY 守卫若落进切片会撞掉那把变异自证(2026-11-11 实测)。
+/** 单片预算:票面纪律 ≤120s;IHUI_GUARDIAN_SHARD_BUDGET_MS 只可下调、不可上调。 */
+export const ROUND_SHARD_BUDGET_MS = (() => {
+  const n = Number(process.env.IHUI_GUARDIAN_SHARD_BUDGET_MS)
+  return Number.isFinite(n) && n > 0 ? Math.min(120_000, n) : 120_000
+})()
+/** 分片段序:边界 = 既有 markRoundStage 段界检查点(不是第二份清单,就是分片锚点本身)。 */
+export const ROUND_SEGMENT_ORDER = [
+  'main:post-heal',
+  'main:post-sweeps',
+  'main:post-heals',
+  'main:post-feedback-loop',
+  'main:post-self-audit',
+  'main:pre-dispatch',
+  'main:post-rn-shell',
+  'main:pre-round-close',
+  'main:round-done',
+]
+let roundSegmentsDone = new Set()
+/** 断点判定(纯函数,测试钉):游标属另一轮且未到 round-done ⇒ 跳过其已完成段。 */
+export function planRoundResume(cursor, currentStartedAtMs, order = ROUND_SEGMENT_ORDER) {
+  if (!cursor || typeof cursor.stage !== 'string' || !Array.isArray(cursor.segmentsDone)) return []
+  if (cursor.stage === 'main:round-done') return []
+  if (Number(cursor.startedAtMs) === currentStartedAtMs) return []
+  return cursor.segmentsDone.filter((s) => order.includes(s) && s !== 'main:round-done')
+}
+/** 单片预算判定(纯函数,测试钉)。 */
+export function shardBudgetExceeded(nowMs, roundStartMs, budgetMs = ROUND_SHARD_BUDGET_MS) {
+  return nowMs - roundStartMs >= budgetMs
+}
+/** 轮起点:读游标,上一轮未跑完(停在段中间)⇒ 本轮跳过已完成段续跑。仅真实轮调用,--check 不落。 */
+function initRoundShardResume() {
+  roundSegmentsDone = new Set()
+  try {
+    const cur = JSON.parse(readFileSync(ROUND_CURSOR, 'utf8'))
+    const done = planRoundResume(cur, ROUND_STARTED_MS)
+    if (done.length > 0) {
+      roundSegmentsDone = new Set(done)
+      log(`⏩ 断点续跑:上一轮停在 ${cur.stage} ⇒ 本轮跳过 ${done.length} 个已完成段(${done.join(', ')}),余段按单片预算 ≤${Math.round(ROUND_SHARD_BUDGET_MS / 1000)}s 继续`)
+    }
+  } catch { /* 无游标/坏形态 ⇒ 从零开 */ }
+}
+/** 分片让出点:预算到 ⇒ 记一行日志并在段界让出余轮(游标已由 markRoundStage 落好)。 */
+function roundShardYield(lastStage) {
+  if (CHECK_ONLY || STATUS_ONLY) return false
+  if (!shardBudgetExceeded(Date.now(), ROUND_STARTED_MS)) return false
+  log(`⏳ 分片预算到(${Math.round((Date.now() - ROUND_STARTED_MS) / 1000)}s ≥ ${Math.round(ROUND_SHARD_BUDGET_MS / 1000)}s)⇒ ${lastStage} 后让出余轮,下一轮从断点段续跑(游标 .ihui-agent/state/guardian-round-cursor.json)`)
+  return true
+}
+
 /**
  * 记一个粗粒度检查点(2026-11-07 立,RP-75 ①)。语义 = 「本轮活着走过这里」:
  * 崩溃后读 `.ihui-agent/state/guardian-round-cursor.json` 的最后一枚 stage,
@@ -474,6 +534,9 @@ export function markRoundStage(stage) {
   beatRoundLock()
   try {
     mkdirSync(dirname(ROUND_CURSOR), { recursive: true })
+    // RP-75 ②(2026-11-11):段界即分片完成标记 —— 先记入本轮已完成段,游标同枚带上,
+    // 让"断点续跑"与"死在哪一段"共用同一份诊断件,不另造第二份清单。
+    if (ROUND_SEGMENT_ORDER.includes(stage)) roundSegmentsDone.add(stage)
     writeFileSync(
       ROUND_CURSOR,
       `${JSON.stringify({
@@ -484,6 +547,7 @@ export function markRoundStage(stage) {
         elapsedMs: Date.now() - ROUND_STARTED_MS,
         pid: process.pid,
         mode: DAEMON ? 'daemon' : CHECK_ONLY ? 'check' : STATUS_ONLY ? 'status' : 'round',
+        segmentsDone: [...roundSegmentsDone],
       })}\n`,
       'utf8',
     )
@@ -13968,7 +14032,7 @@ export function restartGuardianService({
  *  ① 报读数(processStartAt / maxSourceMtime / newerThanProcess) —— 绿也报,否则"没喊"与"没量"分不开;
  *  ② 有文件比进程新 ⇒ 判红,走既有 notifyGuardRed(身份去重 + 邮件出口);
  *  ③ 允许重启的执行体里温和自重启一次,带熔断(每窗口 1 次、失败不重试、动作写审计行)。
- * 全部依赖可注入(scan / notify / doRestart / stateFile / auditFile),测试用替身取证,绝不真重启。
+ * 全部依赖可注入(scan / closure / notify / doRestart / stateFile / auditFile),测试用替身取证,绝不真重启。
  */
 export function auditGuardianCodeFreshness(opts = {}) {
   const {
@@ -13984,6 +14048,7 @@ export function auditGuardianCodeFreshness(opts = {}) {
     beforeRestart = releaseRoundLockForRestart,
     daemon = DAEMON,
     checkOnly = CHECK_ONLY,
+    closure = null,
     enabled = process.env.IHUI_GUARDIAN_SELF_FRESHNESS !== '0',
   } = opts
   // --check 是 CI 口径零副作用;env 开关可整体回滚(回滚后不量也不喊,与锁模式 off 同一条语义)。
@@ -14001,9 +14066,53 @@ export function auditGuardianCodeFreshness(opts = {}) {
     )
     return { ran: true, state: 'undetermined' }
   }
-  const newer = (Array.isArray(scanned.files) ? scanned.files : [])
+  // 判定只看**本进程真的加载过的那些文件**(闭包档,2026-11-05 立、2026-11-11 重接)。
+  // 立因:扫描面是全 `scripts/`(1054 枚),绝大多数是**被 spawn 的子脚本** —— 子进程每次都用盘上
+  // 最新字节,常驻进程载不加载与它们无关;本仓活跃时"比进程新"结构性恒真(24h 寄 7 封、真重启 4 次,
+  // 全为无关字节的噪声)。这不是把告警调宽,是把量错的对象修窄。
+  // 口径单源:闭包只认 `lib/scratch-module-closure.mjs` 的 `relativeImportClosure` 那一份
+  // (§0.6 不在本器再拼第二份 import 解析;self-freshness ④ 号锁钉这条)。
+  // ⚠ 传参必须是 SELF_SCAN_ROOT 本身:它已 = join(WORKTREE,'scripts'),再拼 'scripts' 会指到
+  //   不存在的 scripts/scripts ⇒ 闭包恒退化成 1 枚 ⇒ 永久回落全量,"修窄"从未生效(2026-11-05 原接线实证)。
+  // 已知边界:该解析只认**静态** `import … from './x'`(函数里的 dynamic import 进不了闭包)——
+  // 所以被排除的枚数照实写进读数、邮件正文与审计,量窄了这件事本身不静默。
+  // 闭包取不到/为空 ⇒ 退回**全量判定**(失效方向是多喊一次,绝不是因为量不到而放绿),并点名原因。
+  const allNewer = (Array.isArray(scanned.files) ? scanned.files : [])
     .filter((f) => Number(f?.mtimeMs) > processStartAt)
     .sort((a, b) => b.mtimeMs - a.mtimeMs)
+  let closureSet = null
+  let closureWhy = ''
+  const resolveClosure = () => {
+    const rels = relativeImportClosure(SELF_SCAN_ROOT, 'git-guardian.mjs')
+    const norm = new Set([...rels].map((r) => `scripts/${String(r).replace(/\\/g, '/')}`))
+    if (!norm.has('scripts/git-guardian.mjs') || norm.size < 2)
+      return { set: null, why: `闭包只有 ${norm.size} 枚(入口自身不在内)⇒ 不可信` }
+    return { set: norm, why: '' }
+  }
+  try {
+    const c = closure ?? resolveClosure()
+    closureSet = c.set
+    closureWhy = c.why || ''
+    if (!closureSet) closureWhy = closureWhy || '注入的闭包为空'
+  } catch (e) {
+    closureWhy = String(e?.message ?? e).slice(0, 120)
+  }
+  // 成对哨兵:闭包口径只在**扫描面覆盖本进程入口**时适用 —— 连 git-guardian.mjs 都不在这枚读数里,
+  // 说明它不是常驻进程的真实源码面(夹具/异常口径),按全量喊,绝不因口径对不上而放绿。
+  if (closureSet) {
+    const scanHasEntry = (Array.isArray(scanned.files) ? scanned.files : []).some(
+      (f) => selfRel(f.path) === 'scripts/git-guardian.mjs',
+    )
+    if (!scanHasEntry) {
+      closureSet = null
+      closureWhy = '扫描面不含本进程入口 ⇒ 闭包口径不适用'
+    }
+  }
+  const newer = closureSet ? allNewer.filter((f) => closureSet.has(selfRel(f.path))) : allNewer
+  const excluded = allNewer.length - newer.length
+  const scopeTxt = closureSet
+    ? `闭包=${closureSet.size} 枚(判定 ${newer.length}/比进程新共 ${allNewer.length},排除 ${excluded} 枚非本进程加载)`
+    : `闭包不可用(${closureWhy})⇒ 本轮按全量判 ${newer.length} 枚`
   const iso = (ms) => (Number.isFinite(ms) && ms > 0 ? new Date(ms).toISOString() : 'n/a')
   const list = newer
     .slice(0, 8)
@@ -14011,9 +14120,13 @@ export function auditGuardianCodeFreshness(opts = {}) {
     .join(', ')
   const head =
     `processStartAt=${iso(processStartAt)} maxSourceMtime=${iso(scanned.maxSourceMtime)}` +
-    `(${selfRel(scanned.maxSourceFile)}) scanned=${scanned.scanned ?? 0}`
+    `(${selfRel(scanned.maxSourceFile)}) scanned=${scanned.scanned ?? 0} ${scopeTxt}`
   if (newer.length === 0) {
-    logger(`🧾 守护自陈述版本:✅ ok ${head} newerThanProcess=[]`)
+    logger(
+      allNewer.length > 0
+        ? `🧾 守护自陈述版本:✅ ok ${head} ⇒ 比进程新的 ${allNewer.length} 枚都在 spawn 面,本进程不载它们`
+        : `🧾 守护自陈述版本:✅ ok ${head} newerThanProcess=[]`,
+    )
     return { ran: true, state: 'ok' }
   }
   logger(
@@ -14030,11 +14143,13 @@ export function auditGuardianCodeFreshness(opts = {}) {
           .map((f) => `  ${selfRel(f.path)} @ ${iso(f.mtimeMs)}`)
           .join('\n')}` +
         `${newer.length > 12 ? `\n  …另有 ${newer.length - 12} 个` : ''}\n` +
+        `取材口径:${scopeTxt}\n` +
         '最老一枚的修复同样没生效 —— 常驻守护不重读本文件,只认重启。\n' +
         `处置:确认这些改动无在途冲突后 nssm restart ${GUARD_SERVICE_NAME}(本守护在允许的执行体里会自动试一次)。`,
       {
         severity: 'warning',
-        dedupKey: `guardian-code-stale:${newer.length > 3 ? 'many' : newer.length}`,
+        // 身份带上口径档(closure/all),两档不混一个桶(§5e-3);不掺被排除的全量枚数(它会随手提交抖动)
+        dedupKey: `guardian-code-stale:${closureSet ? 'closure' : 'all'}:${newer.length > 3 ? 'many' : newer.length}`,
       },
     )
   } catch (e) {
@@ -14067,6 +14182,8 @@ export function auditGuardianCodeFreshness(opts = {}) {
     triggerMtime: iso(top.mtimeMs),
     processStartAt: iso(processStartAt),
     maxSourceMtime: iso(scanned.maxSourceMtime),
+    closureMode: closureSet ? 'closure' : 'all',
+    excludedSpawn: closureSet ? excluded : null,
     newerThanProcess: newer.map((f) => `${selfRel(f.path)}@${iso(f.mtimeMs)}`),
   }
   // 审计行**先落盘再动作**:重启会把本进程带走,动作前的留痕不能只靠内存/日志缓冲。
@@ -14275,16 +14392,39 @@ async function main() {
     registerTask()
   }
 
-  const coreOk = coreHealthy(before)
-  if (coreOk && before.refsOk) {
+  let coreOk = coreHealthy(before)
+  // RP-75 ①(2026-11-11 立):旧形态用**自愈前**快照判巡检门 `coreOk && before.refsOk` ⇒
+  // refs 面(2.7 万条)不健康的轮次整段巡检被跳过,只余「自愈成功 + 自陈述版本」两行日志,
+  // 4 枚 *-dispatch-last.json 恒缺、A8 恒判 rotting。现改为:不健康且非 --check ⇒ 先自愈,
+  // 重取 status() 后按**自愈后**快照判门(单点改动就在这段判定;巡检块内不引用 before,换快照安全)。
+  let roundView = before
+  if (!CHECK_ONLY && !(coreOk && before.refsOk)) {
+    if (!coreOk) log(anomalyLine(before))
+    // 分级自愈:指针 -> 环境 -> HEAD 语法 -> refs -> 备份 -> 远端
+    remediate(before)
+    roundView = status()
+    coreOk = coreHealthy(roundView)
+    if (!(coreOk && roundView.refsOk)) {
+      log('❌ 自愈失败,需人工介入')
+      if (!CHECK_ONLY) auditGuardianCodeFreshness()
+      return 1
+    }
+    log(`✅ 自愈成功(HEAD=${roundView.head})`)
+  }
+  if (coreOk && roundView.refsOk) {
+    // RP-75 ②:真实轮起点先读游标定断点(--check 零副作用,不落此路)
+    if (!CHECK_ONLY) initRoundShardResume()
     // 段界检查点(粗粒度,只为"死在哪一段"留证;不写日志行,避免把节流静默面填满)
     markRoundStage('main:block-enter')
     // `.git` 与嵌套 ref 都健康 ≠ 工作区健康:宿主会成批删除工作区里的已跟踪文件
     // (实测同日三轮 137→27→1)。计划任务跑的是本单轮路径(startDaemon 未启用),
     // 健康轮次的早退之前是唯一能挂工作区自愈的位置 —— 不在此处就永远不执行。
     // --check 保持零副作用(CI 口径);真巡检才动手,且只在真恢复/发现他人删除时写日志。
-    if (!CHECK_ONLY) healWorktreeTracked()
+    if (!roundSegmentsDone.has('main:post-heal')) {
+      if (!CHECK_ONLY) healWorktreeTracked()
+    }
     markRoundStage('main:post-heal')
+    if (roundShardYield('main:post-heal')) return 0
     // 「完成即删」兜底清扫(2026-10-22 调度加固):原挂在 5386,但它后面的公网探测/隧道健康/
     // 服务自愈等长任务会让整轮在前段结束 —— 实测清扫心跳停在 09:02、已勾行滞留到 10:40 无人清。
     // 本层自带 30 分钟节流,提前到工作区自愈之后不会放大写入频率;判据仍 import 门 229(单一实现)。
@@ -14318,19 +14458,23 @@ async function main() {
     // D6 死副本),周期量、倒退才到人邮箱。判机器状态 ⇒ 绝不进提交链(§12e)。
     if (!CHECK_ONLY) sweepPoolIsolation()
     markRoundStage('main:post-sweeps')
+    if (roundShardYield('main:post-sweeps')) return 0
     // 悬空 commit 自动保活(2026-10-30 立):守门 30a 的「30 天窗」维是 blocking,而此前**没有任何
     // 自动腿**在悬空出现的当下给它打 lost-commit/<name> tag —— 手工打 10 枚修绿、几十分钟后再冒 2 枚,
     // 于是这台机器周期性重新制造「人人 --no-verify」那一型(§12e)。判据零复算:吃 30a 自己的
     // --list-unbacked 机读清单;只加不减、超窗只报数、取不到落未判定、空转零写零推(§29 GC 归人工)。
     // 挂在这一族同格(健康轮次早退之前 + !CHECK_ONLY)与本文件既有的清扫器一致 —— 挂在后面的长任务
     // 串里等于永不执行(该教训在上一层注释里已写过两次)。
-    if (!CHECK_ONLY) await sweepDanglingCommitAutotag()
-    // 盘根封口同理:重启会清掉 junction,而第三方重建真目录只需要一次启动。
-    if (!CHECK_ONLY) healRootSeal()
-    // §26 家目录改道同理:改道树被清掉后工具会立刻在 C 盘重建实体目录,而门 96 是 blocking
-    // ⇒ 不自动补回就等于逼每一次提交绕过全部守门。
-    if (!CHECK_ONLY) healHomeJunctions()
+    if (!roundSegmentsDone.has('main:post-heals')) {
+      if (!CHECK_ONLY) await sweepDanglingCommitAutotag()
+      // 盘根封口同理:重启会清掉 junction,而第三方重建真目录只需要一次启动。
+      if (!CHECK_ONLY) healRootSeal()
+      // §26 家目录改道同理:改道树被清掉后工具会立刻在 C 盘重建实体目录,而门 96 是 blocking
+      // ⇒ 不自动补回就等于逼每一次提交绕过全部守门。
+      if (!CHECK_ONLY) healHomeJunctions()
+    }
     markRoundStage('main:post-heals')
+    if (roundShardYield('main:post-heals')) return 0
     // 合并吞并对账:别人机器上造好推来的合并跑不到提交链那道门(commit-tree 旁路不跑钩子),
     // 由本层按增量台账判到一次(只判不修)。
     // 2026-11-07 收口(A8 四条恒 rotting 的真因):本机实际执行体是计划任务单轮(vbs 起
@@ -14404,6 +14548,7 @@ async function main() {
     // 检查点:这里是 2026-11-06 那轮的**最后推进点**(22:29:39Z 之后 2h24m 零日志)。
     // 单列一格,下一轮再静默死就能直接判"死在反馈闭环之后、巡检心跳之前"。
     markRoundStage('main:post-feedback-loop')
+    if (roundShardYield('main:post-feedback-loop')) return 0
     // 巡检**自己**也要有人看(2026-10-17 立):上面那行派发它,而它一旦停摆,账面没有任何一格会红
     // —— 它判的是"别的任务没在跑", "它自己没在跑"没有任何判据。挂点与上面各层同格(健康轮次
     // 早退之前 + !CHECK_ONLY),读它每轮落的 ops-patrol-last.json,超 3 期未更新即就地起跳一轮。
@@ -14427,6 +14572,7 @@ async function main() {
     // "票失败"并封票,真因(执行体路径钉死别机盘符)一行也没被点名。判机器状态 ⇒ 不进提交链(§12e)。
     if (!CHECK_ONLY) sweepAutonomyLegHealth()
     markRoundStage('main:post-self-audit')
+    if (roundShardYield('main:post-self-audit')) return 0
     // git status 余量(2026-11-04 立,尺子 = scripts/check-git-probe-headroom.mjs):
     // 立因 = Qoder 以 5000ms 硬超时探测 git 状态,本机被采集面顶到 5.1~6.5s ⇒ 12 次 timeout,
     // 之后清理失败令整个工作区 git 读恒返 durationMs=0(用户读作"git 状态总是获取不到")。
@@ -14535,6 +14681,7 @@ async function main() {
     // 顺序:先感知(分诊/腐烂/依赖)→ 再派发,同轮登记的票下一轮即可被自进化取到。
     // 检查点:派发簇在链尾。A8 长期 dark 的 7 枚腿全在这一簇里 ⇒ 本格到位即"轮次确实走到了链尾"。
     markRoundStage('main:pre-dispatch')
+    if (roundShardYield('main:pre-dispatch')) return 0
     // 2026-11-07(二次补):本段到 pre-round-close 之间是 42 条腿,原先**一条心跳点都没有** ——
     // 段界只有 pre-dispatch / post-rn-shell / pre-round-close 三个,任何一条腿跨过 180s 阈值,
     // A11 就只能读到「停在 main:post-rn-shell,308s 未续」,把"这一大段腿在正常跑"判成"事件循环死了"。
@@ -14596,6 +14743,7 @@ async function main() {
     beatRoundLock()
     if (!CHECK_ONLY) await sweepRnShellTypes()
     markRoundStage('main:post-rn-shell')
+    if (roundShardYield('main:post-rn-shell')) return 0
     // 三端非色档落档自愈:源头(web)先补,再 RN,再小程序 —— 只写工作树,落库交给 auto-commit-quiet。
     beatRoundLock()
     if (!CHECK_ONLY) sweepWebStyleTiers()
@@ -14649,6 +14797,7 @@ async function main() {
     if (!CHECK_ONLY) await healUiRoutesLeg()
     // 幂等确保自身是 S4U(已是则内部秒退,不重建任务、不产生抖动)
     markRoundStage('main:pre-round-close')
+    if (roundShardYield('main:pre-round-close')) return 0
     if (!CHECK_ONLY) ensureS4u()
     // 轮末自陈述版本(2026-11-04 立):让「代码比进程新」自己喊出来。--check 已由函数内部跳过。
     if (!CHECK_ONLY) auditGuardianCodeFreshness()
@@ -14660,6 +14809,9 @@ async function main() {
     return 0
   }
 
+  // RP-75 ①(2026-11-11):非 --check 的不健康轮已在上面处置完毕(先自愈、重取 status() 再判门:
+  // 自愈成功 ⇒ 按自愈后快照继续整段巡检;失败 ⇒ 记「自愈失败」+ 自陈述版本后 return 1)。
+  // 走到这里只剩一种可能:--check 且面异常(自愈段未进入)。
   if (!coreOk) log(anomalyLine(before))
   if (CHECK_ONLY) {
     console.log(
@@ -14676,16 +14828,7 @@ async function main() {
     return 1
   }
 
-  // 分层自愈:指针 -> 环境 -> HEAD 语法 -> refs -> 备份 -> 远端
-  remediate(before)
-
-  const after = status()
-  const ok =
-    after.pointerOk && after.gitdirOk && after.gitUsable && after.refsOk && after.worktreeUsable
-  log(ok ? `✅ 自愈成功(HEAD=${after.head})` : '❌ 自愈失败,需人工介入')
-  // 轮末自陈述版本:与健康轮次同一挂点语义 —— 不健康轮次同样要报"我是哪一刻的代码"。
-  if (!CHECK_ONLY) auditGuardianCodeFreshness()
-  return ok ? 0 : 1
+  return 1 // 不可达:非 check 的不健康路径已在自愈段返回(保留兜底出口,失效方向与旧面一致)
 }
 
 /** 常驻守护模式:需自备托管(nssm/服务/计划任务);本机实际用的是 `--install` 注册的计划任务(每 2 分钟),此模式未启用 */

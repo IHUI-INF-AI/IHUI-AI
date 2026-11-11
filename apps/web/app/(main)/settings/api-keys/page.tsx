@@ -6,54 +6,41 @@
 
 import * as React from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
-import { API_KEY_PERMISSIONS, type CreateApiKeyInput, type TFunction } from '@ihui/types'
-import { ApiKeysScreen as SharedApiKeysScreen } from '@ihui/rn-app/features/api-keys/ApiKeysScreen'
+import { KeyRound, Plus } from 'lucide-react'
+import { Button } from '@ihui/ui-react'
 import { BackButton, AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
-import { useConfirm } from '@/hooks/use-confirm'
 import { Container } from '@/components/layout'
-import {
-  createApiKey,
-  deleteApiKey,
-  fetchApiKeys,
-  fetchApiKeyUsage,
-  rotateApiKeySecret,
-} from './helpers'
-import { PERM_LABELS } from './PermissionSelector'
+import { ApiKeyListCard } from './ApiKeyListCard'
+import { CreateKeyDialog } from './CreateKeyDialog'
+import { SecretDisplayDialog } from './SecretDisplayDialog'
+import { createApiKey, deleteApiKey, fetchApiKeys, rotateApiKeySecret } from './helpers'
+import { EMPTY_FORM, type CreateFormState, type DialogState } from './types'
 
-/**
- * 与 RN `apps/mobile-rn/src/screens/ApiKeysScreen.tsx` 共用同一份渲染
- * (`@ihui/rn-app/features/api-keys/ApiKeysScreen`,react-native-web 承载)。
- * 本页只保留 web 侧数据编排与平台件:react-query、toast、useConfirm、clipboard。
- */
 export default function ApiKeysSettingsPage() {
   const qc = useQueryClient()
-  const t = useTranslations()
-  const tp = useTranslations('apiKeyPerms')
-  const { confirm, ConfirmDialogRenderer } = useConfirm()
+  const [dialog, setDialog] = React.useState<DialogState>('idle')
+  const [form, setForm] = React.useState<CreateFormState>(EMPTY_FORM)
+  const [secret, setSecret] = React.useState('')
+  const [secretTitle, setSecretTitle] = React.useState('密钥已创建')
+
   // 2026-09-30 登录态门:未登录不发注定 401 的请求
   const { allow } = useAuthGate()
-  const [secret, setSecret] = React.useState<{
-    value: string
-    source: 'create' | 'rotate'
-  } | null>(null)
 
   const keysQuery = useQuery({ queryKey: ['user-api-keys'], queryFn: fetchApiKeys, enabled: allow })
-  const list = React.useMemo(() => keysQuery.data ?? [], [keysQuery.data])
+  const list = keysQuery.data ?? []
 
   const createMut = useMutation({
-    mutationFn: (input: CreateApiKeyInput) =>
-      createApiKey({
-        name: input.name.trim(),
-        permissions: input.permissions,
-        rateLimit: input.rateLimit,
-      }),
+    mutationFn: (f: CreateFormState) =>
+      createApiKey({ name: f.name.trim(), permissions: f.permissions, rateLimit: f.rateLimit }),
     onSuccess: (res) => {
       toast.success('API 密钥创建成功')
       qc.invalidateQueries({ queryKey: ['user-api-keys'] })
-      setSecret({ value: res.secret, source: 'create' })
+      setSecretTitle('密钥已创建')
+      setSecret(res.secret)
+      setDialog('secret-display')
+      setForm(EMPTY_FORM)
     },
     onError: (e: Error) => toast.error('创建失败', { description: e.message }),
   })
@@ -72,73 +59,74 @@ export default function ApiKeysSettingsPage() {
     onSuccess: (res) => {
       toast.success('密钥已轮换,请保存新 secret')
       qc.invalidateQueries({ queryKey: ['user-api-keys'] })
-      setSecret({ value: res.secret, source: 'rotate' })
+      setSecretTitle('新 Secret 已生成')
+      setSecret(res.secret)
+      setDialog('secret-display')
     },
     onError: (e: Error) => toast.error('轮换失败', { description: e.message }),
   })
 
-  const permissionOptions = React.useMemo(
-    () =>
-      API_KEY_PERMISSIONS.map((perm) => ({
-        value: perm,
-        label: tp(PERM_LABELS[perm] ?? perm),
-      })),
-    [tp],
-  )
+  const openCreate = () => {
+    setForm(EMPTY_FORM)
+    setDialog('create')
+  }
 
   return (
     <Container maxWidth="full" padding={false} className="px-4 flex h-full flex-col py-4">
       <BackButton />
-      {allow ? (
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          <SharedApiKeysScreen
-            t={t as unknown as TFunction}
-            colorScheme="light"
+      <header className="flex shrink-0 items-start justify-between gap-3">
+        <div className="space-y-1">
+          <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
+            <KeyRound className="h-6 w-6 text-primary" />
+            API 密钥管理
+          </h1>
+          <p className="text-label text-muted-foreground">
+            管理您的开发者 API 密钥,供第三方应用接入
+          </p>
+        </div>
+        <Button onClick={openCreate} size="sm">
+          <Plus className="mr-1.5 h-4 w-4" />
+          <span>创建密钥</span>
+        </Button>
+      </header>
+
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">
+        {allow ? (
+          <ApiKeyListCard
             list={list}
-            loading={keysQuery.isLoading}
-            error={(keysQuery.error as Error | null)?.message ?? null}
-            onReload={() => {
-              void keysQuery.refetch()
-            }}
-            permissionOptions={permissionOptions}
-            defaultPermissions={[]}
-            onCreate={async (input) => {
-              await createMut.mutateAsync(input)
-            }}
-            creating={createMut.isPending}
-            createError={null}
-            secret={secret}
-            onCloseSecret={() => setSecret(null)}
-            onRotate={async (id) => {
-              await rotateMut.mutateAsync(id)
-            }}
+            isLoading={keysQuery.isLoading}
+            error={keysQuery.error as Error | null}
+            onRetry={() => keysQuery.refetch()}
+            onCreate={openCreate}
             onDelete={async (id) => {
               await deleteMut.mutateAsync(id)
             }}
-            rotatingId={rotateMut.isPending ? (rotateMut.variables ?? null) : null}
-            deletingId={deleteMut.isPending ? (deleteMut.variables ?? null) : null}
-            onLoadUsage={(id) => fetchApiKeyUsage(id)}
-            onCopy={async (text) => {
-              try {
-                await navigator.clipboard.writeText(text)
-                toast.success('已复制')
-              } catch {
-                toast.error('复制失败,请手动选择文本复制')
-              }
+            onRotate={async (id) => {
+              await rotateMut.mutateAsync(id)
             }}
-            onConfirm={(options) =>
-              confirm({
-                title: options.title,
-                description: options.message,
-                variant: options.destructive ? 'destructive' : 'default',
-              })
-            }
+            pendingDelete={deleteMut.isPending}
+            pendingRotate={rotateMut.isPending}
           />
-        </div>
-      ) : (
-        <AuthGatePrompt message="请先登录后查看 API 密钥" />
-      )}
-      <ConfirmDialogRenderer />
+        ) : (
+          <AuthGatePrompt message="请先登录后查看 API 密钥" />
+        )}
+
+        <CreateKeyDialog
+          open={dialog === 'create'}
+          form={form}
+          isPending={createMut.isPending}
+          onFormChange={setForm}
+          onClose={() => !createMut.isPending && setDialog('idle')}
+          onSubmit={() => createMut.mutate(form)}
+        />
+
+        <SecretDisplayDialog
+          open={dialog === 'secret-display'}
+          secret={secret}
+          title={secretTitle}
+          onClose={() => setDialog('idle')}
+        />
+      </div>
     </Container>
   )
 }

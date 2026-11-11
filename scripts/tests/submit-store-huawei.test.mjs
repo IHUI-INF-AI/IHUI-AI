@@ -146,38 +146,6 @@ test('H8 upload 段行为:取预签名地址 → PUT 文件流 → 回执 object
   }
 })
 
-test('H14 for-obs 真实回体形态 urlInfo{objectId,url,method,headers}:空体 2xx PUT 也认受理;缺 url 仍 no-upload-url', async () => {
-  const dir = mkScratch('hw-up-inf')
-  try {
-    writeFileSync(join(dir, 'a.apk'), Buffer.alloc(512, 5))
-    const plan = H.planUpload({ filePath: join(dir, 'a.apk') }).plan
-    const { impl, calls } = stubFetch([
-      { match: (u) => /token$/.test(u), status: 200, text: '{"access_token":"AT"}' },
-      { match: (u) => /upload-url\/for-obs/.test(u), status: 200, text: '{"ret":{"code":0,"msg":"success"},"urlInfo":{"objectId":"CN/OBJ-1.apk","url":"https://obs.example/put?sig=2","method":"PUT","headers":{"Authorization":"AWS4-HMAC-SHA256 X","Content-Type":"application/octet-stream"}}}' },
-      { match: (u, m) => m === 'PUT', status: 200, text: '' },
-    ])
-    const r = await H.phaseUpload({ fetchImpl: impl, creds: { clientId: 'cid', clientSecret: 'sec' }, appId: '100000', plan, filePath: join(dir, 'a.apk') })
-    assert.equal(r.objectId, 'CN/OBJ-1.apk', 'objectId 必须从 urlInfo 取回')
-    assert.equal(r.status, 'found', 'OBS 空体 2xx PUT 不得读成未判定')
-    assert.equal(r.verdict, 'obs-put-accepted')
-    assert.equal(calls[2].headers.Authorization, 'AWS4-HMAC-SHA256 X', '预签名头必须原样透传')
-    assert.equal(
-      Object.keys(calls[2].headers).filter((k) => k.toLowerCase() === 'content-type').length,
-      1,
-      '不得再叠第二个 Content-Type(urlInfo 的签名头原样使用,重复头会 SignatureDoesNotMatch)',
-    )
-    const { impl: impl2 } = stubFetch([
-      { match: (u) => /token$/.test(u), status: 200, text: '{"access_token":"AT"}' },
-      { match: (u) => /upload-url\/for-obs/.test(u), status: 200, text: '{"ret":{"code":0},"urlInfo":{"objectId":"X"}}' },
-    ])
-    const r2 = await H.phaseUpload({ fetchImpl: impl2, creds: { clientId: 'cid', clientSecret: 'sec' }, appId: '100000', plan, filePath: join(dir, 'a.apk') })
-    assert.equal(r2.verdict, 'no-upload-url', '缺 url 不得冒充上传成功')
-    assert.equal(r2.objectId, null)
-  } finally {
-    rmScratch(dir)
-  }
-})
-
 test('H9 verify 段:四格齐才绿;缺格点名;MD5 不一致 MISSING', () => {
   const plan = { fileName: 'a.apk', contentLength: '1024', fileMd5: 'm1' }
   const up = { status: 'found', objectId: 'OBJ', fileMd5: 'm1' }

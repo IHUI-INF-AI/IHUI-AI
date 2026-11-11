@@ -1,5 +1,5 @@
 {
-  "$comment": "门体同代自检的「直跑面存量债」台账:只登记未 import 判面层的注册门。只许缩短:新增门必须 import 判面层(否则 check-gate-body-direct-run-coverage 判红);某门迁移后必须删掉对应条目(留着会被判「清单腐烂」)。why 与 reviewBy 沿用 immutable-guard 台账习惯。2026-11-10:check-db-schema-drift.mjs 已接判面层,按其「清单腐烂」判据删除该条(存量 47→46)。",
+  "$comment": "门体同代自检的「直跑面存量债」台账:只登记未 import 判面层的注册门。只许缩短:新增门必须 import 判面层(否则 check-gate-body-direct-run-coverage 判红);某门迁移后必须删掉对应条目(留着会被判「清单腐烂」)。why 与 reviewBy 沿用 immutable-guard 台账习惯。",
   "entries": [
     {
       "path": "scripts/check-adapter-style-parity.mjs",

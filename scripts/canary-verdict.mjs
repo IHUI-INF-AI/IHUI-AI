@@ -33,7 +33,8 @@
  *   node scripts/canary-verdict.mjs --sample --stage candidate --out <候选.jsonl>
  *   node scripts/canary-verdict.mjs --decide --candidate <候选.jsonl> [--baseline <基线.jsonl>] --json
  *   node scripts/canary-verdict.mjs --decide --candidate <c> --baseline <b> --record-decision \
- *        --deploy-sha <sha> --ledger <deploy-decisions.jsonl> [--reason-append "<一行观测读数>"]
+ *        --deploy-sha <sha> --ledger <deploy-decisions.jsonl> [--reason-append "<一行观测读数>"] \
+ *        [--defer-fail-record:判红不写台账,记录时机交回调用方处置分支(pass/unknown 照旧)]
  *   node scripts/canary-verdict.mjs --self-test
  */
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
@@ -909,7 +910,13 @@ async function main() {
     }
     if (args['record-decision']) {
       const ledger = args.ledger || join(ROOT, '.ihui-agent', 'deploy-decisions.jsonl')
-      try {
+      if (args['defer-fail-record'] && result.verdict === 'fail') {
+        // --defer-fail-record(2026-11-11 立,B37 根因):fail 时本器不抢先写 canary-rollback ——
+        // 部署环处置分支随后还会经子脚本再写一行同 action 台账,而 intake 同桶「后行替换前行」,
+        // 抢先那行带的 dims 会被无 dims 的后行覆盖成 (none)。把记录时机整体交回分支:
+        // 回滚 web ⇒ 子脚本带 dims 记 canary-rollback;判红维不含 web ⇒ 由环记 canary-unproven。
+        console.log('CANARY-RECORD-DEFERRED fail(记录时机交回部署环分支)')
+      } else try {
         // --reason-append:观测面读数(部署环的「GRAY 实切=」那一行)并入 reason 后一起进台账。
         // 截断由 deploy-decision 的唯一构造器负责(MAX_REASON=400),本层不另写一份算式(§0.6);
         // 计数**只住 reason/message**,绝不进任何去重身份(AGENTS §5e-3)。

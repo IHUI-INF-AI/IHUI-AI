@@ -22,6 +22,7 @@ import { authenticate } from './auth.js'
 import { requireAdmin } from './require-permission.js'
 import { success } from '../utils/response.js'
 import { logger } from '../utils/logger.js'
+import { bizDayKey } from '../utils/biz-day.js'
 
 const TOKEN_CACHE_TTL = 300 // 5 分钟缓存
 const TOKEN_CACHE_PREFIX = 'token_balance:'
@@ -70,10 +71,21 @@ interface TokenBalanceService {
   checkPromotionPeriod(): boolean
 }
 
-function checkPromotionPeriod(): boolean {
-  // 促销期检测：每月1-7号为促销期
-  const dayOfMonth = new Date().getDate()
-  return dayOfMonth <= 7
+/** 每月公历 1–7 日(含首尾)为促销窗口。日号取 Asia/Shanghai,不读宿主本地日历。 */
+const PROMOTION_LAST_DAY = 7
+
+/**
+ * 促销期检测。
+ *
+ * 日号来自业务日界 `bizDayKey`(Asia/Shanghai 公历日)。旧实现用 `new Date().getDate()`,
+ * 那是服务器本地日:宿主在 UTC 时,上海 1 日 00:00–08:00 会被读成上月月末(漏开促销),
+ * 上海 8 日 00:00–08:00 仍被读成 7 日(多放 8 小时)。`at` 默认此刻,测试可注入绝对时刻。
+ * 非法 Date 不猜,直接视为非促销。
+ */
+export function checkPromotionPeriod(at: Date = new Date()): boolean {
+  if (!(at instanceof Date) || !Number.isFinite(at.getTime())) return false
+  const day = Number(bizDayKey(at).slice(8, 10))
+  return Number.isInteger(day) && day >= 1 && day <= PROMOTION_LAST_DAY
 }
 
 function getVipBenefit(vipLevel: number) {
@@ -86,7 +98,7 @@ function getVipBenefit(vipLevel: number) {
  * 与 deductTokens 共用同一套 SQL 语义;抽成独立导出函数是为了让没有 Fastify server
  * 的调用方(Crew 子 LLM)也能接上真实扣费链路,而不是只记统计表。
  */
-export async function deductWalletTokens(input: {
+async function deductWalletTokens(input: {
   userId: string
   amount: number
   reason?: string
@@ -207,9 +219,7 @@ export async function settleWalletUsage(input: {
         tokenQuantity: sql`${userMargins.tokenQuantity} - ${deducted}`,
         updatedAt: new Date(),
       })
-      .where(
-        and(eq(userMargins.userId, userId), sql`${userMargins.tokenQuantity} >= ${deducted}`),
-      )
+      .where(and(eq(userMargins.userId, userId), sql`${userMargins.tokenQuantity} >= ${deducted}`))
       .returning({ tokenQuantity: userMargins.tokenQuantity })
 
     if (updated.length === 0) {

@@ -26,8 +26,9 @@ import {
   subscribeBudgetEvent,
 } from '@/hooks/use-chat/budget-state'
 
-/** resetAt 是网关算好的东八区次日 0 点 ISO 串;展示走 Intl.DateTimeFormat(§4 时间规范),
- *  解析失败返回 null —— 宁可少一段提示,不给界面摆 "Invalid Date" */
+/** resetAt 是网关算好的东八区次日 0 点 ISO 串(真实 UTC 时刻)。
+ *  展示必须把 timeZone 钉死在 Asia/Shanghai:不写时区时 Intl 用浏览器本地时区,
+ *  非东八区用户会把次日 0 点看成偏移后的墙上时钟。解析失败返回 null。 */
 function formatResetTime(iso: string, locale: string): string | null {
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return null
@@ -37,6 +38,7 @@ function formatResetTime(iso: string, locale: string): string | null {
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
+      timeZone: 'Asia/Shanghai',
     }).format(date)
   } catch {
     return null

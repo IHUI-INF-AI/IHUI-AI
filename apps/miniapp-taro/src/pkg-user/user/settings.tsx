@@ -257,6 +257,7 @@ export default function Settings() {
         menuItems={menuItems}
         onMenuPress={onMenuPress}
         appVersion={appVersion}
+        onBack={() => void Taro.navigateBack()}
         colorScheme={resolvedTheme}
       />
     </ThemeRoot>

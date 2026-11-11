@@ -207,6 +207,9 @@ import {
   gateLandingMarkers,
   LANDING_MARKER_SKIP_ENV,
 } from './lib/conflict-marker-landing-gate.mjs'
+// RP-72 落地前置档(2026-11-11 接):「声明集成对」判据只有一份实现,住在 lib 里
+// (guardian-runner 提交链自检档用的是同一个出口),本器不复制第二份逻辑。
+import { rootGuardDeclarationPairing } from './lib/root-guard-declaration-pairing.mjs'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createHash } from 'node:crypto'
 // G-814414 补格(2026-11-05):台账「授权退休」的形态与身份口径只有一份实现,
@@ -3185,6 +3188,25 @@ async function main() {
     process.exit(2)
   }
   const { root, paths, removePaths, msg, baseRef, blobOf, jsonStructure } = parsed
+  // ── RP-72 根护栏声明自检(落地前置档,2026-11-11 接,票 RP-72;判据单源在 lib/root-guard-declaration-pairing.mjs)──
+  // 本枚声明集(LAND_PATHS ∪ LAND_REMOVE_PATHS)改 scripts/guardian-runner.mjs 或 scripts/git-guardian.mjs
+  // 而未同枚带 scripts/data/root-guard-manifest.json ⇒ 判拦并点名同枚 --seal 出口。
+  // 与 runner 提交链档一致:自检档只打印、不阻断;升 blocking 仍走「存量先归零」(RP-64 的 19 枚待 ack)。
+  // 本档不提供任何 skip 变量:唯一出路是同枚重封清单并把清单带进本枚落地面。
+  {
+    const rpPairingPaths = paths
+      .concat(removePaths)
+      .map((p) => String(p).trim().replace(/\\/g, '/'))
+    const rpVerdict = rootGuardDeclarationPairing(rpPairingPaths)
+    if (rpVerdict.verdict === 'block') {
+      console.warn(
+        `🧯 根护栏声明自检(RP-72,自检档不阻断):本枚声明集改 ${rpVerdict.ruleFiles.join(' / ')} ` +
+          `而未同枚改 ${rpVerdict.manifestFile} ⇒ 判拦。出路:同枚执行 ` +
+          `node scripts/root-guard.mjs --seal --staged --reason "..." 重封清单,并把 ${rpVerdict.manifestFile} ` +
+          `一并放进本枚落地面随本枚落地(不提供 skip 变量;升 blocking 待存量归零)。`,
+      )
+    }
+  }
   const skipWatermark = process.env.IHUI_LAND_SKIP_WATERMARK === '1'
   // 与水印预检同级:默认必查,跳过要出声(IHUI_LAND_SKIP_IMPORT_CHECK=1)。
   const skipImportCheck = process.env.IHUI_LAND_SKIP_IMPORT_CHECK === '1'

@@ -365,21 +365,32 @@ async function runWithConcurrency<T, R>(
   return results
 }
 
-/** 从 plan.billingPeriod 推断下次扣款时间(在给定基准时间上累加) */
+/**
+ * 上海自 1991 年起固定 UTC+8、无夏令时。把墙钟投影到 UTC 分量后做日历进位,
+ * 宿主本地的 setFullYear/setDate/setMonth 就不会在夏令时切换点把下次扣款拨偏一小时。
+ * 日界算法仍只住在 utils/biz-day.ts;这里是计费周期(保留时分秒),不是另一份日键。
+ */
+const SHANGHAI_UTC_OFFSET_MS = 8 * 60 * 60 * 1000
+
+/**
+ * 从 plan.billingPeriod 推断下次扣款时间(在给定基准上按 Asia/Shanghai 日历累加)。
+ * 月末溢出与旧实现一致(1 月 31 日 → 3 月 2/3 日,2 月 29 日加一年 → 3 月 1 日)。
+ */
 function calculateNextChargeTimeFrom(billingPeriod: string | null | undefined, base: Date): Date {
-  const next = new Date(base)
+  const next = new Date(base.getTime() + SHANGHAI_UTC_OFFSET_MS)
   switch (billingPeriod) {
     case 'year':
-      next.setFullYear(next.getFullYear() + 1)
+      next.setUTCFullYear(next.getUTCFullYear() + 1)
       break
     case 'week':
-      next.setDate(next.getDate() + 7)
+      next.setUTCDate(next.getUTCDate() + 7)
       break
     case 'month':
     default:
-      next.setMonth(next.getMonth() + 1)
+      next.setUTCMonth(next.getUTCMonth() + 1)
+      break
   }
-  return next
+  return new Date(next.getTime() - SHANGHAI_UTC_OFFSET_MS)
 }
 
 async function getPlanBillingPeriodSafe(planId: string | null): Promise<string | null> {
@@ -405,4 +416,6 @@ async function getPlanSafe(planId: string): Promise<{
   if (!plan) return null
   return plan
 }
+
+export const __test__ = { calculateNextChargeTimeFrom }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

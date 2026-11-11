@@ -3,27 +3,13 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-const candidates = [
-  ...(process.env.BENCH_PYTHON ? [process.env.BENCH_PYTHON] : []),
-  'python',
-  'python3',
-  resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'apps', 'ai-service', '.venv', 'Scripts', 'python.exe'),
-  resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'apps', 'ai-service', '.venv', 'bin', 'python'),
-];
-let py = null;
-for (const c of candidates) {
-  if (!c) continue;
-  if (c.includes('/') || c.includes('\\')) {
-    if (existsSync(c)) { py = c; break; }
-  } else {
-    const probe = spawnSync(c, ['--version'], { encoding: 'utf8' });
-    if (probe.status === 0) { py = c; break; }
-  }
+import { pythonCandidatesFrom, resolvePinnedPython, probePython } from '../../lib/python-pin.mjs';
+const resolved = resolvePinnedPython(pythonCandidatesFrom(import.meta.url), probePython);
+if (!resolved.ok) {
+  console.error(resolved.message);
+  process.exit(1);
 }
-if (!py) { console.error('未找到 Python 解释器'); process.exit(1); }
+const py = resolved.python;
 const code = [
 
 'import sys; sys.path.insert(0, \'.\')',

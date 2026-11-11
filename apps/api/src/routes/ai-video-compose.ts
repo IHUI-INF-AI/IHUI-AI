@@ -59,7 +59,7 @@ const taskStore = new Map<string, ComposeTask>()
 
 // F-105(2026-11-08):原实现只 set 不 delete,任务(含完整厂商响应)永久驻留内存。
 export const TASK_TTL_MS = 30 * 60_000
-export const TASK_MAX = 500
+const TASK_MAX = 500
 
 /** 清理过期任务;超过上限时按 updatedAt 从旧到新淘汰。 */
 export function pruneTaskStore(now = Date.now()): void {

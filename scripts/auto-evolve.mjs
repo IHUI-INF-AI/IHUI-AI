@@ -32,6 +32,7 @@
  */
 import { spawnSync } from 'node:child_process'
 import { gitRaw } from './lib/face-reader.mjs'
+import { deployDecisionsFaces } from './lib/deploy-decisions-face.mjs'
 import {
   readFileSync,
   writeFileSync,
@@ -43,8 +44,11 @@ import {
   unlinkSync,
   statSync,
   utimesSync,
+  writeSync,
+  linkSync,
+  renameSync,
 } from 'node:fs'
-import { join, dirname } from 'node:path'
+import { join, dirname, basename } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createHmac, randomUUID } from 'node:crypto'
 import { loadCaps, parseLedger, evaluate, chargeLine } from './cost-breaker.mjs'
@@ -1181,42 +1185,189 @@ function sendEscapeMail(gates, alertId, title, bodyText, severity = 'warning') {
   return true
 }
 
-function acquireLock() {
-  mkdirSync(dirname(LOCK_FILE), { recursive: true })
-  let fd
+/**
+ * 单实例锁的抢占次数上限。死持有者被改名让出后立刻重试发布;
+ * 空文件不走这条(见 classifyLockText),避免空转把「让路」磨成热自旋。
+ */
+const LOCK_ACQUIRE_ATTEMPTS = 8
+
+/**
+ * 读锁正文。读不到与「读到了但不是身份」分开:ENOENT 才能重试发布,
+ * 其余 IO 失败按让路(没判绝不写成可以抢)。
+ */
+function readLockText(lockFile) {
   try {
-    fd = openSync(LOCK_FILE, 'wx')
-  } catch {
-    // 锁在:判持锁 pid 是否还活着;死锁(进程不在)才抢占,活锁让路
-    try {
-      const { pid } = JSON.parse(readFileSync(LOCK_FILE, 'utf8'))
-      if (isPidAlive(pid)) return { held: true, pid }
-    } catch {
-      /* 锁文件坏 = 无有效持有者,抢 */
-    }
-    try {
-      unlinkSync(LOCK_FILE)
-    } catch {
-      /* 抢不掉就当让路 */
-      return { held: true, pid: null }
-    }
-    return acquireLock()
+    return { ok: true, text: readFileSync(lockFile, 'utf8') }
+  } catch (e) {
+    return { ok: false, code: e?.code ?? 'unknown' }
   }
-  writeFileSync(
-    LOCK_FILE,
-    JSON.stringify({ pid: process.pid, at: new Date().toISOString() }),
-    'utf8',
-  )
-  closeSync(fd)
-  return { held: false }
 }
 
-function releaseLock() {
+/**
+ * 锁正文的归属。空文件(含只剩空白)不是无主锁(DBG-93):
+ * 创建侧若先占名再写 pid,竞争者读到的就是这一态,把它当坏锁删掉再抢,
+ * 两个进程会同时以为自己持锁。这里只分类,不删除。
+ */
+function classifyLockText(text) {
+  if (typeof text !== 'string' || text.trim() === '') return { kind: 'empty' }
   try {
-    unlinkSync(LOCK_FILE)
+    const parsed = JSON.parse(text)
+    const pid = parsed?.pid
+    if (!Number.isInteger(pid) || pid <= 0) return { kind: 'no-owner' }
+    return { kind: 'holder', pid }
   } catch {
-    /* 已被下一轮抢占清理 */
+    return { kind: 'corrupt' }
   }
+}
+
+/**
+ * 把身份写进临时文件,再用硬链接挂到正式锁名上。
+ * 对照 git-lock 的「写全再原子可见」:正式路径出现时正文已经是完整 `{pid,at}`。
+ * 用 link 而不是 rename,是因为 Windows 上 rename 会替换已存在的目标文件,
+ * 而 link 在目标已存在时失败(EEXIST),不会盖掉别人的锁,也不会先露出空文件。
+ * @returns {boolean} 正式锁名现在是不是本进程刚挂上的那一份
+ */
+function publishExclusive(lockFile) {
+  const pending = join(
+    dirname(lockFile),
+    `.${basename(lockFile)}.${process.pid}-${Date.now().toString(36)}-${randomUUID().slice(0, 8)}.pending`,
+  )
+  const body = JSON.stringify({ pid: process.pid, at: new Date().toISOString() })
+  let fd
+  try {
+    fd = openSync(pending, 'wx')
+  } catch {
+    return false
+  }
+  try {
+    writeSync(fd, body)
+  } catch {
+    try {
+      closeSync(fd)
+    } catch {
+      /* 句柄没关上也不把半截挂到正式名 */
+    }
+    try {
+      unlinkSync(pending)
+    } catch {
+      /* 临时名清不掉不改「没发布成」 */
+    }
+    return false
+  }
+  try {
+    closeSync(fd)
+  } catch {
+    /* 下面发布失败就清临时名,正式路径仍不存在 */
+  }
+  let linked = false
+  try {
+    linkSync(pending, lockFile)
+    linked = true
+  } catch {
+    linked = false
+  }
+  try {
+    unlinkSync(pending)
+  } catch {
+    /* 临时硬链接残留不在正式锁路径上;正式名要么已是完整身份,要么根本没挂上 */
+  }
+  return linked
+}
+
+/**
+ * 只处置「改名改到的那一份字节」。对照 git-lock 的抢占:先把路径改走,
+ * 回读确认仍是刚才判过的那一版,才删除;对不上就原样挂回,绝不 unlink 正式路径
+ * (那一删会删到别人刚换上的活锁)。空正文直接拒绝。
+ * @returns {'claimed'|'gone'|'changed'|'busy'|'refused'}
+ */
+function claimExactLockBytes(lockFile, expectedText) {
+  if (typeof expectedText !== 'string' || expectedText.trim() === '') return 'refused'
+  const staged = join(
+    dirname(lockFile),
+    `.${basename(lockFile)}.claim-${process.pid}-${randomUUID().slice(0, 8)}`,
+  )
+  try {
+    renameSync(lockFile, staged)
+  } catch (e) {
+    return e?.code === 'ENOENT' ? 'gone' : 'busy'
+  }
+  let got
+  try {
+    got = readFileSync(staged, 'utf8')
+  } catch {
+    restoreClaimed(lockFile, staged)
+    return 'busy'
+  }
+  if (got !== expectedText) {
+    restoreClaimed(lockFile, staged)
+    return 'changed'
+  }
+  try {
+    unlinkSync(staged)
+  } catch {
+    /* 正式名已经让出;残留 staged 不挡下一次发布 */
+  }
+  return 'claimed'
+}
+
+/** 把误改走的那一份挂回正式名。正式名已有人占着就不动,绝不覆盖。 */
+function restoreClaimed(lockFile, staged) {
+  if (!existsSync(lockFile)) {
+    try {
+      linkSync(staged, lockFile)
+      try {
+        unlinkSync(staged)
+      } catch {
+        /* 正式名已挂回 */
+      }
+      return
+    } catch {
+      /* 硬链接失败再试改名,仍只在正式名空着时 */
+    }
+  }
+  if (existsSync(lockFile)) return
+  try {
+    renameSync(staged, lockFile)
+  } catch {
+    /* 留着 staged,不覆盖正式锁 */
+  }
+}
+
+/**
+ * 单实例闸。拿到锁 ⇒ `{ held: false }`(本进程已写入 pid)。
+ * 别人活着、或正文是空的 ⇒ `{ held: true, pid }`,调用方让路且不得释放。
+ * `lockFile` 只给测试注入;生产调用不传,仍是 `LOCK_FILE`。
+ */
+export function acquireLock(lockFile = LOCK_FILE) {
+  mkdirSync(dirname(lockFile), { recursive: true })
+  for (let attempt = 0; attempt < LOCK_ACQUIRE_ATTEMPTS; attempt++) {
+    if (publishExclusive(lockFile)) return { held: false }
+    const read = readLockText(lockFile)
+    if (!read.ok) {
+      if (read.code === 'ENOENT') continue
+      return { held: true, pid: null }
+    }
+    const cls = classifyLockText(read.text)
+    if (cls.kind === 'empty') return { held: true, pid: null }
+    if (cls.kind === 'holder' && isPidAlive(cls.pid)) return { held: true, pid: cls.pid }
+    const claim = claimExactLockBytes(lockFile, read.text)
+    if (claim === 'claimed' || claim === 'gone') continue
+    return { held: true, pid: cls.kind === 'holder' ? cls.pid : null }
+  }
+  return { held: true, pid: null }
+}
+
+/**
+ * 释放锁(DBG-97)。只删除「pid 就是本进程,且字节仍是刚读到的那一版」。
+ * 落败者、空文件、别人的 pid 一律不删 —— 旧实现无条件 unlink,
+ * 后结束的那一方会把当前持有者的锁一起删掉。
+ */
+export function releaseLock(lockFile = LOCK_FILE) {
+  const read = readLockText(lockFile)
+  if (!read.ok) return
+  const cls = classifyLockText(read.text)
+  if (cls.kind !== 'holder' || cls.pid !== process.pid) return
+  claimExactLockBytes(lockFile, read.text)
 }
 
 /**
@@ -4283,11 +4434,13 @@ async function main(args) {
   // 进化回流写回轮(第 3 期):把部署环反复出现的失败桶提炼成教训并落 lessons.jsonl。
   // 台账尚未产生过决策时 retro 按设计判「未判定」;这里显式跳过并点名原因,不把"还没部署过"读成故障,
   // 也不让 missing 台账每小时刷一条假红。台单一就位,本腿即自动生效。
+  // 取材面走唯一出口(2026-11-11,B37):按「全部存在面」判有无,两候选都不在才跳过;retro 侧默认
+  // 已是全面读取+合并去重,本腿不再钉死主仓影子副本(部署环实际写生产 checkout)。
   if (!args.includes('--no-retro')) {
-    const decisionsPath = join(ROOT, '.ihui-agent', 'deploy-decisions.jsonl')
-    if (!existsSync(decisionsPath)) {
+    const { faces: decisionFaces, candidates: decisionCandidates } = deployDecisionsFaces({ repoRoot: ROOT })
+    if (!decisionFaces.length) {
       console.log(
-        `── 进化回流写回轮 ──\nℹ 跳过:部署决策台账尚未产生(${decisionsPath}),无可提炼的失败桶`,
+        `── 进化回流写回轮 ──\nℹ 跳过:部署决策台账尚未产生(两候选面都不在:${decisionCandidates.map((c) => c.path).join(' , ')}),无可提炼的失败桶`,
       )
     } else {
       const rr = spawnSync(
@@ -4347,5 +4500,7 @@ export const __test__ = {
   buildArtifactCommitMessage,
   commitPrefixOf,
   ARTIFACT_MANIFEST_DIR,
+  acquireLock,
+  releaseLock,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

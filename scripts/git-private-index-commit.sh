@@ -50,7 +50,13 @@ backup_last_orphan() {
   node -e "import('./scripts/lib/orphan-backup.mjs').then((m) => m.backupOrphanCommit({ sha: process.argv[1], why: 'git-private-index-commit.sh 5 轮均未抢到 CAS(末枚兜底)', kind: 'priv', root: process.cwd(), logger: (s) => console.error(s) })).catch((e) => console.error('⚠️ 孤儿备份腿异常:' + e.message))" "$LAST_NEW" || true
   LAST_NEW=""
 }
-trap backup_last_orphan EXIT
+# 守门批输出是本次进程的私有文件。EXIT 覆盖正常结束与中途 exit，读完即删。
+cleanup_batch_out() {
+  [ -n "${BATCH_OUT:-}" ] || return 0
+  rm -f -- "$BATCH_OUT" 2>/dev/null || true
+  BATCH_OUT=""
+}
+trap 'cleanup_batch_out; backup_last_orphan' EXIT
 for attempt in 1 2 3 4 5; do
   OLD=$(git rev-parse HEAD)
   git read-tree "$OLD" || { echo "read-tree 失败"; exit 1; }
@@ -109,7 +115,7 @@ echo "✅ subject 回读一致: $GOT_SUBJ"
 #     现改为:**守门批跑完之后才清理私有索引**,让 `--staged` 全程审本次声明集。
 #   缺陷 B: `git diff --name-only "$OLD" "$NEW"` 就是本次提交的文件表,与 PATHS
 #     **恒有交集** ⇒ "批内结论点名了本次文件"这个判断恒为真,永远把别人的红
-#     算到自己头上。现改为从 batch.out 里抓真实文件路径再与 PATHS 求交集。
+#     算到自己头上。现改为从本次批次输出里抓真实文件路径再与 PATHS 求交集。
 echo "=== 在同一份内容上跑守门批(staged 档,面 = 本次声明集) ==="
 # 注意:此时 HEAD 已含本枚提交,所以必须把批的基准指回**父提交**才判得出本次内容
 # —— 若仍跑 `--staged` 且暂存集为空,门 70 那类"空暂存回退全量"的脚本会去扫滞后的共享工作树,
@@ -125,9 +131,11 @@ if [ "$REPLAY_TREE" != "$NEW_TREE" ]; then
   exit 1
 fi
 echo "判定面已重建并与本次提交树逐字节等价: $REPLAY_TREE"
-# 2026-11-07 DBG-98 收口:/tmp/batch.out 是共享路径,多会话并行提交(本仓常态)会互相覆盖
-# 批处理结果 ⇒ 误判/漏判。改为每调用用 mktemp 取唯一临时文件(PID 兜底)。
-BATCH_OUT=$(mktemp /tmp/ihui-git-priv-commit.XXXXXX.out 2>/dev/null || echo "/tmp/ihui-git-priv-commit.$$.out")
+# DBG-98:批次输出禁止用共享固定名。多会话会互相覆盖,后面按 ❌ 行求交集时
+# 会把别人那一跑的红算进本席。每次用含本进程 pid 的仓外临时文件(沿用本脚本
+# 既有的 /tmp,Git Bash 下指向仓外 DevEnv/Temp,不进仓库树,不调用 os.tmpdir),
+# 判定读完由 EXIT trap 删除,中途 exit 同样删。
+BATCH_OUT=$(mktemp "/tmp/ihui-git-priv-commit.$$.XXXXXX.out" 2>/dev/null || echo "/tmp/ihui-git-priv-commit.$$.out")
 node scripts/guardian-runner.mjs --staged > "$BATCH_OUT" 2>&1
 BATCH_RC=$?
 grep -E "总检查数|blocking 失败|失败门清单" "$BATCH_OUT" | tail -4
@@ -138,7 +146,7 @@ BATCH_PATHS=$(grep -a "❌" "$BATCH_OUT" | grep -aoE '(apps|packages|monitoring|
 MINE=$(printf '%s\n' "${PATHS[@]}" | sort -u)
 HIT=$(comm -12 <(echo "$BATCH_PATHS") <(echo "$MINE"))
 if [ "$BATCH_RC" != "0" ]; then
-  echo "⚠️ 守门批非零(详见 $BATCH_OUT)。逐道复跑,点名本次文件的必须自己修:"
+  echo "⚠️ 守门批非零。逐道复跑,点名本次文件的必须自己修:"
   grep -E "❌" "$BATCH_OUT" | tail -8
   if [ -n "$HIT" ]; then
     echo "❌ 批内结论点名了本次声明的文件 ⇒ 这是本任务自己的红:"

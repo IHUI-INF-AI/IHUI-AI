@@ -41,7 +41,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 // =============================================================================
 
 /** 三档语义封闭集;新增一档必须同时改下面的判据与自检用例。 */
-export const AUDIT_EXPORT_KEY_STATUSES = ['active', 'retired', 'bootstrap'] as const
+const AUDIT_EXPORT_KEY_STATUSES = ['active', 'retired', 'bootstrap'] as const
 
 export type AuditExportKeyStatus = (typeof AUDIT_EXPORT_KEY_STATUSES)[number]
 
@@ -75,7 +75,7 @@ export type AuditExportKeyIssueCode =
   | 'R10_MULTIPLE_ACTIVE'
   | 'R11_SIGNING_KEY_NOT_IN_TABLE'
 
-export interface AuditExportKeyIssue {
+interface AuditExportKeyIssue {
   code: AuditExportKeyIssueCode
   kid: string
   message: string
@@ -115,8 +115,8 @@ export const AUDIT_ENVELOPE_RETENTION_DAYS_DEFAULT = 180
 export const ENVELOPE_RETENTION_ENV = 'AUDIT_EVIDENCE_STRUCT_RETENTION_DAYS'
 
 export const ENV_PUBLIC_KEY_INLINE = 'AUDIT_EXPORT_SIGN_PUBLIC_KEY'
-export const ENV_PUBLIC_KEY_PATH = 'AUDIT_EXPORT_SIGN_PUBLIC_KEY_PATH'
-export const ENV_KEY_ID_OVERRIDE = 'AUDIT_EXPORT_SIGN_KEY_ID'
+const ENV_PUBLIC_KEY_PATH = 'AUDIT_EXPORT_SIGN_PUBLIC_KEY_PATH'
+const ENV_KEY_ID_OVERRIDE = 'AUDIT_EXPORT_SIGN_KEY_ID'
 
 /**
  * 登记表本体 —— **受版本控制的唯一清单**。
@@ -141,7 +141,7 @@ export const AUDIT_EXPORT_KEY_REGISTRY: readonly AuditExportKeyEntry[] = []
 // =============================================================================
 
 /** 装载期错误:表坏了要报成一次显式失败,而不是当成"空表"(那等于关掉整张表)。 */
-export class AuditExportKeyRegistryError extends Error {
+class AuditExportKeyRegistryError extends Error {
   readonly code: 'private_key_material_forbidden' | 'unusable_public_key_material'
 
   constructor(code: AuditExportKeyRegistryError['code'], message: string) {
@@ -573,7 +573,7 @@ export function checkAuditExportKeyRegistry(
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(HERE, '..', '..', '..', '..')
-export const REGISTRY_PATH_FROM_ROOT = 'apps/api/src/services/audit-export-key-registry.ts'
+const REGISTRY_PATH_FROM_ROOT = 'apps/api/src/services/audit-export-key-registry.ts'
 
 /**
  * 只抠登记数组那一段(不抠判据里的 `kid:` 字面量)。括号配平;

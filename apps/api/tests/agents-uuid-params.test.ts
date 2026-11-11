@@ -144,7 +144,8 @@ describe('G-536 畸形 uuid 不得冒成 500', () => {
 
   it('合法 uuid 照常进服务层(闸不许把正当请求一起挡掉)', async () => {
     q.findExamineById.mockClear()
-    q.findExamineById.mockResolvedValueOnce({ id: A_UUID })
+    // F-366(2026-11-08):详情只对提交人本人或管理员开放,桩记录须属于当前登录用户
+    q.findExamineById.mockResolvedValueOnce({ id: A_UUID, userId: 'user-1' })
     const res = await app.inject({ method: 'GET', url: `/api/examine/${A_UUID}` })
     expect(res.statusCode).toBe(200)
     expect(q.findExamineById).toHaveBeenCalledWith(A_UUID)

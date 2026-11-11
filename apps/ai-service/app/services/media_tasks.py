@@ -159,14 +159,7 @@ async def persist_media_task(
     # AIGC 生成内容打标(goal-b40,对齐 Trae tagAigcMetadata):落库链路自动打标,
     # payload 新增 aigc 块(显式标识文案+标识类型+生成方+标准引用);新增键对既有
     # 消费方零破坏,AIGC_LABELING_ENABLED=false 关掉即逐字节旧行为。
-    aigc_implicit = result.get("aigc_implicit")
-    payload = label_aigc_payload(
-        payload,
-        kind=kind,
-        tool=tool,
-        provider=provider,
-        implicit=aigc_implicit if isinstance(aigc_implicit, (dict, list)) else None,
-    )
+    payload = label_aigc_payload(payload, kind=kind, tool=tool, provider=provider)
     try:
         conn = await get_db_conn()
         try:

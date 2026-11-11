@@ -6,13 +6,16 @@ import { strict as assert } from 'node:assert';
 import { pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
 import { readFileSync } from 'node:fs';
+import { judgeRenameDry } from '../../lib/dry-judge.mjs';
+const muSrc = readFileSync(resolve('mathUtils.mjs'), 'utf8');
+const appSrc = readFileSync(resolve('app.mjs'), 'utf8');
+const dry = judgeRenameDry(muSrc, appSrc);
+assert.equal(dry.ok, true, dry.reason || 'DRY');
 const mu = await import(pathToFileURL(resolve('mathUtils.mjs')).href);
 const app = await import(pathToFileURL(resolve('app.mjs')).href);
 assert.equal(typeof mu.sum, 'function');
 assert.equal(mu.sum(2, 3), 5);
 assert.equal('addNumbers' in mu, false);
 assert.equal(app.total(1, 2, 3), 6);
-const appSrc = readFileSync(resolve('app.mjs'), 'utf8');
-assert.equal(appSrc.includes('addNumbers'), false);
 console.log('PASS');
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

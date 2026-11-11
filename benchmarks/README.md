@@ -6,7 +6,7 @@
 
 # IHUI AI Coding Agent Benchmark
 
-针对本项目 CLI agent（`ihui agent`）的可量化编码能力基准，共 **35 个任务**（JS/TS bug 修复、Python bug 修复、新功能实现、多文件重构、编写测试、多轮复合修复、高难度数据结构）。
+针对本项目 CLI agent（`ihui agent`）的可量化编码能力基准。生成器定义 **20** 个任务（`gen.mjs` 的 `tasks` 数组；重跑只覆盖这些目录，不删除其余任务目录）。内容覆盖 JS/TS bug 修复、Python bug 修复、新功能实现、多文件重构与编写测试。`tasks/` 里另外的目录（当前 21–35）是手工任务，runner 会一并发现。
 
 ## 基线榜单
 
@@ -14,8 +14,7 @@
 | ---------- | ------ | ---- | ------- | ---------------------- |
 | 2026-09-03 | 20     | 17   | **85%** | ihui agent（默认模型） |
 
-> 任务集后续扩容至 35（新增 31–35 多轮复合修复与高难度任务），新一轮基线待跑,
-> 发布后本榜单持续更新。验收线 ≥80%。
+> 上表是生成器当时 20 个任务的基线。21–35 放在 `tasks/` 里、不在生成器数组中，`node benchmarks/gen.mjs` 会保留它们。验收线 ≥80%（按试验次数计，不计算置信区间）。
 
 ## 结构
 
@@ -34,7 +33,7 @@ benchmarks/
 ## 用法
 
 ```bash
-node benchmarks/gen.mjs            # 重新生成 tasks/
+node benchmarks/gen.mjs            # 只重写生成器拥有的任务目录，保留其余任务
 node benchmarks/run.mjs --selftest # 校验判定脚本: solved 必过 + workspace 必挂
 node benchmarks/run.mjs            # 真实执行全部任务（调用 CLI agent）
 node benchmarks/run.mjs --task 01-fix-sum-off-by-one,03-fix-async-sum  # 指定任务
@@ -43,13 +42,15 @@ node benchmarks/run.mjs --task 01-fix-sum-off-by-one,03-fix-async-sum  # 指定�
 ## 环境变量
 
 - `IHUI_CMD`：自定义 CLI 命令（空格分隔）。默认自动探测 `apps/cli/dist/index.js`，否则用 `apps/cli` 的 tsx 直接跑 `src/index.ts`。
-- `BENCH_TIMEOUT_MS`：单任务 agent 超时（默认 300000）。
-- `BENCH_PYTHON`：Python 解释器路径（默认探测 PATH 及 `apps/ai-service/.venv`）。
+- `BENCH_TIMEOUT_MS`：单任务 agent 超时（默认 300000）。超时会杀掉子进程树（Windows 用 `taskkill /PID /T /F`）。
+- `BENCH_TRIALS`：每个任务的重复次数，正整数，默认 1。报告写出每个任务的 `passCount` / `failCount`，并保留每一次试验；后一次成功不会盖掉前面的失败。
+- `BENCH_PYTHON`：Python 解释器。只接受 **3.12**。未设置时按 `python`、`python3`、`apps/ai-service/.venv` 查找，遇到能执行但不是 3.12 的解释器会失败并点名，不会改用另一个大版本。设置了本变量就只认这一个路径。
+- `BENCH_ADMIN_PASSWORD`：真实跑分前登录用。登录失败立即以非 0 退出，不继续出全红报告。
 - CLI 所需的认证/后端环境变量（如 API 地址与 token）从当前 shell 透传。
 
 ## 判定标准
 
-agent 通过率 = verify.mjs 通过的任务数 / 总任务数（验收线 ≥80%）。runner 退出码：通过率达标为 0，否则非 0。
+通过率 = 全部试验里 verify 成功的次数 / 试验总次数（验收线 ≥80%）。每个任务的成败次数写在报告的 `passCount` 与 `failCount`。`durationMs` 只计代理进程本身，`prepMs` 与 `verifyMs` 分开，不把拷贝工作区和校验算进模型耗时。报告不给出置信区间。runner 退出码：通过率达标为 0，否则非 0。登录失败为 1，且不会写入任务结果。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
 
 ## 许可证
@@ -59,5 +60,5 @@ MIT(见 LICENSE)。任务集与判定脚本可自由用于评测与对比研究�
 ## 独立发布
 
 ✅ 已发布:**https://github.com/IHUI-INF-AI/ihui-bench**(2026-09-17,公开仓库,
-本 README + LICENSE + gen/run + 35 tasks + 基线报告)。主仓内 benchmarks/ 为源,
+本 README + LICENSE + gen/run + 任务目录 + 基线报告)。主仓内 benchmarks/ 为源,
 发布包随版本同步;独立仓库便于外部引用与 star 沉淀。

@@ -59,12 +59,14 @@ export function decodeUserFromToken(token: string): AuthTokenUser | null {
 
 /**
  * 判断用户是否为管理员。
- * 与后端一致:roleId >= 1(ADMIN_ROLE_ID = 1)视为系统管理员,直接放行。
+ * 2026-11-11 DBG-23 口径收敛:与后端 packages/auth/src/data-scope.ts(getDataScopeForRole
+ * 的 roleId === 1 → ALL)统一 —— 本仓系统管理员 role_id=1,roleId>=1 会把 manager(=2)
+ * 误判为管理员,造成跨包权限口径分裂与越权面。
  * 兼容字符串 role 字段('admin' / 'administrator')。
  */
 export function isAdmin(user: AuthTokenUser | null): boolean {
   if (!user) return false
-  if (typeof user.roleId === 'number' && user.roleId >= 1) return true
+  if (typeof user.roleId === 'number' && user.roleId === 1) return true
   if (typeof user.role === 'string') {
     const r = user.role.toLowerCase()
     return r === 'admin' || r === 'administrator'

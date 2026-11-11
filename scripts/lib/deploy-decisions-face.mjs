@@ -70,6 +70,17 @@ export function deployDecisionsFace(opts = {}) {
   return chooseDeployDecisionsFace({ ...opts, repoRoot: opts.repoRoot ?? REPO })
 }
 
+/**
+ * 全部存在的台账面(2026-11-11 立,B37 读账侧):单选面把"读哪本账"变成二选一,而部署环写
+ * 生产 checkout 的同时,主仓影子副本里也有同一批事件行(同事件同文本)——只读一面就会漏账,
+ * 两面的行合并 + 按原始行文本去重才是全量。消费方:deploy-outcome-intake(无 --in 时)。
+ * 判据与单选面同源(env 覆盖⇒仅该面,仍要存在;否则候选按存在性过滤,两面都在则都取)。
+ */
+export function deployDecisionsFaces({ repoRoot = REPO, exists = existsSync, env = process.env } = {}) {
+  const cands = candidatesFor({ repoRoot, env })
+  return { faces: cands.filter((c) => exists(c.path)), candidates: cands }
+}
+
 export const __test__ = {
   ROOT: REPO,
   LEDGER_BASENAME,

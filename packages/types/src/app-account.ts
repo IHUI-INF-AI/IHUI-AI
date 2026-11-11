@@ -233,6 +233,8 @@ export interface LoginScreenProps {
   onOpenTerms?: () => void
   /** 隐私政策链接回调 */
   onOpenPrivacy?: () => void
+  /** 协议未勾选时的提示文案(由 wrapper 控制是否显示,共享层不维护) */
+  agreementError?: string
 
   // ===== 忘记密码 + 注册链接(password tab 独有) =====
 
@@ -324,6 +326,7 @@ export interface ChangePhoneScreenProps {
   onSelectNation: (nation: NationOption) => void
   onSendCode: () => void
   onSubmit: () => void
+  onBack: () => void
   /** 旧手机号(传入即渲染“当前手机号 + 旧验证码”安全步骤,缺省不渲染) */
   oldPhone?: string
   oldCode?: string
@@ -479,6 +482,7 @@ export interface BusinessLicenseScreenProps {
   onBack: () => void
   title?: string
   imageSource: number | { uri: string }
+  previewVisible: boolean
   onPreviewVisibleChange: (v: boolean) => void
   colorScheme?: 'light' | 'dark'
 }

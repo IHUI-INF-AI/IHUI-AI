@@ -765,6 +765,7 @@ export function ProfileScreen() {
                 }}
                 onLogout={() => void logout()}
                 onAvatarPress={() => setEditProfileVisible(true)}
+                onBack={() => navigation.goBack()}
               />
             </>
           )}

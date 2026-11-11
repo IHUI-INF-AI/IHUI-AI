@@ -231,7 +231,10 @@ test('⑤ 接线面:部署环真调本模块、回滚带金丝雀语义、成功
     !/Remove-Item "\$WebDir\\\.rollback" -Recurse -Force -ErrorAction SilentlyContinue/.test(deploy),
     '成功分支不得删除 .rollback:删了之后守护进程的自动回滚无包可退',
   )
-  assert.ok(/Remove-Item \$rb -Recurse -Force/.test(deploy), '下一轮备份步仍要整份替换旧回滚点(不累积多份)')
+  assert.ok(
+    /Install-DirByStaging -Source \$curNext -Destination \$rb/.test(deploy),
+    '下一轮备份步仍要整份替换旧回滚点(不累积多份);DBG-79 起替换经 Install-DirByStaging 原子换名,语义不变',
+  )
 })
 
 test('⑥ CLI 面:--decide 退出码/JSON/记账一条龙,坏输入 exit 2', () => {

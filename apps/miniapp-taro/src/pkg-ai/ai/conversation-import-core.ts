@@ -88,7 +88,10 @@ export function findImportSource(value: string): ImportSourceSpec | undefined {
  * 为什么要卡:服务端按**文件名后缀**分派解析器,选到必被 400 的文件时,
  * 在这里给可读错误远好过把请求打出去换回一个后端错误。
  */
-export function hasAllowedExtension(name: string | undefined, source: ConversationImportSource): boolean {
+export function hasAllowedExtension(
+  name: string | undefined,
+  source: ConversationImportSource,
+): boolean {
   if (!name) return false
   const lower = name.toLowerCase()
   return (findImportSource(source)?.extensions ?? []).some((ext) => lower.endsWith(ext))
@@ -117,7 +120,9 @@ export interface ImportPreviewRow {
  * title 缺省空串、messages 非数组当 0 条 —— 页面拿 messageCount===0 的行
  * 交给 commit 侧判失败,而不是在这里崩掉整次解析。
  */
-export function toPreviewRows(conversations: readonly ParsedImportConversation[]): ImportPreviewRow[] {
+export function toPreviewRows(
+  conversations: readonly ParsedImportConversation[],
+): ImportPreviewRow[] {
   return conversations.map((conv, index) => ({
     id: index,
     title: conv?.title?.trim() ?? '',
@@ -182,7 +187,7 @@ export function buildCommitPayload(
  * 若分析弹窗去读页面当前 source,一个微信导入的会话会拿到 codex 的推荐场景 ——
  * 恰好毁掉"wechat 默认推荐聊天记录类"这条判据(web / RN 端同款注)。
  */
-export interface CommittedImportConversation {
+interface CommittedImportConversation {
   readonly conversationId: string
   readonly title: string
   readonly messageCount: number
@@ -201,8 +206,12 @@ export interface ImportCommitOutcome {
 export const COMMIT_FAILURE_REASON_LIMIT = 3
 
 /** commit 单条结果 → 是否成功(不抛 ∧ success===true);失败时给出可展示原因 */
-function judgeCommit(res: ApiResult<unknown> | unknown, isError: unknown): { ok: boolean; reason: string } {
-  if (isError) return { ok: false, reason: isError instanceof Error ? isError.message : String(isError) }
+function judgeCommit(
+  res: ApiResult<unknown> | unknown,
+  isError: unknown,
+): { ok: boolean; reason: string } {
+  if (isError)
+    return { ok: false, reason: isError instanceof Error ? isError.message : String(isError) }
   const r = res as { success?: boolean; error?: string; errorCode?: string; status?: number }
   if (r?.success === true) return { ok: true, reason: '' }
   return { ok: false, reason: r?.error || `HTTP ${r?.status ?? '?'}` }

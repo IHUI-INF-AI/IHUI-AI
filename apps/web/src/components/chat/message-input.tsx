@@ -260,12 +260,16 @@ interface MessageInputProps {
   model: string
   onModelChange: (model: string) => void
   modelLabel: string
+  /** auto 模式下当前对话实际使用的模型(宿主传入),模型按钮据此显示真实模型名 */
+  autoResolvedModel?: string
   /** 浮窗折叠态头部按钮(展开/停靠/最小化),与 AgentProgressTrigger 同行渲染在输入卡片内 */
   floatHeader?: React.ReactNode
   /** 浮窗折叠态拖拽回调,绑定在合并行上 */
   onFloatDragStart?: (e: React.PointerEvent) => void
   /** 浮窗折叠态点击 AgentProgressTrigger 时展开面板(setFloatCollapsed(false)) */
   onTriggerClick?: () => void
+  /** 折叠浮窗专用:取消输入卡片上方的 12px 额外留白,使顶部间距与左右 16px 一致 */
+  compactTop?: boolean
 }
 
 export function MessageInput({
@@ -278,8 +282,10 @@ export function MessageInput({
   model,
   onModelChange,
   modelLabel,
+  autoResolvedModel,
   floatHeader,
   onFloatDragStart,
+  compactTop,
 }: MessageInputProps) {
   const t = useTranslations('chat')
   // 语音栈实例 id(2026-11-04):常驻 Companion 与 + 菜单里的入口行按同一实例分桶,
@@ -1181,7 +1187,7 @@ export function MessageInput({
 
   return (
     <div>
-      <div className="mx-auto max-w-3xl px-4 pt-3 pb-px">
+      <div className={cn('mx-auto max-w-3xl px-4 pb-px', compactTop ? 'pt-0' : 'pt-3')}>
         {/* 高风险模式持久化视觉警告(2026-07-25 深化,深度对标 Codex 高风险提示)
             - 提取到 HighRiskWarningBanner 子组件(2026-07-30),行为零变更
             - 内部消费 useAiPanelStore 计算 isHighRisk + useTranslations('chat')
@@ -1355,19 +1361,19 @@ export function MessageInput({
             onDragLeave={handleDragLeaveWithConversation}
             onDrop={handleDropWithConversation}
             className={cn(
-              // 聚焦反馈对标 Cursor:墨档描边(AGENTS §4「描边不得取墨档」的唯一例外位)
-              // + 1px ring-ring/30 外圈 + 轻阴影;transition 扩到 box-shadow 让 ring 柔和浮现。
-              // ring/shadow 属 box-shadow 轴,不受 `*{border-color}` 影响,故保留工具类写法。
-              'ai-input-shell flex flex-col rounded-xl border bg-card transition-[border-color,box-shadow]',
+              // 聚焦反馈对标 Cursor:描边由灰向墨档半强度过渡 + 极淡外晕(见 globals.css
+              // .ai-input-shell--idle:focus-within)。2026-11-11 用户反馈 1px ring + shadow-sm
+              // 太突兀,已改为纯 CSS 的轻微过渡,这里不再挂 ring/shadow 工具类。
+              'ai-input-shell flex flex-col rounded-xl border bg-card transition-[border-color,box-shadow] duration-200',
               // 互斥的边框逻辑:拖拽(文件或会话) > 高风险 > 默认。
-              // ring/shadow 聚焦反馈只加在默认分支 —— 拖拽分支的 ring-2 有专属视觉,
-              // focus-within 不去覆盖它;高风险分支只留脉冲,不再叠琥珀 glow(2026-10-20 用户定档:
-              // 全项目禁止橙色描边,风险信号由 animate-pulse-soft 独占承担)。
+              // 拖拽分支的 ring-2 有专属视觉,聚焦不覆盖它;高风险分支只留脉冲,
+              // 不叠琥珀 glow(2026-10-20 用户定档:全项目禁止橙色描边,
+              // 风险信号由 animate-pulse-soft 独占承担)。
               isDragOver || isConvDragOver
                 ? 'ai-input-shell--dragging ring-2 ring-ring/20'
                 : isHighRisk
                   ? 'ai-input-shell--high-risk animate-pulse-soft'
-                  : 'ai-input-shell--idle focus-within:ring-1 focus-within:ring-ring/30 focus-within:shadow-sm',
+                  : 'ai-input-shell--idle',
             )}
           >
             {/* 拖拽提示遮罩:仅在 isDragOver 时显示 */}
@@ -1376,18 +1382,16 @@ export function MessageInput({
                 <p className="text-body font-medium text-primary">{t('dropAttachmentHint')}</p>
               </div>
             )}
-            {/* 浮窗折叠态:窄拖拽条(2026-09-30 底栏单行化)—— 仅 floatHeader(展开/停靠/最小化)
-                存在时才渲染,只剩拖拽热区把手 + 浮窗按钮组;原顶部控件栏(任务进度/权限/历史/添加)
-                全部降位到底部工具栏,输入卡恒 2 行(textarea 行 + 唯一底栏),对标 Trae/Qoder/Codex。
-                拖拽回调绑定在条上(handleFloatDragStart 自身排除 button 目标:点按钮仍是点击,
-                拖空白处/按钮间隙才是拖动) */}
+            {/* 浮窗折叠态顶栏(2026-09-30 底栏单行化)
+                这里只放窗口按钮组;拖拽手柄属于**浮窗容器**(ai-side-panel 的 aside 顶部),
+                不放输入卡片内部 —— 它不是输入框的一部分,层级不能混。
+                原顶部控件栏(任务进度/权限/历史/添加)已全部降位到底部工具栏。 */}
             {floatHeader && (
               <div
                 onPointerDown={onFloatDragStart}
                 className={INPUT_ATTACHMENT_BAR_CLASS}
                 data-toolbar-float-merged="v3"
               >
-                <span className="h-1 w-10 rounded-full bg-border/70" aria-hidden="true" />
                 <div className="ml-auto flex cursor-move items-center gap-1">{floatHeader}</div>
               </div>
             )}
@@ -1658,6 +1662,7 @@ export function MessageInput({
                     value={model}
                     onChange={onModelChange}
                     label={modelLabel}
+                    autoResolvedModel={autoResolvedModel}
                     footer={
                       <>
                         <ReasoningEffortInputAxis model={model} disabled={isStreaming} />
