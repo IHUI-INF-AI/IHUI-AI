@@ -92,9 +92,11 @@ export async function getAccountUsageSummaries(
     const rows = await dbRead
       .select({
         accountId: aiRelayAccountUsageLedger.accountId,
-        calls: sql<number>`count(*)::int`,
-        tokens: sql<number>`coalesce(sum(${aiRelayAccountUsageLedger.promptTokens} + ${aiRelayAccountUsageLedger.completionTokens}), 0)::int`,
-        fails: sql<number>`coalesce(sum(case when ${aiRelayAccountUsageLedger.ok} then 0 else 1 end), 0)::int`,
+        // F-701:SUM/COUNT 返回 int8,收口一律 ::bigint;驱动按字符串回传,映射处 Number()。
+        // 直接 ::int 会在 24h 合计超 2^31 时抛 22003,被 catch 吞成整批全 0。
+        calls: sql<number>`count(*)::bigint`,
+        tokens: sql<number>`coalesce(sum(${aiRelayAccountUsageLedger.promptTokens} + ${aiRelayAccountUsageLedger.completionTokens}), 0)::bigint`,
+        fails: sql<number>`coalesce(sum(case when ${aiRelayAccountUsageLedger.ok} then 0 else 1 end), 0)::bigint`,
       })
       .from(aiRelayAccountUsageLedger)
       .where(
@@ -105,14 +107,20 @@ export async function getAccountUsageSummaries(
       )
       .groupBy(aiRelayAccountUsageLedger.accountId)
     for (const r of rows) {
+      const calls = Number(r.calls)
+      const tokens = Number(r.tokens)
+      const fails = Number(r.fails)
       out.set(r.accountId, {
-        calls24h: r.calls,
-        tokens24h: r.tokens,
-        failRate24h: r.calls > 0 ? Math.round((r.fails / r.calls) * 10000) / 10000 : 0,
+        calls24h: calls,
+        tokens24h: tokens,
+        failRate24h: calls > 0 ? Math.round((fails / calls) * 10000) / 10000 : 0,
       })
     }
   } catch (e) {
-    logger.warn('[relay-account-usage] 24h 用量聚合失败(降级为空汇总)', {
+    // 溢出已由 ::bigint 消除,此处只剩真实故障:仍保持「永不抛」,但必须留痕且带降级标志。
+    logger.error('[relay-account-usage] getAccountUsageSummaries 24h 用量聚合失败', {
+      fn: 'getAccountUsageSummaries',
+      degraded: true,
       error: e instanceof Error ? e.message : String(e),
     })
   }
