@@ -54,6 +54,7 @@ export interface ProfileScreenProps {
   identityTags?: SharedIdentityTag[]
   /** 头像点击端口(选图/上传由宿主实现);缺省头像不可点 */
   onAvatarPress?: () => void
+  onBack: () => void
   /**
    * 宿主轻提示端口(可选)。缺省按 `resolveOptionalPort` 落 capability-off,
    * 屏内不得用空函数/`?.()` 冒充已接线 —— 菜单等失败路径要显式提示。
@@ -88,6 +89,7 @@ export interface SettingsScreenProps {
   menuItems: SharedMenuItem[]
   onMenuPress: (key: string) => void
   appVersion?: string
+  onBack: () => void
   /** 已解析配色方案,驱动 tokens 明暗;默认 'light'。web 端不传即保持浅色行为 */
   colorScheme?: 'light' | 'dark'
 }

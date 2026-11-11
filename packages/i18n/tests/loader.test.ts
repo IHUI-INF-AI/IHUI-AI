@@ -13,7 +13,7 @@ import {
   resolveList,
   translate,
 } from '../src/loader'
-import type { Messages } from '../src/types'
+import type { Locale, Messages } from '../src/types'
 
 const MESSAGES: Messages = {
   taskStatus: {
@@ -77,6 +77,16 @@ describe('loader 工具函数', () => {
     expect(getMessagesForLocale('zh-CN', packs)).toBe(MESSAGES)
     expect(resolveList(MESSAGES, 'list')).toEqual(['a', 'b'])
     expect(resolveList(MESSAGES, 'plain')).toEqual([])
+  })
+
+  // DBG-28(2026-11-11 bug-hunt)回归锁:zh-CN 表也缺失时不得返回 undefined
+  // (类型标注是 Messages,调用方按对象取键会直接崩)。
+  it('DBG-28: 请求语言与 zh-CN 兜底均缺失时返回空 Messages 而非 undefined', () => {
+    const packs = { en: MESSAGES } as unknown as Record<Locale, Messages>
+    const got = getMessagesForLocale('ja', packs)
+    expect(got).toBeDefined()
+    expect(got).toEqual({})
+    expect(translate(got, 'any.key')).toBe('any.key')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

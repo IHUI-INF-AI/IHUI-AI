@@ -67,9 +67,6 @@ export function TokenValueScreen({
   loadingMore,
   hasMore,
   colorScheme = 'light',
-  rangeItems,
-  rangeId,
-  onSelectRange,
 }: TokenValueScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
@@ -86,17 +83,6 @@ export function TokenValueScreen({
 
   return (
     <View style={styles.container}>
-      {rangeItems && rangeId !== undefined && onSelectRange ? (
-        <View style={styles.rangeBar}>
-          <CategoryInlineBar
-            items={rangeItems}
-            selectedId={rangeId}
-            onSelect={onSelectRange}
-            colorScheme={colorScheme}
-            contentPaddingHorizontal={0}
-          />
-        </View>
-      ) : null}
       <View style={styles.header}>
         <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.headerTitle}>{t('tokenValue.title')}</Text>
@@ -227,7 +213,6 @@ export function TokenValueScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    rangeBar: { paddingHorizontal: rnSpacing.lg, paddingTop: rnSpacing.sm },
     header: {
       flexDirection: 'row',
       alignItems: 'center',

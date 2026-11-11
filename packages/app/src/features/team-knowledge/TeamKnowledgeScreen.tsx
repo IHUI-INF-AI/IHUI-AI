@@ -720,7 +720,7 @@ function createStyles(tk: AppThemeTokens) {
     badge: {
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: rnSpacing['2xs'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
     },
     badgeText: { fontSize: rnType.badge.size, color: tk.text.secondary },
@@ -733,7 +733,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing['2xs'],
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: rnSpacing['2xs'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
     },
     chipText: { fontSize: rnType.badge.size, color: tk.text.secondary },

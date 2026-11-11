@@ -16,7 +16,7 @@ import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 /**
  * ProfileScreen — 跨端共享「个人资料」页。
  *
- * 平台无关:数据(user/stats/orderCount)、状态(loading/error)、导航(onNavigate/onLogout)
+ * 平台无关:数据(user/stats/orderCount)、状态(loading/error)、导航(onNavigate/onLogout/onBack)
  * 全部通过 props 注入,组件只负责渲染。web/RN wrapper 各自实现数据获取与导航。
  * 配色:由 colorScheme prop('light' | 'dark',默认 'light')经 getTokens 解析为明/暗 token 集。
  *
@@ -24,7 +24,8 @@ import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
  * 页头(标题 + 返回 + 右侧动作)由宿主提供 —— RN 端生产页(apps/mobile-rn/src/screens/ProfileScreen.tsx)
  * 渲染 NavBar(标题 + 反馈 + Drawer 菜单入口),demo 页(SharedDemoScreen)有常驻 tab 栏。
  * 此前组件自带 BackChevron + 标题,在生产页里悬在滚动区中段、与宿主 NavBar 同屏两条返回键
- * (守门 102 GA7 / 守门 145 DH2 判定型)。
+ * (守门 102 GA7 / 守门 145 DH2 判定型)。onBack 仍留在 ProfileScreenProps 契约中
+ * (packages/types,本轮不可改),运行时不再消费。
  */
 export function ProfileScreen({
   t,

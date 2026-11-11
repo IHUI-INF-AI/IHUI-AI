@@ -86,9 +86,6 @@ export interface MessageCenterScreenProps {
   onMarkRead?: (item: MessageCenterItem) => void
   /** 会话行「删除会话」入口;不传则不渲染 */
   onDeleteConversation?: (item: MessageConversationItem) => void
-  /** 会话行额外操作槽位(平台特有动作,如小程序聚合行的「标记已读」);
-   *  返回 null/undefined 时该行不渲染额外动作。共享屏只提供位置,不含平台逻辑。 */
-  renderConversationActions?: (item: MessageConversationItem) => ReactNode | null
   /** 自定义 tab 内容(如私信 tab);返回 null 回落默认会话/消息区 */
   renderTabBody?: (tab: string) => ReactNode | null
   /** 是否还有下一页;显式 false 时隐藏「加载更多」(不传且给了 onLoadMore 则显示) */

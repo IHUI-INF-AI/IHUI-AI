@@ -7,7 +7,8 @@
  *
  * 设计对齐 legacy `app/core/jwt_blacklist.py`:
  *  - key TTL = token 剩余有效期，过期自动清理（无需手动 GC）
- *  - 失败模式可配置:默认 fail-open(Redis 抖动不阻塞业务),认证场景应传 failClosed=true
+ *  - 失败模式可配置:默认 fail-closed(认证/吊销检查面,Redis 故障拒绝放行,见 DBG-26)
+ *    非认证类调用面可显式传 failClosed=false 走 fail-open
  *  - 用 set 跟踪单个用户的所有 token 摘要,便于"踢下线"场景(revokeUserTokens)
  *  - 不写完整 JWT 进 Redis,仅存 token 摘要(SHA256)减少泄露面
  *
@@ -52,17 +53,19 @@ export class TokenBlacklist {
   /**
    * 检查 token 是否已吊销。
    *
-   * @param failClosed 默认 false(Redis 异常返回 false = fail-open,由调用方结合签名校验决定)
-   *                   传 true 时 Redis 异常返回 true(fail-closed,认证场景使用,
-   *                   避免已吊销 token 在 Redis 全宕机时复活)
+   * 2026-11-11 DBG-26:默认改 fail-closed —— 原默认 false 时 Redis 抖动/宕机把
+   * 已吊销 token(登出/踢下线)视为未吊销而"复活"。本方法的全部调用面都是
+   * 认证/吊销检查(packages/auth 消费端),拒绝放行优于误放行。
+   * @param failClosed 默认 true(Redis 异常返回 true = 视为已吊销,拒绝放行);
+   *                   仅非认证类、可容忍误放行的调用面显式传 false(fail-open)。
    */
-  async has(token: string, failClosed = false): Promise<boolean> {
+  async has(token: string, failClosed = true): Promise<boolean> {
     if (!token) return false
     try {
       return (await this.redis.exists(`${BLACKLIST_PREFIX}${fingerprint(token)}`)) === 1
     } catch {
-      // fail-open: Redis 抖动不阻塞业务(has 返回 false,由调用方结合签名校验决定)
-      // fail-closed: Redis 异常时假设 token 已吊销(拒绝放行),认证场景使用
+      // fail-closed(默认): Redis 异常时假设 token 已吊销(拒绝放行),防止已吊销 token 复活
+      // fail-open(显式传 false): Redis 抖动不阻塞业务,由调用方结合签名校验决定
       return failClosed
     }
   }

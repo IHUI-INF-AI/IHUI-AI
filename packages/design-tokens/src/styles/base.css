@@ -35,32 +35,16 @@ page {
   padding: 0;
   width: 100%;
   height: 100%;
-  /*
-   * 回退值与 tokens.css 的 `--font-sans` **逐字同源**(2026-11-10 对齐,此前只抄了前半截:
-   * 缺 'Source Han Sans SC' / 'Hiragino Sans GB' 两档中文现代黑体,缺字只能落系统默认
-   * sans-serif —— 那台机器把 sans-serif 指到宋体/衬线时,中文就与同一行里的拉丁字换脸)。
-   * 改这一处 ⇒ 必须同批改 tokens.css 的 `--font-sans`,两处逐字一致(同源,不得各抄一份)。
-   */
   font-family: var(
     --font-sans,
     'HarmonyOS Sans SC',
     'PingFang SC',
     'Microsoft YaHei',
     'Noto Sans SC',
-    'Source Han Sans SC',
-    'Hiragino Sans GB',
-    ui-sans-serif,
     system-ui,
     -apple-system,
     BlinkMacSystemFont,
-    'Segoe UI',
-    Roboto,
-    'Helvetica Neue',
-    Arial,
-    'Noto Sans',
-    sans-serif,
-    'Apple Color Emoji',
-    'Segoe UI Emoji'
+    sans-serif
   );
   background-color: var(--color-background);
   color: var(--color-foreground);

@@ -262,5 +262,51 @@ describe('CircuitBreaker — Sliding-window-with-min-samples', () => {
     await settle(cb, false)
     expect(cb.getState()).toBe('open')
   })
+
+  // DBG-27(2026-11-11 bug-hunt)回归锁:successes 不再由 total-failures 推导,
+  // 半开探针结果计入滑动窗口 —— 探针期 getStats 对真实流量不失明。
+  it('DBG-27: 半开探针结果进入 getStats,successes 独立计数', async () => {
+    const cb = new CircuitBreaker('test', {
+      failureThreshold: 2,
+      minSamples: 2,
+      successThreshold: 3,
+      halfOpenTimeoutMs: 30_000,
+    })
+    await settle(cb, false)
+    await settle(cb, false)
+    expect(cb.getState()).toBe('open')
+    vi.advanceTimersByTime(30_000)
+    expect(cb.getState()).toBe('half-open')
+    await settle(cb, true) // 探针成功(修复前:不进窗口 ⇒ successes=0)
+    const mid = cb.getStats()
+    expect(mid.total).toBe(3)
+    expect(mid.failures).toBe(2)
+    expect(mid.successes).toBe(1)
+    await settle(cb, false) // 探针失败 → 回 open,失败也被统计
+    expect(cb.getState()).toBe('open')
+    const failed = cb.getStats()
+    expect(failed.failures).toBe(3)
+    expect(failed.successes).toBe(1)
+    // 恢复后窗口清零,successes 同步清零(不留幽灵成功)
+    vi.advanceTimersByTime(30_000)
+    await settle(cb, true)
+    await settle(cb, true)
+    await settle(cb, true)
+    expect(cb.getState()).toBe('closed')
+    const after = cb.getStats()
+    expect(after.total).toBe(0)
+    expect(after.successes).toBe(0)
+    expect(after.failures).toBe(0)
+  })
+
+  it('DBG-27: 窗口过期驱逐成功样本时 successes 同步下降', async () => {
+    const cb = new CircuitBreaker('test', { failureThreshold: 5, minSamples: 10, windowSizeMs: 60_000 })
+    for (let i = 0; i < 3; i++) await settle(cb, true)
+    expect(cb.getStats().successes).toBe(3)
+    vi.advanceTimersByTime(60_001)
+    const stats = cb.getStats()
+    expect(stats.total).toBe(0)
+    expect(stats.successes).toBe(0)
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
