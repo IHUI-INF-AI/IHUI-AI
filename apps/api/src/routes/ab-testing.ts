@@ -506,8 +506,8 @@ export const abTestingRoutes: FastifyPluginAsync = async (server) => {
         .select({
           variantId: abTestResults.variantId,
           bucket: abTestResults.bucket,
-          samples: sql<number>`COALESCE(SUM(${abTestResults.samples}), 0)`,
-          conversions: sql<number>`COALESCE(SUM(${abTestResults.conversions}), 0)`,
+          samples: sql<string>`COALESCE(SUM(${abTestResults.samples}), 0)::bigint`,
+          conversions: sql<string>`COALESCE(SUM(${abTestResults.conversions}), 0)::bigint`,
         })
         .from(abTestResults)
         .where(eq(abTestResults.testId, experimentId))
@@ -524,8 +524,10 @@ export const abTestingRoutes: FastifyPluginAsync = async (server) => {
         exposureCount: 0,
         conversionCount: 0,
       }
-      if (row.bucket === BUCKET_EXPOSURE) current.exposureCount += row.samples
-      else if (row.bucket === 'conversion') current.conversionCount += row.conversions
+      // pg 驱动对 SUM 返回 string(bigint 防溢出),必须显式转 number,
+      // 否则 number 初值 0 与 '100' 相加会拼成 "0100"。
+      if (row.bucket === BUCKET_EXPOSURE) current.exposureCount += Number(row.samples)
+      else if (row.bucket === 'conversion') current.conversionCount += Number(row.conversions)
       perVariant.set(row.variantId, current)
     }
 
@@ -534,8 +536,8 @@ export const abTestingRoutes: FastifyPluginAsync = async (server) => {
       return {
         variantId: v.id,
         variantName: v.name,
-        exposureCount: s.exposureCount,
-        conversionCount: s.conversionCount,
+        exposureCount: Number(s.exposureCount),
+        conversionCount: Number(s.conversionCount),
         conversionRate:
           s.exposureCount > 0 ? Number((s.conversionCount / s.exposureCount).toFixed(2)) : 0,
       }

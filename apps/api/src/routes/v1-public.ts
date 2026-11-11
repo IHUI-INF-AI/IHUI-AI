@@ -734,6 +734,8 @@ async function streamChatCompletion(
   // BYOK 模式不走渠道(用户自有 key 由 ai-service 处理)。
   // fwd === null(无渠道配置)或 ok:false(全部候选失败)→ 回退 ai-service 既有链路。
   // ==========================================================================
+  // 账号池失败原因:workbuddy/* 不能再兜底 ai-service(那是回环),就地用它报错。
+  let poolFailure: string | null = null
   if (opts.mode !== 'byok') {
     // 渠道链路是否**已经向客户端写出过帧**（2026-10-23 立）。
     // 用途：异常回退的闸门。旧注释假设「首个 chunk 尚未写出，客户端无感」，但渠道路径
@@ -884,6 +886,7 @@ async function streamChatCompletion(
         }
         return // 渠道链路全程接管,不进入 ai-service 分支
       }
+      poolFailure = fwd?.reason ?? 'no channel configured'
       // fwd === null(无渠道)/ fwd.ok === false(全部候选失败)→ 落入下方 ai-service 链路
     } catch (e) {
       // 已向客户端写出过帧 ⇒ **禁止**回退 ai-service（见 channelWroteToClient 注释），
@@ -899,8 +902,20 @@ async function streamChatCompletion(
         raw.end()
         return
       }
-      // 尚未写出任何帧 → 回退 ai-service（客户端无感）
+      // 尚未写出任何帧 → 回退 ai-service（客户端无感）;
+      // workbuddy/* 例外(见下方闸门),此处只记录失败原因。
+      poolFailure = (e as Error)?.message ?? 'channel error'
     }
+  }
+
+  // workbuddy/* 的 ai-service 兜底必然回环(ai-service 把 workbuddy/* 路由回本 relay),
+  // 号池失败后就地收尾并如实报错,不再兜底 —— 否则 api→ai-service→api 会挂满超时。
+  if (poolFailure && model.startsWith('workbuddy/')) {
+    writeChunk({ content: `[error] WorkBuddy 账号池不可用: ${poolFailure}` }, 'stop')
+    raw.write('data: [DONE]\n\n')
+    request.raw.off('close', onClose)
+    raw.end()
+    return
   }
 
   // 首个 chunk:role
@@ -1839,6 +1854,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
       // 返回 null(无渠道配置)或 ok:false(全部候选失败)→ 回退 ai-service 既有链路(向后兼容)。
       let usedChannel: SelectedChannelKey | null = null
       let resp: Response | null = null
+      let poolFailure: string | null = null
       if (mode === 'relay') {
         try {
           const baseBody: Record<string, unknown> = {
@@ -1901,9 +1917,27 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           if (fwd && fwd.ok) {
             resp = fwd.response
             usedChannel = fwd.channel
+          } else {
+            poolFailure = fwd?.reason ?? 'no channel configured'
           }
-        } catch {
+        } catch (e) {
           // 渠道链路异常 → 回退 ai-service
+          poolFailure = (e as Error)?.message ?? 'channel error'
+        }
+      }
+
+      if (!resp) {
+        // workbuddy/* 的 ai-service 兜底必然回环:ai-service 把 workbuddy/* 路由回本 relay
+        // (127.0.0.1:8802/v1,即 llm_gateway 的 workbuddy_relay)。号池失败后再兜底就是
+        // api→ai-service→api 的循环,带 tools 时实测要挂满 api 侧 60s 才 503。
+        // 这里就地如实返回号池原因,不再兜底。
+        if (mode === 'relay' && resolvedModel.startsWith('workbuddy/')) {
+          resp = new Response(
+            JSON.stringify({
+              error: { message: `WorkBuddy 账号池不可用: ${poolFailure ?? '无可用账号'}` },
+            }),
+            { status: 502, headers: { 'Content-Type': 'application/json' } },
+          )
         }
       }
 
