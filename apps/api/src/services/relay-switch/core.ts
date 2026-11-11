@@ -240,6 +240,10 @@ export interface SnapshotInfo {
   sha12s: Record<string, string>
   /** 相对当前登录态:全部一致 ⇒ true */
   sameAsCurrent: boolean
+  /** 残缺备份(捕获时就有文件缺失)⇒ 不可作为切换/回滚目标 */
+  partial?: boolean
+  /** 残缺备份缺的相对路径 */
+  missingFiles?: string[]
 }
 
 export function listSnapshots(paths: SwitchPaths): SnapshotInfo[] {
@@ -250,7 +254,12 @@ export function listSnapshots(paths: SwitchPaths): SnapshotInfo[] {
     const dir = join(paths.snapDir, name)
     const metaPath = join(dir, 'meta.json')
     if (!existsSync(metaPath)) continue // 非快照目录(半写残留)忽略
-    let meta: { capturedAt?: string; sha256s?: Record<string, string> }
+    let meta: {
+      capturedAt?: string
+      sha256s?: Record<string, string>
+      partial?: boolean
+      missingFiles?: string[]
+    }
     try {
       meta = JSON.parse(readFileSync(metaPath, 'utf8'))
     } catch {
@@ -274,6 +283,7 @@ export function listSnapshots(paths: SwitchPaths): SnapshotInfo[] {
       capturedAt: meta.capturedAt ?? '?',
       sha12s,
       sameAsCurrent: allSame && Object.keys(sha12s).length === paths.target.files.length,
+      ...(meta.partial ? { partial: true, missingFiles: meta.missingFiles ?? [] } : {}),
     })
   }
   return out
@@ -300,10 +310,15 @@ function classifySwitchPath(
 function writeSnapshotContent(paths: SwitchPaths, snapDir: string): void {
   mkdirSync(snapDir, { recursive: true })
   const sha256s: Record<string, string> = {}
+  const missingFiles: string[] = []
   const baseDir = resolveBaseDir(paths.target)
   for (const rel of paths.target.files) {
     const src = join(baseDir, rel)
-    if (classifySwitchPath(src) === 'absent') continue // 确实没有才跳过;读不到必须中止,不能留下残缺备份
+    if (classifySwitchPath(src) === 'absent') {
+      // 确实没有:不再静默丢弃 —— 落进 meta 的缺失清单,下游据此拒绝把残备份当回滚目标
+      missingFiles.push(rel)
+      continue
+    }
     const dest = join(snapDir, rel)
     mkdirSync(dest.replace(/[^/\\]+$/, ''), { recursive: true })
     copyFileSync(src, dest)
@@ -312,7 +327,13 @@ function writeSnapshotContent(paths: SwitchPaths, snapDir: string): void {
   writeFileSyncAtomic(
     join(snapDir, 'meta.json'),
     JSON.stringify(
-      { capturedAt: new Date().toISOString(), sha256s, target: paths.target.id },
+      {
+        capturedAt: new Date().toISOString(),
+        sha256s,
+        target: paths.target.id,
+        // 仅残缺时落字段:完整快照的 meta 形状与既有版本逐字一致
+        ...(missingFiles.length ? { partial: true, missingFiles } : {}),
+      },
       null,
       2,
     ),
@@ -376,6 +397,11 @@ export function planSwitch(paths: SwitchPaths, targetName: string, now = new Dat
   }
   const current = readCurrentState(paths.target)
   if (!current.installed) throw new Error(`未检测到当前登录态文件(${resolveBaseDir(paths.target)})`)
+  // 残缺备份不能当回滚目标:装上去只会得到更残缺的登录态
+  if (target.partial)
+    throw new Error(
+      `目标快照是残缺备份(缺: ${(target.missingFiles ?? []).join(', ')}),拒绝作为切换/回滚目标`,
+    )
   const targetMissing = paths.target.files.filter((rel) => !existsSync(join(target.path, rel)))
   if (targetMissing.length > 0)
     throw new Error(`目标快照文件集不完整,缺: ${targetMissing.join(', ')}`)
@@ -424,6 +450,19 @@ export interface SwitchApplyResult {
 /** 执行切换:先整集备份当前 → 目标集逐文件临时名拷贝 → 逐文件改名 → sha256 全量对账 */
 export function applySwitch(paths: SwitchPaths, plan: SwitchPlan): SwitchApplyResult {
   try {
+    // 完整性闸门:备份残缺 = 回滚闭环断裂,不能把"报成功"给出去
+    // 判据与 captureCurrent 同源(readCurrentState 的 complete/missingFiles),不另立第二份
+    const current = readCurrentState(paths.target)
+    if (!current.installed)
+      return {
+        ok: false,
+        error: `未检测到当前登录态文件(${resolveBaseDir(paths.target)}),拒绝切换:无可回滚的备份`,
+      }
+    if (!current.complete)
+      return {
+        ok: false,
+        error: `当前登录态文件集不完整(缺: ${current.missingFiles.join(', ')}),拒绝切换:残缺备份不能作为回滚目标`,
+      }
     writeSnapshotContent(paths, plan.preSwitchBackupDir) // 备份当前(先于一切写)
     const temps: Array<{ tmp: string; dest: string; want: string }> = []
     const baseDir = resolveBaseDir(paths.target)

@@ -76,7 +76,9 @@ const PARSERS: ParserEntry[] = [
     source: 'codex++',
     fn: parseCodexPlus,
     inputKind: 'text',
-    filePatterns: [/codex-session-delete[/\\]settings\.json$/i, /settings\.json$/i],
+    // SDB-15:只认 codex++ 自己的目录。匹配表按顺序取第一个命中,一旦放宽成任意
+    // `settings.json`,就会抢在 claude-cli / cursor / gemini 之前把这些专用配置解析成 0 条。
+    filePatterns: [/codex-session-delete[/\\]settings\.json$/i],
     description: 'codex++ BackendSettings',
   },
   {

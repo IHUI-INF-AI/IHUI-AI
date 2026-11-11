@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -622,6 +622,104 @@ describe('内置目标注册表与外部目录装载(注入临时目录)', () =>
     const st = readCurrentState(t)
     expect(st.auxPresent).toEqual([keyFile])
     expect(st.auxPresent).toHaveLength(1)
+  })
+})
+
+describe('SDB-18 切换前备份完整性闸门(残缺备份不得闭环成"可回滚")', () => {
+  it('当前态缺一文件 ⇒ apply 拒绝并列出缺失路径,不落 pre-switch 备份也不覆盖现有文件', () => {
+    const root = tmpRoot('sdb18-partial')
+    const t = filesetTarget(root, 'partial-app')
+    const baseDir = join(root, 'partial-app')
+    mkdirSync(baseDir, { recursive: true })
+    for (const f of t.files) writeFileSync(join(baseDir, f), `orig-${f}`)
+    const paths = { target: t, snapDir: t.snapRoot }
+    // 先登记一份完整目标快照
+    expect(captureCurrent(paths, 'full').ok).toBe(true)
+
+    // 模拟半切换态:当前态缺 c.dat
+    rmSync(join(baseDir, 'c.dat'))
+    writeFileSync(join(baseDir, 'a.dat'), 'live-a')
+    writeFileSync(join(baseDir, 'b.dat'), 'live-b')
+
+    const plan = planSwitch(paths, 'full')
+    const out = applySwitch(paths, plan)
+    expect(out.ok).toBe(false)
+    expect(out.error).toContain('不完整')
+    expect(out.error).toContain('c.dat')
+    // 拒绝发生在任何写盘之前:无备份、当前文件原样
+    expect(existsSync(plan.preSwitchBackupDir)).toBe(false)
+    expect(readFileSync(join(baseDir, 'a.dat'), 'utf8')).toBe('live-a')
+    expect(readFileSync(join(baseDir, 'b.dat'), 'utf8')).toBe('live-b')
+  })
+
+  it('当前态完整 ⇒ apply 成功,pre-switch meta 形状与改前一致(无 partial 字段)', () => {
+    const root = tmpRoot('sdb18-complete')
+    const t = filesetTarget(root, 'complete-app')
+    const baseDir = join(root, 'complete-app')
+    mkdirSync(baseDir, { recursive: true })
+    for (const f of t.files) writeFileSync(join(baseDir, f), `orig-${f}`)
+    const paths = { target: t, snapDir: t.snapRoot }
+    expect(captureCurrent(paths, 'acct-a').ok).toBe(true)
+
+    writeFileSync(join(baseDir, 'a.dat'), 'live-a')
+    const plan = planSwitch(paths, 'acct-a')
+    const out = applySwitch(paths, plan)
+    expect(out.ok).toBe(true)
+    const meta = JSON.parse(
+      readFileSync(join(plan.preSwitchBackupDir, 'meta.json'), 'utf8'),
+    ) as Record<string, unknown>
+    expect(Object.keys(meta).sort()).toEqual(['capturedAt', 'sha256s', 'target'])
+    expect(meta['partial']).toBeUndefined()
+    expect(Object.keys(meta['sha256s'] as Record<string, string>).sort()).toEqual([
+      'a.dat',
+      'b.dat',
+      'c.dat',
+    ])
+    // 备份内容是切换前的 live 态,切换后当前态是 acct-a
+    expect(readFileSync(join(plan.preSwitchBackupDir, 'a.dat'), 'utf8')).toBe('live-a')
+    expect(readFileSync(join(baseDir, 'a.dat'), 'utf8')).toBe('orig-a.dat')
+  })
+
+  it('残 snapshot(标 partial 的与旧的无标记残备份)都不会被当作切换/回滚目标', () => {
+    const root = tmpRoot('sdb18-target')
+    const t = filesetTarget(root, 'target-app')
+    const baseDir = join(root, 'target-app')
+    mkdirSync(baseDir, { recursive: true })
+    for (const f of t.files) writeFileSync(join(baseDir, f), `live-${f}`)
+    const paths = { target: t, snapDir: t.snapRoot }
+
+    // 带 partial 标记的残缺备份
+    const partialDir = join(t.snapRoot, 'half')
+    mkdirSync(partialDir, { recursive: true })
+    writeFileSync(join(partialDir, 'a.dat'), 'half-a')
+    writeJson(join(partialDir, 'meta.json'), {
+      capturedAt: new Date().toISOString(),
+      sha256s: { 'a.dat': 'deadbeef' },
+      target: t.id,
+      partial: true,
+      missingFiles: ['b.dat', 'c.dat'],
+    })
+    // 旧版本留下的无标记残备份(meta 无 partial,但文件缺失)
+    const legacyDir = join(t.snapRoot, 'legacy')
+    mkdirSync(legacyDir, { recursive: true })
+    writeFileSync(join(legacyDir, 'a.dat'), 'legacy-a')
+    writeJson(join(legacyDir, 'meta.json'), {
+      capturedAt: new Date().toISOString(),
+      sha256s: { 'a.dat': 'deadbeef' },
+      target: t.id,
+    })
+
+    expect(() => planSwitch(paths, 'half')).toThrow(/残缺备份/)
+    expect(() => planSwitch(paths, 'half')).toThrow(/b\.dat/)
+    expect(() => planSwitch(paths, 'legacy')).toThrow(/文件集不完整/)
+
+    // 下游(listSnapshots)能识别残缺标记与缺失清单
+    const snaps = listSnapshots(paths)
+    const half = snaps.find((s) => s.name === 'half')!
+    expect(half.partial).toBe(true)
+    expect(half.missingFiles).toEqual(['b.dat', 'c.dat'])
+    const legacy = snaps.find((s) => s.name === 'legacy')!
+    expect(legacy.partial).toBeUndefined()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
