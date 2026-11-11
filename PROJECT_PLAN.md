@@ -13225,9 +13225,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 16H. **缺陷普查 SDB SDB-16** [P2] 消息总线只看 HTTP 200，飞书/钉钉/企微业务码非 0 也报成功（证据 docs/tickets/2026-11/findings-services-db.md#SDB-16）
 - [ ] 17H. **缺陷普查 SDB SDB-17** [P2] recommend() 裸 insert + (user,content,strategy) 唯一键 ⇒ 第二次推荐直接 500（证据 docs/tickets/2026-11/findings-services-db.md#SDB-17）
 - [ ] 18H. **缺陷普查 SDB SDB-18** [P2] 切换前备份静默跳过缺失文件，仍返回成功 ⇒ 回滚闭环断裂（证据 docs/tickets/2026-11/findings-services-db.md#SDB-18）
-- [ ] 19H. **缺陷普查 SDB SDB-19** [P2] clawdbot 集成调用可用反斜杠改写主机，凭据被带到任意主机（SSRF）（证据 docs/tickets/2026-11/findings-services-db.md#SDB-19）
-- [ ] 20H. **缺陷普查 SDB SDB-20** [P2] 流式结束的 stop() 收尾无 signal/超时，上游卡住则 SSE 永不收尾（证据 docs/tickets/2026-11/findings-services-db.md#SDB-20）
-- [ ] 21H. **缺陷普查 SDB SDB-21** [P3] CTR 的 served 与 clicked 用同一条查询，命中即恒等于 1（证据 docs/tickets/2026-11/findings-services-db.md#SDB-21）
 - [ ] 26H. **缺陷普查 SDB SDB-26** [P3] PR 审阅只取 files 首页且 truncated 在恰好 100 个文件时为 false（证据 docs/tickets/2026-11/findings-services-db.md#SDB-26）
 - [ ] 27H. **缺陷普查 SDB SDB-27** [P1] USDT 全站共用单一收款地址，检测只按「金额 ≥ 应收 + 时间窗」取首笔，他人同额付款会被记到先被轮询的订单（证据 docs/tickets/2026-11/findings-services-db.md#SDB-27）
 - [ ] 28H. **缺陷普查 SDB SDB-28** [P1] ERC20 链上复核固定 page=1&offset=100&sort=asc，地址累计超 100 笔后新交易永远查不到，已付款订单永不入账（证据 docs/tickets/2026-11/findings-services-db.md#SDB-28）
@@ -13236,7 +13233,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 31H. **缺陷普查 SDB SDB-31** [P2] 团队记忆创建接口漏挂 scope 成员校验，任意登录用户可向他人团队写入记忆（证据 docs/tickets/2026-11/findings-services-db.md#SDB-31）
 - [ ] 32H. **缺陷普查 SDB SDB-32** [P2] 换票成功/失败均以「读副本快照 + 无条件 UPDATE」整列回写，旧 refreshToken 会覆盖新票（证据 docs/tickets/2026-11/findings-services-db.md#SDB-32）
 - [ ] 33H. **缺陷普查 SDB SDB-33** [P2] 支付宝 OAuth 的 timestamp 用 UTC 墙钟贴 +08:00 且格式不符协议，登录链路必被网关拒绝（证据 docs/tickets/2026-11/findings-services-db.md#SDB-33）
-- [ ] 34H. **缺陷普查 SDB SDB-34** [P2] 原文留存预热忽略偏好键名，任意 privacy 偏好为 true 即被当作「不留存原文」（证据 docs/tickets/2026-11/findings-services-db.md#SDB-34）
 - [ ] 35H. **缺陷普查 SDB SDB-35** [P3] Prometheus 返回 NaN 被判为不健康，低流量金丝雀被自动回滚（证据 docs/tickets/2026-11/findings-services-db.md#SDB-35）
 - [ ] 36H. **缺陷普查 SDB SDB-36** [P3] promoteCanary / rollbackCanary 都按 name 无条件写，回滚可被并发升阶段撤销（证据 docs/tickets/2026-11/findings-services-db.md#SDB-36）
 - [ ] 37H. **缺陷普查 SDB SDB-37** [P2] DAG 条件边只写 cancelled 标记、层执行不消费，下游节点照跑并进入最终结果（证据 docs/tickets/2026-11/findings-services-db.md#SDB-37）
@@ -13245,7 +13241,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 40H. **缺陷普查 SDB SDB-40** [P3] 沙箱路径闸遗漏 ls/dir/wc/stat/test，受限模式可枚举任意目录（证据 docs/tickets/2026-11/findings-services-db.md#SDB-40）
 - [ ] 41H. **缺陷普查 SDB SDB-41** [P3] spec 流水线 git commit 无 pathspec，会把仓库里其他已暂存改动一并提交（证据 docs/tickets/2026-11/findings-services-db.md#SDB-41）
 - [ ] 42H. **缺陷普查 SDB SDB-42** [P2] cc-switch 导入两条路径均不可用：.db 被扩展名白名单拦截，JSON 被当作 SQLite 解析（证据 docs/tickets/2026-11/findings-services-db.md#SDB-42）
-- [ ] 43H. **缺陷普查 SDB SDB-43** [P2] 告警检查自身 DB 失败被吞成「0 条错误」，任务仍记 success（证据 docs/tickets/2026-11/findings-services-db.md#SDB-43）
 - [ ] 44H. **缺陷普查 SDB SDB-44** [P3] USDT 先判过期再查链，跨过 expiresAt 的已付款订单被置 expired 且 webhook 也无法补救（证据 docs/tickets/2026-11/findings-services-db.md#SDB-44）
 - [ ] 45H. **缺陷普查 SDB SDB-45** [P3] 签到同步把「对端根本没有该账号」当可重试失败，永久重推并误报升级告警（证据 docs/tickets/2026-11/findings-services-db.md#SDB-45）
 - [ ] 46H. **缺陷普查 SDB SDB-46** [P3] 共享标记/手机号补全：凭证取自读副本快照、版本号取自主库 RETURNING，向签到侧推「旧凭证 + 更高版本」（证据 docs/tickets/2026-11/findings-services-db.md#SDB-46）
