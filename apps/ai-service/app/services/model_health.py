@@ -380,6 +380,11 @@ _CONTEXT_PROBE_MAX_TOKENS = 256
 # 长上下文针测的超时:16k token 预填充比 ping 慢,给 6 倍预算(120s)。
 # 免费推理模型在 16k 预填充下首字常要 60s 以上,3 倍会把"慢但可用"记成未知。
 CONTEXT_PROBE_TIMEOUT_S = PROBE_TIMEOUT_S * 6
+# 首轮覆盖上限:状态清空/首次部署时「从未测过」的模型一次性测完(16k 预填充成本可忽略),
+# 避免前端挂着一整天的"长上下文未验证";显式配置 MODEL_HEALTH_CONTEXT_PROBES_PER_CYCLE 时以配置为准。
+_INITIAL_COVERAGE_MAX = 48
+# 长上下文针测并发:16k 预填充很慢,串行会把首轮覆盖拖到几十分钟;3 并发与可用性探测同档。
+_CONTEXT_PROBE_CONCURRENCY = 3
 # 判定"请求内容与工具/function 有关"的关键词(400/422 时区分能力缺失与协议错误)。
 _TOOL_KEYWORDS = ("tool", "function", "tools", "functions")
 
@@ -418,6 +423,11 @@ def _context_probes_per_cycle() -> int:
     # 默认 3:16k 预填充单次成本仍可忽略,而 40 多个可用模型的首次覆盖若按 1 个/轮
     # 要跑将近一天,用户在前端只能看到零星几个模型有长上下文结论。
     return _env_int("MODEL_HEALTH_CONTEXT_PROBES_PER_CYCLE", 3, minimum=0)
+
+
+def _context_budget_explicit() -> bool:
+    """机主是否显式配置了每轮预算:显式配置时一切以配置为准(含首轮加速)。"""
+    return bool((os.environ.get("MODEL_HEALTH_CONTEXT_PROBES_PER_CYCLE") or "").strip())
 
 
 def _build_probe_target(model_id: str, provider_hint: str) -> _ProbeTarget | None:
@@ -1094,6 +1104,11 @@ class ModelHealthService:
                 return False
             models = await build_model_catalog()
             models = model_availability.get_available_models(models)
+            # 与 /llm/models 同一口径:自举目录也要过前沿过滤,否则重启后仍在为
+            # 已从选择器摘掉的历史模型发探测请求,状态文件里也留着它们的条目。
+            from .model_catalog_policy import filter_frontier
+
+            models = filter_frontier(models)
             self.observe_catalog(models)
             return bool(self._catalog)
         except Exception as e:
@@ -1195,7 +1210,13 @@ class ModelHealthService:
             )
 
     async def _run_context_probes(self) -> None:
-        """按「从未测优先 + 超过 N 天」轮转,每轮最多测 budget 个可用模型。"""
+        """按「从未测优先 + 超过 N 天」轮转,每轮最多测 budget 个可用模型。
+
+        全新部署或状态清空后,「从未测过」的模型会成片出现:按 3 个/轮要跑一整天,
+        让前端挂着一片"长上下文未验证"。所以未显式配置每轮预算时,首轮把预算临时
+        提升到覆盖全部未测模型(上限 _INITIAL_COVERAGE_MAX);覆盖完成后自动回落到
+        3 个/轮的稳态轮转。针测本身 3 并发,避免 16k 预填充串行拖长首轮。
+        """
         budget = _context_probes_per_cycle()
         if budget <= 0:
             return
@@ -1209,24 +1230,36 @@ class ModelHealthService:
             if state.context_checked_at and (now - state.context_checked_at) < max_age:
                 continue
             due.append((state.context_checked_at, mid))
+        if not due:
+            return
         # 从未测过(checked_at=0)排最前,其余按上次测试时间从旧到新
         due.sort(key=lambda item: (item[0] != 0.0, item[0]))
-        tested = 0
+        if not _context_budget_explicit():
+            never_tested = sum(1 for checked, _ in due if checked == 0.0)
+            budget = max(budget, min(never_tested, _INITIAL_COVERAGE_MAX))
+
+        # 先按预算挑出真正会发请求的目标(构建失败的不占预算),再并发执行。
+        targets: list[tuple[str, _ProbeTarget]] = []
         for _checked, mid in due:
-            if tested >= budget:
+            if len(targets) >= budget:
                 break
             target = _build_probe_target(mid, self._catalog.get(mid, ""))
             if target is None:  # 本地 provider / 无凭据:跳过,不占用本轮预算
                 continue
-            tested += 1
-            try:
-                ok, error = await self._probe_context(target, tokens)
-            except Exception as e:  # pragma: no cover - 针测失败不阻断整轮
-                ok, error = None, _redact_secrets(f"{type(e).__name__}: {e}")[:200]
+            targets.append((mid, target))
+
+        semaphore = asyncio.Semaphore(_CONTEXT_PROBE_CONCURRENCY)
+
+        async def _probe_one(mid: str, target: _ProbeTarget) -> None:
+            async with semaphore:
+                try:
+                    ok, error = await self._probe_context(target, tokens)
+                except Exception as e:  # pragma: no cover - 针测失败不阻断整轮
+                    ok, error = None, _redact_secrets(f"{type(e).__name__}: {e}")[:200]
             async with self._lock:
                 state = self._states.get(mid)
                 if state is None:
-                    continue
+                    return
                 state.context_tokens = tokens
                 state.context_ok = ok
                 state.context_error = error[:200]
@@ -1235,6 +1268,11 @@ class ModelHealthService:
                 "[model-health] context probe %s tokens=%d ok=%s",
                 mid, tokens, ok,
             )
+
+        await asyncio.gather(
+            *[_probe_one(mid, target) for mid, target in targets],
+            return_exceptions=True,
+        )
 
     async def _probe_model(
         self,

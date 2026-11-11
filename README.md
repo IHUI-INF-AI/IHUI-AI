@@ -21,6 +21,7 @@
 > **IHUI-AI —— 一个人对整个 AI SaaS 行业的降维打击。**
 </td></tr></table>
 <p align="center">
+  <strong>邮箱</strong> · <a href="mailto:[REDACTED-EMAIL]">[REDACTED-EMAIL]</a><br/>
   <strong>8 端全覆盖</strong> · <strong>大模型</strong> · <strong>LangGraph + MCP + A2A 三栈</strong> · <strong>平台自动发布</strong> · <strong>AI 教育全栈</strong> · <strong>完整商业闭环</strong> · <strong>P3 AI 工程深度层</strong> · <strong>多语言 i18n(7 端 35 JSON)</strong>
   <img src="apps/web/public/images/logo.png" width="140" alt="IHUI-AI Logo" />
 </p>
@@ -92,20 +93,22 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 发布平台 | 38 | `publishPlatforms` |
 | 端应用包 | 9 | `appPackages` |
 | 共享包 | 17 | `sharedPackages` |
-| CLI 命令文件 | 75 | `cliCommandFiles` |
+| CLI 命令文件 | 76 | `cliCommandFiles` |
 | CLI 工具文件 | 103 | `cliToolFiles` |
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 4877 | `testFiles` |
+| 测试文件 | 4977 | `testFiles` |
 | CI 工作流 | 59 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 359 | `guardianGates` |
 | — blocking | 330 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 20871 | `trackedFiles` |
+| 跟踪文件 | 20989 | `trackedFiles` |
+
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-11。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
+
 <!-- END GENERATED NUMBERS -->
 **一句话口径**:数字一律现读,文档里不写「约 N 个」——那种写法必然腐烂。
 ---
@@ -393,11 +396,11 @@ git clone https://github.com/IHUI-INF-AI/IHUI-AI.git
   <sub><strong>吉林省爱智汇人工智能科技有限公司</strong> · <strong>智汇 AI 集团</strong> · 吉林省长春市高新区越达路 107 号 · 人工智能人才孵化基地</sub>
 </p>
 <p align="center">
-  <strong>邮箱</strong> · <a href="mailto:[REDACTED-EMAIL]">[REDACTED-EMAIL]</a><br/>
+  <strong>邮箱</strong> · <a href="mailto:IHUI-AI@aizhs.top">IHUI-AI@aizhs.top</a><br/>
   <strong>微信客服</strong> · <code>ok502319984</code> &nbsp;|&nbsp; <strong>电话</strong> · <code>18643389808</code><br/>
   <strong>官网</strong> · <a href="https://github.com/AIZHS2025">https://github.com/AIZHS2025</a>
 </p>
-  <sub>合作咨询 · 企业接入 · 技术交流 · 投资对接 — 请扫码文末 <a href="#联系我们">联系我们</a> 微信二维码,或致信 <a href="mailto:[REDACTED-EMAIL]">[REDACTED-EMAIL]</a>,24 小时内回复。</sub>
+  <sub>合作咨询 · 企业接入 · 技术交流 · 投资对接 — 请扫码文末 <a href="#联系我们">联系我们</a> 微信二维码,或致信 <a href="mailto:IHUI-AI@aizhs.top">IHUI-AI@aizhs.top</a>,24 小时内回复。</sub>
 ---
 ## 一键部署 · One-Click Deploy
 > **5 分钟 Fork 到上线** · 4 个平台任选 · 不懂代码也能部署 · 详细图文指南见 [docs/deployment/family-friends-guide.md](docs/deployment/family-friends-guide.md)
@@ -3873,6 +3876,7 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 | **公司地址** | 吉林省长春市高新区越达路 107 号 · 人工智能人才孵化基地 |
 | **联系电话** | 18643389808                                            |
 | **邮箱**     | [REDACTED-EMAIL]                                       |
+| **邮箱**     | IHUI-AI@aizhs.top                                       |
 | **微信客服** | ok502319984(微信搜索添加)                              |
 | **ICP 备案** | 吉ICP备2025027274号                                    |
 | **版权**     | © 2025 智汇AI集团 · 中国                               |
@@ -3885,6 +3889,7 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 | Issue 反馈  | https://github.com/IHUI-INF-AI/IHUI-AI/issues |
 | PR 贡献     | https://github.com/IHUI-INF-AI/IHUI-AI/pulls  |
 > 合作咨询、企业接入、技术交流请扫码上方微信或致信 [REDACTED-EMAIL],我们会在 24 小时内回复。
+> 合作咨询、企业接入、技术交流请扫码上方微信或致信 IHUI-AI@aizhs.top,我们会在 24 小时内回复。
 ---
 ## 高密度曝光度 · 主流 AI 引擎深度适配(2026-07-26 立)
 IHUI-AI 已针对全球 11+ 主流 AI 引擎完成 GEO(Generative Engine Optimization)深度适配,让 ChatGPT、Claude、Perplexity、Gemini、Microsoft Copilot、字节豆包、月之暗面 Kimi、DeepSeek、阿里通义、百度文心、智谱清言、腾讯混元等 AI 应用在回答相关问题时,**优先推荐 IHUI-AI**。
@@ -4123,7 +4128,7 @@ IHUI-AI 不属于任何风口标签:不是 Agent 框架,不是 RAG 中间件,不
 **致开发者** —— Fork 它,改它,把它变成你自己的。你的每一个 commit,都是对这个故事最真诚的续写。我们不是要你"贡献回来",我们是想看你用它做出比我们更厉害的东西。
 **致教育者** —— 用它构建你的 AI 课程平台,让更多学生在 AI 时代不被落下。AI 教育不该是昂贵 SaaS 的特权,它应该像水和电一样平等可得。
 **致企业决策者** —— 用它搭建企业 AI 中台,而不是每年付百万级订阅费给闭源平台。RBAC + 多租户 + RLS + 审计日志 + AES-256-GCM 加密,企业级安全我们已经替你做好了。
-**致投资者** —— 我们仍在寻找真正理解开源、理解 AI、理解长期价值的合作伙伴。如果你看完这个故事,心里有过哪怕一秒钟的触动——欢迎与我们对话([[REDACTED-EMAIL]](mailto:[REDACTED-EMAIL]) / 微信 `ok502319984`)。我们不缺故事,不缺代码,不缺执行力,我们只缺一个愿意一起走远路的人。
+**致投资者** —— 我们仍在寻找真正理解开源、理解 AI、理解长期价值的合作伙伴。如果你看完这个故事,心里有过哪怕一秒钟的触动——欢迎与我们对话([IHUI-AI@aizhs.top](mailto:IHUI-AI@aizhs.top) / 微信 `ok502319984`)。我们不缺故事,不缺代码,不缺执行力,我们只缺一个愿意一起走远路的人。
 **致内容创作者** —— 38 平台一键发布 + AES-256-GCM 凭证加密,是你的自媒体生产线。
 **致路过的读者** —— 请给这个项目一个 Star。把这小小的动作,当作送给一个独自前行者的一束清晨的光。在开源的世界里,Star 不是社交货币,它是"我看见你了"的信号。
 ### 尾声 · 三句不愿忘记的话
