@@ -4,6 +4,7 @@
 
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
+import { createHmac } from 'node:crypto'
 import { eq, and, desc, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { webhooks, webhookEvents } from '@ihui/database'
@@ -33,11 +34,62 @@ const testWebhookSchema = z.object({
 // 辅助：向 webhook URL 发送测试投递
 // =============================================================================
 
+/** 出站响应体保留上限(字节):接收端可回任意大包,平台不替它兜底。 */
+const MAX_RESPONSE_BODY_BYTES = 2048
+
+/**
+ * 有上限地读取响应体(流式截断)。
+ * 不用 resp.text():它对方发多少就读多少,恶意接收端能把投递线程的内存吃光。
+ */
+async function readResponseBodyCapped(resp: Response, limit: number): Promise<string> {
+  if (!resp.body) return ''
+  const reader = resp.body.getReader()
+  const chunks: Uint8Array[] = []
+  let size = 0
+  let truncated = false
+  try {
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      if (!value) continue
+      const room = limit - size
+      if (value.byteLength > room) {
+        chunks.push(value.subarray(0, room))
+        size = limit
+        truncated = true
+        break
+      }
+      chunks.push(value)
+      size += value.byteLength
+    }
+  } catch {
+    // 接收端中途断流:已读部分仍可入日志,不改变投递结论
+  } finally {
+    try {
+      await reader.cancel()
+    } catch {
+      // 已读完 / 已取消
+    }
+  }
+  if (size === 0) return ''
+  const text = new TextDecoder().decode(Buffer.concat(chunks))
+  return truncated ? `${text}...[truncated]` : text
+}
+
 async function deliverWebhook(
   url: string,
   body: unknown,
-  _secret?: string,
+  secret?: string,
 ): Promise<{ code: number; ok: boolean; message: string }> {
+  // 签名与发送必须是同一份字节:序列化一次,两者复用。
+  const bodyText = JSON.stringify(body)
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (secret) {
+    // 口径与 developer/webhooks.ts 的 deliverOnce 一致:`sha256=<hex>`,对 body 原文做 HMAC-SHA256。
+    const signature = createHmac('sha256', secret).update(bodyText).digest('hex')
+    headers['X-IHUI-Signature'] = `sha256=${signature}`
+    headers['X-IHUI-Timestamp'] = String(Math.floor(Date.now() / 1000))
+  }
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), 10000)
   try {
@@ -45,11 +97,21 @@ async function deliverWebhook(
     // 裸 fetch 可被指向 169.254.169.254 / 127.0.0.1,把服务器变成打内网的跳板。
     const resp = await safeFetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+      headers,
+      body: bodyText,
       signal: controller.signal,
     })
-    return { code: resp.status, ok: resp.ok, message: resp.ok ? '投递成功' : `HTTP ${resp.status}` }
+    if (resp.ok) {
+      // 成功响应体没有用途:直接丢弃,连读都不读。
+      await resp.body?.cancel().catch(() => undefined)
+      return { code: resp.status, ok: true, message: '投递成功' }
+    }
+    const detail = await readResponseBodyCapped(resp, MAX_RESPONSE_BODY_BYTES)
+    return {
+      code: resp.status,
+      ok: false,
+      message: detail ? `HTTP ${resp.status}: ${detail}` : `HTTP ${resp.status}`,
+    }
   } catch (e) {
     const message = (e as Error).message || '投递失败'
     // SSRF 拦截原因可以回显(它只说"这个目标不让访问");其余错误原文可能含内网地址/端口。

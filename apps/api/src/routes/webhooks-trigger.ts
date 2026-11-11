@@ -23,7 +23,7 @@
  * 存储:进程内存 Map(带配额硬顶),重启失效(生产环境用 DB)。
  */
 import type { FastifyPluginAsync } from 'fastify'
-import { createHmac, randomUUID, randomBytes } from 'node:crypto'
+import { createHash, createHmac, randomUUID, randomBytes } from 'node:crypto'
 import { secretsEqual } from '../plugins/internal-service-token.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { hasNestedQuantifier } from '../services/rules-service.js'
@@ -132,17 +132,129 @@ function maskSecret(secret: string): string {
 }
 
 // =============================================================================
-// 辅助函数:签名验证
+// 辅助函数:防重放(时间戳窗口 + 幂等去重,F-72)
 // =============================================================================
 
+/** 时间戳头:首选 X-IHUI-Timestamp,兼容既有投递方使用的 X-Webhook-Timestamp。 */
+const TIMESTAMP_HEADERS = ['x-ihui-timestamp', 'x-webhook-timestamp'] as const
+/** 允许的时钟偏移(双向) */
+const TIMESTAMP_WINDOW_MS = 5 * 60 * 1000
+/** 幂等键 TTL:覆盖时间戳窗口与上游重投曲线 */
+const DEDUP_TTL_SEC = 24 * 60 * 60
+const DEDUP_KEY_PREFIX = 'webhooks:trigger:dedup:'
+/** 进程内兜底表条数硬顶(与 eventStore 同口径,防灌爆) */
+const MAX_MEMORY_DEDUP = 1000
+/** Redis 不可用时的进程内兜底:key → { 过期时刻, 首次 eventId } */
+const memoryDedup = new Map<string, { expiresAt: number; eventId: string }>()
+
+/** Redis 侧最小能力:SET NX EX(抢槽)+ GET(取回首次 eventId)。 */
+interface DedupRedisLike {
+  set(
+    key: string,
+    value: string,
+    expiryMode: 'EX',
+    ttlSeconds: number,
+    mode: 'NX',
+  ): Promise<unknown>
+  get(key: string): Promise<unknown>
+}
+
 /**
- * HMAC-SHA256 签名验证。
- * 外部系统用 config.secret 对 raw payload 计算 hex 摘要,放在 X-Webhook-Signature 头。
+ * HMAC-SHA256 签名验证(2026-11-11 F-72 加固)。
+ * 外部系统用 config.secret 对 `${timestamp}.${rawPayload}` 计算 hex 摘要,
+ * 放在 X-Webhook-Signature 头。时间戳纳入签名串 ⇒ 改头不换签名(截断重放)必然验签失败。
  * 经全仓唯一比较出口 secretsEqual(定长散列)防时序攻击。
  */
-function verifySignature(payload: string, signature: string, secret: string): boolean {
-  const expected = createHmac('sha256', secret).update(payload).digest('hex')
+function verifySignature(
+  payload: string,
+  signature: string,
+  secret: string,
+  timestamp: string,
+): boolean {
+  const expected = createHmac('sha256', secret).update(`${timestamp}.${payload}`).digest('hex')
   return secretsEqual(expected, signature)
+}
+
+/** 取原始时间戳头;缺头返回 null(调用方必须拒绝,而不是按"旧格式"放行)。 */
+function readTimestampHeader(headers: Record<string, unknown>): string | null {
+  for (const name of TIMESTAMP_HEADERS) {
+    const raw = headers[name]
+    const value = Array.isArray(raw) ? raw[0] : raw
+    if (typeof value === 'string' && value.trim()) return value.trim()
+  }
+  return null
+}
+
+/**
+ * 时间戳窗口判据:正整数 epoch(秒/毫秒皆可),与服务器时钟偏差 ≤ ±5 分钟。
+ * 只判格式与窗口;签名覆盖的是原始头字符串,故秒/毫秒两种写法都能自洽。
+ */
+function isTimestampFresh(raw: string): boolean {
+  if (!/^\d{1,16}$/.test(raw)) return false
+  const value = Number(raw)
+  if (!Number.isSafeInteger(value) || value <= 0) return false
+  const ms = value < 1_000_000_000_000 ? value * 1000 : value
+  return Math.abs(Date.now() - ms) <= TIMESTAMP_WINDOW_MS
+}
+
+/** 幂等键来源字段:支付/投递系统通常在 body 里带其中之一。 */
+const DEDUP_SOURCE_FIELDS = ['eventId', 'id', 'deliveryId'] as const
+
+/** 事件 id 优先;缺失时退回正文摘要(仍能挡住逐字节重放,不静默放行)。 */
+function dedupSourceOf(payload: unknown, rawPayload: string): string {
+  if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
+    const record = payload as Record<string, unknown>
+    for (const field of DEDUP_SOURCE_FIELDS) {
+      const value = record[field]
+      if (typeof value === 'string' && value.trim()) return value.trim()
+      if (typeof value === 'number' && Number.isFinite(value)) return String(value)
+    }
+  }
+  return rawPayload
+}
+
+/** 进程内兜底抢槽(Redis 不可用时使用,绝不 silent allow)。 */
+function claimInMemory(key: string, eventId: string): { duplicate: boolean; eventId: string } {
+  const now = Date.now()
+  const existing = memoryDedup.get(key)
+  if (existing && existing.expiresAt > now) return { duplicate: true, eventId: existing.eventId }
+  if (memoryDedup.size >= MAX_MEMORY_DEDUP) {
+    for (const [k, row] of memoryDedup) {
+      if (row.expiresAt <= now) memoryDedup.delete(k)
+    }
+    if (memoryDedup.size >= MAX_MEMORY_DEDUP) {
+      const oldest = memoryDedup.keys().next().value
+      if (oldest !== undefined) memoryDedup.delete(oldest)
+    }
+  }
+  memoryDedup.set(key, { expiresAt: now + DEDUP_TTL_SEC * 1000, eventId })
+  return { duplicate: false, eventId }
+}
+
+/**
+ * 幂等抢槽:Redis `SET NX EX` 原子抢占。
+ * Redis 缺失/抛错时降级到进程内 Set + TTL(多实例不共享,但"重复不执行"这条判据仍在)。
+ */
+async function claimOnce(
+  redis: DedupRedisLike | undefined,
+  key: string,
+  eventId: string,
+): Promise<{ duplicate: boolean; eventId: string }> {
+  if (!redis || typeof redis.set !== 'function') return claimInMemory(key, eventId)
+  try {
+    const res = await redis.set(key, eventId, 'EX', DEDUP_TTL_SEC, 'NX')
+    if (res === 'OK') return { duplicate: false, eventId }
+    let prior: string | null = null
+    try {
+      const got = await redis.get(key)
+      prior = typeof got === 'string' && got ? got : null
+    } catch {
+      /* 取不回首次 eventId 只影响响应回显,不影响"不重复执行"这条判定 */
+    }
+    return { duplicate: true, eventId: prior ?? eventId }
+  } catch {
+    return claimInMemory(key, eventId)
+  }
 }
 
 // =============================================================================
@@ -340,15 +452,10 @@ const webhookTriggerRoutes: FastifyPluginAsync = async (server) => {
     const rawPayload =
       typeof request.body === 'string' ? request.body : JSON.stringify(request.body ?? {})
 
-    // 签名验证(X-Webhook-Signature 头,hex 格式)
-    const signatureHeader = (request.headers['x-webhook-signature'] as string | undefined) ?? ''
-    const signatureValid = verifySignature(rawPayload, signatureHeader, config.secret)
-
-    if (!signatureValid) {
-      // 签名失败 → 401,但仍记录审计日志(便于排查)
-      const eventId = randomUUID()
+    // 防重放(F-72):时间戳必须存在且在 ±5 分钟窗口内,且被纳入签名串。
+    const rejectUnauthorized = (message: string) => {
       recordAuditLog({
-        eventId,
+        eventId: randomUUID(),
         timestamp: new Date().toISOString(),
         triggerId: id,
         signatureValid: false,
@@ -356,7 +463,28 @@ const webhookTriggerRoutes: FastifyPluginAsync = async (server) => {
         status: 'failed',
         sourceIp: request.ip,
       })
-      return reply.status(401).send(error(401, '签名验证失败'))
+      return reply.status(401).send(error(401, message))
+    }
+
+    const timestampHeader = readTimestampHeader(request.headers)
+    if (!timestampHeader) {
+      return rejectUnauthorized('缺少时间戳头(X-IHUI-Timestamp)')
+    }
+    if (!isTimestampFresh(timestampHeader)) {
+      return rejectUnauthorized('时间戳格式无效或超出 ±5 分钟窗口')
+    }
+
+    // 签名验证(X-Webhook-Signature 头,hex 格式;签名串 = `${timestamp}.${rawPayload}`)
+    const signatureHeader = (request.headers['x-webhook-signature'] as string | undefined) ?? ''
+    const signatureValid = verifySignature(
+      rawPayload,
+      signatureHeader,
+      config.secret,
+      timestampHeader,
+    )
+
+    if (!signatureValid) {
+      return rejectUnauthorized('签名验证失败')
     }
 
     // 解析 payload 用于条件评估
@@ -394,8 +522,31 @@ const webhookTriggerRoutes: FastifyPluginAsync = async (server) => {
       )
     }
 
-    // 创建事件,状态 pending
+    // 幂等去重(F-72):同一 trigger 下同一事件只执行一次 agent。
+    // 键源优先 body 的事件 id(eventId/id/deliveryId),缺失则退回正文摘要。
+    const dedupKey = `${DEDUP_KEY_PREFIX}${id}:${createHash('sha256')
+      .update(dedupSourceOf(parsedPayload, rawPayload))
+      .digest('hex')}`
     const eventId = randomUUID()
+    const claim = await claimOnce(
+      (server as unknown as { redis?: DedupRedisLike }).redis,
+      dedupKey,
+      eventId,
+    )
+    if (claim.duplicate) {
+      // 已有同键记录:返回既有成功形状,但不再执行 agent
+      return reply.status(202).send(
+        success({
+          accepted: true,
+          duplicate: true,
+          eventId: claim.eventId,
+          message: '重复投递,已忽略(幂等)',
+          asyncExecution: false,
+        }),
+      )
+    }
+
+    // 创建事件,状态 pending
     const now = new Date().toISOString()
     const event: WebhookTriggerEvent = {
       id: eventId,

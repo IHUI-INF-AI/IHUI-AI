@@ -62,7 +62,7 @@ vi.mock('../src/db/index.js', () => {
     insert: vi.fn(factory),
     update: vi.fn(factory),
     delete: vi.fn(factory),
-    transaction: vi.fn(),
+    transaction: vi.fn((fn: (tx: Record<string, unknown>) => unknown) => fn(dbMock)),
   }
   return { db: dbMock, dbRead: dbMock, dbClient: {} }
 })
