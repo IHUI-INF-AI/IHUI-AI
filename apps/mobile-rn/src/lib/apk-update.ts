@@ -141,6 +141,77 @@ function subscribe(listener: () => void): () => void {
   }
 }
 
+// =============================================================================
+// 安装器看门狗(2026-11-11 真机事故立,机主:「打开安装程序就不动了 卡住了?」)
+// =============================================================================
+/**
+ * 事故现场:launchInstaller 成功后本模块直接 `return 'installing'`,既没有安装结果回调,
+ * 也没有超时/回前台复位;UI 在 installing 下把关闭、取消、重试全藏了,
+ * shouldAutoRecheckApk 又见 installing 就永久跳过 ⇒ 四面封死,首页卡片一直转圈。
+ * 系统安装器报 (33) packageinfo is null 时用户按返回键回到 APP,旧进程还活着,
+ * 于是那张「正在打开安装程序…」永远不消失。
+ *
+ * 三条出口共用同一个复位函数,不各写一份 patch(§0.6):① 90 秒看门狗;
+ * ② 用户点取消/关闭;③ App 回前台且已逗留过 settle 窗口。
+ * 安装真正成功时系统会杀掉进程重建,不会走回调,所以复位不会误伤成功路径。
+ */
+export const APK_INSTALL_WATCHDOG_MS = 90_000
+/** 回前台判定「安装无结果」的最短逗留:躲开刚拉起安装器那一瞬的权限弹窗。 */
+export const APK_FOREGROUND_SETTLE_MS = 5_000
+
+let installWatchdog: ReturnType<typeof setTimeout> | null = null
+let installingSince: number | null = null
+
+function clearInstallWatchdog(): void {
+  if (installWatchdog !== null) {
+    clearTimeout(installWatchdog)
+    installWatchdog = null
+  }
+  installingSince = null
+}
+
+/** 把「安装器已交出去但没有结果」复位成可重试的 available;返回是否真的动过。 */
+export function settleApkInstall(): boolean {
+  if (store.state !== 'installing') return false
+  clearInstallWatchdog()
+  patch({
+    state: 'available',
+    installMode: null,
+    lastError: '安装程序未返回结果,可重试或关闭提示',
+    progress: 0,
+    dismissed: false,
+  })
+  return true
+}
+
+/** 统一进入 installing:浏览器降级与应用内直装两条腿都不会漏挂看门狗。 */
+function enterInstalling(next: Partial<ApkStore>): void {
+  clearInstallWatchdog()
+  const since = Date.now()
+  installingSince = since
+  patch({ ...next, state: 'installing', dismissed: false })
+  const timer = setTimeout(() => {
+    // 只认自己那一轮:期间已被取消/关闭的话 installingSince 已清空,不得越权改状态
+    if (installingSince !== since) return
+    settleApkInstall()
+  }, APK_INSTALL_WATCHDOG_MS)
+  // Node/vitest 里别让 90 秒兜底把进程吊住;RN 没有 unref,属可选能力
+  ;(timer as unknown as { unref?: () => void }).unref?.()
+  installWatchdog = timer
+}
+
+/** 用户点「取消」立刻退出安装等待,不必等看门狗。 */
+export function cancelApkInstall(): void {
+  settleApkInstall()
+}
+
+/** 从系统安装器返回时调用;未过 settle 窗口(权限弹窗那几秒)保持原状。 */
+export function onApkAppForeground(): void {
+  if (installingSince === null) return
+  if (Date.now() - installingSince < APK_FOREGROUND_SETTLE_MS) return
+  settleApkInstall()
+}
+
 /** 只有 Android 能装 APK;web 与 iOS 上没有这条通道。 */
 export function isApkUpdateSupported(): boolean {
   return Platform.OS === 'android'
@@ -513,7 +584,7 @@ export async function applyApkUpdate(): Promise<ApkUpdateState> {
   // 应用内下载不再先探腿 —— 多分片腿自带版本/体积对账,先探只会白等最多 8s(见 downloadApk)。
   if (!canInstallInApp()) {
     const leg = await resolveApkDownloadUrl(downloadUrl)
-    patch({ state: 'installing', installMode: 'browser', lastError: null })
+    enterInstalling({ installMode: 'browser', lastError: null })
     try {
       await openInBrowser(leg.url)
       return 'installing'
@@ -553,7 +624,7 @@ export async function applyApkUpdate(): Promise<ApkUpdateState> {
   }
   const uri = downloaded.uri
 
-  patch({ state: 'installing', fileUri: uri, progress: 100 })
+  enterInstalling({ fileUri: uri, progress: 100 })
   try {
     await launchInstaller(uri)
     return 'installing'
@@ -598,16 +669,25 @@ export async function cancelApkDownload(): Promise<void> {
 
 /** 关掉提示卡(仅本次会话;下一轮查到更新会再出现)。 */
 export function dismissApkPrompt(): void {
+  // 安装等待也要一并收口,否则看门狗还在后台跑、状态仍钉在 installing
+  if (store.state === 'installing') settleApkInstall()
   patch({ dismissed: true })
 }
 
 /**
  * 回到前台要不要补查一次。口径同 ota-update.shouldAutoRecheck:
- * 已经 available/在下载/在安装/用户已关掉,都不打扰。
+ * 已经 available/在下载/用户已关掉,都不打扰。
+ *
+ * installing 不再「永久跳过」(2026-11-11):旧写法见它就 `return false`,状态被钉死后再也
+ * 没有复查机会。正常情况下看门狗/回前台已把它复位成 available(上面那支);万一仍停在
+ * installing 且已过看门狗窗口,允许补查一次,杜绝永久卡死这一型。
  */
 export function shouldAutoRecheckApk(minIntervalMs: number): boolean {
-  if (store.state === 'available' || store.state === 'installing' || store.dismissed) return false
+  if (store.state === 'available' || store.dismissed) return false
   if (store.state === 'downloading') return false
+  if (store.state === 'installing') {
+    return installingSince !== null && Date.now() - installingSince >= APK_INSTALL_WATCHDOG_MS
+  }
   if (store.lastCheckedAt === null) return true
   return Date.now() - store.lastCheckedAt >= minIntervalMs
 }
