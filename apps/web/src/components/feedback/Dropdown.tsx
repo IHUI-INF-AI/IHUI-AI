@@ -22,6 +22,8 @@ export interface DropdownItem {
   trailing?: React.ReactNode
   // 2026-11-11 新增:子菜单容器附加类名(如站内消息子菜单需要更宽的内容卡)
   contentClassName?: string
+  // 2026-11-11 新增:单项容器附加类名(富内容行需要自定义内边距/对齐,如消息列表行)
+  itemClassName?: string
 }
 
 const ITEM_CLASS = cn(
@@ -55,6 +57,7 @@ function DropdownItems({ items }: { items: DropdownItem[] }) {
                 className={cn(
                   ITEM_CLASS,
                   'data-[state=open]:bg-accent data-[state=open]:text-accent-foreground',
+                  item.itemClassName,
                 )}
               >
                 <ItemBody item={item} />
@@ -80,7 +83,11 @@ function DropdownItems({ items }: { items: DropdownItem[] }) {
             key={item.key}
             disabled={item.disabled}
             onSelect={item.onSelect}
-            className={cn(ITEM_CLASS, item.danger && 'text-destructive focus:bg-destructive/10')}
+            className={cn(
+              ITEM_CLASS,
+              item.danger && 'text-destructive focus:bg-destructive/10',
+              item.itemClassName,
+            )}
           >
             <ItemBody item={item} />
           </DropdownMenu.Item>
