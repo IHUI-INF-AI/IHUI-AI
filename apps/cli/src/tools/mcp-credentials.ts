@@ -38,7 +38,7 @@
 
 // L7570 第③格:诊断面的原文出口**只经**本仓唯一脱敏出口(packages/shared/src/utils/redact.ts)。
 import { redactSecrets } from '@ihui/shared/utils/redact';
-import { promises as fs } from 'node:fs';
+import { promises as fs, readFileSync } from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { createHash, randomBytes } from 'node:crypto';
@@ -440,6 +440,98 @@ interface TierAttempt {
 
 const osWrappedCache = new Map<string, MasterKeyMaterial>();
 
+type VerifiedAtomicWrite =
+  | { ok: true; disk: string; previous: string | null }
+  | { ok: false; detail: string };
+
+async function rmQuiet(target: string): Promise<void> {
+  await fs.rm(target, { force: true, maxRetries: 5, retryDelay: 50 }).catch(() => undefined);
+}
+
+/** 覆盖失败时把目标放回覆盖前的字节;原先不存在则删掉,避免留下截断信封。 */
+async function restorePreviousTarget(target: string, previous: string | null): Promise<void> {
+  if (previous === null) {
+    await rmQuiet(target);
+    return;
+  }
+  let realNow: string;
+  try {
+    realNow = readFileSync(target, 'utf-8');
+  } catch {
+    return;
+  }
+  if (realNow === previous) return;
+  try {
+    // 基线取磁盘上此刻的真实字节,不取回读到的那份(两者不一致才进到这里)。
+    commitAtomicWrite({ absPath: target, content: realNow }, previous);
+  } catch {
+    // 还原失败不把结论改成成功;调用方仍按不一致失败。
+  }
+}
+
+/**
+ * DBG-39 / DBG-40:同目录临时文件写完,从盘上读回与期望逐字比对,一致才覆盖目标。
+ * 落盘原语只复用本文件已经在用的 `commitAtomicWrite`(tmp + fsync + rename),不另起写盘实现。
+ * 临时文件回读不一致 ⇒ 删临时文件,目标保持原样。
+ * 覆盖后再读目标本身;与期望不一致 ⇒ 还原覆盖前的内容(原先没有则删除)。
+ */
+async function writeVerifiedAtomic(
+  target: string,
+  expected: string,
+  opts: { onlyIfAbsent?: boolean } = {},
+): Promise<VerifiedAtomicWrite> {
+  await fs.mkdir(path.dirname(target), { recursive: true });
+  let baseline: ReturnType<typeof captureWriteBaseline>;
+  try {
+    baseline = captureWriteBaseline(target);
+  } catch (err) {
+    return { ok: false, detail: `读基线失败(${errCodeOf(err) ?? 'error'});不覆盖` };
+  }
+  if (opts.onlyIfAbsent && baseline.content !== null) {
+    return { ok: false, detail: '目标已存在;不覆盖旧文件' };
+  }
+  const tmp = path.join(
+    path.dirname(target),
+    `.${path.basename(target)}.${process.pid}.${randomBytes(6).toString('hex')}.tmp`,
+  );
+  try {
+    commitAtomicWrite(captureWriteBaseline(tmp), expected);
+  } catch (err) {
+    await rmQuiet(tmp);
+    return { ok: false, detail: `临时文件写失败(${errCodeOf(err) ?? 'error'});不覆盖` };
+  }
+  let staged: string;
+  try {
+    staged = await fs.readFile(tmp, 'utf-8');
+  } catch (err) {
+    await rmQuiet(tmp);
+    return { ok: false, detail: `回读写不到(${errCodeOf(err) ?? 'error'});不落任何密文` };
+  }
+  if (staged !== expected) {
+    await rmQuiet(tmp);
+    return { ok: false, detail: '回读不一致;不覆盖旧文件' };
+  }
+  try {
+    commitAtomicWrite(baseline, expected);
+  } catch (err) {
+    await rmQuiet(tmp);
+    return { ok: false, detail: `替换失败(${errCodeOf(err) ?? 'error'});旧文件未覆盖` };
+  }
+  await rmQuiet(tmp);
+  await chmodSafeAsync(target);
+  let disk: string;
+  try {
+    disk = await fs.readFile(target, 'utf-8');
+  } catch (err) {
+    return { ok: false, detail: `回读写不到(${errCodeOf(err) ?? 'error'});不落任何密文` };
+  }
+  if (disk !== expected) {
+    await restorePreviousTarget(target, baseline.content);
+    return { ok: false, detail: '回读不一致;不覆盖旧文件' };
+  }
+  return { ok: true, disk, previous: baseline.content };
+}
+
 async function tryOsTier(readOnly: boolean): Promise<TierAttempt> {
   const probe = await probeDpapiAsync();
   if (!probe.ok) {
@@ -483,37 +575,23 @@ async function tryOsTier(readOnly: boolean): Promise<TierAttempt> {
   if (!prot.ok || !prot.payload) {
     return { ok: false, created: false, material: null, reasonCode: 'os-protect-failed', detail: prot.detail };
   }
-  await fs.mkdir(path.dirname(p), { recursive: true });
-  await fs.writeFile(p, prot.payload.trim(), 'utf-8');
-  await chmodSafeAsync(p);
-  // DBG-39:落盘后必须从盘上**读回**再解封比对。只拿内存里的 payload 自证,
-  // 等于没验证落盘;读不到时不承认这把密钥可用,也不落任何密文。
-  let readBack: string;
-  try {
-    readBack = (await fs.readFile(p, 'utf-8')).trim();
-  } catch (err) {
-    const code = (err as NodeJS.ErrnoException).code;
-    return {
-      ok: false,
-      created: false,
-      material: null,
-      reasonCode: 'os-key-readback-mismatch',
-      detail: `回读写不到(${code ?? 'error'});不落任何密文`,
-    };
+  const expected = prot.payload.trim();
+  const written = await writeVerifiedAtomic(p, expected, { onlyIfAbsent: true });
+  if (!written.ok) {
+    return { ok: false, created: false, material: null, reasonCode: 'os-key-readback-mismatch', detail: written.detail };
   }
-  const verify = await runDpapiAsync('unprotect', new Uint8Array(Buffer.from(readBack, 'base64')));
+  // 解封比对的输入是磁盘读回的字节,不是内存里的 prot.payload。
+  const verify = await runDpapiAsync('unprotect', new Uint8Array(Buffer.from(written.disk.trim(), 'base64')));
   const same =
     verify.ok && !!verify.payload && Buffer.compare(Buffer.from(verify.payload, 'base64'), Buffer.from(fresh)) === 0;
   if (!same) {
+    await restorePreviousTarget(p, written.previous);
     return { ok: false, created: false, material: null, reasonCode: 'os-key-readback-mismatch', detail: `回读不一致(${verify.detail});不落任何密文` };
   }
   const material: MasterKeyMaterial = { key: fresh, kid: kidOfKey(fresh), backend: 'keychain' };
   osWrappedCache.set(p, material);
   return { ok: true, created: true, material, reasonCode: 'os-tier-created-now', detail: verify.detail, engine: prot.engine };
 }
-
-/** 测试专用出口:只暴露 DBG-39 的回读分支,生产代码不得调用。 */
-export const __test__ = { tryOsTier };
 
 // ==================== 档位②:机器绑定口令文件 ====================
 // 机器身份派生 / 信封形状 / 包裹解包全部在 lib/credential-vault.ts;此处只做 MCP 档位策略。
@@ -558,19 +636,29 @@ async function tryMachineTier(readOnly: boolean): Promise<TierAttempt> {
     return { ok: true, created: false, material: null, reasonCode: 'machine-key-will-create', detail: '本机身份可用,写入时就地生成' };
   }
   const fresh = new Uint8Array(randomBytes(KEY_BYTES));
-  await fs.mkdir(path.dirname(p), { recursive: true });
-  await fs.writeFile(p, sealVaultKeyEnvelope(fresh, KEY_ENVELOPE_FIELD, KEY_WRAP_INFO), 'utf-8');
-  await chmodSafeAsync(p);
-  const verifyRaw = await fs.readFile(p, 'utf-8').catch(() => null);
-  const verifyEnv = verifyRaw === null ? null : parseVaultKeyEnvelope(verifyRaw, KEY_ENVELOPE_FIELD);
+  const expected = sealVaultKeyEnvelope(fresh, KEY_ENVELOPE_FIELD, KEY_WRAP_INFO);
+  const written = await writeVerifiedAtomic(p, expected, { onlyIfAbsent: true });
+  if (!written.ok) {
+    return { ok: false, created: false, material: null, reasonCode: 'machine-key-readback-mismatch', detail: written.detail };
+  }
+  const verifyEnv = parseVaultKeyEnvelope(written.disk, KEY_ENVELOPE_FIELD);
   const verifyKey = verifyEnv === null ? null : openVaultKeyEnvelope(verifyEnv, KEY_WRAP_INFO);
   if (!verifyKey || Buffer.compare(Buffer.from(verifyKey), Buffer.from(fresh)) !== 0) {
+    await restorePreviousTarget(p, written.previous);
     return { ok: false, created: false, material: null, reasonCode: 'machine-key-readback-mismatch', detail: '回读比对不一致;不落任何密文' };
   }
   const material: MasterKeyMaterial = { key: fresh, kid: kidOfKey(fresh), backend: 'encrypted-file' };
   machineKeyCache.set(p, material);
   return { ok: true, created: true, material, reasonCode: 'machine-key-created-now', detail: 'created + verified' };
 }
+
+function clearMasterKeyCaches(): void {
+  osWrappedCache.clear();
+  machineKeyCache.clear();
+}
+
+/** 测试专用出口:DBG-39 / DBG-40 的落盘与回读分支。生产代码不得调用。 */
+export const __test__ = { tryOsTier, tryMachineTier, writeVerifiedAtomic, clearMasterKeyCaches };
 
 // chmod 实现已抽到 lib/credential-vault.ts(chmodSafeAsync)。
 

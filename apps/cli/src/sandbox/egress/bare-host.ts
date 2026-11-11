@@ -30,7 +30,7 @@ import { parseIpAddress } from '@ihui/shared/utils/ssrf-guard';
  *  `dynamic` 专供「值内第二跳」(goal-b49 Z29):选项族按登记会藏目的地、但那一刻值被变量化而取不到 ⇒
  *  记一枚 `dynamic` 交裁决层落 `target-unexpandable`(unjudged)。它的 raw 与 `extractEgressTargets`
  *  用的是同一串,故下游按 host 去重会自然并成一条,不重复喊。 */
-export type BareHostOrigin = 'bare-host' | 'dynamic';
+type BareHostOrigin = 'bare-host' | 'dynamic';
 
 export interface BareHostTarget {
   readonly raw: string;
