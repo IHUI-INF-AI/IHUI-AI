@@ -85,7 +85,7 @@ const SEMANTIC_COLOR_ENTRIES: ReadonlyArray<TokenEntry> = [
   { name: '--color-secondary-foreground', type: 'color', defaultValue: 'hsl(0 0% 9%)' },
   { name: '--color-muted', type: 'color', defaultValue: 'hsl(0 0% 92%)' },
   { name: '--color-muted-foreground', type: 'color', defaultValue: 'hsl(0 0% 40%)' },
-  { name: '--color-accent', type: 'color', defaultValue: 'hsl(0 0% 88%)' },
+  { name: '--color-accent', type: 'color', defaultValue: 'hsl(0 0% 95%)' },
   { name: '--color-accent-foreground', type: 'color', defaultValue: 'hsl(0 0% 9%)' },
   { name: '--color-destructive', type: 'color', defaultValue: 'hsl(0 100% 60%)' },
   { name: '--color-destructive-foreground', type: 'color', defaultValue: 'hsl(0 0% 98%)' },
@@ -442,19 +442,12 @@ const Z_INDEX_ENTRIES: ReadonlyArray<TokenEntry> = [
   { name: '--z-max', type: 'z-index', defaultValue: '10003' },
 ]
 
-/** 全局投影 token(跨端共享)。 */
-const SHADOW_ENTRIES: ReadonlyArray<TokenEntry> = [
-  { name: '--global-box-shadow', type: 'shadow', defaultValue: '0 2px 8px var(--color-black-6)' },
-  { name: '--shadow-premium-sm', type: 'shadow', defaultValue: '0 2px 8px var(--color-black-6)' },
-  { name: '--shadow-premium', type: 'shadow', defaultValue: '0 2px 8px var(--color-black-6)' },
-  { name: '--shadow-premium-lg', type: 'shadow', defaultValue: '0 2px 8px var(--color-black-6)' },
-  { name: '--shadow-premium-xl', type: 'shadow', defaultValue: '0 2px 8px var(--color-black-6)' },
-  {
-    name: '--shadow-premium-hover',
-    type: 'shadow',
-    defaultValue: '0 2px 8px var(--color-black-6)',
-  },
-]
+/**
+ * 投影 token(跨端共享)。
+ * 2026-11-11 收口:旧 --global-box-shadow / --shadow-premium* 第二族已删除,
+ * 投影只有一个族 --shadow-elevation-*(数值源见 elevation.ts,由 sync-css-tokens 派生)。
+ */
+const SHADOW_ENTRIES: ReadonlyArray<TokenEntry> = []
 
 /** 图表色板 token(8 主色 + 文字/轴线/成功色,跨端共享)。 */
 const CHART_ENTRIES: ReadonlyArray<TokenEntry> = [
