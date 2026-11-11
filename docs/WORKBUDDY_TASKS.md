@@ -991,6 +991,75 @@ Yo=()=>t.post("/activity/growth/buddy/travel/claim",{})
   若日后机主给这些 uid 绑定微信身份,绑定的终局确认仍是微信侧动作(§11.5 ⑤),
   绑定生效后无需任何人再执行命令 —— 第 2 段已把这一格收成全自动。
 
+### 14.4 参数接口全量取证与接线(2026-11-11 夜,「想办法拿到接口参数」)
+
+结论先行:**判定参数不在 growth 域,而在腾讯 OneID 账号对象**;growth 域的写侧是 0 条,
+但参数接口本身已经全部拿到并固化进代码,不再是「不知道该调什么」。
+
+**① 现网 bundle 端点全集**:`GrowthI18nProvider-DbC0nH7V.js` 里 `/activity/growth/*` 共
+38 条(含 travel / lottery / redeem / buddy / heatmap / tasks),订阅相关**只有 1 条**
+`GET /v2/activity/growth/subscribe-task/status` —— 官方取任务列表的 `to()` 就是
+`qa()`(问这条)再读列表。真机对 16 条候选端点探测:
+`bind / callback / report / refresh / accept / qrcode / qr-code / config / info /
+wechat/status / wechat/bind / wechat/openid / wechat-openid / oa/status / user-state /
+subscribe-task` 全部 `404 page not found`;`?scene=bind / ?code= / ?openid= /
+?task_code= / ?refresh=1 / ?force=1` 六种 query 变体返回体逐字相同,参数被忽略。
+`POST /v2/activity/growth/tasks/wb_wechat_oa_subscribe_task/claim` 真机:
+未完成 ⇒ `400 {"code":400,"msg":"task not completed"}`,已领 ⇒ `{"already_claimed":true}`。
+
+**② 状态接口的完整返回体**(旧实现只判 HTTP 200,把三个判据读数丢了):
+```json
+{"code":0,"data":{"subscribe_task":{
+  "task_code":"wb_wechat_oa_subscribe_task","subscribed":false,
+  "remaining_seconds":-1,"task_status":"accepted","advanced":false}}}
+```
+`task_status` 才是服务端对该任务的终态词:主号是 `claimed` 且 `subscribed=false`
+⇒ 判据是**历史关注关系固化**,不是当前快照。任务行的 `jump_url` 是
+`https://www.workbuddy.cn/events/follow-guide/`,该页 `follow-guide.js` 只有三张静态二维码,
+零 `scene` / 零账号参数,不存在「每账号一张绑定码」。
+
+**③ 参数真正在哪**:本机凭据快照里已取到主号账号对象带
+`wechatOpenId` / `mpOpenId` / `loginChannels=["openplatform"]`;号池另外 3 个 uid 的
+`.info` 快照没有这两个字段。服务端判「公众号关注」读的是账号对象里的 openid,
+由**微信登录**或**账号设置 → 绑定微信**写入。两条链的参数(现网 `usercenter-index.js` 取证):
+
+| 链 | 端点(OneID 域 `https://api.account.tencent.com`) | 请求体 |
+| --- | --- | --- |
+| 绑定 initiate | `POST /personal_center/v1/credential/wechat/initiate` | `{scene:"BIND_WECHAT"\|"REBIND_WECHAT"\|"UNBIND_WECHAT", action:"bind"\|"rebind"\|"unbind", callback_uri, extra_param}` ⇒ `{redirect_url}` |
+| 绑定 callback | `POST /personal_center/v1/credential/wechat/callback` | `{code, state}` |
+| 微信扫码登录 | `POST /authz/v1/authn/social/wechat/login` | `{callback_uri, app, extra_param, client_mode:"widget"}` ⇒ 授权 URL + `state_token` |
+| 登录回调 | `POST /authz/v1/authn/social/wechat/callback` | `{params:{code,state}, state_token}` |
+
+账号切换类工具能完成这一项,靠的是**登录/绑定链把 openid 带进账号**,不是什么隐藏的
+growth 写端点。OneID 域走浏览器已登录会话(`withCredentials`),号池里
+`copilot.tencent.com` 域的 `accessToken` 打 initiate 真机返回
+`401 {"errCode":"G40102","errMessage":"token invalid"}` —— 这一步必须在已登录的账号中心
+里由机主发起并完成微信扫码,程序不代签、不伪造 openid。
+
+**④ 本轮落地(不是登记说明)**:
+- `scripts/workbuddy-growth-oauth.mjs --params`:一条命令打印上述全部接口/参数 +
+  每号服务端读数 + 本地 `wechatOpenId`/`mpOpenId` 绑定缺口(只读、脱敏、零写端点)。
+  新增纯函数 `oaBindInitiateUrl/CallbackUrl/Params`、`oaSocialLoginUrl/CallbackUrl/Params`、
+  `readLocalWechatBinding`,`parseSubscribeStatus` 补 `advanced` 读数。
+- `workbuddy_autopilot.py`:新增 `read_subscribe_task_status()` 解析四个判据字段,
+  `summary["subscribe_status"]` 与 `pending_platform[].subscribe_status` 留档;
+  新增 `oa_bind_initiate_url/params`、`oa_bind_callback_params` 纯函数(绑定链参数单源)。
+  刷新仍 fail-soft,非 200 不中断整轮。
+- 测试:`test_workbuddy_autopilot` 24 例、`workbuddy-growth-oauth.test.mjs` 22 例,全绿。
+
+**⑤ 真机读数(`--params`,2026-11-11 20:5x)**:
+
+| uid 前缀 | subscribed | remaining | task_status | advanced | 本地 openid | 任务 |
+| --- | --- | --- | --- | --- | --- | --- |
+| `14f939c3` | false | -1 | `claimed` | false | 无(池副本) | `claimed 1/1`,19/19 |
+| `0bc1074d` | false | -1 | `accepted` | false | 无 | `accepted 0/1`,18/19 |
+| `25913b4a` | false | -1 | `accepted` | false | 无 | `accepted 0/1`,18/19 |
+
+**⑥ 剩下唯一的人动作**:给这两个 uid 各绑定一个微信并关注「腾讯 WorkBuddy」公众号满 24h
+(官方规则:同一微信号仅可领取一次;同手机号/微信/设备/IP 视为同一用户)。
+参数接口、领奖闭环都已就位 —— 绑定生效后服务端翻 `completed`,
+现有引擎下一轮自动 `claim`,**无需再改代码、无需再跑命令**。
+
 
 
 

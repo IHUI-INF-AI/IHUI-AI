@@ -26,13 +26,23 @@ import { pathToFileURL } from 'node:url'
 
 import {
   OA_SUBSCRIBE_STATUS_URL,
+  OA_SUBSCRIBE_WRITE_CANDIDATES_PROBED,
   OA_TASK_CODE,
   describeSubscribe,
+  oaBindCallbackParams,
+  oaBindCallbackUrl,
+  oaBindInitiateParams,
+  oaBindInitiateUrl,
   oaClaimUrl,
+  oaSocialCallbackParams,
+  oaSocialCallbackUrl,
+  oaSocialLoginParams,
+  oaSocialLoginUrl,
   parseArgs,
   parseClaimResponse,
   parseSubscribeStatus,
   planOaRound,
+  readLocalWechatBinding,
   selectOaTask,
   subscribeVerdictOf,
 } from '../workbuddy-growth-oauth.mjs'
@@ -259,5 +269,69 @@ test('⑥ 刷新端点 URL 与官方 bundle 的 qa() 同一条', () => {
     OA_SUBSCRIBE_STATUS_URL,
     'https://www.workbuddy.cn/v2/activity/growth/subscribe-task/status',
   )
+})
+
+test('⑦ --params:绑定链接口与参数钉死(现网 usercenter bundle 取证)', () => {
+  assert.equal(parseArgs(['--params']).params, true)
+  assert.equal(parseArgs([]).params, false)
+  assert.equal(
+    oaBindInitiateUrl(),
+    'https://api.account.tencent.com/personal_center/v1/credential/wechat/initiate',
+  )
+  assert.equal(
+    oaBindCallbackUrl(),
+    'https://api.account.tencent.com/personal_center/v1/credential/wechat/callback',
+  )
+  assert.deepEqual(oaBindInitiateParams('https://www.workbuddy.cn/account-settings'), {
+    scene: 'BIND_WECHAT',
+    action: 'bind',
+    callback_uri: 'https://www.workbuddy.cn/account-settings',
+    extra_param: '',
+  })
+  assert.equal(oaBindInitiateParams('x', { action: 'rebind' }).scene, 'REBIND_WECHAT')
+  assert.equal(oaBindInitiateParams('x', { action: 'unbind' }).scene, 'UNBIND_WECHAT')
+  assert.deepEqual(oaBindCallbackParams('C', 'S'), { code: 'C', state: 'S' })
+  // growth 域写侧候选真机全 404,留档防止后人再去试这些不存在的端点
+  assert.ok(
+    OA_SUBSCRIBE_WRITE_CANDIDATES_PROBED.includes(
+      '/v2/activity/growth/subscribe-task/bind',
+    ),
+  )
+  // 微信扫码登录链(账号切换工具把 openid 带进账号的那条)
+  assert.equal(
+    oaSocialLoginUrl(),
+    'https://api.account.tencent.com/authz/v1/authn/social/wechat/login',
+  )
+  assert.equal(
+    oaSocialCallbackUrl(),
+    'https://api.account.tencent.com/authz/v1/authn/social/wechat/callback',
+  )
+  assert.deepEqual(oaSocialLoginParams('https://www.workbuddy.cn/'), {
+    callback_uri: 'https://www.workbuddy.cn/',
+    app: 'workbuddy',
+    extra_param: '',
+    client_mode: 'widget',
+  })
+  assert.deepEqual(oaSocialCallbackParams('C', 'TOKEN', 'S'), {
+    params: { code: 'C', state: 'S' },
+    state_token: 'TOKEN',
+  })
+})
+
+test('⑦ 订阅状态 advanced 读数不丢;本地绑定诊断只读脱敏', () => {
+  const live =
+    '{"code":0,"data":{"subscribe_task":{"subscribed":false,"remaining_seconds":-1,' +
+    '"task_status":"accepted","advanced":false}}}'
+  assert.equal(parseSubscribeStatus(200, live).advanced, false)
+  const advanced = parseSubscribeStatus(
+    200,
+    '{"code":0,"data":{"subscribe_task":{"subscribed":true,"remaining_seconds":0,"advanced":true}}}',
+  )
+  assert.equal(advanced.advanced, true)
+  // 不存在的 uid ⇒ 未判定形状,不抛、不回显任何 openid
+  const b = readLocalWechatBinding('00000000-does-not-exist')
+  assert.equal(b.found, false)
+  assert.equal(b.wechatOpenId, false)
+  assert.equal(b.mpOpenId, false)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
