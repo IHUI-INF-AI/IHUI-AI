@@ -4,7 +4,7 @@
   "expires": "2027-06-30",
   "generatedAt": "2026-11-07T20:35:15.180Z",
   "face": "HEAD",
-  "why": "跨端漂移门的存量固化基线(回归制):存量只报数,只有相对基线新增/恶化才在 push 面阻断。owner 为跨端对齐线;到期须重新量并决定续期或清偿。 | 2026-11-08 定向刷新(仅 judgedGapWeb 0→1):/sag2 是 web 自有检索工作台,RN/小程序零承载 ⇒ 按门机制如实登记 gap(scripts/data/web-rn-screen-map.jsonl 新增行,提交 14e533b6f1);其余维度保持 2026-11-06 原值不动。",
+  "why": "跨端漂移门的存量固化基线(回归制):存量只报数,只有相对基线新增/恶化才在 push 面阻断。owner 为跨端对齐线;到期须重新量并决定续期或清偿。 | 2026-11-08 定向刷新(仅 judgedGapWeb 0→1):/sag2 是 web 自有检索工作台,RN/小程序零承载 ⇒ 按门机制如实登记 gap(scripts/data/web-rn-screen-map.jsonl 新增行,提交 14e533b6f1);其余维度保持 2026-11-06 原值不动。 | 2026-11-11 修 425ae8286f 陈旧副本回滚:该提交(与同一批 058bb378c2 同型)把整份基线翻回 2026-11-07 快照 —— tierRnMissingN 139→134、mirrored 257→256、registryEntries 257→256、fidelityHosted 240→238、fidelityRetractionRot 0→3、mpTierDefaulted 377→378、mpTierLiteral 597→598、duplicateWebKeys 0→1、generatedAt 回退。本次只复位**会误红的那一维** tierRnMissingN=139(11-10 权威刷新在 cc11f84d6c);其余维保留现值(对 up 维是更严方向),不借刷新放宽。同批把 ApiKeysScreen 3 处新增非档值落回档表(paddingVertical 1→2 ×2、paddingHorizontal 5→4,xs/2xs 档),复量 139 处/25 种。",
   "evidence": [
     "scripts/check-cross-end-parity-drift.mjs:1331-1341(--gate 现读取值口)",
     "scripts/check-web-rn-style-tiers.mjs:631-656(档位 kinds/处数与 forkAllowance 出口)",
@@ -46,7 +46,7 @@
     "fidelityPackAbsent": 1,
     "fidelityRetractionInvalid": 0,
     "fidelityRetractionRot": 3,
-    "tierRnMissingN": 134,
+    "tierRnMissingN": 139,
     "tierRnMissingKinds": 25,
     "tierRnForkN": 59,
     "tierRnForkKinds": 22,
