@@ -14,6 +14,8 @@ import {
   completeOrder,
   completeOrderWithSaga,
   cancelOrder,
+  claimRefund,
+  abortRefund,
   refundOrder,
   activateOrderSubscription,
 } from '../services/order-service.js'
@@ -1379,13 +1381,30 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
           '支付宝退款进入人工复核(不阻断)',
         )
       }
-      if (isAlipayConfigured()) {
-        const result = await aliRefundOrder({ outTradeNo, refundAmount: amountYuan, reason })
-        if (!result.success) return reply.status(500).send(error(500, '退款失败'))
+      // F-09:调支付宝之前先用条件 UPDATE 抢占订单(paid→refunded)。并发第二笔在此 0 行命中
+      // 直接 409,不得再调支付宝——否则两个请求都读到 paid,各调一次支付宝就是真实资金双出。
+      const claim = await claimRefund(outTradeNo)
+      if (!claim.success) {
+        return reply
+          .status(409)
+          .send(error(409, claim.reason ?? '订单状态已变更,退款未落库'))
       }
-      // F-09:本地条件 UPDATE(paid→refunded)是退款落库的唯一闸门。并发双退时第二笔在这里
-      // 被判为"状态已变更",不能再返回成功(支付宝侧已用固定 out_request_no 幂等)。
-      const localResult = await refundOrder(outTradeNo)
+      if (isAlipayConfigured()) {
+        let result: { success: boolean }
+        try {
+          result = await aliRefundOrder({ outTradeNo, refundAmount: amountYuan, reason })
+        } catch (e) {
+          // 支付宝调用异常:解除抢占回到 paid,保持原 500 错误语义,允许重试
+          await abortRefund(outTradeNo)
+          throw e
+        }
+        if (!result.success) {
+          await abortRefund(outTradeNo)
+          return reply.status(500).send(error(500, '退款失败'))
+        }
+      }
+      // F-09:状态已在调支付宝前抢占落库,这里只做退款副作用(token 扣回/指标)。
+      const localResult = await refundOrder(outTradeNo, { alreadyClaimed: true })
       if (!localResult.success) {
         return reply.status(409).send(error(409, localResult.reason ?? '订单状态已变更,退款未落库'))
       }
