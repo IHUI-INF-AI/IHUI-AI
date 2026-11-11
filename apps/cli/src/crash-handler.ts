@@ -19,8 +19,8 @@
  *   - 自动清理超过 10 个的旧 crash log(保留最近 10 个)
  *   - 友好提示:报告 issue + 查看 crash log 路径;打印自身包在 try 内 ——
  *     EPIPE 等二次击穿时降级为"文件即结论",处理器内部绝不向外再抛
- *   - uncaughtException:打印后退出码 1(Node 默认行为;即使该路被去重,退出码仍生效)
- *   - unhandledRejection:打印警告但不退出(避免 Promise 链中 bug 导致整个 CLI 崩溃)
+ *   - uncaughtException / unhandledRejection:两通道对称,都落 `process.exitCode = 1`
+ *     (F-002:async 子命令失败必须让 CI/脚本读到非零退出码;只打印不设码等于把失败读成成功)
  *
  * 安全:
  *   - crash log 不主动写入用户敏感数据(但错误堆栈可能含 args,默认接受)
@@ -41,6 +41,8 @@ import chalk from 'chalk';
 // 恢复路径上二次抛错等于把事故升级成事故×2。
 import { serializeError, type SerializedError } from '@ihui/types';
 import { readCliPackage } from './util/pkg-version.js';
+import { redactArgv } from './util/argv-redact.js';
+import { writePrivateFile } from './lib/private-file.js';
 
 const CRASH_LOG_DIR = path.join(os.homedir(), '.ihui', 'crash-logs');
 const MAX_CRASH_LOGS = 10;
@@ -186,11 +188,13 @@ function writeCrashLog(info: CrashInfo): string | null {
       `Platform: ${info.runtime.platform} ${info.runtime.arch}`,
       `PID: ${info.runtime.pid}`,
       `cwd: ${info.runtime.cwd}`,
-      `argv: ${info.runtime.argv.join(' ')}`,
+      // F-008:argv 里 `-p/--password/--api-key/--token` 的值打码后再落盘(键名保留)。
+      `argv: ${redactArgv(info.runtime.argv).join(' ')}`,
       ``,
       `=== End of report ===`,
     ];
-    fs.writeFileSync(filepath, lines.join('\n'), 'utf-8');
+    // F-008:崩溃日志与凭据同属"不能让同机其他用户读"的落盘面 —— 走唯一写入口(0600)。
+    writePrivateFile(filepath, lines.join('\n'));
     return filepath;
   } catch {
     return null;
