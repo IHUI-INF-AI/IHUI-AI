@@ -2182,6 +2182,8 @@ class CheckinScheduler:
         - 出站全局暂停中(平台回过 429)→ RateLimitedError,路由映射 429 快速失败;
         - 账号仍在冷却期 → CooldownActiveError,路由映射 429(手动不给绕过冷却的
           后门:401 死号/429 限流账号被手动连点只会把风险放大到同 IP 全部账号);
+        - 读冷却失败(库抖动/查询异常)→ RateLimitedError 失败闭合,拒绝本次签到。
+          读不到冷却就不能证明「当前无冷却」,按空表放行会在数据库抖动时绕过限流;
         - 结果照写 records(冷却计数语义照常累积)。
         """
         remaining = checkin_outbound_gate.paused_remaining()
@@ -2199,8 +2201,12 @@ class CheckinScheduler:
         try:
             cooldowns = await checkin_store.get_active_cooldowns()
         except Exception as e:
-            logger.warning("[checkin_scheduler] 手动签到读冷却状态失败(按无冷却放行): %s", e)
-            cooldowns = {}
+            # 失败闭合:空表会被下游当成「无冷却」继续打平台。库抖动时拒绝本轮。
+            logger.warning(
+                "[checkin_scheduler] 手动签到读冷却状态失败(失败闭合,拒绝本次签到): %s",
+                e,
+            )
+            raise RateLimitedError("读取冷却状态失败,本次签到已拒绝,请稍后重试") from e
         cd_end = cooldowns.get(account_id)
         if cd_end is not None and cd_end > datetime.now(UTC):
             raise CooldownActiveError(str(account.get("name") or account_id), cd_end)

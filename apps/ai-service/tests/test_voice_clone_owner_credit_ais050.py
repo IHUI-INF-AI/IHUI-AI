@@ -82,7 +82,7 @@ def _owners(path: Path) -> dict[str, Any]:
 
 async def test_list_only_returns_owned_voices(monkeypatch, tmp_path):
     """归属闸:list 只回当前用户的声纹;别人的必须被隐掉(旧码全量回传)。"""
-    inst = _install(monkeypatch)
+    _install(monkeypatch)
     _store(monkeypatch, tmp_path, {"v-mine": {"user_id": "u-1"}})
     out = await mcp_server._tool_token6688_voice_clone(
         {"action": "list", "__user_id": "u-1"}
@@ -167,7 +167,7 @@ async def test_upload_credit_gate_blocks_before_upstream(monkeypatch, tmp_path):
 
 async def test_upload_credit_gate_allows_with_host_approval(monkeypatch, tmp_path):
     """计费闸不是一刀切:宿主明确 granted ⇒ 放行(仍登记归属)。"""
-    inst = _install(monkeypatch)
+    _install(monkeypatch)
     path = _store(monkeypatch, tmp_path, {})
     out = await mcp_server._tool_token6688_voice_clone(
         {"action": "upload", "data_uri": DATA_URI, "__user_id": "u-1",

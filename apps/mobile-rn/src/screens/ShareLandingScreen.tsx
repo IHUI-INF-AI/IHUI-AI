@@ -29,7 +29,7 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type ShareLandingRoute = RouteProp<RootStackParamList, 'ShareLanding'>
 
 /** 取数行 → 共享屏内容;每个展示字段在此映射一次 */
-export function toShareLandingContent(record: ShareContent): ShareLandingContent {
+function toShareLandingContent(record: ShareContent): ShareLandingContent {
   return {
     modelName: record.modelName,
     modelIcon: record.modelIcon,

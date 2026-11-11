@@ -34,7 +34,6 @@ import pytest
 
 from app.services import mcp_server, screenshot_service
 
-
 # ---------------------------------------------------------------------------
 # AIS-108:summarize_artifacts 的会话归属
 # ---------------------------------------------------------------------------

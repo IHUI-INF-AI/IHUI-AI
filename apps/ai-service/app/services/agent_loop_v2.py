@@ -802,7 +802,12 @@ def grant_tool_approval_persist(approval_id: str, scope: str) -> bool:
         from . import approval_persistence as _ap
 
         _ap.grant(scope, key, "mcp_tool")
-    except Exception:
+    except Exception as e:  # noqa: BLE001 - 落盘失败回传 False,并留下日志
+        logger.warning(
+            "审批持久授权落盘失败(approval_id=%s, 不当成已授予): %s",
+            approval_id,
+            e,
+        )
         return False
     return True
 
@@ -1099,17 +1104,27 @@ def _tool_approval_cache_key(tool_name: str, args: dict[str, Any]) -> str:
     return f"{tool_name}\x1f{payload}"
 
 
-def revoke_tool_approval(tool_name: str, args: dict[str, Any]) -> None:
-    """撤销某工具+参数的持久授权(两 scope 全撤;失败静默)。
+def revoke_tool_approval(tool_name: str, args: dict[str, Any]) -> bool:
+    """撤销某工具+参数的持久授权(两 scope 全撤)。
 
     对齐 codex revoke:用户可在前端主动撤销此前持久批准的授权,撤销后同键
-    再次调用恢复人工弹窗。审批持久层异常不影响主链路(静默降级)。
+    再次调用恢复人工弹窗。持久层异常不抛进主链路,但必须记日志并返回 False;
+    调用方不得把 False 当成「已经撤销」(授权可能仍在,下次同键仍会免弹窗)。
+
+    Returns:
+        True = 已撤销; False = 持久层异常,授权可能仍在。
     """
     try:
         from . import approval_persistence as _ap
         _ap.revoke(_tool_approval_cache_key(tool_name, args), "mcp_tool")
-    except Exception:
-        pass
+    except Exception as e:  # noqa: BLE001 - 撤销失败必须回传,不能当成已撤销
+        logger.warning(
+            "撤销工具持久授权失败(授权可能仍在,不得当成已撤销): tool=%s err=%s",
+            tool_name,
+            e,
+        )
+        return False
+    return True
 
 
 @dataclass
@@ -3394,8 +3409,11 @@ class AgentLoopV2:
             # 模型重新拿到 cwd/日期;失败隔离不影响压缩主链路)。
             try:
                 self._env_tracker.reset()
-            except Exception:  # noqa: BLE001 - 重置失败仅影响去重精度
-                pass
+            except Exception as e:  # noqa: BLE001 - 重置失败仅影响去重精度
+                logger.warning(
+                    "[agent-loop] 压缩后环境片段重置失败(去重精度下降,压缩结果仍有效): %s",
+                    e,
+                )
             self._compaction_fail_streak = 0
             return compressed
         except Exception as e:
@@ -3540,8 +3558,11 @@ class AgentLoopV2:
             return
         try:
             pin.retire_on_compaction()
-        except Exception:  # noqa: BLE001 - 退役失败仅影响档位精度
-            pass
+        except Exception as e:  # noqa: BLE001 - 退役失败仅影响档位精度
+            logger.warning(
+                "[agent-loop] 压缩后档位钉扎退役失败(档位精度下降,压缩结果仍有效): %s",
+                e,
+            )
 
     def _inject_decision_chain(
         self, compressed: list[dict[str, Any]], source_messages: list[dict[str, Any]]
@@ -4886,8 +4907,11 @@ class AgentLoopV2:
                     agent_loop_llm_retries_total.labels(
                         self._classify_error(e)
                     ).inc()
-                except Exception:
-                    pass
+                except Exception as metric_exc:  # noqa: BLE001 - 指标失败不改变重试
+                    logger.warning(
+                        "agent_loop_llm_retries_total 上报失败(不影响本次重试): %s",
+                        metric_exc,
+                    )
                 # A25 第 1 层:上游明示"不要再试"(x-should-retry: false)→ 立即放弃,
                 # 原始异常照常上抛(等价一次耗尽,不做任何本地重试)。
                 _retry_hint = hint_from_error(e)
@@ -4929,8 +4953,11 @@ class AgentLoopV2:
                     if _decision.action == "exhausted":
                         break
                     _notify_message = _decision.notify_message
-                except Exception:
-                    pass
+                except Exception as retry_exc:  # noqa: BLE001 - 决策机失败回退本地退避
+                    logger.warning(
+                        "流重试决策失败(回退本地退避,原始模型错误仍会重试或上抛): %s",
+                        retry_exc,
+                    )
                 # A25 第 2/3 层:服务端 Retry-After 优先于本地指数退避(唯一裁决
                 # resolve_retry_delay_s,含 [0,60s] 封顶);无指示时逐字节透传既有
                 # 曲线(反向对照:random 消费与数值都不变)。
@@ -5866,8 +5893,11 @@ class AgentLoopV2:
                 try:
                     from ..middleware.agent_metrics import agent_loop_errors_total
                     agent_loop_errors_total.labels(error_type).inc()
-                except Exception:
-                    pass
+                except Exception as metric_exc:  # noqa: BLE001 - 指标失败不掩盖循环错误
+                    logger.warning(
+                        "agent_loop_errors_total 上报失败(循环错误仍会返回调用方): %s",
+                        metric_exc,
+                    )
                 # L5-3 错误恢复:结构化上报审计服务(2026-08-12 立)
                 self._report_agent_error(i, str(e), error_type)
                 # Hook 引擎: error(1-5 起经事件流层发射;异常路径静默降级,
@@ -6638,8 +6668,14 @@ class AgentLoopV2:
                     try:
                         from . import approval_persistence as _ap
                         _ap.grant(_scope, key, "mcp_tool")
-                    except Exception:
-                        pass  # grant 失败静默(不阻断已批准的执行);持久层异常不影响返回 None
+                    except Exception as grant_exc:  # noqa: BLE001 - 落盘失败不撤销本次已批准的执行
+                        # 用户这一次已经批准:不把本次执行改判成拒绝。
+                        # 落盘没成功就记下来,下次同键会重新弹窗,不当成「已记住授权」。
+                        logger.warning(
+                            "审批落盘失败(本次用户已批准的执行不阻断,下次同键将重新弹窗): tool=%s err=%s",
+                            tc.name,
+                            grant_exc,
+                        )
                 # V3 #80:用户勾选"改用更安全等价路径"且复核建议通过确定性校验
                 # (同工具、静态扫描过关)时,才替换本次执行的参数;否则维持原请求。
                 alt = review.applicable_alternative(tc.name)
@@ -6660,8 +6696,14 @@ class AgentLoopV2:
                     from .mcp_registry import note_approved_write_call
 
                     note_approved_write_call(tc.name, tc.args)
-                except Exception:
-                    pass
+                except Exception as note_exc:  # noqa: BLE001 - 登记失败不能当成已放行
+                    # 不在这里把已批准的执行改判成拒绝:动态写工具的闸门
+                    # 看不到一次性授权时会自己回 APPROVAL_REQUIRED,不会静默放行。
+                    logger.warning(
+                        "一次性写授权登记失败(动态写工具由闸门拒绝,不当成已放行): tool=%s err=%s",
+                        tc.name,
+                        note_exc,
+                    )
                 return None
             if decision == "reject":
                 # D84:拒绝原因进决策提示(供 timeline/审计侧消费;缺省不写 key)。
@@ -8191,8 +8233,11 @@ class AgentLoopV2:
                 try:
                     from ..middleware.agent_metrics import agent_loop_tool_retries_total
                     agent_loop_tool_retries_total.inc()
-                except Exception:
-                    pass
+                except Exception as metric_exc:  # noqa: BLE001 - 指标失败不改变工具重试
+                    logger.warning(
+                        "agent_loop_tool_retries_total 上报失败(不影响工具重试): %s",
+                        metric_exc,
+                    )
                 backoff = self.tool_retry_backoff * retry_count
                 # 2026-09-18 第三批:工具重试事件流出(客户端可感知瞬时失败正在重试)
                 with contextlib.suppress(Exception):
@@ -8269,8 +8314,8 @@ class AgentLoopV2:
         try:
             if self._rollout_budget is not None:
                 return self._rollout_budget.tokens_left()
-        except Exception:  # noqa: BLE001 - 查询失败降级为未知
-            pass
+        except Exception as e:  # noqa: BLE001 - 查询失败降级为未知
+            logger.warning("rollout 剩余 token 查询失败(按未知返回,不当成还有余量): %s", e)
         return None
 
     def set_additional_context(self, key: str, value: str, kind: str) -> None:
