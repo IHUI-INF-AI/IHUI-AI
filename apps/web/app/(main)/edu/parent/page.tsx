@@ -355,7 +355,7 @@ function ChildrenListView({
         <button
           key={child.bindingId}
           onClick={() => onSelectChild(child.studentId)}
-          className="group rounded-sm border bg-card p-3 text-left transition-colors hover:bg-accent"
+          className="group rounded-sm border border-input bg-card p-3 text-left transition-colors hover:bg-accent"
         >
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-body font-bold text-primary">

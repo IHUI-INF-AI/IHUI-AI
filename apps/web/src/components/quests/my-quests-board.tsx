@@ -125,7 +125,7 @@ function QuestRow({
           type="button"
           data-testid={`my-quests-assess-add-${quest.goalId}`}
           onClick={submit}
-          className="font-[weight:inherit] flex shrink-0 items-center gap-0.5 rounded-sm border px-2 py-1 text-label transition-colors hover:bg-accent"
+          className="font-[weight:inherit] flex shrink-0 items-center gap-0.5 rounded-sm border border-input px-2 py-1 text-label transition-colors hover:bg-accent"
         >
           {t('addAssessment')}
         </button>
