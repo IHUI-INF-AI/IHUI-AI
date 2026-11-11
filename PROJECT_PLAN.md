@@ -12573,7 +12573,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 7G. **缺陷普查 API F-07** [P2] /api/workspace/background-agents 可列出/查看/取消所有用户的后台 Agent（证据 docs/tickets/2026-11/findings-api.md#F-07）
 - [ ] 12G. **缺陷普查 API F-12** [P2] 已支付订单副作用重放与支付回调并发，积分/Outbox 双发（证据 docs/tickets/2026-11/findings-api.md#F-12）
 - [ ] 15G. **缺陷普查 API F-15** [P2] 邀请码占用无 status 条件，同一码并发注册双发奖励（证据 docs/tickets/2026-11/findings-api.md#F-15）
-- [ ] 17G. **缺陷普查 API F-17** [P1] 提现回调先消费 nonce、失败仍 ACK SUCCESS，事务失败后资金永久冻结（证据 docs/tickets/2026-11/findings-api.md#F-17）
 - [ ] 20G. **缺陷普查 API F-20** [P2] 积分任务「今日/本周」区间用 UTC 午夜解释上海日键，整体错位 8 小时（证据 docs/tickets/2026-11/findings-api.md#F-20）
 - [ ] 21G. **缺陷普查 API F-21** [P2] 学费入账与排名快照用 UTC 日键写上海业务日列（证据 docs/tickets/2026-11/findings-api.md#F-21）
 - [ ] 22G. **缺陷普查 API F-22** [P2] 营收 sum(amount)::int 溢出，异常被吞成「全 0 看板」（证据 docs/tickets/2026-11/findings-api.md#F-22）
@@ -12584,7 +12583,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 29G. **缺陷普查 API F-29** [P2] /spec/pipeline-rollback 接受绝对 backupDir，可读取工作区外任意目录的 *.bak（证据 docs/tickets/2026-11/findings-api.md#F-29）
 - [ ] 30G. **缺陷普查 API F-30** [P2] /git/status、/git/review-diff、/github/status 缺工作区权限校验，绕过 ACL 读任意注册根（证据 docs/tickets/2026-11/findings-api.md#F-30）
 - [ ] 31G. **缺陷普查 API F-31** [P3] agents.ts 分页 toInt 无上下界，负数直入 OFFSET/LIMIT，超大值全表载入（证据 docs/tickets/2026-11/findings-api.md#F-31）
-- [ ] 33G. **缺陷普查 API F-33** [P1] refundOrder 先落 refunded 再吞掉 token 扣回失败，可退款后保留 token（证据 docs/tickets/2026-11/findings-api.md#F-33）
 - [ ] 34G. **缺陷普查 API F-34** [P2] 多模态任务失败退款为 fire-and-forget，异常被内部吞掉（证据 docs/tickets/2026-11/findings-api.md#F-34）
 - [ ] 35G. **缺陷普查 API F-35** [P2] 两段式计费 settlePreDeduction 失败只记日志，预扣金额永久停留（证据 docs/tickets/2026-11/findings-api.md#F-35）
 - [ ] 36G. **缺陷普查 API F-36** [P2] email worker 把 sendEmail 的 sent:false 当成功，BullMQ 重试/dead-letter 失效（证据 docs/tickets/2026-11/findings-api.md#F-36）
