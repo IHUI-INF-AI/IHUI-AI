@@ -93,6 +93,15 @@ def _transport_of(*rows: dict[str, Any], claim_credit: int = 100) -> httpx.MockT
     """固定任务表 + 可领奖的 MockTransport(写侧只允许 /claim)。"""
 
     def transport(req: httpx.Request) -> httpx.Response:
+        if req.url.path.endswith("/subscribe-task/status"):
+            return httpx.Response(
+                200,
+                json={"code": 0, "data": {"subscribe_task": {
+                    "task_code": ap.OA_SUBSCRIBE_TASK_CODE,
+                    "subscribed": False, "remaining_seconds": -1,
+                    "task_status": "accepted", "advanced": False,
+                }}},
+            )
         if req.url.path.endswith("/growth/tasks"):
             return httpx.Response(
                 200,
@@ -432,4 +441,70 @@ async def test_run_share_task_progress_advance_is_ok():
     assert result.ok is True
     assert result.reason == wda.REASON_OK
     assert (result.after or {}).get("skill_share", {}).get("progress_current") == 1
+
+
+# ---------------------------------------------------------------------------
+# 公众号关注项:官方 qa() 刷新时序 + 平台侧判据归类(2026-11-11 取证)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_subscribe_status_is_refreshed_before_task_list() -> None:
+    """官方 to() 时序:先 GET subscribe-task/status 让服务端重算,再 GET 任务表。
+
+    只读、幂等;顺序反了会拿旧判定,公众号项可能永远等不到翻面。
+    """
+    order: list[str] = []
+
+    def transport(req: httpx.Request) -> httpx.Response:
+        assert req.method == "GET", "订阅刷新只能是读侧"
+        order.append(req.url.path)
+        if req.url.path.endswith("/subscribe-task/status"):
+            return httpx.Response(
+                200,
+                json={"code": 0, "data": {"subscribe_task": {
+                    "subscribed": False, "task_status": "accepted",
+                }}},
+            )
+        return httpx.Response(200, json={"code": 0, "data": {"tasks": []}})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(transport)) as client:
+        summary = await ap.run_autopilot(
+            FAKE_TOKEN, FAKE_DM, dry_run=True, table={}, client=client
+        )
+    assert len(order) == 2
+    assert order[0].endswith("/subscribe-task/status")
+    assert order[1].endswith("/growth/tasks")
+    assert summary["subscribe_status_refreshed"] is True
+
+
+@pytest.mark.asyncio
+async def test_oa_pending_is_platform_condition_not_unregistered() -> None:
+    """accepted/0-1 的公众号项判据在微信身份 ⇒ 记 pending_platform,不冒充引擎未接线。"""
+    async with httpx.AsyncClient(
+        transport=_transport_of(
+            _row(ap.OA_SUBSCRIBE_TASK_CODE, accept="accepted", cur=0, tgt=1)
+        )
+    ) as client:
+        summary = await ap.run_autopilot(
+            FAKE_TOKEN, FAKE_DM, dry_run=True, table={}, client=client
+        )
+    assert summary["unregistered"] == []
+    assert [r["code"] for r in summary["pending_platform"]] == [ap.OA_SUBSCRIBE_TASK_CODE]
+    assert summary["pending_platform"][0]["reason"] == "wechat_oa_follow_relation"
+
+
+@pytest.mark.asyncio
+async def test_oa_completed_is_claimed_automatically() -> None:
+    """服务端一旦判完成 ⇒ claim-only 自动领奖,绑定/关注生效后零人工收口。"""
+    async with httpx.AsyncClient(
+        transport=_transport_of(
+            _row(ap.OA_SUBSCRIBE_TASK_CODE, accept="completed", cur=1, tgt=1),
+            claim_credit=100,
+        )
+    ) as client:
+        summary = await ap.run_autopilot(FAKE_TOKEN, FAKE_DM, table={}, client=client)
+    assert summary["claimed"] == [ap.OA_SUBSCRIBE_TASK_CODE]
+    assert summary["credits"] == 100
+    assert summary["unregistered"] == []
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
