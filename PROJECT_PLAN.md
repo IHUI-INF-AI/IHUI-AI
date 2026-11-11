@@ -11869,16 +11869,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
   提交方式：本批仅写入工作树，落地须走私有索引提交链路 + 收敛器，不得 --no-verify 绕过守门；与 304 枚在途改动一并收敛。
 -->
 ### 缺陷深挖批次 2026-11-07（自动审查，DBG- 新字母族）
-- [ ] DBG-6 （登记@2026-11-07/bug-hunt）[P2][api][时区] apps/api/src/services/token-balance-service.ts:75 checkPromotionPeriod 用 `new Date().getDate()`（服务器本地日）判每月 1-7 号促销期，跨时区/夏令时切换时促销窗口错位
-- [ ] DBG-8 （登记@2026-11-07/bug-hunt）[P2][api][超时] apps/api/src/services/alipay.ts:314,388,429,462,486,510 六处 `fetch(GATEWAY,…)` 均未传 AbortSignal/超时，支付宝网关无响应时请求永久挂起、可能耗尽连接池/事件循环
-- [ ] DBG-9 （登记@2026-11-07/bug-hunt）[P1][web][配色] apps/web/src/components/data/StatCard.tsx:55-57 涨跌配色违反项目「涨红跌绿」约定（当前涨=emerald 绿、跌=red 红），收益/引流/转化卡片反向误导用户涨跌方向
-- [ ] DBG-16 （登记@2026-11-07/bug-hunt）[P2][ai][安全] apps/ai-service/app/services/api_client.py:68 MTLS_ENABLED=false 时内部 ai-service→api 的 httpx 用 `verify=False` 关闭 TLS 校验，内网跳板可被 MITM 篡改内部调用
-- [ ] DBG-20 （登记@2026-11-07/bug-hunt）[P3][ai][缓存] apps/ai-service/app/core/bounded_ttl_store.py:117-123 set() 更新"已过期视为不在"的键时先 evict 再 pop(key) 再 add，多淘汰一个有效键（容量计数偏差）
 <!-- bug-hunt 第二波 2026-11-07：未覆盖模块深挖（extension / monitoring+deploy / benchmarks / scripts-git），48 条，接续 DBG-52..99；第一波见 DBG-1..51 -->
-- [ ] DBG-54 （登记@2026-11-07/bug-hunt）[P1][bench][统计] benchmarks/run.mjs:103-124,145-152 — 每任务单次 trial 即下结论，无 mean/std/CI；同仓 rerun 报告实证 07-fix-email-regex、09-py-fix-fib 首跑 FAIL 复跑 PASS ⇒ README 的 85% 不具稳定性
-- [ ] DBG-55 （登记@2026-11-07/bug-hunt）[P2][bench][计时] benchmarks/run.mjs:103-124 — durationMs 是含 IO 的墙钟单样本：t0 在 cpSync(workspace) 之前、计时含 verify 步骤，无 warmup/去离群/聚合 ⇒ 耗时数据被污染且不可用于任何结论
-- [ ] DBG-83 （登记@2026-11-07/bug-hunt）[P2][ops][路径硬编码] deploy/win/run-cdn.bat:15 — 启动器硬编码 "D:\DevEnv\runtimes\node\node.exe"，而 :7-9 声明「root 从脚本位置推导、不写死盘符」⇒ 在 G: 检出上仓库根解析正确但 node 路径仍是 D: 死路径，直接启动失败
-- [ ] DBG-84 （登记@2026-11-07/bug-hunt）[P2][ops][非原子] deploy/win/install-auto-deploy-task.ps1:42 — 「先删同名任务再创建」非原子：:42 先 /delete /f，若 :52 schtasks /create 失败则机器上已不存在任何自动部署任务、旧的可用注册也被销毁（对比 install-deploy-loop-service.ps1:19-21 明确就地 set、刻意不先删后建）
 ---
 - [ ]（原 Y-12） RP-7 (2026-10-29) **公网腿 p95 响应 8 秒级（api.aizhs.top）**:机器外视角实测(GitHub App 最近 100 条回调投递,时间跨度 03:03:46Z→03:06:03Z,约 2.3 分钟)成功 95 条中 p50=0.69s、p95=8.34s、max=8.72s,直方图 <0.5s 只有 20 条、>=2s 有 21 条 ⇒ 手机用户走这条腿会持续感到"转圈"。先按维度拆开量(隧道边缘 RTT / 源站处理耗时 / 冷启动排队),再决定是加源站并发还是把该端点挪到不经隧道的臂;判"腿坏"必须用外部正证(GitHub 投递成功率),不得拿本机 curl 自环读数定责
 - [ ] O69 (2026-11-01) 本机 dev 库口令轮换器已入库但**没挂调度** ⇒ 照 `git-guardian.mjs` 的 `sweepExposedCredentialRotation()` 形态挂一轮巡检（`--check` 先行、只在无活服务窗口 `--apply`、结论写"未判定"、节流戳落 `.ihui-agent/state/`），并补镜像用例钉"活服务在场 ⇒ 整轮让路且不记绿"。
