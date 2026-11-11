@@ -2,7 +2,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-/* RECON-NOTE@2026-11-11 双链缝合:共同基线 bec0b20c(9db63619 前)重放 52991b53 的 raccoon 新增到 health 接线版,git merge-file 双向存活;消费端 isModelDown/normalizePoolUpstreamModelId/ok 连通过滤按 61d 语义恢复。取证 .ihui-agent/tmp/replant/。 */
 /**
  * 第三方 AI IDE 平台账号池服务(2026-10-22 立,对标码道网关 CodeArtsGateway)。
  *
@@ -19,6 +18,9 @@
  * 的可被调度器续期;没有的直接标 down + 摘除),是否可用交给健康检查/转发链路判定。
  */
 import { createHash } from 'node:crypto'
+import { mkdirSync, writeFileSync } from 'node:fs'
+import { homedir } from 'node:os'
+import { dirname, join } from 'node:path'
 import { and, eq, inArray, isNull, like, or, sql } from 'drizzle-orm'
 import {
   aiModelConfig,
@@ -64,6 +66,7 @@ import {
   type PoolSyncAccount,
 } from './relay-account-pool-checkin-sync.js'
 import { encryptAccountProxyUrl, resolveAccountProxyUrl } from './relay-proxy-pool.js'
+import { isModelDown, normalizePoolUpstreamModelId } from './relay-pool-model-health.js'
 
 // =============================================================================
 // 类型
@@ -653,37 +656,6 @@ function mapGrokbotImport(_acc: ImportAccountInput): null {
 }
 
 /**
- * 商汤小浣熊(2026-11-11 立):auth.json 只有 access_token(JWT,30 天),**无 refresh_token**
- * ⇒ 映射恒不给续期材料(适配器 refreshTokenSupported=false,调度器不得进保活窗口)。
- * uid 键源与提取器同一枚(令牌 sub = `pu-<uuid>`);到期取载荷 expiresAt,缺失时回落到 JWT exp。
- */
-function mapRaccoonImport(acc: ImportAccountInput): {
-  token: string
-  refreshToken: null
-  uid: string
-  name: string | null
-  expiresAt: Date | null
-  secrets: Record<string, unknown>
-} | null {
-  const a = acc as Record<string, unknown>
-  const { hits } = resolveRelayCredentialSlots(a, 'raccoon')
-  const token = hits[0]?.value ?? ''
-  if (!token) return null
-  return {
-    token,
-    // auth.json 实测无 refresh_token ⇒ 恒 null,不编造续期键
-    refreshToken: null,
-    uid: cstr(a['uid']) || extractUid(token),
-    name: cstr(a['name']) || null,
-    expiresAt:
-      parseFlexibleExpiry(a['expiresAt']) ??
-      parseFlexibleExpiry(a['expires_at']) ??
-      extractTokenExpiry(token),
-    secrets: a,
-  }
-}
-
-/**
  * 平台导入映射的唯一分派(2026-11-06 抽出)。
  *
  * 内容 = 原 `importAccounts` 内联三元链的**逐字搬迁**(各映射函数语义一字未改),抽出只为
@@ -713,9 +685,7 @@ function mapImportedAccount(providerCode: RelayProviderCode, acc: ImportAccountI
                     ? mapLingmaImport(acc)
                     : providerCode === 'grokbot'
                       ? mapGrokbotImport(acc)
-                      : providerCode === 'raccoon'
-                        ? mapRaccoonImport(acc)
-                        : null
+                      : null
 }
 
 /**
@@ -1347,7 +1317,35 @@ export async function importAccounts(
     }
     result.deviceCollisions = computeDeviceCollisions(merged)
   }
+  // 号池确实有变动才打点(空跑/全跳过不触发同步)。
+  if (result.imported > 0 || result.updated > 0) markPoolSyncDirty()
   return result
+}
+
+/**
+ * 号池变更脏标记(2026-11-11 立,跨环境自动同步的"变更触发"端)。
+ *
+ * 立因:号池有 18 条写入口(Web 加号 / 管理员导入 / Trae·Qoder·MiniMax 会话自动回灌 /
+ * 签到侧凭证回写 / 巡检换票…),逐个挂"推生产"既漏又重。改成「变更打点 + 定时收敛」:
+ * 本函数只写一个几字节的标记文件,仓根 `scripts/relay-account-pool-sync.mjs` 的
+ * Windows 计划任务(每 2 分钟 `--if-dirty`)发现标记就立刻做一轮两端对账 ——
+ * 于是任何入口写完号池,最迟 2 分钟内自动出现在另一端。
+ *
+ * 边界(为什么这么"轻"):
+ * - 写失败**绝不阻断导入**(catch 静默):同步是增强能力,不能反过来伤害主链路;
+ * - 标记删不掉最多多跑一轮同步,引擎按凭证指纹去重 ⇒ 幂等,不会制造脏写;
+ * - 生产机的 API 也会写(它同样在导号),但生产侧不装同步任务 ⇒ 标记只占几字节,零副作用;
+ * - 路径可用 `IHUI_POOL_SYNC_DIRTY_FILE` 覆盖(NSSM 服务的 homedir 可能不是用户目录)。
+ */
+function markPoolSyncDirty(): void {
+  const file =
+    process.env['IHUI_POOL_SYNC_DIRTY_FILE'] || join(homedir(), '.wb-switch', 'pool-sync-dirty')
+  try {
+    mkdirSync(dirname(file), { recursive: true })
+    writeFileSync(file, new Date().toISOString(), 'utf8')
+  } catch {
+    /* 打点失败不阻断导入:下一轮全量同步仍会把两端收敛 */
+  }
 }
 
 // =============================================================================
@@ -1891,10 +1889,6 @@ export function buildExportPayload(
         const v = s[k]
         if (v !== null && v !== undefined) base[k] = v
       }
-      // workbuddy 域声明(2026-11-11 补):入库走 extraMetadata.domain,re-export 必须回带,
-      // 否则本机池 → 生产池一跳就把国际版打回 CN 端点(与刷新 404 连挂摘除同一病根)。
-      const dom = cstr((row.extraMetadata as Record<string, unknown> | null)?.['domain'])
-      if (dom) base['domain'] = dom
       break
     }
     case 'qoder': {
@@ -2036,21 +2030,6 @@ export function buildExportPayload(
       if (creds.refreshToken) base['refreshToken'] = creds.refreshToken
       break
     }
-    case 'raccoon': {
-      // auth.json 形状 = { access_token, office_identity },单体 Bearer 无续期材料
-      base['token'] = creds.token
-      if (row.tokenExpiresAt) base['expiresAt'] = row.tokenExpiresAt.toISOString()
-      // office_identity 是个人版身份标记(非 owner_id):提取器把它放在 meta 里,
-      // 入池时随 secrets 整包落库 ⇒ 导出按 meta 取,取不到就不写(写回端会沿用本机现值)
-      const meta = (s['meta'] && typeof s['meta'] === 'object' ? s['meta'] : null) as Record<
-        string,
-        unknown
-      > | null
-      const identity =
-        cstr(s['officeIdentity']) || cstr(s['office_identity']) || cstr(meta?.['officeIdentity'])
-      if (identity) base['officeIdentity'] = identity
-      break
-    }
     case 'grokbot': {
       return 'grokbot 本机凭证为 sandSealedFile 密封串,无明文凭据可导出(解封方案未取证)'
     }
@@ -2112,6 +2091,8 @@ export interface UserPoolModelItem {
 
 interface UserPoolModelCacheEntry {
   expiresAt: number
+  /** 本轮是否拿到上游清单(false=取不到:超时/拒收/无适配器;true=拿到,空清单也算"明确报空") */
+  ok: boolean
   /** 上游原始模型 id(不带平台前缀;拼前缀在输出时统一做) */
   upstreamIds: string[]
 }
@@ -2132,13 +2113,16 @@ function toPoolModelId(providerCode: string, upstreamId: string): string {
 }
 
 /**
- * 单平台上游清单。永不抛:无 listModels / 超时 / 上游拒收一律归空数组,
- * 由预置登记行兜底(取不到 ≠ 没模型,只是这一轮没拿到)。
+ * 单平台上游清单。永不抛。ok 语义(连通过滤的交集判据,逐路径核实):
+ * - ok=true:成功拿到上游清单 —— 含「明确报空」(detailed.ok 且 models 为空数组:
+ *   该号确实没模型,预置行应被交集隐藏);
+ * - ok=false:取不到(无适配器 / 两个清单接口都没有 / 超时 / 上游拒收 / 异常)——
+ *   「取不到 ≠ 没模型」,预置照出,只是这一轮没拿到。
  */
 async function fetchUpstreamModelIds(
   providerCode: RelayProviderCode,
   row: AiRelayAccountPool,
-): Promise<string[]> {
+): Promise<{ ok: boolean; ids: string[] }> {
   try {
     // 注册是幂等的;这里自己兜一次 —— 清单接口可能在 worker 之外(仅 API 进程)被首次调用,
     // 不依赖「worker 已启动」这个隐含前提,否则适配器表为空会静默返回零模型。
@@ -2148,11 +2132,11 @@ async function fetchUpstreamModelIds(
     ])
     registerAllRelayAdapters()
     const adapter = getRelayAdapter(providerCode)
-    if (!adapter) return []
+    if (!adapter) return { ok: false, ids: [] }
     const ctx = { row, credentials: decryptAccountCredentials(row) }
     // 生命周期调用与 chat 同出口 IP(同号同代理,避免 IP 漂移触发风控)
     const opts = { proxyUrl: row.proxyUrl ? resolveAccountProxyUrl(row.proxyUrl) : null }
-    const task = async (): Promise<string[]> => {
+    const task = async (): Promise<{ ok: boolean; ids: string[] } | null> => {
       if (adapter.listModelsDetailed) {
         const detailed = await adapter.listModelsDetailed(ctx, opts)
         if (detailed.ok && Array.isArray(detailed.models)) {
@@ -2160,20 +2144,54 @@ async function fetchUpstreamModelIds(
             .map((m) => m.id ?? m.name)
             .map((s) => (typeof s === 'string' ? s.trim() : ''))
             .filter((s) => s !== '')
-          if (ids.length > 0) return ids
+          if (ids.length > 0) return { ok: true, ids }
+          // 上游明确报空 = 拿到清单(该号确实没模型),不回落
+          if (detailed.models.length === 0) return { ok: true, ids: [] }
+          // 有条目但全被清洗掉:视为没拿到有效清单,继续回落旧接口
         }
       }
-      if (adapter.listModels) return await adapter.listModels(ctx, opts)
-      return []
+      if (adapter.listModels) {
+        // listModels 无成败标志:能正常返回即视为拿到清单(空数组=明确报空)
+        const list = await adapter.listModels(ctx, opts)
+        return { ok: true, ids: list.map((s) => s.trim()).filter((s) => s !== '') }
+      }
+      return null
     }
-    const timeout = new Promise<string[]>((resolve) => {
-      const timer = setTimeout(() => resolve([]), POOL_MODEL_UPSTREAM_TIMEOUT_MS)
+    const timeout = new Promise<null>((resolve) => {
+      const timer = setTimeout(() => resolve(null), POOL_MODEL_UPSTREAM_TIMEOUT_MS)
       timer.unref?.()
     })
-    const ids = await Promise.race([task().catch(() => []), timeout])
-    return [...new Set(ids.map((s) => s.trim()).filter((s) => s !== ''))]
+    const raced = await Promise.race([task().catch(() => null), timeout])
+    if (!raced) return { ok: false, ids: [] }
+    return { ok: true, ids: [...new Set(raced.ids)] }
   } catch {
-    return []
+    return { ok: false, ids: [] }
+  }
+}
+
+/**
+ * 选择器过滤判定(纯函数,可单测):返回模型的隐藏原因,null = 可显示。
+ * - upstreamSet=null:该平台本轮没拿到上游清单(ok=false)——「取不到 ≠ 没模型」,不做交集;
+ * - 'intersection':上游明确报了清单且不含此模型(登记行已下架的预置);
+ * - 'down':号池模型级健康有明确死亡结论(relay-pool-model-health,被动 404 信号)。
+ * 判据任何异常都退化为「不过滤」(fail-open,绝不让选择器打不开)。
+ */
+export function poolModelHiddenReason(
+  providerCode: string,
+  modelId: string,
+  upstreamSet: ReadonlySet<string> | null,
+): 'intersection' | 'down' | null {
+  try {
+    if (
+      upstreamSet !== null &&
+      !upstreamSet.has(normalizePoolUpstreamModelId(providerCode, modelId))
+    ) {
+      return 'intersection'
+    }
+    if (isModelDown(providerCode, modelId)) return 'down'
+    return null
+  } catch {
+    return null
   }
 }
 
@@ -2244,26 +2262,50 @@ export async function listUserPoolModels(
     presetByProvider.set(row.providerCode, list)
   }
 
-  const upstreamByProvider = new Map<string, string[]>()
+  const upstreamByProvider = new Map<string, { ok: boolean; ids: string[] }>()
   await Promise.all(
     [...byProvider.entries()].map(async ([code, hit]) => {
       const cacheKey = `${userId}:${opts.includeOpsPool ? 'ops' : 'me'}:${code}`
       const cached = poolModelCache.get(cacheKey)
       if (!opts.refresh && cached && cached.expiresAt > Date.now()) {
-        upstreamByProvider.set(code, cached.upstreamIds)
+        upstreamByProvider.set(code, { ok: cached.ok, ids: cached.upstreamIds })
         return
       }
-      const ids = isRelayProviderCode(code) ? await fetchUpstreamModelIds(code, hit.row) : []
-      upstreamByProvider.set(code, ids)
+      const info = isRelayProviderCode(code)
+        ? await fetchUpstreamModelIds(code, hit.row)
+        : { ok: false, ids: [] as string[] }
+      upstreamByProvider.set(code, info)
     }),
   )
 
+  // 连通过滤(2026-11-11 立,用户要求后端统一过滤号池腿):
+  // a. 交集 —— ok=true 的平台,预置行不在上游清单(归一比对)即隐藏;ok=false 照出;
+  // b. 健康 —— 号池模型级 down(被动 404 信号)的预置与上游条目都隐藏。
   const items: UserPoolModelItem[] = []
+  let hiddenByIntersection = 0
+  let hiddenByDown = 0
   for (const [code, hit] of byProvider) {
+    const info = upstreamByProvider.get(code) ?? { ok: false, ids: [] }
+    // 交集判据集合:仅 ok=true 才参与;归一后比对,兼容 trae 裸名与 `<平台>/` 前缀双形态
+    const upstreamSet = info.ok
+      ? new Set(info.ids.map((u) => normalizePoolUpstreamModelId(code, u)))
+      : null
     const seen = new Set<string>()
+    // 去重与交集同用归一判据:裸名/前缀名/大小写差异都是同一模型,不该出两条
+    const seenNorm = new Set<string>()
     for (const preset of presetByProvider.get(code) ?? []) {
       if (seen.has(preset.id)) continue
       seen.add(preset.id)
+      seenNorm.add(normalizePoolUpstreamModelId(code, preset.id))
+      const hidden = poolModelHiddenReason(code, preset.id, upstreamSet)
+      if (hidden === 'intersection') {
+        hiddenByIntersection += 1
+        continue
+      }
+      if (hidden === 'down') {
+        hiddenByDown += 1
+        continue
+      }
       items.push({
         id: preset.id,
         name: preset.name,
@@ -2272,11 +2314,19 @@ export async function listUserPoolModels(
         source: 'preset',
       })
     }
-    for (const upstreamId of upstreamByProvider.get(code) ?? []) {
+    for (const upstreamId of info.ids) {
       const id = toPoolModelId(code, upstreamId)
       // 裸名与带前缀名都算重复:平台登记行可能就用裸名(trae 系),上游清单再报一次不该出两条
-      if (seen.has(id) || seen.has(upstreamId)) continue
+      if (seen.has(id) || seen.has(upstreamId) || seenNorm.has(normalizePoolUpstreamModelId(code, upstreamId))) {
+        continue
+      }
       seen.add(id)
+      seenNorm.add(normalizePoolUpstreamModelId(code, upstreamId))
+      // 上游条目天然在清单集合内,交集免判,只过健康
+      if (poolModelHiddenReason(code, upstreamId, null) === 'down') {
+        hiddenByDown += 1
+        continue
+      }
       items.push({
         id,
         name: upstreamId,
@@ -2285,15 +2335,25 @@ export async function listUserPoolModels(
         source: 'upstream',
       })
     }
-    // 回写缓存:只存上游那一半(预置每次现读,登记变更立即生效)
-    if (poolModelCache.size >= POOL_MODEL_CACHE_MAX && !poolModelCache.has(`${userId}:${code}`)) {
+    // 回写缓存:只存上游那一半(预置每次现读,登记变更立即生效);ok 随清单一起缓存,
+    // 命中时沿用(本轮没探上游,结论仍是上一轮的)。键必须与读取处同形(三段含 ops/me)。
+    const cacheKey = `${userId}:${opts.includeOpsPool ? 'ops' : 'me'}:${code}`
+    if (poolModelCache.size >= POOL_MODEL_CACHE_MAX && !poolModelCache.has(cacheKey)) {
       const oldestKey = poolModelCache.keys().next().value
       if (oldestKey !== undefined) poolModelCache.delete(oldestKey)
     }
-    poolModelCache.set(`${userId}:${code}`, {
+    poolModelCache.set(cacheKey, {
       expiresAt: Date.now() + POOL_MODEL_CACHE_TTL_MS,
-      upstreamIds: upstreamByProvider.get(code) ?? [],
+      ok: info.ok,
+      upstreamIds: info.ids,
     })
+  }
+  const hiddenTotal = hiddenByIntersection + hiddenByDown
+  if (hiddenTotal > 0) {
+    logger.info(
+      `[relay-account-pool] 模型选择器连通过滤: ${items.length + hiddenTotal} → ${items.length}` +
+        ` (隐藏 ${hiddenTotal}:交集未命中 ${hiddenByIntersection} + down ${hiddenByDown})`,
+    )
   }
   return items
 }

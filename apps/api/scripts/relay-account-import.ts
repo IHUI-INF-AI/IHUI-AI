@@ -86,6 +86,13 @@ interface CliOptions {
    * 供「生产→本地」同步拉回(scripts/relay-account-pool.mjs --sync-pull);不读输入、不落库。
    */
   exportMode: boolean
+  /**
+   * 全平台导出模式(--export-all,2026-11-11 立):一次进程导出**所有**平台账号,
+   * 输出 `{providers:{<code>:{accounts:[...]}}}` 单份 JSON(边界标记包裹)。
+   * 用途 = 跨环境双向同步引擎做「生产→本地」快照:12 个平台一次 SSH 拿全,
+   * 不再为每个平台付一次 tsx 冷启 + Cloudflare 握手。不读输入、不落库。
+   */
+  exportAll: boolean
 }
 
 const HELP = `账号池导入(服务端落库)
@@ -104,6 +111,8 @@ const HELP = `账号池导入(服务端落库)
                               本脚本只透传不解释。
     [--export <provider>]    导出该平台全部账号(含明文凭证)为标准 JSON 到 stdout,供「生产→本地」
                               同步拉回(scripts/relay-account-pool.mjs --sync-pull);不读输入、不落库。
+    [--export-all]           一次导出全部平台(单份 JSON,providers 分桶),供跨环境双向同步引擎
+                              做整端快照;同样不读输入、不落库。
 
 批量模式(2026-11-10):--file 可重复给,同一进程内逐文件导入(每文件须自带顶层 providerCode,
   此时不接受 --provider),退出码取最坏一档;用于全池推生产时只付一次 tsx 冷启。
@@ -129,6 +138,7 @@ function parseArgs(argv: string[]): {
     ownerUserId: null,
     ownerSource: '',
     exportMode: false,
+    exportAll: false,
   }
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]
@@ -146,6 +156,7 @@ function parseArgs(argv: string[]): {
       options.exportMode = true
       options.providerCode = v
     }
+    else if (arg === '--export-all') options.exportAll = true
     else if (arg === '--dry-run') options.dryRun = true
     else if (arg === '--no-health') options.health = false
     else if (arg === '--json') options.json = true
@@ -190,11 +201,11 @@ function parseArgs(argv: string[]): {
   if (options.stdin && options.files.length > 0) {
     return { help: false, options: null, error: '--stdin 与 --file 只能二选一' }
   }
-  if (!options.exportMode && !options.stdin && options.files.length === 0) {
+  if (!options.exportAll && !options.exportMode && !options.stdin && options.files.length === 0) {
     return {
       help: false,
       options: null,
-      error: '缺少输入:--file <json> 或 --stdin(导出用 --export <provider>)',
+      error: '缺少输入:--file <json> 或 --stdin(导出用 --export <provider> / --export-all)',
     }
   }
   if (options.files.length > 1 && options.providerCode) {
@@ -314,6 +325,7 @@ async function main(argv: string[]): Promise<number> {
   const opts = parsed.options
 
   // 导出模式(生产→本地同步入口):只读该平台全部账号,把标准导入 JSON 写 stdout,不落库。
+  if (opts.exportAll) return exportAllProviders()
   if (opts.exportMode) return exportProvider(opts)
 
   // 批量模式(2026-11-10):一个 node 进程内逐文件导入,退出码取最坏的一档。
@@ -348,17 +360,14 @@ async function main(argv: string[]): Promise<number> {
 }
 
 /**
- * 导出某平台全部账号(含明文凭证),供「生产→本地」同步拉回。
- * 输出 = 标准导入 JSON({providerCode, accounts:[...]});每账号自带 uid/name/token/
- * refreshToken/enabled/ownerUserId(归属 null = 运营池)。明文只在 stdio/SSH 通道内流动,
- * 不落日志、不落文件。凭证解不开/为空的行跳过并在 stderr 如实报数(不冒充"导出完整")。
+ * 抽某平台全部账号为导入形状(含明文凭证 + updatedAt),单平台导出与全平台导出共用同一口径。
+ * 每账号自带 uid/name/token/refreshToken/enabled/ownerUserId(归属 null = 运营池)。
+ * 凭证解不开/为空的行跳过并返回 skipped,由调用方如实报数(绝不冒充"导出完整")。
+ * 明文只在 stdio/SSH 通道内流动,不落日志、不落文件。
  */
-async function exportProvider(opts: CliOptions): Promise<number> {
-  const providerCode = opts.providerCode
-  if (!providerCode) {
-    process.stderr.write('❌ --export 需要平台名(--export <provider>)\n')
-    return 2
-  }
+async function buildExportAccounts(
+  providerCode: RelayProviderCode,
+): Promise<{ accounts: Array<Record<string, unknown>>; skipped: number }> {
   const rows = await dbRead
     .select()
     .from(aiRelayAccountPool)
@@ -388,14 +397,52 @@ async function exportProvider(opts: CliOptions): Promise<number> {
     // refreshToken 为空时省略该键:导入侧校验只接受字符串,显式 null 会判 refreshToken-invalid
     if (creds.refreshToken) item.refreshToken = creds.refreshToken
     if (row.tokenExpiresAt) item.tokenExpiresAt = row.tokenExpiresAt.toISOString()
+    // updatedAt = 跨环境冲突裁决的时间基准(2026-11-11 双向同步):没有它,同步器只能按
+    // "谁最后跑导入谁赢",会把远端新凭证覆盖成旧值。同步引擎用完即剥,不进导入载荷。
+    item.updatedAt = row.updatedAt ? row.updatedAt.toISOString() : null
     accounts.push(item)
   }
+  return { accounts, skipped }
+}
+
+/** 导出某平台全部账号(含明文凭证),供「生产→本地」同步拉回;不读输入、不落库。 */
+async function exportProvider(opts: CliOptions): Promise<number> {
+  const providerCode = opts.providerCode
+  if (!providerCode) {
+    process.stderr.write('❌ --export 需要平台名(--export <provider>)\n')
+    return 2
+  }
+  const { accounts, skipped } = await buildExportAccounts(providerCode)
   if (skipped > 0) {
     process.stderr.write(`ℹ️ ${providerCode} 导出:${skipped} 行凭证解不开/为空已跳过\n`)
   }
   // 边界标记包裹:本进程的 dotenv/[db] 诊断也写 stdout ⇒ 下游只截取标记之间的 JSON 段
   process.stdout.write(
     `__POOL_EXPORT_BEGIN__\n${JSON.stringify({ providerCode, accounts })}\n__POOL_EXPORT_END__\n`,
+  )
+  return 0
+}
+
+/**
+ * 全平台导出(--export-all,2026-11-11):一次进程输出所有平台快照,
+ * 供跨环境双向同步引擎(relay-account-pool-sync.ts)当「整端快照」用。
+ * 单份 JSON {providers:{<code>:{accounts:[...]}}, exportedAt} —— 12 平台只付一次 SSH 握手。
+ */
+async function exportAllProviders(): Promise<number> {
+  const providers: Record<string, { accounts: Array<Record<string, unknown>> }> = {}
+  let total = 0
+  let skipped = 0
+  for (const p of RELAY_PROVIDERS) {
+    const built = await buildExportAccounts(p)
+    providers[p] = { accounts: built.accounts }
+    total += built.accounts.length
+    skipped += built.skipped
+  }
+  if (skipped > 0) {
+    process.stderr.write(`ℹ️ 全平台导出:${skipped} 行凭证解不开/为空已跳过(共导出 ${total} 条)\n`)
+  }
+  process.stdout.write(
+    `__POOL_EXPORT_BEGIN__\n${JSON.stringify({ providers, exportedAt: new Date().toISOString() })}\n__POOL_EXPORT_END__\n`,
   )
   return 0
 }

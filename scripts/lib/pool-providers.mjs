@@ -1,0 +1,26 @@
+/**
+ * 号池平台代码镜像(2026-11-11 立,供 scripts/*.mjs 侧校验 CLI 入参)。
+ *
+ * **唯一真相源 = apps/api/src/services/relay-account-format.ts 的 `RELAY_PROVIDERS`**
+ * (以 `as const` 数组 + `RelayProviderCode` 类型定义)。本文件只是 ESM 侧只读镜像:
+ * `.mjs` 编排器无法直接 import TS 常量,又必须给 `--provider` 一个可信白名单,
+ * 否则打错平台名会静默 0 结果。
+ *
+ * 防漂移:`scripts/tests/pool-sync-plan.test.mjs` 会读取 TS 源里的 RELAY_PROVIDERS
+ * 与这里的清单逐项比对,不一致即测试失败 —— 改平台清单必须两边同步。
+ */
+export const RELAY_PROVIDER_CODES = [
+  'trae',
+  'workbuddy',
+  'codearts',
+  'qoder',
+  'codex',
+  'opencode',
+  'minimax',
+  'zcode',
+  'loomy',
+  'doubao',
+  'lingma',
+  'grokbot',
+  'raccoon',
+]
