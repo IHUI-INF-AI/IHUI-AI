@@ -12,7 +12,7 @@
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/web/scripts/generate-ui-routes.mjs
 // sourceCommit: ff17abfc5567981650cb99b5e547bfb09b997c91
-// inputsSha256: 493a1ecfdfdb3e447f01d2c4f716c1da624ae229364fcbb810686f3d3a3ae9b9
+// inputsSha256: 7a4202573424485a444e6f85634005e1fbdbb9c23d55e9ee6539e1af01bf3267
 // input: apps/web/app/(auth)/apple/callback/page.tsx f328ceb139ed3b61c0e79bc671e93885a6c1e1b6b7c356febbc97f3255da2075
 // input: apps/web/app/(auth)/callback/page.tsx d17f249c8506951babf768ff47e0800dc7ed191a9c80ddb124142a8520bcd80e
 // input: apps/web/app/(auth)/forgot-password/page.tsx ebf3e4b50c09d9871131b9fbdc5cddb79c0f9c73bc5775c5ce56dd08a0fa2443
@@ -898,7 +898,6 @@
 // input: apps/web/app/(main)/vip/details/page.tsx 832f3347693415d4fce788faeffb0d9441afed480364754afa506b881ca5ceae
 // input: apps/web/app/(main)/vip/page.tsx e9ec8ed1b69f8b87b8c58b937fb3f0b5bc9d787bfa4cff3886db49084f7fef23
 // input: apps/web/app/(main)/vip/trader/page.tsx 0673efe46df37b9553d2b72d2cd9aa1c95886bb0c43ed7e68dea6822428d7f3e
-// input: apps/web/app/(main)/voices/page.tsx c68d2a84a3398bad4944fdef278c577f9f209c0b0511806544c49ba78f095124
 // input: apps/web/app/(main)/wallet/page.tsx e90501fb2cfd3e9de3b9155dbf61ad58bb57ebde0732b978fe21b2626a86f210
 // input: apps/web/app/(main)/wallet/recharge/fail/page.tsx 832f3347693415d4fce788faeffb0d9441afed480364754afa506b881ca5ceae
 // input: apps/web/app/(main)/wallet/recharge/page.tsx d8a6e5398125764a49e9f74049dd0405b5dd21735854e51628c8300254942d1c
@@ -1839,7 +1838,6 @@ export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
   { path: '/vip', param: false, group: 'vip' },
   { path: '/vip/details', param: false, group: 'vip' },
   { path: '/vip/trader', param: false, group: 'vip' },
-  { path: '/voices', param: false, group: 'voices' },
   { path: '/wallet', param: false, group: 'wallet' },
   { path: '/wallet/recharge', param: false, group: 'wallet' },
   { path: '/wallet/recharge/fail', param: false, group: 'wallet' },
