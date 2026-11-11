@@ -51,6 +51,7 @@ import {
 } from '@ihui/rn-app'
 import type { LoginTab, ThirdPartyLoginOption, ThirdPartyPlatform } from '@ihui/types'
 import {
+  ELEVATION_STEPS,
   OAUTH_BRAND_COLORS,
   withAlpha,
   rnRadius,
@@ -1425,6 +1426,8 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.sm,
     backgroundColor: withAlpha(tokens.brandAccent.DEFAULT, 0.85),
     zIndex: 999,
+    // 豁免类别:调试浮钮的层叠顺序(非阴影层级)—— elevation 999 与 zIndex 配套把按钮顶到最上层,
+    // 不属 ELEVATION_STEPS 档位,保留原值。
     elevation: 999,
   },
   devFillText: {
@@ -1484,11 +1487,8 @@ const styles = StyleSheet.create({
     width: rpx(580),
     backgroundColor: tokens.surface.card,
     borderRadius: rnRadiusFor.panel,
-    shadowColor: tokens.gray.black,
-    shadowOffset: { width: 0, height: rpx(12) },
-    shadowOpacity: 0.15,
-    shadowRadius: rpx(48),
-    elevation: 8,
+    // 投影:协议弹窗体 → 档位 xl(原 rpx(12)/.15/rpx(48) + elevation 8,视觉即 xl)
+    ...ELEVATION_STEPS.xl,
   },
   agreementModalHeader: {
     paddingTop: rpx(40),

@@ -37,7 +37,7 @@
  * 平台特有:依赖 RN Animated/PanResponder/Modal/SafeAreaContext,不适合共享。
  */
 import { tokens } from '../theme/active-tokens'
-import { rnGeometry, rnRadius, rnRadiusFor, rnSpacing } from '@ihui/design-tokens'
+import { ELEVATION_STEPS, rnGeometry, rnRadius, rnRadiusFor, rnSpacing } from '@ihui/design-tokens'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Animated,
@@ -1183,11 +1183,8 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     backgroundColor: tokens.surface.card,
-    shadowColor: tokens.gray.black,
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    shadowOffset: { width: 2, height: 0 },
-    elevation: 8,
+    // 投影:抽屉面板 → 档位 lg(原 2/0/.15/8 + elevation 8)
+    ...ELEVATION_STEPS.lg,
   },
   headerLogo: {
     width: HEADER_LOGO_SIZE,
@@ -1233,11 +1230,8 @@ const styles = StyleSheet.create({
     borderRadius: rnRadiusFor.card,
     backgroundColor: tokens.surface.card,
     paddingVertical: rnSpacing.xs,
-    shadowColor: tokens.gray.black,
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: -4 },
-    elevation: 12,
+    // 投影:用户下拉菜单浮层 → 档位 lg(原 -4/.15/12 + elevation 12)
+    ...ELEVATION_STEPS.lg,
   },
 })
 

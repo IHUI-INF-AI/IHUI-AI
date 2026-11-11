@@ -32,7 +32,7 @@ import { Shield, Lock, CornerDownLeft } from 'lucide-react-native'
 import { tokens } from '../theme/active-tokens'
 import { PRIVACY_POLICY_PARAGRAPHS, PRIVACY_POLICY_TITLE } from '../constants/privacyPolicy'
 
-import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
+import { ELEVATION_STEPS, rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
 import { Tappable } from '@ihui/ui-native'
 import { DIALOG_HEIGHT_RATIOS } from '../lib/dialog-geometry'
@@ -165,13 +165,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: CARD_PADDING_HORIZONTAL,
     paddingTop: CARD_PADDING_VERTICAL,
     paddingBottom: CARD_PADDING_VERTICAL,
-    // iOS 阴影
-    shadowColor: tokens.gray.black,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    // Android 阴影
-    elevation: 8,
+    // 投影:隐私政策弹窗体 → 档位 lg(原 4/.2/12 + elevation 8;iOS/Android 同档由 ELEVATION_STEPS 携带)
+    ...ELEVATION_STEPS.lg,
   } as ViewStyle,
   // 头部/安全条/按钮区:flexShrink 0 固定高度,不被 ScrollView 压缩
   header: {

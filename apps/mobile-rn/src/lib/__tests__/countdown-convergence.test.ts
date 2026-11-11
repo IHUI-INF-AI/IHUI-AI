@@ -16,9 +16,11 @@ const read = (p: string) => readFileSync(join(APP_ROOT, p), 'utf8')
 describe('XUI-countdown:RN AccountCancel 截止戳收敛', () => {
   it('使用 shared useCountdown 且回前台 AppState sync,无 setTimeout 自减', () => {
     const src = read('src/screens/AccountCancelScreen.tsx')
-    expect(src).toContain("import { useCountdown } from '@ihui/shared'")
-    expect(src).toContain('useCountdown(60)')
-    expect(src).toContain('useCountdown(5)')
+    expect(src).toContain("import { useCountdown } from '@ihui/shared/hooks'")
+    expect(src).toContain('useCountdown(0)')
+    // 额度在触发时注入(reset):初始 0 ⇒ 挂载即可发码/提交,与 RN 旧实现 useState(0) 同行为
+    expect(src).toContain('reset(60)')
+    expect(src).toContain('reset(5)')
     expect(src).toContain('AppState.addEventListener')
     expect(src).toContain("state === 'active'")
     expect(src).toContain('smsCountdown.sync()')

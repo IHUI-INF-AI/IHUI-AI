@@ -30,7 +30,7 @@ import {
 } from 'react-native'
 import { tokens } from '../theme/active-tokens'
 
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { ELEVATION_STEPS, rnRadius, rnSpacing } from '@ihui/design-tokens'
 
 // 装饰图(拷贝自原 uniapp static/images,require 内联避免类型声明问题)
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -386,11 +386,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: SHEET_PADDING_HORIZONTAL,
     paddingTop: SHEET_PADDING_VERTICAL,
     paddingBottom: SHEET_PADDING_VERTICAL,
-    shadowColor: tokens.gray.black,
-    shadowOpacity: 0.18,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: -4 },
-    elevation: 16,
+    // 投影:模态底部弹层 → 档位 xl(原 -4/.18/16 + elevation 16)
+    ...ELEVATION_STEPS.xl,
   } as ViewStyle,
   // ── 顶部装饰图(对齐原版 370x45rpx / 288x25.96rpx) ──
   decorRow: {
@@ -546,11 +543,8 @@ const styles = StyleSheet.create({
     borderColor: tokens.border.light,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: tokens.gray.black,
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
+    // 投影:弹层内行动按钮 → 档位 md(原 2/.1/6 + elevation 3)
+    ...ELEVATION_STEPS.md,
   } as ViewStyle,
   secondaryButton: {
     flex: 1,

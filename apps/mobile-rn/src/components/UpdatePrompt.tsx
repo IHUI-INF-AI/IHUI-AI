@@ -17,7 +17,7 @@
 import * as React from 'react'
 import { ActivityIndicator, AppState, StyleSheet, Text, View } from 'react-native'
 import { RefreshCw, X } from 'lucide-react-native'
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { ELEVATION_STEPS, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { tokens } from '../theme/active-tokens'
 import { useI18n } from '../i18n'
 import { appAlert } from './BottomPops'
@@ -209,12 +209,8 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     // 描边取中档而不是浅档:卡片与页面同属 surface 族,浅档在真机上几乎看不见边界
     borderColor: tokens.border.medium,
-    // 抬升档:让卡片从页面里"浮"出来(web shadow-lg 的 RN 等效)
-    shadowColor: tokens.gray.black,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.16,
-    shadowRadius: 12,
-    elevation: 8,
+    // 抬升档:让卡片从页面里"浮"出来(web shadow-lg 的 RN 对位)→ 档位 lg
+    ...ELEVATION_STEPS.lg,
   },
   header: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.md },
   // 图标底:强调档浅底 + 深档图标(两主题都成对可见),给卡片一个视觉锚点
@@ -279,11 +275,8 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.brand.cta,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: tokens.border.medium,
-    shadowColor: tokens.gray.black,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 2,
+    // 投影:主行动按钮(小控件)→ 档位 sm
+    ...ELEVATION_STEPS.sm,
   },
   actionBtnPressed: { opacity: 0.85 },
   actionText: {
@@ -312,11 +305,8 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: tokens.border.medium,
-    shadowColor: tokens.gray.black,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.16,
-    shadowRadius: 12,
-    elevation: 8,
+    // 投影:重启遮罩上的提示卡 → 档位 lg
+    ...ELEVATION_STEPS.lg,
   },
   applyingText: { color: tokens.text.primary, fontSize: rnType.body.size, fontWeight: '500' },
 })

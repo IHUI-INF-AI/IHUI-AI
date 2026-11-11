@@ -34,7 +34,7 @@ import { Animated, Easing, Modal, Pressable, StyleSheet, Text, View } from 'reac
 import type { TextStyle, ViewStyle } from 'react-native'
 import Svg, { Defs, LinearGradient, RadialGradient, Rect, Stop } from 'react-native-svg'
 import { Gift, Sparkles, UserPlus, X } from 'lucide-react-native'
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { ELEVATION_STEPS, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
 import { tokens } from '../theme/active-tokens'
 
@@ -306,11 +306,8 @@ const styles = StyleSheet.create({
     paddingBottom: CARD_PADDING_BOTTOM,
     alignItems: 'center',
     overflow: 'hidden',
-    shadowColor: tokens.gray.black,
-    shadowOpacity: 0.18,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 16,
+    // 投影:分享奖励模态卡 → 档位 xl(原 4/.18/16 + elevation 16)
+    ...ELEVATION_STEPS.xl,
   } as ViewStyle,
   glow: {
     position: 'absolute',
@@ -401,11 +398,8 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.brand.cta,
     borderWidth: 1,
     borderColor: tokens.border.light,
-    shadowColor: tokens.gray.black,
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
+    // 投影:弹窗主按钮 → 档位 md(原 2/.1/6 + elevation 3)
+    ...ELEVATION_STEPS.md,
   } as ViewStyle,
   secondaryButton: {
     alignSelf: 'stretch',

@@ -24,7 +24,7 @@
 import * as React from 'react'
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native'
 import { Download, X } from 'lucide-react-native'
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { ELEVATION_STEPS, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { tokens } from '../theme/active-tokens'
 import { useI18n } from '../i18n'
 import { Tappable } from '@ihui/ui-native'
@@ -207,11 +207,8 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: tokens.border.medium,
-    shadowColor: tokens.gray.black,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.16,
-    shadowRadius: 12,
-    elevation: 8,
+    // 投影:更新提示浮层卡 → 档位 lg
+    ...ELEVATION_STEPS.lg,
   },
   header: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.md },
   iconBadge: {
@@ -290,11 +287,8 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.brand.cta,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: tokens.border.medium,
-    shadowColor: tokens.gray.black,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 2,
+    // 投影:主行动按钮(小控件)→ 档位 sm
+    ...ELEVATION_STEPS.sm,
   },
   actionText: {
     color: tokens.brand.ctaForeground,
