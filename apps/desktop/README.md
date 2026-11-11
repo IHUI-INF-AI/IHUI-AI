@@ -102,11 +102,20 @@ DESKTOP_ALLOW_UNSIGNED=1 pnpm --filter @ihui/desktop build   # 仅本地自测�
 
 ```json
 {
-  "tray_menu_items": ["new_chat", "show", "hide", "theme", "settings", "update", "quit", "relay_switch"]
+  "tray_menu_items": [
+    "new_chat",
+    "show",
+    "hide",
+    "theme",
+    "settings",
+    "update",
+    "relay_switch",
+    "quit"
+  ]
 }
 ```
 
-改完重启桌面端即生效。数组顺序就是菜单顺序（想让它排在「退出」之前，自己调即可）。
+改完重启桌面端即生效。数组顺序就是菜单顺序；**建议放在 `"quit"` 之前**（分组号 4 与「退出」的 3 不同，会自动独立成一组、前后各带一条分隔线，同时「退出」仍压在末尾 —— 放在 `quit` 之后会把退出挤到菜单中间）。
 
 点击后的行为：Rust 主进程直接拉起一个**独立控制台窗口**跑 `client-oneclick-switch.cmd`（交互式选号）；找不到仓库时弹原生提示说明原因（含是哪条路径没命中），不静默失败。
 
