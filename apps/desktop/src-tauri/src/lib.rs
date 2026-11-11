@@ -9,6 +9,8 @@
 mod egress_gate;
 // 2026-09-17 薄壳化配套:线上前端自动刷新 + 断网兜底守卫(详见模块文档)
 mod auto_refresh;
+#[cfg(target_os = "windows")]
+mod webview2_runtime;
 // 2026-10-09 立(WP-C 第一步):签到账号本地捕获——TRAE 目录探测/JWT 提取/设备标识重置/9 类快照。
 // 分层同 desktop_prefs.rs:判据纯函数 + 执行层 + 薄胶水,测试在模块内真跑。
 mod checkin_capture;
@@ -3900,12 +3902,29 @@ pub fn run() {
         // 2026-09-17 薄壳化配套:离线兜底页协议。断网时 auto_refresh 模块将 main 窗口
         // 导航到 http://offline.localhost/index.html(此 handler 返回内嵌 HTML),
         // 恢复后自动切回线上前端。Windows 自定义协议 URL 形如 http://<scheme>.localhost/。
-        .register_uri_scheme_protocol("offline", |_uri, _request| {
+        // 2026-11-12 分级:默认分支由 render_offline_page() 按进程内探针结果替换占位符
+        // 渲染,首页文案随 Unreachable / ServerError / GateDenied 分级;/retry 分支置位
+        // "立即探活"后 302 回离线页(不直接跳线上前端,避免网络未恢复落 chrome-error://
+        // 白页)。导航 URL 保持 http://offline.localhost/index.html 不变,以守住形状锁。
+        .register_uri_scheme_protocol("offline", |_ctx, request| {
+            let path = request.uri().path();
+            if path == "/retry" {
+                // 立即重新检测:置位标志让常驻循环跳过 30s 等待,再 302 回离线页。
+                // 不直接 302 到线上前端 —— 网络未恢复时会落 chrome-error:// 且离线态不会
+                // 重新切回兜底页,用户会卡在白页。恢复仍由 auto_refresh 的恢复分支导航。
+                crate::auto_refresh::request_immediate_probe();
+                return tauri::http::Response::builder()
+                    .status(tauri::http::StatusCode::FOUND)
+                    .header(tauri::http::header::LOCATION, crate::auto_refresh::offline_retry_url())
+                    .header("Cache-Control", "no-store")
+                    .body(Vec::<u8>::new())
+                    .expect("offline protocol: 302");
+            }
             tauri::http::Response::builder()
                 .status(200)
                 .header("Content-Type", "text/html; charset=utf-8")
                 .header("Cache-Control", "no-store")
-                .body(include_str!("../offline/index.html").as_bytes().to_vec())
+                .body(crate::auto_refresh::render_offline_page().into_bytes())
                 .expect("offline protocol: static html")
         })
         // single-instance 必须在 plugin chain 最前,防止多开 + 唤起已有窗口
@@ -4077,6 +4096,8 @@ pub fn run() {
         // 关窗「询问我」的等待闸门(2026-09-28 立):窗口事件与命令共用这一份挂账状态。
         .manage(CloseGate::default())
         .setup(|app| {
+            #[cfg(target_os = "windows")]
+            webview2_runtime::check_and_report(app.handle());
             // AUMID 已前移到 run() 顶部(2026-09-02,须早于任何窗口创建)
             // 启动守护在 Builder 之前跑,那时日志插件还没初始化,计数在这里补记。
             let killed_stale = startup_guard::take_killed_stale_count();
