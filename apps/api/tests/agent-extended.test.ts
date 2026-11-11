@@ -750,8 +750,11 @@ describe('agent-extended routes — 路由层 mock 测试', () => {
         if (Array.isArray(rec.queryChunks)) rec.queryChunks.forEach(walk)
       }
       walk(call?.[0])
-      expect(dates.length).toBe(1)
-      return dates[0]
+      const value = dates[0]
+      if (!value || dates.length !== 1) {
+        throw new Error(`INSERT 绑定参数应恰含一个 Date(expires_at),实际 ${dates.length} 个`)
+      }
+      return value
     }
 
     it('前置判据:改 process.env.TZ 确实改变 Date 本地读数(否则本节断言都是恒绿的)', () => {
