@@ -420,7 +420,9 @@ export async function activateApiSubscription(
           .update(developerApiKeys)
           .set({ tokenBalance: -1, updatedAt: new Date() })
           .where(eq(developerApiKeys.id, activeKey.id))
-        appliedQuota = 0
+        // SDB-05:无限额度也是"授予量",流水 quantity 记 -1,与有限额度正数区分;
+        // 原先记 0 会让流水与"零发放"无法区分。
+        appliedQuota = -1
         balanceAfter = -1
       } else if (tokenQuota > 0) {
         // 已是无限额度则保持,否则累加
@@ -464,13 +466,19 @@ export async function activateApiSubscription(
         .returning({ id: developerApiKeys.id })
       if (!newKey) return { success: false, reason: 'create_key_failed' }
       keyId = newKey.id
-      appliedQuota = tokenQuota === -1 ? 0 : Math.max(tokenQuota, 0)
+      appliedQuota = tokenQuota === -1 ? -1 : Math.max(tokenQuota, 0)
       // DB-03:流水 balance_after 必须等于落库后的真实余额
       balanceAfter = tokenQuota === -1 ? -1 : Math.max(tokenQuota, 0)
     }
 
-    // 4.2 写配额发放流水作为幂等标记(仅当 orderNo 存在;op_type=6 避免与佣金 4 冲突)
-    if (orderNo && appliedQuota > 0) {
+    // 4.2 写配额发放流水作为幂等标记:只要订单号存在就写,与"实际发放量"解耦。
+    //     SDB-05(2026-11-11):原守卫是 appliedQuota > 0,无限配额支路(quantity=0/-1)
+    //     永远不落流水,回调重放既无幂等依据也无审计痕迹;且 balanceAfter 曾写死 0,
+    //     财务对账读不出真实结余。quantity 语义:>0 实际发放量 / 0 余额未变更
+    //     (如 Key 已无限) / -1 发放无限额度;balanceAfter 恒写事务内落库后的真实余额。
+    //     op_type=6(API 订阅配额)避免与佣金 4 冲突,(related_order_no, op_type)
+    //     唯一索引兜底并发重复回调。
+    if (orderNo) {
       await tx.insert(tokenFlows).values({
         userId,
         opType: 6,
