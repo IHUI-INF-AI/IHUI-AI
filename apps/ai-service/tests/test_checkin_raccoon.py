@@ -175,6 +175,55 @@ class TestParseTasks:
     def test_invite_code(self) -> None:
         assert parse_tasks(_tasks({}))["invite_code"] == "abc123"
 
+    def test_invite_stats_full(self) -> None:
+        """邀请块完整解析 —— 邀请没有领取接口,号池能做的就是把这四个数看住。"""
+        p = parse_tasks(
+            {
+                "code": 0,
+                "data": {
+                    "new_user_task_states": [],
+                    "invite": {
+                        "invite_code": "code-xyz",
+                        "granted_points": 4500,
+                        "registered_invitee_count": 3,
+                        "remaining_reward_invitees": 17,
+                        "register_reward_points": 1500,
+                    },
+                },
+            }
+        )
+        assert p["invite"] == {
+            "code": "code-xyz",
+            "granted_points": 4500,
+            "registered_invitees": 3,
+            "remaining_reward_invitees": 17,
+            "register_reward_points": 1500,
+        }
+        assert p["invite_code"] == "code-xyz"
+
+    def test_invite_partial_degrades_to_zero(self) -> None:
+        """残缺 invite 块逐字段退化为 0,不把缺失当未知数以外的值。"""
+        p = parse_tasks({"code": 0, "data": {"invite": {"invite_code": "abc"}}})
+        assert p["invite"]["granted_points"] == 0
+        assert p["invite"]["registered_invitees"] == 0
+        assert p["invite"]["remaining_reward_invitees"] == 0
+        assert p["invite"]["register_reward_points"] == 0
+
+    def test_invite_absent_is_none_not_zero(self) -> None:
+        """整块缺失 ⇒ 码为 None(未判定);数值字段仍为 0。"""
+        p = parse_tasks({"code": 0, "data": {}})
+        assert p["invite"]["code"] is None
+        assert p["invite_code"] is None
+        assert p["invite"]["registered_invitees"] == 0
+
+    def test_invite_count_bool_rejected(self) -> None:
+        """bool 是 int 子类,必须排除 —— 否则 True 会被当成 1 人。"""
+        p = parse_tasks(
+            {"code": 0, "data": {"invite": {"registered_invitee_count": True, "granted_points": False}}}
+        )
+        assert p["invite"]["registered_invitees"] == 0
+        assert p["invite"]["granted_points"] == 0
+
     def test_registered_list_matches_upstream(self) -> None:
         assert NEW_USER_TASKS == ("register_pack", "desktop_login", "mobile_login")
 
@@ -233,8 +282,8 @@ class TestCheckinFlow:
         assert result["credits_delta"] == 300
         assert result["credits"] == 6600  # 基线 6300 + 300
         assert result["code"] == 0
-        # 顺序:先读基线,再领取,最后读任务态
-        assert [s[1] for s in seen] == [PATH_BALANCE, PATH_GRANT_DESKTOP, PATH_TASKS]
+        # 顺序:读基线 → 领取 → 回读余额校准(popup 只报一笔,同批可能多笔)→ 任务态
+        assert [s[1] for s in seen] == [PATH_BALANCE, PATH_GRANT_DESKTOP, PATH_BALANCE, PATH_TASKS]
         assert ("POST", PATH_GRANT_DESKTOP, "desktop-windows") in seen
 
     @pytest.mark.asyncio
@@ -392,4 +441,63 @@ class TestGrantHelper:
         )
         assert out["granted"] is True and out["points"] == 3000
         assert seen[0][2] == "mobile-android"
+
+
+class TestBalanceReload:
+    """发放后余额回读校准:popup 只报一笔,同批可能还有其它笔 ⇒ 按 popup 推算会报少。"""
+
+    @pytest.mark.asyncio
+    async def test_advanced_reload_is_authoritative(self) -> None:
+        calls = {"n": 0}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            path = request.url.path
+            if path == PATH_BALANCE:
+                calls["n"] += 1
+                # 基线 6300;回读 9900(popup 只报 3000,实际同批发了 3600)
+                return httpx.Response(200, json=_balance(6300 if calls["n"] == 1 else 9900))
+            if path == PATH_GRANT_DESKTOP:
+                return httpx.Response(200, json=_grant(True, 3000, "desktop_login"))
+            if path == PATH_TASKS:
+                return httpx.Response(200, json=_tasks({}))
+            return httpx.Response(404, json={"code": 404})
+
+        r = await raccoon_checkin_account("rc-1", TOKEN, {"uid": "pu-1"}, client=make_client(handler))
+        assert r["status"] == "checked"
+        assert r["credits"] == 9900, "余额应以回读为准"
+        assert r["credits_delta"] == 3600, "delta 应含同批其它笔,不只 popup 那一笔"
+        assert r["creditsSource"] == "balance_reload"
+        assert "余额回读 6300 → 9900" in r["message"]
+
+    @pytest.mark.asyncio
+    async def test_stale_reload_keeps_popup_estimate(self) -> None:
+        # _handler 的 balance 恒定 6300 ⇒ 未推进,不得把 delta 抹成 0
+        r = await raccoon_checkin_account("rc-1", TOKEN, {"uid": "pu-1"}, client=make_client(_handler()))
+        assert r["credits_delta"] == 300
+        assert r["credits"] == 6600
+        assert r["creditsSource"] == "popup_estimate"
+        assert "未推进" in r["message"]
+
+    @pytest.mark.asyncio
+    async def test_reload_failure_marks_warning_not_fail(self) -> None:
+        calls = {"n": 0}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            path = request.url.path
+            if path == PATH_BALANCE:
+                calls["n"] += 1
+                if calls["n"] == 1:
+                    return httpx.Response(200, json=_balance())
+                return httpx.Response(500, json={"code": 500, "message": "boom"})
+            if path == PATH_GRANT_DESKTOP:
+                return httpx.Response(200, json=_grant(True, 300))
+            if path == PATH_TASKS:
+                return httpx.Response(200, json=_tasks({}))
+            return httpx.Response(404, json={"code": 404})
+
+        r = await raccoon_checkin_account("rc-1", TOKEN, {"uid": "pu-1"}, client=make_client(handler))
+        assert r["ok"] is True and r["status"] == "checked", "回读失败不应把整次签到判失败"
+        assert r["credits"] == 6600
+        assert r["creditsSource"] == "popup_estimate"
+        assert "回读失败" in str(r.get("warning"))
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

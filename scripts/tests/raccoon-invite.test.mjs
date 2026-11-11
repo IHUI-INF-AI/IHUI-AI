@@ -1,5 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
  * raccoon-invite 全链路测试(2026-11-11 立)。
@@ -13,13 +14,13 @@
  * mock 服务端**真解密** phone/password(用同一份 crypto 实现),所以「加密是否与服务端口径
  * 一致」这件事在这里是被证明的,不是被假设的。
  */
-import test from 'node:test'
+import test, { after } from 'node:test'
 import assert from 'node:assert/strict'
 import http from 'node:http'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { spawnSync } from 'node:child_process'
+import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { decryptCredential } from '../lib/raccoon-crypto.mjs'
 
@@ -145,8 +146,10 @@ function startMock() {
 }
 
 /** 造一个隔离的 home(内含可读的 auth.json),避免测试依赖本机真实登录态 */
+const tmpHomes = []
 function makeHome({ withAuth = true } = {}) {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'xhx-invite-'))
+  tmpHomes.push(home)
   if (withAuth) {
     const dir = path.join(home, '.office-raccoon', 'agent', 'config')
     fs.mkdirSync(dir, { recursive: true })
@@ -159,22 +162,49 @@ function makeHome({ withAuth = true } = {}) {
   return home
 }
 
-function runCli(args) {
-  const r = spawnSync(process.execPath, [CLI, ...args], { encoding: 'utf8', timeout: 40000 })
-  let parsed = null
-  try {
-    parsed = JSON.parse(r.stdout)
-  } catch {
-    parsed = null
+// 用完即清: 否则每跑一轮测试就在系统临时目录堆一批 xhx-invite-* 空壳
+after(() => {
+  for (const d of tmpHomes) {
+    try {
+      fs.rmSync(d, { recursive: true, force: true })
+    } catch {
+      /* 清理失败不掩盖测试结果 */
+    }
   }
-  return { code: r.status, stdout: r.stdout, stderr: r.stderr, json: parsed }
+})
+
+/**
+ * 起子进程跑 CLI。必须用异步 spawn: mock 服务端跑在本进程内,spawnSync 会阻塞事件循环
+ * 导致服务端无法应答子进程请求(经典自死锁),这里不能用同步版本。
+ */
+function runCli(args) {
+  return new Promise((resolve) => {
+    const child = spawn(process.execPath, [CLI, ...args], { encoding: 'utf8' })
+    let stdout = ''
+    let stderr = ''
+    child.stdout.on('data', (d) => {
+      stdout += d
+    })
+    child.stderr.on('data', (d) => {
+      stderr += d
+    })
+    child.on('close', (code) => {
+      let parsed = null
+      try {
+        parsed = JSON.parse(stdout)
+      } catch {
+        parsed = null
+      }
+      resolve({ code, stdout, stderr, json: parsed })
+    })
+  })
 }
 
 test('加密口径与服务端一致: mock 真解出手机号与强密码', async () => {
   const { server, state, base } = await startMock()
   try {
     const home = makeHome()
-    const r = runCli(['--phone', '13100000001', '--code', VALID_SMS, '--base', base, '--home', home, '--json'])
+    const r = await runCli(['--phone', '13100000001', '--code', VALID_SMS, '--base', base, '--home', home, '--json'])
     assert.equal(r.code, 0, `退出码应为 0,实得 ${r.code}: ${r.stderr}`)
     assert.equal(state.registers.length, 1)
     const got = state.registers[0]
@@ -195,7 +225,7 @@ test('邀请码随注册上行: 顶层 invite_code 与 registration_attribution 
   const { server, state, base } = await startMock()
   try {
     const home = makeHome()
-    const r = runCli(['--phone', '13100000002', '--code', VALID_SMS, '--base', base, '--home', home, '--json'])
+    const r = await runCli(['--phone', '13100000002', '--code', VALID_SMS, '--base', base, '--home', home, '--json'])
     assert.equal(r.code, 0)
     const got = state.registers[0]
     // 未给 --invite 时,CLI 自动取本机账号的邀请码(来自 tasks 接口)
@@ -212,7 +242,7 @@ test('指定 --invite 覆盖本机邀请码', async () => {
   const { server, state, base } = await startMock()
   try {
     const home = makeHome()
-    const r = runCli([
+    const r = await runCli([
       '--phone', '13100000003', '--code', VALID_SMS, '--invite', 'MANUAL-CODE-9', '--base', base, '--home', home, '--json',
     ])
     assert.equal(r.code, 0)
@@ -226,7 +256,7 @@ test('注册后归属核对成立,主号邀请计数与累计积分同步 +1 与
   const { server, state, base } = await startMock()
   try {
     const home = makeHome()
-    const r = runCli(['--phone', '13100000004', '--code', VALID_SMS, '--base', base, '--home', home, '--json'])
+    const r = await runCli(['--phone', '13100000004', '--code', VALID_SMS, '--base', base, '--home', home, '--json'])
     assert.equal(r.code, 0)
     assert.equal(r.json.attributionJudge.ok, true, `归属应成立: ${JSON.stringify(r.json.attributionJudge)}`)
     assert.equal(r.json.attributionJudge.via, 'invite_code')
@@ -243,7 +273,7 @@ test('短信码错误: 退出码 1 并回带服务端原因,不写归属', async
   const { server, state, base } = await startMock()
   try {
     const home = makeHome()
-    const r = runCli(['--phone', '13100000005', '--code', '000000', '--base', base, '--home', home, '--json'])
+    const r = await runCli(['--phone', '13100000005', '--code', '000000', '--base', base, '--home', home, '--json'])
     assert.equal(r.code, 1, '被服务端拒绝应退出 1')
     assert.equal(r.json.ok, false)
     assert.equal(r.json.register.code, 100007)
@@ -259,7 +289,7 @@ test('缺 --code: 退出码 2,且不发起注册请求', async () => {
   const { server, state, base } = await startMock()
   try {
     const home = makeHome()
-    const r = runCli(['--phone', '13100000006', '--base', base, '--home', home, '--json'])
+    const r = await runCli(['--phone', '13100000006', '--base', base, '--home', home, '--json'])
     assert.equal(r.code, 2)
     assert.match(r.json.error, /验证码/)
     assert.equal(state.registers.length, 0, '缺码时不得发注册请求')
@@ -272,7 +302,7 @@ test('--dry-run: 退出码 3,仅预演不发注册请求', async () => {
   const { server, state, base } = await startMock()
   try {
     const home = makeHome()
-    const r = runCli(['--phone', '13100000007', '--dry-run', '--base', base, '--home', home, '--json'])
+    const r = await runCli(['--phone', '13100000007', '--dry-run', '--base', base, '--home', home, '--json'])
     assert.equal(r.code, 3)
     assert.equal(r.json.dryRun, true)
     assert.equal(r.json.preview.invite_code, INVITE_CODE)
@@ -286,7 +316,7 @@ test('本机无登录态: 退出码 2 并点名缺失文件(不冒充已判定)'
   const { server, state, base } = await startMock()
   try {
     const home = makeHome({ withAuth: false })
-    const r = runCli(['--status', '--base', base, '--home', home, '--json'])
+    const r = await runCli(['--status', '--base', base, '--home', home, '--json'])
     assert.equal(r.code, 2)
     assert.match(r.json.error, /登录态/)
     assert.equal(state.registers.length, 0)
@@ -299,7 +329,7 @@ test('--status: 输出真实邀请态字段', async () => {
   const { server, base } = await startMock()
   try {
     const home = makeHome()
-    const r = runCli(['--status', '--base', base, '--home', home, '--json'])
+    const r = await runCli(['--status', '--base', base, '--home', home, '--json'])
     assert.equal(r.code, 0)
     assert.equal(r.json.invite.code, INVITE_CODE)
     assert.equal(r.json.invite.registerRewardPoints, 1500)
@@ -314,7 +344,7 @@ test('手机号格式非法: 退出码 2,不发任何请求', async () => {
   const { server, state, base } = await startMock()
   try {
     const home = makeHome()
-    const r = runCli(['--phone', '12345', '--code', VALID_SMS, '--base', base, '--home', home, '--json'])
+    const r = await runCli(['--phone', '12345', '--code', VALID_SMS, '--base', base, '--home', home, '--json'])
     assert.equal(r.code, 2)
     assert.match(r.json.error, /手机号/)
     assert.equal(state.registers.length, 0)
@@ -322,3 +352,4 @@ test('手机号格式非法: 退出码 2,不发任何请求', async () => {
     server.close()
   }
 })
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
