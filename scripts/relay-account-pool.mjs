@@ -62,17 +62,19 @@ const HELP = `反代账号池导入
   node scripts/relay-account-pool.mjs --file <accounts.json>       # 直接导入标准账号 JSON
   node scripts/relay-account-pool.mjs --tokens-file <tokens.txt> --provider <code>   # 「一行一个 token」的行文本入池
     [--name-prefix <前缀>]                 缺名称时的自动名前缀(名=<前缀->token-<12位指纹>)
-    [--provider <trae|workbuddy|qoder|codearts|codex|opencode|minimax|zcode|loomy|doubao|lingma|grokbot|raccoon>]   文件顶层无 providerCode 时必须给;--tokens-file 无顶层 providerCode ⇒ 必须给
+    [--provider <trae|workbuddy|qoder|codearts|codex|opencode|minimax|zcode|loomy|doubao|lingma|grokbot>]   文件顶层无 providerCode 时必须给;--tokens-file 无顶层 providerCode ⇒ 必须给
     [--dry-run]                              只校验预检,不写库
     [--no-health]                            跳过导入后的上游健康检查
     [--owner <users.id>]                     显式导入为该用户的个人池(优先级最高,压过默认)
     [--ops-pool]                             显式落运营池(运维逃生口,压过默认归属;与 --owner 互斥)
-    [--push-prod]                            本机导入成功后,同一批凭据再推一份到生产库(SSH 直连生产 checkout,不走后台密码)
-    [--prod-only]                            跳过本机库,只推生产(隐含 --push-prod)
+    [--no-sync-prod]                         关闭默认的生产同步(默认已开启:本机导入成功后自动推生产)
+    [--push-prod]                            显式确认推生产(默认即推,冗余兼容;与 --no-sync-prod 互斥)
+    [--prod-only]                            跳过本机库,只推生产(隐含推生产)
     [--prod-host <alias>]                    SSH 别名(默认 ssh.aizhs.top;须免密可用)
     [--prod-checkout <path>]                 生产 checkout 根(默认 D:\\DevEnv\\ihui-prod)
-    [--prod-owner <users.id>]                生产侧归属(缺省用生产机 ~/.wb-switch/pool-owner)
-    [--with-health]                          带 --push-prod 时也做导入后上游健康检查(默认跳过:那一步要等上游 5xx 回落)
+    [--prod-owner <users.id>]                生产侧归属(缺省用本机/生产机 ~/.wb-switch/pool-owner)
+    [--with-health]                          推生产时也做导入后上游健康检查(默认跳过:那一步要等上游 5xx 回落)
+    [--sync-pull <provider>]                 从生产库拉回本地(互通:生产→本地),与本地导入等价落库
     [--json]                                 机器可读摘要(提取信息走 stderr)
 
 行文本形态(--tokens-file,2026-11-06 立,手上只有纯文本时的出口):
@@ -127,8 +129,6 @@ const FROM_PROVIDERS = Object.freeze({
   doubao: { module: 'doubao-auth-extract.mjs', fn: 'extractDoubaoAccounts' },
   lingma: { module: 'lingma-auth-extract.mjs', fn: 'extractLingmaAccounts' },
   grokbot: { module: 'grokbot-auth-extract.mjs', fn: 'extractGrokbotAccounts' },
-  // 小浣熊:读 ~/.office-raccoon/agent/config/auth.json(access_token,无 refresh_token)
-  raccoon: { module: 'raccoon-auth-extract.mjs', fn: 'extractRaccoonAccounts' },
 })
 const FROM_POOL_KEYS = Object.keys(FROM_PROVIDERS)
 
@@ -159,12 +159,16 @@ function parseArgs(argv) {
     help: false,
     owner: '',
     opsPool: false,
-    prodPush: false,
+    // 2026-11-11 立:本地⇄生产号池自动同步默认开启(李总明令"必须本地与生产自动同步互通")。
+    // 去掉手动 --push-prod;显式 --no-sync-prod 才关闭(本地调试/离线场景)。
+    prodPush: true,
+    pushProdExplicit: false,
     prodOnly: false,
     prodHost: 'ssh.aizhs.top',
     prodCheckout: 'D:\\DevEnv\\ihui-prod',
     prodOwner: '',
     withHealth: false,
+    syncPull: '',
   }
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]
@@ -178,7 +182,11 @@ function parseArgs(argv) {
     else if (arg === '--no-health') options.health = false
     else if (arg === '--json') options.json = true
     else if (arg === '--ops-pool') options.opsPool = true
-    else if (arg === '--push-prod') options.prodPush = true
+    else if (arg === '--push-prod') {
+      options.prodPush = true
+      options.pushProdExplicit = true
+    }
+    else if (arg === '--no-sync-prod') options.prodPush = false
     else if (arg === '--prod-only') {
       options.prodPush = true
       options.prodOnly = true
@@ -186,6 +194,7 @@ function parseArgs(argv) {
     else if (arg === '--prod-checkout') options.prodCheckout = (argv[++i] ?? '').trim()
     else if (arg === '--prod-owner') options.prodOwner = (argv[++i] ?? '').trim()
     else if (arg === '--with-health') options.withHealth = true
+    else if (arg === '--sync-pull') options.syncPull = (argv[++i] ?? '').trim()
     else if (arg === '--owner') {
       options.owner = (argv[++i] ?? '').trim()
       if (!options.owner) {
@@ -202,10 +211,14 @@ function parseArgs(argv) {
       options: null,
       error: '--owner 与 --ops-pool 只能二选一(个人池归属与运营池不得同时指定)',
     }
-  if (options.prodPush && options.dryRun)
+  // 默认已开启生产同步(prodPush=true);--dry-run 与显式 --push-prod 互斥,且 dry-run 时强制不推生产
+  if (options.dryRun && options.pushProdExplicit)
     return { options: null, error: '--dry-run 与 --push-prod 互斥:预检不落任何库(含生产)' }
-  if (options.prodPush && options.opsPool)
+  if (options.dryRun) options.prodPush = false
+  // 运营池号不推生产个人池:显式 --push-prod 与 --ops-pool 矛盾,默认同步态下 --ops-pool 自然不推
+  if (options.opsPool && options.pushProdExplicit)
     return { options: null, error: '--ops-pool 与 --push-prod 互斥:运营池号不推生产个人池' }
+  if (options.opsPool) options.prodPush = false
   if (options.prodPush && !options.prodHost)
     return { options: null, error: '--prod-host 需要 SSH 别名(默认 ssh.aizhs.top)' }
   if (options.prodPush && !options.prodCheckout)
@@ -213,7 +226,15 @@ function parseArgs(argv) {
   if (options.prodOwner && !UUID_LIKE_RE.test(options.prodOwner))
     return { options: null, error: `--prod-owner 不像 users.id: ${options.prodOwner}` }
   if (options.prodOwner && !options.prodPush)
-    return { options: null, error: '--prod-owner 只在 --push-prod / --prod-only 下生效' }
+    return { options: null, error: '--prod-owner 只在推生产(--push-prod / --prod-only / 默认同步)下生效' }
+  if (options.syncPull && (options.from || options.file || options.tokensFile)) {
+    return {
+      options: null,
+      error: '--sync-pull 与 --from/--file/--tokens-file 互斥:拉回是「生产→本地」独立通道',
+    }
+  }
+  if (options.syncPull && options.dryRun)
+    return { options: null, error: '--sync-pull 本身就要落库,不能与 --dry-run 同用' }
   if (options.from && options.file) return { options: null, error: '--from 与 --file 只能二选一' }
   if (options.tokensFile && options.file)
     return {
@@ -225,7 +246,8 @@ function parseArgs(argv) {
       options: null,
       error: '--from 与 --tokens-file 只能二选一(本机提取与行文本导入不能同批混灌)',
     }
-  if (!options.from && !options.file && !options.tokensFile)
+  // --sync-pull 是「生产→本地」独立通道,不需要 --from/--file/--tokens-file
+  if (!options.syncPull && !options.from && !options.file && !options.tokensFile)
     return {
       options: null,
       error: `缺少输入:--from ${FROM_POOL_KEYS.join('|')}、--file <json> 或 --tokens-file <txt>`,
@@ -404,6 +426,76 @@ async function pushPayloadToProd(payloadText, providerCode, options) {
   }
 }
 
+/**
+ * 生产→本地拉回(2026-11-11 立,与默认推生产构成双向互通)。
+ * 经 SSH 在生产 checkout 内跑同一个导入器的 `--export <provider>`(只读、不写生产),
+ * 拿到该平台全部账号(含明文凭证)后,按 ownerUserId 分组交回本机导入器落本地库:
+ * 归属 null 落运营池(不传 --owner),非空按该 users.id 落个人池。明文只在 SSH/stdin 通道内流动。
+ */
+async function syncPullFromProd(options, deps) {
+  const provider = options.syncPull
+  const remoteCmd =
+    `cd /d "${options.prodCheckout}" & node ` +
+    ['apps\\api\\node_modules\\tsx\\dist\\cli.mjs', 'apps\\api\\scripts\\relay-account-import.ts']
+      .concat(['--export', provider])
+      .join(' ')
+  process.stderr.write(`拉回:从生产导出 ${provider} 账号(SSH ${options.prodHost})\n`)
+  const ssh = await runProcess(
+    'ssh',
+    ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=20', options.prodHost, remoteCmd],
+    {},
+  )
+  if (ssh.code !== 0) {
+    process.stderr.write(`❌ 从生产导出失败: ${ssh.error || `退出码 ${ssh.code}`}\n`)
+    return ssh.code === 0 ? 2 : ssh.code
+  }
+  // 生产进程的 dotenv/[db] 诊断也写 stdout ⇒ 只用边界标记截取 JSON 段,不臆测整段 stdout 是 JSON
+  const BEGIN = '__POOL_EXPORT_BEGIN__'
+  const END = '__POOL_EXPORT_END__'
+  const b = ssh.stdout.indexOf(BEGIN)
+  const e = ssh.stdout.indexOf(END)
+  let payload
+  try {
+    if (b < 0 || e <= b) throw new Error('未找到导出边界标记(生产 checkout 可能是旧版导入器)')
+    payload = JSON.parse(ssh.stdout.slice(b + BEGIN.length, e).trim())
+  } catch (err) {
+    process.stderr.write(
+      `❌ 生产导出结果解析失败(未判定): ${err instanceof Error ? err.message : String(err)}\n`,
+    )
+    return 2
+  }
+  const accounts = Array.isArray(payload?.accounts) ? payload.accounts : []
+  if (accounts.length === 0) {
+    process.stderr.write(`ℹ️ 生产库 ${provider} 无账号可拉回\n`)
+    return 0
+  }
+  // 按归属分组:owner=null 落运营池(不传 --owner);非空落该个人池
+  const groups = new Map()
+  for (const a of accounts) {
+    const owner =
+      typeof a?.ownerUserId === 'string' && a.ownerUserId.trim() ? a.ownerUserId.trim() : null
+    if (!groups.has(owner)) groups.set(owner, [])
+    groups.get(owner).push(a)
+  }
+  let worst = 0
+  for (const [owner, list] of groups) {
+    // 归属已由 --owner 显式传,载荷里剥掉 ownerUserId(避免未知字段进 extraMetadata)
+    const cleaned = list.map((a) => {
+      const copy = { ...a }
+      delete copy.ownerUserId
+      return copy
+    })
+    const groupPayload = JSON.stringify({ providerCode: provider, accounts: cleaned })
+    const decision = { owner, source: owner ? 'explicit-flag' : 'none' }
+    const importerOpts = { dryRun: false, health: false, json: options.json }
+    process.stdout.write(`── 拉回 ${provider} owner=${owner ?? '运营池'} 条数=${list.length}\n`)
+    const r = await deps.runImporter(groupPayload, provider, importerOpts, decision)
+    if (r.error) process.stderr.write(`❌ 拉回落库失败(owner=${owner ?? '运营池'}): ${r.error}\n`)
+    worst = Math.max(worst, r.code)
+  }
+  return worst
+}
+
 /** 可注入面(测试用):下游导入与默认归属读取都必须能被替身接走,绝不真写库、绝不读真机文件。 */
 const DEFAULT_DEPS = {
   runImporter,
@@ -425,6 +517,9 @@ async function main(argv, injectedDeps = {}) {
     process.stdout.write(`${helpText()}\n`)
     return 0
   }
+
+  // 生产→本地拉回(互通):不经本机提取/归属裁决,归属由导出数据逐账号自带
+  if (options.syncPull) return syncPullFromProd(options, deps)
 
   let payloadText
   let providerCode = options.providerCode || null
@@ -663,11 +758,10 @@ async function main(argv, injectedDeps = {}) {
     return 2
   }
 
-  // 推生产的快路径:导入后健康检查默认跳过(Trae 这类 IDE 号要等 model_list 5xx 回落,单号就几十秒),
-  // 要当场验可用带 --with-health;不验不等于不查,保活调度会按档位复检。
-  const skipHealth = options.prodPush && !options.withHealth
-  if (skipHealth) {
-    process.stderr.write('ℹ️ 已跳过导入后健康检查(由保活调度复检;要当场验证请加 --with-health)\n')
+  // 推生产侧健康检查默认跳过(Trae 这类 IDE 号要等 model_list 5xx 回落,单号就几十秒),
+  // 要当场验可用带 --with-health;不验不等于不查,保活调度会按档位复检。本机导入健康检查不受此影响。
+  if (options.prodPush && !options.withHealth) {
+    process.stderr.write('ℹ️ 已跳过生产侧导入后健康检查(由保活调度复检;要当场验证请加 --with-health)\n')
   }
 
   // 只推生产:本机库一行不写,凭据只在生产 checkout 内落一次。
@@ -685,7 +779,8 @@ async function main(argv, injectedDeps = {}) {
     return push.code
   }
 
-  const localOptions = skipHealth ? { ...options, health: false } : options
+  // 本机导入健康检查按原逻辑(--no-health / --health 控制),不受默认推生产影响
+  const localOptions = options
   const result = await deps.runImporter(payloadText, providerCode, localOptions, decision)
   if (result.error) process.stderr.write(`❌ ${result.error}\n`)
   if (result.code !== 0 || !options.prodPush) return result.code
