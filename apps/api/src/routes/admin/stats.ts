@@ -41,6 +41,29 @@ import { paginationSchema, idParamSchema, registerCrud, fields } from './_shared
 import { requireAdmin } from '../../plugins/require-permission.js'
 import { aiServiceFetch } from '../../utils/ai-service-fetch.js'
 import { isUuidString } from '../../utils/uuid.js'
+
+/**
+ * F-22: 金额聚合(bigint/numeric)安全转 number。
+ * sum(int4) 在 PG 里是 bigint,驱动以 string 返回;直接 `::int` 会在 2^31 分(约 2147 万元)处抛 22003。
+ * 这里统一在应用层转:无法解析/非有限值 → 0;超出 Number.MAX_SAFE_INTEGER → 钳制并告警(不抛)。
+ */
+export function toSafeMoneyInt(value: unknown): number {
+  if (value === null || value === undefined || value === '') return 0
+  const raw = typeof value === 'bigint' ? value.toString() : String(value)
+  const n = Number(raw)
+  if (!Number.isFinite(n)) return 0
+  const truncated = Math.trunc(n)
+  if (truncated > Number.MAX_SAFE_INTEGER) {
+    console.warn(`[admin/stats] 金额聚合超出 Number.MAX_SAFE_INTEGER,已钳制:${raw}`)
+    return Number.MAX_SAFE_INTEGER
+  }
+  if (truncated < -Number.MAX_SAFE_INTEGER) {
+    console.warn(`[admin/stats] 金额聚合低于 -Number.MAX_SAFE_INTEGER,已钳制:${raw}`)
+    return -Number.MAX_SAFE_INTEGER
+  }
+  return truncated
+}
+
 const statsRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', requireAdmin)
   // ===========================================================================
@@ -433,7 +456,7 @@ const statsRoutes: FastifyPluginAsync = async (server) => {
         db.select({ c: sql<number>`count(*)::int` }).from(orders),
         db
           .select({
-            total: sql<number>`coalesce(sum(amount), 0)::int`,
+            total: sql<number>`coalesce(sum(amount), 0)::bigint`,
           })
           .from(orders)
           .where(eq(orders.status, 'paid')),
@@ -442,8 +465,8 @@ const statsRoutes: FastifyPluginAsync = async (server) => {
       const pv = pvRow[0]?.c ?? 0
       const uv = uvRow[0]?.c ?? 0
       const ordersCount = ordersRow[0]?.c ?? 0
-      // orders.amount 以分为单位,转换为元(保留 2 位小数)
-      const revenueCents = revenueRow[0]?.total ?? 0
+      // orders.amount 以分为单位,转换为元(保留 2 位小数);bigint 经 toSafeMoneyInt 转 number
+      const revenueCents = toSafeMoneyInt(revenueRow[0]?.total)
       const revenue = Number((revenueCents / 100).toFixed(2))
 
       // 7 日访问趋势(按天聚合 visitLogs count)
@@ -481,15 +504,8 @@ const statsRoutes: FastifyPluginAsync = async (server) => {
       )
     } catch (e) {
       request.log.error({ err: e }, 'stats/dashboard 查询失败')
-      // 表不存在或查询异常时返回零值,避免阻塞 admin 看板
-      return reply.send(
-        success({
-          overview: { pv: 0, uv: 0, orders: 0, revenue: 0 },
-          trend: [],
-          metrics: [],
-          ratios: [],
-        }),
-      )
+      // F-22: 查询失败不再伪装成「全 0 看板」;无数据由 SQL coalesce 与 `?? 0` 表达为 0
+      return reply.status(500).send(error(500, '统计看板查询失败'))
     }
   })
 
@@ -502,15 +518,15 @@ const statsRoutes: FastifyPluginAsync = async (server) => {
       const [totalRow, monthRow, todayRow, totalOrdersRow, paidOrdersRow, refundRow] =
         await Promise.all([
           db
-            .select({ total: sql<number>`coalesce(sum(amount), 0)::int` })
+            .select({ total: sql<number>`coalesce(sum(amount), 0)::bigint` })
             .from(orders)
             .where(eq(orders.status, 'paid')),
           db
-            .select({ total: sql<number>`coalesce(sum(amount), 0)::int` })
+            .select({ total: sql<number>`coalesce(sum(amount), 0)::bigint` })
             .from(orders)
             .where(and(eq(orders.status, 'paid'), gte(orders.createdAt, monthStart))),
           db
-            .select({ total: sql<number>`coalesce(sum(amount), 0)::int` })
+            .select({ total: sql<number>`coalesce(sum(amount), 0)::bigint` })
             .from(orders)
             .where(and(eq(orders.status, 'paid'), gte(orders.createdAt, todayStart))),
           db.select({ c: sql<number>`count(*)::int` }).from(orders),
@@ -527,9 +543,9 @@ const statsRoutes: FastifyPluginAsync = async (server) => {
             .where(eq(eduRefunds.status, 'completed')),
         ])
 
-      const totalRevenueCents = totalRow[0]?.total ?? 0
-      const monthRevenueCents = monthRow[0]?.total ?? 0
-      const todayRevenueCents = todayRow[0]?.total ?? 0
+      const totalRevenueCents = toSafeMoneyInt(totalRow[0]?.total)
+      const monthRevenueCents = toSafeMoneyInt(monthRow[0]?.total)
+      const todayRevenueCents = toSafeMoneyInt(todayRow[0]?.total)
       const totalOrders = totalOrdersRow[0]?.c ?? 0
       const paidOrders = paidOrdersRow[0]?.c ?? 0
       const refundAmount = Number(refundRow[0]?.amount ?? 0)
@@ -546,7 +562,7 @@ const statsRoutes: FastifyPluginAsync = async (server) => {
       const trendRows = await db
         .select({
           label: sql<string>`to_char(${orders.createdAt}, 'MM-DD')`,
-          value: sql<number>`coalesce(sum(${orders.amount}), 0)::int`,
+          value: sql<number>`coalesce(sum(${orders.amount}), 0)::bigint`,
         })
         .from(orders)
         .where(and(eq(orders.status, 'paid'), gte(orders.createdAt, since30d)))
@@ -566,32 +582,15 @@ const statsRoutes: FastifyPluginAsync = async (server) => {
             netRevenue,
             arpu,
           },
-          trend: trendRows,
+          trend: trendRows.map((r) => ({ label: r.label, value: toSafeMoneyInt(r.value) })),
           byChannel: [], // orders 表无 channel 字段,暂保持空
           byProduct: [], // orders 表无商品维度聚合字段,暂保持空
         }),
       )
     } catch (e) {
       request.log.error({ err: e }, 'stats/revenue 查询失败')
-      // 表不存在或查询异常时返回零值,避免阻塞 admin 看板
-      return reply.send(
-        success({
-          overview: {
-            totalRevenue: 0,
-            monthRevenue: 0,
-            todayRevenue: 0,
-            totalOrders: 0,
-            paidOrders: 0,
-            refundAmount: 0,
-            refundCount: 0,
-            netRevenue: 0,
-            arpu: 0,
-          },
-          trend: [],
-          byChannel: [],
-          byProduct: [],
-        }),
-      )
+      // F-22: 查询失败不再伪装成「全 0 看板」;无数据由 SQL coalesce 与 `?? 0` 表达为 0
+      return reply.status(500).send(error(500, '营收统计查询失败'))
     }
   })
 

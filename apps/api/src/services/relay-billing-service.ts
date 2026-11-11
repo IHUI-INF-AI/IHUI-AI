@@ -162,6 +162,12 @@ export interface RecordCallResult {
   upstreamCostCents?: number
   /** BYOK 模式:平台服务费(分,= upstreamCostCents × commissionRate,免费 provider 为 0) */
   platformFeeCents?: number
+  /**
+   * F-35(2026-11-11):两段式结算结果。仅在预扣对账**连续失败**时出现,
+   * 用于让 await 了 recordCall 的调用方感知"预扣未结清"(fire-and-forget 调用方忽略即可,
+   * 失败同时会写 llm_call_logs.metadata.billingSettlementPending 供人工对账)。
+   */
+  billingSettlement?: SettlePreDeductionResult
 }
 
 export interface CalculateCostResult {
@@ -1277,6 +1283,8 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
 
   let newTokenBalance = -1
   let newCostBalanceCents = -1
+  // F-35(2026-11-11):结算连续失败时随返回值上抛,让 await 了 recordCall 的调用方感知
+  let billingSettlement: SettlePreDeductionResult | undefined
 
   const groupInfoForDeduct = await getKeyGroup(input.apiKeyId)
   if (hasPreDeduction && pre) {
@@ -1296,7 +1304,47 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
         })
       })
     // F-181:命中的 billableTokens=0 / 成本=0,结算把预扣全额退回,订阅窗口也不按缓存用量消费
-    await settlePreDeduction(pre, billableTokens, costCentsToDeduct)
+    // F-35(2026-11-11):结算失败必须可感知 —— 有界重试后仍失败时,把"待对账"信息写进
+    // 本行的 llm_call_logs.metadata(既有 jsonb 列,不新建表、不改迁移),并 error 级留痕;
+    // fire-and-forget 调用方虽不看返回值,对账仍可按 metadata.billingSettlementPending 捞出来。
+    const settlement = await settlePreDeductionStrict(pre, billableTokens, costCentsToDeduct)
+    if (!settlement.ok) {
+      billingSettlement = settlement
+      const pending = {
+        ...settlement,
+        logId: logRow?.id ?? null,
+        apiKeyId: pre.apiKeyId,
+        userId: pre.userId,
+        preTokens: pre.tokens,
+        preCents: pre.cents,
+        actualTokens: billableTokens,
+        actualCostCents: costCentsToDeduct,
+        deltaTokens: pre.tokens - Math.max(0, billableTokens),
+        deltaCents: pre.cents - Math.max(0, costCentsToDeduct),
+        detectedAt: new Date().toISOString(),
+      }
+      logger.error('[billing] 预扣结算连续失败,已标记待人工对账', pending)
+      if (logRow?.id) {
+        try {
+          await db
+            .update(llmCallLogs)
+            .set({
+              metadata: sql`COALESCE(${llmCallLogs.metadata}, '{}'::jsonb) || ${JSON.stringify({
+                billingSettlementPending: pending,
+              })}::jsonb`,
+            })
+            .where(eq(llmCallLogs.id, logRow.id))
+        } catch (markErr) {
+          // 标记本身失败不能再抛(会让 fire-and-forget 变成 unhandledRejection),
+          // 但必须留下可按 logId 检索的 error 日志
+          logger.error('[billing] 待对账标记写入失败(仅日志可查)', {
+            logId: logRow.id,
+            apiKeyId: pre.apiKeyId,
+            error: markErr instanceof Error ? markErr.message : String(markErr),
+          })
+        }
+      }
+    }
     // Key 级限流窗口计数(B,2026-09-16):成功调用后窗口请求数 +1。
     // fire-and-forget(不 await 不阻塞返回),内部自查限额配置,全 NULL 零写入;
     // 失败静默(仅告警)——窗口是附加约束,余额/熔断已兜底,计数丢失只影响精度。
@@ -1479,6 +1527,7 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
     newTokenBalance,
     newCostBalanceCents,
     ...(mode === 'byok' ? { upstreamCostCents, platformFeeCents } : {}),
+    ...(billingSettlement ? { billingSettlement } : {}),
   }
 }
 
@@ -1784,6 +1833,18 @@ export interface PreDeduction {
   cents: number
 }
 
+/**
+ * F-35(2026-11-11):结算结果。ok=false 表示有界重试后仍未完成对账,
+ * 调用方必须把它当失败处理(标记待对账 / 返回计费错误),不得静默当成功。
+ */
+export interface SettlePreDeductionResult {
+  ok: boolean
+  /** 实际尝试次数(0 = delta 为 0,无需动账) */
+  attempts: number
+  /** ok=false 时的最后一条错误信息 */
+  reason?: string
+}
+
 export interface PreDeductInput {
   apiKeyId: string
   model: string
@@ -1938,86 +1999,141 @@ export async function preDeductQuota(input: PreDeductInput): Promise<PreDeductio
   }
 }
 
+/** F-35(2026-11-11):结算有界重试退避(首次 + 2 次重试)。只重放单条原子 UPDATE。 */
+const SETTLE_RETRY_DELAYS_MS = [20, 50]
+
+function sleepMs(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+/**
+ * 单次结算写库(拆出以便重试):组池 Key 结算组池余额,个人 Key 结算自身余额。
+ * 只有一条原子 UPDATE,重试幂等性依赖单语句失败即未落库;若上游连接断开在 commit
+ * 之后,重试可能重复应用 delta,这是有界重试的已知敞口(远优于永久不结算)。
+ */
+async function applySettlementDelta(
+  pre: PreDeduction,
+  deltaTokens: number,
+  deltaCents: number,
+): Promise<void> {
+  const buildSet =
+    (tokenCol: typeof developerApiKeys.tokenBalance | typeof apiKeyGroups.sharedTokenBalance) =>
+    (
+      centsCol: typeof developerApiKeys.costBalanceCents | typeof apiKeyGroups.sharedCostBalanceCents,
+    ) => {
+      const tokenExpr =
+        deltaTokens === 0
+          ? sql`${tokenCol}`
+          : deltaTokens > 0
+            ? sql`CASE WHEN ${tokenCol} = -1 THEN -1 ELSE ${tokenCol} + ${deltaTokens} END`
+            : sql`CASE WHEN ${tokenCol} = -1 THEN -1 WHEN ${tokenCol} >= ${-deltaTokens} THEN ${tokenCol} - ${-deltaTokens} ELSE 0 END`
+      const centsExpr =
+        deltaCents === 0
+          ? sql`${centsCol}`
+          : deltaCents > 0
+            ? sql`CASE WHEN ${centsCol} = -1 THEN -1 ELSE ${centsCol} + ${deltaCents} END`
+            : sql`CASE WHEN ${centsCol} = -1 THEN -1 WHEN ${centsCol} >= ${-deltaCents} THEN ${centsCol} - ${-deltaCents} ELSE 0 END`
+      return { tokenExpr, centsExpr }
+    }
+
+  const groupInfo = await getKeyGroup(pre.apiKeyId)
+  if (groupInfo && groupInfo.enabled) {
+    const { tokenExpr, centsExpr } = buildSet(apiKeyGroups.sharedTokenBalance)(
+      apiKeyGroups.sharedCostBalanceCents,
+    )
+    await db
+      .update(apiKeyGroups)
+      .set({
+        sharedTokenBalance: tokenExpr,
+        sharedCostBalanceCents: centsExpr,
+        updatedAt: new Date(),
+      })
+      .where(eq(apiKeyGroups.id, groupInfo.groupId))
+  } else {
+    const { tokenExpr, centsExpr } = buildSet(developerApiKeys.tokenBalance)(
+      developerApiKeys.costBalanceCents,
+    )
+    await db
+      .update(developerApiKeys)
+      .set({ tokenBalance: tokenExpr, costBalanceCents: centsExpr, updatedAt: new Date() })
+      .where(eq(developerApiKeys.id, pre.apiKeyId))
+  }
+}
+
 /**
  * 结算预扣(两段式第二阶段):按实际用量与预扣额对账,多退少补。
  *
  * - delta = 预扣 - 实际;delta > 0 退款(余额回补),delta < 0 补扣(余额够则扣,不够扣到 0 为止)
  * - 组池 Key 结算组池余额,个人 Key 结算自身余额
  * - 总扣减恒等式:预扣 + 结算调整 = 实际用量(补扣不足时存在少量敞口,log 可审计)
- * - 失败容错:只 log 不抛错(计费调整失败不影响已返回的响应)
+ * - F-35(2026-11-11):原「失败只 log」导致预扣永久停留。改为有界重试(2 次、短退避),
+ *   仍失败则返回 { ok:false, reason },由调用方决定如何告知/标记待对账。
+ */
+export async function settlePreDeductionStrict(
+  pre: PreDeduction,
+  actualTokens: number,
+  actualCostCents: number,
+): Promise<SettlePreDeductionResult> {
+  // 订阅窗口用量累加(2026-09-16 立):按本次调用的"实际用量"累加进日/周/月窗口。
+  // 必须置于下方 delta===0 提前 return 之前 —— 否则"预扣恰好等于实扣"的调用
+  // (deltaTokens/deltaCents 均为 0)会跳过窗口记账,导致窗口额度被无限透支。
+  // 重试只重放下面的余额调整,窗口累加**只做一次**,否则退避重试会把窗口用量放大数倍。
+  try {
+    await consumeSubscriptionWindowUsage(
+      pre.userId,
+      Math.max(0, actualTokens),
+      Math.max(0, actualCostCents),
+    )
+  } catch (err) {
+    // 窗口记账是附加约束,失败不阻断余额对账
+    logger.warn('[billing] 订阅窗口用量累加失败(不影响结算)', {
+      userId: pre.userId,
+      error: err instanceof Error ? err.message : String(err),
+    })
+  }
+
+  const deltaTokens = pre.tokens - Math.max(0, actualTokens)
+  const deltaCents = pre.cents - Math.max(0, actualCostCents)
+  if (deltaTokens === 0 && deltaCents === 0) return { ok: true, attempts: 0 }
+
+  let lastError: unknown = null
+  const maxAttempts = SETTLE_RETRY_DELAYS_MS.length + 1
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      await applySettlementDelta(pre, deltaTokens, deltaCents)
+      return { ok: true, attempts: attempt }
+    } catch (err) {
+      lastError = err
+      const delay = SETTLE_RETRY_DELAYS_MS[attempt - 1]
+      if (delay !== undefined) await sleepMs(delay)
+    }
+  }
+  return {
+    ok: false,
+    attempts: maxAttempts,
+    reason: lastError instanceof Error ? lastError.message : String(lastError),
+  }
+}
+
+/**
+ * 兼容出口:保留原有「失败不抛错、resolve void」契约(既有调用方/测试依赖)。
+ * 生产链路(recordCall)已改用 settlePreDeductionStrict,失败会被标记为待对账。
  */
 export async function settlePreDeduction(
   pre: PreDeduction,
   actualTokens: number,
   actualCostCents: number,
 ): Promise<void> {
-  try {
-    // 订阅窗口用量累加(2026-09-16 立):按本次调用的"实际用量"累加进日/周/月窗口。
-    // 必须置于下方 delta===0 提前 return 之前 —— 否则"预扣恰好等于实扣"的调用
-    // (deltaTokens/deltaCents 均为 0)会跳过窗口记账,导致窗口额度被无限透支。
-    // 无活跃订阅或无窗口限额配置时不产生任何写入;内部失败已自行吞掉,不影响结算。
-    await consumeSubscriptionWindowUsage(
-      pre.userId,
-      Math.max(0, actualTokens),
-      Math.max(0, actualCostCents),
-    )
-
-    const deltaTokens = pre.tokens - Math.max(0, actualTokens)
-    const deltaCents = pre.cents - Math.max(0, actualCostCents)
-    if (deltaTokens === 0 && deltaCents === 0) return
-
-    const buildSet =
-      (tokenCol: typeof developerApiKeys.tokenBalance | typeof apiKeyGroups.sharedTokenBalance) =>
-      (
-        centsCol:
-          typeof developerApiKeys.costBalanceCents | typeof apiKeyGroups.sharedCostBalanceCents,
-      ) => {
-        const tokenExpr =
-          deltaTokens === 0
-            ? sql`${tokenCol}`
-            : deltaTokens > 0
-              ? sql`CASE WHEN ${tokenCol} = -1 THEN -1 ELSE ${tokenCol} + ${deltaTokens} END`
-              : sql`CASE WHEN ${tokenCol} = -1 THEN -1 WHEN ${tokenCol} >= ${-deltaTokens} THEN ${tokenCol} - ${-deltaTokens} ELSE 0 END`
-        const centsExpr =
-          deltaCents === 0
-            ? sql`${centsCol}`
-            : deltaCents > 0
-              ? sql`CASE WHEN ${centsCol} = -1 THEN -1 ELSE ${centsCol} + ${deltaCents} END`
-              : sql`CASE WHEN ${centsCol} = -1 THEN -1 WHEN ${centsCol} >= ${-deltaCents} THEN ${centsCol} - ${-deltaCents} ELSE 0 END`
-        return { tokenExpr, centsExpr }
-      }
-
-    const groupInfo = await getKeyGroup(pre.apiKeyId)
-    if (groupInfo && groupInfo.enabled) {
-      const { tokenExpr, centsExpr } = buildSet(apiKeyGroups.sharedTokenBalance)(
-        apiKeyGroups.sharedCostBalanceCents,
-      )
-      await db
-        .update(apiKeyGroups)
-        .set({
-          sharedTokenBalance: tokenExpr,
-          sharedCostBalanceCents: centsExpr,
-          updatedAt: new Date(),
-        })
-        .where(eq(apiKeyGroups.id, groupInfo.groupId))
-    } else {
-      const { tokenExpr, centsExpr } = buildSet(developerApiKeys.tokenBalance)(
-        developerApiKeys.costBalanceCents,
-      )
-      await db
-        .update(developerApiKeys)
-        .set({ tokenBalance: tokenExpr, costBalanceCents: centsExpr, updatedAt: new Date() })
-        .where(eq(developerApiKeys.id, pre.apiKeyId))
-    }
-  } catch (err) {
-    logger.error('[billing] settlePreDeduction failed(预扣对账未完成,需人工核对)', {
-      apiKeyId: pre.apiKeyId,
-      preTokens: pre.tokens,
-      preCents: pre.cents,
-      actualTokens,
-      actualCostCents,
-      error: err instanceof Error ? err.message : String(err),
-    })
-  }
+  const result = await settlePreDeductionStrict(pre, actualTokens, actualCostCents)
+  if (result.ok) return
+  logger.error('[billing] settlePreDeduction failed(预扣对账未完成,需人工核对)', {
+    apiKeyId: pre.apiKeyId,
+    preTokens: pre.tokens,
+    preCents: pre.cents,
+    actualTokens,
+    actualCostCents,
+    attempts: result.attempts,
+    error: result.reason,
+  })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
