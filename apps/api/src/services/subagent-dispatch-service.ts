@@ -3272,8 +3272,13 @@ export class SubagentDispatchService {
         // SDB-37:条件边在上层评估时已把本节点标记为 cancelled ⇒ 跳过执行并向下游传播。
         // 旧实现只在 map 里写标记、层执行从不读,导致被跳过的节点照常调模型并进入最终结果。
         if (runtime.dagNodeStatus.get(nodeId) === 'cancelled') {
+          // 向下游传播:仅当后继节点的**全部**前驱都已取消时才取消它 —— 汇聚节点只要
+          // 还有存活上游(未被取消)就应继续执行,避免一条取消边误伤整条汇聚路径。
           for (const edge of dag.edges.filter((e) => e.from === nodeId)) {
-            runtime.dagNodeStatus.set(edge.to, 'cancelled')
+            const predecessors = dag.edges.filter((e) => e.to === edge.to).map((e) => e.from)
+            if (predecessors.every((p) => runtime.dagNodeStatus.get(p) === 'cancelled')) {
+              runtime.dagNodeStatus.set(edge.to, 'cancelled')
+            }
           }
           await this._persistLog(id, {
             ts: nowIso(),
@@ -3468,6 +3473,9 @@ export class SubagentDispatchService {
 
       // 评估条件边:决定下游节点是否继续
       for (const nodeId of layer) {
+        // 已被取消的节点没有结果:条件判据不能用空结果再评估一次(否则会越过
+        // 「全部前驱已取消」的传播判据直接取消汇聚节点),交给跳过分支持续向下游传播。
+        if (runtime.dagNodeStatus.get(nodeId) === 'cancelled') continue
         const nodeResult = results.get(nodeId) ?? ''
         const downstreamEdges = dag.edges.filter((e) => e.from === nodeId)
         for (const edge of downstreamEdges) {

@@ -192,6 +192,28 @@ function stripLiteLLMModelPrefix(model: string): string {
 }
 
 /**
+ * 上游 Response → 本请求的 prompt 文本(SDB-08)。
+ * pipeChannelStream 只拿到响应、拿不到请求体;forwardToChannel 在交出响应前登记,
+ * 兜底估算 promptTokens 时按此还原。WeakMap 键随 Response 回收,不会跨请求串味。
+ */
+const promptTextByResponse = new WeakMap<Response, string>()
+
+/** 登记「响应 → 请求体 messages 序列化文本」;只服务 usage 缺失时的兜底估算。 */
+function rememberPromptText(
+  resp: Response,
+  req: UpstreamForwardRequest,
+  body?: Record<string, unknown>,
+): void {
+  const messages = body?.messages ?? req.messages
+  if (!Array.isArray(messages) || messages.length === 0) return
+  try {
+    promptTextByResponse.set(resp, JSON.stringify(messages))
+  } catch {
+    /* 循环引用等异常请求体:放弃估算,不影响转发 */
+  }
+}
+
+/**
  * baseUrl → OpenAI 兼容端点(chat/completions 或 images/generations)。
  * 约定:ai_model_config.baseUrl 存到版本段(如 https://api.openai.com/v1),
  * 已以 /v{n} 结尾直接拼,否则补 /v1(主流厂商默认)。
@@ -339,7 +361,10 @@ export async function forwardToChannel(req: UpstreamForwardRequest): Promise<For
         null,
       )
     }
-    if (poolResult) return poolResult
+    if (poolResult) {
+      if (poolResult.ok) rememberPromptText(poolResult.response, req)
+      return poolResult
+    }
     return null
   }
 
@@ -442,6 +467,7 @@ export async function forwardToChannel(req: UpstreamForwardRequest): Promise<For
 
       // F-617:成功只认 2xx;上面 4xx 分支不记成功也不记失败
       await recordChannelResult(channel.keyPoolId, true, breakerLatency).catch(() => {})
+      if (endpoint === 'chat') rememberPromptText(resp, req, body)
       return {
         ok: true,
         response: resp,
@@ -509,6 +535,11 @@ export interface PipeStreamOptions {
   /** textMode(legacy /v1/completions):不转发原始行,改为每个 delta.content 触发一次 */
   emitText?: (text: string) => void
   signal?: AbortSignal
+  /**
+   * 请求体 messages 的序列化文本(SDB-08):usage 缺失时用于估算 promptTokens(1 token ≈ 4 字符)。
+   * 未显式传入时,用 forwardToChannel 登记的「响应 → 请求体」映射还原。
+   */
+  promptText?: string
 }
 
 /** 从 SSE data 行解析 JSON(忽略 [DONE] 与非 data 行)。 */
@@ -645,10 +676,25 @@ export async function pipeChannelStream(
     opts.signal?.removeEventListener('abort', abort)
     reader.releaseLock()
   }
-  // usage 缺失(上游未开 stream_options.include_usage)→ 按字符估算兜底(1 token ≈ 4 字符)
-  if (stats.totalTokens === 0) {
-    stats.completionTokens = Math.ceil(stats.responseText.length / 4)
-    stats.totalTokens = stats.completionTokens
+  // usage 缺失(上游未开 stream_options.include_usage)→ 按字符估算兜底(1 token ≈ 4 字符)。
+  // SDB-08(2026-11-11 修):旧判据 `totalTokens === 0` 且兜底体只补 completionTokens
+  // ⇒ 计费公式的 input 侧(promptTokens)永久为 0(结构性少收);而 total>0 但
+  // prompt=completion=0 时旧判据又完全不触发,整单按 0 计费。现按「明细是否为 0」判定:
+  //  - total>0:上游只给总量,无法拆 input/output ⇒ completion=total、prompt 记 0 并告警;
+  //  - total=0:按请求体估算 prompt、按正文长度估算 completion,两部分都补。
+  if (stats.promptTokens === 0 && stats.completionTokens === 0) {
+    if (stats.totalTokens > 0) {
+      stats.completionTokens = stats.totalTokens
+      logger.warn(
+        `[relay-upstream] usage_fallback reason=total_only total=${stats.totalTokens}`,
+        { httpStatus: stats.httpStatus, promptTokens: 0, completionTokens: stats.completionTokens },
+      )
+    } else {
+      const promptText = opts.promptText ?? promptTextByResponse.get(upstream) ?? ''
+      stats.promptTokens = Math.ceil(promptText.length / 4)
+      stats.completionTokens = Math.ceil(stats.responseText.length / 4)
+      stats.totalTokens = stats.promptTokens + stats.completionTokens
+    }
   }
   return stats
 }

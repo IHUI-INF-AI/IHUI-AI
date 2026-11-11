@@ -25,7 +25,7 @@ import {
   type AnchorSnapshot,
   type ToolbarPlacement,
 } from '../../src/content/position-memory'
-import { RADIUS_CSS_PX } from '@ihui/design-tokens'
+import { ELEVATION_CSS, RADIUS_CSS_PX } from '@ihui/design-tokens'
 
 export type ToolbarAction = 'translate' | 'highlight' | 'vocab' | 'send'
 
@@ -260,7 +260,7 @@ export class ContentToolbar {
         --color-card: hsl(0 0% 10%);
         --color-foreground: hsl(0 0% 98%);
         --color-border: hsl(0 0% 22%);
-        --color-accent: hsl(0 0% 24%);
+        --color-accent: hsl(0 0% 19%);
         --color-accent-strong: #404040;
         --color-accent-foreground: #fafafa;
         --color-muted: #525252;
@@ -271,8 +271,10 @@ export class ContentToolbar {
         --color-info-foreground: #0f766e;
         --color-info-muted: rgba(20, 184, 166, 0.08);
         --color-warning: rgba(250, 204, 21, 0.45);
-        --shadow-toolbar: 0 4px 16px rgba(0, 0, 0, 0.18);
-        --shadow-popup: 0 8px 24px rgba(0, 0, 0, 0.22);
+        /* 层级投影:注入第三方页面拿不到本站 :root 的 --shadow-elevation-*,故在构建期从唯一源
+           elevation.ts 的 ELEVATION_CSS 派生写入(工具栏=浮层 lg / 查词弹窗=模态级 xl),不手写数值 */
+        --shadow-toolbar: ${ELEVATION_CSS.lg};
+        --shadow-popup: ${ELEVATION_CSS.xl};
       }
       mark.ihui-hl {
         --color-warning: rgba(250, 204, 21, 0.45);

@@ -73,7 +73,12 @@ import {
 import { logger } from '../utils/logger.js'
 import { assertRelayEgressSafe, directEgressDispatcher } from '../utils/relay-egress-guard.js'
 import { decryptAccountCredentials } from './relay-account-pool-service.js'
-import { accountSchedulableCondition } from './relay-account-pool-scheduler.js'
+import {
+  ACCOUNT_REFRESH_LOCK_TTL_MS,
+  accountRefreshLockName,
+  accountSchedulableCondition,
+  readAccountForRefresh,
+} from './relay-account-pool-scheduler.js'
 import { isRelayProviderCode, type RelayProviderCode } from './relay-account-format.js'
 import {
   clearAccountCooldown,
@@ -82,6 +87,7 @@ import {
   setAccountCooldown,
   setSessionAffinity,
   tryAcquireGlobalInflight,
+  tryAcquireSharedLock,
   type GlobalInflightHandle,
 } from './relay-account-shared-state.js'
 import {
@@ -770,12 +776,38 @@ async function doRefreshRowInPlace(
   adapter: RelayUpstreamAdapter,
 ): Promise<AiRelayAccountPool | null> {
   const startedAt = new Date()
+  // 跨路径/跨进程互斥(SDB-32):与巡检、本机重登、管理面自愈共用同一把账号级锁。
+  // 上面的 refreshInFlight 只合并本进程内并发,管不到另外三路。
+  const lock = await tryAcquireSharedLock(
+    accountRefreshLockName(row.id),
+    ACCOUNT_REFRESH_LOCK_TTL_MS,
+  )
+  if (!lock) {
+    // 别人正在换票:不重复换(轮换制下重放会把号刷死),回读当前值交给调用方重试。
+    logger.info('[relay-account-forwarder] 换票锁被其他路径持有,回读当前账号', {
+      accountId: row.id,
+      providerCode: row.providerCode,
+    })
+    return readAccountForRefresh(row.id)
+  }
+  try {
+    return await doRefreshRowInPlaceLocked(row, adapter, startedAt)
+  } finally {
+    await lock.release().catch(() => {})
+  }
+}
+
+async function doRefreshRowInPlaceLocked(
+  row: AiRelayAccountPool,
+  adapter: RelayUpstreamAdapter,
+  startedAt: Date,
+): Promise<AiRelayAccountPool | null> {
   try {
     const credentials = decryptAccountCredentials(row)
     const result = await adapter.refreshToken!({ row, credentials }, { proxyUrl: row.proxyUrl })
     if (!result) return null
     const tokenEnc = encryptField(result.token)
-    await db
+    const applied = await db
       .update(aiRelayAccountPool)
       .set({
         tokenEnc,
@@ -797,7 +829,23 @@ async function doRefreshRowInPlace(
       .where(
         and(eq(aiRelayAccountPool.id, row.id), eq(aiRelayAccountPool.credVersion, row.credVersion)),
       )
-      .catch(() => {})
+      .returning({ id: aiRelayAccountPool.id })
+      .catch(() => [] as Array<{ id: string }>)
+    if (applied.length === 0) {
+      // 命中 0 行:回读库里当前值判断「谁赢了」。
+      // 版本已前进 ⇒ 别的路径抢先换票成功:本次结果不落库(旧票不覆盖新票),返回当前值;
+      // 回读不到行(或版本未前进)⇒ 没有并发成功的证据,按本地新票继续就地重试。
+      const current = await readAccountForRefresh(row.id)
+      if (current && current.credVersion !== row.credVersion) {
+        logger.info('[relay-account-forwarder] 401 自愈回写 CAS 未命中,按「已被他人刷新」回读', {
+          accountId: row.id,
+          providerCode: row.providerCode,
+          snapshotCredVersion: row.credVersion,
+          currentCredVersion: current.credVersion,
+        })
+        return current
+      }
+    }
     return {
       ...row,
       tokenEnc,

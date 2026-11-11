@@ -83,7 +83,10 @@
   --color-secondary-foreground: hsl(0 0% 9%);
   --color-muted: hsl(0 0% 92%);
   --color-muted-foreground: hsl(0 0% 40%);
-  --color-accent: hsl(0 0% 88%);
+  /* 2026-11-11 用户反馈:头像菜单等弹层内 hover:bg-accent 与 popover(纯白)对比过大(88% vs 100%,12% L)。
+     全局 accent 下调到 95% L:与 popover 差 5% L(与侧栏 hover 的 4% L 同档),弹层/画布上的 hover 都变柔和;
+     强调态组件已有 border/ring/text 兜底,不靠这一档背景单独承担辨识度。 */
+  --color-accent: hsl(0 0% 95%);
   --color-accent-foreground: hsl(0 0% 9%);
   --color-destructive: hsl(0 100% 60%);
   --color-destructive-foreground: hsl(0 0% 98%);
@@ -425,18 +428,6 @@
   --shadow-elevation-lg: 0 4px 16px rgba(0, 0, 0, 0.12);
   --shadow-elevation-xl: 0 8px 24px rgba(0, 0, 0, 0.16);
   /* css-tokens:managed:end */
-
-  /* Tailwind 默认阴影档名 → elevation 阶梯别名(2026-11-11 收口)
-   * 存量组件大量使用 shadow-sm/md/lg/xl/2xl(Tailwind 自带一套独立数值,是第二条源),
-   * 在此整体改指 elevation 阶梯,保证「同一个投影只有一个数」;禁止在本段写任何字面量。
-   * --shadow-inner 属 inset 效果(凹陷/高光),不并入 elevation。 */
-  --shadow-2xs: var(--shadow-elevation-sm);
-  --shadow-xs: var(--shadow-elevation-sm);
-  --shadow-sm: var(--shadow-elevation-sm);
-  --shadow-md: var(--shadow-elevation-md);
-  --shadow-lg: var(--shadow-elevation-lg);
-  --shadow-xl: var(--shadow-elevation-xl);
-  --shadow-2xl: var(--shadow-elevation-xl);
 }
 
 /* ============ Tailwind v3 端 alpha 通道三元组(2026-09-25 立) ============
@@ -567,18 +558,9 @@
   --z-max: 10003;
 }
 
-/* ============ 全局投影 token(共享 — 2026-07-24 迁移) ============
-   2026-11-11 收口:本族曾是独立第二源(四档现值全等 `0 2px 8px var(--color-black-6)`,
-   与 --shadow-elevation-* 的阶梯值对不上)。现全部降级为**别名**,唯一数值源只剩
-   elevation.ts → ELEVATION_CSS → 上方受管块的 --shadow-elevation-*。 */
-:root {
-  --global-box-shadow: var(--shadow-elevation-md);
-  --shadow-premium-sm: var(--shadow-elevation-sm);
-  --shadow-premium: var(--shadow-elevation-md);
-  --shadow-premium-lg: var(--shadow-elevation-lg);
-  --shadow-premium-xl: var(--shadow-elevation-xl);
-  --shadow-premium-hover: var(--shadow-elevation-lg);
-}
+/* ============ 投影 token(2026-11-11 收口)============
+ * 旧的 --global-box-shadow / --shadow-premium* 第二族已删除(全仓零消费)。
+ * 投影只有一个族:--shadow-elevation-*(源 elevation.ts → ELEVATION_CSS)。 */
 
 /* 全局 utility:button/a 内 "文字 span" 自动加垂直对齐偏移(根治中文字体偏下)。
    根因:中文字体 ascent(≈11px) ≠ descent(≈3px) 不对称,ink 几何中心在
@@ -669,15 +651,11 @@ select:-webkit-autofill:focus {
   --color-secondary-foreground: hsl(0 0% 98%);
   --color-muted: hsl(0 0% 14.9%);
   --color-muted-foreground: hsl(0 0% 63.9%);
-  /* 2026-08-07 立:暗色 accent 17% L → 24% L。原值与 background 14% L 差仅 3% L,
-     在所有"低调容器"位置(下拉菜单 hover/focus、列表项 hover、按钮 hover、侧边栏 hover、
-     聊天组件 hover、卡片 hover、选中态等 80+ 处)都几乎看不出。
-     提到 24% L 后,与 background 差 10% L,与 border 22% L 接近,
-     既清晰可辨又不抢主要元素(card 10% L + 描边)风头。
-     注:深色下 hover:bg-accent/80 仍会"反向变暗 2% L"反人类反馈,
-     但原 17% L 时 hover 反馈已经几乎无感(-0.6% L),改动只让默认态清晰,
-     hover 反馈由各组件 hover:text-* 文字色变化承担。 */
-  --color-accent: hsl(0 0% 24%);
+  /* 2026-11-11 用户反馈:弹层内 hover:bg-accent 与 popover(11% L)对比过大(24% vs 11%,13% L)。
+     全局 accent 下调到 19% L:与 popover/card 差 8–9% L,仍是可辨的低调 hover;
+     与 background(14% L)只差 5% L,画布上的整行 hover 会比旧版更弱 —— 这是"降低对比"的既有取舍,
+     需要强反馈的交互请靠 hover:text-* / border / ring 补足,不要为单点调回旧值。 */
+  --color-accent: hsl(0 0% 19%);
   --color-accent-foreground: hsl(0 0% 98%);
   --color-destructive: hsl(0 100% 60%);
   --color-destructive-foreground: hsl(0 0% 98%);
