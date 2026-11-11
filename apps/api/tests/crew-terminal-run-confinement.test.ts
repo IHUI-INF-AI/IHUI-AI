@@ -110,4 +110,76 @@ describe('terminal_run 参数不得越出沙箱根', () => {
     expect(execFileMock).not.toHaveBeenCalled()
   })
 })
+
+/**
+ * SDB-51:白名单里的 `git status` 是多项条目,旧实现只拿首个 token 与整条字符串全等比较,
+ * 于是 `git status` 永远被拒,而错误信息仍把它列为允许。
+ * 这里钉住"按 token 序列逐项全等"的匹配语义,同时确认参数面收敛与元字符拒收没被放宽。
+ */
+describe('terminal_run 白名单按 token 序列匹配(SDB-51)', () => {
+  it('① 多项条目 `git status` 放行,args 原样交给 execFile', async () => {
+    const out = await runTerminal('git status')
+    expect(out.success).toBe(true)
+    expect(spawnCalls).toHaveLength(1)
+    expect(spawnCalls[0]!.bin).toBe('git')
+    expect(spawnCalls[0]!.args).toEqual(['status'])
+  })
+
+  it('② 多项条目 + 额外参数 `git status --short` 放行', async () => {
+    const out = await runTerminal('git status --short')
+    expect(out.success).toBe(true)
+    expect(spawnCalls[0]!.bin).toBe('git')
+    expect(spawnCalls[0]!.args).toEqual(['status', '--short'])
+  })
+
+  it('③ 未列入的二进制/子命令仍被拒,且不 spawn', async () => {
+    for (const command of ['rm -rf tmp', 'git push origin main', 'node index.js']) {
+      const out = await runTerminal(command)
+      expect(out.success, command).toBe(false)
+      expect(out.error, command).toContain('不在白名单内')
+    }
+    expect(execFileMock).not.toHaveBeenCalled()
+  })
+
+  it('④ 含 shell 元字符的输入一律被拒(不因多项条目命中而放行)', async () => {
+    for (const command of [
+      'git status; rm -rf /',
+      'git status && rm -rf /',
+      'git status | cat',
+      'git status > out.txt',
+      'ls $(whoami)',
+    ]) {
+      const out = await runTerminal(command)
+      expect(out.success, command).toBe(false)
+      expect(out.error, command).toContain('非法 shell 字符')
+    }
+    expect(execFileMock).not.toHaveBeenCalled()
+  })
+
+  it('⑤ 单 token 条目行为与改前一致:`ls` 与 `ls 参数` 均放行', async () => {
+    const bare = await runTerminal('ls')
+    expect(bare.success).toBe(true)
+    expect(spawnCalls[0]!.bin).toBe('ls')
+    expect(spawnCalls[0]!.args).toEqual([])
+
+    spawnCalls.length = 0
+    const withArg = await runTerminal('ls notes.txt')
+    expect(withArg.success).toBe(true)
+    expect(spawnCalls[0]!.args).toEqual(['notes.txt'])
+  })
+
+  it('多项条目不给额外参数开后门:越界路径仍按参数面拒绝', async () => {
+    const out = await runTerminal('git status ../../etc/passwd')
+    expect(out.success).toBe(false)
+    expect(out.error).toContain('被拒')
+    expect(execFileMock).not.toHaveBeenCalled()
+  })
+
+  it('伪造前缀不算命中:`git statusx` 被拒', async () => {
+    const out = await runTerminal('git statusx')
+    expect(out.success).toBe(false)
+    expect(out.error).toContain('不在白名单内')
+    expect(execFileMock).not.toHaveBeenCalled()
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
