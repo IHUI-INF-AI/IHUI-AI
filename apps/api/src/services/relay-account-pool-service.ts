@@ -64,7 +64,6 @@ import {
   type PoolSyncAccount,
 } from './relay-account-pool-checkin-sync.js'
 import { encryptAccountProxyUrl, resolveAccountProxyUrl } from './relay-proxy-pool.js'
-import { isModelDown, normalizePoolUpstreamModelId } from './relay-pool-model-health.js'
 
 // =============================================================================
 // 类型
@@ -2113,8 +2112,6 @@ export interface UserPoolModelItem {
 
 interface UserPoolModelCacheEntry {
   expiresAt: number
-  /** 本轮是否拿到上游清单(false=取不到:超时/拒收/无适配器;true=拿到,空清单也算"明确报空") */
-  ok: boolean
   /** 上游原始模型 id(不带平台前缀;拼前缀在输出时统一做) */
   upstreamIds: string[]
 }
@@ -2135,16 +2132,13 @@ function toPoolModelId(providerCode: string, upstreamId: string): string {
 }
 
 /**
- * 单平台上游清单。永不抛。ok 语义(连通过滤的交集判据,逐路径核实):
- * - ok=true:成功拿到上游清单 —— 含「明确报空」(detailed.ok 且 models 为空数组:
- *   该号确实没模型,预置行应被交集隐藏);
- * - ok=false:取不到(无适配器 / 两个清单接口都没有 / 超时 / 上游拒收 / 异常)——
- *   「取不到 ≠ 没模型」,预置照出,只是这一轮没拿到。
+ * 单平台上游清单。永不抛:无 listModels / 超时 / 上游拒收一律归空数组,
+ * 由预置登记行兜底(取不到 ≠ 没模型,只是这一轮没拿到)。
  */
 async function fetchUpstreamModelIds(
   providerCode: RelayProviderCode,
   row: AiRelayAccountPool,
-): Promise<{ ok: boolean; ids: string[] }> {
+): Promise<string[]> {
   try {
     // 注册是幂等的;这里自己兜一次 —— 清单接口可能在 worker 之外(仅 API 进程)被首次调用,
     // 不依赖「worker 已启动」这个隐含前提,否则适配器表为空会静默返回零模型。
@@ -2154,11 +2148,11 @@ async function fetchUpstreamModelIds(
     ])
     registerAllRelayAdapters()
     const adapter = getRelayAdapter(providerCode)
-    if (!adapter) return { ok: false, ids: [] }
+    if (!adapter) return []
     const ctx = { row, credentials: decryptAccountCredentials(row) }
     // 生命周期调用与 chat 同出口 IP(同号同代理,避免 IP 漂移触发风控)
     const opts = { proxyUrl: row.proxyUrl ? resolveAccountProxyUrl(row.proxyUrl) : null }
-    const task = async (): Promise<{ ok: boolean; ids: string[] } | null> => {
+    const task = async (): Promise<string[]> => {
       if (adapter.listModelsDetailed) {
         const detailed = await adapter.listModelsDetailed(ctx, opts)
         if (detailed.ok && Array.isArray(detailed.models)) {
@@ -2166,54 +2160,20 @@ async function fetchUpstreamModelIds(
             .map((m) => m.id ?? m.name)
             .map((s) => (typeof s === 'string' ? s.trim() : ''))
             .filter((s) => s !== '')
-          if (ids.length > 0) return { ok: true, ids }
-          // 上游明确报空 = 拿到清单(该号确实没模型),不回落
-          if (detailed.models.length === 0) return { ok: true, ids: [] }
-          // 有条目但全被清洗掉:视为没拿到有效清单,继续回落旧接口
+          if (ids.length > 0) return ids
         }
       }
-      if (adapter.listModels) {
-        // listModels 无成败标志:能正常返回即视为拿到清单(空数组=明确报空)
-        const list = await adapter.listModels(ctx, opts)
-        return { ok: true, ids: list.map((s) => s.trim()).filter((s) => s !== '') }
-      }
-      return null
+      if (adapter.listModels) return await adapter.listModels(ctx, opts)
+      return []
     }
-    const timeout = new Promise<null>((resolve) => {
-      const timer = setTimeout(() => resolve(null), POOL_MODEL_UPSTREAM_TIMEOUT_MS)
+    const timeout = new Promise<string[]>((resolve) => {
+      const timer = setTimeout(() => resolve([]), POOL_MODEL_UPSTREAM_TIMEOUT_MS)
       timer.unref?.()
     })
-    const raced = await Promise.race([task().catch(() => null), timeout])
-    if (!raced) return { ok: false, ids: [] }
-    return { ok: true, ids: [...new Set(raced.ids)] }
+    const ids = await Promise.race([task().catch(() => []), timeout])
+    return [...new Set(ids.map((s) => s.trim()).filter((s) => s !== ''))]
   } catch {
-    return { ok: false, ids: [] }
-  }
-}
-
-/**
- * 选择器过滤判定(纯函数,可单测):返回模型的隐藏原因,null = 可显示。
- * - upstreamSet=null:该平台本轮没拿到上游清单(ok=false)——「取不到 ≠ 没模型」,不做交集;
- * - 'intersection':上游明确报了清单且不含此模型(登记行已下架的预置);
- * - 'down':号池模型级健康有明确死亡结论(relay-pool-model-health,被动 404 信号)。
- * 判据任何异常都退化为「不过滤」(fail-open,绝不让选择器打不开)。
- */
-export function poolModelHiddenReason(
-  providerCode: string,
-  modelId: string,
-  upstreamSet: ReadonlySet<string> | null,
-): 'intersection' | 'down' | null {
-  try {
-    if (
-      upstreamSet !== null &&
-      !upstreamSet.has(normalizePoolUpstreamModelId(providerCode, modelId))
-    ) {
-      return 'intersection'
-    }
-    if (isModelDown(providerCode, modelId)) return 'down'
-    return null
-  } catch {
-    return null
+    return []
   }
 }
 
@@ -2284,50 +2244,26 @@ export async function listUserPoolModels(
     presetByProvider.set(row.providerCode, list)
   }
 
-  const upstreamByProvider = new Map<string, { ok: boolean; ids: string[] }>()
+  const upstreamByProvider = new Map<string, string[]>()
   await Promise.all(
     [...byProvider.entries()].map(async ([code, hit]) => {
       const cacheKey = `${userId}:${opts.includeOpsPool ? 'ops' : 'me'}:${code}`
       const cached = poolModelCache.get(cacheKey)
       if (!opts.refresh && cached && cached.expiresAt > Date.now()) {
-        upstreamByProvider.set(code, { ok: cached.ok, ids: cached.upstreamIds })
+        upstreamByProvider.set(code, cached.upstreamIds)
         return
       }
-      const info = isRelayProviderCode(code)
-        ? await fetchUpstreamModelIds(code, hit.row)
-        : { ok: false, ids: [] as string[] }
-      upstreamByProvider.set(code, info)
+      const ids = isRelayProviderCode(code) ? await fetchUpstreamModelIds(code, hit.row) : []
+      upstreamByProvider.set(code, ids)
     }),
   )
 
-  // 连通过滤(2026-11-11 立,用户要求后端统一过滤号池腿):
-  // a. 交集 —— ok=true 的平台,预置行不在上游清单(归一比对)即隐藏;ok=false 照出;
-  // b. 健康 —— 号池模型级 down(被动 404 信号)的预置与上游条目都隐藏。
   const items: UserPoolModelItem[] = []
-  let hiddenByIntersection = 0
-  let hiddenByDown = 0
   for (const [code, hit] of byProvider) {
-    const info = upstreamByProvider.get(code) ?? { ok: false, ids: [] }
-    // 交集判据集合:仅 ok=true 才参与;归一后比对,兼容 trae 裸名与 `<平台>/` 前缀双形态
-    const upstreamSet = info.ok
-      ? new Set(info.ids.map((u) => normalizePoolUpstreamModelId(code, u)))
-      : null
     const seen = new Set<string>()
-    // 去重与交集同用归一判据:裸名/前缀名/大小写差异都是同一模型,不该出两条
-    const seenNorm = new Set<string>()
     for (const preset of presetByProvider.get(code) ?? []) {
       if (seen.has(preset.id)) continue
       seen.add(preset.id)
-      seenNorm.add(normalizePoolUpstreamModelId(code, preset.id))
-      const hidden = poolModelHiddenReason(code, preset.id, upstreamSet)
-      if (hidden === 'intersection') {
-        hiddenByIntersection += 1
-        continue
-      }
-      if (hidden === 'down') {
-        hiddenByDown += 1
-        continue
-      }
       items.push({
         id: preset.id,
         name: preset.name,
@@ -2336,19 +2272,11 @@ export async function listUserPoolModels(
         source: 'preset',
       })
     }
-    for (const upstreamId of info.ids) {
+    for (const upstreamId of upstreamByProvider.get(code) ?? []) {
       const id = toPoolModelId(code, upstreamId)
       // 裸名与带前缀名都算重复:平台登记行可能就用裸名(trae 系),上游清单再报一次不该出两条
-      if (seen.has(id) || seen.has(upstreamId) || seenNorm.has(normalizePoolUpstreamModelId(code, upstreamId))) {
-        continue
-      }
+      if (seen.has(id) || seen.has(upstreamId)) continue
       seen.add(id)
-      seenNorm.add(normalizePoolUpstreamModelId(code, upstreamId))
-      // 上游条目天然在清单集合内,交集免判,只过健康
-      if (poolModelHiddenReason(code, upstreamId, null) === 'down') {
-        hiddenByDown += 1
-        continue
-      }
       items.push({
         id,
         name: upstreamId,
@@ -2357,25 +2285,15 @@ export async function listUserPoolModels(
         source: 'upstream',
       })
     }
-    // 回写缓存:只存上游那一半(预置每次现读,登记变更立即生效);ok 随清单一起缓存,
-    // 命中时沿用(本轮没探上游,结论仍是上一轮的)。键必须与读取处同形(三段含 ops/me)。
-    const cacheKey = `${userId}:${opts.includeOpsPool ? 'ops' : 'me'}:${code}`
-    if (poolModelCache.size >= POOL_MODEL_CACHE_MAX && !poolModelCache.has(cacheKey)) {
+    // 回写缓存:只存上游那一半(预置每次现读,登记变更立即生效)
+    if (poolModelCache.size >= POOL_MODEL_CACHE_MAX && !poolModelCache.has(`${userId}:${code}`)) {
       const oldestKey = poolModelCache.keys().next().value
       if (oldestKey !== undefined) poolModelCache.delete(oldestKey)
     }
-    poolModelCache.set(cacheKey, {
+    poolModelCache.set(`${userId}:${code}`, {
       expiresAt: Date.now() + POOL_MODEL_CACHE_TTL_MS,
-      ok: info.ok,
-      upstreamIds: info.ids,
+      upstreamIds: upstreamByProvider.get(code) ?? [],
     })
-  }
-  const hiddenTotal = hiddenByIntersection + hiddenByDown
-  if (hiddenTotal > 0) {
-    logger.info(
-      `[relay-account-pool] 模型选择器连通过滤: ${items.length + hiddenTotal} → ${items.length}` +
-        ` (隐藏 ${hiddenTotal}:交集未命中 ${hiddenByIntersection} + down ${hiddenByDown})`,
-    )
   }
   return items
 }

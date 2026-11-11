@@ -306,7 +306,9 @@ export function run(argv = [], io = console) {
 /** 判据自检:构造面取证,不碰真仓。每条都成对跑正例与反例。 */
 function selfTest(io) {
   const cases = []
-  const add = (name, pass) => cases.push({ name, pass })
+  // 登记侧求值:函数形态用例（`() => ...`）必须当场调用,否则 `if (!c.pass)` 对函数对象恒真,
+  // 用例从未被执行却一路显示通过 —— 那是"把没判写成判过"的最短路径。改判据无效,只能改这里。
+  const add = (name, pass) => cases.push({ name, pass: typeof pass === 'function' ? pass() : pass })
   const today = '2026-06-30'
   const okW = {
     key: 'x.y',
