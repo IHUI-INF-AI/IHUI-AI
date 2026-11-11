@@ -586,6 +586,41 @@ export function chooseWorkbuddyMain(mains, wantEdition = null) {
 }
 
 /**
+ * 号池统一名单一出口(2026-10-28 立,2026-11-11 抽出):官方绑定手机号优先,
+ * 其次昵称,最后 `workbuddy-<uid 前 8>`。Keycloak JWT 的 preferred_username 即注册手机号
+ * 全号;昵称/脱敏值不得当统一名。载荷名与 meta 名必须同源,故两处都调本函数。
+ */
+export function workbuddyUnifiedName({ account, claims }) {
+  const nickname = typeof account.nickname === 'string' ? account.nickname : ''
+  const pref = claims.preferred_username
+  const phone = typeof pref === 'string' && /^1[3-9]\d{9}$/.test(pref) ? pref : ''
+  return { phone, name: phone || nickname || `workbuddy-${String(account.uid).slice(0, 8)}` }
+}
+
+/**
+ * 落库载荷单枚构造(2026-11-11 抽出纯函数,零 IO ⇒ 可离线测试):
+ * 统一名 = 官方绑定手机号;域声明随行(见体内注)。edition 由调用方(已判定版本)显式传入。
+ */
+export function buildWorkbuddyImportAccount({ account, claims, auth, token, refreshToken, edition }) {
+  const { name } = workbuddyUnifiedName({ account, claims })
+  // 域声明随行入池(2026-11-11 根治):池内 realm 的唯一取材是 extraMetadata.domain
+  // (relay-pool-policy.domainKeyOfRow 与 workbuddy-adapter.resolveIdentity 同一把尺子),
+  // 其次才是 claims.domain。国际版票的 claims 不带域 ⇒ 行里没域 ⇒ 调度器按 CN 端点刷国际版票
+  // ⇒ HTTP 404 ×3 ⇒ 连续超限自动摘除(本机 51872886 实测)。auth.domain 是客户端自己的声明,
+  // 提取器既已读通就必须随行:domain 不属密封键集 ⇒ 经 foreignPassthroughMetadata 落
+  // extraMetadata;edition 属密封键集 ⇒ 落 secretsEnc;两侧导出均已回带 ⇒ 推生产同一个域。
+  const realmDomain = typeof auth.domain === 'string' ? auth.domain.trim() : ''
+  return {
+    name,
+    token,
+    refreshToken,
+    enabled: true,
+    edition,
+    ...(realmDomain ? { domain: realmDomain } : {}),
+  }
+}
+
+/**
  * 提取当前运行中的 WorkBuddy 账号。
  * opts.edition:两版并存(稳定版+AI 版主进程同跑)时点名取哪一版;单进程时无视但校验一致。
  * @returns {{providerCode:'workbuddy', accounts:Array<object>, meta:object}}
@@ -649,26 +684,16 @@ export async function extractWorkbuddyAccount({
     )
   }
 
-  const nickname = typeof account.nickname === 'string' ? account.nickname : ''
-  // 号池统一名称 = 官方绑定手机号(2026-10-28 立):Keycloak JWT 的 preferred_username
-  // 即注册手机号全号;昵称/脱敏值不得当统一名。只对 11 位全号形态生效。
-  const pref = claims.preferred_username
-  const phone = typeof pref === 'string' && /^1[3-9]\d{9}$/.test(pref) ? pref : ''
+  // 统一名与载荷名同源:同一出口算一次,载荷与 meta 不许各算一份(§0.6)
+  const { phone, name } = workbuddyUnifiedName({ account, claims })
   return {
     providerCode: 'workbuddy',
-    accounts: [
-      {
-        name: phone || nickname || `workbuddy-${String(account.uid).slice(0, 8)}`,
-        token,
-        refreshToken,
-        enabled: true,
-      },
-    ],
+    accounts: [buildWorkbuddyImportAccount({ account, claims, auth, token, refreshToken, edition })],
     meta: {
       edition,
       pid,
       uid: String(account.uid),
-      name: phone || nickname,
+      name,
       phone: phone || null,
       authFile,
       tokenExpiresAt: expiresAt ? expiresAt.toISOString() : null,
@@ -705,6 +730,8 @@ export const __test__ = {
   getPathByJsonPath,
   setPathByJsonPath,
   buildSessionTemplate,
+  buildWorkbuddyImportAccount,
+  workbuddyUnifiedName,
   WB_CREDENTIAL_PATHS,
   AUTH_DIR,
   AUTH_FILE_BY_EDITION,

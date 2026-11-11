@@ -390,6 +390,29 @@ describe('导出硬校验:复现不了的行必须拒出(绝不静默产出导�
     expect(validateExportRoundTrip(row, built as Record<string, unknown>)).toMatch(/uid 不可复现/)
   })
 
+  it('raccoon: 单体 Bearer 无续期材料,token/expiresAt/officeIdentity 三键复现', () => {
+    const jwt = makeJWT({ sub: 'pu-01a1c8f5-37ee-70a0', exp: 1796000000 })
+    // uid 键源 = JWT sub(`pu-<uuid>`,与提取器/适配器同一枚)
+    const uid = resolveImportAccountUid('raccoon', { token: jwt } as unknown as ImportAccountInput)
+    expect(uid).toBe('pu-01a1c8f5-37ee-70a0')
+    const row = poolRow('raccoon', {
+      uid: uid!,
+      name: '1994489',
+      tokenExpiresAt: new Date(1796000000 * 1000),
+      creds: {
+        token: jwt,
+        // auth.json 实测无 refresh_token ⇒ 行上也不该有
+        secrets: { meta: { officeIdentity: 'personal' } },
+      },
+    })
+    const payload = expectRoundTrip(row)
+    expect(payload['token']).toBe(jwt)
+    expect(payload['expiresAt']).toBe(new Date(1796000000 * 1000).toISOString())
+    expect(payload['officeIdentity']).toBe('personal')
+    // 不得凭空长出续期键(重导侧 mapRaccoonImport 恒 null,适配器 refreshTokenSupported=false)
+    expect(payload['refreshToken']).toBeUndefined()
+  })
+
   it('grokbot 密封串行:导出构造即拒(无明文凭据可导)', () => {
     const row = poolRow('grokbot', {
       uid: 'g-1',

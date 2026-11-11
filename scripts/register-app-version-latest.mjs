@@ -164,6 +164,24 @@ export function validateDesired({ platform, store, version, buildNumber, downloa
     if (u.protocol !== 'https:') red.push(`downloadUrl 不是 https: ${downloadUrl}`)
     if (!String(u.hostname).endsWith('aizhs.top')) red.push(`downloadUrl 不在自有域: ${u.hostname}`)
     if (u.pathname.length > 512) red.push('downloadUrl 超过列宽 512')
+    // 2026-11-11 真机事故:线上 android latest=0.0.20 那行登记的是 OSS **临时签名直链**
+    // (...?OSSAccessKeyId=&Expires=&Signature=)。签名过期或 bucket 被禁用后,系统安装器
+    // 拿到的是 XML 错误页而不是 APK ⇒ (33) packageinfo is null ⇒ 端内更新卡永久卡住。
+    // 登记进表的必须是可长期复用的稳定件(单一真源 scripts/data/mobile-download-leg.json)。
+    const signedKeys = [
+      'OSSAccessKeyId',
+      'Signature',
+      'Expires',
+      'X-Amz-Signature',
+      'X-Amz-Expires',
+      'X-Amz-Credential',
+      'token',
+      'sign',
+    ]
+    const signed = signedKeys.filter((k) => u.searchParams.has(k))
+    if (signed.length > 0)
+      red.push(`downloadUrl 带临时签名参数(${signed.join(',')}),会过期: ${downloadUrl}`)
+    if (!/\.apk$/i.test(u.pathname)) red.push(`downloadUrl 路径不是 .apk 文件: ${u.pathname}`)
   }
   return red
 }

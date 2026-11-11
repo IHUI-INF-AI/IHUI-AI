@@ -15,6 +15,8 @@
  * - 配额:ApiKeyQuota.checkAndConsume,超限返回 429
  */
 
+import type { TFunction } from './app-shared.js'
+
 /**
  * API Key 权限点枚举。
  * 与 /v1/* 对外路由一一对应,新增端点必须同步新增权限点。
@@ -268,6 +270,65 @@ export interface ApiKeyInfo {
 export interface RotateApiKeyResponse {
   apiKey: ApiKeyInfo
   secret: string
+}
+
+/** 单个 Key 的用量聚合(后端由 api_logs 聚合,非配额窗口)。 */
+export interface ApiKeyUsage {
+  callCount: number
+  lastUsedAt: string | null
+  topEndpoints: Array<{ path: string; method: string; count: number }>
+}
+
+/** 权限点展示项:value 是协议字面值,label 由宿主取词注入。 */
+export interface ApiKeyPermissionOption {
+  value: ApiKeyPermission
+  label: string
+}
+
+/** ApiKeys 共享屏创建入参(rateLimit 默认 60;该列已废弃,仅展示兼容)。 */
+export interface CreateApiKeyInput {
+  name: string
+  permissions: ApiKeyPermission[]
+  rateLimit: number
+}
+
+/**
+ * ApiKeys 共享屏 props(注入式)。
+ *
+ * 平台件(剪贴板/确认弹窗/提示)一律退为可选回调,由 RN 与 web 宿主各自注入;
+ * 共享屏内部零端分支。导航 chrome 与结果 toast 留在宿主。
+ */
+export interface ApiKeysScreenProps {
+  t: TFunction
+  colorScheme?: 'light' | 'dark'
+  list: ApiKeyInfo[]
+  loading: boolean
+  error?: string | null
+  onReload: () => void
+  /** 权限点可选项:RN 传协议原值,web 传本地化标签 */
+  permissionOptions: ApiKeyPermissionOption[]
+  /** 新建表单初始权限:RN 传默认三项,web 传空数组 */
+  defaultPermissions: ApiKeyPermission[]
+  onCreate: (input: CreateApiKeyInput) => void | Promise<void>
+  creating?: boolean
+  createError?: string | null
+  /** 一次性 secret(仅创建/轮换后由宿主注入) */
+  secret?: { value: string; source: 'create' | 'rotate' } | null
+  onCloseSecret: () => void
+  onRotate: (id: string) => void | Promise<void>
+  onDelete: (id: string) => void | Promise<void>
+  rotatingId?: string | null
+  deletingId?: string | null
+  /** 展开用量时按需拉取(宿主持有 HTTP 客户端) */
+  onLoadUsage?: (id: string) => Promise<ApiKeyUsage>
+  /** 复制:RN 注入 Clipboard+appAlert,web 注入 clipboard+toast */
+  onCopy?: (text: string, kind: 'key' | 'secret') => void
+  /** 二次确认:RN 注入 appAlert(Promise 化),web 注入 useConfirm */
+  onConfirm?: (options: {
+    title: string
+    message: string
+    destructive: boolean
+  }) => Promise<boolean>
 }
 
 /** API Key 配额信息。 */

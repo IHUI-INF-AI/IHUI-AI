@@ -30,6 +30,7 @@ export const RELAY_PROVIDERS = [
   'doubao',
   'lingma',
   'grokbot',
+  'raccoon',
 ] as const
 export type RelayProviderCode = (typeof RELAY_PROVIDERS)[number]
 
@@ -120,6 +121,7 @@ export const RELAY_ACCOUNT_PHONE_KEYS: Record<RelayProviderCode, readonly string
   doubao: ['phone'],
   lingma: ['phone'],
   grokbot: ['phone'],
+  raccoon: ['phone'],
 }
 
 /**
@@ -145,6 +147,7 @@ export const RELAY_ACCOUNT_NAME_KEYS: Record<RelayProviderCode, readonly string[
   doubao: ['name'],
   lingma: ['name', 'user_name'],
   grokbot: ['name'],
+  raccoon: ['name'],
 }
 
 /** 统一名入库列宽上限(与 `ai_relay_account_pool.name` 及 applyPhoneCompletion 同值) */
@@ -797,6 +800,8 @@ const RELAY_IMPORT_CREDENTIAL_SLOTS: Record<RelayProviderCode, RelayCredentialSl
   lingma: [{ top: ['token', 'accessToken', 'access_token'] }],
   // GrokBot:形状认得(本机凭证是 sandSealedFile 密封串),但没有明文凭据可导
   grokbot: [{ sealed: { parent: 'credential', keys: ['sandSealedFile', 'data'] } }],
+  // 商汤小浣熊:提取器把 auth.json 的 access_token 折成顶层 token(2026-11-11 实证)
+  raccoon: [{ top: ['token'] }],
 }
 
 /**
@@ -817,6 +822,7 @@ const RELAY_IMPORT_SHAPE_REASON: Record<RelayProviderCode, string> = {
   doubao: '豆包导入条目缺 token/value(cookie 会话族形状不符)',
   lingma: '灵码导入 raw 凭证无 token/accessToken/access_token 字段(字段级形状未实证)',
   grokbot: 'GrokBot 本机凭证为 sandSealedFile 密封串,无明文 token 可导入(待解封方案取证)',
+  raccoon: '小浣熊导入缺少 token(auth.json 形状不符或 access_token 为空)',
 }
 
 /** 形状认不出时的预检 issue code(按平台;validateAccountExport 用) */
@@ -833,6 +839,7 @@ const RELAY_IMPORT_SHAPE_ISSUE_CODE: Record<RelayProviderCode, string> = {
   doubao: 'session-entry-credentials',
   lingma: 'missing-token',
   grokbot: 'grokbot-sealed',
+  raccoon: 'missing-token',
 }
 
 /** 凭据槽位命中(只报键名;值由调用方自行加密,不得回显) */
