@@ -71,24 +71,79 @@ export interface LoginResult extends Omit<SharedLoginResult, 'user'> {
 }
 
 /**
- * 内存缓存 TokenStore(Taro.storage 持久化层)
+ * 内存缓存 TokenStore。
  *
- * 工厂维护 token/refreshToken 内存缓存,通过回调将持久化下放到本端:
- * - initial:模块加载时从 Taro.storage 同步 hydrate 缓存
- * - onSetToken/onSetRefreshToken/onClearAll:同步写 Taro.storage(返回 void,
- *   工厂接受 Promise<void> | void)
+ * access token(短寿命)仍同步落 Taro.storage。refresh token 是长期凭据,
+ * **不落盘**:微信/支付宝等小程序的 storage 是沙箱明文文件,官方没有 Keychain /
+ * Keystore,也没有带访问控制的加密原语(仓内 `credential-storage.ts` 与
+ * `rn-compat/native-secure.ts` 已写明)。把密钥和密文放进同一块 storage 不是保护。
+ * 与 RN `setSecureItem(..., { rejectPlaintext: true })` 同一条失效方向:
+ * 本进程内存里照常续期;进程结束后冷启动只能用尚未过期的 access,过期则重新登录。
+ * 这里不走 native-secure 那层前缀存储——那仍是 setStorageSync,冒充不了 SecureStore。
  *
  * 注意:token-store.ts 注释明确 miniapp-taro 因同步 storage 语义不匹配,通常不走
  * bindTokenStoreToApiClient 适配器;app.tsx 仍调用 bindTokenStoreToApiClient(tokenStore)
  * 仅做类型契约验证,实际 token 注入由 createNotificationClient 的 tokenProvider 负责。
  */
+let loggedRefreshMemoryOnly = false
+
+function noteRefreshMemoryOnly(): void {
+  if (loggedRefreshMemoryOnly) return
+  loggedRefreshMemoryOnly = true
+  console.warn(
+    '[mp-auth] refresh token stays in memory only. Mini program storage is a sandbox ' +
+      'plaintext file with no Keychain/Keystore; a key kept in that same store would not ' +
+      'be protection. After this process ends, a cold start can use the access token until ' +
+      'it expires and then must log in again.',
+  )
+}
+
+/** 抹掉盘上的 refresh。失败只喊,不把「没抹掉」说成「已经安全」。 */
+function eraseStoredRefreshToken(): void {
+  try {
+    removeStorageSync(REFRESH_TOKEN_KEY)
+  } catch (e) {
+    console.warn(
+      `[mp-auth] failed to erase refresh token from storage (a leftover plaintext copy may remain): ${
+        e instanceof Error ? e.message : 'unknown error'
+      }`,
+    )
+  }
+}
+
+/**
+ * 模块加载时的一次性迁移:存量明文读进内存,随即从盘上抹掉。
+ * 读失败不删盘——读失败不等于凭据不在。非字符串残留同样抹掉,但不进内存。
+ */
+function readLegacyRefreshToken(): string | null {
+  let raw: unknown
+  try {
+    raw = getStorageSync(REFRESH_TOKEN_KEY)
+  } catch (e) {
+    console.warn(
+      `[mp-auth] failed to read stored refresh token; leaving the disk copy untouched ` +
+        `(a read failure is not proof the credential is gone): ${
+          e instanceof Error ? e.message : 'unknown error'
+        }`,
+    )
+    return null
+  }
+  const value = typeof raw === 'string' && raw.length > 0 ? raw : null
+  if (value) noteRefreshMemoryOnly()
+  eraseStoredRefreshToken()
+  return value
+}
+
 const tokenStoreCore = createInMemoryTokenStore({
   initial: {
     token: getStorageSync(TOKEN_KEY) || null,
-    refreshToken: getStorageSync(REFRESH_TOKEN_KEY) || null,
+    refreshToken: readLegacyRefreshToken(),
   },
   onSetToken: (token) => setStorageSync(TOKEN_KEY, token ?? ''),
-  onSetRefreshToken: (token) => setStorageSync(REFRESH_TOKEN_KEY, token ?? ''),
+  onSetRefreshToken: (token) => {
+    if (token) noteRefreshMemoryOnly()
+    eraseStoredRefreshToken()
+  },
   onClearAll: () => {
     removeStorageSync(TOKEN_KEY)
     removeStorageSync(REFRESH_TOKEN_KEY)
@@ -348,10 +403,10 @@ export async function refreshAccessToken(): Promise<string | null> {
     return null
   }
   if (res.data?.accessToken) {
-    // 2026-10-26:先落 refreshToken 再落 access。两枚是两次同步写,中间被杀(小程序宿主
-    // 回收/崩溃)会留下"access 新、refresh 旧"的组合 —— 旧的已被服务端轮转吊销,之后每次
-    // 续期都撞 stale-sibling(只拒绝本次、不吊销),这条链再也换不出新凭据,只能重登。
-    // 反过来"refresh 新、access 旧"是能自愈的:access 过期后 401 拦截器拿新 refresh 续上。
+    // 先换 refresh(只进内存,并抹掉盘上旧明文)再写 access。与 RN lib/token.ts 同序。
+    // 小程序没有安全存储,新 refresh 不能落盘。服务端一旦轮换,旧 refresh 即废,
+    // 所以先抹旧再写 access:中断不会留下「新 access + 盘上仍是已吊销的旧 refresh」。
+    // 新 refresh 只活在本进程;进程没了,冷启动用 access 直到过期,然后重新登录。
     if (res.data.refreshToken) setRefreshToken(res.data.refreshToken)
     setToken(res.data.accessToken)
     return res.data.accessToken

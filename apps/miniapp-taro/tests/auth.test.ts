@@ -37,6 +37,7 @@ vi.mock('@tarojs/taro', () => ({
   },
 }))
 
+import { REFRESH_TOKEN_STORAGE_KEY, TOKEN_STORAGE_KEY } from '@ihui/shared/constants'
 import {
   getToken,
   setToken,
@@ -81,6 +82,17 @@ describe('miniapp-taro 认证工具函数', () => {
       expect(getRefreshToken()).toBe('')
       setRefreshToken('refresh-xyz')
       expect(getRefreshToken()).toBe('refresh-xyz')
+    })
+
+    it('refresh 明文不落 storage,access 仍落自己的 key', () => {
+      setToken('access-short')
+      setRefreshToken('refresh-xyz')
+      expect(taroStorage[TOKEN_STORAGE_KEY]).toBe('access-short')
+      expect(taroStorage[REFRESH_TOKEN_STORAGE_KEY]).toBeUndefined()
+      const dumped = Object.values(taroStorage)
+        .map((value) => String(value))
+        .join('\n')
+      expect(dumped).not.toContain('refresh-xyz')
     })
   })
 
