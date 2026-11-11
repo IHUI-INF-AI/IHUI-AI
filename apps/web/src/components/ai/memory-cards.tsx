@@ -141,7 +141,7 @@ export function MemoryCards() {
           type="button"
           data-testid="memory-add"
           onClick={handleAdd}
-          className="flex shrink-0 items-center gap-0.5 rounded-sm border px-2 py-1 text-label transition-colors hover:bg-accent"
+          className="flex shrink-0 items-center gap-0.5 rounded-sm border border-input px-2 py-1 text-label transition-colors hover:bg-accent"
         >
           <Plus className="h-3 w-3" />
           {t('add')}
@@ -154,7 +154,7 @@ export function MemoryCards() {
         data-testid="memory-copy-yaml"
         onClick={() => void handleCopyYaml()}
         disabled={items.length === 0}
-        className="flex w-full items-center justify-center gap-1 rounded-sm border px-2 py-1.5 text-label text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex w-full items-center justify-center gap-1 rounded-sm border border-input px-2 py-1.5 text-label text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
       >
         <Copy className="h-3 w-3" />
         {t('copyYaml')}
