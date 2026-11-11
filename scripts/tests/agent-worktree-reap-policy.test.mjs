@@ -106,4 +106,59 @@ test('P8 删除腿形态锁:robocopy 必须带 maxBuffer(2026-11-11 实测 9/24 
   assert.match(seg, /maxBuffer\s*:/, 'robocopy 缺 maxBuffer ⇒ ENOBUFS 假失败根因复发')
   assert.match(seg, /timeout\s*:/, 'robocopy 必须保留超时上限(守门 80:热路径派生一律带上限)')
 })
+
+test('P9 B1/M2 结论段形状锁:失败数不得被「无回收候选」吞掉、dry-run 计划数独立', () => {
+  const src = readFileSync(
+    join(dirname(fileURLToPath(import.meta.url)), '..', 'agent-worktree.mjs'),
+    'utf8',
+  )
+  const from = src.indexOf("if (has('--reap'))")
+  const to = src.indexOf("if (has('--create'))")
+  assert.ok(from > 0 && to > from, '切不到 --reap 段(锚点漂了 ⇒ 本条恒真)')
+  const body = src.slice(from, to)
+  // B1:旧出口 `if (!removed)` 会让 removed=0∧failed>0 打「ℹ 无回收候选」提前 return ⇒
+  // parseReapReport 先匹配该行返回 failed:0,调度层写 24h 戳静默不重试。
+  const guardIdx = body.indexOf('if (!removed && !failed)')
+  const successIdx = body.indexOf('`✅ 回收 ${removed} 个')
+  const refusedIdx = body.indexOf('if (failed) process.exitCode = EXIT_REFUSED')
+  assert.ok(guardIdx > 0, 'B1:零候选闸必须同时判零失败')
+  assert.ok(successIdx > guardIdx, 'B1:带失败数的 ✅ 行必须在零候选闸之后仍可达')
+  assert.ok(refusedIdx > successIdx, 'B1:失败必须设非零退出码')
+  assert.match(body, /,失败 \$\{failed\} 个/, 'B1:结论行必须把失败数报给 parseReapReport')
+  // I1:正常回收腿跑数分钟后孤儿腿不得复用开头那份过期登记面快照。
+  assert.match(
+    body,
+    /const fresh = git\(\['worktree', 'list', '--porcelain'\]\)/,
+    'I1:孤儿腿前必须重取登记面',
+  )
+  assert.match(body, /parseWorktreeList\(fresh\.out\)/, 'I1:重取结果必须真的用于孤儿判据')
+  // M2:dry-run 单独一条结论,计划数只报"将"。
+  assert.match(body, /if \(!apply\) \{/, 'M2:dry-run 必须单独出结论,不得与 ✅/无候选双结论')
+  assert.match(body, /plannedTombstone/, 'M2:dry-run 计划数不得混进已删计数')
+  assert.equal(
+    body.includes('ℹ dry-run:将回收 ${doomed.length} 个(其中'),
+    false,
+    'M2:循环前那条旧 dry-run 结论必须删掉(否则双结论)',
+  )
+})
+
+test('P10 I2/M4 形状锁:显式档只接受 remove,robocopy stderr 必须带进诊断', () => {
+  const src = readFileSync(
+    join(dirname(fileURLToPath(import.meta.url)), '..', 'agent-worktree.mjs'),
+    'utf8',
+  )
+  const from = src.indexOf("if (has('--purge-orphan'))")
+  const to = src.indexOf('用法:--create', from)
+  assert.ok(from > 0 && to > from, '切不到 --purge-orphan 段(锚点漂了 ⇒ 本条恒真)')
+  const body = src.slice(from, to)
+  assert.match(body, /explicitPurge: true/, 'I2:人工裁决档必须让判据自证,不许靠时间闸归零绕过')
+  assert.match(body, /verdict\.action !== 'remove'/, 'I2:tombstone 也当真删 = 绕过两段式可逆窗口')
+
+  const rcFrom = src.indexOf('function robustRemoveWorktreeDir')
+  const rcTo = src.indexOf('export function evaluateReapCandidate')
+  const rc = src.slice(rcFrom, rcTo)
+  assert.match(rc, /e\?\.stderr/, 'M4:stdout 丢弃后 stderr 是唯一逐文件错误来源,必须带出')
+  assert.match(rc, /stdio: \['ignore', 'ignore', 'pipe'\]/, 'M4:stdout 必须从源头丢弃')
+  assert.match(rc, /删除后目录仍在/, 'M4:删不掉时不得返回空 err 让人无从排障')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
