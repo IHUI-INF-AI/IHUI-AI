@@ -12,9 +12,10 @@
  *   GET /api/earnings/funnel         — 转化漏斗(register→active→byok→vip)
  *
  * 数据源(基于真实 schema,非任务描述猜测):
+ *   - llm_call_logs 顶层列 `cost_cents`(numeric,单位:分,2026-08-01 起由 recordCall 写入)
+ *       → 中转站模式(metadata.byokMode 非 true)的平台收入
  *   - llm_call_logs.metadata JSONB(由 relay-billing-service.recordCall 写入):
  *       * metadata.byokMode=true   → BYOK 模式,平台抽成 = metadata.platformFeeCents(分)
- *       * metadata.byokMode IS NULL → 中转站模式,平台收入 = metadata.costCents(分)
  *   - users:created_at(引流)/ is_vip > 0(付费转化)
  *   - publish_accounts.user_id:平台发布渠道引流
  *
@@ -28,6 +29,7 @@ import { z } from 'zod'
 import { dbRead } from '../db/index.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error, parseOrThrow } from '../utils/response.js'
+import { relayCostCentsColumnSql } from '../services/relay-cost.js'
 
 // =============================================================================
 // 响应类型(精确,对齐前端 apps/web/src/hooks/use-earnings.ts)
@@ -177,7 +179,7 @@ export const earningsRoutes: FastifyPluginAsync = async (server) => {
           COALESCE(SUM(CASE
             WHEN (metadata->>'byokMode' IS NULL OR metadata->>'byokMode' != 'true')
               AND created_at >= ${todayStartIso}
-            THEN (metadata->>'costCents')::numeric
+            THEN ${relayCostCentsColumnSql()}
             ELSE 0
           END), 0) AS today_relay,
           COALESCE(SUM(CASE
@@ -189,7 +191,7 @@ export const earningsRoutes: FastifyPluginAsync = async (server) => {
           COALESCE(SUM(CASE
             WHEN (metadata->>'byokMode' IS NULL OR metadata->>'byokMode' != 'true')
               AND created_at >= ${yesterdayStartIso} AND created_at < ${yesterdayEndIso}
-            THEN (metadata->>'costCents')::numeric
+            THEN ${relayCostCentsColumnSql()}
             ELSE 0
           END), 0) AS yesterday_relay
         FROM llm_call_logs

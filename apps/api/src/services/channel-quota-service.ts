@@ -537,6 +537,31 @@ const EMPTY_DAILY: DailyUsageResult = {
   errorCount: 0,
 }
 const EMPTY_MONTHLY: MonthlyUsageResult = { callCount: 0, totalTokens: 0, totalCostCents: 0 }
+
+/** F-702:月度 SUM 聚合行；`::bigint` 后驱动可能返回 string，故入参放宽。 */
+export interface MonthlyUsageAggRow {
+  callCount: string | number | null
+  totalTokens: string | number | null
+  totalCostCents: string | number | null
+}
+
+/**
+ * F-702:把月度 SUM 聚合行归一成 number 契约（admin Dashboard 依赖 number）。
+ *
+ * 旧 SQL 用 `::bigint::int`，当月 token 超 2^31 直接抛错；改为 `::bigint` 后
+ * 驱动可能把 int8 以 string 返回，这里统一 `Number()` 收口。
+ * 行缺失或字段为 null 时兜底 0，避免 NaN/null 漏给调用方。
+ */
+export function normalizeMonthlyUsage(
+  row?: Partial<MonthlyUsageAggRow> | null,
+): MonthlyUsageResult {
+  return {
+    callCount: Number(row?.callCount ?? 0),
+    totalTokens: Number(row?.totalTokens ?? 0),
+    totalCostCents: Number(row?.totalCostCents ?? 0),
+  }
+}
+
 /**
  * DB-45:一次聚合多个渠道的当日/当月用量。
  *
@@ -574,9 +599,10 @@ export async function getUsageSummaries(
     dbRead
       .select({
         keyPoolId: aiRelayChannelDailyUsage.keyPoolId,
-        callCount: sql<number>`coalesce(sum(${aiRelayChannelDailyUsage.callCount}), 0)::bigint::int`,
-        totalTokens: sql<number>`coalesce(sum(${aiRelayChannelDailyUsage.totalTokens}), 0)::bigint::int`,
-        totalCostCents: sql<number>`coalesce(sum(${aiRelayChannelDailyUsage.totalCostCents}), 0)::bigint::int`,
+        // F-702:去掉二次 int32 收窄，月累计超 2^31 不再抛错；映射处 Number() 还原契约。
+        callCount: sql<number>`coalesce(sum(${aiRelayChannelDailyUsage.callCount}), 0)::bigint`,
+        totalTokens: sql<number>`coalesce(sum(${aiRelayChannelDailyUsage.totalTokens}), 0)::bigint`,
+        totalCostCents: sql<number>`coalesce(sum(${aiRelayChannelDailyUsage.totalCostCents}), 0)::bigint`,
       })
       .from(aiRelayChannelDailyUsage)
       .where(
@@ -604,11 +630,7 @@ export async function getUsageSummaries(
   for (const row of monthlyRows) {
     const entry = summaries.get(row.keyPoolId)
     if (!entry) continue
-    entry.monthly = {
-      callCount: row.callCount,
-      totalTokens: row.totalTokens,
-      totalCostCents: row.totalCostCents,
-    }
+    entry.monthly = normalizeMonthlyUsage(row)
   }
   return summaries
 }

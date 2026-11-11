@@ -28,6 +28,7 @@ import { composeApiCredential } from '../utils/api-key-credential.js'
 import { requireAuth } from '../plugins/require-permission.js'
 import { paginationSchema } from './admin/_shared.js'
 import { rechargeApiKeyFromWallet } from '../services/relay-billing-service.js'
+import { sumRelayCostCentsSql } from '../services/relay-cost.js'
 import { createMapping, listMappings } from '../services/model-mapping-service.js'
 import { redeemCode } from '../services/redemption-code-service.js'
 import { requireStepUpForTwoFactorUser } from '../services/two-factor-step-up-store.js'
@@ -369,7 +370,7 @@ const developerRelayRoutes: FastifyPluginAsync = async (server) => {
           completionTokens: sql<number>`coalesce(sum(${llmCallLogs.completionTokens}), 0)::bigint::int`,
           successCount: sql<number>`count(*) filter (where ${llmCallLogs.status} = 'success')::int`,
           errorCount: sql<number>`count(*) filter (where ${llmCallLogs.status} = 'error')::int`,
-          totalCostCents: sql<number>`coalesce(sum(((${llmCallLogs.metadata}->>'costCents')::numeric)::int), 0)::int`,
+          totalCostCents: sumRelayCostCentsSql(),
           // BYOK 调用次数(metadata->>'byokMode'='true')
           byokCallCount: sql<number>`count(*) filter (where ${llmCallLogs.metadata}->>'byokMode' = 'true')::int`,
           // 中转站调用次数
@@ -390,7 +391,7 @@ const developerRelayRoutes: FastifyPluginAsync = async (server) => {
         .select({
           totalCalls: sql<number>`count(*)::int`,
           totalTokens: sql<number>`coalesce(sum(${llmCallLogs.totalTokens}), 0)::bigint::int`,
-          totalCostCents: sql<number>`coalesce(sum(((${llmCallLogs.metadata}->>'costCents')::numeric)::int), 0)::int`,
+          totalCostCents: sumRelayCostCentsSql(),
           byokCallCount: sql<number>`count(*) filter (where ${llmCallLogs.metadata}->>'byokMode' = 'true')::int`,
           relayCallCount: sql<number>`count(*) filter (where ${llmCallLogs.metadata}->>'byokMode' IS NULL OR ${llmCallLogs.metadata}->>'byokMode' != 'true')::int`,
           upstreamCostCents: sql<number>`coalesce(sum(((${llmCallLogs.metadata}->>'upstreamCostCents')::numeric)::bigint), 0)::bigint::int`,
@@ -403,11 +404,12 @@ const developerRelayRoutes: FastifyPluginAsync = async (server) => {
         success({
           groupBy,
           mode,
-          rows,
+          // ::bigint 在 postgres.js 下是字符串,出口统一转 number。
+          rows: rows.map((r) => ({ ...r, totalCostCents: Number(r.totalCostCents) })),
           summary: {
             totalCalls: summary?.totalCalls ?? 0,
             totalTokens: summary?.totalTokens ?? 0,
-            totalCostCents: summary?.totalCostCents ?? 0,
+            totalCostCents: Number(summary?.totalCostCents ?? 0),
             byokCallCount: summary?.byokCallCount ?? 0,
             relayCallCount: summary?.relayCallCount ?? 0,
             upstreamCostCents: summary?.upstreamCostCents ?? 0,
