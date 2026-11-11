@@ -161,6 +161,11 @@ async def test_llm_models_endpoint(client):
     assert len(data["models"]) > 0
     # stub_mode 应为 True(测试环境无 API key)
     assert data["stub_mode"] is True
+    # 每个模型条目都要带探测状态字段(向前端区分已验证/未探测,向后兼容只加不改)
+    for m in data["models"]:
+        assert m["health_status"] in {"healthy", "pending", "unknown"}
+        assert isinstance(m["health_error"], str)
+        assert len(m["health_error"]) <= 200
 
 
 async def test_llm_complete_with_metadata(client):
