@@ -41,8 +41,11 @@
 //     同对象有 borderColor(含方向色键)⇒ 合规;同对象有 `...` 展开(主题注入)⇒ 未判定报名
 //     (不猜展开带不带色);都没有 ⇒ 判红(RN 缺省边框色是黑,与 web 裸 border 落 @layer base
 //     同一失效型)。不要求按钮证据:裸宽无色无论元素类型都渲染黑边,都是缺陷。
-//     建门时全仓实测(packages/app、apps/mobile-rn、packages/ui-native 共 1027 文件):
-//     borderWidth 879 处已配对、1 处主题展开、裸宽 14 处 —— 14 处已由遗留票全部补色收口。
+//     建门时全仓实测(packages/app、apps/mobile-rn、packages/ui-native 共 1027 文件)报"裸宽 14 处";
+//     2026-11-11 遗留票逐处复核**全部为侦察误报**:11 处零宽刻意压边(borderWidth: 0,不画边)、
+//     3 处唯一调用点内联注色(SearchInput/plan-styles/RankingScreen,永不落黑)。门体判据据此
+//     增设零宽豁免,3 处存量入台账锚点(理由见 $rn-inline-injected)。同票小程序 CSS 面
+//     chat.css:121 `border: 2rpx solid` 已补 var(--color-white-45) 回退色,CSS 源码面清零。
 //
 // 存量不得判红(立门即恒红是本仓最高反面教训):棘轮锚点 = **该文件在被审面上的自身违规数**,
 //  键 = `文件|border-color-implicit`,台账 scripts/button-border-color-baseline.json。
@@ -376,6 +379,11 @@ export function auditFileText(rel, src, sharedMap) {
  *  都没有 ⇒ 判红(RN 缺省边框色是黑)。
  * 不要求按钮证据:裸宽无色无论元素类型都渲染黑边,都是缺陷(与 JSX 面"只做可判定的事"同纪律,
  *  这里对象边界是可判定的,所以不需要按钮词元来缩小射程)。
+ * **零宽豁免**:borderWidth: 0 不画边、补色无意义 ⇒ 直接合规(2026-11-11 遗留票复核:建门侦察的
+ *  14 处"裸宽"里 11 处是零宽刻意压边 —— ±10 行窗口启发式不辨零宽,门体判据必须辨)。
+ * **调用点注色不跟踪**:静态对象无色但唯一调用点内联补色(同票复核 3 处:SearchInput、
+ *  plan-styles、RankingScreen)—— 跨文件流分析不在射程,这 3 处按存量入台账锚点 1(理由写在
+ *  台账 $rn-inline-injected),同文件再增裸宽照常判红。
  * 射程由调用方把住(RN_DIR_RE ∩ .ts/.tsx);web 的 .ts 无 StyleSheet 面,不进。
  */
 const RN_BW_RE = /\bborder(?:-(?:Top|Bottom|Left|Right|Start|End))?Width\s*:/g
@@ -388,6 +396,12 @@ export function auditRnStyleText(rel, src) {
   RN_BW_RE.lastIndex = 0
   let m
   while ((m = RN_BW_RE.exec(kept))) {
+    // 零宽豁免:borderWidth: 0 不画边,补色无意义(遗留票复核 11/14 处为此形态,见上注)
+    const after = kept.slice(m.index + m[0].length, m.index + m[0].length + 16)
+    if (/^0\s*(?:[,}\r\n;]|$)/.test(after)) {
+      out.compliant++
+      continue
+    }
     let depth = 0
     let objStart = -1
     for (let i = m.index - 1; i >= 0; i--) {
