@@ -856,6 +856,11 @@ export const FLAT_NAV_ITEMS = ALL_NAV_SOURCE_ITEMS
  * 逻辑:pathname 以 href 开头,且没有其他 nav item 的 href 更精确地匹配当前 pathname。
  */
 export function isHrefActive(href: string, pathname: string): boolean {
+  // 根路径必须精确匹配(2026-11-11 用户反馈「没在首页,首页却常驻高亮」):
+  // '/' 是任意 pathname 的前缀,而「更精确 href」只在 ALL_NAV_HREFS 里找 ——
+  // 未登记进导航表的真实路由(/plugins、/chat/:id、/login 等)一个都命中不了,
+  // 于是首页被判为命中且无更精确项,导致只要不在 nav 表内路由上就高亮首页。
+  if (href === '/') return pathname === '/'
   if (!pathname.startsWith(href)) return false
   return !ALL_NAV_HREFS.some((h) => h !== href && h.startsWith(href) && pathname.startsWith(h))
 }

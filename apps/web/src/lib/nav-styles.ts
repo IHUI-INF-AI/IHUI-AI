@@ -59,11 +59,12 @@ export const NAV_ITEM_EXPANDED_CLASS = 'w-full'
  *  py-1.5 = 6px 上下内边距(高度略小于父级)
  */
 export const NAV_CHILD_CLASS =
-  'flex h-9 w-full min-w-0 items-center gap-2 rounded-md pl-5 pr-2.5 py-1.5 text-sm font-medium leading-none whitespace-nowrap transition-colors [&>span]:translate-y-[var(--text-vcenter-offset)]'
+  'flex h-9 w-full min-w-0 items-center gap-2.5 rounded-md pl-5 pr-2.5 py-1.5 text-sm font-medium leading-none whitespace-nowrap transition-colors [&>span]:translate-y-[var(--text-vcenter-offset)]'
 
 /** 通用按钮:新建任务 / 工具栏触发器
  *  - h-9 w-full 与导航项高度一致
- *  - bg-foreground/10 浅色态背景,hover 加深到 20%
+ *  - 本身不带底色(2026-11-11 起):调用方按语义补 hover/active 态,
+ *    避免常驻灰底被误读成「选中」;侧栏内统一用 hover:bg-sidebar-item-hover-bg
  *  - gap-2.5 + px-2.5 + py-2 与 NAV_ITEM_BASE_CLASS 完全对齐(2026-08-02 修:原 gap-2/px-3 导致文字位置与导航项不一致)
  *  - [&>span]:translate-y-[var(--text-vcenter-offset)] 对齐(默认 0.3px)
  */
@@ -150,8 +151,10 @@ export const SIDEBAR_TOGGLE_BTN_CLASS =
 /** 折叠/展开箭头 hover 微位移:展开态箭头朝左 ⇒ 向左轻推;折叠态箭头朝右 ⇒ 向右轻推。
  *  只位移 svg 内的 <g>,不改 svg 自身 20×20 与按钮 36×36 的盒子 —— 视觉守门测的是外层盒,
  *  位移不参与布局,不会让任何断言翻红。 */
-export const SIDEBAR_ARROW_NUDGE_LEFT = 'transition-transform duration-200 group-hover/toggle:-translate-x-[1.5px]'
-export const SIDEBAR_ARROW_NUDGE_RIGHT = 'transition-transform duration-200 group-hover/toggle:translate-x-[1.5px]'
+export const SIDEBAR_ARROW_NUDGE_LEFT =
+  'transition-transform duration-200 group-hover/toggle:-translate-x-[1.5px]'
+export const SIDEBAR_ARROW_NUDGE_RIGHT =
+  'transition-transform duration-200 group-hover/toggle:translate-x-[1.5px]'
 
 /** 模型选择器下拉触发器 (h-9,icon + 文字 + chevron)
  *  - 三元素同行,中间文字 span 加 translateY

@@ -248,7 +248,7 @@ const CustomNavSection = React.memo(function CustomNavSection({
             onClick={openDialog}
             aria-label={t('customAddTitle')}
             data-testid="nav-custom-add"
-            className="mx-auto flex h-9 w-9 items-center justify-center rounded-sm text-foreground/70 transition-colors hover:bg-sidebar-item-hover-bg hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="mx-auto flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-item-hover-bg hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <Plus className="h-5 w-5 shrink-0" />
           </button>
@@ -300,8 +300,8 @@ const CustomNavSection = React.memo(function CustomNavSection({
           type="button"
           onClick={openDialog}
           className={cn(
-            'flex h-9 w-full min-w-0 items-center gap-2.5 rounded-sm px-2.5 py-2 text-body font-medium leading-none whitespace-nowrap transition-colors',
-            'text-muted-foreground/60 hover:bg-sidebar-item-hover-bg hover:text-accent-foreground',
+            'flex h-9 w-full min-w-0 items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium leading-none whitespace-nowrap transition-colors',
+            'text-muted-foreground/60 hover:bg-sidebar-item-hover-bg hover:text-foreground',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
           )}
         >

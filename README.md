@@ -103,7 +103,7 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 工程守门 | 357 | `guardianGates` |
 | — blocking | 328 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 20938 | `trackedFiles` |
+| 跟踪文件 | 20940 | `trackedFiles` |
 
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-11。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -5457,116 +5457,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - **已知缺口(deferred 不落盘)**:派发队列是进程内一次性内存队列(无常驻服务、无轮询、无持久化),投递记录要等任务跑完才写表。`dispatch:'async'` 已回 200、后台任务尚未跑完的窗口里若 API 进程崩溃或重启,内存任务与未写入的投递表一并丢失;GitHub 侧已记成功不会重投,进程内一级去重 LRU 也随之消失 ⇒ 该次投递的评审 / 评论回写静默丢失、无法重放、无从对账。当前实现未收口此窗口(积压满触发「就地执行」的兜底只防积压,不防进程退出)。
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
-**2026-11-11**
-- 🔧 工程/其他:收编守护落档产出(2 件,凭落点账本) (702e0df09c)
-- 🔧 工程/其他:重算四端 ui-routes 与 rn-route-map + knip/README 数字同步 (68c0e32d3a)
-- 🐞 修复:同平台重复治理 —— zcode 键源补链 + 签到归属迁移收养 (2c72a450ec)
-- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (f40d9ae05f)
-- 🐞 修复:系统管理员凭据轮换例外 —— 仅放行 password_hash 变更 (727f76a0c5)
-- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (2696dd5c87)
-- 🐞 修复:导出/回放腿按 2026-11-11 真机实证修正三处假绿 (d959839357)
-- 🔧 工程/其他:壳声明件跟随新落承载页(260 条说明符) (b0edc59ca8)
-- 🔧 工程/其他:自动落 2 枚小程序壳承载页(共 2 枚待产) (f8075c6c40)
-- 🐞 修复:补齐 UpstreamSocketOpenOptions.heartbeatMs 契约并收口两脚本类型错(清 T1) (6756238fb0)
-- 🚀 新功能/改进:登录锁定支持账号豁免名单,默认关闭 (ab97a2a5fc)
-- 🐞 修复:清掉测试面 typecheck 里长连接 lane 的 6 个存量错误 (9573af5378)
-- 📚 文档:自动刷新最近更新块 (9f1dafe915)
-- 🐞 修复:扫码面板取消自动弹协议窗,改为内联同意并继续 (23e6125fd9)
-
-**2026-11-11**
-- 📚 文档:自动刷新最近更新块(收敛循环) (deda1ac0ff)
-- 🚀 新功能/改进:上游会话续写缓存 —— 同会话多轮透传 conversation_id,不再每次重建对话 (ec105c4023)
-- 🚀 新功能/改进:回放迁移腿 —— 旧号对话以新会话进新号,豆包切号后可接着聊 (1af0dce1f4)
-
-**2026-11-10**
-- ⚡ 性能:全池推生产合并为单次 SSH 握手，能力探针与导出并行 (e4008a1a7a)
-
-**2026-11-11**
-- 📚 文档:自动刷新最近更新块(收敛循环) (d5e9ecf561)
-- 🐞 修复:启动门只等必需后端三件套,/health 免租户(修 240s 假死) (3460206c42)
-
-**2026-11-11**
-- 📚 文档:刷新生成块数字(trackedFiles 20934→20936,并入 relay 长连接收口 2 个新文件) (52848a9f7e)
-- 📚 文档:自动刷新最近更新块 + 游标跟进 cb64a7fd1c (86abb395e5)
-
-**2026-11-10**
-- 🐞 修复:长连接收口——代理隧道 agent、会话级亲和键、看门狗补全 (14dcbd290d)
-
-**2026-11-10**
-- 📚 文档:刷新生成块数字(trackedFiles 20930→20934,并入远端 4 个新脚本路径) (cb64a7fd1c)
-- 🔧 工程/其他:同步小程序 entry 清单(新增 2 枚壳承载页后页面数 331→333) (13e9ad2c96)
-- 🐞 修复:侧边栏选中态降对比 —— 统一 sidebar-active 弱底(明暗主题) (104ed9e8f9)
-- 🐞 修复:豆包跨号会话云端归档腿 + 一键入口文案据实测更新 (8068aa017c)
-- 🚀 新功能/改进:号池导入支持批量与生产推送，全池迁生产收敛为一条命令 (da8d7b0606)
-- 📚 文档:刷新生成块数字(relay 长连接 4 文件并入致 trackedFiles+4/testFiles+2/wsEndpoints+1/apiRoutes+1) (993f458ebf)
-- 🔧 工程/其他:壳声明件跟随新落承载页(258 条说明符) (a83db3919e)
-- 🔧 工程/其他:自动落 2 枚小程序壳承载页(共 4 枚待产) (7ce25c7a45)
-- 🐞 修复:会话对账器补字节级兜底 —— 库被清空也不再是盲区 (df6082c173)
-- 🐞 修复:base.css 第二份源纳入小程序 token 同步触发面 并补全 T1 配套断言 (36d956d285)
-- 🔧 工程/其他:补 relay 长连接 4 个新增文件的溯源水印 (45e114f364)
-- 🚀 新功能/改进:号池 relay 全链路长连接贯通(契约+传输层+选路+WS 入口) (87e9aad2af)
-- 🚀 新功能/改进:对话随行落到实处 + WorkBuddy/OpenCode 写回真打通 (250ec2e0e3)
-- 🐞 修复:补 miniapp-taro 词包 eduAi 命名空间 20 键 清门 302p (9ea36e90cb)
-- 🐞 修复:豆包 chat 打通 —— POST /chat/completion + SSE,推翻「走长连接」误判 (5414871662)
-- 🔧 工程/其他:补两枚判据面收敛提交的具名追认行 (636bde6529)
-- 🐞 修复:豆包 chat 打通 —— POST /chat/completion + SSE,推翻「走长连接」误判 (44404bb5e2)
-- 🔧 工程/其他:ui-routes 四端重算 + knip 受管块同步 (External-Red-Audit / Push-Channel: direct-merge) (94dcbdd310)
-- 🔧 工程/其他:生成器重算收口 — sync-readme-numbers / gen-ui-routes / gen-i18n-compressed / gen-knip (External-Red-Audit / Push-Channel: direct-merge) (3cc4c48fdb)
-- 🐞 修复:收尾修复 — 门 128 platform 非法 + docs 同步 + RN 残留清理 (55b19ffe08)
-- 🐞 修复:豆包适配器判活改走 IM batch_get,实证替换全部推断值 (57f105e3f0)
-- 🐞 修复:豆包适配器判活改走 IM batch_get,实证替换全部推断值 (00a62e9b2e)
-- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (0ba0746bb8)
-- 🐞 修复:修掉「写了但客户端不认」的两型 —— MiniMax 记录形状污染 + OpenCode v2 落点失效 (0c17085f7d)
-- 🐞 修复:余额端点二次实证纠正(改 points/records + 100001 非失效,避免误杀有效号) (68c93885b4)
-- 🐞 修复:余额端点实证落地(域名+路径+token 头三重纠错,缺票不判死) (ffcff7a443)
-- 🐞 修复:一键切号写回腿根治 + 缺模板拒写 + 会话模板回填器物 (136b39adff)
-- 🚀 新功能/改进:小程序/RN 中文回退链同源 + RN 端自托管方案根因收口 (9fb83e175b)
-- 🚀 新功能/改进:web 正文 400 档分段 unicode-range 按需面 + 门 313 跨端触发面补齐 (57d84775b4)
-- 🚀 新功能/改进:一键切号窗口实时显示各平台余额(未支持如实标注,不编 0) (c1aebcd0ac)
-- 🔧 工程/其他:裸 git 派生迁 gitRaw 层 收口棘轮例19 (450f453118)
-- 🐞 修复:收口 gate-test(6) 两枚 Linux 专属红(abort 漏判 + 原子写夹具漂移) (3e662520bc)
-- 🐞 修复:修复永久保活号静默饿死(server 档未判定放行 + minimax 探针接线 + 1h 节拍) (6a6c3cfcd4)
-- 🚀 新功能/改进:门 313 登记维断判据根治 + 属主登记补漏 + token 档位同源 (9dd458b22b)
-- ♻️ 重构:门体自检的 cat-file 取材收敛到 face-reader 取材层 (a8ad54d211)
-- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (aef27ba3d9)
-- 📚 文档:数字块按 HEAD 面重算（与推门 check-doc-numbers 同面） (7c9999939f)
-- 🐞 修复:补迁 check-hook-chain-refs 的跨行裸 git 派生 (46dd3e0b86)
-- 🐞 修复:五处裸 git 派生迁到统一承载层 gitRaw（清门193与测试面两条欠账） (264c676468)
-- 🐞 修复:门313 补 T4 书写面臂——品牌/子集/display 族所在栈一律配中文现代黑体兜底 (d786ae8aef)
-- ⚡ 性能:接线对账门多模式 grep 分片,真仓全量 43.8s→8.7s (a381e3a33f)
-- 🐞 修复:恢复 /llm/models 路由挂载并消除 build_model_catalog 自递归 (3e8fdd3d4d)
-- 🚀 新功能/改进:三端滚动边缘淡出 ScrollEdgeFades + 抽屉/底部遮罩细化 (acdd5f169e)
-- ⚡ 性能:祖先取材改逐路径并发,18 条 M 路径 44.8s→19.4s (c6bb81e584)
-- ⚡ 性能:祖先取材按 HEAD+路径记忆,同轮不再为同一路径走两遍全历史 (d0b4aad671)
-- ⚡ 性能:3b 对账延后到后台 + 逐路径覆盖结论缓存,提交链 116.7s→28s (7ab84a9314)
-- ⚡ 性能:水印提交档分母收窄到本次携带,单门 24.5s→1.0s (0cf426141b)
-- ⚡ 性能:30a 悬空集合单列缓存,提交链守门实测 309s→69s (775ca7e783)
-- 🐞 修复:合并后按 token 档归一 inline-question-card 字号与字重 (10e5b33bb5)
-
-**2026-11-08**
-- 🚀 新功能/改进:补齐 AI 生成显式/隐式标识 (8d972f386c)
-- 🚀 新功能/改进:补齐 AI 生成显式/隐式标识 (f4535c338e)
-- 🚀 新功能/改进:Groups 屏薄壳承载落地(RN 壳同源渲染,词条取 web 原文) (e7d27e3e99)
-
-**2026-11-07**
-- 🐞 修复:补 web 端 apiKeys en/ko 译文(24 键,清门 4 pending) (5e1c14de23)
-- 🐞 修复:四屏壳改桶导入,补门173共享屏直接 import 覆盖 (e71cd19a5d)
-- 🚀 新功能/改进:TeamKnowledge 屏下沉共享屏,RN/Web 同源渲染零降级 (c0ca814f16)
-- 🔧 工程/其他:重算 rn-shells.generated.d.ts（补 VipTraderScreen，修门 251 C9 不同步） (fa6c08282d)
-- 🐞 修复:RepoWiki 生成禁用提示回到宿主(详情内重复入口去重后补齐可发现性;删 web 失用键 refresh/regenerate) (a3dc7d1bc5)
-- 🚀 新功能/改进:RepoWiki 共享屏下沉(RN/Web 同源渲染,零降级) (b37e84d18c)
-- 🐞 修复:Groups 三列断点卡片基宽 (97cb9752de)
-- 🚀 新功能/改进:Groups 屏下沉共享屏,两端宿主注入 (39fcfc991b)
-- 🚀 新功能/改进:Patrol 屏下沉共享屏,两端宿主注入 (cd9a85fea2)
-- 🚀 新功能/改进:ApiKeys 屏下沉共享屏,web/mobile-rn 五语言词表补齐 (10f86bc743)
-- ♻️ 重构:EarnCommission 壳删冗余 View 层(共享屏根已等价提供 flex+背景) (62cb2eaa1f)
-- 🚀 新功能/改进:TokenValue 记录时间范围条下沉共享屏(数据型注入点,RN/小程序同源) (e7c52e45ba)
-- 🚀 新功能/改进:8 条单端槽位裁决落锁,2 条真下沉 (72a500c115)
-- 🔧 工程/其他:再 rebase 后生成器取胜, 刷新 ui-routes 钉值与 README 数字 (5c833a7bbc)
-
-**2026-11-06**
-- 🚀 新功能/改进:补齐 Team/MessageCenter/ArticleList/Coupon 行为型 prop 跨端缺口并清理死契约 (a872076ccc)
-
 **2026-11-10**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (7c975f7d2e)
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (49a2a775d2)
@@ -5575,10 +5465,8 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🔧 工程/其他:miniapp 离线包按 HEAD 面(7f27d9d3ae)消息源重生成——清偿合并提交 c501898 记账的『生成物按本侧留下、落地后需重生成』欠账:三 gen.ts 自述钉 sourceCommit 对齐当前 HEAD,inputsSha256=a80eef25 对齐 mobile-rn 五语言与 shared 四语言现量(含 hrAttendance 去重后键面),补齐 en/ja/ko/zh-TW 包缺的 stepDecision.decision.skillGrantSkipApproval 与 zh-TW taskStatus.toolBrowserConsoleMessages 取值修正;CDN 载荷同批输出,溯源水印已注入;索引原暂存版为 05:15 同源重生成(仅 sourceCommit 钉旧 HEAD 与时间戳差),已按最新钉面覆盖 (0e730258df)
 - 🐞 修复:key_pool_selector 收口 mypy 两处类型错,解密失败改 fail-closed (43f40c6d30)
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (c975820262)
-
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (58ff04350e)
 - 🐞 修复:收口 shard 下游 40 项测试红(checkpoints 拆层 + worktree 守卫次序 + 普查面对齐) (1d74cb4f50)
-
 **2026-11-10**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (59caf867b1)
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (765673a89e)
@@ -5643,13 +5531,65 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:补 skillGrantSkipApproval 五语言词条并修正 zh-TW 主控臺用词 (ff17abfc55)
 - 🐞 修复:vitest 收集面显式排除 dist,消除 57 例重复执行 (b7eaf2ad7d)
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (0d0c352538)
-
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (51c0c84e6c)
 - ⚡ 性能:接线对账门多模式 grep 分片,真仓全量 43.8s→8.7s (b3b69ab321)
-
 **2026-11-10**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (f611c37a62)
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (7898525095)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (c224f786e6)
+**2026-11-10**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (7b48014e26)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (4e7adad235)
+- 📚 文档:数字块按 HEAD 面重算（与推门 check-doc-numbers 同面） (bd0fee0d4f)
+- 📚 文档:数字块按 HEAD 面重算（与推门 check-doc-numbers 同面） (09240bd0f0)
+- 🐞 修复:门 313 登记缺省判面——派发层不再回「未声明判面」 (3a78b71537)
+- 🐞 修复:定版索引护栏形状对齐——私有索引提交通道(isolated-git)结构性全灭根治 (211c3574f2)
+- 📚 文档:数字块按 HEAD 面重算（与推门 check-doc-numbers 同面） (474442934c)
+- 🐞 修复:face-reader 测试的派生 options 改用具名变量（绕开门 193 取数盲区） (a7c25307cd)
+- ⚡ 性能:30a 内存治理——流式解析 + Buffer 取面 + 候选分批,并查清 OOM 根因链 (e949a217d5)
+- 🐞 修复:face-reader 的 binary 档 encoding 改回 null（消 13 道门体的未判定） (a4b410d0ca)
+- 📚 文档:数字块按 head 面重算 (920736c944)
+- 📚 文档:数字块按 head 面重算(testFiles 4818 / trackedFiles 20849) (7765d5a6ff)
+- 📚 文档:数字块按 HEAD 面重算(testFiles 4817 / trackedFiles 20848) (82fac7fab0)
+- 🔧 工程/其他:补齐 brand-mail-from 测试文件的溯源水印 (7582515bf7)
+- 🔧 工程/其他:miniapp-taro 五个语言包对齐上游已完成的键清理 (975c6ec472)
+- 🐞 修复:三条 From 旁路归一 + 守门 R5 防回归 (0a761c3280)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (d3aa620a76)
+**2026-11-10**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (dd1aeb0274)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (3642b26464)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (b470d0ec08)
+**2026-11-10**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (adf9c835cf)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (0ad8d37a99)
+- 🐞 修复:binary 档 + input 组合修复并入远端,消除 30a 的取数不可用 (98e18b522e)
+- 🐞 修复:路由切换时工作区 main 滚动归零——根治「右侧工作区向上偏移」 (5f77cebd8b)
+- 🔧 工程/其他:README×2 生成块按落地面现算同步(门 173 DN5) (594bbd9c4a)
+- 🐞 修复:常驻开发服务按需启停——机主令防复发机制单枚落远端基线 (d66edcd649)
+- ⚡ 性能:CI 提速包落地 + 收口 gates-full 门6/dedupe 红 (31640643c0)
+- 🐞 修复:倒计时收敛夹具改认解构后的函数标识符,解 test 腿 miniapp 红 (73ff8614f0)
+- 🐞 修复:loomy chat 换实证网关 loomyad.xunfei.cn 并收口票形/模型名/错误信封 (7816076585)
+- ⚡ 性能:30a 内存治理——流式解析 + Buffer 取面 + 候选分批,并把 OOM 根因链查清 (c21c92594c)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (5f53dfa375)
+- 🔧 工程/其他:离线包按 HEAD 面重生成——清合并票记账「落地后需重生成」欠账;gen --head 输入=HEAD 面词包(他席在飞磁盘内容不烤包),3 gen.ts 同步(4 CDN b64 与 HEAD 恒等零变化),B2/stale 钉收敛;门298红点名为他席滞留磁盘档非本票声明集(pathspec 不进本次内容),经 safe-commit 归因 undetermined-red 后按仓库出路③走本旁路 (3dd977d158)
+- 🚀 新功能/改进:三端滚动边缘淡出 ScrollEdgeFades + 抽屉/底部遮罩细化 (87084cf084)
+- 📚 文档:数字块按 HEAD 面重算（与推门 check-doc-numbers 同面） (65d93b3390)
+- 🔧 工程/其他:补多行gitBinary形态的反向牙,并更正上一轮的错误归因 (1913e2f971)
+- 📚 文档:README 中文数字块按 HEAD 面重算（与推门 check-doc-numbers 同面） (2db5df9981)
+- 📚 文档:README.en 数字块按 HEAD 面重算（与推门 check-doc-numbers 同面） (4b32f111c1)
+**2026-11-10**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (d2cb6d426c)
+- 🐞 修复:typecheck-full 清缓存增补 .DevEnv/.workbuddy 排除——T1 被看门狗终止的真凶实测定位(cleanTsbuildinfo 对盘根 57000+ 子目录的 .DevEnv 深递归,30s 超时都跑不完);排除后 1248ms 过,全量轮 180s 完成落回执 (c592e24ceb)
+**2026-11-10**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (0e10f84bd0)
+**2026-11-10**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (9220756941)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (ffb5f20a82)
+- 🐞 修复:iOS 站点腿根因三修——出口腿现测借道/取不到不再冒充形状坏/告警身份摘小时数 (4e49779e1d)
+- 🐞 修复:根治界面字体忽粗忽细——GB2312 分档宽子集 + 字重面显式 + 中文黑体回退链 + 门313（重落地） (2d41ff8cbd)
+- 🐞 修复:重生成 miniapp 远端语言包,承载四个工具名五语言文案 (14965b4cdf)
+- 🐞 修复:验证码复制按钮圆角改取档位变量,解守门77 新增红 (b31e2abc08)
+- 🐞 修复:补 ask_user_question/skill/todo_read/todo_write 五语言功能名,守门55 归零 120/120 (d42e720dd0)
 <!-- END RECENT UPDATES -->
 同轮收口(2026-10-21 下午，五枚已入库)：把上一段里"只存不拦"的部分接成实链，并把跨端剩下的三处半截补齐。① **IP 白名单生效链**：判定唯一出口 `apps/api/src/routes/user/ip-whitelist-guard.ts`，挂在 18 条新登录腿的"凭据已验证之后、签发之前"；空表 = 未启用（不另开开关），已在线会话不受影响（换网不掉线），最后一次修改白名单的来源 IP 恒被放行（自救出口，否则清错一次就永久锁死）；被拒回 403 并落 `security_logs` 事件 `login_blocked_by_ip_allowlist`（登录前无主体，故 `recordSecurityEvent` 新增由承载层显式传主体的口子）。覆盖率由 `tests/ip-whitelist-issuance-coverage.test.ts` 机器守：全仓 6 个签发原语的每个调用点要么挂闸门、要么在具名豁免清单里带理由登记，将来新腿漏挂当场响。② **RN 安全中心接上这张卡**（`src/components/IpWhitelistPanel.tsx`，端内不复制 IP 文法校验，400 只翻本地化提示）。③ **五项 agent 护栏开关改为按登录主体生效**：`apps/ai-service/app/services/agent_security_prefs.py` 直连同库读 `user_preferences`（进程默认 ⊕ 该用户显式表态，缺省与改动前逐字一致），危险命令硬门与全局 kill switch 不受用户档影响。④ **小程序关于页补齐**为与 web/RN 同构的六段 + 保留 10 条合规入口（三端同脸，§4）。⑤ 删掉 PDF `print` / `sign` 两条零消费方的假 pending 端点（改成 404 断言留在原地），`openapi.json` 同步摘除两条 path。
 - **2026-10-21 公网提速批次的四件器物(点名义务在此,判据细节住器物头注;`§0.9` 的口径是"已接线而文档不点名 ⇒ 红")**:
@@ -43996,6 +43936,103 @@ A: Yes. Test file and case counts: see the generated table / 67 e2e spec / 4721 
 | 跟踪文件 | 20851 | `trackedFiles` |
 | 测试文件 | 4822 | `testFiles` |
 | 跟踪文件 | 20862 | `trackedFiles` |
-
-
-
+| 测试文件 | 4843 | `testFiles` |
+| 跟踪文件 | 20938 | `trackedFiles` |
+**2026-11-11**
+- 📚 文档:自动刷新最近更新块(收敛循环) (deda1ac0ff)
+- 🚀 新功能/改进:上游会话续写缓存 —— 同会话多轮透传 conversation_id,不再每次重建对话 (ec105c4023)
+- 🚀 新功能/改进:回放迁移腿 —— 旧号对话以新会话进新号,豆包切号后可接着聊 (1af0dce1f4)
+- ⚡ 性能:全池推生产合并为单次 SSH 握手，能力探针与导出并行 (e4008a1a7a)
+**2026-11-11**
+- 📚 文档:自动刷新最近更新块(收敛循环) (d5e9ecf561)
+- 🐞 修复:启动门只等必需后端三件套,/health 免租户(修 240s 假死) (3460206c42)
+**2026-11-11**
+- 📚 文档:刷新生成块数字(trackedFiles 20934→20936,并入 relay 长连接收口 2 个新文件) (52848a9f7e)
+- 📚 文档:自动刷新最近更新块 + 游标跟进 cb64a7fd1c (86abb395e5)
+- 🐞 修复:长连接收口——代理隧道 agent、会话级亲和键、看门狗补全 (14dcbd290d)
+- 📚 文档:刷新生成块数字(trackedFiles 20930→20934,并入远端 4 个新脚本路径) (cb64a7fd1c)
+- 🔧 工程/其他:同步小程序 entry 清单(新增 2 枚壳承载页后页面数 331→333) (13e9ad2c96)
+- 🐞 修复:侧边栏选中态降对比 —— 统一 sidebar-active 弱底(明暗主题) (104ed9e8f9)
+- 🐞 修复:豆包跨号会话云端归档腿 + 一键入口文案据实测更新 (8068aa017c)
+- 🚀 新功能/改进:号池导入支持批量与生产推送，全池迁生产收敛为一条命令 (da8d7b0606)
+- 📚 文档:刷新生成块数字(relay 长连接 4 文件并入致 trackedFiles+4/testFiles+2/wsEndpoints+1/apiRoutes+1) (993f458ebf)
+- 🔧 工程/其他:壳声明件跟随新落承载页(258 条说明符) (a83db3919e)
+- 🔧 工程/其他:自动落 2 枚小程序壳承载页(共 4 枚待产) (7ce25c7a45)
+- 🐞 修复:会话对账器补字节级兜底 —— 库被清空也不再是盲区 (df6082c173)
+- 🐞 修复:base.css 第二份源纳入小程序 token 同步触发面 并补全 T1 配套断言 (36d956d285)
+- 🔧 工程/其他:补 relay 长连接 4 个新增文件的溯源水印 (45e114f364)
+- 🚀 新功能/改进:号池 relay 全链路长连接贯通(契约+传输层+选路+WS 入口) (87e9aad2af)
+- 🚀 新功能/改进:对话随行落到实处 + WorkBuddy/OpenCode 写回真打通 (250ec2e0e3)
+- 🐞 修复:补 miniapp-taro 词包 eduAi 命名空间 20 键 清门 302p (9ea36e90cb)
+- 🐞 修复:豆包 chat 打通 —— POST /chat/completion + SSE,推翻「走长连接」误判 (5414871662)
+- 🔧 工程/其他:补两枚判据面收敛提交的具名追认行 (636bde6529)
+- 🐞 修复:豆包 chat 打通 —— POST /chat/completion + SSE,推翻「走长连接」误判 (44404bb5e2)
+- 🔧 工程/其他:ui-routes 四端重算 + knip 受管块同步 (External-Red-Audit / Push-Channel: direct-merge) (94dcbdd310)
+- 🔧 工程/其他:生成器重算收口 — sync-readme-numbers / gen-ui-routes / gen-i18n-compressed / gen-knip (External-Red-Audit / Push-Channel: direct-merge) (3cc4c48fdb)
+- 🐞 修复:收尾修复 — 门 128 platform 非法 + docs 同步 + RN 残留清理 (55b19ffe08)
+- 🐞 修复:豆包适配器判活改走 IM batch_get,实证替换全部推断值 (57f105e3f0)
+- 🐞 修复:豆包适配器判活改走 IM batch_get,实证替换全部推断值 (00a62e9b2e)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (0ba0746bb8)
+- 🐞 修复:修掉「写了但客户端不认」的两型 —— MiniMax 记录形状污染 + OpenCode v2 落点失效 (0c17085f7d)
+- 🐞 修复:余额端点二次实证纠正(改 points/records + 100001 非失效,避免误杀有效号) (68c93885b4)
+- 🐞 修复:余额端点实证落地(域名+路径+token 头三重纠错,缺票不判死) (ffcff7a443)
+- 🐞 修复:一键切号写回腿根治 + 缺模板拒写 + 会话模板回填器物 (136b39adff)
+- 🚀 新功能/改进:小程序/RN 中文回退链同源 + RN 端自托管方案根因收口 (9fb83e175b)
+- 🚀 新功能/改进:web 正文 400 档分段 unicode-range 按需面 + 门 313 跨端触发面补齐 (57d84775b4)
+- 🚀 新功能/改进:一键切号窗口实时显示各平台余额(未支持如实标注,不编 0) (c1aebcd0ac)
+- 🔧 工程/其他:裸 git 派生迁 gitRaw 层 收口棘轮例19 (450f453118)
+- 🐞 修复:收口 gate-test(6) 两枚 Linux 专属红(abort 漏判 + 原子写夹具漂移) (3e662520bc)
+- 🐞 修复:修复永久保活号静默饿死(server 档未判定放行 + minimax 探针接线 + 1h 节拍) (6a6c3cfcd4)
+- 🚀 新功能/改进:门 313 登记维断判据根治 + 属主登记补漏 + token 档位同源 (9dd458b22b)
+- ♻️ 重构:门体自检的 cat-file 取材收敛到 face-reader 取材层 (a8ad54d211)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (aef27ba3d9)
+- 📚 文档:数字块按 HEAD 面重算（与推门 check-doc-numbers 同面） (7c9999939f)
+- 🐞 修复:补迁 check-hook-chain-refs 的跨行裸 git 派生 (46dd3e0b86)
+- 🐞 修复:五处裸 git 派生迁到统一承载层 gitRaw（清门193与测试面两条欠账） (264c676468)
+- 🐞 修复:门313 补 T4 书写面臂——品牌/子集/display 族所在栈一律配中文现代黑体兜底 (d786ae8aef)
+- ⚡ 性能:接线对账门多模式 grep 分片,真仓全量 43.8s→8.7s (a381e3a33f)
+- 🐞 修复:恢复 /llm/models 路由挂载并消除 build_model_catalog 自递归 (3e8fdd3d4d)
+- 🚀 新功能/改进:三端滚动边缘淡出 ScrollEdgeFades + 抽屉/底部遮罩细化 (acdd5f169e)
+- ⚡ 性能:祖先取材改逐路径并发,18 条 M 路径 44.8s→19.4s (c6bb81e584)
+- ⚡ 性能:祖先取材按 HEAD+路径记忆,同轮不再为同一路径走两遍全历史 (d0b4aad671)
+- ⚡ 性能:3b 对账延后到后台 + 逐路径覆盖结论缓存,提交链 116.7s→28s (7ab84a9314)
+- ⚡ 性能:水印提交档分母收窄到本次携带,单门 24.5s→1.0s (0cf426141b)
+- ⚡ 性能:30a 悬空集合单列缓存,提交链守门实测 309s→69s (775ca7e783)
+- 🐞 修复:合并后按 token 档归一 inline-question-card 字号与字重 (10e5b33bb5)
+**2026-11-08**
+- 🚀 新功能/改进:补齐 AI 生成显式/隐式标识 (8d972f386c)
+- 🚀 新功能/改进:补齐 AI 生成显式/隐式标识 (f4535c338e)
+- 🚀 新功能/改进:Groups 屏薄壳承载落地(RN 壳同源渲染,词条取 web 原文) (e7d27e3e99)
+**2026-11-07**
+- 🐞 修复:补 web 端 apiKeys en/ko 译文(24 键,清门 4 pending) (5e1c14de23)
+- 🐞 修复:四屏壳改桶导入,补门173共享屏直接 import 覆盖 (e71cd19a5d)
+- 🚀 新功能/改进:TeamKnowledge 屏下沉共享屏,RN/Web 同源渲染零降级 (c0ca814f16)
+- 🔧 工程/其他:重算 rn-shells.generated.d.ts（补 VipTraderScreen，修门 251 C9 不同步） (fa6c08282d)
+- 🐞 修复:RepoWiki 生成禁用提示回到宿主(详情内重复入口去重后补齐可发现性;删 web 失用键 refresh/regenerate) (a3dc7d1bc5)
+- 🚀 新功能/改进:RepoWiki 共享屏下沉(RN/Web 同源渲染,零降级) (b37e84d18c)
+- 🐞 修复:Groups 三列断点卡片基宽 (97cb9752de)
+- 🚀 新功能/改进:Groups 屏下沉共享屏,两端宿主注入 (39fcfc991b)
+- 🚀 新功能/改进:Patrol 屏下沉共享屏,两端宿主注入 (cd9a85fea2)
+- 🚀 新功能/改进:ApiKeys 屏下沉共享屏,web/mobile-rn 五语言词表补齐 (10f86bc743)
+- ♻️ 重构:EarnCommission 壳删冗余 View 层(共享屏根已等价提供 flex+背景) (62cb2eaa1f)
+- 🚀 新功能/改进:TokenValue 记录时间范围条下沉共享屏(数据型注入点,RN/小程序同源) (e7c52e45ba)
+- 🚀 新功能/改进:8 条单端槽位裁决落锁,2 条真下沉 (72a500c115)
+- 🔧 工程/其他:再 rebase 后生成器取胜, 刷新 ui-routes 钉值与 README 数字 (5c833a7bbc)
+**2026-11-06**
+- 🚀 新功能/改进:补齐 Team/MessageCenter/ArticleList/Coupon 行为型 prop 跨端缺口并清理死契约 (a872076ccc)
+| 跟踪文件 | 20939 | `trackedFiles` |
+**2026-11-11**
+- 🔧 工程/其他:收编守护落档产出(2 件,凭落点账本) (702e0df09c)
+- 🔧 工程/其他:重算四端 ui-routes 与 rn-route-map + knip/README 数字同步 (68c0e32d3a)
+- 🐞 修复:同平台重复治理 —— zcode 键源补链 + 签到归属迁移收养 (2c72a450ec)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (f40d9ae05f)
+- 🐞 修复:系统管理员凭据轮换例外 —— 仅放行 password_hash 变更 (727f76a0c5)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (2696dd5c87)
+- 🐞 修复:导出/回放腿按 2026-11-11 真机实证修正三处假绿 (d959839357)
+- 🔧 工程/其他:壳声明件跟随新落承载页(260 条说明符) (b0edc59ca8)
+- 🔧 工程/其他:自动落 2 枚小程序壳承载页(共 2 枚待产) (f8075c6c40)
+- 🐞 修复:补齐 UpstreamSocketOpenOptions.heartbeatMs 契约并收口两脚本类型错(清 T1) (6756238fb0)
+- 🚀 新功能/改进:登录锁定支持账号豁免名单,默认关闭 (ab97a2a5fc)
+- 🐞 修复:清掉测试面 typecheck 里长连接 lane 的 6 个存量错误 (9573af5378)
+- 📚 文档:自动刷新最近更新块 (9f1dafe915)
+- 🐞 修复:扫码面板取消自动弹协议窗,改为内联同意并继续 (23e6125fd9)
