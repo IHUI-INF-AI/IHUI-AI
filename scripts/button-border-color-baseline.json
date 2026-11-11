@@ -1,7 +1,10 @@
 {
-  "$note": "按钮描边颜色显式化锚点(键 = 文件|border-color-implicit,值 = 该文件在被审面上的存量违规数)。只拦\"这次改动把无基础色的描边加回来了\",存量另计批清偿;键消失即视为台账被回写,拒绝落盘。",
+  "$note": "按钮描边颜色显式化锚点(键 = 文件|border-color-implicit 或 文件|border-color-missing-rn,值 = 该文件在被审面上的存量违规数)。只拦\"这次改动把无基础色的描边加回来了\",存量另计批清偿;键消失即视为台账被回写,拒绝落盘。【2026-11-11 人工纳管注记】cb2c7b7cd8/9d00adf3c4 把 RN StyleSheet 面收进射程(FAMILY_RN=border-color-missing-rn)时未同步刷本台账 ⇒ 16 档 17 处存量被棘轮视作 cap=0,任何触及 apps//packages/ 的提交都会被门判红;按门自身口径『存量要纳管请人工改并写明理由』,以 --worktree 现读入账(该 16 档工作树==HEAD 面,无未提交改动),此后只许下调。",
   "anchors": {
     "apps/miniapp-taro/src/pkg-about/about/contact.tsx|border-color-implicit": 0,
+    "apps/mobile-rn/src/components/WorkbuddyTaskSection.tsx|border-color-missing-rn": 1,
+    "apps/mobile-rn/src/screens/ApiKeysScreen.tsx|border-color-missing-rn": 1,
+    "apps/mobile-rn/src/screens/PlazaScreen.tsx|border-color-missing-rn": 1,
     "apps/web/app/(main)/admin/about-us/page.tsx|border-color-implicit": 0,
     "apps/web/app/(main)/admin/ai-gc/page.tsx|border-color-implicit": 0,
     "apps/web/app/(main)/admin/behavior/page.tsx|border-color-implicit": 0,
@@ -35,6 +38,19 @@
     "apps/web/src/components/customer-service/MessageBubble.tsx|border-color-implicit": 0,
     "apps/web/src/components/data/DataTable.tsx|border-color-implicit": 0,
     "apps/web/src/components/marketing/HomePage3Magazine.tsx|border-color-implicit": 0,
-    "apps/web/src/components/quests/my-quests-board.tsx|border-color-implicit": 0
+    "apps/web/src/components/quests/my-quests-board.tsx|border-color-implicit": 0,
+    "packages/app/src/components/SearchInput.tsx|border-color-missing-rn": 1,
+    "packages/app/src/features/api-keys/ApiKeysScreen.tsx|border-color-missing-rn": 1,
+    "packages/app/src/features/cert-verify/CertVerifyScreen.tsx|border-color-missing-rn": 1,
+    "packages/app/src/features/check-in/CheckInScreen.tsx|border-color-missing-rn": 1,
+    "packages/app/src/features/edu-ai/edu-ai-styles.ts|border-color-missing-rn": 1,
+    "packages/app/src/features/exam-result/ExamResultScreen.tsx|border-color-missing-rn": 1,
+    "packages/app/src/features/exam-result/exam-result-sections.tsx|border-color-missing-rn": 1,
+    "packages/app/src/features/live-list/LiveQuickActions.tsx|border-color-missing-rn": 1,
+    "packages/app/src/features/login/LoginScreen.tsx|border-color-missing-rn": 1,
+    "packages/app/src/features/patrol/PatrolScreen.tsx|border-color-missing-rn": 1,
+    "packages/app/src/features/plan/plan-styles.ts|border-color-missing-rn": 1,
+    "packages/app/src/features/ranking/RankingScreen.tsx|border-color-missing-rn": 2,
+    "packages/app/src/features/register/RegisterScreen.tsx|border-color-missing-rn": 1
   }
 }

@@ -4584,9 +4584,9 @@ const checks = [
   // 既有门(表格形态/生成块数字)对"块外长出新内容"结构性失明。判据与自检见
   // check-readme-recent-containment.mjs 头注:被审面 END 后尾部必须是 HEAD 尾部的纯删减子序列。
   {
-    id: '175',
+    id: '314',
     label:
-      '📕 README RECENT 块外禁增守门(5833953de0 复发防线):END RECENT UPDATES 之后只许删不许增 —— 净增/改写/标记被删即拦,纯清理与块内更新放行',
+      '📕 README RECENT 块外禁增守门(5833953de0 复发防线):END RECENT UPDATES 之后只许删不许增 —— 净增/改写/标记被删即拦,纯清理与块内更新放行(2026-11-11 立;原登记撞号 175,与在前的 check-process-exit-attribution 冲突 ⇒ 按在册口径「后来者改号」让到 314)',
     script: 'check-readme-recent-containment.mjs',
     args: [],
     mode: 'blocking',
@@ -7625,7 +7625,7 @@ const checks = [
   // ⚠️ 同型事故(门 150 头注):注册必须进主 checks 数组 —— runner 迭代入口是
   // `pushGate ? pushGateChecks : checks`,被并进 pushGateChecks 等于没装;镜像 T1 钉这一条。
   {
-    id: '314',
+    id: '315',
     label: '按钮描边颜色显式化对账(裸 border 无基础色 ⇒ border-color-implicit)',
     script: 'check-button-border-color.mjs',
     args: [],
