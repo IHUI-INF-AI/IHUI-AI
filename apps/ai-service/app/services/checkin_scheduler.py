@@ -54,6 +54,7 @@ from app.core.config import settings
 from app.core.logging import get_logger
 from app.services import (
     checkin_credits,
+    checkin_doubao,
     checkin_minimax,
     checkin_pool_writeback,
     checkin_proxy_pool,
@@ -1214,6 +1215,10 @@ class CheckinScheduler:
             return await checkin_minimax.minimax_probe_status(
                 name, acc["jwt"], device_map, client=client
             )
+        if platform == "doubao":
+            return await checkin_doubao.doubao_probe_status(
+                name, acc["jwt"], device_map, client=client
+            )
         ok_s, checked_in, credits, code_s, msg_s = await status_check(
             name, acc["jwt"], device_map, client=client
         )
@@ -1921,6 +1926,10 @@ class CheckinScheduler:
                             acc.get("name"),
                         )
                         continue
+                elif acc.get("platform") == "doubao":
+                    # 豆包余额 = detail.progress.total_amount(2026-11-11 实锤可读)。
+                    db_dm = dict(acc.get("device_map") or {})
+                    result = await checkin_doubao.doubao_query_credits(acc["jwt"], db_dm)
                 else:
                     result = await checkin_credits.query_remaining_credits(acc["jwt"])
                 if result.get("error") is not None or not isinstance(
@@ -2023,6 +2032,12 @@ class CheckinScheduler:
             elif platform == "minimax":
                 # MiniMax 每日随时可领(幂等),随零点/主窗口跑
                 result = await checkin_minimax.minimax_checkin_account(
+                    account["name"], account["jwt"], device_map, client=client
+                )
+            elif platform == "doubao":
+                # 豆包每日 200 额度(幂等预检 detail → claim),随零点/主窗口跑;
+                # 频控/风控期 710010702 → BusinessError 冷却 3600s,不熔断
+                result = await checkin_doubao.doubao_checkin_account(
                     account["name"], account["jwt"], device_map, client=client
                 )
             else:

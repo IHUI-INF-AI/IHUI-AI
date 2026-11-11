@@ -36,7 +36,7 @@ import { resolveAccountProxyUrl } from './relay-proxy-pool.js'
 // =============================================================================
 
 /** 签到平台(与 ai-service internal_checkin_pool._POOL_PLATFORMS 白名单文字一致) */
-export type CheckinPlatform = 'trae' | 'workbuddy' | 'qoder' | 'minimax'
+export type CheckinPlatform = 'trae' | 'workbuddy' | 'qoder' | 'minimax' | 'doubao'
 
 const PROVIDER_TO_CHECKIN: Record<RelayProviderCode, CheckinPlatform | null> = {
   trae: 'trae',
@@ -51,7 +51,9 @@ const PROVIDER_TO_CHECKIN: Record<RelayProviderCode, CheckinPlatform | null> = {
   opencode: null,
   zcode: null,
   loomy: null,
-  doubao: null,
+  // 2026-11-11 接入豆包签到(checkin_doubao.py 引擎,v3/detail+landing/checkin,
+  // cookie 头会话;频控期 710010702 → BusinessError 冷却,不熔断):
+  doubao: 'doubao',
   lingma: null,
   grokbot: null,
 }
@@ -928,7 +930,7 @@ export const CHECKIN_RECONCILE_MAX_PER_ROUND = 20
 /** 默认对账间隔(分钟):6 小时。低频是刻意的 —— 它是长尾兜底,不是实时同步 */
 export const CHECKIN_RECONCILE_DEFAULT_INTERVAL_MINUTES = 360
 /** 开关 + 间隔(分钟):`0`/`off`/`false` ⇒ 整腿关闭;缺省 = 6h(见下方缺省开的理由) */
-export const CHECKIN_RECONCILE_INTERVAL_ENV = 'RELAY_CHECKIN_STATE_RECONCILE_MINUTES'
+const CHECKIN_RECONCILE_INTERVAL_ENV = 'RELAY_CHECKIN_STATE_RECONCILE_MINUTES'
 
 /**
  * 对账间隔(毫秒);null = 关闭。
@@ -967,7 +969,7 @@ export interface CheckinReconcilePeer {
   poolAccountId: string | null
 }
 
-export type CheckinReconcileAction =
+type CheckinReconcileAction =
   | { kind: 'state'; row: CheckinReconcilePoolRow; state: 'enabled' | 'disabled' }
   | { kind: 'cred'; row: CheckinReconcilePoolRow }
 
