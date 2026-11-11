@@ -17,6 +17,8 @@
  *   available    → [下载并安装] / [前往下载](能力缺失时)+ [关闭]
  *   downloading  → 读条 + 百分比 + [取消](绝不假装下载完)
  *   installing   → 转圈 + 「正在打开安装程序…」(应用内)或「已交给浏览器」(降级)
+ *                 + [取消] + [关闭]:安装器可能解析失败/被用户取消,绝不留一个关不掉的转圈
+ *                 (2026-11-11 真机事故,状态机出口见 lib/apk-update.ts 的 settleApkInstall)
  */
 
 import * as React from 'react'
@@ -29,6 +31,7 @@ import { Tappable } from '@ihui/ui-native'
 import {
   applyApkUpdate,
   cancelApkDownload,
+  cancelApkInstall,
   canInstallInApp,
   dismissApkPrompt,
   type ApkStore,
@@ -102,8 +105,9 @@ export function ApkUpdatePromptView({ apk }: { apk: ApkStore }): React.JSX.Eleme
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.body}>{body}</Text>
         </View>
-        {/* 下载/安装进行中不给关闭:关掉后用户看不到进度,下一次进前台又冒出来,像"关不掉" */}
-        {downloading || installing ? null : (
+        {/* 只有下载读条期间不给关闭;installing 必须给 —— 安装器无结果时旧实现
+            把 X / 取消 / 重试全藏了,用户只能对着转圈发呆(2026-11-11 真机事故) */}
+        {downloading ? null : (
           <Tappable
             onPress={dismissApkPrompt}
             hitSlop={10}
@@ -162,7 +166,17 @@ export function ApkUpdatePromptView({ apk }: { apk: ApkStore }): React.JSX.Eleme
           >
             <Text style={styles.ghostText}>{t('appUpdate.apkCancel')}</Text>
           </Tappable>
-        ) : installing ? null : (
+        ) : installing ? (
+          <Tappable
+            onPress={cancelApkInstall}
+            style={styles.ghostBtn}
+            pressedStyle={styles.btnPressed}
+            accessibilityRole="button"
+            accessibilityLabel={t('appUpdate.apkCancel')}
+          >
+            <Text style={styles.ghostText}>{t('appUpdate.apkCancel')}</Text>
+          </Tappable>
+        ) : (
           <Tappable
             onPress={() => void applyApkUpdate()}
             style={styles.actionBtn}

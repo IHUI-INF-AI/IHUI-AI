@@ -495,4 +495,85 @@ describe('下载 + 安装', () => {
     expect(mod.apkSnapshot().lastError).toBe('服务端没有下发安装包地址')
   })
 })
+
+/**
+ * 2026-11-11 真机事故:系统安装器报 (33) packageinfo is null,用户按返回键回 APP 后,
+ * 旧进程仍停在 installing;UI 把关闭/取消/重试全藏了,shouldAutoRecheckApk 又永久跳过
+ * ⇒ 首页「正在打开安装程序…」一直转圈。以下每例都是旧实现会红的行为锁。
+ */
+describe('installing 出口:绝不留一张关不掉的转圈卡', () => {
+  /** 无原生模块 ⇒ 浏览器降级腿,不下载、不碰原生模块,稳定落到 installing。 */
+  async function reachInstalling(mod: Awaited<ReturnType<typeof freshModule>>): Promise<void> {
+    // 顺序同既有用例:必须在 freshModule 之后取 react-native,改到旧实例上等于没改
+    const rn = (await import('react-native')) as unknown as {
+      Linking: { openURL: (url: string) => Promise<void> }
+    }
+    rn.Linking.openURL = vi.fn(async () => undefined)
+    h.checkAppVersion.mockResolvedValue(updateResponse())
+    await mod.checkApkUpdate()
+    await mod.applyApkUpdate()
+    expect(mod.apkSnapshot().state).toBe('installing')
+  }
+
+  it('看门狗超时 ⇒ 复位成 available,可重试', async () => {
+    vi.useFakeTimers()
+    try {
+      const mod = await freshModule()
+      await reachInstalling(mod)
+      expect(mod.shouldAutoRecheckApk(0)).toBe(false) // 刚交出去不打扰
+      await vi.advanceTimersByTimeAsync(mod.APK_INSTALL_WATCHDOG_MS)
+      expect(mod.apkSnapshot().state).toBe('available')
+      expect(mod.apkSnapshot().installMode).toBe(null)
+      expect(mod.apkSnapshot().lastError).toMatch(/未返回结果/)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('stalled 而看门狗未跑 ⇒ 不再永久跳过 installing', async () => {
+    vi.useFakeTimers()
+    try {
+      const mod = await freshModule()
+      await reachInstalling(mod)
+      // 只推系统时间、不推 timer 队列:旧实现这里恒 false(状态被永久钉死)
+      vi.setSystemTime(Date.now() + mod.APK_INSTALL_WATCHDOG_MS + 1)
+      expect(mod.shouldAutoRecheckApk(0)).toBe(true)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('用户点取消 ⇒ 立即复位,不必等 90 秒;复位幂等', async () => {
+    const mod = await freshModule()
+    await reachInstalling(mod)
+    mod.cancelApkInstall()
+    expect(mod.apkSnapshot().state).toBe('available')
+    expect(mod.settleApkInstall()).toBe(false)
+  })
+
+  it('用户点关闭 ⇒ 卡片隐藏且状态一并收口(旧实现只设 dismissed,看门狗仍在跑)', async () => {
+    const mod = await freshModule()
+    await reachInstalling(mod)
+    mod.dismissApkPrompt()
+    const snap = mod.apkSnapshot()
+    expect(snap.dismissed).toBe(true)
+    expect(snap.state).toBe('available')
+  })
+
+  it('回前台:未过 settle 窗口保持原状,过了才复位', async () => {
+    vi.useFakeTimers()
+    try {
+      const mod = await freshModule()
+      await reachInstalling(mod)
+      mod.onApkAppForeground()
+      // 刚拉起安装器那几秒的权限弹窗不该被误判成"安装失败"
+      expect(mod.apkSnapshot().state).toBe('installing')
+      vi.setSystemTime(Date.now() + mod.APK_FOREGROUND_SETTLE_MS)
+      mod.onApkAppForeground()
+      expect(mod.apkSnapshot().state).toBe('available')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

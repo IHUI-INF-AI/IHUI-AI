@@ -29,7 +29,12 @@ import {
   shouldAutoRecheck,
   useOtaUpdate,
 } from '../lib/ota-update'
-import { checkApkUpdate, shouldAutoRecheckApk, useApkUpdate } from '../lib/apk-update'
+import {
+  checkApkUpdate,
+  onApkAppForeground,
+  shouldAutoRecheckApk,
+  useApkUpdate,
+} from '../lib/apk-update'
 import { tryAutoApplyApk } from '../lib/auto-install'
 import { AutoInstallGuide } from './AutoInstallGuide'
 import { ApkUpdatePromptView, isApkPromptVisible } from './ApkUpdatePrompt'
@@ -63,6 +68,9 @@ export function UpdatePrompt(): React.JSX.Element | null {
   React.useEffect(() => {
     const sub = AppState.addEventListener('change', (next) => {
       if (next !== 'active') return
+      // 从系统安装器返回(取消/解析失败):把无结果的 installing 复位成可重试,
+      // 别让首页那张「正在打开安装程序…」一直转圈(2026-11-11 真机事故)
+      onApkAppForeground()
       // 两条通道各自判"该不该补查":OTA 看 ready/下载中,APK 看是否已有可点卡片
       if (shouldAutoRecheck(RECHECK_MIN_INTERVAL_MS)) void checkOtaUpdate()
       if (shouldAutoRecheckApk(RECHECK_MIN_INTERVAL_MS)) {
@@ -278,7 +286,11 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   actionBtnPressed: { opacity: 0.85 },
-  actionText: { color: tokens.brand.ctaForeground, fontSize: rnType.bodySm.size, fontWeight: '600' },
+  actionText: {
+    color: tokens.brand.ctaForeground,
+    fontSize: rnType.bodySm.size,
+    fontWeight: '600',
+  },
   // 重启遮罩:盖满窗口,中途不再出现"无内容的灰屏"
   applyingOverlay: {
     position: 'absolute',
