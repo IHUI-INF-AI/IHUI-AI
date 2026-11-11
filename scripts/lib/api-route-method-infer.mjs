@@ -20,6 +20,11 @@
  * ③ 向后 4 行内第一个 `method:`(遇「调用收尾行」即停)
  * ④ 向前 3 行内最近 `method:`(与 ③ 逐字同一条收尾行判据)
  * ⑤ 同文件 wrapper 作用域:向前找最近的函数开头,块内第一个 `method:`
+ *    (2026-11-11 收窄:该函数开头的花括号块若在调用行**之前**就闭合,且本调用的被调词不是
+ *     具名 wrapper(`fetchApi` 传输口 / 同文件定义的函数)⇒ 整段不借,落回 ⑥/兜底 GET;
+ *     实测现场 edu-attendance.spec.ts:870 借走了已闭合的 probeWriteContract 的 `method:'POST'`。
+ *     裸 `fetch`/`page.evaluate` 型调用点不借;经 `run`/`fetchApi` 路由的照旧借 —— ⑤ 的
+ *     设计本就是"调用点住在 wrapper 块外",一律不借会把 self-media/wechat/page.tsx:310 判红)
  * ⑥ 上下文启发式(**2026-10-24 收窄**,见下)
  * ⑦ 兜底 GET
  *
@@ -287,6 +292,48 @@ export function inferMethodAtLine(lines, idx) {
               if (funcStartRe.test(lines[i] || '')) {
                 funcStartLine = i
                 break
+              }
+            }
+            // 2026-11-11 加固:向上找到的 funcStartLine **未必是包含 idx 的那个函数** ——
+            // idx 若住在 funcStartRe 认不出的形态里(匿名箭头回调、`test('…', async (…) => {`
+            // 这类调用实参回调),向上会**穿过**它,落到**上一个已经闭合**的函数上;向下扫
+            // 越过该函数的闭合界,把**上一个函数**的 method 借给本调用。
+            // 实测现场:apps/web/e2e/edu-attendance.spec.ts:870(page.evaluate 尾数组里的裸
+            // fetch 路径字面量)—— 上方最近 funcStartRe 命中 :809 `async function
+            // probeWriteContract(...) {`,块在 :834 闭合,向下扫借走 :812 的 `method:'POST'`
+            // ⇒ 语义 GET 被误判 POST。
+            // 修法(窄口径):用 findBraceBlockEnd 求该函数起始行的块尾;仅当起始行**确实
+            // 开了花括号块且配对成功**(块尾 > 起始行)且块尾 < idx ⇒ 调用行不在其作用域内。
+            // 此时**只有本调用确实经过具名 wrapper 才继续借**:
+            //   ① 被调词是传输 wrapper `fetchApi` —— 门对它的既有归因口径
+            //     (use-terminal-session.ts:678/:800 已按 POST 在 BP 基线里;翻成 GET 会给
+            //     棘轮添新死调用,那是人定档的事,不归本窄修);
+            //   ② 被调词是本文件定义的函数(`run`/`post`/`api` 这类 wrapper)—— ⑤ 的设计
+            //     意图本就是"调用点住在 wrapper 块外"(self-media/wechat/page.tsx:122 的
+            //     `const run = async (` 多行参数 funcStartRe 认不出 ⇒ 向上落到已闭合的
+            //     runAll;:310/:330/:343 经 run 路由,借 POST 是对的,一律不借会翻红)。
+            // 其余(裸 `fetch`、`page.evaluate`、取不到被调词)⇒ 整段不借(落回 ⑥/兜底 GET)。
+            // findBraceBlockEnd 对**不以 `{` 结尾的行**与配不平(文件截断)都返回 openLine ⇒
+            // "块尾存在"不成立 ⇒ 照旧借 —— T2a 的 `const onClick = () =>`(表达式体
+            // wrapper)与被截断文件靠这条口径保住。span/callee 复用 ⑥ 的同一套机器。
+            if (funcStartLine >= 0) {
+              const funcBlockEnd = findBraceBlockEnd(lines, funcStartLine)
+              if (funcBlockEnd > funcStartLine && funcBlockEnd < idx) {
+                // 块已闭合 ⇒ 取 idx 处被调词:经具名 wrapper(fetchApi / 同文件函数)⇒
+                // 照旧借;裸 fetch、page.evaluate、取不到被调词 ⇒ 整段不借,不过度收窄。
+                const maskedAtGuard = maskedLinesFor(lines)
+                const calleeAtIdx = calleeOfSpan(
+                  maskedAtGuard,
+                  callExprSpanWithMasked(lines, idx, maskedAtGuard),
+                )
+                const calleeBase = calleeAtIdx ? calleeAtIdx.split('.').pop() : ''
+                const routed =
+                  calleeBase === 'fetchApi' ||
+                  (!!calleeBase &&
+                    new RegExp(
+                      `(?:const|let|var)\\s+${calleeBase}\\s*=|function\\s+${calleeBase}\\s*[(<]`,
+                    ).test(lines.slice(0, idx).join('\n')))
+                if (!routed) funcStartLine = -1
               }
             }
             if (funcStartLine >= 0) {

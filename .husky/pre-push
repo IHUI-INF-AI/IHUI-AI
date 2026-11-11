@@ -347,6 +347,31 @@ EOF
   tail -3 .ihui-agent/state/hook-logs/pre-push-gate.log >&2 || true
   printf '%s\n' "✅ push 门校验通过(push-scope/staged-scope 降级已启用)" >&2
 
+# ─── 旧底稿整份回退哨兵(push-range 面硬拦截,2026-11-11 立) ─────────────────
+# 立因:门 84 只判暂存面且 --no-verify 可绕过;worktree-preserving 收敛让共享索引常年
+# 落后 HEAD,某席用旧索引快照提交会把整批文件退回旧版(git 视角只是"少了几行"),
+# 行数门/diff 门都不响。2026-11-11 的 52991b5365 据此把 173 文件整份退回。
+# 本哨兵判**提交面/推送区间面**:逐提交取改动路径的 blob,回查其自身祖先版本,命中即整份旧版。
+# 正常编辑内容不可能等于任何祖先版本 ⇒ 零误报;命中≥阈值(3)即判红并逐条点名祖先提交。
+# 同时挂在 post-commit(每次落提交即报警,--no-verify 绕不过),本处在推送前硬拦。
+# 跳过:HUSKY_SKIP_STALE_BASELINE_SENTINEL=1(不推荐)。未判定(exit≠0,1 之外,如 origin/main
+# 解析不到)= 不阻断推送(防误拦);只有确证整份回退(exit 1)才拦。
+if [ "${HUSKY_SKIP_STALE_BASELINE_SENTINEL:-0}" = "1" ]; then
+  printf '%s\n' "ℹ️  旧底稿哨兵已按 HUSKY_SKIP_STALE_BASELINE_SENTINEL=1 跳过" >&2
+else
+  wscript //nologo scripts/hook-run-hidden.vbs pre-push-stale-sentinel scripts/check-stale-baseline-sentinel.mjs --range origin/main..HEAD --push-gate
+  _sentinel_rc=$?
+  if [ "$_sentinel_rc" -eq 1 ]; then
+    tail -40 .ihui-agent/state/hook-logs/pre-push-stale-sentinel.log >&2 || true
+    printf '%s\n' "❌ 旧底稿整份回退哨兵检出推送区间内存在整份退回旧版,推送已阻止(按 HEAD 面回植后重建提交,或走 git revert / 在提交信息写 intentional-revert: <理由>;日志: .ihui-agent/state/hook-logs/pre-push-stale-sentinel.log)" >&2
+    exit 1
+  elif [ "$_sentinel_rc" -ne 0 ]; then
+    printf '%s\n' "⚠️  旧底稿哨兵未判定(exit $_sentinel_rc,取值失败或 origin/main 解析不到)⇒ 不阻断推送(防误拦);日志: .ihui-agent/state/hook-logs/pre-push-stale-sentinel.log)" >&2
+  else
+    tail -3 .ihui-agent/state/hook-logs/pre-push-stale-sentinel.log >&2 || true
+  fi
+fi
+
 # ─── 文档数字对账(DN2 head 面全量,2026-11-05 挂 pre-push) ─────────────────────
 # 提交链只判"本轮触及 README 的那枚"(DN4 防恒红)⇒"只加测试不碰 README"会让正文静默过期;推送频次低 ⇒ 不恒红。
 # 语义 = 不许把带过期正文的树推上去;判据复用门 173,一行未改。

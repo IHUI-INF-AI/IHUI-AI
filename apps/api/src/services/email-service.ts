@@ -302,6 +302,19 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
       }
     }
 
+    // primary=smtp 失败 → 反向兜底 Resend(与上面 resend→smtp 对称)。
+    // 2026-11-11 生产实测:国内收件人(QQ/163)primary=smtp 投递失败 ⇒ /auth/email/code
+    // 返回 500「验证码发送失败」,而同期海外收件人走 Resend 返回 200。auto 路由把国内
+    // 收件人钉在 SMTP 上,SMTP 故障时不应把已验证可用的 Resend 通道闲置 —— 这是投递层
+    // 降级,不改 resolveProvider 的路由判据(国内仍优先 SMTP)。
+    if (!result.sent && primary === 'smtp' && config.RESEND_API_KEY) {
+      const fallback = await sendViaResend(mail)
+      if (fallback.sent) {
+        logger.warn(`[email-fallback] primary=smtp failed, resend ok, To: ${maskEmail(options.to)}`)
+        result = fallback
+      }
+    }
+
     // 最终降级 stub(不抛错,保证调用方不崩)
     if (!result.sent) {
       logger.error(
