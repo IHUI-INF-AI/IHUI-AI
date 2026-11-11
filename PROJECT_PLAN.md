@@ -12604,9 +12604,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 58G. **缺陷普查 API F-58** [P2] /members/register/mobile 要求验证码却完全不校验，公开注册可绕过短信验证（证据 docs/tickets/2026-11/findings-api.md#F-58）
 - [ ] 59G. **缺陷普查 API F-59** [P2] 任意登录用户可创建 enterprise 租户；租户 admin 可降级/移除 owner（证据 docs/tickets/2026-11/findings-api.md#F-59）
 - [ ] 60G. **缺陷普查 API F-60** [P2] 未认证 /api/security/report 可指定任意 IP 写坏事件，影响自动封禁（证据 docs/tickets/2026-11/findings-api.md#F-60）
-- [ ] 61G. **缺陷普查 API F-61** [P0] 分销提现申请只插流水、不冻结不扣款，成功回调把 frozen 扣成负数、失败回调凭空铸币（证据 docs/tickets/2026-11/findings-api.md#F-61）
-- [ ] 62G. **缺陷普查 API F-62** [P1] 管理端提现审核驳回不退款且无状态守卫，已驳回/已完成流水可被改回 processing 再次打款（证据 docs/tickets/2026-11/findings-api.md#F-62）
-- [ ] 63G. **缺陷普查 API F-63** [P1] /wallet/withdraw 跳过可提现资格校验，充值/赠送 token 可直接提现；申请环节仍有 TOCTOU（证据 docs/tickets/2026-11/findings-api.md#F-63）
 - [ ] 64G. **缺陷普查 API F-64** [P2] /finance/margin/refund 给操作者自己加币，且与原充值共用 (related_order_no, op_type=0) 幂等键，退款（证据 docs/tickets/2026-11/findings-api.md#F-64）
 - [ ] 65G. **缺陷普查 API F-65** [P2] /finance/margin/* 数量无正数/整数校验，负数可反向铸币；目标账户写死为调用者（证据 docs/tickets/2026-11/findings-api.md#F-65）
 - [ ] 66G. **缺陷普查 API F-66** [P2] 管理端批量取消订单：读副本判态 + 无条件 UPDATE + 两表写入非事务，可取消已支付订单（证据 docs/tickets/2026-11/findings-api.md#F-66）
@@ -12642,8 +12639,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 99G. **缺陷普查 API F-99** [P3] /api/ai/career-advice 裸 fetch 不带凭证 → 必然 401，却把模板当成功返回（证据 docs/tickets/2026-11/findings-api.md#F-99）
 - [ ] 100G. **缺陷普查 API F-100** [P3] skills push/db-sync 串行最多次百次写，pull/db-sync 全量读无上限（N+1 + 无界内存）（证据 docs/tickets/2026-11/findings-api.md#F-100）
 - [ ] 102G. **缺陷普查 API F-102** [P1] 回调关联键全部取自客户端 metadata：userId 可伪造替他人扣费，messageId 缺省使幂等键退化（证据 docs/tickets/2026-11/findings-api.md#F-102）
-- [ ] 103G. **缺陷普查 API F-103** [P1] 图片编辑 8 个生成端点使用平台 Key，零计费/零余额校验，model 客户端任意（证据 docs/tickets/2026-11/findings-api.md#F-103）
-- [ ] 104G. **缺陷普查 API F-104** [P1] 音频/声纹 5 个端点使用平台 DashScope Key，零计费/零余额校验（证据 docs/tickets/2026-11/findings-api.md#F-104）
 - [ ] 105G. **缺陷普查 API F-105** [P1] 视频编排：平台 Key 四步串行、零计费、无界 Map，失败后二次回包（证据 docs/tickets/2026-11/findings-api.md#F-105）
 - [ ] 106G. **缺陷普查 API F-106** [P2] 共享声纹无属主：任意登录用户可枚举并删除任意 voiceId（证据 docs/tickets/2026-11/findings-api.md#F-106）
 - [ ] 107G. **缺陷普查 API F-107** [P2] 生成队列入队信任 body userId，未与 JWT 主体比对（证据 docs/tickets/2026-11/findings-api.md#F-107）
