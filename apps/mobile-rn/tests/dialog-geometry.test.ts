@@ -312,6 +312,10 @@ describe('全量弹层接线(防回归)', () => {
   it('所有消费单一真相源的源码文件都登记在清单里(新增弹层必须登记)', () => {
     const actual = walk(SRC_DIR)
       .filter((rel) => HOOK_RE.test(readSrc(rel)))
+      // 测试文件只是**引用 hook 名做断言**,不是弹层消费方(2026-11-11:本清单原先没排
+      // `__tests__`,xui-074 把断言换成新契约后写了 `useDialogMaxHeightStyle(...)` 字面量,
+      // 就被误计成第 21 个消费方 ⇒ 清单必红。扫描面本就该只覆盖生产源码)。
+      .filter((rel) => !rel.includes('__tests__'))
       .filter((rel) => rel !== 'lib/dialog-geometry.ts' && rel !== 'lib/use-dialog-height.ts')
       .sort()
     expect(actual).toEqual(ALL_CONSUMERS)
