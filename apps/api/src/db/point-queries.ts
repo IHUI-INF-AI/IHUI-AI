@@ -378,6 +378,25 @@ export interface PointOperationResult {
   afterBalance: number
 }
 
+type PointTx = Parameters<Parameters<typeof db.transaction>[0]>[0]
+
+/**
+ * F-11:会员级串行化锚点。
+ *
+ * 教育积分是追加型账本:每个会员没有一行稳定的“余额行”,`ORDER BY createdAt DESC
+ * LIMIT 1 FOR UPDATE` 锁的是上一行流水 —— T1 只 INSERT 新行、不改旧行,T2 在
+ * READ COMMITTED 下仍读到同一旧 balance,两边用同一个 beforeBalance 计算落库;
+ * 会员没有流水时锁空集,两事务又都从 0 起算。
+ *
+ * 改为按会员 ID 取事务级 advisory lock:同一会员的“读余额 + 写流水”被串行化,
+ * 事务提交/回滚时自动释放;不同会员互不阻塞,也无需新表/新约束。
+ */
+async function lockMemberPointLedger(tx: PointTx, memberId: string): Promise<void> {
+  await tx.execute(
+    sql`SELECT pg_advisory_xact_lock(hashtext(${`edu_point_ledger:${memberId}`}))`,
+  )
+}
+
 /** 查询某条积分记录(用于 fallback 回溯原记录)。 */
 export async function findRecordById(id: string): Promise<EduPointRecord | undefined> {
   const rows = await db.select().from(eduPointRecords).where(eq(eduPointRecords.id, id)).limit(1)
@@ -417,14 +436,14 @@ async function adjustEduPoints(
   const delta = type === 'increase' ? input.amount : -input.amount
 
   return db.transaction(async (tx) => {
-    // P1 修复:加 FOR UPDATE 锁定,防止并发调整读到相同 balance 导致 balanceAfter 错误
+    // F-11:先取会员级锁,再读余额 —— 追加型账本只能按会员串行化,锁上一行流水无效。
+    await lockMemberPointLedger(tx, input.memberId)
     const rows = await tx
       .select({ balance: eduPointRecords.balance })
       .from(eduPointRecords)
       .where(eq(eduPointRecords.memberId, input.memberId))
       .orderBy(desc(eduPointRecords.createdAt))
       .limit(1)
-      .for('update')
     const beforeBalance = rows[0]?.balance ?? 0
     const afterBalance = beforeBalance + delta
 
@@ -476,6 +495,8 @@ export async function fallbackPoints(
   const reverseAmount = -original.point
 
   return db.transaction(async (tx) => {
+    // F-11:先取会员级锁,幂等校验与余额读取都在锁内 —— 否则并发两笔都查不到回退记录。
+    await lockMemberPointLedger(tx, original.memberId!)
     // 事务内幂等校验(防 TOCTOU:检查时未回退,写入前已被另一请求回退)
     const revertedRows = await tx
       .select({ id: eduPointRecords.id })
@@ -486,14 +507,12 @@ export async function fallbackPoints(
       throw new AppError('该记录已被回退', 409, 'CONFLICT')
     }
 
-    // SELECT ... FOR UPDATE 锁定余额行,防止并发 fallback Lost Update
     const rows = await tx
       .select({ balance: eduPointRecords.balance })
       .from(eduPointRecords)
       .where(eq(eduPointRecords.memberId, original.memberId!))
       .orderBy(desc(eduPointRecords.createdAt))
       .limit(1)
-      .for('update')
     const beforeBalance = rows[0]?.balance ?? 0
     const afterBalance = beforeBalance + reverseAmount
 
@@ -552,6 +571,8 @@ export async function awardFirstSharePoints(
   amount: number,
 ): Promise<{ beforeBalance: number; afterBalance: number }> {
   return db.transaction(async (tx) => {
+    // F-11:先取会员级锁,再做幂等查重 —— 首笔分享奖励的并发重复发放由此串行化。
+    await lockMemberPointLedger(tx, memberId)
     // 事务内幂等查重：防止并发请求重复发放
     const claimedRows = await tx
       .select({ id: eduPointRecords.id })
@@ -567,14 +588,12 @@ export async function awardFirstSharePoints(
       throw Object.assign(new Error('已领取过首次分享奖励'), { statusCode: 409 })
     }
 
-    // FOR UPDATE 锁定最新余额行
     const rows = await tx
       .select({ balance: eduPointRecords.balance })
       .from(eduPointRecords)
       .where(eq(eduPointRecords.memberId, memberId))
       .orderBy(desc(eduPointRecords.createdAt))
       .limit(1)
-      .for('update')
     const beforeBalance = rows[0]?.balance ?? 0
     const afterBalance = beforeBalance + amount
 
@@ -601,14 +620,14 @@ export async function awardAdPoints(
   refId?: string | null,
 ): Promise<{ beforeBalance: number; afterBalance: number }> {
   return db.transaction(async (tx) => {
-    // FOR UPDATE 锁定最新余额行,防止并发广告回调 Lost Update
+    // F-11:先取会员级锁,防止并发广告回调读到同一旧 balance 造成 Lost Update。
+    await lockMemberPointLedger(tx, memberId)
     const rows = await tx
       .select({ balance: eduPointRecords.balance })
       .from(eduPointRecords)
       .where(eq(eduPointRecords.memberId, memberId))
       .orderBy(desc(eduPointRecords.createdAt))
       .limit(1)
-      .for('update')
     const beforeBalance = rows[0]?.balance ?? 0
     const afterBalance = beforeBalance + amount
 

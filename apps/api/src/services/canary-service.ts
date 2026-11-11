@@ -4,6 +4,7 @@
 
 import { sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
+import { AppError } from '../errors/AppError.js'
 import { logger } from '../utils/logger.js'
 
 export type CanaryStage = 'off' | 'canary_1pct' | 'canary_5pct' | 'canary_25pct' | 'full'
@@ -198,8 +199,11 @@ export async function promoteCanary(name: string): Promise<CanaryConfig> {
   const now = new Date()
   const reachedTarget = nextStage === config.targetStage
 
+  // CAS:只允许从"读取时观察到的状态"迁移;并发回滚已改写行的 stage/is_active 时命中 0 行,
+  // 绝不能把已回滚的坏版本重新写回 canary 接流量(SDB-36)。
+  let updated: Array<{ id: string }> = []
   try {
-    await db.execute(sql`
+    updated = (await db.execute(sql`
       UPDATE canary_configs
       SET current_stage = ${nextStage},
           last_promoted_at = ${now},
@@ -208,11 +212,16 @@ export async function promoteCanary(name: string): Promise<CanaryConfig> {
           status = ${reachedTarget ? 'completed' : 'active'},
           updated_at = ${now}
       WHERE name = ${name}
-    `)
+        AND current_stage = ${config.currentStage}
+        AND is_active = ${config.isActive}
+      RETURNING id
+    `)) as unknown as Array<{ id: string }>
   } catch (err) {
     logger.error('[canary] promoteCanary DB update failed', { error: err })
     throw err
   }
+
+  await assertTransitionApplied(name, config, updated)
 
   await addAudit(config.id, 'promote', config.currentStage, nextStage, 'manual promote')
 
@@ -230,8 +239,10 @@ export async function rollbackCanary(name: string, reason: string): Promise<Cana
   if (!config) throw new Error(`canary config "${name}" not found`)
 
   const now = new Date()
+  // 同 promote:回滚也按读取时的 stage/is_active 做 CAS,避免覆盖并发 promote 的结果。
+  let updated: Array<{ id: string }> = []
   try {
-    await db.execute(sql`
+    updated = (await db.execute(sql`
       UPDATE canary_configs
       SET current_stage = 'off',
           is_active = false,
@@ -239,11 +250,16 @@ export async function rollbackCanary(name: string, reason: string): Promise<Cana
           status = 'rolled_back',
           updated_at = ${now}
       WHERE name = ${name}
-    `)
+        AND current_stage = ${config.currentStage}
+        AND is_active = ${config.isActive}
+      RETURNING id
+    `)) as unknown as Array<{ id: string }>
   } catch (err) {
     logger.error('[canary] rollbackCanary DB update failed', { error: err })
     throw err
   }
+
+  await assertTransitionApplied(name, config, updated)
 
   await addAudit(config.id, 'rollback', config.currentStage, 'off', reason)
 
@@ -369,6 +385,35 @@ export async function getAuditLog(configName?: string): Promise<CanaryAuditEntry
 
 export function getCanaryPercentage(stage: CanaryStage): number {
   return STAGE_PERCENT[stage]
+}
+
+/**
+ * 校验 CAS 迁移是否真的命中:UPDATE ... RETURNING id 命中 0 行 ⇒ 读取后状态被并发改写。
+ * 重新读取当前状态并把冲突透出为 409 CONFLICT(错误码见 errors/codes.ts 的既有约定),
+ * 调用方已用 try/catch 处理抛错(auto-rollback / expiration-monitor 记日志后继续),语义不变。
+ */
+async function assertTransitionApplied(
+  name: string,
+  expected: CanaryConfig,
+  updated: Array<{ id: string }>,
+): Promise<void> {
+  if (updated.length > 0) return
+
+  const latest = await fetchConfigRow(name)
+  logger.warn('[canary] state transition conflict, concurrent update detected', {
+    name,
+    expectedStage: expected.currentStage,
+    expectedActive: expected.isActive,
+    actualStage: latest?.currentStage ?? null,
+    actualActive: latest?.isActive ?? null,
+  })
+  throw new AppError(
+    `canary config "${name}" was modified concurrently (expected stage=${expected.currentStage}, active=${expected.isActive}; actual ${
+      latest ? `stage=${latest.currentStage}, active=${latest.isActive}` : 'row missing'
+    })`,
+    409,
+    'CONFLICT',
+  )
 }
 
 async function addAudit(

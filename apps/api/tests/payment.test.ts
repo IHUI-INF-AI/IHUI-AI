@@ -105,6 +105,8 @@ const {
   mockCompleteOrder,
   mockCompleteOrderWithSaga,
   mockCancelOrder,
+  mockClaimRefund,
+  mockAbortRefund,
   mockRefundOrder,
   mockActivateOrderSubscription,
   mockFeedbackInvite,
@@ -117,6 +119,8 @@ const {
   mockCompleteOrder: vi.fn(),
   mockCompleteOrderWithSaga: vi.fn(),
   mockCancelOrder: vi.fn(),
+  mockClaimRefund: vi.fn(),
+  mockAbortRefund: vi.fn(),
   mockRefundOrder: vi.fn(),
   mockActivateOrderSubscription: vi.fn(),
   mockFeedbackInvite: vi.fn(),
@@ -131,6 +135,8 @@ vi.mock('../src/services/order-service.js', () => ({
   completeOrder: mockCompleteOrder,
   completeOrderWithSaga: mockCompleteOrderWithSaga,
   cancelOrder: mockCancelOrder,
+  claimRefund: mockClaimRefund,
+  abortRefund: mockAbortRefund,
   refundOrder: mockRefundOrder,
   activateOrderSubscription: mockActivateOrderSubscription,
 }))
@@ -232,6 +238,9 @@ describe('payment gateway — 高风险安全路由(金额篡改/反查/提现/�
     })
     mockIsWechatPayConfigured.mockReturnValue(false)
     mockIsAlipayConfigured.mockReturnValue(false)
+    // F-09:默认抢占成功(并发抢不到由具体用例覆盖)
+    mockClaimRefund.mockResolvedValue({ success: true })
+    mockAbortRefund.mockResolvedValue(undefined)
     // 重置 idempotency 默认值
     ;(app.paymentIdempotency.acquire as ReturnType<typeof vi.fn>).mockResolvedValue({
       status: 'new',
@@ -532,7 +541,7 @@ describe('payment gateway — 高风险安全路由(金额篡改/反查/提现/�
     // 旧实现忽略 refundOrder 返回值、无条件回 200,前端会把两笔都当退款成功。
     it('本地退款未落库(并发第二笔)返回 409,不谎报成功', async () => {
       authAsAdmin()
-      mockIsAlipayConfigured.mockReturnValue(false)
+      mockIsAlipayConfigured.mockReturnValue(true)
       mockGetOrder.mockResolvedValueOnce(
         makeOrder({
           status: 'paid',
@@ -540,7 +549,9 @@ describe('payment gateway — 高风险安全路由(金额篡改/反查/提现/�
           amount: 10000,
         }),
       )
-      mockRefundOrder.mockResolvedValueOnce({
+      mockAliRefundOrder.mockResolvedValueOnce({ success: true })
+      // F-09:条件 UPDATE(paid→refunded)在并发第二笔上 0 行命中 ⇒ 抢占失败
+      mockClaimRefund.mockResolvedValueOnce({
         success: false,
         reason: '订单状态已变更,退款未落库',
       })
@@ -551,6 +562,8 @@ describe('payment gateway — 高风险安全路由(金额篡改/反查/提现/�
       })
       expect(res.statusCode).toBe(409)
       expect(res.json().message).toContain('状态已变更')
+      // 抢占失败后不得再调支付宝(否则就是真实资金双出)
+      expect(mockAliRefundOrder).not.toHaveBeenCalled()
     })
 
     it('非管理员非本人退款返回 403', async () => {

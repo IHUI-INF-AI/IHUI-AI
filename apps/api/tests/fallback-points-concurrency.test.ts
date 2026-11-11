@@ -72,6 +72,8 @@ let txChain: Promise<unknown> = Promise.resolve()
 const mockTx: any = {
   select: vi.fn(),
   insert: vi.fn(),
+  // F-11:余额读写在事务开头先取会员级 advisory lock,事务替身补一个空实现。
+  execute: vi.fn().mockResolvedValue([]),
 }
 
 /** 构建 select 链:support where/for/limit/orderBy(全部返回同一 Promise)。 */

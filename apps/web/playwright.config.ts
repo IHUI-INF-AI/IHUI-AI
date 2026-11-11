@@ -65,12 +65,27 @@ export default defineConfig({
       // 挂 dependencies 后 chromium 前先串行完成双账号 API 预登录,
       // fixtures.ts ensureStorageState 仍保留作本地/兜底路径。
       dependencies: ['setup'],
+      // 公开页 spec 不依赖登录态,交给下面的 public project:
+      // 挂在 chromium 下会被 setup 的 E2E_ADMIN_PASSWORD 依赖连坐
+      // (缺该环境变量时 setup 直接失败,公开页用例连跑都跑不到)。
+      testIgnore: /footer-regression\.spec\.ts/,
       use: {
         ...devices['Desktop Chrome'],
         // 2026-10-20 加:GitHub runner 的 /dev/shm 只有 64MB,CI 下两个 chromium 并发时
         // 渲染进程共享内存被挤爆 → "browser has been closed"(publish-scan-login.spec.ts 实测
         // 同型;e2e/fixtures.ts:318 也记过同一形状的 "Target page closed" 假崩溃)。
         // --disable-dev-shm-usage 让 chromium 把共享内存落到普通临时目录,不再撞 64MB 上限。
+        launchOptions: { args: ['--disable-dev-shm-usage'] },
+      },
+    },
+    // 公开页 spec:不挂 setup 依赖、不需要任何账号口令。
+    // 首页 / footer 都是未登录可见的公共面,断言的全是布局与 i18n 文案,
+    // 与登录态无关;这样缺 E2E_ADMIN_PASSWORD 时这些用例仍可独立执行。
+    {
+      name: 'public',
+      testMatch: /footer-regression\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
         launchOptions: { args: ['--disable-dev-shm-usage'] },
       },
     },

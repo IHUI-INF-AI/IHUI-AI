@@ -75,6 +75,7 @@ import {
 import { registerCapabilitiesCommand } from './commands/capabilities.js';
 import { registerLoginCommand } from './commands/login.js';
 import { registerMemoryCommand } from './commands/memory.js';
+import { registerRelayCommand } from './commands/relay.js';
 import { registerWorkflowsCommand } from './commands/workflows.js';
 import { registerSpecCommand } from './commands/spec.js';
 import { registerPlanCommand } from './commands/plan.js';
@@ -867,6 +868,9 @@ registerLoginCommand(program);
 
 // memory 子命令组 — 对齐 Web 端 /memory(list/add/delete/clear)
 registerMemoryCommand(program);
+
+// relay 子命令组 — 号池切号与本机快捷方式(本机运维;转 scripts/switch-client-account.mjs)
+registerRelayCommand(program);
 
 // workflows 子命令组 — 对齐 Web 端 /workflows(list/show/run/instances/instance/cancel)
 registerWorkflowsCommand(program);

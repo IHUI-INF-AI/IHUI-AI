@@ -59,6 +59,19 @@ function mkFixtures({ tokensText, jsonAccounts, poolOwner }) {
 const NO_SUCH_HOME = '__relay_tokens_text_no_such_home__'
 const ownerMiss = () => PoolOwner.resolveDefaultPoolOwner({ home: NO_SUCH_HOME })
 
+/**
+ * 生产推送替身(2026-11-12 立,与本文件同族事故)。
+ *
+ * 立因:`relay-account-pool.mjs` 自 2026-11-07 起 `prodPush` **默认 true**,而本文件只注入了
+ * `runImporter`,于是 ⑥⑦⑧ 这些走到下游的用例每条都真的经 SSH 打生产 —— 实测本文件跑到
+ * 1 分 31 秒、日志里 18 处生产/DB 痕迹,只是凑巧没有断言 exit 才"绿"着。
+ * 这违反文件头 §5 隔离契约(不连生产库、不起导入子进程)。
+ * 两道锁:① argv 统一补 --no-sync-prod;② pushProd 注入成抛错替身(旗标被删时立刻响亮失败)。
+ */
+const FORBID_PROD_PUSH = async () => {
+  throw new Error('本用例禁止生产推送(§5 隔离):行文本通路与生产 SSH 无关,不该走到这里')
+}
+
 /** 跑一次编排器 main:下游导入/默认归属/脱敏装载三面全注入替身,回收 stdout+stderr+裁决 */
 async function runMain(
   argv,
@@ -83,11 +96,12 @@ async function runMain(
   }
   let exit = -1
   try {
-    exit = await Cli.main(argv, {
+    exit = await Cli.main([...argv, '--no-sync-prod'], {
       runImporter: async (payloadText, providerCode, options, decision) => {
         calls.push({ payloadText, providerCode, options, decision })
         return { code: 0, error: null }
       },
+      pushProd: FORBID_PROD_PUSH,
       resolveDefaultOwner,
       loadMaskPhone: async () => maskPhoneFn,
     })

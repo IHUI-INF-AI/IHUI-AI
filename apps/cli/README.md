@@ -153,6 +153,29 @@ ihui settings path
 | `ihui serve` | 启动 Agent 内核 HTTP/WS server(端口 8841),供远程驱动 |
 | `ihui connect <url>` | 作为客户端连接远程 Agent server |
 | `ihui capabilities remote list --server <url>` | 查询远程端的能力清单 |
+| `ihui relay <status\|list\|switch\|install-shortcut>` | 号池切号与本机桌面快捷方式(本机运维;需 IHUI-AI 仓库) |
+
+### 号池切号:`ihui relay`
+
+把仓内「号池 → 本机客户端」切号能力封装成稳定命令面,**可被其它程序以子进程调用**:
+
+```bash
+ihui relay status --json                    # 检查仓库 / Node / tsx / PowerShell 前置
+ihui relay list --counts --json             # 全池逐平台枚数概览
+ihui relay list --provider qoder --json     # 某平台账号名单
+ihui relay switch --provider qoder --to <uid> --dry-run   # 先看计划,不落盘
+ihui relay switch --provider qoder --to <uid>             # 真正写回本机客户端
+ihui relay install-shortcut                 # 在桌面创建「AI 客户端一键切号」(Windows)
+```
+
+`--json` 时 **stdout 只输出可解析 JSON**,建连日志等一律走 stderr,消费方可直接 `JSON.parse`。
+退出码沿用被派发脚本:0 成功 / 1 业务失败 / 2 未判定。
+
+> 为什么不做成桌面端设置页按钮:桌面端窗口加载远程 `https://aizhs.top`,而
+> `capabilities/default.json` 的 BUG-17 加固已把「spawn 子进程 / 文件读写 / 键鼠 / 剪贴板」
+> 移出 remote 授权面(线上页任一 XSS 即可直调)。在 Rust 里 spawn node/pwsh 跑仓内脚本属
+> RCE 级,挂到远程页按钮等于把这轮 P0 加固反向推翻。CLI 是本机原生程序,是这类本机运维
+> 动作的正确落点。桌面快捷方式另有双击入口:`scripts/install-relay-shortcut.cmd`。
 
 运行 `ihui --help` 查看完整命令列表和选项。
 

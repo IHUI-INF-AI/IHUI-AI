@@ -63,7 +63,11 @@ const ImportAnalysisDialog = dynamic(
 import { WorkspaceSelector } from '@/components/ai/workspace-selector'
 import { Tooltip, TooltipProvider } from '@/components/feedback'
 import { useChatStore, type ChatMessage } from '@/stores/chat'
-import { AI_PANEL_MAX_WIDTH, AI_PANEL_MIN_WIDTH, useAiPanelStore } from '@/stores/ai-panel'
+import {
+  AI_PANEL_MAX_WIDTH,
+  AI_PANEL_MIN_WIDTH,
+  useAiPanelStore,
+} from '@/stores/ai-panel'
 import { useEnvironmentInfoStore } from '@/stores/environment-info'
 import { useTerminalDockStore } from '@/stores/terminal-dock'
 import { useModeStore } from '@/stores/mode'
@@ -259,6 +263,18 @@ let _floatAnchorCache: { left: number; bottom: number } | null = null
 function getFloatAnchor(): { left: number; bottom: number } {
   if (!_floatAnchorCache) _floatAnchorCache = getDefaultFloatAnchor()
   return _floatAnchorCache
+}
+
+/**
+ * FAB(最小化图标)的固定默认落点(2026-11-11 用户定档):工作区左下角,四向内缩 16px。
+ *
+ * 此前「没拖过」的落点 = **浮窗矩形左下角** —— 面板被拖到哪,最小化后图标就出现在哪,
+ * 同一颗按钮每次出现在不同地方,用户找不到。现在与面板位置彻底解耦:
+ *   没拖过 → 永远回工作区左下角这一处;拖过 → 跟随 floatFabPosition。
+ */
+function getDefaultFabPosition(size: number): { x: number; y: number } {
+  const anchor = getFloatAnchor()
+  return { x: anchor.left, y: anchor.bottom - size }
 }
 
 /** 自定义"工作展示区"图标(对标设计稿):大圆角面板 + 短竖线,竖线两端不贴外框
@@ -1354,8 +1370,8 @@ export function AISidePanel() {
       const target = e.target as HTMLElement
       if (!isDraggableBlankArea(target, '[role="separator"]')) return
 
-      // 用户重新拖面板 = 面板重新成为「收起落点」的真相源:作废图标独立坐标。
-      // 否则下次最小化时图标会跳回上一次拖它的位置,而不是贴着面板左下角。
+      // 用户重新拖面板 = 作废图标独立坐标:下次最小化回**固定默认落点**
+      // (工作区左下角),而不是停在上一次手动拖它的地方。
       setFloatFabPosition(null)
 
       const rect = resolveFloatRect(
@@ -1464,17 +1480,8 @@ export function AISidePanel() {
       // 手机 FAB 贴安全区左下固定位(56px):触摸拖拽与点击/滚动冲突,本档不接管
       if (isMobileSmall || e.button !== 0) return
       const state = useAiPanelStore.getState()
-      const rect = resolveFloatRect(
-        state.floatPosition,
-        getFloatAnchor(),
-        window.innerWidth,
-        window.innerHeight,
-      )
-      // 起点 = FAB 当前真实位置(拖过用记账值,没拖过 = 浮窗矩形左下角)
-      const origin = state.floatFabPosition ?? {
-        x: rect.x,
-        y: rect.y + Math.max(0, rect.height - AI_FAB_SIZE),
-      }
+      // 起点 = FAB 当前真实位置(拖过用记账值,没拖过 = 固定默认落点 = 工作区左下角)
+      const origin = state.floatFabPosition ?? getDefaultFabPosition(AI_FAB_SIZE)
       const el = e.currentTarget
       e.preventDefault() // 按住图标不应开始选中页面文字
       fabClickSinkRef.current = false
@@ -1593,7 +1600,12 @@ export function AISidePanel() {
       }
       const fabPos = useAiPanelStore.getState().floatFabPosition
       if (fabPos) {
-        const nextFab = clampFabPosition(fabPos.x, fabPos.y, window.innerWidth, window.innerHeight)
+        const nextFab = clampFabPosition(
+          fabPos.x,
+          fabPos.y,
+          window.innerWidth,
+          window.innerHeight,
+        )
         if (nextFab.x !== fabPos.x || nextFab.y !== fabPos.y) setFloatFabPosition(nextFab)
       }
     }
@@ -1663,7 +1675,8 @@ export function AISidePanel() {
     // 有动效偏好时先把面板淡出,再切到 FAB 分支:直接 setFloatMinimized 会让整块面板
     // 瞬间消失(硬闪)。焦点接力 effect 依赖 floatMinimized,因此会同步延后到切换之后。
     const reduceMotion =
-      typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
     if (reduceMotion) {
       setFloatMinimized(true)
       return
@@ -1733,36 +1746,36 @@ export function AISidePanel() {
     [],
   )
 
-  const handleSheetSwipeStart = React.useCallback((e: React.PointerEvent<HTMLElement>) => {
-    // 鼠标只认主键;触摸/触控笔不区分 button
-    if (e.pointerType === 'mouse' && e.button !== 0) return
-    // Portal 里的菜单/弹窗会经 React 树冒泡到 header(见 handleFloatDragStart 同款注释):
-    // 不拦就会在菜单项按下时抢指针,手机端点「⋯ → 最小化」直接失效。
-    if (!e.currentTarget.contains(e.target as Node)) return
-    // 标题栏里的按钮/菜单/输入不参与下拉,否则点「关闭」会变成拖拽
-    const target = e.target as HTMLElement
-    if (target.closest('button, a, input, textarea, [role="menuitem"], [role="dialog"]')) return
-    const el = panelRootRef.current
-    if (!el) return
-    if (swipeTimerRef.current !== null) window.clearTimeout(swipeTimerRef.current)
-    el.style.transition = 'none'
-    swipeRef.current = { pointerId: e.pointerId, startY: e.clientY, dy: 0 }
-    e.currentTarget.setPointerCapture(e.pointerId)
-  }, [])
-
-  const handleSheetSwipeMove = React.useCallback(
+  const handleSheetSwipeStart = React.useCallback(
     (e: React.PointerEvent<HTMLElement>) => {
-      const swipe = swipeRef.current
-      if (!swipe || swipe.pointerId !== e.pointerId) return
-      const dy = Math.max(0, Math.min(e.clientY - swipe.startY, viewport.height))
-      swipe.dy = dy
+      // 鼠标只认主键;触摸/触控笔不区分 button
+      if (e.pointerType === 'mouse' && e.button !== 0) return
+      // Portal 里的菜单/弹窗会经 React 树冒泡到 header(见 handleFloatDragStart 同款注释):
+      // 不拦就会在菜单项按下时抢指针,手机端点「⋯ → 最小化」直接失效。
+      if (!e.currentTarget.contains(e.target as Node)) return
+      // 标题栏里的按钮/菜单/输入不参与下拉,否则点「关闭」会变成拖拽
+      const target = e.target as HTMLElement
+      if (target.closest('button, a, input, textarea, [role="menuitem"], [role="dialog"]')) return
       const el = panelRootRef.current
       if (!el) return
-      el.style.transform = `translate3d(0, ${dy}px, 0)`
-      el.style.opacity = String(Math.max(0.4, 1 - dy / Math.max(240, viewport.height * 0.6)))
+      if (swipeTimerRef.current !== null) window.clearTimeout(swipeTimerRef.current)
+      el.style.transition = 'none'
+      swipeRef.current = { pointerId: e.pointerId, startY: e.clientY, dy: 0 }
+      e.currentTarget.setPointerCapture(e.pointerId)
     },
-    [viewport.height],
+    [],
   )
+
+  const handleSheetSwipeMove = React.useCallback((e: React.PointerEvent<HTMLElement>) => {
+    const swipe = swipeRef.current
+    if (!swipe || swipe.pointerId !== e.pointerId) return
+    const dy = Math.max(0, Math.min(e.clientY - swipe.startY, viewport.height))
+    swipe.dy = dy
+    const el = panelRootRef.current
+    if (!el) return
+    el.style.transform = `translate3d(0, ${dy}px, 0)`
+    el.style.opacity = String(Math.max(0.4, 1 - dy / Math.max(240, viewport.height * 0.6)))
+  }, [viewport.height])
 
   const handleSheetSwipeEnd = React.useCallback(
     (e: React.PointerEvent<HTMLElement>) => {
@@ -1829,17 +1842,22 @@ export function AISidePanel() {
   }, [])
 
   // 浮窗最小化态(或浮窗模式 + 面板关闭):渲染 FAB 按钮
-  // 2026-11-11 修锚点不一致:原先「未初始化」贴视口左下、「拖拽过」贴面板左上 ⇒
-  // 同一个小圆钮两套锚点,点最小化瞬间按钮跳位。现统一贴**浮窗矩形左下角**,
-  // 与默认锚点(工作区左下、向上弹出)视觉连续。
+  // 2026-11-11 用户定档:没拖过的 FAB 钉在**固定默认落点**(工作区左下角,见
+  // getDefaultFabPosition),不再跟随浮窗矩形 —— 面板拖到哪,最小化后的图标都回同一处。
   if (floatMode && (floatMinimized || !open)) {
     const fabSize = isMobileSmall ? 56 : AI_FAB_SIZE
-    // 拖过的 FAB 用独立坐标;没拖过 = 浮窗矩形左下角(最小化瞬间视觉连续,不跳位)
-    const fabX = !isMobileSmall && floatFabPosition ? floatFabPosition.x : floatBox.x
-    const fabY =
-      !isMobileSmall && floatFabPosition
-        ? floatFabPosition.y
-        : floatBox.y + Math.max(0, floatBox.height - fabSize)
+    // 拖过的 FAB 用独立坐标;没拖过 = **固定默认落点**(工作区左下角,与面板位置无关)。
+    // 再用当前视口钳一次:锚点 rect 是首次使用时缓存的一次测量,窗口变小后不能把按钮留在屏外。
+    const fabAnchor = getDefaultFabPosition(fabSize)
+    const fabDefault = clampFabPosition(
+      fabAnchor.x,
+      fabAnchor.y,
+      viewport.width,
+      viewport.height,
+      fabSize,
+    )
+    const fabX = !isMobileSmall && floatFabPosition ? floatFabPosition.x : fabDefault.x
+    const fabY = !isMobileSmall && floatFabPosition ? floatFabPosition.y : fabDefault.y
     return (
       <>
         {workspaceNameSync}
@@ -1885,13 +1903,18 @@ export function AISidePanel() {
             'fixed z-sticky grid place-items-center rounded-sm border border-border bg-card text-foreground',
             // 挂载入场(最小化 / 关闭后出现):淡入 + 由 0.9 放大,避免硬闪(见 animations.css)
             'ai-fab-in',
+            // hover/focus 辉光:暗色下黑色投影不可见,靠这层「光」表达被点亮(见 globals.css
+            // 「AI 悬浮球 hover 辉光」;颜色读 --color-foreground 主题令牌自动明暗翻面)
+            'ai-fab-glow',
             'transition-[box-shadow,translate,scale]',
-            'shadow-[0_1px_2px_rgba(0,0,0,0.06),0_8px_20px_-6px_rgba(0,0,0,0.22)]',
-            // 悬浮:靠「抬得更高 + 投影明显加深扩散 + 微放大」拉开层级(白卡投影天生偏弱,
-            // 只加 2px/浅阴影几乎看不出,实测后加大到 3px、24px/0.42 的扩散层)
-            'hover:-translate-y-[3px] hover:scale-[1.02] hover:shadow-[0_4px_10px_rgba(0,0,0,0.10),0_24px_48px_-12px_rgba(0,0,0,0.42)]',
-            // 按住拖拽:压回去且略缩,投影收紧 —— 明确「被手指抓住」的反馈
-            'active:translate-y-0 active:scale-[0.96] active:shadow-[0_1px_3px_rgba(0,0,0,0.10),0_6px_16px_-6px_rgba(0,0,0,0.26)]',
+            // 投影走唯一档位表 shadow-elevation-*(源 packages/design-tokens/src/elevation.ts
+            // → tokens.css 的 --shadow-elevation-*),默认档 = lg,不再写 rgba 字面量
+            'shadow-elevation-lg',
+            // 悬浮:靠「抬得更高 + 投影升一档(xl)+ 微放大」拉开层级。位移与缩放**读全站单源**
+            // globals.css 的 --lift-offset / --lift-scale(不写死 px),投影取 --shadow-elevation-xl
+            'hover:translate-y-[var(--lift-offset)] hover:scale-[var(--lift-scale)] hover:shadow-elevation-xl',
+            // 按住拖拽:压回去且略缩,投影收紧到 md —— 明确「被手指抓住」的反馈
+            'active:translate-y-0 active:scale-[0.96] active:shadow-elevation-md',
             // 手机:FAB 更大(56px 适合触屏),固定左下角(与桌面端浮窗默认位置一致)
             // 安全区:CSS 变量是 fixed 定位,不受 GlobalShell 的 pb-[env(safe-area-inset-bottom)]
             // 影响 —— 必须自己叠加,否则全面屏手势条会压住按钮(数字键盘弹出时尤其明显)
@@ -1946,7 +1969,7 @@ export function AISidePanel() {
               'ai-surface-in-mount',
               isMobileSmall
                 ? 'inset-0' // 手机:全屏覆盖
-                : 'ai-float-glow rounded-xl', // 桌面/平板端:浮窗 + 品牌色光晕
+                : 'ai-float-glow rounded-xl', // 桌面/平板端:浮窗(token 描边 + 投影)
             )}
             style={
               isMobileSmall
@@ -1995,6 +2018,7 @@ export function AISidePanel() {
                 onModelChange={setModel}
                 modelLabel={t('model')}
                 autoResolvedModel={conversationModel}
+                forceToolbarText
                 onFloatDragStart={handleFloatDragStart}
                 onTriggerClick={() => setFloatCollapsed(false)}
                 compactTop
@@ -2220,6 +2244,7 @@ export function AISidePanel() {
         onModelChange={setModel}
         modelLabel={t('model')}
         autoResolvedModel={conversationModel}
+        forceToolbarText
       />
 
       {/* AI 主动提问已改为消息流内联卡(MessageList trailing 插槽),不再渲染弹窗 */}
@@ -2302,7 +2327,7 @@ export function AISidePanel() {
                   <IconButton
                     onClick={() => setWorkAreaFullscreen(false)}
                     aria-label={tc('headerActions.exitWorkspaceFullscreen')}
-                    className="border border-border bg-popover/90 shadow-sm"
+                    className="border border-border bg-popover/90 shadow-elevation-sm"
                   >
                     <Minimize2 />
                   </IconButton>
@@ -2314,7 +2339,7 @@ export function AISidePanel() {
         <div
           // AI 面板容器(最外层,DevTools 可选中)
           // - docked 模式:relative + shrink-0 + py-2,flex 流内布局,mr-1.5 固定 6px 间距
-          // - float 模式(桌面/平板):fixed 定位,z-sticky,可拖拽,品牌色微光浮窗视觉(ai-float-glow)
+          // - float 模式(桌面/平板):fixed 定位,z-sticky,可拖拽,token 描边 + 投影浮窗视觉(ai-float-glow)
           //   rounded-xl 匹配内层 aside 圆角(光晕跟随圆角呈圆弧),去掉 py-2(浮窗无需上下间距)
           // - float 模式(手机 <640px):fixed inset-0 全屏覆盖,无光晕无圆角,最大化可用空间
           // data-testid="ai-panel-root":全局唯一最外层容器标识,DevTools / E2E 可直接选中
@@ -2343,13 +2368,11 @@ export function AISidePanel() {
             floatMode && 'outline-none',
             // 三态切换动效(见 animations.css):挂载入场 / 档位切换入场 / 最小化退场互斥,
             // 避免两个 transform 动画互相覆盖。
-            leaving
-              ? 'ai-panel-out'
-              : cn(floatMode && 'ai-surface-in-mount', modeFx && 'ai-mode-in'),
+            leaving ? 'ai-panel-out' : cn(floatMode && 'ai-surface-in-mount', modeFx && 'ai-mode-in'),
             floatMode
               ? isMobileSmall
                 ? 'fixed inset-0 z-sticky' // 手机浮窗:全屏覆盖
-                : 'fixed z-sticky ai-float-glow rounded-xl' // 桌面/平板浮窗:品牌色光晕
+                : 'fixed z-sticky ai-float-glow rounded-xl' // 桌面/平板浮窗:token 描边 + 投影
               : cn(
                   'relative hidden h-full min-[640px]:block mr-1.5 py-2',
                   // 2026-08-17 工作展示区折叠:AI 面板 flex-1 占满右侧(替代固定 width)
@@ -2524,7 +2547,7 @@ export function AISidePanel() {
                       align="end"
                       sideOffset={6}
                       collisionPadding={8}
-                      className="pointer-events-auto z-[2200] min-w-[13rem] rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
+                      className="pointer-events-auto z-[2200] min-w-[13rem] rounded-md border bg-popover p-1 text-popover-foreground shadow-elevation-md"
                       data-testid="ai-panel-overflow-menu"
                     >
                       <DropdownMenu.Label className="px-2.5 pb-0.5 pt-1 text-[11px] font-medium text-muted-foreground">

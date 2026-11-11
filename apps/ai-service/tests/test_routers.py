@@ -166,6 +166,14 @@ async def test_llm_models_endpoint(client):
         assert m["health_status"] in {"healthy", "pending", "unknown"}
         assert isinstance(m["health_error"], str)
         assert len(m["health_error"]) <= 200
+        # 实测能力(2026-11-11):三项三态,向后兼容只加不改
+        caps = m["caps_verified"]
+        assert set(caps) == {"stream", "tools", "context"}
+        assert caps["stream"] in {True, False, None}
+        assert caps["tools"] in {True, False, None}
+        assert set(caps["context"]) == {"ok", "tokens"}
+        assert caps["context"]["ok"] in {True, False, None}
+        assert isinstance(caps["context"]["tokens"], int)
 
 
 async def test_llm_complete_with_metadata(client):

@@ -15,6 +15,7 @@
  * 注册由主会话接线到 routes/index.ts(prefix /api/admin)。
  */
 import type { FastifyPluginAsync } from 'fastify'
+import cron from 'node-cron'
 import { z } from 'zod'
 import { success, error } from '../../utils/response.js'
 import { requireAdmin } from '../../plugins/require-permission.js'
@@ -35,12 +36,16 @@ const createBodySchema = z.object({
   name: z.string().regex(NAME_RE, 'name 仅允许字母/数字/下划线/连字符,1-64 位(防注入)'),
 })
 
-const settingsPatchSchema = z.object({
+/** F-47:导出给回归测试直测校验闸(非法表达式必须在落库前被拒)。 */
+export const settingsPatchSchema = z.object({
   enabled: z.coerce.boolean().optional(),
   cronExpr: z
     .string()
     .max(32)
     .refine((v) => /^[\d*,\-/\s]+$/.test(v), 'cronExpr 含非法字符')
+    // F-47:字符集/长度过了也可能是 "* * *" 这种不合法段数,必须用 node-cron 自带 validate 兜住,
+    // 否则坏值先落库、调度器建任务抛错,重启后永久无调度。
+    .refine((v) => cron.validate(v), 'cronExpr 不是合法的 cron 表达式')
     .optional(),
   keepCount: z.coerce.number().int().min(1).max(365).optional(),
   backupDir: z

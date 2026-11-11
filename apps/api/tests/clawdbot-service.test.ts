@@ -326,7 +326,11 @@ describe('clawdbot ClawdbotService 主服务', () => {
       const r = await svc.chat('u1', 'hi')
       expect(r.role).toBe('assistant')
       expect(r.content).toBe('hello back')
-      expect(svc.getConversation('u1')).toHaveLength(1)
+      // SDB-56:直聊路径现在同时落 user 轮与 assistant 轮(此前只落 assistant)
+      const conv = svc.getConversation('u1')
+      expect(conv).toHaveLength(2)
+      expect(conv.map((m) => m.role)).toEqual(['user', 'assistant'])
+      expect(conv[0].content).toBe('hi')
     })
 
     it('触发 chat:response 事件', async () => {

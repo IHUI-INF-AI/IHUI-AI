@@ -10,7 +10,15 @@
  * 且终态记成 manual_pause；触发串不是本仓支持的 RRULE 时不写入 rrule。
  * 没有指令正文的自动化不落库，避免把 cron 文本当成要执行的 prompt。
  * 能力声明只有名字，不生成连接器。记忆必须挂到已归属校验过的会话。
+ *
+ * SDB-54(2026-11-11 立):"是不是周期计划"的判据**只认调度器自己的解析能力** ——
+ * parseNextRun 能算出下一次运行 ⇒ 调度器就能排期,按 recurring 落库;算不出 ⇒ once。
+ * 此前这里是第二条更窄的正则(只认 FREQ 打头、只允许 BYHOUR/BYMINUTE/BYDAY),
+ * `FREQ=DAILY;INTERVAL=1;BYHOUR=9` 这类合法串被它判死成 once + rrule=null +
+ * scheduledAt=null,启用后永远不被捞起(静默失效)。同一件事不能有两套判据。
  */
+
+import { parseNextRun } from './agent-automation-scheduler.js'
 
 export interface RuntimeImportSource {
   skills?: unknown
@@ -62,7 +70,6 @@ const NAME_CHARS = 128
 const AUTOMATION_NAME_CHARS = 200
 const TEXT_CHARS = 8_000
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const SUPPORTED_RRULE = /^FREQ=(HOURLY|DAILY|WEEKLY)(;(BYHOUR|BYMINUTE|BYDAY)=[0-9A-Z,+-]+)*$/
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return null
@@ -144,7 +151,9 @@ export function planRuntimeImport(
         skip(plan, 'automations', index, 'missing_prompt')
         return
       }
-      const mapped = SUPPORTED_RRULE.test(trigger)
+      // 判据 = 调度器能否排出下一次运行(与用户新建/改排程走同一个 parseNextRun)。
+      // 入参 timezone 传 null 走默认档:导入行不写 timezone 列,列默认值即该档。
+      const mapped = trigger.length > 0 && parseNextRun(trigger, new Date(), null) !== null
       plan.automations.push({
         name,
         prompt,

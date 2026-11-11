@@ -12,7 +12,7 @@
                  body = {scene:"BIND_WECHAT", action:"bind", callback_uri, extra_param}
                  鉴权 : account.tencent.com 登录态 cookie(浏览器 withCredentials)
                  => 返回 {redirect_url}  (微信 OAuth 授权页)
-  2) 真人授权 : 打开 redirect_url, 用微信号扫码/在微信内确认 (这一步程序不能代做)
+  2) 真人授权 : 打开 redirect_url, 在微信内确认授权 (手机端 WorkBuddy App 走已装微信,无需扫码;这一步程序不能代做)
   3) callback : POST https://api.account.tencent.com/personal_center/v1/credential/wechat/callback
                  body = {code, state}   (微信回跳带回)
                  => 服务端写入该账号的 wechatOpenId / mpOpenId

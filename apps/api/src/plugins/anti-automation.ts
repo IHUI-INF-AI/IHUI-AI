@@ -280,11 +280,24 @@ async function incrCounter(
   windowMs: number,
 ): Promise<number> {
   if (!redis) {
-    const arr = memFreq.get(key) ?? []
     const cutoff = now - windowMs
-    const kept = arr.filter((t) => t > cutoff)
+    const arr = memFreq.get(key)
+    let kept: number[] = []
+    if (arr) {
+      kept = arr.filter((t) => t > cutoff)
+      // 窗口内已无有效时间戳:立即摘键,不留空数组。
+      // 否则键空间等于进程生命周期内见过的独立 IP/用户数,Redis 降级时内存单调增长(F-46)。
+      if (kept.length === 0) memFreq.delete(key)
+    }
     kept.push(now)
     memFreq.set(key, kept)
+    memWritesSinceSweep += 1
+    // 每 N 次写入才做一次全表清扫,避免每请求遍历整个键空间。
+    if (memWritesSinceSweep >= MEM_SWEEP_EVERY) {
+      memWritesSinceSweep = 0
+      sweepExpiredMemFreq(now, windowMs)
+    }
+    evictOldest(memFreq, MAX_MEM_ENTRIES)
     return kept.length
   }
   try {
@@ -302,7 +315,43 @@ async function incrCounter(
   }
 }
 
+/** 内存降级计数器的键上限(与 services/anomaly-detector.ts 的 MAX_MEM_ENTRIES 同量级)。 */
+const MAX_MEM_ENTRIES = 50_000
+/** 每 N 次内存写入触发一次过期键清扫,避免每个请求都遍历整表。 */
+const MEM_SWEEP_EVERY = 512
+
 const memFreq = new Map<string, number[]>()
+/** 距上次清扫已发生的内存写入次数。 */
+let memWritesSinceSweep = 0
+
+/**
+ * FIFO 淘汰:Map 按插入顺序遍历,超出上限时删除最早的条目。
+ * 与 services/anomaly-detector.ts:744 的 evictOldest 同思路(该函数未导出,故本地实现)。
+ */
+function evictOldest<K, V>(map: Map<K, V>, max: number): void {
+  while (map.size > max) {
+    const firstKey = map.keys().next().value
+    if (firstKey === undefined) break
+    map.delete(firstKey)
+  }
+}
+
+/**
+ * 清扫已整体滑出窗口的键:时间戳单调递增,末尾也过期则整条记录作废。
+ * 只在每 MEM_SWEEP_EVERY 次写入后调用一次。
+ */
+function sweepExpiredMemFreq(now: number, windowMs: number): void {
+  const cutoff = now - windowMs
+  for (const [key, stamps] of memFreq) {
+    const last = stamps[stamps.length - 1]
+    if (last === undefined || last <= cutoff) memFreq.delete(key)
+  }
+}
+
+/** 只读调试入口:当前降级计数器键数(F-46 回归测试用,不参与运行语义)。 */
+export function __memFreqSizeForTest(): number {
+  return memFreq.size
+}
 
 export default fp(antiAutomationPlugin, {
   name: 'anti-automation',
@@ -314,5 +363,17 @@ export const __test__ = {
   readIntEnv,
   resolveUserIdForRate,
   thresholds: () => ({ DEFAULT_THRESHOLD, BLOCK_THRESHOLD }),
+  /** 内存降级计数(Redis 缺失时走的分支),用于 F-46 回归测试。 */
+  incrCounter,
+  memFreqSize: __memFreqSizeForTest,
+  memFreqGet: (key: string): number[] | undefined => {
+    const arr = memFreq.get(key)
+    return arr ? [...arr] : undefined
+  },
+  memFreqReset: (): void => {
+    memFreq.clear()
+    memWritesSinceSweep = 0
+  },
+  memLimits: () => ({ MAX_MEM_ENTRIES, MEM_SWEEP_EVERY }),
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

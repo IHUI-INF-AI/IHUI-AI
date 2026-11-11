@@ -60,9 +60,16 @@ const anomaliesQuerySchema = z.object({
   ip: z.string().optional(),
 })
 
+/**
+ * F-60:公开上报只接受固定类型集合。该端点无认证,自由文本类型会污染风控与异常事件视图;
+ * 未命中白名单直接 400,不再落任何事件。
+ */
+const REPORT_TYPES = ['spam', 'phishing', 'scanning', 'abuse', 'other'] as const
+
 const reportSchema = z.object({
-  type: z.string().min(1).max(100),
+  type: z.enum(REPORT_TYPES, { error: '不支持的上报类型' }),
   description: z.string().min(1).max(2000),
+  // 兼容旧客户端保留字段,但 handler 不采信(一律用 request.ip)
   ip: z.string().optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
 })
@@ -185,7 +192,10 @@ export const securityRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const reportIp = parsed.data.ip ?? ip
+    // F-60:被上报 IP 只能取连接来源,不采信客户端传入的 ip —— 否则匿名者可对任意 IP
+    // 定向累积坏事件推过自动封禁阈值(可用性 DoS)。reason 保留 user-report 前缀标记
+    // 该来源为低可信的匿名上报(recordBadEvent 无权重参数,不新增参数)。
+    const reportIp = ip
     await ipRep.recordBadEvent(reportIp, `user-report:${parsed.data.type}`)
 
     // 高分上报触发异常检测记录

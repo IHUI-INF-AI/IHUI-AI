@@ -74,6 +74,7 @@ import {
   disableCompanyType,
 } from '../db/member-extended-queries.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
+import { verifyCode } from '../utils/code-store.js'
 
 /** 复用响应 schema：data 字段允许任意附加属性。 */
 const R = {
@@ -533,6 +534,11 @@ export const memberRoutes: FastifyPluginAsync = async (server) => {
     const parsed = registerMobileSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    // F-58:验证码必须真正校验。复用 code-store 的一次性消费实现(与 /auth/sms/register 同源),
+    // 错码/过期码/复用码均拒,校验先于落库 —— 未验码者不得抢占他人手机号。
+    if (!(await verifyCode(parsed.data.mobile, parsed.data.code))) {
+      return reply.status(400).send(error(400, '验证码错误或已过期'))
     }
     try {
       const member = await registerMemberByMobile({

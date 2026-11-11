@@ -673,24 +673,31 @@ async fn open_admin_window(app: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-/// 返回托盘菜单 7 项的本地化文案(5 语言全配,与 web 端 i18n 对齐)。
+/// 返回托盘菜单 8 项的本地化文案(5 语言全配,与 web 端 i18n 对齐)。
 /// 2026-07-29 扩充:新增对话/切换主题/打开设置/检查更新,emit 事件给前端处理。
-fn tray_menu_labels() -> [&'static str; 7] {
+/// 2026-11-11 新增第 8 项「AI 客户端一键切号」:操作员专属,默认不在菜单里
+/// (见 desktop_prefs::default_tray_menu_items),下标 7 必须与登记表的 label_index 对齐。
+fn tray_menu_labels() -> [&'static str; 8] {
     match get_system_locale() {
         AppLocale::ZhCn => [
             "新建对话", "显示主窗口", "隐藏主窗口", "切换主题", "打开设置", "检查更新", "退出",
+            "AI 客户端一键切号",
         ],
         AppLocale::ZhTw => [
             "新建對話", "顯示主視窗", "隱藏主視窗", "切換主題", "開啟設定", "檢查更新", "結束",
+            "AI 客戶端一鍵切號",
         ],
         AppLocale::Ko => [
             "새 대화", "메인 창 표시", "메인 창 숨기기", "테마 전환", "설정 열기", "업데이트 확인", "종료",
+            "AI 클라이언트 원클릭 계정 전환",
         ],
         AppLocale::Ja => [
             "新規会話", "メインウィンドウを表示", "メインウィンドウを隠す", "テーマ切替", "設定を開く", "更新確認", "終了",
+            "AIクライアント ワンクリック切替",
         ],
         AppLocale::En => [
             "New Chat", "Show Main Window", "Hide Main Window", "Toggle Theme", "Open Settings", "Check for Updates", "Quit",
+            "AI Client: One-Click Account Switch",
         ],
     }
 }
@@ -804,6 +811,18 @@ fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
                 // 任一卡住都不该把"退出"这件事一起带走 —— 这条顺序由 exit_application 保证。
                 exit_application(app);
             }
+            "tray.relay_switch" => {
+                // 操作员专属入口:默认不在菜单里(desktop_prefs::default_tray_menu_items),
+                // 操作员在自己机器的 desktop-behavior.json 里加 "relay_switch" 才出现。
+                //
+                // 去向是 **Rust 主进程直接拉起控制台**跑仓内切号器 —— 不经 webview、
+                // 不经 IPC、不给线上页任何新权限。这正是 2026-11-06 BUG-17 加固的同一个
+                // 方向:高危动作只允许由本机用户直接触发,不允许远程页(含任意 XSS)直调。
+                log::info!(
+                    "[relay] site=tray_menu_relay_switch trigger=用户点托盘菜单「AI 客户端一键切号」"
+                );
+                spawn_relay_switch(app);
+            }
             _ => {}
         })
         .on_tray_icon_event(|tray, event| {
@@ -875,6 +894,137 @@ fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
         .build(app)
         .map_err(|e| e.to_string())?;
     Ok(())
+}
+
+/// 托盘「AI 客户端一键切号」的原生去向:拉起一个**独立控制台窗口**跑仓内切号器。
+///
+/// 为什么是"拉控制台"而不是"Rust 里跑完再弹结果":切号器本身是交互式的
+/// (`scripts/client-oneclick-switch.mjs` 会列出号池让人选号),它需要一张能看见、
+/// 能输入的控制台。用 `CREATE_NO_WINDOW`(本仓 checkin_capture 那一路的写法)会把
+/// 交互脸一起藏掉,用户只会看到"点了没反应"。
+///
+/// 为什么落在这里而不是设置页按钮:主窗口/admin 窗口都加载远程 `https://aizhs.top`,
+/// `capabilities/default.json` 的 BUG-17 加固(2026-11-06)已把 "spawn 子进程" 一族
+/// 移出 remote 授权面 —— 理由写明是"线上页(含任意 XSS)可直调"。在 Rust 里 spawn
+/// 一个能跑仓内脚本的进程属 RCE 级能力,挂到远程页按钮上等于把那轮 P0 加固反向推翻。
+/// 托盘点击是**本机用户的直接操作**,由 Rust 主进程自己处理,不经过 webview,
+/// 因此不构成新的远程攻击面。
+#[cfg(target_os = "windows")]
+fn spawn_relay_switch(app: &tauri::AppHandle) {
+    use std::os::windows::process::CommandExt;
+
+    // CREATE_NEW_CONSOLE:切号器要一张自己的控制台(交互式选号),不能复用/隐藏。
+    const CREATE_NEW_CONSOLE: u32 = 0x0000_0010;
+
+    let Some(repo) = resolve_relay_repo() else {
+        notify_relay_unavailable(
+            app,
+            "未找到 IHUI-AI 仓库。\n\n\
+             这个入口只对操作员机有效:需要本机存在 IHUI-AI 仓库\
+             (含 scripts/client-oneclick-switch.cmd),并已 pnpm install。\n\n\
+             可用环境变量 IHUI_AI_REPO 显式指定仓库根目录。",
+        );
+        return;
+    };
+    let script = repo.join("scripts").join("client-oneclick-switch.cmd");
+    // 定位时已校验过存在性;这里再判一次是防"两次判断之间被删"(TOCTOU)。
+    // 失败要说得出是哪条路径,而不是让 cmd 自己弹"系统找不到指定的路径"。
+    if !script.is_file() {
+        notify_relay_unavailable(app, &format!("切号器入口不存在:\n{}", script.display()));
+        return;
+    }
+
+    let mut cmd = std::process::Command::new("cmd");
+    cmd.arg("/c")
+        .arg(&script)
+        // 工作目录必须是仓库根:切号器内部按相对路径找 .mjs 与 apps/api 的脚本。
+        .current_dir(&repo)
+        .creation_flags(CREATE_NEW_CONSOLE);
+    match cmd.spawn() {
+        Ok(child) => log::info!(
+            "[relay] 已拉起切号器 pid={} repo={} script={}",
+            child.id(),
+            repo.display(),
+            script.display()
+        ),
+        Err(e) => notify_relay_unavailable(
+            app,
+            &format!(
+                "拉起切号器失败:{e}\n\n仓库:{}\n入口:{}",
+                repo.display(),
+                script.display()
+            ),
+        ),
+    }
+}
+
+/// 非 Windows 平台:本仓桌面端只发 Windows 包,但 lib 是全平台编译单元 ——
+/// 这里给显式"未支持",而不是让调用点落进 cfg 空洞(那会变成编译错误)。
+#[cfg(not(target_os = "windows"))]
+fn spawn_relay_switch(app: &tauri::AppHandle) {
+    notify_relay_unavailable(app, "「AI 客户端一键切号」目前只支持 Windows。");
+}
+
+/// 定位 IHUI-AI 仓库根:只返回**确实含切号器入口**的目录,判不出返回 None。
+///
+/// 顺序(与 CLI 的 `ihui relay --repo` 同一套优先级,便于两边互证):
+/// 1. 环境变量 `IHUI_AI_REPO`(操作员显式指定)
+/// 2. 从当前 exe 逐级上溯 —— 覆盖开发/构建布局(target/debug → src-tauri → desktop → repo)
+/// 3. 机器上的常见位置(`%USERPROFILE%\IHUI-AI`、本机 `G:\IHUI-AI`)
+///
+/// 每一档都**必须**验到 `scripts/client-oneclick-switch.cmd` 真的在,不靠"目录名像"猜 ——
+/// 猜错的代价是把用户丢进一个空控制台,比不响应更难查。
+fn resolve_relay_repo() -> Option<std::path::PathBuf> {
+    let is_repo = |dir: &std::path::Path| -> bool {
+        dir.join("scripts")
+            .join("client-oneclick-switch.cmd")
+            .is_file()
+    };
+
+    if let Ok(raw) = std::env::var("IHUI_AI_REPO") {
+        let p = std::path::PathBuf::from(raw);
+        if is_repo(&p) {
+            return Some(p);
+        }
+        log::warn!(
+            "[relay] IHUI_AI_REPO 指向的目录没有切号器入口:{}",
+            p.display()
+        );
+    }
+
+    if let Ok(exe) = std::env::current_exe() {
+        let mut cursor = exe.parent().map(|p| p.to_path_buf());
+        // 6 层足够覆盖 target/debug|release → src-tauri → apps/desktop → apps → repo;
+        // 不设无上限循环 —— 上溯到盘根再找只是在做无用 stat。
+        for _ in 0..6 {
+            let Some(dir) = cursor else { break };
+            if is_repo(&dir) {
+                return Some(dir);
+            }
+            cursor = dir.parent().map(|p| p.to_path_buf());
+        }
+    }
+
+    let mut candidates: Vec<std::path::PathBuf> = Vec::new();
+    if let Ok(home) = std::env::var("USERPROFILE") {
+        candidates.push(std::path::PathBuf::from(home).join("IHUI-AI"));
+    }
+    candidates.push(std::path::PathBuf::from(r"G:\IHUI-AI"));
+    candidates.into_iter().find(|p| is_repo(p))
+}
+
+/// 把"为什么没反应"说清楚:托盘上的静默失败等于"点了没用",用户无从下手。
+///
+/// 用非阻塞 `show` 而不是 `blocking_show`:本函数从托盘菜单事件回调里跑,
+/// 那条链在主线程上;`blocking_show` 要等主线程把对话框跑起来,从主线程调用就是自锁。
+fn notify_relay_unavailable(app: &tauri::AppHandle, detail: &str) {
+    use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
+    log::warn!("[relay] {detail}");
+    app.dialog()
+        .message(detail)
+        .title("AI 客户端一键切号")
+        .kind(MessageDialogKind::Warning)
+        .show(|_| {});
 }
 
 /// 托盘常驻本地配置(2026-09-02 #2 立,存于 <app_config_dir>/tray-settings.json)。

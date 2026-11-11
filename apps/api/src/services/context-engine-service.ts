@@ -419,6 +419,10 @@ class ContextEngineService {
     limit: number,
     ownerUuid: string,
   ): Promise<SymbolSearchItem[]> {
+    // 调用点拿不到 userId 时必须显式拒绝:静默返回空会让"漏接线"伪装成"没有结果"。
+    if (!ownerUuid) {
+      throw new Error('searchSymbols 缺少 ownerUuid:拒绝执行无归属的符号检索')
+    }
     if (!query.trim()) return []
     const cacheKey = `symbol:${ownerUuid}:${query}:${limit}`
     const cached = this.cache.get(cacheKey) as SymbolSearchItem[] | undefined

@@ -1924,8 +1924,8 @@
     },
     {
       "file": "packages/i18n/messages/web/zh-TW.json",
-      "keys": ["openOnGitcode", "openOnGitee"],
-      "reason": "Gitee/GitCode 镜像入口已于 d10db9132d 按机主令整体清除,本对键是 b4e3d74076(2026-10-24 繁中补 64 键)误补回的镜像残留;现读全仓零消费方(除 packages/i18n/messages 自身外 git grep 无命中,SiteFooter 只剩 openOnGithub),且其余四语言均无此二键 ⇒ 删之才 parity。回潮判据:若重新引入镜像入口须先推翻弃用令,不得只补词条。",
+      "keys": ["openOnGitcode"],
+      "reason": "openOnGitcode 随 GitCode 镜像渠道废弃删除(该渠道已不再提供)。同条曾一并声明 openOnGitee,但 2026-11-11 机主令恢复 Gitee 国内主通道,openOnGitee 已在五语言全部补回(SiteFooter 的 Gitee 行消费),故从声明中撤出、仅保留 GitCode。回潮判据:若恢复 GitCode 镜像须先推翻弃用令。",
       "until": "2027-10-24"
     },
     {
@@ -4557,6 +4557,36 @@
       ],
       "reason": "票 B(顶层键只差大小写):checkin 是「签到助手」屏(与每日签到 checkIn 语义不同,不做合并),为消除大小写歧义整体改名为 checkinAssistant;唯一消费点 WorkbuddyTaskPanel 同步改名,235 枚叶子仍逐键被引用。回潮判据:若再引入 checkin 顶层命名空间,本门大小写冲突判据会直接撞红。",
       "until": "2027-11-07"
+    },
+    {
+      "file": "packages/i18n/messages/web/zh-CN.json",
+      "keys": ["marketing.miniappModal.brand", "marketing.miniappModal.connect", "marketing.miniappModal.content", "marketing.miniappModal.explore", "marketing.miniappModal.qrAlt", "marketing.miniappModal.scanTip", "marketing.miniappModal.title", "marketing.miniappModal.typewriter.ctaPrimary", "marketing.miniappModal.typewriter.ctaSecondary", "marketing.miniappModal.typewriter.miniappBtn", "marketing.qrAlt", "marketing.scanTip", "marketing.typewriter.miniappBtn", "marketing.typewriter.qrAlt", "marketing.typewriter.scanTip", "marketing.typewriter.typewriter.ctaPrimary", "marketing.typewriter.typewriter.ctaSecondary", "marketing.typewriter.typewriter.miniappBtn", "typewriter.miniappBtn"],
+      "reason": "2026-11-12 机主令:首页 hero 删除「微信小程序」按钮,不留残留。TypewriterHero 已移除 miniAppBtn 与 MiniAppQrModal(含 MINIAPP_QR_OVERLAY_ID/modalOpen),故 marketing.miniappModal 整块、marketing.qrAlt/scanTip、marketing.typewriter 下 miniappBtn/qrAlt/scanTip 与嵌套 typewriter、根级 typewriter.miniappBtn 全仓零消费;五语言等量删除保持 parity。回潮判据:若重新引入小程序扫码入口,须先推翻本令并按当次 UI 重新接线 + 五语言补齐,不得只补回词条。",
+      "until": "2027-11-12"
+    },
+    {
+      "file": "packages/i18n/messages/web/zh-TW.json",
+      "keys": ["marketing.miniappModal.brand", "marketing.miniappModal.connect", "marketing.miniappModal.content", "marketing.miniappModal.explore", "marketing.miniappModal.qrAlt", "marketing.miniappModal.scanTip", "marketing.miniappModal.title", "marketing.miniappModal.typewriter.ctaPrimary", "marketing.miniappModal.typewriter.ctaSecondary", "marketing.miniappModal.typewriter.miniappBtn", "marketing.qrAlt", "marketing.scanTip", "marketing.typewriter.miniappBtn", "marketing.typewriter.qrAlt", "marketing.typewriter.scanTip", "marketing.typewriter.typewriter.ctaPrimary", "marketing.typewriter.typewriter.ctaSecondary", "marketing.typewriter.typewriter.miniappBtn", "typewriter.miniappBtn"],
+      "reason": "同 zh-CN:2026-11-12 机主令删除首页 hero「微信小程序」按钮及其二维码弹层,19 枚 miniapp 词条随 TypewriterHero 清理成孤儿,全仓零引用;五语言等量删除保持 parity。回潮判据:恢复小程序入口须另票并按当次措辞补齐五语言。",
+      "until": "2027-11-12"
+    },
+    {
+      "file": "packages/i18n/messages/web/en.json",
+      "keys": ["marketing.miniappModal.brand", "marketing.miniappModal.connect", "marketing.miniappModal.content", "marketing.miniappModal.explore", "marketing.miniappModal.qrAlt", "marketing.miniappModal.scanTip", "marketing.miniappModal.title", "marketing.miniappModal.typewriter.ctaPrimary", "marketing.miniappModal.typewriter.ctaSecondary", "marketing.miniappModal.typewriter.miniappBtn", "marketing.qrAlt", "marketing.scanTip", "marketing.typewriter.miniappBtn", "marketing.typewriter.qrAlt", "marketing.typewriter.scanTip", "marketing.typewriter.typewriter.ctaPrimary", "marketing.typewriter.typewriter.ctaSecondary", "marketing.typewriter.typewriter.miniappBtn", "typewriter.miniappBtn"],
+      "reason": "Same as zh-CN: owner ordered removal of the hero WeChat Mini Program button and its QR modal on 2026-11-12; the 19 miniapp keys became orphaned after the TypewriterHero cleanup and have zero references repo-wide. All five locales shrink equally to keep parity. Backflow: reintroducing the mini-program entry needs a new ticket plus wording for all five locales.",
+      "until": "2027-11-12"
+    },
+    {
+      "file": "packages/i18n/messages/web/ja.json",
+      "keys": ["marketing.miniappModal.brand", "marketing.miniappModal.connect", "marketing.miniappModal.content", "marketing.miniappModal.explore", "marketing.miniappModal.qrAlt", "marketing.miniappModal.scanTip", "marketing.miniappModal.title", "marketing.miniappModal.typewriter.ctaPrimary", "marketing.miniappModal.typewriter.ctaSecondary", "marketing.miniappModal.typewriter.miniappBtn", "marketing.qrAlt", "marketing.scanTip", "marketing.typewriter.miniappBtn", "marketing.typewriter.qrAlt", "marketing.typewriter.scanTip", "marketing.typewriter.typewriter.ctaPrimary", "marketing.typewriter.typewriter.ctaSecondary", "marketing.typewriter.typewriter.miniappBtn", "typewriter.miniappBtn"],
+      "reason": "zh-CN と同一:2026-11-12 のオーナー指示によりホーム hero の WeChat ミニプログラムボタンと QR モーダルを削除。TypewriterHero 整理後に 19 枚の miniapp キーは参照ゼロの孤児となり、五言語で同数削除して parity を維持。回帰条件:ミニプログラム導線を復活させる場合は別チケットで五言語の文言を揃えること。",
+      "until": "2027-11-12"
+    },
+    {
+      "file": "packages/i18n/messages/web/ko.json",
+      "keys": ["marketing.miniappModal.brand", "marketing.miniappModal.connect", "marketing.miniappModal.content", "marketing.miniappModal.explore", "marketing.miniappModal.qrAlt", "marketing.miniappModal.scanTip", "marketing.miniappModal.title", "marketing.miniappModal.typewriter.ctaPrimary", "marketing.miniappModal.typewriter.ctaSecondary", "marketing.miniappModal.typewriter.miniappBtn", "marketing.qrAlt", "marketing.scanTip", "marketing.typewriter.miniappBtn", "marketing.typewriter.qrAlt", "marketing.typewriter.scanTip", "marketing.typewriter.typewriter.ctaPrimary", "marketing.typewriter.typewriter.ctaSecondary", "marketing.typewriter.typewriter.miniappBtn", "typewriter.miniappBtn"],
+      "reason": "zh-CN과 동일: 2026-11-12 오너 지시로 홈 hero의 WeChat 미니프로그램 버튼과 QR 모달을 삭제. TypewriterHero 정리 후 19개 miniapp 키는 참조가 0인 고아 키가 되어 5개 언어에서 동일하게 삭제해 parity 유지. 재유입 조건: 미니프로그램 진입점을 되살릴 경우 별도 티켓으로 5개 언어 문구를 함께 보강할 것.",
+      "until": "2027-11-12"
     }
   ]
 }

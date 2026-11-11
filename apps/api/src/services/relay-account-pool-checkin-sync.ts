@@ -36,7 +36,7 @@ import { resolveAccountProxyUrl } from './relay-proxy-pool.js'
 // =============================================================================
 
 /** 签到平台(与 ai-service internal_checkin_pool._POOL_PLATFORMS 白名单文字一致) */
-export type CheckinPlatform = 'trae' | 'workbuddy' | 'qoder' | 'minimax' | 'doubao' | 'raccoon'
+export type CheckinPlatform = 'trae' | 'workbuddy' | 'qoder' | 'minimax' | 'doubao'
 
 const PROVIDER_TO_CHECKIN: Record<RelayProviderCode, CheckinPlatform | null> = {
   trae: 'trae',
@@ -56,9 +56,9 @@ const PROVIDER_TO_CHECKIN: Record<RelayProviderCode, CheckinPlatform | null> = {
   doubao: 'doubao',
   lingma: null,
   grokbot: null,
-  // 2026-11-11 接入商汤小浣熊签到(checkin_raccoon.py 引擎,balance+tasks 只读核对;
-  // daily 300 为登录自动发放型 ⇒ 引擎核对到账情况并汇报,不伪造登录事件):
-  raccoon: 'raccoon',
+  // 2026-11-11:商汤小浣熊(raccoon)只有对话侧协议,无签到引擎 ⇒ null(映射即拦截);
+  // 缺这一行会让 Record<RelayProviderCode,…> 在加平台后静默不完整,tsc 直接报错兜住。
+  raccoon: null,
 }
 
 /** providerCode → 签到平台;未知平台或无签到引擎 → null(调用方整批跳过) */

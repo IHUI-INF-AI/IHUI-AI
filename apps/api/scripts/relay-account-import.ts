@@ -47,8 +47,13 @@ const { eq, and } = await import('drizzle-orm')
 const { aiRelayAccountPool } = await import('@ihui/database')
 const { isRelayProviderCode, RELAY_PROVIDERS, validateAccountExport, resolveRelayCredentialSlots } =
   await import('../src/services/relay-account-format.js')
-const { importAccounts, decryptAccountCredentials, resolveImportAccountUidProbe } =
-  await import('../src/services/relay-account-pool-service.js')
+const {
+  importAccounts,
+  decryptAccountCredentials,
+  resolveImportAccountUidProbe,
+  buildExportPayload,
+  validateExportRoundTrip,
+} = await import('../src/services/relay-account-pool-service.js')
 const { db, dbRead, closeDbPools } = await import('../src/db/index.js')
 const { registerAllRelayAdapters } = await import('../src/services/upstream-adapters/index.js')
 const { getRelayAdapter } = await import('../src/services/relay-upstream-adapters.js')
@@ -81,6 +86,18 @@ interface CliOptions {
    * 复制第二份清单,§0.6),缺省按"给了 --owner 就是显式旗标,否则 none"如实回填。
    */
   ownerSource: string
+  /**
+   * 导出模式(--export <provider>):把该平台全部账号(含明文凭证)打成标准导入 JSON 写 stdout,
+   * 供「生产→本地」同步拉回(scripts/relay-account-pool.mjs --sync-pull);不读输入、不落库。
+   */
+  exportMode: boolean
+  /**
+   * 全平台导出模式(--export-all,2026-11-11 立):一次进程导出**所有**平台账号,
+   * 输出 `{providers:{<code>:{accounts:[...]}}}` 单份 JSON(边界标记包裹)。
+   * 用途 = 跨环境双向同步引擎做「生产→本地」快照:12 个平台一次 SSH 拿全,
+   * 不再为每个平台付一次 tsx 冷启 + Cloudflare 握手。不读输入、不落库。
+   */
+  exportAll: boolean
 }
 
 const HELP = `账号池导入(服务端落库)
@@ -97,6 +114,10 @@ const HELP = `账号池导入(服务端落库)
                               缺省按"给了 --owner 记 explicit-flag,否则 none"回填。
                               词汇唯一真相源 = scripts/lib/pool-owner.mjs 的 OWNER_SOURCES,
                               本脚本只透传不解释。
+    [--export <provider>]    导出该平台全部账号(含明文凭证)为标准 JSON 到 stdout,供「生产→本地」
+                              同步拉回(scripts/relay-account-pool.mjs --sync-pull);不读输入、不落库。
+    [--export-all]           一次导出全部平台(单份 JSON,providers 分桶),供跨环境双向同步引擎
+                              做整端快照;同样不读输入、不落库。
 
 批量模式(2026-11-10):--file 可重复给,同一进程内逐文件导入(每文件须自带顶层 providerCode,
   此时不接受 --provider),退出码取最坏一档;用于全池推生产时只付一次 tsx 冷启。
@@ -121,11 +142,26 @@ function parseArgs(argv: string[]): {
     json: false,
     ownerUserId: null,
     ownerSource: '',
+    exportMode: false,
+    exportAll: false,
   }
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]
     if (arg === '--help' || arg === '-h') return { help: true, options: null, error: null }
     else if (arg === '--stdin') options.stdin = true
+    else if (arg === '--export') {
+      const v = argv[++i] ?? ''
+      if (!isRelayProviderCode(v)) {
+        return {
+          help: false,
+          options: null,
+          error: `--export 需要平台名(可选 ${RELAY_PROVIDERS.join('|')})`,
+        }
+      }
+      options.exportMode = true
+      options.providerCode = v
+    }
+    else if (arg === '--export-all') options.exportAll = true
     else if (arg === '--dry-run') options.dryRun = true
     else if (arg === '--no-health') options.health = false
     else if (arg === '--json') options.json = true
@@ -170,8 +206,12 @@ function parseArgs(argv: string[]): {
   if (options.stdin && options.files.length > 0) {
     return { help: false, options: null, error: '--stdin 与 --file 只能二选一' }
   }
-  if (!options.stdin && options.files.length === 0) {
-    return { help: false, options: null, error: '缺少输入:--file <json> 或 --stdin' }
+  if (!options.exportAll && !options.exportMode && !options.stdin && options.files.length === 0) {
+    return {
+      help: false,
+      options: null,
+      error: '缺少输入:--file <json> 或 --stdin(导出用 --export <provider> / --export-all)',
+    }
   }
   if (options.files.length > 1 && options.providerCode) {
     return {
@@ -289,6 +329,10 @@ async function main(argv: string[]): Promise<number> {
   }
   const opts = parsed.options
 
+  // 导出模式(生产→本地同步入口):只读该平台全部账号,把标准导入 JSON 写 stdout,不落库。
+  if (opts.exportAll) return exportAllProviders()
+  if (opts.exportMode) return exportProvider(opts)
+
   // 批量模式(2026-11-10):一个 node 进程内逐文件导入,退出码取最坏的一档。
   // 用途 = scripts/relay-account-pool-push-all.mjs 全池推生产:9 个平台只需一次 tsx 冷启。
   if (!opts.stdin && opts.files.length > 1) {
@@ -318,6 +362,123 @@ async function main(argv: string[]): Promise<number> {
     return 2
   }
   return importOne(opts, rawText)
+}
+
+/**
+ * 抽某平台全部账号为**平台原生导入形状**(2026-11-11 修正)。
+ *
+ * 为什么必须用原生形状:简化形状只带 token/refreshToken,而 minimax 要 accessToken、
+ * codearts 要 STS/AK-SK 三件套、zcode 要 oauth:bigmodel:access_token、loomy 要会话 value
+ * —— 简化形状导出后再导入必然 round-trip 失败(2026-11-11 实测 8 条被拒),反向同步
+ * 就变成"永远同步不完"。这里复用服务层的 buildExportPayload + 硬校验
+ * validateExportRoundTrip,保证"导出的每一行都能被自己重新导入且 uid/统一名不变"。
+ *
+ * 同步元数据放在独立命名空间 `__sync`(uid/owner/updatedAt/enabled):原生载荷保持纯净
+ * (导入器只认平台原生字段,多一个键就会进 extraMetadata 污染行),同步器读 __sync 做
+ * 键与冲突裁决,落库前整块剥掉。
+ *
+ * 解不开/校验不通过的行**不导出**,按 uid + 原因如实返回(绝不冒充"导出完整")。
+ */
+async function buildExportAccounts(providerCode: RelayProviderCode): Promise<{
+  accounts: Array<Record<string, unknown>>
+  skipped: number
+  rejected: Array<{ uid: string; reason: string }>
+}> {
+  const rows = await dbRead
+    .select()
+    .from(aiRelayAccountPool)
+    .where(eq(aiRelayAccountPool.providerCode, providerCode))
+  const accounts: Array<Record<string, unknown>> = []
+  const rejected: Array<{ uid: string; reason: string }> = []
+  for (const row of rows) {
+    let creds: ReturnType<typeof decryptAccountCredentials>
+    try {
+      creds = decryptAccountCredentials(row)
+    } catch (e) {
+      rejected.push({
+        uid: row.uid,
+        reason: `解密失败: ${e instanceof Error ? e.message.slice(0, 100) : String(e)}`,
+      })
+      continue
+    }
+    const built = buildExportPayload(row, creds)
+    if (typeof built === 'string') {
+      rejected.push({ uid: row.uid, reason: built.slice(0, 160) })
+      continue
+    }
+    const issue = validateExportRoundTrip(row, built)
+    if (issue) {
+      rejected.push({ uid: row.uid, reason: issue.slice(0, 160) })
+      continue
+    }
+    accounts.push({
+      ...built,
+      __sync: {
+        uid: row.uid,
+        ownerUserId: row.ownerUserId ?? null,
+        updatedAt: row.updatedAt ? row.updatedAt.toISOString() : null,
+        enabled: row.isEnabled,
+        // core = 跨环境比较的**业务核心指纹来源**,直接取库列(不取载荷)。
+        // 为什么不用整载荷哈希:原生载荷含 sourcePath/region/rawCredentials 这类
+        // 本机环境字段,两端天然不同 ⇒ 整载荷哈希会把"其实一致"判成冲突(2026-11-11 实测
+        // 一致数归零)。号池的实质是"凭证能不能用" = token/refresh/到期/启用态。
+        core: {
+          token: creds.token ?? '',
+          refreshToken: creds.refreshToken ?? '',
+          tokenExpiresAt: row.tokenExpiresAt ? row.tokenExpiresAt.toISOString() : '',
+        },
+      },
+    })
+  }
+  return { accounts, skipped: rejected.length, rejected }
+}
+
+/** 导出某平台全部账号(含明文凭证),供「生产→本地」同步拉回;不读输入、不落库。 */
+async function exportProvider(opts: CliOptions): Promise<number> {
+  const providerCode = opts.providerCode
+  if (!providerCode) {
+    process.stderr.write('❌ --export 需要平台名(--export <provider>)\n')
+    return 2
+  }
+  const { accounts, skipped, rejected } = await buildExportAccounts(providerCode)
+  if (skipped > 0) {
+    process.stderr.write(`ℹ️ ${providerCode} 导出:${skipped} 行被跳过(解不开/round-trip 校验不通过)\n`)
+    for (const r of rejected.slice(0, 10)) process.stderr.write(`   · ${r.uid}: ${r.reason}\n`)
+  }
+  // 边界标记包裹:本进程的 dotenv/[db] 诊断也写 stdout ⇒ 下游只截取标记之间的 JSON 段
+  process.stdout.write(
+    `__POOL_EXPORT_BEGIN__\n${JSON.stringify({ providerCode, accounts })}\n__POOL_EXPORT_END__\n`,
+  )
+  return 0
+}
+
+/**
+ * 全平台导出(--export-all,2026-11-11):一次进程输出所有平台快照,
+ * 供跨环境双向同步引擎(relay-account-pool-sync.ts)当「整端快照」用。
+ * 单份 JSON {providers:{<code>:{accounts:[...]}}, exportedAt} —— 12 平台只付一次 SSH 握手。
+ */
+async function exportAllProviders(): Promise<number> {
+  const providers: Record<string, { accounts: Array<Record<string, unknown>> }> = {}
+  const rejectedAll: Array<{ providerCode: string; uid: string; reason: string }> = []
+  let total = 0
+  for (const p of RELAY_PROVIDERS) {
+    const built = await buildExportAccounts(p)
+    providers[p] = { accounts: built.accounts }
+    total += built.accounts.length
+    for (const r of built.rejected) rejectedAll.push({ providerCode: p, ...r })
+  }
+  if (rejectedAll.length > 0) {
+    process.stderr.write(
+      `ℹ️ 全平台导出:${rejectedAll.length} 行被跳过(共导出 ${total} 条;跳过的行不会参与同步)\n`,
+    )
+    for (const r of rejectedAll.slice(0, 20)) {
+      process.stderr.write(`   · ${r.providerCode}/${r.uid}: ${r.reason}\n`)
+    }
+  }
+  process.stdout.write(
+    `__POOL_EXPORT_BEGIN__\n${JSON.stringify({ providers, exportedAt: new Date().toISOString() })}\n__POOL_EXPORT_END__\n`,
+  )
+  return 0
 }
 
 /** 单份输入的完整导入流程(预检 → 落库 → 体检);批量模式由 main 逐文件调用,共享同一套判据。 */

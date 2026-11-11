@@ -556,7 +556,7 @@ const developerRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ apiKey: updated }))
   })
 
-  // GET /api-keys/:id/usage — 查询 API 密钥使用量（从 api_logs 统计）
+  // GET /api-keys/:id/usage — 查询 API 密钥使用量（按 apiKeyId 归因统计）
   server.get('/api-keys/:id/usage', async (request, reply) => {
     const userId = request.userId!
     const idParsed = idParamSchema.safeParse(request.params)

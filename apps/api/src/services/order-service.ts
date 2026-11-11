@@ -642,6 +642,34 @@ export async function cancelOrder(orderNo: string): Promise<OrderOperationResult
 }
 
 /**
+ * 状态机：退款抢占(必须在调用支付渠道之前执行)。
+ *
+ * F-09:原实现先调支付宝再落本地状态,两个并发退款请求都能读到 paid、各调一次支付宝,
+ * 本地再各自无条件置 refunded ⇒ 真实资金双出。状态机只有 pending/paid/cancelled/refunded,
+ * 不新增中间态,直接用条件 UPDATE(paid→refunded)做抢占闸门:0 行命中即说明已被并发请求
+ * 抢占,调用方必须返回冲突且不得再调支付渠道。
+ */
+export async function claimRefund(orderNo: string): Promise<OrderOperationResult> {
+  const order = await findOrderByNo(orderNo)
+  if (!order) return { success: false, reason: '订单不存在' }
+  if (order.status !== 'paid')
+    return { success: false, reason: `订单状态(${order.status})不可退款` }
+  const claimed = await updateOrderStatus(orderNo, 'refunded', 'paid')
+  if (!claimed) return { success: false, reason: '订单状态已变更,退款未落库' }
+  return { success: true, order: claimed }
+}
+
+/**
+ * 状态机：解除退款抢占(refunded→paid)。
+ * F-09:抢占发生在支付渠道调用之前,渠道失败/抛异常必须回退,否则订单被误记为已退款、
+ * 用户无法再次发起退款。支付宝侧 out_request_no 固定为 refund_<outTradeNo>,重试幂等。
+ */
+export async function abortRefund(orderNo: string): Promise<boolean> {
+  const reverted = await updateOrderStatus(orderNo, 'paid', 'refunded')
+  return Boolean(reverted)
+}
+
+/**
  * 状态机：退款完成（由退款流程调用）。
  *
  * 2026-08-02 P0 修复(B2):退款时退还 token 余额(token 充值订单/活动订单)。
@@ -656,10 +684,16 @@ export async function cancelOrder(orderNo: string): Promise<OrderOperationResult
  * 鉴权后直接置为 refunded,角色权限够即可一键退款,无审批/复核/风控(如大额/频次阈值)。
  * 资金敏感操作建议补人工审核或风控规则后再落库 refunded。
  */
-export async function refundOrder(orderNo: string): Promise<OrderOperationResult> {
+export async function refundOrder(
+  orderNo: string,
+  opts?: { alreadyClaimed?: boolean },
+): Promise<OrderOperationResult> {
+  // F-09:alreadyClaimed 表示调用方已在调用支付渠道之前用 claimRefund 抢占过状态,
+  // 这里不再重复做 paid→refunded 迁移,只负责退款副作用(token 扣回/指标)。
+  const alreadyClaimed = opts?.alreadyClaimed === true
   const order = await findOrderByNo(orderNo)
   if (!order) return { success: false, reason: '订单不存在' }
-  if (order.status !== 'paid')
+  if (!alreadyClaimed && order.status !== 'paid')
     return { success: false, reason: `订单状态(${order.status})不可退款` }
   // F-33:先扣回 token,再落 refunded。
   // 原实现先 updateOrderStatus('refunded') 再把扣回失败 try/catch 吞掉 —— 钱已退、token
@@ -668,11 +702,20 @@ export async function refundOrder(orderNo: string): Promise<OrderOperationResult
   // 与 rechargeIfTokenOrder / creditTopupBonus 同一判据:有 productId 的 VIP/套餐单
   // 支付时没有 rechargeToken,退款不能按金额把未入账 token 扣回去。
   if ((order.orderType === 2 || order.orderType === 3) && order.userId && !order.productId) {
-    await refundTokenDeduct(order.userId, order.amount, orderNo, '退款')
+    try {
+      await refundTokenDeduct(order.userId, order.amount, orderNo, '退款')
+    } catch (e) {
+      // F-09:抢占路径下订单已置 refunded,扣回失败必须解除抢占回到 paid,
+      // 保持 F-33「扣回失败 → 订单保持 paid 等待重试」的既有语义。
+      if (alreadyClaimed) await abortRefund(orderNo)
+      throw e
+    }
   }
-  const refundedOrder = await updateOrderStatus(orderNo, 'refunded', 'paid')
-  if (!refundedOrder) {
-    return { success: false, reason: '订单状态已变更,退款未落库' }
+  if (!alreadyClaimed) {
+    const refundedOrder = await updateOrderStatus(orderNo, 'refunded', 'paid')
+    if (!refundedOrder) {
+      return { success: false, reason: '订单状态已变更,退款未落库' }
+    }
   }
   // ihui_payment_refund_total:退款状态落库成功后按渠道计数
   recordPaymentRefund(order.paymentMethod ?? 'unknown')

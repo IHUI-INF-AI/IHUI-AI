@@ -29,7 +29,7 @@ import {
   completeMultipartUpload,
   abortMultipartUpload,
 } from '../services/storage-service.js'
-import { getOssStsProvider } from '../services/oss-sts-service.js'
+import { getOssStsProvider, buildSessionName, generateObjectKey } from '../services/oss-sts-service.js'
 import { OSS_DRIVER_TYPES } from '../plugins/business-metrics.js'
 
 // =============================================================================
@@ -90,8 +90,9 @@ const uploadProxyBodySchema = z.object({
 })
 
 // STS 签发 schema
+// F-70:sessionName 由服务端固定生成 —— 客户端可传但一律忽略(不再从 body 读取),
+// 避免用他人目录名/任意会话名去申请临时凭证。
 const stsBodySchema = z.object({
-  sessionName: z.string().max(64).optional(),
   durationSeconds: z.number().int().min(900).max(3600).optional(),
   // 文件扩展名,用于生成 objectKey(默认 'bin')
   ext: z.string().max(8).optional(),
@@ -341,12 +342,13 @@ export const ossRoutes: FastifyPluginAsync = async (server) => {
       }
       try {
         const userId = request.userId ?? 'anonymous'
-        const sessionName = parsed.data.sessionName ?? `ihui-${userId.slice(-8)}`
+        // F-70:sessionName 与 objectKey 全部服务端决定 —— 客户端传值一律忽略,
+        // objectKey 固定落在本人目录 uploads/{userId}/<随机名>,与临时凭证的策略边界一致。
+        const sessionName = buildSessionName(userId)
         const duration = parsed.data.durationSeconds ?? 900
-        const creds = await provider.assumeRole(sessionName, duration, {
-          userId,
-          ext: parsed.data.ext ?? 'bin',
-        })
+        const ext = parsed.data.ext ?? 'bin'
+        const objectKey = generateObjectKey(userId, ext)
+        const creds = await provider.assumeRole(sessionName, duration, { userId, ext, objectKey })
         return reply.send(success({ credentials: creds, provider: provider.type }))
       } catch (e) {
         request.log.error(e)
