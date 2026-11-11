@@ -4,7 +4,7 @@
 
 import { useCallback, useRef, useState } from 'react'
 import { Platform } from 'react-native'
-import * as Notifications from 'expo-notifications'
+import { Notifications } from '@/platform/push'
 import * as Device from '@/platform/device'
 import { fetchApi } from '@ihui/api-client'
 

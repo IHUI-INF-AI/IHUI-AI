@@ -17,7 +17,7 @@
  * 把本地录音文件交给调用方上传发送(语音气泡消息),duration 用 ref 镜像供 stop 读取。
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { AudioModule, RecordingPresets, setAudioModeAsync, useAudioRecorder } from 'expo-audio'
+import { AudioModule, RecordingPresets, setAudioModeAsync, useAudioRecorder } from '@/platform/audio'
 import { voiceSttFromReactNative } from '@ihui/api-client'
 import { isCredentialRejected, runWithFreshToken } from '../lib/token'
 

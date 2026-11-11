@@ -28,7 +28,7 @@ import {
   type TextStyle,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { BlurTargetView } from 'expo-blur'
+import { BlurTargetView } from '@/platform/blur'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import Clipboard from '@react-native-clipboard/clipboard'

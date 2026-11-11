@@ -31,10 +31,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Clipboard from '@react-native-clipboard/clipboard'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as MediaLibrary from '@/platform/media-library'
-import * as ImagePicker from '@/platform/picker'
-import * as DocumentPicker from '@/platform/picker'
+import * as ImagePicker from '@/platform/image-picker'
+import * as DocumentPicker from '@/platform/document-picker'
 import { Asset } from '@/platform/asset'
-import { BlurTargetView } from 'expo-blur'
+import { BlurTargetView } from '@/platform/blur'
 import {
   BookOpen,
   Bot,

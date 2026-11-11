@@ -4,7 +4,8 @@
 // 鸿蒙接入时逐域替换实现即可,业务侧 import 不用再动。
 
 export * from './fs'
-export * from './picker'
+export * from './image-picker'
+export * from './document-picker'
 // media-library 的 Asset 与 expo-asset 的 Asset 同名,汇总层给相册资源加 Media 前缀避免冲突
 export * as MediaLibrary from './media-library'
 export { Asset as MediaAsset, requestPermissionsAsync } from './media-library'
