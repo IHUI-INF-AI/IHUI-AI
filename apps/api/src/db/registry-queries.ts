@@ -215,18 +215,146 @@ export async function getRegistryItem(id: string): Promise<RegistryItemDetailRes
   }
 }
 
+// =============================================================================
+// 外部字段落库净化(SDB-09)
+// =============================================================================
+
+/**
+ * varchar 列的字符上限,与 packages/database/src/schema/registry.ts:41-58 同源。
+ * 截断统一由这一张表驱动:新增 varchar 列时先改 schema,再补这里,避免各调用点散落魔法数字。
+ * description 是 text、categories/tags/payload 是 jsonb,没有列宽上限,不参与截断。
+ */
+const REGISTRY_VARCHAR_LIMITS = {
+  sourceType: 20,
+  source: 20,
+  sourceId: 255,
+  name: 200,
+  version: 100,
+  author: 200,
+  homepage: 500,
+  repoUrl: 500,
+  downloadUrl: 500,
+} as const
+
+type RegistryVarcharField = keyof typeof REGISTRY_VARCHAR_LIMITS
+
+const REGISTRY_URL_FIELDS: readonly RegistryVarcharField[] = ['homepage', 'repoUrl', 'downloadUrl']
+
+/** 必填列:缺失/空白时整条拒绝(DB 的 NOT NULL 是写库时才炸,整批会一起回滚)。 */
+const REGISTRY_REQUIRED_FIELDS = ['sourceType', 'source', 'sourceId', 'name'] as const
+
+export interface RegistryFieldSanitizeStats {
+  /** 被列宽截断的字段数(同一行的多个字段分别计数) */
+  truncated: number
+  /** 因协议非 http(s) 或无法解析而被置空的 URL 字段数 */
+  droppedUrls: number
+  /** 因必填字段非法被整条拒绝的记录数 */
+  rejected: number
+}
+
+function emptySanitizeStats(): RegistryFieldSanitizeStats {
+  return { truncated: 0, droppedUrls: 0, rejected: 0 }
+}
+
+/**
+ * 按字符(码点)截断,与 PG varchar(n) 的计数口径一致;
+ * 直接 slice 会切开 emoji 的代理对,留下半个字符写库。
+ */
+function truncateToColumn(value: string, maxLength: number): string {
+  if (value.length <= maxLength) return value
+  return Array.from(value).slice(0, maxLength).join('')
+}
+
+/** 只放行 http/https;解析失败或其它协议返回 null(丢字段,不丢记录)。 */
+function sanitizeUrlField(value: string): string | null {
+  const trimmed = value.trim()
+  try {
+    const protocol = new URL(trimmed).protocol
+    return protocol === 'http:' || protocol === 'https:' ? trimmed : null
+  } catch {
+    return null
+  }
+}
+
+interface SanitizedRegistryItem {
+  raw: RawRegistryItem
+  stats: RegistryFieldSanitizeStats
+  invalidField: string | null
+}
+
+/**
+ * 外部条目的唯一净化出口(适配器不重复实现)。
+ * 逐列截断 + URL 协议白名单;必填字段非法时返回 invalidField,由调用方拒绝该条。
+ * 其余情况一律保留记录,只把越界值降级(截断/置空)并计数。
+ */
+function sanitizeRegistryItem(raw: RawRegistryItem): SanitizedRegistryItem {
+  const stats = emptySanitizeStats()
+  const sanitized = { ...raw }
+  const mutable = sanitized as unknown as Record<string, unknown>
+
+  for (const field of REGISTRY_REQUIRED_FIELDS) {
+    const value = raw[field]
+    if (typeof value !== 'string' || value.trim() === '') {
+      return { raw: sanitized, stats, invalidField: field }
+    }
+  }
+
+  for (const [field, maxLength] of Object.entries(REGISTRY_VARCHAR_LIMITS) as Array<
+    [RegistryVarcharField, number]
+  >) {
+    const value = raw[field]
+    if (typeof value !== 'string') continue
+    const next = truncateToColumn(value, maxLength)
+    if (next !== value) stats.truncated++
+    mutable[field] = next
+  }
+
+  for (const field of REGISTRY_URL_FIELDS) {
+    const value = mutable[field]
+    if (typeof value !== 'string') continue
+    const next = sanitizeUrlField(value)
+    if (next === null) stats.droppedUrls++
+    mutable[field] = next
+  }
+
+  return { raw: sanitized, stats, invalidField: null }
+}
+
+/** 沿用 registry-sync 既有日志形态:有降级才 warn,一次写入一行聚合计数。 */
+function logSanitizeStats(stats: RegistryFieldSanitizeStats, scope: string): void {
+  if (stats.truncated === 0 && stats.droppedUrls === 0 && stats.rejected === 0) return
+  console.warn(
+    `[registry-sync] registry field sanitize (${scope}): truncated=${stats.truncated} droppedUrls=${stats.droppedUrls} rejected=${stats.rejected}`,
+  )
+}
+
 /**
  * upsert:按 (source_type, source, source_id) 复合键。
  * 返回:
  *   - inserted: true 表示新插入, false 表示更新
  *   - hash: payload 的 SHA-256
  *   - oldVersion: 更新前的版本号(新插入时为 null),供 sync_log.old_version 字段使用
+ *   - sanitized: 本次落库前的字段净化计数(SDB-09)
  */
 export async function upsertRegistryItem(
-  raw: RawRegistryItem,
+  rawInput: RawRegistryItem,
   heat: number,
   quality: number,
-): Promise<{ inserted: boolean; hash: string; oldVersion: string | null }> {
+): Promise<{
+  inserted: boolean
+  hash: string
+  oldVersion: string | null
+  sanitized: RegistryFieldSanitizeStats
+}> {
+  const { raw, stats, invalidField } = sanitizeRegistryItem(rawInput)
+  if (invalidField) {
+    stats.rejected++
+    logSanitizeStats(stats, 'upsertRegistryItem')
+    throw new Error(`registry: 必填字段非法(${invalidField})`)
+  }
+  // 先记录再写库:即使 DB 抛错,截断/丢弃的计数也不会丢
+  logSanitizeStats(stats, 'upsertRegistryItem')
+
   const hash = await computePayloadHash(raw.payload)
   const now = new Date()
 
@@ -288,7 +416,7 @@ export async function upsertRegistryItem(
       },
     })
 
-  return { inserted, hash, oldVersion }
+  return { inserted, hash, oldVersion, sanitized: stats }
 }
 
 /**
@@ -296,6 +424,7 @@ export async function upsertRegistryItem(
  * - inserted/updated/skipped:本次批量的三态计数
  * - oldVersions:每条条目的 oldVersion(更新前)+ newVersion,供 sync_log 聚合
  * - hashList:每条条目的 payload SHA-256,供 sync_log payloadHash 聚合计算
+ * - sanitized:本次落库前的字段净化计数(SDB-09),被截断/丢弃 URL 的条数可从返回值观测
  */
 export interface BatchUpsertResult {
   inserted: number
@@ -304,6 +433,8 @@ export interface BatchUpsertResult {
   failed: number
   /** 批内复合键去重丢掉的重复行数(见 batchUpsertRegistryItems 头注) */
   deduped: number
+  /** 本次批量的字段净化计数(SDB-09) */
+  sanitized: RegistryFieldSanitizeStats
   oldVersions: Array<{
     sourceType: string
     source: string
@@ -336,16 +467,59 @@ export async function batchUpsertRegistryItems(
   options?: { force?: boolean },
 ): Promise<BatchUpsertResult> {
   if (items.length === 0) {
-    return { inserted: 0, updated: 0, skipped: 0, failed: 0, oldVersions: [], hashList: [], deduped: 0 }
+    return {
+      inserted: 0,
+      updated: 0,
+      skipped: 0,
+      failed: 0,
+      oldVersions: [],
+      hashList: [],
+      deduped: 0,
+      sanitized: emptySanitizeStats(),
+    }
   }
 
-  // 0. 批内去重(见头注宕因);Map 保留每个复合键的**最后一次**出现
-  const byKey = new Map<string, (typeof items)[number]>()
+  // 0. 先净化再批内去重(SDB-09):sourceId 截断后可能产生新的同键,
+  //    若在截断前判重,同一批里会出现两条相同复合键 → PG 21000 整批回滚。
+  const stats = emptySanitizeStats()
+  let rejected = 0
+  const acceptedItems: typeof items = []
   for (const item of items) {
+    const result = sanitizeRegistryItem(item.raw)
+    stats.truncated += result.stats.truncated
+    stats.droppedUrls += result.stats.droppedUrls
+    if (result.invalidField) {
+      // 必填字段非法的记录只能拒绝;其余条目继续落库,不因一条坏数据回滚整批
+      rejected++
+      continue
+    }
+    acceptedItems.push({ ...item, raw: result.raw })
+  }
+  stats.rejected = rejected
+  // 先记录再写库:即使 DB 抛错,截断/丢弃的计数也不会丢
+  logSanitizeStats(stats, 'batchUpsertRegistryItems')
+
+  // 批内去重(见头注宕因);Map 保留每个复合键的**最后一次**出现
+  const byKey = new Map<string, (typeof items)[number]>()
+  for (const item of acceptedItems) {
     byKey.set(`${item.raw.sourceType}:${item.raw.source}:${item.raw.sourceId}`, item)
   }
   const uniqueItems = [...byKey.values()]
-  const deduped = items.length - uniqueItems.length
+  const deduped = acceptedItems.length - uniqueItems.length
+
+  // 全部被拒时不能走到下面的 or(...conditions):空条件会退化成全表 SELECT
+  if (uniqueItems.length === 0) {
+    return {
+      inserted: 0,
+      updated: 0,
+      skipped: 0,
+      failed: rejected,
+      oldVersions: [],
+      hashList: [],
+      deduped,
+      sanitized: stats,
+    }
+  }
 
   // 1. 批量查 existing(inArray 不支持多列,用 OR 拼接复合键条件)
   const conditions = uniqueItems.map((item) =>
@@ -454,7 +628,16 @@ export async function batchUpsertRegistryItems(
       })
   }
 
-  return { inserted, updated, skipped, failed: 0, oldVersions, hashList, deduped }
+  return {
+    inserted,
+    updated,
+    skipped,
+    failed: rejected,
+    oldVersions,
+    hashList,
+    deduped,
+    sanitized: stats,
+  }
 }
 
 // =============================================================================

@@ -203,6 +203,29 @@ describe('SDB-30 / F-203 Crew 路由不重复扣费', () => {
     expect(fixture.deducts).toHaveLength(0)
   })
 
+  it('同一 runId 的终态事件重复投递:结算不重复(路由零结算,结算只发生在调用点)', async () => {
+    const terminal = {
+      type: 'complete',
+      content: '完成',
+      sessionId: 's-1',
+      usage: usage(200),
+      userId: 'user-a',
+      runId: 'run-dup',
+    }
+    fixture.streamEvents.push(
+      [{ type: 'start', content: '开始', sessionId: 's-1', runId: 'run-dup' }, terminal],
+      [{ type: 'start', content: '开始', sessionId: 's-1', runId: 'run-dup' }, terminal],
+    )
+
+    for (let i = 0; i < 2; i++) {
+      const res = await app.inject({ method: 'GET', url: '/api/crew/runs/s-1/stream' })
+      expect(res.statusCode).toBe(200)
+    }
+
+    // 同一 runId 重投两次也不产生第二笔结算
+    expect(fixture.deducts).toHaveLength(0)
+  })
+
   it('同步响应仍透传 usage 与 runId(结算不在路由,但用量仍可见)', async () => {
     fixture.syncResults.push({
       success: true,
