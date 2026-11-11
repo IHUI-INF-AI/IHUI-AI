@@ -92,6 +92,67 @@ describe('D182 锚点层:头部动作组/全屏按钮/门槛态/portal 退出键
     expect(host).toContain("document.getElementById('work-area-portal-root') ?? document.body")
     expect(host).toContain('data-testid="work-area-fullscreen-exit"')
   })
+
+  it('浮窗焦点接力:FAB ⇄ 对话框切换不把焦点丢给 body(role=dialog 必须有可聚焦落点)', () => {
+    // FAB 展开:先记账再开面板;最小化/关闭统一走 handleMinimize / handleClosePanel
+    expect(host).toContain("pendingFocusRef.current = 'panel'")
+    expect(host).toContain('onSelect={handleMinimize}')
+    expect(host).toContain('onSelect={handleClosePanel}')
+    // 对话框容器在浮窗态可程序化聚焦,且不画外圈 focus ring
+    // (ref 在停靠态也挂:关闭面板同样卸载子树,滚动位置保持需要在收起前读到容器)
+    expect(host).toMatch(/ref=\{panelRootRef\}/)
+    expect(host).toMatch(/tabIndex=\{floatMode \? -1 : undefined\}/)
+    // 焦点只在目标分支真正渲染出来后才搬(否则下次 effect 再试,避免 focus 落空)
+    expect(host).toMatch(/pendingFocusRef\.current = null\n\s*el\.focus\(\{ preventScroll: true \}\)/)
+  })
+
+  it('浮窗手势:桌面拖拽松手吸边 + 手机下拉收起(只挂 header,不抢消息区滚动)', () => {
+    // 吸边:落点统一过纯函数,避免组件内出现第二套边界算法
+    expect(host).toMatch(/setFloatPosition\(\s*snapFloatPosition\(/)
+    // 下拉手势:move/up/cancel 三路都收(丢失 capture 也不会把面板留在半途)
+    expect(host).toContain('handleSheetSwipeStart')
+    expect(host).toContain('handleSheetSwipeMove')
+    expect(host).toContain(
+      'onPointerCancel={isMobileSmall && floatMode ? handleSheetSwipeEnd : undefined}',
+    )
+    // 手势期间直接写 DOM transform,不得走 state 每帧重渲染(流式消息会一起掉帧)
+    expect(host).toContain("el.style.transform = `translate3d(0, ${dy}px, 0)`")
+  })
+
+  it('Portal 事件守卫:菜单项按下不得被 header 手势抢指针(setPointerCapture 会让点击失效)', () => {
+    // Radix 菜单 Portal 到 body,但 React 事件仍沿 React 树冒泡到 header。
+    // 若 header 在 pointerdown 时 setPointerCapture,pointerup/click 会被重定向到 header,
+    // 菜单项 onSelect 永不触发(2026-11-11 实测「点最小化没反应」)。
+    // 三个 header 手势入口都必须先确认按下目标是自身 DOM 内的节点。
+    const guards = host.match(/if \(!e\.currentTarget\.contains\(e\.target as Node\)\) return/g) ?? []
+    expect(guards.length).toBeGreaterThanOrEqual(3) // 窗口拖拽 / 浮窗拖拽 / 手机下拉
+    // 浮窗拖拽的空白区判定统一走共享词表(菜单项是 div,[role=menuitem] 必须被排除)
+    expect(host).toContain("isDraggableBlankArea(target, '[role=\"separator\"]')")
+  })
+
+  it('FAB 拖拽:最小化图标可拖动(独立坐标 + 松手吸边 + 拖后不误触展开)', () => {
+    // 用户反馈「最小化后的图标拖不动」:FAB 必须挂 pointerdown 拖拽入口
+    expect(host).toContain('onPointerDown={handleFabDragStart}')
+    // 位置独立记账:复用 floatPosition 会被浮窗 360 宽度钳死,拖到右半屏「拖不动」
+    expect(host).toContain('setFloatFabPosition(')
+    // 收尾统一吸边,且松手补发的 click 不能把面板弹开
+    expect(host).toMatch(/snapFabPosition\(/)
+    expect(host).toContain('fabClickSinkRef.current')
+    // 图标独立坐标跨「展开/最小化」保留:清掉会在下次最小化时回落到面板左下角,
+    // 被浮窗 360 宽度拉回左侧(拖到右缘再展开了又弹回来)。唯一作废点是重新拖面板。
+    expect((host.match(/setFloatFabPosition\(null\)/g) ?? []).length).toBe(1)
+    expect(host).toMatch(/handleFloatDragStart[\s\S]{0,3000}?setFloatFabPosition\(null\)/)
+  })
+
+  it('滚动位置保持:捕获阶段持续记账,重开后还原始会话的位置', () => {
+    // 持续记账(而不是只在某个按钮上抓一次)⇒ 全局快捷键/手机下拉等入口同样不丢
+    expect(host).toContain("root.addEventListener('scroll', onScroll, true)")
+    expect(host).toContain('findPanelScrollContainer(')
+    expect(host).toContain(
+      'saved.conversationId !== (useChatStore.getState().conversationId ?? null)',
+    )
+    expect(host).toContain('el.scrollTop = saved.top')
+  })
 })
 
 describe('D183 锚点层:一键 Draft PR(前端头部按钮 + 后端 draft 透传链)', () => {

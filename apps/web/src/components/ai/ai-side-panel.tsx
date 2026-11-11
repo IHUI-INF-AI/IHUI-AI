@@ -6,6 +6,8 @@
 
 /* eslint-disable jsx-a11y/no-noninteractive-tabindex -- 手柄 role="separator" 配合 onPointerDown
    是可拖拽交互元素,但 jsx-a11y 默认把 separator 视为非交互元素,需 Tab 聚焦做无障碍。 */
+/* eslint-disable jsx-a11y/no-noninteractive-element-interactions -- 同上:该 separator 是
+   window splitter(WAI-ARIA),支持指针拖拽 + ←/→ 调宽,不是装饰性非交互元素。 */
 
 import * as React from 'react'
 import { createPortal } from 'react-dom'
@@ -61,7 +63,11 @@ const ImportAnalysisDialog = dynamic(
 import { WorkspaceSelector } from '@/components/ai/workspace-selector'
 import { Tooltip, TooltipProvider } from '@/components/feedback'
 import { useChatStore, type ChatMessage } from '@/stores/chat'
-import { useAiPanelStore } from '@/stores/ai-panel'
+import {
+  AI_PANEL_MAX_WIDTH,
+  AI_PANEL_MIN_WIDTH,
+  useAiPanelStore,
+} from '@/stores/ai-panel'
 import { useEnvironmentInfoStore } from '@/stores/environment-info'
 import { useTerminalDockStore } from '@/stores/terminal-dock'
 import { useModeStore } from '@/stores/mode'
@@ -89,7 +95,19 @@ import {
   unresolvedTurnAnchorState,
 } from '@/lib/turn-deeplink'
 import { useProgressJumpStore } from '@/stores/progress-jump-store'
-import { useMediaQuery } from '@/hooks/use-media-query'
+// 形态档 + 浮窗几何唯一真相源(2026-11-11 立):断点只在这里定义,组件不再自己写 matchMedia。
+import {
+  AI_FAB_SIZE,
+  clampFabPosition,
+  clampFloatPosition,
+  getFloatSize,
+  getPanelBucket,
+  planFormMigration,
+  resolveFloatRect,
+  snapFabPosition,
+  snapFloatPosition,
+  useViewportSize,
+} from '@/lib/ai-panel-bucket'
 import { useDesktop } from '@/hooks/use-desktop'
 import { armWindowDragOnFirstMove, isDraggableBlankArea } from '@/lib/window-drag'
 // P3 #34(2026-09-16 立):流式屏幕阅读器播报(aria-live)
@@ -222,10 +240,11 @@ const HEADER_MENU_ITEM_CLASS =
 
 /** 浮窗默认位置锚点:工作内容展示区(#work-area-portal-root)左下角,向上弹出
  *  - left: 工作区左边缘 + 16px(紧贴 sidebar 右侧,留 16px 缓冲)
- *  - bottom: 距视口底部 16px(底部对齐,面板高度变化时顶部向上扩展 = "向上弹出"视觉效果)
+ *  - bottom: 工作区底边 - 16px(底部对齐,面板高度变化时顶部向上扩展 = "向上弹出"视觉效果)
  *  - 测量失败回退: left=256(sidebar 默认 240 + 16), bottom=innerHeight-16
- *  - 仅在 floatPosition.x < 0(未初始化)时使用,用户拖拽后用 floatPosition 持久化坐标
- *  - 2026-09-01 fix:浮窗位置在 workAreaCollapsed 变化时不应跳变 → 用 ref 缓存,只在首次渲染时计算
+ *  - 仅在 floatPosition 为哨兵(-1)时使用;拖拽后的坐标是**会话级**(不持久化),
+ *    出口统一经 lib/ai-panel-bucket 的 resolveFloatRect 做视口收口。
+ *  - 2026-09-01 fix:浮窗位置在 workAreaCollapsed 变化时不应跳变 → 缓存,只在首次使用时计算
  *    (每次 render 重新 getBoundingClientRect 会因主界面 reflow 得出不同值,导致浮窗位置抖动) */
 function getDefaultFloatAnchor(): { left: number; bottom: number } {
   if (typeof window === 'undefined') return { left: 256, bottom: 1000 }
@@ -237,9 +256,14 @@ function getDefaultFloatAnchor(): { left: number; bottom: number } {
   }
 }
 
-// 用 ref 缓存锚点,避免每次 render 重新测量导致浮窗位置跳变
-const _floatAnchor = getDefaultFloatAnchor()
-const defaultFloatAnchor = { current: _floatAnchor }
+// 锚点缓存(2026-11-11 修):原先是**模块求值**时测量 —— 模块 import 早于工作区挂载,
+// 实测拿不到 #work-area-portal-root 就永久回落 256/innerHeight。改为首次真正用到
+// (浮窗分支渲染 / 拖拽起手)时测量一次并缓存:此时布局已就绪,且不会每帧 reflow。
+let _floatAnchorCache: { left: number; bottom: number } | null = null
+function getFloatAnchor(): { left: number; bottom: number } {
+  if (!_floatAnchorCache) _floatAnchorCache = getDefaultFloatAnchor()
+  return _floatAnchorCache
+}
 
 /** 自定义"工作展示区"图标(对标设计稿):大圆角面板 + 短竖线,竖线两端不贴外框
  *  left=false 竖线在右侧(工作区展开状态);left=true 竖线在左侧(工作区收起状态) */
@@ -320,6 +344,29 @@ function isPublicDocsRoute(pathname: string | null | undefined): boolean {
   return pathOnly === PUBLIC_DOCS_PREFIX || pathOnly.startsWith(`${PUBLIC_DOCS_PREFIX}/`)
 }
 
+/**
+ * 找出面板里"真正在滚"的元素(消息列表/历史区的滚动容器)。
+ * 为什么不写死选择器:消息流承载件在 D73 窗格化后有多种分支,依赖内部 class/testid
+ * 会让本功能随下游改版静默失效。这里按「能滚 + 溢出量最大」取,与实现解耦。
+ * 只在最小化/关闭/重开的用户动作里调用(非渲染路径),O(n) 扫描可忽略。
+ */
+function findPanelScrollContainer(root: HTMLElement | null): HTMLElement | null {
+  if (!root) return null
+  let best: HTMLElement | null = null
+  let bestRange = 0
+  for (const el of root.querySelectorAll<HTMLElement>('*')) {
+    const range = el.scrollHeight - el.clientHeight
+    if (range <= 8) continue
+    const { overflowY } = window.getComputedStyle(el)
+    if (overflowY !== 'auto' && overflowY !== 'scroll') continue
+    if (range > bestRange) {
+      best = el
+      bestRange = range
+    }
+  }
+  return best
+}
+
 export function AISidePanel() {
   const t = useTranslations('chat')
   const tc = useTranslations('aiChat')
@@ -342,13 +389,30 @@ export function AISidePanel() {
   const pendingPermissionSetup = useAiPanelStore((s) => s.pendingPermissionSetup)
   const setPendingPermissionSetup = useAiPanelStore((s) => s.setPendingPermissionSetup)
   // 浮窗模式状态(2026-07-30)
-  const floatMode = useAiPanelStore((s) => s.floatMode)
+  // 2026-11-11 形态档重构:store 里的 floatMode 只是「用户偏好」,真正的形态由视口能力派生:
+  //   sheet(<640) / float(640–1279) 档**不存在**停靠位 ⇒ 一律浮;只有 docked(≥1280)才看偏好。
+  // 这样「open=true 却整块不可见」的死态在结构上不可能出现(见 lib/ai-panel-bucket 顶部说明)。
+  const floatModePref = useAiPanelStore((s) => s.floatMode)
   const floatMinimized = useAiPanelStore((s) => s.floatMinimized)
   const floatCollapsed = useAiPanelStore((s) => s.floatCollapsed)
   const floatPosition = useAiPanelStore((s) => s.floatPosition)
-  // 浮窗(悬浮态)统一加宽(2026-09-08 用户反馈"浮窗要再宽"):docked 面板宽度不变,
-  // 浮窗固定 360px(2026-09-08 用户选定),不受 docked 拖拽偏好影响
-  const floatWidth = floatMode ? 360 : width
+  // FAB 拖拽后的独立位置(null = 跟随浮窗矩形左下角)
+  const floatFabPosition = useAiPanelStore((s) => s.floatFabPosition)
+  const viewport = useViewportSize()
+  const bucket = getPanelBucket(viewport.width)
+  const isSheet = bucket === 'sheet'
+  /** 派生形态:本档是否浮窗(下文所有 floatMode 判断都指这个派生值) */
+  const floatMode = bucket === 'docked' ? floatModePref : true
+  /** 浮窗矩形:仅浮窗态计算(停靠 / SSR 不触碰 document,避免服务端无 window) */
+  const floatRect = React.useMemo(
+    () =>
+      floatMode
+        ? resolveFloatRect(floatPosition, getFloatAnchor(), viewport.width, viewport.height)
+        : null,
+    [floatMode, floatPosition, viewport.width, viewport.height],
+  )
+  /** 非空视图(零值占位):浮窗外的分支不会消费它的几何字段 */
+  const floatBox = floatRect ?? { x: 0, y: 0, width: 0, height: 0 }
 
   // 宽度闪变修复(2026-09-08 用户反馈"刷新时先窄过一会又变宽"):
   // SSR 用 noopStorage 以默认宽度 300 渲染,客户端 zustand persist rehydrate 恢复
@@ -362,10 +426,33 @@ export function AISidePanel() {
     mounted && !isResizing
       ? 'width 0.2s cubic-bezier(0.4,0,0.2,1), height 0.2s cubic-bezier(0.4,0,0.2,1), left 0.2s cubic-bezier(0.4,0,0.2,1)'
       : 'none'
+  // 三态切换动效(2026-11-11):最小化 FAB / 浮窗 / 停靠之间是 DOM 与定位的离散跳变,
+  // 直接切会「硬闪」。统一用淡入 + 轻微缩放遮住落点变化:
+  //  - leaving:最小化先播 280ms 退场,再真正切到 FAB 分支(仅动效,不改变状态语义)
+  //  - modeFx:docked ↔ float 切换时给根节点临时补一次入场(挂载入场由 CSS 类负责)
+  const [leaving, setLeaving] = React.useState(false)
+  const [modeFx, setModeFx] = React.useState(false)
+  const leaveTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  React.useEffect(
+    () => () => {
+      if (leaveTimerRef.current) clearTimeout(leaveTimerRef.current)
+    },
+    [],
+  )
+  const prevBucketRef = React.useRef(bucket)
+  React.useEffect(() => {
+    if (prevBucketRef.current === bucket) return
+    prevBucketRef.current = bucket
+    setModeFx(true)
+    const t = setTimeout(() => setModeFx(false), 440)
+    return () => clearTimeout(t)
+  }, [bucket])
+
   const setFloatMode = useAiPanelStore((s) => s.setFloatMode)
   const setFloatMinimized = useAiPanelStore((s) => s.setFloatMinimized)
   const setFloatCollapsed = useAiPanelStore((s) => s.setFloatCollapsed)
   const setFloatPosition = useAiPanelStore((s) => s.setFloatPosition)
+  const setFloatFabPosition = useAiPanelStore((s) => s.setFloatFabPosition)
   const openPanel = useAiPanelStore((s) => s.openPanel)
   const {
     messages,
@@ -387,6 +474,23 @@ export function AISidePanel() {
   } = useChat()
   const subAgentActivities = useChatStore((s) => s.subAgentActivities)
   const chatError = useChatStore((s) => s.error)
+  // 「当前对话的模型」≠ 全局模型选择器(2026-11-11 用户报障):
+  // currentModel 是选择器的值,打开历史对话不会回填(切会话不改它),默认恒为 'auto';
+  // 而 message.model 里 auto 轮也是字面量 'auto'(见 resolveRoundModel),同样查不到厂商。
+  // 真实模型只有计量帧带回来(MessageUsage.model = 实际计费模型,可区别于 'auto'),
+  // 所以按「消息 model → 该消息 usage 的真实模型 → 选择器」三级回退。
+  const usageByMessageId = useChatStore((s) => s.usageByMessageId)
+  const conversationModel = React.useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      const msg = messages[i]
+      if (!msg) continue
+      const declared = msg.model
+      if (declared && declared !== 'auto') return declared
+      const billed = msg.id ? usageByMessageId[msg.id]?.model : undefined
+      if (billed && billed !== 'auto') return billed
+    }
+    return currentModel
+  }, [messages, usageByMessageId, currentModel])
   // ChatMode 4 态(2026-07-28 移除独立 PlanActToggle):订阅 currentMode 用于动态切换输入框 placeholder
   const currentMode = useModeStore((s) => s.currentMode)
   // 登录弹窗打开状态(2026-07-31 立,双重保险):
@@ -462,12 +566,9 @@ export function AISidePanel() {
   const toggleTerminalDock = useTerminalDockStore((s) => s.toggle)
   const terminalDockOpen = useTerminalDockStore((s) => s.open)
 
-  // 移动端深度适配(2026-07-31 立,2026-08-01 阈值对齐,2026-08-02 改默认展开,2026-08-02 阈值回退):
-  // - isMobileSmall 检测 <640px 视口(真正手机),仅手机端自动切换浮窗全屏模式
-  // - 2026-08-02 修复:640-1023px(平板/小笔记本窗口)不再自动全屏,保持 docked 400px,
-  //   解决 a3eb24ffc6 把阈值从 768 改到 1023 导致桌面端小窗口 AI 面板"异常宽"回归
-  // - 浮窗展开时全屏覆盖(利用现有 floatMode,移动端样式覆盖)
-  const isMobileSmall = useMediaQuery('(max-width: 639px)')
+  // 手机 / 平板 / 桌面三档一律由 bucket 派生(2026-11-11):此前 <640 用 useMediaQuery,
+  // 640–1279 又单独一条 matchMedia,与 globals.css 的 media query 三处各自为政。
+  const isMobileSmall = isSheet
 
   // 桌面端 + 停靠态:面板标题栏作为窗口拖拽把手(用户习惯抓任意顶部标题栏拖窗口)。
   // 浮窗态不接管——那时标题栏的职责是移动面板自身(handleFloatDragStart)。
@@ -476,32 +577,34 @@ export function AISidePanel() {
   const handleHeaderWindowDragMouseDown = React.useCallback(
     (e: React.MouseEvent) => {
       if (!windowDragFromHeader || e.button !== 0) return
+      // 同 handleFloatDragStart:Portal 内容会经 React 树冒泡到 header,不能当成窗口把手
+      if (!e.currentTarget.contains(e.target as Node)) return
       if (!isDraggableBlankArea(e.target as HTMLElement)) return
       armWindowDragOnFirstMove(e.screenX, e.screenY)
     },
     [windowDragFromHeader],
   )
 
-  // 移动端自动切换:进入手机视口(<640px)时,自动切为浮窗展开模式(默认正常态)
-  // - 仅在 floatMode=false(docked)且 isMobileSmall=true(手机)时触发
-  // - 640-1023px(平板/小窗口)保持 docked,不自动全屏(2026-08-02 修复)
-  // - 不设 floatMinimized:true(2026-08-02 改,用户规则"默认展开正常态"):
-  //   浮窗默认全屏展开,用户可手动点最小化按钮收成 FAB,而非默认就收成 FAB
-  // - 桌面端恢复时自动切回 docked(2026-08-06 修复:
-  //   旧逻辑仅单向切换,窗口从窄变宽后 floatMode 残留 true,导致"总是悬浮")
-  //   用 autoFloatRef 区分:自动触发的浮窗→自动恢复;用户手动点 Pin 的浮窗→保留
+  // 形态档迁移(2026-11-11 重构;2026-11-11 二次收口抽出 planFormMigration):
+  // - 进入 sheet/float 档:停靠位在本档不存在 ⇒ store 偏好必须落成 floatMode=true,
+  //   否则 open=true 时组件仍按停靠渲染,而 CSS 在该区间把停靠容器隐藏(死态)。
+  // - 回到 docked 档:只有「本档被动浮窗」才自动收回;用户手动点的浮窗保留。
+  //   同时清掉浮窗期遗留的 floatMinimized(否则下次手动切浮窗直接掉成 FAB)。
+  // - 任何浮窗形态:折叠工作区 / 工作面全屏都失去意义(浮窗不占 flex 位,
+  //   工作区仍 hidden 会让整页变空),必须复位 —— 判据是「是否浮窗」,不是「是否离开停靠档」,
+  //   否则在 docked 档手动切浮窗会悬在一片空白上。
+  // 决策全在 lib/ai-panel-bucket 的纯函数里(可单测),这里只负责写回 store。
   const autoFloatRef = React.useRef(false)
   React.useEffect(() => {
-    if (isMobileSmall && !floatMode) {
-      setFloatMode(true)
-      setFloatCollapsed(false)
-      autoFloatRef.current = true
-    } else if (!isMobileSmall && floatMode && autoFloatRef.current) {
-      setFloatMode(false)
-      setFloatCollapsed(false)
-      autoFloatRef.current = false
-    }
-  }, [isMobileSmall, floatMode, setFloatMode, setFloatCollapsed])
+    const store = useAiPanelStore.getState()
+    const plan = planFormMigration(bucket, store, autoFloatRef.current)
+    if (plan.floatMode !== null) setFloatMode(plan.floatMode)
+    if (plan.floatMinimized !== null) setFloatMinimized(plan.floatMinimized)
+    if (plan.floatCollapsed !== null) setFloatCollapsed(plan.floatCollapsed)
+    autoFloatRef.current = plan.autoFloated
+    if (plan.resetWorkAreaCollapsed) store.toggleWorkAreaCollapsed()
+    if (plan.resetWorkAreaFullscreen) store.setWorkAreaFullscreen(false)
+  }, [bucket, floatMode, setFloatMode, setFloatMinimized, setFloatCollapsed])
   const [loadingHistory, setLoadingHistory] = React.useState(false)
   const [conversationTitle, setConversationTitle] = React.useState<string | null>(null)
   // D28 补齐层(2026-10-03):当前会话的**导入来源**。
@@ -1151,7 +1254,10 @@ export function AISidePanel() {
   React.useEffect(() => {
     const onNewChat = () => {
       if (useChatStore.getState().isStreaming) return
-      if (!useAiPanelStore.getState().open) openPanel()
+      // 2026-11-11 重构:不再在这里特判 640–1279「抬浮窗」——
+      // openPanel 已是桶感知的唯一出口(sheet/float 档强制浮窗并复位折叠/最小化),
+      // 侧栏按钮 / 快捷键 / 任何路由触发的入口都走同一条规则,不会各写一份。
+      openPanel()
       handleNewChat()
     }
     window.addEventListener('global-shortcut:new-chat', onNewChat)
@@ -1218,48 +1324,482 @@ export function AISidePanel() {
     [setResizing, setWidth],
   )
 
-  // ==================== 浮窗拖拽逻辑(2026-07-30)====================
-  // 浮窗模式下面板 position:fixed,通过 header 拖拽改变 floatPosition。
-  // 使用 ref 记录拖拽起始坐标,pointermove 更新 store,pointerup 清理监听。
-  const floatDragStart = React.useRef<{ x: number; y: number; px: number; py: number } | null>(null)
+  // ==================== 浮窗拖拽逻辑(2026-07-30 立 · 2026-11-11 重写)====================
+  // 重写点(逐条对应实测缺陷):
+  // 1) 钳制口径:原来水平用**停靠宽度** width(480) 算右边界 ⇒ 浮窗 360 被拖出可视区外;
+  //    现在统一走 clampFloatPosition(浮窗自身尺寸 + 8px 边距)。
+  // 2) 竖直越界:原来只留 120px,允许大半屏出界;现在按面板高度收口。
+  // 3) 每帧写 store:现在 pointermove 只记坐标 + rAF 合帧,每帧最多一次 setState。
+  // 4) pointerup 丢失导致 isResizing 卡住:现在起手 setPointerCapture,
+  //    pointerup / pointercancel / lostpointercapture 三路都能收尾。
+  // 5) sheet(<640)全屏、不可拖:本档直接不接管(标题栏无拖拽语义)。
+  const floatDragRef = React.useRef<{
+    pointerId: number
+    startX: number
+    startY: number
+    originX: number
+    originY: number
+    frame: number | null
+    next: { x: number; y: number } | null
+  } | null>(null)
 
   const handleFloatDragStart = React.useCallback(
     (e: React.PointerEvent) => {
-      if (!floatMode || floatMinimized) return
-      // 只响应左键 + 拖拽区域(不是按钮)
+      if (!floatMode || floatMinimized || isSheet) return
+      if (e.button !== 0) return
+      // 只认**本 header DOM 内**的按下。Radix 菜单/弹窗虽然 Portal 到 body,
+      // 但 React 事件沿 **React 树** 冒泡 —— 菜单项的 pointerdown 照样会冒到这里。
+      // 若此时抢占指针(setPointerCapture),菜单项的 pointerup/click 会被重定向到 header,
+      // 表现为「点菜单项没反应」(2026-11-11 真机实测:pointerdown=menuitem,
+      // pointerup/click=HEADER,菜单不关、onSelect 不触发)。
+      if (!e.currentTarget.contains(e.target as Node)) return
+      // 空白区判定走共享词表(按钮/输入/[role=button] 等交互件一律不接管),
+      // 再额外排除右缘分隔条:它的 pointerdown 属于调宽,不是移窗。
       const target = e.target as HTMLElement
-      if (target.closest('button, a, input, textarea, select')) return
+      if (!isDraggableBlankArea(target, '[role="separator"]')) return
 
+      // 用户重新拖面板 = 面板重新成为「收起落点」的真相源:作废图标独立坐标。
+      // 否则下次最小化时图标会跳回上一次拖它的位置,而不是贴着面板左下角。
+      setFloatFabPosition(null)
+
+      const rect = resolveFloatRect(
+        useAiPanelStore.getState().floatPosition,
+        getFloatAnchor(),
+        window.innerWidth,
+        window.innerHeight,
+      )
+      const el = e.currentTarget as HTMLElement
       e.preventDefault()
+      try {
+        el.setPointerCapture(e.pointerId)
+      } catch {
+        // 某些合成事件(jSDOM / 旧浏览器)没有 pointer capture,退回窗口监听
+      }
       setResizing(true)
-      // 默认位置(未初始化)用工作区左下角锚点计算,与 inline style 默认态一致
-      const anchor = getDefaultFloatAnchor()
-      const panelHeight = Math.min(600, window.innerHeight - 100)
-      const startX = floatPosition.x < 0 ? anchor.left : floatPosition.x
-      const startY = floatPosition.y < 0 ? anchor.bottom - panelHeight : floatPosition.y
-      floatDragStart.current = { x: startX, y: startY, px: e.clientX, py: e.clientY }
+      floatDragRef.current = {
+        pointerId: e.pointerId,
+        startX: e.clientX,
+        startY: e.clientY,
+        originX: rect.x,
+        originY: rect.y,
+        frame: null,
+        next: null,
+      }
+
+      const flush = () => {
+        const drag = floatDragRef.current
+        if (!drag) return
+        drag.frame = null
+        if (!drag.next) return
+        const { x, y } = drag.next
+        drag.next = null
+        setFloatPosition({ x, y })
+      }
 
       const onMove = (ev: PointerEvent) => {
-        if (!floatDragStart.current) return
-        const dx = ev.clientX - floatDragStart.current.px
-        const dy = ev.clientY - floatDragStart.current.py
-        const newX = Math.max(
-          8,
-          Math.min(window.innerWidth - width - 8, floatDragStart.current.x + dx),
+        const drag = floatDragRef.current
+        if (!drag || ev.pointerId !== drag.pointerId) return
+        const { x, y } = clampFloatPosition(
+          drag.originX + (ev.clientX - drag.startX),
+          drag.originY + (ev.clientY - drag.startY),
+          window.innerWidth,
+          window.innerHeight,
         )
-        const newY = Math.max(8, Math.min(window.innerHeight - 120, floatDragStart.current.y + dy))
-        setFloatPosition({ x: newX, y: newY })
+        drag.next = { x, y }
+        if (drag.frame === null) drag.frame = window.requestAnimationFrame(flush)
       }
-      const onUp = () => {
-        floatDragStart.current = null
+
+      const finish = (ev?: PointerEvent) => {
+        const drag = floatDragRef.current
+        if (!drag) return
+        if (ev && ev.pointerId !== drag.pointerId) return
+        if (drag.frame !== null) {
+          window.cancelAnimationFrame(drag.frame)
+          drag.frame = null
+        }
+        // 收尾补一次最终位置(rAF 可能还没跑),避免松手瞬间回弹到上一帧。
+        // 落点统一过 snapFloatPosition:贴到左右边距 24px 内自动吸住,中间位置不动。
+        if (drag.next) {
+          setFloatPosition(
+            snapFloatPosition(drag.next.x, drag.next.y, window.innerWidth, window.innerHeight),
+          )
+        }
+        floatDragRef.current = null
         setResizing(false)
         window.removeEventListener('pointermove', onMove)
-        window.removeEventListener('pointerup', onUp)
+        window.removeEventListener('pointerup', finish)
+        window.removeEventListener('pointercancel', finish)
+        el.removeEventListener('lostpointercapture', finish)
+        try {
+          el.releasePointerCapture(drag.pointerId)
+        } catch {
+          // 已释放或无 capture:忽略
+        }
       }
+
       window.addEventListener('pointermove', onMove)
-      window.addEventListener('pointerup', onUp)
+      window.addEventListener('pointerup', finish)
+      window.addEventListener('pointercancel', finish)
+      el.addEventListener('lostpointercapture', finish)
     },
-    [floatMode, floatMinimized, floatPosition, setFloatPosition, setResizing, width],
+    [floatMode, floatMinimized, isSheet, setFloatPosition, setResizing, setFloatFabPosition],
+  )
+
+  // ─── FAB(最小化图标)拖拽(2026-11-11 补)───
+  // 用户反馈「最小化后的图标拖不动」:此前 FAB 是纯按钮,没有任何位移入口。
+  // 它是面板收起后的落点,必须能挪走(否则挡住页面内容时只能点开→拖面板→再最小化)。
+  // 位置单独记账(floatFabPosition),**不**复用 floatPosition:浮窗 360×600 的钳制
+  // 会把 48px 圆钮锁在左侧 360px 带内,拖到右半屏会表现为「拖不动」。
+  const fabDragRef = React.useRef<{
+    pointerId: number
+    startX: number
+    startY: number
+    originX: number
+    originY: number
+    frame: number | null
+    next: { x: number; y: number } | null
+    moved: boolean
+  } | null>(null)
+  /** 拖过之后的松手不触发展开(位移 ≥3px 即视为拖拽,滤掉点击手抖) */
+  const fabClickSinkRef = React.useRef(false)
+
+  const handleFabDragStart = React.useCallback(
+    (e: React.PointerEvent<HTMLButtonElement>) => {
+      // 手机 FAB 贴安全区左下固定位(56px):触摸拖拽与点击/滚动冲突,本档不接管
+      if (isMobileSmall || e.button !== 0) return
+      const state = useAiPanelStore.getState()
+      const rect = resolveFloatRect(
+        state.floatPosition,
+        getFloatAnchor(),
+        window.innerWidth,
+        window.innerHeight,
+      )
+      // 起点 = FAB 当前真实位置(拖过用记账值,没拖过 = 浮窗矩形左下角)
+      const origin = state.floatFabPosition ?? {
+        x: rect.x,
+        y: rect.y + Math.max(0, rect.height - AI_FAB_SIZE),
+      }
+      const el = e.currentTarget
+      e.preventDefault() // 按住图标不应开始选中页面文字
+      fabClickSinkRef.current = false
+      try {
+        el.setPointerCapture(e.pointerId)
+      } catch {
+        // 合成事件 / 旧浏览器没有 pointer capture:退回窗口监听(与浮窗拖拽同款)
+      }
+      fabDragRef.current = {
+        pointerId: e.pointerId,
+        startX: e.clientX,
+        startY: e.clientY,
+        originX: origin.x,
+        originY: origin.y,
+        frame: null,
+        next: null,
+        moved: false,
+      }
+
+      const flush = () => {
+        const drag = fabDragRef.current
+        if (!drag) return
+        drag.frame = null
+        if (!drag.next) return
+        const { x, y } = drag.next
+        drag.next = null
+        setFloatFabPosition({ x, y })
+      }
+
+      const onMove = (ev: PointerEvent) => {
+        const drag = fabDragRef.current
+        if (!drag || ev.pointerId !== drag.pointerId) return
+        const dx = ev.clientX - drag.startX
+        const dy = ev.clientY - drag.startY
+        if (!drag.moved && Math.hypot(dx, dy) >= 3) drag.moved = true
+        if (!drag.moved) return
+        drag.next = clampFabPosition(
+          drag.originX + dx,
+          drag.originY + dy,
+          window.innerWidth,
+          window.innerHeight,
+        )
+        if (drag.frame === null) drag.frame = window.requestAnimationFrame(flush)
+      }
+
+      const finish = (ev?: PointerEvent) => {
+        const drag = fabDragRef.current
+        if (!drag) return
+        if (ev && ev.pointerId !== drag.pointerId) return
+        if (drag.frame !== null) {
+          window.cancelAnimationFrame(drag.frame)
+          drag.frame = null
+        }
+        // 收尾补最终位置并吸边(rAF 可能还没跑,否则松手瞬间回弹一帧)
+        if (drag.next) {
+          setFloatFabPosition(
+            snapFabPosition(drag.next.x, drag.next.y, window.innerWidth, window.innerHeight),
+          )
+        }
+        if (drag.moved) {
+          // 松开后浏览器仍会补发 click:吞掉它,否则「拖一下就自己展开」
+          fabClickSinkRef.current = true
+          window.setTimeout(() => {
+            fabClickSinkRef.current = false
+          }, 0)
+        }
+        fabDragRef.current = null
+        window.removeEventListener('pointermove', onMove)
+        window.removeEventListener('pointerup', finish)
+        window.removeEventListener('pointercancel', finish)
+        el.removeEventListener('lostpointercapture', finish)
+        try {
+          el.releasePointerCapture(drag.pointerId)
+        } catch {
+          // 已释放或无 capture:忽略
+        }
+      }
+
+      window.addEventListener('pointermove', onMove)
+      window.addEventListener('pointerup', finish)
+      window.addEventListener('pointercancel', finish)
+      el.addEventListener('lostpointercapture', finish)
+    },
+    [isMobileSmall, setFloatFabPosition],
+  )
+
+  // 卸载时兜底:清掉挂起的 rAF,避免卸载后 setState
+  React.useEffect(
+    () => () => {
+      const drag = floatDragRef.current
+      if (drag && drag.frame !== null) window.cancelAnimationFrame(drag.frame)
+      floatDragRef.current = null
+      const fabDrag = fabDragRef.current
+      if (fabDrag && fabDrag.frame !== null) window.cancelAnimationFrame(fabDrag.frame)
+      fabDragRef.current = null
+    },
+    [],
+  )
+
+  // 视口变化重新收口(2026-11-11 修):此前 resize 后浮窗坐标原样保留,
+  // 窗口缩小即整块跑出视口外。锚点未初始化(-1)时无需处理(渲染时按新视口重算)。
+  // FAB 的独立位置同样要收口(否则窗口缩小后小圆钮留在视口外,用户以为它消失了)。
+  React.useEffect(() => {
+    if (!floatMode || isSheet) return
+    const onResize = () => {
+      const pos = useAiPanelStore.getState().floatPosition
+      // 锚点未初始化(-1)时无需回写:渲染时按新视口重算
+      if (pos.x >= 0 || pos.y >= 0) {
+        const next = clampFloatPosition(
+          pos.x < 0 ? 0 : pos.x,
+          pos.y < 0 ? 0 : pos.y,
+          window.innerWidth,
+          window.innerHeight,
+        )
+        if (next.x !== pos.x || next.y !== pos.y) setFloatPosition(next)
+      }
+      const fabPos = useAiPanelStore.getState().floatFabPosition
+      if (fabPos) {
+        const nextFab = clampFabPosition(
+          fabPos.x,
+          fabPos.y,
+          window.innerWidth,
+          window.innerHeight,
+        )
+        if (nextFab.x !== fabPos.x || nextFab.y !== fabPos.y) setFloatFabPosition(nextFab)
+      }
+    }
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [floatMode, isSheet, setFloatPosition, setFloatFabPosition])
+
+  // ─── 浮窗焦点接力(2026-11-11 a11y)───
+  // FAB ⇄ 面板是两个互斥的 return 分支,切换时 React 会把焦点丢给 body —— 键盘用户下一次
+  // Tab 又从页面顶部开始(role="dialog" 却没有焦点入口,等于声明了没兑现)。
+  // 这里只在**用户主动切换**(点 FAB / 最小化 / 关闭)时搬焦点,自动跨档与首屏弹出不抢焦点。
+  const panelRootRef = React.useRef<HTMLDivElement | null>(null)
+  const fabRef = React.useRef<HTMLButtonElement | null>(null)
+  const pendingFocusRef = React.useRef<'panel' | 'fab' | null>(null)
+
+  // ─── 滚动位置保持(2026-11-11)───
+  // 最小化/关闭会把面板整棵子树卸载(分支互斥),MessageList 重挂后回到最新一条。
+  // 用户在读历史时点一下 FAB 再展开,位置就被抹掉。
+  // 做法:面板开着时用**捕获阶段 scroll 监听**持续记账(不逐次扫描 DOM、不触发渲染);
+  // 这样无论收起走的是哪个入口(标题栏按钮 / ⋯菜单 / 全局快捷键 / 手机下拉),
+  // 都留下最后一次真实位置。重开后一帧盖回去,原本就在底部的交给列表自己的贴底逻辑。
+  const savedScrollRef = React.useRef<{ top: number; conversationId: string | null } | null>(null)
+
+  React.useEffect(() => {
+    const root = panelRootRef.current
+    if (!root || !open || floatMinimized) return
+    const onScroll = (e: Event) => {
+      const target = e.target as HTMLElement | null
+      if (!target || typeof target.scrollTop !== 'number') return
+      // 只认纵向可滚的主容器,排除内部小滚动条/横向容器
+      if (target.scrollHeight - target.clientHeight <= 8) return
+      savedScrollRef.current = {
+        top: target.scrollTop,
+        conversationId: useChatStore.getState().conversationId ?? null,
+      }
+    }
+    // scroll 不冒泡 ⇒ 必须 capture 才能从面板根收到内部滚动
+    root.addEventListener('scroll', onScroll, true)
+    return () => root.removeEventListener('scroll', onScroll, true)
+    // floatCollapsed:折叠成输入条时同样是整棵子树换分支,监听要跟着挂到新根上
+  }, [open, floatMinimized, floatMode, floatCollapsed])
+
+  React.useEffect(() => {
+    if (!open || floatMinimized) return
+    const saved = savedScrollRef.current
+    if (!saved) return
+    // 会话已切换 ⇒ 旧位置对新内容无意义,直接丢弃
+    if (saved.conversationId !== (useChatStore.getState().conversationId ?? null)) {
+      savedScrollRef.current = null
+      return
+    }
+    const raf = window.requestAnimationFrame(() => {
+      const el = findPanelScrollContainer(panelRootRef.current)
+      // 当前分支还没有滚动容器(如折叠成输入条):保留记账,等下次展开再还原
+      if (!el) return
+      savedScrollRef.current = null
+      const atBottom = saved.top >= el.scrollHeight - el.clientHeight - 8
+      if (atBottom) return
+      el.scrollTop = saved.top
+    })
+    return () => window.cancelAnimationFrame(raf)
+    // floatCollapsed:收起/展开输入条也会让消息列表重挂,同样要还原
+  }, [open, floatMinimized, floatCollapsed])
+
+  const handleMinimize = React.useCallback(() => {
+    pendingFocusRef.current = 'fab'
+    // 有动效偏好时先把面板淡出,再切到 FAB 分支:直接 setFloatMinimized 会让整块面板
+    // 瞬间消失(硬闪)。焦点接力 effect 依赖 floatMinimized,因此会同步延后到切换之后。
+    const reduceMotion =
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (reduceMotion) {
+      setFloatMinimized(true)
+      return
+    }
+    setLeaving(true)
+    if (leaveTimerRef.current) clearTimeout(leaveTimerRef.current)
+    leaveTimerRef.current = setTimeout(() => {
+      leaveTimerRef.current = null
+      setLeaving(false)
+      setFloatMinimized(true)
+    }, 280)
+  }, [setFloatMinimized])
+
+  const handleClosePanel = React.useCallback(() => {
+    // 仅浮窗形态有 FAB 可接焦点;停靠态关闭后是 6px 手柄条,不搬焦点
+    if (floatMode) pendingFocusRef.current = 'fab'
+    closePanel()
+  }, [closePanel, floatMode])
+
+  /** 目标分支渲染出来后再搬焦点;尚未渲染(同一提交内被后续状态更新推迟)则留到下一轮 effect。 */
+  React.useEffect(() => {
+    const target = pendingFocusRef.current
+    if (!target) return
+    const el =
+      target === 'panel'
+        ? open && !floatMinimized
+          ? panelRootRef.current
+          : null
+        : floatMode && (floatMinimized || !open)
+          ? fabRef.current
+          : null
+    if (!el) return
+    pendingFocusRef.current = null
+    el.focus({ preventScroll: true })
+  }, [open, floatMinimized, floatMode])
+
+  // 浮窗 Esc = 收成 FAB(2026-11-11 补 a11y):只处理焦点在面板内的 Esc,
+  // 不抢应用层(Esc 关弹窗 / 退出编辑)的既有语义。
+  const handlePanelKeyDown = React.useCallback(
+    (e: React.KeyboardEvent) => {
+      if (!floatMode || e.defaultPrevented || e.key !== 'Escape') return
+      if (e.nativeEvent.isComposing) return
+      e.preventDefault()
+      handleMinimize()
+    },
+    [floatMode, handleMinimize],
+  )
+
+  // ─── 手机全屏抽屉:下拉收起手势(2026-11-11)───
+  // 只挂在标题栏(触摸滚动区在消息列表,互不抢占);标题栏的 touch-action:none 由
+  // globals.css 的 `.ai-panel-root.fixed.inset-0 > aside > header` 提供,否则浏览器会把
+  // 纵向手势判定成滚动并 pointercancel 掉。
+  // 拖动过程直接写 DOM transform(不走 state):每帧重渲染整块面板会把流式消息一起拖慢。
+  const swipeRef = React.useRef<{ pointerId: number; startY: number; dy: number } | null>(null)
+  const swipeTimerRef = React.useRef<number | null>(null)
+  const clearSwipeStyles = React.useCallback(() => {
+    const el = panelRootRef.current
+    if (!el) return
+    el.style.transition = ''
+    el.style.transform = ''
+    el.style.opacity = ''
+  }, [])
+  React.useEffect(
+    () => () => {
+      if (swipeTimerRef.current !== null) window.clearTimeout(swipeTimerRef.current)
+    },
+    [],
+  )
+
+  const handleSheetSwipeStart = React.useCallback(
+    (e: React.PointerEvent<HTMLElement>) => {
+      // 鼠标只认主键;触摸/触控笔不区分 button
+      if (e.pointerType === 'mouse' && e.button !== 0) return
+      // Portal 里的菜单/弹窗会经 React 树冒泡到 header(见 handleFloatDragStart 同款注释):
+      // 不拦就会在菜单项按下时抢指针,手机端点「⋯ → 最小化」直接失效。
+      if (!e.currentTarget.contains(e.target as Node)) return
+      // 标题栏里的按钮/菜单/输入不参与下拉,否则点「关闭」会变成拖拽
+      const target = e.target as HTMLElement
+      if (target.closest('button, a, input, textarea, [role="menuitem"], [role="dialog"]')) return
+      const el = panelRootRef.current
+      if (!el) return
+      if (swipeTimerRef.current !== null) window.clearTimeout(swipeTimerRef.current)
+      el.style.transition = 'none'
+      swipeRef.current = { pointerId: e.pointerId, startY: e.clientY, dy: 0 }
+      e.currentTarget.setPointerCapture(e.pointerId)
+    },
+    [],
+  )
+
+  const handleSheetSwipeMove = React.useCallback((e: React.PointerEvent<HTMLElement>) => {
+    const swipe = swipeRef.current
+    if (!swipe || swipe.pointerId !== e.pointerId) return
+    const dy = Math.max(0, Math.min(e.clientY - swipe.startY, viewport.height))
+    swipe.dy = dy
+    const el = panelRootRef.current
+    if (!el) return
+    el.style.transform = `translate3d(0, ${dy}px, 0)`
+    el.style.opacity = String(Math.max(0.4, 1 - dy / Math.max(240, viewport.height * 0.6)))
+  }, [viewport.height])
+
+  const handleSheetSwipeEnd = React.useCallback(
+    (e: React.PointerEvent<HTMLElement>) => {
+      const swipe = swipeRef.current
+      if (!swipe || swipe.pointerId !== e.pointerId) return
+      swipeRef.current = null
+      try {
+        e.currentTarget.releasePointerCapture(swipe.pointerId)
+      } catch {
+        // 已释放:忽略
+      }
+      // 阈值跟着视口走(小屏 96px 起效,大屏最多 180px),太灵敏会误杀正常点击拖动
+      const dismissThreshold = Math.max(96, Math.min(180, viewport.height * 0.15))
+      const dismiss = swipe.dy >= dismissThreshold
+      const el = panelRootRef.current
+      if (el) {
+        el.style.transition = 'transform 180ms ease-out, opacity 180ms ease-out'
+        el.style.transform = dismiss ? 'translate3d(0, 100%, 0)' : ''
+        el.style.opacity = dismiss ? '0' : ''
+      }
+      swipeTimerRef.current = window.setTimeout(() => {
+        swipeTimerRef.current = null
+        clearSwipeStyles()
+        if (dismiss) handleClosePanel()
+      }, 180)
+    },
+    [clearSwipeStyles, handleClosePanel, viewport.height],
   )
 
   // 性能修复(2026-07-25):WorkspaceNameSync 子组件渲染 null,内部订阅 usePathname,
@@ -1299,38 +1839,92 @@ export function AISidePanel() {
   }, [])
 
   // 浮窗最小化态(或浮窗模式 + 面板关闭):渲染 FAB 按钮
+  // 2026-11-11 修锚点不一致:原先「未初始化」贴视口左下、「拖拽过」贴面板左上 ⇒
+  // 同一个小圆钮两套锚点,点最小化瞬间按钮跳位。现统一贴**浮窗矩形左下角**,
+  // 与默认锚点(工作区左下、向上弹出)视觉连续。
   if (floatMode && (floatMinimized || !open)) {
+    const fabSize = isMobileSmall ? 56 : AI_FAB_SIZE
+    // 拖过的 FAB 用独立坐标;没拖过 = 浮窗矩形左下角(最小化瞬间视觉连续,不跳位)
+    const fabX = !isMobileSmall && floatFabPosition ? floatFabPosition.x : floatBox.x
+    const fabY =
+      !isMobileSmall && floatFabPosition
+        ? floatFabPosition.y
+        : floatBox.y + Math.max(0, floatBox.height - fabSize)
     return (
       <>
         {workspaceNameSync}
         <button
+          ref={fabRef}
           type="button"
+          onPointerDown={handleFabDragStart}
           onClick={() => {
+            // 拖拽松手补发的 click:吞掉,不展开(否则「拖一下就自己弹开」)
+            if (fabClickSinkRef.current) {
+              fabClickSinkRef.current = false
+              return
+            }
+            // 焦点接力:面板分支挂载后把焦点送进对话框(见 pendingFocusRef 注释)
+            pendingFocusRef.current = 'panel'
+            // 从**拖过**的 FAB 展开:面板左下角对齐 FAB(贴右缘时自然变成右缘对齐)。
+            // 这里**不**清空 floatFabPosition —— 清了就会在下次最小化时回落到
+            // 「面板左下角」,被浮窗 360 宽度拉回左侧(2026-11-11 实测:icon 拖到 1058,
+            // 展开后最小化跳回 746)。图标位置只在用户**重新拖面板**时作废。
+            const fabPos = useAiPanelStore.getState().floatFabPosition
+            if (fabPos && !isMobileSmall) {
+              const { height } = getFloatSize(window.innerWidth, window.innerHeight)
+              setFloatPosition(
+                clampFloatPosition(
+                  fabPos.x,
+                  fabPos.y + fabSize - height,
+                  window.innerWidth,
+                  window.innerHeight,
+                ),
+              )
+            }
             setFloatMinimized(false)
             setFloatCollapsed(false)
             openPanel()
           }}
           aria-label={tc('title')}
           className={cn(
-            'fixed z-sticky flex items-center justify-center rounded-sm border border-border bg-card shadow-lg transition-all',
+            // 拖拽图标 = 当前对话模型入口:圆角走规范档位 rounded-sm(4px,角色 control,
+            // 见 docs/UI_GUIDELINES.md §3 + design-tokens RADIUS_ROLES)。禁止 rounded-full。
+            // 底色用卡面而非黑块:厂商图标是 currentColor 线稿,黑底会把深色图标吃掉。
+            // transition 只列会变的属性:位置逐帧跟随指针,transition-all 会拖尾;
+            // translate / scale 是 Tailwind v4 的独立属性,必须显式列出才有过渡。
+            'fixed z-sticky grid place-items-center rounded-sm border border-border bg-card text-foreground',
+            // 挂载入场(最小化 / 关闭后出现):淡入 + 由 0.9 放大,避免硬闪(见 animations.css)
+            'ai-fab-in',
+            'transition-[box-shadow,translate,scale]',
+            'shadow-[0_1px_2px_rgba(0,0,0,0.06),0_8px_20px_-6px_rgba(0,0,0,0.22)]',
+            // 悬浮:靠「抬得更高 + 投影明显加深扩散 + 微放大」拉开层级(白卡投影天生偏弱,
+            // 只加 2px/浅阴影几乎看不出,实测后加大到 3px、24px/0.42 的扩散层)
+            'hover:-translate-y-[3px] hover:scale-[1.02] hover:shadow-[0_4px_10px_rgba(0,0,0,0.10),0_24px_48px_-12px_rgba(0,0,0,0.42)]',
+            // 按住拖拽:压回去且略缩,投影收紧 —— 明确「被手指抓住」的反馈
+            'active:translate-y-0 active:scale-[0.96] active:shadow-[0_1px_3px_rgba(0,0,0,0.10),0_6px_16px_-6px_rgba(0,0,0,0.26)]',
             // 手机:FAB 更大(56px 适合触屏),固定左下角(与桌面端浮窗默认位置一致)
+            // 安全区:CSS 变量是 fixed 定位,不受 GlobalShell 的 pb-[env(safe-area-inset-bottom)]
+            // 影响 —— 必须自己叠加,否则全面屏手势条会压住按钮(数字键盘弹出时尤其明显)
             isMobileSmall
-              ? 'h-14 w-14 bottom-4 left-4'
-              : // 桌面/平板端:48px FAB,位置由 floatPosition 控制
-                'h-12 w-12',
+              ? 'h-14 w-14 bottom-[calc(env(safe-area-inset-bottom)_+_1rem)] left-[calc(env(safe-area-inset-left)_+_1rem)]'
+              : // 桌面/平板端:48px FAB,可拖拽(手机档固定位,不接管指针)
+                'h-12 w-12 cursor-grab active:cursor-grabbing',
           )}
           style={
             isMobileSmall
               ? undefined
-              : floatPosition.x < 0
-                ? { left: `${defaultFloatAnchor.current.left}px`, bottom: '16px' }
-                : { left: `${floatPosition.x}px`, top: `${floatPosition.y}px` }
+              : {
+                  left: `${fabX}px`,
+                  top: `${fabY}px`,
+                }
           }
         >
           <BrandIconDeferred
-            vendor={inferVendor(currentModel)}
-            size={isMobileSmall ? 26 : 22}
-            className="text-primary"
+            // 对话真实模型优先(messages 末条 model → 该条 usage 的实际模型 → 选择器)。
+            // 厂商可识别 → 厂商图标;auto / 未知厂商 → BrandIcon 默认回落到项目 logo(智汇AI),
+            // 这是产品定义:auto 代表智汇AI 自己的路由,用自家标识,不用通用 Bot。
+            vendor={inferVendor(conversationModel)}
+            size={isMobileSmall ? 30 : 26}
           />
         </button>
       </>
@@ -1349,9 +1943,17 @@ export function AISidePanel() {
         <>
           {workspaceNameSync}
           <div
+            ref={panelRootRef}
+            tabIndex={-1}
             data-testid="ai-panel-root"
+            role={floatMode ? 'dialog' : undefined}
+            aria-label={floatMode ? tc('title') : undefined}
+            onKeyDown={handlePanelKeyDown}
             className={cn(
-              'ai-panel-root fixed z-sticky',
+              'ai-panel-root fixed z-sticky outline-none',
+              // 折叠态是独立分支(独立 DOM 节点):从停靠/展开态切过来时靠 CSS 入场动效
+              // 掩住落点跳变(见 animations.css),否则输入条会硬闪出来。
+              'ai-surface-in-mount',
               isMobileSmall
                 ? 'inset-0' // 手机:全屏覆盖
                 : 'ai-float-glow rounded-xl', // 桌面/平板端:浮窗 + 品牌色光晕
@@ -1361,22 +1963,35 @@ export function AISidePanel() {
                 ? guestQuietDocs
                   ? GUEST_DOCS_FLOAT_STYLE // 游客公开文档页:盒子下移,不抢文档正文
                   : undefined
-                : floatPosition.x < 0
-                  ? {
-                      width: floatWidth,
-                      left: `${defaultFloatAnchor.current.left}px`,
-                      bottom: '16px',
-                    }
-                  : { width: floatWidth, left: `${floatPosition.x}px`, top: `${floatPosition.y}px` }
+                : {
+                    width: floatBox.width,
+                    left: `${floatBox.x}px`,
+                    // 折叠态高度是内容自适应(只有输入条),因此锚**下沿**:
+                    // 下沿 = 浮窗矩形下沿,展开时顶部向上长,视觉位置不跳。
+                    bottom: `${Math.max(8, viewport.height - floatBox.y - floatBox.height)}px`,
+                  }
             }
           >
             <aside
               aria-label={tc('title')}
               className={cn(
-                'flex flex-col overflow-hidden bg-shell-panel',
+                'group flex flex-col overflow-hidden bg-shell-panel',
                 isMobileSmall ? 'h-full w-full' : 'rounded-xl',
               )}
             >
+              {/* 拖拽手柄(2026-11-11):属于**浮窗容器**顶部,不是输入卡片的内部零件。
+                  之前错放在 MessageInput 的灰条里 —— 层级错了,看起来像输入框里的空元素。
+                  手柄 + 空白都能拖(handleFloatDragStart 内部排除 button/输入件);
+                  hover/按住时变长变深,提示"这里能抓"。 */}
+              <div
+                onPointerDown={handleFloatDragStart}
+                className="mx-4 flex shrink-0 cursor-grab justify-center pb-1.5 pt-1.5 active:cursor-grabbing"
+              >
+                <span
+                  aria-hidden="true"
+                  className="h-1 w-10 rounded-full bg-border/70 transition-[width,background-color] duration-150 group-hover:w-12 group-hover:bg-foreground/30 group-active:w-12 group-active:bg-foreground/45"
+                />
+              </div>
               {/* 输入区(直接渲染 MessageInput,无 MessageList)
                   floatHeader = 浮窗按钮(展开/停靠/最小化),并入输入卡片顶部工具栏右侧 */}
               <MessageInput
@@ -1389,8 +2004,10 @@ export function AISidePanel() {
                 model={currentModel}
                 onModelChange={setModel}
                 modelLabel={t('model')}
+                autoResolvedModel={conversationModel}
                 onFloatDragStart={handleFloatDragStart}
                 onTriggerClick={() => setFloatCollapsed(false)}
+                compactTop
                 floatHeader={
                   <>
                     {/* 纯图标 + Tooltip(h-8 w-8 + h-3.5 图标,与工具栏 查看历史/权限模式/添加 统一)
@@ -1404,22 +2021,23 @@ export function AISidePanel() {
                         <ChevronUp />
                       </IconButton>
                     </Tooltip>
-                    <Tooltip content={tc('dockPanel')}>
-                      <IconButton
-                        onClick={() => {
-                          setFloatMode(false)
-                          setFloatCollapsed(false)
-                        }}
-                        aria-label={tc('dockPanel')}
-                      >
-                        <PanelRightRounded />
-                      </IconButton>
-                    </Tooltip>
+                    {/* 停靠位只在 docked(≥1280)存在:640–1279 / 手机档不渲染该按钮,
+                        否则点了就是「面板凭空消失」(历史死态) */}
+                    {bucket === 'docked' ? (
+                      <Tooltip content={tc('dockPanel')}>
+                        <IconButton
+                          onClick={() => {
+                            setFloatMode(false)
+                            setFloatCollapsed(false)
+                          }}
+                          aria-label={tc('dockPanel')}
+                        >
+                          <PanelRightRounded />
+                        </IconButton>
+                      </Tooltip>
+                    ) : null}
                     <Tooltip content={tc('minimize')}>
-                      <IconButton
-                        onClick={() => setFloatMinimized(true)}
-                        aria-label={tc('minimize')}
-                      >
+                      <IconButton onClick={handleMinimize} aria-label={tc('minimize')}>
                         <Minus />
                       </IconButton>
                     </Tooltip>
@@ -1439,7 +2057,8 @@ export function AISidePanel() {
   // py-2 与 MainShell 的 pt-2/mb-2 垂直对齐(8px 上下间距)。
   // 2026-07-31 移动端适配:加 hidden min-[640px]:block 让 docked 关闭态(手柄)在 < 640px 隐藏,
   // 避免 AISidePanel 在手机视口下占 400px 宽把 work-area 推到 viewport 外。
-  // 2026-08-02 阈值 1024→768(2026-10-11 断点 768→640):640-1023px(平板/小笔记本)保持 docked 可见,不全屏。
+  // 2026-11-11 形态档重构:640–1279 归入 float 档(停靠位在该区间会压死内容区),
+  // 与 lib/ai-panel-bucket 的断点严格一致;本分支只在 docked(≥1280)关闭态出现。
   // mobile 下 AI 面板入口改用浮窗 FAB(由 floatMode 路径独立渲染,不受此规则影响)。
   if (!open) {
     return (
@@ -1610,6 +2229,7 @@ export function AISidePanel() {
         model={currentModel}
         onModelChange={setModel}
         modelLabel={t('model')}
+        autoResolvedModel={conversationModel}
       />
 
       {/* AI 主动提问已改为消息流内联卡(MessageList trailing 插槽),不再渲染弹窗 */}
@@ -1708,9 +2328,20 @@ export function AISidePanel() {
           //   rounded-xl 匹配内层 aside 圆角(光晕跟随圆角呈圆弧),去掉 py-2(浮窗无需上下间距)
           // - float 模式(手机 <640px):fixed inset-0 全屏覆盖,无光晕无圆角,最大化可用空间
           // data-testid="ai-panel-root":全局唯一最外层容器标识,DevTools / E2E 可直接选中
-          // 2026-08-02 阈值修复:全屏覆盖仅手机(<640px)触发,平板/小窗口(640-1023px)走浮窗不全屏。
+          // 2026-08-02 阈值修复:全屏覆盖仅手机(<640px)触发;640–1279 走浮窗(非全屏)。
           data-testid="ai-panel-root"
-          // 2026-10-15:平板档(640-1023px)自动收起 docked 面板。属性**无条件静态**挂载,
+          // 浮窗 = 非模态对话框:补 role/aria-label + Esc 收起(2026-11-11 a11y)。
+          // docked 不设 role(它是页面的一列,不是叠加在内容上的对话层)。
+          // ref/tabIndex:浮窗态做程序化焦点落点(点 FAB 展开);ref 在停靠态也挂,
+          // 因为「关闭面板」在停靠态同样会卸载子树,滚动位置保持需要收起前能拿到容器。
+          ref={panelRootRef}
+          tabIndex={floatMode ? -1 : undefined}
+          role={floatMode ? 'dialog' : undefined}
+          aria-label={floatMode ? tc('title') : undefined}
+          onKeyDown={handlePanelKeyDown}
+          // 2026-11-11:640–1279 的停靠容器由 globals.css 同名 media query 兜底隐藏,
+          // 但状态机在该区间**只会渲染浮窗**(bucket=float),这条规则仅作水合前的一帧保护,
+          // 不再是第二套"真相"——形态判定统一在 lib/ai-panel-bucket。
           // 显隐由 globals.css 的同名 media query 兜底(JS 跑之前首帧就正确 ⇒ 无 hydration CLS),
           // 与 Sidebar 的 data-viewport-collapsed 同款双层范式。
           // floatMode 态靠 CSS 排除 .ai-float-glow(浮窗本就该盖在内容之上,不收起)。
@@ -1718,6 +2349,11 @@ export function AISidePanel() {
           data-viewport-tablet-collapsed="true"
           className={cn(
             'ai-panel-root',
+            // 程序化焦点落点不画外圈 focus ring(真正的可交互元素各自有自己的焦点样式)
+            floatMode && 'outline-none',
+            // 三态切换动效(见 animations.css):挂载入场 / 档位切换入场 / 最小化退场互斥,
+            // 避免两个 transform 动画互相覆盖。
+            leaving ? 'ai-panel-out' : cn(floatMode && 'ai-surface-in-mount', modeFx && 'ai-mode-in'),
             floatMode
               ? isMobileSmall
                 ? 'fixed inset-0 z-sticky' // 手机浮窗:全屏覆盖
@@ -1734,21 +2370,13 @@ export function AISidePanel() {
                 ? guestQuietDocs
                   ? GUEST_DOCS_FLOAT_STYLE // 游客公开文档页:盒子下移,不抢文档正文
                   : undefined // 手机:无定位 style,全屏由 inset-0 控制
-                : floatPosition.x < 0
-                  ? {
-                      width: floatWidth,
-                      left: `${defaultFloatAnchor.current.left}px`,
-                      bottom: '16px',
-                      height: 'min(600px, calc(100vh - 100px))',
-                      transition: floatTransition,
-                    }
-                  : {
-                      width: floatWidth,
-                      left: `${floatPosition.x}px`,
-                      top: `${floatPosition.y}px`,
-                      height: 'min(600px, calc(100vh - 100px))',
-                      transition: floatTransition,
-                    }
+                : {
+                    width: floatBox.width,
+                    left: `${floatBox.x}px`,
+                    top: `${floatBox.y}px`,
+                    height: floatBox.height,
+                    transition: floatTransition,
+                  }
               : workAreaFullscreen
                 ? // D182 工作面全屏:面板让位(inline display:none,优先级高于 min-[640px]:block),
                   // work-area flex-1 占满;退出入口见上方 portal 按钮
@@ -1781,6 +2409,8 @@ export function AISidePanel() {
             className={cn(
               'flex h-full flex-col overflow-hidden bg-shell-panel',
               // 手机全屏浮窗:无圆角;桌面/平板浮窗 + docked:保持 rounded-xl
+              // (手机端的安全区内边距由 globals.css 的 `.ai-panel-root.fixed.inset-0 > aside`
+              //  统一给,别在这里再写一份 Tailwind padding —— 两处同时生效会出现双份来源)
               isMobileSmall && floatMode ? 'rounded-none' : 'rounded-xl',
             )}
           >
@@ -1790,10 +2420,23 @@ export function AISidePanel() {
               // 停靠态:原生拖拽区(按下即启动窗口移动循环,无 JS 往返延迟);
               // 浮窗态不加——该态标题栏的职责是移动面板自身(handleFloatDragStart)
               data-tauri-drag-region={windowDragFromHeader ? '' : undefined}
-              onPointerDown={floatMode && !isMobileSmall ? handleFloatDragStart : undefined}
+              onPointerDown={
+                isMobileSmall && floatMode
+                  ? handleSheetSwipeStart
+                  : floatMode
+                    ? handleFloatDragStart
+                    : undefined
+              }
+              // 下拉手势只在手机全屏档接管;move/up/cancel 三路都要收,防止手指抬起在
+              // 标题栏外时 transform 留在半途(pointer capture 让事件仍回到 header)。
+              onPointerMove={isMobileSmall && floatMode ? handleSheetSwipeMove : undefined}
+              onPointerUp={isMobileSmall && floatMode ? handleSheetSwipeEnd : undefined}
+              onPointerCancel={isMobileSmall && floatMode ? handleSheetSwipeEnd : undefined}
               onMouseDown={handleHeaderWindowDragMouseDown}
               className={cn(
                 'flex h-14 shrink-0 items-center gap-2 px-3',
+                // 手机全屏:为顶部「下拉把手」提供定位上下文
+                isMobileSmall && floatMode && 'relative',
                 // 2026-07-19 中文 + 图标垂直对齐:主标题 span 视觉居中
                 '[&>div>span:first-child]:translate-y-[var(--text-vcenter-offset)]',
                 // 浮窗模式(桌面端):header 可拖拽,非交互区域 cursor-move
@@ -1802,6 +2445,14 @@ export function AISidePanel() {
                 ((floatMode && !isMobileSmall) || windowDragFromHeader) && 'cursor-move',
               )}
             >
+              {/* 下拉把手(仅手机全屏):给用户「这里可以往下甩」的可见暗示,
+                  同时作为手势的可视锚点。pointer-events-none 保证它不抢事件的 target。 */}
+              {isMobileSmall && floatMode && (
+                <span
+                  aria-hidden
+                  className="pointer-events-none absolute left-1/2 top-1.5 h-1 w-10 -translate-x-1/2 rounded-full bg-foreground/25"
+                />
+              )}
               {/* 图标:使用当前模型对应的厂商图标(替代通用 Sparkles)
               用户规则:这个图标应该显示对应项目图标或者模型图标
               容器去掉背景色,只显示内部图标本体(2026-07-19 用户反馈) */}
@@ -1887,39 +2538,43 @@ export function AISidePanel() {
                       <DropdownMenu.Label className="px-2.5 pb-0.5 pt-1 text-[11px] font-medium text-muted-foreground">
                         {tc('headerActions.groupPanel')}
                       </DropdownMenu.Label>
-                      {/* 浮窗模式切换(原头部第一枚):docked → 浮窗折叠态;float → 停靠 */}
-                      <DropdownMenu.Item
-                        data-testid="ai-panel-float-toggle"
-                        className={HEADER_MENU_ITEM_CLASS}
-                        onSelect={() => {
-                          if (floatMode) {
-                            setFloatMode(false)
-                            setFloatMinimized(false)
-                          } else {
-                            setFloatMode(true)
-                            setFloatMinimized(false)
-                            setFloatCollapsed(true)
-                            openPanel()
-                          }
-                        }}
-                      >
-                        {floatMode ? <PanelRightRounded left /> : <PictureInPicture2 />}
-                        <span className="truncate">
-                          {floatMode ? tc('dockPanel') : tc('floatMode')}
-                        </span>
-                      </DropdownMenu.Item>
+                      {/* 浮窗模式切换(原头部第一枚):docked → 浮窗折叠态;float → 停靠。
+                          停靠位只在 docked(≥1280)存在,其余两档不渲染 —— 否则点「停靠」
+                          就是面板凭空消失(640–1279 的历史死态)。 */}
+                      {bucket === 'docked' && (
+                        <DropdownMenu.Item
+                          data-testid="ai-panel-float-toggle"
+                          className={HEADER_MENU_ITEM_CLASS}
+                          onSelect={() => {
+                            if (floatMode) {
+                              setFloatMode(false)
+                              setFloatMinimized(false)
+                            } else {
+                              setFloatMode(true)
+                              setFloatMinimized(false)
+                              setFloatCollapsed(true)
+                              openPanel()
+                            }
+                          }}
+                        >
+                          {floatMode ? <PanelRightRounded left /> : <PictureInPicture2 />}
+                          <span className="truncate">
+                            {floatMode ? tc('dockPanel') : tc('floatMode')}
+                          </span>
+                        </DropdownMenu.Item>
+                      )}
                       {floatMode && (
                         <DropdownMenu.Item
                           className={HEADER_MENU_ITEM_CLASS}
-                          onSelect={() => setFloatMinimized(true)}
+                          onSelect={handleMinimize}
                         >
                           <Minus />
                           <span className="truncate">{tc('minimize')}</span>
                         </DropdownMenu.Item>
                       )}
-                      {/* 工作展示区开关:手机全屏浮窗没有工作区可折叠,这一项在 <640 不渲染
-                          (原先靠 max-[639px]:hidden 隐藏整枚按钮,现收敛为条件渲染) */}
-                      {!isMobileSmall && (
+                      {/* 工作展示区开关:只有停靠态(≥1280)有「工作区挤压」这回事;
+                          浮窗 / 手机档面板不占 flex 位,折叠工作区只会让整页变空 */}
+                      {!floatMode && (
                         <DropdownMenu.Item
                           className={HEADER_MENU_ITEM_CLASS}
                           onSelect={() => toggleWorkPanel()}
@@ -1947,8 +2602,9 @@ export function AISidePanel() {
                           {workAreaFullscreen && <Check className="h-3.5 w-3.5 shrink-0" />}
                         </DropdownMenu.Item>
                       )}
-                      {/* 向右拆分(手机 <640 不渲染:无处可分) */}
-                      {!d73Expanded && !isMobileSmall && (
+                      {/* 向右拆分:只在停靠态可用 —— 360px 浮窗内再分两栏,
+                          每栏不到 170px,输入框必然溢出(历史缺陷:只排除了 <640) */}
+                      {!d73Expanded && !floatMode && (
                         <DropdownMenu.Item
                           className={HEADER_MENU_ITEM_CLASS}
                           aria-label={tp('splitRight')}
@@ -2011,7 +2667,7 @@ export function AISidePanel() {
                       <DropdownMenu.Item
                         data-testid="ai-panel-close"
                         className={HEADER_MENU_ITEM_CLASS}
-                        onSelect={closePanel}
+                        onSelect={handleClosePanel}
                       >
                         <X />
                         <span className="truncate">{tcommon('close')}</span>
@@ -2023,10 +2679,12 @@ export function AISidePanel() {
             </header>
 
             {/* D73 多任务窗格(G-100):未拆分时主体直挂(与挂载前逐字同构,观感零变化);
-                拆分后由容器画窗格树,主体唯一、固定在根窗格,其余窗格为承载标记(边界 1)。 */}
+                拆分后由容器画窗格树,主体唯一、固定在根窗格,其余窗格为承载标记(边界 1)。
+                2026-11-11:浮窗档(含手机)不画窗格树 —— 360px 里再分两栏每栏不到 170px,
+                输入框必然溢出;拆分布局本身保留在 store 里,停靠回 ≥1280 自动复原。 */}
             {!allow ? (
               <AuthGatePrompt message={tGate('loginRequired')} />
-            ) : d73Expanded ? (
+            ) : d73Expanded && !floatMode ? (
               <div className="relative flex min-h-0 flex-1 flex-col" data-d73-host="">
                 <PaneSplitContainer
                   renderPaneContent={(paneConversationId, paneId) =>
@@ -2059,14 +2717,27 @@ export function AISidePanel() {
         默认 opacity:0 完全隐藏,仅 hover 或拖拽时显现渐变色。 */}
           <div
             onPointerDown={handleResizeStart}
+            // 键盘可调(2026-11-11 a11y):role=separator + tabIndex 若只有指针拖拽,
+            // 键盘用户能聚焦却无法操作。←/→ 调宽 16px(Shift 48px):
+            // 面板在右侧,手柄左移 = 面板变宽,故 ArrowLeft 增宽。
+            onKeyDown={(e) => {
+              if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+              e.preventDefault()
+              const step = (e.shiftKey ? 48 : 16) * (e.key === 'ArrowLeft' ? 1 : -1)
+              setWidth(useAiPanelStore.getState().width + step)
+            }}
             tabIndex={0}
             role="separator"
             aria-orientation="vertical"
             aria-label={tcommon('resize')}
+            aria-valuenow={width}
+            aria-valuemin={AI_PANEL_MIN_WIDTH}
+            aria-valuemax={AI_PANEL_MAX_WIDTH}
             className={cn(
               'group absolute right-[-4px] top-3 bottom-3 z-20 w-2 cursor-col-resize outline-none',
-              // 移动端浮窗全屏模式:隐藏拖拽手柄(全屏无需调整宽度)
-              isMobileSmall && floatMode && 'hidden',
+              // 浮窗(含手机全屏)宽度固定由几何纯函数决定,拖宽度没有意义:
+              // 原先只在 <640 隐藏,640–1279 / 桌面浮窗里这条手柄是「假交互」(只改停靠 width)。
+              floatMode && 'hidden',
             )}
           >
             <div

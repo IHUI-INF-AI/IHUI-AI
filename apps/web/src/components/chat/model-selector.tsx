@@ -101,6 +101,9 @@ interface ModelSelectorProps {
   onChange: (model: string) => void
   disabled?: boolean
   label: string
+  /** 2026-11-11 用户要求:auto 模式下宿主传入「当前对话实际使用的模型」,
+   *  trigger 按钮显示该模型名/图标而非「自动」文案(新会话无信号时仍显示「自动」)。 */
+  autoResolvedModel?: string
   /** 弹层底部扩展段(2026-09-30 底栏单行化):推理强度轴 + 采样参数入口等
    *  "模型相关调参"控件收纳进模型弹层 footer,宿主以 ReactNode 传入。 */
   footer?: React.ReactNode
@@ -692,7 +695,14 @@ function isConfiguredVendor(vendor: string | undefined, codes: Set<string>): boo
   return code !== null && codes.has(code)
 }
 
-export function ModelSelector({ value, onChange, disabled, label, footer }: ModelSelectorProps) {
+export function ModelSelector({
+  value,
+  onChange,
+  disabled,
+  label,
+  autoResolvedModel,
+  footer,
+}: ModelSelectorProps) {
   const t = useTranslations('chat')
   const router = useRouter()
   // 2026-08-14:未登录/无 token 不拉取鉴权接口,消除 dev overlay 401 噪音(models/providers-health/configs 均为 auth-gated)。
@@ -880,6 +890,22 @@ export function ModelSelector({ value, onChange, disabled, label, footer }: Mode
     () => (isAuto ? AUTO_OPTION : options.find((m) => m.value === value)),
     [options, value, isAuto],
   )
+  // 2026-11-11 用户要求:auto 模式下 trigger 显示「当前对话实际用的模型」而非「自动」——
+  // auto 是路由模式没有固定名字,但对话里已经跑过一轮,真实模型由宿主(autoResolvedModel)传入,
+  // 与最小化 FAB 图标同一信号源(消息 model → usage 真实计费模型 → 选择器)。
+  const autoResolved =
+    isAuto && autoResolvedModel && autoResolvedModel !== 'auto' ? autoResolvedModel : null
+  const resolvedMeta = React.useMemo(() => {
+    if (!autoResolved) return null
+    const opt = options.find((o) => o.value === autoResolved)
+    if (opt) return { label: opt.label, vendor: opt.vendor, iconUrl: opt.iconUrl }
+    const known = lookupKnownMeta(autoResolved)
+    return {
+      label: known.label ?? autoResolved,
+      vendor: known.vendor ?? inferVendor(autoResolved),
+      iconUrl: known.iconUrl,
+    }
+  }, [autoResolved, options])
   // 2026-08-29 立:默认区(最新最强)/ 历史模型区(过时版本 + 专用模型)
   const { primary, archived } = React.useMemo(() => splitByTier(options), [options])
   const [showHistory, setShowHistory] = React.useState(false)
@@ -973,22 +999,26 @@ export function ModelSelector({ value, onChange, disabled, label, footer }: Mode
           type="button"
           disabled={disabled || loading}
           aria-label={label}
+          // 2026-11-11 用户定档:工具栏模型按钮去描边去底色(ghost 化),与「添加」等
+          // 工具栏按钮同一视觉语言;hover 才出底色。
           className={cn(
-            'inline-flex h-8 min-w-0 items-center gap-1 rounded-sm border border-input bg-card px-2 text-body font-medium transition-colors',
+            'inline-flex h-8 min-w-0 items-center gap-1 rounded-sm px-2 text-body font-medium transition-colors',
             'hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60',
           )}
         >
           <BrandIconDeferred
-            vendor={current?.vendor}
-            iconUrl={current?.iconUrl}
+            vendor={resolvedMeta?.vendor ?? current?.vendor}
+            iconUrl={resolvedMeta?.iconUrl ?? current?.iconUrl}
             size={16}
             className="shrink-0 text-muted-foreground"
           />
           {loading ? (
             <Loader2 className="model-selector-loading h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />
           ) : (
-            <span className="model-selector-text min-w-0 max-w-[6rem] truncate">
-              {current ? (current.value === 'auto' ? t('modelAuto') : current.label) : value}
+            // 2026-11-11:去掉 6rem 上限,空间足够时完整显示模型名;min-w-0 truncate 仅作极窄视口兜底
+            <span className="model-selector-text min-w-0 truncate">
+              {resolvedMeta?.label ??
+                (current ? (current.value === 'auto' ? t('modelAuto') : current.label) : value)}
             </span>
           )}
           {showConfigBadge && !loading && currentConfigured && (

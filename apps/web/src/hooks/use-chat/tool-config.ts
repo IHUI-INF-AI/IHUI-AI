@@ -387,7 +387,7 @@ export const PLUGIN_ID_TO_TOOLS: Record<string, readonly string[]> = {
  * 带工具场景仍携带 AGENT_TOOLS + 插件工具,后端 tool loop 已兜底流式,不影响打字机。
  */
 /** 构建模式才放进模型工具表的派工工具。不进 AGENT_TOOLS 常量,避免问答路径连带带上。 */
-export const DISPATCH_SUBAGENT_TOOL = 'dispatch_subagent'
+const DISPATCH_SUBAGENT_TOOL = 'dispatch_subagent'
 
 /**
  * 现有对话模式开关(stores/mode.ts 的 ChatMode)里,只有 build 是 Agent/Edit 执行档。
