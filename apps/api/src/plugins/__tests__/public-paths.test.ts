@@ -110,6 +110,14 @@ describe('BUG-4 公开面单一真相源', () => {
       expect(isTenantBypassPath('/health')).toBe(true)
     })
 
+    // 2026-11-11:OpenAI 兼容机器面凭 API Key 自证身份,调用方(含 ai-service 的模型连通性探测)
+    // 不带租户头;TENANT_STRICT_MODE 缺省严格后不豁免即全线 401。
+    it('/v1 与 /v1beta 必须免租户,且段边界不误放 /v1x', () => {
+      expect(isTenantBypassPath('/v1/chat/completions')).toBe(true)
+      expect(isTenantBypassPath('/v1beta/models/gemini-2.5-pro:generateContent')).toBe(true)
+      expect(isTenantBypassPath('/v1x/foo')).toBe(false)
+    })
+
     it('/api/public/xxx 属鉴权与网络公开面,但不自动获得免租户待遇', () => {
       expect(isAuthPublicPath('/api/public/banner')).toBe(true)
       expect(isNetworkPublicPath('/api/public/banner')).toBe(true)

@@ -3997,6 +3997,22 @@ async def list_models(request: Request) -> dict[str, Any]:
                 ]
         except Exception as e:
             logger.warning("[model-access] /llm/models 角色过滤异常: %s", e)
+
+    # 2026-11-11 立:输出每个模型的探测状态,让前端区分"已验证可用"与"尚未探测",
+    # 避免用户点开 pending(账户级错误/未探测)模型就失败。只加字段,不改旧字段。
+    from ..services.model_health import model_health
+
+    for m in default_models:
+        mid = m.get("id")
+        if not mid:
+            continue
+        state = model_health.get_state(str(mid))
+        if state is None:
+            m["health_status"] = "unknown"
+            m["health_error"] = ""
+        else:
+            m["health_status"] = state.status
+            m["health_error"] = (state.error or "")[:200]
     return {
         "models": default_models,
         "default": settings.litellm_model,

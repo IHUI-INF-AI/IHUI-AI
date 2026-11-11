@@ -24,7 +24,11 @@ import pytest
 
 import app.services.model_sync as model_sync_module
 from app.core.llm_gateway import llm_gateway
-from app.services.model_health import UPSTREAM_SYNC_INTERVAL_S, ModelHealthService
+from app.services.model_health import (
+    UPSTREAM_SYNC_INTERVAL_S,
+    ModelHealthService,
+    _classify_error,
+)
 
 
 class FakeSyncService:
@@ -264,4 +268,30 @@ async def test_sync_status_snapshot_shape_is_stable(service, fake_sync):
     assert set(service.get_status()["upstream_sync"]) == expected_keys
     await _run(service, reason="manual_refresh", force=True)
     assert set(service.get_status()["upstream_sync"]) == expected_keys
+
+
+@pytest.mark.parametrize(
+    ("error_text", "status_code"),
+    [
+        # 阿里云欠费/账户异常:此前只因 access denied 被判账户级而永久留在列表
+        ("Access denied, please make sure your account is in good standing", 403),
+        ("Access denied: overdue-payment, please recharge your account", 403),
+        # 阿里云未购买该模型
+        ("AccessDenied.Unpurchased: you have not purchased this model", 403),
+        # OpenRouter 部分模型仅限特定 harness,普通 chat 调不通
+        ("This model is only available on agentic harnesses", 400),
+    ],
+)
+def test_classify_error_hides_model_level_upstream_errors(error_text, status_code):
+    """上述文案属模型级不可用 ⇒ 一次探测即隐藏,不能因 access denied 留在列表。"""
+    account_level, model_level = _classify_error(error_text, status_code)
+    assert model_level is True, "必须判 model_level,否则调不通的模型会继续出现在选择器"
+    assert account_level is False
+
+
+def test_classify_error_keeps_plain_rate_limit_account_level():
+    """对照:普通 429 限流仍是账户级,不据此隐藏单个模型。"""
+    account_level, model_level = _classify_error("429 rate limit exceeded", 429)
+    assert account_level is True
+    assert model_level is False
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
