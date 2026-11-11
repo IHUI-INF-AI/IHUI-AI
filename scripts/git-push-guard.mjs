@@ -57,6 +57,7 @@ import {
   judgePushRemoteUrl,
   judgePushWindow,
   HTTPS_REMOTE_HINT,
+  SSH_REMOTE_HINT,
 } from './lib/push-window-gate.mjs'
 import { identityFieldsForPid, judgeRunningState } from './lib/push-state-liveness.mjs'
 
@@ -678,7 +679,12 @@ const holderVerdict = existingState ? judgeRunningState(existingState) : null
 // stale 也一并收口:活 worker 每 15s 心跳,超过 5 分钟没心跳只可能是死了/挂起了。
 // 只判"不 active"而不翻终态,会让状态文件永远说 running —— 正是本轮要消掉的假读数。
 const selfHealKinds = new Set(['dead', 'reused', 'unverifiable', 'stale'])
-if (existingState && existingState.status === 'running' && holderVerdict && selfHealKinds.has(holderVerdict.kind)) {
+if (
+  existingState &&
+  existingState.status === 'running' &&
+  holderVerdict &&
+  selfHealKinds.has(holderVerdict.kind)
+) {
   const workerLogSize = (() => {
     try {
       return statSync(resolve(process.cwd(), '.ihui-agent/state/git-push-guard-async.log')).size
@@ -686,7 +692,10 @@ if (existingState && existingState.status === 'running' && holderVerdict && self
       return 0
     }
   })()
-  log('warn', `发现失效的 running 状态(pid ${existingState.pid},判据=${holderVerdict.kind}),自愈为 failed`)
+  log(
+    'warn',
+    `发现失效的 running 状态(pid ${existingState.pid},判据=${holderVerdict.kind}),自愈为 failed`,
+  )
   // 死因必须可见:worker 被强杀时自己写不出日志,这一行是现场唯一的解释来源。
   appendAsyncLog(
     `判中止:running 的持有者 pid=${existingState.pid} 判据=${holderVerdict.kind}(${holderVerdict.why});` +
@@ -880,7 +889,9 @@ if (isWorkerMode) {
       } catch {
         /* fd 由父进程退出兜底回收 */
       }
-      appendAsyncLog(`dispatch: worker pid=${child.pid} 已派生(head=${String(localHead).slice(0, 7)})`)
+      appendAsyncLog(
+        `dispatch: worker pid=${child.pid} 已派生(head=${String(localHead).slice(0, 7)})`,
+      )
       // 状态持有者改记 worker:pid 存活 + 启动时刻一致,下一轮才判得出"这只 worker 死没死/pid 有没有被复用"。
       writePushState('running', localHead, { pid: child.pid })
       appendAsyncLog(
@@ -907,7 +918,9 @@ if (isWorkerMode) {
       }
       spawned = earlyExit === null || earlyExit.code === 0
     } catch (e) {
-      appendAsyncLog(`dispatch: 后台 spawn 失败(${e instanceof Error ? e.message : e}),回退同步推送`)
+      appendAsyncLog(
+        `dispatch: 后台 spawn 失败(${e instanceof Error ? e.message : e}),回退同步推送`,
+      )
       log('warn', `后台 spawn 失败(${e instanceof Error ? e.message : e}),回退同步推送`)
     }
     if (spawned) {
@@ -946,7 +959,10 @@ if (isWorkerMode) {
         }
       }
       if (earlyExit && earlyExit.code === 0) {
-        log('ok', `后台 worker 已自行结束(exit 0,HEAD ${localShort});核验: node scripts/git-push-converge.mjs`)
+        log(
+          'ok',
+          `后台 worker 已自行结束(exit 0,HEAD ${localShort});核验: node scripts/git-push-converge.mjs`,
+        )
       } else {
         log('ok', `推送已转入后台(HEAD ${localShort});核验: node scripts/git-push-converge.mjs`)
       }
@@ -1025,6 +1041,11 @@ if (skipPush) {
 // `ssh://git@ssh.github.com:443/IHUI-INF-AI/IHUI-AI.git`。一次默认行为 + 一个 SSH remote
 // = 一次违规推送,只差远端当时可达。"只准 HTTPS 显式地址 / 等推送窗口"这两条约束只写在
 // 对话里,机制上却相反 ⇒ 在机制上不可执行。这里只做**拒绝**,不改上面任何既有校验门。
+// 2026-11-11 修订:协议白名单从 https-only 放宽为 https+ssh —— 本机 GitHub 常规 443 不可达,
+// 唯一通道是 `ssh://git@ssh.github.com:443`,且机主后定铁律「origin 必须 ssh、严禁改回 https」;
+// 旧白名单让本 guard **永久 exit 1**,人只能绕开它手推,等于把模块废掉。"不自动推"这一实质
+// 由**窗口闸**(PUSH_WINDOW=1)独立承担,与协议无关;危险协议拒绝(stcp-like/git:///file:///
+// 本地路径)一字未动。判据本体仍只此一份(下条)。
 // 判据本体在 lib/push-window-gate.mjs(纯函数,可单测);此处只负责取材与打印。
 // 取 remote.origin.url **原文**(不取 `git remote get-url` 的 insteadOf 展开结果):
 // 闸判的是"配置里声明的目标地址",而 get-url 会把测试桩/镜像重写展开成本地路径。
@@ -1035,7 +1056,7 @@ if (!urlVerdict.ok) {
   log('err', urlVerdict.reason)
   log(
     'err',
-    `正确写法:显式给 ${HTTPS_REMOTE_HINT}(只接受 https:// 开头;ssh:// / git@ / git:// / 本地路径一律不接受)`,
+    `正确写法:显式给 ${HTTPS_REMOTE_HINT} 或 ${SSH_REMOTE_HINT}(只接受 https:// 与 ssh://;git@host:path / git:// / file:// / 本地路径一律不接受)`,
   )
   process.exit(1)
 }
