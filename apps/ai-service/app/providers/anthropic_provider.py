@@ -15,6 +15,9 @@ P0-① Prompt 缓存(2026-09-18 立,对标 Codex Harness 的 prompt-cache 组装
   按 0.1x 计价,agent 长会话输入成本降一个数量级(官方数据输出 token 省 6 倍)。
 - usage 归一化:cache_read/cache_creation 字段经 core.usage_cache 统一为
   cached_tokens/cache_creation_tokens,流式路径从 message_start/message_delta 采集。
+- AIS-013:归一前把 prompt_tokens 置为 input_tokens + cache_read + cache_creation
+  (Anthropic 的 input_tokens 不含缓存读写,统一契约的 prompt_tokens 是输入总量),
+  缓存两项仍单独记录供展示/缓存感知计价。
 """
 
 from __future__ import annotations
@@ -35,6 +38,32 @@ from ..services.tool_schema_adapter import (
 from .base_provider import BaseProvider, ProviderError
 
 _ANTHROPIC_VERSION = "2023-06-01"
+
+
+def _normalize_anthropic_usage(raw: Any) -> dict[str, Any]:
+    """AIS-013:把 Anthropic 原生 usage 归一为统一契约,输入按「总量」口径。
+
+    Anthropic 的 input_tokens 只含未命中缓存的部分(cache_read_input_tokens /
+    cache_creation_input_tokens 是额外的输入);而统一契约的 prompt_tokens 是
+    输入总量(与 OpenAI 同口径,cost_ledger 据此全量计量)。故归一前先把
+    prompt_tokens 置为三者之和;缓存两项仍由 normalize_usage 单独归一为
+    cached_tokens / cache_creation_tokens,供展示与缓存感知定价使用。
+
+    已带 prompt_tokens 的形态(OpenAI / LiteLLM model_dump / 二次归一结果)
+    直接交给 normalize_usage,避免把已含缓存的输入量再加一遍。
+    """
+    if not isinstance(raw, dict):
+        return normalize_usage(raw)
+    prepared = dict(raw)
+    if "prompt_tokens" not in prepared and "input_tokens" in prepared:
+        partial = normalize_usage(prepared)
+        prepared["prompt_tokens"] = (
+            int(partial.get("prompt_tokens") or 0)
+            + int(partial.get("cached_tokens") or 0)
+            + int(partial.get("cache_creation_tokens") or 0)
+        )
+    return normalize_usage(prepared)
+
 
 # WP-6(2026-09-25 实测立):逐轮变化的注入段签名(前缀匹配,见各注入器落点)。
 #
@@ -203,7 +232,8 @@ class AnthropicProvider(BaseProvider):
             "model": data.get("model", model),
             # P0-①:cache_read_input_tokens/cache_creation_input_tokens 经
             # normalize_usage 统一为 cached_tokens/cache_creation_tokens(原生字段保留)
-            "usage": normalize_usage(data.get("usage", {})),
+            # AIS-013:先合成输入总量再归一(input_tokens 不含缓存读写)
+            "usage": _normalize_anthropic_usage(data.get("usage", {})),
             "stub": False,
         }
         if tool_calls:
@@ -293,7 +323,7 @@ class AnthropicProvider(BaseProvider):
                         yield {
                             "type": "done",
                             "model": model,
-                            "usage": normalize_usage(stream_usage),
+                            "usage": _normalize_anthropic_usage(stream_usage),
                             "stub": False,
                         }
         except httpx.HTTPError as e:

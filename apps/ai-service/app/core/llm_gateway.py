@@ -1754,6 +1754,16 @@ _NATIVE_ERROR_FINISH_REASONS = frozenset({
     "spii",
 })
 
+# AIS-009:Gemini 原生 usageMetadata 的 camelCase 键。原生路径的 usage 需要归一后
+# 才能被下游(usage 帧/试用额度/记账)按 snake_case 消费;仅当出现这些键时替换
+# 下发 usage,纯 snake_case 帧原样透传(不追加归一键,行为零变化)。
+_GEMINI_NATIVE_USAGE_KEYS = frozenset({
+    "promptTokenCount",
+    "candidatesTokenCount",
+    "cachedContentTokenCount",
+    "totalTokenCount",
+})
+
 
 def _normalize_agent_tool_calls(tool_calls: Any) -> Any:
     """把 agent loop 自定义 tool_calls 形态 {id,name,args} 转成 OpenAI 原生形态。
@@ -3709,8 +3719,18 @@ class LLMGateway:
                                         f"native stream finishReason={_native_fr}"
                                     )
                             if isinstance(evt, dict) and evt.get("usage"):
-                                _native_final_usage = normalize_usage(evt["usage"])
+                                _native_usage_raw = evt["usage"]
+                                _native_final_usage = normalize_usage(_native_usage_raw)
                                 _native_usage_from_upstream = True
+                                # AIS-009:记账已经用归一结果,但下发帧此前仍是厂商原生
+                                # 形态(Gemini camelCase)⇒ 下游 usage 帧/试用额度取不到
+                                # prompt_tokens/total_tokens 恒 0。这里替换成归一 usage;
+                                # 纯 snake_case 帧不替换,保持原有下发行为。
+                                if isinstance(_native_usage_raw, dict) and any(
+                                    _key in _native_usage_raw
+                                    for _key in _GEMINI_NATIVE_USAGE_KEYS
+                                ):
+                                    evt = {**evt, "usage": _native_final_usage}
                             yield evt
                 except Exception as exc:  # noqa: BLE001 - 上游生成器异常统一按失败收口
                     # AIS-002:provider 生成器可能先 yield 内容再 raise(而非产出
