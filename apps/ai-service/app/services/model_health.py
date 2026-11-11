@@ -298,6 +298,17 @@ def _strip_upstream_prefix(model_id: str, provider_code: str) -> str:
     return model_id
 
 
+def _relay_keeps_full_id(provider_code: str) -> bool:
+    """relay 网关按目录里的完整 id 路由,直连厂商才需要剥掉网关前缀。
+
+    自家账号池 relay(workbuddy_relay 等)的白名单按带厂商前缀的 id 登记
+    (如 workbuddy/*),剥成 kimi-k3-1 会被 403「模型不在白名单」拒绝 ——
+    可用性探测曾用完整 id 复测兜底,但工具/长上下文探测没有兜底,于是整家
+    平台模型的能力结论都被这个 403 污染。统一在这里决定,三处探测共用。
+    """
+    return provider_code.endswith("_relay")
+
+
 def _resolve_credentials(provider_code: str) -> tuple[str, str]:
     """返回 (api_key, api_base);与 model_availability 的 provider 级 ping 同源。"""
     from ..core.config import settings
@@ -459,7 +470,9 @@ def _build_probe_target(model_id: str, provider_hint: str) -> _ProbeTarget | Non
         chat_url=_chat_url(api_base, code),
         headers=headers,
         proxy=proxy,
-        upstream_model=_strip_upstream_prefix(model_id, code),
+        upstream_model=(
+            model_id if _relay_keeps_full_id(code) else _strip_upstream_prefix(model_id, code)
+        ),
     )
 
 
