@@ -14,13 +14,20 @@ import {
   judgePushRemoteUrl,
   judgePushWindow,
   HTTPS_REMOTE_HINT,
+  SSH_REMOTE_HINT,
 } from '../lib/push-window-gate.mjs'
 
-// ─── 病理(2026-11-07 实测) ──────────────────────────────
+// ─── 病理(2026-11-07 实测;2026-11-11 修订) ──────────────────────────────
 // `.husky/post-commit` → `scripts/lib/post-commit-hook.js` 的缺省行为是"只要
 // HUSKY_SKIP_PUSH !== '1' 就自动推";而 origin 是 `ssh://git@ssh.github.com:443/...`,
-// 不是硬约束要求的显式 https 地址 ⇒ 一次默认行为 + 一个 SSH remote = 一次违规推送,
-// 只差远端当时可达。本文件的每一条都在钉"缺省 = 不推",而不是"缺省 = 推"。
+// 不是硬约束要求的显式 https 地址 ⇒ 一次默认行为 + 一个 SSH remote = 一次违规推送。
+// 本文件的每一条都在钉"缺省 = 不推",而不是"缺省 = 推"。
+//
+// 2026-11-11 修订:原判据只准 https,而本机 GitHub 常规 443 不可达,唯一通道是
+// `ssh://git@ssh.github.com:443`,且机主后定铁律「origin 必须 ssh、严禁改回 https」。
+// 旧判据让 guard **永久 exit 1**(每轮刷 failed),人只能绕开它手推 ⇒ 模块整体失效。
+// 修订只放宽**协议白名单**(https + ssh),窗口闸与危险协议拒绝一律不动 ——
+// "不自动推"由 PUSH_WINDOW 独立承担,与协议无关。下面每条都保留了这个分工的牙。
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 const SCRIPT_PATH = join(__dirname, '..', 'git-push-guard.mjs')
@@ -31,30 +38,31 @@ const SSH_ORIGIN = 'ssh://git@ssh.github.com:443/IHUI-INF-AI/IHUI-AI.git'
 
 // ─── 纯判据:协议闸 ─────────────────────────────────────
 
-test('协议闸:ssh:// 目标 ⇒ 拒绝并回显原文(缺省不推)', () => {
+test('协议闸:ssh:// 目标 ⇒ 放行并原样回显(2026-11-11 修订:本机唯一可用通道)', () => {
   const v = judgePushRemoteUrl(SSH_ORIGIN)
-  assert.equal(v.ok, false, 'ssh:// 绝不能放行')
-  assert.equal(v.code, 'not-https')
-  assert.equal(v.url, SSH_ORIGIN, '拒绝文案必须能贴出目标 URL 原文')
-  assert.match(v.reason, /违反 HTTPS 显式地址约束/)
-  assert.match(v.reason, /本轮不推/)
+  assert.equal(v.ok, true, 'ssh:// 是本机唯一可用通道,必须放行')
+  assert.equal(v.code, 'ssh')
+  assert.equal(v.url, SSH_ORIGIN, '放行也必须原样回显目标 URL(便于日志追责)')
 })
 
-test('协议闸:scp-like / git:// / 本地路径 / file:// 一律拒绝', () => {
+test('协议闸:scp-like / git:// / file:// / 本地路径 / 相对路径一律拒绝', () => {
   const refused = [
     'git@github.com:IHUI-INF-AI/IHUI-AI.git',
+    'git@ssh.github.com:IHUI-INF-AI/IHUI-AI.git',
     'git://github.com/IHUI-INF-AI/IHUI-AI.git',
+    'file:///D:/IHUI-AI/.git',
     'D:/IHUI-AI/.git',
     'C:\\repo\\bare.git',
     '/tmp/ihui-bare.git',
-    'file:///D:/IHUI-AI/.git',
     '../bare.git',
+    'plain-string',
   ]
   for (const url of refused) {
     const v = judgePushRemoteUrl(url)
     assert.equal(v.ok, false, `${url} 必须被拒`)
-    assert.equal(v.code, 'not-https', `${url} 的拒绝码`)
+    assert.equal(v.code, 'unsafe-remote', `${url} 的拒绝码`)
     assert.equal(v.url, url, `${url} 必须原样回显`)
+    assert.match(v.reason, /本轮不推/)
   }
 })
 
@@ -76,6 +84,26 @@ test('协议闸:显式 https 放行;大小写与尾随空白不影响;空值 = �
     assert.match(v.reason, /取不到目标远端 URL/)
   }
   assert.equal(HTTPS_REMOTE_HINT, HTTPS_ORIGIN, '正确写法必须与硬约束逐字一致')
+})
+
+test('协议闸:ssh 同样受支持;大小写不敏感;只有协议头的残缺值仍拒', () => {
+  for (const [url, code] of [
+    [SSH_ORIGIN, 'ssh'],
+    [`  ${SSH_ORIGIN}  `, 'ssh'],
+    ['SSH://git@ssh.github.com:443/IHUI-INF-AI/IHUI-AI.git', 'ssh'],
+  ]) {
+    const v = judgePushRemoteUrl(url)
+    assert.equal(v.ok, true, `${url} 应放行`)
+    assert.equal(v.code, code)
+    assert.equal(v.url, url.trim(), '放行时 URL 必须是 trim 后的原文')
+  }
+  // 主机段为空的残缺值不得因为"协议名对"就放行
+  for (const bare of ['ssh://', 'https://', 'ssh:// ', 'https:///path']) {
+    const v = judgePushRemoteUrl(bare)
+    assert.equal(v.ok, false, `${bare} 不得放行(没有主机段)`)
+    assert.equal(v.code, 'unsafe-remote')
+  }
+  assert.equal(SSH_REMOTE_HINT, SSH_ORIGIN, 'ssh 正确写法必须与实测通道逐字一致')
 })
 
 // ─── 纯判据:窗口闸 ─────────────────────────────────────
@@ -159,23 +187,49 @@ function remoteMain(work) {
   return sh('git ls-remote origin refs/heads/main', work).split('\t')[0].trim()
 }
 
-test('端到端:SSH origin + 已开窗口 ⇒ 仍在推送前被协议闸拒(远端 tip 一动没动)', () => {
+test('端到端:SSH origin + 已开窗口 ⇒ 放行并真落地(桩内,不联网)', () => {
   const { work, bare, bareUrl } = createRepoWithStubbedOrigin()
   try {
-    // 目标改成真实事故里的 SSH 地址;insteadOf 只把**传输**落到本地 bare,
+    // 目标改成真实通道的 SSH 地址;insteadOf 只把**传输**落到本地 bare,
     // raw 配置仍是 ssh ⇒ 闸读到的就是"要推给谁"。
     sh(`git remote set-url origin "${SSH_ORIGIN}"`, work)
     sh(`git config --local "url.${bareUrl}.insteadOf" "${SSH_ORIGIN}"`, work)
     makeAheadCommit(work, 'ssh-ahead.txt')
     const localSha = sh('git rev-parse HEAD', work).trim()
-    const before = remoteMain(work)
     const r = runGuard(work, { PUSH_WINDOW: '1' })
-    assert.equal(r.status, 1, `协议闸应拒绝并 exit 1,实际 ${r.status}\nstdout: ${r.stdout}`)
-    assert.match(r.stdout, /违反 HTTPS 显式地址约束/)
-    assert.ok(r.stdout.includes(SSH_ORIGIN), '必须回显目标 URL 原文')
-    assert.ok(r.stdout.includes(HTTPS_ORIGIN), '必须给出正确写法(显式 https 地址)')
+    assert.equal(r.status, 0, `ssh + 窗口应放行,实际 ${r.status}\nstdout: ${r.stdout}`)
+    assert.doesNotMatch(
+      r.stdout,
+      /unsafe-remote|本轮不推|推送窗口未开启/,
+      '放行的一轮不得出现拒绝文案',
+    )
+    assert.equal(remoteMain(work), localSha, '放行后 local == remote(测试桩内)')
+  } finally {
+    rmScratch(work)
+    rmScratch(bare)
+  }
+})
+
+test('端到端:危险协议 origin(file://) + 已开窗口 ⇒ 仍在推送前被协议闸拒(远端 tip 一动没动)', () => {
+  const { work, bare, bareUrl } = createRepoWithStubbedOrigin()
+  // 直接读 bare 仓库自身的 ref —— 不经过 origin 解析,免得 insteadOf 改写干扰判据。
+  // 用 ls-remote 而不是 `--git-dir=... rev-parse`:后者在 cwd 也属于某个仓时会受
+  // GIT_DIR 环境/路径解析干扰,本机实测出现过「before 读到桩仓、after 读成主仓 HEAD」
+  // 的串仓假红;ls-remote 只认参数里给的那个仓,不读 cwd,读数稳定。
+  const bareTip = () => sh(`git ls-remote "${bareUrl}" refs/heads/main`, work).split('\t')[0].trim()
+  try {
+    const before = bareTip()
+    const fileUrl = `file:///${bareUrl.replace(/^\/+/, '')}`
+    sh(`git remote set-url origin "${fileUrl}"`, work)
+    sh(`git config --local "url.${bareUrl}.insteadOf" "${fileUrl}"`, work)
+    makeAheadCommit(work, 'file-ahead.txt')
+    const localSha = sh('git rev-parse HEAD', work).trim()
+    const r = runGuard(work, { PUSH_WINDOW: '1' })
+    assert.equal(r.status, 1, `危险协议应拒绝并 exit 1,实际 ${r.status}\nstdout: ${r.stdout}`)
+    assert.ok(r.stdout.includes(fileUrl), '必须回显目标 URL 原文')
+    assert.match(r.stdout, /不是受支持的显式传输协议|本轮不推/)
     assert.doesNotMatch(r.stdout, /push 成功|验证通过/, '被拒的一轮不得出现"推送成功"')
-    assert.equal(remoteMain(work), before, '协议闸拒绝后远端 tip 必须未变')
+    assert.equal(bareTip(), before, '协议闸拒绝后远端 tip 必须未变')
     assert.equal(sh('git rev-parse HEAD', work).trim(), localSha, '提交留在本地')
   } finally {
     rmScratch(work)
@@ -206,7 +260,11 @@ test('端到端:https origin + PUSH_WINDOW=1 ⇒ 放行(桩内真落地,不联�
     makeAheadCommit(work, 'allow-ahead.txt')
     const r = runGuard(work, { PUSH_WINDOW: '1' })
     assert.equal(r.status, 0, `两道闸都过应推送成功,实际 ${r.status}\nstdout: ${r.stdout}`)
-    assert.doesNotMatch(r.stdout, /违反 HTTPS 显式地址约束|推送窗口未开启/, '放行的一轮不得再出现拒绝文案')
+    assert.doesNotMatch(
+      r.stdout,
+      /违反 HTTPS 显式地址约束|推送窗口未开启/,
+      '放行的一轮不得再出现拒绝文案',
+    )
     assert.equal(
       remoteMain(work),
       sh('git rev-parse HEAD', work).trim(),
@@ -224,7 +282,7 @@ test('装车锁:guard 必须真调这两道闸,且读的是 origin URL 原文', 
   assert.ok(GUARD_SRC.includes('judgePushRemoteUrl(originUrl)'), '协议闸未被主流程调用')
   assert.ok(GUARD_SRC.includes('judgePushWindow(process.env)'), '窗口闸未被主流程调用')
   assert.ok(
-    GUARD_SRC.includes("git config --get remote.origin.url"),
+    GUARD_SRC.includes('git config --get remote.origin.url'),
     '取材必须是 remote.origin.url 原文(不用 get-url 的 insteadOf 展开结果)',
   )
   assert.doesNotMatch(
