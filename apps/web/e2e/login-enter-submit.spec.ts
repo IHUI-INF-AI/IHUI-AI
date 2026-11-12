@@ -267,7 +267,7 @@ test.describe('Enter 触发 form submit 守门(3 种登录 tab)', () => {
       await openLoginDialog(page, 'login-tab-email', '#login-form-email')
       await installSubmitListener(page)
 
-      await page.locator('#login-form-email').fill('IHUI-AI@aizhs.top')
+      await page.locator('#login-form-email').fill('test@example.com')
       await page.locator('#login-form-email').press('Enter')
       // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await page.waitForTimeout(500)
@@ -281,7 +281,7 @@ test.describe('Enter 触发 form submit 守门(3 种登录 tab)', () => {
       await openLoginDialog(page, 'login-tab-email', '#login-form-email')
       await installSubmitListener(page)
 
-      await page.locator('#login-form-email').fill('IHUI-AI@aizhs.top')
+      await page.locator('#login-form-email').fill('test@example.com')
       await page.getByTestId('login-email-code-input').fill('123456')
       await page.getByTestId('login-email-code-input').press('Enter')
       // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
