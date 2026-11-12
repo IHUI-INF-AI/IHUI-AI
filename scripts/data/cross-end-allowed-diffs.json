@@ -1865,6 +1865,16 @@
       "count": 1,
       "reason": "RN 圆形徽标/头像尺寸,按尺寸一半写 borderRadius;web 侧用 rounded-full/类名档无同值像素档,登记为 RN 单侧展示必需项,零观感取值改动。",
       "evidence": "check-web-rn-style-tiers --json: packages/app/src/features/app-topup/AppTopupScreen.tsx 的 userAvatar 为 borderRadius=24(1 处,48×48 头像);web 侧无 24px 同值。"
+    },
+    {
+      "component": "BottomFadeMask",
+      "key": "geometry",
+      "platform": "both",
+      "owner": "cross-end-ui",
+      "expires": "2027-11-11",
+      "count": 6,
+      "reason": "BottomFadeMask 跨端几何经源码取证为门禁 rpx 折半盲区读数伪差:小程序裸数字常量 BOTTOM_FADE_HEIGHT_PX=90/EDGE=24 被 readGeometry 按 where=css 强制折半读成 45/12,而两端源码常量逐字同值(rn:19-21 ↔ mini:31-34),22%/55% 停点一致,物理像素三端一致。非真实视觉差,同 NavBar/IntelligentAssistant 已知读数噪音。与 props-parity 同源裁决(pair-level not-applicable)。到期前由 owner 复核。",
+      "evidence": "check-cross-end-ui-parity: BottomFadeMask diffCount=6;单点取证 readGeometry named={mini BOTTOM_FADE_HEIGHT_PX:45,EDGE_FADE_HEIGHT_PX:12} vs {rn 90,24};源码常量逐字同值 90/24(rpx.ts:46-53 px()助手注释:裸模板串 px 不参与 rpx 转换)"
     }
   ]
 }
