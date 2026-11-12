@@ -46,9 +46,11 @@ const ex = await import(
   pathToFileURL(path.join(ROOT, 'scripts', 'lib', 'trae-auth-extract.mjs')).href
 )
 
-const { eq } = await import('drizzle-orm')
+const { eq, and, sql } = await import('drizzle-orm')
 const { aiRelayAccountPool } = await import('@ihui/database')
-const { decryptField } = await import('../src/utils/crypto.js')
+// 设备证明换票的报文构造与端点:唯一实现住 trae-protocol(§0.6),本层只发请求不再抄一份
+const proto = await import('../src/services/upstream-adapters/trae-protocol.js')
+const { decryptField, encryptField } = await import('../src/utils/crypto.js')
 const { db } = await import('../src/db/index.js')
 const { setTimeout: sleep } = await import('node:timers/promises')
 
@@ -188,7 +190,353 @@ function decodePoolRow(row: any) {
     row.deviceId && deviceKeyPem && devicePubPem
       ? { deviceId: row.deviceId, deviceKeyPem, devicePubPem }
       : null
-  return { token, refreshToken, profile, device }
+  return { token, refreshToken, profile, sessionTemplate, device }
+}
+
+/**
+ * 写回前的设备匹配预检(2026-11-12 立;机主实测事故的直接修复)。
+ *
+ * 事故:2026-11-12 08:35 一键切号(trae → 第 7 枚 187******26),脚本报「✅ 切号完成」,
+ * 2 秒后客户端把 `iCubeAuthInfo://icube.cloudide` 与 `iCubeServerData://icube.cloudide`
+ * 一起清空 = 未登录态。客户端日志给出唯一原因:
+ *   [exchangeTokenByRefreshToken] POST /trae/api/v3/oauth/ExchangeToken
+ *     DeviceInfo.DeviceID=4355605738307003
+ *   → 401 {"Error":{"Code":"20403","Message":"Token device not match"}}
+ * 该号是裸票导入(secretsEnc / deviceId 全 null),refreshToken 绑在另一台设备上,
+ * 本机设备身份换不出票;客户端启动必做这一步,换不出就当场登出。
+ *
+ * 判据必须「与客户端同款」:同一端点、同一 ClientID×产品线组合链、**本机设备私钥签名**。
+ * 报文构造复用 trae-protocol.buildExchangeTokenProofBody(与 trae-adapter 设备证明通道
+ * 同一枚实现),本层只负责发请求与判定。
+ *   换得出票 ⇒ 写回后客户端一定能登(它走的就是这条);
+ *   明确拒收 ⇒ **一个本机文件都不写**,现登录态原样保留;
+ *   判不出来 ⇒ 照常写回,交由写后客户端验收(verifyClientAccepted)兜底回滚。
+ * 失效方向按 §0.10:多要一次定向说明,绝不多踢一次登录。
+ *
+ * ⚠️ 2026-11-12 实测修正(本条差点把整个切号入口锁死):
+ * 该端点在本机网络下对**任何**带 DeviceProof 的请求都回 `504`(实测 5 次 × 5.1s 全 504、
+ * 网关超时),连客户端自己 08:35:55 发的真实签名请求也是 504,而空签名回 401
+ * `20405 Device proof required`、坏 JSON 回 400 —— 即 504 与票是否有效、签名是否正确
+ * **无关**,它是这条通道在本机的环境表现。若把非 2xx 一律当「换不出票」,预检会把
+ * 每一枚号都判成 rejected(含本机正登录着的那枚),一键切号从此永久停摆。
+ * 因此判定口径改为:
+ *   2xx 且解出 token            ⇒ ok(拿到新票,顺带回写池)
+ *   401/403 且 20403/10101/20101 ⇒ rejected(**上游明确拒绝**,这才是设备/票不匹配)
+ *   其它(5xx/504/超时/网络)     ⇒ undetermined(**不拦**,写回后由客户端验收兜底)
+ *
+ * rt 轮换:该通道换票成功会轮换 refreshToken ⇒ 池里那枚当场作废,同轮 CAS 回写。
+ */
+type PreflightResult =
+  | {
+      decision: 'ok'
+      token: string
+      refreshToken: string | null
+      expiresAt: Date | null
+      /** existing-token = 现成 token 仍有效(未换票、未轮换 rt);缺省 = 换票换出来的新票 */
+      via?: 'existing-token'
+    }
+  | { decision: 'rejected'; reason: string }
+  | { decision: 'undetermined'; reason: string }
+
+async function preflightTraeDeviceMatch(
+  dec: { token?: string; refreshToken: string | null },
+  store: Record<string, unknown>,
+): Promise<PreflightResult> {
+  /**
+   * ⓪ 先验 token(2026-11-12 立,修「预检比客户端更严 ⇒ 好号被挡在门外」)。
+   *
+   * 客户端的真实启动路径是:**先用现成 token**,只有它过期/校验失败时才拿 rt 换票
+   * (`checkLogin` → 401 才走 `exchangeTokenByRefreshToken`)。所以"rt 换不出票"并不等于
+   * "写回后必然登出" —— 只要 token 本身有效,客户端就能正常登录,rt 只影响**下次**续期。
+   *
+   * 实测(2026-11-12,本机):4 枚裸票号(secretsEnc 为空、rt 绑在别的设备)对 rt 换票回
+   * 20403/10101,但 `POST /cloudide/api/v3/trae/CheckLogin` 全部 `IsLogin=true`,且 token
+   * 还剩 13 天 ⇒ 旧预检把 4 枚可用号全判死,还给出"只能重新登录"的错误出路。
+   *
+   * 判据与客户端同款:同一端点(CheckLogin)、同一报文({IDEVersion,ReqSource,GetAIPayHost})、
+   * token 走 `x-cloudide-token` 头。
+   *   200 且 Result.IsLogin===true ⇒ ok(把现成 token 当票用,rt 原样写回,登进去后客户端自己续)
+   *   200 且 IsLogin===false     ⇒ 继续走 ①(rt 换票),由换票结论定档
+   *   其它(5xx/网络)             ⇒ 继续走 ①(不把环境问题当拒收)
+   */
+  if (dec.token) {
+    try {
+      const r = await fetch(proto.TRAE_CHECK_LOGIN_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-cloudide-token': dec.token },
+        body: JSON.stringify({ IDEVersion: proto.TRAE_IDE_VERSION, ReqSource: 'IDE', GetAIPayHost: true }),
+      })
+      if (r.ok) {
+        const body = (await r.json().catch(() => null)) as Record<string, unknown> | null
+        const result =
+          body?.Result && typeof body.Result === 'object'
+            ? (body.Result as Record<string, unknown>)
+            : null
+        if (result?.IsLogin === true) {
+          // 现成 token 有效:直接用它(不换票、不轮换 rt),rt 留给客户端自己续
+          return {
+            decision: 'ok',
+            token: dec.token,
+            refreshToken: null,
+            expiresAt: null,
+            via: 'existing-token',
+          }
+        }
+      }
+    } catch {
+      // 网络/解析失败 ⇒ 不判定,继续走换票腿
+    }
+  }
+  if (!dec.refreshToken) {
+    return {
+      decision: 'rejected',
+      reason:
+        '池内该号既没有可用 token 也没有 refreshToken:客户端启动无从登录,不能写回',
+    }
+  }
+  const dev = ex.extractDeviceMaterial(store) as {
+    deviceId?: string
+    machineId?: string
+    privateKeyPem?: string
+    publicKeyPem?: string
+  } | null
+  const deviceId = String(dev?.deviceId ?? '').trim()
+  const privateKeyPem = String(dev?.privateKeyPem ?? '').trim()
+  const publicKeyPem = String(dev?.publicKeyPem ?? '').trim()
+  if (!deviceId || !privateKeyPem || !publicKeyPem) {
+    return {
+      decision: 'undetermined',
+      reason:
+        '读不到本机设备身份(storage.json 的 iCubeAuthInfo://icube-dc:* 解不出密钥对)⇒ 无法判定能否换票,拒绝写回',
+    }
+  }
+  const machineId = String(dev?.machineId ?? store['telemetry.machineId'] ?? '').trim()
+  let firstReject = ''
+  let firstRejectKind: ReturnType<typeof proto.classifyExchangeReject> = null
+  for (const combo of proto.TRAE_EXCHANGE_TOKEN_COMBOS) {
+    let res: Response
+    try {
+      res = await fetch(proto.TRAE_EXCHANGE_TOKEN_PROOF_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-cloudide-token': '' },
+        body: JSON.stringify(
+          proto.buildExchangeTokenProofBody({
+            deviceId,
+            machineId: machineId || undefined,
+            privateKeyPem,
+            publicKeyPem,
+            clientId: combo.clientId,
+            platformCode: combo.platformCode,
+            refreshToken: dec.refreshToken,
+          }),
+        ),
+      })
+    } catch (e) {
+      return {
+        decision: 'undetermined',
+        reason: `换票预检请求发不出去(网络/未判定):${e instanceof Error ? e.message : String(e)}`,
+      }
+    }
+    const text = await res.text().catch(() => '')
+    if (res.ok) {
+      let payload: { token?: string; refreshToken?: string; expiresAt?: Date | null } | null = null
+      try {
+        payload = proto.extractTokenPayload(JSON.parse(text))
+      } catch {
+        payload = null
+      }
+      if (!payload?.token) {
+        return { decision: 'undetermined', reason: '换票响应无 Token(上游形状变更?未判定)' }
+      }
+      return {
+        decision: 'ok',
+        token: payload.token,
+        refreshToken: payload.refreshToken ?? null,
+        expiresAt: payload.expiresAt ?? null,
+      }
+    }
+    if (!firstReject) firstReject = text || `HTTP ${res.status}`
+    /**
+     * 只有「上游明确拒收」才算 rejected,其余一律 undetermined(不拦切号)。
+     * 实测(2026-11-12,两种都真见过):
+     *   20403 Token device not match           → HTTP 401(设备不匹配,客户端必被拒)
+     *   10101 refresh token is not matched ... → HTTP 400(rt 与客户端线不匹配)
+     *   20101 refresh token is invalid         → HTTP 401(rt 已废)
+     * 判据 = 报文带具名码 ∧ 4xx —— **不是**只认 401/403:10101 走的是 400。
+     * 5xx/504/超时/网络故障不代表票废了,把它们当 rejected 等于让环境问题锁死切号入口。
+     */
+    const kind = proto.classifyExchangeReject(text)
+    const explicitReject = kind !== null && res.status >= 400 && res.status < 500
+    if (!explicitReject) {
+      return {
+        decision: 'undetermined',
+        reason: `换票预检未判定(HTTP ${res.status},非上游拒收):${text.slice(0, 160) || '(空响应)'}`,
+      }
+    }
+    if (!firstRejectKind) firstRejectKind = kind
+    // 20101:rt 已废 ⇒ 换组也救不回来,直接判死
+    if (kind === 'token-dead') {
+      return {
+        decision: 'rejected',
+        reason: `该号的 refreshToken 已失效(20101 refresh token is invalid):${text.slice(0, 160)}`,
+      }
+    }
+    // 20403 / 10101 / 设备绑定数满:换下一条产品线再试一次(失败不轮换 rt)
+  }
+  return {
+    decision: 'rejected',
+    reason: rejectReasonOf(firstRejectKind, firstReject),
+  }
+}
+
+/**
+ * 拒收理由(2026-11-12 立,修一处会把人误导到错误出路的文案)。
+ *
+ * 旧实现把四条语义不同的码一律写成「refreshToken 绑在别的设备上 … 只能在本机重新登录一次」。
+ * 实测 340221726063980 这条 rt 的真相是:该号 **token 有效、额度可查**(本机直连
+ * `ide_user_ent_usage` 回 200 且 usage_summary 正常),换不出票的原因是**客户端签发它时用的
+ * DeviceID 不是本机这枚**(20403 与 10101 是同一件事的两种表述 —— 实测同一票对 IDE_PC 组合回
+ * 20403、对 SOLO_PC 组合回 10101)。此时"重新登录一次"不是唯一出路,也说不出真正的原因。
+ * 因此按实测语义分档给话,并明确"票本身可能是好的"。
+ */
+function rejectReasonOf(
+  kind: ReturnType<typeof proto.classifyExchangeReject>,
+  raw: string,
+): string {
+  const tail = `${raw.slice(0, 200)}`
+  if (kind === 'device-limit') {
+    return (
+      '该号的设备绑定数已达上限(上游 10110/10303):票本身有效,但本机没走客户端自己的设备注册' +
+      `通道(ahaDeviceService)就换不出票。客户端启动必走这一步 ⇒ 写回后必然当场登出。原始响应:${tail}`
+    )
+  }
+  if (kind === 'client-mismatch' || kind === 'device-mismatch') {
+    return (
+      '该号的 refreshToken 由**另一台设备**的客户端签发,与本机设备身份换不出票' +
+      `(上游 ${kind === 'device-mismatch' ? '20403 设备不匹配' : '10101 rt 与客户端线不匹配'}):` +
+      `${tail}。客户端启动必走这一步 ⇒ 写回后必然当场登出。` +
+      '注意:这只说明**本机设备身份换不出票**,不代表该号的 token/额度已失效(本机直连用量端点仍可能正常)'
+    )
+  }
+  return `该号的 refreshToken 换不出票(上游明确拒收):${tail}。客户端启动必走这一步 ⇒ 写回后必然当场登出`
+}
+
+/**
+ * 预检换出的新票回写号池(CAS,与 relay-account-pool-scheduler.refreshOneLocked 的写回同形)。
+ * 不做这一步的话:该通道每次都轮换 rt,池里那枚立刻作废,10 分钟内的下一次切号预检就会
+ * 拿旧票重放 —— 上游视角等于我们自己制造一次 rt 重放。
+ */
+async function persistPreflightTicket(
+  row: Record<string, unknown>,
+  r: { token: string; refreshToken: string | null; expiresAt: Date | null },
+): Promise<boolean> {
+  const applied = await db
+    .update(aiRelayAccountPool)
+    .set({
+      tokenEnc: encryptField(r.token),
+      ...(r.refreshToken ? { refreshTokenEnc: encryptField(r.refreshToken) } : {}),
+      ...(r.expiresAt ? { tokenExpiresAt: r.expiresAt } : {}),
+      lastRefreshAt: new Date(),
+      refreshFailureCount: 0,
+      credVersion: sql`${aiRelayAccountPool.credVersion} + 1`,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(aiRelayAccountPool.id, String(row.id)),
+        eq(aiRelayAccountPool.credVersion, Number(row.credVersion)),
+      ),
+    )
+    .returning({ id: aiRelayAccountPool.id })
+  return applied.length > 0
+}
+
+/**
+ * 预检 rt 轮换的兜底落盘(2026-11-12 立,机主实测事故的直接产物)。
+ *
+ * 该换票通道**只要 2xx 就轮换 refreshToken**:上游当场作废旧 rt。于是出现一个
+ * 极易被忽略的陷阱 —— 预检换出了新票,但 CAS 回写池失败(池被别的会话抢先刷过),
+ * 新 rt 只活在本次进程的内存里;一旦本进程退出/写回失败,这个账号的可用凭据就
+ * **永久蒸发**(旧 rt 已被上游废,新 rt 没落库)。
+ *
+ * 今天就是这么把本机正登录着的那枚号弄成未登录态的:预检拿 200 换了新 rt,
+ * 而手里那份 storage.json 备份里的旧 rt 随即变成 20101 invalid。
+ *
+ * 因此:CAS 失败时,不只报一句"沿用其新票"就完事,而是**必须**把新凭据落到
+ * 一份独立的安全备份里(仓外,0600 语义),并在报告里点名路径 —— 这样即使池侧
+ * 丢了,人还能拿它救回来。绝不把"新票没落库"写成无害告警。
+ */
+function salvageRotatedTicket(uid: string, r: { token: string; refreshToken: string | null; expiresAt: Date | null }): string {
+  const dir = path.join(ROOT, 'logs', 'rotated-tickets')
+  fs.mkdirSync(dir, { recursive: true })
+  const file = path.join(dir, `${uid}-${Date.now()}.json`)
+  fs.writeFileSync(
+    file,
+    JSON.stringify(
+      { uid, token: r.token, refreshToken: r.refreshToken, expiresAt: r.expiresAt, savedAt: new Date().toISOString() },
+      null,
+      2,
+    ),
+    { mode: 0o600 },
+  )
+  return file
+}
+
+/**
+ * 写后客户端验收(2026-11-12 立)。
+ *
+ * 写盘成功 ≠ 登录成功。客户端启动第一件事是拿 rt 换票,换不出就把登录信封删掉
+ * (实测 08:35:53 启动 → 08:35:55 清空,连 serverData 一起)。所以拉起后必须看客户端认不认:
+ *   信封被删 / 被改成别的 uid ⇒ rejected,走回滚把用户送回切前那个能用的登录态;
+ *   客户端确实重写过 storage.json 且信封还是目标 uid ⇒ accepted;
+ *   窗口内客户端没动过文件 ⇒ unobserved(不记绿也不冒红 —— §0.3,没判不写成判过)。
+ */
+async function verifyClientAccepted(
+  storageFile: string,
+  newUid: string,
+  sinceMs: number,
+  waitMs = 15_000,
+): Promise<{ verdict: 'accepted' | 'rejected' | 'unobserved'; detail: string }> {
+  const deadline = Date.now() + waitMs
+  let touched = false
+  for (;;) {
+    let store: Record<string, unknown> | null = null
+    try {
+      store = JSON.parse(fs.readFileSync(storageFile, 'utf8'))
+    } catch {
+      store = null
+    }
+    if (store) {
+      try {
+        touched = fs.statSync(storageFile).mtimeMs > sinceMs
+      } catch {
+        /* 取不到 mtime 不改判 */
+      }
+      const envelope = store[sw.AUTH_KEY]
+      if (typeof envelope !== 'string' || !envelope) {
+        return { verdict: 'rejected', detail: '客户端已把登录信封移除(未登录态)' }
+      }
+      try {
+        const uid = String(
+          (JSON.parse(ex.decryptEnvelope(envelope)) as { userId?: unknown })?.userId ?? '',
+        )
+        if (uid !== newUid) {
+          return { verdict: 'rejected', detail: `登录信封已变成 uid=${uid || '?'}` }
+        }
+      } catch {
+        return { verdict: 'rejected', detail: '登录信封已无法解密(客户端重写且内容不合法)' }
+      }
+    }
+    if (Date.now() >= deadline) break
+    await sleep(500)
+  }
+  if (touched) {
+    return { verdict: 'accepted', detail: `${Math.round(waitMs / 1000)}s 内客户端重写过 storage.json 且信封仍是目标号` }
+  }
+  return {
+    verdict: 'unobserved',
+    detail: `${Math.round(waitMs / 1000)}s 内客户端未重写 storage.json(登录成功但无变更,或启动很慢)`,
+  }
 }
 
 export async function main(argv: string[]): Promise<number> {
@@ -299,6 +647,146 @@ export async function main(argv: string[]): Promise<number> {
     return 0
   }
 
+  /**
+   * ⓪ 档案自愈(2026-11-12 立,机主令「不能出现切不过的号」)。
+   *
+   * 为什么必须在写回之前:客户端登录态判定 `uS()` 的 MARSCODE 分支以
+   * `!account.storeRegion ⇒ need-update` 定档,命中就**立刻拿 refreshToken 去换票**;
+   * 裸票号的 rt 由别的设备签发 ⇒ 20403 ⇒ 客户端清空登录信封 = 当场登出。
+   * 也就是说"缺少 storeRegion"本身就是一条必然登出的路 —— 与 ticket 是否有效无关。
+   *
+   * 这里用**有效 token** 调客户端同款 GetUserInfo 拉真实档案补齐(纯接口、零人工),
+   * 补齐后落盘的是 `storeRegion=CN` 的完整档案,客户端判 VALID_TOKEN 直接用现成 token 登录。
+   * 该步只动 secretsEnc,不碰凭证列;拉不到(如 token 已过期)时**如实记一笔并继续**,
+   * 由后面的预检/客户端验收给出最终结论(不在这里假装判过)。
+   */
+  let profileHeal: { ok: boolean; note: string } = { ok: true, note: 'skipped' }
+  try {
+    const account =
+      (dec.profile as Record<string, unknown> | null)?.account ??
+      (dec.sessionTemplate as Record<string, unknown> | null)?.account ??
+      null
+    const storeRegion =
+      account && typeof account === 'object' ? String((account as Record<string, unknown>).storeRegion ?? '') : ''
+    if (storeRegion.trim() !== '') {
+      profileHeal = { ok: true, note: 'already-complete' }
+      steps.push('profile-already-complete')
+    } else {
+      const mod = await import(
+        pathToFileURL(path.join(ROOT, 'scripts', 'trae-backfill-profile.mjs')).href
+      )
+      const healed = await mod.ensureProfiles([row], {
+        decryptField,
+        encryptField,
+        db,
+        aiRelayAccountPool,
+        eq,
+      })
+      if (healed.repaired.length > 0) {
+        profileHeal = { ok: true, note: `repaired(region=${healed.repaired[0].account?.storeRegion})` }
+        steps.push('profile-healed-from-upstream')
+        report.profileHeal = healed.repaired[0]
+        // 档案变了 ⇒ 重建写回原料(userInfo 的 account 段来自 profile)
+        const fresh = await db
+          .select()
+          .from(aiRelayAccountPool)
+          .where(eq(aiRelayAccountPool.id, row.id))
+        if (fresh.length > 0) {
+          const reDec = decodePoolRow(fresh[0])
+          if (!reDec.error) {
+            dec.profile = reDec.profile
+            dec.sessionTemplate = reDec.sessionTemplate
+            Object.assign(row, fresh[0])
+          }
+        }
+      } else {
+        const why = healed.failed[0]?.why ?? '上游未返回可写档案'
+        profileHeal = { ok: false, note: why }
+        steps.push('warn-profile-heal-failed')
+        process.stderr.write(
+          `⚠️ 档案自愈未成:${why}\n` + '   该号写回后客户端可能判 need-update 并当场登出,由客户端验收兜底。\n',
+        )
+      }
+    }
+  } catch (e) {
+    profileHeal = { ok: false, note: e instanceof Error ? e.message : String(e) }
+    steps.push('warn-profile-heal-error')
+  }
+  report.profileHealStatus = profileHeal
+
+  /**
+   * 写前预检(必须在关端之前,也必须在 dry-run 之后 —— 预检会真换票并轮换 rt,
+   * dry-run 承诺"不写任何文件",不能带这种副作用)。
+   * 换不出票 ⇒ 一个本机文件都不写,现登录态原样保留。
+   */
+  let preflightStore: Record<string, unknown>
+  try {
+    preflightStore = JSON.parse(fs.readFileSync(storageFile, 'utf8')) as Record<string, unknown>
+  } catch (e) {
+    process.stderr.write(`❌ 读 storage.json 失败(未判定): ${String(e)}\n`)
+    return 2
+  }
+  const pre = await preflightTraeDeviceMatch(dec, preflightStore)
+  if (pre.decision === 'rejected') {
+    steps.push('abort-preflight-device-mismatch')
+    report.outcome = 'rejected-preflight'
+    report.preflight = { decision: 'rejected', reason: pre.reason }
+    process.stderr.write(`❌ 拒绝切号(未改动任何本机文件,现登录态保持原样)\n   ${pre.reason}\n`)
+    process.stderr.write(
+      '   出路(按可行性排序):\n' +
+        '   ① 本机重新登录一次该号(短信/扫码),让服务端把 refreshToken 绑到本机设备身份;\n' +
+        '   ② 或改切一枚本机登录过的号:`node scripts/switch-client-account.mjs --list --provider trae`;\n' +
+        '   ③ 跨机迁移该号时,须连同**签发它的那台设备**的客户端设备注册材料一并迁移\n' +
+        '      (客户端 `ahaDeviceService` 的设备身份,与 storage.json 里 icube-dc 密钥对不是同一层)。\n',
+    )
+    process.stdout.write(`${JSON.stringify(report)}\n`)
+    return 1
+  }
+  if (pre.decision === 'undetermined') {
+    /**
+     * undetermined 不再中止(2026-11-12 实测修正):该端点在本机对任何带设备证明的请求都回 504,
+     * 若这里 abort,一键切号会把每一枚号都挡在门外 —— 包括本机正登录着的那枚。
+     * 未判定 = 没判过(§0.3),因此不记绿也不冒红:照常写回,由第⑦步客户端验收
+     * 给出真正的结论;拒收则整组回滚到切前态。
+     */
+    steps.push('warn-preflight-undetermined(不拦,写后由客户端验收兜底)')
+    report.preflight = { decision: 'undetermined', reason: pre.reason }
+    process.stderr.write(`⚠️ 换票预检未判定:${pre.reason}\n   照常写回,写后由客户端验收兜底。\n`)
+  }
+  // 只有真换出票时才回写池(rt 已轮换);未判定时池里那枚没被动过,不能凭空改写。
+  // via='existing-token' 这条腿**没有**换票、rt 没轮换 ⇒ 一个字段都不该动池,
+  // 否则会把池里那枚"刚验证过的票"改写成同一张票却刷新了 lastRefreshAt(掩盖真实刷新节奏)。
+  if (pre.decision === 'ok' && pre.via === 'existing-token') {
+    steps.push('preflight-existing-token-ok(现成 token 仍有效,未换票、未动池)')
+    report.preflight = { decision: 'ok', via: 'existing-token', tokenRotated: false }
+  } else if (pre.decision === 'ok') {
+    const ticketPersisted = await persistPreflightTicket(row, pre)
+    steps.push('preflight-device-match-ok')
+    if (!ticketPersisted) {
+      /**
+       * CAS 失败 = 池里已被别的会话抢先刷过。但**我们手里这张新票是刚换出来的**,
+       * 上游已经把旧 rt 废掉了 ⇒ 新票不落盘就等于让它蒸发。必须先兜底存档再继续。
+       */
+      const salvaged = salvageRotatedTicket(String(row.uid), pre)
+      steps.push('warn-preflight-ticket-cas-missed(新票已兜底存档)')
+      report.rotatedTicketSalvaged = salvaged
+      process.stderr.write(
+        `⚠️ 预检换出的新票没能回写号池(CAS 未命中),已兜底存到:\n   ${salvaged}\n` +
+          '   该文件含凭据明文,救援后请删除。\n',
+      )
+    }
+    report.preflight = {
+      decision: 'ok',
+      tokenRotated: true,
+      refreshTokenRotated: Boolean(pre.refreshToken),
+      poolPersisted: ticketPersisted,
+    }
+  }
+  /** 写回用的票:预检换出新票就用新票,否则用池里原票(客户端会自己拿 rt 换) */
+  const writeToken = pre.decision === 'ok' ? pre.token : dec.token
+  const writeRefreshToken = pre.decision === 'ok' ? (pre.refreshToken ?? dec.refreshToken) : dec.refreshToken
+  const writeExpiresAt = pre.decision === 'ok' ? (pre.expiresAt ?? row.tokenExpiresAt) : row.tokenExpiresAt
+
   const runningPids = sw.isProductRunning(product)
   if (runningPids === null) {
     process.stderr.write(
@@ -378,9 +866,11 @@ export async function main(argv: string[]): Promise<number> {
   try {
     userInfo = sw.buildClientUserInfo({
       uid: newUid,
-      token: dec.token,
-      refreshToken: dec.refreshToken,
-      tokenExpiresAt: row.tokenExpiresAt,
+      // 预检换出了新票就用新票(rt 已在预检那步被上游轮换,写旧票会被当场拒);
+      // 预检未判定时池里的票没被动过,用原票即可(客户端启动会自己拿 rt 换)
+      token: writeToken,
+      refreshToken: writeRefreshToken,
+      tokenExpiresAt: writeExpiresAt,
       refreshExpiresAt: row.refreshExpiresAt,
       name: row.name,
       profile: dec.profile,
@@ -518,6 +1008,7 @@ export async function main(argv: string[]): Promise<number> {
   }
 
   // ⑤ 信封落盘(所有自证过了才写)
+  const writeAt = Date.now()
   const backup = sw.writeStorageAtomic(storageFile, patch.next as Record<string, unknown>)
   report.storageBackup = backup
   try {
@@ -540,12 +1031,117 @@ export async function main(argv: string[]): Promise<number> {
     report.launch = launched
     steps.push(launched.launched ? 'client-relaunched' : 'launch-failed')
   }
+
+  /**
+   * ⑦ 客户端验收(2026-11-12 立)。
+   *
+   * 写盘成功 ≠ 登录成功:客户端启动第一件事就是拿 rt 换票,换不出就把登录信封删掉
+   * (实测 08:35:53 启动 → 08:35:55 清空,连 iCubeServerData 一起)。这一步把
+   * 「脚本说切完了」与「客户端真登上了」之间的缺口堵掉 —— 拒收就整组回滚 + 重新拉起,
+   * 把用户送回切前那个能用的登录态,绝不把人留在未登录态。
+   */
+  if (!o.noLaunch && (report.launch as { launched?: boolean } | undefined)?.launched) {
+    const acc = await verifyClientAccepted(storageFile, newUid, writeAt)
+    report.clientAcceptance = acc
+    steps.push(`client-acceptance:${acc.verdict}`)
+    if (acc.verdict === 'rejected') {
+      report.outcome = 'failed-client-rejected'
+      process.stderr.write(
+        `❌ 客户端拒收写入的登录态:${acc.detail}\n` + '   正在整组回滚到切前态并重新拉起客户端…\n',
+      )
+      // 客户端在跑时退出会用内存态覆写 storage.json ⇒ 回滚前必须先关端
+      const pidsNow = proc.listProductPids(product)
+      proc.closeProduct(product, { pids: pidsNow ?? undefined, waitMs: 12_000 })
+      await sleep(1200)
+      const res = journal.restore()
+      report.rollback = {
+        backups: journal.backupPaths(),
+        restored: res.restored,
+        removed: res.removed,
+        failedRestores: res.failed,
+        renames: journal.renames(),
+        runId: journal.runId,
+      }
+      /**
+       * 回滚后归属一致性核对(2026-11-12 立;本次事故的第二层原因就是这个缺口)。
+       *
+       * 08:35 那次:客户端拒收 → journal 回了 storage.json/vscdb,但**正库的 project /
+       * user_configuration 留在了新号**,于是"登录态是 A 号、项目与配置归属是 B 号"。
+       * 脚本当时报的是"已切号完成",没人知道数据错位了 —— 用户界面看起来一切正常,
+       * 只是项目和配置全都不见了。
+       *
+       * 这里只核对**本脚本自己写过的两张表**(project / user_configuration):
+       * 回滚后它们的 user_id 必须全部回到 oldUid(切前那枚),既不能留 newUid,也不能空。
+       * 对不上 ⇒ 在报告里具名标出并把退出码抬到 1,绝不把错位说成"已回滚"。
+       * 注:local_artifact 等表本来就可能跨多个历史 uid,不做单一归属断言。
+       */
+      try {
+        const dbNow = carry.locateAgentDatabase(userDataDir)
+        const dllNow = carry.locateAgentDll({
+          product,
+          userDataDir,
+          exePath: '',
+          env: process.env,
+        })
+        if (dbNow && dllNow && oldUid) {
+          const owner = await carry.readTableUidOwners({
+            dbFile: dbNow,
+            dllPath: dllNow,
+            tables: ['project', 'user_configuration'],
+          })
+          const bad = Object.entries(owner).filter(
+            ([, uids]) => uids.some((u) => u && u !== oldUid),
+          )
+          report.rollbackOwnerCheck = {
+            expected: oldUid,
+            owners: owner,
+            mismatched: bad.map(([t]) => t),
+          }
+          if (bad.length > 0) {
+            const detail = bad.map(([t, u]) => `${t}=${u.join('/')}`).join(', ')
+            steps.push('rollback-owner-mismatch')
+            process.stderr.write(
+              `❌ 回滚后数据归属仍与登录态不一致(${detail};期望 ${oldUid})。\n` +
+                '   正向 `node scripts/switch-client-account.mjs` 重切同一枚号即可把归属搬正;\n' +
+                `   或人工用备份还原:${journal.dir}\n`,
+            )
+            report.steps = steps
+            process.stdout.write(`${JSON.stringify(report)}\n`)
+            return 1
+          }
+          steps.push('rollback-owner-verified')
+        }
+      } catch (e) {
+        // 核对不了不改判(report 里留具名未判定),但绝不静默当成已核对
+        report.rollbackOwnerCheck = {
+          error: e instanceof Error ? e.message.slice(0, 200) : String(e).slice(0, 200),
+        }
+        steps.push('rollback-owner-undetermined')
+      }
+      const exeR = proc.resolveProductExe(product)
+      const exePathR = typeof exeR === 'string' ? exeR : (exeR?.path ?? '')
+      report.relaunchAfterRollback = exePathR
+        ? proc.launchProduct(exePathR, { product })
+        : { launched: false, error: '无 exe 路径' }
+      report.steps = steps
+      process.stdout.write(`${JSON.stringify(report)}\n`)
+      process.stderr.write('   已回滚;请打开客户端核对是否回到切前那个账号。\n')
+      return 1
+    }
+  }
   process.stdout.write(`${JSON.stringify(report)}\n`)
   process.stderr.write(
     `✅ 已切号并携带对话: 旧 uid=${oldUid ?? '未读到'} → 新 uid=${newUid} 名称=${row.name}\n`,
   )
   if (!o.noLaunch && !(report.launch as any)?.launched) {
     process.stderr.write('   ⚠️ 客户端没能自动拉起,手工打开 Trae 即生效。\n')
+  }
+  if (
+    (report.clientAcceptance as { verdict?: string } | undefined)?.verdict === 'unobserved'
+  ) {
+    process.stderr.write(
+      '   ℹ️ 客户端 15s 内没重写 storage.json:登录成功但无变更,或启动较慢 —— 打开界面核对一下当前账号。\n',
+    )
   }
   return 0
 }

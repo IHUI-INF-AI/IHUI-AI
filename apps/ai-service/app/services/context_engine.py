@@ -260,9 +260,10 @@ class ContextEngine:
     def __init__(self) -> None:
         # P0 修复:用 OrderedDict + max_size 实现 LRU,防止 _summary_cache 无界增长
         self._summary_cache: OrderedDict[str, str] = OrderedDict()
-        # 用户行为记录(内存降级):{file:symbol: count}
+        # 用户行为记录(内存降级):{(user_id, file:symbol): count}
         # P0 修复:用 OrderedDict + max_size 实现 LRU,防止 _user_behavior 无界增长
-        self._user_behavior: OrderedDict[str, int] = OrderedDict()
+        # AIS-017 修复:key 带 user_id(与 Redis 按用户分 hash 对齐),读写只作用于当前用户
+        self._user_behavior: OrderedDict[tuple[str, str], int] = OrderedDict()
         # P2 修复:embedding 缓存(content_hash → embedding),LRU 淘汰,避免重复调 embedding API
         self._embedding_cache: OrderedDict[str, list[float]] = OrderedDict()
         # 压缩事件历史(内存降级)
@@ -1547,7 +1548,7 @@ class ContextEngine:
         """记录用户访问文件/符号的行为(从 @ 提及触发)。
 
         持久化:Redis hash "context:behavior:{userId}"(field=file:symbol,value=count)。
-        降级:Redis 不可用时用内存 dict。
+        降级:Redis 不可用时用内存 dict,key 为 (user_id, file:symbol),按用户隔离。
         """
         if not file_path or not user_id:
             return
@@ -1560,9 +1561,14 @@ class ContextEngine:
             except Exception as e:
                 logger.debug("Redis hincrby 行为失败,降级内存: %s", e)
         # 内存降级
+        # AIS-017:key 必须带 user_id —— Redis 腿本就按用户分 hash
+        # (`context:behavior:{user_id}`),内存腿若只按 file:symbol 存就是全进程共用
+        # 一张表:降级窗口内任一用户能读到他人的 workspace 文件/符号偏好键(元数据
+        # 泄漏),并被他人行为影响排序。两腿口径一致才算同一份行为数据。
         # P0 修复:LRU 上限淘汰,超出 _USER_BEHAVIOR_MAX 时移除最旧记录,防止 OOM
-        self._user_behavior[key] = self._user_behavior.get(key, 0) + 1
-        self._user_behavior.move_to_end(key)
+        bucket = (user_id, key)
+        self._user_behavior[bucket] = self._user_behavior.get(bucket, 0) + 1
+        self._user_behavior.move_to_end(bucket)
         while len(self._user_behavior) > _USER_BEHAVIOR_MAX:
             self._user_behavior.popitem(last=False)
 
@@ -1599,9 +1605,10 @@ class ContextEngine:
                 count = int(raw) if raw else 0
             except Exception as e:
                 logger.debug("Redis hget 行为失败,降级内存: %s", e)
-                count = self._user_behavior.get(key, 0)
+                count = self._user_behavior.get((user_id, key), 0)
         else:
-            count = self._user_behavior.get(key, 0)
+            # AIS-017:只读当前用户的子表,不把他人计数算进 boost
+            count = self._user_behavior.get((user_id, key), 0)
 
         if count <= 0:
             return 0.0
@@ -1637,10 +1644,12 @@ class ContextEngine:
             except Exception as e:
                 logger.debug("Redis hgetall 偏好失败: %s", e)
         # 内存降级
+        # AIS-017:只取当前用户的行 —— 修前这里遍历全进程共用的扁平字典,
+        # 降级窗口内会把他人偏好当成本人偏好返回。
         items = [
             {"key": k, "count": v}
-            for k, v in self._user_behavior.items()
-            if v > 0
+            for (owner_id, k), v in self._user_behavior.items()
+            if owner_id == user_id and v > 0
         ]
         items.sort(key=lambda x: x["count"], reverse=True)
         return items[:limit]

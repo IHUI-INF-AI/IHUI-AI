@@ -7665,7 +7665,7 @@ const checks = [
   // 具体 px 模糊半径 / 字面色值 88 处、RN 写死四元组 24 处),同一张卡片三端三个深浅,
   // 而尺子只有"写完"没有"装车" —— 按 §0.9「造好没装车 = 没有」补进提交链。
   {
-    id: '316',
+    id: '318',
     label: '🌑  投影(阴影)唯一源对账(blocking,只准 --shadow-elevation-* / ELEVATION_STEPS)',
     script: 'check-shadow-single-source.mjs',
     args: [],

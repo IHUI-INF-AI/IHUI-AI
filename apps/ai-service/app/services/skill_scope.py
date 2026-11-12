@@ -109,6 +109,10 @@ def parse_allowed_tools(raw: str | Sequence[str] | None) -> tuple[str, ...]:
     out: list[str] = []
     for token in tokens:
         folded = token.strip().casefold()
+        # 过滤纯符号伪 token:YAML 列表标记 `-`/`*` 会被 token 正则误捕成一项,
+        # 它不是合法工具名(名字必含字母数字)。仅剔除无任何字母数字的项。
+        if not any(ch.isalnum() for ch in folded):
+            continue
         if not folded or folded in seen:
             continue
         seen.add(folded)

@@ -98,15 +98,15 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 5007 | `testFiles` |
+| 测试文件 | 5017 | `testFiles` |
 | CI 工作流 | 59 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
-| 工程守门 | 360 | `guardianGates` |
-| — blocking | 331 | `guardianBlocking` |
+| 工程守门 | 362 | `guardianGates` |
+| — blocking | 333 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 21046 | `trackedFiles` |
+| 跟踪文件 | 21064 | `trackedFiles` |
 
-上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-11。
+上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-12。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
 
 <!-- END GENERATED NUMBERS -->
@@ -2591,6 +2591,14 @@ E1-E5 五层防御体系,从密码学到运行时全链路防护:
 - `/admin/security/threat-dashboard` — 国安级威胁监控(30s 自动刷新,统计卡 + 监控 IP + 最近封禁)
 - `/admin/security/ip-reputation` — IP 信誉查询(评分 + 风险原因 + 手动封禁/解封)
 - `/admin/security/anomalies` — 异常事件列表(IP/分数过滤 + 分页 + 维度详情展开)
+**财务部板块 · AI 一键代账 / AI 一键报税**(RP-46,2026-11-12 立):管理侧边栏独立部门板块(与人事部相邻)。
+- 所属端:板块页 `apps/web`(`/admin/finance-ai`);执行体为 `apps/ai-service` 侧 MCP 插件 ⇒ 任意端的 AI 对话均可自动调用
+- AI 一键代账(`ai_bookkeeping` 插件):流水归集 → 会计分录 → 记账凭证 → 试算平衡 → 结账(损益结转)→ 账务汇总报表,`phase` 五阶段分步执行
+- AI 一键报税(`ai_tax_filing` 插件):计税 → 勾稽校验 → 申报表草案三阶段(增值税一般/小规模、附加 7/3/2% 六税两费、印花税、企业所得税预缴、个税累计预扣法)
+- 对话绑定:D09 专家包(finance-bookkeeping / tax-filing)与会话预路由双保险,说到「代账/报税」即自动携带插件进工具链;分阶段调用经既有 tool-call/plan_updated SSE 帧实时回显进度(零新帧)
+- 用法:管理后台侧边栏「财务部」→ 填会计/申报期间与流水/工资表 → 一键发起;或直接在 AI 对话里说「帮我一键代账 / 这个季报税」
+- 红线:凭证与申报表均为草案,正式申报须纳税主体与执业资格人员复核后在电子税务局自行提交;本系统不代理对外申报,不写生产库
+- **国标平台自动化腿(RP-47)**:phase=automation 产出确定性步骤计划——电子税务局(发票底账/勾选认证、增值税及附加、所得税季缴、个税扣缴)、社保医保(网报厅或原生客户端)、企业网银(回单/流水)；执行腿 = 项目内置浏览器 browser_*(经 tool-delegate 在用户已连接页面逐步执行,每步一张实时工具卡),原生客户端走 computer_* 桌面面(高危、人在旁);提交闸 manual_gate 缺省停在提交前一步由人点击,user_confirmed 须复述获明示确认,不存在静默 auto 对外申报;选择器先探后动、缺 portal 先问人、绝不猜 URL
 ---
 ## G:\ 根目录实时守门服务(2026-07-24 立;v2.0 白名单优先 2026-07-24 升级)
 `FileSystemWatcher` 实时监控 G:\ 根目录,**v2.0 白名单优先模式** — 任何不在白名单且非系统目录的目录/文件创建后**约 110-222ms 内自动删除**,从被动清理升级为主动实时阻止,彻底消除 v1.0 黑名单模式的盲区(如 `guardian-test-allowed` 不在黑名单被保留)。
@@ -5528,7 +5536,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:补 /api/app-version/ 免租户并钉回归锁(治租户401潜伏雷) (c64375fa40)
 - 🐞 修复:落库载荷改回平台原生形状 + 拉回解析去 --json (9e9c213fd9)
 - 🔧 工程/其他:结清 F-86/88/107/108/110/111 六条缺陷票（修复与回归已入库 a83a802010e） (5fa69bc106)
-
 **2026-11-11**
 - 🐞 修复:F-86 Realtime WS 复用共享鉴权与配额预检, F-88 batch 末次尝试才落终态, F-107/108 归属绑定, F-110/111 客服 WS 广播鉴权与槽位释放 (a83a802010)
 - 🐞 修复:同步改用平台原生导出形状 + core 四元组指纹 + raccoon 导出映射 (8f2e70765b)
@@ -5726,7 +5733,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🔧 工程/其他:自动落 2 枚小程序壳承载页(共 4 枚待产) (15ff9a606d)
 - 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (4ebde26fef)
 - 📚 文档:deploy-feedback 自动登记(deploy_outcome;端到端反馈闭环第二切片,O65 自进化系列) (a1678371fb)
-
 **2026-11-12**
 - 📚 文档:auto档同步四语 README（changelog/日期/F票记录，非逻辑代码） (a61cec7719)
 - 🔧 工程/其他:新增 §12d 停用防回归守门 check-worktree-dev-banned(316,blocking) (2f6997bf5f)
@@ -5770,7 +5776,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:补 /api/app-version/ 免租户并钉回归锁(治租户401潜伏雷) (c64375fa40)
 - 🐞 修复:落库载荷改回平台原生形状 + 拉回解析去 --json (9e9c213fd9)
 - 🔧 工程/其他:结清 F-86/88/107/108/110/111 六条缺陷票（修复与回归已入库 a83a802010e） (5fa69bc106)
-
 **2026-11-11**
 - 🐞 修复:F-86 Realtime WS 复用共享鉴权与配额预检, F-88 batch 末次尝试才落终态, F-107/108 归属绑定, F-110/111 客服 WS 广播鉴权与槽位释放 (a83a802010)
 - 🐞 修复:同步改用平台原生导出形状 + core 四元组指纹 + raccoon 导出映射 (8f2e70765b)
@@ -5968,7 +5973,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🔧 工程/其他:自动落 2 枚小程序壳承载页(共 4 枚待产) (15ff9a606d)
 - 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (4ebde26fef)
 - 📚 文档:deploy-feedback 自动登记(deploy_outcome;端到端反馈闭环第二切片,O65 自进化系列) (a1678371fb)
-
 **2026-11-12**
 - 🔧 工程/其他:新增 §12d 停用防回归守门 check-worktree-dev-banned(316,blocking) (2f6997bf5f)
 - 🔧 工程/其他:结清 CLI F-002/003/006/007/008 与 API F-700/704 七条缺陷票（修复与回归已入库 b46128f309c） (559599bb3f)
@@ -5979,7 +5983,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🔧 工程/其他:结清 F-40/76/77/87/91 五条缺陷票（修复与回归已入库 221e0cdaadf） (fdf49b2a2b)
 - 🐞 修复:结清 F-87/91/76/77/40 五条缺陷票——媒体代理计费、通知失败重试、PDF 合并上限、部门用户凭据投影、后台 Agent 有界回收 (221e0cdaad)
 - 🐞 修复:离线兜底页补齐状态告知并纠正薄壳降级描述 (be7035bb2b)
-
 **2026-11-12**
 - 🔧 工程/其他:结清 CLI F-002/003/006/007/008 与 API F-700/704 七条缺陷票（修复与回归已入库 b46128f309c） (559599bb3f)
 - 🐞 修复:结清 F-002/003/006/007/008/700/704——退出码、进程树回收、审计与 argv 脱敏、钱包与看板 int8 溢出 (b46128f309)
@@ -5989,12 +5992,10 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🔧 工程/其他:结清 F-40/76/77/87/91 五条缺陷票（修复与回归已入库 221e0cdaadf） (fdf49b2a2b)
 - 🐞 修复:结清 F-87/91/76/77/40 五条缺陷票——媒体代理计费、通知失败重试、PDF 合并上限、部门用户凭据投影、后台 Agent 有界回收 (221e0cdaad)
 - 🐞 修复:离线兜底页补齐状态告知并纠正薄壳降级描述 (be7035bb2b)
-
 **2026-11-11**
 - 🐞 修复:HR-3 微信订阅消息字段 key 对齐真实模板(实测收尾) (0fe40d5929)
 - 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (8f5675e664)
 - 🐞 修复:修两族报警真因——app-version端点补免租户 + A9轮起点腿登记豁免 (0417dc0dc2)
-
 **2026-11-11**
 - 📚 文档:HR-1~HR-4 四行翻勾(人事部功能系列已交付并验证) (155a67f9f1)
 - 🚀 新功能/改进:人事部功能系列 HR-1~HR-4 全量落地(代码层 + README 生成块) (a8cf8d4f4d)
@@ -6071,7 +6072,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:旧底稿整份回退哨兵(提交面报警 + 推送前硬拦) (0de2c0c35a)
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (3fc9d80fe2)
 - 🐞 修复:门8 method 推断⑤段加块尾守卫——已闭合函数不再向匿名回调裸fetch借POST(修 edu-attendance e2e 假阳性;T5/T6 夹具钉住) (df51ce0ce5)
-
 **2026-11-11**
 - 🚀 新功能/改进:人事部功能系列 HR-1~HR-4 全量落地(代码层 + README 生成块) (a8cf8d4f4d)
 - 📚 文档:deploy-feedback 自动登记(deploy_outcome;端到端反馈闭环第二切片,O65 自进化系列) (fe6283ecbe)
@@ -6147,7 +6147,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:旧底稿整份回退哨兵(提交面报警 + 推送前硬拦) (0de2c0c35a)
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (3fc9d80fe2)
 - 🐞 修复:门8 method 推断⑤段加块尾守卫——已闭合函数不再向匿名回调裸fetch借POST(修 edu-attendance e2e 假阳性;T5/T6 夹具钉住) (df51ce0ce5)
-
 **2026-11-11**
 - 🐞 修复:推送分叉自动收敛 + 落地复跑按落地面收窄 + 声明持久化(根治每次推送卡 5-20 分钟) (7265f95f404)
 - 🚀 新功能/改进:豆包接入签到体系——第五平台全链路接线 (b4cca8b95bb)
@@ -6195,7 +6194,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 📚 文档:刷新生成块数字(trackedFiles 20934→20936,并入 relay 长连接收口 2 个新文件) (52848a9f7e5)
 - 📚 文档:自动刷新最近更新块 + 游标跟进 cb64a7fd1c (86abb395e5b)
 - 🐞 修复:启动门只等必需后端三件套,/health 免租户(修 240s 假死) (3460206c423)
-
 **2026-11-10**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (d2cb6d426c)
 - ⚡ 性能:全池推生产合并为单次 SSH 握手，能力探针与导出并行 (e4008a1a7a7)
@@ -6249,12 +6247,10 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - ⚡ 性能:水印提交档分母收窄到本次携带,单门 24.5s→1.0s (0cf426141b0)
 - ⚡ 性能:30a 悬空集合单列缓存,提交链守门实测 309s→69s (775ca7e7837)
 - 🐞 修复:合并后按 token 档归一 inline-question-card 字号与字重 (10e5b33bb52)
-
 **2026-11-08**
 - 🚀 新功能/改进:补齐 AI 生成显式/隐式标识 (8d972f386c6)
 - 🚀 新功能/改进:补齐 AI 生成显式/隐式标识 (f4535c338e9)
 - 🚀 新功能/改进:Groups 屏薄壳承载落地(RN 壳同源渲染,词条取 web 原文) (e7d27e3e994)
-
 **2026-11-07**
 - 🐞 修复:补 web 端 apiKeys en/ko 译文(24 键,清门 4 pending) (5e1c14de23a)
 - 🐞 修复:四屏壳改桶导入,补门173共享屏直接 import 覆盖 (e71cd19a5d6)
@@ -6270,10 +6266,8 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🚀 新功能/改进:TokenValue 记录时间范围条下沉共享屏(数据型注入点,RN/小程序同源) (e7c52e45ba2)
 - 🚀 新功能/改进:8 条单端槽位裁决落锁,2 条真下沉 (72a500c1156)
 - 🔧 工程/其他:再 rebase 后生成器取胜, 刷新 ui-routes 钉值与 README 数字 (5c833a7bbc5)
-
 **2026-11-06**
 - 🚀 新功能/改进:补齐 Team/MessageCenter/ArticleList/Coupon 行为型 prop 跨端缺口并清理死契约 (a872076ccc9)
-
 **2026-11-10**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (9220756941)
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (ffb5f20a82)
@@ -6285,614 +6279,315 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 **2026-11-10**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (0e10f84bd0)
 - 🐞 修复:typecheck-full 清缓存增补 .DevEnv/.workbuddy 排除——T1 被看门狗终止的真凶实测定位(cleanTsbuildinfo 对盘根 57000+ 子目录的 .DevEnv 深递归,30s 超时都跑不完);排除后 1248ms 过,全量轮 180s 完成落回执 (c592e24ceb)
-
 <!-- END RECENT UPDATES -->
-
 ## 守门脚本索引(已接线门点名 · R4 对账)
-
 <!-- 2026-11-12: 门 89 R4 要求「已接线的门必须在 AGENTS.md/README.md 点名」。
      AGENTS.md 有 96000B 体积硬顶,故本索引落 README.md。以下 158 枚门已接线
      (scripts/guardian-runner.mjs 注册),按前缀分组列出脚本名以满足 R4 点名。
      判据/自检/跳过变量详见各脚本头注与 docs/GATEKEEPERS.md。 -->
-
 **aasa-public**
-
 - `scripts/check-aasa-public-health.mjs`
-
 **adapter-style**
-
 - `scripts/check-adapter-style-parity.mjs`
-
 **ai-panel**
-
 - `scripts/check-ai-panel-mount-guards.mjs`
-
 **ai-task**
-
 - `scripts/check-ai-task-background-reference.mjs`
-
 **analytics-page**
-
 - `scripts/check-analytics-page-coverage.mjs`
-
 **api-endpoint**
-
 - `scripts/check-api-endpoint-delta.mjs`
-
 **api-key**
-
 - `scripts/check-api-key-permission-labels.mjs`
-
 **api-route**
-
 - `scripts/check-api-route-uniqueness.mjs`
-
 **app-version**
-
 - `scripts/check-app-version-latest.mjs`
-
 **asset-path**
-
 - `scripts/check-asset-path-health.mjs`
-
 **auth-cookie**
-
 - `scripts/check-auth-cookie-domain-scope.mjs`
-
 **authorization-column**
-
 - `scripts/check-authorization-column-isolation.mjs`
-
 **baseline-freshness**
-
 - `scripts/check-baseline-freshness.mjs`
-
 **biz-day**
-
 - `scripts/check-biz-day-single-source.mjs`
-
 **bpe-encoding**
-
 - `scripts/check-bpe-encoding-parity.mjs`
-
 **bypass-landing**
-
 - `scripts/check-bypass-landing-scope.mjs`
-
 **capability-field**
-
 - `scripts/check-capability-field-not-client-supplied.mjs`
-
 **ci-failure**
-
 - `scripts/check-ci-failure-triage-wiring.mjs`
-
 **cli-i18n**
-
 - `scripts/check-cli-i18n-parity.mjs`
-
 **crash-report**
-
 - `scripts/check-crash-report-redaction.mjs`
-
 **credential-leak**
-
 - `scripts/check-credential-leak-in-message.mjs`
-
 **credential-presence**
-
 - `scripts/check-credential-presence-bypass.mjs`
-
 **cross-end**
-
 - `scripts/check-cross-end-screen-coverage.mjs`
 - `scripts/check-cross-end-spec-coverage.mjs`
-
 **csrf-exemption**
-
 - `scripts/check-csrf-exemption-shape.mjs`
-
 **dangling-local**
-
 - `scripts/check-dangling-local-imports.mjs`
-
 **db-blind**
-
 - `scripts/check-db-blind-updatedat-set.mjs`
-
 **db-migration**
-
 - `scripts/check-db-migration-gaps.mjs`
-
 **ddos-guard**
-
 - `scripts/check-ddos-guard-wiring.mjs`
-
 **declared-carriage**
-
 - `scripts/check-declared-carriage.mjs`
-
 **desktop-release**
-
 - `scripts/check-desktop-release-discovery-budget.mjs`
-
 **diagnostic-redaction**
-
 - `scripts/check-diagnostic-redaction.mjs`
-
 **digest-name**
-
 - `scripts/check-digest-name-reality.mjs`
-
 **dockerfile-copy**
-
 - `scripts/check-dockerfile-copy-paths.mjs`
-
 **docs-public**
-
 - `scripts/check-docs-public-health.mjs`
-
 **doom-loop**
-
 - `scripts/check-doom-loop-parity.mjs`
-
 **downloads-live**
-
 - `scripts/check-downloads-live-health.mjs`
-
 **drizzle-journal**
-
 - `scripts/check-drizzle-journal-sync.mjs`
-
 **e2e-coverage**
-
 - `scripts/check-e2e-coverage-gap.mjs`
-
 **edu-arrears**
-
 - `scripts/check-edu-arrears-single-source.mjs`
-
 **egress-ip**
-
 - `scripts/check-egress-ip-drift.mjs`
-
 **enum-default**
-
 - `scripts/check-enum-default-widening.mjs`
-
 **enum-fallback**
-
 - `scripts/check-enum-fallback-terminal.mjs`
-
 **error-attribution**
-
 - `scripts/check-error-attribution-single-source.mjs`
-
 **error-code**
-
 - `scripts/check-error-code-not-text-matching.mjs`
-
 **error-message**
-
 - `scripts/check-error-message-bounded.mjs`
-
 **file-write**
-
 - `scripts/check-file-write-safety.mjs`
-
 **format-support**
-
 - `scripts/check-format-support-parity.mjs`
-
 **gate-rot**
-
 - `scripts/check-gate-rot.mjs`
-
 **gate-triggers**
-
 - `scripts/check-gate-triggers.mjs`
-
 **generator-resource**
-
 - `scripts/check-generator-resource-release.mjs`
-
 **git-read**
-
 - `scripts/check-git-read-timeout.mjs`
-
 **grafana-metric**
-
 - `scripts/check-grafana-metric-exists.mjs`
-
 **guarded-write**
-
 - `scripts/check-guarded-write-affected.mjs`
-
 **guardian-review**
-
 - `scripts/check-guardian-review-wired.mjs`
-
 **head-recall**
-
 - `scripts/check-head-recall-stock.mjs`
-
 **head-typecheck**
-
 - `scripts/check-head-typecheck.mjs`
-
 **hover-lift**
-
 - `scripts/check-hover-lift-single-source.mjs`
-
 **husky-hook**
-
 - `scripts/check-husky-hook-form.mjs`
-
 **i18n-cross**
-
 - `scripts/check-i18n-cross-end-wording.mjs`
-
 **identity-principal**
-
 - `scripts/check-identity-principal-source.mjs`
-
 **image-placeholders**
-
 - `scripts/check-image-placeholders.mjs`
-
 **inbound-schema**
-
 - `scripts/check-inbound-schema-strict.mjs`
-
 **index-unmerged**
-
 - `scripts/check-index-unmerged-age.mjs`
-
 **input-focus**
-
 - `scripts/check-input-focus-feedback.mjs`
-
 **line-split**
-
 - `scripts/check-line-split-parity.mjs`
-
 **lint-staged**
-
 - `scripts/check-lint-staged-stdio-pin.mjs`
-
 **list-cap**
-
 - `scripts/check-list-cap-honesty.mjs`
-
 **list-predicate**
-
 - `scripts/check-list-predicate-has-positive-proof.mjs`
-
 **live-doc**
-
 - `scripts/check-live-doc-duplicates.mjs`
 - `scripts/check-live-doc-merge-recall.mjs`
 - `scripts/check-live-doc-references.mjs`
-
 **load-state**
-
 - `scripts/check-load-state-loaded-marks.mjs`
 - `scripts/check-load-state-projection-parity.mjs`
-
 **lock-manifest**
-
 - `scripts/check-lock-manifest-consistency.mjs`
-
 **lsp-language**
-
 - `scripts/check-lsp-language-table.mjs`
-
 **mention-engine**
-
 - `scripts/check-mention-engine-wired.mjs`
-
 **metric-existence**
-
 - `scripts/check-metric-existence.mjs`
-
 **migration-immutable**
-
 - `scripts/check-migration-immutable.mjs`
-
 **miniapp-build**
-
 - `scripts/check-miniapp-build-artifacts.mjs`
-
 **miniapp-mirror**
-
 - `scripts/check-miniapp-mirror-fidelity.mjs`
-
 **miniapp-shell**
-
 - `scripts/check-miniapp-shell-form.mjs`
-
 **miniapp-taro**
-
 - `scripts/check-miniapp-taro-design-tokens.mjs`
-
 **mjs-export**
-
 - `scripts/check-mjs-export-resolution.mjs`
-
 **mobile-api**
-
 - `scripts/check-mobile-api-base-bake.mjs`
-
 **mobile-download**
-
 - `scripts/check-mobile-download-leg-cn.mjs`
 - `scripts/check-mobile-download-leg.mjs`
-
 **mobile-version**
-
 - `scripts/check-mobile-version-code.mjs`
-
 **modal-keyboard**
-
 - `scripts/check-modal-keyboard-avoid.mjs`
-
 **mode-permission**
-
 - `scripts/check-mode-permission-matrix.mjs`
-
 **money-display**
-
 - `scripts/check-money-display-single-source.mjs`
-
 **mrn-vitest**
-
 - `scripts/check-mrn-vitest-mock-alias-surface.mjs`
-
 **nested-additional**
-
 - `scripts/check-nested-additional-properties.mjs`
-
 **no-nested**
-
 - `scripts/check-no-nested-git-sites-durability.mjs`
-
 **no-warm**
-
 - `scripts/check-no-warm-border.mjs`
-
 **origin-guard**
-
 - `scripts/check-origin-guard-liveness.mjs`
-
 **orphan-deletion**
-
 - `scripts/check-orphan-deletion-refs.mjs`
-
 **percent-clamp**
-
 - `scripts/check-percent-clamp-single-source.mjs`
-
 **plan-archive**
-
 - `scripts/check-plan-archive-monotonic.mjs`
-
 **plan-dup**
-
 - `scripts/check-plan-dup-pointer-ratchet.mjs`
-
 **plan-id**
-
 - `scripts/check-plan-id-pool.mjs`
-
 **plan-sha**
-
 - `scripts/check-plan-sha-form.mjs`
 - `scripts/check-plan-sha-resolvable.mjs`
-
 **plan-truncated**
-
 - `scripts/check-plan-truncated-rows.mjs`
-
 **plugin-manifest**
-
 - `scripts/check-plugin-manifest-integrity.mjs`
-
 **principal-consumed**
-
 - `scripts/check-principal-consumed.mjs`
-
 **process-exit**
-
 - `scripts/check-process-exit-attribution.mjs`
-
 **prod-checkout**
-
 - `scripts/check-prod-checkout-foreign-work.mjs`
-
 **prod-dep**
-
 - `scripts/check-prod-dep-advisories.mjs`
-
 **ps1-bom**
-
 - `scripts/check-ps1-bom.mjs`
-
 **public-admin**
-
 - `scripts/check-public-admin-default.mjs`
-
 **push-sync**
-
 - `scripts/check-push-sync.mjs`
-
 **python-import**
-
 - `scripts/check-python-import-landed.mjs`
-
 **qoder-session**
-
 - `scripts/check-qoder-session-sync-task.mjs`
-
 **readme-recent**
-
 - `scripts/check-readme-recent-containment.mjs`
-
 **readout-and**
-
 - `scripts/check-readout-and-timer-hygiene.mjs`
-
 **registry-sync**
-
 - `scripts/check-registry-sync-health.mjs`
-
 **registry-worktree**
-
 - `scripts/check-registry-worktree-superset.mjs`
-
 **relay-capacity**
-
 - `scripts/check-relay-capacity-zero.mjs`
-
 **relay-queue**
-
 - `scripts/check-relay-queue-db-isolation.mjs`
-
 **rich-anchor**
-
 - `scripts/check-rich-anchor-renderer-single-source.mjs`
-
 **rn-compat**
-
 - `scripts/check-rn-compat-coverage.mjs`
-
 **rn-interaction**
-
 - `scripts/check-rn-interaction-hygiene.mjs`
-
 **rn-type**
-
 - `scripts/check-rn-type-floor.mjs`
-
 **root-guard**
-
 - `scripts/check-root-guard-consistency.mjs`
 - `scripts/check-root-guard-manifest-sync.mjs`
-
 **ruff-python**
-
 - `scripts/check-ruff-python.mjs`
-
 **selftest-registrant**
-
 - `scripts/check-selftest-registrant-evaluates.mjs`
-
 **sequence-lag**
-
 - `scripts/check-sequence-lag.mjs`
-
 **shared-type**
-
 - `scripts/check-shared-type-not-redeclared.mjs`
-
 **sheet-flex**
-
 - `scripts/check-sheet-flex-contract.mjs`
-
 **skip-env**
-
 - `scripts/check-skip-env-promise.mjs`
-
 **slash-command**
-
 - `scripts/check-slash-command-wired.mjs`
-
 **sse-frame**
-
 - `scripts/check-sse-frame-watermark.mjs`
-
 **sse-no**
-
 - `scripts/check-sse-no-blind-merge.mjs`
-
 **staged-resurrection**
-
 - `scripts/check-staged-resurrection.mjs`
-
 **stale-baseline**
-
 - `scripts/check-stale-baseline-sentinel.mjs`
-
 **stale-stashes**
-
 - `scripts/check-stale-stashes.mjs`
-
 **style-key**
-
 - `scripts/check-style-key-consumption.mjs`
-
 **subagent-permission**
-
 - `scripts/check-subagent-permission-inherited.mjs`
-
 **sweeper-liveness**
-
 - `scripts/check-sweeper-liveness.mjs`
-
 **tool-exec**
-
 - `scripts/check-tool-exec-budget.mjs`
-
 **tool-family**
-
 - `scripts/check-tool-family-registered.mjs`
-
 **tool-schema**
-
 - `scripts/check-tool-schema-projection.mjs`
-
 **truncation-accounting**
-
 - `scripts/check-truncation-accounting.mjs`
-
 **turn-ordinal**
-
 - `scripts/check-turn-ordinal-lock.mjs`
-
 **txn-cancel**
-
 - `scripts/check-txn-cancel-boundary.mjs`
-
 **ui-spec**
-
 - `scripts/check-ui-spec-mirror.mjs`
-
 **upload-budget**
-
 - `scripts/check-upload-budget.mjs`
-
 **v3-62**
-
 - `scripts/check-v3-62-conversation-mount.mjs`
-
 **verbatim-resurrection**
-
 - `scripts/check-verbatim-resurrection.mjs`
-
 **web-mp**
-
 - `scripts/check-web-mp-route-carriers.mjs`
-
 **web-portal**
-
 - `scripts/check-web-portal-label-keys.mjs`
-
 **web-rn**
-
 - `scripts/check-web-rn-gap-ratchet.mjs`
 - `scripts/check-web-rn-parity.mjs`
 - `scripts/check-web-rn-screen-parity.mjs`
 - `scripts/check-web-rn-style-tiers.mjs`
-
 **wire-strictness**
-
 - `scripts/check-wire-strictness.mjs`

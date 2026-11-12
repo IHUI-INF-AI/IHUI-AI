@@ -354,6 +354,56 @@ _EDU_RENDER_PROMPT = (
     "- ok=false 时如实告知失败原因(权限不足/参数错误等),禁止谎报成功"
 )
 
+# ---- 财务部(RP-46,2026-11-12)AI 一键代账/一键报税对话自动路由 ----
+# 强信号正则:代账/记账凭证/结报销账类 → ai_bookkeeping;报税/申报/计税类 → ai_tax_filing。
+# 与 apps/web 侧 use-chat/tool-config.ts FINANCE keywords 同思路(双保险):
+# 命中即进 tool loop,不受 LLM 意图分类质量影响。
+_FINANCE_INTENT_PATTERNS: dict[str, tuple[re.Pattern[str], ...]] = {
+    "ai_bookkeeping": (
+        re.compile(r"一键代账|代账|一键记账|自动记账|做账|帮我记账|登账"),
+        re.compile(r"(记账|会计)凭证|生成(记账)?凭证|录入凭证"),
+        re.compile(r"(试算|借贷)(平衡|平衡表)|科目余额表|账簿|结账|损益结转"),
+        # 取数腿(RP-47):底账/回单类意图先并 ai_bookkeeping(它产 browser_* 取数计划)
+        re.compile(r"发票底账|底账(查询|导出|取数)|勾选(确认|认证)|(取得|认证|抵扣).{0,4}发票"),
+        re.compile(r"银行(回单|流水|对账单)|回单(下载|导出)|入金?流水导出"),
+        re.compile(r"\b(bookkeep\w*|journal entr\w*|trial balance)\b", re.IGNORECASE),
+    ),
+    "ai_tax_filing": (
+        re.compile(r"一键报税|报税|纳税申报|申报纳税|税费申报|个税申报|增值税申报|所得税申报"),
+        re.compile(r"(计税|算税|测算.*(税|费)|税费(计算|测算))|(计算|算一下).*(增值税|个税|所得税|印花税)"),
+        re.compile(r"申报表|纳税表|税表"),
+        # 国标平台自动化腿(RP-47):电子税务局/社保医保申报缴费类意图
+        re.compile(r"电子税务局|税务局.*(登录|申报|缴纳|提交)|(登录|上).?税务局"),
+        re.compile(r"(社保|医保|公积金).*(申报|缴费|增减员|缴纳|办理)|(申报|缴费|增减员).{0,4}(社保|医保)"),
+        re.compile(r"(增值税|所得税|个税).*(提交|申报提交|网上申报)|(提交|办理).{0,6}(增值税|所得税|个税)申报"),
+        re.compile(r"\b(tax filing|file (my |the )?tax(es)?|tax return)\b", re.IGNORECASE),
+        re.compile(r"\be-?tax|elektronische? belasting", re.IGNORECASE),
+    ),
+}
+
+# 财务部工具使用规范(注入 system):分阶段推进 + 绝不为配平改数 + 草案红线转述。
+_FINANCE_RENDER_PROMPT = (
+    "财务部插件(ai_bookkeeping / ai_tax_filing)使用规范(务必遵守):\n"
+    "- 先收资料:缺会计期间/流水/税额基数时先向用户索取,或用 parse_document、document_tables "
+    "从上传发票与银行回单中抽取,禁止凭空编造金额\n"
+    "- 分阶段推进:ai_bookkeeping 按 classify→voucher→trial_balance→close→report 依次调用"
+    "(或 phase=all 串全程);每次把返回的 progress(第几阶段/共几阶段/下一步)同步更新到任务板,"
+    "让用户实时看到代账进度;续下一阶段必须回传上一次输出的 state\n"
+    "- ai_tax_filing 按 compute→validate→draft 依次调用;validate 勾稽校验报出的异常项必须"
+    "逐条向用户列明,不得为了让报表数字好看而回改入参\n"
+    "- 诚实红线:VOUCHER_UNBALANCED / TRIAL_UNBALANCED 等不平错误要如实报差异;"
+    "ok=false 时原样转述 errorCode 与 message,严禁假装已平、假装已报\n"
+    "- 草案纪律:报税产物是申报表**草案**,必须转述「正式申报须纳税主体与执业资格人员复核,"
+    "在电子税务局由纳税人自行提交」,本系统不代理对外申报;账务产物同理提示需执业会计复核\n"
+    "- 国标平台自动化腿(RP-47):phase=automation 返回的步骤计划由你按序调用 browser_*(内置浏览器"
+    "执行面)逐步执行,每步一张实时工具卡;原生社保/医保客户端步骤走 computer_*(高危:人在旁);"
+    "先探后动——选择器/坐标一律 screenshot/extract_dom 探明再用,禁止臆造;"
+    "TARGET_NOT_CONNECTED 引导用户打开已连接页面后断点续跑;portal 缺地址先问用户,绝不猜 URL\n"
+    "- 提交闸(manual_gate 缺省=停在提交前一步由人来点;user_confirmed=向用户复述目标·期间·应缴额"
+    "并获明示『确认』后才执行提交步;不存在静默 auto 提交),平台校验差异、验证码/人脸/U 盾一律"
+    "如实转给人类完成,绝不为通过校验而改数或换路径绕过"
+)
+
 
 async def _execute_tool_call(
     tool_name: str,
@@ -736,6 +786,7 @@ class ConversationService:
             web_tools: list[str] = []
             edu_tools: list[str] = []
             app_tools: list[str] = []
+            finance_tools: list[str] = []
             if allowed_tools is not None:
                 tools = self._filter_tools(allowed_tools)
             elif intent.needs_tool and intent.suggested_tools:
@@ -754,19 +805,24 @@ class ConversationService:
                 edu_tools = self._edu_intent_tools(user_input)
                 # 本站操控自动路由(2026-09-20):"帮我操作这个程序"类强信号
                 app_tools = self._app_control_intent_tools(user_input, effective_user_id)
-                if media_tools or web_tools or edu_tools or app_tools:
+                # 财务部自动路由(RP-46):一键代账/一键报税类强信号
+                finance_tools = self._finance_intent_tools(user_input)
+                if media_tools or web_tools or edu_tools or app_tools or finance_tools:
                     tools = self._filter_tools(
-                        media_tools + web_tools + edu_tools + app_tools
+                        media_tools + web_tools + edu_tools + app_tools + finance_tools
                     )
-            # intent 已选工具时补并媒体/web/edu/操控 预路由命中项(去重),防 LLM 分类漏判
-            if allowed_tools is None and not (media_tools or web_tools or edu_tools or app_tools):
+            # intent 已选工具时补并媒体/web/edu/操控/财务 预路由命中项(去重),防 LLM 分类漏判
+            if allowed_tools is None and not (
+                media_tools or web_tools or edu_tools or app_tools or finance_tools
+            ):
                 media_tools = self._media_intent_tools(user_input)
                 web_tools = self._web_intent_tools(user_input)
                 edu_tools = self._edu_intent_tools(user_input)
                 app_tools = self._app_control_intent_tools(user_input, effective_user_id)
+                finance_tools = self._finance_intent_tools(user_input)
                 existing = {t.get("function", {}).get("name") for t in tools}
                 extra = [
-                    m for m in media_tools + web_tools + edu_tools + app_tools
+                    m for m in media_tools + web_tools + edu_tools + app_tools + finance_tools
                     if m not in existing
                 ]
                 if extra:
@@ -783,6 +839,7 @@ class ConversationService:
                 **({"web_routed": web_tools} if web_tools else {}),
                 **({"edu_routed": edu_tools} if edu_tools else {}),
                 **({"app_control_routed": app_tools} if app_tools else {}),
+                **({"finance_routed": finance_tools} if finance_tools else {}),
             })
 
             # 4. 加载历史上下文
@@ -816,6 +873,10 @@ class ConversationService:
                 _app_set = set(_UI_INTENT_PATTERNS) | set(_API_ENTRY_TOOLS)
                 if any(t.get("function", {}).get("name") in _app_set for t in tools):
                     guidance += "\n\n" + _UI_RENDER_PROMPT
+                # 财务部插件在场 → 追加代账/报税分阶段推进与草案红线规范(RP-46,2026-11-12)
+                _finance_set = set(_FINANCE_INTENT_PATTERNS)
+                if any(t.get("function", {}).get("name") in _finance_set for t in tools):
+                    guidance += "\n\n" + _FINANCE_RENDER_PROMPT
                 messages.append({"role": "system", "content": guidance})
             # P0:用户画像 + 跨会话记忆注入(孤岛能力打通,与 v2 的 L1-1 记忆闭环一致;
             # 失败/拿不到 user_id 均降级不阻塞对话)
@@ -1376,6 +1437,19 @@ class ConversationService:
         """
         out: list[str] = []
         for tool, patterns in _EDU_INTENT_PATTERNS.items():
+            if any(p.search(text) for p in patterns):
+                out.append(tool)
+        return out
+
+    @staticmethod
+    def _finance_intent_tools(text: str) -> list[str]:
+        """财务部预路由(RP-46,2026-11-12):一键代账/一键报税强信号 → 财务插件工具。
+
+        与 _edu_intent_tools 同语义:命中即无条件并入 tool loop 工具集,不受 LLM
+        意图分类质量影响;规范注入见 _FINANCE_RENDER_PROMPT(分阶段推进+草案红线)。
+        """
+        out: list[str] = []
+        for tool, patterns in _FINANCE_INTENT_PATTERNS.items():
             if any(p.search(text) for p in patterns):
                 out.append(tool)
         return out

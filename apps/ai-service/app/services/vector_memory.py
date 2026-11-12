@@ -123,18 +123,24 @@ _STORED_AT_KEY = "stored_at"
 
 
 def _cosine_similarity(a: list[float], b: list[float]) -> float:
-    """纯 Python 实现 cosine similarity:dot / (norm_a * norm_b)。"""
+    """纯 Python 实现 cosine similarity:dot / (norm_a * norm_b)。
+
+    AIS-018:维度不一致直接返回 0.0(**不做前缀截断比较**)。
+
+    修前这里是 ``n = min(len(a), len(b))``:128 维 hash 伪向量与 1536 维查询之间会算出
+    一个"看起来正常"的相似度,而它只看了前 128 维 —— 拿前缀冒充全维,既不是真命中
+    也不是零命中,阈值语义整个失效。仓内同族实现(memory_service / long_term_memory /
+    multimodal_memory / rules_engine / session_summarizer)在维度不一致时都返回 0.0,
+    本函数此前是唯一的例外;现在与它们同口径(单一真相源的纪律:同类判据只许一种结论)。
+    """
     if not a or not b:
         return 0.0
-    n = min(len(a), len(b))
-    if n == 0:
+    if len(a) != len(b):
         return 0.0
     dot = 0.0
     norm_a = 0.0
     norm_b = 0.0
-    for i in range(n):
-        ai = a[i]
-        bi = b[i]
+    for ai, bi in zip(a, b, strict=True):
         dot += ai * bi
         norm_a += ai * ai
         norm_b += bi * bi
@@ -273,6 +279,11 @@ class VectorMemoryStore:
         self._persist_path = persist_path or _PERSIST_PATH
         self._dirty = False
         self._hydrated = False
+        # AIS-018:集合级向量维度(一个集合只允许一个维度)。
+        # 不在这里看 settings.embedding_model 推维度 —— 远端真实维度只有 embed 返回时
+        # 才知道(模型可被 per-call 覆盖),推一个可能与实际不符的值反而制造第二种口径。
+        # 由首个写入/hydrate 的向量定下来,之后不一致的向量在写入边界对齐或显式拒绝。
+        self._vector_dim: int | None = None
 
     # ==================================================================
     # 持久化(JSON 文件快照)
@@ -388,6 +399,17 @@ class VectorMemoryStore:
         common_ids = set(entries.keys()) & set(vectors.keys())
         self._entries = {k: entries[k] for k in common_ids}
         self._vectors = {k: [float(x) for x in vectors[k]] for k in common_ids}
+        # AIS-018:集合维度取存量里的最大维度。混存快照(128 hash + 1536 远端)加载后
+        # 以宽者为准:后续写入的窄向量按它重算,检索时窄向量被显式跳过而不是截断比较。
+        if self._vectors:
+            self._vector_dim = max(len(v) for v in self._vectors.values())
+            mixed = {len(v) for v in self._vectors.values()}
+            if len(mixed) > 1:
+                logger.warning(
+                    "向量记忆存量含多种维度 %s,统一按 %d 维写入;窄向量检索时跳过",
+                    sorted(mixed),
+                    self._vector_dim,
+                )
         stored_at = data.get(_STORED_AT_KEY)
         if isinstance(stored_at, dict):
             self._stored_at = {
@@ -459,7 +481,15 @@ class VectorMemoryStore:
 
         O19:传入 user_id 时写入 entry["user_id"] 属主标记(不改动调用方传入的
         dict);不传则条目属主未知,search(user_id=...) 时 fail-closed 不可见。
+
+        AIS-018:写入边界把向量对齐到集合维度 —— 同一集合里 128 维 hash 伪向量与
+        1536 维远端向量混存,检索时按 min(len) 截断比较等于拿前 128 维冒充全维,
+        pgvector 侧还会整批维度过滤。对齐失败(无正文可供重算)则拒绝入库。
         """
+        aligned = self._align_embedding_dim(entry, embedding)
+        if aligned is None:
+            return
+        embedding = aligned
         if user_id is not None:
             entry = {**entry, "user_id": user_id}
         self._entries[entry_id] = entry
@@ -471,6 +501,57 @@ class VectorMemoryStore:
         await self._persist_async()
         # D8(2026-09-19 立):pgvector 一级镜像(失败静默,内存索引仍为事实源兜底)
         await self._pg_mirror_upsert(entry_id, entry, embedding)
+
+    def _align_embedding_dim(
+        self, entry: dict[str, Any], embedding: list[float]
+    ) -> list[float] | None:
+        """把待写入向量对齐到本集合的维度;无法对齐返回 None(拒绝入库)。
+
+        三种情形:
+        - 首条向量定下集合维度,原样写入;
+        - 维度更小的向量(典型:远端 embed 失败降级出的 128 维 hash 伪向量)按集合
+          维度重算 hash —— 纯 hash 是确定性的,换维度重算即可得到同语义的合法向量,
+          不需要再打一次远端;
+        - 维度更大的向量(远端模型升级)提升集合维度并告警:旧条目在检索时会被显式
+          跳过(见 search),不会拿截断后的前缀冒充相似度。
+
+        为什么不直接把 ``_HASH_DIM`` 改成 1536:``_hash_embedding`` 的 128 维默认值
+        被既有测试与跨模态降级共用,改默认值会让「降级向量」在别处变成另一种形状;
+        集合维度只有存储层知道,所以对齐落在存储层。
+        """
+        dim = len(embedding)
+        if dim == 0:
+            return []
+        if self._vector_dim is None:
+            self._vector_dim = dim
+            return embedding
+        if dim == self._vector_dim:
+            return embedding
+        if dim > self._vector_dim:
+            logger.warning(
+                "向量记忆集合维度提升:%d → %d(旧条目在检索时按维度不一致跳过)",
+                self._vector_dim,
+                dim,
+            )
+            self._vector_dim = dim
+            return embedding
+        text = entry.get("content")
+        if not isinstance(text, str) or not text:
+            text = entry.get("text")
+        if isinstance(text, str) and text:
+            logger.warning(
+                "向量记忆维度不一致(%d != 集合 %d),按集合维度重算 hash 向量: %s",
+                dim,
+                self._vector_dim,
+                entry.get("id") or entry.get("entry_id") or "?",
+            )
+            return _hash_embedding(text, dim=self._vector_dim)
+        logger.warning(
+            "向量记忆维度不一致(%d != 集合 %d)且无正文可重算,拒绝入库",
+            dim,
+            self._vector_dim,
+        )
+        return None
 
     async def _pg_mirror_upsert(self, entry_id: str, entry: dict[str, Any], embedding: list[float]) -> None:
         """把条目镜像到 pgvector(写放大可接受:向量检索优先走 PG,内存为降级兜底)。"""
@@ -525,7 +606,17 @@ class VectorMemoryStore:
         except Exception as e:  # noqa: BLE001 - 降级路径
             logger.debug("pgvector 检索失败,回落内存索引: %s", e)
         scored: list[tuple[str, dict[str, Any], float]] = []
+        # AIS-018:维度不一致的条目显式跳过,不做截断比较。
+        # 修前 `_cosine_similarity` 用 n=min(len(a), len(b)) 只比前 128 维:128 维
+        # hash 伪向量在 1536 维查询下会拿到一个"看起来像"的相似度,反之亦然 ——
+        # 那是拿前缀冒充全维,不是降级。集合维度由写入边界统一,正常路径下这里恒等。
+        query_dim = len(query_embedding)
         for eid, vec in self._vectors.items():
+            if len(vec) != query_dim:
+                logger.debug(
+                    "向量记忆检索跳过维度不一致条目 %s(%d != %d)", eid, len(vec), query_dim
+                )
+                continue
             sim = _cosine_similarity(query_embedding, vec)
             if sim >= threshold:
                 entry = self._entries.get(eid, {})
@@ -539,15 +630,22 @@ class VectorMemoryStore:
         entry_id: str,
         embedding: list[float],
     ) -> None:
-        """更新向量(entry 必须已存在),并触发异步持久化。"""
+        """更新向量(entry 必须已存在),并触发异步持久化。
+
+        AIS-018:更新同样走集合维度对齐 —— 否则一条 update 就能把混存从写入边界
+        再放回来。
+        """
         if entry_id in self._entries:
-            self._vectors[entry_id] = embedding
+            aligned = self._align_embedding_dim(self._entries[entry_id], embedding)
+            if aligned is None:
+                return
+            self._vectors[entry_id] = aligned
             # 同 id 覆盖写:刷新年龄,否则这条会在首次写入后的保留期到点时被清掉
             self._stored_at[entry_id] = iso_now()
             self._dirty = True
             await self._persist_async()
-            # D8: 同步 pgvector 镜像
-            await self._pg_mirror_upsert(entry_id, self._entries[entry_id], embedding)
+            # D8: 同步 pgvector 镜像(用对齐后的向量,否则 PG 侧又落一份错维)
+            await self._pg_mirror_upsert(entry_id, self._entries[entry_id], aligned)
 
     async def delete(self, entry_id: str) -> None:
         """删除记忆 + 向量,并触发异步持久化。"""
