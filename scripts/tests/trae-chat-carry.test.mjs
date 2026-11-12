@@ -437,5 +437,53 @@ test('换票回执解析: 绑定设备标记与状态必须有单一实现且宽
   assert.match(PROTO_SRC, /bindStatus: pickString/, '缺字段必须给 null,不许猜成绑定成功')
 })
 
+
+/**
+ * 真根因回归(2026-11-12 实测定位):裸票号写回后被当场登出,不是 ticket 问题,
+ * 是**档案缺 storeRegion** 把客户端推上 need-update ⇒ 拿 rt 换票 ⇒ 20403 登出。
+ * 本组钉住:① 上游档案 → account 的 storeRegion 必须落真实值(空串即恒红);
+ * ② 该腿不得凭空写号池。
+ */
+test('档案补齐: GetUserInfo 的 Region 必须落成 account.storeRegion(空值即把客户端推上 rt 换票)', () => {
+  const src = fs.readFileSync(path.resolve(HERE, '../../scripts/trae-backfill-profile.mjs'), 'utf8')
+  assert.match(src, /storeRegion: region/, 'storeRegion 必须取上游真实 Region')
+  const code = src.replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '')
+  assert.equal(
+    /storeRegion: ''/.test(code),
+    false,
+    '不得产出空 storeRegion(客户端 uS() 以 !storeRegion 判 need-update)',
+  )
+})
+
+test('档案补齐: 上游 uid 与池行不符必须拒写(不猜)', () => {
+  const src = fs.readFileSync(path.resolve(HERE, '../../scripts/trae-backfill-profile.mjs'), 'utf8')
+  assert.match(src, /upstream\.UserID\) !== uid/, '必须校验档案 uid 与池行一致')
+  assert.match(src, /拒绝写入,不猜/, '不符要具名拒绝')
+})
+
+test('切号预检: 现成 token 有效腿不得回写号池(未换票 ⇒ 不得改池)', () => {
+  const src = fs.readFileSync(
+    path.resolve(HERE, '../../apps/api/scripts/relay-trae-chat-switch.ts'),
+    'utf8',
+  )
+  assert.match(src, /pre\.via === 'existing-token'/, '必须有 existing-token 分支')
+  assert.match(src, /preflight-existing-token-ok/, '该腿要给具名步骤')
+  const idxExisting = src.indexOf("pre.via === 'existing-token'")
+  const idxPersist = src.indexOf('persistPreflightTicket(row, pre)')
+  assert.ok(idxExisting > 0 && idxPersist > idxExisting, 'existing-token 分支必须在回写池之前拦下')
+})
+
+test('切号预检: 先验 token 再验 rt(与客户端同款路径)', () => {
+  const src = fs.readFileSync(
+    path.resolve(HERE, '../../apps/api/scripts/relay-trae-chat-switch.ts'),
+    'utf8',
+  )
+  assert.match(src, /TRAE_CHECK_LOGIN_URL/, '必须打 CheckLogin(客户端启动同款)')
+  assert.match(src, /result\?\.IsLogin === true/, 'IsLogin=true 必须直接放行')
+  const idxToken = src.indexOf('TRAE_CHECK_LOGIN_URL')
+  const idxExchange = src.indexOf('proto.TRAE_EXCHANGE_TOKEN_PROOF_URL')
+  assert.ok(idxToken > 0 && idxExchange > idxToken, 'token 腿必须在换票腿之前')
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
