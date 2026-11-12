@@ -54,6 +54,11 @@ export function createTranscript(): Transcript {
   return { blocks: [], iteration: 0, maxIterations: 0, streaming: false }
 }
 
+/** 转录保留上限:块数与总字符两条预算,任一超出就丢最旧的块(F-092)。 */
+export const MAX_BLOCKS = 500
+/** 总字符预算:只算正文,渲染冗余不计。 */
+export const MAX_TEXT_CHARS = 160_000
+
 const ARGS_KEEP = 160
 const PREVIEW_KEEP = 4_000
 
@@ -94,7 +99,7 @@ export function seedFromHistory(
     if (m.role === 'user') blocks.push({ kind: 'user', text: m.content })
     else if (m.role === 'assistant') blocks.push({ kind: 'assistant', text: m.content, closed: true })
   }
-  return { ...tr, blocks }
+  return { ...tr, blocks: trimBlocks(blocks) }
 }
 
 type AssistantBlock = Extract<TranscriptBlock, { kind: 'assistant' }>
@@ -132,12 +137,76 @@ function replaceAt<T>(arr: readonly T[], idx: number, value: T): T[] {
   return out
 }
 
+/** 一个块计入预算的字符数(只算正文,不算字段名之类的结构开销)。 */
+function blockChars(b: TranscriptBlock): number {
+  switch (b.kind) {
+    case 'user':
+    case 'assistant':
+      return b.text.length
+    case 'tool':
+      return b.argsSummary.length + b.resultSummary.length + b.preview.length
+    case 'notice':
+      return b.text.length
+    case 'turn':
+      return 0
+  }
+}
+
+/**
+ * 单块超预算时留尾部:流式 assistant 的最后一块只会 append,块数没超也照样能把内存吃穿。
+ * 留尾部而不是头部,是因为用户正在看的就是最新输出。
+ */
+function elideHead(text: string, budget: number): string {
+  if (text.length <= budget) return text
+  const keep = Math.max(0, budget - 32) // 32 字符留给省略标记,裁完仍在预算内
+  return `…[已省略前 ${text.length - keep} 字]\n${text.slice(-keep)}`
+}
+
+function shrinkTailBlock(blocks: TranscriptBlock[]): TranscriptBlock[] {
+  const idx = blocks.length - 1
+  const b = blocks[idx]
+  if (!b) return blocks
+  if (b.kind === 'assistant' || b.kind === 'user') {
+    const text = elideHead(b.text, MAX_TEXT_CHARS)
+    if (text !== b.text) return replaceAt(blocks, idx, { ...b, text })
+  }
+  return blocks
+}
+
+/**
+ * 按上限裁剪(只在这次返回里生效,不改入参)。
+ * 一律丢**最旧的块**:滚动位置是"距底行数",丢顶部不改变贴底/读最新内容的语义;
+ * 用户往上读到的更早内容被丢掉时,offset 由 visibleWindow 的 clamp 收回到合法区间。
+ */
+export function trimBlocks(blocks: TranscriptBlock[]): TranscriptBlock[] {
+  const out = shrinkTailBlock(blocks)
+  let chars = 0
+  for (const b of out) chars += blockChars(b)
+  if (out.length <= MAX_BLOCKS && chars <= MAX_TEXT_CHARS) return out
+  let start = 0
+  while (start < out.length - 1 && (out.length - start > MAX_BLOCKS || chars > MAX_TEXT_CHARS)) {
+    const b = out[start]
+    if (b) chars -= blockChars(b)
+    start += 1
+  }
+  return out.slice(start)
+}
+
 /**
  * 折入一个 AgentEvent。返回新 Transcript。
  * 未知事件类型(将来 core 扩了枚举而这里没跟)一律显式留一条 notice ——
  * 不得静默丢弃,否则"没显示"与"没实现"在屏幕上长得一样。
+ * 上限与裁剪统一在出口收口:漏掉任何一个 append 分支,上限就名存实亡。
  */
 export function foldEvent(tr: Transcript, ev: AgentEvent): Transcript {
+  const next = foldEventInner(tr, ev)
+  if (next === tr || next.blocks === tr.blocks) return next
+  const blocks = trimBlocks(next.blocks)
+  return blocks === next.blocks ? next : { ...next, blocks }
+}
+
+/** 各事件的原样折入;裁剪见上面的 foldEvent(不改入参的约定由各分支自己守)。 */
+function foldEventInner(tr: Transcript, ev: AgentEvent): Transcript {
   switch (ev.type) {
     case 'token': {
       const tail = tailAssistant(tr.blocks)

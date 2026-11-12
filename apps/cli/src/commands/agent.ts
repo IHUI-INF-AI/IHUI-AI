@@ -1721,7 +1721,10 @@ export async function decideCompaction(
   if (v2Config?.enabled === true) {
     try {
       const sessionId = opts.sessionId ?? 'cli-default';
-      const sampler = createCompactionSampler(v2Config.model || opts.modelId || 'default-model');
+      // F-090:压缩缓存键必须携带模型标识 —— 会话中途切换模型后,旧模型生成的摘要
+      // 不得注入新模型上下文(此前 key 只有 sessionId+内容哈希,会跨模型串用)。
+      const compactionModel = v2Config.model || opts.modelId || 'default-model';
+      const sampler = createCompactionSampler(compactionModel);
       const observer: CompactionObserver = {
         onSuccess: ({ tokensBefore, tokensAfter, turnsCompacted, elapsedMs }) => {
           console.info(chalk.dim(`  🗜️ compaction-v2: ${tokensBefore}→${tokensAfter} tokens, ${turnsCompacted} turns, ${elapsedMs}ms`));
@@ -1745,10 +1748,10 @@ export async function decideCompaction(
             { timeoutMs: v2Config.samplingTimeoutMs ?? 30_000 },
           );
           return r.response;
-        });
+        }, compactionModel);
       }
       // 88% 真压缩:缓存命中 → 跳过阻塞式 LLM 摘要;未命中 → 实时生成并回写缓存
-      const cachedSummary = getCachedCompactionSummary(sessionId, messages) ?? undefined;
+      const cachedSummary = getCachedCompactionSummary(sessionId, messages, compactionModel) ?? undefined;
       const result = await compressContextV2(messages, {
         contextLimit: opts.contextLimit,
         triggerRatio:
@@ -1769,8 +1772,8 @@ export async function decideCompaction(
       });
       if (result.compressed && !cachedSummary) {
         // 回写:把本次压缩覆盖的消息序列与摘要正文写入缓存(hash 基于除最近 6 条外的序列化,
-        // 与 prime/getCached 同 key 逻辑,下次同范围压缩直接命中)
-        writeCompactionSummaryCache(sessionId, messages, extractSummaryBody(result.messages));
+        // 与 prime/getCached 同 key 逻辑 —— 含模型标识,下次同范围同模型压缩直接命中)
+        writeCompactionSummaryCache(sessionId, messages, extractSummaryBody(result.messages), compactionModel);
       }
       return result;
     } catch (err) {

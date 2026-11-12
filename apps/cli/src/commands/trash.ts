@@ -214,6 +214,8 @@ export function registerTrashCommand(program: Command): void {
       for (const bad of result.unreadable) {
         console.warn(chalk.yellow(`⚠ 判不出(${bad.trashId ?? '未知目录'}):${bad.reason}`));
       }
+      // F-016:清单判不出属"未判定",不得让脚本读成成功(未判定 ≠ 没有 ≠ 成功)
+      if (result.state === 'undetermined') process.exitCode = 1;
       if (result.rows.length === 0) {
         if (result.state === 'undetermined') {
           console.warn(chalk.yellow('回收站有清单判不出:上面逐条点名,未判定 ≠ 没有(§0.3)'));
