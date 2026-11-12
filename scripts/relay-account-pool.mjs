@@ -129,6 +129,9 @@ const FROM_PROVIDERS = Object.freeze({
   doubao: { module: 'doubao-auth-extract.mjs', fn: 'extractDoubaoAccounts' },
   lingma: { module: 'lingma-auth-extract.mjs', fn: 'extractLingmaAccounts' },
   grokbot: { module: 'grokbot-auth-extract.mjs', fn: 'extractGrokbotAccounts' },
+  // 2026-11-12 接车:小浣熊本机提取器就位(raccoon-auth-extract.mjs),凭据落点经 candidateAuthFiles()
+  // 自动跟 %APPDATA%/office-raccoon junction 取到 D:\SOFTWARE\商汤小浣熊\_data\box-agent;通用分发分支即通。
+  raccoon: { module: 'raccoon-auth-extract.mjs', fn: 'extractRaccoonAccounts' },
 })
 const FROM_POOL_KEYS = Object.keys(FROM_PROVIDERS)
 
@@ -671,15 +674,16 @@ async function main(argv, injectedDeps = {}) {
       return 2
     }
     const meta = extracted.meta
-    const sessionLines = Array.isArray(meta.sessions)
+    const isSessionBased = Array.isArray(meta.sessions)
+    const sessionLines = isSessionBased
       ? meta.sessions.map((s) => `  ${JSON.stringify(s)}`)
       : []
+    const sourceFile =
+      meta.sourceFile ?? meta.sourceDir ?? meta.sourcePath ?? extracted.accounts?.[0]?.meta?.sourceFile
     process.stderr.write(
-      `提取: 会话=${meta.count ?? sessionLines.length}` +
+      `提取: ${isSessionBased ? '会话' : '账号'}=${isSessionBased ? (meta.count ?? sessionLines.length) : (extracted.accounts?.length ?? 0)}` +
         (typeof meta.skipped === 'number' ? ` 跳过=${meta.skipped}` : '') +
-        (meta.sourceDir || meta.sourceFile || meta.sourcePath
-          ? ` 落点=${meta.sourceDir ?? meta.sourceFile ?? meta.sourcePath}`
-          : '') +
+        (sourceFile ? ` 落点=${sourceFile}` : '') +
         '\n' +
         sessionLines.join('\n') +
         '\n',
