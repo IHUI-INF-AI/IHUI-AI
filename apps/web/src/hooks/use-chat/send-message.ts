@@ -53,6 +53,8 @@ import {
 import { listCheckpoints, restoreCheckpoint, type CheckpointMeta } from '@/api/checkpoint-api'
 import { expandRuleToken } from '@/stores/memory'
 import { expandContextTokens } from '@/lib/context-token-expander'
+// 2026-11-12 立:号池 WS 流式客户端 —— 选中「我的号池」模型时,主对话改走 /ws/relay/chat
+import { streamRelayChat } from '@/lib/relay-chat-stream'
 // P3 #30(2026-09-16 立):diff 评审意见 → agent 上下文注入
 import { appendDiffComments } from '@/lib/diff-comments'
 import { emitAgentHook } from '@/stores/agent-hooks'
@@ -1665,7 +1667,23 @@ export function createSendMessage(
           }
         },
       }
-      await streamChat(streamOpts)
+      // 2026-11-12 立:模型通道分流 —— 「我的号池」模型走 /ws/relay/chat(登录态直连号池),
+      // 平台模型保持既有 agent runtime。两条腿共用同一套 onDelta/onError/onDone 回调,
+      // 气泡渲染、错误卡、收尾与账本完全复用,不另起一条 UI 通路。
+      if (chatStore.getState().currentModelChannel === 'pool') {
+        await streamRelayChat({
+          model: effectiveModel,
+          messages: streamOpts.messages,
+          signal: controller.signal,
+          conversationId: conversationId ?? undefined,
+          onDelta: streamOpts.onDelta,
+          onDone: streamOpts.onDone,
+          // 号池错误只给一句人话给既有错误卡;errorCode 由上层文案兜底(formatSSEError)
+          onError: (msg) => streamOpts.onError?.(msg),
+        })
+      } else {
+        await streamChat(streamOpts)
+      }
     } catch (err) {
       // #9 catch 前先 flush 累积 token,避免最后一批内容丢失
       contentBatcher.flush()

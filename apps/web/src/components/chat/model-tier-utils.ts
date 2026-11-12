@@ -28,6 +28,9 @@ import {
 export interface ModelOption {
   value: string
   label: string
+  /** 模型所属通道(2026-11-12 立):'pool' = 个人号池模型(走 /ws/relay/chat),
+   *  缺省/undefined = 平台模型(走 agent runtime)。选中时随 onChange 第二参下传。 */
+  channel?: 'platform' | 'pool'
   /** 模型 id（可选，2026-08-31 补：Auto-Model 徽章等按 id 匹配的场景使用） */
   id?: string
   descriptionKey?: string
