@@ -776,6 +776,232 @@ async def test_wb_sync_does_not_downgrade_token(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
+# _sync_raccoon_local(2026-11-11 立):小浣熊本机凭据同步第三腿
+# 真机 auth.json 30 天 JWT 过期后无 refresh_token,需每 15 分钟从本机同步。
+# 打桩:checkin_store 全套不触 DB,只记调用参数供断言。
+# ---------------------------------------------------------------------------
+
+
+def _make_jwt(sub: str = "pu-test", exp: int | None = None) -> str:
+    """生成三段式假 JWT(不验签,_decode_jwt_claims 只解 payload)。"""
+    import base64
+    import json as _json
+
+    header = base64.urlsafe_b64encode(b'{"alg":"HS256","typ":"JWT"}').rstrip(b"=").decode()
+    payload_dict: dict[str, Any] = {"sub": sub}
+    if exp is not None:
+        payload_dict["exp"] = exp
+    payload = base64.urlsafe_b64encode(
+        _json.dumps(payload_dict).encode()
+    ).rstrip(b"=").decode()
+    sig = base64.urlsafe_b64encode(b"fake_sig").rstrip(b"=").decode()
+    return f"{header}.{payload}.{sig}"
+
+
+def _patch_raccoon_fs(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    auth_path: str | None,
+    token: str | None,
+    office_identity: str | None = "personal",
+) -> None:
+    """精准打桩 _sync_raccoon_local 的文件读取路径(cs 模块内的 os.path)。
+
+    auth_path=None 表示 expanduser 解析到不存在的文件(走 exists→False 分支);
+    token=None 表示文件存在但 access_token 字段缺失。monkeypatch 自动回滚,
+    无需手动清理临时目录(不依赖 tmp_path fixture,避开本机 pytest tmp 慢盘)。
+    """
+    import json as _json
+
+    def fake_expanduser(p: str) -> str:
+        if p.endswith("auth.json"):
+            return auth_path or "/nonexistent/definitely/missing.json"
+        return p
+
+    def fake_exists(p: str) -> bool:
+        return auth_path is not None and p.endswith("auth.json")
+
+    def fake_read_text(self: Any, encoding: str = "utf-8") -> str:
+        payload: dict[str, Any] = {}
+        if token is not None:
+            payload["access_token"] = token
+        if office_identity is not None:
+            payload["office_identity"] = office_identity
+        return _json.dumps(payload)
+
+    monkeypatch.setattr(cs.os.path, "expanduser", fake_expanduser)
+    monkeypatch.setattr(cs.os.path, "exists", fake_exists)
+    monkeypatch.setattr(cs.Path, "read_text", fake_read_text)
+
+
+def _patch_raccoon_store(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    existing_rows: list[dict[str, Any]] | None = None,
+    create_calls: list[dict[str, Any]] | None = None,
+    jwt_updates: list[tuple[int, str, bool]] | None = None,
+    device_saves: list[tuple[int, dict[str, Any]]] | None = None,
+    cooldown_clears: list[int] | None = None,
+) -> None:
+    """打桩 checkin_store 全套;各 list 参数是出参记录器,传入即启用。"""
+
+    rows = existing_rows or []
+
+    async def fake_list(platform: str) -> list[dict[str, Any]]:
+        assert platform == "raccoon"
+        return rows
+
+    async def fake_create(**kwargs: Any) -> dict[str, Any]:
+        if create_calls is not None:
+            create_calls.append(kwargs)
+        return {"id": 999}
+
+    async def fake_update_jwt(aid: int, owner: str, token: str) -> bool:
+        if jwt_updates is not None:
+            jwt_updates.append((aid, token, True))
+        return True
+
+    async def fake_save_dm(aid: int, dm: dict[str, Any]) -> None:
+        if device_saves is not None:
+            device_saves.append((aid, dict(dm)))
+
+    async def fake_clear(aid: int) -> int:
+        if cooldown_clears is not None:
+            cooldown_clears.append(aid)
+        return 1
+
+    monkeypatch.setattr(checkin_store, "list_accounts_by_platform", fake_list)
+    monkeypatch.setattr(checkin_store, "create_account", fake_create)
+    monkeypatch.setattr(checkin_store, "update_jwt", fake_update_jwt)
+    monkeypatch.setattr(checkin_store, "save_device_map", fake_save_dm)
+    monkeypatch.setattr(checkin_store, "clear_open_cooldowns", fake_clear)
+
+
+async def test_raccoon_sync_first_run_creates_account(monkeypatch):
+    """首入:checkin_accounts 无 raccoon 行 ⇒ 从本机 auth.json 直接建行。"""
+    exp = int(time.time()) + 86400 * 29
+    token = _make_jwt(sub="pu-new", exp=exp)
+    _patch_raccoon_fs(monkeypatch, auth_path="/fake/auth.json", token=token)
+
+    creates: list[dict[str, Any]] = []
+    _patch_raccoon_store(monkeypatch, create_calls=creates, existing_rows=[])
+
+    await cs.CheckinScheduler()._sync_raccoon_local()
+
+    assert len(creates) == 1
+    call = creates[0]
+    assert call["platform"] == "raccoon"
+    assert call["jwt"] == token
+    assert call["device_map"]["uid"] == "pu-new"
+    assert call["device_map"]["office_identity"] == "personal"
+    assert call["device_map"]["expires_at"] == exp
+    assert call["device_map"]["source"] == "local-raccoon-client"
+
+
+async def test_raccoon_sync_updates_existing_row_when_token_changed(monkeypatch):
+    """同 uid 令牌已换(新exp)⇒ update_jwt + save_device_map + clear_open_cooldowns。"""
+    new_exp = int(time.time()) + 86400 * 28
+    token = _make_jwt(sub="pu-existing", exp=new_exp)
+    _patch_raccoon_fs(monkeypatch, auth_path="/fake/auth.json", token=token)
+
+    old_exp = int(time.time()) + 86400 * 2  # 旧票比新票早
+    rows = [{
+        "id": 42,
+        "owner_user_id": "o1",
+        "name": "小浣熊",
+        "device_map": {"uid": "pu-existing", "expires_at": old_exp, "source": "local-raccoon-client"},
+    }]
+    jwt_updates: list[tuple[int, str, bool]] = []
+    device_saves: list[tuple[int, dict[str, Any]]] = []
+    cooldown_clears: list[int] = []
+    _patch_raccoon_store(
+        monkeypatch,
+        existing_rows=rows,
+        jwt_updates=jwt_updates,
+        device_saves=device_saves,
+        cooldown_clears=cooldown_clears,
+    )
+
+    await cs.CheckinScheduler()._sync_raccoon_local()
+
+    assert len(jwt_updates) == 1
+    assert jwt_updates[0][0] == 42
+    assert jwt_updates[0][1] == token
+    assert device_saves[0][1]["uid"] == "pu-existing"
+    assert device_saves[0][1]["expires_at"] == new_exp
+    assert cooldown_clears == [42]
+
+
+async def test_raccoon_sync_skips_write_when_token_unchanged(monkeypatch):
+    """令牌未变(dm.expires_at 等于新exp)⇒ 不写库,免抖动。"""
+    exp = int(time.time()) + 86400 * 20
+    token = _make_jwt(sub="pu-same", exp=exp)
+    _patch_raccoon_fs(monkeypatch, auth_path="/fake/auth.json", token=token)
+
+    rows = [{
+        "id": 42,
+        "owner_user_id": "o1",
+        "name": "小浣熊",
+        "device_map": {"uid": "pu-same", "expires_at": exp, "source": "local-raccoon-client"},
+    }]
+    jwt_updates: list[tuple[int, str, bool]] = []
+    _patch_raccoon_store(monkeypatch, existing_rows=rows, jwt_updates=jwt_updates)
+
+    await cs.CheckinScheduler()._sync_raccoon_local()
+
+    assert jwt_updates == []  # 同 exp ⇒ 零写库
+
+
+async def test_raccoon_sync_skips_when_auth_json_missing(monkeypatch):
+    """auth.json 不存在 ⇒ 静默跳过,不建行也不报错。"""
+    _patch_raccoon_fs(monkeypatch, auth_path=None, token=None)
+
+    creates: list[dict[str, Any]] = []
+    _patch_raccoon_store(monkeypatch, create_calls=creates)
+
+    await cs.CheckinScheduler()._sync_raccoon_local()
+    assert creates == []  # 文件不在 ⇒ 静默跳
+
+
+async def test_raccoon_sync_skips_non_jwt_token(monkeypatch):
+    """access_token 非三段式 JWT ⇒ warning + 跳过,不建行。"""
+    _patch_raccoon_fs(monkeypatch, auth_path="/fake/auth.json", token="opaque-not-a-jwt")
+
+    creates: list[dict[str, Any]] = []
+    _patch_raccoon_store(monkeypatch, create_calls=creates)
+
+    await cs.CheckinScheduler()._sync_raccoon_local()
+    assert creates == []  # 非JWT ⇒ 不建行
+
+
+async def test_raccoon_sync_multi_matching_uids_updates_all(monkeypatch):
+    """同 uid 多行(历史重复)⇒ 逐行 update_jwt + save_device_map,不遗漏。"""
+    new_exp = int(time.time()) + 86400 * 25
+    token = _make_jwt(sub="pu-dup", exp=new_exp)
+    _patch_raccoon_fs(monkeypatch, auth_path="/fake/auth.json", token=token)
+
+    old_exp = int(time.time()) + 86400
+    rows = [
+        {"id": 10, "owner_user_id": "o1", "name": "a",
+         "device_map": {"uid": "pu-dup", "expires_at": old_exp}},
+        {"id": 11, "owner_user_id": "o2", "name": "b",
+         "device_map": {"uid": "pu-dup", "expires_at": old_exp}},
+    ]
+    jwt_updates: list[tuple[int, str, bool]] = []
+    cooldown_clears: list[int] = []
+    _patch_raccoon_store(
+        monkeypatch, existing_rows=rows,
+        jwt_updates=jwt_updates, cooldown_clears=cooldown_clears,
+    )
+
+    await cs.CheckinScheduler()._sync_raccoon_local()
+
+    assert len(jwt_updates) == 2
+    assert [j[0] for j in jwt_updates] == [10, 11]
+    assert cooldown_clears == [10, 11]
+
+
+# ---------------------------------------------------------------------------
 # status():WorkBuddy 任务巡检 job 的可见性(2026-10-31)
 # 前端要能显示「自动做任务」在不在跑 / 下次何时跑 / 为什么没领奖,
 # 故 status() 补 next_run_wb_tasks + wb_tasks 五字段;这里锁口径不漂移。

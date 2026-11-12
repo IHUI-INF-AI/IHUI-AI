@@ -6514,6 +6514,27 @@ const checks = [
       '',
     ].join('\n'),
   },
+  // --- worktree 开发隔离停用防回归(1 项,blocking)---
+  {
+    id: '316',
+    label:
+      '🚧 worktree 开发隔离停用防回归(§12d,2026-11-12):agent-worktree --create 与 worktree-isolate new 两出口必须仍处拒绝态,判据与自检见 check-worktree-dev-banned.mjs 头注',
+    script: 'check-worktree-dev-banned.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_WORKTREE_DEV_BANNED',
+    stagedTriggers: ['scripts/agent-worktree.mjs', 'scripts/worktree-isolate.mjs'],
+    onFailHint: [
+      '',
+      '单独复现:node scripts/check-worktree-dev-banned.mjs',
+      '自检:node scripts/check-worktree-dev-banned.mjs --self-test',
+      '镜像测试:node --test scripts/tests/check-worktree-dev-banned.test.mjs',
+      '合法改法:本门是 §12d 停用决定的复发防线;真要恢复 worktree 开发隔离,须先由机主撤销 §12d 条款并同步改判据,不得绕门。',
+      '应急放行:HUSKY_SKIP_WORKTREE_DEV_BANNED=1 git commit(commit message 写明责任归属)',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',

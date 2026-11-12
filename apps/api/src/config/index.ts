@@ -249,6 +249,10 @@ const envSchema = z.object({
   // 小程序订阅消息模板 ID(微信公众平台 → 订阅消息 中申请,形如 "AbC123...")。
   // 配置后催费提醒走真实订阅消息外发;未配置则仅站内信兜底。
   WX_MINI_REMIND_TMPL_ID: z.string().optional().default(''),
+  // 人事审批通知模板 ID(HR-3,2026-11-11 立)。与催费模板分开申请:
+  // 订阅消息模板字段 key 由微信按模板生成,催费模板是学费催缴语义,HR 复用会发错内容。
+  // 配置后 HR 审批待办走真实订阅消息外发;未配置则 HR 通知仅站内信(优雅降级)。
+  WX_MINI_HR_APPROVAL_TMPL_ID: z.string().optional().default(''),
   WX_APP_APPID: z.string().optional().default(''),
   WX_SHOP_ID: z.string().optional().default(''),
   WX_PAY_V3_KEY: z.string().optional().default(''),

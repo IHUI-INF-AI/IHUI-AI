@@ -29,7 +29,7 @@ mobile grant 即落 mobile_login(实测流水 `biz_type=reward_grant` / `event_n
 
 端点(基址 https://xiaohuanxiong.com):
   GET  /api/web/points/v1/balance       → available/daily/monthly/reward/topup 分项
-  GET  /api/web/points/v1/tasks         → 新手任务态 + 邀请码
+  GET  /api/web/points/v1/tasks         → 新手任务态
   POST /api/web/desktop/v1/login/points/grant  → 每日额度 / 桌面登录奖励
   POST /api/web/mobile/v1/login/points/grant   → 移动端登录奖励
 鉴权:`Authorization: Bearer <JWT>`(cookie 形态实证 401,见 docs §2);令牌 30 天,
@@ -241,13 +241,13 @@ def parse_grant(body: dict[str, Any] | None) -> dict[str, Any]:
 
 
 def parse_tasks(body: dict[str, Any] | None) -> dict[str, Any]:
-    """tasks 响应 → {code, states, invite_code, message}。
+    """tasks 响应 → {code, states, message}。
 
     `states` = {任务键: 状态字符串},只收 NEW_USER_TASKS 里登记过的键
     (上游新增键不静默当已知任务,原样留在 raw_keys 里供排查)。
     """
     if not isinstance(body, dict):
-        return {"code": None, "states": {}, "invite_code": None, "message": "响应非 JSON", "raw_keys": []}
+        return {"code": None, "states": {}, "message": "响应非 JSON", "raw_keys": []}
     code = body.get("code")
     data = body.get("data") if isinstance(body.get("data"), dict) else {}
     raw_states = data.get("new_user_task_states")
@@ -264,27 +264,9 @@ def parse_tasks(body: dict[str, Any] | None) -> dict[str, Any]:
             raw_keys.append(key)
             if key in NEW_USER_TASKS and isinstance(status, str):
                 states[key] = status
-    invite = data.get("invite") if isinstance(data.get("invite"), dict) else {}
-
-    def _num(v: Any) -> int:
-        return int(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else 0
-
-    # 邀请块(2026-11-11 补全): 邀请是**没有独立领取接口**的一条腿 —— 奖励只在被邀请人
-    # 首次注册那一刻由服务端结算(docs/raccoon-relay-api.md §3.7)。号池侧能做的就是持续
-    # 核对这四个数: 码、已邀人数、剩余计奖名额、累计已得。少一个就没法判「还能拉几位」。
-    invite_stats = {
-        "code": invite.get("invite_code") if isinstance(invite.get("invite_code"), str) else None,
-        "granted_points": _num(invite.get("granted_points")),
-        "registered_invitees": _num(invite.get("registered_invitee_count")),
-        "remaining_reward_invitees": _num(invite.get("remaining_reward_invitees")),
-        "register_reward_points": _num(invite.get("register_reward_points")),
-    }
-    invite_code = invite_stats["code"]
     return {
         "code": code if isinstance(code, int) and not isinstance(code, bool) else None,
         "states": states,
-        "invite_code": invite_code if isinstance(invite_code, str) else None,
-        "invite": invite_stats,
         "message": str(body.get("message") or body.get("msg") or ""),
         "raw_keys": raw_keys,
     }

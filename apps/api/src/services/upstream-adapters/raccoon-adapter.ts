@@ -268,7 +268,7 @@ async function getQuota(
     const reward = typeof d['reward_points'] === 'number' ? d['reward_points'] : undefined
     const packs: NonNullable<RelayQuotaResult['quota']>['packs'] = []
     if (typeof daily === 'number') packs.push({ name: 'daily(每日登录发放)', remaining: daily })
-    if (typeof reward === 'number') packs.push({ name: 'reward(任务/邀请奖励)', remaining: reward })
+    if (typeof reward === 'number') packs.push({ name: 'reward(任务奖励)', remaining: reward })
     return {
       ok: true,
       quota: {

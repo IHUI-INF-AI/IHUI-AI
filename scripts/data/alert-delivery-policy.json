@@ -178,5 +178,68 @@
     "owner": "git-guardian(2026-11-10 会话整改)",
     "reviewBy": "2026-11-24",
     "evidence": ".ihui-agent/state/mail-send-ledger.jsonl 48h: iOS 3 封 / 安卓 3 封(红 1 项,同一 latest 行)"
+  },
+  {
+    "id": "guard-down-manual-only-family",
+    "prefix": "服务已停但按台账不得自动重启:",
+    "cooldownMs": 86400000,
+    "reason": "本型是**守护本体已停且按台账设计不自愈**(只能人拉)的持续态,告警名带服务名后缀(可多服务)⇒ 每轮巡检都是同一句文案。7d 实测 13 封 / 2 个身份(IHUI-GIT-GUARD 等)。族级按服务名前缀 24h 只留首封 + 正文带服务名与累计抑制计数;人工拉起后自然不再触发,**不吞真新服务停摆**(不同服务名各成独立族)。severity 仍 critical、判据仍逐轮判红。2026-11-11 已人工拉起 IHUI-GIT-GUARD(nssm start,新进程 FRESH),本条只兜回潮。",
+    "owner": "git-guardian",
+    "reviewBy": "2026-11-24",
+    "evidence": ".ihui-agent/state/mail-send-ledger.jsonl 7d: 13 封 / 2 个身份;git-guardian.mjs:4486 titleFor=`服务已停但按台账不得自动重启:${names}…`;现读 nssm status IHUI-GIT-GUARD=SERVICE_RUNNING(2026-11-11T12:59Z 拉起)"
+  },
+  {
+    "id": "guard-code-stale-family",
+    "prefix": "守护代码比进程新",
+    "cooldownMs": 86400000,
+    "reason": "dedupKey/指纹带「mtime 晚于进程启动的文件清单」⇒ 守护每改一个源文件就换一枚身份,4h 窗结构上失效(7d 实测 39 封 / 8 个身份,同一「旧进程未加载」状态)。该状态只有重启守护才消,收信人当场不可整改,属 §5e-1 环境类:族级 24h 只留首封 + 正文带最新文件数与累计抑制计数。判据/severity 一字未动。",
+    "owner": "git-guardian",
+    "reviewBy": "2026-11-24",
+    "evidence": ".ihui-agent/state/mail-send-ledger.jsonl 7d: 39 封 / 8 个身份;git-guardian.mjs:14139 notify('守护代码比进程新(旧进程未加载)')"
+  },
+  {
+    "id": "autonomy-leg-drift-family",
+    "prefix": "自开发发起腿不健康",
+    "cooldownMs": 86400000,
+    "reason": "dedupKey=verdict=drift;count=<N>,逐维读数漂移就换身份(7d 实测 29 封 / 7 个身份,同一「发起腿带病」)。腿修好前是同一持续态逐轮重报;族级 24h 只留首封 + 正文仍逐维点名最新读数与累计抑制计数。跨真新维度仍会首封即出(首封必达),判据与 severity 不动。",
+    "owner": "git-guardian",
+    "reviewBy": "2026-11-24",
+    "evidence": ".ihui-agent/state/mail-send-ledger.jsonl 7d: 29 封 / 7 个身份;git-guardian.mjs:7378 notify('自开发发起腿不健康…',{dedupKey:parsed.identity||`verdict=drift;count=${bad.length}`})"
+  },
+  {
+    "id": "git-probe-budget-family",
+    "prefix": "git 状态探测余量即将耗尽",
+    "cooldownMs": 86400000,
+    "reason": "余量是随时间单调衰减的读数,dedupKey 带余量档 ⇒ 每降一档换一枚身份,同一「源码管理面板将开始获取不到」被拆成多封(7d 实测 25 封 / 8 个身份)。族级 24h 只留首封 + 正文带当前余量档与累计抑制计数;补回余量(重算/扩容)后自然不再触发,判据与 severity 不动。",
+    "owner": "git-guardian",
+    "reviewBy": "2026-11-24",
+    "evidence": ".ihui-agent/state/mail-send-ledger.jsonl 7d: 25 封 / 8 个身份;git-guardian.mjs:7512 notify('git 状态探测余量即将耗尽…')"
+  },
+  {
+    "id": "deploy-stall-family",
+    "prefix": "部署停摆(线上构建",
+    "cooldownMs": 86400000,
+    "reason": "dedupKey=stall;class=X;held=<tier>,held 档随停摆时长单调升级(4h→8h→…)⇒ 每升一档换一枚身份,同一场停摆被拆成多封(7d git-guardian 21 封 / 4 个身份 + credential-health 侧 5 封)。族级 24h 只留首封 + 正文仍给落后小时数/停摆时长/最新 sha 与累计抑制计数。**不把红判绿**:停摆判据仍逐轮判红,真恢复(切流成功)走既有 recovered 通道,不受本窗口压。critical 保留。",
+    "owner": "git-guardian",
+    "reviewBy": "2026-11-24",
+    "evidence": ".ihui-agent/state/mail-send-ledger.jsonl 7d: git-guardian 21 封/4 身份;git-guardian.mjs:9511 notify('部署停摆…',{severity:'critical',dedupKey:`stall;class=${stallClass};held=${held.tier}`})"
+  },
+  {
+    "id": "ios-relay-unsealed-family",
+    "prefix": "iOS 包已发到站点腿但没收口",
+    "cooldownMs": 86400000,
+    "reason": "同一「包已发到站点腿但登记/自证失败」在中继收口前是持续态,身份随 held 档/读数抖动换新(7d 实测 16 封 / 3 个身份)。族级 24h 只留首封 + 正文给登记失败原因与累计抑制计数;显式补发/补登记成功后自然不再触发,判据与 severity 不动。与既有 ios-leg-undetermined-family(站点腿拿不到包)、ios-escalated-hour-name-legacy(旧逐小时标题)互不重叠:本前缀只吃「已发未收口」这一态。",
+    "owner": "git-guardian",
+    "reviewBy": "2026-11-24",
+    "evidence": ".ihui-agent/state/mail-send-ledger.jsonl 7d: 16 封 / 3 个身份;git-guardian.mjs:9278 notify('iOS 包已发到站点腿但没收口:登记或自证失败')"
+  },
+  {
+    "id": "download-bar-runtime-red-family",
+    "prefix": "下载栏运行期真值判红",
+    "cooldownMs": 86400000,
+    "reason": "「有端拿不到数或整站停止刷新」在下载栏真值腿修好前是同一持续态,身份随端/读数漂移换新(7d 实测 16 封 / 1 个身份,单一身份仍按默认窗逐轮重报)。族级 24h 只留首封 + 正文给最新端读数与累计抑制计数;真值腿恢复后自然不再触发,判据与 severity 不动。",
+    "owner": "git-guardian",
+    "reviewBy": "2026-11-24",
+    "evidence": ".ihui-agent/state/mail-send-ledger.jsonl 7d: 16 封 / 1 个身份;git-guardian.mjs:10816 notify('下载栏运行期真值判红…')"
   }
 ]

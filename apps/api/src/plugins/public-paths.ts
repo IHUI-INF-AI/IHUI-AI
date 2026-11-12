@@ -152,6 +152,11 @@ export const TENANT_BYPASS_PREFIX_PATHS: readonly string[] = [
   // 客户端启动即调的版本检查:小程序/Web 冷启动在登录前就要读 check-update,调用方不带租户头。
   // 该前缀已同时列于 AUTH_PUBLIC_PREFIX_PATHS(免登录);此处补免租户,否则 TENANT_STRICT_MODE
   // 缺省严格后启动即 401。双清单一致性由 public-paths.test.ts 的回归锁钉住(2026-11-11 立)。
+  // App 内更新卡 / 站点下载栏的版本检查:匿名客户端启动即调、SSR 解析腿(填 downloads.json)
+  // 也调,均无可带的租户标识;且 app_version 表无 tenant 列、/latest 路由读侧不查租户 ——
+  // 该端点本就设计为「公开 + 不分租户」。漏列这里 ⇒ 严格租户闸稳定 401 ⇒ 下载栏 android/mobile
+  // 落 snapshot/registry-unreachable、App 更新卡 /latest 误判 undetermined(2026-11-11 实测两族 29 封/7 天)。
+  // 与 AUTH_PUBLIC_PREFIX_PATHS 同前缀登记,免登录且免租户,与端点语义对齐。
   '/api/app-version/',
   // 公开内容面:tools / news / articles / announcements 的**读端点**是免登录公开内容
   // (已列于 AUTH_PUBLIC_PREFIX_PATHS),客户端未登录冷启动即调;后端 handler 不按 tenantId
