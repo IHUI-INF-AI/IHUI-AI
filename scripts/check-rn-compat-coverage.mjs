@@ -26,7 +26,6 @@
  *   node scripts/check-rn-compat-coverage.mjs --staged   # 索引 blob
  *   node scripts/check-rn-compat-coverage.mjs --self-test
  */
-import { execFileSync } from 'node:child_process'
 import { dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -107,14 +106,10 @@ function makeReader(face) {
     // 旧写法 `git grep -l -E <pattern> --cached` 会把 `--cached` 当 revision 名 ⇒ rc=2,
     // 结果是 staged 面**从未检查过任何东西**却一直是绿的。夹具锁住该反例必须 rc=2。
     const args = buildGrepListArgs(face, RN_GREP_PATTERN, paths)
-    const out = execFileSync('git', args, {
-      cwd: ROOT,
-      encoding: 'utf8',
-      maxBuffer: 1 << 26,
-      stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
-      timeout: LIST_TIMEOUT_MS, // 旧实现没有 timeout ⇒ 断言面卡死时门跟着一起卡死(票面事实)
-    })
+    // 走统一取材层(守门 193):绝对路径 git + quotepath + windowsHide + 有界 timeout 在层内;
+    // maxBuffer/timeout 与原自拼逐字同参(64MB 下限只抬不降),rc=1 零命中由层抛 Undetermined
+    // —— git grep 无命中与"取不到面"由调用方同一 catch 折未判定,与原 execFileSync 语义一致。
+    const out = gitRaw(args, ROOT, { maxBuffer: 1 << 26, timeout: LIST_TIMEOUT_MS })
     return out
       .trim()
       .split('\n')
@@ -216,13 +211,8 @@ function makeReader(face) {
     if (face === 'worktree') return null
     if (pathSet) return pathSet
     const args = face === 'staged' ? ['ls-files', '--cached'] : ['ls-tree', '-r', '--name-only', 'HEAD']
-    const out = execFileSync('git', args, {
-      cwd: ROOT,
-      encoding: 'utf8',
-      maxBuffer: 1 << 26,
-      stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
-    })
+    // 同 listFiles:枚举走层(守门 193),缓冲与原自拼同参只抬不降。
+    const out = gitRaw(args, ROOT, { maxBuffer: 1 << 26 })
     pathSet = new Set(out.split('\n').map((l) => l.trim()).filter(Boolean))
     return pathSet
   }
