@@ -75,6 +75,16 @@
 //!    这三型连同"隐藏态 ∧ siw 在 ∧ 应答 ⇒ 移交不杀"一起由 `decide` 的成对用例钉住
 //!    (见测试「健康实例存在时移交插件唤醒」)。活体读数格:自下一次真实启动起由第 7 条
 //!    的落账行(`启动守护预检落账 … siw_found=…`)自动产出,无需专设复现窗。
+//! 9. 2026-11 立(票 `findings-cli-desktop.md` §F-050 / §F-051)两条收口:
+//!    - F-050:清理挂死实例的动作从"只 `TerminateProcess` 主进程"改为**先整树终止**
+//!      (`taskkill /T /F /PID`,Windows 自带,不引入依赖),再对主进程句柄做一次
+//!      `TerminateProcess` 兜底,最后才回到第 3 条的等锁一步。只在父进程还活着时才能把
+//!      `msedgewebview2.exe` 一起带走 —— 那正是本模块要拿到的效果(第 3 条记的"只能等"
+//!      说的是**已经成了孤儿**的那些,不是本进程即将清理的这一批)。
+//!    - F-051:`WaitForOtherStartupPhase` 那一档等待 10s 后重判时,**保留**启动相位旗
+//!      (按重采到的事实用同一条判据 `is_in_startup_phase` 重算),不再硬置 `false`;
+//!      否则仍在启动(甚至正在等它自己那一轮 120s 锁)的合法首实例会在 10s 后被读成
+//!      僵尸杀掉,表现为反复双击互相终止、始终打不开。
 
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -451,18 +461,13 @@ pub fn preflight(app_id: &str, log_stem: &str) {
             let mut sample = sample_other(&class_name, &window_name);
             apply_to_reading(&mut reading, &sample);
 
-            // 「启动相位」那条**独立事实**(模块头注第 6 条):siw 未现,却枚举得到同名
-            // 对方进程 ⇒ 对方还在自己的启动序列里(插件 setup 没跑),不是僵尸。
-            // 判据只用已经采到的两条事实,不在 decide 里反推(反推 = 把竞态转嫁给结论)。
-            let in_startup_phase =
-                !sample.found && !matches!(sample.other, OtherInstances::NoneSeen);
             let mut action = decide(
                 true,
                 sample.found,
                 sample.responsive,
                 sample.other,
                 sample.has_visible_window,
-                in_startup_phase,
+                is_in_startup_phase(&sample),
             );
 
             if matches!(action, PreflightAction::WaitForOtherStartupPhase) {
@@ -474,10 +479,20 @@ pub fn preflight(app_id: &str, log_stem: &str) {
                     &window_name,
                     STARTUP_PHASE_WAIT_MAX_MS,
                 );
-                // 等待结束 = 重新采一遍事实,并且**不带**启动相位旗再判一次:
-                // 结构上不可能二次等待(无循环),而该杀的僵尸在这一格照原语义被杀。
+                // 等待结束 = 重新采一遍事实再判一次(无循环 ⇒ 结构上不可能二次等待)。
                 // 现身且应答 → decide 给 HandoffToExisting(交插件唤醒);超时仍未现身且
-                // 对方进程不在 / 无可移交对象 → 原语义继续或清理。
+                // 对方进程不在 → 原语义继续启动。
+                //
+                // ⚠️ F-051(2026-11,票面 `findings-cli-desktop.md` §F-051):重判**必须**
+                // 用**重采后的同一条判据**重算启动相位旗,不得硬置 `false`。硬置 false 时,
+                // 一个"还在自己启动序列里"的合法首实例(慢机,或正卡在它那一轮最长 120s 的
+                // EBWebView 等锁上,见模块头注第 3 条)在 10s 后就会被读成"无 siw ∧ 不应答
+                // ∧ 有可清理对象" = 僵尸,判成 `KillStaleThenContinue` 杀掉;用户再双击一次
+                // 就把它杀一遍,两个实例互相终止、谁都打不开(票面"反复双击"的实测形态)。
+                // 保留该旗的代价是:这一格变成"继续启动"而不是清理 —— 但那正是对的,
+                // 因为对方进程还活着这一事实说明它不是僵尸;真僵尸(进程已退出)由
+                // `other == NoneSeen` 走 ContinueLaunch,挂死实例(siw 已现却不应答)由
+                // 第 2 条之后那条原语义照杀,两格覆盖一格未削。
                 sample = sample_other(&class_name, &window_name);
                 apply_to_reading(&mut reading, &sample);
                 action = decide(
@@ -486,7 +501,7 @@ pub fn preflight(app_id: &str, log_stem: &str) {
                     sample.responsive,
                     sample.other,
                     sample.has_visible_window,
-                    false,
+                    is_in_startup_phase(&sample),
                 );
             }
 
@@ -532,8 +547,9 @@ pub fn preflight(app_id: &str, log_stem: &str) {
                 // 没有任何可移交的对象,**继续启动** —— 绝不允许在这种状态下静默退出,
                 // 那正是本模块要消灭的"双击毫无反应"。
                 PreflightAction::ContinueLaunch => {}
-                // 重判时相位旗恒为 false ⇒ 这一臂结构上不可达。留空臂而不是 panic:
-                // release 档 `panic = "abort"`,守护里任何一臂都不许以中止进程为代价。
+                // 重判后若仍落在启动相位档(对方进程还在、siw 仍未现):继续启动,不杀。
+                // 留空臂而不是 panic:release 档 `panic = "abort"`,守护里任何一臂都不许以
+                // 中止进程为代价;也不在此二次等待(单层 if,结构上无循环)。
                 PreflightAction::WaitForOtherStartupPhase => {}
             }
         }
@@ -557,15 +573,26 @@ pub fn preflight(app_id: &str, log_stem: &str) {
         CloseHandle(hmutex);
     }
 
-    /// 一次采样得到的四条事实 + 开到的可清理进程句柄(只查不杀)。
+    /// 一次采样得到的四条事实 + 开到的可清理进程 `(pid, 句柄)`(只查不杀)。
     /// 句柄生命周期归调用方:要么交给 `kill_collected_instances`,要么交给
     /// `close_opened_handles`,不得随结构体一起被 drop 掉(句柄不是 File,不会自动关)。
+    /// pid 与句柄成对携带:整树终止(F-050)只能用 pid 调 `taskkill`,`TerminateProcess`
+    /// 只认句柄 —— 两样差一个都得再解析一次句柄与 pid 的对应关系。
     struct Sample {
         found: bool,
         responsive: bool,
         other: OtherInstances,
         has_visible_window: bool,
-        cleanable: Vec<HANDLE>,
+        cleanable: Vec<(DWORD, HANDLE)>,
+    }
+
+    /// 「启动相位」那条**独立事实**(模块头注第 6 条):siw 未现,却枚举得到同名对方
+    /// 进程 ⇒ 对方还在自己的启动序列里(插件 setup 没跑,或正等它那一轮 EBWebView 锁),
+    /// 不是僵尸。判据只用已经采到的两条事实,不在 decide 里反推(反推 = 把竞态转嫁给
+    /// 结论)。首次判定与等待后的重判共用本函数:两处各写一份必然漂移,而 F-051 的
+    /// 误杀正是"重判时这一条被硬置 false"造成的。
+    fn is_in_startup_phase(sample: &Sample) -> bool {
+        !sample.found && !matches!(sample.other, OtherInstances::NoneSeen)
     }
 
     /// 采一遍对方一侧的事实。抽成一个函数是因为「启动相位」档等待结束后必须
@@ -614,8 +641,8 @@ pub fn preflight(app_id: &str, log_stem: &str) {
         reading.other_has_visible = sample.has_visible_window;
     }
 
-    unsafe fn close_opened_handles(handles: &[HANDLE]) {
-        for h in handles {
+    unsafe fn close_opened_handles(handles: &[(DWORD, HANDLE)]) {
+        for (_, h) in handles {
             CloseHandle(*h);
         }
     }
@@ -640,12 +667,46 @@ pub fn preflight(app_id: &str, log_stem: &str) {
         }
     }
 
-    /// 终止 `collect_other_instances` 交出的**同全路径**进程(句柄已在手),返回成功终止数。
-    unsafe fn kill_collected_instances(targets: Vec<HANDLE>) -> usize {
+    /// 整树终止一个 pid 及其全部后代(F-050):`taskkill /T /F /PID <pid>`。
+    ///
+    /// 为什么不能只 `TerminateProcess` 主进程:被强杀的实例留下的 `msedgewebview2.exe`
+    /// 是**子进程**,父进程死时它不随之立即退出(模块头注第 3 条实测 1~3 分钟),继续占住
+    /// `EBWebView\Lockfile` —— 本进程随后在 `wait_for_webview_lock_release` 那一档最长
+    /// 白等 120s,用户侧表现就是"双击没反应"。`/T` 从根 pid 递归终止子树,`/F` 强杀,
+    /// 在父进程还在时一次把 WebView2 子进程一起带走。
+    ///
+    /// 用系统自带的 `taskkill.exe`(Windows 必有,不引入新依赖)。失败(起不来 / 退出码
+    /// 非 0,例如策略或 AV 拦下)一律返回 `false`,由调用方退回旧的单进程终止 ——
+    /// 清理能力可以降级,但绝不因为拿不到 taskkill 就卡住启动。
+    fn kill_process_tree(pid: DWORD) -> bool {
+        use std::os::windows::process::CommandExt;
+        /// `CREATE_NO_WINDOW`:本进程是 GUI,不能让 taskkill 闪一个控制台窗口。
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        std::process::Command::new("taskkill")
+            .args(["/T", "/F", "/PID", &pid.to_string()])
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .creation_flags(CREATE_NO_WINDOW)
+            .status()
+            .map(|status| status.success())
+            .unwrap_or(false)
+    }
+
+    /// 终止 `collect_other_instances` 交出的**同全路径**进程(句柄与 pid 已在手),
+    /// 返回成功终止数。
+    ///
+    /// 每个对象先整树终止(`kill_process_tree`,F-050),再对主进程句柄做一次
+    /// `TerminateProcess` 兜底:taskkill 拿不到或返回失败时,行为与旧版逐字节相同
+    /// (仍只杀主进程),不会因为新增的整树一步反而少杀。
+    unsafe fn kill_collected_instances(targets: Vec<(DWORD, HANDLE)>) -> usize {
         let mut killed = 0usize;
         let mut terminated: Vec<HANDLE> = Vec::new();
-        for h in targets {
-            if TerminateProcess(h, 1) != FALSE {
+        for (pid, h) in targets {
+            let tree_killed = kill_process_tree(pid);
+            // 兜底:taskkill 已把进程杀掉时这里多半返回 FALSE(句柄指向已退出进程),
+            // 因此判定用 `||`,计数只算"这一个对象确实被终止过"。
+            let main_killed = TerminateProcess(h, 1) != FALSE;
+            if tree_killed || main_killed {
                 killed += 1;
                 terminated.push(h);
             } else {
@@ -663,15 +724,16 @@ pub fn preflight(app_id: &str, log_stem: &str) {
     /// 枚举除自身外的 ihui-desktop 进程,**只查不杀**,返回两份语义不重叠的事实:
     /// - `candidates`:exe **文件名**相同的其他进程 pid(含全路径不同的、也含句柄/路径
     ///   核不出来那些)—— 回答"到底还有没有别的实例",并作为可见窗口判据的搜索范围;
-    /// - `cleanable`:其中**全路径与本进程一致**者的进程句柄(已带 PROCESS_TERMINATE)
-    ///   —— 只有这些是可清理对象。跨路径一律不在此列:让开发版去杀用户正在用的安装版,
-    ///   是模块头注第 5a 条那类误杀的放大版(第 5b 条)。
+    /// - `cleanable`:其中**全路径与本进程一致**者的 `(pid, 进程句柄)`(句柄已带
+    ///   PROCESS_TERMINATE)—— 只有这些是可清理对象。pid 一并带回,是因为整树终止
+    ///   (F-050)只能按 pid 调 `taskkill`。跨路径一律不在此列:让开发版去杀用户正在用的
+    ///   安装版,是模块头注第 5a 条那类误杀的放大版(第 5b 条)。
     ///
     /// 取不到自身路径时返回两个空集(等价于"没看到其他实例"→ 继续启动),不猜。
     unsafe fn collect_other_instances(
         own_pid: DWORD,
         own_exe: &Path,
-    ) -> (Vec<DWORD>, Vec<HANDLE>) {
+    ) -> (Vec<DWORD>, Vec<(DWORD, HANDLE)>) {
         if own_exe.as_os_str().is_empty() {
             return (Vec::new(), Vec::new());
         }
@@ -684,7 +746,7 @@ pub fn preflight(app_id: &str, log_stem: &str) {
         let mut entry: PROCESSENTRY32W = std::mem::zeroed();
         entry.dwSize = std::mem::size_of::<PROCESSENTRY32W>() as DWORD;
         let mut candidates: Vec<DWORD> = Vec::new();
-        let mut cleanable: Vec<HANDLE> = Vec::new();
+        let mut cleanable: Vec<(DWORD, HANDLE)> = Vec::new();
 
         if Process32FirstW(snapshot, &mut entry) == TRUE {
             loop {
@@ -716,9 +778,10 @@ pub fn preflight(app_id: &str, log_stem: &str) {
                                     own_exe,
                                 );
                             if full_path_ok {
-                                // 句柄留给 kill_collected_instances(它负责终止/等待/关闭);
+                                // pid 与句柄成对交给 kill_collected_instances
+                                // (它负责整树终止/终止/等待/关闭);
                                 // 这里绝不能 continue,否则会跳过 Process32NextW 死循环。
-                                cleanable.push(h);
+                                cleanable.push((pid, h));
                             } else {
                                 CloseHandle(h);
                             }
@@ -794,13 +857,15 @@ mod tests {
     use std::path::PathBuf;
 
     // ⚠️ 覆盖面如实登记(**不得把没测写成测过**):本模块只测 `decide` 的纯判定、
-    // `same_exe_path`、以及取数槽/落账行这几个纯函数。四个 Win32 函数
-    // (`collect_other_instances` / `kill_collected_instances` /
+    // `same_exe_path`、以及取数槽/落账行这几个纯函数。五个 Win32 函数
+    // (`collect_other_instances` / `kill_process_tree` / `kill_collected_instances` /
     // `other_instance_has_visible_window` / `wait_for_sibling_siw_window`)住在
     // `preflight()` 体内、测试不可见;其中"有没有可见窗口"要端到端验证就得真造一个
     // 顶层窗口(注册窗口类 + 消息循环,且无桌面会话的 CI 上不稳定),故**未做端到端覆盖**
     // —— 它的判据是刻意做成注入点(纯函数收 `bool`)的,所以"该杀/不该杀"的所有分支
     // 都由下面的成对用例锁住,只有"窗口可见性怎么量到"这一层没有测试兜着。
+    // 同理,F-050 的 `taskkill /T /F /PID` 需要真起一个带子进程的实例才能验证,**未做**;
+    // 它在测试里能钉住的只有"调用方仍然按旧语义计数/关句柄"这一侧,故不写用例冒充覆盖。
     //
     // ⚠️ 2026-10-21 起 `decide` 多了一条入参 `other_in_startup_phase`(票 L7220 P2)。
     // 下面**每一条 2026-09-27 的既有用例都传 `false`**(= 不在启动相位,原语义),
@@ -991,8 +1056,9 @@ mod tests {
     #[test]
     fn 启动相位等待结束后同一组事实照原语义判() {
         // 成对对照:这一组事实(mutex 在、siw 未现、不应答、有同路径可清理对象、无可见窗)
-        // 带旗 ⇒ 只等不杀;摘旗(= 等待结束后重采那一轮)⇒ 原语义该杀还杀。
-        // 少了后一半,这一档就变成"永远不杀"—— 第 1b 条的僵尸再也没人清。
+        // 带旗 ⇒ 只等不杀;摘旗 ⇒ 原语义该杀还杀。后一半在 F-051 之后仍然必须成立:
+        // 它不是"等待结束后就摘旗"的调用约定(那一条已改),而是 `decide` 自身的语义 ——
+        // 摘旗 = 对方不在启动序列这一事实前提不成立时,僵尸必须还有人清。
         assert_eq!(
             decide(true, false, false, PresentWithCleanableTarget, false, true),
             PreflightAction::WaitForOtherStartupPhase
@@ -1000,6 +1066,34 @@ mod tests {
         assert_eq!(
             decide(true, false, false, PresentWithCleanableTarget, false, false),
             PreflightAction::KillStaleThenContinue
+        );
+    }
+
+    /// **F-051**(票 `findings-cli-desktop.md`):等 10s 后的重判**保留**启动相位旗。
+    ///
+    /// 背景:重判原先硬置 `false`,于是一个仍在启动的合法首实例(慢机,或正卡在它自己
+    /// 那一轮最长 120s 的 EBWebView 等锁上)会被读成"无 siw ∧ 不应答 ∧ 有可清理对象"
+    /// 的僵尸而杀掉;用户再双击就再杀一次,两实例互相终止、始终打不开。
+    ///
+    /// 三格钉住改动的边界:①仍在启动(进程在、siw 未现)⇒ 不判 Kill;②对方已退出
+    /// (枚举不到任何同名进程)⇒ 继续启动,不静默退出也不凭空判 Kill;③siw 已现却
+    /// 不应答 = 真挂死 ⇒ 原语义照杀(该清的一格未削)。
+    #[test]
+    fn 等待结束后的重判保留启动相位旗() {
+        assert_eq!(
+            decide(true, false, false, PresentWithCleanableTarget, false, true),
+            PreflightAction::WaitForOtherStartupPhase,
+            "仍在启动的合法首实例被判成清理 = F-051 复发"
+        );
+        assert_eq!(
+            decide(true, false, false, NoneSeen, false, false),
+            PreflightAction::ContinueLaunch,
+            "对方已退出时既不能杀也不能静默退出"
+        );
+        assert_eq!(
+            decide(true, true, false, PresentWithCleanableTarget, false, false),
+            PreflightAction::KillStaleThenContinue,
+            "siw 已现却不应答的真挂死实例必须仍被清理"
         );
     }
 
