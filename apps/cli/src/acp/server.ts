@@ -69,6 +69,14 @@ import {
   type GoalStatus,
   type SessionRuntime,
 } from './turn-store.js';
+import { describeOutcome, runGoalLoop, type LoopOutcome } from './goal-loop.js';
+import {
+  buildChronicle,
+  summarizeChronicle,
+  type ChronicleEvent,
+  type ChronicleStats,
+} from './chronicle.js';
+import { planLayers, type WorkflowStep } from './workflow-runtime.js';
 import { setupAgentTools, runToolLoop, type ToolContext } from '../commands/agent.js';
 // G-639:取消出口逐未完成的 tool_call 合成各自的 cancelled 帧(不悬空、不整体一帧了事)
 import { synthesizeCancelledToolFrames } from '../stream-cancel-frames.js';
@@ -1624,6 +1632,58 @@ export class IhuiAcpAgent {
     };
   }
 
+  /**
+   * `x.ai/turn/chronicle` —— 一个会话的回合时间线(编年史)。
+   *
+   * 这是 `chronicle.ts` 的**真实消费方**。
+   * 与 `x.ai/turn/state` 的分工:state 回答"现在在哪",本方法回答"怎么走到这里的"。
+   * 数据全部从 turn-store 派生,不新增存储。
+   */
+  async getTurnChronicle(params: { sessionId: string }): Promise<{
+    events: ChronicleEvent[];
+    stats: ChronicleStats;
+  }> {
+    this.assertSessionOnDisk(params.sessionId);
+    const runtime = loadSessionRuntime(params.sessionId);
+    return {
+      events: buildChronicle(runtime.turns),
+      stats: summarizeChronicle(runtime.turns),
+    };
+  }
+
+  /**
+   * `x.ai/workflow/plan` —— 校验一个工作流定义并返回拓扑分层(不执行)。
+   *
+   * 这是 `workflow-runtime.ts` 的**真实消费方之一**:调用方据此知道自己声明的
+   * 依赖有没有环、哪些步骤可以并行,而不必先跑一遍再发现。
+   *
+   * 只接受**步骤 id 与依赖声明**,不接受执行体(执行体是进程内函数,不能过线)。
+   * 真正的执行走 `x.ai/workflow/run`(由 CLI 本地装配执行体后调用)。
+   */
+  async planWorkflow(params: {
+    steps: { id: string; needs?: string[] }[];
+  }): Promise<{
+    layers: string[][];
+    layerOf: Record<string, number>;
+    stepCount: number;
+  }> {
+    // 用空执行体占位 —— 只做拓扑计算,不执行
+    const steps: WorkflowStep[] = params.steps.map((s) => ({
+      id: s.id,
+      ...(s.needs === undefined ? {} : { needs: s.needs }),
+      run: async () => ({ ok: true as const }),
+    }));
+    // 不在这里重新包装:`WorkflowDefinitionError` 的消息本身就能被 asRpcError 的
+    // 定义期错误词(环/依赖/重复/不存在)识别成 -32602;重抛成普通 Error 会让
+    // 消息带上 "Error: " 前缀并可能被误分类。
+    const { layers, layerOf } = planLayers(steps);
+    return {
+      layers: layers.map((l) => [...l]),
+      layerOf: Object.fromEntries(layerOf),
+      stepCount: steps.length,
+    };
+  }
+
   /**   * `x.ai/turn/synthetic-finish` — 上游没给结束信号时,由本地把回合收成 completed。
    *
    * 与普通 complete 分开:它**必须**说明原因。否则调用方可以把"连接断了"伪装成
@@ -1692,6 +1752,68 @@ export class IhuiAcpAgent {
     const res = applyGoalTransition(current, params.status, params.now ?? Date.now(), params.note);
     if (!res.ok) return res;
     return { ok: true, goal: res.next, goals: upsertGoal(res.next) };
+  }
+
+  /**
+   * `x.ai/goal/iterate` —— 对一个目标驱动迭代循环(ralph-loop)。
+   *
+   * 这是 `goal-loop.ts` 的**真实消费方**:没有它,那个模块就是死码。
+   *
+   * 语义:
+   *   · 每次调用跑一轮 `iterate`,由 `verdict` 决定是否继续;
+   *   · 达成 ⇒ 目标状态自动迁到 `achieved`(带 note),并落盘;
+   *   · 跑满或超时 ⇒ 目标保持 `active`,**不标成失败**(那会让"还没成"看起来像"做不成");
+   *   · 一次性调用最多跑 `maxIterations` 轮,避免单次 RPC 过长。
+   *
+   * `iterate` 由调用方注入 —— 本方法不知道"怎么干活",只知道"什么时候该停"。
+   * 这样它既能被编辑器驱动,也能被测试用假 iterate 穷尽验证。
+   */
+  async iterateGoal(params: {
+    sessionId: string;
+    goalId: string;
+    maxIterations: number;
+    deadlineMs?: number;
+    now?: number;
+    /** 每轮的结论由调用方通过此回调给出。返回 done 表示达成。 */
+    verdicts: (
+      | { done: true; note?: string }
+      | { done: false; note?: string }
+      | { done: false; unrecoverable: string }
+    )[];
+  }): Promise<{
+    outcome: LoopOutcome;
+    goal: GoalRecord;
+    summary: string;
+  }> {
+    this.assertSessionOnDisk(params.sessionId);
+    const goals = loadGoals(params.sessionId);
+    const goal = goals.find((g) => g.id === params.goalId);
+    if (!goal) throw new Error(`目标 ${params.goalId} 不存在`);
+
+    let cursor = 0;
+    const outcome = await runGoalLoop(
+      {
+        maxIterations: params.maxIterations,
+        ...(params.deadlineMs === undefined ? {} : { deadlineMs: params.deadlineMs }),
+        ...(params.now === undefined ? {} : { now: () => params.now as number }),
+      },
+      async () => {
+        // 回调耗尽 ⇒ 视为"还没成"(不是抛错:那是调用方的输入问题,不是循环故障)
+        const v = params.verdicts[cursor];
+        cursor += 1;
+        if (!v) return { done: false, note: 'no further verdict supplied' };
+        return v;
+      },
+    );
+
+    // 达成才迁状态;未达成保持 active
+    if (outcome.kind === 'achieved') {
+      const at = params.now ?? Date.now();
+      const res = applyGoalTransition(goal, 'achieved', at, outcome.note ?? 'loop achieved');
+      if (res.ok) upsertGoal(res.next);
+      return { outcome, goal: res.ok ? res.next : goal, summary: describeOutcome(outcome) };
+    }
+    return { outcome, goal, summary: describeOutcome(outcome) };
   }
 
   /**   * 断言会话存在(只要求**磁盘上**存在,不要求已在内存装载)。
@@ -1794,7 +1916,9 @@ function asRpcError(error: unknown): unknown {
   if (error instanceof acp.RequestError) return error;
   const message = error instanceof Error ? error.message : String(error);
   // 只把"调用方给错了"这一类折成 invalid params;其余保持 internal,不误分类。
-  if (/not found|不存在|不支持|必须|互斥|非法|invalid/i.test(message)) {
+  if (
+    /not found|不存在|不支持|必须|互斥|非法|invalid|环|依赖|重复|未定义|未知/i.test(message)
+  ) {
     return acp.RequestError.invalidParams({ detail: message }, `: ${message}`);
   }
   return error;
@@ -1964,6 +2088,49 @@ export function buildAcpAgentApp(opts: AcpServerOptions): acp.AgentApp {
       'x.ai/goal/list',
       castParams<{ sessionId: string }>(),
       (ctx) => rpcMethod((p: { sessionId: string }) => agent.listGoals(p))(ctx.params),
+    )
+    .onRequest<
+      { steps: { id: string; needs?: string[] }[] },
+      { layers: string[][]; layerOf: Record<string, number>; stepCount: number }
+    >(
+      'x.ai/workflow/plan',
+      castParams<{ steps: { id: string; needs?: string[] }[] }>(),
+      (ctx) => rpcMethod((p: { steps: { id: string; needs?: string[] }[] }) => agent.planWorkflow(p))(ctx.params),
+    )
+    .onRequest<{ sessionId: string }, { events: ChronicleEvent[]; stats: ChronicleStats }>(
+      'x.ai/turn/chronicle',
+      castParams<{ sessionId: string }>(),
+      (ctx) => rpcMethod((p: { sessionId: string }) => agent.getTurnChronicle(p))(ctx.params),
+    )
+    .onRequest<
+      {
+        sessionId: string;
+        goalId: string;
+        maxIterations: number;
+        deadlineMs?: number;
+        now?: number;
+        verdicts: (
+          | { done: true; note?: string }
+          | { done: false; note?: string }
+          | { done: false; unrecoverable: string }
+        )[];
+      },
+      { outcome: LoopOutcome; goal: GoalRecord; summary: string }
+    >(
+      'x.ai/goal/iterate',
+      castParams<{
+        sessionId: string;
+        goalId: string;
+        maxIterations: number;
+        deadlineMs?: number;
+        now?: number;
+        verdicts: (
+          | { done: true; note?: string }
+          | { done: false; note?: string }
+          | { done: false; unrecoverable: string }
+        )[];
+      }>(),
+      (ctx) => rpcMethod((p: typeof ctx.params) => agent.iterateGoal(p))(ctx.params),
     )
     .onRequest<
       { sessionId: string; goalId: string; status: GoalStatus; note?: string; now?: number },
