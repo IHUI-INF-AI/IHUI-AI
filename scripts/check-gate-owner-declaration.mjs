@@ -30,9 +30,14 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { spawnSync } from 'node:child_process'
 
-/** 本地未判定错误(本门不读仓库内容,故不引入 face-reader 的取材层)。 */
+import { gitRaw } from './lib/face-reader.mjs'
+
+/**
+ * 本门自产的未判定(参数面 / 提交信息文件缺失)。git 派生的未判定由取材层 `gitRaw` 直接抛
+ * (层导出的 Undetermined 与本类同形):`main` 的两处 catch 都是全量 catch 折 exit 2,
+ * 不做 instanceof 分档,故两个类走同一条出口,判定语义零变化。
+ */
 class Undetermined extends Error {}
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -87,10 +92,12 @@ function loadRegistry(file) {
 }
 
 function gitRun(args) {
-  const r = spawnSync('git', ['-C', ROOT, ...args], { encoding: 'utf8', timeout: 120000, maxBuffer: 32 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true })
-  if (r.error) throw new Undetermined(`git ${args[0]} 执行失败(${r.error.message})`)
-  if (r.status !== 0) throw new Undetermined(`git ${args[0]} 退出 ${r.status}:${(r.stderr || '').trim().slice(0, 200)}`)
-  return r.stdout
+  // 裸 `spawnSync('git', …)` 迁共享层 gitRaw(§12g 单源):绝对路径 git + safe.directory +
+  // quotepath + windowsHide + 有界 timeout 都在层内,这里不再自拼一份。超时 120s / 缓冲 32MB
+  // 与原自拼逐字同参数(经 gitProcessGuards 归一,非法值只会回落默认、不会被关小)。失败由层抛
+  // Undetermined:message 带 `git <verb> 失败: <stderr 首行>`(无回显时补 signal/code),退出状态
+  // 挂在 e.status 上;调用方 main 照旧全量 catch 折 `未判定:` exit 2 —— 原因只增不丢,不弱化。
+  return gitRaw(args, ROOT, { timeout: 120000, maxBuffer: 32 * 1024 * 1024 })
 }
 
 function changedGateScripts({ staged, commit }) {
