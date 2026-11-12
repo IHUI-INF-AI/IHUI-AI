@@ -133,6 +133,12 @@ module.exports = ({ config }) => {
     // (发了 OTA 没人收得到)。这里显式带上,与自动发版发布用的 --channel production 对齐。
     updates: {
       ...(config.updates ?? {}),
+      // 2026-11-12: 显式钉死 ENABLED。@expo/config-plugins 的 getUpdatesEnabled(config)
+      // 只在 updates.enabled 未定义时才回退到「updates.url 是否存在」的隐式判定;
+      // 旧 prebuild 产物曾在求值面缺 url 时写出 ENABLED=false,端侧静默回退内嵌包,
+      // 使 OTA 对任何装机用户永久不可达(发了更新没人收得到)。显式 true 让配置异常
+      // 走 fail loud,而不是又一次静默失效。
+      enabled: true,
       requestHeaders: {
         ...((config.updates && config.updates.requestHeaders) ?? {}),
         'expo-channel-name': process.env.IHUI_OTA_CHANNEL || 'production',

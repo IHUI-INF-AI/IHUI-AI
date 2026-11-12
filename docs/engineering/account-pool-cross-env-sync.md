@@ -53,7 +53,13 @@
 
 ## 3. 决策规则(全部可解释,零隐藏状态)
 
-键 = `ownerUserId | providerCode | uid`(归属参与键,个人池与运营池互不干扰)。
+键 = `ownerIdentity | providerCode | uid`(归属参与键,个人池与运营池互不干扰)。
+**归属身份键 = email(2026-11-12 收口)**:两端 `users.id` 各自库生成(同一 admin 两端 id 不同、
+email 相同),导出器在 `__sync.ownerEmail` 带 owner 的 email;键与落库都用**有效归属身份**
+`ownerIdentity`(优先 ownerEmail,其次 ownerMaps 翻译 ownerUserId,运营池恒为 `ops`)。
+落库 `--owner` 用 ownerIdentity 经**目标环境** email→id 反查翻译,翻译不出 ⇒ 该行点名跳过、
+**绝不静默落运营池/悬空归属**(fail-closed)。向后兼容:不传 maps 且无 ownerEmail 时退化为
+原 `ownerUserId` 拼键。
 
 | 情形 | 动作 | reason |
 |---|---|---|

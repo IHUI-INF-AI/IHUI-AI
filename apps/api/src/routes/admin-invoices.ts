@@ -43,7 +43,8 @@ const createBodySchema = z.object({
 })
 
 const updateBodySchema = z.object({
-  userId: z.string().min(1).optional(),
+  // F-459:与 createBodySchema.userId 同一 uuid 列,更新侧此前只校验 min(1),非法字面量直达 SQL ⇒ 500
+  userId: z.uuid().optional(),
   titleType: z.enum(['personal', 'company']).optional(),
   title: z.string().min(1).max(200).optional(),
   taxNo: z.string().max(50).optional(),

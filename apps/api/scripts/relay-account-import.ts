@@ -43,7 +43,7 @@ const API_DIR = resolvePath(SCRIPT_DIR, '..')
 // .env 必须早于任何服务模块导入(它们在建连时读环境);动态导入以保证顺序
 config({ path: resolvePath(API_DIR, '.env') })
 
-const { eq, and } = await import('drizzle-orm')
+const { eq, and, sql } = await import('drizzle-orm')
 const { aiRelayAccountPool } = await import('@ihui/database')
 const { isRelayProviderCode, RELAY_PROVIDERS, validateAccountExport, resolveRelayCredentialSlots } =
   await import('../src/services/relay-account-format.js')
@@ -76,8 +76,9 @@ interface CliOptions {
   json: boolean
   /**
    * 归属个人池的 users.id;缺省 null = 运营池(存量语义零变化)。
-   * 2026-11-05 补:CLI 此前没有 owner 出口,把个人池的号重导入一次就会掉回运营池 ——
-   * 与机主 2026-10-31「我自己填入号池的账号只能跟着我的账号走」直接相违。
+   * 2026-11-05 补:CLI 此前没有 owner 出口,把个人池的号重导入一次就会掉回运营池。
+   * 2026-11-12 机主令改口:原「我自己填入号池的账号只能跟着我的账号走」隔离默认作废,
+   * 新建行一律 shared_to_ops=true(库列默认),归属只决定个人池行位置,不再决定可见性。
    */
   ownerUserId: string | null
   /**
@@ -160,8 +161,7 @@ function parseArgs(argv: string[]): {
       }
       options.exportMode = true
       options.providerCode = v
-    }
-    else if (arg === '--export-all') options.exportAll = true
+    } else if (arg === '--export-all') options.exportAll = true
     else if (arg === '--dry-run') options.dryRun = true
     else if (arg === '--no-health') options.health = false
     else if (arg === '--json') options.json = true
@@ -364,6 +364,46 @@ async function main(argv: string[]): Promise<number> {
   return importOne(opts, rawText)
 }
 
+/** 安全提取 db.execute 结果为数组(与 src/db/audit-queries.ts 的 toRows 同形)。 */
+function toRows(raw: unknown): Record<string, unknown>[] {
+  if (Array.isArray(raw)) return raw as Record<string, unknown>[]
+  if (raw && typeof raw === 'object' && Array.isArray((raw as { rows?: unknown }).rows)) {
+    return (raw as { rows: Record<string, unknown>[] }).rows
+  }
+  return []
+}
+
+/**
+ * 归属 email 对照表(2026-11-12 立,跨环境同步的身份键收口)。
+ *
+ * 立因:两端 users.id 是各自库生成的 UUID,同一 admin 在两端 id 不同(email 相同)。
+ * 同步把源端 owner_user_id 原样透传 ⇒ 目标端悬空归属 + accountSyncKey 两端不同 → 反复互推。
+ * 修复:导出每行时带上 owner 的 email(`__sync.ownerEmail`),下游以 email 为身份键、
+ * 落库时翻译成目标环境的 users.id。owner 用户在源库不存在 ⇒ ownerEmail=null(保留原
+ * ownerUserId,由下游按"翻译不出 ⇒ 点名跳过"fail-closed 处理,绝不静默落运营池)。
+ *
+ * join 口径:users.id 是 uuid 列、pool.owner_user_id 是 varchar(64) ⇒ `u.id::text = owner_user_id`。
+ */
+async function loadOwnerEmailById(ownerIds: string[]): Promise<Record<string, string>> {
+  const out: Record<string, string> = {}
+  if (ownerIds.length === 0) return out
+  const raw = await dbRead.execute(sql`
+    SELECT u.id::text AS owner_id, u.email AS email
+    FROM users u
+    WHERE u.email IS NOT NULL
+      AND u.id::text IN (${sql.join(
+        ownerIds.map((id) => sql`${id}`),
+        sql`, `,
+      )})
+  `)
+  for (const r of toRows(raw)) {
+    const id = String(r.owner_id ?? '')
+    const email = r.email === null || r.email === undefined ? '' : String(r.email).trim()
+    if (id && email) out[id] = email
+  }
+  return out
+}
+
 /**
  * 抽某平台全部账号为**平台原生导入形状**(2026-11-11 修正)。
  *
@@ -373,7 +413,7 @@ async function main(argv: string[]): Promise<number> {
  * 就变成"永远同步不完"。这里复用服务层的 buildExportPayload + 硬校验
  * validateExportRoundTrip,保证"导出的每一行都能被自己重新导入且 uid/统一名不变"。
  *
- * 同步元数据放在独立命名空间 `__sync`(uid/owner/updatedAt/enabled):原生载荷保持纯净
+ * 同步元数据放在独立命名空间 `__sync`(uid/owner/ownerEmail/updatedAt/enabled):原生载荷保持纯净
  * (导入器只认平台原生字段,多一个键就会进 extraMetadata 污染行),同步器读 __sync 做
  * 键与冲突裁决,落库前整块剥掉。
  *
@@ -388,6 +428,13 @@ async function buildExportAccounts(providerCode: RelayProviderCode): Promise<{
     .select()
     .from(aiRelayAccountPool)
     .where(eq(aiRelayAccountPool.providerCode, providerCode))
+  const ownerEmailById = await loadOwnerEmailById([
+    ...new Set(
+      rows
+        .map((r) => (typeof r.ownerUserId === 'string' ? r.ownerUserId.trim() : ''))
+        .filter((x) => x !== ''),
+    ),
+  ])
   const accounts: Array<Record<string, unknown>> = []
   const rejected: Array<{ uid: string; reason: string }> = []
   for (const row of rows) {
@@ -416,6 +463,8 @@ async function buildExportAccounts(providerCode: RelayProviderCode): Promise<{
       __sync: {
         uid: row.uid,
         ownerUserId: row.ownerUserId ?? null,
+        // 归属身份键(2026-11-12):owner 用户在源库不存在 ⇒ null,保留原 ownerUserId 由下游 fail-closed
+        ownerEmail: row.ownerUserId ? (ownerEmailById[String(row.ownerUserId)] ?? null) : null,
         updatedAt: row.updatedAt ? row.updatedAt.toISOString() : null,
         enabled: row.isEnabled,
         // core = 跨环境比较的**业务核心指纹来源**,直接取库列(不取载荷)。
@@ -442,7 +491,9 @@ async function exportProvider(opts: CliOptions): Promise<number> {
   }
   const { accounts, skipped, rejected } = await buildExportAccounts(providerCode)
   if (skipped > 0) {
-    process.stderr.write(`ℹ️ ${providerCode} 导出:${skipped} 行被跳过(解不开/round-trip 校验不通过)\n`)
+    process.stderr.write(
+      `ℹ️ ${providerCode} 导出:${skipped} 行被跳过(解不开/round-trip 校验不通过)\n`,
+    )
     for (const r of rejected.slice(0, 10)) process.stderr.write(`   · ${r.uid}: ${r.reason}\n`)
   }
   // 边界标记包裹:本进程的 dotenv/[db] 诊断也写 stdout ⇒ 下游只截取标记之间的 JSON 段

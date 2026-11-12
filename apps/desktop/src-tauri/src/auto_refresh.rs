@@ -45,6 +45,11 @@ const OFFLINE_AFTER_FAILS: u32 = 3;
 const REFRESH_EVERY_ROUNDS: u32 = 6;
 /// 热刷新防抖(秒):两次 reload 至少间隔 10 分钟
 const RELOAD_DEBOUNCE_SECS: u64 = 600;
+/// 前端指纹抓取的响应体上限(字节,512 KB)。
+///
+/// 指纹只出现在 HTML 首个 `/_next/static/` 片段处,正常页面远小于此值;
+/// 超限视为异常页(错误页/代理注入页/超大响应),放弃本轮而不是整段读进内存。
+const FINGERPRINT_MAX_BODY_BYTES: u64 = 512 * 1024;
 /// 常驻循环准入的轮询步长(毫秒)。
 ///
 /// 与 lib.rs 启动健康门的 `STARTUP_HEALTH_GATE_POLL_MS` 取同一档:两边判的是**同一枚**
@@ -522,6 +527,31 @@ fn is_stale_update_check(check_id: u64) -> bool {
     check_id != UPDATE_CHECK_GENERATION.load(Ordering::SeqCst)
 }
 
+/// 进程内「安装链在飞」互斥(F-132)。
+///
+/// 世代检查只能证明"这条检查链还没被取代",证明不了"另一条链此刻没有在装" ——
+/// 两条链各自持有互不相同的 checkId 时可以同时通过世代检查,于是并发拉起两个安装器
+/// 互相覆盖。故安装动作另加一道进程内互斥:同一时刻只允许一条安装链。
+static INSTALL_IN_FLIGHT: AtomicBool = AtomicBool::new(false);
+
+/// 安装互斥的 RAII 凭证:离开作用域(含 `?`/提前 `return`/panic 展开)即释放。
+/// 用 Drop 而不是在每个出口手写 `store(false)`,是为了让"异常路径忘记释放"不可能发生。
+struct InstallSlot;
+
+impl Drop for InstallSlot {
+    fn drop(&mut self) {
+        INSTALL_IN_FLIGHT.store(false, Ordering::SeqCst);
+    }
+}
+
+/// 抢占安装槽位:已有安装链在飞 ⇒ None(调用方记日志后放弃本次安装)。
+fn try_acquire_install_slot() -> Option<InstallSlot> {
+    INSTALL_IN_FLIGHT
+        .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+        .ok()
+        .map(|_| InstallSlot)
+}
+
 /// 应用自更新检查(每小时一次):经 tauri updater 的**单端点** `https://aizhs.top/desktop-feed.json`
 /// (见 tauri.conf.json 的 plugins.updater.endpoints;2026-10-05 机主拍板定稿,不再有多端点回退,
 /// 原先的 Gitee raw 端点已随桌面 feed 真源化删除)检查新版,
@@ -576,7 +606,6 @@ async fn check_app_update(app: &tauri::AppHandle) {
         Ok(Some(update)) => {
             let ver = update.version.clone();
             log::info!("[auto-refresh] 发现应用新版 {ver} → 下载安装");
-            notify(app, "智汇AI", &format!("发现新版本 {ver},正在后台安装…"));
             // ⚠️ 第二个闭包**不是**"退出前钩子"。插件签名是
             //   `download_and_install(on_chunk, on_download_finish)`,而
             //   updater.rs:710 在 `verify_signature()`(:712)**之前**就调用它。
@@ -589,6 +618,22 @@ async fn check_app_update(app: &tauri::AppHandle) {
             //   所以两个闭包都只挂 G-698 世代守卫(旧世代的迟到分片/完成事件直接
             //   丢弃,不得触发任何副作用),真正的退出准备挂在上面
             //   `updater_builder().on_before_exit(..)`(那个才是正确的时机)。
+            //
+            // F-132:世代检查必须前移到「进入下载安装」之前。download_and_install 内部
+            // 已完成下载、验签并拉起安装器,事后才判世代只能作废日志,作废不了安装与
+            // 随后的 std::process::exit(0)。
+            if is_stale_update_check(check_id) {
+                log::info!("[auto-refresh] 更新 #{check_id} 安装前已被新检查取代 → 不下载不安装");
+                return;
+            }
+            // F-132:另一条链可能持有互不相同的 checkId 同时通过世代检查,故安装动作
+            // 再加一道进程内互斥。凭证在本函数所有出口(含 Err / 提前 return)随 Drop 释放。
+            let Some(_install_slot) = try_acquire_install_slot() else {
+                log::info!("[auto-refresh] 已有安装链在飞 → 更新 #{check_id} 放弃本次安装");
+                return;
+            };
+            // 通知放在两道闸之后:被作废/未抢到槽位的本次检查不得再对用户宣称"正在安装"。
+            notify(app, "智汇AI", &format!("发现新版本 {ver},正在后台安装…"));
             let result = update
                 .download_and_install(
                     move |_received, _total| {
@@ -625,6 +670,47 @@ async fn check_app_update(app: &tauri::AppHandle) {
     }
 }
 
+/// 累计读取是否已超过指纹抓取上限(纯函数,便于单测;饱和加法防溢出)。
+fn exceeds_body_limit(read_so_far: u64, incoming: u64) -> bool {
+    read_so_far.saturating_add(incoming) > FINGERPRINT_MAX_BODY_BYTES
+}
+
+/// 有界读取前端响应体(F-133)。
+///
+/// 快路径先看 `Content-Length`:已声明超限的响应一个字节都不读;未声明(分块传输)
+/// 或无 Length 时按 `chunk()` 增量累计,任一时刻超限立即中止 —— 内存占用上界是阈值
+/// 加一个分片,而不是整段响应。
+///
+/// 用 `Response::chunk()` 而非 `bytes_stream()`:后者需要 reqwest 的 `stream`
+/// 特性(本项目 Cargo.toml 未启用),`chunk()` 在默认特性下即可用。
+async fn read_body_within_limit(mut resp: reqwest::Response) -> Option<String> {
+    if let Some(len) = resp.content_length() {
+        if exceeds_body_limit(0, len) {
+            log::warn!(
+                "[auto-refresh] 前端页面 Content-Length={len} 超过 {FINGERPRINT_MAX_BODY_BYTES} 字节上限 → 放弃本轮指纹"
+            );
+            return None;
+        }
+    }
+    let mut buf: Vec<u8> = Vec::new();
+    loop {
+        match resp.chunk().await {
+            Ok(Some(chunk)) => {
+                if exceeds_body_limit(buf.len() as u64, chunk.len() as u64) {
+                    log::warn!(
+                        "[auto-refresh] 前端页面响应体超过 {FINGERPRINT_MAX_BODY_BYTES} 字节上限 → 放弃本轮指纹"
+                    );
+                    return None;
+                }
+                buf.extend_from_slice(&chunk);
+            }
+            Ok(None) => break,
+            Err(_) => return None,
+        }
+    }
+    Some(String::from_utf8_lossy(&buf).into_owned())
+}
+
 /// 抓取前端 HTML 并维护指纹基线;检测到更新时返回 true(调用方决定是否 reload)。
 async fn refresh_baseline(
     client: &reqwest::Client,
@@ -639,7 +725,8 @@ async fn refresh_baseline(
     let Ok(resp) = client.get(frontend_url).send().await else {
         return false;
     };
-    let Ok(body) = resp.text().await else {
+    // F-133:有界读取,超大响应(错误页/代理注入页)不得整段读进内存。
+    let Some(body) = read_body_within_limit(resp).await else {
         return false;
     };
     match extract_frontend_fingerprint(&body) {
@@ -1685,6 +1772,42 @@ mod tests {
         assert!(html.contains(outcome.page_heading()), "未注入分级标题");
         let detail = outcome.page_detail();
         assert!(html.contains(detail.as_str()), "未注入分级自查说明");
+    }
+
+    // ── F-132:安装链进程内互斥 —— 同一时刻只允许一条安装 ──
+
+    #[test]
+    fn install_slot_is_exclusive_and_released_on_drop() {
+        // 本用例是 INSTALL_IN_FLIGHT 唯一的置位者(其余用例不触碰安装链)。
+        let first = try_acquire_install_slot().expect("首次必须抢到安装槽位");
+        assert!(
+            try_acquire_install_slot().is_none(),
+            "在飞期间第二条安装链必须被拒绝(否则两个安装器互相覆盖)"
+        );
+        // 退出路径(含异常)靠 Drop 释放:模拟离开作用域
+        drop(first);
+        let again = try_acquire_install_slot().expect("释放后必须可再次获得");
+        drop(again);
+        assert!(
+            try_acquire_install_slot().is_some(),
+            "槽位释放后必须可重新抢占(否则一次失败会永久锁死更新)"
+        );
+        // 结尾显式释放,避免残留状态影响同进程其他用例
+        INSTALL_IN_FLIGHT.store(false, Ordering::SeqCst);
+    }
+
+    // ── F-133:指纹抓取响应体上限 ──
+
+    #[test]
+    fn body_limit_rejects_oversized_responses() {
+        // 恰好在阈值上允许(不多读一个字节),超过一个字节即拒绝
+        assert!(!exceeds_body_limit(0, FINGERPRINT_MAX_BODY_BYTES));
+        assert!(exceeds_body_limit(0, FINGERPRINT_MAX_BODY_BYTES + 1));
+        // 分块累计:前一片未超限,累加后超限必须中止
+        assert!(!exceeds_body_limit(FINGERPRINT_MAX_BODY_BYTES - 1, 1));
+        assert!(exceeds_body_limit(FINGERPRINT_MAX_BODY_BYTES, 1));
+        // 饱和加法:极大值不得 panic/回绕
+        assert!(exceeds_body_limit(u64::MAX, 1));
     }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

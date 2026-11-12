@@ -226,7 +226,7 @@ pub fn normalize_prefs(prefs: DesktopPrefs) -> DesktopPrefs {
     prefs
 }
 
-/// 关窗去向的唯一判定:先归一,再按配置映射;`ask` 但托盘不在 ⇒ 直接 Quit。
+/// 关窗去向的唯一判定:先归一,再按配置映射;`hide`/`ask` 但托盘不在 ⇒ 直接 Quit。
 ///
 /// `tray_present` 取的是**运行时事实**(`app.tray_by_id("main").is_some()`)而不是
 /// `show_tray_icon`:托盘创建可能整个失败(build_tray 返回 Err),那时 prefs 里仍是 true,
@@ -234,7 +234,18 @@ pub fn normalize_prefs(prefs: DesktopPrefs) -> DesktopPrefs {
 pub fn decide_close_action(prefs: &DesktopPrefs, tray_present: bool) -> CloseDecision {
     let normalized = normalize_prefs(prefs.clone());
     match normalized.close_behavior {
-        CloseBehavior::Hide => CloseDecision::Hide,
+        // F-048:托盘不在时 hide 与 ask 同样无处可去 —— 藏进去的窗口没有任何入口能唤回。
+        CloseBehavior::Hide => {
+            if tray_present {
+                CloseDecision::Hide
+            } else {
+                log::warn!(
+                    "[desktop-prefs] close_behavior=hide 但托盘图标不在(build_tray 失败?)\
+                     ⇒ 退化为 quit(隐藏后没有任何入口能唤回窗口)"
+                );
+                CloseDecision::Quit
+            }
+        }
         CloseBehavior::Quit => CloseDecision::Quit,
         CloseBehavior::Ask => {
             if tray_present {
@@ -573,7 +584,8 @@ mod tests {
         let cases: &[(bool, CloseBehavior, bool, CloseDecision)] = &[
             // (show_tray_icon, close_behavior, tray_present, expected)
             (true, CloseBehavior::Hide, true, CloseDecision::Hide),
-            (true, CloseBehavior::Hide, false, CloseDecision::Hide),
+            // F-048:托盘建失败时 hide 无处可去,必须退化成 quit(藏进去就再也唤不回)。
+            (true, CloseBehavior::Hide, false, CloseDecision::Quit),
             (true, CloseBehavior::Quit, true, CloseDecision::Quit),
             (true, CloseBehavior::Quit, false, CloseDecision::Quit),
             (true, CloseBehavior::Ask, true, CloseDecision::Ask),

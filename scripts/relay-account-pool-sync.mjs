@@ -25,8 +25,10 @@
  *   node scripts/relay-account-pool-sync.mjs [--apply|--dry-run]
  *     [--provider <code>]        只同步该平台(可重复给;缺省全平台)
  *     [--owners <id,id>]         只同步这些 users.id 的个人池(缺省读 ~/.wb-switch/pool-owner)
- *     [--all-owners]             同步全库所有归属(默认关闭:生产库可能有他人账号,
- *                                全量拉回会把别人的号带进开发机 —— 安全边界,别随手开)
+ *     [--all-owners]             同步全库所有归属(含运营池 owner=NULL)。2026-11-12 机主令
+ *                                「所有号池里的号都应该自动同步运营生产」⇒ 自动任务固定带上;
+ *                                手工跑缺省仍限 ~/.wb-switch/pool-owner 的单一 owner。
+ *                                ⚠️ 双向口径:会把生产端他人账号拉回开发机,这是全量的既定代价。
  *     [--push-only|--pull-only]  只推 / 只拉
  *     [--pull-window-days <n>]   「仅生产有」视为新增的时效窗口(缺省 7 天;更老的缺失
  *                                当作本地已删除,只报告不复活,避免删号被另一端拉回)
@@ -51,6 +53,7 @@ import { RELAY_PROVIDER_CODES } from './lib/pool-providers.mjs'
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const API_DIR = path.join(ROOT, 'apps', 'api')
 const IMPORTER = path.join(API_DIR, 'scripts', 'relay-account-import.ts')
+const OWNER_MAP = path.join(API_DIR, 'scripts', 'relay-pool-owner-map.ts')
 const PROD_TEMP = 'D:\\DevEnv\\Temp'
 const DEFAULT_DIRTY_FILE = path.join(os.homedir(), '.wb-switch', 'pool-sync-dirty')
 const DEFAULT_LOG_FILE = path.join(ROOT, '.tmp', 'pool-sync.log')
@@ -65,7 +68,7 @@ const HELP = `号池跨环境双向同步(本地库 ⇄ 生产库)
   node scripts/relay-account-pool-sync.mjs [--apply|--dry-run]
     [--provider <code>]        只同步该平台(可重复给;缺省全平台)
     [--owners <id,id>]         只同步这些 users.id 的个人池(缺省读 ~/.wb-switch/pool-owner)
-    [--all-owners]             同步全库所有归属(默认关闭:会把他人账号拉进开发机)
+    [--all-owners]             同步全库所有归属(含运营池);自动任务固定带,手工跑缺省关闭
     [--push-only|--pull-only]  只推 / 只拉
     [--pull-window-days <n>]   「仅生产有」视为新增的时效窗口(缺省 7 天)
     [--if-dirty]               仅当脏标记存在才跑(计划任务用)
@@ -204,7 +207,7 @@ function flattenProviders(payload) {
   return out
 }
 
-async function snapshotLocal(tsxCli, options) {
+async function snapshotLocal(tsxCli, _options) {
   const args = [tsxCli, IMPORTER, '--export-all']
   const r = await runProcess(process.execPath, args, {})
   if (r.code !== 0) {
@@ -224,6 +227,43 @@ async function snapshotProd(options) {
     throw new Error(`生产快照导出失败(退出码 ${r.code}): ${r.error || ''}`.trim())
   }
   return flattenProviders(extractExport(r.stdout))
+}
+
+/**
+ * 归属 id→email 对照表(2026-11-12 email 身份键收口)。
+ *
+ * 立因:两端 users.id 各自库生成(同一 admin 两端 id 不同、email 相同),owner 原样透传
+ * ⇒ 目标端悬空归属 + 同步键两端不同反复互推。编排器在两端各取一份 `<users.id>→<email>`
+ * 映射:键与范围判断用 email,落库 --owner 用 email 反查目标环境 id。
+ * 取不到不致命(降级为只认导出自带的 ownerEmail;翻译不出的行由 groupForImport 点名跳过)。
+ */
+async function fetchOwnerMapLocal(tsxCli) {
+  const r = await runProcess(process.execPath, [tsxCli, OWNER_MAP], {})
+  if (r.code !== 0) {
+    throw new Error(`本地归属对照导出失败(退出码 ${r.code}): ${r.error || ''}`.trim())
+  }
+  return extractExport(r.stdout)
+}
+
+async function fetchOwnerMapProd(options) {
+  const remoteCmd =
+    `cd /d "${options.prodCheckout}" & node ` +
+    ['apps\\api\\node_modules\\tsx\\dist\\cli.mjs', 'apps\\api\\scripts\\relay-pool-owner-map.ts'].join(' ')
+  const r = await runProcess('ssh', [...SSH_OPTS, options.prodHost, remoteCmd], {})
+  if (r.code !== 0) {
+    throw new Error(`生产归属对照导出失败(退出码 ${r.code}): ${r.error || ''}`.trim())
+  }
+  return extractExport(r.stdout)
+}
+
+/** id→email 映射 ⇒ email(小写)→id 反查表(落库翻译用)。 */
+function invertOwnerMap(map) {
+  const out = {}
+  for (const [id, email] of Object.entries(map ?? {})) {
+    const e = String(email ?? '').trim().toLowerCase()
+    if (e) out[e] = id
+  }
+  return out
 }
 
 /**
@@ -247,17 +287,44 @@ function resolveOwnerScope(options) {
         '(确要全库对账用 --all-owners)',
     }
   }
-  return { personal, includeOps: true }
+  return { personal, emails: new Set(), includeOps: true }
 }
 
-/** 只保留范围内的归属;运营池(owner=null)默认包含。 */
-function filterByOwnerScope(accounts, scope) {
+/**
+ * 个人池范围判断改用 email 身份(2026-11-12):--owners / pool-owner 都是**本地 id**,
+ * 先经本地 map 翻成 email;对端快照里的同一人(不同 id、同 email)才能被认出来。
+ * 单独成函数是为了让"归属未判定"仍在任何 IO 前就退出(不先跑对照脚本)。
+ */
+function attachScopeEmails(scope, localOwnerMap) {
+  if (!scope) return scope
+  for (const id of scope.personal) {
+    const e = String((localOwnerMap ?? {})[id] ?? '').trim().toLowerCase()
+    if (e) scope.emails.add(e)
+  }
+  return scope
+}
+
+/**
+ * 只保留范围内的归属;运营池(owner=null)默认包含。
+ * 2026-11-12:个人池判断按**有效归属身份(email)**比较 —— 优先 ownerEmail(导出器带),
+ * 否则用本侧 map 翻译 ownerUserId;都翻译不出 ⇒ 原样 ownerUserId 比较
+ * (dev-anonymous 这类非 uuid 历史 owner 保持现行为:不在集合 ⇒ 过滤)。
+ */
+function filterByOwnerScope(accounts, scope, sideMap = null) {
   if (!scope) return accounts
   return accounts.filter((a) => {
-    const owner =
-      typeof a.ownerUserId === 'string' && a.ownerUserId.trim() ? a.ownerUserId.trim() : null
+    const sync = a && a.__sync && typeof a.__sync === 'object' ? a.__sync : {}
+    const ownerRaw = sync.ownerUserId !== undefined ? sync.ownerUserId : a?.ownerUserId
+    const owner = typeof ownerRaw === 'string' && ownerRaw.trim() ? ownerRaw.trim() : null
     if (owner === null) return scope.includeOps
-    return scope.personal.has(owner)
+    if (scope.personal.has(owner)) return true
+    const emailRaw = sync.ownerEmail !== undefined ? sync.ownerEmail : a?.ownerEmail
+    let email = typeof emailRaw === 'string' && emailRaw.trim() ? emailRaw.trim().toLowerCase() : ''
+    if (!email) {
+      const mapped = sideMap && sideMap[owner]
+      email = typeof mapped === 'string' && mapped.trim() ? mapped.trim().toLowerCase() : ''
+    }
+    return email !== '' && scope.emails.has(email)
   })
 }
 
@@ -680,18 +747,39 @@ async function main(argv) {
     return 2
   }
 
-  // 归属范围先定,避免把生产上他人账号拉进开发机(见 resolveOwnerScope 注释)
+  // 归属范围先定,避免把生产上他人账号拉进开发机(见 resolveOwnerScope 注释);
+  // 判定失败必须在任何 IO 前退出,所以先于对照表导出。
   const scope = resolveOwnerScope(options)
   if (scope?.error) {
     process.stderr.write(`❌ ${scope.error}\n`)
     return 2
   }
 
+  // 归属 id→email 对照(email 身份键,见 fetchOwnerMap* 注释):本地 tsx 只读脚本,
+  // 生产一次 SSH 跑同一脚本。取不到不致命 —— 降级为只认导出自带的 ownerEmail,
+  // 翻译不出的行由 groupForImport fail-closed 点名跳过(绝不静默落运营池/悬空归属)。
+  const ownerMaps = { local: {}, prod: {} }
+  try {
+    ownerMaps.local = await fetchOwnerMapLocal(tsxCli)
+  } catch (e) {
+    process.stderr.write(
+      `⚠️ 本地归属对照不可用(email 翻译降级,个人池行可能被点名跳过): ${e instanceof Error ? e.message : String(e)}\n`,
+    )
+  }
+  try {
+    ownerMaps.prod = await fetchOwnerMapProd(options)
+  } catch (e) {
+    process.stderr.write(
+      `⚠️ 生产归属对照不可用(推送侧个人池行可能被点名跳过): ${e instanceof Error ? e.message : String(e)}\n`,
+    )
+  }
+  attachScopeEmails(scope, ownerMaps.local)
+
   let local
   let prod
   try {
-    local = filterByOwnerScope(await snapshotLocal(tsxCli, options), scope)
-    prod = filterByOwnerScope(await snapshotProd(options), scope)
+    local = filterByOwnerScope(await snapshotLocal(tsxCli, options), scope, ownerMaps.local)
+    prod = filterByOwnerScope(await snapshotProd(options), scope, ownerMaps.prod)
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     process.stderr.write(`❌ 快照失败(未判定,本轮不写任何库): ${msg}\n`)
@@ -704,14 +792,24 @@ async function main(argv) {
     prod,
     providers: options.providers,
     pullWindowDays: options.pullWindowDays,
+    ownerMaps,
   })
 
   // 方向开关:只推 / 只拉
   if (options.pushOnly) plan = { ...plan, toPull: [] }
   if (options.pullOnly) plan = { ...plan, toPush: [] }
 
-  const pushBatches = options.dryRun ? [] : groupForImport(plan.toPush)
-  const pullBatches = options.dryRun ? [] : groupForImport(plan.toPull)
+  // 落库 owner = ownerIdentity(email)经目标环境 email→id 反查翻译;翻译不出 ⇒ 点名跳过
+  const pushBatches = options.dryRun ? [] : groupForImport(plan.toPush, invertOwnerMap(ownerMaps.prod))
+  const pullBatches = options.dryRun ? [] : groupForImport(plan.toPull, invertOwnerMap(ownerMaps.local))
+  const skippedPush = pushBatches.skipped ?? []
+  const skippedPull = pullBatches.skipped ?? []
+  for (const s of skippedPush) {
+    process.stderr.write(`⚠️ 推送跳过 ${s.providerCode}/${s.uid}: ${s.reason} —— 不落运营池,人工核对两端 users 表\n`)
+  }
+  for (const s of skippedPull) {
+    process.stderr.write(`⚠️ 拉回跳过 ${s.providerCode}/${s.uid}: ${s.reason} —— 不落运营池,人工核对两端 users 表\n`)
+  }
 
   let push = { code: 0, imported: 0, updated: 0, failed: 0 }
   let pull = { code: 0, imported: 0, updated: 0, failed: 0 }
@@ -730,7 +828,8 @@ async function main(argv) {
     options,
     `sync ${ok ? 'ok' : 'FAIL'} 本地=${plan.stats.localTotal} 生产=${plan.stats.prodTotal} ` +
       `推=${plan.stats.toPush} 拉=${plan.stats.toPull} 一致=${plan.stats.unchanged} ` +
-      `失败推=${push.failed} 失败拉=${pull.failed}${options.dryRun ? ' (dry-run)' : ''}`,
+      `失败推=${push.failed} 失败拉=${pull.failed} ` +
+      `owner翻译跳过=${skippedPush.length + skippedPull.length}${options.dryRun ? ' (dry-run)' : ''}`,
   )
 
   // 脏标记只在真正落库且无失败时清除:失败保留标记,下一轮自动重试

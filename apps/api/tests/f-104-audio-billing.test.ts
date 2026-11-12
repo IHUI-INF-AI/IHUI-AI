@@ -183,8 +183,9 @@ describe('F-104 成功结算(每次 2 分)', () => {
       json: async () => ({ output: { matched: true, confidence: 0.9 } }),
     })
     const reply = makeReply()
+    // F-106:声纹属主隔离,userId='u1' → 属主前缀 `uu1_`,须比对本人名下声纹
     await handlers.get('POST /speaker/compare')!(
-      { ...REQUEST, body: { voice_id: 'v1', audio_url: 'https://a/x.wav' } },
+      { ...REQUEST, body: { voice_id: 'uu1_v1', audio_url: 'https://a/x.wav' } },
       reply,
     )
     expect(reply.statusCode).toBe(200)
@@ -195,6 +196,16 @@ describe('F-104 成功结算(每次 2 分)', () => {
       expect.stringContaining('声纹比对'),
       'req-a',
     )
+  })
+
+  it('声纹比对他人 voiceId → 403 不扣分(F-106)', async () => {
+    const reply = makeReply()
+    await handlers.get('POST /speaker/compare')!(
+      { ...REQUEST, body: { voice_id: 'u2_victim', audio_url: 'https://a/x.wav' } },
+      reply,
+    )
+    expect(reply.statusCode).toBe(403)
+    expect(mocks.spendPoints).not.toHaveBeenCalled()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

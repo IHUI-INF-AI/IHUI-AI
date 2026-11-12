@@ -50,7 +50,8 @@ const outboundCallbackBodySchema = z.object({
 
 // P1 安全修复(2026-08-02):视频任务创建 body schema
 const videoTaskCreateBodySchema = z.object({
-  taskId: z.string().max(100).optional(),
+  // F-468:video_generation_tasks.task_id 列宽 36,此前允许 100,超长入参直达 SQL ⇒ 500
+  taskId: z.string().max(36).optional(),
   userUuid: z.string().max(100).optional(),
   chatId: z.string().max(100).nullable().optional(),
   message: z.string().nullable().optional(),

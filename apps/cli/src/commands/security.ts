@@ -25,6 +25,9 @@ import chalk from 'chalk';
 
 import { createApiRequest, extractData, handleError, printJson, resolveApiKeyAsync, resolveBaseUrl } from './http-utils.js';
 import { missingTokenHint } from './token-manager.js';
+// F-018:jsonMode 的判据只住 headless-format(全局 `--json` + 子命令 `--json` 合并),
+// 本文件不再各自判断子命令的 json 开关。
+import { resolveJsonMode } from '../headless-format.js';
 // 判据单一真相源(AGENTS §0.6/§22c):类型契约/类型守卫/参数校验全部住
 // src/security/audit-guards.ts,本文件只是命令壳 + 呈现面,不再持有第二份判据。
 import {
@@ -260,7 +263,7 @@ export function registerSecurityCommand(program: Command): void {
         }
         const page = parsePositiveInt(opts.page, 1, 10000, 'page');
         const pageSize = parsePositiveInt(opts.pageSize, 20, 100, 'page-size');
-        await auditSecurity(baseUrl, page, pageSize, Boolean(opts.json), apiKey);
+        await auditSecurity(baseUrl, page, pageSize, resolveJsonMode(program.opts(), opts), apiKey);
       } catch (err) {
         handleError('security audit', err);
       }
@@ -287,7 +290,7 @@ export function registerSecurityCommand(program: Command): void {
           process.exitCode = 1;
           return;
         }
-        await scanSecurity(baseUrl, opts, Boolean(opts.json), apiKey);
+        await scanSecurity(baseUrl, opts, resolveJsonMode(program.opts(), opts), apiKey);
       } catch (err) {
         handleError('security scan', err);
       }
@@ -310,7 +313,7 @@ export function registerSecurityCommand(program: Command): void {
           process.exitCode = 1;
           return;
         }
-        await reportSecurity(baseUrl, Boolean(opts.json), apiKey);
+        await reportSecurity(baseUrl, resolveJsonMode(program.opts(), opts), apiKey);
       } catch (err) {
         handleError('security report', err);
       }

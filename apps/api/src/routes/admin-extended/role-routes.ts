@@ -37,7 +37,8 @@ export const roleRoutes: FastifyPluginAsync = async (server) => {
     { preHandler: requireAdmin },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { roleId, userId } = parseOrThrow(
-        z.object({ roleId: z.string().min(1), userId: z.uuid() }),
+        // F-463:roleId 同为 uuid 主键,此前漏收 —— 非 UUID 串直达 PG uuid 列 22P02 ⇒ 500
+        z.object({ roleId: z.uuid({ error: '无效的 ID' }), userId: z.uuid() }),
         request.params,
       )
       // deleted 由库侧 RETURNING 派生,不是代码常量(2026-09-27):removeUserRole 的 where

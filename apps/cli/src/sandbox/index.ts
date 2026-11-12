@@ -476,7 +476,11 @@ export function evaluateCommandAllowlist(
   // 都以 `npm` 通过白名单,真正的第二段/展开体在 shell 里照跑 —— 白名单形同虚设。
   // 这里改用 tokenizer 对整行做结构求值:多段命令逐段核名,无法静态求值的构造
   // (命令替换/变量展开/子 shell/重定向/未闭合引号)一律拒绝(fail closed)。
-  const tokenized = tokenizeCommand(commandLine);
+  // F-079:Windows 上 shell:true 交给 cmd.exe,分词必须同口径(`\` 是路径分隔符、`^` 转义、
+  // `%VAR%` 记 issue 后 fail closed);其他平台保持 POSIX 模型,行为不变。
+  const tokenized = tokenizeCommand(commandLine, {
+    dialect: process.platform === 'win32' ? 'cmd' : 'posix',
+  });
   if (tokenized.issues.length > 0) {
     const kinds = tokenized.issues.map((i) => i.kind).join(',');
     return `command_not_allowed: <无法静态求值的 shell 构造:${kinds}>`;

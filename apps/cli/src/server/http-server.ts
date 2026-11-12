@@ -176,22 +176,34 @@ export function startAgentServer(core: AgentCore, opts: AgentServerOptions): Pro
           Connection: 'keep-alive',
         });
 
-        const writeEvent = (event: AgentEvent): void => {
-          res.write(`data: ${JSON.stringify(event)}\n\n`);
-        };
-
         const abort = new AbortController();
         req.on('close', () => abort.abort());
 
+        // F-064:SSE 背压 —— `res.write` 返回 false 时必须等 'drain' 再继续产出,
+        // 否则慢客户端读不动时 res 内部缓冲会无界增长(单连接可打爆进程内存);
+        // 1 MB 累计闸保留为兜底:等待期间连接被关闭/上游 abort 时直接断开本回合。
+        let sseBuffered = 0;
+        const writeSse = async (chunk: string): Promise<void> => {
+          sseBuffered += chunk.length;
+          const flushed = await writeSseChunk(res, chunk, abort.signal);
+          if (flushed) sseBuffered = 0;
+          if (sseBuffered > MAX_SSE_BUFFERED_BYTES) {
+            abort.abort();
+            res.destroy();
+          }
+        };
+        const writeEvent = (event: AgentEvent): Promise<void> =>
+          writeSse(`data: ${JSON.stringify(event)}\n\n`);
+
         try {
           const result = await core.sendMessage(text, writeEvent, { sessionId, signal: abort.signal });
-          res.write(`event: result\ndata: ${JSON.stringify(result)}\n\n`);
+          await writeSse(`event: result\ndata: ${JSON.stringify(result)}\n\n`);
         } catch (err) {
           // 上游鉴权失败(403 SCOPE_REQUIRED / 401 SECRET_REQUIRED / 503 限流后端不可用)
           // 必须让 client 侧程序可判别,而非只留一段人读消息。
           const msg = err instanceof Error ? err.message : String(err);
           const errorCode = classifyAuthError(err);
-          res.write(
+          await writeSse(
             `event: error\ndata: ${JSON.stringify({ message: msg, ...(errorCode ? { errorCode } : {}) })}\n\n`,
           );
         } finally {
@@ -203,12 +215,17 @@ export function startAgentServer(core: AgentCore, opts: AgentServerOptions): Pro
       writeJson(res, 404, 'Not found', null);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      writeJson(res, 500, msg, null);
+      // F-064/F-137:readJsonBody 的 413 超限按其状态码回,不落 500
+      const statusCode = (err as { statusCode?: number }).statusCode;
+      writeJson(res, statusCode === 413 ? 413 : 500, msg, null);
     }
   });
 
   return new Promise((resolve, reject) => {
     server.on('error', reject);
+    // F-064:显式超时 —— 不给默认值留巧合空间;headersTimeout < requestTimeout 是 Node 硬性要求
+    server.requestTimeout = 300_000;
+    server.headersTimeout = 60_000;
     server.listen(opts.port, bindHost, () => {
       // opts.port 可为 0(测试用临时端口),真实端口以 address() 为准
       const address = server.address();
@@ -251,12 +268,86 @@ function writeJson(
   res.end(JSON.stringify(payload));
 }
 
+/** F-064:单连接 SSE 未冲刷字节的兜底上限 —— 背压等待期间连接异常时的最后一道闸 */
+export const MAX_SSE_BUFFERED_BYTES = 1 * 1024 * 1024;
+
+/**
+ * F-064:SSE 单帧写出的背压封装。
+ *
+ * `res.write` 返回 false 表示内核/流缓冲已满 —— 必须等 'drain' 才能继续产出,
+ * 否则产出速度只受上游约束,慢客户端会把 res 内部缓冲涨成无界。
+ * 连接关闭/出错/上游 abort 时立即返回 false(不再有 drain 可等),由调用方收尾。
+ * 各条路径都摘掉监听器,避免长连接上按帧累积。
+ */
+export interface SseWritable {
+  write(chunk: string): boolean;
+  once(event: 'drain' | 'close' | 'error', listener: () => void): unknown;
+  off(event: 'drain' | 'close' | 'error', listener: () => void): unknown;
+  readonly writableEnded?: boolean;
+  readonly destroyed?: boolean;
+}
+
+export function writeSseChunk(res: SseWritable, chunk: string, signal?: AbortSignal): Promise<boolean> {
+  if (signal?.aborted || res.writableEnded || res.destroyed) return Promise.resolve(false);
+  if (res.write(chunk)) return Promise.resolve(true);
+  return new Promise<boolean>((resolve) => {
+    const settle = (flushed: boolean): void => {
+      res.off('drain', onDrain);
+      res.off('close', onAborted);
+      res.off('error', onAborted);
+      signal?.removeEventListener('abort', onAborted);
+      resolve(flushed);
+    };
+    const onDrain = (): void => settle(true);
+    const onAborted = (): void => settle(false);
+    res.once('drain', onDrain);
+    res.once('close', onAborted);
+    res.once('error', onAborted);
+    if (signal) {
+      signal.addEventListener('abort', onAborted, { once: true });
+      // 注册监听前已 abort 的竞态:不去等一个永远不会来的 drain
+      if (signal.aborted) settle(false);
+    }
+  });
+}
+
+/** F-064/F-137:请求体字节上限 —— 持 token 的客户端一条巨型 POST 即可把进程内存打满 */
+export const MAX_JSON_BODY_BYTES = 1 * 1024 * 1024;
+
 function readJsonBody(req: http.IncomingMessage): Promise<Record<string, unknown>> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
-    req.on('data', (c) => chunks.push(c instanceof Buffer ? c : Buffer.from(c)));
+    // F-064/F-137:累计字节闸 —— 既看 Content-Length(超限提前断),也逐块累计
+    // (防 chunked 传输绕过声明头);超限 reject 413 并销毁连接。
+    let total = 0;
+    let settled = false;
+    const overLimit = (): void => {
+      if (settled) return;
+      settled = true;
+      const err = new Error(`请求体超过 ${MAX_JSON_BODY_BYTES} 字节上限`) as Error & { statusCode?: number };
+      err.statusCode = 413;
+      reject(err);
+      req.destroy();
+    };
+    const declared = Number(req.headers['content-length']);
+    if (Number.isFinite(declared) && declared > MAX_JSON_BODY_BYTES) {
+      overLimit();
+      return;
+    }
+    req.on('data', (c) => {
+      if (settled) return;
+      const buf = c instanceof Buffer ? c : Buffer.from(c);
+      total += buf.length;
+      if (total > MAX_JSON_BODY_BYTES) {
+        overLimit();
+        return;
+      }
+      chunks.push(buf);
+    });
     req.on('error', reject);
     req.on('end', () => {
+      if (settled) return;
+      settled = true;
       const raw = Buffer.concat(chunks).toString('utf-8');
       if (!raw) {
         resolve({});

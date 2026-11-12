@@ -3234,6 +3234,22 @@ class AgentEngine:
             thread.loop = loop
             if from_checkpoint:
                 result = await loop.resume_from_checkpoint(from_checkpoint)
+                # AIS-063:续跑同样要把产出回写线程历史。
+                # 修前只有 else 分支调 `_absorb_messages`,checkpoint 分支直接返回结果 ——
+                # 线程历史停在崩溃前那一条:下一轮 prompt 看到的上下文比 checkpoint 少,
+                # 前端/持久层与真实对话三份不一致,续跑出来的产出等于没发生。
+                # 消息来源只能是循环内那份 `_messages`(它才是 checkpoint 深拷贝后被就地
+                # 推进的列表);拿不到就**不回写**并点名,绝不拿 thread.messages 冒充本轮产出。
+                resumed_messages = getattr(loop, "_messages", None)
+                if isinstance(resumed_messages, list) and resumed_messages:
+                    self._absorb_messages(thread, resumed_messages)
+                else:
+                    logger.warning(
+                        "[engine] thread.resume 未能取回循环消息(_messages 缺失或为空),"
+                        "本轮产出不回写线程历史: thread=%s checkpoint=%s",
+                        thread.thread_id,
+                        from_checkpoint,
+                    )
             else:
                 # 传消息副本:主循环会就地改写 system 做记忆/画像/团队接力注入,
                 # 副本隔离保证线程历史不被注入内容污染、跨轮不累积膨胀。

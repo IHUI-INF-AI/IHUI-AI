@@ -111,6 +111,14 @@ interface CoreSessionState {
   session: Session;
   messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>;
   abort: AbortController | null;
+  /**
+   * F-065:同会话并发回合治理 ——
+   *  - `aborts`:在飞回合的 AbortController 集合(cancel 会全部中止,不再只中止最后一个);
+   *  - `tail`:按会话串行的回合队列尾 —— messages 数组与 saveSession 是共享可变态,
+   *    两个 runToolLoop 并发改写会交叉污染历史;后到回合排队等前一回合收尾后再跑。
+   */
+  aborts: Set<AbortController>;
+  tail: Promise<unknown>;
 }
 
 export class AgentCore {
@@ -175,6 +183,8 @@ export class AgentCore {
   ): Promise<SendMessageResult> {
     const { systemPrompt, ctx } = await this.ensureAgent();
 
+    // F-065:命中既有会话 ⇒ 回合体要补推 user 消息;新建会话已在创建时带上,不重复推。
+    let pushUserMessage = true;
     let state = opts?.sessionId ? this.sessions.get(opts.sessionId) : undefined;
     if (!state && opts?.sessionId) {
       const loaded = loadSession(opts.sessionId);
@@ -186,7 +196,13 @@ export class AgentCore {
             content: m.content,
           })),
         ];
-        state = { session: loaded, messages, abort: null };
+        state = {
+          session: loaded,
+          messages,
+          abort: null,
+          aborts: new Set(),
+          tail: Promise.resolve(),
+        };
         this.sessions.set(loaded.id, state);
       }
     }
@@ -199,20 +215,47 @@ export class AgentCore {
           { role: 'user', content: text },
         ],
         abort: null,
+        aborts: new Set(),
+        tail: Promise.resolve(),
       };
       this.sessions.set(session.id, state);
-    } else {
-      state.messages.push({ role: 'user', content: text });
-      state.session.history.push({ id: randomUUID(), role: 'user', content: text });
+      pushUserMessage = false;
     }
 
     const abort = new AbortController();
-    state.abort = abort;
+    state.aborts.add(abort);
     if (opts?.signal) {
       opts.signal.addEventListener('abort', () => abort.abort(), { once: true });
     }
 
-    try {
+    // F-065:回合体放进该会话的串行队列 —— 排队点包住"追加用户消息 + runToolLoop +
+    // saveSession"整段,保证任一时刻同会话只有一个回合在改共享状态。
+    const runTurn = async (): Promise<SendMessageResult> => {
+      if (pushUserMessage) {
+        state.messages.push({ role: 'user', content: text });
+        state.session.history.push({ id: randomUUID(), role: 'user', content: text });
+      }
+      try {
+        return await this.runTurnLoop(state, abort, onEvent, ctx);
+      } finally {
+        state.aborts.delete(abort);
+        if (state.abort === abort) {
+          state.abort = null;
+        }
+      }
+    };
+    const turn = state.tail.then(runTurn, runTurn);
+    state.tail = turn.catch(() => {});
+    return turn;
+  }
+
+  /** F-065:从 sendMessage 拆出的回合执行体(在会话串行队列内运行)。 */
+  private async runTurnLoop(
+    state: CoreSessionState,
+    abort: AbortController,
+    onEvent: AgentEventHandler,
+    ctx: ToolContext,
+  ): Promise<SendMessageResult> {
       // D113 三面接线之 agent-core:配对/清场走 commands/agent.ts 的同一份桥
       // (headless 面用它,REPL 用同构的 openPreviews) —— 两处算同一件事必漂移。
       const d113Bridge = createToolDeltaBridge();
@@ -296,15 +339,15 @@ export class AgentCore {
         iterations: result.iterations,
         usage: result.usage,
       };
-    } finally {
-      if (state.abort === abort) {
-        state.abort = null;
-      }
-    }
   }
 
   cancel(sessionId: string): void {
-    this.sessions.get(sessionId)?.abort?.abort();
+    // F-065:中止该会话全部在飞回合(此前只 abort 最后一个,先跑的回合不可取消)。
+    const state = this.sessions.get(sessionId);
+    if (!state) return;
+    for (const controller of state.aborts) {
+      controller.abort();
+    }
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
