@@ -24,6 +24,9 @@ mod embedded_browser;
 // 数据落 app_data_dir(持久化,区别于内存标签会话);纯函数(Chrome 书签解析/去重/历史)
 // 判据可单测,I/O 走薄 Tauri 命令胶水。
 mod browser_bookmarks;
+// F-123:浏览器内存策略(标签上限/空闲休眠)的落盘设置与进程内真值。此前文件存在但
+// 未挂载 ⇒ 用户改不了标签上限;现在接上 setup 初始化 + 两条 IPC 命令。
+mod browser_settings;
 // 2026-09-28 立:托盘/关窗/启动/角标的「行为偏好」——判定与持久化都在模块内,本文件只做接线。
 mod desktop_prefs;
 // 本地 git/diff 通道（2026-09-27）：纯判据 / 执行层 / tauri 胶水三件套。
@@ -570,6 +573,30 @@ fn arm_forced_exit(app: &tauri::AppHandle, grace_secs: u64) {
 /// 那次导航同样会置位 `MAIN_PAGE_READY` ⇒ 正常慢启动不会被误杀。
 const STARTUP_HEALTH_GATE_TIMEOUT_MS: u64 = 60_000;
 const STARTUP_HEALTH_GATE_POLL_MS: u64 = 200;
+/// F-136:到点后的宽限窗。60s 是"等得够久"的判据,不是"页面绝不会再活过来"的断言 ——
+/// 并发构建/冷启动下首屏可能恰好晚到几秒,到点即杀会把正常启动误判成僵尸。
+const STARTUP_HEALTH_GATE_GRACE_MS: u64 = 3_000;
+
+/// 宽限窗内二次采样:期间就绪 ⇒ true(不通知、不退出)。
+/// 时间推进用注入的 `sleep` 累计,不读墙钟 —— 单测用空 sleep 即可跑完,且不受机器负载影响。
+fn grace_window_until_ready(
+    grace_ms: u64,
+    poll_ms: u64,
+    mut ready: impl FnMut() -> bool,
+    mut sleep: impl FnMut(u64),
+) -> bool {
+    let mut waited_ms = 0u64;
+    loop {
+        if ready() {
+            return true;
+        }
+        if waited_ms >= grace_ms {
+            return false;
+        }
+        sleep(poll_ms);
+        waited_ms = waited_ms.saturating_add(poll_ms);
+    }
+}
 
 /// 票 L7220 P3(2026-10-21 立):把"webview 到底建出来没有"这条判据**后置到事件循环
 /// 之后**的执行体 —— 它就是旧 15s 兜底线程的替身。
@@ -608,6 +635,20 @@ fn startup_health_gate(app: tauri::AppHandle) {
             STARTUP_HEALTH_GATE_POLL_MS,
         ));
     }
+    // F-136:到点先给 3s 宽限,晚到的页面照样按正常启动收口;
+    // 宽限窗内仍不亮才判定为僵尸实例。
+    if grace_window_until_ready(
+        STARTUP_HEALTH_GATE_GRACE_MS,
+        STARTUP_HEALTH_GATE_POLL_MS,
+        main_page_ready,
+        |ms| std::thread::sleep(std::time::Duration::from_millis(ms)),
+    ) {
+        log::info!(
+            "[desktop] 启动健康门:到点后 {STARTUP_HEALTH_GATE_GRACE_MS}ms 宽限窗内主文档加载完成,\
+             按正常启动继续(不通知、不退出)"
+        );
+        return;
+    }
     log::error!(
         "[desktop] 启动健康门:{}ms 内主文档从未加载完成(webview 未建成 / 事件循环未消费建窗消息);\
          本进程既不显示也没有可投递的对象,按僵尸实例收口:通知 + 停常驻循环 + 退出。\
@@ -621,6 +662,37 @@ fn startup_health_gate(app: tauri::AppHandle) {
     );
     auto_refresh::request_shutdown();
     exit_application(&app);
+}
+
+#[cfg(test)]
+mod grace_window_tests {
+    use super::grace_window_until_ready;
+
+    #[test]
+    fn grace_window_second_sample_ready_returns_true() {
+        let mut samples = 0;
+        let got = grace_window_until_ready(3_000, 200, || {
+            samples += 1;
+            samples >= 2
+        }, |_| {});
+        assert!(got, "宽限窗内第二次采样就绪 ⇒ true(不通知不退出)");
+    }
+
+    #[test]
+    fn grace_window_never_ready_returns_false() {
+        let mut sleeps = 0;
+        let got = grace_window_until_ready(3_000, 200, || false, |_| sleeps += 1);
+        assert!(!got, "整个宽限窗内始终不就绪 ⇒ false(走僵尸实例收口)");
+        assert_eq!(sleeps, 15, "3s / 200ms = 15 步");
+    }
+
+    #[test]
+    fn grace_window_immediately_ready_returns_true() {
+        let mut slept = false;
+        let got = grace_window_until_ready(3_000, 200, || true, |_| slept = true);
+        assert!(got);
+        assert!(!slept, "首次采样就绪不得再空等");
+    }
 }
 
 /// 重启应用(2026-07-31 立,updater 安装完成后调用)。
@@ -1075,7 +1147,9 @@ fn load_tray_settings(app: &tauri::AppHandle) -> TraySettings {
         .unwrap_or_default()
 }
 
-/// 写回托盘常驻配置(目录不存在则创建,失败仅记日志,不影响主流程)。
+/// 写回托盘常驻配置(目录不存在则创建)。
+/// F-085:本函数没有 IPC 调用方(唯一出口是设置落盘),失败无法回给前端 ——
+/// 因此必须按 error 级别喊出来,不能静默当成成功。
 #[cfg(target_os = "windows")]
 fn save_tray_settings(app: &tauri::AppHandle, settings: &TraySettings) {
     let Some(path) = tray_config_path(app) else { return };
@@ -1085,10 +1159,10 @@ fn save_tray_settings(app: &tauri::AppHandle, settings: &TraySettings) {
     match serde_json::to_vec_pretty(settings) {
         Ok(bytes) => {
             if let Err(e) = std::fs::write(&path, bytes) {
-                log::warn!("[desktop] save tray settings failed: {}", e);
+                log::error!("[desktop] save tray settings failed(无 IPC 出口): {}", e);
             }
         }
-        Err(e) => log::warn!("[desktop] serialize tray settings failed: {}", e),
+        Err(e) => log::error!("[desktop] serialize tray settings failed(无 IPC 出口): {}", e),
     }
 }
 
@@ -2708,14 +2782,35 @@ fn apply_close_hide(app: &tauri::AppHandle) {
     let _ = save_window_state(Some("main".to_string()), app.clone());
 }
 
+/// `set_desktop_prefs` 的回包:`DesktopPrefs` 的全部顶层字段原样摊平(F-085:不对前端做
+/// 破坏性契约变更),额外加一格 `persisted` 让落盘失败不再是"只记日志的成功"。
+#[derive(Debug, Serialize)]
+struct SetDesktopPrefsResponse {
+    #[serde(flatten)]
+    prefs: DesktopPrefs,
+    persisted: bool,
+}
+
+/// 纯函数:回包唯一构造点,便于不依赖 AppHandle 单测两个分支。
+fn build_prefs_response(
+    prefs: DesktopPrefs,
+    save_result: Result<(), IpcError>,
+) -> SetDesktopPrefsResponse {
+    SetDesktopPrefsResponse { prefs, persisted: save_result.is_ok() }
+}
+
 /// 落盘 + 托盘副作用 + 广播,`set_desktop_prefs` 与 `resolve_close_choice(remember)` 共用。
-/// 顺序固定:合并 → **归一** → 落盘 → 托盘对齐 → 广播 → 回 effective 值。
-fn write_desktop_prefs(app: &tauri::AppHandle, patch: DesktopPrefsPatch) -> DesktopPrefs {
+/// 顺序固定:合并 → **归一** → 落盘 → 托盘对齐 → 广播 → 回 effective 值 + persisted。
+fn write_desktop_prefs(
+    app: &tauri::AppHandle,
+    patch: DesktopPrefsPatch,
+) -> SetDesktopPrefsResponse {
     let current = load_desktop_prefs(app);
     let next = normalize_prefs(patch.merge_into(current.clone()));
 
-    if let Err(e) = save_desktop_prefs(app, &next) {
-        // 契约把这两个命令的返回类型钉成 DesktopPrefs(不带 Result),所以落盘失败只能在这里喊。
+    let save_result = save_desktop_prefs(app, &next);
+    if let Err(e) = &save_result {
+        // 回包里的 persisted=false 是命令面上的失败出口;这条日志留给事后取证。
         log::error!("[desktop-prefs] 落盘失败({e}):本次改动只对本次会话生效,重启会回到盘上那份");
     }
 
@@ -2731,7 +2826,60 @@ fn write_desktop_prefs(app: &tauri::AppHandle, patch: DesktopPrefsPatch) -> Desk
     if let Err(e) = app.emit("desktop-prefs-changed", &next) {
         log::warn!("[desktop-event] emit desktop-prefs-changed failed: {}", e);
     }
-    next
+    build_prefs_response(next, save_result)
+}
+
+#[cfg(test)]
+mod prefs_response_tests {
+    use super::*;
+
+    fn sample() -> DesktopPrefs {
+        DesktopPrefs {
+            show_tray_icon: false,
+            close_behavior: CloseBehavior::Quit,
+            launch_minimized: true,
+            tray_single_click: TraySingleClick::ToggleWindow,
+            unread_badge: false,
+            tray_menu_items: vec!["show".into(), "quit".into()],
+        }
+    }
+
+    fn assert_all_top_level_keys(value: &serde_json::Value) {
+        for key in [
+            "show_tray_icon",
+            "close_behavior",
+            "launch_minimized",
+            "tray_single_click",
+            "unread_badge",
+            "tray_menu_items",
+            "persisted",
+        ] {
+            assert!(value.get(key).is_some(), "回包缺少顶层字段 {key}");
+        }
+        assert_eq!(value["show_tray_icon"], serde_json::json!(false));
+        assert_eq!(value["close_behavior"], serde_json::json!("quit"));
+        assert_eq!(value["launch_minimized"], serde_json::json!(true));
+        assert_eq!(value["unread_badge"], serde_json::json!(false));
+        assert_eq!(value["tray_menu_items"], serde_json::json!(["show", "quit"]));
+    }
+
+    #[test]
+    fn prefs_response_persisted_true_keeps_all_prefs_fields() {
+        let value = serde_json::to_value(build_prefs_response(sample(), Ok(()))).unwrap();
+        assert_all_top_level_keys(&value);
+        assert_eq!(value["persisted"], serde_json::json!(true));
+    }
+
+    #[test]
+    fn prefs_response_persisted_false_keeps_all_prefs_fields() {
+        let value = serde_json::to_value(build_prefs_response(
+            sample(),
+            Err(IpcError::permission("目录不可写")),
+        ))
+        .unwrap();
+        assert_all_top_level_keys(&value);
+        assert_eq!(value["persisted"], serde_json::json!(false));
+    }
 }
 
 /// 读桌面端行为偏好。返回的一直是**归一后**的 effective 值,前端不需要重算不变量。
@@ -2742,8 +2890,23 @@ fn get_desktop_prefs(app: tauri::AppHandle) -> DesktopPrefs {
 
 /// 写桌面端行为偏好(patch 语义:只覆盖带过来的那几档)。
 #[tauri::command]
-fn set_desktop_prefs(app: tauri::AppHandle, patch: DesktopPrefsPatch) -> DesktopPrefs {
+fn set_desktop_prefs(app: tauri::AppHandle, patch: DesktopPrefsPatch) -> SetDesktopPrefsResponse {
     write_desktop_prefs(&app, patch)
+}
+
+/// 读浏览器内存策略(每次判定都读进程内真值,改完立即生效)。
+#[tauri::command]
+fn get_browser_settings() -> browser_settings::BrowserSettings {
+    browser_settings::current()
+}
+
+/// 写浏览器内存策略(patch 语义);落盘失败直接报错,不留下"界面显示改过、重启消失"的落差。
+#[tauri::command]
+fn set_browser_settings(
+    app: tauri::AppHandle,
+    patch: browser_settings::BrowserSettingsPatch,
+) -> Result<browser_settings::BrowserSettings, IpcError> {
+    browser_settings::apply(&app, patch)
 }
 
 /// 前端对 `desktop-close-requested` 的答复。choice ∈ {"hide","quit","cancel"}。
@@ -4337,6 +4500,8 @@ pub fn run() {
         .setup(|app| {
             #[cfg(target_os = "windows")]
             webview2_runtime::check_and_report(app.handle());
+            // F-123:标签上限等设置必须在任何建标签路径之前进内存(默认 12/6 不变)。
+            browser_settings::init(app.handle());
             // AUMID 已前移到 run() 顶部(2026-09-02,须早于任何窗口创建)
             // 启动守护在 Builder 之前跑,那时日志插件还没初始化,计数在这里补记。
             let killed_stale = startup_guard::take_killed_stale_count();
@@ -4702,6 +4867,8 @@ pub fn run() {
             set_tray_always_visible,
             get_desktop_prefs,
             set_desktop_prefs,
+            get_browser_settings,
+            set_browser_settings,
             resolve_close_choice,
             set_desktop_badge,
             take_pending_deep_links,
