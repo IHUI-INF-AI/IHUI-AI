@@ -209,6 +209,13 @@ describe('doubao buildCookieHeader(推断层)', () => {
     )
   })
 
+  it('cookies 空 + ttwid 形态 token ⇒ 落 ttwid 键(2026-11-12 实证:套 sessionid 会被判 712012001)', () => {
+    const ctx = makeCtx()
+    ctx.credentials.cookies = []
+    ctx.credentials.token = '1%7CdaSYDrzD9testpayload'
+    expect(buildCookieHeader(ctx)).toBe('ttwid=1%7CdaSYDrzD9testpayload')
+  })
+
   it('cookies 与 token 双空 ⇒ 抛错(该账号不可转发)', () => {
     const ctx = makeCtx()
     ctx.credentials.cookies = []
