@@ -7665,6 +7665,23 @@ const checks = [
       '',
     ].join('\n'),
   },
+  {
+    id: '317',
+    label: '🔌 ACP agent 方法注册完整性(blocking:SDK AGENT_METHODS 声明的 session/* 必须全部 .onRequest/.onNotification)',
+    script: 'check-acp-method-registration.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_ACP_METHOD_REGISTRATION',
+    stagedTriggers: ['apps/cli/src/acp/', 'apps/cli/package.json'],
+    onFailHint: [
+      '  💡 ACP SDK 对**未注册**的方法回 -32601,与「根本没实现」对客户端是同一个错误;',
+      '     而类级单测直接调 agent.xxx() 绕过了注册表,结构上发现不了漏注册。',
+      '  修法:在 apps/cli/src/acp/server.ts 的 buildAcpAgentApp() 里补对应的',
+      '     .onRequest(...) / .onNotification(...);实现方法与注册是两件事,缺一不可。',
+      '  复验:node scripts/check-acp-method-registration.mjs',
+      '  紧急跳过(不推荐):HUSKY_SKIP_ACP_METHOD_REGISTRATION=1 git commit ...',
+    ].join('\n'),
+  },
 ]
 
 // === push 门检查集(2026-08-31 新增) ===
@@ -7916,23 +7933,6 @@ const KNOWN_CLI_FLAGS = new Set([
   '--self-test',
   '--help',
   '-h',
-  {
-    id: '316',
-    label: '🔌 ACP agent 方法注册完整性(blocking:SDK AGENT_METHODS 声明的 session/* 必须全部 .onRequest/.onNotification)',
-    script: 'check-acp-method-registration.mjs',
-    args: [],
-    mode: 'blocking',
-    skipEnv: 'HUSKY_SKIP_ACP_METHOD_REGISTRATION',
-    stagedTriggers: ['apps/cli/src/acp/', 'apps/cli/package.json'],
-    onFailHint: [
-      '  💡 ACP SDK 对**未注册**的方法回 -32601,与「根本没实现」对客户端是同一个错误;',
-      '     而类级单测直接调 agent.xxx() 绕过了注册表,结构上发现不了漏注册。',
-      '  修法:在 apps/cli/src/acp/server.ts 的 buildAcpAgentApp() 里补对应的',
-      '     .onRequest(...) / .onNotification(...);实现方法与注册是两件事,缺一不可。',
-      '  复验:node scripts/check-acp-method-registration.mjs',
-      '  紧急跳过(不推荐):HUSKY_SKIP_ACP_METHOD_REGISTRATION=1 git commit ...',
-    ].join('\n'),
-  },
 ])
 const unknownCliArgs = cliArgs.filter(
   (a) => !KNOWN_CLI_FLAGS.has(a) && !a.startsWith('--only='),
