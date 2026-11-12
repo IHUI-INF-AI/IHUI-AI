@@ -30,12 +30,18 @@
  *     门体判」,本层如实打一行留痕后放行 —— 这是**显式判面声明**,不是环境变量式跳过/降级。
  */
 
-import { execFileSync, spawnSync } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { dirname, join, posix, relative, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
+// ⚠️ 循环 import 已确认:face-reader.mjs 也 import 本层(它在函数体内用 resolveGateFace/
+// assertGateBodyProvenance 等导出)。这个环**能安全加载**的前提是两边只在**函数体内**互相
+// 调用、模块顶层不碰对方绑定:本文件新增的只有 catFileBatch 里调 catBatch/catBatchOids,
+// face-reader 顶层也不读本层的 const 导出 —— ESM 环里函数声明在实例化期即初始化,故先加载哪边
+// 都不会 TDZ;派发器 `--import` 预载本层时更是先完整求值 face-reader(依赖优先)才跑 preflight。
+import { catBatch, catBatchOids } from './face-reader.mjs'
 import { resolveGitBin } from './gitdir.mjs'
 
 /** 判面声明 env(派发器/用户显式给)。 */
@@ -328,45 +334,44 @@ export function gateBodyClosure(root, entryRel) {
 
 /* ─────────────────────────────── 判面取 blob ─────────────────────────────── */
 
-/** `cat-file --batch` 一次读完一批(避免逐文件派生 git —— §5b 的 fork 风暴同型)。 */
+/**
+ * `cat-file --batch` 一次读完一批(避免逐文件派生 git —— §5b 的 fork 风暴同型)。
+ *
+ * 2026-11-12 收口:这里原本**自拼**一条 `spawnSync(cat-file --batch)`,stdio[0]=pipe、maxBuffer、
+ * 输出头解析三处都要自己管,而这三处本仓都真踩过 —— 正是 face-reader 棘轮
+ * 「自拼 batch 取材只减不增」(基线 0)要钉死的形态(此前被一枚"批量提交未提交改动"的提交
+ * 425ae8286fc 回灌过一次,故重新收口)。现统一走取材层:
+ *   · `catBatch` 取正文(missing/非 blob ⇒ null,层内已含 EBUSY 临时 stdin 回退、字节装箱、
+ *     头解析,且超限/超时**抛**、不静默折成"取不到");
+ *   · `catBatchOids` 取 oid(违规报告要展示被判面 blob 短号)。
+ * 行为等价账:输入仍是同一批 spec 原文、同序;层默认 maxBuffer 下限 64MB **≥** 旧自拼的 32MB
+ * (只抬不降,不会让旧来得及读的批变成读不出);失败仍折成
+ * `GateBodyProvenanceError(GATE_BODY_GIT_UNREADABLE)`,文案前缀
+ * `门体自检取不到 git 读数(cat-file --batch):` 一字不变(后接层给出的失败原因,取代旧的
+ * stderr 原文);missing 仍归 `{exists:false, oid:null, text:null}`,取到正文即 exists:true。
+ */
 function catFileBatch(root, specs) {
   if (specs.length === 0) return new Map()
-  const res = spawnSync(resolveGitBin() || 'git', ['-C', root, 'cat-file', '--batch'], {
-    input: `${specs.join('\n')}\n`,
-    // 必须按字节读:判据文件里有中文,size 是字节数,用 utf8 字符串切片会把游标切歪。
-    maxBuffer: 32 * 1024 * 1024,
-    timeout: GIT_TIMEOUT_MS,
-    windowsHide: true,
-    stdio: ['pipe', 'pipe', 'pipe'],
-  })
-  if (res.error || res.status === null || res.status !== 0) {
+  let texts
+  let oids
+  try {
+    texts = catBatch(root, specs)
+    oids = catBatchOids(root, specs)
+  } catch (e) {
     throw new GateBodyProvenanceError(
-      `门体自检取不到 git 读数(cat-file --batch): ${res.error?.message ?? (res.stderr || '').toString().trim()}`,
+      `门体自检取不到 git 读数(cat-file --batch): ${e?.message ?? (e?.stderr || '').toString().trim()}`,
       { code: 'GATE_BODY_GIT_UNREADABLE' },
     )
   }
-  const buf = res.stdout
   const out = new Map()
-  let cursor = 0
   for (const spec of specs) {
-    const headerEnd = buf.indexOf(0x0a, cursor)
-    if (headerEnd < 0) throw new GateBodyProvenanceError(`门体自检解析失败(缺头部):${spec}`, { code: 'GATE_BODY_GIT_UNREADABLE' })
-    const header = buf.subarray(cursor, headerEnd).toString('utf8').trim()
-    const parts = header.split(' ')
-    if (parts[parts.length - 1] === 'missing') {
+    const text = texts.get(spec)
+    // 判"有没有"只看正文是否为 null:空文件是 `''`(存在),不是"取不到"。
+    if (text === null || text === undefined) {
       out.set(spec, { exists: false, oid: null, text: null })
-      cursor = headerEnd + 1
       continue
     }
-    const oid = parts[0]
-    const size = Number(parts[2])
-    if (!Number.isFinite(size)) {
-      throw new GateBodyProvenanceError(`门体自检解析失败(大小未知):${spec}`, { code: 'GATE_BODY_GIT_UNREADABLE' })
-    }
-    const start = headerEnd + 1
-    const text = buf.subarray(start, start + size).toString('utf8')
-    cursor = start + size + 1
-    out.set(spec, { exists: true, oid, text })
+    out.set(spec, { exists: true, oid: oids.get(spec) ?? null, text })
   }
   return out
 }

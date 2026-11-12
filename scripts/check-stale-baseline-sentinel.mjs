@@ -37,11 +37,12 @@
  * 豁免：提交信息含 `intentional-revert:` 或本次提交是 revert/cherry-pick 上下文（.git/REVERT_HEAD
  * 存在）时整轮放行 —— 那两种语义本来就是"取历史内容"。区间模式下逐提交独立判豁免。
  */
-import { execFileSync } from 'node:child_process'
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
+
+import { gitRaw } from './lib/face-reader.mjs'
 
 const THRESHOLD = 3
 const HISTORY_DEPTH = 200
@@ -52,8 +53,16 @@ const HISTORY_DEPTH = 200
 // 才硬拦;少量命中只报警不拦。post-commit 报警器与手动检视仍用 THRESHOLD=3 的灵敏档。
 const PUSH_BLOCK_THRESHOLD = 10
 
+/**
+ * git 派生统一走共享层 face-reader 的 `gitRaw`(绝对路径 git + safe.directory + quotepath +
+ * windowsHide + 有界 timeout + 显式 stdio 接管),不再自拼裸 `execFileSync('git', …)`:
+ * 裸派生缺 windowsHide/超时护栏,且每处各写一份 stdio/maxBuffer 必然漂移(单一真相源)。
+ * `maxBuffer: 1 << 28` 原样传入,与旧裸派生逐字同量级 —— 本器整份读 ls-tree 与 log --raw,
+ * 缓冲不许缩水;失败语义不变:gitRaw 仍抛错(内含 git 原话与退出码),各调用点 try/catch
+ * 与「取材失败 ⇒ 未判定不折绿」的出口码照旧。
+ */
 function git(repo, args, opts = {}) {
-  return execFileSync('git', args, { cwd: repo, maxBuffer: 1 << 28, stdio: ['ignore', 'pipe', 'pipe'], ...opts }).toString()
+  return gitRaw(args, repo, { maxBuffer: 1 << 28, ...opts })
 }
 
 /** 取某引用的树（path → blob oid） */

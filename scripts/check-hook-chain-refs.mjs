@@ -23,12 +23,12 @@
  *   钩子 spawn 引用 39 处 | 入口缺失 1 处(scripts/check-staged-resurrection.mjs)
  *   入口 import 闭包缺失 1 个(scripts/lib/intentional-file-deletion.mjs)
  */
-import { execFileSync, spawnSync } from 'node:child_process'
+import { spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { findRepoRoot } from './lib/gate-body-provenance.mjs'
-import { readWorktreeFile } from './lib/face-reader.mjs'
+import { gitRaw, readWorktreeFile } from './lib/face-reader.mjs'
 
 const ROOT = findRepoRoot(fileURLToPath(import.meta.url))
 const STRICT = process.argv.includes('--strict')
@@ -50,12 +50,11 @@ const CANDIDATE_EXTS = [
 ]
 
 // 判红面看**工作区**(钩子执行的就是工作区文件);HEAD 树只用来报"提交态还缺哪些"。
+// 裸 `execFileSync('git', …)` 迁共享层 gitRaw(§12g 单源):原写法无 timeout、maxBuffer 吃默认
+// 1MB,层默认 60s / 64MB 只强不弱;取不到仍与原来一样直接抛(顶层无 catch ⇒ 整门当场崩),
+// 失败语义不变,只是 message 由层拼成 `git ls-tree 失败: <原因>`(比 Node 原生句式多归因)。
 const headTree = new Set(
-  execFileSync('git', ['-C', ROOT, 'ls-tree', '-r', '--name-only', 'HEAD'], {
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-    windowsHide: true,
-  })
+  String(gitRaw(['ls-tree', '-r', '--name-only', 'HEAD'], ROOT) ?? '')
     .split(/\r?\n/)
     .filter(Boolean),
 )
@@ -119,11 +118,19 @@ function collectSpecs(src) {
 
 // ─── ① 全树静态基准读数(不判红)──────────────────────────────────────────────
 const jsFiles = [...headTree].filter((f) => /\.(c|m)?js$/.test(f))
-const grepOut = spawnSync(
-  'git',
-  ['-C', ROOT, 'grep', '-n', '-E', REL_REQUIRE, 'HEAD', '--', '*.js', '*.mjs', '*.cjs'],
-  { encoding: 'utf8', maxBuffer: 1 << 28, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true },
-).stdout
+// 裸 `spawnSync('git', …)` 迁共享层 gitRaw(§12g 单源),maxBuffer 1<<28 与原自拼同参数
+//(256MB,不得回落层默认 64MB —— 这档原文就是 256MB,缓冲区不许降档);timeout 取层默认 60s
+//(原写法无界,更严)。失败语义也保持原样:原来只取 `.stdout`、**不看状态码**,git grep 零命中
+// 本来就退出 1、spawn 失败时 stdout 为 null,一律落空串 —— 所以这里同样不抛:本档只是
+//「全树静态基准读数(不判红)」,判红面在下面的③闭包,读数取不到就按零命中报数,不崩整门。
+let grepOut
+try {
+  grepOut = gitRaw(['grep', '-n', '-E', REL_REQUIRE, 'HEAD', '--', '*.js', '*.mjs', '*.cjs'], ROOT, {
+    maxBuffer: 1 << 28,
+  })
+} catch {
+  grepOut = ''
+}
 let treeRequires = 0
 const treeBroken = []
 for (const line of String(grepOut || '').split(/\r?\n/)) {
