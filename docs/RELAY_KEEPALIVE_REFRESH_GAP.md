@@ -50,10 +50,27 @@
 | loomy | 空壳 stub（恒 null） | 无 | — | ❌ 声明不可续期 |
 | codex | 未实现 | 无公开续期协议 | — | ❌ 不续期（401 自愈靠重导） |
 | opencode | 未实现 | OAuth 端点未实证 | — | ❌ 不续期 |
-| minimax | 未实现 | mcode OAuth 刷新端点未实证 | — | ❌ 不续期 |
-| zcode | 未实现 | ZCode OAuth 刷新端点未实证 | — | ❌ 不续期 |
+| minimax | 真实现（2026-11-06 取证） | 有（`account.minimax.cn/oauth2/token`，轮换 rt） | client-first | ✅ 真续期（回灌腿同批） |
+| zcode | 未实现（显式 false，2026-11-12 复核） | 无 | — | ❌ 不续期（会话回灌） |
+| raccoon | 未实现（显式 false） | 无 | — | ❌ 不续期（会话回灌） |
 | lingma | 未实现 | 无公开续期协议 | — | ❌ 不续期 |
 | grokbot | 未实现 | 无公开续期协议 | — | ❌ 不续期 |
+
+### 3.1 2026-11-12 桌面端取证复核（loomy / zcode）
+
+- **zcode（ZCode 3.17.2）**：客户端确有 token 端点 `/api/v1/oauth/token` 与
+  `oauth:<provider>:refresh_token` 存储键，但两个 provider 适配器（kt / zai）**都没有 refresh 交换实现** ——
+  `oauthService.refreshToken` 一旦走到 `!adapter.refreshToken` 就抛「暂未提供 refresh token 交换接口，请重新登录」。
+  本机 `credentials.json` 解密后的全部键：`oauth:bigmodel:access_token`、`zcodejwttoken`、
+  `oauth:bigmodel:user_info`、`oauth:active_provider`、`project-key-location:*` —— **没有 refresh_token**。
+  ⇒ 上游既未下发 rt，客户端也没有可复用的刷新调用，适配器继续声明不可续期。
+- **loomy（Loomy 0.9.39 / 讯飞 CAccount）**：登录面只有
+  `/login/phone/sendMsgCode`、`/login/phone/checkCode`、`/login/account/byPwd`、`/login/account/logout`，
+  会话（session）失效一律走重新登录；客户端内 `refreshTokenRequest` 仅来自打包的 `@vercel/oidc`，与本产品无关。
+  ⇒ 无 refresh 通路，适配器保持 `refreshTokenSupported: false`。
+- **替代保活通路**：loomy / zcode / raccoon 由 worker 的客户端会话回灌腿
+  （`loomy-session-sync` / `zcode-session-sync` / `raccoon-session-sync`，每 10 分钟）从本机客户端存储重捞凭据入池，
+  再经 `IHUI-Pool-Sync`（每 2 分钟）镜像到生产；池侧三档（临期/空闲/down）对它们一律 skip，绝不记 `refreshFailed`。
 
 ## 四、未决 / 后续
 
