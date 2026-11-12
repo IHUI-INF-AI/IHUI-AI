@@ -55,6 +55,12 @@ const QODER_SYNC_CRON_PATTERN = '*/10 * * * *'
 const RETIRED_WORKBUDDY_SCHEDULER_ID = 'workbuddy-session-sync-cron'
 /** 每 10 分钟把本机 MiniMax Code(mcode)会话回灌进号池(mcode 轮换票面,池侧无刷新能力只能跟随) */
 const MINIMAX_SYNC_CRON_PATTERN = '*/10 * * * *'
+/** 每 10 分钟把本机 Loomy 登录态回灌进号池(Loomy 适配器无 refreshToken,池侧只能跟随) */
+const LOOMY_SYNC_CRON_PATTERN = '*/10 * * * *'
+/** 每 10 分钟把本机 ZCode 登录态回灌进号池(ZCode 适配器不实现 refreshToken,池侧只能跟随) */
+const ZCODE_SYNC_CRON_PATTERN = '*/10 * * * *'
+/** 每 10 分钟把本机小浣熊登录态回灌进号池(小浣熊适配器无 refreshToken,池侧只能跟随) */
+const RACCOON_SYNC_CRON_PATTERN = '*/10 * * * *'
 /** 仓根(scripts/sync-*-client-session.mjs 的落点):workers→src→api→apps→root 共 4 级 */
 const REPO_ROOT = resolvePath(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..')
 
@@ -128,6 +134,12 @@ export const runWorkbuddySessionSync = (): Promise<ClientSyncOutcome> =>
   runClientSessionSync('sync-workbuddy-client-session.mjs')
 export const runMinimaxSessionSync = (): Promise<ClientSyncOutcome> =>
   runClientSessionSync('sync-minimax-client-session.mjs')
+export const runLoomySessionSync = (): Promise<ClientSyncOutcome> =>
+  runClientSessionSync('sync-loomy-client-session.mjs')
+export const runZcodeSessionSync = (): Promise<ClientSyncOutcome> =>
+  runClientSessionSync('sync-zcode-client-session.mjs')
+export const runRaccoonSessionSync = (): Promise<ClientSyncOutcome> =>
+  runClientSessionSync('sync-raccoon-client-session.mjs')
 
 /**
  * 接管前「当场再探测一次客户端」的调用方侧实现(2026-11-10 C 档)。
@@ -263,6 +275,35 @@ export function startRelayAccountPoolWorker(server: FastifyInstance): Worker {
           },
         },
       )
+      // 2026-11-12 接车:Loomy / ZCode / 小浣熊三条同型回灌腿(适配器均无 refreshToken,
+      // 客户端为主策略的取数端;与 trae/qoder/minimax 同族)。
+      await queue.upsertJobScheduler(
+        'loomy-session-sync-cron',
+        { pattern: LOOMY_SYNC_CRON_PATTERN },
+        {
+          name: 'loomy-session-sync',
+          data: {},
+          opts: { removeOnComplete: 100, removeOnFail: 500 },
+        },
+      )
+      await queue.upsertJobScheduler(
+        'zcode-session-sync-cron',
+        { pattern: ZCODE_SYNC_CRON_PATTERN },
+        {
+          name: 'zcode-session-sync',
+          data: {},
+          opts: { removeOnComplete: 100, removeOnFail: 500 },
+        },
+      )
+      await queue.upsertJobScheduler(
+        'raccoon-session-sync-cron',
+        { pattern: RACCOON_SYNC_CRON_PATTERN },
+        {
+          name: 'raccoon-session-sync',
+          data: {},
+          opts: { removeOnComplete: 100, removeOnFail: 500 },
+        },
+      )
       // WorkBuddy 定时腿已撤除:显式移除可能的遗留注册(BullMQ 的 scheduler 存于 Redis,
       // 删代码不会自动清理),避免它继续每 10 分钟投递 worker 已不再处理的幽灵作业。
       try {
@@ -283,6 +324,9 @@ export function startRelayAccountPoolWorker(server: FastifyInstance): Worker {
       server.log.info({ pattern: TRAE_SYNC_CRON_PATTERN }, 'trae-session-sync scheduled')
       server.log.info({ pattern: QODER_SYNC_CRON_PATTERN }, 'qoder-session-sync scheduled')
       server.log.info({ pattern: MINIMAX_SYNC_CRON_PATTERN }, 'minimax-session-sync scheduled')
+      server.log.info({ pattern: LOOMY_SYNC_CRON_PATTERN }, 'loomy-session-sync scheduled')
+      server.log.info({ pattern: ZCODE_SYNC_CRON_PATTERN }, 'zcode-session-sync scheduled')
+      server.log.info({ pattern: RACCOON_SYNC_CRON_PATTERN }, 'raccoon-session-sync scheduled')
     } catch (err) {
       server.log.error({ err }, 'failed to schedule relay-account-pool sweep')
     }
@@ -294,14 +338,23 @@ export function startRelayAccountPoolWorker(server: FastifyInstance): Worker {
       if (
         job.name === 'trae-session-sync' ||
         job.name === 'qoder-session-sync' ||
-        job.name === 'minimax-session-sync'
+        job.name === 'minimax-session-sync' ||
+        job.name === 'loomy-session-sync' ||
+        job.name === 'zcode-session-sync' ||
+        job.name === 'raccoon-session-sync'
       ) {
-        // 脚本名单源在四个命名出口里,调度分支与手动触发口走同一条路
+        // 脚本名单源在命名出口里,调度分支与手动触发口走同一条路
         const outcome = await (job.name === 'qoder-session-sync'
           ? runQoderSessionSync()
           : job.name === 'minimax-session-sync'
             ? runMinimaxSessionSync()
-            : runTraeSessionSync())
+            : job.name === 'loomy-session-sync'
+              ? runLoomySessionSync()
+              : job.name === 'zcode-session-sync'
+                ? runZcodeSessionSync()
+                : job.name === 'raccoon-session-sync'
+                  ? runRaccoonSessionSync()
+                  : runTraeSessionSync())
         // 退出码 2 = 未判定(本机无对应客户端/解密失败/tsx 缺失):服务器部署形态
         // 的常态,记 warn 不记 failure(它不该进 BullMQ 失败重试风暴)
         if (outcome.code === 2) {
