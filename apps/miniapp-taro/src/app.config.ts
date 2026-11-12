@@ -203,6 +203,7 @@ export default defineAppConfig({
         'circle-detail/index',
         'ranking-detail/index',
         'identity-verify/index',
+        'finance-ai-hub/index',
       ],
     },
     {
