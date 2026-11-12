@@ -85,24 +85,24 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | ---- | ---- | ------ |
 | 数据库表 | 639 | `dbTables` |
 | schema 文件 | 246 | `dbSchemaFiles` |
-| API 路由 | 4771 | `apiRoutes` |
+| API 路由 | 4768 | `apiRoutes` |
 | 路由文件 | 694 | `apiRouteFiles` |
 | AI 服务路由 | 676 | `aiServiceRoutes` |
-| WebSocket 端点 | 43 | `wsEndpoints` |
+| WebSocket 端点 | 40 | `wsEndpoints` |
 | 入库模型清单 | 100 | `llmModels` |
 | 发布平台 | 38 | `publishPlatforms` |
 | 端应用包 | 9 | `appPackages` |
 | 共享包 | 17 | `sharedPackages` |
-| CLI 命令文件 | 76 | `cliCommandFiles` |
-| CLI 工具文件 | 104 | `cliToolFiles` |
+| CLI 命令文件 | 78 | `cliCommandFiles` |
+| CLI 工具文件 | 107 | `cliToolFiles` |
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
 | 测试文件 | 5135 | `testFiles` |
 | CI 工作流 | 59 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
-| 工程守门 | 362 | `guardianGates` |
-| — blocking | 333 | `guardianBlocking` |
+| 工程守门 | 363 | `guardianGates` |
+| — blocking | 334 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
 | 跟踪文件 | 21268 | `trackedFiles` |
 
@@ -5469,6 +5469,10 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - **已知缺口(deferred 不落盘)**:派发队列是进程内一次性内存队列(无常驻服务、无轮询、无持久化),投递记录要等任务跑完才写表。`dispatch:'async'` 已回 200、后台任务尚未跑完的窗口里若 API 进程崩溃或重启,内存任务与未写入的投递表一并丢失;GitHub 侧已记成功不会重投,进程内一级去重 LRU 也随之消失 ⇒ 该次投递的评审 / 评论回写静默丢失、无法重放、无从对账。当前实现未收口此窗口(积压满触发「就地执行」的兜底只防积压,不防进程退出)。
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-13**
+- 📚 文档:生成块数字对账到 HEAD 现算(testFiles 5130→5135 / trackedFiles 21245→21268) (33739a02868)
+- 🐞 修复:收口剩余旧邮箱残留（README 正文/发布说明/脱敏示例/告警收件人） (5f7ce8307a6)
+
 **2026-11-13**
 - 🔧 工程/其他:302p 跨端漂移基线全维刷新(终尖现读,五个变维逐项取证非本区间引入) (a0afd5f9c44)
 - 🔧 工程/其他:补齐流式修复批 7 个文件的溯源水印(门 47p 欠账清偿) (1cfac3e8a7a)
