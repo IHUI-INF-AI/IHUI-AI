@@ -49,6 +49,30 @@ export const orderRoutes: FastifyPluginAsync = async (server) => {
     // 抛 22P02 invalid input syntax for type uuid,而未被兜住就是 500 —— 于是"这条不存在"与
     // "服务坏了"在响应上完全同形。判据只有一份(utils/uuid.ts 的 isUuidString),闸必须在进 SQL 之前。
     if (!isUuidString(id)) return reply.status(400).send(error(400, 'id 格式不正确'))
+    // F-130:已支付 / 已退款订单禁止物理删除。
+    //
+    // 修前这里直接 `delete(eduOrders)` 再 `delete(orders)`,不看支付状态;而
+    // `payments.order_id` / `edu_payments.order_id` 都是 `onDelete: 'cascade'` ⇒ 一次删除
+    // 把已支付订单连同网关原始响应一起抹掉:财务对账、退款、发票与审计证据都**不可恢复**。
+    // 物理删除只对"从未产生资金流"的订单成立(pending / cancelled);其余一律 409,
+    // 由人工走退款/作废流程 —— 这里刻意不做软删:表上没有软删列,现造一列等于改 schema
+    // 与全部查询口径,超出本票射程(fail-closed 优先)。
+    const [existing] = await db
+      .select({ status: eduOrders.status })
+      .from(eduOrders)
+      .where(eq(eduOrders.id, id))
+      .limit(1)
+    if (!existing) return reply.status(404).send(error(404, '订单不存在'))
+    if (existing.status === 'paid' || existing.status === 'refunded') {
+      return reply
+        .status(409)
+        .send(
+          error(
+            409,
+            `订单状态为 ${existing.status},已产生资金流,禁止物理删除;请走退款/作废流程`,
+          ),
+        )
+    }
     const [row] = await db.delete(eduOrders).where(eq(eduOrders.id, id)).returning()
     if (!row) return reply.status(404).send(error(404, '订单不存在'))
     // Phase 3: 同步删除统一 orders 表
