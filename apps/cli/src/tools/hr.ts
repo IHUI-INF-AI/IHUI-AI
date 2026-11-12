@@ -475,11 +475,31 @@ const HR_SPECS: RouteToolSpec[] = [
     "method": "GET",
     "path": "/api/hr-daily/daily",
     "params": [
-      { "name": "employeeId", "type": "string", "description": "员工 ID(uuid,可选)" },
-      { "name": "departmentId", "type": "string", "description": "部门 ID(uuid,可选)" },
-      { "name": "month", "type": "string", "description": "月份 YYYY-MM(可选)" },
-      { "name": "limit", "type": "number", "description": "分页大小(可选,默认 50)" },
-      { "name": "offset", "type": "number", "description": "分页偏移(可选,默认 0)" }
+      {
+        "name": "employeeId",
+        "type": "string",
+        "description": "员工 ID(uuid,可选)"
+      },
+      {
+        "name": "departmentId",
+        "type": "string",
+        "description": "部门 ID(uuid,可选)"
+      },
+      {
+        "name": "month",
+        "type": "string",
+        "description": "月份 YYYY-MM(可选)"
+      },
+      {
+        "name": "limit",
+        "type": "number",
+        "description": "分页大小(可选,默认 50)"
+      },
+      {
+        "name": "offset",
+        "type": "number",
+        "description": "分页偏移(可选,默认 0)"
+      }
     ]
   },
   {
@@ -488,9 +508,21 @@ const HR_SPECS: RouteToolSpec[] = [
     "method": "GET",
     "path": "/api/hr-daily/leave-balance",
     "params": [
-      { "name": "employeeId", "type": "string", "description": "员工 ID(uuid,可选)" },
-      { "name": "leaveType", "type": "string", "description": "假别 sick/personal/annual/marriage/maternity/other(可选)" },
-      { "name": "year", "type": "number", "description": "年度(可选)" }
+      {
+        "name": "employeeId",
+        "type": "string",
+        "description": "员工 ID(uuid,可选)"
+      },
+      {
+        "name": "leaveType",
+        "type": "string",
+        "description": "假别 sick/personal/annual/marriage/maternity/other(可选)"
+      },
+      {
+        "name": "year",
+        "type": "number",
+        "description": "年度(可选)"
+      }
     ]
   },
   {
@@ -499,12 +531,45 @@ const HR_SPECS: RouteToolSpec[] = [
     "method": "POST",
     "path": "/api/hr-daily/punch-fix",
     "params": [
-      { "name": "employeeId", "type": "string", "description": "员工 ID(uuid)", "required": true },
-      { "name": "departmentId", "type": "string", "description": "部门 ID(uuid)", "required": true },
-      { "name": "date", "type": "string", "description": "补卡日期 YYYY-MM-DD", "required": true },
-      { "name": "punchType", "type": "string", "description": "补卡类型 check_in(补签到)/check_out(补签退)", "required": true, "enum": ["check_in", "check_out"] },
-      { "name": "punchTime", "type": "string", "description": "补卡时刻 ISO8601(可选)" },
-      { "name": "reason", "type": "string", "description": "补卡事由(必填)", "required": true }
+      {
+        "name": "employeeId",
+        "type": "string",
+        "description": "员工 ID(uuid)",
+        "required": true
+      },
+      {
+        "name": "departmentId",
+        "type": "string",
+        "description": "部门 ID(uuid)",
+        "required": true
+      },
+      {
+        "name": "date",
+        "type": "string",
+        "description": "补卡日期 YYYY-MM-DD",
+        "required": true
+      },
+      {
+        "name": "punchType",
+        "type": "string",
+        "description": "补卡类型 check_in(补签到)/check_out(补签退)",
+        "required": true,
+        "enum": [
+          "check_in",
+          "check_out"
+        ]
+      },
+      {
+        "name": "punchTime",
+        "type": "string",
+        "description": "补卡时刻 ISO8601(可选)"
+      },
+      {
+        "name": "reason",
+        "type": "string",
+        "description": "补卡事由(必填)",
+        "required": true
+      }
     ]
   },
   {
@@ -513,11 +578,25 @@ const HR_SPECS: RouteToolSpec[] = [
     "method": "PUT",
     "path": "/api/hr-daily/punch-fix/:id/approve",
     "pathParams": [
-      { "name": "id", "type": "string", "description": "补卡申请 ID(uuid)", "required": true }
+      {
+        "name": "id",
+        "type": "string",
+        "description": "补卡申请 ID(uuid)",
+        "required": true
+      }
     ],
     "params": [
-      { "name": "approve", "type": "boolean", "description": "是否通过(true=通过回写考勤/false=驳回)", "required": true },
-      { "name": "approveRemark", "type": "string", "description": "审批意见(可选)" }
+      {
+        "name": "approve",
+        "type": "boolean",
+        "description": "是否通过(true=通过回写考勤/false=驳回)",
+        "required": true
+      },
+      {
+        "name": "approveRemark",
+        "type": "string",
+        "description": "审批意见(可选)"
+      }
     ]
   },
   {
@@ -532,15 +611,63 @@ const HR_SPECS: RouteToolSpec[] = [
     "method": "POST",
     "path": "/api/hr-approval/flows",
     "params": [
-      { "name": "id", "type": "string", "description": "规则 ID(uuid,可选;带则更新)" },
-      { "name": "leaveType", "type": "string", "description": "假别", "required": true },
-      { "name": "minDays", "type": "number", "description": "最少天数(含)", "required": true },
-      { "name": "maxDays", "type": "number", "description": "最多天数(不含,可空=无上界,可选)" },
-      { "name": "approverIds", "type": "array", "description": "有序审批链(审批人 user id 列表)", "required": true },
-      { "name": "approverProxyId", "type": "string", "description": "可选代理审批人 user id(可选)" },
-      { "name": "timeoutHours", "type": "number", "description": "审批时限小时(可选,默认 24)" },
-      { "name": "escalationApproverId", "type": "string", "description": "超时升级目标 user id(可选)" },
-      { "name": "status", "type": "string", "description": "active/disabled(可选,默认 active)", "enum": ["active", "disabled"] }
+      {
+        "name": "id",
+        "type": "string",
+        "description": "规则 ID(uuid,可选;带则更新)"
+      },
+      {
+        "name": "leaveType",
+        "type": "string",
+        "description": "假别",
+        "required": true
+      },
+      {
+        "name": "minDays",
+        "type": "number",
+        "description": "最少天数(含)",
+        "required": true
+      },
+      {
+        "name": "maxDays",
+        "type": "number",
+        "description": "最多天数(不含,可空=无上界,可选)"
+      },
+      {
+        "name": "approverIds",
+        "type": "array",
+        "description": "有序审批链(审批人 user id 列表)",
+        "required": true,
+        "items": {
+          "name": "item",
+          "type": "string",
+          "description": "审批人 user id(uuid)"
+        }
+      },
+      {
+        "name": "approverProxyId",
+        "type": "string",
+        "description": "可选代理审批人 user id(可选)"
+      },
+      {
+        "name": "timeoutHours",
+        "type": "number",
+        "description": "审批时限小时(可选,默认 24)"
+      },
+      {
+        "name": "escalationApproverId",
+        "type": "string",
+        "description": "超时升级目标 user id(可选)"
+      },
+      {
+        "name": "status",
+        "type": "string",
+        "description": "active/disabled(可选,默认 active)",
+        "enum": [
+          "active",
+          "disabled"
+        ]
+      }
     ]
   },
   {
@@ -549,7 +676,12 @@ const HR_SPECS: RouteToolSpec[] = [
     "method": "POST",
     "path": "/api/hr-approval/leave/:id/submit",
     "pathParams": [
-      { "name": "id", "type": "string", "description": "请假单 ID(uuid)", "required": true }
+      {
+        "name": "id",
+        "type": "string",
+        "description": "请假单 ID(uuid)",
+        "required": true
+      }
     ]
   },
   {
@@ -558,11 +690,29 @@ const HR_SPECS: RouteToolSpec[] = [
     "method": "PUT",
     "path": "/api/hr-approval/leave/:id/decide",
     "pathParams": [
-      { "name": "id", "type": "string", "description": "审批实例 ID(uuid)", "required": true }
+      {
+        "name": "id",
+        "type": "string",
+        "description": "审批实例 ID(uuid)",
+        "required": true
+      }
     ],
     "params": [
-      { "name": "decision", "type": "string", "description": "决策 approved(通过)/rejected(驳回)", "required": true, "enum": ["approved", "rejected"] },
-      { "name": "remark", "type": "string", "description": "审批意见(可选)" }
+      {
+        "name": "decision",
+        "type": "string",
+        "description": "决策 approved(通过)/rejected(驳回)",
+        "required": true,
+        "enum": [
+          "approved",
+          "rejected"
+        ]
+      },
+      {
+        "name": "remark",
+        "type": "string",
+        "description": "审批意见(可选)"
+      }
     ]
   },
   {
@@ -571,9 +721,22 @@ const HR_SPECS: RouteToolSpec[] = [
     "method": "GET",
     "path": "/api/hr-approval/instances",
     "params": [
-      { "name": "approverId", "type": "string", "description": "审批人 user id(uuid)", "required": true },
-      { "name": "limit", "type": "number", "description": "分页大小(可选,默认 20)" },
-      { "name": "offset", "type": "number", "description": "分页偏移(可选,默认 0)" }
+      {
+        "name": "approverId",
+        "type": "string",
+        "description": "审批人 user id(uuid)",
+        "required": true
+      },
+      {
+        "name": "limit",
+        "type": "number",
+        "description": "分页大小(可选,默认 20)"
+      },
+      {
+        "name": "offset",
+        "type": "number",
+        "description": "分页偏移(可选,默认 0)"
+      }
     ]
   },
   {
@@ -582,7 +745,11 @@ const HR_SPECS: RouteToolSpec[] = [
     "method": "POST",
     "path": "/api/hr-approval/instances/escalate",
     "params": [
-      { "name": "now", "type": "string", "description": "以指定时刻判定超时 ISO8601(可选,缺省=当下)" }
+      {
+        "name": "now",
+        "type": "string",
+        "description": "以指定时刻判定超时 ISO8601(可选,缺省=当下)"
+      }
     ]
   }
 ]
