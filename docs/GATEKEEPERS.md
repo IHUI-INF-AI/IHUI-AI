@@ -99,6 +99,7 @@ git commit
 ### 2.4 pre-push 流程
 
 `.husky/pre-push` 在 Git LFS pre-push 之后跑全量 typecheck:
+- 推送前先跑生成物拦截(`check-staged-artifacts.mjs --rev`,防 `--no-verify` 提交被自动 push 带走)
 - 清 `.tsbuildinfo` 缓存后跑 `pnpm typecheck:full`(防止缓存假象)
 - 工作区有未提交改动时打印明确指引(3 个选项)
 - 跳过:`HUSKY_SKIP_TYPECHECK=1 git push`(紧急 push,不推荐)
@@ -124,6 +125,10 @@ git commit
 - **自查**:`node scripts/check-staged-artifacts.mjs --report`(只画像不拦)。单测 `node --test scripts/tests/check-staged-artifacts.test.mjs`。
 - **应急跳过**:`HUSKY_SKIP_STAGED_ARTIFACTS=1`(仅判据确有误报时按,日常不得用)。
 - **接线位置**:`scripts/lib/pre-commit-hook.js` 第 0c 步(文件数预检之后、复活闸之后)。
+- **推送侧(2026-11-12 补)**:`git commit --no-verify` 可绕过 pre-commit,而 post-commit 会自动 push,
+  因此 `.husky/pre-push` 在 tag/凭据门之前用 `--rev <remote_sha>..<local_sha>` 复核被推区间
+  (新分支取 `origin/main` 合并基点),判据复用同一份 `judgePath`。三态:0 放行 / 1 阻断 / 2 未判定
+  (不报绿,阻断;应急 `HUSKY_SKIP_STAGED_ARTIFACTS=1`)。
 
 ### 第 1 项 check-api-key-leak.mjs(阻塞)
 
