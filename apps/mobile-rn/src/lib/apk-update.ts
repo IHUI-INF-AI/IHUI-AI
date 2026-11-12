@@ -24,6 +24,10 @@
  *      `latest.buildNumber > 当前版本记录.buildNumber` 算的,而"当前版本"是按 version 字符串
  *      回查版本表 —— 本地构建/未登记的版本号查不到 ⇒ currentBuild 记 0 ⇒ 任何 latest 行都会
  *      被判成"有更新"。所以客户端必须自己再比一次版本号(compareVersions),两边都成立才算更新。
+ *   4. **判升降级的取材面必须是设备真实装的那个包**:JS bundle 的 APP_VERSION 只有在构建期
+ *      双写校验通过时才等于原生 versionName(见 config.ts 的 APP_VERSION_IS_AUTHORITATIVE)。
+ *      拿不到这个背书 ⇒ 判「未判定」,一律不提示更新;服务端 hasUpdate 本身有假阳性(红线 3),
+ *      两道一起失效正是 2026-11-12「0.0.25 被判成该升 0.0.24」的事故形态。
  *
  * 状态口径与 ota-update 对齐(idle/checking/up-to-date/available/downloading/installing/error/
  * unsupported),差别只在于"就绪"叫 available —— APK 没有静默预下载,"就绪"本身没有内容。
@@ -40,7 +44,7 @@ import {
   DownloadCancelledError,
 } from './ranged-download'
 import { downloadApkParts } from './multipart-download'
-import { APP_USER_AGENT, APP_VERSION } from './config'
+import { APP_USER_AGENT, APP_VERSION, APP_VERSION_IS_AUTHORITATIVE } from './config'
 import {
   APK_CN_LEG_URL,
   APK_MIN_BYTES,
@@ -69,7 +73,11 @@ export type ApkInstallMode = 'in-app' | 'browser' | null
 
 export interface ApkStore {
   state: ApkUpdateState
-  /** 当前进程的显示版本(src/lib/config.ts 的 APP_VERSION,与原生 versionName 同源) */
+  /**
+   * 当前进程的显示版本(src/lib/config.ts 的 APP_VERSION)。
+   * 仅供显示与上报;判升降级时**必须**同时验 APP_VERSION_IS_AUTHORITATIVE,
+   * 未带构建期版本号的 bundle 里它可能落后于真实原生包(见红线 4)。
+   */
   currentVersion: string
   latestVersion: string | null
   downloadUrl: string | null
@@ -256,12 +264,19 @@ export function compareVersions(a: string, b: string): number | null {
  *
  * 服务端 hasUpdate 有假阳性(见文件头红线 3),客户端 compareVersions 有"读不懂"。
  * 两者**同时**成立才算真有更新:读不懂时退化成"信服务端",但绝不因为读不懂就报"有更新"。
+ *
+ * 前置闸门(红线 4):`currentVersionTrusted` 为假 ⇒ 连"读不懂就信服务端"都不许走,直接
+ * 按未判定返回 false。当前版本取材面不可信时,服务端假阳性与客户端复核会一起失效 ——
+ * 两道判据同时失灵正是「把 0.0.25 判成该升 0.0.24」的事故形态。宁可漏报升级,绝不误报降级。
  */
 export function decideHasUpdate(input: {
   serverHasUpdate: boolean
   latestVersion: string | null | undefined
   currentVersion: string
+  /** 当前版本是否与设备原生 versionName 同源;false ⇒ 判未判定,一律不报更新 */
+  currentVersionTrusted: boolean
 }): boolean {
+  if (!input.currentVersionTrusted) return false
   const latest = input.latestVersion?.trim()
   if (!latest) return false
   const cmp = compareVersions(latest, input.currentVersion)
@@ -351,10 +366,15 @@ async function runCheck(): Promise<ApkUpdateState> {
       serverHasUpdate: data.hasUpdate !== false,
       latestVersion,
       currentVersion: store.currentVersion,
+      currentVersionTrusted: APP_VERSION_IS_AUTHORITATIVE,
     })
     if (!hasUpdate) {
       patch({
         state: 'up-to-date',
+        // 未判定必须留痕:不弹窗不等于「已确认是最新版」,排查时靠这一格区分
+        lastError: APP_VERSION_IS_AUTHORITATIVE
+          ? null
+          : '当前版本不可信(JS bundle 未带构建期版本号),已按未判定跳过更新检查',
         latestVersion: latestVersion ?? store.currentVersion,
         downloadUrl: null,
         releaseNotes: null,
