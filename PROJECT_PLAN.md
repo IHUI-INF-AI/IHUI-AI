@@ -12227,18 +12227,11 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 14A. **缺陷普查 DG DG-14** [P3] 元门档是「脚本名正则白名单」：新增门命名不命中即本地零通道，且没有门保证「每门至少一个阻断通道」（证据 docs/tickets/2026-11/findings-deploy-gates.md#DG-14）
 - [ ] 5C. **缺陷普查 CLI F-004** [P1] POSIX 沙箱超时可能永不返回（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-004）（未判定：POSIX 进程组/管道超时语义在 Windows 不可达，无法起旧红夹具；不计入已修）
 - [ ] 6C. **缺陷普查 CLI F-005** [P1] 会话/子代理状态文件权限位为 0644（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-005）（未判定：POSIX mode 位在 Windows 不可测，需 Unix 文件系统；不计入已修）
-- [ ] 13C. **缺陷普查 CLI F-010** [P2] 错误写 stdout 且紧跟 process.exit（管道下丢输出）（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-010）
-- [ ] 14C. **缺陷普查 CLI F-011** [P2] --json 输出混入非 JSON 行（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-011）
 - [ ] 18C. **缺陷普查 CLI F-015** [P2] serve 的 flush 与信号退出码（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-015）
 - [ ] 29C. **缺陷普查 CLI F-028** [P2] 凭据设置文件非原子写（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-028）
 - [ ] 38C. **缺陷普查 CLI F-040** [P2] 三份能力回归钉未接入任何 runner（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-040）
 - [ ] 40C. **缺陷普查 CLI F-048** [P2] 托盘创建失败时 close_behavior=hide 把窗口藏进虚空（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-048）
 - [ ] 49C. **缺陷普查 CLI F-061** [P2] allow-clipboard-set 两端皆无（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-061）
-- [ ] 50C. **缺陷普查 CLI F-017** [P3] 非法数值/枚举静默回落（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-017）
-- [ ] 51C. **缺陷普查 CLI F-018** [P3] 全局 flag 位置敏感 + json 判据双源（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-018）
-- [ ] 54C. **缺陷普查 CLI F-039** [P3] 审计文件/目录未收紧权限（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-039）
-- [ ] 56C. **缺陷普查 CLI F-043** [P3] dev 配置漂移：csp:null、版本 0.1.53、9333 CDP（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-043）
-- [ ] 57C. **缺陷普查 CLI F-044** [P3] shell open 运行时正则放行任意 localhost 端口（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-044）
 - [ ] 60C. **缺陷普查 CLI F-060** [P3] Cookie 整串经 IPC 回传前端 + expect 建客户端（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-060）
 
 - [ ] 67C. **缺陷普查 CLI F-080** [P1] write_text_file 无大小上限、非原子覆盖（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-080）（未判定：Rust 夹具为 helper 级，反向 apply 整笔会把夹具同 hunk 回退，拿不到「夹具保留+旧源码」组合；不计入已修）
@@ -12246,10 +12239,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 73C. **缺陷普查 CLI F-065** [P2] 同会话并发回合共享消息数组，abort 相互覆盖（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-065）
 - [ ] 74C. **缺陷普查 CLI F-066** [P2] ACP 会话关闭 / SIGINT 不中止在飞 prompt（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-066）
 - [ ] 75C. **缺陷普查 CLI F-067** [P2] 编辑器审批请求无超时，prompt 可永久挂起（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-067）
-- [ ] 77C. **缺陷普查 CLI F-071** [P2] 更新计划 staged 目录用清单 name 拼接 → clone 写到 staging 之外且不清理（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-071）
-- [ ] 78C. **缺陷普查 CLI F-076** [P2] 出口取词缺口：裸 localhost 与解释器内 URL 视为无目标（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-076）
 - [ ] 79C. **缺陷普查 CLI F-077** [P2] DNS 判定与连接 TOCTOU / rebinding，默认无地址证据（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-077）
-- [ ] 80C. **缺陷普查 CLI F-078** [P2] 出口台账可篡改、写失败静默放行（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-078）
 - [ ] 81C. **缺陷普查 CLI F-079** [P2] Windows cmd.exe 与 POSIX 分词错配（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-079）
 - [ ] 82C. **缺陷普查 CLI F-081** [P2] ensure_in_app_data 对"末段悬空链接"与 canonicalize 失败 fail-open（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-081）
 - [ ] 83C. **缺陷普查 CLI F-082** [P2] clipboard_set 图片解码无长度/像素上限（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-082）
@@ -12269,8 +12259,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 121C. **缺陷普查 CLI F-124** [P3] MAX_TABS 检查与入列非原子（上限可越）（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-124）
 - [ ] 122C. **缺陷普查 CLI F-125** [P3] postToolCall 拿不到真实输出，审计钩子失明（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-125）
 - [ ] 123C. **缺陷普查 CLI F-126** [P3] file_unchanged 短路判据可回旧内容（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-126）
-- [ ] 124C. **缺陷普查 CLI F-127** [P2] 流式重试不回滚已输出的 delta（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-127）
-- [ ] 125C. **缺陷普查 CLI F-128** [P2] SSE 收尾未 flush TextDecoder，且无换行尾行被丢弃（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-128）
 - [ ] 126C. **缺陷普查 CLI F-129** [P2] 录音失败不清理半成品，且无超时/取消（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-129）
 - [ ] 127C. **缺陷普查 CLI F-130** [P2] share 生成的 HTML 以默认权限落盘，含完整会话正文（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-130）
 - [ ] 128C. **缺陷普查 CLI F-131** [P3] plan init 非原子写（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-131）
