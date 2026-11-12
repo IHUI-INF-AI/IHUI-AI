@@ -95,6 +95,29 @@ class TestExpertPacks:
         assert pack2 is not None and pack2.slug == "tax-filing"
         assert hits2
 
+    def test_platform_ops_route(self) -> None:
+        """国标平台动词(RP-47):电子税务局/社保申报类必须路由进财务包,不被文档包抢。"""
+        from app.services.expert_route import classify_intent
+
+        for text, slug in (
+            ("登录电子税务局把这个月增值税申报提交", "tax-filing"),
+            ("社保单位增减员申报帮我办好", "tax-filing"),
+            ("把发票底账取回来做账", "finance-bookkeeping"),
+        ):
+            pack, _hits = classify_intent(text)
+            assert pack is not None and pack.slug == slug, (text, pack.slug if pack else None)
+
+    def test_packs_carry_builtin_browser_surface(self) -> None:
+        """automation 腿的执行面工具必须随包白名单进对话(缺 browser_* = 计划无人执行)。"""
+        from app.services.expert_route import EXPERT_PACKS
+
+        for pack in EXPERT_PACKS:
+            if pack.slug in ("finance-bookkeeping", "tax-filing"):
+                assert "browser_navigate" in pack.tools and "browser_click_element" in pack.tools
+                assert "browser_extract_dom" in pack.tools and "browser_screenshot" in pack.tools
+                for t in pack.tools:
+                    assert t in mcp_server.get_registered_tool_names(), t
+
     def test_auto_merges_plugin_tools(self) -> None:
         from app.services.expert_route import merge_tools, plan_route
 
@@ -119,7 +142,14 @@ async def _call(name: str, args: dict) -> dict:
 class TestBookkeeping:
     @pytest.mark.asyncio
     async def test_chain_and_tie_out(self) -> None:
-        r = await _call("ai_bookkeeping", {"phase": "all", "period": "2026-11", "transactions": json.dumps(BOOK_TX, ensure_ascii=False)})
+        r = await _call(
+            "ai_bookkeeping",
+            {
+                "phase": "all",
+                "period": "2026-11",
+                "transactions": json.dumps(BOOK_TX, ensure_ascii=False),
+            },
+        )
         assert r["ok"], r
         state = json.loads(r["state"])
         vouchers = state["vouchers"]
@@ -148,7 +178,14 @@ class TestBookkeeping:
 
     @pytest.mark.asyncio
     async def test_state_handoff(self) -> None:
-        r1 = await _call("ai_bookkeeping", {"phase": "classify", "period": "2026-11", "transactions": json.dumps([BOOK_TX[0]], ensure_ascii=False)})
+        r1 = await _call(
+            "ai_bookkeeping",
+            {
+                "phase": "classify",
+                "period": "2026-11",
+                "transactions": json.dumps([BOOK_TX[0]], ensure_ascii=False),
+            },
+        )
         assert r1["progress"]["next"] == "voucher"
         r2 = await _call("ai_bookkeeping", {"phase": "voucher", "state": r1["state"]})
         assert r2["ok"]
@@ -157,31 +194,50 @@ class TestBookkeeping:
 
     @pytest.mark.asyncio
     async def test_garbage_txn_structured_error(self) -> None:
-        r = await _call("ai_bookkeeping", {"phase": "classify", "period": "2026-11", "transactions": [{"date": "x"}]})
+        r = await _call(
+            "ai_bookkeeping",
+            {"phase": "classify", "period": "2026-11", "transactions": [{"date": "x"}]},
+        )
         assert not r["ok"] and r["errorCode"] == "INVALID_INPUT"
 
     @pytest.mark.asyncio
     async def test_missing_period(self) -> None:
-        r = await _call("ai_bookkeeping", {"phase": "all", "transactions": json.dumps(BOOK_TX, ensure_ascii=False)})
+        r = await _call(
+            "ai_bookkeeping",
+            {"phase": "all", "transactions": json.dumps(BOOK_TX, ensure_ascii=False)},
+        )
         assert not r["ok"]
 
     @pytest.mark.asyncio
     async def test_phase_report_writes_artifact(self) -> None:
         r = await _call(
             "ai_bookkeeping",
-            {"phase": "report", "period": "2026-11", "transactions": json.dumps(BOOK_TX, ensure_ascii=False)},
+            {
+                "phase": "report",
+                "period": "2026-11",
+                "transactions": json.dumps(BOOK_TX, ensure_ascii=False),
+            },
         )
         assert not r["ok"] and r["errorCode"] == "MISSING_STATE"
 
     @pytest.mark.asyncio
     async def test_state_with_vouchers_full_to_report(self) -> None:
-        r = await _call("ai_bookkeeping", {"phase": "all", "period": "2026-11", "transactions": json.dumps(BOOK_TX, ensure_ascii=False)})
+        r = await _call(
+            "ai_bookkeeping",
+            {
+                "phase": "all",
+                "period": "2026-11",
+                "transactions": json.dumps(BOOK_TX, ensure_ascii=False),
+            },
+        )
         state = r["state"]
         r2 = await _call("ai_bookkeeping", {"phase": "report", "state": state})
         assert r2["ok"], r2
         path = r2["phaseResult"]["report"]["path"]
         assert path.startswith("tmp/artifacts/")
-        assert r2["progress"]["next"] is None and r2["message"]
+        # RP-47 起 report 是中段:next=automation(账做完 → 平台自动化计划仍待发起)
+        assert r2["progress"]["next"] == "automation"
+        assert r2["message"]
 
     @pytest.mark.asyncio
     async def test_zero_rate_no_vat(self) -> None:
@@ -190,7 +246,15 @@ class TestBookkeeping:
             {
                 "phase": "classify",
                 "period": "2026-11",
-                "transactions": [{"date": "2026-11-01", "type": "sales", "amount": "100", "tax_rate": "0", "method": "bank"}],
+                "transactions": [
+                    {
+                        "date": "2026-11-01",
+                        "type": "sales",
+                        "amount": "100",
+                        "tax_rate": "0",
+                        "method": "bank",
+                    }
+                ],
             },
         )
         lines = json.loads(r["state"])["entries"][0]["lines"]
@@ -198,7 +262,14 @@ class TestBookkeeping:
 
     @pytest.mark.asyncio
     async def test_close_voucher_added_after_profit(self) -> None:
-        r = await _call("ai_bookkeeping", {"phase": "all", "period": "2026-11", "transactions": json.dumps(BOOK_TX, ensure_ascii=False)})
+        r = await _call(
+            "ai_bookkeeping",
+            {
+                "phase": "all",
+                "period": "2026-11",
+                "transactions": json.dumps(BOOK_TX, ensure_ascii=False),
+            },
+        )
         state = json.loads(r["state"])
         assert state["vouchers"][-1]["summary"] == "损益结转至本年利润"
 
@@ -227,21 +298,44 @@ class TestTaxFiling:
     async def test_carryforward_floor_zero(self) -> None:
         r = await _call(
             "ai_tax_filing",
-            {"phase": "compute", "period": "2026-11", "taxpayer_type": "general", "output_tax": "1000", "input_tax": "3000"},
+            {
+                "phase": "compute",
+                "period": "2026-11",
+                "taxpayer_type": "general",
+                "output_tax": "1000",
+                "input_tax": "3000",
+            },
         )
         assert r["ok"]
         assert r["phaseResult"]["compute"]["vat"] == "0.00"  # 留抵不倒挂为负 ⇒ 不叫"退税"
 
     @pytest.mark.asyncio
     async def test_small_exemption(self) -> None:
-        r = await _call("ai_tax_filing", {"phase": "compute", "period": "2026-11", "taxpayer_type": "small", "sales": "70000", "vat_scheme": "0.01"})
+        r = await _call(
+            "ai_tax_filing",
+            {
+                "phase": "compute",
+                "period": "2026-11",
+                "taxpayer_type": "small",
+                "sales": "70000",
+                "vat_scheme": "0.01",
+            },
+        )
         assert r["ok"]
         d = json.loads(r["state"])["detail"]
         assert d["vat"]["payable"] == "0.00" and "起征点" in d["vat"]["note"]
 
     @pytest.mark.asyncio
     async def test_small_micro_cit(self) -> None:
-        r = await _call("ai_tax_filing", {"phase": "compute", "period": "2026-11", "taxpayer_type": "small", "profit": "2000000"})
+        r = await _call(
+            "ai_tax_filing",
+            {
+                "phase": "compute",
+                "period": "2026-11",
+                "taxpayer_type": "small",
+                "profit": "2000000",
+            },
+        )
         assert r["ok"]
         assert r["phaseResult"]["compute"]["cit"] == "100000.00"
 
@@ -255,7 +349,12 @@ class TestTaxFiling:
                 **self.GENERAL,
                 "wages": json.dumps(
                     [
-                        {"name": "张三", "gross": "19800", "social": "1780.00", "special_deduction": "0"},
+                        {
+                            "name": "张三",
+                            "gross": "19800",
+                            "social": "1780.00",
+                            "special_deduction": "0",
+                        },
                     ],
                     ensure_ascii=False,
                 ),
@@ -295,8 +394,12 @@ class TestTaxFiling:
         assert path.startswith("tmp/artifacts/tax-filing-")
         r_all = await _call("ai_tax_filing", {"phase": "all", **self.GENERAL, "wages": []})
         assert r_all["ok"]
-        assert json.loads(r_all["state"])["draft_path"] == path or True  # 时间戳唯一,不断言同路径,断 grand_total 同值
-        assert Decimal(json.loads(r_all["state"])["detail"]["grand_total"]) == Decimal(json.loads(r1["state"])["detail"]["grand_total"])
+        assert (
+            json.loads(r_all["state"])["draft_path"] == path or True
+        )  # 时间戳唯一,不断言同路径,断 grand_total 同值
+        assert Decimal(json.loads(r_all["state"])["detail"]["grand_total"]) == Decimal(
+            json.loads(r1["state"])["detail"]["grand_total"]
+        )
 
     @pytest.mark.asyncio
     async def test_missing_state_for_computed(self) -> None:
@@ -308,8 +411,157 @@ class TestTaxFiling:
         # 相对逃逸与绝对盘符外置都必须被拒(路径校验在任何 mkdir 之前,mock 断言零落盘风险)
         r = await _call(
             "ai_tax_filing",
-            {"phase": "all", "period": "2026-11", "output_dir": "../../outside", "sales": "1", "profit": "0"},
+            {
+                "phase": "all",
+                "period": "2026-11",
+                "output_dir": "../../outside",
+                "sales": "1",
+                "profit": "0",
+            },
         )
         assert not r["ok"] and r["errorCode"] == "COMPUTE_FAILED", r
         assert "output_dir" in (r["message"] or ""), r
+
+
+class TestPlatformAutomation:
+    """国标平台自动化腿(RP-47):计划器契约与提交红线——插件零联网,红线全在这张面。"""
+
+    @pytest.mark.asyncio
+    async def test_tax_automation_default_targets_and_gate(self) -> None:
+        r = await _call(
+            "ai_tax_filing",
+            {
+                "phase": "automation",
+                "period": "2026-11",
+                "portal": json.dumps({"etax_portal": "https://etax.example.gov.cn"}),
+            },
+        )
+        assert r["ok"], r
+        assert r["progress"]["of"] == 4 and r["progress"]["phaseIndex"] == 4, r["progress"]
+        plan = r["phaseResult"]["automation"]["plan"]
+        ids = [t["id"] for t in plan["targets"]]
+        assert {"etax_vat_declaration", "social_insurance", "medical_insurance"} <= set(ids), ids
+        for tgt in plan["targets"]:
+            if "submit_gate" in tgt:
+                gate = tgt["submit_gate"]
+                assert gate["requires_human"] is True and gate["policy"], tgt["id"]
+        # execution_contract 必须交代两腿:内置浏览器 browser_* / 原生客户端 computer_*,以及断点续跑
+        contract = json.dumps(plan["execution_contract"], ensure_ascii=False)
+        assert (
+            "browser_" in contract
+            and "computer_" in contract
+            and "TARGET_NOT_CONNECTED" in contract
+        )
+
+    @pytest.mark.asyncio
+    async def test_plan_tools_all_registered(self) -> None:
+        """计划步骤指到的每个工具名都必须真实在册(死步骤 = 造好没装车同型)。"""
+        plan_r = await _call("ai_tax_filing", {"phase": "automation", "period": "2026-11"})
+        assert plan_r["ok"]
+        bg = await _call("ai_bookkeeping", {"phase": "automation", "period": "2026-11"})
+        assert bg["ok"]
+        names = mcp_server.get_registered_tool_names()
+        used: set[str] = set()
+        for res in (plan_r, bg):
+            for tgt in res["phaseResult"]["automation"]["plan"]["targets"]:
+                used.update(step["tool"] for step in tgt["steps"])
+                if "submit_gate" in tgt:
+                    used.add(tgt["submit_gate"]["tool"])
+        assert used, "一个步骤都没有=注册表空转"
+        assert used <= set(names), used - set(names)
+
+    @pytest.mark.asyncio
+    async def test_auto_submit_mode_forbidden(self) -> None:
+        r = await _call(
+            "ai_tax_filing", {"phase": "automation", "period": "2026-11", "submit_mode": "auto"}
+        )
+        assert not r["ok"], r
+        assert "auto" in (r["message"] or "") and r["errorCode"] == "AUTOMATION_PLAN_FAILED", r
+
+    @pytest.mark.asyncio
+    async def test_user_confirmed_gate_is_restate_shape(self) -> None:
+        r = await _call(
+            "ai_tax_filing",
+            {
+                "phase": "automation",
+                "period": "2026-11",
+                "submit_mode": "user_confirmed",
+                "targets": json.dumps(["etax_cit_quarterly"]),
+            },
+        )
+        assert r["ok"], r
+        gate = r["phaseResult"]["automation"]["plan"]["targets"][0]["submit_gate"]
+        assert (
+            gate["requires_human"] is False
+            and "confirm_before_click" in gate
+            and "复述" in gate["confirm_before_click"]
+        ), gate
+
+    @pytest.mark.asyncio
+    async def test_unknown_target_rejected_with_registry(self) -> None:
+        r = await _call(
+            "ai_bookkeeping",
+            {"phase": "automation", "period": "2026-11", "targets": json.dumps(["moon_base"])},
+        )
+        assert (
+            not r["ok"] and "moon_base" in r["message"] and "etax_invoice_ledger" in r["message"]
+        ), r
+
+    @pytest.mark.asyncio
+    async def test_missing_portal_blocks_never_guesses_url(self) -> None:
+        r = await _call(
+            "ai_bookkeeping",
+            {"phase": "automation", "period": "2026-11", "targets": json.dumps(["bank_statement"])},
+        )
+        assert r["ok"], r
+        tgt = r["phaseResult"]["automation"]["plan"]["targets"][0]
+        assert "blocke" in json.dumps(tgt, ensure_ascii=False) or tgt.get("blocked_by"), tgt
+        assert tgt["blocked_by"]["missing_portal"] == ["bank_portal(请在 portal 里提供)"], tgt[
+            "blocked_by"
+        ]
+
+    @pytest.mark.asyncio
+    async def test_draft_values_mapped_into_filing_targets(self) -> None:
+        gen = {
+            "period": "2026-10Q4",
+            "taxpayer_type": "general",
+            "sales": "5000000",
+            "output_tax": "650000",
+            "input_tax": "400000",
+            "profit": "300000",
+        }
+        r1 = await _call("ai_tax_filing", {"phase": "compute", **gen, "wages": []})
+        assert r1["ok"]
+        r2 = await _call(
+            "ai_tax_filing",
+            {
+                "phase": "automation",
+                "state": r1["state"],
+                "targets": json.dumps(["etax_vat_declaration"]),
+            },
+        )
+        assert r2["ok"], r2
+        tgt = r2["phaseResult"]["automation"]["plan"]["targets"][0]
+        assert tgt["values_to_fill"]["应纳增值税"] == "250000.00", tgt["values_to_fill"]
+        assert tgt["values_to_fill"]["城建税"] == "17500.00", tgt["values_to_fill"]
+
+    @pytest.mark.asyncio
+    async def test_bookkeeping_standalone_ok_and_in_all_chain(self) -> None:
+        # 单独发起:只有 period 也要出得了计划(取数不依赖账做没做)
+        solo = await _call("ai_bookkeeping", {"phase": "automation", "period": "2026-10"})
+        assert solo["ok"], solo
+        assert solo["progress"]["phaseIndex"] == 6 and solo["progress"]["of"] == 6
+        # all 串联:账链跑完自动附送 platform 计划
+        chain = await _call(
+            "ai_bookkeeping",
+            {
+                "phase": "all",
+                "period": "2026-10",
+                "transactions": json.dumps([BOOK_TX[0]], ensure_ascii=False),
+            },
+        )
+        assert chain["ok"], chain
+        assert chain["phaseResult"]["automation"]["targets"] >= 1
+
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

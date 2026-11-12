@@ -172,6 +172,7 @@ _BOOK_PHASES: tuple[str, ...] = (
     "trial_balance",
     "close",
     "report",
+    "automation",
 )
 
 #: 结算方式 ⇒ 资金科目
@@ -431,6 +432,9 @@ def _bookkeeping(arguments: dict[str, Any]) -> dict[str, Any]:
                 state = dict(loaded)
                 if state.get("transactions"):
                     transactions = _normalize_transactions(state["transactions"])
+            elif str(arguments.get("period") or "").strip():
+                # 单独发起 automation(取数计划只需要期间与目标集)⇒ 其余阶段仍会 MISSING_STATE 拦住
+                state = {"period": _resolve_period(arguments)}
             else:
                 return _fail(tool, "INVALID_INPUT", "请提供 transactions(新任务)或 state(续跑)")
         except ValueError as exc:
@@ -540,6 +544,20 @@ def _bookkeeping(arguments: dict[str, Any]) -> dict[str, Any]:
                     return _fail(tool, "REPORT_WRITE_FAILED", f"报表写入失败:{exc}")
                 state["report_path"] = rel_path
                 results["report"] = {"path": rel_path}
+            elif step == "automation":
+                try:
+                    plan = _automation_plan("bookkeeping", arguments, state)
+                except ValueError as exc:
+                    return _fail(tool, "AUTOMATION_PLAN_FAILED", str(exc))
+                state["automation_plan"] = plan
+                results["automation"] = {
+                    "plan": plan,
+                    "targets": len(plan["targets"]),
+                    "steps": sum(len(t["steps"]) for t in plan["targets"]),
+                    "submitGates": sum(1 for t in plan["targets"] if "submit_gate" in t),
+                    "submitMode": plan["submit_mode"],
+                    "blockedNoPortal": [t["id"] for t in plan["targets"] if "blocked_by" in t],
+                }
 
         summary_text = _book_summary(state, results, phase)
         return {
@@ -701,6 +719,7 @@ def _compact_state(state: dict[str, Any]) -> dict[str, Any]:
         "trial_balance_after": state.get("trial_balance_after"),
         "profit": state.get("profit"),
         "report_path": state.get("report_path"),
+        "automation_plan": state.get("automation_plan"),
     }
 
 
@@ -717,6 +736,13 @@ def _book_summary(state: dict[str, Any], results: dict[str, Any], phase: str) ->
         bits.append(f"损益结转完成,本期利润 {state.get('profit', {}).get('net')}")
     if "report" in results:
         bits.append(f"报表产物 {state.get('report_path')}")
+    if "automation" in results:
+        blocked = results["automation"]["blockedNoPortal"]
+        gate = f",{results['automation']['submitGates']} 道提交闸({results['automation']['submitMode']})"
+        bits.append(
+            f"平台自动化计划 {results['automation']['targets']} 目标/共 {results['automation']['steps']} 步{gate}"
+            + (f";缺入口待补:{','.join(blocked)}" if blocked else "")
+        )
     tail = "(继续回传 state 调用下一阶段)" if phase != "all" else "(全流程已完成)"
     return ";".join(bits) + tail if bits else "阶段已执行" + tail
 
@@ -807,7 +833,7 @@ footer {{ margin-top:32px; color:#57606a; font-size:12px; }}
 # 一键报税:取数 → 计税 → 申报表草案 → 校验
 # ---------------------------------------------------------------------------
 
-_TAX_PHASES: tuple[str, ...] = ("compute", "validate", "draft")
+_TAX_PHASES: tuple[str, ...] = ("compute", "validate", "draft", "automation")
 
 #: 个人所得税累计预扣率表(级距:累计预扣预缴应纳税所得额,元)
 _IIT_BRACKETS: tuple[tuple[Decimal, Decimal, Decimal], ...] = (
@@ -1079,6 +1105,21 @@ def _tax_filing(arguments: dict[str, Any]) -> dict[str, Any]:
                     return _fail(tool, "DRAFT_WRITE_FAILED", f"申报表草案写入失败:{exc}")
                 state["draft_path"] = rel_path
                 results["draft"] = {"path": rel_path}
+            elif step == "automation":
+                try:
+                    plan = _automation_plan("tax", arguments, state)
+                except ValueError as exc:
+                    return _fail(tool, "AUTOMATION_PLAN_FAILED", str(exc))
+                state["automation_plan"] = plan
+                results["automation"] = {
+                    "plan": plan,
+                    "targets": len(plan["targets"]),
+                    "steps": sum(len(t["steps"]) for t in plan["targets"]),
+                    "submitGates": sum(1 for t in plan["targets"] if "submit_gate" in t),
+                    "submitMode": plan["submit_mode"],
+                    "blockedNoPortal": [t["id"] for t in plan["targets"] if "blocked_by" in t],
+                    "withDraftValues": bool(state.get("detail")),
+                }
 
         bits = [f"期间 {period}"]
         if "compute" in results:
@@ -1091,6 +1132,15 @@ def _tax_filing(arguments: dict[str, Any]) -> dict[str, Any]:
             )
         if "draft" in results:
             bits.append(f"申报表草案 {state.get('draft_path')}")
+        if "automation" in results:
+            blocked = results["automation"]["blockedNoPortal"]
+            bits.append(
+                f"平台自动化计划 {results['automation']['targets']} 目标/共 {results['automation']['steps']} 步,"
+                f"{results['automation']['submitGates']} 道提交闸({results['automation']['submitMode']}"
+                + (",带草案数字映射" if results["automation"]["withDraftValues"] else "")
+                + ")"
+                + (f";缺入口待补:{','.join(blocked)}" if blocked else "")
+            )
         bits.append("正式申报须纳税主体与执业人员复核")
         return {
             "tool": tool,
@@ -1112,6 +1162,468 @@ def _tax_filing(arguments: dict[str, Any]) -> dict[str, Any]:
     except Exception as exc:  # noqa: BLE001
         logger.exception("[ai_tax_filing] 未预期异常")
         return _fail(tool, "UNEXPECTED", f"未预期异常:{exc}")
+
+
+# ---------------------------------------------------------------------------
+# 平台自动化腿(RP-47,2026-11-12):一键代账/报税的"国标平台执行腿"计划器。
+#
+# 职责边界(刻意的):本插件**零联网、零浏览器 IO** —— 它只产出确定性步骤计划;
+# 真执行由模型在 tool loop 里按计划逐步调用:
+#  - 网页平台(电子税务局/社保医保网报厅/企银)→ browser_*(内置浏览器执行面,
+#    tool-delegate 到用户已连接的前端页面;每步一张工具卡,进度实时可见);
+#  - 原生社保医保客户端 → computer_*(桌面控制面;admin 档 + 高危须人值守)。
+# 各省份页面形态差异大 ⇒ 步骤给"语义意图 + 占位选择器",纪律是先 browser_screenshot /
+# browser_extract_dom 探明再动作(与本站操控 _UI_RENDER_PROMPT 的"先探后动"同一条),
+# 计划里绝不臆造 CSS 选择器。
+# 提交红线:submit_mode=manual_gate(缺省,停在提交前一步由人来点)/
+# user_confirmed(先向用户复述目标·期间·应缴额并获明示同意,模型才执行提交步);
+# 不存在"auto"静默对外申报这一档(传了直接拒,errorCode SUBMIT_MODE_FORBIDDEN)。
+# ---------------------------------------------------------------------------
+
+SUBMIT_MODES: tuple[str, ...] = ("manual_gate", "user_confirmed")
+_LOCATE_PLACEHOLDER = "<运行时先 browser_screenshot/browser_extract_dom 探明定位,禁止臆造>"
+
+
+def _browser_step(
+    tool: str, intent: str, args: dict[str, Any] | None = None, expect: str = ""
+) -> dict[str, Any]:
+    step: dict[str, Any] = {"surface": "browser", "tool": tool, "intent": intent}
+    if args:
+        step["args"] = args
+    if expect:
+        step["expect"] = expect
+    return step
+
+
+def _client_step(tool: str, intent: str, expect: str = "") -> dict[str, Any]:
+    step: dict[str, Any] = {"surface": "client-desktop", "tool": tool, "intent": intent}
+    if expect:
+        step["expect"] = expect
+    return step
+
+
+#: 平台目标注册表(唯一真相源;automation targets 只认这里的 id)
+PLATFORM_TARGETS: dict[str, dict[str, Any]] = {
+    "etax_invoice_ledger": {
+        "label": "电子税务局·发票底账取数(开票/受票明细、勾选认证)",
+        "portal_keys": ("etax_portal", "province"),
+        "preconditions": ["电子税务局企业登录(账号密码/CA 税控盘/短信扫码均需人值守完成)"],
+        "steps": [
+            _browser_step(
+                "browser_navigate",
+                "进入电子税务局登录页或已连接的办税页",
+                {"url": "{etax_portal}"},
+                "登录态页面可达",
+            ),
+            _browser_step(
+                "browser_screenshot", "截图核对当前登录身份与页面,确认非验证码/会话失效态"
+            ),
+            _browser_step(
+                "browser_extract_dom",
+                "定位「发票业务/税务数字账户→发票用途勾选/底账查询」入口",
+                {"selector": _LOCATE_PLACEHOLDER},
+            ),
+            _browser_step(
+                "browser_click_element",
+                "进入发票底账/勾选确认页",
+                {"selector": _LOCATE_PLACEHOLDER},
+                "出现期间查询表单",
+            ),
+            _browser_step(
+                "browser_type_text", "查询期间填入 {period}", {"selector": _LOCATE_PLACEHOLDER}
+            ),
+            _browser_step(
+                "browser_click_element",
+                "查询并导出销项/进项发票明细(Excel/CSV)或逐页记入会话附件",
+                {"selector": _LOCATE_PLACEHOLDER},
+                "得到明细数据 → 交给 parse_document/document_tables 作为记账与计税底稿",
+            ),
+        ],
+        "feeds": "ai_bookkeeping transactions 数据源;ai_tax_filing 销项/进项与勾选状态",
+    },
+    "bank_statement": {
+        "label": "企业网银·回单与流水取数",
+        "portal_keys": ("bank_portal",),
+        "preconditions": [
+            "企业网银 U 盾/短信验证由人完成(资金类操作只读回单,绝不做转账支付类页面动作)"
+        ],
+        "steps": [
+            _browser_step(
+                "browser_navigate",
+                "打开企业网银网银端(地址由用户提供 bank_portal)",
+                {"url": "{bank_portal}"},
+            ),
+            _browser_step(
+                "browser_screenshot", "登录态与账户核对(仅账户页只读;付款/转账页面一律不进入)"
+            ),
+            _browser_step(
+                "browser_extract_dom",
+                "定位账户明细/电子回单下载入口",
+                {"selector": _LOCATE_PLACEHOLDER},
+            ),
+            _browser_step(
+                "browser_click_element",
+                "按 {period} 查询并导出明细/回单",
+                {"selector": _LOCATE_PLACEHOLDER},
+                "明细文件 → parse_document/document_tables 归类为业务流水",
+            ),
+        ],
+        "feeds": "ai_bookkeeping transactions(收款/付款/利息/费用流水)",
+    },
+    "etax_vat_declaration": {
+        "label": "电子税务局·增值税及附加税费申报表预填与提交",
+        "portal_keys": ("etax_portal", "province"),
+        "preconditions": [
+            "已登录且本期申报任务存在;",
+            "draft 产物数据就绪(有 state.detail 时自动做数字映射)",
+        ],
+        "steps": [
+            _browser_step(
+                "browser_navigate",
+                "进入「我要办税→税费申报及缴纳→增值税及附加税费申报」",
+                {"url": "{etax_portal}"},
+            ),
+            _browser_step(
+                "browser_screenshot",
+                "核对税种资格期间与预填数据(平台预填与本系统草案逐项比对,差异如实上报不擅改)",
+            ),
+            _browser_step(
+                "browser_type_text",
+                "主表及附列资料差异字段填入草案值",
+                {"selector": _LOCATE_PLACEHOLDER},
+                "填写值 == state.detail 计税结果",
+            ),
+            _browser_step(
+                "browser_click_element",
+                "点击「申报前核算/一致性校验」并截图核对平台校验结果",
+                {"selector": _LOCATE_PLACEHOLDER},
+            ),
+        ],
+        "submit": {
+            "surface": "browser",
+            "tool": "browser_click_element",
+            "intent": "最终「提交申报」",
+            "args": {"selector": _LOCATE_PLACEHOLDER},
+        },
+        "feeds": "申报表草案(tmp/artifacts/tax-filing-*.html)逐项数字",
+    },
+    "etax_cit_quarterly": {
+        "label": "电子税务局·企业所得税季度预缴申报",
+        "portal_keys": ("etax_portal", "province"),
+        "preconditions": ["A 类查账征收资格确认"],
+        "steps": [
+            _browser_step(
+                "browser_navigate",
+                "进入「税费申报及缴纳→企业所得税季度(预缴)申报表」",
+                {"url": "{etax_portal}"},
+            ),
+            _browser_step(
+                "browser_type_text",
+                "从业人数/资产总额/利润总额/弥补亏损等按草案填列",
+                {"selector": _LOCATE_PLACEHOLDER},
+                "与 state.detail.cit 逐项一致",
+            ),
+            _browser_step(
+                "browser_screenshot", "核对平台测算的本期应补(退)所得税额,与草案差异要点名"
+            ),
+        ],
+        "submit": {
+            "surface": "browser",
+            "tool": "browser_click_element",
+            "intent": "最终「提交申报」",
+            "args": {"selector": _LOCATE_PLACEHOLDER},
+        },
+    },
+    "etax_iit_declaration": {
+        "label": "自然人电子税务局·工资薪金个税扣缴申报",
+        "portal_keys": ("etax_portal", "province"),
+        "preconditions": [
+            "扣缴端登录人脸/短信由经办人完成",
+            "客户端场景优先走 computer_* 桌面面(见 execution_contract)",
+        ],
+        "steps": [
+            _browser_step(
+                "browser_navigate",
+                "进入自然人电子税务局(扣缴端网页通道或客户端桌面)",
+                {"url": "{etax_portal}"},
+            ),
+            _browser_step(
+                "browser_type_text",
+                "按 state.detail.iit.employees 工资表逐人填列应发/社保/专项附加并测算",
+                {"selector": _LOCATE_PLACEHOLDER},
+                "单人本期预扣额 == 草案 withheld",
+            ),
+            _browser_step("browser_screenshot", "核对报送结果与收入属期一致性"),
+        ],
+        "submit": {
+            "surface": "browser",
+            "tool": "browser_click_element",
+            "intent": "最终「申报提交」",
+            "args": {"selector": _LOCATE_PLACEHOLDER},
+        },
+    },
+    "social_insurance": {
+        "label": "社保(五险)·单位网报增减员与申报缴费",
+        "portal_keys": ("social_portal", "province"),
+        "preconditions": [
+            "各省形态不一:网页厅走 browser_*;本地社保客户端用电脑控制面 computer_*(须人在旁,点击/坐标以桌面截图判断)"
+        ],
+        "steps": [
+            _browser_step(
+                "browser_navigate",
+                "进入省社保局单位网报系统(或客户端主界面)",
+                {"url": "{social_portal}"},
+            ),
+            _browser_step(
+                "browser_extract_dom",
+                "定位人员增减/缴费基数申报入口,核对单位信息与在报状态",
+                {"selector": _LOCATE_PLACEHOLDER},
+            ),
+            _browser_step(
+                "browser_type_text",
+                "按工资表逐人填增员/基数/欠缴补缴并生成申报单",
+                {"selector": _LOCATE_PLACEHOLDER},
+                "单位/个人缴费测算 == 社保费率口径(由人社核定)",
+            ),
+        ],
+        "submit": {
+            "surface": "browser",
+            "tool": "browser_click_element",
+            "intent": "最终「申报提交/缴费确认」",
+            "args": {"selector": _LOCATE_PLACEHOLDER},
+        },
+        "step_client_alt": [
+            _client_step("computer_screenshot_screen", "读取社保客户端当前界面状态"),
+            _client_step(
+                "computer_mouse_click",
+                "按截图定位点击增减员申报(坐标以截图为准,先探后动)",
+                "界面进入申报页",
+            ),
+            _client_step("computer_keyboard_type", "逐人录入增员信息与缴费基数"),
+        ],
+    },
+    "medical_insurance": {
+        "label": "医保·单位增减员与申报缴费",
+        "portal_keys": ("medical_portal", "province"),
+        "preconditions": ["各省形态不一:网页厅走 browser_*;本地医保客户端用 computer_*"],
+        "steps": [
+            _browser_step(
+                "browser_navigate",
+                "进入省医保网上服务大厅单位网报(或客户端)",
+                {"url": "{medical_portal}"},
+            ),
+            _browser_step(
+                "browser_extract_dom",
+                "定位单位参保增减/基数申报入口,核对参保单位与账期",
+                {"selector": _LOCATE_PLACEHOLDER},
+            ),
+            _browser_step(
+                "browser_type_text",
+                "与社保同口径逐人填列(两侧人数差异必须点名)",
+                {"selector": _LOCATE_PLACEHOLDER},
+            ),
+        ],
+        "submit": {
+            "surface": "browser",
+            "tool": "browser_click_element",
+            "intent": "最终「申报提交/缴费确认」",
+            "args": {"selector": _LOCATE_PLACEHOLDER},
+        },
+        "step_client_alt": [
+            _client_step("computer_screenshot_screen", "读取医保客户端当前界面状态"),
+            _client_step("computer_mouse_click", "按截图进入单位申报", "进入申报页"),
+            _client_step("computer_keyboard_type", "录入人员与基数信息"),
+        ],
+    },
+}
+
+#: 两种发起默认目标集:代账先取数legs,报税先申报legs(social/medical 两侧都含)
+_AUTOMATION_DEFAULT_TARGETS: dict[str, tuple[str, ...]] = {
+    "bookkeeping": (
+        "etax_invoice_ledger",
+        "bank_statement",
+        "social_insurance",
+        "medical_insurance",
+    ),
+    "tax": (
+        "etax_vat_declaration",
+        "etax_cit_quarterly",
+        "etax_iit_declaration",
+        "social_insurance",
+        "medical_insurance",
+        "etax_invoice_ledger",
+    ),
+}
+
+
+def _resolve_targets(raw: Any, kind: str) -> tuple[str, ...]:
+    """targets 入参归一;未在册 id 当场拒绝并列注册表(绝不静默丢目标)。"""
+    if raw in (None, ""):
+        return _AUTOMATION_DEFAULT_TARGETS[kind]
+    payload = raw
+    if isinstance(payload, str):
+        try:
+            payload = json.loads(payload)
+        except (json.JSONDecodeError, TypeError) as exc:
+            raise ValueError(f"targets 必须是 JSON 数组或其字符串形态:{exc}") from None
+    if not isinstance(payload, list) or not payload:
+        raise ValueError("targets 必须是非空数组(缺省用本工具默认目标集)")
+    ids: list[str] = []
+    for item in payload:
+        tid = str(item).strip()
+        if tid not in PLATFORM_TARGETS:
+            raise ValueError(f"未注册平台目标 {tid!r};可选 {sorted(PLATFORM_TARGETS)}")
+        if tid not in ids:
+            ids.append(tid)
+    return tuple(ids)
+
+
+def _resolve_portal(arguments: dict[str, Any]) -> dict[str, str]:
+    raw = arguments.get("portal")
+    portal: dict[str, Any] = {}
+    if isinstance(raw, str) and raw.strip():
+        try:
+            parsed = json.loads(raw)
+        except (json.JSONDecodeError, TypeError) as exc:
+            raise ValueError(f"portal 必须是 JSON 对象或其字符串形态:{exc}") from None
+        if not isinstance(parsed, dict):
+            raise ValueError("portal 必须是对象(各平台入口地址映射)")
+        portal.update(parsed)
+    elif isinstance(raw, dict):
+        portal.update(raw)
+    # province 便捷展开:etax.<province>.chinatax.gov.cn(国家局标准域名形态)
+    province = str(arguments.get("province") or "").strip()
+    if province and not portal.get("etax_portal"):
+        portal["etax_portal"] = f"https://etax.{province}.chinatax.gov.cn"
+    return {str(k): str(v) for k, v in portal.items()}
+
+
+def _fill_args(args: dict[str, Any], portal: dict[str, str], period: str) -> dict[str, Any]:
+    """把 {etax_portal}/{social_portal}/{period} 之类模板位落到实际值;缺位保留占位并点名缺 portal。"""
+    resolved: dict[str, Any] = {}
+    for key, value in args.items():
+        if isinstance(value, str) and "{" in value:
+            text = value.replace("{period}", period)
+            for pk, pv in portal.items():
+                text = text.replace("{" + pk + "}", pv)
+            resolved[key] = text
+        else:
+            resolved[key] = value
+    return resolved
+
+
+def _automation_plan(kind: str, arguments: dict[str, Any], state: dict[str, Any]) -> dict[str, Any]:
+    """确定性计划:每个目标 = 前置条件 + 步骤序列 + 提交闸(受 submit_mode 约束)。"""
+    submit_mode = str(arguments.get("submit_mode") or "manual_gate").strip().lower()
+    if submit_mode == "auto":
+        raise ValueError(
+            "SUBMIT_MODE_FORBIDDEN:auto(静默对外申报)不是本系统支持的档,只允许 manual_gate/user_confirmed"
+        )
+    if submit_mode not in SUBMIT_MODES:
+        raise ValueError(f"submit_mode 必须是 {list(SUBMIT_MODES)} 其一")
+    target_ids = _resolve_targets(arguments.get("targets"), kind)
+    portal = _resolve_portal(arguments)
+    period = str(state.get("period") or arguments.get("period") or "")
+    detail = state.get("detail") if kind == "tax" else None
+
+    targets: list[dict[str, Any]] = []
+    known = set(portal)
+    for tid in target_ids:
+        spec = PLATFORM_TARGETS[tid]
+        entry_missing = [
+            key
+            for key in spec["portal_keys"]
+            if key not in known and not (key == "province" and portal.get("etax_portal"))
+        ]
+        steps: list[dict[str, Any]] = []
+        for base in spec["steps"]:
+            step = dict(base)
+            if "args" in step:
+                step["args"] = _fill_args(dict(step["args"]), portal, period)
+            steps.append(step)
+        target: dict[str, Any] = {
+            "id": tid,
+            "label": spec["label"],
+            "preconditions": list(spec.get("preconditions", [])),
+            "steps": steps,
+        }
+        if spec.get("step_client_alt"):
+            target["client_surface_steps"] = list(spec["step_client_alt"])
+        submit = spec.get("submit")
+        if submit:
+            gate = dict(submit)
+            if submit_mode == "manual_gate":
+                gate["requires_human"] = True
+                gate["policy"] = "停在提交前一步:最终提交动作由人亲自点击,AI 不代按"
+            else:
+                gate["requires_human"] = False
+                gate["confirm_before_click"] = (
+                    "先向用户复述目标/期间/应缴(质)额与产出草案路径,得到明示『确认』后模型才执行本步;未确认=停在闸前"
+                )
+            gate["args"] = _fill_args(dict(gate.get("args") or {}), portal, period)
+            target["submit_gate"] = gate
+        if detail and tid in ("etax_vat_declaration", "etax_cit_quarterly", "etax_iit_declaration"):
+            mapped = _draft_values_for_target(detail, tid)
+            if mapped:
+                target["values_to_fill"] = mapped
+        if entry_missing:
+            target["blocked_by"] = {
+                "missing_portal": [f"{k}(请在 portal 里提供)" for k in entry_missing],
+                "policy": "缺入口地址的目标不产 URL 动作 ⇒ 先向用户要 portal,绝不猜 URL",
+            }
+        targets.append(target)
+
+    return {
+        "kind": kind,
+        "period": period,
+        "submit_mode": submit_mode,
+        "targets": targets,
+        "execution_contract": {
+            "driver": "模型在本会话 tool loop 里逐目标逐步执行;每步一张实时工具卡 ⇒ 用户看得到过程",
+            "browser_surface": "内置浏览器执行面(browser_navigate/browser_screenshot/browser_extract_dom/browser_wait_for_element/browser_click_element/browser_type_text/browser_scroll):页面委托到用户已连接的浏览器/WorkPanel 端,登录态跟人走",
+            "client_surface": "原生社保/医保客户端用桌面控制面 computer_*(高危档:须审批/人在旁,点击坐标只能来自当轮 computer_screenshot_screen 判读,先探后动)",
+            "locate_before_act": "选择器/坐标一律先 screenshot/extract_dom 探明再动作;报错 SELECTOR_NOT_FOUND 时重探,连续两次不中即停目标如实上报",
+            "not_connected": "TARGET_NOT_CONNECTED ⇒ 请用户打开 AI 面板所在页面(扩展/WorkPanel 连接)后从断点步骤续跑;计划按 target.step_index 续",
+            "failure_policy": "单目标内任一步失败 ⇒ 停该目标并点名 errorCode/message,绝不重试提交、绝不换路径绕过验证码/人脸/U 盾",
+            "data_feedback": "导出的底账/回单经 parse_document/document_tables 回填 ai_bookkeeping transactions 或 ai_tax_filing 计税入参;取数与填报的每个关键数字都要能指回草案或平台回执",
+            "progress_instrumentation": "逐目标推进时更新任务板(第 M/N 目标·第 K 步)与对话汇报;完成/受阻/待人都要显式播报",
+            "legal_note": "对外提交类动作的最终责任在纳税人;manual_gate 由人点击提交,user_confirmed 也必须在复述确认后由模型执行并留存回执截图",
+        },
+    }
+
+
+def _draft_values_for_target(detail: dict[str, Any], target_id: str) -> dict[str, Any]:
+    """草案→平台字段映射(确定性;差异比对基准交给模型逐项核)。"""
+    vat = detail.get("vat") or {}
+    sur = detail.get("surtax") or {}
+    cit = detail.get("cit") or {}
+    iit = detail.get("iit") or {}
+    if target_id == "etax_vat_declaration":
+        base: dict[str, Any] = {
+            "销项税额": vat.get("output"),
+            "进项税额(本期抵扣)": vat.get("input_used"),
+            "应纳增值税": vat.get("payable"),
+            "城建税": sur.get("city"),
+            "教育费附加": sur.get("education"),
+            "地方教育附加": sur.get("local_education"),
+        }
+    elif target_id == "etax_cit_quarterly":
+        cit_rate = Decimal(str(cit.get("rate", "0.25")))
+        taxable = cit.get("taxable_income")
+        base = {
+            "实际已预缴所得税": cit.get("already_paid"),
+            "本期应补(退)所得税额": cit.get("amount"),
+            "口径": f"应纳税所得额 {taxable} × 税率 {cit_rate} = {cit.get('amount')} — 与平台测算逐项核对",
+        }
+    elif target_id == "etax_iit_declaration":
+        base = {
+            "本期应补退税额合计": iit.get("total"),
+            "method": iit.get("method"),
+            "employees": iit.get("employees", [])[:200],
+        }
+    else:
+        return {}
+    return base
 
 
 def _tax_validate(detail: dict[str, Any], arguments: dict[str, Any]) -> list[str]:
@@ -1288,20 +1800,28 @@ __all__ = [
 AI_BOOKKEEPING_DESCRIPTION = (
     "AI 一键代账(财务部板块插件)。按阶段执行:phase=classify(流水→分录)、voucher(→记账凭证)、"
     "trial_balance(科目余额表+借贷试算)、close(损益结转至本年利润)、report(HTML 账务汇总产物)、"
-    "all(串联全部)。period 形如 2026-11;transactions 为业务流水 JSON:每笔 "
+    "automation(国标平台自动化计划:电子税务局发票底账/企业网银回单/社保医保申报缴费的"
+    "browser_* 内置浏览器步骤计划;计划由模型逐步执行)、all(串联全部)。"
+    "period 形如 2026-11;transactions 为业务流水 JSON:每笔 "
     "{date,type(sales/purchase/salary/cost/rent/expense/tax_payment/receipt/payment/...),"
     "amount(字符串金额),method(bank/cash/credit/payable/advance/prepaid),tax_rate(0.13 等),"
     "invoice(special/general/none),counterparty,summary}。续阶段请回传上一次输出的 state JSON。"
-    "返回带 progress(phaseIndex/of/next)与当前阶段 phaseResult。"
+    "automation 可选 targets(JSON 数组,见返回的注册表键)、portal(各平台入口地址 JSON)、"
+    "submit_mode=manual_gate(缺省;停在提交前一步由人点击)或 user_confirmed(复述确认后执行提交);"
+    "不存在 auto 静默对外申报档。返回带 progress(phaseIndex/of/next)与当前阶段 phaseResult。"
 )
 AI_TAX_FILING_DESCRIPTION = (
     "AI 一键报税(财务部板块插件)。按阶段执行:phase=compute(增值税一般/小规模、附加 7/3/2%"
     "六税两费减半可开关、印花税 0.03%、企业所得税一般 25%/小微 5%、个税累计预扣法)、"
-    "validate(申报表勾稽校验)、draft(申报表草案 HTML 产物)、all(串联)。period 形如 2026-11;"
+    "validate(申报表勾稽校验)、draft(申报表草案 HTML 产物)、"
+    "automation(国标平台自动化计划:增值税及附加/企业所得税季缴/个税扣缴申报预填步骤 + "
+    "社保医保客户端腿,browser_* 内置浏览器驱动,草案数字自动映射 values_to_fill)、all(串联)。"
+    "period 形如 2026-11;"
     "sales/output_tax/input_tax/input_carryforward/profit/taxable_income/loss_carryforward/"
     "purchases/stamp_base 为字符串金额;wages 为工资表 JSON;taxpayer_type=general|small;"
-    "vat_scheme 小规模征收率 0.01 或 0.03。返回带 progress 与 state(可续跑)。"
-    "**红线**:产物为草案,正式申报须纳税主体与执业资格人员复核后在电子税务局自行提交;"
-    "本工具不代理对外申报、不写外部系统。"
+    "vat_scheme 小规模征收率 0.01 或 0.03;automation 带 targets/portal/province/submit_mode"
+    "(manual_gate 缺省=user_confirmed 复述确认后执行,auto 禁用)。返回带 progress 与 state(可续跑)。"
+    "**红线**:产物为草案,对外提交类步骤受 submit_mode 闸约束(manual_gate 停在提交前一步由人点击;"
+    "user_confirmed 须先向用户复述目标·期间·应缴额并获明示确认);本系统绝不静默代理对外申报。"
 )
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
