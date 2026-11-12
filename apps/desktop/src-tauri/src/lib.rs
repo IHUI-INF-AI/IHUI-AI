@@ -24,6 +24,9 @@ mod embedded_browser;
 // 数据落 app_data_dir(持久化,区别于内存标签会话);纯函数(Chrome 书签解析/去重/历史)
 // 判据可单测,I/O 走薄 Tauri 命令胶水。
 mod browser_bookmarks;
+// F-123:浏览器内存策略(标签上限/空闲休眠)的落盘设置与进程内真值。此前文件存在但
+// 未挂载 ⇒ 用户改不了标签上限;现在接上 setup 初始化 + 两条 IPC 命令。
+mod browser_settings;
 // 2026-09-28 立:托盘/关窗/启动/角标的「行为偏好」——判定与持久化都在模块内,本文件只做接线。
 mod desktop_prefs;
 // 本地 git/diff 通道（2026-09-27）：纯判据 / 执行层 / tauri 胶水三件套。
@@ -570,6 +573,30 @@ fn arm_forced_exit(app: &tauri::AppHandle, grace_secs: u64) {
 /// 那次导航同样会置位 `MAIN_PAGE_READY` ⇒ 正常慢启动不会被误杀。
 const STARTUP_HEALTH_GATE_TIMEOUT_MS: u64 = 60_000;
 const STARTUP_HEALTH_GATE_POLL_MS: u64 = 200;
+/// F-136:到点后的宽限窗。60s 是"等得够久"的判据,不是"页面绝不会再活过来"的断言 ——
+/// 并发构建/冷启动下首屏可能恰好晚到几秒,到点即杀会把正常启动误判成僵尸。
+const STARTUP_HEALTH_GATE_GRACE_MS: u64 = 3_000;
+
+/// 宽限窗内二次采样:期间就绪 ⇒ true(不通知、不退出)。
+/// 时间推进用注入的 `sleep` 累计,不读墙钟 —— 单测用空 sleep 即可跑完,且不受机器负载影响。
+fn grace_window_until_ready(
+    grace_ms: u64,
+    poll_ms: u64,
+    mut ready: impl FnMut() -> bool,
+    mut sleep: impl FnMut(u64),
+) -> bool {
+    let mut waited_ms = 0u64;
+    loop {
+        if ready() {
+            return true;
+        }
+        if waited_ms >= grace_ms {
+            return false;
+        }
+        sleep(poll_ms);
+        waited_ms = waited_ms.saturating_add(poll_ms);
+    }
+}
 
 /// 票 L7220 P3(2026-10-21 立):把"webview 到底建出来没有"这条判据**后置到事件循环
 /// 之后**的执行体 —— 它就是旧 15s 兜底线程的替身。
@@ -608,6 +635,20 @@ fn startup_health_gate(app: tauri::AppHandle) {
             STARTUP_HEALTH_GATE_POLL_MS,
         ));
     }
+    // F-136:到点先给 3s 宽限,晚到的页面照样按正常启动收口;
+    // 宽限窗内仍不亮才判定为僵尸实例。
+    if grace_window_until_ready(
+        STARTUP_HEALTH_GATE_GRACE_MS,
+        STARTUP_HEALTH_GATE_POLL_MS,
+        main_page_ready,
+        |ms| std::thread::sleep(std::time::Duration::from_millis(ms)),
+    ) {
+        log::info!(
+            "[desktop] 启动健康门:到点后 {STARTUP_HEALTH_GATE_GRACE_MS}ms 宽限窗内主文档加载完成,\
+             按正常启动继续(不通知、不退出)"
+        );
+        return;
+    }
     log::error!(
         "[desktop] 启动健康门:{}ms 内主文档从未加载完成(webview 未建成 / 事件循环未消费建窗消息);\
          本进程既不显示也没有可投递的对象,按僵尸实例收口:通知 + 停常驻循环 + 退出。\
@@ -621,6 +662,37 @@ fn startup_health_gate(app: tauri::AppHandle) {
     );
     auto_refresh::request_shutdown();
     exit_application(&app);
+}
+
+#[cfg(test)]
+mod grace_window_tests {
+    use super::grace_window_until_ready;
+
+    #[test]
+    fn grace_window_second_sample_ready_returns_true() {
+        let mut samples = 0;
+        let got = grace_window_until_ready(3_000, 200, || {
+            samples += 1;
+            samples >= 2
+        }, |_| {});
+        assert!(got, "宽限窗内第二次采样就绪 ⇒ true(不通知不退出)");
+    }
+
+    #[test]
+    fn grace_window_never_ready_returns_false() {
+        let mut sleeps = 0;
+        let got = grace_window_until_ready(3_000, 200, || false, |_| sleeps += 1);
+        assert!(!got, "整个宽限窗内始终不就绪 ⇒ false(走僵尸实例收口)");
+        assert_eq!(sleeps, 15, "3s / 200ms = 15 步");
+    }
+
+    #[test]
+    fn grace_window_immediately_ready_returns_true() {
+        let mut slept = false;
+        let got = grace_window_until_ready(3_000, 200, || true, |_| slept = true);
+        assert!(got);
+        assert!(!slept, "首次采样就绪不得再空等");
+    }
 }
 
 /// 重启应用(2026-07-31 立,updater 安装完成后调用)。
@@ -1075,7 +1147,9 @@ fn load_tray_settings(app: &tauri::AppHandle) -> TraySettings {
         .unwrap_or_default()
 }
 
-/// 写回托盘常驻配置(目录不存在则创建,失败仅记日志,不影响主流程)。
+/// 写回托盘常驻配置(目录不存在则创建)。
+/// F-085:本函数没有 IPC 调用方(唯一出口是设置落盘),失败无法回给前端 ——
+/// 因此必须按 error 级别喊出来,不能静默当成成功。
 #[cfg(target_os = "windows")]
 fn save_tray_settings(app: &tauri::AppHandle, settings: &TraySettings) {
     let Some(path) = tray_config_path(app) else { return };
@@ -1085,10 +1159,10 @@ fn save_tray_settings(app: &tauri::AppHandle, settings: &TraySettings) {
     match serde_json::to_vec_pretty(settings) {
         Ok(bytes) => {
             if let Err(e) = std::fs::write(&path, bytes) {
-                log::warn!("[desktop] save tray settings failed: {}", e);
+                log::error!("[desktop] save tray settings failed(无 IPC 出口): {}", e);
             }
         }
-        Err(e) => log::warn!("[desktop] serialize tray settings failed: {}", e),
+        Err(e) => log::error!("[desktop] serialize tray settings failed(无 IPC 出口): {}", e),
     }
 }
 
@@ -1598,6 +1672,37 @@ fn normalize_path(p: &std::path::Path) -> std::path::PathBuf {
     out
 }
 
+/// 路径末段是否为链接(不跟随解析)。
+/// `Path::exists()` / `metadata()` 都会跟随链接,悬空链接因此"看起来不存在";
+/// 判越界必须改用 `symlink_metadata`(不跟随)。
+/// Windows 上 junction / mount point 的 `file_type().is_symlink()` 语义随 std 版本变化,
+/// 真判据是 `FILE_ATTRIBUTE_REPARSE_POINT`(0x400):symlink、junction、mount point、
+/// 云占位符都带这枚位。宁可多拒(fail closed),不放行"解析不明"的末段。
+fn final_component_is_link(p: &std::path::Path) -> std::io::Result<bool> {
+    let meta = match std::fs::symlink_metadata(p) {
+        Ok(m) => m,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(e) => return Err(e),
+    };
+    if meta.file_type().is_symlink() {
+        return Ok(true);
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::MetadataExt;
+        const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x400;
+        if meta.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0 {
+            return Ok(true);
+        }
+        // 兜底:悬空/不可解析链接的 `metadata()` 会失败而 `symlink_metadata()` 成功,
+        // 这一分裂本身就是"末段是链接"的证据(普通文件不会出现这种分裂)。
+        if std::fs::metadata(p).is_err() {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
 /// 2026-08-16 安全加固:自定义文件命令不受 capabilities 约束(仅约束插件命令),
 /// 此前 read/write/list/stat 接受任意路径,webview 被 XSS(应用渲染 LLM 内容)
 /// 后可读写/外带用户任意文件。统一限制在 app_data_dir 内。
@@ -1626,8 +1731,14 @@ fn ensure_in_app_data(
     // 2026-10-31 安全强化第 14 批(F4 纵深):词法校验不解析 symlink —— app_data
     // 内若出现指向外部的符号链接(需另一攻击链先落 symlink),读写可越界。对已
     // 存在的路径补 canonicalize(解析全部 symlink 分量)后再比前缀;路径不存在
-    // (创建场景)保留词法结果。Windows canonicalize 产出 \\?\ 扩展前缀,两侧同
+    // (创建场景)上溯最近已存在祖先解析。Windows canonicalize 产出 \\?\ 扩展前缀,两侧同
     // 剥后再比,避免前缀形态失配误拒。
+    // 2026-11-12(F-081)加固:
+    //   ① 末段必须用 symlink_metadata(不跟随)单独判 —— `exists()` 跟随链接,悬空
+    //      链接会被判"不存在"而落进下面的创建分支,而父目录 canonicalize 完全看不出
+    //      末段是链接,写入就会在链接目标处新建文件;
+    //   ② canonicalize 一律 fail closed:旧实现失败即退回词法比较,等于把"解析不了"
+    //      当成"没越界"。
     fn strip_extended_prefix(pb: std::path::PathBuf) -> std::path::PathBuf {
         let s = pb.as_os_str().to_string_lossy().into_owned();
         if let Some(rest) = s.strip_prefix(r"\\?\UNC\") {
@@ -1638,23 +1749,37 @@ fn ensure_in_app_data(
         }
         pb
     }
+    if final_component_is_link(&p_norm)
+        .map_err(|e| IpcError::from_io("symlink_metadata", &p_norm, e))?
+    {
+        return Err(IpcError::permission(format!(
+            "路径末段是符号链接/junction(拒绝): {}",
+            path
+        )));
+    }
+    // app_data 目录首次启动可能尚未创建;建不出来就 fail closed,不退回词法比较。
+    std::fs::create_dir_all(&app_data)
+        .map_err(|e| IpcError::from_io("create_dir_all(app_data)", &app_data, e))?;
+    let base = strip_extended_prefix(
+        std::fs::canonicalize(&app_data_norm)
+            .map_err(|e| IpcError::from_io("canonicalize(app_data)", &app_data_norm, e))?,
+    );
     if p_norm.exists() {
-        if let Ok(real) = std::fs::canonicalize(&p_norm) {
-            let base = match std::fs::canonicalize(&app_data_norm) {
-                Ok(b) => strip_extended_prefix(b),
-                Err(_) => app_data_norm.clone(),
-            };
-            if !strip_extended_prefix(real).starts_with(&base) {
-                return Err(IpcError::permission(format!(
-                    "路径(经符号链接解析)不在应用数据目录内(拒绝): {}",
-                    path
-                )));
-            }
+        let real = strip_extended_prefix(
+            std::fs::canonicalize(&p_norm)
+                .map_err(|e| IpcError::from_io("canonicalize", &p_norm, e))?,
+        );
+        if !real.starts_with(&base) {
+            return Err(IpcError::permission(format!(
+                "路径(经符号链接解析)不在应用数据目录内(拒绝): {}",
+                path
+            )));
         }
     } else {
         // 目标不存在(创建场景):词法前缀挡不住"父目录是符号链接/junction 指向
         // app_data 之外" —— write_text_file 正走这一支。上溯到最近的已存在祖先,
         // canonicalize 解析其真实位置后拼回剩余分量,再比同一份 base 前缀。
+        // canonicalize 失败不再放行:解析不了就当作越界拒绝。
         let mut ancestor = p_norm.as_path();
         let mut suffix: Vec<std::ffi::OsString> = Vec::new();
         loop {
@@ -1670,21 +1795,18 @@ fn ensure_in_app_data(
                 None => break,
             }
         }
-        if let Ok(real_ancestor) = std::fs::canonicalize(ancestor) {
-            let mut real = strip_extended_prefix(real_ancestor);
-            for part in suffix.iter().rev() {
-                real.push(part);
-            }
-            let base = match std::fs::canonicalize(&app_data_norm) {
-                Ok(b) => strip_extended_prefix(b),
-                Err(_) => app_data_norm.clone(),
-            };
-            if !real.starts_with(&base) {
-                return Err(IpcError::permission(format!(
-                    "路径(父目录经符号链接解析)不在应用数据目录内(拒绝): {}",
-                    path
-                )));
-            }
+        let mut real = strip_extended_prefix(
+            std::fs::canonicalize(ancestor)
+                .map_err(|e| IpcError::from_io("canonicalize(祖先)", ancestor, e))?,
+        );
+        for part in suffix.iter().rev() {
+            real.push(part);
+        }
+        if !real.starts_with(&base) {
+            return Err(IpcError::permission(format!(
+                "路径(父目录经符号链接解析)不在应用数据目录内(拒绝): {}",
+                path
+            )));
         }
     }
     Ok(p_norm)
@@ -1696,18 +1818,27 @@ const MAX_TEXT_FILE_SIZE: u64 = 50 * 1024 * 1024;
 
 #[tauri::command]
 async fn read_text_file(app: tauri::AppHandle, path: String) -> Result<ReadTextResult, IpcError> {
-    let path = ensure_in_app_data(&app, &path)?;
-    let metadata = std::fs::metadata(&path).map_err(|e| IpcError::from_io("metadata", &path, e))?;
-    let size = metadata.len();
-    if size > MAX_TEXT_FILE_SIZE {
-        return Err(IpcError::permission(format!(
-            "file too large: max {}MB ({} bytes), got {} bytes",
-            MAX_TEXT_FILE_SIZE / 1024 / 1024, MAX_TEXT_FILE_SIZE, size
-        )));
-    }
-    let content =
-        std::fs::read_to_string(&path).map_err(|e| IpcError::from_io("read_to_string", &path, e))?;
-    Ok(ReadTextResult { content, size })
+    // F-084:async 命令里跑同步大 IO 会占满 async worker,其他 IPC 只能排队。
+    // 整段(含 ensure_in_app_data 的 canonicalize)挪进阻塞线程池。
+    tauri::async_runtime::spawn_blocking(move || {
+        let path = ensure_in_app_data(&app, &path)?;
+        let metadata =
+            std::fs::metadata(&path).map_err(|e| IpcError::from_io("metadata", &path, e))?;
+        let size = metadata.len();
+        if size > MAX_TEXT_FILE_SIZE {
+            return Err(IpcError::permission(format!(
+                "file too large: max {}MB ({} bytes), got {} bytes",
+                MAX_TEXT_FILE_SIZE / 1024 / 1024,
+                MAX_TEXT_FILE_SIZE,
+                size
+            )));
+        }
+        let content = std::fs::read_to_string(&path)
+            .map_err(|e| IpcError::from_io("read_to_string", &path, e))?;
+        Ok(ReadTextResult { content, size })
+    })
+    .await
+    .map_err(|e| IpcError::internal(format!("read_text_file 阻塞任务失败: {}", e)))?
 }
 
 /// 读取二进制文件,返回 base64 + MIME(用于图片/附件预览)。路径仅允许 app_data_dir 内。
@@ -1792,6 +1923,85 @@ mod write_text_atomic_tests {
     }
 }
 
+/// F-081 / F-082 的纯函数判据(`ensure_in_app_data` 的链接判定、剪贴板图片上限)。
+#[cfg(test)]
+mod security_limits_tests {
+    use super::{
+        check_clipboard_image_base64_len, check_clipboard_image_dimensions,
+        final_component_is_link, MAX_CLIPBOARD_IMAGE_BASE64_BYTES, MAX_CLIPBOARD_IMAGE_PIXELS,
+    };
+
+    #[test]
+    fn 剪贴板图片_base64_长度上限() {
+        assert!(check_clipboard_image_base64_len(MAX_CLIPBOARD_IMAGE_BASE64_BYTES).is_ok());
+        assert!(
+            check_clipboard_image_base64_len(MAX_CLIPBOARD_IMAGE_BASE64_BYTES + 1).is_err(),
+            "超过上限必须拒绝"
+        );
+    }
+
+    #[test]
+    fn 剪贴板图片_像素上限() {
+        assert_eq!(MAX_CLIPBOARD_IMAGE_PIXELS, 64 * 1024 * 1024);
+        assert!(
+            check_clipboard_image_dimensions(8192, 8192).is_ok(),
+            "8192x8192 = 64MP 边界应放行"
+        );
+        assert!(
+            check_clipboard_image_dimensions(8192, 8193).is_err(),
+            "超一像素也要拒"
+        );
+        assert!(
+            check_clipboard_image_dimensions(30000, 30000).is_err(),
+            "PNG 炸弹尺寸必须被拒"
+        );
+    }
+
+    #[test]
+    fn 普通文件与不存在的路径都不算链接() {
+        let dir = std::env::temp_dir().join(format!(
+            "ihui-linkcheck-plain-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("mkdir");
+        let f = dir.join("plain.txt");
+        std::fs::write(&f, b"x").expect("write");
+        assert!(!final_component_is_link(&f).expect("symlink_metadata"));
+        assert!(!final_component_is_link(&dir.join("missing.txt")).expect("not found"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn junction_必须被判为链接() {
+        // mklink /J 不需要管理员权限;环境不支持时跳过,不把"造不出夹具"误报成回归。
+        let base = std::env::temp_dir().join(format!("ihui-linkcheck-junction-{}", std::process::id()));
+        let target = base.join("target");
+        let link = base.join("link");
+        let _ = std::fs::remove_dir_all(&base);
+        std::fs::create_dir_all(&target).expect("mkdir target");
+        let created = std::process::Command::new("cmd")
+            .args(["/C", "mklink", "/J"])
+            .arg(&link)
+            .arg(&target)
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false);
+        if !created {
+            let _ = std::fs::remove_dir_all(&base);
+            return;
+        }
+        assert!(
+            final_component_is_link(&link).expect("symlink_metadata"),
+            "junction 必须被拒(否则 write_text_file 可写到链接目标处)"
+        );
+        // 先摘链接再删根,避免清理动作顺着链接动到目标。
+        let _ = std::fs::remove_dir(&link);
+        let _ = std::fs::remove_dir_all(&base);
+    }
+}
+
 #[tauri::command]
 async fn write_text_file(
     app: tauri::AppHandle,
@@ -1814,39 +2024,53 @@ async fn write_text_file(
 }
 
 /// 列出目录下的文件/子目录(非递归)。路径仅允许 app_data_dir 内。
+/// F-084:条数上限 —— 无界收集会在超大目录上把内存/延迟一起放大,超限直接报错。
+const MAX_DIR_ENTRIES: usize = 10_000;
+
 #[tauri::command]
 async fn list_dir(app: tauri::AppHandle, path: String) -> Result<DirListResult, IpcError> {
-    let path = ensure_in_app_data(&app, &path)?;
-    let mut entries = Vec::new();
-    let dir = std::fs::read_dir(&path).map_err(|e| IpcError::from_io("read_dir", &path, e))?;
-    for entry in dir {
-        let entry = entry.map_err(|e| IpcError::from_io("read_dir entry", &path, e))?;
-        let metadata = entry
-            .metadata()
-            .map_err(|e| IpcError::from_io("entry metadata", &entry.path(), e))?;
-        let path_str = entry.path().to_string_lossy().to_string();
-        let name = entry.file_name().to_string_lossy().to_string();
-        let extension = entry
-            .path()
-            .extension()
-            .map(|e| e.to_string_lossy().to_string())
-            .unwrap_or_default();
-        entries.push(FileInfo {
-            path: path_str,
-            name,
-            size: metadata.len(),
-            is_dir: metadata.is_dir(),
-            extension,
+    tauri::async_runtime::spawn_blocking(move || {
+        let path = ensure_in_app_data(&app, &path)?;
+        let mut entries = Vec::new();
+        let dir = std::fs::read_dir(&path).map_err(|e| IpcError::from_io("read_dir", &path, e))?;
+        for entry in dir {
+            if entries.len() >= MAX_DIR_ENTRIES {
+                return Err(IpcError::permission(format!(
+                    "目录条目超过上限 {} 条(拒绝继续列出): {}",
+                    MAX_DIR_ENTRIES,
+                    path.display()
+                )));
+            }
+            let entry = entry.map_err(|e| IpcError::from_io("read_dir entry", &path, e))?;
+            let metadata = entry
+                .metadata()
+                .map_err(|e| IpcError::from_io("entry metadata", &entry.path(), e))?;
+            let path_str = entry.path().to_string_lossy().to_string();
+            let name = entry.file_name().to_string_lossy().to_string();
+            let extension = entry
+                .path()
+                .extension()
+                .map(|e| e.to_string_lossy().to_string())
+                .unwrap_or_default();
+            entries.push(FileInfo {
+                path: path_str,
+                name,
+                size: metadata.len(),
+                is_dir: metadata.is_dir(),
+                extension,
+            });
+        }
+        // 文件在前,目录在后,各自按名称排序
+        entries.sort_by(|a, b| {
+            b.is_dir
+                .cmp(&a.is_dir)
+                .reverse()
+                .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
         });
-    }
-    // 文件在前,目录在后,各自按名称排序
-    entries.sort_by(|a, b| {
-        b.is_dir
-            .cmp(&a.is_dir)
-            .reverse()
-            .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
-    });
-    Ok(DirListResult { entries })
+        Ok(DirListResult { entries })
+    })
+    .await
+    .map_err(|e| IpcError::internal(format!("list_dir 阻塞任务失败: {}", e)))?
 }
 
 /// 获取单个文件/目录的元信息。路径仅允许 app_data_dir 内。
@@ -1912,7 +2136,10 @@ fn debounce_save_window_state(label: String, app: tauri::AppHandle) {
     const DEBOUNCE: Duration = Duration::from_millis(300);
     let now = Instant::now();
     {
-        let mut last = WINDOW_STATE_LAST_SAVE.lock().unwrap();
+        // F-086:锁中毒不得把窗口事件回调带崩(旧实现 .unwrap() 会直接 panic)。
+        let mut last = WINDOW_STATE_LAST_SAVE
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
         if let Some(prev) = last.get(&label) {
             if now.duration_since(*prev) < DEBOUNCE {
                 return;
@@ -1920,7 +2147,16 @@ fn debounce_save_window_state(label: String, app: tauri::AppHandle) {
         }
         last.insert(label.clone(), now);
     }
-    let _ = save_window_state(Some(label), app);
+    // F-086:几何读取 + store.save() 同步写盘不再跑在窗口事件线程上。
+    // 退出路径(apply_close_hide / exit_application 等)仍走同步 save_window_state,
+    // 保证进程结束前那次写盘一定落完 —— 命令签名保持不变(内部调用点与前端契约都不动)。
+    let app_handle = app.clone();
+    let label_for_save = label.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        if let Err(e) = save_window_state(Some(label_for_save), app_handle) {
+            log::warn!("[desktop] 窗口状态后台落盘失败: {}", e);
+        }
+    });
 }
 
 /// 生成窗口状态 store key(格式: window.<label>.<field>),区分 main/admin 窗口。
@@ -2189,32 +2425,59 @@ fn clear_webview_caches(root: &std::path::Path) -> Result<(usize, Vec<&'static s
     Ok((cleared, skipped))
 }
 
+/// 清理结果:真实删除数如实上报(F-083 起不再"没删也报成功")。
+#[derive(Serialize)]
+struct ClearCacheResult {
+    ok: bool,
+    cleared: usize,
+    skipped: Vec<&'static str>,
+}
+
 /// 清理 WebView2 缓存(Windows)。
 /// 2026-07-29 #6:prod 模式缓存子目录会无限增长(几个月可达数百 MB),供前端设置项"清理缓存"调用。
 /// 2026-09-25:由"整树删"改为"只删缓存白名单"——清理动作不再可能带走登录态与本地会话。
+/// 2026-11-12(F-083):改 async + spawn_blocking(递归删不再占主线程);返回真实删除数;
+/// LOCALAPPDATA 缺失 / 目标目录不存在明确返回 Err(文案带 not_found),不再假装成功。
+#[cfg(target_os = "windows")]
 #[tauri::command]
-fn clear_webview_cache(app: tauri::AppHandle) -> Result<OkResult, String> {
-    #[cfg(target_os = "windows")]
-    {
-        // identifier 取运行期配置(与 single-instance 锁名、预检等的取源同一枚),
-        // 清理动作因此永远只作用于本实例自己的数据目录,不会跨配置误清。
-        let identifier = app.config().identifier.clone();
-        if let Some(local_app_data) = std::env::var_os("LOCALAPPDATA") {
-            let webview_root = std::path::Path::new(&local_app_data)
-                .join(&identifier)
-                .join("EBWebView");
-            if webview_root.is_dir() {
-                let (cleared, skipped) = clear_webview_caches(&webview_root)?;
-                log::info!(
-                    "[desktop] WebView2 缓存已由用户清理:删除 {} 个缓存目录,保留 {} 个数据目录({})",
-                    cleared,
-                    skipped.len(),
-                    skipped.join(", ")
-                );
-            }
+async fn clear_webview_cache(app: tauri::AppHandle) -> Result<ClearCacheResult, String> {
+    // identifier 取运行期配置(与 single-instance 锁名、预检等的取源同一枚),
+    // 清理动作因此永远只作用于本实例自己的数据目录,不会跨配置误清。
+    let identifier = app.config().identifier.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let local_app_data = std::env::var_os("LOCALAPPDATA").ok_or_else(|| {
+            "not_found: LOCALAPPDATA 未设置,无法定位 WebView2 数据目录".to_string()
+        })?;
+        let webview_root = std::path::Path::new(&local_app_data)
+            .join(&identifier)
+            .join("EBWebView");
+        if !webview_root.is_dir() {
+            return Err(format!(
+                "not_found: WebView2 数据目录不存在({})",
+                webview_root.display()
+            ));
         }
-    }
-    Ok(OkResult { ok: true })
+        let (cleared, skipped) = clear_webview_caches(&webview_root)?;
+        log::info!(
+            "[desktop] WebView2 缓存已由用户清理:删除 {} 个缓存目录,保留 {} 个数据目录({})",
+            cleared,
+            skipped.len(),
+            skipped.join(", ")
+        );
+        Ok(ClearCacheResult { ok: true, cleared, skipped })
+    })
+    .await
+    .map_err(|e| format!("清理任务执行失败: {}", e))?
+}
+
+#[cfg(not(target_os = "windows"))]
+#[tauri::command]
+async fn clear_webview_cache(_app: tauri::AppHandle) -> Result<ClearCacheResult, String> {
+    Ok(ClearCacheResult {
+        ok: true,
+        cleared: 0,
+        skipped: Vec::new(),
+    })
 }
 
 #[cfg(test)]
@@ -2519,14 +2782,35 @@ fn apply_close_hide(app: &tauri::AppHandle) {
     let _ = save_window_state(Some("main".to_string()), app.clone());
 }
 
+/// `set_desktop_prefs` 的回包:`DesktopPrefs` 的全部顶层字段原样摊平(F-085:不对前端做
+/// 破坏性契约变更),额外加一格 `persisted` 让落盘失败不再是"只记日志的成功"。
+#[derive(Debug, Serialize)]
+struct SetDesktopPrefsResponse {
+    #[serde(flatten)]
+    prefs: DesktopPrefs,
+    persisted: bool,
+}
+
+/// 纯函数:回包唯一构造点,便于不依赖 AppHandle 单测两个分支。
+fn build_prefs_response(
+    prefs: DesktopPrefs,
+    save_result: Result<(), IpcError>,
+) -> SetDesktopPrefsResponse {
+    SetDesktopPrefsResponse { prefs, persisted: save_result.is_ok() }
+}
+
 /// 落盘 + 托盘副作用 + 广播,`set_desktop_prefs` 与 `resolve_close_choice(remember)` 共用。
-/// 顺序固定:合并 → **归一** → 落盘 → 托盘对齐 → 广播 → 回 effective 值。
-fn write_desktop_prefs(app: &tauri::AppHandle, patch: DesktopPrefsPatch) -> DesktopPrefs {
+/// 顺序固定:合并 → **归一** → 落盘 → 托盘对齐 → 广播 → 回 effective 值 + persisted。
+fn write_desktop_prefs(
+    app: &tauri::AppHandle,
+    patch: DesktopPrefsPatch,
+) -> SetDesktopPrefsResponse {
     let current = load_desktop_prefs(app);
     let next = normalize_prefs(patch.merge_into(current.clone()));
 
-    if let Err(e) = save_desktop_prefs(app, &next) {
-        // 契约把这两个命令的返回类型钉成 DesktopPrefs(不带 Result),所以落盘失败只能在这里喊。
+    let save_result = save_desktop_prefs(app, &next);
+    if let Err(e) = &save_result {
+        // 回包里的 persisted=false 是命令面上的失败出口;这条日志留给事后取证。
         log::error!("[desktop-prefs] 落盘失败({e}):本次改动只对本次会话生效,重启会回到盘上那份");
     }
 
@@ -2542,7 +2826,60 @@ fn write_desktop_prefs(app: &tauri::AppHandle, patch: DesktopPrefsPatch) -> Desk
     if let Err(e) = app.emit("desktop-prefs-changed", &next) {
         log::warn!("[desktop-event] emit desktop-prefs-changed failed: {}", e);
     }
-    next
+    build_prefs_response(next, save_result)
+}
+
+#[cfg(test)]
+mod prefs_response_tests {
+    use super::*;
+
+    fn sample() -> DesktopPrefs {
+        DesktopPrefs {
+            show_tray_icon: false,
+            close_behavior: CloseBehavior::Quit,
+            launch_minimized: true,
+            tray_single_click: TraySingleClick::ToggleWindow,
+            unread_badge: false,
+            tray_menu_items: vec!["show".into(), "quit".into()],
+        }
+    }
+
+    fn assert_all_top_level_keys(value: &serde_json::Value) {
+        for key in [
+            "show_tray_icon",
+            "close_behavior",
+            "launch_minimized",
+            "tray_single_click",
+            "unread_badge",
+            "tray_menu_items",
+            "persisted",
+        ] {
+            assert!(value.get(key).is_some(), "回包缺少顶层字段 {key}");
+        }
+        assert_eq!(value["show_tray_icon"], serde_json::json!(false));
+        assert_eq!(value["close_behavior"], serde_json::json!("quit"));
+        assert_eq!(value["launch_minimized"], serde_json::json!(true));
+        assert_eq!(value["unread_badge"], serde_json::json!(false));
+        assert_eq!(value["tray_menu_items"], serde_json::json!(["show", "quit"]));
+    }
+
+    #[test]
+    fn prefs_response_persisted_true_keeps_all_prefs_fields() {
+        let value = serde_json::to_value(build_prefs_response(sample(), Ok(()))).unwrap();
+        assert_all_top_level_keys(&value);
+        assert_eq!(value["persisted"], serde_json::json!(true));
+    }
+
+    #[test]
+    fn prefs_response_persisted_false_keeps_all_prefs_fields() {
+        let value = serde_json::to_value(build_prefs_response(
+            sample(),
+            Err(IpcError::permission("目录不可写")),
+        ))
+        .unwrap();
+        assert_all_top_level_keys(&value);
+        assert_eq!(value["persisted"], serde_json::json!(false));
+    }
 }
 
 /// 读桌面端行为偏好。返回的一直是**归一后**的 effective 值,前端不需要重算不变量。
@@ -2553,8 +2890,23 @@ fn get_desktop_prefs(app: tauri::AppHandle) -> DesktopPrefs {
 
 /// 写桌面端行为偏好(patch 语义:只覆盖带过来的那几档)。
 #[tauri::command]
-fn set_desktop_prefs(app: tauri::AppHandle, patch: DesktopPrefsPatch) -> DesktopPrefs {
+fn set_desktop_prefs(app: tauri::AppHandle, patch: DesktopPrefsPatch) -> SetDesktopPrefsResponse {
     write_desktop_prefs(&app, patch)
+}
+
+/// 读浏览器内存策略(每次判定都读进程内真值,改完立即生效)。
+#[tauri::command]
+fn get_browser_settings() -> browser_settings::BrowserSettings {
+    browser_settings::current()
+}
+
+/// 写浏览器内存策略(patch 语义);落盘失败直接报错,不留下"界面显示改过、重启消失"的落差。
+#[tauri::command]
+fn set_browser_settings(
+    app: tauri::AppHandle,
+    patch: browser_settings::BrowserSettingsPatch,
+) -> Result<browser_settings::BrowserSettings, IpcError> {
+    browser_settings::apply(&app, patch)
 }
 
 /// 前端对 `desktop-close-requested` 的答复。choice ∈ {"hide","quit","cancel"}。
@@ -2683,6 +3035,34 @@ async fn clipboard_get(format: Option<String>) -> Result<ClipboardResult, String
     Ok(ClipboardResult { clipboard: result })
 }
 
+/// clipboard_set 图片入参上限(F-082):
+/// - base64 字符串 ≤ 32MB(解码后约 24MB,先挡住超大入参本身);
+/// - 像素总数 ≤ 64MP —— 几十 KB 的 PNG 炸弹(如 30000²)解码要分配数 GB,
+///   尺寸检查必须发生在按尺寸分配内存之前。
+const MAX_CLIPBOARD_IMAGE_BASE64_BYTES: usize = 32 * 1024 * 1024;
+const MAX_CLIPBOARD_IMAGE_PIXELS: u64 = 64 * 1024 * 1024;
+
+fn check_clipboard_image_base64_len(len: usize) -> Result<(), String> {
+    if len > MAX_CLIPBOARD_IMAGE_BASE64_BYTES {
+        return Err(format!(
+            "image too large: base64 长度 {} 字节超过上限 {} 字节",
+            len, MAX_CLIPBOARD_IMAGE_BASE64_BYTES
+        ));
+    }
+    Ok(())
+}
+
+fn check_clipboard_image_dimensions(width: u32, height: u32) -> Result<(), String> {
+    let pixels = width as u64 * height as u64;
+    if pixels > MAX_CLIPBOARD_IMAGE_PIXELS {
+        return Err(format!(
+            "image too large: {}x{} = {} 像素,超过上限 {} 像素",
+            width, height, pixels, MAX_CLIPBOARD_IMAGE_PIXELS
+        ));
+    }
+    Ok(())
+}
+
 #[tauri::command]
 async fn clipboard_set(
     content: String,
@@ -2697,10 +3077,24 @@ async fn clipboard_set(
                 .map_err(|e| e.to_string())?;
         }
         "image" => {
+            check_clipboard_image_base64_len(content.len())?;
             let bytes = base64::engine::general_purpose::STANDARD
                 .decode(&content)
                 .map_err(|e| e.to_string())?;
-            let rgba_img = image::load_from_memory_with_format(&bytes, image::ImageFormat::Png)
+            // 先只读 PNG 头部尺寸并判上限,再真正解码。
+            let mut probe = image::io::Reader::new(Cursor::new(&bytes));
+            probe.set_format(image::ImageFormat::Png);
+            let (width, height) = probe.into_dimensions().map_err(|e| e.to_string())?;
+            check_clipboard_image_dimensions(width, height)?;
+            let mut reader = image::io::Reader::new(Cursor::new(&bytes));
+            reader.set_format(image::ImageFormat::Png);
+            let mut limits = image::io::Limits::no_limits();
+            limits.max_image_width = Some(width);
+            limits.max_image_height = Some(height);
+            limits.max_alloc = Some(MAX_CLIPBOARD_IMAGE_PIXELS * 4);
+            reader.limits(limits);
+            let rgba_img = reader
+                .decode()
                 .map_err(|e| e.to_string())?
                 .to_rgba8();
             let (w, h) = (rgba_img.width() as usize, rgba_img.height() as usize);
@@ -4106,6 +4500,8 @@ pub fn run() {
         .setup(|app| {
             #[cfg(target_os = "windows")]
             webview2_runtime::check_and_report(app.handle());
+            // F-123:标签上限等设置必须在任何建标签路径之前进内存(默认 12/6 不变)。
+            browser_settings::init(app.handle());
             // AUMID 已前移到 run() 顶部(2026-09-02,须早于任何窗口创建)
             // 启动守护在 Builder 之前跑,那时日志插件还没初始化,计数在这里补记。
             let killed_stale = startup_guard::take_killed_stale_count();
@@ -4471,6 +4867,8 @@ pub fn run() {
             set_tray_always_visible,
             get_desktop_prefs,
             set_desktop_prefs,
+            get_browser_settings,
+            set_browser_settings,
             resolve_close_choice,
             set_desktop_badge,
             take_pending_deep_links,

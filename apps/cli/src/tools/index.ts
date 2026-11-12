@@ -51,6 +51,7 @@ import {
   runPostToolCall,
   runWithToolHookScope,
   shouldDispatchCentralPostHook,
+  toHookToolName,
 } from '../hooks/index.js';
 import { noteDangerousApproval } from './danger-gate.js';
 import { recordApprovedInvocation } from './permission-lease.js';
@@ -1830,7 +1831,13 @@ export async function executeToolCall(
     // F-097 中央 preToolCall 闸:所有工具(含 read/list/grep/glob/skill/MCP/subagent)
     // 都从这里统一过一遍;工具体内已自己接线的第二次调用由 scope 折成"已派发空结果",
     // 不重复跑钩子(避免同一调用两次审计/两次拦截)。
-    const pre = await runPreToolCall(call.name, call.arguments, ctx.signal);
+    // 工具名走 toHookToolName:run_command 在 hooks.json 里长期叫 "bash",不能因中央派发
+    // 改名就让既有 matchTool 配置静默失效。
+    const preInput =
+      call.name === 'run_command'
+        ? { ...call.arguments, cwd: ctx.workspacePath }
+        : call.arguments;
+    const pre = await runPreToolCall(toHookToolName(call.name), preInput, ctx.signal);
     if (!pre.proceed) {
       return {
         success: false,
@@ -1855,14 +1862,20 @@ export async function executeToolCall(
     } catch {
       // 钩子链故障不得改写成败/成功,也不得把结果路径变成第二异常源:结果原样返回。
     }
-    // F-097 中央 postToolCall 闸:工具体内没有任何 post 派发时才补一次标准载荷。
+    // F-097 中央 postToolCall 闸:工具体内没有任何 post 派发时才补一次标准载荷
+    // (一次且仅一次)。
+    // F-125:载荷带**真实输出**(不是工具手写的摘要);脱敏与截断在 runPostToolCall 内统一做。
+    // `path` 随参数带出:编辑类工具的内置安全扫描腿靠它定位文件(F-038),不能因载荷统一而失明。
     if (shouldDispatchCentralPostHook()) {
       try {
-        await runPostToolCall(
-          call.name,
-          { success: result.success, output: result.output, error: result.error },
-          ctx.signal,
-        );
+        const postPayload: Record<string, unknown> = {
+          success: result.success,
+          output: result.output,
+          error: result.error,
+        };
+        const argPath = call.arguments?.path;
+        if (typeof argPath === 'string' && argPath !== '') postPayload.path = argPath;
+        await runPostToolCall(toHookToolName(call.name), postPayload, ctx.signal);
       } catch {
         // 同 fireToolOutcomeHooks:钩子故障不改结果。
       }
