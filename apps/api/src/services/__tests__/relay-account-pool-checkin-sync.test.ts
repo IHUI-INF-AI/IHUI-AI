@@ -175,15 +175,17 @@ describe('checkinPlatformFor(平台映射单一真相源)', () => {
   // 2026-10-27 八平台扩容后 minimax 已是真签到引擎(ai-service checkin_minimax.py,
   // 映射表 comment 同批写明)⇒ 旧用例把 minimax 当"尚未启用"已失真,改钉"有引擎的必须映射、
   // 无引擎的必须拦截"两条边。
-  it('有签到引擎的平台 → 映射到同名签到平台(minimax 已扩容)', () => {
+  it('有签到引擎的平台 → 映射到同名签到平台(minimax/doubao 已有引擎)', () => {
     expect(checkinPlatformFor('minimax')).toBe('minimax')
+    // 2026-11-11 接入豆包签到(ai-service app/services/checkin_doubao.py 真实存在,
+    // PROVIDER_TO_CHECKIN 已映射 'doubao')⇒ 旧用例把 doubao 当无引擎已失真。
+    expect(checkinPlatformFor('doubao')).toBe('doubao')
   })
 
   it('未知/无签到引擎平台(杂串、codex 等无引擎平台)→ null', () => {
     expect(checkinPlatformFor('')).toBeNull()
     expect(checkinPlatformFor('unknown-provider')).toBeNull()
     expect(checkinPlatformFor('codex')).toBeNull()
-    expect(checkinPlatformFor('doubao')).toBeNull()
   })
 })
 

@@ -207,7 +207,14 @@ async function checkHealth(
       return { ok: false, authFailed: true, error: `balance HTTP ${status}` }
     if (status >= 500 || status === 0)
       return { ok: false, indeterminate: true, error: `balance HTTP ${status}` }
-    if (status !== 200) return { ok: false, error: `balance HTTP ${status}: ${text.slice(0, 160)}` }
+    // 其余 4xx(404/400/405 等)多为端点改版或网关应答,不是鉴权结论;
+    // 该平台 refreshTokenSupported=false,一旦写 down 就永不恢复 ⇒ 一律按未判定
+    if (status !== 200)
+      return {
+        ok: false,
+        indeterminate: true,
+        error: `balance HTTP ${status}: ${text.slice(0, 160)}`,
+      }
     if (!body || typeof body['code'] !== 'number') {
       return {
         ok: false,

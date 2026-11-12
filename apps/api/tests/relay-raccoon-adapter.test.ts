@@ -136,9 +136,12 @@ describe('raccoon 提取器', () => {
     const home = makeTmpHome()
     try {
       seedAuth(home, { access_token: TOKEN, office_identity: 'personal' })
-      mockFetch.mockResolvedValueOnce(
-        res(200, { data: { user: { name: '1994489', phone: '199****5160' } } }),
-      )
+      // 生产顺序(user_info 首选 → IAM 兜底):两处都只给掩码 ⇒ 都不当全号用
+      mockFetch
+        .mockResolvedValueOnce(res(200, { data: { name: '1994489', phone: '199****5160' } }))
+        .mockResolvedValueOnce(
+          res(200, { data: { user: { name: '1994489', phone: '199****5160' } } }),
+        )
       const r = await extractRaccoonAccounts({ home, verify: true, fetchImpl: mockFetch })
       const accounts = r['accounts'] as Array<Record<string, unknown>>
       expect(accounts[0]!['name']).toBe('1994489')
@@ -153,9 +156,10 @@ describe('raccoon 提取器', () => {
     const home = makeTmpHome()
     try {
       seedAuth(home, { access_token: TOKEN, office_identity: 'personal' })
-      mockFetch.mockResolvedValueOnce(
-        res(200, { data: { user: { name: '昵称', phone: '13800001111' } } }),
-      )
+      // user_info 只给昵称 + 掩码;全号只在 IAM 兜底里 ⇒ 全号仍优先于昵称
+      mockFetch
+        .mockResolvedValueOnce(res(200, { data: { name: '昵称', phone: '199****5160' } }))
+        .mockResolvedValueOnce(res(200, { data: { user: { name: '昵称', phone: '13800001111' } } }))
       const r = await extractRaccoonAccounts({ home, verify: true, fetchImpl: mockFetch })
       const accounts = r['accounts'] as Array<Record<string, unknown>>
       expect(accounts[0]!['name']).toBe('13800001111')
