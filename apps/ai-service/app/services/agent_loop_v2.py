@@ -5992,6 +5992,9 @@ class AgentLoopV2:
                 self.max_iterations,
                 sum(len(getattr(it, "tool_results", ()) or ()) for it in iterations),
             ),
+            # AIS-060:回传续跑锚点(最后一次保存的 checkpoint);未保存过为 None,
+            # 与 AgentLoopResult"正常完成时为 None"的既有语义一致。
+            checkpoint_id=self._last_checkpoint_id,
         )
 
     def _resume_legacy_mark(self) -> None:
@@ -6690,8 +6693,18 @@ class AgentLoopV2:
                 decision_info=decision_info,
             )
             # 等待用户决策(批准/拒绝/超时)
+            #
+            # AIS-064:审批等待必须能被 cancel/pause 打断。修前这里是裸
+            # `asyncio.wait_for(ev.wait(), timeout=self._approval_timeout)` —— 用户点取消后
+            # 仍要等满 N×60s 才返回,而且期间弹窗仍可被批准并执行(取消语义被架空)。
+            # 复用 `_wait_interruptible`:它按 0.25s 轮询 cancel/pause 标志,命中即抛
+            # `_LoopInterrupted` 交 `_run_loop` 走优雅中断链路 —— 与长 LLM 调用/长工具
+            # 执行同一条中断链路,不在这里另造第二种取消机制。
+            # 超时仍是本等待自己的终态:转成 "approval_timeout" 交给调用方(工具不执行)。
             try:
-                await asyncio.wait_for(ev.wait(), timeout=self._approval_timeout)
+                await self._wait_interruptible(
+                    asyncio.wait_for(ev.wait(), timeout=self._approval_timeout)
+                )
             except TimeoutError:
                 return "approval_timeout"
             settled = _as_entry(approval_id)
@@ -7147,7 +7160,11 @@ class AgentLoopV2:
             serial_results: list[ToolResult] = []
             try:
                 for idx, tc in enumerate(tool_calls):
-                    result = await self._execute_single(tc)
+                    # AIS-064:串行分支同样包中断器 —— 修前只 `await _execute_single(tc)`,
+                    # 单条工具卡住(长命令/等审批)时 cancel/pause 要等它自己结束才生效,
+                    # 与并行分支的响应性不对称。这里统一走 `_wait_interruptible`,
+                    # `_LoopInterrupted` 由下方既有 except 接住并做"已完成前序 settle"。
+                    result = await self._wait_interruptible(self._execute_single(tc))
                     serial_results.append(result)
                     self._attach_tool_output_artifact(tc, result)
                     self._maybe_record_step(tc, result)
