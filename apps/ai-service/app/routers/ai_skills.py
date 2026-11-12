@@ -28,14 +28,14 @@ import re
 import time
 from typing import Any, TypeVar
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 # BUG-35:_try_screenshot_html 的真实实现就在本模块,显式导入使
 # `app.services.screenshot_service` 包属性稳定存在(不依赖其它测试的导入顺序),
 # 也让"函数不存在即静默失效"无法再以隐式状态蒙混过关。
 import app.services.screenshot_service  # noqa: F401
-from app.core.jwt_auth import require_request_user_id
+from app.core.jwt_auth import require_request_user_id, resolve_request_user_id
 from app.core.llm_gateway import llm_gateway
 from app.services.skill_feedback import skill_feedback_tracker  # 2026-08-11:统计与反馈
 from app.services.skill_recommender import skill_recommender  # 2026-08-09:推荐引擎
@@ -401,7 +401,9 @@ async def get_ai_skill(skill_id: str) -> dict[str, Any]:
 
 
 @router.post("/{skill_id}/invoke", response_model=ApiEnvelope)
-async def invoke_ai_skill(skill_id: str, req: InvokeRequest) -> dict[str, Any]:
+async def invoke_ai_skill(
+    skill_id: str, req: InvokeRequest, request: Request
+) -> dict[str, Any]:
     """调用 AI Skill。
 
     行为:
@@ -455,10 +457,12 @@ async def invoke_ai_skill(skill_id: str, req: InvokeRequest) -> dict[str, Any]:
         )
 
     try:
+        # AIS-076:owner_uuid 一律取自 JWT 主体,忽略客户端 body 的 ownerUuid
+        # (否则可借用他人 BYOK 配置/额度发起调用)。
         result = await llm_gateway.complete(
             [{"role": "user", "content": rendered}],
             model=req.model,
-            owner_uuid=req.ownerUuid,
+            owner_uuid=resolve_request_user_id(request),
             temperature=0.7,
             max_tokens=2000,
         )
