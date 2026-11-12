@@ -20,8 +20,12 @@
  *   类型可变;2026-10-27 起仅作参考,**额度/健康检查升级为 zcode-plan 通道**:
  *   GET https://zcode.z.ai/api/v1/zcode-plan/billing/balance?app_version=3.16.3,
  *   实弹 200 + plans[]/entitlements[],票 = zcodejwttoken,X-Device-Mid 等头必带)。
- * - 刷新:ZCode OAuth token 的刷新端点未实证 ⇒ 本适配器不实现 refreshToken,
- *   401 自愈依赖重新导入号池,绝不猜端点。
+ * - 刷新:本适配器不实现 refreshToken(显式声明 refreshTokenSupported:false),401 自愈依赖重新导入池。
+ *   2026-11-12 桌面端 3.17.2 取证复核:客户端有 token 端点(/api/v1/oauth/token)与
+ *   `oauth:<provider>:refresh_token` 存储键,但**两个 provider 适配器都没有 refresh 交换实现**
+ *   (oauthService.refreshToken 走到 `!adapter.refreshToken` 即抛"暂未提供…请重新登录");
+ *   本机 credentials.json 解密后也只有 access_token,无 refresh_token 键。
+ *   ⇒ 上游既未发 rt、客户端也没有可复用的刷新调用,绝不猜端点。
  * - 凭证映射(服务端 mapZcodeImport,主会话集成):token←oauth:bigmodel:access_token
  *   (或 zcodejwttoken/项目 Key),raw 其余字段进 secretsEnc 直通。
  * - 提取器(2026-10-27):credentials.json 值为 enc:v1: AES-256-GCM 密文,解密配方见
@@ -524,6 +528,9 @@ export const zcodeAdapter: RelayUpstreamAdapter = {
   // 集成点:主会话需把 'zcode' 加进 RELAY_PROVIDERS(relay-account-format.ts);
   // 此处断言只为让本文件独立可编译,不改动既有文件。
   providerCode: 'zcode' as RelayUpstreamAdapter['providerCode'],
+  // 不可续期声明(与 loomy/raccoon 同形):调度器的临期/空闲/down 三档一律 skip,
+  // 绝不把"没有 refresh 通路"记成 refreshFailed(连续 3 次会误摘好号)。
+  refreshTokenSupported: false,
   buildChatRequest,
   translateStreamChunk,
   translateNonStream,
