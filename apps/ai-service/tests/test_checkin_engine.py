@@ -271,6 +271,54 @@ class TestSigninFlow:
         assert result["http_status"] == 401
         assert result["classified_error"] == {"type": "SessionDead", "cooldown_seconds": -1}
 
+    async def test_checkin_account_status_1001_skips_claim(self, jwt, device_map):
+        """凭证被上游拒绝(status 预检回 1001)⇒ 一次 claim 都不许发,直接判 SessionDead。
+
+        风控零触发(2026-11-12 立):死票反复打 claim 鉴权点是封号前兆;预检已经
+        拿到「认证拒绝」还继续 claim,等于每轮白打两次。"""
+        calls: list[str] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            calls.append(request.url.path)
+            return httpx.Response(
+                200,
+                json={"code": 1001, "message": "We're sorry, but we are not able to authenticate you."},
+            )
+
+        async with make_client(handler) as client:
+            result = await checkin_account("u1", jwt, device_map, client=client)
+        assert result["ok"] is False
+        assert result["status"] == "fail"
+        assert result["code"] == 1001
+        assert result["classified_error"] == {"type": "SessionDead", "cooldown_seconds": -1}
+        # 只有 status 预检那一次请求,claim 路径零出站
+        assert calls == ["/trae/api/v2/ug/checkin_credits/status"]
+
+    async def test_checkin_account_claim_1001_is_session_dead(self, jwt, device_map):
+        """claim 回 HTTP 200 + code=1001 ⇒ 凭证失效(SessionDead 永久冷却),不是
+        BusinessError(300s 冷却 ⇒ 冷却一过又打一次,本机 11-12 就这样连打 9 次)。"""
+        claim_called: list[bool] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if "status" in str(request.url):
+                return httpx.Response(
+                    200, json={"code": 0, "checked_in": False, "credits": 20, "message": ""}
+                )
+            claim_called.append(True)
+            return httpx.Response(
+                200,
+                json={"code": 1001, "message": "We're sorry, but we are not able to authenticate you."},
+            )
+
+        async with make_client(handler) as client:
+            result = await checkin_account("u1", jwt, device_map, client=client)
+        assert result["ok"] is False
+        assert result["code"] == 1001
+        assert result["http_status"] == 200
+        assert result["classified_error"] == {"type": "SessionDead", "cooldown_seconds": -1}
+        # 业务失败不重试:一次 claim 就够,绝不连打
+        assert claim_called == [True]
+
     async def test_checkin_account_rate_limited_429(self, jwt, device_map):
         """限流: 429 → SoftRate 冷却 60s。"""
 
