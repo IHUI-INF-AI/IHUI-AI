@@ -13,6 +13,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as crypto from 'node:crypto';
 import { assertPathInside } from '../util/path-guard.js';
+import { sleepSync } from '../util/atomic-write.js';
 import { ensureHostDir, type CheckpointDiffEntry, type CheckpointMeta } from './snapshot-store-host.js';
 
 /**
@@ -48,6 +49,59 @@ export function resolveWorkspaceRelPath(workspacePath: string, filePath: string)
   return rel;
 }
 
+/** restore 写盘的 tmp 序号(与 pid 拼起来,同进程并发不撞名) */
+let restoreTmpSeq = 0;
+/** rename 撞 Windows「目标被占用」时的退避(毫秒);总等待 ≈ 75ms,远小于一次回滚的预算 */
+const RENAME_BACKOFF_MS = [5, 10, 20, 40] as const;
+const RETRYABLE_RENAME_CODES = new Set(['EPERM', 'EBUSY', 'EACCES']);
+
+function errCode(e: unknown): string | undefined {
+  return typeof e === 'object' && e !== null && 'code' in e ? String((e as { code: unknown }).code) : undefined;
+}
+
+/**
+ * F-032:恢复写盘走「同目录 tmp + rename」,不再 copyFileSync 直接覆盖目标。
+ * 直接覆盖时崩溃/磁盘满会把用户文件留成半截;rename 保证目标要么是旧内容、要么是完整新内容。
+ * tmp 用 COPYFILE_EXCL 独占创建,任何失败都先清 tmp 再抛,不留半截临时件。
+ */
+function copyFileAtomicSync(
+  src: string,
+  dest: string,
+  io: { renameSync?: (from: string, to: string) => void },
+): void {
+  ensureHostDir(path.dirname(dest));
+  restoreTmpSeq += 1;
+  const tmp = path.join(
+    path.dirname(dest),
+    `.${path.basename(dest)}.restore-tmp-${process.pid}-${restoreTmpSeq}`,
+  );
+  const rename =
+    io.renameSync ?? ((from: string, to: string): void => fs.renameSync(from, to));
+  try {
+    fs.copyFileSync(src, tmp, fs.constants.COPYFILE_EXCL);
+    let lastErr: unknown = null;
+    for (let i = 0; i <= RENAME_BACKOFF_MS.length; i++) {
+      try {
+        rename(tmp, dest);
+        return;
+      } catch (e) {
+        lastErr = e;
+        const code = errCode(e);
+        if (code === undefined || !RETRYABLE_RENAME_CODES.has(code)) throw e;
+        if (i < RENAME_BACKOFF_MS.length) sleepSync(RENAME_BACKOFF_MS[i] ?? 0);
+      }
+    }
+    throw lastErr instanceof Error ? lastErr : new Error(`恢复写盘 rename 失败:${dest}`);
+  } catch (e) {
+    try {
+      fs.rmSync(tmp, { force: true });
+    } catch {
+      // 清 tmp 失败不改判据结论:主错误已在上抛
+    }
+    throw e;
+  }
+}
+
 function workspacePresence(abs: string, statSync: typeof fs.statSync): 'present' | 'missing' | 'unreadable' {
   try {
     statSync(abs);
@@ -64,9 +118,14 @@ export function restoreSnapshotFiles(
   workspacePath: string,
   cpDir: string,
   files: CheckpointMeta['files'],
-  io: { statSync?: typeof fs.statSync } = {},
+  io: {
+    statSync?: typeof fs.statSync;
+    lstatSync?: typeof fs.lstatSync;
+    renameSync?: (from: string, to: string) => void;
+  } = {},
 ): { restored: string[]; removed: string[]; notRestored: string[] } {
   const statSync = io.statSync ?? fs.statSync;
+  const lstatSync = io.lstatSync ?? fs.lstatSync;
   const restored: string[] = [];
   const removed: string[] = [];
   const notRestored: string[] = [];
@@ -81,18 +140,34 @@ export function restoreSnapshotFiles(
         notRestored.push(rel);
         continue;
       }
-      if (presence === 'present') {
-        fs.rmSync(absInWorkspace, { recursive: true, force: true });
-        removed.push(rel);
+      if (presence === 'missing') continue;
+      // F-032:删除前用 lstat 复核类型。路径在快照之后被建成目录/换成符号链接时,
+      // 按文件删会把无关的新内容整棵清掉 ⇒ 一律不动,如实记入 notRestored。
+      let stat: fs.Stats;
+      try {
+        stat = lstatSync(absInWorkspace);
+      } catch {
+        notRestored.push(rel);
+        continue;
       }
+      if (!stat.isFile()) {
+        notRestored.push(rel);
+        continue;
+      }
+      try {
+        fs.unlinkSync(absInWorkspace);
+      } catch {
+        notRestored.push(rel);
+        continue;
+      }
+      removed.push(rel);
     } else {
       const src = path.join(cpDir, rel);
       if (workspacePresence(src, statSync) !== 'present') {
         notRestored.push(rel);
         continue;
       }
-      ensureHostDir(path.dirname(absInWorkspace));
-      fs.copyFileSync(src, absInWorkspace);
+      copyFileAtomicSync(src, absInWorkspace, io);
       restored.push(rel);
     }
   }

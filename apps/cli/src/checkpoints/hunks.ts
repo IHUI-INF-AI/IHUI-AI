@@ -145,10 +145,9 @@ export class HunkCheckpointManager {
     return lines;
   }
 
-  /** 写入文件所有行(自动加换行符)。 */
+  /** 写入文件所有行(自动加换行符)。F-032:走原子写(同目录 tmp + rename),不留半截回滚结果。 */
   private writeLines(absPath: string, lines: string[]): void {
-    this.ensureDir(path.dirname(absPath));
-    fs.writeFileSync(absPath, lines.join('\n') + '\n', 'utf-8');
+    writeFileAtomicSync(absPath, lines.join('\n') + '\n');
   }
 
   /**
