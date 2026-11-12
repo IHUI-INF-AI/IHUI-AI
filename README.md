@@ -85,10 +85,10 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | ---- | ---- | ------ |
 | 数据库表 | 639 | `dbTables` |
 | schema 文件 | 246 | `dbSchemaFiles` |
-| API 路由 | 4768 | `apiRoutes` |
+| API 路由 | 4771 | `apiRoutes` |
 | 路由文件 | 694 | `apiRouteFiles` |
 | AI 服务路由 | 676 | `aiServiceRoutes` |
-| WebSocket 端点 | 30 | `wsEndpoints` |
+| WebSocket 端点 | 43 | `wsEndpoints` |
 | 入库模型清单 | 100 | `llmModels` |
 | 发布平台 | 38 | `publishPlatforms` |
 | 端应用包 | 9 | `appPackages` |
@@ -98,13 +98,13 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 5103 | `testFiles` |
+| 测试文件 | 5113 | `testFiles` |
 | CI 工作流 | 59 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 362 | `guardianGates` |
 | — blocking | 333 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 21170 | `trackedFiles` |
+| 跟踪文件 | 21187 | `trackedFiles` |
 
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-12。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -5469,6 +5469,24 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - **已知缺口(deferred 不落盘)**:派发队列是进程内一次性内存队列(无常驻服务、无轮询、无持久化),投递记录要等任务跑完才写表。`dispatch:'async'` 已回 200、后台任务尚未跑完的窗口里若 API 进程崩溃或重启,内存任务与未写入的投递表一并丢失;GitHub 侧已记成功不会重投,进程内一级去重 LRU 也随之消失 ⇒ 该次投递的评审 / 评论回写静默丢失、无法重放、无从对账。当前实现未收口此窗口(积压满触发「就地执行」的兜底只防积压,不防进程退出)。
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-12**
+- 🚀 新功能/改进:全局对话框接入个人号池通道 + 根因修 WS 全族租户闸 401 (4a004892616)
+- 🔧 工程/其他:员工请假端到端联调转 CI 契约回归测试(HR-3 固化防回归) (ab55a054849)
+- 📚 文档:重生 README 数字生成块对齐 HEAD 现算值(过 DN2 push 门) (f4e66811685)
+- 🐞 修复:闭环 APK 降级误判 — 判据可信闸门 + 补回被覆盖的双写判据 + OTA 腿 fail-closed (ce1dd22efaf)
+- 🐞 修复:本机即生产本地模式与任务状态枚举误译修正 (1393201a361)
+- 📚 文档:结清 AIS-063/064/077、F-123/130/132/143 七张缺陷票 (dded71b6085)
+- 🔧 工程/其他:结清 F-015/F-028/F-093/F-126 四张缺陷普查工单 (ef57a14f75a)
+- 🐞 修复:结清 F-015/F-028/F-093/F-126 —— serve 退出码不再截断管道输出,凭据原子写钉 0600,TERM 黑名单补 emacs/eterm/vscode,读缓存补 ctime+inode 判据 (49613c3a9eb)
+- 🐞 修复:结清 F-130——已支付/已退款订单禁止物理删除 (4c17897acfe)
+- 🐞 修复:结清 F-123——GitHub Trending 采集先收集再逐条 await 落库 (2619cbebf4d)
+- 🔧 工程/其他:还原被 F-143 提交误带的 automation-card 改动 (eb63144e700)
+- 🔧 工程/其他:docs+test(relay-pool): zcode 显式声明不可续期 + 2026-11-12 桌面端取证复核落档 (e08e63d850a)
+- 🐞 修复:号池两枚「死号」实为活号 —— doubao ttwid 键名误配 + workbuddy global realm 误判 (9c2a2d3b0b3)
+- 🐞 修复:结清 F-143——直播回调去重标记改为"成功后才落" (d1c62d5339f)
+- 🔧 工程/其他:结清 F-061/F-104 两张缺陷普查工单 (86b8c353188)
+- 🐞 修复:结清 F-061/F-104 —— 剪贴板写权限只补本地 webview,operator 执行改一次性票据+原生确认 (32450a474e9)
+
 **2026-11-12**
 - 🐞 修复:迁移回填语句改写为合法 SQL 并登记 journal(HR-3 第2期收尾) (4887fa97901)
 - 📚 文档:Y-37 二次诊断——裸域超时根因是CF橙云跨境回源非隧道协议,定方案B(EdgeOne补裸域证书+CF改回源),修正验收口径 (a7541cee39b)
