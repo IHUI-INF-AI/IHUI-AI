@@ -33,6 +33,17 @@ import {
 } from './relay-param-ops.js'
 
 // =============================================================================
+// 进程内缓存(F-242):参数覆盖规则低频变更,每个转发请求全量查表放大 QPS。
+// 30s TTL + CRUD 后失效;无规则时返回空数组短路。
+// =============================================================================
+let paramOpRulesCache: { rules: ParamOpRule[]; at: number } | null = null
+const PARAM_OPS_CACHE_TTL_MS = 30_000
+
+function invalidateParamOpRulesCache(): void {
+  paramOpRulesCache = null
+}
+
+// =============================================================================
 // 类型定义
 // =============================================================================
 
@@ -150,6 +161,10 @@ function parseRule(
  * 同时返回 enabled / disabled 规则(admin UI 需要展示全部)。
  */
 export async function listParamOpRules(): Promise<ParamOpRule[]> {
+  const now = Date.now()
+  if (paramOpRulesCache && now - paramOpRulesCache.at < PARAM_OPS_CACHE_TTL_MS) {
+    return paramOpRulesCache.rules
+  }
   const rows = await dbRead
     .select()
     .from(systemConfigs)
@@ -168,9 +183,10 @@ export async function listParamOpRules(): Promise<ParamOpRule[]> {
   }
   // priority 降序(高优先级在前),同优先级按 createdAt 升序(早创建在前)
   rules.sort((a, b) => {
-    if (b.priority !== a.priority) return b.priority - a.priority
+    if (b.priority !== a.priority)     return b.priority - a.priority
     return (a.createdAt ?? '').localeCompare(b.createdAt ?? '')
   })
+  paramOpRulesCache = { rules, at: now }
   return rules
 }
 
@@ -210,6 +226,7 @@ export async function createParamOpRule(
     isPublic: false,
     updatedBy: null,
   })
+  invalidateParamOpRulesCache()
   return rule
 }
 
@@ -238,6 +255,7 @@ export async function updateParamOpRule(
     .update(systemConfigs)
     .set({ value: JSON.stringify(merged), updatedAt: now })
     .where(eq(systemConfigs.key, id))
+  invalidateParamOpRulesCache()
   return merged
 }
 
@@ -246,6 +264,7 @@ export async function deleteParamOpRule(id: string): Promise<boolean> {
   const existing = await getParamOpRule(id)
   if (!existing) return false
   await db.delete(systemConfigs).where(eq(systemConfigs.key, id))
+  invalidateParamOpRulesCache()
   return true
 }
 

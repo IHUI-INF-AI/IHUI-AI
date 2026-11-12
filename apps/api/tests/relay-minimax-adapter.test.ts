@@ -425,6 +425,20 @@ describe('minimax checkHealth(三态)', () => {
     expect(h.ok).toBe(false)
     expect(h.indeterminate).toBe(true)
   })
+
+  it('200 + base_resp 2062(免费号无活跃套餐,QUOTA_PATH 头注已实证正常态)→ ok:true(2026-11-12)', async () => {
+    // 原与 1008/1039 同落"未判定" ⇒ health 永远 unknown、last_error 每 30min 重写噪音;
+    // token 能过 OAuth 鉴权即健康,此处钉死不再写未判定。
+    mockFetch.mockResolvedValue({
+      status: 200,
+      ok: true,
+      text: async () =>
+        '{"base_resp":{"status_code":2062,"status_msg":"no active token plan subscription"}}',
+    })
+    const h = await minimaxAdapter.checkHealth(makeCtx())
+    expect(h.ok).toBe(true)
+    expect(h.indeterminate).toBeFalsy()
+  })
 })
 
 describe('minimax classifyUpstreamFailure(社区口径码值)', () => {

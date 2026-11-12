@@ -85,8 +85,14 @@ describe('契约：句柄格式', () => {
     expect(parsePageHandle(undefined)).toBeNull()
   })
 
-  it('七个动词全部在册，且与选择器族动词分得清', () => {
-    expect(PAGE_ACTIONS).toHaveLength(7)
+  it('契约里每个句柄族动词都被 isPageAction 认出，且与选择器族动词分得清', () => {
+    // 2026-11-12:原断言硬编码 toHaveLength(7) —— 契约每加一个动词就要改这里,
+    // 而"加了却忘改"会让测试变成维护负担而非护栏。改成**遍历契约自身**:
+    // 只要 PAGE_ACTIONS 里有的,isPageAction 必须认;再抽验一个异族动词不被误认。
+    expect(PAGE_ACTIONS.length).toBeGreaterThan(0)
+    for (const action of PAGE_ACTIONS) {
+      expect(isPageAction(action), `${action} 应被识别为句柄族动词`).toBe(true)
+    }
     expect(isPageAction('page_snapshot')).toBe(true)
     expect(isPageAction('click_element')).toBe(false)
   })

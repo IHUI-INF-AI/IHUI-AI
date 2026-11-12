@@ -97,6 +97,12 @@ describe('pool-leak-detector — 连接池泄漏检测', () => {
         expect(leaks).toHaveLength(1)
         expect(leaks[0]!.connId).toBe(id)
         expect(d.stats().totalLeaked).toBe(1)
+        // F-327(2026-11-12 610bbc9b38):scanLeaks 改成「只标记不删 outstanding」——
+        // 否则 forceRelease 在 outstanding 里永远找不到该 connId,「自动回收」变成空转。
+        // 旧断言 toBe(0) 是那次修复漏改的测试(改源码未同步测试),此处按新语义改正,
+        // 并补上「回收链路真的走得通」的正面证据,而不是只把期望值调松。
+        expect(d.stats().outstanding).toBe(1)
+        expect(d.forceRelease(id)).toBe(true)
         expect(d.stats().outstanding).toBe(0)
       } finally {
         vi.useRealTimers()

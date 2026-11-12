@@ -34,6 +34,7 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
+from fastapi import HTTPException
 
 from app.core.executor_switch import PILOT_ERROR_MARKER
 from app.routers import orchestration as or_router
@@ -319,12 +320,17 @@ class TestResponseShapeNotRegressed:
         assert list(data.keys()) == [*LEGACY_DATA_KEYS, *ADDED_DATA_KEYS]
 
     async def test_pilot_error_envelope_unchanged(self, hub: OrchestrationHub, monkeypatch):
-        """D6① 开关命中 loop_v2 时的 500 信封一字未改(fail-fast 早于新增键)。"""
+        """D6① 开关命中 loop_v2 时:500 且 marker 必达调用方(fail-fast 早于新增键)。
+
+        AIS-048 把 500 面统一成 HTTPException 固定文案后,本档由 emit_event 的
+        LoopV2ConvergencePilotError 专项臂承接:marker 是自产固定常量,按固定文案
+        进 detail —— 信封从 {code:500} dict 换成 detail 形态,marker 语义一字未改。
+        """
         monkeypatch.setenv("ORCHESTRATION_CONVERGENCE_EXECUTOR", "loop_v2")
-        resp = await or_router.emit_event(_body())
-        assert resp["code"] == 500
-        assert resp["data"] is None
-        assert PILOT_ERROR_MARKER in resp["message"]
+        with pytest.raises(HTTPException) as ei:
+            await or_router.emit_event(_body())
+        assert ei.value.status_code == 500
+        assert PILOT_ERROR_MARKER in ei.value.detail
 
 
 # =============================================================================

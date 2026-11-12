@@ -2,24 +2,33 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-"""SSO/OIDC 集成测试(全离线:纯函数 URL 构造 + mock provider + 未配置降级)。"""
+"""SSO/OIDC 集成测试(全离线:纯函数 URL 构造 + mock provider + 未配置降级)。
+
+AIS-043(2026-11):state 服务端一次性存储(生成登记/回调消费即删);
+mock provider 仅非生产环境启用(生产缺省空清单,build_provider 拒绝构建)。
+"""
 
 from __future__ import annotations
 
 import datetime as _dt
+import time as _time
 
 import jwt as _pyjwt
 import pytest
 from cryptography.hazmat.primitives import serialization as _ser
 from cryptography.hazmat.primitives.asymmetric import rsa as _rsa
 
+from app.core import sso as core_sso
+from app.core.config import settings
 from app.core.sso import (
     MockSSOProvider,
     OIDCSSOProvider,
     SSOConfigError,
     UserIdentity,
     build_oidc_authorize_url,
+    build_provider,
     list_enabled_providers,
+    new_state,
     oidc_endpoints_from_issuer,
     parse_callback_params,
 )
@@ -323,3 +332,110 @@ def test_decode_id_token_skips_nonce_when_none_supplied():
         token, signing_key=pub, client_id="ihui-web", issuer="https://idp.example.com"
     )
     assert claims["sub"] == "u-1"
+
+
+# ---------------- AIS-043:state 服务端存储 / 比对 / 消费 ----------------
+
+
+async def test_authorize_registers_state(client):
+    """authorize 生成的 state 已在服务端登记,可被回调一次性消费。"""
+    from urllib.parse import parse_qs, urlparse
+
+    resp = await client.get("/api/sso/mock/authorize", follow_redirects=False)
+    assert resp.status_code == 302
+    state = parse_qs(urlparse(resp.headers["location"]).query)["state"][0]
+    assert state in core_sso._states
+    ok = await client.get(f"/api/sso/callback?provider=mock&code=c1&state={state}")
+    assert ok.status_code == 200
+    assert state not in core_sso._states  # 消费即删
+
+
+async def test_callback_get_requires_state(client):
+    """缺 state → 400(不再 parse 后丢弃 _state)。"""
+    resp = await client.get("/api/sso/callback?provider=mock&code=c1")
+    assert resp.status_code == 400
+    assert "state" in resp.json()["detail"]
+
+
+async def test_callback_get_rejects_forged_state(client):
+    """伪造/猜测 state → 400。"""
+    resp = await client.get(
+        "/api/sso/callback?provider=mock&code=c1&state=attacker-guess"
+    )
+    assert resp.status_code == 400
+
+
+async def test_callback_get_state_consumed_once(client):
+    """合法 state 首次通过;消费即删 → 同一 state 重放 400(不可重放)。"""
+    state = new_state()
+    url = f"/api/sso/callback?provider=mock&code=c1&state={state}"
+    first = await client.get(url)
+    assert first.status_code == 200
+    assert first.json()["data"]["subject"] == "mock-user-1"
+    assert state not in core_sso._states
+    replay = await client.get(url)
+    assert replay.status_code == 400
+
+
+async def test_callback_get_rejects_expired_state(client):
+    """超过 TTL 的 state → 400。"""
+    state = new_state()
+    core_sso._states[state] = _time.time() - 1  # 钉成已过期
+    resp = await client.get(f"/api/sso/callback?provider=mock&code=c1&state={state}")
+    assert resp.status_code == 400
+    assert state not in core_sso._states
+
+
+async def test_post_callback_state_validated_when_supplied(client):
+    """POST 携带 state → 与 GET 同规格比对+消费(重放拒);不带 state 的直连仍放行。"""
+    state = new_state()
+    payload = {"provider": "mock", "code": "c1", "state": state}
+    ok = await client.post("/api/sso/callback", json=payload)
+    assert ok.status_code == 200
+    replay = await client.post("/api/sso/callback", json=payload)
+    assert replay.status_code == 400
+    plain = await client.post("/api/sso/callback", json={"provider": "mock", "code": "c1"})
+    assert plain.status_code == 200
+
+
+# ---------------- AIS-043:mock provider 仅非生产启用 ----------------
+
+
+def test_list_enabled_providers_production_default_empty(monkeypatch):
+    """生产缺省(无 SSO_PROVIDERS)→ 空清单,不再默认提供 mock。"""
+    monkeypatch.setattr(settings, "node_env", "production")
+    monkeypatch.delenv("SSO_PROVIDERS", raising=False)
+    assert list_enabled_providers() == []
+
+
+def test_list_enabled_providers_dev_default_mock(monkeypatch):
+    """非生产缺省仍是 mock(开发便利不变;conftest 已钉 node_env=development)。"""
+    monkeypatch.delenv("SSO_PROVIDERS", raising=False)
+    assert settings.node_env != "production"
+    assert [p.name for p in list_enabled_providers()] == ["mock"]
+
+
+def test_build_provider_mock_refused_in_production(monkeypatch):
+    """生产下构造 mock provider → SSOConfigError(直连 authorize/callback 的拦截点)。"""
+    monkeypatch.setattr(settings, "node_env", "production")
+    with pytest.raises(SSOConfigError, match="mock"):
+        build_provider("mock")
+
+
+def test_explicit_mock_provider_still_refused_in_production(monkeypatch):
+    """即便显式 SSO_PROVIDERS=mock,生产同样拒绝构建(清单跳过并告警)。"""
+    monkeypatch.setattr(settings, "node_env", "production")
+    monkeypatch.setenv("SSO_PROVIDERS", "mock")
+    with pytest.raises(SSOConfigError, match="mock"):
+        build_provider("mock")
+    assert list_enabled_providers() == []
+
+
+async def test_mock_endpoints_refused_in_production(client, monkeypatch):
+    """工单触发路径:生产下 GET /sso/mock/authorize 与
+    POST /api/sso/callback {provider:mock} 均 404(不再同身份发 token)。"""
+    monkeypatch.setattr(settings, "node_env", "production")
+    auth = await client.get("/api/sso/mock/authorize", follow_redirects=False)
+    assert auth.status_code == 404
+    cb = await client.post("/api/sso/callback", json={"provider": "mock", "code": "x"})
+    assert cb.status_code == 404
