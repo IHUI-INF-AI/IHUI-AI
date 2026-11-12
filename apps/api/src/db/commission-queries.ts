@@ -60,11 +60,17 @@ export async function ensureMargin(userId: string): Promise<UserMargin> {
     .where(eq(userMargins.userId, userId))
     .limit(1)
   if (existing[0]) return existing[0]
+  // F-82:先查后插在并发首次充值/扣减下,第二个 INSERT 会命中 user_margins 主键
+  // 唯一冲突 23505 → 500。改为 onConflictDoNothing().returning():抢不到插入的
+  // 一方回查既有行,不再抛错。
   const [created] = await db
     .insert(userMargins)
     .values({ userId, tokenQuantity: 0, frozenQuantity: 0 })
+    .onConflictDoNothing()
     .returning()
-  return created!
+  if (created) return created
+  const rows = await db.select().from(userMargins).where(eq(userMargins.userId, userId)).limit(1)
+  return rows[0]!
 }
 
 export async function rechargeToken(
