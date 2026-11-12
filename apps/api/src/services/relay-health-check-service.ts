@@ -13,7 +13,7 @@
  *    - 200 = healthy, 401/403 = down（key 失效）, 429 = degraded（限流）, 超时/网络错误 = degraded
  * 4. 自动禁用：连续 3 次巡检 health_status='down' → is_enabled=false（熔断）
  */
-import { eq, and } from 'drizzle-orm'
+import { eq, and, asc } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
 import { aiRelayKeyPool, aiModelConfig } from '@ihui/database'
 import { decryptJSON, type EncryptedPayload } from '../utils/crypto.js'
@@ -268,10 +268,14 @@ async function recoverDisabledKeys(): Promise<number> {
     })
     .from(aiRelayKeyPool)
     .where(eq(aiRelayKeyPool.isEnabled, false))
+    // F-339: 按上次巡检时间升序轮转,无排序时 LIMIT 20 只会反复取到同一批 Key
+    .orderBy(asc(aiRelayKeyPool.healthCheckedAt))
     .limit(RECOVER_PROBE_MAX_KEYS)
 
   let recovered = 0
   for (const row of disabledKeys) {
+    // F-338: 管理员手动停用的 Key 不参与自动恢复,只有熔断停用的才探测拉回
+    if (readExtraMetadata(row.extraMetadata).manualDisabled === true) continue
     try {
       const result = await runHealthCheck(row)
       if (result.status === 'healthy') {
