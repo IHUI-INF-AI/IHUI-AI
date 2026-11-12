@@ -1,17 +1,15 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-11T09:34:55.366Z",
+  "sealedAt": "2026-11-12T10:55:00+08:00",
   "sealedBy": "root-guard --seal",
-  "reason": "复核 HEAD 面: guardian-runner.mjs 于 7a8a30ae04(15:15) 改动后未同批重封,清单仍绑 14:47 版 59ebe80f 致 root-guard --check fail-closed 并阻断一切提交;按 HEAD 面重封为 ba2261554667,清偿存量债解阻收尾(规则文件已在 HEAD,清单单独成枚提交推送)",
-  "sealedAt": "2026-11-11T10:20:51.806Z",
-  "reason": "根护栏重封:main 已合入 guardian-runner 规则面改动(RP-72/门314/315 等),原清单未同枚重封致部署环 fail-closed。按 4f4e686ec39 面重封放行切流。",
+  "reason": "重封:本批改 guardian-runner(门316→318)+ AGENTS.md(R4点名行);同批入库三守门脚本,按索引面重算sha256。",
   "targets": [
     {
       "id": "guardian-runner",
       "path": "scripts/guardian-runner.mjs",
       "mode": "file",
-      "sha256": "ba226155466743b6c4d5dc2cb4272a1e8a17bf9a27d1619e609f6d127c4ca244"
+      "sha256": "a18b35d20b8975d2a992d48229b7ce99573145b5eaaaa43389c8b78165344cd1"
     },
     {
       "id": "judgement-libs",

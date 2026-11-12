@@ -112,11 +112,14 @@ def test_cosine_similarity_empty_vectors():
 
 
 def test_cosine_similarity_different_length():
-    """不同长度向量按 min(len(a), len(b)) 计算(不返回 0.0)。"""
-    # [1.0, 2.0] 与 [1.0]:取第 0 维,1*1/(1*1)=1.0
-    assert _cosine_similarity([1.0, 2.0], [1.0]) == pytest.approx(1.0)
-    # [1.0, 0.0] 与 [1.0, 1.0, 1.0]:取前 2 维,dot=1, norm_a=1, norm_b=2 → 1/sqrt(2)
-    assert _cosine_similarity([1.0, 0.0], [1.0, 1.0, 1.0]) == pytest.approx(1.0 / (2 ** 0.5))
+    """AIS-018:维度不一致返回 0.0,不得按 min(len) 截断比较。
+
+    修前这条钉的是"按前 128 维算"的旧口径 —— 那正是缺陷本身(128 维 hash 伪向量
+    在 1536 维查询下拿到虚假相似度)。同族实现(memory_service / long_term_memory /
+    multimodal_memory / rules_engine / session_summarizer)一律返回 0.0,现与它们对齐。
+    """
+    assert _cosine_similarity([1.0, 2.0], [1.0]) == 0.0
+    assert _cosine_similarity([1.0, 0.0], [1.0, 1.0, 1.0]) == 0.0
 
 
 def test_cosine_similarity_zero_vector():
@@ -636,8 +639,10 @@ async def test_hydrate_already_hydrated_no_reload(tmp_path):
     # 修改文件(模拟外部写入),再次 hydrate 不应重新加载
     with open(path, "w", encoding="utf-8") as f:
         json.dump(
-            {"entries": {"e1": {"content": "a"}, "e2": {"content": "b"}},
-             "vectors": {"e1": [0.1], "e2": [0.2]}},
+            {
+                "entries": {"e1": {"content": "a"}, "e2": {"content": "b"}},
+                "vectors": {"e1": [0.1], "e2": [0.2]},
+            },
             f,
         )
     count2 = await store.hydrate()
@@ -854,6 +859,7 @@ def test_global_vector_memory_shared():
     """多次导入 vector_memory 返回同一实例(模块级单例)。"""
     from app.services.vector_memory import vector_memory as vm1
     from app.services.vector_memory import vector_memory as vm2
+
     assert vm1 is vm2
 
 
@@ -915,7 +921,7 @@ def test_redis_cache_key_format():
     cache_key = vm_mod._redis_cache_key(key)
     assert cache_key.startswith(vm_mod._EMBEDDING_CACHE_KEY_PREFIX)
     # 去掉前缀后应为 sha256 hex(64 字符)
-    suffix = cache_key[len(vm_mod._EMBEDDING_CACHE_KEY_PREFIX):]
+    suffix = cache_key[len(vm_mod._EMBEDDING_CACHE_KEY_PREFIX) :]
     assert len(suffix) == 64
     assert all(c in "0123456789abcdef" for c in suffix)
 
@@ -925,6 +931,8 @@ def test_redis_cache_key_deterministic():
     k1 = vm_mod._redis_cache_key("hello")
     k2 = vm_mod._redis_cache_key("hello")
     assert k1 == k2
+
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 

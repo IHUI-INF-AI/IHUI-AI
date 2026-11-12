@@ -8,7 +8,8 @@
 - 默认触发阈值:88%(0.88)
 - 默认目标:60%(0.6)
 - 默认尾部保留:6 条 non-system 消息
-- 压缩策略:保留首条 system + 尾部至少 N 条(按 tool_calls 配对组对齐),中段用结构化摘要替代
+- 压缩策略:保留全部 system(固定前导,可为多条)+ 尾部至少 N 条(按 tool_calls 配对组对齐),
+  中段用结构化摘要替代
 - 摘要格式:[上下文摘要 — 之前 N 条消息已压缩] 标记行 + 分层金字塔摘要
   (近层 = 最后 ceil(N*0.3) 条至少 1 条:user/assistant 与 tool result 保留前 200 字符;
    远层 = 其余消息:user/assistant 浓缩到前 120 字符,tool result 前 120 字符)
@@ -679,7 +680,7 @@ def _build_compaction_boundary(
 
     Args:
         trigger: ratio / truncated
-        system_count: 压缩前保留下来的 system 消息条数(0 或 1)
+        system_count: 压缩前保留下来的 system 消息条数(全部作为固定前导,0..N)
         removed_messages: 被摘要替换掉的 head 原文(压缩前顺序)
         anchor_message: 压缩后列表里的摘要消息
         compressed_tail: 压缩后 anchor 之后保留的消息(用于取 head)
@@ -886,10 +887,12 @@ def compress_messages_if_needed(
             **assess_context_pressure(original_tokens, context_limit, trigger_ratio=trigger_ratio),
         }
 
-    # 分割:首条 system + head(压缩) + tail(保留 keepRecent 条)
-    has_system = messages and messages[0].get("role") == "system"
-    system_msgs = [messages[0]] if has_system else []
-    non_system = messages[1:] if has_system else messages
+    # 分割:全部 system(固定前导)+ head(压缩) + tail(保留 keepRecent 条)。
+    # AIS-015:入口不止一条 system(客户端多段 system;多模态 system.content 为 list 时
+    # llm.py 在 index 1 插入记忆图谱/知识卡片),只认 messages[0] 会让后面几条落进
+    # 待摘要区并被摘要循环跳过而静默丢失 —— 这里把所有 system 都不进入摘要输入。
+    system_msgs = [msg for msg in messages if msg.get("role") == "system"]
+    non_system = [msg for msg in messages if msg.get("role") != "system"]
 
     if len(non_system) <= keep_recent:
         return messages, {

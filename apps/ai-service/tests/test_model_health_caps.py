@@ -332,6 +332,85 @@ async def test_probe_tools_required_falls_back_to_auto():
     assert client.calls[1]["tool_choice"] == "auto"
 
 
+
+class _ScriptedToolClient:
+    """按调用次序返回预设响应:用来钉住"判 false 前必须再确认一次"。"""
+
+    def __init__(self, responses: list[tuple[int, str]]) -> None:
+        self._responses = responses
+        self.calls = 0
+
+    async def post(self, *args, **kwargs):
+        body = self._responses[min(self.calls, len(self._responses) - 1)]
+        self.calls += 1
+        return _Resp(body[0], body[1])
+
+
+def _sse_body(*frames: dict) -> str:
+    lines = [_sse(f) for f in frames] + ["data: [DONE]"]
+    return chr(10).join(lines)
+
+
+_TOOL_TEXT_ONLY = _sse_body(
+    {"choices": [{"delta": {"content": "北京晴天"}, "finish_reason": None}]},
+    {"choices": [{"delta": {}, "finish_reason": "stop"}]},
+)
+_TOOL_REAL_CALL = _sse_body(
+    {
+        "choices": [
+            {
+                "delta": {
+                    "tool_calls": [
+                        {
+                            "index": 0,
+                            "id": "c1",
+                            "type": "function",
+                            "function": {"name": "get_weather", "arguments": ""},
+                        }
+                    ]
+                },
+                "finish_reason": None,
+            }
+        ]
+    },
+    {"choices": [{"delta": {}, "finish_reason": "tool_calls"}]},
+)
+
+
+async def test_probe_tools_retries_before_committing_false(monkeypatch):
+    """第一次回纯文本不能就判"不支持":再确认一次,第二次真调了工具 ⇒ true。
+
+    2026-11-12 实测:探测并发压到账号池时,同一模型会回纯文本,
+    一次定论把 14 个 workbuddy 模型从"支持"打成"不支持"。
+    """
+    monkeypatch.setattr(mh, "_TOOL_PROBE_RETRY_DELAY_S", 0)
+    svc = ModelHealthService()
+    client = _ScriptedToolClient([(200, _TOOL_TEXT_ONLY), (200, _TOOL_REAL_CALL)])
+    ok, error = await svc._probe_tools(client, "http://x", {}, "m")
+    assert ok is True, error
+    assert client.calls >= 2, "判 false 前必须再确认一次"
+
+
+async def test_probe_tools_confirmed_false_after_two_text_responses(monkeypatch):
+    """两次都明确正常收尾且没调工具 ⇒ 才敢判"不支持"。"""
+    monkeypatch.setattr(mh, "_TOOL_PROBE_RETRY_DELAY_S", 0)
+    svc = ModelHealthService()
+    client = _ScriptedToolClient([(200, _TOOL_TEXT_ONLY), (200, _TOOL_TEXT_ONLY)])
+    ok, error = await svc._probe_tools(client, "http://x", {}, "m")
+    assert ok is False
+    assert "未实际触发" in error
+
+
+def test_judge_tools_stream_truncated_stream_is_unknown():
+    """流没正常收尾(半截流)⇒ 未知,不能判"不支持工具调用"。"""
+    body = _sse_body(
+        {"choices": [{"delta": {"content": "Let me check"}, "finish_reason": None}]},
+    )
+    ok, error = mh._judge_tools_stream(200, body.replace('data: [DONE]', ''))
+    assert ok is None
+    assert "未正常结束" in error or "未判定" in error
+
+
 # ---------------------------------------------------------------------------
 # 长上下文针测文本
 # ---------------------------------------------------------------------------
@@ -690,3 +769,59 @@ async def test_context_probe_failed_conclusion_retests_sooner_than_passed(monkey
 
     assert calls == ["failed"], "只该复测未通过的那个,通过的仍在 7 天窗内"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+
+def test_classify_error_workbuddy_service_info_not_found_is_model_level():
+    """WorkBuddy code=11102(账号池没这个模型的 service info)必须判模型级,一次即隐藏。
+
+    2026-11-12 实测:hy4-preview-x / minimax-m3 / hunyuan-2.0-thinking 三个都回这条,
+    旧判据里没有这个词,只能记"未知" ⇒ 界面上永远挂着"长上下文未验证",
+    实际是上游压根没给这个模型配服务(不是我们的探测没跑通)。
+    """
+    body = '{"code":11102,"msg":"model [MiniMax-M3] service info not found"}'
+    account_level, model_level = mh._classify_error(body, 400)
+    assert model_level is True
+    assert account_level is False
+
+
+def test_classify_error_plain_bad_request_stays_non_model_level():
+    """普通 400(参数错)不能因为新增关键词被误判成"模型不存在"。"""
+    account_level, model_level = mh._classify_error('{"error":"invalid request: bad temperature"}', 400)
+    assert model_level is False
+    assert account_level is False
+
+
+def test_is_relay_error_body_detects_pool_failure_frame():
+    """relay 号池失败会写成 content 帧 `[error] WorkBuddy ...`,不能当成模型回复。"""
+    assert mh._is_relay_error_body('[error] WorkBuddy 账号池不可用: no channel') is True
+    assert mh._is_relay_error_body('  [ERROR] upstream 400') is True
+    assert mh._is_relay_error_body('IHUI-016000-OK') is False
+    assert mh._is_relay_error_body('') is False
+
+
+def test_context_error_is_model_level_only_for_service_info_missing():
+    """只有"上游没这个模型的服务"才一次判死;限流/超时/普通 400 都不行。"""
+    assert mh._context_error_is_model_level('HTTP 400: {"code":11102,"msg":"model [X] service info not found"}') is True
+    assert mh._context_error_is_model_level('HTTP 429: rate limit') is False
+    assert mh._context_error_is_model_level('ReadTimeout: ') is False
+    assert mh._context_error_is_model_level('回复未包含验证码: OK') is False
+
+
+async def test_context_probe_marks_model_down_when_upstream_lacks_service(monkeypatch):
+    """上游 code=11102 时把模型置 down(隐藏),不能永远挂"未验证"。"""
+    monkeypatch.setenv("MODEL_HEALTH_CONTEXT_PROBES_PER_CYCLE", "10")
+    monkeypatch.setenv("MODEL_HEALTH_CONTEXT_PROBE_TOKENS", "500")
+    monkeypatch.setattr(
+        mh, "_build_probe_target", lambda mid, hint: mh._ProbeTarget("alpha", "http://x", {}, None, mid)
+    )
+    svc = ModelHealthService()
+    svc._catalog = {"gone": "alpha"}
+    svc._states = {"gone": ModelProbeState(status="healthy")}
+
+    async def fake_probe(target, tokens):
+        return None, '上游拒绝: [error] WorkBuddy 上游不可用: HTTP 400: {"code":11102,"msg":"model [X] service info not found"}'
+
+    monkeypatch.setattr(svc, "_probe_context", fake_probe)
+    await svc._run_context_probes()
+
+    assert svc._states["gone"].status == "down", "上游没有该模型服务时必须隐藏"

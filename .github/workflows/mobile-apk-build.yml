@@ -181,7 +181,11 @@ jobs:
         # 配置期 GradleException(见 scripts/patch-rn-release-signing.mjs)。CI 本来就是要 dev 包,
         # 所以这里**显式**声明 -PallowDebugSigning=true:签名身份由调用方声明,而不是由"凭据恰好缺失"决定。
         # 少了这面旗,CI 会在配置期就失败 —— 那正是设计目的(静默产出 debug 签名包才是事故源)。
-        run: ./gradlew assembleRelease bundleRelease --no-daemon -PallowDebugSigning=true
+        # 2026-11-12 ABI 治理:CI 只出真机两档(arm64-v8a / armeabi-v7a),杜绝 x86/x86_64
+        # 等桌面/模拟器架构混入 fat APK(原 128MB 胖包含 4 种架构)。ABI 由
+        # reactNativeArchitectures 经 -P 透传 Gradle,与本地 build-mobile-rn-release.ps1
+        # 同源(见 scripts/check-apk-abi.mjs 门 + 该脚本 [4.5/5] 门)。
+        run: ./gradlew assembleRelease bundleRelease --no-daemon -PallowDebugSigning=true -PreactNativeArchitectures=armeabi-v7a,arm64-v8a
 
       # dev 包固定带 dev- 前缀,文件名本身即定性:任何人从 artifact 下载页看到的都不是
       # ihui-ai-latest.apk;CI 不再有发布 Release 的权限(permissions: contents: read)。
@@ -197,6 +201,12 @@ jobs:
       # 至少保证坏签名/未签名产物不会被当成 dev 包流传。体积基线不在 dev 档判(见脚本头注)。
       - name: Verify dev APK/AAB signature
         run: node scripts/mobile-release-artifact-check.mjs --mode dev --apk "./ihui-ai-dev-${GITHUB_RUN_NUMBER}.apk" --aab "./ihui-ai-dev-${GITHUB_RUN_NUMBER}.aab"
+
+      # 2026-11-12 ABI 治理第二道防线:dev 产物必须只含真机两档架构(arm64-v8a /
+      # armeabi-v7a)。任何 x86 / x86_64 / mips 等架构混入即判红(本门纯 Node 解析 ZIP
+      # 中央目录,跨平台不依赖 unzip;详见 scripts/check-apk-abi.mjs 头注与 --self-test)。
+      - name: Verify dev APK/AAB ABI
+        run: node scripts/check-apk-abi.mjs "./ihui-ai-dev-${GITHUB_RUN_NUMBER}.apk" "./ihui-ai-dev-${GITHUB_RUN_NUMBER}.aab"
 
       - name: Upload dev artifacts (NOT a release)
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7

@@ -29,7 +29,25 @@ export type RnElevation = {
   elevation: number
 }
 
-export const ELEVATION_STEPS: Record<string, RnElevation> = {
+/**
+ * 阴影档位名的**运行时清单**(与下面的联合类型同一份,顺序即文档顺序)。
+ * 为什么要有它:类型只在编译期存在,而守门/测试需要在运行期遍历"应当是哪些档"。
+ * 清单外置一份给类型用、一份给运行期用,是同一缺陷的两个源头 —— 故此处用
+ * `as const` + 派生类型,让"加一档"只改这一行。
+ */
+export const ELEVATION_STEP_NAMES = ['none', 'sm', 'md', 'lg', 'xl'] as const
+
+/**
+ * 阴影档位名(唯一清单)。
+ *
+ * 为什么不是 `Record<string, …>`:`noUncheckedIndexedAccess` 下,用宽 string 键注解会让
+ * `ELEVATION_STEPS.md` 的类型退化成 `RnElevation | undefined` —— 每个消费方都得多写一次
+ * 非空断言或兜底分支(实测 tooltip.tsx 因此报 TS2322)。档位是**封闭集合**,用联合类型
+ * 既让 `.md` 精确非空,也让拼错档位名(如 `.mk`)成为编译错误而不是运行时静默失样式。
+ */
+export type ElevationStepName = (typeof ELEVATION_STEP_NAMES)[number]
+
+export const ELEVATION_STEPS: Record<ElevationStepName, RnElevation> = {
   none: {
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 0 },
@@ -67,8 +85,8 @@ export const ELEVATION_STEPS: Record<string, RnElevation> = {
   },
 }
 
-/** CSS box-shadow 字符串(小程序 / web 共用) */
-export const ELEVATION_CSS: Record<string, string> = {
+/** CSS box-shadow 字符串(小程序 / web 共用)。键同样是封闭档位集合,理由见 ElevationStepName。 */
+export const ELEVATION_CSS: Record<ElevationStepName, string> = {
   none: 'none',
   sm: '0 1px 2px rgba(0,0,0,0.05)',
   md: '0 2px 8px rgba(0,0,0,0.08)',
@@ -90,5 +108,5 @@ export const ELEVATION_CSS_VAR = {
   xl: 'var(--shadow-elevation-xl)',
 } as const
 
-export type ElevationStep = keyof typeof ELEVATION_STEPS
+export type ElevationStep = ElevationStepName
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

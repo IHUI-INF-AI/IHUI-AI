@@ -4530,6 +4530,9 @@ class AgentEngine:
                         cut = truncate_after_turn_id(
                             records,
                             cut_at.strip(),
+                            # 导出记录每条 item 都带 turn_id 信封字段;原语只把
+                            # 「turn_id 变更处」认作规范 TurnStarted(回合首项),
+                            # 同回合后续 item 不再被误判成下一回合。
                             lambda r: r.get("turn_id") if isinstance(r, dict) else None,
                         )
                         lines = [
