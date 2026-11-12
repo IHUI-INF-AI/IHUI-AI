@@ -709,10 +709,22 @@ function renderListSlot(slot: ReactNode | (() => ReactNode) | undefined): ReactN
  * 阴性对照见 tests/rn-compat-flatlist-ref.test.tsx:同现场用未补 ref 的旧形制必须拿不到句柄。
  */
 function FlatListInner<T = unknown>(props: RNFlatListProps<T>, ref: ForwardedRef<FlatListHandle>) {
-  const [scrollTop, setScrollTop] = useState<number | undefined>(
-    typeof props.scrollTop === 'number' ? props.scrollTop : undefined,
-  )
+  const propScrollTop = typeof props.scrollTop === 'number' ? props.scrollTop : undefined
+  const [scrollTop, setScrollTop] = useState<number | undefined>(propScrollTop)
   const [scrollWithAnimation, setScrollWithAnimation] = useState(false)
+  /**
+   * 受控 scrollTop 的 prop→state 同步(2026-11-12 补,**source-of-truth 缺陷**)。
+   *
+   * 旧形制把 `props.scrollTop` 只当 useState 的**初值**:挂载那一刻取一次,此后父级每次改这个
+   * prop 都被这一层丢掉(`scrollTop={scrollTop}` 传的是内部 state)。后果不是"滚得不准"而是
+   * **整条路不存在** —— pkg-ai 聊天页 2026-11-12 把流式跟底改写成"父级递增 scrollTop"之后,
+   * 父级每帧算出的新值一次也没到达 ScrollView,只有命令式句柄(`ref.scrollToEnd`)那条腿还通。
+   * 与下面 ScrollView 的注释同一条纪律:显式 prop 优先,命令式状态只作兜底。
+   */
+  useEffect(() => {
+    if (propScrollTop === undefined) return
+    setScrollTop(propScrollTop)
+  }, [propScrollTop])
   useImperativeHandle(
     ref,
     () => ({
@@ -753,7 +765,14 @@ function FlatListInner<T = unknown>(props: RNFlatListProps<T>, ref: ForwardedRef
     </View>
   )
   return (
-    <ScrollView {...props} scrollTop={scrollTop} scrollWithAnimation={scrollWithAnimation}>
+    <ScrollView
+      {...props}
+      // onScroll 显式透传(2026-11-12):RN FlatList 合法消费 onScroll;此前只靠 {...props}
+      // 摊入,兼容面 ScrollView 的 throttle 收口路径不变,这里让声明面自文档化、审计可寻。
+      onScroll={props.onScroll as never}
+      scrollTop={scrollTop}
+      scrollWithAnimation={scrollWithAnimation}
+    >
       {Header}
       {data.length === 0 ? Empty : null}
       {numColumns > 1

@@ -512,4 +512,68 @@ describe('rn-compat SectionList ref 透传', () => {
     await act(async () => first.root.unmount())
   })
 })
+
+/**
+ * 受控 scrollTop 的 prop→state 同步(2026-11-12 补)。
+ *
+ * 旧形制把 `props.scrollTop` 只当 useState 的**初值**:挂载取一次,此后父级每次改这个 prop
+ * 都被这一层丢掉,底层 ScrollView 收到的永远是内部 state 的旧值。后果不是"滚得不准"而是
+ * **整条路不存在** —— pkg-ai 聊天页 2026-11-12 把流式跟底改成"父级递增 scrollTop"之后,
+ * 父级算出的新值一次也没到达 ScrollView,只有命令式句柄那条腿还通。
+ *
+ * 判据:同一个 root 上 rerender 换 prop,底层必须跟着变;不传时不得凭空产生值。
+ */
+describe('rn-compat FlatList 受控 scrollTop prop 同步', () => {
+  beforeEach(() => {
+    captured.scrollView = null
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+  })
+
+  async function mountWithScrollTop(initial: number) {
+    const { FlatList } = await import('../src/rn-compat/primitives')
+    let root: Root | null = null
+    const onRef: Ref<Handle> = () => undefined
+    function Harness({ scrollTop }: { scrollTop?: number }) {
+      return createElement(FlatList as never, {
+        data: [],
+        renderItem: () => null,
+        ...(scrollTop === undefined ? {} : { scrollTop }),
+        ref: onRef,
+      } as never)
+    }
+    const container = shimDoc.createElement('div') as unknown as HTMLElement
+    root = createRoot(container)
+    await act(async () => {
+      root!.render(createElement(Harness, { scrollTop: initial }))
+    })
+    return {
+      rerender: async (next: number | undefined) => {
+        await act(async () => {
+          root!.render(
+            createElement(Harness, next === undefined ? {} : { scrollTop: next }),
+          )
+        })
+      },
+      unmount: async () => {
+        await act(async () => root!.unmount())
+      },
+    }
+  }
+
+  it('父级更新 scrollTop ⇒ 底层 ScrollView 跟着变(旧实现此处恒为初值)', async () => {
+    const h = await mountWithScrollTop(1_000_000)
+    expect(captured.scrollView?.scrollTop).toBe(1_000_000)
+    await h.rerender(2_000_000)
+    expect(captured.scrollView?.scrollTop).toBe(2_000_000)
+    await h.rerender(3_000_000)
+    expect(captured.scrollView?.scrollTop).toBe(3_000_000)
+    await h.unmount()
+  })
+
+  it('不传 scrollTop 时不凭空产生受控值(既有宿主零变化)', async () => {
+    const h = await mountWithScrollTop(undefined as unknown as number)
+    expect(captured.scrollView?.scrollTop).toBeUndefined()
+    await h.unmount()
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

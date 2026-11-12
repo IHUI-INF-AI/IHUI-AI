@@ -191,6 +191,9 @@ export function ChatScreen({
         className={messageListSlots?.className}
         scrollTop={messageListSlots?.scrollTop}
         scrollWithAnimation={messageListSlots?.scrollWithAnimation}
+        followStream={messageListSlots?.followStream}
+        onScroll={messageListSlots?.onScroll}
+        onEndReached={messageListSlots?.onEndReached}
         onLongPressMessage={onLongPressMessage}
         onMessageRef={onMessageRef}
         onListRef={(ref) => {
