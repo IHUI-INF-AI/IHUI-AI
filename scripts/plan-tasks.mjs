@@ -14,6 +14,8 @@
  *
  * 用法:
  *   node scripts/plan-tasks.mjs                  # 人读汇总
+ *   node scripts/plan-tasks.mjs --count          # 只答"还剩多少条"(快档:同一份 auditFace 读数,
+ *                                                #   不派 blame ⇒ 不背年龄追溯那笔;与其余查询旗标互斥)
  *   node scripts/plan-tasks.mjs --open           # 真·无人认领清单(已剔除他人已认领、作废声明与分叉副本)
  *   node scripts/plan-tasks.mjs --forks          # F1 同主键两态并存
  *   node scripts/plan-tasks.mjs --void           # F2 带作废声明却未落账
@@ -166,8 +168,38 @@ export function parseArgs(argv) {
     )
   }
   const order = orderRaw === 'late' || orderRaw === 'early' ? orderRaw : null
+  // `--count` 快档(2026-11-12 机主令"查个数最多等 5 秒"):与其余查询旗标**互斥**。
+  // 不静默吞掉同给的那枚旗标 —— 拿"只数数"的输出去答"要门/要清单"的调用,账面看起来是同一次成功调用。
+  const count = has('--count')
+  if (count) {
+    const clash = [
+      '--json',
+      '--open',
+      '--forks',
+      '--void',
+      '--pointers',
+      '--reopened-flips',
+      '--gate',
+      '--strict',
+      '--stale',
+      '--undisposed',
+      '--dispatchable',
+      '--conflicts',
+      '--exclude-inflight',
+      '--update-baseline',
+      '--order',
+      '--since',
+      '--max-commits',
+    ].filter((f) => has(f))
+    if (nextIdRequested) clash.push('--next-id')
+    if (clash.length)
+      flagIssues.push(
+        `--count 是只数数的快档(不跑年龄追溯),与其余查询旗标互斥 —— 同给:${clash.join(' ')}(不得静默忽略其中之一,请拆成两次调用)`,
+      )
+  }
   return {
     json: has('--json'),
+    count,
     nextIdRequested,
     nextId,
     open: has('--open'),
@@ -529,18 +561,29 @@ export function makeLagJudge(root, { cap = LAG_JUDGE_CAP } = {}) {
   }
 }
 
-/** 只读一条文档。整面取不到 ⇒ 抛 Undetermined(调用方转 exit 2),绝不静默换面。 */
-export function readPlan(root, face) {
+/** git 规格一律正斜杠:`FIELDS_REL` 由 `path.join` 造,在本机是 `scripts\data\…`,
+ *  而 `cat-file` 的 rev 规格只认 posix 分隔符 —— 照原样送会恒判"取不到"(§12f:出路必须真跑得通)。 */
+const fieldsSpecRel = () => FIELDS_REL.split(path.sep).join('/')
+
+// 规格形状的**唯一出处**(2026-11-12 提速时抽出):readPlan / readFieldsFace / auditFace 的
+// 一次合并取材共用这一份 —— 三处各写一遍 `staged ? ':' : 'HEAD:'` 必然漂开,而漂开的表现是
+// "两条 spec 落在不同面",正是 §0.4 同面同轮要禁的形状。
+const planSpecOf = (face) => (face === 'staged' ? `:${PLAN_REL}` : `HEAD:${PLAN_REL}`)
+const fieldsSpecOf = (face) => (face === 'staged' ? `:${fieldsSpecRel()}` : `HEAD:${fieldsSpecRel()}`)
+
+/** 只读一条文档。整面取不到 ⇒ 抛 Undetermined(调用方转 exit 2),绝不静默换面。
+ *  `got`:调用方已按同一面取好的 catBatch 结果(见 `auditFace` 的一次派生);不给则自行取材。 */
+export function readPlan(root, face, got = null) {
   if (face === 'worktree') {
-    const got = readWorktreeFile(root, PLAN_REL)
-    if (got === null || got === undefined)
+    const gotWt = readWorktreeFile(root, PLAN_REL)
+    if (gotWt === null || gotWt === undefined)
       throw new Undetermined(`工作树(逃生舱)取不到 ${PLAN_REL}`)
-    return got
+    return gotWt
   }
-  const spec = face === 'staged' ? `:${PLAN_REL}` : `HEAD:${PLAN_REL}`
-  const got = catBatch(root, [spec], { maxBuffer: 1 << 28 })
+  const spec = planSpecOf(face)
+  const map = got ?? catBatch(root, [spec], { maxBuffer: 1 << 28 })
   // catBatch 返回 Map<rev, text|null> —— 按 rev 取,按数组下标取会恒得 undefined 并伪装成"取不到"
-  const text = got.get(spec)
+  const text = map.get(spec)
   if (text === null || text === undefined)
     throw new Undetermined(`${LABEL[face]} 取不到 ${PLAN_REL}`)
   return text
@@ -548,24 +591,20 @@ export function readPlan(root, face) {
 
 const clip = (s, n = 96) => s.replace(/\s+/g, ' ').trim().slice(0, n)
 
-/** git 规格一律正斜杠:`FIELDS_REL` 由 `path.join` 造,在本机是 `scripts\data\…`,
- *  而 `cat-file` 的 rev 规格只认 posix 分隔符 —— 照原样送会恒判"取不到"(§12f:出路必须真跑得通)。 */
-const fieldsSpecRel = () => FIELDS_REL.split(path.sep).join('/')
-
 /**
  * 侧车与台账**同面同轮**(§0.4):全量档读 HEAD blob、`--staged` 读索引 blob、`--worktree` 读工作树。
  * 取不到 ⇒ 落 `undetermined` 并点名,既不回落另一个面、也不把"文件不存在"读成"零条记录"
  * (后者会让派单面冒"散文依赖 0 枚")。空文件才是零条记录。
  */
-export function readFieldsFace(root, face) {
+export function readFieldsFace(root, face, got = null) {
   const rel = fieldsSpecRel()
   let text
   try {
     if (face === 'worktree') {
       text = readWorktreeFile(root, rel)
     } else {
-      const spec = face === 'staged' ? `:${rel}` : `HEAD:${rel}`
-      text = catBatch(root, [spec], { maxBuffer: 1 << 26 }).get(spec)
+      const spec = fieldsSpecOf(face)
+      text = (got ?? catBatch(root, [spec], { maxBuffer: 1 << 26 })).get(spec)
     }
   } catch (e) {
     return { ...loadFields(root, null), why: `侧车取材失败:${String(e?.message ?? e).split('\n')[0]}` }
@@ -611,9 +650,22 @@ export function dispositionSummary(rows, fields) {
  * (两处算同一件事必漂移,本仓记过多次)。取材失败照旧抛 Undetermined ⇒ 调用方 exit 2,不回落。
  */
 export function auditFace(root, face) {
-  const content = readPlan(root, face)
+  // 一次派生取两条 spec(2026-11-12 提速):台账正文 + 字段侧车。真机上每次 `cat-file --batch`
+  // 的进程派生 ~0.2s,两次分家 = 白等一轮。**只在快路合并** —— 任何取材异常都回落到
+  // readPlan / readFieldsFace 各自的原路自行取材,报错文案与降级形状一字不变(取材失败的
+  // 文案是契约,不是实现细节)。`planSpecOf/fieldsSpecOf` 同源,两条 spec 保证落在同一面。
+  let got = null
+  if (face !== 'worktree') {
+    try {
+      got = catBatch(root, [planSpecOf(face), fieldsSpecOf(face)], { maxBuffer: 1 << 28 })
+    } catch {
+      got = null // 回落原路:readPlan 抛 Undetermined / readFieldsFace 落 why,语义与旧实现相同
+    }
+  }
+  const content = readPlan(root, face, got)
   // 侧车与台账**同面同轮**(§0.4):F11 名单吃 v2 尺(侧车优先),必须与这份 content 同一枚面。
-  const a = auditPlan(content, { fields: readFieldsFace(root, face) })
+  const fields = readFieldsFace(root, face, got)
+  const a = auditPlan(content, { fields })
   // 宽口径读数必须留在面上(只报数不判红):收窄不是"看不见",报告里必须能说"摘掉了几个标题"
   a.counts.f9WideGroups = (a.collisions ?? []).length
   // 派单面的"F1 看不见的那一型"计数(逐对清单只打人读面,不进 json 以免把整行正文带出去)
@@ -622,6 +674,10 @@ export function auditFace(root, face) {
   // 的全文钉在面上,锚点面就复用这个对象,绝不再开一次 `git show` —— 两次取材之间别人推进
   // HEAD,算出来的就是"别人那一半改动"的债,记在本次提交头上(§12e 同族)。
   a.__contentText = content
+  // 侧车同样钉在这轮的面上(与 __contentText 同一条纪律):main 的 --stale/--open 叠层、
+  // --count 等消费点直接复用 —— 再开一次 `cat-file` 不只是多 ~0.2s 派生,更是第二次取材,
+  // 与上面 HEAD 那句同一条 race(§0.4)。
+  a.__fieldsFace = fields
   return narrowF9Face(a, content)
 }
 
@@ -906,6 +962,28 @@ function report(a, face) {
     console.log(`  本次提交新带入且无交代: ${c.newUndisposed} 行(F8a,差值档才判红)`)
   else
     console.log('  本次提交新带入且无交代: **未判定**(无基准面 —— 全量档算不出"新增",不得当作 0)')
+}
+
+/**
+ * `--count` 快档的输出面(2026-11-12,机主令"查还剩多少条最多等 5 秒")。
+ *
+ * 为什么单开一档而不是给默认档做减法:默认档的"账的交代/超期"两行**必须**有 blame 才能答,
+ * 而 blame 是那次 38s(冷)的大头;为一个与行龄无关的计数背整笔年龄追溯,是拿秒数换答案。
+ * 三条纪律:
+ *  1. 只印**不依赖 enrichStale** 的读数(stale / ageSource / ageCovered 一概不印 —— 没跑就没判);
+ *  2. 计数全部取自同一份 `auditFace` 读数,与默认档逐字段同源(两套计数必漂);
+ *  3. 判定面照旧自报,并明写本档没跑什么,免得"没量"被读成"量了是 0"。
+ */
+function countReport(a, face) {
+  const c = a.counts
+  console.log(`判定面:${LABEL[face]} —— --count 快档:只数数,不跑年龄追溯(不派 blame)`)
+  console.log(`未完成 ${c.open} 条(条目行 ${a.rows} = 未勾选 ${c.open} + 已完成 ${a.doneRows};其中带租约 ${c.claimed})`)
+  console.log(
+    `派单口径 —— 真·无人认领: ${c.claimable} 行(未勾选 ${c.open} = 已认领 ${c.claimed} + 其余排除 ${c.unclaimed - c.claimable} + 真待办 ${c.claimable})`,
+  )
+  console.log(
+    `归属分层(派单口径,基数 ${c.claimable}):现在可做 ${c.dispClaimActionable} / 等人拍板 ${c.dispClaimWaitingHuman} / 等条件 ${c.dispClaimWaitingEnv} / 归他人 ${c.dispClaimOwnedElsewhere}`,
+  )
 }
 
 function listRows(rows, face, ages = null) {
@@ -3520,9 +3598,17 @@ function main() {
     console.log(`⚠️ 无法判定 —— ${why}`)
     return 2
   }
-  // 侧车与台账**同面同轮**(§0.4):与上面那次取材同一枚 HEAD / 同一份索引。
-  // 取不到不抛、也不回落另一个面 —— 落 `undetermined`,由消费点如实报名(§0.3)。
-  const fieldsFace = readFieldsFace(o.root, o.face)
+  // 侧车与台账**同面同轮**(§0.4):直接用 auditFace 同轮取来的原件 —— 同一枚 HEAD / 同一份
+  // 索引;此处若再开一次 cat-file,除了多等一轮派生,还会落在别人推进 HEAD 之后,让叠层读数
+  // 与 a 的计数差一枚面。取不到不抛、也不回落另一个面 —— 落 `undetermined`,消费点如实报名(§0.3)。
+  const fieldsFace = a.__fieldsFace
+  // ── `--count` 快档(2026-11-12):只答"还剩多少",在 enrichStale 之前早退 ──
+  // 判定件与默认档**同一份 auditFace 读数**(不另写一套计数 —— 两套数同一件事必漂),
+  // 唯一的差别是不派 blame:默认/清单档 8s(热)/38s(冷)里年龄追溯占 ~7s,而"个数"与行龄无关。
+  if (o.count) {
+    countReport(a, o.face)
+    return 0
+  }
   // 年龄只在"有历史可问"的面上判(全量 HEAD 档)。`--staged`(提交链)结构上没有本次新行的历史,
   // 所以那一档连 blame 都不派生 —— 既省 9s,也免得把"没有历史"读成"很老"。
   // blame 取不到 ⇒ **显式降级并喊出来**,不得静默退回"只看行内日期"那把较窄的尺子。
