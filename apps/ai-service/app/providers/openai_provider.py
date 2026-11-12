@@ -20,7 +20,7 @@ from typing import Any, cast
 import httpx
 
 from ..core.llm_gateway import get_http_client
-from .base_provider import BaseProvider, ProviderError
+from .base_provider import BaseProvider, ProviderError, first_choice_or_raise
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +73,8 @@ class OpenAIProvider(BaseProvider):
     ) -> dict[str, Any]:
         payload = self._build_payload(messages, model, tools=tools, stream=False, **kwargs)
         data = await self._request("POST", f"{self.base_url}/v1/chat/completions", headers=self._headers(), json=payload)
-        choice = data.get("choices", [{}])[0]
+        # AIS-065:choices 空/缺键时抛 ProviderError 进 fallback,不再 IndexError/静默空回复
+        choice = first_choice_or_raise(data, "OpenAI")
         msg = choice.get("message", {})
         # P1-7: 非流式 usage 缺失日志化(不静默丢 token)
         usage = data.get("usage")
@@ -131,6 +132,12 @@ class OpenAIProvider(BaseProvider):
                             e, chunk_str[:200],
                         )
                         continue
+                    # AIS-068:上游以 HTTP 200 流式返回 error 帧(OpenAI 兼容代理行为),
+                    # 不识别会静默耗尽成空 done、网关按成功记账。
+                    if chunk.get("error"):
+                        _errored = True
+                        yield {"type": "error", "message": str(chunk["error"])[:500]}
+                        return
                     # 2026-08-29 修复:流式 usage/结束帧 choices 可能为空数组,
                     # 原 chunk.get("choices", [{}])[0] 会 IndexError(第一轮流式化后暴露)。
                     choices = chunk.get("choices") or []
