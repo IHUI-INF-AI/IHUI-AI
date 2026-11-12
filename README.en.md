@@ -99,6 +99,15 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-12**
+- 🔧 Chore/Other:固化在飞 PROJECT_PLAN/last-sha 改动 (e0793b38e2)
+- 🔧 Chore/Other:结清 F-036/F-062/F-103/F-114/F-117 五张 CLI 缺陷普查工单 (0064c74e6f)
+- 🐞 Fix:收口 F-036/F-062/F-114/F-117 四张缺陷普查工单 (c89755bda3)
+- 🔧 Chore/Other:运行时产物兜底——box-agent-scratch + 损坏node_modules隔离目录 (24c2ff49fa)
+- 🐞 Fix:结清 XUI-011/012——垫片补齐 createNavigationContainerRef 与 WebView 命名导出 (716be273e1)
+- 📚 Docs:追认 44f87ad95a8 的归属边界——11 枚他人暂存件被并入本席提交 (83ce8f6e98)
+- 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (b2e8f128e2)
+
+**2026-11-12**
 - 🔧 Chore/Other:固化在飞README/守卫改动(并行会话成果), 为merge远端腾干净树 (4fa2fab3ff)
 - 🔧 Chore/Other:违禁桶兜底清扫——HEAD面等条件/待拍板未勾行自动摘除(两道机主禁令的执行器物化,留痕f12-purge;复翻席请同步摘形态,事实内容按各批结清提交保留) (ef6741060a)
 
@@ -874,9 +883,6 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 - 🚀 Feature/Improvement:TokenValue 记录时间范围条下沉共享屏(数据型注入点,RN/小程序同源) (e7c52e45ba2)
 - 🚀 Feature/Improvement:8 条单端槽位裁决落锁,2 条真下沉 (72a500c1156)
 - 🔧 Chore/Other:再 rebase 后生成器取胜, 刷新 ui-routes 钉值与 README 数字 (5c833a7bbc5)
-
-**2026-11-06**
-- 🚀 Feature/Improvement:补齐 Team/MessageCenter/ArticleList/Coupon 行为型 prop 跨端缺口并清理死契约 (a872076ccc9)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
