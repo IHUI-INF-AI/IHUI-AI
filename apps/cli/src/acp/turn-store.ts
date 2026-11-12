@@ -165,8 +165,20 @@ export function nextTurnOrdinal(sessionId: string): number {
 }
 
 /**
- * 列出所有"此刻可被唤醒"的回合(跨会话)。给定时驱动/启动恢复用。
- * 纯事件式挂起(`notBefore` 缺席)不在此列 —— 它只能被显式唤醒。
+ * 列出所有"此刻可被唤醒"的回合(跨会话)。
+ *
+ * ## ⚠️ 状态:已实现,但**尚无调用方**(2026-11-12 全仓 grep 零命中)
+ *
+ * 诚实说明:本函数是给「定时驱动 / 进程重启恢复」准备的。但 CLI 是短生命周期
+ * 进程,我们没有常驻调度器,也不该为了它硬加一个启动扫描(那会改变所有用户的
+ * 启动路径,而需求并不存在)。所以它现在是**能力就绪但链路未接**。
+ *
+ * 与 `cost-approval` 同一处置:加显式标注,不让人误以为"挂起回合会被自动唤醒"。
+ * 真要接时有两处落点:
+ *   1. `x.ai/turn/state` 的调用方(编辑器侧)可以周期性拉 `wakeable` 自行唤醒;
+ *   2. 将来的常驻服务(若有)在启动时扫一次。
+ *
+ * 纯事件式挂起(`notBefore` 缺席)不在此列 —— 它只能被显式 wake。
  */
 export function listWakeableTurns(now: number): { sessionId: string; turn: TurnRecord }[] {
   const dir = turnsDir();
