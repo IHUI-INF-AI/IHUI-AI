@@ -150,7 +150,21 @@ function ambiguityOutput(picked: { candidates: Array<Record<string, unknown>> },
 }
 
 /** 池行 → 切号参数(token/rt/profile/device;与 client-switch 同判据面) */
-function decodePoolRow(row: any) {
+function decodePoolRow(row: any): {
+  error: string
+  token?: undefined
+  refreshToken?: undefined
+  profile?: undefined
+  sessionTemplate?: undefined
+  device?: undefined
+} | {
+  error?: undefined
+  token: string
+  refreshToken: string | null
+  profile: Record<string, unknown> | null
+  sessionTemplate: Record<string, unknown> | null
+  device: { deviceId: string; deviceKeyPem: string; devicePubPem: string } | null
+} {
   let token = ''
   try {
     token = row.tokenEnc ? decryptField(row.tokenEnc) : ''
@@ -239,7 +253,7 @@ type PreflightResult =
   | { decision: 'undetermined'; reason: string }
 
 async function preflightTraeDeviceMatch(
-  dec: { token?: string; refreshToken: string | null },
+  dec: { token?: string; refreshToken?: string | null },
   store: Record<string, unknown>,
 ): Promise<PreflightResult> {
   /**
@@ -339,7 +353,7 @@ async function preflightTraeDeviceMatch(
     }
     const text = await res.text().catch(() => '')
     if (res.ok) {
-      let payload: { token?: string; refreshToken?: string; expiresAt?: Date | null } | null = null
+      let payload: import('../src/services/upstream-adapters/trae-protocol.js').TraeTokenPayload | null = null
       try {
         payload = proto.extractTokenPayload(JSON.parse(text))
       } catch {
@@ -1089,7 +1103,7 @@ export async function main(argv: string[]): Promise<number> {
             dllPath: dllNow,
             tables: ['project', 'user_configuration'],
           })
-          const bad = Object.entries(owner).filter(
+          const bad = Object.entries(owner as Record<string, string[]>).filter(
             ([, uids]) => uids.some((u) => u && u !== oldUid),
           )
           report.rollbackOwnerCheck = {

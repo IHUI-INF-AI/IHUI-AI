@@ -356,7 +356,16 @@ async function main(argv: string[]): Promise<number> {
 
   let rawText: string
   try {
-    rawText = opts.stdin ? readStdin() : readFileSync(resolvePath(opts.files[0]), 'utf8')
+    if (opts.stdin) {
+      rawText = readStdin()
+    } else {
+      const first = opts.files[0]
+      if (first === undefined) {
+        process.stderr.write('❌ 未提供输入文件,且未指定 --stdin\n')
+        return 2
+      }
+      rawText = readFileSync(resolvePath(first), 'utf8')
+    }
   } catch (e) {
     process.stderr.write(`❌ 读取输入失败(未判定): ${e instanceof Error ? e.message : String(e)}\n`)
     return 2
