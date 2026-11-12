@@ -12299,7 +12299,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 68C. **缺陷普查 CLI F-087** [P1] LSP initialize 失败后不回收子进程（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-087）
 - [ ] 69C. **缺陷普查 CLI F-088** [P1] 长期记忆整文件重写无锁、非原子（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-088）
 - [ ] 70C. **缺陷普查 CLI F-095** [P1] 回收站恢复信任 manifest 的 relativeTrashPath/originalPath，仓库可控任意文件搬移（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-095）
-- [ ] 71C. **缺陷普查 CLI F-063** [P2] WS 断连不取消在飞回合、发送无背压（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-063）
 - [ ] 72C. **缺陷普查 CLI F-064** [P2] HTTP 请求体无上限、SSE 无背压、无显式超时（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-064）
 - [ ] 73C. **缺陷普查 CLI F-065** [P2] 同会话并发回合共享消息数组，abort 相互覆盖（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-065）
 - [ ] 74C. **缺陷普查 CLI F-066** [P2] ACP 会话关闭 / SIGINT 不中止在飞 prompt（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-066）
@@ -12316,7 +12315,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 85C. **缺陷普查 CLI F-089** [P2] /memory search 丢弃向量通道（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-089）
 - [ ] 86C. **缺陷普查 CLI F-090** [P2] 压缩缓存键不含模型（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-090）
 - [ ] 87C. **缺陷普查 CLI F-092** [P2] TUI 转录无上限 + 每帧全量重排（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-092）
-- [ ] 88C. **缺陷普查 CLI F-094** [P2] undo 历史持久化仍是裸 writeFileSync，且 stale 检测读了不用（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-094）
 - [ ] 89C. **缺陷普查 CLI F-072** [P3] 技能包配额在整包读入内存之后才生效（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-072）
 - [ ] 90C. **缺陷普查 CLI F-084** [P3] 异步命令体内做同步大 IO（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-084）
 - [ ] 91C. **缺陷普查 CLI F-085** [P3] 设置落盘失败只记日志，仍返回成功（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-085）
@@ -12337,9 +12335,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 107C. **缺陷普查 CLI F-109** [P2] Cookie 库副本以明文落 %TEMP% 且 pid 目录复用（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-109）
 - [ ] 108C. **缺陷普查 CLI F-110** [P2] 隔离动作计数失真（报告虚增）（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-110）
 - [ ] 109C. **缺陷普查 CLI F-111** [P2] 身份账本非原子写 → 审计给出假"0 残留"（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-111）
-- [ ] 110C. **缺陷普查 CLI F-112** [P2] web_search 只校验首跳且响应体无上限（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-112）
-- [ ] 111C. **缺陷普查 CLI F-113** [P2] MCP http transport 不处理会话头与 SSE 响应（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-113）
-- [ ] 113C. **缺陷普查 CLI F-115** [P2] /config set 把多源合并结果写回全局（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-115）
 - [ ] 115C. **缺陷普查 CLI F-118** [P2] sessionId 未收敛，可读写任意 .json（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-118）
 - [ ] 116C. **缺陷普查 CLI F-119** [P3] share 的 includeFiles=false 是假保证（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-119）
 - [ ] 117C. **缺陷普查 CLI F-120** [P3] report 覆盖无备份、输入无上限（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-120）
