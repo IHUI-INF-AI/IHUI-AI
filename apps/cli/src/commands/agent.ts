@@ -336,6 +336,13 @@ export interface AgentResult {
 export type { OutputFormat, HeadlessEvent } from '../headless-format.js'
 export { parseOutputFormat, formatHeadlessEvent } from '../headless-format.js'
 import { createHeadlessEventGate, formatHeadlessEvent } from '../headless-format.js'
+import {
+  applyTurnTransition,
+  createTurnRecord,
+  endReasonFromStopReason,
+  type TurnTransition,
+} from '../acp/turn-lifecycle.js'
+import { loadSessionRuntime, nextTurnOrdinal, upsertTurn } from '../acp/turn-store.js'
 import type { OutputFormat, HeadlessEvent } from '../headless-format.js'
 
 // ==================== 公共函数 ====================
@@ -1833,6 +1840,83 @@ function extractSummaryBody(messages: CompressionResult['messages']): string {
 }
 
 /** 执行多轮工具循环,直到 end_turn 或 maxIterations。messages 数组会被原地修改(追加 assistant + tool_result 消息) */
+/**
+ * 回合运行态旁路记录(2026-11-12)。
+ *
+ * ## 边界(写清楚,避免被误用)
+ *
+ * 这一层**只记录,不驱动**。回合何时开始、何时结束仍由 `runToolLoop` 自己决定;
+ * 本层把「开始了 / 结束了(原因是什么)」落到 `~/.ihui/turns` 供重连与审计读。
+ * 它不改变循环的任何判据 —— 记录失败一律吞掉,失效方向恒为"少一条记录"。
+ *
+ * ## 为什么必须与 reservedTurnNumber 同源
+ *
+ * G-633 已经有一套回合号预留(`reservedTurnNumber`,进程级原子分配器),
+ * 那是并发安全的唯一真相源。这里**不另建序号**,只把同一套标识抄进运行态,
+ * 否则两条序号线必然漂移(AGENTS §0.6)。
+ */
+function beginTurnTrace(params: { sessionId: string; now: number }): { turnId: string } | null {
+  try {
+    const ordinal = nextTurnOrdinal(params.sessionId);
+    const record = createTurnRecord({
+      id: `turn_${params.sessionId}_${ordinal}_${params.now}`,
+      sessionId: params.sessionId,
+      ordinal,
+      at: params.now,
+    });
+    upsertTurn(params.sessionId, record);
+    return { turnId: record.id };
+  } catch {
+    // 会话文件不存在/目录不可写 ⇒ 本会话不做运行态记录,不影响主流程。
+    return null;
+  }
+}
+
+/**
+ * 把一条回合推进到终态。`stopReason` 直接来自循环出口,映射见
+ * `endReasonFromStopReason`(穷尽表,不随手 if)。
+ */
+function finishTurnTrace(params: {
+  trace: { turnId: string } | null;
+  sessionId: string;
+  stopReason: string;
+  now: number;
+}): void {
+  if (!params.trace) return;
+  try {
+    const runtime = loadSessionRuntime(params.sessionId);
+    const current = runtime.turns.find((t) => t.id === params.trace!.turnId);
+    if (!current) return;
+
+    // 从当前阶段直接推进到终态:走"最短合法路径"而不是伪造中间态。
+    // 循环已经把活干完了,这里只是把结果记下来 —— 不需要也不应该回放
+    // consuming/committing 的每一步(那是执行侧的事,不是观测侧的事)。
+    const reason = endReasonFromStopReason(params.stopReason);
+    const transition: TurnTransition =
+      reason.kind === 'normal'
+        ? { type: 'complete', at: params.now, reason }
+        : reason.kind === 'cancelled'
+          ? { type: 'cancel', at: params.now, reason }
+          : { type: 'synthetic-finish', at: params.now, detail: reason.detail };
+
+    // `complete` 只允许从 committing 进入;观测路径没走那一步,先补一次合法过渡。
+    let cur = current;
+    if (transition.type === 'complete' && cur.phase !== 'committing') {
+      if (cur.phase === 'prepare') {
+        const r = applyTurnTransition(cur, { type: 'begin-consuming', at: params.now });
+        if (r.ok) cur = r.next;
+      }
+      const r2 = applyTurnTransition(cur, { type: 'begin-committing', at: params.now });
+      if (r2.ok) cur = r2.next;
+    }
+
+    const res = applyTurnTransition(cur, transition);
+    if (res.ok) upsertTurn(params.sessionId, res.next);
+  } catch {
+    // 同 beginTurnTrace:观测失败不阻断执行。
+  }
+}
+
 export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoopResult> {
   // 工具粒度钩子取消腿(G-424 移交票,"主会话补"那一行):生产装配面的回合 signal
   // 此前从未进 ToolContext ⇒ executeToolCall 里 ctx.signal 恒 undefined,取消打不到
@@ -1858,6 +1942,12 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
   let totalCostUsd = 0;
   let budgetLimited = false;
   let lastErrorMessage = '';
+  // 回合运行态旁路记录(2026-11-12):与既有 `reservedTurnNumber`(G-633)共用同一套
+  // 回合标识,不另建第二份序号。**失败一律吞掉** —— 运行态记录是观测面,
+  // 不得因为写盘失败而让真正的 agent 循环失败(失效方向恒为"少一条记录",不是"整轮挂").
+  const turnTrace = opts.sessionId
+    ? beginTurnTrace({ sessionId: opts.sessionId, now: Date.now() })
+    : null;
   // V3#54(2026-09-28):工具连续失败反思换策略 —— 判据/阈值上提共享层
   // (createFailureStreakTracker + FAILURE_STREAK_STRATEGY_THRESHOLD,Python 等价
   // app/core/doom_loop.py 的 FailureStreakTracker;parity 由守门钉死)。
@@ -3127,6 +3217,15 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
   // G-425:finish_reason 透传。最后一次响应被输出上限截断 ⇒ 端上可据此提示"回复不完整"
   // (stderr 的 [truncated] 行是人读面,这两个字段是机器面)。远端流拿不到结束原因 ⇒
   // 两个字段都不带,消费方按"未知"处理,不得读成"未截断"。
+  // 回合运行态收口(2026-11-12):把 stopReason 落成终态记录。旁路,失败不影响返回。
+  if (turnTrace && opts.sessionId) {
+    finishTurnTrace({
+      trace: turnTrace,
+      sessionId: opts.sessionId,
+      stopReason,
+      now: Date.now(),
+    });
+  }
   return {
     stopReason,
     assistantText,

@@ -18,10 +18,11 @@
  * 本模块只读、只计算,不做任何落盘;写盘只发生在各端生成器里。
  */
 
-import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+
+import { gitRaw } from './face-reader.mjs'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 
@@ -74,7 +75,10 @@ const WEB_RN_MAP = 'scripts/data/web-rn-screen-map.jsonl'
 export function readRepoFile(rel, face = 'worktree') {
   if (face === 'head') {
     try {
-      return execFileSync('git', ['show', `HEAD:${rel}`], { cwd: repoRoot, encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
+      // HEAD 面读取收口到共享层 gitRaw(层内统一 windowsHide + 有界 timeout + stdio 接管 +
+      // 64MB 缓冲,优于裸 execFileSync 的 1MB 默认)。文件在 HEAD 不存在 ⇒ git 非零退出,
+      // 照旧 catch 成 null,由调用方表态「未判定」而不是猜 —— 导出契约逐字未改。
+      return gitRaw(['show', `HEAD:${rel}`], repoRoot)
     } catch {
       return null
     }
@@ -87,7 +91,9 @@ export function readRepoFile(rel, face = 'worktree') {
 export function existsRepoFile(rel, face = 'worktree') {
   if (face === 'head') {
     try {
-      execFileSync('git', ['cat-file', '-e', `HEAD:${rel}`], { cwd: repoRoot, stdio: 'ignore', windowsHide: true })
+      // 存在性探测同样收口到 gitRaw:存在 ⇒ 返回真,不存在/取不到 ⇒ false,
+      // 与原裸 execFileSync 的 catch 语义逐字一致(仅派生经由共享层)。
+      gitRaw(['cat-file', '-e', `HEAD:${rel}`], repoRoot)
       return true
     } catch {
       return false

@@ -40,7 +40,6 @@
 
 /* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
 
-import { execFileSync } from 'node:child_process'
 import {
   existsSync,
   lstatSync,
@@ -54,6 +53,8 @@ import {
 } from 'node:fs'
 import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+
+import { gitRaw } from './lib/face-reader.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -117,12 +118,12 @@ export function parseWorktreePorcelain(text) {
  * `D:/IHUI-AI-git-repo`),漏掉它会把主树自己的正确链接误判成违规。
  */
 export function listScanRoots(repoRoot = ROOT) {
-  const text = execFileSync('git', ['-C', repoRoot, 'worktree', 'list', '--porcelain'], {
-    encoding: 'utf8',
-    windowsHide: true,
-    timeout: 30_000,
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
+  // 走共享层 face-reader 的 gitRaw,不再自拼裸 execFileSync('git', …):层内已统一
+  // `-C <root>` 绝对路径形态 + windowsHide + 显式 stdio 接管;30s 超时原样传入,不放宽。
+  // 层加的 `core.quotepath=false` 使 porcelain 里的非 ASCII 路径直出原文(裸派生默认
+  // C 转义会带上引号,反而骗过 parseWorktreePorcelain 的 slice 解析);本仓路径为 ASCII,
+  // 现读输出逐字不变。失败仍抛错,由 scanAll → main 的 catch 折成 exit 2「未判定」。
+  const text = gitRaw(['worktree', 'list', '--porcelain'], repoRoot, { timeout: 30_000 })
   const entries = parseWorktreePorcelain(text)
   const seen = new Set(entries.map((e) => normalizePath(e.path)))
   const self = normalizePath(repoRoot)
