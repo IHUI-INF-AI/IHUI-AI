@@ -1281,7 +1281,10 @@ async function runSweepOnce(
       })
       out.healthChecked++
       const now = new Date()
-      await db
+      // 健康回写同样走 credVersion CAS(SDB-32):checkHealth 是数秒的 HTTP,期间转发层
+      // 401 自愈 / 管理面自愈可能已换票并 credVersion+1;旧快照回写会把新票判 down,
+      // 并把 tokenExpiresAt 收敛到当下(最长 30 分钟才可能回绿)。
+      const applied = await db
         .update(aiRelayAccountPool)
         .set({
           // 未判定保留 unknown,不写 down(§0.3:取不到 ≠ 失效)
@@ -1293,7 +1296,18 @@ async function runSweepOnce(
           // 未来到期时刻从此不能再被当成「票仍可用」的证据;5xx 未判定不碰该列。
           ...(outcome.ok === false && outcome.authFailed === true ? { tokenExpiresAt: now } : {}),
         })
-        .where(eq(aiRelayAccountPool.id, row.id))
+        .where(
+          and(eq(aiRelayAccountPool.id, row.id), eq(aiRelayAccountPool.credVersion, row.credVersion)),
+        )
+        .returning({ id: aiRelayAccountPool.id })
+      if (applied.length === 0) {
+        // 快照之后已有别的路径换票成功 ⇒ 本次结论随旧快照作废(不重试、不覆盖新票)
+        logger.warn('[relay-account-pool] 健康回写 CAS 未命中:快照版本已过期,跳过回写', {
+          accountId: row.id,
+          providerCode: row.providerCode,
+          snapshotCredVersion: row.credVersion,
+        })
+      }
     } catch {
       /* 单账号检查异常不中断整轮 */
     }

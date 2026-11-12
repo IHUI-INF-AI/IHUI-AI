@@ -72,6 +72,16 @@ vi.mock('../relay-proxy-pool.js', () => ({
   pickProxyForAccount: vi.fn().mockResolvedValue(null),
 }))
 
+// 客户端会话镜像单独隔离:本文件 providerCode=qoder 在镜像注册面内,refreshOne 会
+// pullClientSession/pushClientSession ⇒ 真实实现 spawn scripts/client-session-mirror-bridge.mjs
+// (Windows 经 run-as-user.ps1,内部 60s 上限),用例偶发超时。只换掉两个会落进程的 IO 函数:
+// pull 恒「未匹配」(null ⇒ 调用方走「客户端不在位」分支),push 恒不写;其余纯函数保留真实实现。
+vi.mock('../relay-client-session-mirror.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../relay-client-session-mirror.js')>()),
+  pullClientSession: vi.fn(async () => null),
+  pushClientSession: vi.fn(async () => false),
+}))
+
 import { refreshOne } from '../relay-account-pool-scheduler.js'
 import { registerRelayAdapter } from '../relay-upstream-adapters.js'
 
