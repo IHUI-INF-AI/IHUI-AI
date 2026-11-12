@@ -12234,11 +12234,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 29C. **缺陷普查 CLI F-028** [P2] 凭据设置文件非原子写（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-028）
 - [ ] 38C. **缺陷普查 CLI F-040** [P2] 三份能力回归钉未接入任何 runner（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-040）
 - [ ] 40C. **缺陷普查 CLI F-048** [P2] 托盘创建失败时 close_behavior=hide 把窗口藏进虚空（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-048）
-- [ ] 41C. **缺陷普查 CLI F-049** [P2] set_caption_button_theme 未进命令清单/能力，暗色下原生窗控不可读（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-049）
-- [ ] 42C. **缺陷普查 CLI F-050** [P2] 清理旧实例只杀主进程，不杀 WebView2 子进程（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-050）
-- [ ] 43C. **缺陷普查 CLI F-051** [P2] 第二次双击会杀掉仍在启动的合法首实例（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-051）
-- [ ] 45C. **缺陷普查 CLI F-055** [P2] 全盘索引走同步命令，阻塞主线程（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-055）
-- [ ] 47C. **缺陷普查 CLI F-057** [P2] 快照备份递归跟随 junction，越界拷贝/成环（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-057）
 - [ ] 49C. **缺陷普查 CLI F-061** [P2] allow-clipboard-set 两端皆无（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-061）
 - [ ] 50C. **缺陷普查 CLI F-017** [P3] 非法数值/枚举静默回落（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-017）
 - [ ] 51C. **缺陷普查 CLI F-018** [P3] 全局 flag 位置敏感 + json 判据双源（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-018）
@@ -12248,7 +12243,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 56C. **缺陷普查 CLI F-043** [P3] dev 配置漂移：csp:null、版本 0.1.53、9333 CDP（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-043）
 - [ ] 57C. **缺陷普查 CLI F-044** [P3] shell open 运行时正则放行任意 localhost 端口（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-044）
 - [ ] 58C. **缺陷普查 CLI F-052** [P3] 第二实例/深链唤起不还原最小化窗口（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-052）
-- [ ] 59C. **缺陷普查 CLI F-059** [P3] 快照落地先删后换，失败即旧快照已毁（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-059）
 - [ ] 60C. **缺陷普查 CLI F-060** [P3] Cookie 整串经 IPC 回传前端 + expect 建客户端（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-060）
 
 - [ ] 67C. **缺陷普查 CLI F-080** [P1] write_text_file 无大小上限、非原子覆盖（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-080）（未判定：Rust 夹具为 helper 级，反向 apply 整笔会把夹具同 hunk 回退，拿不到「夹具保留+旧源码」组合；不计入已修）
@@ -12275,9 +12269,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 102C. **缺陷普查 CLI F-104** [P2] operator 审批可自批自跑（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-104）
 - [ ] 103C. **缺陷普查 CLI F-105** [P2] 桌面 egress_gate 判定与执行分离、默认 fail-open（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-105）
 - [ ] 104C. **缺陷普查 CLI F-106** [P2] 桌面 git 命令同步阻塞 + 输出无上限 + 只杀单进程（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-106）
-- [ ] 106C. **缺陷普查 CLI F-108** [P2] 深度重置按子串枚举注册表并整树删除（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-108）
 - [ ] 107C. **缺陷普查 CLI F-109** [P2] Cookie 库副本以明文落 %TEMP% 且 pid 目录复用（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-109）
-- [ ] 108C. **缺陷普查 CLI F-110** [P2] 隔离动作计数失真（报告虚增）（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-110）
 - [ ] 109C. **缺陷普查 CLI F-111** [P2] 身份账本非原子写 → 审计给出假"0 残留"（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-111）
 - [ ] 115C. **缺陷普查 CLI F-118** [P2] sessionId 未收敛，可读写任意 .json（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-118）
 - [ ] 116C. **缺陷普查 CLI F-119** [P3] share 的 includeFiles=false 是假保证（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-119）
