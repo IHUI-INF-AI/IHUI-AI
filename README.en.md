@@ -81,13 +81,13 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 5065 | `testFiles` |
+| 测试文件 | 5082 | `testFiles` |
 | CI 工作流 | 59 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 362 | `guardianGates` |
 | — blocking | 333 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 21126 | `trackedFiles` |
+| 跟踪文件 | 21147 | `trackedFiles` |
 
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-12。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。

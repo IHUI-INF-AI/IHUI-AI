@@ -274,6 +274,86 @@ test('⑰ 指纹与键序无关(同一内容不同键序必须同哈希)', () =>
   assert.equal(credentialFingerprint(a), credentialFingerprint(b))
 })
 
+// ── email 身份键(2026-11-12 修复:两端 users.id 不同、email 相同)──────────────
+
+/** 导出器形状:元数据在 __sync(含 ownerUserId/ownerEmail),原生字段在顶层。 */
+function exported(over = {}) {
+  return {
+    token: 'tok-A',
+    __sync: {
+      uid: 'uid-1',
+      providerCode: 'raccoon',
+      ownerUserId: 'lid',
+      updatedAt: new Date(NOW - DAY).toISOString(),
+      enabled: true,
+      core: { token: 'tok-A', refreshToken: '', tokenExpiresAt: '' },
+      ...over,
+    },
+  }
+}
+
+test('㉑ ownerEmail 相同 ⇒ 同步键一致:跨 id 同人不互推不判冲突', () => {
+  const local = [exported({ ownerUserId: 'd83b566e-local', ownerEmail: 'Admin@QQ.com' })]
+  const prod = [exported({ ownerUserId: '30763d9f-prod', ownerEmail: 'admin@qq.com' })]
+  const plan = planPoolSync({ local, prod, nowMs: NOW })
+  assert.equal(plan.stats.toPush, 0, '同一人(email 同)不得被判"仅一侧有"反复互推')
+  assert.equal(plan.stats.toPull, 0)
+  assert.equal(plan.stats.unchanged, 1)
+  assert.equal(plan.conflicts.length, 0)
+})
+
+test('㉒ ownerMaps 翻译:无 ownerEmail 的旧导出也按 email 归键;不传 maps 退化为现行为', () => {
+  const local = [exported({ ownerUserId: 'lid' })]
+  const prod = [exported({ ownerUserId: 'pid' })]
+  const translated = planPoolSync({
+    local,
+    prod,
+    nowMs: NOW,
+    ownerMaps: { local: { lid: 'a@b.c' }, prod: { pid: 'A@B.C' } },
+  })
+  assert.equal(translated.stats.unchanged, 1)
+  assert.equal(translated.stats.toPush, 0)
+  // 向后兼容:不传 maps 且无 ownerEmail ⇒ 键用 ownerUserId 原值(现行为,两侧互推)
+  const legacy = planPoolSync({ local, prod, nowMs: NOW })
+  assert.equal(legacy.stats.toPush, 1)
+  assert.equal(legacy.stats.toPull, 1)
+  // 运营池不参与翻译:恒为 'ops'
+  assert.equal(accountSyncKey(exported({ ownerUserId: null })), 'ops|raccoon|uid-1')
+  assert.equal(accountSyncKey(exported({ ownerUserId: 'lid', ownerEmail: 'a@b.c' })), 'a@b.c|raccoon|uid-1')
+})
+
+test('㉓ groupForImport 落库翻译:owner 用目标环境 email→id 反查结果', () => {
+  const items = [
+    { account: exported({ ownerUserId: 'pid', ownerEmail: 'A@B.C' }) },
+    { account: exported({ ownerUserId: null }) }, // 运营池:owner=null,不参与翻译
+  ]
+  const batches = groupForImport(items, { 'a@b.c': 'lid-9' })
+  assert.equal(batches.length, 2)
+  const personal = batches.find((b) => b.providerCode === 'raccoon' && b.ownerUserId !== null)
+  assert.equal(personal.ownerUserId, 'lid-9', '落库 --owner 必须是目标环境翻译后的 id')
+  assert.equal(batches.find((b) => b.ownerUserId === null).ownerUserId, null)
+  assert.equal(batches.skipped.length, 0)
+  // 不传 targetMaps ⇒ 旧行为:ownerUserId 原样透传
+  const legacy = groupForImport([{ account: exported({ ownerUserId: 'pid', ownerEmail: 'a@b.c' }) }])
+  assert.equal(legacy[0].ownerUserId, 'pid')
+  assert.equal(legacy.skipped.length, 0)
+})
+
+test('㉔ groupForImport fail-closed:email 翻译不出 ⇒ 点名跳过,绝不静默落运营池', () => {
+  const batches = groupForImport([{ account: exported({ ownerUserId: 'pid', ownerEmail: 'ghost@x.dev' }) }], {
+    'a@b.c': 'lid-9',
+  })
+  assert.equal(batches.length, 0, '翻译不出的行不得进批次')
+  assert.equal(batches.skipped.length, 1)
+  assert.equal(batches.skipped[0].uid, 'uid-1')
+  assert.equal(batches.skipped[0].providerCode, 'raccoon')
+  assert.match(batches.skipped[0].reason, /无法在目标环境解析/)
+  // 非 uuid 历史 owner(dev-anonymous 类):无 email 信息时 identity=原值,给 maps 也翻译不出 ⇒ 跳过
+  const anon = groupForImport([{ account: exported({ ownerUserId: 'dev-anonymous' }) }], { 'a@b.c': 'lid-9' })
+  assert.equal(anon.length, 0)
+  assert.equal(anon.skipped.length, 1)
+})
+
 test('⑬ 防漂移:ESM 镜像的 provider 清单必须与 TS 唯一真相源逐项一致', () => {
   const src = readFileSync(
     path.join(ROOT, 'apps', 'api', 'src', 'services', 'relay-account-format.ts'),
