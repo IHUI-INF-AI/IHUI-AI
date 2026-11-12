@@ -67,7 +67,7 @@ test('收回文件权限时不删掉远程面仍需要的非文件权限', () =>
   assert.equal(
     perms.includes('allow-clipboard-set'),
     false,
-    'clipboard-set 已由 BUG-17 移出 remote,DBG-38 不得为了旧锁把它加回',
+    'clipboard-set 已由 BUG-17 移出 remote,F-061 用户拍板:只补本地、不回 remote',
   )
 })
 
@@ -99,5 +99,24 @@ test('裸文件 I/O 权限已迁移到 local-fs-io.json(仅本地 webview,不授
   )
   assert.notEqual(caps.local, false, 'local-fs-io 必须对本地 origin 生效,禁止 local:false')
   assert.deepEqual(caps.windows?.sort(), ['admin', 'main'], 'local-fs-io.json 应只作用于本地 main/admin 窗口')
+})
+
+// F-061 回归:用户拍板 —— 只把 allow-clipboard-set 补进 local-fs-io(本地 webview),
+// 绝不补回 default.json 的 remote 面(BUG-17/DBG-38 已把剪贴板权限收回 remote 面,
+// 线上页写剪贴板等价于 XSS 覆写用户剪贴板)。
+// default.json 不含 allow-clipboard-set 由上方「收回文件权限时不删掉远程面仍需要的非文件权限」用例锁定,不重复断言。
+test('F-061: local-fs-io 授予 allow-clipboard-set(本地),且仍不带 remote 面', () => {
+  const caps = readJson(LOCAL_CAP)
+  const perms = permissionIds(caps)
+  assert.equal(
+    perms.includes('allow-clipboard-set'),
+    true,
+    'local-fs-io.json 缺 allow-clipboard-set:本地 webview 调 clipboard_set 仍会被 ACL 拒(F-061)',
+  )
+  assert.equal(
+    Array.isArray(caps.remote?.urls) && caps.remote.urls.length > 0,
+    false,
+    'F-061: allow-clipboard-set 只给本地,local-fs-io 不得带 remote 授权',
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
