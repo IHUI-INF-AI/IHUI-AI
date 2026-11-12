@@ -5468,6 +5468,9 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-13**
+- 🚀 新功能/改进:多语言文案同步 + api-client sag2-lexical 端点(shared/web 五语系) (58b76bade1)
+
+**2026-11-13**
 - 🔧 工程/其他:并发会话本地改动落盘(web/api/ai-service/miniapp/mobile-rn/docs/notice-log 等) (7c9a379d40)
 
 **2026-11-13**
