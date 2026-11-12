@@ -49,8 +49,11 @@ vi.mock('node:child_process', async (importOriginal) => {
     ...actual,
     spawnSync: (...a: Parameters<typeof actual.spawnSync>) => {
       const cmd = String(a[0]);
+      // F-022:派生出口改走 resolveGitBinary ⇒ 命令名可能是绝对路径。按命令名归一匹配,
+      // 裸 'git' 与绝对路径两种形态都命中(探针口径不变,只放宽派生入口形态)。
+      const exe = path.basename(cmd).toLowerCase();
       const argv = (a[1] as string[] | undefined) ?? [];
-      if (cmd === 'git' && argv[0] === 'worktree') probe.gitWorktree += 1;
+      if ((exe === 'git' || exe === 'git.exe') && argv[0] === 'worktree') probe.gitWorktree += 1;
       if (cmd === 'rm') probe.rmCmd += 1;
       return actual.spawnSync(...a);
     },

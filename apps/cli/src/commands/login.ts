@@ -241,6 +241,15 @@ export async function runLogin(opts: LoginOptions): Promise<boolean> {
   }
 
   // 普通登录流程
+  // F-013:非 TTY(CI/管道)下 inquirer 会抛错或挂死,判据与 first-run 共用
+  // `!process.stdin.isTTY`。缺显式参数按用法错误退 2(只提示参数名,不回显任何凭据)。
+  if (!process.stdin.isTTY && (!opts.account || !opts.password)) {
+    console.error(chalk.red('✗ 非交互环境(标准输入非 TTY)必须显式提供 --account 与 --password'));
+    console.error(chalk.dim('  用法: ihui login -a <account> -p <password>'));
+    process.exitCode = 2;
+    return false;
+  }
+
   const account: string = opts.account ?? (await inquirer.prompt<{ account: string }>([
     {
       type: 'input',
@@ -347,7 +356,8 @@ export function registerLoginCommand(program: Command): void {
     .option('--logout', '清除本地 token(settings.json 的 apiKey 字段)')
     .action(async (opts: CliLoginOptions) => {
       const ok = await runLogin(opts);
-      if (!ok) process.exitCode = 1;
+      // F-013:非 TTY 缺参数时 runLogin 已钉 2(用法错误),不被通用失败档覆盖成 1。
+      if (!ok && process.exitCode !== 2) process.exitCode = 1;
     });
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

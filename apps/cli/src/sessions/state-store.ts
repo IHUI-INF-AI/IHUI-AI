@@ -121,23 +121,92 @@ function sessionFileBlocksReplace(id: string): boolean {
   }
 }
 
-function readStateFile(id: string): SessionState | null {
+/**
+ * F-031(2026-11-12):会话读盘三态 —— 把"文件损坏/解析失败(corrupt)"与
+ * "根本没有这场会话(missing)"分开。修前两者都塌成 null,resume 只能说
+ * "不存在",列表也静默 continue(无 warn、无证据、无自愈)。
+ */
+export type SessionLoadResult =
+  | { kind: 'ok'; session: SessionState }
+  | { kind: 'missing'; id: string; path: string }
+  | { kind: 'corrupt'; id: string; path: string; reason: string; message: string };
+
+/** 隔离件命名: `<原文件名>.corrupt-<ts>.json` */
+const CORRUPT_QUARANTINE_SUFFIX = '.corrupt-';
+const CORRUPT_QUARANTINE_RE = /\.corrupt-\d+(?:-\d+)?\.json$/;
+
+function readStateFileResult(id: string): SessionLoadResult {
   const p = getSessionStatePath(id);
   let raw: string;
   try {
     raw = fs.readFileSync(p, 'utf-8');
   } catch (error) {
     const code = sessionReadCode(error);
-    if (code === 'ENOENT' || code === 'ENOTDIR') return null;
+    // 读错误与"文件不存在"仍然分开:读不到 ≠ 没有(既有口径不变)。
+    if (code === 'ENOENT' || code === 'ENOTDIR') return { kind: 'missing', id, path: p };
     throw new Error(`会话读不到,不能把它当成没有这场会话 (${code})`);
   }
+  const corrupt = (reason: string): SessionLoadResult => ({
+    kind: 'corrupt',
+    id,
+    path: p,
+    reason,
+    message: `会话文件已损坏,与"不存在"不同:${p}(${reason})`,
+  });
+  let parsed: unknown;
   try {
-    const parsed = JSON.parse(raw) as SessionState;
-    if (!parsed || typeof parsed !== 'object' || typeof parsed.id !== 'string') return null;
-    return parsed;
-  } catch {
-    return null;
+    parsed = JSON.parse(raw);
+  } catch (error) {
+    return corrupt(`JSON 解析失败: ${error instanceof Error ? error.message : String(error)}`);
   }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return corrupt('内容不是 JSON 对象');
+  }
+  const state = parsed as SessionState;
+  if (typeof state.id !== 'string') return corrupt('缺少字符串 id 字段');
+  return { kind: 'ok', session: state };
+}
+
+/**
+ * F-031:隔离损坏会话文件 —— 只改名(不删除、不截断),原字节原样保留;
+ * 正常会话文件不受影响;改名失败则保留原文件并返回 null(宁可不隔离,绝不误删)。
+ */
+function quarantineCorruptSessionFile(filePath: string): string | null {
+  const dir = path.dirname(filePath);
+  const base = path.basename(filePath, '.json');
+  const ts = Date.now();
+  for (let attempt = 0; attempt < 100; attempt++) {
+    const seq = attempt === 0 ? '' : `-${attempt}`;
+    const target = path.join(dir, `${base}${CORRUPT_QUARANTINE_SUFFIX}${ts}${seq}.json`);
+    if (fs.existsSync(target)) continue;
+    try {
+      fs.renameSync(filePath, target);
+      return target;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+/** 原样读盘(不水合):非 ok 一律 null —— 写回路与旧契约调用点用。 */
+function readStateFile(id: string): SessionState | null {
+  const result = readStateFileResult(id);
+  return result.kind === 'ok' ? result.session : null;
+}
+
+function hydrateSessionState(parsed: SessionState): SessionState {
+  // G-719:会话水合读侧唯一入口 —— toolState 里的落库工具结果元数据经
+  // 版本分账/剥后校验;降级条目剥 display 保外层,整份会话照常读出。
+  const { toolState, report } = hydrateToolStateMap(parsed.toolState);
+  if (report.degraded > 0) {
+    console.warn(
+      `[session-state] ${parsed.id} toolState 水合降级 ${report.degraded} 条:` +
+        report.degradedEntries.map((d) => `${d.key}(${d.reason})`).join(', '),
+    );
+  }
+  if (parsed.toolState !== undefined) parsed.toolState = toolState;
+  return parsed;
 }
 
 /**
@@ -210,20 +279,26 @@ export function patchSession(
   return next;
 }
 
+/**
+ * F-031:resume 专用读入口 —— 三态返回,损坏给"损坏"文案而不是"不存在"。
+ * 兼容入口 `loadSession` 的返回类型与语义保持不变(损坏仍返回 null),
+ * 既有依赖 null 的调用点(ACP/REPL/prune/http 等)行为不变。
+ */
+export function loadSessionForResume(id: string): SessionLoadResult {
+  const result = readStateFileResult(id);
+  if (result.kind !== 'ok') return result;
+  return { kind: 'ok', session: hydrateSessionState(result.session) };
+}
+
 export function loadSession(id: string): SessionState | null {
-  const parsed = readStateFile(id);
-  if (!parsed) return null;
-  // G-719:会话水合读侧唯一入口 —— toolState 里的落库工具结果元数据经
-  // 版本分账/剥后校验;降级条目剥 display 保外层,整份会话照常读出。
-  const { toolState, report } = hydrateToolStateMap(parsed.toolState);
-  if (report.degraded > 0) {
-    console.warn(
-      `[session-state] ${parsed.id} toolState 水合降级 ${report.degraded} 条:` +
-        report.degradedEntries.map((d) => `${d.key}(${d.reason})`).join(', '),
-    );
+  const result = readStateFileResult(id);
+  if (result.kind === 'missing') return null;
+  if (result.kind === 'corrupt') {
+    // F-031:至少留一条可诊断证据(修前是无声的 return null)。
+    console.warn(`[session-state] ${result.message};按"不存在"返回 null(旧契约不变)`);
+    return null;
   }
-  if (parsed.toolState !== undefined) parsed.toolState = toolState;
-  return parsed;
+  return hydrateSessionState(result.session);
 }
 
 export function listSessions(stat?: (file: string) => unknown): SessionSummary[] {
@@ -236,9 +311,23 @@ export function listSessions(stat?: (file: string) => unknown): SessionSummary[]
   const out: SessionSummary[] = [];
   for (const entry of fs.readdirSync(dir)) {
     if (!entry.endsWith('.json')) continue;
+    // F-031:已隔离的损坏件既不是会话,也不再二次改名(避免链式 .corrupt-x.corrupt-y)。
+    if (CORRUPT_QUARANTINE_RE.test(entry)) continue;
     const id = entry.slice(0, -'.json'.length);
-    const s = loadSession(id);
-    if (!s) continue;
+    const result = readStateFileResult(id);
+    if (result.kind === 'missing') continue;
+    if (result.kind === 'corrupt') {
+      // F-031:列表点名 + 隔离,不再静默 continue。
+      const quarantined = quarantineCorruptSessionFile(result.path);
+      console.warn(
+        `[session-state] 会话列表跳过损坏文件 ${path.basename(result.path)}(${result.reason});` +
+          (quarantined
+            ? `已隔离为 ${path.basename(quarantined)}`
+            : '隔离失败,原损坏文件原样保留'),
+      );
+      continue;
+    }
+    const s = result.session;
     out.push({
       id: s.id,
       createdAt: s.createdAt,
@@ -274,9 +363,12 @@ export function pruneOldSessions(
   let removed = 0;
   for (const entry of fs.readdirSync(dir)) {
     if (!entry.endsWith('.json')) continue;
+    // F-031:隔离件不是会话,不参与保留裁剪。
+    if (CORRUPT_QUARANTINE_RE.test(entry)) continue;
     const id = entry.slice(0, -'.json'.length);
-    const s = loadSession(id);
-    if (!s) continue;
+    const result = readStateFileResult(id);
+    if (result.kind !== 'ok') continue;
+    const s = result.session;
     const updatedAtMs = Date.parse(s.updatedAt);
     if (Number.isNaN(updatedAtMs)) continue;
     if (now - updatedAtMs > maxAgeMs) {

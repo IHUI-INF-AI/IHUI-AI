@@ -10,6 +10,8 @@
  * (type-only import ⇒ 运行时零 fs;AGENTS §0.6 单源),由调用方注入。
  * AGENTS §0.3/§0.10:取不到清单、量不出体积、序列重号或回退、枚举到 0 个候选、策略不合法
  * ⇒ state:'undetermined' 且 deletions 置空并逐条点名 —— 失效方向是「多要一次定向说明」,不是「多放一次删除」。
+ * F-029 单列:清单缺失 ∧ 目录 mtime 已超年龄窗 = 「拷贝完、写 manifest 前被杀」的孤儿目录,
+ * 该枚计入可删档并点名(年龄读数由适配层挂在 missing 档上);其余清单缺失仍走 undetermined。
  */
 import type { ManifestReadResult } from './manifest-integrity.js';
 import { parseSnapshotSeriesDirName, type SnapshotSeriesRef } from './snapshot-series.js';
@@ -96,11 +98,26 @@ function describeVerdict<M extends SnapshotGcManifestMeta>(name: string, v: Mani
   return { ok: false, reason: 'manifest-corrupt', detail: `${name}: ${v.entry.reason} —— ${v.entry.detail}` };
 }
 
+/**
+ * F-029:清单缺失档上适配层顺带带出的目录 mtime ⇒ 距今毫秒。没带/读数不是有限数 ⇒ null。
+ * 本判据层零 fs:年龄证据只能由调用方(唯一碰 fs 的适配层)挂在 missing 档上。
+ */
+function orphanAgeMsOf(raw: ManifestReadResult<unknown>, nowMs: number): number | null {
+  const mtimeMs = (raw as ManifestReadResult<unknown> & { dirMtimeMs?: unknown }).dirMtimeMs;
+  if (typeof mtimeMs !== 'number' || !Number.isFinite(mtimeMs)) return null;
+  const ageMs = nowMs - mtimeMs;
+  return Number.isFinite(ageMs) ? ageMs : null;
+}
+
 interface Member { dirName: string; ref: SnapshotSeriesRef; bytes: number }
+/** 进入可删档的候选;orphanAgeMs 有值 = 无清单的崩溃孤儿目录(年龄取自目录 mtime) */
+type StaleMember = Member & { orphanAgeMs?: number }
 interface GroupOut {
   retained: SnapshotGcRetained[];
   undetermined: SnapshotGcUndetermined[];
   deletions: SnapshotGcDeletion[];
+  /** F-029:可删档里的额外点名行(孤儿目录),与 undetermined 的未判定行并列 */
+  notes: string[];
 }
 
 function finish(
@@ -109,7 +126,10 @@ function finish(
   out: GroupOut,
   deletions: SnapshotGcDeletion[],
 ): SnapshotGcPlan {
-  const notes = out.undetermined.map((u) => `未判定 ${u.dirName ?? '(整轮)'}: ${u.reason} —— ${u.detail}`);
+  const notes = [
+    ...out.undetermined.map((u) => `未判定 ${u.dirName ?? '(整轮)'}: ${u.reason} —— ${u.detail}`),
+    ...out.notes,
+  ];
   const base = { policy, totals, retained: out.retained, undetermined: out.undetermined, notes };
   if (out.undetermined.length > 0) {
     notes.push(`本轮 ${out.undetermined.length} 条候选判不出来 ⇒ deletions 置空,不记绿也不冒红`);
@@ -157,7 +177,7 @@ function judgeGroup<M extends SnapshotGcManifestMeta>(
       );
     return;
   }
-  const stale: Member[] = [];
+  const stale: StaleMember[] = [];
   let newerCtimeMs: number | null = null;
   let regression = false;
   [...members]
@@ -176,6 +196,13 @@ function judgeGroup<M extends SnapshotGcManifestMeta>(
       }
       const described = describeVerdict(m.dirName, raw);
       if (!described.ok) {
+        // F-029:清单缺失但目录 mtime 已超年龄窗 = 崩溃遗留的孤儿目录(文件已拷、清单未落)⇒ 可删档;
+        // 其余清单缺失(含 mtime 读不到/未超龄)一律保持原「未判定」语义,不猜。
+        const orphanAgeMs = described.reason === 'manifest-missing' ? orphanAgeMsOf(raw, deps.nowMs()) : null;
+        if (orphanAgeMs !== null && orphanAgeMs > policy.maxAgeMs) {
+          stale.push({ ...m, orphanAgeMs });
+          return;
+        }
         out.undetermined.push({ dirName: m.dirName, reason: described.reason, detail: described.detail });
         return;
       }
@@ -203,7 +230,9 @@ function judgeGroup<M extends SnapshotGcManifestMeta>(
   for (const m of [...stale].reverse()) {
     if (groupBytes - m.bytes > policy.maxTotalBytes) {
       groupBytes -= m.bytes;
-      out.deletions.push({ dirName: m.dirName, uuid: m.ref.uuid, version: m.ref.version, bytes: m.bytes, detail: `超出最近 ${policy.keepVersions} 版 ∧ 超年龄窗 ∧ 删后总量仍超 ${policy.maxTotalBytes} B` });
+      const orphan = m.orphanAgeMs !== undefined;
+      out.deletions.push({ dirName: m.dirName, uuid: m.ref.uuid, version: m.ref.version, bytes: m.bytes, detail: orphan ? `无清单超龄孤儿目录(目录 mtime 距今 ${Math.round((m.orphanAgeMs ?? 0) / DAY_MS)} 天 ∧ 超年龄窗 ∧ 超出最近 ${policy.keepVersions} 版 ∧ 删后总量仍超 ${policy.maxTotalBytes} B)` : `超出最近 ${policy.keepVersions} 版 ∧ 超年龄窗 ∧ 删后总量仍超 ${policy.maxTotalBytes} B` });
+      if (orphan) out.notes.push(`点名删除无清单超龄孤儿目录 ${m.dirName}: 清单缺失 ∧ 目录 mtime 早于年龄窗 ${policy.maxAgeMs} ms(崩溃在写 manifest 前)`);
       continue;
     }
     out.retained.push({ dirName: m.dirName, reason: 'within-size-cap', detail: `删掉它后总量 ${groupBytes} B 已在上限内 ⇒ 不删` });
@@ -216,7 +245,7 @@ export function planSnapshotGc<M extends SnapshotGcManifestMeta>(
   policy: SnapshotGcPolicy,
   deps: SnapshotGcDeps<M>,
 ): SnapshotGcPlan {
-  const out: GroupOut = { retained: [], undetermined: [], deletions: [] };
+  const out: GroupOut = { retained: [], undetermined: [], deletions: [], notes: [] };
   const issues = judgeSnapshotGcPolicy(policy);
   if (issues.length > 0) {
     candidates.forEach((c) => out.undetermined.push({ dirName: c.dirName, reason: 'invalid-policy', detail: issues.join(';') }));

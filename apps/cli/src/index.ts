@@ -74,6 +74,7 @@ import {
   removeMcpServer,
   getMcpConfigPath,
   listMcpConfigSources,
+  type McpServer,
 } from './commands/mcp-config.js';
 import { registerCapabilitiesCommand } from './commands/capabilities.js';
 import { registerLoginCommand } from './commands/login.js';
@@ -715,6 +716,17 @@ program
       const jsonMode = resolveJsonMode(opts);
       await runAgentAndExit(effectivePrompt, opts, jsonMode);
     } else {
+      // F-012:无 prompt + 无人工输入档(stdin 不是 TTY,或 --json/非 TTY stdout 已由
+      // resolveJsonMode 判为机器档)时,进 REPL 只会把 banner/ANSI 写进管道并永久等 stdin
+      // —— CI 挂死。该路径判"用法缺失":stderr 打用法、退 2(与"无输入可继续"同档,见
+      // index.ts:1052 的 insufficient 出口);TTY 交互与显式 prompt 完全不受影响。
+      if (resolveJsonMode(opts) || !process.stdin.isTTY) {
+        process.stderr.write(
+          'No prompt provided and stdin is not an interactive terminal: nothing to run.\n',
+        );
+        process.stderr.write(`${program.helpInformation()}\n`);
+        process.exit(2);
+      }
       const cfg = resolveEffectiveConfig({
         cliApiUrl: typeof opts.apiUrl === 'string' ? opts.apiUrl : undefined,
         cliApiKey: typeof opts.apiKey === 'string' ? opts.apiKey : undefined,
@@ -871,44 +883,64 @@ mcpCmd
     }
   });
 
-mcpCmd
-  .command('add [name] [command]')
-  .description(t('cliEntry.mcpAddDesc'))
-  .option('-a, --args <args...>', t('cliEntry.mcpAddArgsDesc'))
-  .option('-t, --transport <transport>', t('cliEntry.mcpAddTransportDesc'), 'stdio')
-  .option('-u, --url <url>', t('cliEntry.mcpAddUrlDesc'))
-  .option('--token <token>', t('cliEntry.mcpAddTokenDesc'))
-  .action(
-    (
-      name: string | undefined,
-      command: string | undefined,
-      options: { args?: string[]; transport?: 'stdio' | 'http' | 'sse'; url?: string; token?: string },
-    ) => {
-      if (!name) {
-        // F-010:同上,错误文案一律 stderr
-        errorExit(chalk.red(t('cliEntry.mcpAddUsage')));
-      }
-      const auth =
-        options.token ? { type: 'bearer' as const, token: options.token } : undefined;
-      const server = addMcpServer(name, command, options.args, {
-        transport: options.transport,
-        url: options.url,
-        auth,
-      });
-      console.info(chalk.green(t('cliEntry.mcpAdded', { name: server.name })));
-      // McpServer.transport 类型为 MCPTransport | undefined,而 t() 的 params 值是
-      // Record<string, string | number>(不接受 undefined)。addMcpServer 恒写入
-      // `options?.transport ?? 'stdio'`,返回值运行期永不为 undefined,故此处 `?? 'stdio'`
-      // 仅是与 addMcpServer 同一默认值对齐的类型收窄,不改变任何实际输出。
-      console.info(t('cliEntry.mcpTransportLine', { transport: server.transport ?? 'stdio' }));
-      if (server.transport === 'stdio') {
-        console.info(t('cliEntry.mcpCommandLine', { command: server.command ?? '' }));
-      } else {
-        console.info(`  URL: ${server.url ?? ''}`);
-      }
-      console.info(chalk.dim(t('cliEntry.mcpConfigPathLine', { configPath: getMcpConfigPath() })));
-    },
-  );
+/**
+ * 构建 `mcp add` 子命令。
+ * 导出只为让测试能真实走一遍 commander 解析(F-014),生产入口在下方直接挂到 mcp 上。
+ */
+export function buildMcpAddCommand(parent: Command): Command {
+  return parent
+    .command('add [name] [command] [extraArgs...]')
+    .description(t('cliEntry.mcpAddDesc'))
+    // F-014:commander 的变参在遇到 `-` 开头的 token 时会提前收尾(如 `--args -y`),
+    // 剩余参数会落到位置参数上。`--args=-y` 与 `--` 分隔两种写法都经 extraArgs 合并,
+    // 帮助文本里点名,避免用户以为传不了 flag。
+    .option('-a, --args <args...>', `${t('cliEntry.mcpAddArgsDesc')} (e.g. --args=-y, or -- -y)`)
+    .option('-t, --transport <transport>', t('cliEntry.mcpAddTransportDesc'), 'stdio')
+    .option('-u, --url <url>', t('cliEntry.mcpAddUrlDesc'))
+    .option('--token <token>', t('cliEntry.mcpAddTokenDesc'))
+    .action(
+      (
+        name: string | undefined,
+        command: string | undefined,
+        extraArgs: string[] | undefined,
+        options: { args?: string[]; transport?: 'stdio' | 'http' | 'sse'; url?: string; token?: string },
+      ) => {
+        if (!name) {
+          // F-010:同上,错误文案一律 stderr
+          errorExit(chalk.red(t('cliEntry.mcpAddUsage')));
+        }
+        const auth =
+          options.token ? { type: 'bearer' as const, token: options.token } : undefined;
+        // F-014:合并 `--args` 与位置参数(顺序不变),`--` 分隔的参数也从这里进来。
+        const mergedArgs = [...(options.args ?? []), ...(extraArgs ?? [])];
+        let server: McpServer;
+        try {
+          server = addMcpServer(name, command, mergedArgs.length > 0 ? mergedArgs : undefined, {
+            transport: options.transport,
+            url: options.url,
+            auth,
+          });
+        } catch (error) {
+          // F-014:缺 command/url 的配置在落盘前就被拒;文案走 stderr 并退非零(F-010 口径)。
+          errorExit(chalk.red(error instanceof Error ? error.message : String(error)));
+        }
+        console.info(chalk.green(t('cliEntry.mcpAdded', { name: server.name })));
+        // McpServer.transport 类型为 MCPTransport | undefined,而 t() 的 params 值是
+        // Record<string, string | number>(不接受 undefined)。addMcpServer 恒写入
+        // `options?.transport ?? 'stdio'`,返回值运行期永不为 undefined,故此处 `?? 'stdio'`
+        // 仅是与 addMcpServer 同一默认值对齐的类型收窄,不改变任何实际输出。
+        console.info(t('cliEntry.mcpTransportLine', { transport: server.transport ?? 'stdio' }));
+        if (server.transport === 'stdio') {
+          console.info(t('cliEntry.mcpCommandLine', { command: server.command ?? '' }));
+        } else {
+          console.info(`  URL: ${server.url ?? ''}`);
+        }
+        console.info(chalk.dim(t('cliEntry.mcpConfigPathLine', { configPath: getMcpConfigPath() })));
+      },
+    );
+}
+
+buildMcpAddCommand(mcpCmd);
 
 mcpCmd
   .command('remove <name>')
