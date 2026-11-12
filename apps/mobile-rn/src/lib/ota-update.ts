@@ -44,6 +44,14 @@ interface OtaStore {
   lastCheckedAt: number | null
   /** 下载进度 0-100,只在本状态机处于 downloading 时采样(提示卡读条的唯一数据源)。 */
   downloadProgress: number
+  /**
+   * 服务端下发的强制更新标志(2026-11-13 立)。
+   * 来源 = expo-updates 检查返回的 `isMandatory`(由更新清单/后端决定,非客户端写死)。
+   * 默认 false ⇒ 行为与历史完全一致(顶部横幅、可关闭);仅当后端把本次更新标记为
+   * mandatory,components/UpdatePrompt 才把呈现升级为非关闭全屏阻塞。改动严格零副作用:
+   * 不接后端的项目永远 false,展示面永远走原分支。
+   */
+  mandatory: boolean
 }
 
 let store: OtaStore = {
@@ -52,6 +60,7 @@ let store: OtaStore = {
   lastError: null,
   lastCheckedAt: null,
   downloadProgress: 0,
+  mandatory: false,
 }
 const listeners = new Set<() => void>()
 /** 正在飞的那一趟检查(并发去重用;见 checkOtaUpdate 头注)。 */
@@ -117,23 +126,31 @@ export function checkOtaUpdate(): Promise<OtaUpdateState> {
 
 async function runCheck(): Promise<OtaUpdateState> {
   if (!isOtaSupported()) {
-    patch({ state: 'unsupported', lastError: null })
+    patch({ state: 'unsupported', lastError: null, mandatory: false })
     return 'unsupported'
   }
-  patch({ state: 'checking', lastError: null, lastCheckedAt: Date.now() })
+  patch({ state: 'checking', lastError: null, lastCheckedAt: Date.now(), mandatory: false })
   try {
     const check = await Updates.checkForUpdateAsync()
+    // 服务端(更新清单)下发的强制标志:仅在确有可用更新时取其值;
+    // 默认 false ⇒ 行为与历史完全一致(顶部横幅、可关闭),只有后端把本次更新标成
+    // mandatory 才转为非关闭全屏阻塞(见 components/UpdatePrompt.tsx)。
+    const isMandatory = Boolean((check as unknown as { isMandatory?: boolean | null }).isMandatory)
     if (!check.isAvailable) {
-      patch({ state: 'up-to-date' })
+      patch({ state: 'up-to-date', mandatory: false })
       return 'up-to-date'
     }
-    patch({ state: 'downloading', downloadProgress: 0 })
+    patch({ state: 'downloading', downloadProgress: 0, mandatory: isMandatory })
     await Updates.fetchUpdateAsync()
     // 就绪即复位 dismissed:这是新一轮更新,旧的一次性关闭不该继续压着它
-    patch({ state: 'ready', dismissed: false })
+    patch({ state: 'ready', dismissed: false, mandatory: isMandatory })
     return 'ready'
   } catch (e) {
-    patch({ state: 'error', lastError: e instanceof Error ? e.message : String(e) })
+    patch({
+      state: 'error',
+      lastError: e instanceof Error ? e.message : String(e),
+      mandatory: false,
+    })
     return 'error'
   }
 }

@@ -1,4 +1,10 @@
 {
+  "appUpdate": {
+    "title": "New version available",
+    "action": "Update",
+    "close": "Close",
+    "readyBody": "Update downloaded. Tap Update to apply it now."
+  },
   "checkIn": {
     "title": "Daily Check-in"
   },
