@@ -13131,7 +13131,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
   - 已完成 隔离打通:`sessionId`/`directory` 自 `roles.executionFor` 经路由、泵、`subagentDispatchService` 直达下游;pump 按 `IHUI_SUPER_AGENT_WORKSPACE_ROOT`(缺省 `.ihui-agent/super-agent`)materialize 为服务端绝对目录并建好;实证两 worker 各写同名 `result.md` 落不同目录、互不覆盖。
   - 已完成 并发闸单一真相源:`SuperAgentHost.maxWorkersFor(owner)` 为唯一读数出口,泵把 `subagentDispatchService` 租户上限解析器注册为它;宿主已占槽的派单带 `capacityReserved` 跳过优先级档,未占槽通用派单的三层闸语义不变(测试钉住)。
   - 外腿:RP-40 事件源真实适配器(已单列待办)/ RP-42 慢路径(ai-service `POST /api/super-agent/slow-path/judge` 已落,recorded 积压接判未接)/ RP-43 web 工作台面板(已单列待办)。
-- [ ] Y-25 (2026-11-06) 豆包键源仍是退化档:捆绑载荷未带出账号级稳定 cookie(uid_tt 族)⇒ 换会话票即换 uid,覆盖永命中不到旧行;出路=提取器把稳定材料随载荷带出+同批迁库
 - [ ] Y-26 (2026-11-06) n8n workflow-card.tsx 远端已删而本机 list-view.tsx:8 仍引用 ⇒ 旁路删除硬门拒合流,本机 main 推不上去;先清该引用再收敛
 - [ ] Y-27 (2026-11-06) object-space-land 有 RC=0+零输出+HEAD 不推进的静默空跑(同形复跑反落占位信息枚);出路=落地器自证推进 sha,取不到即 exit 2
 - [ ] Y-24 (2026-11-06) 剩格=把 relay-account-import-validate.ts 的 resolveImportAccountUidProbe 那一腿(现读别席工作树 +125/−14)落到提交面并跑其镜像;键源改稳定身份与 25→23 迁库两格已在 HEAD
