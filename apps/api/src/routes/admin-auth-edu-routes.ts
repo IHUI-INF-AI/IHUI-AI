@@ -984,7 +984,7 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
       .object({
         title: z.string().min(1).max(200),
         type: z.string().max(50).nullable().optional(),
-        fileUrl: z.string().max(2000).nullable().optional(),
+        fileUrl: z.string().max(500).nullable().optional(),
         fileSize: z.coerce.number().int().min(0).default(0),
       })
       .safeParse(request.body)
@@ -1012,7 +1012,7 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
       .object({
         title: z.string().min(1).max(200).optional(),
         type: z.string().max(50).nullable().optional(),
-        fileUrl: z.string().max(2000).nullable().optional(),
+        fileUrl: z.string().max(500).nullable().optional(),
         fileSize: z.coerce.number().int().min(0).optional(),
       })
       .safeParse(request.body)
