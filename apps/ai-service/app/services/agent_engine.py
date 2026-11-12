@@ -2440,6 +2440,10 @@ class AgentEngine:
                 thread.deny_tools = [str(x) for x in md["denyTools"] if isinstance(x, str)]
             if isinstance(md.get("tokenBudget"), int) and md["tokenBudget"] > 0:
                 thread.token_budget = int(md["tokenBudget"])
+            # AIS-089:恢复审批策略(创建时写入 metadata["approvalPolicies"],恢复侧此前漏读,
+            # 否则恢复后回落默认 permissionMode,高危工具可能免审批)。
+            if isinstance(md.get("approvalPolicies"), dict):
+                thread.approval_policies = _parse_policy_config(md["approvalPolicies"])
             if isinstance(md.get("goal"), str) and md["goal"].strip():
                 thread.goal = md["goal"].strip()
             # 第四批配置还原(失败降级为缺省,不影响对话续跑)
@@ -2767,6 +2771,12 @@ class AgentEngine:
                 thread.pending.clear()
                 thread.status = "closed"
                 thread.touch()
+                # AIS-091:headless 执行复用线程关闭清理,释放工作区 watcher 与 shell 快照,
+                # 否则每次 exec 泄漏 watcher/临时目录(对标 _handle_thread_close)。
+                with contextlib.suppress(Exception):
+                    await self._stop_workspace_watcher_and_drain(thread)
+                with contextlib.suppress(Exception):
+                    self._drop_shell_snapshot(thread.session_id)
         return {
             **result,
             "threadId": tid,
@@ -2786,6 +2796,8 @@ class AgentEngine:
         thread = self._require_thread(params)
         if thread.status == "running":
             raise JsonRpcError(THREAD_BUSY, f"线程正在执行中: {thread.thread_id}")
+        # AIS-113:检查与置 running 之间无 await(同步段),消除同线程并发 prompt 的竞态。
+        thread.status = "running"
         text = _coerce_input_text(params.get("input"))
         result = await self._run_prompt_turn(thread, text, emit)
         drained = 0
@@ -3314,7 +3326,9 @@ class AgentEngine:
             # 结束前补扫事件队列(见 _drain_events):防尾部事件被转发任务取消吞掉
             with contextlib.suppress(Exception):
                 await self._drain_events(thread, emit, queues)
-            thread.status = "idle"
+            # AIS-087:已关闭的线程不再被运行中的 finally 覆盖回 idle(closed 语义失效)。
+            if thread.status != "closed":
+                thread.status = "idle"
             thread.loop = None
             thread.emit = None
             thread.touch()
