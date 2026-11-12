@@ -35,7 +35,9 @@
 //!    是跨站点唯一可靠的"页面 → 宿主"回路。
 //!
 //! 4. **元素点选回传**同上:点选脚本采集到元素信息后,同样走哨兵导航
-//!    (`/picked?d=<base64url(json)>`),Rust 拦截后 `emit_to("main", ...)` 给宿主应用。
+//!    (`/picked?d=<percent(json)>&t=<per-webview token>`),Rust 校验令牌属于本
+//!    webview 且是当前活跃标签后才 `emit_to("main", ...)` 给宿主应用(F-107:
+//!    否则任意被加载页面直接 `location.href` 到 `/picked?d=<伪造 JSON>` 即可伪造)。
 //!
 //! ## 安全边界
 //!
@@ -94,7 +96,7 @@ pub(crate) const TAB_LABEL_PREFIX: &str = "browser-tab-";
 /// 哨兵导航 host(RFC 2606 保留 `.invalid`,永不解析;仅作页面→宿主的信号)。
 const SENTINEL_HOST: &str = "browser.ihui.invalid";
 
-/// F-100:哨兵令牌查询参数名。per-webview 随机串,只随注入脚本与
+/// F-100 / F-107:哨兵令牌查询参数名。per-webview 随机串,只随注入脚本与
 /// `on_navigation` 闭包流转,不落日志/不写会话状态。
 const SENTINEL_TOKEN_PARAM: &str = "t";
 
@@ -296,8 +298,13 @@ const BAR_JS: &str = r#"(function () {
 // ==================== 元素点选脚本 ====================
 
 /// 元素点选安装/卸载脚本。`window.__ihuiPick(on)` 开关;点选命中后走哨兵
-/// `/picked?d=<encodeURIComponent(json)>` 回传(见模块头 §4)。同样只用 CSSOM。
+/// `/picked?d=<encodeURIComponent(json)>&t=<token>` 回传(见模块头 §4)。同样只用 CSSOM。
+///
+/// F-107:令牌声明在外层 IIFE 闭包内(非 `window` 属性),页面脚本读不到;
+/// 且只接受 `e.isTrusted` 的真实用户点击,页面合成的 click 事件一律忽略。
 const PICK_JS: &str = r#"(function () {
+  var SENTINEL = 'https://browser.ihui.invalid/';
+  var TOKEN = '__IHUI_SENTINEL_TOKEN__';
   window.__ihuiPick = function (on) {
     if (!on) { if (window.__ihuiPickOff) { window.__ihuiPickOff(); } return; }
     if (window.__ihuiPickActive) return;
@@ -345,9 +352,11 @@ const PICK_JS: &str = r#"(function () {
       hl.style.setProperty('height', r.height + 'px');
     }
     function onClick(e) {
+      // F-107:只认用户真实点击;页面脚本 dispatchEvent 出来的合成事件不算点选。
+      if (!e.isTrusted) return;
       e.preventDefault(); e.stopPropagation();
       var info = collect(e.target);
-      if (window.__ihuiNav) window.__ihuiNav('picked', 'd=' + encodeURIComponent(JSON.stringify(info)));
+      location.href = SENTINEL + 'picked?d=' + encodeURIComponent(JSON.stringify(info)) + '&t=' + TOKEN;
       off();
     }
     function off() {
@@ -412,19 +421,32 @@ fn bar_js_with_token(token: &str) -> String {
     BAR_JS.replace(SENTINEL_TOKEN_PLACEHOLDER, token)
 }
 
-/// F-100:哨兵是否允许派发。`wb-checkin-login` 必须带上**本 webview** 的令牌,
-/// 否则伪造导航(任意第三方页直接 `location.href=...`)在 `on_navigation` 即被拒。
+/// 把 per-webview 令牌写进点选注入脚本(替换占位符)。F-107。
+fn pick_js_with_token(token: &str) -> String {
+    PICK_JS.replace(SENTINEL_TOKEN_PLACEHOLDER, token)
+}
+
+/// F-100 / F-107:哨兵是否允许派发。
+/// - `wb-checkin-login` 必须带上**本 webview** 的令牌,否则伪造导航(任意第三方页
+///   直接 `location.href=...`)在 `on_navigation` 即被拒。
+/// - `picked` 同理必须带令牌:否则任意被加载页面发 `/picked?d=<伪造 JSON>` 就能
+///   把伪造文本注入主窗输入框(F-107)。
 /// 其余哨兵是工具条自用动作,伪造至多触发一次导航,拿不到任何凭据。
 fn sentinel_dispatch_allowed(url: &Url, action: &SentinelAction, token: &str) -> bool {
     match action {
-        SentinelAction::WbCheckinLogin => {
-            !token.is_empty()
-                && url
-                    .query_pairs()
-                    .any(|(k, v)| k == SENTINEL_TOKEN_PARAM && v.as_ref() == token)
+        SentinelAction::WbCheckinLogin | SentinelAction::Picked(_) => {
+            sentinel_token_matches(url, token)
         }
         _ => true,
     }
+}
+
+/// F-107:请求是否携带**本 webview** 的令牌(空令牌一律视为不匹配)。
+fn sentinel_token_matches(url: &Url, token: &str) -> bool {
+    !token.is_empty()
+        && url
+            .query_pairs()
+            .any(|(k, v)| k == SENTINEL_TOKEN_PARAM && v.as_ref() == token)
 }
 
 /// 只有真正的线上签到页(https://aizhs.top/checkin*)才允许驱动 WorkBuddy 浏览器登录。
@@ -758,12 +780,20 @@ fn build_tab_builder(
         .devtools(true)
         .background_color(Color(0x24, 0x24, 0x24, 0xff))
         .initialization_script(bar_js_with_token(&sentinel_token))
-        .initialization_script(PICK_JS)
+        .initialization_script(pick_js_with_token(&sentinel_token))
         .on_navigation(move |url| {
             if let Some(action) = parse_sentinel(url) {
                 if !sentinel_dispatch_allowed(url, &action, &sentinel_token) {
                     log::warn!("[embedded-browser] 拒绝伪造/缺少令牌的哨兵导航");
                     return false;
+                }
+                // F-107:点选上报只接受当前活跃标签(令牌已确保来自本 webview)。
+                if matches!(action, SentinelAction::Picked(_)) {
+                    let active = app_for_nav.state::<BrowserManager>().with(|s| s.active);
+                    if active != Some(tab_id) {
+                        log::warn!("[embedded-browser] 拒绝非活跃标签的点选上报");
+                        return false;
+                    }
                 }
                 let a = app_for_nav.clone();
                 tauri::async_runtime::spawn(async move {
@@ -839,12 +869,20 @@ fn spawn_degraded_window(
     .user_agent(CHROME_UA)
     .additional_browser_args(WEBVIEW2_BROWSER_ARGS)
     .initialization_script(bar_js_with_token(&sentinel_token))
-    .initialization_script(PICK_JS)
+    .initialization_script(pick_js_with_token(&sentinel_token))
     .on_navigation(move |url| {
         if let Some(action) = parse_sentinel(url) {
             if !sentinel_dispatch_allowed(url, &action, &sentinel_token) {
                 log::warn!("[embedded-browser] 拒绝伪造/缺少令牌的哨兵导航");
                 return false;
+            }
+            // F-107:点选上报只接受当前活跃标签(令牌已确保来自本 webview)。
+            if matches!(action, SentinelAction::Picked(_)) {
+                let active = app_for_nav.state::<BrowserManager>().with(|s| s.active);
+                if active != Some(id) {
+                    log::warn!("[embedded-browser] 拒绝非活跃标签的点选上报");
+                    return false;
+                }
             }
             let a = app_for_nav.clone();
             tauri::async_runtime::spawn(async move {
@@ -1564,6 +1602,47 @@ mod tests {
             &SentinelAction::Back,
             token
         ));
+    }
+
+    #[test]
+    fn f107_picked_requires_webview_token() {
+        // F-107:只有携带「本 webview」令牌的点选上报才允许派发。
+        let token = "0123456789abcdef0123456789abcdef";
+        let picked = || SentinelAction::Picked("{}".to_string());
+        // 正证:有效令牌
+        assert!(sentinel_dispatch_allowed(
+            &u("https://browser.ihui.invalid/picked?d=%7B%7D&t=0123456789abcdef0123456789abcdef"),
+            &picked(),
+            token
+        ));
+        // 反证:缺失令牌(任意页面直接 location.href 伪造)
+        assert!(!sentinel_dispatch_allowed(
+            &u("https://browser.ihui.invalid/picked?d=%7B%7D"),
+            &picked(),
+            token
+        ));
+        // 反证:错误令牌
+        assert!(!sentinel_dispatch_allowed(
+            &u("https://browser.ihui.invalid/picked?d=%7B%7D&t=deadbeef"),
+            &picked(),
+            token
+        ));
+        // 反证:空令牌
+        assert!(!sentinel_dispatch_allowed(
+            &u("https://browser.ihui.invalid/picked?d=%7B%7D&t="),
+            &picked(),
+            ""
+        ));
+    }
+
+    #[test]
+    fn f107_pick_js_embeds_token_and_requires_trusted_click() {
+        let token = "0123456789abcdef0123456789abcdef";
+        let js = pick_js_with_token(&token);
+        assert!(js.contains(token));
+        assert!(!js.contains(SENTINEL_TOKEN_PLACEHOLDER));
+        // 合成事件不算点选(否则页面脚本可自行触发"上报")
+        assert!(js.contains("isTrusted"));
     }
 
     #[test]

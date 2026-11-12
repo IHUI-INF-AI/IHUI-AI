@@ -19,13 +19,29 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request, Depends
 
+from app.core.jwt_auth import resolve_request_role_id
 from app.services.meta_learner import meta_learner
 from app.services.meta_learner_scheduler import meta_learner_scheduler
 from app.services.skill_evolution_scheduler import skill_evolution_scheduler
 
-router = APIRouter(prefix="/api/admin/meta-learner", tags=["meta-learner"])
+
+def _require_admin(request: Request) -> None:
+    """AIS-075:meta-learner 全族管理员门。
+
+    端点此前无角色校验,任意登录用户可越权触发昂贵聚类/重扫,并读取全站
+    agent 失败明细(含错误原文)。角色只走 jwt_auth 单源(fail-closed,取不到按 0)。
+    """
+    if resolve_request_role_id(request) < 1:
+        raise HTTPException(status_code=403, detail="meta-learner 仅管理员可用")
+
+
+router = APIRouter(
+    prefix="/api/admin/meta-learner",
+    tags=["meta-learner"],
+    dependencies=[Depends(_require_admin)],
+)
 
 
 @router.get("/status")

@@ -4892,6 +4892,9 @@ class AgentLoopV2:
                             self._overflow_recovery_left -= 1
                             _saved = len(messages) - len(_recovered)
                             messages = _recovered
+                            # AIS-115:溢出恢复后的压缩列表回写 self._messages,
+                            # 否则后续迭代/工具结果仍按原超长列表累积,救火无效。
+                            self._messages = _recovered
                             logger.warning(
                                 "上游明示输入超出上下文窗口:已强制压缩(净减 %d 条消息,"
                                 "本次 run 剩 %d 次救赎)",
@@ -5486,8 +5489,21 @@ class AgentLoopV2:
                     _any_streamed = _any_streamed or streamed
                     _seg_content_parts.append(_seg_content)
 
-                    # 估算 token(粗略;每段一次 LLM 调用各记一次)
-                    total_tokens += len(_seg_content) // 4 + 50
+                    # AIS-088:优先用归一化 usage 计 token(全量 prompt+completion),
+                    # 缺 usage 时回退到旧的字数粗估,避免 total_tokens 长期失真。
+                    _usage_a = llm_response.get("usage") or {}
+                    _tok_in = int(
+                        _usage_a.get("prompt_tokens") or _usage_a.get("input_tokens") or 0
+                    )
+                    _tok_out = int(
+                        _usage_a.get("completion_tokens")
+                        or _usage_a.get("output_tokens")
+                        or 0
+                    )
+                    if _tok_in or _tok_out:
+                        total_tokens += _tok_in + _tok_out
+                    else:
+                        total_tokens += len(_seg_content) // 4 + 50
 
                     # 1-6 token 治理:记录本轮 LLM 用量(失败降级不阻塞)
                     if self._budget_enabled:
@@ -5593,6 +5609,26 @@ class AgentLoopV2:
 
                 # 2. 无 tool_calls → 循环完成
                 if not tool_calls_raw:
+                    if not content:
+                        # AIS-059:空回复(内容过滤/空回包)不得记为成功,避免客户端
+                        # 看到"空完成"且不重试。
+                        iteration.end_time = datetime.now(UTC).isoformat()
+                        iteration.duration_ms = (
+                            (datetime.now(UTC) - iter_start).total_seconds() * 1000
+                        )
+                        iterations.append(iteration)
+                        return AgentLoopResult(
+                            compaction_events=self._compaction_events,
+                            success=False,
+                            final_response="",
+                            iterations=iterations,
+                            total_duration_ms=(
+                                (datetime.now(UTC) - start_time).total_seconds() * 1000
+                            ),
+                            total_tokens_used=total_tokens,
+                            stop_reason=TurnStopReason.ERROR,
+                            error="模型返回空回复(疑似内容过滤或空回包)",
+                        )
                     # AIS-112:正常收尾也要把最终回答写回 messages —— 旧实现只在
                     # tool-call 轮追加 assistant 消息,普通收尾则整轮答案不进历史,
                     # 导致 thread.messages 缺每轮最终答复、checkpoint 恢复与在线不一致。
@@ -5949,7 +5985,7 @@ class AgentLoopV2:
                 (datetime.now(UTC) - start_time).total_seconds() * 1000
             ),
             total_tokens_used=total_tokens,
-            stop_reason="max_iterations",
+            stop_reason=TurnStopReason.MAX_ITERATIONS,
             # 判据兼容:error 以 "达到最大迭代数 N" 开头(既有用例断言该子串),
             # 其后追加"已完成多少工具调用 + 怎么续",不把空回复包装成成功。
             error=_build_budget_exhausted_error(
@@ -6094,7 +6130,12 @@ class AgentLoopV2:
             "tool_call_ids": [str(raw.get("id") or "") for raw in raw_calls],
         }
         self._resume_receipt_rev = receipts_rev
-        self._resume_receipts_active = self._resume_receipts_enabled
+        # AIS-061:续跑轮同样以 receipts_durable() 门控(正常轮已在 run() 入口如此处理),
+        # 不能仅凭 env 开关 —— Redis/PG 不可用时续跑轮写副作用意图会 fail-closed 无法恢复。
+        self._resume_receipts_active = bool(
+            self._resume_receipts_enabled
+            and await self._checkpoint_manager.receipts_durable()
+        )
 
         decisions = {d.tool_call_id: d for d in plan.decisions}
         round_ids = set(self._resume_round["tool_call_ids"])
@@ -6310,7 +6351,7 @@ class AgentLoopV2:
                 iterations=[],
                 total_duration_ms=0.0,
                 total_tokens_used=0,
-                stop_reason="max_iterations",
+                stop_reason=TurnStopReason.MAX_ITERATIONS,
                 error=(
                     f"checkpoint iteration {checkpoint.iteration} "
                     f"已达 max_iterations {self.max_iterations}"
@@ -6974,6 +7015,10 @@ class AgentLoopV2:
         inflight: list[tuple[int, ToolCall, asyncio.Task[Any]]] = []
 
         def can_start(tc: ToolCall) -> bool:
+            # AIS-062:只读工具并行批加并发上限(默认 5),防止单轮海量只读调用
+            # 打爆文件句柄/内存/事件循环;非只读工具仍单发(全只读才并发)。
+            if len(inflight) >= 5:
+                return False
             if not inflight:
                 return True
             if not is_readonly_tool(tc.name):
