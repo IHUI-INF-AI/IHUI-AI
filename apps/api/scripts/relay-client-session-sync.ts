@@ -50,6 +50,7 @@ const { describeAutoImportOwner, resolveAutoImportOwner } =
   await import('./relay-session-autoimport-owner.js')
 import type { ImportAccountInput } from '../src/services/relay-account-pool-service.js'
 import type { RelayProviderCode } from '../src/services/relay-account-format.js'
+import type { AutoImportOwnerDecision } from './relay-session-autoimport-owner.js'
 
 interface RowOutcome {
   uid: string
@@ -193,7 +194,7 @@ export async function runSync(
       if (target.kind === 'none') {
         // 缺行 ⇒ 自动入池:与 trae/qoder 腿同型,复用 importAccounts 同一落库出口;
         // 归属走 pool-owner 单源,取不到就如实拒(绝不静默落运营池)。
-        let autoOwner: { ownerUserId: string | null; source: string }
+        let autoOwner: AutoImportOwnerDecision
         try {
           autoOwner = resolveAutoImportOwner()
         } catch (e) {
@@ -307,7 +308,7 @@ function parseArgs(argv: string[]): {
     error: null as string | null,
   }
   for (let i = 0; i < argv.length; i++) {
-    const a = argv[i]
+    const a = argv[i]!
     if (a.startsWith('--provider=')) options.provider = a.slice('--provider='.length).trim()
     else if (a === '--provider') {
       // 空格形态 --provider loomy(壳以空格传参,tsx 会原样透传):取下一个 argv

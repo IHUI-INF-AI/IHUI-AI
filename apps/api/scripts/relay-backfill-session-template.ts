@@ -198,9 +198,7 @@ async function main(): Promise<void> {
   const where = opts.uid
     ? and(inArray(aiRelayAccountPool.providerCode, providers), eq(aiRelayAccountPool.uid, opts.uid))
     : inArray(aiRelayAccountPool.providerCode, providers)
-  const rows = (await db.select().from(aiRelayAccountPool).where(where)) as Array<
-    Record<string, unknown>
-  >
+  const rows = await db.select().from(aiRelayAccountPool).where(where)
 
   // 同平台实采模板骨架:只取结构常量,绝不带别的号的身份/凭证
   const skeletons: Record<string, Record<string, unknown> | null> = {}
@@ -243,7 +241,7 @@ async function main(): Promise<void> {
       name,
       secrets,
       extraMetadata: meta,
-      skeleton: skeletons[provider],
+      skeleton: skeletons[provider] ?? null,
     })
     if (!tpl) {
       brief('skipped-no-identity', { reason: '票内没有可判定的身份字段 ⇒ 不造模板' })
@@ -314,8 +312,8 @@ async function main(): Promise<void> {
 }
 
 // 测试 import 本文件只取纯函数,绝不连生产库(§5 测试隔离铁律)
-const isDirectRun =
-  Boolean(process.argv[1]) && pathToFileURL(process.argv[1]).href === import.meta.url
+const argv1 = process.argv[1]
+const isDirectRun = argv1 !== undefined && pathToFileURL(argv1).href === import.meta.url
 if (isDirectRun) {
   main()
     .then(() => process.exit(0))
