@@ -46,6 +46,12 @@ export function normalizeSyncAccount(raw) {
   const sync = src.__sync && typeof src.__sync === 'object' ? src.__sync : {}
   const ownerRaw = sync.ownerUserId !== undefined ? sync.ownerUserId : src.ownerUserId
   const owner = typeof ownerRaw === 'string' && ownerRaw.trim() ? ownerRaw.trim() : null
+  // 归属身份键(2026-11-12):两端 users.id 各自生成,同一人 email 相同 ⇒ email 才是跨环境身份。
+  // 导出器补 __sync.ownerEmail;owner 在源库不存在 ⇒ null(保留 ownerUserId,由下游 fail-closed)。
+  const emailRaw = sync.ownerEmail !== undefined ? sync.ownerEmail : src.ownerEmail
+  const ownerEmail = typeof emailRaw === 'string' && emailRaw.trim() ? emailRaw.trim().toLowerCase() : null
+  const identityRaw = sync.ownerIdentity !== undefined ? sync.ownerIdentity : src.ownerIdentity
+  const ownerIdentity = typeof identityRaw === 'string' && identityRaw ? identityRaw : null
   const enabledRaw = sync.enabled !== undefined ? sync.enabled : src.enabled
   // 幂等:传进来的可能已经是本函数的产物(plan → groupForImport 链路),此时载荷在 .payload 里
   const payload =
@@ -53,9 +59,11 @@ export function normalizeSyncAccount(raw) {
   return {
     __normalized: true,
     ownerUserId: owner,
+    ownerEmail,
+    ownerIdentity,
     providerCode: String(sync.providerCode ?? src.providerCode ?? '').trim(),
     uid: String(sync.uid ?? src.uid ?? '').trim(),
-    name: src.name == null ? '' : String(src.name),
+    name: src.name === null || src.name === undefined ? '' : String(src.name),
     enabled: enabledRaw !== false,
     tokenExpiresAt: typeof src.tokenExpiresAt === 'string' ? src.tokenExpiresAt : '',
     updatedAt: String(sync.updatedAt ?? src.updatedAt ?? ''),
@@ -135,10 +143,30 @@ export function credentialFingerprint(account) {
     .slice(0, 16)
 }
 
-/** 同步键:归属 + 平台 + uid 三元组。 */
-export function accountSyncKey(account) {
+/**
+ * 同步键:归属身份 + 平台 + uid 三元组。
+ * ownerIdentity 缺省时退化为 ownerUserId 原值(向后兼容:不传 maps 且无 ownerEmail
+ * 的旧导出形状,键与 2026-11-12 之前逐字相同)。
+ */
+export function accountSyncKey(account, ownerIdentity = null) {
   const a = normalizeSyncAccount(account)
-  return `${a.ownerUserId ?? OPS_OWNER}|${a.providerCode}|${a.uid}`
+  const owner = ownerIdentity || a.ownerIdentity || a.ownerEmail || a.ownerUserId || OPS_OWNER
+  return `${owner}|${a.providerCode}|${a.uid}`
+}
+
+/**
+ * 有效归属身份(2026-11-12 email 身份键收口):
+ *   运营池(ownerUserId=null)⇒ 常量 'ops';
+ *   优先 ownerEmail(导出器 LEFT JOIN users 取得);
+ *   否则用本侧 ownerMap(id→email)翻译 ownerUserId;
+ *   都翻译不出 ⇒ 原样 ownerUserId(旧行为,如 dev-anonymous 这类非 uuid 历史归属)。
+ */
+function ownerIdentityOf(a, sideMap) {
+  if (!a.ownerUserId) return OPS_OWNER
+  if (a.ownerEmail) return a.ownerEmail
+  const mapped = sideMap && sideMap[a.ownerUserId]
+  const email = typeof mapped === 'string' && mapped.trim() ? mapped.trim().toLowerCase() : null
+  return email ?? a.ownerUserId
 }
 
 function parseTime(text) {
@@ -151,11 +179,14 @@ function parseTime(text) {
  * 计算两端差异,产出待推送/待拉回两份清单。
  *
  * @param {{local?: unknown[], prod?: unknown[], providers?: string[]|null,
- *          pullWindowDays?: number, nowMs?: number}} input
+ *          pullWindowDays?: number, nowMs?: number,
+ *          ownerMaps?: {local?: Record<string,string>, prod?: Record<string,string>}|null}} input
  *   local/prod = 已归一化或原始形状的账号数组(每项须自带 providerCode),
  *   providers = 限定只同步这些平台(null/空 = 全部),
  *   pullWindowDays = 「仅生产有」视为新增的时效窗口(缺省 7 天),
- *   nowMs = 当前时刻(测试注入,缺省 Date.now())。
+ *   nowMs = 当前时刻(测试注入,缺省 Date.now()),
+ *   ownerMaps = 各侧 users.id→email 对照表(2026-11-12 email 身份键):同一人两端 id 不同,
+ *   键改用有效归属身份(优先 ownerEmail,其次 map 翻译)⇒ 不再判"仅一侧有"反复互推。
  * @returns {{
  *   toPush: Array<{account: object, key: string, reason: string}>,
  *   toPull: Array<{account: object, key: string, reason: string}>,
@@ -172,21 +203,26 @@ export function planPoolSync({
   providers = null,
   pullWindowDays = DEFAULT_PULL_WINDOW_DAYS,
   nowMs = Date.now(),
+  ownerMaps = null,
 } = {}) {
   const allow = Array.isArray(providers) && providers.length > 0 ? new Set(providers) : null
+  const localSideMap = ownerMaps && ownerMaps.local ? ownerMaps.local : null
+  const prodSideMap = ownerMaps && ownerMaps.prod ? ownerMaps.prod : null
   const mapLocal = new Map()
   const mapProd = new Map()
 
-  const index = (list, map) => {
+  const index = (list, map, sideMap) => {
     for (const raw of list) {
       const a = normalizeSyncAccount(raw)
       if (!a.uid || !a.providerCode) continue
       if (allow && !allow.has(a.providerCode)) continue
-      map.set(accountSyncKey(a), a)
+      // 键用有效归属身份;identity 也写回账号对象,供 groupForImport 落库翻译复用
+      a.ownerIdentity = ownerIdentityOf(a, sideMap)
+      map.set(accountSyncKey(a, a.ownerIdentity), a)
     }
   }
-  index(local, mapLocal)
-  index(prod, mapProd)
+  index(local, mapLocal, localSideMap)
+  index(prod, mapProd, prodSideMap)
 
   const toPush = []
   const toPull = []
@@ -262,17 +298,49 @@ export function planPoolSync({
  * 把待落库清单按「归属 → 平台」两级分组,产出导入器能直接吃的批次。
  * 分组原因:导入器一次只接受一个 owner + 一个 providerCode,混批会把归属串台。
  *
+ * 落库归属翻译(2026-11-12 email 身份键):两端 users.id 不同、email 相同 ⇒
+ * 批次 owner 必须用**目标环境**的 id。传 targetMaps(email→目标环境 users.id)时:
+ *   运营池(identity='ops')⇒ owner=null;
+ *   个人池 ⇒ 用有效归属身份(email)反查目标 id;反查不到 ⇒ 该行**不进批次**,
+ *   记入返回数组的 .skipped 由编排器点名(fail-closed:绝不静默落运营池/悬空归属)。
+ * 不传 targetMaps ⇒ 保持旧行为(ownerUserId 原样透传,无 skipped)。
+ *
  * @param {Array<{account: object}>} items
- * @returns {Array<{ownerUserId: string|null, providerCode: string, accounts: object[]}>}
+ * @param {Record<string,string>|null} [targetMaps] 目标环境 email→users.id 反查表
+ * @returns {Array<{ownerUserId: string|null, providerCode: string, accounts: object[]}>
+ *          & {skipped?: Array<{providerCode: string, uid: string, reason: string}>}}
  */
-export function groupForImport(items) {
+export function groupForImport(items, targetMaps = null) {
   const buckets = new Map()
+  const skipped = []
+  const emailToTargetId =
+    targetMaps && typeof targetMaps === 'object'
+      ? new Map(
+          Object.entries(targetMaps)
+            .filter(([, id]) => typeof id === 'string' && id)
+            .map(([email, id]) => [String(email).trim().toLowerCase(), id]),
+        )
+      : null
   for (const item of items) {
     const raw = item && typeof item === 'object' && item.account ? item.account : item
     const a = normalizeSyncAccount(raw)
-    const bucketKey = `${a.ownerUserId ?? OPS_OWNER}|${a.providerCode}`
+    const identity = a.ownerIdentity || a.ownerEmail || a.ownerUserId || OPS_OWNER
+    let targetOwner
+    if (identity === OPS_OWNER) {
+      targetOwner = null
+    } else if (!emailToTargetId) {
+      targetOwner = a.ownerUserId
+    } else {
+      const translated = emailToTargetId.get(String(identity).toLowerCase())
+      if (!translated) {
+        skipped.push({ providerCode: a.providerCode, uid: a.uid, reason: 'owner 无法在目标环境解析' })
+        continue
+      }
+      targetOwner = translated
+    }
+    const bucketKey = `${targetOwner ?? OPS_OWNER}|${a.providerCode}`
     if (!buckets.has(bucketKey)) {
-      buckets.set(bucketKey, { ownerUserId: a.ownerUserId, providerCode: a.providerCode, accounts: [] })
+      buckets.set(bucketKey, { ownerUserId: targetOwner, providerCode: a.providerCode, accounts: [] })
     }
     // 落库载荷必须是**平台原生载荷**(normalize 把它保在 payload 里),不能是归一化后的
     // 元数据对象 —— 否则导入器会看到 {uid,name,payload:{accessToken}} 而报"缺少 accessToken"
@@ -293,6 +361,8 @@ export function groupForImport(items) {
     void _dropProvider
     buckets.get(bucketKey).accounts.push(native)
   }
-  return [...buckets.values()]
+  const out = [...buckets.values()]
+  out.skipped = skipped
+  return out
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
