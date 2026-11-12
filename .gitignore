@@ -697,3 +697,15 @@ docs/engineering/ai-compliance-readiness-*.md
 # 二者都不是源码,留在工作树只会污染 git status(每个 pytest 用例一个临时目录)。
 .box-agent/
 .pytest_tmp_*/
+
+# 凭据隔离(根治并发污染 2026-11-12)
+发布平台登录账号配置.md
+
+# 恢复/核查一次性产物兜底(根治并发污染 2026-11-12)
+.lost-*
+*-lost-*.json
+.commit-files.txt
+.conflict-set.txt
+.local-changed-files.txt
+.recovered-changes.diff
+.lost-patchid.mjs
