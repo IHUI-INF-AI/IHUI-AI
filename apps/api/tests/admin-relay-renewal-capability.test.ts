@@ -110,10 +110,21 @@ describe('续期能力位端点', () => {
     expect(summary.providers).toBe(RELAY_PROVIDERS.length)
   })
 
-  it('无续期通道的平台判 false:codex/opencode/zcode/lingma/grokbot 无 refreshToken 方法,doubao/loomy 是显式 false 空壳', async () => {
+  it('无续期通道的平台判 false:codex/opencode/zcode/lingma/grokbot 无 refreshToken 方法,doubao/loomy/raccoon 是显式 false 空壳', async () => {
     const { items } = await fetchCapability()
     const byCode = new Map(items.map((i) => [i.providerCode, i]))
-    for (const code of ['codex', 'opencode', 'zcode', 'lingma', 'grokbot', 'doubao', 'loomy']) {
+    // zcode/loomy 2026-11-12 桌面端取证复核仍无 refresh 通路(见各适配器头注),
+    // 三家无票平台的保活只靠 worker 每 10 分钟的客户端会话回灌腿,不靠池续期。
+    for (const code of [
+      'codex',
+      'opencode',
+      'zcode',
+      'lingma',
+      'grokbot',
+      'doubao',
+      'loomy',
+      'raccoon',
+    ]) {
       expect(byCode.get(code)?.adapterRegistered, `${code} 适配器应已注册`).toBe(true)
       expect(byCode.get(code)?.autoRenewalSupported, `${code} 不该被标成可自动续期`).toBe(false)
     }
