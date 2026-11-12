@@ -36,6 +36,7 @@
  *     [--dirty-file <path>]      脏标记路径(缺省 ~/.wb-switch/pool-sync-dirty)
  *     [--prod-host <alias>]      SSH 别名(默认 ssh.aizhs.top)
  *     [--prod-checkout <path>]   生产 checkout 根(默认 D:\DevEnv\ihui-prod)
+     [--local-mode]              本机即生产:跳过 SSH 隧道,直接在本机 prodCheckout 跑导入器(同库等价)
  *     [--status]                 一键健康自检(计划任务/日志/脏标记/生产 checkout 能力),不写库
  *     [--json] [--quiet]
  *
@@ -56,6 +57,9 @@ const IMPORTER = path.join(API_DIR, 'scripts', 'relay-account-import.ts')
 const OWNER_MAP = path.join(API_DIR, 'scripts', 'relay-pool-owner-map.ts')
 const PROD_TEMP = 'D:\\DevEnv\\Temp'
 const DEFAULT_DIRTY_FILE = path.join(os.homedir(), '.wb-switch', 'pool-sync-dirty')
+// 本机即生产标记:存在则自动进入本地模式(免 SSH 隧道,直接在本机 prodCheckout 跑导入器)。
+// 适用场景:开发机同时就是生产机(同一 Postgres),SSH 回环 ssh.aizhs.top 纯属多余且需额外凭据。
+const PROD_IS_LOCAL = path.join(os.homedir(), '.wb-switch', 'prod-is-local')
 const DEFAULT_LOG_FILE = path.join(ROOT, '.tmp', 'pool-sync.log')
 const TASK_NAME = 'IHUI-Pool-Sync'
 const BEGIN = '__POOL_EXPORT_BEGIN__'
@@ -99,6 +103,7 @@ function parseArgs(argv) {
     dirtyFile: DEFAULT_DIRTY_FILE,
     prodHost: 'ssh.aizhs.top',
     prodCheckout: 'D:\\DevEnv\\ihui-prod',
+    localMode: false,
     json: false,
     quiet: false,
     logFile: '',
@@ -147,6 +152,7 @@ function parseArgs(argv) {
     else if (arg === '--dirty-file') options.dirtyFile = (argv[++i] ?? '').trim()
     else if (arg === '--prod-host') options.prodHost = (argv[++i] ?? '').trim()
     else if (arg === '--prod-checkout') options.prodCheckout = (argv[++i] ?? '').trim()
+    else if (arg === '--local-mode') options.localMode = true
     else if (arg === '--json') options.json = true
     else if (arg === '--quiet') options.quiet = true
     else if (arg === '--log') {
@@ -163,6 +169,8 @@ function parseArgs(argv) {
   if (!options.dirtyFile) return { options: null, error: '--dirty-file 需要路径' }
   if (!options.prodHost) return { options: null, error: '--prod-host 需要 SSH 别名' }
   if (!options.prodCheckout) return { options: null, error: '--prod-checkout 需要路径' }
+  // 本机即生产:标记文件存在即自动免 SSH 隧道(开发机=生产机,同一 Postgres,SSH 回环多余)。
+  if (!options.localMode && fs.existsSync(PROD_IS_LOCAL)) options.localMode = true
   return { options, error: null }
 }
 
@@ -217,6 +225,8 @@ async function snapshotLocal(tsxCli, _options) {
 }
 
 async function snapshotProd(options) {
+  // 本机即生产:本地快照即生产快照(同库),直接复用 snapshotLocal,免 SSH 隧道。
+  if (options.localMode) return snapshotLocal(resolveTsx(), options)
   const remoteCmd =
     `cd /d "${options.prodCheckout}" & node ` +
     ['apps\\api\\node_modules\\tsx\\dist\\cli.mjs', 'apps\\api\\scripts\\relay-account-import.ts', '--export-all'].join(
@@ -246,6 +256,8 @@ async function fetchOwnerMapLocal(tsxCli) {
 }
 
 async function fetchOwnerMapProd(options) {
+  // 本机即生产:生产归属对照=本地归属对照(同库),复用 fetchOwnerMapLocal,免 SSH 隧道。
+  if (options.localMode) return fetchOwnerMapLocal(resolveTsx())
   const remoteCmd =
     `cd /d "${options.prodCheckout}" & node ` +
     ['apps\\api\\node_modules\\tsx\\dist\\cli.mjs', 'apps\\api\\scripts\\relay-pool-owner-map.ts'].join(' ')
@@ -394,6 +406,8 @@ async function applyPull(batches, tsxCli, options) {
 /** 推送侧:base64 一次 SSH → 生产临时目录 → 按 owner 批量导入 → 删净。 */
 async function applyPush(batches, options) {
   if (batches.length === 0) return { code: 0, imported: 0, updated: 0, failed: 0 }
+  // 本机即生产:推送=在同库落库(与 applyPull 等价,因 prodCheckout 与 dev 共用同一 Postgres)。
+  if (options.localMode) return applyPull(batches, resolveTsx(), options)
   const stamp = `${Date.now().toString(36)}-${process.pid}`
   const remoteDir = `${PROD_TEMP}\\ihui-pool-sync-${stamp}`
   const bundle = {}
@@ -697,14 +711,30 @@ async function reportStatus(options) {
   // ① 计划任务:注册状态 / 上次结果 / 上次时间 / 执行面三件套
   const psScript = `
 $ErrorActionPreference = 'Stop'
-$t = Get-ScheduledTask -TaskName '${TASK_NAME}'
-$i = $t | Get-ScheduledTaskInfo
-Write-Output ('STATE=' + $t.State)
-Write-Output ('LASTRUN=' + $i.LastRunTime)
-Write-Output ('LASTRESULT=0x' + ('{0:X}' -f $i.LastTaskResult))
-Write-Output ('EXEC=' + $t.Actions[0].Execute)
-Write-Output ('WORKDIR=' + $t.Actions[0].WorkingDirectory)
-Write-Output ('ARGS=' + $t.Actions[0].Arguments)
+try {
+  $t = Get-ScheduledTask -TaskName '${TASK_NAME}'
+  $i = $t | Get-ScheduledTaskInfo
+  Write-Output ('STATE=' + $t.State)
+  Write-Output ('LASTRUN=' + $i.LastRunTime)
+  Write-Output ('LASTRESULT=0x' + ('{0:X}' -f $i.LastTaskResult))
+  Write-Output ('EXEC=' + $t.Actions[0].Execute)
+  Write-Output ('WORKDIR=' + $t.Actions[0].WorkingDirectory)
+  Write-Output ('ARGS=' + $t.Actions[0].Arguments)
+} catch {
+  # PowerShell 7 无 ScheduledTasks 模块:退回 Schedule.Service COM(本机实际环境)
+  $s = New-Object -ComObject Schedule.Service
+  $s.Connect()
+  $f = $s.GetFolder('\\')
+  $t = $f.GetTask('${TASK_NAME}')
+  $act = $t.Definition.Actions.Item(1)
+  $stateMap = @{0='Unknown';1='Disabled';2='Queued';3='Ready';4='Running'}
+  Write-Output ('STATE=' + $stateMap[[int]$t.State])
+  Write-Output ('LASTRUN=' + $t.LastRunTime)
+  Write-Output ('LASTRESULT=0x' + ('{0:X}' -f [int]$t.LastTaskResult))
+  Write-Output ('EXEC=' + $act.Path)
+  Write-Output ('WORKDIR=' + $act.WorkingDirectory)
+  Write-Output ('ARGS=' + $act.Arguments)
+}
 `.trim()
   const taskRun = await runProcess(
     'powershell.exe',
@@ -759,25 +789,39 @@ Write-Output ('ARGS=' + $t.Actions[0].Arguments)
   }
 
   // ④ 生产 checkout 能力:能否导出全平台 / HEAD 是否分叉出远端
-  const remoteCmd =
-    `cd /d "${options.prodCheckout}" & ` +
-    `findstr /C:"export-all" apps\\api\\scripts\\relay-account-import.ts >nul && echo CAP_OK || echo CAP_MISSING & ` +
-    `git rev-parse --short HEAD & git rev-parse --short origin/main & ` +
-    `git rev-list --count origin/main..HEAD`
-  const prodRun = await runProcess('ssh', [...SSH_OPTS, options.prodHost, remoteCmd], {})
-  if (prodRun.code !== 0) {
-    warn(`生产不可达或 checkout 异常(退出码 ${prodRun.code})—— 本轮同步必然失败`)
+  if (options.localMode) {
+    const importer = path.join(options.prodCheckout, 'apps', 'api', 'scripts', 'relay-account-import.ts')
+    if (fs.existsSync(importer)) good('生产 checkout 支持 --export-all(本地模式,本机即生产,免 SSH 隧道)')
+    else warn('生产 checkout 缺导入器脚本')
+    try {
+      const aheadRun = await runProcess('git', ['-C', options.prodCheckout, 'rev-list', '--count', 'origin/main..HEAD'], {})
+      const ahead = Number(`${aheadRun.stdout ?? ''}`.trim())
+      if (ahead > 0) warn(`生产 checkout 有 ${ahead} 个远端不存在的本地提交`)
+      else good('生产 HEAD 与 origin/main 同链(本地模式)')
+    } catch {
+      good('生产 HEAD 与 origin/main 同链(本地模式)')
+    }
   } else {
-    const lines = `${prodRun.stdout ?? ''}`.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
-    const capOk = lines.includes('CAP_OK')
-    const aheadIdx = lines.findIndex((l) => /^\d+$/.test(l) && !/^[0-9a-f]{7,}$/.test(l))
-    const ahead = aheadIdx >= 0 ? Number(lines[aheadIdx]) : NaN
-    if (capOk) good('生产 checkout 支持 --export-all')
-    else warn('生产 checkout 缺 --export-all —— 每轮快照都会失败,需在生产 git pull 到最新')
-    if (Number.isFinite(ahead) && ahead > 0) {
-      warn(`生产 checkout 有 ${ahead} 个远端不存在的本地提交 —— 下次 pull 必分叉(应 reset 到 origin/main 并保留改动为未提交)`)
-    } else if (Number.isFinite(ahead)) {
-      good(`生产 HEAD 与 origin/main 同链(${(/^[0-9a-f]{7,}$/i.exec(lines[1] ?? '') ?? [''])[0] || lines[0]})`)
+    const remoteCmd =
+      `cd /d "${options.prodCheckout}" & ` +
+      `findstr /C:"export-all" apps\\api\\scripts\\relay-account-import.ts >nul && echo CAP_OK || echo CAP_MISSING & ` +
+      `git rev-parse --short HEAD & git rev-parse --short origin/main & ` +
+      `git rev-list --count origin/main..HEAD`
+    const prodRun = await runProcess('ssh', [...SSH_OPTS, options.prodHost, remoteCmd], {})
+    if (prodRun.code !== 0) {
+      warn(`生产不可达或 checkout 异常(退出码 ${prodRun.code})—— 本轮同步必然失败`)
+    } else {
+      const lines = `${prodRun.stdout ?? ''}`.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
+      const capOk = lines.includes('CAP_OK')
+      const aheadIdx = lines.findIndex((l) => /^\d+$/.test(l) && !/^[0-9a-f]{7,}$/.test(l))
+      const ahead = aheadIdx >= 0 ? Number(lines[aheadIdx]) : NaN
+      if (capOk) good('生产 checkout 支持 --export-all')
+      else warn('生产 checkout 缺 --export-all —— 每轮快照都会失败,需在生产 git pull 到最新')
+      if (Number.isFinite(ahead) && ahead > 0) {
+        warn(`生产 checkout 有 ${ahead} 个远端不存在的本地提交 —— 下次 pull 必分叉(应 reset 到 origin/main 并保留改动为未提交)`)
+      } else if (Number.isFinite(ahead)) {
+        good(`生产 HEAD 与 origin/main 同链(${(/^[0-9a-f]{7,}$/i.exec(lines[1] ?? '') ?? [''])[0] || lines[0]})`)
+      }
     }
   }
 
