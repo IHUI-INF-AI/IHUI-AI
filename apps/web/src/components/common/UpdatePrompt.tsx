@@ -7,7 +7,7 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { RefreshCw, Check, AlertCircle, Sparkles } from 'lucide-react'
-import { useUpdater } from '@/hooks/use-updater'
+import { useUpdater, type UpdateStatus } from '@/hooks/use-updater'
 import { cn } from '@/lib/utils'
 import { formatFileSize } from '@/lib/tauri-bridge'
 
@@ -37,6 +37,39 @@ export function classifyUpdateError(error: string | null | undefined): UpdateErr
   return 'generic'
 }
 
+/** 标题可取的 i18n 键(字面量联合:next-intl 的 t 只接受已知键,不能喂 string)。 */
+export type UpdateTitleKey =
+  'available' | 'downloading' | 'installing' | 'done' | 'upToDate' | 'error'
+
+/**
+ * 标题取词(2026-11-12 立):标题必须反映**当前阶段**,不能全程写"发现新版本"。
+ *
+ * 立因(实测):downloading 时进度环已跑到 44%,标题还停在"发现新版本"——
+ * 是在描述一个已经完成的动作。对读屏用户更糟:进度那一行刻意 `aria-live="off"`
+ * (百分比每 tick 变一次,整卡 assertive 会刷成连播),于是标题成了下载阶段**唯一**
+ * 会被播报的内容,写"发现新版本"等于整段下载静音。
+ * i18n 里 `downloading` 键五语种都在,此前无人引用(死键),说明原设计本就打算分阶段取词。
+ *
+ * installing 分支保留:该态当前被 startDownload 末尾两次同步 setState 批处理合并,
+ * 结构上不可观察。此处仍按状态给词,是为了让它一旦可观察时不会回落成"发现新版本"。
+ */
+export function updateTitleKey(status: UpdateStatus): UpdateTitleKey {
+  switch (status) {
+    case 'downloading':
+      return 'downloading'
+    case 'installing':
+      return 'installing'
+    case 'done':
+      return 'done'
+    case 'up-to-date':
+      return 'upToDate'
+    case 'error':
+      return 'error'
+    default:
+      return 'available'
+  }
+}
+
 /**
  * UpdatePrompt — 桌面端应用更新下拉提示窗(2026-07-31 立,平台独占:仅桌面端)。
  *
@@ -49,12 +82,14 @@ export function classifyUpdateError(error: string | null | undefined): UpdateErr
  *   颜色全部走 --color-* 令牌,明暗主题自动反转。
  * - 位置让开桌面端自绘顶栏(decorations:false,顶栏约 50px):top-14 起,不压标签栏与拖动区
  *
- * 状态(强制更新,无按钮,纯展示进度):
- * - available:下拉窗 + "正在准备更新..."(自动进入下载)
- * - downloading:进度环 + 百分比 + 下载量
- * - installing:旋转图标 + "安装中"
- * - done:勾选 + "即将自动重启..."(60 秒倒计时,提供"稍后重启" / "立即重启"按钮)
- * - error:错误提示 + "自动重试中..."(最多3次,之后自动消失)
+ * 状态(强制更新,无按钮,纯展示进度)。标题按 updateTitleKey 分阶段取词,
+ * 不再全程写"发现新版本":
+ * - available:下拉窗 + "发现新版本" + "正在准备更新..."(自动进入下载)
+ * - downloading:标题"下载中" + 进度环(role=progressbar)+ 百分比 + 下载量
+ * - installing:标题"安装中" + 旋转图标。注意该态当前被 startDownload 末尾两次
+ *   同步 setState 批处理合并,**结构上不可观察**;取词分支先留好,不谎称可见。
+ * - done:标题"更新完成" + "即将自动重启..."(60 秒倒计时,提供"稍后重启" / "立即重启"按钮)
+ * - error:标题"更新失败" + 错误提示 + "自动重试中..."(最多3次,之后自动消失)
  *
  * 浏览器端 useUpdater 返回 idle,组件渲染 null。
  * AGENTS.md §4 UI 约束:compact 紧凑、rounded-xl、无蓝色发光边框、无分割线、无渐变遮罩。
@@ -140,13 +175,7 @@ export function UpdatePrompt() {
 
             <div className="flex-1 min-w-0">
               <p className="truncate text-body font-semibold leading-tight text-foreground">
-                {status === 'error'
-                  ? t('error')
-                  : status === 'up-to-date'
-                    ? t('upToDate')
-                    : status === 'done'
-                      ? t('done')
-                      : t('available')}
+                {t(updateTitleKey(status))}
               </p>
               {version && status !== 'error' && (
                 <p className="text-label text-muted-foreground leading-tight mt-0.5">v{version}</p>
@@ -189,7 +218,19 @@ export function UpdatePrompt() {
                 aria-live="off"
               >
                 {/* 进度环 */}
-                <svg className="h-5 w-5 -rotate-90" viewBox="0 0 36 36" fill="none">
+                {/* role/aria-*:此前这个 svg 无 role 也无 aria-value,读屏只能靠父行
+                    aria-live="off" 之外的标题猜进度;补成标准 progressbar 后,辅助技术
+                    能读到真实 0-100。aria-label 用标题键复用同一套词,不再新造文案键。 */}
+                <svg
+                  className="h-5 w-5 -rotate-90"
+                  viewBox="0 0 36 36"
+                  fill="none"
+                  role="progressbar"
+                  aria-valuenow={percent}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label={t('downloading')}
+                >
                   <circle
                     cx="18"
                     cy="18"
@@ -268,7 +309,9 @@ export function UpdatePrompt() {
                     </span>
                   </>
                 ) : (
-                  <span className="truncate text-body font-medium text-danger-text">{errorText}</span>
+                  <span className="truncate text-body font-medium text-danger-text">
+                    {errorText}
+                  </span>
                 )}
               </div>
             )}

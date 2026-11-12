@@ -18,6 +18,12 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 import { cn } from '../src/cn.js'
+import {
+  ELEVATION_CSS,
+  ELEVATION_CSS_VAR,
+  ELEVATION_STEPS,
+  ELEVATION_STEP_NAMES,
+} from '../src/elevation.js'
 import { GEOMETRY_PX, rnGeometry, TARO_RPX_PER_PX, taroGeometry } from '../src/geometry.js'
 import {
   pxToStep,
@@ -160,6 +166,54 @@ describe('cn():类名合并入口', () => {
 
   it('非冲突类名保持两者(不得把不同属性合并掉)', () => {
     expect(cn('flex', 'items-center')).toBe('flex items-center')
+  })
+})
+
+describe('阴影档位表:封闭档位集合(2026-11-12 立)', () => {
+  // 立因:两张表原先都注解成 `Record<string, …>`。`noUncheckedIndexedAccess` 下,
+  // 宽 string 键会让 `ELEVATION_STEPS.md` 的类型退化成 `RnElevation | undefined` ——
+  // 每个消费方都得多写一次非空断言。实测代价:packages/ui-native/src/tooltip.tsx:41
+  // 报 TS2322,而档位本身是**封闭集合**,压根不该允许任意键。
+  const SRC = readFileSync(join(HERE, '..', 'src', 'elevation.ts'), 'utf8')
+
+  it('两张表都不得回退成宽 string 键注解', () => {
+    expect(SRC).not.toMatch(/ELEVATION_STEPS:\s*Record<string,\s*RnElevation>/)
+    expect(SRC).not.toMatch(/ELEVATION_CSS:\s*Record<string,\s*string>/)
+    expect(SRC).toMatch(/ELEVATION_STEPS:\s*Record<ElevationStepName,\s*RnElevation>/)
+    expect(SRC).toMatch(/ELEVATION_CSS:\s*Record<ElevationStepName,\s*string>/)
+  })
+
+  it('档位名联合与实际表键集逐一相同(少一档 = 该档在类型层不存在)', () => {
+    expect(Object.keys(ELEVATION_STEPS).sort()).toEqual([...ELEVATION_STEP_NAMES].sort())
+    expect(Object.keys(ELEVATION_CSS).sort()).toEqual([...ELEVATION_STEP_NAMES].sort())
+  })
+
+  it('ElevationStep 与 ElevationStepName 是同一份清单,不再从 keyof 派生第二份', () => {
+    // 两份清单必然漂移:加档时只改一处,另一处静默少一档
+    expect(SRC).toMatch(/export type ElevationStep = ElevationStepName/)
+    expect(SRC).not.toMatch(/export type ElevationStep = keyof typeof ELEVATION_STEPS/)
+  })
+
+  it('每档四元组完整:RN 五字段齐备,不只给 CSS 值', () => {
+    for (const [step, v] of Object.entries(ELEVATION_STEPS)) {
+      for (const key of [
+        'shadowColor',
+        'shadowOffset',
+        'shadowOpacity',
+        'shadowRadius',
+        'elevation',
+      ]) {
+        expect(v, `${step}.${key}`).toHaveProperty(key)
+      }
+      expect(typeof v.elevation, `${step}.elevation`).toBe('number')
+    }
+  })
+
+  it('CSS 变量名逐档指向 tokens.css 的 --shadow-elevation-*', () => {
+    for (const step of ELEVATION_STEP_NAMES) {
+      if (step === 'none') continue
+      expect(ELEVATION_CSS_VAR[step]).toBe(`var(--shadow-elevation-${step})`)
+    }
   })
 })
 
