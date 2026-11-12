@@ -37,9 +37,21 @@
 //! - ❌ 不接:DNS 地址证据腿与 TCP relay 腿(`dns-resolver-adapter.ts` / `proxy-relay.ts` 是
 //!   Node 载体,桌面端无宿主),同样只点名不假执法。
 //!
-//! 失效方向:默认档位与 CLI 一致(**advisory**:出声 + 不拦),`IHUI_EGRESS_ENFORCE=1` 才让
-//! env 声明的 deny 行真的拒绝出站点;`IHUI_EGRESS_DEFAULT` 取值认不出 ⇒ 落 `deny`(更严)。
-//! 通配形态认不出(`*` 不在最左标签位)⇒ 该行按**更严**结算为 `unjudged`,绝不折成 allow。
+//! 失效方向(档位):
+//! - **硬规则恒 Enforce**:`IHUI_EGRESS_DEFAULT=deny`(`default-deny` 层)与内网 IP 段命中
+//!   (`internal-range` 层)**一律按 `Enforce` 结算**,不受全局 advisory 档影响。立因:策略是硬规则,
+//!   若设置面写着 deny、实际只出声,那就是伪开关(F-105);档位判定与执行落点必须是同一个值。
+//! - 机主经 `IHUI_EGRESS_DENY_DOMAINS`/`IHUI_EGRESS_ALLOW_DOMAINS` 点名的行同样天生 Enforce。
+//! - `IHUI_EGRESS_ENFORCE` 只结算**兜底白名单**那一层(`default-allow` 的放行档位);默认
+//!   advisory ⇒ 出声不拦。`IHUI_EGRESS_DEFAULT` 取值认不出 ⇒ 落 `deny`(更严)。
+//! - 通配形态认不出(`*` 不在最左标签位)⇒ 该行按**更严**结算为 `unjudged`,绝不折成 allow。
+//!
+//! **覆盖范围(如实,不是"全量生效")**:本门只作用于本仓自己代码里的出站点,现有 6 处调用点
+//! (3 个文件):`auto_refresh.rs`(健康检查 / 前端 URL)、`checkin_web_login.rs`(2 处)、
+//! `checkin_capture.rs`(2 处 IP 探测)。**不过门**:`tauri-plugin-http`(`lib.rs` 的
+//! `tauri_plugin_http::init()`)与内嵌 WebView 里的页面请求 —— 这些请求由插件/webview 自己发起,
+//! 不经过本模块;前端 JS 直接 `fetch` 同样不过门。故本模块**不是**桌面端全量出站网关,
+//! 只是"自家 Rust 出站点"的门;接管插件不在本模块职责内。
 
 use std::collections::HashSet;
 use std::sync::{Mutex, OnceLock};
@@ -650,30 +662,38 @@ pub fn judge(raw_target: &str, policy: &GatePolicy) -> Judgement {
             }
         };
         if ip_hits_denied(parsed) {
+            // 内网段命中是硬规则:全局 advisory 档不得把它降成"只出声"(F-105)。
             return judgement(
                 &host,
                 Decision::Deny,
                 "ip-literal",
                 "internal-range",
-                Some("the literal lands in the wired internal-range table; allow it explicitly via IHUI_EGRESS_ALLOW_DOMAINS or keep the shell advisory with IHUI_EGRESS_ENFORCE=0".to_string()),
-                policy.enforcement,
+                Some("the literal lands in the wired internal-range table (hard rule, always enforced); allow it explicitly via IHUI_EGRESS_ALLOW_DOMAINS".to_string()),
+                Enforcement::Enforce,
             );
         }
         return judgement(&host, Decision::Allow, "ip-literal", "public-literal", None, policy.enforcement);
     }
 
-    let enf = policy.enforcement;
     if policy.default_deny {
+        // `IHUI_EGRESS_DEFAULT=deny` 是硬规则:全局 advisory 档不得把它降成"只出声"(F-105)。
         return judgement(
             &host,
             Decision::Deny,
             "default",
             "default-deny",
             Some("add an allow rule via IHUI_EGRESS_ALLOW_DOMAINS if this destination is meant to be reachable".to_string()),
-            enf,
+            Enforcement::Enforce,
         );
     }
-    judgement(&host, Decision::Allow, "default", "default-allow", None, enf)
+    judgement(
+        &host,
+        Decision::Allow,
+        "default",
+        "default-allow",
+        None,
+        policy.enforcement,
+    )
 }
 
 /// 仅判「这是不是 IP 字面量形态」(零名单、零网段判定)—— 与 `ip-literal.ts` 的解析数学无关。
@@ -684,6 +704,19 @@ fn looks_like_ip_literal(host: &str) -> bool {
     let parts: Vec<&str> = host.split('.').collect();
     parts.len() == 4
         && parts.iter().all(|p| !p.is_empty() && p.len() <= 3 && p.chars().all(|c| c.is_ascii_digit()))
+}
+
+/// `guard` 的拒绝判据(纯,可单测):只有被 `Enforce` 结算的 `Deny` 才真的拒绝。
+/// 判定与执行读的是**同一个** `Judgement`,不另算一份档位(F-105:两者分离就是伪开关)。
+fn enforced_refusal(verdict: &Judgement) -> Option<String> {
+    if verdict.decision == Decision::Deny && verdict.enforcement == Enforcement::Enforce {
+        Some(format!(
+            "egress_denied: {} ({}, layer={})",
+            verdict.target, verdict.reason, verdict.layer
+        ))
+    } else {
+        None
+    }
 }
 
 /// 出站点唯一入口:`Err(具名理由)` = 该拒绝(仅 enforce 档真的拒绝),`Ok(())` = 放行或只出声。
@@ -711,11 +744,8 @@ pub fn guard_egress_target(raw_target: &str) -> Result<(), String> {
     }
     report_egress_warnings(&out);
 
-    if verdict.decision == Decision::Deny && verdict.enforcement == Enforcement::Enforce {
-        return Err(format!(
-            "egress_denied: {} ({}, layer={})",
-            verdict.target, verdict.reason, verdict.layer
-        ));
+    if let Some(denied) = enforced_refusal(&verdict) {
+        return Err(denied);
     }
     Ok(())
 }
@@ -938,9 +968,10 @@ mod egress_gate_tests {
     }
 
     #[test]
-    fn e11_env_declared_rows_are_enforce_while_default_layer_is_advisory() {
-        // 档位与 CLI `policy-source.ts` 一致:机主点名的行**天生 enforce**,
-        // `IHUI_EGRESS_ENFORCE` 只结算 ip-literal / default 两层(0 也降不掉具名行)。
+    fn e11_env_declared_rows_and_hard_layers_are_always_enforce() {
+        // 档位与 CLI `policy-source.ts` 一致:机主点名的行**天生 enforce**;
+        // F-105 起 `IHUI_EGRESS_ENFORCE` 只结算兜底白名单层,`default-deny` / `internal-range`
+        // 是硬规则 —— 全局 advisory(含显式 0)也降不掉它。
         let declared = policy_from(Some("evil.example"), None, None, Some("0"));
         let v = judge("evil.example", &declared);
         assert_eq!(v.decision, Decision::Deny);
@@ -949,7 +980,42 @@ mod egress_gate_tests {
         let d = judge("anything.else", &defaulted);
         assert_eq!(d.decision, Decision::Deny);
         assert_eq!(d.reason, "default-deny");
-        assert_eq!(d.enforcement, Enforcement::Advisory);
+        assert_eq!(d.enforcement, Enforcement::Enforce, "default-deny 是硬规则");
+        // 兜底 allow 层仍由全局档位结算(advisory 只出声)。
+        let open = policy_from(Some("keep.example"), None, None, Some("0"));
+        assert_eq!(open.enforcement, Enforcement::Advisory);
+        assert_eq!(judge("https://aizhs.top/", &open).enforcement, Enforcement::Advisory);
+    }
+
+    /// F-105:全局档位是 advisory(未设 / 显式 0)时,`default-deny` 仍必须被 `guard` 拒绝。
+    #[test]
+    fn e15_default_deny_is_refused_even_when_the_global_knob_is_advisory() {
+        for enforce in [None, Some("0")] {
+            let policy = policy_from(Some("keep.example"), None, Some("deny"), enforce);
+            assert_eq!(policy.enforcement, Enforcement::Advisory, "全局档位仍是 advisory");
+            let v = judge("https://anything.else/path", &policy);
+            assert_eq!(v.reason, "default-deny");
+            assert_eq!(v.enforcement, Enforcement::Enforce, "default-deny 必须按 Enforce 结算");
+            let refused = enforced_refusal(&v);
+            assert!(refused.is_some(), "advisory 全局档下 default-deny 仍必须被拦: {v:?}");
+            assert!(refused.unwrap().contains("default-deny"));
+        }
+    }
+
+    /// F-105:同上,`internal-range`(内网 IP 段)在 advisory 全局档下也必须被拦。
+    #[test]
+    fn e16_internal_range_is_refused_even_when_the_global_knob_is_advisory() {
+        for enforce in [None, Some("0")] {
+            let policy = policy_from(None, None, None, enforce);
+            assert_eq!(policy.enforcement, Enforcement::Advisory, "全局档位仍是 advisory");
+            for host in ["127.0.0.1", "10.0.0.5", "169.254.169.254", "::1"] {
+                let v = judge(host, &policy);
+                assert_eq!(v.decision, Decision::Deny, "{host}: {v:?}");
+                assert_eq!(v.reason, "internal-range", "{host}");
+                assert_eq!(v.enforcement, Enforcement::Enforce, "{host} 必须按 Enforce 结算");
+                assert!(enforced_refusal(&v).is_some(), "{host} 在 advisory 下仍必须被拦");
+            }
+        }
     }
 
     #[test]
