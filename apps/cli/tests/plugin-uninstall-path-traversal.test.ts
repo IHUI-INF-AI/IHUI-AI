@@ -19,7 +19,7 @@ import * as path from 'node:path';
 import { mkScratch, rmScratch } from '../../../scripts/lib/scratch-dir.mjs'; // arch-exempt: 测试夹具只能取 §26 唯一落点(禁 os.tmpdir/裸 mkdtemp),属测试面而非生产依赖边;正解=给"测试支持层"在策略表建档并降到 apps 之下 until 2026-12-28
 
 import { getInstalledPluginsDir, getPluginDataRoot } from '../src/plugins/paths.js';
-import { assertSafePluginName, installPlugin, uninstallPlugin } from '../src/plugins/installer.js';
+import { assertSafePluginName, installPlugin, uninstallPlugin, saveInstallRegistry, type InstallRecord } from '../src/plugins/installer.js';
 
 const HOME_ENV = 'IHUI_HOME';
 
@@ -45,6 +45,16 @@ function seedPlugin(name: string): void {
   fs.writeFileSync(path.join(installDir, 'plugin.json'), '{}', 'utf-8');
   fs.mkdirSync(dataDir, { recursive: true });
   fs.writeFileSync(path.join(dataDir, 'state.json'), '{}', 'utf-8');
+  // F-070 卸载前置闸后,卸载以 registry 为权威面,夹具必须登记该 name 才走得通正常卸载
+  saveInstallRegistry({
+    records: [{
+      name,
+      version: '1.0.0',
+      sourceType: 'local',
+      installedAt: '2026-11-01T00:00:00.000Z',
+      transactionId: `txn-${name}`,
+    } as InstallRecord],
+  });
 }
 
 describe('BUG-0002 插件名白名单', () => {
@@ -109,6 +119,16 @@ describe('BUG-0002 卸载路径穿越', () => {
     try {
       fs.mkdirSync(getInstalledPluginsDir(), { recursive: true });
       fs.symlinkSync(outside, linkPath, 'junction');
+      // F-070 registry 前置闸后须先登记该 name,才能走到「符号链接含根外」这一道拒绝
+      saveInstallRegistry({
+        records: [{
+          name: 'link-plugin',
+          version: '1.0.0',
+          sourceType: 'local',
+          installedAt: '2026-11-01T00:00:00.000Z',
+          transactionId: 'txn-link-plugin',
+        } as InstallRecord],
+      });
     } catch {
       rmScratch(outside);
       ctx.skip();

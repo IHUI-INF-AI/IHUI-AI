@@ -38,6 +38,10 @@ export interface RouteParamSpec {
   description: string
   required?: boolean
   enum?: string[]
+  /** array/object 的元素/属性 schema —— 与 ToolParameter.items 对齐，让 hr_approval_flow_upsert 的 approverIds 能声明 string 元素约束 */
+  items?: RouteParamSpec
+  /** object 的属性 schema —— 与 ToolParameter.properties 对齐，对象字段的嵌套约束逐层保留 */
+  properties?: Record<string, RouteParamSpec>
 }
 
 export interface RouteToolSpec {
@@ -72,6 +76,19 @@ function resolveFallbackToken(): string | undefined {
 function toToolParam(p: RouteParamSpec): ToolParameter {
   const out: ToolParameter = { type: p.type, description: p.description }
   if (p.enum) out.enum = p.enum
+  // array/object 的元素 schema 递归映射：否则 hr_approval_flow_upsert 的 approverIds 数组元素无任何 schema 约束
+  if (p.items) out.items = toToolParam(p.items)
+  // object 的属性 schema 逐层映射 + 收集嵌套 required（漏搬 ⇒ 必填字段被当成可选）
+  if (p.properties) {
+    const props: Record<string, ToolParameter> = {}
+    const required: string[] = []
+    for (const [key, sub] of Object.entries(p.properties)) {
+      props[key] = toToolParam(sub)
+      if (sub.required) required.push(key)
+    }
+    out.properties = props
+    if (required.length > 0) out.required = required
+  }
   return out
 }
 

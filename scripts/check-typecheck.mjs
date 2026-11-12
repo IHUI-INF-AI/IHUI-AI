@@ -627,6 +627,13 @@ function listTsconfigPaths() {
 /** 返回命中的非 TS 面清单,或 null(不命中/判据不可用)。 */
 function resolveNoTsInputFace(files) {
   if (!Array.isArray(files) || files.length === 0) return null
+  // 判据(c)的 tsconfig 实扫清单同时也是「哪些文件算 TS 输入」的权威面。共享基座
+  // (packages/tsconfig/base.json / node.json / nextjs.json …)文件名不含 tsconfig,
+  // 只靠 basename 正则会把它们判成「与 TS 无关」⇒ 改共享基座秒过(2026-11-12 实测:
+  // 该基座经 extends 影响 packages/sdk 的 program,tsc --showConfig 可见 exclude 被继承)。
+  const cfgs = listTsconfigPaths()
+  if (!cfgs) return null
+  const cfgSet = new Set(cfgs.map((p) => p.replace(/\\/g, '/')))
   for (const raw of files) {
     const f = String(raw).replace(/\\/g, '/')
     const base = f.slice(f.lastIndexOf('/') + 1)
@@ -634,12 +641,11 @@ function resolveNoTsInputFace(files) {
       TS_INPUT_EXT_RE.test(f) ||
       TS_INPUT_BASENAMES.has(base) ||
       /^tsconfig.*\.json$/i.test(base) ||
+      cfgSet.has(f) ||
       // 根级/任一级的 workspace 拓扑与 npm 配置:改它们会改变 program 的组成
       base === '.npmrc'
     if (isTsInput) return null
   }
-  const cfgs = listTsconfigPaths()
-  if (!cfgs) return null
   const allowJsOn = []
   for (const p of cfgs) {
     let text = null
