@@ -1323,12 +1323,81 @@ export interface UsageStat {
   lastCallAt: number
 }
 
-export const taskStore = new Map<string, AsyncTask>()
+/** 终态:任务一旦进入这些状态即从内存移除(结果已在当次响应中交付)。 */
+const TERMINAL_TASK_STATUSES: ReadonlySet<string> = new Set(['succeeded', 'failed', 'cancelled'])
+/** 兜底 TTL:覆盖未回写终态(上游失联/进程重启)的孤儿任务,仅在写入时顺带清扫。 */
+const TASK_STORE_TTL_MS = parseInt(process.env.AI_TASK_STORE_TTL_MS ?? '', 10) || 2 * 60 * 60 * 1000
+const TENCENT_ACTIVE_JOB_TTL_MS =
+  parseInt(process.env.AI_TENCENT_JOB_TTL_MS ?? '', 10) || 6 * 60 * 60 * 1000
+
+const trackedTaskObjects = new WeakSet<object>()
+
+/**
+ * 2026-11 F-44:拦截 status 赋值,任务进入终态即从 taskStore 删除,
+ * 避免模块级 Map 只增不删、列表请求遍历全表。
+ */
+function trackTaskLifecycle(task: AsyncTask): AsyncTask {
+  if (trackedTaskObjects.has(task)) return task
+  const proxy = new Proxy(task, {
+    set(target, prop, value) {
+      const ok = Reflect.set(target, prop, value)
+      if (ok && prop === 'status' && TERMINAL_TASK_STATUSES.has(String(value))) {
+        taskStore.delete(target.taskId)
+      }
+      return ok
+    },
+  })
+  trackedTaskObjects.add(proxy)
+  return proxy
+}
+
+class AsyncTaskStore extends Map<string, AsyncTask> {
+  override set(taskId: string, task: AsyncTask): this {
+    this.sweep(Date.now())
+    return super.set(taskId, trackTaskLifecycle(task))
+  }
+
+  /** 写入时顺带清扫:终态旁路 + 超过 TTL 未更新的任务(不使用定时器)。 */
+  sweep(now: number): void {
+    for (const [taskId, task] of super.entries()) {
+      if (TERMINAL_TASK_STATUSES.has(task.status) || now - task.updatedAt > TASK_STORE_TTL_MS) {
+        super.delete(taskId)
+      }
+    }
+  }
+}
+
+/** 腾讯云 3D 作业无终态回写路径,只能按提交时间兜底到期回收。 */
+class TencentActiveJobStore extends Map<string, Record<string, unknown>> {
+  override set(jobId: string, job: Record<string, unknown>): this {
+    this.sweep(Date.now())
+    return super.set(jobId, job)
+  }
+
+  sweep(now: number): void {
+    for (const [jobId, info] of super.entries()) {
+      const submittedAt = typeof info.submitTime === 'number' ? info.submitTime : now
+      if (now - submittedAt > TENCENT_ACTIVE_JOB_TTL_MS) super.delete(jobId)
+    }
+  }
+}
+
+export const taskStore = new AsyncTaskStore()
 export const aigcStore = new Map<string, AigcRecord>()
 export const timbreStore = new Map<string, Timbre>()
 export const usageStore = new Map<string, UsageStat>()
 export const n8nAgentStore = new Map<string, Record<string, unknown>>()
-export const tencentActiveJobs = new Map<string, Record<string, unknown>>()
+export const tencentActiveJobs = new TencentActiveJobStore()
+
+/** 仅测试用:TTL 常量与清空入口(生产路径不使用定时器)。 */
+export const __taskStoreTest = {
+  TASK_STORE_TTL_MS,
+  TENCENT_ACTIVE_JOB_TTL_MS,
+  reset(): void {
+    taskStore.clear()
+    tencentActiveJobs.clear()
+  },
+}
 
 export function genId(prefix: string): string {
   // 2026-07-21 安全审计加固:用 CSPRNG 替换 Math.random 生成追踪 ID
@@ -1366,7 +1435,8 @@ export function createTask(
     updatedAt: now,
   }
   taskStore.set(task.taskId, task)
-  return task
+  // 返回 Map 内的受跟踪对象(创建即赋终态的同步分支也能触发回收)
+  return taskStore.get(task.taskId) ?? task
 }
 
 export async function cloneTimbre(
