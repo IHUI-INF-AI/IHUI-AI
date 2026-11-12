@@ -367,7 +367,7 @@ $AlertFamilyStateFile = "$Root\.ihui-agent\state\alert-family-window.json"
 # 周期才算。窗内只记日志不寄信,超窗即升级为正式告警(Test-AlertSuppressionGrace 自带终态,
 # 不会变成永久静音);其他类告警的判据一字未动。
 $StallAlertGraceMinutes = 15
-$NotifyEmailTo = '502319984@qq.com'
+$NotifyEmailTo = 'lizong@aizhs.top'
 # ── 品牌邮件通道(2026-09-23 收口)─────────────────────────────────────────────
 # 为什么 PowerShell 侧一行发信代码都不留:旧实现自己拼传输层 —— SMTP 分支 Send-MailMessage
 # 没有 -BodyAsHtml、Resend 分支 payload 只有 text 没有 html,结果无论哪条路用户收到的永远是
