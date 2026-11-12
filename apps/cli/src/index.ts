@@ -1132,6 +1132,7 @@ program
       cliMcp: opts.mcp === true ? true : undefined,
       cliPermissionMode: typeof opts.permissionMode === 'string' ? opts.permissionMode : undefined,
     });
+    let acpAgent: import('./acp/server.js').IhuiAcpAgent | null = null;
     const connection = startAcpServer({
       apiUrl: cfg.apiUrl,
       apiKey: cfg.apiKey,
@@ -1141,9 +1142,21 @@ program
       allowDangerous: cfg.allowDangerous,
       planFirst: cfg.planFirst,
       autoApprovePlan: cfg.autoApprovePlan,
+      // F-066:捕获 agent 实例,进程级信号收口要先中止全部在飞 prompt
+      onAgentReady: (agent) => {
+        acpAgent = agent;
+      },
     });
-    process.on('SIGINT', () => connection.close());
-    process.on('SIGTERM', () => connection.close());
+    // F-066:SIGINT/SIGTERM 先 abortAllPrompts 再 close —— 只 close 的话在飞 prompt 继续
+    // 生成/落盘,fetch 与定时器钉住进程不退,第二次 Ctrl-C 也无效;覆盖默认终止后必须
+    // 自己给退出码(130/143),编排器才能区分正常停止与中断。
+    const acpShutdown = (exitCode: number): void => {
+      acpAgent?.abortAllPrompts();
+      connection.close();
+      process.exitCode = exitCode;
+    };
+    process.on('SIGINT', () => acpShutdown(130));
+    process.on('SIGTERM', () => acpShutdown(143));
     await connection.closed;
   });
 
