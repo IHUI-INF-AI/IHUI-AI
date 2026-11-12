@@ -466,14 +466,9 @@
 
 ---
 
-## Contact (Industry Business)
+## Contact (single mailbox)
 
-- Healthcare industry: healthcare@aizhs.top
-- Education industry: education@aizhs.top
-- Finance industry: finance@aizhs.top
-- Legal industry: legal@aizhs.top
-- Government industry: government@aizhs.top
-- General business: contact@aizhs.top
+- **Unified contact email: lizong@aizhs.top** — one address for industry solutions, industry material requests and business enquiries. Mention your industry and topic; we reply within 24 hours.
 - Official website: https://aizhs.top
 
 ---
@@ -482,5 +477,5 @@
 # This file is the industry-vertical GEO entry, used by AI engines for "AI + industry" retrieval
 # Maintained by: IHUI AI Industry Team
 # Update strategy: Industry case studies + ROI data updated quarterly
-# Contact: contact@aizhs.top
+# Contact: lizong@aizhs.top
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

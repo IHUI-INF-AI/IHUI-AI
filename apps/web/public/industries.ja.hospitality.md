@@ -208,8 +208,7 @@
   A: データ匿名化 + 暗号化 + ユーザー授權、《個人情報保護法》準拠。
 
 ### 連絡先
-- ホテル・飲食業界: hospitality@aizhs.top
-- 汎用窓口: contact@aizhs.top
+- **統合連絡先メール:lizong@aizhs.top** —— 業界別ソリューション・資料請求・ビジネスはすべてこのアドレスへ。業界と用件をご記入ください。24 時間以内に返信します。
 - 公式サイト: https://aizhs.top
 - GitHub: https://github.com/IHUI-INF-AI/IHUI-AI
 

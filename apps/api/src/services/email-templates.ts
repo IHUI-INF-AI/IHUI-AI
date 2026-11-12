@@ -129,7 +129,7 @@ export function brandResendFrom(address: string): string {
  * 1. **中继拒绝**:经 smtp.qq.com 这类"账号即发件人"的中继发信时,From 的邮箱段与
  *    SMTP_USER 不一致会被 550 拒。2026-11-10 实测:生产 `.env` 的 `SMTP_FROM` 地址段
  *    恰好等于 `SMTP_USER`,于是这条约束一直是"配置侥幸"——换一台机、换一份 `.env`
- *    (例如 `.env.example` 与 docker-compose 的 `noreply@aizhs.top` 缺省值)就立刻踩中。
+ *    (例如 `.env.example` 与 docker-compose 里另写一个发件地址)就立刻踩中。
  * 2. **显示名漂移**:`SMTP_FROM` 常被写成 `显示名 <地址>` 整串。若出口直接把它当 From,
  *    显示名就由配置决定 ⇒ 同一个品牌在不同通道长出不同名字(收件箱曾同时出现
  *    「智汇AI」「智汇AI官方」「502319984」)。地址段与显示名必须分开处理。
@@ -137,11 +137,16 @@ export function brandResendFrom(address: string): string {
  * 返回值恒为已品牌化的完整 From(`"智汇AI" <地址>`);配置读不出地址时回落 `user`,
  * 两者都空时返回空串(调用方据此判定"未配置",不要拿空 From 去投递)。
  */
-export function resolveBrandSmtpFrom(configured: string | undefined, user: string | undefined): string {
+export function resolveBrandSmtpFrom(
+  configured: string | undefined,
+  user: string | undefined,
+): string {
   const account = extractMailAddress(user ?? '')
   const configuredAddr = extractMailAddress(configured ?? '')
   const addr =
-    configuredAddr !== '' && account !== '' && configuredAddr.toLowerCase() === account.toLowerCase()
+    configuredAddr !== '' &&
+    account !== '' &&
+    configuredAddr.toLowerCase() === account.toLowerCase()
       ? configuredAddr
       : account !== ''
         ? account
@@ -291,7 +296,7 @@ const DISPATCH_CHROME: Record<
     contact: (accent) =>
       '遇到任何问题,微信扫码<b style="color:#F5F5F0;">直接联系创始人李春川</b><br>微信号:' +
       `<span style="font-family:Consolas,monospace;font-size:17px;color:${accent};letter-spacing:1px;">${FOUNDER_WECHAT_ID}</span>` +
-      `(长按复制)· 邮件兜底:<a href="mailto:support@aizhs.top" style="color:${accent};text-decoration:none;">support@aizhs.top</a>`,
+      `(长按复制)· 邮件兜底:<a href="mailto:lizong@aizhs.top" style="color:${accent};text-decoration:none;">lizong@aizhs.top</a>`,
     qrAlt: '创始人微信二维码',
     footer: `智汇AI集团 创始人 <span style="color:${DISPATCH_TOKENS.ink};font-weight:bold;">李春川</span> · aizhs.top · © 2026 智汇AI · 系统自动派发`,
   },
@@ -301,7 +306,7 @@ const DISPATCH_CHROME: Record<
     contact: (accent) =>
       'Need help? Scan the WeChat QR to <b style="color:#F5F5F0;">reach the founder directly</b><br>WeChat ID:' +
       `<span style="font-family:Consolas,monospace;font-size:17px;color:${accent};letter-spacing:1px;">${FOUNDER_WECHAT_ID}</span>` +
-      ` · Email: <a href="mailto:support@aizhs.top" style="color:${accent};text-decoration:none;">support@aizhs.top</a>`,
+      ` · Email: <a href="mailto:lizong@aizhs.top" style="color:${accent};text-decoration:none;">lizong@aizhs.top</a>`,
     qrAlt: 'Founder WeChat QR code',
     footer: `IHUI AI · Founder <span style="color:${DISPATCH_TOKENS.ink};font-weight:bold;">Li Chunchuan</span> · aizhs.top · © 2026 IHUI AI · Automated message`,
   },
@@ -516,7 +521,7 @@ export function renderVerificationEmail(
       </tr></table>
       <div style="font-family:Consolas,monospace;font-size:14px;color:${t.dim};letter-spacing:2px;margin-top:16px;">手机可长按数字复制 · ${expiresInMinutes} 分钟内有效</div>
     </td></tr></table>
-    ${note(`· 这不是您的操作?<b style="color:${t.ink};">直接忽略本邮件</b>,账号不会有任何变动。<br>· 验证码<b style="color:${t.danger};">绝不会被任何客服索要</b>,请勿告知他人。<br>· 需要帮助:<a href="mailto:support@aizhs.top" style="color:${t.accent};text-decoration:none;">support@aizhs.top</a>`)}`
+    ${note(`· 这不是您的操作?<b style="color:${t.ink};">直接忽略本邮件</b>,账号不会有任何变动。<br>· 验证码<b style="color:${t.danger};">绝不会被任何客服索要</b>,请勿告知他人。<br>· 需要帮助:<a href="mailto:lizong@aizhs.top" style="color:${t.accent};text-decoration:none;">lizong@aizhs.top</a>`)}`
   return {
     subject: `【智汇AI】${sceneText}验证码 ${code}`,
     html: renderDispatchEmail({
@@ -823,12 +828,17 @@ const ALERT_COPY: Record<MailLocale, AlertCopy> = {
   },
   en: {
     subjectPrefix: { info: 'INFO', warning: 'WARNING', critical: 'CRITICAL' },
-    tag: { info: 'SYSTEM // ALERT_INFO', warning: 'SYSTEM // ALERT_WARNING', critical: 'SYSTEM // ALERT_CRITICAL' },
+    tag: {
+      info: 'SYSTEM // ALERT_INFO',
+      warning: 'SYSTEM // ALERT_WARNING',
+      critical: 'SYSTEM // ALERT_CRITICAL',
+    },
     label: { severity: 'SEVERITY', source: 'SOURCE', time: 'TIME', message: 'MESSAGE' },
     severityValue: { info: 'INFO', warning: 'WARNING', critical: 'CRITICAL' },
     introInfo: 'The system recorded the following event for your information:',
     introAlert: 'The system detected an anomaly. On-call operators please investigate immediately:',
-    footNote: 'This mail is dispatched automatically; do not reply. Locate the root cause in the server logs before restoring service.',
+    footNote:
+      'This mail is dispatched automatically; do not reply. Locate the root cause in the server logs before restoring service.',
     textSource: 'Source',
     textTime: 'Time',
     defaultTitle: (environment) => `Deploy failed — ${environment}`,
@@ -872,7 +882,10 @@ export function renderSystemAlertEmail(input: SystemAlertEmailInput): DispatchEm
             accent,
             { right: true },
           ),
-          cell(copy.label.source, escapeHtml(input.source), accent, { right: true, valueStyle: mono }),
+          cell(copy.label.source, escapeHtml(input.source), accent, {
+            right: true,
+            valueStyle: mono,
+          }),
           cell(copy.label.time, escapeHtml(input.time), accent, { valueStyle: mono }),
         ]),
         metaRow([

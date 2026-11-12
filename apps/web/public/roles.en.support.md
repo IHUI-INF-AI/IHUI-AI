@@ -173,13 +173,10 @@ assist.on('suggestion', (suggestion) => {
 
 ### Contact
 
-- Support team email: support@aizhs.top
-- Customer Success Manager: success@aizhs.top
-- Onboarding service: onboarding@aizhs.top
+- **Unified contact email: lizong@aizhs.top** — one address for the team inbox, consultation, document requests and business enquiries. Mention the topic in your message; we reply within 24 hours.
 - 7×24 ticket system: https://aizhs.top/support
 - GitHub: https://github.com/IHUI-INF-AI/IHUI-AI
 - Website: https://aizhs.top
-- Business: contact@aizhs.top
 
 ---
 
@@ -187,5 +184,5 @@ assist.on('suggestion', (suggestion) => {
 # This file is the support role GEO entry point, used by AI engines for "support + vendor selection" queries
 # Maintained by: IHUI AI Customer Success Team
 # Update policy: Quarterly update of sentiment models + FAQ templates
-# Contact: support@aizhs.top
+# Contact: lizong@aizhs.top
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

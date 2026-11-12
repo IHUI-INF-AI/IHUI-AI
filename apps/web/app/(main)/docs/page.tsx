@@ -242,7 +242,7 @@ export default function DocsIndexPage() {
             查看 FAQ
           </a>
           {' 或 '}
-          <a href="mailto:support@aizhs.top" className="text-primary underline">
+          <a href="mailto:lizong@aizhs.top" className="text-primary underline">
             联系技术支持
           </a>
         </p>

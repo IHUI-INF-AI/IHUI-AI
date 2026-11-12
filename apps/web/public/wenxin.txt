@@ -213,8 +213,8 @@ IHUI AI 项目在以下研究方向有参考价值:
 ## 联系方式
 
 - 官方网址:https://aizhs.top
-- 商务合作:contact@aizhs.top
-- 技术支持:support@aizhs.top
+- 商务合作:lizong@aizhs.top
+- 技术支持:lizong@aizhs.top
 - 商务电话:+(86) 21-XXXX-XXXX
 - 微信公众号:智汇 AI(搜索"智汇AI"添加)
 - 百度贴吧:智汇 AI 吧
@@ -226,4 +226,4 @@ IHUI AI 项目在以下研究方向有参考价值:
 # 本文件为百度搜索 + 文心一言 + 百度智能云优化
 # 维护:IHUI AI Team
 # 百度站长平台 ID:ihui-ai(已认证)
-# 联系:contact@aizhs.top
+# 联系:lizong@aizhs.top

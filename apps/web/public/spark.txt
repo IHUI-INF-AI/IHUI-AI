@@ -189,6 +189,6 @@ Git 式 diff 版本控制 / 可见 / 可编辑 / 可管理三级权限 / 命中�
 
 # 文件结束
 # 维护:IHUI AI Team
-# 联系:contact@aizhs.top
-# 教育合作:edu@aizhs.top
-# 政企合作:gov@aizhs.top
+# 联系:lizong@aizhs.top
+# 教育合作:lizong@aizhs.top
+# 政企合作:lizong@aizhs.top

@@ -44,18 +44,6 @@ user32 = ctypes.windll.user32
 kernel32 = ctypes.windll.kernel32
 psapi = ctypes.windll.psapi
 
-EnumWindowsProc = ctypes.WINFUNCTYPE(
-    wintypes.BOOL, wintypes.HWND, wintypes.LPARAM
-)
-
-user32.EnumWindows.argtypes = [EnumWindowsProc, wintypes.LPARAM]
-user32.EnumWindows.restype = wintypes.BOOL
-
-user32.GetClassNameW.argtypes = [
-    wintypes.HWND, wintypes.LPWSTR, ctypes.c_int
-]
-user32.GetClassNameW.restype = ctypes.c_int
-
 user32.IsWindowVisible.argtypes = [wintypes.HWND]
 user32.IsWindowVisible.restype = wintypes.BOOL
 
@@ -69,6 +57,13 @@ user32.GetWindowThreadProcessId.restype = wintypes.DWORD
 
 user32.IsWindow.argtypes = [wintypes.HWND]
 user32.IsWindow.restype = wintypes.BOOL
+
+# 2026-11-12：直接按类名定位（FindWindowW），不再逐窗口 EnumWindows。
+# 立因：EnumWindows + 每窗 GetClassName 的单轮耗时可达 1s 量级，叠加 1s 轮询
+# 会让白窗在桌面停留 3s 以上（test_autohide.py 的 3s 判据实测压线）。
+# 该类名窗口是顶层窗口，FindWindowW 命中率等价且单轮耗时微秒级。
+user32.FindWindowW.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR]
+user32.FindWindowW.restype = wintypes.HWND
 
 kernel32.OpenProcess.argtypes = [
     wintypes.DWORD, wintypes.BOOL, wintypes.DWORD
@@ -145,49 +140,26 @@ def get_process_name(pid):
 # 核心扫描
 # ---------------------------------------------------------------------------
 def scan_once():
-    """枚举一次顶层窗口，隐藏所有匹配的可见目标窗口。"""
+    """定位目标顶层窗口（类名精确匹配）；可见则隐藏。返回命中的 (hwnd, pid) 列表。"""
     found = []
-
-    def enum_cb(hwnd, lparam):
-        try:
-            if not user32.IsWindow(hwnd):
-                return True
-            # 取类名
-            buf = ctypes.create_unicode_buffer(256)
-            n = user32.GetClassNameW(hwnd, buf, 256)
-            if n <= 0:
-                return True
-            class_name = buf.value
-            if class_name != TARGET_CLASS:  # 精确、大小写敏感匹配
-                return True
-            # 取属主进程名，确认是 Weixin.exe
-            pid = wintypes.DWORD(0)
-            user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
-            owner = get_process_name(pid.value)
-            if owner.lower() != OWNER_PROCESS.lower():
-                return True
-            # 仅当可见时才隐藏
-            if user32.IsWindowVisible(hwnd):
-                user32.ShowWindow(hwnd, SW_HIDE)
-                found.append((hwnd, pid.value))
-                log("发现可见目标并隐藏 hwnd=0x%08X pid=%d" % (hwnd, pid.value))
-        except Exception as e:
-            # 单个窗口出错不影响整体
-            try:
-                log("处理窗口时异常 hwnd=0x%08X: %s" % (hwnd, e))
-            except Exception:
-                pass
-        return True
-
-    callback = EnumWindowsProc(enum_cb)
     try:
-        user32.EnumWindows(callback, 0)
+        hwnd = user32.FindWindowW(TARGET_CLASS, None)
+        if not hwnd or not user32.IsWindow(hwnd):
+            return found
+        pid = wintypes.DWORD(0)
+        user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+        owner = get_process_name(pid.value)
+        if owner.lower() != OWNER_PROCESS.lower():
+            return found
+        if user32.IsWindowVisible(hwnd):
+            user32.ShowWindow(hwnd, SW_HIDE)
+            found.append((hwnd, pid.value))
+            log("发现可见目标并隐藏 hwnd=0x%08X pid=%d" % (hwnd, pid.value))
     except Exception as e:
-        log("EnumWindows 异常: %s" % e)
-    finally:
-        # 保持回调引用，防止被 GC
-        del callback
-
+        try:
+            log("处理目标窗口时异常: %s" % e)
+        except Exception:
+            pass
     return found
 
 
@@ -200,13 +172,13 @@ def main():
             found = scan_once()
             if not found:
                 heartbeat += 1
-                # 每 300 秒（约 5 分钟）打一次心跳，避免日志刷屏
-                if heartbeat >= 300:
+                # 每 600 轮（0.5s/轮 ≈ 5 分钟）打一次心跳，避免日志刷屏
+                if heartbeat >= 600:
                     log("心跳：未发现目标，watchdog 正常运行中")
                     heartbeat = 0
             else:
                 heartbeat = 0  # 有动作则立即重置心跳
-            time.sleep(1.0)  # 避免 CPU 空转；不使用 Sleep(0)
+            time.sleep(0.5)  # FindWindowW 单轮微秒级，0.5s 轮询即可把白窗存在时间压到 1s 内
     except KeyboardInterrupt:
         log("收到 KeyboardInterrupt，优雅退出。")
         print("watchdog stopped.")

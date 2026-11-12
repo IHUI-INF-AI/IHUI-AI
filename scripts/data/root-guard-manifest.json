@@ -1,9 +1,9 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-12T15:42:53.000Z",
+  "sealedAt": "2026-11-12T16:24:22.884Z",
   "sealedBy": "root-guard --seal",
-  "reason": "5210ccbe0cb 改 guardian-runner 未同批重封清单,按索引面重封使部署环不再 fail-closed",
+  "reason": "2026-11-13 修永久保活腿 alert 档 6h 节流与 90min 临期窗口不匹配的漏刷空窗:派发时按本轮真实 window+余量传窗口,节流与撞上游次数不变",
   "targets": [
     {
       "id": "guardian-runner",
@@ -28,7 +28,7 @@
       "id": "git-guardian",
       "path": "scripts/git-guardian.mjs",
       "mode": "file",
-      "sha256": "79ad51ebceb20c301f812ef1bad51525f0dfc386499835a5954cb9a62e94b32c"
+      "sha256": "d110220d21c1c9d978c9d76e4186180c8a00101b9a4e2063be3f96631ce63ff4"
     },
     {
       "id": "gate-scope",

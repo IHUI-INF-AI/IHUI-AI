@@ -166,7 +166,7 @@ export default function HelpPage() {
 
       <div className="flex justify-center pt-2">
         <Button asChild>
-          <Link href="mailto:support@aizhs.top">
+          <Link href="mailto:lizong@aizhs.top">
             <Mail className="h-4 w-4" />
             {t('contactSupport')}
           </Link>

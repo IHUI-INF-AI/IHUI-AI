@@ -27,7 +27,7 @@ export default function ContactPage() {
             <div className="flex items-center gap-2">
               <Mailbox size={18} className="shrink-0 text-current" aria-hidden />
               <span className="text-muted-foreground shrink-0">{t('page.contact.email')}:</span>
-              <span className="truncate">support@ihui-ai.com</span>
+              <span className="truncate">lizong@aizhs.top</span>
             </div>
             <div className="flex items-center gap-2">
               <MessageCircle size={18} className="shrink-0 text-current" aria-hidden />
