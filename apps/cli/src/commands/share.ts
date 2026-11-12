@@ -350,6 +350,15 @@ export class ShareManager {
       if (msg.role === 'system') continue;
       const roleLabel =
         msg.role === 'user' ? '🧑 **User**' : msg.role === 'assistant' ? '🤖 **Assistant**' : `**${msg.role}**`;
+      // F-119: includeFiles=false 时必须真实过滤工具结果消息——
+      // read_file/命令输出的 Tool Result 会内嵌完整文件内容,仅追加"已省略"文案是假保证
+      if (!includeFiles && msg.role === 'user' && msg.content.includes('Tool Result:')) {
+        lines.push(`### ${roleLabel}`);
+        lines.push('');
+        lines.push('_[工具结果已省略(includeFiles=false,不导出文件/命令输出内容)]_');
+        lines.push('');
+        continue;
+      }
       let content = msg.content;
       // 工具调用折叠块:includeToolCalls=false 时隐藏
       if (!includeToolCalls && content.includes('```tool_call')) {
