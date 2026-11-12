@@ -94,6 +94,9 @@ test('⑦ 编排器参数面:两入口互斥 / 登记与未装车分档 / 缺输
   // 四平台提取器均已装车(2026-10-27):登记面逐个在位,不得再挂 null 口头账
   assert.equal(C.FROM_PROVIDERS.qoder?.module, 'qoder-auth-extract.mjs')
   assert.equal(C.FROM_PROVIDERS.codearts?.module, 'codearts-auth-extract.mjs')
+  // 2026-11-12 接车 raccoon:装车面登记 + 凭据落点自动发现(详见 raccoon-auth-extract.test.mjs)
+  assert.equal(C.FROM_PROVIDERS.raccoon?.module, 'raccoon-auth-extract.mjs')
+  assert.equal(C.FROM_PROVIDERS.raccoon?.fn, 'extractRaccoonAccounts')
   assert.match(C.parseArgs(['--from', 'nosuch']).error ?? '', /未知来源/)
   assert.match(C.parseArgs(['--bogus']).error ?? '', /未知参数/)
   assert.equal(C.parseArgs(['--help']).options.help, true)
