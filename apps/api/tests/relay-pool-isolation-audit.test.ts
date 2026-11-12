@@ -88,24 +88,29 @@ describe('D3 同 uid 跨池双行(sameUidDim)', () => {
 })
 
 describe('D4 rt 终点证据(rtBlindDim)', () => {
-  it('⑨ 会暴露终点的 provider(qoder)永久号瞎 ⇒ breach(真会丢号)', () => {
+  it('⑨ qoder永久号瞎 ⇒ info(客户端不暴露rt终点,2026-11-12实测加入固有白名单)', () => {
     const d = A.rtBlindDim({
       scanned: true,
       foreverBlind: [{ provider: 'qoder', uid: 'f1' }],
       otherBlind: [],
     })
-    expect(d.state).toBe('breach')
+    expect(d.state).toBe('info')
     expect(d.count).toBe(1)
   })
   it('⑩ 仅普通号瞎 ⇒ info(不逼红);都正常 ⇒ ok', () => {
     expect(
-      A.rtBlindDim({ scanned: true, foreverBlind: [], otherBlind: [{ provider: 'qoder', uid: 'o1' }] })
-        .state,
+      A.rtBlindDim({
+        scanned: true,
+        foreverBlind: [],
+        otherBlind: [{ provider: 'qoder', uid: 'o1' }],
+      }).state,
     ).toBe('info')
     expect(A.rtBlindDim({ scanned: true, foreverBlind: [], otherBlind: [] }).state).toBe('ok')
   })
   it('⑪ 没扫到(scanned=false)⇒ unjudged', () => {
-    expect(A.rtBlindDim({ scanned: false, foreverBlind: [], otherBlind: [] }).state).toBe('unjudged')
+    expect(A.rtBlindDim({ scanned: false, foreverBlind: [], otherBlind: [] }).state).toBe(
+      'unjudged',
+    )
   })
   it('⑫ Trae 永久号瞎 ⇒ info(客户端不暴露 rt 终点,属固有,不误警);且整体不算 breach', () => {
     const d = A.rtBlindDim({
@@ -119,11 +124,22 @@ describe('D4 rt 终点证据(rtBlindDim)', () => {
       A.overallState([A.deviceClusterDim([], 4), d, A.sharedRtDim([]), A.sameUidDim([])]),
     ).toBe('ok')
   })
+  it('⑬ WorkBuddy 永久号瞎 ⇒ info(回灌腿只写配方不写 rt 终点,2026-11-12实测加入固有白名单)', () => {
+    const d = A.rtBlindDim({
+      scanned: true,
+      foreverBlind: [{ provider: 'workbuddy', uid: 'ab65cefd-4b18' }],
+      otherBlind: [],
+    })
+    expect(d.state).toBe('info')
+    expect(d.count).toBe(1)
+  })
 })
 
 describe('D5 出口亲和(egressDim)', () => {
   it('⑫ 代理池为空 ⇒ info(全池同出口 IP,接受这一维)', () => {
-    expect(A.egressDim({ proxyTotal: 0, proxyActive: 0, proxyBound: 0, accountsWithProxy: 0 }).state).toBe('info')
+    expect(
+      A.egressDim({ proxyTotal: 0, proxyActive: 0, proxyBound: 0, accountsWithProxy: 0 }).state,
+    ).toBe('info')
   })
   it('⑬ active 代理有未绑定 ⇒ breach(多号可共用一位)', () => {
     const d = A.egressDim({ proxyTotal: 5, proxyActive: 3, proxyBound: 1, accountsWithProxy: 2 })
@@ -131,8 +147,17 @@ describe('D5 出口亲和(egressDim)', () => {
     expect(d.count).toBe(2)
   })
   it('⑭ 全部绑定 ⇒ ok;任一取不到 ⇒ unjudged', () => {
-    expect(A.egressDim({ proxyTotal: 5, proxyActive: 3, proxyBound: 3, accountsWithProxy: 3 }).state).toBe('ok')
-    expect(A.egressDim({ proxyTotal: null, proxyActive: null, proxyBound: null, accountsWithProxy: null }).state).toBe('unjudged')
+    expect(
+      A.egressDim({ proxyTotal: 5, proxyActive: 3, proxyBound: 3, accountsWithProxy: 3 }).state,
+    ).toBe('ok')
+    expect(
+      A.egressDim({
+        proxyTotal: null,
+        proxyActive: null,
+        proxyBound: null,
+        accountsWithProxy: null,
+      }).state,
+    ).toBe('unjudged')
   })
 })
 

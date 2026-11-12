@@ -234,6 +234,33 @@
     "evidence": ".ihui-agent/state/mail-send-ledger.jsonl 7d: 16 封 / 3 个身份;git-guardian.mjs:9278 notify('iOS 包已发到站点腿但没收口:登记或自证失败')"
   },
   {
+    "id": "verbatim-regress-family",
+    "prefix": "逐字回潮",
+    "cooldownMs": 86400000,
+    "reason": "「祖先已声明删除的路径仍在面上」在并行会话共写仓库时是同一持续态(union 判据的回潮),身份随路径集合/sha 换新(24h 实测 3 封 / 2 个身份:740b781758de×2、2383a3b56a1d×1,13/19/01 点各一)。族级 24h 只留首封 + 正文给最新回潮路径清单与累计抑制计数;回潮腿收敛后自然不再触发,判据与 severity 不动。",
+    "owner": "git-guardian",
+    "reviewBy": "2026-11-24",
+    "evidence": ".ihui-agent/state/mail-send-ledger.jsonl 24h: 3 封 / 2 个身份(逐字回潮…;sha);git-guardian.mjs notify('逐字回潮…')"
+  },
+  {
+    "id": "pool-isolation-check-family",
+    "prefix": "号池隔离体检",
+    "cooldownMs": 86400000,
+    "reason": "「号池隔离体检 breach」在腿未复位前是同一持续态,单一身份仍按默认 4h 窗逐轮重报(24h 实测 3 封 / 1 个身份 4700ab8bbef7,13/19/01 点)。族级 24h 只留首封 + 正文给最新体检读数与累计抑制计数;腿复位后自然不再触发,判据与 severity 不动。",
+    "owner": "git-guardian",
+    "reviewBy": "2026-11-24",
+    "evidence": ".ihui-agent/state/mail-send-ledger.jsonl 24h: 3 封 / 1 个身份;git-guardian.mjs:6101 号池隔离体检段 notify"
+  },
+  {
+    "id": "local-restore-refresh-family",
+    "prefix": "本地恢复源刷新失败",
+    "cooldownMs": 86400000,
+    "reason": "恢复源刷新失败是持续态(git-backup-refresh 未通前每 tick 重试),身份固定仍按默认窗重报(24h 实测 2 封 / 1 个身份 ede6d864f0a6,13/17 点)。族级 24h 只留首封 + 正文给最新 exit 码与累计抑制计数;刷新恢复后自然不再触发,判据与 severity 不动。",
+    "owner": "git-guardian",
+    "reviewBy": "2026-11-24",
+    "evidence": ".ihui-agent/state/mail-send-ledger.jsonl 24h: 2 封 / 1 个身份;git-guardian.mjs:2634 notify('本地恢复源刷新失败')"
+  },
+  {
     "id": "download-bar-runtime-red-family",
     "prefix": "下载栏运行期真值判红",
     "cooldownMs": 86400000,
@@ -241,5 +268,32 @@
     "owner": "git-guardian",
     "reviewBy": "2026-11-24",
     "evidence": ".ihui-agent/state/mail-send-ledger.jsonl 7d: 16 封 / 1 个身份;git-guardian.mjs:10816 notify('下载栏运行期真值判红…')"
+  },
+  {
+    "id": "repo-divergence-local-backlog",
+    "prefix": "本地与 origin/main 分叉(local-backlog)",
+    "cooldownMs": 86400000,
+    "reason": "多会话并行下的持续态:各席各自累积本地提交、本地 ahead 只增不减,与 origin/main 的 local-backlog 型分叉在并流收敛前不会逐轮变成新故障(24h 实测 3 封)。族级 24h 只留首封 + 正文给最新读数与累计抑制计数,判据与 severity 一字不动。与既有 repo-divergence-true(前缀 true-divergence)是各自独立的告警名,按长前缀优先互不串族;别型 remote-ahead-stale 亦不在本前缀内。",
+    "owner": "git-guardian",
+    "reviewBy": "2026-11-24",
+    "evidence": ".ihui-agent/state/mail-send-ledger.jsonl 24h: 3 封(本地与 origin/main 分叉(local-backlog));生产者 scripts/lib/push-divergence-watch.mjs:384"
+  },
+  {
+    "id": "registry-sync-stall-family",
+    "prefix": "资源目录同步停更",
+    "cooldownMs": 86400000,
+    "reason": "「资源目录同步停更(registry-sync)」在同步腿恢复前是同一持续态逐轮重报(24h 实测 2 封),告警名带 (registry-sync) 后缀但族前缀稳定,不随读数换新身份。族级 24h 只留首封 + 正文给最新同步读数与累计抑制计数;同步腿恢复后自然不再触发,判据与 severity 一字不动。",
+    "owner": "git-guardian",
+    "reviewBy": "2026-11-24",
+    "evidence": ".ihui-agent/state/mail-send-ledger.jsonl 24h: 2 封(资源目录同步停更(registry-sync));生产者 scripts/lib/registry-sync-audit.mjs:130"
+  },
+  {
+    "id": "service-inventory-drift-family",
+    "prefix": "服务清单快照与注册表漂移",
+    "cooldownMs": 86400000,
+    "reason": "「服务清单快照与注册表漂移」是清单快照与注册表对账的持续态,该闸门此前无自动派发点(24h 实测 1 封)。族级 24h 只留首封 + 正文给最新漂移清单与累计抑制计数,避免后续读数漂移把同一笔脱钩拆成多封;判据与 severity 一字不动。",
+    "owner": "git-guardian",
+    "reviewBy": "2026-11-24",
+    "evidence": ".ihui-agent/state/mail-send-ledger.jsonl 24h: 1 封(服务清单快照与注册表漂移);生产者 scripts/git-guardian.mjs:7646"
   }
 ]
