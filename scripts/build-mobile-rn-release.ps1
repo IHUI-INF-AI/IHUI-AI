@@ -613,6 +613,27 @@ try {
   }
 } finally { Pop-Location }
 
+# 2026-11-12 ABI 治理第三道防线(本地生产发布腿):正式分发包必须只含真机两档架构
+# (arm64-v8a / armeabi-v7a)。check-apk-abi.mjs 纯 Node 解析 ZIP 中央目录,跨平台不依赖
+# unzip;任何人用 -FullAbi / -Abi 带了 x86/x86_64 等桌面/模拟器架构的验证构建,本门自动跳过
+# (那些是验证用途,不走发布),只有"期望架构全在真机两档内"的生产构建才判。
+Write-Host "`n===== [4.5/5] ABI 白名单门(仅生产构建) =====" -ForegroundColor Cyan
+$realAbiAllow = @('arm64-v8a', 'armeabi-v7a')
+$isProductionBuild = $true
+foreach ($a in $wantAbis) { if ($realAbiAllow -notcontains $a) { $isProductionBuild = $false; break } }
+if ($isProductionBuild) {
+  Push-Location $RepoRoot
+  try {
+    node scripts/check-apk-abi.mjs $Apk
+    if ($LASTEXITCODE -ne 0) {
+      throw "ABI 白名单门判红(exit=$LASTEXITCODE)—— 产物混入 x86/x86_64/mips 等非真机架构,禁止发布。用 -FullAbi 做验证构建时本门自动跳过。"
+    }
+    Write-Host "  ✅ ABI 白名单门通过:仅含真机两档架构" -ForegroundColor Green
+  } finally { Pop-Location }
+} else {
+  Write-Host "  ⚠️ 非生产构建(期望含 $($wantAbis -join ','),非纯真机两档),ABI 白名单门跳过" -ForegroundColor Yellow
+}
+
 Write-Host "`n===== [5/5] 发布到固定下载地址 =====" -ForegroundColor Cyan
 # $VersionName 已在 [2.5] 解析并注入 bundle(见该处注释);此处不再二次取值,避免出现
 # "包里是 A、登记的是 B" 的两处漂移。
