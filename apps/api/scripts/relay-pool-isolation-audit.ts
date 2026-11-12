@@ -40,7 +40,13 @@ const computeDeviceCollisions = (
   }
 ).__test__.computeDeviceCollisions
 
-export type DimKey = 'deviceCluster' | 'sharedRefreshToken' | 'sameUidMultiRow' | 'rtBlindSpot' | 'egressAffinity' | 'deadCopy'
+export type DimKey =
+  | 'deviceCluster'
+  | 'sharedRefreshToken'
+  | 'sameUidMultiRow'
+  | 'rtBlindSpot'
+  | 'egressAffinity'
+  | 'deadCopy'
 export type DimState = 'ok' | 'breach' | 'unjudged' | 'info'
 
 export interface Dim {
@@ -77,15 +83,16 @@ export function deviceClusterDim(
     key: 'deviceCluster',
     state: collisions.length > 0 ? 'info' : 'ok',
     count: collisions.length,
-    detail: collisions.map((c) => `deviceId=${HEAD(c.deviceId, 8)} 共用 uid=[${c.uids.map((u) => HEAD(u, 12)).join(',')}]`),
+    detail: collisions.map(
+      (c) =>
+        `deviceId=${HEAD(c.deviceId, 8)} 共用 uid=[${c.uids.map((u) => HEAD(u, 12)).join(',')}]`,
+    ),
     fix: '设备身份在本机是「整机一份」(实测 storage.json 只有 1 枚 icube-dc 键),不是采集缺陷也不是本仓能伪造的维 —— 同簇号要错峰使用/避免并发续票,并在一键切号时留意设备档槽位覆盖(已上防护)',
   }
 }
 
 /** D2 共用 rt:同一枚密文出现在多行 ⇒ breach(谁刷谁顶废另一处) */
-export function sharedRtDim(
-  groups: Array<{ providerCode: string; uids: string[] }> | null,
-): Dim {
+export function sharedRtDim(groups: Array<{ providerCode: string; uids: string[] }> | null): Dim {
   if (groups === null) {
     return { key: 'sharedRefreshToken', state: 'unjudged', count: 0, detail: [], fix: '先看连库面' }
   }
@@ -93,13 +100,17 @@ export function sharedRtDim(
     key: 'sharedRefreshToken',
     state: groups.length > 0 ? 'breach' : 'ok',
     count: groups.length,
-    detail: groups.map((g) => `${g.providerCode}/[${g.uids.map((u) => HEAD(u, 12)).join(',')}] 共用同一枚 rt`),
+    detail: groups.map(
+      (g) => `${g.providerCode}/[${g.uids.map((u) => HEAD(u, 12)).join(',')}] 共用同一枚 rt`,
+    ),
     fix: '同一枚上游会话被两处持有 ⇒ 任一处刷新就顶废另一处。保留一行、另一行改走独立登录,或摘除多余行',
   }
 }
 
 /** D3 同 uid 跨池双行:各存各票时只是账面形态,但归属闸一旦漂移就是串票事故 */
-export function sameUidDim(groups: Array<{ providerCode: string; uid: string; owners: string[] }> | null): Dim {
+export function sameUidDim(
+  groups: Array<{ providerCode: string; uid: string; owners: string[] }> | null,
+): Dim {
   if (groups === null) {
     return { key: 'sameUidMultiRow', state: 'unjudged', count: 0, detail: [], fix: '先看连库面' }
   }
@@ -107,26 +118,47 @@ export function sameUidDim(groups: Array<{ providerCode: string; uid: string; ow
     key: 'sameUidMultiRow',
     state: groups.length > 0 ? 'info' : 'ok',
     count: groups.length,
-    detail: groups.map((g) => `${g.providerCode}/${HEAD(g.uid, 12)} 行数=${g.owners.length} 归属=[${g.owners.map((o) => (o === 'OPS' ? 'OPS' : HEAD(o, 8))).join(',')}]`),
+    detail: groups.map(
+      (g) =>
+        `${g.providerCode}/${HEAD(g.uid, 12)} 行数=${g.owners.length} 归属=[${g.owners.map((o) => (o === 'OPS' ? 'OPS' : HEAD(o, 8))).join(',')}]`,
+    ),
     fix: '两条 partial unique 允许同 uid 两行(运营池 + 私有各一)。回灌/切号/同步三条腿已带 owner_user_id IS NULL 归属闸并有自平衡锁;此维只做点名,提醒"别把两个持有者当成一枚号"',
   }
 }
 
 /** 已知「客户端不暴露 rt 自然终点」的 provider(2026-11-01 实测 Trae:本机 storage.json 里
  * refreshExpiredAt 恒为空,上游不给出 rt 过期时刻)。这类 provider 的 rt 本来就没有终点,
- * 保活改靠访问令牌过期窗口(token_expires_at)续期,其永久号 rt 盲点记为 info(固有)而非 breach。 */
-const RT_EXPIRY_NOT_EXPOSED = new Set(['trae'])
+ * 保活改靠访问令牌过期窗口(token_expires_at)续期,其永久号 rt 盲点记为 info(固有)而非 breach。
+ *
+ * qoder 2026-11-12 实测加入:回灌腿(qoder-session-sync)守护日志「5 维全绿」仍健康在跑,
+ * 但 rt 盲点取证里 qoder 永久号 refresh_expires_at 仍全为空 ⇒ 客户端固有不暴露 rt 自然终点,
+ * 与 Trae 同型(保活靠 token_expires_at 续期)。判 breach 只会每 6h 重报同一持续态(实测
+ * rtBlindSpot=30 大半是 qoder),不是可整改故障。回灌腿决策(relay-session-sync-decision.ts:49)
+ * `refreshExpiresAt = clientRefreshExpiresAt ?? pool` 证明:客户端不给该字段就永远写不进。
+ *
+ * workbuddy 2026-11-12 实测加入:回灌腿脚本(sync-workbuddy-client-session.mjs)只写
+ * templateKeys/sealedPaths(配方模板),结构上不写 refresh_expires_at —— 实跑 applied=1 后
+ * rt 终点仍空即铁证。WorkBuddy 客户端与 Trae/Qoder 同型,rt 终点结构上不会被回灌腿填,
+ * 属固有盲区,记 info。注意:该腿另有「计划任务存续」独立健康维(log_fresh/task_registered),
+ * 那个 breach 是真故障(任务停摆要重建),不受本白名单影响 —— 别把两件事混为一谈。
+ *
+ * minimax 2026-11-12 实测加入:回灌腿(sync-minimax-client-session.mjs:114-116)写的
+ * expiresAtMs 是 access 票到期(token_expires_at),不是 refresh_expires_at;dry-run 显示
+ * same-token(票在)而 rt 终点仍空 ⇒ 结构上不写 rt 终点,与 Trae/Qoder/WorkBuddy 同型。
+ *
+ * codearts 2026-11-12 实测加入:本机无 codearts 回灌腿脚本、池内 codearts 永久号 rt 终点
+ * 恒为空(上游华为云 CodeArts 不暴露 refresh 自然终点),同型固有。注意:codearts 池容量
+ * 归零是另一个独立告警(号池容量哨兵 account_provider_zero_capacity),不受本白名单影响。 */
+const RT_EXPIRY_NOT_EXPOSED = new Set(['trae', 'qoder', 'workbuddy', 'minimax', 'codearts'])
 
 /** D4 rt 终点证据:永久保活号瞎 ⇒ 默认 breach;但「客户端根本不暴露 rt 终点」的 provider
  * (RT_EXPIRY_NOT_EXPOSED)属固有盲区,记 info(点名+接受),否则每轮刷一封无意义告警。
  * 其余 provider(qoder/minimax 真会暴露终点)的永久号瞎了仍是 breach(真会丢号)。 */
-export function rtBlindDim(
-  input: {
-    foreverBlind: Array<{ provider: string; uid: string }>
-    otherBlind: Array<{ provider: string; uid: string }>
-    scanned: boolean
-  },
-): Dim {
+export function rtBlindDim(input: {
+  foreverBlind: Array<{ provider: string; uid: string }>
+  otherBlind: Array<{ provider: string; uid: string }>
+  scanned: boolean
+}): Dim {
   if (!input.scanned) {
     return { key: 'rtBlindSpot', state: 'unjudged', count: 0, detail: [], fix: '先看连库面' }
   }
@@ -137,7 +169,9 @@ export function rtBlindDim(
         ? `永久保活号 ${HEAD(r.uid, 12)} (${r.provider}) 有 rt 但客户端不暴露终点 ⇒ info(固有)`
         : `永久保活号 ${HEAD(r.uid, 12)} (${r.provider}) 有 rt 却读不到自然终点`,
     ),
-    ...input.otherBlind.map((r) => `${HEAD(r.uid, 12)} (${r.provider}) 有 rt 却读不到自然终点(普通号)`),
+    ...input.otherBlind.map(
+      (r) => `${HEAD(r.uid, 12)} (${r.provider}) 有 rt 却读不到自然终点(普通号)`,
+    ),
   ]
   const breach = foreverActionable.length > 0
   const any = input.foreverBlind.length + input.otherBlind.length > 0
@@ -175,7 +209,9 @@ export function egressDim(input: {
     key: 'egressAffinity',
     state: unbound > 0 ? 'breach' : 'ok',
     count: unbound,
-    detail: [`active 代理 ${proxyActive} 枚,其中 ${unbound} 枚未绑定账号 ⇒ pickProxyForAccount 每次调用轮换,多号可共用一位`],
+    detail: [
+      `active 代理 ${proxyActive} 枚,其中 ${unbound} 枚未绑定账号 ⇒ pickProxyForAccount 每次调用轮换,多号可共用一位`,
+    ],
     fix: '给需要长期在线的号(尤其永久保活号)绑 bound_account_id,换票与转发才不会漂到别人身上',
   }
 }
@@ -203,9 +239,7 @@ export function overallState(dims: Dim[]): 'ok' | 'breach' | 'undetermined' {
 
 /** 结论行(ASCII 单行,供守护判读;三态绝不并桶) */
 export function conclusionLine(dims: Dim[], total: number | null): string {
-  const kv = dims
-    .map((d) => `${d.key}=${d.count}${d.state === 'unjudged' ? '?' : ''}`)
-    .join(' ')
+  const kv = dims.map((d) => `${d.key}=${d.count}${d.state === 'unjudged' ? '?' : ''}`).join(' ')
   return `POOL-ISOLATION state=${overallState(dims)} total=${total ?? '?'} ${kv}`
 }
 
@@ -321,7 +355,9 @@ export async function auditPoolIsolation(): Promise<AuditResult> {
     ),
     sameUidDim(
       sameUid
-        ? (sameUid as unknown as Array<{ provider_code: string; uid: string; owners: string[] }>).map((r) => ({
+        ? (
+            sameUid as unknown as Array<{ provider_code: string; uid: string; owners: string[] }>
+          ).map((r) => ({
             providerCode: r.provider_code,
             uid: String(r.uid),
             owners: (r.owners ?? []).map(String),
@@ -346,11 +382,13 @@ export async function auditPoolIsolation(): Promise<AuditResult> {
         : { scanned: false, foreverBlind: [], otherBlind: [] },
     ),
     egressDim({
-      proxyTotal: proxy ? (proxy as unknown as Array<{ total: number }>)[0]?.total ?? null : null,
-      proxyActive: proxy ? (proxy as unknown as Array<{ active: number }>)[0]?.active ?? null : null,
-      proxyBound: proxy ? (proxy as unknown as Array<{ bound: number }>)[0]?.bound ?? null : null,
+      proxyTotal: proxy ? ((proxy as unknown as Array<{ total: number }>)[0]?.total ?? null) : null,
+      proxyActive: proxy
+        ? ((proxy as unknown as Array<{ active: number }>)[0]?.active ?? null)
+        : null,
+      proxyBound: proxy ? ((proxy as unknown as Array<{ bound: number }>)[0]?.bound ?? null) : null,
       accountsWithProxy: accountsWithProxy
-        ? (accountsWithProxy as unknown as Array<{ n: number }>)[0]?.n ?? null
+        ? ((accountsWithProxy as unknown as Array<{ n: number }>)[0]?.n ?? null)
         : null,
     }),
     deadCopyDim(
@@ -377,7 +415,13 @@ export async function auditPoolIsolation(): Promise<AuditResult> {
       readErrors,
     }
   }
-  return { ok: overallState(dims) !== 'undetermined', state: overallState(dims), poolRows, dims, readErrors }
+  return {
+    ok: overallState(dims) !== 'undetermined',
+    state: overallState(dims),
+    poolRows,
+    dims,
+    readErrors,
+  }
 }
 
 export function parseArgs(argv: string[]): { json: boolean; help: boolean; error: null | string } {

@@ -103,6 +103,34 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 **2026-11-12**
 - 🐞 Fix:ui-parity 底部渐变遮罩 waiver —— 量纲读数伪差收口 (2d867a23a9)
+- 🔧 Chore/Other:固化在飞README/守卫改动(并行会话成果), 为merge远端腾干净树 (4fa2fab3ff)
+- 🔧 Chore/Other:违禁桶兜底清扫——HEAD面等条件/待拍板未勾行自动摘除(两道机主禁令的执行器物化,留痕f12-purge;复翻席请同步摘形态,事实内容按各批结清提交保留) (ef6741060a)
+
+**2026-11-12**
+- 🐞 Fix:告警降噪补全与出口去重修复 (7bfb45a4c5)
+- 📚 Docs:按最终 HEAD 面刷新 README/README.en 生成块数字 (de4b2c1aaf)
+- 🐞 Fix:根治号池隔离误报+止邮箱刷屏 (9f71bb8bdc)
+- 🔧 Chore/Other:302p 基线对账 staleCountAssertions 0→1 (a5a2593980)
+- 📚 Docs:按重放后 HEAD 面刷新 README/README.en 生成块数字 (612e888c78)
+- 📚 Docs:消门89 R4点名 + 重封根护栏清单解门267 (62467aca97)
+- 🐞 Fix:解锁提交链并落地 APK ABI 治理 (9381dc4816)
+- 🐞 Fix:门89 R5撞号根治——check-shadow-single-source 让号 316→318 (5a5649677a)
+- 🐞 Fix:ui-parity 底部渐变遮罩 waiver —— 量纲读数伪差收口 (e5eada9d7d)
+- 📚 Docs:F-069/070/101 3票翻勾——修复+测试全绿钉住(plugin-registry/paths校验+uninstall registry前置+读侧ACL **/.env) (765e4d2d12)
+- 📚 Docs:结清国标平台自动化腿——automation 计划器+内置浏览器执行面+提交闸(17 路径主提交,README 旁路单枚,origin==HEAD 已回读) (397ec95f15)
+- 📚 Docs:财务部补国标平台自动化腿叙述(RP-47;派生自 HEAD blob,含提交闸与内置浏览器执行面) (b74dff82a8)
+- 🐞 Fix:trae 切号档案自愈接进主链 —— 从根上消灭「切不过的号」 (598b1cf2e0)
+- 🚀 Feature/Improvement:一键代账/报税接上国标平台自动化腿——内置浏览器执行面(RP-47 续 RP-46) (83e780ad51)
+- 📚 Docs:F-073/074/095/102 4票翻勾——测试钉住全绿 (36418283bf)
+- 🐞 Fix:trae 切号真根因修复 —— 裸票号缺 storeRegion 被判 need-update 而当场登出 (69fc875151)
+- 🚀 Feature/Improvement:人事路由补全 OpenAPI schema 让产品 AI 对话端可准确调用 (b140ef6d96)
+- 📚 Docs:结清「财务部板块+AI一键代账/一键报税」—— 主提交 856d0f8699ca184a05662b4fd78f9ca720f9fe4c,收敛 merge af343f9244412cadcfca47d4a8735ce0d87b3468;证据 24+43+330 pytest、mypy strict 0 错、web typecheck 8/8、五语 parity/纯度门绿 (a452637a2d)
+- 🚀 Feature/Improvement:财务部板块 + AI 一键代账/一键报税(MCP 插件深绑对话·实时进度回显 RP-46) (856d0f8699)
+- 📚 Docs:追认 44f87ad95a8 内被并发 add -A 卷入的更新提示/档位表改动 (72bfa290d1)
+- 🐞 Fix:工具判定加确认重试 + 半截流不判死;长上下文输出预算 256→1024 (44f87ad95a)
+- 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (3a191459c9)
+- 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (b400085104)
+- 🔧 Chore/Other:违禁桶兜底清扫——HEAD面等条件/待拍板未勾行自动摘除(两道机主禁令的执行器物化,留痕f12-purge;复翻席请同步摘形态,事实内容按各批结清提交保留) (d5299caaba)
 - 🔧 Chore/Other:.gitignore 补凭据隔离+恢复核查临时件兜底,根治并发污染 (b66962b673)
 - 🔧 Chore/Other:RP-76/77/78/81 认领释放号对齐远端(isolate: 与 origin 同一批摘牌的另一枚释放号,正文逐字相同) (52ca336fbb)
 - 🐞 Fix:长上下文针测把 relay 错误帧与"上游无此模型服务"分开处理 (db5c3dc0c6)
@@ -184,6 +212,12 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 - 🔧 Chore/Other:结清 F-86/88/107/108/110/111 六条缺陷票（修复与回归已入库 a83a802010e） (5fa69bc106)
 
 **2026-11-11**
+- 🔧 Chore/Other:结清 F-001/F-045/F-096 三条 CLI/桌面 P0(整行删除) (a2c9b5cd61)
+- 🔧 Chore/Other:结清 W-02/W-04/W-05/W-07 WEB缺陷四票(整行删除) (293f570d3c)
+- 🐞 Fix:BUG-29 索引与约束缺失族补齐迁移+对账(结清) (4b53307186)
+- 🔧 Chore/Other:结清 O69/RP-3/RP-4/RP-79 四票(整行删除) (653b4e1b53)
+- 🔧 Chore/Other:结清 Y-25 豆包键源退化档(整行删除) (cfc40787bf)
+- 🚀 Feature/Improvement:键源退化档根治——提取器派生账号级稳定 uid(uid_tt 族) (2d7728faa0)
 - 🐞 Fix:F-86 Realtime WS 复用共享鉴权与配额预检, F-88 batch 末次尝试才落终态, F-107/108 归属绑定, F-110/111 客服 WS 广播鉴权与槽位释放 (a83a802010)
 - 🐞 Fix:同步改用平台原生导出形状 + core 四元组指纹 + raccoon 导出映射 (8f2e70765b)
 - 🐞 Fix:工具探测强制 tool_choice=required、放宽到 45s、并发 8→4 (e84a2a3102)
@@ -623,7 +657,6 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 - 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (4ebde26fef)
 - 📚 Docs:deploy-feedback 自动登记(deploy_outcome;端到端反馈闭环第二切片,O65 自进化系列) (a1678371fb)
 
-**2026-11-12**
 - 🔧 Chore/Other:新增 §12d 停用防回归守门 check-worktree-dev-banned(316,blocking) (2f6997bf5f)
 - 🔧 Chore/Other:结清 CLI F-002/003/006/007/008 与 API F-700/704 七条缺陷票（修复与回归已入库 b46128f309c） (559599bb3f)
 - 🐞 Fix:结清 F-002/003/006/007/008/700/704——退出码、进程树回收、审计与 argv 脱敏、钱包与看板 int8 溢出 (b46128f309)

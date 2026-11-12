@@ -90,6 +90,11 @@ function verifyInstallerContent(nsisDir, exeName) {
     console.error(`[artifact-single] 安装包在清理后不在目录里: ${exeName}`)
     return 1
   }
+  // F-041(2026-11-12):0 字节文件能算出 sha256、也能通过内容清单,但它不是可安装产物 —— 必须判红。
+  if (measured.bytes === 0) {
+    console.error(`[artifact-single] ❌ 产物为空(0 字节): ${exeName} —— 空文件不是安装包,不得记作通过`)
+    return 1
+  }
   const manifest = {
     fileCount: 1,
     files: [{ path: exeName, sha256: measured.sha256, bytes: measured.bytes, arch }],
@@ -122,25 +127,51 @@ async function main() {
     dirOpt.value ?? path.join(ROOT, 'apps/desktop/src-tauri/target/release/bundle/nsis')
   const expected = expectOpt.value ?? undefined
   const allowUnsigned = allowUnsignedFrom(process.env)
+  // F-041:缺产物默认判红。只有**显式** --no-artifact-check 才退回"不产 nsis 的安全空操作"
+  // —— 不删任何文件、也不得出具"产物已通过",供 --no-bundle / --bundles app 这类目标直连调用。
+  const skipArtifactCheck = argv.includes('--no-artifact-check')
 
-  if (!existsSync(nsisDir)) return 0
+  // F-041(2026-11-12):目录不存在 = 这次构建压根没产出安装包。旧实现 `return 0` 把
+  // 「没有产物」记成通过,发布侧拿到假绿;缺产物必须判红并点名目录(退出码 1)。
+  if (!existsSync(nsisDir)) {
+    if (skipArtifactCheck) {
+      console.info(
+        `[artifact-single] ⓘ 产物目录不存在 ${nsisDir};已按 --no-artifact-check 跳过「没有产物」判据(未删除任何文件)`,
+      )
+      return 0
+    }
+    console.error(
+      `[artifact-single] ❌ 没有产物:产物目录不存在 ${nsisDir}\n` +
+        '  本次构建没有产出 NSIS 安装包;若这确实是不产包的目标(如 --no-bundle / --bundles app),\n' +
+        '  请显式加 --no-artifact-check 跳过 —— 「没有产物」不得记作通过。',
+    )
+    return 1
+  }
 
   const version = expected ? undefined : JSON.parse(readFileSync(CONF, 'utf8')).version
   const exeName = expected ?? `智汇AI_${version}_x64-setup.exe`
 
   const { keep, stale } = planArtifactInvariant(readdirSync(nsisDir), exeName)
 
-  // 当前包**不在**目录里 = 这次构建压根没产 nsis(例如 --bundles app/msi)。
-  // 此时目录里的东西属于别的构建目标,不删也不报错 —— 本钩子只管"多版本共存"这一件事,
-  // "该有的包必须存在"由发版脚本 scripts/release-desktop-local.mjs 自己严格断言。
-  // 豁免开关**不**改变这一条:它不产 nsis 的判断与签名无关。
+  // F-041(2026-11-12):目录里找不到本次应产出的包 = 没有产物。旧实现按"不产 nsis"放行,
+  // 于是 --no-bundle / --bundles app,或 --config 改了 version/productName 时都拿到假绿。
+  // 清理仍只发生在"当前包在场"这一支(不得因缺包去删别人的产物),但结论必须是失败。
   if (!keep.includes(exeName)) {
-    if (stale.length > 0) {
-      console.log(
-        `[artifact-single] 目录内无 ${exeName},按不产 nsis 处理,保留现有 ${stale.length} 项`,
+    if (skipArtifactCheck) {
+      console.info(
+        `[artifact-single] ⓘ 目录内无 ${exeName};已按 --no-artifact-check 跳过「没有产物」判据,` +
+          `保留现有 ${stale.length} 项(未删除任何文件)`,
       )
+      return 0
     }
-    return 0
+    console.error(
+      `[artifact-single] ❌ 没有产物:目录内找不到本次构建应产出的安装包 ${exeName}\n` +
+        `  目录 ${nsisDir} 现存: ${stale.join(', ') || '(空)'}\n` +
+        '  可能原因:本次构建未产出 NSIS(--no-bundle / --bundles app),或 --config 改了 version/productName\n' +
+        '  (期望名默认按 tauri.conf.json 推出,可用 --expect 显式指定)。「没有产物」不得记作通过;\n' +
+        '  确需跳过请显式加 --no-artifact-check。',
+    )
+    return 1
   }
 
   // 旧版本包/签名一律先清理 —— "多包共存"这一判据的执行体就是这段删除,

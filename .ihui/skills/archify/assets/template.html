@@ -1,0 +1,387 @@
+<!--
+  © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+  Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+-->
+<!doctype html>
+<html lang="en" data-theme="dark" data-preset="[VISUAL PRESET]">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- ARCHIFY:I18N_DATA -->
+  <title>[PROJECT NAME] Architecture Diagram</title>
+  <style>
+    /* ─────────────────────────────────────────────────────────────────────
+       主题变量:亮/暗两档同源。
+       其中 --*-stroke 9 枚是 renderer 生成 SVG 内部 :is([data-theme="dark"] …)
+       直接 `color-mix(… var(--backend-stroke) …)` 引用的契约名 —— 缺一个,
+       对应类型的节点/连线就退化成无色或纯黑,整图看起来「塌陷」。
+       ───────────────────────────────────────────────────────────────────── */
+    :root {
+      color-scheme: light dark;
+
+      --bg: #f6f8fb;
+      --surface: #ffffff;
+      --surface-2: #eef2f8;
+      --border: #d3dced;
+      --text: #16202e;
+      --text-dim: #5a6a80;
+      --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      --sans: -apple-system, 'Segoe UI', 'Microsoft YaHei', Roboto, sans-serif;
+
+      /* 语义色(节点/边分类)—— renderer 契约 */
+      --frontend-stroke: #6366f1;
+      --backend-stroke: #2563eb;
+      --database-stroke: #0f9d58;
+      --external-stroke: #64748b;
+      --cloud-stroke: #0891b2;
+      --security-stroke: #d97706;
+      --messagebus-stroke: #a855f7;
+      --lane-stroke: #c3cfdf;
+      --mask: #ffffff;
+
+      --card-shadow: 0 10px 30px rgba(15, 23, 42, .08);
+    }
+
+    :root[data-theme='dark'] {
+      color-scheme: dark;
+
+      --bg: #0e1116;
+      --surface: #151a21;
+      --surface-2: #1b222b;
+      --border: #2a323d;
+      --text: #e6edf3;
+      --text-dim: #8b949e;
+
+      --frontend-stroke: #a5a6f6;
+      --backend-stroke: #58a6ff;
+      --database-stroke: #3fb950;
+      --external-stroke: #8b949e;
+      --cloud-stroke: #56d4dd;
+      --security-stroke: #d29922;
+      --messagebus-stroke: #d2a8ff;
+      --lane-stroke: #2a323d;
+      --mask: #151a21;
+
+      --card-shadow: 0 12px 34px rgba(0, 0, 0, .45);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+
+    body {
+      padding: 24px;
+      background: var(--bg);
+      color: var(--text);
+      font: 14px/1.55 var(--sans);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .container {
+      max-width: 1500px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .header { display: flex; flex-direction: column; gap: 4px; }
+
+    .header h1 {
+      margin: 0;
+      font-size: 22px;
+      font-weight: 650;
+      letter-spacing: .01em;
+      color: var(--text);
+    }
+
+    .header .subtitle {
+      margin: 0;
+      color: var(--text-dim);
+      font-size: 13px;
+    }
+
+    .diagram-container {
+      position: relative;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: var(--card-shadow);
+    }
+
+    .diagram-stage {
+      width: 100%;
+      overflow-x: auto;
+      /* intrinsic-height:SVG 按 viewBox 比例自适应宽度撑高,不靠固定高度 */
+      line-height: 0;
+    }
+
+    .diagram-stage > svg {
+      display: block;
+      width: 100%;
+      height: auto;
+      max-width: 100%;
+      /* 画布过宽时给一个下限高度,避免窄屏压成一条线 */
+      min-height: 240px;
+      font-family: var(--sans);
+    }
+
+    /* ─────────────────────────────────────────────────────────────────────
+       SVG 语义类(renderer 契约)。
+       这批类由 renderer 直接挂在生成的 SVG 元素上(见 renderers/shared/utils.mjs、
+       legend.mjs、architecture/render-architecture.mjs),模板**必须**为它们提供
+       fill/stroke —— 否则文字退化成浏览器默认黑、网格 pattern 退化成实心块,
+       整张图会「看着有形状但读不出内容」。
+       ───────────────────────────────────────────────────────────────────── */
+
+    /* 文字层级 */
+    .diagram-stage .t-primary { fill: var(--text); }
+    .diagram-stage .t-muted { fill: var(--text-dim); }
+    .diagram-stage .t-edge-default { fill: var(--text-dim); }
+
+    /* 节点底色遮罩:先铺一层不透明底,再叠语义色描边 */
+    .diagram-stage .c-mask { fill: var(--surface); }
+
+    /* 节点类型描边(fill 由 SVG 内联 :is([data-theme=dark] …) 规则给) */
+    .diagram-stage .c-backend { stroke: var(--backend-stroke); }
+    .diagram-stage .c-database { stroke: var(--database-stroke); }
+    .diagram-stage .c-external { stroke: var(--external-stroke); }
+    .diagram-stage .c-frontend { stroke: var(--frontend-stroke); }
+    .diagram-stage .c-cloud { stroke: var(--cloud-stroke); }
+    .diagram-stage .c-security { stroke: var(--security-stroke); }
+    .diagram-stage .c-messagebus { stroke: var(--messagebus-stroke); }
+    .diagram-stage .c-lane { stroke: var(--lane-stroke); }
+    .diagram-stage .c-region { stroke: var(--lane-stroke); }
+    .diagram-stage .c-security-group { stroke: var(--security-stroke); }
+
+    /* 背景网格:必须给描边色,否则 pattern 会退化成黑色实块 */
+    .diagram-stage .c-grid { stroke: var(--lane-stroke); fill: none; }
+
+    /* 连线 */
+    .diagram-stage .m-default { fill: var(--text-dim); stroke: var(--text-dim); }
+    .diagram-stage .m-dashed { fill: var(--text-dim); stroke: var(--text-dim); stroke-dasharray: 4 3; }
+    .diagram-stage .m-emphasis { fill: var(--backend-stroke); stroke: var(--backend-stroke); }
+    .diagram-stage .m-security { fill: var(--security-stroke); stroke: var(--security-stroke); }
+    .diagram-stage .a-default { stroke: var(--text-dim); fill: none; }
+
+    /* 语义图标(semantic sigil):只作类型提示,不抢文字对比 */
+    .diagram-stage .semantic-sigil { opacity: .85; }
+    .diagram-stage .semantic-sigil.s-backend { fill: var(--backend-stroke); stroke: var(--backend-stroke); }
+    .diagram-stage .semantic-sigil.s-database { fill: var(--database-stroke); stroke: var(--database-stroke); }
+    .diagram-stage .semantic-sigil.s-external { fill: var(--external-stroke); stroke: var(--external-stroke); }
+    .diagram-stage .semantic-sigil.s-frontend { fill: var(--frontend-stroke); stroke: var(--frontend-stroke); }
+    .diagram-stage .semantic-sigil.s-cloud { fill: var(--cloud-stroke); stroke: var(--cloud-stroke); }
+    .diagram-stage .semantic-sigil.s-security { fill: var(--security-stroke); stroke: var(--security-stroke); }
+    .diagram-stage .semantic-sigil.s-messagebus { fill: var(--messagebus-stroke); stroke: var(--messagebus-stroke); }
+
+    /* 连线标签:压在连线上,给底衬保证可读 */
+    .diagram-stage [data-edge-from] text,
+    .diagram-stage text[data-edge-label] {
+      fill: var(--text);
+      paint-order: stroke;
+      stroke: var(--surface);
+      stroke-width: 3;
+      stroke-linejoin: round;
+    }
+
+    /* ── 图内交互:只加状态,不改布局(renderer 已算好固定几何) ──────────── */
+    .diagram-stage [data-node-id] { cursor: pointer; }
+    .diagram-stage [data-node-id]:focus { outline: 2px solid var(--backend-stroke); outline-offset: 2px; }
+    .diagram-stage [data-node-id][data-dimmed='true'] { opacity: .26; }
+    .diagram-stage [data-edge-from][data-dimmed='true'] { opacity: .26; }
+    .diagram-stage [data-node-id],
+    .diagram-stage [data-edge-from] { transition: opacity .12s ease; }
+
+    .diagram-nav {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--text-dim);
+      line-height: 1.4;
+    }
+
+    .diagram-nav button {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 4px 10px;
+      font: inherit;
+      cursor: pointer;
+    }
+
+    .diagram-nav button:hover { border-color: var(--backend-stroke); }
+    .diagram-nav button[aria-pressed='true'] {
+      border-color: var(--backend-stroke);
+      color: var(--backend-stroke);
+    }
+
+    /* ── 结论卡片 ─────────────────────────────────────────────────────── */
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 14px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 16px;
+      box-shadow: var(--card-shadow);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 650;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+
+    .card-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex: none;
+      background: var(--backend-stroke);
+    }
+
+    .card-dot.cyan { background: var(--cloud-stroke); }
+    .card-dot.emerald { background: var(--database-stroke); }
+    .card-dot.violet { background: var(--messagebus-stroke); }
+    .card-dot.amber { background: var(--security-stroke); }
+    .card-dot.rose { background: #f43f5e; }
+    .card-dot.orange { background: #f97316; }
+    .card-dot.slate { background: var(--external-stroke); }
+
+    .card ul { margin: 0; padding-left: 18px; color: var(--text-dim); font-size: 12.5px; }
+    .card li + li { margin-top: 4px; }
+    .card code { font-family: var(--mono); font-size: 12px; color: var(--text); }
+
+    .reader-rail { display: block; }
+
+    @media (max-width: 900px) {
+      body { padding: 14px; }
+      .diagram-container { padding: 12px; }
+      .diagram-stage > svg { min-height: 180px; }
+    }
+
+    @media print {
+      body { background: #fff; color: #000; }
+      .diagram-nav { display: none; }
+      .card { box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <h1>[PROJECT NAME] Architecture</h1>
+      <p class="subtitle">[Subtitle description]</p>
+    </header>
+
+    <section class="diagram-container" aria-label="architecture diagram">
+      <div class="diagram-stage">
+        <!-- ARCHIFY:SVG_SLOT_START -->
+        <!-- ARCHIFY:SVG_SLOT_END -->
+      </div>
+      <nav class="diagram-nav" aria-label="diagram navigation"></nav>
+    </section>
+
+    <section class="reader-rail" aria-label="conclusions">
+      <div class="cards">
+    <!-- ARCHIFY:CARDS_SLOT_START -->
+    <!-- ARCHIFY:CARDS_SLOT_END -->
+      </div>
+    </section>
+  </div>
+    <!-- ARCHIFY:SOURCE_EVIDENCE_DATA -->
+  <script>
+    // Viewer 运行时:只读 DOM 并加交互状态,不重排版面。
+    // 版面由 renderer 在服务端按固定几何算好;运行时改布局会与 visual-check 的
+    // 逐段量测契约(body/header/diagram/svg/cards 叠加 == scrollHeight)冲突。
+    (function () {
+      var stage = document.querySelector('.diagram-stage');
+      var nav = document.querySelector('.diagram-nav');
+      if (!stage) return;
+
+      var nodes = [].slice.call(stage.querySelectorAll('[data-node-id]'));
+      var edges = [].slice.call(stage.querySelectorAll('[data-edge-from]'));
+
+      function clearFocus() {
+        nodes.forEach(function (n) { n.removeAttribute('data-active'); n.removeAttribute('data-dimmed'); });
+        edges.forEach(function (e) { e.removeAttribute('data-dimmed'); });
+      }
+
+      function focusNode(id) {
+        clearFocus();
+        if (!id) return;
+        var related = {};
+        related[id] = true;
+        edges.forEach(function (e) {
+          var from = e.getAttribute('data-edge-from');
+          var to = e.getAttribute('data-edge-to');
+          if (from === id || to === id) {
+            if (from) related[from] = true;
+            if (to) related[to] = true;
+          } else {
+            e.setAttribute('data-dimmed', 'true');
+          }
+        });
+        nodes.forEach(function (n) {
+          var nid = n.getAttribute('data-node-id');
+          if (nid === id) n.setAttribute('data-active', 'true');
+          else if (!related[nid]) n.setAttribute('data-dimmed', 'true');
+        });
+      }
+
+      nodes.forEach(function (n) {
+        n.setAttribute('tabindex', '0');
+        n.addEventListener('mouseenter', function () { focusNode(n.getAttribute('data-node-id')); });
+        n.addEventListener('focus', function () { focusNode(n.getAttribute('data-node-id')); });
+        n.addEventListener('mouseleave', clearFocus);
+        n.addEventListener('blur', clearFocus);
+      });
+
+      if (!nav || !nodes.length) return;
+
+      function setPressed(activeId) {
+        [].slice.call(nav.querySelectorAll('button[data-node]')).forEach(function (b) {
+          b.setAttribute('aria-pressed', String(b.getAttribute('data-node') === activeId));
+        });
+        var all = nav.querySelector('button[data-node=""]');
+        if (all) all.setAttribute('aria-pressed', String(activeId === ''));
+      }
+
+      var allBtn = document.createElement('button');
+      allBtn.type = 'button';
+      allBtn.setAttribute('data-node', '');
+      allBtn.textContent = '全部';
+      allBtn.setAttribute('aria-pressed', 'true');
+      allBtn.addEventListener('click', function () { clearFocus(); setPressed(''); });
+      nav.appendChild(allBtn);
+
+      nodes.forEach(function (n) {
+        var id = n.getAttribute('data-node-id');
+        var labelEl = n.querySelector('text');
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.setAttribute('data-node', id);
+        b.textContent = (labelEl && labelEl.textContent.trim()) || id;
+        b.setAttribute('aria-pressed', 'false');
+        b.addEventListener('click', function () { focusNode(id); setPressed(id); });
+        nav.appendChild(b);
+      });
+    })();
+  </script>
+</body>
+</html>

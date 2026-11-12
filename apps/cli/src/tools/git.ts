@@ -284,7 +284,12 @@ const git_commit: Tool = {
     const r = execGit(cmdArgs, ctx.workspacePath);
     if (r.exitCode === 0) {
       const shaR = execGit(['rev-parse', 'HEAD'], ctx.workspacePath);
-      const names = execGit(['diff-tree', '--no-commit-id', '--name-only', '-r', 'HEAD'], ctx.workspacePath);
+      // F-021:diff-tree 默认按 core.quotepath=true 把中文/特殊字符路径转义成 "\346\212\245…" 八进制序列,
+      // 回填的路径与真实文件对不上。只加 -c core.quotepath=false,不换 -z(分隔符仍是 \n,下面的 split 不用动)。
+      const names = execGit(
+        ['-c', 'core.quotepath=false', 'diff-tree', '--no-commit-id', '--name-only', '-r', 'HEAD'],
+        ctx.workspacePath,
+      );
       if (shaR.exitCode === 0 && names.exitCode === 0) {
         const files = names.stdout.split('\n').map((line) => line.trim()).filter((line) => line.length > 0);
         await rememberCommittedFiles(shaR.stdout.trim(), files);
