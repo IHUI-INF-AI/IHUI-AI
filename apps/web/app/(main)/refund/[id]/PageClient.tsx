@@ -95,12 +95,16 @@ export default function RefundDetailPage() {
     queryKey: ['refund', params.id],
     queryFn: async (): Promise<RefundFullData> => {
       // W-03:仅详情 404 才允许列表降级;5xx/401/网络错误原样抛出,不再静默兜底
+      // 详情成功时必须整份透传,order / auditRecords 不能在此被丢成空值
+      const full: { data: RefundFullData | null } = { data: null }
       const loaded = await loadRefundDetail<RefundDetail>({
         id: params.id,
         notFoundMessage: t('notFound'),
         detail: async (id) => {
           const r = await fetchApi<RefundFullData>(`/api/refunds/${id}`)
-          return r.success ? { ok: true, data: r.data } : { ok: false, status: r.status, error: r.error }
+          if (!r.success) return { ok: false, status: r.status, error: r.error }
+          full.data = r.data
+          return { ok: true, data: r.data }
         },
         list: async (page) => {
           const r = await fetchApi<RefundListData>(
@@ -113,6 +117,8 @@ export default function RefundDetailPage() {
           }
         },
       })
+      // 详情成功:原样返回(含订单与审核记录);只有 404 降级路径才只剩退款主体
+      if (full.data) return full.data
       return {
         refund: loaded.refund,
         order: null,

@@ -298,13 +298,20 @@ export interface PoolAccountRef {
   uid: string
 }
 
+/** pool-state 推送结果;peerMissing = 对端确定没有该账号(无需同步,不是可重试失败) */
+export interface PushPoolStateResult {
+  ok: boolean
+  error: string | null
+  peerMissing?: boolean
+}
+
 /** 推送单账号状态到签到侧(POST /internal/checkin/pool-state) */
 export async function pushPoolState(
   platform: CheckinPlatform,
   target: PoolAccountRef,
   state: PoolAccountState,
   fetchImpl: typeof fetch = fetch,
-): Promise<{ ok: boolean; error: string | null }> {
+): Promise<PushPoolStateResult> {
   const secret = config.AI_CALLBACK_SECRET
   if (!secret) return { ok: false, error: 'AI_CALLBACK_SECRET 未配置,跳过签到状态同步' }
   const authHeaders = await buildInternalCallHeaders({
@@ -343,8 +350,23 @@ export async function pushPoolState(
       results?: Array<{ found?: boolean; accountId?: string | null; reason?: string }>
     }
     const first = body.results?.[0]
-    if (!first || first.found !== true) {
-      return { ok: false, error: `pool-state 未命中签到账号: ${first?.reason ?? '空响应'}` }
+    if (!first) {
+      // 空响应是契约违背(不是「对端无此账号」),保持可重试语义
+      return { ok: false, error: 'pool-state 空响应' }
+    }
+    if (first.found !== true) {
+      // 对端契约(checkin_store.apply_pool_state):账号不存在 ⇒ {found:false, accountId:null},
+      // 不带 reason;只有端点兜底 except 分支才带 reason。据此区分「对端无此账号 ⇒ 无需同步」
+      // 与真实失败 —— found:false 一律判可重试会让从未同步过的号永久重推(SDB-45)。
+      const reason = typeof first.reason === 'string' ? first.reason.trim() : ''
+      if (!reason) {
+        return {
+          ok: false,
+          error: 'pool-state 未命中签到账号: 对端无此账号(无需同步)',
+          peerMissing: true,
+        }
+      }
+      return { ok: false, error: `pool-state 未命中签到账号: ${reason.slice(0, 200)}` }
     }
     return { ok: true, error: null }
   } catch (e) {
@@ -663,6 +685,11 @@ export async function retryPendingCheckinSyncs(
         fetchImpl,
       )
       if (r.ok) {
+        await clearCheckinSyncPending([row.id])
+        out.cleared++
+      } else if (r.peerMissing) {
+        // 对端根本没有该账号(从未同步到签到侧)⇒ 这次状态同步本身无对象可落:
+        // 清 pending 即终态,不累加 attempts、不触发升级告警,避免永久重推(SDB-45)。
         await clearCheckinSyncPending([row.id])
         out.cleared++
       } else {
