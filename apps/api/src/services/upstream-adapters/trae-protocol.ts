@@ -605,6 +605,16 @@ export function buildExchangeTokenBody(refreshToken: string): Record<string, str
  */
 export const TRAE_EXCHANGE_TOKEN_PROOF_URL = 'https://api.trae.cn/trae/api/v3/oauth/ExchangeToken'
 
+/**
+ * 登录态校验端点(客户端 `checkLogin` 同款;2026-11-12 立)。
+ *
+ * 客户端每次启动都会打它:报文 `{IDEVersion, ReqSource, GetAIPayHost}`,token 走
+ * `x-cloudide-token` 头,200 且 `Result.IsLogin===true` = 现有 token 可用 ⇒ 客户端**不会**
+ * 再走 rt 换票。切号预检据此判「写回后客户端能否登进去」比"拿 rt 换票"更贴客户端真实路径:
+ * 实测有号 rt 换不出票(20403/10101)而本端点仍回 `IsLogin=true`,token 尚余 13 天。
+ */
+export const TRAE_CHECK_LOGIN_URL = 'https://api.trae.cn/cloudide/api/v3/trae/CheckLogin'
+
 /** 签名 canonical 第二行:必须与真实请求路径逐字一致(客户端同款) */
 export const TRAE_EXCHANGE_TOKEN_PROOF_PATH = '/trae/api/v3/oauth/ExchangeToken'
 
