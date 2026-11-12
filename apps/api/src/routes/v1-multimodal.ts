@@ -2072,7 +2072,16 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
       if (format) body.ResultFormat = format
       // model 暂透传(腾讯混元 3D 仅一种模型)
       body.model = model
-      return forwardInternal(
+      // F-276:3D 生成此前零计费(仅次数窗口 requireApiKeyQuota,无 recordCall/退款),
+      // 平台白担腾讯混元 3D 调用费。口径与本文件 /videos/generations 一致:
+      // - 内部转发失败(内部 5xx/网络异常)时 mapper 不执行 ⇒ 不产生计费流水,失败零费用;
+      // - 提交成功即 recordCall 按次扣费(乐观计费防漏损,metadata.task_id 挂任务号对账);
+      // - 提交响应判定 failed ⇒ 立即 refundTaskCall 全额退(先扣后退、顺序 await,无时序竞态)。
+      //   refundTaskCall 仅认 callType image/video,3D 资产生成按次归入 image 档
+      //   (模型无定价行时 calculateCost 回退 0,不改变现价行为)。
+      let submittedTaskId = ''
+      let submitStatus: 'queued' | 'processing' | 'completed' | 'failed' | 'cancelled' | 'pending' = 'pending'
+      const replyResult = await forwardInternal(
         reply,
         '/api/tencent/hunyuan3d/submit',
         jsonInit(body),
@@ -2080,18 +2089,44 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
         (data) => {
           const d = asObj(data)
           const inner = asObj(d.data ?? data)
+          const rawStatus = mapJobStatus(inner.Status ?? d.status)
+          submittedTaskId =
+            (typeof inner.JobId === 'string' && inner.JobId) ||
+            (typeof d.taskId === 'string' && d.taskId) ||
+            ''
+          submitStatus = rawStatus
           const result: V1ThreeDGenerationsResponse = {
-            taskId:
-              (typeof inner.JobId === 'string' && inner.JobId) ||
-              (typeof d.taskId === 'string' && d.taskId) ||
-              '',
-            status:
-              (mapJobStatus(inner.Status ?? d.status) as 'pending' | 'processing' | 'completed') ||
-              'pending',
+            taskId: submittedTaskId,
+            // 对外联合类型沿用 @ihui/types 定义(pending/processing/completed),不改契约
+            status: (rawStatus as V1ThreeDGenerationsResponse['status']) || 'pending',
           }
           return result
         },
       )
+      if (submittedTaskId) {
+        const apiKey = apiKeyOf(request)
+        if (apiKey) {
+          await recordCall({
+            apiKeyId: apiKey.id,
+            userId: apiKey.userId,
+            model,
+            prompt: input,
+            response: null,
+            promptTokens: 0,
+            completionTokens: 0,
+            totalTokens: 0,
+            latencyMs: 0,
+            status: 'success',
+            callType: 'image',
+            billingUnits: 1,
+            metadata: { endpoint: 'v1_3d_generations', task_id: submittedTaskId },
+          })
+          if (submitStatus === 'failed') {
+            await refundTaskCall(submittedTaskId)
+          }
+        }
+      }
+      return replyResult
     },
   )
 
