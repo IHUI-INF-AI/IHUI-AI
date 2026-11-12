@@ -93,7 +93,7 @@ export interface PermissionOptionInput {
  * 安全默认一律视为拒绝)。
  */
 /** F-067:审批请求超时 —— SDK 侧 pending 只在收到响应/连接关闭时结算,编辑器不回就永久挂起 */
-const PERMISSION_TIMEOUT_MS = 60_000;
+export const PERMISSION_TIMEOUT_MS = 60_000;
 
 /** F-067:给 promise 套超时;到点返回 null(调用方按"编辑器不支持/未响应"降级为拒绝)。 */
 function withPermissionTimeout<T>(p: Promise<T>, ms: number): Promise<T | null> {
@@ -1040,7 +1040,7 @@ export class IhuiAcpAgent {
     // 生成/落盘,fetch 与定时器还钉着进程,关不干净。
     const state = this.sessions.get(params.sessionId);
     state?.pendingAbort?.abort();
-    state && (state.pendingAbort = null);
+    if (state) state.pendingAbort = null;
     this.sessions.delete(params.sessionId);
   }
 

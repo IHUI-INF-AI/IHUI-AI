@@ -19,7 +19,7 @@ import * as fs from 'node:fs'
 import { createHash } from 'node:crypto'
 import { SkillPackageError, type SkillPackageCheck } from './errors.js'
 import { CHECKSUMS_FILE, MANIFEST_FILE, SIGNATURE_FILE, parseChecksums, parseSignature, verifyChecksumsSignature } from './canonical.js'
-import { readTar, type TarReadEntry } from './tar.js'
+import { readTar, SKILL_ARCHIVE_MAX_BYTES, type TarReadEntry } from './tar.js'
 import { assertManifestGate, createStructuralManifestGate, type ManifestGate, type ManifestIdentity } from './manifest-gate.js'
 import { loadTrustedKeyStore, type TrustedKeyStore } from './trust-store.js'
 
@@ -294,6 +294,21 @@ export function verifySkillPackage(
 ): SkillPackageVerification {
   let buffer: Buffer
   try {
+    // F-072:先按**文件本体大小**拒,再 readFileSync —— 配额不能等到"整包已入内存"才生效。
+    // 判据与解析期展开配额同源(见 tar.ts 的 SKILL_ARCHIVE_MAX_BYTES)。
+    const size = fs.statSync(packagePath).size
+    if (size > SKILL_ARCHIVE_MAX_BYTES) {
+      return fail(
+        [],
+        new SkillPackageError(
+          'SKILL_PKG_ARCHIVE_QUOTA_EXCEEDED',
+          `归档文件本体 ${size} 字节超过读入上限 ${SKILL_ARCHIVE_MAX_BYTES} 字节(未读入内存)`,
+          { path: packagePath, size, maxArchiveBytes: SKILL_ARCHIVE_MAX_BYTES },
+        ),
+        1,
+        'archive-size',
+      )
+    }
     buffer = fs.readFileSync(packagePath)
   } catch (err) {
     return fail(
