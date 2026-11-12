@@ -108,7 +108,6 @@ test('②b 取名单那一趟必须带 --mask(双击出来的是会被截图的�
 })
 
 test('②c 余额行四态口径:已查到/未支持/凭据失效/未判定,绝不给假数', () => {
-  const { fmtQuotaLine } = oneclick
   assert.match(
     fmtQuotaLine({ ok: true, remaining: 1200, total: 1500, unit: '积分' }),
     /额度✓.*剩余=1200.*总量=1500.*单位=积分/,
@@ -176,5 +175,96 @@ test('③ 列池管道:污染行照取、非零 exit 落未判定、JSON 解不�
   } finally {
     rmScratch(dir)
   }
+})
+
+// 真仓 --counts 的 10 行(2026-11-13 现读),故意保持号池出口给的原字母序做入参
+function realCounts() {
+  return [
+    { providerCode: 'codearts', total: 3, enabled: 3 },
+    { providerCode: 'doubao', total: 6, enabled: 6 },
+    { providerCode: 'loomy', total: 4, enabled: 4 },
+    { providerCode: 'minimax', total: 2, enabled: 2 },
+    { providerCode: 'opencode', total: 1, enabled: 1 },
+    { providerCode: 'qoder', total: 21, enabled: 21 },
+    { providerCode: 'raccoon', total: 4, enabled: 4 },
+    { providerCode: 'trae', total: 14, enabled: 14 },
+    { providerCode: 'workbuddy', total: 7, enabled: 7 },
+    { providerCode: 'zcode', total: 4, enabled: 4 },
+  ]
+}
+
+test('④ 首屏平台顺序:机主钦定前五 + 其余字母序,不裁行不改名不动入参', () => {
+  const { orderPlatformRows, PINNED_PLATFORM_ORDER } = oneclick
+  assert.deepEqual(
+    [...PINNED_PLATFORM_ORDER],
+    ['trae', 'workbuddy', 'raccoon', 'loomy', 'qoder'],
+    '前五顺序是机主钦定,不许顺手按字母序/枚数改',
+  )
+  const counts = realCounts()
+  const ordered = orderPlatformRows(counts)
+  assert.deepEqual(ordered.map((r) => r.providerCode), [
+    'trae',
+    'workbuddy',
+    'raccoon',
+    'loomy',
+    'qoder',
+    'codearts',
+    'doubao',
+    'minimax',
+    'opencode',
+    'zcode',
+  ])
+  // 排序 ≠ 裁剪:行数、唯一枚数、枚数投影三者一个都不能少
+  assert.equal(ordered.length, counts.length)
+  assert.equal(new Set(ordered.map((r) => r.providerCode)).size, counts.length)
+  assert.equal(ordered.find((r) => r.providerCode === 'qoder').total, 21)
+  assert.equal(counts[0].providerCode, 'codearts', '入参不得被就地改序(出口面要原字母序)')
+  // 序号就是双击时打进去的数字:3 号必须落在小浣熊身上
+  assert.equal(pickByOrdinal('3', ordered.length), 2)
+  assert.equal(ordered[2].providerCode, 'raccoon')
+  assert.match(fmtCountRow(ordered[0], 0), /\[1\] trae  池内 14 行/)
+})
+
+test('④b 未登记/新接入平台按字母序沉底,绝不因没背过就藏掉一行', () => {
+  const { orderPlatformRows, PINNED_PLATFORM_ORDER } = oneclick
+  const counts = realCounts()
+  const ordered = orderPlatformRows([
+    ...counts,
+    { providerCode: 'zzz-new', total: 1, enabled: 1 },
+    { providerCode: 'aaa-new', total: 1, enabled: 1 },
+  ])
+  assert.equal(ordered.length, counts.length + 2)
+  assert.deepEqual(
+    ordered.slice(0, PINNED_PLATFORM_ORDER.length).map((r) => r.providerCode),
+    [...PINNED_PLATFORM_ORDER],
+    '新平台不许挤进钦定前五',
+  )
+  assert.deepEqual(ordered.slice(PINNED_PLATFORM_ORDER.length).map((r) => r.providerCode), [
+    'aaa-new',
+    'codearts',
+    'doubao',
+    'minimax',
+    'opencode',
+    'zcode',
+    'zzz-new',
+  ])
+  // 空池不炸、单行不炸
+  assert.deepEqual(orderPlatformRows([]), [])
+  assert.equal(orderPlatformRows([{ providerCode: 'qoder', total: 1, enabled: 1 }]).length, 1)
+})
+
+test('④c 接线:main 真的把首屏计数行过了一遍排序(判据不许被注释满足)', () => {
+  const entry = fileURLToPath(new URL('../client-oneclick-switch.mjs', import.meta.url))
+  const raw = fs.readFileSync(entry, 'utf8').replace(/[⁠​‌‍]*/g, '')
+  // 先剥注释再认调用:块注释 + 整行 // 注释都不算数
+  const code = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
+  assert.match(code, /const rows = orderPlatformRows\(counted\)/)
+  // 还要保证 --provider 取的是排完那一行的值,不是按下标反查旧字母序数组
+  assert.match(code, /const platform = rows\[p\.idx\]\.providerCode/)
+  // 变异自证:把真实调用整行注释掉,同一套剥注释判据必须转红
+  const mutated = code
+    .replace('const rows = orderPlatformRows(counted)', '// const rows = orderPlatformRows(counted)')
+    .replace(/^\s*\/\/.*$/gm, '')
+  assert.doesNotMatch(mutated, /const rows = orderPlatformRows\(counted\)/)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

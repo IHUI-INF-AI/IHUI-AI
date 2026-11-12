@@ -25,9 +25,9 @@ IHUI-AI 是积极开发中的开源项目,仅对最新主版本提供安全更�
 
 **请勿在 GitHub Issue / Discussions / 公开渠道披露安全漏洞。**
 
-- **首选邮箱**:`security@aizhs.top`
+- **首选邮箱**:`lizong@aizhs.top`
 - **GitHub 私密报告**:使用 GitHub 的 [Security Advisory](https://github.com/IHUI-INF-AI/IHUI-AI/security/advisories/new) 功能(Private vulnerability reporting)
-- **PGP 加密**(可选,高敏感漏洞):请求公钥请发邮件至 `security@aizhs.top`,主题含 `[PGP-KEY-REQUEST]`
+- **PGP 加密**(可选,高敏感漏洞):请求公钥请发邮件至 `lizong@aizhs.top`,主题含 `[PGP-KEY-REQUEST]`
 
 ### 报告应包含
 
@@ -47,7 +47,7 @@ IHUI-AI 是积极开发中的开源项目,仅对最新主版本提供安全更�
 | 修复发布 | Critical 7 天内 / High 14 天 / Medium 30 天 / Low 下个 release | 在私有分支修复,通过 Release 部署补丁                    |
 | 公开披露 | 修复发布后 90 天(或与报告者协商的协调披露窗口)                 | 发布 Security Advisory + CVE 申请                       |
 
-如未在 SLA 内收到回复,请通过 `community@aizhs.top` 升级提醒。
+如未在 SLA 内收到回复,请通过 `lizong@aizhs.top` 升级提醒。
 
 ### 报告者致谢
 
@@ -118,7 +118,7 @@ IHUI-AI 在多层级实施了安全防护:
 ### 处置渠道(沿用本文件既有渠道,本节不新增渠道)
 
 - 凭据泄露涉及平台侧缺陷(例如脱敏失效、响应回显了他人的 secret):按[报告漏洞](#报告漏洞reporting-a-vulnerability)
-  走 `security@aizhs.top` 或 GitHub 私密报告(`SECURITY.md:28-29`),SLA 同上表。
+  走 `lizong@aizhs.top` 或 GitHub 私密报告(`SECURITY.md:28-29`),SLA 同上表。
 - 仅你自己的密钥外泄、只需吊销动作:用下面任一自助端点即可,**无需**发信给维护者。
 
 ### 第一步:自助吊销 / 轮换 / 排查(已核对存在的端点)
@@ -127,31 +127,31 @@ IHUI-AI 在多层级实施了安全防护:
 (`apps/api/src/routes/index.ts:736`),全部端点需登录
 (`apps/api/src/routes/developer.ts:98` 的 `requireAuth` preHandler):
 
-| 方法     | 路径                                     | 作用                                             | 落点                                             |
-| -------- | ---------------------------------------- | ------------------------------------------------ | ------------------------------------------------ |
-| `GET`    | `/api/developer/api-keys`                | 列出当前用户全部密钥(排查面:先看有几把在外流通) | `apps/api/src/routes/developer.ts:101`            |
-| `POST`   | `/api/developer/api-keys`                | **创建**新密钥;`secret` 明文仅此一次返回         | `apps/api/src/routes/developer.ts:108`(返回体 `:122`) |
-| `PATCH`  | `/api/developer/api-keys/:id`            | **更新**权限/配额/有效期/状态                    | `apps/api/src/routes/developer.ts:138`            |
-| `DELETE` | `/api/developer/api-keys/:id`            | 删除密钥                                         | `apps/api/src/routes/developer.ts:126`            |
-| `GET`    | `/api/developer/api-keys/:id/usage`      | **用量查询**:调用次数 / 最近使用时间 / 热点端点(判断泄露后被人用了多少) | `apps/api/src/routes/developer.ts:158` |
+| 方法     | 路径                                | 作用                                                                    | 落点                                                  |
+| -------- | ----------------------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------- |
+| `GET`    | `/api/developer/api-keys`           | 列出当前用户全部密钥(排查面:先看有几把在外流通)                         | `apps/api/src/routes/developer.ts:101`                |
+| `POST`   | `/api/developer/api-keys`           | **创建**新密钥;`secret` 明文仅此一次返回                                | `apps/api/src/routes/developer.ts:108`(返回体 `:122`) |
+| `PATCH`  | `/api/developer/api-keys/:id`       | **更新**权限/配额/有效期/状态                                           | `apps/api/src/routes/developer.ts:138`                |
+| `DELETE` | `/api/developer/api-keys/:id`       | 删除密钥                                                                | `apps/api/src/routes/developer.ts:126`                |
+| `GET`    | `/api/developer/api-keys/:id/usage` | **用量查询**:调用次数 / 最近使用时间 / 热点端点(判断泄露后被人用了多少) | `apps/api/src/routes/developer.ts:158`                |
 
 `apps/api/src/routes/developer/` —— 同前缀 `/api/developer`
 (`index.ts:1189` 分组、`index.ts:1249` Webhook),均 `requireAuth`
 (`developer/api-key-groups.ts:95`;`developer/webhooks.ts:189`):
 
-| 方法     | 路径                                                  | 作用                       | 落点                                        |
-| -------- | ----------------------------------------------------- | -------------------------- | ------------------------------------------- |
-| `GET`    | `/api/developer/api-key-groups`                       | 列出 Key 分组(共享额度池) | `developer/api-key-groups.ts:98`             |
-| `POST`   | `/api/developer/api-key-groups`                       | 创建分组                   | `developer/api-key-groups.ts:118`            |
-| `PATCH`  | `/api/developer/api-key-groups/:id`                   | 更新分组                   | `developer/api-key-groups.ts:231`            |
-| `DELETE` | `/api/developer/api-key-groups/:id`                   | 删除分组                   | `developer/api-key-groups.ts:284`            |
-| `GET`    | `/api/developer/api-key-groups/:id/members`           | 组内成员与子 Key 排行      | `developer/api-key-groups.ts:308`            |
-| `POST`   | `/api/developer/api-key-groups/:id/invite`            | 邀请成员                   | `developer/api-key-groups.ts:336`            |
-| `GET`    | `/api/developer/webhooks/subscriptions`               | 列出 Webhook 订阅          | `developer/webhooks.ts:192`                  |
-| `POST`   | `/api/developer/webhooks/subscriptions`               | 新建订阅(签名密钥在此产生) | `developer/webhooks.ts:203`                  |
-| `PATCH`  | `/api/developer/webhooks/subscriptions/:id`           | 更新订阅                   | `developer/webhooks.ts:226`                  |
-| `DELETE` | `/api/developer/webhooks/subscriptions/:id`           | 删除订阅                   | `developer/webhooks.ts:257`                  |
-| `GET`    | `/api/developer/webhooks/subscriptions/:id/logs`      | 投递日志(判断回调侧泄露) | `developer/webhooks.ts:275`                  |
+| 方法     | 路径                                             | 作用                       | 落点                              |
+| -------- | ------------------------------------------------ | -------------------------- | --------------------------------- |
+| `GET`    | `/api/developer/api-key-groups`                  | 列出 Key 分组(共享额度池)  | `developer/api-key-groups.ts:98`  |
+| `POST`   | `/api/developer/api-key-groups`                  | 创建分组                   | `developer/api-key-groups.ts:118` |
+| `PATCH`  | `/api/developer/api-key-groups/:id`              | 更新分组                   | `developer/api-key-groups.ts:231` |
+| `DELETE` | `/api/developer/api-key-groups/:id`              | 删除分组                   | `developer/api-key-groups.ts:284` |
+| `GET`    | `/api/developer/api-key-groups/:id/members`      | 组内成员与子 Key 排行      | `developer/api-key-groups.ts:308` |
+| `POST`   | `/api/developer/api-key-groups/:id/invite`       | 邀请成员                   | `developer/api-key-groups.ts:336` |
+| `GET`    | `/api/developer/webhooks/subscriptions`          | 列出 Webhook 订阅          | `developer/webhooks.ts:192`       |
+| `POST`   | `/api/developer/webhooks/subscriptions`          | 新建订阅(签名密钥在此产生) | `developer/webhooks.ts:203`       |
+| `PATCH`  | `/api/developer/webhooks/subscriptions/:id`      | 更新订阅                   | `developer/webhooks.ts:226`       |
+| `DELETE` | `/api/developer/webhooks/subscriptions/:id`      | 删除订阅                   | `developer/webhooks.ts:257`       |
+| `GET`    | `/api/developer/webhooks/subscriptions/:id/logs` | 投递日志(判断回调侧泄露)   | `developer/webhooks.ts:275`       |
 
 **一处必须说明的事实**:本小节标题里的 **rotate(轮换)与吊销(revoke)在
 `developer.ts` 和 `developer/` 下并不存在对应端点** —— 这两个文件里最接近的只有
@@ -159,13 +159,13 @@ IHUI-AI 在多层级实施了安全防护:
 `DELETE`(硬删)。真正的轮换/吊销 HTTP 端点在**中转站用户侧路由文件**里,已核对如下
 (注册前缀 `/api`,`index.ts:1154`):
 
-| 方法   | 路径                                     | 作用                                                     | 落点                                                  |
-| ------ | ---------------------------------------- | -------------------------------------------------------- | ----------------------------------------------------- |
-| `POST` | `/api/developer/relay/keys/:id/reset`    | **轮换** secret(`rotateSecret`),新 secret 仅返回一次   | `apps/api/src/routes/developer-relay.ts:252`(服务调用 `:258`) |
-| `POST` | `/api/developer/relay/keys/:id/revoke`   | **吊销**(`revokeKey`),单向迁移到 `status='revoked'`,幂等 | `apps/api/src/routes/developer-relay.ts:273`(服务调用 `:279`) |
-| `GET`  | `/api/developer/relay/keys`              | 列出中转站 Key(含余额)                                 | `apps/api/src/routes/developer-relay.ts:150`           |
-| `GET`  | `/api/developer/relay/usage`             | **用量查询**(聚合)                                     | `apps/api/src/routes/developer-relay.ts:289`           |
-| `GET`  | `/api/developer/relay/logs`              | 调用日志明细                                             | `apps/api/src/routes/developer-relay.ts:382`           |
+| 方法   | 路径                                   | 作用                                                     | 落点                                                          |
+| ------ | -------------------------------------- | -------------------------------------------------------- | ------------------------------------------------------------- |
+| `POST` | `/api/developer/relay/keys/:id/reset`  | **轮换** secret(`rotateSecret`),新 secret 仅返回一次     | `apps/api/src/routes/developer-relay.ts:252`(服务调用 `:258`) |
+| `POST` | `/api/developer/relay/keys/:id/revoke` | **吊销**(`revokeKey`),单向迁移到 `status='revoked'`,幂等 | `apps/api/src/routes/developer-relay.ts:273`(服务调用 `:279`) |
+| `GET`  | `/api/developer/relay/keys`            | 列出中转站 Key(含余额)                                   | `apps/api/src/routes/developer-relay.ts:150`                  |
+| `GET`  | `/api/developer/relay/usage`           | **用量查询**(聚合)                                       | `apps/api/src/routes/developer-relay.ts:289`                  |
+| `GET`  | `/api/developer/relay/logs`            | 调用日志明细                                             | `apps/api/src/routes/developer-relay.ts:382`                  |
 
 兼容路由另有一处:`POST /api/developer/keys/:id/reset`
 (`apps/api/src/routes/other/developer-routes.ts:62`,经 `other/index.ts:60` +
@@ -219,7 +219,7 @@ IHUI-AI 在多层级实施了安全防护:
   (`apps/api/src/services/audit-log-service.ts:452-454,491`),对外无读回接口。
 - **不存在**凭据泄露的专门 SLA;`SECURITY.md:41-48` 的时限只针对漏洞报告。
 - 自助吊销依赖登录态。若泄露方已同时掌握你的账号口令,请按漏洞报告走
-  `security@aizhs.top`,并要求管理员侧处置。
+  `lizong@aizhs.top`,并要求管理员侧处置。
 
 ---
 
@@ -228,7 +228,7 @@ IHUI-AI 在多层级实施了安全防护:
 - **Critical / High**:发布专门的 Patch Release(如 `v0.2.1`),在 GitHub Release 描述中附 Security Advisory 链接
 - **Medium / Low**:合入下一个常规 Release
 - **CVE 申请**:Critical 漏洞修复后,我们会通过 GitHub Security Advisory 申请 CVE 编号
-- **公告渠道**:GitHub Release Notes + Discussions 公告 + (Critical 时)`security@aizhs.top` 邮件列表通知
+- **公告渠道**:GitHub Release Notes + Discussions 公告 + (Critical 时)`lizong@aizhs.top` 邮件列表通知
 
 ---
 
@@ -269,7 +269,7 @@ IHUI-AI 在多层级实施了安全防护:
 
 ### 报告渠道
 
-与本文其余部分一致:首选 `security@aizhs.top`,或 GitHub Private vulnerability reporting
+与本文其余部分一致:首选 `lizong@aizhs.top`,或 GitHub Private vulnerability reporting
 (见上文「[报告漏洞](#报告漏洞reporting-a-vulnerability)」的 SLA 与致谢条款)。
 **运行时能力披露文档中的不实陈述或遗漏,同样按漏洞受理。**
 
@@ -277,13 +277,13 @@ IHUI-AI 在多层级实施了安全防护:
 
 自本确立即生效,节奏为**每季度一次**,每年 4 次:
 
-| 项 | 承诺内容 |
-| --- | --- |
-| 频次 | 每季度一轮,滚动覆盖 8 端 + `packages/` 共享层(每轮至少覆盖 2 端 + 1 个共享包,一年内全部覆盖一遍) |
-| 每轮产出 | 公开一份审计纪要:本轮**逐条核对了哪些论断**、**证伪了哪些**、**新增/摘除了哪些防线**、**残余未验证清单** |
-| 落点 | 纪要追加进 `docs/runtime-capability-disclosure.md` 的「修订记录」,并在 `SECURITY.md` 本节登记日期与轮次 |
-| 触发式加审 | 任何一次涉及沙箱、鉴权面、出站目标、自动执行链的架构变更,不等季度节奏,当次即复核并更新披露 |
-| 违约口径 | 若某轮未按期公开,请在纪要中如实记一次缺席并说明原因;**不允许**用"内部已审过"替代公开产出 |
+| 项         | 承诺内容                                                                                                 |
+| ---------- | -------------------------------------------------------------------------------------------------------- |
+| 频次       | 每季度一轮,滚动覆盖 8 端 + `packages/` 共享层(每轮至少覆盖 2 端 + 1 个共享包,一年内全部覆盖一遍)         |
+| 每轮产出   | 公开一份审计纪要:本轮**逐条核对了哪些论断**、**证伪了哪些**、**新增/摘除了哪些防线**、**残余未验证清单** |
+| 落点       | 纪要追加进 `docs/runtime-capability-disclosure.md` 的「修订记录」,并在 `SECURITY.md` 本节登记日期与轮次  |
+| 触发式加审 | 任何一次涉及沙箱、鉴权面、出站目标、自动执行链的架构变更,不等季度节奏,当次即复核并更新披露               |
+| 违约口径   | 若某轮未按期公开,请在纪要中如实记一次缺席并说明原因;**不允许**用"内部已审过"替代公开产出                 |
 
 **当前状态(如实登记)**:上述节奏自本次起确立,**尚未产生任何一期季度纪要**。
 首轮纪要的目标区间为下一个自然季度。在此之前,本文档的取证快照日期见其开头声明。
@@ -292,7 +292,7 @@ IHUI-AI 在多层级实施了安全防护:
 
 ## 反馈与改进
 
-如对本安全策略有建议,请通过 `security@aizhs.top` 提出,或开一个非敏感的 GitHub Discussion 讨论(请勿在公开渠道讨论具体漏洞细节)。
+如对本安全策略有建议,请通过 `lizong@aizhs.top` 提出,或开一个非敏感的 GitHub Discussion 讨论(请勿在公开渠道讨论具体漏洞细节)。
 
 ---
 
