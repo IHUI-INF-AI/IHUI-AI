@@ -533,16 +533,71 @@ function humanAge(ms) {
 }
 
 /**
+ * 拆开「静默守卫」隐藏启动器,还原真正要验的执行面(纯函数,2026-11-12 立)。
+ *
+ * 立因(--status 假红实测):scripts/ensure-silent-tasks.mjs 会把会弹控制台窗的任务
+ * action 原位改写成
+ *     EXEC = wscript.exe
+ *     ARGS = "C:\\Users\\<u>\\.ihui-silent-guard\\<Task>-<hash>-hidden.vbs"
+ * 而 VBS 内 `shell.Run "<真命令>", 0, False` 才是每 2 分钟真正执行的那条
+ * `"C:\\Program Files\\nodejs\\node.exe" "...\\relay-account-pool-sync.mjs" ...`。
+ * 旧判据拿裸命令名 wscript.exe 去跑 exists() —— 相对路径查不到 ⇒ 任务明明
+ * Ready / 0x0 / 日志在滚动,自检却恒红「执行体已失效」。假红比漏报更坏(会训练人忽略自检),
+ * 所以不能简单"跳过不验",必须顺着包装器钻进去验内层 node 与 .mjs 是否还在。
+ *
+ * 生成器编码约定见 ensure-silent-tasks.mjs 的 wrapperVbsContent():真命令里每个 `"` 先
+ * 变成 `""`,再整体套一层 `"..."`;解析要先取 shell.Run 整串、再把 `""` 还原成 `"`。
+ *
+ * @param {{exec:string, args:string, readFile?:(p:string, enc:string)=>string}} input
+ * @returns {{wrapped:boolean, wrapperPath?:string, innerExec?:string, innerScript?:string,
+ *            cmd?:string, error?:string}}
+ */
+function unwrapSilentAction({ exec, args, readFile = fs.readFileSync }) {
+  const wrapperPath = /"([^"]+\.vbs)"/i.exec(String(args ?? ''))?.[1] ?? ''
+  const wrapped =
+    /^(?:.*[\\/])?(?:wscript|cscript)(?:\.exe)?$/i.test(String(exec ?? '').trim()) && !!wrapperPath
+  if (!wrapped) return { wrapped: false }
+  let vbs = ''
+  try {
+    vbs = String(readFile(wrapperPath, 'utf8') ?? '')
+  } catch (e) {
+    return {
+      wrapped: true,
+      wrapperPath,
+      error: `读不到隐藏启动器(${e instanceof Error ? e.message : String(e)})`,
+    }
+  }
+  // shell.Run 是单行;贪婪匹配到行尾 `", 0, False` 前的引号,才能吃掉内层成对双引号。
+  const line = /^\s*shell\.Run\s+"(.*)"\s*,\s*0\s*,\s*False\s*;?\s*$/im.exec(vbs)
+  if (!line) return { wrapped: true, wrapperPath, error: '启动器内没有可解析的 shell.Run 命令行' }
+  const cmd = line[1].replace(/""/g, '"')
+  const innerExec = /^"([^"]+\.exe)"/i.exec(cmd)?.[1] ?? /^(\S+\.exe)(?:\s|$)/i.exec(cmd)?.[1] ?? ''
+  const innerScript = /"([^"]+\.mjs)"/i.exec(cmd)?.[1] ?? ''
+  if (!innerExec || !innerScript) {
+    return {
+      wrapped: true,
+      wrapperPath,
+      innerExec,
+      innerScript,
+      cmd,
+      error: '启动器内的命令缺 node.exe 或 .mjs 路径',
+    }
+  }
+  return { wrapped: true, wrapperPath, innerExec, innerScript, cmd }
+}
+
+/**
  * 判定计划任务快照(纯函数,2026-11-12 抽出以便单测)。
  *
  * 抽出的理由:这段判据是**静默失效的唯一出口** —— 任务没注册、执行体被清理、工作目录被移走、
  * 结果非 0,四种情况都不会自己喊。判据写在 IO 闭包里就只能靠人肉看输出,写错了也没人知道;
  * 抽成纯函数后可以用替身喂各种快照,把每条分支钉住。
  *
- * @param {{taskCode:number, taskOut:string, exists?:(p:string)=>boolean}} input
+ * @param {{taskCode:number, taskOut:string, exists?:(p:string)=>boolean,
+ *          readFile?:(p:string, enc:string)=>string}} input
  * @returns {Array<{level:'ok'|'warn'|'info', text:string}>}
  */
-function judgeTaskSnapshot({ taskCode, taskOut, exists = fs.existsSync }) {
+function judgeTaskSnapshot({ taskCode, taskOut, exists = fs.existsSync, readFile = fs.readFileSync }) {
   const out = []
   const push = (level, text) => out.push({ level, text })
   const text = String(taskOut ?? '')
@@ -581,9 +636,31 @@ function judgeTaskSnapshot({ taskCode, taskOut, exists = fs.existsSync }) {
   // WorkBuddy 升级 Node 后旧目录被清理,任务照常"启动"、立即失败、脏标记越积越多,
   // 而两端从此悄悄分叉。这类失效没有任何响声,只能主动查存在性。
   // 判据不写死具体路径(换机器/换安装方式都不能误判),只比对"注册时写下的值 vs 现在是否存在"。
-  const execPath = field('EXEC')
-  const workDir = field('WORKDIR')
-  const scriptArg = /"([^"]+\.mjs)"/.exec(field('ARGS'))?.[1] ?? ''
+  //
+  // 2026-11-12 补:任务可能被 ensure-silent-tasks.mjs 包成 wscript.exe + 隐藏 VBS。
+  // 裸命令名不是路径,拿它跑 exists() 必假红;此时改验 VBS 内层的 node 与 .mjs,
+  // 既不误报,也没放过"内层 node 被清理"这颗真正的定时炸弹。
+  const rawExec = field('EXEC')
+  const rawWorkDir = field('WORKDIR')
+  const rawArgs = field('ARGS')
+  const silent = unwrapSilentAction({ exec: rawExec, args: rawArgs, readFile })
+  let execPath = rawExec
+  let workDir = rawWorkDir
+  let scriptArg = /"([^"]+\.mjs)"/.exec(rawArgs)?.[1] ?? ''
+  if (silent.wrapped) {
+    execPath = silent.innerExec ?? ''
+    scriptArg = silent.innerScript ?? ''
+    workDir = '' // 包装器 action 不带 WorkingDirectory,内层命令全是绝对路径
+    if (!exists(silent.wrapperPath)) {
+      push(
+        'warn',
+        `隐藏启动器脚本不存在: ${silent.wrapperPath}` +
+          ` —— wscript 每轮会弹不可见模态框并卡死,重跑 node scripts/ensure-silent-tasks.mjs`,
+      )
+    } else if (silent.error) {
+      push('warn', `隐藏启动器无法校验: ${silent.error} —— 重跑 node scripts/ensure-silent-tasks.mjs`)
+    }
+  }
   if (execPath && !exists(execPath)) {
     push(
       'warn',
@@ -601,7 +678,9 @@ function judgeTaskSnapshot({ taskCode, taskOut, exists = fs.existsSync }) {
     const isVersionedNode = /[\\/]versions[\\/]/.test(execPath)
     push(
       'info',
-      `任务执行体: ${execPath}` +
+      (silent.wrapped
+        ? `任务执行体: wscript.exe → 隐藏启动器 → ${execPath}(静默包装,已验内层 node 与同步脚本)`
+        : `任务执行体: ${execPath}`) +
         (isVersionedNode ? '(路径含 node 版本目录 —— 升级 Node 后需重跑 --register)' : ''),
     )
   }
@@ -907,5 +986,6 @@ export {
   humanAge as __humanAge,
   parseArgs as __parseArgs,
   judgeTaskSnapshot as __judgeTaskSnapshot,
+  unwrapSilentAction as __unwrapSilentAction,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

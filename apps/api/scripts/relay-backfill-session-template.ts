@@ -243,7 +243,7 @@ async function main(): Promise<void> {
       name,
       secrets,
       extraMetadata: meta,
-      skeleton: skeletons[provider],
+      skeleton: skeletons[provider] ?? null,
     })
     if (!tpl) {
       brief('skipped-no-identity', { reason: '票内没有可判定的身份字段 ⇒ 不造模板' })
@@ -258,12 +258,12 @@ async function main(): Promise<void> {
       await db
         .update(aiRelayAccountPool)
         .set({ secretsEnc: encryptField(JSON.stringify(next)), updatedAt: new Date() })
-        .where(eq(aiRelayAccountPool.id, r.id))
+        .where(eq(aiRelayAccountPool.id, r.id as string))
       // 回读校验:写进去的必须能解出来,且身份字段就是这枚票
       const [after] = (await db
         .select()
         .from(aiRelayAccountPool)
-        .where(eq(aiRelayAccountPool.id, r.id))) as Array<Record<string, unknown>>
+        .where(eq(aiRelayAccountPool.id, r.id as string))) as Array<Record<string, unknown>>
       const readBack = asObj(decryptAccountCredentials(after as never).secrets['sessionTemplate'])
       if (!readBack || Object.keys(readBack).length === 0) throw new Error('回读不到会话模板')
       // 身份必须归位到这枚票自己,否则等于把别人号的资料写回来(与本脚本要根治的缺陷同形)
@@ -314,8 +314,8 @@ async function main(): Promise<void> {
 }
 
 // 测试 import 本文件只取纯函数,绝不连生产库(§5 测试隔离铁律)
-const isDirectRun =
-  Boolean(process.argv[1]) && pathToFileURL(process.argv[1]).href === import.meta.url
+const entry = process.argv[1]
+const isDirectRun = entry !== undefined && pathToFileURL(entry).href === import.meta.url
 if (isDirectRun) {
   main()
     .then(() => process.exit(0))
