@@ -33,6 +33,7 @@ import {
   deriveStableId,
   prepareChatBody,
   resolveRealm,
+  resolveRealmFor,
 } from '../src/services/upstream-adapters/workbuddy-protocol.js'
 
 // =============================================================================
@@ -94,6 +95,30 @@ describe('resolveRealm', () => {
     expect(resolveRealm('WORKBUDDY.AI')).toBe('global')
     expect(resolveRealm('')).toBe('cn')
     expect(resolveRealm('codebuddy.cn')).toBe('cn')
+  })
+})
+
+describe('resolveRealmFor(domain 有值优先,缺失回落 iss host)', () => {
+  it('domain 缺失 + iss=https://www.workbuddy.ai/... ⇒ global(.ai 号的实测形态)', () => {
+    expect(resolveRealmFor('', { iss: 'https://www.workbuddy.ai/auth/realms/copilot' })).toBe(
+      'global',
+    )
+  })
+
+  it('domain 缺失 + CN iss ⇒ cn(既有 CN 行为不变)', () => {
+    expect(resolveRealmFor('', { iss: 'https://www.workbuddy.cn/auth/realms/copilot' })).toBe('cn')
+    expect(resolveRealmFor('', { iss: 'https://copilot.tencent.com/auth/realms/copilot' })).toBe('cn')
+    expect(resolveRealmFor('', null)).toBe('cn')
+    expect(resolveRealmFor('', { iss: 'not-a-url' })).toBe('cn')
+  })
+
+  it('domain 有值时压过 iss(域一致性仍以域为准)', () => {
+    expect(resolveRealmFor('codebuddy.cn', { iss: 'https://www.workbuddy.ai/auth/realms/copilot' })).toBe(
+      'cn',
+    )
+    expect(resolveRealmFor('workbuddy.ai', { iss: 'https://www.workbuddy.cn/auth/realms/copilot' })).toBe(
+      'global',
+    )
   })
 })
 
@@ -599,6 +624,55 @@ describe('workbuddyAdapter.checkHealth', () => {
     })
     expect(r).toEqual({ ok: true })
     expect(injected).toHaveBeenCalledTimes(1)
+  })
+
+  // ---- userinfo 兜底(2026-11-12 .ai 实证:models 目录恒 500,同票 userinfo 200 + chat 出字)----
+
+  function globalCtx() {
+    return makeCtx({
+      token: jwtWith({ iss: 'https://www.workbuddy.ai/auth/realms/copilot', sub: 'sub-1' }),
+      rowUid: 'sub-1',
+    })
+  }
+
+  it('models 500 + userinfo 200 且 sub 对得上 ⇒ ok(目录故障不等于凭据死)', async () => {
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = String(input instanceof Request ? input.url : input)
+      if (url.includes('/protocol/openid-connect/userinfo')) return jsonResponse({ sub: 'sub-1' })
+      return jsonResponse({ error: 'upstream down' }, 500)
+    })
+    vi.stubGlobal('fetch', fetchMock as unknown as typeof fetch)
+    expect(await workbuddyAdapter.checkHealth(globalCtx())).toEqual({ ok: true })
+    expect(String(fetchMock.mock.calls[1]?.[0])).toBe(
+      'https://www.workbuddy.ai/auth/realms/copilot/protocol/openid-connect/userinfo',
+    )
+  })
+
+  it('models 500 + userinfo 401 ⇒ authFailed(真死照样判死)', async () => {
+    vi.stubGlobal('fetch', (async (input: string | URL | Request) => {
+      const url = String(input instanceof Request ? input.url : input)
+      if (url.includes('/protocol/openid-connect/userinfo')) return jsonResponse({}, 401)
+      return jsonResponse({}, 500)
+    }) as unknown as typeof fetch)
+    const r = await workbuddyAdapter.checkHealth(globalCtx())
+    expect(r.ok).toBe(false)
+    expect(r.authFailed).toBe(true)
+    expect(r.error).toMatch(/401/)
+  })
+
+  it('models 500 + userinfo 也坏 ⇒ 保持未判定(不许假装活着)', async () => {
+    vi.stubGlobal('fetch', (async () => jsonResponse({}, 500)) as unknown as typeof fetch)
+    const r = await workbuddyAdapter.checkHealth(globalCtx())
+    expect(r.ok).toBe(false)
+    expect(r.indeterminate).toBe(true)
+  })
+
+  it('models 401 ⇒ 直接判死,不给 userinfo 二次机会', async () => {
+    const fetchMock = vi.fn(async () => jsonResponse({ code: 12153 }, 401))
+    vi.stubGlobal('fetch', fetchMock as unknown as typeof fetch)
+    const r = await workbuddyAdapter.checkHealth(globalCtx())
+    expect(r.authFailed).toBe(true)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 })
 
