@@ -24,7 +24,12 @@ from typing import Any
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
 
 from app.core.jwt_auth import get_current_user_id
-from app.services.knowledge_compiler import compile_project, load_active_cards, slugify
+from app.services.knowledge_compiler import (
+    KnowledgeCardsForbidden,
+    compile_project,
+    load_active_cards,
+    slugify,
+)
 from app.services.workspace_roots import assert_workspace_root
 
 router = APIRouter()
@@ -60,13 +65,17 @@ async def knowledge_compile(
     workspace_root = _resolve_workspace_root(payload.get("workspace_path"))
     ttl_raw = payload.get("ttl_days")
     ttl_days = int(ttl_raw) if isinstance(ttl_raw, (int, float)) and ttl_raw > 0 else 30
-    result = await compile_project(
-        project_id,
-        workspace_root,
-        user_id=user_id,
-        dry_run=bool(payload.get("dry_run")),
-        ttl_days=ttl_days,
-    )
+    try:
+        result = await compile_project(
+            project_id,
+            workspace_root,
+            user_id=user_id,
+            dry_run=bool(payload.get("dry_run")),
+            ttl_days=ttl_days,
+        )
+    except KnowledgeCardsForbidden as e:
+        # AIS-077:他人卡库拒绝覆盖 —— 403 而不是 500,且不会留下半份新卡。
+        raise HTTPException(status_code=403, detail=str(e)) from e
     return {"code": 0, "message": "ok", "data": result}
 
 
@@ -78,6 +87,14 @@ async def knowledge_cards(
 ) -> dict[str, Any]:
     """读取指定项目的有效知识卡片(TTL 过期已过滤)。"""
     workspace_root = _resolve_workspace_root(workspace_path)
-    cards = load_active_cards(workspace_root, slugify(project_id))
+    # AIS-077:端点拿到 user_id 就必须参与判据 —— 修前这里只按 workspace+slug 读,
+    # 同一 workspace 下他人可用 project_id 读到别人的卡(投毒内容进而可注入其 LLM 上下文)。
+    # 读取侧一律按属主裁剪;旧卡无 owner 字段 ⇒ 不可见(fail-closed)。
+    cards = load_active_cards(
+        workspace_root,
+        slugify(project_id),
+        owner_user_id=user_id,
+        require_owner=True,
+    )
     return {"code": 0, "message": "ok", "data": {"cards": cards, "total": len(cards)}}
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
