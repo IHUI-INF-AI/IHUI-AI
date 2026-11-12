@@ -301,6 +301,20 @@
       "reqDrift": [],
       "mapped": [],
       "driftTotal": 0
+    },
+    "BottomFadeMask": {
+      "state": "not-applicable",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-11-11",
+      "evidence": [
+        "apps/mobile-rn/src/components/BottomFadeMask.tsx:19-21",
+        "apps/mobile-rn/src/components/BottomFadeMask.tsx:92-97",
+        "apps/miniapp-taro/src/components/BottomFadeMask.tsx:31-34",
+        "apps/miniapp-taro/src/components/BottomFadeMask.tsx:150",
+        "apps/miniapp-taro/src/components/BottomFadeMask.tsx:172",
+        "apps/miniapp-taro/src/utils/rpx.ts:46-53"
+      ],
+      "why": "同名同物(两端都是滚动边缘渐变遮罩),几何常量两端逐字同值 BOTTOM_FADE_HEIGHT_PX=90 / EDGE_FADE_HEIGHT_PX=24(见 rn:19-21 ↔ mini:31-34),22%/55% 渐变停点两端一致,但 10 处 props 差是平台渲染通道的必然分形:① 渲染通道——RN 无 CSS 走 react-native-svg LinearGradient,小程序走 backgroundImage linear-gradient,Web ScrollEdgeFades 走 CSS color-mix;② 定位——小程序走 position/zIndex/px+calc 需 positionMode/topOffsetCss/leftOffsetCss/widthCss/zIndex/bottomOffsetCss 六键,RN 走 absolute+bottom 只需 offsetFromBottom 一键;③ 色值——微信内联 style 不解析 var(--color-*) 与 hsl 斜杠 alpha,小程序被迫 bgColorHsl+hslToRgba 手转,RN 直取 tokens.surface.bg。两端 edge/height/heightPx 三键同名可直接映射。强行下沉只会引入 SVG↔CSS 双渲染后端适配器,违背「最大化减少开发」。"
     }
   },
   "counts": {
