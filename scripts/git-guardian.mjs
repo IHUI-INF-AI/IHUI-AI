@@ -6984,11 +6984,17 @@ export async function sweepDanglingCommitAutotag(opts = {}) {
     logger = log,
     runner = null,
     scriptFile = null,
+    enabled,
     notify = notifyGuardRed,
   } = opts
   const script =
     scriptFile ??
     join(dirname(fileURLToPath(import.meta.url)), 'lib', 'dangling-commit-autotag.mjs')
+  // 增长闸默认关(2026-11-05 机主令):显式 enabled=false 时连子进程都不派生(ecd93149b9 摘了
+  // enabled 形参却没同步测试 A16 ⇒ 本器补回形参;生产不传 ⇒ 仍由器物自身的开关判据兜底)。
+  if (enabled === false) {
+    return { ran: false, state: 'disabled', why: '增长产线停用' }
+  }
   if (!existsSync(script)) {
     logger(
       'ℹ️ 悬空 commit 保活:器物不在位(scripts/lib/dangling-commit-autotag.mjs)⇒ 本轮跳过,不记为已探测',
