@@ -328,6 +328,12 @@ export interface AgentResult {
   outputTruncated?: boolean;
   /** G-1104166:全轮累计自动续写次数(没续写过 ⇒ 不带此字段) */
   outputContinuationsUsed?: number;
+  /**
+   * 成本审批判定(2026-11-12 接线)。只在「传了 opts.costApproval 且触发预算闸」时有值。
+   * 五档:proceed/held/refused/unjudged。**unjudged 也意味着被拦下** ——
+   * 调用方据此可区分「余额不足」与「量不到所以保守拦截」,不必从散文里猜。
+   */
+  costApproval?: import('../tools/cost-approval.js').CostApproval;
 }
 
 // ==================== P1-5 Headless 多格式输出(实现在 src/headless-format.ts,此处仅 re-export)====================
@@ -342,6 +348,7 @@ import {
   endReasonFromStopReason,
   type TurnTransition,
 } from '../acp/turn-lifecycle.js'
+import { decideCostApproval } from '../tools/cost-approval.js'
 import { loadSessionRuntime, nextTurnOrdinal, upsertTurn } from '../acp/turn-store.js'
 import type { OutputFormat, HeadlessEvent } from '../headless-format.js'
 
@@ -818,6 +825,30 @@ export interface RunToolLoopOptions {
   sampler?: SamplerSettings;
   /** 累计成本上限(美元)。超过后 stopReason='budget_limited'。与 AGENTS.md 第 9 节 goal 模式 budget 语义对齐 */
   maxCostUsd?: number;
+  /**
+   * 成本审批上下文(2026-11-12 接线)。**不传则行为与引入前逐字相同**(到点硬停)。
+   *
+   * 传了才走 `decideCostApproval` 的五档判定:
+   *   proceed  → 继续(即使已超 maxCostUsd,因为审批放行)
+   *   held     → 暂停等待审批(stopReason='budget_limited',但 endReason 记 awaiting)
+   *   refused  → 停止(余额不足或明确驳回)
+   *   unjudged → **按原硬停处理**(量不到就不放行 —— 失效方向恒为保守)
+   *
+   * 为什么设计成可选:CLI 单次循环拿不到余额与审批结论;强制作参数会让所有
+   * 既有调用方都要改。可选注入既能让需要审批的场景用上,又不破坏现有行为。
+   */
+  costApproval?: {
+    /** 该动作是否强制审批(来自权限/计费策略) */
+    mandatory: boolean;
+    /** 策略的失败模式;只有 'requireApproval' 才真正要求审批 */
+    failureMode: string;
+    /** 费用类别 */
+    category: string;
+    /** 当前余额(美元);null = 未测量 */
+    balance: number | null;
+    /** 已获审批结论;null = 尚未有人审批 */
+    decision: 'approved' | 'rejected' | null;
+  };
   /**
    * P0-2 Interject:drain pending interjection buffer。
    * 灵感来源:参考行业 Agent 框架的 `x.ai/interject` 扩展方法。
@@ -1941,6 +1972,8 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
   let totalCompletionTokens = 0;
   let totalCostUsd = 0;
   let budgetLimited = false;
+  /** cost-approval 的判定结果(只在传了 opts.costApproval 且触发预算闸时有值)。 */
+  let costApprovalVerdict: import('../tools/cost-approval.js').CostApproval | null = null;
   let lastErrorMessage = '';
   // 回合运行态旁路记录(2026-11-12):与既有 `reservedTurnNumber`(G-633)共用同一套
   // 回合标识,不另建第二份序号。**失败一律吞掉** —— 运行态记录是观测面,
@@ -2555,13 +2588,35 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
       // P2-5 UsageLedger:记录本轮 token 使用(供调用方查询历史/预算状态)
       usageLedger.recordTurn(iterPromptTokens, iterCompletionTokens, iterCostUsd);
 
-      // Cost guard:超阈值立即停止,语义对齐 AGENTS.md 第 9 节 budget_limited
+      // Cost guard(2026-11-12 接线 cost-approval):
+      //   未传 costApproval ⇒ 与引入前逐字相同(到点硬停),零回归;
+      //   传了 ⇒ 走五档判定。注意 unjudged 一律按"不放行"处理 ——
+      //   量不到就不放行,失效方向恒为保守。
       if (opts.maxCostUsd !== undefined && totalCostUsd >= opts.maxCostUsd) {
-        budgetLimited = true;
-        opts.messages.push({ role: 'assistant', content: iterationText });
-        assistantText += iterationText;
-        inFlightStreamText = ''; // G-634:已落盘的内容移交完毕,结算口清零防重
-        break;
+        const verdict = opts.costApproval
+          ? decideCostApproval({
+              mandatory: opts.costApproval.mandatory,
+              failureMode: opts.costApproval.failureMode,
+              category: opts.costApproval.category,
+              balance: opts.costApproval.balance,
+              cost: totalCostUsd,
+              decision: opts.costApproval.decision,
+            })
+          : null;
+
+        // 判定结果**一律记下**(proceed 也要记):调用方要能回答"这次为什么放行/为什么停"。
+        // 只在拦截分支记录会让 proceed 变成"没有判定",而"没有判定"与"判过并放行"
+        // 对审计是两件不同的事。
+        costApprovalVerdict = verdict;
+
+        // proceed 才放行(继续循环);其余全部停 —— 包括 unjudged。
+        if (verdict === null || verdict.disposition !== 'proceed') {
+          budgetLimited = true;
+          opts.messages.push({ role: 'assistant', content: iterationText });
+          assistantText += iterationText;
+          inFlightStreamText = ''; // G-634:已落盘的内容移交完毕,结算口清零防重
+          break;
+        }
       }
 
       opts.messages.push({ role: 'assistant', content: iterationText });
@@ -3238,6 +3293,8 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
       : {}),
     // G-1104166:全轮累计续写次数(没续写过 ⇒ 不带,消费方按"未发生"处理)
     ...(outputTokenContinuationsUsed > 0 ? { outputContinuationsUsed: outputTokenContinuationsUsed } : {}),
+    // 成本审批判定(只在真的触发预算闸时带,不触发则不带 —— 缺失≠通过)
+    ...(costApprovalVerdict ? { costApproval: costApprovalVerdict } : {}),
   };
 }
 
