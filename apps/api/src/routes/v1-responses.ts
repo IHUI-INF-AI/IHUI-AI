@@ -33,7 +33,7 @@
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify'
 import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
-import { requireApiKeyAuth } from '../plugins/api-key-auth.js'
+import { requireApiKeyAuth, requireApiKeyQuota } from '../plugins/api-key-auth.js'
 import { requireCapabilityRules } from '../utils/capability-guard.js'
 import {
   checkQuota,
@@ -531,7 +531,9 @@ const v1ResponsesRoutes: FastifyPluginAsync = async (server) => {
           503: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, responsesCapabilityGate],
+      // F-299:补挂 Key 级小时/天配额闸 —— 与 /v1/messages 等其余 v1 LLM 端点同源,
+      // 缺挂时 api_key_quotas 不累加、不判 429,默认配额在本端点完全失效。
+      preHandler: [requireApiKeyAuth, responsesCapabilityGate, requireApiKeyQuota()],
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const parsed = responsesSchema.safeParse(request.body)
