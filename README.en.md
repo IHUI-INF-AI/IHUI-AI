@@ -99,6 +99,9 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-13**
+- 🚀 Feature/Improvement:跨端更新提示样式重构 + 对话内提示留痕 notice-log(miniapp-taro/mobile-rn 同批,remote-locales 文案随动) (96a0e7a504)
+
+**2026-11-13**
 - 🚀 Feature/Improvement:号池全缺口开发验证 + 能力登记表 + reextract 兜底 + 接口参数补齐 (e04bfc4a31)
 
 **2026-11-12**
@@ -1062,10 +1065,6 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 **2026-11-11**
 - 🔧 Chore/Other:追认i18n跨端门自检1枚 (43a6d76b7e)
-
-**2026-11-11**
-- 🐞 Fix:i18n 跨端门自检登记器改为当场求值，5 条用例不再空跑 (03ddbc8fb7)
-- 🔧 Chore/Other:README 数字块按索引面重算（门数 359/330、测试文件与跟踪文件同批） (cd25562745)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
