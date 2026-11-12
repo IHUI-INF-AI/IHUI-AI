@@ -10,7 +10,148 @@
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { writeFileAtomicSync } from '../util/atomic-write.js';
+import { sleepSync, writeFileAtomicSync } from '../util/atomic-write.js';
+
+/**
+ * 跨进程写锁(最小实现,不引依赖):MEMORY.md 同目录的 `.MEMORY.md.lock` 以 wx 独占创建即持锁,
+ * 内容记 pid/token/时间;释放前校验 token,崩溃残留按「租约过期或持锁进程已死」抢占。
+ * 同进程内天然互斥:append 全程同步,一次读-改-写不会与另一次交错。
+ */
+const LOCK_WAIT_MS = 2_000;
+const LOCK_STALE_MS = 30_000;
+const LOCK_POLL_MS = 25;
+
+interface LockRecord {
+  pid: number;
+  token: string;
+  at: number;
+}
+
+function errCode(error: unknown): string | undefined {
+  return typeof error === 'object' && error !== null && 'code' in error
+    ? String((error as { code: unknown }).code)
+    : undefined;
+}
+
+function lockPathFor(filePath: string): string {
+  return path.join(path.dirname(filePath), `.${path.basename(filePath)}.lock`);
+}
+
+function readLockRecord(lockPath: string): LockRecord | null {
+  try {
+    const parsed: unknown = JSON.parse(fs.readFileSync(lockPath, 'utf-8'));
+    if (parsed === null || typeof parsed !== 'object') return null;
+    const record = parsed as Record<string, unknown>;
+    if (typeof record.pid !== 'number' || typeof record.token !== 'string' || typeof record.at !== 'number') {
+      return null;
+    }
+    return { pid: record.pid, token: record.token, at: record.at };
+  } catch {
+    return null;
+  }
+}
+
+function isProcessAlive(pid: number): boolean {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    // EPERM = 进程存在但无权限;其余(ESRCH/EINVAL)按已死处理
+    return errCode(error) === 'EPERM';
+  }
+}
+
+function lockAgeMs(lockPath: string): number | null {
+  try {
+    return Date.now() - fs.statSync(lockPath).mtimeMs;
+  } catch {
+    return null;
+  }
+}
+
+/** 陈旧判据:解析不出但文件还年轻 = 别人正在建锁,按活锁等;超租约或持锁进程已死才算崩溃残留。 */
+function isLockStale(record: LockRecord | null, ageMs: number | null): boolean {
+  if (ageMs !== null && ageMs > LOCK_STALE_MS) return true;
+  if (record === null) return false;
+  if (Date.now() - record.at > LOCK_STALE_MS) return true;
+  return !isProcessAlive(record.pid);
+}
+
+/** 在独占锁内执行一次「读最新 → 改 → 原子替换」;拿不到锁就显式失败,绝不无锁覆盖。 */
+function withMemoryLock<T>(filePath: string, fn: () => T): T {
+  const lockPath = lockPathFor(filePath);
+  const token = `${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const deadline = Date.now() + LOCK_WAIT_MS;
+  while (true) {
+    try {
+      // 单次 writeFile('wx'):open 即判定独占,建锁与写内容尽量贴近,缩短空锁文件窗口
+      fs.writeFileSync(lockPath, JSON.stringify({ pid: process.pid, token, at: Date.now() }), {
+        flag: 'wx',
+        mode: 0o600,
+      });
+      break;
+    } catch (error) {
+      if (errCode(error) !== 'EEXIST') throw error;
+      if (isLockStale(readLockRecord(lockPath), lockAgeMs(lockPath))) {
+        try {
+          fs.unlinkSync(lockPath);
+        } catch {
+          // 别人刚释放或暂时删不掉:下一轮重读再判,不在这里猜
+        }
+        continue;
+      }
+      if (Date.now() >= deadline) {
+        throw new Error(
+          `长期记忆正被另一个会话写入(锁 ${lockPath}),等待 ${LOCK_WAIT_MS}ms 仍未释放;本次不写盘,避免覆盖别人的条目。`,
+        );
+      }
+      sleepSync(LOCK_POLL_MS);
+    }
+  }
+  try {
+    return fn();
+  } finally {
+    if (readLockRecord(lockPath)?.token === token) {
+      try {
+        fs.unlinkSync(lockPath);
+      } catch {
+        // 释放失败不改写盘结论;陈旧锁会被下一轮判掉
+      }
+    }
+  }
+}
+
+/** 把 `- <条目>` 行批量插进指定分类段(段不存在则文末新建),返回新内容。 */
+function insertEntryLines(content: string, lines: readonly string[], category: string): string {
+  const sectionHeader = `## ${category}`;
+  if (content.includes(sectionHeader)) {
+    const arr = content.split('\n');
+    let insertIdx = arr.length;
+    let found = false;
+    for (let i = 0; i < arr.length; i++) {
+      const line = arr[i]!;
+      if (!found) {
+        if (line.trim() === sectionHeader) found = true;
+        continue;
+      }
+      if (line.trim().startsWith('## ')) {
+        insertIdx = i;
+        break;
+      }
+      insertIdx = i + 1;
+    }
+    while (insertIdx > 0 && arr[insertIdx - 1]!.trim() === '') {
+      insertIdx--;
+    }
+    arr.splice(insertIdx, 0, ...lines);
+    return arr.join('\n');
+  }
+  let next = content;
+  if (!next.endsWith('\n\n')) next += next.endsWith('\n') ? '\n' : '\n\n';
+  next += `${sectionHeader}\n\n${lines.join('\n')}\n`;
+  return next;
+}
 
 export interface LongTermEntry {
   text: string;
@@ -30,47 +171,38 @@ export class LongTermMemory {
     this.filePath = path.join(workspacePath, '.ihui-agent', 'memory', 'MEMORY.md');
   }
 
-  /** 追加条目到指定分类段(段不存在则新建),返回条目。读不到旧文件时不覆盖。 */
+  /** 追加单条(委托批量入口:同一把锁 + 同一套去重/原子写)。 */
   append(text: string, category = '通用'): LongTermEntry {
-    const dir = path.dirname(this.filePath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    let content = this.readContentOrNew();
-    const sectionHeader = `## ${category}`;
-    // 去重:dream 中途失败后重试会重放同一批条目,不判重会让同一行无限累积。
-    if (content.split('\n').some((line) => line.trim() === `- ${text}`)) {
-      return { text, category, ts: Date.now() };
-    }
-    if (content.includes(sectionHeader)) {
-      const lines = content.split('\n');
-      let insertIdx = lines.length;
-      let found = false;
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i]!;
-        if (!found) {
-          if (line.trim() === sectionHeader) found = true;
-          continue;
-        }
-        if (line.trim().startsWith('## ')) {
-          insertIdx = i;
-          break;
-        }
-        insertIdx = i + 1;
-      }
-      while (insertIdx > 0 && lines[insertIdx - 1]!.trim() === '') {
-        insertIdx--;
-      }
-      lines.splice(insertIdx, 0, `- ${text}`);
-      content = lines.join('\n');
-    } else {
-      if (!content.endsWith('\n\n')) {
-        content += content.endsWith('\n') ? '\n' : '\n\n';
-      }
-      content += `${sectionHeader}\n\n- ${text}\n`;
-    }
-    writeFileAtomicSync(this.filePath, content);
+    this.appendMany([text], category);
     return { text, category, ts: Date.now() };
+  }
+
+  /**
+   * 批量追加到同一分类,返回实际新增条数(已存在的行跳过)。
+   *
+   * 整批在「锁内一次读-改-写 + 一次原子替换」内完成:
+   *   - dream 不再逐条 append(每条例都重读重写整份文件 ⇒ O(n²),且中途失败会留下"部分成功");
+   *   - 失败时整批都不落盘,内存里的短期记忆保持原样,重试也不会因半批已写而重复。
+   */
+  appendMany(texts: readonly string[], category = '通用'): number {
+    const pending = texts.map((text) => text.trim()).filter((text) => text !== '');
+    if (pending.length === 0) return 0;
+    fs.mkdirSync(path.dirname(this.filePath), { recursive: true });
+    return withMemoryLock(this.filePath, () => {
+      const content = this.readContentOrNew();
+      const existing = new Set(content.split('\n').map((line) => line.trim()));
+      const fresh: string[] = [];
+      for (const text of pending) {
+        // 去重:dream 中途失败后重试会重放同一批条目,不判重会让同一行无限累积。
+        const line = `- ${text}`;
+        if (existing.has(line)) continue;
+        existing.add(line);
+        fresh.push(line);
+      }
+      if (fresh.length === 0) return 0;
+      writeFileAtomicSync(this.filePath, insertEntryLines(content, fresh, category));
+      return fresh.length;
+    });
   }
 
   /** 关键词搜索(子串匹配,大小写不敏感),返回命中条目。 */

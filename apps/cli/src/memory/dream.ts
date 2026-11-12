@@ -57,9 +57,10 @@ export class DreamMemory {
         kind: metadataString(item.metadata, 'kind', 'dream'),
       }));
       const result = await distillMemoryEntries(entries);
-      for (const line of distilledEntryLines(result.text)) {
-        this.longTerm.append(line, 'dream');
-      }
+      // 一次性批量提交:整批一次读-改-写 + 一次原子替换,避免逐条 append 的 O(n²) 与「部分成功」。
+      // 没有可写条目时也要 clear():沉淀已成功,清空是这次成功的一部分,不能变成"跳过了"。
+      const lines = distilledEntryLines(result.text);
+      if (lines.length > 0) this.longTerm.appendMany(lines, 'dream');
       this.shortTerm.clear();
       return { consolidated: result.kept, durationMs: Date.now() - start };
     } catch (error) {

