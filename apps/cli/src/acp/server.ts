@@ -1628,6 +1628,8 @@ export class IhuiAcpAgent {
         ordinal: x.turn.ordinal,
         reason: x.turn.wake?.reason ?? 'unknown',
         notBefore: x.turn.wake?.notBefore ?? 0,
+        // cron 挂起回传下一次到点时刻(便于宿主排期);一次性挂起不带
+        ...(x.turn.wake?.cron === undefined ? {} : { cron: x.turn.wake.cron }),
       })),
     };
   }
