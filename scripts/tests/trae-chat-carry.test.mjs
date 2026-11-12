@@ -320,5 +320,122 @@ test('接线锁: 编排层把 vscdb/正库/storage/tips 全部写前入账,失�
   assert.equal(seen, 2, 'global 与 workspace 两条 rebindVscdb 都必须有写前备份')
 })
 
+test('readTableUidOwners: 只读列出各表 user_id 归属(回滚后核对用)', async () => {
+  // 密钥来自 ai_agent.dll 常量表,造不出可控夹具 ⇒ 本测试只钉「失效方向」:
+  // 缺输入必须抛具名错误,绝不返回空对象冒充"已核对过"(§0.3 没判不写成判过)。
+  const scratch = mkScratch('carry-uid-owners')
+  try {
+    await assert.rejects(
+      () => C.readTableUidOwners({ dbFile: path.join(scratch, 'nope.db'), dllPath: 'x' }),
+      /取不到正库文件/,
+    )
+    const plain = path.join(scratch, 'plain.db')
+    const db = new DatabaseSync(plain)
+    db.exec('CREATE TABLE project (id INTEGER PRIMARY KEY, user_id TEXT)')
+    db.close()
+    await assert.rejects(
+      () => C.readTableUidOwners({ dbFile: plain, dllPath: path.join(scratch, 'nope.dll') }),
+      /取不到 ai_agent\.dll/,
+    )
+  } finally {
+    rmScratch(scratch)
+  }
+})
+
+test('接线锁: 预检未判定不得中止切号(2026-11-12 事故回归)', () => {
+  const src = fs.readFileSync(
+    path.resolve(HERE, '../../apps/api/scripts/relay-trae-chat-switch.ts'),
+    'utf8',
+  )
+  // 该端点在本机对任何带 DeviceProof 的请求回 504;若 undetermined 走 abort,
+  // 一键切号会把每一枚号都挡在门外(含本机正登录着的那枚)。
+  assert.equal(
+    /abort-preflight-undetermined/.test(src),
+    false,
+    'undetermined 不得作为中止步(504 是环境表现,不是票废了)',
+  )
+  assert.match(src, /warn-preflight-undetermined/, '未判定应降级为告警并继续,由客户端验收兜底')
+  // 只有上游明确拒收(4xx + 具名码)才可 rejected;10101 走的是 400,不能只认 401/403。
+  // 2026-11-12 起具名码分类住在协议层单源(classifyExchangeReject),本处只断"接线到了它",
+  // 不再把码字面抄进测试 —— 抄一份就等于在测试里维护第二份判据(§0.6)。
+  assert.match(src, /proto\.classifyExchangeReject\(/, '拒收码分类必须走协议层单源')
+  assert.match(src, /res\.status >= 400 && res\.status < 500/)
+  // 未判定时不得凭空回写号池(池里那枚没被动过)
+  assert.match(src, /if \(pre\.decision === 'ok'\) \{\s*\n\s*const ticketPersisted/)
+  // 写回用的票必须随预检结论分流,不能无条件用 pre.token(undetermined 时它是 undefined)
+  assert.match(src, /const writeToken = pre\.decision === 'ok' \? pre\.token : dec\.token/)
+})
+
+test('接线锁: 回滚后必须核对正库归属与登录态一致(08:35 错位回归)', () => {
+  const src = fs.readFileSync(
+    path.resolve(HERE, '../../apps/api/scripts/relay-trae-chat-switch.ts'),
+    'utf8',
+  )
+  assert.match(src, /readTableUidOwners\(/, '回滚后必须读正库归属')
+  assert.match(src, /rollbackOwnerCheck/, '核对结论必须进报告')
+  assert.match(src, /rollback-owner-mismatch/, '对不上必须具名,不能把错位说成已回滚')
+  assert.match(src, /rollback-owner-undetermined/, '核对不了要落未判定,不能静默当已核对')
+  assert.match(src, /project', 'user_configuration'/, '至少要覆盖本脚本自己写过的两张表')
+})
+
+test('接线锁: 预检轮换出的新票若 CAS 失败必须兜底存档(2026-11-12 实损回归)', () => {
+  const src = fs.readFileSync(
+    path.resolve(HERE, '../../apps/api/scripts/relay-trae-chat-switch.ts'),
+    'utf8',
+  )
+  // 该通道只要 2xx 就轮换 rt(旧 rt 当场作废)。若新票不落盘就退出,
+  // 这枚号的可用凭据会永久蒸发 —— 今天本机正登录的号就是这么被弄成未登录态的。
+  assert.match(src, /function salvageRotatedTicket\(/, '必须有兜底存档实现')
+  assert.match(src, /salvageRotatedTicket\(String\(row\.uid\), pre\)/, 'CAS 失败分支必须真的调用它')
+  assert.match(src, /report\.rotatedTicketSalvaged/, '存档路径必须进报告(不能只在 stderr)')
+  assert.match(src, /mode: 0o600/, '含凭据明文的存档必须收紧权限')
+})
+
+/**
+ * 拒收码分类单源(2026-11-12 立):四条码语义不同,并成一档会把「票还好、只是这台机没走
+ * 客户端设备注册通道」的号误判成死票(实测 10110 那档就是如此,而它对应的号 token/额度可用)。
+ * 本组钉住分档边界,并钉住码表字面量只住协议层一处(测试不得抄第二份)。
+ */
+const PROTO_SRC = fs.readFileSync(
+  path.resolve(HERE, '../../apps/api/src/services/upstream-adapters/trae-protocol.ts'),
+  'utf8',
+)
+
+/** 从 TS 源码抽出纯函数体在本进程求值(只取无依赖的判据函数,不引入 TS 运行时) */
+function extractFnBody(name) {
+  const re = new RegExp(`export function ${name}\\([^)]*\\)[^{]*\\{([\\s\\S]*?)\\n\\}`)
+  const m = re.exec(PROTO_SRC)
+  assert.ok(m, `协议层必须有 ${name} 单一实现`)
+  return m[1]
+}
+
+test('拒收码分档: 四类语义各归各档,环境故障一律不归类(不猜)', () => {
+  const fn = new Function('text', extractFnBody('classifyExchangeReject'))
+  assert.equal(fn('{"Error":{"Code":"20403","Message":"Token device not match."}}'), 'device-mismatch')
+  assert.equal(fn('{"Error":{"Code":"10101"}}'), 'client-mismatch')
+  assert.equal(fn('{"Error":{"Code":"20101"}}'), 'token-dead')
+  assert.equal(fn('{"Error":{"Code":"10110"}}'), 'device-limit')
+  assert.equal(fn('{"Error":{"Code":"10303"}}'), 'device-limit')
+  assert.equal(fn('HTTP 504 gateway timeout'), null, '环境故障不得被归成上游拒收')
+  assert.equal(fn(''), null)
+})
+
+test('码表字面量不得在接线锁里抄第二份(§0.6 单一真相源)', () => {
+  const self = fs.readFileSync(path.resolve(HERE, 'trae-chat-carry.test.mjs'), 'utf8')
+  const assertsWithCode = /assert\.match\(src, \/[^/]*(20403|10101|20101|10110|10303)/.test(self)
+  assert.equal(assertsWithCode, false, '接线锁不得按码字面断言(判据住协议层,这里只断接线)')
+  const rejectsInSwitch = /relay-trae-chat-switch\.ts[\s\S]{0,200}(20403|10101|20101)/.exec(
+    fs.readFileSync(path.resolve(HERE, '../../apps/api/scripts/relay-trae-chat-switch.ts'), 'utf8'),
+  )
+  assert.equal(rejectsInSwitch, null, '切号腿不得再内联一份码表')
+})
+
+test('换票回执解析: 绑定设备标记与状态必须有单一实现且宽松提取', () => {
+  extractFnBody('extractDeviceBindReceipt')
+  assert.match(PROTO_SRC, /BoundDeviceID/, '必须解析绑定设备标记')
+  assert.match(PROTO_SRC, /DeviceBindStatus/, '必须解析绑定状态')
+  assert.match(PROTO_SRC, /bindStatus: pickString/, '缺字段必须给 null,不许猜成绑定成功')
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
