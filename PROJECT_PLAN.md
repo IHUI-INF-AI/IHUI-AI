@@ -12228,7 +12228,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 14A. **缺陷普查 DG DG-14** [P3] 元门档是「脚本名正则白名单」：新增门命名不命中即本地零通道，且没有门保证「每门至少一个阻断通道」（证据 docs/tickets/2026-11/findings-deploy-gates.md#DG-14）
 - [ ] 60C. **缺陷普查 CLI F-060** [P3] Cookie 整串经 IPC 回传前端 + expect 建客户端（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-060）
 - [ ] 79C. **缺陷普查 CLI F-077** [P2] DNS 判定与连接 TOCTOU / rebinding，默认无地址证据（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-077）
-- [ ] 7D. **缺陷普查 DB DB-09** [P2] 371 条 journal 仅 67 个快照，最新 0371 无快照，db:generate 会重放 0371（证据 docs/tickets/2026-11/findings-db.md#DB-09）
+- [x] 7D. **缺陷普查 DB DB-09** [P2] 371 条 journal 仅 67 个快照，最新 0371 无快照，db:generate 会重放 0371（证据 docs/tickets/2026-11/findings-db.md#DB-09）
 - [ ] 43D. **缺陷普查 DB DB-35** [P2] 多类敏感字段明文落库（PII 与第三方凭据）（证据 docs/tickets/2026-11/findings-db.md#DB-35）
 - [ ] 11E. **缺陷普查 AIS AIS-011** [P2] Gemini 安全拦截（promptFeedback）被当成功空回复（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-011）
 - [ ] 25E. **缺陷普查 AIS AIS-025** [P2] DAG 队列持久化只写不读，重启即丢（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-025）
