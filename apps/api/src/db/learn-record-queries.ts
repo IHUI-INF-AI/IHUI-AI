@@ -314,7 +314,10 @@ export async function updateWatchPosition(
   if (!record) return undefined
 
   // 累加 watchDuration(仅当 duration > 0 时)
-  const newWatchDuration = record.watchDuration + Math.max(0, duration)
+  // F-502:watchDuration 列为 integer(上限 2147483647)。读改写累加若不封顶,
+  // 两次超大 duration 上报即溢出报 22P03,此后该记录所有心跳长期 500 且不可恢复。
+  // 封顶到 INT32 上限保证记录永不被写坏;单次 duration 上限由入口 schema 限制。
+  const newWatchDuration = Math.min(2147483647, record.watchDuration + Math.max(0, duration))
   // progress 基于 position/totalDuration(若 totalDuration=0 则保持原值)
   const newProgress =
     record.totalDuration > 0

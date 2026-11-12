@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { and, asc, desc, eq, ilike, isNotNull, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, isNotNull, sql } from 'drizzle-orm'
 import { db } from './index.js'
 import { asContainsTerm } from '../utils/like-escape.js'
 import {
@@ -33,13 +33,19 @@ export async function findAiWorldCategoryBySlug(
   const rows = await db
     .select()
     .from(aiWorldCategories)
-    .where(eq(aiWorldCategories.slug, slug))
+    // F-251:公开分类查询只允许启用分类,下线条目不再参与筛选/曝光。
+    .where(and(eq(aiWorldCategories.slug, slug), eq(aiWorldCategories.status, 1)))
     .limit(1)
   return rows[0]
 }
 
 export async function findAiWorldItemById(id: string): Promise<AiWorldItem | undefined> {
-  const rows = await db.select().from(aiWorldItems).where(eq(aiWorldItems.id, id)).limit(1)
+  // F-251:公开详情直查必须带 status=1;此前下线条目仍可读且累加 view_count。
+  const rows = await db
+    .select()
+    .from(aiWorldItems)
+    .where(and(eq(aiWorldItems.id, id), eq(aiWorldItems.status, 1)))
+    .limit(1)
   return rows[0]
 }
 
@@ -105,7 +111,11 @@ export async function countAiWorldItems(
   if (opts.search) {
     // 2026-07-24 安全加固:转义 ilike 通配符 % _ \ 防止 wildcard injection DoS
     const escapedSearch = asContainsTerm(opts.search)
-    conditions.push(ilike(aiWorldItems.title, escapedSearch))
+    // F-250:count 必须与 list 用同一组搜索条件(标题 OR 摘要)。此前只按 title,
+    // 搜索词命中 summary 时 total 偏小、分页器提前「没有更多」,甚至 total=0 但列表有数据。
+    conditions.push(
+      sql`(${aiWorldItems.title} ILIKE ${escapedSearch} OR ${aiWorldItems.summary} ILIKE ${escapedSearch})`,
+    )
   }
   const rows = await db
     .select({ count: sql<number>`count(*)::int` })

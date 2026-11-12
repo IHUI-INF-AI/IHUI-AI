@@ -351,8 +351,9 @@ export const loomyAdapter: RelayUpstreamAdapter = {
    * 非流式响应翻译(2026-11-10 实弹):成功 = 标准 chat.completion 原样透传;
    * 网关业务错误走 **HTTP 200 + {code,desc,trace_id} 信封**(实读 code=100002
    * "登录已失效,请重新登录")——不拦截会被当成功透给前端且把好号记成健康。
-   * 登录态类码(100001/100002/100003;本机解包 asar 会话协调器同款三分)
-   * 映射为 401 触发自愈,其余业务码按上游错误抛出。
+   * 只有 **100002** 是鉴权结论(见下方 LOOMY_AUTH_CODES 与 L79-83 实证:100001 =
+   * 未切团队(票有效)、900000 = 团队清单暂不可用),故仅 100002 映射 401 触发自愈;
+   * 100001/100003/900000 等按普通上游业务错误 502 抛出,避免误杀有效号。
    */
   translateNonStream(_ctx: AdapterAccountContext, responseBody: unknown): Record<string, unknown> {
     if (responseBody && typeof responseBody === 'object' && !Array.isArray(responseBody)) {
@@ -360,7 +361,8 @@ export const loomyAdapter: RelayUpstreamAdapter = {
       if (obj['choices'] === undefined && obj['code'] !== undefined) {
         const code = String(obj['code'])
         const desc = String(obj['desc'] ?? '')
-        const authCodes = new Set(['100001', '100002', '100003'])
+        // 仅 100002(登录失效)是鉴权结论;100001/100003/900000 均为业务状态,票仍有效
+        const authCodes = new Set(['100002'])
         throw new LoomyUpstreamError(
           authCodes.has(code) ? 401 : 502,
           `Loomy 网关业务错误 code=${code}${desc ? `: ${desc.slice(0, 200)}` : ''}`,

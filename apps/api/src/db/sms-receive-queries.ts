@@ -113,9 +113,24 @@ export async function snapshotRelatedMsgs(
 ): Promise<number> {
   if (records.length === 0) return 0
   const now = new Date()
-  const nowHHMM = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
-  const today = now.toISOString().slice(0, 10)
-  const yesterday = new Date(now.getTime() - 86_400_000).toISOString().slice(0, 10)
+  // F-81:归日与时刻必须同一套上海日历。原 nowHHMM 取服务器本地时(上海)、而
+  // today/yesterday 取 toISOString() 的 UTC 日 —— 上海 00:00–08:00 归到前一天,
+  // rec_date 唯一键跨 08:00 后还会把同一条再插一次。此处显式钉死时区,不依赖容器 TZ。
+  const shParts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(now)
+  const shPart = (type: string): string => shParts.find((p) => p.type === type)?.value ?? ''
+  const nowHHMM = `${shPart('hour')}:${shPart('minute')}`
+  const today = `${shPart('year')}-${shPart('month')}-${shPart('day')}`
+  const yesterdayDate = new Date(`${today}T04:00:00Z`)
+  yesterdayDate.setUTCDate(yesterdayDate.getUTCDate() - 1)
+  const yesterday = yesterdayDate.toISOString().slice(0, 10)
   const values = records.map((r) => ({
     phone,
     recDate: r.time > nowHHMM ? yesterday : today,

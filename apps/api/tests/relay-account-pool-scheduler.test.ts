@@ -64,6 +64,17 @@ vi.mock('../src/services/relay-account-usage.js', () => ({
   purgeAccountUsage: mockPurgeAccountUsage,
 }))
 
+// 客户端会话镜像单独隔离:调度器 refreshOne 咽喉会对 minimax/qoder/workbuddy 调
+// pullClientSession/pushClientSession,真实实现要 spawn scripts/client-session-mirror-bridge.mjs
+// (Windows 经 run-as-user.ps1,内部 60s 上限)⇒ 用例必 15s 超时。这里只换掉两个会落进程的
+// IO 函数:pull 恒「未匹配」(null ⇒ 调用方走「客户端不在位」分支),push 恒不写;纯函数
+// (shouldAdoptClientRt / shouldPushAfterRefresh / buildPushPayload / MIRROR_PROVIDERS)保留真实实现。
+vi.mock('../src/services/relay-client-session-mirror.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../src/services/relay-client-session-mirror.js')>()),
+  pullClientSession: vi.fn(async () => null),
+  pushClientSession: vi.fn(async () => false),
+}))
+
 import {
   SWEEP_LOCK_NAME,
   REFRESH_EXPIRY_WARN_MS,

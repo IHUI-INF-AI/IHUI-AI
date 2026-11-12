@@ -551,7 +551,10 @@ export async function acceptAnswer(
   userId: string,
 ): Promise<AskAnswer | undefined> {
   const answer = await findAnswerById(answerId)
-  if (!answer) return undefined
+  // F-571:回答列表读路径只展示 status=1,写路径此前复用无 status 条件的详情查询,
+  // 已软删(status=-1)回答仍可被采纳 → 问题被标记已解决却无可采纳答案,
+  // 且会清空其它正常回答的 isAccepted。先按 status 闸掉所有写操作。
+  if (!answer || answer.status !== 1) return undefined
   const ask = await findAskById(answer.askId)
   if (!ask || ask.userId !== userId) return undefined
 
@@ -561,12 +564,13 @@ export async function acceptAnswer(
     .set({ isAccepted: false })
     .where(and(eq(askAnswers.askId, ask.id), eq(askAnswers.isAccepted, true)))
 
-  // 置当前答案为 accepted
+  // 置当前答案为 accepted(F-571:更新条件同样带 status,防副本读到旧值后的并发软删)
   const rows = await db
     .update(askAnswers)
     .set({ isAccepted: true })
-    .where(eq(askAnswers.id, answerId))
+    .where(and(eq(askAnswers.id, answerId), eq(askAnswers.status, 1)))
     .returning()
+  if (!rows[0]) return undefined
 
   // 标记问题已解决
   await db.update(asks).set({ isResolved: true, updatedAt: new Date() }).where(eq(asks.id, ask.id))

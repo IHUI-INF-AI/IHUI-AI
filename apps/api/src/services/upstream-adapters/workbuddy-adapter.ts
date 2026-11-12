@@ -322,6 +322,16 @@ function packagesFrom(
   return out
 }
 
+/** 刷新端点的 HTTP 失败(保留状态码,供调用方判断是否属于「端点不存在」) */
+class WorkbuddyRefreshHttpError extends Error {
+  readonly status: number
+  constructor(status: number) {
+    super(`workbuddy refresh 失败: HTTP ${status}`)
+    this.name = 'WorkbuddyRefreshHttpError'
+    this.status = status
+  }
+}
+
 /** 单次刷新尝试(一个端点 × 一个刷新凭证);失败抛错,message 不带凭证 */
 async function attemptRefresh(
   fetchImpl: typeof fetch,
@@ -347,7 +357,7 @@ async function attemptRefresh(
   const res = await fetchImpl(url, { method: 'POST', headers })
   const text = await res.text().catch(() => '')
   // 抛错 message 只带状态码/信封 code,绝不带 body(可能含凭证)
-  if (res.status >= 400) throw new Error(`workbuddy refresh 失败: HTTP ${res.status}`)
+  if (res.status >= 400) throw new WorkbuddyRefreshHttpError(res.status)
   const env = parseEnvelope(text)
   if (!env) throw new Error('workbuddy refresh 失败: 响应信封非法')
   if (env.code !== 0) throw new Error(`workbuddy refresh 失败: code=${env.code}`)
@@ -501,6 +511,9 @@ export const workbuddyAdapter: RelayUpstreamAdapter = {
           })
         } catch (e) {
           lastErr = e instanceof Error ? e : new Error(String(e))
+          // rt 是轮换型:只有「端点不存在(404)」才换下一个候选端点;其他失败
+          // (5xx/网络/信封非法)用同一枚 rt 重放只会把它烧掉并累加失败计数 ⇒ 直接抛。
+          if (!(e instanceof WorkbuddyRefreshHttpError) || e.status !== 404) throw lastErr
         }
       }
     }
@@ -657,6 +670,9 @@ export const workbuddyAdapter: RelayUpstreamAdapter = {
 
   isAuthError(err: unknown): boolean {
     const message = err instanceof Error ? err.message : typeof err === 'string' ? err : ''
+    // 本模块自产的刷新错误 message 固定形如 "…code=12153";这里只认这一种自有格式,
+    // 不扫上游响应体(响应体含随机 requestId,裸子串会误杀)。
+    if (/\bcode=12153\b/.test(message)) return true
     // 刷新/上游抛错 message 里的 "HTTP 401/403" 还原成状态码判定(401 自愈依赖)
     const m = message.match(/HTTP\s+(\d{3})/i)
     const status = m ? Number(m[1]) : 0

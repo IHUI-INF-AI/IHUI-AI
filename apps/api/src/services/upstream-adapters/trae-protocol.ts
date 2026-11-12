@@ -313,6 +313,9 @@ export async function* iterateSseEvents(
       if (ev) yield ev
     }
   } finally {
+    // 调用方提前 break(命中 stop)时先取消上游流,否则连接与流量会继续跑;
+    // 取消后再 releaseLock 是允许的(同 qoder parseBridgeSse)。
+    await reader.cancel().catch(() => {})
     reader.releaseLock()
   }
 }
