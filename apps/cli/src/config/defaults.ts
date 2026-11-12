@@ -53,10 +53,10 @@ export const DEFAULT_SETTINGS: Settings = {
   voice: { enabled: true, durationSec: 5 },
   // P3-1 Mermaid 渲染:默认关闭(零回归)
   mermaid: { enabled: false },
-  // P3-2 Telemetry:默认开启(2026-08-31 改,补全 CLI 埋点盲区)
-  // 事件仅含 session_start/session_end/tool_call/prompt_completed/error_logged,
-  // 敏感字段自动 redact;endpoint 未配置时默认上报到项目自身 /api/analytics/track(由 agent.ts 派生)。
-  // 用户可在配置中显式 telemetry.enabled = false 关闭。
-  telemetry: { enabled: true },
+  // P3-2 Telemetry:默认关闭(F-037:默认开启会把会话埋点无感外送,与 settings.ts
+  // "默认 false"的契约也不一致)。事件仅含 session_start/session_end/tool_call/prompt_completed/
+  // error_logged,敏感字段自动 redact;用户显式 telemetry.enabled = true 后才会初始化并上报,
+  // endpoint 未配置时上报到项目自身 /api/analytics/track(由 agent.ts 派生)。
+  telemetry: { enabled: false },
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
