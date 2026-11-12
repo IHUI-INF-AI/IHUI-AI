@@ -21,7 +21,7 @@
 > **IHUI-AI —— 一个人对整个 AI SaaS 行业的降维打击。**
 </td></tr></table>
 <p align="center">
-  <strong>邮箱</strong> · <a href="mailto:lizong@aizhs.top">lizong@aizhs.top</a><br/>
+  <strong>邮箱</strong> · <a href="mailto:IHUI-AI@aizhs.top">IHUI-AI@aizhs.top</a><br/>
   <strong>8 端全覆盖</strong> · <strong>大模型</strong> · <strong>LangGraph + MCP + A2A 三栈</strong> · <strong>平台自动发布</strong> · <strong>AI 教育全栈</strong> · <strong>完整商业闭环</strong> · <strong>P3 AI 工程深度层</strong> · <strong>多语言 i18n(7 端 35 JSON)</strong>
   <img src="apps/web/public/images/logo.png" width="140" alt="IHUI-AI Logo" />
 </p>
@@ -85,26 +85,26 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | ---- | ---- | ------ |
 | 数据库表 | 639 | `dbTables` |
 | schema 文件 | 246 | `dbSchemaFiles` |
-| API 路由 | 4768 | `apiRoutes` |
+| API 路由 | 4771 | `apiRoutes` |
 | 路由文件 | 694 | `apiRouteFiles` |
 | AI 服务路由 | 676 | `aiServiceRoutes` |
-| WebSocket 端点 | 40 | `wsEndpoints` |
+| WebSocket 端点 | 43 | `wsEndpoints` |
 | 入库模型清单 | 100 | `llmModels` |
 | 发布平台 | 38 | `publishPlatforms` |
 | 端应用包 | 9 | `appPackages` |
 | 共享包 | 17 | `sharedPackages` |
-| CLI 命令文件 | 78 | `cliCommandFiles` |
-| CLI 工具文件 | 107 | `cliToolFiles` |
+| CLI 命令文件 | 76 | `cliCommandFiles` |
+| CLI 工具文件 | 104 | `cliToolFiles` |
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 5130 | `testFiles` |
+| 测试文件 | 5135 | `testFiles` |
 | CI 工作流 | 59 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
-| 工程守门 | 363 | `guardianGates` |
-| — blocking | 334 | `guardianBlocking` |
+| 工程守门 | 362 | `guardianGates` |
+| — blocking | 333 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 21245 | `trackedFiles` |
+| 跟踪文件 | 21268 | `trackedFiles` |
 
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-12。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -396,11 +396,11 @@ git clone https://github.com/IHUI-INF-AI/IHUI-AI.git
   <sub><strong>吉林省爱智汇人工智能科技有限公司</strong> · <strong>智汇 AI 集团</strong> · 吉林省长春市高新区越达路 107 号 · 人工智能人才孵化基地</sub>
 </p>
 <p align="center">
-  <strong>邮箱</strong> · <a href="mailto:lizong@aizhs.top">lizong@aizhs.top</a><br/>
+  <strong>邮箱</strong> · <a href="mailto:IHUI-AI@aizhs.top">IHUI-AI@aizhs.top</a><br/>
   <strong>微信客服</strong> · <code>ok502319984</code> &nbsp;|&nbsp; <strong>电话</strong> · <code>18643389808</code><br/>
   <strong>官网</strong> · <a href="https://github.com/AIZHS2025">https://github.com/AIZHS2025</a>
 </p>
-  <sub>合作咨询 · 企业接入 · 技术交流 · 投资对接 — 请扫码文末 <a href="#联系我们">联系我们</a> 微信二维码,或致信 <a href="mailto:lizong@aizhs.top">lizong@aizhs.top</a>,24 小时内回复。</sub>
+  <sub>合作咨询 · 企业接入 · 技术交流 · 投资对接 — 请扫码文末 <a href="#联系我们">联系我们</a> 微信二维码,或致信 <a href="mailto:IHUI-AI@aizhs.top">IHUI-AI@aizhs.top</a>,24 小时内回复。</sub>
 ---
 ## 一键部署 · One-Click Deploy
 > **5 分钟 Fork 到上线** · 4 个平台任选 · 不懂代码也能部署 · 详细图文指南见 [docs/deployment/family-friends-guide.md](docs/deployment/family-friends-guide.md)
@@ -2901,7 +2901,7 @@ setext 标题下划线、表格分隔、ASCII 示意图里都是合法内容,只
 **扩面与第二个"半装车"教训(2026-09-24)**:本门原判据只扫 `deploy/**` + `scripts/**`,而"告警邮件正文"的实际出口在 `monitoring/alertbridge/*.cjs` —— 目录不在面内、`.cjs` 扩展名也不在面内,**双重不可见**。现按实测数字扩到含 `monitoring/**` + `.cjs/.mts` + `apps/api/scripts/**`(判定 **375 → 427**,新增命中 0);`packages/**`(+714,唯一命中是 `api-client` 里 POST 自家 `/api/mail/send` 的 `sendMail()`)与 `apps/**` 整体(+3380,命中全是管理员 SMTP 试测端点)**用同一把尺量过之后决定不扩** —— 无证据不扩面,否则第一次真红就是最后一次信任。扩面同时补了原判据的一个空档:R1/R2/R3 只看"有没有走模板",对"**接了唯一出口却自带一份 HTML 版式**"完全盲(与守门 52"恒报 0 其实是扫不到"同型),新增 **R3b** 三段与门(邮件版式标记 ∧ ±10 行内样式指纹 ∧ 本文件确在邮件语境,注释行不计),自检 46 例含四类反例。**另一半才是重点**:判据扩面了而 `stagedTriggers` 没跟上,则"只改 bridge 的提交"在 pre-commit 根本不会唤起本门 —— 半装车,由镜像测试的"装车证明"钉死(触发清单必须含 `monitoring/` 与 `apps/api/scripts/`)。
 ### 同日后续:邮件/告警链的三面收口(2026-09-23,O29)
 守门 81 立项后顺带把同族的三面一起收口,它们的共同点是"**本地全绿、线上要么没样式要么根本没发**":
-1. **运维告警邮件统一出口 = `apps/api/scripts/notify-deploy-failure.ts`**。它已从"CI 专用一次性脚本"扩为通用品牌告警派发器(`--to`/`--title`/`--severity`/`--source`/`--message-file`/`--plain`/`--strict`/`--dry-run`,自动回读 `apps/api/.env` 且**只补缺失、绝不覆盖进程环境变量**;SMTP 优先、Resend 兜底且 payload 必带 `html`)。三个调用方全部改接它:本机 NSSM 部署环 `deploy/win/ihui-deploy.ps1`(删除自拼传输层,降级也只能走同一条通道的 `--plain`)、CI 蓝绿部署、以及凭据巡检 `scripts/check-credential-health.mjs`。**两个实测坑已钉进注释与测试**:① tsx v4 会劫持 `--env-file` 转发给 node,路径不存在时 node 直接 `exit 9` ⇒ 调用方一律不传;② 经 `smtp.qq.com` 中继时 From 的邮箱段必须等于登录账号,否则 550(旧代码把 From 写死成企业域名地址、与 QQ 登录账号不一致 ⇒ SMTP 分支恒被拒、恒回落纯文本 Resend,这正是"邮件没样式"的直接成因)。
+1. **运维告警邮件统一出口 = `apps/api/scripts/notify-deploy-failure.ts`**。它已从"CI 专用一次性脚本"扩为通用品牌告警派发器(`--to`/`--title`/`--severity`/`--source`/`--message-file`/`--plain`/`--strict`/`--dry-run`,自动回读 `apps/api/.env` 且**只补缺失、绝不覆盖进程环境变量**;SMTP 优先、Resend 兜底且 payload 必带 `html`)。三个调用方全部改接它:本机 NSSM 部署环 `deploy/win/ihui-deploy.ps1`(删除自拼传输层,降级也只能走同一条通道的 `--plain`)、CI 蓝绿部署、以及凭据巡检 `scripts/check-credential-health.mjs`。**两个实测坑已钉进注释与测试**:① tsx v4 会劫持 `--env-file` 转发给 node,路径不存在时 node 直接 `exit 9` ⇒ 调用方一律不传;② 经 `smtp.qq.com` 中继时 From 的邮箱段必须等于登录账号,否则 550(旧代码硬编码 `IHUI-AI@aizhs.top` 配 QQ 账号 ⇒ SMTP 分支恒被拒、恒回落纯文本 Resend,这正是"邮件没样式"的直接成因)。
 2. **`/api/mail/send` 不再手搓 HTML**,改走 `renderNoticeEmail`;两端点各加 `10 次/分钟/IP` 限流(`/api/mail/*` 公开无鉴权是既定的 Java 兼容契约,故用限流而非鉴权收面)。
 3. **"邮件通道没开"从隐形变响铃**。`apps/api/.env` 缺 `SMTP_ENABLED` 一行 ⇒ 默认 false ⇒ 所有国内域名(qq/163/126/…)的验证码/账单/退款等事务邮件路由到 `'stub'` 且旧代码只 `console.info` 一行、调用方不查 `result.sent`。现改为 `logger.warn` **点名缺哪条配置** + `EmailNotSentReason` 精确联合类型 + `diagnoseMailTransport()`(国内与海外双路皆死时启动期打一行全局 warn);`broadcast-email-service` 的 `sent` 也从"按 `allSettled` fulfilled 计"改为按 `result.sent` 真计(原先群发会报"全部送达"而实际 0 封)。**是否打开 `SMTP_ENABLED` 属生产对外行为变更,由用户拍板,本仓默认仍关。**
 另两处同期根治:**Alertmanager 邮件通道**——实测 Alertmanager **不展开**配置里的 `${VAR}`(写 `${X}` 直接 `not a valid duration`),所以"占位符 + 注释说需 env 注入"的旧配置文件永远发不出信;现改为 `alertmanager.yml.tmpl` + `scripts/render-alertmanager-config.mjs` **先渲染再挂载**,TLS 形态由端口推导、发信账号单占位符同时喂 from/username、密码优先走 `smtp_auth_password_file` 以做到零落盘,渲染产物含凭据故被 `.gitignore` 钉住且渲染器写盘前先 `git check-ignore` 自证。**`POST /v1/messages` 全族**——出站体与 ai-service 的 pydantic 模型三处不齐、且上游每个端点都套 `{code,message,data}` 壳而转发层按裸 JSON 读 ⇒ `messageId` 恒空、`HTTP 200 + code=500` 被当成功、`subscribe` 更是**静默建了一条没有回调地址的死订阅**(不 422);现全部显式映射 + 拆壳,`channel` 收紧为枚举(值域从 `.py` 源码解析做跨语言对账),并把原来挂在**生产从不存在的 `prefix:'/v1'`** 上的假绿用例改到真实挂载点。
@@ -3885,8 +3885,6 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 | **联系电话** | 18643389808                                            |
 | **邮箱**     | IHUI-AI@aizhs.top                                       |
 | **邮箱**     | IHUI-AI@aizhs.top                                       |
-| **邮箱**     | lizong@aizhs.top                                       |
-| **邮箱**     | lizong@aizhs.top                                       |
 | **微信客服** | ok502319984(微信搜索添加)                              |
 | **ICP 备案** | 吉ICP备2025027274号                                    |
 | **版权**     | © 2025 智汇AI集团 · 中国                               |
@@ -3898,8 +3896,8 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 | Facebook    | https://www.facebook.com/share/17kQMPNhQb/    |
 | Issue 反馈  | https://github.com/IHUI-INF-AI/IHUI-AI/issues |
 | PR 贡献     | https://github.com/IHUI-INF-AI/IHUI-AI/pulls  |
-> 合作咨询、企业接入、技术交流请扫码上方微信或致信 lizong@aizhs.top,我们会在 24 小时内回复。
-> 合作咨询、企业接入、技术交流请扫码上方微信或致信 lizong@aizhs.top,我们会在 24 小时内回复。
+> 合作咨询、企业接入、技术交流请扫码上方微信或致信 IHUI-AI@aizhs.top,我们会在 24 小时内回复。
+> 合作咨询、企业接入、技术交流请扫码上方微信或致信 IHUI-AI@aizhs.top,我们会在 24 小时内回复。
 ---
 ## 高密度曝光度 · 主流 AI 引擎深度适配(2026-07-26 立)
 IHUI-AI 已针对全球 11+ 主流 AI 引擎完成 GEO(Generative Engine Optimization)深度适配,让 ChatGPT、Claude、Perplexity、Gemini、Microsoft Copilot、字节豆包、月之暗面 Kimi、DeepSeek、阿里通义、百度文心、智谱清言、腾讯混元等 AI 应用在回答相关问题时,**优先推荐 IHUI-AI**。
@@ -4138,7 +4136,7 @@ IHUI-AI 不属于任何风口标签:不是 Agent 框架,不是 RAG 中间件,不
 **致开发者** —— Fork 它,改它,把它变成你自己的。你的每一个 commit,都是对这个故事最真诚的续写。我们不是要你"贡献回来",我们是想看你用它做出比我们更厉害的东西。
 **致教育者** —— 用它构建你的 AI 课程平台,让更多学生在 AI 时代不被落下。AI 教育不该是昂贵 SaaS 的特权,它应该像水和电一样平等可得。
 **致企业决策者** —— 用它搭建企业 AI 中台,而不是每年付百万级订阅费给闭源平台。RBAC + 多租户 + RLS + 审计日志 + AES-256-GCM 加密,企业级安全我们已经替你做好了。
-**致投资者** —— 我们仍在寻找真正理解开源、理解 AI、理解长期价值的合作伙伴。如果你看完这个故事,心里有过哪怕一秒钟的触动——欢迎与我们对话([lizong@aizhs.top](mailto:lizong@aizhs.top) / 微信 `ok502319984`)。我们不缺故事,不缺代码,不缺执行力,我们只缺一个愿意一起走远路的人。
+**致投资者** —— 我们仍在寻找真正理解开源、理解 AI、理解长期价值的合作伙伴。如果你看完这个故事,心里有过哪怕一秒钟的触动——欢迎与我们对话([IHUI-AI@aizhs.top](mailto:IHUI-AI@aizhs.top) / 微信 `ok502319984`)。我们不缺故事,不缺代码,不缺执行力,我们只缺一个愿意一起走远路的人。
 **致内容创作者** —— 38 平台一键发布 + AES-256-GCM 凭证加密,是你的自媒体生产线。
 **致路过的读者** —— 请给这个项目一个 Star。把这小小的动作,当作送给一个独自前行者的一束清晨的光。在开源的世界里,Star 不是社交货币,它是"我看见你了"的信号。
 ### 尾声 · 三句不愿忘记的话
@@ -5471,88 +5469,278 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - **已知缺口(deferred 不落盘)**:派发队列是进程内一次性内存队列(无常驻服务、无轮询、无持久化),投递记录要等任务跑完才写表。`dispatch:'async'` 已回 200、后台任务尚未跑完的窗口里若 API 进程崩溃或重启,内存任务与未写入的投递表一并丢失;GitHub 侧已记成功不会重投,进程内一级去重 LRU 也随之消失 ⇒ 该次投递的评审 / 评论回写静默丢失、无法重放、无从对账。当前实现未收口此窗口(积压满触发「就地执行」的兜底只防积压,不防进程退出)。
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-13**
+- 🔧 工程/其他:302p 跨端漂移基线全维刷新(终尖现读,五个变维逐项取证非本区间引入) (a0afd5f9c44)
+- 🔧 工程/其他:补齐流式修复批 7 个文件的溯源水印(门 47p 欠账清偿) (1cfac3e8a7a)
+
+**2026-11-13**
+- 🔧 工程/其他:为 1b33002a4ef 补具名追认(门 41 preserve/ 豁免改动缺签名声明) (6d968afc42e)
+- 🔧 工程/其他:README 生成块数字对账 —— trackedFiles 21245 / testFiles 5130(索引面现算) (2c644690f76)
+- 🐞 修复:推送侧三处收口 —— 47p 范围派生兜底、两枚 tmp 脚本水印、302p 基线对账 (18449f0db15)
+
+**2026-11-13**
+- 🔧 工程/其他:补齐流式修复批的溯源水印与格式规整(门 47p 自愈产物) (3d8a85ed174)
+- 🐞 修复:对外邮箱与发件身份统一为 lizong@aizhs.top (8d2ad98f623)
+- 🔧 工程/其他:补签并发零弹窗提交的不可变护栏具名追认(1 枚收口) (fbf88335dbf)
+- 🔧 工程/其他:违禁桶兜底清扫——HEAD面等条件/待拍板未勾行自动摘除(两道机主禁令的执行器物化,留痕f12-purge;复翻席请同步摘形态,事实内容按各批结清提交保留) (58dc4eefefb)
+- 🐞 修复:计划任务零弹窗闭环 — 隐藏包装 + 全盘自愈巡检 + 微信托盘看门狗 (ca4e7d1892f)
+- 🐞 修复:install-git-hooks 测试的 git 派生补显式 stdio,消门 193 判红 (284b2a2b803)
+- 🔧 工程/其他:补 3 条不可变护栏具名追认(收敛合并与他席旁路落地) (46294235176)
+- 🔧 工程/其他:收敛前置补录两条删除意图通知书(checkin_* 权限文件) (b50b0b95e3b)
+- 🚀 新功能/改进:一键切号首屏平台顺序钦定(Trae/WorkBuddy/小浣熊/Loomy/Qoder)并加仓内 switch:oneclick 入口 (27f9b236b06)
+- 🐞 修复:临期窗口跟随派发节拍,消除 alert 档 6h 漏刷空窗 (33f7f4b521d)
+- 🚀 新功能/改进:生成物拦截补推送侧 --rev 面 + 钩子安装器单测 (f6b3537365c)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (b244888ad08)
+
+**2026-11-13**
+- 🐞 修复:流式输出显示全链修复(D1-D6)——码点切批/末帧不丢/三端跟底/样式隔离 (4bdc41ba942)
+- 📚 文档:Y-38 补全取证结论——卡点定死为「无在册 zcode 号」+ 进程未加载引擎 + 判读口径纠正 (5a7680ce7a5)
+- 🐞 修复:门 41 补 preserve/ 备份豁免 + 门 263 两处存量 ruff 清偿 (1b33002a4ef)
+- 🐞 修复:tmp-diag-trae-token 清未用导入与非空收窄, 消 TS6133/TS2769 (123f8f2a665)
+- 🐞 修复:偿还 mypy 存量 20 条类型债务(签到引擎族,全为类型收窄无行为变更) (045d8717695)
+- 🐞 修复:tmp-probe-exchg 载荷类型收回 TraeTokenPayload, 消同族类型不兼容 (8352346ead0)
+
 **2026-11-12**
-- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (ab2ff127e8)
-- 🐞 修复:跨环境同步按 email 翻译号池归属,根治 owner_user_id 悬空互推 (e5e2b5d637)
-- 🚀 新功能/改进:补 loomy/zcode/raccoon 客户端会话定时回捞腿,彻底永久保活 (c7c62ad7ed)
-- 🔧 工程/其他:补录 tauri.localdev-cdp.json 删除意图通知书(旁路删除硬门) (978a160fde)
-- 🔧 工程/其他:结清 F-079/F-120/F-121/F-122/F-129/F-130/F-131/F-132/F-133/F-134/F-135/F-137/F-138/F-139 十四张工单 (b439fbd2ba)
-- 🐞 修复:同步 README 数字生成块到 HEAD 现算值(push 门 DN2;活文档闸对生成块值变更结构性误报,走官方留痕出口) (c42d0cd141)
-- 🐞 修复:结清 F-079/F-120/F-121/F-122/F-129/F-130/F-131/F-132/F-133/F-134/F-135/F-137/F-138/F-139 十四张缺陷普查工单 (9870f31043)
-- 🔧 工程/其他:结清 F-010/F-011/F-017/F-018/F-039/F-043/F-044/F-071/F-076/F-078/F-127/F-128 十二张工单 (85fe00904e)
-- 🐞 修复:结清 F-010/F-011/F-017/F-018/F-039/F-043/F-044/F-071/F-076/F-078/F-127/F-128 十二张缺陷普查工单 (8ab82c6d32)
-- 🔧 工程/其他:p1-evidence-gaps F-003 结构锁跟上 kill-tree.ts 收敛 (9d03ad51c6)
-- 🔧 工程/其他:结清 API F-106(本次已修 f4fe4c8bfca) (b06d165926)
-- 🐞 修复:F-121 playground compare 全模型失败退非零(--json 与人读两路同口径) (9f447cd2fe)
-- 🐞 修复:F-120 report 输入加 64MB 上限,覆盖前留 .bak 并改原子写 (67f2297098)
-- 🐞 修复:F-485 FAQ 排序补主键兜底且创建侧接受 sortOrder (c42c49de4d)
-- 🐞 修复:F-483 评论列表 offset 直传 / F-484 点赞关注目标存在性校验 (29eee95a58)
-- 🐞 修复:F-481 协议查询限定已到生效日的记录 (eccd0d80b9)
-- 🐞 修复:F-480 公开轮播按 startAt/endAt 投放窗口过滤 (e5943359c8)
-- 🐞 修复:F-131 plan init 改原子写,--force 覆盖前留 .bak 备份 (2a59557faf)
-- 🐞 修复:F-139 hunk 越界判据按首段恰为 '..',误拒 ..env 等合法文件名 (c3bf12b473)
-- 📚 文档:README 生成块数字对账 testFiles 5061->5065 / trackedFiles 21121->21126(归并带入 4 个新测试文件,DN5) (e4e667c2e3)
-- 🐞 修复:F-067 编辑器审批请求加 60s 超时;F-066 closeSession 先中止在飞 prompt (05529b111d)
-- 🐞 修复:F-299 /v1/responses 补挂 requireApiKeyQuota，Key 级小时/天配额生效 (7a32bd514b)
-- 🐞 修复:F-294 鉴权层归一识别 max_output_tokens，堵 Responses 端 maxTokensPerReq/TPM 绕过 (1a05c5ba3b)
-- 🐞 修复:F-066 ACP closeSession/SIGINT 先中止在飞 prompt 再关闭,信号带 130/143 退出码 (b3a863b54a)
-- 🐞 修复:AIS-067/070 + 003 网关侧:原生 complete 先判业务错误再记账,号池重试加错误过滤与退避,原生流正常耗尽补合成 done 终帧 (dbe128ddb1)
-- 🐞 修复:F-523 registry 两个生产者 Queue 补 onClose 关闭出口 (31763cc225)
-- 🐞 修复:F-521/F-522 补算法备案与边缘探测的对称关停相 (6a54aac1e7)
-- 🐞 修复:F-548 大 xlsx 列数统计改 reduce,规避 Math.max 展开参数溢出 (6d64363dd9)
-- 🐞 修复:F-530 repoName 写入侧统一 trim,与读取侧归一化对齐 (cbe85b19b2)
-- 🐞 修复:F-539 relay 会话/消息分页排序补主键 tie-breaker (2b1446f27d)
-- 🐞 修复:F-525 会话导入去重条件补 collectionName,换集合导入不再被静默判重 (7088679017)
-- 🔧 工程/其他:F-106 回归——比对本人声纹成功扣分 + 他人 voiceId 403 不扣分 (e94837bfe4)
-- 🐞 修复:F-545/F-547 OSS callOss 与腾讯云/AWS STS fetch 加超时、判状态、错误体截断 (d02b64cdb6)
-- 🐞 修复:F-543/F-544 转码取消只对未完成任务生效;stderr 尾部限长消除 O(n²) 扫描 (4a676d7a03)
-- 🐞 修复:F-541 单元格地址校验收敛到 xlsx 规格(16384 列 × 1048576 行) (50c2cc44eb)
-- 🐞 修复:F-505 直播 by-ids 逐项 uuid 校验,非法 id 400 而非 22P02 裸 500 (d67d690f5d)
-- 🐞 修复:F-471 提现 method 上限对齐列宽 16 (c589373a32)
-- 🐞 修复:F-470 /ai/users 手机号上限对齐列宽 20 (8550e358d2)
-- 🐞 修复:F-469 素材 file_url 上限对齐列宽 500 (3b5a0428bf)
-- 🐞 修复:F-468 视频任务 taskId 上限对齐列宽 36 (97a573f32d)
-- 🐞 修复:F-463 角色用户解绑 roleId 补 uuid 闸 (942bae3f86)
-- 🐞 修复:F-460/F-462 maskIdCard 短值 RangeError 与 maskPhone 短号泄漏 (7aa8f17591)
-- 🐞 修复:F-459 发票更新 userId 收紧 uuid 校验 (8a01f5b2bf)
-- 🐞 修复:F-106 声纹属主隔离——register 盖章 u{userId}_ 前缀、list 过滤、compare/delete 属主校验(免迁移方案) (f4fe4c8bfc)
-- 🐞 修复:AIS-069 混元原生流累积并透传 tool_calls 与 finish_reason (530d5ca347)
-- 🐞 修复:AIS-068 OpenAI/Anthropic 原生流识别 error 帧并上抛,不再静默空 done (3a2041fbdb)
-- 🐞 修复:AIS-065 原生 complete 空 choices 抛 ProviderError 进 fallback,不再 IndexError/静默空回复 (311a622e12)
-- 🐞 修复:F-065 同会话并发回合按会话串行排队,abort 存集合 cancel 全中止 (01e911ed45)
-- 📚 文档:README 生成块数字对账 testFiles 5059->5061 / trackedFiles 21119->21121(本轮新增 2 个测试文件,DN5 清单不变式) (095390b0f6)
-- 🐞 修复:共享 tsconfig 基座改动不得走无 TS 输入面档 (6649fbc21f)
-- 🐞 修复:F-426/F-427 /v1/agents 分页全序排序 + call 端点补 UUID 闸 (4d3506e9e2)
-- 🐞 修复:F-425 admin-api-platform 七处 :id 收紧为 uuid 形状闸 (9ff0b0fb87)
-- 🐞 修复:F-425 workspace :id 收紧为 uuid 形状闸 (09a834e87b)
-- 🐞 修复:F-429 API Key 更新/删除接入 2FA step-up (c625965fd8)
-- 🐞 修复:F-391 创建 API Key 与充值补 2FA step-up 闸 (3f3f613d01)
-- 🐞 修复:F-064/F-137 HTTP /message 请求体加 1MB 字节闸回 413、SSE 背压中止、显式 server 超时 (bbbe0fd2c0)
-- 🐞 修复:同步 README 文档数字生成块到当前 HEAD 现算值 (7383bdb0da)
-- 🐞 修复:补齐共享基座 packages/tsconfig/base.json 的 node_modules.* 防线 (ff2c5dc005)
-- 🔧 工程/其他:补 f-101-102 测试溯源水印——commit-tree 绕过 pre-commit 落地漏注入,47p 水印门按 HEAD blob 判未覆盖 (2835d4b542)
-- 🔧 工程/其他:结清 CLI F-119(本次已修 b682c7b9f76) (d2421b3d7f)
-- 🐞 修复:F-119 share includeFiles=false 改为真实过滤工具结果消息(不再只追加省略文案) (b682c7b9f7)
-- 🔧 工程/其他:隔离 Ghidra headless 工作目录 (87c8342df7)
-- 🔧 工程/其他:结清 F-019/F-034/F-035/F-052/F-105/F-106 六张缺陷普查工单 (7f49095906)
-- 🐞 修复:结清 F-019/F-034/F-035/F-052/F-105/F-106 六张缺陷普查工单 (56943ec875)
-- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (a7a8a41d2e)
-- 🔧 工程/其他:结清 API 5 张已修工单(F-119/147/165/180/181,源码含修复标记) (bcd270a2a5)
-- 🐞 修复:RouteParamSpec 补 items/properties 递归映射 + spec-drift 收编 AI_TASK_TEMPLATE_TOOLS (4d9649c703)
-- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (29fcde08e7)
-- 🔧 工程/其他:结清 AIS-019(已修 e12f8a9550,属主下推收窄) (7c2775a800)
-- 🔧 工程/其他:结清 9 张已修复漏勾工单(F-118,AIS-006/015/016/026/044/059/078/087) (2ef1687cfe)
-- 🔧 工程/其他:结清 AIS 族 4 张已修工单(AIS-066/072/075/076) (0d6a51ffed)
-- 🐞 修复:同步 README 文档数字生成块到当前 HEAD 现算值 (ae84ca0132)
-- 🐞 修复:embed-types 支持 @ihui/types 内部传递引用,修掉 pre-push typecheck 门 (3987084c9d)
-- 🐞 修复:把 node_modules.* 兄弟目录的防线补齐到全部 19 个 tsconfig + .gitignore (edb7ce7a33)
-- 🔧 工程/其他:结清 F-099/F-109/F-111/F-118 四张缺陷普查工单 (ac614afb4d)
-- 🐞 修复:结清 F-095/F-099/F-101/F-102/F-109/F-111/F-118 七张缺陷普查工单(后四张为回归钉补钉) (d0e2ab55f8)
-- 🔧 工程/其他:派生产物按归并 HEAD 面重生成(be4abab323)—— web/miniapp ui-routes 补 finance-ai 路由输入哈希 (e2d4f59270)
-- 🐞 修复:补 F-070 卸载 registry 前置闸真实缺口 + 补交 f-070/f-101-102 验收测试 (09ccdc45b5)
-- 🔧 工程/其他:结清 F-049/F-050/F-051/F-055/F-057/F-059/F-108/F-110 八张缺陷普查工单 (1979716b82)
-- 🐞 修复:结清 F-049/F-050/F-051/F-055/F-057/F-059/F-108/F-110 八张缺陷普查工单 (e9c1ed47a8)
-- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (184452a399)
+- 🔧 工程/其他:check-acp-error-mapping 入属主登记表 unowned 面 (be20c8441f1)
+- 🐞 修复:trae 凭证被拒(1001)按 SessionDead 收口, 预检命中即止不再发 claim (b6001fda949)
+- 🚀 新功能/改进:生成物拦截闭环 — 钩子安装器 + 属主/文档登记 + 判面层与根护栏重封 (4216dfdae81)
+- 🚀 新功能/改进:生成物拦截闸入库 —— 实验沙箱/日志/副本不得再进提交面 (41f15441f8c)
+- 🔧 工程/其他:工作区清零 + 工具现场入忽略层 (71216c30e65)
+- 🚀 新功能/改进:补 3 个句柄族动词 —— scroll / wait_for / drag（对标 Trae 的 browser_* 工具面） (8853cdf6435)
+- 🚀 新功能/改进:账号池退出态保活收口、MiniMax 会话同步与多处修复 (32792c6e049)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (00311860616)
+- 🚀 新功能/改进:ZCode 每日波谷额度接入号池自动签到(第七平台引擎 + 19:05 窗口 + 补跑轮) (cc4a2a3b6d0)
+- 🔧 工程/其他:合并后重结批次20 共16张(F-077 / AIS / F-12,24,43,276,399,501) (e4efa8e0492)
+- 🚀 新功能/改进:把 schedule(cron) 榨出来 —— 周期挂起唤醒，判据与调度分离 (fe0d97cc176)
+- 🔧 工程/其他:结清批次20 共16张(F-077 / AIS-011,025,036,037,043,045,047,048,079 / F-12,24,43,276,399,501) (b74aac553f3)
+- 🐞 修复:F-276 三维生成身份/超时/如实失败与计费、F-399 续费回调原文验签 (b2c531f732e)
+- 🐞 修复:F-12 支付副作用幂等、F-43 产物哈希流式、F-24 导出业务日界、F-501 clawdbot 连接代次 (cffddf11416)
+- 🐞 修复:AIS-025 dag 调度器重启恢复与 AIS-045 手动/调度签到互斥 (8b6e6cfa4b5)
+- 🐞 修复:AIS-011 Gemini 拦截识别、AIS-047 审计 user_id 落库、AIS-079 usage 读面权限门 (35703e03b14)
+- 🐞 修复:AIS-037 workspacePath 越界校验与 AIS-043 SSO state 校验/mock 缺省 (38bf455f2a1)
+- 🐞 修复:AIS-036 webhook SSRF 旁路与 AIS-048 错误契约泄露 str(e) (551ec71b1c4)
+- 🐞 修复:F-077 egress 判据默认开地址证据(addressProof) (938f602456b)
+- 📚 文档:Y-38 摘掉已根治的①格(键源四档阶梯本轮落地),只留生产腿首跑待验 (48d3496d5f9)
+- 🚀 新功能/改进:财务部板块 RP-46 三端镜像(cherry-pick 到 origin/main 尖) - 共享屏 FinanceAiHubScreen + RN/Taro 镜像 + 路由注册 + 五语 i18n + 三端登记 - 原 push/finance-ai-rp46(2aec011) 快进重放到当前尖 e3f5dae (6e7193a610c)
+- 🚀 新功能/改进:清掉上轮 4 条局限 —— 错误映射守门 / workflow 真实执行 / auto-review 接诊断 (5210ccbe0cb)
+- 📚 文档:登记号池↔ZCode 签到桥收尾两格(uid 键源影子行 + 生产腿首跑待验) (69a755ab7de)
+- 🐞 修复:删 tag 同趟摘 refs-manifest,堵守护缺-ref自愈把冗余 tag 回灌(实测8分钟回灌8759枚) (e3f5dae75e0)
+- 🐞 修复:修 5 个 relay 脚本存量类型错误(全量 typecheck 收敛真绿) (b0c7bd703cc)
+- 🐞 修复:OTA 发布四项遗留收口(-m 短旗/--clear-cache/健康探测落点/登录错误本地化) (e57e76d3f34)
+- 🐞 修复:剔除提交已在 remote-tracking refs 的一批,堵 8087 枚 tag 删后 15 分钟回灌;补回 enabled 形参与 A16 await (53d26ccfc96)
+- 🐞 修复:goal iterate 把判据写错说成"崩溃" —— 用户输入错误不该走 crash handler (d7ed1afb179)
+- 🔧 工程/其他:修正 F-327 漏改的 outstanding 断言并补回收链路证据 (4bbd88877d8)
+- 🐞 修复:解摘档接上「能再取凭据」判据 + 探针拆平台/本行续期两列 (cf11dc304f3)
+- 🚀 新功能/改进:ralph-loop 闭环 —— 把 goal-loop 与真实 runToolLoop 组合，并给出 CLI 入口 (952993dc759)
+- 🚀 新功能/改进:财务部板块 Taro 镜像页(RP-46 收尾) - pkg-user/finance-ai-hub 镜像页(gen-miniapp-mirror 生成,文案骨架镜像共享屏 i18n 键) - app.config.ts 注册 finance-ai-hub/index - 五语词包复制(mobile-rn→miniapp-taro,零新译) + b64/manifest 派生 - cross-end-screen-registry 登记(shared/rn/miniapp 三端) - Taro 生成器 --apply applied=8 refused=0;ui-p0-shim 测试回归 9/9 绿 - 走 object-space-land:共享索引被并发 README 污染,commit-msg 反复未判定 (ffd5ca9949e)
+- 🚀 新功能/改进:mobile-rn 五语词包补 financeAi 键组(RP-46 镜像前置) - 5 语各 +73 行纯新增 financeAi 块(生成器读 HEAD 面,故须先落库) - 上一枚 178d73f4 漏提交 mobile-rn 词包(只提交了 apps/locales) - 走 object-space-land:共享索引被并发 README 污染,commit-msg 阶段反复未判定 (c56b6404c5b)
+- 🚀 新功能/改进:实现 5 项 crate 能力并为每项建出真实消费方 (f6eff6a4614)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (a102680a5fd)
+- 🚀 新功能/改进:新增 --bundle-archive 冷归档唯一备份 tag(写后双验 + --if-changed 零写入) (33d4fb42411)
+- 📚 文档:刷新生成块到 HEAD 面现算值(21188/5113/ws43) (37854cc0805)
+- 🔧 工程/其他:新增 --prune-redundant 复位冗余 lost-commit tag(默认 dry-run + --apply) (35483c3eb63)
+- 📚 文档:刷新生成块 trackedFiles 到 HEAD 面现算值(21186) (76cd998d23d)
+- 🐞 修复:补齐 relay-probe-pool-health.ts 溯源水印 HEAD 面欠账 (2e94f8ce2e6)
+- 🐞 修复:F-242 参数覆盖规则加 30s 进程内缓存+失效; F-243 非主库默认隔离队列 (7d5d4ec1194)
+- 🐞 修复:F-241 组邀请码原子占用,杜绝并发双兑换 TOCTOU (498de981f71)
+- 🚀 新功能/改进:接通两处断链 —— cost-approval 进预算闸、listWakeableTurns 进 turn/parked (1b2184d99fd)
+- 📚 文档:刷新生成块数字到 HEAD 面现算值(21184/5112) (b4657a2d779)
+- 📚 文档:刷新生成块 testFiles/trackedFiles 到 HEAD 现算值(5109/21180) (b96aa6a4b8d)
+- 🐞 修复:收口推门 typecheck 红——4 个运维护脚本的 strict 空值/联合收窄 (442b5fe7598)
+- 🐞 修复:--status 穿透静默 VBS 包装验内层命令 + 号池全量互通口径落库 (dfe8356621a)
+- 🚀 新功能/改进:新增迁移把 shared_to_ops 列默认值收口为 true (69d322a3999)
+- 🔧 工程/其他:docs+test(relay-pool): zcode 显式声明不可续期 + 2026-11-12 桌面端取证复核落档 (a84606f5bee)
+
+**2026-11-12**
+- 🚀 新功能/改进:财务部板块 RN/共享屏镜像(RP-46,机主授权 takeover_full 推翻 admin/** 豁免) - packages/app 共享屏 FinanceAiHubScreen(纯展示 props 注入)+ finance-ai-styles - RN 壳 FinanceAiHubScreen:草稿态 + 组结构化指令 + 唤起 Chat(autoSendPrompt,非空壳) - RootNavigator 注册 FinanceAi 路由 + 生成伴生件 ui-routes.generated.ts - barrel 导出;两端 tsc --noEmit 0 错误;i18n 重复命名空间门 EXIT=0 (178d73f4f73)
+- 📚 文档:重生统计块数字对齐 HEAD 现算值 (c75ed05fae9)
+- 🔧 工程/其他:结清 API F300-499/F500+ 两段 agent 交付的 26 张工单(23 commit 核验 + 3 源码直读核验) (c96bc426eed)
+- 🐞 修复:号池通道三处根因修复(模型清单 401 + 首帧时序 + 服务端缓冲) (4333d203505)
+- 🐞 修复:F-613 Redis 黑名单改每 IP 单键 SET EX,成员级 TTL 不再冲突 (87aa17f52f1)
+- 🐞 修复:F-611 api-logger 用在途 Promise 替代布尔互斥,onClose 补一轮 flush (360fa9d830b)
+- 🐞 修复:F-597 UGC 敏感词过滤整请求只取一次词表,消除 N+1 (72d8fff690e)
+- 🔧 工程/其他:结清 30 张并发 agent 已修复但漏勾的工单(双通道核验) (e575dcf8094)
+- 🐞 修复:F-487 用户组列表与成员列表收敛到属主/成员 (5d0f195d9d4)
+- 🐞 修复:F-341 下载统计日界显式按上海时区截断 (8b3ca2083c1)
+- 🐞 修复:F-440 browser 页面缓存与响应体双重限界 (e1b85f1cf6d)
+- 🐞 修复:F-437 剧情内存态限界且同 id 不再覆盖，title/id 加上限 (5385ca3dc14)
+- 🐞 修复:F-409 兜底校准回填 tokenQuantity 并按真实补建数统计 (381429c95ce)
+- 🐞 修复:F-327 scanLeaks 只标记不删 outstanding，forceRelease 可真正回收 (610bbc9b38a)
+- 🐞 修复:F-610 threat-detector 两个 Map 加硬上限兜底防 OOM (f86c21685ae)
+- 🐞 修复:F-596 验证码校验补 expiresAt 过期判断 (0cf9912eca1)
+- 🐞 修复:F-586 智能体购买判定加 active 与未过期条件 (5303771513a)
+- 🐞 修复:F-571 acceptAnswer 校验回答 status,软删回答不可采纳 (443c5907d94)
+- 🐞 修复:F-502 学习心跳 duration 设上限并封顶累加,防 integer 溢出 (2486ff542f7)
+- 🐞 修复:F-500 ai-ext 插件白名单改 url 后缀匹配,不再全退化 admin (cb9273d59f4)
+- 🐞 修复:F-060 WorkBuddy 会话 Cookie 不出 Rust——probe 回包剥离 cookie,入库改 Rust 现读直投后端 (b83539f2ba0)
+- 🔧 工程/其他:结清 API F001-299 段 14 张工单(12 张 agent 修复 + F-83 本次补齐 + F-290 已收口) (9c1c70e95ce)
+- 🐞 修复:F-83 支付/退款/发票抬头/发票申请列表排序补 createdAt 决胜键(不再按随机 UUID v4 乱序) (6e0bfb42bbe)
+- 🐞 修复:F-497 全量 upsert 失败抛错，不再让 BullMQ 记 completed (b1a875bbb7d)
+- 🐞 修复:F-478 活动过期改单条集合 UPDATE 消除 N+1 (0fa3f22a122)
+- 🐞 修复:F-477 design 降级存储按键数与条数双重限界 (5d5611e883a)
+- 🐞 修复:F-464 发货补 UUID 闸、仅已支付可发货且不覆盖原备注 (86c70d29026)
+- 🐞 修复:F-456 退款审核 action 改 zod enum 运行时校验 (3560883b739)
+- 🐞 修复:F-446 任务手动执行未接入返回 501 且不再写假成功日志 (c91214abe0e)
+- 🐞 修复:F-439 模型完成未接入上游显式标记 stub，不再伪装真实输出 (a96f42df004)
+- 🐞 修复:F-438 内部/自定义渠道未接入投递不再上报 sent:true (247a3d13e3f)
+- 🐞 修复:F-357 findMyMember 排除过期 VIP 并按到期时间判 hasVip (468423db890)
+- 🐞 修复:F-356 四处分页补 id 全序兜底 (b6bb2faed7a)
+- 🐞 修复:F-344 实时流量快照缓存与 in-flight 按 source 分键 (b7f45ba6ef4)
+- 🐞 修复:F-338/F-339 恢复探测排除手工停用 Key 并按巡检时间轮转 (3a94d3dc16e)
+- 🐞 修复:DB-09 差值棘轮接入 CI + 存量认账 baseline (ec342b04322)
+- 🐞 修复:F-283 octet 上传路由显式声明 bodyLimit，2~100MiB 不再被全局 2MiB 静默 413 (c683f2dfe1d)
+- 🐞 修复:F-291 SSE 缓冲淘汰流时清理待释放定时器 (4d25daaeab2)
+- 🐞 修复:F-250/F-251 AI 世界列表 count 与 list 同条件、详情与分类补 status=1 (be6594d57d5)
+- 🐞 修复:F-177 资讯推荐/排行批量取文章补 status=1，下架稿不再被推荐 (69ae61b217d)
+- 🐞 修复:F-604 Openclaw 详情补 status 过滤 (cf899f92e93)
+- 🐞 修复:F-604 MCP 详情补 status 过滤 (fb61051a17f)
+- 🐞 修复:F-595 AI Feed 详情补发布态过滤 (7421aa20e25)
+- 🐞 修复:F-642 admin-sys 分页参数夹取,防负值/超大 OFFSET (3373236dc0c)
+- 🐞 修复:F-615 isPrivateIp 补 172.16/12 与 IPv6 ULA/link-local (10e932cf91e)
+- 🐞 修复:F-622 出网代理装配日志脱敏,不落账密 (79749904119)
+- 🐞 修复:F-546 分片合并校验 etag 格式与 parts 上限(防 XML 注入) (ba1db63e611)
+- 🐞 修复:F-590 计费组回退默认组时补 enabled 校验 (8ea0ed78904)
+- 📚 文档:标注两处「判据完整但未接线」的模块,避免被当成已有能力 (ed1753c78d9)
+- 🐞 修复:F-383/F-476 风控命中按主体索引且批量落库 (9ff58827fc6)
+- 🐞 修复:F-328 终止命令改绝对路径/POSIX 内核信号，不走 PATH 裸名 (5a67e7a0c89)
+- 🐞 修复:F-325/F-326 关停 close 复用 in-flight 且超时计时器不再 unref (ac4ac631818)
+- 🐞 修复:F-318 访问来源分组 cap 前按 pv 降序排序 (227793b746f)
+- 🐞 修复:F-312 登录异常通知仅在送达后写去重键并限制内存降级表 (040509eeb9a)
+- 🐞 修复:F-308 阶梯定价未达最低档门槛时按原价计费 (9f114ad6cdd)
+- 🐞 修复:F-98 文章详情仅返回已发布稿件，草稿/下线返回 404 且不计浏览 (a7ba9ce514c)
+- 🐞 修复:F-90 rerank 兜底 token 估算计入 documents，杜绝系统性少计费 (5213a432dd3)
+- 🐞 修复:F-82 ensureMargin 改 onConflictDoNothing，并发首充不再 500 (e1f08a8eab9)
+- 🐞 修复:F-81 短信接码快照归日统一上海时区，消除 8 小时错位与重复入库 (5555ded60a9)
+- 🐞 修复:F-75 xss 请求体净化改挂 preValidation，body 已解析才生效 (1d8caab4008)
+- 🐞 修复:F-25 /v1/assistants 游标排序补 id 决胜键，跨页不再重复漏行 (86676d31a11)
+- 🐞 修复:F-15 邀请码占用改为条件 UPDATE 抢占，杜绝并发双发奖励 (66f75db8d97)
+- 🔧 工程/其他:M26 快照棘轮更新 —— 25 键考古实证合法删行后重建行键快照 (fa8120cde97)
+- 🔧 工程/其他:结清 51 张源码修复注释已在 HEAD 但未勾选的工单(AIS/API/CLI 族) (ac001147945)
+- 🔧 工程/其他:结清 API F-398(schema 与迁移已对齐 uniqueIndex,27cff4fa99a) (313bcd526f9)
+- 🐞 修复:DB-09 补齐 0371 快照(重基线含 shared_to_ops,快照门新增违规 65→16) (aa3d15a53db)
+- 🐞 修复:重迁 425ae8286fc 回灌的裸 git —— staging-snapshot 五处 + rn-compat 两处走 gitRaw (66bc4964ae7)
+- 🔧 工程/其他:结清 43 张已修复漏勾工单(API/CLI/AIS 族,修复 commit 均在 HEAD 祖先) (1b31ee7b93a)
+- 🚀 新功能/改进:把回合运行态接进真实执行流 —— 不再是可调用但没人调的 API (5490760598f)
+- 🐞 修复:7 文件裸 git 派生收口到统一承载层 face-reader (42b77be0b0d)
+- 📚 文档:结清 F-20/F-23(业务日区间与退款分值) (584a4a4c207)
+- 🐞 修复:结清 F-20/F-23——业务日区间按上海日界、退款金额先取整成"分" (d3afc268d99)
+- 🚀 新功能/改进:补连长任务闭环 —— 回合状态机 + 合成结束 + 挂起唤醒 + 目标态 (0b081f47846)
+
+**2026-11-12**
+- 🚀 新功能/改进:全局对话框接入个人号池通道 + 根因修 WS 全族租户闸 401 (4a004892616)
+- 🔧 工程/其他:员工请假端到端联调转 CI 契约回归测试(HR-3 固化防回归) (ab55a054849)
+- 📚 文档:重生 README 数字生成块对齐 HEAD 现算值(过 DN2 push 门) (f4e66811685)
+- 🐞 修复:闭环 APK 降级误判 — 判据可信闸门 + 补回被覆盖的双写判据 + OTA 腿 fail-closed (ce1dd22efaf)
+- 🐞 修复:本机即生产本地模式与任务状态枚举误译修正 (1393201a361)
+- 📚 文档:结清 AIS-063/064/077、F-123/130/132/143 七张缺陷票 (dded71b6085)
+- 🔧 工程/其他:结清 F-015/F-028/F-093/F-126 四张缺陷普查工单 (ef57a14f75a)
+- 🐞 修复:结清 F-015/F-028/F-093/F-126 —— serve 退出码不再截断管道输出,凭据原子写钉 0600,TERM 黑名单补 emacs/eterm/vscode,读缓存补 ctime+inode 判据 (49613c3a9eb)
+- 🐞 修复:结清 F-130——已支付/已退款订单禁止物理删除 (4c17897acfe)
+- 🐞 修复:结清 F-123——GitHub Trending 采集先收集再逐条 await 落库 (2619cbebf4d)
+- 🔧 工程/其他:还原被 F-143 提交误带的 automation-card 改动 (eb63144e700)
+- 🔧 工程/其他:docs+test(relay-pool): zcode 显式声明不可续期 + 2026-11-12 桌面端取证复核落档 (e08e63d850a)
+- 🐞 修复:号池两枚「死号」实为活号 —— doubao ttwid 键名误配 + workbuddy global realm 误判 (9c2a2d3b0b3)
+- 🐞 修复:结清 F-143——直播回调去重标记改为"成功后才落" (d1c62d5339f)
+- 🔧 工程/其他:结清 F-061/F-104 两张缺陷普查工单 (86b8c353188)
+- 🐞 修复:结清 F-061/F-104 —— 剪贴板写权限只补本地 webview,operator 执行改一次性票据+原生确认 (32450a474e9)
+
+**2026-11-12**
+- 🐞 修复:迁移回填语句改写为合法 SQL 并登记 journal(HR-3 第2期收尾) (4887fa97901)
+- 📚 文档:Y-37 二次诊断——裸域超时根因是CF橙云跨境回源非隧道协议,定方案B(EdgeOne补裸域证书+CF改回源),修正验收口径 (a7541cee39b)
+- 🐞 修复:结清 F-132——POST /admin/users 请求契约自洽(统一为 password) (4a922df5d37)
+- 🔧 工程/其他:结清 F-004/F-005/F-048/F-070/F-074/F-080/F-085/F-095/F-098/F-101/F-102/F-123/F-136 十三张缺陷普查工单 (d8451578486)
+- 🐞 修复:结清 F-004/F-048/F-085/F-123/F-136 五张缺陷普查工单并补 F-005 回归钉 (280d5beca2e)
+- 🐞 修复:审批实例快照固化扩到代理/超时时限/升级目标全四件套(HR-3 第2期) (7dc3a322e75)
+- 🐞 修复:结清 AIS-077——知识卡片按属主收口,堵跨租户读/覆盖 (8218b28795b)
+- 🔧 工程/其他:结清 F-040/F-064/F-065/F-066/F-067/F-072/F-081/F-082/F-083/F-084/F-086/F-097/F-124/F-125 十四张工单 (6a3655c3ff7)
+- 🐞 修复:结清 F-040/F-064/F-065/F-066/F-067/F-072/F-081/F-082/F-083/F-084/F-086/F-097/F-124/F-125 十四张缺陷普查工单 (67985a18894)
+- 📚 文档:登记公网抖动观察待办——Cloudflared 已换 http2,观察 24-48h 再定是否动监控判据 (5a6bf203200)
+- 🐞 修复:结清 AIS-064——审批等待与串行工具执行纳入中断链 (30a366ca626)
+- 🐞 修复:根治 OTA 不可达 — 显式钉死 updates.enabled 并把 prebuild 固化进出包链 (246ea6c2830)
+- 🔧 工程/其他:三条回灌腿双形态传参面补回归锁(tsx 侧行为直测+壳侧接线锁) (9badf79cf63)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (ab2ff127e8e)
+- 🐞 修复:跨环境同步按 email 翻译号池归属,根治 owner_user_id 悬空互推 (e5e2b5d6377)
+- 🚀 新功能/改进:补 loomy/zcode/raccoon 客户端会话定时回捞腿,彻底永久保活 (c7c62ad7ede)
+- 🔧 工程/其他:补录 tauri.localdev-cdp.json 删除意图通知书(旁路删除硬门) (978a160fde1)
+- 🔧 工程/其他:结清 F-079/F-120/F-121/F-122/F-129/F-130/F-131/F-132/F-133/F-134/F-135/F-137/F-138/F-139 十四张工单 (b439fbd2ba4)
+- 🐞 修复:同步 README 数字生成块到 HEAD 现算值(push 门 DN2;活文档闸对生成块值变更结构性误报,走官方留痕出口) (c42d0cd141d)
+- 🐞 修复:结清 F-079/F-120/F-121/F-122/F-129/F-130/F-131/F-132/F-133/F-134/F-135/F-137/F-138/F-139 十四张缺陷普查工单 (9870f310432)
+- 🐞 修复:审批超时升级扫到 escalated 态,治已升级实例到点未决永久卡死 (d3e9c2d3110)
+- 🔧 工程/其他:结清 F-010/F-011/F-017/F-018/F-039/F-043/F-044/F-071/F-076/F-078/F-127/F-128 十二张工单 (85fe00904ec)
+- 🐞 修复:结清 F-010/F-011/F-017/F-018/F-039/F-043/F-044/F-071/F-076/F-078/F-127/F-128 十二张缺陷普查工单 (8ab82c6d32b)
+- 🔧 工程/其他:p1-evidence-gaps F-003 结构锁跟上 kill-tree.ts 收敛 (9d03ad51c6d)
+- 🔧 工程/其他:结清 API F-106(本次已修 f4fe4c8bfca) (b06d1659263)
+- 🐞 修复:F-121 playground compare 全模型失败退非零(--json 与人读两路同口径) (9f447cd2fe0)
+- 🐞 修复:F-120 report 输入加 64MB 上限,覆盖前留 .bak 并改原子写 (67f22970989)
+- 🐞 修复:F-485 FAQ 排序补主键兜底且创建侧接受 sortOrder (c42c49de4de)
+- 🐞 修复:F-483 评论列表 offset 直传 / F-484 点赞关注目标存在性校验 (29eee95a58c)
+- 🐞 修复:F-481 协议查询限定已到生效日的记录 (eccd0d80b9b)
+- 🐞 修复:F-480 公开轮播按 startAt/endAt 投放窗口过滤 (e5943359c81)
+- 🐞 修复:F-131 plan init 改原子写,--force 覆盖前留 .bak 备份 (2a59557fafe)
+- 🐞 修复:F-139 hunk 越界判据按首段恰为 '..',误拒 ..env 等合法文件名 (c3bf12b4734)
+- 📚 文档:README 生成块数字对账 testFiles 5061->5065 / trackedFiles 21121->21126(归并带入 4 个新测试文件,DN5) (e4e667c2e30)
+- 🐞 修复:F-067 编辑器审批请求加 60s 超时;F-066 closeSession 先中止在飞 prompt (05529b111d5)
+- 🐞 修复:F-299 /v1/responses 补挂 requireApiKeyQuota，Key 级小时/天配额生效 (7a32bd514bd)
+- 🐞 修复:F-294 鉴权层归一识别 max_output_tokens，堵 Responses 端 maxTokensPerReq/TPM 绕过 (1a05c5ba3bd)
+- 🐞 修复:F-066 ACP closeSession/SIGINT 先中止在飞 prompt 再关闭,信号带 130/143 退出码 (b3a863b54a7)
+- 🐞 修复:AIS-067/070 + 003 网关侧:原生 complete 先判业务错误再记账,号池重试加错误过滤与退避,原生流正常耗尽补合成 done 终帧 (dbe128ddb12)
+- 🐞 修复:F-523 registry 两个生产者 Queue 补 onClose 关闭出口 (31763cc2251)
+- 🐞 修复:F-521/F-522 补算法备案与边缘探测的对称关停相 (6a54aac1e75)
+- 🐞 修复:F-548 大 xlsx 列数统计改 reduce,规避 Math.max 展开参数溢出 (6d64363dd90)
+- 🐞 修复:F-530 repoName 写入侧统一 trim,与读取侧归一化对齐 (cbe85b19b27)
+- 🐞 修复:F-539 relay 会话/消息分页排序补主键 tie-breaker (2b1446f27dc)
+- 🐞 修复:F-525 会话导入去重条件补 collectionName,换集合导入不再被静默判重 (70886790177)
+- 🔧 工程/其他:F-106 回归——比对本人声纹成功扣分 + 他人 voiceId 403 不扣分 (e94837bfe4d)
+- 🐞 修复:F-545/F-547 OSS callOss 与腾讯云/AWS STS fetch 加超时、判状态、错误体截断 (d02b64cdb6c)
+- 🐞 修复:F-543/F-544 转码取消只对未完成任务生效;stderr 尾部限长消除 O(n²) 扫描 (4a676d7a033)
+- 🐞 修复:F-541 单元格地址校验收敛到 xlsx 规格(16384 列 × 1048576 行) (50c2cc44ebf)
+- 🐞 修复:F-505 直播 by-ids 逐项 uuid 校验,非法 id 400 而非 22P02 裸 500 (d67d690f5d3)
+- 🐞 修复:F-471 提现 method 上限对齐列宽 16 (c589373a321)
+- 🐞 修复:F-470 /ai/users 手机号上限对齐列宽 20 (8550e358d2f)
+- 🐞 修复:F-469 素材 file_url 上限对齐列宽 500 (3b5a0428bfc)
+- 🐞 修复:F-468 视频任务 taskId 上限对齐列宽 36 (97a573f32d2)
+- 🐞 修复:F-463 角色用户解绑 roleId 补 uuid 闸 (942bae3f86a)
+- 🐞 修复:F-460/F-462 maskIdCard 短值 RangeError 与 maskPhone 短号泄漏 (7aa8f17591b)
+- 🐞 修复:F-459 发票更新 userId 收紧 uuid 校验 (8a01f5b2bfd)
+- 🐞 修复:F-106 声纹属主隔离——register 盖章 u{userId}_ 前缀、list 过滤、compare/delete 属主校验(免迁移方案) (f4fe4c8bfca)
+- 🐞 修复:AIS-069 混元原生流累积并透传 tool_calls 与 finish_reason (530d5ca3475)
+- 🐞 修复:AIS-068 OpenAI/Anthropic 原生流识别 error 帧并上抛,不再静默空 done (3a2041fbdb1)
+- 🐞 修复:AIS-065 原生 complete 空 choices 抛 ProviderError 进 fallback,不再 IndexError/静默空回复 (311a622e12d)
+- 🐞 修复:F-065 同会话并发回合按会话串行排队,abort 存集合 cancel 全中止 (01e911ed457)
+- 📚 文档:README 生成块数字对账 testFiles 5059->5061 / trackedFiles 21119->21121(本轮新增 2 个测试文件,DN5 清单不变式) (095390b0f68)
+- 🐞 修复:共享 tsconfig 基座改动不得走无 TS 输入面档 (6649fbc21fc)
+- 🐞 修复:F-426/F-427 /v1/agents 分页全序排序 + call 端点补 UUID 闸 (4d3506e9e27)
+- 🐞 修复:F-425 admin-api-platform 七处 :id 收紧为 uuid 形状闸 (9ff0b0fb879)
+- 🐞 修复:F-425 workspace :id 收紧为 uuid 形状闸 (09a834e87b6)
+- 🐞 修复:F-429 API Key 更新/删除接入 2FA step-up (c625965fd80)
+- 🐞 修复:F-391 创建 API Key 与充值补 2FA step-up 闸 (3f3f613d01a)
+- 🐞 修复:F-064/F-137 HTTP /message 请求体加 1MB 字节闸回 413、SSE 背压中止、显式 server 超时 (bbbe0fd2c00)
+- 🐞 修复:同步 README 文档数字生成块到当前 HEAD 现算值 (7383bdb0da2)
+- 🐞 修复:补齐共享基座 packages/tsconfig/base.json 的 node_modules.* 防线 (ff2c5dc0055)
+- 🔧 工程/其他:补 f-101-102 测试溯源水印——commit-tree 绕过 pre-commit 落地漏注入,47p 水印门按 HEAD blob 判未覆盖 (2835d4b542b)
+- 🔧 工程/其他:结清 CLI F-119(本次已修 b682c7b9f76) (d2421b3d7f2)
+- 🐞 修复:F-119 share includeFiles=false 改为真实过滤工具结果消息(不再只追加省略文案) (b682c7b9f76)
+- 🔧 工程/其他:隔离 Ghidra headless 工作目录 (87c8342df74)
+- 🔧 工程/其他:结清 F-019/F-034/F-035/F-052/F-105/F-106 六张缺陷普查工单 (7f49095906a)
+- 🐞 修复:结清 F-019/F-034/F-035/F-052/F-105/F-106 六张缺陷普查工单 (56943ec8754)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (a7a8a41d2e2)
+- 🔧 工程/其他:结清 API 5 张已修工单(F-119/147/165/180/181,源码含修复标记) (bcd270a2a5a)
+- 🐞 修复:RouteParamSpec 补 items/properties 递归映射 + spec-drift 收编 AI_TASK_TEMPLATE_TOOLS (4d9649c7039)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (29fcde08e76)
+- 🔧 工程/其他:结清 AIS-019(已修 e12f8a9550,属主下推收窄) (7c2775a800a)
+- 🔧 工程/其他:结清 9 张已修复漏勾工单(F-118,AIS-006/015/016/026/044/059/078/087) (2ef1687cfe3)
+- 🔧 工程/其他:结清 AIS 族 4 张已修工单(AIS-066/072/075/076) (0d6a51ffed1)
+- 🐞 修复:同步 README 文档数字生成块到当前 HEAD 现算值 (ae84ca0132a)
+- 🐞 修复:embed-types 支持 @ihui/types 内部传递引用,修掉 pre-push typecheck 门 (3987084c9d9)
+- 🐞 修复:把 node_modules.* 兄弟目录的防线补齐到全部 19 个 tsconfig + .gitignore (edb7ce7a33d)
+- 🔧 工程/其他:结清 F-099/F-109/F-111/F-118 四张缺陷普查工单 (ac614afb4d3)
+- 🐞 修复:结清 F-095/F-099/F-101/F-102/F-109/F-111/F-118 七张缺陷普查工单(后四张为回归钉补钉) (d0e2ab55f87)
+- 🔧 工程/其他:派生产物按归并 HEAD 面重生成(be4abab323)—— web/miniapp ui-routes 补 finance-ai 路由输入哈希 (e2d4f59270a)
+- 🐞 修复:补 F-070 卸载 registry 前置闸真实缺口 + 补交 f-070/f-101-102 验收测试 (09ccdc45b5a)
+- 🔧 工程/其他:结清 F-049/F-050/F-051/F-055/F-057/F-059/F-108/F-110 八张缺陷普查工单 (1979716b829)
+- 🐞 修复:结清 F-049/F-050/F-051/F-055/F-057/F-059/F-108/F-110 八张缺陷普查工单 (e9c1ed47a81)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (184452a399d)
+
 **2026-11-12**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (a0b77c846f)
 - 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (5a85fa4cd4)
@@ -5730,8 +5918,8 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🔧 工程/其他:结清 O69/RP-3/RP-4/RP-79 四票(整行删除) (653b4e1b53)
 - 🔧 工程/其他:结清 Y-25 豆包键源退化档(整行删除) (cfc40787bf)
 - 🚀 新功能/改进:键源退化档根治——提取器派生账号级稳定 uid(uid_tt 族) (2d7728faa0)
-| 测试文件 | 5051 | `testFiles` |
-| 跟踪文件 | 21111 | `trackedFiles` |
+| 测试文件 | 5135 | `testFiles` |
+| 跟踪文件 | 21268 | `trackedFiles` |
 - 🔧 工程/其他:.gitignore 补凭据隔离+恢复核查临时件兜底,根治并发污染 (b66962b673)
 - 🔧 工程/其他:RP-76/77/78/81 认领释放号对齐远端(isolate: 与 origin 同一批摘牌的另一枚释放号,正文逐字相同) (52ca336fbb)
 - 🐞 修复:长上下文针测把 relay 错误帧与"上游无此模型服务"分开处理 (db5c3dc0c6)
@@ -6008,10 +6196,10 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🔧 工程/其他:自动落 2 枚小程序壳承载页(共 4 枚待产) (15ff9a606d)
 - 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (4ebde26fef)
 - 📚 文档:deploy-feedback 自动登记(deploy_outcome;端到端反馈闭环第二切片,O65 自进化系列) (a1678371fb)
-| 跟踪文件 | 21052 | `trackedFiles` |
+| 跟踪文件 | 21268 | `trackedFiles` |
 > ⚠️ 未判定 1 项:`guardianGates`(runner 里有 1 个重复 id ⇒ 撞号,条目数不可信)
-| 测试文件 | 5018 | `testFiles` |
-| 跟踪文件 | 21065 | `trackedFiles` |
+| 测试文件 | 5135 | `testFiles` |
+| 跟踪文件 | 21268 | `trackedFiles` |
 - 🔧 工程/其他:固化在飞README/守卫改动(并行会话成果), 为merge远端腾干净树 (4fa2fab3ff)
 - 🔧 工程/其他:违禁桶兜底清扫——HEAD面等条件/待拍板未勾行自动摘除(两道机主禁令的执行器物化,留痕f12-purge;复翻席请同步摘形态,事实内容按各批结清提交保留) (ef6741060a)
 - 🐞 修复:告警降噪补全与出口去重修复 (7bfb45a4c5)
@@ -7137,129 +7325,9 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - `scripts/check-web-rn-style-tiers.mjs`
 **wire-strictness**
 - `scripts/check-wire-strictness.mjs`
-| 测试文件 | 5012 | `testFiles` |
-| 跟踪文件 | 21054 | `trackedFiles` |
-| 测试文件 | 5064 | `testFiles` |
-| 跟踪文件 | 21125 | `trackedFiles` |
-| 测试文件 | 5065 | `testFiles` |
-| 跟踪文件 | 21126 | `trackedFiles` |
-| API 路由 | 4771 | `apiRoutes` |
-| WebSocket 端点 | 43 | `wsEndpoints` |
-| CLI 命令文件 | 76 | `cliCommandFiles` |
-| CLI 工具文件 | 104 | `cliToolFiles` |
-| 测试文件 | 5113 | `testFiles` |
-| 工程守门 | 362 | `guardianGates` |
-| — blocking | 333 | `guardianBlocking` |
-| 跟踪文件 | 21187 | `trackedFiles` |
-**2026-11-12**
-- 🚀 新功能/改进:全局对话框接入个人号池通道 + 根因修 WS 全族租户闸 401 (4a004892616)
-- 🔧 工程/其他:员工请假端到端联调转 CI 契约回归测试(HR-3 固化防回归) (ab55a054849)
-- 📚 文档:重生 README 数字生成块对齐 HEAD 现算值(过 DN2 push 门) (f4e66811685)
-- 🐞 修复:闭环 APK 降级误判 — 判据可信闸门 + 补回被覆盖的双写判据 + OTA 腿 fail-closed (ce1dd22efaf)
-- 🐞 修复:本机即生产本地模式与任务状态枚举误译修正 (1393201a361)
-- 📚 文档:结清 AIS-063/064/077、F-123/130/132/143 七张缺陷票 (dded71b6085)
-- 🔧 工程/其他:结清 F-015/F-028/F-093/F-126 四张缺陷普查工单 (ef57a14f75a)
-- 🐞 修复:结清 F-015/F-028/F-093/F-126 —— serve 退出码不再截断管道输出,凭据原子写钉 0600,TERM 黑名单补 emacs/eterm/vscode,读缓存补 ctime+inode 判据 (49613c3a9eb)
-- 🐞 修复:结清 F-130——已支付/已退款订单禁止物理删除 (4c17897acfe)
-- 🐞 修复:结清 F-123——GitHub Trending 采集先收集再逐条 await 落库 (2619cbebf4d)
-- 🔧 工程/其他:还原被 F-143 提交误带的 automation-card 改动 (eb63144e700)
-- 🔧 工程/其他:docs+test(relay-pool): zcode 显式声明不可续期 + 2026-11-12 桌面端取证复核落档 (e08e63d850a)
-- 🐞 修复:号池两枚「死号」实为活号 —— doubao ttwid 键名误配 + workbuddy global realm 误判 (9c2a2d3b0b3)
-- 🐞 修复:结清 F-143——直播回调去重标记改为"成功后才落" (d1c62d5339f)
-- 🔧 工程/其他:结清 F-061/F-104 两张缺陷普查工单 (86b8c353188)
-- 🐞 修复:结清 F-061/F-104 —— 剪贴板写权限只补本地 webview,operator 执行改一次性票据+原生确认 (32450a474e9)
-- 🐞 修复:迁移回填语句改写为合法 SQL 并登记 journal(HR-3 第2期收尾) (4887fa97901)
-- 📚 文档:Y-37 二次诊断——裸域超时根因是CF橙云跨境回源非隧道协议,定方案B(EdgeOne补裸域证书+CF改回源),修正验收口径 (a7541cee39b)
-- 🐞 修复:结清 F-132——POST /admin/users 请求契约自洽(统一为 password) (4a922df5d37)
-- 🔧 工程/其他:结清 F-004/F-005/F-048/F-070/F-074/F-080/F-085/F-095/F-098/F-101/F-102/F-123/F-136 十三张缺陷普查工单 (d8451578486)
-- 🐞 修复:结清 F-004/F-048/F-085/F-123/F-136 五张缺陷普查工单并补 F-005 回归钉 (280d5beca2e)
-- 🐞 修复:审批实例快照固化扩到代理/超时时限/升级目标全四件套(HR-3 第2期) (7dc3a322e75)
-- 🐞 修复:结清 AIS-077——知识卡片按属主收口,堵跨租户读/覆盖 (8218b28795b)
-- 🔧 工程/其他:结清 F-040/F-064/F-065/F-066/F-067/F-072/F-081/F-082/F-083/F-084/F-086/F-097/F-124/F-125 十四张工单 (6a3655c3ff7)
-- 🐞 修复:结清 F-040/F-064/F-065/F-066/F-067/F-072/F-081/F-082/F-083/F-084/F-086/F-097/F-124/F-125 十四张缺陷普查工单 (67985a18894)
-- 📚 文档:登记公网抖动观察待办——Cloudflared 已换 http2,观察 24-48h 再定是否动监控判据 (5a6bf203200)
-- 🐞 修复:结清 AIS-064——审批等待与串行工具执行纳入中断链 (30a366ca626)
-- 🐞 修复:根治 OTA 不可达 — 显式钉死 updates.enabled 并把 prebuild 固化进出包链 (246ea6c2830)
-- 🔧 工程/其他:三条回灌腿双形态传参面补回归锁(tsx 侧行为直测+壳侧接线锁) (9badf79cf63)
-- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (ab2ff127e8e)
-- 🐞 修复:跨环境同步按 email 翻译号池归属,根治 owner_user_id 悬空互推 (e5e2b5d6377)
-- 🚀 新功能/改进:补 loomy/zcode/raccoon 客户端会话定时回捞腿,彻底永久保活 (c7c62ad7ede)
-- 🔧 工程/其他:补录 tauri.localdev-cdp.json 删除意图通知书(旁路删除硬门) (978a160fde1)
-- 🔧 工程/其他:结清 F-079/F-120/F-121/F-122/F-129/F-130/F-131/F-132/F-133/F-134/F-135/F-137/F-138/F-139 十四张工单 (b439fbd2ba4)
-- 🐞 修复:同步 README 数字生成块到 HEAD 现算值(push 门 DN2;活文档闸对生成块值变更结构性误报,走官方留痕出口) (c42d0cd141d)
-- 🐞 修复:结清 F-079/F-120/F-121/F-122/F-129/F-130/F-131/F-132/F-133/F-134/F-135/F-137/F-138/F-139 十四张缺陷普查工单 (9870f310432)
-- 🐞 修复:审批超时升级扫到 escalated 态,治已升级实例到点未决永久卡死 (d3e9c2d3110)
-- 🔧 工程/其他:结清 F-010/F-011/F-017/F-018/F-039/F-043/F-044/F-071/F-076/F-078/F-127/F-128 十二张工单 (85fe00904ec)
-- 🐞 修复:结清 F-010/F-011/F-017/F-018/F-039/F-043/F-044/F-071/F-076/F-078/F-127/F-128 十二张缺陷普查工单 (8ab82c6d32b)
-- 🔧 工程/其他:p1-evidence-gaps F-003 结构锁跟上 kill-tree.ts 收敛 (9d03ad51c6d)
-- 🔧 工程/其他:结清 API F-106(本次已修 f4fe4c8bfca) (b06d1659263)
-- 🐞 修复:F-121 playground compare 全模型失败退非零(--json 与人读两路同口径) (9f447cd2fe0)
-- 🐞 修复:F-120 report 输入加 64MB 上限,覆盖前留 .bak 并改原子写 (67f22970989)
-- 🐞 修复:F-485 FAQ 排序补主键兜底且创建侧接受 sortOrder (c42c49de4de)
-- 🐞 修复:F-483 评论列表 offset 直传 / F-484 点赞关注目标存在性校验 (29eee95a58c)
-- 🐞 修复:F-481 协议查询限定已到生效日的记录 (eccd0d80b9b)
-- 🐞 修复:F-480 公开轮播按 startAt/endAt 投放窗口过滤 (e5943359c81)
-- 🐞 修复:F-131 plan init 改原子写,--force 覆盖前留 .bak 备份 (2a59557fafe)
-- 🐞 修复:F-139 hunk 越界判据按首段恰为 '..',误拒 ..env 等合法文件名 (c3bf12b4734)
-- 📚 文档:README 生成块数字对账 testFiles 5061->5065 / trackedFiles 21121->21126(归并带入 4 个新测试文件,DN5) (e4e667c2e30)
-- 🐞 修复:F-067 编辑器审批请求加 60s 超时;F-066 closeSession 先中止在飞 prompt (05529b111d5)
-- 🐞 修复:F-299 /v1/responses 补挂 requireApiKeyQuota，Key 级小时/天配额生效 (7a32bd514bd)
-- 🐞 修复:F-294 鉴权层归一识别 max_output_tokens，堵 Responses 端 maxTokensPerReq/TPM 绕过 (1a05c5ba3bd)
-- 🐞 修复:F-066 ACP closeSession/SIGINT 先中止在飞 prompt 再关闭,信号带 130/143 退出码 (b3a863b54a7)
-- 🐞 修复:AIS-067/070 + 003 网关侧:原生 complete 先判业务错误再记账,号池重试加错误过滤与退避,原生流正常耗尽补合成 done 终帧 (dbe128ddb12)
-- 🐞 修复:F-523 registry 两个生产者 Queue 补 onClose 关闭出口 (31763cc2251)
-- 🐞 修复:F-521/F-522 补算法备案与边缘探测的对称关停相 (6a54aac1e75)
-- 🐞 修复:F-548 大 xlsx 列数统计改 reduce,规避 Math.max 展开参数溢出 (6d64363dd90)
-- 🐞 修复:F-530 repoName 写入侧统一 trim,与读取侧归一化对齐 (cbe85b19b27)
-- 🐞 修复:F-539 relay 会话/消息分页排序补主键 tie-breaker (2b1446f27dc)
-- 🐞 修复:F-525 会话导入去重条件补 collectionName,换集合导入不再被静默判重 (70886790177)
-- 🔧 工程/其他:F-106 回归——比对本人声纹成功扣分 + 他人 voiceId 403 不扣分 (e94837bfe4d)
-- 🐞 修复:F-545/F-547 OSS callOss 与腾讯云/AWS STS fetch 加超时、判状态、错误体截断 (d02b64cdb6c)
-- 🐞 修复:F-543/F-544 转码取消只对未完成任务生效;stderr 尾部限长消除 O(n²) 扫描 (4a676d7a033)
-- 🐞 修复:F-541 单元格地址校验收敛到 xlsx 规格(16384 列 × 1048576 行) (50c2cc44ebf)
-- 🐞 修复:F-505 直播 by-ids 逐项 uuid 校验,非法 id 400 而非 22P02 裸 500 (d67d690f5d3)
-- 🐞 修复:F-471 提现 method 上限对齐列宽 16 (c589373a321)
-- 🐞 修复:F-470 /ai/users 手机号上限对齐列宽 20 (8550e358d2f)
-- 🐞 修复:F-469 素材 file_url 上限对齐列宽 500 (3b5a0428bfc)
-- 🐞 修复:F-468 视频任务 taskId 上限对齐列宽 36 (97a573f32d2)
-- 🐞 修复:F-463 角色用户解绑 roleId 补 uuid 闸 (942bae3f86a)
-- 🐞 修复:F-460/F-462 maskIdCard 短值 RangeError 与 maskPhone 短号泄漏 (7aa8f17591b)
-- 🐞 修复:F-459 发票更新 userId 收紧 uuid 校验 (8a01f5b2bfd)
-- 🐞 修复:F-106 声纹属主隔离——register 盖章 u{userId}_ 前缀、list 过滤、compare/delete 属主校验(免迁移方案) (f4fe4c8bfca)
-- 🐞 修复:AIS-069 混元原生流累积并透传 tool_calls 与 finish_reason (530d5ca3475)
-- 🐞 修复:AIS-068 OpenAI/Anthropic 原生流识别 error 帧并上抛,不再静默空 done (3a2041fbdb1)
-- 🐞 修复:AIS-065 原生 complete 空 choices 抛 ProviderError 进 fallback,不再 IndexError/静默空回复 (311a622e12d)
-- 🐞 修复:F-065 同会话并发回合按会话串行排队,abort 存集合 cancel 全中止 (01e911ed457)
-- 📚 文档:README 生成块数字对账 testFiles 5059->5061 / trackedFiles 21119->21121(本轮新增 2 个测试文件,DN5 清单不变式) (095390b0f68)
-- 🐞 修复:共享 tsconfig 基座改动不得走无 TS 输入面档 (6649fbc21fc)
-- 🐞 修复:F-426/F-427 /v1/agents 分页全序排序 + call 端点补 UUID 闸 (4d3506e9e27)
-- 🐞 修复:F-425 admin-api-platform 七处 :id 收紧为 uuid 形状闸 (9ff0b0fb879)
-- 🐞 修复:F-425 workspace :id 收紧为 uuid 形状闸 (09a834e87b6)
-- 🐞 修复:F-429 API Key 更新/删除接入 2FA step-up (c625965fd80)
-- 🐞 修复:F-391 创建 API Key 与充值补 2FA step-up 闸 (3f3f613d01a)
-- 🐞 修复:F-064/F-137 HTTP /message 请求体加 1MB 字节闸回 413、SSE 背压中止、显式 server 超时 (bbbe0fd2c00)
-- 🐞 修复:同步 README 文档数字生成块到当前 HEAD 现算值 (7383bdb0da2)
-- 🐞 修复:补齐共享基座 packages/tsconfig/base.json 的 node_modules.* 防线 (ff2c5dc0055)
-- 🔧 工程/其他:补 f-101-102 测试溯源水印——commit-tree 绕过 pre-commit 落地漏注入,47p 水印门按 HEAD blob 判未覆盖 (2835d4b542b)
-- 🔧 工程/其他:结清 CLI F-119(本次已修 b682c7b9f76) (d2421b3d7f2)
-- 🐞 修复:F-119 share includeFiles=false 改为真实过滤工具结果消息(不再只追加省略文案) (b682c7b9f76)
-- 🔧 工程/其他:隔离 Ghidra headless 工作目录 (87c8342df74)
-- 🔧 工程/其他:结清 F-019/F-034/F-035/F-052/F-105/F-106 六张缺陷普查工单 (7f49095906a)
-- 🐞 修复:结清 F-019/F-034/F-035/F-052/F-105/F-106 六张缺陷普查工单 (56943ec8754)
-- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (a7a8a41d2e2)
-- 🔧 工程/其他:结清 API 5 张已修工单(F-119/147/165/180/181,源码含修复标记) (bcd270a2a5a)
-- 🐞 修复:RouteParamSpec 补 items/properties 递归映射 + spec-drift 收编 AI_TASK_TEMPLATE_TOOLS (4d9649c7039)
-- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (29fcde08e76)
-- 🔧 工程/其他:结清 AIS-019(已修 e12f8a9550,属主下推收窄) (7c2775a800a)
-- 🔧 工程/其他:结清 9 张已修复漏勾工单(F-118,AIS-006/015/016/026/044/059/078/087) (2ef1687cfe3)
-- 🔧 工程/其他:结清 AIS 族 4 张已修工单(AIS-066/072/075/076) (0d6a51ffed1)
-- 🐞 修复:同步 README 文档数字生成块到当前 HEAD 现算值 (ae84ca0132a)
-- 🐞 修复:embed-types 支持 @ihui/types 内部传递引用,修掉 pre-push typecheck 门 (3987084c9d9)
-- 🐞 修复:把 node_modules.* 兄弟目录的防线补齐到全部 19 个 tsconfig + .gitignore (edb7ce7a33d)
-- 🔧 工程/其他:结清 F-099/F-109/F-111/F-118 四张缺陷普查工单 (ac614afb4d3)
-- 🐞 修复:结清 F-095/F-099/F-101/F-102/F-109/F-111/F-118 七张缺陷普查工单(后四张为回归钉补钉) (d0e2ab55f87)
-- 🔧 工程/其他:派生产物按归并 HEAD 面重生成(be4abab323)—— web/miniapp ui-routes 补 finance-ai 路由输入哈希 (e2d4f59270a)
-- 🐞 修复:补 F-070 卸载 registry 前置闸真实缺口 + 补交 f-070/f-101-102 验收测试 (09ccdc45b5a)
-- 🔧 工程/其他:结清 F-049/F-050/F-051/F-055/F-057/F-059/F-108/F-110 八张缺陷普查工单 (1979716b829)
-- 🐞 修复:结清 F-049/F-050/F-051/F-055/F-057/F-059/F-108/F-110 八张缺陷普查工单 (e9c1ed47a81)
-- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (184452a399d)
+| 测试文件 | 5135 | `testFiles` |
+| 跟踪文件 | 21268 | `trackedFiles` |
+| 测试文件 | 5135 | `testFiles` |
+| 跟踪文件 | 21268 | `trackedFiles` |
+| 测试文件 | 5135 | `testFiles` |
+| 跟踪文件 | 21268 | `trackedFiles` |
