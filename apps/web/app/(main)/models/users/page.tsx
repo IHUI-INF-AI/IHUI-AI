@@ -24,16 +24,16 @@ export default async function UsersPage() {
 
   const users = Array.from({ length: 10 }).map((_, i) => {
     const emails = [
-      'alice@aizhs.top',
-      'bob@aizhs.top',
-      'carol@aizhs.top',
-      'david@aizhs.top',
-      'eric@aizhs.top',
-      'frank@aizhs.top',
-      'grace@aizhs.top',
-      'henry@aizhs.top',
-      'ivy@aizhs.top',
-      'jack@aizhs.top',
+      'alice@example.com',
+      'bob@example.com',
+      'carol@example.com',
+      'david@example.com',
+      'eric@example.com',
+      'frank@example.com',
+      'grace@example.com',
+      'henry@example.com',
+      'ivy@example.com',
+      'jack@example.com',
     ]
     const roles = ['admin', 'user', 'user', 'user', 'vip']
     const groups = ['默认分组', '龙岗区数学组', '高中英语组', 'AI 教研组', '管理员']
