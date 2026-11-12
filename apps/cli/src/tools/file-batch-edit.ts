@@ -22,7 +22,7 @@ import { type Tool, type ToolResult, checkPathWritePermission } from './index.js
 import { computeUnifiedDiff, type EditToolContext } from './file-edit.js';
 import type { BatchEditOperation, BatchEditResult } from '@ihui/types';
 import { tryParseJson, isRecord, isJsonArray } from '../util/json.js';
-import { isInsideDir } from './trash-prune-io.js';
+import { assertPathInside } from '../util/path-guard.js';
 // 删除保护链判据唯一真相源(goal-b49 W1-① 复现+超越:回收站 + 批量两阶段护栏 check/approve)
 // —— 本端只补 IO adapter(摘要/搬运/状态目录/报告),阈值与对账判据全在 @ihui/shared/delete-guard(§0.6)。
 import {
@@ -236,6 +236,21 @@ function runBulkDeleteGuard(
   return decision;
 }
 
+/** 清单里的回收件名必须是单段文件名:不许分隔符、`..`、NUL、绝对路径(F-095) */
+function isPlainTrashName(name: unknown): name is string {
+  return (
+    typeof name === 'string' &&
+    name.length > 0 &&
+    name !== '.' &&
+    name !== '..' &&
+    !name.includes('/') &&
+    !name.includes('\\') &&
+    !name.includes('\0') &&
+    !path.isAbsolute(name) &&
+    !path.win32.isAbsolute(name)
+  );
+}
+
 /**
  * 恢复出口(回收站 → 原位):manifest 形态坏 / 条目缺失 /  Trash 件丢失 ⇒ 一律抛错点名,
  * 不静默不硬试。文件按复制恢复(保留回收站原件),目录按 rename 归位。
@@ -249,7 +264,12 @@ export function restoreTrashEntry(
   if (!isSafeIdSegment(trashId)) {
     throw new Error(`恢复拒绝:trashId 形态不合法(${String(trashId).slice(0, 40)})`);
   }
-  const dir = path.join(getDeleteTrashDir(workspacePath), trashId);
+  // 整条 trashId 目录也必须 realpath 后仍在工作区内(防 `.ihui/delete-trash` 本身被换成符号链接)
+  const dir = assertPathInside(
+    workspacePath,
+    path.join(getDeleteTrashDir(workspacePath), trashId),
+    '回收站目录',
+  );
   const manifestPath = path.join(dir, 'manifest.json');
   let manifest: TrashManifest;
   try {
@@ -265,19 +285,20 @@ export function restoreTrashEntry(
   }
   const entry = findTrashEntry(manifest, originalPath);
   if (!entry) throw new Error(`恢复拒绝:该 trashId(${trashId})下无 ${originalPath} 的条目`);
-  // 清单文本可被改写:`relativeTrashPath` 必须仍在本次 trashId 目录内,
-  // `originalPath` 必须仍在工作区内 —— 否则恢复出口就是"按清单写的任意路径
-  // 复制/改名"(F-095 的越界路径)。两条都在任何 fs 调用之前判。
-  if (!isInsideDir(dir, entry.relativeTrashPath)) {
-    throw new Error(`恢复拒绝:回收站条目路径越界 ${String(entry.relativeTrashPath).slice(0, 80)}`);
+  // 清单文本可被改写(克隆仓库可自带 .ihui/delete-trash/<id>/manifest.json):
+  // `relativeTrashPath` 必须是单段文件名,`originalPath` 必须是绝对路径且落在工作区内 ——
+  // 否则恢复出口就是"按清单写的任意路径复制/改名"(F-095)。两条都在任何 fs 调用之前判,
+  // 且 `assertPathInside` 再按 realpath 判一次:符号链接/junction 不能把落点拐出根外。
+  if (!isPlainTrashName(entry.relativeTrashPath)) {
+    throw new Error(
+      `恢复拒绝:回收站条目路径必须是单段文件名(不含分隔符或 ..):${String(entry.relativeTrashPath).slice(0, 80)}`,
+    );
   }
-  const wsAbs = path.resolve(workspacePath);
-  const origAbs = path.resolve(entry.originalPath);
-  const relOrig = path.relative(wsAbs, origAbs);
-  if (relOrig === '' || relOrig.startsWith('..') || path.isAbsolute(relOrig)) {
-    throw new Error(`恢复拒绝:原路径不在工作区内 ${String(entry.originalPath).slice(0, 120)}`);
+  if (!path.isAbsolute(entry.originalPath)) {
+    throw new Error(`恢复拒绝:原路径必须是绝对路径:${String(entry.originalPath).slice(0, 120)}`);
   }
-  const trashPath = path.join(dir, entry.relativeTrashPath);
+  const trashPath = assertPathInside(dir, path.join(dir, entry.relativeTrashPath), '回收站条目路径');
+  const origTarget = assertPathInside(workspacePath, entry.originalPath, '恢复原路径');
   const look = stat ?? ((target: string) => fs.statSync(target));
   try {
     look(trashPath);
@@ -289,8 +310,8 @@ export function restoreTrashEntry(
     throw new Error(`恢复拒绝:回收站件读不到,不能把它说成丢失 (${code ?? 'unknown'})`);
   }
   try {
-    look(entry.originalPath);
-    throw new Error(`恢复拒绝:原路径 ${entry.originalPath} 已存在,不覆盖现网现场`);
+    look(origTarget);
+    throw new Error(`恢复拒绝:原路径 ${origTarget} 已存在,不覆盖现网现场`);
   } catch (err) {
     if (err instanceof Error && err.message.startsWith('恢复拒绝:')) throw err;
     const code = (err as NodeJS.ErrnoException).code;
@@ -299,13 +320,13 @@ export function restoreTrashEntry(
     }
   }
   if (entry.kind === 'directory') {
-    fs.mkdirSync(path.dirname(entry.originalPath), { recursive: true });
-    fs.renameSync(trashPath, entry.originalPath);
+    fs.mkdirSync(path.dirname(origTarget), { recursive: true });
+    fs.renameSync(trashPath, origTarget);
   } else {
-    fs.mkdirSync(path.dirname(entry.originalPath), { recursive: true });
-    fs.copyFileSync(trashPath, entry.originalPath);
+    fs.mkdirSync(path.dirname(origTarget), { recursive: true });
+    fs.copyFileSync(trashPath, origTarget);
   }
-  return entry.originalPath;
+  return origTarget;
 }
 
 /**

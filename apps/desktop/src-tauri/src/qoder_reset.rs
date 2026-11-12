@@ -515,8 +515,7 @@ fn execute_items(
             cb(WbProgressEvent { layer, done: idx + 1, total, item: item.path.clone() });
         }
     }
-    let _ = acted;
-    q_layer_from(name, layer, &errors, items.len(), noun)
+    q_layer_from(name, layer, &errors, acted, noun)
 }
 
 /// 历史台账：落在根① reset-history/（pub prune_history 复用,上限 50）。
@@ -1558,6 +1557,38 @@ mod tests {
         out
     }
 
+    /// 手写隔离区夹具：目录名与 manifest 全由测试控制（模拟可写处投放的伪隔离区）。
+    fn fake_quarantine(
+        parent: &std::path::Path,
+        name: &str,
+        root: &str,
+        entries: &[(&str, &str)],
+    ) -> std::path::PathBuf {
+        let q = parent.join(name);
+        std::fs::create_dir_all(&q).unwrap();
+        let m = QQuarantineManifest {
+            mode: "logout".into(),
+            created_unix: 1728537600,
+            root: root.to_string(),
+            entries: entries
+                .iter()
+                .map(|(n, p)| QManifestEntry {
+                    name: (*n).to_string(),
+                    original_path: (*p).to_string(),
+                })
+                .collect(),
+        };
+        std::fs::write(q.join(Q_QUARANTINE_MANIFEST), serde_json::to_string(&m).unwrap()).unwrap();
+        for (n, _) in entries {
+            let p = q.join(n);
+            if let Some(pp) = p.parent() {
+                std::fs::create_dir_all(pp).unwrap();
+            }
+            std::fs::write(p, "payload").unwrap();
+        }
+        q
+    }
+
     fn restore_q(q: &std::path::Path, cn: &std::path::Path, roaming: &std::path::Path) -> WbResetReport {
         let parents = [
             cn.parent().map(|p| p.to_path_buf()),
@@ -1719,6 +1750,90 @@ mod tests {
         assert!(!rrep.layers[0].ok, "目标已存在必须拒绝");
         assert!(rrep.layers[0].detail.contains("拒绝覆盖"));
         assert_eq!(std::fs::read_to_string(cn.join(".auth/sentinel")).unwrap(), "keep");
+        cleanup(&cn, &roaming);
+    }
+
+    /// F-099：restore 的容器性护栏——目录名 / manifest.root / 条目路径三类越界都必须拒，
+    /// 且被拒时绝不把文件搬到预期根之外；合规隔离区仍可正常恢复。
+    #[test]
+    fn restore_guard_rejects_bad_name_foreign_root_and_traversal() {
+        let (cn, roaming) = fixture_roots("restore-guard");
+        let container = cn.parent().unwrap().to_path_buf();
+        let parents = vec![container.clone()];
+        let roots = vec![cn.clone(), roaming.clone()];
+        let ok_name = format!("{Q_QUARANTINE_PREFIX}1728537600");
+
+        // ① 目录名不合规：manifest 合法也必须拒，条目原地保留
+        let bad_name = fake_quarantine(
+            &container,
+            "not-a-quarantine",
+            &cn.display().to_string(),
+            &[("guard-a.txt", "guard-a.txt")],
+        );
+        let rep = qoder_quarantine_restore_impl(&bad_name, &parents, &roots);
+        assert!(!rep.layers[0].ok);
+        assert!(
+            rep.layers[0].detail.contains("不是 Qoder 隔离区目录名"),
+            "{}",
+            rep.layers[0].detail
+        );
+        assert!(bad_name.join("guard-a.txt").exists(), "被拒后条目必须原地保留");
+        assert!(!cn.join("guard-a.txt").exists(), "被拒后不得写回用户根");
+        let _ = std::fs::remove_dir_all(&bad_name);
+
+        // ② manifest.root 不是真根：目录名/父目录都对也要拒
+        let foreign = std::env::temp_dir().join(format!(
+            "qoder-foreign-root-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&foreign).unwrap();
+        let bad_root = fake_quarantine(
+            &container,
+            &ok_name,
+            &foreign.display().to_string(),
+            &[("guard-b.txt", "guard-b.txt")],
+        );
+        let rep = qoder_quarantine_restore_impl(&bad_root, &parents, &roots);
+        assert!(!rep.layers[0].ok);
+        assert!(
+            rep.layers[0].detail.contains("不是 Qoder 用户根目录"),
+            "{}",
+            rep.layers[0].detail
+        );
+        assert!(!foreign.join("guard-b.txt").exists(), "不得写到 manifest 指定的外来根");
+        let _ = std::fs::remove_dir_all(&bad_root);
+        let _ = std::fs::remove_dir_all(&foreign);
+
+        // ③ 条目路径越界（`..` / 绝对路径）：root 合法也逐条拒
+        let traversal = fake_quarantine(
+            &container,
+            &ok_name,
+            &cn.display().to_string(),
+            &[
+                ("guard-c.txt", "../../../evil-guard.txt"),
+                ("guard-d.txt", "/abs/evil-guard.txt"),
+            ],
+        );
+        let rep = qoder_quarantine_restore_impl(&traversal, &parents, &roots);
+        assert!(!rep.layers[0].ok);
+        assert!(rep.layers[0].detail.contains("越界"), "{}", rep.layers[0].detail);
+        assert!(traversal.join("guard-c.txt").exists(), "越界条目必须原地不动");
+        let _ = std::fs::remove_dir_all(&traversal);
+
+        // ④ 合规隔离区仍可正常恢复
+        let good = fake_quarantine(
+            &container,
+            &ok_name,
+            &cn.display().to_string(),
+            &[("guard-ok.txt", "guard-ok.txt")],
+        );
+        let rep = qoder_quarantine_restore_impl(&good, &parents, &roots);
+        assert!(rep.layers[0].ok, "{:?}", rep.layers);
+        assert_eq!(std::fs::read_to_string(cn.join("guard-ok.txt")).unwrap(), "payload");
+        assert!(!good.exists(), "搬空后隔离区壳必须清除");
         cleanup(&cn, &roaming);
     }
 
@@ -1979,6 +2094,64 @@ mod tests {
         assert!(roaming.join("Partitions/p1/Local Storage/m").exists(), "登录态子目录必须保留");
         assert!(roaming.join("Local State").exists(), "Local State 属登录面,维护不动");
         cleanup(&cn, &roaming);
+    }
+
+    fn q_item(full: std::path::PathBuf, label: &str) -> QActionItem {
+        QActionItem {
+            path: label.into(),
+            orig: label.into(),
+            qname: label.into(),
+            action: "delete_file",
+            reason: String::new(),
+            full,
+        }
+    }
+
+    #[test]
+    fn execute_items_counts_only_acted() {
+        let base = std::env::temp_dir().join(format!(
+            "qoder-acted-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&base).unwrap();
+        let ok = base.join("ok.txt");
+        std::fs::write(&ok, "x").unwrap();
+        let missing = base.join("missing.txt");
+        // 一成一败:成功数 1,总数 2,报告不得按总数虚增
+        let rep = execute_items(
+            vec![q_item(ok.clone(), "cn/ok.txt"), q_item(missing.clone(), "cn/missing.txt")],
+            1,
+            "maintenance_clean",
+            "清理",
+            None,
+            None,
+        );
+        assert!(!rep.ok, "{:?}", rep.detail);
+        assert!(rep.detail.contains("已清理 1 项"), "{}", rep.detail);
+        assert!(rep.detail.contains("失败 1 项"), "{}", rep.detail);
+        assert!(!ok.exists(), "成功项应被真删");
+        // 全失败:已删必须为 0,而非条目总数
+        let rep2 = execute_items(
+            vec![q_item(missing.clone(), "cn/missing.txt"), q_item(missing.clone(), "cn/missing2.txt")],
+            1,
+            "maintenance_clean",
+            "清理",
+            None,
+            None,
+        );
+        assert!(!rep2.ok);
+        assert!(rep2.detail.contains("已清理 0 项"), "{}", rep2.detail);
+        assert!(rep2.detail.contains("失败 2 项"), "{}", rep2.detail);
+        // 成功且无错误:计数与实际一致
+        let ok2 = base.join("ok2.txt");
+        std::fs::write(&ok2, "y").unwrap();
+        let rep3 = execute_items(vec![q_item(ok2, "cn/ok2.txt")], 1, "maintenance_clean", "清理", None, None);
+        assert!(rep3.ok);
+        assert!(rep3.detail.contains("已清理 1 项"), "{}", rep3.detail);
+        let _ = std::fs::remove_dir_all(&base);
     }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
