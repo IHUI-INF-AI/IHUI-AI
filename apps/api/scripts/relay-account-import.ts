@@ -354,9 +354,14 @@ async function main(argv: string[]): Promise<number> {
     return worst
   }
 
+  const firstFile = opts.files[0]
+  if (!opts.stdin && !firstFile) {
+    process.stderr.write('❌ 未给文件路径(未判定)\n')
+    return 2
+  }
   let rawText: string
   try {
-    rawText = opts.stdin ? readStdin() : readFileSync(resolvePath(opts.files[0]), 'utf8')
+    rawText = opts.stdin ? readStdin() : readFileSync(resolvePath(firstFile!), 'utf8')
   } catch (e) {
     process.stderr.write(`❌ 读取输入失败(未判定): ${e instanceof Error ? e.message : String(e)}\n`)
     return 2
