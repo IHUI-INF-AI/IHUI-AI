@@ -4,9 +4,8 @@
 
 /**
  * Worktree 创建/账面/状态腿(goal-b49/Z30 自 worktree.ts 拆出,零行为变更)。
- * 本档只做「对某源仓库下 agent worktree 的创建与账面读写」:
- * ensureWorktreeGitignore/createAgentWorktree(创建)、listAgentWorktrees/findAgentWorktree(账面)、
- * pruneWorktrees/cleanupStaleWorktrees(状态收敛)、diffWorktreeAgainstBase(基线 diff)。
+ * 本档只做「对某源仓库下 agent worktree 的创建与账面读写」:ensureWorktreeGitignore/createAgentWorktree(创建)、
+ * listAgentWorktrees/findAgentWorktree(账面)、pruneWorktrees/cleanupStaleWorktrees(状态收敛)、diffWorktreeAgainstBase(基线 diff)。
  * 判据与次序与拆分前逐字一致(§0.6 单一真相源:WorktreeManager 方法逐字转接,本层不留第二份实现);删除腿不在本档,remove() 由源码装车锁钉在入口,收尾腿住 ./worktree-cleanup.ts。
  */
 
@@ -22,26 +21,29 @@ import {
   type WorktreeEntry,
 } from './worktree-core.js';
 
-/** 确保 .gitignore 忽略 .worktrees/,避免隔离目录污染主仓库状态 */
-function readGitignoreOrEmpty(gitignorePath: string): string {
+const errorCode = (error: unknown): string | undefined => (error !== null && typeof error === 'object' && typeof (error as { code?: unknown }).code === 'string' ? (error as { code: string }).code : undefined);
+
+/** 读原文(字节);ENOENT/ENOTDIR 当空,其它读失败抛错 —— 读不到不能当空,否则原文会被覆盖成只剩隔离目录 */
+function readBytesOrEmpty(filePath: string): Buffer {
   try {
-    return fs.readFileSync(gitignorePath, 'utf-8');
+    return fs.readFileSync(filePath);
   } catch (error) {
-    const code =
-      error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string'
-        ? (error as { code: string }).code
-        : undefined;
-    if (code === 'ENOENT' || code === 'ENOTDIR') return '';
-    throw new Error(`gitignore 读不到,不能把它覆盖成只剩隔离目录 (${code ?? 'unknown'})`);
+    const code = errorCode(error);
+    if (code === 'ENOENT' || code === 'ENOTDIR') return Buffer.alloc(0);
+    throw new Error(`${filePath} 读不到,不能把它覆盖成只剩隔离目录 (${code ?? 'unknown'})`);
   }
 }
-
+/** 确保隔离目录被忽略:UTF-8 的 .gitignore 原地追加(行为不变);非 UTF-8(UTF-16/GBK)回写必毁原文 ⇒ 只写 .git/info/exclude,用户文件逐字节不动 */
 export function ensureWorktreeGitignore(sourcePath: string): void {
+  const entry = DEFAULT_WORKTREE_DIR + '/';
   const gitignorePath = path.join(sourcePath, '.gitignore');
-  const content = readGitignoreOrEmpty(gitignorePath);
-  if (content.split(/\r?\n/).includes(DEFAULT_WORKTREE_DIR + '/')) return;
-  const newline = content.length > 0 && !content.endsWith('\n') ? '\n' : '';
-  fs.writeFileSync(gitignorePath, content + newline + DEFAULT_WORKTREE_DIR + '/\n', 'utf-8');
+  const raw = readBytesOrEmpty(gitignorePath);
+  const utf8 = !raw.includes(0) && Buffer.from(raw.toString('utf-8'), 'utf-8').equals(raw);
+  const r = utf8 ? null : runGit(['rev-parse', '--git-path', 'info/exclude'], sourcePath);
+  const target = utf8 ? gitignorePath : r?.ok && r.stdout ? path.resolve(sourcePath, r.stdout) : '';
+  if (!target) throw new Error('gitignore 非 UTF-8 且 exclude 路径解析不到,不能静默不改');
+  const content = (utf8 ? raw : readBytesOrEmpty(target)).toString('utf-8');
+  if (!content.split(/\r?\n/).includes(entry)) fs.writeFileSync(target, content + (content.length > 0 && !content.endsWith('\n') ? '\n' : '') + entry + '\n', 'utf-8');
 }
 
 /**
@@ -76,9 +78,7 @@ export function createAgentWorktree(
     look(wtPath);
     occupied = true;
   } catch (error) {
-    const code = error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string'
-      ? (error as { code: string }).code
-      : 'unknown';
+    const code = errorCode(error) ?? 'unknown';
     if (code !== 'ENOENT' && code !== 'ENOTDIR') {
       throw new Error(`工作树路径读不到,不能把它说成不存在再新建 (${code})`);
     }
