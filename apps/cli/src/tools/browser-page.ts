@@ -517,7 +517,7 @@ const browserPageScroll: Tool = {
           returnByValue: true,
         })
         const v = (r as { result?: { value?: { ok?: boolean } } }).result?.value
-        if (!v?.ok) return fail('HANDLE_NOT_FOUND', `handle not resolvable: ${handle}`, { handle })
+        if (!v?.ok) return fail('HANDLE_STALE', `handle not resolvable: ${handle}`, { handle })
         const out = actionOutput(`scrolled ${handle} ${direction} ${amount}px`, true, { dx, dy })
         return ok(out.text, out.data)
       }
@@ -578,6 +578,67 @@ const browserPageWaitFor: Tool = {
   },
 }
 
+const browserPageDrag: Tool = {
+  name: 'browser_page_drag',
+  description:
+    'Drag from one handle to another with a real press-move-release sequence. Two clicks cannot substitute: drag libraries (dnd-kit, react-beautiful-dnd) require the intermediate dragover events.',
+  parameters: {
+    from: { type: 'string', description: 'Source handle' },
+    to: { type: 'string', description: 'Target handle' },
+  },
+  required: ['from', 'to'],
+  dangerLevel: 'write',
+  async execute(args) {
+    const from = typeof args.from === 'string' ? args.from : ''
+    const to = typeof args.to === 'string' ? args.to : ''
+    if (!from || !to) return fail('PARAM_INVALID', 'from and to are required')
+    try {
+      const { session } = await getBrowserSession()
+      await ensurePageApi(session)
+      const pick = await session.send('Runtime.evaluate', {
+        expression: `(() => {
+          const a = window.__ihuiPageResolve && window.__ihuiPageResolve(${JSON.stringify(from)});
+          const b = window.__ihuiPageResolve && window.__ihuiPageResolve(${JSON.stringify(to)});
+          if (!a || !b) return { ok: false };
+          const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+          return { ok: true,
+            ax: ra.left + ra.width / 2, ay: ra.top + ra.height / 2,
+            bx: rb.left + rb.width / 2, by: rb.top + rb.height / 2 };
+        })()`,
+        returnByValue: true,
+      })
+      const v = (pick as {
+        result?: { value?: { ok?: boolean; ax?: number; ay?: number; bx?: number; by?: number } }
+      }).result?.value
+      if (!v?.ok || v.ax === undefined || v.ay === undefined || v.bx === undefined || v.by === undefined) {
+        return fail('HANDLE_STALE', `cannot resolve ${from} or ${to}`)
+      }
+      await session.send('Input.dispatchMouseEvent', {
+        type: 'mousePressed', x: v.ax, y: v.ay, button: 'left', clickCount: 1,
+      })
+      // 必须多步移动:一步跨越不会触发 dragover,拖拽库会认为没发生拖拽
+      const STEPS = 8
+      for (let i = 1; i <= STEPS; i++) {
+        await session.send('Input.dispatchMouseEvent', {
+          type: 'mouseMoved',
+          x: v.ax + ((v.bx - v.ax) * i) / STEPS,
+          y: v.ay + ((v.by - v.ay) * i) / STEPS,
+          button: 'left',
+        })
+      }
+      await session.send('Input.dispatchMouseEvent', {
+        type: 'mouseReleased', x: v.bx, y: v.by, button: 'left', clickCount: 1,
+      })
+      const out = actionOutput(`dragged ${from} -> ${to}`, true, {
+        from: { x: v.ax, y: v.ay }, to: { x: v.bx, y: v.by }, steps: STEPS,
+      })
+      return ok(out.text, out.data)
+    } catch (err) {
+      return fail('CDP_FAILED', err instanceof Error ? err.message : String(err))
+    }
+  },
+}
+
 const PAGE_ACTION_TOOLS: Record<PageActionType, Tool> = {
   page_snapshot: browserPageSnapshot,
   page_click: browserPageClick,
@@ -586,6 +647,9 @@ const PAGE_ACTION_TOOLS: Record<PageActionType, Tool> = {
   page_hover: browserPageHover,
   page_press_key: browserPagePressKey,
   page_pick_at_point: browserPagePickAtPoint,
+  page_scroll: browserPageScroll,
+  page_wait_for: browserPageWaitFor,
+  page_drag: browserPageDrag,
 }
 
 /** 句柄族工具集（由 browser.ts 并入 BROWSER_TOOLS 注册面）；顺序恒随契约 PAGE_ACTIONS。 */

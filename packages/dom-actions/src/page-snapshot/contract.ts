@@ -79,6 +79,12 @@ export const PAGE_ACTIONS: readonly PageActionType[] = [
 export const PAGE_READONLY_ACTIONS: readonly PageActionType[] = [
   'page_snapshot',
   'page_pick_at_point',
+  // 2026-11-12:`page_scroll` 与 `page_wait_for` 归只读。
+  // 判据是「结构上不触碰页面」——滚动只改视口位置、等待只观察条件,
+  // 都不修改 DOM、不触发用户级副作用。放进只读档后它们也不受
+  // 「每动词必须要求 handle」那条约束(滚动整页 / 等文字出现本就没有 handle)。
+  'page_scroll',
+  'page_wait_for',
 ]
 
 export function isPageAction(action: string): action is PageActionType {
