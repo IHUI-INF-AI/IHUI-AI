@@ -872,6 +872,21 @@ test('CLI: --prune-redundant 默认 dry-run 不删;--apply 只删冗余,唯一�
   const { work, origin } = createSyncedRepoWithOrigin()
   try {
     pinLocalOrigin(work, origin)
+    // 守护的 refs 清单(机器态夹具):两枚都在册,删除后必须只摘冗余那一条
+    const manifestHead = 'a'.repeat(40)
+    writeFileSync(
+      join(work, '.git', 'refs-manifest.json'),
+      JSON.stringify(
+        {
+          'refs/tags/lost-commit/redundant': manifestHead,
+          'refs/tags/lost-commit/keep-side': manifestHead,
+          'refs/tags/nightly-keep': manifestHead,
+        },
+        null,
+        1,
+      ) + '\n',
+      'utf8',
+    )
     // ① 冗余:提交已在 origin/main 里
     gitAt(work, 'git tag lost-commit/redundant HEAD')
     // ② 唯一备份:孤立分支上的提交;分支删掉后只剩这枚 tag 撑着
@@ -893,6 +908,18 @@ test('CLI: --prune-redundant 默认 dry-run 不删;--apply 只删冗余,唯一�
     assert.equal(applied.status, 0, `--apply 应 exit 0,实际 ${applied.status}\n${applied.stdout}`)
     assert.ok(!localHasTag(work, 'lost-commit/redundant'), '提交已在远端的冗余 tag 应被删除')
     assert.ok(localHasTag(work, 'lost-commit/keep-side'), '唯一备份 tag 必须保留(删了会真丢提交)')
+
+    // 2026-11-12 立:清单不摘 ⇒ 守护的缺 ref 自愈会把删掉的 tag 原样写回(实测 8 分钟回灌 8,759 枚)
+    const manifestFile = join(work, '.git', 'refs-manifest.json')
+    const manifest = JSON.parse(readFileSync(manifestFile, 'utf8'))
+    assert.ok(
+      !Object.prototype.hasOwnProperty.call(manifest, 'refs/tags/lost-commit/redundant'),
+      '已删 tag 的清单条目必须同趟摘除(否则自愈回灌)',
+    )
+    assert.ok(
+      Object.prototype.hasOwnProperty.call(manifest, 'refs/tags/lost-commit/keep-side'),
+      '保留 tag 的清单条目不得被误摘',
+    )
   } finally {
     rmScratch(work)
     rmScratch(origin)
