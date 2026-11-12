@@ -395,6 +395,19 @@ export interface ChatScreenProps {
     scrollTop?: number
     scrollWithAnimation?: boolean
     showThinkingPlaceholder?: boolean
+    /**
+     * 流式贴底声明。缺省 false = 既有宿主(群聊/直播等)行为零变化。
+     * 判据在 `@ihui/shared/chat` 的 stream-follow(回退即交还滚动权、触底即恢复、内容增长才贴底)。
+     */
+    followStream?: boolean
+    /**
+     * 滚动事件入口(两种宿主的形状差异由 `readScrollEventTop` 收口)。
+     * 需要"用户上翻后不再拽回底部"的宿主必须挂它 —— 只挂 followStream 时,
+     * 判据永远认为用户"一直在底部",于是流式期间照样每帧拽底。
+     */
+    onScroll?: (event: unknown) => void
+    /** 到达底部(RN onEndReached / Taro onScrollToLower)⇒ 恢复跟随。 */
+    onEndReached?: () => void
   }
   /** 输入区整栏覆盖节点(传则替代内建 MessageInput;屏内不判端) */
   inputSlot?: React.ReactNode

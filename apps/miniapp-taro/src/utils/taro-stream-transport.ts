@@ -116,8 +116,17 @@ export function createTaroStreamTransport(): StreamTransport {
               ok: true,
               status: 200,
               headers: { get: () => null },
-              text: async () =>
-                chunks.map((c) => new TextDecoder().decode(c)).join(''),
+              text: async () => {
+                // D6(2026-11-12):单 decoder 带 stream 状态连续解码。旧实现逐 chunk
+                // `new TextDecoder().decode(c)` 不带 {stream:true},一个 UTF-8 多字节字符
+                // 被 chunk 边界劈开时每半各出一个 U+FFFD(兜底全量文本在汉字/emoji 上必花脸)。
+                const decoder = new TextDecoder('utf-8', { fatal: false })
+                let out = ''
+                for (const c of chunks) out += decoder.decode(c, { stream: true })
+                // 末次不带 stream 参数:冲刷 decoder 内部残缺尾序列(真残流归 U+FFFD,行为诚实)
+                out += decoder.decode()
+                return out
+              },
               body: {
                 getReader: (): StreamBodyReader => ({
                   read: () => {
