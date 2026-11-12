@@ -590,6 +590,46 @@ export function redundantBackupTags(localMap, reachableCommits, remoteTagNames) 
 }
 
 /**
+ * 删 tag 同趟摘掉 gitdir 里的 `refs-manifest.json` 条目(2026-11-12 立,第二轮根因)。
+ *
+ * 立因:守护的「缺 ref 自愈」把 refs-manifest.json 当快照,发现清单里有、refs 里没有的
+ * 嵌套 ref 就用 `git update-ref` 写回。而 backend tag 正是**故意删掉**的冗余 ref ⇒
+ * 实测删 8,087 枚后 8 分钟内被原样回灌 8,759 枚(日志逐行 `- refs/tags/lost-commit/<sha> = …`),
+ * 清理与自愈互相拉锯。清单是机器态(在 gitdir,不在仓内),所以这一步只能跟着删除动作走。
+ *
+ * 判据:清单不存在 = 该机没这套自愈 ⇒ 跳过;存在但读不动/形态不对 ⇒ **返回失败且一枚不删**
+ * (先判后删:删是不可回滚的,清单写不进去就不该开始删)。
+ */
+function pruneRefsManifest(deletedTagNames) {
+  try {
+    const gitDir = runGit(['rev-parse', '--absolute-git-dir']).trim()
+    const file = join(gitDir, 'refs-manifest.json')
+    if (!existsSync(file)) return { ok: true, skipped: true, file }
+    let map
+    try {
+      map = JSON.parse(readFileSync(file, 'utf8'))
+    } catch (e) {
+      return { ok: false, why: `refs 清单不可解析:${String(e?.message ?? e).slice(0, 120)}` }
+    }
+    if (!map || typeof map !== 'object' || Array.isArray(map)) {
+      return { ok: false, why: 'refs 清单形态不是对象' }
+    }
+    let removed = 0
+    for (const name of deletedTagNames) {
+      const key = `refs/tags/${name}`
+      if (Object.prototype.hasOwnProperty.call(map, key)) {
+        delete map[key]
+        removed += 1
+      }
+    }
+    if (removed) writeFileSync(file, JSON.stringify(map, null, 1) + '\n', 'utf8')
+    return { ok: true, removed, file }
+  } catch (e) {
+    return { ok: false, why: String(e?.message ?? e).slice(0, 160) }
+  }
+}
+
+/**
  * --prune-redundant:复位"备份 tag 单调增长"(2026-11-12 机主令)。
  * 默认只报不删;`--apply` 才真删。删除走单进程 `git update-ref --stdin`(8 千枚不必起 8 千个进程),
  * 删完复读一遍给出实删数与剩余数 —— 计数与判定同一趟读数,不靠"以为删了"。
@@ -629,6 +669,13 @@ function pruneRedundantMode() {
     process.exit(0)
   }
 
+  // 先摘清单再删 ref:清单写不进去就不该开始删(删是不可回滚的,清单留着会让自愈把删掉的写回来)
+  const manifest = pruneRefsManifest(redundant)
+  if (!manifest.ok) {
+    console.error(`${C.red}❌ refs 清单摘除失败 ⇒ 本轮一枚不删:${C.reset} ${manifest.why}`)
+    process.exit(2)
+  }
+
   const cmds = redundant.map((t) => `delete refs/tags/${t}`).join('\n') + '\n'
   try {
     runGit(['update-ref', '--stdin'], {
@@ -651,6 +698,13 @@ function pruneRedundantMode() {
   if (still.length > 0) {
     console.error(`${C.red}❌ ${still.length} 枚未被删除(点名):${C.reset} ${nameList(still)}`)
     process.exit(1)
+  }
+  if (manifest.skipped) {
+    console.log(`  ${C.dim}refs 清单:该机无 gitdir/refs-manifest.json,跳过(无自愈回灌面)${C.reset}`)
+  } else {
+    console.log(
+      `  ${C.dim}refs 清单:摘除 ${manifest.removed} 条(${manifest.file}),自愈不会再把这些 tag 写回${C.reset}`,
+    )
   }
   process.exit(0)
 }
