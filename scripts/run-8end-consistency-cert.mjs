@@ -65,6 +65,9 @@ const DIMENSIONS = [
   { id: 'design-tokens-sync-mobile-rn', script: 'check-design-tokens-sync.mjs', args: ['--target=mobile-rn'], ends: ['mobile-rn'], warnOnly: false },
   { id: 'design-tokens-sync-web', script: 'check-design-tokens-sync.mjs', args: ['--target=web'], ends: ['web'], warnOnly: false },
   { id: 'cross-end-tokens', script: 'check-cross-end-tokens.mjs', ends: ['*'], warnOnly: false },
+  // 2026-11-12 接线:投影(阴影)唯一源。尺子此前只在本机手工跑,八端认证里没有这一维 ⇒
+  // 端内自创投影(具体 px 模糊半径 / 字面色值 / Tailwind 默认档类名)可以在认证全绿的情况下扩散。
+  { id: 'shadow-single-source', script: 'check-shadow-single-source.mjs', ends: ['*'], warnOnly: false },
   { id: 'miniapp-tokens-sync', script: 'check-miniapp-tokens-sync.mjs', ends: ['miniapp-taro'], warnOnly: false },
   { id: 'cross-store-parity', script: 'check-cross-store-parity.mjs', ends: ['*'], warnOnly: false },
   { id: 'adapter-style-parity', script: 'check-adapter-style-parity.mjs', ends: ['*'], warnOnly: false },

@@ -7640,6 +7640,31 @@ const checks = [
       '  判据与 CSS/RN 面 OUT_OF_SCOPE 见 scripts/check-button-border-color.mjs 头注;台账只允许下降。',
     ].join('\n'),
   },
+  // 2026-11-12 立:投影(阴影)唯一源。此前全仓 652 处散写投影(Tailwind 默认档类名 554 处、
+  // 具体 px 模糊半径 / 字面色值 88 处、RN 写死四元组 24 处),同一张卡片三端三个深浅,
+  // 而尺子只有"写完"没有"装车" —— 按 §0.9「造好没装车 = 没有」补进提交链。
+  {
+    id: '316',
+    label: '🌑  投影(阴影)唯一源对账(blocking,只准 --shadow-elevation-* / ELEVATION_STEPS)',
+    script: 'check-shadow-single-source.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_SHADOW_SINGLE_SOURCE',
+    stagedTriggers: ['apps/', 'packages/'],
+    onFailHint: [
+      '  💡 投影只有一个族:packages/design-tokens/src/elevation.ts 的 ELEVATION_STEPS →',
+      '     CSS 端 var(--shadow-elevation-{none,sm,md,lg,xl}),RN 端 ...ELEVATION_STEPS.<step>,',
+      '     类名只准 shadow-elevation-*(Tailwind 默认档 shadow-sm/md/lg/xl 与裸 shadow 都判红)。',
+      '  修法:CSS box-shadow → var(--shadow-elevation-md);RN 写死四元组 → spread 档位对象;',
+      '     类名 → shadow-elevation-*。',
+      '  真·效果类(动画 @keyframes / inset 内阴影 / 0 模糊硬边 / 取色令牌的彩色辉光)不算层级投影:',
+      '     在同一规则块上方 6 行内(任意值形态 5 行内)写中文注释「豁免类别:<具体理由>」即可;',
+      '     写死色值又不在四类内的,只能进脚本顶部 ALLOWLIST 并写明理由(台账只减不增)。',
+      '  定位:node scripts/check-shadow-single-source.mjs --json',
+      '  紧急跳过(不推荐):HUSKY_SKIP_SHADOW_SINGLE_SOURCE=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
 ]
 
 // === push 门检查集(2026-08-31 新增) ===
@@ -7891,6 +7916,23 @@ const KNOWN_CLI_FLAGS = new Set([
   '--self-test',
   '--help',
   '-h',
+  {
+    id: '316',
+    label: '🔌 ACP agent 方法注册完整性(blocking:SDK AGENT_METHODS 声明的 session/* 必须全部 .onRequest/.onNotification)',
+    script: 'check-acp-method-registration.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_ACP_METHOD_REGISTRATION',
+    stagedTriggers: ['apps/cli/src/acp/', 'apps/cli/package.json'],
+    onFailHint: [
+      '  💡 ACP SDK 对**未注册**的方法回 -32601,与「根本没实现」对客户端是同一个错误;',
+      '     而类级单测直接调 agent.xxx() 绕过了注册表,结构上发现不了漏注册。',
+      '  修法:在 apps/cli/src/acp/server.ts 的 buildAcpAgentApp() 里补对应的',
+      '     .onRequest(...) / .onNotification(...);实现方法与注册是两件事,缺一不可。',
+      '  复验:node scripts/check-acp-method-registration.mjs',
+      '  紧急跳过(不推荐):HUSKY_SKIP_ACP_METHOD_REGISTRATION=1 git commit ...',
+    ].join('\n'),
+  },
 ])
 const unknownCliArgs = cliArgs.filter(
   (a) => !KNOWN_CLI_FLAGS.has(a) && !a.startsWith('--only='),
