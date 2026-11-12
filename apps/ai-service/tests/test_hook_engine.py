@@ -571,8 +571,12 @@ class TestRunWebhook:
         assert "url" in err
 
     @pytest.mark.asyncio
-    async def test_success(self, engine):
+    async def test_success(self, engine, monkeypatch):
         """mock httpx 返回 200。"""
+        # SSRF 尺另测(test_ais036_048_hook_error_contract):本组只关心 httpx 行为,放行出站
+        monkeypatch.setattr(
+            "app.services.screenshot_service._validate_url_ssrf", lambda _u: (True, "")
+        )
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_client = AsyncMock()
@@ -589,8 +593,11 @@ class TestRunWebhook:
         assert "HTTP 200" in result
 
     @pytest.mark.asyncio
-    async def test_error_status(self, engine):
+    async def test_error_status(self, engine, monkeypatch):
         """mock httpx 返回 500。"""
+        monkeypatch.setattr(
+            "app.services.screenshot_service._validate_url_ssrf", lambda _u: (True, "")
+        )
         mock_resp = MagicMock()
         mock_resp.status_code = 500
         mock_client = AsyncMock()
@@ -605,8 +612,11 @@ class TestRunWebhook:
         assert "500" in err
 
     @pytest.mark.asyncio
-    async def test_hmac_signature(self, engine):
+    async def test_hmac_signature(self, engine, monkeypatch):
         """secret 配置时生成 HMAC 签名头。"""
+        monkeypatch.setattr(
+            "app.services.screenshot_service._validate_url_ssrf", lambda _u: (True, "")
+        )
         captured_headers = {}
 
         mock_resp = MagicMock()
@@ -630,8 +640,11 @@ class TestRunWebhook:
         assert captured_headers["X-Hook-Signature"].startswith("sha256=")
 
     @pytest.mark.asyncio
-    async def test_no_secret_no_signature(self, engine):
+    async def test_no_secret_no_signature(self, engine, monkeypatch):
         """secret 为空时不签名(向后兼容)。"""
+        monkeypatch.setattr(
+            "app.services.screenshot_service._validate_url_ssrf", lambda _u: (True, "")
+        )
         captured_headers = {}
 
         mock_resp = MagicMock()
