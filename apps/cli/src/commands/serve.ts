@@ -158,7 +158,10 @@ export function registerServeCommand(program: Command): void {
         } else {
           console.error(chalk.red(`✗ ${check.errorCode}: ${check.message}`));
         }
-        process.exit(check.ok ? 0 : 1);
+        // F-015:写完 stdout 不再强杀进程 —— process.exit 在管道下不等 flush 会截断
+        // 机器读取的检查结果;改用 exitCode,让事件循环自然排空后再退出。
+        process.exitCode = check.ok ? 0 : 1;
+        return;
       }
       if (!check.ok && check.errorCode) {
         // 不阻断启动(保持既有"无凭据也能起本地 server"语义),但必须显式报警
@@ -242,16 +245,20 @@ export function registerServeCommand(program: Command): void {
           );
           console.info(chalk.dim('  Ctrl+C 停止'));
         }
-        const shutdown = async (): Promise<void> => {
+        const shutdown = async (signal?: NodeJS.Signals): Promise<void> => {
           try {
             await handle.close();
           } catch {
             // ignore close errors
           }
-          process.exit(0);
+          // F-015:信号终止必须带对应退出码,编排器据此区分正常停止 / 中断
+          // (SIGINT → 130、SIGTERM → 143,与 shells 约定一致);其他一律 0。
+          if (signal === 'SIGINT') process.exitCode = 130;
+          else if (signal === 'SIGTERM') process.exitCode = 143;
+          else process.exitCode = 0;
         };
-        process.on('SIGINT', () => void shutdown());
-        process.on('SIGTERM', () => void shutdown());
+        process.on('SIGINT', () => void shutdown('SIGINT'));
+        process.on('SIGTERM', () => void shutdown('SIGTERM'));
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         console.error(chalk.red(`✗ 启动失败(端口 ${port} 可能被占用): ${msg}`));

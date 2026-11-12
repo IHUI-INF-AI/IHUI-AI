@@ -37,6 +37,10 @@ export interface ReadFileStateEntry {
   isPartialView: boolean;
   mtimeMs?: number;
   sizeBytes?: number;
+  /** F-126:ctime(POSIX 元数据变更时刻;Windows 为创建时刻,tmp+rename 替换会变) */
+  ctimeMs?: number;
+  /** F-126:inode 文件号(重命名替换/重建即新号;不可用时为 0,判据自动跳过) */
+  ino?: number;
   recordedAt: number;
 }
 
@@ -52,21 +56,41 @@ export function normalizeMtimeMs(ms: number | undefined): number | undefined {
   return ms === undefined ? undefined : Math.floor(ms);
 }
 
+/** F-126:inode 级指纹比对(可比时才参与判定,不一致 ⇒ 不新鲜)。 */
+function inodeFingerprintMatches(
+  entry: ReadFileStateEntry,
+  stat: { ctimeMs?: number; ino?: number },
+): boolean {
+  if (entry.ctimeMs !== undefined && stat.ctimeMs !== undefined && stat.ctimeMs > 0) {
+    if (normalizeMtimeMs(entry.ctimeMs) !== normalizeMtimeMs(stat.ctimeMs)) return false;
+  }
+  if (entry.ino !== undefined && stat.ino !== undefined && stat.ino > 0) {
+    if (entry.ino !== stat.ino) return false;
+  }
+  return true;
+}
+
 /** 缓存条目对当前 stat 是否仍新鲜(partial 条目一律不新鲜) */
 export function isCachedReadFresh(
   entry: ReadFileStateEntry,
-  stat: { mtimeMs?: number; size: number },
+  stat: { mtimeMs?: number; size: number; ctimeMs?: number; ino?: number },
 ): boolean {
   if (entry.isPartialView) return false;
 
   if (entry.mtimeMs !== undefined && stat.mtimeMs !== undefined) {
-    return (
-      normalizeMtimeMs(entry.mtimeMs) === normalizeMtimeMs(stat.mtimeMs) &&
-      entry.sizeBytes === stat.size
-    );
+    if (
+      normalizeMtimeMs(entry.mtimeMs) !== normalizeMtimeMs(stat.mtimeMs) ||
+      entry.sizeBytes !== stat.size
+    ) {
+      return false;
+    }
+    return inodeFingerprintMatches(entry, stat);
   }
   // mtime 不可比时的兜底:只比 size(弱判据:同尺寸改写会漏判,但比"永远重读"省)
-  return entry.sizeBytes !== undefined && entry.sizeBytes === stat.size;
+  if (entry.sizeBytes !== undefined && entry.sizeBytes === stat.size) {
+    return inodeFingerprintMatches(entry, stat);
+  }
+  return false;
 }
 
 /** context → read-file 状态(WeakMap:ctx 被回收,状态跟着走) */
@@ -81,8 +105,8 @@ export function getReadFileStateMap(context: object): ReadFileStateMap {
   return state;
 }
 
-/** 从 fs.Stats 取 freshness 判据所需的两个字段(独立函数便于测试注入) */
-export function statFingerprint(stat: fs.Stats): { mtimeMs: number; size: number } {
-  return { mtimeMs: stat.mtimeMs, size: stat.size };
+/** 从 fs.Stats 取 freshness 判据所需字段(独立函数便于测试注入) */
+export function statFingerprint(stat: fs.Stats): { mtimeMs: number; size: number; ctimeMs: number; ino: number } {
+  return { mtimeMs: stat.mtimeMs, size: stat.size, ctimeMs: stat.ctimeMs, ino: Number(stat.ino) };
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
