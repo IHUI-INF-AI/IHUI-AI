@@ -85,6 +85,31 @@ function resolveRuntimeVersion(pkgVersion = pkg.version) {
   return String(value)
 }
 
+/**
+ * 构建期版本双写一致性(2026-11-11 真机事故立;2026-11-12 被覆盖后补回)。
+ *
+ * 实测事故链:构建只注入 IHUI_MOBILE_VERSION,漏了 EXPO_PUBLIC_IHUI_MOBILE_VERSION
+ * ⇒ 原生 versionName 与 JS bundle 的 APP_VERSION 分裂。端内 decideHasUpdate 于是
+ * 把服务端旧版本判成「有更新」,拉起降级安装。同一个坑在 0.0.21 / 0.0.12 与
+ * 0.0.25 / 0.0.12 上犯了两次 ⇒ 靠文档提醒无效,必须在配置求值期 fail-closed。
+ *
+ * 口径:两个 env **要么都缺省**(同时回退 pkg.version,仍然同源),**要么逐字相等**。
+ * 只给一个就抛错 —— 宁可构建失败,也不发出「原生号 ≠ 界面号」的包。
+ * 纯函数,由 scripts/tests/check-mobile-version-code.test.mjs 逐例钉住,不复制判据。
+ * @returns 两处同源的版本号字符串;都缺省时返回 null。
+ */
+function assertMobileVersionParity(nativeEnv, bundleEnv) {
+  const native = nativeEnv || ''
+  const bundle = bundleEnv || ''
+  if (native === bundle) return native || null
+  throw new Error(
+    `[app.config] 版本号双写不一致:IHUI_MOBILE_VERSION='${native}' 但 ` +
+      `EXPO_PUBLIC_IHUI_MOBILE_VERSION='${bundle}'。` +
+      '两者必须同时注入且逐字相等(见 scripts/build-mobile-rn-release.ps1 的发布版本号段),' +
+      '否则原生 versionName 与 JS bundle 的 APP_VERSION 会分裂,端内更新会把旧版本当新版本。',
+  )
+}
+
 module.exports = ({ config }) => {
   // 统一从 process.env 读取(单一数据源),fallback 到 app.json extra(向后兼容)
   // eslint 兼容 EAS:WX_APP_APPID 已在 eas.json production env 注入(非 EXPO_PUBLIC_ 前缀,
@@ -118,9 +143,15 @@ module.exports = ({ config }) => {
   // 显示版本号(2026-10-17 起):CI 每次构建由 scripts/resolve-mobile-version.mjs 派生
   // (形态 `<base>.<UTC YYYYMMDD>`)并通过 IHUI_MOBILE_VERSION 注入 ⇒ **每次发 APK 自动涨**,
   // 无需有人记得改 package.json。本地/未注入时回退 package.json,行为与历史一致。
-  // 同名的值还会以 EXPO_PUBLIC_IHUI_MOBILE_VERSION 走进 JS bundle(src/lib/config.ts),
-  // 两端读的是**同一串**,不可能出现"原生号 ≠ 界面号"。
-  const displayVersion = process.env.IHUI_MOBILE_VERSION || pkg.version
+  // 同名的值还会以 EXPO_PUBLIC_IHUI_MOBILE_VERSION 走进 JS bundle(src/lib/config.ts)。
+  // 2026-11-11 收紧:上面那句「不可能」此前只靠调用方自觉,手工构建漏注入第二个 env
+  // 就会静默分裂;改由 assertMobileVersionParity 求值期拦死。2026-11-12 该判据曾被
+  // 后续提交覆盖掉(现役测试随之恒红),本次补回并保持 enabled:true 等所有新增配置。
+  const versionEnv = assertMobileVersionParity(
+    process.env.IHUI_MOBILE_VERSION,
+    process.env.EXPO_PUBLIC_IHUI_MOBILE_VERSION,
+  )
+  const displayVersion = versionEnv || pkg.version
 
   return {
     ...config,
@@ -215,4 +246,6 @@ module.exports = ({ config }) => {
 // 上面的函数,附加属性对它们不可见;本仓守门经 createRequire 以 CJS 载入本模块后读取。
 module.exports.VERSION_CODE_FLOOR = 26010100 // 2026-01-01 00 时 —— 低于此值即"退回 vc=1 时代"
 module.exports.VERSION_CODE_CEILING = 2100000000 // Android/Play 的 versionCode 天花板
+// 双写一致性判据同样随模块导出:镜像测试直接问它,发布脚本也复用它,不在别处重抄。
+module.exports.assertMobileVersionParity = assertMobileVersionParity
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

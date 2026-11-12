@@ -404,4 +404,40 @@ test('M16 探测只打只读端点:任何厂商的 URL 都不得含写动词(防
     'endpoint-alive-but-call-shape-unverified',
   )
 })
+
+test('M17 OTA 版本 env 判据:复用 app.config 单源,漏注入/缺省/判据缺失都不冒绿', () => {
+  const { assertOtaVersionPair } = __test__
+  const appConfigSrc = readFileSync(
+    join(HERE, '..', '..', 'apps', 'mobile-rn', 'app.config.js'),
+    'utf8',
+  )
+  assert.equal(typeof assertOtaVersionPair, 'function', '判据必须随源脚本导出')
+  assert.equal(
+    assertOtaVersionPair(appConfigSrc, {
+      IHUI_MOBILE_VERSION: '0.0.25',
+      EXPO_PUBLIC_IHUI_MOBILE_VERSION: '0.0.25',
+    }).status,
+    STATUS.FOUND,
+  )
+  for (const env of [
+    { IHUI_MOBILE_VERSION: '0.0.25' },
+    { EXPO_PUBLIC_IHUI_MOBILE_VERSION: '0.0.25' },
+    {},
+    { IHUI_MOBILE_VERSION: '0.0.25', EXPO_PUBLIC_IHUI_MOBILE_VERSION: '0.0.24' },
+  ]) {
+    assert.equal(
+      assertOtaVersionPair(appConfigSrc, env).status,
+      STATUS.MISSING,
+      `必须拒跑:${JSON.stringify(env)}`,
+    )
+  }
+  assert.equal(
+    assertOtaVersionPair('module.exports = () => ({})', {
+      IHUI_MOBILE_VERSION: '0.0.25',
+      EXPO_PUBLIC_IHUI_MOBILE_VERSION: '0.0.25',
+    }).status,
+    STATUS.UNJUDGED,
+    '判据被删必须判未判定,不能冒绿放行',
+  )
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
