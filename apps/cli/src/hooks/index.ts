@@ -1964,15 +1964,59 @@ function joinHookContext(lines: string[]): string | undefined {
 //  - 它有一层云端 diff review;本层**不外发任何内容**(diff/文件内容都只在本进程判),
 //    这是设计分歧不是缺陷 —— 把用户代码送出仓是新的数据出口,不在本射程(AGENTS §5e 精神)。
 // 三条硬边界(全部落在实现里,不在调用方的自觉里):
-//  1. warn-only:结果只进 additionalContext 内存通道(与 G-424 ③ 同路)并点名到 stderr;
-//     **永不**把 proceed 置 false,**永不**改写用户文件。
+//  1. 闸门(F-038):编辑类工具落盘后命中 HIGH 凭据形态 ⇒ proceed=false 阻断本次调用
+//     (理由带规则 id/位置,不含凭据原文);IHUI_SECRET_SCAN_ALLOW=1 是显式豁免通道,
+//     放行时仍在 additionalContext 与 stderr 留痕。本层只读不写,**永不**改写用户文件。
+//     注意闸门落在 post 面:此时落盘已发生,调用方必须把 proceed=false 渲染成失败并提示撤销,
+//     不能当"成功 + 一条提示"吞掉。
 //  2. 未判定不冒绿(§0.3):取不到输入 ⇒ status=undetermined + missing 逐条点名,
-//     行内显式带 `not-judged-safe` —— 任何消费面都不可能把它读成"扫过且安全"。
-//  3. 扫描器自身异常不传导(§12e):本函数就地捕获转未判定行,工具调用的正常结果不受影响。
+//     行内显式带 `not-judged-safe` 与 `gate=not-judged` —— 任何消费面都不可能把它读成
+//     "扫过且安全"(它放行但不静默:stderr 逐条点名,上下文行带机器码)。
+//  3. 扫描器自身异常不传导(§12e):本函数就地捕获转未判定行,钩子链不因扫描器故障抛出。
 // ============================================================================
 
 /** 内置安全扫描行的稳定前缀(ASCII 机器码,与 hook-context v1 同纪律,不依赖语言包)。 */
 export const SECURITY_SCAN_LINE_PREFIX = 'security-scan v1';
+
+/**
+ * 闸门显式豁免开关(命名对齐 IHUI_TRUST_WORKSPACE=1 的显式开关风格)。
+ * 设为 '1' ⇒ HIGH 命中只告警放行,并在上下文行与 stderr 留痕(应急出口,不建议常开)。
+ */
+export const SECRET_SCAN_ALLOW_ENV = 'IHUI_SECRET_SCAN_ALLOW';
+
+/** 闸门口径(三态 + 豁免),调用点只消费这个结论,不自建第二份判据。 */
+export type SecretScanGate = 'open' | 'blocked' | 'exempted' | 'not-judged';
+
+export interface SecretScanGateDecision {
+  /** true ⇒ 调用方必须把本次工具调用判失败 */
+  blocked: boolean;
+  gate: SecretScanGate;
+  /** 阻断/豁免的理由(只含规则 id 与位置,绝不含凭据原文) */
+  detail: string;
+}
+
+/**
+ * 判定结果 → 闸门结论(F-038 唯一判据):
+ *  - findings 且含 HIGH ⇒ 阻断(除非显式豁免);
+ *  - findings 只有 MEDIUM/LOW ⇒ 放行(通用赋值行误报面大,仍走告警行);
+ *  - clean ⇒ 放行;
+ *  - undetermined ⇒ 放行但标 gate=not-judged(不是"静默判过":行内机器码 + stderr 点名)。
+ */
+export function secretScanGate(outcome: SecretScanOutcome): SecretScanGateDecision {
+  if (outcome.status === 'undetermined') {
+    return { blocked: false, gate: 'not-judged', detail: outcome.missing.join(';') };
+  }
+  if (outcome.status === 'clean') return { blocked: false, gate: 'open', detail: '' };
+  const blocking = outcome.findings.filter((f) => f.severity === 'HIGH');
+  if (blocking.length === 0) return { blocked: false, gate: 'open', detail: '' };
+  const where = blocking.map((f) => `${f.ruleId}@${f.origin}:L${f.line}`).join(',');
+  if (process.env[SECRET_SCAN_ALLOW_ENV] === '1') return { blocked: false, gate: 'exempted', detail: where };
+  return {
+    blocked: true,
+    gate: 'blocked',
+    detail: `secret-scan 命中 HIGH 凭据形态(${where});凭据不得落盘。确需放行:${SECRET_SCAN_ALLOW_ENV}=1`,
+  };
+}
 
 /** 已点名过的非 clean 扫描行(去重刷屏;与 announcedSkips 同一纪律,有界)。 */
 const announcedSecurityScan = new Set<string>();
@@ -1984,17 +2028,27 @@ function securityScanContextLine(event: string, subject: string, body: string): 
   );
 }
 
+/** 一次内置扫描的产物:上下文行 + 原始判定(闸门要读 outcome,不能只留成形文本)。 */
+interface BuiltinScanLeg {
+  lines: string[];
+  outcome: SecretScanOutcome;
+}
+
 /**
  * 跑一次内置扫描并成形 additionalContext 行(唯一接线出口,postToolCall/stop 两事件共用)。
  * scan 内部已全兜底,这里的 catch 是双保险:扫描器自身的故障只可能被读成"未判定",
  * 不可能让本次工具调用/收场流程连带失败。
  */
-function builtinSecurityScanLines(event: string, subject: string, scan: () => SecretScanOutcome): string[] {
+function builtinSecurityScan(event: string, subject: string, scan: () => SecretScanOutcome): BuiltinScanLeg {
+  let outcome: SecretScanOutcome;
   let body: string;
   try {
-    body = describeScanOutcome(scan());
+    outcome = scan();
+    body = describeScanOutcome(outcome);
   } catch (err) {
     const note = err instanceof Error ? err.message : String(err);
+    // 崩溃同样落成结构化的未判定(闸门据此标 gate=not-judged,不冒绿)
+    outcome = { status: 'undetermined', findings: [], missing: [`scan-adapter-crashed: ${note.slice(0, 200)}`], truncatedOrigins: [] };
     body = `status=undetermined | not-judged-safe | missing=scan-adapter-crashed: ${note.slice(0, 200)}`;
   }
   // 非 clean(含未判定)在 stderr 点名:present 面(agent/repl 的调用点当前丢弃返回值),
@@ -2009,18 +2063,18 @@ function builtinSecurityScanLines(event: string, subject: string, scan: () => Se
       warnOnce(`⚠ [security-scan] ${key}: ${body}`);
     }
   }
-  return [securityScanContextLine(event, subject, body)];
+  return { lines: [securityScanContextLine(event, subject, body)], outcome };
 }
 
 /** postToolCall 面:编辑类工具落盘后对本次文件做 L1 pattern 扫描(非编辑工具零动作)。 */
-function editToolScanLines(toolName: string, output: unknown): string[] {
-  if (!isEditToolName(toolName)) return [];
-  return builtinSecurityScanLines('postToolCall', toolName, () => scanEditedFile(output));
+function editToolScan(toolName: string, output: unknown): BuiltinScanLeg | null {
+  if (!isEditToolName(toolName)) return null;
+  return builtinSecurityScan('postToolCall', toolName, () => scanEditedFile(output));
 }
 
-/** stop 面:整轮聚合改动(HEAD 以来未提交 diff + 未跟踪文件)审查一次。 */
+/** stop 面:整轮聚合改动(HEAD 以来未提交 diff + 未跟踪文件)审查一次(仍只告警,不阻断收场)。 */
 function stopScanLines(workspacePath: string): string[] {
-  return builtinSecurityScanLines('stop', 'workspace-aggregate-diff', () => reviewWorkspaceChanges(workspacePath));
+  return builtinSecurityScan('stop', 'workspace-aggregate-diff', () => reviewWorkspaceChanges(workspacePath)).lines;
 }
 
 /** 单条执行结果 → 该条的 feedback 行(event 由调用方传,与阻断标签同源)。 */
@@ -2276,8 +2330,30 @@ export async function runPostToolCall(toolName: string, output: unknown, signal?
   const feedbackLines: string[] = [];
   const contextLines: string[] = [];
   // 内置安全扫描腿(对齐对照程序 PostToolUse `Edit|Write|…` matcher;不依赖用户 hooks.json:
-  // 编辑类工具即便零配置也必扫。结果只进 additionalContext + stderr 点名,不改 proceed)。
-  contextLines.push(...editToolScanLines(toolName, output));
+  // 编辑类工具即便零配置也必扫)。F-038:命中 HIGH 凭据形态 ⇒ 本次调用 proceed=false;
+  // 显式豁免(IHUI_SECRET_SCAN_ALLOW=1)与只有 MEDIUM/LOW 命中时仍只告警。
+  const scanLeg = editToolScan(toolName, output);
+  if (scanLeg !== null) {
+    contextLines.push(...scanLeg.lines);
+    const gate = secretScanGate(scanLeg.outcome);
+    if (gate.gate === 'exempted') {
+      contextLines.push(securityScanContextLine('postToolCall', toolName, `gate=exempted | env=${SECRET_SCAN_ALLOW_ENV} | 命中已放行:${gate.detail}`));
+      warnOnce(`⚠ [security-scan] ${SECRET_SCAN_ALLOW_ENV}=1 已生效:凭据命中被放行(应急通道,需人工跟进):${gate.detail}`);
+    } else if (gate.gate === 'not-judged') {
+      // 未判定不冒绿:放行但把"没判成"写成机器码,消费面不可能读成 clean
+      contextLines.push(securityScanContextLine('postToolCall', toolName, `gate=not-judged | ${gate.detail}`));
+    } else if (gate.blocked) {
+      contextLines.push(securityScanContextLine('postToolCall', toolName, `gate=blocked | ${gate.detail}`));
+      const blockedCtx = joinHookContext(contextLines);
+      return {
+        proceed: false,
+        terminal: 'blocked',
+        reason: redactThenClip(gate.detail),
+        feedback: joinHookFeedback(feedbackLines),
+        ...(blockedCtx !== undefined ? { additionalContext: blockedCtx } : {}),
+      };
+    }
+  }
   let worst: HookTerminalState = 'succeeded';
   for (const entry of hooks) {
     if (!matchesTool(entry, toolName)) continue;
