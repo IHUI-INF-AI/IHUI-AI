@@ -531,12 +531,22 @@ class SandboxExecutor:
             except TimeoutError:
                 with contextlib.suppress(ProcessLookupError):
                     proc.kill()
+                # AIS-026: 超时 kill 后必须回收句柄,否则留未回收子进程。
+                with contextlib.suppress(ProcessLookupError):
+                    await proc.wait()
                 return SandboxResult(
                     exit_code=-1, stdout="",
                     stderr=f"command timed out ({timeout}s)",
                     duration_ms=(time.monotonic() - start) * 1000,
                     backend="local", timed_out=True,
                 )
+            except asyncio.CancelledError:
+                # AIS-026: 取消(关停/上游取消)后必须回收在途子进程,否则宿主机命令继续跑。
+                with contextlib.suppress(ProcessLookupError):
+                    proc.kill()
+                with contextlib.suppress(ProcessLookupError):
+                    await proc.wait()
+                raise
             stdout = stdout_bytes.decode("utf-8", errors="replace") if stdout_bytes else ""
             stderr = stderr_bytes.decode("utf-8", errors="replace") if stderr_bytes else ""
             # 批58:EXEC_CAPTURE_POLICY_ENABLED on 时按档位施加输出保留上限
@@ -558,6 +568,12 @@ class SandboxExecutor:
                 backend="local", timed_out=False,
             )
         except Exception as e:
+            # AIS-026: 任何执行异常也要回收可能仍在跑的子进程。
+            if proc.returncode is None:
+                with contextlib.suppress(ProcessLookupError):
+                    proc.kill()
+                with contextlib.suppress(ProcessLookupError):
+                    await proc.wait()
             return SandboxResult(
                 exit_code=-1, stdout="",
                 stderr=f"execution failed: {e}",
