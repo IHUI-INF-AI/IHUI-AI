@@ -339,25 +339,28 @@ const appVersionRoutes: FastifyPluginAsync = async (server) => {
     }
     // 若新版本标记为 latest，则将「同平台同渠道」旧 latest 降级为 history
     // （store 缺省 ⇒ store is null 那一格 = 加列前的唯一 latest 语义）
-    if (parsed.data.status === 'latest' || !parsed.data.status) {
-      await db
-        .update(appVersions)
-        .set({ status: 'history' })
-        .where(
-          and(
-            eq(appVersions.platform, parsed.data.platform),
-            eq(appVersions.status, 'latest'),
-            storeScopeCondition(parsed.data.store),
-          ),
-        )
-    }
-    const [version] = await db
-      .insert(appVersions)
-      .values({
-        ...parsed.data,
-        status: parsed.data.status ?? 'latest',
-      })
-      .returning()
+    // F-482:降级与插入必须同一事务 —— 降级成功而插入失败会留下"无 latest"的空窗
+    const [version] = await db.transaction(async (tx) => {
+      if (parsed.data.status === 'latest' || !parsed.data.status) {
+        await tx
+          .update(appVersions)
+          .set({ status: 'history' })
+          .where(
+            and(
+              eq(appVersions.platform, parsed.data.platform),
+              eq(appVersions.status, 'latest'),
+              storeScopeCondition(parsed.data.store),
+            ),
+          )
+      }
+      return tx
+        .insert(appVersions)
+        .values({
+          ...parsed.data,
+          status: parsed.data.status ?? 'latest',
+        })
+        .returning()
+    })
     return reply.status(201).send(success({ version }))
   })
 
@@ -398,7 +401,8 @@ const appVersionRoutes: FastifyPluginAsync = async (server) => {
     }
     const [version] = await db
       .update(appVersions)
-      .set(updates)
+      // F-486:PUT 此前不写 updatedAt,行时间戳停在创建时刻
+      .set({ ...updates, updatedAt: new Date() })
       .where(eq(appVersions.id, parsedP.data.id))
       .returning()
     if (!version) {
