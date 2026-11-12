@@ -42,6 +42,26 @@ export function resolveRealm(domain: string): WorkBuddyRealm {
   return 'cn'
 }
 
+/**
+ * realm 判定收口:domain 有值仍以它为准,缺失时回落 JWT `iss` 的 host。
+ *
+ * 2026-11-12 实证立:global(.ai)账号的 access token claims 里**没有 `domain` 键**、
+ * 行内 extraMetadata 也没有,只有 `iss=https://www.workbuddy.ai/...`;不回落 ⇒ 被判成 CN ⇒
+ * 把 .ai 的票发到 copilot.tencent.com 拿回 401 ⇒ 健康检查据此把一枚**活着的好号**判成 dead
+ * (ok502319984@gmail.com 正是这么死的:同票打 .ai 的 userinfo 实测 200 + sub 自证)。
+ * CN 侧不受影响:copilot.tencent.com / www.workbuddy.cn 两个 iss host 本来就不匹配 `.ai` 后缀 ⇒ 仍 cn。
+ */
+export function resolveRealmFor(domain: string, claims: Record<string, unknown> | null): WorkBuddyRealm {
+  if (domain.trim()) return resolveRealm(domain)
+  const iss = claims && typeof claims['iss'] === 'string' ? claims['iss'].trim() : ''
+  if (!iss) return 'cn'
+  try {
+    return resolveRealm(new URL(iss).hostname)
+  } catch {
+    return 'cn'
+  }
+}
+
 export function chatBaseUrl(realm: WorkBuddyRealm): string {
   return realm === 'global' ? GLOBAL_CHAT_BASE : CN_CHAT_BASE
 }
