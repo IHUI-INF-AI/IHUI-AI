@@ -17,24 +17,83 @@
 import type { ApiResult } from '@ihui/types'
 import { fetchApi } from '../client.js'
 
+/** 列表过滤条件(与后端 query schema 逐字段一致) */
+export interface AccountPoolListParams {
+  /** 平台代码;后端对非法值静默忽略(不报错) */
+  provider?: string
+  enabled?: boolean
+}
+
+/** 新增账号请求体(与后端 createBodySchema 逐字段一致) */
+export interface CreateAccountPoolIn {
+  providerCode: string
+  name: string
+  token: string
+  refreshToken?: string
+  cookies?: unknown[]
+  deviceId?: string
+  machineId?: string
+  enabled?: boolean
+}
+
+/** 更新账号请求体(与后端 updateBodySchema 逐字段一致) */
+export interface UpdateAccountPoolIn {
+  name?: string
+  isEnabled?: boolean
+}
+
+/** 单账号签到状态点查响应(平台无签到引擎时 found:false + noEngine:true) */
+export interface AccountPoolStatusResponse {
+  found: boolean
+  noEngine?: boolean
+  [key: string]: unknown
+}
+
+/** 个人池概览(GET /api/account-pool/summary) */
+export interface AccountPoolSummaryResponse {
+  total: number
+  enabled: number
+}
+
 /** 账号池列表 — GET /api/account-pool */
-export async function listAccountPool<T = { list: unknown[]; total: number }>(): Promise<ApiResult<T>> {
-  return fetchApi<T>('/api/account-pool')
+export async function listAccountPool<T = { list: unknown[]; total: number }>(
+  params?: AccountPoolListParams,
+): Promise<ApiResult<T>> {
+  const query = new URLSearchParams()
+  if (params?.provider) query.set('provider', params.provider)
+  if (params?.enabled !== undefined) query.set('enabled', String(params.enabled))
+  const suffix = query.toString() ? `?${query.toString()}` : ''
+  return fetchApi<T>(`/api/account-pool${suffix}`)
 }
 
 /** 新增账号 — POST /api/account-pool */
 export async function createAccountPool<T = unknown>(
-  body: Record<string, unknown>,
+  body: CreateAccountPoolIn,
 ): Promise<ApiResult<T>> {
   return fetchApi<T>('/api/account-pool', { method: 'POST', body: JSON.stringify(body) })
 }
 
-/** 更新账号(启用态等)— PATCH /api/account-pool/:id */
+/** 更新账号(改名/启停)— PATCH /api/account-pool/:id */
 export async function updateAccountPool<T = unknown>(
   id: string,
-  body: Record<string, unknown>,
+  body: UpdateAccountPoolIn,
 ): Promise<ApiResult<T>> {
-  return fetchApi<T>(`/api/account-pool/${id}`, { method: 'PATCH', body: JSON.stringify(body) })
+  return fetchApi<T>(`/api/account-pool/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  })
+}
+
+/** 单账号签到状态点查 — GET /api/account-pool/:id/status */
+export async function getAccountPoolStatus(
+  id: string,
+): Promise<ApiResult<AccountPoolStatusResponse>> {
+  return fetchApi<AccountPoolStatusResponse>(`/api/account-pool/${encodeURIComponent(id)}/status`)
+}
+
+/** 个人池概览(移动端首页/角标)— GET /api/account-pool/summary */
+export async function getAccountPoolSummary(): Promise<ApiResult<AccountPoolSummaryResponse>> {
+  return fetchApi<AccountPoolSummaryResponse>('/api/account-pool/summary')
 }
 
 /** 打卡同步 — POST /api/account-pool/:id/checkin */

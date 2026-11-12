@@ -30,9 +30,11 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 // 个人池归属的唯一读取实现(§0.6):判据与 reason 措辞都只许这一份,不在本文件复算
 import {
   POOL_OWNER_REASON_TEXT,
+  POOL_OWNER_TRANSLATE_REASON_TEXT,
   UUID_LIKE_RE,
   maskPoolOwner,
   resolveDefaultPoolOwner,
+  translatePoolOwnerToTargetId,
 } from './lib/pool-owner.mjs'
 // 「一行一个 token」行文本的折叠单源(§0.6):校验/uid/去重一律留给下游预检,本文件不抄第二份
 import {
@@ -73,7 +75,7 @@ const HELP = `反代账号池导入
     [--prod-only]                            跳过本机库,只推生产(隐含推生产)
     [--prod-host <alias>]                    SSH 别名(默认 ssh.aizhs.top;须免密可用)
     [--prod-checkout <path>]                 生产 checkout 根(默认 D:\\DevEnv\\ihui-prod)
-    [--prod-owner <users.id>]                生产侧归属(缺省用本机/生产机 ~/.wb-switch/pool-owner)
+    [--prod-owner <users.id>]                生产侧归属(= 生产 users.id;缺省按 email 从本机 pool-owner 翻译)
     [--with-health]                          推生产时也做导入后上游健康检查(默认跳过:那一步要等上游 5xx 回落)
     [--sync-pull <provider>]                 从生产库拉回本地(互通:生产→本地),与本地导入等价落库
     [--json]                                 机器可读摘要(提取信息走 stderr)
@@ -431,37 +433,147 @@ async function pushPayloadToProd(payloadText, providerCode, options) {
 }
 
 /**
- * 本地归属 email→users.id 反查表(2026-11-12 email 身份键收口):
- * 生产导出行带 `__sync.ownerEmail`,落本地库前必须把 email 翻译成本地 users.id ——
- * 两端 users.id 各自库生成(同一人两端不同 id),原样透传生产 id 会在本地造出悬空归属,
- * 机主看不到被拉回的个人池号。经 tsx 跑 apps/api/scripts/relay-pool-owner-map.ts(只读),
- * spawn 形态与 runImporter 同源。取不到 ⇒ `{map:null,error}` 由调用方点名(fail-closed)。
- * @returns {Promise<{map: Record<string,string>|null, error: string|null}>}
+ * 从 relay-pool-owner-map.ts 的 stdout 截取 `<users.id> → <email>` 原始映射。
+ * 生产进程的 dotenv/[db] 诊断也写 stdout ⇒ 只认边界标记内的 JSON 段。
  */
-async function fetchLocalOwnerEmailMap() {
+function extractOwnerMap(stdout) {
+  const text = String(stdout ?? '')
+  const b = text.indexOf('__POOL_EXPORT_BEGIN__')
+  const e = text.indexOf('__POOL_EXPORT_END__')
+  if (b < 0 || e <= b) return { map: null, error: '未找到导出边界标记(checkout 可能是旧版)' }
+  try {
+    return {
+      map: JSON.parse(text.slice(b + '__POOL_EXPORT_BEGIN__'.length, e).trim()),
+      error: null,
+    }
+  } catch (err) {
+    return {
+      map: null,
+      error: `归属对照解析失败: ${err instanceof Error ? err.message : String(err)}`,
+    }
+  }
+}
+
+/** 本机 `<users.id> → <email>` 原始映射(推送腿按 email 翻译归属时用)。 */
+export async function fetchLocalOwnerIdEmailMap() {
   const tsxCli = resolveTsx()
   if (!tsxCli) return { map: null, error: '未找到 tsx(apps/api/node_modules/tsx)' }
   const r = await runProcess(process.execPath, [tsxCli, OWNER_MAP], {})
   if (r.code !== 0) {
     return { map: null, error: `归属对照导出失败(退出码 ${r.code}):${r.error || ''}`.trim() }
   }
-  const text = String(r.stdout ?? '')
-  const b = text.indexOf('__POOL_EXPORT_BEGIN__')
-  const e = text.indexOf('__POOL_EXPORT_END__')
-  if (b < 0 || e <= b) return { map: null, error: '未找到导出边界标记(checkout 可能是旧版)' }
-  try {
-    const idToEmail = JSON.parse(text.slice(b + '__POOL_EXPORT_BEGIN__'.length, e).trim())
-    const map = {}
-    for (const [id, email] of Object.entries(idToEmail ?? {})) {
-      const key = String(email ?? '').trim().toLowerCase()
-      if (key) map[key] = id
-    }
-    return { map, error: null }
-  } catch (err) {
+  return extractOwnerMap(r.stdout)
+}
+
+/**
+ * 本地归属 email→users.id 反查表(2026-11-12 email 身份键收口):
+ * 生产导出行带 `__sync.ownerEmail`,落本地库前必须把 email 翻译成本地 users.id ——
+ * 两端 users.id 各自库生成(同一人两端不同 id),原样透传生产 id 会在本地造出悬空归属,
+ * 机主看不到被拉回的个人池号。取不到 ⇒ `{map:null,error}` 由调用方点名(fail-closed)。
+ * @returns {Promise<{map: Record<string,string>|null, error: string|null}>}
+ */
+async function fetchLocalOwnerEmailMap() {
+  const raw = await fetchLocalOwnerIdEmailMap()
+  if (raw.error) return raw
+  const map = {}
+  for (const [id, email] of Object.entries(raw.map ?? {})) {
+    const key = String(email ?? '').trim().toLowerCase()
+    if (key) map[key] = id
+  }
+  return { map, error: null }
+}
+
+/**
+ * 生产归属 email→users.id 反查表(推送腿翻译用,2026-11-12 根因修复):
+ * 经 SSH 在生产 checkout 跑同一枚只读脚本;生产 id 与本地 id 不同,只能按 email 反查。
+ * @returns {Promise<{map: Record<string,string>|null, error: string|null}>}
+ */
+export async function fetchProdOwnerEmailMap(options) {
+  const remoteCmd =
+    `cd /d "${options.prodCheckout}" & node ` +
+    ['apps\\api\\node_modules\\tsx\\dist\\cli.mjs', 'apps\\api\\scripts\\relay-pool-owner-map.ts'].join(' ')
+  const r = await runProcess(
+    'ssh',
+    ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=20', options.prodHost, remoteCmd],
+    {},
+  )
+  if (r.code !== 0) {
+    return { map: null, error: `生产归属对照导出失败(退出码 ${r.code}):${r.error || ''}`.trim() }
+  }
+  const raw = extractOwnerMap(r.stdout)
+  if (raw.error) return raw
+  const map = {}
+  for (const [id, email] of Object.entries(raw.map ?? {})) {
+    const key = String(email ?? '').trim().toLowerCase()
+    if (key) map[key] = id
+  }
+  return { map, error: null }
+}
+
+/**
+ * 生产归属解析(2026-11-12 根因:"两库 admin users.id 同源镜像"是错误旧假设)。
+ *
+ * 显式 --prod-owner 优先(调用方已确认那串是生产 users.id);否则把本机裁决的 users.id
+ * 按 email 翻成生产 users.id —— 两端 users.id 各自库生成,原样透传必造生产悬空行,
+ * 该行机主看不见、号也用不了(codearts 亲踩)。翻译不出 ⇒ `owner:null` + 具名 error,
+ * 由 main fail-closed 跳过推送(绝不透传、绝不落运营池)。
+ * @returns {Promise<{owner: string|null, email: string, translated: boolean, error: string|null, code: number}>}
+ */
+async function resolveProdOwnerId(decision, options, deps) {
+  if (options.prodOwner) {
+    return { owner: options.prodOwner, email: '', translated: false, error: null, code: 0 }
+  }
+  if (!decision.owner) {
     return {
-      map: null,
-      error: `归属对照解析失败: ${err instanceof Error ? err.message : String(err)}`,
+      owner: null,
+      email: '',
+      translated: false,
+      error: '生产推送缺个人池归属:带 --prod-owner <users.id>(不推运营池)',
+      code: 2,
     }
+  }
+  const local = await deps.resolveLocalOwnerIdMap()
+  if (local.error) {
+    return {
+      owner: null,
+      email: '',
+      translated: false,
+      error: `本机归属对照不可用:${local.error}`,
+      code: 1,
+    }
+  }
+  const prod = await deps.resolveProdOwnerEmailMap(options)
+  if (prod.error) {
+    return {
+      owner: null,
+      email: '',
+      translated: false,
+      error: `生产归属对照不可用:${prod.error}`,
+      code: 1,
+    }
+  }
+  const r = translatePoolOwnerToTargetId({
+    ownerId: decision.owner,
+    idToEmail: local.map,
+    targetEmailToId: prod.map,
+  })
+  if (r.reason !== 'ok') {
+    return {
+      owner: null,
+      email: r.email,
+      translated: false,
+      error: `${POOL_OWNER_TRANSLATE_REASON_TEXT[r.reason] ?? r.reason}${
+        r.email ? `(email=${r.email})` : ''
+      }`,
+      code: 1,
+    }
+  }
+  return {
+    owner: r.owner,
+    email: r.email,
+    translated: r.owner !== decision.owner,
+    error: null,
+    code: 0,
   }
 }
 
@@ -584,6 +696,9 @@ const DEFAULT_DEPS = {
   loadMaskPhone,
   // 本地归属 email→users.id 反查表(测试注入替身,绝不真跑 tsx/连库)
   resolveLocalOwnerMap: fetchLocalOwnerEmailMap,
+  // 推送腿归属翻译:本机 id→email 原始表 + 生产 email→id 反查表(测试注入替身,绝不真跑 SSH)
+  resolveLocalOwnerIdMap: fetchLocalOwnerIdEmailMap,
+  resolveProdOwnerEmailMap: fetchProdOwnerEmailMap,
 }
 
 async function main(argv, injectedDeps = {}) {
@@ -847,15 +962,33 @@ async function main(argv, injectedDeps = {}) {
   }
 
   // 只推生产:本机库一行不写,凭据只在生产 checkout 内落一次。
-  // 生产归属缺省沿用本机裁决(两库 admin users.id 同源镜像);显式 --prod-owner 覆盖。
-  const prodOptions = options.prodPush
-    ? { ...options, prodOwner: options.prodOwner || decision.owner }
-    : options
-  if (options.prodPush && !prodOptions.prodOwner) {
-    process.stderr.write('❌ 生产推送缺个人池归属:带 --prod-owner <users.id>(不推运营池)\n')
-    return 2
+  // 生产归属必须按 email 翻译成生产 users.id:两端 users.id 各自库生成(同一 admin 本地
+  // d83b566e…、生产 30763d9f…),原样透传 = 生产悬空归属行(2026-11-12 codearts 亲踩)。
+  // 显式 --prod-owner 优先;翻译不出 ⇒ fail-closed 不推,绝不透传。
+  let prodOptions = options
+  let prodResolve = { owner: null, email: '', translated: false, error: null, code: 0 }
+  if (options.prodPush) {
+    prodResolve = await resolveProdOwnerId(decision, options, deps)
+    if (prodResolve.error) {
+      process.stderr.write(
+        `❌ 生产推送跳过:owner 无法翻译 —— ${prodResolve.error}\n` +
+          '   两端 users.id 各自生成,只能按 email 翻译;本轮不推也不造悬空行,' +
+          '编排器 relay-account-pool-sync.mjs(--if-dirty)会按 email 收敛。\n',
+      )
+    } else {
+      prodOptions = { ...options, prodOwner: prodResolve.owner }
+      if (prodResolve.translated) {
+        process.stderr.write(
+          `ℹ️ 生产归属已按 email 翻译:${maskPoolOwner(decision.owner)} → ` +
+            `${maskPoolOwner(prodResolve.owner)}(${prodResolve.email})\n`,
+        )
+      }
+    }
   }
+  // 归属"未判定"(缺个人池归属)= 出口 2,与翻译失败(出口 1)区分:后者本机仍可入池
+  if (prodResolve.code === 2) return 2
   if (options.prodOnly) {
+    if (prodResolve.error) return prodResolve.code
     const push = await deps.pushProd(payloadText, providerCode, prodOptions)
     if (push.error) process.stderr.write(`❌ 生产推送失败: ${push.error}\n`)
     return push.code
@@ -866,6 +999,8 @@ async function main(argv, injectedDeps = {}) {
   const result = await deps.runImporter(payloadText, providerCode, localOptions, decision)
   if (result.error) process.stderr.write(`❌ ${result.error}\n`)
   if (result.code !== 0 || !options.prodPush) return result.code
+  // 本机已入池,但生产归属翻译不出 ⇒ 跳过推送并以非 0 收口(不静默当成功)
+  if (prodResolve.error) return prodResolve.code
 
   // 本机已入池,再把同一批凭据推一份到生产(SSH 直连,不经后台密码)
   const push = await deps.pushProd(payloadText, providerCode, prodOptions)

@@ -1337,7 +1337,7 @@ export async function importAccounts(
  * - 生产机的 API 也会写(它同样在导号),但生产侧不装同步任务 ⇒ 标记只占几字节,零副作用;
  * - 路径可用 `IHUI_POOL_SYNC_DIRTY_FILE` 覆盖(NSSM 服务的 homedir 可能不是用户目录)。
  */
-export function markPoolSyncDirty(): void {
+function markPoolSyncDirty(): void {
   const file =
     process.env['IHUI_POOL_SYNC_DIRTY_FILE'] || join(homedir(), '.wb-switch', 'pool-sync-dirty')
   try {
@@ -1461,7 +1461,12 @@ async function applyPhoneCompletion(
       } else {
         checkinSync.error = push.error
         try {
-          await markCheckinSyncPending([synced.id], 'cred', null, push.error ?? '补全后签到推送失败')
+          await markCheckinSyncPending(
+            [synced.id],
+            'cred',
+            null,
+            push.error ?? '补全后签到推送失败',
+          )
           checkinSync.pending = true
         } catch {
           /* pending 落库失败只意味着少一条待推痕迹,对账收敛器兜底 */
@@ -2333,7 +2338,11 @@ export async function listUserPoolModels(
     for (const upstreamId of info.ids) {
       const id = toPoolModelId(code, upstreamId)
       // 裸名与带前缀名都算重复:平台登记行可能就用裸名(trae 系),上游清单再报一次不该出两条
-      if (seen.has(id) || seen.has(upstreamId) || seenNorm.has(normalizePoolUpstreamModelId(code, upstreamId))) {
+      if (
+        seen.has(id) ||
+        seen.has(upstreamId) ||
+        seenNorm.has(normalizePoolUpstreamModelId(code, upstreamId))
+      ) {
         continue
       }
       seen.add(id)

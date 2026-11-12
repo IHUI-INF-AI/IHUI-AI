@@ -48,7 +48,7 @@ import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { runProcess } from './relay-account-pool.mjs'
 import { groupForImport, planPoolSync } from './lib/pool-sync-plan.mjs'
-import { maskPoolOwner, resolveDefaultPoolOwner } from './lib/pool-owner.mjs'
+import { invertOwnerMap, maskPoolOwner, resolveDefaultPoolOwner } from './lib/pool-owner.mjs'
 import { RELAY_PROVIDER_CODES } from './lib/pool-providers.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -266,16 +266,6 @@ async function fetchOwnerMapProd(options) {
     throw new Error(`生产归属对照导出失败(退出码 ${r.code}): ${r.error || ''}`.trim())
   }
   return extractExport(r.stdout)
-}
-
-/** id→email 映射 ⇒ email(小写)→id 反查表(落库翻译用)。 */
-function invertOwnerMap(map) {
-  const out = {}
-  for (const [id, email] of Object.entries(map ?? {})) {
-    const e = String(email ?? '').trim().toLowerCase()
-    if (e) out[e] = id
-  }
-  return out
 }
 
 /**

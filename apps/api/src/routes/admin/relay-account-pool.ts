@@ -462,8 +462,16 @@ function presentAccountRow<T extends { proxyUrlEnc: string | null }>(row: T) {
 /** 任务自动化覆盖的签到平台(引擎侧只有 WorkBuddy;其余平台映射即拦截) */
 const TASK_AUTOMATION_PLATFORM = 'workbuddy'
 
-/** 任务触发 kind 白名单(与 ai-service task-run 契约逐字一致) */
-const TASK_RUN_KINDS = ['growth', 'travel', 'activity', 'blackcat'] as const
+/** 任务触发 kind 白名单(与 ai-service TaskRunIn.kind 的 Literal 七值逐字一致) */
+const TASK_RUN_KINDS = [
+  'growth',
+  'travel',
+  'activity',
+  'blackcat',
+  'redeem',
+  'lottery',
+  'all',
+] as const
 
 const taskRunBodySchema = z.object({
   kind: z.enum(TASK_RUN_KINDS),
@@ -1020,16 +1028,16 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ===== 8. POST /admin/relay/account-pool/sweep — 手动触发调度巡检 =====
-  // 注:scheduler 签名 sweepAccountPool() 无参(整池单轮),body.ids 为管理面形状预留(当前整池执行)。
+  // body.ids 点名 = 只跑这些行(四档候选加 id 条件,全局对账/清理腿跳过);缺省整池单轮。
   const sweepBodySchema = z.object({
-    ids: z.array(z.string().min(1)).max(500).optional(),
+    ids: z.array(z.string().uuid()).max(500).optional(),
   })
   server.post('/admin/relay/account-pool/sweep', async (request, reply) => {
     const b = sweepBodySchema.safeParse(request.body ?? {})
     if (!b.success)
       return reply.status(400).send(error(400, b.error.issues[0]?.message ?? '参数错误'))
     try {
-      const result = await sweepAccountPool()
+      const result = await sweepAccountPool(undefined, { ids: b.data.ids })
       return reply.send(success(result))
     } catch (e) {
       request.log.error(e)
@@ -1235,6 +1243,7 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
       }
       const status = await fetchPoolStatus(platform, {
         poolAccountId: row.id,
+        ownerUserId: row.ownerUserId,
         uid: row.uid ?? '',
       })
       items[id] = {

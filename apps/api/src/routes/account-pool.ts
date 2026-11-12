@@ -281,7 +281,13 @@ const accountPoolRoutes: FastifyPluginAsync = async (server) => {
     const platform = checkinPlatformFor(row.providerCode)
     if (!platform) return reply.send(success({ found: false, noEngine: true }))
     return reply.send(
-      success(await fetchPoolStatus(platform, { poolAccountId: row.id, uid: row.uid })),
+      success(
+        await fetchPoolStatus(platform, {
+          poolAccountId: row.id,
+          ownerUserId: userId,
+          uid: row.uid,
+        }),
+      ),
     )
   })
 
