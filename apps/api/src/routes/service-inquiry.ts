@@ -14,7 +14,7 @@
  * - PATCH /admin/:id/status          admin,更新询价状态
  *
  * 存储:service_inquiries 表(Drizzle ORM,持久化)。
- * 邮件通知:sendEmail 异步发送到 IHUI-AI@aizhs.top(可由 INQUIRY_NOTIFY_EMAIL 覆盖)。
+ * 邮件通知:sendEmail 异步发送到 lizong@aizhs.top(可由 INQUIRY_NOTIFY_EMAIL 覆盖)。
  *
  * 配套前端:apps/web/app/(main)/services/ServicesContent.tsx + InquiryForm.tsx
  */
@@ -172,7 +172,7 @@ export const serviceInquiryRoutes: FastifyPluginAsync = async (server) => {
     sendEmail({
       // 收件人可由 INQUIRY_NOTIFY_EMAIL 覆盖:@aizhs.top 的收信链路(MX 仍指向 smtp.google.com)
       // 打通前,用它把询价线索兜底到一个确实能收信的地址,避免客户线索静默丢失
-      to: process.env.INQUIRY_NOTIFY_EMAIL?.trim() || 'IHUI-AI@aizhs.top',
+      to: process.env.INQUIRY_NOTIFY_EMAIL?.trim() || 'lizong@aizhs.top',
       subject: inquiryRendered.subject,
       html: inquiryRendered.html,
       text: inquiryRendered.text,

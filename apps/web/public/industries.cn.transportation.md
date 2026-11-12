@@ -198,8 +198,7 @@
   A:实时位置数据脱敏 + 加密传输,符合《个人信息保护法》。
 
 ### 联系
-- 交通行业:transportation@aizhs.top
-- 通用商务:contact@aizhs.top
+- **统一联系邮箱:lizong@aizhs.top** —— 各行业方案、行业资料与商务合作全部走这一个地址;来信注明所在行业与诉求,24 小时内回复。
 - 官网:https://aizhs.top
 - GitHub:https://github.com/IHUI-INF-AI/IHUI-AI
 
