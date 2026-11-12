@@ -344,6 +344,10 @@ monitoring/alertmanager/alertmanager.rendered.yml
 !docs/agent-enhancement-report.html
 !apps/extension/entrypoints/popup/index.html
 !apps/extension/entrypoints/sidepanel/index.html
+# 2026-11-12:archify 技能的 assets/template.html 是**渲染骨架源文件**,不是构建产物。
+# 缺它时 archify doctor 报 [missing] Core template、所有 renderer 一进 loadDiagram 就抛错。
+# 它由上游 `generate:viewer` 生成、但生成器不在发行包内 ⇒ 只能作为源文件入库。
+!/.ihui/skills/archify/assets/template.html
 # 2026-10-07 清理:此处原有 `!apps/assistant/index.html`(为 Tauri 2 那端的 vite 入口放行)。
 # apps/assistant 已由 b825ba3180 退休、盘上残留副本移走,`git ls-files apps/assistant` 实测 0 条,
 # 这条负向规则指向的路径不再可能出现在候选面 ⇒ 留着就是一条会替"目录还在"背书的死档,已摘。
