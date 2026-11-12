@@ -214,7 +214,10 @@ class AuditService:
         """异步写入 audit_logs 表(失败降级,不阻塞主流程)。
 
         字段映射: action→action(截断 32), resource_type→agent_id(来源),
-        resource_id→trace_id(关联追踪), details→jsonb, created_at→timestamp。
+        resource_id→trace_id(关联追踪), details→jsonb, created_at→timestamp,
+        user_id→user_id(AIS-047 操作主体,中间件已从 request.state 取到;列在
+        R70 分区重建中已存在,本处只补写入不加迁移;FK 为 ON DELETE SET NULL,
+        写不进时按本函数既有契约降级,不影响主流程)。
         """
         try:
             from app.core.db import get_db_pool
@@ -230,14 +233,15 @@ class AuditService:
                 await conn.execute(
                     """
                     INSERT INTO audit_logs
-                        (action, resource_type, resource_id, details, created_at)
-                    VALUES ($1, $2, $3, $4::jsonb, $5::timestamptz)
+                        (action, resource_type, resource_id, details, created_at, user_id)
+                    VALUES ($1, $2, $3, $4::jsonb, $5::timestamptz, $6)
                     """,
                     entry.action[:32],
                     entry.agent_id[:64] if entry.agent_id else None,
                     entry.trace_id[:64] if entry.trace_id else None,
                     json.dumps(entry.details, ensure_ascii=False),
                     ts,
+                    entry.user_id,
                 )
         except Exception as e:
             logger.warning("audit persist to db failed(降级,内存保留): %s", e)

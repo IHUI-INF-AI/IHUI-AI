@@ -43,6 +43,22 @@ async def _scope_user_id(request: Request, user_id: str | None) -> str:
     raise HTTPException(status_code=403, detail="仅管理员可查询他人用量")
 
 
+async def _require_admin(request: Request) -> str:
+    """AIS-079:全局/预算/Agent 三个只读面是管理员视图,先立身份再判角色。
+
+    与 `_scope_user_id` 同一判定形状:身份一律先过 `require_request_user_id`
+    (缺身份 401,不因端点无 user_id 参数而漏过),角色按 `request.state.role_id`
+    与 `ADMIN_ROLE_ID` 比较,非管理员按本文件既有错误形状(HTTPException 403)拒绝。
+    这三个端点此前无 `Request`/`Depends`:任意登录用户即可读全站成本、预算超支
+    事件与支柱预算摘要(认证 ≠ 授权)。
+    """
+    caller = await require_request_user_id(request)
+    role_id = getattr(request.state, "role_id", 0) or 0
+    if int(role_id) >= ADMIN_ROLE_ID:
+        return caller
+    raise HTTPException(status_code=403, detail="仅管理员可查看全局用量与预算视图")
+
+
 @router.get("/stats")
 async def get_usage_stats(
     request: Request,
@@ -56,9 +72,11 @@ async def get_usage_stats(
 
 @router.get("/global")
 async def get_global_stats(
+    request: Request,
     days: int = Query(7, ge=1, le=365, description="统计天数范围"),
 ) -> dict[str, Any]:
-    """获取全局用量统计。"""
+    """获取全局用量统计(AIS-079:仅管理员)。"""
+    await _require_admin(request)
     return {"code": 0, "message": "ok", "data": usage_service.get_global_stats(days=days)}
 
 
@@ -115,6 +133,7 @@ async def record_usage(
 
 @router.get("/budget-events")
 async def get_budget_events(
+    request: Request,
     limit: int = Query(50, ge=1, le=200, description="返回条数(最新在前)"),
     event_type: str | None = Query(
         None,
@@ -125,7 +144,10 @@ async def get_budget_events(
 
     数据源:budget governor 进程级环形缓冲(_record_budget_event),
     含 usage_percent/pillar/时间戳;进程重启即清空,仅供看板展示。
+
+    AIS-079:全站预算事件属管理员视图,非管理员 403(此前无门,任意登录可读)。
     """
+    await _require_admin(request)
     try:
         from app.services.llm_budget_governor import llm_budget_governor
 
@@ -137,13 +159,16 @@ async def get_budget_events(
 
 
 @router.get("/agent")
-async def get_agent_budget_usage() -> dict[str, Any]:
+async def get_agent_budget_usage(request: Request) -> dict[str, Any]:
     """Agent 主循环预算治理摘要(供 web 面板未来接入)。
 
     数据源:budget governor 全局单例(LLM 成本预算 + 6 大支柱分配 + 趋势)。
     返回 {enabled, pillar, usage_percent, today_tokens, pillar_usage_percent,
           remaining_tokens, degraded_model, trend}。
+
+    AIS-079:全站预算摘要属管理员视图,非管理员 403(此前无门,任意登录可读)。
     """
+    await _require_admin(request)
     enabled = os.environ.get("AGENT_BUDGET_ENABLED", "false").strip().lower() in (
         "on", "1", "true", "yes",
     )
