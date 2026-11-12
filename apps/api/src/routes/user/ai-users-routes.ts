@@ -26,7 +26,7 @@ const aiUserItemSchema = z.object({
   nickname: z.string().min(1).max(64).optional(),
   username: z.string().min(1).max(64).optional(),
   email: z.email().optional().nullable(),
-  phone: z.string().max(32).optional().nullable(),
+  phone: z.string().max(20).optional().nullable(),
   avatar: z.string().max(500).optional().nullable(),
   platform: z.string().max(64).optional(),
   identity: z.string().max(64).optional(),
