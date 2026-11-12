@@ -269,7 +269,7 @@ function writeJson(
 }
 
 /** F-064/F-137:请求体字节上限 —— 持 token 的客户端一条巨型 POST 即可把进程内存打满 */
-const MAX_JSON_BODY_BYTES = 1 * 1024 * 1024;
+export const MAX_JSON_BODY_BYTES = 1 * 1024 * 1024;
 
 function readJsonBody(req: http.IncomingMessage): Promise<Record<string, unknown>> {
   return new Promise((resolve, reject) => {

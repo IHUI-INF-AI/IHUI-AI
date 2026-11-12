@@ -1366,8 +1366,25 @@ const MODEL_PRICING: Record<string, { input: number; output: number }> = {
   'claude-3-haiku': { input: 0.25e-6, output: 1.25e-6 },
 };
 
-function estimateIterationCost(modelId: string, promptTokens: number, completionTokens: number): number {
-  const pricing = MODEL_PRICING[modelId] ?? MODEL_PRICING['gpt-4o-mini']!;
+/** 按长度降序,保证 `gpt-4o-mini` 先于 `gpt-4o` 参与前缀匹配。 */
+const MODEL_PRICING_KEYS = Object.keys(MODEL_PRICING).sort((a, b) => b.length - a.length);
+
+/**
+ * F-135:未登记的模型不再回退到 `gpt-4o-mini` 的付费单价 —— 精确命中优先,
+ * 带日期后缀/别名的 id 按最长前缀继承同族单价,其余返回 null(由调用方按零价处理)。
+ */
+export function resolveModelPricing(modelId: string): { input: number; output: number } | null {
+  const exact = MODEL_PRICING[modelId];
+  if (exact) return exact;
+  const prefix = MODEL_PRICING_KEYS.find(
+    (key) => modelId.startsWith(`${key}-`) || modelId.startsWith(`${key}/`),
+  );
+  return prefix ? MODEL_PRICING[prefix] ?? null : null;
+}
+
+export function estimateIterationCost(modelId: string, promptTokens: number, completionTokens: number): number {
+  const pricing = resolveModelPricing(modelId);
+  if (!pricing) return 0;
   return promptTokens * pricing.input + completionTokens * pricing.output;
 }
 

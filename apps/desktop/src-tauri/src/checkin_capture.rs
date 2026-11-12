@@ -1931,6 +1931,22 @@ pub fn is_trae_progid_reg_key(name: &str) -> bool {
     name.to_ascii_lowercase().starts_with("trae")
 }
 
+/// 32 位视图的**物理路径**(F-122):WOW64 把 `Software\X` 重定向到
+/// `Software\Wow6432Node\X`,故在 64 位进程里显式枚举该子树即等于遍历 32 位视图。
+///
+/// 只用于 `Software` 下的一般键;`Software\Classes` 是重定向特例(32 位视图是
+/// `Software\Classes\Wow6432Node`),由调用方用自己的第二基路径处理。
+/// 非 `Software` 开头返回 None(其余键不在重定向范围)。
+fn wow64_software_view(path: &str) -> Option<String> {
+    let rest = path.strip_prefix("Software").or_else(|| path.strip_prefix("SOFTWARE"))?;
+    match rest.strip_prefix('\\') {
+        Some(tail) if !tail.is_empty() => Some(format!("Software\\Wow6432Node\\{tail}")),
+        Some(_) => None,
+        None if rest.is_empty() => Some("Software\\Wow6432Node".to_string()),
+        None => None,
+    }
+}
+
 /// 安装路径交叉校验（F-108 第二道闸）：键下若带明确的安装路径类值，
 /// 而路径里没有任何 TRAE 族名 ⇒ 判为同名无关软件，拒绝整树删除。
 /// 读不到这些值时不否决，仍由族名判据决定。
@@ -1960,70 +1976,82 @@ fn reset_layer_registry() -> ResetLayerReport {
     let mut skipped: Vec<String> = Vec::new();
 
     // ① 历史硬编码 3 键:兜底(枚举万一被权限/沙箱挡住时至少还有这层)
+    // F-122:每个键同时清 64 位默认视图与 32 位视图(Software\Wow6432Node\...)——
+    // 32 位安装器写进的同名键在默认视图里根本看不见,只清一侧等于"删了却没删"。
     for sk in ["Software\\TRAE", "Software\\TRAE SOLO CN", "Software\\TRAE SOLO"] {
-        if !regutil::exists(HKEY_CURRENT_USER, sk) {
-            continue;
-        }
-        match regutil::delete_tree(HKEY_CURRENT_USER, sk) {
-            Ok(()) => deleted.push(format!("HKCU\\{sk}")),
-            Err(e) => errors.push(format!("HKCU\\{sk}: win32 {e}")),
+        for path in std::iter::once(sk.to_string()).chain(wow64_software_view(sk)) {
+            if !regutil::exists(HKEY_CURRENT_USER, &path) {
+                continue;
+            }
+            match regutil::delete_tree(HKEY_CURRENT_USER, &path) {
+                Ok(()) => deleted.push(format!("HKCU\\{path}")),
+                Err(e) => errors.push(format!("HKCU\\{path}: win32 {e}")),
+            }
         }
     }
 
     // ② HKCU\Software 发现式:TRAE 族整删;厂商容器只摘其下 TRAE 子项
-    for name in regutil::subkeys(HKEY_CURRENT_USER, "Software") {
-        let p = format!("Software\\{name}");
-        if is_trae_family_reg_key(&name) {
-            if reg_key_install_path_veto(HKEY_CURRENT_USER, &p) {
-                skipped.push(format!("HKCU\\{p}"));
-            } else {
-                match regutil::delete_tree(HKEY_CURRENT_USER, &p) {
-                    Ok(()) => deleted.push(format!("HKCU\\{p}")),
-                    Err(e) => errors.push(format!("HKCU\\{p}: win32 {e}")),
+    // F-122:32 位视图是独立子树 `Software\Wow6432Node`,默认视图枚举不到其中的键,
+    // 故两个视图各跑一遍同一套族名判据(不依赖 WOW64 标志位,纯显式路径遍历)。
+    for base in ["Software", "Software\\Wow6432Node"] {
+        for name in regutil::subkeys(HKEY_CURRENT_USER, base) {
+            let p = format!("{base}\\{name}");
+            if is_trae_family_reg_key(&name) {
+                if reg_key_install_path_veto(HKEY_CURRENT_USER, &p) {
+                    skipped.push(format!("HKCU\\{p}"));
+                } else {
+                    match regutil::delete_tree(HKEY_CURRENT_USER, &p) {
+                        Ok(()) => deleted.push(format!("HKCU\\{p}")),
+                        Err(e) => errors.push(format!("HKCU\\{p}: win32 {e}")),
+                    }
                 }
-            }
-        } else if is_vendor_container_reg_key(&name) {
-            for sub in regutil::subkeys(HKEY_CURRENT_USER, &p) {
-                let q = format!("{p}\\{sub}");
-                if !is_trae_family_reg_key(&sub) {
-                    continue;
+            } else if is_vendor_container_reg_key(&name) {
+                for sub in regutil::subkeys(HKEY_CURRENT_USER, &p) {
+                    let q = format!("{p}\\{sub}");
+                    if !is_trae_family_reg_key(&sub) {
+                        continue;
+                    }
+                    if reg_key_install_path_veto(HKEY_CURRENT_USER, &q) {
+                        skipped.push(format!("HKCU\\{q}"));
+                        continue;
+                    }
+                    match regutil::delete_tree(HKEY_CURRENT_USER, &q) {
+                        Ok(()) => deleted.push(format!("HKCU\\{q}(厂商容器内)")),
+                        Err(e) => errors.push(format!("HKCU\\{q}: win32 {e}")),
+                    }
                 }
-                if reg_key_install_path_veto(HKEY_CURRENT_USER, &q) {
-                    skipped.push(format!("HKCU\\{q}"));
-                    continue;
-                }
-                match regutil::delete_tree(HKEY_CURRENT_USER, &q) {
-                    Ok(()) => deleted.push(format!("HKCU\\{q}(厂商容器内)")),
-                    Err(e) => errors.push(format!("HKCU\\{q}: win32 {e}")),
-                }
-            }
-            // 摘完 TRAE 子项后容器已空 ⇒ 连容器一起摘(Trae 是本厂唯一产品时,
-            // 空容器本身仍是"本机装过 ByteDance 系"的安装指纹)。
-            // 护栏:**有残留子项或有值**一律不动 —— 那说明同厂其他产品还在用它。
-            if regutil::is_empty_key(HKEY_CURRENT_USER, &p) {
-                match regutil::delete_tree(HKEY_CURRENT_USER, &p) {
-                    Ok(()) => deleted.push(format!("HKCU\\{p}(厂商容器已空,一并摘除)")),
-                    Err(e) => degraded.push(format!("HKCU\\{p}(win32 {e})")),
+                // 摘完 TRAE 子项后容器已空 ⇒ 连容器一起摘(Trae 是本厂唯一产品时,
+                // 空容器本身仍是"本机装过 ByteDance 系"的安装指纹)。
+                // 护栏:**有残留子项或有值**一律不动 —— 那说明同厂其他产品还在用它。
+                if regutil::is_empty_key(HKEY_CURRENT_USER, &p) {
+                    match regutil::delete_tree(HKEY_CURRENT_USER, &p) {
+                        Ok(()) => deleted.push(format!("HKCU\\{p}(厂商容器已空,一并摘除)")),
+                        Err(e) => degraded.push(format!("HKCU\\{p}(win32 {e})")),
+                    }
                 }
             }
         }
     }
 
     // ③ HKCU\Software\Classes:trae:// 协议 + Trae CN.<扩展名> 文件关联
+    // F-122:Classes 的 32 位视图是 `Software\Classes\Wow6432Node`(重定向特例),
+    // 不再"遇 Wow6432Node 即跳过",而是显式进入该子树跑同一套 ProgID 判据。
     let mut progids = 0usize;
-    for name in regutil::subkeys(HKEY_CURRENT_USER, "Software\\Classes") {
-        if !is_trae_progid_reg_key(&name) {
-            continue;
-        }
-        let q = format!("Software\\Classes\\{name}");
-        match regutil::delete_tree(HKEY_CURRENT_USER, &q) {
-            Ok(()) => progids += 1,
-            Err(e) => errors.push(format!("HKCU\\{q}: win32 {e}")),
+    for classes_base in ["Software\\Classes", "Software\\Classes\\Wow6432Node"] {
+        for name in regutil::subkeys(HKEY_CURRENT_USER, classes_base) {
+            if !is_trae_progid_reg_key(&name) {
+                continue;
+            }
+            let q = format!("{classes_base}\\{name}");
+            match regutil::delete_tree(HKEY_CURRENT_USER, &q) {
+                Ok(()) => progids += 1,
+                Err(e) => errors.push(format!("HKCU\\{q}: win32 {e}")),
+            }
         }
     }
     if progids > 0 {
         deleted.push(format!(
-            "HKCU\\Software\\Classes\\trae* ×{progids}(协议处理器与文件关联)"
+            "HKCU\\Software\\Classes(含 Wow6432Node)\\trae* ×{progids}(协议处理器与文件关联)"
         ));
     }
 
@@ -2700,9 +2728,13 @@ pub fn reg_fingerprint_token(slot: &str, value: &str) -> String {
 pub fn capture_registry_fingerprints() -> Vec<String> {
     use windows::Win32::System::Registry::{HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE};
     let mut out: Vec<String> = Vec::new();
+    // F-122:32 位视图(`Software\Wow6432Node\...`)同样是设备指纹的藏身处,
+    // 两个视图都抓,账本才能把两边的旧值都当黑名单。
     for (key, name) in TRAE_REG_FINGERPRINT_SLOTS {
-        if let Some(v) = regutil::read_string(HKEY_CURRENT_USER, key, name) {
-            out.push(reg_fingerprint_token(key, &v));
+        for slot in std::iter::once(key.to_string()).chain(wow64_software_view(key)) {
+            if let Some(v) = regutil::read_string(HKEY_CURRENT_USER, &slot, name) {
+                out.push(reg_fingerprint_token(&slot, &v));
+            }
         }
     }
     // SQMClient MachineId(HKLM,内核 machineId 真源)
@@ -2970,12 +3002,14 @@ fn run_ps_capture(script: &str, timeout: std::time::Duration) -> Result<Vec<Stri
 fn audit_probe_registry() -> Vec<String> {
     let script = "$ErrorActionPreference='SilentlyContinue'; \
         [Console]::OutputEncoding=[System.Text.Encoding]::UTF8; \
-        foreach ($p in @('HKCU:\\Software','HKLM:\\SOFTWARE','HKLM:\\SOFTWARE\\WOW6432Node')) { \
+        foreach ($p in @('HKCU:\\Software','HKCU:\\Software\\Wow6432Node','HKLM:\\SOFTWARE','HKLM:\\SOFTWARE\\WOW6432Node')) { \
           $m = @(Get-ChildItem -Path $p -ErrorAction SilentlyContinue | Where-Object { $_.PSChildName -match 'trae|bytedance|icube|ahawork' }); \
           if ($m.Count -gt 0) { foreach ($k in $m) { Write-Output ('[REG] ' + $k.Name) } } else { Write-Output ('[REG] ' + $p + ' => (无匹配)') } \
         }; \
-        $cls = @(Get-ChildItem 'HKCU:\\Software\\Classes' -ErrorAction SilentlyContinue | Where-Object { $_.PSChildName -match '^trae' }); \
-        Write-Output ('[REG] HKCU:\\Software\\Classes => 命中 ' + $cls.Count + ' 项'); \
+        foreach ($c in @('HKCU:\\Software\\Classes','HKCU:\\Software\\Classes\\Wow6432Node')) { \
+          $cls = @(Get-ChildItem -Path $c -ErrorAction SilentlyContinue | Where-Object { $_.PSChildName -match '^trae' }); \
+          Write-Output ('[REG] ' + $c + ' => 命中 ' + $cls.Count + ' 项'); \
+        }; \
         Write-Output ('[REG] MachineGuid=' + (Get-ItemProperty 'HKLM:\\SOFTWARE\\Microsoft\\Cryptography' -ErrorAction SilentlyContinue).MachineGuid); \
         Write-Output ('[REG] SqmMachineId=' + (Get-ItemProperty 'HKLM:\\SOFTWARE\\Microsoft\\SQMClient' -ErrorAction SilentlyContinue).MachineId)";
     match run_ps_capture(script, std::time::Duration::from_secs(45)) {
@@ -2996,10 +3030,17 @@ fn audit_probe_registry() -> Vec<String> {
 fn audit_probe_registry_fingerprints(blacklist: &std::collections::HashSet<String>) -> Vec<(String, String)> {
     use windows::Win32::System::Registry::HKEY_CURRENT_USER;
     let mut hits: Vec<(String, String)> = Vec::new();
+    // F-122:32 位视图单独比对。历史账本只记逻辑路径(64 位视图),故两种记号都认,
+    // 否则老账本对 32 位残留会漏报。
     for (key, name) in TRAE_REG_FINGERPRINT_SLOTS {
-        if let Some(v) = regutil::read_string(HKEY_CURRENT_USER, key, name) {
-            if blacklist.contains(&reg_fingerprint_token(key, &v)) {
-                hits.push((format!("HKCU\\{key}\\{name}"), v));
+        for slot in std::iter::once(key.to_string()).chain(wow64_software_view(key)) {
+            let Some(v) = regutil::read_string(HKEY_CURRENT_USER, &slot, name) else {
+                continue;
+            };
+            let known = blacklist.contains(&reg_fingerprint_token(&slot, &v))
+                || blacklist.contains(&reg_fingerprint_token(key, &v));
+            if known {
+                hits.push((format!("HKCU\\{slot}\\{name}"), v));
             }
         }
     }
@@ -6334,6 +6375,25 @@ mod tests {
         ] {
             assert!(is_trae_family_reg_key(n), "{n:?} 必须命中 TRAE 族");
         }
+    }
+
+    /// F-122:32 位视图的物理路径映射。WOW64 只重定向 `Software` 子树,
+    /// Classes 是特例(32 位视图为 `Software\Classes\Wow6432Node`,由调用方另行处理)。
+    #[test]
+    fn wow64_view_paths_cover_software_subtree_only() {
+        assert_eq!(
+            wow64_software_view(r"Software\TRAE").as_deref(),
+            Some(r"Software\Wow6432Node\TRAE")
+        );
+        assert_eq!(
+            wow64_software_view(r"Software\Bytedance\Trae CN\Common").as_deref(),
+            Some(r"Software\Wow6432Node\Bytedance\Trae CN\Common")
+        );
+        assert_eq!(wow64_software_view("SOFTWARE").as_deref(), Some(r"Software\Wow6432Node"));
+        // 非 Software 根不得走这条映射(否则会去遍历不存在的路径)
+        assert!(wow64_software_view(r"System\CurrentControlSet").is_none());
+        assert!(wow64_software_view(r"SoftwareX").is_none());
+        assert!(wow64_software_view("").is_none());
     }
 
     /// 账本抓取:只收"像身份"的旧值,且 4 个点号键一个都不能漏。
