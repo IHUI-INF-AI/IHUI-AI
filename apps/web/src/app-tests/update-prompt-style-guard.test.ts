@@ -76,7 +76,7 @@ describe('桌面更新提示视觉守卫', () => {
       ['UpdateNoticeCard', noticeCode],
       ['AppVersionGatePrompt', gateCode],
     ] as const) {
-      expect(src, name).not.toMatch(/["'\s]shadow-lg\b/)
+      expect(src, name).not.toMatch(/["'\s]shadow-elevation-lg\b/)
       expect(src, name).not.toMatch(/["'\s]shadow["'\s]/)
     }
   })
@@ -90,6 +90,21 @@ describe('桌面更新提示视觉守卫', () => {
   it('强更弹窗层级必须高于同列 PWA 浮层(同层时后渲染的卡片会飘在遮罩上)', () => {
     expect(gateCode).toContain('z-max')
     expect(gateCode).not.toContain('z-modal flex items-center justify-center bg-background/80')
+  })
+
+  it('完成态整块必须铺满卡片宽(否则按钮行右侧空出一大片)', () => {
+    // 实测(2026-11-12,1440×900):父级是 flex 且没给宽度时,这一列缩到内容宽 ——
+    // 按钮行止于 x=757,而卡片内容右缘 867,右侧空 110px,倒计时条与上方状态条也不齐。
+    expect(promptCode).toMatch(/flex w-full flex-col gap-2/)
+    expect(promptCode).toMatch(/flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-success\/10/)
+    expect(promptCode).toMatch(/flex w-full items-center gap-2/)
+  })
+
+  it('卡内按钮圆角跟卡内其它容器同为 8px,不得用 rounded-sm 直角块', () => {
+    // 卡片 rounded-xl(12px)、状态条/图标容器 rounded-lg(8px),按钮却是 rounded-sm(4px)
+    expect(promptCode).not.toMatch(/rounded-sm[^"']*transition-colors/)
+    expect(promptCode).toMatch(/h-8 flex-1 rounded-lg border border-border/)
+    expect(promptCode).toMatch(/h-8 flex-1 rounded-lg bg-cta/)
   })
 })
 
