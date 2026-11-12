@@ -46,6 +46,30 @@ ALREADY_CHECKED_IN_CODES: Final[dict[str, frozenset[int]]] = {
     PLATFORM_MINIMAX: frozenset({2}),
 }
 
+# 平台 → 「认证被拒」标志位取值集合(2026-11-12 立,风控零触发判据)。
+#
+# 立因:本机 trae 号 2257723987855312 在 2026-11-12 00:18~10:02 的 status/claim
+# 连续回 9 次 HTTP 200 + code=1001(We're sorry, but we are not able to
+# authenticate you)。旧口径把它当 BusinessError ⇒ 冷却 300s ⇒ 冷却一过又打一次,
+# 一天对同一个死票打 9 轮。死票反复打平台鉴权点是封号前兆,必须按「凭证失效」处理:
+# 永久冷却(cooldown_seconds=-1),等新凭证到达由 clear_open_cooldowns 解冻。
+# 码值依据:zcode 引擎同族口径已把 1001 定为「缺 Authorization ⇒ SessionDead」
+# (checkin_zcode._CODE_NO_AUTH),trae 这里按同一语义收口。
+AUTH_REJECTED_CODES: Final[dict[str, frozenset[int]]] = {
+    PLATFORM_TRAE: frozenset({1001}),
+}
+
+
+def is_auth_rejected(platform: str, marker: Any) -> bool:
+    """``marker`` 是否表示该平台「认证被拒」(凭证已死,不得再出站打平台)。
+
+    与 :func:`is_already_checked_in` 同款类型守门:只认 int(排除 bool);
+    未登记平台/类型一律 False —— 判不了就是判不了,绝不把未知码当凭证失效。
+    """
+    if isinstance(marker, bool) or not isinstance(marker, int):
+        return False
+    return marker in AUTH_REJECTED_CODES.get(platform, frozenset())
+
 
 def is_already_checked_in(platform: str, marker: Any) -> bool:
     """``marker`` 是否表示该平台「今日已签到」(幂等成功态)。

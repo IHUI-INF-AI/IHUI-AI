@@ -91,6 +91,7 @@ import {
   pushPoolState,
   pushPoolSync,
   type PoolAccountState,
+  zcodePlanJwtFromSecrets,
 } from '../../services/relay-account-pool-checkin-sync.js'
 import {
   markAccountAuthRejected,
@@ -1150,6 +1151,7 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
         cosy: extractCosy(row.extraMetadata),
         deviceKeyPem: pemFromSecrets(credentials.secrets, 'deviceKeyPem'),
         devicePubPem: pemFromSecrets(credentials.secrets, 'devicePubPem'),
+        planToken: zcodePlanJwtFromSecrets(credentials.secrets),
         tokenExpiresAt: row.tokenExpiresAt,
       })
       const push = await pushPoolSync(platform, [acc])

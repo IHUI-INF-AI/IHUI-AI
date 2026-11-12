@@ -64,6 +64,7 @@ from app.services import (
     checkin_store,
     checkin_workbuddy,
     checkin_workbuddy_local,
+    checkin_zcode,
     workbuddy_autopilot,
     workbuddy_tasks,
 )
@@ -160,6 +161,12 @@ _JOB_ID_QODER_RETRY = "checkin_daily_qoder_retry"
 # 补跑时刻默认值:11:00 覆盖"下发比 10:05 晚一小时"的常见情形;12:30 覆盖
 # 2026-11-01 那种"12:53 才可领"的晚下发,同时仍在当日(不跨天、不占用次日额度)。
 _QODER_RETRY_DEFAULT_TIMES = "11:00,12:30"
+# ZCode 波谷额度窗口(2026-11-12 立,第七平台):官方公告每人每日 3 亿 GLM-5.3-Flash
+# tokens 于北京时间 19:00(UTC 11:00)在客户端开放领取,当日清零 ⇒ 固定 19:05 窗口
+# + 补跑 20:30/22:00(上游下发延迟与 qoder 10:00 同型,preview 非空即未领,幂等安全)。
+_JOB_ID_ZCODE = "checkin_daily_zcode"
+_JOB_ID_ZCODE_RETRY = "checkin_daily_zcode_retry"
+_ZCODE_RETRY_DEFAULT_TIMES = "20:30,22:00"
 # 单轮补跑账号上限:异常数据(号池被灌进几千个 qoder 号)不得把上游一轮打爆;
 # 超出的留给下一个补跑时刻,而不是放宽风控去追。
 _QODER_RETRY_MAX_PER_ROUND = 200
@@ -219,16 +226,21 @@ class CooldownActiveError(RuntimeError):
 def partition_platforms(
     accounts: list[dict[str, Any]],
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """按平台拆分账号列表,返回 (非 qoder 走零点/主窗口, qoder 走 10:05 窗口)。
+    """按平台拆分账号列表,返回 (非窗口平台走零点/主窗口, 窗口平台走固定窗口)。
 
     platform 缺失按 'trae' 处理(存量账号语义,与 store 默认列值一致)。
     workbuddy 随零点/主窗口跑(2026-10-12:Buddy 加油站每日 00:00(UTC+8)后随时
     可领,无需独立窗口;引擎分发在 checkin_one 按 platform 进行)。纯函数。
+
+    2026-11-12 扩义:qoder(10:05)与 zcode(19:05)都是"固定窗口平台",同侧
+    返回;两侧作业在各自窗口/补跑时刻用 is_zcode_account 反选自己的号,**绝不
+    跨窗互打**(引擎与风控出口不同)。_run_batch 对非目标平台的号只会留下
+    "当天窗口未到"的失败记录 ⇒ `_settled_today`(只认 ok=true)不受影响。
     """
     main_side: list[dict[str, Any]] = []
     qoder_side: list[dict[str, Any]] = []
     for acc in accounts:
-        if acc.get("platform") == "qoder":
+        if acc.get("platform") in ("qoder", "zcode"):
             qoder_side.append(acc)
         else:
             main_side.append(acc)
@@ -377,14 +389,14 @@ def _parse_hhmm(raw: str) -> tuple[int, int] | None:
     return hour, minute
 
 
-def _qoder_retry_times() -> list[tuple[int, int]]:
-    """CHECKIN_QODER_RETRY_TIMES 解析:start() 注册 job 与 status() 展示共用单一真源。
+def _retry_times(env_name: str, default_times: str, label: str) -> list[tuple[int, int]]:
+    """补跑时刻解析:start() 注册 job 与 status() 展示共用单一真源(qoder/zcode 同型)。
 
     逗号分隔的 HH:MM;非法条目**整条忽略并告警**,不抛异常也不拖累其它条目 ——
     一个手抖的 "25:00" 不该把整条补跑腿连带弄没(那等价于当天漏签)。空/未配置
-    回落默认 11:00 / 12:30;重复时刻去重保序(同一个 id 不能注册两次)。
+    回落默认;重复时刻去重保序(同一个 id 不能注册两次)。
     """
-    raw = os.environ.get("CHECKIN_QODER_RETRY_TIMES") or _QODER_RETRY_DEFAULT_TIMES
+    raw = os.environ.get(env_name) or default_times
     out: list[tuple[int, int]] = []
     for item in raw.split(","):
         text = item.strip()
@@ -393,8 +405,8 @@ def _qoder_retry_times() -> list[tuple[int, int]]:
         parsed = _parse_hhmm(text)
         if parsed is None:
             logger.warning(
-                "[checkin_scheduler] CHECKIN_QODER_RETRY_TIMES 条目非法已忽略: %r"
-                "(应为 HH:MM,00:00~23:59)",
+                "[checkin_scheduler] %s 条目非法已忽略: %r(应为 HH:MM,00:00~23:59)",
+                env_name,
                 text,
             )
             continue
@@ -403,9 +415,26 @@ def _qoder_retry_times() -> list[tuple[int, int]]:
     return out
 
 
+def _qoder_retry_times() -> list[tuple[int, int]]:
+    return _retry_times("CHECKIN_QODER_RETRY_TIMES", _QODER_RETRY_DEFAULT_TIMES, "Qoder")
+
+
+def _zcode_retry_times() -> list[tuple[int, int]]:
+    return _retry_times("CHECKIN_ZCODE_RETRY_TIMES", _ZCODE_RETRY_DEFAULT_TIMES, "ZCode")
+
+
 def _qoder_retry_job_id(hour: int, minute: int) -> str:
     """补跑 job id:start() 注册与 status() 取 next_run_time 必须算出同一个名字。"""
     return f"{_JOB_ID_QODER_RETRY}_{hour:02d}{minute:02d}"
+
+
+def _zcode_retry_job_id(hour: int, minute: int) -> str:
+    return f"{_JOB_ID_ZCODE_RETRY}_{hour:02d}{minute:02d}"
+
+
+def is_zcode_account(acc: dict[str, Any]) -> bool:
+    """账号是否走 ZCode 19:05 波谷额度窗口(纯判据,供分拆与补跑共用)。"""
+    return acc.get("platform") == "zcode"
 
 
 def _cn_day(instant: datetime) -> date:
@@ -516,7 +545,7 @@ class _SigningBeat:
     job_id: str
     hour: int
     minute: int
-    side: Literal["main", "qoder"]
+    side: Literal["main", "qoder", "zcode"]
 
     def scheduled_today(self, day: date) -> datetime:
         return datetime.combine(day, time(self.hour, self.minute), tzinfo=_CN_TZ)
@@ -535,6 +564,7 @@ def _signing_beats() -> list[_SigningBeat]:
         _SigningBeat("零点窗口", _JOB_ID_MIDNIGHT, 0, 5, "main"),
         _SigningBeat("主窗口", _JOB_ID, 8, 5, "main"),
         _SigningBeat("Qoder窗口", _JOB_ID_QODER, 10, 5, "qoder"),
+        _SigningBeat("ZCode窗口", _JOB_ID_ZCODE, 19, 5, "zcode"),
     ]
     for retry_hour, retry_minute in _qoder_retry_times():
         beats.append(
@@ -544,6 +574,16 @@ def _signing_beats() -> list[_SigningBeat]:
                 retry_hour,
                 retry_minute,
                 "qoder",
+            )
+        )
+    for retry_hour, retry_minute in _zcode_retry_times():
+        beats.append(
+            _SigningBeat(
+                "ZCode补跑",
+                _zcode_retry_job_id(retry_hour, retry_minute),
+                retry_hour,
+                retry_minute,
+                "zcode",
             )
         )
     return beats
@@ -634,6 +674,8 @@ class CheckinScheduler:
         # 小时,可能跨过下一个补跑时刻;两轮叠打会把同一批待补号打两遍。标志位只
         # 在进程内(多 worker 部署各算各的,见报告残留风险)。
         self._qoder_retry_running: bool = False
+        # ZCode 补跑轮防重入(2026-11-12):与 Qoder 同型风险,同一时刻只允许一轮。
+        self._zcode_retry_running: bool = False
         # 启动补偿(2026-11-04):上一轮是否已跑过的**进程内**只读快照,供 status()
         # 暴露「补了哪个节拍、为什么、几个账号、结果如何」。进程内语义(重启即清空);
         # 幂等性不靠它,靠 checkin_records 的今日 ok 记录(见 run_startup_compensation)。
@@ -705,6 +747,25 @@ class CheckinScheduler:
                     jitter=_CRON_JITTER,
                 ),
                 _qoder_retry_job_id(retry_hour, retry_minute),
+            )
+        # ZCode 波谷额度窗口(2026-11-12,第七平台):官方 19:00(UTC+8)开放领取,
+        # 固定 19:05 主窗 + CHECKIN_ZCODE_RETRY_TIMES(默认 20:30/22:00)补跑轮,
+        # 纪律与 Qoder 窗口/补跑完全同款(只补今日无确定结果的号,风控零放宽)。
+        _add(
+            self._daily_run_zcode,
+            CronTrigger(hour=19, minute=5, timezone=_CN_TZ, jitter=_CRON_JITTER),
+            _JOB_ID_ZCODE,
+        )
+        for retry_hour, retry_minute in _zcode_retry_times():
+            _add(
+                self._daily_run_zcode_retry,
+                CronTrigger(
+                    hour=retry_hour,
+                    minute=retry_minute,
+                    timezone=_CN_TZ,
+                    jitter=_CRON_JITTER,
+                ),
+                _zcode_retry_job_id(retry_hour, retry_minute),
             )
         # 06:00 状态探针:先于主窗口同步平台侧「已签」状态(见 _JOB_ID_PROBE 注)
         _add(
@@ -1031,6 +1092,8 @@ class CheckinScheduler:
         next_run_midnight: str | None = None
         next_run_qoder: str | None = None
         next_run_qoder_retry: str | None = None
+        next_run_zcode: str | None = None
+        next_run_zcode_retry: str | None = None
         next_run_probe: str | None = None
         next_run_wb_tasks: str | None = None
         # 观测态取材:调度器不存在 ⇒ job 必然没注册(不回落成"按配置猜")
@@ -1055,6 +1118,12 @@ class CheckinScheduler:
                 next_run_qoder = (
                     next_run_time_q.isoformat() if next_run_time_q is not None else None
                 )
+            job_z = self._scheduler.get_job(_JOB_ID_ZCODE)
+            if job_z is not None:
+                next_run_time_z: datetime | None = job_z.next_run_time
+                next_run_zcode = (
+                    next_run_time_z.isoformat() if next_run_time_z is not None else None
+                )
             job_probe = self._scheduler.get_job(_JOB_ID_PROBE)
             if job_probe is not None:
                 next_run_time_p: datetime | None = job_probe.next_run_time
@@ -1074,6 +1143,18 @@ class CheckinScheduler:
                     retry_next.append(next_run_time_r)
             if retry_next:
                 next_run_qoder_retry = min(retry_next).isoformat()
+            retry_next_z: list[datetime] = []
+            for retry_hour, retry_minute in _zcode_retry_times():
+                job_retry_z = self._scheduler.get_job(
+                    _zcode_retry_job_id(retry_hour, retry_minute)
+                )
+                if job_retry_z is None:
+                    continue
+                next_run_time_zr: datetime | None = job_retry_z.next_run_time
+                if next_run_time_zr is not None:
+                    retry_next_z.append(next_run_time_zr)
+            if retry_next_z:
+                next_run_zcode_retry = min(retry_next_z).isoformat()
             if wb_job is not None:
                 next_run_time_w: datetime | None = wb_job.next_run_time
                 next_run_wb_tasks = (
@@ -1090,6 +1171,8 @@ class CheckinScheduler:
             "next_run_midnight": next_run_midnight,
             "next_run_qoder": next_run_qoder,
             "next_run_qoder_retry": next_run_qoder_retry,
+            "next_run_zcode": next_run_zcode,
+            "next_run_zcode_retry": next_run_zcode_retry,
             "next_run_probe": next_run_probe,
             "next_run_wb_tasks": next_run_wb_tasks,
             "wb_tasks": {
@@ -1305,6 +1388,12 @@ class CheckinScheduler:
             )
         if platform == "doubao":
             return await checkin_doubao.doubao_probe_status(
+                name, acc["jwt"], device_map, client=client
+            )
+        if platform == "zcode":
+            # ZCode 只读探针:GET billing/preview(plans 非空 ⇒ 当前有可领 = 未领);
+            # 探针永不触发写侧 claim(与 qoder campaigns 探针同纪律)
+            return await checkin_zcode.zcode_probe_status(
                 name, acc["jwt"], device_map, client=client
             )
         if platform == "raccoon":
@@ -1950,12 +2039,17 @@ class CheckinScheduler:
         )
 
     async def _daily_run_qoder(self) -> None:
-        """10:05 Qoder 窗口:官方领取活动每日 10:00(UTC+8)开放,08:05 跑必然空手。"""
+        """10:05 Qoder 窗口:官方领取活动每日 10:00(UTC+8)开放,08:05 跑必然空手。
+
+        2026-11-12:partition 把 zcode 也放窗口侧(qoder/zcode 各走各的固定窗口),
+        本 job 用 is_zcode_account 反选,绝不把 zcode 号带来打 qoder 的时刻。
+        """
         loaded = await self._load_accounts_and_cooldowns("Qoder窗口")
         if loaded is None:
             return
         _, qoder_side = partition_platforms(loaded[0])
-        await self._run_batch(qoder_side, loaded[1], "Qoder窗口")
+        qoder_only = [a for a in qoder_side if not is_zcode_account(a)]
+        await self._run_batch(qoder_only, loaded[1], "Qoder窗口")
 
     async def _daily_run_qoder_retry(self) -> None:
         """Qoder 补跑轮(默认 11:00 / 12:30,CHECKIN_QODER_RETRY_TIMES 可调)。
@@ -1995,6 +2089,7 @@ class CheckinScheduler:
             return
         accounts, cooldowns = loaded
         _, qoder_side = partition_platforms(accounts)
+        qoder_side = [a for a in qoder_side if not is_zcode_account(a)]
         if not qoder_side:
             logger.info("[checkin_scheduler] 补跑轮无待补账号(无 Qoder 账号)")
             return
@@ -2035,6 +2130,74 @@ class CheckinScheduler:
             len(pending),
         )
         await self._run_batch(pending, cooldowns, "Qoder补跑")
+
+    async def _daily_run_zcode(self) -> None:
+        """19:05 ZCode 窗口(2026-11-12 立,第七平台):官方每日 19:00(UTC+8)开放的
+        波谷额度(3 亿 GLM-5.3-Flash tokens/账号/天,当日清零)。preview 只读预检 ⇒
+        非空逐 claim;空清单 = 今日已领/未下发,记 skip_already 不重试放大风控。"""
+        loaded = await self._load_accounts_and_cooldowns("ZCode窗口")
+        if loaded is None:
+            return
+        _, window_side = partition_platforms(loaded[0])
+        zcode_only = [a for a in window_side if is_zcode_account(a)]
+        await self._run_batch(zcode_only, loaded[1], "ZCode窗口")
+
+    async def _daily_run_zcode_retry(self) -> None:
+        """ZCode 补跑轮(默认 20:30 / 22:00,CHECKIN_ZCODE_RETRY_TIMES 可调)。
+
+        与 Qoder 补跑同一纪律(实证同型:下游并非准点下发):只挑今日无确定结果
+        (ok=true)的 zcode 号重打;冷却/出站闸门/防重入/单轮上限一字不放宽。
+        """
+        if self._zcode_retry_running:
+            logger.warning(
+                "[checkin_scheduler] 上一轮 ZCode补跑 仍在跑,本次跳过(不叠打上游)"
+            )
+            return
+        self._zcode_retry_running = True
+        try:
+            loaded = await self._load_accounts_and_cooldowns("ZCode补跑")
+            if loaded is None:
+                return
+            accounts, cooldowns = loaded
+            _, window_side = partition_platforms(accounts)
+            zcode_side = [a for a in window_side if is_zcode_account(a)]
+            if not zcode_side:
+                logger.info("[checkin_scheduler] ZCode补跑轮无待补账号(无 ZCode 账号)")
+                return
+            today = _cn_day(datetime.now(UTC))
+            try:
+                records = await checkin_store.list_records_since(_cn_day_start(today))
+            except Exception as e:
+                # 判不出"今天有没有结果"就绝不动手(与 Qoder 补跑同一红线)
+                logger.warning(
+                    "[checkin_scheduler] ZCode补跑轮读取今日记录失败(本轮放弃,不盲打): %s", e
+                )
+                return
+            settled = {r["account_id"] for r in records if _settled_today(r, today)}
+            pending = [acc for acc in zcode_side if acc["id"] not in settled]
+            if not pending:
+                logger.info(
+                    "[checkin_scheduler] ZCode补跑轮无待补账号(ZCode %d 个号今日均已有结果)",
+                    len(zcode_side),
+                )
+                return
+            if len(pending) > _QODER_RETRY_MAX_PER_ROUND:
+                logger.warning(
+                    "[checkin_scheduler] ZCode补跑待补 %d 个号超单轮上限 %d,本轮只跑前 %d 个",
+                    len(pending),
+                    _QODER_RETRY_MAX_PER_ROUND,
+                    _QODER_RETRY_MAX_PER_ROUND,
+                )
+                pending = pending[:_QODER_RETRY_MAX_PER_ROUND]
+            logger.info(
+                "[checkin_scheduler] ZCode补跑轮: 共 %d 个号,今日已有结果 %d 个,本轮执行 %d 个",
+                len(zcode_side),
+                len(zcode_side) - len(pending),
+                len(pending),
+            )
+            await self._run_batch(pending, cooldowns, "ZCode补跑")
+        finally:
+            self._zcode_retry_running = False
 
     async def _daily_credits_snapshot(self) -> None:
         """每日积分快照:遍历 enabled 账号逐个查余额并 upsert 当日快照。
@@ -2133,6 +2296,11 @@ class CheckinScheduler:
                     # 豆包余额 = detail.progress.total_amount(2026-11-11 实锤可读)。
                     db_dm = dict(acc.get("device_map") or {})
                     result = await checkin_doubao.doubao_query_credits(acc["jwt"], db_dm)
+                elif acc.get("platform") == "zcode":
+                    # ZCode 额度 = billing/balance 各计划 grant_units 合计(2026-11-12
+                    # 随领取引擎接入;注意这是**波谷额度计数**,非积分数)
+                    zc_dm = dict(acc.get("device_map") or {})
+                    result = await checkin_zcode.zcode_query_credits(acc["jwt"], zc_dm)
                 elif acc.get("platform") == "raccoon":
                     # 小浣熊余额 = balance.available_points(真弹 200,见 docs §3.2)
                     db_dm = dict(acc.get("device_map") or {})
@@ -2245,6 +2413,12 @@ class CheckinScheduler:
                 # 豆包每日 200 额度(幂等预检 detail → claim),随零点/主窗口跑;
                 # 频控/风控期 710010702 → BusinessError 冷却 3600s,不熔断
                 result = await checkin_doubao.doubao_checkin_account(
+                    account["name"], account["jwt"], device_map, client=client
+                )
+            elif platform == "zcode":
+                # ZCode 波谷额度:preview 只读预检 → 非空逐 claim,固定 19:05 窗口
+                # + 20:30/22:00 补跑(下发延迟与 qoder 同型);鉴权层失败才冷却
+                result = await checkin_zcode.zcode_claim_account(
                     account["name"], account["jwt"], device_map, client=client
                 )
             elif platform == "raccoon":

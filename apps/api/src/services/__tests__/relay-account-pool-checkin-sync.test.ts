@@ -105,6 +105,7 @@ import {
   pushPoolSync,
   retryPendingCheckinSyncs,
   type PoolSyncAccount,
+  zcodePlanJwtFromSecrets,
 } from '../relay-account-pool-checkin-sync.js'
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -182,6 +183,10 @@ describe('checkinPlatformFor(平台映射单一真相源)', () => {
     expect(checkinPlatformFor('doubao')).toBe('doubao')
   })
 
+  it('zcode → 同名签到平台(2026-11-12 波谷额度引擎装车,契约取证见 checkin_zcode 头注)', () => {
+    expect(checkinPlatformFor('zcode')).toBe('zcode')
+  })
+
   it('未知/无签到引擎平台(杂串、codex 等无引擎平台)→ null', () => {
     expect(checkinPlatformFor('')).toBeNull()
     expect(checkinPlatformFor('unknown-provider')).toBeNull()
@@ -241,6 +246,42 @@ describe('buildPoolSyncAccount', () => {
       tokenExpiresAt: new Date(Number.NaN),
     })
     expect(bad.expiresAt).toBeNull()
+  })
+
+  // 2026-11-12 ZCode plan 票过桥:plan 端点(preview/claim/balance)实弹只认
+  // zcodejwttoken;oauth access 打过去 401 ⇒ 票不过桥 = 引擎永远领不到。
+  it('planToken 在 ⇒ 票位取 plan 票并带投影;不在 ⇒ 原样 oauth 且**不带**该键(他平台零变化)', () => {
+    const base = {
+      id: 'p1',
+      ownerUserId: null,
+      uid: 'u1',
+      name: 'n',
+      token: 'oauth-access',
+      refreshToken: null,
+      credVersion: 2,
+      enabled: true,
+      proxyUrl: null,
+      deviceId: null,
+      machineId: null,
+      cosy: null,
+      tokenExpiresAt: null,
+    }
+    const withPlan = buildPoolSyncAccount({ ...base, planToken: ' pj ' })
+    expect(withPlan.token).toBe(' pj ')
+    expect(withPlan.planToken).toBe(' pj ')
+    const without = buildPoolSyncAccount(base)
+    expect(without.token).toBe('oauth-access')
+    expect('planToken' in without).toBe(false)
+  })
+})
+
+describe('zcodePlanJwtFromSecrets', () => {
+  it('credentialMap 嵌套形态与顶层形态都认,空白/缺失/坏形状 ⇒ null', () => {
+    expect(zcodePlanJwtFromSecrets({ credentialMap: { zcodejwttoken: 'pj' } })).toBe('pj')
+    expect(zcodePlanJwtFromSecrets({ zcodejwttoken: ' top ' })).toBe('top')
+    expect(zcodePlanJwtFromSecrets({ credentialMap: { zcodejwttoken: '  ' } })).toBeNull()
+    expect(zcodePlanJwtFromSecrets({ credentialMap: [] })).toBeNull()
+    expect(zcodePlanJwtFromSecrets(null)).toBeNull()
   })
 })
 

@@ -68,6 +68,7 @@ vi.mock('../src/utils/crypto.js', () => ({
 }))
 
 vi.mock('../src/services/relay-account-pool-checkin-sync.js', () => ({
+  zcodePlanJwtFromSecrets: () => null,
   buildPoolSyncAccount: (x: unknown) => x,
   checkinPlatformFor: () => null,
   extractCosy: () => null,
@@ -144,6 +145,36 @@ describe('① 换票不换键 ⇒ 重导入命中已有行(本票缺陷本体的
     for (const f of fixtures) {
       expect(resolveImportAccountUidProbe('zcode', [f])[0]?.uid).toBe('83881793407924603')
     }
+  })
+
+  it('zcode:user_info 为已解析对象(非 JSON 串)时同样取到账号级键;坏 JSON 与全缺材料不误判', () => {
+    // ③ 档两形态都是本机现读实见(提取器直通 = 串;其它导入通道可能已解析)。
+    const objectShape = resolveImportAccountUidProbe('zcode', [
+      {
+        'oauth:bigmodel:access_token': 'apikey-C',
+        'oauth:bigmodel:user_info': { id: '70000000000000001' },
+      } as unknown as ImportAccountInput,
+    ])
+    expect(objectShape[0]?.uid).toBe('70000000000000001')
+    // 坏 JSON:该档判不出 ⇒ 继续回落,不猜号、不抛(与"零命中判死"相反的方向是照实回落)
+    const broken = resolveImportAccountUidProbe('zcode', [
+      {
+        'oauth:bigmodel:access_token': 'apikey-D',
+        'oauth:bigmodel:user_info': '{not json',
+      } as unknown as ImportAccountInput,
+    ])
+    expect(String(broken[0]?.uid).startsWith('auto:')).toBe(true)
+  })
+
+  it('zcode 反向对照:两张 api key 且材料全缺 ⇒ 两枚不同键(阶梯不误合不同账号)', () => {
+    const a = resolveImportAccountUidProbe('zcode', [
+      { 'oauth:bigmodel:access_token': 'apikey-1' } as unknown as ImportAccountInput,
+    ])
+    const b = resolveImportAccountUidProbe('zcode', [
+      { 'oauth:bigmodel:access_token': 'apikey-2' } as unknown as ImportAccountInput,
+    ])
+    expect(String(a[0]?.uid).startsWith('auto:')).toBe(true)
+    expect(a[0]?.uid).not.toBe(b[0]?.uid)
   })
 })
 
