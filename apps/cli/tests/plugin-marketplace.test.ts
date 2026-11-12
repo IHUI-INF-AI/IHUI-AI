@@ -665,11 +665,10 @@ describe('Plugin Marketplace', () => {
       expect(loadInstallRegistry().records.find((r) => r.name === 'unread-plugin')).toBeDefined();
     });
 
-    it('uninstallPlugin 卸载不存在的插件不抛错', async () => {
-      const outcome = await uninstallPlugin('nonexistent-plugin');
-      expect(outcome.name).toBe('nonexistent-plugin');
-      expect(outcome.removedPath).toBe('');
-      expect(outcome.hadData).toBe(false);
+    it('uninstallPlugin 卸载 registry 无记录的插件即拒(F-070 前置闸)', async () => {
+      // F-070:registry 里没有该 name 就一概不删,即便安装根下同名目录存在也不放行
+      const outcomePromise = uninstallPlugin('nonexistent-plugin');
+      await expect(outcomePromise).rejects.toThrow(/未在插件安装记录中找到/);
     });
 
     it('uninstallPlugin keepData=true 保留 plugin-data', async () => {
