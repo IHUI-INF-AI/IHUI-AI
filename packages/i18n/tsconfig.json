@@ -14,5 +14,5 @@
     "sourceMap": true
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],
-  "exclude": ["dist", "node_modules", "messages"]
+  "exclude": ["dist", "node_modules", "messages", "**/node_modules.*"]
 }
