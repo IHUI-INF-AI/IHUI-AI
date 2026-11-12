@@ -363,13 +363,21 @@ _FINANCE_INTENT_PATTERNS: dict[str, tuple[re.Pattern[str], ...]] = {
         re.compile(r"一键代账|代账|一键记账|自动记账|做账|帮我记账|登账"),
         re.compile(r"(记账|会计)凭证|生成(记账)?凭证|录入凭证"),
         re.compile(r"(试算|借贷)(平衡|平衡表)|科目余额表|账簿|结账|损益结转"),
+        # 取数腿(RP-47):底账/回单类意图先并 ai_bookkeeping(它产 browser_* 取数计划)
+        re.compile(r"发票底账|底账(查询|导出|取数)|勾选(确认|认证)|(取得|认证|抵扣).{0,4}发票"),
+        re.compile(r"银行(回单|流水|对账单)|回单(下载|导出)|入金?流水导出"),
         re.compile(r"\b(bookkeep\w*|journal entr\w*|trial balance)\b", re.IGNORECASE),
     ),
     "ai_tax_filing": (
         re.compile(r"一键报税|报税|纳税申报|申报纳税|税费申报|个税申报|增值税申报|所得税申报"),
         re.compile(r"(计税|算税|测算.*(税|费)|税费(计算|测算))|(计算|算一下).*(增值税|个税|所得税|印花税)"),
         re.compile(r"申报表|纳税表|税表"),
+        # 国标平台自动化腿(RP-47):电子税务局/社保医保申报缴费类意图
+        re.compile(r"电子税务局|税务局.*(登录|申报|缴纳|提交)|(登录|上).?税务局"),
+        re.compile(r"(社保|医保|公积金).*(申报|缴费|增减员|缴纳|办理)|(申报|缴费|增减员).{0,4}(社保|医保)"),
+        re.compile(r"(增值税|所得税|个税).*(提交|申报提交|网上申报)|(提交|办理).{0,6}(增值税|所得税|个税)申报"),
         re.compile(r"\b(tax filing|file (my |the )?tax(es)?|tax return)\b", re.IGNORECASE),
+        re.compile(r"\be-?tax|elektronische? belasting", re.IGNORECASE),
     ),
 }
 
@@ -386,7 +394,14 @@ _FINANCE_RENDER_PROMPT = (
     "- 诚实红线:VOUCHER_UNBALANCED / TRIAL_UNBALANCED 等不平错误要如实报差异;"
     "ok=false 时原样转述 errorCode 与 message,严禁假装已平、假装已报\n"
     "- 草案纪律:报税产物是申报表**草案**,必须转述「正式申报须纳税主体与执业资格人员复核,"
-    "在电子税务局由纳税人自行提交」,本系统不代理对外申报;账务产物同理提示需执业会计复核"
+    "在电子税务局由纳税人自行提交」,本系统不代理对外申报;账务产物同理提示需执业会计复核\n"
+    "- 国标平台自动化腿(RP-47):phase=automation 返回的步骤计划由你按序调用 browser_*(内置浏览器"
+    "执行面)逐步执行,每步一张实时工具卡;原生社保/医保客户端步骤走 computer_*(高危:人在旁);"
+    "先探后动——选择器/坐标一律 screenshot/extract_dom 探明再用,禁止臆造;"
+    "TARGET_NOT_CONNECTED 引导用户打开已连接页面后断点续跑;portal 缺地址先问用户,绝不猜 URL\n"
+    "- 提交闸(manual_gate 缺省=停在提交前一步由人来点;user_confirmed=向用户复述目标·期间·应缴额"
+    "并获明示『确认』后才执行提交步;不存在静默 auto 提交),平台校验差异、验证码/人脸/U 盾一律"
+    "如实转给人类完成,绝不为通过校验而改数或换路径绕过"
 )
 
 

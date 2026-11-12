@@ -31,6 +31,7 @@ import { useChat } from '@/hooks/use-chat'
 import { useChatStore } from '@/stores/chat'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import type { PlanStep } from '@/hooks/use-agent-progress'
+import { AutomationCard, type AutomationLaunchOptions } from './automation-card'
 
 const currentMonth = () => {
   const now = new Date()
@@ -126,6 +127,38 @@ export default function FinanceAiPage() {
       'taxFiling',
       `${t('promptTaxFiling')} ${t('phaseTaxFiling')}\n${facts}\n${t('promptTaxDraftNote')}`,
     )
+  }
+
+  const launchAutomation = (opts: AutomationLaunchOptions) => {
+    if (opts.targets.length === 0) {
+      toast.error(t('automationNoTargets'))
+      return
+    }
+    let portalsText = ''
+    if (opts.portalRaw.trim()) {
+      let parsed: unknown
+      try {
+        parsed = JSON.parse(opts.portalRaw)
+      } catch {
+        toast.error(t('portalInvalid'))
+        return
+      }
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        toast.error(t('portalInvalid'))
+        return
+      }
+      portalsText = `, portal=${JSON.stringify(parsed)}`
+    }
+    if (opts.province.trim()) {
+      portalsText += `, province=${opts.province.trim()}`
+    }
+    const prompt = t('automationPrompt', {
+      period: taxPeriod,
+      mode: opts.submitMode,
+      targets: JSON.stringify(opts.targets),
+      portals: portalsText,
+    })
+    void launch('automation', prompt)
   }
 
   return (
@@ -276,6 +309,11 @@ export default function FinanceAiPage() {
             <p className="text-xs text-muted-foreground">{t('draftNote')}</p>
           </CardContent>
         </Card>
+      </div>
+
+      <div className="space-y-1">
+        <AutomationCard busy={busy !== null} onLaunch={launchAutomation} />
+        <p className="px-1 text-xs text-muted-foreground">{t('automationTrust')}</p>
       </div>
 
       <Card>

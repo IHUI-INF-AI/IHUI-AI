@@ -145,6 +145,13 @@ EXPERT_PACKS: tuple[ExpertPack, ...] = (
             "结账",
             "登账",
             "账簿",
+            # 取数腿平台词(RP-47)
+            "发票底账",
+            "底账",
+            "勾选认证",
+            "银行回单",
+            "银行流水",
+            "回单导出",
             "bookkeeping",
         ),
         tools=(
@@ -154,18 +161,33 @@ EXPERT_PACKS: tuple[ExpertPack, ...] = (
             "extract_document_assets",
             "create_artifact",
             "generate_report",
+            # 内置浏览器执行面(RP-47):automation 计划里 browser_* 是网页平台的腿;
+            # 原生社保/医保客户端腿 computer_* 属高危档(审批+人值守),计划注明由人操作。
+            "browser_screenshot",
+            "browser_navigate",
+            "browser_click_element",
+            "browser_type_text",
+            "browser_extract_dom",
+            "browser_wait_for_element",
+            "browser_scroll",
         ),
         hint=(
             "## Expert pack active: finance-bookkeeping\n"
             "The user wants AI bookkeeping (一键代账). First gather the period and the source "
-            "transactions (uploads via parse_document/document_tables, or items stated in chat). "
-            "Then call ai_bookkeeping phase by phase: classify -> voucher -> trial_balance -> "
-            "close -> report (or phase=all for the whole chain). After every call, update the "
-            "plan board with the returned progress (phaseIndex/of/next) and show the intermediate "
-            "result to the user before moving on. Never fabricate amounts: trial balance must tie, "
-            "and on VOUCHER_UNBALANCED or TRIAL_UNBALANCED stop and report the diff instead of "
-            "forcing it to balance. Close by linking ai_tax_filing only when the user explicitly "
-            "asks about filing."
+            "transactions. If the books should be sourced from official platforms, call "
+            "ai_bookkeeping phase=automation (targets like etax_invoice_ledger / bank_statement / "
+            "social_insurance / medical_insurance; provide portal/province if not known — ask the "
+            "user, never guess URLs), then execute the returned plan step by step with the browser "
+            "tools in THIS conversation: every step is a live tool card; locate before acting "
+            "(screenshot/extract_dom first, never invent selectors); stop the target and report "
+            "as-is on TARGET_NOT_CONNECTED or repeated SELECTOR_NOT_FOUND. Data exports go "
+            "through parse_document / document_tables and become ai_bookkeeping transactions — "
+            "no number may appear in the books without a source on a platform receipt or the "
+            "draft. Then run ai_bookkeeping phase by phase: classify -> voucher -> trial_balance "
+            "-> close -> report (or phase=all). Update the plan board with each returned progress. "
+            "Never fabricate amounts; on VOUCHER_UNBALANCED or TRIAL_UNBALANCED stop and report "
+            "the diff instead of forcing it to balance. Filing-side automation is only entered "
+            "when the user explicitly asks about filing."
         ),
     ),
     ExpertPack(
@@ -186,6 +208,13 @@ EXPERT_PACKS: tuple[ExpertPack, ...] = (
             "缴税",
             "欠税",
             "税",  # 财税域特异词:与"月报"这类文档短词同分时让税词族(报税+税)胜出
+            # 国标平台腿词(RP-47):电子税务局/社保医保网报与客户端申报
+            "电子税务局",
+            "税务局",
+            "社保",
+            "医保",
+            "公积金",
+            "增减员",
             "tax filing",
             "filing taxes",
         ),
@@ -196,17 +225,32 @@ EXPERT_PACKS: tuple[ExpertPack, ...] = (
             "document_tables",
             "create_artifact",
             "generate_chart",
+            "browser_screenshot",
+            "browser_navigate",
+            "browser_click_element",
+            "browser_type_text",
+            "browser_extract_dom",
+            "browser_wait_for_element",
+            "browser_scroll",
         ),
         hint=(
             "## Expert pack active: tax-filing\n"
-            "The user wants AI tax filing (一键报税). Gather the taxpayer type and the tax base "
-            "items first (invoice totals, sales, purchases, profit, wage list — ask for missing "
-            "items rather than guessing). Then call ai_tax_filing phase by phase: compute -> "
-            "validate -> draft (or phase=all). Reflect the returned progress in the plan board. "
-            "Always relay the draft disclaimer verbatim: the output is a DRAFT for review by the "
-            "taxpayer and a licensed professional; the tool never files anything externally, and "
-            "any zero/negative finding returned by validate must be surfaced, not smoothed over. "
-            "If the books are not yet prepared, run the finance-bookkeeping flow first."
+            "The user wants AI tax filing (一键报税) or platform operations on 电子税务局/社保/医保. "
+            "Gather taxpayer facts first (ask for missing items; never guess amounts or URLs). "
+            "Run ai_tax_filing phase by phase: compute -> validate -> draft, then, for filing on "
+            "the national platforms, call ai_tax_filing phase=automation: it returns a deterministic "
+            "per-target step plan (etax_vat_declaration / etax_cit_quarterly / etax_iit_declaration / "
+            "social_insurance / medical_insurance / etax_invoice_ledger) whose steps must be executed "
+            "with the browser tools in THIS conversation (built-in browser execution surface; "
+            "native social/medical clients go through computer_* desktop surface: high-risk, human "
+            "in the loop). Locate before acting (screenshot/extract_dom first; never invent "
+            "selectors). The plan's draft values (values_to_fill) are the basis — report any diff "
+            "found by the platform check honestly, do not silently adjust numbers. SUBMIT GATE is "
+            "law: with submit_mode=manual_gate (default) STOP at the final submit step and let the "
+            "human click; with user_confirmed first restate target/period/payable amounts and "
+            "require the user's explicit yes before executing submit — there is NO silent auto "
+            "submission in this system. Surface every validate finding; on TARGET_NOT_CONNECTED "
+            "guide the user to connect the browser and resume from the blocked step."
         ),
     ),
 )
