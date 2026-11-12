@@ -269,6 +269,10 @@ _STEER_QUEUE_LIMIT = 8  # 单流引导队列上限,超限 steer 端点返回 429
 # 是唯一消费出口,pop 时在此登记;withdraw 端点据此区分"已注入"(already_injected)与
 # "从未入队"(not_found),不猜。与 _steer_sessions 同桶,流收口 `_report_dropped_steers` 一并清理。
 _steer_consumed_at: dict[str, set[str]] = {}
+# AIS-041(2026-11-12):steer 会话属主。队列本身是 list,装不下属主 ⇒ 单独一张同名桶,
+# 注册与摘除跟 `_steer_sessions` 同点同生命周期(见 `_report_dropped_steers`)。
+# 值为注册时流请求承载层的 JWT 主体(`_resolve_owner_uuid`),端点凭它做归属比对。
+_steer_session_owners: dict[str, str | None] = {}
 
 # G-815975:steer 条目 kind 枚举。
 # - guide:普通引导,可 inline 注入当前轮(既有语义,缺省档);
@@ -331,6 +335,7 @@ def _report_dropped_steers(session_id: str | None) -> list[dict[str, Any]]:
         return []
     remaining = _steer_sessions.pop(session_id, None) or []
     _steer_consumed_at.pop(session_id, None)  # 差距③:与队列同桶清理
+    _steer_session_owners.pop(session_id, None)  # AIS-041:属主与队列同桶清理
     return [_steer_dropped_frame(item) for item in remaining]
 
 
@@ -3527,6 +3532,40 @@ def _resolve_owner_uuid(request: Request) -> str | None:
     return str(uid)
 
 
+def _session_owner_rejects(owner_user_id: Any, caller_user_id: str | None) -> bool:
+    """AIS-041(2026-11-12):流会话属主闸门的**唯一**判据(steer / withdraw / reorder / tool-result)。
+
+    与同族审批/表单端点同一口径:主体只从承载层取(`_resolve_owner_uuid`),比对精确相等;
+    不匹配与"会话不存在"回同一形态,端点不可能被当成存在性探针。
+
+    owner 缺失(上线前注册的旧会话/未落主体的条目)一律 **fail-closed**:只要调用方带主体
+    就拒绝,不把"无主"解释成"公共"。两侧都没有主体是 jwt 未启用(开发态 / ASGI in-process)
+    的回退格 —— 与 form-response 既有回退同一纪律,不构成授权结论;生产配置下中间件必注入
+    user_id,走不到这一格。
+    """
+    if isinstance(owner_user_id, str) and owner_user_id:
+        return caller_user_id != owner_user_id
+    return caller_user_id is not None
+
+
+def _steer_caller_uuid(request: Request | None) -> str | None:
+    """steer 族端点的调用主体。``request`` 缺席 = 不是经承载层进来的调用(测试直调 /
+    进程内驱动),没有可对账的身份 ⇒ None。生产路径恒有 request。"""
+    return _resolve_owner_uuid(request) if request is not None else None
+
+
+def _steer_session_not_found() -> JSONResponse:
+    """AIS-041:steer 族端点"会话不可用"的**逐字节同一**回包。
+
+    三种情况共用(流不存在/已结束、属主不匹配、旧条目无属主但调用方带主体):
+    回包逐字节相同 ⇒ 端点不能被当成"这个 session_id 是否存在"的探针。
+    """
+    return JSONResponse(
+        status_code=404,
+        content={"ok": False, "error": "session not found or expired"},
+    )
+
+
 def _billing_conversation_id(req: Any) -> str | None:
     """llm_call_logs.conversation_id 列取值:只取请求透传的 metadata.conversationId。
 
@@ -4634,6 +4673,8 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
         # steer 端点据此区分 200(流活跃,入队)/404(流不存在或已结束)。
         if session_id:
             _steer_sessions[session_id] = []
+            # AIS-041:注册时落属主(承载层 JWT 主体),steer/withdraw 端点据此比对。
+            _steer_session_owners[session_id] = owner_uuid
             # 差距②(2026-10-30):挂上本流帧水位上下文(subscription=会话流身份);
             # 无 session 的流不挂 —— 没有订阅身份就不造值冒充,线格式逐字节保持现状。
             begin_stream_watermark(session_id)
@@ -6645,7 +6686,11 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 }
                                 # 注册 pending Event 到 session
                                 _ev = asyncio.Event()
-                                _delegate_sessions.setdefault(session_id, {})["pending_" + tool_call_id] = _ev
+                                # 注册 pending Event 到 session(AIS-041:同处落属主,
+                                # tool-result 端点据此比对;owner 只来自承载层)
+                                _delegate_session = _delegate_sessions.setdefault(session_id, {})
+                                _delegate_session["owner_user_id"] = owner_uuid
+                                _delegate_session["pending_" + tool_call_id] = _ev
                                 # 发送 tool-delegate SSE 事件
                                 yield _sse(SSE_TOOL_DELEGATE, delegate_event_obj)
                                 # 等待前端回传结果(超时 60 秒)
@@ -7730,14 +7775,22 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
 
 
 @router.post("/llm/complete/stream/{session_id}/tool-result", response_model=None)
-async def post_delegated_tool_result(session_id: str, body: dict[str, Any] = Body(...)) -> dict[str, Any]:
+async def post_delegated_tool_result(
+    session_id: str, body: dict[str, Any] = Body(...), request: Request = None  # type: ignore[assignment]
+) -> dict[str, Any]:
     """阶段 2:前端工具执行代理结果回传端点(2026-08-02 立)。
 
     前端收到 SSE tool-delegate 事件后,用 FileSystemDirectoryHandle 执行 fs 类工具,
     通过此端点回传结果,唤醒 ai-service tool loop 中等待的 asyncio.Event。
+
+    AIS-041(2026-11-12):会话条目在注册时已落 `owner_user_id`(承载层 JWT 主体),
+    本端点按同一判据复核;越权与"会话不存在"回**逐字段同形**的 `ok=False`,且零副作用
+    (不写结果、不置 Event),因此也不能被当成存在性探针。
     """
     session = _delegate_sessions.get(session_id)
-    if not session:
+    if not session or _session_owner_rejects(
+        session.get("owner_user_id"), _steer_caller_uuid(request)
+    ):
         return {"ok": False, "error": "session not found or expired"}
     tool_call_id = body.get("tool_call_id", "")
     result = body.get("result")
@@ -8419,14 +8472,18 @@ async def post_session_goal_resume(
 
 
 @router.post("/llm/complete/stream/{session_id}/steer", response_model=None)
-async def post_steer_message(session_id: str, body: dict[str, Any] = Body(...)) -> Any:
+async def post_steer_message(
+    session_id: str, body: dict[str, Any] = Body(...), request: Request = None  # type: ignore[assignment]
+) -> Any:
     """Steer(中途引导,2026-09-19 立):流式对话期间提交引导文本。
 
     文本入队 _steer_sessions[session_id];tool loop 每轮 LLM 调用前 drain 注入
     messages 并发 event: steer(phase=injected),不打断当前工具执行。
     G-815975:body.kind 选条目类型(缺省 guide;control=设置轮,不可 inline,
     吸收循环在它面前停,收口未消费时发 steer(phase=dropped) 显式回报)。
-    状态码:422 text 缺失/为空或 kind 非法;404 流不存在或已结束;429 队列满;200 入队成功。
+    AIS-041(2026-11-12):先复核会话属主(注册时落的主体),不匹配与会话不存在同形 404,
+    绝不把引导注入他人流。
+    状态码:422 text 缺失/为空或 kind 非法;404 流不存在/已结束/不属调用方;429 队列满;200 入队成功。
     """
     text = str(body.get("text", "")).strip()
     if not text:
@@ -8442,10 +8499,12 @@ async def post_steer_message(session_id: str, body: dict[str, Any] = Body(...)) 
         )
     queue = _steer_sessions.get(session_id)
     if queue is None:
-        return JSONResponse(
-            status_code=404,
-            content={"ok": False, "error": "session not found or expired"},
-        )
+        return _steer_session_not_found()
+    # AIS-041:属主闸门必须在任何入队动作之前;不匹配与不存在同形(404),不泄漏会话是否存在。
+    if _session_owner_rejects(
+        _steer_session_owners.get(session_id), _steer_caller_uuid(request)
+    ):
+        return _steer_session_not_found()
     if len(queue) >= _STEER_QUEUE_LIMIT:
         return JSONResponse(
             status_code=429,
@@ -8463,14 +8522,17 @@ async def post_steer_message(session_id: str, body: dict[str, Any] = Body(...)) 
 
 
 @router.post("/llm/complete/stream/{session_id}/steer/withdraw", response_model=None)
-async def withdraw_steer_message(session_id: str, body: dict[str, Any] = Body(...)) -> Any:
+async def withdraw_steer_message(
+    session_id: str, body: dict[str, Any] = Body(...), request: Request = None  # type: ignore[assignment]
+) -> Any:
     """差距③(2026-10-30 立):撤回一条尚未注入的 steer —— 撤回凭据是入队时刻 queuedAt。
 
     从 _steer_sessions[session_id] 按 queuedAt 精确匹配**未消费**条目并移除。
     竞态不猜:条目若已被 `_drain_inlineable_steers` 消费(注入),经 _steer_consumed_at
     留痕回报 already_injected;其余未命中一律 not_found(不冒充"撤回成功")。
-    闸门与 post_steer_message 同语义:session 不在册(流不存在/已结束)⇒ 404。
-    状态码:422 queuedAt 缺失/为空;404 流不存在或已结束;200 三态回报。
+    闸门与 post_steer_message 同语义:session 不在册(流不存在/已结束)或**不属调用方**
+    ⇒ 404(AIS-041:属主不匹配与不存在同形,不泄漏会话是否存在)。
+    状态码:422 queuedAt 缺失/为空;404 流不存在/已结束/不属调用方;200 三态回报。
     """
     queued_at = str(body.get("queuedAt", "")).strip()
     if not queued_at:
@@ -8480,10 +8542,13 @@ async def withdraw_steer_message(session_id: str, body: dict[str, Any] = Body(..
         )
     queue = _steer_sessions.get(session_id)
     if queue is None:
-        return JSONResponse(
-            status_code=404,
-            content={"ok": False, "error": "session not found or expired"},
-        )
+        return _steer_session_not_found()
+    # AIS-041:属主不匹配与不存在同形(404),且发生在任何出队动作之前 ——
+    # 否则知道 queuedAt 的第三方可以把别人的引导撤掉。
+    if _session_owner_rejects(
+        _steer_session_owners.get(session_id), _steer_caller_uuid(request)
+    ):
+        return _steer_session_not_found()
     for i, item in enumerate(queue):
         if str(item.get("queuedAt") or "") == queued_at:
             queue.pop(i)
@@ -8494,14 +8559,17 @@ async def withdraw_steer_message(session_id: str, body: dict[str, Any] = Body(..
 
 
 @router.post("/llm/complete/stream/{session_id}/steer/reorder", response_model=None)
-async def reorder_steer_queue(session_id: str, body: dict[str, Any] = Body(...)) -> Any:
+async def reorder_steer_queue(
+    session_id: str, body: dict[str, Any] = Body(...), request: Request = None  # type: ignore[assignment]
+) -> Any:
     """差距③遗留最后一项(2026-10-30 立):steer 队列重排(Qoder mutateQueue 语义)。
 
     按 body.order(queuedAt 序列)重排 _steer_sessions[session_id] 的**未消费**条目。
     精确覆盖:order 经竞态豁免后必须与队列现存条目一一对应 —— 多/少/未知 id/重复
     ⇒ 422,不猜。竞态豁免:客户端视图天然滞后,order 里已被 `_drain_inlineable_steers`
     消费(凭 _steer_consumed_at 留痕)的条目从校验中豁免(条目出队的唯一合法出路就是
-    drain),响应回报实际生效的 orderApplied。闸门抄 withdraw:session 不在册 ⇒ 404;
+    drain),响应回报实际生效的 orderApplied。闸门抄 withdraw:session 不在册或**不属调用方**
+    ⇒ 404(AIS-041,同形不泄漏);
     order 缺失/非字符串数组 ⇒ 422。并发纪律:校验与重排之间无 await,事件循环内
     原子(与 withdraw/drain 互斥,同纪律)。
     """
@@ -8513,10 +8581,12 @@ async def reorder_steer_queue(session_id: str, body: dict[str, Any] = Body(...))
         )
     queue = _steer_sessions.get(session_id)
     if queue is None:
-        return JSONResponse(
-            status_code=404,
-            content={"ok": False, "error": "session not found or expired"},
-        )
+        return _steer_session_not_found()
+    # AIS-041:重排是写操作,必须先过属主闸门(同形 404,零副作用)
+    if _session_owner_rejects(
+        _steer_session_owners.get(session_id), _steer_caller_uuid(request)
+    ):
+        return _steer_session_not_found()
     consumed = _steer_consumed_at.get(session_id, ())
     pending_order = [q.strip() for q in order if q.strip() not in consumed]
     queue_ids = [str(item.get("queuedAt") or "") for item in queue]

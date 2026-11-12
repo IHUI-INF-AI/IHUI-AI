@@ -1320,18 +1320,18 @@ class TestUserBehavior:
 
     @pytest.mark.asyncio
     async def test_record_behavior_memory(self, engine):
-        """Redis 不可用 → 内存降级。"""
+        """Redis 不可用 → 内存降级(key 带 user 维度,AIS-017)。"""
         with patch.object(engine, "_get_redis", new=AsyncMock(return_value=None)):
             await engine._record_user_behavior("/tmp/x", "foo", "user1")
             await engine._record_user_behavior("/tmp/x", "foo", "user1")
-        assert engine._user_behavior["/tmp/x:foo"] == 2
+        assert engine._user_behavior[("user1", "/tmp/x:foo")] == 2
 
     @pytest.mark.asyncio
     async def test_record_behavior_no_symbol(self, engine):
         """无 symbol → key = file_path。"""
         with patch.object(engine, "_get_redis", new=AsyncMock(return_value=None)):
             await engine._record_user_behavior("/tmp/x", None, "user1")
-        assert "/tmp/x" in engine._user_behavior
+        assert ("user1", "/tmp/x") in engine._user_behavior
 
     @pytest.mark.asyncio
     async def test_get_behavior_boost_no_user(self, engine):
@@ -1347,7 +1347,7 @@ class TestUserBehavior:
     @pytest.mark.asyncio
     async def test_get_behavior_boost_low_band(self, engine):
         """1-5 次 → boost 0.1-0.3。"""
-        engine._user_behavior["/tmp/x:foo"] = 1
+        engine._user_behavior[("user1", "/tmp/x:foo")] = 1
         with patch.object(engine, "_get_redis", new=AsyncMock(return_value=None)):
             boost = await engine._get_behavior_boost("/tmp/x", "foo", "user1")
         assert 0.1 <= boost <= 0.3
@@ -1355,7 +1355,7 @@ class TestUserBehavior:
     @pytest.mark.asyncio
     async def test_get_behavior_boost_high_band(self, engine):
         """> 20 次 → boost 0.6-1.0。"""
-        engine._user_behavior["/tmp/x:foo"] = 25
+        engine._user_behavior[("user1", "/tmp/x:foo")] = 25
         with patch.object(engine, "_get_redis", new=AsyncMock(return_value=None)):
             boost = await engine._get_behavior_boost("/tmp/x", "foo", "user1")
         assert 0.6 <= boost <= 1.0
@@ -1369,9 +1369,9 @@ class TestUserBehavior:
     @pytest.mark.asyncio
     async def test_get_user_preferences_sorted(self, engine):
         engine._user_behavior = {
-            "/tmp/a": 5,
-            "/tmp/b": 10,
-            "/tmp/c": 3,
+            ("user1", "/tmp/a"): 5,
+            ("user1", "/tmp/b"): 10,
+            ("user1", "/tmp/c"): 3,
         }
         with patch.object(engine, "_get_redis", new=AsyncMock(return_value=None)):
             prefs = await engine._get_user_preferences("user1")
@@ -1383,7 +1383,7 @@ class TestUserBehavior:
     async def test_get_user_preferences_limit(self, engine):
         """limit 参数限制返回数量。"""
         for i in range(30):
-            engine._user_behavior[f"/tmp/{i}"] = i
+            engine._user_behavior[("user1", f"/tmp/{i}")] = i
         with patch.object(engine, "_get_redis", new=AsyncMock(return_value=None)):
             prefs = await engine._get_user_preferences("user1", limit=5)
         assert len(prefs) == 5
