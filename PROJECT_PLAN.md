@@ -12230,19 +12230,15 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 13C. **缺陷普查 CLI F-010** [P2] 错误写 stdout 且紧跟 process.exit（管道下丢输出）（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-010）
 - [ ] 14C. **缺陷普查 CLI F-011** [P2] --json 输出混入非 JSON 行（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-011）
 - [ ] 18C. **缺陷普查 CLI F-015** [P2] serve 的 flush 与信号退出码（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-015）
-- [ ] 20C. **缺陷普查 CLI F-019** [P2] Windows 沙箱兜底超时留下孤儿进程树（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-019）
 - [ ] 29C. **缺陷普查 CLI F-028** [P2] 凭据设置文件非原子写（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-028）
 - [ ] 38C. **缺陷普查 CLI F-040** [P2] 三份能力回归钉未接入任何 runner（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-040）
 - [ ] 40C. **缺陷普查 CLI F-048** [P2] 托盘创建失败时 close_behavior=hide 把窗口藏进虚空（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-048）
 - [ ] 49C. **缺陷普查 CLI F-061** [P2] allow-clipboard-set 两端皆无（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-061）
 - [ ] 50C. **缺陷普查 CLI F-017** [P3] 非法数值/枚举静默回落（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-017）
 - [ ] 51C. **缺陷普查 CLI F-018** [P3] 全局 flag 位置敏感 + json 判据双源（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-018）
-- [ ] 52C. **缺陷普查 CLI F-034** [P3] saveSession 无 CAS/锁，整份覆写丢并发更新（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-034）
-- [ ] 53C. **缺陷普查 CLI F-035** [P3] update-check 缓存非原子，损坏后永久拒写（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-035）
 - [ ] 54C. **缺陷普查 CLI F-039** [P3] 审计文件/目录未收紧权限（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-039）
 - [ ] 56C. **缺陷普查 CLI F-043** [P3] dev 配置漂移：csp:null、版本 0.1.53、9333 CDP（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-043）
 - [ ] 57C. **缺陷普查 CLI F-044** [P3] shell open 运行时正则放行任意 localhost 端口（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-044）
-- [ ] 58C. **缺陷普查 CLI F-052** [P3] 第二实例/深链唤起不还原最小化窗口（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-052）
 - [ ] 60C. **缺陷普查 CLI F-060** [P3] Cookie 整串经 IPC 回传前端 + expect 建客户端（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-060）
 
 - [ ] 67C. **缺陷普查 CLI F-080** [P1] write_text_file 无大小上限、非原子覆盖（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-080）（未判定：Rust 夹具为 helper 级，反向 apply 整笔会把夹具同 hunk 回退，拿不到「夹具保留+旧源码」组合；不计入已修）
@@ -12266,8 +12262,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 95C. **缺陷普查 CLI F-097** [P1] 钩子派发非全局，读取/子代理/MCP 类工具静默绕过（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-097）
 - [ ] 96C. **缺陷普查 CLI F-098** [P1] 子代理网络与资源限制字段无生产写入方，防护是死代码（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-098）
 - [ ] 102C. **缺陷普查 CLI F-104** [P2] operator 审批可自批自跑（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-104）
-- [ ] 103C. **缺陷普查 CLI F-105** [P2] 桌面 egress_gate 判定与执行分离、默认 fail-open（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-105）
-- [ ] 104C. **缺陷普查 CLI F-106** [P2] 桌面 git 命令同步阻塞 + 输出无上限 + 只杀单进程（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-106）
 - [ ] 116C. **缺陷普查 CLI F-119** [P3] share 的 includeFiles=false 是假保证（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-119）
 - [ ] 117C. **缺陷普查 CLI F-120** [P3] report 覆盖无备份、输入无上限（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-120）
 - [ ] 118C. **缺陷普查 CLI F-121** [P3] playground compare --json 全失败仍退 0（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-121）
