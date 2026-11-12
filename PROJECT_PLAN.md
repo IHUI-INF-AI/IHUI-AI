@@ -12478,10 +12478,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 102G. **缺陷普查 API F-102** [P1] 回调关联键全部取自客户端 metadata：userId 可伪造替他人扣费，messageId 缺省使幂等键退化（证据 docs/tickets/2026-11/findings-api.md#F-102）
 - [ ] 105G. **缺陷普查 API F-105** [P1] 视频编排：平台 Key 四步串行、零计费、无界 Map，失败后二次回包（证据 docs/tickets/2026-11/findings-api.md#F-105）
 - [ ] 106G. **缺陷普查 API F-106** [P2] 共享声纹无属主：任意登录用户可枚举并删除任意 voiceId（证据 docs/tickets/2026-11/findings-api.md#F-106）
-- [ ] 114G. **缺陷普查 API F-114** [P2] ws-payment：归属校验失败即放行 + 无连接上限的 2 秒 DB 轮询（证据 docs/tickets/2026-11/findings-api.md#F-114）
-- [ ] 115G. **缺陷普查 API F-115** [P2] ws-chat：不存在的 roomId 可无限 join，rooms Map 与 Redis Set 无界增长（证据 docs/tickets/2026-11/findings-api.md#F-115）
 - [ ] 116G. **缺陷普查 API F-116** [P3] 广播链路无背压检查（bufferedAmount），慢消费者帧堆积；ws-notifications 发送失败不摘线（证据 docs/tickets/2026-11/findings-api.md#F-116）
-- [ ] 117G. **缺陷普查 API F-117** [P1] /n8n/workflow/run 用户可控 webhookPath 拼接基址 → N8N_API_KEY 外泄 + SSRF（证据 docs/tickets/2026-11/findings-api.md#F-117）
 - [ ] 118G. **缺陷普查 API F-118** [P2] /azure/{chat,models,embeddings,images} 四个端点漏挂 requireAuth，且 images 完全不扣费（证据 docs/tickets/2026-11/findings-api.md#F-118）
 - [ ] 119G. **缺陷普查 API F-119** [P2] Kling 任务查询每轮询一次扣 1500 token，无幂等（证据 docs/tickets/2026-11/findings-api.md#F-119）
 - [ ] 120G. **缺陷普查 API F-120** [P2] ai-world-sync 无重入保护，且跨轮去重 Set 为模块级共享（证据 docs/tickets/2026-11/findings-api.md#F-120）
@@ -12946,7 +12943,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 656G. **缺陷普查 API F-657** [P3] canary-service 的 initPromise 失败后永久 rejected，进程内金丝雀功能全挂（证据 docs/tickets/2026-11/findings-api.md#F-657）
 - [ ] 657G. **缺陷普查 API F-658** [P3] Qoder 桥接把访问密钥放进子进程 argv（证据 docs/tickets/2026-11/findings-api.md#F-658）
 - [ ] 658G. **缺陷普查 API F-659** [P3] canary-service.recordFailure 读改写丢更新，阈值回滚会漏计（证据 docs/tickets/2026-11/findings-api.md#F-659）
-- [ ] 659G. **缺陷普查 API F-660** [P1] 多模态任务退款把「成本分」加进「token 余额」列，成本余额永不回补（证据 docs/tickets/2026-11/findings-api.md#F-660）
 - [ ] 660G. **缺陷普查 API F-661** [P2] 预算告警把「成本（分）」与「月成本上限（元）」直接相除，花到上限 1% 即报 100%（证据 docs/tickets/2026-11/findings-api.md#F-661）
 - [ ] 661G. **缺陷普查 API F-662** [P3] 定价建议用 metadata.multiplier 反推成本，BYOK 行 multiplier 恒 1 且真实上游成本键被忽略（证据 docs/tickets/2026-11/findings-api.md#F-662）
 - [ ] 662G. **缺陷普查 API F-663** [P2] 财务统计 sum/avg ÷ 100.0（numeric）返回字符串，前端 .toFixed 崩整页（证据 docs/tickets/2026-11/findings-api.md#F-663）
@@ -12989,7 +12985,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 716G. **缺陷普查 API F-717** [P1] 预扣金额按“扣除前读值 − 扣除后返回值”反推，并发下多退或少登记（证据 docs/tickets/2026-11/findings-api.md#F-717）
 - [ ] 718G. **缺陷普查 API F-719** [P1] 兑换码/单边 token 充值只加 tokenBalance，而准入要求 costBalanceCents≠0 ⇒ 付费充值不可用（证据 docs/tickets/2026-11/findings-api.md#F-719）
 - [ ] 719G. **缺陷普查 API F-720** [P2] Qoder 类积分上游的 credits 不进计费 ⇒ 该维度完全未计费（证据 docs/tickets/2026-11/findings-api.md#F-720）
-- [ ] 720G. **缺陷普查 API F-721** [P1] refundTaskCall 退款非原子：并发或副本滞后会重复退款（凭空增余额）（证据 docs/tickets/2026-11/findings-api.md#F-721）
 - [ ] 721G. **缺陷普查 API F-722** [P2] 渠道流式“已写出帧后异常”就地 return，跳过结算 ⇒ 预扣永久沉淀、无流水（证据 docs/tickets/2026-11/findings-api.md#F-722）
 - [ ] 722G. **缺陷普查 API F-723** [P2] settlePreDeduction 重新解析组归属，退款/补扣可能落到错误账户（证据 docs/tickets/2026-11/findings-api.md#F-723）
 - [ ] 723G. **缺陷普查 API F-724** [P2] 限流计数与计费链路脱钩：窗口计数只在两段式 +1，TPM 计数从未写入（证据 docs/tickets/2026-11/findings-api.md#F-724）
