@@ -98,6 +98,47 @@ const mkEas =
     })
 
 // ── 纯判据(镜像测试直接 import,不在测试里复抄) ──
+/**
+ * OTA 腿发布前的版本 env 成对判据(2026-11-12 真机事故补)。
+ *
+ * 为什么比构建期更严:app.config.js 的 assertMobileVersionParity 允许「两个 env 都缺省」
+ * (那时 APK 的原生号与 JS 号一起回退 pkg.version,仍然同源)。但 OTA 只换 JS bundle,
+ * 发布进程没带这两个 env 时 bundle 会回退 package.json 的旧号(实测 0.0.12),而设备
+ * 装的是 0.0.25 ⇒ 冷启动立刻把服务端旧版判成新版本、弹降级安装。故 OTA 腿必须
+ * **显式成对注入**,都缺省同样拒跑。
+ *
+ * 判据本体直接复用 app.config.js 导出的那一份(CJS 求值,同 probeRuntimeVersion 手法),
+ * 不在这里写第二份正则;取不到判据 ⇒ UNJUDGED,绝不冒绿(§0.3)。
+ */
+export function assertOtaVersionPair(sourceText, env = process.env) {
+  let parity
+  try {
+    const m = new Module(CONFIG_JS, undefined)
+    m.filename = CONFIG_JS
+    m.paths = Module._nodeModulePaths(RN_DIR)
+    m._compile(sourceText, CONFIG_JS)
+    parity = m.exports.assertMobileVersionParity
+  } catch (e) {
+    return {
+      status: STATUS.UNJUDGED,
+      reason: `app.config 求值失败:${String(e?.message ?? e).slice(0, 160)}`,
+    }
+  }
+  if (typeof parity !== 'function')
+    return { status: STATUS.UNJUDGED, reason: 'app.config.js 未导出 assertMobileVersionParity' }
+  try {
+    const version = parity(env.IHUI_MOBILE_VERSION, env.EXPO_PUBLIC_IHUI_MOBILE_VERSION)
+    if (!version)
+      return {
+        status: STATUS.MISSING,
+        reason: '两个版本 env 都缺省:OTA bundle 会回退 package.json 的旧号,必须显式成对注入',
+      }
+    return { status: STATUS.FOUND, version }
+  } catch (e) {
+    return { status: STATUS.MISSING, reason: String(e?.message ?? e) }
+  }
+}
+
 /** 三态归并:unjudged > blocked > ready。失效方向恒为"多要一次说明"。 */
 export function foldStatus(states) {
   if (!states.length) return 'unjudged'
@@ -189,8 +230,12 @@ export function probeRuntimeVersion(readText, { a = '0.0.5.20261101', b = '0.0.5
     const m = new Module(CONFIG_JS, undefined)
     m.filename = CONFIG_JS
     m.paths = Module._nodeModulePaths(join(RN_DIR))
-    const prev = process.env.IHUI_MOBILE_VERSION
-    process.env.IHUI_MOBILE_VERSION = displayVersion // app.config.js 从 env 读显示版本,不注入两臂就是同一个值
+    // 两臂必须**成对**注入:app.config.js 的 assertMobileVersionParity 在求值期就校验
+    // IHUI_MOBILE_VERSION === EXPO_PUBLIC_IHUI_MOBILE_VERSION,只给一侧会当场抛错 ⇒ 探针
+    // 被误判成 unjudged。探针是在模拟一次真实构建,不能比真实构建少注入一条。
+    const versionEnvKeys = ['IHUI_MOBILE_VERSION', 'EXPO_PUBLIC_IHUI_MOBILE_VERSION']
+    const prev = versionEnvKeys.map((k) => [k, process.env[k]])
+    for (const k of versionEnvKeys) process.env[k] = displayVersion
     try {
       m._compile(readText, CONFIG_JS)
       const exported = m.exports
@@ -200,8 +245,10 @@ export function probeRuntimeVersion(readText, { a = '0.0.5.20261101', b = '0.0.5
       // 必须在 env 生效期间完成调用:app.config 的导出是闭包,process.env 在**调用时**才读
       return exported({ config: structuredClone(base) })
     } finally {
-      if (prev === undefined) delete process.env.IHUI_MOBILE_VERSION
-      else process.env.IHUI_MOBILE_VERSION = prev
+      for (const [k, v] of prev) {
+        if (v === undefined) delete process.env[k]
+        else process.env[k] = v
+      }
     }
   }
   let A, B
@@ -627,11 +674,10 @@ export function storeDimensionBasis({ root = ROOT, read = readFileSync } = {}) {
     journaled = hasTag(read(join(dir, 'meta/_journal.json'), 'utf8'))
     if (!journaled) {
       try {
-        const head = gitRaw(
-          ['show', 'HEAD:packages/database/drizzle/meta/_journal.json'],
-          root,
-          { timeout: 30_000, maxBuffer: 16 << 20 },
-        )
+        const head = gitRaw(['show', 'HEAD:packages/database/drizzle/meta/_journal.json'], root, {
+          timeout: 30_000,
+          maxBuffer: 16 << 20,
+        })
         if (hasTag(head)) {
           journaled = true
           diskLag = true
@@ -904,6 +950,14 @@ async function main() {
       console.log(`本腿执行体尚未接线,命令:${leg.command}`)
       return 2
     }
+    // 2026-11-12:OTA 只换 JS bundle,版本 env 不成对就会让 bundle 自报旧号 ⇒ 弹降级安装。
+    // 发布前 fail-closed 验一次;取不到判据按未判定拒跑,不冒绿。
+    const versionPair = assertOtaVersionPair(readFileSync(CONFIG_JS, 'utf8'))
+    if (versionPair.status !== STATUS.FOUND) {
+      console.log(`拒跑:${id} 版本 env 判 ${versionPair.status} — ${versionPair.reason}`)
+      return versionPair.status === STATUS.UNJUDGED ? 2 : 1
+    }
+    console.log(`  发布版本号:${versionPair.version}(双写一致)`)
     const channel = id.replace('ota-', '')
     const message =
       opt('m') ?? opt('message') ?? `release ${id} @ ${new Date().toISOString().slice(0, 16)}Z`
@@ -969,6 +1023,28 @@ function selfTest() {
   )
   eq('fold:blocked 压过 ready', foldStatus([STATUS.FOUND, STATUS.MISSING]), 'blocked')
   eq('fold:全 found ⇒ ready', foldStatus([STATUS.FOUND, STATUS.FOUND]), 'ready')
+  const paritySrc = readFileSync(CONFIG_JS, 'utf8')
+  const pair = (env) => assertOtaVersionPair(paritySrc, env).status
+  eq(
+    'ota版本env:成对 ⇒ found',
+    pair({ IHUI_MOBILE_VERSION: '0.0.25', EXPO_PUBLIC_IHUI_MOBILE_VERSION: '0.0.25' }),
+    STATUS.FOUND,
+  )
+  eq('ota版本env:漏一侧 ⇒ missing', pair({ IHUI_MOBILE_VERSION: '0.0.25' }), STATUS.MISSING)
+  eq('ota版本env:都缺省 ⇒ missing(OTA 不许静默回退)', pair({}), STATUS.MISSING)
+  eq(
+    'ota版本env:两侧不等 ⇒ missing',
+    pair({ IHUI_MOBILE_VERSION: '0.0.25', EXPO_PUBLIC_IHUI_MOBILE_VERSION: '0.0.24' }),
+    STATUS.MISSING,
+  )
+  eq(
+    'ota版本env:判据被删 ⇒ unjudged(不冒绿)',
+    assertOtaVersionPair('module.exports = () => ({})', {
+      IHUI_MOBILE_VERSION: '0.0.25',
+      EXPO_PUBLIC_IHUI_MOBILE_VERSION: '0.0.25',
+    }).status,
+    STATUS.UNJUDGED,
+  )
   const goodSubmit = {
     submit: {
       production: { android: { track: 'alpha', serviceAccountKeyPath: './credentials/x.json' } },
@@ -1142,6 +1218,7 @@ export const __test__ = {
   summaryLines,
   firstMeaningfulLine,
   probeRuntimeVersion,
+  assertOtaVersionPair,
   buildLegs,
   buildStoreLegs,
   render,

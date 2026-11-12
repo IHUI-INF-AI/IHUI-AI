@@ -1359,9 +1359,17 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       // 且 amountYuan<=0 可通过,构成重复退款套现口子
       if (!amountYuan || amountYuan <= 0)
         return reply.status(400).send(error(400, '退款金额必须为正'))
-      if (amountYuan * 100 < order.amount)
+      // F-23:金额比较必须先取整成"分"再比。
+      //
+      // 修前是 `amountYuan * 100 < order.amount`:浮点乘法会给出 19999.999999999996
+      // 这种值(如 199.99 * 100),于是"恰好等于订单金额"的合法退款被判成"小于",
+      // 用户看到"须等于订单金额"却怎么填都不对;反向比较同样可能漏判。
+      // 同文件其它路径(:1016/:1069/:1136/:1960)都是 `Math.round(amountYuan * 100)`,
+      // 这里漏了取整,属同文件内的口径不一致 —— 统一到同一出口,不新增换算函数。
+      const refundCents = Math.round(amountYuan * 100)
+      if (refundCents < order.amount)
         return reply.status(400).send(error(400, '当前仅支持整单退款,退款金额须等于订单金额'))
-      if (amountYuan * 100 > order.amount)
+      if (refundCents > order.amount)
         return reply.status(400).send(error(400, '退款金额不能超过订单金额'))
       // P0 资金安全修复(2026-09-06):退款入口接入风控引擎
       const risk = server.riskEngine.evaluateRisk({
@@ -1369,7 +1377,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
         ip: request.ip,
         deviceFingerprint: (request.headers['x-device-fingerprint'] as string) ?? undefined,
         orderNo: outTradeNo,
-        amount: Math.round(amountYuan * 100),
+        amount: refundCents,
       })
       if (risk.action === 'DENY') {
         request.log.warn({ userId: order.userId, hits: risk.hits }, '支付宝退款被风控拒绝')

@@ -14,7 +14,7 @@
  *   ⑤ 有原生模块时才走"下载 → content:// → 系统安装器",且意图参数必须是 APK 的 mime type;
  *   ⑥ 用户关掉的一次性提示,在新一轮查到更新时必须复位。
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 // 只作类型锚点(import() 类型注解被 eslint consistent-type-imports 禁止,且会被 hoist 抹掉)
 import type * as RangedDownloadModule from '../ranged-download'
 
@@ -155,7 +155,15 @@ function updateResponse(overrides: Record<string, unknown> = {}) {
   }
 }
 
+/**
+ * 正式包的 JS bundle 带构建期版本号(EXPO_PUBLIC_IHUI_MOBILE_VERSION),可信标记为真。
+ * 测试环境默认没这个 env,不显式钉上的话所有「查到更新 → 下载 → 安装」用例都会被
+ * 红线 4 的未判定闸门静默拦掉 ⇒ 夹具假红。取 package.json 现值,APP_VERSION 不变。
+ */
+const BUNDLE_VERSION_ENV_SAVED = process.env.EXPO_PUBLIC_IHUI_MOBILE_VERSION
+
 beforeEach(() => {
+  process.env.EXPO_PUBLIC_IHUI_MOBILE_VERSION = '0.0.12'
   h.checkAppVersion.mockReset()
   h.createDownloadResumable.mockReset()
   h.getContentUriAsync.mockReset()
@@ -166,6 +174,11 @@ beforeEach(() => {
   parts.impl = null
   legChoice.url = null
   setNativeLauncher(false)
+})
+
+afterEach(() => {
+  if (BUNDLE_VERSION_ENV_SAVED === undefined) delete process.env.EXPO_PUBLIC_IHUI_MOBILE_VERSION
+  else process.env.EXPO_PUBLIC_IHUI_MOBILE_VERSION = BUNDLE_VERSION_ENV_SAVED
 })
 
 describe('版本比较:读不懂必须答 null', () => {
@@ -194,6 +207,7 @@ describe('是否有更新:服务端结论 + 客户端复核', () => {
         serverHasUpdate: true,
         latestVersion: '0.0.5',
         currentVersion: '0.0.5',
+        currentVersionTrusted: true,
       }),
     ).toBe(false)
   })
@@ -205,6 +219,7 @@ describe('是否有更新:服务端结论 + 客户端复核', () => {
         serverHasUpdate: true,
         latestVersion: '0.0.9',
         currentVersion: '0.0.5',
+        currentVersionTrusted: true,
       }),
     ).toBe(true)
   })
@@ -216,6 +231,19 @@ describe('是否有更新:服务端结论 + 客户端复核', () => {
         serverHasUpdate: false,
         latestVersion: '9.9.9',
         currentVersion: '0.0.5',
+        currentVersionTrusted: true,
+      }),
+    ).toBe(false)
+  })
+
+  it('版本号更低 ⇒ 不提示(待装包是降级)', async () => {
+    const { decideHasUpdate } = await freshModule()
+    expect(
+      decideHasUpdate({
+        serverHasUpdate: true,
+        latestVersion: '0.0.24',
+        currentVersion: '0.0.25',
+        currentVersionTrusted: true,
       }),
     ).toBe(false)
   })
@@ -227,13 +255,58 @@ describe('是否有更新:服务端结论 + 客户端复核', () => {
         serverHasUpdate: true,
         latestVersion: 'vNext',
         currentVersion: '0.0.5',
+        currentVersionTrusted: true,
       }),
     ).toBe(true)
     expect(
-      decideHasUpdate({ serverHasUpdate: false, latestVersion: 'vNext', currentVersion: '0.0.5' }),
+      decideHasUpdate({
+        serverHasUpdate: false,
+        latestVersion: 'vNext',
+        currentVersion: '0.0.5',
+        currentVersionTrusted: true,
+      }),
     ).toBe(false)
     expect(
-      decideHasUpdate({ serverHasUpdate: true, latestVersion: null, currentVersion: '0.0.5' }),
+      decideHasUpdate({
+        serverHasUpdate: true,
+        latestVersion: null,
+        currentVersion: '0.0.5',
+        currentVersionTrusted: true,
+      }),
+    ).toBe(false)
+  })
+
+  /**
+   * 2026-11-12 真机事故:设备装 0.0.25、JS bundle 回退 package.json 的 0.0.12,
+   * 服务端 latest=0.0.24 + hasUpdate=true ⇒ 两道判据一起把降级判成升级。
+   * 取材面不可信时必须连「读不懂就信服务端」这条退化路也关掉。
+   */
+  it('当前版本不可信 ⇒ 判未判定,服务端说新 / 版本号更高 / 读不懂都不提示', async () => {
+    const { decideHasUpdate } = await freshModule()
+    const untrusted = { currentVersionTrusted: false } as const
+    expect(
+      decideHasUpdate({
+        ...untrusted,
+        serverHasUpdate: true,
+        latestVersion: '0.0.24',
+        currentVersion: '0.0.12',
+      }),
+    ).toBe(false)
+    expect(
+      decideHasUpdate({
+        ...untrusted,
+        serverHasUpdate: true,
+        latestVersion: '9.9.9',
+        currentVersion: '0.0.5',
+      }),
+    ).toBe(false)
+    expect(
+      decideHasUpdate({
+        ...untrusted,
+        serverHasUpdate: true,
+        latestVersion: 'vNext',
+        currentVersion: '0.0.5',
+      }),
     ).toBe(false)
   })
 })
@@ -284,6 +357,22 @@ describe('检查:环境判定与状态落库', () => {
     expect(mod.apkSnapshot().dismissed).toBe(true)
     await mod.checkApkUpdate()
     expect(mod.apkSnapshot().dismissed).toBe(false)
+  })
+
+  /**
+   * 端到端钉死 env → config.APP_VERSION_IS_AUTHORITATIVE → decideHasUpdate → 状态:
+   * 不 mock config(会让夹具与实现同错),靠 vi.resetModules() 让 config 重新求值。
+   */
+  it('bundle 没带构建期版本号 ⇒ 按未判定收口,不弹更新也不给下载地址', async () => {
+    delete process.env.EXPO_PUBLIC_IHUI_MOBILE_VERSION
+    h.checkAppVersion.mockResolvedValue(updateResponse({ hasUpdate: true }))
+    const mod = await freshModule()
+    await expect(mod.checkApkUpdate()).resolves.toBe('up-to-date')
+    // 请求照打,被拦的是判据面而不是「没跑」——取证要能分清这两者
+    expect(h.checkAppVersion).toHaveBeenCalledTimes(1)
+    const snap = mod.apkSnapshot()
+    expect(snap.downloadUrl).toBeNull()
+    expect(snap.lastError).toMatch(/未判定/)
   })
 })
 
