@@ -122,7 +122,12 @@ function evictOldestStreamIfNeeded(): void {
       oldestKey = key
     }
   }
-  if (oldestKey) streams.delete(oldestKey)
+  if (oldestKey) {
+    // F-291:淘汰时一并清掉待释放定时器,否则定时器仍持有该流对象、60s 后误触发删除。
+    const evicted = streams.get(oldestKey)
+    if (evicted?.releaseTimer) clearTimeout(evicted.releaseTimer)
+    streams.delete(oldestKey)
+  }
 }
 
 /**
