@@ -320,6 +320,37 @@ export function getNavigationState(): CompatNavigationState {
 }
 
 /**
+ * XUI-011:`createNavigationContainerRef` 的小程序端等价物。
+ *
+ * 消费方是共享包里的"容器外跳转"写法(与 RN 侧 `navigation/navigation-ref.ts` 同源):
+ *
+ * ```ts
+ * const navigationRef = createNavigationContainerRef<RootStackParamList>()
+ * if (navigationRef.isReady()) navigationRef.navigate('X')
+ * ```
+ *
+ * 修前本文件没有这个导出 ⇒ `@react-navigation/native` 的别名解析到本文件后,
+ * 命名导入拿到 `undefined`,模块初始化期调用 `createNavigationContainerRef()` 直接抛
+ * "is not a function",整块共享屏(含首页)加载即崩。
+ *
+ * 语义对齐(不是复制 RN 实现):
+ * - 小程序没有"容器挂载"这一生命周期,页面栈就绪即可导航 ⇒ `isReady()` 用
+ *   `getCurrentPages().length > 0` 判定;拿不到 API 的宿主(纯单测)视为未就绪,不猜。
+ * - `navigate` 走与 `useNavigation` 同一条 `createCompatNavigation` 出口,
+ *   失败经 `emitNavigationFailure` 上报(不静默 no-op,与端内其余跳转同纪律)。
+ * - `getCurrentRoute` 返回当前页面路径 + 参数,形状与 RN 的最小公共子集一致。
+ */
+export interface CompatNavigationContainerRef {
+  isReady: () => boolean
+  navigate: (name: string, params?: RouteParams) => void
+  goBack: () => void
+  getCurrentRoute: () => { name: string; params: RouteParams } | undefined
+  getRootState: () => CompatNavigationState
+}
+
+
+
+/**
  * 焦点 effect 的纯控制器(可脱离 React 单测):
  * run 幂等(同一可见周期只执行一次)、stop 幂等、卸载/异常/重入都有确定终态。
  */
@@ -658,4 +689,32 @@ export function useScrollToTop() {
 }
 
 export const paramsOf = () => lastParams
+
+export function createNavigationContainerRef(): CompatNavigationContainerRef {
+  // 导航动作全部转发给 `createCompatNavigation` —— 本文件只允许有一份"怎么跳"的实现。
+  // 这里注入空焦点集合:容器外跳转不承担页面焦点语义(那由 useNavigation 的页面 hook 负责),
+  // 失败出口统一走 emitNavigationFailure,不静默 no-op。
+  const nav = createCompatNavigation({
+    fail: (name, reason, detail) => emitNavigationFailure({ name, reason, detail }),
+    focusListeners: new Set<() => void>(),
+    blurListeners: new Set<() => void>(),
+  })
+  return {
+    isReady: () => {
+      if (typeof Taro.getCurrentPages !== 'function') return false
+      return Taro.getCurrentPages().length > 0
+    },
+    navigate: (name: string, params?: RouteParams) => {
+      nav.navigate(name, params)
+    },
+    goBack: () => {
+      nav.goBack()
+    },
+    getCurrentRoute: () => {
+      const state = nav.getState()
+      return { name: state.route, params: state.params }
+    },
+    getRootState: () => nav.getState(),
+  }
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

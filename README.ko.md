@@ -2227,6 +2227,10 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-12**
+- 🔧 기타:固化在飞README/守卫改动(并行会话成果), 为merge远端腾干净树 (4fa2fab3ff)
+- 🔧 기타:违禁桶兜底清扫——HEAD面等条件/待拍板未勾行自动摘除(两道机主禁令的执行器物化,留痕f12-purge;复翻席请同步摘形态,事实内容按各批结清提交保留) (ef6741060a)
+
+**2026-11-12**
 - 🐞 수정:告警降噪补全与出口去重修复 (7bfb45a4c5)
 - 📚 문서:按最终 HEAD 面刷新 README/README.en 生成块数字 (de4b2c1aaf)
 - 🐞 수정:根治号池隔离误报+止邮箱刷屏 (9f71bb8bdc)
@@ -3274,9 +3278,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 **2026-11-06**
 - 🚀 기능/개선:补齐 Team/MessageCenter/ArticleList/Coupon 行为型 prop 跨端缺口并清理死契约 (a872076ccc9)
-
-**2026-11-10**
-- 🔧 기타:合并收口补 AGENTS 点名 scan-api-routes 并按新 HEAD 重封根护栏清单 (f2261133d5)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
