@@ -12226,28 +12226,15 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 12A. **缺陷普查 DG DG-12** [P3] 发布 tag 闸要求整树 porcelain 干净：多会话共享工作树下被他人 WIP 永久阻断（证据 docs/tickets/2026-11/findings-deploy-gates.md#DG-12）
 - [ ] 13A. **缺陷普查 DG DG-13** [P3] 部署门禁失败 → 回滚 → exit 0，按退出码记账的调用方会把失败轮记成成功（证据 docs/tickets/2026-11/findings-deploy-gates.md#DG-13）
 - [ ] 14A. **缺陷普查 DG DG-14** [P3] 元门档是「脚本名正则白名单」：新增门命名不命中即本地零通道，且没有门保证「每门至少一个阻断通道」（证据 docs/tickets/2026-11/findings-deploy-gates.md#DG-14）
-- [ ] 79C. **缺陷普查 CLI F-077** [P2] DNS 判定与连接 TOCTOU / rebinding，默认无地址证据（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-077）
 - [ ] 43D. **缺陷普查 DB DB-35** [P2] 多类敏感字段明文落库（PII 与第三方凭据）（证据 docs/tickets/2026-11/findings-db.md#DB-35）
-- [ ] 11E. **缺陷普查 AIS AIS-011** [P2] Gemini 安全拦截（promptFeedback）被当成功空回复（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-011）
-- [ ] 25E. **缺陷普查 AIS AIS-025** [P2] DAG 队列持久化只写不读，重启即丢（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-025）
-- [ ] 36E. **缺陷普查 AIS AIS-036** [P2] notify 动作以 channel="webhook" 绕过高危白名单并盲 SSRF（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-036）
-- [ ] 37E. **缺陷普查 AIS AIS-037** [P2] /api/spec/generate 的 workspacePath / scope.path 无工作区白名单（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-037）
-- [ ] 43E. **缺陷普查 AIS AIS-043** [P2] SSO 回调不校验 state，且默认启用 mock provider（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-043）
-- [ ] 45E. **缺陷普查 AIS AIS-045** [P2] WorkBuddy task-run 无在途锁/幂等键（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-045）
 - [ ] 46E. **缺陷普查 AIS AIS-046** [P2] 审计双数据源 + 成功码不一致（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-046）
-- [ ] 47E. **缺陷普查 AIS AIS-047** [P2] HTTP 写审计无操作主体，落库列也丢 user_id（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-047）
-- [ ] 48E. **缺陷普查 AIS AIS-048** [P2] 路由异常被转成 HTTP 200 + body code:500，并回吐 str(e)（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-048）
 
 
 
-- [ ] 79E. **缺陷普查 AIS AIS-079** [P3] 用量面缺角色门，自报用量无幂等（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-079）
 - [ ] 114E. **缺陷普查 AIS AIS-114** [P2] 运行中 interrupt 立即保存半批次 checkpoint（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-114）
-- [ ] 12G. **缺陷普查 API F-12** [P2] 已支付订单副作用重放与支付回调并发，积分/Outbox 双发（证据 docs/tickets/2026-11/findings-api.md#F-12）
 
 
-- [ ] 24G. **缺陷普查 API F-24** [P3] 导出/用量按 UTC 边界过滤日期区间，且结束边界丢毫秒（证据 docs/tickets/2026-11/findings-api.md#F-24）
 - [ ] 34G. **缺陷普查 API F-34** [P2] 多模态任务失败退款为 fire-and-forget，异常被内部吞掉（证据 docs/tickets/2026-11/findings-api.md#F-34）
-- [ ] 43G. **缺陷普查 API F-43** [P3] /artifacts/:id/download 整文件同步读入 + 同步 sha256 + 多份字符串副本（证据 docs/tickets/2026-11/findings-api.md#F-43）
 - [ ] 44G. **缺陷普查 API F-44** [P2] ai-vendors 的 taskStore / tencentActiveJobs 无删除路径，列表遍历全表（证据 docs/tickets/2026-11/findings-api.md#F-44）
 - [ ] 45G. **缺陷普查 API F-45** [P2] n1-detector 的 requestQueryCounts 对 hijack 的 SSE/WS 请求永久残留（证据 docs/tickets/2026-11/findings-api.md#F-45）
 - [ ] 51G. **缺陷普查 API F-51** [P2] 火山异步生图在 HTTP 请求线程内最长轮询 300 秒，且不感知客户端断开（证据 docs/tickets/2026-11/findings-api.md#F-51）
@@ -12346,7 +12333,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 273G. **缺陷普查 API F-273** [P2] 登录风控地理数据走明文 HTTP，可被中间人篡改（证据 docs/tickets/2026-11/findings-api.md#F-273）
 - [ ] 274G. **缺陷普查 API F-274** [P2] 审计链链尾按 timestamp 取，跨实例时钟偏差/同毫秒取错前驱，链分叉或误报（证据 docs/tickets/2026-11/findings-api.md#F-274）
 - [ ] 275G. **缺陷普查 API F-275** [P3] 审计链哈希输入未覆盖 ip/user_agent/raw_retained，证据列可改写而不破坏链（证据 docs/tickets/2026-11/findings-api.md#F-275）
-- [ ] 276G. **缺陷普查 API F-276** [P1] /v1/3d/generations 及内部 3D 端点：平台腾讯 Key 零计费、user_uuid 可伪造、上游失败当成功、activeJobs（证据 docs/tickets/2026-11/findings-api.md#F-276）
 - [ ] 278G. **缺陷普查 API F-278** [P2] 工作区 recent-workspaces.json 全局共享，browse/recent 绕过 workspace 权限（证据 docs/tickets/2026-11/findings-api.md#F-278）
 - [ ] 279G. **缺陷普查 API F-279** [P2] /v1/files?purpose=batch 输入文件未与 API Key 绑定，且每请求新建 ioredis 仅成功路径 disconnect（证据 docs/tickets/2026-11/findings-api.md#F-279）
 - [ ] 280G. **缺陷普查 API F-280** [P2] /api/workspace/acp/* 三端点为纯 stub：不落库却返回 201/200，workspaceRoot 任意且 prompt/附件正文（证据 docs/tickets/2026-11/findings-api.md#F-280）
@@ -12412,7 +12398,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 395G. **缺陷普查 API F-395** [P2] 商品保存「假成功」：返回 OK 但未落库（证据 docs/tickets/2026-11/findings-api.md#F-395）
 - [ ] 396G. **缺陷普查 API F-396** [P2] 兑换码核销未校验 apiKeyId 归属（证据 docs/tickets/2026-11/findings-api.md#F-396）
 - [ ] 397G. **缺陷普查 API F-397** [P2] 汇率表无唯一约束 + LIMIT 1 无排序 + real 精度（证据 docs/tickets/2026-11/findings-api.md#F-397）
-- [ ] 399G. **缺陷普查 API F-399** [P1] 周期扣款回调验签用 JSON.stringify(body)，无 rawBody（已复核，P1）（证据 docs/tickets/2026-11/findings-api.md#F-399）
 - [ ] 401G. **缺陷普查 API F-401** [P2] codebase/vector/checkpoints 缺 workspace 权限校验（证据 docs/tickets/2026-11/findings-api.md#F-401）
 - [ ] 402G. **缺陷普查 API F-402** [P2] swarms 无属主模型，任意用户可操作他人 swarm（证据 docs/tickets/2026-11/findings-api.md#F-402）
 - [ ] 404G. **缺陷普查 API F-404** [P1] 返佣基数取「被邀请人钱包总余额」而非本单 token 数，可反复放大（已复核，P1）（证据 docs/tickets/2026-11/findings-api.md#F-404）
@@ -12460,7 +12445,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 495G. **缺陷普查 API F-495** [P3] 批处理 worker 崩溃重跑无断点，重复消耗上游（证据 docs/tickets/2026-11/findings-api.md#F-495）
 - [ ] 496G. **缺陷普查 API F-496** [P2] 账号池 worker 把退出码 1/超时当成功，BullMQ 记 completed 不重试（证据 docs/tickets/2026-11/findings-api.md#F-496）
 - [ ] 498G. **缺陷普查 API F-498** [P3] AI 回调 worker 先 DELETE … RETURNING 再落库，重试丢帧（证据 docs/tickets/2026-11/findings-api.md#F-498）
-- [ ] 501G. **缺陷普查 API F-501** [P3] clawdbot shutdown→initialize 竞态遗留双 socket（证据 docs/tickets/2026-11/findings-api.md#F-501）
 - [ ] 504G. **缺陷普查 API F-504** [P3] “我的收藏”返回全部已发布地图（证据 docs/tickets/2026-11/findings-api.md#F-504）
 - [ ] 506G. **缺陷普查 API F-506** [P3] 腾讯云直播流两接口为桩成功（证据 docs/tickets/2026-11/findings-api.md#F-506）
 - [ ] 507G. **缺陷普查 API F-507** [P3] ToolRunner 超时不取消底层执行（证据 docs/tickets/2026-11/findings-api.md#F-507）
