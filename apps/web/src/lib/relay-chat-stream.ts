@@ -116,6 +116,8 @@ export function streamRelayChat(opts: StreamRelayChatOptions): Promise<void> {
     const id = `pool-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
     let settled = false
     let completed = false
+    /** 本轮 chat 帧是否已发出(只发一次;由 ready 帧触发,见 sendChat 注释) */
+    let sentChat = false
     let socket: WebSocket | null = null
     let idleTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -185,8 +187,20 @@ export function streamRelayChat(opts: StreamRelayChatOptions): Promise<void> {
       return
     }
 
-    socket.onopen = (): void => {
-      armIdle()
+    /**
+     * 发送本轮 chat 帧。**只能在收到服务端 `ready` 后调用**(2026-11-12 实测定案)。
+     *
+     * 事故形状:服务端 handler 是 `const userId = await wsAuth(socket, token)` 之后才
+     * `socket.on('message', …)`;而 ws 库在没有 message 监听器时**直接丢弃**到达的帧。
+     * 若像最初那样在 `onopen` 立刻 send,帧会落在 wsAuth 的 await 窗口里被吞掉 ——
+     * 表现是握手成功、收到 ready、然后**永远等不到 start**,直到 120s 空闲超时。
+     * 本机 8802 实测:onopen 即发 ⇒ `open → ready` 之后 120s 零帧;改等 ready ⇒
+     * `open → ready → start → 21 chunk → done`,首字节 1574ms,真实上游有正文。
+     * `ready` 帧的语义就是"鉴权完成、可以发了",客户端必须按此排序。
+     */
+    const sendChat = (): void => {
+      if (sentChat) return
+      sentChat = true
       try {
         socket?.send(
           JSON.stringify({
@@ -210,6 +224,11 @@ export function streamRelayChat(opts: StreamRelayChatOptions): Promise<void> {
       }
     }
 
+    socket.onopen = (): void => {
+      // 只启动空闲计时,**不发帧**:等 ready(见 sendChat 注释)
+      armIdle()
+    }
+
     socket.onmessage = (ev: MessageEvent): void => {
       const text = typeof ev.data === 'string' ? ev.data : ''
       if (!text || text === 'pong') return
@@ -221,6 +240,8 @@ export function streamRelayChat(opts: StreamRelayChatOptions): Promise<void> {
       }
       if (frame.type === 'ready') {
         armIdle()
+        // 鉴权完成、服务端已挂好 message 监听 ⇒ 此刻发帧才不会丢
+        sendChat()
         return
       }
       // ready 之外的所有业务帧都带 id;不是本轮的帧一律忽略(连接内多路复用)
