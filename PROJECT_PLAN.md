@@ -12551,7 +12551,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 274G. **缺陷普查 API F-274** [P2] 审计链链尾按 timestamp 取，跨实例时钟偏差/同毫秒取错前驱，链分叉或误报（证据 docs/tickets/2026-11/findings-api.md#F-274）
 - [ ] 275G. **缺陷普查 API F-275** [P3] 审计链哈希输入未覆盖 ip/user_agent/raw_retained，证据列可改写而不破坏链（证据 docs/tickets/2026-11/findings-api.md#F-275）
 - [ ] 276G. **缺陷普查 API F-276** [P1] /v1/3d/generations 及内部 3D 端点：平台腾讯 Key 零计费、user_uuid 可伪造、上游失败当成功、activeJobs（证据 docs/tickets/2026-11/findings-api.md#F-276）
-- [ ] 277G. **缺陷普查 API F-277** [P1] v1-midjourney 与 v1-rerank-moderations 漏挂 requireApiKeyQuota，上游 fetch 无超时（证据 docs/tickets/2026-11/findings-api.md#F-277）
 - [ ] 278G. **缺陷普查 API F-278** [P2] 工作区 recent-workspaces.json 全局共享，browse/recent 绕过 workspace 权限（证据 docs/tickets/2026-11/findings-api.md#F-278）
 - [ ] 279G. **缺陷普查 API F-279** [P2] /v1/files?purpose=batch 输入文件未与 API Key 绑定，且每请求新建 ioredis 仅成功路径 disconnect（证据 docs/tickets/2026-11/findings-api.md#F-279）
 - [ ] 280G. **缺陷普查 API F-280** [P2] /api/workspace/acp/* 三端点为纯 stub：不落库却返回 201/200，workspaceRoot 任意且 prompt/附件正文（证据 docs/tickets/2026-11/findings-api.md#F-280）
@@ -12564,7 +12563,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 289G. **缺陷普查 API F-289** [P2] 公开边缘缓存键不含 Origin，跨源请求会命中同源建立的条目（证据 docs/tickets/2026-11/findings-api.md#F-289）
 - [ ] 290G. **缺陷普查 API F-290** [P3] WS 限流 MAX_PER_WINDOW=30 是死分支，实际恒定放行到 50 条/秒（证据 docs/tickets/2026-11/findings-api.md#F-290）
 - [ ] 291G. **缺陷普查 API F-291** [P3] sse-replay-buffer.registerStream 在 set 之前逐出，满 200 流时误删活跃流缓冲（证据 docs/tickets/2026-11/findings-api.md#F-291）
-- [ ] 292G. **缺陷普查 API F-292** [P1] /v1/responses 全程按 relay 计费，BYOK 用户被二次全额扣费（证据 docs/tickets/2026-11/findings-api.md#F-292）
 - [ ] 293G. **缺陷普查 API F-293** [P2] /v1/messages 与 /v1/responses 工具调用全链路丢失（证据 docs/tickets/2026-11/findings-api.md#F-293）
 - [ ] 294G. **缺陷普查 API F-294** [P2] /v1/responses 的 max_output_tokens 绕过 Key 级 maxTokensPerReq 与 per-model TPM（证据 docs/tickets/2026-11/findings-api.md#F-294）
 - [ ] 295G. **缺陷普查 API F-295** [P2] /v1/messages 流式丢弃 done.finishReason，截断/内容过滤被报成 end_turn（证据 docs/tickets/2026-11/findings-api.md#F-295）
