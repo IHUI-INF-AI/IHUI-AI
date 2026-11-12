@@ -18,6 +18,27 @@ import type { ToolResultDisplaySource } from '@ihui/types'
 
 export type OutputFormat = 'text' | 'json' | 'markdown' | 'yaml'
 
+/** output-format 的合法取值(类型、严格校验与报错文案共用这一份清单)。 */
+export const OUTPUT_FORMATS = ['text', 'json', 'markdown', 'yaml'] as const
+
+/**
+ * F-018:`--json` 的**单一判据来源**。
+ *
+ * 全局 `--json` 与子命令同名选项必须等价(`ihui --json security audit` ==
+ * `ihui security audit --json`),所以调用点只把"自己看到的选项集合"交给本函数合并,
+ * 不得再各写一份 `opts.json === true`。stdout 非 TTY 仍按机器档处理 ——
+ * 这是 F-011/F-012 的既有语义(管道下 stdout 是机器契约),不是本票新引入的。
+ */
+export function resolveJsonMode(...sources: unknown[]): boolean {
+  const wantsJson = sources.some(
+    (source) =>
+      typeof source === 'object' &&
+      source !== null &&
+      (source as { json?: unknown }).json === true,
+  )
+  return wantsJson || !process.stdout.isTTY
+}
+
 export type HeadlessEvent =
   | { type: 'start'; prompt: string; model: string; workspace: string }
   | { type: 'message_delta'; text: string }
@@ -166,10 +187,20 @@ export function eventToMarkdown(event: HeadlessEvent): string {
   }
 }
 
-/** 解析 outputFormat 字符串,非法值默认 text */
+/**
+ * `--output-format` 的严格判据:非法值必须由调用方显式报错(F-017),
+ * 不得把用户的枚举拼写错误静默换成默认值。
+ */
+export function isOutputFormat(v: unknown): v is OutputFormat {
+  return typeof v === 'string' && (OUTPUT_FORMATS as readonly string[]).includes(v)
+}
+
+/**
+ * 解析 outputFormat 字符串,非法值默认 text。
+ * CLI 入口(`index.ts`)先用 `isOutputFormat` 严格校验并报错,这里只保留程序化默认语义。
+ */
 export function parseOutputFormat(v: unknown): OutputFormat {
-  if (v === 'text' || v === 'json' || v === 'markdown' || v === 'yaml') return v
-  return 'text'
+  return isOutputFormat(v) ? v : 'text'
 }
 
 /** 把单个事件序列化为指定格式的字符串(text 模式返回空字符串,由调用方走 chalk/ora 路径) */
