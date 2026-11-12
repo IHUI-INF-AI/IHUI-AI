@@ -12296,7 +12296,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 11E. **缺陷普查 AIS AIS-011** [P2] Gemini 安全拦截（promptFeedback）被当成功空回复（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-011）
 - [ ] 17E. **缺陷普查 AIS AIS-017** [P2] 行为偏好内存降级丢失 user 维度，跨用户串读（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-017）
 - [ ] 18E. **缺陷普查 AIS AIS-018** [P2] hash 伪向量 128 维与远端 1536 维混存（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-018）
-- [ ] 19E. **缺陷普查 AIS AIS-019** [P2] 语义召回先取全局 top_k 再按属主过滤（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-019）
 - [ ] 20E. **缺陷普查 AIS AIS-020** [P2] thread.export 的 turn 截断把目标回合切成首条（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-020）
 - [ ] 25E. **缺陷普查 AIS AIS-025** [P2] DAG 队列持久化只写不读，重启即丢（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-025）
 - [ ] 28E. **缺陷普查 AIS AIS-028** [P2] sandbox 任务队列记录与句柄永不回收（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-028）
