@@ -203,7 +203,8 @@ export async function listConversations(
       .select()
       .from(relayConversations)
       .where(where)
-      .orderBy(desc(relayConversations.lastMessageAt))
+      // F-539:last_message_at 非唯一,翻页需要主键 tie-breaker 防边界丢行/重复。
+      .orderBy(desc(relayConversations.lastMessageAt), asc(relayConversations.id))
       .limit(limit)
       .offset(offset),
     dbRead
@@ -249,7 +250,8 @@ export async function getConversationMessages(
       .select()
       .from(relayMessages)
       .where(where)
-      .orderBy(asc(relayMessages.createdAt))
+      // F-539:created_at 同毫秒时以主键破平,保证 offset 分页稳定。
+      .orderBy(asc(relayMessages.createdAt), asc(relayMessages.id))
       .limit(limit)
       .offset(offset),
     dbRead
