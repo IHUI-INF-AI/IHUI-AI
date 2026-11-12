@@ -99,6 +99,9 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-13**
+- 🚀 Feature/Improvement:多语言文案同步 + api-client sag2-lexical 端点(shared/web 五语系) (58b76bade1)
+
+**2026-11-13**
 - 🔧 Chore/Other:并发会话本地改动落盘(web/api/ai-service/miniapp/mobile-rn/docs/notice-log 等) (7c9a379d40)
 
 **2026-11-13**
@@ -742,50 +745,6 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 - 🔧 Chore/Other:自动落 2 枚小程序壳承载页(共 4 枚待产) (15ff9a606d)
 - 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (4ebde26fef)
 - 📚 Docs:deploy-feedback 自动登记(deploy_outcome;端到端反馈闭环第二切片,O65 自进化系列) (a1678371fb)
-
-**2026-11-12**
-- 📚 Docs:auto档同步四语 README（changelog/日期/F票记录，非逻辑代码） (a61cec7719)
-- 🔧 Chore/Other:新增 §12d 停用防回归守门 check-worktree-dev-banned(316,blocking) (2f6997bf5f)
-- 🔧 Chore/Other:结清 CLI F-002/003/006/007/008 与 API F-700/704 七条缺陷票（修复与回归已入库 b46128f309c） (559599bb3f)
-- 🐞 Fix:结清 F-002/003/006/007/008/700/704——退出码、进程树回收、审计与 argv 脱敏、钱包与看板 int8 溢出 (b46128f309)
-- 🔧 Chore/Other:结清 F-628/629/701/702/718 五条缺陷票（修复与回归已入库 5219f2440db） (f38f2aa4f1)
-- 🐞 Fix:结清 F-628/629/718/701/702——中转成本改读真实列、退款回收赠送 token、余额不足扣成欠费并准入拦截、两处 SUM int8 溢出 (5219f2440d)
-- 🐞 Fix:托盘拉起切号器用 cmd /d 关掉 AutoRun (245b9930be)
-- 🐞 Fix:补 createBlacklist mock 修 blacklist fail-closed 回归 (e44bf1fc00)
-- 🔧 Chore/Other:结清 F-40/76/77/87/91 五条缺陷票（修复与回归已入库 221e0cdaadf） (fdf49b2a2b)
-- 🐞 Fix:结清 F-87/91/76/77/40 五条缺陷票——媒体代理计费、通知失败重试、PDF 合并上限、部门用户凭据投影、后台 Agent 有界回收 (221e0cdaad)
-- 🐞 Fix:离线兜底页补齐状态告知并纠正薄壳降级描述 (be7035bb2b)
-- 🐞 Fix:relay 临时目录清理失败不得吞掉业务结果 (2249dc260b)
-- 📚 Docs:补开发版配置路径(两套 identifier 各写各的) (f139ac8ad6)
-- 🔧 Chore/Other:prettier 格式化 README 的托盘示例数组 (10a2c27874)
-- 📚 Docs:托盘 relay_switch 示例改放 quit 之前并说明分组理由 (21397faa33)
-- 🐞 Fix:长上下文针测不再把推理模型截断误判为不支持 (bea1251881)
-- 🐞 Fix:relay 的 JSON 捕获改临时文件 + 括号配平切载荷,修两处真实缺陷 (a446503454)
-- 🔧 Chore/Other:结清 F-07/21/37/48/49 五条缺陷票（修复与回归已入库 abe1fa32fb4） (d1b0d99088)
-- 🐞 Fix:结清 F-07/21/37/48/49 五条缺陷票——后台 Agent 归属、业务日键、积分发放补偿、图片任务原子认领、MCP 网关统一 deadline (abe1fa32fb)
-- 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (fac7b192d5)
-- 🐞 Fix:拆定时炸弹——计划任务不再绑带版本号的 node 路径,自检扩到六项 (633222ecb9)
-- 🔧 Chore/Other:结清 F-22/35/42/46/52 五条缺陷票（修复与回归已入库 96512fab9e6） (f4904682db)
-- 🔧 Chore/Other:footer 回归用例改挂 public project,脱离登录口令依赖 (fb75f9c2a3)
-- 🐞 Fix:relay 网关探测保留完整模型 id，修复 workbuddy 全家能力结论被 403 污染 (5c8c357b6a)
-- 🚀 Feature/Improvement:托盘新增操作员专属「AI 客户端一键切号」入口(默认隐藏) (96512fab9e)
-- 🐞 Fix:F-22 营收聚合改 bigint 且查询失败不再吞零, F-35 预扣结算失败重试并留对账标记, F-42 产物列表去同步IO, F-46 降级计数器可回收, F-52 终端历史 ZSET 分页 (5858f6aa8f)
-- 🔧 Chore/Other:--status 日志行补注『空转轮不写日志』避免误判停滞 (a042e6c583)
-- 🐞 Fix:首页移除微信小程序按钮并恢复 Gitee 仓库入口,修正 footer 三栏断点 (adb2d40849)
-- 🐞 Fix:回收遗留在生产 checkout 的 A9 具名豁免(~initRoundShardResume) (e942aca9a1)
-- 🔧 Chore/Other:结清 F-66/68/70/72/73 五条缺陷票（修复与回归已入库 629d7fca176） (754e9c1967)
-- 🐞 Fix:F-66 批量取消条件更新入事务, F-70 OSS STS 策略收敛本人前缀与大小上限, F-72 webhook 触发防重放, F-73 出站 webhook 补 HMAC 签名, F-68 礼物账本回归 (629d7fca17)
-- 🚀 Feature/Improvement:--status 一键健康自检 + 号池单测生产隔离修复与守门 (9ceeebf48a)
-- 🐞 Fix:公开内容面(tools/news/articles/announcements)补免租户并钉回归锁 (90cc804c79)
-- 🔧 Chore/Other:结清 F-36/38/47/50/71 五条缺陷票（修复与回归已入库 7b42edccc43） (0310fba8c1)
-- 🚀 Feature/Improvement:选择器只显示前沿模型,同族保留最新两代 (4fefe37168)
-- 🐞 Fix:F-36 邮件未发出即重试, F-47 备份 cron 落库前校验且失败保留旧调度, F-50 anthropic 端点补鉴权, F-71 回调日志收口管理员 (7b42edccc4)
-- 🔧 Chore/Other:结清 F-58/59/60 三条缺陷票（修复与回归已入库 228f9f86db5） (148cefdd7f)
-- 🐞 Fix:F-58 手机注册校验短信码, F-59 租户忽略客户端 plan 并保护 owner, F-60 上报忽略客户端 IP, F-57 授权码绑定 clientId, F-112 身份覆盖回归 (228f9f86db)
-- 🐞 Fix:计划任务改 node.exe 直执行 + 脚本内置日志(实测 0xC000013A) (fac97bef4f)
-- 🐞 Fix:补 /api/app-version/ 免租户并钉回归锁(治租户401潜伏雷) (c64375fa40)
-- 🐞 Fix:落库载荷改回平台原生形状 + 拉回解析去 --json (9e9c213fd9)
-- 🔧 Chore/Other:结清 F-86/88/107/108/110/111 六条缺陷票（修复与回归已入库 a83a802010e） (5fa69bc106)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
