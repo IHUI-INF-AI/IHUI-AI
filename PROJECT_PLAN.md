@@ -12253,7 +12253,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 16C. **缺陷普查 CLI F-013** [P2] login 交互提示无 TTY 守卫（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-013）
 - [ ] 17C. **缺陷普查 CLI F-014** [P2] mcp add 参数面两处漏洞（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-014）
 - [ ] 18C. **缺陷普查 CLI F-015** [P2] serve 的 flush 与信号退出码（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-015）
-- [ ] 19C. **缺陷普查 CLI F-016** [P2] import / trash 失败路径退 0（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-016）
 - [ ] 20C. **缺陷普查 CLI F-019** [P2] Windows 沙箱兜底超时留下孤儿进程树（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-019）
 - [ ] 21C. **缺陷普查 CLI F-020** [P2] git 缺失/无权限被吞成"无输出"（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-020）
 - [ ] 22C. **缺陷普查 CLI F-021** [P2] git 输出路径被 core.quotepath 改写（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-021）
@@ -12303,7 +12302,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 73C. **缺陷普查 CLI F-065** [P2] 同会话并发回合共享消息数组，abort 相互覆盖（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-065）
 - [ ] 74C. **缺陷普查 CLI F-066** [P2] ACP 会话关闭 / SIGINT 不中止在飞 prompt（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-066）
 - [ ] 75C. **缺陷普查 CLI F-067** [P2] 编辑器审批请求无超时，prompt 可永久挂起（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-067）
-- [ ] 76C. **缺陷普查 CLI F-068** [P2] headless 封笔后仍追加事件行；headless-permission 兜底是死代码（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-068）
 - [ ] 77C. **缺陷普查 CLI F-071** [P2] 更新计划 staged 目录用清单 name 拼接 → clone 写到 staging 之外且不清理（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-071）
 - [ ] 78C. **缺陷普查 CLI F-076** [P2] 出口取词缺口：裸 localhost 与解释器内 URL 视为无目标（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-076）
 - [ ] 79C. **缺陷普查 CLI F-077** [P2] DNS 判定与连接 TOCTOU / rebinding，默认无地址证据（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-077）
@@ -12312,9 +12310,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 82C. **缺陷普查 CLI F-081** [P2] ensure_in_app_data 对"末段悬空链接"与 canonicalize 失败 fail-open（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-081）
 - [ ] 83C. **缺陷普查 CLI F-082** [P2] clipboard_set 图片解码无长度/像素上限（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-082）
 - [ ] 84C. **缺陷普查 CLI F-083** [P2] clear_webview_cache 主线程递归删且"没删也报成功"（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-083）
-- [ ] 85C. **缺陷普查 CLI F-089** [P2] /memory search 丢弃向量通道（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-089）
-- [ ] 86C. **缺陷普查 CLI F-090** [P2] 压缩缓存键不含模型（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-090）
-- [ ] 87C. **缺陷普查 CLI F-092** [P2] TUI 转录无上限 + 每帧全量重排（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-092）
 - [ ] 89C. **缺陷普查 CLI F-072** [P3] 技能包配额在整包读入内存之后才生效（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-072）
 - [ ] 90C. **缺陷普查 CLI F-084** [P3] 异步命令体内做同步大 IO（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-084）
 - [ ] 91C. **缺陷普查 CLI F-085** [P3] 设置落盘失败只记日志，仍返回成功（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-085）
