@@ -26,7 +26,7 @@
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify'
 import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
-import { requireApiKeyAuth } from '../plugins/api-key-auth.js'
+import { requireApiKeyAuth, requireApiKeyQuota } from '../plugins/api-key-auth.js'
 import { requireCapabilityRules } from '../utils/capability-guard.js'
 import { error } from '../utils/response.js'
 // P0 第二批次(2026-07-31 立):rerank/moderations 计费集成
@@ -40,6 +40,9 @@ interface ApiKeyContext {
   permissions: string[]
   rateLimit: number
 }
+
+/** F-277:上游 rerank/moderations 请求超时 —— 上游挂起时按失败返回,不无限占用连接。 */
+const RERANK_MODERATION_TIMEOUT_MS = 60_000
 
 // =============================================================================
 // 类型定义(OpenAI/Cohere 兼容响应类型,inline 定义避免污染 @ihui/types)
@@ -161,7 +164,8 @@ const v1RerankModerations: FastifyPluginAsync = async (server) => {
           required: ['model', 'query', 'documents'],
         },
       },
-      preHandler: [requireApiKeyAuth, rerankCapabilityGate],
+      // F-277:计费端点漏挂 ApiKeyQuota ⇒ 单 Key 无上限消耗平台额度
+      preHandler: [requireApiKeyAuth, rerankCapabilityGate, requireApiKeyQuota()],
     },
     async (request, reply) => {
       const parsed = rerankSchema.safeParse(request.body)
@@ -191,6 +195,8 @@ const v1RerankModerations: FastifyPluginAsync = async (server) => {
             Authorization: `Bearer ${upstream.apiKey}`,
           },
           body: JSON.stringify(body),
+          // F-277:上游不响应时按超时失败,不再无限挂起
+          signal: AbortSignal.timeout(RERANK_MODERATION_TIMEOUT_MS),
         })
 
         if (!resp.ok) {
@@ -261,7 +267,8 @@ const v1RerankModerations: FastifyPluginAsync = async (server) => {
           required: ['input'],
         },
       },
-      preHandler: [requireApiKeyAuth, rerankCapabilityGate],
+      // F-277:计费端点漏挂 ApiKeyQuota ⇒ 单 Key 无上限消耗平台额度
+      preHandler: [requireApiKeyAuth, rerankCapabilityGate, requireApiKeyQuota()],
     },
     async (request, reply) => {
       const parsed = moderationsSchema.safeParse(request.body)
@@ -285,6 +292,8 @@ const v1RerankModerations: FastifyPluginAsync = async (server) => {
             Authorization: `Bearer ${upstream.apiKey}`,
           },
           body: JSON.stringify(body),
+          // F-277:上游不响应时按超时失败,不再无限挂起
+          signal: AbortSignal.timeout(RERANK_MODERATION_TIMEOUT_MS),
         })
 
         if (!resp.ok) {

@@ -24,7 +24,7 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import type { AuthenticatedApiKey } from '@ihui/types'
-import { requireApiKeyAuth } from '../plugins/api-key-auth.js'
+import { requireApiKeyAuth, requireApiKeyQuota } from '../plugins/api-key-auth.js'
 import { requireCapabilityRules } from '../utils/capability-guard.js'
 import { success, error } from '../utils/response.js'
 import { recordCall } from '../services/relay-billing-service.js'
@@ -116,10 +116,15 @@ function mapStatus(upstream: string): string {
   return upstream.toLowerCase()
 }
 
+/** 上游 MJ 请求超时(F-277):上游挂起时不再无限占用连接。 */
+const MJ_UPSTREAM_TIMEOUT_MS = 60_000
+
 /** 通用上游 fetch 封装:自动注入鉴权头,非 2xx 抛错。 */
 async function mjFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(mjUrl(path), {
     ...init,
+    // F-277:上游无响应时按超时失败,而不是让请求永远挂着
+    signal: init?.signal ?? AbortSignal.timeout(MJ_UPSTREAM_TIMEOUT_MS),
     headers: { ...mjHeaders(), ...(init?.headers as Record<string, string> | undefined) },
   })
   if (!res.ok) {
@@ -151,7 +156,9 @@ async function chargeMjCall(
   op: MjOpType,
   taskId: string,
 ): Promise<void> {
-  void recordCall({
+  // F-277:计费失败必须留痕。此前 `void recordCall(...).catch(() => {})` 把失败彻底吃掉,
+  // 上游已出图却扣不到钱(静默欠费)。这里等待结算并把失败降级为告警日志。
+  await recordCall({
     apiKeyId: apiKey.id,
     userId: apiKey.userId,
     model: 'midjourney-v6',
@@ -165,7 +172,13 @@ async function chargeMjCall(
     providerCode: 'midjourney',
     clientIp: '',
     metadata: { endpoint: `mj_${op}`, task_id: taskId },
-  }).catch(() => {})
+  }).catch((err: unknown) => {
+    console.warn('[v1/midjourney] charge failed', {
+      taskId,
+      op,
+      error: err instanceof Error ? err.message : String(err),
+    })
+  })
 }
 
 // =============================================================================
@@ -212,6 +225,13 @@ const midjourneyRoutes: FastifyPluginAsync = async (server) => {
       { methods: ['POST'], pattern: /^\/v1\/midjourney\//, scope: 'images:write' },
     ]),
   )
+  // F-277:生成类端点(最贵的一档)必须过 ApiKeyQuota —— 只挂鉴权 + 能力闸时,
+  // 单 Key 可以无限消耗平台 MJ 额度且先执行后扣费(欠费)。
+  const quotaGate = requireApiKeyQuota()
+  server.addHook('preHandler', async (request, reply) => {
+    if (request.method !== 'POST') return
+    return quotaGate.call(server, request, reply)
+  })
 
   // ===== 1. POST /v1/midjourney/imagine — 文生图提交 =====
   server.post('/v1/midjourney/imagine', async (request, reply) => {
@@ -251,7 +271,7 @@ const midjourneyRoutes: FastifyPluginAsync = async (server) => {
       }
       // 计费(桩)
       const apiKey = request.apiKey!
-      void chargeMjCall(apiKey, 'imagine', data.result)
+      await chargeMjCall(apiKey, 'imagine', data.result)
 
       const payload: MjSubmitData = { task_id: data.result, status: 'submitted' }
       return reply.send(success(payload))
@@ -317,7 +337,7 @@ const midjourneyRoutes: FastifyPluginAsync = async (server) => {
       }
       // 计费:按 action_type 折算 unit(upscale=0.5, variation/reroll=1)
       const apiKey = request.apiKey!
-      void chargeMjCall(apiKey, b.action_type, data.result)
+      await chargeMjCall(apiKey, b.action_type, data.result)
 
       const payload: MjSubmitData = { task_id: data.result, status: 'submitted' }
       return reply.send(success(payload))
@@ -354,7 +374,7 @@ const midjourneyRoutes: FastifyPluginAsync = async (server) => {
       }
       // 计费:upscale = 0.5 unit
       const apiKey = request.apiKey!
-      void chargeMjCall(apiKey, 'upscale', data.result)
+      await chargeMjCall(apiKey, 'upscale', data.result)
 
       const payload: MjSubmitData = { task_id: data.result, status: 'submitted' }
       return reply.send(success(payload))
