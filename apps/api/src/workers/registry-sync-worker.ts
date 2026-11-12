@@ -235,6 +235,12 @@ export function startRegistrySyncWorker(server: FastifyInstance): Worker {
         }
       }
 
+      // F-497: 全量 upsert 失败 / 来源拉取失败不得让 BullMQ 记 completed。
+      // sync_log 已记 fail、trigger 已标 failed,这里必须抛错让 worker 的 failed 事件可见。
+      if (status === 'fail') {
+        throw new Error(`registry-sync: 同步失败 ${errorMessage ?? '无错误信息'}`)
+      }
+
       if (deduped > 0) {
         // 上游分页重叠的可见性(2026-10-25 宕因):去重救了整批,但"上游在同一轮里换了序"
         // 这件事必须留一行 —— 下次谁改这段,量得到它还会发生。
