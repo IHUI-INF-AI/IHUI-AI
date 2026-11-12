@@ -264,7 +264,11 @@ async function preflightTraeDeviceMatch(
       const r = await fetch(proto.TRAE_CHECK_LOGIN_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-cloudide-token': dec.token },
-        body: JSON.stringify({ IDEVersion: proto.TRAE_IDE_VERSION, ReqSource: 'IDE', GetAIPayHost: true }),
+        body: JSON.stringify({
+          IDEVersion: proto.TRAE_IDE_VERSION,
+          ReqSource: 'IDE',
+          GetAIPayHost: true,
+        }),
       })
       if (r.ok) {
         const body = (await r.json().catch(() => null)) as Record<string, unknown> | null
@@ -290,8 +294,7 @@ async function preflightTraeDeviceMatch(
   if (!dec.refreshToken) {
     return {
       decision: 'rejected',
-      reason:
-        '池内该号既没有可用 token 也没有 refreshToken:客户端启动无从登录,不能写回',
+      reason: '池内该号既没有可用 token 也没有 refreshToken:客户端启动无从登录,不能写回',
     }
   }
   const dev = ex.extractDeviceMaterial(store) as {
@@ -339,7 +342,8 @@ async function preflightTraeDeviceMatch(
     }
     const text = await res.text().catch(() => '')
     if (res.ok) {
-      let payload: { token?: string; refreshToken?: string; expiresAt?: Date | null } | null = null
+      let payload: { token: string; refreshToken: string | null; expiresAt: Date | null } | null =
+        null
       try {
         payload = proto.extractTokenPayload(JSON.parse(text))
       } catch {
@@ -466,14 +470,23 @@ async function persistPreflightTicket(
  * 一份独立的安全备份里(仓外,0600 语义),并在报告里点名路径 —— 这样即使池侧
  * 丢了,人还能拿它救回来。绝不把"新票没落库"写成无害告警。
  */
-function salvageRotatedTicket(uid: string, r: { token: string; refreshToken: string | null; expiresAt: Date | null }): string {
+function salvageRotatedTicket(
+  uid: string,
+  r: { token: string; refreshToken: string | null; expiresAt: Date | null },
+): string {
   const dir = path.join(ROOT, 'logs', 'rotated-tickets')
   fs.mkdirSync(dir, { recursive: true })
   const file = path.join(dir, `${uid}-${Date.now()}.json`)
   fs.writeFileSync(
     file,
     JSON.stringify(
-      { uid, token: r.token, refreshToken: r.refreshToken, expiresAt: r.expiresAt, savedAt: new Date().toISOString() },
+      {
+        uid,
+        token: r.token,
+        refreshToken: r.refreshToken,
+        expiresAt: r.expiresAt,
+        savedAt: new Date().toISOString(),
+      },
       null,
       2,
     ),
@@ -531,7 +544,10 @@ async function verifyClientAccepted(
     await sleep(500)
   }
   if (touched) {
-    return { verdict: 'accepted', detail: `${Math.round(waitMs / 1000)}s 内客户端重写过 storage.json 且信封仍是目标号` }
+    return {
+      verdict: 'accepted',
+      detail: `${Math.round(waitMs / 1000)}s 内客户端重写过 storage.json 且信封仍是目标号`,
+    }
   }
   return {
     verdict: 'unobserved',
@@ -667,7 +683,9 @@ export async function main(argv: string[]): Promise<number> {
       (dec.sessionTemplate as Record<string, unknown> | null)?.account ??
       null
     const storeRegion =
-      account && typeof account === 'object' ? String((account as Record<string, unknown>).storeRegion ?? '') : ''
+      account && typeof account === 'object'
+        ? String((account as Record<string, unknown>).storeRegion ?? '')
+        : ''
     if (storeRegion.trim() !== '') {
       profileHeal = { ok: true, note: 'already-complete' }
       steps.push('profile-already-complete')
@@ -683,7 +701,10 @@ export async function main(argv: string[]): Promise<number> {
         eq,
       })
       if (healed.repaired.length > 0) {
-        profileHeal = { ok: true, note: `repaired(region=${healed.repaired[0].account?.storeRegion})` }
+        profileHeal = {
+          ok: true,
+          note: `repaired(region=${healed.repaired[0].account?.storeRegion})`,
+        }
         steps.push('profile-healed-from-upstream')
         report.profileHeal = healed.repaired[0]
         // 档案变了 ⇒ 重建写回原料(userInfo 的 account 段来自 profile)
@@ -704,7 +725,8 @@ export async function main(argv: string[]): Promise<number> {
         profileHeal = { ok: false, note: why }
         steps.push('warn-profile-heal-failed')
         process.stderr.write(
-          `⚠️ 档案自愈未成:${why}\n` + '   该号写回后客户端可能判 need-update 并当场登出,由客户端验收兜底。\n',
+          `⚠️ 档案自愈未成:${why}\n` +
+            '   该号写回后客户端可能判 need-update 并当场登出,由客户端验收兜底。\n',
         )
       }
     }
@@ -726,7 +748,11 @@ export async function main(argv: string[]): Promise<number> {
     process.stderr.write(`❌ 读 storage.json 失败(未判定): ${String(e)}\n`)
     return 2
   }
-  const pre = await preflightTraeDeviceMatch(dec, preflightStore)
+  // decodePoolRow 的成功分支形状(已在上方 error 分支 return):收窄成预检入参
+  const pre = await preflightTraeDeviceMatch(
+    dec as { token?: string; refreshToken: string | null },
+    preflightStore,
+  )
   if (pre.decision === 'rejected') {
     steps.push('abort-preflight-device-mismatch')
     report.outcome = 'rejected-preflight'
@@ -784,8 +810,10 @@ export async function main(argv: string[]): Promise<number> {
   }
   /** 写回用的票:预检换出新票就用新票,否则用池里原票(客户端会自己拿 rt 换) */
   const writeToken = pre.decision === 'ok' ? pre.token : dec.token
-  const writeRefreshToken = pre.decision === 'ok' ? (pre.refreshToken ?? dec.refreshToken) : dec.refreshToken
-  const writeExpiresAt = pre.decision === 'ok' ? (pre.expiresAt ?? row.tokenExpiresAt) : row.tokenExpiresAt
+  const writeRefreshToken =
+    pre.decision === 'ok' ? (pre.refreshToken ?? dec.refreshToken) : dec.refreshToken
+  const writeExpiresAt =
+    pre.decision === 'ok' ? (pre.expiresAt ?? row.tokenExpiresAt) : row.tokenExpiresAt
 
   const runningPids = sw.isProductRunning(product)
   if (runningPids === null) {
@@ -913,7 +941,8 @@ export async function main(argv: string[]): Promise<number> {
       )
       vscdbLeftover.files = 1 + wsFiles.length
       vscdbLeftover.leftoverOldKeys =
-        Number(g.leftoverOldKeys ?? 0) + wsResults.reduce((a, b) => a + Number(b.leftoverOldKeys ?? 0), 0)
+        Number(g.leftoverOldKeys ?? 0) +
+        wsResults.reduce((a, b) => a + Number(b.leftoverOldKeys ?? 0), 0)
       report.vscdb = { global: g, workspace: w, leftoverOldKeys: vscdbLeftover.leftoverOldKeys }
       steps.push('rebind-vscdb')
 
@@ -1089,8 +1118,8 @@ export async function main(argv: string[]): Promise<number> {
             dllPath: dllNow,
             tables: ['project', 'user_configuration'],
           })
-          const bad = Object.entries(owner).filter(
-            ([, uids]) => uids.some((u) => u && u !== oldUid),
+          const bad = Object.entries(owner as Record<string, string[]>).filter(([, uids]) =>
+            uids.some((u) => u && u !== oldUid),
           )
           report.rollbackOwnerCheck = {
             expected: oldUid,
@@ -1136,9 +1165,7 @@ export async function main(argv: string[]): Promise<number> {
   if (!o.noLaunch && !(report.launch as any)?.launched) {
     process.stderr.write('   ⚠️ 客户端没能自动拉起,手工打开 Trae 即生效。\n')
   }
-  if (
-    (report.clientAcceptance as { verdict?: string } | undefined)?.verdict === 'unobserved'
-  ) {
+  if ((report.clientAcceptance as { verdict?: string } | undefined)?.verdict === 'unobserved') {
     process.stderr.write(
       '   ℹ️ 客户端 15s 内没重写 storage.json:登录成功但无变更,或启动较慢 —— 打开界面核对一下当前账号。\n',
     )
