@@ -14,7 +14,7 @@
  * 6. POST /payments/recurring/scan-and-charge      — 定时扣款任务(admin 触发)
  */
 
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsync, FastifyRequest } from 'fastify'
 import { env } from 'node:process'
 import { z } from 'zod'
 import { eq, and, inArray } from 'drizzle-orm'
@@ -97,6 +97,27 @@ async function setUserVipAutoRenew(userId: string, autoRenew: 0 | 1): Promise<vo
 // =============================================================================
 
 export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
+  // ==========================================================================
+  // F-399:回调验签必须基于原始报文字节(同 payment-extended F-16 口径)。
+  // 默认 JSON 解析器只给对象,JSON.stringify(request.body) 是「重序列化」:
+  // 键序/空白/转义与原始字节不一致 → 微信 V3 平台签名永远对不上,
+  // 签名校验实际失效(放行伪造回调或验签形同虚设)。
+  // parseAs:'buffer' 把原始字节挂在 request.rawBody,解析器只作用于本插件作用域。
+  // ==========================================================================
+  server.removeContentTypeParser('application/json')
+  server.addContentTypeParser('application/json', { parseAs: 'buffer' }, (req, body, done) => {
+    const raw = (body as Buffer).toString('utf8')
+    ;(req as FastifyRequest & { rawBody?: string }).rawBody = raw
+    if (!raw) {
+      done(null, undefined)
+      return
+    }
+    try {
+      done(null, JSON.parse(raw))
+    } catch (err) {
+      done(err as Error)
+    }
+  })
   // ==========================================================================
   // 1. POST /payments/recurring/sign - 发起签约
   //
@@ -442,11 +463,18 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
         const timestamp = request.headers['wechatpay-timestamp'] as string
         const nonce = request.headers['wechatpay-nonce'] as string
         const signature = request.headers['wechatpay-signature'] as string
-        const rawBody = JSON.stringify(request.body)
+        // F-399:验签原文只能是解析器捕获的原始报文字节(request.rawBody)。
+        // 原写法 JSON.stringify(request.body) 是「重序列化」:键序/空白/转义与原始字节
+        // 不一致,微信 V3 平台签名必然对不上 ⇒ 验签失效。缺失即拒绝(fail-closed,同 F-16)。
+        const carriedRawBody = (request as FastifyRequest & { rawBody?: string }).rawBody
         const body = request.body as Record<string, unknown>
 
         if (timestamp && nonce && signature) {
-          const valid = verifyCallbackSignature(timestamp, nonce, rawBody, signature)
+          if (carriedRawBody === undefined) {
+            request.log.warn('recurring callback missing raw body for signature verification')
+            return reply.code(400).send({ code: 'FAIL', message: '缺少原始报文,无法验签' })
+          }
+          const valid = verifyCallbackSignature(timestamp, nonce, carriedRawBody, signature)
           if (!valid) {
             request.log.warn('recurring callback signature verification failed')
             return reply.code(401).send({ code: 'FAIL', message: '签名验证失败' })
@@ -530,7 +558,7 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
           notificationType,
           contractId: contractId || null,
           resultCode,
-          rawXml: rawBody,
+          rawXml: carriedRawBody ?? JSON.stringify(request.body ?? {}),
           status: 0,
         })
 
