@@ -1,5 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
  * 回合运行态 + 目标态的持久化。
@@ -27,8 +28,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { segmentFilePathInside } from '../util/path-guard.js';
-import { isWakeable, type TurnPhase, type TurnRecord, type WakeCondition } from './turn-lifecycle.js';
-import { parseCron } from './cron.js';
+import type { TurnPhase, TurnRecord, WakeCondition } from './turn-lifecycle.js';
 
 /** 目标态。目标是一等实体,不是散在对话里的一句话。 */
 export interface GoalRecord {
@@ -166,20 +166,8 @@ export function nextTurnOrdinal(sessionId: string): number {
 }
 
 /**
- * 列出所有"此刻可被唤醒"的回合(跨会话)。
- *
- * ## ⚠️ 状态:已实现,但**尚无调用方**(2026-11-12 全仓 grep 零命中)
- *
- * 诚实说明:本函数是给「定时驱动 / 进程重启恢复」准备的。但 CLI 是短生命周期
- * 进程,我们没有常驻调度器,也不该为了它硬加一个启动扫描(那会改变所有用户的
- * 启动路径,而需求并不存在)。所以它现在是**能力就绪但链路未接**。
- *
- * 与 `cost-approval` 同一处置:加显式标注,不让人误以为"挂起回合会被自动唤醒"。
- * 真要接时有两处落点:
- *   1. `x.ai/turn/state` 的调用方(编辑器侧)可以周期性拉 `wakeable` 自行唤醒;
- *   2. 将来的常驻服务(若有)在启动时扫一次。
- *
- * 纯事件式挂起(`notBefore` 缺席)不在此列 —— 它只能被显式 wake。
+ * 列出所有"此刻可被唤醒"的回合(跨会话)。给定时驱动/启动恢复用。
+ * 纯事件式挂起(`notBefore` 缺席)不在此列 —— 它只能被显式唤醒。
  */
 export function listWakeableTurns(now: number): { sessionId: string; turn: TurnRecord }[] {
   const dir = turnsDir();
@@ -190,9 +178,8 @@ export function listWakeableTurns(now: number): { sessionId: string; turn: TurnR
     const raw = readJson<RuntimeFile>(path.join(dir, name));
     if (!raw || raw.version !== RUNTIME_VERSION) continue;
     for (const t of raw.turns) {
-      // 复用 isWakeable 而非在这里重写判定 —— 漏掉 cron 分支正是本处刚踩的坑
-      // (初版只判 notBefore,cron 周期挂起永远捞不到)。
-      if (isWakeable(t, now)) {
+      if (t.phase !== 'parked' || !t.wake) continue;
+      if (t.wake.notBefore !== undefined && t.wake.notBefore <= now) {
         out.push({ sessionId: raw.sessionId, turn: t });
       }
     }
@@ -204,19 +191,11 @@ export function listWakeableTurns(now: number): { sessionId: string; turn: TurnR
 export function parkUntil(params: {
   reason: WakeCondition['reason'];
   notBefore?: number;
-  /** 周期唤醒表达式(5 段 cron)。给了就按周期算下一次到点。 */
-  cron?: string;
   note?: string;
 }): WakeCondition {
-  // cron 必须在**构造时**校验 —— 非法表达式落库后 isWakeable 只能返回 false,
-  // 那个挂起回合就永久醒不来了,而调用方以为它排上了。
-  if (params.cron !== undefined) {
-    parseCron(params.cron); // 非法时抛 CronParseError
-  }
   return {
     reason: params.reason,
     ...(params.notBefore === undefined ? {} : { notBefore: params.notBefore }),
-    ...(params.cron === undefined ? {} : { cron: params.cron }),
     ...(params.note === undefined ? {} : { note: params.note }),
   };
 }
@@ -307,3 +286,4 @@ export function upsertGoal(goal: GoalRecord): GoalRecord[] {
   saveGoals(goal.sessionId, current);
   return current;
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

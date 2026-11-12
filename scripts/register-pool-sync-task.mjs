@@ -35,37 +35,52 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const TASK_NAME = 'IHUI-Pool-Sync'
+/** 本机重新提取兜底任务(2026-11-12 立)。命名沿用 IHUI-Pool-* 家族。 */
+export const REEXTRACT_TASK_NAME = 'IHUI-Pool-Local-Reextract'
 const SYNC_SCRIPT = path.join(ROOT, 'scripts', 'relay-account-pool-sync.mjs')
+const REEXTRACT_SCRIPT = path.join(ROOT, 'scripts', 'relay-account-local-reextract.mjs')
 const LOG_DIR = path.join(ROOT, '.tmp')
 const LOG_FILE = path.join(LOG_DIR, 'pool-sync.log')
+/** reextract 会 spawn 本机客户端做提取,不宜高频:每天 09:10 一次(机主建议)。 */
+const REEXTRACT_DAILY_TIME = '09:10'
 
-const HELP = `号池跨环境自动同步 · Windows 计划任务管理
+const HELP = `号池跨环境自动同步 + 本机重新提取兜底 · Windows 计划任务管理
 
 用法:
   node scripts/register-pool-sync-task.mjs --register [--interval 2] [--dry-run-task]
-  node scripts/register-pool-sync-task.mjs --query
-  node scripts/register-pool-sync-task.mjs --unregister
-  node scripts/register-pool-sync-task.mjs --run-now
+  node scripts/register-pool-sync-task.mjs --register-reextract [--dry-run-task]
+  node scripts/register-pool-sync-task.mjs --query [--reextract]
+  node scripts/register-pool-sync-task.mjs --unregister [--reextract]
+  node scripts/register-pool-sync-task.mjs --run-now [--reextract]
 
 说明:
-  · 任务每 <interval> 分钟跑一次 sync --if-dirty --apply --quiet;
-  · 没有变更标记时立即退出(零开销),有标记才做两端全量对账;
+  · --register     注册号池跨环境同步任务 IHUI-Pool-Sync,每 <interval> 分钟跑 sync --if-dirty --apply --quiet;
+  · --register-reextract 注册本机重新提取兜底任务 IHUI-Pool-Local-Reextract,每天 ${REEXTRACT_DAILY_TIME} 跑
+                     relay-account-local-reextract --apply(refreshable=false 且已知到期进入窗口的平台做本机提取);
+  · 带目标开关(--reextract)时,--query/--unregister/--run-now 作用于 reextract 任务,否则作用于同步任务;
+  · --dry-run-task 只打印将注册的 PowerShell,不写系统计划任务;
+  · 没有变更标记时 sync 立即退出(零开销),有标记才做两端全量对账;
   · Execute 优先选**路径稳定**的 node(系统安装 → 用户级安装 → 当前进程),
     逐个校验主版本达 engines 下限;绝不把带版本号的目录写死进任务(升级即失效);
-  · 日志由脚本 --log 追加到 .tmp/pool-sync.log(只在真有动作时写一行);
+  · 日志由 sync 脚本 --log 追加到 .tmp/pool-sync.log(只在真有动作时写一行);reextract 无 --log,
+    排查看任务计划程序「上次运行时间/结果」;
   · 健康自检不在这里:node scripts/relay-account-pool-sync.mjs --status(任务状态+执行面+日志+脏标记+生产 checkout+tsx);
   · schtasks.exe 在本机被安全策略黑名单,本脚本走 PowerShell ScheduledTasks 模块。`
 
 function parseArgs(argv) {
-  const options = { action: 'query', interval: 2, dryRunTask: false }
+  const options = { action: 'query', interval: 2, dryRunTask: false, target: 'sync' }
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]
     if (arg === '--help' || arg === '-h') options.action = 'help'
     else if (arg === '--register') options.action = 'register'
-    else if (arg === '--unregister') options.action = 'unregister'
+    else if (arg === '--register-reextract') {
+      options.action = 'register'
+      options.target = 'reextract'
+    } else if (arg === '--unregister') options.action = 'unregister'
     else if (arg === '--query') options.action = 'query'
     else if (arg === '--run-now') options.action = 'run-now'
     else if (arg === '--dry-run-task') options.dryRunTask = true
+    else if (arg === '--reextract') options.target = 'reextract'
     else if (arg === '--interval') {
       const v = Number((argv[++i] ?? '').trim())
       if (!Number.isFinite(v) || v < 1) return { options: null, error: '--interval 需要 >= 1 的分钟数' }
@@ -76,7 +91,7 @@ function parseArgs(argv) {
 }
 
 /** 跑一段 PowerShell(本机 schtasks.exe 被程序黑名单拦截,只能用 ScheduledTasks 模块)。 */
-function ps(script) {
+export function ps(script) {
   try {
     const out = execFileSync(
       'powershell.exe',
@@ -91,7 +106,7 @@ function ps(script) {
   }
 }
 
-const psQuote = (s) => `'${String(s).replace(/'/g, "''")}'`
+export const psQuote = (s) => `'${String(s).replace(/'/g, "''")}'`
 
 /** engines 下限(与 package.json 的 `>=22.13.0` 同源判据:只看主版本,不复制具体补丁号)。 */
 const MIN_NODE_MAJOR = 22
@@ -110,7 +125,7 @@ const MIN_NODE_MAJOR = 22
  * 每个候选都必须真跑一次 `--version` 且主版本达 engines 下限 —— 存在但太老的 node 不能用,
  * 否则会把"能启动但语法不认"的失败引进任务里。
  */
-function resolveStableNode() {
+export function resolveStableNode() {
   const candidates = [
     { path: 'C:\\Program Files\\nodejs\\node.exe', source: '系统安装(nodejs 官方安装包)' },
     { path: path.join(process.env['LOCALAPPDATA'] ?? '', 'Programs', 'nodejs', 'node.exe'), source: '用户级安装' },
@@ -145,38 +160,54 @@ function buildTaskArgument() {
   return `"${SYNC_SCRIPT}" --if-dirty --apply --all-owners --quiet --log "${LOG_FILE}"`
 }
 
+/** reextract 兜底任务的命令行:--apply 真正落库+推生产,人读格式写进注册器自己的日志。 */
+function buildReextractTaskArgument() {
+  return `"${REEXTRACT_SCRIPT}" --apply`
+}
+
+/** 每日触发器的 StartBoundary(今天 <HH:mm>,若已过则今天仍注册、明天生效)。 */
+function todayAt(time) {
+  return `(Get-Date).Date.Add('${time}').ToString('yyyy-MM-ddTHH:mm:ss')`
+}
+
 // —— COM 兼容层:PowerShell 7 无 ScheduledTasks 模块,改用 Schedule.Service COM(本机实际环境) ——
-function comRegisterScript(nodeExe, arg, interval) {
+// spec: { taskName, description, trigger:{kind:'interval',minutes}|{kind:'daily',time}, startBoundaryExpr }
+function comRegisterScript(nodeExe, arg, spec) {
+  const trigInit =
+    spec.trigger.kind === 'daily'
+      ? `$trig.StartBoundary=${spec.startBoundaryExpr}
+$trig.DaysInterval=1`
+      : `$trig.StartBoundary=(Get-Date).AddMinutes(1).ToString('yyyy-MM-ddTHH:mm:ss')
+$trig.Repetition.Interval='PT${spec.trigger.minutes}M'
+$trig.Repetition.Duration='P3650D'
+$trig.Repetition.StopAtDurationEnd=$true`
   return `
 $ErrorActionPreference='Stop'
 $s=New-Object -ComObject Schedule.Service
 $s.Connect()
 $root=$s.GetFolder('\\')
 $td=$s.NewTask(0)
-$td.RegistrationInfo.Description='号池跨环境双向自动同步(本地<->生产,脏标记驱动)'
+$td.RegistrationInfo.Description='${spec.description}'
 $trig=$td.Triggers.Create(1)
-$trig.StartBoundary=(Get-Date).AddMinutes(1).ToString('yyyy-MM-ddTHH:mm:ss')
-$trig.Repetition.Interval='PT${interval}M'
-$trig.Repetition.Duration='P3650D'
-$trig.Repetition.StopAtDurationEnd=$true
+${trigInit}
 $act=$td.Actions.Create(0)
 $act.Path='${nodeExe}'
 $act.Arguments='${arg}'
 $act.WorkingDirectory='${ROOT}'
 $user=$env:USERNAME
-$t=$root.RegisterTaskDefinition('IHUI-Pool-Sync', $td, 6, $user, $null, 2)
+$t=$root.RegisterTaskDefinition('${spec.taskName}', $td, 6, $user, $null, 2)
 $t.Enabled=$true
 Write-Output 'REGISTERED'
 `.trim()
 }
 
-function comQueryScript() {
+function comQueryScript(taskName) {
   return `
 $ErrorActionPreference='Stop'
 $s=New-Object -ComObject Schedule.Service
 $s.Connect()
 $f=$s.GetFolder('\\')
-$t=$f.GetTask('IHUI-Pool-Sync')
+$t=$f.GetTask('${taskName}')
 $act=$t.Definition.Actions.Item(1)
 $stateMap=@{0='Unknown';1='Disabled';2='Queued';3='Ready';4='Running'}
 Write-Output ('STATE='+$stateMap[[int]$t.State])
@@ -187,27 +218,92 @@ Write-Output ('LASTRESULT=0x'+('{0:X}' -f [int]$t.LastTaskResult))
 `.trim()
 }
 
-function comUnregisterScript() {
+function comUnregisterScript(taskName) {
   return `
 $ErrorActionPreference='Stop'
 $s=New-Object -ComObject Schedule.Service
 $s.Connect()
 $f=$s.GetFolder('\\')
-$f.DeleteTask('IHUI-Pool-Sync', 0)
+$f.DeleteTask('${taskName}', 0)
 Write-Output 'DELETED'
 `.trim()
 }
 
-function comRunNowScript() {
+function comRunNowScript(taskName) {
   return `
 $ErrorActionPreference='Stop'
 $s=New-Object -ComObject Schedule.Service
 $s.Connect()
 $f=$s.GetFolder('\\')
-$t=$f.GetTask('IHUI-Pool-Sync')
+$t=$f.GetTask('${taskName}')
 $t.Run($null)
 Write-Output 'STARTED'
 `.trim()
+}
+
+/**
+ * 注册 reextract 兜底任务(每日 09:10 一次;2026-11-12 立)。
+ * 与 sync 任务同一套 node 选择 / PowerShell→COM 回退;幂等靠 -Force / RegisterTaskDefinition 覆盖。
+ */
+function doRegisterReextract(options) {
+  if (!fs.existsSync(REEXTRACT_SCRIPT)) {
+    process.stderr.write(`❌ 兜底脚本不存在: ${REEXTRACT_SCRIPT}\n`)
+    return 2
+  }
+  const picked = resolveStableNode()
+  if (!picked.node) {
+    process.stderr.write(
+      `❌ 找不到可用的 node(需 v${MIN_NODE_MAJOR}+):\n` +
+        picked.rejected.map((r) => `   · ${r}`).join('\n') + '\n',
+    )
+    return 2
+  }
+  const nodeExe = picked.node
+  const arg = buildReextractTaskArgument()
+  const spec = {
+    taskName: REEXTRACT_TASK_NAME,
+    description: '无刷新协议平台的「本机重新提取」兜底(每日 09:10,refreshable=false 且到期进入窗口)',
+    trigger: { kind: 'daily', time: REEXTRACT_DAILY_TIME },
+    startBoundaryExpr: todayAt(REEXTRACT_DAILY_TIME),
+  }
+  if (options.dryRunTask) {
+    process.stdout.write(
+      `[dry-run] Register-ScheduledTask -TaskName ${psQuote(spec.taskName)}\n` +
+        `  -Execute ${psQuote(nodeExe)}\n  -Argument ${psQuote(arg)}\n` +
+        `  -WorkingDirectory ${psQuote(ROOT)}\n  -Trigger 每日 ${REEXTRACT_DAILY_TIME}\n` +
+        `  node 来源: ${picked.source} / ${picked.version}\n`,
+    )
+    return 0
+  }
+  const script = `
+$ErrorActionPreference = 'Stop'
+$action = New-ScheduledTaskAction -Execute ${psQuote(nodeExe)} -Argument ${psQuote(arg)} -WorkingDirectory ${psQuote(ROOT)}
+$trigger = New-ScheduledTaskTrigger -Daily -At ${spec.startBoundaryExpr}
+$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Minutes 30) -MultipleInstances IgnoreNew
+Register-ScheduledTask -TaskName ${psQuote(spec.taskName)} -Action $action -Trigger $trigger -Settings $settings -Description ${psQuote(spec.description)} -Force | Out-Null
+Write-Output 'REGISTERED'
+`.trim()
+  let r = ps(script)
+  if (!r.ok || !/REGISTERED/.test(r.text)) {
+    // PS7 无 ScheduledTasks 模块:退回 Schedule.Service COM
+    r = ps(comRegisterScript(nodeExe, arg, spec))
+  }
+  if (!r.ok || !/REGISTERED/.test(r.text)) {
+    process.stderr.write(`❌ 注册失败: ${r.text}\n`)
+    return 1
+  }
+  process.stdout.write(`✅ 已注册计划任务 ${spec.taskName}(每日 ${REEXTRACT_DAILY_TIME})\n`)
+  process.stdout.write(
+    `   Execute : ${nodeExe}\n   node 来源: ${picked.source} / ${picked.version}\n` +
+      `   Argument: ${arg}\n`,
+  )
+  if (picked.source.includes('版本目录')) {
+    process.stdout.write(
+      '   ⚠️ 用的是 WorkBuddy 内置 node(路径含版本目录):WorkBuddy 升级 Node 后此路径可能失效,\n' +
+        '      届时重跑本命令即可。\n',
+    )
+  }
+  return 0
 }
 
 function doRegister(options) {
@@ -244,10 +340,15 @@ $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoi
 Register-ScheduledTask -TaskName ${psQuote(TASK_NAME)} -Action $action -Trigger $trigger -Settings $settings -Description '号池跨环境双向自动同步(本地<->生产,脏标记驱动)' -Force | Out-Null
 Write-Output 'REGISTERED'
 `.trim()
+  const syncSpec = {
+    taskName: TASK_NAME,
+    description: '号池跨环境双向自动同步(本地<->生产,脏标记驱动)',
+    trigger: { kind: 'interval', minutes: options.interval },
+  }
   let r = ps(script)
   if (!r.ok || !/REGISTERED/.test(r.text)) {
     // PS7 无 ScheduledTasks 模块:退回 Schedule.Service COM
-    r = ps(comRegisterScript(nodeExe, arg, options.interval))
+    r = ps(comRegisterScript(nodeExe, arg, syncSpec))
   }
   if (!r.ok || !/REGISTERED/.test(r.text)) {
     process.stderr.write(`❌ 注册失败: ${r.text}\n`)
@@ -267,10 +368,11 @@ Write-Output 'REGISTERED'
   return 0
 }
 
-function doQuery() {
+function doQuery(options) {
+  const name = options?.target === 'reextract' ? REEXTRACT_TASK_NAME : TASK_NAME
   const script = `
 $ErrorActionPreference = 'Stop'
-$t = Get-ScheduledTask -TaskName ${psQuote(TASK_NAME)}
+$t = Get-ScheduledTask -TaskName ${psQuote(name)}
 $i = $t | Get-ScheduledTaskInfo
 Write-Output ('STATE=' + $t.State)
 Write-Output ('EXEC=' + $t.Actions[0].Execute)
@@ -281,46 +383,51 @@ Write-Output ('LASTRESULT=0x' + ('{0:X}' -f $i.LastTaskResult))
   let r = ps(script)
   if (!r.ok) {
     // PS7 无 ScheduledTasks 模块:退回 Schedule.Service COM
-    r = ps(comQueryScript())
+    r = ps(comQueryScript(name))
   }
   if (!r.ok) {
-    process.stdout.write(`未安装:计划任务 ${TASK_NAME} 不存在(或查询失败)\n`)
+    process.stdout.write(`未安装:计划任务 ${name} 不存在(或查询失败)\n`)
     return 0
   }
-  process.stdout.write(`任务 ${TASK_NAME}:\n`)
+  process.stdout.write(`任务 ${name}:\n`)
   for (const line of r.text.split(/\r?\n/).filter(Boolean)) process.stdout.write(`  ${line}\n`)
   return 0
 }
 
-function doUnregister() {
+function doUnregister(options) {
+  const name = options?.target === 'reextract' ? REEXTRACT_TASK_NAME : TASK_NAME
   let r = ps(
-    `$ErrorActionPreference='Stop'; Unregister-ScheduledTask -TaskName ${psQuote(TASK_NAME)} -Confirm:$false; Write-Output 'DELETED'`,
+    `$ErrorActionPreference='Stop'; Unregister-ScheduledTask -TaskName ${psQuote(name)} -Confirm:$false; Write-Output 'DELETED'`,
   )
   if (!r.ok) {
     // PS7 无 ScheduledTasks 模块:退回 Schedule.Service COM
-    r = ps(comUnregisterScript())
+    r = ps(comUnregisterScript(name))
   }
   if (!r.ok) {
     process.stdout.write(`未删除(可能本就不存在): ${r.text}\n`)
     return 0
   }
-  process.stdout.write(`✅ 已注销计划任务 ${TASK_NAME}\n`)
+  process.stdout.write(`✅ 已注销计划任务 ${name}\n`)
   return 0
 }
 
-function doRunNow() {
+function doRunNow(options) {
+  const name = options?.target === 'reextract' ? REEXTRACT_TASK_NAME : TASK_NAME
   let r = ps(
-    `$ErrorActionPreference='Stop'; Start-ScheduledTask -TaskName ${psQuote(TASK_NAME)}; Write-Output 'STARTED'`,
+    `$ErrorActionPreference='Stop'; Start-ScheduledTask -TaskName ${psQuote(name)}; Write-Output 'STARTED'`,
   )
   if (!r.ok || !/STARTED/.test(r.text)) {
     // PS7 无 ScheduledTasks 模块:退回 Schedule.Service COM
-    r = ps(comRunNowScript())
+    r = ps(comRunNowScript(name))
   }
   if (!r.ok || !/STARTED/.test(r.text)) {
     process.stderr.write(`❌ 触发失败(任务未注册?): ${r.text}\n`)
     return 1
   }
-  process.stdout.write(`✅ 已触发 ${TASK_NAME}(结果看 ${LOG_FILE})\n`)
+  const logHint = options?.target === 'reextract'
+    ? `(无 --log,结果看 Windows 任务计划程序「上次运行时间/结果」)`
+    : `(结果看 ${LOG_FILE})`
+  process.stdout.write(`✅ 已触发 ${name} ${logHint}\n`)
   return 0
 }
 
@@ -336,13 +443,13 @@ function main(argv) {
       process.stdout.write(`${HELP}\n`)
       return 0
     case 'register':
-      return doRegister(options)
+      return options.target === 'reextract' ? doRegisterReextract(options) : doRegister(options)
     case 'unregister':
-      return doUnregister()
+      return doUnregister(options)
     case 'run-now':
-      return doRunNow()
+      return doRunNow(options)
     default:
-      return doQuery()
+      return doQuery(options)
   }
 }
 
