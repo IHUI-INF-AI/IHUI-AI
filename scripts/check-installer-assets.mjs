@@ -72,6 +72,7 @@ if (isDirectRun) {
     const gen = spawnSync(process.execPath, [join(ROOT, 'scripts/desktop-installer-assets.mjs')], {
       cwd: ROOT,
       stdio: 'inherit',
+      windowsHide: true,
     })
     if (gen.status !== 0) {
       console.error(`[check-installer-assets] 资产生成失败(exit ${String(gen.status)})`)
