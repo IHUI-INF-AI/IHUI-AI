@@ -47,6 +47,19 @@ import {
   postFormResponse,
 } from '@ihui/api-client'
 import { formatTokenCount } from '@ihui/shared/utils'
+// D4(2026-11-12 修"逐 token setData 风暴"):打字机合帧泵与 web/RN 同源(三端单一真相源)
+import { createSmoothDeltaBatcher } from '@ihui/shared/utils/smooth-delta-batcher'
+// D4(2026-11-12):跟底判据与 RN 同源(shared/chat/stream-follow)—— 回退即交还滚动权。
+// 旧实现每 token 强制拽底:流式期间用户根本滑不动,与 web 端"上滑即交还"完全相反。
+import {
+  initialStreamFollowState,
+  readScrollEventTop,
+  reduceStreamFollowOnReachBottom,
+  reduceStreamFollowOnScroll,
+  resetStreamFollowForNewRound,
+  shouldStickToBottom,
+  type StreamFollowState,
+} from '@ihui/shared/chat'
 import type { CompactBoundary } from '@ihui/shared'
 import {
   applyBudgetStopEvent,
@@ -473,9 +486,39 @@ export default function ChatPage() {
     return undefined
   }, [messages])
 
-  const scrollToBottom = useCallback(() => {
-    setTimeout(() => setScrollTop((s) => (s === 99998 ? 99999 : 99998)), 50)
+  // D4(2026-11-12)跟底账目:与 RN 共用 @ihui/shared/chat/stream-follow 的判据。
+  // 宿主差异只有"滚动事件形状"(Taro 是 detail.scrollTop),由 readScrollEventTop 一处收口。
+  const [follow, setFollow] = useState<StreamFollowState>(initialStreamFollowState)
+  const handleListScroll = useCallback((event: unknown) => {
+    const top = readScrollEventTop(event)
+    if (top === null) return
+    setFollow((prev) => reduceStreamFollowOnScroll(prev, top))
   }, [])
+  const handleReachBottom = useCallback(() => {
+    setFollow((prev) => reduceStreamFollowOnReachBottom(prev))
+  }, [])
+
+  /**
+   * 滚到底的**唯一**出路:递增受控 scrollTop,由原生把超界值 clamp 到底。
+   *
+   * 旧实现是 `setTimeout(50ms)` + 在 99998/99999 之间乒乓:逐 token 调用时定时器成堆,
+   * 且那个假值比任何真实内容高度都小 —— 一旦内容高于 99999px 就停在半路。
+   * 现在用**单调递增的 1e6 步长**:每次都是新值(同值不触发滚动),每次都超界(必到底)。
+   * 注意 rn-compat 的 FlatList 已补 prop→state 同步,否则这里算出的值一次也到不了 ScrollView。
+   */
+  const scrollToBottom = useCallback(() => {
+    setFollow((prev) => reduceStreamFollowOnReachBottom(prev))
+    setScrollTop((v) => v + 1_000_000)
+  }, [])
+
+  /** 内容增长时的贴底:只有"跟随中 ∧ 流式中"才滚(用户上翻后一律不动)。 */
+  const stickIfFollowing = useCallback(
+    (streaming: boolean) => {
+      if (!shouldStickToBottom(follow, streaming)) return
+      setScrollTop((v) => v + 1_000_000)
+    },
+    [follow],
+  )
 
   // XUI-新C:原先「思考进度 %」由随机数每秒递增伪造,是假指标冒充真实进度;
   // 服务端未提供思考进度 ⇒ 不再显示百分比,只保留「生成中」文案。
@@ -897,9 +940,39 @@ export default function ChatPage() {
       setBudgetStop(null)
       setCompactionBoundary(null)
       roundTraceIdRef.current = undefined
+      // D4:新一轮开流 ⇒ 上一轮"用户上翻"的账目作废(否则本次第一段内容长在视口下方,
+      // 而理由是用户在上一轮上翻过),再贴一次底。
+      setFollow(resetStreamFollowForNewRound())
       scrollToBottom()
       const controller = new AbortController()
       abortRef.current = controller
+      // D4(2026-11-12 修"逐 token 全列表 setData + 逐帧拽底抖动"):SSE 帧只入 batcher buffer,
+      // 每 40ms 节拍才提交一次 state(与 web smooth 同泵;代理对不劈的切批在源内,BUG-52 纪律)。
+      // 提交回调里才跟滚 —— 提交节拍=滚节拍,不再每 token 堆 setTimeout。
+      const appendLastTurnContent = (d: string): void => {
+        const media = extractAnswerMedia(d)
+        setMessages((prev) =>
+          prev.map((m, i) => {
+            if (i !== prev.length - 1) return m
+            const appended = { ...m, content: m.content + d }
+            return hasAnyMedia(media) ? applyAnswerMedia(appended, media) : appended
+          }),
+        )
+        // 提交节拍才跟滚(不再每 token 堆 setTimeout);用户上翻后不滚 —— 判据在共享层。
+        stickIfFollowing(true)
+      }
+      const contentBatcher = createSmoothDeltaBatcher(appendLastTurnContent)
+      const reasoningBatcher = createSmoothDeltaBatcher((d) => {
+        setMessages((prev) =>
+          prev.map((m, i) =>
+            i === prev.length - 1
+              ? { ...m, reasoning: (m.reasoning || '') + d }
+              : m,
+          ),
+        )
+        // D4:思考区流式同样跟滚(此前 reasoning 帧整条不滚,思考长了正文与视口脱节)
+        stickIfFollowing(true)
+      })
       // 票 68:把 payload 交出去之前复核一次档位 —— chatStream 内部在触达网关前仍有 await,
       // 这期间用户换了档就得跟到新档(而不是拿入口快照发新一轮);最新档为空则退回入口档。
       const roundModel = resolveRoundModel(currentModel, currentModelRef.current)
@@ -919,25 +992,13 @@ export default function ChatPage() {
           },
           (delta) => {
             // [能力安置@255fa96933] 正文媒资抽取(承接被摘端内页逐 delta extractImageUrls 口径,
-            // 扩展到图/视频/音频):抽到的 URL 合并进本轮助手消息,渲染腿在 ChatMessageItem。
-            const media = extractAnswerMedia(delta)
-            setMessages((prev) =>
-              prev.map((m, i) => {
-                if (i !== prev.length - 1) return m
-                const appended = { ...m, content: m.content + delta }
-                return hasAnyMedia(media) ? applyAnswerMedia(appended, media) : appended
-              }),
-            )
-            scrollToBottom()
+            // 扩展到图/视频/音频):媒资判据在**喂入点逐帧**做,合并发生在提交回调(appendLastTurnContent)。
+            // D4(2026-11-12):帧只入泵,不再逐 token 全列表 map+setData;滚动由提交节拍带(见上)。
+            contentBatcher.batch(delta)
           },
           (reasoningDelta) => {
-            setMessages((prev) =>
-              prev.map((m, i) =>
-                i === prev.length - 1
-                  ? { ...m, reasoning: (m.reasoning || '') + reasoningDelta }
-                  : m,
-              ),
-            )
+            // D4(2026-11-12):思考流并入同泵(帧入 buffer,提交节拍统一 setData)
+            reasoningBatcher.batch(reasoningDelta)
           },
           (meta) => {
             if (meta.sessionId) setSessionId(meta.sessionId)
@@ -957,6 +1018,10 @@ export default function ChatPage() {
           // done 回调:把 ai-service event:done 下发的 usage.total_tokens 写入最后一条 assistant 消息
           // 对标原 ai_assistant.vue obj.total_tokens → this.$set(agent_content_list[idx], 'total_tokens', obj.total_tokens)
           (doneInfo) => {
+            // D4(2026-11-12):定稿前必须冲刺 flush —— 末批 token 还在 buffer 未提交时,
+            // 紧随其后读 messages 的定稿/usage 写入会与末段内容抢同一轮,漏字即由此来(与 web #9 同纪律)。
+            contentBatcher.flush()
+            reasoningBatcher.flush()
             if (typeof doneInfo.totalTokens === 'number') {
               setMessages((prev) =>
                 prev.map((m, i) =>
@@ -1320,10 +1385,17 @@ export default function ChatPage() {
           // G-815976:partial_done(流异常中断且已发过 chunk 的标记帧)→ 截断告知。
           // 半截回答与完整回答完全同形会让用户误以为回答完整,用与 onCompaction 同款 toast 提示。
           () => {
+            // D4:异常收尾帧前冲刺 flush,已产出的内容不留在 buffer(错误前 flush,与 web #9 同纪律)
+            contentBatcher.flush()
+            reasoningBatcher.flush()
             onToast(t('chat.partialDoneTitle'), { kind: 'info', duration: 2500 })
           },
         )
       } catch (e) {
+        // D4(2026-11-12):catch 前先 flush 累积 token —— 含 AbortError(停止生成时已产出的
+        // 半句要留在屏上,不能连同 buffer 一起蒸发;applyStreamError 只标态不裁正文)。
+        contentBatcher.flush()
+        reasoningBatcher.flush()
         if ((e as Error)?.name !== 'AbortError') {
           const formatted = formatSSEError(e, t('ai.serviceUnavailable') || 'AI 服务异常')
           // G-248 R2:失败轮把本轮帧级 trace 一起进日志(与 api-client 错误上报体同纪律:
@@ -1972,6 +2044,8 @@ export default function ChatPage() {
     reasoningPopupVisible,
     scrollToBottom,
     scrollTop,
+    handleListScroll,
+    handleReachBottom,
     selectMaterial,
     selectModel,
     selectSkill,

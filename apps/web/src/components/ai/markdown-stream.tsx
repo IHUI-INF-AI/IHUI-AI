@@ -1075,34 +1075,70 @@ export function MarkdownStream({ content, isStreaming, collapseLines = 5 }: Mark
   const [throttledContent, setThrottledContent] = React.useState(content)
   const lastFlushRef = React.useRef<number>(0)
   const trailingTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  // D2(2026-11-12 修):**latest 快照 ref**。旧实现的 trailing timer 捕获的是"排定那一刻"的
+  // content —— 最后两帧落进同一节流窗口且其后无帧时(流收尾常如此),到期写入的是倒数第二拍,
+  // 收尾文字在渲染层永久缺席(store 完整、切会话重挂载才"回来")。timer 现在读 ref,末帧必刷。
+  const pendingContentRef = React.useRef(content)
+  pendingContentRef.current = content
+  // 上一帧收到的 content —— 只服务于"这次变化是流式追加还是整体替换"这一条判定
+  const lastContentRef = React.useRef(content)
+  // D2 续(同轮补齐两处"等不到下一帧"的路径):
+  // ① **整体替换**不是流式追加 —— 切会话/回放/清空时 content 既非延长也不再有后续帧,
+  //    节流只会让它白等一个窗口(用户看到的是新会话首帧缺失)。判据用"前缀延长"而不是
+  //    "变短":编辑重发、清空、换会话都落在"不是前缀"这一侧,而流式追加恒是前缀延长。
+  // ② **流结束**(isStreaming true→false)—— 此后 content 不会再变,挂在 timer 里的末帧
+  //    若恰好这一拍不触发渲染,就永远等不到"下一帧"来落盘。收尾必须自己冲刺。
+
+  const clearTrailingTimer = React.useCallback(() => {
+    if (trailingTimerRef.current !== null) {
+      clearTimeout(trailingTimerRef.current)
+      trailingTimerRef.current = null
+    }
+  }, [])
 
   React.useEffect(() => {
+    const last = lastContentRef.current
+    const isPrefixAppend = content.length >= last.length && content.startsWith(last)
+    lastContentRef.current = content
+    if (!isPrefixAppend) {
+      // 非追加(切会话/替换/清空):立即上屏,不留节流尾巴,也不让旧 timer 到期覆写新内容
+      clearTrailingTimer()
+      lastFlushRef.current = Date.now()
+      setThrottledContent(content)
+      return
+    }
     const now = Date.now()
     const elapsed = now - lastFlushRef.current
     if (elapsed >= THROTTLE_MS) {
       lastFlushRef.current = now
       setThrottledContent(content)
-      if (trailingTimerRef.current) {
-        clearTimeout(trailingTimerRef.current)
-        trailingTimerRef.current = null
-      }
+      clearTrailingTimer()
     } else if (trailingTimerRef.current === null) {
       trailingTimerRef.current = setTimeout(() => {
         lastFlushRef.current = Date.now()
         trailingTimerRef.current = null
-        setThrottledContent(content)
+        setThrottledContent(pendingContentRef.current)
       }, THROTTLE_MS - elapsed)
     }
-  }, [content])
+  }, [content, clearTrailingTimer])
+
+  // 流结束冲刺:读 ref 而不是 content —— 与 trailing timer 同一份最新值来源,不另立第二判据。
+  React.useEffect(() => {
+    if (isStreaming) return
+    clearTrailingTimer()
+    if (pendingContentRef.current !== throttledContent) {
+      lastFlushRef.current = Date.now()
+      setThrottledContent(pendingContentRef.current)
+    }
+    // throttledContent 有意不进依赖:它由本 effect 自己写,进依赖会变成"自我触发一次多余提交"。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isStreaming, clearTrailingTimer])
 
   React.useEffect(() => {
     return () => {
-      if (trailingTimerRef.current) {
-        clearTimeout(trailingTimerRef.current)
-        trailingTimerRef.current = null
-      }
+      clearTrailingTimer()
     }
-  }, [])
+  }, [clearTrailingTimer])
 
   // 流式场景:未闭合代码块临时闭合让 react-markdown 能解析
   // 流式中的代码块用 isStreamingCodeRef 标记(档④:不再整块压暗,"在写"信号=尾随光标与

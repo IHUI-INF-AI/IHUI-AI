@@ -137,6 +137,9 @@ import { apiFailureToText, logger } from '@ihui/shared/utils'
 import { FALLBACK_MODELS as SHARED_FALLBACK_MODELS, toUserFriendlyMessage } from '@ihui/shared'
 // 按子路径取:RN 的 vitest 把 `@ihui/shared/utils` 父别名指向测试替身,父入口取不到本模块
 import { isMaxTokensTruncatedFinishReason } from '@ihui/shared/utils/finish-reason'
+// D3(2026-11-12 修"RN 流式逐 token 全量 setState 卡顿"):打字机合帧泵三端同源(同一条子路径纪律)
+import { createSmoothDeltaBatcher } from '@ihui/shared/utils/smooth-delta-batcher'
+import type { SmoothDeltaBatcher } from '@ihui/shared/utils/smooth-delta-batcher'
 import type { ChatMessage, CompactBoundary, ContextLedger } from '@ihui/shared'
 import {
   applyStreamError,
@@ -811,6 +814,11 @@ export function ChatScreen() {
   }, [])
 
   const abortRef = useRef<AbortController | null>(null)
+  // D3(2026-11-12):本轮两泵的 flush 桥(停止钮/换档终止在 send 闭包外,经 ref 触达)。
+  const streamBatchersRef = useRef<{
+    content: SmoothDeltaBatcher
+    reasoning: SmoothDeltaBatcher
+  } | null>(null)
   // G-248 R2:本轮帧级 traceId。`undefined` = 本轮没见过,这一态不得折成空串
   // (与 api-client 错误上报体同纪律:没见过就不写这个键)。
   const roundTraceIdRef = useRef<string | undefined>(undefined)
@@ -1101,6 +1109,33 @@ export function ChatScreen() {
     setIsStreaming(true)
     const controller = new AbortController()
     abortRef.current = controller
+    // D3(2026-11-12 修"逐 token 全列表重渲染卡顿",与 web #16/#9 同谱):SSE 帧只入泵 buffer,
+    // 每 40ms 提交一次正文;切批按码点边界对齐(代理对不劈),与 web/小程序共用单一实现源。
+    const appendTurnContent = (d: string): void => {
+      setMessages((prev) => {
+        const next = [...prev]
+        const last = next[next.length - 1]
+        if (last && last.role === 'assistant') {
+          next[next.length - 1] = { ...last, content: last.content + d }
+        }
+        return next
+      })
+    }
+    const appendTurnReasoning = (d: string): void => {
+      setMessages((prev) => {
+        const next = [...prev]
+        const last = next[next.length - 1]
+        if (last && last.role === 'assistant') {
+          next[next.length - 1] = { ...last, reasoning: (last.reasoning ?? '') + d }
+        }
+        return next
+      })
+    }
+    const contentBatcher = createSmoothDeltaBatcher(appendTurnContent)
+    const reasoningBatcher = createSmoothDeltaBatcher(appendTurnReasoning)
+    // D3:停止钮的 flush 桥 —— 两泵住在 send() 闭包内,terminateStream/stop 在屏级,
+    // 经 ref 交出口(onDone/onError 各自 flush,abort 路径由 stop() 代 flush)。
+    streamBatchersRef.current = { content: contentBatcher, reasoning: reasoningBatcher }
     // 新一轮开始,上一轮的 trace 不得挂到新消息上(与 G-403 缓存读数同一条复位纪律)
     roundTraceIdRef.current = undefined
     // G-403:新一轮开始,重置上一轮的缓存读数 —— 旧账挂到本轮归因面板就是把别人的账记到这一页
@@ -1130,26 +1165,14 @@ export function ChatScreen() {
       // 容量必须跟 roundModel 走:窗口尺寸与实际发出去的模型不同源,自动压缩阈值就会算错档
       contextLimit: getModelContextCapacity(roundModel),
       onDelta: (delta) => {
-        setMessages((prev) => {
-          const next = [...prev]
-          const last = next[next.length - 1]
-          if (last && last.role === 'assistant') {
-            next[next.length - 1] = { ...last, content: last.content + delta }
-          }
-          return next
-        })
+        // D3(2026-11-12):帧入泵;提交节拍与 setData 由共享 smooth batcher 统一(web 同谱)
+        contentBatcher.batch(delta)
       },
       // 2026-08-25 立:思考过程流式同步(对齐 Uniapp ai_index2 thinking-process,
       // 后端 SSE reasoning_content/type==='reasoning' 增量,追加到当前流式 assistant 消息)
       onReasoning: (delta) => {
-        setMessages((prev) => {
-          const next = [...prev]
-          const last = next[next.length - 1]
-          if (last && last.role === 'assistant') {
-            next[next.length - 1] = { ...last, reasoning: (last.reasoning ?? '') + delta }
-          }
-          return next
-        })
+        // D4/D3(2026-11-12):思考流并入同泵(帧入 buffer,节拍统一)
+        reasoningBatcher.batch(delta)
       },
       // ── D135(承 V4 #93):23 个缺失回调逐个接线。实现复用 chat-render-model 既有
       // reducer / N8n 屏同款出口 / 本端既有组件,不在屏内复制任何折叠实现。 ──
@@ -1303,6 +1326,9 @@ export function ChatScreen() {
       // chunk 时发出,此后流终止不会再有 done —— 半截回答必须如实告知截断,
       // 不再与完整回答同形。提示出口复用本端既有 FloatBox(与 onFallback 同形)
       onPartialDone: () => {
+        // D3(2026-11-12):截断告知前冲刺 flush —— 已产出的半句不得留在 buffer(与 web #9 同纪律)
+        contentBatcher.flush()
+        reasoningBatcher.flush()
         showToast('warning', t('chat.partialDoneTitle'))
       },
       // G-425(默认档"只提示"):done 帧携带上游 finish/stop reason,判"输出被
@@ -1369,6 +1395,10 @@ export function ChatScreen() {
         )
       },
       onError: (err, info) => {
+        // D3(2026-11-12):错误前先 flush 累积 token,避免最后一批内容丢失(web #9 同纪律;
+        // applyStreamError 只标错误态不裁正文,已产出的半句必须留在气泡里)
+        contentBatcher.flush()
+        reasoningBatcher.flush()
         // info 透传:errorCode 是"厂商账号额度耗尽"等稳定码的唯一判据(HTTP 仍回落默认 502)
         const formatted = formatSSEError(new Error(err), info)
         // G-248 R2:失败轮把本轮帧级 trace 一起进客户端日志(非视觉消费,不上屏)。
@@ -1486,6 +1516,10 @@ export function ChatScreen() {
         logger.info('mobile-rn/ChatScreen', 'stream traceId', traceId)
       },
       onDone: () => {
+        // D3(2026-11-12):定稿前冲刺 flush —— 末批 token 还在 pending 时不得收帧
+        // (web 1792 行同款注释:"否则最后一批内容会被 cancel 直接丢弃")
+        contentBatcher.flush()
+        reasoningBatcher.flush()
         setIsStreaming(false)
         abortRef.current = null
       },
@@ -1498,12 +1532,17 @@ export function ChatScreen() {
    * 提示出口复用本端已有的 FloatBox(showToast),不新立 UI 面(AGENTS §17)。
    */
   const terminateStream = useCallback(
-    (notice?: string): boolean =>
-      terminateActiveStream({
+    (notice?: string): boolean => {
+      // D3(2026-11-12):终止前冲刺 flush —— 停止/换档掐流时,已产出但未提交的末批
+      // 内容留在屏上(与 onDone/onError 同纪律;web 的 cancel 档只用于切换会话后内容已定稿的场合)。
+      streamBatchersRef.current?.content.flush()
+      streamBatchersRef.current?.reasoning.flush()
+      return terminateActiveStream({
         abortRef,
         reclaimStreaming: () => setIsStreaming(false),
         ...(notice ? { notice, showNotice: (message: string) => showToast('info', message) } : {}),
-      }),
+      })
+    },
     [showToast],
   )
 
@@ -3122,6 +3161,10 @@ export function ChatScreen() {
             // 不是请求失败卡 —— 它在流成功收口后仍常驻,直到下一轮开始或换会话。
             messageListSlots={{
               orphanTailNode: budgetStop ? <BudgetStopNotice stop={budgetStop} /> : null,
+              // D3(2026-11-12 修"流式输出不跟底"):内容增长时列表自动贴底。
+              // 贴底机制在共享 ChatMessageList(followStream);此前本屏的 scrollToEnd
+              // 只挂在历史加载/压缩两处,onDelta 每 token 更新正文但无人滚动 ⇒ 新内容长在视口下方。
+              followStream: true,
             }}
             itemSeparatorComponent={null}
             containerStyle={{ flex: 1 }}

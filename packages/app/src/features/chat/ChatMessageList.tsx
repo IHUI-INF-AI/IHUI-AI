@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
   FlatList,
   Image,
@@ -15,6 +15,16 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import {
+  initialStreamFollowState,
+  readScrollEventTop,
+  reduceStreamFollowOnReachBottom,
+  reduceStreamFollowOnScroll,
+  resetStreamFollowForNewRound,
+  shouldStickToBottom,
+  type StreamFollowState,
+} from '@ihui/shared/chat'
+import { stripInlineMarkdown } from '@ihui/shared/utils/strip-inline-markdown'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { ChatScreenMessage, TFunction } from '../../types'
 
@@ -62,6 +72,22 @@ export interface ChatMessageListProps {
   scrollTop?: number
   /** 小程序滚动动画开关;RN 忽略 */
   scrollWithAnimation?: boolean
+  /**
+   * D3(2026-11-12):流式贴底开关。默认关 —— 既有宿主行为零变化;
+   * RN 聊天屏显式传入,根治"流式输出不跟底、新内容长在视口下方看不见"。
+   */
+  followStream?: boolean
+  /**
+   * 滚动事件入口(宿主注入)。两种事件形状(原生的 contentOffset / 小程序的 detail)
+   * 由 `readScrollEventTop` 收口,本层不写平台分支。
+   *
+   * 为什么必须由宿主给:本组件是"纯展示、零平台 API",自己不发滚动事件;
+   * 而 followStream 若只拿到"内容在长"这一条信息,判据就永远认为用户在底部 ⇒
+   * 流式中每帧拽底、用户根本滑不动(那正是第一版的缺陷)。
+   */
+  onScroll?: (event: unknown) => void
+  /** 到达底部(onEndReached 一族)⇒ 恢复跟随。 */
+  onEndReached?: () => void
 }
 
 export interface ChatMessageBubbleProps {
@@ -100,6 +126,9 @@ function splitRichContent(content: string): RichSegment[] {
 
 function pushText(out: RichSegment[], text: string) {
   if (!text) return
+  // 只处理**本次传入的这一片**:pushText 会被 splitRichContent 多次调用,遍历整个 out
+  // 会把前面已处理的文本段重复去标记(而且那是 O(n²))。
+  const before = out.length
   let cursor = 0
   IMAGE_MARK.lastIndex = 0
   let match: RegExpExecArray | null = IMAGE_MARK.exec(text)
@@ -110,6 +139,13 @@ function pushText(out: RichSegment[], text: string) {
     match = IMAGE_MARK.exec(text)
   }
   if (cursor < text.length) out.push({ kind: 'text', value: text.slice(cursor) })
+  // 纯文本段去行内标记:本气泡没有富文本渲染器,`**加粗**` 的星号会原样露出来。
+  for (let i = before; i < out.length; i++) {
+    const seg = out[i]
+    if (seg !== undefined && seg.kind === 'text') {
+      out[i] = { kind: 'text', value: stripInlineMarkdown(seg.value) }
+    }
+  }
 }
 
 export function ChatMessageBubble({
@@ -242,10 +278,66 @@ export function ChatMessageList({
   className,
   scrollTop,
   scrollWithAnimation,
+  followStream,
+  onScroll,
+  onEndReached,
 }: ChatMessageListProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
   const listRef = useRef<FlatList<ChatScreenMessage> | null>(null)
+  // D3(2026-11-12,rn/miniapp 流式不跟底根治):followStream 贴底。默认关(不影响任何既有宿主),
+  // 由 RN 聊天屏显式传入。
+  //
+  // 判据不在本文件,走 `@ihui/shared/chat` 的 stream-follow(与小程序同一条真相源):
+  // 「回退即交还滚动权、触底即恢复、内容增长才贴底」。第一版只做无条件 scrollToEnd,
+  // 结果是用户流式中上滑读历史时被每一帧拽回底部 —— 那正是 web 端 scroll-authority 早已修过、
+  // 而移动两端当时还没有的那一格。宿主事件形状差异(原生 contentOffset / 小程序 detail)
+  // 由 readScrollEventTop 一处收口,本层不写平台分支。
+  //
+  // 本组件"纯展示、零平台 API"的冻结语义不破:onScroll/onEndReached 都是 RN 组件 props。
+  const [follow, setFollow] = useState<StreamFollowState>(initialStreamFollowState)
+  // 会话身份(首条消息 id)。它一变 = 换了一屏内容,上一轮"用户上翻"的账目必须作废 ——
+  // 否则新会话的第一段流式内容会长在视口下方,而理由是"用户在上一屏上翻过"。
+  const firstRowId = data[0]?.id ?? ''
+  const sessionIdRef = useRef(firstRowId)
+  const sessionChanged = sessionIdRef.current !== firstRowId
+  if (sessionChanged) {
+    sessionIdRef.current = firstRowId
+  }
+
+  // 宿主自带的 onScroll / onEndReached 由本层**先记账再转交** —— 滚动权账目是本组件的能力,
+  // 宿主自己的滚动副作用(渐变蒙层、懒加载)不能因为挂了这个能力就丢掉。
+  const handleListScroll = (event: unknown) => {
+    if (followStream === true) {
+      const top = readScrollEventTop(event)
+      if (top !== null) setFollow((prev) => reduceStreamFollowOnScroll(prev, top))
+    }
+    onScroll?.(event)
+  }
+  const handleReachBottom = () => {
+    if (followStream === true) setFollow((prev) => reduceStreamFollowOnReachBottom(prev))
+    onEndReached?.()
+  }
+
+  // 贴底触发:只看末条内容签名(正文长 + 思考长)。整份 data 进依赖会让 effect 每帧重跑,
+  // 而那些重跑除了算出一个相同的签名之外什么也不做。
+  const lastRow = data.length > 0 ? data[data.length - 1] : undefined
+  const lastRowReasoning = (lastRow as { reasoning?: string } | undefined)?.reasoning
+  const followSig = `${firstRowId}|${data.length}:${lastRow?.content?.length ?? 0}:${
+    typeof lastRowReasoning === 'string' ? lastRowReasoning.length : 0
+  }`
+  const lastFollowSigRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (followStream !== true) return
+    // 切会话时**先复位再看签名**:复位在渲染期已算出(sessionChanged),这里是落地。
+    // 顺序反了(先去重签名再复位)会让新会话的第一拍被当成"内容没变"整段跳过。
+    if (sessionChanged) setFollow(resetStreamFollowForNewRound())
+    if (lastFollowSigRef.current === followSig) return
+    lastFollowSigRef.current = followSig
+    const state = sessionChanged ? resetStreamFollowForNewRound() : follow
+    if (!shouldStickToBottom(state, isStreaming)) return
+    listRef.current?.scrollToEnd({ animated: false })
+  }, [followStream, followSig, follow, isStreaming, sessionChanged])
 
   const last = data.length > 0 ? data[data.length - 1] : undefined
   const showThinking =
@@ -306,6 +398,13 @@ export function ChatMessageList({
       }
       contentContainerStyle={[styles.listContent, contentContainerStyle]}
       keyboardShouldPersistTaps="handled"
+      // D3:滚动权账目的两个入口。只在 followStream 宿主上挂,既有宿主(群聊/直播等)行为零变化;
+      // 兼容层的 FlatList 已把 onScroll 透传给滚动视图、onEndReached 映射到"到低"回调。
+      onScroll={followStream === true || onScroll !== undefined ? handleListScroll : undefined}
+      onEndReached={
+        followStream === true || onEndReached !== undefined ? handleReachBottom : undefined
+      }
+      onEndReachedThreshold={0.2}
       ListHeaderComponent={headerNode === undefined ? undefined : () => <>{headerNode}</>}
       ListFooterComponent={() => (
         <>
