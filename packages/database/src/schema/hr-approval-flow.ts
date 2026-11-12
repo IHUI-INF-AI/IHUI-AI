@@ -82,6 +82,12 @@ export const hrApprovalInstance = pgTable(
     currentStep: integer('current_step').default(0).notNull(),
     /** 提交时刻的审批链快照(规则后续改动不影响在飞实例) */
     chainSnapshot: jsonb('chain_snapshot').$type<string[]>().notNull(),
+    /** 提交时刻固化的可选代理审批人(规则后续改动不影响在飞实例;NULL=该链无代理) */
+    approverProxySnapshot: uuid('approver_proxy_snapshot'),
+    /** 提交时刻固化的审批时限(小时),规则后续改动不影响在飞实例 */
+    timeoutHoursSnapshot: integer('timeout_hours_snapshot').default(24).notNull(),
+    /** 提交时刻固化的超时升级目标(规则后续改动不影响在飞实例;NULL=到点仅记轨迹不换人) */
+    escalationApproverSnapshot: uuid('escalation_approver_snapshot'),
     /** pending/approved/rejected/escalated */
     status: varchar('status', { length: 20 }).default('pending').notNull(),
     /** 逐级审批轨迹 */
