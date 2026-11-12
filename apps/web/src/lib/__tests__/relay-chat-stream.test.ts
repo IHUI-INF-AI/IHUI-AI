@@ -88,6 +88,10 @@ describe('streamRelayChat', () => {
     const sock = FakeWebSocket.instances[0]!
     expect(sock.url).toContain('/ws/relay/chat?token=tok-1')
     sock.openSelf()
+    // 2026-11-12 立:必须等 ready 才发帧 —— 服务端在 wsAuth 期间会丢弃到达的帧,
+    // onopen 即发 ⇒ 实测 120s 零响应(见 relay-chat-stream.ts sendChat 注释)。
+    expect(sock.sent, 'ready 之前不得上行任何帧').toHaveLength(0)
+    sock.emit({ type: 'ready', userId: 'u-1' })
     const id = sentId(sock)
     const sent = JSON.parse(sock.sent[0]!) as Record<string, unknown>
     expect(sent).toMatchObject({
@@ -97,7 +101,6 @@ describe('streamRelayChat', () => {
       conversationId: 'conv-1',
     })
 
-    sock.emit({ type: 'ready', userId: 'u-1' })
     sock.emit({ type: 'start', id })
     sock.emit({
       type: 'chunk',
@@ -116,6 +119,32 @@ describe('streamRelayChat', () => {
     expect(done).toBe(true)
   })
 
+  it('首帧只在 ready 之后发出,且 ready 重复到达不重复发送(2026-11-12 回归锁)', async () => {
+    const p = streamRelayChat({
+      model: 'm',
+      messages: [{ role: 'user', content: 'a' }],
+      onDelta: () => {},
+    })
+    const sock = FakeWebSocket.instances[0]!
+    sock.openSelf()
+    // 反向牙:onopen 之后、ready 之前必须零上行。若哪天有人把 send 挪回 onopen,
+    // 这条立刻变红 —— 那正是"握手成功但永远等不到 start"的线上形状。
+    expect(sock.sent).toHaveLength(0)
+
+    sock.emit({ type: 'ready', userId: 'u-1' })
+    expect(sock.sent).toHaveLength(1)
+    const id = sentId(sock)
+
+    // 幂等:重复 ready(服务端重连/心跳语义变化)不得造成重复 chat 帧
+    sock.emit({ type: 'ready', userId: 'u-1' })
+    expect(sock.sent.filter((s) => (JSON.parse(s) as { type: string }).type === 'chat')).toHaveLength(
+      1,
+    )
+
+    sock.emit({ type: 'done', id })
+    await p
+  })
+
   it('tool 角色与非字符串正文不喂号池;conversationId 缺席时不上行该键', async () => {
     const p = streamRelayChat({
       model: 'm',
@@ -128,6 +157,7 @@ describe('streamRelayChat', () => {
     })
     const sock = FakeWebSocket.instances[0]!
     sock.openSelf()
+    sock.emit({ type: 'ready', userId: 'u-1' })
     const sent = JSON.parse(sock.sent[0]!) as Record<string, unknown>
     expect(sent.messages).toEqual([
       { role: 'user', content: 'a' },
@@ -149,6 +179,7 @@ describe('streamRelayChat', () => {
     })
     const sock = FakeWebSocket.instances[0]!
     sock.openSelf()
+    sock.emit({ type: 'ready', userId: 'u-1' })
     const id = sentId(sock)
     sock.emit({
       type: 'chunk',
@@ -173,6 +204,7 @@ describe('streamRelayChat', () => {
     })
     const sock = FakeWebSocket.instances[0]!
     sock.openSelf()
+    sock.emit({ type: 'ready', userId: 'u-1' })
     const id = sentId(sock)
     sock.emit({ type: 'error', id, message: '无可用渠道或账号池候选' })
     await p

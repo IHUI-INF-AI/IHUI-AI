@@ -12383,7 +12383,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 4D. **缺陷普查 DB DB-06** [P2] apply-all 不识别块注释，真实迁移被切碎；自检容差掩盖（证据 docs/tickets/2026-11/findings-db.md#DB-06）
 - [ ] 5D. **缺陷普查 DB DB-07** [P2] apply-all 不写账本、硬编码 localhost DSN、包含非幂等 DML（证据 docs/tickets/2026-11/findings-db.md#DB-07）
 - [ ] 6D. **缺陷普查 DB DB-08** [P2] 全新库路径未接 fresh-db 守卫，首启会断在 idx 325（证据 docs/tickets/2026-11/findings-db.md#DB-08）
-- [ ] 7D. **缺陷普查 DB DB-09** [P2] 371 条 journal 仅 67 个快照，最新 0371 无快照，db:generate 会重放 0371（证据 docs/tickets/2026-11/findings-db.md#DB-09）
+- [x] 7D. **缺陷普查 DB DB-09** [P2] 371 条 journal 仅 67 个快照，最新 0371 无快照，db:generate 会重放 0371（证据 docs/tickets/2026-11/findings-db.md#DB-09）
 - [ ] 8D. **缺陷普查 DB DB-10** [P2] migration-tests.yml 监听不存在的目录，且用 push --force 代替迁移链（证据 docs/tickets/2026-11/findings-db.md#DB-10）
 - [ ] 9D. **缺陷普查 DB DB-11** [P2] 大表普通 CREATE INDEX 包在迁移事务内，叠加 180s 部署预算（证据 docs/tickets/2026-11/findings-db.md#DB-11）
 - [ ] 10D. **缺陷普查 DB DB-12** [P2] --repair 是高危写入通道：无 dry-run、无 schema 备份、应用与记账分事务（证据 docs/tickets/2026-11/findings-db.md#DB-12）

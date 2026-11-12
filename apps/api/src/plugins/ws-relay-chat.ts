@@ -36,6 +36,7 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { randomUUID } from 'node:crypto'
 import type { WebSocket } from '@fastify/websocket'
+import { createAuthWindowBuffer } from './auth-window-buffer.js'
 import {
   WsRateLimiter,
   WsUserConnectionLimiter,
@@ -77,10 +78,35 @@ export const wsRelayChat: FastifyPluginAsync = async (server) => {
     { websocket: true, preValidation: wsUpgradeRequiresCredential() },
     async (socket, request) => {
       const token = (request.query as { token?: string }).token
+
+      /**
+       * 鉴权窗口消息缓冲(2026-11-12 立,根因级;实现与判据见 auth-window-buffer.ts)。
+       *
+       * `wsAuth` 异步(验签 + 查用户状态),正式处理器只能在它之后注册;而 `ws` 库在没有
+       * message 监听器时**直接丢弃**到达的帧 ⇒ 客户端在 `onopen` 立刻发帧(最自然的写法)
+       * 必然丢首帧。本机 8802 实测:握手成功 + 收到 `ready`,然后 120s 零帧,永远等不到
+       * `start`;改等 `ready` 再发才 `start → 21 chunk → done`(首字节 1574ms)。
+       * 修法是把这件事从"客户端纪律"降级为"服务端保证":鉴权前先挂收集器,成功后按序回放。
+       */
+      const early = createAuthWindowBuffer()
+      socket.on('message', early.sink)
+      const dropEarlySink = (): void => {
+        early.dispose()
+        try {
+          socket.off('message', early.sink)
+        } catch {
+          /* 已移除 */
+        }
+      }
+
       const userId = await wsAuth(socket, token)
-      if (!userId) return
+      if (!userId) {
+        dropEarlySink()
+        return
+      }
 
       if (!connLimiter.acquire(userId)) {
+        dropEarlySink()
         socket.close(WS_CLOSE.TOO_MANY_CONNECTIONS, '单用户连接数超限')
         return
       }
@@ -100,6 +126,8 @@ export const wsRelayChat: FastifyPluginAsync = async (server) => {
       const cleanup = (): void => {
         if (closed) return
         closed = true
+        // 断线后不再接收/回放任何帧(收集器已无意义,清空防挂留)
+        early.dispose()
         for (const controller of inflight.values()) {
           try {
             controller.abort()
@@ -218,7 +246,7 @@ export const wsRelayChat: FastifyPluginAsync = async (server) => {
         }
       }
 
-      socket.on('message', (raw: Buffer) => {
+      const onMessage = (raw: Buffer): void => {
         const text = raw.toString()
         if (text === 'ping') {
           try {
@@ -249,7 +277,17 @@ export const wsRelayChat: FastifyPluginAsync = async (server) => {
           return
         }
         safeSend(socket, { type: 'error', message: `未知帧类型: ${String(frame?.type)}` })
-      })
+      }
+
+      // 交接:先挂正式处理器再撤收集器(中间到达的帧直通 onMessage),最后按序回放缓冲。
+      // `ready` 已在上方发出 ⇒ 回放产生的 start/chunk 必然排在 ready 之后,帧序不乱。
+      socket.on('message', onMessage)
+      try {
+        socket.off('message', early.sink)
+      } catch {
+        /* 已移除 */
+      }
+      early.handoff(onMessage)
 
       socket.on('close', cleanup)
       socket.on('error', cleanup)
