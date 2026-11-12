@@ -275,6 +275,36 @@ export function pickImportableEntries(entries) {
 }
 
 /**
+ * 账号级稳定 uid 派生(2026-11-12 Y-25 收口):只从**登录期内不变**的字节 UID 族 cookie
+ * (uid_tt / uid_tt_ss)算 uid,不掺 sessionid / sid_tt 等会话票 —— 后者换票即变,会把
+ * 同一账号每次重导入都算成新 uid,覆盖(迁库/命中旧行)永命中不到。
+ * 取不到稳定族 ⇒ 才退回整包指纹(旧行为,至少同会话可覆盖),绝不返回空 uid。
+ * 返回 {uid, mode}:'stable-uid' = 真账号级稳定;'bundle' = 退化(无 uid_tt 族可依)。
+ */
+export function deriveAccountUid(validEntries) {
+  const stableNames = ['uid_tt', 'uid_tt_ss']
+  const stableSeed = (Array.isArray(validEntries) ? validEntries : [])
+    .filter((e) => stableNames.includes(e?.key))
+    .map((e) => `${e.host}|${e.key}=${e.value}`)
+    .sort()
+    .join('\n')
+  if (stableSeed) {
+    return {
+      uid: `auto:${crypto.createHash('sha256').update(stableSeed).digest('hex').slice(0, 32)}`,
+      mode: 'stable-uid',
+    }
+  }
+  const bundleSeed = (Array.isArray(validEntries) ? validEntries : [])
+    .map((e) => `${e.host}|${e.key}=${e.value}`)
+    .sort()
+    .join('\n')
+  return {
+    uid: `auto:${crypto.createHash('sha256').update(bundleSeed).digest('hex').slice(0, 32)}`,
+    mode: 'bundle',
+  }
+}
+
+/**
  * 提取本机豆包会话 → 编排器 payload。目录缺失(COOKIE 库也不在)⇒ DOUBAO_NO_SESSION;
  * 0 命中 ⇒ DOUBAO_NO_SESSION;库打不开 ⇒ DOUBAO_COOKIES_UNREADABLE。绝不静默返回空。
  * @param {{userDataDir?: string, profile?: string, shellBin?: string}} [opts] 仅供测试注入
@@ -311,16 +341,12 @@ export async function extractDoubaoAccounts(opts = {}) {
       }
       // 捆绑单账号(2026-10-28):豆包登录态 = 一整套字节 passport 族 cookie,
       // 拆成逐 cookie 多行号池没有意义(转发适配器 doubao-adapter 吃的就是整包 cookiesEnc)。
-      // token 取主票(按登录判据优先级),uid 用整包指纹(同机同会话重导入 ⇒ 同 uid 覆盖)。
+      // token 取主票(按登录判据优先级);uid 用账号级稳定族(见 deriveAccountUid 头注)。
       const primary =
         ['sessionid', 'sessionid_ss', 'sid_tt', 'uid_tt', 'ttwid', 'odin_tt']
           .map((n) => valid.find((e) => e.key === n))
           .find(Boolean) ?? valid[0]
-      const seed = valid
-        .map((e) => `${e.host}|${e.key}=${e.value}`)
-        .sort()
-        .join('\n')
-      const bundleUid = `auto:${crypto.createHash('sha256').update(seed).digest('hex').slice(0, 32)}`
+      const { uid: bundleUid, mode: uidMode } = deriveAccountUid(valid)
       /**
        * 跨界载荷补 `name` 同值别名(2026-11-06 Y-25,本票缺陷本体):下游两处消费方读的都是
        * `name` —— ① service `mapSessionEntryImport` 的稳定键分支
@@ -348,6 +374,7 @@ export async function extractDoubaoAccounts(opts = {}) {
           dbPath,
           primaryCookie: `${primary.host}/${primary.key}`,
           count: valid.length,
+          uidMode,
           skipped,
           notes: skips,
           cookieNamesProbed: SESSION_COOKIE_NAMES,
@@ -369,6 +396,7 @@ export const __test__ = {
   pickImportableEntries,
   stripDoubaoAppPrefix,
   wrapDoubaoAppPrefix,
+  deriveAccountUid,
   SESSION_COOKIE_NAMES,
   HOST_SUFFIXES,
   GLOBAL_HOST_SUFFIXES,
