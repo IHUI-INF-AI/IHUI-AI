@@ -9,6 +9,8 @@
 
 from __future__ import annotations
 
+import pathlib
+
 import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
@@ -53,7 +55,12 @@ _TOTAL_COST = 0.02 + 0.05 + 0.01 + 0.04  # 0.12
 
 @pytest.fixture
 async def client(monkeypatch, tmp_path):
-    """Mount router on an isolated app; prefill the global ledger singleton."""
+    """Mount router on an isolated app; prefill the global ledger singleton.
+
+    AIS-014 后账本端点按角色收敛:本夹具以**管理员**(roleId=1)身份运行,既有断言
+    继续覆盖"全站聚合/任意 user_id 过滤"这条运维路径;普通用户口径见下方
+    `user_client` 与「AIS-014 越权」小节。
+    """
     monkeypatch.setattr(
         cost_ledger, "_data", {e["record_id"]: dict(e) for e in _FIXTURES}
     )
@@ -62,6 +69,29 @@ async def client(monkeypatch, tmp_path):
     app = FastAPI()
     app.include_router(cost_ledger_router.router, prefix="/api")
     app.dependency_overrides[get_current_user_id] = lambda: "test-user"
+
+    @app.middleware("http")
+    async def _as_admin(request, call_next):
+        request.state.role_id = 1
+        return await call_next(request)
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:
+        yield ac
+
+
+@pytest.fixture
+async def user_client(monkeypatch, tmp_path):
+    """AIS-014:普通用户(roleId=0,中间件不注入角色)口径,调用者为 `u1`。"""
+    monkeypatch.setattr(
+        cost_ledger, "_data", {e["record_id"]: dict(e) for e in _FIXTURES}
+    )
+    monkeypatch.setattr(cost_ledger, "_loaded", True)
+    monkeypatch.setattr(cost_ledger, "_file", tmp_path / "ledger.json")
+    app = FastAPI()
+    app.include_router(cost_ledger_router.router, prefix="/api")
+    app.dependency_overrides[get_current_user_id] = lambda: "u1"
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
     ) as ac:
@@ -272,6 +302,68 @@ async def test_query_empty_returns_200(client):
     assert body["code"] == 0
     assert body["data"]["total"] == 0
     assert body["data"]["list"] == []
+
+
+# =============================================================================
+# AIS-014 属主收敛(非管理员不得查他人/全站)
+# =============================================================================
+
+
+async def test_non_admin_summary_without_user_id_is_scoped_to_self(user_client):
+    """省略 user_id 不得再返回全站:调用者为 u1,只应看到 u1 的两条。"""
+    res = await user_client.get("/api/cost-ledger/summary")
+    assert res.status_code == 200
+    body = res.json()
+    assert body["data"]["count"] == 2
+    assert body["data"]["total_cost"] == pytest.approx(0.07)
+    assert list(body["data"]["by_model"]) == ["gpt-4o"]
+    assert body["data"]["by_model"]["gpt-4o"]["cost"] == pytest.approx(0.07)
+
+
+async def test_non_admin_summary_with_own_user_id_is_allowed(user_client):
+    body = (
+        await user_client.get("/api/cost-ledger/summary", params={"user_id": "u1"})
+    ).json()
+    assert body["data"]["count"] == 2
+
+
+@pytest.mark.parametrize(
+    "path,params",
+    [
+        ("/api/cost-ledger/summary", {"user_id": "u2"}),
+        ("/api/cost-ledger/top-tools", {"user_id": "u2"}),
+        ("/api/cost-ledger/timeseries", {"user_id": "u2", "granularity": "day"}),
+        ("/api/cost-ledger/query", {"user_id": "u2"}),
+    ],
+)
+async def test_non_admin_cannot_query_other_user(user_client, path, params):
+    """AIS-014:四个读取端点在指向他人时一律 403,不得静默放行或静默改成本人。"""
+    res = await user_client.get(path, params=params)
+    assert res.status_code == 403
+    assert "管理员" in res.json()["detail"]
+
+
+async def test_admin_can_still_query_other_user_and_global(client):
+    """管理员口径不被误收紧:指定他人可查,省略仍可全站。"""
+    other = (
+        await client.get("/api/cost-ledger/summary", params={"user_id": "u2"})
+    ).json()
+    assert other["data"]["count"] == 2
+    assert other["data"]["total_cost"] == pytest.approx(0.05)
+    everything = (await client.get("/api/cost-ledger/summary")).json()
+    assert everything["data"]["count"] == 4
+
+
+async def test_source_scope_gate_covers_all_four_read_endpoints():
+    """源码形状断言:四个读取端点都必须先过 `_scope_user_id`,否则等于留一个后门。"""
+    src = (
+        pathlib.Path(__file__).resolve().parents[1]
+        / "app"
+        / "routers"
+        / "cost_ledger.py"
+    ).read_text(encoding="utf-8")
+    assert src.count("_scope_user_id(uid, request, user_id)") == 4
+    assert "resolve_request_role_id(request)" in src
 
 
 # =============================================================================

@@ -307,17 +307,21 @@ class CostLedger:
         """把传入条目(或 LedgerEntry)归一化为标准结构,缺省字段回填。
 
         cost_usd 缺省/为 None 时走估算(estimate_cost_usd),并标记 estimated。
-        P0-①(2026-09-18):cached/cache_creation 钳到 [0, tokens_in] 内不重叠
-        (读优先),估算改走缓存感知三段计价(uncached/cached×读乘数/write×写乘数)。
+        P0-①(2026-09-18):cached/cache_creation 独立记录,估算走缓存感知三段计价
+        (uncached/cached×读乘数/write×写乘数)。
+        AIS-013:不再把 cached/cache_write 钳到 tokens_in 内(旧钳制会把
+        cached>tokens_in 静默折成 0);缓存字段只钳非负,计价侧自行防负。
         """
         e = entry.to_dict() if isinstance(entry, LedgerEntry) else dict(entry or {})
         tokens_in = int(_to_num(e.get("tokens_in"), 0))
         tokens_out = int(_to_num(e.get("tokens_out"), 0))
-        # 缓存读/写钳制:非负、不超 tokens_in、读+写不超 tokens_in(防双计负成本)
-        cached = min(max(int(_to_num(e.get("cached_tokens"), 0)), 0), tokens_in)
-        cache_write = min(
-            max(int(_to_num(e.get("cache_creation_tokens"), 0)), 0), tokens_in - cached
-        )
+        # AIS-013:缓存读/写是 tokens_in 的子集(prompt_tokens 已按输入总量口径归一并
+        # 含缓存),但这两个字段本身单独记录用于展示/定价 —— 这里只钳非负,不再按
+        # tokens_in 截断(旧逻辑把 cached>tokens_in 钳成 0,会和上游真实值对不上)。
+        # 计价侧(cost_micro_usd_with_cache / estimate_cost_usd)自行把 uncached
+        # 钳到 >=0,不会产生负成本;缓存量异常时如实入账,不静默抹零。
+        cached = max(int(_to_num(e.get("cached_tokens"), 0)), 0)
+        cache_write = max(int(_to_num(e.get("cache_creation_tokens"), 0)), 0)
         raw_total = e.get("total_tokens")
         if raw_total is None or _to_num(raw_total) <= 0:
             # 未显式提供(或为 0 的占位)→ 回填 in+out(LedgerEntry 默认 total_tokens=0)

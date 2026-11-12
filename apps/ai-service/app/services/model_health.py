@@ -81,8 +81,9 @@ PROBE_TIMEOUT_S = 20.0
 # 2026-11-11:8 → 4。每轮每模型已从 1 个请求变成 2 个(可用性+工具),8 并发时
 # 平台中转账号池成片 ReadTimeout / 429,能力只能记"未知",探测本身成了噪声源。
 PROBE_CONCURRENCY = 4
-# 工具探测单独的超时:中转账号池慢,20s 会把"慢但支持"误记成未知
-_TOOL_PROBE_TIMEOUT_S = 45.0
+# 工具探测单独的超时:中转账号池慢,20s 会把"慢但支持"误记成未知;
+# 流式判定要等整段输出收完,推理模型常超过 45s,故给 90s。
+_TOOL_PROBE_TIMEOUT_S = 90.0
 # 状态有效期(秒)— 超过两轮未复测则不再据此隐藏模型
 STATUS_TTL_S = PROBE_INTERVAL_S * 2
 # 同一模型连续失败次数达到此值才隐藏(仅 404 属模型级明确错误,可一次隐藏)
@@ -370,10 +371,10 @@ def _needs_stream(body: str) -> bool:
 # 流式探测被拒后仍值得用非流式复测的状态码:多为"不支持流式参数/工具参数"类拒绝,
 # 不代表模型不可用;404/401/402/429 等明确不可用或账户级问题不复测,省一次请求。
 _STREAM_FALLBACK_STATUS = frozenset({400, 405, 422, 501})
-# 工具调用探测用量:极简 function tool + 256 tokens,成本可忽略。
+# 工具调用探测用量:极简 function tool + 512 tokens,成本可忽略。
 # 不能压到 64:推理模型会先把预算花在思考上,截断后根本没机会发 tool_calls,
 # 实测会把 kimi-k3/k2.7 这类明确支持工具的模型误判成"未实际触发"。
-_TOOL_PROBE_MAX_TOKENS = 256
+_TOOL_PROBE_MAX_TOKENS = 512
 # 长上下文针测的输出预算:验证码本身只有十几个字符,但推理模型会先花预算思考,
 # 24 tokens 会让它们"还没开口就被截断",在界面上被打成"不支持长上下文"(实测假阴性)。
 _CONTEXT_PROBE_MAX_TOKENS = 256
@@ -589,6 +590,69 @@ def _judge_tools_response(status_code: int, raw_text: str) -> tuple[bool | None,
     if status_code in (400, 422) and any(k in lowered for k in _TOOL_KEYWORDS):
         return False, f"HTTP {status_code}: {body[:150]}"
     return None, (f"HTTP {status_code}: {body[:150]}" if body else "")
+
+
+def _judge_tools_stream(status_code: int, body: str) -> tuple[bool | None, str]:
+    """从流式响应里判定工具调用是否真的发生。
+
+    - 任一 `delta.tool_calls` 带非空 function.name(或老式 function_call)⇒ 支持;
+    - `finish_reason=tool_calls` ⇒ 支持;
+    - 流正常结束却没有任何工具帧 ⇒ 不支持;
+    - 分片到了但函数名始终为空 / 被 max_tokens 截断 / 无有效帧 ⇒ 未判定;
+    - 非 200 沿用非流式判据(5xx、429 记未知)。
+    """
+    if status_code != 200:
+        return _judge_tools_response(status_code, body)
+    seen_chunk = False
+    finish = ""
+    empty_name_only = False
+    for line in (body or "").splitlines():
+        line = line.strip()
+        if not line.startswith("data:"):
+            continue
+        data = line[5:].strip()
+        if not data or data == "[DONE]":
+            continue
+        try:
+            chunk = json.loads(data)
+        except Exception:
+            continue
+        choices = chunk.get("choices") if isinstance(chunk, dict) else None
+        if not isinstance(choices, list) or not choices:
+            continue
+        first = choices[0] if isinstance(choices[0], dict) else {}
+        seen_chunk = True
+        reason = first.get("finish_reason")
+        if isinstance(reason, str) and reason:
+            finish = reason
+        delta = first.get("delta") or first.get("message") or {}
+        if not isinstance(delta, dict):
+            continue
+        if delta.get("function_call"):
+            return True, ""
+        tool_calls = delta.get("tool_calls")
+        if not isinstance(tool_calls, list):
+            continue
+        for tc in tool_calls:
+            if not isinstance(tc, dict):
+                continue
+            fn = tc.get("function")
+            name = fn.get("name") if isinstance(fn, dict) else None
+            if isinstance(name, str) and name:
+                return True, ""
+            empty_name_only = True
+    if finish == "tool_calls":
+        return True, ""
+    if not seen_chunk:
+        # 上游无视 stream 直接回了 JSON(含 choices 但没有 data: 帧):按非流式判据兜底
+        if '"choices"' in (body or "") and "data:" not in (body or ""):
+            return _judge_tools_response(200, body)
+        return None, "流式响应无可解析帧,工具调用未判定"
+    if empty_name_only:
+        return None, "收到 tool_calls 分片但函数名缺失,工具调用未判定"
+    if finish == "length":
+        return None, "输出被 max_tokens 截断,工具调用未判定"
+    return False, "声明支持工具调用但未实际触发"
 
 
 def _build_context_probe_text(tokens: int) -> tuple[str, str]:
@@ -1501,7 +1565,14 @@ class ModelHealthService:
         headers: dict[str, str],
         model_name: str,
     ) -> tuple[bool | None, str]:
-        """极简工具调用探测(+1 请求/可用模型/轮)。"""
+        """工具调用探测:流式优先(+1 请求/可用模型/轮)。
+
+        2026-11-12 实测(workbuddy 账号池):同一请求走流式时 SSE 帧里有完整
+        `tool_calls`,走非流式却只剩空 content —— 非流式聚合会丢掉工具调用。
+        只用非流式判定,等于把"支持工具但只在流里给"的模型全记成"未实际触发",
+        故与可用性探测同纪律:流式优先,收帧判定;上游无视 stream 回 JSON 时
+        再退回非流式判据。
+        """
         payload: dict[str, Any] = {
             "model": model_name,
             "messages": [
@@ -1531,7 +1602,7 @@ class ModelHealthService:
             # 字符串形态是安全的(部分网关只认字符串,对象形态会 400 code=11101)。
             "tool_choice": "required",
             "max_tokens": _TOOL_PROBE_MAX_TOKENS,
-            "stream": False,
+            "stream": True,
         }
         try:
             # 工具探测单独放宽到 45s:平台中转账号池在探测并发下经常 20s 才回,
@@ -1553,7 +1624,13 @@ class ModelHealthService:
                 resp = await client.post(
                     chat_url, headers=headers, json=payload, timeout=_TOOL_PROBE_TIMEOUT_S
                 )
-            return _judge_tools_response(resp.status_code, resp.text or "")
+            # 不支持流式的上游(少数):退回非流式再判一次
+            if resp.status_code in (400, 422) and _needs_stream(resp.text or ""):
+                payload["stream"] = False
+                resp = await client.post(
+                    chat_url, headers=headers, json=payload, timeout=_TOOL_PROBE_TIMEOUT_S
+                )
+            return _judge_tools_stream(resp.status_code, resp.text or "")
         except Exception as e:
             # 超时 / 网络异常不能误判为"不支持工具调用"(记未知)
             return None, _redact_secrets(f"{type(e).__name__}: {str(e)[:120]}")[:200]
