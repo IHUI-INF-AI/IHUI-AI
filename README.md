@@ -5468,6 +5468,12 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-13**
+- 📚 文档:同步 README.en 派生产物(现算口径) (2746f7a1f4)
+
+**2026-11-13**
+- 🔧 工程/其他:收录 install-git-hooks 镜像测试 + README 数字同步 (5f6211b843)
+
+**2026-11-13**
 - 🚀 新功能/改进:号池同步任务注册器融合远程隐藏启动器(wscript SW_HIDE 零黑窗)+ 本机 reextract 兜底任务同走隐藏包装;PROJECT_PLAN 清偿逐字副本并保留取号器 B41 行 (d7060ca78f)
 
 **2026-11-13**

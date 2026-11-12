@@ -99,6 +99,9 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-13**
+- 📚 Docs:同步 README.en 派生产物(现算口径) (2746f7a1f4)
+
+**2026-11-13**
 - 🔧 Chore/Other:收录 install-git-hooks 镜像测试 + README 数字同步 (5f6211b843)
 
 **2026-11-13**
@@ -986,11 +989,6 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 - 🔧 Chore/Other:结清 F-40/76/77/87/91 五条缺陷票（修复与回归已入库 221e0cdaadf） (fdf49b2a2b)
 - 🐞 Fix:结清 F-87/91/76/77/40 五条缺陷票——媒体代理计费、通知失败重试、PDF 合并上限、部门用户凭据投影、后台 Agent 有界回收 (221e0cdaad)
 - 🐞 Fix:离线兜底页补齐状态告知并纠正薄壳降级描述 (be7035bb2b)
-
-**2026-11-11**
-- 🐞 Fix:HR-3 微信订阅消息字段 key 对齐真实模板(实测收尾) (0fe40d5929)
-- 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (8f5675e664)
-- 🐞 Fix:修两族报警真因——app-version端点补免租户 + A9轮起点腿登记豁免 (0417dc0dc2)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
