@@ -2227,6 +2227,11 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-12**
+- 🔧 その他:收编停留≥3分钟的未提交改动 (a0b77c846f)
+- 🔧 その他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (5a85fa4cd4)
+- 🔧 その他:ui-routes 生成物按 HEAD 面重跑收口——第三轮收敛落地后守门 105 陈旧义务 (4cebaa4fe4)
+
+**2026-11-12**
 - 🔧 その他:收编停留≥3分钟的未提交改动 (ae89dae598)
 - 🔧 その他:结清 F-014/F-024/F-025/F-032/F-033/F-047/F-053/F-054/F-056/F-058/F-107 十一张缺陷普查工单 (661f0050ac)
 - 🐞 修正:结清 F-014/F-024/F-032/F-033/F-054/F-056/F-058/F-107 八张缺陷普查工单 (e198e77344)
@@ -3339,22 +3344,6 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 - 🚀 機能/改善:补齐 AI 生成显式/隐式标识 (8d972f386c6)
 - 🚀 機能/改善:补齐 AI 生成显式/隐式标识 (f4535c338e9)
 - 🚀 機能/改善:Groups 屏薄壳承载落地(RN 壳同源渲染,词条取 web 原文) (e7d27e3e994)
-
-**2026-11-07**
-- 🐞 修正:补 web 端 apiKeys en/ko 译文(24 键,清门 4 pending) (5e1c14de23a)
-- 🐞 修正:四屏壳改桶导入,补门173共享屏直接 import 覆盖 (e71cd19a5d6)
-- 🚀 機能/改善:TeamKnowledge 屏下沉共享屏,RN/Web 同源渲染零降级 (c0ca814f166)
-- 🔧 その他:重算 rn-shells.generated.d.ts（补 VipTraderScreen，修门 251 C9 不同步） (fa6c08282d1)
-- 🐞 修正:RepoWiki 生成禁用提示回到宿主(详情内重复入口去重后补齐可发现性;删 web 失用键 refresh/regenerate) (a3dc7d1bc5f)
-- 🚀 機能/改善:RepoWiki 共享屏下沉(RN/Web 同源渲染,零降级) (b37e84d18cd)
-- 🐞 修正:Groups 三列断点卡片基宽 (97cb9752de7)
-- 🚀 機能/改善:Groups 屏下沉共享屏,两端宿主注入 (39fcfc991bb)
-- 🚀 機能/改善:Patrol 屏下沉共享屏,两端宿主注入 (cd9a85fea20)
-- 🚀 機能/改善:ApiKeys 屏下沉共享屏,web/mobile-rn 五语言词表补齐 (10f86bc743f)
-- ♻️ リファクタ:EarnCommission 壳删冗余 View 层(共享屏根已等价提供 flex+背景) (62cb2eaa1f9)
-- 🚀 機能/改善:TokenValue 记录时间范围条下沉共享屏(数据型注入点,RN/小程序同源) (e7c52e45ba2)
-- 🚀 機能/改善:8 条单端槽位裁决落锁,2 条真下沉 (72a500c1156)
-- 🔧 その他:再 rebase 后生成器取胜, 刷新 ui-routes 钉值与 README 数字 (5c833a7bbc5)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
