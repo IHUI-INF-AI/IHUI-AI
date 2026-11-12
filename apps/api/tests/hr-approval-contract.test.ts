@@ -536,6 +536,54 @@ describe('escalateTimedOut · 超时升级', () => {
     expect(r1.escalated).toBe(0)
     expect(H.instanceUpdates).toHaveLength(0)
   })
+
+  it('已 escalated 且再次到点 → 催办:不增长链、不换人、再通知当前升级目标、escalated 计数不增', async () => {
+    seedInstance({
+      chain: [APPROVER_A, APPROVER_B, APPROVER_C],
+      currentStep: 2, // 已升级到 C
+      status: 'escalated',
+      dueAt: new Date('2026-11-09T00:00:00Z'), // 已过期
+    })
+    H.reads.instance = [[H.instancesById.get(INSTANCE_ID) as Row]]
+    H.reads.leave = [[H.leavesById.get(LEAVE_ID) as Row]]
+    H.reads.flow = [
+      [
+        {
+          id: 'f2',
+          leaveType: '事假',
+          minDays: 3,
+          maxDays: 7,
+          status: 'active',
+          deletedAt: null,
+          approverIds: [APPROVER_A, APPROVER_B],
+          timeoutHours: 24,
+          escalationApproverId: APPROVER_C,
+        },
+      ],
+    ]
+    const now = new Date('2026-11-10T00:00:00Z')
+    const result = await escalateTimedOut({ now })
+    expect(result.escalated).toBe(0) // 催办不计入升级数
+    expect(H.instanceUpdates).toHaveLength(1)
+    const updated = H.instanceUpdates[0]
+    // 注意:测试桩的 eq() id 提取不生效,update 返回的是 {...sets, 兜底id},不合并 seed 行。
+    // 故催办用例应断言「显式 set 的字段」:催办分支只 set steps/dueAt/updatedAt,
+    // 绝不 set status/chainSnapshot/currentStep(即不重写这些、不增长链、不换人)。
+    expect(updated).not.toHaveProperty('status') // 没重写状态
+    expect(updated).not.toHaveProperty('chainSnapshot') // 没增长链
+    expect(updated).not.toHaveProperty('currentStep') // 没换人
+    expect(updated?.steps).toBeDefined() // 追加了一条 byTimeout 催办轨迹
+    expect(((updated?.steps as Row[]) ?? []).at(-1)).toMatchObject({
+      action: 'escalated',
+      byTimeout: true,
+      step: 2, // 仍在原升级步(currentStep=2)
+    })
+    // due_at 顺延一个 timeout_hours
+    expect((updated?.dueAt as Date).getTime()).toBe(now.getTime() + 24 * 3_600_000)
+    // 仍通知当前升级目标 C
+    expect(createNotification).toHaveBeenCalledTimes(1)
+    expect(createNotification.mock.calls[0]?.[0]?.userId).toBe(APPROVER_C)
+  })
 })
 
 describe('listMyPendingApprovals · 当前步过滤与分页', () => {
