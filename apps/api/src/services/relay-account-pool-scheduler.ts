@@ -382,6 +382,14 @@ export function keepAliveReviveWhere(before: Date) {
   return and(
     keepAliveForeverCondition(),
     eq(aiRelayAccountPool.tempUnschedulable, true),
+    // 2026-11-12 补「解摘的前提是解摘后真能续上」:
+    // 无 refreshToken 且无 cookie 的号,解摘后既进不了临期刷新(expiringRefreshWhere)、
+    // 也进不了 down 恢复(downRecoveryWhere)——两档候选都要求 recredentialableCondition。
+    // 于是解摘纯属空转:每 6h 写一次库、把 lastErrorMessage 冲成「自动解摘」、白造一次
+    // 跨环境同步,而号依旧 down。判据复用既有单源(§0.6),不另写第二份。
+    // 反例现场:workbuddy 三枚(14f939c3-889b / auto:1421991245… / auto:cb69a7be695d…)
+    // 均 refresh_token_enc IS NULL ∧ cookies_enc IS NULL,上游 401 后永久刷不动。
+    recredentialableCondition(),
     lt(aiRelayAccountPool.updatedAt, sql`${before.toISOString()}::timestamptz`),
   )
 }
@@ -648,6 +656,23 @@ async function maybeReconcileCheckinEnabledState(now: Date): Promise<void> {
  */
 export function recredentialableCondition() {
   return or(isNotNull(aiRelayAccountPool.refreshTokenEnc), isNotNull(aiRelayAccountPool.cookiesEnc))
+}
+
+/**
+ * JS 侧镜像:`recredentialableCondition()` 的行级同口径判据(2026-11-12 立)。
+ *
+ * 为什么要有两份:SQL 谓词用于**候选面筛选**(还没取到行),行级判据用于**已取到一行后
+ * 判它能不能续**。二者是同一口径的两个面,不是第二份真相源 —— 与
+ * `keepAliveForeverOf` / `keepAliveForeverCondition` 同一模式,由测试锁「读同一组列」。
+ *
+ * 判据刻意只认这两列:`workbuddy` 适配器 `refreshToken()` 要 `credentials.refreshToken`,
+ * `trae` 的 web 号走 cookie→换票;两者皆空 ⇒ 任何平台都刷不动,解摘/重试只会空转。
+ */
+export function hasRenewableCredentialOf(row: {
+  refreshTokenEnc?: unknown
+  cookiesEnc?: unknown
+}): boolean {
+  return row.refreshTokenEnc != null || row.cookiesEnc != null
 }
 
 /**

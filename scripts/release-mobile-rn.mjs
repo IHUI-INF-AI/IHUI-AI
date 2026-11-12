@@ -282,6 +282,54 @@ export function firstMeaningfulLine(text) {
 }
 
 /**
+ * CLI 值参数清单与布尔旗清单(2026-11-12 收口)。
+ * 旧实现在 main() 里临时写了个 opt(),只认 `--name`:传 `-m` 会被静默忽略,
+ * 那轮 OTA 的说明文字直接落成默认串而调用方毫无察觉(§0.3:取不到必须判未判定)。
+ * 清单提到模块层,判据只有这一份;selfTest / 镜像测试 import 本文件同吃(§0.6)。
+ */
+export const CLI_VALUE_FLAGS = ['leg', 'm', 'message']
+export const CLI_BOOL_FLAGS = [
+  'self-test',
+  'json',
+  'ensure-channels',
+  'stage-credentials',
+  'diagnose-play',
+  'execute',
+]
+
+/** 取值参数:认 `--name` 与单字符短旗 `-name`;旗后没值 / 紧跟另一个旗 ⇒ 回落 dflt。 */
+export function readArgValue(argv, name, dflt) {
+  const aliases = [`--${name}`, ...(name.length === 1 ? [`-${name}`] : [])]
+  for (const alias of aliases) {
+    const i = argv.findIndex((a) => a === alias)
+    if (i < 0) continue
+    const next = argv[i + 1]
+    return next && !next.startsWith('-') ? next : dflt
+  }
+  return dflt
+}
+
+/** 列出未被认领的旗;未知旗一律显式拒跑,绝不静默忽略(§0.3)。 */
+export function unknownArgs(argv) {
+  const bools = new Set(CLI_BOOL_FLAGS.map((f) => `--${f}`))
+  const valued = new Set(
+    CLI_VALUE_FLAGS.flatMap((f) => [`--${f}`, ...(f.length === 1 ? [`-${f}`] : [])]),
+  )
+  const unknown = []
+  for (let i = 0; i < argv.length; i += 1) {
+    const a = argv[i]
+    if (!a.startsWith('-')) continue
+    if (bools.has(a)) continue
+    if (valued.has(a)) {
+      if (argv[i + 1] && !argv[i + 1].startsWith('-')) i += 1
+      continue
+    }
+    unknown.push(a)
+  }
+  return unknown
+}
+
+/**
  * 取渠道最新 update 组(createdAt 倒序第一个)。`channel:list` 的 currentPage 是数组,
  * `channel:view` 的是单个对象 —— 两种都收;eas-cli 偶尔把 banner 混进 stdout,故从第一个 `{` 起解析。
  * 用于 OTA 腿的"真落地"判据:发之前取基线组,发之后再取,组变了才算发出去。
@@ -775,7 +823,7 @@ export function buildLegs(ev) {
         detail: ev.appJson?.updates?.url ?? 'app.json 未配 expo.updates.url',
       },
     ],
-    command: `eas update --channel ${name} --environment ${name} --platform android --message "<本次说明>" --non-interactive`,
+    command: `eas update --channel ${name} --environment ${name} --platform android --message "<本次说明>" --non-interactive --clear-cache`,
   })
   return [
     {
@@ -860,9 +908,12 @@ export function exitCode(report) {
 async function main() {
   const argv = process.argv.slice(2)
   const flags = new Set(argv.filter((a) => a.startsWith('--')))
-  const opt = (name, dflt) => {
-    const i = argv.findIndex((a) => a === `--${name}`)
-    return i >= 0 && argv[i + 1] && !argv[i + 1].startsWith('--') ? argv[i + 1] : dflt
+  const stray = unknownArgs(argv)
+  if (stray.length) {
+    console.log(
+      `拒跑:未识别参数 ${stray.join(' ')};布尔旗 ${CLI_BOOL_FLAGS.map((f) => `--${f}`).join(' ')};取值旗 ${CLI_VALUE_FLAGS.map((f) => `--${f}`).join(' ')}`,
+    )
+    return 2
   }
   if (flags.has('--self-test')) return selfTest()
 
@@ -934,7 +985,7 @@ async function main() {
   }
 
   if (flags.has('--execute')) {
-    const id = opt('leg')
+    const id = readArgValue(argv, 'leg')
     const leg = report.find((l) => l.id === id)
     if (!leg) {
       console.log(`--leg 必须取 ${report.map((l) => l.id).join('/')}`)
@@ -960,7 +1011,9 @@ async function main() {
     console.log(`  发布版本号:${versionPair.version}(双写一致)`)
     const channel = id.replace('ota-', '')
     const message =
-      opt('m') ?? opt('message') ?? `release ${id} @ ${new Date().toISOString().slice(0, 16)}Z`
+      readArgValue(argv, 'm') ??
+      readArgValue(argv, 'message') ??
+      `release ${id} @ ${new Date().toISOString().slice(0, 16)}Z`
     // 真落地判据(2026-11-06 立):只看 exit=0 + 渠道存在时,一次"啥也没发"的退出也能冒绿;
     // 所以发之前先取最新组做基线,发之后再取一次,只有组变了才算发出去。
     const beforeGroup = newestUpdateGroup(
@@ -979,6 +1032,10 @@ async function main() {
         '--message',
         message,
         '--non-interactive',
+        // 2026-11-12 实测:同一台机换版本 env 再发,Metro 缓存会把旧 bundle 原样打进去
+        // (0.0.25→0.0.26 产物 hash 不变,加 --clear 才变)。发布腿必须清缓存,
+        // 否则 EXPO_PUBLIC_IHUI_MOBILE_VERSION 内联的是上一次的值,版本可信闸门形同虚设。
+        '--clear-cache',
       ],
       // 15 min 不够:2026-11-05/06 三次成功轮实测 3.5–9 min,而 2026-11-06T144615Z 一轮超过
       // 15 min 被 execFileSync 杀掉(exit=null,stdout 只剩入口横幅)。放宽到 30 min,超过才按
@@ -1148,6 +1205,28 @@ function selfTest() {
     /eas update --channel \$\{name\} --environment \$\{name\}/.test(self),
     true,
   )
+  // 2026-11-12 实测收口:同一台机换版本 env 再发,Metro 缓存会把旧 bundle 原样打进去,
+  // 于是 EXPO_PUBLIC_IHUI_MOBILE_VERSION 内联的是上一次的值 ⇒ 发布腿必须带 --clear-cache。
+  eq('OTA 执行参数带 --clear-cache', self.includes("'--clear-cache',"), true)
+  eq('OTA 展示命令带 --clear-cache', /--non-interactive --clear-cache/.test(self), true)
+  // CLI 参数:短旗与未知旗都在判据面,不许再出现"传了 -m 却静默忽略"
+  eq('readArg:-m 短旗必须认', readArgValue(['-m', 'fix: x'], 'm'), 'fix: x')
+  eq('readArg:--message 长旗', readArgValue(['--message', 'fix: x'], 'message'), 'fix: x')
+  eq('readArg:旗后无值 ⇒ dflt', readArgValue(['-m'], 'm', 'fallback'), 'fallback')
+  eq('readArg:旗后紧跟旗 ⇒ dflt', readArgValue(['-m', '--execute'], 'm', 'fallback'), 'fallback')
+  eq(
+    'unknownArgs:拼错的旗被抓出',
+    unknownArgs(['--execute', '--leg', 'ota-production', '--messge', 'x']),
+    ['--messge'],
+  )
+  eq(
+    'unknownArgs:全合法 ⇒ 空',
+    unknownArgs(['--execute', '--leg', 'ota-production', '-m', 'note', '--json']),
+    [],
+  )
+  eq('unknownArgs:等号形式也判未知', unknownArgs(['--leg=ota-production']), [
+    '--leg=ota-production',
+  ])
   // OTA 腿"真落地"判据锁(2026-11-06):组没变就必须判未落地,否则又会回到"exit=0 就冒绿"
   eq(
     'newest:数组形态(channel:list)',
@@ -1217,6 +1296,10 @@ export const __test__ = {
   newestUpdateGroup,
   summaryLines,
   firstMeaningfulLine,
+  readArgValue,
+  unknownArgs,
+  CLI_VALUE_FLAGS,
+  CLI_BOOL_FLAGS,
   probeRuntimeVersion,
   assertOtaVersionPair,
   buildLegs,

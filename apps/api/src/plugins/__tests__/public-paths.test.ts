@@ -16,6 +16,9 @@
  *   S4 三份清单语义**故意不合并**:`/api/settings` 可免租户但仍需登录。
  */
 import { describe, it, expect } from 'vitest'
+import { readdirSync, readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import {
   AUTH_PUBLIC_EXACT_PATHS,
   AUTH_PUBLIC_PREFIX_PATHS,
@@ -152,6 +155,141 @@ describe('BUG-4 公开面单一真相源', () => {
       expect(isAuthPublicPath('/api/public/banner')).toBe(true)
       expect(isNetworkPublicPath('/api/public/banner')).toBe(true)
       expect(isTenantBypassPath('/api/public/banner')).toBe(false)
+    })
+
+    /**
+     * 2026-11-12:个人号池面必须免租户(与 WS 全族同批实测暴露)。
+     *
+     * 事故形状(本机 8801 与 8802 双路实测,均带真实 admin 登录态 Bearer):
+     * `GET /api/account-pool/models` → `{"code":401,"message":"多租户严格模式已启用…
+     * path=/api/account-pool/models"}`。浏览器端**从不**携带 X-Tenant-Id(全仓零引用),
+     * 后果是号池模型在选择器里根本拿不到 ⇒ 号池通道整条链路在浏览器里等于不存在。
+     * 数据维度是 userId(两张号池表均无 tenant 列),免租户不损隔离。
+     */
+    describe('个人号池面免租户(2026-11-12)', () => {
+      // 取自 apps/api/src/routes/account-pool.ts 的 server.<verb> 实读(8 条,含参数段形态)
+      const POOL_ROUTES = [
+        '/api/account-pool',
+        '/api/account-pool/models',
+        '/api/account-pool/summary',
+        '/api/account-pool/credential',
+        '/api/account-pool/abc-123',
+        '/api/account-pool/abc-123/status',
+        '/api/account-pool/abc-123/checkin',
+      ]
+
+      it('当前全部号池路由都免租户(逐条,不用前缀蒙过去)', () => {
+        for (const route of POOL_ROUTES) {
+          expect(isTenantBypassPath(route), `${route} 必须免租户`).toBe(true)
+        }
+      })
+
+      it('免租户不免鉴权:号池面绝不能被列为鉴权公开面', () => {
+        // 该面全部端点由 account-pool.ts 的插件作用域 preHandler 强制登录;
+        // 若哪天有人把它也塞进 AUTH_PUBLIC_PREFIX_PATHS,兜底鉴权闸就整族放行。
+        for (const route of POOL_ROUTES) {
+          expect(isAuthPublicPath(route), `${route} 不得进鉴权公开面`).toBe(false)
+        }
+        expect(AUTH_PUBLIC_PREFIX_PATHS).not.toContain('/api/account-pool')
+      })
+
+      it('段边界:不放行 /api/account-poolXYZ 这类同级兄弟路径', () => {
+        expect(isTenantBypassPath('/api/account-poolXYZ')).toBe(false)
+        expect(isTenantBypassPath('/api/account-poolXYZ/models')).toBe(false)
+      })
+
+      // 自维护锁:account-pool.ts 里出现的每条路由字面量都必须被覆盖(新增端点自动纳入)
+      it('account-pool 源码路由字面量全部被租户豁免覆盖(新增端点自动纳入)', () => {
+        const here = dirname(fileURLToPath(import.meta.url))
+        const src = readFileSync(join(here, '..', '..', 'routes', 'account-pool.ts'), 'utf8')
+        const found = new Set<string>()
+        for (const m of src.matchAll(/['"`](\/api\/account-pool[^'"`\s]*)['"`]/g)) {
+          const route = (m[1] ?? '').split('?')[0] ?? ''
+          if (route.length > 0) found.add(route)
+        }
+        // 兜底:扫描面为空说明读路径写错了(假绿五式之「取不到清单即判绿」)
+        expect(found.size).toBeGreaterThanOrEqual(6)
+        for (const route of found) {
+          expect(isTenantBypassPath(route), `源码路由 ${route} 未被租户豁免覆盖`).toBe(true)
+        }
+      })
+    })
+
+    /**
+     * 2026-11-12:WS 全族必须免租户。
+     *
+     * 事故形状(本机 8802 实测):`/ws/relay/chat?token=…`、`/ws/notifications?token=…` 在
+     * TENANT_STRICT_MODE 缺省严格下返回 `{"code":401,"message":"多租户严格模式已启用…"}`。
+     * 根因是传输层事实而非漏登记:浏览器 WebSocket 握手无法自定义 header,租户标识只剩
+     * 「子域名」一条载体,而 `api.aizhs.top` 的 `api` 属 RESERVED_SUBDOMAINS ⇒ 恒无租户标识。
+     * 后果是平台 16 条 WS 路由一律结构性不可达(不止号池通道)。
+     */
+    describe('WS 全族免租户(2026-11-12)', () => {
+      // 显式列出当前全部 WS 路由(取自 apps/api/src/plugins/ws-*.ts 的 server.get 实读)。
+      const WS_ROUTES = [
+        '/ws/notifications',
+        '/ws/relay/chat',
+        '/ws/relay/ops',
+        '/ws/messages',
+        '/ws/broadcast',
+        '/ws/customer-service',
+        '/ws/agent/stream',
+        '/ws/tts/stream',
+        '/ws/realtime/pcm',
+        '/ws/stock/stream',
+        '/ws/timbre/generate',
+        '/ws/coze/chat',
+        '/ws/tasks/abc-123',
+        '/ws/room/42',
+        '/ws/payment/status/ORDER123',
+        '/ws/terminal/sess-1',
+      ]
+
+      it('当前全部 WS 路由都免租户(逐条,不用前缀蒙过去)', () => {
+        for (const route of WS_ROUTES) {
+          expect(isTenantBypassPath(route), `${route} 必须免租户`).toBe(true)
+        }
+      })
+
+      it('免租户不免鉴权:/ws/* 绝不能被列为鉴权公开面', () => {
+        // 这是本次豁免的安全前提 —— 若哪天有人图省事把 /ws/ 也塞进 AUTH_PUBLIC_PREFIX_PATHS,
+        // 兜底鉴权闸就整族放行 WS,而 WS 的凭据在 handler 内(query token),闸看不到。
+        // 该断言在那一改落的瞬间变红,不让「免租户」悄悄升级成「免鉴权」。
+        for (const route of WS_ROUTES) {
+          expect(isAuthPublicPath(route), `${route} 不得进鉴权公开面`).toBe(false)
+        }
+        expect(AUTH_PUBLIC_PREFIX_PATHS).not.toContain('/ws/')
+      })
+
+      it('段边界:/ws 前缀不放行 /wsXYZ 这类同级兄弟路径', () => {
+        expect(isTenantBypassPath('/wsXYZ/foo')).toBe(false)
+        expect(isTenantBypassPath('/ws')).toBe(false)
+        // 反向对照:相邻的 /v1 豁免也不该顺手放过 /ws2
+        expect(isTenantBypassPath('/ws2/relay')).toBe(false)
+      })
+
+      // 自维护锁:今后新增 WS 路由时,若插件文件里出现 /ws/ 字面量而清单漏改,本用例即红。
+      it('源码里出现的每个 /ws 路由字面量都被租户豁免覆盖(新增路由自动纳入)', () => {
+        const here = dirname(fileURLToPath(import.meta.url))
+        const pluginsDir = join(here, '..')
+        const wsFiles = readdirSync(pluginsDir).filter(
+          (f) => f.startsWith('ws-') && f.endsWith('.ts'),
+        )
+        expect(wsFiles.length).toBeGreaterThan(0)
+        const found = new Set<string>()
+        for (const file of wsFiles) {
+          const src = readFileSync(join(pluginsDir, file), 'utf8')
+          for (const m of src.matchAll(/['"`](\/ws\/[^'"`\s]*)['"`]/g)) {
+            const route = (m[1] ?? '').split('?')[0] ?? ''
+            if (route.length > 0) found.add(route)
+          }
+        }
+        // 兜底:扫描面为空说明读路径写错了(假绿五式之「取不到清单即判绿」)
+        expect(found.size).toBeGreaterThanOrEqual(WS_ROUTES.length - 1)
+        for (const route of found) {
+          expect(isTenantBypassPath(route), `源码路由 ${route} 未被租户豁免覆盖`).toBe(true)
+        }
+      })
     })
   })
 })

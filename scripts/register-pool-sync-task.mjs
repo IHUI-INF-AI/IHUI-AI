@@ -12,7 +12,8 @@
  *
  * 任务形态(2026-11-11 实测定型):
  *   Execute   = node.exe 绝对路径(**不经 cmd**)
- *   Arguments = "<repo>\scripts\relay-account-pool-sync.mjs" --if-dirty --apply --quiet --log "<repo>\.tmp\pool-sync.log"
+ *   Arguments = "<repo>\scripts\relay-account-pool-sync.mjs" --if-dirty --apply --all-owners --quiet --log "<repo>\.tmp\pool-sync.log"
+ *   (--all-owners 自 2026-11-12 机主令起为自动任务定值:全库所有归属 + 运营池都要互通)
  *   Trigger   = 每 N 分钟(默认 2)
  *
  * 两个反面教材(都实测踩过):
@@ -139,7 +140,9 @@ function resolveStableNode() {
 }
 
 function buildTaskArgument() {
-  return `"${SYNC_SCRIPT}" --if-dirty --apply --quiet --log "${LOG_FILE}"`
+  // 2026-11-12 机主令「所有号池里的号都应该自动同步运营生产」:自动任务必须覆盖全库
+  // 所有归属(含运营池 owner=NULL),不能只同步 ~/.wb-switch/pool-owner 指定的单一 owner。
+  return `"${SYNC_SCRIPT}" --if-dirty --apply --all-owners --quiet --log "${LOG_FILE}"`
 }
 
 // —— COM 兼容层:PowerShell 7 无 ScheduledTasks 模块,改用 Schedule.Service COM(本机实际环境) ——
