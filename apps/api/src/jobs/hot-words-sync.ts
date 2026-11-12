@@ -107,17 +107,30 @@ async function fetchGitHubTrending(): Promise<number> {
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const html = await res.text()
     const $ = cheerio.load(html)
-    let n = 0
-    let pos = 1
+    // F-123:先把候选**同步**收集出来,再逐条 await 落库。
+    //
+    // 修前是 `.each((_, el) => { upsertHotWord(...); n++ })` —— 回调不是 async,
+    // `upsertHotWord` 返回的 Promise 既没 await 也没 catch:
+    //   · DB 失败时 logs 仍报 success,实际一条没写(unhandledRejection 只记日志);
+    //   · `n++` 在 DB 操作发起前就执行,count 与实际写入数无关;
+    //   · `Math.min(n, 15)` 只截返回值,库里的条数不受这 15 的约束。
+    // 现在:collect 阶段纯同步(不产生悬空 Promise),写入阶段逐条 await 且**只统计成功**,
+    // 上限在收集阶段就截断(15 条),避免"返回值当上限"的假约束。
+    const repos: string[] = []
     $('article h2 a').each((_, el) => {
+      if (repos.length >= 15) return
       const href = $(el).attr('href') ?? ''
       const repo = href.replace(/^\//, '').trim()
       if (!repo || !repo.includes('/')) return
-      upsertHotWord(repo, pos++)
-      n++
+      repos.push(repo)
     })
-    // 限制返回前 15 个
-    return Math.min(n, 15)
+    let n = 0
+    let pos = 1
+    for (const repo of repos) {
+      await upsertHotWord(repo, pos++)
+      n++
+    }
+    return n
   } finally {
     clearTimeout(timer)
   }
