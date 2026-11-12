@@ -923,7 +923,6 @@
   "reverseGaps": [
     {
       "name": "IHUI-AI-SERVICE",
-      "reconfirmNote": "归并复注@2026-11-12:本组为 G 机 lichunchuan 未装读数;服务器面快照 reverseGaps 已空,保留至下一次 --snapshot 合法重生成",
       "bucket": "not-installed-consumer-only",
       "detail": "本机没装；仓里只有使用点(deploy/win/ihui-monitor.ps1——属另一台承载机的服务，非幽灵引用)",
       "createSources": [],
