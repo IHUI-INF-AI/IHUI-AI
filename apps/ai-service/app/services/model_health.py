@@ -380,10 +380,16 @@ _STREAM_FALLBACK_STATUS = frozenset({400, 405, 422, 501})
 # 工具调用探测用量:极简 function tool + 512 tokens,成本可忽略。
 # 不能压到 64:推理模型会先把预算花在思考上,截断后根本没机会发 tool_calls,
 # 实测会把 kimi-k3/k2.7 这类明确支持工具的模型误判成"未实际触发"。
+# 工具探测判 false 前的确认间隔:并发压力下账号池会回纯文本/半截流,
+# 一次就落"不支持"会把可用模型标签打错(2026-11-12 实测 14 个 workbuddy 被误判)。
+_TOOL_PROBE_RETRY_DELAY_S = 0.6
 _TOOL_PROBE_MAX_TOKENS = 512
-# 长上下文针测的输出预算:验证码本身只有十几个字符,但推理模型会先花预算思考,
-# 24 tokens 会让它们"还没开口就被截断",在界面上被打成"不支持长上下文"(实测假阴性)。
-_CONTEXT_PROBE_MAX_TOKENS = 256
+# 长上下文针测的输出预算:验证码本身只有十几个字符,但推理模型会先花预算思考。
+# 24 → 256 治住了"还没开口就被截断";2026-11-12 实测 256 仍不够——
+# nemotron-3.5-lightning / dots-3-note 这两个推理模型 256 全花在思考上,
+# 可见回复为空,一直停在"未判定"。再抬到 1024:16k 预填充的成本远大于这 1024,
+# 而"能答出来"才是这条针测唯一要判的事实。
+_CONTEXT_PROBE_MAX_TOKENS = 1024
 # 长上下文针测的超时:16k token 预填充比 ping 慢,给 6 倍预算(120s)。
 # 免费推理模型在 16k 预填充下首字常要 60s 以上,3 倍会把"慢但可用"记成未知。
 CONTEXT_PROBE_TIMEOUT_S = PROBE_TIMEOUT_S * 6
@@ -677,6 +683,12 @@ def _judge_tools_stream(status_code: int, body: str) -> tuple[bool | None, str]:
         return None, "收到 tool_calls 分片但函数名缺失,工具调用未判定"
     if finish == "length":
         return None, "输出被 max_tokens 截断,工具调用未判定"
+    if finish not in ("stop", "end_turn"):
+        # 没有正常收尾帧(finish_reason 缺失)或非正常收尾:上游可能中途断流。
+        # 2026-11-12 实测:账号池在探测并发压力下会中途断流,旧实现把它写成
+        # "声明支持但未实际触发",把 14 个本该 true 的 workbuddy 模型打成不支持。
+        # 注意 "" 也要判未知 —— [DONE] 之前没有 finish_reason 就是典型的半截流。
+        return None, f"流式未正常结束(finish_reason={finish or '缺失'}),工具调用未判定"
     return False, "声明支持工具调用但未实际触发"
 
 
@@ -1736,7 +1748,24 @@ class ModelHealthService:
                 resp = await client.post(
                     chat_url, headers=headers, json=payload, timeout=_TOOL_PROBE_TIMEOUT_S
                 )
-            return _judge_tools_stream(resp.status_code, resp.text or "")
+            ok, error = _judge_tools_stream(resp.status_code, resp.text or "")
+            if ok is False:
+                # "没触发工具"是最容易被并发噪声写错的结论(账号池在探测压力下会
+                # 回纯文本/半截流)。判 false 前再确认一次:仍 false 才敢落到界面,
+                # 任一次 true 即判支持 —— 失效方向取"多给一次确认",不是"多贴一个标签"。
+                await asyncio.sleep(_TOOL_PROBE_RETRY_DELAY_S)
+                resp = await client.post(
+                    chat_url, headers=headers, json=payload, timeout=_TOOL_PROBE_TIMEOUT_S
+                )
+                retry_ok, retry_error = _judge_tools_stream(
+                    resp.status_code, resp.text or ""
+                )
+                if retry_ok is True:
+                    return True, ""
+                if retry_ok is None:
+                    return None, retry_error
+                return False, (retry_error or error)
+            return ok, error
         except Exception as e:
             # 超时 / 网络异常不能误判为"不支持工具调用"(记未知)
             return None, _redact_secrets(f"{type(e).__name__}: {str(e)[:120]}")[:200]

@@ -332,6 +332,85 @@ async def test_probe_tools_required_falls_back_to_auto():
     assert client.calls[1]["tool_choice"] == "auto"
 
 
+
+class _ScriptedToolClient:
+    """按调用次序返回预设响应:用来钉住"判 false 前必须再确认一次"。"""
+
+    def __init__(self, responses: list[tuple[int, str]]) -> None:
+        self._responses = responses
+        self.calls = 0
+
+    async def post(self, *args, **kwargs):
+        body = self._responses[min(self.calls, len(self._responses) - 1)]
+        self.calls += 1
+        return _Resp(body[0], body[1])
+
+
+def _sse_body(*frames: dict) -> str:
+    lines = [_sse(f) for f in frames] + ["data: [DONE]"]
+    return chr(10).join(lines)
+
+
+_TOOL_TEXT_ONLY = _sse_body(
+    {"choices": [{"delta": {"content": "北京晴天"}, "finish_reason": None}]},
+    {"choices": [{"delta": {}, "finish_reason": "stop"}]},
+)
+_TOOL_REAL_CALL = _sse_body(
+    {
+        "choices": [
+            {
+                "delta": {
+                    "tool_calls": [
+                        {
+                            "index": 0,
+                            "id": "c1",
+                            "type": "function",
+                            "function": {"name": "get_weather", "arguments": ""},
+                        }
+                    ]
+                },
+                "finish_reason": None,
+            }
+        ]
+    },
+    {"choices": [{"delta": {}, "finish_reason": "tool_calls"}]},
+)
+
+
+async def test_probe_tools_retries_before_committing_false(monkeypatch):
+    """第一次回纯文本不能就判"不支持":再确认一次,第二次真调了工具 ⇒ true。
+
+    2026-11-12 实测:探测并发压到账号池时,同一模型会回纯文本,
+    一次定论把 14 个 workbuddy 模型从"支持"打成"不支持"。
+    """
+    monkeypatch.setattr(mh, "_TOOL_PROBE_RETRY_DELAY_S", 0)
+    svc = ModelHealthService()
+    client = _ScriptedToolClient([(200, _TOOL_TEXT_ONLY), (200, _TOOL_REAL_CALL)])
+    ok, error = await svc._probe_tools(client, "http://x", {}, "m")
+    assert ok is True, error
+    assert client.calls >= 2, "判 false 前必须再确认一次"
+
+
+async def test_probe_tools_confirmed_false_after_two_text_responses(monkeypatch):
+    """两次都明确正常收尾且没调工具 ⇒ 才敢判"不支持"。"""
+    monkeypatch.setattr(mh, "_TOOL_PROBE_RETRY_DELAY_S", 0)
+    svc = ModelHealthService()
+    client = _ScriptedToolClient([(200, _TOOL_TEXT_ONLY), (200, _TOOL_TEXT_ONLY)])
+    ok, error = await svc._probe_tools(client, "http://x", {}, "m")
+    assert ok is False
+    assert "未实际触发" in error
+
+
+def test_judge_tools_stream_truncated_stream_is_unknown():
+    """流没正常收尾(半截流)⇒ 未知,不能判"不支持工具调用"。"""
+    body = _sse_body(
+        {"choices": [{"delta": {"content": "Let me check"}, "finish_reason": None}]},
+    )
+    ok, error = mh._judge_tools_stream(200, body.replace('data: [DONE]', ''))
+    assert ok is None
+    assert "未正常结束" in error or "未判定" in error
+
+
 # ---------------------------------------------------------------------------
 # 长上下文针测文本
 # ---------------------------------------------------------------------------
