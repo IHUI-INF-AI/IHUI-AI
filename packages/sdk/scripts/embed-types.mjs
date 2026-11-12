@@ -10,9 +10,12 @@
  * `from '@ihui/types'` —— 消费者只要 `skipLibCheck: false`,就会收到一片 TS2307。
  * `scripts/check-pkg-installable.mjs` 只核运行时依赖与产物结构,看不见类型面这一维。
  *
- * 做法:取 `@ihui/types` 中两份**自包含**(没有任何 import)的声明文件,
- * 拼成 `dist/ihui-types.d.ts`,再把 `dist/*.d.ts` 里的 `@ihui/types` 说明符
- * 改写为相对路径 `./ihui-types.js`(TS 会解析到同目录的 `.d.ts`)。
+ * 做法:取 `@ihui/types` 中两份声明文件(v1-endpoints.d.ts / api-key.d.ts),做**传递闭包**——
+ * 它们自身可能再 `import type` 其它 `@ihui/types` 内部声明(如 api-key.d.ts 引用
+ * app-shared.d.ts 的 TFunction),把这些内部相对引用也一并内联,并把引用改写到
+ * `./ihui-types.js`。外部包 import(react 等)原样保留(发布物允许引用 peer dependency,
+ * 判据只拦 `@ihui/*`)。拼成的 `dist/ihui-types.d.ts` 与 `dist/*.d.ts` 里的 `@ihui/types`
+ * 说明符一起改写为相对路径 `./ihui-types.js`(TS 会解析到同目录的 `.d.ts`)。
  * 不复制整个 types 包(那会把无关声明一起塞进 SDK),也不改任何公开签名。
  *
  * 触发:`package.json` 的 `build` / `scripts/prepack.mjs`(tsc 之后)。
@@ -44,16 +47,36 @@ function typesDistDir() {
 }
 
 const typesDist = typesDistDir()
-// 这两份声明覆盖 SDK 引用的全部 113 个 V1 类型,且自身没有任何 import。
+// 这两份声明覆盖 SDK 引用的全部 113 个 V1 类型。它们自身可能再 `import type` 其它
+// @ihui/types 内部声明(如 api-key.d.ts 引用 app-shared.d.ts 的 TFunction),故做传递闭包:
+// 从 SOURCES 出发,把内部相对引用(./xxx.js)也一并内联,并把引用改写到 ./ihui-types.js。
+// 外部包 import(如 react)原样保留 —— 发布物允许引用 peer dependency,判据只拦 @ihui/*。
+// 注:闭包收集到的 app-shared.d.ts 可能再引 react 等外部包,这些不在 @ihui/* 之列,末道判据放行。
 const SOURCES = ['v1-endpoints.d.ts', 'api-key.d.ts']
-const chunks = []
-for (const name of SOURCES) {
+const bundleSet = new Set()
+const queue = [...SOURCES]
+while (queue.length) {
+  const name = queue.shift()
+  if (bundleSet.has(name)) continue
+  bundleSet.add(name)
   const file = join(typesDist, name)
   if (!existsSync(file)) fail(`${file} 缺失 —— @ihui/types 的产物结构变了,内联清单需同步更新`)
   const text = readFileSync(file, 'utf8')
-  if (/^\s*import\s[^;]*from\s/m.test(text)) {
-    fail(`${name} 含有 import —— 内联方案只支持自包含声明,否则得连带复制其依赖图`)
+  // 仅追踪 @ihui/types 内部的相对引用(./app-shared.js / ../yyy.js);外部包(react 等)跳过
+  const re = /(?:import|export)\b[^;\n]*?\bfrom\s+['"](\.\.?\/[^'"]+\.js)['"]/g
+  let m
+  while ((m = re.exec(text))) {
+    const dep = m[1].replace(/^\.\//, '').replace(/\.js$/, '.d.ts')
+    if (!bundleSet.has(dep)) queue.push(dep)
   }
+}
+const chunks = []
+for (const name of bundleSet) {
+  const file = join(typesDist, name)
+  let text = readFileSync(file, 'utf8')
+  // 把内部相对引用(./app-shared.js)改写为指向内联后的 ./ihui-types.js
+  text = text.replace(/(from\s+['"])\.\/[^'"]+\.js(['"])/g, '$1./ihui-types.js$2')
+  chunks.push(`// ── ${name} ──`.trimEnd())
   chunks.push(text.trimEnd())
 }
 
