@@ -44,7 +44,11 @@ from typing import Any, Final
 import httpx
 
 from app.core.logging import get_logger
-from app.services.checkin_codes import PLATFORM_TRAE, is_already_checked_in
+from app.services.checkin_codes import (
+    PLATFORM_TRAE,
+    is_already_checked_in,
+    is_auth_rejected,
+)
 from app.services.checkin_outbound import CHALLENGE_COOLDOWN_SECONDS, checkin_outbound_gate
 
 logger = get_logger(__name__)
@@ -686,6 +690,25 @@ async def checkin_account(
         return result
     if not ok_s:
         logger.warning("status 预检失败仍尝试 claim", name=name, code=code_s, message=msg_s)
+        # 认证被拒(1001)= 凭证已死:预检已经拿到结论,再发 claim 只是对同一死票
+        # 二连击(2026-11-12 本机实测就是这样一轮两打、一天 9 轮)。直接按凭证失效
+        # 返回永久冷却,等新凭证到达由 clear_open_cooldowns 解冻 —— 这条分支在
+        # 2026-11-12 之前不存在,是本轮风控零触发改造的守门点。
+        if is_auth_rejected(PLATFORM_TRAE, code_s):
+            logger.warning(
+                "凭证被上游拒绝,跳过 claim(风控零触发)",
+                name=name,
+                user_id=user_id,
+                code=code_s,
+            )
+            result.update(
+                code=code_s,
+                message=msg_s,
+                # 预检接口不回报 HTTP status,这里不编造(保持 None)——
+                # 判据只看业务码 1001,凭据/状态码一律不进记录
+                classified_error={"type": "SessionDead", "cooldown_seconds": -1},
+            )
+            return result
         if checkin_outbound_gate.paused_remaining() > 0:
             # 本账号 status 刚回 429 触发出站全局暂停:不再顶风 claim,
             # 直接按 SoftRate 结构化失败返回(单账号契约仍是 dict,冷却由调用方落)
@@ -788,6 +811,20 @@ async def checkin_account(
         return result
 
     # 签到失败 → 分类错误（冷却落盘由调用方执行）
+    # 认证被拒(1001)是凭证失效而不是普通业务失败:旧口径给 BusinessError/300s,
+    # 冷却一过调度/手动又会打同一枚死票(2026-11-12 本机 9 次实证)。归 SessionDead
+    # 走永久冷却,新凭证(credVersion)到达时由 clear_open_cooldowns 自动解冻。
+    if is_auth_rejected(PLATFORM_TRAE, code):
+        result["classified_error"] = {"type": "SessionDead", "cooldown_seconds": -1}
+        logger.warning(
+            "凭证被上游拒绝,标记 SessionDead",
+            name=name,
+            user_id=user_id,
+            code=code,
+            http_status=http_status,
+        )
+        result["message"] = msg
+        return result
     error_type, cooldown_secs = classify_error(http_status, msg, code)
     if error_type and error_type != "Unknown":
         result["classified_error"] = {"type": error_type, "cooldown_seconds": cooldown_secs}

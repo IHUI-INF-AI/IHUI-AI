@@ -36,7 +36,7 @@ import { resolveAccountProxyUrl } from './relay-proxy-pool.js'
 // =============================================================================
 
 /** 签到平台(与 ai-service internal_checkin_pool._POOL_PLATFORMS 白名单文字一致) */
-export type CheckinPlatform = 'trae' | 'workbuddy' | 'qoder' | 'minimax' | 'doubao'
+export type CheckinPlatform = 'trae' | 'workbuddy' | 'qoder' | 'minimax' | 'doubao' | 'zcode'
 
 const PROVIDER_TO_CHECKIN: Record<RelayProviderCode, CheckinPlatform | null> = {
   trae: 'trae',
@@ -49,7 +49,11 @@ const PROVIDER_TO_CHECKIN: Record<RelayProviderCode, CheckinPlatform | null> = {
   minimax: 'minimax',
   codex: null,
   opencode: null,
-  zcode: null,
+  // 2026-11-12 接入 ZCode 波谷额度签到(checkin_zcode.py 引擎;契约取证=客户端 3.17.2
+  // 计划服务 billing/preview(只读)+ billing/claim(写),票=zcodejwttoken,Bearer+
+  // X-Device-Mid/X-ZCode-App-Version 头族;官方每日 19:00(UTC+8)开放领 3 亿
+  // GLM-5.3-Flash tokens ⇒ 调度侧 19:05 窗口 + 20:30/22:00 补跑):
+  zcode: 'zcode',
   loomy: null,
   // 2026-11-11 接入豆包签到(checkin_doubao.py 引擎,v3/detail+landing/checkin,
   // cookie 头会话;频控期 710010702 → BusinessError 冷却,不熔断):
@@ -95,6 +99,12 @@ export interface PoolSyncAccount {
   devicePubPem?: string | null
   /** token 到期时刻(ISO);null = 不过期/未知 */
   expiresAt: string | null
+  /**
+   * ZCode plan 通道票(2026-11-12 随第七平台签到引擎接入):preview/claim/balance
+   * 实弹只认 zcodejwttoken,oauth access 打过去 401 ⇒ 票不过桥 = 引擎永远领不到。
+   * 缺省 = 不带(其它平台行为零变化)。
+   */
+  planToken?: string | null
 }
 
 export interface PoolSyncAccountSource {
@@ -114,6 +124,8 @@ export interface PoolSyncAccountSource {
   deviceKeyPem?: string | null
   devicePubPem?: string | null
   tokenExpiresAt: Date | null
+  /** ZCode plan 票(见 PoolSyncAccount.planToken 注释) */
+  planToken?: string | null
 }
 
 /**
@@ -144,18 +156,44 @@ export function parseSecretsEnc(
   }
 }
 
+/**
+ * ZCode plan 票(zcodejwttoken)读取(2026-11-12,随第七平台签到引擎接入)。
+ *
+ * 形状权威 = relay-account-pool-service 落库的 secrets.credentialMap(ZCode 客户端
+ * credentials.json 扁平图直通;zcode-adapter 的 planJwt 读同一键 ⇒ 本函数与它逐字
+ * 同源,零第二份判据)。取到非空字符串才返回,否则 null(按"不带 plan 票"处理,
+ * 引擎侧 401 如实报,不拿错票假装续命)。
+ */
+export function zcodePlanJwtFromSecrets(
+  secrets: Record<string, unknown> | null | undefined,
+): string | null {
+  if (!secrets) return null
+  const direct = secrets['zcodejwttoken']
+  if (typeof direct === 'string' && direct.trim()) return direct.trim()
+  const cm = secrets['credentialMap']
+  if (cm && typeof cm === 'object' && !Array.isArray(cm)) {
+    const v = (cm as Record<string, unknown>)['zcodejwttoken']
+    if (typeof v === 'string' && v.trim()) return v.trim()
+  }
+  return null
+}
+
 /** 构造推送载荷(expiresAt 统一序列化为 ISO;无效日期按 null 处理,不抛) */
 export function buildPoolSyncAccount(src: PoolSyncAccountSource): PoolSyncAccount {
   const exp =
     src.tokenExpiresAt && !Number.isNaN(src.tokenExpiresAt.getTime())
       ? src.tokenExpiresAt.toISOString()
       : null
+  // 票位取用(planToken 优先,仅 zcode 装配线会填):plan 通道实弹只认
+  // zcodejwttoken,oauth access 打过去 401 ⇒ 号池把真票交给签到引擎,
+  // 转发/保活仍用 oauth 槽(本投影不动池内存储,只改推送载荷)。
+  const token = src.planToken ? src.planToken : src.token
   return {
     poolAccountId: src.id,
     ownerUserId: src.ownerUserId,
     uid: src.uid,
     name: src.name,
-    token: src.token,
+    token,
     refreshToken: src.refreshToken,
     credVersion: src.credVersion,
     enabled: src.enabled,
@@ -165,6 +203,7 @@ export function buildPoolSyncAccount(src: PoolSyncAccountSource): PoolSyncAccoun
     cosy: src.cosy,
     ...(src.deviceKeyPem ? { deviceKeyPem: src.deviceKeyPem } : {}),
     ...(src.devicePubPem ? { devicePubPem: src.devicePubPem } : {}),
+    ...(src.planToken ? { planToken: src.planToken } : {}),
     expiresAt: exp,
   }
 }
@@ -723,6 +762,7 @@ export async function retryPendingCheckinSyncs(
         cosy: extractCosy(row.extraMetadata),
         deviceKeyPem: pemFromSecrets(secretsForPem, 'deviceKeyPem'),
         devicePubPem: pemFromSecrets(secretsForPem, 'devicePubPem'),
+        planToken: zcodePlanJwtFromSecrets(secretsForPem),
         tokenExpiresAt: row.tokenExpiresAt,
       })
       const r = await pushPoolSync(platform, [acc], fetchImpl)
@@ -1137,6 +1177,7 @@ async function loadPoolSyncAccountById(id: string): Promise<PoolSyncAccount | nu
     cosy: extractCosy(row.extraMetadata),
     deviceKeyPem: pemFromSecrets(secretsForPem, 'deviceKeyPem'),
     devicePubPem: pemFromSecrets(secretsForPem, 'devicePubPem'),
+    planToken: zcodePlanJwtFromSecrets(secretsForPem),
     tokenExpiresAt: row.tokenExpiresAt,
   })
 }

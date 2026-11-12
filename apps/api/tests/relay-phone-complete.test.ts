@@ -94,6 +94,7 @@ vi.mock('../src/utils/crypto.js', () => ({
 }))
 
 vi.mock('../src/services/relay-account-pool-checkin-sync.js', () => ({
+  zcodePlanJwtFromSecrets: () => null,
   checkinPlatformFor: (code: string) => (code === 'trae' ? 'trae' : null),
   buildPoolSyncAccount: (src: Record<string, unknown>) => src,
   extractCosy: () => null,

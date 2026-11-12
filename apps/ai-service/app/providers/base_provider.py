@@ -27,7 +27,7 @@ def first_choice_or_raise(data: dict[str, Any], provider_label: str) -> dict[str
         raise ProviderError(
             f"{provider_label} 响应缺少 choices(空回复): {str(data)[:200]}", 502
         )
-    return choices[0]
+    return cast(dict[str, Any], choices[0])
 
 
 class ProviderError(Exception):

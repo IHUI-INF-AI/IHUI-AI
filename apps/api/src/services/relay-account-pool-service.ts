@@ -64,6 +64,7 @@ import {
   pemFromSecrets,
   pushPoolSync,
   type PoolSyncAccount,
+  zcodePlanJwtFromSecrets,
 } from './relay-account-pool-checkin-sync.js'
 import { encryptAccountProxyUrl, resolveAccountProxyUrl } from './relay-proxy-pool.js'
 import { isModelDown, normalizePoolUpstreamModelId } from './relay-pool-model-health.js'
@@ -528,12 +529,58 @@ function mapMinimaxImport(acc: ImportAccountInput): {
 }
 
 /**
+ * ZCode 账号级稳定 uid 取值阶梯(2026-11-12 收 Y-24 剩的一格,Q-4/Y-38①)。
+ *
+ * 立因:所选票本身可能不是 JWT(api key 档)。旧口径此时**直接落 token 哈希**
+ * ⇒ 同一个人"zcode:cn(customer_id 档)"与"zcode:global(api key 档)"各占一行,
+ * 保活台账/签到身份键跟着裂成两枚(生产实证 2026-11-11)。而 zcodejwttoken 与
+ * oauth:bigmodel:user_info 和所选票取自**同一份 credentials.json、同一账号**,
+ * 它们是账号级材料,不是"另一枚号"。
+ *
+ * 阶梯:① 所选票 claims(customer_id → user_id);② `zcodejwttoken` claims 同序;
+ * ③ `oauth:bigmodel:user_info` 的 id → user_id → customer_id(值可为 JSON 串或已解析对象,
+ * 两种形态都是本机现读实见;坏 JSON ⇒ 该档判不出,跳过继续走阶梯,绝不半途冒充判定);
+ * ④ 三类材料皆缺才回落 autoUid(token)(保持旧行为,不猜号)。
+ * ②③ 与所选票同属一份 credentials.json 的同一账号(反向对照:材料全缺的两枚 api key
+ * 仍得两枚不同键 ⇒ 阶梯不会把不同账号误合,见 relay-pool-uid-keysource-rotation ②)。
+ */
+function zcodeStableUid(a: Record<string, unknown>, token: string): string {
+  const fromSelected = stableClaimUid(parseJwtClaims(token), ['customer_id', 'user_id'])
+  if (fromSelected) return fromSelected
+  const fromPlanJwt = stableClaimUid(parseJwtClaims(cstr(a['zcodejwttoken'])), [
+    'customer_id',
+    'user_id',
+  ])
+  if (fromPlanJwt) return fromPlanJwt
+  const userInfoRaw = a['oauth:bigmodel:user_info']
+  // 材料两种真实形态:JSON 串(提取器直通)与已解析对象(其它导入通道)⇒ 都吃,判不出就跳过
+  let userInfo: Record<string, unknown> | null = null
+  if (userInfoRaw && typeof userInfoRaw === 'object' && !Array.isArray(userInfoRaw)) {
+    userInfo = userInfoRaw as Record<string, unknown>
+  } else if (typeof userInfoRaw === 'string' && userInfoRaw.trim()) {
+    try {
+      const parsed = JSON.parse(userInfoRaw) as unknown
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        userInfo = parsed as Record<string, unknown>
+      }
+    } catch {
+      /* 非 JSON ⇒ 这一档判不出,继续回落,不猜 */
+    }
+  }
+  if (userInfo) {
+    const fromInfo = stableClaimUid(userInfo, ['id', 'user_id', 'customer_id'])
+    if (fromInfo) return fromInfo
+  }
+  return autoUid(token)
+}
+
+/**
  * ZCode:credentials.json 扁平图直通,token 主选 oauth:bigmodel:access_token。
  *
  * 2026-11-06 Y-24 收稳定身份键:本机实提那枚票解出的 JWT 声明里带
  * `customer_id / user_id / username`(账号级),而 `oauth:bigmodel:user_info.id` 与
  * `customer_id` **同指纹**(同为 `c20d04f8`,两份互独立材料互相印证)⇒ 该 id 不是票派生量,
- * 换票不改。故 uid = 声明 `customer_id`(缺则 `user_id`);两者皆缺才回落 token 哈希。
+ * 换票不改。故 uid 走 `zcodeStableUid` 四档阶梯(2026-11-12 起:api key 档不再落 token 哈希)。
  */
 function mapZcodeImport(acc: ImportAccountInput): {
   token: string
@@ -556,8 +603,8 @@ function mapZcodeImport(acc: ImportAccountInput): {
   return {
     token,
     refreshToken: null,
-    // Y-24:键源 = 票内账号级声明,token 不进键(声明皆缺才回落 token 哈希)
-    uid: stableClaimUid(parseJwtClaims(token), ['customer_id', 'user_id']) || autoUid(token),
+    // Y-24 + 2026-11-12 四档阶梯:api key 档(选中票非 JWT)也取账号级材料,不再落 token 哈希
+    uid: zcodeStableUid(a, token),
     name: `zcode${region ? `:${region}` : ''}`,
     expiresAt: null,
     secrets: {
@@ -1195,6 +1242,10 @@ export async function importAccounts(
           machineId: values.machineId,
           cosy: cosyPayload,
           tokenExpiresAt,
+          // ZCode plan 票不过桥 ⇒ 签到引擎永远领不到(plan 端点只认 zcodejwttoken);
+          // 本批带的凭证图优先,覆盖导入时本批不带则回退既有行合并底
+          planToken:
+            zcodePlanJwtFromSecrets(incomingSecrets) ?? zcodePlanJwtFromSecrets(existingSecrets),
         }),
       )
     } catch (e) {
@@ -1450,6 +1501,7 @@ async function applyPhoneCompletion(
         cosy: extractCosy(synced.extraMetadata),
         deviceKeyPem: pemFromSecrets(credentials.secrets, 'deviceKeyPem'),
         devicePubPem: pemFromSecrets(credentials.secrets, 'devicePubPem'),
+        planToken: zcodePlanJwtFromSecrets(credentials.secrets),
         tokenExpiresAt: synced.tokenExpiresAt,
       })
       const push = await pushPoolSync(platform, [acc])
@@ -1461,7 +1513,12 @@ async function applyPhoneCompletion(
       } else {
         checkinSync.error = push.error
         try {
-          await markCheckinSyncPending([synced.id], 'cred', null, push.error ?? '补全后签到推送失败')
+          await markCheckinSyncPending(
+            [synced.id],
+            'cred',
+            null,
+            push.error ?? '补全后签到推送失败',
+          )
           checkinSync.pending = true
         } catch {
           /* pending 落库失败只意味着少一条待推痕迹,对账收敛器兜底 */
@@ -1636,6 +1693,7 @@ export async function setAccountShared(
         cosy: extractCosy(synced.extraMetadata),
         deviceKeyPem: pemFromSecrets(credentials.secrets, 'deviceKeyPem'),
         devicePubPem: pemFromSecrets(credentials.secrets, 'devicePubPem'),
+        planToken: zcodePlanJwtFromSecrets(credentials.secrets),
         tokenExpiresAt: synced.tokenExpiresAt,
       })
       const push = await pushPoolSync(platform, [acc])
@@ -2333,7 +2391,11 @@ export async function listUserPoolModels(
     for (const upstreamId of info.ids) {
       const id = toPoolModelId(code, upstreamId)
       // 裸名与带前缀名都算重复:平台登记行可能就用裸名(trae 系),上游清单再报一次不该出两条
-      if (seen.has(id) || seen.has(upstreamId) || seenNorm.has(normalizePoolUpstreamModelId(code, upstreamId))) {
+      if (
+        seen.has(id) ||
+        seen.has(upstreamId) ||
+        seenNorm.has(normalizePoolUpstreamModelId(code, upstreamId))
+      ) {
         continue
       }
       seen.add(id)

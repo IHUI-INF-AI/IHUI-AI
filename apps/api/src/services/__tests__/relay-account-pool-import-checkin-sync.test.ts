@@ -80,6 +80,9 @@ vi.mock('../relay-account-pool-checkin-sync.js', () => ({
   checkinPlatformFor: (p: string) => (p === 'trae' ? 'trae' : null),
   extractCosy: () => null,
   pemFromSecrets: () => null,
+  // 2026-11-12 消费面新增:service.ts 的推送载荷装配会问这一把 plan 票读取器,
+  // mock 面必须同步补齐(缺 ⇒ 整段 try 抛错,pushed/skipped 全 0 的假失败)
+  zcodePlanJwtFromSecrets: () => null,
   pushPoolSync: vi.fn(),
   clearCheckinSyncPending: vi.fn(),
   markCheckinSyncPending: vi.fn(),

@@ -188,7 +188,8 @@ def parse_balance(body: dict[str, Any] | None) -> dict[str, Any]:
             "keys": [],
         }
     code = body.get("code")
-    data = body.get("data") if isinstance(body.get("data"), dict) else {}
+    _raw_data = body.get("data")
+    data: dict[str, Any] = _raw_data if isinstance(_raw_data, dict) else {}
 
     def _int(v: Any) -> int | None:
         return v if isinstance(v, int) and not isinstance(v, bool) else None
@@ -222,7 +223,8 @@ def parse_grant(body: dict[str, Any] | None) -> dict[str, Any]:
             "message": "响应非 JSON",
         }
     code = body.get("code")
-    data = body.get("data") if isinstance(body.get("data"), dict) else {}
+    _raw_data = body.get("data")
+    data: dict[str, Any] = _raw_data if isinstance(_raw_data, dict) else {}
     granted = data.get("granted")
     popup = data.get("popup") if isinstance(data.get("popup"), dict) else None
 
@@ -249,7 +251,8 @@ def parse_tasks(body: dict[str, Any] | None) -> dict[str, Any]:
     if not isinstance(body, dict):
         return {"code": None, "states": {}, "message": "响应非 JSON", "raw_keys": []}
     code = body.get("code")
-    data = body.get("data") if isinstance(body.get("data"), dict) else {}
+    _raw_data = body.get("data")
+    data: dict[str, Any] = _raw_data if isinstance(_raw_data, dict) else {}
     raw_states = data.get("new_user_task_states")
     states: dict[str, str] = {}
     raw_keys: list[str] = []
@@ -335,7 +338,8 @@ async def _reload_available(
     parsed = parse_balance(body)
     if parsed["code"] != 0:
         return None
-    return parsed["available"]
+    available = parsed["available"]
+    return available if isinstance(available, int) and not isinstance(available, bool) else None
 
 
 async def raccoon_checkin_account(
