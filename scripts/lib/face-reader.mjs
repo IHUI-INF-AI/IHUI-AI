@@ -96,6 +96,17 @@ const GIT_MAX_BUFFER = 64 << 20
  * 防溢出语义**没有放松**:超预算的老路径(按字节切、单条巨型自成一块、ENOBUFS 抛错)原样保留。
  */
 const CAT_BATCH_CHUNK = 2500
+/**
+ * 小集直取的上限(2026-11-12 立;逃生舱 `IHUI_FACE_SMALL_DIRECT=0` 与
+ * `IHUI_FACE_OID_DIRECT=0` / `IHUI_FACE_SPEC_FASTPATH=0` 同口径,排障/对照用)。
+ *
+ * 实测(A/B 交错 5 轮,本机):2 条规格走原链(`catBatchSizesByOid` 问一次 size + 一次读块)
+ * = 767~1054ms;同 2 条规格直送一次 `cat-file --batch` = 393~530ms。多出来的那次派生只服务
+ * "按字节切块",可 2~4 条规格根本切不出两块(单块 48MB / 2500 条的护栏都在天上)。
+ * 规格数 == 1 时原链本就不问 size(已是一次派生),故直取只接管 2..本值条;更大一批的
+ * 折 oid 与字节切块仍是正路(14,963 规格那次优化治的就是大集,不是小集)。
+ */
+const SMALL_DIRECT_SPECS = 4
 
 /**
  * 显式临时绕开代理(2026-10-26 立;`--no-proxy` 旗标的取值)。
@@ -1403,6 +1414,27 @@ function catBatchRaw(root, revs, opts = {}) {
       ? null
       : catBatchPureOids(root, list, { ...opts, maxBuffer }, maxCount)
   if (direct) return direct
+  // ── 小集直取(2~SMALL_DIRECT_SPECS 条规格):不问 size、不折返,一次 `--batch` 直送 ──
+  // 只许**先试后落回**:本段用同一批规格 + 同一个 `parseBatchBuffers`(missing→null、截断→
+  // 抛 Undetermined 都与原链同源),成功 ⇒ 返回值与原链逐字节等价;任何异常(截断、巨型 blob
+  // 顶爆 maxBuffer、派生失败)⇒ 吞掉并落回下面**一字未动的老路**,字节预算、切块与错误文案
+  // 全部保持原样。因此这条快路最坏只是白跑一趟派生,不可能让任何一道门变差。
+  if (list.length >= 2 && list.length <= SMALL_DIRECT_SPECS && process.env.IHUI_FACE_SMALL_DIRECT !== '0') {
+    try {
+      const out = batchExecFileSync(GIT, ['-c', 'safe.directory=*', '-C', root, 'cat-file', '--batch'], {
+        cwd: root,
+        input: Buffer.from(list.join('\n') + '\n', 'utf8'),
+        windowsHide: true,
+        // 与本函数开头的 `maxBuffer` 同一个下限;此处写全形态是层内 fence 认的样子(§5b 镜像判据)
+        maxBuffer: opts.maxBuffer ?? GIT_MAX_BUFFER,
+        timeout: opts.timeout ?? BATCH_TIMEOUT,
+        stdio: ['pipe', 'pipe', 'pipe'],
+      })
+      return parseBatchBuffers(out, list)
+    } catch {
+      // 落回原链:直取没成不是取材失败,原链才是本体(它的预算与切块语义未动)
+    }
+  }
   // 单块预算取 min(默认块上限, 调用方给的缓冲区) —— 调用方把 maxBuffer 调大只该让它
   // **更敢读**,不该反过来把块撑大到一个 blob 就能顶爆的量。
   const maxBytes = opts.maxBytes ?? Math.min(BATCH_BLOCK_BYTES, maxBuffer)
