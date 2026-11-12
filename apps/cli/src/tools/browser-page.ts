@@ -483,6 +483,101 @@ const browserPagePickAtPoint: Tool = {
  * 守门链三方都不红 —— 清单式注册的失效形态永远是"安静"。改成按契约键全量映射后,
  * 契约新增一个动词而本端没实现,编译期就红(缺键),不会再拖到运行时。
  */
+const browserPageScroll: Tool = {
+  name: 'browser_page_scroll',
+  description:
+    'Scroll the page or a scrollable element. Bring off-screen content into view before snapshotting — cheaper and side-effect-free compared with clicking something just to see it.',
+  parameters: {
+    direction: { type: 'string', description: 'up | down | left | right (default down)' },
+    amount: { type: 'number', description: 'Pixels to scroll (default 600)' },
+    handle: { type: 'string', description: 'Optional: scroll this element instead of the page' },
+  },
+  required: [],
+  dangerLevel: 'read',
+  async execute(args) {
+    const direction = typeof args.direction === 'string' ? args.direction : 'down'
+    const amount = typeof args.amount === 'number' && args.amount > 0 ? Math.floor(args.amount) : 600
+    const handle = typeof args.handle === 'string' ? args.handle : undefined
+    if (!['up', 'down', 'left', 'right'].includes(direction)) {
+      return fail('PARAM_INVALID', `unsupported direction: ${direction}`)
+    }
+    const dx = direction === 'left' ? -amount : direction === 'right' ? amount : 0
+    const dy = direction === 'up' ? -amount : direction === 'down' ? amount : 0
+    try {
+      const { session } = await getBrowserSession()
+      await ensurePageApi(session)
+      if (handle) {
+        const r = await session.send('Runtime.evaluate', {
+          expression: `(() => {
+            const el = window.__ihuiPageResolve && window.__ihuiPageResolve(${JSON.stringify(handle)});
+            if (!el) return { ok: false };
+            el.scrollBy(${dx}, ${dy});
+            return { ok: true, scrollTop: el.scrollTop, scrollLeft: el.scrollLeft };
+          })()`,
+          returnByValue: true,
+        })
+        const v = (r as { result?: { value?: { ok?: boolean } } }).result?.value
+        if (!v?.ok) return fail('HANDLE_NOT_FOUND', `handle not resolvable: ${handle}`, { handle })
+        const out = actionOutput(`scrolled ${handle} ${direction} ${amount}px`, true, { dx, dy })
+        return ok(out.text, out.data)
+      }
+      await session.send('Runtime.evaluate', { expression: `window.scrollBy(${dx}, ${dy})`, returnByValue: true })
+      const out = actionOutput(`scrolled page ${direction} ${amount}px`, true, { dx, dy })
+      return ok(out.text, out.data)
+    } catch (err) {
+      return fail('CDP_FAILED', err instanceof Error ? err.message : String(err))
+    }
+  },
+}
+
+const browserPageWaitFor: Tool = {
+  name: 'browser_page_wait_for',
+  description:
+    'Wait until a condition holds (or time out). Use instead of blind sleeps: SPA rendering means a handle you just got may point at an element that has not mounted yet.',
+  parameters: {
+    text: { type: 'string', description: 'Wait until this text appears' },
+    textGone: { type: 'string', description: 'Wait until this text disappears' },
+    handle: { type: 'string', description: 'Wait until this handle resolves to a live element' },
+    timeoutMs: { type: 'number', description: 'Max wait in ms (default 5000, cap 30000)' },
+  },
+  required: [],
+  dangerLevel: 'read',
+  async execute(args) {
+    const text = typeof args.text === 'string' && args.text !== '' ? args.text : undefined
+    const textGone = typeof args.textGone === 'string' && args.textGone !== '' ? args.textGone : undefined
+    const handle = typeof args.handle === 'string' && args.handle !== '' ? args.handle : undefined
+    if (!text && !textGone && !handle) {
+      return fail('PARAM_INVALID', 'one of text / textGone / handle is required')
+    }
+    const rawTimeout = typeof args.timeoutMs === 'number' ? args.timeoutMs : 5000
+    const timeoutMs = Math.min(Math.max(Math.floor(rawTimeout), 1), 30_000)
+    try {
+      const { session } = await getBrowserSession()
+      await ensurePageApi(session)
+      const cond = text
+        ? `document.body && document.body.innerText.includes(${JSON.stringify(text)})`
+        : textGone
+          ? `document.body && !document.body.innerText.includes(${JSON.stringify(textGone)})`
+          : `!!(window.__ihuiPageResolve && window.__ihuiPageResolve(${JSON.stringify(handle)}))`
+      const started = Date.now()
+      // 轮询而非 MutationObserver:后者在跨 iframe / 动态插入下会漏,
+      // 而轮询的最坏代价只是一次 extra evaluate。100ms 在体感与开销间折中。
+      while (Date.now() - started < timeoutMs) {
+        const r = await session.send('Runtime.evaluate', { expression: cond, returnByValue: true })
+        if ((r as { result?: { value?: boolean } }).result?.value === true) {
+          const elapsed = Date.now() - started
+          const out = actionOutput(`condition met after ${elapsed}ms`, true, { elapsedMs: elapsed })
+          return ok(out.text, out.data)
+        }
+        await new Promise((r2) => setTimeout(r2, 100))
+      }
+      return fail('TIMEOUT', `condition not met within ${timeoutMs}ms`, { timeoutMs, retryable: true })
+    } catch (err) {
+      return fail('CDP_FAILED', err instanceof Error ? err.message : String(err))
+    }
+  },
+}
+
 const PAGE_ACTION_TOOLS: Record<PageActionType, Tool> = {
   page_snapshot: browserPageSnapshot,
   page_click: browserPageClick,

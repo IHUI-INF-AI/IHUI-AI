@@ -45,6 +45,13 @@ const continuity = await import(
 const doubaoFace = await import(
   pathToFileURL(path.join(REPO_ROOT, 'scripts', 'lib', 'doubao-continuity-face.mjs')).href
 )
+/**
+ * WorkBuddy 对话随行(2026-11-12 立):会话按 uid 归属,切号只换登录态 ⇒ 旧号会话看不见。
+ * 判据与写操作全在该模块(§0.6),本文件只负责"切号成功后按 replacedUid 调一次"。
+ */
+const wbCarry = await import(
+  pathToFileURL(path.join(REPO_ROOT, 'scripts', 'lib', 'workbuddy-chat-carry.mjs')).href
+)
 const { snapshotApp, compareSnapshots } = continuity
 type SnapshotResult = Awaited<ReturnType<typeof snapshotApp>>
 
@@ -160,6 +167,8 @@ export interface VerifiedSwitchResult {
   verdict: 'continuity-ok' | 'continuity-broken' | 'no-continuity-face' | 'not-run' | 'undetermined'
   compare: ReturnType<typeof compareSnapshots> | null
   writeBack: Awaited<ReturnType<typeof loginAccountLocal>> | null
+  /** WorkBuddy 对话随行结果(null = 该平台不走这条腿 / 未执行) */
+  resumeCarry: unknown
   notes: string[]
 }
 
@@ -217,11 +226,52 @@ export async function runVerifiedSwitch(opts: {
       verdict: 'not-run',
       compare: null,
       writeBack: null,
+      resumeCarry: null,
       notes,
     }
   }
 
   const writeBack = await doWrite(row)
+  /** 对话随行结果(仅 workbuddy;null = 未执行) */
+  let resumeCarry: unknown = null
+  /**
+   * WorkBuddy 对话随行(2026-11-12 立,补机主报的"切号带不过来对话")。
+   *
+   * 只在三件事同时成立时才动会话库:
+   *   ① 写回腿自己报了成功(否则旧号会话会被绑到一个没切成功的新号上);
+   *   ② 写回腿回报了 replacedUid(旧号);取不到就无处可搬,如实记未判定;
+   *   ③ 平台是 workbuddy(其余平台的携带腿各自独立,不在这里兼管)。
+   * carry 失败**不翻转切号成败**(登录态已写入且自检通过),但必须点名 —— 否则
+   * 又是一次"命令跑完看着像成功、对话却没跟过去"。
+   */
+  if (opts.provider === 'workbuddy' && writeBack?.ok === true && writeBack?.targetFile) {
+    const fromUid = typeof writeBack.replacedUid === 'string' ? writeBack.replacedUid : ''
+    const toUid = String(row.uid)
+    if (!fromUid) {
+      notes.push(
+        '对话随行未执行:写回腿没回报旧登录号(replacedUid 为空)⇒ 不知道从哪搬,不猜',
+      )
+    } else if (fromUid === toUid) {
+      notes.push('对话随行跳过:切号前后是同一个号(同账号重登,会话本就在自己名下)')
+    } else {
+      try {
+        const carry = wbCarry.runCarry({ fromUid, toUid })
+        notes.push(
+          `对话随行 ✓ 旧号 ${fromUid.slice(0, 8)} → 新号 ${toUid.slice(0, 8)}:` +
+            `会话 ${carry.moved.sessions} / 空间 ${carry.moved.spaces} / 定时任务 ${carry.moved.automations}` +
+            `;侧边栏快照并入 ${carry.snapshot.merged} 条`,
+        )
+        for (const n of carry.notes ?? []) notes.push(n)
+        resumeCarry = carry
+      } catch (e) {
+        const code = e && typeof e === 'object' && 'code' in e ? e.code : 'carry-failed'
+        notes.push(
+          `对话随行失败[${code}]:${e instanceof Error ? e.message : String(e)}` +
+            '(登录态已切好,旧号会话仍在旧 uid 名下;可重跑本入口补齐)',
+        )
+      }
+    }
+  }
   const after = takeSnap()
   let compare: ReturnType<typeof doCompare> | null = null
   let verdict: VerifiedSwitchResult['verdict']
@@ -247,6 +297,7 @@ export async function runVerifiedSwitch(opts: {
     verdict,
     compare,
     writeBack,
+    resumeCarry,
     notes,
   }
 }
@@ -305,6 +356,7 @@ export function main(argv: string[], io: MainIo = {}): number {
           ? `写回: ok=${r.writeBack.ok} 落点=${r.writeBack.targetFile} 备份=${r.writeBack.backupFile}`
           : '写回: (dry-run 或未执行)',
         ...(r.writeBack?.notes ?? []).map((n) => `  · ${n}`),
+        r.resumeCarry ? '对话随行: 已执行(明细见上方 notes)' : '',
         r.after
           ? `after: ${r.after.state} 会话=${r.after.sessions?.count ?? '?'} 钉=${r.after.sessions?.digest ?? '-'}`
           : r.dryRun

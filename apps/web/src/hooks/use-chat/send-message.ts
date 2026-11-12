@@ -197,6 +197,31 @@ export interface SendMessageOptions {
    *  只由"被拦 toast 的『仍要发送』"传入 —— 走与普通发送**同一条**链(不另开一条绕过判定的
    *  发送路径),但准入判定按 force 语义结算旧条目后重新登记。 */
   forcePending?: boolean
+  /** 就地发起(2026-11-12 立,财务部板块实测缺口):
+   *  缺省行为不变 —— 建会话后把 URL 换成 `/chat?conversationId=…`(停靠侧栏形态的既有契约)。
+   *  但「板块页一键发起」这类**自带页内进度卡**的页面,跳走会把刚出现的 plan 步骤看板连根拔掉,
+   *  用户再也看不到过程。true 时保留当前 pathname,只清掉旧 query(会话已由 store 承载,
+   *  全局 AISidePanel 照常展示该会话),页面留在原处继续看进度。
+   *  只改 URL 落点,不动发送链路任何一步。 */
+  stayOnPage?: boolean
+}
+
+/**
+ * 发送链「建会话后同步 URL」的落点解析(2026-11-12 立)。
+ *
+ * 唯一实现,三处 router.replace 共用 —— 复制三份必然漂移(§0.6 单一真相源)。
+ *
+ * - `stayOnPage !== true`:行为与既有一模一样,交给 `chatDeeplinkPath` 定档
+ *   (工作台留在工作台、其余一律回 /chat)。
+ * - `stayOnPage === true`:保留当前 pathname,**只**把 conversationId 写进 query。
+ *   用于「板块页一键发起」这类自带页内进度卡的页面:会话本身由 store 承载、
+ *   全局 AISidePanel 照常显示,URL 不需要也不应该换页。
+ */
+function resolveDeeplinkTarget(opts: SendMessageOptions | undefined, conversationId: string): string {
+  const sp = new URLSearchParams(window.location.search)
+  sp.set('conversationId', conversationId)
+  const pathname = opts?.stayOnPage === true ? window.location.pathname : chatDeeplinkPath(window.location.pathname)
+  return `${pathname}?${sp.toString()}`
 }
 
 /**
@@ -452,9 +477,7 @@ export function createSendMessage(
         store.setConversationId(slashCid)
         // 工作区按会话隔离(2026-09-04):新会话挂上当前待绑定工作区
         useAiPanelStore.getState().bindWorkspaceToConversation(slashCid)
-        const sp = new URLSearchParams(window.location.search)
-        sp.set('conversationId', slashCid)
-        router.replace(`${chatDeeplinkPath(window.location.pathname)}?${sp.toString()}`, {
+        router.replace(resolveDeeplinkTarget(opts, slashCid), {
           scroll: false,
         })
         queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] })
@@ -530,9 +553,7 @@ export function createSendMessage(
       // 工作区按会话隔离(2026-09-04):新会话挂上当前待绑定工作区,
       // 必须先于 ai-side-panel 的换装 effect 执行,否则会被"未绑定→解绑"逻辑清掉
       useAiPanelStore.getState().bindWorkspaceToConversation(conversationId)
-      const sp = new URLSearchParams(window.location.search)
-      sp.set('conversationId', conversationId)
-      router.replace(`${chatDeeplinkPath(window.location.pathname)}?${sp.toString()}`, {
+      router.replace(resolveDeeplinkTarget(opts, conversationId), {
         scroll: false,
       })
       queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] })
@@ -2159,9 +2180,7 @@ export async function branchMessage(
     ctx.queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] })
     // 更新 URL 便于分享/书签(?conversationId=)
     if (typeof window !== 'undefined') {
-      const sp = new URLSearchParams(window.location.search)
-      sp.set('conversationId', newId)
-      ctx.router.replace(`${chatDeeplinkPath(window.location.pathname)}?${sp.toString()}`, {
+      ctx.router.replace(resolveDeeplinkTarget(undefined, newId), {
         scroll: false,
       })
     }

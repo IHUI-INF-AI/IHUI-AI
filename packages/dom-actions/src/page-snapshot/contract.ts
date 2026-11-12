@@ -38,6 +38,29 @@ export type PageActionType =
   | 'page_hover'
   | 'page_press_key'
   | 'page_pick_at_point'
+  /**
+   * 滚动(2026-11-12 立)。对标 Trae 的 `browser_scroll`。
+   *
+   * 为什么它值一个动词:长页面里目标元素常在视口外,而 `click` 内部虽然有
+   * scrollIntoView,但"先滚到某处看看"是独立的探索动作 —— 用一个 click 去
+   * 达成"看一眼"会产生副作用。
+   */
+  | 'page_scroll'
+  /**
+   * 等待(2026-11-12 立)。对标 Trae 的 `browser_wait_for`。
+   *
+   * 为什么必须有:S PA 渲染有延迟,snapshot 拿到的句柄可能指向尚未挂载的元素。
+   * 没有 wait 时,模型只能用 sleep 硬猜 —— 那是既慢又不可靠的做法。
+   */
+  | 'page_wait_for'
+  /**
+   * 拖拽(2026-11-12 立)。对标 Trae 的 `browser_drag`。
+   *
+   * 为什么它不能由 click 代替:拖拽是"按下 → 移动 → 抬起"的连续事件序列,
+   * 中间每一步都会触发 dragover 事件。用两次 click 模拟在绝大多数拖拽库
+   * (dnd-kit / react-beautiful-dnd)上**完全不生效**。
+   */
+  | 'page_drag'
 
 export const PAGE_ACTIONS: readonly PageActionType[] = [
   'page_snapshot',
@@ -47,6 +70,9 @@ export const PAGE_ACTIONS: readonly PageActionType[] = [
   'page_hover',
   'page_press_key',
   'page_pick_at_point',
+  'page_scroll',
+  'page_wait_for',
+  'page_drag',
 ]
 
 /** 只读动词：结构上不触碰页面，因此副作用恒为 none。 */
