@@ -31,10 +31,20 @@ export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 
 export interface RouteParamSpec {
   name: string
-  type: 'string' | 'number' | 'boolean'
+  /**
+   * 与 `ToolParameter.type` 同域(array/object 是既有的合法工具参数型,
+   * argument-validator 早已支持 `array` + `items` 与 `object` + `properties`)。
+   * 曾经这里只声明 `string | number | boolean`,导致生成产物里 `"type": "array"`
+   * 的 spec 无法通过 `tsc --noEmit` —— spec 与编译目标不同域,不是生成器写错了。
+   */
+  type: 'string' | 'number' | 'boolean' | 'array' | 'object'
   description: string
   required?: boolean
   enum?: string[]
+  /** `type: 'array'` 时的元素 schema(对齐 JSON Schema;省略=不约束元素) */
+  items?: RouteParamSpec
+  /** `type: 'object'` 时的字段 schema */
+  properties?: Record<string, RouteParamSpec>
 }
 
 export interface RouteToolSpec {
@@ -66,9 +76,20 @@ function resolveFallbackToken(): string | undefined {
   return process.env.IHUI_API_TOKEN
 }
 
+/** 递归把 spec 参数映射成工具参数(数组元素 / 对象字段同域,逐层带过去)。 */
 function toToolParam(p: RouteParamSpec): ToolParameter {
   const out: ToolParameter = { type: p.type, description: p.description }
   if (p.enum) out.enum = p.enum
+  if (p.items) out.items = toToolParam(p.items)
+  if (p.properties) {
+    out.properties = Object.fromEntries(
+      Object.entries(p.properties).map(([k, v]) => [k, toToolParam(v)]),
+    )
+    const nestedRequired = Object.entries(p.properties)
+      .filter(([, v]) => v.required)
+      .map(([k]) => k)
+    if (nestedRequired.length > 0) out.required = nestedRequired
+  }
   return out
 }
 
