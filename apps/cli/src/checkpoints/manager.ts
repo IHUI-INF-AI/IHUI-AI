@@ -6,12 +6,14 @@
  * CheckpointManager — 工作区文件状态快照与回滚的编排实现(goal-b49 W3 自 ./index.ts 抽出,
  * 落 AGENTS §3「每页 < 250 行」;index.ts 只留对外面 barrel)。
  * 版本序列命名(./snapshot-series.ts)+ 三约束回收派发(./snapshot-gc.ts);
- * 唯一碰 fs 的适配层在 ./snapshot-store-host.ts;清单完整性只走 ./manifest-integrity.ts(§0.6)。
+ * fs 读写适配层在 ./snapshot-store-host.ts(编排层只留 F-033 的快照目录独占创建);
+ * 清单完整性只走 ./manifest-integrity.ts(§0.6)。
  * 做减法:不复制整个工作区,只快照"被指定的文件",按工作区相对路径镜像存储;
  * 原工作区不存在的文件标 'added',restore 时删除。回收 = 最近 N 版 ∧ 年龄窗 ∧ 总量上限,缺一不删(§0.3)。
  */
 
 import * as path from 'node:path';
+import * as fs from 'node:fs';
 import * as crypto from 'node:crypto';
 import { type CorruptManifestEntry, type ManifestReadResult } from './manifest-integrity.js';
 // goal-b49 S3:版本化文件快照的可寻址序列 `<uuid>@vN` + 三约束回收判据(取证 Q1 §4 #16)
@@ -51,6 +53,8 @@ import {
 import { type CheckpointManagerOptions } from './index.js';
 
 const DEFAULT_MAX_CHECKPOINTS = 20;
+/** F-033:版本被并发抢走时的重分配上限;撞满即报错,不覆盖既有快照 */
+const SNAPSHOT_DIR_ALLOCATION_ATTEMPTS = 8;
 
 export class CheckpointManager {
   private readonly sessionId: string;
@@ -104,17 +108,12 @@ export class CheckpointManager {
     return this.snapshotSync(files, reason);
   }
 
-  snapshotSync(files: string[], reason: string): CheckpointMeta {
+  snapshotSync(files: string[], reason: string, io: { mkdirSync?: typeof fs.mkdirSync } = {}): CheckpointMeta {
     ensureHostDir(this.baseDir);
     // goal-b49 S3:目录名 = 可寻址版本序列 <seriesUuid>@vN(旧 cp_<ts>_<rand> 不可寻址、无从判重号/回退);
     // 分配器只在本序列内取最大版本 +1,外来命名(hunk_*/cp_*)不参与定序。
-    const allocation = allocateNextSnapshotSeriesRef(listEntryNames(this.baseDir), this.seriesUuid);
-    if (!allocation.ok) {
-      throw new Error(`检查点版本分配失败(${allocation.reason}):${allocation.detail}`);
-    }
-    const id = formatSnapshotSeriesDirName(allocation.ref);
-    const cpDir = this.checkpointDir(id);
-    ensureHostDir(cpDir);
+    // F-033:分配与独占创建同一轮完成,EEXIST 重新分配(见 createExclusiveCheckpointDir)。
+    const { id, cpDir } = this.createExclusiveCheckpointDir(io);
     const copied = copyFilesIntoSnapshot(this.workspacePath, cpDir, files);
     const meta: CheckpointMeta = {
       id,
@@ -128,6 +127,33 @@ export class CheckpointManager {
     writeSnapshotManifest(cpDir, meta);
     this.pruneOldCheckpoints();
     return meta;
+  }
+
+  /**
+   * F-033:「取 max+1」与「占住这个目录」必须是同一轮 —— 先 list 再 ensureHostDir(已存在也成功)
+   * 会让同 session 的两个进程写同一 `<seriesUuid>@vN` 互相覆盖。这里用 mkdirSync(recursive:false)
+   * 独占创建:EEXIST 说明有人抢先,重新列举后重分配;连续撞满上限则明确报错,绝不静默覆盖既有快照。
+   */
+  private createExclusiveCheckpointDir(io: { mkdirSync?: typeof fs.mkdirSync }): { id: string; cpDir: string } {
+    const mkdirSync = io.mkdirSync ?? fs.mkdirSync;
+    for (let attempt = 1; attempt <= SNAPSHOT_DIR_ALLOCATION_ATTEMPTS; attempt++) {
+      const allocation = allocateNextSnapshotSeriesRef(listEntryNames(this.baseDir), this.seriesUuid);
+      if (!allocation.ok) {
+        throw new Error(`检查点版本分配失败(${allocation.reason}):${allocation.detail}`);
+      }
+      const id = formatSnapshotSeriesDirName(allocation.ref);
+      const cpDir = this.checkpointDir(id);
+      try {
+        mkdirSync(cpDir, { recursive: false });
+        return { id, cpDir };
+      } catch (err) {
+        // 只有"目录已存在"才是并发抢号,重列举后重分配;其它错误照常上抛。
+        if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err;
+      }
+    }
+    throw new Error(
+      `检查点版本分配冲突:序列 ${this.seriesUuid} 连续 ${SNAPSHOT_DIR_ALLOCATION_ATTEMPTS} 次独占创建均撞上已有目录(EEXIST),拒绝覆盖既有快照`,
+    );
   }
 
   /** 本管理器自己的命名空间:版本序列(本会话 uuid)或历史 cp_ 前缀;别处写来的目录一概不碰 */

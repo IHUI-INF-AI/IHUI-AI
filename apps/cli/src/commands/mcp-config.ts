@@ -350,9 +350,19 @@ export function addMcpServer(
   args?: string[],
   options?: AddMcpServerOptions,
 ): McpServer {
+  const transport = options?.transport ?? 'stdio';
+  // F-014:落盘前校验必填项 —— 旧实现只校验 name,会写出无 command 的坏 stdio 配置,
+  // 到连接期才炸。文案与 validateMcpConfig 同口径。
+  if (transport === 'stdio') {
+    if (typeof command !== 'string' || !command.trim()) {
+      throw new Error(`server "${name}": transport='stdio' 要求非空 command`);
+    }
+  } else if (typeof options?.url !== 'string' || !options.url.trim()) {
+    throw new Error(`server "${name}": transport='${transport}' 要求非空 url`);
+  }
   const config = loadMcpConfig();
   config.servers = config.servers.filter((s) => s.name !== name);
-  const server: McpServer = { name, command, args, transport: options?.transport ?? 'stdio' };
+  const server: McpServer = { name, command, args, transport };
   if (options?.env) server.env = options.env;
   if (options?.url) server.url = options.url;
   if (options?.headers) server.headers = options.headers;
