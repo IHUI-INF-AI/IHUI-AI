@@ -68,6 +68,12 @@ import AgentListPanel, { type AgentInfo } from '@/components/AgentListPanel'
 import { FloatBox, ModelTypeButtonGroup } from '@/components'
 import SkillsPopup, { type AgentItem } from '@/components/SkillsPopup'
 import VoiceInput from '@/components/VoiceInput'
+// D5:消息渲染走共享气泡件。**不能**用 pkg-ai 的 ChatMessageItem —— 它的样式全部定义在
+// `pkg-ai/ai/chat.css`(`question-container` / `agent-content-item` / `content_agent_nei` …),
+// 而小程序 wxss 是**按页面**隔离的,本页只 import 了 `./index.css` ⇒ 在首页渲染它等于把
+// 消息铺成无样式裸文本。ChatMessageBubble 的样式来自 design tokens 的 StyleSheet,零 CSS 类依赖,
+// 并且是"纯展示、零平台 API"的共享件(群聊/直播聊天同一份)。
+import { ChatMessageBubble } from '@ihui/rn-app/features/chat/ChatMessageList'
 
 import { rnRadius, taroSpacing } from '@ihui/design-tokens'
 const closeInputPng = aizhsUrl('remote-images/close_input.png')
@@ -77,6 +83,18 @@ import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import type { ChatMessage } from '@/api'
 import { TABBAR_HOME_ICON_URL } from '@/constants/external-urls'
 import { FALLBACK_MODELS } from '@ihui/shared/constants'
+// D5(2026-11-12):打字机合帧泵三端同源(与 pkg-ai/ai/chat 主聊天腿同一实现,@ihui/shared/utils 上收件)
+import { createSmoothDeltaBatcher } from '@ihui/shared/utils/smooth-delta-batcher'
+// D5(2026-11-12):跟底判据与主聊天腿/RN 同源(shared/chat/stream-follow),回退即交还滚动权
+import {
+  initialStreamFollowState,
+  readScrollEventTop,
+  reduceStreamFollowOnReachBottom,
+  reduceStreamFollowOnScroll,
+  resetStreamFollowForNewRound,
+  shouldStickToBottom,
+  type StreamFollowState,
+} from '@ihui/shared/chat'
 // 兜底模型的上下文容量按模型 id 取真实值(写死一个数会让广场/首页对非 128K 模型显示错误容量)
 import {
   compactConversation,
@@ -250,6 +268,8 @@ interface AiHomeState {
   conversationMessages: ChatMessage[]
   isStreaming: boolean
   streamingContent: string
+  /** D5(2026-11-12):消息列表受控滚动锚(内嵌 ScrollView 不认 pageScrollTo,唯一出路是受控 scrollTop) */
+  listScrollTop: number
   sessionId: string
 }
 
@@ -565,12 +585,47 @@ export default function Index() {
     conversationMessages: [],
     isStreaming: false,
     streamingContent: '',
+    // D5(2026-11-12):列表受控滚动初值(见 AiHomeState.listScrollTop)
+    listScrollTop: 0,
     sessionId: '',
   }))
 
   // 模型列表(唯一权威源:后端 /llm/models 已过滤"可用且有配额"模型)
   const [models, setModels] = useState<ModelItem[]>([])
   const [modelsLoading, setModelsLoading] = useState(false)
+  // D5(2026-11-12):流式合帧泵的 catch/finally 可达出口(handleSend 每轮装/卸)
+  const flushStreamBatcherRef = useRef<(() => void) | null>(null)
+  /**
+   * D5 跟底账目(与主聊天腿、RN 共用 shared/chat/stream-follow)。
+   *
+   * 首页这条腿此前全程零滚动,新字完全长在视口下方;而它又不能照抄"每帧强制拽底" ——
+   * 那会让用户在流式中滑不动。判据只有两条:回退即交还、触底即恢复;两种宿主事件形状
+   * 由 readScrollEventTop 收口。
+   */
+  const [follow, setFollow] = useState<StreamFollowState>(initialStreamFollowState)
+  const handleListScroll = useCallback((event: unknown) => {
+    const top = readScrollEventTop(event)
+    if (top === null) return
+    setFollow((prev) => reduceStreamFollowOnScroll(prev, top))
+  }, [])
+  const handleReachBottom = useCallback(() => {
+    setFollow((prev) => reduceStreamFollowOnReachBottom(prev))
+  }, [])
+  // 合帧泵的回调活在 handleSend 的闭包里,读不到本轮之后的 state 更新 ⇒ 经 ref 读最新账目。
+  // 只读不写,写入仍只有 setFollow 一个出口(不制造第二份状态)。
+  const followRef = useRef(follow)
+  followRef.current = follow
+  /**
+   * 滚到底的唯一写法:受控 scrollTop **单调递增一个大步长**。
+   *
+   * 内嵌 ScrollView 的 scrollTop 是绝对值,两个条件必须同时满足才"每次都到底":
+   * ① 每次都变(同值不触发重滚);② 每次都超界(原生 clamp 到底)。
+   * 固定常量只满足②不满足① —— 第一次之后全是空操作;小步长只满足①不满足② ——
+   * 位置被拽回半路。`+1e6` 同时满足两者,且单调递增永不回退。
+   */
+  const scrollListToBottom = useCallback(() => {
+    setState((s) => ({ ...s, listScrollTop: s.listScrollTop + 1_000_000 }))
+  }, [])
   // 输入框文本(受控,由 BottomActionBar -> InputArea 双向绑定)
   const [inputText, setInputText] = useState('')
   // 手动压缩上下文进行中(BottomActionBar 压缩入口的禁用/文案态)
@@ -1040,11 +1095,22 @@ export default function Index() {
 
     setInputText('')
 
-    setTimeout(() => {
-      Taro.pageScrollTo({ scrollTop: 999999, duration: 300 }).catch(() => {})
-    }, 100)
+    // D5(2026-11-12):消息列表是**内嵌 ScrollView**(见 conversation-list),Taro.pageScrollTo
+    // 只作用于页面级滚动 ⇒ 那条出路对本列表结构性无效,已删除(§0.8:不得留跑不通的出路)。
+    // 真出路是受控 scrollTop(见 scrollListToBottom)。
+    setFollow(resetStreamFollowForNewRound())
+    scrollListToBottom()
 
     try {
+      // D5(2026-11-12 修"逐 token setData 风暴"):SSE 帧只入泵,每 40ms 提交一次正文并跟滚
+      // (单一实现源 @ihui/shared/utils/smooth-delta-batcher;代理对不劈,BUG-52 纪律)。
+      const contentBatcher = createSmoothDeltaBatcher((d) => {
+        setState((s) => ({ ...s, streamingContent: s.streamingContent + d }))
+        // 提交节拍才跟滚;用户上翻后不滚 —— 判据在共享层,不在本页重复实现。
+        if (shouldStickToBottom(followRef.current, true)) scrollListToBottom()
+      })
+      // catch 与泵同轮作用域不可达 ⇒ 把 flush 出口递给外面(定稿/异常两路都要先冲刺再收尾)
+      flushStreamBatcherRef.current = () => contentBatcher.flush()
       await api.chatStream(
         [...state.conversationMessages, userMsg],
         sid,
@@ -1054,16 +1120,15 @@ export default function Index() {
           agentId: state.agentModeActive ? String(state.selectedModelId ?? '') : undefined,
         },
         (delta: string) => {
-          setState((s) => ({
-            ...s,
-            streamingContent: s.streamingContent + delta,
-          }))
+          contentBatcher.batch(delta)
         },
         undefined,
         undefined,
         undefined,
         undefined,
         (info) => {
+          // D5:定稿前冲刺 flush —— 末批 token 还在 buffer 时不得抢读 streamingContent(与 web #9 同纪律)
+          contentBatcher.flush()
           setState((s) => {
             const assistantMsg: ChatMessage = {
               role: 'assistant',
@@ -1076,11 +1141,19 @@ export default function Index() {
               conversationMessages: [...s.conversationMessages, assistantMsg],
               isStreaming: false,
               streamingContent: '',
+              // 定稿后停在新消息底部(用户上翻过则不打扰 —— 与流式同一判据)
+              listScrollTop: shouldStickToBottom(followRef.current, true)
+                ? s.listScrollTop + 1_000_000
+                : s.listScrollTop,
             }
           })
         },
       )
     } catch {
+      // D5(2026-11-12):异常定稿前先冲刺 flush —— content 兜底读的是 streamingContent,
+      // buffer 里最后一批不得抢在提交前被读走(与 web #9"错误前 flush"同纪律)。
+      flushStreamBatcherRef.current?.()
+      flushStreamBatcherRef.current = null
       setState((s) => {
         const errorMsg: ChatMessage = {
           role: 'assistant',
@@ -1095,6 +1168,9 @@ export default function Index() {
         }
       })
       onToast(tt('index.chatError', '发送失败,请重试'), { kind: 'error' })
+    } finally {
+      // D5:泵出口用完即清(下轮重新装)
+      flushStreamBatcherRef.current = null
     }
   }
 
@@ -1346,7 +1422,12 @@ export default function Index() {
               scrollY
               className="conversation-list"
               style={{ flex: 1, height: 'calc(100% - 100rpx)' }}
-              onScrollToLower={() => {}}
+              // D5(2026-11-12):受控 scrollTop —— 本列表是内嵌 ScrollView,pageScrollTo 对它
+              // 结构性无效(旧出路已删,§0.8)。跟底判据在 shared/chat/stream-follow:
+              // 用户上翻即交还滚动权,触底(onScrollToLower)才恢复。
+              scrollTop={state.listScrollTop}
+              onScroll={handleListScroll}
+              onScrollToLower={handleReachBottom}
             >
               {/* 直播预告 banner(对齐 home.livePreview/startTime/more) */}
               <View
@@ -1417,36 +1498,28 @@ export default function Index() {
                   </Text>
                 </View>
               ) : null}
+              {/* D5(2026-11-12 修):这条腿此前是 `<Text>{msg.content}</Text>` 纯文本 ——
+                  Markdown 的 **加粗**、代码围栏、列表原样露出,与主聊天页(pkg-ai/ai/chat 经共享
+                  ChatMessageItem)完全两张脸。改走同一个共享件:视觉结构与解析只有一份实现。
+                  key 从下标换成"时间戳+角色+序号":定稿时流式占位被真实消息替换,按下标复用会让
+                  相邻两行互换身份。 */}
               {state.conversationMessages.map((msg, idx) => (
                 <View
-                  key={idx}
-                  className={`conversation-msg ${msg.role === 'user' ? 'msg-user' : 'msg-assistant'}`}
-                  style={{
-                    display: 'flex',
-                    justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
-                    marginBottom: rpx(16),
-                  }}
+                  key={`${msg.timestamp ?? 'no-ts'}-${msg.role}-${idx}`}
+                  className="conversation-msg"
+                  style={{ marginBottom: rpx(16) }}
                 >
-                  <View
-                    style={{
-                      maxWidth: '80%',
-                      padding: `${rpx(16)} ${rpx(20)}`,
-                      borderRadius: rnRadius.lg,
-                      background: msg.role === 'user' ? 'var(--color-link)' : 'var(--color-card)',
-                      color:
-                        msg.role === 'user'
-                          ? 'var(--color-primary-foreground)'
-                          : 'var(--color-foreground)',
-                      fontSize: rpx(28),
-                      lineHeight: 1.6,
-                      boxShadow: '0 2rpx 8rpx var(--color-black-5)',
+                  <ChatMessageBubble
+                    t={(key: string) => t(key)}
+                    item={msg as unknown as Parameters<typeof ChatMessageBubble>[0]['item']}
+                    onCopyText={(text: string) => {
+                      void Taro.setClipboardData({ data: text }).catch(() => undefined)
                     }}
-                  >
-                    <Text>{msg.content}</Text>
-                  </View>
+                  />
                 </View>
               ))}
-              {/* 流式接收中的消息 */}
+              {/* 流式接收中的消息 —— 与定稿行**同一条渲染路径**(共享件逐帧增量重渲)。
+                  否则流式期间是纯文本、定稿瞬间整段变 Markdown,文字会明显"跳一下"。 */}
               {state.isStreaming && state.streamingContent ? (
                 <View
                   className="conversation-msg msg-assistant"
@@ -1467,7 +1540,17 @@ export default function Index() {
                       lineHeight: 1.6,
                     }}
                   >
-                    <Text>{state.streamingContent}</Text>
+                    <ChatMessageBubble
+                      t={(key: string) => t(key)}
+                      isLastAi
+                      item={
+                        {
+                          id: '__streaming__',
+                          role: 'assistant',
+                          content: state.streamingContent,
+                        } as unknown as Parameters<typeof ChatMessageBubble>[0]['item']
+                      }
+                    />
                     <Text
                       style={{
                         display: 'inline-block',

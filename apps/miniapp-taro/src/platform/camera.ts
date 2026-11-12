@@ -1,0 +1,11 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+
+/**
+ * `@/platform/camera` 的小程序腿 —— 同源转出口,唯一定义在 `camera-impl.tsx`。
+ *
+ * 为什么同目录同时留 `.ts` 与 `.tsx`:不同解析器(webpack resolve.extensions / tsc /
+ * vitest)对这两者的优先次序不完全一致。若两边内容不同,`CameraView` 会在一处是真实占位、
+ * 在另一处是空模块 —— 那种失败只在运行期露头。两份**导出完全一致**,谁被选中都同一实现。
+ */
+export * from './camera-impl'
