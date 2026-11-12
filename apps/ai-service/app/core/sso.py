@@ -11,7 +11,8 @@
 4. token exchange 用 httpx(项目既有依赖),仅在配置了真实 IdP 时可达。
 
 环境变量骨架(pydantic Settings 大小写不敏感,对应 .env):
-  SSO_PROVIDERS      — 逗号分隔的启用 provider 列表(如 "oidc,mock")
+  SSO_PROVIDERS      — 逗号分隔的启用 provider 列表(如 "oidc,mock";未设置时仅
+                       **非生产**环境默认含 mock,生产缺省为空 —— AIS-043)
   SSO_OIDC_ISSUER    — IdP issuer URL(如 https://idp.example.com/realms/ihui)
   SSO_OIDC_CLIENT_ID / SSO_OIDC_CLIENT_SECRET — OAuth2 客户端凭证
   SSO_OIDC_AUTH_ENDPOINT / SSO_OIDC_TOKEN_ENDPOINT — 端点覆盖(默认从 issuer 推导)
@@ -23,6 +24,7 @@ from __future__ import annotations
 
 import logging
 import secrets
+import time
 from dataclasses import dataclass, field
 from typing import Any, Protocol, runtime_checkable
 from urllib.parse import urlencode
@@ -134,7 +136,8 @@ def parse_callback_params(query: dict[str, Any]) -> tuple[str, str]:
 class MockSSOProvider:
     """离线 mock provider:authorize 跳本地占位页,exchange 返回固定身份。
 
-    仅用于开发/测试环境验证 SSO 流程骨架,绝不用于生产。
+    仅用于开发/测试环境验证 SSO 流程骨架,绝不用于生产 —— AIS-043 起由
+    ``build_provider`` 在生产环境直接拒绝构建(缺省与显式配置同样被拦)。
     """
 
     name = "mock"
@@ -386,10 +389,24 @@ def _env(name: str, default: str = "") -> str:
     return os.environ.get(name, default).strip() or default
 
 
+def _is_production_env() -> bool:
+    """环境判定:空值一律按生产处置(fail-closed,对齐 services/api_client._is_production)。"""
+    from app.core.config import settings
+
+    normalized = str(getattr(settings, "node_env", "") or "").strip().lower()
+    return normalized == "" or normalized == "production"
+
+
 def build_provider(name: str) -> SSOProvider:
     """按名称构造 provider;未知名称抛 SSOConfigError。"""
     key = name.lower().strip()
     if key == "mock":
+        # AIS-043:mock 对任意非空 code 返回固定身份,生产构建即身份混池后门。
+        # 直连 authorize/callback 不经 list_enabled_providers 清单,必须在构造处拦。
+        if _is_production_env():
+            raise SSOConfigError(
+                "SSO provider 未启用:mock 仅限非生产环境(生产请配置 SSO_OIDC_*)"
+            )
         return MockSSOProvider()
     if key == "oidc":
         provider = OIDCSSOProvider(
@@ -411,13 +428,20 @@ def build_provider(name: str) -> SSOProvider:
 
 
 def list_enabled_providers() -> list[SSOProvider]:
-    """解析 SSO_PROVIDERS(逗号分隔);未设置时默认提供 mock(开发便利)。
+    """解析 SSO_PROVIDERS(逗号分隔);未设置时**仅非生产环境**默认提供 mock。
+
+    AIS-043:生产缺省为空(fail-closed)—— mock 对任意非空 code 返回固定
+    mock-user-1,生产缺省启用会让匿名者换到同一账户 token(身份混池)。
+    显式 SSO_PROVIDERS 含 mock 时生产同样由 build_provider 拒绝构建(跳过并告警)。
 
     构建失败(如 oidc 未配置)的 provider 仍列入但 configured=False,
     便于前端展示"已部署待配置"状态。
     """
     raw = _env("SSO_PROVIDERS")
-    names = [n.strip() for n in (raw.split(",") if raw else ["mock"]) if n.strip()]
+    if raw:
+        names = [n.strip() for n in raw.split(",") if n.strip()]
+    else:
+        names = [] if _is_production_env() else ["mock"]
     providers: list[SSOProvider] = []
     for n in names:
         if n.lower() == "oidc":
@@ -440,6 +464,40 @@ def list_enabled_providers() -> list[SSOProvider]:
     return providers
 
 
+# ---------------- CSRF state(服务端一次性存储,AIS-043) ----------------
+#
+# 授权时 new_state() 生成即登记;回调侧 consume_state() 严格比对 + 消费即删。
+# 进程内存 dict 即可(单进程部署;重启后 state 失效属预期 fail-closed)。
+
+STATE_TTL_SECONDS = 600  # 授权往返有效期:浏览器停在 IdP 页不应超过此长度
+
+_states: dict[str, float] = {}  # state → 过期 epoch 秒
+
+
+def _purge_expired_states(now: float) -> None:
+    """清掉过期 state,防长跑进程无界增长(每次存/取前调用)。"""
+    for stale in [s for s, deadline in _states.items() if deadline <= now]:
+        _states.pop(stale, None)
+
+
 def new_state() -> str:
-    """CSRF 防护用的随机 state(Cookie/Session 存储留给 P2)。"""
-    return secrets.token_urlsafe(24)
+    """CSRF 防护用的随机 state:**生成即服务端登记**,回调经 consume_state 一次性消费。"""
+    now = time.time()
+    _purge_expired_states(now)
+    state = secrets.token_urlsafe(24)
+    _states[state] = now + STATE_TTL_SECONDS
+    return state
+
+
+def consume_state(state: str) -> None:
+    """回调侧严格比对并消费 state:缺失/未登记/过期/重复均抛 SSOConfigError。
+
+    先 pop 再比对 —— 无论后续成败该 state 已删除,天然不可重放(一次性 nonce 语义)。
+    """
+    if not state:
+        raise SSOConfigError("回调缺少 state(CSRF 校验)")
+    now = time.time()
+    _purge_expired_states(now)
+    deadline = _states.pop(state, None)
+    if deadline is None or deadline <= now:
+        raise SSOConfigError("state 无效或已过期(CSRF 校验)")
