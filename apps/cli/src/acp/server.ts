@@ -59,6 +59,7 @@ import {
 import {
   applyGoalTransition,
   createGoal,
+  listWakeableTurns,
   loadGoals,
   loadSessionRuntime,
   nextTurnOrdinal,
@@ -599,8 +600,7 @@ interface McpReconnectResponse {
 export class IhuiAcpAgent {
   private readonly opts: AcpServerOptions;
   private readonly sessions = new Map<string, AcpSessionState>();
-  /**
-   * 上一个会话的工作区 —— cwdChanged 的唯一事件源。
+  /**   * 上一个会话的工作区 —— cwdChanged 的唯一事件源。
    *
    * CLI 单进程从不切换工作目录(third-leg 册的结构断言),编辑器客户端却会以不同
    * `cwd` 反复 `newSession`;两次会话之间工作区真的变了,才是一条 cwdChanged 事实。
@@ -691,8 +691,7 @@ export class IhuiAcpAgent {
     return {};
   }
 
-  /**
-   * 把会话历史按游标翻译成 ACP 帧并逐条 notify。
+  /**   * 把会话历史按游标翻译成 ACP 帧并逐条 notify。
    *
    * 判据全部在 `@ihui/shared` 的 `planDurableSessionReplay`(skip/empty/window/failure);
    * 本方法只负责"构造游标 → 发帧",不再持有第二套分页逻辑。
@@ -1086,8 +1085,7 @@ export class IhuiAcpAgent {
   // 超越轴:对照程序的 `resume` 只回帧、不回"还剩多少";我方在响应 `_meta` 里
   // 回 `hasMore`/`endCursor`/`total`,客户端不必自己拿 `last` 反推。
 
-  /**
-   * `session/list` — 列出本机已存会话。
+  /**   * `session/list` — 列出本机已存会话。
    *
    * 直接复用 `listSessions()`(它已带符号链接越界跳过),不新增第二份目录扫描。
    */
@@ -1117,8 +1115,7 @@ export class IhuiAcpAgent {
     return text.length > 80 ? `${text.slice(0, 80)}…` : text;
   }
 
-  /**
-   * `session/resume` — 从已存会话续传,并按 `replayFrom` 游标重放帧。
+  /**   * `session/resume` — 从已存会话续传,并按 `replayFrom` 游标重放帧。
    *
    * 与 `session/load` 的差别:load 恒全量;resume 走共享层游标,只回一页。
    * 游标非法 / 会话不存在 ⇒ 抛错(由 ACP 映射成 invalid params),
@@ -1233,8 +1230,7 @@ export class IhuiAcpAgent {
     };
   }
 
-  /**
-   * `x.ai/checkpoint/restore` — 还原到某个检查点。
+  /**   * `x.ai/checkpoint/restore` — 还原到某个检查点。
    *
    * 返回三档结果(restored / removed / notRestored):`notRestored` 非空时**不是成功**,
    * 调用方必须看它。不用抛错表示"部分未还原"—— 那会让已成功的那部分也看起来没发生。
@@ -1278,8 +1274,7 @@ export class IhuiAcpAgent {
     return { _meta: { modeId: mode } };
   }
 
-  /**
-   * `session/set_config_option` — 设置会话配置项。
+  /**   * `session/set_config_option` — 设置会话配置项。
    *
    * 本仓 ACP 面当前只暴露一个可写配置项 `model`(其余配置走 settings 文件)。
    * 未知 configId **拒绝并点名**已支持的项,而不是静默成功 ——
@@ -1338,8 +1333,7 @@ export class IhuiAcpAgent {
     return new CheckpointManager({ sessionId: existing.id, workspacePath: existing.workspacePath });
   }
 
-  /**
-   * `session/fork` — 从某个已存会话复制出一个新会话。
+  /**   * `session/fork` — 从某个已存会话复制出一个新会话。
    *
    * 分流点语义:整段复制(ACP 的 ForkSessionRequest 不带游标字段),不在这里
    * 自造"从第 N 轮分叉" —— 那属于 `_meta` 扩展,未取证前不加。
@@ -1359,8 +1353,7 @@ export class IhuiAcpAgent {
     return { sessionId: forked.id };
   }
 
-  /**
-   * `session/delete` — 删除一个已存会话。
+  /**   * `session/delete` — 删除一个已存会话。
    *
    * 先从内存态摘除(避免后续 prompt 还挂着一个已被删的会话),再删文件。
    * 文件不存在按"已删除"处理(幂等),不报"找不到会话" —— delete 的语义
@@ -1374,8 +1367,7 @@ export class IhuiAcpAgent {
 
   // ==================== P0-2 ACP 扩展方法实现 ====================
 
-  /**
-   * `x.ai/session/repair` — 自愈当前会话历史。
+  /**   * `x.ai/session/repair` — 自愈当前会话历史。
    * 调用 repairSessionHistoryReport(dry_run 可选),并持久化到 session。
    */
   async repairSession(params: RepairSessionParams): Promise<RepairSessionResponse> {
@@ -1387,8 +1379,7 @@ export class IhuiAcpAgent {
     return report;
   }
 
-  /**
-   * `x.ai/rewind/points` — 列出可回退的 prompt 点。纯只读。
+  /**   * `x.ai/rewind/points` — 列出可回退的 prompt 点。纯只读。
    */
   async rewindPoints(params: RewindPointsParams): Promise<{ points: RewindPoint[] }> {
     const state = this.requireSession(params.sessionId);
@@ -1396,8 +1387,7 @@ export class IhuiAcpAgent {
     return { points };
   }
 
-  /**
-   * `x.ai/rewind/execute` — 回退 history 到指定 prompt 索引。
+  /**   * `x.ai/rewind/execute` — 回退 history 到指定 prompt 索引。
    * 成功则更新 session.history 并持久化,失败(rewound=false)返回原 history 不变 + reason。
    */
   async rewindExecute(params: RewindExecuteParams): Promise<RewindResponse> {
@@ -1439,8 +1429,7 @@ export class IhuiAcpAgent {
     return { server: client.getStatus() };
   }
 
-  /**
-   * `x.ai/mcp/callTool` — 转发 tool 调用到指定 MCP server。
+  /**   * `x.ai/mcp/callTool` — 转发 tool 调用到指定 MCP server。
    * - server 未注册 → success=false + error
    * - server 已注册但调用失败 → success=false + error(不抛异常,降级返回)
    * - 成功 → 解析 content 数组中的 text 项拼接为 output
@@ -1474,8 +1463,7 @@ export class IhuiAcpAgent {
     }
   }
 
-  /**
-   * `x.ai/mcp/reconnect` — 命令层手动重连(O46 拍板 B,非自动 Retry):
+  /**   * `x.ai/mcp/reconnect` — 命令层手动重连(O46 拍板 B,非自动 Retry):
    * 强制断开并立即重建指定 server 的连接,返回重连后状态。
    * - server 未注册 → success=false + error(对调用方友好降级)
    * - 重连失败 → success=false + error + 当时状态(不抛异常,也不静默吞红)
@@ -1503,8 +1491,7 @@ export class IhuiAcpAgent {
   }
 
   /** 内部:根据 sessionId 查找 AcpSessionState,不存在则抛错 */
-  /**
-   * 取会话态;内存里没有就从磁盘收养一场。
+  /**   * 取会话态;内存里没有就从磁盘收养一场。
    *
    * 为什么需要:编辑器可以随时 `session/set_mode`,而进程可能刚启动、
    * 会话只在磁盘上。`load` / `resume` / `fork` 都做了"按 id 反查落盘会话",
@@ -1560,8 +1547,7 @@ export class IhuiAcpAgent {
     return { turn: record, runtime };
   }
 
-  /**
-   * `x.ai/turn/transition` — 对某个回合施加一次状态迁移。
+  /**   * `x.ai/turn/transition` — 对某个回合施加一次状态迁移。
    *
    * 拒绝是**结构化返回**而不是抛错:调用方要能区分 `terminal` / `illegal-phase` /
    * `time-travel` / `missing-synthetic-reason` 并做不同处置(重试 / 放弃 / 补齐原因)。
@@ -1606,7 +1592,39 @@ export class IhuiAcpAgent {
   }
 
   /**
-   * `x.ai/turn/synthetic-finish` — 上游没给结束信号时,由本地把回合收成 completed。
+   * `x.ai/turn/parked` —— 跨会话列出此刻可被唤醒的挂起回合(2026-11-12 接线)。
+   *
+   * 与 `x.ai/turn/state` 的分工:state 只看一个会话;本方法扫全部会话。
+   * 它存在的理由是编辑器侧需要一个「该处理哪些挂起任务」的总览 ——
+   * 没有它,listWakeableTurns 就是死码(判据在、链路不在)。
+   *
+   * 只返回到点可唤醒的(有 notBefore 且已到期);纯事件式挂起不在此列,
+   * 它必须由具体事件显式 wake —— 混在一起会让人以为事件式挂起会自己醒。
+   */
+  async listParkedTurns(params: { now?: number }): Promise<{
+    now: number;
+    parked: {
+      sessionId: string;
+      turnId: string;
+      ordinal: number;
+      reason: string;
+      notBefore: number;
+    }[];
+  }> {
+    const now = params.now ?? Date.now();
+    return {
+      now,
+      parked: listWakeableTurns(now).map((x) => ({
+        sessionId: x.sessionId,
+        turnId: x.turn.id,
+        ordinal: x.turn.ordinal,
+        reason: x.turn.wake?.reason ?? 'unknown',
+        notBefore: x.turn.wake?.notBefore ?? 0,
+      })),
+    };
+  }
+
+  /**   * `x.ai/turn/synthetic-finish` — 上游没给结束信号时,由本地把回合收成 completed。
    *
    * 与普通 complete 分开:它**必须**说明原因。否则调用方可以把"连接断了"伪装成
    * "正常完成",而这正是要防的那类静默失败。
@@ -1652,8 +1670,7 @@ export class IhuiAcpAgent {
     return { goals: loadGoals(params.sessionId) };
   }
 
-  /**
-   * `x.ai/goal/update` — 目标状态迁移(active → achieved / abandoned)。
+  /**   * `x.ai/goal/update` — 目标状态迁移(active → achieved / abandoned)。
    * 终态不可再迁;同态迁移按 `no-op` 拒绝,不静默成功。
    */
   async updateGoal(params: {
@@ -1677,8 +1694,7 @@ export class IhuiAcpAgent {
     return { ok: true, goal: res.next, goals: upsertGoal(res.next) };
   }
 
-  /**
-   * 断言会话存在(只要求**磁盘上**存在,不要求已在内存装载)。
+  /**   * 断言会话存在(只要求**磁盘上**存在,不要求已在内存装载)。
    *
    * 为什么不能复用 `requireSession`:那个查的是 `this.sessions`(内存 map),
    * 只有走过 `session/new` 或 `session/load` 才会入 map。而回合运行态与目标态的
@@ -1904,6 +1920,23 @@ export function buildAcpAgentApp(opts: AcpServerOptions): acp.AgentApp {
       'x.ai/turn/state',
       castParams<{ sessionId: string; now?: number }>(),
       (ctx) => rpcMethod((p: { sessionId: string; now?: number }) => agent.getTurnState(p))(ctx.params),
+    )
+    .onRequest<
+      { now?: number },
+      {
+        now: number;
+        parked: {
+          sessionId: string;
+          turnId: string;
+          ordinal: number;
+          reason: string;
+          notBefore: number;
+        }[];
+      }
+    >(
+      'x.ai/turn/parked',
+      castParams<{ now?: number }>(),
+      (ctx) => rpcMethod((p: { now?: number }) => agent.listParkedTurns(p))(ctx.params),
     )
     .onRequest<
       { sessionId: string; turnId: string; detail: string; now?: number },

@@ -109,9 +109,7 @@ const AUTO_OPTION: ModelOption = {
 
 interface ModelSelectorProps {
   value: string
-  /** 第二参 = 模型通道(2026-11-12 立):'pool' 表示选中了「我的号池」模型,
-   *  宿主据此把 chat store 的 currentModelChannel 一起切走;缺省 = 平台模型。 */
-  onChange: (model: string, channel?: 'platform' | 'pool') => void
+  onChange: (model: string) => void
   disabled?: boolean
   label: string
   /** 2026-11-11 用户要求:auto 模式下宿主传入「当前对话实际使用的模型」,
@@ -767,8 +765,6 @@ function withPoolModels(base: ModelOption[], pool: PoolChatModel[]): ModelOption
     base.push({
       value: m.id,
       label: m.name || m.id,
-      // 2026-11-12 立:打上号池通道标记 —— 发送路径据此走 /ws/relay/chat 而非 agent runtime
-      channel: 'pool',
       // 用平台 code 当 vendor:命中 VENDOR_LABEL 的(豆包/MiniMax 等)显示中文名,
       // 其余按品牌 code 原样分组,语义就是「这是我名下某个平台的号」
       vendor: m.provider,
@@ -1235,7 +1231,7 @@ export function ModelSelector({
                     !useApiOnly &&
                     !isConfiguredVendor(opt.vendor, configuredTemplateCodes)
                   }
-                  onSelect={() => onChange(opt.value, opt.channel)}
+                  onSelect={() => onChange(opt.value)}
                 />
               ))}
               <DropdownMenu.Separator className="my-1 h-px bg-border/60 last:hidden" />
@@ -1267,7 +1263,7 @@ export function ModelSelector({
                     !useApiOnly &&
                     !isConfiguredVendor(opt.vendor, configuredTemplateCodes)
                   }
-                  onSelect={() => onChange(opt.value, opt.channel)}
+                  onSelect={() => onChange(opt.value)}
                 />
               ))}
             </DropdownMenu.Group>
@@ -1375,7 +1371,7 @@ export function ModelSelector({
                               !isConfiguredVendor(opt.vendor, configuredTemplateCodes)
                             }
                             showCategory
-                            onSelect={() => onChange(opt.value, opt.channel)}
+                            onSelect={() => onChange(opt.value)}
                           />
                         ))}
                       </DropdownMenu.Group>
