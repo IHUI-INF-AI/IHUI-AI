@@ -12370,7 +12370,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 99G. **缺陷普查 API F-99** [P3] /api/ai/career-advice 裸 fetch 不带凭证 → 必然 401，却把模板当成功返回（证据 docs/tickets/2026-11/findings-api.md#F-99）
 - [ ] 106G. **缺陷普查 API F-106** [P2] 共享声纹无属主：任意登录用户可枚举并删除任意 voiceId（证据 docs/tickets/2026-11/findings-api.md#F-106）
 - [ ] 116G. **缺陷普查 API F-116** [P3] 广播链路无背压检查（bufferedAmount），慢消费者帧堆积；ws-notifications 发送失败不摘线（证据 docs/tickets/2026-11/findings-api.md#F-116）
-- [ ] 119G. **缺陷普查 API F-119** [P2] Kling 任务查询每轮询一次扣 1500 token，无幂等（证据 docs/tickets/2026-11/findings-api.md#F-119）
 - [ ] 120G. **缺陷普查 API F-120** [P2] ai-world-sync 无重入保护，且跨轮去重 Set 为模块级共享（证据 docs/tickets/2026-11/findings-api.md#F-120）
 - [ ] 121G. **缺陷普查 API F-121** [P2] syncOneSourceWithRetry 把 writeSyncLog 放进重试 try，一次写日志失败会中止整轮同步（证据 docs/tickets/2026-11/findings-api.md#F-121）
 - [ ] 122G. **缺陷普查 API F-122** [P2] startRankingScheduler / startTrendingScheduler 从未被调用，06:00 榜单与 4h 热度 cron 从未（证据 docs/tickets/2026-11/findings-api.md#F-122）
@@ -12384,7 +12383,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 144G. **缺陷普查 API F-144** [P2] embedding provider 三处裸 fetch 无超时/无 AbortSignal，RAG 检索与入库可被上游挂起拖死（证据 docs/tickets/2026-11/findings-api.md#F-144）
 - [ ] 145G. **缺陷普查 API F-145** [P2] 删除文档「软删改状态」与「物理删 chunk」非事务，失败后已删内容仍被 RAG 召回（证据 docs/tickets/2026-11/findings-api.md#F-145）
 - [ ] 146G. **缺陷普查 API F-146** [P3] /files/:id/convert-markdown 对 100MB 文件同步全量读；资产提取读完才判 20MB（证据 docs/tickets/2026-11/findings-api.md#F-146）
-- [ ] 147G. **缺陷普查 API F-147** [P2] VIP/开发者订阅发卡无幂等键，注释误以为「有唯一约束」（证据 docs/tickets/2026-11/findings-api.md#F-147）
 - [ ] 148G. **缺陷普查 API F-148** [P2] VIP 按 quantity 收钱，但发卡只发一期（证据 docs/tickets/2026-11/findings-api.md#F-148）
 - [ ] 149G. **缺陷普查 API F-149** [P3] 企业学习报表汇总指标完全忽略时间范围与课程状态（证据 docs/tickets/2026-11/findings-api.md#F-149）
 - [ ] 150G. **缺陷普查 API F-150** [P3] 报表趋势按 UTC 切日、且 endDate 被截到当天 00:00（丢最后一天）（证据 docs/tickets/2026-11/findings-api.md#F-150）
@@ -12395,7 +12393,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 162G. **缺陷普查 API F-162** [P2] 数据清理声称「单批上限 50000 行」，实际 DELETE 无 LIMIT，可一次删光整表历史（证据 docs/tickets/2026-11/findings-api.md#F-162）
 - [ ] 163G. **缺陷普查 API F-163** [P2] 「定时任务」全链路无执行器，PUT /job/run 无动作却返回「任务已触发执行」（证据 docs/tickets/2026-11/findings-api.md#F-163）
 - [ ] 164G. **缺陷普查 API F-164** [P2] 返佣两级费率各自 ≤1，合计可达 200%，释放时直接给上级 Key 余额加钱（证据 docs/tickets/2026-11/findings-api.md#F-164）
-- [ ] 165G. **缺陷普查 API F-165** [P3] /admin/relay/capacity/call-trend 查询不存在的列，接口恒定 500（证据 docs/tickets/2026-11/findings-api.md#F-165）
 - [ ] 171G. **缺陷普查 API F-171** [P2] /api/edu/courses/:id/qa 先按全站分页再内存过滤，分页与 total 均失真（证据 docs/tickets/2026-11/findings-api.md#F-171）
 - [ ] 173G. **缺陷普查 API F-173** [P2] 公开帮助文章列表未过滤 isPublished，草稿全文匿名可读（证据 docs/tickets/2026-11/findings-api.md#F-173）
 - [ ] 174G. **缺陷普查 API F-174** [P2] recordWatch 读改写累计时长：客户端可控且可致 int4 溢出永久 500（证据 docs/tickets/2026-11/findings-api.md#F-174）
@@ -12404,8 +12401,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 177G. **缺陷普查 API F-177** [P3] 资讯推荐/排行批量取文章只过滤 isPublished，漏 status（下架仍被推荐）（证据 docs/tickets/2026-11/findings-api.md#F-177）
 - [ ] 178G. **缺陷普查 API F-178** [P1] 渠道配额「检查已接线、用量从不写入」，日/月配额永不生效（证据 docs/tickets/2026-11/findings-api.md#F-178）
 - [ ] 179G. **缺陷普查 API F-179** [P2] 单个 Key 密文解密失败未被隔离，整条模型渠道路由直接失败（证据 docs/tickets/2026-11/findings-api.md#F-179）
-- [ ] 180G. **缺陷普查 API F-180** [P2] 响应缓存键只喂 4 个维度，response_format/seed/top_p 不同仍命中同一缓存（证据 docs/tickets/2026-11/findings-api.md#F-180）
-- [ ] 181G. **缺陷普查 API F-181** [P2] 缓存命中只把「钱」置 0，token 余额/订阅窗口仍按缓存用量扣（证据 docs/tickets/2026-11/findings-api.md#F-181）
 - [ ] 182G. **缺陷普查 API F-182** [P2] 短信退订回执写入失败被吞且仍回 200，退订永久丢失（证据 docs/tickets/2026-11/findings-api.md#F-182）
 - [ ] 183G. **缺陷普查 API F-183** [P2] 熔断计数器 Redis 读改写非原子，并发下连续失败计数丢失、熔断难触发（证据 docs/tickets/2026-11/findings-api.md#F-183）
 - [ ] 184G. **缺陷普查 API F-184** [P1] Hook PATCH 绕过「script 仅管理员」闸，任意登录用户可拿到服务账号命令执行（证据 docs/tickets/2026-11/findings-api.md#F-184）
