@@ -11,12 +11,18 @@
 //
 // 因此写凭据必须两步:写 + 显式 chmod 纠偏。凡是往 settings.json(或任何含凭据的文件)
 // 落盘的地方一律走本函数,不得再抄第三份。
+//
+// F-028:底层改为原子替换(tmp + rename),崩溃/断电时不再把 settings.json 截成半截 JSON
+// (半截 JSON ⇒ 下次启动读设置失败,用户被踢回重新登录,旧 token 当场毁掉)。mode 钉 0600
+// 让**新建**文件即刻拿到受限权限位;已存在文件由下面 chmodSync 兜底纠偏。
 import * as fs from 'node:fs';
+import { writeFileAtomicSync } from '../util/atomic-write.js';
 
 export function writePrivateFile(filePath: string, text: string): void {
-  fs.writeFileSync(filePath, text, { encoding: 'utf-8', mode: 0o600 });
+  // 原子替换 + 新建即 0600;chmodSync 兜底存量文件与 Windows 外的权限位收口。
+  writeFileAtomicSync(filePath, text, { mode: 0o600 });
   try {
-    // 已存在文件的权限位只有这一步能改
+    // 已存在文件的权限位只有这一步能改(原子写对新建文件已钉 0600,这里是双保险)
     fs.chmodSync(filePath, 0o600);
   } catch {
     // Windows 无 POSIX 权限语义:写入已完成,不因纠偏失败而让整个命令报错
