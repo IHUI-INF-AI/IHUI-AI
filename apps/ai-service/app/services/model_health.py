@@ -188,6 +188,12 @@ _MODEL_NOT_FOUND_KEYWORDS = (
     "access-denied",
     "accessdenied.unpurchased",
     "only available on agentic harnesses",
+    # WorkBuddy 上游 code=11102:账号池里没有这个模型的 service info(没开通/已下线)。
+    # 2026-11-12 实测 hy4-preview-x / minimax-m3 / hunyuan-2.0-thinking 三个都回这条,
+    # 一直记"未知"会让界面上永远挂着"长上下文未验证",实际是上游没这个服务。
+    "service info not found",
+    "service not found",
+    "服务信息不存在",
     "模型不存在",
     "模型无效",
     "模型不可用",
