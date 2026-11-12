@@ -710,3 +710,39 @@ def test_classify_error_plain_bad_request_stays_non_model_level():
     account_level, model_level = mh._classify_error('{"error":"invalid request: bad temperature"}', 400)
     assert model_level is False
     assert account_level is False
+
+
+def test_is_relay_error_body_detects_pool_failure_frame():
+    """relay 号池失败会写成 content 帧 `[error] WorkBuddy ...`,不能当成模型回复。"""
+    assert mh._is_relay_error_body('[error] WorkBuddy 账号池不可用: no channel') is True
+    assert mh._is_relay_error_body('  [ERROR] upstream 400') is True
+    assert mh._is_relay_error_body('IHUI-016000-OK') is False
+    assert mh._is_relay_error_body('') is False
+
+
+def test_context_error_is_model_level_only_for_service_info_missing():
+    """只有"上游没这个模型的服务"才一次判死;限流/超时/普通 400 都不行。"""
+    assert mh._context_error_is_model_level('HTTP 400: {"code":11102,"msg":"model [X] service info not found"}') is True
+    assert mh._context_error_is_model_level('HTTP 429: rate limit') is False
+    assert mh._context_error_is_model_level('ReadTimeout: ') is False
+    assert mh._context_error_is_model_level('回复未包含验证码: OK') is False
+
+
+async def test_context_probe_marks_model_down_when_upstream_lacks_service(monkeypatch):
+    """上游 code=11102 时把模型置 down(隐藏),不能永远挂"未验证"。"""
+    monkeypatch.setenv("MODEL_HEALTH_CONTEXT_PROBES_PER_CYCLE", "10")
+    monkeypatch.setenv("MODEL_HEALTH_CONTEXT_PROBE_TOKENS", "500")
+    monkeypatch.setattr(
+        mh, "_build_probe_target", lambda mid, hint: mh._ProbeTarget("alpha", "http://x", {}, None, mid)
+    )
+    svc = ModelHealthService()
+    svc._catalog = {"gone": "alpha"}
+    svc._states = {"gone": ModelProbeState(status="healthy")}
+
+    async def fake_probe(target, tokens):
+        return None, '上游拒绝: [error] WorkBuddy 上游不可用: HTTP 400: {"code":11102,"msg":"model [X] service info not found"}'
+
+    monkeypatch.setattr(svc, "_probe_context", fake_probe)
+    await svc._run_context_probes()
+
+    assert svc._states["gone"].status == "down", "上游没有该模型服务时必须隐藏"

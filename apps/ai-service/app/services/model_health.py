@@ -701,6 +701,26 @@ def _build_context_probe_text(tokens: int) -> tuple[str, str]:
     return text, code
 
 
+def _is_relay_error_body(text: str) -> bool:
+    """判断这段"回复"其实是 relay/网关塞进来的错误帧,而不是模型的真回复。
+
+    relay 在上游号池失败时会写一帧 `content: "[error] WorkBuddy ..."`,
+    探测如果只按"回复里没有验证码"判,会把**没接通**误判成**不支持长上下文**。
+    """
+    head = (text or "").strip()[:24].lower()
+    return head.startswith("[error]") or head.startswith("[错误]")
+
+
+def _context_error_is_model_level(text: str) -> bool:
+    """上游是否明确"没有这个模型的服务"(可一次判死,不必一直挂在未验证)。
+
+    对应 WorkBuddy `code:11102 service info not found`:账号池里没给这个模型配服务,
+    跟"模型不存在/已下线"同档 —— 该隐藏,而不是永远显示"未验证"。
+    """
+    lowered = (text or "").lower()
+    return "service info not found" in lowered or "服务信息不存在" in lowered
+
+
 def _aggregate_sse_reply(body: str) -> tuple[str, bool, bool]:
     """把 SSE 正文聚合成 (可见回复, 是否出现过思考帧, 是否被 max_tokens 截断)。
 
@@ -1407,6 +1427,13 @@ class ModelHealthService:
                 state.context_ok = ok
                 state.context_error = error[:200]
                 state.context_checked_at = time.time()
+                if ok is not True and _context_error_is_model_level(error):
+                    # 上游明确"没给这个模型配服务"(WorkBuddy code 11102):不是能力问题,
+                    # 是这个模型压根不通 ⇒ 与"模型不存在"同档,一次判死。
+                    # 留在 healthy 会让界面永远挂着"未验证",把接入缺失伪装成探测未完成。
+                    state.status = "down"
+                    state.error = _redact_secrets(f"上游无此模型服务: {error[:150]}")[:200]
+                    state.consecutive_failures = max(state.consecutive_failures, 1)
             logger.info(
                 "[model-health] context probe %s tokens=%d ok=%s",
                 mid, tokens, ok,
@@ -1795,6 +1822,11 @@ class ModelHealthService:
             reply, saw_reasoning, truncated = _aggregate_sse_reply(body)
             if _check_context_probe_reply(reply, code):
                 return True, "", saw_reasoning
+            if _is_relay_error_body(reply):
+                # relay 把号池失败塞成了一帧 content(`[error] WorkBuddy ...`);
+                # 这不是"模型没答出验证码",而是**压根没调到上游**,只能记未知。
+                # 其中"上游没这个模型的服务"(code 11102)由调用方按模型级处理。
+                return None, _redact_secrets(f"上游拒绝: {reply[:150]}")[:200], saw_reasoning
             if truncated:
                 return None, "输出被 max_tokens 截断,长上下文未判定", saw_reasoning
             if saw_reasoning and not reply.strip():
