@@ -2142,5 +2142,177 @@ async def test_run_checkin_now_proceeds_when_cooldown_read_is_empty(monkeypatch)
     assert record_calls == [7]
 
 
+# ---------------------------------------------------------------------------
+# AIS-045(2026-11-12):手动 task-run 与调度巡检共用 run_family_exclusive
+# (按账号当日互斥),防同账号并发 claim 撞车(重复领取/重复计分)。
+# ---------------------------------------------------------------------------
+
+
+async def test_run_family_exclusive_serializes_same_account(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """同账号两路并发 ⇒ 严格串行(无锁时 peak=2 直接判红)。"""
+    import asyncio
+
+    gate = asyncio.Event()
+    state = {"concurrent": 0, "peak": 0, "calls": []}
+
+    async def _slow_run(kind, jwt, dm, dry_run=False):
+        state["concurrent"] += 1
+        state["peak"] = max(state["peak"], state["concurrent"])
+        state["calls"].append(kind)
+        await gate.wait()
+        state["concurrent"] -= 1
+        return {"ok": True, "kind": kind}
+
+    monkeypatch.setattr(cs.workbuddy_tasks, "run_family", _slow_run)
+
+    t1 = asyncio.create_task(
+        cs.run_family_exclusive(900001, "growth", "jwt", {}, dry_run=False)
+    )
+    t2 = asyncio.create_task(
+        cs.run_family_exclusive(900001, "activity", "jwt", {}, dry_run=False)
+    )
+    for _ in range(200):  # 等第一路真正进入 run_family
+        if state["concurrent"] == 1:
+            break
+        await asyncio.sleep(0.01)
+    else:
+        t1.cancel()
+        t2.cancel()
+        pytest.fail("第一路未进入 run_family")
+    # 给第二路 0.1s:有锁必须仍被挡在门外
+    await asyncio.sleep(0.1)
+    if state["peak"] != 1:
+        t1.cancel()
+        t2.cancel()
+        pytest.fail(f"同账号未串行(peak={state['peak']})")
+    gate.set()
+    r1, r2 = await asyncio.gather(t1, t2)
+    assert state["peak"] == 1
+    assert state["calls"] == ["growth", "activity"]
+    assert r1["ok"] is True and r2["ok"] is True
+
+
+async def test_run_family_exclusive_parallel_across_accounts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """不同账号必须能并行(锁粒度 = 账号,不是全局一把)。"""
+    import asyncio
+
+    both = asyncio.Event()
+    entered: list[int] = []
+
+    async def _both_run(kind, jwt, dm, dry_run=False):
+        entered.append(int(jwt))
+        if len(entered) == 2:
+            both.set()
+        # 若被错误地全局串行,这里会在 2s 内超时抛错 ⇒ 测试红
+        await asyncio.wait_for(both.wait(), timeout=2)
+        return {"ok": True}
+
+    monkeypatch.setattr(cs.workbuddy_tasks, "run_family", _both_run)
+
+    t1 = asyncio.create_task(
+        cs.run_family_exclusive(900011, "growth", "1", {}, dry_run=False)
+    )
+    t2 = asyncio.create_task(
+        cs.run_family_exclusive(900012, "growth", "2", {}, dry_run=False)
+    )
+    r = await asyncio.gather(t1, t2)
+    assert sorted(entered) == [1, 2]
+    assert [x["ok"] for x in r] == [True, True]
+
+
+async def test_wb_sweep_uses_run_family_exclusive_entry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """调度巡检侧改走 run_family_exclusive(带账号 id),不再直调 run_family。"""
+    sched = cs.CheckinScheduler()
+    monkeypatch.setattr(cs.checkin_outbound_gate, "paused_remaining", lambda: 0.0)
+    monkeypatch.setattr(cs.settings, "workbuddy_tasks_live_run", False)
+    monkeypatch.setattr(cs.settings, "workbuddy_tasks_urgency_order", "none")
+    monkeypatch.setattr(cs.random, "uniform", lambda a, b: 0.0)
+
+    async def _fake_load(label):
+        return ([{"id": 5, "platform": "workbuddy", "jwt": "j", "device_map": {}}], {})
+
+    async def _fake_autopilot(jwt, dm, dry_run=False):
+        return {}
+
+    seen: list[tuple[int, str, bool]] = []
+
+    async def _fake_exclusive(account_id, kind, jwt, device_map, *, dry_run):
+        seen.append((account_id, kind, dry_run))
+        return {
+            "ok": True,
+            "kind": kind,
+            "accepted": [],
+            "claimed": [],
+            "credit_delta": 0,
+            "energy_delta": None,
+            "reason": None,
+            "unjudged": False,
+        }
+
+    monkeypatch.setattr(sched, "_load_accounts_and_cooldowns", _fake_load)
+    monkeypatch.setattr(cs.workbuddy_autopilot, "run_autopilot", _fake_autopilot)
+    monkeypatch.setattr(cs, "run_family_exclusive", _fake_exclusive)
+    await sched._workbuddy_task_sweep()
+
+    assert [k for _, k, _ in seen] == list(cs.workbuddy_tasks.SWEEP_ORDER)
+    assert all(account_id == 5 for account_id, _, _ in seen)
+
+
+# ——— MiniMax 自轮换门控(2026-11-12,无客户端保活计划 §4)———
+# 续票单源 = 号池 refreshOne(刷前 pull + 换票锁 + CAS);签到侧这里自轮换 = 第二个
+# 轮换者,与池并发时旧 rt 重放 ⇒ invalid_grant。缺省必须关,统一由池续、池推。
+
+
+def test_minimax_server_refresh_gate_defaults_off(monkeypatch: pytest.MonkeyPatch) -> None:
+    """缺省关闭;只有显式 true 才开(生产机无 auth.json,本就走不到该分支)。"""
+    monkeypatch.delenv("CHECKIN_MINIMAX_SERVER_REFRESH", raising=False)
+    assert cs._minimax_server_refresh_enabled() is False
+    for off in ("false", "0", "off", ""):
+        monkeypatch.setenv("CHECKIN_MINIMAX_SERVER_REFRESH", off)
+        assert cs._minimax_server_refresh_enabled() is False, off
+    monkeypatch.setenv("CHECKIN_MINIMAX_SERVER_REFRESH", "true")
+    assert cs._minimax_server_refresh_enabled() is True
+
+
+async def test_sync_minimax_local_gate_controls_self_refresh(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    """门关:token 空/临期也拒不自轮换(等池刷完 pushPoolSync 推过来);置 true 才调。"""
+    import json as _json
+
+    auth = tmp_path / "auth.json"
+    auth.write_text(
+        _json.dumps({"records": {"k": {"accessToken": "", "refreshToken": "rt-1"}}}),
+        encoding="utf-8",
+    )
+    real_expanduser = cs.os.path.expanduser
+    monkeypatch.setattr(
+        cs.os.path,
+        "expanduser",
+        lambda p: str(auth) if str(p).endswith("auth.json") else real_expanduser(p),
+    )
+    calls: list[str] = []
+
+    async def _fake_refresh(self: Any, rec: dict[str, Any]) -> None:
+        calls.append(str(rec.get("refreshToken")))
+        return None
+
+    monkeypatch.setattr(cs.CheckinScheduler, "_refresh_minimax_token", _fake_refresh)
+
+    monkeypatch.delenv("CHECKIN_MINIMAX_SERVER_REFRESH", raising=False)
+    await cs.CheckinScheduler()._sync_minimax_local()
+    assert calls == []
+
+    monkeypatch.setenv("CHECKIN_MINIMAX_SERVER_REFRESH", "true")
+    await cs.CheckinScheduler()._sync_minimax_local()
+    assert calls == ["rt-1"]
+
+
 # [IHUI-AI-PROVENANCE-TAIL]
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

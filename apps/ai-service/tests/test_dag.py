@@ -13,6 +13,7 @@
 """
 from __future__ import annotations
 
+import json
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -29,6 +30,8 @@ from app.services.dag_scheduler import (
     RUN_STATUS_UNDETERMINED,
     DAGResult,
     KanbanTask,
+    WorkerPool,
+    WorkerPoolConfig,
     decode_run_status,
     encode_run_status,
 )
@@ -595,4 +598,121 @@ def test_g998100_write_and_replay_paths_byte_equal(tmp_path):
         assert written_final is not None and replayed_final is not None
         assert written_final.encode("utf-8") == replayed_final.encode("utf-8")
         assert written_final in TERMINAL_STATES
+
+
+# =============================================================================
+# AIS-025:WorkerPool 重启恢复 —— start() 扫描 kanban:task:*
+# (todo 重新入队 / in_progress 置 blocked + 落盘 + 既有 SSE 通道发 task_failed)
+# =============================================================================
+
+
+class _FakeRedis:
+    """最小 async redis 桩:_persist / 恢复扫描用到的 scan_iter / get / set。"""
+
+    def __init__(self, values: dict[str, str] | None = None) -> None:
+        self.values = dict(values or {})
+        self.sets: list[tuple[str, str]] = []
+
+    async def scan_iter(self, match: str | None = None):
+        prefix = (match or "*").rstrip("*")
+        for key in list(self.values):
+            if key.startswith(prefix):
+                yield key
+
+    async def get(self, key: str) -> str | None:
+        return self.values.get(key)
+
+    async def set(self, key: str, value: str) -> None:
+        self.sets.append((key, value))
+        self.values[key] = value
+
+
+def _persisted_record(status: str, task_id: str, *, dependencies: list[str] | None = None) -> str:
+    """构造一条与 _persist 输出同形状的 camelCase JSON 记录。"""
+    task = KanbanTask(
+        id=task_id,
+        agent_id="agent-1",
+        name=task_id,
+        status=status,  # type: ignore[arg-type]
+        dependencies=list(dependencies or []),
+        created_at="2026-11-12T00:00:00+00:00",
+        updated_at="2026-11-12T00:00:00+00:00",
+    )
+    return json.dumps(task.to_camel_dict(), ensure_ascii=False)
+
+
+async def test_worker_pool_start_restores_todo_and_blocks_in_progress():
+    """AIS-025:start() 恢复 —— todo 重新入队;in_progress 置 blocked 并重新落盘、
+    经既有 on_event 通道发 task_failed;终态/triage 不加载;重复 start 不重复入队。"""
+    events = []
+    pool = WorkerPool(WorkerPoolConfig(max_workers=0), on_event=events.append)
+    pool._redis = _FakeRedis(
+        {
+            "kanban:task:t-todo": _persisted_record("todo", "t-todo"),
+            "kanban:task:t-run": _persisted_record("in_progress", "t-run"),
+            "kanban:task:t-done": _persisted_record("done", "t-done"),
+            "kanban:task:t-triage": _persisted_record("triage", "t-triage"),
+        }
+    )
+    await pool.start()
+
+    # todo:重新入队(内存可见且队列恰好一票)
+    todo = await pool.get_status("t-todo")
+    assert todo is not None
+    assert todo.status == "todo"
+    assert pool._queue.qsize() == 1
+
+    # in_progress:置 blocked + 写回 Redis + 发 task_failed(worker 侧 blocked 同通道)
+    run = await pool.get_status("t-run")
+    assert run is not None
+    assert run.status == "blocked"
+    assert "重启" in (run.error_message or "")
+    saved = json.loads(pool._redis.values["kanban:task:t-run"])
+    assert saved["status"] == "blocked"
+    assert [(e.type, e.task_id) for e in events] == [("task_failed", "t-run")]
+
+    # 终态与从未入队的 triage 不加载进内存
+    assert await pool.get_status("t-done") is None
+    assert await pool.get_status("t-triage") is None
+
+    # start() 幂等:第二次调用不重复入队
+    await pool.start()
+    assert pool._queue.qsize() == 1
+
+
+async def test_worker_pool_start_without_redis_is_plain_memory():
+    """AIS-025:无 Redis(纯内存降级)时恢复逻辑 no-op,启动不受影响。"""
+    pool = WorkerPool(WorkerPoolConfig(max_workers=0))
+    assert pool._redis is None
+    await pool.start()
+    assert pool.list_tasks() == []
+
+
+async def test_worker_pool_start_restores_done_dependency_for_requeued_todo():
+    """AIS-025 增量:恢复的 todo 依赖重启前已完成(done)的任务时,该终态依赖
+    只读补载,_check_deps 判 ready —— 不得误判「依赖不存在」把任务误伤成
+    blocked;依赖记录真不存在时仍如实 blocked。"""
+    pool = WorkerPool(WorkerPoolConfig(max_workers=0))
+    pool._redis = _FakeRedis(
+        {
+            "kanban:task:dep-done": _persisted_record("done", "dep-done"),
+            "kanban:task:child": _persisted_record(
+                "todo", "child", dependencies=["dep-done"]
+            ),
+            "kanban:task:orphan": _persisted_record(
+                "todo", "orphan", dependencies=["no-such-task"]
+            ),
+        }
+    )
+    await pool.start()
+
+    child = await pool.get_status("child")
+    orphan = await pool.get_status("orphan")
+    assert child is not None and orphan is not None
+    # done 依赖被补载(只读,不入队)⇒ ready
+    assert await pool.get_status("dep-done") is not None
+    assert pool._queue.qsize() == 2  # 只有两个 todo 入队,done 依赖不入队
+    assert pool._check_deps(child) == "ready"
+    # 依赖记录确实不存在 ⇒ 如实 blocked(不放行)
+    assert pool._check_deps(orphan).startswith("blocked")
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
