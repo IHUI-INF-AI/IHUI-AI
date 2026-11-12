@@ -1598,6 +1598,37 @@ fn normalize_path(p: &std::path::Path) -> std::path::PathBuf {
     out
 }
 
+/// 路径末段是否为链接(不跟随解析)。
+/// `Path::exists()` / `metadata()` 都会跟随链接,悬空链接因此"看起来不存在";
+/// 判越界必须改用 `symlink_metadata`(不跟随)。
+/// Windows 上 junction / mount point 的 `file_type().is_symlink()` 语义随 std 版本变化,
+/// 真判据是 `FILE_ATTRIBUTE_REPARSE_POINT`(0x400):symlink、junction、mount point、
+/// 云占位符都带这枚位。宁可多拒(fail closed),不放行"解析不明"的末段。
+fn final_component_is_link(p: &std::path::Path) -> std::io::Result<bool> {
+    let meta = match std::fs::symlink_metadata(p) {
+        Ok(m) => m,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(e) => return Err(e),
+    };
+    if meta.file_type().is_symlink() {
+        return Ok(true);
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::MetadataExt;
+        const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x400;
+        if meta.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0 {
+            return Ok(true);
+        }
+        // 兜底:悬空/不可解析链接的 `metadata()` 会失败而 `symlink_metadata()` 成功,
+        // 这一分裂本身就是"末段是链接"的证据(普通文件不会出现这种分裂)。
+        if std::fs::metadata(p).is_err() {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
 /// 2026-08-16 安全加固:自定义文件命令不受 capabilities 约束(仅约束插件命令),
 /// 此前 read/write/list/stat 接受任意路径,webview 被 XSS(应用渲染 LLM 内容)
 /// 后可读写/外带用户任意文件。统一限制在 app_data_dir 内。
@@ -1626,8 +1657,14 @@ fn ensure_in_app_data(
     // 2026-10-31 安全强化第 14 批(F4 纵深):词法校验不解析 symlink —— app_data
     // 内若出现指向外部的符号链接(需另一攻击链先落 symlink),读写可越界。对已
     // 存在的路径补 canonicalize(解析全部 symlink 分量)后再比前缀;路径不存在
-    // (创建场景)保留词法结果。Windows canonicalize 产出 \\?\ 扩展前缀,两侧同
+    // (创建场景)上溯最近已存在祖先解析。Windows canonicalize 产出 \\?\ 扩展前缀,两侧同
     // 剥后再比,避免前缀形态失配误拒。
+    // 2026-11-12(F-081)加固:
+    //   ① 末段必须用 symlink_metadata(不跟随)单独判 —— `exists()` 跟随链接,悬空
+    //      链接会被判"不存在"而落进下面的创建分支,而父目录 canonicalize 完全看不出
+    //      末段是链接,写入就会在链接目标处新建文件;
+    //   ② canonicalize 一律 fail closed:旧实现失败即退回词法比较,等于把"解析不了"
+    //      当成"没越界"。
     fn strip_extended_prefix(pb: std::path::PathBuf) -> std::path::PathBuf {
         let s = pb.as_os_str().to_string_lossy().into_owned();
         if let Some(rest) = s.strip_prefix(r"\\?\UNC\") {
@@ -1638,23 +1675,37 @@ fn ensure_in_app_data(
         }
         pb
     }
+    if final_component_is_link(&p_norm)
+        .map_err(|e| IpcError::from_io("symlink_metadata", &p_norm, e))?
+    {
+        return Err(IpcError::permission(format!(
+            "路径末段是符号链接/junction(拒绝): {}",
+            path
+        )));
+    }
+    // app_data 目录首次启动可能尚未创建;建不出来就 fail closed,不退回词法比较。
+    std::fs::create_dir_all(&app_data)
+        .map_err(|e| IpcError::from_io("create_dir_all(app_data)", &app_data, e))?;
+    let base = strip_extended_prefix(
+        std::fs::canonicalize(&app_data_norm)
+            .map_err(|e| IpcError::from_io("canonicalize(app_data)", &app_data_norm, e))?,
+    );
     if p_norm.exists() {
-        if let Ok(real) = std::fs::canonicalize(&p_norm) {
-            let base = match std::fs::canonicalize(&app_data_norm) {
-                Ok(b) => strip_extended_prefix(b),
-                Err(_) => app_data_norm.clone(),
-            };
-            if !strip_extended_prefix(real).starts_with(&base) {
-                return Err(IpcError::permission(format!(
-                    "路径(经符号链接解析)不在应用数据目录内(拒绝): {}",
-                    path
-                )));
-            }
+        let real = strip_extended_prefix(
+            std::fs::canonicalize(&p_norm)
+                .map_err(|e| IpcError::from_io("canonicalize", &p_norm, e))?,
+        );
+        if !real.starts_with(&base) {
+            return Err(IpcError::permission(format!(
+                "路径(经符号链接解析)不在应用数据目录内(拒绝): {}",
+                path
+            )));
         }
     } else {
         // 目标不存在(创建场景):词法前缀挡不住"父目录是符号链接/junction 指向
         // app_data 之外" —— write_text_file 正走这一支。上溯到最近的已存在祖先,
         // canonicalize 解析其真实位置后拼回剩余分量,再比同一份 base 前缀。
+        // canonicalize 失败不再放行:解析不了就当作越界拒绝。
         let mut ancestor = p_norm.as_path();
         let mut suffix: Vec<std::ffi::OsString> = Vec::new();
         loop {
@@ -1670,21 +1721,18 @@ fn ensure_in_app_data(
                 None => break,
             }
         }
-        if let Ok(real_ancestor) = std::fs::canonicalize(ancestor) {
-            let mut real = strip_extended_prefix(real_ancestor);
-            for part in suffix.iter().rev() {
-                real.push(part);
-            }
-            let base = match std::fs::canonicalize(&app_data_norm) {
-                Ok(b) => strip_extended_prefix(b),
-                Err(_) => app_data_norm.clone(),
-            };
-            if !real.starts_with(&base) {
-                return Err(IpcError::permission(format!(
-                    "路径(父目录经符号链接解析)不在应用数据目录内(拒绝): {}",
-                    path
-                )));
-            }
+        let mut real = strip_extended_prefix(
+            std::fs::canonicalize(ancestor)
+                .map_err(|e| IpcError::from_io("canonicalize(祖先)", ancestor, e))?,
+        );
+        for part in suffix.iter().rev() {
+            real.push(part);
+        }
+        if !real.starts_with(&base) {
+            return Err(IpcError::permission(format!(
+                "路径(父目录经符号链接解析)不在应用数据目录内(拒绝): {}",
+                path
+            )));
         }
     }
     Ok(p_norm)
@@ -1696,18 +1744,27 @@ const MAX_TEXT_FILE_SIZE: u64 = 50 * 1024 * 1024;
 
 #[tauri::command]
 async fn read_text_file(app: tauri::AppHandle, path: String) -> Result<ReadTextResult, IpcError> {
-    let path = ensure_in_app_data(&app, &path)?;
-    let metadata = std::fs::metadata(&path).map_err(|e| IpcError::from_io("metadata", &path, e))?;
-    let size = metadata.len();
-    if size > MAX_TEXT_FILE_SIZE {
-        return Err(IpcError::permission(format!(
-            "file too large: max {}MB ({} bytes), got {} bytes",
-            MAX_TEXT_FILE_SIZE / 1024 / 1024, MAX_TEXT_FILE_SIZE, size
-        )));
-    }
-    let content =
-        std::fs::read_to_string(&path).map_err(|e| IpcError::from_io("read_to_string", &path, e))?;
-    Ok(ReadTextResult { content, size })
+    // F-084:async 命令里跑同步大 IO 会占满 async worker,其他 IPC 只能排队。
+    // 整段(含 ensure_in_app_data 的 canonicalize)挪进阻塞线程池。
+    tauri::async_runtime::spawn_blocking(move || {
+        let path = ensure_in_app_data(&app, &path)?;
+        let metadata =
+            std::fs::metadata(&path).map_err(|e| IpcError::from_io("metadata", &path, e))?;
+        let size = metadata.len();
+        if size > MAX_TEXT_FILE_SIZE {
+            return Err(IpcError::permission(format!(
+                "file too large: max {}MB ({} bytes), got {} bytes",
+                MAX_TEXT_FILE_SIZE / 1024 / 1024,
+                MAX_TEXT_FILE_SIZE,
+                size
+            )));
+        }
+        let content = std::fs::read_to_string(&path)
+            .map_err(|e| IpcError::from_io("read_to_string", &path, e))?;
+        Ok(ReadTextResult { content, size })
+    })
+    .await
+    .map_err(|e| IpcError::internal(format!("read_text_file 阻塞任务失败: {}", e)))?
 }
 
 /// 读取二进制文件,返回 base64 + MIME(用于图片/附件预览)。路径仅允许 app_data_dir 内。
@@ -1792,6 +1849,85 @@ mod write_text_atomic_tests {
     }
 }
 
+/// F-081 / F-082 的纯函数判据(`ensure_in_app_data` 的链接判定、剪贴板图片上限)。
+#[cfg(test)]
+mod security_limits_tests {
+    use super::{
+        check_clipboard_image_base64_len, check_clipboard_image_dimensions,
+        final_component_is_link, MAX_CLIPBOARD_IMAGE_BASE64_BYTES, MAX_CLIPBOARD_IMAGE_PIXELS,
+    };
+
+    #[test]
+    fn 剪贴板图片_base64_长度上限() {
+        assert!(check_clipboard_image_base64_len(MAX_CLIPBOARD_IMAGE_BASE64_BYTES).is_ok());
+        assert!(
+            check_clipboard_image_base64_len(MAX_CLIPBOARD_IMAGE_BASE64_BYTES + 1).is_err(),
+            "超过上限必须拒绝"
+        );
+    }
+
+    #[test]
+    fn 剪贴板图片_像素上限() {
+        assert_eq!(MAX_CLIPBOARD_IMAGE_PIXELS, 64 * 1024 * 1024);
+        assert!(
+            check_clipboard_image_dimensions(8192, 8192).is_ok(),
+            "8192x8192 = 64MP 边界应放行"
+        );
+        assert!(
+            check_clipboard_image_dimensions(8192, 8193).is_err(),
+            "超一像素也要拒"
+        );
+        assert!(
+            check_clipboard_image_dimensions(30000, 30000).is_err(),
+            "PNG 炸弹尺寸必须被拒"
+        );
+    }
+
+    #[test]
+    fn 普通文件与不存在的路径都不算链接() {
+        let dir = std::env::temp_dir().join(format!(
+            "ihui-linkcheck-plain-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("mkdir");
+        let f = dir.join("plain.txt");
+        std::fs::write(&f, b"x").expect("write");
+        assert!(!final_component_is_link(&f).expect("symlink_metadata"));
+        assert!(!final_component_is_link(&dir.join("missing.txt")).expect("not found"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn junction_必须被判为链接() {
+        // mklink /J 不需要管理员权限;环境不支持时跳过,不把"造不出夹具"误报成回归。
+        let base = std::env::temp_dir().join(format!("ihui-linkcheck-junction-{}", std::process::id()));
+        let target = base.join("target");
+        let link = base.join("link");
+        let _ = std::fs::remove_dir_all(&base);
+        std::fs::create_dir_all(&target).expect("mkdir target");
+        let created = std::process::Command::new("cmd")
+            .args(["/C", "mklink", "/J"])
+            .arg(&link)
+            .arg(&target)
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false);
+        if !created {
+            let _ = std::fs::remove_dir_all(&base);
+            return;
+        }
+        assert!(
+            final_component_is_link(&link).expect("symlink_metadata"),
+            "junction 必须被拒(否则 write_text_file 可写到链接目标处)"
+        );
+        // 先摘链接再删根,避免清理动作顺着链接动到目标。
+        let _ = std::fs::remove_dir(&link);
+        let _ = std::fs::remove_dir_all(&base);
+    }
+}
+
 #[tauri::command]
 async fn write_text_file(
     app: tauri::AppHandle,
@@ -1814,39 +1950,53 @@ async fn write_text_file(
 }
 
 /// 列出目录下的文件/子目录(非递归)。路径仅允许 app_data_dir 内。
+/// F-084:条数上限 —— 无界收集会在超大目录上把内存/延迟一起放大,超限直接报错。
+const MAX_DIR_ENTRIES: usize = 10_000;
+
 #[tauri::command]
 async fn list_dir(app: tauri::AppHandle, path: String) -> Result<DirListResult, IpcError> {
-    let path = ensure_in_app_data(&app, &path)?;
-    let mut entries = Vec::new();
-    let dir = std::fs::read_dir(&path).map_err(|e| IpcError::from_io("read_dir", &path, e))?;
-    for entry in dir {
-        let entry = entry.map_err(|e| IpcError::from_io("read_dir entry", &path, e))?;
-        let metadata = entry
-            .metadata()
-            .map_err(|e| IpcError::from_io("entry metadata", &entry.path(), e))?;
-        let path_str = entry.path().to_string_lossy().to_string();
-        let name = entry.file_name().to_string_lossy().to_string();
-        let extension = entry
-            .path()
-            .extension()
-            .map(|e| e.to_string_lossy().to_string())
-            .unwrap_or_default();
-        entries.push(FileInfo {
-            path: path_str,
-            name,
-            size: metadata.len(),
-            is_dir: metadata.is_dir(),
-            extension,
+    tauri::async_runtime::spawn_blocking(move || {
+        let path = ensure_in_app_data(&app, &path)?;
+        let mut entries = Vec::new();
+        let dir = std::fs::read_dir(&path).map_err(|e| IpcError::from_io("read_dir", &path, e))?;
+        for entry in dir {
+            if entries.len() >= MAX_DIR_ENTRIES {
+                return Err(IpcError::permission(format!(
+                    "目录条目超过上限 {} 条(拒绝继续列出): {}",
+                    MAX_DIR_ENTRIES,
+                    path.display()
+                )));
+            }
+            let entry = entry.map_err(|e| IpcError::from_io("read_dir entry", &path, e))?;
+            let metadata = entry
+                .metadata()
+                .map_err(|e| IpcError::from_io("entry metadata", &entry.path(), e))?;
+            let path_str = entry.path().to_string_lossy().to_string();
+            let name = entry.file_name().to_string_lossy().to_string();
+            let extension = entry
+                .path()
+                .extension()
+                .map(|e| e.to_string_lossy().to_string())
+                .unwrap_or_default();
+            entries.push(FileInfo {
+                path: path_str,
+                name,
+                size: metadata.len(),
+                is_dir: metadata.is_dir(),
+                extension,
+            });
+        }
+        // 文件在前,目录在后,各自按名称排序
+        entries.sort_by(|a, b| {
+            b.is_dir
+                .cmp(&a.is_dir)
+                .reverse()
+                .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
         });
-    }
-    // 文件在前,目录在后,各自按名称排序
-    entries.sort_by(|a, b| {
-        b.is_dir
-            .cmp(&a.is_dir)
-            .reverse()
-            .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
-    });
-    Ok(DirListResult { entries })
+        Ok(DirListResult { entries })
+    })
+    .await
+    .map_err(|e| IpcError::internal(format!("list_dir 阻塞任务失败: {}", e)))?
 }
 
 /// 获取单个文件/目录的元信息。路径仅允许 app_data_dir 内。
@@ -1912,7 +2062,10 @@ fn debounce_save_window_state(label: String, app: tauri::AppHandle) {
     const DEBOUNCE: Duration = Duration::from_millis(300);
     let now = Instant::now();
     {
-        let mut last = WINDOW_STATE_LAST_SAVE.lock().unwrap();
+        // F-086:锁中毒不得把窗口事件回调带崩(旧实现 .unwrap() 会直接 panic)。
+        let mut last = WINDOW_STATE_LAST_SAVE
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
         if let Some(prev) = last.get(&label) {
             if now.duration_since(*prev) < DEBOUNCE {
                 return;
@@ -1920,7 +2073,16 @@ fn debounce_save_window_state(label: String, app: tauri::AppHandle) {
         }
         last.insert(label.clone(), now);
     }
-    let _ = save_window_state(Some(label), app);
+    // F-086:几何读取 + store.save() 同步写盘不再跑在窗口事件线程上。
+    // 退出路径(apply_close_hide / exit_application 等)仍走同步 save_window_state,
+    // 保证进程结束前那次写盘一定落完 —— 命令签名保持不变(内部调用点与前端契约都不动)。
+    let app_handle = app.clone();
+    let label_for_save = label.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        if let Err(e) = save_window_state(Some(label_for_save), app_handle) {
+            log::warn!("[desktop] 窗口状态后台落盘失败: {}", e);
+        }
+    });
 }
 
 /// 生成窗口状态 store key(格式: window.<label>.<field>),区分 main/admin 窗口。
@@ -2189,32 +2351,59 @@ fn clear_webview_caches(root: &std::path::Path) -> Result<(usize, Vec<&'static s
     Ok((cleared, skipped))
 }
 
+/// 清理结果:真实删除数如实上报(F-083 起不再"没删也报成功")。
+#[derive(Serialize)]
+struct ClearCacheResult {
+    ok: bool,
+    cleared: usize,
+    skipped: Vec<&'static str>,
+}
+
 /// 清理 WebView2 缓存(Windows)。
 /// 2026-07-29 #6:prod 模式缓存子目录会无限增长(几个月可达数百 MB),供前端设置项"清理缓存"调用。
 /// 2026-09-25:由"整树删"改为"只删缓存白名单"——清理动作不再可能带走登录态与本地会话。
+/// 2026-11-12(F-083):改 async + spawn_blocking(递归删不再占主线程);返回真实删除数;
+/// LOCALAPPDATA 缺失 / 目标目录不存在明确返回 Err(文案带 not_found),不再假装成功。
+#[cfg(target_os = "windows")]
 #[tauri::command]
-fn clear_webview_cache(app: tauri::AppHandle) -> Result<OkResult, String> {
-    #[cfg(target_os = "windows")]
-    {
-        // identifier 取运行期配置(与 single-instance 锁名、预检等的取源同一枚),
-        // 清理动作因此永远只作用于本实例自己的数据目录,不会跨配置误清。
-        let identifier = app.config().identifier.clone();
-        if let Some(local_app_data) = std::env::var_os("LOCALAPPDATA") {
-            let webview_root = std::path::Path::new(&local_app_data)
-                .join(&identifier)
-                .join("EBWebView");
-            if webview_root.is_dir() {
-                let (cleared, skipped) = clear_webview_caches(&webview_root)?;
-                log::info!(
-                    "[desktop] WebView2 缓存已由用户清理:删除 {} 个缓存目录,保留 {} 个数据目录({})",
-                    cleared,
-                    skipped.len(),
-                    skipped.join(", ")
-                );
-            }
+async fn clear_webview_cache(app: tauri::AppHandle) -> Result<ClearCacheResult, String> {
+    // identifier 取运行期配置(与 single-instance 锁名、预检等的取源同一枚),
+    // 清理动作因此永远只作用于本实例自己的数据目录,不会跨配置误清。
+    let identifier = app.config().identifier.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let local_app_data = std::env::var_os("LOCALAPPDATA").ok_or_else(|| {
+            "not_found: LOCALAPPDATA 未设置,无法定位 WebView2 数据目录".to_string()
+        })?;
+        let webview_root = std::path::Path::new(&local_app_data)
+            .join(&identifier)
+            .join("EBWebView");
+        if !webview_root.is_dir() {
+            return Err(format!(
+                "not_found: WebView2 数据目录不存在({})",
+                webview_root.display()
+            ));
         }
-    }
-    Ok(OkResult { ok: true })
+        let (cleared, skipped) = clear_webview_caches(&webview_root)?;
+        log::info!(
+            "[desktop] WebView2 缓存已由用户清理:删除 {} 个缓存目录,保留 {} 个数据目录({})",
+            cleared,
+            skipped.len(),
+            skipped.join(", ")
+        );
+        Ok(ClearCacheResult { ok: true, cleared, skipped })
+    })
+    .await
+    .map_err(|e| format!("清理任务执行失败: {}", e))?
+}
+
+#[cfg(not(target_os = "windows"))]
+#[tauri::command]
+async fn clear_webview_cache(_app: tauri::AppHandle) -> Result<ClearCacheResult, String> {
+    Ok(ClearCacheResult {
+        ok: true,
+        cleared: 0,
+        skipped: Vec::new(),
+    })
 }
 
 #[cfg(test)]
@@ -2683,6 +2872,34 @@ async fn clipboard_get(format: Option<String>) -> Result<ClipboardResult, String
     Ok(ClipboardResult { clipboard: result })
 }
 
+/// clipboard_set 图片入参上限(F-082):
+/// - base64 字符串 ≤ 32MB(解码后约 24MB,先挡住超大入参本身);
+/// - 像素总数 ≤ 64MP —— 几十 KB 的 PNG 炸弹(如 30000²)解码要分配数 GB,
+///   尺寸检查必须发生在按尺寸分配内存之前。
+const MAX_CLIPBOARD_IMAGE_BASE64_BYTES: usize = 32 * 1024 * 1024;
+const MAX_CLIPBOARD_IMAGE_PIXELS: u64 = 64 * 1024 * 1024;
+
+fn check_clipboard_image_base64_len(len: usize) -> Result<(), String> {
+    if len > MAX_CLIPBOARD_IMAGE_BASE64_BYTES {
+        return Err(format!(
+            "image too large: base64 长度 {} 字节超过上限 {} 字节",
+            len, MAX_CLIPBOARD_IMAGE_BASE64_BYTES
+        ));
+    }
+    Ok(())
+}
+
+fn check_clipboard_image_dimensions(width: u32, height: u32) -> Result<(), String> {
+    let pixels = width as u64 * height as u64;
+    if pixels > MAX_CLIPBOARD_IMAGE_PIXELS {
+        return Err(format!(
+            "image too large: {}x{} = {} 像素,超过上限 {} 像素",
+            width, height, pixels, MAX_CLIPBOARD_IMAGE_PIXELS
+        ));
+    }
+    Ok(())
+}
+
 #[tauri::command]
 async fn clipboard_set(
     content: String,
@@ -2697,10 +2914,24 @@ async fn clipboard_set(
                 .map_err(|e| e.to_string())?;
         }
         "image" => {
+            check_clipboard_image_base64_len(content.len())?;
             let bytes = base64::engine::general_purpose::STANDARD
                 .decode(&content)
                 .map_err(|e| e.to_string())?;
-            let rgba_img = image::load_from_memory_with_format(&bytes, image::ImageFormat::Png)
+            // 先只读 PNG 头部尺寸并判上限,再真正解码。
+            let mut probe = image::io::Reader::new(Cursor::new(&bytes));
+            probe.set_format(image::ImageFormat::Png);
+            let (width, height) = probe.into_dimensions().map_err(|e| e.to_string())?;
+            check_clipboard_image_dimensions(width, height)?;
+            let mut reader = image::io::Reader::new(Cursor::new(&bytes));
+            reader.set_format(image::ImageFormat::Png);
+            let mut limits = image::io::Limits::no_limits();
+            limits.max_image_width = Some(width);
+            limits.max_image_height = Some(height);
+            limits.max_alloc = Some(MAX_CLIPBOARD_IMAGE_PIXELS * 4);
+            reader.limits(limits);
+            let rgba_img = reader
+                .decode()
                 .map_err(|e| e.to_string())?
                 .to_rgba8();
             let (w, h) = (rgba_img.width() as usize, rgba_img.height() as usize);

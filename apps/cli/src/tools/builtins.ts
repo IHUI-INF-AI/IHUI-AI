@@ -17,7 +17,7 @@ import { runSandboxed, runSandboxedAsync } from '../sandbox/index.js';
 import type { SandboxResult } from '../sandbox/index.js';
 // 按操作分维的文件访问裁决(goal-b49 复现对侧能力):读正文之前先问这一层。
 import { evaluateFileAccess, toAclPath, announceGuardUnjudged } from '../sandbox/file-access-policy.js';
-import { runPreToolCall, runPostToolCall } from '../hooks/index.js';
+import { markPostToolCallDeferred, runDeferredPostToolCall } from '../hooks/index.js';
 import { highlightCode } from '../highlight.js';
 import {
   registerTask,
@@ -1397,6 +1397,21 @@ export function settleForegroundCommand(result: SandboxResult, command: string, 
   return combined ? { ...settled, output: `${settled.output}\n${combined}` } : settled;
 }
 
+/**
+ * F-125:后台任务完成时的 postToolCall 载荷 —— 真实 stdout/stderr(脱敏与截断由
+ * runDeferredPostToolCall 的统一出口做),不再是启动点的摘要对象。
+ */
+function backgroundPostPayload(result: SandboxResult, taskId: string): Record<string, unknown> {
+  return {
+    background: true,
+    taskId,
+    success: !result.blocked && !result.timedOut && result.exitCode === 0,
+    exitCode: result.exitCode,
+    output: result.stdout,
+    error: result.timedOut ? 'timed out' : result.stderr || undefined,
+  };
+}
+
 export const run_command: Tool = {
   name: 'run_command',
   description:
@@ -1430,8 +1445,7 @@ export const run_command: Tool = {
         return { success: false, output: '', error: `危险操作被拒绝(需用户确认): ${run_command.name}` };
       }
     }
-    const preResult = await runPreToolCall('bash', { command, cwd: ctx.workspacePath, background }, ctx.signal);
-    if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
+    // F-097:preToolCall 由统一执行入口(executeToolCall)派发,这里不再重复调用。
 
     if (background) {
       // 后台执行:启动异步沙盒,注册任务,立即返回 task_id
@@ -1452,9 +1466,10 @@ export const run_command: Tool = {
         };
       }
       const taskId = registerTask(handle.process, command);
-      // 异步等待结果,完成后触发 post hook
+      // F-125:启动点没有真实输出 ⇒ 中央 post 让位,完成回调里带真实 stdout/stderr 派发一次。
+      markPostToolCallDeferred();
       handle.result.then(async (result) => {
-        await runPostToolCall('bash', { exitCode: result.exitCode, timedOut: result.timedOut, background: true, taskId });
+        await runDeferredPostToolCall('bash', backgroundPostPayload(result, taskId));
       }).catch(() => { /* ignore */ });
       return {
         success: true,
@@ -1495,11 +1510,12 @@ export const run_command: Tool = {
           void killTask(taskId, undefined, { timedOut: true });
         }, ADOPTED_BACKGROUND_BUDGET_MS);
         adoptedDeadlineTimers.add(bgDeadline);
+        markPostToolCallDeferred();
         handle.result
           .then(async (result) => {
             clearTimeout(bgDeadline);
             adoptedDeadlineTimers.delete(bgDeadline);
-            await runPostToolCall('bash', { exitCode: result.exitCode, timedOut: result.timedOut, background: true, taskId });
+            await runDeferredPostToolCall('bash', backgroundPostPayload(result, taskId));
           })
           .catch(() => {
             /* ignore */
@@ -1518,7 +1534,6 @@ export const run_command: Tool = {
       return settleForegroundCommand(result, command, ctx);
     }
     const result = runSandboxed(command, sandboxOpts);
-    await runPostToolCall('bash', { exitCode: result.exitCode, timedOut: result.timedOut }, ctx.signal);
     return settleForegroundCommand(result, command, ctx);
   },
 };

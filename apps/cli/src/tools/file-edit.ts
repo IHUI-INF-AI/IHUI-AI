@@ -25,7 +25,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as crypto from 'node:crypto';
-import { runPreToolCall, runPostToolCall } from '../hooks/index.js';
 import { type Tool, type ToolResult, type ToolContext, checkPathWritePermission } from './index.js';
 import { seekSequence, type MatchLevel } from './seek-sequence.js';
 import type { CheckpointManager } from '../checkpoints/index.js';
@@ -254,9 +253,6 @@ export function createWriteFileTool(ctx: EditToolContext): Tool {
         return { success: false, output: '', error: readGuard.error, errorType: readGuard.errorType };
       }
 
-      const preResult = await runPreToolCall('write_file', { path: filePath, cwd: ctx.workspacePath }, execCtx.signal);
-      if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
-
       try {
         // 捕获基线 ⇒ 落盘前逐字节复核:窗口内被人改过就拒绝,绝不静默覆盖(读后写校验)
         const baseline = captureWriteBaseline(abs);
@@ -270,7 +266,6 @@ export function createWriteFileTool(ctx: EditToolContext): Tool {
         commitAtomicWrite(baseline, content);
         recordWriteState(execCtx, abs);
         recordHunk(ctx, abs, startLine, endLine, content);
-        await runPostToolCall('write_file', { path: filePath, bytes: content.length }, execCtx.signal);
         const lines = content.split('\n').length;
         const diff = existed ? computeUnifiedDiff(original, content, filePath) : '';
         return { success: true, output: `已写入 ${filePath} (${lines} 行, ${content.length} 字节)${diff}${snapshotNote}` };
@@ -453,9 +448,6 @@ export function createEditFileTool(ctx: EditToolContext): Tool {
         return { success: false, output: '', error: readGuard.error, errorType: readGuard.errorType };
       }
 
-      const preResult = await runPreToolCall('edit_file', { path: filePath, cwd: ctx.workspacePath }, execCtx.signal);
-      if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
-
       // 基线一次捕获两用:① "是否存在"沿用原语义(不存在 ⇒ 报错,不新建),
       // ② 内容作为落盘前的复核锚点 —— 快照/patch 计算这段时间里磁盘被改过就必须失败
       let original: string;
@@ -490,7 +482,6 @@ export function createEditFileTool(ctx: EditToolContext): Tool {
         commitAtomicWrite(baseline, applied.result);
         recordWriteState(execCtx, abs);
         recordHunk(ctx, abs, startLine, endLine, applied.result);
-        await runPostToolCall('edit_file', { path: filePath, replacements: applied.replacements }, execCtx.signal);
         const diff = computeUnifiedDiff(original, applied.result, filePath);
         // 弱等级命中:告警放在**最前面**,不能让它在 diff 之后被划过去看不见
         return {
@@ -582,15 +573,12 @@ export function createDeleteFileTool(ctx: EditToolContext): Tool {
       path: { type: 'string', description: '要删除的文件路径' },
     },
     required: ['path'],
-    async execute(args, execCtx): Promise<ToolResult> {
+    async execute(args, _execCtx): Promise<ToolResult> {
       const filePath = args.path as string;
       if (!filePath) return { success: false, output: '', error: '缺少 path 参数' };
 
       const perm = checkPathWritePermission(filePath, ctx, 'delete');
       if (!perm.allowed) return { success: false, output: '', error: perm.reason };
-
-      const preResult = await runPreToolCall('delete_file', { path: filePath, cwd: ctx.workspacePath }, execCtx.signal);
-      if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
       const abs = resolvePath(ctx, filePath);
       let stat: fs.Stats;
@@ -654,7 +642,6 @@ export function createDeleteFileTool(ctx: EditToolContext): Tool {
         };
       }
       if (hunk) recordHunk(ctx, abs, hunk.startLine, hunk.endLine, hunk.preview);
-      await runPostToolCall('delete_file', { path: filePath }, execCtx.signal);
       return { success: true, output: `已删除 ${filePath}${undoNote}` };
     },
   };
