@@ -109,3 +109,11 @@ apps/cli/src/tools/command-policy/syntax-*.ts
 # 形状以生成器为准(可比性由 compare.ts 逐字段判定,不靠 prettier)。results/ 已在
 # benchmarks/agent-capability/results/.gitignore 里,不进任何门禁。
 benchmarks/agent-capability/baseline/baseline.json
+
+# 服务机读快照(scripts/data/service-inventory.json):check-service-inventory.mjs --snapshot 是
+# 唯一写入口,序列化器按 JSON.stringify(obj, null, 2) 输出、短数组刻意跨行展开(与上方
+# no-nested-git-exemptions.json / cross-end-fork-decisions.json / baseline.json 同一形态)。
+# prettier --write(lint-staged 每次 commit 都跑)会把短数组折成单行 —— 折叠行与所有历史 blob
+# 都不同,直接顶穿 union-converge --resolve 的行级零丢失断言(本侧独有行重数不得减少),
+# 2026-11-12 实测把第二轮收敛逼成结构性死锁。格式化对这份机器快照没有价值,对归并可比性有破坏。
+scripts/data/service-inventory.json
