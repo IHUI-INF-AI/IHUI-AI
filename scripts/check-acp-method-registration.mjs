@@ -27,11 +27,19 @@ import os from 'node:os'
 import path from 'node:path'
 
 const SERVER_REL = 'apps/cli/src/acp/server.ts'
-// ACP agent 构造函数名(注册表 onFailHint 写的 buildAcpAgentApp 已过时,实际是 createAcpAgent)
-const AGENT_FN = 'createAcpAgent'
+// ACP agent 构造函数名。
+// 2026-11-12 修正:此前写的是 'createAcpAgent',而 `apps/cli/src/acp/server.ts` 里真实的
+// 导出函数是 `buildAcpAgentApp` —— 于是 `extractRegistered` 永远走 fnFound=false 分支、
+// 本门常年返回 exit 2「未判定」,**从未真正校验过任何一次注册**。
+// 这正是 §0.9「判据必须在真跑它的那一刻才成立」的反例:门在册、跑起来却什么都没判。
+const AGENT_FN = 'buildAcpAgentApp'
 
 // SDK AGENT_METHODS 声明的 session/* 方法全集(取自 @agentclientprotocol/sdk@1.3.0
 // dist/schema/index.d.ts 的 AGENT_METHODS 导出;SDK 升级若增减 session/*,须同步本表)。
+// 逐字对齐 SDK 的 AGENT_METHODS(见 @agentclientprotocol/sdk/dist/schema/index.d.ts 第 2-31 行)。
+// 2026-11-12 修正:此前把 `session/request_permission` 与 `session/update` 也列进来,
+// 但这两个是 **CLIENT_METHODS**(第 32 行起)—— 由 agent 主动向客户端请求/通知,
+// 不该要求 agent 自己 .onRequest 注册。误列会让门永远判红,逼人跳过。
 const SDK_DECL = Object.freeze([
   'session/new',
   'session/load',
@@ -44,16 +52,39 @@ const SDK_DECL = Object.freeze([
   'session/fork',
   'session/resume',
   'session/close',
-  'session/request_permission',
-  'session/update',
 ])
+
+// CLIENT_METHODS 里的同名 session/* 方法:只用于"不误判"的排除集,不参与缺注册判定。
+const CLIENT_DECL = Object.freeze(['session/request_permission', 'session/update'])
 
 // 从 server.ts 源码抽取 createAcpAgent 函数体,收集其中注册的方法名。
 function extractRegistered(txt) {
-  const fnIdx = txt.indexOf(`function ${AGENT_FN}`)
-  if (fnIdx < 0) return { fnFound: false, registered: [] }
-  // 取函数体窗口:从 fnIdx 起 4000 字符足够覆盖
-  const body = txt.slice(fnIdx, fnIdx + 4000)
+  // 允许 `export function` / `async function` / 前导注释等形态,不写死前缀。
+  // 用字面量拼接而非模板正则:模板里 `\s` 会被当成普通字符 s(实测踩过),
+  // 结果是构造出 `exports+` 这种永不匹配的表达式 —— 门会静默失效。
+  const fnRe = new RegExp('(?:export\\s+)?(?:async\\s+)?function\\s+' + AGENT_FN + '\\s*\\(')
+  const m = fnRe.exec(txt)
+  if (!m) return { fnFound: false, registered: [] }
+  const fnIdx = m.index
+  // 取到函数体真实结尾(括号配平),不再用固定 4000 字符窗口 ——
+  // 那个窗口只覆盖到注册链前段,后面新增的方法会被静默漏看。
+  let depth = 0
+  let started = false
+  let end = txt.length
+  for (let i = fnIdx; i < txt.length; i++) {
+    const c = txt[i]
+    if (c === '{') {
+      depth++
+      started = true
+    } else if (c === '}') {
+      depth--
+      if (started && depth === 0) {
+        end = i + 1
+        break
+      }
+    }
+  }
+  const body = txt.slice(fnIdx, end)
   const registered = new Set()
   // 形态一:.onRequest('method', ...) / .onNotification('method', ...) —— 方法名紧跟
   const simple = /\.(onRequest|onNotification)\(\s*['"]([^'"]+)['"]/g
@@ -125,7 +156,34 @@ export function selfTest() {
     if (!r.fnFound || !r.registered.includes('session/new') || !r.registered.includes('session/list') || !r.registered.includes('session/cancel')) {
       console.error('❌ 自检 C 失败:函数体抽取未同时识别简单与泛型两形态', r); ok = false
     }
-    if (ok) console.log('✅ 守门 317 自检通过:差集/函数体抽取(简单+泛型两形态)逻辑均正确。')
+    // 自检 D:函数体扫描必须覆盖**长函数体**,不能用固定字符窗口。
+    // 2026-11-12 实测教训:原实现只取函数起始 4000 字符,而真实 server.ts 的注册链
+    // 在 1800+ 行之后 —— 尾部新增的方法会被静默漏看(门判绿,实际漏注册)。
+    const tailMarker = 'session/list'
+    const longBody =
+      `function ${AGENT_FN}(o){return acp.agent({})` +
+      `.onRequest('session/new',h)` +
+      // 中间塞 6000 字符的填充,把后面的注册推到原 4000 窗口之外
+      `/*${'x'.repeat(6000)}*/` +
+      `.onRequest('${tailMarker}',h)}`
+    const longRes = extractRegistered(longBody)
+    if (!longRes.registered.includes(tailMarker)) {
+      console.error('❌ 自检 D 失败:函数体扫描未覆盖长函数体(固定窗口会漏掉尾部注册)'); ok = false
+    }
+
+    // 自检 E:函数名不符时必须**判未判定**(而不是静默判绿)。
+    const wrongName = extractRegistered(`function createAcpAgent(o){return x}`)
+    if (wrongName.fnFound !== false) {
+      console.error('❌ 自检 E 失败:函数名不符却报告找到了'); ok = false
+    }
+
+    // 自检 F:CLIENT_METHODS 的 session/* 不得进入缺注册判定(否则门永远红、逼人跳过)。
+    const clientLeak = CLIENT_DECL.filter((m) => SDK_DECL.includes(m))
+    if (clientLeak.length !== 0) {
+      console.error('❌ 自检 F 失败:client 侧方法被混进 agent 声明集', clientLeak); ok = false
+    }
+
+    if (ok) console.log('✅ 守门 317 自检通过:差集 / 长函数体抽取 / 函数名不符判未判定 / client 方法不误判,四类逻辑均正确。')
     return ok ? 0 : 1
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true })

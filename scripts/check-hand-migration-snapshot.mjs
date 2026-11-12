@@ -61,7 +61,6 @@
  *   --baseline <path> 基线路径(默认 <repo>/scripts/data/hand-migration-snapshot-baseline.json)
  * 退出码:0=ok;1=有新增违规;2=未判定。
  */
-import { spawnSync } from 'node:child_process'
 import { readdirSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -69,6 +68,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import {
   Undetermined,
   catBatch,
+  gitRaw,
   listFaceFiles,
   readWorktreeFile,
   selectFace,
@@ -336,15 +336,12 @@ export function evaluateStrictChanged({ journalEntries, changedSqlNames, snapsho
 }
 
 function gitDiffNames(args) {
-  const r = spawnSync('git', args, {
-    cwd: ROOT,
-    encoding: 'utf8',
-    timeout: 60_000,
-    stdio: ['ignore', 'pipe', 'pipe'],
-    windowsHide: true,
-  })
-  if (r.status !== 0) throw new Unjudged(`git diff 失败:${String(r.stderr ?? '').trim().slice(0, 160)}`)
-  return r.stdout ?? ''
+  // 裸 `spawnSync('git', …)` 迁共享层 gitRaw(§12g 单源):绝对路径 git + safe.directory + quotepath
+  // + windowsHide + 有界 timeout + EBUSY 兜底都在层内,不再自拼一份。超时 60s 与原自拼同参数;
+  // 缓冲区取层默认 64MB —— 原 spawnSync 未显式给 maxBuffer、只吃 Node 默认 1MB,这里只强不弱。
+  // 失败仍由层抛 Undetermined(= 本门 Unjudged)⇒ 调用方照旧折 exit 2 未判定,message 带
+  // `git <verb> 失败: <stderr 首行>`,与原 `git diff 失败: <stderr 截 160 字>` 同一出口、原因不丢。
+  return gitRaw(args, ROOT, { timeout: 60_000 })
 }
 
 /**

@@ -52,7 +52,9 @@
  *   process.on('exit') 在 SIGINT(Ctrl+C)/SIGTERM 时不触发,需要单独监听。
  *   setupRestoreOnExit() 封装 exit + SIGINT + SIGTERM 三种退出路径的还原逻辑。
  */
-const { execSync, execFileSync } = require('child_process')
+// 取材层(Node 的 require(esm) 可直接载入 .mjs;450f4531184 已趟通,被 425ae8286fc 回灌后 2026-11-12 重迁):
+// 绝对 git + quotepath + stdio 接管 + 有界 timeout/缓冲(守门 193 同款),不依赖 PATH。
+const { gitRaw } = require('./face-reader.mjs')
 const { appendFileSync, mkdirSync } = require('node:fs')
 const { resolve, dirname } = require('node:path')
 
@@ -65,17 +67,12 @@ const { resolve, dirname } = require('node:path')
 function takeStagingSnapshot(options = {}) {
   const cwd = options.cwd || process.cwd()
   try {
-    // core.quotepath=false: 非 ASCII 路径(如中文)输出原始 UTF-8,而非 octal 转义
-    // 避免 replace(/\\/g, '/') 误伤 octal 转义中的反斜杠(如 \344 → /344)
-    const output = execSync(
-      'git -c core.quotepath=false diff --cached --name-only --diff-filter=ACMR',
-      {
-        encoding: 'utf8',
-        cwd,
-        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-        stdio: ['ignore', 'pipe', 'pipe'],
-        windowsHide: true,
-      },
+    // core.quotepath=false 由层内统一给(gitRaw 自带),这里只给 verb 与面;
+    // 失败仍由外层 catch 折 null(非 git 环境不抛到调用方),语义与原 execSync 一致。
+    const output = gitRaw(
+      ['diff', '--cached', '--name-only', '--diff-filter=ACMR'],
+      cwd,
+      {},
     )
     const snapshot = new Set(
       output
@@ -156,20 +153,9 @@ function writeRestoreLog(result, skipReason, options) {
 function captureIndexIntegrity(options = {}) {
   const cwd = options.cwd || process.cwd()
   const indexFile = process.env.GIT_INDEX_FILE || ''
-  const run = (args, at = cwd) =>
-    execFileSync('git', args, {
-      encoding: 'utf8',
-      cwd: at,
-      // 不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY(2026-10-04 实测)
-      stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
-      // 2026-11-12:必须显式抬 maxBuffer。execFileSync 默认 1MB,而本仓索引有 36,242 条
-      // (`ls-files --cached -z` 输出约 3.3MB),默认值下必然 ENOBUFS —— 入口自检会把
-      // 「读不出索引」判成未判定并 exit 2,**任何**提交都进不去(实测:4 个文件的小提交
-      // 也被拦,报 `索引完整性入口自检未判定:读取索引失败:spawnSync git ENOBUFS`)。
-      // 这是容量问题不是内容问题:同一份索引换个更大的缓冲就能读,判据本身不变。
-      maxBuffer: 1 << 28,
-    })
+  // 走层(守门 193):原自拼 execFileSync 的 maxBuffer 1<<28 逐字保留 —— 2026-11-12 实测索引
+  // ls-files 输出 ~3.3MB,execFileSync 默认 1MB 必 ENOBUFS 拦死全部提交(7877f31cee0 的教训不许丢)。
+  const run = (args, at = cwd) => gitRaw(args, at, { maxBuffer: 1 << 28 })
   const countZ = (out) => out.split('\u0000').filter(Boolean).length
   try {
     // 从仓库根统计,避免调用方在子目录时 ls-files 只返回该前缀下的条目而误判“索引为空”
@@ -329,16 +315,11 @@ function restoreStaging(initialSnapshot, options = {}) {
     return result
   }
   try {
-    // core.quotepath=false: 非 ASCII 路径(如中文)输出原始 UTF-8,而非 octal 转义
-    const currentOutput = execSync(
-      'git -c core.quotepath=false diff --cached --name-only --diff-filter=ACMR',
-      {
-        encoding: 'utf8',
-        cwd,
-        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-        stdio: ['ignore', 'pipe', 'pipe'],
-        windowsHide: true,
-      },
+    // core.quotepath=false 由层内统一给(gitRaw 自带),与 takeStagingSnapshot 同一条出口。
+    const currentOutput = gitRaw(
+      ['diff', '--cached', '--name-only', '--diff-filter=ACMR'],
+      cwd,
+      {},
     )
     const currentStaged = new Set(
       currentOutput
@@ -371,14 +352,13 @@ function restoreStaging(initialSnapshot, options = {}) {
     // 改 execFileSync(argv) ⇒ 无 shell、无引号膨胀;再按 50 个一批切分,避开 OS 命令行上限。
     const UNSTAGE_BATCH = 50
     for (let i = 0; i < addedFiles.length; i += UNSTAGE_BATCH) {
-      execFileSync(
-        'git',
+      // 走层(守门 193):仍是 argv 直拼无 shell、仍按 50 个一批切分避开 OS 命令行上限;
+      // 层内 stdio 接管('ignore','pipe','pipe')替代原 stderr inherit —— 失败带 stderr 进
+      // 外层 catch 的同一句 warn,不再往 hook 终端直写,语义只增不丢。
+      gitRaw(
         ['restore', '--staged', '--', ...addedFiles.slice(i, i + UNSTAGE_BATCH)],
-        {
-          stdio: ['ignore', 'ignore', 'inherit'],
-          cwd,
-          windowsHide: true,
-        },
+        cwd,
+        {},
       )
     }
     if (!silent) {
@@ -486,15 +466,11 @@ function auditStagingFiles(options = {}) {
 
   let stagedFiles = []
   try {
-    const output = execSync(
-      'git -c core.quotepath=false diff --cached --name-only --diff-filter=ACMR',
-      {
-        encoding: 'utf8',
-        cwd,
-        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-        stdio: ['ignore', 'pipe', 'pipe'],
-        windowsHide: true,
-      },
+    // core.quotepath=false 由层内统一给(gitRaw 自带);失败 catch 回"非 git 环境跳过"不变。
+    const output = gitRaw(
+      ['diff', '--cached', '--name-only', '--diff-filter=ACMR'],
+      cwd,
+      {},
     )
     stagedFiles = output
       .split('\n')
