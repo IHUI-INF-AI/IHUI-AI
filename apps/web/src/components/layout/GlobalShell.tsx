@@ -515,23 +515,23 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
         </div>
-        {/* PWA 提示:固定悬浮于右下角,不影响主布局。层级 z-modal(2000,引用 --z-modal)。
-            2026-09-05 移动端:手机(<640px)改挂顶栏下方通栏——右下角悬浮条实测遮挡聊天输入框。
-            2026-10-11 断点 767→639(与侧栏 768→640 同步):640-1023px 窄窗口已恢复 60px 图标条,
-            属桌面式布局,PWA 提示按桌面态挂右下角。 */}
-        <div className="pointer-events-none fixed bottom-4 right-4 z-modal flex w-80 max-w-[calc(100vw-2rem)] flex-col gap-2 max-[639px]:bottom-auto max-[639px]:left-3 max-[639px]:right-3 max-[639px]:top-14 max-[639px]:w-auto">
+        {/* 更新/安装提示:统一**顶部居中挂住**(2026-11-13 收口,与 RN 端更新卡「顶部下滑挂住」对齐)。
+            此前 web 桌面态挂右下角(2026-09-05 立,意图"不影响主布局")、移动态挂顶栏下方通栏,
+            与 RN 两端不一致;现两端都走顶部横幅。用 inset-x-0 + items-center 居中,不用
+            -translate-x-1/2,以免祖先 transform 把 AppVersionGatePrompt 的强更全屏弹窗(fixed inset-0)推偏。 */}
+        <div className="pointer-events-none fixed inset-x-0 top-3 z-modal flex flex-col items-center gap-2">
           {/*
             app-version 闸门渲染端(2026-10-27 接线):普通更新渲染成与 PWA 提示同款的卡片,
-            强更渲染成整屏阻塞弹窗(fixed inset-0,不受本列 w-80 约束)。
+            强更渲染成整屏阻塞弹窗(fixed inset-0,不受本列宽度约束)。
             决策来源 = GlobalHooksProvider 启动时拉的 /api/app-version/check-update。
           */}
-          <div className="pointer-events-auto">
+          <div className="pointer-events-auto w-full max-w-md">
             <AppVersionGatePrompt />
           </div>
-          <div className="pointer-events-auto">
+          <div className="pointer-events-auto w-full max-w-md">
             <PWAInstallPrompt />
           </div>
-          <div className="pointer-events-auto">
+          <div className="pointer-events-auto w-full max-w-md">
             <PWAUpdatePrompt onUpdate={() => window.location.reload()} />
           </div>
         </div>

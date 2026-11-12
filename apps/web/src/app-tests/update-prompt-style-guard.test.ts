@@ -13,6 +13,8 @@ const read = (rel: string) => fs.readFileSync(path.resolve(here, rel), 'utf8')
 const prompt = read('../components/common/UpdatePrompt.tsx')
 const notice = read('../components/common/UpdateNoticeCard.tsx')
 const gate = read('../components/common/AppVersionGatePrompt.tsx')
+const pwa = read('../components/common/PWAUpdatePrompt.tsx')
+const shell = read('../components/layout/GlobalShell.tsx')
 const css = read('../../app/globals.css')
 
 /** 注释里提到某个类名不算使用/不算定义 —— 判据必须去注释后再认(否则注释能让门假绿/假红)。 */
@@ -21,6 +23,8 @@ const stripCode = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ 
 const promptCode = stripCode(prompt)
 const noticeCode = stripCode(notice)
 const gateCode = stripCode(gate)
+const pwaCode = stripCode(pwa)
+const shellCode = stripCode(shell)
 const cssCode = stripCode(css)
 
 /**
@@ -122,6 +126,49 @@ describe('桌面更新提示视觉守卫', () => {
     expect(promptCode).toContain('aria-valuenow={percent}')
     expect(promptCode).toContain('aria-valuemin={0}')
     expect(promptCode).toContain('aria-valuemax={100}')
+  })
+})
+
+/**
+ * 更新提示多端统一守卫(2026-11-13 立)。
+ *
+ * 立因:同一句"有新版本可用"在 web 与 RN 两端此前形态不一致 —— web 桌面态挂右下角、移动态挂顶栏
+ * 下方,且 PWA 提示无任何滑入/滑出动画;RN 端已统一为"顶部下滑挂住横幅 + 滑入/滑出动画"。
+ * 这类"两端各写一份定位/动画"必然漂移,故把统一结论钉成静态判据,阻止以后任一端被改回旧形态。
+ */
+describe('更新提示多端统一(2026-11-13 立)', () => {
+  it('web 端 PWA 提示必须顶部挂住(不再是桌面右下角悬浮)', () => {
+    // 旧形态桌面右下角 fixed bottom-4 right-4、移动顶栏下方 top-14 通栏,均已废弃
+    expect(shellCode).not.toMatch(/fixed bottom-4 right-4/)
+    expect(shellCode).toContain('inset-x-0 top-3')
+  })
+
+  it('顶部横幅滑入/滑出动画必须在 globals.css 单一真相源定义(不得内联 @keyframes 或散落各处)', () => {
+    expect(cssCode).toContain('@keyframes ihui-update-banner-in')
+    expect(cssCode).toContain('@keyframes ihui-update-banner-out')
+    expect(cssCode).toContain('.animate-update-banner-in')
+    expect(cssCode).toContain('.animate-update-banner-out')
+  })
+
+  it('PWA 提示必须滑入 + 对称滑出(与 RN 端 Animated translateY 退场对称,禁止"啪一下消失")', () => {
+    expect(pwaCode).toContain('animate-update-banner-in')
+    expect(pwaCode).toContain('animate-update-banner-out')
+    expect(pwaCode).toContain('onAnimationEnd')
+  })
+
+  it('PWA 提示文案仍走 appUpdate 单一真相源(与 RN 端同命名空间,由 i18n parity 测试钉住)', () => {
+    expect(pwaCode).toContain("useTranslations('appUpdate')")
+  })
+
+  it('桌面强更入场必须纯下滑(与 PWA/RN 同语义,禁止含缩放的 slide-in)', () => {
+    // 旧 animate-update-slide-in 含 scale 缩放,与 PWA/RN 的纯 translateY 不一致,已废弃
+    expect(promptCode).toContain('animate-update-banner-in')
+    expect(promptCode).not.toContain('animate-update-slide-in')
+  })
+
+  it('桌面强更必须对称退场(与 PWA/RN 同:滑出而非瞬消)', () => {
+    expect(promptCode).toContain('animate-update-banner-out')
+    expect(promptCode).toContain('onAnimationEnd')
   })
 })
 

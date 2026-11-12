@@ -576,30 +576,44 @@ iframe::-webkit-scrollbar {
  * 且 ::before 外发光被卡片的 overflow-hidden 裁掉,浅色主题下也不跟随令牌。
  * .update-btn-orbit / -glow / .animate-update-checkmark 全仓零消费(死 CSS),
  * .update-orbit-border 只剩一句 position:relative 的空壳。
- * 现整族删除,只保留三枚与颜色无关的动效:
- * - update-slide-in:入场(滑入 + 缩放 + 淡入,0.45s)
+ * 现整族删除,只保留与颜色无关的动效:
+ * - update-banner-in / update-banner-out:顶部横幅纯下滑入场 + 对称上滑退场(无缩放),
+ *   全端更新提示(桌面强更 / PWA 可选更新 / RN 更新卡)统一复用这一对,保证跨端入场语言一致(2026-11-13 收口)
  * - update-icon-pulse:图标微脉动(2s 周期,1→1.08 缩放)
  * - update-ring-pulse:安装态细线进度的透明度呼吸
  * 颜色全部由组件的 --color-* 令牌类决定,明暗主题自动适配。
  * §4 合规:无自造发光边框、无 mask-image / -webkit-mask / linear-gradient 渐变遮罩。
  * ============================================================ */
 
-/* 入场动画:滑入 + 轻微缩放 + 淡入 */
-@keyframes ihui-update-slide-in {
+/* 顶部横幅入场:纯下滑 + 淡入(无缩放)。与 RN 端更新卡的纯 translateY 语义对齐
+   (RN 用 Animated translateY -320→0 / 0→-320,web 用等价 CSS),保证跨端入场语言一致。 */
+@keyframes ihui-update-banner-in {
   0% {
-    transform: translateY(-100%) scale(0.92);
+    transform: translateY(-120%);
     opacity: 0;
   }
-  60% {
-    transform: translateY(4px) scale(1.01);
-  }
   100% {
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
     opacity: 1;
   }
 }
-.animate-update-slide-in {
-  animation: ihui-update-slide-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+.animate-update-banner-in {
+  animation: ihui-update-banner-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* 顶部横幅退场:上滑 + 淡出(与入场对称)。可选更新关闭 / 状态推进时播放,结束后卸载。 */
+@keyframes ihui-update-banner-out {
+  0% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-120%);
+    opacity: 0;
+  }
+}
+.animate-update-banner-out {
+  animation: ihui-update-banner-out 0.2s ease-in both;
 }
 
 /* 图标微脉动 */
