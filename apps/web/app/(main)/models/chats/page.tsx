@@ -13,11 +13,11 @@ export default async function ChatsPage() {
 
   const chats = Array.from({ length: 12 }).map((_, i) => {
     const users = [
-      'alice@aizhs.top',
-      'bob@aizhs.top',
-      'carol@aizhs.top',
-      'david@aizhs.top',
-      'eric@aizhs.top',
+      'alice@example.com',
+      'bob@example.com',
+      'carol@example.com',
+      'david@example.com',
+      'eric@example.com',
     ]
     const models = ['GPT-4o', 'Claude 3.5 Sonnet', 'Gemini 2.0 Flash', 'DeepSeek V3']
     const msgs = [4, 12, 28, 6, 18, 32, 8, 22, 14, 26, 10, 38]
