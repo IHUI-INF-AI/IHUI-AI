@@ -458,21 +458,29 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 
-  // POST /users - 管理员创建用户(需 nickname + passwordHash)
+  // POST /users - 管理员创建用户(需 nickname + password)
+  //
+  // F-132:schema 与 handler 曾互斥 —— JSON Schema 要求 `passwordHash` 且不含 `password`,
+  // 而 handler 用 zod 的 `createUserBodySchema`(`password` 必填)并二次 `hashPassword`。
+  // 结果:照文档传 passwordHash ⇒ zod 拒(zod 侧无该键);传 password ⇒ ajv 先拒(缺
+  // passwordHash)⇒ **按文档创建用户必然 400**,而"传 passwordHash 以为存的是自己的哈希"
+  // 则会被静默忽略。现统一为 `password`(明文入参、服务端哈希),`passwordHash` 不再接受 ——
+  // 让客户端送预哈希值等于把"哈希由谁算"这条安全边界交给调用方,不接受。
   server.post(
     '/users',
     {
       schema: {
         summary: '管理员创建用户',
-        description: '由管理员创建用户账号,需提供 nickname + passwordHash;phone/email 可选',
+        description: '由管理员创建用户账号,需提供 nickname + password(服务端哈希);phone/email 可选',
         tags: ['admin'],
         body: {
           type: 'object',
-          required: ['passwordHash', 'nickname'],
+          required: ['password', 'nickname'],
+          additionalProperties: false,
           properties: {
             phone: { type: 'string', description: '手机号(可选,唯一)' },
             email: { type: 'string', format: 'email', description: '邮箱(可选,唯一)' },
-            passwordHash: { type: 'string', minLength: 1, description: '密码哈希(bcrypt)' },
+            password: { type: 'string', minLength: 6, description: '登录密码(明文,服务端 bcrypt 哈希)' },
             nickname: { type: 'string', minLength: 1, description: '昵称' },
             roleId: { type: 'integer', minimum: 0, description: '角色 ID(可选,默认 0)' },
             status: { type: 'integer', minimum: 0, description: '状态(可选,默认 1)' },
