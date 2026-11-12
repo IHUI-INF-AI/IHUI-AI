@@ -160,6 +160,7 @@
     "test:alertmanager-config": "node --test scripts/tests/render-alertmanager-config.test.mjs",
     "check:agent-event-parity": "node scripts/check-agent-event-parity.mjs",
     "switch:client": "node scripts/switch-client-account.mjs",
+    "switch:oneclick": "node scripts/client-oneclick-switch.mjs",
     "check:sse-parity": "node scripts/check-agent-event-parity.mjs && node scripts/check-sse-parser-parity.mjs && node scripts/check-sse-dispatch-parity.mjs",
     "check:desktop-event-wiring": "node scripts/check-desktop-event-wiring.mjs",
     "knip": "knip",
