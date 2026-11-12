@@ -1,6 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 /**
- * Trae 号池·裸票号档案补齐(2026-11-12 立)。
+ * Trae 号池·裸票号档案补齐(2026-11-12 立,2026-11-12 二次加固)。
  *
  * 修的病灶(本机实测定位,不是猜测):号池里"裸票导入"的号(secretsEnc 为空)在写回客户端后
  * 会被**当场登出**,根因不在 ticket,而在**档案缺字段**:
@@ -23,7 +23,10 @@
  *   node apps/api/node_modules/tsx/dist/cli.mjs scripts/trae-backfill-profile.mjs --list
  *   node apps/api/node_modules/tsx/dist/cli.mjs scripts/trae-backfill-profile.mjs --uid <uid> [--dry-run]
  *   node apps/api/node_modules/tsx/dist/cli.mjs scripts/trae-backfill-profile.mjs --all-bare
- * 退出码:0 成功 / 1 业务失败 / 2 未判定。
+ *   node apps/api/node_modules/tsx/dist/cli.mjs scripts/trae-backfill-profile.mjs --ensure-uid <uid>
+ *     `--ensure-uid` 是给切号腿调的前置自愈档:只在缺档案时才拉上游补,**补齐即返回 0**;
+ *     该档**自动补齐全池**(不限指定 uid),因为"切号前把池子喂干净"才是根治口径。
+ * 退出码:0 成功(含"无需补")/ 1 业务失败 / 2 未判定。
  */
 import path from 'node:path'
 import { createRequire } from 'node:module'
@@ -32,7 +35,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(HERE, '..')
 const API_DIR = path.join(ROOT, 'apps', 'api')
-const GET_USER_INFO_URL = 'https://api.trae.cn/cloudide/api/v3/trae/GetUserInfo'
+export const GET_USER_INFO_URL = 'https://api.trae.cn/cloudide/api/v3/trae/GetUserInfo'
 const IDE_VERSION = '1.107.1'
 
 const has = (argv, n) => argv.includes(n)
@@ -72,37 +75,37 @@ export function accountFromGetUserInfo(r) {
   }
 }
 
-async function main(argv) {
-  if (argv.length === 0 || has(argv, '--help')) {
-    process.stdout.write(
-      '用法: node apps/api/node_modules/tsx/dist/cli.mjs scripts/trae-backfill-profile.mjs --list\n' +
-        '      ... --uid <uid> [--dry-run]\n' +
-        '      ... --all-bare\n',
-    )
-    return argv.length === 0 ? 2 : 0
-  }
-  const dryRun = has(argv, '--dry-run')
+/** 档案完整性判据(与客户端 `uS()` 的 MARSCODE 分支同口径):storeRegion 为空即视为缺失 */
+export function profileComplete(account) {
+  return typeof account?.storeRegion === 'string' && account.storeRegion.trim() !== ''
+}
 
-  const requireApi = createRequire(path.join(API_DIR, 'package.json'))
-  const resolveApi = (s) => pathToFileURL(requireApi.resolve(s)).href
+/** 拉真实档案(客户端同款端点) */
+async function fetchUserInfo(token) {
+  const res = await fetch(GET_USER_INFO_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-cloudide-token': token },
+    body: JSON.stringify({ IDEVersion: IDE_VERSION }),
+  })
+  const text = await res.text()
+  if (!res.ok) return { error: `HTTP ${res.status}: ${text.slice(0, 160)}` }
+  let j = null
   try {
-    const dotenv = await import(resolveApi('dotenv'))
-    dotenv.config({ path: path.join(API_DIR, '.env') })
-  } catch (e) {
-    process.stderr.write(`⚠️ .env 加载失败:${e.message}\n`)
+    j = JSON.parse(text)
+  } catch {
+    return { error: `响应非 JSON: ${text.slice(0, 120)}` }
   }
+  const r = j?.Result ?? j?.result ?? null
+  if (!r || typeof r !== 'object') return { error: `响应无 Result: ${text.slice(0, 160)}` }
+  return { result: r }
+}
 
-  const { eq } = await import(resolveApi('drizzle-orm'))
-  const { aiRelayAccountPool } = await import(resolveApi('@ihui/database'))
-  const cryptoMod = pathToFileURL(path.join(API_DIR, 'src', 'utils', 'crypto.js')).href
-  const { decryptField, encryptField } = await import(cryptoMod)
-  const { db } = await import(pathToFileURL(path.join(API_DIR, 'src', 'db', 'index.js')).href)
-
-  const rows = await db
-    .select()
-    .from(aiRelayAccountPool)
-    .where(eq(aiRelayAccountPool.providerCode, 'trae'))
-
+/**
+ * 可复用的自愈核心:给一批池行补档案。返回 `{ repaired, skipped, failed }`。
+ * 调用方(切号腿 / CLI)共用这一份实现 —— 不在别处再写一遍"怎么算缺档案"。
+ */
+export async function ensureProfiles(rows, deps, { dryRun = false } = {}) {
+  const { decryptField, encryptField, db, aiRelayAccountPool, eq } = deps
   const sec = (r) => {
     try {
       return r.secretsEnc ? JSON.parse(decryptField(r.secretsEnc)) : null
@@ -110,82 +113,28 @@ async function main(argv) {
       return null
     }
   }
-  const hasProfile = (r) => {
-    const s = sec(r)
-    const a = s?.profile?.account
-    return !!(a && typeof a === 'object' && Object.keys(a).length > 0)
-  }
+  const acctOf = (r) => sec(r)?.profile?.account ?? sec(r)?.sessionTemplate?.account ?? null
 
-  /** 拉真实档案(客户端同款端点) */
-  const fetchUserInfo = async (token) => {
-    const res = await fetch(GET_USER_INFO_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-cloudide-token': token },
-      body: JSON.stringify({ IDEVersion: IDE_VERSION }),
-    })
-    const text = await res.text()
-    if (!res.ok) return { error: `HTTP ${res.status}: ${text.slice(0, 160)}` }
-    let j = null
-    try {
-      j = JSON.parse(text)
-    } catch {
-      return { error: `响应非 JSON: ${text.slice(0, 120)}` }
-    }
-    const r = j?.Result ?? j?.result ?? null
-    if (!r || typeof r !== 'object') return { error: `响应无 Result: ${text.slice(0, 160)}` }
-    return { result: r }
-  }
-
-  if (has(argv, '--list')) {
-    console.log('号池 trae 各号(缺档案 = 写回后会被判 need-update ⇒ 当场登出):')
-    for (const r of rows) {
-      console.log(
-        `  uid=${String(r.uid).padEnd(17)} ${String(r.name).padEnd(13)} ${hasProfile(r) ? '有档案 ✓' : '缺档案 ⚠'}`,
-      )
-    }
-    await db.$client?.end?.()
-    return 0
-  }
-
-  let targets = []
-  if (has(argv, '--all-bare')) targets = rows.filter((r) => !hasProfile(r))
-  else {
-    const uid = arg(argv, '--uid')
-    if (!uid) {
-      process.stderr.write('❌ 需要 --uid / --all-bare / --list\n')
-      return 2
-    }
-    const r = rows.find((x) => String(x.uid) === String(uid))
-    if (!r) {
-      process.stderr.write(`❌ 号池里没有 uid=${uid}\n`)
-      return 1
-    }
-    targets = [r]
-  }
-
-  if (targets.length === 0) {
-    console.log('没有缺档案的号')
-    await db.$client?.end?.()
-    return 0
-  }
-
-  let ok = 0
-  for (const r of targets) {
+  const out = { repaired: [], skipped: [], failed: [] }
+  for (const r of rows) {
     const uid = String(r.uid)
-    console.log(`\n═══ 补档案 uid=${uid} ${r.name} ═══`)
+    if (profileComplete(acctOf(r))) {
+      out.skipped.push(uid)
+      continue
+    }
     const token = r.tokenEnc ? decryptField(r.tokenEnc) : ''
     if (!token) {
-      console.error('❌ 无 token(密文解不出)⇒ 未判定')
+      out.failed.push({ uid, why: '无 token(密文解不出)' })
       continue
     }
     const got = await fetchUserInfo(token)
     if (got.error) {
-      console.error(`❌ 拉档案失败:${got.error}`)
+      out.failed.push({ uid, why: `拉档案失败:${got.error}` })
       continue
     }
     const upstream = got.result
     if (String(upstream.UserID) !== uid) {
-      console.error(`❌ 档案 uid 不符(上游 ${upstream.UserID} ≠ ${uid})⇒ 拒绝写入,不猜`)
+      out.failed.push({ uid, why: `档案 uid 不符(上游 ${upstream.UserID})` })
       continue
     }
     const account = accountFromGetUserInfo(upstream)
@@ -196,13 +145,10 @@ async function main(argv) {
       account,
     }
     const sessionTemplate = { ...profile, userId: uid }
-    console.log(`  档案:${account.username} / ${account.nonPlainTextMobile} / region=${account.storeRegion} / migrateToSG=${account.migrateToSG}`)
-
     if (dryRun) {
-      console.log('  (dry-run,不写盘)')
+      out.repaired.push({ uid, name: r.name, account, dryRun: true })
       continue
     }
-
     const prev = sec(r) ?? {}
     const nextSecrets = { ...prev, profile, sessionTemplate }
     const applied = await db
@@ -211,16 +157,123 @@ async function main(argv) {
       .where(eq(aiRelayAccountPool.id, r.id))
       .returning({ id: aiRelayAccountPool.id })
     if (applied.length === 0) {
-      console.error('⚠️ 回写未命中(CAS)')
+      out.failed.push({ uid, why: '回写 CAS 未命中' })
       continue
     }
-    console.log('✅ 档案已补齐(profile + sessionTemplate)')
-    ok += 1
+    out.repaired.push({ uid, name: r.name, account })
+  }
+  return out
+}
+
+async function loadDeps() {
+  const requireApi = createRequire(path.join(API_DIR, 'package.json'))
+  const resolveApi = (s) => pathToFileURL(requireApi.resolve(s)).href
+  try {
+    const dotenv = await import(resolveApi('dotenv'))
+    dotenv.config({ path: path.join(API_DIR, '.env') })
+  } catch (e) {
+    process.stderr.write(`⚠️ .env 加载失败:${e.message}\n`)
+  }
+  const { eq } = await import(resolveApi('drizzle-orm'))
+  const { aiRelayAccountPool } = await import(resolveApi('@ihui/database'))
+  const { decryptField, encryptField } = await import(
+    pathToFileURL(path.join(API_DIR, 'src', 'utils', 'crypto.js')).href
+  )
+  const { db } = await import(pathToFileURL(path.join(API_DIR, 'src', 'db', 'index.js')).href)
+  return { eq, aiRelayAccountPool, decryptField, encryptField, db }
+}
+
+async function main(argv) {
+  if (argv.length === 0 || has(argv, '--help')) {
+    process.stdout.write(
+      '用法: node apps/api/node_modules/tsx/dist/cli.mjs scripts/trae-backfill-profile.mjs --list\n' +
+        '      ... --uid <uid> [--dry-run]\n' +
+        '      ... --all-bare [--dry-run]\n' +
+        '      ... --ensure-uid <uid>   # 切号腿前置自愈档:缺档案才动,自动补全池\n',
+    )
+    return argv.length === 0 ? 2 : 0
+  }
+  const dryRun = has(argv, '--dry-run')
+  const deps = await loadDeps()
+  const { eq, aiRelayAccountPool, db } = deps
+
+  const rows = await db
+    .select()
+    .from(aiRelayAccountPool)
+    .where(eq(aiRelayAccountPool.providerCode, 'trae'))
+
+  if (has(argv, '--list')) {
+    console.log('号池 trae 各号(缺档案 = 写回后会被判 need-update ⇒ 当场登出):')
+    for (const r of rows) {
+      const a = (() => {
+        try {
+          const s = r.secretsEnc ? deps.decryptField(r.secretsEnc) : null
+          const o = s ? JSON.parse(s) : null
+          return o?.profile?.account ?? o?.sessionTemplate?.account ?? null
+        } catch {
+          return null
+        }
+      })()
+      console.log(
+        `  uid=${String(r.uid).padEnd(17)} ${String(r.name).padEnd(13)} ${profileComplete(a) ? '有档案 ✓' : '缺档案 ⚠'}`,
+      )
+    }
+    await db.$client?.end?.()
+    return 0
   }
 
+  // --ensure-uid:切号腿前置自愈。缺档案才动;补完即返回。
+  if (has(argv, '--ensure-uid')) {
+    const uid = arg(argv, '--ensure-uid')
+    if (!uid) {
+      process.stderr.write('❌ --ensure-uid 需要 uid\n')
+      return 2
+    }
+    const res = await ensureProfiles(rows, deps, { dryRun })
+    if (res.repaired.length > 0) {
+      console.log(
+        `✅ 自愈补档案 ${res.repaired.length} 枚:` +
+          res.repaired.map((x) => `${x.uid}(${x.account?.storeRegion})`).join(' / '),
+      )
+    }
+    if (res.failed.length > 0) {
+      console.log(`⚠️ ${res.failed.length} 枚补不了(多为 token 已过期):`)
+      for (const f of res.failed) console.log(`   ${f.uid} —— ${f.why}`)
+    }
+    await db.$client?.end?.()
+    // 只要目标 uid 本身不缺档案(或已补齐)就算成功;其它号的失败不拦本次切号
+    const targetFailed = res.failed.some((f) => f.uid === String(uid))
+    return targetFailed ? 1 : 0
+  }
+
+  let targets = []
+  if (has(argv, '--all-bare')) targets = rows
+  else {
+    const uid = arg(argv, '--uid')
+    if (!uid) {
+      process.stderr.write('❌ 需要 --uid / --all-bare / --list / --ensure-uid\n')
+      return 2
+    }
+    const r = rows.find((x) => String(x.uid) === String(uid))
+    if (!r) {
+      process.stderr.write(`❌ 号池里没有 uid=${uid}\n`)
+      return 1
+    }
+    targets = [r]
+  }
+
+  const res = await ensureProfiles(targets, deps, { dryRun })
+  for (const x of res.repaired) {
+    console.log(
+      `✅ uid=${x.uid} ${x.name}:${x.account.username} / ${x.account.nonPlainTextMobile} / region=${x.account.storeRegion} / migrateToSG=${x.account.migrateToSG}`,
+    )
+  }
+  for (const f of res.failed) console.error(`❌ uid=${f.uid} —— ${f.why}`)
+  console.log(
+    `\n完成:补齐 ${res.repaired.length} / 已完整 ${res.skipped.length} / 失败 ${res.failed.length}`,
+  )
   await db.$client?.end?.()
-  console.log(`\n完成:${ok}/${targets.length} 枚`)
-  return ok === targets.length ? 0 : 1
+  return res.failed.length === 0 ? 0 : 1
 }
 
 const isDirect = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
