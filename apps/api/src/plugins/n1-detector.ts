@@ -7,6 +7,11 @@ import fp from 'fastify-plugin'
 import { sqlEventBus } from '../db/sql-event-bus.js'
 
 const N1_QUERY_THRESHOLD = parseInt(process.env.N1_QUERY_THRESHOLD ?? '20', 10)
+/** 兜底 TTL:超时未关闭的条目由写入时顺带清扫,避免长连接异常残留。 */
+const REQUEST_ENTRY_TTL_MS =
+  parseInt(process.env.N1_REQUEST_ENTRY_TTL_MS ?? '', 10) || 10 * 60 * 1000
+/** 每 N 次写入执行一次全表清扫,避免每次 recordQuery 都有 O(n) 开销。 */
+const SWEEP_EVERY_WRITES = 64
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -19,7 +24,30 @@ declare module 'fastify' {
   }
 }
 
-const requestQueryCounts = new Map<string, number>()
+interface RequestQueryEntry {
+  count: number
+  startedAt: number
+}
+
+const requestQueryCounts = new Map<string, RequestQueryEntry>()
+let writesSinceSweep = 0
+
+function sweepExpiredEntries(now: number): void {
+  for (const [key, entry] of requestQueryCounts) {
+    if (now - entry.startedAt > REQUEST_ENTRY_TTL_MS) requestQueryCounts.delete(key)
+  }
+}
+
+function bumpQueryCount(requestId: string): void {
+  const entry = requestQueryCounts.get(requestId)
+  if (entry) entry.count += 1
+  else requestQueryCounts.set(requestId, { count: 1, startedAt: Date.now() })
+  writesSinceSweep += 1
+  if (writesSinceSweep >= SWEEP_EVERY_WRITES) {
+    writesSinceSweep = 0
+    sweepExpiredEntries(Date.now())
+  }
+}
 
 /**
  * N+1 查询检测插件。
@@ -32,44 +60,61 @@ const requestQueryCounts = new Map<string, number>()
 const n1DetectorPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   // 订阅 SQL 事件,自动 recordQuery(requestId 由 ALS 注入)
   const unsubscribe = sqlEventBus.on((event) => {
-    if (event.requestId) {
-      const current = requestQueryCounts.get(event.requestId) ?? 0
-      requestQueryCounts.set(event.requestId, current + 1)
-    }
+    if (event.requestId) bumpQueryCount(event.requestId)
   })
 
-  server.addHook('onRequest', async (request: FastifyRequest) => {
-    // api-logger-extended 先注册,onRequest 已设置 request.requestId
-    // 用 requestId ?? request.id 兜底,确保 key 与订阅回调一致
-    requestQueryCounts.set(request.requestId ?? request.id, 0)
-  })
-
-  server.addHook('onResponse', async (request: FastifyRequest) => {
-    const key = request.requestId ?? request.id
-    const count = requestQueryCounts.get(key) ?? 0
-    if (count > N1_QUERY_THRESHOLD) {
+  /** 摘除请求条目;hijack 的 SSE/WS 出口先于 onResponse,到 close 时才回收。 */
+  const releaseRequest = (key: string, request: FastifyRequest): void => {
+    const entry = requestQueryCounts.get(key)
+    if (entry && entry.count > N1_QUERY_THRESHOLD) {
       server.log.warn(
-        { requestId: key, method: request.method, url: request.url, queryCount: count },
+        { requestId: key, method: request.method, url: request.url, queryCount: entry.count },
         'potential N+1 query detected',
       )
     }
     requestQueryCounts.delete(key)
+  }
+
+  server.addHook('onRequest', async (request: FastifyRequest) => {
+    // api-logger-extended 先注册,onRequest 已设置 request.requestId
+    // 用 requestId ?? request.id 兜底,确保 key 与订阅回调一致
+    const key = request.requestId ?? request.id
+    requestQueryCounts.set(key, { count: 0, startedAt: Date.now() })
+    // 2026-11 F-45:reply.hijack() 后 onResponse 不执行,靠连接关闭回收该请求的计数
+    request.raw?.once?.('close', () => requestQueryCounts.delete(key))
+  })
+
+  server.addHook('onResponse', async (request: FastifyRequest) => {
+    releaseRequest(request.requestId ?? request.id, request)
   })
 
   server.decorate('n1Detector', {
     recordQuery(requestId: string) {
-      const current = requestQueryCounts.get(requestId) ?? 0
-      requestQueryCounts.set(requestId, current + 1)
+      bumpQueryCount(requestId)
     },
     getQueryCount(requestId: string) {
-      return requestQueryCounts.get(requestId) ?? 0
+      return requestQueryCounts.get(requestId)?.count ?? 0
     },
   })
 
   server.addHook('onClose', async () => {
     requestQueryCounts.clear()
+    writesSinceSweep = 0
     unsubscribe()
   })
+}
+
+/** 仅测试用:TTL 与条目数(纯内存,不依赖真实连接)。 */
+export const __n1DetectorTest = {
+  REQUEST_ENTRY_TTL_MS,
+  SWEEP_EVERY_WRITES,
+  size(): number {
+    return requestQueryCounts.size
+  },
+  reset(): void {
+    requestQueryCounts.clear()
+    writesSinceSweep = 0
+  },
 }
 
 export const n1Detector = fp(n1DetectorPlugin, {
