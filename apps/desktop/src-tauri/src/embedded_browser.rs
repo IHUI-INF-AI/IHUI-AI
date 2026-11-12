@@ -113,7 +113,10 @@ const WB_CHECKIN_RETURN_FALLBACK: &str = "https://aizhs.top/checkin";
 const BAR_HEIGHT: u32 = 72;
 
 /// 单窗最多标签数(防御性上限,避免无限建 webview)。
-const MAX_TABS: usize = 12;
+/// F-123:改读 browser_settings 的进程内真值(默认 12),越界已在那边归一。
+fn max_tabs() -> usize {
+    crate::browser_settings::current().max_tabs as usize
+}
 
 /// `wb-checkin-login` 看护轮询的防重入闸(2026-10-17):进行中再触发直接忽略,
 /// 用户在签到页狂点按钮不叠加看护任务。所有退出路径(ok/超时/关窗)都复位。
@@ -569,6 +572,42 @@ impl BrowserManager {
     /// 复位会话(窗口被系统关闭时清账,见 lib.rs `WindowEvent::Destroyed`)。
     pub fn reset(&self) {
         self.with(|s| *s = Session::default());
+    }
+}
+
+impl Session {
+    /// 预留一个标签位(F-124)。
+    ///
+    /// **判上限 + 取号 + 入列必须在同一个临界区内完成**:此前调用方先
+    /// `with(|s| s.tabs.len())` 判限,再分别 `with(|s| s.next_id += 1)` 与
+    /// `with(|s| s.tabs.push(..))` —— 三次独立加锁。而每个工具条哨兵动作都跑在
+    /// 各自的 `spawn` 任务里,两个并发 `new-tab` 能同时读到 11 后各加一,`max_tabs()`
+    /// 形同虚设(超出上限的 webview 照样被建出来)。
+    ///
+    /// 返回 `None` = 已达 [`max_tabs`],此时**没有**任何条目被插入、`next_id` 也不推进。
+    fn reserve_tab(&mut self, url: String, title: String) -> Option<u64> {
+        if self.tabs.len() >= max_tabs() {
+            return None;
+        }
+        self.next_id += 1;
+        let id = self.next_id;
+        self.tabs.push(TabInfo { id, url, title });
+        Some(id)
+    }
+
+    /// 撤销预留:webview 没建起来时不能把条目留在账上,否则幽灵标签永久占一个额度。
+    fn release_tab(&mut self, id: u64) {
+        self.tabs.retain(|t| t.id != id);
+        if self.active == Some(id) {
+            self.active = self.tabs.last().map(|t| t.id);
+        }
+    }
+
+    /// 把已预留的标签设为活动页,返回原活动标签(供调用方隐藏旧 webview)。
+    fn activate_tab(&mut self, id: u64) -> Option<u64> {
+        let prev = self.active;
+        self.active = Some(id);
+        prev
     }
 }
 
@@ -1112,39 +1151,35 @@ async fn handle_sentinel(app: AppHandle, action: SentinelAction) {
                 }
                 None
             } else {
-                let count = app.state::<BrowserManager>().with(|s| s.tabs.len());
-                if count >= MAX_TABS {
-                    if let Some(wv) = active_wv() {
-                        let _ = wv.navigate(login_url.clone());
-                    }
-                    None
-                } else {
-                    let id = app.state::<BrowserManager>().with(|s| {
-                        s.next_id += 1;
-                        s.next_id
-                    });
-                    if let Err(e) = add_tab_webview(&window, &app, id, &login_url) {
-                        log::warn!("[embedded-browser] wb-checkin-login 建登录标签失败: {e}");
-                        WB_LOGIN_POLLING.store(false, Ordering::SeqCst);
-                        return;
-                    }
-                    let prev = app.state::<BrowserManager>().with(|s| {
-                        s.tabs.push(TabInfo {
-                            id,
-                            url: login_url.to_string(),
-                            title: login_url.to_string(),
-                        });
-                        let prev = s.active;
-                        s.active = Some(id);
-                        prev
-                    });
-                    if let Some(prev_id) = prev {
-                        if let Some(wv) = app.get_webview(&tab_label(prev_id)) {
-                            let _ = wv.hide();
+                // F-124:判限 + 取号 + 入列在同一次加锁里完成(见 `Session::reserve_tab`),
+                // 并发 `new-tab` / `wb-checkin-login` 不会各自读到 11 而超限。
+                match app
+                    .state::<BrowserManager>()
+                    .with(|s| s.reserve_tab(login_url.to_string(), login_url.to_string()))
+                {
+                    // 标签满:退化为当前页导航(与降级路同一语义)。
+                    None => {
+                        if let Some(wv) = active_wv() {
+                            let _ = wv.navigate(login_url.clone());
                         }
+                        None
                     }
-                    refresh_active_bar(&app);
-                    Some(id)
+                    Some(id) => {
+                        if let Err(e) = add_tab_webview(&window, &app, id, &login_url) {
+                            log::warn!("[embedded-browser] wb-checkin-login 建登录标签失败: {e}");
+                            app.state::<BrowserManager>().with(|s| s.release_tab(id));
+                            WB_LOGIN_POLLING.store(false, Ordering::SeqCst);
+                            return;
+                        }
+                        let prev = app.state::<BrowserManager>().with(|s| s.activate_tab(id));
+                        if let Some(prev_id) = prev {
+                            if let Some(wv) = app.get_webview(&tab_label(prev_id)) {
+                                let _ = wv.hide();
+                            }
+                        }
+                        refresh_active_bar(&app);
+                        Some(id)
+                    }
                 }
             };
             run_wb_checkin_login_watch(app, login_tab, return_base).await;
@@ -1164,33 +1199,26 @@ async fn handle_sentinel(app: AppHandle, action: SentinelAction) {
                 }
                 return;
             }
-            let count = app.state::<BrowserManager>().with(|s| s.tabs.len());
-            if count >= MAX_TABS {
-                return;
-            }
             let target = match u {
                 Some(u) if is_browsable_url(&u) => u,
                 _ => HOME_URL.to_string(),
             };
-            let Ok(parsed) = target.parse::<Url>() else { return };
-            let id = app.state::<BrowserManager>().with(|s| {
-                s.next_id += 1;
-                s.next_id
-            });
+            let Ok(parsed) = target.parse::<Url>() else {
+                return;
+            };
+            // F-124:判限 + 取号 + 入列一次做完,不再"先读 len 再加一"。
+            let Some(id) = app
+                .state::<BrowserManager>()
+                .with(|s| s.reserve_tab(parsed.to_string(), parsed.to_string()))
+            else {
+                return;
+            };
             if add_tab_webview(&window, &app, id, &parsed).is_err() {
+                app.state::<BrowserManager>().with(|s| s.release_tab(id));
                 return;
             }
             // 隐藏当前,激活新标签
-            let prev = app.state::<BrowserManager>().with(|s| {
-                s.tabs.push(TabInfo {
-                    id,
-                    url: parsed.to_string(),
-                    title: parsed.to_string(),
-                });
-                let prev = s.active;
-                s.active = Some(id);
-                prev
-            });
+            let prev = app.state::<BrowserManager>().with(|s| s.activate_tab(id));
             if let Some(prev_id) = prev {
                 if let Some(wv) = app.get_webview(&tab_label(prev_id)) {
                     let _ = wv.hide();
@@ -1762,6 +1790,62 @@ mod tests {
         assert!(CHROME_UA.contains("Chrome/"));
         assert!(!CHROME_UA.contains("Edg/"));
         assert!(CHROME_UA.contains("AppleWebKit/537.36"));
+    }
+
+    #[test]
+    fn f124_reserve_tab_is_single_critical_section() {
+        // F-124:判限、取号、入列在同一方法(同一把锁)里完成。
+        let max_tabs = max_tabs();
+        let mut s = Session::default();
+        for i in 1..=max_tabs {
+            assert_eq!(
+                s.reserve_tab(format!("https://a.b/{i}"), format!("t{i}")),
+                Some(i as u64),
+                "第 {i} 个标签应入列"
+            );
+        }
+        // 第 max_tabs+1 次:被拒绝,且不推进编号、不插入任何条目。
+        assert_eq!(s.reserve_tab("https://a.b/13".into(), "t13".into()), None);
+        assert_eq!(s.tabs.len(), max_tabs);
+        assert_eq!(s.next_id, max_tabs as u64);
+        // 撤掉一个额度后可再入列(拿到的是新号,不是复用被拒的那次)。
+        s.release_tab(3);
+        assert_eq!(s.tabs.len(), max_tabs - 1);
+        assert_eq!(
+            s.reserve_tab("https://a.b/retry".into(), "retry".into()),
+            Some(max_tabs as u64 + 1)
+        );
+        assert_eq!(
+            crate::browser_settings::BrowserSettings::default().max_tabs,
+            12,
+            "默认上限变更需同步复核本钉与产品口径"
+        );
+    }
+
+    #[test]
+    fn f124_concurrent_reserve_never_exceeds_max_tabs() {
+        // 缺陷本体:`tabs.len()` 与后续 `push` 分两次加锁,每个哨兵跑在独立 spawn 任务里,
+        // 并发 `new-tab` 能同时读到 11 后各加一。这里用真实 BrowserManager(Mutex) 多线程
+        // 撞同一个额度,断言恰好只有 max_tabs 次预留成功。
+        let max_tabs = max_tabs();
+        let mgr = std::sync::Arc::new(BrowserManager::default());
+        let mut handles = Vec::new();
+        for i in 0..max_tabs * 4 {
+            let m = std::sync::Arc::clone(&mgr);
+            handles.push(std::thread::spawn(move || {
+                m.with(|s| s.reserve_tab(format!("https://a.b/{i}"), String::new()))
+            }));
+        }
+        let admitted: Vec<u64> = handles
+            .into_iter()
+            .filter_map(|h| h.join().expect("预留线程不应 panic"))
+            .collect();
+        assert_eq!(admitted.len(), max_tabs, "并发预留必须严格守住 max_tabs");
+        let mut ids = admitted;
+        ids.sort_unstable();
+        ids.dedup();
+        assert_eq!(ids.len(), max_tabs, "并发预留不得发出重复标签号");
+        assert_eq!(mgr.with(|s| s.tabs.len()), max_tabs);
     }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

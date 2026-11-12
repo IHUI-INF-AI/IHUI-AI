@@ -244,10 +244,17 @@ export async function startTranscodeJob(jobId: string): Promise<TranscodeJob> {
     childProcesses.set(jobId, child)
 
     let stderrBuffer = ''
+    // F-544:stderr 无上限累积 + 每 chunk 全量正则扫描是 O(n²);只保留尾部,进度解析量恒定。
+    const STDERR_TAIL_MAX_CHARS = 64 * 1024
     child.stderr.on('data', (chunk: Buffer) => {
       stderrBuffer += chunk.toString()
-      // 解析 FFmpeg 进度（time=HH:MM:SS）
-      const timeMatch = stderrBuffer.match(/time=(\d{2}):(\d{2}):(\d{2})/)
+      if (stderrBuffer.length > STDERR_TAIL_MAX_CHARS) {
+        stderrBuffer = stderrBuffer.slice(-STDERR_TAIL_MAX_CHARS)
+      }
+      // 解析 FFmpeg 进度（time=HH:MM:SS），取最后一次出现
+      const timeMatches = stderrBuffer.match(/time=(\d{2}):(\d{2}):(\d{2})/g)
+      const last = timeMatches?.[timeMatches.length - 1]
+      const timeMatch = last ? /^time=(\d{2}):(\d{2}):(\d{2})$/.exec(last) : null
       if (timeMatch) {
         const seconds =
           Number(timeMatch[1]) * 3600 + Number(timeMatch[2]) * 60 + Number(timeMatch[3])
@@ -321,6 +328,10 @@ export function listTranscodeJobs(): TranscodeJob[] {
 export async function cancelTranscodeJob(jobId: string): Promise<TranscodeJob | undefined> {
   const job = jobs.get(jobId)
   if (!job) return undefined
+  // F-543:cancelled 只对未完成任务生效;completed/failed 的成果不得被回收或 rm -rf
+  if (job.status === 'completed' || job.status === 'failed' || job.status === 'cancelled') {
+    return job
+  }
   const child = childProcesses.get(jobId)
   // P0 修复(2026-08-02):先设 cancelled 状态,再 kill,等 close 事件再返回,
   // 防止 startTranscodeJob 的 close 回调把 cancelled 覆盖为 failed + 避免僵尸进程。

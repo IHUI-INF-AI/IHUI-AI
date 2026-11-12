@@ -36,6 +36,8 @@ const createFaqSchema = z.object({
   keywords: z.array(z.string().max(64)).max(20).optional(),
   pinned: z.boolean().optional(),
   published: z.boolean().optional(),
+  // F-485:创建侧此前无 sortOrder 入参且恒写 0,排序字段形同虚设(更新侧已有)
+  sortOrder: z.number().int().optional(),
 })
 
 const updateFaqSchema = z.object({
@@ -148,7 +150,8 @@ export const adminFaqRoutes: FastifyPluginAsync = async (server) => {
       .select()
       .from(zhsFaq)
       .where(where)
-      .orderBy(desc(zhsFaq.pinned), asc(zhsFaq.sortOrder))
+      // F-485:pinned/sortOrder 均非唯一,补主键兜底成全序,否则 LIMIT/OFFSET 翻页重复/漏行
+      .orderBy(desc(zhsFaq.pinned), asc(zhsFaq.sortOrder), asc(zhsFaq.id))
       .limit(pageSize)
       .offset(offset)
     const countRows = await db
@@ -190,7 +193,7 @@ export const adminFaqRoutes: FastifyPluginAsync = async (server) => {
         keywords: parsed.data.keywords ?? [],
         pinned: parsed.data.pinned ?? false,
         published: parsed.data.published ?? true,
-        sortOrder: 0,
+        sortOrder: parsed.data.sortOrder ?? 0,
       })
       .returning()
     return reply.status(201).send(success({ faq }))

@@ -65,9 +65,9 @@ import {
 } from './services/litellm-price-sync.js'
 // 中继出网代理分流(被墙 host 走本地代理,其余直连;未配置 RELAY_PROXY_URL 时 no-op)
 import { installRelayOutboundProxy } from './services/relay-outbound-proxy.js'
-import { startAlgorithmRecordScheduler } from './services/algorithm-record-service.js'
+import { startAlgorithmRecordScheduler, stopAlgorithmRecordScheduler } from './services/algorithm-record-service.js'
 // 访客链路测速 + 边缘缓存预热(同一形态:进程内定时读方,不新增服务拓扑,2026-10-19 立)
-import { startEdgeAccessProbe } from './services/edge-access.js'
+import { startEdgeAccessProbe, stopEdgeAccessProbe } from './services/edge-access.js'
 import {
   startAgentAutomationScheduler,
   stopAgentAutomationScheduler,
@@ -441,6 +441,10 @@ async function start() {
       syncStopPhase('stopRelayChannelRouterSweep', stopRelayChannelRouterSweep),
       syncStopPhase('stopRegistryRateLimitSweep', stopRegistryRateLimitSweep),
       syncStopPhase('stopPoolTracker', stopPoolTracker),
+      // F-521:备案同步 6h 定时器此前启动了却永不停止;补对称关停相
+      syncStopPhase('stopAlgorithmRecordScheduler', stopAlgorithmRecordScheduler),
+      // F-522:边缘探测此前只有启动路径;补对称关停相
+      syncStopPhase('stopEdgeAccessProbe', stopEdgeAccessProbe),
     ]
     if (workers) {
       phases.push({

@@ -178,6 +178,45 @@ async function runWithPlain(policy: SandboxPolicy, commandLine: string, options:
   return spawnPosix('/bin/sh', ['-c', script], policy, cwd, options, 'plain');
 }
 
+/* ======================= 进程组终止(F-004) ======================= */
+
+/** killProcessGroup 只依赖的最小 child 形状(spawn 返回值天然满足)。 */
+export interface ProcessGroupChild {
+  pid?: number;
+  kill(signal: string): unknown;
+  stdout?: { destroy(): void } | null;
+  stderr?: { destroy(): void } | null;
+}
+
+/** 默认组杀:detached 后 shell 是进程组 leader,负 pid 即整组(POSIX 语义)。 */
+function defaultKillGroup(pid: number): void {
+  try {
+    process.kill(-pid, 'SIGKILL');
+  } catch {
+    /* 组可能已退出 */
+  }
+}
+
+/**
+ * F-004 组杀 + 主动关管道:超时/超量后不再等孙子进程"自愿"退出。
+ * killGroup 可注入,便于在无 POSIX 进程组的环境(Windows CI)回归组杀语义。
+ */
+export function killProcessGroup(
+  child: ProcessGroupChild,
+  killGroup: (pid: number) => void = defaultKillGroup,
+): void {
+  if (child.pid) {
+    try {
+      killGroup(child.pid);
+    } catch {
+      /* 组可能已退出 */
+    }
+  }
+  try { child.kill('SIGKILL'); } catch { /* ignore */ }
+  try { child.stdout?.destroy(); } catch { /* ignore */ }
+  try { child.stderr?.destroy(); } catch { /* ignore */ }
+}
+
 /* ============================ 通用 spawn ============================ */
 
 /** POSIX 通用子进程执行:超时强杀 + 输出收集 + maxOutputBytes 截断 */
@@ -214,18 +253,7 @@ async function spawnPosix(
     let settled = false;
 
     /** 组杀 + 主动关管道:超时/超量后不再等孙子进程"自愿"退出。 */
-    const killTree = () => {
-      if (child.pid) {
-        try {
-          process.kill(-child.pid, 'SIGKILL');
-        } catch {
-          /* 组可能已退出 */
-        }
-      }
-      try { child.kill('SIGKILL'); } catch { /* ignore */ }
-      try { child.stdout?.destroy(); } catch { /* ignore */ }
-      try { child.stderr?.destroy(); } catch { /* ignore */ }
-    };
+    const killTree = () => killProcessGroup(child);
 
     const timer = setTimeout(() => {
       timedOut = true;

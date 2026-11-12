@@ -567,6 +567,19 @@ export function checkMaxTokensPerReq(
   return { ok: true }
 }
 
+/**
+ * F-294:统一读取「请求声明的输出 token 上限」。
+ * chat 协议用 `max_tokens`,Responses 协议用 `max_output_tokens` —— 两者同义。
+ * 鉴权层此前只认 `max_tokens`,/v1/responses 的 `max_output_tokens` 直接绕过
+ * maxTokensPerReq 预检与 per-model TPM 预估(映射发生在鉴权之后)。
+ */
+function readRequestedMaxTokens(body: Record<string, unknown> | undefined): number | undefined {
+  if (!body) return undefined
+  if (typeof body.max_tokens === 'number') return body.max_tokens
+  if (typeof body.max_output_tokens === 'number') return body.max_output_tokens
+  return undefined
+}
+
 // ============================================================================
 // per-user model rate limit(2026-07-31 立,Redis 滑动窗口)
 // ============================================================================
@@ -882,7 +895,7 @@ async function authenticateShareToken(
         .join('')
     : ''
   const promptEstimate = Math.ceil(promptText.length / 4)
-  const maxTokens = typeof bodyAny.max_tokens === 'number' ? bodyAny.max_tokens : 1000
+  const maxTokens = readRequestedMaxTokens(body) ?? 1000
   const estimatedTokens = promptEstimate + maxTokens
   const rlResult = await checkPerModelRateLimit(
     share.id,
@@ -1005,10 +1018,12 @@ export async function authenticateApiKey(request: FastifyRequest): Promise<Authe
   const modelCheck = checkAllowedModels(row.allowedModels as string[] | null, bodyModel)
   if (!modelCheck.ok) throw forbidden(modelCheck.reason!)
 
-  // 4. maxTokensPerReq 预检:仅当 body 含 max_tokens 且 maxTokensPerReq 设置时
-  //    (完整检查在请求完成后 recordCall 时做,此处仅做 max_tokens 上限预检)
-  if (body && typeof body.max_tokens === 'number' && row.maxTokensPerReq !== null) {
-    const preCheck = checkMaxTokensPerReq(row.maxTokensPerReq, body.max_tokens)
+  // 4. maxTokensPerReq 预检:仅当 body 声明了输出上限(max_tokens / max_output_tokens,F-294)
+  //    且 maxTokensPerReq 设置时
+  //    (完整检查在请求完成后 recordCall 时做,此处仅做输出上限预检)
+  const requestedMaxTokens = readRequestedMaxTokens(body)
+  if (requestedMaxTokens !== undefined && row.maxTokensPerReq !== null) {
+    const preCheck = checkMaxTokensPerReq(row.maxTokensPerReq, requestedMaxTokens)
     if (!preCheck.ok) throw forbidden(preCheck.reason!)
   }
 
@@ -1019,8 +1034,8 @@ export async function authenticateApiKey(request: FastifyRequest): Promise<Authe
   if (bodyModel) {
     const rpmLimit = row.perModelRpmLimit?.[bodyModel]
     const tpmLimit = row.perModelTpmLimit?.[bodyModel]
-    // 预估 token:优先用 body.max_tokens,无则用保守默认值 1000
-    const estimatedTokens = body && typeof body.max_tokens === 'number' ? body.max_tokens : 1000
+    // 预估 token:优先用请求声明的输出上限(max_tokens / max_output_tokens,F-294),无则保守默认 1000
+    const estimatedTokens = readRequestedMaxTokens(body) ?? 1000
     const rlResult = await checkPerModelRateLimit(
       row.id,
       bodyModel,
@@ -1099,8 +1114,8 @@ async function enforceApiKeyQuotaAfterAuth(
 
   // === 2. TPM 限流(checkTpmQuota 内部读 developer_api_keys.tpmLimit)===
   const body = request.body as Record<string, unknown> | undefined
-  // 预估 token:优先用 body.max_tokens,无则保守默认 1000
-  const estimatedTokens = body && typeof body.max_tokens === 'number' ? body.max_tokens : 1000
+  // 预估 token:优先用请求声明的输出上限(max_tokens / max_output_tokens,F-294),无则保守默认 1000
+  const estimatedTokens = readRequestedMaxTokens(body) ?? 1000
   try {
     const tpmResult = await checkTpmQuota(apiKey.id, estimatedTokens)
     if (!tpmResult.allowed) {

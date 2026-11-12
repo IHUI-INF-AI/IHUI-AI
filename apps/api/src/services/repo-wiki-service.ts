@@ -523,22 +523,25 @@ export async function generateRepoWiki(
   }
 
   // 4. 落库(overview + module docs)
+  // F-530:写入侧统一 trim,与 repo-wiki-context 读取侧的 trim 归一化对齐,
+  // 否则带空白生成的 wiki 永远不会被聊天注入。
+  const repoNameNormalized = input.repoName.trim()
   const inserted = await db
     .insert(repoWikiDocs)
     .values([
       {
         userId: input.userId,
-        repoName: input.repoName,
+        repoName: repoNameNormalized,
         kind: 'overview',
         modulePath: null,
-        title: `${input.repoName} 仓库总览`,
+        title: `${repoNameNormalized} 仓库总览`,
         content: overviewContent,
         model: overview.model,
         fileCount: budget.fileCount,
       },
       ...moduleDocs.map((d) => ({
         userId: input.userId,
-        repoName: input.repoName,
+        repoName: repoNameNormalized,
         kind: 'module',
         modulePath: d.module.name,
         title: `${d.module.name} 模块文档`,

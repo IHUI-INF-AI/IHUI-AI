@@ -60,6 +60,8 @@ fn main() {
             "set_tray_always_visible",
             "get_desktop_prefs",
             "set_desktop_prefs",
+            "get_browser_settings",
+            "set_browser_settings",
             "resolve_close_choice",
             "set_desktop_badge",
             "take_pending_deep_links",

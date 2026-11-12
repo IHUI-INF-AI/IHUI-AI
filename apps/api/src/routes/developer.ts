@@ -530,6 +530,21 @@ const developerRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
+    // F-429:删除与创建同级敏感操作,已开 2FA 的账号须先完成窗内二次验证
+    const gate = await requireStepUpForTwoFactorUser({ userId, redis: request.server.redis })
+    if (!gate.ok) {
+      return reply
+        .status(401)
+        .send(
+          error(
+            401,
+            gate.code === 'STEP_UP_REQUIRED'
+              ? '删除 API Key 需要二次验证：请先调用 POST /api/auth/2fa/step-up 提交当前验证码（有效窗 5 分钟）'
+              : '暂时无法确认该账号的两步验证状态，请稍后重试',
+            gate.code,
+          ),
+        )
+    }
     const ok = await apiKeysService.deleteKey(parsed.data.id, userId)
     if (!ok) return reply.status(404).send(error(404, 'API 密钥不存在或无权操作'))
     return reply.send(success({ ok: true }))
@@ -545,6 +560,21 @@ const developerRoutes: FastifyPluginAsync = async (server) => {
     const parsed = updateKeySchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    // F-429:改权限/改额/续期与创建同级敏感操作,已开 2FA 的账号须先完成窗内二次验证
+    const gate = await requireStepUpForTwoFactorUser({ userId, redis: request.server.redis })
+    if (!gate.ok) {
+      return reply
+        .status(401)
+        .send(
+          error(
+            401,
+            gate.code === 'STEP_UP_REQUIRED'
+              ? '更新 API Key 需要二次验证：请先调用 POST /api/auth/2fa/step-up 提交当前验证码（有效窗 5 分钟）'
+              : '暂时无法确认该账号的两步验证状态，请稍后重试',
+            gate.code,
+          ),
+        )
     }
     const { expiresAt, ...patch } = parsed.data
     noteDeprecatedKeyFields(reply, request.body)

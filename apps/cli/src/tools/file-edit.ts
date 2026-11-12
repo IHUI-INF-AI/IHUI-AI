@@ -24,7 +24,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { runPreToolCall, runPostToolCall } from '../hooks/index.js';
+import * as crypto from 'node:crypto';
 import { type Tool, type ToolResult, type ToolContext, checkPathWritePermission } from './index.js';
 import { seekSequence, type MatchLevel } from './seek-sequence.js';
 import type { CheckpointManager } from '../checkpoints/index.js';
@@ -253,9 +253,6 @@ export function createWriteFileTool(ctx: EditToolContext): Tool {
         return { success: false, output: '', error: readGuard.error, errorType: readGuard.errorType };
       }
 
-      const preResult = await runPreToolCall('write_file', { path: filePath, cwd: ctx.workspacePath }, execCtx.signal);
-      if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
-
       try {
         // 捕获基线 ⇒ 落盘前逐字节复核:窗口内被人改过就拒绝,绝不静默覆盖(读后写校验)
         const baseline = captureWriteBaseline(abs);
@@ -269,7 +266,6 @@ export function createWriteFileTool(ctx: EditToolContext): Tool {
         commitAtomicWrite(baseline, content);
         recordWriteState(execCtx, abs);
         recordHunk(ctx, abs, startLine, endLine, content);
-        await runPostToolCall('write_file', { path: filePath, bytes: content.length }, execCtx.signal);
         const lines = content.split('\n').length;
         const diff = existed ? computeUnifiedDiff(original, content, filePath) : '';
         return { success: true, output: `已写入 ${filePath} (${lines} 行, ${content.length} 字节)${diff}${snapshotNote}` };
@@ -452,9 +448,6 @@ export function createEditFileTool(ctx: EditToolContext): Tool {
         return { success: false, output: '', error: readGuard.error, errorType: readGuard.errorType };
       }
 
-      const preResult = await runPreToolCall('edit_file', { path: filePath, cwd: ctx.workspacePath }, execCtx.signal);
-      if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
-
       // 基线一次捕获两用:① "是否存在"沿用原语义(不存在 ⇒ 报错,不新建),
       // ② 内容作为落盘前的复核锚点 —— 快照/patch 计算这段时间里磁盘被改过就必须失败
       let original: string;
@@ -489,7 +482,6 @@ export function createEditFileTool(ctx: EditToolContext): Tool {
         commitAtomicWrite(baseline, applied.result);
         recordWriteState(execCtx, abs);
         recordHunk(ctx, abs, startLine, endLine, applied.result);
-        await runPostToolCall('edit_file', { path: filePath, replacements: applied.replacements }, execCtx.signal);
         const diff = computeUnifiedDiff(original, applied.result, filePath);
         // 弱等级命中:告警放在**最前面**,不能让它在 diff 之后被划过去看不见
         return {
@@ -544,6 +536,34 @@ function scanLineCountAndPreview(abs: string): { lineCount: number; preview: str
   }
 }
 
+/** F-134:超过该字节数的文件删除时不做整文撤销,只记路径/大小/哈希 */
+export const DELETE_FILE_MAX_UNDO_BYTES = 4 * 1024 * 1024;
+/** F-134:二进制嗅探窗口,前 64KB 内含 NUL 字节即按二进制处理(不做文本撤销) */
+export const DELETE_BINARY_SNIFF_BYTES = 64 * 1024;
+
+/** F-134:只读嗅探窗口判断是否含 NUL 字节,不把大文件整份读进内存 */
+function looksBinary(abs: string): boolean {
+  const fd = fs.openSync(abs, 'r');
+  try {
+    const buf = Buffer.allocUnsafe(DELETE_BINARY_SNIFF_BYTES);
+    const read = fs.readSync(fd, buf, 0, buf.length, 0);
+    return read > 0 && buf.subarray(0, read).includes(0);
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+/** F-134:流式 sha256(createReadStream),内存占用与文件大小无关;失败由调用方降级 */
+function sha256File(abs: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const hash = crypto.createHash('sha256');
+    const stream = fs.createReadStream(abs);
+    stream.on('data', (chunk) => hash.update(chunk));
+    stream.once('error', reject);
+    stream.once('end', () => resolve(hash.digest('hex')));
+  });
+}
+
 export function createDeleteFileTool(ctx: EditToolContext): Tool {
   return {
     name: 'delete_file',
@@ -553,15 +573,12 @@ export function createDeleteFileTool(ctx: EditToolContext): Tool {
       path: { type: 'string', description: '要删除的文件路径' },
     },
     required: ['path'],
-    async execute(args, execCtx): Promise<ToolResult> {
+    async execute(args, _execCtx): Promise<ToolResult> {
       const filePath = args.path as string;
       if (!filePath) return { success: false, output: '', error: '缺少 path 参数' };
 
       const perm = checkPathWritePermission(filePath, ctx, 'delete');
       if (!perm.allowed) return { success: false, output: '', error: perm.reason };
-
-      const preResult = await runPreToolCall('delete_file', { path: filePath, cwd: ctx.workspacePath }, execCtx.signal);
-      if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
       const abs = resolvePath(ctx, filePath);
       let stat: fs.Stats;
@@ -580,16 +597,40 @@ export function createDeleteFileTool(ctx: EditToolContext): Tool {
       }
       if (stat.isDirectory()) return { success: false, output: '', error: `是目录,不是文件: ${filePath}` };
 
-      let lineCount: number;
-      let preview: string;
+      // F-134:大文件/二进制不写整文撤销。旧路径把全文存进 undo 历史(检查点整份拷贝 +
+      // hunk 记录),大文件撑爆内存/磁盘,二进制还会被 utf-8 解码破坏。
+      let undoMode: 'text' | 'large' | 'binary';
       try {
-        ({ lineCount, preview } = scanLineCountAndPreview(abs));
+        undoMode = stat.size > DELETE_FILE_MAX_UNDO_BYTES ? 'large' : looksBinary(abs) ? 'binary' : 'text';
       } catch {
         return { success: false, output: '', error: `文件读不到,删除没有执行: ${filePath}` };
       }
-      const { startLine, endLine } = { startLine: 1, endLine: Math.max(1, lineCount) };
-      warnConflictIfAny(ctx, abs, startLine, endLine);
-      const snapshotNote = snapshotBeforeEdit(ctx, [abs], 'auto_pre_delete_file');
+
+      let hunk: { startLine: number; endLine: number; preview: string } | null = null;
+      let undoNote = '';
+      if (undoMode === 'text') {
+        let lineCount: number;
+        let preview: string;
+        try {
+          ({ lineCount, preview } = scanLineCountAndPreview(abs));
+        } catch {
+          return { success: false, output: '', error: `文件读不到,删除没有执行: ${filePath}` };
+        }
+        const startLine = 1;
+        const endLine = Math.max(1, lineCount);
+        warnConflictIfAny(ctx, abs, startLine, endLine);
+        undoNote = snapshotBeforeEdit(ctx, [abs], 'auto_pre_delete_file');
+        hunk = { startLine, endLine, preview };
+      } else {
+        // 只记路径/大小/哈希,不读全量内容
+        const digest = await sha256File(abs).catch(() => null);
+        const sha = digest === null ? '' : `, sha256=${digest}`;
+        undoNote =
+          undoMode === 'large'
+            ? `\n大文件：未记录撤销内容 (${stat.size} 字节${sha})`
+            : `\n二进制文件：未记录文本撤销内容 (${stat.size} 字节${sha})`;
+      }
+
       // 删除保护链(两阶段护栏判定 + 回收站搬运):非 clean 判定即抛错 ⇒ 原文件未被触碰
       try {
         recycleDeleteSingleFile(ctx.workspacePath, abs);
@@ -600,9 +641,8 @@ export function createDeleteFileTool(ctx: EditToolContext): Tool {
           error: `删除未执行(回收/护栏失败,原文件仍在):${err instanceof Error ? err.message : String(err)}`,
         };
       }
-      recordHunk(ctx, abs, startLine, endLine, preview);
-      await runPostToolCall('delete_file', { path: filePath }, execCtx.signal);
-      return { success: true, output: `已删除 ${filePath}${snapshotNote}` };
+      if (hunk) recordHunk(ctx, abs, hunk.startLine, hunk.endLine, hunk.preview);
+      return { success: true, output: `已删除 ${filePath}${undoNote}` };
     },
   };
 }

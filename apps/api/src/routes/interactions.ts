@@ -18,7 +18,7 @@ import { db } from '../db/index.js'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import { isUuidString } from '../utils/uuid.js'
-import { commentLikes } from '@ihui/database'
+import { commentLikes, comments, users } from '@ihui/database'
 import { findComments, likeComment, unlikeComment } from '../db/comment-queries.js'
 import { createGuardedComment } from './comments.js'
 import { followUser, unfollowUser, isFollowing } from '../db/social-queries.js'
@@ -71,6 +71,15 @@ export const interactionsRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const { commentId } = parsed.data
+    // F-484:目标评论不存在时外键冲突会冒泡为 500,先按不存在返回 404
+    const [target] = await db
+      .select({ id: comments.id })
+      .from(comments)
+      .where(eq(comments.id, commentId))
+      .limit(1)
+    if (!target) {
+      return reply.status(404).send(error(404, '评论不存在'))
+    }
     await likeComment(commentId, request.userId!)
     return reply.status(201).send(success({ commentId, liked: true }))
   })
@@ -109,6 +118,15 @@ export const interactionsRoutes: FastifyPluginAsync = async (server) => {
     const followerId = request.userId!
     if (targetId === followerId) {
       return reply.status(400).send(error(400, '不能关注自己'))
+    }
+    // F-484:目标用户不存在时外键冲突会冒泡为 500,先按不存在返回 404
+    const [target] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.id, targetId))
+      .limit(1)
+    if (!target) {
+      return reply.status(404).send(error(404, '用户不存在'))
     }
     await followUser(followerId, targetId)
     const isMutual = await isFollowing(targetId, followerId)
@@ -169,8 +187,10 @@ export const interactionsRoutes: FastifyPluginAsync = async (server) => {
     const { list, total } = await findComments({
       resourceType,
       resourceId,
+      // F-483:offset 直传查询层,折算 page 会把非整页余量(如 offset=5,limit=10)抹成 0
       page: Math.floor(offset / limit) + 1,
       pageSize: limit,
+      offset,
       currentUserId: request.userId!,
     })
     return reply.send(success({ list, total, limit, offset }))

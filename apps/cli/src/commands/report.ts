@@ -29,6 +29,10 @@ import {
 } from '@ihui/shared/reports';
 
 import { resolveReportTranslate } from './report-copy-dict.js';
+import { writeFileAtomicSync } from '../util/atomic-write.js';
+
+/** F-120:输入上限 —— readFileSync 全量进内存,GB 级轨迹文件会直接 OOM */
+const MAX_TRACE_INPUT_BYTES = 64 * 1024 * 1024;
 
 interface ReportAgentTraceOptions {
   input: string;
@@ -100,6 +104,13 @@ function readAgentTrace(raw: unknown, fallbackTitle: string, fallbackExportedAt:
 }
 
 function buildReportFromFile(inputPath: string, opts: ReportAgentTraceOptions): AgentTraceReport & { rejectedStepCount: number } {
+  // F-120:先 stat 量大小,超限直接拒绝(64 MB),不再无界整读
+  const inputStat = fs.statSync(inputPath);
+  if (inputStat.size > MAX_TRACE_INPUT_BYTES) {
+    throw new Error(
+      `输入文件 ${inputStat.size} 字节超过 ${MAX_TRACE_INPUT_BYTES} 字节上限,拒绝整读(请先拆分轨迹)`,
+    );
+  }
   const text = fs.readFileSync(inputPath, 'utf8');
   const parsed: unknown = JSON.parse(text);
   const fallbackTitle = path.basename(inputPath, path.extname(inputPath));
@@ -137,7 +148,14 @@ export function registerReportCommand(program: Command): void {
       try {
         const result = buildReportFromFile(input, opts);
         const outFile = opts.out ?? `${path.basename(input, path.extname(input))}-agent-trace.html`;
-        fs.writeFileSync(outFile, result.html, 'utf8');
+        // F-120:覆盖已存在报告前先留 .bak(修前 writeFileSync 直接截断旧报告且不可寻回);
+        // 写入走原子写,崩溃不留半截 HTML。
+        if (fs.existsSync(outFile)) {
+          const backup = `${outFile}.bak`;
+          fs.copyFileSync(outFile, backup);
+          if (!opts.json) console.log(chalk.dim(`  已备份旧报告: ${backup}`));
+        }
+        writeFileAtomicSync(outFile, result.html);
         const high = result.findings.filter((f) => f.severity === 'high').length;
         if (opts.json) {
           console.log(

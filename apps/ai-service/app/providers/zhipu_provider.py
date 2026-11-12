@@ -18,7 +18,7 @@ from typing import Any
 import httpx
 
 from ..core.llm_gateway import get_http_client
-from .base_provider import ProviderError
+from .base_provider import ProviderError, first_choice_or_raise
 from .openai_provider import OpenAIProvider
 
 
@@ -42,7 +42,8 @@ class ZhipuProvider(OpenAIProvider):
         data = await self._request(
             "POST", f"{self.base_url}/chat/completions", headers=self._headers(), json=payload
         )
-        choice = data.get("choices", [{}])[0]
+        # AIS-065:choices 空/缺键时抛 ProviderError 进 fallback,不再 IndexError/静默空回复
+        choice = first_choice_or_raise(data, "Zhipu")
         msg = choice.get("message", {})
         result: dict[str, Any] = {
             "content": msg.get("content", ""),

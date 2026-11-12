@@ -68,6 +68,7 @@ import { tryParseJson, isRecord } from '../util/json.js';
 import { gateHook } from './trust.js';
 import { buildFilteredEnv, DEFAULT_BLOCKED_ENV_VARS } from '../sandbox/index.js';
 import { redactCrashText } from '@ihui/shared/utils/redact';
+import { redactSecrets } from '../redact.js';
 // 回传通道进的是模型上下文 ⇒ 钩子文本里冒充宿主的保留标签必须中和。
 // 唯一出口住 ../utils/prompt-boundary.js(只调用,不修改那个文件,守门 129 的机制清单)。
 import { neutralizeBoundaries } from '../utils/prompt-boundary.js';
@@ -977,13 +978,34 @@ export function loadHooks(): HooksConfig {
   return loadHooksConfig();
 }
 
+/**
+ * F-097:同一个工具在历史上可能有两个对外名字。`run_command` 是注册名,而 hooks.json 的
+ * 文档示例与既有用户配置一直写 `matchTool: "bash"`;中央派发若只拿注册名去匹配,这些
+ * 配置会静默失效。这里把同义名收敛成一组,匹配面同时看注册名与同义名(派发环境变量
+ * 仍用 `toHookToolName` 归一成历史名字,保持既有钩子看到的值不变)。
+ */
+const HOOK_TOOL_NAME_GROUPS: readonly (readonly string[])[] = [['run_command', 'bash']];
+
+/** 派发面使用的工具名:历史同义名归一(未登记的名字原样返回)。 */
+export function toHookToolName(toolName: string): string {
+  const group = HOOK_TOOL_NAME_GROUPS.find((names) => names.includes(toolName));
+  return group?.[1] ?? toolName;
+}
+
+function candidateToolNames(toolName: string): readonly string[] {
+  return HOOK_TOOL_NAME_GROUPS.find((names) => names.includes(toolName)) ?? [toolName];
+}
+
 function matchesTool(entry: HookEntry, toolName: string): boolean {
-  if (!entry.matchTool) return true;
-  try {
-    return new RegExp(entry.matchTool).test(toolName);
-  } catch {
-    return entry.matchTool === toolName;
-  }
+  const pattern = entry.matchTool;
+  if (!pattern) return true;
+  return candidateToolNames(toolName).some((name) => {
+    try {
+      return new RegExp(pattern).test(name);
+    } catch {
+      return pattern === name;
+    }
+  });
 }
 
 type WebhookResult =
@@ -1877,6 +1899,48 @@ function redactThenClip(raw: string): string {
 }
 
 /**
+ * F-125:工具输入/输出进钩子环境变量的长度上限(码点)。钩子进程的环境块有硬上限
+ * (Windows 约 32K),一次 `write_file` 的正文或 `read_file` 的整份文件都不该整段落进去:
+ * 审计要看到"真实内容",但只需要有界的一窥。超长留可见标记,不静默变短。
+ */
+export const HOOK_TOOL_PAYLOAD_MAX_CHARS = 16_000;
+
+function clipHookPayloadText(text: string): string {
+  const cps = Array.from(text);
+  return cps.length <= HOOK_TOOL_PAYLOAD_MAX_CHARS
+    ? text
+    : `${cps.slice(0, HOOK_TOOL_PAYLOAD_MAX_CHARS).join('')}…[已截断 ${cps.length - HOOK_TOOL_PAYLOAD_MAX_CHARS} 个码点]`;
+}
+
+/**
+ * postToolCall 载荷的唯一成形出口(F-125):逐字段脱敏(redactSecrets,仓内既有出口)
+ * + 按码点截断。对象/数组递归,非字符串原样保留 —— 钩子读到的是工具真实输出,
+ * 而不是各工具手写的摘要对象。
+ */
+function sanitizeToolOutputForHook(value: unknown): unknown {
+  if (typeof value === 'string') return clipHookPayloadText(redactSecrets(value));
+  if (Array.isArray(value)) return value.map(sanitizeToolOutputForHook);
+  if (isRecord(value)) {
+    const out: Record<string, unknown> = {};
+    for (const [key, item] of Object.entries(value)) out[key] = sanitizeToolOutputForHook(item);
+    return out;
+  }
+  return value;
+}
+
+/** preToolCall 入参只做有界截断(不脱敏):钩子常按路径/命令做判定,路径必须保持原样。 */
+function clipToolInputForHook(value: unknown): unknown {
+  if (typeof value === 'string') return clipHookPayloadText(value);
+  if (Array.isArray(value)) return value.map(clipToolInputForHook);
+  if (isRecord(value)) {
+    const out: Record<string, unknown> = {};
+    for (const [key, item] of Object.entries(value)) out[key] = clipToolInputForHook(item);
+    return out;
+  }
+  return value;
+}
+
+/**
  * 钩子阻断理由的**唯一**成形出口。
  *
  * 钩子的 stdout/stderr 是用户脚本产生的、我们控制不了的文本,而 `reason` 会同时进 TUI 与模型
@@ -2102,7 +2166,10 @@ function feedbackForEntry(
 // 无 scope 时(测试直接调 runPreToolCall / 直接 tool.execute)行为与旧实现逐字相同。
 interface ToolHookDispatchScope {
   preClaimed: boolean;
+  /** 工具体内已派发 postToolCall 的次数(中央据此判断是否补发,保证一次且仅一次)。 */
   postDispatched: number;
+  /** 后台工具已声明"完成时再派发 post":中央不得在启动点补发(F-125)。 */
+  postDeferred: boolean;
 }
 
 const toolHookScope = new AsyncLocalStorage<ToolHookDispatchScope>();
@@ -2111,13 +2178,23 @@ const toolHookScope = new AsyncLocalStorage<ToolHookDispatchScope>();
 export function runWithToolHookScope<T>(fn: () => Promise<T>): Promise<T> {
   // 嵌套 executeToolCall(工具内部再调工具)必须是**新**作用域:复用外层会把内层
   // 当成"已派发"而静默漏掉它的 pre 钩子。
-  return toolHookScope.run({ preClaimed: false, postDispatched: 0 }, fn);
+  return toolHookScope.run({ preClaimed: false, postDispatched: 0, postDeferred: false }, fn);
 }
 
-/** 中央 post 闸:仅当工具体内一次都没派发过 postToolCall 时才补发。 */
+/** 中央 post 闸:工具体内未派发、且没有声明"完成时再派发"时才补发。 */
 export function shouldDispatchCentralPostHook(): boolean {
   const scope = toolHookScope.getStore();
-  return scope !== undefined && scope.postDispatched === 0;
+  return scope !== undefined && scope.postDispatched === 0 && !scope.postDeferred;
+}
+
+/**
+ * F-125:后台任务在**启动点**没有真实输出,必须把 post 派发推迟到任务完成时。
+ * 工具在返回 task_id 之前调用本函数声明推迟,中央 post 闸随即让位;完成回调再用
+ * `runDeferredPostToolCall` 带真实 stdout/stderr 派发(只发一次)。
+ */
+export function markPostToolCallDeferred(): void {
+  const scope = toolHookScope.getStore();
+  if (scope) scope.postDeferred = true;
 }
 
 export async function runPreToolCall(toolName: string, input: unknown, signal?: AbortSignal): Promise<HookResult> {
@@ -2137,7 +2214,7 @@ export async function runPreToolCall(toolName: string, input: unknown, signal?: 
     const env = {
       IHUI_HOOK_TYPE: 'preToolCall',
       IHUI_TOOL: toolName,
-      IHUI_TOOL_INPUT: JSON.stringify(input ?? {}),
+      IHUI_TOOL_INPUT: JSON.stringify(clipToolInputForHook(input ?? {})),
     };
     // async 条目:转后台、不阻塞本轮(判据与记账的唯一出口见"后台派发与回灌唤醒腿"区)
     if (defersToBackground(entry, blockOnError)) {
@@ -2322,7 +2399,13 @@ export async function runPermissionRequest(
   }
 }
 
-export async function runPostToolCall(toolName: string, output: unknown, signal?: AbortSignal): Promise<HookResult> {
+/**
+ * postToolCall 的唯一实现。两个入口:
+ *  - `runPostToolCall`:工具体内/测试直接调用,记账(中央据此判断"已派发")并派发;
+ *  - `runDeferredPostToolCall`:后台任务完成回调专用,不受"一次工具调用只发一次"的作用域
+ *    记账影响(它本来就发生在工具返回之后),同样只派发一次。
+ */
+async function dispatchPostToolCall(toolName: string, output: unknown, signal?: AbortSignal): Promise<HookResult> {
   const scope = toolHookScope.getStore();
   if (scope) scope.postDispatched += 1;
   const config = loadHooks();
@@ -2332,6 +2415,7 @@ export async function runPostToolCall(toolName: string, output: unknown, signal?
   // 内置安全扫描腿(对齐对照程序 PostToolUse `Edit|Write|…` matcher;不依赖用户 hooks.json:
   // 编辑类工具即便零配置也必扫)。F-038:命中 HIGH 凭据形态 ⇒ 本次调用 proceed=false;
   // 显式豁免(IHUI_SECRET_SCAN_ALLOW=1)与只有 MEDIUM/LOW 命中时仍只告警。
+  // 扫描读**原始**载荷(路径必须先于脱敏可见);脱敏/截断只作用于下方钩子环境变量。
   const scanLeg = editToolScan(toolName, output);
   if (scanLeg !== null) {
     contextLines.push(...scanLeg.lines);
@@ -2361,7 +2445,7 @@ export async function runPostToolCall(toolName: string, output: unknown, signal?
     const env = {
       IHUI_HOOK_TYPE: 'postToolCall',
       IHUI_TOOL: toolName,
-      IHUI_TOOL_OUTPUT: JSON.stringify(output ?? {}),
+      IHUI_TOOL_OUTPUT: JSON.stringify(sanitizeToolOutputForHook(output ?? {})),
     };
     // async 条目:转后台、不阻塞本轮(唯一判据与记账见"后台派发与回灌唤醒腿"区)
     if (defersToBackground(entry, blockOnError)) {
@@ -2393,6 +2477,19 @@ export async function runPostToolCall(toolName: string, output: unknown, signal?
   }
   const ctx = joinHookContext(contextLines);
   return { proceed: true, terminal: worst, feedback: joinHookFeedback(feedbackLines), ...(ctx !== undefined ? { additionalContext: ctx } : {}) };
+}
+
+/**
+ * 公开入口:载荷原样进入(安全扫描需要未脱敏路径),钩子环境变量侧再统一脱敏+截断。
+ * 带 scope 时记账 —— 中央只在工具体内一次都没派发的前提下补发。
+ */
+export async function runPostToolCall(toolName: string, output: unknown, signal?: AbortSignal): Promise<HookResult> {
+  return dispatchPostToolCall(toolName, output, signal);
+}
+
+/** 后台任务完成时的派发入口(F-125):启动点没有真实输出,只能在完成回调里发这一次。 */
+export async function runDeferredPostToolCall(toolName: string, output: unknown, signal?: AbortSignal): Promise<HookResult> {
+  return dispatchPostToolCall(toolName, output, signal);
 }
 
 export async function runSessionStartHooks(config: HooksConfig | null, ctx: SessionHookContext, signal?: AbortSignal): Promise<HookResult> {

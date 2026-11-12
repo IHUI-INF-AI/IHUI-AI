@@ -48,7 +48,7 @@ import {
   type InstallRecord,
 } from './installer.js';
 import { assertGitCloneInputs, evaluateGitSha } from './url-shape.js';
-import { getIhuiRoot, getInstalledPluginsDir } from './paths.js';
+import { getIhuiRoot, getInstalledPluginsDir, assertSafePluginName } from './paths.js';
 import {
   loadRegisteredMarketplaces,
   resolveMarketplaceEntryForRecord,
@@ -290,6 +290,27 @@ function usableSubdir(subdir: string | undefined): boolean {
   return !subdir.split(/[\\/]/).includes('..');
 }
 
+/**
+ * F-071:插件名要能当**单段**目录名用。判据不复制 —— 直接过 F-069 的统一出口
+ * `assertSafePluginName`(路径派生的唯一 fail-closed 判据),这里只是把抛错转成布尔。
+ */
+function usablePluginName(name: string): boolean {
+  try {
+    assertSafePluginName(name);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** 暂存子目录的落点断言:`repoDir` 必须在 `stagingRoot` 之内(resolve 后按相对关系判,不靠字符串前缀) */
+function stagingDirInside(stagingRoot: string, pluginName: string): { ok: boolean; root: string; repoDir: string } {
+  const root = path.resolve(stagingRoot);
+  const repoDir = path.resolve(root, pluginName);
+  const rel = path.relative(root, repoDir);
+  return { ok: Boolean(rel) && !rel.startsWith('..') && !path.isAbsolute(rel), root, repoDir };
+}
+
 /** 本档取源的落点(在 `~/.ihui` 自家数据根下,**不落 os.tmpdir、不进仓库树**;AGENTS §15b/§26) */
 export function getUpdateStagingDir(): string {
   const override = process.env.IHUI_PLUGIN_UPDATE_STAGING;
@@ -348,35 +369,65 @@ export function classifyStagedSubtree(
 export const gitCandidateStager: CandidateStager = async ({ url, candidateSha, pluginName, pluginSubdir, stagingRoot }) => {
   const shaCheck = evaluateGitSha(candidateSha);
   if (!shaCheck.ok) return { ok: false, reason: 'git-input-rejected', detail: `candidate/${shaCheck.reasonCode}` };
+  if (!usablePluginName(pluginName)) {
+    return {
+      ok: false,
+      reason: 'plugin-name-unusable',
+      detail: `插件名不是合法目录名(拒空/./../绝对路径/路径分隔符),拒绝派生暂存落点:${JSON.stringify(pluginName)}`,
+    };
+  }
   if (!usableSubdir(pluginSubdir)) {
     return { ok: false, reason: 'plugin-subdir-unusable', detail: `市场条目的子目录形态不可路径化:${String(pluginSubdir)}` };
   }
-  const repoDir = path.join(stagingRoot, pluginName);
-  try {
-    execGitCapped(['clone', '--', url, repoDir], { timeoutMs: GIT_NETWORK_TIMEOUT_MS });
-  } catch (e) {
-    return { ok: false, reason: 'candidate-staging-failed', detail: e instanceof Error ? e.message : String(e) };
+  const slot = stagingDirInside(stagingRoot, pluginName);
+  if (!slot.ok) {
+    return {
+      ok: false,
+      reason: 'plugin-name-unusable',
+      detail: `clone 落点越出暂存根,拒绝取源:${slot.repoDir} 不在 ${slot.root} 之内`,
+    };
   }
+  const repoDir = slot.repoDir;
+  // 本次调用**新建**的才清:调用方传进来的既存目录不替它做删除决定
+  const existedBefore = fs.existsSync(repoDir);
+  let kept = false;
   try {
-    execGitCapped(['-c', 'advice.detachedHead=false', '-C', repoDir, 'checkout', '--detach', candidateSha]);
-  } catch (e) {
-    return { ok: false, reason: 'candidate-checkout-failed', detail: e instanceof Error ? e.message : String(e) };
-  }
-  const stagedDir = pluginSubdir ? path.join(repoDir, pluginSubdir) : repoDir;
-  const presence = classifyStagedSubtree(stagedDir);
-  if (!presence.ok) {
-    if (presence.reason === 'candidate-subtree-missing') {
-      return { ok: false, reason: presence.reason, detail: `候选 commit 里没有 ${pluginSubdir || '(整个子树)'}` };
+    try {
+      execGitCapped(['clone', '--', url, repoDir], { timeoutMs: GIT_NETWORK_TIMEOUT_MS });
+    } catch (e) {
+      return { ok: false, reason: 'candidate-staging-failed', detail: e instanceof Error ? e.message : String(e) };
     }
-    return presence;
+    try {
+      execGitCapped(['-c', 'advice.detachedHead=false', '-C', repoDir, 'checkout', '--detach', candidateSha]);
+    } catch (e) {
+      return { ok: false, reason: 'candidate-checkout-failed', detail: e instanceof Error ? e.message : String(e) };
+    }
+    const stagedDir = pluginSubdir ? path.join(repoDir, pluginSubdir) : repoDir;
+    const presence = classifyStagedSubtree(stagedDir);
+    if (!presence.ok) {
+      if (presence.reason === 'candidate-subtree-missing') {
+        return { ok: false, reason: presence.reason, detail: `候选 commit 里没有 ${pluginSubdir || '(整个子树)'}` };
+      }
+      return presence;
+    }
+    const ledger = collectInstallFileDigests(stagedDir);
+    if (!ledger) {
+      // 采不到 = 这一面无从证(符号链接 / 特殊档形 / 超上限 / 枚到 0 个档)。
+      // 绝不写一份"登记了零文件"的台账冒充清单(§0.3「枚举到 0 个候选判死不记绿」)。
+      return { ok: false, reason: 'candidate-ledger-unprovable', detail: `${stagedDir} 的逐文件摘要采集判不可证` };
+    }
+    kept = true;
+    return { ok: true, repoDir, stagedDir, ledger };
+  } finally {
+    // F-071:失败/抛错/中断一律不留本次新建的暂存子目录(成功才 keep,交给收尾的 disposeStagingRoot)
+    if (!kept && !existedBefore) {
+      try {
+        fs.rmSync(repoDir, { recursive: true, force: true });
+      } catch {
+        /* 清不掉不掀结论:残骸仍在本次暂存根内,由 disposeStagingRoot 与 §26 体检兜 */
+      }
+    }
   }
-  const ledger = collectInstallFileDigests(stagedDir);
-  if (!ledger) {
-    // 采不到 = 这一面无从证(符号链接 / 特殊档形 / 超上限 / 枚到 0 个档)。
-    // 绝不写一份"登记了零文件"的台账冒充清单(§0.3「枚举到 0 个候选判死不记绿」)。
-    return { ok: false, reason: 'candidate-ledger-unprovable', detail: `${stagedDir} 的逐文件摘要采集判不可证` };
-  }
-  return { ok: true, repoDir, stagedDir, ledger };
 };
 
 // ==================== 祖先关系(一次只进一步) ====================
@@ -710,6 +761,19 @@ export async function planUpdate(input: PlanUpdateInput = {}): Promise<UpdatePla
       const record = byName.get(check.name);
       if (!record) {
         entries.push(entryUnjudged(check.name, ['installed-record-missing'], 'installed-record-missing', '台账里没有这条安装记录 ⇒ 没有基准可对'));
+        continue;
+      }
+      // F-071:名字要能当单段目录名用。放在任何路径派生之前 —— 装机面/暂存面的落点都由它派生,
+      // 校验不过就点名停下,既不读根外目录,也不建根外落点。
+      if (!usablePluginName(check.name)) {
+        entries.push(
+          entryUnjudged(
+            check.name,
+            ['plugin-name-unusable'],
+            'plugin-name-unusable',
+            `插件名不是合法目录名(拒空/./../绝对路径/路径分隔符),拒绝派生任何落点:${JSON.stringify(check.name)}`,
+          ),
+        );
         continue;
       }
       if (check.state === 'unjudged') {

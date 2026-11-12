@@ -47,6 +47,7 @@ import {
   renderQrSvgDataUrl,
 } from '../qr/index.js';
 import { loadSession, type Session } from './session.js';
+import { writeFileAtomicSync } from '../util/atomic-write.js';
 
 /** /share 选项 */
 export interface ShareOptions {
@@ -198,6 +199,29 @@ export class ShareManager {
   }
 
   /**
+   * 确保分享目录存在并按 0700 收口。
+   *
+   * 目录里装的是完整会话正文,POSIX 默认 0755 会让同机其他用户读到;
+   * 已存在的目录不会被 mkdirSync 的 mode 纠偏,故显式再 chmod 一次
+   * (Windows 无 POSIX 权限位,chmod 失败忽略,不判失败)。
+   */
+  private ensureSharedDir(): string {
+    const dir = this.getSharedDir();
+    fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+    try {
+      fs.chmodSync(dir, 0o700);
+    } catch {
+      // Windows / 不支持 POSIX 权限位的文件系统
+    }
+    return dir;
+  }
+
+  /** 分享产物统一 0600 + 原子替换:内容含完整会话正文,不得按默认 0644 落盘。 */
+  private writeSharedFile(fileName: string, content: string): void {
+    writeFileAtomicSync(path.join(this.getSharedDir(), fileName), content, { mode: 0o600 });
+  }
+
+  /**
    * /share [format=markdown] — 生成可分享的会话快照。
    * 无论 format 为何,都会额外生成 HTML 用于分享链接(file:// 短链指向 HTML)。
    */
@@ -217,13 +241,12 @@ export class ShareManager {
     // upload 负责:计算 hash + 二维码 + 生成 HTML + 写入 .ihui-agent/shared/<hash8>.html + 返回短链
     const { url, hash, qr, qrDataUrl } = await this.upload(markdown, title);
     const hash8 = hash.slice(0, 8);
-    const sharedDir = this.getSharedDir();
 
     // 按 format 额外生成对应文件(HTML 始终生成,保证分享链接可打开)
     let primaryContent = renderShareHtml(markdown, hash, title, qr);
     if (format === 'markdown') {
       primaryContent = markdown;
-      fs.writeFileSync(path.join(sharedDir, `${hash8}.md`), markdown, 'utf-8');
+      this.writeSharedFile(`${hash8}.md`, markdown);
     } else if (format === 'json') {
       const json = JSON.stringify(
         { title, hash, session: { id: session.id, createdAt: session.createdAt, modelId: session.modelId }, markdown },
@@ -231,7 +254,7 @@ export class ShareManager {
         2,
       );
       primaryContent = json;
-      fs.writeFileSync(path.join(sharedDir, `${hash8}.json`), json, 'utf-8');
+      this.writeSharedFile(`${hash8}.json`, json);
     }
 
     return {
@@ -253,13 +276,10 @@ export class ShareManager {
   ): Promise<{ url: string; hash: string; qr: ShareQrBlock; qrDataUrl: string }> {
     const hash = this.computeHash(content);
     const hash8 = hash.slice(0, 8);
-    const sharedDir = this.getSharedDir();
-    if (!fs.existsSync(sharedDir)) {
-      fs.mkdirSync(sharedDir, { recursive: true });
-    }
+    this.ensureSharedDir();
     const url = this.generateShortUrl(hash8);
     const { block: qr, dataUrl: qrDataUrl } = this.generateQRCode(url);
-    fs.writeFileSync(path.join(sharedDir, `${hash8}.html`), renderShareHtml(content, hash, title, qr), 'utf-8');
+    this.writeSharedFile(`${hash8}.html`, renderShareHtml(content, hash, title, qr));
     return { url, hash, qr, qrDataUrl };
   }
 
@@ -350,6 +370,15 @@ export class ShareManager {
       if (msg.role === 'system') continue;
       const roleLabel =
         msg.role === 'user' ? '🧑 **User**' : msg.role === 'assistant' ? '🤖 **Assistant**' : `**${msg.role}**`;
+      // F-119: includeFiles=false 时必须真实过滤工具结果消息——
+      // read_file/命令输出的 Tool Result 会内嵌完整文件内容,仅追加"已省略"文案是假保证
+      if (!includeFiles && msg.role === 'user' && msg.content.includes('Tool Result:')) {
+        lines.push(`### ${roleLabel}`);
+        lines.push('');
+        lines.push('_[工具结果已省略(includeFiles=false,不导出文件/命令输出内容)]_');
+        lines.push('');
+        continue;
+      }
       let content = msg.content;
       // 工具调用折叠块:includeToolCalls=false 时隐藏
       if (!includeToolCalls && content.includes('```tool_call')) {

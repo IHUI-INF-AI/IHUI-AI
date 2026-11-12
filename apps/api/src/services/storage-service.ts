@@ -698,10 +698,12 @@ async function callOss(
   headers['Authorization'] = `OSS ${config.accessKeyId}:${signature}`
 
   // 发起请求
+  // F-545:OSS 慢响应/挂起会把分片四端点整体拖住,加 15s 硬超时。
   const resp = await fetch(fullUrl, {
     method,
     headers,
     body: options.body,
+    signal: AbortSignal.timeout(15_000),
   })
 
   const respHeaders: Record<string, string> = {}
@@ -711,7 +713,8 @@ async function callOss(
   const respBody = await resp.text()
 
   if (resp.status >= 400) {
-    throw new Error(`OSS ${method} ${key} 失败: ${resp.status} ${respBody}`)
+    // F-545:OSS 错误体可能很大,截断后再进错误消息,避免内存/日志放大。
+    throw new Error(`OSS ${method} ${key} 失败: ${resp.status} ${respBody.slice(0, 2048)}`)
   }
 
   return { status: resp.status, headers: respHeaders, body: respBody }

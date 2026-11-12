@@ -56,6 +56,7 @@ import {
   scheduleRegistrySync,
   scheduleRegistryCleanup,
   startRegistryCleanupWorker,
+  closeRegistryQueues,
 } from '../plugins/registry-queue.js'
 import type {
   RegistryUpstreamSource,
@@ -272,6 +273,8 @@ export const registrySyncRoutes: FastifyPluginAsync = async (server) => {
       }
       cleanupWorker = null
     }
+    // F-523:两个生产者 Queue 与 Worker 对称关闭,防 Queue 生命周期长于 Fastify 的连接泄漏。
+    await closeRegistryQueues()
   })
 
   // ==========================================================================
