@@ -32,6 +32,7 @@ import {
 } from '../db/live-queries.js'
 import { findLiveCalendar } from '../db/live-calendar-queries.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
+import { isUuidString } from '../utils/uuid.js'
 import { booleanStringSchemaOptional } from '../utils/parse-boolean.js'
 import { config } from '../config/index.js'
 import {
@@ -230,6 +231,10 @@ export const liveRoutes: FastifyPluginAsync = async (server) => {
       .split(',')
       .map((s) => s.trim())
       .filter((s) => s.length > 0)
+    // F-505:uuid 列的 inArray 不能吃非法值,逐项校验后非法项直接 400,避免 22P02 裸 500。
+    if (ids.some((s) => !isUuidString(s))) {
+      return reply.status(400).send(error(400, 'ids 中含有非法 id'))
+    }
     const list = await findLiveChannelsByIds(ids)
     return reply.send(success({ list }))
   })
