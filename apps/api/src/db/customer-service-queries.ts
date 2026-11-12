@@ -454,10 +454,8 @@ export async function assignSession(
   sessionId: string,
   agentId: string,
 ): Promise<{ session?: CustomerServiceSession; reason?: 'not_found' | 'not_waiting' }> {
-  const existing = await findSessionBySessionId(sessionId)
-  if (!existing) return { reason: 'not_found' }
-  if (existing.status !== 'waiting') return { reason: 'not_waiting' }
-
+  // F-247:原子认领 —— 仅当状态仍为 waiting 时才更新并 RETURNING,
+  // 命中 0 行即被并发坐席抢走,不再重复 +1,杜绝 TOCTOU 双派单与负载泄漏。
   const rows = await db
     .update(customerServiceSessions)
     .set({
@@ -466,21 +464,37 @@ export async function assignSession(
       startedAt: new Date(),
       updatedAt: new Date(),
     })
-    .where(eq(customerServiceSessions.sessionId, sessionId))
+    .where(
+      and(
+        eq(customerServiceSessions.sessionId, sessionId),
+        eq(customerServiceSessions.status, 'waiting'),
+      ),
+    )
     .returning()
+  if (rows.length === 0) {
+    const existing = await findSessionBySessionId(sessionId)
+    if (!existing) return { reason: 'not_found' }
+    return { reason: 'not_waiting' }
+  }
   await adjustAgentLoad(agentId, 1)
   return { session: rows[0] }
 }
 
 export async function closeSession(sessionId: string): Promise<CustomerServiceSession | undefined> {
-  const existing = await findSessionBySessionId(sessionId)
+  // F-249:幂等关闭 —— 仅当状态非 closed 才更新并 RETURNING,
+  // 重复关闭命中 0 行,不会再次递减坐席负载。
   const rows = await db
     .update(customerServiceSessions)
     .set({ status: 'closed', endedAt: new Date(), updatedAt: new Date() })
-  // status-guard-exempt: 入向终态(closeSession 置 closed),非终态出向;重复关闭的负载回调由调用方 existing 判定控制
-    .where(eq(customerServiceSessions.sessionId, sessionId))
+    .where(
+      and(
+        eq(customerServiceSessions.sessionId, sessionId),
+        sql`${customerServiceSessions.status} <> 'closed'`,
+      ),
+    )
     .returning()
-  if (existing?.agentId) await adjustAgentLoad(existing.agentId, -1)
+  if (rows.length === 0) return undefined
+  if (rows[0].agentId) await adjustAgentLoad(rows[0].agentId, -1)
   return rows[0]
 }
 
