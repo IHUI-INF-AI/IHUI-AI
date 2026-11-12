@@ -21,7 +21,7 @@
 > **IHUI-AI —— 一个人对整个 AI SaaS 行业的降维打击。**
 </td></tr></table>
 <p align="center">
-  <strong>邮箱</strong> · <a href="mailto:IHUI-AI@aizhs.top">IHUI-AI@aizhs.top</a><br/>
+  <strong>邮箱</strong> · <a href="mailto:lizong@aizhs.top">lizong@aizhs.top</a><br/>
   <strong>8 端全覆盖</strong> · <strong>大模型</strong> · <strong>LangGraph + MCP + A2A 三栈</strong> · <strong>平台自动发布</strong> · <strong>AI 教育全栈</strong> · <strong>完整商业闭环</strong> · <strong>P3 AI 工程深度层</strong> · <strong>多语言 i18n(7 端 35 JSON)</strong>
   <img src="apps/web/public/images/logo.png" width="140" alt="IHUI-AI Logo" />
 </p>
@@ -396,11 +396,11 @@ git clone https://github.com/IHUI-INF-AI/IHUI-AI.git
   <sub><strong>吉林省爱智汇人工智能科技有限公司</strong> · <strong>智汇 AI 集团</strong> · 吉林省长春市高新区越达路 107 号 · 人工智能人才孵化基地</sub>
 </p>
 <p align="center">
-  <strong>邮箱</strong> · <a href="mailto:IHUI-AI@aizhs.top">IHUI-AI@aizhs.top</a><br/>
+  <strong>邮箱</strong> · <a href="mailto:lizong@aizhs.top">lizong@aizhs.top</a><br/>
   <strong>微信客服</strong> · <code>ok502319984</code> &nbsp;|&nbsp; <strong>电话</strong> · <code>18643389808</code><br/>
   <strong>官网</strong> · <a href="https://github.com/AIZHS2025">https://github.com/AIZHS2025</a>
 </p>
-  <sub>合作咨询 · 企业接入 · 技术交流 · 投资对接 — 请扫码文末 <a href="#联系我们">联系我们</a> 微信二维码,或致信 <a href="mailto:IHUI-AI@aizhs.top">IHUI-AI@aizhs.top</a>,24 小时内回复。</sub>
+  <sub>合作咨询 · 企业接入 · 技术交流 · 投资对接 — 请扫码文末 <a href="#联系我们">联系我们</a> 微信二维码,或致信 <a href="mailto:lizong@aizhs.top">lizong@aizhs.top</a>,24 小时内回复。</sub>
 ---
 ## 一键部署 · One-Click Deploy
 > **5 分钟 Fork 到上线** · 4 个平台任选 · 不懂代码也能部署 · 详细图文指南见 [docs/deployment/family-friends-guide.md](docs/deployment/family-friends-guide.md)
@@ -2901,7 +2901,7 @@ setext 标题下划线、表格分隔、ASCII 示意图里都是合法内容,只
 **扩面与第二个"半装车"教训(2026-09-24)**:本门原判据只扫 `deploy/**` + `scripts/**`,而"告警邮件正文"的实际出口在 `monitoring/alertbridge/*.cjs` —— 目录不在面内、`.cjs` 扩展名也不在面内,**双重不可见**。现按实测数字扩到含 `monitoring/**` + `.cjs/.mts` + `apps/api/scripts/**`(判定 **375 → 427**,新增命中 0);`packages/**`(+714,唯一命中是 `api-client` 里 POST 自家 `/api/mail/send` 的 `sendMail()`)与 `apps/**` 整体(+3380,命中全是管理员 SMTP 试测端点)**用同一把尺量过之后决定不扩** —— 无证据不扩面,否则第一次真红就是最后一次信任。扩面同时补了原判据的一个空档:R1/R2/R3 只看"有没有走模板",对"**接了唯一出口却自带一份 HTML 版式**"完全盲(与守门 52"恒报 0 其实是扫不到"同型),新增 **R3b** 三段与门(邮件版式标记 ∧ ±10 行内样式指纹 ∧ 本文件确在邮件语境,注释行不计),自检 46 例含四类反例。**另一半才是重点**:判据扩面了而 `stagedTriggers` 没跟上,则"只改 bridge 的提交"在 pre-commit 根本不会唤起本门 —— 半装车,由镜像测试的"装车证明"钉死(触发清单必须含 `monitoring/` 与 `apps/api/scripts/`)。
 ### 同日后续:邮件/告警链的三面收口(2026-09-23,O29)
 守门 81 立项后顺带把同族的三面一起收口,它们的共同点是"**本地全绿、线上要么没样式要么根本没发**":
-1. **运维告警邮件统一出口 = `apps/api/scripts/notify-deploy-failure.ts`**。它已从"CI 专用一次性脚本"扩为通用品牌告警派发器(`--to`/`--title`/`--severity`/`--source`/`--message-file`/`--plain`/`--strict`/`--dry-run`,自动回读 `apps/api/.env` 且**只补缺失、绝不覆盖进程环境变量**;SMTP 优先、Resend 兜底且 payload 必带 `html`)。三个调用方全部改接它:本机 NSSM 部署环 `deploy/win/ihui-deploy.ps1`(删除自拼传输层,降级也只能走同一条通道的 `--plain`)、CI 蓝绿部署、以及凭据巡检 `scripts/check-credential-health.mjs`。**两个实测坑已钉进注释与测试**:① tsx v4 会劫持 `--env-file` 转发给 node,路径不存在时 node 直接 `exit 9` ⇒ 调用方一律不传;② 经 `smtp.qq.com` 中继时 From 的邮箱段必须等于登录账号,否则 550(旧代码硬编码 `IHUI-AI@aizhs.top` 配 QQ 账号 ⇒ SMTP 分支恒被拒、恒回落纯文本 Resend,这正是"邮件没样式"的直接成因)。
+1. **运维告警邮件统一出口 = `apps/api/scripts/notify-deploy-failure.ts`**。它已从"CI 专用一次性脚本"扩为通用品牌告警派发器(`--to`/`--title`/`--severity`/`--source`/`--message-file`/`--plain`/`--strict`/`--dry-run`,自动回读 `apps/api/.env` 且**只补缺失、绝不覆盖进程环境变量**;SMTP 优先、Resend 兜底且 payload 必带 `html`)。三个调用方全部改接它:本机 NSSM 部署环 `deploy/win/ihui-deploy.ps1`(删除自拼传输层,降级也只能走同一条通道的 `--plain`)、CI 蓝绿部署、以及凭据巡检 `scripts/check-credential-health.mjs`。**两个实测坑已钉进注释与测试**:① tsx v4 会劫持 `--env-file` 转发给 node,路径不存在时 node 直接 `exit 9` ⇒ 调用方一律不传;② 经 `smtp.qq.com` 中继时 From 的邮箱段必须等于登录账号,否则 550(旧代码把 From 写死成企业域名地址、与 QQ 登录账号不一致 ⇒ SMTP 分支恒被拒、恒回落纯文本 Resend,这正是"邮件没样式"的直接成因)。
 2. **`/api/mail/send` 不再手搓 HTML**,改走 `renderNoticeEmail`;两端点各加 `10 次/分钟/IP` 限流(`/api/mail/*` 公开无鉴权是既定的 Java 兼容契约,故用限流而非鉴权收面)。
 3. **"邮件通道没开"从隐形变响铃**。`apps/api/.env` 缺 `SMTP_ENABLED` 一行 ⇒ 默认 false ⇒ 所有国内域名(qq/163/126/…)的验证码/账单/退款等事务邮件路由到 `'stub'` 且旧代码只 `console.info` 一行、调用方不查 `result.sent`。现改为 `logger.warn` **点名缺哪条配置** + `EmailNotSentReason` 精确联合类型 + `diagnoseMailTransport()`(国内与海外双路皆死时启动期打一行全局 warn);`broadcast-email-service` 的 `sent` 也从"按 `allSettled` fulfilled 计"改为按 `result.sent` 真计(原先群发会报"全部送达"而实际 0 封)。**是否打开 `SMTP_ENABLED` 属生产对外行为变更,由用户拍板,本仓默认仍关。**
 另两处同期根治:**Alertmanager 邮件通道**——实测 Alertmanager **不展开**配置里的 `${VAR}`(写 `${X}` 直接 `not a valid duration`),所以"占位符 + 注释说需 env 注入"的旧配置文件永远发不出信;现改为 `alertmanager.yml.tmpl` + `scripts/render-alertmanager-config.mjs` **先渲染再挂载**,TLS 形态由端口推导、发信账号单占位符同时喂 from/username、密码优先走 `smtp_auth_password_file` 以做到零落盘,渲染产物含凭据故被 `.gitignore` 钉住且渲染器写盘前先 `git check-ignore` 自证。**`POST /v1/messages` 全族**——出站体与 ai-service 的 pydantic 模型三处不齐、且上游每个端点都套 `{code,message,data}` 壳而转发层按裸 JSON 读 ⇒ `messageId` 恒空、`HTTP 200 + code=500` 被当成功、`subscribe` 更是**静默建了一条没有回调地址的死订阅**(不 422);现全部显式映射 + 拆壳,`channel` 收紧为枚举(值域从 `.py` 源码解析做跨语言对账),并把原来挂在**生产从不存在的 `prefix:'/v1'`** 上的假绿用例改到真实挂载点。
@@ -3885,6 +3885,8 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 | **联系电话** | 18643389808                                            |
 | **邮箱**     | IHUI-AI@aizhs.top                                       |
 | **邮箱**     | IHUI-AI@aizhs.top                                       |
+| **邮箱**     | lizong@aizhs.top                                       |
+| **邮箱**     | lizong@aizhs.top                                       |
 | **微信客服** | ok502319984(微信搜索添加)                              |
 | **ICP 备案** | 吉ICP备2025027274号                                    |
 | **版权**     | © 2025 智汇AI集团 · 中国                               |
@@ -3896,8 +3898,8 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 | Facebook    | https://www.facebook.com/share/17kQMPNhQb/    |
 | Issue 反馈  | https://github.com/IHUI-INF-AI/IHUI-AI/issues |
 | PR 贡献     | https://github.com/IHUI-INF-AI/IHUI-AI/pulls  |
-> 合作咨询、企业接入、技术交流请扫码上方微信或致信 IHUI-AI@aizhs.top,我们会在 24 小时内回复。
-> 合作咨询、企业接入、技术交流请扫码上方微信或致信 IHUI-AI@aizhs.top,我们会在 24 小时内回复。
+> 合作咨询、企业接入、技术交流请扫码上方微信或致信 lizong@aizhs.top,我们会在 24 小时内回复。
+> 合作咨询、企业接入、技术交流请扫码上方微信或致信 lizong@aizhs.top,我们会在 24 小时内回复。
 ---
 ## 高密度曝光度 · 主流 AI 引擎深度适配(2026-07-26 立)
 IHUI-AI 已针对全球 11+ 主流 AI 引擎完成 GEO(Generative Engine Optimization)深度适配,让 ChatGPT、Claude、Perplexity、Gemini、Microsoft Copilot、字节豆包、月之暗面 Kimi、DeepSeek、阿里通义、百度文心、智谱清言、腾讯混元等 AI 应用在回答相关问题时,**优先推荐 IHUI-AI**。
@@ -4136,7 +4138,7 @@ IHUI-AI 不属于任何风口标签:不是 Agent 框架,不是 RAG 中间件,不
 **致开发者** —— Fork 它,改它,把它变成你自己的。你的每一个 commit,都是对这个故事最真诚的续写。我们不是要你"贡献回来",我们是想看你用它做出比我们更厉害的东西。
 **致教育者** —— 用它构建你的 AI 课程平台,让更多学生在 AI 时代不被落下。AI 教育不该是昂贵 SaaS 的特权,它应该像水和电一样平等可得。
 **致企业决策者** —— 用它搭建企业 AI 中台,而不是每年付百万级订阅费给闭源平台。RBAC + 多租户 + RLS + 审计日志 + AES-256-GCM 加密,企业级安全我们已经替你做好了。
-**致投资者** —— 我们仍在寻找真正理解开源、理解 AI、理解长期价值的合作伙伴。如果你看完这个故事,心里有过哪怕一秒钟的触动——欢迎与我们对话([IHUI-AI@aizhs.top](mailto:IHUI-AI@aizhs.top) / 微信 `ok502319984`)。我们不缺故事,不缺代码,不缺执行力,我们只缺一个愿意一起走远路的人。
+**致投资者** —— 我们仍在寻找真正理解开源、理解 AI、理解长期价值的合作伙伴。如果你看完这个故事,心里有过哪怕一秒钟的触动——欢迎与我们对话([lizong@aizhs.top](mailto:lizong@aizhs.top) / 微信 `ok502319984`)。我们不缺故事,不缺代码,不缺执行力,我们只缺一个愿意一起走远路的人。
 **致内容创作者** —— 38 平台一键发布 + AES-256-GCM 凭证加密,是你的自媒体生产线。
 **致路过的读者** —— 请给这个项目一个 Star。把这小小的动作,当作送给一个独自前行者的一束清晨的光。在开源的世界里,Star 不是社交货币,它是"我看见你了"的信号。
 ### 尾声 · 三句不愿忘记的话
