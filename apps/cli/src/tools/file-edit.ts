@@ -505,6 +505,45 @@ export function createEditFileTool(ctx: EditToolContext): Tool {
   };
 }
 
+/** 分块统计行数时的单块大小(恒定内存,块大小不代表文件大小) */
+const LINE_COUNT_CHUNK_BYTES = 64 * 1024;
+/** hunk 预览只保留前 200 字节,与 HunkTracker 的 CONTENT_PREVIEW_LEN 同量级 */
+const HUNK_PREVIEW_BYTES = 200;
+
+/**
+ * F-114: 分块统计行数,顺带截取前若干字节作为 hunk 预览。
+ *
+ * 删除路径只需要行号范围与一段预览,不需要整份内容;旧实现 `readFileSync` 会为算
+ * `split('\n').length` 把数 GB 文件(含二进制)整份解码进内存。这里按固定大小块扫描
+ * 换行字节,内存占用与文件大小无关。
+ *
+ * 行数语义保持与 `content.split('\n').length` 一致:空文件 1 行,末尾换行也算一个空行。
+ */
+function scanLineCountAndPreview(abs: string): { lineCount: number; preview: string } {
+  const fd = fs.openSync(abs, 'r');
+  try {
+    const buf = Buffer.allocUnsafe(LINE_COUNT_CHUNK_BYTES);
+    const previewChunks: Buffer[] = [];
+    let previewBytes = 0;
+    let newlineCount = 0;
+    for (;;) {
+      const read = fs.readSync(fd, buf, 0, buf.length, null);
+      if (read <= 0) break;
+      for (let i = 0; i < read; i++) {
+        if (buf[i] === 0x0a) newlineCount++;
+      }
+      if (previewBytes < HUNK_PREVIEW_BYTES) {
+        const take = Math.min(read, HUNK_PREVIEW_BYTES - previewBytes);
+        previewChunks.push(Buffer.from(buf.subarray(0, take)));
+        previewBytes += take;
+      }
+    }
+    return { lineCount: newlineCount + 1, preview: Buffer.concat(previewChunks).toString('utf-8') };
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
 export function createDeleteFileTool(ctx: EditToolContext): Tool {
   return {
     name: 'delete_file',
@@ -541,13 +580,14 @@ export function createDeleteFileTool(ctx: EditToolContext): Tool {
       }
       if (stat.isDirectory()) return { success: false, output: '', error: `是目录,不是文件: ${filePath}` };
 
-      let original: string;
+      let lineCount: number;
+      let preview: string;
       try {
-        original = fs.readFileSync(abs, 'utf-8');
+        ({ lineCount, preview } = scanLineCountAndPreview(abs));
       } catch {
         return { success: false, output: '', error: `文件读不到,删除没有执行: ${filePath}` };
       }
-      const { startLine, endLine } = { startLine: 1, endLine: Math.max(1, original.split('\n').length) };
+      const { startLine, endLine } = { startLine: 1, endLine: Math.max(1, lineCount) };
       warnConflictIfAny(ctx, abs, startLine, endLine);
       const snapshotNote = snapshotBeforeEdit(ctx, [abs], 'auto_pre_delete_file');
       // 删除保护链(两阶段护栏判定 + 回收站搬运):非 clean 判定即抛错 ⇒ 原文件未被触碰
@@ -560,7 +600,7 @@ export function createDeleteFileTool(ctx: EditToolContext): Tool {
           error: `删除未执行(回收/护栏失败,原文件仍在):${err instanceof Error ? err.message : String(err)}`,
         };
       }
-      recordHunk(ctx, abs, startLine, endLine, original);
+      recordHunk(ctx, abs, startLine, endLine, preview);
       await runPostToolCall('delete_file', { path: filePath }, execCtx.signal);
       return { success: true, output: `已删除 ${filePath}${snapshotNote}` };
     },

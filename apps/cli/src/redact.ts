@@ -75,7 +75,14 @@ export function redactUrl(input: string): string {
       const eq = kv.indexOf('=');
       if (eq === -1) return kv;
       const key = kv.slice(0, eq);
-      const keyLower = decodeURIComponent(key).toLowerCase();
+      let keyLower: string;
+      try {
+        keyLower = decodeURIComponent(key).toLowerCase();
+      } catch {
+        // F-036:畸形百分号编码(%ZZ / %E0%A4%A / 孤立 %)不得抛 URIError 打断审计写入,
+        // 按原始 key 继续比对
+        keyLower = key.toLowerCase();
+      }
       if (SENSITIVE_QUERY_PARAMS.has(keyLower)) {
         return `${key}=***REDACTED***`;
       }
