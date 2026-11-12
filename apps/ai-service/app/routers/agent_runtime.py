@@ -129,7 +129,8 @@ def _get_or_create_session(
     if new_id in _sessions:
         # P1 修复(2026-08-06): 会话归属校验 —— 归属非空且与当前用户不一致时拒绝(管理员除外)。
         owner = _sessions[new_id].user_id
-        if owner and owner != user_id and not is_admin:
+        # AIS-078: 空属主会话不再 fail-open;owner 与当前用户不一致即拒(管理员除外)。
+        if owner != user_id and not is_admin:
             raise HTTPException(status_code=403, detail="无权访问他人会话")
         _sessions[new_id].last_access = time.time()
         return _sessions[new_id]
@@ -145,7 +146,8 @@ def _require_session(session_id: str, user_id: str, is_admin: bool = False) -> S
     if session is None:
         raise HTTPException(status_code=404, detail="session not found")
     owner = session.user_id
-    if owner and owner != user_id and not is_admin:
+    # AIS-078: 空属主会话不再 fail-open;owner 与当前用户不一致即按 404 处理。
+    if owner != user_id and not is_admin:
         raise HTTPException(status_code=404, detail="session not found")
     return session
 
@@ -329,6 +331,9 @@ async def execute_stream(req: ExecuteRequest, request: Request) -> StreamingResp
                             _graph_stream,
                             label="agent_runtime execute/stream (client disconnected)",
                         )
+                        # AIS-090: 断连后落终态,否则会话长期停在 running 且不可辨失败。
+                        session.status = "cancelled"
+                        _save_session_redis(session)
                         break
                     for node_name, node_output in event.items():
                         if not isinstance(node_output, dict):
@@ -449,7 +454,8 @@ async def list_sessions(request: Request, limit: int = 20, offset: int = 0) -> d
     user_id, is_admin = _get_current_user(request)
     items = list(_sessions.values())
     if not is_admin:
-        items = [s for s in items if not s.user_id or s.user_id == user_id]
+        # AIS-078: 列表也不收录空属主(历史遗留)会话,避免任意登录用户读到他人会话。
+        items = [s for s in items if s.user_id == user_id]
     return {
         "sessions": [s.model_dump() for s in items[offset : offset + limit]],
         "total": len(items),
