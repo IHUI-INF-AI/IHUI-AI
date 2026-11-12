@@ -99,6 +99,13 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-12**
+- 🔧 Chore/Other:结清 F-075/F-087/F-088 三张缺陷普查工单 (eca7dd7822)
+- 🐞 Fix:结清 F-073/F-075/F-087/F-088 —— 沙箱换行分段拒入、外发 unjudged 回归钉、LSP 启动失败回收、记忆跨进程锁与批量原子提交 (03e95d5fbb)
+- 🔧 Chore/Other:结清 3 张已修复漏勾工单(F-069/073/096) (bb9fc5dcaf)
+- 🔧 Chore/Other:结清 5 张已修复但漏勾的工单(F-114/115/117/660/721,commit 均在 HEAD) (15a999e89f)
+- 🔧 Chore/Other:结清 API 族 6 张已复核工单(F-324/334/346/424/432/449,commit 均在 HEAD) (b7657a2170)
+
+**2026-11-12**
 - 🔧 Chore/Other:固化并行会话在飞 README/PLAN 改动 (34a2a21521)
 - 🐞 Fix:盘根外流族冷却 8h→24h 治长期刷屏 (27b5681fa4)
 - ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (5db006996a)
@@ -896,11 +903,6 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 - ⚡ Perf:水印提交档分母收窄到本次携带,单门 24.5s→1.0s (0cf426141b0)
 - ⚡ Perf:30a 悬空集合单列缓存,提交链守门实测 309s→69s (775ca7e7837)
 - 🐞 Fix:合并后按 token 档归一 inline-question-card 字号与字重 (10e5b33bb52)
-
-**2026-11-08**
-- 🚀 Feature/Improvement:补齐 AI 生成显式/隐式标识 (8d972f386c6)
-- 🚀 Feature/Improvement:补齐 AI 生成显式/隐式标识 (f4535c338e9)
-- 🚀 Feature/Improvement:Groups 屏薄壳承载落地(RN 壳同源渲染,词条取 web 原文) (e7d27e3e994)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
