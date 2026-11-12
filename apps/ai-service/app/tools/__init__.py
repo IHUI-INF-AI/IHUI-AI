@@ -1,6 +1,5 @@
 # © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 """tools 包: LLM 工具调用实现集合。
 
@@ -10,7 +9,9 @@
 - parse_document: 文档解析工具(document_tools);
 - init_agents_md: AGENTS.md 草稿生成器(init_agents_md,D118 /init 式生成器);
 - create_artifact: G3 统一交付物工具(artifact_tools,html_report/slides/sheet/doc/video_ref);
-- create_automation: G2 对话式自动化创建工具(automation_tools,经 apps/api automations 端点)。
+- create_automation: G2 对话式自动化创建工具(automation_tools,经 apps/api automations 端点);
+- ai_bookkeeping / ai_tax_filing: 财务部板块插件(RP-46,2026-11-12,finance_tools,
+  AI 一键代账/一键报税,分阶段可续跑,过程经 tool-call 帧实时回显)。
 """
 
 from .artifact_tools import create_artifact
@@ -19,6 +20,12 @@ from .browser_selfcheck import capture_screenshot, selfcheck_report
 from .chart_tools import generate_chart
 from .document_asset_tools import document_tables, extract_document_assets
 from .document_tools import parse_document
+from .finance_tools import (
+    AI_BOOKKEEPING_DESCRIPTION,
+    AI_TAX_FILING_DESCRIPTION,
+    ai_bookkeeping,
+    ai_tax_filing,
+)
 from .init_agents_md import init_agents_md
 from .report_tools import generate_report
 from .web_crawl_tools import crawl_site, extract_web, fetch_readable, map_site
@@ -38,4 +45,8 @@ __all__ = [
     "capture_screenshot",
     "selfcheck_report",
     "init_agents_md",
+    "ai_bookkeeping",
+    "ai_tax_filing",
+    "AI_BOOKKEEPING_DESCRIPTION",
+    "AI_TAX_FILING_DESCRIPTION",
 ]

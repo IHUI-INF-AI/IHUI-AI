@@ -605,6 +605,16 @@ export function buildExchangeTokenBody(refreshToken: string): Record<string, str
  */
 export const TRAE_EXCHANGE_TOKEN_PROOF_URL = 'https://api.trae.cn/trae/api/v3/oauth/ExchangeToken'
 
+/**
+ * 登录态校验端点(客户端 `checkLogin` 同款;2026-11-12 立)。
+ *
+ * 客户端每次启动都会打它:报文 `{IDEVersion, ReqSource, GetAIPayHost}`,token 走
+ * `x-cloudide-token` 头,200 且 `Result.IsLogin===true` = 现有 token 可用 ⇒ 客户端**不会**
+ * 再走 rt 换票。切号预检据此判「写回后客户端能否登进去」比"拿 rt 换票"更贴客户端真实路径:
+ * 实测有号 rt 换不出票(20403/10101)而本端点仍回 `IsLogin=true`,token 尚余 13 天。
+ */
+export const TRAE_CHECK_LOGIN_URL = 'https://api.trae.cn/cloudide/api/v3/trae/CheckLogin'
+
 /** 签名 canonical 第二行:必须与真实请求路径逐字一致(客户端同款) */
 export const TRAE_EXCHANGE_TOKEN_PROOF_PATH = '/trae/api/v3/oauth/ExchangeToken'
 
@@ -834,6 +844,68 @@ export function extractTokenPayload(body: unknown): TraeTokenPayload | null {
     pickAny(inner, ['ExpiredAt', 'TokenExpireAt']) ?? pickAny(top, ['ExpiredAt', 'TokenExpireAt'])
   return { token, refreshToken: refreshToken ?? null, expiresAt: parseExpiresAt(expiresRaw) }
 }
+
+/**
+ * 换票响应的「设备绑定」回执(2026-11-12 实测,取数于本机:`POST
+ * /trae/api/v3/oauth/ExchangeToken` 200 体)。
+ *
+ * 这条回执是判「这枚号的 rt 到底绑在谁身上」的唯一权威来源:
+ *   `BoundDeviceID`   = 服务端记下的绑定设备 **ID 形态标记**(实测 14 位小写字母数字,如
+ *                       `3l6ppqddnwkoe1`),**不是**客户端 `DeviceInfo.DeviceID`(19 位纯数字)——
+ *                       两者不同域,不可直接等值比较;把它当"设备号"比会得到一个永远不等的结论。
+ *   `DeviceBindStatus`= `BOUND` / 其它(语义域未穷举,未知值一律原样透出,不猜成绑定成功)。
+ *
+ * 只做宽松提取:缺字段/体不是对象 ⇒ 对应项 null,调用方据此走"未判定"分支(§0.3 不记绿不冒红)。
+ */
+export interface TraeDeviceBindReceipt {
+  boundDeviceId: string | null
+  bindStatus: string | null
+  clientId: string | null
+  refreshExpireAt: Date | null
+}
+
+export function extractDeviceBindReceipt(body: unknown): TraeDeviceBindReceipt | null {
+  if (body === null || typeof body !== 'object') return null
+  const top = body as Record<string, unknown>
+  const inner =
+    top.Result !== null && typeof top.Result === 'object'
+      ? (top.Result as Record<string, unknown>)
+      : top.result !== null && typeof top.result === 'object'
+        ? (top.result as Record<string, unknown>)
+        : top
+  return {
+    boundDeviceId: pickString(inner, ['BoundDeviceID', 'boundDeviceId']),
+    bindStatus: pickString(inner, ['DeviceBindStatus', 'deviceBindStatus']),
+    clientId: pickString(inner, ['ClientID', 'clientId']),
+    refreshExpireAt: parseExpiresAt(
+      pickAny(inner, ['RefreshExpireAt', 'refreshExpireAt']) ?? undefined,
+    ),
+  }
+}
+
+/**
+ * 换票「明确拒收」的具名码分类(2026-11-12 实测,逐枚号真跑换票通道取得)。
+ *
+ * 实测四条码语义各不相同,**不能并成一档**;并成一档的直接后果是切号入口把"票其实还好、
+ * 只是这台机器的绑定方式不对"的号判成死票,用户被告知"只能重新登录"(事实不成立):
+ *   20403 Token device not match           → 票绑在**另一台按该通道绑定过的设备**上(HARD)
+ *   10101 refresh token is not matched ... → rt 与这条产品线的 ClientID 不匹配(SOFT,换线可救)
+ *   20101 refresh token is invalid         → rt 已被彻底作废(DEAD)
+ *   10110 / 10303 设备绑定数已满            → **票仍有效**,只是这台机没走客户端自己的设备注册
+ *                                            通道(见 trae-adapter 的 ahaDeviceService 注册腿)
+ * 其余一律 undetermined(5xx/504/网络故障不代表票废了)。
+ */
+export type TraeExchangeRejectKind =
+  'device-mismatch' | 'client-mismatch' | 'token-dead' | 'device-limit'
+
+export function classifyExchangeReject(text: string): TraeExchangeRejectKind | null {
+  if (/20403/.test(text)) return 'device-mismatch'
+  if (/10110|10303/.test(text)) return 'device-limit'
+  if (/10101/.test(text)) return 'client-mismatch'
+  if (/20101/.test(text)) return 'token-dead'
+  return null
+}
+
 // =============================================================================
 // stop 序列本地截断(上游无 stop 字段,流式安全模拟)
 // =============================================================================

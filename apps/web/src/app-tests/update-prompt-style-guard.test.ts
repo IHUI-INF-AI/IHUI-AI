@@ -16,8 +16,7 @@ const gate = read('../components/common/AppVersionGatePrompt.tsx')
 const css = read('../../app/globals.css')
 
 /** 注释里提到某个类名不算使用/不算定义 —— 判据必须去注释后再认(否则注释能让门假绿/假红)。 */
-const stripCode = (s: string) =>
-  s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '')
+const stripCode = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '')
 
 const promptCode = stripCode(prompt)
 const noticeCode = stripCode(notice)
@@ -96,7 +95,9 @@ describe('桌面更新提示视觉守卫', () => {
     // 实测(2026-11-12,1440×900):父级是 flex 且没给宽度时,这一列缩到内容宽 ——
     // 按钮行止于 x=757,而卡片内容右缘 867,右侧空 110px,倒计时条与上方状态条也不齐。
     expect(promptCode).toMatch(/flex w-full flex-col gap-2/)
-    expect(promptCode).toMatch(/flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-success\/10/)
+    expect(promptCode).toMatch(
+      /flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-success\/10/,
+    )
     expect(promptCode).toMatch(/flex w-full items-center gap-2/)
   })
 
@@ -105,6 +106,22 @@ describe('桌面更新提示视觉守卫', () => {
     expect(promptCode).not.toMatch(/rounded-sm[^"']*transition-colors/)
     expect(promptCode).toMatch(/h-8 flex-1 rounded-lg border border-border/)
     expect(promptCode).toMatch(/h-8 flex-1 rounded-lg bg-cta/)
+  })
+
+  it('标题必须按状态取词,不得回退成"非 error/up-to-date/done 即 available"的三元链', () => {
+    // 旧形态在 downloading 时仍写"发现新版本",而 downloading 键五语种都在却无人引用(死键)
+    expect(promptCode).toContain('updateTitleKey')
+    expect(promptCode).not.toMatch(/status === 'error'\s*\?\s*t\('error'\)/)
+    // 死键必须真的被用起来,不能继续躺在语言包里
+    expect(promptCode).toContain("t('downloading')")
+  })
+
+  it('下载进度环必须是可访问的 progressbar,读屏能读到真实百分比', () => {
+    // 进度行刻意 aria-live="off",若环又没有 role/aria-value,辅助技术全程拿不到进度
+    expect(promptCode).toMatch(/role="progressbar"/)
+    expect(promptCode).toContain('aria-valuenow={percent}')
+    expect(promptCode).toContain('aria-valuemin={0}')
+    expect(promptCode).toContain('aria-valuemax={100}')
   })
 })
 
