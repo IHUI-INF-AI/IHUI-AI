@@ -7421,6 +7421,17 @@ from .artifacts_store import _fallback_cache as _ARTIFACTS_CACHE
 # `__all__` 是 ruff 认可的「这是有意的再导出」信号,在此显式声明以锁定该兼容契约。
 __all__ = ["_ARTIFACTS_CACHE"]
 
+# 财务部板块插件(RP-46,2026-11-12 立):AI 一键代账/一键报税。
+# 描述文案单源在 finance_tools(与 D09 专家包共用,§0.6 不写第二份);
+# 纯计算 + tmp/artifacts 产物 ⇒ 与 generate_report 同档,不入 _ADMIN_ONLY_TOOLS。
+# (isort 落点:同模块语句按首名 ai_* 排在 create_* 之前;finance_tools 语句在段尾)
+from ..tools import (  # noqa: E402
+    ai_bookkeeping as _ai_bookkeeping,
+)
+from ..tools import (  # noqa: E402
+    ai_tax_filing as _ai_tax_filing,
+)
+
 # G3 Beyond-Coding 泛化(2026-10-30 立):统一交付物工具(artifact_tools,
 # payload 落 tmp/artifacts 白名单目录 + 元数据经 artifacts_store 挂会话附件)
 from ..tools import (  # noqa: E402
@@ -7456,6 +7467,12 @@ from ..tools import (
 )
 from ..tools import (
     parse_document as _parse_document,
+)
+
+# 财务部插件描述常量(RP-46):与上方 ai_* import 同源,文案单源在 finance_tools
+from ..tools.finance_tools import (  # noqa: E402
+    AI_BOOKKEEPING_DESCRIPTION,
+    AI_TAX_FILING_DESCRIPTION,
 )
 
 
@@ -14000,6 +14017,83 @@ _TOOLS: list[MCPTool] = [
         },
     ),
     MCPTool(
+        # 财务部·AI 一键代账(RP-46):入参口径与纪律的描述单源 = finance_tools.AI_BOOKKEEPING_DESCRIPTION
+        name="ai_bookkeeping",
+        description=AI_BOOKKEEPING_DESCRIPTION,
+        input_schema={
+            "type": "object",
+            "properties": {
+                "phase": {
+                    "type": "string",
+                    "enum": ["classify", "voucher", "trial_balance", "close", "report", "all"],
+                    "description": "执行阶段(默认 all 串联);单阶段调用逐次回传 state ⇒ 对话里逐步显示进度",
+                },
+                "period": {"type": "string", "description": "会计期间,如 2026-11(新任务必填)"},
+                "transactions": {
+                    "type": "string",
+                    "description": (
+                        "业务流水 JSON:每笔 {date,type,amount,method,tax_rate,invoice,counterparty,summary[,social,income_tax]}. "
+                        "type 常用:sales/purchase/cost/salary/rent/expense/tax_payment/receipt/payment;金额一律字符串防精度漂移"
+                    ),
+                },
+                "state": {"type": "string", "description": "上一阶段返回的 state JSON(续跑用)"},
+                "output_dir": {
+                    "type": "string",
+                    "description": "报表输出目录(默认 tmp/artifacts,必须位于项目根)",
+                },
+            },
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        # 财务部·AI 一键报税(RP-46):草案纪律见描述与输出双处声明,不代理对外申报
+        name="ai_tax_filing",
+        description=AI_TAX_FILING_DESCRIPTION,
+        input_schema={
+            "type": "object",
+            "properties": {
+                "phase": {
+                    "type": "string",
+                    "enum": ["compute", "validate", "draft", "all"],
+                    "description": "执行阶段(默认 all 串联)",
+                },
+                "period": {"type": "string", "description": "申报期间,如 2026-11(必填)"},
+                "taxpayer_type": {
+                    "type": "string",
+                    "enum": ["general", "small"],
+                    "description": "纳税人类型,默认 general",
+                },
+                "taxpayer_state_note": {"type": "string", "description": "纳税人背景备注(可选,仅入档)"},
+                "sales": {"type": "string", "description": "本期销售额(含税,字符串金额)"},
+                "output_tax": {"type": "string", "description": "销项税额(一般纳税人)"},
+                "input_tax": {"type": "string", "description": "本期认证进项税额"},
+                "input_carryforward": {"type": "string", "description": "上期留抵税额"},
+                "vat_scheme": {"type": "string", "description": "小规模征收率:0.01 或 0.03"},
+                "profit": {"type": "string", "description": "会计利润总额(所得税预缴基数之一)"},
+                "taxable_income": {"type": "string", "description": "应纳税所得额(缺省取 profit)"},
+                "loss_carryforward": {"type": "string", "description": "可弥补以前年度亏损"},
+                "purchases": {"type": "string", "description": "采购额(印花税基数缺省=销售+采购)"},
+                "stamp_base": {"type": "string", "description": "印花税计税依据(合同金额)"},
+                "stamp_rate": {"type": "string", "description": "印花税税率,缺省 0.0003"},
+                "cit_rate": {"type": "string", "description": "企业所得税率,一般企业用;小微走 small_micro_cit"},
+                "small_micro_cit": {"type": "boolean", "description": "小型微利企业实际税负 5%(默认按纳税人类型推)"},
+                "six_tax_half": {"type": "boolean", "description": "六税两费减半(小规模默认 True)"},
+                "city_rate": {"type": "string", "description": "城建税率覆盖(默认 7%)"},
+                "small_exemption_threshold": {
+                    "type": "string",
+                    "description": "小规模免征起征点(按月,万元销售额换算后字符串),默认 100000",
+                },
+                "wages": {
+                    "type": "string",
+                    "description": "工资表 JSON:[{name,gross,social,special_deduction}] 个税累计预扣法",
+                },
+                "state": {"type": "string", "description": "上一阶段返回的 state JSON(续跑用)"},
+                "output_dir": {"type": "string", "description": "草案输出目录(默认 tmp/artifacts)"},
+            },
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
         name="parse_document",
         description=(
             "解析本地文档为可注入上下文的文本/Markdown,支持 15 种格式:"
@@ -15798,6 +15892,9 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "generate_chart": _generate_chart,
     # PROJECT_PLAN #81 最小一环:报表模板生成器(2026-09-28,与 chart 共用产物基础设施)
     "generate_report": _generate_report,
+    # 财务部板块插件(RP-46,2026-11-12):AI 一键代账 / AI 一键报税(分阶段+实时进度回显)
+    "ai_bookkeeping": _ai_bookkeeping,
+    "ai_tax_filing": _ai_tax_filing,
     # G3 Beyond-Coding 泛化(2026-10-30 立):统一交付物工具
     "create_artifact": _create_artifact,
     # G2 Automations 产品闭环(2026-10-30 立):对话式创建定时自动化(调 apps/api 端点)

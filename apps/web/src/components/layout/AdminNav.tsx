@@ -268,6 +268,7 @@ interface AdminNavItem {
     | 'deployDiagnosis'
     | 'githubApp'
     | 'smsReceive'
+    | 'financeAi'
   icon: React.ComponentType<{ className?: string }>
   dynamicLabel?: string
 }
@@ -345,6 +346,9 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin/workflows', labelKey: 'workflows', icon: Workflow },
   // 人事部(HR,2026-11-09 立):部门/员工/考勤/请假独立板块,复用 @ihui/attendance-core 判定内核
   { href: '/admin/hr-attendance', labelKey: 'dashboard', icon: Users, dynamicLabel: '人事部' },
+  // 财务部(RP-46,2026-11-12 立):AI 一键代账 / AI 一键报税板块;
+  // 功能以 MCP 插件形态(ai_bookkeeping/ai_tax_filing)接进对话,页面只做发起与进度落点
+  { href: '/admin/finance-ai', labelKey: 'financeAi', icon: Wallet },
   { href: '/admin/tags', labelKey: 'tags', icon: Tag },
   { href: '/admin/skills', labelKey: 'adminSkills', icon: Sparkles },
   { href: '/admin/skill-categories', labelKey: 'adminSkillCategories', icon: Tag },
@@ -965,6 +969,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
 /** i18n 静态映射表 — 用于消除 `t(`nav.${labelKey}`)` 动态拼接 */
 const NAV_LABEL_KEY: Record<AdminNavItem['labelKey'], string> = {
   dashboard: 'nav.dashboard',
+  financeAi: 'nav.financeAi',
   users: 'nav.users',
   projects: 'nav.projects',
   orders: 'nav.orders',
