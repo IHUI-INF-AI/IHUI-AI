@@ -3,6 +3,11 @@
   "generatedAt": "2026-11-07",
   "note": "门脚本属主登记表。owned 之外的脚本一律显式列在 unowned(值为 null 的含义),供人工裁决;禁止把未登记的门批量填成公共。本表由 2026-11-07 的 scripts/ 清单生成,新增/删除门脚本时必须同步维护。",
   "owners": {
+    "commit-hygiene-2026-11-12": {
+      "since": "2026-11-12",
+      "scope": "提交面卫生:生成物(实验沙箱/日志/副本/根目录错位件)不得入库,放行时给出提交画像",
+      "scripts": ["check-staged-artifacts.mjs"]
+    },
     "reading-trust-defense-2026-11-07": {
       "since": "2026-11-07",
       "scope": "本线新增的元门(面规格静态扫描 / 空输入盘点 / 派生钉面一致性 / 属主声明)",
@@ -21,6 +26,10 @@
     },
     {
       "script": "check-absorption-read-naming.mjs",
+      "owner": null
+    },
+    {
+      "script": "check-acp-error-mapping.mjs",
       "owner": null
     },
     {
