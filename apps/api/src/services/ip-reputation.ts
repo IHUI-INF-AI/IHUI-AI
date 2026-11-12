@@ -82,6 +82,11 @@ const MEM_CLEANUP_INTERVAL_MS = 5 * 60 * 1000
 export function isPrivateIp(ip: string): boolean {
   if (!ip) return false
   if (ip === '::1' || ip === '::') return true
+  // F-615:补 172.16.0.0/12(复用下方精确判据,避免 172.32 误判)与 IPv6 保留段:
+  // fc00::/7(ULA)、fe80::/10(link-local)。这些此前未覆盖,metrics 内网白名单与注释不符。
+  const lower = ip.toLowerCase()
+  if (lower.startsWith('fc') || lower.startsWith('fd')) return true // fc00::/7 ULA
+  if (/^fe[89ab]/.test(lower)) return true // fe80::/10 link-local
   // IPv4-mapped IPv6
   const v4 = ip.includes(':') ? ip.replace(/^::ffff:/, '') : ip
   return (
@@ -89,6 +94,7 @@ export function isPrivateIp(ip: string): boolean {
     v4.startsWith('192.168.') ||
     v4.startsWith('127.') ||
     v4.startsWith('169.254.') || // link-local
+    isIpIn172Private(v4) ||
     v4 === 'localhost'
   )
 }
