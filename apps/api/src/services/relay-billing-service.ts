@@ -20,7 +20,7 @@
  *
  * 读写分离:写用 db,读用 dbRead。
  */
-import { eq, and, sql, desc, isNull } from 'drizzle-orm'
+import { eq, and, sql, desc, isNull, isNotNull } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
 import { logger } from '../utils/logger.js'
 import {
@@ -1739,61 +1739,64 @@ export async function refundTaskCall(taskId: string): Promise<RefundTaskResult> 
   try {
     if (!taskId) return { refunded: false, refundedCents: 0, reason: 'no_log' }
 
-    const [log] = await dbRead
-      .select({
-        id: llmCallLogs.id,
-        apiKeyId: llmCallLogs.apiKeyId,
-        costCents: llmCallLogs.costCents,
-        metadata: llmCallLogs.metadata,
+    // F-721(2026-11):原子抢占退款资格 —— 用 `UPDATE ... WHERE refunded=false RETURNING`
+    // 在主库一次性完成「判资格 + 打标」,避免原实现先 SELECT(走只读副本)再无条件 UPDATE、
+    // 最后才 markTaskRefunded 的非原子三段式导致并发/副本滞后双退。只有抢到 refunded 行锁
+    // 的那一次才真正退款,其余并发轮询命中 0 行 → 直接视作无退款,杜绝凭空增余额。
+    // F-660(2026-11):退款金额(分)必须回填 **成本余额列**(sharedCostBalanceCents /
+    // costBalanceCents),原实现误加到 token 余额列,导致钱没退、token 余额被虚增。
+    const [claimed] = await db
+      .update(llmCallLogs)
+      .set({
+        refunded: true,
+        metadata: sql`jsonb_set(COALESCE(${llmCallLogs.metadata},'{}'::jsonb), '{refunded}', 'true'::jsonb)`,
       })
-      .from(llmCallLogs)
       .where(
         and(
           sql`${llmCallLogs.metadata}->>'task_id' = ${taskId}`,
           sql`${llmCallLogs.callType} in ('image','video')`,
           eq(llmCallLogs.status, 'success'),
-          // G-790 A7:是否已退款走判别列,不再按 JSON 内容判类别。
-          // (旧形态 `COALESCE(metadata->>'refunded','false') <> 'true'` 的正确性依赖
-          //  "只有 markTaskRefunded 写这个键"这一巧合;迁移已把既有真值回填进列,两型判定同形。)
           eq(llmCallLogs.refunded, false),
+          isNotNull(llmCallLogs.apiKeyId),
         ),
       )
-      .orderBy(desc(llmCallLogs.createdAt))
-      .limit(1)
+      .returning({
+        id: llmCallLogs.id,
+        apiKeyId: llmCallLogs.apiKeyId,
+        costCents: llmCallLogs.costCents,
+      })
 
-    if (!log) return { refunded: false, refundedCents: 0, reason: 'no_log' }
-    if (!log.apiKeyId) return { refunded: false, refundedCents: 0, reason: 'no_api_key' }
+    if (!claimed) return { refunded: false, refundedCents: 0, reason: 'no_log' }
 
-    const cents = Math.max(0, log.costCents ?? 0)
+    // isNotNull 已保证运行时非空;列定义可空,这里做一次收窄断言。
+    const apiKeyId = claimed.apiKeyId as string
+    const cents = Math.max(0, claimed.costCents ?? 0)
     if (cents <= 0) {
-      // 0 成本流水只需打标记,无需动余额
-      await markTaskRefunded(log.id)
+      // 0 成本流水已打标记,无需动余额
       return { refunded: true, refundedCents: 0, reason: 'ok' }
     }
 
-    const groupInfo = await getKeyGroup(log.apiKeyId)
+    const groupInfo = await getKeyGroup(apiKeyId)
     if (groupInfo && groupInfo.enabled) {
-      // 组池退款:-1(无限额度)不退,否则原额加回
+      // 组池退款:-1(无限额度)不退,否则按成本分原额加回成本余额列
       await db
         .update(apiKeyGroups)
         .set({
-          sharedTokenBalance: sql`CASE WHEN ${apiKeyGroups.sharedTokenBalance} = -1 THEN -1 ELSE ${apiKeyGroups.sharedTokenBalance} + ${cents} END`,
+          sharedCostBalanceCents: sql`CASE WHEN ${apiKeyGroups.sharedCostBalanceCents} = -1 THEN -1 ELSE ${apiKeyGroups.sharedCostBalanceCents} + ${cents} END`,
           updatedAt: new Date(),
         })
         .where(eq(apiKeyGroups.id, groupInfo.groupId))
     } else {
-      // 个人余额退款:-1(无限额度)不退
+      // 个人余额退款:-1(无限额度)不退,否则按成本分原额加回成本余额列
       await db
         .update(developerApiKeys)
         .set({
-          tokenBalance: sql`CASE WHEN ${developerApiKeys.tokenBalance} = -1 THEN -1 ELSE ${developerApiKeys.tokenBalance} + ${cents} END`,
+          costBalanceCents: sql`CASE WHEN ${developerApiKeys.costBalanceCents} = -1 THEN -1 ELSE ${developerApiKeys.costBalanceCents} + ${cents} END`,
           updatedAt: new Date(),
         })
-        .where(eq(developerApiKeys.id, log.apiKeyId))
+        .where(eq(developerApiKeys.id, apiKeyId))
     }
-
-    await markTaskRefunded(log.id)
-    logger.info('[billing] 多模态任务失败退款', { taskId, apiKeyId: log.apiKeyId, cents })
+    logger.info('[billing] 多模态任务失败退款', { taskId, apiKeyId, cents })
     return { refunded: true, refundedCents: cents, reason: 'ok' }
   } catch (err) {
     logger.error('[billing] refundTaskCall failed', {
@@ -1802,21 +1805,6 @@ export async function refundTaskCall(taskId: string): Promise<RefundTaskResult> 
     })
     return { refunded: false, refundedCents: 0, reason: 'no_log' }
   }
-}
-
-/** 给流水打已退款标记。
- *
- *  判别事实写进 `refunded` **列**,`metadata.refunded` 键同批保留(既有读者与人工核查仍看得见),
- *  但它不再是资格判定的来源 —— G-790 A7:按 JSON 内容判类别的过滤,今天命中集合正确只是巧合。
- */
-async function markTaskRefunded(logId: string): Promise<void> {
-  await db
-    .update(llmCallLogs)
-    .set({
-      refunded: true,
-      metadata: sql`jsonb_set(COALESCE(${llmCallLogs.metadata},'{}'::jsonb), '{refunded}', 'true'::jsonb)`,
-    })
-    .where(eq(llmCallLogs.id, logId))
 }
 
 // =============================================================================
