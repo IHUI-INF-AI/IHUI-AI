@@ -47,6 +47,27 @@ import {
   type RewindPoint,
 } from '../commands/session.js';
 import { planAcpReplay, type AcpReplayOutcome } from './session-replay.js';
+import {
+  applyTurnTransition,
+  createTurnRecord,
+  isWakeable,
+  needsAttention,
+  type TurnRecord,
+  type TurnRejectionCode,
+  type TurnTransition,
+} from './turn-lifecycle.js';
+import {
+  applyGoalTransition,
+  createGoal,
+  loadGoals,
+  loadSessionRuntime,
+  nextTurnOrdinal,
+  upsertGoal,
+  upsertTurn,
+  type GoalRecord,
+  type GoalStatus,
+  type SessionRuntime,
+} from './turn-store.js';
 import { setupAgentTools, runToolLoop, type ToolContext } from '../commands/agent.js';
 // G-639:取消出口逐未完成的 tool_call 合成各自的 cancelled 帧(不悬空、不整体一帧了事)
 import { synthesizeCancelledToolFrames } from '../stream-cancel-frames.js';
@@ -1512,6 +1533,165 @@ export class IhuiAcpAgent {
     return adopted;
   }
 
+  // ==================== 回合运行态 / 目标态 ====================
+  //
+  // 补的是「长任务闭环」的三处缺口(取证见 outputs/reverse-2026-11-12/TRAE-BINARY-REPORT.md):
+  //   ① 回合被中断后,重连只知道"消息到哪了",不知道"这一回合原本要做什么、做到哪一步";
+  //   ② 没有"暂时做不完,挂起等条件满足再继续"的表达 —— 只能整段结束;
+  //   ③ 上游没给结束信号时,历史留下半截消息,分不清"正常结束"与"异常中断"。
+  //
+  // 判据全在 `turn-lifecycle.ts`(纯状态机)与 `turn-store.ts`(持久化),本类只做协议翻译。
+
+  /** `x.ai/turn/create` — 为一个会话开一条新回合(初始 phase = prepare)。 */
+  async createTurn(params: { sessionId: string; now?: number }): Promise<{
+    turn: TurnRecord;
+    runtime: SessionRuntime;
+  }> {
+    this.assertSessionOnDisk(params.sessionId);
+    const at = params.now ?? Date.now();
+    const ordinal = nextTurnOrdinal(params.sessionId);
+    const record = createTurnRecord({
+      id: `turn_${params.sessionId}_${ordinal}_${at}`,
+      sessionId: params.sessionId,
+      ordinal,
+      at,
+    });
+    const runtime = upsertTurn(params.sessionId, record);
+    return { turn: record, runtime };
+  }
+
+  /**
+   * `x.ai/turn/transition` — 对某个回合施加一次状态迁移。
+   *
+   * 拒绝是**结构化返回**而不是抛错:调用方要能区分 `terminal` / `illegal-phase` /
+   * `time-travel` / `missing-synthetic-reason` 并做不同处置(重试 / 放弃 / 补齐原因)。
+   */
+  async transitionTurn(params: {
+    sessionId: string;
+    turnId: string;
+    transition: TurnTransition;
+  }): Promise<
+    | { ok: true; turn: TurnRecord; runtime: SessionRuntime }
+    | { ok: false; code: TurnRejectionCode; message: string }
+  > {
+    this.assertSessionOnDisk(params.sessionId);
+    const runtime = loadSessionRuntime(params.sessionId);
+    const current = runtime.turns.find((t) => t.id === params.turnId);
+    if (!current) {
+      return { ok: false, code: 'illegal-phase', message: `回合 ${params.turnId} 不存在` };
+    }
+    const result = applyTurnTransition(current, params.transition);
+    if (!result.ok) return result;
+    const nextRuntime = upsertTurn(params.sessionId, result.next);
+    return { ok: true, turn: result.next, runtime: nextRuntime };
+  }
+
+  /** `x.ai/turn/state` — 读一个会话的回合运行态(含活跃回合与可唤醒判定)。 */
+  async getTurnState(params: { sessionId: string; now?: number }): Promise<{
+    runtime: SessionRuntime;
+    wakeable: string[];
+    attention: { turnId: string; reason: string }[];
+  }> {
+    this.assertSessionOnDisk(params.sessionId);
+    const now = params.now ?? Date.now();
+    const runtime = loadSessionRuntime(params.sessionId);
+    return {
+      runtime,
+      wakeable: runtime.turns.filter((t) => isWakeable(t, now)).map((t) => t.id),
+      attention: runtime.turns
+        .map((t) => ({ turnId: t.id, ...needsAttention(t, now) }))
+        .filter((x) => x.needed)
+        .map((x) => ({ turnId: x.turnId, reason: x.reason ?? '' })),
+    };
+  }
+
+  /**
+   * `x.ai/turn/synthetic-finish` — 上游没给结束信号时,由本地把回合收成 completed。
+   *
+   * 与普通 complete 分开:它**必须**说明原因。否则调用方可以把"连接断了"伪装成
+   * "正常完成",而这正是要防的那类静默失败。
+   */
+  async syntheticFinishTurn(params: {
+    sessionId: string;
+    turnId: string;
+    detail: string;
+    now?: number;
+  }): Promise<
+    | { ok: true; turn: TurnRecord }
+    | { ok: false; code: TurnRejectionCode; message: string }
+  > {
+    const res = await this.transitionTurn({
+      sessionId: params.sessionId,
+      turnId: params.turnId,
+      transition: { type: 'synthetic-finish', at: params.now ?? Date.now(), detail: params.detail },
+    });
+    if (!res.ok) return { ok: false, code: res.code, message: res.message };
+    return { ok: true, turn: res.turn };
+  }
+
+  /** `x.ai/goal/create` — 为一个会话建立目标(一等实体,不是对话里的一句话)。 */
+  async createGoal(params: {
+    sessionId: string;
+    statement: string;
+    now?: number;
+  }): Promise<{ goal: GoalRecord; goals: GoalRecord[] }> {
+    this.assertSessionOnDisk(params.sessionId);
+    const at = params.now ?? Date.now();
+    const goal = createGoal({
+      id: `goal_${params.sessionId}_${at}_${Math.random().toString(36).slice(2, 8)}`,
+      sessionId: params.sessionId,
+      statement: params.statement,
+      at,
+    });
+    return { goal, goals: upsertGoal(goal) };
+  }
+
+  /** `x.ai/goal/list` — 列出会话的全部目标。 */
+  async listGoals(params: { sessionId: string }): Promise<{ goals: GoalRecord[] }> {
+    this.assertSessionOnDisk(params.sessionId);
+    return { goals: loadGoals(params.sessionId) };
+  }
+
+  /**
+   * `x.ai/goal/update` — 目标状态迁移(active → achieved / abandoned)。
+   * 终态不可再迁;同态迁移按 `no-op` 拒绝,不静默成功。
+   */
+  async updateGoal(params: {
+    sessionId: string;
+    goalId: string;
+    status: GoalStatus;
+    note?: string;
+    now?: number;
+  }): Promise<
+    | { ok: true; goal: GoalRecord; goals: GoalRecord[] }
+    | { ok: false; code: string; message: string }
+  > {
+    this.assertSessionOnDisk(params.sessionId);
+    const goals = loadGoals(params.sessionId);
+    const current = goals.find((g) => g.id === params.goalId);
+    if (!current) {
+      return { ok: false, code: 'not-found', message: `目标 ${params.goalId} 不存在` };
+    }
+    const res = applyGoalTransition(current, params.status, params.now ?? Date.now(), params.note);
+    if (!res.ok) return res;
+    return { ok: true, goal: res.next, goals: upsertGoal(res.next) };
+  }
+
+  /**
+   * 断言会话存在(只要求**磁盘上**存在,不要求已在内存装载)。
+   *
+   * 为什么不能复用 `requireSession`:那个查的是 `this.sessions`(内存 map),
+   * 只有走过 `session/new` 或 `session/load` 才会入 map。而回合运行态与目标态的
+   * 存储是独立文件(`~/.ihui/turns` / `~/.ihui/goals`),它们的合法性只依赖
+   * 「这个会话是否真实存在」—— 把内存装载状态当作前置条件,会让「重启后先查
+   * 挂起回合」这种最该支持的场景反而失败。
+   */
+  private assertSessionOnDisk(sessionId: string): void {
+    if (!loadSession(sessionId)) {
+      throw new Error(`Session ${sessionId} not found`);
+    }
+  }
+
   private requireSession(sessionId: string): AcpSessionState {
     const state = this.sessions.get(sessionId);
     if (!state) {
@@ -1694,6 +1874,75 @@ export function buildAcpAgentApp(opts: AcpServerOptions): acp.AgentApp {
       'x.ai/checkpoint/restore',
       castParams<{ sessionId: string; checkpointId: string }>(),
       (ctx) => rpcMethod((p: { sessionId: string; checkpointId: string }) => agent.restoreCheckpoint(p))(ctx.params),
+    )
+    // 回合运行态 / 目标态(长任务闭环;标准 ACP 无此方法,沿用 x.ai/* 私有命名空间)
+    .onRequest<{ sessionId: string; now?: number }, { turn: TurnRecord; runtime: SessionRuntime }>(
+      'x.ai/turn/create',
+      castParams<{ sessionId: string; now?: number }>(),
+      (ctx) => rpcMethod((p: { sessionId: string; now?: number }) => agent.createTurn(p))(ctx.params),
+    )
+    .onRequest<
+      { sessionId: string; turnId: string; transition: TurnTransition },
+      | { ok: true; turn: TurnRecord; runtime: SessionRuntime }
+      | { ok: false; code: TurnRejectionCode; message: string }
+    >(
+      'x.ai/turn/transition',
+      castParams<{ sessionId: string; turnId: string; transition: TurnTransition }>(),
+      (ctx) =>
+        rpcMethod((p: { sessionId: string; turnId: string; transition: TurnTransition }) =>
+          agent.transitionTurn(p),
+        )(ctx.params),
+    )
+    .onRequest<
+      { sessionId: string; now?: number },
+      {
+        runtime: SessionRuntime;
+        wakeable: string[];
+        attention: { turnId: string; reason: string }[];
+      }
+    >(
+      'x.ai/turn/state',
+      castParams<{ sessionId: string; now?: number }>(),
+      (ctx) => rpcMethod((p: { sessionId: string; now?: number }) => agent.getTurnState(p))(ctx.params),
+    )
+    .onRequest<
+      { sessionId: string; turnId: string; detail: string; now?: number },
+      { ok: true; turn: TurnRecord } | { ok: false; code: TurnRejectionCode; message: string }
+    >(
+      'x.ai/turn/synthetic-finish',
+      castParams<{ sessionId: string; turnId: string; detail: string; now?: number }>(),
+      (ctx) =>
+        rpcMethod((p: { sessionId: string; turnId: string; detail: string; now?: number }) =>
+          agent.syntheticFinishTurn(p),
+        )(ctx.params),
+    )
+    .onRequest<
+      { sessionId: string; statement: string; now?: number },
+      { goal: GoalRecord; goals: GoalRecord[] }
+    >(
+      'x.ai/goal/create',
+      castParams<{ sessionId: string; statement: string; now?: number }>(),
+      (ctx) =>
+        rpcMethod((p: { sessionId: string; statement: string; now?: number }) => agent.createGoal(p))(
+          ctx.params,
+        ),
+    )
+    .onRequest<{ sessionId: string }, { goals: GoalRecord[] }>(
+      'x.ai/goal/list',
+      castParams<{ sessionId: string }>(),
+      (ctx) => rpcMethod((p: { sessionId: string }) => agent.listGoals(p))(ctx.params),
+    )
+    .onRequest<
+      { sessionId: string; goalId: string; status: GoalStatus; note?: string; now?: number },
+      { ok: true; goal: GoalRecord; goals: GoalRecord[] } | { ok: false; code: string; message: string }
+    >(
+      'x.ai/goal/update',
+      castParams<{ sessionId: string; goalId: string; status: GoalStatus; note?: string; now?: number }>(),
+      (ctx) =>
+        rpcMethod(
+          (p: { sessionId: string; goalId: string; status: GoalStatus; note?: string; now?: number }) =>
+            agent.updateGoal(p),
+        )(ctx.params),
     )
     // P0-2 ACP 私有扩展方法(x.ai/* 命名空间,参考行业 Agent 框架实践)
     // 使用 SDK 三参数重载:onRequest<Params, Response>(method, paramsParser, handler)
