@@ -267,4 +267,88 @@ test('④c 接线:main 真的把首屏计数行过了一遍排序(判据不许�
     .replace(/^\s*\/\/.*$/gm, '')
   assert.doesNotMatch(mutated, /const rows = orderPlatformRows\(counted\)/)
 })
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 补测:针对 B 组 4 个漏网变异(B1/B2/B3/B5)。
+// import 依赖全部复用本文件顶部既有导入,无需新增任何 import,也无需新增 __test__ 导出:
+//   assert(node:assert/strict)、test(node:test)、fs、fileURLToPath、__test__ as oneclick
+// ④d/④e/④f 直接调用已导出的 PINNED_PLATFORM_ORDER / orderPlatformRows;
+// ④g 与既有 ④c 同构,读实现源码做静态判据(main 未导出,守卫只能这样钉)。
+// ─────────────────────────────────────────────────────────────────────────────
+
+test('④d 钦定顺序表必须冻结:去 Object.freeze 立刻转红(B1)', () => {
+  const { PINNED_PLATFORM_ORDER } = oneclick
+  // 既有 ④ 只核 [...PINNED_PLATFORM_ORDER] 的「内容」,从没核「运行时不许被改写」:
+  // 内容对但没冻住 ⇒ 任何一席都能 push 改掉机主钦定前五,④ 系列全抓不到(B1 漏网根因)。
+  assert.equal(
+    Object.isFrozen(PINNED_PLATFORM_ORDER),
+    true,
+    '机主钦定顺序是运行期不变量,必须 Object.freeze',
+  )
+  // 零副作用的可观测后果(不真去 push 污染共享表):不可扩展 + 元素不可写
+  assert.equal(Object.isExtensible(PINNED_PLATFORM_ORDER), false, '不许再挂新属性')
+  assert.equal(
+    Object.getOwnPropertyDescriptor(PINNED_PLATFORM_ORDER, '0').writable,
+    false,
+    '前五顺序的元素不许被下标改写',
+  )
+})
+
+test('④e 同 providerCode 的多行也不许裁行:排序前去重立刻转红(B2)', () => {
+  const { orderPlatformRows } = oneclick
+  // 既有 ④/④b 的入参 providerCode 全唯一,去重变异裁不掉任何一行 ⇒ 全绿漏网;
+  // 这里故意造重复码(且两行枚数不同),直接踩「不裁行」硬承诺。
+  const rows = [
+    { providerCode: 'trae', total: 5, enabled: 5 },
+    { providerCode: 'x-new', total: 1, enabled: 1 },
+    { providerCode: 'x-new', total: 2, enabled: 2 },
+    { providerCode: 'aaa-new', total: 3, enabled: 3 },
+  ]
+  const ordered = orderPlatformRows(rows)
+  assert.equal(ordered.length, rows.length, '同码多行原样保留,不许被 filter/findIndex 合并')
+  assert.equal(ordered.filter((r) => r.providerCode === 'x-new').length, 2, '两枚 x-new 一行都不能少')
+  assert.equal(rows[0].providerCode, 'trae', '入参不被就地改序')
+})
+
+test('④f providerCode 为 undefined/null 也不许炸:去 String() 强转立刻转红(B3)', () => {
+  const { orderPlatformRows } = oneclick
+  // 原实现 String(undefined)→"undefined"、String(null)→"null" 稳稳参与字母序;
+  // 去掉 String() 后 undefined/null 的 .localeCompare 当场抛 TypeError
+  // (实测报 Cannot read properties of null (reading 'localeCompare'))。
+  // 既有 9 测的 providerCode 全是非空字符串,从没喂过空值 ⇒ 漏网。
+  const rows = [
+    { providerCode: undefined, total: 1, enabled: 1 },
+    { providerCode: 'trae', total: 2, enabled: 2 },
+    { providerCode: null, total: 3, enabled: 3 },
+  ]
+  let ordered
+  assert.doesNotThrow(
+    () => { ordered = orderPlatformRows(rows) },
+    '空值码必须被强转成字符串参与排序,而不是在 localeCompare 上抛异常',
+  )
+  assert.equal(ordered.length, 3, '空值码也照常保留,不裁行')
+})
+
+test('④g 取数守卫:非数组/空 counts 必须在排序前挡住:去掉守卫立刻转红(B5)', () => {
+  const entry = fileURLToPath(new URL('../client-oneclick-switch.mjs', import.meta.url))
+  // 与 ④c 同构:先剥注释再认判据,防「判据被注释满足」
+  const code = fs
+    .readFileSync(entry, 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '')
+  // B5 变异把 !Array.isArray(counted) 这一支删成只剩 counted.length === 0;
+  // 失去它,counts.data.counts 为 undefined/对象时后面 [...rows] 展开当场崩。
+  assert.match(
+    code,
+    /if \(!Array\.isArray\(counted\) \|\| counted\.length === 0\) \{/,
+    '非数组入参必须在进 orderPlatformRows 之前被 Array.isArray 挡住',
+  )
+  // 光有文本还不够:守卫必须排在排序调用之前(先挡后排),否则等于没挡
+  const guardAt = code.indexOf('!Array.isArray(counted)')
+  const callAt = code.indexOf('orderPlatformRows(counted)')
+  assert.ok(
+    guardAt !== -1 && callAt !== -1 && guardAt < callAt,
+    '守卫顺序:Array.isArray 检查必须早于 orderPlatformRows(counted)',
+  )
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
