@@ -124,24 +124,50 @@ def has_prior_user_turns(
     return bool(user_message_positions(items, is_user_turn_boundary))
 
 
+def turn_start_positions(
+    items: Sequence[object],
+    turn_of: Callable[[object], str | None],
+) -> list[int]:
+    """规范 TurnStarted 边界位置(每个回合的**首项**)。
+
+    ``turn_of`` 返回该项声明的 turn_id(未声明返回 None)。只有 turn_id 与
+    上一条已声明项不同的首项才是规范边界:导出记录每条 item 都带 ``turn_id``
+    信封字段,若按"turn_id 非空"判定,同回合第二项会被误判成下一回合。
+    """
+    positions: list[int] = []
+    prev_turn_id: str | None = None
+    for idx, item in enumerate(items):
+        tid = turn_of(item)
+        if tid is None:
+            continue
+        if tid != prev_turn_id:
+            positions.append(idx)
+        prev_turn_id = tid
+    return positions
+
+
 def truncate_after_turn_id(
     items: Sequence[object],
     turn_id: str,
     turn_started_index: Callable[[object], str | None],
     turn_status: Callable[[str], str] | None = None,
 ) -> list[object]:
-    """截取到指定已持久化回合结束的后缀(含该回合)。
+    """截取到指定已持久化回合结束的前缀(含该回合)。
+
+    回合边界按 ``turn_start_positions`` 归一为「规范 TurnStarted(回合首项)」,
+    因此回调即使对同回合的每条 item 都返回 turn_id,也不会把后续 item
+    误当成下一个回合的起点。
 
     Args:
-        turn_started_index: 返回该项声明的 turn_id(TurnStarted 边界),否则 None
+        turn_started_index: 返回该项声明的 turn_id,否则 None
         turn_status: 可选,turn_id → 状态;状态为 "in_progress" 抛 ValueError
     Raises:
         ValueError: turn_id 不存在 / 非规范持久化边界 / 进行中
     """
+    positions = turn_start_positions(items, turn_started_index)
     start_idx: int | None = None
-    for idx, item in enumerate(items):
-        tid = turn_started_index(item)
-        if tid == turn_id:
+    for idx in positions:
+        if turn_started_index(items[idx]) == turn_id:
             start_idx = idx
             break
     if start_idx is None:
@@ -149,8 +175,8 @@ def truncate_after_turn_id(
     if turn_status is not None and turn_status(turn_id) == "in_progress":
         raise ValueError(f"turn id '{turn_id}' 标识一个进行中的回合")
     cut = len(items)
-    for idx in range(start_idx + 1, len(items)):
-        if turn_started_index(items[idx]) is not None:
+    for idx in positions:
+        if idx > start_idx:
             cut = idx
             break
     return list(items[:cut])
