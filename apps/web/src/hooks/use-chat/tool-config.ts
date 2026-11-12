@@ -515,6 +515,87 @@ export function eduToolsFor(content: string): string[] {
   return [...out]
 }
 
+/**
+ * 财务部(RP-46/RP-47)条件携带:与 eduToolsFor 同一范式(命中才带,普通问答仍返回 [] 保住
+ * "无工具 → 打字机逐 token"的流式效果,2026-08-29 先例)。词面与 ai-service 侧
+ * conversation._FINANCE_INTENT_PATTERNS + expert_route 财务包 terms 双保险同源。
+ * 平台动词(电子税务局/社保/医保/底账/回单)命中时把内置浏览器执行面(browser_*)一并带上
+ * —— ai_* 的 phase=automation 只产计划,执行腿就是这组 browser_* 工具(经 tool-delegate
+ * 落到用户已连接的浏览器/WorkPanel 端;缺这组 = 计划无人执行 = 造好没装车同型)。
+ */
+export const FINANCE_BOOKKEEPING_TOOLS = ['ai_bookkeeping'] as const
+export const FINANCE_TAX_TOOLS = ['ai_tax_filing'] as const
+export const FINANCE_DATA_TOOLS = ['parse_document', 'document_tables'] as const
+export const FINANCE_BROWSER_SURFACE_TOOLS = [
+  'browser_screenshot',
+  'browser_navigate',
+  'browser_click_element',
+  'browser_type_text',
+  'browser_extract_dom',
+  'browser_wait_for_element',
+  'browser_scroll',
+] as const
+
+export function financeToolsFor(content: string): string[] {
+  if (!content) return []
+  const text = content.toLowerCase()
+  const has = (...kws: string[]) => kws.some((kw) => text.includes(kw))
+  const out = new Set<string>()
+  if (
+    has('一键代账', '代账', '做账', '记账', '凭证', '结账', '试算平衡', '科目余额表', '账簿', '登账')
+  )
+    out.add('ai_bookkeeping')
+  if (
+    has(
+      '报税',
+      '纳税申报',
+      '申报纳税',
+      '申报表',
+      '计税',
+      '缴税',
+      '欠税',
+      '税费计算',
+      '电子税务局',
+      '税务局',
+      '个税申报',
+      '增值税申报',
+      '所得税申报',
+    )
+  )
+    out.add('ai_tax_filing')
+  // 社保/医保/公积金单位业务:报税与代账两侧都可能落(计划器按 targets 分流),都给
+  if (has('社保', '医保', '公积金', '增减员')) {
+    out.add('ai_tax_filing')
+    out.add('ai_bookkeeping')
+  }
+  if (out.size === 0) return []
+  // 平台取数/网报动词命中 ⇒ 内置浏览器执行面随计划进对话(RP-47 自动化腿)
+  if (
+    has(
+      '电子税务局',
+      '税务局',
+      '发票底账',
+      '底账',
+      '勾选认证',
+      '勾选',
+      '银行回单',
+      '银行流水',
+      '回单',
+      '网上申报',
+      '报税',
+      '社保',
+      '医保',
+      '增减员',
+      '自动化',
+    )
+  ) {
+    for (const t of FINANCE_BROWSER_SURFACE_TOOLS) out.add(t)
+  }
+  // 数据腿:平台导出物与上传票据要解析,凡进入财务意图即随带
+  for (const t of FINANCE_DATA_TOOLS) out.add(t)
+  return [...out]
+}
+
 /** 浏览器类工具:命中即自动在右侧 WorkPanel 打开 URL(2026-07-22 立,P2 联动) */
 export const BROWSER_TOOL_NAMES = new Set([
   'browser_navigate',

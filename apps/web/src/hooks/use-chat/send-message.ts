@@ -92,6 +92,7 @@ import { resolveRoundModel } from './model-switch'
 import {
   eduToolsFor,
   fileToolsFor,
+  financeToolsFor,
   mergeAgentTools,
   uiControlToolsFor,
   videoToolsFor,
@@ -1610,6 +1611,7 @@ export function createSendMessage(
               ...uiControlToolsFor(content),
               ...fileToolsFor(content),
               ...videoToolsFor(content),
+              ...financeToolsFor(content),
             ]),
           ]
           return agentTools.length > 0 ? { agentTools } : {}

@@ -14025,10 +14025,23 @@ _TOOLS: list[MCPTool] = [
             "properties": {
                 "phase": {
                     "type": "string",
-                    "enum": ["classify", "voucher", "trial_balance", "close", "report", "all"],
-                    "description": "执行阶段(默认 all 串联);单阶段调用逐次回传 state ⇒ 对话里逐步显示进度",
+                    "enum": ["classify", "voucher", "trial_balance", "close", "report", "automation", "all"],
+                    "description": "执行阶段(默认 all 串联);单阶段调用逐次回传 state ⇒ 对话里逐步显示进度;automation 产内置浏览器/客户端步骤计划",
                 },
                 "period": {"type": "string", "description": "会计期间,如 2026-11(新任务必填)"},
+                "targets": {
+                    "type": "string",
+                    "description": "automation 目标集 JSON 数组(etax_invoice_ledger/bank_statement/social_insurance/medical_insurance/etax_vat_declaration/etax_cit_quarterly/etax_iit_declaration;缺省用代账默认集)",
+                },
+                "portal": {
+                    "type": "string",
+                    "description": "各平台入口地址 JSON(etax_portal/bank_portal/social_portal/medical_portal/province 均可)",
+                },
+                "submit_mode": {
+                    "type": "string",
+                    "enum": ["manual_gate", "user_confirmed"],
+                    "description": "提交闸档位,缺省 manual_gate=停在提交前一步由人点击;user_confirmed 须复述获明示确认后执行;不存在 auto",
+                },
                 "transactions": {
                     "type": "string",
                     "description": (
@@ -14054,10 +14067,23 @@ _TOOLS: list[MCPTool] = [
             "properties": {
                 "phase": {
                     "type": "string",
-                    "enum": ["compute", "validate", "draft", "all"],
-                    "description": "执行阶段(默认 all 串联)",
+                    "enum": ["compute", "validate", "draft", "automation", "all"],
+                    "description": "执行阶段(默认 all 串联);automation 产电子税务局/社保医保平台步骤计划草案数字自动映射",
                 },
-                "period": {"type": "string", "description": "申报期间,如 2026-11(必填)"},
+                "period": {"type": "string", "description": "申报期间,如 2026-11(必填;新任务必带,续跑可由 state 提供)"},
+                "targets": {
+                    "type": "string",
+                    "description": "automation 目标集 JSON 数组(etax_vat_declaration/etax_cit_quarterly/etax_iit_declaration/social_insurance/medical_insurance/etax_invoice_ledger;缺省用报税默认集)",
+                },
+                "portal": {
+                    "type": "string",
+                    "description": "各平台入口 JSON(etax_portal/bank_portal/social_portal/medical_portal;province 简写自动展开电子税务局域名)",
+                },
+                "submit_mode": {
+                    "type": "string",
+                    "enum": ["manual_gate", "user_confirmed"],
+                    "description": "提交闸档位,缺省 manual_gate=停在提交前一步由人点击;user_confirmed 须明示确认;不存在 auto 静默申报",
+                },
                 "taxpayer_type": {
                     "type": "string",
                     "enum": ["general", "small"],
