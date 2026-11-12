@@ -102,6 +102,7 @@ vi.mock('../src/db/index.js', () => {
       'onConflict',
       'doNothing',
       'doUpdate',
+      'for', // F-12:重放/saga 步骤先对 orders 行 FOR UPDATE,查询链需支持 .for('update')
     ]) {
       c[m] = vi.fn(() => c)
     }
