@@ -13119,10 +13119,10 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 45H. **缺陷普查 SDB SDB-45** [P3] 签到同步把「对端根本没有该账号」当可重试失败，永久重推并误报升级告警（证据 docs/tickets/2026-11/findings-services-db.md#SDB-45）
 - [ ] 46H. **缺陷普查 SDB SDB-46** [P3] 共享标记/手机号补全：凭证取自读副本快照、版本号取自主库 RETURNING，向签到侧推「旧凭证 + 更高版本」（证据 docs/tickets/2026-11/findings-services-db.md#SDB-46）
 - [ ] 〔归:机主收款地址面｜等:—〕 RP-37 `USDT_TRC20_ADDRESS` 仍空:地址值是机主掌握的收款信息(七份 env 备份从未有非空值;同族 `USDT_ERC20_ADDRESS` 早有值),而 sponsor 页 `CryptoDonation.tsx:36` 已硬编码 `TMtTpPEMduWurHLi6Fe8XjfcP5Y5AMMnbG` 并上线(枚 ff5ea30d1c87ee76499b9cd3848145c5f030309a)⇒ 同一信息已交付两处、env 一处为空。校验面已收口:TRON 正则 + `assertUsdtAddressFormat` 两调用点共用,新增 14 例绿(含 ERC20 不误拒/400/500 两失败路径/脏地址不落库);fail-closed 37 例绿。余两格归配置面:① env 填哪个地址(现成 sponsor 值或专用充值地址);② 两套 ERC20 地址(现读 sponsor 值与 env 值前缀不同)收敛为 env 权威。〔结清@2026-10-24/主会话-强制令:校验与失败路径已绿,余为地址值配置格〕
-- [ ] RP-76 **OPPO 传包 API 凭据补取** [P1] （进行中@2026-11-09/主会话）取 Edith 传包 API 凭据 client_id(18 位) / client_secret(64 位),落网盘凭据件、更新机读台账 oppo 块、跑 --self-test 与 token 实测。现状:前次会话 OPPO 登录态掉线,须机主在浏览器手动登录一次,自动登录不可代做;详情页只有 appid + appKey,不等于传包 API 凭据。
-- [ ] RP-77 **小米自动发布接口凭据补取** [P1] （进行中@2026-11-09/主会话）到「自动发布接口」页取开发者邮箱 + 接口私钥,落网盘凭据件并更新机读台账 xiaomi 块。现状:dev.mi.com 自动登录撞风控 :10025,须机主手动登录一次。
-- [ ] RP-78 **versionName 倒退裁决** [P1] （进行中@2026-11-09/主会话）待提交包 0.0.20 / 26110801,应用宝与 OPPO 线上均为 1.0.2 / 102,versionCode 在涨但商店页面看起来像版本倒退;裁决「统一改 1.0.x 后重出包」或「照发」后据此改包体元数据,华为实跑以裁决为前提。
-- [ ] RP-81 **storeconsign 分支合入前脱敏** [P1] （进行中@2026-11-09/主会话）分支 origin/wt/sync-storeconsign-1109 合入 main 前必须脱敏:两份 docs 共 5 处写了真实 APPID/UserID,与该文档自身第 7 节保密规矩冲突;并把第 7 节写死的已失效 D: 网盘路径改为 key-dir 解析引用。落前须复核九项敏感编号 git grep 零命中。
+- [ ] RP-76 **OPPO 传包 API 凭据补取** [P1] （认领已释放@2026-11-12/stale-claim-strip#mwctl586-0）取 Edith 传包 API 凭据 client_id(18 位) / client_secret(64 位),落网盘凭据件、更新机读台账 oppo 块、跑 --self-test 与 token 实测。现状:前次会话 OPPO 登录态掉线,须机主在浏览器手动登录一次,自动登录不可代做;详情页只有 appid + appKey,不等于传包 API 凭据。
+- [ ] RP-77 **小米自动发布接口凭据补取** [P1] （认领已释放@2026-11-12/stale-claim-strip#mwctl586-1）到「自动发布接口」页取开发者邮箱 + 接口私钥,落网盘凭据件并更新机读台账 xiaomi 块。现状:dev.mi.com 自动登录撞风控 :10025,须机主手动登录一次。
+- [ ] RP-78 **versionName 倒退裁决** [P1] （认领已释放@2026-11-12/stale-claim-strip#mwctl586-2）待提交包 0.0.20 / 26110801,应用宝与 OPPO 线上均为 1.0.2 / 102,versionCode 在涨但商店页面看起来像版本倒退;裁决「统一改 1.0.x 后重出包」或「照发」后据此改包体元数据,华为实跑以裁决为前提。
+- [ ] RP-81 **storeconsign 分支合入前脱敏** [P1] （认领已释放@2026-11-12/stale-claim-strip#mwctl586-3）分支 origin/wt/sync-storeconsign-1109 合入 main 前必须脱敏:两份 docs 共 5 处写了真实 APPID/UserID,与该文档自身第 7 节保密规矩冲突;并把第 7 节写死的已失效 D: 网盘路径改为 key-dir 解析引用。落前须复核九项敏感编号 git grep 零命中。
 <!-- 〔RP-79 裁并锚 @2026-11-03:同号双行 2→1(保留剩余面行,原 git-sync 守卫行全文并入);本行原为 Z-1 重复登记,已被 HEAD 85f1c08855 删除,此处仅作 plan-union-merge 冲突锚,无任务语义〕 -->
 - [x] RP-61 〔千段租约〕 本机=lichunchuan-4d8db25b 段=RP-52~RP-61(取号器专用行:占用面只取本行主键=段尾号 ⇒ 无租约感知的 max+1 落在段外;段内连号自段首起、由持有机取号器递增;段满由取号器另立下一段,占段撞号由 CAS 终止,不是让号自我循环)
   - 已完成 Router 引擎:`packages/shared/src/super-agent/engine.ts` 触发接收/去重/工单状态机/订阅分派/策略裁决,`roles.ts` 派工计划,`packages/shared/src/super-agent/*.test.ts` 单测。
