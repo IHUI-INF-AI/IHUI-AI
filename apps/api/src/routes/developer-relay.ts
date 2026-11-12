@@ -190,6 +190,11 @@ const developerRelayRoutes: FastifyPluginAsync = async (server) => {
   server.post('/developer/relay/keys', async (request, reply) => {
     const userId = request.userId
     if (!userId) return reply.status(401).send(error(401, '未登录'))
+    // F-391:创建 API Key 会下发明文 secret,与轮换同级敏感操作,已开 2FA 的账号须先完成 step-up
+    const stepUp = await requireStepUpForTwoFactorUser({ userId, redis: request.server.redis })
+    if (!stepUp.ok) {
+      return reply.status(401).send(error(401, stepUp.code === 'STEP_UP_REQUIRED' ? '该操作需要二次验证：请先调用 POST /auth/2fa/step-up 提交当前 TOTP 验证码（5 分钟内有效）' : '暂时无法确认该账号的两步验证状态，请稍后重试', stepUp.code))
+    }
     const parsed = createKeyBodySchema.safeParse(request.body)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -504,6 +509,11 @@ const developerRelayRoutes: FastifyPluginAsync = async (server) => {
   server.post('/developer/relay/keys/:id/recharge', async (request, reply) => {
     const userId = request.userId
     if (!userId) return reply.status(401).send(error(401, '未登录'))
+    // F-391:充值是钱包转账类资金操作,已开 2FA 的账号须先完成 step-up(与创建/轮换同一闸)
+    const stepUp = await requireStepUpForTwoFactorUser({ userId, redis: request.server.redis })
+    if (!stepUp.ok) {
+      return reply.status(401).send(error(401, stepUp.code === 'STEP_UP_REQUIRED' ? '该操作需要二次验证：请先调用 POST /auth/2fa/step-up 提交当前 TOTP 验证码（5 分钟内有效）' : '暂时无法确认该账号的两步验证状态，请稍后重试', stepUp.code))
+    }
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
     const parsed = rechargeBodySchema.safeParse(request.body ?? {})

@@ -416,7 +416,7 @@ export const distributionRoutes: FastifyPluginAsync = async (server) => {
     const body = z
       .object({
         amount: z.number().positive('提现金额必须大于 0'),
-        method: z.string().max(32).optional(),
+        method: z.string().max(16).optional(),
       })
       .safeParse(request.body)
     if (!body.success) {

@@ -20,7 +20,7 @@ from typing import Any
 import httpx
 
 from ..core.llm_gateway import get_http_client
-from .base_provider import ProviderError
+from .base_provider import ProviderError, first_choice_or_raise
 from .openai_provider import OpenAIProvider
 
 _DASHSCOPE_API_BASE = "https://dashscope.aliyuncs.com"
@@ -49,7 +49,8 @@ class AlibabaDashscopeProvider(OpenAIProvider):
         data = await self._request(
             "POST", f"{self.base_url}/chat/completions", headers=self._headers(), json=payload
         )
-        choice = data.get("choices", [{}])[0]
+        # AIS-065:choices 空/缺键时抛 ProviderError 进 fallback,不再 IndexError/静默空回复
+        choice = first_choice_or_raise(data, "DashScope")
         msg = choice.get("message", {})
         result: dict[str, Any] = {
             "content": msg.get("content", ""),
@@ -153,8 +154,17 @@ class AlibabaDashscopeProvider(OpenAIProvider):
                 f"通义万相提交任务缺少 task_id: {str(submit)[:200]}", 502
             )
         # 轮询任务至 SUCCEEDED/FAILED(指数间隔封顶 10s)
+        # AIS-071:加总 deadline(视频 p90 55-75 分钟,取 120 分钟兜底),此前 while True
+        # 无上限,上游任务长期 PENDING/丢单时协程与并发槽永久占用。
+        import time as _time
+
+        _poll_deadline = _time.monotonic() + 7200
         interval = 5.0
         while True:
+            if _time.monotonic() > _poll_deadline:
+                raise ProviderError(
+                    f"通义万相任务 {task_id} 轮询超总时限(120 分钟),放弃", 504
+                )
             await asyncio.sleep(interval)
             interval = min(interval * 1.5, 10.0)
             data = await self._request(

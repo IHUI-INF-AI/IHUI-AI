@@ -207,6 +207,42 @@ export async function streamOpenAiCompatible(
     const decoder = new TextDecoder();
     let buffer = '';
     let streamEnded = false;
+    // F-128:单行解析/聚合抽成局部函数 —— 循环内(按 \n 切出的行)与流结束后的
+    // "无换行尾行"共用同一份逻辑,避免两条路径漂移。返回 true = 收到 [DONE]。
+    const dispatchLine = (line: string): boolean => {
+      const parsed = parseSseLine(line);
+      if (parsed === '[DONE]') return true;
+      if (parsed === undefined || typeof parsed !== 'object') return false;
+      const chunk = parsed as {
+        choices?: Array<{
+          delta?: {
+            content?: string;
+            tool_calls?: Array<{
+              index?: number;
+              id?: string;
+              function?: { name?: string; arguments?: string };
+            }>;
+          };
+          finish_reason?: string | null;
+        }>;
+      };
+      const choice = chunk.choices?.[0];
+      if (!choice) return false;
+      if (typeof choice.delta?.content === 'string' && choice.delta.content) {
+        text += choice.delta.content;
+        opts.onDelta?.(choice.delta.content);
+      }
+      for (const tc of choice.delta?.tool_calls ?? []) {
+        const idx = tc.index ?? 0;
+        const cur = toolAcc.get(idx) ?? { id: '', name: '', args: '' };
+        if (tc.id) cur.id = tc.id;
+        if (tc.function?.name) cur.name += tc.function.name;
+        if (tc.function?.arguments) cur.args += tc.function.arguments;
+        toolAcc.set(idx, cur);
+      }
+      if (choice.finish_reason) acc.finishReason = choice.finish_reason;
+      return false;
+    };
     // G-693:空闲判据与总超时分离 —— 每次 read 各起一个期限(收到任何字节即重置),
     // 总超时仍由上面的 controller.timer 管。0 = 关闭(逐字回退到改动前的"只等 read")。
     const idleMs = resolveStreamIdleMs(opts.idleTimeoutMs);
@@ -224,39 +260,14 @@ export async function streamOpenAiCompatible(
       while ((nl = buffer.indexOf('\n')) >= 0) {
         const line = buffer.slice(0, nl);
         buffer = buffer.slice(nl + 1);
-        const parsed = parseSseLine(line);
-        if (parsed === '[DONE]') { streamEnded = true; break; }
-        if (parsed === undefined || typeof parsed !== 'object') continue;
-        const chunk = parsed as {
-          choices?: Array<{
-            delta?: {
-              content?: string;
-              tool_calls?: Array<{
-                index?: number;
-                id?: string;
-                function?: { name?: string; arguments?: string };
-              }>;
-            };
-            finish_reason?: string | null;
-          }>;
-        };
-        const choice = chunk.choices?.[0];
-        if (!choice) continue;
-        if (typeof choice.delta?.content === 'string' && choice.delta.content) {
-          text += choice.delta.content;
-          opts.onDelta?.(choice.delta.content);
-        }
-        for (const tc of choice.delta?.tool_calls ?? []) {
-          const idx = tc.index ?? 0;
-          const cur = toolAcc.get(idx) ?? { id: '', name: '', args: '' };
-          if (tc.id) cur.id = tc.id;
-          if (tc.function?.name) cur.name += tc.function.name;
-          if (tc.function?.arguments) cur.args += tc.function.arguments;
-          toolAcc.set(idx, cur);
-        }
-        if (choice.finish_reason) acc.finishReason = choice.finish_reason;
+        if (dispatchLine(line)) { streamEnded = true; break; }
       }
     }
+    // F-128:最终 flush —— TextDecoder 的 stream:true 会把跨 chunk 断开的多字节 UTF-8
+    // 残字节留在内部,不补一次 decode() 就会丢尾字符;buffer 余量(上游省略末尾 \n 时的
+    // 最后一条 data 行,常含 finish_reason / tool_calls.arguments 尾段)按最后一行派发。
+    buffer += decoder.decode();
+    if (!streamEnded && buffer.trim()) dispatchLine(buffer);
 
     const toolCalls: OpenAiStreamResult['toolCalls'] = [];
     for (const [, cur] of [...toolAcc.entries()].sort((a, b) => a[0] - b[0])) {

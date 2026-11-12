@@ -729,6 +729,12 @@ export interface RunToolLoopOptions {
   /** 关联会话 ID(用于 hook 埋点传递) */
   sessionId?: string;
   onDelta?: (delta: string) => void | Promise<void>;
+  /**
+   * F-127:本段已 emit 的增量作废信号。采样被判可重试、重新发起之前触发一次,
+   * 渲染层据此回滚上一段未完成的文本(重发从零生成,不回滚会叠成"旧前缀 + 新全文")。
+   * 可选:未传时零开销,既有调用方行为不变。
+   */
+  onDeltaReset?: () => void | Promise<void>;
   onToolCall?: (name: string, args: Record<string, unknown>) => void | Promise<void>;
   /**
    * G-109:第三个入参是**已有**的有界 display 投影(未触发裁剪时为 undefined)。
@@ -1360,8 +1366,25 @@ const MODEL_PRICING: Record<string, { input: number; output: number }> = {
   'claude-3-haiku': { input: 0.25e-6, output: 1.25e-6 },
 };
 
-function estimateIterationCost(modelId: string, promptTokens: number, completionTokens: number): number {
-  const pricing = MODEL_PRICING[modelId] ?? MODEL_PRICING['gpt-4o-mini']!;
+/** 按长度降序,保证 `gpt-4o-mini` 先于 `gpt-4o` 参与前缀匹配。 */
+const MODEL_PRICING_KEYS = Object.keys(MODEL_PRICING).sort((a, b) => b.length - a.length);
+
+/**
+ * F-135:未登记的模型不再回退到 `gpt-4o-mini` 的付费单价 —— 精确命中优先,
+ * 带日期后缀/别名的 id 按最长前缀继承同族单价,其余返回 null(由调用方按零价处理)。
+ */
+export function resolveModelPricing(modelId: string): { input: number; output: number } | null {
+  const exact = MODEL_PRICING[modelId];
+  if (exact) return exact;
+  const prefix = MODEL_PRICING_KEYS.find(
+    (key) => modelId.startsWith(`${key}-`) || modelId.startsWith(`${key}/`),
+  );
+  return prefix ? MODEL_PRICING[prefix] ?? null : null;
+}
+
+export function estimateIterationCost(modelId: string, promptTokens: number, completionTokens: number): number {
+  const pricing = resolveModelPricing(modelId);
+  if (!pricing) return 0;
   return promptTokens * pricing.input + completionTokens * pricing.output;
 }
 
@@ -1380,6 +1403,11 @@ interface SampleWithRetryOptions {
   messages: Array<{ role: 'user' | 'assistant' | 'system' | 'tool'; content: string }>;
   signal?: AbortSignal;
   onDelta: (delta: string) => void;
+  /**
+   * F-127:重试前通知渲染层"本段作废"。判定可重试并排定退避时触发一次,
+   * 保证最终呈现只剩最后一次 attempt 的文本。未传时零开销。
+   */
+  onDeltaReset?: () => void;
   sampler?: SamplerSettings;
   /**
    * G-686 准入闸门三件套(未启用时三个都是 undefined ⇒ 本函数路径与改动前逐字同行为)。
@@ -1609,6 +1637,9 @@ async function sampleWithRetry(
     // 指数退避:1s, 2s, 4s...(ratelimit 至少 5s)
     const base = formatted.severity === 'ratelimit' ? 5000 : 1000;
     const delayMs = base * Math.pow(2, attempt);
+    // F-127:本次尝试已 emit 的 delta 作废(退避前通知)。下一次尝试从零重新生成,
+    // 不回滚则渲染层与调用方累积缓冲都会拼成"旧前缀 + 新全文"。
+    opts.onDeltaReset?.();
     onRetry?.(attempt + 1, errMsg, formatted.severity, delayMs);
     // **退避期不持槽**:在排定 sleep 之前结算 —— 否则一次 ratelimit 退避(5s/10s/20s)会把
     // 一个名额白占着,别的 run 明明有空位却进不来,闸门会被退避时钟放大成串行器。
@@ -2189,6 +2220,12 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
               iterationText += delta;
               inFlightStreamText = iterationText; // G-634 取消结算观测口实时同步
               void opts.onDelta?.(delta);
+            },
+            // F-127:重试前回滚本段 —— 本地累积缓冲与渲染层同步作废,最终只剩最后一次 attempt 的文本
+            onDeltaReset: () => {
+              iterationText = '';
+              inFlightStreamText = '';
+              void opts.onDeltaReset?.();
             },
             // 推理过程增量透传:未传 onReasoning 时零开销(opts.onReasoning 为 undefined 则不开 onReasoning)
             ...(opts.onReasoning

@@ -2642,6 +2642,15 @@ class LLMGateway:
                         native_result = await provider.complete(
                             trimmed_messages, used_model, tools=tools, **provider_kwargs
                         )
+                    # AIS-067:先判业务错误再记账。部分 provider(Gemini 安全拦截等)
+                    # 以 {"error": True, ...} 表示失败,旧实现无条件 status='ok' + 记成本,
+                    # 拦截被计为成功且无 fallback;这里转为 ProviderError 走 LiteLLM fallback。
+                    if native_result.get("error"):
+                        raise ProviderError(
+                            f"厂商适配器业务错误(model={used_model}): "
+                            f"{str(native_result.get('message') or native_result.get('error'))[:300]}",
+                            502,
+                        )
                     # 观测收口(2026-10-18):原生适配器路径此前直接 return、零埋点——
                     # 调用次数/token/延迟/成本全不入 ihui_llm_*,与 LiteLLM 路径双标。
                     # 成本用 _estimate_cost_usd 第二档估算(与 LiteLLM 路径同口径),
@@ -2973,25 +2982,49 @@ class LLMGateway:
             )
             # P0-5c:号池故障转移 — 标记失败 + 递归重试(最多 3 次,换 key 再试)
             # 重试优先于 FallbackRouter/ComboRouter(同模型换 key < 换模型兜底)
+            # AIS-070:加错误类型过滤与退避。旧实现对任意异常(400 参数/401 鉴权/
+            # 上下文超限/超时)都烧满 3 个 key 并把好 key 标 failed;429 连打还会
+            # 放大封禁。现在只对"换 key 有意义"的错误(429/5xx/超时/网络/无状态码)
+            # 重试,并按服务端 Retry-After hint(ProviderError.retry_after_s)退避,
+            # 无 hint 用 0.5s 起步的指数退避(封顶 30s)。
+            _pool_err_retryable = (
+                _http_status is None
+                or _http_status >= 500
+                or _http_status == 429
+                or _err_status in ("timeout", "connection")
+            )
             if current_key_pool_id is not None and _pool_retry < 3:
-                await KeyPoolSelector.mark_key_failed(current_key_pool_id, str(e))
-                logger.info(
-                    "[key_pool] key %s 失败(retry %d/3),换 key 重试: %s",
-                    current_key_pool_id, _pool_retry + 1, str(e)[:200],
-                )
-                return await self.complete(
-                    messages,
-                    model=model,
-                    owner_uuid=owner_uuid,
-                    billing_user_id=billing_user_id,
-                    conversation_id=conversation_id,
-                    _call_route=_call_route,
-                    _call_route_primary=_call_route_primary,
-                    _combo_name=_combo_name,
-                    _skip_fallback=_skip_fallback,
-                    _pool_retry=_pool_retry + 1,
-                    **kwargs,
-                )
+                if not _pool_err_retryable:
+                    logger.info(
+                        "[key_pool] key %s 错误类型(http=%s, kind=%s)换 key 无意义,不再重试",
+                        current_key_pool_id, _http_status, _err_status,
+                    )
+                else:
+                    await KeyPoolSelector.mark_key_failed(current_key_pool_id, str(e))
+                    _retry_hint_s = getattr(e, "retry_after_s", None)
+                    _backoff = (
+                        max(0.5, min(float(_retry_hint_s), 30.0))
+                        if _retry_hint_s
+                        else min(0.5 * (2 ** _pool_retry), 30.0)
+                    )
+                    logger.info(
+                        "[key_pool] key %s 失败(retry %d/3),退避 %.1fs 后换 key 重试: %s",
+                        current_key_pool_id, _pool_retry + 1, _backoff, str(e)[:200],
+                    )
+                    await asyncio.sleep(_backoff)
+                    return await self.complete(
+                        messages,
+                        model=model,
+                        owner_uuid=owner_uuid,
+                        billing_user_id=billing_user_id,
+                        conversation_id=conversation_id,
+                        _call_route=_call_route,
+                        _call_route_primary=_call_route_primary,
+                        _combo_name=_combo_name,
+                        _skip_fallback=_skip_fallback,
+                        _pool_retry=_pool_retry + 1,
+                        **kwargs,
+                    )
             # P3-3 OpenRouter 403 failover(2026-07-30):openrouter/<model> 返回 403 时,
             # 自动 failover 到 agnes/<model>(同模型换 provider,优先于 FallbackRouter 换模型)
             # _is_openrouter_403_error 天然防递归:agnes/ 前缀不匹配 openrouter/ 判断
@@ -3858,6 +3891,17 @@ class LLMGateway:
                     yield {
                         "type": "tool_calls",
                         "tool_calls": [native_tool_acc[k] for k in sorted(native_tool_acc)],
+                    }
+                if not _native_saw_done:
+                    # AIS-003:多数原生 provider(openrouter/anthropic 等)不保证发 done——
+                    # 上游未返回 usage chunk / 少发终止帧时生成器正常耗尽,旧实现直接
+                    # return,llm.py 永远等不到终帧。这里统一合成 done(usage 取估算),
+                    # 客户端才能区分"正常结束"与"被截断",收尾记账/中断判定不失效。
+                    yield {
+                        "type": "done",
+                        "model": used_model,
+                        "usage": _native_final_usage or {},
+                        "stub": False,
                     }
                 return
 

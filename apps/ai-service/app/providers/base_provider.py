@@ -16,6 +16,20 @@ from ..core.llm_gateway import get_http_client
 from ..core.retry_after import extract_server_retry_hint
 
 
+def first_choice_or_raise(data: dict[str, Any], provider_label: str) -> dict[str, Any]:
+    """AIS-065:HTTP 200 但 choices 缺键/空数组时抛 ProviderError(进 fallback 链)。
+
+    旧写法 ``data.get("choices", [{}])[0]`` 在 choices 为空数组时抛 IndexError
+    (原生分支只 catch ProviderError,直穿 500),choices 缺键时静默返回成功空回复。
+    """
+    choices = data.get("choices")
+    if not choices:
+        raise ProviderError(
+            f"{provider_label} 响应缺少 choices(空回复): {str(data)[:200]}", 502
+        )
+    return choices[0]
+
+
 class ProviderError(Exception):
     """适配器调用异常。
 

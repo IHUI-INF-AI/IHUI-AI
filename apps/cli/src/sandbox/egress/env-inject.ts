@@ -25,6 +25,7 @@ import {
   toAuditRow,
   type EgressAuditRow,
   type LedgerOutcome,
+  type LedgerReader,
   type RowAppender,
 } from './audit-ledger.js';
 import {
@@ -82,6 +83,8 @@ export interface EgressEnvExitInput {
   readonly now?: () => Date;
   /** 测试替身:避免用例碰真实文件系统。 */
   readonly append?: RowAppender;
+  /** 测试替身:链校验读盘(不传 ⇒ 读真实台账落点)。 */
+  readonly read?: LedgerReader;
 }
 
 function aggregateOf(verdicts: readonly EgressJudgement[]): EgressAggregate {
@@ -153,7 +156,8 @@ export function buildEgressEnvExit(input: EgressEnvExitInput): EgressEnvExit {
   const blocking = verdicts.filter(
     (v) =>
       v.enforcement === 'enforce' &&
-      (v.decision === 'deny' || (policy.addressProof === true && v.decision === 'unjudged')),
+      (v.decision === 'deny' ||
+        (v.decision === 'unjudged' && (policy.addressProof === true || v.reason === 'target-missing'))),
   );
   const blockReason =
     blocking.length > 0 ? `egress_denied: ${blocking.map((v) => v.target).join(',')}` : null;
@@ -194,12 +198,18 @@ export function buildEgressEnvExit(input: EgressEnvExitInput): EgressEnvExit {
     startDir: input.cwd,
     env,
     append: input.append,
+    read: input.read,
   });
   childEnv[IHUI_EGRESS_LEDGER_STATE_KEY] = ledger.state;
   if (ledger.state === 'unjudged') {
     childEnv[IHUI_EGRESS_LEDGER_REASON_KEY] = ledger.reason.split(' ')[0] ?? 'unjudged';
     warnings.push(`egress ledger unjudged: ${ledger.reason}`);
   }
+  // F-078:审计与放行不脱耦 —— enforce 档下台账写不成 / 链断,同样不许拉起子进程。
+  // advisory 档(默认)仍只出声不拦,与其它裁决的档位语义同源。
+  const ledgerBlocks = ledger.state === 'unjudged' && policy.enforcement === 'enforce';
+  const finalBlockReason =
+    blockReason ?? (ledgerBlocks ? `egress_ledger_unjudged: ${ledger.reason.split(' ')[0] ?? 'unjudged'}` : null);
 
   for (const v of verdicts) {
     if (v.decision === 'unjudged') {
@@ -216,8 +226,8 @@ export function buildEgressEnvExit(input: EgressEnvExitInput): EgressEnvExit {
     policy,
     verdicts,
     aggregate,
-    blocked: blocking.length > 0,
-    blockReason,
+    blocked: blocking.length > 0 || ledgerBlocks,
+    blockReason: finalBlockReason,
     env: childEnv,
     warnings,
     rows,

@@ -40,7 +40,9 @@ export type TokenIssueKind =
   | 'unterminated-quote'
   | 'dollar-quote'
   | 'unterminated-substitution'
-  | 'empty-command';
+  | 'empty-command'
+  /** F-079:Windows cmd 的 `%VAR%` 展开 —— 不猜展开值,记 issue 让上层 fail closed */
+  | 'cmd-variable';
 
 export interface TokenIssue {
   kind: TokenIssueKind;
@@ -86,11 +88,39 @@ function isVariableStart(input: string, at: number): boolean {
   return !!c && (/[A-Za-z_]/.test(c) || c === '{' || c === '(' || c === '$' || c === '@' || c === '*' || c === '?');
 }
 
+/** 目标 shell 方言:posix(sh/bash)或 cmd(Windows cmd.exe)。 */
+export type ShellDialect = 'posix' | 'cmd';
+
+export interface TokenizeOptions {
+  /** 显式方言;缺省按 platform 推断 */
+  dialect?: ShellDialect;
+  /** 便捷入口:win32 ⇒ cmd,其余 ⇒ posix。未传 platform/dialect 时按 posix 处理(既有调用方行为不变) */
+  platform?: NodeJS.Platform;
+}
+
+/**
+ * cmd 的 `%VAR%` 形态匹配:从 `%` 起找闭合 `%`,中间须是变量名(不含空白/路径分隔符)。
+ * 返回闭合 `%` 之后的位置;不是变量形态(如 `100%`、`%%`)返回 -1。
+ */
+function matchCmdVariable(input: string, at: number): number {
+  const close = input.indexOf('%', at + 1);
+  if (close < 0) return -1;
+  const name = input.slice(at + 1, close);
+  if (!/^[A-Za-z0-9_~#?*$@+[\].-]{1,64}$/.test(name)) return -1;
+  return close + 1;
+}
+
 /**
  * 主分词入口。
  * 分段符:`&&` `||` `|` `|&` `;` `&` 换行 —— 段与段之间的关系不猜,只逐段求值后聚合。
+ *
+ * F-079:dialect='cmd' 时按 cmd.exe 语义处理 —— `\` 是路径分隔符(不是转义),
+ * `^` 是转义符(`r^m` ⇒ `rm`),`%VAR%` 是变量展开(展开值不猜,记 issue 让上层
+ * 按既有策略 fail closed)。POSIX 构造仍照旧识别:它们是保守侧的误报,不会放行。
  */
-export function tokenizeCommand(input: string): TokenizeResult {
+export function tokenizeCommand(input: string, options: TokenizeOptions = {}): TokenizeResult {
+  const dialect: ShellDialect = options.dialect ?? (options.platform === 'win32' ? 'cmd' : 'posix');
+  const isCmd = dialect === 'cmd';
   const issues: TokenIssue[] = [];
   const substitutions: string[] = [];
   const segments: TokenizedSegment[] = [];
@@ -162,7 +192,45 @@ export function tokenizeCommand(input: string): TokenizeResult {
       if (quote === '"' && (c === '$' || c === '`')) {
         tokenExpanded = true;
       }
+      // F-079:cmd 的 `%VAR%` 在引号内照样展开 —— 展开值不猜,只标记不可静态确定
+      if (isCmd && c === '%') {
+        const end = matchCmdVariable(input, i);
+        if (end > 0) {
+          addIssue('cmd-variable', input.slice(i, end));
+          token += input.slice(i, end);
+          tokenExpanded = true;
+          i = end - 1;
+          continue;
+        }
+      }
       token += c;
+      continue;
+    }
+
+    // F-079:cmd 变量展开与转义在引号外同样生效
+    if (isCmd && c === '%') {
+      const end = matchCmdVariable(input, i);
+      if (end > 0) {
+        tokenStarted = true;
+        addIssue('cmd-variable', input.slice(i, end));
+        token += input.slice(i, end);
+        tokenExpanded = true;
+        i = end - 1;
+        continue;
+      }
+    }
+    if (isCmd && c === '^') {
+      // cmd 转义:`^` 吃掉自身,下一字符按字面量计入当前 token(`r^m` ⇒ `rm`)
+      tokenStarted = true;
+      const next = input[i + 1];
+      if (next !== undefined && next !== '\n' && next !== '\r') {
+        token += next;
+        i += 1;
+      } else if (next !== undefined) {
+        i += 1; // 行尾 `^` 是续行符:不产生参数边界
+      } else {
+        token += c; // 孤立行尾 `^`:按字面量保留
+      }
       continue;
     }
 
@@ -182,6 +250,11 @@ export function tokenizeCommand(input: string): TokenizeResult {
 
       case '\\': {
         tokenStarted = true;
+        // F-079:cmd 里 `\` 是路径分隔符,不是转义符(否则 `C:\Users\x` 会被吃掉盘符后的字符)
+        if (isCmd) {
+          token += c;
+          break;
+        }
         const next = input[i + 1];
         if (next === '\n') {
           i += 1; // 行连接符:不产生参数边界
@@ -263,7 +336,7 @@ export function tokenizeCommand(input: string): TokenizeResult {
         if (c === '(' && end > 0) {
           // 括号内内容单独成段求值(危险面仍要看见)
           const inner = input.slice(i + 1, end - 1);
-          const nested = tokenizeCommand(inner);
+          const nested = tokenizeCommand(inner, { dialect });
           segments.push(...nested.segments);
           issues.push(...nested.issues.filter((x) => x.kind !== 'subshell'));
           substitutions.push(...nested.substitutions);

@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import type { FastifyPluginAsync } from 'fastify'
-import { eq, and, asc } from 'drizzle-orm'
+import { eq, and, asc, isNull, lte, gte, or } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { success } from '../utils/response.js'
 import { withPublicEdgeCache } from '../utils/public-edge-cache.js'
@@ -28,9 +28,15 @@ export const carouselPublicRoutes: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       const raw = (request.query as { position?: unknown }).position
       const position = typeof raw === 'string' && raw.length > 0 ? raw : undefined
+      // F-480:投放窗口过滤 —— 未到 startAt / 已过 endAt 的素材不得下发;两侧为空表示不限
+      const now = new Date()
+      const windowFilter = and(
+        or(isNull(carousels.startAt), lte(carousels.startAt, now)),
+        or(isNull(carousels.endAt), gte(carousels.endAt, now)),
+      )
       const where = position
-        ? and(eq(carousels.status, 1), eq(carousels.position, position))
-        : eq(carousels.status, 1)
+        ? and(eq(carousels.status, 1), eq(carousels.position, position), windowFilter)
+        : and(eq(carousels.status, 1), windowFilter)
       const list = await db
         .select({
           id: carousels.id,

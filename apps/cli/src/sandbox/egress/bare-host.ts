@@ -80,7 +80,11 @@ export function bareHostOf(raw: string): string | null {
   const slash = value.indexOf('/');
   if (slash > 0) value = value.slice(0, slash); // 无 scheme 的 URL 形态 `host.example/path` 取 host 段
   const host = normalizeEgressHost(value);
-  if (host === '' || host.includes(':') || !host.includes('.')) return null;
+  if (host === '' || host.includes(':')) return null;
+  // F-076:裸 `localhost` / `localhost:8080` 没有点,但确是本机目的地 —— 交给唯一那把尺
+  // (内置规则表已列 localhost,档位仍由策略决定)。
+  if (host === 'localhost') return host;
+  if (!host.includes('.')) return null;
   if (parseIpAddress(host) !== null) return null; // IP 字面量归原有取词通道
   if (host.length > 253) return null;
   const labels = host.split('.');

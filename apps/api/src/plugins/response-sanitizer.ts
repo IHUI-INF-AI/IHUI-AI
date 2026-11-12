@@ -243,13 +243,16 @@ function maskEmail(s: string): string {
 /** 手机掩码: 138****8000. */
 function maskPhone(s: string): string {
   const digits = s.replace(/\D/g, '')
-  if (digits.length >= 7) return `${digits.slice(0, 3)}****${digits.slice(-4)}`
+  // F-462:7-10 位时 3 前缀 + 4 尾缀会重叠成"近乎明文",一律全掩码;标准 11 位及以上才用部分掩码
+  if (digits.length >= 11) return `${digits.slice(0, 3)}****${digits.slice(-4)}`
   return MASK
 }
 
 /** 身份证掩码: 110101********1234. */
 function maskIdCard(s: string): string {
-  if (s.length >= 8) return s.slice(0, 6) + '*'.repeat(s.length - 10) + s.slice(-4)
+  // F-460:长度 8~10 时 repeat(负数) 抛 RangeError(整包响应脱敏 fail-open)或 repeat(0) 全量泄漏;
+  // 只有 ≥11 位(15/18 位证件号)才足以承载 6 前缀 + 4 尾缀的部分掩码
+  if (s.length >= 11) return s.slice(0, 6) + '*'.repeat(s.length - 10) + s.slice(-4)
   return MASK
 }
 

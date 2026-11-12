@@ -42,7 +42,10 @@ import {
   resolveOutboundCredential,
 } from './config/credentials.js';
 import { startREPL } from './commands/repl.js';
-import { runAgent, stopReasonToExitCode, parseOutputFormat, setupAgentTools } from './commands/agent.js';
+import { runAgent, stopReasonToExitCode, setupAgentTools } from './commands/agent.js';
+// F-017/F-018:output-format 严格判据与 jsonMode 单一判据都住 headless-format(机器输出面),
+// 本文件只是调用方,不再自持第二份 `opts.json === true`。
+import { isOutputFormat, OUTPUT_FORMATS, resolveJsonMode, type OutputFormat } from './headless-format.js';
 // G-814406:无头(--json / 非 TTY)退出前的有界排水 —— 结论五档可分辨,预算必有界。
 // 后台任务事实只读 HEAD 既有出口(listTasks/settleAllInFlight),本端不新增注册表语义。
 import { drainHeadlessBeforeExit } from './headless-drain.js';
@@ -316,10 +319,6 @@ export function resolveSession(opts: Record<string, unknown>): ResolvedSession {
   return {};
 }
 
-function resolveJsonMode(opts: OptionValues): boolean {
-  return opts.json === true || !process.stdout.isTTY;
-}
-
 /**
  * F-011:人读提示只能走这一个出口。
  *
@@ -349,6 +348,43 @@ function humanNote(message: string): void {
 function errorExit(message: string): never {
   console.error(message)
   process.exit(1)
+}
+
+/**
+ * F-017:数值参数(undo/redo 步数、audit --limit)只接受正整数。
+ *
+ * 修前是 `Number(x) || 1` / `parseInt` 后静默回落 —— `undo 0` 反而撤 1 步、
+ * `--limit abc` 悄悄变成默认值:用户意图被替换,却没有任何出口说他给错了。
+ * 只有**未给参数**才用 fallback;给了但解析不出正整数 ⇒ 显式报错 + 非零退出。
+ */
+function resolvePositiveInt(raw: unknown, fallback: number, flag: string): number {
+  if (raw === undefined || raw === null || raw === '') return fallback
+  const value = Number(raw)
+  if (!Number.isInteger(value) || value < 1) {
+    errorExit(chalk.red(`Invalid ${flag} value: ${String(raw)} (expected a positive integer)`))
+  }
+  return value
+}
+
+/**
+ * F-017:`--output-format` 只接受 OUTPUT_FORMATS 里的枚举。
+ * 未给 ⇒ undefined(仍由 jsonMode 决定);给了非法值 ⇒ 显式报错,不再静默回落 text。
+ */
+function resolveOutputFormat(raw: unknown): OutputFormat | undefined {
+  if (raw === undefined || raw === null || raw === '') return undefined
+  if (!isOutputFormat(raw)) {
+    errorExit(
+      chalk.red(`Invalid --output-format value: ${String(raw)} (expected ${OUTPUT_FORMATS.join('|')})`),
+    )
+  }
+  return raw
+}
+
+const SHARE_FORMATS = ['markdown', 'html', 'json'] as const
+
+/** F-017:`share -f/--format` 的枚举判据(修前是 `as` 强转,`-f txt` 会静默产出 HTML)。 */
+function isShareFormat(v: string): v is (typeof SHARE_FORMATS)[number] {
+  return (SHARE_FORMATS as readonly string[]).includes(v)
 }
 
 export function readPromptFile(
@@ -406,6 +442,8 @@ async function runAgentAndExit(
   opts: OptionValues,
   jsonMode: boolean,
 ): Promise<void> {
+  // F-017:先校验枚举再产生任何副作用(建会话 / 起云会话),非法值不进入运行期。
+  const outputFormat = resolveOutputFormat(opts.outputFormat);
   const cfg = resolveEffectiveConfig({
     cliApiUrl: typeof opts.apiUrl === 'string' ? opts.apiUrl : undefined,
     cliApiKey: typeof opts.apiKey === 'string' ? opts.apiKey : undefined,
@@ -543,7 +581,7 @@ async function runAgentAndExit(
         // 不经此处。所以这一个字段是"无头单次执行"在 runAgent 侧的**唯一事实来源** ——
         // 它开着,零工具调用 + 空正文才会被收口成 no_progress(退出码 3)。
         headlessOneShot: true,
-        outputFormat: opts.outputFormat ? parseOutputFormat(opts.outputFormat) : undefined,
+        outputFormat,
         checkpoints,
         enableMcp: cfg.enableMcp,
         // F-068:放行结论取自 headless-permission 经纪(无审批面 ⇒ 只认显式例外),不在此处自判。
@@ -1132,6 +1170,7 @@ program
       cliMcp: opts.mcp === true ? true : undefined,
       cliPermissionMode: typeof opts.permissionMode === 'string' ? opts.permissionMode : undefined,
     });
+    let acpAgent: import('./acp/server.js').IhuiAcpAgent | null = null;
     const connection = startAcpServer({
       apiUrl: cfg.apiUrl,
       apiKey: cfg.apiKey,
@@ -1141,9 +1180,21 @@ program
       allowDangerous: cfg.allowDangerous,
       planFirst: cfg.planFirst,
       autoApprovePlan: cfg.autoApprovePlan,
+      // F-066:捕获 agent 实例,进程级信号收口要先中止全部在飞 prompt
+      onAgentReady: (agent) => {
+        acpAgent = agent;
+      },
     });
-    process.on('SIGINT', () => connection.close());
-    process.on('SIGTERM', () => connection.close());
+    // F-066:SIGINT/SIGTERM 先 abortAllPrompts 再 close —— 只 close 的话在飞 prompt 继续
+    // 生成/落盘,fetch 与定时器钉住进程不退,第二次 Ctrl-C 也无效;覆盖默认终止后必须
+    // 自己给退出码(130/143),编排器才能区分正常停止与中断。
+    const acpShutdown = (exitCode: number): void => {
+      acpAgent?.abortAllPrompts();
+      connection.close();
+      process.exitCode = exitCode;
+    };
+    process.on('SIGINT', () => acpShutdown(130));
+    process.on('SIGTERM', () => acpShutdown(143));
     await connection.closed;
   });
 
@@ -1168,9 +1219,10 @@ program
   .option('-s, --session <id>', t('cliEntry.sessionOptDesc'))
   .option('--dry-run', t('cliEntry.undoDryRunDesc'))
   .action(async (stepsArg: string | undefined, opts: { session?: string; dryRun?: boolean }) => {
+    // F-017:步数先严格校验(缺省 1,非法值 non-zero 退出),再加载回滚实现。
+    const steps = resolvePositiveInt(stepsArg, 1, 'steps');
     const { UndoRedoManager } = await import('./commands/undo-redo.js');
     const { renderUndoReport } = await import('./commands/undo-claim-copy.js');
-    const steps = Number(stepsArg) || 1;
     const sessionId =
       opts.session ?? getMostRecentSession()?.id ?? 'adhoc';
     const mgr = new UndoRedoManager(process.cwd());
@@ -1215,8 +1267,8 @@ program
       t,
     );
     // D22046:无头/脚本调用走结构化事件 —— 检查点可用性与判定结论必须以字段
-    // 形式到达上层,而不是只能从终端句子里猜。
-    if (program.opts().json === true) {
+    // 形式到达上层,而不是只能从终端句子里猜。F-018:判据与全局 `--json` 同源。
+    if (resolveJsonMode(program.opts(), opts)) {
       process.stdout.write(
         `${JSON.stringify(
           {
@@ -1260,8 +1312,9 @@ program
   .description(t('cliEntry.redoDesc'))
   .option('-s, --session <id>', t('cliEntry.sessionOptDesc'))
   .action(async (stepsArg: string | undefined, opts: { session?: string }) => {
+    // F-017:步数先严格校验(缺省 1,非法值 non-zero 退出),再加载重做实现。
+    const steps = resolvePositiveInt(stepsArg, 1, 'steps');
     const { UndoRedoManager } = await import('./commands/undo-redo.js');
-    const steps = Number(stepsArg) || 1;
     const sessionId =
       opts.session ?? getMostRecentSession()?.id ?? 'adhoc';
     const mgr = new UndoRedoManager(process.cwd());
@@ -1292,6 +1345,23 @@ program
     includeFiles?: boolean;
     title?: string;
   }) => {
+    // F-017:`-f` 在全局是 `--prompt-file` 的短旗标,commander 会在进入子命令前把它吃掉,
+    // 于是 `share -f txt` 的 txt 落到 promptFile(share 从不读),format 仍是默认 markdown
+    // —— 用户给错的枚举被静默替换。这里必须响:share 的格式只认 `--format`。
+    const shadowedFormat = program.opts().promptFile;
+    if (shadowedFormat !== undefined) {
+      errorExit(
+        chalk.red(
+          `share takes its format from --format <${SHARE_FORMATS.join('|')}>; -f is the global --prompt-file (got: ${String(shadowedFormat)})`,
+        ),
+      );
+    }
+    // F-017:`-f/--format` 的枚举先判死,非法值不进入分享流程(修前 `as` 强转照样产出 HTML)。
+    if (!isShareFormat(opts.format)) {
+      errorExit(
+        chalk.red(`Invalid --format value: ${opts.format} (expected ${SHARE_FORMATS.join('|')})`),
+      );
+    }
     const { ShareManager } = await import('./commands/share.js');
     const sessionId = sessionIdArg ?? getMostRecentSession()?.id;
     if (!sessionId) {
@@ -1299,7 +1369,7 @@ errorExit(chalk.red(t('cliEntry.shareNoSession')));
     }
     const mgr = new ShareManager(process.cwd());
     const result = await mgr.share(sessionId, {
-      format: opts.format as 'markdown' | 'html' | 'json',
+      format: opts.format,
       includeToolCalls: opts.tools,
       includeFiles: opts.includeFiles === true,
       title: opts.title,
@@ -1361,15 +1431,17 @@ auditCmd
       : options.failure === true
         ? false
         : undefined;
-    const limit = parseInt(options.limit ?? '50', 10);
+    // F-017:--limit 非法(非正整数)必须报错,不再 parseInt 后静默回落 50。
+    const limit = resolvePositiveInt(options.limit, 50, '--limit');
     const result = queryAuditLog({
       tool: options.tool,
       since: options.since,
       success,
-      limit: Number.isFinite(limit) && limit > 0 ? limit : 50,
+      limit,
     });
 
-    if (options.json) {
+    // F-018:全局 `--json` 与子命令 `--json` 行为一致。
+    if (resolveJsonMode(program.opts(), options)) {
       console.info(JSON.stringify(result, null, 2));
       return;
     }
@@ -1435,8 +1507,9 @@ auditCmd
   .option('--json', t('cliEntry.auditJsonDesc'))
   .option('--limit <n>', t('cliEntry.auditToolArgsLimitDesc'), '100000')
   .action(async (options: { since?: string; json?: boolean; limit?: string }) => {
-    const limit = parseInt(options.limit ?? '100000', 10);
-    const queried = queryAuditLog({ since: options.since, limit: Number.isFinite(limit) && limit > 0 ? limit : 100_000 });
+    // F-017:--limit 非法(非正整数)必须报错,不再 parseInt 后静默回落 100000。
+    const limit = resolvePositiveInt(options.limit, 100_000, '--limit');
+    const queried = queryAuditLog({ since: options.since, limit });
     // 注册表与真实会话**同一入口**:setupAgentTools 先 clearTools 再按家族注册。
     // 自己拼一份"看着像"的子集,量到的偏差就是夹具不是事实 —— 漏掉的家族(如 write_file/edit_file
     // 来自 createFileEditTools 工厂)会整片算成 unknownTool,而它们是历史调用的大头。
@@ -1445,7 +1518,8 @@ auditCmd
     await setupAgentTools({ workspacePath: process.cwd(), silent: true });
     const { totals, rows, toolsCovered } = replayArgumentDeviations(queried.entries, getTool);
 
-    if (options.json) {
+    // F-018:全局 `--json` 与子命令 `--json` 行为一致。
+    if (resolveJsonMode(program.opts(), options)) {
       console.info(JSON.stringify({ totals, rows, toolsCovered }, null, 2));
       return;
     }

@@ -23,6 +23,7 @@
 
 import { isPrivateOrReservedIp, parseIpAddress } from '@ihui/shared/utils/ssrf-guard';
 
+import { evaluateArgv } from '../../tools/command-policy/evaluate.js';
 import type { ArgToken, TokenizeResult } from '../../tools/command-policy/tokenizer.js';
 import { tokenizeCommand } from '../../tools/command-policy/tokenizer.js';
 
@@ -61,7 +62,9 @@ const defaultCommandLineTokenizer: CommandLineTokenizer = (commandLine) => {
  *     取 `new URL().hostname`,**天然不含 userinfo / path / query**(凭据与查询串进台账即事故);
  *  2. 裸 IP 字面量(纯四段数字 / 含冒号的 IPv6 形态)。
  * 3. 另:变量化参数里出现 `://` ⇒ 记一枚 `dynamic`(值不可静态确定 ⇒ 交裁决层落 unjudged,
- *    与 command-policy 求值器把"命令名是变量"钉在 unknown 是同一口径)。
+ *    与 command-policy 求值器把"命令名是变量"钉在 unknown 是同一口径);
+ * 4. 解释器/包装器把 URL 藏在一个 token 值里(`node -e "fetch('http://evil')"`):整串再扫一遍
+ *    内嵌的 http(s) URL —— 这是"同一个取词入口多看一眼",不是新造取词子系统。
  */
 export function extractEgressTargets(
   commandLine: string,
@@ -89,6 +92,16 @@ export function extractEgressTargets(
         push(host, 'url');
         continue;
       }
+      // F-076:内嵌 URL(解释器 `-e "fetch('http://…')"`、`curl -K cfg` 之外的包装形态)。
+      let embedded = false;
+      for (const url of embeddedUrlsOf(candidate)) {
+        const embeddedHost = hostOfUrl(url);
+        if (embeddedHost !== null) {
+          push(embeddedHost, 'url');
+          embedded = true;
+        }
+      }
+      if (embedded) continue;
       if (looksLikeIpLiteral(candidate)) push(candidate, 'ip-literal');
     }
   }
@@ -110,6 +123,17 @@ function looksLikeNetworkArgument(value: string): boolean {
   const eq = value.indexOf('=');
   if (eq > 0 && eq < value.length - 1) return [value, value.slice(eq + 1)];
   return [value];
+}
+
+/** 一个 token 值里内嵌的 http(s) URL(先按 URL 形态收尾裁掉 `)`/`,`/`.` 等壳字符)。 */
+function embeddedUrlsOf(candidate: string): string[] {
+  const out: string[] = [];
+  const re = /https?:\/\/[^\s'"<>]+/gi;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(candidate)) !== null) {
+    out.push(match[0].replace(/[),.;\]}]+$/, ''));
+  }
+  return out;
 }
 
 function hostOfUrl(candidate: string): string | null {
@@ -211,9 +235,33 @@ export function adjudicateDomain(rawTarget: string, opts: DnsAdjudicationOptions
 }
 
 /**
+ * 命令串的取词前置形状(自 `command-policy` 的唯一分词器/效应表读出,本文件不复算):
+ *  - `network`:有没有能出网的段(F-076 零目标分档的闸门);
+ *  - `localPathOperand`:有没有显式本地路径操作数(`scp ./a ./b` 这类同形命令不算"目的地未知")。
+ */
+function commandShape(commandLine: string): { network: boolean; localPathOperand: boolean } {
+  const shape = { network: false, localPathOperand: false };
+  const localPath = /^(?:\.{1,2}[\\/]|[\\/]|[A-Za-z]:[\\/]|~[\\/])/;
+  try {
+    for (const segment of tokenizeCommand(commandLine ?? '').segments) {
+      const argv = segment.argv;
+      if (argv.length === 0 || argv[0]!.expanded) continue;
+      if (evaluateArgv(argv.map((token) => token.value)).effects.includes('network')) shape.network = true;
+      for (const token of argv.slice(1)) {
+        if (!token.value.startsWith('-') && localPath.test(token.value)) shape.localPathOperand = true;
+      }
+    }
+  } catch {
+    return shape; // 分词器自身抛错 ≠ 有网络目标;主通道不因此伪造一行
+  }
+  return shape;
+}
+
+/**
  * 一批目标(派生点的实际用法):先取词(URL/IP/动态 + Z3 裸域名,后者带 network 效应闸门),
  * 再逐条裁决,按 host 去重(留痕逐条,同一 host 不重复记账)。
  * `dynamic` 那型不经规则表 —— 它的目的地根本没取到,规则表在不在都判不出。
+ * F-076:能出网、零目标、且没有显式本地路径操作数 ⇒ 一条 `target-missing` 的 unjudged(不是 noop)。
  */
 export function adjudicateEgressTargets(
   commandLine: string,
@@ -223,6 +271,21 @@ export function adjudicateEgressTargets(
   const rows: EgressJudgement[] = [];
   const seen = new Set<string>();
   const candidates = [...extractEgressTargets(commandLine, opts.tokenize), ...extractBareHostTargets(commandLine)];
+  if (candidates.length === 0) {
+    const shape = commandShape(commandLine);
+    if (shape.network && !shape.localPathOperand) {
+      rows.push(
+        unjudged(
+          '<no-target>',
+          'input',
+          'target-missing',
+          'the command can reach the network but names no statically visible destination (e.g. curl -K cfg); name the destination in argv, or route the call through the declared egress proxy',
+          enforcement,
+        ),
+      );
+    }
+    return rows;
+  }
   for (const t of candidates) {
     if (seen.has(t.raw)) continue;
     seen.add(t.raw);

@@ -92,6 +92,18 @@ export interface PermissionOptionInput {
  * 返回选中的 optionId;编辑器不支持/超时/取消返回 null(调用方决定降级语义——
  * 安全默认一律视为拒绝)。
  */
+/** F-067:审批请求超时 —— SDK 侧 pending 只在收到响应/连接关闭时结算,编辑器不回就永久挂起 */
+const PERMISSION_TIMEOUT_MS = 60_000;
+
+/** F-067:给 promise 套超时;到点返回 null(调用方按"编辑器不支持/未响应"降级为拒绝)。 */
+function withPermissionTimeout<T>(p: Promise<T>, ms: number): Promise<T | null> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<null>((resolve) => {
+    timer = setTimeout(() => resolve(null), ms);
+  });
+  return Promise.race([p, timeout]).finally(() => clearTimeout(timer)) as Promise<T | null>;
+}
+
 export async function requestPermissionFromEditor(
   cx: acp.AgentContext,
   sessionId: string,
@@ -104,25 +116,28 @@ export async function requestPermissionFromEditor(
   },
 ): Promise<string | null> {
   try {
-    const response: acp.RequestPermissionResponse | null = await cx.request(
-      acp.methods.client.session.requestPermission,
-      {
-        sessionId,
-        toolCall: {
-          toolCallId: input.toolCallId,
-          kind: input.kind,
-          status: 'pending' as const,
-          title: input.title,
-          ...(input.contentText
-            ? {
-                content: [
-                  { type: 'content' as const, content: { type: 'text' as const, text: input.contentText } },
-                ],
-              }
-            : {}),
+    const response: acp.RequestPermissionResponse | null = await withPermissionTimeout(
+      cx.request(
+        acp.methods.client.session.requestPermission,
+        {
+          sessionId,
+          toolCall: {
+            toolCallId: input.toolCallId,
+            kind: input.kind,
+            status: 'pending' as const,
+            title: input.title,
+            ...(input.contentText
+              ? {
+                  content: [
+                    { type: 'content' as const, content: { type: 'text' as const, text: input.contentText } },
+                  ],
+                }
+              : {}),
+          },
+          options: input.options,
         },
-        options: input.options,
-      },
+      ),
+      PERMISSION_TIMEOUT_MS,
     );
     const outcome = response?.outcome;
     return outcome?.outcome === 'selected' ? outcome.optionId : null;
@@ -455,6 +470,8 @@ export interface AcpServerOptions {
   planFirst?: boolean;
   /** P0-C 显式自动批准 plan(危险,默认 false;关闭时经 request_permission 转 IDE 审批) */
   autoApprovePlan?: boolean;
+  /** F-066:把 agent 实例交给宿主(进程级 SIGINT/SIGTERM 收口要先 abortAllPrompts) */
+  onAgentReady?: (agent: IhuiAcpAgent) => void;
 }
 
 interface AcpSessionState {
@@ -1019,7 +1036,20 @@ export class IhuiAcpAgent {
   }
 
   closeSession?(params: acp.CloseSessionRequest): void {
+    // F-066:先中止在飞 prompt 再删会话 —— 只 delete 的话 runToolLoop 继续
+    // 生成/落盘,fetch 与定时器还钉着进程,关不干净。
+    const state = this.sessions.get(params.sessionId);
+    state?.pendingAbort?.abort();
+    state && (state.pendingAbort = null);
     this.sessions.delete(params.sessionId);
+  }
+
+  /** F-066:中止全部会话的在飞 prompt(进程级 SIGINT/SIGTERM 收口用)。 */
+  abortAllPrompts(): void {
+    for (const state of this.sessions.values()) {
+      state.pendingAbort?.abort();
+      state.pendingAbort = null;
+    }
   }
 
   // ==================== ACP 标准会话生命周期 ====================
@@ -1596,6 +1626,7 @@ export function buildAcpAgentApp(opts: AcpServerOptions): acp.AgentApp {
   registerCliTokenProvider({ baseUrl: opts.apiUrl, startupToken: opts.apiKey });
 
   const agent = new IhuiAcpAgent(opts);
+  opts.onAgentReady?.(agent);
   return acp
     .agent({ name: 'ihui-cli' })
     .onRequest('initialize', (ctx) => agent.initialize(ctx.params))
