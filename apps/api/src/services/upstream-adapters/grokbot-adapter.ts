@@ -230,8 +230,8 @@ async function checkHealth(
     const m = msg.match(/^HTTP\s+(\d{3})/)
     const status = m ? Number(m[1]) : 0
     if (status === 401 || status === 403) return { ok: false, authFailed: true, error: msg }
-    if (status === 0 || status >= 500) return { ok: false, indeterminate: true, error: msg }
-    return { ok: false, error: msg }
+    // 5xx/网络异常与其余 4xx(429/404 等)都不是鉴权结论:按未判定,避免一次抖动写 down
+    return { ok: false, indeterminate: true, error: msg }
   }
 }
 

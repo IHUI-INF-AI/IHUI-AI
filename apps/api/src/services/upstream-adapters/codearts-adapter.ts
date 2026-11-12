@@ -496,7 +496,10 @@ async function checkHealth(
     const msg = e instanceof Error ? e.message : String(e)
     const m = msg.match(/^HTTP\s+(\d{3})/)
     const status = m ? Number(m[1]) : 0
-    return { ok: false, authFailed: isAuthFailure(status, msg), error: msg }
+    // 只有明确拒收(401/403/鉴权码)才 authFailed;网络异常、5xx、429/404 等
+    // 非鉴权 4xx 一次抖动就会写 down,故一律按未判定,不入不可逆状态
+    if (isAuthFailure(status, msg)) return { ok: false, authFailed: true, error: msg }
+    return { ok: false, indeterminate: true, error: msg }
   }
 }
 

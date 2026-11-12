@@ -372,17 +372,54 @@ async function checkHealth(
     })
     if (!res.ok) {
       const text = await res.text().catch(() => '')
+      // 按量 key(sk-…)打余量端点本身就不被接受 ⇒ 401/403 不能证明票死,只记未判定;
+      // 其余凭证的 401/403 仍按鉴权失效处理。
+      const payAsYouGo = str(ctx.credentials.token).startsWith('sk-')
       const rejected = minimaxAdapter.isAuthFailure(res.status, text)
+      const authFailed = rejected && !((res.status === 401 || res.status === 403) && payAsYouGo)
       return {
         ok: false,
-        indeterminate: !rejected,
-        authFailed: rejected,
+        indeterminate: !authFailed,
+        authFailed,
         error: `token_plan/remains HTTP ${res.status}${text ? `: ${text.slice(0, 200)}` : ''}${
-          rejected ? '' : '(未判定)'
+          authFailed ? '' : '(未判定)'
         }`,
       }
     }
-    return { ok: true }
+    // 2xx 不等于可用:MiniMax 业务错误帧同样走 200(base_resp.status_code≠0)。
+    const text = await res.text().catch(() => '')
+    let env: MiniMaxEnvelope | null = null
+    try {
+      const parsed: unknown = JSON.parse(text)
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        env = parsed as MiniMaxEnvelope
+      }
+    } catch {
+      env = null
+    }
+    if (!env) {
+      return {
+        ok: false,
+        indeterminate: true,
+        error: `token_plan/remains 200 但响应非 JSON(前 200 字: ${text.slice(0, 200)}) ⇒ 未判定`,
+      }
+    }
+    const biz = env.base_resp?.status_code
+    if (typeof biz !== 'number' || biz === 0) return { ok: true }
+    if (biz === 1004) {
+      return {
+        ok: false,
+        indeterminate: false,
+        authFailed: true,
+        error: '上游业务状态 1004(无效 token)',
+      }
+    }
+    // 1008=余额不足 / 1039=限流等:不当成坏号,只记未判定
+    return {
+      ok: false,
+      indeterminate: true,
+      error: `上游业务状态 ${biz}(${env.base_resp?.status_msg ?? '无明细'}) ⇒ 未判定`,
+    }
   } catch (e) {
     return {
       ok: false,
