@@ -23,7 +23,7 @@ import {
 import type { ArticleForm, ArticleCategoryOption } from './types'
 
 const selectClass =
-  'h-9 rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+  'h-9 rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-elevation-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
 interface Props {
   form: ArticleForm
@@ -117,7 +117,7 @@ export function ArticleEditForm({
               value={form.content}
               onChange={(e) => onFormChange({ ...form, content: e.target.value })}
               rows={12}
-              className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-elevation-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               placeholder={t('contentPlaceholder')}
             />
           </div>

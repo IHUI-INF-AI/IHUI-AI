@@ -75,7 +75,7 @@ export function Sheet({ open, onOpenChange, children, side = 'bottom' }: SheetPr
           'absolute left-0 right-0 bg-card flex-col',
           CONTENT_GAP_CLASS[SHEET_CONTENT_GAP_PX],
           PADDING_CLASS[SHEET_PADDING_PX],
-          'shadow-lg',
+          'shadow-elevation-lg',
           isBottom
             ? `bottom-0 ${RADIUS_CLASS[SHEET_RADIUS_TIER].top}`
             : `top-0 ${RADIUS_CLASS[SHEET_RADIUS_TIER].bottom}`,

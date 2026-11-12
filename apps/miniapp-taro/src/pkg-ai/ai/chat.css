@@ -549,6 +549,7 @@
 }
 
 /* 全屏放大态(对标原项目 input_area_active:position fixed + z-index 999) */
+/* 豁免类别:浮层上浮贴边影(负 y offset + 负 spread),翻转即失真,非层级投影 */
 .input-area-active {
   position: fixed;
   top: 120rpx;
@@ -1016,7 +1017,7 @@
   border-radius: var(--radius-sm);
   border: 2rpx solid var(--color-border);
   background: var(--color-card);
-  box-shadow: 0 1rpx 3rpx var(--color-black-6);
+  box-shadow: var(--shadow-elevation-sm);
   white-space: nowrap;
   flex-shrink: 0;
   transition: all 0.3s ease;

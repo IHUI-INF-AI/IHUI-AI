@@ -69,7 +69,7 @@ const JIMENG_VIDEO_FIELDS: ReadonlyArray<ParamFieldSpec> = [
 ]
 
 const TEXTAREA_CLS =
-  'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+  'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-elevation-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
 /** 即梦视频任务行(videoGenerationTasks 表,日期字段序列化为字符串) */
 interface JimengVideoTask {

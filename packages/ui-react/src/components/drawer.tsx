@@ -34,7 +34,7 @@ const DrawerClose = DialogPrimitive.Close
 
 const drawerSideVariants = cva(
   // 2026-07-31 移动端适配:left/right 在 < sm 时占 w-[90vw] 充分利用移动端视口
-  'fixed z-modal flex flex-col bg-background shadow-lg transition data-[state=closed]:duration-(--duration-unified) data-[state=open]:duration-(--duration-unified) ease-unified data-[state=open]:animate-in data-[state=closed]:animate-out',
+  'fixed z-modal flex flex-col bg-background shadow-elevation-lg transition data-[state=closed]:duration-(--duration-unified) data-[state=open]:duration-(--duration-unified) ease-unified data-[state=open]:animate-in data-[state=closed]:animate-out',
   {
     variants: {
       side: {

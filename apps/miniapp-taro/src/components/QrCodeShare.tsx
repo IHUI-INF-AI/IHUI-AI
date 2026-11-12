@@ -50,7 +50,7 @@ export default function QrCodeShare({
       <Text className="text-title font-semibold text-foreground">{title}</Text>
       <Text className="text-label text-muted-foreground mt-xs">{desc}</Text>
 
-      <View className="relative mt-xl w-56 h-56 bg-card rounded-lg shadow-sm flex items-center justify-center">
+      <View className="relative mt-xl w-56 h-56 bg-card rounded-lg shadow-elevation-sm flex items-center justify-center">
         {qrUrl ? (
           <Image src={qrUrl} className="w-48 h-48" mode="aspectFit" />
         ) : (

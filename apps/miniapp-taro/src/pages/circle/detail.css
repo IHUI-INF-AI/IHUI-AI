@@ -272,6 +272,7 @@
 }
 
 /* ===== 底部评论输入(对齐 RN input: bg surface.muted / 描边 border.light / 圆角 12dp→24rpx) ===== */
+/* 豁免类别:吸底输入栏向上投影(负 y offset),翻转会落到屏外,非层级投影 */
 .cd-input-bar {
   position: fixed;
   left: 0;

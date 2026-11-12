@@ -339,7 +339,7 @@ export const SubAgentTaskTree = React.memo(function SubAgentTaskTree({
           onKeyDown={onMenuKeyDown}
           data-testid={`${testId ?? 'subagent-task-tree'}-context-menu`}
           className={cn(
-            'fixed z-popover min-w-[180px] rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md',
+            'fixed z-popover min-w-[180px] rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-elevation-md',
             'animate-in fade-in-0 zoom-in-95 duration-(--duration-unified) ease-unified',
           )}
           style={{ left: menuPos.x, top: menuPos.y }}

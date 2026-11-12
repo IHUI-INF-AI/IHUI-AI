@@ -80,7 +80,7 @@ const viewStyles = {
     borderWidth: 1,
     borderStyle: 'solid',
     borderColor: tk.border.light,
-    boxShadow: '0 1px 1px rgba(0,0,0,0.05)',
+    boxShadow: 'var(--shadow-elevation-sm)',
   }),
   toolPressed: (tk: ReturnType<typeof getTokens>): CSSProperties => ({
     backgroundColor: tk.surface.light,

@@ -105,7 +105,7 @@ export default function SsoAuthPage() {
   if (error) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background p-3">
-        <div className="w-full max-w-sm rounded-lg border bg-card p-3 text-center shadow-sm">
+        <div className="w-full max-w-sm rounded-lg border bg-card p-3 text-center shadow-elevation-sm">
           <ShieldCheck className="mx-auto mb-3 h-10 w-10 text-destructive" />
           <h1 className="mb-1 text-base font-semibold">{t('authFailed')}</h1>
           <p className="text-label text-muted-foreground">{error}</p>
@@ -116,7 +116,7 @@ export default function SsoAuthPage() {
 
   return (
     <div className="px-4 py-4 flex min-h-screen items-center justify-center bg-background">
-      <div className="w-full max-w-sm rounded-lg border bg-card p-3 text-center shadow-sm">
+      <div className="w-full max-w-sm rounded-lg border bg-card p-3 text-center shadow-elevation-sm">
         <ShieldCheck className="mx-auto mb-3 h-10 w-10 text-primary" />
         <h1 className="mb-1 text-base font-semibold">{t('title')}</h1>
         <p className="mb-3 text-label text-muted-foreground">

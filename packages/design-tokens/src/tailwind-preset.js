@@ -112,6 +112,19 @@ export default {
         },
       },
       borderRadius: RADIUS_REM,
+      /* 阴影档位(2026-11-12 立):v3 两端(miniapp-taro / mobile-rn)此前**没有** boxShadow 映射,
+       * 端内写 `shadow-elevation-*` 会静默生成零条规则(类名在、样式无)。取值统一指向
+       * `--shadow-elevation-*`(源 packages/design-tokens/src/elevation.ts 的 ELEVATION_CSS,
+       * 经 scripts/sync-css-tokens.mjs 派生到各端 :root)。Tailwind 默认档
+       * (shadow-sm/md/lg/xl)不由本文件删除,只由守门 scripts/check-shadow-single-source.mjs
+       * 禁止本仓源码使用 —— 删表会让第三方组件残留的旧类名静默失样式,那是更坏的失败态。 */
+      boxShadow: {
+        'elevation-none': 'var(--shadow-elevation-none)',
+        'elevation-sm': 'var(--shadow-elevation-sm)',
+        'elevation-md': 'var(--shadow-elevation-md)',
+        'elevation-lg': 'var(--shadow-elevation-lg)',
+        'elevation-xl': 'var(--shadow-elevation-xl)',
+      },
     },
   },
   /* alpha 兼容插件(2026-09-25 立):v3 无法从 `var(--color-*)` 解析通道 ⇒ `/NN` 透明度形态

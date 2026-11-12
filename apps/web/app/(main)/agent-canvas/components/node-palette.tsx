@@ -56,7 +56,7 @@ export function NodePalette({ onAdd }: NodePaletteProps) {
                 }
               }}
               className={cn(
-                'cursor-grab rounded-lg border-2 bg-background p-2.5 transition-shadow hover:shadow-md active:cursor-grabbing',
+                'cursor-grab rounded-lg border-2 bg-background p-2.5 transition-shadow hover:shadow-elevation-md active:cursor-grabbing',
                 meta.border,
               )}
             >

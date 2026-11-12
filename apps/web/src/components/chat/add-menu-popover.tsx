@@ -276,7 +276,7 @@ export function AddMenuPopover(props: {
             // z-popover(2026-09-14 补):portal 挂 body 且 z-auto,营销首页 hero 区
             // 祖先 z-10 会整体压住弹层 —— 菜单可见但所有点击被 H1 拦截(实测
             // prompt-templates/chat-manual-compact e2e 与真实用户同路径失败)。
-            className="pointer-events-auto z-[2200] max-h-[calc(100vh-1rem)] w-60 overflow-y-auto overscroll-contain rounded-md border bg-popover text-popover-foreground shadow-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="pointer-events-auto z-[2200] max-h-[calc(100vh-1rem)] w-60 overflow-y-auto overscroll-contain rounded-md border bg-popover text-popover-foreground shadow-elevation-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
             style={
               coords
                 ? { position: 'fixed', top: coords.top, left: coords.left }

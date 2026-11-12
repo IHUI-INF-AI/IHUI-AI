@@ -364,7 +364,7 @@ export default function EduAiLearnMapPage() {
                     <Layers className="h-10 w-10 text-primary/40" />
                   )}
                   {topic.price && Number(topic.price) > 0 && (
-                    <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-md border border-amber-500/40 bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-700 shadow-sm backdrop-blur-sm dark:text-amber-300">
+                    <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-md border border-amber-500/40 bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-700 shadow-elevation-sm backdrop-blur-sm dark:text-amber-300">
                       <Sparkles className="h-3 w-3" />¥{topic.price}
                     </span>
                   )}

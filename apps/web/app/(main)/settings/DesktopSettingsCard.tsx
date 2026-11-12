@@ -204,7 +204,7 @@ export function DesktopSettingsCard() {
                 <span className="min-w-0 flex-1 truncate text-muted-foreground">
                   {t('desktopShortcutToggleWindow')}
                 </span>
-                <kbd className="shrink-0 rounded bg-background px-1.5 py-0.5 font-mono text-[10px] shadow-sm">
+                <kbd className="shrink-0 rounded bg-background px-1.5 py-0.5 font-mono text-[10px] shadow-elevation-sm">
                   Ctrl+Shift+I
                 </kbd>
               </div>
@@ -212,7 +212,7 @@ export function DesktopSettingsCard() {
                 <span className="min-w-0 flex-1 truncate text-muted-foreground">
                   {t('desktopShortcutQuit')}
                 </span>
-                <kbd className="shrink-0 rounded bg-background px-1.5 py-0.5 font-mono text-[10px] shadow-sm">
+                <kbd className="shrink-0 rounded bg-background px-1.5 py-0.5 font-mono text-[10px] shadow-elevation-sm">
                   Ctrl+Q
                 </kbd>
               </div>

@@ -139,8 +139,8 @@ export default function AccountDeletionPage() {
 
   const toastClass =
     toast?.type === 'success'
-      ? 'fixed bottom-4 right-4 z-notification rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-700 shadow-md dark:text-emerald-400'
-      : 'fixed bottom-4 right-4 z-notification rounded-md border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-700 shadow-md dark:text-red-400'
+      ? 'fixed bottom-4 right-4 z-notification rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-700 shadow-elevation-md dark:text-emerald-400'
+      : 'fixed bottom-4 right-4 z-notification rounded-md border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-700 shadow-elevation-md dark:text-red-400'
 
   return (
     <div className="px-4 space-y-4 py-4">

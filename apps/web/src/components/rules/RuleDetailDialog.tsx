@@ -164,7 +164,7 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
       className="fixed inset-0 z-modal flex items-center justify-center bg-white/40 p-3 dark:bg-black/40"
       onClick={(e) => e.target === e.currentTarget && onClose?.()}
     >
-      <div className="flex max-h-[85vh] w-full max-w-2xl flex-col space-y-3 rounded-lg border border-border bg-card p-3 shadow-lg">
+      <div className="flex max-h-[85vh] w-full max-w-2xl flex-col space-y-3 rounded-lg border border-border bg-card p-3 shadow-elevation-lg">
         <div className="flex items-center justify-between">
           <span className="text-body font-semibold">
             {t('ruleDetailTitle', { name: rule.name })}

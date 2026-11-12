@@ -725,7 +725,7 @@ export function CdpBrowserView({
       )}
       {/* 2026-08-17:交互受限提示条 —— 诚实告知这是自动化截图视图,扫码用手机、完整操作走外部浏览器 */}
       {!hintDismissed && !error && (
-        <div className="absolute inset-x-2 bottom-2 z-10 flex items-center gap-2 rounded-md border border-border bg-background/95 px-2.5 py-1.5 shadow-sm">
+        <div className="absolute inset-x-2 bottom-2 z-10 flex items-center gap-2 rounded-md border border-border bg-background/95 px-2.5 py-1.5 shadow-elevation-sm">
           <span className="flex-1 text-[10px] leading-relaxed text-muted-foreground">
             {t('interactionHint')}
           </span>
@@ -743,7 +743,7 @@ export function CdpBrowserView({
       <button
         type="button"
         onClick={() => setDevToolsOpen((o) => !o)}
-        className="absolute right-2 top-2 z-20 inline-flex items-center gap-1 rounded-sm border border-border bg-background/90 px-2 py-1 text-[10px] text-muted-foreground shadow-sm transition-colors hover:bg-accent hover:text-foreground"
+        className="absolute right-2 top-2 z-20 inline-flex items-center gap-1 rounded-sm border border-border bg-background/90 px-2 py-1 text-[10px] text-muted-foreground shadow-elevation-sm transition-colors hover:bg-accent hover:text-foreground"
         aria-label={t('devTools')}
       >
         <span className="font-mono font-semibold">{'</>'}</span>
@@ -755,7 +755,7 @@ export function CdpBrowserView({
         onClick={() => setPickMode((o) => !o)}
         aria-pressed={pickMode}
         data-testid="pick-element-toggle"
-        className={`absolute right-2 top-9 z-20 inline-flex items-center gap-1 rounded-sm border px-2 py-1 text-[10px] shadow-sm transition-colors ${
+        className={`absolute right-2 top-9 z-20 inline-flex items-center gap-1 rounded-sm border px-2 py-1 text-[10px] shadow-elevation-sm transition-colors ${
           pickMode
             ? 'border-primary/40 bg-cta text-cta-foreground'
             : 'border-border bg-background/90 text-muted-foreground hover:bg-accent hover:text-foreground'
@@ -773,7 +773,7 @@ export function CdpBrowserView({
         />
       )}
       {devToolsOpen && (
-        <div className="absolute inset-x-2 bottom-2 top-10 z-20 flex flex-col overflow-hidden rounded-md border border-border bg-background/95 shadow-lg">
+        <div className="absolute inset-x-2 bottom-2 top-10 z-20 flex flex-col overflow-hidden rounded-md border border-border bg-background/95 shadow-elevation-lg">
           <div className="flex items-center justify-between px-2 py-1">
             <span className="text-[10px] font-semibold">{t('devTools')}</span>
             <button
@@ -832,7 +832,7 @@ export function CdpBrowserView({
           <div
             role="menu"
             tabIndex={-1}
-            className="fixed z-popover min-w-[180px] rounded-md border border-border bg-popover p-1 shadow-md animate-in fade-in-0 zoom-in-95 duration-(--duration-unified) ease-unified focus:outline-none"
+            className="fixed z-popover min-w-[180px] rounded-md border border-border bg-popover p-1 shadow-elevation-md animate-in fade-in-0 zoom-in-95 duration-(--duration-unified) ease-unified focus:outline-none"
             style={{
               left: Math.min(ctxMenu.x, window.innerWidth - 188),
               top: Math.min(ctxMenu.y, window.innerHeight - menuItems.length * 30 - 16),

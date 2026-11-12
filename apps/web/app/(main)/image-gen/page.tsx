@@ -63,7 +63,7 @@ export default function ImageGenPage() {
   }
 
   const inputClass =
-    'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+    'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-elevation-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
   return (
     <div className="px-4 py-4 mx-auto w-full max-w-4xl space-y-4">
@@ -97,7 +97,7 @@ export default function ImageGenPage() {
                 id="ig-size"
                 value={size}
                 onChange={(e) => setSize(e.target.value)}
-                className="flex h-9 w-full rounded-sm border border-input bg-transparent px-3 py-1 text-body shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="flex h-9 w-full rounded-sm border border-input bg-transparent px-3 py-1 text-body shadow-elevation-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 {SIZES.map((s) => (
                   <option key={s} value={s}>

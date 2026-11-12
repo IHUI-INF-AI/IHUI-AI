@@ -83,7 +83,7 @@ interface CreateForm {
 
 const EMPTY_FORM: CreateForm = { name: '', script: '', phoneNumbers: '' }
 const TEXTAREA_CLASS =
-  'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+  'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-elevation-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 const STATUS_BADGE: Record<CampaignStatus, string> = {
   created: 'bg-gray-500/10 text-gray-600 border-gray-500/20',
   running: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20',

@@ -118,7 +118,7 @@ export function NewSessionMenu({ loading, onNew }: NewSessionMenuProps) {
         side="bottom"
         align="start"
         gap={4}
-        className="w-64 overflow-hidden rounded-xl border border-border bg-popover shadow-md"
+        className="w-64 overflow-hidden rounded-xl border border-border bg-popover shadow-elevation-md"
       >
         {/* 连接类型单选 */}
         <div className="bg-muted/40 px-2.5 py-1 text-[10px] uppercase tracking-wide text-muted-foreground">

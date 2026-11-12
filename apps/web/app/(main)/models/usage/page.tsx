@@ -385,7 +385,7 @@ export default function UsagePage() {
                 className={cn(
                   'h-7 rounded-sm px-3 text-label font-medium transition-colors',
                   isActive
-                    ? 'bg-background text-foreground shadow-sm'
+                    ? 'bg-background text-foreground shadow-elevation-sm'
                     : 'text-muted-foreground hover:text-foreground',
                 )}
                 onClick={() => setDays(RANGE_DAYS[key])}

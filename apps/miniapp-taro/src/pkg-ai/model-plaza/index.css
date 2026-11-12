@@ -59,7 +59,7 @@
   height: 72rpx;
   border-radius: var(--radius-2xl);
   background: var(--color-background);
-  box-shadow: 0 2rpx 8rpx var(--color-black-4);
+  box-shadow: var(--shadow-elevation-sm);
   transition: all 0.2s ease;
 }
 .provider-tab.active {
@@ -96,7 +96,7 @@
   background: var(--color-background);
   margin: 0 var(--spacing-md) var(--spacing-md);
   border-radius: var(--radius-lg);
-  box-shadow: 0 2rpx 12rpx var(--color-black-4);
+  box-shadow: var(--shadow-elevation-md);
 }
 .provider-header .provider-name {
   display: block;
@@ -136,7 +136,7 @@
   margin-bottom: var(--spacing-md);
   display: flex;
   flex-direction: column;
-  box-shadow: 0 2rpx 12rpx var(--color-black-4);
+  box-shadow: var(--shadow-elevation-md);
 }
 .model-card:active {
   transform: scale(0.98);

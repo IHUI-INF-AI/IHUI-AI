@@ -75,7 +75,7 @@ const EMPTY = {
   status: 'draft' as DocStatus,
 }
 const selectClass =
-  'h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+  'h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-elevation-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
 export default function AdminDocsPage() {
   const t = useTranslations('admin.docs')
@@ -386,7 +386,7 @@ export default function AdminDocsPage() {
                   onChange={(e) => setForm({ ...form, content: e.target.value })}
                   placeholder={t('contentPlaceholder')}
                   rows={6}
-                  className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 font-mono text-body shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 font-mono text-body shadow-elevation-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 />
               ) : (
                 // 单栏全宽预览:弹窗固定 max-w-lg,挤两栏会把 prose 表格/代码块压出裁切(§4 读数不得断行)

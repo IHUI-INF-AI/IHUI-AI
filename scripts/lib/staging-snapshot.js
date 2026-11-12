@@ -163,6 +163,12 @@ function captureIndexIntegrity(options = {}) {
       // 不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY(2026-10-04 实测)
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
+      // 2026-11-12:必须显式抬 maxBuffer。execFileSync 默认 1MB,而本仓索引有 36,242 条
+      // (`ls-files --cached -z` 输出约 3.3MB),默认值下必然 ENOBUFS —— 入口自检会把
+      // 「读不出索引」判成未判定并 exit 2,**任何**提交都进不去(实测:4 个文件的小提交
+      // 也被拦,报 `索引完整性入口自检未判定:读取索引失败:spawnSync git ENOBUFS`)。
+      // 这是容量问题不是内容问题:同一份索引换个更大的缓冲就能读,判据本身不变。
+      maxBuffer: 1 << 28,
     })
   const countZ = (out) => out.split('\u0000').filter(Boolean).length
   try {

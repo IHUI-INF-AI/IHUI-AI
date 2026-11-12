@@ -82,9 +82,9 @@ function relayWebLoginCap(providerCode: string) {
 
 const PAGE_SIZE = 20
 const selectClass =
-  'h-8 rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+  'h-8 rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-elevation-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 const textareaClass =
-  'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring font-mono text-xs'
+  'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-elevation-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring font-mono text-xs'
 
 /** 号池统一命名规约 = 官方绑定手机号全号;掩码形态名(如 180******69)需补全/归位 */
 const MASKED_PHONE_NAME = /^\d{3}\*{2,8}\d{2,4}$/

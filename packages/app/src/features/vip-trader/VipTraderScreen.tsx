@@ -26,7 +26,7 @@ import {
   Zap,
 } from 'lucide-react-native'
 
-import { rnCssLight, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { ELEVATION_STEPS, rnCssLight, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 import { assertRequiredPort } from '../../host/ports'
@@ -328,11 +328,9 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.md,
       backgroundColor: tk.surface.light,
-      shadowColor: tk.gray.black,
-      shadowOpacity: 0.06,
-      shadowRadius: 8,
-      shadowOffset: { width: 0, height: -2 },
-      elevation: 8,
+      // 底部固定栏向上投影:方向取反(负 offset),色/透明度/半径/高程仍走 lg 档
+      ...ELEVATION_STEPS.lg,
+      shadowOffset: { width: 0, height: -4 },
     },
     footLeft: { flexDirection: 'row', alignItems: 'baseline' },
     footSymbol: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },

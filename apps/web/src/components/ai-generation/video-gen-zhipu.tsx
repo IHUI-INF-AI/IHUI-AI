@@ -32,7 +32,7 @@ const SIZES = ['1920x1080', '1080x1920', '1024x1024'] as const
 const MODELS = ['cogvideox-3', 'cogvideox-2', 'cogvideox'] as const
 
 const TEXTAREA_CLS =
-  'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+  'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-elevation-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
 interface ZhipuVideoSubmitResult {
   id?: string

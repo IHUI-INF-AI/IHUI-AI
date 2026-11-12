@@ -34,16 +34,16 @@ const buttonVariants = cva(
         // 共享档位(唯一源)先展开;下面只在基座之外追加 web 平台修饰
         ...SHARED_BUTTON_VARIANT_CLASSES,
         default: `${SHARED_BUTTON_VARIANT_CLASSES.default} shadow hover:bg-cta/90`,
-        destructive: `${SHARED_BUTTON_VARIANT_CLASSES.destructive} shadow-sm hover:bg-destructive/90`,
-        outline: `${SHARED_BUTTON_VARIANT_CLASSES.outline} shadow-sm hover:bg-accent hover:text-accent-foreground`,
+        destructive: `${SHARED_BUTTON_VARIANT_CLASSES.destructive} shadow-elevation-sm hover:bg-destructive/90`,
+        outline: `${SHARED_BUTTON_VARIANT_CLASSES.outline} shadow-elevation-sm hover:bg-accent hover:text-accent-foreground`,
         ghost: `${SHARED_BUTTON_VARIANT_CLASSES.ghost} hover:bg-accent hover:text-accent-foreground`,
         // web 独占档位
-        secondary: 'bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80',
+        secondary: 'bg-secondary text-secondary-foreground shadow-elevation-sm hover:bg-secondary/80',
         link: 'text-primary underline-offset-4 hover:underline',
 
-        primary: 'bg-cta text-cta-foreground shadow-sm hover:bg-cta/90',
+        primary: 'bg-cta text-cta-foreground shadow-elevation-sm hover:bg-cta/90',
         'hero-cta':
-          'bg-gradient-to-r from-cta to-cta/70 text-cta-foreground shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all px-8 py-3 text-base font-semibold rounded-sm',
+          'bg-gradient-to-r from-cta to-cta/70 text-cta-foreground shadow-elevation-md hover:shadow-elevation-lg hover:-translate-y-0.5 transition-all px-8 py-3 text-base font-semibold rounded-sm',
         login: 'w-full bg-cta text-cta-foreground hover:bg-cta/90 h-11 rounded-sm font-medium',
         send: 'bg-cta text-cta-foreground hover:bg-cta/90 rounded-sm px-4 py-2',
         'card-action':
@@ -51,7 +51,7 @@ const buttonVariants = cva(
         'mobile-login':
           'w-full bg-cta text-cta-foreground hover:bg-cta/90 h-12 rounded-sm text-base font-semibold',
         'btn-luxe':
-          'bg-gradient-to-r from-vip-gold-start to-vip-gold-end text-white shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all px-6 py-2.5 rounded-sm font-semibold',
+          'bg-gradient-to-r from-vip-gold-start to-vip-gold-end text-white shadow-elevation-sm hover:shadow-elevation-lg hover:-translate-y-0.5 transition-all px-6 py-2.5 rounded-sm font-semibold',
         'agreement-agree':
           'w-full bg-cta text-cta-foreground hover:bg-cta/90 h-12 rounded-sm font-medium',
         'switch-project':

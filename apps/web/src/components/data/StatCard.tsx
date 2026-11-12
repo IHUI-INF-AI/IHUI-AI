@@ -30,7 +30,7 @@ export function StatCard({
   // 涨红跌绿走文字令牌;主数值保持中性,积分正绿负红不在这张卡上。
   const rising = (trend ?? 0) >= 0
   return (
-    <div className={cn('rounded-lg border bg-card p-3 text-card-foreground shadow', className)}>
+    <div className={cn('rounded-lg border bg-card p-3 text-card-foreground shadow-elevation-md', className)}>
       <div className="flex items-center justify-between gap-2">
         <TruncatedText
           value={title}

@@ -185,7 +185,7 @@ export function WorkspaceSelector() {
           <DropdownMenu.Content
             align="start"
             sideOffset={6}
-            className="z-popover min-w-[16rem] max-w-[20rem] overflow-hidden rounded-lg border bg-card p-1 text-card-foreground shadow-md"
+            className="z-popover min-w-[16rem] max-w-[20rem] overflow-hidden rounded-lg border bg-card p-1 text-card-foreground shadow-elevation-md"
           >
             <DropdownMenu.Label className="px-2 py-1.5 text-label font-semibold uppercase tracking-wide text-muted-foreground">
               {tw('recentWorkspaces')}

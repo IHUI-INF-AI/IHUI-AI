@@ -532,7 +532,7 @@ export function SwarmTopologyView({
             align="start"
             gap={4}
             role="tooltip"
-            className="pointer-events-none w-max max-w-[220px] rounded-xl border border-border bg-popover px-2 py-1 text-[10px] shadow-md"
+            className="pointer-events-none w-max max-w-[220px] rounded-xl border border-border bg-popover px-2 py-1 text-[10px] shadow-elevation-md"
           >
             <div className="font-medium text-foreground">
               {node.label}
@@ -557,7 +557,7 @@ export function SwarmTopologyView({
           align="start"
           gap={4}
           onClose={() => setSelectedNodeId(null)}
-          className="w-48 rounded-xl border border-border bg-popover px-2.5 py-2 text-[10px] shadow-lg"
+          className="w-48 rounded-xl border border-border bg-popover px-2.5 py-2 text-[10px] shadow-elevation-lg"
         >
           <div className="mb-1 flex items-center gap-1 font-medium text-foreground">
             <span>{selectedNode.label}</span>

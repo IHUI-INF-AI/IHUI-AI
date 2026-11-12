@@ -181,7 +181,7 @@ export function SearchBar({
         style={anchorWidth ? { width: anchorWidth } : undefined}
         // 段间节奏:space-y-2 = 0.5rem = 8px(Tailwind 间距档 2,与原 h-2 占位节点同值 ⇒ 视觉零变化);
         // §4 禁分割线的替代正是 space-y-*,故不在段之间插任何线/空 div。
-        className="space-y-2 overflow-hidden rounded-xl border bg-popover p-1 text-popover-foreground shadow-md"
+        className="space-y-2 overflow-hidden rounded-xl border bg-popover p-1 text-popover-foreground shadow-elevation-md"
       >
         {!value ? (
           <>

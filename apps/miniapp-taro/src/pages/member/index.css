@@ -107,6 +107,7 @@
   box-sizing: border-box;
 }
 .member-level-current {
+  /* 豁免类别:金色 tint 徽章外发光(offset 0 0 居中光晕),非层级投影 */
   /* 已接入 token:var(--color-vip-gold-start)(#ffd700);浅金底收敛至 var(--color-gold-muted) */
   border-color: var(--color-vip-gold-start);
   background: var(--color-gold-muted);

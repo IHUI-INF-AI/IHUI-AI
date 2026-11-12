@@ -62,7 +62,7 @@ export function Tooltip({
             // pointer-events-none(2026-11-04):提示气泡纯展示、不承载交互;缺省 pointer-events
             // 会让悬停出现的 tooltip 盖住被指向的按钮,吞掉用户的真实点击 —— CI 实测
             // ai-panel-env-info 的「查看完整信息」按钮即被 <div role="tooltip"> 拦截 60s。
-            'pointer-events-none z-popover rounded-md border bg-popover px-2 py-1 text-label text-popover-foreground shadow-md',
+            'pointer-events-none z-popover rounded-md border bg-popover px-2 py-1 text-label text-popover-foreground shadow-elevation-md',
             'data-[state=delayed-open]:animate-in data-[state=delayed-open]:fade-in-0 data-[state=delayed-open]:zoom-in-95 duration-(--duration-unified) ease-unified',
             className,
           )}

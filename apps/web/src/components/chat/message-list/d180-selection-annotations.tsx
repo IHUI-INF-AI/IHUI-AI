@@ -64,7 +64,7 @@ export function SelectionAnnotationBar({ conversationId, messageId }: SelectionA
           data-testid={`selection-annotation-trigger-${messageId}`}
           className={cn(
             'inline-flex items-center gap-1 rounded-sm border border-border bg-card px-2 py-1',
-            'text-label text-muted-foreground shadow-sm transition-colors',
+            'text-label text-muted-foreground shadow-elevation-sm transition-colors',
             'hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
           )}
         >
@@ -81,7 +81,7 @@ export function SelectionAnnotationBar({ conversationId, messageId }: SelectionA
           data-testid={`selection-annotation-remove-all-${messageId}`}
           className={cn(
             'inline-flex items-center rounded-sm border border-border bg-card p-1 text-muted-foreground',
-            'shadow-sm transition-colors hover:border-destructive/40 hover:text-destructive',
+            'shadow-elevation-sm transition-colors hover:border-destructive/40 hover:text-destructive',
             'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
           )}
         >
@@ -90,7 +90,7 @@ export function SelectionAnnotationBar({ conversationId, messageId }: SelectionA
       </div>
       {open && (
         <div
-          className="absolute left-0 top-full z-10 mt-1 w-full max-w-md rounded-lg border border-border bg-card p-3 shadow-md"
+          className="absolute left-0 top-full z-10 mt-1 w-full max-w-md rounded-lg border border-border bg-card p-3 shadow-elevation-md"
           role="group"
           aria-label={t('selectionAnnotations.hoverHint')}
           data-testid={`selection-annotation-panel-${messageId}`}
@@ -140,7 +140,7 @@ export function SelectionAnnotationBar({ conversationId, messageId }: SelectionA
                       data-testid={`selection-annotation-comment-add-${messageId}-${index}`}
                       className={cn(
                         'rounded-sm border border-border bg-card px-2 py-1 text-label text-muted-foreground',
-                        'shadow-sm transition-colors hover:border-primary/40 hover:text-foreground',
+                        'shadow-elevation-sm transition-colors hover:border-primary/40 hover:text-foreground',
                         'disabled:cursor-not-allowed disabled:opacity-50',
                         'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
                       )}
@@ -154,7 +154,7 @@ export function SelectionAnnotationBar({ conversationId, messageId }: SelectionA
                       data-testid={`selection-annotation-remove-${messageId}-${index}`}
                       className={cn(
                         'inline-flex items-center rounded-sm border border-border bg-card p-1 text-muted-foreground',
-                        'shadow-sm transition-colors hover:border-destructive/40 hover:text-destructive',
+                        'shadow-elevation-sm transition-colors hover:border-destructive/40 hover:text-destructive',
                         'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
                       )}
                     >

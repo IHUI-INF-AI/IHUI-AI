@@ -37,7 +37,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 /** 直接执行时的入口(为空则说明本文件被当作断言目标跑,不进 CLI 主流程)。 */
 const entryArg = process.argv[1] || ''
 
-/** 子步骤清单:逐字取自改前 `check:all` 的 `&&` 串链(26 条)+ 票 G-217 补接的第 27 条 `check:benchmark-delivery` + 2026-10-31 补接的装机资产对账(G-21),共 28 条;顺序与集合都不得增删。 */
+/** 子步骤清单:逐字取自改前 `check:all` 的 `&&` 串链(26 条)+ 票 G-217 补接的第 27 条 `check:benchmark-delivery` + 2026-10-31 补接的装机资产对账(G-21),共 28 条;2026-11-12 补接投影唯一源守门(29 条)。顺序与集合都不得增删。 */
 export const CHECK_ALL_STEPS = Object.freeze([
   'pnpm check:conflict-markers',
   'pnpm check:api-key-leak',
@@ -57,6 +57,11 @@ export const CHECK_ALL_STEPS = Object.freeze([
   'pnpm check:adapter-parity',
   'pnpm check:killer-parity-ends',
   'node scripts/scan-dead-i18n-keys.mjs --target all --exit 1',
+  // 2026-11-12 补接:投影(阴影)唯一源守门。此前尺子已入库、也接进了提交链与八端认证,
+  // 唯独 check:all 没装车 ⇒ 全量档看不到投影漂移(同 §0.9「造好没装车 = 没有」)。
+  // 刻意插在第 18 步(死链扫描)之后而不是 cross-end-tokens 之后:A7 自检用下标 17 钉着
+  // 那条死链的位置,挪它会连带改判据锚点;补接只该加行 + 改计数,不该动既有锚。
+  'pnpm check:shadow-single-source',
   'pnpm check:auth-refresh-singleton',
   'node scripts/check-agent-event-parity.mjs',
   'pnpm check:desktop-event-wiring',
@@ -401,9 +406,11 @@ function runSelfTest() {
       })(),
     ],
     [
-      'A7 子步骤清单是 28 条且含那条死链上的第 18 步',
+      'A7 子步骤清单是 29 条且含那条死链上的第 18 步',
       (() =>
-        CHECK_ALL_STEPS.length === 28 &&
+        // 28 → 29:2026-11-12 补接 `check:shadow-single-source`(插在 cross-end-tokens 之后)。
+        // 计数是"集合不得静默增删"的闸,补接必须同时改这里并写明来由,不许只加行不改数。
+        CHECK_ALL_STEPS.length === 29 &&
         CHECK_ALL_STEPS[17] === 'node scripts/scan-dead-i18n-keys.mjs --target all --exit 1')(),
     ],
     [

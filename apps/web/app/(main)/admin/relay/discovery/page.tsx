@@ -40,7 +40,7 @@ import { Tooltip } from '@/components/feedback'
 
 const PAGE_SIZE = 20
 const selectClass =
-  'h-8 rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+  'h-8 rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-elevation-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
 type DiscStatus = 'discovered' | 'pending' | 'approved' | 'rejected'
 
@@ -458,7 +458,7 @@ export default function AdminRelayDiscoveryPage() {
                 placeholder="请填写驳回原因"
                 rows={3}
                 required
-                className="w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-elevation-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               />
             </div>
             <DialogFooter>

@@ -10,7 +10,7 @@ export const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] as const
 export const STATS_DAYS_OPTS = [1, 7, 30]
 export const CLEANUP_DAYS_OPTS = [7, 30, 90, 180]
 export const inputClass =
-  'h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+  'h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-elevation-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
 export function statusClass(code: number): string {
   if (code >= 200 && code < 300) return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'

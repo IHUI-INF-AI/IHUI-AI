@@ -66,7 +66,7 @@ export default function ContextVisualizationPage() {
               value={conversationId}
               onChange={(e) => setConversationId(e.target.value)}
               placeholder="输入 conversationId(留空查全部)"
-              className="h-8 flex-1 rounded-sm border border-input bg-transparent px-2.5 text-body shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="h-8 flex-1 rounded-sm border border-input bg-transparent px-2.5 text-body shadow-elevation-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
           </div>
         </CardContent>

@@ -522,7 +522,7 @@ export default function AgentPage() {
 
       {/* 创建智能体悬浮按钮(对标原项目 dev_enter 入口) */}
       <View
-        className="fixed right-4 bg-[var(--color-primary)] text-primary-foreground rounded-lg px-md py-sm shadow-lg"
+        className="fixed right-4 bg-[var(--color-primary)] text-primary-foreground rounded-lg px-md py-sm shadow-elevation-lg"
         style={{ bottom: '140rpx' }}
         onClick={onCreateAgent}
         hoverClass="opacity-60"
@@ -530,6 +530,7 @@ export default function AgentPage() {
         <Text className="text-label">+ {t('ai.agentList.createAgent')}</Text>
       </View>
 
+      {/* 豁免类别:吸底输入栏向上投影(负 y offset),非层级投影 */}
       <View className="fixed bottom-0 left-0 right-0 bg-card shadow-[0_-1px_2px_var(--color-black-4)]">
         <BottomActionBar
           value={keyword}

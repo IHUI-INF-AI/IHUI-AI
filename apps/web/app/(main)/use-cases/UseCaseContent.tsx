@@ -394,7 +394,7 @@ export function UseCaseContent({ useCaseId }: { useCaseId: UseCase['id'] }): Rea
         </h2>
         <div className="mt-8 grid grid-cols-1 gap-6 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
           {uc.solutionPoints.map((sp, i) => (
-            <div key={i} className="rounded-lg border bg-card p-3 shadow-sm">
+            <div key={i} className="rounded-lg border bg-card p-3 shadow-elevation-sm">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-cta/10 text-body font-semibold text-primary">
                 {i + 1}
               </div>

@@ -213,7 +213,7 @@ export default function CustomerServiceFloat({
         onTouchCancel={handleTouchCancel}
       >
         <View
-          className="flex flex-col items-center justify-center bg-primary rounded-xl shadow-lg"
+          className="flex flex-col items-center justify-center bg-primary rounded-xl shadow-elevation-lg"
           style={{ width: `${FLOAT_BTN_SIZE}px`, height: `${FLOAT_BTN_SIZE}px` }}
         >
           <LineIcon name="wallet" size="16px" color="var(--color-primary-foreground)" />

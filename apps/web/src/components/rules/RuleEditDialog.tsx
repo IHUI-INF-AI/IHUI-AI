@@ -93,7 +93,7 @@ function RuleEditDialog() {
       className="fixed inset-0 z-modal flex items-center justify-center bg-white/40 p-3 dark:bg-black/40"
       onClick={(e) => e.target === e.currentTarget && closeEditor()}
     >
-      <div className="w-full max-w-lg space-y-3 rounded-lg border border-border bg-card p-3 shadow-lg">
+      <div className="w-full max-w-lg space-y-3 rounded-lg border border-border bg-card p-3 shadow-elevation-lg">
         <div className="flex items-center justify-between">
           <span className="text-body font-semibold">
             {editingRule ? t('editRuleTitle') : t('newRule')}

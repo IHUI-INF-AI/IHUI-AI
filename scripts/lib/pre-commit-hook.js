@@ -479,6 +479,11 @@ try {
       windowsHide: true,
       stdio: ['ignore', 'pipe', 'pipe'],
       timeout: 30_000,
+      // 2026-11-12:execSync 默认 maxBuffer 1MB。本仓索引 36,242 条时
+      // `git diff --cached --name-only` 约 2MB,默认值下抛 ENOBUFS,被下面的 catch
+      // 静默吞掉 ⇒ 轮次记录的 stagedFiles 永远是空,事后归因被读成"这轮没暂存"。
+      // 抬到 256MB 只改容量不改判据。
+      maxBuffer: 1 << 28,
     }).trim()
   ROUND.headBefore = ROUND.headBefore || gitOutEarly('git rev-parse HEAD')
   ROUND.stagedFiles = ROUND.stagedFiles.length
