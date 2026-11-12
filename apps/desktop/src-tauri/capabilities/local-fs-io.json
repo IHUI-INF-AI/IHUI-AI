@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "local-fs-io",
-  "description": "本地 webview 专用文件 I/O 与剪贴板读权限(2026-11-07 DBG-38 P0 收口)。仅作用于 main/admin 窗口的本地内容(template:// / 打包资源),不授予 remote 线上页(https://aizhs.top)。立因:apps/desktop/src 全仓 grep readTextFile/writeTextFile/readBinaryFile/readDir/listDir/statFile/clipboardReadText 零命中 —— 本地桌面代码根本不消费这些权限,它们是纯 RCE 面(线上前端任一 XSS 即可在本机读/写任意文件、抓剪贴板)。原 default.json 把它们放在同时覆盖 remote 的能力里,等价于把裸文件读写授权给了不可信的远程页。现收回 remote 面、仅留本地 webview:因本仓桌面窗口只加载远程站点、无本地内容消费这些命令,本能力当前对线上 XSS 面为 inert;若日后本地功能确需,须在此显式授权而非回退到 default 的 remote 面;线上前端若需文件能力,应改用带路径 scope 的显式授权,而非全局裸权限。",
+  "description": "本地 webview 专用文件 I/O 与剪贴板读权限(2026-11-07 DBG-38 P0 收口;2026-11-12 F-061 补 allow-clipboard-set)。仅作用于 main/admin 窗口的本地内容(template:// / 打包资源),不授予 remote 线上页(https://aizhs.top)。立因:apps/desktop/src 全仓 grep readTextFile/writeTextFile/readBinaryFile/readDir/listDir/statFile/clipboardReadText 零命中 —— 本地桌面代码根本不消费这些权限,它们是纯 RCE 面(线上前端任一 XSS 即可在本机读/写任意文件、抓剪贴板)。原 default.json 把它们放在同时覆盖 remote 的能力里,等价于把裸文件读写授权给了不可信的远程页。现收回 remote 面、仅留本地 webview:因本仓桌面窗口只加载远程站点、无本地内容消费这些命令,本能力当前对线上 XSS 面为 inert;若日后本地功能确需,须在此显式授权而非回退到 default 的 remote 面;线上前端若需文件能力,应改用带路径 scope 的显式授权,而非全局裸权限。2026-11-12 F-061:此处追加 allow-clipboard-set,理由是写剪贴板不构成凭据窃取面(读剪贴板才是),本地 webview 的 clipboard_set 不应被 ACL 拒;但该权限仍不回退到 default.json 的 remote 面 —— 线上页可写剪贴板等价于 XSS 覆写用户剪贴板,不恢复。",
   "windows": ["main", "admin"],
   "permissions": [
     "allow-read-text-file",
@@ -9,6 +9,7 @@
     "allow-write-text-file",
     "allow-list-dir",
     "allow-stat-file",
-    "allow-clipboard-get"
+    "allow-clipboard-get",
+    "allow-clipboard-set"
   ]
 }
