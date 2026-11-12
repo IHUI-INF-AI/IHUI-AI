@@ -340,6 +340,17 @@ export interface AgentResult {
    * 未开启 `reviewPolicy.enabled` 时该字段恒为 false。
    */
   reviewDue?: boolean;
+  /**
+   * 自动复审的**真实结论**(仅当 reviewPolicy.enabled 且 reviewExecute 且有到期时才有值)。
+   * `regressed` = 本次改动新引入了 error。首次跑无基线时全部算存量,不误报。
+   */
+  review?: {
+    regressed: boolean
+    introducedCount: number
+    preexistingCount: number
+    hadBaseline: boolean
+    total: number
+  };
 }
 
 // ==================== P1-5 Headless 多格式输出(实现在 src/headless-format.ts,此处仅 re-export)====================
@@ -363,6 +374,8 @@ import {
   type ReviewPolicy,
   type ReviewState,
 } from '../tools/auto-review.js'
+import { reviewAgainstBaseline, type ReviewAgainstBaselineResult } from '../tools/auto-review-run.js'
+import { runEslint, runTsc } from '../tools/diagnostics.js'
 import { loadSessionRuntime, nextTurnOrdinal, upsertTurn } from '../acp/turn-store.js'
 import type { OutputFormat, HeadlessEvent } from '../headless-format.js'
 
@@ -874,6 +887,12 @@ export interface RunToolLoopOptions {
    * 在大仓里会把编辑变成分钟级。开启与否必须由用户显式决定。
    */
   reviewPolicy?: ReviewPolicy;
+  /**
+   * 是否在 reviewDue 时**真的执行**诊断(tsc + eslint)。
+   * 默认 false —— 诊断要起子进程,在大仓里可达数十秒;只能由调用方显式开启。
+   * 开启时,结果按「只报新增」判定并回传 `review`。
+   */
+  reviewExecute?: boolean;
   costApproval?: {
     /** 该动作是否强制审批(来自权限/计费策略) */
     mandatory: boolean;
@@ -3337,6 +3356,19 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
       now: Date.now(),
     });
   }
+
+  // 自动复审的真实执行(2026-11-12):只在「判据说该审了」且调用方显式开启时跑。
+  // 起子进程跑 tsc/eslint 可能数十秒,绝不能默认打开 —— 那会让每次编辑都变慢。
+  let reviewResult: ReviewAgainstBaselineResult | null = null;
+  if (reviewDue && opts.reviewExecute === true) {
+    try {
+      const diags = [...runTsc(opts.ctx.workspacePath), ...runEslint(opts.ctx.workspacePath)];
+      reviewResult = reviewAgainstBaseline(opts.ctx.workspacePath, diags);
+    } catch {
+      // 诊断自身失败不得影响回合结果 —— 复审是观测面,不是执行面。
+      reviewResult = null;
+    }
+  }
   return {
     stopReason,
     assistantText,
@@ -3353,6 +3385,18 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
     ...(costApprovalVerdict ? { costApproval: costApprovalVerdict } : {}),
     // 自动复审时机(只在开启且真的到点时才带)
     ...(reviewDue ? { reviewDue: true } : {}),
+    // 自动复审结论(只在真的跑了诊断时才带 —— 缺失 = 没跑,不等于通过)
+    ...(reviewResult
+      ? {
+          review: {
+            regressed: reviewResult.verdict.regressed,
+            introducedCount: reviewResult.verdict.introduced.length,
+            preexistingCount: reviewResult.verdict.preexistingCount,
+            hadBaseline: reviewResult.hadBaseline,
+            total: reviewResult.total,
+          },
+        }
+      : {}),
   };
 }
 
