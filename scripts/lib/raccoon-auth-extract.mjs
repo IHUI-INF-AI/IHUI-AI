@@ -6,7 +6,12 @@
  * 商汤小浣熊（Raccoon Work）本机登录态提取器(2026-11-11 立)。
  *
  * 取证链(全部本机实测,详见 docs/raccoon-relay-api.md):
- * - 凭据落点:~/.office-raccoon/agent/config/auth.json
+ * - 凭据落点(旧/便携/类 Unix):~/.office-raccoon/agent/config/auth.json
+ * - 凭据落点(现装 2026-11-11 重装搬 D 盘):%APPDATA%/office-raccoon 是 junction →
+ *   D:\SOFTWARE\商汤小浣熊\_data\office-raccoon,但**实际凭据在同级 box-agent**:
+ *   D:\SOFTWARE\商汤小浣熊\_data\box-agent\config\auth.json
+ *   (box-agent = 小浣熊桌面启动器,凭据落它名下,而非 office-raccoon)。
+ *   提取器经 candidateAuthFiles() 自动跟 junction 取 dataRoot,不再写死单一路径。
  *   { access_token: JWT(HS256, iss=xiaohuanxiong.com/iam, sub=pu-<uuid>, 30 天),
  *     office_identity: "personal"(个人版身份标记,非 owner_id——owner_id 由 balance 接口给) }
  * - auth.json 无 refresh_token ⇒ 提取载荷不带 refreshToken 字段(续期腿待取证,勿冒充)。
@@ -69,11 +74,60 @@ export function candidateHomes() {
   return homes
 }
 
-/** 找出全部有效登录态(多 profile 时逐枚列,调用方决定取哪枚) */
+/**
+ * 候选 auth.json 落点清单(自动发现,不写死单一路径):
+ *   0) IHUI_RACCOON_AUTH_FILE 显式覆盖(运维排障用)
+ *   1) 旧文档/便携/类 Unix:~/.office-raccoon/agent/config/auth.json
+ *   2) 现装(Windows 2026-11-11 搬 D 盘):%APPDATA%/office-raccoon 是 junction →
+ *      D:\SOFTWARE\商汤小浣熊\_data\office-raccoon;**实际凭据在同级 box-agent**:
+ *      D:\SOFTWARE\商汤小浣熊\_data\box-agent\config\auth.json
+ *      (junction 跟随后取 dataRoot,再落 box-agent 优先、office-raccoon 兜底)
+ *   3) 硬编码实测主落点 D:\SOFTWARE\商汤小浣熊\_data(防 junction 被移除/重装漂移)。
+ * 返回 [{ file, home }];home 用于出错点名,不进入凭据本身。
+ */
+export function candidateAuthFiles() {
+  const out = []
+  const seen = new Set()
+  const push = (file, home) => {
+    let norm
+    try {
+      norm = path.resolve(file)
+    } catch {
+      norm = file
+    }
+    if (seen.has(norm)) return
+    seen.add(norm)
+    out.push({ file: norm, home: home ?? path.dirname(norm) })
+  }
+
+  if (process.env.IHUI_RACCOON_AUTH_FILE) {
+    push(process.env.IHUI_RACCOON_AUTH_FILE, 'IHUI_RACCOON_AUTH_FILE')
+  }
+  for (const home of candidateHomes()) {
+    push(path.join(home, AUTH_REL), home)
+  }
+  const dataRoots = new Set()
+  if (process.platform === 'win32') {
+    const appData = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming')
+    const officeDir = path.join(appData, 'office-raccoon')
+    if (fs.existsSync(officeDir)) {
+      try {
+        dataRoots.add(path.dirname(fs.realpathSync(officeDir)))
+      } catch {}
+    }
+  }
+  dataRoots.add(path.join('D:', 'SOFTWARE', '商汤小浣熊', '_data'))
+  for (const root of dataRoots) {
+    push(path.join(root, 'box-agent', 'config', 'auth.json'), root)
+    push(path.join(root, 'office-raccoon', 'agent', 'config', 'auth.json'), root)
+  }
+  return out
+}
+
+/** 找出全部有效登录态(多 profile / 多落点时逐枚列,调用方决定取哪枚) */
 export function findAuthFiles() {
   const found = []
-  for (const home of candidateHomes()) {
-    const file = path.join(home, AUTH_REL)
+  for (const { file, home } of candidateAuthFiles()) {
     if (!fs.existsSync(file)) continue
     let raw
     try {
@@ -147,8 +201,20 @@ export async function fetchIamAccount(token, fetchImpl = globalThis.fetch) {
  */
 export async function extractRaccoonAccounts(opts = {}) {
   if (opts.home) {
-    const file = path.join(opts.home, AUTH_REL)
-    if (!fs.existsSync(file)) return { ok: false, exitCode: 1, reason: `指定 profile 下没有 ${AUTH_REL}:${file}` }
+    // 指定 profile 根:既试旧文档路径,也试现装 box-agent 同级(落点随版本漂移,不赌单一形态)
+    const cands = [
+      path.join(opts.home, AUTH_REL),
+      path.join(opts.home, 'box-agent', 'config', 'auth.json'),
+      path.join(opts.home, 'office-raccoon', 'agent', 'config', 'auth.json'),
+    ].filter((p) => fs.existsSync(p))
+    const file = cands[0]
+    if (!file) {
+      return {
+        ok: false,
+        exitCode: 1,
+        reason: `指定 profile 根下没有小浣熊登录态(试过:${cands.length ? cands.join(', ') : `${opts.home}/${AUTH_REL} 等`})`,
+      }
+    }
     const parsed = parseAuthJson(fs.readFileSync(file, 'utf8'))
     if (!parsed.ok) return { ok: false, exitCode: 1, reason: `${file}:${parsed.reason}` }
     opts = { ...opts, _forced: [{ file, home: opts.home, ...parsed }] }
@@ -301,6 +367,7 @@ export const __test__ = {
   decodeJwtPayload,
   parseAuthJson,
   candidateHomes,
+  candidateAuthFiles,
   findAuthFiles,
   fetchUserInfo,
   fetchIamAccount,
