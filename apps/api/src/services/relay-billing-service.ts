@@ -1719,37 +1719,55 @@ export async function rechargeByKey(
 // 生图/生视频为异步任务:提交时已按次/按张扣费(乐观计费,防漏损),
 // 任务查询发现 failed 时按 costCents 全额退款,并把该流水标记 metadata.refunded=true。
 // 幂等保证:refunded 标记在查询条件里,重复查询/并发退款只会退一次。
+//
+// F-34(2026-11-13):退款不再"失败即静默丢失":
+//  - 「打标 + 加回余额」收进同一事务 —— 任一步失败整体回滚,杜绝原实现
+//    `refunded=true` 已落库但加钱失败的不可重试状态(那才是钱的永久蒸发点);
+//  - 有界重试(首次 + 2 次、短退避)覆盖瞬时抖动;
+//  - 仍失败则把待补偿事实写回本行 metadata(既有 jsonb 列,无新表、无迁移),
+//    并返回 reason='error'/'exhausted',由调用方写退款 DLQ + error 级告警。
 // =============================================================================
 
 export interface RefundTaskResult {
   refunded: boolean
   /** 退款金额(分);refunded=false 时为 0 */
   refundedCents: number
-  /** 退款原因:无流水(未扣费)|已退款过|退款成功|流水缺 apiKeyId */
-  reason: 'refunded' | 'no_log' | 'ok' | 'no_api_key'
+  /**
+   * 退款原因:无流水(未扣费/已退过)|退款成功|流水缺 apiKeyId|
+   * 未完成但可重试(error)|已达重试上限需人工(exhausted)
+   */
+  reason: 'refunded' | 'no_log' | 'ok' | 'no_api_key' | 'error' | 'exhausted'
+  /** F-34:终结在待补偿状态时的累计失败轮次(仅 error/exhausted 可能带) */
+  attempts?: number
 }
 
-/**
- * 按 taskId 退款(生图/生视频任务失败时调用)。
- * 查找该任务提交时写入的计费流水(call_type in image/video + metadata.task_id),
- * 未退款过则把 costCents 原样退回组池或个人余额并打标记。
- * 失败容错:任何 db 错误只 log 并返回 refunded:false(主链路不受影响)。
- */
-export async function refundTaskCall(taskId: string): Promise<RefundTaskResult> {
-  try {
-    if (!taskId) return { refunded: false, refundedCents: 0, reason: 'no_log' }
+/** F-34:单次调用的退款写库有界重试退避(首次 + 2 次重试),与 F-35 结算重试同档。 */
+const REFUND_RETRY_DELAYS_MS = [20, 50]
 
+/** F-34:同一任务退款失败的累计轮次上限,达到即转人工(metadata.refund_state=pending_manual)。 */
+export const REFUND_MAX_ATTEMPTS = 3
+
+/**
+ * 退款写库(单事务):抢占退款资格 + 把 costCents 原额加回组池/个人成本余额。
+ *
+ * 两步同事务 ⇒ 要么「refunded=true 且钱已回」,要么整体回滚保持可重试。
+ * 目标余额行不存在(组/Key 被删)时抛错,绝不再当成功返回。
+ */
+async function claimAndRefundTaskCall(taskId: string): Promise<RefundTaskResult> {
+  return db.transaction(async (tx) => {
     // F-721(2026-11):原子抢占退款资格 —— 用 `UPDATE ... WHERE refunded=false RETURNING`
     // 在主库一次性完成「判资格 + 打标」,避免原实现先 SELECT(走只读副本)再无条件 UPDATE、
     // 最后才 markTaskRefunded 的非原子三段式导致并发/副本滞后双退。只有抢到 refunded 行锁
     // 的那一次才真正退款,其余并发轮询命中 0 行 → 直接视作无退款,杜绝凭空增余额。
     // F-660(2026-11):退款金额(分)必须回填 **成本余额列**(sharedCostBalanceCents /
     // costBalanceCents),原实现误加到 token 余额列,导致钱没退、token 余额被虚增。
-    const [claimed] = await db
+    // F-34(2026-11-13):metadata.refund_state 一并置 refunded(待补偿标记自愈);
+    // pending_manual 行不再被抢占(已转人工,避免每次轮询重复失败)。
+    const [claimed] = await tx
       .update(llmCallLogs)
       .set({
         refunded: true,
-        metadata: sql`jsonb_set(COALESCE(${llmCallLogs.metadata},'{}'::jsonb), '{refunded}', 'true'::jsonb)`,
+        metadata: sql`jsonb_set(jsonb_set(COALESCE(${llmCallLogs.metadata},'{}'::jsonb), '{refunded}', 'true'::jsonb), '{refund_state}', '"refunded"'::jsonb)`,
       })
       .where(
         and(
@@ -1758,6 +1776,7 @@ export async function refundTaskCall(taskId: string): Promise<RefundTaskResult> 
           eq(llmCallLogs.status, 'success'),
           eq(llmCallLogs.refunded, false),
           isNotNull(llmCallLogs.apiKeyId),
+          sql`COALESCE(${llmCallLogs.metadata}->>'refund_state','') <> 'pending_manual'`,
         ),
       )
       .returning({
@@ -1779,31 +1798,120 @@ export async function refundTaskCall(taskId: string): Promise<RefundTaskResult> 
     const groupInfo = await getKeyGroup(apiKeyId)
     if (groupInfo && groupInfo.enabled) {
       // 组池退款:-1(无限额度)不退,否则按成本分原额加回成本余额列
-      await db
+      const credited = await tx
         .update(apiKeyGroups)
         .set({
           sharedCostBalanceCents: sql`CASE WHEN ${apiKeyGroups.sharedCostBalanceCents} = -1 THEN -1 ELSE ${apiKeyGroups.sharedCostBalanceCents} + ${cents} END`,
           updatedAt: new Date(),
         })
         .where(eq(apiKeyGroups.id, groupInfo.groupId))
+        .returning({ id: apiKeyGroups.id })
+      // 组被删 ⇒ 钱退不进去,抛错回滚(事务里 refunded 标记一并撤销,下次可重试)
+      if (credited.length === 0) throw new Error(`apiKeyGroup not found: ${groupInfo.groupId}`)
     } else {
       // 个人余额退款:-1(无限额度)不退,否则按成本分原额加回成本余额列
-      await db
+      const credited = await tx
         .update(developerApiKeys)
         .set({
           costBalanceCents: sql`CASE WHEN ${developerApiKeys.costBalanceCents} = -1 THEN -1 ELSE ${developerApiKeys.costBalanceCents} + ${cents} END`,
           updatedAt: new Date(),
         })
         .where(eq(developerApiKeys.id, apiKeyId))
+        .returning({ id: developerApiKeys.id })
+      if (credited.length === 0) throw new Error(`apiKey not found: ${apiKeyId}`)
     }
-    logger.info('[billing] 多模态任务失败退款', { taskId, apiKeyId, cents })
     return { refunded: true, refundedCents: cents, reason: 'ok' }
-  } catch (err) {
-    logger.error('[billing] refundTaskCall failed', {
-      taskId,
-      error: err instanceof Error ? err.message : String(err),
+  })
+}
+
+/**
+ * F-34:把「退款未完成」写回本行 metadata(既有 jsonb 列),给补偿一个持久锚点。
+ * refund_state=pending 可继续重试,pending_manual 需人工;返回累计失败轮次。
+ */
+async function markRefundPending(taskId: string, lastError: string): Promise<number | null> {
+  const [row] = await db
+    .select({ id: llmCallLogs.id, metadata: llmCallLogs.metadata })
+    .from(llmCallLogs)
+    .where(
+      and(
+        sql`${llmCallLogs.metadata}->>'task_id' = ${taskId}`,
+        sql`${llmCallLogs.callType} in ('image','video')`,
+        eq(llmCallLogs.status, 'success'),
+        eq(llmCallLogs.refunded, false),
+      ),
+    )
+    .limit(1)
+  if (!row) return null
+  const meta = (row.metadata ?? {}) as Record<string, unknown>
+  const prev = typeof meta.refund_attempts === 'number' ? meta.refund_attempts : 0
+  const attempts = prev + 1
+  const pending = {
+    refund_state: attempts >= REFUND_MAX_ATTEMPTS ? 'pending_manual' : 'pending',
+    refund_attempts: attempts,
+    refund_last_error: lastError,
+    refund_pending_since: new Date().toISOString(),
+  }
+  await db
+    .update(llmCallLogs)
+    .set({
+      metadata: sql`COALESCE(${llmCallLogs.metadata}, '{}'::jsonb) || ${JSON.stringify(pending)}::jsonb`,
     })
-    return { refunded: false, refundedCents: 0, reason: 'no_log' }
+    .where(eq(llmCallLogs.id, row.id))
+  return attempts
+}
+
+/**
+ * 按 taskId 退款(生图/生视频任务失败时调用)。
+ * 查找该任务提交时写入的计费流水(call_type in image/video + metadata.task_id),
+ * 未退款过则把 costCents 原样退回组池或个人余额并打标记。
+ *
+ * F-34(2026-11-13):失败不再静默 —— 有界重试后仍失败时写持久待补偿标记并返回
+ * reason='error'/'exhausted',调用方据此写退款 DLQ 与 error 告警;主链路仍不抛错。
+ */
+export async function refundTaskCall(taskId: string): Promise<RefundTaskResult> {
+  if (!taskId) return { refunded: false, refundedCents: 0, reason: 'no_log' }
+
+  let lastError: unknown = null
+  const maxAttempts = REFUND_RETRY_DELAYS_MS.length + 1
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const result = await claimAndRefundTaskCall(taskId)
+      if (result.refunded && result.reason === 'ok' && result.refundedCents > 0) {
+        logger.info('[billing] 多模态任务失败退款', {
+          taskId,
+          refundedCents: result.refundedCents,
+          attempts: attempt,
+        })
+      }
+      return result
+    } catch (err) {
+      lastError = err
+      const delay = REFUND_RETRY_DELAYS_MS[attempt - 1]
+      if (delay !== undefined) await sleepMs(delay)
+    }
+  }
+
+  const message = lastError instanceof Error ? lastError.message : String(lastError)
+  // 有界重试仍失败:先把「未退款」事实落到持久面(本行 metadata),再 error 级告警。
+  let attempts: number | null = null
+  try {
+    attempts = await markRefundPending(taskId, message)
+  } catch (markErr) {
+    logger.error('[billing] 退款待补偿标记写入失败(仅日志可查)', {
+      taskId,
+      error: markErr instanceof Error ? markErr.message : String(markErr),
+    })
+  }
+  logger.error('[billing] refundTaskCall failed(退款未完成,已进入待补偿)', {
+    taskId,
+    attempts,
+    error: message,
+  })
+  return {
+    refunded: false,
+    refundedCents: 0,
+    reason: attempts !== null && attempts >= REFUND_MAX_ATTEMPTS ? 'exhausted' : 'error',
+    ...(attempts !== null ? { attempts } : {}),
   }
 }
 
@@ -2011,7 +2119,8 @@ async function applySettlementDelta(
   const buildSet =
     (tokenCol: typeof developerApiKeys.tokenBalance | typeof apiKeyGroups.sharedTokenBalance) =>
     (
-      centsCol: typeof developerApiKeys.costBalanceCents | typeof apiKeyGroups.sharedCostBalanceCents,
+      centsCol:
+        typeof developerApiKeys.costBalanceCents | typeof apiKeyGroups.sharedCostBalanceCents,
     ) => {
       const tokenExpr =
         deltaTokens === 0
