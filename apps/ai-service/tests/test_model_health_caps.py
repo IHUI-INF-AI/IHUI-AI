@@ -690,3 +690,23 @@ async def test_context_probe_failed_conclusion_retests_sooner_than_passed(monkey
 
     assert calls == ["failed"], "只该复测未通过的那个,通过的仍在 7 天窗内"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+
+def test_classify_error_workbuddy_service_info_not_found_is_model_level():
+    """WorkBuddy code=11102(账号池没这个模型的 service info)必须判模型级,一次即隐藏。
+
+    2026-11-12 实测:hy4-preview-x / minimax-m3 / hunyuan-2.0-thinking 三个都回这条,
+    旧判据里没有这个词,只能记"未知" ⇒ 界面上永远挂着"长上下文未验证",
+    实际是上游压根没给这个模型配服务(不是我们的探测没跑通)。
+    """
+    body = '{"code":11102,"msg":"model [MiniMax-M3] service info not found"}'
+    account_level, model_level = mh._classify_error(body, 400)
+    assert model_level is True
+    assert account_level is False
+
+
+def test_classify_error_plain_bad_request_stays_non_model_level():
+    """普通 400(参数错)不能因为新增关键词被误判成"模型不存在"。"""
+    account_level, model_level = mh._classify_error('{"error":"invalid request: bad temperature"}', 400)
+    assert model_level is False
+    assert account_level is False
