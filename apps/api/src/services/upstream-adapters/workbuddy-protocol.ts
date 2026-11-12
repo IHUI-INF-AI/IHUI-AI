@@ -678,6 +678,9 @@ export function normalizeResourcePackage(
   const rawRemain = firstNum(o, remainKeys) ?? firstNum(slice, remainKeys)
   const rawUsed = firstNum(o, usedKeys) ?? firstNum(slice, usedKeys)
   if (rawTotal === undefined && rawRemain === undefined && rawUsed === undefined) return null
+  // 缺 total 与 remain(只有 used)时推不出剩余量:整包不可判定并跳过,
+  // 不用 used 冒充 total 产出 remaining=0 的假数据(不得用 0 冒充余额为零)。
+  if (rawTotal === undefined && rawRemain === undefined) return null
 
   const total = Math.max(
     0,
@@ -953,7 +956,10 @@ function hasAuthFailureBodyMarker(bodyText: string): boolean {
 export function isAuthFailureCore(statusCode: number, bodyText: string): boolean {
   if (statusCode === 401 || statusCode === 403) return true
   const lower = bodyText.toLowerCase()
-  if (SESSION_DEAD_RE.test(lower) || lower.includes('12153')) return true
+  // 不扫响应体裸子串:拼接文本会带随机 requestId/时间戳,12153 子串会随机误杀;
+  // 会话死只认结构化信封 code 与既有 SESSION_DEAD_RE
+  if (parseEnvelope(bodyText)?.code === 12153) return true
+  if (SESSION_DEAD_RE.test(lower)) return true
   return hasAuthFailureBodyMarker(bodyText)
 }
 
@@ -966,7 +972,9 @@ export function classifyUpstreamFailure(statusCode: number, bodyText: string): U
   const env = parseEnvelope(bodyText)
 
   if (statusCode === 402 || CREDIT_MARKERS.some((m) => lower.includes(m))) return 'credit'
-  if (SESSION_DEAD_RE.test(lower) || lower.includes('12153')) return 'session_dead'
+  // 同上:裸子串匹配会随机误杀,会话死只认结构化信封 code 与 SESSION_DEAD_RE
+  if (env?.code === 12153) return 'session_dead'
+  if (SESSION_DEAD_RE.test(lower)) return 'session_dead'
   if (statusCode === 401 || statusCode === 403 || hasAuthFailureBodyMarker(bodyText)) return 'auth'
   if (
     statusCode === 429 ||

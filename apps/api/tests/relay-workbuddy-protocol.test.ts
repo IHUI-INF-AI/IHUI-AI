@@ -241,10 +241,10 @@ describe('workbuddyAdapter.buildChatRequest(双格式)', () => {
 // =============================================================================
 
 describe('workbuddyAdapter.refreshToken(回退路径)', () => {
-  it('主端点 401 → 备用端点成功(两次调用按序,凭证不变)', async () => {
+  it('主端点 404(端点不存在) → 备用端点成功(两次调用按序,凭证不变)', async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(jsonResponse({ code: 1, msg: 'x' }, 401))
+      .mockResolvedValueOnce(jsonResponse({ code: 1, msg: 'x' }, 404))
       .mockResolvedValueOnce(jsonResponse(refreshOk))
     vi.stubGlobal('fetch', fetchMock)
     const res = await workbuddyAdapter.refreshToken!(makeCtx({ refreshToken: 'rt-a' }))
@@ -255,11 +255,11 @@ describe('workbuddyAdapter.refreshToken(回退路径)', () => {
     expect(callHeader(fetchMock.mock.calls[1], 'X-Refresh-Token')).toBe('rt-a')
   })
 
-  it('主凭证两端点全败 → 备用凭据字段(内嵌 refresh)成功', async () => {
+  it('主凭证两端点均 404 → 备用凭据字段(内嵌 refresh)成功', async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(jsonResponse({ code: 1, msg: 'x' }, 401))
-      .mockResolvedValueOnce(jsonResponse({ code: 2, msg: 'x' }, 403))
+      .mockResolvedValueOnce(jsonResponse({ code: 1, msg: 'x' }, 404))
+      .mockResolvedValueOnce(jsonResponse({ code: 2, msg: 'x' }, 404))
       .mockResolvedValueOnce(jsonResponse(refreshOk))
     vi.stubGlobal('fetch', fetchMock)
     const ctx = makeCtx({
@@ -285,18 +285,32 @@ describe('workbuddyAdapter.refreshToken(回退路径)', () => {
     expect(callHeader(fetchMock.mock.calls[0], 'X-Refresh-Token')).toBe('RT-emb')
   })
 
-  it('显式与内嵌同值 → 凭证去重,只尝试两端点(2 次调用)', async () => {
-    const fetchMock = vi.fn(async () => jsonResponse({ code: 1, msg: 'x' }, 401))
+  it('显式与内嵌同值 → 凭证去重,同一凭证只对两个端点各试一次(2 次调用)', async () => {
+    const fetchMock = vi.fn(async () => jsonResponse({ code: 1, msg: 'x' }, 404))
     vi.stubGlobal('fetch', fetchMock)
     const ctx = makeCtx({
       refreshToken: 'rt-same',
       token: JSON.stringify({ accessToken: 'AT', refreshToken: 'rt-same' }),
     })
-    await expect(workbuddyAdapter.refreshToken!(ctx)).rejects.toThrow(/HTTP 401/)
+    await expect(workbuddyAdapter.refreshToken!(ctx)).rejects.toThrow(/HTTP 404/)
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
-  it('全部回退失败 → 抛最后一次错误,message 不带任何凭证', async () => {
+  it('非 404 失败(401)不重放:轮换型 rt 只调用一次即抛,message 不带任何凭证', async () => {
+    const fetchMock = vi.fn(async () => jsonResponse({ code: 1, msg: 'x' }, 401))
+    vi.stubGlobal('fetch', fetchMock)
+    const ctx = makeCtx({
+      refreshToken: 'rt-a',
+      token: JSON.stringify({ accessToken: 'AT', refreshToken: 'rt-b' }),
+    })
+    const err = await workbuddyAdapter.refreshToken!(ctx).catch((e) => e)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect((err as Error).message).toBe('workbuddy refresh 失败: HTTP 401')
+    expect((err as Error).message).not.toContain('rt-a')
+    expect((err as Error).message).not.toContain('rt-b')
+  })
+
+  it('信封业务失败(code=12153)不重放 → 抛最后一次错误,message 不带任何凭证', async () => {
     const fetchMock = vi.fn(async () => jsonResponse({ code: 12153, msg: 'x' }))
     vi.stubGlobal('fetch', fetchMock)
     const ctx = makeCtx({
@@ -304,7 +318,7 @@ describe('workbuddyAdapter.refreshToken(回退路径)', () => {
       token: JSON.stringify({ accessToken: 'AT', refreshToken: 'rt-b' }),
     })
     const err = await workbuddyAdapter.refreshToken!(ctx).catch((e) => e)
-    expect(fetchMock).toHaveBeenCalledTimes(4)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
     expect((err as Error).message).toBe('workbuddy refresh 失败: code=12153')
     expect((err as Error).message).not.toContain('rt-a')
     expect((err as Error).message).not.toContain('rt-b')

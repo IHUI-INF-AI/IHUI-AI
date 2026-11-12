@@ -949,12 +949,16 @@ function chunksToSseResponse(
   const encoder = new TextEncoder()
   const body = new ReadableStream<Uint8Array>({
     async start(controller) {
+      // 上游错误帧({error:{...}})是「没说完」,不能当成收尾证据(改记 interrupted)
+      let sawError = false
       try {
         for await (const chunk of stream) {
+          if (asRecord(chunk) && Object.prototype.hasOwnProperty.call(chunk, 'error'))
+            sawError = true
           controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`))
         }
         // 适配器生成器正常结束 = 这一轮说完了(唯一可用的收尾证据;抛错走下面 catch)
-        terminal.endedCleanly = true
+        terminal.endedCleanly = !sawError
         controller.enqueue(encoder.encode('data: [DONE]\n\n'))
       } catch (err) {
         terminal.endedCleanly = false
@@ -985,6 +989,9 @@ function translateSseResponse(
       let flushed = false
       // 上游是否给出了合法收尾([DONE] / finish_reason / 适配器判定 done / 命中 stop 序列)
       let sawTerminalFrame = false
+      // 上游错误帧({error:{...}},适配器常同时给 done:true)不是收尾证据:
+      // 只认 done 会把「上游报错」记成正常收尾 = 按成功计费(2026-11-12 修)
+      let sawErrorFrame = false
       let lastChunk: Record<string, unknown> | null = null
       const emit = (chunk: Record<string, unknown>) => {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`))
@@ -999,6 +1006,8 @@ function translateSseResponse(
           if (!translated) continue
           const chunk = translated.openaiChunk
           lastChunk = chunk
+          if (asRecord(chunk) && Object.prototype.hasOwnProperty.call(chunk, 'error'))
+            sawErrorFrame = true
           const choices = Array.isArray(chunk.choices) ? chunk.choices : []
           // 收尾帧判定与 stop 截断互不影响:任何一帧带非空 finish_reason 即「上游把话说完」
           for (const raw of choices) {
@@ -1061,7 +1070,7 @@ function translateSseResponse(
         }
         // 收尾结论必须在 enqueue 合成 [DONE] 之前写定:tap 看到 DONE 就收手,再晚读不到证据。
         // 上游没给收尾帧而流自己结束 = 半包(此前正是这一格被记成成功)。
-        terminal.endedCleanly = sawTerminalFrame
+        terminal.endedCleanly = sawTerminalFrame && !sawErrorFrame
         controller.enqueue(encoder.encode('data: [DONE]\n\n'))
       } catch (err) {
         terminal.endedCleanly = false

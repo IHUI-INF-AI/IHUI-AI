@@ -346,7 +346,8 @@ export const qoderAdapter: RelayUpstreamAdapter = {
           preflightQoderBridge()
           const stream = qoderCliChatChunks({
             prompt: renderQoderPrompt(req),
-            model: req.model,
+            // 与常驻桥同口径:剥掉 `平台/` 前缀,带前缀会被上游当成不存在的模型
+            model: upstreamModelName(req.model),
             signal: opts.signal,
           })
           if (req.stream) return { stream }

@@ -1293,10 +1293,11 @@ class CheckinScheduler:
             async with httpx.AsyncClient(timeout=15) as client:
                 resp = await client.post(_MINIMAX_TOKEN_URL, data=payload)
             if resp.status_code >= 400:
+                # 服务端可能把 token 原样写回 error_description,故只记状态码与长度
                 logger.warning(
-                    "[checkin_scheduler] MiniMax 令牌续期失败 HTTP %s: %s",
+                    "[checkin_scheduler] MiniMax 令牌续期失败 HTTP %s(body %d 字节,不回显)",
                     resp.status_code,
-                    resp.text[:160],
+                    len(resp.text or ""),
                 )
                 return None
             body = resp.json()
@@ -1371,27 +1372,57 @@ class CheckinScheduler:
         if not isinstance(token, str) or not token:
             return
         rows = await checkin_store.list_accounts_by_platform("minimax")
-        updated = 0
-        for row in rows:
-            dm = row["device_map"]
-            if exp is not None and dm.get("expires_at") == exp:
-                continue
-            if not await checkin_store.update_jwt(row["id"], row["owner_user_id"], token):
-                continue
-            if exp is not None:
-                dm["expires_at"] = exp
-            refresh = rec.get("refreshToken")
-            if isinstance(refresh, str) and refresh:
-                dm["refresh_token"] = refresh
-            await checkin_store.save_device_map(row["id"], dm)
-            await checkin_store.clear_open_cooldowns(row["id"])
-            updated += 1
-        if updated:
-            logger.info(
-                "[checkin_scheduler] 本机 MiniMax 凭据已同步 %d 个账号(exp=%s)",
-                updated,
-                exp,
+        if not rows:
+            return
+        refresh = rec.get("refreshToken")
+        # 只认「同一凭据」的行:本机 refreshToken 与库内 device_map.refresh_token 相同
+        # 才视为同一账号。此前无条件写全部行会把 A 号的票写进 B 号,B 号下次续期必
+        # invalid_grant。
+        candidates = [
+            r
+            for r in rows
+            if isinstance(refresh, str)
+            and refresh
+            and r["device_map"].get("refresh_token") == refresh
+        ]
+        if not candidates:
+            # 池内 refresh_token 多为导入期另一枚票的哈希,与本地口径对不上;退一步按
+            # 本机个人池归属收窄(读不到归属就当没有,宁可不写也不写错)。
+            owner = ""
+            try:
+                owner = (
+                    await asyncio.to_thread(
+                        Path(os.path.expanduser("~/.wb-switch/pool-owner")).read_text,
+                        encoding="utf-8",
+                    )
+                ).strip()
+            except OSError:
+                owner = ""
+            if owner:
+                candidates = [r for r in rows if r.get("owner_user_id") == owner]
+        if len(candidates) != 1:
+            logger.warning(
+                "[checkin_scheduler] MiniMax 本机凭据取消同步:无法唯一确定归属(候选 %d 行)",
+                len(candidates),
             )
+            return
+        row = candidates[0]
+        dm = row["device_map"]
+        if exp is not None and dm.get("expires_at") == exp:
+            return
+        if not await checkin_store.update_jwt(row["id"], row["owner_user_id"], token):
+            return
+        if exp is not None:
+            dm["expires_at"] = exp
+        if isinstance(refresh, str) and refresh:
+            dm["refresh_token"] = refresh
+        await checkin_store.save_device_map(row["id"], dm)
+        await checkin_store.clear_open_cooldowns(row["id"])
+        logger.info(
+            "[checkin_scheduler] 本机 MiniMax 凭据已同步账号 %s(exp=%s)",
+            row["id"],
+            exp,
+        )
 
     async def _sync_workbuddy_local(self) -> None:
         """WorkBuddy 凭据保活:客户端内存令牌(主)+ 网页会话 cookie(备)。
@@ -1520,13 +1551,13 @@ class CheckinScheduler:
             logger.info(
                 "[checkin_scheduler] WorkBuddy 网页会话已同步 %d 个账号(uid=%s, exp=%s)",
                 updated,
-                uid,
+                alive_uid,
                 extracted.get("expires_at"),
             )
         else:
             logger.info(
                 "[checkin_scheduler] WorkBuddy 抽到 uid=%s 的会话,但签到账号无对应 uid,未写库",
-                uid,
+                alive_uid,
             )
 
     async def _sync_raccoon_local(self) -> None:
