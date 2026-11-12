@@ -111,14 +111,18 @@ describe('F-087 LSP 重启不叠加 exit 监听、失败/释放走进程树回�
 // ==================== F-003 进程树回收接线 ====================
 
 describe('F-003 杀进程树接线:终端降级路径与后台任务都要团灭', () => {
-  it('terminal.ts 的降级 shell kill 走 killProcessTree(child)', () => {
-    expect(readSrc('../src/tools/terminal.ts')).toMatch(/killProcessTree\(child\)/);
+  it('terminal.ts 的降级 shell kill 走 killProcessTree(child.pid)', () => {
+    // 演进:taskkill 收敛进共享层 util/kill-tree.ts(AGENTS §3 共享层优先),调用点统一传 pid
+    expect(readSrc('../src/tools/terminal.ts')).toMatch(/killProcessTree\(child\.pid\)/);
   });
 
-  it('background-registry.ts 的 killTask 在 win32 用 taskkill /T /F(旧码只 kill 直系)', () => {
-    const src = readSrc('../src/tools/background-registry.ts');
-    expect(src).toMatch(/taskkill'?,\s*\['\/pid'?/);
-    expect(src).toMatch(/'\/T'?,\s*'\/F'?/);
+  it('background-registry.ts 的 killTask 走 killProcessTree 团灭(taskkill 真相源在 kill-tree.ts)', () => {
+    // 旧码在 killTask 内联 spawn taskkill;现已下沉到 util/kill-tree.ts,这里锁"killTask 接了团灭"
+    expect(readSrc('../src/tools/background-registry.ts')).toMatch(/killProcessTree\(/);
+    // win32 分支的 taskkill /T /F 真相源锁在 kill-tree.ts(而非每个调用点各抄一份)
+    const kt = readSrc('../src/util/kill-tree.ts');
+    expect(kt).toMatch(/taskkill/);
+    expect(kt).toMatch(/'\/T',\s*'\/F'/);
   });
 });
 
