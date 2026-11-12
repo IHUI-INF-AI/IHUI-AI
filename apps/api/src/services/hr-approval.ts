@@ -170,12 +170,22 @@ async function notifyStepApprover(
         // 取真实请假数据填模板字段(申请人姓名/假别/备注)
         // 字段 key 与小程序「待审批通知」模板(编号8538)实测对齐:name1/time2/thing4/thing6
         const [leave] = await db
-          .select({ leaveType: hrLeaveRequest.leaveType, reason: hrLeaveRequest.reason, employeeId: hrLeaveRequest.employeeId })
+          .select({
+            leaveType: hrLeaveRequest.leaveType,
+            reason: hrLeaveRequest.reason,
+            employeeId: hrLeaveRequest.employeeId,
+          })
           .from(hrLeaveRequest)
           .where(eq(hrLeaveRequest.id, instance.leaveRequestId))
           .limit(1)
         const applicantName = leave?.employeeId
-          ? (await db.select({ name: hrEmployee.name }).from(hrEmployee).where(eq(hrEmployee.id, leave.employeeId)).limit(1))[0]?.name ?? '未知'
+          ? ((
+              await db
+                .select({ name: hrEmployee.name })
+                .from(hrEmployee)
+                .where(eq(hrEmployee.id, leave.employeeId))
+                .limit(1)
+            )[0]?.name ?? '未知')
           : '未知'
         const res = await sendSubscribeMessage(
           openId,
@@ -326,10 +336,13 @@ async function writeBackLeave(
  */
 export async function escalateTimedOut(input: { now?: Date } = {}): Promise<{ escalated: number }> {
   const now = input.now ?? new Date()
+  // 修复:已升级(status='escalated')实例再次到点未决会永久卡死(原扫描只取 pending)。
+  // 改为扫 pending+escalated 两态(与 listMyPendingApprovals 同款 inArray where);终态
+  // approved/rejected 均已写 decidedAt,应用层再按 dueAt<now 过滤到点未决者。
   const overdue = await db
     .select()
     .from(hrApprovalInstance)
-    .where(and(eq(hrApprovalInstance.status, 'pending'), isNull(hrApprovalInstance.decidedAt)))
+    .where(inArray(hrApprovalInstance.status, ['pending', 'escalated']))
   const due = overdue.filter((i) => i.dueAt !== null && i.dueAt.getTime() < now.getTime())
   let escalated = 0
   for (const inst of due) {
@@ -343,7 +356,23 @@ export async function escalateTimedOut(input: { now?: Date } = {}): Promise<{ es
     const steps: HrApprovalStep[] = [...inst.steps]
     const chain = [...inst.chainSnapshot]
 
-    if (escTarget) {
+    if (inst.status === 'escalated') {
+      // 已升级过、再次到点未决 → 催办:在当前步再记一条 byTimeout 轨迹、顺延 due_at、
+      // 给当前升级目标再发一次通知。数据模型只有单级 escalation_approver_id,无更高权威可升,
+      // 故不再增长链,靠周期性提醒推动决策,避免实例卡死。
+      steps.push({
+        step: inst.currentStep,
+        approverId: inst.chainSnapshot[inst.currentStep] ?? '',
+        action: 'escalated',
+        decidedAt: now.toISOString(),
+        byTimeout: true,
+      })
+      await db
+        .update(hrApprovalInstance)
+        .set({ steps, dueAt: computeDueAt(now, flow?.timeoutHours ?? 24), updatedAt: now })
+        .where(eq(hrApprovalInstance.id, inst.id))
+      await notifyStepApprover(inst, inst.chainSnapshot[inst.currentStep], '请假审批超时升级', now)
+    } else if (escTarget) {
       const newStep = chain.length
       chain.push(escTarget)
       steps.push({
