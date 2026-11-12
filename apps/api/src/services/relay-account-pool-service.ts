@@ -1421,43 +1421,47 @@ async function applyPhoneCompletion(
       updatedAt: new Date(),
     })
     .where(eq(aiRelayAccountPool.id, row.id))
-    .returning({ id: aiRelayAccountPool.id, credVersion: aiRelayAccountPool.credVersion })
+    .returning()
   if (!written) {
     return { ...failPhone('not_found', '账号不存在或已被删除'), oldName, name: newName }
   }
-  // 签到传播(旁路,失败不阻塞改名):凭证未动,载荷 = 库内现值解密重建 + 新名 + 新版本。
+  // SDB-46:UPDATE ... RETURNING 整行 = 主库同一一致性面;签到载荷一律以回写行为准,
+  // 绝不再用 dbRead 快照的凭证 —— 否则「副本旧凭证 + 主库新版本」会击穿对端
+  // incoming_ver <= existing_ver 防降级,把旧票写成更高版本。
+  const synced = { ...row, ...written }
+  // 签到传播(旁路,失败不阻塞改名):凭证未动,载荷 = 主库回写值解密重建 + 新名 + 新版本。
   const checkinSync: CheckinSyncOutcome = { pushed: 0, pending: false, error: null }
-  const platform = checkinPlatformFor(row.providerCode)
+  const platform = checkinPlatformFor(synced.providerCode)
   if (platform) {
     try {
-      const credentials = decryptAccountCredentials(row)
+      const credentials = decryptAccountCredentials(synced)
       const acc = buildPoolSyncAccount({
-        id: row.id,
-        ownerUserId: row.ownerUserId,
-        uid: row.uid ?? '',
+        id: synced.id,
+        ownerUserId: synced.ownerUserId,
+        uid: synced.uid ?? '',
         name: newName,
         token: credentials.token,
         refreshToken: credentials.refreshToken,
         credVersion: written.credVersion,
-        enabled: row.isEnabled,
-        proxyUrl: resolveAccountProxyUrl(row.proxyUrl),
-        deviceId: row.deviceId,
-        machineId: row.machineId,
-        cosy: extractCosy(row.extraMetadata),
+        enabled: synced.isEnabled,
+        proxyUrl: resolveAccountProxyUrl(synced.proxyUrl),
+        deviceId: synced.deviceId,
+        machineId: synced.machineId,
+        cosy: extractCosy(synced.extraMetadata),
         deviceKeyPem: pemFromSecrets(credentials.secrets, 'deviceKeyPem'),
         devicePubPem: pemFromSecrets(credentials.secrets, 'devicePubPem'),
-        tokenExpiresAt: row.tokenExpiresAt,
+        tokenExpiresAt: synced.tokenExpiresAt,
       })
       const push = await pushPoolSync(platform, [acc])
       if (push.ok && push.failed === 0) {
         checkinSync.pushed = push.pushed
         // 与 importAccounts 同口径:成功也落 checkinSync 徽章(pending:false + lastSyncedAt),
         // 否则 admin 号池页的签到同步态只会在走完一次 pending 流程后才可见。
-        await clearCheckinSyncPending([row.id])
+        await clearCheckinSyncPending([synced.id])
       } else {
         checkinSync.error = push.error
         try {
-          await markCheckinSyncPending([row.id], 'cred', null, push.error ?? '补全后签到推送失败')
+          await markCheckinSyncPending([synced.id], 'cred', null, push.error ?? '补全后签到推送失败')
           checkinSync.pending = true
         } catch {
           /* pending 落库失败只意味着少一条待推痕迹,对账收敛器兜底 */
@@ -1593,11 +1597,7 @@ export async function setAccountShared(
       updatedAt: new Date(),
     })
     .where(eq(aiRelayAccountPool.id, row.id))
-    .returning({
-      id: aiRelayAccountPool.id,
-      credVersion: aiRelayAccountPool.credVersion,
-      sharedToOps: aiRelayAccountPool.sharedToOps,
-    })
+    .returning()
   if (!written) {
     return {
       code: 'not_found',
@@ -1608,38 +1608,42 @@ export async function setAccountShared(
       checkinSync: NO_SYNC,
     }
   }
-  // 签到传播(旁路,失败不阻塞):凭证未动,载荷 = 库内现值解密重建 + 新版本。
+  // SDB-46:凭证与版本号必须同源。RETURNING 整行(主库)才是本次写入后的真值,
+  // 用 dbRead 副本快照的凭证去配主库新版本会推「旧凭证 + 更高版本」,
+  // 击穿签到侧防降级 CAS,把旧票写回且后续正确推送被吞。
+  const synced = { ...row, ...written }
+  // 签到传播(旁路,失败不阻塞):凭证未动,载荷 = 主库回写值解密重建 + 新版本。
   const checkinSync: CheckinSyncOutcome = { pushed: 0, pending: false, error: null }
-  const platform = checkinPlatformFor(row.providerCode)
+  const platform = checkinPlatformFor(synced.providerCode)
   if (platform) {
     try {
-      const credentials = decryptAccountCredentials(row)
+      const credentials = decryptAccountCredentials(synced)
       const acc = buildPoolSyncAccount({
-        id: row.id,
-        ownerUserId: row.ownerUserId,
-        uid: row.uid ?? '',
-        name: row.name ?? '',
+        id: synced.id,
+        ownerUserId: synced.ownerUserId,
+        uid: synced.uid ?? '',
+        name: synced.name ?? '',
         token: credentials.token,
         refreshToken: credentials.refreshToken,
         credVersion: written.credVersion,
-        enabled: row.isEnabled,
-        proxyUrl: resolveAccountProxyUrl(row.proxyUrl),
-        deviceId: row.deviceId,
-        machineId: row.machineId,
-        cosy: extractCosy(row.extraMetadata),
+        enabled: synced.isEnabled,
+        proxyUrl: resolveAccountProxyUrl(synced.proxyUrl),
+        deviceId: synced.deviceId,
+        machineId: synced.machineId,
+        cosy: extractCosy(synced.extraMetadata),
         deviceKeyPem: pemFromSecrets(credentials.secrets, 'deviceKeyPem'),
         devicePubPem: pemFromSecrets(credentials.secrets, 'devicePubPem'),
-        tokenExpiresAt: row.tokenExpiresAt,
+        tokenExpiresAt: synced.tokenExpiresAt,
       })
       const push = await pushPoolSync(platform, [acc])
       if (push.ok && push.failed === 0) {
         checkinSync.pushed = push.pushed
-        await clearCheckinSyncPending([row.id])
+        await clearCheckinSyncPending([synced.id])
       } else {
         checkinSync.error = push.error
         try {
           await markCheckinSyncPending(
-            [row.id],
+            [synced.id],
             'cred',
             null,
             push.error ?? '共享标记变更后签到推送失败',

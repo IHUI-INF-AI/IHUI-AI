@@ -531,8 +531,11 @@ function rememberDegradation(cwd: string, memo: DegradationMemo): void {
   if (!oldest.done) statusDegrations.delete(oldest.value)
 }
 
-const STATUS_FULL_ARGS = ['status', '--porcelain', '-uall'] as const
-const STATUS_COLLAPSED_ARGS = ['status', '--porcelain', '--untracked-files=normal'] as const
+// F-021:两条 status 都带 -c core.quotepath=false —— 默认 quotepath=true 会把中文文件名输出成
+// "\346\212\245…" 八进制转义,按路径消费/折叠根 endsWith('/') 都会落空。不换 -z:消费面按 '\n' 分行,
+// -z 会把分隔符改成 NUL,解析侧必须同步重写(改动面更大)。
+const STATUS_FULL_ARGS = ['-c', 'core.quotepath=false', 'status', '--porcelain', '-uall'] as const
+const STATUS_COLLAPSED_ARGS = ['-c', 'core.quotepath=false', 'status', '--porcelain', '--untracked-files=normal'] as const
 
 /** 折叠档一档:跑 --untracked-files=normal,把 `dir/` 形条目认成被并拢的未跟踪目录根(结论恒带 degraded=true) */
 function runCollapsedStatus(cwd: string, opts: GitStatusOptions, split: (out: string) => string[]): GitStatusOutcome {

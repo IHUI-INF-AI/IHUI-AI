@@ -21,13 +21,13 @@ import {
   type InputBuffer,
   type KeyAction,
 } from './actions.js'
-import { computeBoxes, type Size } from './geometry.js'
+import { computeBoxes, type FrameLine, type Size } from './geometry.js'
 import { decodeInput } from './keymap.js'
 import { composeFrame, inputCaretColumn, wrapTranscript, type HeaderInfo } from './frame.js'
 import { diffFrames, frameToAnsi } from './render.js'
-import { followLabel, scrollBottom, scrollIndicator, scrollPage, afterContentGrew, scrollBy, visibleWindow, scrollInitial, scrollTop as scrollTopScroll, type ScrollState } from './scroll.js'
+import { followLabel, scrollBottom, scrollIndicator, scrollPage, afterContentGrew, scrollBy, visibleWindow, scrollInitial, scrollTop as scrollTopScroll, type ScrollState, type VisibleWindow } from './scroll.js'
 import type { FullScreenTerminal } from './terminal.js'
-import { blocksToLines, createTranscript, foldEvent, seedFromHistory, type Transcript } from './transcript.js'
+import { blocksToLines, createTranscript, foldEvent, seedFromHistory, trimBlocks, type Transcript } from './transcript.js'
 
 /** 一次性提示的存活时长:够读完一行,又不会一直占着顶格。 */
 const TOAST_MS = 2_500
@@ -66,6 +66,40 @@ export interface FullScreenAppState {
 }
 
 /**
+ * 折行结果缓存:键是转录对象本身 + 列宽 + verbose。
+ * foldEvent 每次折入都换一个新对象,所以缓存只在"内容没变"的帧(按键、滚动、
+ * 节流合并出的重复帧)上命中 —— 正是原来每次按键都重算 scrollTotal 的那笔开销。
+ * 用 WeakMap:旧转录对象一旦无人引用就连缓存一起回收,缓存不会变成第二份无界内存。
+ */
+const wrapCache = new WeakMap<Transcript, { cols: number; verbose: boolean; lines: FrameLine[] }>()
+
+/** 取转录折行后的整行列表(有缓存;同一转录 + 同一列宽不重复重排)。 */
+export function transcriptWrapped(tr: Transcript, verbose: boolean, cols: number): FrameLine[] {
+  const hit = wrapCache.get(tr)
+  if (hit && hit.cols === cols && hit.verbose === verbose) return hit.lines
+  const lines = wrapTranscript(blocksToLines(tr, { verbose }), cols)
+  wrapCache.set(tr, { cols, verbose, lines })
+  return lines
+}
+
+/**
+ * 只投影可视窗口(F-092):交给 composeFrame 的是**已折行、已切窗口**的那几行,
+ * 合成层内部再折一次也只是 O(视口行数),不再随会话长度增长。
+ * 返回的 `view.length` 就是本帧真正参与合成的行数,恒 ≤ viewportRows。
+ */
+export function selectTranscriptView(
+  tr: Transcript,
+  verbose: boolean,
+  cols: number,
+  viewportRows: number,
+  scroll: ScrollState,
+): { view: FrameLine[]; total: number; win: VisibleWindow } {
+  const wrapped = transcriptWrapped(tr, verbose, cols)
+  const win = visibleWindow(wrapped.length, viewportRows, scroll)
+  return { view: wrapped.slice(win.start, win.end), total: wrapped.length, win }
+}
+
+/**
  * 一帧的全部输入 —— 抽成纯函数,单测才能不碰真终端就断言布局
  * ("行数是 rows 吗""每行占满 cols 吗""滚到顶了没"都必须可断言)。
  * `status` 允许传 null:那等于"状态区此刻无话可说",布局必须照常成立
@@ -79,17 +113,23 @@ export function snapshotFrame(
   color: boolean,
 ): { lines: string[]; caret: { row: number; col: number } | null } {
   const boxes = computeBoxes(size)
-  const logical = blocksToLines(state.transcript, { verbose: state.verbose })
-  const wrapped = wrapTranscript(logical, size.cols)
-  const win = visibleWindow(wrapped.length, boxes ? boxes.transcriptRows : 0, state.scroll)
+  // 全量折行只发生在 transcriptWrapped 里(带缓存、且转录本身有上限);
+  // 交给合成层的是可视窗口那几行,它内部的 wrapAll 因此是 O(视口行数)。
+  const { view, total, win } = selectTranscriptView(
+    state.transcript,
+    state.verbose,
+    size.cols,
+    boxes ? boxes.transcriptRows : 0,
+    state.scroll,
+  )
   const vm = status ? status.viewModel() : null
   const progress = vm ? formatTaskStatusLine(vm) : ''
-  const note = scrollIndicator(win, wrapped.length)
+  const note = scrollIndicator(win, total)
   const frame = composeFrame({
     size,
     header,
-    transcript: logical,
-    win,
+    transcript: view,
+    win: { ...win, start: 0, end: view.length },
     toast: state.toast,
     status: {
       progress,
@@ -192,8 +232,7 @@ export async function runFullScreenSession(opts: FullScreenAppOptions): Promise<
   }
 
   /** 消息区折行后的总高:滚动量的唯一算法,三个滚动分支共用一份(两处各折一次必漂移)。 */
-  const scrollTotal = (): number =>
-    wrapTranscript(blocksToLines(state.transcript, { verbose: state.verbose }), size.cols).length
+  const scrollTotal = (): number => transcriptWrapped(state.transcript, state.verbose, size.cols).length
 
   const submit = (): void => {
     const text = inputText(state.input)
@@ -207,7 +246,7 @@ export async function runFullScreenSession(opts: FullScreenAppOptions): Promise<
     state.input = reduceInput(state.input, { type: 'submit' })
     state.transcript = {
       ...state.transcript,
-      blocks: [...state.transcript.blocks, { kind: 'user', text }],
+      blocks: trimBlocks([...state.transcript.blocks, { kind: 'user', text }]),
     }
     state.scroll = scrollBottom()
     void runTurn(text)
@@ -246,7 +285,7 @@ export async function runFullScreenSession(opts: FullScreenAppOptions): Promise<
       const message = err instanceof Error ? err.message : String(err)
       state.transcript = {
         ...state.transcript,
-        blocks: [...state.transcript.blocks, { kind: 'notice', tone: 'bad', text: message }],
+        blocks: trimBlocks([...state.transcript.blocks, { kind: 'notice', tone: 'bad', text: message }]),
       }
       status.endTurn('failed')
     } finally {

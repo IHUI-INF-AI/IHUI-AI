@@ -1359,3 +1359,4 @@
 {"key":"170G#缺陷普查APIF-170","owner":"机主","waiting":"none","evidence":["12be6889faca1daf84e693c4166f9680072dc55d","apps/api/src/routes/__tests__/self-media-records-authz.test.ts"],"updatedAt":"2026-11-08T13:15:00+08:00","updatedBy":"msg-p1"}
 {"key":"332G#缺陷普查APIF-332","owner":"机主","waiting":"none","evidence":["f4651bf29d5587ab6df1ed3ac0781581886c2ddb","apps/api/src/routes/__tests__/circle-comment-integrity.test.ts"],"updatedAt":"2026-11-08T13:15:00+08:00","updatedBy":"msg-p1"}
 {"key":"364G#缺陷普查APIF-364","owner":"机主","waiting":"none","evidence":["de18e75902","由 fix/api-admin-rbac-p1-1108 修复,本线不重复修"],"updatedAt":"2026-11-08T19:10:00+08:00","updatedBy":"msg-p1"}
+{"key":"K-1#RK-1","waiting":"env","blocking":"本机无","updatedAt":"2026-11-12T03:44:09.888Z","updatedBy":"plan-fields-extract"}

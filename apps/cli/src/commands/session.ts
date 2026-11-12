@@ -131,6 +131,37 @@ export function getMostRecentSession(): Session | null {
 }
 
 /**
+ * 删除一场已存会话。幂等:文件不存在视为已删除,不报错。
+ *
+ * 路径判据与 save/load 共用 `sessionFilePath`(它内部做单段名收敛 + 越界断言),
+ * 因此这里不会出现"删除操作走了另一套路径规则"的洞。
+ *
+ * 符号链接防御:只删 `lstat` 是普通文件的条目。若目标是链接,删链接本身也不会
+ * 波及链接指向的文件,但那种情况下"会话"身份本身就不成立,报错比静默删除安全。
+ */
+export function deleteSession(id: string): void {
+  const filePath = sessionFilePath(id);
+  let stat: fs.Stats;
+  try {
+    stat = fs.lstatSync(filePath);
+  } catch (error) {
+    const code = sessionReadCode(error);
+    if (code === 'ENOENT' || code === 'ENOTDIR') return;
+    throw new Error(`会话删不掉,不能把它说成已删除 (${code})`);
+  }
+  if (!stat.isFile()) {
+    throw new Error('会话删不掉:目标不是普通文件');
+  }
+  try {
+    fs.unlinkSync(filePath);
+  } catch (error) {
+    const code = sessionReadCode(error);
+    if (code === 'ENOENT') return;
+    throw new Error(`会话删不掉,不能把它说成已删除 (${code})`);
+  }
+}
+
+/**
  * P1-1 会话历史自愈 — 修复 history 结构异常。
  *
  * 灵感来源:参考行业 Agent 框架的 `x.ai/session/repair` 扩展方法。
