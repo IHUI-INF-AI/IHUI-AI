@@ -5,7 +5,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execSync, spawnSync } from 'node:child_process'
-import { readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { hostname, userInfo } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -896,6 +896,43 @@ test('CLI: --prune-redundant 默认 dry-run 不删;--apply 只删冗余,唯一�
   } finally {
     rmScratch(work)
     rmScratch(origin)
+  }
+})
+
+// ─── --bundle-archive(2026-11-12 立):唯一备份面的离线冷归档 ──────────────
+// 立因:唯一备份 596 提交 / 7.8GB 未压缩,推 origin 既违背"增长产线停用"的机主令也会撑爆远端;
+// 正解 = 单文件 bundle + 写后双验 + --if-changed 日常零写入。
+test('CLI: --bundle-archive 归档并双验;--if-changed 集合未变时跳过重写', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  const bundles = mkScratch('ihui-tag-bundle-')
+  try {
+    pinLocalOrigin(work, origin)
+    gitAt(work, 'git tag lost-commit/redundant HEAD')
+    gitAt(work, 'git checkout -b side')
+    writeFileSync(join(work, 'side.txt'), 'side\n')
+    gitAt(work, 'git add side.txt')
+    gitAt(work, 'git commit -m "side"')
+    gitAt(work, 'git tag lost-commit/keep-side HEAD')
+    gitAt(work, 'git checkout main')
+    gitAt(work, 'git branch -D side')
+
+    const first = runScript([`--bundle-archive=${bundles}`], { cwd: work })
+    assert.equal(first.status, 0, `首次归档应 exit 0,实际 ${first.status}\n${first.stdout}\n${first.stderr}`)
+    const bundlesOnDisk = readdirSync(bundles).filter((f) => f.endsWith('.bundle'))
+    assert.equal(bundlesOnDisk.length, 1, '应产出一份 bundle')
+    const manifest = JSON.parse(readFileSync(join(bundles, 'lost-commits.manifest.json'), 'utf8'))
+    assert.equal(manifest.verified, true, '台账必须记录已复验')
+    assert.equal(manifest.tags, 2, '两枚 lost-commit tag 都应进归档')
+    assert.equal(manifest.uniqueCommits, 1, '只有 side 那枚是远端不存在的唯一备份')
+
+    const second = runScript([`--bundle-archive=${bundles}`, '--if-changed'], { cwd: work })
+    assert.equal(second.status, 0, `--if-changed 应 exit 0,实际 ${second.status}\n${second.stdout}`)
+    assert.match(second.stdout, /跳过/, '集合未变必须跳过重写')
+    assert.equal(readdirSync(bundles).filter((f) => f.endsWith('.bundle')).length, 1)
+  } finally {
+    rmScratch(work)
+    rmScratch(origin)
+    rmScratch(bundles)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
