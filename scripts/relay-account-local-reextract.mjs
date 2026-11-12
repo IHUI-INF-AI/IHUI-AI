@@ -26,6 +26,7 @@
  *     [--dry-run]             只预检,不写库(等价缺省;--apply 才落库)
  *     [--no-sync-prod]        本机写入后不推生产(默认推)
  *     [--json]                机器可读摘要
+ *     [--log]                 摘要追加写入 <root>/.tmp/reextract.log(计划任务留痕)
  *
  * 退出码:0 无需处理或全部处理成功 / 1 有平台处理失败 / 2 参数或环境未判定。
  */
@@ -44,6 +45,9 @@ const API_DIR = path.join(ROOT, 'apps', 'api')
 const IMPORTER = path.join(API_DIR, 'scripts', 'relay-account-import.ts')
 const POOL_CLI = path.join(ROOT, 'scripts', 'relay-account-pool.mjs')
 const DAY_MS = 24 * 60 * 60 * 1000
+// 计划任务经 node.exe 直接执行、不经 shell 重定向,脚本 stdout 不会落盘;
+// --log 把摘要追加写到这里(与 pool-sync 的 .tmp/pool-sync.log 同风格)。
+const DEFAULT_LOG_FILE = path.join(ROOT, '.tmp', 'reextract.log')
 
 const HELP = `无刷新协议平台的「本机重新提取」兜底
 
@@ -54,6 +58,7 @@ const HELP = `无刷新协议平台的「本机重新提取」兜底
     [--dry-run]             只预检不写库(缺省即 dry-run)
     [--no-sync-prod]        本机写入后不推生产(默认推)
     [--json]                机器可读摘要
+    [--log]                 把摘要追加写入 .tmp/reextract.log(计划任务自动留痕用)
 
 判据:
   · 平台 refreshable=false(适配器 isRefreshableProviderCode 单一真相源,随 --export-all 导出);
@@ -69,6 +74,7 @@ function parseArgs(argv) {
     providers: [],
     syncProd: true,
     json: false,
+    log: false,
     help: false,
   }
   for (let i = 0; i < argv.length; i++) {
@@ -78,6 +84,7 @@ function parseArgs(argv) {
     else if (arg === '--dry-run') options.apply = false
     else if (arg === '--no-sync-prod') options.syncProd = false
     else if (arg === '--json') options.json = true
+    else if (arg === '--log') options.log = true
     else if (arg === '--window-days') {
       const v = Number((argv[++i] ?? '').trim())
       if (!Number.isFinite(v) || v < 0) {
@@ -169,6 +176,59 @@ function renderHuman(summary) {
   return `${lines.join('\n')}\n`
 }
 
+/**
+ * 日志摘要的人类可读正文(纯函数,便于测试):一行一事实,不含任何令牌/凭据。
+ * `--log` 时整段以 ISO 时间戳前缀追加写入日志文件,stdout 输出仍按 --json/人类可读各自走。
+ */
+function formatLogSummary(summary, exitCode) {
+  const mode = summary.apply ? '落库' : '预检(dry-run)'
+  const lines = [`reextract ${mode} 窗口=${summary.windowDays}天`]
+  if (summary.planned.length === 0) {
+    lines.push('planned=0 无需处理')
+  } else {
+    lines.push(
+      `planned=${summary.planned.length}平台 ` +
+        summary.planned.map((p) => `${p.providerCode}:${p.due}行`).join(' '),
+    )
+  }
+  if (summary.unknownExpiry.length > 0) {
+    lines.push(
+      `未判定(到期未知,未触发): ${summary.unknownExpiry.map((u) => `${u.providerCode}=${u.count}`).join(' ')}`,
+    )
+  } else {
+    lines.push('未判定(到期未知)=0')
+  }
+  if (summary.results.length === 0) {
+    lines.push('results=0(dry-run 不逐平台提取)')
+  } else {
+    for (const r of summary.results) {
+      lines.push(
+        `[${r.ok ? 'OK' : 'FAIL'}] ${r.providerCode} 退出码=${r.code}${r.detail ? ` · ${r.detail}` : ''}`,
+      )
+    }
+  }
+  lines.push(`退出码=${exitCode}`)
+  return `${lines.join('\n')}\n`
+}
+
+/** 计划任务用的轻量日志:追加写 + ISO 时间戳前缀;目录不存在则创建;写失败不影响主流程。 */
+function appendLog(logFile, text) {
+  if (!logFile) return false
+  try {
+    fs.mkdirSync(path.dirname(logFile), { recursive: true })
+    const stamped = text
+      .split(/\r?\n/)
+      .filter(Boolean)
+      .map((line) => `[${new Date().toISOString()}] ${line}`)
+      .join('\n')
+    fs.appendFileSync(logFile, `${stamped}\n`, 'utf8')
+    return true
+  } catch {
+    /* 日志写失败不影响提取 */
+    return false
+  }
+}
+
 async function main(argv) {
   const parsed = parseArgs(argv)
   if (parsed.error) {
@@ -183,6 +243,9 @@ async function main(argv) {
   const tsxCli = resolveTsx()
   if (!tsxCli) {
     process.stderr.write('❌ 未找到 tsx(先在本仓库安装依赖)\n')
+    if (options.log) {
+      appendLog(options.logFile || DEFAULT_LOG_FILE, `前置失败: 未找到 tsx,退出码=2\n`)
+    }
     return 2
   }
 
@@ -190,7 +253,11 @@ async function main(argv) {
   try {
     snapshot = await snapshotLocal(tsxCli)
   } catch (e) {
-    process.stderr.write(`❌ ${e instanceof Error ? e.message : String(e)}\n`)
+    const msg = e instanceof Error ? e.message : String(e)
+    process.stderr.write(`❌ ${msg}\n`)
+    if (options.log) {
+      appendLog(options.logFile || DEFAULT_LOG_FILE, `前置失败: 本机号池快照导出失败 · ${msg} · 退出码=2\n`)
+    }
     return 2
   }
   const { payload, rows } = snapshot
@@ -226,12 +293,15 @@ async function main(argv) {
     }
   }
 
+  const exitCode = summary.results.some((r) => !r.ok) ? 1 : 0
+
   if (options.json) {
     process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`)
   } else {
     process.stdout.write(renderHuman(summary))
   }
-  return summary.results.some((r) => !r.ok) ? 1 : 0
+  if (options.log) appendLog(options.logFile || DEFAULT_LOG_FILE, formatLogSummary(summary, exitCode))
+  return exitCode
 }
 
 const isDirectRun =
@@ -245,5 +315,11 @@ if (isDirectRun) {
     })
 }
 
-export { main as __reextractMain, planReextract as __planReextract, parseArgs as __parseArgs }
+export {
+  main as __reextractMain,
+  planReextract as __planReextract,
+  parseArgs as __parseArgs,
+  formatLogSummary as __formatLogSummary,
+  appendLog as __appendLog,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

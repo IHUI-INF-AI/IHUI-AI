@@ -108,6 +108,7 @@ import { registerServeCommand } from './commands/serve.js';
 import { registerTuiCommand, tryFullScreenFromEnv } from './commands/tui.js';
 import { registerConnectCommand } from './commands/connect.js';
 import { startAcpServer } from './acp/server.js';
+import type { IhuiAcpAgent } from './acp/server.js';
 import { registerSubagentParallelCommand } from './commands/subagent-parallel.js';
 import { CheckpointManager } from './checkpoints/index.js';
 import {
@@ -1242,7 +1243,7 @@ program
       cliMcp: opts.mcp === true ? true : undefined,
       cliPermissionMode: typeof opts.permissionMode === 'string' ? opts.permissionMode : undefined,
     });
-    let acpAgent: import('./acp/server.js').IhuiAcpAgent | null = null;
+    let acpAgent: IhuiAcpAgent | null = null;
     const connection = startAcpServer({
       apiUrl: cfg.apiUrl,
       apiKey: cfg.apiKey,

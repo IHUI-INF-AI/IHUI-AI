@@ -11,7 +11,12 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { __parseArgs as parseArgs, __planReextract as planReextract } from '../relay-account-local-reextract.mjs'
+import {
+  __parseArgs as parseArgs,
+  __planReextract as planReextract,
+  __formatLogSummary as formatLogSummary,
+  __appendLog as appendLog,
+} from '../relay-account-local-reextract.mjs'
 
 const DAY = 86_400_000
 const NOW = Date.parse('2026-11-12T12:00:00.000Z')
@@ -98,5 +103,71 @@ test('参数面:无 --apply 即 dry-run;窗口必须非负;平台白名单拒绝
   assert.match(parseArgs(['--window-days', '-1']).error, /window-days/)
   assert.match(parseArgs(['--provider', 'nope']).error, /不支持的平台/)
   assert.match(parseArgs(['--wat']).error, /未知参数/)
+})
+
+test('参数面:--log 置 true,缺省为 false,且与 --json 并存', () => {
+  assert.equal(parseArgs(['--window-days', '1']).options.log, false)
+  assert.equal(parseArgs(['--log']).options.log, true)
+  const both = parseArgs(['--log', '--json', '--apply'])
+  assert.equal(both.error, null)
+  assert.equal(both.options.log, true)
+  assert.equal(both.options.json, true)
+  assert.equal(both.options.apply, true)
+})
+
+test('日志正文:落库/dry-run、窗口、planned、未判定、各平台 OK/FAIL、退出码都写进同一份摘要', () => {
+  const summary = {
+    apply: false,
+    windowDays: 3,
+    planned: [
+      { providerCode: 'doubao', due: 2, oldest: Date.parse('2026-11-10T00:00:00.000Z') },
+      { providerCode: 'zcode', due: 1, oldest: Date.parse('2026-11-11T00:00:00.000Z') },
+    ],
+    unknownExpiry: [{ providerCode: 'loomy', count: 3 }],
+    results: [
+      { providerCode: 'doubao', code: 0, ok: true, detail: '' },
+      { providerCode: 'zcode', code: 1, ok: false, detail: '未取到本机会话' },
+    ],
+  }
+  const text = formatLogSummary(summary, 1)
+  assert.match(text, /预检\(dry-run\)/)
+  assert.match(text, /窗口=3天/)
+  assert.match(text, /doubao:2行/)
+  assert.match(text, /zcode:1行/)
+  assert.match(text, /loomy=3/)
+  assert.match(text, /\[OK\] doubao 退出码=0/)
+  assert.match(text, /\[FAIL\] zcode 退出码=1 · 未取到本机会话/)
+  assert.match(text, /退出码=1/)
+  assert.match(formatLogSummary({ ...summary, apply: true }, 0), /落库/)
+  assert.match(formatLogSummary({ ...summary, results: [] }, 0), /results=0/)
+})
+
+test('日志正文不泄露令牌/凭据', () => {
+  const summary = {
+    apply: true,
+    windowDays: 3,
+    planned: [{ providerCode: 'doubao', due: 1, oldest: 0 }],
+    unknownExpiry: [],
+    results: [],
+  }
+  const text = formatLogSummary(summary, 0)
+  assert.doesNotMatch(text, /token|secret|Bearer|password/i)
+})
+
+test('appendLog:每行带 ISO 时间戳前缀,自动建目录,写失败返回 false 不抛', async () => {
+  const { mkdtempSync, readFileSync } = await import('node:fs')
+  const { tmpdir } = await import('node:os')
+  const dir = mkdtempSync(`${tmpdir()}/ihui-reextract-log-`)
+  const nested = `${dir}/a/b/reextract.log` // 中间目录不存在
+  assert.equal(appendLog(nested, '第一行\n第二行'), true)
+  const lines = readFileSync(nested, 'utf8').trim().split('\n')
+  assert.equal(lines.length, 2)
+  for (const line of lines) {
+    assert.match(line, /^\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\] /)
+  }
+  assert.match(lines[0], /第一行$/)
+  assert.match(lines[1], /第二行$/)
+  assert.equal(appendLog('', 'x'), false) // 无目标文件不写
+  assert.equal(appendLog(dir, 'x'), false) // 目录不可写吞异常,不抛
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

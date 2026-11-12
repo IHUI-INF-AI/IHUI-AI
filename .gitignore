@@ -749,3 +749,9 @@ packages/database/drizzle-copy/
 packages/database/drizzle-copy2/
 packages/database/drizzle.copy.config.ts
 .commit-msg.txt
+
+# 根目录运行现场杂项(2026-11-13 登记):会话导出对话/临时脚本残留,均非交付源码。
+$BOX_AGENT_SCRATCH_DIR/
+检查Trae登录账号*.md
+推送本地代码到远程仓库*.md
+tmp-*.png
