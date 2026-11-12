@@ -66,7 +66,7 @@ import {
   REFRESH_ENDPOINT_PATHS,
   RESOURCE_SUMMARY_PATH,
   resolveIdentity,
-  resolveRealm,
+  resolveRealmFor,
   resourceErrorMessage,
   workBuddyIdDeploymentSalt,
   type UpstreamFailureKind,
@@ -151,7 +151,7 @@ function resolveAccount(ctx: AdapterAccountContext): ResolvedAccount {
     claims,
     rowUid: ctx.row.uid,
   })
-  return { realm: resolveRealm(identity.domain), identity, login }
+  return { realm: resolveRealmFor(identity.domain, claims), identity, login }
 }
 
 /** 统一信封 GET(模型目录);返回 {status, text} 供健康检查/列表复用 */
@@ -167,6 +167,76 @@ async function fetchModels(
   })
   const text = await res.text().catch(() => '')
   return { status: res.status, text }
+}
+
+/** userinfo 判活端点:优先 JWT 自证的 `iss`(issuer 就是 realm 权威来源),解析不了才回落 realm base */
+function userInfoUrl(accessToken: string, realm: WorkBuddyRealm): string {
+  const iss = parseJwtClaims(accessToken)?.['iss']
+  if (typeof iss === 'string' && iss.trim()) {
+    try {
+      const u = new URL(iss.trim())
+      return `${u.origin}${u.pathname.replace(/\/+$/, '')}/protocol/openid-connect/userinfo`
+    } catch {
+      /* iss 不是合法 URL → 走回落 */
+    }
+  }
+  return `${chatBaseUrl(realm)}/auth/realms/copilot/protocol/openid-connect/userinfo`
+}
+
+/**
+ * 判活兜底(2026-11-12 实证立):模型目录端点自身故障时,回 realm 自证的 userinfo 校验凭据。
+ *
+ * 实证:global(.ai) 的 `/console/enterprises/personal/models` 恒 HTTP 500(不带票时另回
+ * 400 "Client not found"),而同一张票打 userinfo 回 200 + `sub` 自证、`/v2/chat/completions`
+ * 真实出字 ⇒ 500 是上游**目录**故障,不是凭据问题;不兜底就把一枚活着的好号按在「未判定/摘除」上。
+ * 判据:userinfo 200 且 sub 与行内身份对得上 ⇒ ok;401/403 ⇒ 照样判死;其余 ⇒ 保持未判定。
+ */
+async function userInfoVerdict(
+  ctx: AdapterAccountContext,
+  opts: AdapterCallOptions | undefined,
+  priorError: string,
+): Promise<{ ok: boolean; error?: string; indeterminate?: boolean; authFailed?: boolean }> {
+  const { realm, identity, login } = resolveAccount(ctx)
+  if (!login.accessToken) return { ok: false, indeterminate: true, error: priorError }
+  const url = userInfoUrl(login.accessToken, realm)
+  try {
+    const res = await resolveFetchImpl(opts)(url, {
+      method: 'GET',
+      headers: { Accept: 'application/json', Authorization: `Bearer ${login.accessToken}` },
+    })
+    const status = res.status
+    if (status === 401 || status === 403)
+      return { ok: false, authFailed: true, error: `HTTP ${status} 鉴权失效(userinfo 自证)` }
+    if (status < 200 || status >= 300)
+      return {
+        ok: false,
+        indeterminate: true,
+        error: `${priorError};userinfo HTTP ${status}(未判定)`,
+      }
+    const text = await res.text().catch(() => '')
+    let sub = ''
+    try {
+      const j = JSON.parse(text) as Record<string, unknown>
+      if (typeof j['sub'] === 'string') sub = j['sub'].trim()
+    } catch {
+      /* 非 JSON → 当无 sub */
+    }
+    if (!sub) return { ok: false, indeterminate: true, error: `${priorError};userinfo 无 sub(未判定)` }
+    const mine = [identity.uid, String(parseJwtClaims(login.accessToken)?.['sub'] ?? ''), ctx.row.uid]
+    if (!mine.some((v) => v && v === sub))
+      return {
+        ok: false,
+        indeterminate: true,
+        error: `${priorError};userinfo sub 与行内身份不符(未判定)`,
+      }
+    return { ok: true }
+  } catch (e) {
+    return {
+      ok: false,
+      indeterminate: true,
+      error: `${priorError};userinfo ${e instanceof Error ? e.message.slice(0, 80) : '请求失败'}(未判定)`,
+    }
+  }
 }
 
 /** 从信封 data.models 提取模型 id 数组;非法结构 → null */
@@ -437,6 +507,11 @@ export const workbuddyAdapter: RelayUpstreamAdapter = {
     throw lastErr
   },
 
+  /**
+   * 判活:模型目录端点是主判面;它自身故障(5xx / 404 / 信封非法 / 请求抛错)说明
+   * 「判不了」而不是「死了」⇒ 交给 userinfo 兜底(见 userInfoVerdict)。
+   * 401/403 不兜底:真死要照样判死,不给二次机会。
+   */
   async checkHealth(
     ctx: AdapterAccountContext,
     opts?: AdapterCallOptions,
@@ -445,9 +520,10 @@ export const workbuddyAdapter: RelayUpstreamAdapter = {
       const { status, text } = await fetchModels(ctx, opts)
       if (status === 401 || status === 403)
         return { ok: false, authFailed: true, error: `HTTP ${status} 鉴权失效` }
-      if (status >= 400) return { ok: false, indeterminate: true, error: `HTTP ${status}(未判定)` }
+      if (status >= 400)
+        return await userInfoVerdict(ctx, opts, `HTTP ${status}(未判定)`)
       const env = parseEnvelope(text)
-      if (!env) return { ok: false, indeterminate: true, error: '响应信封非法(未判定)' }
+      if (!env) return await userInfoVerdict(ctx, opts, '响应信封非法(未判定)')
       if (env.code !== 0) {
         const brief = env.msg ? `: ${env.msg.slice(0, 80)}` : ''
         return { ok: false, error: `code=${env.code}${brief}` }
@@ -456,11 +532,11 @@ export const workbuddyAdapter: RelayUpstreamAdapter = {
       if (!ids || ids.length === 0) return { ok: false, error: 'models 列表为空' }
       return { ok: true }
     } catch (e) {
-      return {
-        ok: false,
-        indeterminate: true,
-        error: `${e instanceof Error ? e.message.slice(0, 120) : '健康检查请求失败'}(未判定)`,
-      }
+      return await userInfoVerdict(
+        ctx,
+        opts,
+        `${e instanceof Error ? e.message.slice(0, 120) : '健康检查请求失败'}(未判定)`,
+      )
     }
   },
 

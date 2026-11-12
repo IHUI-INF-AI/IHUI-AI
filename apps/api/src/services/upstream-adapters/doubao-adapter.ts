@@ -218,9 +218,20 @@ function isHeaderSafeToken(s: string): boolean {
 }
 
 /**
+ * ttwid 形态票的判据(2026-11-12 实证):ttwid 值是 `1|<载荷>` 的 URL 编码形(开头部 `1%7C`),
+ * 与 32 位十六进制的字节 passport 会话票形状可分。裸 ttwid 只能当设备会话票用 ——
+ * 实测套成 sessionid 打 IM 判活回 712012001「登录校验不合法」,同值改键名后 status_code 0
+ * 且 user_id 为真实用户(非游客 3018599589489431)⇒ 判活通过,chat 同样正常出流。
+ */
+export function isTtwidShapedToken(token: string): boolean {
+  return /^1(%7C|\|)/i.test(token)
+}
+
+/**
  * 组 Cookie 头:credentials.cookies 逐条直通(name=value,零字段改写)。
  * cookies 为空且 tokenEnc 有值 ⇒ 按取证键名当 sessionid_ss/sessionid 用
- * (号池导入时字节 passport 会话票常落 tokenEnc;键序映射是推断,待实证收口)。
+ * (号池导入时字节 passport 会话票常落 tokenEnc;键序映射是推断,待实证收口);
+ * token 是 ttwid 形态票时改落 ttwid 键(见 isTtwidShapedToken 头注实证)。
  * 两处皆空 ⇒ 抛错(该账号不可转发)。
  */
 export function buildCookieHeader(ctx: AdapterAccountContext): string {
@@ -238,6 +249,7 @@ export function buildCookieHeader(ctx: AdapterAccountContext): string {
   if (pairs.length > 0) return pairs.join('; ')
   const token = ctx.credentials.token
   if (token && isHeaderSafeToken(token)) {
+    if (isTtwidShapedToken(token)) return `ttwid=${token}`
     // 推断映射(未实证):tokenEnc 充当会话票,套用取证实证的两个会话键名
     return `sessionid_ss=${token}; sessionid=${token}`
   }

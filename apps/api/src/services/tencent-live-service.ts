@@ -16,7 +16,8 @@ export const CALLBACK_TIMESTAMP_TOLERANCE_MS = 5 * 60 * 1000
 
 /** 幂等去重窗口(回调事件 ID 重复处理不产生副作用)。 */
 const IDEMPOTENCY_WINDOW_MS = 10 * 60 * 1000
-const processedEventIds = new Map<string, number>()
+// 值 == null 表示"正在处理"(占位)；数字 = 已完成时刻。见 F-143。
+const processedEventIds = new Map<string, number | null>()
 
 export interface CallbackSignatureHeaders {
   'x-signature'?: string
@@ -94,29 +95,56 @@ export async function handleCallbackEvent(
 
   const now = Date.now()
   const last = processedEventIds.get(eventId)
-  if (last !== undefined && now - last < IDEMPOTENCY_WINDOW_MS) {
+  // 占位(null)也是"已在处理" ⇒ 并发重复投递按重复返回,不重复执行副作用
+  if (last !== undefined && (last === null || now - last < IDEMPOTENCY_WINDOW_MS)) {
     return { ok: true, duplicated: true, event: eventType, streamName }
   }
-  processedEventIds.set(eventId, now)
-  if (processedEventIds.size > 1000) {
-    for (const [k, v] of processedEventIds) {
-      if (now - v > IDEMPOTENCY_WINDOW_MS) processedEventIds.delete(k)
+  // F-143:去重标记必须**在副作用成功之后**才落,不能先写。
+  //
+  // 修前这里是 `processedEventIds.set(eventId, now)` 紧接 `await updateLiveChannelStatus...`:
+  // DB 一抛错,路由回 500 让腾讯云重发同一 eventId —— 而缓存里已经有它 ⇒ 重试被判
+  // duplicated 直接返回 ok,那次状态更新永远不会被补上,频道状态与真实直播永久不一致。
+  // 现在的写法:占位值为 null(表示"正在处理"),成功后才盖时间戳;失败/抛错时删除占位,
+  // 让平台重发能真正重试。同进程并发同一 eventId 仍互斥(第二次看到占位即按重复返回)。
+  processedEventIds.set(eventId, null)
+  const markDone = (): void => {
+    processedEventIds.set(eventId, Date.now())
+    if (processedEventIds.size > 1000) {
+      for (const [k, v] of processedEventIds) {
+        if (v !== null && now - v > IDEMPOTENCY_WINDOW_MS) processedEventIds.delete(k)
+      }
     }
   }
+  const releaseOnFailure = (): void => {
+    // 只清自己那枚占位(并发下别的请求可能已经接管成已完成态,不能误删)
+    if (processedEventIds.get(eventId) === null) processedEventIds.delete(eventId)
+  }
 
-  switch (eventType) {
-    case 'stream_begin':
-      if (streamName) await updateLiveChannelStatusByStreamName(streamName, true)
-      return { ok: true, event: 'stream_begin', streamName }
-    case 'stream_end':
-      if (streamName) await updateLiveChannelStatusByStreamName(streamName, false)
-      return { ok: true, event: 'stream_end', streamName }
-    case 'stream_mixed':
-      return { ok: true, event: 'stream_mixed', streamName }
-    case 'stream_notify':
-      return { ok: true, event: 'stream_notify', streamName }
-    default:
-      return { ok: true, event: eventType, ignored: true, streamName }
+  try {
+    switch (eventType) {
+      case 'stream_begin':
+        if (streamName) await updateLiveChannelStatusByStreamName(streamName, true)
+        markDone()
+        return { ok: true, event: 'stream_begin', streamName }
+      case 'stream_end':
+        if (streamName) await updateLiveChannelStatusByStreamName(streamName, false)
+        markDone()
+        return { ok: true, event: 'stream_end', streamName }
+      case 'stream_mixed':
+        markDone()
+        return { ok: true, event: 'stream_mixed', streamName }
+      case 'stream_notify':
+        markDone()
+        return { ok: true, event: 'stream_notify', streamName }
+      default:
+        // 非状态变更事件也占位:同一 eventId 反复投递没有意义,但失败仍要能重试
+        markDone()
+        return { ok: true, event: eventType, ignored: true, streamName }
+    }
+  } catch (e) {
+    // F-143:副作用失败 ⇒ 撤掉占位,让平台重发能真正重试(否则本事件 10 分钟内被判重复)
+    releaseOnFailure()
+    throw e
   }
 }
 
