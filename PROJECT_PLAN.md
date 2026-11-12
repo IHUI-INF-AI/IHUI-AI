@@ -4535,6 +4535,7 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 - [x] Y-46 〔千段租约〕 本机=WIN-20251101PXT-d4634eb6 段=Y-37~Y-46(取号器专用行:占用面只取本行主键=段尾号 ⇒ 无租约感知的 max+1 落在段外;段内连号自段首起、由持有机取号器递增;段满由取号器另立下一段,占段撞号由 CAS 终止,不是让号自我循环)
 - [x] B98 〔千段租约〕 本机=前台-694a78bf 段=B89~B98(取号器专用行:占用面只取本行主键=段尾号 ⇒ 无租约感知的 max+1 落在段外;段内连号自段首起、由持有机取号器递增;段满由取号器另立下一段,占段撞号由 CAS 终止,不是让号自我循环)〔同题原号 Y-79〕
 - [x] RP-51 〔千段租约〕 本机=lichunchuan-96818d62 段=RP-42~RP-51(取号器专用行:占用面只取本行主键=段尾号 ⇒ 无租约感知的 max+1 落在段外;段内连号自段首起、由持有机取号器递增;段满由取号器另立下一段,占段撞号由 CAS 终止,不是让号自我循环)
+- [x] B41 〔千段租约〕 本机=WIN-20251101PXT-d4634eb6 段=B32~B41(取号器专用行:占用面只取本行主键=段尾号 ⇒ 无租约感知的 max+1 落在段外;段内连号自段首起、由持有机取号器递增;段满由取号器另立下一段,占段撞号由 CAS 终止,不是让号自我循环)
 <!-- 重复副本(Esc无层栈协议系列,正主 L9161): *Esc 无层栈协议**(方案已定稿,待实施):20+ 处 document/window 的 Esc 监听各自为政且普遍不 `stopPropagation` → 一次 Esc 同时关掉遮罩、弹层、pane、搜索条。**正解不是逐处补 `stopPropagation`**(跨层顺序不可控),而是:①新增 `apps/web/src/lib/overlay-stack.ts` —— `pushOverlay(id)/popOverlay(id)/isTopOverlay(id)`(模块级数组,注册幂等,卸载必 pop);②每个浮层在 open 时 push、close 时 pop,其 Esc 处理器首行 `if (!isTopOverlay(myId)) return`;③`packages/ui-react` 的 Dialog/Popover 家族优先内建该注册(一处接全部端),web 端自绘 portal 层逐个接入;④已有正例可参照其消费写法:`GlobalTopBar.tsx:366`、`TagsView.tsx:135`、`hover-preview-card.tsx:44`(已用 stopPropagation 的三层)。解阻判据:构造"遮罩 + 弹层 + pane 三层叠开"场景按一次 Esc,只有最上层关闭(真机 `aria-expanded`/`data-state` 逐层断言)。注意 `work-panel.tsx` 属共享包,须与结构改造项同票评估。 〔PROGRESS 2026-09-25: overlay-stack 已 30 处在栈,本批补命令面板桥接 commit 69523d6e5;ui-react 家族内建与"三层叠开"真机断言仍未做〕〔PROGRESS@2026-10-08 续会话⑥:①ui-react 家族内建已核实入库——实现枚 c80253f29b(HEAD 祖先现读;Dialog/Sheet/Drawer/Select 经 lib/use-esc-stack.ts 接栈:挂载即 push/卸载即 pop/非栈顶 preventDefault;Popover 组件在 ui-react 不存在无可接入对象;apps/web overlay-stack.ts 已 re-export 单一出口,30 处消费点 import 不变);②组件级判据四条已入库(overlay-stack-three-layer.test.tsx 纯追加 204 行:双 Dialog 叠开一次 Esc 只关最上层/单开正常关/非 Esc 卸载即 pop 栈恢复/注册幂等),全套件 4 文件 20/20 本会话现跑绿+Dialog 受影响面 8 文件 70/70+ui-react tsc 0;真机 aria-expanded/data-state 逐层断言仍留持有人,本行保持未勾〕 〔PROGRESS@2026-10-09 续会话⑦: 本波 Esc 层栈接线已入库——实现枚 70a077e596(HEAD 现读):①slash-command-palette.tsx 稳定 id + isTopOverlay 首行守卫;②file-mention-popover.tsx 同型接入;③unified-suggestion-panel.tsx 同型接入;④TerminalHistorySearch.tsx 自绘层 push/pop;⑤新增 apps/web/src/lib/overlay-stack-wired.test.tsx 3 例(接线恒真判据)。现跑:overlay 相关 4 文件 44 passed + message-send 回归 8 passed,eslint 0,水印 verify 1/1;索引面 5 路径已按父提交态判据对齐(alignSharedIndex moved=5)。真机 aria-expanded/data-state 逐层断言仍留持有人,本行保持未勾(摘租约,正文一字未改)〕 -->
 <!-- 重复副本(Esc无层栈协议系列,正主 L9161): 进行中@2026-09-26/Esc层栈票,主会话第九批） **Esc 无层栈协议**(方案已定稿,待实施):20+ 处 document/window 的 Esc 监听各自为政且普遍不 `stopPropagation` → 一次 Esc 同时关掉遮罩、弹层、pane、搜索条。**正解不是逐处补 `stopPropagation`**(跨层顺序不可控),而是:①新增 `apps/web/src/lib/overlay-stack.ts` —— `pushOverlay(id)/popOverlay(id)/isTopOverlay(id)`(模块级数组,注册幂等,卸载必 pop);②每个浮层在 open 时 push、close 时 pop,其 Esc 处理器首行 `if (!isTopOverlay(myId)) return`;③`packages/ui-react` 的 Dialog/Popover 家族优先内建该注册(一处接全部端),web 端自绘 portal 层逐个接入;④已有正例可参照其消费写法:`GlobalTopBar.tsx:366`、`TagsView.tsx:135`、`hover-preview-card.tsx:44`(已用 stopPropagation 的三层)。解阻判据:构造"遮罩 + 弹层 + pane 三层叠开"场景按一次 Esc,只有最上层关闭(真机 `aria-expanded`/`data-state` 逐层断言)。注意 `work-panel.tsx` 属共享包,须与结构改造项同票评估。 -->
 <!-- 重复副本(Esc无层栈协议系列,正主 L9161): 进行中@2026-09-26/Esc层栈票,主会话第九批） **Esc 无层栈协议**(方案已定稿,待实施):20+ 处 document/window 的 Esc 监听各自为政且普遍不 `stopPropagation` → 一次 Esc 同时关掉遮罩、弹层、pane、搜索条。**正解不是逐处补 `stopPropagation`**(跨层顺序不可控),而是:①新增 `apps/web/src/lib/overlay-stack.ts` —— `pushOverlay(id)/popOverlay(id)/isTopOverlay(id)`(模块级数组,注册幂等,卸载必 pop);②每个浮层在 open 时 push、close 时 pop,其 Esc 处理器首行 `if (!isTopOverlay(myId)) return`;③`packages/ui-react` 的 Dialog/Popover 家族优先内建该注册(一处接全部端),web 端自绘 portal 层逐个接入;④已有正例可参照其消费写法:`GlobalTopBar.tsx:366`、`TagsView.tsx:135`、`hover-preview-card.tsx:44`(已用 stopPropagation 的三层)。解阻判据:构造"遮罩 + 弹层 + pane 三层叠开"场景按一次 Esc,只有最上层关闭(真机 `aria-expanded`/`data-state` 逐层断言)。注意 `work-panel.tsx` 属共享包,须与结构改造项同票评估。 〔PROGRESS 2026-09-25: overlay-stack 已 30 处在栈,本批补命令面板桥接 commit 69523d6e5;ui-react 家族内建与"三层叠开"真机断言仍未做〕 -->
@@ -12225,8 +12226,9 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 12A. **缺陷普查 DG DG-12** [P3] 发布 tag 闸要求整树 porcelain 干净：多会话共享工作树下被他人 WIP 永久阻断（证据 docs/tickets/2026-11/findings-deploy-gates.md#DG-12）
 - [ ] 13A. **缺陷普查 DG DG-13** [P3] 部署门禁失败 → 回滚 → exit 0，按退出码记账的调用方会把失败轮记成成功（证据 docs/tickets/2026-11/findings-deploy-gates.md#DG-13）
 - [ ] 14A. **缺陷普查 DG DG-14** [P3] 元门档是「脚本名正则白名单」：新增门命名不命中即本地零通道，且没有门保证「每门至少一个阻断通道」（证据 docs/tickets/2026-11/findings-deploy-gates.md#DG-14）
+- [ ] 60C. **缺陷普查 CLI F-060** [P3] Cookie 整串经 IPC 回传前端 + expect 建客户端（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-060）
 - [ ] 79C. **缺陷普查 CLI F-077** [P2] DNS 判定与连接 TOCTOU / rebinding，默认无地址证据（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-077）
-- [x] 7D. **缺陷普查 DB DB-09** [P2] 371 条 journal 仅 67 个快照，最新 0371 无快照，db:generate 会重放 0371（证据 docs/tickets/2026-11/findings-db.md#DB-09）
+- [ ] 7D. **缺陷普查 DB DB-09** [P2] 371 条 journal 仅 67 个快照，最新 0371 无快照，db:generate 会重放 0371（证据 docs/tickets/2026-11/findings-db.md#DB-09）
 - [ ] 43D. **缺陷普查 DB DB-35** [P2] 多类敏感字段明文落库（PII 与第三方凭据）（证据 docs/tickets/2026-11/findings-db.md#DB-35）
 - [ ] 11E. **缺陷普查 AIS AIS-011** [P2] Gemini 安全拦截（promptFeedback）被当成功空回复（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-011）
 - [ ] 25E. **缺陷普查 AIS AIS-025** [P2] DAG 队列持久化只写不读，重启即丢（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-025）
@@ -12237,10 +12239,17 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 46E. **缺陷普查 AIS AIS-046** [P2] 审计双数据源 + 成功码不一致（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-046）
 - [ ] 47E. **缺陷普查 AIS AIS-047** [P2] HTTP 写审计无操作主体，落库列也丢 user_id（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-047）
 - [ ] 48E. **缺陷普查 AIS AIS-048** [P2] 路由异常被转成 HTTP 200 + body code:500，并回吐 str(e)（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-048）
+
+
+
 - [ ] 79E. **缺陷普查 AIS AIS-079** [P3] 用量面缺角色门，自报用量无幂等（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-079）
 - [ ] 114E. **缺陷普查 AIS AIS-114** [P2] 运行中 interrupt 立即保存半批次 checkpoint（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-114）
 - [ ] 12G. **缺陷普查 API F-12** [P2] 已支付订单副作用重放与支付回调并发，积分/Outbox 双发（证据 docs/tickets/2026-11/findings-api.md#F-12）
+- [ ] 15G. **缺陷普查 API F-15** [P2] 邀请码占用无 status 条件，同一码并发注册双发奖励（证据 docs/tickets/2026-11/findings-api.md#F-15）
+
+
 - [ ] 24G. **缺陷普查 API F-24** [P3] 导出/用量按 UTC 边界过滤日期区间，且结束边界丢毫秒（证据 docs/tickets/2026-11/findings-api.md#F-24）
+- [ ] 25G. **缺陷普查 API F-25** [P3] /v1/assistants 游标分页排序键非唯一，跨页可能重复/漏行（证据 docs/tickets/2026-11/findings-api.md#F-25）
 - [ ] 34G. **缺陷普查 API F-34** [P2] 多模态任务失败退款为 fire-and-forget，异常被内部吞掉（证据 docs/tickets/2026-11/findings-api.md#F-34）
 - [ ] 43G. **缺陷普查 API F-43** [P3] /artifacts/:id/download 整文件同步读入 + 同步 sha256 + 多份字符串副本（证据 docs/tickets/2026-11/findings-api.md#F-43）
 - [ ] 44G. **缺陷普查 API F-44** [P2] ai-vendors 的 taskStore / tencentActiveJobs 无删除路径，列表遍历全表（证据 docs/tickets/2026-11/findings-api.md#F-44）
@@ -12250,18 +12259,28 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 65G. **缺陷普查 API F-65** [P2] /finance/margin/* 数量无正数/整数校验，负数可反向铸币；目标账户写死为调用者（证据 docs/tickets/2026-11/findings-api.md#F-65）
 - [ ] 67G. **缺陷普查 API F-67** [P2] 提现 apply 的“锁降级”把任何非 400 异常当成锁不可用再执行一次，锁释放失败即重复提现（证据 docs/tickets/2026-11/findings-api.md#F-67）
 - [ ] 74G. **缺陷普查 API F-74** [P2] CLI 导入 preview 未绑定 userId，凭 previewId 可把他人 API Key 导入自己账户（证据 docs/tickets/2026-11/findings-api.md#F-74）
+- [ ] 75G. **缺陷普查 API F-75** [P3] xss-protection 请求体净化挂在 onRequest，body 未解析 ⇒ 净化从不生效（证据 docs/tickets/2026-11/findings-api.md#F-75）
 - [ ] 78G. **缺陷普查 API F-78** [P2] 会员企业列表分页/总数/筛选三处错位（证据 docs/tickets/2026-11/findings-api.md#F-78）
 - [ ] 79G. **缺陷普查 API F-79** [P2] 工作区批量删除/恢复逐文件串行校验，单请求最多 200 次 DB 往返（N+1）（证据 docs/tickets/2026-11/findings-api.md#F-79）
 - [ ] 80G. **缺陷普查 API F-80** [P2] 智能体点赞/收藏计数可并发重复累加，且增删非事务导致永久漂移（证据 docs/tickets/2026-11/findings-api.md#F-80）
+- [ ] 81G. **缺陷普查 API F-81** [P2] 短信接码快照 UTC 日期与本地时刻混用，每日 00:00–08:00 归日错位并可重复入库（证据 docs/tickets/2026-11/findings-api.md#F-81）
+- [ ] 82G. **缺陷普查 API F-82** [P3] ensureMargin 先查后插无冲突处理，并发首次充值/扣减返回 500（证据 docs/tickets/2026-11/findings-api.md#F-82）
+- [ ] 83G. **缺陷普查 API F-83** [P3] 订单/退款/发票列表按随机 UUID v4 倒序，等价于乱序（证据 docs/tickets/2026-11/findings-api.md#F-83）
 - [ ] 84G. **缺陷普查 API F-84** [P3] ilike 通配符系统性未转义（搜索扫描放大 + 直播回调后缀匹配可能批量误改）（证据 docs/tickets/2026-11/findings-api.md#F-84）
+- [ ] 90G. **缺陷普查 API F-90** [P2] rerank 兜底 token 估算只看 query、忽略 documents，严重少计费（证据 docs/tickets/2026-11/findings-api.md#F-90）
 - [ ] 92G. **缺陷普查 API F-92** [P2] Midjourney 任务状态/操作端点无归属校验，可跨租户读取他人图片结果（证据 docs/tickets/2026-11/findings-api.md#F-92）
 - [ ] 94G. **缺陷普查 API F-94** [P2] 知识库详情匿名可读且返回未发布/下线草稿（证据 docs/tickets/2026-11/findings-api.md#F-94）
 - [ ] 96G. **缺陷普查 API F-96** [P2] 任意登录用户可写全局 ai_model_config，且全站可读他人 baseUrl（证据 docs/tickets/2026-11/findings-api.md#F-96）
 - [ ] 97G. **缺陷普查 API F-97** [P2] /v1/ai/capabilities/invoke 用系统票调 LLM、无计费，且失败伪装成功（证据 docs/tickets/2026-11/findings-api.md#F-97）
+- [ ] 98G. **缺陷普查 API F-98** [P3] 文章详情返回未发布/下线稿件，且对草稿也计浏览（证据 docs/tickets/2026-11/findings-api.md#F-98）
 - [ ] 99G. **缺陷普查 API F-99** [P3] /api/ai/career-advice 裸 fetch 不带凭证 → 必然 401，却把模板当成功返回（证据 docs/tickets/2026-11/findings-api.md#F-99）
 - [ ] 116G. **缺陷普查 API F-116** [P3] 广播链路无背压检查（bufferedAmount），慢消费者帧堆积；ws-notifications 发送失败不摘线（证据 docs/tickets/2026-11/findings-api.md#F-116）
+
+
+
 - [ ] 141G. **缺陷普查 API F-141** [P2] 「会话导入知识库」幂等是纯 check-then-write，并发双请求重复入库 + 重复收 embedding 费（证据 docs/tickets/2026-11/findings-api.md#F-141）
 - [ ] 142G. **缺陷普查 API F-142** [P2] 团队知识修订的乐观锁是「先读后判」，UPDATE 不带 revision 条件；审计与正文非事务（证据 docs/tickets/2026-11/findings-api.md#F-142）
+
 - [ ] 144G. **缺陷普查 API F-144** [P2] embedding provider 三处裸 fetch 无超时/无 AbortSignal，RAG 检索与入库可被上游挂起拖死（证据 docs/tickets/2026-11/findings-api.md#F-144）
 - [ ] 145G. **缺陷普查 API F-145** [P2] 删除文档「软删改状态」与「物理删 chunk」非事务，失败后已删内容仍被 RAG 召回（证据 docs/tickets/2026-11/findings-api.md#F-145）
 - [ ] 146G. **缺陷普查 API F-146** [P3] /files/:id/convert-markdown 对 100MB 文件同步全量读；资产提取读完才判 20MB（证据 docs/tickets/2026-11/findings-api.md#F-146）
@@ -12280,6 +12299,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 174G. **缺陷普查 API F-174** [P2] recordWatch 读改写累计时长：客户端可控且可致 int4 溢出永久 500（证据 docs/tickets/2026-11/findings-api.md#F-174）
 - [ ] 175G. **缺陷普查 API F-175** [P2] 技能同步 upsert 无唯一约束，并发 push 产生同 (author_id, slug) 重复行（证据 docs/tickets/2026-11/findings-api.md#F-175）
 - [ ] 176G. **缺陷普查 API F-176** [P2] 圈子帖 / 问答详情按 id 直查未过滤 status=1，已下架内容仍可读（证据 docs/tickets/2026-11/findings-api.md#F-176）
+- [ ] 177G. **缺陷普查 API F-177** [P3] 资讯推荐/排行批量取文章只过滤 isPublished，漏 status（下架仍被推荐）（证据 docs/tickets/2026-11/findings-api.md#F-177）
 - [ ] 179G. **缺陷普查 API F-179** [P2] 单个 Key 密文解密失败未被隔离，整条模型渠道路由直接失败（证据 docs/tickets/2026-11/findings-api.md#F-179）
 - [ ] 182G. **缺陷普查 API F-182** [P2] 短信退订回执写入失败被吞且仍回 200，退订永久丢失（证据 docs/tickets/2026-11/findings-api.md#F-182）
 - [ ] 183G. **缺陷普查 API F-183** [P2] 熔断计数器 Redis 读改写非原子，并发下连续失败计数丢失、熔断难触发（证据 docs/tickets/2026-11/findings-api.md#F-183）
@@ -12324,6 +12344,8 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 247G. **缺陷普查 API F-247** [P2] 客服派单 TOCTOU：判 waiting 后按 sessionId 无条件更新，负载自增在事务外（证据 docs/tickets/2026-11/findings-api.md#F-247）
 - [ ] 248G. **缺陷普查 API F-248** [P2] 取消 VIP 只改 user_vips.status，不回写 users.isVip，被取消用户仍享 VIP 权益（证据 docs/tickets/2026-11/findings-api.md#F-248）
 - [ ] 249G. **缺陷普查 API F-249** [P2] closeSession 无幂等保护，重复关闭重复递减坐席负载（证据 docs/tickets/2026-11/findings-api.md#F-249）
+- [ ] 250G. **缺陷普查 API F-250** [P3] AI 世界列表 count 只按标题匹配、列表按「标题 OR 摘要」，搜索时 total 与列表不一致（证据 docs/tickets/2026-11/findings-api.md#F-250）
+- [ ] 251G. **缺陷普查 API F-251** [P2] AI 世界详情/分类公开接口未过滤 status=1，下线条目仍可读并累加浏览（证据 docs/tickets/2026-11/findings-api.md#F-251）
 - [ ] 254G. **缺陷普查 API F-254** [P2] /api/context/mentions 接受任意绝对 workspacePath，可枚举服务器目录并同步阻塞事件循环（证据 docs/tickets/2026-11/findings-api.md#F-254）
 - [ ] 256G. **缺陷普查 API F-256** [P2] urgent 抢占只改状态不中止执行：槽位释放但任务仍在跑，并发可破上限且 preempted 被覆写 completed（证据 docs/tickets/2026-11/findings-api.md#F-256）
 - [ ] 257G. **缺陷普查 API F-257** [P2] 对公打款凭证金额由客户端自填且确认时不校验，0/1 分凭证经确认即整单履约（证据 docs/tickets/2026-11/findings-api.md#F-257）
@@ -12343,9 +12365,12 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 280G. **缺陷普查 API F-280** [P2] /api/workspace/acp/* 三端点为纯 stub：不落库却返回 201/200，workspaceRoot 任意且 prompt/附件正文（证据 docs/tickets/2026-11/findings-api.md#F-280）
 - [ ] 281G. **缺陷普查 API F-281** [P2] 直播 GET /live/channels/:id 匿名无限刷浏览量，/live/notify/stream-end 免验签改指标（证据 docs/tickets/2026-11/findings-api.md#F-281）
 - [ ] 282G. **缺陷普查 API F-282** [P3] GET /oss/download/:id 是假下载：200 返回驱动 config，且用仅限 admin 的查询读未启用驱动（证据 docs/tickets/2026-11/findings-api.md#F-282）
+- [ ] 283G. **缺陷普查 API F-283** [P3] POST /api/files/upload/octet 未声明 bodyLimit，2MiB~100MiB 上传被全局 2MiB 静默 413（证据 docs/tickets/2026-11/findings-api.md#F-283）
 - [ ] 286G. **缺陷普查 API F-286** [P2] SSE 旧会话收尾无条件释放「同 replayKey 的新会话」缓冲与元数据（证据 docs/tickets/2026-11/findings-api.md#F-286）
 - [ ] 287G. **缺陷普查 API F-287** [P2] 取码配额键为 identifier/IP：换号即重置，与「同一 IP 换号唯一闸」自述矛盾（证据 docs/tickets/2026-11/findings-api.md#F-287）
 - [ ] 289G. **缺陷普查 API F-289** [P2] 公开边缘缓存键不含 Origin，跨源请求会命中同源建立的条目（证据 docs/tickets/2026-11/findings-api.md#F-289）
+- [ ] 290G. **缺陷普查 API F-290** [P3] WS 限流 MAX_PER_WINDOW=30 是死分支，实际恒定放行到 50 条/秒（证据 docs/tickets/2026-11/findings-api.md#F-290）
+- [ ] 291G. **缺陷普查 API F-291** [P3] sse-replay-buffer.registerStream 在 set 之前逐出，满 200 流时误删活跃流缓冲（证据 docs/tickets/2026-11/findings-api.md#F-291）
 - [ ] 293G. **缺陷普查 API F-293** [P2] /v1/messages 与 /v1/responses 工具调用全链路丢失（证据 docs/tickets/2026-11/findings-api.md#F-293）
 - [ ] 295G. **缺陷普查 API F-295** [P2] /v1/messages 流式丢弃 done.finishReason，截断/内容过滤被报成 end_turn（证据 docs/tickets/2026-11/findings-api.md#F-295）
 - [ ] 296G. **缺陷普查 API F-296** [P2] 流式上游失败时 HTTP 200 + [error] … 写入正文，客户端无法识别失败（证据 docs/tickets/2026-11/findings-api.md#F-296）
@@ -12359,23 +12384,33 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 305G. **缺陷普查 API F-305** [P3] 会话质量统计：visit_logs 无可用索引，三腿各扫全表且非同一快照（证据 docs/tickets/2026-11/findings-api.md#F-305）
 - [ ] 306G. **缺陷普查 API F-306** [P2] /workspace-ai/agent/run 用系统票调 LLM：无计费/配额/并发上限，上游失败记为 completed（证据 docs/tickets/2026-11/findings-api.md#F-306）——**部分已修** `6cd8bc5e1a`：失败置 failed+error、任务按 userId 归属；计费/配额/并发上限仍待排期
 - [ ] 307G. **缺陷普查 API F-307** [P2] OpenAI→Anthropic 流式适配器把并行 tool_calls 合并成同一块，参数拼成非法 JSON（证据 docs/tickets/2026-11/findings-api.md#F-307）
+- [ ] 308G. **缺陷普查 API F-308** [P2] 阶梯定价在用量低于最低档门槛时套用最低档倍率，系统性少收费（证据 docs/tickets/2026-11/findings-api.md#F-308）
 - [ ] 309G. **缺陷普查 API F-309** [P2] upsertPricing 更新分支忽略 effectiveAt 且盲更新“最新一条”（证据 docs/tickets/2026-11/findings-api.md#F-309）
 - [ ] 310G. **缺陷普查 API F-310** [P2] 核销入口缺 enabled/startsAt/applicableScope 校验，停用券与跨业务券可核销（证据 docs/tickets/2026-11/findings-api.md#F-310）
 - [ ] 311G. **缺陷普查 API F-311** [P2] 裂变券未校验“分享人≠领取人”，可自推荐刷 API Key 余额（证据 docs/tickets/2026-11/findings-api.md#F-311）
+- [ ] 312G. **缺陷普查 API F-312** [P3] 登录异常通知先写去重键再发送，通道全失败即丢失 6 小时安全告警（证据 docs/tickets/2026-11/findings-api.md#F-312）
 - [ ] 313G. **缺陷普查 API F-313** [P2] 验证码服务 Redis 故障时“写内存、读 Redis”，challenge/token 必然校验失败（证据 docs/tickets/2026-11/findings-api.md#F-313）
 - [ ] 314G. **缺陷普查 API F-314** [P3] 邮件发送无显式超时（Resend fetch / nodemailer），登录请求可被上游拖住数分钟（证据 docs/tickets/2026-11/findings-api.md#F-314）
 - [ ] 316G. **缺陷普查 API F-316** [P2] 在线学费回调：流水落库与重算非同一事务，重试被前置查重短路 → paid_amount 永久不更新（证据 docs/tickets/2026-11/findings-api.md#F-316）
 - [ ] 317G. **缺陷普查 API F-317** [P2] 催费文案取“全部账期最大逾期天数”，已缴清的历史账期把未到期欠费说成逾期数百天（证据 docs/tickets/2026-11/findings-api.md#F-317）
+- [ ] 318G. **缺陷普查 API F-318** [P3] 访问来源按 referer 分组后 LIMIT 500 无 ORDER BY，totalPv 与分类桶只覆盖任意 500 组（证据 docs/tickets/2026-11/findings-api.md#F-318）
 - [ ] 319G. **缺陷普查 API F-319** [P2] /payment-record/summary 接受 termId 但只对欠费生效，收入/已缴人数仍是全库/全班历史（证据 docs/tickets/2026-11/findings-api.md#F-319）
 - [ ] 320G. **缺陷普查 API F-320** [P2] 巡检任务后台失败完全静默且不推进 next_run_at，每 60 秒重跑同一任务（证据 docs/tickets/2026-11/findings-api.md#F-320）
 - [ ] 321G. **缺陷普查 API F-321** [P3] 页面停留先按原始 label 分组再 LIMIT 12，归一后同 URL 重复、均值只覆盖某一个动态 id（证据 docs/tickets/2026-11/findings-api.md#F-321）
 - [ ] 322G. **缺陷普查 API F-322** [P2] 退费可挂到别人的缴费流水：paymentId 与 studentId/classId 不做一致性校验，金额无上限（证据 docs/tickets/2026-11/findings-api.md#F-322）
+- [ ] 325G. **缺陷普查 API F-325** [P2] memoizeClose 缓存结果而非 in-flight promise，并发调用会真正 close 两次（证据 docs/tickets/2026-11/findings-api.md#F-325）
+- [ ] 326G. **缺陷普查 API F-326** [P3] 每相超时计时器 unref()，挂死且无活动句柄时 process.exit(1) 不可达，静默退出 0（证据 docs/tickets/2026-11/findings-api.md#F-326）
 - [ ] 327G. **缺陷普查 API F-327** [P3] scanLeaks 先删 outstanding，forceRelease/forceReleaseAllLeaked 对这些 connId 永远失（证据 docs/tickets/2026-11/findings-api.md#F-327）
+- [ ] 328G. **缺陷普查 API F-328** [P3] kill-verified 最终杀进程命令走 PATH 裸名 taskkill/kill，与自身绝对路径纪律矛盾（证据 docs/tickets/2026-11/findings-api.md#F-328）
 - [ ] 333G. **缺陷普查 API F-333** [P2] 管理端提现 PUT 无状态机守卫，可绕过审批改金额/改归属/直接置 approved（证据 docs/tickets/2026-11/findings-api.md#F-333）
 - [ ] 336G. **缺陷普查 API F-336** [P3] GET /circles/:id 与 /posts 对 slug 直接 404，slug 分享链路断裂（证据 docs/tickets/2026-11/findings-api.md#F-336）
 - [ ] 337G. **缺陷普查 API F-337** [P2] SSE 内错误帧被当成功：扣输入 token、不熔断、不切候选（证据 docs/tickets/2026-11/findings-api.md#F-337）
+- [ ] 338G. **缺陷普查 API F-338** [P2] 健康巡检把"管理员手动停用"的 Key 自动重新启用（证据 docs/tickets/2026-11/findings-api.md#F-338）
+- [ ] 339G. **缺陷普查 API F-339** [P3] 停用 Key 恢复探测 LIMIT 20 无 ORDER BY，多数停用 Key 永远轮不到（证据 docs/tickets/2026-11/findings-api.md#F-339）
 - [ ] 341G. **缺陷普查 API F-341** [P3] 下载统计的日界依赖数据库会话时区，北京业务日偏移 8 小时（证据 docs/tickets/2026-11/findings-api.md#F-341）
+- [ ] 342G. **缺陷普查 API F-342** [P3] 告警事件先写 pushStatus:'pushed' 再推送，失败后不改正（证据 docs/tickets/2026-11/findings-api.md#F-342）
 - [ ] 343G. **缺陷普查 API F-343** [P3] 保留期清理用单条 DELETE ... RETURNING 全量删除并回传全部 id（证据 docs/tickets/2026-11/findings-api.md#F-343）
+- [ ] 344G. **缺陷普查 API F-344** [P3] 实时流量快照缓存/去重槽未按 source 分键（证据 docs/tickets/2026-11/findings-api.md#F-344）
 - [ ] 345G. **缺陷普查 API F-345** [P2] captureAgentRuntimeStream 不识别 ai-service 实际 SSE 协议：摘要取不到、失败 done 当成功（证据 docs/tickets/2026-11/findings-api.md#F-345）
 - [ ] 349G. **缺陷普查 API F-349** [P2] registry 同步适配器异常被吞成空数组，worker 记 skipped 并把 trigger 标 processed（证据 docs/tickets/2026-11/findings-api.md#F-349）
 - [ ] 351G. **缺陷普查 API F-351** [P2] AI 资讯分页失效：fallback 忽略 offset/total，主查询无稳定排序（证据 docs/tickets/2026-11/findings-api.md#F-351）
@@ -12383,6 +12418,8 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 353G. **缺陷普查 API F-353** [P2] 积分规则渠道"全量覆盖"先删后插且无事务：任一步失败/并发覆盖即丢配置（证据 docs/tickets/2026-11/findings-api.md#F-353）
 - [ ] 354G. **缺陷普查 API F-354** [P3] news_tops / news_recommends 缺 (news_id) 唯一约束，先查后插竞态，列表不去重（证据 docs/tickets/2026-11/findings-api.md#F-354）
 - [ ] 355G. **缺陷普查 API F-355** [P3] coze_variables 缺 (bot_id, variable_name) 唯一 + create 无查重 + retrieve 无 ORDER （证据 docs/tickets/2026-11/findings-api.md#F-355）
+- [ ] 356G. **缺陷普查 API F-356** [P3] 多个分页查询仅按非唯一 createdAt 排序，LIMIT/OFFSET 翻页重复/漏行（证据 docs/tickets/2026-11/findings-api.md#F-356）
+- [ ] 357G. **缺陷普查 API F-357** [P3] findMyMember 未过滤 VIP 到期时间，且 hasVip 只看字段非空（证据 docs/tickets/2026-11/findings-api.md#F-357）
 - [ ] 358G. **缺陷普查 API F-358** [P3] orders 缺 paid_at / created_at 索引，财务与 BI 聚合每次全表扫（证据 docs/tickets/2026-11/findings-api.md#F-358）
 - [ ] 367G. **缺陷普查 API F-367** [P3] cli-import fallback 清理定时器在模块顶层启动，API 与 worker 双跑（证据 docs/tickets/2026-11/findings-api.md#F-367）
 - [ ] 368G. **缺陷普查 API F-368** [P3] relay-channel-router 亲和性清理定时器在模块顶层 if 块内启动，API 与 worker 双跑（证据 docs/tickets/2026-11/findings-api.md#F-368）
@@ -12397,6 +12434,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 379G. **缺陷普查 API F-379** [P2] R002/R005 所需字段入口未提供，规则空转（证据 docs/tickets/2026-11/findings-api.md#F-379）
 - [ ] 380G. **缺陷普查 API F-380** [P2] merge 入口不校验会话状态，可对已完成/已取消会话反复合并（证据 docs/tickets/2026-11/findings-api.md#F-380）
 - [ ] 382G. **缺陷普查 API F-382** [P2] OSS 分片会话用进程内 Map 且 TTL 不 Abort，跨用户清理（证据 docs/tickets/2026-11/findings-api.md#F-382）
+- [ ] 383G. **缺陷普查 API F-383** [P3] 主体命中统计用 ruleId.includes(userId)，恒为空（证据 docs/tickets/2026-11/findings-api.md#F-383）
 - [ ] 385G. **缺陷普查 API F-385** [P1] 模型映射后不复检 allowedModels，绕过白名单与计费口径（P1）（证据 docs/tickets/2026-11/findings-api.md#F-385）
 - [ ] 386G. **缺陷普查 API F-386** [P2] RAG 知识块无边界拼入 system prompt，间接提示注入（证据 docs/tickets/2026-11/findings-api.md#F-386）
 - [ ] 387G. **缺陷普查 API F-387** [P2] ingestFile 用标题反查 docId，空文本仍返回成功（证据 docs/tickets/2026-11/findings-api.md#F-387）
@@ -12436,12 +12474,15 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 435G. **缺陷普查 API F-435** [P3] sys_config.config_key 无唯一约束且新增不查重（证据 docs/tickets/2026-11/findings-api.md#F-435）
 - [ ] 436G. **缺陷普查 API F-436** [P2] 事务内再开 db.transaction，注释的 savepoint 假设不成立（证据 docs/tickets/2026-11/findings-api.md#F-436）
 - [ ] 437G. **缺陷普查 API F-437** [P2] 剧情顾问内存态无界 + story 被无条件覆盖（证据 docs/tickets/2026-11/findings-api.md#F-437）
+- [ ] 438G. **缺陷普查 API F-438** [P3] 内部/自定义渠道「未发送」仍返回成功（证据 docs/tickets/2026-11/findings-api.md#F-438）
+- [ ] 439G. **缺陷普查 API F-439** [P3] /models/complete 未调用模型即返回成功（证据 docs/tickets/2026-11/findings-api.md#F-439）
 - [ ] 440G. **缺陷普查 API F-440** [P3] browser 页面缓存无上限、响应体无大小限制（证据 docs/tickets/2026-11/findings-api.md#F-440）
 - [ ] 441G. **缺陷普查 API F-441** [P3] enhance 单请求 4 次 LLM 且不记成本（证据 docs/tickets/2026-11/findings-api.md#F-441）
 - [ ] 442G. **缺陷普查 API F-442** [P2] GitHub 令牌为全站单文件，任意登录用户可覆盖/删除（证据 docs/tickets/2026-11/findings-api.md#F-442）
 - [ ] 443G. **缺陷普查 API F-443** [P2] 非流式成功流水按原始 model 计费，与流式/缓存不一致（证据 docs/tickets/2026-11/findings-api.md#F-443）
 - [ ] 444G. **缺陷普查 API F-444** [P2] GitHub PR/Issue 端点任意 owner/repo + 全站 PAT（证据 docs/tickets/2026-11/findings-api.md#F-444）
 - [ ] 445G. **缺陷普查 API F-445** [P3] /v1/models 全局缓存混入调用者私有 BYOK 模型（证据 docs/tickets/2026-11/findings-api.md#F-445）
+- [ ] 446G. **缺陷普查 API F-446** [P3] /admin/system/tasks 手动执行不执行却写「成功」日志（证据 docs/tickets/2026-11/findings-api.md#F-446）
 - [ ] 447G. **缺陷普查 API F-447** [P3] POST /v1/files 先落盘后入库，失败不回收（证据 docs/tickets/2026-11/findings-api.md#F-447）
 - [ ] 448G. **缺陷普查 API F-448** [P1] ab_test_results 唯一约束在 schema 与迁移间漂移，push/局部恢复后 upsert 必 42P10（证据 docs/tickets/2026-11/findings-api.md#F-448）
 - [ ] 450G. **缺陷普查 API F-450** [P1] 代扣回调外层事务内再开多个事务，幂等/回滚失效（已复核，P1）（证据 docs/tickets/2026-11/findings-api.md#F-450）
@@ -12450,13 +12491,18 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 453G. **缺陷普查 API F-453** [P1] 第 5 条管理端写入口不释放冻结、不退款（已复核，P1）（证据 docs/tickets/2026-11/findings-api.md#F-453）
 - [ ] 454G. **缺陷普查 API F-454** [P2] finance-extended 审批允许 1→2 二次释放冻结（证据 docs/tickets/2026-11/findings-api.md#F-454）
 - [ ] 455G. **缺陷普查 API F-455** [P2] admin-shop 新增/删除提现单绕过资金（证据 docs/tickets/2026-11/findings-api.md#F-455）
+- [ ] 456G. **缺陷普查 API F-456** [P2] 退款审核 action 无运行时校验，可写任意状态（证据 docs/tickets/2026-11/findings-api.md#F-456）
 - [ ] 457G. **缺陷普查 API F-457** [P3] 状态码 3/4 语义分裂导致后台统计缺项（证据 docs/tickets/2026-11/findings-api.md#F-457）
 - [ ] 458G. **缺陷普查 API F-458** [P3] 金额 sum()::int 溢出扩散（新查询点）（证据 docs/tickets/2026-11/findings-api.md#F-458）
 - [ ] 461G. **缺陷普查 API F-461** [P2] ws-auto-recovery 活动时间从不刷新，15 分钟后误恢复并耗尽配额（已复核，P2）（证据 docs/tickets/2026-11/findings-api.md#F-461）
+- [ ] 464G. **缺陷普查 API F-464** [P3] /admin/shop/payments/:id/ship 无 UUID 闸、无发货状态机，且覆盖 remark（证据 docs/tickets/2026-11/findings-api.md#F-464）
 - [ ] 465G. **缺陷普查 API F-465** [P2] PUT /admin/orders/:id 状态机旁路，不写时间戳、不进履约链（已复核，P2）（证据 docs/tickets/2026-11/findings-api.md#F-465）
 - [ ] 466G. **缺陷普查 API F-466** [P3] ws/live-chat 独缺单用户连接上限，MAX_ROOMS 只回收空房（证据 docs/tickets/2026-11/findings-api.md#F-466）
 - [ ] 467G. **缺陷普查 API F-467** [P3] ws/live-chat close/error 无条件重置全局限流窗口，重连即绕过 60 条/分钟（证据 docs/tickets/2026-11/findings-api.md#F-467）
 - [ ] 475G. **缺陷普查 API F-475** [P2] chat 历史内存表无上限且 model_name 无长度上限（已复核，P2）（证据 docs/tickets/2026-11/findings-api.md#F-475）
+- [ ] 476G. **缺陷普查 API F-476** [P3] 风控命中落库 fire-and-forget，首条失败即中断其余且只 warn（证据 docs/tickets/2026-11/findings-api.md#F-476）
+- [ ] 477G. **缺陷普查 API F-477** [P3] design 降级存储 Map 无上限（500KB/条）（证据 docs/tickets/2026-11/findings-api.md#F-477）
+- [ ] 478G. **缺陷普查 API F-478** [P3] 活动过期任务逐条 UPDATE（N+1）（证据 docs/tickets/2026-11/findings-api.md#F-478）
 - [ ] 487G. **缺陷普查 API F-487** [P2] 用户组列表与成员列表对全体登录用户开放，可跨组枚举（证据 docs/tickets/2026-11/findings-api.md#F-487）
 - [ ] 490G. **缺陷普查 API F-490** [P2] 管理员用户写接口 .returning() 回传 password_hash（证据 docs/tickets/2026-11/findings-api.md#F-490）
 - [ ] 491G. **缺陷普查 API F-491** [P3] 创建用户未校验唯一性与列长，重复/超长入参直接 500（证据 docs/tickets/2026-11/findings-api.md#F-491）
@@ -12465,6 +12511,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 494G. **缺陷普查 API F-494** [P2] 批处理 worker 先占去重键后异步扣费，漏收/重扣（证据 docs/tickets/2026-11/findings-api.md#F-494）
 - [ ] 495G. **缺陷普查 API F-495** [P3] 批处理 worker 崩溃重跑无断点，重复消耗上游（证据 docs/tickets/2026-11/findings-api.md#F-495）
 - [ ] 496G. **缺陷普查 API F-496** [P2] 账号池 worker 把退出码 1/超时当成功，BullMQ 记 completed 不重试（证据 docs/tickets/2026-11/findings-api.md#F-496）
+- [ ] 497G. **缺陷普查 API F-497** [P2] registry-sync worker 全量 upsert 失败仍返回成功并标 processed（证据 docs/tickets/2026-11/findings-api.md#F-497）
 - [ ] 498G. **缺陷普查 API F-498** [P3] AI 回调 worker 先 DELETE … RETURNING 再落库，重试丢帧（证据 docs/tickets/2026-11/findings-api.md#F-498）
 - [ ] 500G. **缺陷普查 API F-500** [P2] ai-ext 插件 preHandler 白名单恒不命中，全部退化为 admin（证据 docs/tickets/2026-11/findings-api.md#F-500）
 - [ ] 501G. **缺陷普查 API F-501** [P3] clawdbot shutdown→initialize 竞态遗留双 socket（证据 docs/tickets/2026-11/findings-api.md#F-501）
@@ -12498,6 +12545,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 538G. **缺陷普查 API F-538** [P2] relay 会话历史的写入口全仓无调用，会话 API 恒空（证据 docs/tickets/2026-11/findings-api.md#F-538）
 - [ ] 540G. **缺陷普查 API F-540** [P3] workbook save 与 write 无会话级互斥，await writeBuffer() 期间可被并发改写（证据 docs/tickets/2026-11/findings-api.md#F-540）
 - [ ] 542G. **缺陷普查 API F-542** [P3] 转码 resolution 参数被静默丢弃，任务仍报 completed（证据 docs/tickets/2026-11/findings-api.md#F-542）
+- [ ] 546G. **缺陷普查 API F-546** [P3] CompleteMultipartUpload 的 etag 原样拼进 XML（未转义、无上限），parts 数组无上限（证据 docs/tickets/2026-11/findings-api.md#F-546）
 - [ ] 550G. **缺陷普查 API F-550** [P2] 对账只比较订单号是否存在，完全不校验金额与交易状态（证据 docs/tickets/2026-11/findings-api.md#F-550）
 - [ ] 551G. **缺陷普查 API F-551** [P2] 支付宝账单下载不判 HTTP 状态/内容类型，错误页被当「平台无交易」，调度层仍记 success（证据 docs/tickets/2026-11/findings-api.md#F-551）
 - [ ] 552G. **缺陷普查 API F-552** [P2] 过期监听把「Redis 缓存写入失败」当作检测失败，连续 4 轮可触发生产 Canary 回滚（证据 docs/tickets/2026-11/findings-api.md#F-552）
@@ -12533,9 +12581,11 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 586G. **缺陷普查 API F-587** [P2] 订阅实例的 orderNo 幂等靠副本读 + 非唯一索引，异常吞成 null（证据 docs/tickets/2026-11/findings-api.md#F-587）
 - [ ] 587G. **缺陷普查 API F-588** [P3] AI 预算 upsert 无唯一约束，并发激活产生重复预算行（证据 docs/tickets/2026-11/findings-api.md#F-588）
 - [ ] 588G. **缺陷普查 API F-589** [P3] 缺勤补判单条 INSERT 无分批，超大班/回溯会超参数上限并中断整轮（证据 docs/tickets/2026-11/findings-api.md#F-589）
+- [ ] 589G. **缺陷普查 API F-590** [P3] 计费组回退默认组时不校验 enabled（证据 docs/tickets/2026-11/findings-api.md#F-590）
 - [ ] 590G. **缺陷普查 API F-591** [P3] 团队成员可把他人收件箱条目标记为已读（无归属校验）（证据 docs/tickets/2026-11/findings-api.md#F-591）
 - [ ] 592G. **缺陷普查 API F-593** [P2] GET /api/agent/zhsAgent/:id 直出 agents 整行（含系统提示词/变量/Coze 账号）（证据 docs/tickets/2026-11/findings-api.md#F-593）
 - [ ] 593G. **缺陷普查 API F-594** [P2] 任意登录用户可触发 agent-heat/refresh，删改任意日期的全站热度（证据 docs/tickets/2026-11/findings-api.md#F-594）
+- [ ] 594G. **缺陷普查 API F-595** [P3] AI Feed 详情不过滤发布态，草稿可按 id 直读（证据 docs/tickets/2026-11/findings-api.md#F-595）
 - [ ] 595G. **缺陷普查 API F-596** [P3] 图形验证码 expiresAt 只写不校验，过期码最长约 24 小时仍有效（证据 docs/tickets/2026-11/findings-api.md#F-596）
 - [ ] 596G. **缺陷普查 API F-597** [P3] UGC 敏感词过滤按字段重复全表查询（N+1）（证据 docs/tickets/2026-11/findings-api.md#F-597）
 - [ ] 597G. **缺陷普查 API F-598** [P3] toggleLike 读改写竞态：并发/重试把已点赞反转为取消（证据 docs/tickets/2026-11/findings-api.md#F-598）
@@ -12544,6 +12594,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 600G. **缺陷普查 API F-601** [P3] findAgentTasksByAgentId 先取 500 行再内存过滤，热门 agent 下用户看不到自己的任务（证据 docs/tickets/2026-11/findings-api.md#F-601）
 - [ ] 601G. **缺陷普查 API F-602** [P3] 语音笔记 groups 分面统计忽略筛选条件，与 list/total 口径不一致（证据 docs/tickets/2026-11/findings-api.md#F-602）
 - [ ] 602G. **缺陷普查 API F-603** [P3] 统计口径不一致：系统账号计入“用户数”、未发布课程浏览量计入“总浏览”（证据 docs/tickets/2026-11/findings-api.md#F-603）
+- [ ] 603G. **缺陷普查 API F-604** [P3] MCP / Openclaw 详情不过滤 status，禁用条目可按 id 直读（证据 docs/tickets/2026-11/findings-api.md#F-604）
 - [ ] 605G. **缺陷普查 API F-606** [P2] OTel 自动插桩把带凭据的完整 URL 导出到 trace 后端（证据 docs/tickets/2026-11/findings-api.md#F-606）
 - [ ] 606G. **缺陷普查 API F-607** [P2] Bulkhead 唤醒等待者后不复查名额，并发上限被突破（证据 docs/tickets/2026-11/findings-api.md#F-607）
 - [ ] 607G. **缺陷普查 API F-608** [P2] Bulkhead.reset() 清空队列但不 resolve，排队请求永久挂起（证据 docs/tickets/2026-11/findings-api.md#F-608）
@@ -12553,9 +12604,11 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 611G. **缺陷普查 API F-612** [P3] tenant-db-isolation.withTenant 的 SET LOCAL search_path 不在事务内，实际空操作（证据 docs/tickets/2026-11/findings-api.md#F-612）
 - [ ] 612G. **缺陷普查 API F-613** [P3] network-segment 的 Redis 黑名单用 key 级 TTL，与成员级封禁语义冲突（证据 docs/tickets/2026-11/findings-api.md#F-613）
 - [ ] 613G. **缺陷普查 API F-614** [P3] CSRF 白名单前缀 /api/workspace/fs/ 覆盖写/改/删/执行端点（证据 docs/tickets/2026-11/findings-api.md#F-614）
+- [ ] 614G. **缺陷普查 API F-615** [P3] isPrivateIp 未覆盖 172.16/12 与 IPv6 ULA，metrics 内网白名单与注释不符（证据 docs/tickets/2026-11/findings-api.md#F-615）
 - [ ] 618G. **缺陷普查 API F-619** [P2] 在途闸 TTL 120s 短于长流时长，且只在 acquire 续期 → 计数中途清零超卖（证据 docs/tickets/2026-11/findings-api.md#F-619）
 - [ ] 619G. **缺陷普查 API F-620** [P2] Key 三窗口限流预检读副本 + 先查后计，并发与失败请求均超发（证据 docs/tickets/2026-11/findings-api.md#F-620）
 - [ ] 620G. **缺陷普查 API F-621** [P2] 代理池成功计数非原子且无条件清零，坏代理不达阈值；exhausted 后无自愈（证据 docs/tickets/2026-11/findings-api.md#F-621）
+- [ ] 621G. **缺陷普查 API F-622** [P2] 出网代理 URL（通常含账号密码）明文写入启动日志（证据 docs/tickets/2026-11/findings-api.md#F-622）
 - [ ] 622G. **缺陷普查 API F-623** [P2] 提示词审计只扫前 8000 字符，前置填充即可绕过 block 规则（证据 docs/tickets/2026-11/findings-api.md#F-623）
 - [ ] 623G. **缺陷普查 API F-624** [P2] 运维 WS 快照按 socket 各自重建 + refresh 无节流，可放大为 DB 压力（证据 docs/tickets/2026-11/findings-api.md#F-624）
 - [ ] 624G. **缺陷普查 API F-625** [P3] live-probe 的 withTimeout 不取消底层请求，超时后连接继续占用（证据 docs/tickets/2026-11/findings-api.md#F-625）
@@ -12570,6 +12623,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 638G. **缺陷普查 API F-639** [P2] 群发通知全表无状态过滤 + 单条超大 INSERT，用户量过万整批 500（证据 docs/tickets/2026-11/findings-api.md#F-639）
 - [ ] 639G. **缺陷普查 API F-640** [P2] OSS 默认驱动“先清空再写入”无事务，失败后全站无可默认驱动（证据 docs/tickets/2026-11/findings-api.md#F-640）
 - [ ] 640G. **缺陷普查 API F-641** [P2] 删除菜单只删自身，子菜单成悬空孤儿且无法再从后台删除（证据 docs/tickets/2026-11/findings-api.md#F-641）
+- [ ] 641G. **缺陷普查 API F-642** [P3] admin-sys 分页参数零校验，负值/超大值直达 LIMIT/OFFSET（证据 docs/tickets/2026-11/findings-api.md#F-642）
 - [ ] 642G. **缺陷普查 API F-643** [P3] registry 同步的存在性/版本判定读只读副本，副本延迟时 inserted/skipped/oldVersion 失真（证据 docs/tickets/2026-11/findings-api.md#F-643）
 - [ ] 643G. **缺陷普查 API F-644** [P3] runScheduleTaskNow 两次写库无事务，日志失败时任务已被标记已运行（证据 docs/tickets/2026-11/findings-api.md#F-644）
 - [ ] 644G. **缺陷普查 API F-645** [P3] acceptInvitation 先加成员后改邀请状态，非事务且终态守卫被显式豁免（证据 docs/tickets/2026-11/findings-api.md#F-645）
@@ -12643,13 +12697,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
   - 外腿:RP-40 事件源真实适配器(已单列待办)/ RP-42 慢路径(ai-service `POST /api/super-agent/slow-path/judge` 已落,recorded 积压接判未接)/ RP-43 web 工作台面板(已单列待办)。
 - [ ] HM-1 (2026-11-11) 〔归:机主真机验证面〕**鸿蒙适配 A2 路线·第 0 步：把 `expo-*` 调用收拢为平台适配层（主端零风险）**：机主 2026-11-11 定「鸿蒙必须适配，但不单独做 App、不白增成本」。三路调研结论：① 社区 `@expo-harmony` 全系锁 Expo SDK 55 / expo@55 / RN 0.83.6 / RNOH 0.84.1，本仓为 SDK 57 + RN 0.86.2 ⇒ 走它要把 iOS·Android 两端整体回退两级，不采纳；② 硬卡口三处：`expo-updates` 的 EAS 云端不产鸿蒙平台清单（且本仓更新另只靠 `RNRestart`，Android 专属）、`getExpoPushTokenAsync()` 在鸿蒙明确抛 `ERR_NOTIFICATIONS_EXPO_PUSH_SERVICE_UNSUPPORTED`（只能用 Huawei Push Kit 设备 token，后端须加 harmony token 类型）、6 类原生资产无鸿蒙对应（微信 OpenSDK / 闪验一键登录 / APK 安装器 / 无障碍代点 / react-native-restart / view-shot）；③ `android/`、`ios/` 本就不入库（prebuild 生成）⇒ 鸿蒙侧须新建 `harmony/` 工程。选定 A2：主端 SDK 57 不动，鸿蒙侧走 RNOH 0.84 + ArkTS 自写桥，JS/UI 层共用率目标 90%+。本票只做第 0 步（两端零风险，且无论将来走哪条路都要做）：现读 `apps/mobile-rn/src` 有 73 处 `expo-*` import、`packages/` 零处（无跨包污染），把它们收拢到 `apps/mobile-rn/src/platform/` 适配层，接口按能力域切（存储 / 推送 / 相机扫码 / 相册 / 文件 / 生物识别 / 深链 / 外链 / 音频 / 字体 / 状态栏 / 模糊 / OTA / 设备 / 文档选择 / Intent），现有 android·ios 实现为直通 delegate，鸿蒙实现在后续票填。验收：业务代码零直接 `expo-*` import（仅适配层内部可见）、`pnpm --filter @ihui/mobile-rn typecheck` exit 0、两端真机冒烟（登录 / 扫码 / 上传 / 推送 / 更新）五条主链不断。〔第 0 步已入库@2026-11-11:平台适配层 16 文件(枚 19c81cf5eb6 / 511adddfe5c),现读业务层 `expo-*` import = 0 处(26 处全部收在 `src/platform/` 内)、`tsc --noEmit` exit 0、vitest 210 文件全绿、投影迁移后 tokens.css 受管块与 TS 源一致;agent 侧不再重复实施第 0 步。仅剩两端真机冒烟五条主链(登录 / 扫码 / 上传 / 推送 / 更新)需机主真机执行,回话即结清本行〕
 - [ ] RP-48 (2026-11-12) **一键代账/报税的国标平台自动化腿(RP-46 续)**(进行中@2026-11-12/finance-ai2) ai_bookkeeping/ai_tax_filing 各增 phase=automation 确定性步骤计划器(电子税务局发票底账/银行回单/增值税与所得税申报预填/个税代扣/社保医保客户端,内置浏览器 browser_* 腿+原生客户端 computer_* 腿);submit 红线 manual_gate 默认/user_confirmed 复述确认,"auto" 禁用;前端 send 链真装 financeToolsFor(上轮报告超发认领的那格一并补正);板块页新增平台自动化卡+五语 i18n。
-- [ ] Y-25 (2026-11-06) 豆包键源仍是退化档:捆绑载荷未带出账号级稳定 cookie(uid_tt 族)⇒ 换会话票即换 uid,覆盖永命中不到旧行;出路=提取器把稳定材料随载荷带出+同批迁库
-- [ ] Y-26 (2026-11-06) n8n workflow-card.tsx 远端已删而本机 list-view.tsx:8 仍引用 ⇒ 旁路删除硬门拒合流,本机 main 推不上去;先清该引用再收敛
-- [ ] Y-27 (2026-11-06) object-space-land 有 RC=0+零输出+HEAD 不推进的静默空跑(同形复跑反落占位信息枚);出路=落地器自证推进 sha,取不到即 exit 2
-- [ ] Y-24 (2026-11-06) 剩格=把 relay-account-import-validate.ts 的 resolveImportAccountUidProbe 那一腿(现读别席工作树 +125/−14)落到提交面并跑其镜像;键源改稳定身份与 25→23 迁库两格已在 HEAD
-- [ ] B40 (2026-11-07) **缺陷审计残余五项合并清偿（B 族池水位见底，逐项拆号待开新字母族）**:① `apps/cli` 的 `typecheck:tests` 常红 —— 现读 526 条 TS 错误 / 约 50 个测试文件（repair.test.ts 81、personas-contracts.test.ts 34、goal-verification.test.ts 26），错误型以「possibly undefined / string|undefined 赋给 string / Mock 泛型不匹配」为主；该门 blocking 却结构上永远过不了 ⇒ 逼人 `--no-verify` 并连带废掉全部守门（§12e），出路=按文件分组清零，不得放宽 tsconfig 或删断言求绿；② CLI 全局配置 `loadSettingsFile`（apps/cli/src/config/index.ts）把 `JSON.parse` 结果**裸断言**成 `Partial<Settings>`，字段类型错/值为 null/多出未知键都原样进入进程，错到使用点才炸，出路=补运行时 schema + safeParse，失败按「降级默认 + 点名被丢弃的键」处置；③ `scripts/check-file-write-safety.mjs` 的 `SCAN_DIR` 只有 `apps/cli/src/tools` 一个目录，而 BUG-0010 的裸非原子写正出在 `sessions` / `checkpoints` 两个 store ⇒ 门判得到「出口接线」判不到真写盘处，出路=射程改目录数组并补自检正反例；④ 根 `docker-compose.yml` 五个业务镜像全 `:latest`（ihui-api 两处 / ihui-web / ihui-ai-service / ihui-migrate）⇒ 同一 tag 指向会漂，「线上跑的是哪版」与回滚都无判据，出路=按版本号打 tag + compose 读变量且缺省即失败；⑤ `.github/workflows/mobile-rn-release.yml` 的 `pnpm/action-setup@v4` 未 pin 到 40 位 commit 且未声明 pnpm 版本，与 ci.yml 已 pin SHA 的口径不一致（供应链面）。原审计号依次为 BUG-0015 / BUG-0042 / BUG-0044 / BUG-0058 / BUG-0061，逐条实证与复现命令见 2026-11-05 缺陷审计目录与本次复跑读数〔登记@2026-11-07/bug-audit〕
-- [ ] RP-47（本行实号由取号器给；登记它的那枚提交信息误写成「RP-80」——号不得凭预告书写，此处留痕更正）两把 blocking 门在提交链上恒「取不到索引 blob」⇒ 每枚提交都被逼出 `--no-verify`（§12e 最重病型：逼人跳门连带废掉全部守门）。2026-10-30 实测现场：本席 `51b66c3a61` 落地时 safe-commit 自报「已用 --no-verify 落地(归因=undetermined-red)」，同轮 `gate-batch-run` 记 `300/300 executed, blockingFailed=0`（⇒ 我这批文件门级结论真为零红，跳门不等于内容有问题，但也不能反过来说明门在干活）；单跑现值 = 门 221 `check-mjs-syntax.mjs --staged` 报「staged 面 2006/2006 枚 blob 取不到(首：.github/scripts/npm-bootstrap-runner.mjs)」exit 2，门 254 `check-mjs-export-resolution.mjs --staged` 报「1750 枚射程内正文取不到」exit 2，而两者**全量档(判 HEAD blob)均 rc=0**（221 实测 2006 枚逐一经 vm.SourceTextModule 编译通过、存量 0）⇒ 失效面精确落在 `--staged` 一档。已排除的嫌疑：① `git show :path` / `rev-parse :path` / `cat-file blob` 三形态对同一文件全部 rc=0 取到 21627B；② `lib/face-reader.mjs` 的 `catBatchOids` 对 `:scripts/check-mjs-syntax.mjs`、`:scripts/agent-worktree.mjs` 均返回 40 位 oid（非 null）⇒ **批量取材层没坏**，问题在两门自身的 spec/路径组装或面选择（含 254 的 `stagedTriggers=scripts/` 射程判定）；③ 索引侧无异常：`ls-files --stage` 17709 条、`--unmerged` 0 条。⚠️ 注意门 89 `check-gate-wiring.mjs` 单跑直接抛栈 exit 2，与本格是否同源需一并判。嫌疑时段 = 本席之外有会话在 16:09 落过 `perf(git): face-reader 规格快路径`（`d6db2333fe`），取证时先按 commit 前后 A/B 复现，不得凭时间线归因。出路：先给这两把门的 `--staged` 档补一条"取不到时点名 git 命令与 rc/stderr"的可观测腿，再据实定位；**不得**为消红而放宽判据或把 `--staged` 退回读 HEAD（§0.4 取材面纪律），也不得把门降级了事（§12e）。〔归:可做｜2026-10-30〕
-- [ ] RP-74 守护常驻 tick 只覆盖 29 面、main 链仍有约 37 面长腿没搬 ⇒ 出路:按「该面读数谁在消费」分批搬,每批同批扩 `scripts/tests/git-guardian-daemon-audit-fanout.test.mjs` 的 TICK_REQUIRED 并带变异自证;并给 `scripts/check-sweeper-liveness.mjs` 加 dispatch-parity 第三族(键表从 `git-guardian.mjs` 源码现解析 (腿→tickFile→intervalMs),不抄第二份清单)(登记@2026-11-04;现读 main 派发面 99 / tick 面 32、`.ihui-agent/state/` 冻结戳 46 份;B 档=单轮 ≥5 分钟、真换口令、重启服务那族,理由钉在 `git-guardian.mjs` 挂点旁)
 - [ ] B91 [auto-triage] 邮件投递通道故障排查(24h 内连续失败 ≥2 封,查 SMTP 出口/进程/配额)(登记@2026-11-12/auto-triage;来源:mail-failure 哨兵;证据:failed=2 why=SMTP 通道不可用(缺 SMTP_HOST、SMTP_USER、SMTP_PASS) / Resend 通道不可用(缺 RESEND_API_KEY))
 - [ ] RP-46 (2026-11-12) **侧边栏新增「财务部」板块 + AI 一键代账 + AI 一键报税(插件形态深绑 AI 对话,实时进度回显)**(进行中@2026-11-12/finance-ai) ai-service 侧新增 ai_bookkeeping/ai_tax_filing 两个 MCP 工具(分阶段执行,过程走既有 tool-call/plan_updated SSE 帧实时回显)+ D09 财务专家包(触发词自动并入工具白名单与执行纪律);web AdminNav 在人事板块行旁增「财务部」入口 + /admin/finance-ai 板块页(一键代账/一键报税卡片,唤起 AISidePanel 自动发起结构化任务指令);miniapp-taro/RN 板块镜像与五语系 i18n 同批。
+
 - [ ] Y-37 (2026-11-12) **公网抖动告警:Cloudflared 已换 http2,观察 24–48h 邮箱是否清净,再定是否动监控判据**:根因已治——公网访问异常告警的源头是 Cloudflare Tunnel 的 QUIC 链路间歇抖动(cloudflared 日志 `timeout: no recent network activity` 三连接集体断开又秒级自愈),已被监控「连续 2 次确认」规则在恰赶上连续两败时触发成邮件;2026-11-12 已把 Cloudflared 服务 `--protocol quic` 改 `--protocol http2`(注册表 ImagePath,原值备份 `D:\DevEnv\logs\cloudflared-imagepath-backup-20261112.txt`)并重启,新 http2 连接注册后零错误,公网实测 `aizhs.top`→308 / `bsm.aizhs.top`→200 稳定。**判据层本轮不动**——现读监控已有三层抑制(单次抖动重测过滤 → 身份去重 4h → 族级窗口 24h,`deploy/win/ihui-monitor.ps1` + `scripts/lib/alert-delivery-policy.mjs`),两轮 `-Once -DryRun` 均判「全部正常」,判定为够用,加判据属削弱多入口可辨识度,不做。验收:观察 24–48h,若公网抖动邮件显著减少则结清本行;若仍频发,再评估两个精准杠杆(抖动恢复后短冷却 / 合并同站 host 族),不默认执行。回滚:写回备份 ImagePath 并 `Restart-Service Cloudflared`。〔2026-11-12 二次诊断修正根因,前述「根因已治/观察即清净」下早了〕实测:隧道层(QUIC 集体断连)确已被 http2 治住(重启 09:02Z 后零断连),但裸域 `aizhs.top` 偶发超时**另有成因**——`www.aizhs.top` 是 CNAME 到腾讯 EdgeOne(`www.aizhs.top.eo.dnse0.com`→`123.6.40.77`,在 CF 为灰云直连)故 0.2s 稳;裸域在 CF 是**橙云代理→Tunnel 跨境回源(节点全在 LAX)**,强制走 CF 边缘实测 3 次里 2 次 12s 超时(`--resolve aizhs.top→104.21.15.184`→`308/4.2s 000/12s 000/12s`),即瓶颈是「CF 边缘→跨境回源本机」这一段,非隧道协议。源站本体极快(`127.0.0.1:8802`→0.08s 全 200)。**已定方向:方案 B**——EdgeOne 侧补 `aizhs.top` 裸域接入并签证书,CF 裸域仍橙云但回源改指向 EdgeOne(绕开跨境隧道),保留 CF 防护。〔硬阻塞(已实测,不得误判为可直接改 DNS)〕① CF 灰云模式根域不允许 CNAME 到外部域,故「裸域灰云→EdgeOne」在 CF zone 配不出(必须保持橙云+改回源);② EdgeOne 现证书只签 `www`,裸域 Host 直击 EdgeOne 实测 `SEC_E_WRONG_PRINCIPAL`(SNI/证书不匹配)、4/4 全 000 ⇒ 裸域直连前置是 EdgeOne 侧先补裸域证书。〔验收口径修正〕本行结清条件 = EdgeOne 裸域证书就位 ∧ CF 裸域回源改指 EdgeOne ∧ 裸域实测稳定;http2 只是必要非充分项,单独不结清。〔http2 已落地项,保留可回滚〕Cloudflared `--protocol quic`→`http2`(注册表 ImagePath,原值备份 `D:\DevEnv\logs\cloudflared-imagepath-backup-20261112.txt`),回滚=写回备份 ImagePath 并 `Restart-Service Cloudflared`。
