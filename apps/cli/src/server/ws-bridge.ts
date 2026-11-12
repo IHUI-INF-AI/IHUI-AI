@@ -43,6 +43,8 @@ interface WsServerLike {
 
 interface WsSocketLike {
   readyState: number;
+  /** 已排队未发出字节数(ws 内置 getter),用于发送侧背压判断(F-063)。 */
+  readonly bufferedAmount?: number;
   send(data: string): void;
   close(code?: number, reason?: string): void;
   on(event: 'message', listener: (data: Buffer) => void): void;
@@ -59,6 +61,9 @@ type WsServerCtor = new (options: {
 
 /** 单条 WS 帧上限:足够承载一条 agent 消息/工具输出,又不至于被一条帧打爆内存。 */
 const WS_MAX_PAYLOAD_BYTES = 4 * 1024 * 1024;
+
+/** 单连接发送侧背压阈值:排队字节超过即视为慢客户端,本帧丢弃,不再无界堆积(F-063)。 */
+const WS_MAX_BUFFERED_BYTES = 8 * 1024 * 1024;
 
 export interface WsBridgeOptions {
   server: Server;
@@ -108,6 +113,59 @@ export async function attachWsBridge(core: AgentCore, opts: WsBridgeOptions): Pr
 
   const wss = new WsServer({ server: opts.server, path, maxPayload: WS_MAX_PAYLOAD_BYTES });
   const clients = new Set<WsSocketLike>();
+  /** 每条连接的在飞回合取消器:close/关桥时统一 abort,断连后不再继续烧 token(F-063)。 */
+  const inflight = new Map<WsSocketLike, Set<AbortController>>();
+
+  function addInflight(ws: WsSocketLike, controller: AbortController): void {
+    let set = inflight.get(ws);
+    if (!set) {
+      set = new Set();
+      inflight.set(ws, set);
+    }
+    set.add(controller);
+  }
+
+  function dropInflight(ws: WsSocketLike, controller: AbortController): void {
+    const set = inflight.get(ws);
+    if (!set) return;
+    set.delete(controller);
+    if (set.size === 0) inflight.delete(ws);
+  }
+
+  /** 取消该连接全部在飞回合(幂等,重复调用无副作用)。 */
+  function abortInflight(ws: WsSocketLike): void {
+    const set = inflight.get(ws);
+    if (!set) return;
+    inflight.delete(ws);
+    for (const controller of set) {
+      try {
+        controller.abort();
+      } catch {
+        // 已 abort,忽略
+      }
+    }
+  }
+
+  /**
+   * 发送前看背压:排队字节超阈值时丢弃本帧并留痕,避免慢客户端把内存拖爆。
+   * 返回是否真正送出。
+   */
+  function trySend(ws: WsSocketLike, payload: string): boolean {
+    const buffered = ws.bufferedAmount ?? 0;
+    if (buffered > WS_MAX_BUFFERED_BYTES) {
+      console.warn(
+        `[ws-bridge] 发送背压超阈值(${buffered} B > ${WS_MAX_BUFFERED_BYTES} B),丢弃本帧`,
+      );
+      return false;
+    }
+    try {
+      ws.send(payload);
+      return true;
+    } catch {
+      // socket 已关闭,忽略
+      return false;
+    }
+  }
 
   wss.on('connection', (ws, req) => {
     // F-062:error 必须在任何分支之前挂上 —— Origin/鉴权拒绝路径同样会 return,
@@ -181,6 +239,8 @@ export async function attachWsBridge(core: AgentCore, opts: WsBridgeOptions): Pr
     });
     ws.on('close', () => {
       clients.delete(ws);
+      // F-063:断连即取消该连接的在飞回合,不留给它继续跑完。
+      abortInflight(ws);
     });
   });
 
@@ -196,28 +256,28 @@ export async function attachWsBridge(core: AgentCore, opts: WsBridgeOptions): Pr
     const sessionId = msg.sessionId;
     const onEvent = (event: AgentEvent): void => {
       if (ws.readyState === 1) {
-        try {
-          ws.send(JSON.stringify(event));
-        } catch {
-          // socket 已关闭,忽略
-        }
+        trySend(ws, JSON.stringify(event));
       }
     };
 
+    // F-063:每个回合可单独取消,并登记到连接名下,close 时一并 abort。
+    const controller = new AbortController();
+    addInflight(ws, controller);
+
     try {
-      const result = await core.sendMessage(
-        msg.text,
-        onEvent,
-        sessionId ? { sessionId } : undefined,
-      );
+      const result = await core.sendMessage(msg.text, onEvent, {
+        ...(sessionId ? { sessionId } : {}),
+        signal: controller.signal,
+      });
       if (ws.readyState === 1) {
-        ws.send(JSON.stringify({ type: 'result', ...result }));
+        trySend(ws, JSON.stringify({ type: 'result', ...result }));
       }
     } catch (err) {
       if (ws.readyState === 1) {
         const msg = err instanceof Error ? err.message : String(err);
         const errorCode = classifyAuthError(err);
-        ws.send(
+        trySend(
+          ws,
           JSON.stringify({
             type: 'error',
             message: msg,
@@ -225,6 +285,8 @@ export async function attachWsBridge(core: AgentCore, opts: WsBridgeOptions): Pr
           }),
         );
       }
+    } finally {
+      dropInflight(ws, controller);
     }
   }
 
@@ -232,6 +294,8 @@ export async function attachWsBridge(core: AgentCore, opts: WsBridgeOptions): Pr
     close: () =>
       new Promise<void>((resolve) => {
         for (const ws of clients) {
+          // F-063:关桥等同断连,先取消在飞回合再关闭 socket。
+          abortInflight(ws);
           try {
             ws.close();
           } catch {

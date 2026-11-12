@@ -20,6 +20,7 @@
 // (scripts/start-dev.ps1 会就 link.exe 遮蔽发 Write-Warn,而它指向的出路必须真能跑 —— §0.8)。
 
 import { spawn, execFileSync } from 'node:child_process'
+import { randomBytes } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
@@ -60,8 +61,34 @@ const ARTIFACT_HOOK = path.join(ROOT, 'scripts', 'desktop-artifact-single.mjs')
 function artifactDirFor(debug) {
   return path.join(DESKTOP, 'src-tauri', 'target', debug ? 'debug' : 'release', 'bundle', 'nsis')
 }
-/** 本入口独占的那一格临时 config 目录(与 desktop-build-saas 各占一格,免得并发时互删)。 */
-const UNSIGNED_SLOT = 'desktop-build'
+/**
+ * 本次构建独占的那一格临时 config 目录名(F-042)。
+ *
+ * 原来固定成 `'desktop-build'`:同一台机并发两次构建会共用同一个
+ * `.ihui-agent/tmp/desktop-build/tauri.unsigned.json`,先结束的那次在 finally 里把它收掉,
+ * 后启动的 tauri 再读 `--config` 就是"路径不存在"。现在每次构建带 pid + 随机段,各写各的一份,
+ * 清理也只收自己那份;与 desktop-build-saas 的固定槽(`desktop-build-saas`)依然不会撞。
+ * @returns {string}
+ */
+function unsignedSlotForRun() {
+  return `desktop-build-${process.pid}-${randomBytes(6).toString('hex')}`
+}
+
+/**
+ * 「清理失败要不要改写退出码」的唯一判据(F-042,纯函数 ⇒ 可在测试里直接构造两侧)。
+ *
+ * 口径:
+ *   · 收干净了,或文件已不在(无残留)⇒ 退出码原样不动;
+ *   · 确实还有残留 ⇒ 构建本身是绿的(0)才抬成 2(未判定:临时现场没收干净),
+ *     已红则原样保留 —— 模块头的承诺是"构建/收敛的退出码原样透传,不改写"。
+ * @param {number} exitCode 本次构建原有的退出码
+ * @param {{ removed: boolean, leftover: boolean }} cleanup 清理结果
+ * @returns {number}
+ */
+function exitCodeAfterCleanup(exitCode, cleanup) {
+  if (cleanup.removed || !cleanup.leftover) return exitCode
+  return exitCode === 0 ? 2 : exitCode
+}
 
 const USAGE = `用法:node scripts/desktop-build.mjs [--debug | --dev] [--no-artifact-check] [-- <tauri 额外参数>...]
 
@@ -323,8 +350,11 @@ async function main(argv = process.argv.slice(2)) {
   // dev 档不产安装包 ⇒ 不需要(也不会)走到这里。
   const allowUnsigned = !opts.dev && allowUnsignedFrom(process.env)
   let unsignedConfig = null
+  // F-042:每次构建一个独占槽(pid + 随机段),并发构建各写各的临时 config、各收自己那份。
+  let unsignedSlot = null
   if (allowUnsigned) {
-    unsignedConfig = ensureUnsignedConfig(ROOT, UNSIGNED_SLOT)
+    unsignedSlot = unsignedSlotForRun()
+    unsignedConfig = ensureUnsignedConfig(ROOT, unsignedSlot)
     console.log(`[desktop-build] !! ${ALLOW_UNSIGNED_ENV}=1 —— 本地未签名打包(显式豁免):`)
     console.log(`[desktop-build] !! 向 tauri 传 --config 关掉 bundle.createUpdaterArtifacts:${unsignedConfig}`)
     console.log(`[desktop-build] !! 产物未签名:不得进更新源、不得发版、不得上传任何下载/更新 CDN`)
@@ -340,11 +370,15 @@ async function main(argv = process.argv.slice(2)) {
   ]
   console.log(`[desktop-build] 执行:${cmd} ${tauriArgs.join(' ')}(cwd=${DESKTOP}${shell ? ',shell=true' : ''})`)
 
+  // F-042:先把各出口码记下来,finally 里才能在"清理失败"时判断要不要把绿抬红。
+  // 初值 2 只兜异常路径(异常照旧向外抛,不由 finally 改写)。
+  let exitCode = 2
   try {
     const build = await runChild({ cmd, args: tauriArgs, cwd: DESKTOP, env: toolchain.env, shell })
     if (build.error) {
       console.error(`[desktop-build] ❌ 未判定:构建进程根本没启动(${build.error.code ?? build.error.message})—— 不记绿`)
-      return 2
+      exitCode = 2
+      return exitCode
     }
     // 开发会话被用户中断 = 正常结束,不是失败(判据与观测码见 judgeInterrupt 头注)。
     // 只在 --dev 档生效:build 档被 Ctrl+C 打断仍然是"这次没建成",该红就得红。
@@ -352,7 +386,8 @@ async function main(argv = process.argv.slice(2)) {
       const { interrupted, observed } = judgeInterrupt(build)
       if (interrupted) {
         console.log(`[desktop-build] ✅ 开发会话已结束(被用户中断:${observed};不是失败,退出码按 0 计)`)
-        return 0
+        exitCode = 0
+        return exitCode
       }
     }
     if (build.code !== 0) {
@@ -362,19 +397,22 @@ async function main(argv = process.argv.slice(2)) {
             ? `\n  查因顺序:① 无 updater 签名私钥 → 本机打包请显式设 ${ALLOW_UNSIGNED_ENV}=1(只产本地自测包,不得发布);② 工具链/链接问题 → 看上面注入行与 'where link'`
             : ''),
       )
-      return build.code
+      exitCode = build.code
+      return exitCode
     }
 
     if (opts.dev) {
       // dev 档不产安装包,收敛钩子对它没有判据面(目录里只有上次 build 留下的东西,跑它等于拿别的
       // 构建的产物冒充本次结论 —— §0.9 "判据必须在真跑它的那一刻才成立")。
       console.log('[desktop-build] ✅ tauri dev 已结束(开发态不产安装包,按设计跳过单一产物收敛钩子)')
-      return 0
+      exitCode = 0
+      return exitCode
     }
 
     if (!opts.artifactCheck) {
       console.log('[desktop-build] 已按 --no-artifact-check 跳过单一产物收敛钩子')
-      return 0
+      exitCode = 0
+      return exitCode
     }
     const tail = await runChild({
       cmd: process.execPath,
@@ -385,18 +423,27 @@ env: toolchain.env,
     })
     if (tail.error) {
       console.error(`[desktop-build] ❌ 未判定:收敛钩子根本没启动(${tail.error.code ?? tail.error.message})—— 不记绿`)
-      return 2
+      exitCode = 2
+      return exitCode
     }
     if (tail.code !== 0) {
       console.error(`[desktop-build] ❌ 单一产物收敛钩子失败,退出码原样透传:${tail.code}`)
-      return tail.code
+      exitCode = tail.code
+      return exitCode
     }
     console.log('[desktop-build] ✅ 构建 + 单一产物收敛均通过')
-    return 0
+    exitCode = 0
+    return exitCode
   } finally {
-    if (unsignedConfig) {
-      const r = removeUnsignedConfig(ROOT, UNSIGNED_SLOT)
-      if (!r.removed) console.error(`[desktop-build] 临时 config 未收掉(${r.configPath}):${r.reason}`)
+    if (unsignedSlot) {
+      const r = removeUnsignedConfig(ROOT, unsignedSlot)
+      if (!r.removed) {
+        console.error(`[desktop-build] 临时 config 未收掉(${r.configPath}):${r.reason}`)
+        // F-042:清理失败要反映到退出码。只有"文件确实还留着"(有残留)才算失败;
+        // 文件已不在(无残留)不算。构建本身已红则原样保留它的码,不改写。
+        const next = exitCodeAfterCleanup(exitCode, { removed: r.removed, leftover: existsSync(r.configPath) })
+        if (next !== exitCode) return next
+      }
     }
   }
 }
@@ -425,5 +472,7 @@ export const __test__ = {
   INTERRUPT_CODES,
   ARTIFACT_HOOK,
   DESKTOP,
+  unsignedSlotForRun,
+  exitCodeAfterCleanup,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

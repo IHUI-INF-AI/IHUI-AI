@@ -46,6 +46,9 @@ import { runAgent, stopReasonToExitCode, parseOutputFormat, setupAgentTools } fr
 // G-814406:无头(--json / 非 TTY)退出前的有界排水 —— 结论五档可分辨,预算必有界。
 // 后台任务事实只读 HEAD 既有出口(listTasks/settleAllInFlight),本端不新增注册表语义。
 import { drainHeadlessBeforeExit } from './headless-drain.js';
+// F-068:无头侧「有没有审批面」与「审批面缺席 ⇒ 只认显式例外」的兜底只住 headless-permission,
+// 本入口只读它的结论,不再自己判要不要放宽(死代码在此接上唯一生产消费点)。
+import { approvalSurfacePresent, createHeadlessPermissionBroker } from './headless-permission.js';
 import { listTasks, settleAllInFlight } from './tools/background-registry.js';
 import { loadSkills, findSkill } from './skills/index.js';
 import {
@@ -283,14 +286,15 @@ export function resolveSession(opts: Record<string, unknown>): ResolvedSession {
       // 否则恢复出来的账面会把"压缩死在中途"读成"压缩判过了"。收敛失败(账本损坏/
       // 落盘失败)向上抛:宁可不 resume,不得拿坏账装成功 —— 本仓"失败必须响"。
       recoverCompactionTimelinesForSession(session.id);
-      console.info(
+      // F-011:人读提示过 jsonMode 闸 —— `--json` 下 stdout 是机器契约
+      humanNote(
         chalk.dim(
           t('cli.sessionResumed', { id: session.id, count: session.history.length }),
         ),
       );
       return { sessionId: session.id, history: session.history };
     }
-    console.info(chalk.yellow(t('cli.noSessions')));
+    humanNote(chalk.yellow(t('cli.noSessions')));
     return {};
   }
   if (opts.resume) {
@@ -298,21 +302,52 @@ export function resolveSession(opts: Record<string, unknown>): ResolvedSession {
     if (session) {
       // G-816014 装配点:同上 —— --resume 分支与 --continue 分支是同一个必经漏斗的两面。
       recoverCompactionTimelinesForSession(session.id);
-      console.info(
+      humanNote(
         chalk.dim(
           t('cli.sessionResumedWithId', { id: session.id, count: session.history.length }),
         ),
       );
       return { sessionId: session.id, history: session.history };
     }
-    console.info(chalk.red(t('common.notFound', { target: opts.resume as string })));
-    process.exit(1);
+    // F-010:错误走 stderr(修前 console.info 写 stdout,管道下 process.exit 不等 flush ⇒ 丢失)
+    errorExit(chalk.red(t('common.notFound', { target: opts.resume as string })));
   }
   return {};
 }
 
 function resolveJsonMode(opts: OptionValues): boolean {
   return opts.json === true || !process.stdout.isTTY;
+}
+
+/**
+ * F-011:人读提示只能走这一个出口。
+ *
+ * `--json`(以及 stdout 非 TTY 的管道场景)下 stdout 是**机器契约**,
+ * 任何一行人读文案都会让下游 `JSON.parse` 整段失败 —— 修前 `resolveSession` 的
+ * "已恢复会话 X"/"没有会话"两句直接 `console.info`,把 `ihui --json --continue`
+ * 的输出污染成非 JSON。
+ *
+ * 判据只此一份:jsonMode 为真 ⇒ 全部丢弃(不降级成 stderr,`--json` 消费者不看 stderr)。
+ */
+function humanNote(message: string): void {
+  if (resolveJsonMode(program.opts())) return
+  console.info(message)
+}
+
+/**
+ * F-010:CLI 的**错误**文案必须走 stderr,并且只设退出码、不强杀进程。
+ *
+ * `console.info` 写 stdout —— 管道/重定向时 `process.exit(1)` 不等异步 flush,
+ * 错误串会丢(上游只看到退出码),同时污染 stdout 的机器契约。
+ *
+ * 为什么保留 `process.exit(1)` 的"立即收尾"语义而不改成纯 `exitCode`:这些分支都是
+ * 参数错误,后面没有需要等待的 IO;真正要治的是**输出通道**与**flush 时序**。改法:
+ * 先写 stderr(stderr 在 Node 里对 TTY/管道均为同步写),再 `process.exit`。
+ * 需要"自然退出"的调用方(有异步写盘/网络)不要用本函数,见 `setFailureExitCode`。
+ */
+function errorExit(message: string): never {
+  console.error(message)
+  process.exit(1)
 }
 
 export function readPromptFile(
@@ -357,6 +392,14 @@ function resolvePrompt(
   return result.content;
 }
 
+/**
+ * F-068:无头侧唯一被拍过板的例外 —— 操作员显式给过的会话级危险放宽
+ * (`--allow-dangerous` / settings.allowDangerous)。用 flag 字面量当"具名例外",
+ * 是为了不在本文件里再抄一份危险工具清单:经纪判的是"这次要不要人来批",
+ * 名单只回答"谁已经拍过板"。
+ */
+const HEADLESS_SESSION_RELAXATION = '--allow-dangerous';
+
 async function runAgentAndExit(
   prompt: string,
   opts: OptionValues,
@@ -381,6 +424,21 @@ async function runAgentAndExit(
     cliMaxTokens: typeof opts.maxTokens === 'string' ? opts.maxTokens : undefined,
     cliPermissionMode: typeof opts.permissionMode === 'string' ? opts.permissionMode : undefined,
   });
+  // F-068:无头单发**没有审批面** —— runAgent 装配的确认通道是 buildAgentDangerGate,
+  // 它只认会话级放宽、结构上没有询问面(没有人可能被问到)。所以"审批面缺席 ⇒ deny,
+  // 只认显式例外"这条兜底只在 headless-permission 一处判定,本入口不再自己判:
+  // 名单命中 ⇒ 放行;其余结论(含 deny)一律按"无人可批"处理。
+  const headlessPermission = createHeadlessPermissionBroker({
+    isInteractive: !jsonMode && Boolean(process.stdin.isTTY && process.stdout.isTTY),
+    hasApprovalSurface: approvalSurfacePresent({
+      ttyInteractive: !jsonMode && Boolean(process.stdin.isTTY && process.stdout.isTTY),
+      // 单发路径没有确认回调(runAgent 侧只有 flag 开关) ⇒ 确认通道结构性缺席
+      confirmHandlerPresent: false,
+    }),
+    autoAllowTools: cfg.allowDangerous ? [HEADLESS_SESSION_RELAXATION] : [],
+  });
+  const allowDangerous =
+    headlessPermission.evaluate({ name: HEADLESS_SESSION_RELAXATION }).action === 'allow';
   const abort = new AbortController();
   let session: ReturnType<typeof createSession> | null = null;
   const onSigint = (): void => {
@@ -487,7 +545,8 @@ async function runAgentAndExit(
         outputFormat: opts.outputFormat ? parseOutputFormat(opts.outputFormat) : undefined,
         checkpoints,
         enableMcp: cfg.enableMcp,
-        allowDangerous: cfg.allowDangerous,
+        // F-068:放行结论取自 headless-permission 经纪(无审批面 ⇒ 只认显式例外),不在此处自判。
+        allowDangerous,
         session,
         signal: abort.signal,
         planFirst: cfg.planFirst,
@@ -551,8 +610,8 @@ async function runAgentAndExit(
           drainReport.conclusion === 'timed-out' ||
           drainReport.conclusion === 'interrupted'
         ) {
-          // 播报只走 NDJSON(stdout 单流,此刻运行事件已全部发出,不存在双写者竞争)与
-          // stderr 两路;ASCII 英文串 —— 理由同 utils/tool-denial.ts(守门 70 新中文基线)。
+          // 播报只走 stderr(结构化 JSON 一行 + 人读一行);ASCII 英文串 ——
+          // 理由同 utils/tool-denial.ts(守门 70 新中文基线)。
           const payload = JSON.stringify({
             type: 'background_drain',
             conclusion: drainReport.conclusion,
@@ -561,8 +620,11 @@ async function runAgentAndExit(
             settled: drainReport.settledTotal,
             waitedMs: drainReport.waitedMs,
           });
+          // F-068:封笔之后 stdout 不得再出现任何一行 —— complete 已是结果行,严格 NDJSON
+          // 消费方按"结果行即终"判定,追加一行事件会整体解析错位。结构化结论改走 stderr:
+          // 需要机器消费的一侧仍拿到同一份 JSON,stdout 的机器契约不被破坏。
           if (jsonMode) {
-            process.stdout.write(`${payload}\n`);
+            process.stderr.write(`${payload}\n`);
           }
           console.error(
             `[background-drain] ${drainReport.conclusion}: ${drainReport.unsettledTaskIds.length} ` +
@@ -823,8 +885,8 @@ mcpCmd
       options: { args?: string[]; transport?: 'stdio' | 'http' | 'sse'; url?: string; token?: string },
     ) => {
       if (!name) {
-        console.info(chalk.red(t('cliEntry.mcpAddUsage')));
-        process.exit(1);
+        // F-010:同上,错误文案一律 stderr
+        errorExit(chalk.red(t('cliEntry.mcpAddUsage')));
       }
       const auth =
         options.token ? { type: 'bearer' as const, token: options.token } : undefined;
@@ -855,8 +917,7 @@ mcpCmd
     if (removeMcpServer(name)) {
       console.info(chalk.green(t('cliEntry.mcpRemoved', { name: name })));
     } else {
-      console.info(chalk.red(t('cliEntry.mcpNotFound', { name: name })));
-      process.exit(1);
+errorExit(chalk.red(t('cliEntry.mcpNotFound', { name: name })));
     }
   });
 
@@ -956,8 +1017,7 @@ skillsCmd
     const skills = loadSkills({ cwd: process.cwd() });
     const skill = findSkill(skills, name);
     if (!skill) {
-      console.info(chalk.red(t('cliEntry.skillNotFound', { name: name })));
-      process.exit(1);
+errorExit(chalk.red(t('cliEntry.skillNotFound', { name: name })));
     }
     console.info(chalk.cyan(`# ${skill.name}`));
     console.info(chalk.dim(t('cliEntry.skillSourceDetail', { source: skill.source })));
@@ -1203,8 +1263,7 @@ program
     const { ShareManager } = await import('./commands/share.js');
     const sessionId = sessionIdArg ?? getMostRecentSession()?.id;
     if (!sessionId) {
-      console.info(chalk.red(t('cliEntry.shareNoSession')));
-      process.exit(1);
+errorExit(chalk.red(t('cliEntry.shareNoSession')));
     }
     const mgr = new ShareManager(process.cwd());
     const result = await mgr.share(sessionId, {
@@ -1239,8 +1298,7 @@ program
     }
     const validModes = ['plan', 'build', 'review'] as const;
     if (!validModes.includes(modeArg as (typeof validModes)[number])) {
-      console.info(chalk.red(t('cliEntry.modeUnknown', { modeArg: modeArg })));
-      process.exit(1);
+errorExit(chalk.red(t('cliEntry.modeUnknown', { modeArg: modeArg })));
     }
     mgr.setMode(modeArg as (typeof validModes)[number]);
     console.info(mgr.getModeBanner());

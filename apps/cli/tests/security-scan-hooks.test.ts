@@ -44,6 +44,8 @@ const SRC_DIR = path.resolve(__dirname, '..', 'src');
 
 // 必然命中 aws-access-key-id 模式的最小夹具(AWS 官方文档示例形态,不是真凭据)。
 const FINDING_LINE = 'const KEY = "AKIAIOSFODNN7EXAMPLE";';
+// 必然命中 slack-token(MEDIUM 档)、且不触发任何 HIGH 模式的最小夹具(不是真凭据)。
+const MEDIUM_FINDING_LINE = 'const SLACK = "xoxb-1234567890-abcdef";';
 
 let tmpDir: string;
 let origConfig: string | undefined;
@@ -75,25 +77,45 @@ function writeFixture(name: string, content: string): string {
   return p;
 }
 
-describe('G-12 ① 命中形态 ⇒ 告警产出且用户文件未被修改', () => {
-  it('runPostToolCall(write_file) 对含硬编码凭据样式的落盘文件产 security-scan 告警行,文件字节逐字节不变', async () => {
+describe('G-12 ① 命中形态 ⇒ 告警产出且用户文件未被修改(F-038 起 HIGH 命中即阻断)', () => {
+  it('HIGH 命中:runPostToolCall(write_file) 阻断本次调用,上下文行如实 findings,文件字节不变', async () => {
     const target = writeFixture('leaky.ts', `${FINDING_LINE}\n`);
     const bytesBefore = fs.readFileSync(target);
     const result = await runPostToolCall('write_file', { path: target, bytes: bytesBefore.length });
 
-    expect(result.proceed).toBe(true); // warn-only:永不阻断
+    // F-038 新契约:HIGH 凭据形态命中 ⇒ 闸门阻断(旧 warn-only 语义已作废)
+    expect(result.proceed).toBe(false);
+    expect(result.terminal).toBe('blocked');
+    expect(result.reason ?? '').toContain('aws-access-key-id');
     expect(result.additionalContext ?? '').toContain(SECURITY_SCAN_LINE_PREFIX);
     expect(result.additionalContext ?? '').toContain('status=findings');
     // 副作用断言:守卫只读不写 —— 用户文件逐字节一致
     expect(fs.readFileSync(target).equals(bytesBefore)).toBe(true);
     // 凭据原文不得进回传通道(告警只带遮蔽形态)
     expect(result.additionalContext ?? '').not.toContain('AKIAIOSFODNN7EXAMPLE');
+    expect(result.reason ?? '').not.toContain('AKIAIOSFODNN7EXAMPLE');
+  });
+
+  it('MEDIUM 命中:仍只告警放行(proceed=true),上下文行如实 findings', async () => {
+    const target = writeFixture('leaky-medium.ts', `${MEDIUM_FINDING_LINE}\n`);
+    const bytesBefore = fs.readFileSync(target);
+    const result = await runPostToolCall('write_file', { path: target, bytes: bytesBefore.length });
+
+    expect(result.proceed).toBe(true);
+    const ctx = result.additionalContext ?? '';
+    expect(ctx).toContain(SECURITY_SCAN_LINE_PREFIX);
+    expect(ctx).toContain('status=findings');
+    expect(ctx).toContain('slack-token');
+    expect(ctx).not.toContain('gate=blocked');
+    expect(fs.readFileSync(target).equals(bytesBefore)).toBe(true);
   });
 
   it('同一命中在去重窗口内第二次派发 new=0(不重复刷屏,但仍如实是 findings)', async () => {
     const target = writeFixture('leaky2.ts', `${FINDING_LINE}\n`);
     const first = await runPostToolCall('write_file', { path: target });
     const second = await runPostToolCall('write_file', { path: target });
+    expect(first.proceed).toBe(false);
+    expect(second.proceed).toBe(false);
     expect(first.additionalContext ?? '').toContain('status=findings');
     expect(second.additionalContext ?? '').toContain('status=findings');
     expect(second.additionalContext ?? '').toContain('new=0');

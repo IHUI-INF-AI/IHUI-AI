@@ -1721,7 +1721,10 @@ export async function decideCompaction(
   if (v2Config?.enabled === true) {
     try {
       const sessionId = opts.sessionId ?? 'cli-default';
-      const sampler = createCompactionSampler(v2Config.model || opts.modelId || 'default-model');
+      // F-090:压缩缓存键必须携带模型标识 —— 会话中途切换模型后,旧模型生成的摘要
+      // 不得注入新模型上下文(此前 key 只有 sessionId+内容哈希,会跨模型串用)。
+      const compactionModel = v2Config.model || opts.modelId || 'default-model';
+      const sampler = createCompactionSampler(compactionModel);
       const observer: CompactionObserver = {
         onSuccess: ({ tokensBefore, tokensAfter, turnsCompacted, elapsedMs }) => {
           console.info(chalk.dim(`  🗜️ compaction-v2: ${tokensBefore}→${tokensAfter} tokens, ${turnsCompacted} turns, ${elapsedMs}ms`));
@@ -1745,10 +1748,10 @@ export async function decideCompaction(
             { timeoutMs: v2Config.samplingTimeoutMs ?? 30_000 },
           );
           return r.response;
-        });
+        }, compactionModel);
       }
       // 88% 真压缩:缓存命中 → 跳过阻塞式 LLM 摘要;未命中 → 实时生成并回写缓存
-      const cachedSummary = getCachedCompactionSummary(sessionId, messages) ?? undefined;
+      const cachedSummary = getCachedCompactionSummary(sessionId, messages, compactionModel) ?? undefined;
       const result = await compressContextV2(messages, {
         contextLimit: opts.contextLimit,
         triggerRatio:
@@ -1769,8 +1772,8 @@ export async function decideCompaction(
       });
       if (result.compressed && !cachedSummary) {
         // 回写:把本次压缩覆盖的消息序列与摘要正文写入缓存(hash 基于除最近 6 条外的序列化,
-        // 与 prime/getCached 同 key 逻辑,下次同范围压缩直接命中)
-        writeCompactionSummaryCache(sessionId, messages, extractSummaryBody(result.messages));
+        // 与 prime/getCached 同 key 逻辑 —— 含模型标识,下次同范围同模型压缩直接命中)
+        writeCompactionSummaryCache(sessionId, messages, extractSummaryBody(result.messages), compactionModel);
       }
       return result;
     } catch (err) {
@@ -3104,6 +3107,24 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
 
 // ==================== Agent 模式(非交互式) ====================
 
+/**
+ * F-037:session_start 遥测载荷的唯一定义处。
+ *
+ * 绝对工作区路径含用户名与目录结构,不得出机 —— 只发 sha256 摘要(与
+ * persistDoomLoopProcedural 的 workspaceDigest 同一口径),显式开启遥测时同样生效。
+ */
+export function buildSessionStartTelemetryProps(
+  workspacePath: string,
+  modelId: string,
+  hasSession: boolean,
+): Record<string, unknown> {
+  return {
+    modelId,
+    workspaceDigest: createHash('sha256').update(String(workspacePath ?? '')).digest('hex'),
+    hasSession,
+  };
+}
+
 export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
   const hooksConfig = loadHooks();
   const sessionHookCtx = {
@@ -3213,10 +3234,10 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
     }
   }
 
-  // P3-2 Telemetry:默认开启(2026-08-31 改,补全 CLI 埋点盲区)。
+  // P3-2 Telemetry:默认关闭(F-037);用户显式 telemetry.enabled = true 才初始化。
   // endpoint 未配置时默认上报到项目自身 /api/analytics/track(与 web/mobile 同一张表)。
-  // 用户可在设置里 telemetry.enabled = false 显式关闭;关闭时 track 调用 no-op(零回归)。
-  // offline 模式下跳过(不初始化、不上报)。
+  // 关闭时 track 调用 no-op(零回归);offline 模式下跳过(不初始化、不上报)。
+  // 载荷经 buildSessionStartTelemetryProps 只发路径摘要,绝对路径不出机(F-037)。
   if (codegraphSettings.telemetry?.enabled === true && codegraphSettings.offline !== true) {
     const defaultEndpoint = `${(codegraphSettings.apiUrl || 'http://localhost:8802').replace(/\/+$/, '')}/api/analytics/track`
     initTelemetry({
@@ -3225,11 +3246,10 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
       batchSize: codegraphSettings.telemetry.batchSize,
       flushIntervalMs: codegraphSettings.telemetry.flushIntervalMs,
     });
-    trackTelemetry('session_start', {
-      modelId: opts.modelId,
-      workspacePath: opts.workspacePath,
-      hasSession: !!opts.session,
-    });
+    trackTelemetry(
+      'session_start',
+      buildSessionStartTelemetryProps(opts.workspacePath, opts.modelId, !!opts.session),
+    );
     if (!silent) {
       console.info(chalk.dim(`  📊 telemetry 已启用(上报到 ${codegraphSettings.telemetry.endpoint?.trim() || defaultEndpoint})`));
     }

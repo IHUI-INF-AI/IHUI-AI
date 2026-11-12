@@ -34,6 +34,8 @@ import {
   createSession,
   saveSession,
   loadSession,
+  deleteSession,
+  listSessions,
   repairSessionHistoryReport,
   listRewindPoints,
   rewindHistory,
@@ -44,18 +46,36 @@ import {
   type RewindResponse,
   type RewindPoint,
 } from '../commands/session.js';
+import { planAcpReplay, type AcpReplayOutcome } from './session-replay.js';
 import { setupAgentTools, runToolLoop, type ToolContext } from '../commands/agent.js';
 // G-639:取消出口逐未完成的 tool_call 合成各自的 cancelled 帧(不悬空、不整体一帧了事)
 import { synthesizeCancelledToolFrames } from '../stream-cancel-frames.js';
 import { createAuditedDangerGate } from '../tools/danger-gate-audit.js';
 import { PlanMachine } from '../plan/machine.js';
-import { CheckpointManager } from '../checkpoints/index.js';
+import { CheckpointManager, type CheckpointDiffEntry } from '../checkpoints/index.js';
+import { PlanBuildCoordinator, type PlanBuildMode } from '../modes/plan-build.js';
 import { runHook, surfaceHookOutcome } from '../hooks/index.js';
 import {
   listManagedClients,
   getManagedClient,
   reconnectManagedClient,
 } from '../tools/mcp-runtime.js';
+
+/**
+ * `session/resume` 未给 `last` 时的默认分页粒度。
+ * 取 50 与 ACP 客户端常见的编辑区滚动粒度对齐;`session/load` 不走这个值
+ * (load 恒全量,理由见 loadSession 内的注释)。
+ */
+const DEFAULT_REPLAY_PAGE_SIZE = 50;
+
+/** `x.ai/checkpoint/*` 的对外形状(刻意只暴露摘要,不含 files 明细)。 */
+interface CheckpointSummary {
+  id: string;
+  createdAt: string;
+  reason: string;
+  fileCount: number;
+  skippedCount: number;
+}
 
 /** 审批选项入参(kind 收敛为 ACP PermissionOptionKind 子集) */
 export interface PermissionOptionInput {
@@ -448,6 +468,8 @@ interface AcpSessionState {
   planApproved: boolean;
   /** P0-C plan 审批门:PlanMachine 实例(planFirst 开启时创建,gathering 期间写入硬阻断) */
   planMachine: PlanMachine | undefined;
+  /** ACP 会话模式(plan/build/review);undefined = 未显式设置过 */
+  modeId?: PlanBuildMode;
 }
 
 /** P0-2 `x.ai/session/repair` 请求参数 */
@@ -624,27 +646,47 @@ export class IhuiAcpAgent {
     };
     this.sessions.set(existing.id, state);
 
-    for (const msg of existing.history) {
-      if (msg.role === 'user') {
-        await cx.notify(acp.methods.client.session.update, {
-          sessionId: existing.id,
-          update: {
-            sessionUpdate: 'user_message_chunk',
-            content: { type: 'text', text: msg.content },
-          },
-        });
-      } else if (msg.role === 'assistant') {
-        await cx.notify(acp.methods.client.session.update, {
-          sessionId: existing.id,
-          update: {
-            sessionUpdate: 'agent_message_chunk',
-            content: { type: 'text', text: msg.content },
-          },
-        });
-      }
-    }
-
+    // session/load 的语义是"把整段历史复原到编辑器",不是"续传"。
+    // 共享层的 planDurableSessionReplay 在无游标时返回 skip(即"不回放"),
+    // 所以这里显式构造一条覆盖全场的游标:last 取消息总数,不带 before。
+    await this.replayHistoryFrames(existing, cx, existing.history.length);
     return {};
+  }
+
+  /**
+   * 把会话历史按游标翻译成 ACP 帧并逐条 notify。
+   *
+   * 判据全部在 `@ihui/shared` 的 `planDurableSessionReplay`(skip/empty/window/failure);
+   * 本方法只负责"构造游标 → 发帧",不再持有第二套分页逻辑。
+   *
+   * `pageSize` 为 undefined 时表示"全量"(session/load);给数字时表示按页续传
+   * (session/resume)。全量也必须带游标 —— 共享层的 no-cursor 语义是 skip。
+   */
+  private async replayHistoryFrames(
+    existing: Session,
+    cx: acp.AgentContext,
+    pageSize?: number,
+  ): Promise<AcpReplayOutcome> {
+    const items = existing.history.map((m, i) => ({
+      id: `m${i}`,
+      kind: m.role === 'user' ? ('user' as const) : m.role === 'assistant' ? ('assistant' as const) : ('other' as const),
+    }));
+    const messages = existing.history.map((m, i) => ({ id: `m${i}`, role: m.role, content: m.content }));
+    const last = pageSize ?? Math.max(existing.history.length, 1);
+    const outcome = planAcpReplay({
+      items,
+      messages,
+      replayFrom: { type: 'ihui.replay/turn', last },
+      title: this.sessionTitle(existing) ?? undefined,
+    });
+    if (!outcome.ok) return outcome;
+    for (const n of outcome.notifications) {
+      await cx.notify(acp.methods.client.session.update, {
+        sessionId: existing.id,
+        update: { sessionUpdate: n.sessionUpdate, content: n.content },
+      });
+    }
+    return outcome;
   }
 
   async prompt(
@@ -980,6 +1022,305 @@ export class IhuiAcpAgent {
     this.sessions.delete(params.sessionId);
   }
 
+  // ==================== ACP 标准会话生命周期 ====================
+  //
+  // 背景(REA 取证 E1):ACP SDK 1.3.0 的 `schema.AGENT_METHODS` 定义了
+  // session/{new,load,prompt,close,resume,fork,list,delete,set_mode,set_config_option},
+  // 而本仓原先只注册了前 4 个。对照程序 WorkBuddy 的 harness 把 resume/fork/list
+  // 当作一等能力(`protocol/acp-v2-sdk.js` 的 `session_resume`/`session_fork`/`session_list`)。
+  // 缺口不是"能力没有",而是"已有能力没接到标准协议名上":本类已有的
+  // listSessions / branchConversationFrom 语义、会话存储、checkpoint 都在,
+  // 但编辑器按标准方法名来调时会拿不到。
+  //
+  // 超越轴:对照程序的 `resume` 只回帧、不回"还剩多少";我方在响应 `_meta` 里
+  // 回 `hasMore`/`endCursor`/`total`,客户端不必自己拿 `last` 反推。
+
+  /**
+   * `session/list` — 列出本机已存会话。
+   *
+   * 直接复用 `listSessions()`(它已带符号链接越界跳过),不新增第二份目录扫描。
+   */
+  async listSessions(params: { cwd?: string | null; cursor?: string | null }): Promise<{
+    sessions: acp.SessionInfo[];
+  }> {
+    const all = listSessions();
+    // cwd 过滤:规范化后逐字比较。给了不存在的 cwd 不报错、返回空集 ——
+    // 编辑器切工作区时问到空目录是常态,报错会让它以为 agent 挂了。
+    const want = typeof params.cwd === 'string' && params.cwd.length > 0 ? path.resolve(params.cwd) : null;
+    const filtered = want === null ? all : all.filter((s) => path.resolve(s.workspacePath) === want);
+    return {
+      sessions: filtered.map((s) => ({
+        sessionId: s.id,
+        cwd: s.workspacePath,
+        title: this.sessionTitle(s),
+        updatedAt: s.updatedAt,
+      })),
+    };
+  }
+
+  /** 会话标题:取首条 user 消息前 80 字符;没有 user 消息时为 null(不编造)。 */
+  private sessionTitle(session: Session): string | null {
+    const firstUser = session.history.find((m) => m.role === 'user' && m.content.trim().length > 0);
+    if (!firstUser) return null;
+    const text = firstUser.content.trim().replace(/\s+/g, ' ');
+    return text.length > 80 ? `${text.slice(0, 80)}…` : text;
+  }
+
+  /**
+   * `session/resume` — 从已存会话续传,并按 `replayFrom` 游标重放帧。
+   *
+   * 与 `session/load` 的差别:load 恒全量;resume 走共享层游标,只回一页。
+   * 游标非法 / 会话不存在 ⇒ 抛错(由 ACP 映射成 invalid params),
+   * 不静默降级成"从头全量重放"—— 那会让客户端以为续传成功、实际重复插入历史。
+   */
+  async resumeSession(
+    params: { sessionId: string; replayFrom?: unknown },
+    cx: acp.AgentContext,
+  ): Promise<{ _meta: { planKind: string; hasNextPage: boolean; endCursor: string | null } }> {
+    const existing = loadSession(params.sessionId);
+    if (!existing) {
+      throw new Error(`Session ${params.sessionId} not found`);
+    }
+    const checkpoints = new CheckpointManager({
+      sessionId: existing.id,
+      workspacePath: existing.workspacePath,
+    });
+    this.sessions.set(existing.id, {
+      session: existing,
+      pendingAbort: null,
+      agentReady: false,
+      systemPrompt: null,
+      ctx: null,
+      checkpoints,
+      planApproved: false,
+      planMachine: this.opts.planFirst ? new PlanMachine('gathering') : undefined,
+    });
+
+    // 未给 replayFrom 时补一个"取最后一页"的游标:ACP 的 resume 语义是续传,
+    // 而不是"什么都不回"。共享层把 no-cursor 判成 skip(那是它的调用方语义)。
+    const replayFrom =
+      params.replayFrom === undefined || params.replayFrom === null
+        ? { type: 'ihui.replay/turn', last: DEFAULT_REPLAY_PAGE_SIZE }
+        : params.replayFrom;
+
+    const items = existing.history.map((m, i) => ({
+      id: `m${i}`,
+      kind:
+        m.role === 'user' ? ('user' as const) : m.role === 'assistant' ? ('assistant' as const) : ('other' as const),
+    }));
+    const messages = existing.history.map((m, i) => ({ id: `m${i}`, role: m.role, content: m.content }));
+    const outcome = planAcpReplay({
+      items,
+      messages,
+      replayFrom,
+      ...(this.sessionTitle(existing) !== null ? { title: this.sessionTitle(existing)! } : {}),
+    });
+    if (!outcome.ok) {
+      throw new Error(outcome.message);
+    }
+    for (const n of outcome.notifications) {
+      await cx.notify(acp.methods.client.session.update, {
+        sessionId: existing.id,
+        update: { sessionUpdate: n.sessionUpdate, content: n.content },
+      });
+    }
+    return {
+      _meta: {
+        planKind: outcome.planKind,
+        hasNextPage: outcome.hasNextPage,
+        endCursor: outcome.endCursor,
+      },
+    };
+  }
+
+  // ==================== ACP checkpoint 通道 ====================
+  //
+  // 背景(REA E1):本仓 `Checkpoints` 早已完整(快照/列举/读取/还原/差异/删除 + 损坏隔离
+  // + GC),但 `apps/cli/src/acp/server.ts` 里对它的引用只有 `new CheckpointManager(...)`,
+  // 从没有一个 onRequest —— 编辑器侧完全看不到检查点。对照程序 WorkBuddy 的 harness 把
+  // checkpoint 做成三个一等 RPC(list / read / restore,见其 `checkpoint/rpcs.js`),
+  // 且读取响应经 `decodeAgentHarnessCheckpointReadResponse` 严格解码,
+  // 解不出就抛 "session storage response has invalid checkpoint read data"。
+  //
+  // 我方策略:方法名沿用本仓既有 `x.ai/*` 私有命名空间(标准 ACP 没有 checkpoint 方法,
+  // 自造 `session/checkpoint/*` 会与将来标准冲突);判据一律不重写,直接调 CheckpointManager。
+
+  /** `x.ai/checkpoint/list` — 列出本会话检查点(纯只读,不动文件)。 */
+  async listCheckpoints(params: { sessionId: string }): Promise<{ checkpoints: CheckpointSummary[] }> {
+    const mgr = this.requireCheckpointManager(params.sessionId);
+    return {
+      checkpoints: mgr.list().map((m) => ({
+        id: m.id,
+        createdAt: m.createdAt,
+        reason: m.reason,
+        fileCount: Object.keys(m.files).length,
+        skippedCount: m.skipped?.length ?? 0,
+      })),
+    };
+  }
+
+  /** `x.ai/checkpoint/read` — 读一个检查点的元数据与差异(不还原)。 */
+  async readCheckpoint(params: { sessionId: string; checkpointId: string }): Promise<{
+    checkpoint: CheckpointSummary;
+    diff: CheckpointDiffEntry[];
+  }> {
+    const mgr = this.requireCheckpointManager(params.sessionId);
+    const meta = mgr.get(params.checkpointId);
+    // get() 返回 null 表示"确实没有这个检查点";损坏会抛错(不折成"不存在")。
+    if (meta === null) {
+      throw new Error(`检查点 ${params.checkpointId} 不存在`);
+    }
+    return {
+      checkpoint: {
+        id: meta.id,
+        createdAt: meta.createdAt,
+        reason: meta.reason,
+        fileCount: Object.keys(meta.files).length,
+        skippedCount: meta.skipped?.length ?? 0,
+      },
+      diff: mgr.diff(params.checkpointId),
+    };
+  }
+
+  /**
+   * `x.ai/checkpoint/restore` — 还原到某个检查点。
+   *
+   * 返回三档结果(restored / removed / notRestored):`notRestored` 非空时**不是成功**,
+   * 调用方必须看它。不用抛错表示"部分未还原"—— 那会让已成功的那部分也看起来没发生。
+   */
+  async restoreCheckpoint(params: { sessionId: string; checkpointId: string }): Promise<{
+    restored: string[];
+    removed: string[];
+    notRestored: string[];
+    complete: boolean;
+  }> {
+    const mgr = this.requireCheckpointManager(params.sessionId);
+    const res = await mgr.restore(params.checkpointId);
+    return { ...res, complete: res.notRestored.length === 0 };
+  }
+
+  // ==================== ACP 会话模式 / 配置项 ====================
+  //
+  // 背景(守门 check-acp-method-registration.mjs 实证):SDK 的 AGENT_METHODS 声明了
+  // `session/set_mode` 与 `session/set_config_option`,本仓两个都没注册 ——
+  // 编辑器切 Plan/Build 模式时拿到的是 -32601,而这是 Agent 最常用的交互之一。
+  //
+  // 不另造模式枚举:模式语义直接用 `apps/cli/src/modes/plan-build.ts` 的
+  // `PlanBuildMode`('plan' | 'build' | 'review'),它带持久化与迁移历史(§0.6 单一真相源)。
+
+  /** `session/set_mode` — 切换会话的 Plan/Build/Review 模式。 */
+  async setSessionMode(params: {
+    sessionId: string;
+    modeId: string;
+  }): Promise<{ _meta: { modeId: PlanBuildMode } }> {
+    const state = this.requireOrAdoptSession(params.sessionId);
+    const mode = params.modeId as PlanBuildMode;
+    // 只接受 PlanBuildMode 的三档;别的一律拒绝并点名,不静默降级成 build
+    if (mode !== 'plan' && mode !== 'build' && mode !== 'review') {
+      throw new Error('session/set_mode 不支持的模式: ' + params.modeId + '(仅 plan / build / review)');
+    }
+    const coordinator = new PlanBuildCoordinator(state.session.workspacePath);
+    if (mode === 'plan') coordinator.enterPlanning();
+    else if (mode === 'review') coordinator.enterReviewing();
+    else coordinator.enterBuilding();
+    state.modeId = mode;
+    return { _meta: { modeId: mode } };
+  }
+
+  /**
+   * `session/set_config_option` — 设置会话配置项。
+   *
+   * 本仓 ACP 面当前只暴露一个可写配置项 `model`(其余配置走 settings 文件)。
+   * 未知 configId **拒绝并点名**已支持的项,而不是静默成功 ——
+   * 静默成功会让编辑器显示"已切换",而实际什么都没变。
+   */
+  async setSessionConfigOption(params: {
+    sessionId: string;
+    configId: string;
+    value: unknown;
+  }): Promise<{
+    configOptions: {
+      id: string;
+      name: string;
+      type: 'select';
+      currentValue: string;
+      options: { value: string; name: string }[];
+    }[];
+  }> {
+    const state = this.requireOrAdoptSession(params.sessionId);
+    if (params.configId !== 'model') {
+      throw new Error(
+        'session/set_config_option 不支持的 configId: ' + params.configId + '(当前仅支持 model)',
+      );
+    }
+    const raw = params.value;
+    let value = '';
+    if (typeof raw === 'string') value = raw;
+    else if (typeof raw === 'object' && raw !== null && 'value' in raw) {
+      value = String((raw as { value: unknown }).value);
+    }
+    if (value.length === 0) {
+      throw new Error('session/set_config_option 的 value 必须是非空字符串');
+    }
+    state.session.modelId = value;
+    saveSession(state.session);
+    return {
+      configOptions: [
+        {
+          id: 'model',
+          name: 'Model',
+          type: 'select',
+          currentValue: value,
+          // 选项集来自运行时配置,不在协议层硬编码候选;客户端可据 currentValue 回显
+          options: [{ value, name: value }],
+        },
+      ],
+    };
+  }
+
+  /** 取会话的检查点管理器;会话不在内存态时按 id 反查落盘会话再建。 */
+  private requireCheckpointManager(sessionId: string): CheckpointManager {
+    const state = this.sessions.get(sessionId);
+    if (state?.checkpoints) return state.checkpoints;
+    const existing = loadSession(sessionId);
+    if (!existing) throw new Error(`Session ${sessionId} not found`);
+    return new CheckpointManager({ sessionId: existing.id, workspacePath: existing.workspacePath });
+  }
+
+  /**
+   * `session/fork` — 从某个已存会话复制出一个新会话。
+   *
+   * 分流点语义:整段复制(ACP 的 ForkSessionRequest 不带游标字段),不在这里
+   * 自造"从第 N 轮分叉" —— 那属于 `_meta` 扩展,未取证前不加。
+   * 新会话 id 由 `createSession` 生成,历史逐条浅拷贝(content 是字符串,值语义)。
+   */
+  async forkSession(params: { sessionId: string; cwd?: string | null }): Promise<{
+    sessionId: string;
+  }> {
+    const source = loadSession(params.sessionId);
+    if (!source) {
+      throw new Error(`Session ${params.sessionId} not found`);
+    }
+    const cwd = typeof params.cwd === 'string' && params.cwd.length > 0 ? params.cwd : source.workspacePath;
+    const forked = createSession(cwd, source.modelId);
+    forked.history = source.history.map((m) => ({ ...m }));
+    saveSession(forked);
+    return { sessionId: forked.id };
+  }
+
+  /**
+   * `session/delete` — 删除一个已存会话。
+   *
+   * 先从内存态摘除(避免后续 prompt 还挂着一个已被删的会话),再删文件。
+   * 文件不存在按"已删除"处理(幂等),不报"找不到会话" —— delete 的语义
+   * 是"让它不存在",不是"证明它曾经存在"。
+   */
+  async deleteSessionFile(params: { sessionId: string }): Promise<Record<string, never>> {
+    this.sessions.delete(params.sessionId);
+    deleteSession(params.sessionId);
+    return {};
+  }
+
   // ==================== P0-2 ACP 扩展方法实现 ====================
 
   /**
@@ -1111,6 +1452,36 @@ export class IhuiAcpAgent {
   }
 
   /** 内部:根据 sessionId 查找 AcpSessionState,不存在则抛错 */
+  /**
+   * 取会话态;内存里没有就从磁盘收养一场。
+   *
+   * 为什么需要:编辑器可以随时 `session/set_mode`,而进程可能刚启动、
+   * 会话只在磁盘上。`load` / `resume` / `fork` 都做了"按 id 反查落盘会话",
+   * 这两个方法若只查内存态,就会对一场明明存在的会话回 "not found" ——
+   * 用户看到的是"切模式失败",而原因是内部状态口径不一致。
+   */
+  private requireOrAdoptSession(sessionId: string): AcpSessionState {
+    const inMemory = this.sessions.get(sessionId);
+    if (inMemory) return inMemory;
+    const existing = loadSession(sessionId);
+    if (!existing) throw new Error(`Session ${sessionId} not found`);
+    const adopted: AcpSessionState = {
+      session: existing,
+      pendingAbort: null,
+      agentReady: false,
+      systemPrompt: null,
+      ctx: null,
+      checkpoints: new CheckpointManager({
+        sessionId: existing.id,
+        workspacePath: existing.workspacePath,
+      }),
+      planApproved: false,
+      planMachine: this.opts.planFirst ? new PlanMachine('gathering') : undefined,
+    };
+    this.sessions.set(existing.id, adopted);
+    return adopted;
+  }
+
   private requireSession(sessionId: string): AcpSessionState {
     const state = this.sessions.get(sessionId);
     if (!state) {
@@ -1166,6 +1537,44 @@ function toAcpStopReason(reason: string): 'end_turn' | 'max_turn_requests' | 're
 }
 
 /**
+ * 包一层:把 handler 的业务错误转成带原因的 JSON-RPC 错误(见 asRpcError)。
+ * 只用于本轮新增的会话/检查点方法 —— 既有方法的错误形态不动(避免行为变更)。
+ */
+function rpcMethod<Params, Result>(handler: (params: Params) => Promise<Result>) {
+  return async (params: Params): Promise<Result> => {
+    try {
+      return await handler(params)
+    } catch (error) {
+      throw asRpcError(error)
+    }
+  }
+}
+
+/**
+ * 把业务错误转成 **带原因的** JSON-RPC 错误。
+ *
+ * 为什么必须显式转:
+ *   ACP SDK 对 handler 抛出的普通 `Error` 一律回 `-32603 Internal error`,
+ *   且**不带 message**。于是客户端看到的只有"内部错误",无法区分
+ *   "检查点不存在" / "会话不存在" / "存储损坏" —— 而这三者的正确处置完全不同
+ *   (重建 / 换会话 / 报修)。对照程序 WorkBuddy 的 harness 在这点上做对了:
+ *   它用 `decodeAgentHarnessCheckpointReadResponse` 严格解码,解不出就抛一条
+ *   **点名原因**的错误("...has invalid checkpoint read data"),而不是笼统的 internal。
+ *
+ * 我方口径:参数/标识类问题一律 `-32602 Invalid params` 并原样带上原因;
+ * 真未知异常才让它冒泡成 internal(不把未分类的失败伪装成"参数错误")。
+ */
+function asRpcError(error: unknown): unknown {
+  if (error instanceof acp.RequestError) return error;
+  const message = error instanceof Error ? error.message : String(error);
+  // 只把"调用方给错了"这一类折成 invalid params;其余保持 internal,不误分类。
+  if (/not found|不存在|不支持|必须|互斥|非法|invalid/i.test(message)) {
+    return acp.RequestError.invalidParams({ detail: message }, `: ${message}`);
+  }
+  return error;
+}
+
+/**
  * P0-2 自定义方法参数 parser(纯 cast,不做 zod 校验 — 校验在 agent 方法内进行)。
  * SDK `onRequest(method, params, handler)` 三参数重载要求一个 ParamsParser,
  * 既能传 zod schema 也能传函数。这里用最简函数 cast 避免引入 zod 依赖。
@@ -1174,7 +1583,14 @@ function castParams<T>(): (params: unknown) => T {
   return (params: unknown) => params as T;
 }
 
-function createAcpAgent(opts: AcpServerOptions): acp.AgentApp {
+/**
+ * 构建 ACP agent app(方法注册表)。
+ *
+ * 导出是为了让「方法是否真的注册」可被测试:SDK 对未注册方法回 `-32601`,
+ * 与"没实现"对客户端无法区分,只有走注册表发一次请求才能证伪。
+ * `startAcpServer` 与测试共用这一份注册表,不另建第二份(§0.6)。
+ */
+export function buildAcpAgentApp(opts: AcpServerOptions): acp.AgentApp {
   setBaseUrl(opts.apiUrl);
   // 凭据续期单点:ACP 会话同样要带 refreshAccessToken,否则 15 分钟后全体 401 无法自愈
   registerCliTokenProvider({ baseUrl: opts.apiUrl, startupToken: opts.apiKey });
@@ -1191,6 +1607,63 @@ function createAcpAgent(opts: AcpServerOptions): acp.AgentApp {
       agent.closeSession?.(ctx.params);
       return {};
     })
+    // ACP 标准会话生命周期(补齐 SDK 1.3.0 已定义、本仓原先未注册的四个方法)。
+    // 用 SDK 三参数重载:方法名 + params parser + handler。
+    .onRequest<acp.ListSessionsRequest, acp.ListSessionsResponse>(
+      'session/list',
+      castParams<acp.ListSessionsRequest>(),
+      (ctx) => rpcMethod((p: acp.ListSessionsRequest) => agent.listSessions(p))(ctx.params),
+    )
+    .onRequest<acp.ResumeSessionRequest, acp.ResumeSessionResponse>(
+      'session/resume',
+      castParams<acp.ResumeSessionRequest>(),
+      (ctx) => rpcMethod((p: acp.ResumeSessionRequest) => agent.resumeSession(p, ctx.client))(ctx.params),
+    )
+    .onRequest<acp.ForkSessionRequest, acp.ForkSessionResponse>(
+      'session/fork',
+      castParams<acp.ForkSessionRequest>(),
+      (ctx) => rpcMethod((p: acp.ForkSessionRequest) => agent.forkSession(p))(ctx.params),
+    )
+    .onRequest<acp.DeleteSessionRequest, acp.DeleteSessionResponse>(
+      'session/delete',
+      castParams<acp.DeleteSessionRequest>(),
+      (ctx) => rpcMethod((p: acp.DeleteSessionRequest) => agent.deleteSessionFile(p))(ctx.params),
+    )
+    .onRequest<acp.SetSessionModeRequest, acp.SetSessionModeResponse>(
+      'session/set_mode',
+      castParams<acp.SetSessionModeRequest>(),
+      (ctx) => rpcMethod((p: acp.SetSessionModeRequest) => agent.setSessionMode(p))(ctx.params),
+    )
+    .onRequest<acp.SetSessionConfigOptionRequest, acp.SetSessionConfigOptionResponse>(
+      'session/set_config_option',
+      castParams<acp.SetSessionConfigOptionRequest>(),
+      (ctx) =>
+        rpcMethod((p: acp.SetSessionConfigOptionRequest) => agent.setSessionConfigOption(p))(
+          ctx.params,
+        ),
+    )
+    // ACP checkpoint 通道(标准 ACP 无此方法,沿用本仓 x.ai/* 私有命名空间)
+    .onRequest<{ sessionId: string }, { checkpoints: CheckpointSummary[] }>(
+      'x.ai/checkpoint/list',
+      castParams<{ sessionId: string }>(),
+      (ctx) => rpcMethod((p: { sessionId: string }) => agent.listCheckpoints(p))(ctx.params),
+    )
+    .onRequest<
+      { sessionId: string; checkpointId: string },
+      { checkpoint: CheckpointSummary; diff: CheckpointDiffEntry[] }
+    >(
+      'x.ai/checkpoint/read',
+      castParams<{ sessionId: string; checkpointId: string }>(),
+      (ctx) => rpcMethod((p: { sessionId: string; checkpointId: string }) => agent.readCheckpoint(p))(ctx.params),
+    )
+    .onRequest<
+      { sessionId: string; checkpointId: string },
+      { restored: string[]; removed: string[]; notRestored: string[]; complete: boolean }
+    >(
+      'x.ai/checkpoint/restore',
+      castParams<{ sessionId: string; checkpointId: string }>(),
+      (ctx) => rpcMethod((p: { sessionId: string; checkpointId: string }) => agent.restoreCheckpoint(p))(ctx.params),
+    )
     // P0-2 ACP 私有扩展方法(x.ai/* 命名空间,参考行业 Agent 框架实践)
     // 使用 SDK 三参数重载:onRequest<Params, Response>(method, paramsParser, handler)
     .onRequest<RepairSessionParams, RepairSessionResponse>(
@@ -1238,7 +1711,7 @@ export function startAcpServer(opts: AcpServerOptions): acp.AgentConnection {
   const input = Writable.toWeb(process.stdout);
   const output = Readable.toWeb(process.stdin) as ReadableStream<Uint8Array>;
   const stream = acp.ndJsonStream(input, output);
-  return createAcpAgent(opts).connect(stream);
+  return buildAcpAgentApp(opts).connect(stream);
 }
 
 // P0-2 类型再导出(供 acp 测试 / 其他模块复用)

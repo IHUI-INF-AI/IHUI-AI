@@ -49,12 +49,25 @@ export interface GitCappedDiagnostics {
   reason: 'timeout' | 'output-too-large';
 }
 
+/**
+ * git **根本没跑起来**时的诊断档(F-020):ENOENT/EACCES 这类派生层失败既没有 exitCode
+ * 也没有 stderr,不单独成档就只能落成 status=null + 空 stderr 的"无输出"。
+ */
+export interface GitSpawnErrorDiagnostics {
+  /** 派生层结构化错误码:ENOENT(git 不存在)/ EACCES(权限被拒)/ 其它 errno */
+  code: string;
+  /** 派生层原始说明(已脱敏;此档没有 git 输出,因为进程没起来) */
+  message: string;
+}
+
 export interface GitExecResult {
   stdout: string;
   stderr: string;
   exitCode: number | null;
   /** 仅当本次派生被预算封顶杀掉时出现(超时/输出超限) */
   killed?: GitCappedDiagnostics;
+  /** 仅当派生根失败(git 不存在/无权限等)时出现,与 killed 互斥 */
+  spawnError?: GitSpawnErrorDiagnostics;
 }
 
 export interface GitExecOptions {
@@ -74,6 +87,17 @@ function killedStderrText(killed: GitCappedDiagnostics, rawStderr: string): stri
     ` forceKill=${killed.forceKill} orphaned=${killed.orphaned}(预算表见 plugins/git-runner.ts)`;
   const clean = sanitizeEvidenceText(rawStderr).trim();
   return clean ? `${diag}\n${clean}` : diag;
+}
+
+/** spawn 失败档的 stderr 形态:先给判定词(点名 code),再附派生层原始说明 */
+function spawnErrorStderrText(spawnError: GitSpawnErrorDiagnostics): string {
+  const reason =
+    spawnError.code === 'ENOENT'
+      ? 'git 不可用(ENOENT):未找到可执行文件(检查 PATH 或 IHUI_GIT_BIN)'
+      : spawnError.code === 'EACCES'
+        ? 'git 不可用(EACCES):可执行文件无执行权限'
+        : `git 不可用(${spawnError.code})`;
+  return spawnError.message ? `[git-spawn-error] ${reason} :: ${spawnError.message}` : `[git-spawn-error] ${reason}`;
 }
 
 /**
@@ -139,6 +163,21 @@ export function execGit(args: string[], cwd: string, opts: GitExecOptions | numb
       killed,
     };
   }
+  if (rawError) {
+    // F-020:ENOENT/EACCES 等派生层失败没有 exitCode、也没有 stderr —— 必须单独成档透出 code,
+    // 否则下游只看到 status=null 的"无输出",无从诊断(此前只在 ETIMEDOUT/ENOBUFS 两档之外漏判)。
+    const spawnError: GitSpawnErrorDiagnostics = {
+      code: errCode || 'UNKNOWN',
+      message: sanitizeEvidenceText(rawError.message).trim(),
+    };
+    return {
+      // 进程没起来 ⇒ 没有任何 git 输出,不给半截内容
+      stdout: '',
+      stderr: spawnErrorStderrText(spawnError),
+      exitCode: null,
+      spawnError,
+    };
+  }
   return {
     stdout: (result.stdout as string) ?? '',
     // stderr 先脱敏再进结果面:git 会把内嵌口令的远端 URL 原样打进 stderr
@@ -165,6 +204,11 @@ export function formatGitResult(r: GitExecResult, successOnZero = true): ToolRes
       r.killed.reason === 'output-too-large'
         ? `git 输出超过上限,本次结果已作废: ${JSON.stringify(r.killed)}`
         : `git ${r.killed.reason} 已被预算封顶: ${JSON.stringify(r.killed)}`;
+  } else if (r.spawnError) {
+    // F-020:派生没起来时 exitCode 恒 null,只判 exitCode 会落成"无输出";此处点名 code
+    error = r.spawnError.message
+      ? `git 不可用(${r.spawnError.code}): ${r.spawnError.message}`
+      : `git 不可用(${r.spawnError.code})`;
   } else if (r.exitCode !== null && r.exitCode !== 0) {
     error = `git 退出码 ${r.exitCode}`;
   }
