@@ -88,7 +88,17 @@ export function loadDiagram({ rendererDir, diagramType, defaultExample, argv = p
   validateCrossCollectionContracts(diagramType, diagram);
   validateEngineeringProfile(diagramType, diagram);
   const sourceEvidence = verifyRepositoryEvidence(diagramType, diagram, process.env.ARCHIFY_REPO_ROOT);
-  const template = fs.readFileSync(path.join(skillRoot, 'assets/template.html'), 'utf8').replace('</head>', `${softwareNoticesHtml}\n</head>`);
+  const templatePath = path.join(skillRoot, 'assets/template.html');
+  // 缺模板时给出可操作的诊断,而不是裸露的 ENOENT —— 该文件是 `generate:viewer`
+  // (`node ../scripts/generate-viewer.mjs`)的构建期产物,包内未随附时
+  // 遇到 ENOENT 只会表现为 "internal/unclassified",看不出该跑哪条命令。
+  if (!fs.existsSync(templatePath)) {
+    throw new Error(
+      `archify: 缺少渲染模板 ${templatePath} —— 该文件由 scripts/generate-viewer.mjs 生成,` +
+        `请在上游技能源目录执行 \`npm run generate:viewer\`(或在完整发行包内重装该技能)后重试。`,
+    );
+  }
+  const template = fs.readFileSync(templatePath, 'utf8').replace('</head>', `${softwareNoticesHtml}\n</head>`);
   const outputRequest = {
     requestedOutput: argv[3],
     authoredOutput: diagram.meta?.output,

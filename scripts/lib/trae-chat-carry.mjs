@@ -752,6 +752,57 @@ export async function rebindAgentDbFile(dbFile, opts = {}) {
   }
 }
 
+/**
+ * 只读:取若干张表的 user_id 归属分布(2026-11-12 立)。
+ *
+ * 用途 = 回滚后核对"登录态"与"数据归属"是否同一枚号。本次事故(08:35)的教训:
+ * 客户端拒收后 storage.json/vscdb 回了旧号,正库的 project / user_configuration 却
+ * 留在新号 ⇒ 界面显示已登录,项目与配置却全都不见。这类错位当时无任何判据能发现。
+ *
+ * 只读:解密后在临时明文副本上查,查完即删(与 rebindAgentDbFile 同一纪律);
+ * 不写回、不校验、不做任何归并 —— 判据由调用方定。
+ * 返回值:{ [table]: string[] }(按出现次数降序;'null' 记为空串)
+ * 表不存在或无 user_id 列 ⇒ 该表不出现在结果里(不冒充"0 行")。
+ */
+export async function readTableUidOwners({ dbFile, dllPath, tables = [] } = {}) {
+  if (!dbFile || !fs.existsSync(dbFile)) throw new CarryError('取不到正库文件', 'no-db')
+  if (!dllPath || !fs.existsSync(dllPath)) throw new CarryError('取不到 ai_agent.dll', 'no-dll')
+  const SC = await import('./trae-sqlcipher.mjs')
+  const { buf } = readDbWithWal(dbFile)
+  const keyRes = SC.deriveGlobalKey({ dllBuf: fs.readFileSync(dllPath) })
+  if (!SC.probe(keyRes.key, buf).keyMatches) throw new CarryError('全局密钥与正库不匹配', 'key-mismatch')
+  const plain = SC.decryptDatabase(keyRes.key, buf)
+  const scratch = path.join(path.dirname(dbFile), `.uid-owners-${process.pid}-${Date.now()}.db`)
+  fs.writeFileSync(scratch, plain)
+  try {
+    const { DatabaseSync: DSB } = await import('node:sqlite')
+    const pdb = new DSB(scratch, { readOnly: true })
+    const out = {}
+    try {
+      for (const t of tables) {
+        let cols = []
+        try {
+          cols = pdb.prepare(`PRAGMA table_info("${t}")`).all().map((c) => String(c.name))
+        } catch {
+          continue
+        }
+        if (!cols.includes('user_id')) continue
+        const rows = pdb.prepare(`SELECT user_id AS uid, COUNT(*) AS n FROM "${t}" GROUP BY user_id ORDER BY n DESC`).all()
+        out[t] = rows.map((r) => (r.uid === null ? '' : String(r.uid)))
+      }
+    } finally {
+      pdb.close()
+    }
+    return out
+  } finally {
+    try {
+      fs.rmSync(scratch, { force: true })
+    } catch {
+      throw new CarryError(`临时明文未清:${scratch} —— 手工删除`, 'plain-leak')
+    }
+  }
+}
+
 export const __test__ = {
   CarryError,
   UID_RE,
@@ -764,6 +815,7 @@ export const __test__ = {
   planTipsRenames,
   locateAgentDatabase,
   readDbWithWal,
+  readTableUidOwners,
   atomicBackupAndWrite,
   verifyRebuiltCipher,
   rebindAgentDbFile,

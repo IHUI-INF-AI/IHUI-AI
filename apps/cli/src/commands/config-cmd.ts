@@ -27,7 +27,6 @@ import {
   loadSettings,
   readSettingsObjectForUpdate,
   type Settings,
-  type SamplerSettings,
 } from './settings.js';
 import { writePrivateFile } from '../lib/private-file.js';
 import {
@@ -281,14 +280,17 @@ function handleConfigSet(key: string, valueStr: string): string {
     if (n < 1 || n > 32768) return chalk.red(`✗ maxTokens 需在 1-32768 范围(收到: ${n})`);
   }
   // 写入。目标配置读不到时不把没读到的内容覆盖掉。
-  readSettingsObjectForUpdate(getSettingsPath());
-  const settings = loadSettings() as Settings & Record<string, unknown>;
-  setDeep(settings as Record<string, unknown>, field.key, parsed.value);
-  // 确保 sampler 对象存在(为 sampler.temperature/maxTokens 写入兜底)
-  if (field.key.startsWith('sampler.') && !settings.sampler) {
-    settings.sampler = {} as SamplerSettings;
-  }
-  saveSettings(settings);
+  // F-115:以全局文件自身的原对象做 RMW,只落用户显式设置的这一项。
+  // 以前这里拿 loadSettings()(cwd 三级 + home 三级合并值)整份写回,
+  // 会把项目层 .ihui/.claude/.cursor 的配置固化进 ~/.ihui/settings.json,
+  // 污染全局设置。读取/展示语义不变,仍走合并后的 loadSettings()。
+  const settingsPath = getSettingsPath();
+  const current = readSettingsObjectForUpdate(settingsPath);
+  if (current.state === 'corrupt') throw new Error('配置读不到,不能把它覆盖成新内容 (corrupt)');
+  const globalSettings: Settings & Record<string, unknown> =
+    current.state === 'ok' ? (current.settings as Settings & Record<string, unknown>) : {};
+  setDeep(globalSettings, field.key, parsed.value);
+  saveSettings(globalSettings);
   return chalk.green(`✓ ${field.key} = ${String(parsed.value)}\n  ${chalk.dim('(已写入 ' + getSettingsPath() + ')')}\n  ${chalk.dim('部分字段(如 defaultModel/locale)在下次启动 REPL 生效')}`);
 }
 

@@ -31,7 +31,10 @@ export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 
 export interface RouteParamSpec {
   name: string
-  type: 'string' | 'number' | 'boolean'
+  // 与 ToolParameter.type 对齐(2026-11-12):array/object 是合法参数类型。
+  // 例:hr_approval_flow_upsert 的 approverIds 是有序审批链(string[])。
+  // 此前只到 boolean,手写 hr.ts 用了 array 躲过生成器,重生成为现形 —— 根因是两类型漂移。
+  type: 'string' | 'number' | 'boolean' | 'array' | 'object'
   description: string
   required?: boolean
   enum?: string[]

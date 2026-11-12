@@ -7,7 +7,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { writeFileSync, readdirSync, rmSync, existsSync, mkdirSync } from 'node:fs'
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import { join } from 'node:path'
 import { mkScratch, rmScratch, scratchRoot } from '../lib/scratch-dir.mjs'
 
@@ -128,6 +128,14 @@ const runHook = (dir, expect) =>
     windowsHide: true,
   })
 
+/** 判红用例要看退出码与 stderr,execFileSync 会在非零时直接抛 —— 故单独一个不抛的入口。 */
+const runHookResult = (dir, expect, extra = []) =>
+  spawnSync(process.execPath, [HOOK, '--dir', dir, '--expect', expect, ...extra], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    encoding: 'utf8',
+    windowsHide: true,
+  })
+
 test('钩子正例:多版本共存 → 目录里只剩当前一对,无关文件活下来', () => {
   const dir = mkScratch('ihui-artifact-hook-')
   try {
@@ -148,31 +156,55 @@ test('钩子正例:多版本共存 → 目录里只剩当前一对,无关文件�
   }
 })
 
-test('钩子反例:目录里没有"本次应产的包"时**一个文件都不许删**', () => {
+test('钩子反例:目录里没有"本次应产的包"时**一个文件都不许删**,且默认判红', () => {
   // 这条自缚条款是钩子唯一危险的地方:若它按"缺当前包"就清空目录,
   // 那么 `tauri build --bundles app`(不产 nsis)会把上一次 nsis 构建的包连带签名一起抹掉。
+  // F-041 起缺产物不再算通过:默认 exit 1,但"一个文件都不删"这条照旧。
   const dir = mkScratch('ihui-artifact-hook2-')
   const others = ['智汇AI_0.1.45_x64-setup.exe', '智汇AI_0.1.45_x64-setup.exe.sig']
   try {
     for (const n of others) writeFileSync(join(dir, n), 'x')
-    const out = runHook(dir, CUR)
-    assert.ok(out.includes('按不产 nsis 处理'), out)
+    const r = runHookResult(dir, CUR)
+    assert.equal(r.status, 1, `缺本次产物必须判红,实际: ${r.status}\n${r.stdout}\n${r.stderr}`)
+    assert.ok(r.stderr.includes('没有产物'), r.stderr)
+    assert.ok(r.stderr.includes('--no-artifact-check'), `必须给出显式跳过出路,实际: ${r.stderr}`)
     assert.deepEqual(readdirSync(dir).sort(), others.sort(), '不属于自己的目录必须原样保留')
   } finally {
     rmScratch(dir)
   }
 })
 
-test('钩子反例:目录压根不存在 → 静默退出 0,不报错也不建目录', () => {
+test('钩子反例:显式 --no-artifact-check 才放行"不产 nsis",且仍一个文件都不删', () => {
+  const dir = mkScratch('ihui-artifact-hook2-skip-')
+  const others = ['智汇AI_0.1.45_x64-setup.exe', '智汇AI_0.1.45_x64-setup.exe.sig']
+  try {
+    for (const n of others) writeFileSync(join(dir, n), 'x')
+    const r = runHookResult(dir, CUR, ['--no-artifact-check'])
+    assert.equal(r.status, 0, `显式跳过应放行,实际: ${r.status}\n${r.stdout}\n${r.stderr}`)
+    assert.ok(r.stdout.includes('--no-artifact-check'), `跳过必须可审计,实际: ${r.stdout}`)
+    assert.deepEqual(readdirSync(dir).sort(), others.sort(), '跳过只免判据,不得动别人的产物')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('钩子反例:目录压根不存在 → 默认 exit 1 报错,显式跳过才 exit 0,两种情况都不建目录', () => {
   const missing = join(scratchRoot(), `ihui-artifact-none-${Date.now()}`)
-  const out = execFileSync(process.execPath, [HOOK, '--dir', missing], {
-    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-    stdio: ['ignore', 'pipe', 'pipe'],
-    encoding: 'utf8',
-    windowsHide: true,
-  })
-  assert.equal(out, '')
-  assert.equal(existsSync(missing), false)
+  const run = (extra = []) =>
+    spawnSync(process.execPath, [HOOK, '--dir', missing, ...extra], {
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+      encoding: 'utf8',
+      windowsHide: true,
+    })
+  const red = run()
+  assert.equal(red.status, 1, `目录不存在默认必须判红,实际: ${red.status}\n${red.stdout}\n${red.stderr}`)
+  assert.ok(red.stderr.includes('没有产物'), red.stderr)
+  assert.equal(existsSync(missing), false, '判红时不得顺手建目录')
+
+  const skipped = run(['--no-artifact-check'])
+  assert.equal(skipped.status, 0, `显式跳过应放行,实际: ${skipped.status}\n${skipped.stdout}${skipped.stderr}`)
+  assert.equal(existsSync(missing), false, '跳过时同样不得建目录')
 })
 
 const SHA = 'ab'.repeat(32)

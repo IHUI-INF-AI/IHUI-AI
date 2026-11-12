@@ -109,6 +109,12 @@ export interface McpConnection {
   transport: 'stdio' | 'http' | 'sse';
   /** 认证 headers(含 Authorization),http/sse 路径复用 */
   headers?: Record<string, string>;
+  /**
+   * http 专用:Streamable HTTP 会话 id。
+   * initialize 响应头 `Mcp-Session-Id` 带回后必须留存,后续请求原样回传,
+   * 否则合规 server 会对无会话的请求直接回 400。
+   */
+  sessionId?: string;
   /** sse 专用:长连接 abort 控制器 */
   sseAbortController?: AbortController;
   /** sse 专用:POST 目标 URL(endpoint 事件推送) */
@@ -560,18 +566,35 @@ async function sendHttpRpc(
   headers: Record<string, string> = {},
   timeoutMs = 10_000,
   trust?: SelfHostedTrust,
+  /** 会话载体:initialize 回包的 Mcp-Session-Id 写回这里,后续请求从这里取回传 */
+  session?: { sessionId?: string },
 ): Promise<unknown> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     await assertMcpUrlOutbound(url, trust);
+    const id = nextId();
     const resp = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...headers },
-      body: JSON.stringify({ jsonrpc: '2.0', id: nextId(), method, params }),
+      headers: {
+        'Content-Type': 'application/json',
+        // Streamable HTTP 允许 server 以 JSON 或 SSE 回包,两种都要声明可接受
+        Accept: 'application/json, text/event-stream',
+        ...headers,
+        // 会话头放最后:server 下发的 id 优先于调用方自带的同名头
+        ...(session?.sessionId ? { 'Mcp-Session-Id': session.sessionId } : {}),
+      },
+      body: JSON.stringify({ jsonrpc: '2.0', id, method, params }),
       signal: controller.signal,
     });
+    // 会话头:initialize 回包带回的 id 必须留存,否则后续请求 400
+    const sessionId = resp.headers.get('mcp-session-id');
+    if (sessionId && session) session.sessionId = sessionId;
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const contentType = resp.headers.get('content-type') ?? '';
+    if (contentType.includes('text/event-stream')) {
+      return await readHttpSseRpcResult(resp.body, id, controller.signal);
+    }
     const json = (await resp.json()) as { error?: { message?: string }; result?: unknown };
     if (json.error) throw new Error(json.error.message || 'MCP 错误');
     return json.result;
@@ -623,6 +646,50 @@ export async function readSseStream(
   } finally {
     reader.releaseLock();
   }
+}
+
+/**
+ * 从 Streamable HTTP 的 SSE 回包里取出与本次请求 id 对应的 JSON-RPC 结果。
+ * 复用上面的 readSseStream 做分帧(不另造第二套协议):只认 `message` 事件里的 JSON,
+ * 命中即中止读取(不必等流自然结束),请求超时由外层 signal 传导。
+ */
+async function readHttpSseRpcResult(
+  body: ReadableStream<Uint8Array> | null,
+  requestId: number,
+  signal: AbortSignal,
+): Promise<unknown> {
+  if (!body) throw new Error('SSE 响应缺少响应体');
+  // 命中结果后主动中止;外层超时/取消时也要能打断读取,故把 signal 串起来
+  const stop = new AbortController();
+  const onAbort = (): void => stop.abort();
+  signal.addEventListener('abort', onAbort, { once: true });
+  const box: { msg?: { result?: unknown; error?: { message?: string } } } = {};
+  try {
+    await readSseStream(
+      body,
+      (event, data) => {
+        if (event !== 'message' || box.msg) return;
+        try {
+          const msg = JSON.parse(data) as {
+            id?: string | number;
+            result?: unknown;
+            error?: { message?: string };
+          };
+          if (msg.id !== requestId) return;
+          box.msg = msg;
+          stop.abort();
+        } catch {
+          // 非 JSON 帧(通知/心跳)忽略
+        }
+      },
+      stop.signal,
+    );
+  } finally {
+    signal.removeEventListener('abort', onAbort);
+  }
+  if (!box.msg) throw new Error('SSE 响应未包含对应的 JSON-RPC 结果');
+  if (box.msg.error) throw new Error(box.msg.error.message || 'MCP 错误');
+  return box.msg.result;
 }
 
 /**
@@ -1010,7 +1077,7 @@ export async function connectMcpServer(server: McpServer): Promise<McpConnection
         protocolVersion: DEFAULT_PROTOCOL_VERSION,
         clientInfo: cliClientInfo(),
         capabilities: {},
-      }, headers, server.requestTimeoutMs ?? 10_000, mcpConfigTrust(server));
+      }, headers, server.requestTimeoutMs ?? 10_000, mcpConfigTrust(server), conn);
     } else if (transport === 'sse') {
       if (!server.url) throw new Error('sse transport 需要 url');
       // 认证 headers 由 resolveMcpAuthHeaders 解析(支持静态 token / OAuth / 无认证三条路径)
@@ -1139,6 +1206,7 @@ async function sendRpc(
       conn.headers ?? {},
       timeoutMs,
       mcpConfigTrust(conn.server),
+      conn,
     );
     return { result };
   }

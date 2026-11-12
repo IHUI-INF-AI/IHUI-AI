@@ -100,6 +100,8 @@ import {
   clearMemory,
   setMemoryEnabled,
   hybridSearchSync,
+  hybridSearch,
+  type SearchResult,
   MockEmbeddingProvider,
   ApiEmbeddingProvider,
   detectEmbeddingProvider,
@@ -508,7 +510,8 @@ export function memoryEntryToChunk(
  *   DASHSCOPE_API_KEY/SILICONCLOUD_API_KEY/IHUI_AI_SERVICE_URL → 真实 provider
  * - 否则 → MockEmbeddingProvider(兜底,零配置)
  *
- * 注意:hybridSearchSync 当前忽略 provider(纯 FTS),此函数为后续迁移到 async hybridSearch 预留。
+ * 注意:同步 hybridSearchSync 忽略 provider(纯 FTS);/memory search 走 executeMemorySearchAsync,
+ * 由 async hybridSearch 真正消费本函数返回的 provider(合并向量通道)。
  */
 export function resolveEmbeddingProvider(): EmbeddingProvider | undefined {
   const settings = loadSettings() as Settings & {
@@ -537,8 +540,37 @@ export interface MemorySearchResult {
 }
 
 /**
+ * hybrid 搜索结果 → 命令层结果(纯映射,同步/异步路径共用)。
+ * 空结果降级到 substring 兜底,保持原行为。
+ */
+function toMemorySearchResults(
+  entries: MemoryEntry[],
+  query: string,
+  searchResults: readonly SearchResult[],
+): MemorySearchResult[] {
+  if (searchResults.length === 0) {
+    // hybrid search 返回空 → fallback 到 substring
+    return searchMemory(entries, query).map((e) => ({
+      text: e.text,
+      category: e.category,
+      source: e.source,
+      score: 0,
+      matchedBy: 'substring-fallback',
+    }));
+  }
+  return searchResults.map((r) => ({
+    text: r.chunk.text,
+    category: r.chunk.ancestors?.[0] ?? 'general',
+    source: r.chunk.source === 'global' ? 'global' : 'project',
+    score: r.score,
+    matchedBy: r.matchedBy,
+  }));
+}
+
+/**
  * 执行 memory 搜索(核心逻辑,从 REPL handler 提取以便测试)。
  * 优先用 hybridSearchSync(BM25 + 时间衰减 + MMR),失败或返回空则降级到 substring。
+ * 注意:同步路径不消费 provider(仅关键词通道),命令层请用 executeMemorySearchAsync。
  */
 export function executeMemorySearch(
   entries: MemoryEntry[],
@@ -557,32 +589,44 @@ export function executeMemorySearch(
       provider,
       maxResults: 10,
     });
-    if (searchResults.length === 0) {
-      // hybrid search 返回空 → fallback 到 substring
-      return searchMemory(entries, query).map((e) => ({
-        text: e.text,
-        category: e.category,
-        source: e.source,
-        score: 0,
-        matchedBy: 'substring-fallback',
-      }));
-    }
-    return searchResults.map((r) => ({
-      text: r.chunk.text,
-      category: r.chunk.ancestors?.[0] ?? 'general',
-      source: r.chunk.source === 'global' ? 'global' : 'project',
-      score: r.score,
-      matchedBy: r.matchedBy,
-    }));
+    return toMemorySearchResults(entries, query, searchResults);
   } catch {
     // hybridSearchSync 抛错 → fallback 到 substring
-    return searchMemory(entries, query).map((e) => ({
-      text: e.text,
-      category: e.category,
-      source: e.source,
-      score: 0,
-      matchedBy: 'substring-fallback',
-    }));
+    return toMemorySearchResults(entries, query, []);
+  }
+}
+
+/**
+ * 向量感知版 memory 搜索(/memory search 实际调用)。
+ * 走 async hybridSearch:provider 存在时合并向量通道(沿用 hybrid-search 既有融合口径),
+ * 无 provider(纯关键词)或仅 Mock provider 时与 executeMemorySearch 结果一致。
+ */
+export async function executeMemorySearchAsync(
+  entries: MemoryEntry[],
+  query: string,
+  provider?: EmbeddingProvider,
+): Promise<MemorySearchResult[]> {
+  if (entries.length === 0) return [];
+
+  // Mock 仅用于测试(sha256 哈希不是语义向量,余弦≈0 会让所有条目都算"向量命中"),
+  // 视为无向量能力 → 保持原关键词行为;真实 provider 才启用向量通道。
+  const vectorProvider =
+    provider instanceof MockEmbeddingProvider ? undefined : provider;
+
+  const chunks = entries.map((e) =>
+    memoryEntryToChunk(e, e.source === 'global' ? 'global' : 'workspace'),
+  );
+  try {
+    const searchResults = await hybridSearch({
+      query,
+      chunks,
+      provider: vectorProvider,
+      maxResults: 10,
+    });
+    return toMemorySearchResults(entries, query, searchResults);
+  } catch {
+    // embedding 调用失败 → 退回纯关键词路径,不因向量通道失败拖垮检索
+    return executeMemorySearch(entries, query);
   }
 }
 
@@ -1297,7 +1341,8 @@ export async function handleSlashCommand(input: string, state: ReplState, rl: re
           break;
         }
         const provider = resolveEmbeddingProvider();
-        const results = executeMemorySearch(entries, query, provider);
+        // F-089:走异步 hybridSearch,真正消费 provider 合并向量通道(无 provider 时等价纯关键词)
+        const results = await executeMemorySearchAsync(entries, query, provider);
         if (results.length === 0) {
           console.info(chalk.dim(`  未找到匹配 "${query}" 的 memory`));
         } else {

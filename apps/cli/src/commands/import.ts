@@ -190,10 +190,17 @@ export function registerImportCommand(program: Command): void {
       if (!VALID_SOURCES.includes(source as Source)) {
         console.error(chalk.red(`无效 source: ${source}`));
         console.error(chalk.dim(`  有效值: ${VALID_SOURCES.join(', ')}`));
+        // F-016:参数非法不得静默退 0,否则脚本化调用方会记成成功
+        process.exitCode = 1;
         return;
       }
       const preview = await parseFile(source as Source, file);
-      if (preview) printPreview(preview);
+      if (!preview) {
+        // F-016:读取/解析失败的原因已打印,退出码同步置非 0
+        process.exitCode = 1;
+        return;
+      }
+      printPreview(preview);
     });
 
   importCmd
@@ -203,15 +210,23 @@ export function registerImportCommand(program: Command): void {
     .action(async (source: string, file: string, opts: { strategy: string }) => {
       if (!VALID_SOURCES.includes(source as Source)) {
         console.error(chalk.red(`无效 source: ${source}`));
+        // F-016:参数非法不得静默退 0
+        process.exitCode = 1;
         return;
       }
       if (!STRATEGIES.includes(opts.strategy as Strategy)) {
         console.error(chalk.red(`无效 strategy: ${opts.strategy}`));
         console.error(chalk.dim(`  有效值: ${STRATEGIES.join(', ')}`));
+        // F-016:同上,参数非法即失败
+        process.exitCode = 1;
         return;
       }
       const preview = await parseFile(source as Source, file);
-      if (!preview) return;
+      if (!preview) {
+        // F-016:读取/解析失败的原因已打印,退出码同步置非 0
+        process.exitCode = 1;
+        return;
+      }
       printPreview(preview);
 
       const commitRes = await fetchApi<CommitResult>('/api/user/cli-import/commit', {
@@ -225,6 +240,8 @@ export function registerImportCommand(program: Command): void {
       });
       if (!commitRes.success) {
         console.error(chalk.red(`导入失败: ${commitRes.error}`));
+        // F-016:后端落库失败必须体现在退出码里(与既有错误分档一致,仍为 1)
+        process.exitCode = 1;
         return;
       }
       const r = commitRes.data;
@@ -249,6 +266,8 @@ export function registerImportCommand(program: Command): void {
       const res = await fetchApi<{ list: HistoryItem[]; total: number }>('/api/user/cli-import/history');
       if (!res.success) {
         console.error(chalk.red(res.error));
+        // F-016:历史查询失败不得退 0
+        process.exitCode = 1;
         return;
       }
       if (res.data.list.length === 0) {
