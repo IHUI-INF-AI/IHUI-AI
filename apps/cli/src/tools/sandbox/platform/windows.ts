@@ -32,6 +32,65 @@ const execFileAsync = promisify(execFile)
 /** 默认超时 60s */
 const DEFAULT_TIMEOUT_MS = 60_000
 
+/** 兜底杀树时等 taskkill 自身结束的上限(防 taskkill 卡死反拖住收尾) */
+const TASKKILL_WAIT_MS = 5_000
+
+/** 杀树后等子进程退出事件的宽限(超过则放弃等待,不无限阻塞) */
+const CHILD_EXIT_GRACE_MS = 3_000
+
+/** 定时等待(有限等待/重试共用,不抛不取消) */
+function delay(ms: number): Promise<void> {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms))
+}
+
+/**
+ * Windows 整树终止(F-019):派生独立 taskkill 进程按 pid 打整棵树,等它真的退出再返回。
+ *
+ * 不能只 `child.kill('SIGKILL')`:PowerShell 包装器卡死时,PS 脚本内联的 taskkill
+ * 永远不会执行,杀 PS 只留下 cmd 子树变孤儿。taskkill 起不来(ENOENT/EPERM)时才
+ * 降级单进程 SIGKILL。任何情况都不抛 —— 本函数在收尾路径上,抛出会盖掉真因。
+ */
+async function killTreeAndWait(pid: number | undefined, fallback: () => void): Promise<void> {
+  if (typeof pid !== 'number' || !Number.isInteger(pid) || pid <= 0) return
+  await new Promise<void>((resolve) => {
+    let settled = false
+    const finish = (): void => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      resolve()
+    }
+    const timer = setTimeout(finish, TASKKILL_WAIT_MS)
+    try {
+      const killer = spawn('taskkill', ['/T', '/F', '/PID', String(pid)], {
+        windowsHide: true,
+        stdio: 'ignore',
+      })
+      killer.on('exit', finish)
+      killer.on('error', () => {
+        fallback()
+        finish()
+      })
+    } catch {
+      fallback()
+      finish()
+    }
+  })
+}
+
+/** 删除工作目录:Windows 句柄是异步释放的,EPERM/EBUSY 做有限重试(不放大为失败) */
+async function removeWorkDir(workDir: string): Promise<void> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      await rm(workDir, { recursive: true, force: true })
+      return
+    } catch {
+      if (attempt === 2) return
+      await delay(100)
+    }
+  }
+}
+
 /**
  * 解析 PowerShell 引擎绝对路径(pwsh 优先),detect.ts 探测与本文件执行口共用,
  * 两处不得分叉。
@@ -109,6 +168,13 @@ export async function runSandboxedWindows(
   const maxOutputBytes = policy.maxOutputBytes ?? 512 * 1024
   let workDir: string | undefined
   let spawnError: string | null = null
+  let child: ReturnType<typeof spawn> | undefined
+  let childExited = false
+  let markChildGone: () => void = () => undefined
+  // 子进程"确实退出"的唯一信号:超时兜底与工作目录清理都以它为准(F-019)
+  const childGone = new Promise<void>((resolveGone) => {
+    markChildGone = resolveGone
+  })
 
   try {
     workDir = await mkdtemp(path.join(tmpdir(), 'ihui-sandbox-'))
@@ -150,7 +216,7 @@ export async function runSandboxedWindows(
     }
 
     const exitCode = await new Promise<number>((resolve) => {
-      const child = spawn(
+      child = spawn(
         psPath,
         [
           '-NoProfile',
@@ -163,16 +229,27 @@ export async function runSandboxedWindows(
         // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
         { cwd: cwd || undefined, env: childEnv, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] },
       )
-      // Node 侧兜底超时:PowerShell 自身卡死时强杀
+      let guardFired = false
+      // Node 侧兜底超时:PowerShell 自身卡死时,PS 脚本里内联的 taskkill 永不执行
+      // (F-019),必须由 Node 直接按 pid 打整棵 cmd 树,等杀树结束后再放行收尾。
       const guard = setTimeout(() => {
-        child.kill('SIGKILL')
-        resolve(124)
+        guardFired = true
+        void (async () => {
+          await killTreeAndWait(child?.pid, () => child?.kill('SIGKILL'))
+          if (!childExited) await Promise.race([childGone, delay(CHILD_EXIT_GRACE_MS)])
+          resolve(124)
+        })()
       }, timeoutMs + 10_000)
       child.on('exit', (code) => {
+        childExited = true
+        markChildGone()
         clearTimeout(guard)
-        resolve(code ?? 1)
+        // guard 已触发时仍以 124 收口:杀树期间 exit 事件可能先于 guard 的 resolve 到达
+        resolve(guardFired ? 124 : (code ?? 1))
       })
       child.on('error', (e) => {
+        childExited = true
+        markChildGone()
         clearTimeout(guard)
         spawnError = e instanceof Error ? e.message : String(e)
         resolve(1)
@@ -222,7 +299,13 @@ export async function runSandboxedWindows(
       refused: false,
     }
   } finally {
-    if (workDir) await rm(workDir, { recursive: true, force: true }).catch(() => undefined)
+    // F-019:超时兜底后 PowerShell 及其子树可能仍在写重定向文件 —— 删工作目录前
+    // 先确认子进程已退出(有限重试 + 有界等待),绝不删仍在写的目录。
+    if (child && !childExited) {
+      await killTreeAndWait(child.pid, () => child?.kill('SIGKILL'))
+      await Promise.race([childGone, delay(CHILD_EXIT_GRACE_MS)])
+    }
+    if (workDir) await removeWorkDir(workDir)
   }
 }
 

@@ -47,6 +47,13 @@ pub const ENV_GIT_BASES: &str = "IHUI_DESKTOP_GIT_BASES";
 /// 这里只是别名 —— 两处各写一个数就是"两个预算互相顶掉"的开始。
 pub const MAX_REPORTED_ENTRIES: usize = crate::git_status_core::MAX_ENTRIES;
 
+/// 单条管道最多**存储**的字节数。超限即停止存储并标记截断(继续排空管道,避免子进程被
+/// 写满的管道挂到超时),`classify_exec` 把它结算为 `Budget` —— 截断的清单不得被读成完整。
+/// 8 MiB 远高于 diff 的 256 KiB 预算,故 diff 腿的原判据(超 `MAX_DIFF_BYTES` ⇒ Budget)不受影响。
+pub const MAX_STDOUT_BYTES: usize = 8 * 1024 * 1024;
+/// stderr 只用于诊断,读满这个量即停止存储(之后仍按 2000 字符截断上线)。
+pub const MAX_STDERR_BYTES: usize = 64 * 1024;
+
 /// 三态之"判不了"的原因类别。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Blindness {
@@ -205,38 +212,30 @@ impl Runner for ProcessRunner {
         let out_pipe = match child.stdout.take() {
             Some(p) => p,
             None => {
-                let _ = child.kill();
-                let _ = child.wait();
+                kill_process_tree(&mut child);
                 return ExecResult::failed(ExecState::IoFailed, "stdout 管道不可用".into());
             }
         };
         let err_pipe = match child.stderr.take() {
             Some(p) => p,
             None => {
-                let _ = child.kill();
-                let _ = child.wait();
+                kill_process_tree(&mut child);
                 return ExecResult::failed(ExecState::IoFailed, "stderr 管道不可用".into());
             }
         };
 
-        let (otx, orx) = mpsc::channel::<(Vec<u8>, Option<String>)>();
+        let (otx, orx) = mpsc::channel::<(Vec<u8>, bool, Option<String>)>();
         thread::spawn(move || {
-            use std::io::Read;
-            let mut buf = Vec::new();
-            let mut handle = out_pipe;
-            let msg = match handle.read_to_end(&mut buf) {
-                Ok(_) => (buf, None),
-                Err(err) => (Vec::new(), Some(err.to_string())),
+            let msg = match read_bounded(out_pipe, MAX_STDOUT_BYTES) {
+                Ok((buf, truncated)) => (buf, truncated, None),
+                Err(err) => (Vec::new(), false, Some(err.to_string())),
             };
             let _ = otx.send(msg);
         });
         let (etx, erx) = mpsc::channel::<(String, Option<String>)>();
         thread::spawn(move || {
-            use std::io::Read;
-            let mut buf = Vec::new();
-            let mut handle = err_pipe;
-            let msg = match handle.read_to_end(&mut buf) {
-                Ok(_) => (String::from_utf8_lossy(&buf).into_owned(), None),
+            let msg = match read_bounded(err_pipe, MAX_STDERR_BYTES) {
+                Ok((buf, _truncated)) => (String::from_utf8_lossy(&buf).into_owned(), None),
                 Err(err) => (String::new(), Some(err.to_string())),
             };
             let _ = etx.send(msg);
@@ -269,17 +268,22 @@ impl Runner for ProcessRunner {
         }
         let timed_out = !exited && exit_error.is_none();
         if !exited {
-            let _ = child.kill();
-            let _ = child.wait();
+            // 杀**整棵树**:git 会派生 fsmonitor 等孙进程,只杀直系会让继承的管道
+            // 一直挂着(主进程已死、read 却等不到 EOF),并把孤儿留到下次调用。
+            kill_process_tree(&mut child);
         }
         // 进程已终止/已杀掉 ⇒ 管道必然出结果，给一小段宽限而不是继续等满预算。
         let pipe_deadline = Instant::now() + Duration::from_millis(500);
         let mut outcome_stderr = String::new();
         let mut outcome_stdout: Vec<u8> = Vec::new();
+        let mut stdout_truncated = false;
         let mut io_detail: Option<String> = None;
         match recv_within(&orx, pipe_deadline) {
-            Some((bytes, None)) => outcome_stdout = bytes,
-            Some((_, Some(err))) => io_detail = Some(format!("读 stdout 失败：{err}")),
+            Some((bytes, truncated, None)) => {
+                outcome_stdout = bytes;
+                stdout_truncated = truncated;
+            }
+            Some((_, _, Some(err))) => io_detail = Some(format!("读 stdout 失败：{err}")),
             None => {
                 io_detail = Some(if timed_out {
                     String::new()
@@ -325,9 +329,73 @@ impl Runner for ProcessRunner {
             exit: code,
             stdout: outcome_stdout,
             stderr: truncate_chars(&outcome_stderr, 2000),
-            detail: String::new(),
+            detail: if stdout_truncated {
+                format!(
+                    "stdout 超过 {} 字节读取上限，已停止存储（截断）",
+                    MAX_STDOUT_BYTES
+                )
+            } else {
+                String::new()
+            },
         }
     }
+}
+
+/// 限长读取:只**存储** `cap` 字节;超出即停止存储并返回 `truncated=true`。
+/// 截断后继续排空管道(不存储)—— 否则子进程会因管道写满而阻塞到超时,
+/// 把"输出太大"误诊成"超时"。排空阶段的读错误无关紧要(截断已判定)。
+fn read_bounded<R: std::io::Read>(mut reader: R, cap: usize) -> std::io::Result<(Vec<u8>, bool)> {
+    let mut stored: Vec<u8> = Vec::new();
+    let mut chunk = [0u8; 8192];
+    loop {
+        let n = reader.read(&mut chunk)?;
+        if n == 0 {
+            return Ok((stored, false));
+        }
+        let room = cap.saturating_sub(stored.len());
+        let take = n.min(room);
+        stored.extend_from_slice(&chunk[..take]);
+        if take < n {
+            drain_to_eof(&mut reader);
+            return Ok((stored, true));
+        }
+    }
+}
+
+fn drain_to_eof<R: std::io::Read>(reader: &mut R) {
+    let mut sink = [0u8; 8192];
+    loop {
+        match reader.read(&mut sink) {
+            Ok(0) | Err(_) => return,
+            Ok(_) => {}
+        }
+    }
+}
+
+/// 超时/管道异常时收尸:Windows 用 `taskkill /T /F /PID` 杀**整棵树**(git 派生的
+/// fsmonitor 等孙进程同样持有管道);其余平台退化为杀直系子进程,随后统一 `wait` 回收。
+fn kill_process_tree(child: &mut std::process::Child) {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        let pid = child.id().to_string();
+        let mut taskkill = Command::new("taskkill");
+        if let Ok(root) = std::env::var("SystemRoot") {
+            let exe = PathBuf::from(root).join("System32").join("taskkill.exe");
+            if exe.is_file() {
+                taskkill = Command::new(exe);
+            }
+        }
+        let _ = taskkill
+            .args(["/T", "/F", "/PID", pid.as_str()])
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .creation_flags(CREATE_NO_WINDOW)
+            .status();
+    }
+    let _ = child.kill();
+    let _ = child.wait();
 }
 
 fn recv_within<T>(rx: &mpsc::Receiver<T>, deadline: Instant) -> Option<T> {
@@ -681,6 +749,16 @@ pub fn classify_exec(
                 return EngineOutcome::Undetermined {
                     kind: Blindness::NoExitCode,
                     reason: "子进程无退出码（被信号/异常终止），不足以判定\"无改动\"".into(),
+                };
+            }
+            // 读到上限即截断(见 `read_bounded`):截断的清单不得被读成完整。
+            if exec.stdout.len() >= MAX_STDOUT_BYTES {
+                return EngineOutcome::Undetermined {
+                    kind: Blindness::Budget,
+                    reason: format!(
+                        "git 输出达到单次读取上限 {} 字节（超出部分已停止存储，清单不完整）⇒ 判不了；下一步：缩小 scope 或分页问",
+                        MAX_STDOUT_BYTES
+                    ),
                 };
             }
             match parsed {
@@ -1563,6 +1641,82 @@ pub(crate) mod tests {
             Gate::Refuse { kind, .. } => assert_eq!(kind, Blindness::SuspiciousInput),
             Gate::Pass => panic!("带着判不了的 base 放行 = 授权边界失明"),
         }
+    }
+
+    // ---------- F-106：管道限长读取 ----------
+
+    #[test]
+    fn bounded_read_stops_storing_at_the_cap_and_flags_truncation() {
+        let data = vec![b'a'; 100];
+        let mut cursor = std::io::Cursor::new(data);
+        let (stored, truncated) = read_bounded(&mut cursor, 10).expect("读取不应失败");
+        assert_eq!(stored.len(), 10, "只许存储到上限");
+        assert_eq!(stored, vec![b'a'; 10]);
+        assert!(truncated, "超出上限必须标记截断");
+        assert_eq!(
+            cursor.position(),
+            100,
+            "截断后仍要排空管道（否则子进程被写满的管道挂住，误诊成超时）"
+        );
+    }
+
+    #[test]
+    fn bounded_read_under_the_cap_is_not_truncated() {
+        let mut cursor = std::io::Cursor::new(vec![b'x'; 7]);
+        let (stored, truncated) = read_bounded(&mut cursor, 10).expect("读取不应失败");
+        assert_eq!(stored, vec![b'x'; 7]);
+        assert!(!truncated);
+    }
+
+    #[test]
+    fn bounded_read_exactly_at_the_cap_is_not_truncated() {
+        let mut cursor = std::io::Cursor::new(vec![b'y'; 10]);
+        let (stored, truncated) = read_bounded(&mut cursor, 10).expect("读取不应失败");
+        assert_eq!(stored.len(), 10);
+        assert!(!truncated, "恰好等于上限但已到 EOF ⇒ 没有截断");
+    }
+
+    /// 排空阶段读错误不得把已截断的结果变成 Err —— 截断已判定，错误只影响未存储部分。
+    #[test]
+    fn bounded_read_drain_error_keeps_the_truncated_result() {
+        struct FailsAfterEof {
+            pos: usize,
+        }
+        impl std::io::Read for FailsAfterEof {
+            fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+                if self.pos >= 4 {
+                    return Err(std::io::Error::new(std::io::ErrorKind::Other, "boom"));
+                }
+                let n = buf.len().min(4 - self.pos).min(1);
+                for slot in buf.iter_mut().take(n) {
+                    *slot = b'z';
+                }
+                self.pos += n;
+                Ok(n)
+            }
+        }
+        let (stored, truncated) = read_bounded(FailsAfterEof { pos: 0 }, 2).expect("截断后错误不得上抛");
+        assert_eq!(stored, vec![b'z'; 2]);
+        assert!(truncated);
+    }
+
+    /// stdout 达到读取上限时判 `Budget`，绝不把截断输出当完整清单。
+    #[test]
+    fn capped_stdout_is_budget_not_facts() {
+        let exec = ExecResult {
+            state: ExecState::Exited,
+            exit: Some(0),
+            stdout: vec![b'a'; MAX_STDOUT_BYTES],
+            stderr: String::new(),
+            detail: "stdout 超过上限，已停止存储（截断）".into(),
+        };
+        let outcome = classify_exec(&exec, Ok(Vec::new()));
+        assert_eq!(outcome.undetermined_kind(), Some(Blindness::Budget));
+        let reason = match &outcome {
+            EngineOutcome::Undetermined { reason, .. } => reason.clone(),
+            other => panic!("{other:?}"),
+        };
+        assert!(reason.contains("读取上限"), "要点名截断成因：{reason}");
     }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
