@@ -57,6 +57,16 @@ const DEFAULT_PROXY_HOSTS = [
 
 let installed = false
 
+/** F-622:日志脱敏 —— 代理地址只留「协议+主机」,账密/路径/查询串一律不落日志(与 relay-proxy-pool 同款口径)。 */
+function maskProxyUrlForLog(raw: string): string {
+  try {
+    const u = new URL(raw)
+    return `${u.protocol}//${u.host}`
+  } catch {
+    return '***'
+  }
+}
+
 /** 代理分流是否已接管出网。调用侧据它决定要不要自带 dispatcher(自带会绕开代理腿)。 */
 export function isRelayOutboundProxyInstalled(): boolean {
   return installed
@@ -104,7 +114,8 @@ export function installRelayOutboundProxy(): void {
   )
   setGlobalDispatcher(dispatcher)
   installed = true
+  // F-622:出网代理 URL 常含账号密码,装配日志不得明文打印凭据。
   logger.info(
-    `[relay-outbound-proxy] 已装配出网代理分流: ${hosts.join(', ')} → ${proxyUrl}(其余 host 直连)`,
+    `[relay-outbound-proxy] 已装配出网代理分流: ${hosts.join(', ')} → ${maskProxyUrlForLog(proxyUrl)}(其余 host 直连)`,
   )
 }
