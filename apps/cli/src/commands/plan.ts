@@ -22,11 +22,12 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
-  writeFileSync,
+  copyFileSync,
   unlinkSync,
   statSync,
 } from 'node:fs';
 import { join, dirname } from 'node:path';
+import { writeFileAtomicSync } from '../util/atomic-write.js';
 
 const PLANS_RELATIVE_DIR = '.ihui/plans';
 
@@ -119,7 +120,19 @@ function initPlan(workspace: string, name: string | undefined, force: boolean): 
     return;
   }
 
-  writeFileSync(filePath, generatePlanTemplate(stem), 'utf-8');
+  // F-131:原子写(同目录 tmp + rename)—— 修前裸 writeFileSync 在崩溃/磁盘满时
+  // 留半截 plan;--force 覆盖前另留一份 .bak,原内容可寻回。
+  if (existsSync(filePath)) {
+    const backupPath = `${filePath}.bak-${fileTimestamp()}`;
+    try {
+      copyFileSync(filePath, backupPath);
+      console.info(chalk.dim(`  已备份原 plan: ${backupPath}`));
+    } catch {
+      // 备份失败不阻断覆盖(原文件仍由本次原子写保留至 rename 前一刻),只点名。
+      console.warn(chalk.yellow(`  ⚠ 备份失败,覆盖将继续: ${backupPath}`));
+    }
+  }
+  writeFileAtomicSync(filePath, generatePlanTemplate(stem));
   console.info(chalk.green(`✓ 已创建 plan: ${filePath}`));
 }
 
