@@ -704,9 +704,43 @@ fn read_jwts_from_cookies_db(
     out
 }
 
+/// 暂存目录 RAII 守卫：作用域结束（正常返回 / 提前 return / panic）一律递归清理。
+/// 副本里有明文 `value` 列 JWT，不能留在 %TEMP% 里等下次开机。
+struct TempDirCleanup(PathBuf);
+
+impl Drop for TempDirCleanup {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
+/// 每次调用独立的暂存目录：`%TEMP%/ihui-checkin-<pid>-<16 位随机>`。
+/// 随机后缀不可预测，且并发调用各用各的目录 —— 不再按 pid 共享、互相 remove_dir_all。
+fn unique_cookie_staging_dir() -> PathBuf {
+    std::env::temp_dir().join(format!(
+        "ihui-checkin-{}-{}",
+        std::process::id(),
+        random_hex(16)
+    ))
+}
+
+/// 在唯一暂存目录里跑提取：守卫兜住所有退出路径（含 panic）的清理。
+/// 目录建不出来 ⇒ None（Cookies 通道跳过，其余通道照常）。
+fn with_cookie_staging_dir<T>(f: impl FnOnce(&Path) -> T) -> Option<T> {
+    let dir = unique_cookie_staging_dir();
+    let _cleanup = TempDirCleanup(dir.clone());
+    if let Err(e) = std::fs::create_dir_all(&dir) {
+        log::warn!(
+            "[checkin-capture] 建 Cookies 暂存目录失败({}: {e}),Cookies 通道跳过",
+            dir.display()
+        );
+        return None;
+    }
+    Some(f(&dir))
+}
+
 /// 拷 Cookies 库到临时目录再只读打开（TRAE 运行中库被锁，直接开常失败）。
 fn extract_cookie_jwts(trae_dir: &Path) -> Vec<CapturedAccount> {
-    let mut out = Vec::new();
     let key = match read_aes_key_from_local_state(trae_dir) {
         Ok(k) if k.len() == 32 => k,
         Ok(k) => {
@@ -714,39 +748,37 @@ fn extract_cookie_jwts(trae_dir: &Path) -> Vec<CapturedAccount> {
                 "[checkin-capture] DPAPI 密钥长度异常({} 字节,应为 32),Cookies 通道跳过",
                 k.len()
             );
-            return out;
+            return Vec::new();
         }
         Err(e) => {
             log::warn!("[checkin-capture] 读 AES 密钥失败({e}),Cookies 通道跳过,只走 leveldb 兜底");
-            return out;
+            return Vec::new();
         }
     };
 
-    let tmp_dir = std::env::temp_dir().join(format!("ihui-checkin-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&tmp_dir);
-    if std::fs::create_dir_all(&tmp_dir).is_err() {
-        return out;
-    }
-    for (idx, rel) in COOKIES_DB_CANDIDATES.iter().enumerate() {
-        let src = trae_dir.join(rel);
-        if !src.is_file() {
-            continue;
+    with_cookie_staging_dir(|tmp_dir| {
+        let mut out = Vec::new();
+        for (idx, rel) in COOKIES_DB_CANDIDATES.iter().enumerate() {
+            let src = trae_dir.join(rel);
+            if !src.is_file() {
+                continue;
+            }
+            let dst = tmp_dir.join(format!("cookies-{idx}.db"));
+            if let Err(e) = std::fs::copy(&src, &dst) {
+                // 2026-10-12 真机实证:TRAE 运行中 Cookies 库被独占锁(WinError 32),
+                // copy 必败。静默 continue 会让「扫了但 0 账号」无法归因,必须留痕。
+                log::warn!(
+                    "[checkin-capture] 拷 Cookies 库失败({} → {}: {e}),该候选跳过(TRAE 运行中库被锁?完全退出后重试)",
+                    src.display(),
+                    dst.display()
+                );
+                continue;
+            }
+            out.extend(read_jwts_from_cookies_db(&dst, &key, rel));
         }
-        let dst = tmp_dir.join(format!("cookies-{idx}.db"));
-        if let Err(e) = std::fs::copy(&src, &dst) {
-            // 2026-10-12 真机实证:TRAE 运行中 Cookies 库被独占锁(WinError 32),
-            // copy 必败。静默 continue 会让「扫了但 0 账号」无法归因,必须留痕。
-            log::warn!(
-                "[checkin-capture] 拷 Cookies 库失败({} → {}: {e}),该候选跳过(TRAE 运行中库被锁?完全退出后重试)",
-                src.display(),
-                dst.display()
-            );
-            continue;
-        }
-        out.extend(read_jwts_from_cookies_db(&dst, &key, rel));
-    }
-    let _ = std::fs::remove_dir_all(&tmp_dir);
-    out
+        out
+    })
+    .unwrap_or_default()
 }
 
 fn scan_leveldb_dir(trae_dir: &Path, rel: &str, out: &mut Vec<CapturedAccount>) {
@@ -2735,6 +2767,30 @@ pub fn capture_identity_values(trae_dirs: &[PathBuf]) -> Vec<String> {
     out
 }
 
+/// 账本原子写：tmp + rename。读者要么看到旧整份、要么看到新整份，不会读到半份 JSON。
+fn write_identity_ledger_atomic(p: &Path, text: &str) -> Result<(), String> {
+    let name = p.file_name().and_then(|n| n.to_str()).unwrap_or("identity-history.json");
+    let tmp = p.with_file_name(format!("{name}.tmp-{}-{}", std::process::id(), random_hex(8)));
+    let res = std::fs::write(&tmp, text).and_then(|_| std::fs::rename(&tmp, p));
+    if res.is_err() {
+        let _ = std::fs::remove_file(&tmp);
+    }
+    res.map_err(|e| format!("写账本失败({}): {e}", p.display()))
+}
+
+/// 读账本条目：文件不存在 ⇒ 空表（首次使用）；存在但读不出/解析不了 ⇒ 明确报错。
+/// 关键：**绝不把损坏当空表** —— 否则审计会把"账本坏了"判成"0 残留"。
+fn read_identity_entries(p: &Path) -> Result<Vec<serde_json::Value>, String> {
+    let text = match std::fs::read_to_string(p) {
+        Ok(t) => t,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(e) => return Err(format!("读账本失败({}): {e}", p.display())),
+    };
+    let v: serde_json::Value = serde_json::from_str(&text)
+        .map_err(|e| format!("账本不是合法 JSON({}): {e}", p.display()))?;
+    Ok(v.get("entries").and_then(|e| e.as_array()).cloned().unwrap_or_default())
+}
+
 /// 追加一条历史到账本。失败**不拦主流程**:账本只影响"能不能验证",不影响"能不能重置"。
 /// 只保留最近 20 条,防止无限增长。
 fn append_identity_history(values: &[String]) -> Result<(), String> {
@@ -2742,11 +2798,8 @@ fn append_identity_history(values: &[String]) -> Result<(), String> {
         return Ok(());
     }
     let p = identity_history_path().ok_or_else(|| "无法确定用户目录".to_string())?;
-    let mut entries: Vec<serde_json::Value> = std::fs::read_to_string(&p)
-        .ok()
-        .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
-        .and_then(|v| v.get("entries").and_then(|e| e.as_array()).cloned())
-        .unwrap_or_default();
+    // 损坏的账本不得被"读成空表再覆盖" —— 那会永久丢掉全部历史。
+    let mut entries = read_identity_entries(&p)?;
     if entries.len() >= 20 {
         let keep = entries.len() - 19;
         entries = entries.split_off(keep);
@@ -2758,37 +2811,30 @@ fn append_identity_history(values: &[String]) -> Result<(), String> {
     entries.push(serde_json::json!({ "at": at, "values": values }));
     let body = serde_json::json!({ "entries": entries });
     let text = serde_json::to_string_pretty(&body).map_err(|e| e.to_string())?;
-    std::fs::write(&p, text).map_err(|e| e.to_string())
+    write_identity_ledger_atomic(&p, &text)
 }
 
-/// 读回账本里的全部旧身份值 = 审计黑名单。
-fn load_identity_blacklist() -> Vec<String> {
+/// 读回账本里的全部旧身份值 = 审计黑名单。账本损坏时返回 Err（不是空表）。
+fn load_identity_blacklist() -> Result<Vec<String>, String> {
     let Some(p) = identity_history_path() else {
-        return Vec::new();
+        return Ok(Vec::new());
     };
-    let Ok(text) = std::fs::read_to_string(p) else {
-        return Vec::new();
-    };
-    let Ok(v) = serde_json::from_str::<serde_json::Value>(&text) else {
-        return Vec::new();
-    };
+    let entries = read_identity_entries(&p)?;
     let mut out: Vec<String> = Vec::new();
-    if let Some(entries) = v.get("entries").and_then(|e| e.as_array()) {
-        for e in entries {
-            if let Some(vals) = e.get("values").and_then(|x| x.as_array()) {
-                for x in vals.iter().filter_map(|x| x.as_str()) {
-                    let x = x.trim().to_ascii_lowercase();
-                    // 注册表指纹记号(`regfp|...`)不走身份形态过滤
-                    if x.starts_with("regfp|") || looks_like_identity(&x) {
-                        out.push(x);
-                    }
+    for e in &entries {
+        if let Some(vals) = e.get("values").and_then(|x| x.as_array()) {
+            for x in vals.iter().filter_map(|x| x.as_str()) {
+                let x = x.trim().to_ascii_lowercase();
+                // 注册表指纹记号(`regfp|...`)不走身份形态过滤
+                if x.starts_with("regfp|") || looks_like_identity(&x) {
+                    out.push(x);
                 }
             }
         }
     }
     out.sort();
     out.dedup();
-    out
+    Ok(out)
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -3017,9 +3063,32 @@ fn audit_probe_hardware() -> Vec<String> {
     vec!["(非 Windows 平台无硬件标识)".to_string()]
 }
 
+/// 账本损坏 ⇒ "未判定"，不是"0 残留"（fail-closed，不给假阴性）。
+fn ledger_corrupt_report(err: &str) -> ResidualAuditReport {
+    ResidualAuditReport {
+        ok: false,
+        message: format!("⚠️ 身份账本损坏或不可读，本次审计未判定（不会把损坏当 0 残留）: {err}"),
+        blacklist_size: 0,
+        scanned_files: 0,
+        scanned_mb: 0.0,
+        sites_present: audit_sites_present(),
+        hard_hits: 0,
+        hard_hit_files: Vec::new(),
+        suspect_hits: 0,
+        registry: vec!["[REG] 账本不可读,注册表状态未判定".to_string()],
+        hardware: vec!["[硬件] 账本不可读,硬件标识状态未判定".to_string()],
+    }
+}
+
 /// 残留审计主流程(纯同步,可单测;命令层再包一层 spawn_blocking)。
 pub fn audit_trae_residual() -> ResidualAuditReport {
-    let blacklist: Vec<String> = load_identity_blacklist();
+    let blacklist: Vec<String> = match load_identity_blacklist() {
+        Ok(b) => b,
+        Err(e) => {
+            log::warn!("[checkin-capture] 身份账本不可读,审计结论=未判定: {e}");
+            return ledger_corrupt_report(&e);
+        }
+    };
     let zones = audit_scan_zones();
     let sites_present = audit_sites_present();
     if blacklist.is_empty() {
@@ -6311,6 +6380,140 @@ mod tests {
             !got.iter().any(|v| v == "old" || v == "x" || v.len() < 32),
             "非身份短串不得污染账本: {got:?}"
         );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    // ================== F-109:Cookies 暂存目录唯一 + 全退出路径清理 ==================
+
+    /// 两次调用的暂存目录必须不同,且不再回落到"仅 pid"命名(旧实现的并发冲突根因)。
+    #[test]
+    fn cookie_staging_dirs_are_unique_per_call() {
+        let a = unique_cookie_staging_dir();
+        let b = unique_cookie_staging_dir();
+        assert_ne!(a, b, "两次调用不得共享暂存目录: {} / {}", a.display(), b.display());
+        let legacy = std::env::temp_dir().join(format!("ihui-checkin-{}", std::process::id()));
+        for d in [&a, &b] {
+            assert_eq!(d.parent(), Some(std::env::temp_dir().as_path()));
+            assert_ne!(d, &legacy, "不得回落到仅按 pid 命名的共享目录");
+            let name = d.file_name().unwrap().to_string_lossy().into_owned();
+            assert!(
+                name.starts_with(&format!("ihui-checkin-{}-", std::process::id())),
+                "命名应保留 pid 便于归因且带随机后缀: {name}"
+            );
+            assert!(name.len() >= "ihui-checkin-0-".len() + 16, "随机后缀不足: {name}");
+        }
+    }
+
+    /// 并发两次提取:各用各的目录,互不删对方文件,且结束后都清理干净。
+    #[test]
+    fn cookie_staging_dirs_do_not_collide_under_concurrency() {
+        use std::sync::{Arc, Mutex};
+        let handles: Vec<_> = (0..2)
+            .map(|i| {
+                std::thread::spawn(move || {
+                    let seen: Arc<Mutex<Vec<PathBuf>>> = Arc::new(Mutex::new(Vec::new()));
+                    let seen_in = Arc::clone(&seen);
+                    let r = with_cookie_staging_dir(move |dir| {
+                        seen_in.lock().unwrap().push(dir.to_path_buf());
+                        let f = dir.join(format!("cookies-{i}.db"));
+                        std::fs::write(&f, b"plaintext-jwt").expect("写副本");
+                        std::thread::sleep(std::time::Duration::from_millis(80));
+                        assert!(f.is_file(), "并发调用把对方的暂存目录删了: {}", dir.display());
+                    });
+                    assert!(r.is_some(), "暂存目录应创建成功");
+                    let v = seen.lock().unwrap().clone();
+                    v
+                })
+            })
+            .collect();
+        let dirs: Vec<PathBuf> = handles.into_iter().flat_map(|h| h.join().unwrap()).collect();
+        assert_eq!(dirs.len(), 2);
+        assert_ne!(dirs[0], dirs[1], "并发两次提取不得共享暂存目录");
+        for d in dirs {
+            assert!(!d.exists(), "暂存目录必须在作用域结束后清理: {}", d.display());
+        }
+    }
+
+    /// 成功路径与失败(提前 return)路径都必须清理,不留明文副本。
+    #[test]
+    fn cookie_staging_dir_is_cleaned_on_success_and_failure() {
+        let mut ok_path: Option<PathBuf> = None;
+        let r = with_cookie_staging_dir(|dir| {
+            std::fs::write(dir.join("cookies-0.db"), b"plaintext-jwt").unwrap();
+            ok_path = Some(dir.to_path_buf());
+            7usize
+        });
+        assert_eq!(r, Some(7));
+        let p = ok_path.expect("应记录成功路径的暂存目录");
+        assert!(!p.exists(), "成功路径必须清理暂存目录: {}", p.display());
+
+        let mut fail_path: Option<PathBuf> = None;
+        let r: Option<Result<(), String>> = with_cookie_staging_dir(|dir| {
+            std::fs::write(dir.join("cookies-0.db"), b"plaintext-jwt").unwrap();
+            fail_path = Some(dir.to_path_buf());
+            Err::<(), String>("copy failed".into())
+        });
+        assert!(matches!(r, Some(Err(_))), "失败路径应把错误交给调用方");
+        let p = fail_path.expect("应记录失败路径的暂存目录");
+        assert!(!p.exists(), "失败路径必须清理暂存目录: {}", p.display());
+    }
+
+    /// panic 路径同样靠 RAII 兜住,不把明文 JWT 副本留在 %TEMP%。
+    #[test]
+    fn cookie_staging_dir_is_cleaned_on_panic() {
+        use std::sync::{Arc, Mutex};
+        let slot: Arc<Mutex<Option<PathBuf>>> = Arc::new(Mutex::new(None));
+        let slot_in = Arc::clone(&slot);
+        let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            with_cookie_staging_dir(|dir| {
+                std::fs::write(dir.join("cookies-0.db"), b"plaintext-jwt").unwrap();
+                *slot_in.lock().unwrap() = Some(dir.to_path_buf());
+                panic!("boom");
+            });
+        }));
+        assert!(res.is_err(), "闭包应 panic");
+        let p = slot.lock().unwrap().clone().expect("应记录 panic 前的暂存目录");
+        assert!(!p.exists(), "panic 路径必须清理暂存目录: {}", p.display());
+    }
+
+    // ================== F-111:身份账本原子写 + 坏档不当空表 ==================
+
+    /// 原子写后内容完整、无半份/无 tmp 残留;坏档读回是明确错误而非空表。
+    #[test]
+    fn identity_ledger_atomic_write_is_complete_and_corrupt_is_not_empty() {
+        let dir = scratch("identity-ledger");
+        let p = dir.join("identity-history.json");
+
+        // 文件不存在 = 首次使用 ⇒ 空表,不是错误
+        assert_eq!(read_identity_entries(&p).unwrap().len(), 0);
+
+        let body = serde_json::json!({"entries": [
+            {"at": 1, "values": ["0123456789abcdef0123456789abcdef"]},
+            {"at": 2, "values": ["11111111111111111111111111111111"]}
+        ]});
+        write_identity_ledger_atomic(&p, &serde_json::to_string_pretty(&body).unwrap())
+            .expect("原子写应成功");
+        let entries = read_identity_entries(&p).expect("写后可读");
+        assert_eq!(entries.len(), 2, "原子写不得丢条目");
+        assert_eq!(entries[1]["values"][0], "11111111111111111111111111111111");
+        let leftovers: Vec<String> = std::fs::read_dir(&dir)
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .filter(|n| n != "identity-history.json")
+            .collect();
+        assert!(leftovers.is_empty(), "原子写不得残留 tmp 文件: {leftovers:?}");
+
+        // 坏档(半份 JSON)⇒ 明确错误,绝不静默当空表
+        std::fs::write(&p, r#"{"entries": ["#).unwrap();
+        let err = read_identity_entries(&p).expect_err("坏档必须报错");
+        assert!(err.contains("JSON"), "错误应指出解析失败: {err}");
+        // 审计侧据此给"未判定",不再是 ok:true 的假阴性
+        let report = ledger_corrupt_report(&err);
+        assert!(!report.ok, "账本损坏不得判 ok:true(假阴性)");
+        assert!(report.message.contains("未判定"), "{}", report.message);
+        assert_eq!(report.hard_hits, 0);
+
         let _ = std::fs::remove_dir_all(&dir);
     }
 
