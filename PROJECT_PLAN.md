@@ -12237,8 +12237,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 14A. **缺陷普查 DG DG-14** [P3] 元门档是「脚本名正则白名单」：新增门命名不命中即本地零通道，且没有门保证「每门至少一个阻断通道」（证据 docs/tickets/2026-11/findings-deploy-gates.md#DG-14）
 - [ ] 3B. **缺陷普查 WEB W-03** [P3] 退款详情失败时降级为「列表前 100 条匹配」，且静默丢失订单与审核记录（证据 docs/tickets/2026-11/findings-web.md#W-03）
 - [ ] 6B. **缺陷普查 WEB W-06** [P3] 学习支付确认页对长期 pending 订单无上限、无退避轮询，且存在请求重叠（证据 docs/tickets/2026-11/findings-web.md#W-06）
-- [ ] 1C. **缺陷普查 CLI F-001** [P0] run_tests 在 Windows 恒失败（Node ≥20.12 禁止无 shell 直启 .cmd）（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-001）
-- [ ] 2C. **缺陷普查 CLI F-045** [P0] 远程 capability 仍授予 store:default，同时新的受限通道未被授权（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-045）
 - [ ] 5C. **缺陷普查 CLI F-004** [P1] POSIX 沙箱超时可能永不返回（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-004）（未判定：POSIX 进程组/管道超时语义在 Windows 不可达，无法起旧红夹具；不计入已修）
 - [ ] 6C. **缺陷普查 CLI F-005** [P1] 会话/子代理状态文件权限位为 0644（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-005）（未判定：POSIX mode 位在 Windows 不可测，需 Unix 文件系统；不计入已修）
 - [ ] 10C. **缺陷普查 CLI F-046** [P1] 冷启动 ihui:// 深链必然丢失（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-046）
@@ -12325,7 +12323,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 91C. **缺陷普查 CLI F-085** [P3] 设置落盘失败只记日志，仍返回成功（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-085）
 - [ ] 92C. **缺陷普查 CLI F-086** [P3] save_window_state 主线程同步写 + lock().unwrap()（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-086）
 - [ ] 93C. **缺陷普查 CLI F-093** [P3] 终端能力判定漏登 TERM 黑名单（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-093）
-- [ ] 94C. **缺陷普查 CLI F-096** [P0] 钩子信任门可被配置文件字段自证绕过 → 克隆仓库即执行任意 shell（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-096）
 - [ ] 95C. **缺陷普查 CLI F-097** [P1] 钩子派发非全局，读取/子代理/MCP 类工具静默绕过（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-097）
 - [ ] 96C. **缺陷普查 CLI F-098** [P1] 子代理网络与资源限制字段无生产写入方，防护是死代码（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-098）
 - [ ] 97C. **缺陷普查 CLI F-099** [P1] qoder/workbuddy 隔离区恢复缺确认闸且信任 manifest 根/相对路径（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-099）
