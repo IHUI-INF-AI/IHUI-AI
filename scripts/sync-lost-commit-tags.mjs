@@ -41,6 +41,8 @@
  *   --force       绕过限流与积压闸门。不得用无保护的 force 覆盖远端已有且 SHA 不同的
  *                 backup/* 与 lost-commit/*;远端 SHA 不同时拒绝覆盖并点名
  *   --json        配合 --check 用,输出 JSON 格式结果(给 CI/上层调用方)
+ *   --prune-redundant  列出冗余 lost-commit/* tag(peel 后提交已在 remote-tracking refs 里)
+ *   --apply       配合 --prune-redundant 真删;缺省只报不删
  *   --help        打印帮助并 exit 0
  *
  * 退出码:
@@ -63,6 +65,8 @@
  *   node scripts/sync-lost-commit-tags.mjs --fetch      # 拉回
  *   node scripts/sync-lost-commit-tags.mjs --auto-push  # 推送
  *   node scripts/sync-lost-commit-tags.mjs --auto-push --dry-run
+ *   node scripts/sync-lost-commit-tags.mjs --prune-redundant            # 只报冗余数
+ *   node scripts/sync-lost-commit-tags.mjs --prune-redundant --apply    # 真删冗余
  *   HUSKY_SKIP_TAG_SYNC=1 git commit ...                # 紧急跳过
  *
  * 调用方:
@@ -103,6 +107,8 @@ const KNOWN_FLAGS = new Set([
   '--fetch',
   '--auto-push',
   '--push',
+  '--prune-redundant',
+  '--apply',
   '--dry-run',
   '--force',
   '--json',
@@ -111,7 +117,7 @@ const unknownFlags = [...args].filter((a) => !KNOWN_FLAGS.has(a))
 if (unknownFlags.length > 0) {
   console.error(
     `❌ 未知参数:${unknownFlags.join(' ')}\n` +
-      `   本脚本只认 --check / --fetch / --auto-push(推送)/ --dry-run / --force / --json。\n` +
+      `   本脚本只认 --check / --fetch / --auto-push(推送)/ --prune-redundant / --apply / --dry-run / --force / --json。\n` +
       `   不接受缩写或同义词,是为了让拼错**当场失败**,而不是掉进默认分支假装执行。`,
   )
   process.exit(2)
@@ -120,10 +126,25 @@ const isHelp = args.has('--help') || args.has('-h')
 const isFetch = args.has('--fetch')
 // --push 是 --auto-push 的显式别名(文档里既写 `tag:sync:push` 又写 `--auto-push`,两种叫法都得能用)
 const isAutoPush = args.has('--auto-push') || args.has('--push')
-const isCheck = args.has('--check') || (!isFetch && !isAutoPush)
+// --prune-redundant(2026-11-12 立):清理「指向的提交早已在远端分支里」的 lost-commit/* 备份 tag。
+// 备份 tag 一旦所指向的提交后来被别人合入/落到 origin,它就只剩"占名"价值(可达性判据仍绿),
+// 而悬空保活腿每天还在新增 ⇒ 不复位就单调增长(本仓实测 8,754 枚,其中 8,087 枚属此型)。
+// 删除是**只减引用、不动对象**,且仅在 peel 后提交可从 remote-tracking refs 到达时才删 ⇒ 不产生备份缺口。
+// 默认 dry-run;只有显式 --apply 才真删(§29:删除动作必须由人/显式开关拍板)。
+const isPrune = args.has('--prune-redundant')
+const isApply = args.has('--apply')
+const isCheck = args.has('--check') || (!isFetch && !isAutoPush && !isPrune)
 const isDryRun = args.has('--dry-run')
 const isForce = args.has('--force')
 const isJson = args.has('--json')
+if (isApply && !isPrune) {
+  console.error('❌ --apply 只能配合 --prune-redundant 使用(其它模式没有"应用"语义,拒绝静默忽略)')
+  process.exit(2)
+}
+if (isPrune && (isFetch || isAutoPush)) {
+  console.error('❌ --prune-redundant 不能与 --fetch / --auto-push 同用(两种模式各自有独立的远端校准语义)')
+  process.exit(2)
+}
 // 2026-09-17 根治:--auto-push 只推"远端缺失"的 tag(增量),不再每次全量推 5000 个。
 //   旧行为: 每次 commit 后同步 `git push --atomic`(全部 tag) → 10+ 分钟阻塞 post-commit,
 //   表现 = "推送早已完成但终端一直挂着等"。新行为: ls-remote 比对 → 只推缺失项(通常 0~3 个),
@@ -285,8 +306,10 @@ function printHelp() {
   console.log('  --check       校验**全命名空间** tag 本地+远端一致性(名字 + SHA)(默认)')
   console.log('  --fetch       从 origin 拉回全部 tag(以 origin 为权威校准本地)')
   console.log('  --auto-push   把本地未上 origin 的 tag 推到 origin(post-commit 钩子调用)')
+  console.log('  --prune-redundant  列出"提交已在远端分支"的冗余 lost-commit/* tag(默认 dry-run)')
   console.log('')
   console.log('标志:')
+  console.log('  --apply       配合 --prune-redundant 用,真删冗余 tag(不加则只报不删)')
   console.log('  --dry-run     配合 --auto-push 用,只打印不实际 push')
   console.log('  --force       绕过限流与积压闸门;不得覆盖远端已有且 SHA 不同的备份 tag')
   console.log('  --json        配合 --check 用,输出 JSON 格式')
@@ -479,6 +502,110 @@ function diffTagMaps(localMap, remoteMap) {
   const onlyRemoteBackup = onlyRemote.filter(isBackupNamespace)
   const onlyRemoteOther = onlyRemote.filter((t) => !isBackupNamespace(t))
   return { onlyLocal, onlyRemote, shaMismatch, onlyRemoteBackup, onlyRemoteOther }
+}
+
+/**
+ * 远端可达提交集(所有 remote-tracking refs)。取不到 ⇒ null(调用方 fail-closed,绝不按空集删东西)。
+ * 用 `--remotes` 而不是只看 origin/main:其他远端的跟踪分支同样是"已在远端存在"的证据。
+ */
+function listRemoteReachableCommits() {
+  try {
+    const out = gitRaw(['rev-list', '--remotes'], process.cwd(), {
+      maxBuffer: 64 * 1024 * 1024,
+      timeout: 180000,
+    })
+    return new Set(out.split('\n').filter(Boolean))
+  } catch (e) {
+    console.error(
+      `${C.red}❌ git rev-list --remotes 失败,拿不到"哪些提交已在远端"的真值:${e?.message ?? e}${C.reset}`,
+    )
+    return null
+  }
+}
+
+/**
+ * 纯函数:冗余备份 tag 清单。
+ * 冗余 = ① 属 `lost-commit/` 命名空间;② peel 后提交可从 remote-tracking refs 到达;
+ *        ③ 远端没有同名 tag(远端存在即由远端背书,不由本地删)。
+ * 只吃已取好的三份真值,便于单测直接喂夹具。
+ */
+export function redundantBackupTags(localMap, reachableCommits, remoteTagNames) {
+  const out = []
+  for (const [name, sha] of localMap) {
+    if (!name.startsWith('lost-commit/')) continue
+    if (remoteTagNames.has(name)) continue
+    // tag 名来自 for-each-ref,天然是合法 ref;这里仍挡住空白/控制字符,避免拼进 update-ref 输入时串行
+    if (/[\s\x00-\x1f]/.test(name)) continue
+    if (sha && reachableCommits.has(sha)) out.push(name)
+  }
+  out.sort()
+  return out
+}
+
+/**
+ * --prune-redundant:复位"备份 tag 单调增长"(2026-11-12 机主令)。
+ * 默认只报不删;`--apply` 才真删。删除走单进程 `git update-ref --stdin`(8 千枚不必起 8 千个进程),
+ * 删完复读一遍给出实删数与剩余数 —— 计数与判定同一趟读数,不靠"以为删了"。
+ */
+function pruneRedundantMode() {
+  console.log(`${C.cyan}${C.bold}🧹 冗余 lost-commit/* tag 清理(默认 dry-run)${C.reset}`)
+
+  const localMap = listLocalTagMap()
+  const localLostCount = [...localMap.keys()].filter((t) => t.startsWith('lost-commit/')).length
+  if (localLostCount === 0) {
+    console.log(`  ${C.dim}本地无 lost-commit/* tag,无需清理${C.reset}`)
+    process.exit(0)
+  }
+
+  // 远端 tag 名字集:取不到 ⇒ exit 2(不能把"读不到远端"当成"远端没有")
+  const remoteMap = requireRemoteTagMap('prune-redundant')
+  const reachable = listRemoteReachableCommits()
+  if (reachable === null) {
+    console.error(`${C.red}❌ 取不到远端可达提交集 ⇒ 本轮不做任何删除(宁可停,绝不误删唯一备份)${C.reset}`)
+    process.exit(2)
+  }
+
+  const redundant = redundantBackupTags(localMap, reachable, new Set(remoteMap.keys()))
+  console.log(
+    `  ${C.dim}本地 lost-commit/*: ${localLostCount} 枚 | 冗余(提交已在远端分支): ${redundant.length} 枚 | 保留(唯一备份): ${localLostCount - redundant.length} 枚${C.reset}`,
+  )
+  if (redundant.length === 0) {
+    console.log(`  ${C.green}✅ 无冗余,无需清理${C.reset}`)
+    process.exit(0)
+  }
+  console.log(`  ${C.yellow}冗余样例:${C.reset} ${nameList(redundant)}`)
+
+  if (!isApply) {
+    console.log(
+      `\n${C.yellow}⚠️  dry-run:未删除任何 tag。确认后执行:${C.reset}\n   ${C.cyan}node scripts/sync-lost-commit-tags.mjs --prune-redundant --apply${C.reset}`,
+    )
+    process.exit(0)
+  }
+
+  const cmds = redundant.map((t) => `delete refs/tags/${t}`).join('\n') + '\n'
+  try {
+    runGit(['update-ref', '--stdin'], {
+      input: cmds,
+      stdio: ['pipe', 'pipe', 'pipe'],
+      timeout: 120000,
+    })
+  } catch (e) {
+    console.error(`${C.red}❌ 删除失败:${C.reset} ${String((e?.stderr || e?.message || e)).slice(0, 1200)}`)
+    process.exit(1)
+  }
+
+  // 复读:实删数 + 剩余数必须同一趟读数给出(不得拿"计划删"当"已删")
+  const afterMap = listLocalTagMap()
+  const afterLost = [...afterMap.keys()].filter((t) => t.startsWith('lost-commit/')).length
+  const still = redundant.filter((t) => afterMap.has(t))
+  console.log(
+    `\n${C.green}✅ 已删除 ${redundant.length - still.length} 枚冗余 tag;本地 lost-commit/* 剩余 ${afterLost} 枚${C.reset}`,
+  )
+  if (still.length > 0) {
+    console.error(`${C.red}❌ ${still.length} 枚未被删除(点名):${C.reset} ${nameList(still)}`)
+    process.exit(1)
+  }
+  process.exit(0)
 }
 
 /**
@@ -1013,6 +1140,11 @@ function main() {
     return
   }
 
+  if (isPrune) {
+    pruneRedundantMode()
+    return
+  }
+
   // 默认 check 模式
   checkMode()
 }
@@ -1037,6 +1169,7 @@ export const __test__ = {
   isBackupNamespace,
   diffTagSets,
   diffTagMaps,
+  redundantBackupTags,
   reachabilityBatch,
   listLocalTagMap,
   lsRemoteTagMap,

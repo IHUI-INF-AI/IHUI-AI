@@ -848,4 +848,54 @@ test('DBG-91: --force 不得覆盖远端已有且 SHA 不同的 backup/* 与 los
     rmScratch(origin)
   }
 })
+
+// ─── --prune-redundant(2026-11-12 立):备份 tag 只增不减的复位腿 ──────────
+// 立因:悬空保活腿按天新增 lost-commit/*,而一旦所指向的提交后来落到 origin,这枚 tag 就只剩占名;
+// 没有任何复位腿 ⇒ 本仓实测 8,754 枚里 8,087 枚属此型。删除必须严格限定为"提交已在远端分支"。
+test('单元: redundantBackupTags 只认「lost-commit/ + 提交已在远端 + 远端无同名」', () => {
+  const reachable = new Set(['a'.repeat(40), 'b'.repeat(40)])
+  const local = new Map([
+    ['lost-commit/redundant', 'a'.repeat(40)],
+    ['lost-commit/keep-unreachable', 'c'.repeat(40)],
+    ['lost-commit/keep-remote-backed', 'b'.repeat(40)],
+    ['backup/snap', 'a'.repeat(40)],
+  ])
+  const rows = TagSync.redundantBackupTags(
+    local,
+    reachable,
+    new Set(['lost-commit/keep-remote-backed']),
+  )
+  assert.deepEqual(rows, ['lost-commit/redundant'], '只删 lost-commit/ 且提交已可达的;远端有同名的不动')
+})
+
+test('CLI: --prune-redundant 默认 dry-run 不删;--apply 只删冗余,唯一备份保留', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  try {
+    pinLocalOrigin(work, origin)
+    // ① 冗余:提交已在 origin/main 里
+    gitAt(work, 'git tag lost-commit/redundant HEAD')
+    // ② 唯一备份:孤立分支上的提交;分支删掉后只剩这枚 tag 撑着
+    gitAt(work, 'git checkout -b side')
+    writeFileSync(join(work, 'side.txt'), 'side\n')
+    gitAt(work, 'git add side.txt')
+    gitAt(work, 'git commit -m "side"')
+    gitAt(work, 'git tag lost-commit/keep-side HEAD')
+    gitAt(work, 'git checkout main')
+    gitAt(work, 'git branch -D side')
+
+    const dry = runScript(['--prune-redundant'], { cwd: work })
+    assert.equal(dry.status, 0, `dry-run 应 exit 0,实际 ${dry.status}\n${dry.stdout}`)
+    assert.match(dry.stdout, /dry-run/, '必须明说没删(默认档不得静默动手)')
+    assert.ok(localHasTag(work, 'lost-commit/redundant'), 'dry-run 不得删除任何 tag')
+    assert.ok(localHasTag(work, 'lost-commit/keep-side'), 'dry-run 不得删除任何 tag')
+
+    const applied = runScript(['--prune-redundant', '--apply'], { cwd: work })
+    assert.equal(applied.status, 0, `--apply 应 exit 0,实际 ${applied.status}\n${applied.stdout}`)
+    assert.ok(!localHasTag(work, 'lost-commit/redundant'), '提交已在远端的冗余 tag 应被删除')
+    assert.ok(localHasTag(work, 'lost-commit/keep-side'), '唯一备份 tag 必须保留(删了会真丢提交)')
+  } finally {
+    rmScratch(work)
+    rmScratch(origin)
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
