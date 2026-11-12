@@ -348,7 +348,12 @@ export interface ResolvedGitSpawnOptions {
   readonly windowsHide: true;
   readonly killSignal: typeof GIT_KILL_SIGNAL;
 
-  readonly stdio: 'pipe';
+  /**
+   * F-024:与 `tools/git-shared.ts` 的仓库约定一致 —— 本出口不喂 stdin,故 stdin 必须 `ignore`。
+   * 三管全开(`'pipe'`)在 Windows 病会话下建 stdin 管道会 EBUSY,表现为安装/status 间歇随机失败。
+   * stdout/stderr 仍 `pipe`:输出采集与 maxBuffer 封顶都依赖它们,不能一起关掉。
+   */
+  readonly stdio: readonly ['ignore', 'pipe', 'pipe'];
   readonly encoding: 'utf8';
 }
 
@@ -365,7 +370,7 @@ export function resolveGitSpawnOptions(
     cwd: opts.cwd,
     windowsHide: true,
     killSignal: GIT_KILL_SIGNAL,
-    stdio: 'pipe',
+    stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf8',
   };
 }
@@ -576,7 +581,7 @@ export function execGitCapped(args: readonly string[], opts: GitSpawnOptions = {
       timeout: resolved.timeoutMs,
       killSignal: resolved.killSignal,
       windowsHide: resolved.windowsHide,
-      stdio: resolved.stdio,
+      stdio: [...resolved.stdio],
     });
   } catch (raw) {
     throw toGitError(raw, verb, { timeoutMs: resolved.timeoutMs, maxBufferBytes: resolved.maxBufferBytes });
@@ -611,7 +616,8 @@ export function execGitCappedAsync(args: readonly string[], opts: GitCappedAsync
     // `detached` 是 `spawn` 的选项;`execFile` 在运行时会把它透传给 `spawn`(取消腿靠它建进程组),
     // 但本仓的 `@types/node@26` 里 `ExecFileOptions`(extends CommonOptions)**没有**这个字段 ——
     // 直接写字面量会撞 TS2769 重载失配。这里显式把它标进交叉类型:类型面如实,运行面照旧。
-    const execOpts: ExecFileOptions & { detached?: boolean } = {
+    // F-024 的 `stdio` 同理:运行时透传给 spawn,但类型里同样缺这一格。
+    const execOpts: ExecFileOptions & { detached?: boolean; stdio?: Array<'ignore' | 'pipe'> } = {
       cwd: resolved.cwd,
       env: resolved.env,
       encoding: resolved.encoding,
@@ -619,6 +625,8 @@ export function execGitCappedAsync(args: readonly string[], opts: GitCappedAsync
       timeout: resolved.timeoutMs,
       killSignal: resolved.killSignal,
       windowsHide: resolved.windowsHide,
+      // F-024:异步腿同样不喂 stdin;不显式给 stdio 时 Node 默认三管全开,同一 EBUSY 面。
+      stdio: [...resolved.stdio],
       // electron/deadlock 前的取消腿依赖 `killProcessTree(child)`;而它整棵树的机制是
       // `kill(-pid)`(负 pid = 进程组 ID),**进程组只在 child 自成组 leader 时存在**
       // (见 util/spawn-isolated.ts 的「调用端配合条件」)。不设 detached 时 `-pid` 不是任何
