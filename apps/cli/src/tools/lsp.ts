@@ -344,6 +344,7 @@ export class LspClient {
     this.child = child;
 
     if (!child.stdout || !child.stdin) {
+      this.abortStart(child);
       throw new LspUnavailableError(
         'spawn-failed',
         `无法获取 ${candidate.binary} 的 stdio 流(探测时它在位,启动时拿不到管道)`,
@@ -369,6 +370,9 @@ export class LspClient {
     this.conn.listen();
 
     child.on('exit', () => {
+      // F-087:只有"当前" child 的退出才回滚状态。失败重启后旧 child 迟到的 exit
+      // 否则会把新连接 dispose 掉、把新 child 引用清空(顺带摘掉新挂的 exit 监听)。
+      if (this.child !== child) return;
       this.conn?.dispose();
       this.conn = undefined;
       this.child = undefined;
@@ -402,16 +406,35 @@ export class LspClient {
       initParams.initializationOptions = this.config.initializationOptions;
     }
 
-    const initPromise = this.conn.sendRequest(InitializeRequest.type, initParams);
-    await withTimeout(
-      Promise.race([initPromise, spawnError]),
-      LSP_INIT_TIMEOUT_MS,
-      'init-timeout',
-      `LSP initialize 超时:${candidate.binary} 在位但 ${LSP_INIT_TIMEOUT_MS}ms 内没有回 initialize —— 这与"没装"是两个不同的处置动作`,
-    );
+    try {
+      const initPromise = this.conn.sendRequest(InitializeRequest.type, initParams);
+      await withTimeout(
+        Promise.race([initPromise, spawnError]),
+        LSP_INIT_TIMEOUT_MS,
+        'init-timeout',
+        `LSP initialize 超时:${candidate.binary} 在位但 ${LSP_INIT_TIMEOUT_MS}ms 内没有回 initialize —— 这与"没装"是两个不同的处置动作`,
+      );
 
-    await this.conn.sendNotification(InitializedNotification.type, {});
-    this.started = true;
+      await this.conn.sendNotification(InitializedNotification.type, {});
+      this.started = true;
+    } catch (err) {
+      // F-087:失败路径必须回收。不 kill + dispose 就是每失败一次泄漏一个 language server
+      // 进程,且下一次 start 覆盖 this.child 后孤儿再也无人持有引用。
+      this.abortStart(child);
+      throw err;
+    }
+  }
+
+  /** F-087:启动失败时的统一回收 —— 杀进程树、断连接、清引用、摘掉 exit 监听。 */
+  private abortStart(child: ChildProcess): void {
+    this.unregisterExitHandler();
+    killProcessTreeSync(child);
+    this.conn?.dispose();
+    this.conn = undefined;
+    this.child = undefined;
+    this.candidate = undefined;
+    this.openedFiles.clear();
+    this.startPromise = undefined;
   }
 
   /**
