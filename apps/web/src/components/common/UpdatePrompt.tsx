@@ -73,8 +73,9 @@ export function updateTitleKey(status: UpdateStatus): UpdateTitleKey {
 /**
  * UpdatePrompt — 桌面端应用更新下拉提示窗(2026-07-31 立,平台独占:仅桌面端)。
  *
- * 设计(2026-11-12 视觉收口后的真实形态):
- * - 从顶部滑入 + 缩放 + 淡入(0.45s 弹性入场,`animate-update-slide-in`)
+ * 设计(2026-11-13 多端统一收口后的真实形态):
+ * - 从顶部纯下滑入场(0.3s,`animate-update-banner-in`,无缩放)—— 与 PWA 可选更新 / RN 端更新卡入场语义对齐
+ * - 状态退场(关闭 / 状态推进到 idle)时上滑退场(`animate-update-banner-out`),与入场对称,与 PWA / RN 两端一致
  * - 图标微脉动:仅 available 态,2s 周期 1→1.08 缩放
  * - 卡片本体**没有任何发光/旋转光环** —— 旧注释曾写"整卡发光呼吸 + conic-gradient
  *   旋转边框",但那些 CSS 从未与 AGENTS.md §4「不要蓝色发光边框」兼容,且 ::before
@@ -110,31 +111,91 @@ export function UpdatePrompt() {
     status === 'up-to-date' ||
     status === 'error'
 
-  if (!visible) return null
+  // 挂载保持 + 对称退场(2026-11-13 多端统一收口):
+  // visible 翻 false 时不立即卸载,先播上滑(animate-update-banner-out),动画结束再卸载,
+  // 与 PWA 可选更新 / RN 两端更新卡退场语言一致(都是顶部横幅 + 滑入/滑出)。
+  // 注意:status 离开可见集时 updater 即时数据(progress/session…)会归零/清空,
+  // 故捕捉最后一帧展示值,退场期间沿用,避免空白卡闪一下。
+  const [render, setRender] = React.useState(visible)
+  const [leaving, setLeaving] = React.useState(false)
 
-  const version = session?.info.version ?? ''
-  const notes = session?.info.notes ?? ''
-  const percent = Math.round(progress * 100)
-  const dashOffset = RING_CIRCUMFERENCE * (1 - progress)
+  const computeView = () => {
+    const version = session?.info.version ?? ''
+    const notes = session?.info.notes ?? ''
+    const percent = Math.round(progress * 100)
+    const dashOffset = RING_CIRCUMFERENCE * (1 - progress)
+    // D194:错误分型 —— revoked 显示"这个版本已不再提供。",check-failed 显示检查失败,
+    // 两者都不得并显通用失败文案("更新过程中出现错误,请重试"计数必须为 0)
+    const errorKind = classifyUpdateError(error)
+    const errorText =
+      errorKind === 'revoked'
+        ? t('revoked')
+        : errorKind === 'check-failed'
+          ? t('checkFailed')
+          : t('errorDesc')
+    return {
+      status,
+      version,
+      notes,
+      percent,
+      dashOffset,
+      downloaded,
+      total,
+      errorKind,
+      errorText,
+      retryCount,
+      maxRetries,
+      restartCountdown,
+    }
+  }
+  const lastView = React.useRef(computeView())
+  if (visible && !leaving) lastView.current = computeView()
+  // 常态用实时值;退场期间(visible 已 false)沿用最后一帧,避免内容随 idle 归零闪空白
+  const view = visible ? computeView() : lastView.current
+
+  React.useEffect(() => {
+    if (visible) {
+      setRender(true)
+      setLeaving(false)
+    } else if (render && !leaving) {
+      setLeaving(true)
+    }
+  }, [visible, render, leaving])
+
+  const handleAnimationEnd = (e: React.AnimationEvent) => {
+    // 只响应退场动画自身结束(屏蔽子元素 pulse 等冒泡上来的 animationend)
+    if (leaving && e.animationName === 'ihui-update-banner-out') {
+      setRender(false)
+      setLeaving(false)
+    }
+  }
+
+  if (!render) return null
+
+  const {
+    version,
+    notes,
+    percent,
+    dashOffset,
+    downloaded: vDownloaded,
+    total: vTotal,
+    errorText,
+    retryCount: rc,
+    maxRetries: mr,
+    restartCountdown: rcd,
+    status: vStatus,
+  } = view
 
   // 是否显示持续性动效(available 状态时整卡+按钮+图标都有动效)
-  const isAnimated = status === 'available'
-
-  // D194:错误分型 —— revoked 显示"这个版本已不再提供。",check-failed 显示检查失败,
-  // 两者都不得并显通用失败文案("更新过程中出现错误,请重试"计数必须为 0)
-  const errorKind = classifyUpdateError(error)
-  const errorText =
-    errorKind === 'revoked'
-      ? t('revoked')
-      : errorKind === 'check-failed'
-        ? t('checkFailed')
-        : t('errorDesc')
+  const isAnimated = vStatus === 'available'
 
   return (
     <div
       className={cn(
         // top-14(56px)让开自绘顶栏:GlobalTopBar 是 pt-1/pb-1 + h-9(桌面 8+36+6≈50px),
         // 旧值 top-4 会把卡片压在标签栏与窗口拖动区上,窄窗口下直接盖住前两个标签。
+        // 桌面端有自绘顶栏故用 top-14;PWA/browser 无此栏用 top-3(见 GlobalShell)——
+        // 两者所在表面不同,偏移不同是正确而非漂移;多端统一守卫只钉"动画语义"不钉绝对像素。
         'fixed left-1/2 top-14 z-modal w-80 max-w-[calc(100vw-2rem)]',
         '-translate-x-1/2',
       )}
@@ -145,10 +206,12 @@ export function UpdatePrompt() {
     >
       <div
         className={cn(
-          // 旧版的 update-orbit-border / update-card-glow 已在 globals.css 整族删除
-          // (硬编码靛蓝 rgba(129,140,248,…) 发光,违反 §4),类名一并去掉,避免留下死类引用。
-          'animate-update-slide-in overflow-hidden rounded-xl border border-border bg-card',
+          // 纯下滑入场 / 上滑退场(无缩放),与 PWA 可选更新、RN 端更新卡入场语义完全一致;
+          // leaving 时切到 banner-out 播退场,onAnimationEnd 收尾卸载(对称于 RN 的 render 挂载保持)。
+          leaving ? 'animate-update-banner-out' : 'animate-update-banner-in',
+          'overflow-hidden rounded-xl border border-border bg-card',
         )}
+        onAnimationEnd={handleAnimationEnd}
       >
         <div className="relative z-10 p-3">
           {/* 头部:图标 + 标题 + 版本号 */}
@@ -156,17 +219,17 @@ export function UpdatePrompt() {
             <div
               className={cn(
                 'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
-                status === 'error'
+                vStatus === 'error'
                   ? 'bg-danger/10 text-danger-text'
-                  : status === 'done' || status === 'up-to-date'
+                  : vStatus === 'done' || vStatus === 'up-to-date'
                     ? 'bg-success/10 text-success-text'
                     : 'bg-primary/10 text-primary',
                 isAnimated && 'animate-update-icon-pulse',
               )}
             >
-              {status === 'error' ? (
+              {vStatus === 'error' ? (
                 <AlertCircle className="h-4 w-4" />
-              ) : status === 'done' || status === 'up-to-date' ? (
+              ) : vStatus === 'done' || vStatus === 'up-to-date' ? (
                 <Check className="h-4 w-4" />
               ) : (
                 <Sparkles className="h-4 w-4" />
@@ -175,29 +238,29 @@ export function UpdatePrompt() {
 
             <div className="flex-1 min-w-0">
               <p className="truncate text-body font-semibold leading-tight text-foreground">
-                {t(updateTitleKey(status))}
+                {t(updateTitleKey(vStatus))}
               </p>
-              {version && status !== 'error' && (
+              {version && vStatus !== 'error' && (
                 <p className="text-label text-muted-foreground leading-tight mt-0.5">v{version}</p>
               )}
             </div>
           </div>
 
           {/* 更新说明(release notes,最多 3 行) */}
-          {notes && status !== 'error' && status !== 'done' && (
+          {notes && vStatus !== 'error' && vStatus !== 'done' && (
             <p className="mt-2.5 text-label leading-relaxed text-muted-foreground line-clamp-3">
               {notes}
             </p>
           )}
 
           {/* 错误信息(D194:按 classifyUpdateError 分型取词,撤回态不并显通用失败) */}
-          {status === 'error' && (
+          {vStatus === 'error' && (
             <p className="mt-2.5 text-label leading-relaxed text-danger-text">{errorText}</p>
           )}
 
           {/* 状态展示区(强制更新:无按钮,纯展示进度) */}
           <div className="mt-3.5 flex items-center gap-2.5">
-            {status === 'up-to-date' && (
+            {vStatus === 'up-to-date' && (
               <div className="flex h-9 flex-1 items-center justify-center gap-2.5 rounded-lg bg-success/10 px-4">
                 <span className="truncate text-body font-medium text-success-text">
                   {t('upToDateDesc')}
@@ -205,14 +268,14 @@ export function UpdatePrompt() {
               </div>
             )}
 
-            {status === 'available' && (
+            {vStatus === 'available' && (
               <div className="flex h-9 flex-1 items-center justify-center gap-2.5 rounded-lg bg-cta/10 px-4">
                 <RefreshCw className="h-4 w-4 animate-spin text-primary" />
                 <span className="text-body font-medium text-primary">{t('preparing')}</span>
               </div>
             )}
 
-            {status === 'downloading' && (
+            {vStatus === 'downloading' && (
               <div
                 className="flex h-9 flex-1 items-center justify-center gap-2.5 rounded-lg bg-cta/10 px-4"
                 aria-live="off"
@@ -254,28 +317,28 @@ export function UpdatePrompt() {
                   />
                 </svg>
                 <span className="text-body font-medium text-primary tabular-nums">{percent}%</span>
-                {total > 0 && (
+                {vTotal > 0 && (
                   <span className="text-label text-muted-foreground tabular-nums">
-                    {formatFileSize(downloaded)} / {formatFileSize(total)}
+                    {formatFileSize(vDownloaded)} / {formatFileSize(vTotal)}
                   </span>
                 )}
               </div>
             )}
 
-            {status === 'installing' && (
+            {vStatus === 'installing' && (
               <div className="flex h-9 flex-1 items-center justify-center gap-2.5 rounded-lg bg-cta/10 px-4">
                 <RefreshCw className="h-4 w-4 animate-spin text-primary" />
                 <span className="text-body font-medium text-primary">{t('installing')}</span>
               </div>
             )}
 
-            {status === 'done' && (
+            {vStatus === 'done' && (
               // w-full:父级是 flex,不给宽度这一列会缩到内容宽 —— 实测按钮行止于 x=757
               // 而卡片内容右缘 867,右侧空出 110px,倒计时条与按钮跟上方状态条不对齐。
               <div className="flex w-full flex-col gap-2">
                 <div className="flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-success/10 px-4">
                   <span className="truncate text-body font-medium text-success-text tabular-nums">
-                    {t('autoRestartIn', { countdown: restartCountdown })}
+                    {t('autoRestartIn', { countdown: rcd })}
                   </span>
                 </div>
                 <div className="flex w-full items-center gap-2">
@@ -299,9 +362,9 @@ export function UpdatePrompt() {
               </div>
             )}
 
-            {status === 'error' && (
+            {vStatus === 'error' && (
               <div className="flex h-9 flex-1 items-center justify-center gap-2.5 rounded-lg bg-danger/10 px-4">
-                {retryCount < maxRetries ? (
+                {rc < mr ? (
                   <>
                     <RefreshCw className="h-4 w-4 shrink-0 animate-spin text-danger-text" />
                     <span className="truncate text-body font-medium text-danger-text">
@@ -318,14 +381,14 @@ export function UpdatePrompt() {
           </div>
 
           {/* 下载进度条(细线,downloading/installing 时显示) */}
-          {(status === 'downloading' || status === 'installing') && (
+          {(vStatus === 'downloading' || vStatus === 'installing') && (
             <div className="mt-2 h-0.5 w-full overflow-hidden rounded-sm bg-cta/10">
               <div
                 className={cn(
                   'h-full rounded-sm bg-primary transition-[width] duration-300 ease-out',
-                  status === 'installing' && 'animate-update-ring-pulse',
+                  vStatus === 'installing' && 'animate-update-ring-pulse',
                 )}
-                style={{ width: `${Math.max(progress * 100, 2)}%` }}
+                style={{ width: `${Math.max(percent, 2)}%` }}
               />
             </div>
           )}
