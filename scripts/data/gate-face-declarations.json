@@ -1217,6 +1217,10 @@
       "face": "auto",
       "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
     },
+    "scripts/check-worktree-dev-banned.mjs": {
+      "face": "staged",
+      "reason": "§12d worktree 停用防回归守门:门体为新增件、HEAD 未持有,取 staged 面使门体与被判文件(agent-worktree.mjs/worktree-isolate.mjs)同代自洽;落 HEAD 后此面仍等价。stagedTriggers 已把射程收到这两个文件被改时才触发"
+    },
     "scripts/check-worktree-status.mjs": {
       "face": "auto",
       "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"

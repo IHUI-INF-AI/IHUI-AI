@@ -59,7 +59,6 @@ import { basename, dirname, isAbsolute, join, parse, relative, resolve } from 'n
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { gitRaw } from './lib/face-reader.mjs'
-import { requireFlagValue } from './lib/flag-value.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import { parseStatusPorcelain, parseWorktreePorcelain } from './check-worktree-status.mjs'
 
@@ -1043,20 +1042,13 @@ async function main(argv) {
   if (argv.includes('--self-test')) return selfTest()
   const cmd = argv[0]
   if (cmd === 'new') {
-    const slug = argv[1] && !String(argv[1]).startsWith('-') ? argv[1] : null
-    if (!slug) return usage()
-    const dest = requireFlagValue(argv, '--dest', { noun: '目录' })
-    const branch = requireFlagValue(argv, '--branch', { noun: '分支名' })
-    const base = requireFlagValue(argv, '--base', { noun: 'git ref', fallback: 'HEAD' })
-    for (const f of [dest, branch, base]) {
-      if (f.error) {
-        console.error(`❌ ${f.error}`)
-        return EXIT_UNKNOWN
-      }
-    }
-    const r = newWorktree({ slug, dest: dest.value, branch: branch.value, base: base.value })
-    for (const l of r.out) console.log(l)
-    return r.exit
+    // §12d 停用(2026-11-12 机主定案):本项目禁止用 git worktree 做并行开发隔离。
+    console.error(
+      '❌ 拒绝创建:本项目已停用开发用 git worktree(§12d,2026-11-12 机主定案)。\n'
+        + '   跨会话现场隔离出路 = `node scripts/isolated-git.mjs`(§12i,pathspec 级隔离,无需后续合并);\n'
+        + '   或等前席收尾再动同一批文件。历史检出的 land / drop / list 仍可用。',
+    )
+    return EXIT_REFUSED
   }
   if (cmd === 'land') {
     const target = argv[1] && !String(argv[1]).startsWith('-') ? argv[1] : null

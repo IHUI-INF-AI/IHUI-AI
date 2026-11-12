@@ -1221,42 +1221,14 @@ function main(argv) {
   }
 
   if (has('--create')) {
-    let name
-    try {
-      name = normalizeName(val('--create', ''))
-    } catch (e) {
-      console.error(`❌ ${e.message}`)
-      process.exitCode = EXIT_UNKNOWN
-      return
-    }
-    const base = val('--base', 'HEAD')
-    const path = worktreePathOf(name)
-    const branch = branchOf(name)
-    const list = git(['worktree', 'list', '--porcelain'])
-    if (!list.ok) {
-      console.error('❌ 未判定:读不到 worktree 清单')
-      process.exitCode = EXIT_UNKNOWN
-      return
-    }
-    if (parseWorktreeList(list.out).some((w) => resolve(w.path) === resolve(path))) {
-      console.error(`❌ 名字被占用:${path} 已是活动检出(先 --remove 或换名)`)
-      process.exitCode = EXIT_REFUSED
-      return
-    }
-    console.log(`落点 ${path}\n分支 ${branch}(base=${base})`)
-    if (!apply) {
-      console.log('ℹ dry-run:未写入。加 --apply 执行。')
-      return
-    }
-    const r = git(['worktree', 'add', '-b', branch, path, base])
-    if (!r.ok) {
-      console.error(`❌ 创建失败:${(r.err || r.out).trim()}`)
-      process.exitCode = EXIT_REFUSED
-      return
-    }
-    console.log(
-      `✅ 已创建 ${path}(分支 ${branch});收尾按 AGENTS §12h 五步:合并 → 提交推送 → 回收 → 删分支 → prune`,
+    // §12d 停用(2026-11-12 机主定案):本项目禁止用 git worktree 做并行开发隔离(合并收尾成本过高)。
+    // 本出口已封死 —— 一律拒绝创建并指向规范。清理与自愈(--reap / --purge-orphan / --remove / --list)不受影响。
+    console.error(
+      '❌ 拒绝创建:本项目已停用开发用 git worktree(§12d,2026-11-12 机主定案 —— 隔离后仍需合并,收尾成本大于收益)。\n'
+        + '   跨会话现场隔离的唯一出路 = `node scripts/isolated-git.mjs`(私有索引 pathspec 级隔离,无需后续合并,§12i);\n'
+        + '   或等前席收尾再动同一批文件。历史检出收敛见 §12h(能合即合、不能合先 tag 保活再回收)。',
     )
+    process.exitCode = EXIT_REFUSED
     return
   }
 
