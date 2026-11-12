@@ -637,7 +637,8 @@ def _decode_jwt_claims(token: str) -> dict[str, Any] | None:
     if len(parts) != 3:
         return None
     try:
-        return json.loads(_b64url_decode(parts[1]))
+        claims = json.loads(_b64url_decode(parts[1]))
+        return claims if isinstance(claims, dict) else None
     except Exception:  # noqa: BLE001 — 任意解码失败都视为非 JWT
         return None
 
