@@ -440,4 +440,33 @@ test('M17 OTA 版本 env 判据:复用 app.config 单源,漏注入/缺省/判据
     '判据被删必须判未判定,不能冒绿放行',
   )
 })
+
+test('M18 CLI 参数判据:短旗/未知旗零复抄,局部 opt 已退役', () => {
+  const { readArgValue, unknownArgs, CLI_VALUE_FLAGS, CLI_BOOL_FLAGS } = __test__
+  for (const fn of [readArgValue, unknownArgs])
+    assert.equal(typeof fn, 'function', '判据必须随源脚本导出')
+  assert.equal(readArgValue(['-m', 'fix: x'], 'm'), 'fix: x')
+  assert.equal(readArgValue(['--message', 'fix: x'], 'message'), 'fix: x')
+  assert.equal(readArgValue(['-m'], 'm', 'fallback'), 'fallback')
+  assert.equal(readArgValue(['-m', '--execute'], 'm', 'fallback'), 'fallback')
+  assert.deepEqual(unknownArgs(['--execute', '--leg', 'ota-production', '--messge', 'x']), [
+    '--messge',
+  ])
+  assert.deepEqual(
+    unknownArgs(['--execute', '--leg', 'ota-production', '-m', 'note', '--json']),
+    [],
+  )
+  assert.equal(unknownArgs(['--leg=ota-production']).length, 1, '等号形态不许静默忽略')
+  assert.ok(CLI_VALUE_FLAGS.includes('m') && CLI_BOOL_FLAGS.includes('execute'))
+  assert.match(SRC, /readArgValue\(argv, 'm'\)/, '发布消息必须走纯判据')
+  assert.doesNotMatch(SRC, /const opt = /, '局部 opt 已退役')
+  assert.match(SRC, /const stray = unknownArgs\(argv\)/, '未知参数必须在 main 门口拒跑')
+})
+
+test('M19 OTA 发布腿清 Metro 缓存:执行参数与展示命令同形态', () => {
+  // 2026-11-12 实测:同一台机换版本 env 再发,Metro 缓存会把旧 bundle 原样打进去
+  // (0.0.25→0.0.26 产物 hash 不变,加 --clear 才变) ⇒ 两条出口都必须带 --clear-cache。
+  assert.ok(SRC.split('--clear-cache').length - 1 >= 2, '执行腿与展示命令须各带一处 --clear-cache')
+  assert.match(SRC, /--non-interactive --clear-cache/, '展示命令必须是可直接复制跑的形态')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
