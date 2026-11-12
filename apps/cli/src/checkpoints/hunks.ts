@@ -20,6 +20,7 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import * as crypto from 'node:crypto';
 import { isRecord, isJsonArray } from '../util/json.js';
+import { writeFileAtomicSync } from '../util/atomic-write.js';
 // 会话/检查点 id 路径穿越修复:与 CheckpointManager 共用同一套收敛 + 根内/realpath 判据。
 import { assertPathInside, isPathInside, resolveWorkspaceRelPath, segmentPathInside } from '../util/path-guard.js';
 import { readManifestChecked, type CorruptManifestEntry } from './manifest-integrity.js';
@@ -197,10 +198,10 @@ export class HunkCheckpointManager {
 
     const cpDir = assertPathInside(this.baseDir, path.join(this.baseDir, id), 'hunk 检查点目录');
     this.ensureDir(cpDir);
-    fs.writeFileSync(
+    // F-029:清单原子写(裸 writeFileSync 被杀会留半截 JSON ⇒ 该 hunk 快照当场判损坏)。
+    writeFileAtomicSync(
       path.join(cpDir, 'manifest.json'),
       JSON.stringify(meta, null, 2),
-      'utf-8',
     );
 
     this.pruneOldCheckpoints();
