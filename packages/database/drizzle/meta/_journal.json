@@ -2734,6 +2734,13 @@
       "when": 1794388680000,
       "tag": "20261111180200_ai_task_template",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 393,
+      "when": 1794388740000,
+      "tag": "20261112180000_hr_approval_snapshot",
+      "breakpoints": true
     }
   ]
 }

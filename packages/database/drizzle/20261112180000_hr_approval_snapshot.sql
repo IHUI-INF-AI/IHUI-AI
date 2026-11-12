@@ -39,23 +39,31 @@ ALTER TABLE "hr_approval_instance"
 -- 守门:仅回填三列全为默认值(approver_proxy IS NULL AND timeout_hours = 24 AND
 --       escalation_approver IS NULL)的实例 —— 即迁移刚加上、尚未被应用层显式写入
 --       非默认值的行。幂等:重复执行时已回填行三列不再同时为默认值,自动跳过。
+-- 注意:UPDATE 的 FROM 子查询不能 LATERAL 引用被更新目标表(PostgreSQL 42P10),
+--       故把「待回填实例 ⨝ 命中规则」的配对整体放进 FROM 子查询,再按实例 id 回连更新。
 UPDATE "hr_approval_instance" AS inst
 SET
-  "approver_proxy_snapshot" = f."approver_proxy_id",
-  "timeout_hours_snapshot" = f."timeout_hours",
-  "escalation_approver_snapshot" = f."escalation_approver_id"
-FROM LATERAL (
-  SELECT "approver_proxy_id", "timeout_hours", "escalation_approver_id"
-  FROM "hr_approval_flow" AS fl
-  WHERE fl."leave_type" = (SELECT lr."leave_type" FROM "hr_leave_request" lr WHERE lr."id" = inst."leave_request_id")
-    AND fl."status" = 'active'
-    AND fl."deleted_at" IS NULL
-    AND fl."min_days" <= (SELECT lr."total_days" FROM "hr_leave_request" lr WHERE lr."id" = inst."leave_request_id")
-    AND (fl."max_days" IS NULL OR (SELECT lr."total_days" FROM "hr_leave_request" lr WHERE lr."id" = inst."leave_request_id") < fl."max_days")
-  ORDER BY fl."min_days" DESC
-  LIMIT 1
-) f
-WHERE inst."approver_proxy_snapshot" IS NULL
-  AND inst."timeout_hours_snapshot" = 24
-  AND inst."escalation_approver_snapshot" IS NULL;
+  "approver_proxy_snapshot" = pair."approver_proxy_id",
+  "timeout_hours_snapshot" = pair."timeout_hours",
+  "escalation_approver_snapshot" = pair."escalation_approver_id"
+FROM (
+  SELECT DISTINCT ON (i."id")
+    i."id" AS inst_id,
+    fl."approver_proxy_id",
+    fl."timeout_hours",
+    fl."escalation_approver_id"
+  FROM "hr_approval_instance" i
+  JOIN "hr_leave_request" lr ON lr."id" = i."leave_request_id"
+  JOIN "hr_approval_flow" fl
+    ON fl."leave_type" = lr."leave_type"
+   AND fl."status" = 'active'
+   AND fl."deleted_at" IS NULL
+   AND fl."min_days" <= lr."total_days"
+   AND (fl."max_days" IS NULL OR lr."total_days" < fl."max_days")
+  WHERE i."approver_proxy_snapshot" IS NULL
+    AND i."timeout_hours_snapshot" = 24
+    AND i."escalation_approver_snapshot" IS NULL
+  ORDER BY i."id", fl."min_days" DESC
+) pair
+WHERE inst."id" = pair."inst_id";
 -- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
