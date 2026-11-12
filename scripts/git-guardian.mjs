@@ -2849,10 +2849,74 @@ export function auditDispatchSites(src) {
 }
 
 /**
- * §T6 自愈层:报警前先尝试自愈。healed===true 则 notifyGuardRed 跳过发信(记 info),
- * 异常/返回非 true 一律回退原报警(fail-safe,绝不因自愈失败漏报真故障)。
+ * §T6 自愈层(2026-11-12 扩容):报警前按「族 id 优先 / name 回退」找路由,只跑**已登记的安全幂等器物**,
+ * 且必须「器物跑通 + 同一把只读尺子复判判绿」两段都成立才 return true 抑制发信。
+ *
+ * 为什么认族 id:策略表 scripts/data/alert-delivery-policy.json 现 33 条,旧表只有一条精确 name
+ * 路由 ⇒ 30+ 族零覆盖。族 id(policyEntry.id,:2917 已算好,本层只复用不重算)是稳定身份;
+ * 而「lint-staged stdio 三针缺口」没有对应族条目,必须保留 name 精确匹配作兜底(行为不得变)。
+ * 两级都找不到 ⇒ return false(fail-open 照寄),与扩容前完全一致。
+ *
+ * 为什么每条路由都必须 healer + recheck 两段:器物 exit 0 只证明"跑完",不证明"修好"
+ * (例:补丁器物在上游改版的安装副本上可能 exit 0 却一针没打上)。复判必须再跑**只读**尺子,
+ * 两绿才抑制;任一异常/未判定/超时一律 return false 落到发信面,绝不因自愈失败漏报真故障。
+ *
+ * 登记门槛(六条全满足才进表,宁可空表也不造危险路由):器物幂等 / 不改 git 历史 /
+ * 不碰任何工作树未提交文件 / 不写生产签出 D:/DevEnv/ihui-prod / 不重启服务 / 不改判据本身。
+ * AUTO_HEAL_LEDGER 里标 manual 的族(prod-foreign-work / merge-addition-loss / 逐字回潮等)
+ * 一律不接自动自愈 —— 它们要改历史或覆盖他人未提交工作。逐条核实与排除清单见本次报告。
+ *
+ * 三态节流 + 熔断 + 在途占位,状态落 .ihui-agent/state/git-guardian-self-heal-state.json:
+ * 形态照抄 :339-345 / :3225-3240 的对齐自愈 —— 节流 30min 防「每 2 分钟一轮把修变成新负载」,
+ * 最多 3 次熔断防「失败也换个更吵的形态」,inFlight 占位防并发重派且 finally 必清(异常不留僵死锁)。
+ * 读状态失败一律按空表处理(fail-open):台账坏了不该把自愈永久禁用,更不该打穿整轮 tick。
+ * 本层与 AUTO_HEAL_LEDGER(健康轮次派发器物)是两套,互不改写。
  */
-function healLintStagedPins({ logger = log } = {}) {
+
+// —— 状态与护栏常量(与对齐自愈同形;路径/阈值只在这里定义一次)——
+const SELF_HEAL_STATE_FILE = join(
+  WORKTREE,
+  '.ihui-agent',
+  'state',
+  'git-guardian-self-heal-state.json',
+)
+const SELF_HEAL_THROTTLE_MS = 30 * 60 * 1000
+const SELF_HEAL_MAX_ATTEMPTS = 3
+// 器物单步封顶:超时必被 execFileSync 抛成异常 ⇒ trySelfHeal 的 catch 一律 return false 照寄。
+// 在途占位僵死阈值 = 单步 timeout + 余量:进程被带走没走到 finally 时,下一轮(2min)要能放行,
+// 绝不让残留的 inFlight:true 把该族永久挡在自愈之外(需求:异常后下轮不被永久挡住)。
+const SELF_HEAL_STEP_TIMEOUT_MS = 120_000
+const SELF_HEAL_INFLIGHT_STALE_MS = SELF_HEAL_STEP_TIMEOUT_MS + 60_000
+
+/** 读自愈状态:坏 JSON / 非对象 / 读不到 ⇒ 空表(fail-open),形态同 readAlignHealAttempts(:3196)。 */
+function readSelfHealState(p = SELF_HEAL_STATE_FILE) {
+  try {
+    const v = JSON.parse(readFileSync(p, 'utf8'))
+    if (!v || typeof v !== 'object' || Array.isArray(v)) return {}
+    return v
+  } catch {
+    return {}
+  }
+}
+/** 写自愈状态:原子 tmp+rename,失败只返回 false(台账写不进不得打断整轮 tick),形态同 :3207。 */
+function writeSelfHealState(map, p = SELF_HEAL_STATE_FILE) {
+  try {
+    mkdirSync(dirname(p), { recursive: true })
+    const tmp = `${p}.${process.pid}.tmp`
+    writeFileSync(tmp, JSON.stringify(map, null, 1), 'utf8')
+    renameSync(tmp, p)
+    return true
+  } catch {
+    return false
+  }
+}
+
+// —— 原样板两段化:lint-staged 三针(name 精确匹配兜底,行为与原 healLintStagedPins 逐字等价)——
+// 器物 scripts/lib/patch-lint-staged-stdio.mjs:头注 :7 明写「Idempotent」、:8「--check 只读判针」,
+// 只改 node_modules 里 lint-staged@17.3.0 的 3 个文件(gitignored,非工作树未提交文件),
+// 不碰历史/生产签出/服务/判据。原函数把 apply 与 --check 塞进一个 try,现拆成 healer/recheck,
+// 调用顺序、timeout=60_000、stdio 三态、异常语义、复判正则逐字不变。
+function healLintStagedPinsApply({ logger = log } = {}) {
   const script = join(dirname(fileURLToPath(import.meta.url)), 'lib', 'patch-lint-staged-stdio.mjs')
   if (!existsSync(script)) {
     logger(`ℹ️ 自愈:补丁脚本不在位(${script})⇒ 跳过`)
@@ -2865,6 +2929,15 @@ function healLintStagedPins({ logger = log } = {}) {
       timeout: 60_000,
       stdio: ['ignore', 'pipe', 'pipe'],
     })
+    return true
+  } catch (e) {
+    logger(`⚠️ 自愈:lint-staged 重打异常:${String((e && e.message) || e).slice(0, 120)}`)
+    return false
+  }
+}
+function healLintStagedPinsRecheck({ logger = log } = {}) {
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'lib', 'patch-lint-staged-stdio.mjs')
+  try {
     const out = execFileSync(process.execPath, [script, '--check'], {
       cwd: WORKTREE,
       windowsHide: true,
@@ -2880,8 +2953,142 @@ function healLintStagedPins({ logger = log } = {}) {
     return false
   }
 }
+
+// —— 族 id 路由:local-restore-refresh-family(策略表 prefix「本地恢复源刷新失败」)——
+// 器物 scripts/git-backup-refresh.mjs:头注 :25 明写「全程只读工作树仓库、只写工作树之外」,
+// :14 增量 fetch(幂等)、:18「--check(零副作用体检,守护每轮跑)」、:24「--check 与 --dry-run 一支都不建」。
+// 只写工作区外的备份 gitdir,不改主仓历史、不碰工作树未提交文件、不写 D:/DevEnv/ihui-prod、
+// 不重启服务、不改判据。healer 跑 apply(增量 fetch),recheck 跑同一器物的 --check ——
+// 与巡检腿 refreshRecoverySource() :2617 判红用的是**同一把只读尺子**(code 0 已追平 / 1 落后 / 其它未判定)。
+// 绝不把 apply exit 0 当修成:--check 非绿(execFileSync 抛)一律 return false 照寄。
+function healLocalRestoreRefreshApply({ logger = log } = {}) {
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'git-backup-refresh.mjs')
+  if (!existsSync(script)) {
+    logger(`ℹ️ 自愈:恢复源器物不在位(${script})⇒ 跳过`)
+    return false
+  }
+  try {
+    execFileSync(process.execPath, [script], {
+      cwd: WORKTREE,
+      windowsHide: true,
+      timeout: SELF_HEAL_STEP_TIMEOUT_MS,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    return true
+  } catch (e) {
+    logger(`⚠️ 自愈:恢复源刷新异常:${String((e && e.message) || e).slice(0, 120)}`)
+    return false
+  }
+}
+function healLocalRestoreRefreshRecheck({ logger = log } = {}) {
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'git-backup-refresh.mjs')
+  try {
+    execFileSync(process.execPath, [script, '--check'], {
+      cwd: WORKTREE,
+      windowsHide: true,
+      timeout: SELF_HEAL_STEP_TIMEOUT_MS,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+    // --check exit 0 = 已追平(绿);非 0 会抛进 catch ⇒ 未判定/落后都绝不抑制。
+    return true
+  } catch (e) {
+    const code = typeof (e && e.status) === 'number' ? e.status : '?'
+    logger(`ℹ️ 自愈:恢复源复判 --check 非绿(exit ${code})⇒ 不抑制`)
+    return false
+  }
+}
+
+/**
+ * 自愈路由表:键优先按 policyEntry.id(族 id)查,查不到回退 name 精确匹配,再找不到 return false。
+ * 值统一 { healer, recheck }:healer 跑幂等器物,recheck 用同一把只读尺子复判;两段都 true 才抑制。
+ * 只登记上面逐条核实过六条门槛的族;找不到合格器物的族一律不登记(fail-open 照寄)。
+ */
 const SELF_HEAL_ROUTES = {
-  'lint-staged stdio 三针缺口': healLintStagedPins,
+  // 保留原路由(键名逐字不动);策略表无对应族 id,只能走 name 回退。
+  'lint-staged stdio 三针缺口': {
+    healer: healLintStagedPinsApply,
+    recheck: healLintStagedPinsRecheck,
+  },
+  'local-restore-refresh-family': {
+    healer: healLocalRestoreRefreshApply,
+    recheck: healLocalRestoreRefreshRecheck,
+  },
+}
+
+/**
+ * 派发前自愈决策:任何异常/未判定/超时一律 return false(fail-open,落到 :3007 继续发信)。
+ * 所有外部依赖(routes / stateFile / 阈值 / familyId)都可注入 ⇒ 单元级可零真跑、零真写默认位置、
+ * 零真发信地复现六态。severity / 正文 / alertId / dedupKey / 族窗口计数一律不碰。
+ */
+function trySelfHeal({
+  name,
+  familyId,
+  now = Date.now(),
+  logger = log,
+  routes = SELF_HEAL_ROUTES,
+  stateFile = SELF_HEAL_STATE_FILE,
+  throttleMs = SELF_HEAL_THROTTLE_MS,
+  maxAttempts = SELF_HEAL_MAX_ATTEMPTS,
+  inflightStaleMs = SELF_HEAL_INFLIGHT_STALE_MS,
+} = {}) {
+  try {
+    // ① 两级查表:族 id 优先 → name 回退 → 都没有就 return false(行为与扩容前完全一致)。
+    const route = (familyId && routes[familyId]) || routes[name] || null
+    if (!route || typeof route.healer !== 'function' || typeof route.recheck !== 'function') return false
+    const key = familyId || name
+
+    // ② 三态护栏:读状态(失败按空表)/熔断/节流/在途占位。
+    const state = readSelfHealState(stateFile)
+    const entry = state[key] || {}
+    const attempts = Number(entry.attempts) || 0
+    if (attempts >= maxAttempts) return false // 熔断:失败也要有上限,转人工照寄
+    if (Number(entry.lastAttemptAt) && now - Number(entry.lastAttemptAt) < throttleMs) return false // 节流
+    if (entry.inFlight === true) {
+      // 正常路径 finally 必清;残留占位超过僵死阈值(进程被带走没走到 finally)一律放行,
+      // 绝不让一个 inFlight:true 把该族永久挡住(需求:异常后下轮不被永久挡住)。
+      if (Number(entry.inFlightAt) && now - Number(entry.inFlightAt) < inflightStaleMs) return false
+    }
+    // 先落「已尝试 + 在途」再跑:即使器物把本进程带走,也不会留下"没记过却跑了"的半拉账。
+    writeSelfHealState(
+      {
+        ...state,
+        [key]: {
+          ...entry,
+          lastAttemptAt: now,
+          attempts: attempts + 1,
+          inFlight: true,
+          inFlightAt: now,
+        },
+      },
+      stateFile,
+    )
+    let healed = false
+    try {
+      // ③ 器物 + 复判:healer 的 true 只是"跑通",必须再过 recheck 这把只读尺子才算修成。
+      const ran = route.healer({ now, logger })
+      healed = ran === true && route.recheck({ now, logger }) === true
+    } finally {
+      // ④ inFlight 必清(异常也不留僵死锁);成功则 attempts 归零,失败保留计数供熔断用。
+      const after = readSelfHealState(stateFile)
+      const cur = after[key] || {}
+      writeSelfHealState(
+        {
+          ...after,
+          [key]: {
+            ...cur,
+            attempts: healed ? 0 : cur.attempts,
+            inFlight: false,
+            inFlightAt: 0,
+          },
+        },
+        stateFile,
+      )
+    }
+    return healed === true
+  } catch (e) {
+    logger(`⚠️ 自愈层异常(忽略,回退报警):${String((e && e.message) || e).slice(0, 120)}`)
+    return false
+  }
 }
 
 export function notifyGuardRed(name, detail, opts = {}) {
@@ -2988,17 +3195,22 @@ export function notifyGuardRed(name, detail, opts = {}) {
         why: `同一原因窗口内已通报,本轮压住(累计 ${n} 次${policyHold ? `,族窗口 ${Math.round(policyEntry.cooldownMs / 3600000)}h` : ''})`,
       }
     }
-    // §T6 自愈层:发信前先尝试对应 healer;healed===true 则跳过发信(记 info),
-    // 异常/返回非 true 一律回退原报警(fail-safe,绝不因自愈失败漏报真故障)。
+    // §T6 自愈层:发信前先按族 id / name 找路由,只跑已登记的安全幂等器物;
+    // 必须「器物跑通 + 只读尺子复判判绿」两段都成立才跳过发信(记 info),
+    // 任何异常/未判定/超时/未登记一律回退原报警(fail-safe,绝不因自愈失败漏报真故障)。
     if (!force) {
       try {
-        const healer = SELF_HEAL_ROUTES[name]
-        if (typeof healer === 'function') {
-          const healed = healer({ now, logger })
-          if (healed === true) {
-            logger(`✅ 自愈成功,跳过报警:${name}(下轮复检确认)`)
-            return { sent: false, selfHealed: true, why: `自愈成功:${name}` }
-          }
+        const healed = trySelfHeal({
+          name,
+          familyId: policyEntry ? policyEntry.id : undefined, // :2917 已算好的 policyEntry,复用不重算
+          now,
+          logger,
+          // 单元注入口(仅测试用):可覆盖 routes/stateFile/阈值/familyId,零真跑、零真写默认位置、零真发信。
+          ...(opts.selfHeal && typeof opts.selfHeal === 'object' ? opts.selfHeal : {}),
+        })
+        if (healed === true) {
+          logger(`✅ 自愈成功,跳过报警:${name}(下轮复检确认)`)
+          return { sent: false, selfHealed: true, why: `自愈成功:${name}` }
         }
       } catch (e) {
         logger(`⚠️ 自愈层异常(忽略,回退报警):${String((e && e.message) || e).slice(0, 120)}`)
