@@ -1,4 +1,10 @@
 {
+  "appUpdate": {
+    "title": "有新版本可用",
+    "action": "更新",
+    "close": "關閉",
+    "readyBody": "更新已下載完成，點「更新」立即生效"
+  },
   "checkIn": {
     "title": "每日簽到"
   },

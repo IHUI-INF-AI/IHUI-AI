@@ -47,7 +47,7 @@ const RECHECK_MIN_INTERVAL_MS = 30 * 60 * 1000
 
 export function UpdatePrompt(): React.JSX.Element | null {
   const { t } = useI18n()
-  const { state, dismissed, downloadProgress: progress } = useOtaUpdate()
+  const { state, dismissed, downloadProgress: progress, mandatory } = useOtaUpdate()
   // 整包(APK)通道的状态;与 OTA 是两份独立 store,由下面的渲染顺序决定谁占浮层
   const apk = useApkUpdate()
 
@@ -163,6 +163,38 @@ export function UpdatePrompt(): React.JSX.Element | null {
   // apkRender 保持挂载:退场滑出动画播放期间仍渲染,结束后由 onExited 解除(与 OTA 卡的 render 对称)。
   if (apkRender || isApkPromptVisible(apk)) {
     return <ApkUpdatePromptView apk={apk} onExited={handleApkExited} />
+  }
+
+  // 服务端下发的强制更新(RN 服务端开关驱动,2026-11-13 立):非关闭全屏阻塞。
+  // 默认 mandatory=false 永远走上面的顶部横幅(可关闭);仅当后端把本次更新标记为 mandatory,
+  // 才升级为盖满窗口的阻塞层 —— 没有关闭 X、[更新] 是唯一出口,用户不能绕过强制生效。
+  // 行为零副作用:不接后端的项目 mandatory 恒为 false,这里分支永不进入。
+  // (仅当 ready 才阻塞;downloading 阶段仍用上面的顶部横幅带读条,避免下载途中就把人卡死。)
+  if (mandatory && state === 'ready') {
+    return (
+      <View
+        style={styles.mandatoryOverlay}
+        accessibilityRole="alert"
+        accessibilityLabel={t('appUpdate.title')}
+      >
+        <View style={styles.mandatoryCard}>
+          <View style={styles.iconBadge}>
+            <RefreshCw size={28} color={tokens.brandAccent.deep} />
+          </View>
+          <Text style={styles.mandatoryTitle}>{t('appUpdate.title')}</Text>
+          <Text style={styles.mandatoryBody}>{t('appUpdate.readyBody')}</Text>
+          <Tappable
+            onPress={() => void handleUpdate()}
+            style={styles.actionBtn}
+            pressedStyle={styles.actionBtnPressed}
+            accessibilityRole="button"
+            accessibilityLabel={t('appUpdate.action')}
+          >
+            <Text style={styles.actionText}>{t('appUpdate.action')}</Text>
+          </Tappable>
+        </View>
+      </View>
+    )
   }
 
   // 没有更新卡占浮层时,提醒一次"开启自动安装"(一次性动作,开了之后整条链才真正 0 点击)
@@ -359,5 +391,41 @@ const styles = StyleSheet.create({
     ...ELEVATION_STEPS.lg,
   },
   applyingText: { color: tokens.text.primary, fontSize: rnType.body.size, fontWeight: '500' },
+  // 强制更新全屏阻塞(服务端 mandatory 开关驱动):盖满窗口、无关闭钮、[更新] 是唯一出口
+  mandatoryOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: tokens.overlay.loading,
+    padding: rnSpacing.lg,
+  },
+  mandatoryCard: {
+    width: '100%',
+    maxWidth: 360,
+    gap: rnSpacing.lg,
+    alignItems: 'center',
+    padding: rnSpacing.xl,
+    borderRadius: rnRadius.lg,
+    backgroundColor: tokens.surface.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: tokens.border.medium,
+    // 投影:强制阻塞卡片 → 档位 lg
+    ...ELEVATION_STEPS.lg,
+  },
+  mandatoryTitle: {
+    color: tokens.text.primary,
+    fontSize: rnType.strong.size,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  mandatoryBody: {
+    color: tokens.text.secondary,
+    fontSize: rnType.body.size,
+    textAlign: 'center',
+  },
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
