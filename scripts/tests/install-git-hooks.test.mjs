@@ -40,7 +40,14 @@ function isolatedEnv() {
 const ENV = isolatedEnv()
 
 function runGit(cwd, args) {
-  return spawnSync('git', args, { cwd, encoding: 'utf8', windowsHide: true, env: ENV })
+  // 门 193:派生 git 必须显式接管 stdio,不写在本机并发下有 EBUSY 病灶(0/30 成功)
+  return spawnSync('git', args, {
+    cwd,
+    encoding: 'utf8',
+    windowsHide: true,
+    env: ENV,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
 }
 
 /** 每个用例独占一个 mkdtemp 目录,并在用例结束时递归清理 */
