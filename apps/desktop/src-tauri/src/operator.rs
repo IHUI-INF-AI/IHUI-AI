@@ -20,8 +20,13 @@ use enigo::{Axis, Button, Coordinate, Direction, Enigo, Key, Keyboard, Mouse, Se
 use screenshots::Screen;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use std::collections::hash_map::DefaultHasher;
+use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
 use std::io::Cursor;
-use std::time::Duration;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Mutex, MutexGuard, OnceLock};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 // ===================== 纯决策层(零依赖,可独立单测) =====================
 
@@ -385,6 +390,95 @@ pub fn check_approval(actions: &[OperatorAction], input: ApprovalInput<'_>) -> A
             ApprovalOutcome::Allowed { requires_approval: true, fingerprint: Some(fp) }
         }
     }
+}
+
+// ============ 一次性审批票据(F-104):票据只能由本进程签发,消费即删除 ============
+//
+// 为什么要有它:`operator_decide` 会把 `plan_fingerprint` 回给调用方,而指纹本身不是凭据——
+// 本地 origin 页面拿到指纹后可自造 `ApprovalGrant{approved:true, granted_by:"x"}` 再调
+// `operator_execute`,形成"自批自跑"。票据绑定"本进程算出的那份指纹",且只能兑换一次,
+// 配合执行前的**原生确认窗**(人不在场点不了),把"自报批准"这条路彻底堵死。
+
+/// 票据有效期。过期即作废,要重新走 `operator_decide`。
+pub const APPROVAL_TICKET_TTL: Duration = Duration::from_secs(120);
+
+/// 缺票据时的统一文案(前端据此自诊断:先 decide 拿 ticket)。
+pub const MISSING_TICKET_MESSAGE: &str =
+    "缺少一次性审批票据，请先调用 operator_decide 获取 approval_ticket";
+
+#[derive(Debug, Clone)]
+struct TicketEntry {
+    /// 签发时绑定的计划指纹(`consume_ticket` 必须逐字相等)。
+    fingerprint: String,
+    issued_at: Instant,
+}
+
+fn ticket_store() -> &'static Mutex<HashMap<String, TicketEntry>> {
+    static STORE: OnceLock<Mutex<HashMap<String, TicketEntry>>> = OnceLock::new();
+    STORE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+static TICKET_SEQ: AtomicU64 = AtomicU64::new(0);
+
+/// 锁中毒时取回内层数据:票据台账只是字符串映射,没有"半更新"的不变式可破坏。
+fn lock_tickets() -> MutexGuard<'static, HashMap<String, TicketEntry>> {
+    ticket_store().lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+fn short_fingerprint(fingerprint: &str) -> String {
+    fingerprint.chars().take(12).collect()
+}
+
+/// 票据号 = 时间戳 + 原子计数器 + 指纹 经 `DefaultHasher` 折叠出的十六进制串
+/// (不引第三方随机源;票据的安全性不靠猜不中,而靠单次使用 + 原生确认)。
+fn ticket_nonce(fingerprint: &str) -> String {
+    let seq = TICKET_SEQ.fetch_add(1, Ordering::Relaxed);
+    let nanos =
+        SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0);
+    let mut hasher = DefaultHasher::new();
+    nanos.hash(&mut hasher);
+    seq.hash(&mut hasher);
+    fingerprint.hash(&mut hasher);
+    format!("{:016x}{:016x}", hasher.finish(), seq)
+}
+
+/// 签发一张绑定 `fingerprint` 的一次性票据。顺手清掉过期条目,台账不会无界增长。
+pub fn issue_ticket(fingerprint: &str) -> String {
+    let nonce = ticket_nonce(fingerprint);
+    let mut store = lock_tickets();
+    store.retain(|_, entry| entry.issued_at.elapsed() <= APPROVAL_TICKET_TTL);
+    store.insert(
+        nonce.clone(),
+        TicketEntry { fingerprint: fingerprint.to_string(), issued_at: Instant::now() },
+    );
+    nonce
+}
+
+/// 消费票据:**消费即删除**,无论成功与否都不留第二次机会。
+/// 三种失败各给各的文案(不存在/过期/指纹不符),便于调用方自诊断。
+pub fn consume_ticket(nonce: &str, fingerprint: &str) -> Result<(), String> {
+    if nonce.trim().is_empty() {
+        return Err(MISSING_TICKET_MESSAGE.to_string());
+    }
+    let mut store = lock_tickets();
+    let entry = store.remove(nonce).ok_or_else(|| {
+        "审批票据不存在或已被使用(一次性票据),请重新调用 operator_decide 获取 approval_ticket"
+            .to_string()
+    })?;
+    if entry.issued_at.elapsed() > APPROVAL_TICKET_TTL {
+        return Err(format!(
+            "审批票据已过期(有效期 {} 秒),请重新调用 operator_decide 获取 approval_ticket",
+            APPROVAL_TICKET_TTL.as_secs()
+        ));
+    }
+    if entry.fingerprint != fingerprint {
+        return Err(format!(
+            "审批票据绑定的计划指纹({}…)与本计划({}…)不符 ⇒ 票据作废,请重新 decide",
+            short_fingerprint(&entry.fingerprint),
+            short_fingerprint(fingerprint)
+        ));
+    }
+    Ok(())
 }
 
 /// **门 2 的策略面**:重试预算。
@@ -879,6 +973,9 @@ pub fn capture_screen(display_index: usize) -> Result<String, String> {
 /// `perceive` 把原始截屏字节变成 `ScreenState`,做成注入项以让决策路径与具体 OCR 解耦、
 /// 也便于单测(虽然单测直接构造状态,不进这层)。返回计划 + 执行台账。
 ///
+/// `pre_act(fingerprint, action_count)` 是"指纹已算出、动作尚未执行"处的执行前闸:
+/// 生产传「消费一次性票据 + 原生确认」,测试传空实现。只有含输入类动作且门 1 放行时才会被调。
+///
 /// 两条纪律:
 /// · `Err` 只留给"截屏/解码这类拿不到输入"的情况;审批被拒**不是** Err,是
 ///   `Ok(report)` 且 `report.status == Denied`(拒绝是可整改的结论,不是链路故障)。
@@ -888,6 +985,7 @@ pub fn capture_decide_act(
     perceive: impl Fn(&[u8]) -> ScreenState,
     approval: ApprovalInput<'_>,
     policy: &RetryPolicy,
+    pre_act: impl FnOnce(&str, usize) -> Result<(), String>,
 ) -> Result<PlanRun, String> {
     let png = capture_screen(0)?;
     let bytes = base64::engine::general_purpose::STANDARD
@@ -895,20 +993,47 @@ pub fn capture_decide_act(
         .map_err(|e| e.to_string())?;
     let state = perceive(&bytes);
     let plan = decide_actions(&state, intent);
-    // 先问门(门不需要执行体)。被拒 ⇒ **连真实键鼠都不构造**,直接借「产不出输入」的执行体
-    // 走 run_plan 的拒绝分支;万一判定不一致地进了执行体,它只会 Err,不会静默成功。
+    let report = act_after_plan(&plan, approval, policy, pre_act, || {
+        Enigo::new(&Settings::default()).map_err(|e| e.to_string())
+    })?;
+    Ok(PlanRun { plan, report })
+}
+
+/// 计划已定、动作未执行:先过审批门,再在**真正驱动键鼠之前**执行 `pre_act`
+/// (生产 = 票据校验 + 原生确认;测试 = 空实现),最后才构造执行体跑动作。
+///
+/// 顺序不可调换:
+/// · 门 1 拒 / 空计划 ⇒ 用 [`NoInputExecutor`] 直接出结论,**不调 `pre_act`、也不构造真实执行体**;
+/// · 计划含输入类动作 ⇒ 指纹算得出才调 `pre_act`(算不出 ⇒ Err,一条都不执行);
+/// · 纯被动计划(Wait/NoOp)⇒ 不调 `pre_act`(不打扰用户,保持既有语义)。
+///
+/// `make_executor` 做成注入项,只为让单测能塞记录型执行体而不碰真实键鼠;
+/// 生产路径仍是"过了前置闸才 `Enigo::new`"。
+fn act_after_plan<E, F>(
+    plan: &OperatorPlan,
+    approval: ApprovalInput<'_>,
+    policy: &RetryPolicy,
+    pre_act: impl FnOnce(&str, usize) -> Result<(), String>,
+    make_executor: F,
+) -> Result<ExecutionReport, String>
+where
+    E: ActionExecutor,
+    F: FnOnce() -> Result<E, String>,
+{
     if let ApprovalOutcome::Denied { .. } = check_approval(&plan.actions, approval.clone()) {
-        let report = run_plan(&mut NoInputExecutor, &plan.actions, approval, policy);
-        return Ok(PlanRun { plan, report });
+        return Ok(run_plan(&mut NoInputExecutor, &plan.actions, approval, policy));
     }
     if plan.is_empty() {
-        // 空/纯 NoOp 计划:不需要真实输入设备,用同一条回路走「产不出输入」的执行体。
-        let report = run_plan(&mut NoInputExecutor, &plan.actions, approval, policy);
-        return Ok(PlanRun { plan, report });
+        return Ok(run_plan(&mut NoInputExecutor, &plan.actions, approval, policy));
     }
-    let mut enigo = Enigo::new(&Settings::default()).map_err(|e| e.to_string())?;
-    let report = run_plan(&mut enigo, &plan.actions, approval, policy);
-    Ok(PlanRun { plan, report })
+    if plan_requires_approval(&plan.actions) {
+        let fingerprint = plan_fingerprint(&plan.actions).map_err(|detail| {
+            format!("计划指纹算不出({detail})⇒ 无法绑定一次性审批票据,拒绝执行")
+        })?;
+        pre_act(&fingerprint, plan.actions.len())?;
+    }
+    let mut executor = make_executor()?;
+    Ok(run_plan(&mut executor, &plan.actions, approval, policy))
 }
 
 // ===================== 薄 Tauri 胶水 =====================
@@ -926,6 +1051,10 @@ pub struct OperatorRunResult {
     pub requires_approval: bool,
     /// 批准要绑定的指纹(算不出 ⇒ None;None 且 requires_approval=true 时实跑必然被拒)。
     pub plan_fingerprint: Option<String>,
+    /// **一次性审批票据**(F-104):仅 `operator_decide` 且计划含输入类动作时非空。
+    /// 必须原样传回 `operator_execute` 才可能过「票据校验 + 原生确认」两道执行前闸;
+    /// 单次使用、有效期 [`APPROVAL_TICKET_TTL`],过期/串计划即作废。
+    pub approval_ticket: Option<String>,
     /// 被拒时的点名结论(码 + 原因 + 哪些动作把门顶住了)。
     pub deny: Option<DenyRecord>,
     /// 逐条台账(含 attempts —— 输入类 attempts 恒 1 就是"永不重试"的账面凭据)。
@@ -954,17 +1083,23 @@ pub fn operator_decide(intent_json: String, state_json: Option<String>) -> Resul
     };
     let plan = decide_actions(&state, &intent);
     validate_key_specs(&plan.actions)?;
+    let requires_approval = plan_requires_approval(&plan.actions);
+    let plan_fingerprint = plan_fingerprint(&plan.actions).ok();
+    // 只有"真的要动手"才发票据:被动计划既不弹窗也不需要票据(保持不打扰语义)。
+    let approval_ticket =
+        if requires_approval { plan_fingerprint.as_deref().map(issue_ticket) } else { None };
     Ok(OperatorRunResult {
         summary: format!(
             "plan: {} action(s), requires_approval={}",
             plan.actions.len(),
-            plan_requires_approval(&plan.actions)
+            requires_approval
         ),
         actions: plan.actions.clone(),
         executed: false,
         status: "planned".to_string(),
-        requires_approval: plan_requires_approval(&plan.actions),
-        plan_fingerprint: plan_fingerprint(&plan.actions).ok(),
+        requires_approval,
+        plan_fingerprint,
+        approval_ticket,
         deny: None,
         outcomes: Vec::new(),
         input_touched: false,
@@ -1006,15 +1141,25 @@ impl ApprovalWire {
     }
 }
 
-/// 实跑命令:真实截屏 →(占位 perceive)→ 决策 → **审批门** → 驱动真实键鼠。
+/// 实跑命令:真实截屏 →(占位 perceive)→ 决策 → **审批门** → **票据校验 + 原生确认** → 驱动真实键鼠。
 ///
 /// `approval_json` = 承载层显式传入的批准(`ApprovalGrant` 的 JSON)。**没有这一参数就没有批准**:
 /// 本命令不会自己造一张批准,也不会因为"前端没实现审批 UI"而降级执行。
+///
+/// `approval_ticket` = `operator_decide` 返回的**一次性**票据。光有 `approval_json` 已跑不动键鼠:
+/// 缺票据 / 过期 / 指纹不符 ⇒ Err(一条都不执行);票据通过后还要过**原生确认窗**,用户取消 ⇒ Err。
+/// 两种闸都在"指纹已算出、动作尚未执行"的位置,见 [`capture_decide_act`]。
+///
 /// 占位 perceive 目前返回空状态(目标找不到即 NoOp);接真实 OCR 时替换闭包即可。
-#[tauri::command]
+///
+/// `async` 不是笔误:同步命令在主线程上跑,而 `require_native_confirm` 内部的
+/// `blocking_show` 要等主线程把对话框跑起来 —— 从主线程调用就是自锁(同 lib.rs 既有注释)。
+#[tauri::command(async)]
 pub fn operator_execute(
+    app: tauri::AppHandle,
     intent_json: String,
     approval_json: Option<String>,
+    approval_ticket: Option<String>,
 ) -> Result<OperatorRunResult, String> {
     let intent: OperatorIntent = serde_json::from_str(&intent_json).map_err(|e| e.to_string())?;
     let wire = read_approval(approval_json.as_deref());
@@ -1023,6 +1168,21 @@ pub fn operator_execute(
         |_bytes| ScreenState { width: 0, height: 0, elements: Vec::new() },
         wire.as_input(),
         &RetryPolicy::default(),
+        |fingerprint, action_count| {
+            let ticket = approval_ticket
+                .as_deref()
+                .ok_or_else(|| MISSING_TICKET_MESSAGE.to_string())?;
+            consume_ticket(ticket, fingerprint)?;
+            crate::require_native_confirm(
+                &app,
+                "屏幕操作执行确认",
+                &format!(
+                    "即将执行 {action_count} 个屏幕动作(计划指纹 {}…)。确认后才会真正操作键鼠。",
+                    short_fingerprint(fingerprint)
+                ),
+            )
+            .map_err(|e| e.to_string())
+        },
     )?;
     Ok(OperatorRunResult {
         summary: report.summary(),
@@ -1031,6 +1191,7 @@ pub fn operator_execute(
         status: run_status_name(report.status).to_string(),
         requires_approval: report.requires_approval,
         plan_fingerprint: report.fingerprint.clone(),
+        approval_ticket: None,
         deny: report.deny.clone(),
         outcomes: report.outcomes.clone(),
         input_touched: report.touched_input(),
@@ -1042,6 +1203,8 @@ pub fn operator_execute(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::cell::{Cell, RefCell};
+    use std::sync::Arc;
 
     fn sample_state() -> ScreenState {
         ScreenState {
@@ -1513,5 +1676,110 @@ mod tests {
             assert_eq!(report.status, RunStatus::Denied, "{} 属输入类,未批必须拒", action_kind(&actions[0]));
             assert_eq!(fake.calls.len(), 0);
         }
+    }
+
+    // ---------- 一次性审批票据 + 执行前闸(F-104) ----------
+
+    /// 记录型执行体:调用记录经 Arc 共享,便于在 act_after_plan 返回后核对"一条都没跑"。
+    struct RecordingExecutor {
+        calls: Arc<Mutex<Vec<OperatorAction>>>,
+    }
+
+    impl ActionExecutor for RecordingExecutor {
+        fn execute_action(&mut self, action: &OperatorAction) -> Result<String, String> {
+            self.calls.lock().unwrap().push(action.clone());
+            Ok(format!("recorded {}", action_kind(action)))
+        }
+    }
+
+    #[test]
+    fn ticket_is_consumable_exactly_once() {
+        let fp = plan_fingerprint(&[click()]).unwrap();
+        let ticket = issue_ticket(&fp);
+        assert_eq!(consume_ticket(&ticket, &fp), Ok(()));
+        let err = consume_ticket(&ticket, &fp).expect_err("第二次消费必须失败");
+        assert!(err.contains("不存在或已被使用"), "单次性失败要点名原因,实得: {err}");
+    }
+
+    #[test]
+    fn ticket_bound_to_other_fingerprint_is_rejected() {
+        let planned = plan_fingerprint(&[click()]).unwrap();
+        let other = plan_fingerprint(&[click(), typed()]).unwrap();
+        let ticket = issue_ticket(&planned);
+        let err = consume_ticket(&ticket, &other).expect_err("指纹不符必须拒");
+        assert!(err.contains("不符"), "指纹不符要给明确文案,实得: {err}");
+        // 拒绝也照样把票据消费掉(消费即删除):换回正确指纹也不能复用。
+        assert!(consume_ticket(&ticket, &planned).is_err());
+    }
+
+    #[test]
+    fn expired_ticket_is_rejected() {
+        let fp = plan_fingerprint(&[click()]).unwrap();
+        let nonce = "expired-ticket-for-test".to_string();
+        let issued_at = Instant::now() - APPROVAL_TICKET_TTL - Duration::from_secs(1);
+        lock_tickets().insert(nonce.clone(), TicketEntry { fingerprint: fp.clone(), issued_at });
+        let err = consume_ticket(&nonce, &fp).expect_err("过期票据必须拒");
+        assert!(err.contains("过期"), "过期票据要给过期文案,实得: {err}");
+    }
+
+    #[test]
+    fn missing_ticket_gets_self_diagnosing_message() {
+        assert_eq!(consume_ticket("", "whatever"), Err(MISSING_TICKET_MESSAGE.to_string()));
+        assert_eq!(consume_ticket("   ", "whatever"), Err(MISSING_TICKET_MESSAGE.to_string()));
+    }
+
+    #[test]
+    fn passive_plan_runs_without_ticket_or_confirm() {
+        // 无输入动作 ⇒ 不触发票据/原生确认,被动动作照常执行(既有"不打扰"语义不变)。
+        let plan = OperatorPlan { actions: vec![waited(), OperatorAction::NoOp] };
+        let log: Arc<Mutex<Vec<OperatorAction>>> = Arc::default();
+        let sink = Arc::clone(&log);
+        let confirms = Cell::new(0u32);
+        let report = act_after_plan(
+            &plan,
+            ApprovalInput::Absent,
+            &RetryPolicy::default(),
+            |_fp, _count| {
+                confirms.set(confirms.get() + 1);
+                Ok(())
+            },
+            || Ok(RecordingExecutor { calls: sink }),
+        )
+        .expect("被动计划不该要求票据/确认");
+
+        assert_eq!(report.status, RunStatus::Executed);
+        assert!(!report.requires_approval);
+        assert_eq!(confirms.get(), 0, "无输入动作不得触发票据/原生确认");
+        assert_eq!(log.lock().unwrap().len(), 2, "被动动作照常执行");
+    }
+
+    #[test]
+    fn pre_act_failure_blocks_every_action() {
+        // 票据校验/原生确认失败 ⇒ 一条动作都不执行(执行体 0 次调用 = input_touched=false)。
+        let actions = vec![click(), typed()];
+        let plan = OperatorPlan { actions: actions.clone() };
+        let grant = grant_for(&actions);
+        let log: Arc<Mutex<Vec<OperatorAction>>> = Arc::default();
+        let sink = Arc::clone(&log);
+        let seen: RefCell<Option<(String, usize)>> = RefCell::new(None);
+        let err = act_after_plan(
+            &plan,
+            ApprovalInput::Grant(&grant),
+            &RetryPolicy::default(),
+            |fp, count| {
+                *seen.borrow_mut() = Some((fp.to_string(), count));
+                Err(MISSING_TICKET_MESSAGE.to_string())
+            },
+            || Ok(RecordingExecutor { calls: sink }),
+        )
+        .expect_err("前置闸失败必须拒");
+
+        assert_eq!(err, MISSING_TICKET_MESSAGE);
+        assert_eq!(
+            seen.borrow().clone(),
+            Some((plan_fingerprint(&actions).unwrap(), actions.len())),
+            "pre_act 应拿到本计划指纹与动作数"
+        );
+        assert!(log.lock().unwrap().is_empty(), "前置闸失败 ⇒ 一条动作都不执行");
     }
 }
