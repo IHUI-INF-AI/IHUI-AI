@@ -45,11 +45,15 @@ test('① 窗口取值来自生产实测锚,且两段之和必须真的小于 wo
   assert.ok(WORKER_OUTER_TIMEOUT_MS < 600_000, '外层必须小于每 10 分钟节拍,不让一轮跨拍')
 })
 
-test('② 同值单源:三条腿与 worker 外层的数值必须与 lib 常量逐字相等', () => {
+test('② 同值单源:六条腿与 worker 外层的数值必须与 lib 常量逐字相等', () => {
   const legs = [
     'scripts/sync-qoder-client-session.mjs',
     'scripts/sync-trae-client-session.mjs',
     'scripts/sync-minimax-client-session.mjs',
+    // 2026-11-12 接车的三条同型腿(loomy/zcode/raccoon)
+    'scripts/sync-loomy-client-session.mjs',
+    'scripts/sync-zcode-client-session.mjs',
+    'scripts/sync-raccoon-client-session.mjs',
   ]
   for (const p of legs) {
     const src = read(p)

@@ -920,5 +920,321 @@
       }
     ]
   },
-  "reverseGaps": []
+  "reverseGaps": [
+    {
+      "name": "IHUI-AI-SERVICE",
+      "reconfirmNote": "归并复注@2026-11-12:本组为 G 机 lichunchuan 未装读数;服务器面快照 reverseGaps 已空,保留至下一次 --snapshot 合法重生成",
+      "bucket": "not-installed-consumer-only",
+      "detail": "本机没装；仓里只有使用点(deploy/win/ihui-monitor.ps1——属另一台承载机的服务，非幽灵引用)",
+      "createSources": [],
+      "useSources": [
+        "deploy/win/ihui-monitor.ps1"
+      ],
+      "declaredGap": {
+        "reviewBy": "2027-01-31",
+        "lapsed": false
+      }
+    },
+    {
+      "name": "ihui-alert-bridge",
+      "bucket": "not-installed-installable",
+      "detail": "本机没装；建服源 monitoring/alertbridge/README.md",
+      "createSources": [
+        "monitoring/alertbridge/README.md"
+      ],
+      "useSources": [
+        "deploy/scripts/prod-bundle/alert-webhook-bridge.cjs"
+      ],
+      "declaredGap": null
+    },
+    {
+      "name": "ihui-alertmanager",
+      "bucket": "not-installed-installable",
+      "detail": "本机没装；建服源 monitoring/alertbridge/README.md",
+      "createSources": [
+        "monitoring/alertbridge/README.md"
+      ],
+      "useSources": [],
+      "declaredGap": null
+    },
+    {
+      "name": "IHUI-API-BLUE",
+      "bucket": "not-installed-consumer-only",
+      "detail": "本机没装；仓里只有使用点(deploy/win/ihui-api-bluegreen.ps1,deploy/win/ihui-deploy.ps1,deploy/win/ihui-monitor.ps1——属另一台承载机的服务，非幽灵引用)",
+      "createSources": [],
+      "useSources": [
+        "deploy/win/ihui-api-bluegreen.ps1",
+        "deploy/win/ihui-deploy.ps1",
+        "deploy/win/ihui-monitor.ps1"
+      ],
+      "declaredGap": {
+        "reviewBy": "2027-01-31",
+        "lapsed": false
+      }
+    },
+    {
+      "name": "IHUI-API-GREEN",
+      "bucket": "not-installed-consumer-only",
+      "detail": "本机没装；仓里只有使用点(deploy/win/ihui-api-bluegreen.ps1,deploy/win/ihui-deploy.ps1,deploy/win/ihui-monitor.ps1——属另一台承载机的服务，非幽灵引用)",
+      "createSources": [],
+      "useSources": [
+        "deploy/win/ihui-api-bluegreen.ps1",
+        "deploy/win/ihui-deploy.ps1",
+        "deploy/win/ihui-monitor.ps1"
+      ],
+      "declaredGap": {
+        "reviewBy": "2026-12-31",
+        "lapsed": false
+      }
+    },
+    {
+      "name": "IHUI-API-ROUTER",
+      "bucket": "not-installed-consumer-only",
+      "detail": "本机没装；仓里只有使用点(deploy/win/ihui-deploy.ps1,deploy/win/ihui-monitor.ps1——属另一台承载机的服务，非幽灵引用)",
+      "createSources": [],
+      "useSources": [
+        "deploy/win/ihui-deploy.ps1",
+        "deploy/win/ihui-monitor.ps1"
+      ],
+      "declaredGap": {
+        "reviewBy": "2027-01-31",
+        "lapsed": false
+      }
+    },
+    {
+      "name": "IHUI-DEPLOYLOOP",
+      "bucket": "not-installed-installable",
+      "detail": "本机没装；建服源 deploy/win/install-deploy-loop-service.ps1",
+      "createSources": [
+        "deploy/win/install-deploy-loop-service.ps1"
+      ],
+      "useSources": [
+        "deploy/win/ihui-deploy-loop.ps1",
+        "deploy/win/ihui-enable-unattended-intake.ps1"
+      ],
+      "declaredGap": {
+        "reviewBy": "2026-12-31",
+        "lapsed": false
+      }
+    },
+    {
+      "name": "IHUI-Firewall-Watchdog",
+      "bucket": "not-installed-declared-elsewhere",
+      "detail": "本机没装；债账登记为「本机(当前承载机)」(reviewBy=2026-12-31)",
+      "createSources": [],
+      "useSources": [],
+      "declaredGap": {
+        "reviewBy": "2026-12-31",
+        "lapsed": false
+      }
+    },
+    {
+      "name": "IHUI-GIT-GUARD",
+      "bucket": "not-installed-declared-elsewhere",
+      "detail": "本机没装；债账登记为「本机(当前承载机)」(reviewBy=2026-12-31)",
+      "createSources": [],
+      "useSources": [],
+      "declaredGap": {
+        "reviewBy": "2026-12-31",
+        "lapsed": false
+      }
+    },
+    {
+      "name": "IHUI-IMAGE-CDN",
+      "bucket": "not-installed-installable",
+      "detail": "本机没装；建服源 deploy/win/install-image-cdn-service.ps1",
+      "createSources": [
+        "deploy/win/install-image-cdn-service.ps1"
+      ],
+      "useSources": [],
+      "declaredGap": null
+    },
+    {
+      "name": "ihui-loki",
+      "bucket": "not-installed-declared-elsewhere",
+      "detail": "本机没装；债账登记为「本机(当前承载机)」(reviewBy=2026-12-31)",
+      "createSources": [],
+      "useSources": [],
+      "declaredGap": {
+        "reviewBy": "2026-12-31",
+        "lapsed": false
+      }
+    },
+    {
+      "name": "IHUI-MONITOR",
+      "bucket": "not-installed-consumer-only",
+      "detail": "本机没装；仓里只有使用点(deploy/scripts/prod-bundle/monitor.ps1,deploy/win/ihui-monitor.ps1,monitoring/alertbridge/README.md——属另一台承载机的服务，非幽灵引用)",
+      "createSources": [],
+      "useSources": [
+        "deploy/scripts/prod-bundle/monitor.ps1",
+        "deploy/win/ihui-monitor.ps1",
+        "monitoring/alertbridge/README.md"
+      ],
+      "declaredGap": {
+        "reviewBy": "2026-12-31",
+        "lapsed": false
+      }
+    },
+    {
+      "name": "IHUI-PG",
+      "bucket": "not-installed-declared-elsewhere",
+      "detail": "本机没装；债账登记为「本机(当前承载机)」(reviewBy=2026-12-31)",
+      "createSources": [],
+      "useSources": [],
+      "declaredGap": {
+        "reviewBy": "2026-12-31",
+        "lapsed": false
+      }
+    },
+    {
+      "name": "IHUI-PG-BACKUP",
+      "bucket": "not-installed-declared-elsewhere",
+      "detail": "本机没装；债账登记为「本机(当前承载机)」(reviewBy=2026-12-31)",
+      "createSources": [],
+      "useSources": [],
+      "declaredGap": {
+        "reviewBy": "2026-12-31",
+        "lapsed": false
+      }
+    },
+    {
+      "name": "ihui-pg-exporter",
+      "bucket": "not-installed-declared-elsewhere",
+      "detail": "本机没装；债账登记为「本机(当前承载机)」(reviewBy=2026-12-31)",
+      "createSources": [],
+      "useSources": [],
+      "declaredGap": {
+        "reviewBy": "2026-12-31",
+        "lapsed": false
+      }
+    },
+    {
+      "name": "ihui-prometheus",
+      "bucket": "not-installed-declared-elsewhere",
+      "detail": "本机没装；债账登记为「本机(当前承载机)」(reviewBy=2026-12-31)",
+      "createSources": [],
+      "useSources": [],
+      "declaredGap": {
+        "reviewBy": "2026-12-31",
+        "lapsed": false
+      }
+    },
+    {
+      "name": "ihui-promtail",
+      "bucket": "not-installed-declared-elsewhere",
+      "detail": "本机没装；债账登记为「本机(当前承载机)」(reviewBy=2026-12-31)",
+      "createSources": [],
+      "useSources": [],
+      "declaredGap": {
+        "reviewBy": "2026-12-31",
+        "lapsed": false
+      }
+    },
+    {
+      "name": "IHUI-REDIS",
+      "bucket": "not-installed-declared-elsewhere",
+      "detail": "本机没装；债账登记为「本机(当前承载机)」(reviewBy=2026-12-31)",
+      "createSources": [],
+      "useSources": [],
+      "declaredGap": {
+        "reviewBy": "2026-12-31",
+        "lapsed": false
+      }
+    },
+    {
+      "name": "ihui-redis-exporter",
+      "bucket": "not-installed-declared-elsewhere",
+      "detail": "本机没装；债账登记为「本机(当前承载机)」(reviewBy=2026-12-31)",
+      "createSources": [],
+      "useSources": [],
+      "declaredGap": {
+        "reviewBy": "2026-12-31",
+        "lapsed": false
+      }
+    },
+    {
+      "name": "IHUI-RSSHUB",
+      "bucket": "not-installed-declared-elsewhere",
+      "detail": "本机没装；债账登记为「本机(当前承载机)」(reviewBy=2026-12-31)",
+      "createSources": [],
+      "useSources": [],
+      "declaredGap": {
+        "reviewBy": "2026-12-31",
+        "lapsed": false
+      }
+    },
+    {
+      "name": "IHUI-TMP-CHROME",
+      "bucket": "not-installed-declared-elsewhere",
+      "detail": "本机没装；债账登记为「本机(当前承载机)」(reviewBy=2026-12-31)",
+      "createSources": [],
+      "useSources": [],
+      "declaredGap": {
+        "reviewBy": "2026-12-31",
+        "lapsed": false
+      }
+    },
+    {
+      "name": "IHUI-WEB-BLUE",
+      "bucket": "not-installed-consumer-only",
+      "detail": "本机没装；仓里只有使用点(deploy/win/ihui-monitor.ps1——属另一台承载机的服务，非幽灵引用)",
+      "createSources": [],
+      "useSources": [
+        "deploy/win/ihui-monitor.ps1"
+      ],
+      "declaredGap": {
+        "reviewBy": "2027-01-31",
+        "lapsed": false
+      }
+    },
+    {
+      "name": "IHUI-WEB-GREEN",
+      "bucket": "not-installed-consumer-only",
+      "detail": "本机没装；仓里只有使用点(deploy/win/ihui-monitor.ps1——属另一台承载机的服务，非幽灵引用)",
+      "createSources": [],
+      "useSources": [
+        "deploy/win/ihui-monitor.ps1"
+      ],
+      "declaredGap": {
+        "reviewBy": "2026-12-31",
+        "lapsed": false
+      }
+    },
+    {
+      "name": "IHUI-WEB-ROUTER",
+      "bucket": "not-installed-consumer-only",
+      "detail": "本机没装；仓里只有使用点(deploy/win/ihui-deploy.ps1,deploy/win/ihui-monitor.ps1——属另一台承载机的服务，非幽灵引用)",
+      "createSources": [],
+      "useSources": [
+        "deploy/win/ihui-deploy.ps1",
+        "deploy/win/ihui-monitor.ps1"
+      ],
+      "declaredGap": {
+        "reviewBy": "2027-01-31",
+        "lapsed": false
+      }
+    },
+    {
+      "name": "ihui-windows-exporter",
+      "bucket": "not-installed-declared-elsewhere",
+      "detail": "本机没装；债账登记为「本机(当前承载机)」(reviewBy=2026-12-31)",
+      "createSources": [],
+      "useSources": [],
+      "declaredGap": {
+        "reviewBy": "2026-12-31",
+        "lapsed": false
+      }
+    },
+    {
+      "name": "Keycloak",
+      "bucket": "not-installed-declared-elsewhere",
+      "detail": "本机没装；债账登记为「数据/基建承载机(非本机)」(reviewBy=2027-01-31)",
+      "createSources": [],
+      "useSources": [],
+      "declaredGap": {
+        "reviewBy": "2027-01-31",
+        "lapsed": false
+      }
+    }
+  ]
 }

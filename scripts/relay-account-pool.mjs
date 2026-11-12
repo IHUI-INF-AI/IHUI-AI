@@ -51,6 +51,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 assertDistFresh(path.join(ROOT, 'packages', 'api-client'))
 const API_DIR = path.join(ROOT, 'apps', 'api')
 const IMPORTER = path.join(API_DIR, 'scripts', 'relay-account-import.ts')
+const OWNER_MAP = path.join(API_DIR, 'scripts', 'relay-pool-owner-map.ts')
 
 const HELP = `反代账号池导入
 
@@ -430,10 +431,47 @@ async function pushPayloadToProd(payloadText, providerCode, options) {
 }
 
 /**
+ * 本地归属 email→users.id 反查表(2026-11-12 email 身份键收口):
+ * 生产导出行带 `__sync.ownerEmail`,落本地库前必须把 email 翻译成本地 users.id ——
+ * 两端 users.id 各自库生成(同一人两端不同 id),原样透传生产 id 会在本地造出悬空归属,
+ * 机主看不到被拉回的个人池号。经 tsx 跑 apps/api/scripts/relay-pool-owner-map.ts(只读),
+ * spawn 形态与 runImporter 同源。取不到 ⇒ `{map:null,error}` 由调用方点名(fail-closed)。
+ * @returns {Promise<{map: Record<string,string>|null, error: string|null}>}
+ */
+async function fetchLocalOwnerEmailMap() {
+  const tsxCli = resolveTsx()
+  if (!tsxCli) return { map: null, error: '未找到 tsx(apps/api/node_modules/tsx)' }
+  const r = await runProcess(process.execPath, [tsxCli, OWNER_MAP], {})
+  if (r.code !== 0) {
+    return { map: null, error: `归属对照导出失败(退出码 ${r.code}):${r.error || ''}`.trim() }
+  }
+  const text = String(r.stdout ?? '')
+  const b = text.indexOf('__POOL_EXPORT_BEGIN__')
+  const e = text.indexOf('__POOL_EXPORT_END__')
+  if (b < 0 || e <= b) return { map: null, error: '未找到导出边界标记(checkout 可能是旧版)' }
+  try {
+    const idToEmail = JSON.parse(text.slice(b + '__POOL_EXPORT_BEGIN__'.length, e).trim())
+    const map = {}
+    for (const [id, email] of Object.entries(idToEmail ?? {})) {
+      const key = String(email ?? '').trim().toLowerCase()
+      if (key) map[key] = id
+    }
+    return { map, error: null }
+  } catch (err) {
+    return {
+      map: null,
+      error: `归属对照解析失败: ${err instanceof Error ? err.message : String(err)}`,
+    }
+  }
+}
+
+/**
  * 生产→本地拉回(2026-11-11 立,与默认推生产构成双向互通)。
  * 经 SSH 在生产 checkout 内跑同一个导入器的 `--export <provider>`(只读、不写生产),
- * 拿到该平台全部账号(含明文凭证)后,按 ownerUserId 分组交回本机导入器落本地库:
- * 归属 null 落运营池(不传 --owner),非空按该 users.id 落个人池。明文只在 SSH/stdin 通道内流动。
+ * 拿到该平台全部账号(含明文凭证)后,按归属分组交回本机导入器落本地库:
+ * 归属 null 落运营池(不传 --owner);非空个人池行以 `__sync.ownerEmail` 为身份键,
+ * 反查本地 users.id 后落该个人池(2026-11-12:两端 id 不同,透传生产 id 必悬空);
+ * email 翻译不出 ⇒ 该组点名跳过,绝不落运营池/悬空。明文只在 SSH/stdin 通道内流动。
  */
 async function syncPullFromProd(options, deps) {
   const provider = options.syncPull
@@ -482,8 +520,40 @@ async function syncPullFromProd(options, deps) {
     if (!groups.has(owner)) groups.set(owner, [])
     groups.get(owner).push(a)
   }
+  // 归属翻译(2026-11-12 email 身份键):生产 owner id 在本地多半不存在,用导出自带的
+  // __sync.ownerEmail 反查本地 users.id;翻译不出 ⇒ 该组点名跳过,绝不落运营池。
+  let ownerMap = null
+  if ([...groups.keys()].some((o) => o !== null)) {
+    const fetched = await deps.resolveLocalOwnerMap()
+    if (fetched.error) {
+      process.stderr.write(`⚠️ 本地归属对照不可用(个人池组将被点名跳过): ${fetched.error}\n`)
+    } else {
+      ownerMap = fetched.map
+    }
+  }
   let worst = 0
   for (const [owner, list] of groups) {
+    let localOwner = owner
+    if (owner !== null) {
+      const emailRaw = list
+        .map((a) => (a && a.__sync && typeof a.__sync === 'object' ? a.__sync.ownerEmail : null))
+        .find((x) => typeof x === 'string' && x.trim())
+      const email = emailRaw ? String(emailRaw).trim().toLowerCase() : ''
+      if (!email) {
+        process.stderr.write(
+          `❌ 拉回跳过 owner=${owner}(${provider}, ${list.length} 条):导出无 ownerEmail,无法解析本地归属 ⇒ 不落运营池(生产 checkout 可能是旧版导入器)\n`,
+        )
+        continue
+      }
+      const translated = ownerMap ? ownerMap[email] : null
+      if (!translated) {
+        process.stderr.write(
+          `❌ 拉回跳过 owner=${owner} email=${email}(${provider}, ${list.length} 条):本地 users 表查不到该归属 ⇒ 不落运营池,人工核对两端账号\n`,
+        )
+        continue
+      }
+      localOwner = translated
+    }
     // 归属已由 --owner 显式传,载荷里剥掉同步元数据(__sync/ownerUserId/updatedAt/providerCode),
     // 避免未知字段进 extraMetadata 污染行
     const cleaned = list.map((a) => {
@@ -495,11 +565,11 @@ async function syncPullFromProd(options, deps) {
       return copy
     })
     const groupPayload = JSON.stringify({ providerCode: provider, accounts: cleaned })
-    const decision = { owner, source: owner ? 'explicit-flag' : 'none' }
+    const decision = { owner: localOwner, source: localOwner ? 'explicit-flag' : 'none' }
     const importerOpts = { dryRun: false, health: false, json: options.json }
-    process.stdout.write(`── 拉回 ${provider} owner=${owner ?? '运营池'} 条数=${list.length}\n`)
+    process.stdout.write(`── 拉回 ${provider} owner=${localOwner ?? '运营池'} 条数=${list.length}\n`)
     const r = await deps.runImporter(groupPayload, provider, importerOpts, decision)
-    if (r.error) process.stderr.write(`❌ 拉回落库失败(owner=${owner ?? '运营池'}): ${r.error}\n`)
+    if (r.error) process.stderr.write(`❌ 拉回落库失败(owner=${localOwner ?? '运营池'}): ${r.error}\n`)
     worst = Math.max(worst, r.code)
   }
   return worst
@@ -512,6 +582,8 @@ const DEFAULT_DEPS = {
   resolveDefaultOwner: resolveDefaultPoolOwner,
   // 名称脱敏单源的装载出口(测试注入替身,绝不依赖 packages/shared 的构建产物在不在)
   loadMaskPhone,
+  // 本地归属 email→users.id 反查表(测试注入替身,绝不真跑 tsx/连库)
+  resolveLocalOwnerMap: fetchLocalOwnerEmailMap,
 }
 
 async function main(argv, injectedDeps = {}) {
