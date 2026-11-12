@@ -190,7 +190,7 @@ function decodePoolRow(row: any) {
     row.deviceId && deviceKeyPem && devicePubPem
       ? { deviceId: row.deviceId, deviceKeyPem, devicePubPem }
       : null
-  return { token, refreshToken, profile, device }
+  return { token, refreshToken, profile, sessionTemplate, device }
 }
 
 /**
@@ -646,6 +646,73 @@ export async function main(argv: string[]): Promise<number> {
     process.stdout.write(`${JSON.stringify(report, null, 2)}\n`)
     return 0
   }
+
+  /**
+   * ⓪ 档案自愈(2026-11-12 立,机主令「不能出现切不过的号」)。
+   *
+   * 为什么必须在写回之前:客户端登录态判定 `uS()` 的 MARSCODE 分支以
+   * `!account.storeRegion ⇒ need-update` 定档,命中就**立刻拿 refreshToken 去换票**;
+   * 裸票号的 rt 由别的设备签发 ⇒ 20403 ⇒ 客户端清空登录信封 = 当场登出。
+   * 也就是说"缺少 storeRegion"本身就是一条必然登出的路 —— 与 ticket 是否有效无关。
+   *
+   * 这里用**有效 token** 调客户端同款 GetUserInfo 拉真实档案补齐(纯接口、零人工),
+   * 补齐后落盘的是 `storeRegion=CN` 的完整档案,客户端判 VALID_TOKEN 直接用现成 token 登录。
+   * 该步只动 secretsEnc,不碰凭证列;拉不到(如 token 已过期)时**如实记一笔并继续**,
+   * 由后面的预检/客户端验收给出最终结论(不在这里假装判过)。
+   */
+  let profileHeal: { ok: boolean; note: string } = { ok: true, note: 'skipped' }
+  try {
+    const account =
+      (dec.profile as Record<string, unknown> | null)?.account ??
+      (dec.sessionTemplate as Record<string, unknown> | null)?.account ??
+      null
+    const storeRegion =
+      account && typeof account === 'object' ? String((account as Record<string, unknown>).storeRegion ?? '') : ''
+    if (storeRegion.trim() !== '') {
+      profileHeal = { ok: true, note: 'already-complete' }
+      steps.push('profile-already-complete')
+    } else {
+      const mod = await import(
+        pathToFileURL(path.join(ROOT, 'scripts', 'trae-backfill-profile.mjs')).href
+      )
+      const healed = await mod.ensureProfiles([row], {
+        decryptField,
+        encryptField,
+        db,
+        aiRelayAccountPool,
+        eq,
+      })
+      if (healed.repaired.length > 0) {
+        profileHeal = { ok: true, note: `repaired(region=${healed.repaired[0].account?.storeRegion})` }
+        steps.push('profile-healed-from-upstream')
+        report.profileHeal = healed.repaired[0]
+        // 档案变了 ⇒ 重建写回原料(userInfo 的 account 段来自 profile)
+        const fresh = await db
+          .select()
+          .from(aiRelayAccountPool)
+          .where(eq(aiRelayAccountPool.id, row.id))
+        if (fresh.length > 0) {
+          const reDec = decodePoolRow(fresh[0])
+          if (!reDec.error) {
+            dec.profile = reDec.profile
+            dec.sessionTemplate = reDec.sessionTemplate
+            Object.assign(row, fresh[0])
+          }
+        }
+      } else {
+        const why = healed.failed[0]?.why ?? '上游未返回可写档案'
+        profileHeal = { ok: false, note: why }
+        steps.push('warn-profile-heal-failed')
+        process.stderr.write(
+          `⚠️ 档案自愈未成:${why}\n` + '   该号写回后客户端可能判 need-update 并当场登出,由客户端验收兜底。\n',
+        )
+      }
+    }
+  } catch (e) {
+    profileHeal = { ok: false, note: e instanceof Error ? e.message : String(e) }
+    steps.push('warn-profile-heal-error')
+  }
+  report.profileHealStatus = profileHeal
 
   /**
    * 写前预检(必须在关端之前,也必须在 dry-run 之后 —— 预检会真换票并轮换 rt,

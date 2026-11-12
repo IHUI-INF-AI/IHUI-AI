@@ -457,8 +457,8 @@ test('档案补齐: GetUserInfo 的 Region 必须落成 account.storeRegion(空�
 
 test('档案补齐: 上游 uid 与池行不符必须拒写(不猜)', () => {
   const src = fs.readFileSync(path.resolve(HERE, '../../scripts/trae-backfill-profile.mjs'), 'utf8')
-  assert.match(src, /upstream\.UserID\) !== uid/, '必须校验档案 uid 与池行一致')
-  assert.match(src, /拒绝写入,不猜/, '不符要具名拒绝')
+  assert.match(src, /String\(upstream\.UserID\) !== uid/, '必须校验档案 uid 与池行一致')
+  assert.match(src, /档案 uid 不符/, '不符要具名拒绝')
 })
 
 test('切号预检: 现成 token 有效腿不得回写号池(未换票 ⇒ 不得改池)', () => {
@@ -483,6 +483,38 @@ test('切号预检: 先验 token 再验 rt(与客户端同款路径)', () => {
   const idxToken = src.indexOf('TRAE_CHECK_LOGIN_URL')
   const idxExchange = src.indexOf('proto.TRAE_EXCHANGE_TOKEN_PROOF_URL')
   assert.ok(idxToken > 0 && idxExchange > idxToken, 'token 腿必须在换票腿之前')
+})
+
+
+/**
+ * 档案自愈接线锁(2026-11-12,机主令「不能出现切不过的号」)。
+ * 病灶链:缺 storeRegion ⇒ 客户端 uS() 判 need-update ⇒ 拿 rt 换票 ⇒ 20403 ⇒ 当场登出。
+ * 因此「写回前必须自愈档案」是**必然登出路径的唯一堵口**,这条接线不许断。
+ */
+test('档案自愈: 切号腿必须在写回前补齐 storeRegion(否则客户端必然登出)', () => {
+  const src = fs.readFileSync(
+    path.resolve(HERE, '../../apps/api/scripts/relay-trae-chat-switch.ts'),
+    'utf8',
+  )
+  // 判据必须先剥注释:否则把步骤注释掉仍会命中(2026-11-12 变异实测到的假绿)
+  const code = src.replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '')
+  assert.match(code, /steps\.push\('profile-healed-from-upstream'\)/, '必须真的把自愈步骤记进 steps(注释掉不算)')
+  assert.match(code, /ensureProfiles\(/, '必须复用 trae-backfill-profile 的单源实现(不另写一份)')
+  // 自愈必须发生在预检之前:预检会真换票,档案没修好就先换票等于走错路
+  // (索引也在剥注释后的 code 上取,否则注释掉仍能定位 ⇒ 假绿)
+  const idxHeal = code.indexOf('profile-healed-from-upstream')
+  const idxPreflight = code.indexOf('preflightTraeDeviceMatch(dec, preflightStore)')
+  assert.ok(idxHeal > 0 && idxPreflight > idxHeal, '自愈必须早于预检')
+  // 自愈必须早于写回信封
+  const idxWrite = code.indexOf('buildClientUserInfo({')
+  assert.ok(idxWrite > idxHeal, '自愈必须早于 userInfo 重建')
+})
+
+test('档案自愈: 完整性判据以 storeRegion 为唯一定档(与客户端 uS() 同口径)', () => {
+  const src = fs.readFileSync(path.resolve(HERE, '../../scripts/trae-backfill-profile.mjs'), 'utf8')
+  assert.match(src, /export function profileComplete\(/, '判据必须导出为单源函数')
+  assert.match(src, /storeRegion\.trim\(\) !== ''/, '空 storeRegion 即判缺失')
+  assert.match(src, /export async function ensureProfiles\(/, '自愈核心必须可复用')
 })
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
