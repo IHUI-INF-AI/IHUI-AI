@@ -404,6 +404,8 @@ export { DevEnterCoverScreen } from './features/dev-enter-cover/DevEnterCoverScr
 export { DistributionOrderListScreen } from './features/distribution-order-list/DistributionOrderListScreen'
 export { KnowledgePlanetScreen } from './features/knowledge-planet/KnowledgePlanetScreen'
 export { LearnScreen } from './features/learn/LearnScreen'
+// SAG2 词法多跳检索移动工作台(2026-11-13 立,web↔RN↔miniapp 三端共享屏)
+export { Sag2Screen } from './features/sag2/Sag2Screen'
 export { MoreCourseScreen } from './features/more-course/MoreCourseScreen'
 export type {
   MoreCoursePlanetItem,

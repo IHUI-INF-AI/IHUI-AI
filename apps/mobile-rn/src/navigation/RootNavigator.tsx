@@ -278,6 +278,8 @@ import { SharedDemoScreen } from '../screens/SharedDemoScreen'
 import AigcCoverScreen from '../screens/AigcCoverScreen'
 import AigcPublishScreen from '../screens/AigcPublishScreen'
 import { LearnScreen } from '../screens/LearnScreen'
+// SAG2 词法多跳检索工作台(2026-11-13 立,web /sag2 跨端对齐,共享屏 + api-client 数据腿)
+import { Sag2Screen } from '../screens/Sag2Screen'
 import NewsScreen from '../screens/NewsScreen'
 import { PlazaScreen } from '../screens/PlazaScreen'
 import { CoursePlanetScreen } from '../screens/CoursePlanetScreen'
@@ -785,6 +787,8 @@ export type RootStackParamList = {
   // M4.1(2026-08-26):Web 功能门户 + RAG 知识库 + 子智能体
   WebPortal: undefined
   KnowledgeRag: undefined
+  // SAG2 词法多跳检索工作台(2026-11-13 立,web /sag2 跨端对齐)
+  Sag2: undefined
   Subagents: undefined
   McpStore: undefined
   Connectors: undefined
@@ -1349,6 +1353,8 @@ function RootNavigatorInner() {
             {/* M4.1(2026-08-26):Web 功能门户 + RAG 知识库 + 子智能体 */}
             <RootStack.Screen name="WebPortal" component={WebPortalScreen} />
             <RootStack.Screen name="KnowledgeRag" component={KnowledgeRagScreen} />
+            {/* SAG2 词法多跳检索工作台(2026-11-13 立,web /sag2 跨端对齐) */}
+            <RootStack.Screen name="Sag2" component={Sag2Screen} />
             <RootStack.Screen name="Subagents" component={SubagentsScreen} />
             <RootStack.Screen name="McpStore" component={McpStoreScreen} />
             <RootStack.Screen name="Connectors" component={ConnectorsScreen} />

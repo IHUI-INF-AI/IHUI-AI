@@ -8,12 +8,12 @@
 // 改路由请改 RootNavigator.tsx 后重新生成。
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/mobile-rn/scripts/generate-ui-routes.mjs
-// sourceCommit: c75ed05fae9ec2b158cf402107629f02f638a20c
-// inputsSha256: 28b50df46a8380187a783bee863ba32d5777cd41063a194b627df5a88ecfb34f
-// input: apps/mobile-rn/src/navigation/RootNavigator.tsx bab107f81c67f2526bb10191a95ab10f0253f2e3c53fce29c06a0584a35f27cf
+// sourceCommit: 8d913f9670c9a5ced0f598122bd04a096c723eb1
+// inputsSha256: dd0a769146a90fab62a12a38ad46947e30b70e42ee35be624339857e8001e4c5
+// input: apps/mobile-rn/src/navigation/RootNavigator.tsx 6619104ae762a80dddcdcd2ecd248255a4c53559ca2e91ffd2135f196a8f19ef
 // input: apps/mobile-rn/src/navigation/linking.ts d003573a24de25dea1e7fc9abe5deb78223e68486d626712ebc1ce1721531cd7
 // skipped: unauthedBranchScreens=8(未登录分支 Screen 不入白名单,桥接挂载时不存在)
-// generatedAt: 2026-11-12T13:30:01.465Z
+// generatedAt: 2026-11-12T21:20:41.449Z
 // IHUI-GEN-PIN-END
 
 /** AI 可导航 Screen 条目:name 是 react-navigation 的 screen name(不是 URL 路径) */
@@ -28,7 +28,7 @@ export interface RnUiRouteEntry {
   requiredParams: string[]
 }
 
-/** 全量白名单:前 346 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
+/** 全量白名单:前 347 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
 export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'Main', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Login', tab: false, requiresParams: false, requiredParams: [] },
@@ -353,6 +353,7 @@ export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'ChatTools', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'WebPortal', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'KnowledgeRag', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'Sag2', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Subagents', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'McpStore', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Connectors', tab: false, requiresParams: false, requiredParams: [] },
