@@ -12269,8 +12269,8 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 115E. **缺陷普查 AIS AIS-115** [P2] 溢出恢复后的压缩列表未回写调用方（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-115）
 - [ ] 12G. **缺陷普查 API F-12** [P2] 已支付订单副作用重放与支付回调并发，积分/Outbox 双发（证据 docs/tickets/2026-11/findings-api.md#F-12）
 - [ ] 15G. **缺陷普查 API F-15** [P2] 邀请码占用无 status 条件，同一码并发注册双发奖励（证据 docs/tickets/2026-11/findings-api.md#F-15）
-- [ ] 20G. **缺陷普查 API F-20** [P2] 积分任务「今日/本周」区间用 UTC 午夜解释上海日键，整体错位 8 小时（证据 docs/tickets/2026-11/findings-api.md#F-20）
-- [ ] 23G. **缺陷普查 API F-23** [P2] 支付宝整单退款金额用浮点 *100 比较，部分金额合法整单退款被拒（证据 docs/tickets/2026-11/findings-api.md#F-23）
+
+
 - [ ] 24G. **缺陷普查 API F-24** [P3] 导出/用量按 UTC 边界过滤日期区间，且结束边界丢毫秒（证据 docs/tickets/2026-11/findings-api.md#F-24）
 - [ ] 25G. **缺陷普查 API F-25** [P3] /v1/assistants 游标分页排序键非唯一，跨页可能重复/漏行（证据 docs/tickets/2026-11/findings-api.md#F-25）
 - [ ] 26G. **缺陷普查 API F-26** [P3] parsePaging 只夹 pageSize 不夹 page，超大 page 使 OFFSET 溢出为 Infinity → 500（证据 docs/tickets/2026-11/findings-api.md#F-26）
