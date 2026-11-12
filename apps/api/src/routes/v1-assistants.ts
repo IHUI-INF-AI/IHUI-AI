@@ -517,7 +517,9 @@ async function collectAssistants(redis: Redis, userId: string): Promise<Assistan
     const a = await getAssistant(redis, id)
     if (a) items.push(a)
   }
-  items.sort((a, b) => a.created_at - b.created_at)
+  // F-25:created_at 只有毫秒精度,并发创建会撞号;补 id 决胜键让顺序全序稳定,
+  // 否则游标(数组下标+1)在两次请求间顺序漂移会跨页重复/漏行。
+  items.sort((a, b) => a.created_at - b.created_at || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
   return items
 }
 
