@@ -698,6 +698,19 @@ class Token6688Provider(OpenAIProvider):
         for item in data.get("data") or []:
             if isinstance(item, dict) and item.get("embedding"):
                 vectors.append(item["embedding"])
+        # AIS-072:校验向量数量与输入一致、维度一致,否则抛错(避免错位/检索对不上、
+        # 空 data 被当成功)。
+        expected = len(input_text) if isinstance(input_text, list) else 1
+        if len(vectors) != expected:
+            raise ProviderError(
+                f"token6688 embeddings 返回条数不匹配: 期望 {expected}, 实际 {len(vectors)}",
+                0,
+            )
+        if vectors:
+            _dim = len(vectors[0])
+            for _v in vectors:
+                if len(_v) != _dim:
+                    raise ProviderError("token6688 embeddings 返回向量维度不一致", 0)
         return {"model": used_model, "embeddings": vectors, "raw": data}
 
     # ------------------------------------------------------------------
