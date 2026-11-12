@@ -279,6 +279,12 @@ backups/
 # 依赖
 # ============================================================================
 node_modules/
+# 2026-11-12:残留/备份的依赖目录(如 node_modules.bak、node_modules.damaged-20261111)。
+# 只写 `node_modules/` 匹配不到这些**兄弟目录** —— 它们会以未跟踪状态堆在仓库里,
+# 还会被 tsc 当成源码扫进去(tsconfig 的 exclude 也只写了 `node_modules`),把 typecheck 弄红。
+# 2026-11-12 实测教训:这条规则在两条并行合并线之间丢过一次,随后 409MB 残留重新变成
+# 可被 `git add -A` 收编的未跟踪目录。删它之前先想清楚后果。
+node_modules.*/
 .venv/
 .venv.bak*/
 venv/
