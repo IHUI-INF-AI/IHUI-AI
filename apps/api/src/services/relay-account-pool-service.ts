@@ -1337,7 +1337,7 @@ export async function importAccounts(
  * - 生产机的 API 也会写(它同样在导号),但生产侧不装同步任务 ⇒ 标记只占几字节,零副作用;
  * - 路径可用 `IHUI_POOL_SYNC_DIRTY_FILE` 覆盖(NSSM 服务的 homedir 可能不是用户目录)。
  */
-function markPoolSyncDirty(): void {
+export function markPoolSyncDirty(): void {
   const file =
     process.env['IHUI_POOL_SYNC_DIRTY_FILE'] || join(homedir(), '.wb-switch', 'pool-sync-dirty')
   try {

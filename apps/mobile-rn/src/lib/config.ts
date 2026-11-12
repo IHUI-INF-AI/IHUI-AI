@@ -25,25 +25,6 @@ import { version as PKG_VERSION } from '../../package.json'
 export const APP_VERSION = process.env.EXPO_PUBLIC_IHUI_MOBILE_VERSION || PKG_VERSION
 
 /**
- * `APP_VERSION` 是否与**设备真实安装的原生 versionName** 同源可信。
- *
- * 构建期由 `app.config.js` 的 `assertMobileVersionParity` 强制
- * `IHUI_MOBILE_VERSION === EXPO_PUBLIC_IHUI_MOBILE_VERSION`(只注入一侧当场抛错),
- * 所以 env 非空 ⇒ 这个值就是本次原生包的名字,可以拿来判 APK 升降级。
- *
- * env 缺失时会回退 `package.json` 的 version(现值 0.0.12),它**不代表设备上装了什么**:
- * 本地开发、旧 OTA bundle、漏注入的那次构建都长这个样。2026-11-12 真机事故即由此而来 ——
- * 设备装 0.0.25、bundle 报 0.0.12,把服务端 0.0.24 判成「新版本」,点下去其实是降级安装。
- *
- * 消费纪律:**凡要判断「该不该装新包」,必须先问这个标记**;不可信一律按「未判定」处理,
- * 宁可漏报升级,绝不把用户带进降级安装(§0.3 取不到输入不记绿不冒红)。
- * 显示用途(设置页、能力上报、User-Agent)不受影响,照旧用 APP_VERSION。
- */
-export const APP_VERSION_IS_AUTHORITATIVE = Boolean(
-  (process.env.EXPO_PUBLIC_IHUI_MOBILE_VERSION || '').trim(),
-)
-
-/**
  * 首方 User-Agent(2026-09-24 立)。RN 的 fetch 由 okhttp 实现,而后端
  * `apps/api/src/utils/bot-detection.ts` 把 `okhttp` 列进 CURL_LIKE_KEYWORDS ——
  * 不设 UA 等于自家 App 的**每个**请求都被判为爬虫:
@@ -71,7 +52,8 @@ export const API_BASE_URL =
 // 设备侧 localhost 不是宿主机(连不上);更严重的是它会把**生产 token** 送到 dev API ——
 // 两边 JWT 密钥不同 ⇒ refresh 判 401 ⇒ App 按"服务端明确否定"清会话(实测:机主账号被登出)。
 // 开发档豁免:__DEV__ / NODE_ENV≠production 时本机回环正是开发形态。
-const IS_DEV_BUILD = typeof __DEV__ === 'boolean' ? __DEV__ : process.env.NODE_ENV !== 'production'
+const IS_DEV_BUILD =
+  typeof __DEV__ === 'boolean' ? __DEV__ : process.env.NODE_ENV !== 'production'
 if (
   !IS_DEV_BUILD &&
   /^(?:https?:\/\/)?(?:localhost|127\.0\.0\.1|10\.0\.2\.2)(?::\d+)?(?:\/|$)/.test(ENV_API_BASE_URL)

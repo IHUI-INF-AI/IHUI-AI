@@ -117,6 +117,7 @@ export const RN_ROUTE_MAP: Record<string, string> = {
   Feedback: '/pkg-user/user/feedback',
   FeedbackDetail: '/pkg-mirror/feedback-detail/index',
   FeedbackHistory: '/pkg-mirror/feedback-history/index',
+  FinanceAi: '/pkg-user/finance-ai-hub/index',
   Follow: '/pkg-user/following/index',
   Help: '/pkg-about/about/help',
   History: '/pkg-mirror/history/index',

@@ -68,26 +68,26 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 | ---- | ---- | ------ |
 | 数据库表 | 639 | `dbTables` |
 | schema 文件 | 246 | `dbSchemaFiles` |
-| API 路由 | 4771 | `apiRoutes` |
+| API 路由 | 4768 | `apiRoutes` |
 | 路由文件 | 694 | `apiRouteFiles` |
 | AI 服务路由 | 676 | `aiServiceRoutes` |
-| WebSocket 端点 | 43 | `wsEndpoints` |
+| WebSocket 端点 | 40 | `wsEndpoints` |
 | 入库模型清单 | 100 | `llmModels` |
 | 发布平台 | 38 | `publishPlatforms` |
 | 端应用包 | 9 | `appPackages` |
 | 共享包 | 17 | `sharedPackages` |
-| CLI 命令文件 | 76 | `cliCommandFiles` |
-| CLI 工具文件 | 104 | `cliToolFiles` |
+| CLI 命令文件 | 78 | `cliCommandFiles` |
+| CLI 工具文件 | 107 | `cliToolFiles` |
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 5113 | `testFiles` |
+| 测试文件 | 5129 | `testFiles` |
 | CI 工作流 | 59 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
-| 工程守门 | 362 | `guardianGates` |
-| — blocking | 333 | `guardianBlocking` |
+| 工程守门 | 363 | `guardianGates` |
+| — blocking | 334 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 21188 | `trackedFiles` |
+| 跟踪文件 | 21218 | `trackedFiles` |
 
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-12。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。

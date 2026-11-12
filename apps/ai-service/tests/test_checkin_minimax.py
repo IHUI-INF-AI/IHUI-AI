@@ -109,6 +109,52 @@ async def test_checkin_4xx_without_already_still_fails(monkeypatch):
     assert "400" in str(res["message"])
 
 
+async def test_checkin_unattributed_claim_reverifies_by_idempotent_retry(monkeypatch):
+    """2026-11-12 根治(checkin_records id664 实证):claim 200+dict 但 claim_result
+    不在码表、响应无任何业务消息 ⇒ 归因为零,过去直接记 failed;而 3 分钟后同票
+    同 uid 已是 skip_already —— 上游其实已领。status 的 days 无日期定位不了「今天」,
+    唯官方 claim 幂等(已领返 claim_result=2)能定二值:重调一次即翻案为幂等成功。"""
+    calls: list[str] = []
+
+    async def fake_request(path, token, user_id, *, method="POST", body=None,
+                           host=None, timeout=30, client=None, device_id="", uuid_str=""):
+        calls.append(path)
+        if len(calls) == 1:
+            return 200, {"data": {"claim_result": 99}}  # 码表外且无消息 ⇒ 归因为零
+        if path == mm.PATH_SIGNIN_CLAIM:
+            return 200, {"data": {"claim_result": 2}}   # 幂等:已领
+        return 200, {"data": {"days": []}}              # status(不应被调到)
+
+    monkeypatch.setattr(mm, "_mm_request", fake_request)
+    res = await mm.minimax_checkin_account(
+        "mm-1", "tok", {"uid": "314069474482810883"}
+    )
+    assert res["ok"] is True
+    assert res["status"] == "already"
+    assert res["action"] == "skip_already"
+    assert calls == [mm.PATH_SIGNIN_CLAIM, mm.PATH_SIGNIN_CLAIM]
+
+
+async def test_checkin_unattributed_claim_still_fails_without_evidence(monkeypatch):
+    """反向对照:重调后仍无任何判据 ⇒ 不硬翻案,落回原 status 归因(失败如实)。"""
+    calls: list[str] = []
+
+    async def fake_request(path, token, user_id, *, method="POST", body=None,
+                           host=None, timeout=30, client=None, device_id="", uuid_str=""):
+        calls.append(path)
+        if path == mm.PATH_SIGNIN_CLAIM:
+            return 200, {"data": {}}  # 两次 claim 都无任何判据
+        return 200, {"data": {"days": []}}
+
+    monkeypatch.setattr(mm, "_mm_request", fake_request)
+    res = await mm.minimax_checkin_account(
+        "mm-1", "tok", {"uid": "314069474482810883"}
+    )
+    assert res["ok"] is False
+    assert calls.count(mm.PATH_SIGNIN_CLAIM) == 2
+    assert "签到未成功" in str(res["message"])
+
+
 def test_device_map_uid_keys():
     assert mm.minimax_device_map_uid({"uid": " 123 "}) == "123"
     assert mm.minimax_device_map_uid({"user_id": 456}) == "456"

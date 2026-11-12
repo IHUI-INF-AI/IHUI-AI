@@ -390,6 +390,51 @@ async def minimax_checkin_account(
             credits_delta=credits,
         )
         return result
+
+    detail = str(data.get("message") or data.get("msg") or "")
+    # 「归因为零」的 claim 响应偶发出现(2026-11-12 根治,checkin_records id664 实证):
+    # 200+dict、claim_result 不在码表、响应无任何业务消息 ⇒ 全链归因信息为零;当时该
+    # 形态直接记 failed,3 分钟后同票同 uid 却已是 skip_already —— 上游其实已领。
+    # status 端点的 days 无日期,定位不了「今天」(见 minimax_probe_status),唯官方
+    # claim **幂等**(已领返 claim_result=2,重复领不重复发积分)能把二值确定下来
+    # ⇒ 归因为零时立即重调一次:第二次给出任何判定即以它为准;仍无证据才落 status 归因。
+    if not detail:
+        r2_status, r2_data = await _mm_request(
+            PATH_SIGNIN_CLAIM,
+            tok,
+            user_id,
+            method="POST",
+            body={},
+            host=host,
+            timeout=timeout,
+            client=client,
+            device_id=device_id,
+            uuid_str=uuid_str,
+        )
+        if isinstance(r2_data, dict):
+            _ok2, _action2, _credits2 = parse_claim_result(r2_data)
+            if _ok2:
+                result["code"] = (
+                    r2_data.get("code") if isinstance(r2_data.get("code"), int) else None
+                )
+                result.update(
+                    ok=True,
+                    status="already" if _action2 == "skip_already" else "ok",
+                    action=_action2,
+                    message=(
+                        "今日已签到,无需重复领取" if _action2 == "skip_already" else "签到成功"
+                    ),
+                    credits_delta=_credits2,
+                )
+                return result
+            _detail2 = str(r2_data.get("message") or r2_data.get("msg") or "")
+            if _detail2:
+                # 第二次带出业务消息:以它为归因底本(它才是上游最新的真实拒绝原因)
+                data = r2_data
+                detail = _detail2
+                result["code"] = (
+                    r2_data.get("code") if isinstance(r2_data.get("code"), int) else None
+                )
     # claim 未成功:查 status 给出可读归因(已签/未开放/服务端消息)
     s_status, s_data = await _mm_request(
         PATH_SIGNIN_STATUS,
@@ -405,7 +450,6 @@ async def minimax_checkin_account(
     msg = ""
     if isinstance(s_data, dict):
         msg = str(s_data.get("message") or s_data.get("msg") or "")
-    detail = data.get("message") or data.get("msg") or ""
     result["message"] = (
         "签到未成功"
         + (f": {detail}" if detail else "")
