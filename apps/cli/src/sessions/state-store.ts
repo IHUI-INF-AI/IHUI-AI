@@ -15,14 +15,15 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import type { SessionState, SessionSummary } from './types.js';
 // G-719(2026-10-03):会话水合读侧唯一入口(落库工具结果元数据的版本分账/剥后校验)。
 import { hydrateToolStateMap } from './tool-part-hydration.js';
 // 会话 id 路径穿越修复:会话 id 来自 `--resume`/ACP,不可信 —— 目录段收敛复用产物层唯一实现。
 import { sanitizeSessionSegment } from '../tools/result-envelope/artifact-store.js';
 // BUG-0010:会话状态落盘统一走唯一原子写出口(tmp+fsync+rename;Windows EPERM 有界重试)。
-import { writeFileAtomicSync } from '../util/atomic-write.js';
+// F-034:已有文件的写改走 commitAtomicWrite(同一原子出口 + 落盘前重读比对基线)构成 CAS。
+import { commitAtomicWrite, WriteConflictError, writeFileAtomicSync } from '../util/atomic-write.js';
 
 const STATE_DIR_ENV = 'IHUI_SESSION_STATE_DIR';
 const DEFAULT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -102,23 +103,79 @@ function sessionReadCode(error: unknown): string {
   return 'unknown';
 }
 
-function sessionFileBlocksReplace(id: string): boolean {
+/**
+ * F-034(2026-11-12):写回路 CAS 的细粒度令牌。
+ *
+ * 修前 `patchSession` 拿 `updatedAt` 字符串当版本号 —— 同一毫秒内两次写入钟值相同,
+ * 两个写者都通过令牌校验,后写者把先写者刚落的列静默覆盖回旧快照。内容哈希对
+ * "正文变没变"敏感,同毫秒也会变,因此同一毫秒内的第二次写必然对不上旧令牌。
+ */
+function sessionTokenOfRaw(raw: string): string {
+  return `sha256:${createHash('sha256').update(raw, 'utf-8').digest('hex')}`;
+}
+
+/** 读盘取当前内容令牌;文件不存在/读不到 ⇒ null(调用方按"没有基线"处理)。 */
+export function sessionContentToken(id: string): string | null {
+  try {
+    return sessionTokenOfRaw(fs.readFileSync(getSessionStatePath(id), 'utf-8'));
+  } catch {
+    return null;
+  }
+}
+
+/** F-034:基线不成立时抛出 —— 调用方必须重读,不得把这次写当成成功。 */
+export class SessionWriteConflictError extends Error {
+  readonly code = 'session_write_conflict';
+  readonly id: string;
+  readonly expected: string;
+  readonly actual: string;
+
+  constructor(id: string, expected: string, actual: string) {
+    super(
+      `会话写入冲突:${id} 的基线已不是磁盘当前内容(基线 ${expected} → 当前 ${actual})。` +
+        '请重新读取该会话,基于最新内容重发这次写入。',
+    );
+    this.name = 'SessionWriteConflictError';
+    this.id = id;
+    this.expected = expected;
+    this.actual = actual;
+  }
+}
+
+/** F-034:CAS 重试上限 —— 每次都基于最新磁盘内容重新合并,仍不收敛才判冲突。 */
+const MAX_CAS_ATTEMPTS = 5;
+
+/**
+ * 写回路原样读盘:一次读拿到「正文(作 CAS 基线)+ 解析结果」,避免基线与内容来自两次读。
+ * 读不到(非 ENOENT)按既有口径抛错,不把"读不到"当成"没有"。
+ */
+type SessionWriteSnapshot =
+  | { kind: 'missing' }
+  | { kind: 'empty'; raw: string }
+  | { kind: 'corrupt' }
+  | { kind: 'ok'; raw: string; state: SessionState };
+
+function readSessionForWrite(id: string): SessionWriteSnapshot {
   const target = getSessionStatePath(id);
   let raw: string;
   try {
     raw = fs.readFileSync(target, 'utf-8');
   } catch (error) {
     const code = sessionReadCode(error);
-    if (code === 'ENOENT' || code === 'ENOTDIR') return false;
-    throw new Error(`会话读不到,不能把它覆盖成新会话 (${code})`);
+    if (code === 'ENOENT' || code === 'ENOTDIR') return { kind: 'missing' };
+    throw new Error(`会话读不到,不能把它当成没有这场会话 (${code})`);
   }
-  if (raw.trim() === '') return false;
+  if (raw.trim() === '') return { kind: 'empty', raw };
+  let parsed: unknown;
   try {
-    const parsed = JSON.parse(raw) as { id?: unknown } | null;
-    return !parsed || typeof parsed !== 'object' || Array.isArray(parsed) || typeof parsed.id !== 'string';
+    parsed = JSON.parse(raw);
   } catch {
-    return true;
+    return { kind: 'corrupt' };
   }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return { kind: 'corrupt' };
+  const state = parsed as SessionState;
+  if (typeof state.id !== 'string') return { kind: 'corrupt' };
+  return { kind: 'ok', raw, state };
 }
 
 /**
@@ -189,12 +246,6 @@ function quarantineCorruptSessionFile(filePath: string): string | null {
   return null;
 }
 
-/** 原样读盘(不水合):非 ok 一律 null —— 写回路与旧契约调用点用。 */
-function readStateFile(id: string): SessionState | null {
-  const result = readStateFileResult(id);
-  return result.kind === 'ok' ? result.session : null;
-}
-
 function hydrateSessionState(parsed: SessionState): SessionState {
   // G-719:会话水合读侧唯一入口 —— toolState 里的落库工具结果元数据经
   // 版本分账/剥后校验;降级条目剥 display 保外层,整份会话照常读出。
@@ -224,22 +275,55 @@ function monotonicUpdatedAt(current: string | undefined, incoming: string): stri
   return inMs >= curMs ? incoming : current;
 }
 
-export function saveSession(state: SessionState): void {
+/**
+ * F-034(2026-11-12):整份快照保存,已有文件走 CAS。
+ *
+ * 并发两写不再双双"成功":落盘前重读磁盘并与本次读到的正文逐字节比对,
+ * 不一致 ⇒ 基于最新正文重新计算(时钟仍取 max)后重试;提供了 `expected` 而基线
+ * 不成立时直接抛 {@link SessionWriteConflictError},不静默覆盖。
+ *
+ * `expected` 兼容两种令牌:旧调用点传的 `updatedAt` 字符串,或
+ * {@link sessionContentToken} 读到的内容哈希(同毫秒双写也能分辨)。
+ * 不传参时沿用既有"除钟外整份以调用方为准"的全快照语义(58 个既有调用点不变)。
+ */
+export function saveSession(state: SessionState, expected?: string): void {
   pruneOnWrite();
   ensureStateDir();
   const p = getSessionStatePath(state.id);
-  // G-820(2026-10-07):兼容入口不再裸 JSON.stringify 整份覆写。除钟外的列仍整份
-  // 以调用方为准(58 个既有调用点的全快照语义不变),唯独 updatedAt 取
-  // max(文件现值, 来值)—— 旧快照不得把并发已推进的活动钟压回过去。
-  const current = readStateFile(state.id);
-  if (current === null && sessionFileBlocksReplace(state.id)) {
-    throw new Error('会话读不到,不能把它覆盖成新会话 (corrupt)');
+  for (let attempt = 0; ; attempt++) {
+    const snap = readSessionForWrite(state.id);
+    if (snap.kind === 'corrupt') {
+      throw new Error('会话读不到,不能把它覆盖成新会话 (corrupt)');
+    }
+    const current = snap.kind === 'ok' ? snap.state : null;
+    if (expected !== undefined) {
+      const token = snap.kind === 'missing' ? null : sessionTokenOfRaw(snap.raw);
+      const matches = current !== null && (expected === current.updatedAt || expected === token);
+      if (!matches) {
+        throw new SessionWriteConflictError(state.id, expected, current?.updatedAt ?? '(不存在)');
+      }
+    }
+    // G-820:除钟外的列仍整份以调用方为准(全快照语义不变),唯独 updatedAt 取
+    // max(文件现值, 来值)—— 旧快照不得把并发已推进的活动钟压回过去。
+    const next: SessionState = {
+      ...state,
+      updatedAt: monotonicUpdatedAt(current?.updatedAt, state.updatedAt),
+    };
+    const content = JSON.stringify(next, null, 2);
+    if (snap.kind === 'missing') {
+      writeFileAtomicSync(p, content, { mode: 0o600 });
+      return;
+    }
+    try {
+      commitAtomicWrite({ absPath: p, content: snap.raw }, content);
+      return;
+    } catch (error) {
+      if (!(error instanceof WriteConflictError)) throw error;
+      if (attempt >= MAX_CAS_ATTEMPTS - 1) {
+        throw new SessionWriteConflictError(state.id, expected ?? '(未提供基线)', '(并发写入持续冲突)');
+      }
+    }
   }
-  const next: SessionState = {
-    ...state,
-    updatedAt: monotonicUpdatedAt(current?.updatedAt, state.updatedAt),
-  };
-  writeFileAtomicSync(p, JSON.stringify(next, null, 2), { mode: 0o600 });
 }
 
 /**
@@ -250,15 +334,15 @@ export function saveSession(state: SessionState): void {
 export type SessionOwnedFields = Partial<Omit<SessionState, 'id' | 'updatedAt'>>;
 
 /**
- * G-820(2026-10-07)维护性写入入口。
+ * G-820(2026-10-07)维护性写入入口;F-034(2026-11-12)起为真正的 CAS。
  *
- * expected:乐观并发护栏(CAS)。介质是单文件 JSON、无锁单用户场景,取
- * "调用方最后一次 loadSession 观察到的 updatedAt" 作令牌最省 —— 单调钟即版本号:
- * 期间有他人写入 ⇒ 钟被推进 ⇒ 现值对不上 ⇒ 拒写。同毫秒双写是已知 1ms 窗口,
- * 列所有权本身已把不同列的并发写散开,这里只护同列竞态。
+ * expected:乐观并发护栏。除旧的 `updatedAt` 字符串外,也接受
+ * {@link sessionContentToken} 的内容哈希令牌 —— 后者对同毫秒双写同样敏感。
+ * 落盘前重读比对正文基线:期间有他人写入 ⇒ 基于最新正文重新合并 ownedFields 后重试,
+ * 因此两个 patch 各自声明的列都不会被对方抹掉;重试仍不收敛或目标会话不存在 ⇒
+ * 返回 null 不落盘,由调用方决定重读重试。
  *
- * 返回写入后的完整状态;目标会话不存在(不代建,建会话走 saveSession)或
- * expected 不匹配 ⇒ 返回 null 不落盘,由调用方决定重读重试。
+ * 返回写入后的完整状态。
  */
 export function patchSession(
   id: string,
@@ -266,17 +350,29 @@ export function patchSession(
   expected?: string,
 ): SessionState | null {
   pruneOnWrite();
-  const current = readStateFile(id);
-  if (!current) return null;
-  if (expected !== undefined && current.updatedAt !== expected) return null;
-  const next: SessionState = {
-    ...current,
-    ...ownedFields,
-    id: current.id,
-    updatedAt: monotonicUpdatedAt(current.updatedAt, new Date().toISOString()),
-  };
-  writeFileAtomicSync(getSessionStatePath(id), JSON.stringify(next, null, 2), { mode: 0o600 });
-  return next;
+  const p = getSessionStatePath(id);
+  for (let attempt = 0; attempt < MAX_CAS_ATTEMPTS; attempt++) {
+    const snap = readSessionForWrite(id);
+    // 目标会话不存在/损坏/空文件:不代建、不覆盖(建会话只归 saveSession)。
+    if (snap.kind !== 'ok') return null;
+    if (expected !== undefined && expected !== snap.state.updatedAt && expected !== sessionTokenOfRaw(snap.raw)) {
+      return null;
+    }
+    const next: SessionState = {
+      ...snap.state,
+      ...ownedFields,
+      id: snap.state.id,
+      updatedAt: monotonicUpdatedAt(snap.state.updatedAt, new Date().toISOString()),
+    };
+    try {
+      commitAtomicWrite({ absPath: p, content: snap.raw }, JSON.stringify(next, null, 2));
+      return next;
+    } catch (error) {
+      if (!(error instanceof WriteConflictError)) throw error;
+      // 冲突:重读后基于最新内容重新合并(不丢另一方的列),超过上限才判拒写。
+    }
+  }
+  return null;
 }
 
 /**

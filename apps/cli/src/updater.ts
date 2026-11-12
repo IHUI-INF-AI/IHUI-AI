@@ -148,6 +148,19 @@ function cacheReadCode(error: unknown): string {
   return 'unknown';
 }
 
+/**
+ * F-035(2026-11-12):缓存内容损坏(解析失败/形状不认识)与"读不到"分开。
+ * 前者可在隔离后重建,后者(EACCES/EBUSY 等)不得越权覆盖。
+ */
+class CacheCorruptError extends Error {
+  readonly code = 'cache_corrupt';
+
+  constructor() {
+    super('更新缓存读不到,不能把它覆盖成新结论 (corrupt)');
+    this.name = 'CacheCorruptError';
+  }
+}
+
 /** 读原始 JSON(不做形状校验,合并写回时要保住另一方的键)。空文件或不存在 ⇒ null。非空损坏必须抛,读失败不得当成空。 */
 function readRawCache(cacheFile: string): Record<string, unknown> | null {
   let text: string;
@@ -163,23 +176,56 @@ function readRawCache(cacheFile: string): Record<string, unknown> | null {
   try {
     parsed = JSON.parse(text);
   } catch {
-    throw new Error('更新缓存读不到,不能把它覆盖成新结论 (corrupt)');
+    throw new CacheCorruptError();
   }
   if (!isRecord(parsed)) {
-    throw new Error('更新缓存读不到,不能把它覆盖成新结论 (corrupt)');
+    throw new CacheCorruptError();
   }
   return parsed;
 }
 
-/** 合并写回:只覆盖 patch 里点名的键,其余键(另一方写的结论)原样保留。 */
+/** F-035:坏档隔离为 `<原文件名>.corrupt-<ts>.json`(只改名,原字节保留);失败返回 null ⇒ 调用方直接重建。 */
+function quarantineCorruptCache(cacheFile: string): string | null {
+  const dir = path.dirname(cacheFile);
+  const base = path.basename(cacheFile);
+  const ts = Date.now();
+  for (let attempt = 0; attempt < 100; attempt++) {
+    const seq = attempt === 0 ? '' : `-${attempt}`;
+    const target = path.join(dir, `${base}.corrupt-${ts}${seq}.json`);
+    if (fs.existsSync(target)) continue;
+    try {
+      fs.renameSync(cacheFile, target);
+      return target;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+/**
+ * 合并写回:只覆盖 patch 里点名的键,其余键(另一方写的结论)原样保留。
+ * F-035:写入走原子出口(既有的 writeFileAtomicSync);坏档隔离后以空基重建 ——
+ * 修前这里只 warn + return,缓存一旦写坏就永久拒写、每次启动刷警告。
+ * 合并基恒为**本次重读到的磁盘最新内容**,不做"入参记忆 + 整块覆盖"。
+ */
 function mergeWriteCache(cacheFile: string, patch: Record<string, unknown>): void {
   let base: Record<string, unknown>;
   try {
     base = readRawCache(cacheFile) ?? {};
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    process.stderr.write(`warning: ${message}\n`);
-    return;
+    if (!(error instanceof CacheCorruptError)) {
+      const message = error instanceof Error ? error.message : String(error);
+      process.stderr.write(`warning: ${message}\n`);
+      return;
+    }
+    const quarantined = quarantineCorruptCache(cacheFile);
+    process.stderr.write(
+      `warning: ${error.message};` +
+        (quarantined ? `已隔离为 ${path.basename(quarantined)},` : '隔离失败,') +
+        '按空缓存重建\n',
+    );
+    base = {};
   }
   try {
     writeFileAtomicSync(cacheFile, JSON.stringify({ ...base, ...patch }));

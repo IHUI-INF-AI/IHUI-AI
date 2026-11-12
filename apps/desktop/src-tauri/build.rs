@@ -30,6 +30,7 @@ fn main() {
             "get_admin_window_info",
             "toggle_devtools",
             "quit_app",
+            "set_caption_button_theme",
             "restart_app",
             "open_admin_window",
             "start_resize",

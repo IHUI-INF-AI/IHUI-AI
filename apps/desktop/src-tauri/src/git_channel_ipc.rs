@@ -228,8 +228,11 @@ fn resolved_binary(state: &GitChannelState) -> Option<PathBuf> {
 }
 
 /// 授权一个工作区根。**幂等**：重复授权同一根不报错；换根需显式再调一次。
-#[tauri::command]
-pub fn git_authorize_workspace(
+///
+/// 会派生 `git rev-parse`（同步阻塞至多 `timeout`），故落 blocking 线程池：同步命令
+/// 会在主线程上跑完整个派生 + 轮询，网络盘上直接冻结全部窗口（F-106）。
+#[tauri::command(async)]
+pub async fn git_authorize_workspace(
     state: tauri::State<'_, GitChannelState>,
     root: String,
 ) -> Result<StatusReply, String> {
@@ -238,90 +241,103 @@ pub fn git_authorize_workspace(
         return Ok(undetermined("root 为空，未授权".into()));
     }
     let cfg = state.config();
-    let binary = match resolved_binary(&state) {
-        Some(b) => b,
-        None => {
-            return Ok(undetermined(
-                crate::git_local_status::missing_binary_reason(&cfg.git_candidates),
-            ))
-        }
-    };
-    // 票72③(2026-10-07)：授权只跑 root 证明（verify_root：bases 边界 + rev-parse
-    // --show-toplevel 双证），不再顺带执行完整 status。旧实现走 local_status，
-    // >MAX_REPORTED_ENTRIES(5000) 条变更的仓库被判 Budget ⇒ state 永远到不了
-    // facts ⇒ 大仓永远无法授权 —— 授权不该取决于仓库有多大（verify_root 立口的
-    // 同一句话）。失败路径（拒/判不了/命令失败）经 StatusReply::from 原样上线，
-    // state 均非 "facts"，不会写入 authorized_root。
-    // 票72④(2026-10-18)：双证之前先过符号逃逸门 —— 字面落在 base 内、实际经
-    // 符号链接/junction 指向 base 外的 root 能骗过字面包含性比对；canonical
-    // 解析后逃出全部 base ⇒ 拒，解析不了 ⇒ 判不了，两者都不写 authorized_root。
-    let escape = check_root_no_symlink_escape(
-        &candidate,
-        &cfg.bases,
-        cfg.fold_case,
-        &|p: &str| std::fs::canonicalize(p).map(|pb| pb.display().to_string()),
-    );
-    if !escape.is_pass() {
-        return Ok(StatusReply::from(&refused(escape)));
-    }
-    let reply = match verify_root(&cfg, &candidate, Some(&binary), &ProcessRunner) {
-        Ok(binary_used) => {
-            let mut slot = state
-                .authorized_root
-                .lock()
-                .unwrap_or_else(|poisoned| poisoned.into_inner());
-            *slot = Some(candidate.clone());
-            StatusReply {
-                state: "facts".into(),
-                verdict: "clean".into(),
-                reason: "root 授权证明成立；本命令不执行 status、不产出变更清单，工作区状态请调 git_workspace_status".into(),
-                root: candidate,
-                git_binary: binary_used,
-                scope: None,
-                total: 0,
-                by_kind: Vec::new(),
-                entries: Vec::new(),
+    // 先读完宿主状态再进闭包：闭包不碰 State，run 完也不跨 await 持有借用。
+    // 授权写入必须在 await 之后做（闭包里拿不到 State 的可变位）。
+    let (authorized, reply) = tauri::async_runtime::spawn_blocking(move || {
+        let binary = match resolve_git_binary(&cfg.git_candidates, &|p| p.is_file()) {
+            Some(b) => b,
+            None => {
+                return (
+                    None,
+                    undetermined(crate::git_local_status::missing_binary_reason(&cfg.git_candidates)),
+                )
             }
+        };
+        // 票72③(2026-10-07)：授权只跑 root 证明（verify_root：bases 边界 + rev-parse
+        // --show-toplevel 双证），不再顺带执行完整 status。旧实现走 local_status，
+        // >MAX_REPORTED_ENTRIES(5000) 条变更的仓库被判 Budget ⇒ state 永远到不了
+        // facts ⇒ 大仓永远无法授权 —— 授权不该取决于仓库有多大（verify_root 立口的
+        // 同一句话）。失败路径（拒/判不了/命令失败）经 StatusReply::from 原样上线，
+        // state 均非 "facts"，不会写入 authorized_root。
+        // 票72④(2026-10-18)：双证之前先过符号逃逸门 —— 字面落在 base 内、实际经
+        // 符号链接/junction 指向 base 外的 root 能骗过字面包含性比对；canonical
+        // 解析后逃出全部 base ⇒ 拒，解析不了 ⇒ 判不了，两者都不写 authorized_root。
+        let escape = check_root_no_symlink_escape(
+            &candidate,
+            &cfg.bases,
+            cfg.fold_case,
+            &|p: &str| std::fs::canonicalize(p).map(|pb| pb.display().to_string()),
+        );
+        if !escape.is_pass() {
+            return (None, StatusReply::from(&refused(escape)));
         }
-        Err(outcome) => StatusReply::from(&outcome),
-    };
+        match verify_root(&cfg, &candidate, Some(&binary), &ProcessRunner) {
+            Ok(binary_used) => (
+                Some(candidate.clone()),
+                StatusReply {
+                    state: "facts".into(),
+                    verdict: "clean".into(),
+                    reason: "root 授权证明成立；本命令不执行 status、不产出变更清单，工作区状态请调 git_workspace_status".into(),
+                    root: candidate,
+                    git_binary: binary_used,
+                    scope: None,
+                    total: 0,
+                    by_kind: Vec::new(),
+                    entries: Vec::new(),
+                },
+            ),
+            Err(outcome) => (None, StatusReply::from(&outcome)),
+        }
+    })
+    .await
+    .map_err(|e| format!("git 授权任务异常退出: {e}"))?;
+    if let Some(proved_root) = authorized {
+        let mut slot = state
+            .authorized_root
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        *slot = Some(proved_root);
+    }
     Ok(reply)
 }
 
 /// 取本地仓库状态。只作用于**已授权**的根，前端无从指定别的目录。
-#[tauri::command]
-pub fn git_workspace_status(
+///
+/// 内部派生 git + 有界轮询（`try_wait` 至多 `timeout`），必须落 blocking 线程池，
+/// 否则大仓/网络盘会把主线程连同全部窗口一起挂住（F-106）。
+#[tauri::command(async)]
+pub async fn git_workspace_status(
     state: tauri::State<'_, GitChannelState>,
     scope: Option<String>,
 ) -> Result<StatusReply, String> {
-    let root = match state.stored_root() {
-        Some(root) => root,
-        None => {
-            return Ok(undetermined(format!(
-                "尚未授权工作区根（先调 git_authorize_workspace）；边界：{}",
-                state.boundary_note()
-            )))
-        }
-    };
+    let root = state.stored_root();
     let cfg = state.config();
-    let binary = match resolved_binary(&state) {
-        Some(b) => b,
-        None => {
-            return Ok(undetermined(
-                crate::git_local_status::missing_binary_reason(&cfg.git_candidates),
-            ))
-        }
-    };
-    let req = RequestSpec {
-        root,
-        scope: scope.map(|s| s.trim().to_string()).filter(|s| !s.is_empty()),
-    };
-    Ok(StatusReply::from(&local_status(
-        &cfg,
-        &req,
-        Some(&binary),
-        &ProcessRunner,
-    )))
+    let boundary = state.boundary_note();
+    tauri::async_runtime::spawn_blocking(move || -> StatusReply {
+        let root = match root {
+            Some(root) => root,
+            None => {
+                return undetermined(format!(
+                    "尚未授权工作区根（先调 git_authorize_workspace）；边界：{boundary}"
+                ))
+            }
+        };
+        let binary = match resolve_git_binary(&cfg.git_candidates, &|p| p.is_file()) {
+            Some(b) => b,
+            None => {
+                return undetermined(crate::git_local_status::missing_binary_reason(
+                    &cfg.git_candidates,
+                ))
+            }
+        };
+        let req = RequestSpec {
+            root,
+            scope: scope.map(|s| s.trim().to_string()).filter(|s| !s.is_empty()),
+        };
+        StatusReply::from(&local_status(&cfg, &req, Some(&binary), &ProcessRunner))
+    })
+    .await
+    .map_err(|e| format!("git 状态任务异常退出: {e}"))
 }
 
 /// 通道自述：当前授权根、git 解析结果、边界说明。用于"这条通道到底在用什么"的回读。
@@ -404,43 +420,50 @@ fn diff_undetermined(reason: String) -> DiffReply {
 
 /// 取本地 diff 文本。只作用于**已授权**的根；scope 必须是仓库内相对路径
 /// （判据与 status 通道同一份 `check_scope`，不另立一份）。
-#[tauri::command]
-pub fn git_workspace_diff(
+///
+/// 与 status 同理：同步派生 + 有界轮询必须落 blocking 线程池（F-106）。
+#[tauri::command(async)]
+pub async fn git_workspace_diff(
     state: tauri::State<'_, GitChannelState>,
     scope: Option<String>,
     staged: Option<bool>,
 ) -> Result<DiffReply, String> {
-    let root = match state.stored_root() {
-        Some(root) => root,
-        None => {
-            return Ok(diff_undetermined(format!(
-                "尚未授权工作区根（先调 git_authorize_workspace）；边界：{}",
-                state.boundary_note()
-            )))
-        }
-    };
+    let root = state.stored_root();
     let cfg = state.config();
-    let binary = match resolved_binary(&state) {
-        Some(b) => b,
-        None => {
-            return Ok(diff_undetermined(
-                crate::git_local_status::missing_binary_reason(&cfg.git_candidates),
-            ))
-        }
-    };
-    let scope = scope
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty())
-        .unwrap_or_else(|| ".".to_string());
-    let staged = staged.unwrap_or(false);
-    Ok(DiffReply::from(&local_diff(
-        &cfg,
-        &root,
-        &scope,
-        staged,
-        Some(&binary),
-        &ProcessRunner,
-    )))
+    let boundary = state.boundary_note();
+    tauri::async_runtime::spawn_blocking(move || -> DiffReply {
+        let root = match root {
+            Some(root) => root,
+            None => {
+                return diff_undetermined(format!(
+                    "尚未授权工作区根（先调 git_authorize_workspace）；边界：{boundary}"
+                ))
+            }
+        };
+        let binary = match resolve_git_binary(&cfg.git_candidates, &|p| p.is_file()) {
+            Some(b) => b,
+            None => {
+                return diff_undetermined(crate::git_local_status::missing_binary_reason(
+                    &cfg.git_candidates,
+                ))
+            }
+        };
+        let scope = scope
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| ".".to_string());
+        let staged = staged.unwrap_or(false);
+        DiffReply::from(&local_diff(
+            &cfg,
+            &root,
+            &scope,
+            staged,
+            Some(&binary),
+            &ProcessRunner,
+        ))
+    })
+    .await
+    .map_err(|e| format!("git diff 任务异常退出: {e}"))
 }
 
 /// 一条索引记录的上线形态（rel 恒 `/` 分隔；增量基准 `size+mtime_ms`，内容级近似）。
@@ -488,57 +511,66 @@ fn index_undetermined(reason: String) -> IndexReply {
 
 /// 工作区文件索引快照（增量）。previous 由前端持回上一次快照 —— 宿主不存会话态，
 /// 重启即失效的索引没有资格叫"增量索引"。目录不下降符号链接/junction（票72④）。
-#[tauri::command]
-pub fn workspace_index_scan(
+///
+/// 遍历是 5 万条上限的 `read_dir`+`metadata` 全同步 I/O，必须先落到 blocking 线程池：
+/// 同步命令会在主线程上跑完整趟，大仓就冻结全部窗口且不可取消（F-055）。
+#[tauri::command(async)]
+pub async fn workspace_index_scan(
     state: tauri::State<'_, GitChannelState>,
     previous: Option<Vec<IndexEntryWire>>,
 ) -> Result<IndexReply, String> {
-    let root = match state.stored_root() {
-        Some(root) => root,
-        None => {
-            return Ok(index_undetermined(format!(
-                "尚未授权工作区根（先调 git_authorize_workspace）；边界：{}",
-                state.boundary_note()
-            )))
+    // 先把宿主状态读完再进闭包：闭包不碰 State，run 完也不跨 await 持有借用。
+    let stored = state.stored_root();
+    let boundary = state.boundary_note();
+    tauri::async_runtime::spawn_blocking(move || {
+        let root = match stored {
+            Some(root) => root,
+            None => {
+                return index_undetermined(format!(
+                    "尚未授权工作区根（先调 git_authorize_workspace）；边界：{boundary}"
+                ))
+            }
+        };
+        let walk = walk_index(Path::new(&root));
+        let (entries, symlink_dirs_skipped, non_utf8_skipped) = match walk {
+            WalkOutcome::Facts { entries, symlink_dirs_skipped, non_utf8_skipped } => {
+                (entries, symlink_dirs_skipped, non_utf8_skipped)
+            }
+            WalkOutcome::Undetermined { kind, reason } => {
+                return index_undetermined(format!("[{}] {}", kind.as_str(), reason))
+            }
+        };
+        let delta = previous.map(|prev| {
+            let mut map = std::collections::BTreeMap::new();
+            for e in prev {
+                map.insert(e.rel, (e.size, e.mtime_ms));
+            }
+            let d: IndexDelta = compute_delta(&map, &entries);
+            DeltaWire {
+                basis: "size+mtime".into(),
+                added: d.added,
+                removed: d.removed,
+                changed: d.changed,
+                unchanged: d.unchanged,
+            }
+        });
+        let total = entries.len();
+        IndexReply {
+            state: "facts".into(),
+            reason: String::new(),
+            root,
+            total,
+            entries: entries
+                .into_iter()
+                .map(|e| IndexEntryWire { rel: e.rel, size: e.size, mtime_ms: e.mtime_ms })
+                .collect(),
+            symlink_dirs_skipped,
+            non_utf8_skipped,
+            delta,
         }
-    };
-    let walk = walk_index(Path::new(&root));
-    let (entries, symlink_dirs_skipped, non_utf8_skipped) = match walk {
-        WalkOutcome::Facts { entries, symlink_dirs_skipped, non_utf8_skipped } => {
-            (entries, symlink_dirs_skipped, non_utf8_skipped)
-        }
-        WalkOutcome::Undetermined { kind, reason } => {
-            return Ok(index_undetermined(format!("[{}] {}", kind.as_str(), reason)))
-        }
-    };
-    let delta = previous.map(|prev| {
-        let mut map = std::collections::BTreeMap::new();
-        for e in prev {
-            map.insert(e.rel, (e.size, e.mtime_ms));
-        }
-        let d: IndexDelta = compute_delta(&map, &entries);
-        DeltaWire {
-            basis: "size+mtime".into(),
-            added: d.added,
-            removed: d.removed,
-            changed: d.changed,
-            unchanged: d.unchanged,
-        }
-    });
-    let total = entries.len();
-    Ok(IndexReply {
-        state: "facts".into(),
-        reason: String::new(),
-        root,
-        total,
-        entries: entries
-            .into_iter()
-            .map(|e| IndexEntryWire { rel: e.rel, size: e.size, mtime_ms: e.mtime_ms })
-            .collect(),
-        symlink_dirs_skipped,
-        non_utf8_skipped,
-        delta,
     })
+    .await
+    .map_err(|e| format!("索引任务异常退出: {e}"))
 }
 
 /// 供测试与后续对账使用：把 kind 的封闭集固定在一处，前端拼错即编译不到。

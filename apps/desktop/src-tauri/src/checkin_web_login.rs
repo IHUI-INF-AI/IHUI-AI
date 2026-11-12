@@ -24,6 +24,9 @@
 //!    workbuddy.cn 域族 → Rust 侧直调 `/console/accounts` 验证登录态并取 uid/昵称;
 //! 3. 验证通过 → 返回 {status:"ok", cookie, accounts},前端自动入库并
 //!    `embedded_browser_close` 收尾。
+//!    F-060 残留:整串 cookie 仍是入库契约的一部分(`checkin/page.tsx` 的
+//!    `jwt: probe.cookie`),要收窄回传面必须与前端同批改,单侧删字段会让
+//!    WorkBuddy 网页登录导入写出空 jwt。本文件只先收掉 `expect` 建客户端的 panic。
 //!
 //! 窗口开/关**不在此文件**:统一走 `embedded_browser` 模块(单一真相源,免得
 //! 同一个窗口有两套建窗代码)。本文件只负责「探针 + 判据」。
@@ -138,6 +141,7 @@ pub async fn probe_cookie_checkin(cookie_header: &str) -> Option<bool> {
     // 理由已具名出声(见 egress_gate::report_egress_warnings)。
     crate::egress_gate::guard_egress_target(&format!("{WB_WEB_ORIGIN}/v2/billing/meter/checkin-status")).ok()?;
     let resp = shared_client()
+        .ok()?
         .post(format!("{WB_WEB_ORIGIN}/v2/billing/meter/checkin-status"))
         .header("accept", "application/json")
         .header("content-type", "application/json")
@@ -174,7 +178,7 @@ pub async fn probe_cookie_accounts(cookie_header: &str) -> Result<ProbeOutcome, 
     if let Err(denied) = crate::egress_gate::guard_egress_target(&target) {
         return Err(format!("出口门拒绝该目标: {denied}"));
     }
-    let resp = shared_client()
+    let resp = shared_client()?
         .get(format!("{WB_WEB_ORIGIN}{ACCOUNTS_PATH}"))
         .header("accept", "application/json")
         .header("cookie", cookie_header)
@@ -216,6 +220,8 @@ pub enum WebLoginProbe {
     NotLoggedIn { message: String },
     /// 验证通过:cookie + 账号齐全,前端可自动回填。
     /// `cookie_checkin_ok`:网页登录态能否驱动签到接口(实测;None=网络原因未判定)。
+    /// `cookie`(F-060):前端入库契约消费该字段(`jwt: probe.cookie`),故仍随 IPC
+    /// 回传;收窄为"只留 Rust"需前后端同批改,单侧删字段会写出空 jwt。
     Ok {
         cookie: String,
         accounts: Vec<WbWebAccount>,
@@ -225,14 +231,21 @@ pub enum WebLoginProbe {
     Error { message: String },
 }
 
-fn shared_client() -> &'static reqwest::Client {
-    static CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
-    CLIENT.get_or_init(|| {
-        reqwest::Client::builder()
-            .timeout(Duration::from_secs(PROBE_HTTP_TIMEOUT_SECS))
-            .build()
-            .expect("reqwest client build")
-    })
+/// 构建 HTTP 客户端(可失败,不 panic):非法配置 ⇒ Err 由调用方决定降级口径。
+fn build_client(builder: reqwest::ClientBuilder) -> Result<reqwest::Client, String> {
+    builder
+        .timeout(Duration::from_secs(PROBE_HTTP_TIMEOUT_SECS))
+        .build()
+        .map_err(|e| format!("HTTP 客户端初始化失败: {e}"))
+}
+
+/// 进程内共享客户端(首次构建失败的结果一并缓存,避免每轮重试重建)。
+fn shared_client() -> Result<&'static reqwest::Client, String> {
+    static CLIENT: OnceLock<Result<reqwest::Client, String>> = OnceLock::new();
+    CLIENT
+        .get_or_init(|| build_client(reqwest::Client::builder()))
+        .as_ref()
+        .map_err(|e| e.clone())
 }
 
 // ---------------------------------------------------------------------------
@@ -370,6 +383,34 @@ mod tests {
         assert_eq!(accounts.len(), 1);
         assert_eq!(accounts[0].uid, "u-top");
         assert_eq!(accounts[0].nickname, "顶层");
+    }
+
+    #[test]
+    fn ok_probe_serialization_matches_frontend_contract() {
+        // F-060:前端 `importWbProbeAccounts` 用 `jwt: probe.cookie` 入库,
+        // 故 cookie 必须仍在 IPC 载荷里(单侧删字段会写出空 jwt)。
+        let raw = "session_id=SECRET-TOKEN-abc123; wb_uid=u-1; wb_uin=330100052422";
+        let probe = WebLoginProbe::Ok {
+            cookie: raw.to_string(),
+            accounts: vec![WbWebAccount {
+                uid: "u-1".to_string(),
+                nickname: "李总".to_string(),
+            }],
+            cookie_checkin_ok: Some(true),
+        };
+        let json = serde_json::to_value(&probe).expect("WebLoginProbe 应可序列化");
+        assert_eq!(json["status"], "ok");
+        assert_eq!(json["cookie"], raw, "前端入库契约依赖该字段");
+        assert_eq!(json["accounts"][0]["uid"], "u-1");
+        assert_eq!(json["cookie_checkin_ok"], true);
+    }
+
+    #[test]
+    fn build_client_invalid_config_returns_err_not_panic() {
+        // 非法默认 User-Agent(含换行)会记入 builder 配置错误 → build() 返回 Err;
+        // 旧实现 `.expect(...)` 在此处会 panic,新实现必须走 Err 传播。
+        let built = build_client(reqwest::Client::builder().user_agent("bad\nagent"));
+        assert!(built.is_err(), "非法配置应返回 Err 而非 panic");
     }
 }
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
