@@ -95,7 +95,7 @@
 **优化后**(370 行):
 
 - **Welcome 段落**:用项目使命("8 端统一 176 LLM")唤起贡献动机
-- **Code of Conduct**:链接到 `CODE_OF_CONDUCT.md`,违规举报邮箱 `conduct@aizhs.top`
+- **Code of Conduct**:链接到 `CODE_OF_CONDUCT.md`,违规举报邮箱 `lizong@aizhs.top`
 - **Getting Started**:环境要求表 + Fork & Clone + 安装 + 启动 dev server(端口注册表链接)
 - **Development Workflow**:5 步流程(同步 main → 创建分支 → 编码 → 提交 → 推送),含 Conventional Commits 格式表
 - **Project Structure**:8 端 + 8 共享包的 ASCII 架构图
@@ -115,7 +115,7 @@
 - 完整 Contributor Covenant 2.1 中文版
 - 4 级执行方针(Correction / Warning / Temporary Ban / Permanent Ban),参考 Mozilla 执行阶梯
 - 归属链接到官方 [Contributor Covenant 2.1](https://www.contributor-covenant.org/version/2/1/code_of_conduct/code_of_conduct/)
-- 违规举报邮箱 `conduct@aizhs.top`,与安全漏洞披露(`security@aizhs.top`)分流
+- 违规举报邮箱 `lizong@aizhs.top`,与安全漏洞披露(`lizong@aizhs.top`)分流
 
 ### 3.3 `SECURITY.md`(130 行,根目录)
 
@@ -124,7 +124,7 @@
 **优化后**(130 行):
 
 - **支持版本表**:v0.2.x 支持,< v0.2.0 不支持
-- **报告渠道**:`security@aizhs.top` + GitHub Security Advisory + PGP 加密选项
+- **报告渠道**:`lizong@aizhs.top` + GitHub Security Advisory + PGP 加密选项
 - **报告内容清单**:漏洞类型 / 受影响版本 / 受影响文件 / 复现步骤 / 影响范围 / 修复建议
 - **响应 SLA 表**:48h 确认 / 5 工作日评估 / Critical 7d 修复 / High 14d / Medium 30d / Low 下个 release / 90d 协调披露
 - **报告者致谢**:Release 致谢区 + 荣誉徽章 + 匿名尊重

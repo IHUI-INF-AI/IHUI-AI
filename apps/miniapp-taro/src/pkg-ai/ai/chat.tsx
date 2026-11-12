@@ -137,7 +137,20 @@ import './chat.css'
 import ThemeRoot from '@/components/ThemeRoot'
 
 import { AI_CHAT_HISTORY_KEY, AI_FAVORITE_MESSAGES_KEY } from '@/constants/storage'
-import { onToast } from '@/host/on-toast'
+import { onToast, subscribeOnToast } from '@/host/on-toast'
+// 2026-11:对话内「提示留痕」。记录模型/去重/上限/编解码全在 shared(与 RN/web 同一份契约),
+// 本页只做「订阅 → 落 state → 落盘 → 交壳渲染」四件事,不自己发明去重或存储格式。
+import {
+  appendNotice,
+  clearNoticeLog,
+  loadNoticeLog,
+  mergeNotices,
+  noticeLogStorageKey,
+  saveNoticeLog,
+  type ChatNotice,
+  type NoticeKind,
+} from '@ihui/shared/chat/notice-log'
+import { noticeLogStorage, createNoticeIdFactory } from '@/lib/notice-log-storage'
 
 const HISTORY_STORAGE_KEY = AI_CHAT_HISTORY_KEY
 const FAVORITE_STORAGE_KEY = AI_FAVORITE_MESSAGES_KEY
@@ -254,6 +267,126 @@ export default function ChatPage() {
   const [compactionBoundary, setCompactionBoundary] = useState<CompactBoundary | null>(null)
   const conversationId =
     sessionId || (routeSessionId && !routeSessionId.startsWith('hist_') ? routeSessionId : '')
+
+  // ── 提示留痕(2026-11)──
+  // 独立 state:不混入 messages ⇒ 不会被当成对话内容发给模型,也不落后端库,只是客户端 trace。
+  const [notices, setNotices] = useState<ChatNotice[]>([])
+  /**
+   * 记录 id 工厂:惰性创建(首次记录时才取时刻+随机段)。前缀**必须**会话内唯一 ——
+   * 留痕跨重启持久化,纯自增 id 会与盘上旧记录撞号,合并时覆盖旧记录。
+   */
+  const noticeIdFactoryRef = useRef<(() => string) | null>(null)
+  const recordNotice = useCallback((kind: NoticeKind, text: string): void => {
+    if (!noticeIdFactoryRef.current) noticeIdFactoryRef.current = createNoticeIdFactory()
+    const id = noticeIdFactoryRef.current()
+    const ts = Date.now()
+    setNotices((prev) => appendNotice(prev, { id, kind, text, ts }))
+  }, [])
+
+  /**
+   * 存储作用域键:按会话分区,未绑定会话落 draft 键(见 shared 模块头注 —— 新会话在发出
+   * 第一条消息前没有 conversationId,若按空 id 分键就永远写不进盘,恰好是最需要持久化的场景)。
+   */
+  const noticeScopeKey = noticeLogStorageKey(conversationId)
+  /** 最新作用域键:异步读回返回时用来判定「这期间会话已被切走」,过期结果直接丢弃 */
+  const noticeScopeKeyRef = useRef(noticeScopeKey)
+  useEffect(() => {
+    noticeScopeKeyRef.current = noticeScopeKey
+  }, [noticeScopeKey])
+  /**
+   * 已就绪(已读回或已主动清空)的键。**写盘必须等它就位**:否则首帧 `notices=[]`
+   * 会先一步把盘上旧记录清成空 —— 用户关掉再打开就什么也看不到,功能等于没做。
+   */
+  const noticeReadyKeyRef = useRef<string | null>(null)
+
+  /**
+   * 读回某会话的留痕并上屏。主动调用(不由 effect 驱动),避免与「切会话/清空」竞态。
+   * 合并而非覆盖:`mergeNotices(loaded, prev)` 保留读回期间已产生的新记录(读盘是异步的)。
+   * 失败不静默:dev 明确告警,prod 降级为纯内存 —— 留痕是辅助能力,不能拖垮聊天页。
+   */
+  const hydrateNotices = useCallback((cid: string | null): void => {
+    const key = noticeLogStorageKey(cid)
+    void loadNoticeLog(noticeLogStorage, cid)
+      .then((loaded) => {
+        if (noticeScopeKeyRef.current !== key) return
+        noticeReadyKeyRef.current = key
+        if (loaded.length === 0) return
+        setNotices((prev) => mergeNotices(loaded, prev))
+      })
+      .catch((err: unknown) => {
+        if (noticeScopeKeyRef.current !== key) return
+        noticeReadyKeyRef.current = key
+        if (__DEV__) console.warn('[notice-log] 读回失败,本次留痕仅存活于内存:', err)
+      })
+  }, [])
+
+  /** 切会话:先清屏并放弃旧键的写盘资格,再按新会话键从盘上读回 */
+  const switchNoticeScope = useCallback(
+    (cid: string | null): void => {
+      setNotices([])
+      noticeReadyKeyRef.current = null
+      // 同步改 ref:读回是异步的,若等 effect 把 ref 追上新的 conversationId,
+      // 中间这几帧的写盘判断会用到旧键(把新会话的空列表写进旧会话的键)。
+      noticeScopeKeyRef.current = noticeLogStorageKey(cid)
+      hydrateNotices(cid)
+    },
+    [hydrateNotices],
+  )
+
+  /** 主动清空留痕:占住新键 + 抹掉新旧两个会话的盘上记录(「清空对话」是破坏性语义) */
+  const resetNotices = useCallback(
+    (nextConversationId: string | null): void => {
+      setNotices([])
+      noticeReadyKeyRef.current = noticeLogStorageKey(nextConversationId)
+      const keys: Array<string | null> = [conversationId, nextConversationId]
+      for (const cid of keys) {
+        void clearNoticeLog(noticeLogStorage, cid).catch((err: unknown) => {
+          if (__DEV__) console.warn('[notice-log] 清除失败(不影响本次使用):', err)
+        })
+      }
+    },
+    [conversationId],
+  )
+
+  /**
+   * 订阅端口层 toast:聊天页是唯一需要留痕的页面,故订阅放在本页而不是 on-toast 内部。
+   * 必须返回 cleanup —— 页面来回切会重复挂载,不退订会一条 toast 记 N 条。
+   */
+  useEffect(() => subscribeOnToast((message, kind) => recordNotice(kind, message)), [recordNotice])
+
+  // 挂载时读回一次;后续切会话由 runServerReplay / 本机快照恢复 / 清空对话显式读回或清空
+  const noticeBootRef = useRef(false)
+  useEffect(() => {
+    if (noticeBootRef.current) return
+    noticeBootRef.current = true
+    hydrateNotices(conversationId)
+  }, [conversationId, hydrateNotices])
+
+  /**
+   * 小程序特有的一步:新会话发出首条消息后,服务端 meta 会把 sessionId 写进 state
+   * ⇒ `conversationId` 由 '' 变成真实 id,作用域键随之从 draft 键跳到会话键。
+   *
+   * RN 端没有这一步(那边新会话整场 conversationId 恒为 null,作用域一直是 draft),所以照抄
+   * RN 流程在这里会漏:readyKey 停在 draft 键、scopeKey 已是会话键 ⇒ 写盘判断永不通过,
+   * 首条消息之后产生的留痕全都不落盘,用户重开就丢 —— 恰是本功能要解决的场景。
+   *
+   * 处理方式仍守「合并不覆盖」:读回会话键(通常是空)后与内存里的记录合并,再把 readyKey
+   * 提升到会话键,写盘随即恢复。不在这里 setNotices([]) —— 那是"切会话"语义,会把刚记的抹掉。
+   */
+  useEffect(() => {
+    const draftKey = noticeLogStorageKey(null)
+    if (noticeScopeKey === draftKey) return
+    if (noticeReadyKeyRef.current !== draftKey) return
+    hydrateNotices(conversationId)
+  }, [noticeScopeKey, conversationId, hydrateNotices])
+
+  // 记录变化即写盘(空列表 = 显式清空);未就绪时绝不写,否则首帧空列表会覆盖盘上旧记录
+  useEffect(() => {
+    if (noticeReadyKeyRef.current !== noticeScopeKey) return
+    void saveNoticeLog(noticeLogStorage, conversationId, notices).catch((err: unknown) => {
+      if (__DEV__) console.warn('[notice-log] 写盘失败,本次留痕仅在内存:', err)
+    })
+  }, [notices, noticeScopeKey, conversationId])
 
   /**
    * D136:审批决议回传(卡片 onDecision 的唯一出口)。
@@ -602,6 +735,8 @@ export default function ChatPage() {
     }).then((outcome) => {
       if (outcome.ok) {
         setMessages(outcome.messages)
+        // 切到该服务端会话:留痕按会话分区,旧会话的记录不带到新会话(读回本会话盘上记录)
+        switchNoticeScope(routeSessionId)
         // D20 留尾2:首页响应自带头部分页游标 —— hasMore=true 才亮「加载更早消息」入口
         setEarlierHasMore(outcome.hasMore)
         earlierCursorRef.current = outcome.nextCursor
@@ -635,7 +770,14 @@ export default function ChatPage() {
         },
       })
     })
-  }, [routeSessionId, routeAutoSendPrompt, scrollToBottom, t, resetEarlierPaging])
+  }, [
+    routeSessionId,
+    routeAutoSendPrompt,
+    scrollToBottom,
+    t,
+    resetEarlierPaging,
+    switchNoticeScope,
+  ])
 
   /**
    * D20 留尾2:加载更早一页(向前翻)。
@@ -717,6 +859,8 @@ export default function ChatPage() {
             // (live 已写的不覆盖;无 metadata 不写空数组,不渲染空态)
             setMessages(backfillSteerNoticesFromMetadata(target.messages))
             setSessionId('')
+            // 本机快照没有服务端 id ⇒ 回到「未绑定会话」,留痕随之切到 draft 键并读回
+            switchNoticeScope(null)
             // 本机快照没有服务端分页,旧会话游标必须清掉
             resetEarlierPaging()
             setImgsList([])
@@ -1468,11 +1612,13 @@ export default function ChatPage() {
           }
           setMessages([])
           setSessionId('')
+          // 清空对话是破坏性语义:内存留痕归零,盘上本会话与 draft 的记录一并抹掉
+          resetNotices(null)
           resetEarlierPaging()
         }
       },
     })
-  }, [t, messages, resetEarlierPaging])
+  }, [t, messages, resetEarlierPaging, resetNotices])
 
   const selectModel = useCallback((m: ModelItem) => {
     setCurrentModel(m.id)
@@ -1771,6 +1917,8 @@ export default function ChatPage() {
       // D106 收尾:同上,历史恢复链路统一走 metadata.steerApplied 读回
       setMessages(backfillSteerNoticesFromMetadata(h.messages || []))
       setSessionId('')
+      // 恢复本机快照 = 切会话:上一会话的提示留痕不带到新页(读回 draft 键上的记录)
+      switchNoticeScope(null)
       // 本机快照没有服务端分页,旧会话游标必须清掉
       resetEarlierPaging()
       setImgsList([])
@@ -1779,7 +1927,7 @@ export default function ChatPage() {
       setHistoryDrawerVisible(false)
       scrollToBottom()
     },
-    [scrollToBottom, resetEarlierPaging],
+    [scrollToBottom, resetEarlierPaging, switchNoticeScope],
   )
 
   /** 清空所有历史对话(对标原 ai_assistant.vue clearHistory) */
@@ -1964,6 +2112,8 @@ export default function ChatPage() {
     modelDrawerVisible,
     models,
     modelsLoading,
+    // 提示留痕:交端内壳拼到消息列表尾部插槽(orphanTailNode)上,位置由共享屏定
+    notices,
     openMaterialDrawer,
     openModelDrawer,
     openSkillsPopup,

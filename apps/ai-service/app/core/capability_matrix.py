@@ -845,16 +845,20 @@ CAPABILITY_MATRIX: list[dict[str, str]] = [
         "doc_ref": "app/services/checkin_scheduler.py:80",
         "reason_if_off": "每日 00:05/08:05 签到定时任务默认关闭:属会真实写库的副作用,须显式开启",
     },
-    # 2026-11-13 补登记:该默认关 env 由并发会话引入但漏了台账(门 check-capability-matrix 判红,
-    # 报「J2 台账逃逸」)。控制 minimax 签到自轮换开关,按实际读取点登记。
     {
+        # 2026-11-12 补登记(mcode 无客户端保活计划 §4):签到侧 MiniMax 自轮换门控由本任务
+        # 引入、缺省关,门 check-capability-matrix 判红「J2 台账逃逸」⇒ 按实际读取点登记。
         "key": "checkin_minimax_server_refresh",
         "env": "CHECKIN_MINIMAX_SERVER_REFRESH",
         "default": "false",
         "category": "开关类",
         "owner_module": "app.services.checkin_scheduler",
-        "doc_ref": "app/services/checkin_scheduler.py:292",
-        "reason_if_off": "minimax 签到服务端自轮换默认关闭:单会话自轮换受门控,须显式置 true 恢复(生产机无 auth.json 本就走服务端路径)",
+        "doc_ref": "app/services/checkin_scheduler.py:286",
+        "reason_if_off": (
+            "签到侧自轮换 MiniMax refreshToken 默认关:mcode 的 rt 是轮换型,续票单源是号池"
+            " refreshOne,签到侧再轮换 = 第二个轮换者 ⇒ 旧 rt 重放 invalid_grant;缺省关即统一"
+            "由池续票并 pushPoolSync 回灌,置 true 恢复旧行为"
+        ),
     },
     # ── settings 族(2026-10-31 seat-e2 落 J4 后登记;第四种读取形态,见本文件头注)──
     # 这类条目由 app/core/config.py 的 class Settings 布尔字段承载:大写 env 键经

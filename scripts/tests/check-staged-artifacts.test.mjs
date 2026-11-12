@@ -1,5 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
  * @file check-staged-artifacts.test.mjs 判据单测
@@ -12,7 +13,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { __test__ } from '../check-staged-artifacts.mjs'
 
-const { judgePath, bucketOf, judgeStaged } = __test__
+const { judgePath, bucketOf, judgeStaged, parseNameStatus, parseArgs } = __test__
 
 test('真实代码改动一律放行', () => {
   const allowed = [
@@ -68,3 +69,29 @@ test('judgeStaged 同时给出违规面与画像', () => {
   assert.equal(buckets.源码, 1)
   assert.equal(buckets.文档, 1)
 })
+
+test('parseNameStatus 解析新增/修改/重命名,重命名取新路径', () => {
+  const out = [
+    'A\tapps/api/src/a.ts',
+    'M\tREADME.md',
+    'R100\told/place.ts\tapps/web/app/page.tsx',
+    '',
+  ].join('\n')
+  assert.deepEqual(parseNameStatus(out), [
+    { status: 'A', file: 'apps/api/src/a.ts' },
+    { status: 'M', file: 'README.md' },
+    { status: 'R', file: 'apps/web/app/page.tsx' },
+  ])
+})
+
+test('parseArgs 支持 --rev 可重复,缺参/未知参数不静默忽略', () => {
+  assert.deepEqual(parseArgs([]), { revs: [], reportOnly: false, quiet: false })
+  assert.deepEqual(parseArgs(['--rev', 'a..b', '--rev', 'c..d', '--report', '--quiet']), {
+    revs: ['a..b', 'c..d'],
+    reportOnly: true,
+    quiet: true,
+  })
+  assert.throws(() => parseArgs(['--rev']), /--rev 缺少/)
+  assert.throws(() => parseArgs(['--bogus']), /未知参数/)
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

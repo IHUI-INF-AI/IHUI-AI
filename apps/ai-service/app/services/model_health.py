@@ -1802,7 +1802,7 @@ class ModelHealthService:
             if stream_ok is None and non_stream_ok is None:
                 # 两路都"没判定"(超时/5xx/账户级):保留更具体的那个原因
                 return None, (stream_error or non_stream_error)[:200]
-            if stream_saw_reasoning and non_stream_ok is not True:
+            if stream_saw_reasoning:
                 # 输出预算被思考占用:读没读进 16k 无从判断,记未知而非"不支持"
                 return None, "思考占满输出预算,长上下文未判定"
             if stream_ok is False and non_stream_ok is False:

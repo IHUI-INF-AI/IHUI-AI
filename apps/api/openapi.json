@@ -3,10 +3,10 @@
   "info": {
     "title": "IHUI AI API",
     "version": "0.0.0",
-    "description": "IHUI AI 平台对外公开 API + 内部管理 API(v1)。\n\n## 鉴权\n- 用户态路由:`Authorization: Bearer <jwt>` 或 `auth_token` Cookie\n- 开发者 API Key:`Authorization: Bearer ihui_xxx` 或 `X-Api-Key: ihui_xxx`\n- 内部服务:`X-Internal-Service-Token` + `X-User-Id`\n\n## 响应格式\n所有接口统一返回 `{ code, message, data }`,code=0 表示成功。\n\n## 联系\n问题反馈: api@aizhs.top",
+    "description": "IHUI AI 平台对外公开 API + 内部管理 API(v1)。\n\n## 鉴权\n- 用户态路由:`Authorization: Bearer <jwt>` 或 `auth_token` Cookie\n- 开发者 API Key:`Authorization: Bearer ihui_xxx` 或 `X-Api-Key: ihui_xxx`\n- 内部服务:`X-Internal-Service-Token` + `X-User-Id`\n\n## 响应格式\n所有接口统一返回 `{ code, message, data }`,code=0 表示成功。\n\n## 联系\n问题反馈: lizong@aizhs.top",
     "contact": {
       "name": "IHUI AI Platform Team",
-      "email": "api@aizhs.top",
+      "email": "lizong@aizhs.top",
       "url": "https://aizhs.top"
     },
     "license": {

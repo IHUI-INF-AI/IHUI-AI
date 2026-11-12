@@ -27,7 +27,7 @@ export default async function ContactPage() {
     {
       icon: Mail,
       label: t('contact.channels.email'),
-      value: 'support@aizhs.top',
+      value: 'lizong@aizhs.top',
       desc: t('contact.channels.emailDesc'),
     },
     {

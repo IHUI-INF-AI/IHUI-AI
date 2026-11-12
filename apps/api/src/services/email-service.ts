@@ -410,7 +410,7 @@ async function sendViaResend(mail: OutgoingMail): Promise<SendEmailResult> {
   }
   // 发件人显示名一律收敛成品牌名(见 email-templates.ts 的 BRAND_MAIL_DISPLAY_NAME):
   // 收件箱里曾同时出现「智汇AI」「智汇AI官方」「502319984」,根子就是各通道各写一份默认值。
-  const from = brandResendFrom(config.RESEND_FROM || 'IHUI-AI@aizhs.top')
+  const from = brandResendFrom(config.RESEND_FROM || 'lizong@aizhs.top')
   // Resend 的内嵌图:content 是 base64 文本,content_id 对应 HTML 里的 src="cid:..."
   // (与 nodemailer 的 cid 字段同义、异名)。空数组不带这个键 —— 免得无谓触发附件校验。
   const attachments =

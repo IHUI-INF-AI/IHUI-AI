@@ -2671,7 +2671,7 @@ export default function AdminRelayAccountPoolPage() {
               />
               <div className="space-y-1">
                 <Label htmlFor="release-force">强制释放他人认领</Label>
-                <p className="text-xs text-muted-foreground">
+                <p className="font-[weight:inherit] text-label text-muted-foreground">
                   默认仅能释放本人认领的账号;勾选后可强制释放他人认领(操作会记 warn 审计日志)。
                 </p>
               </div>

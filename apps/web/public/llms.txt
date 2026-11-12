@@ -60,7 +60,7 @@
 - **总部**:中国
 - **技术栈**:Next.js 15 + React 19 + Tailwind 4 + shadcn/ui(前端) / Fastify 5 + Drizzle ORM + PostgreSQL(API) / FastAPI + LangGraph + LiteLLM(AI 服务) / Tauri 2(桌面) / Taro 4(小程序) / WXT(浏览器插件)
 - **协议**:Apache 2.0(开源仓库地址见官网页脚)
-- **联系方式**:contact@aizhs.top(商务) / support@aizhs.top(技术支持)
+- **联系方式**:lizong@aizhs.top(商务) / lizong@aizhs.top(技术支持)
 - **社交**:GitHub / 知乎 / 掘金 / 微信公众号「智汇 AI」
 
 ## 可选:法律与信任
