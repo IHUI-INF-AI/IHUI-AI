@@ -81,7 +81,12 @@ interface PlatformSummary {
   disabled: number
 }
 
-function parseArgs(argv: string[]): { provider?: string; write: boolean; json: boolean; concurrency: number } {
+function parseArgs(argv: string[]): {
+  provider?: string
+  write: boolean
+  json: boolean
+  concurrency: number
+} {
   let provider: string | undefined
   let write = false
   let json = false
@@ -97,10 +102,6 @@ function parseArgs(argv: string[]): { provider?: string; write: boolean; json: b
     }
   }
   return { provider, write, json, concurrency }
-}
-
-function fmtDate(d: Date | null | undefined): string {
-  return d ? new Date(d).toISOString() : '-'
 }
 
 /** 对单枚账号做真实 checkHealth 探测(异常一律转 indeterminate,不抛、不中断) */
@@ -173,11 +174,16 @@ async function main(): Promise<number> {
     .select()
     .from(aiRelayAccountPool)
     .where(args.provider ? and(eq(aiRelayAccountPool.providerCode, args.provider)) : undefined)
-    .orderBy(aiRelayAccountPool.providerCode, aiRelayAccountPool.uid)) as (typeof aiRelayAccountPool.$inferSelect)[]
+    .orderBy(
+      aiRelayAccountPool.providerCode,
+      aiRelayAccountPool.uid,
+    )) as (typeof aiRelayAccountPool.$inferSelect)[]
 
   if (rows.length === 0) {
     process.stderr.write(
-      args.provider ? `号池 ${args.provider} 0 行 —— 没有可测的号\n` : '号池 0 行 —— 先用 relay-account-pool 导入\n',
+      args.provider
+        ? `号池 ${args.provider} 0 行 —— 没有可测的号\n`
+        : '号池 0 行 —— 先用 relay-account-pool 导入\n',
     )
     return 0
   }
@@ -190,6 +196,7 @@ async function main(): Promise<number> {
     while (cursor < rows.length) {
       const idx = cursor++
       const row = rows[idx]
+      if (!row) continue
       const r = await probeOne(row)
       results[idx] = r
       if (args.write) await writeBack(r, row.id, now)
@@ -202,7 +209,14 @@ async function main(): Promise<number> {
   for (const r of results) {
     let s = byProvider.get(r.providerCode)
     if (!s) {
-      s = { providerCode: r.providerCode, total: 0, available: 0, dead: 0, indeterminate: 0, disabled: 0 }
+      s = {
+        providerCode: r.providerCode,
+        total: 0,
+        available: 0,
+        dead: 0,
+        indeterminate: 0,
+        disabled: 0,
+      }
       byProvider.set(r.providerCode, s)
     }
     s.total++
@@ -223,7 +237,9 @@ async function main(): Promise<number> {
     dead: dead.length,
     indeterminate: indeterminate.length,
     wroteBack: args.write,
-    platforms: [...byProvider.values()].sort((a, b) => a.providerCode.localeCompare(b.providerCode)),
+    platforms: [...byProvider.values()].sort((a, b) =>
+      a.providerCode.localeCompare(b.providerCode),
+    ),
     deadDetail: dead.map((r) => ({
       providerCode: r.providerCode,
       uid: r.uid,
@@ -272,7 +288,9 @@ async function main(): Promise<number> {
   if (indeterminate.length > 0) {
     process.stdout.write('\n  ⚠️ 未判定明细(探测异常/无端点,不代表失效):\n')
     for (const r of report.indeterminateDetail) {
-      process.stdout.write(`    ${r.providerCode}/${r.uid} ${r.name} 原因=${(r.error ?? '-').slice(0, 80)}\n`)
+      process.stdout.write(
+        `    ${r.providerCode}/${r.uid} ${r.name} 原因=${(r.error ?? '-').slice(0, 80)}\n`,
+      )
     }
   }
   if (dead.length === 0 && indeterminate.length === 0) {
