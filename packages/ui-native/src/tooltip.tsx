@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Animated, Modal, Pressable, Text, View, type ViewStyle } from 'react-native'
-import { cn } from '@ihui/design-tokens'
+import { ELEVATION_STEPS, cn, type RnElevation } from '@ihui/design-tokens'
 import { Tappable } from './tappable'
 import {
   TOOLTIP_GAP_PX,
@@ -25,13 +25,21 @@ import {
  *  - 无 `z-popover` / `overflow-hidden` / Arrow:本端没有 z-index 通道、不经父容器裁剪、无箭头件;
  *  - 字色落内层 Text:View 不着字色(web 落在 Content 根);
  *  - 类名字面量:必须留在本文件 —— nativewind 只扫本包源,spec 文件不在扫描面内,拼串产不出规则。
- *  ⇒ 取值档一律取自 tooltip-spec,本文件只做"档 → 本端承载类"的映射。
+ *  ⇒ 取值档一律取自 tooltip-spec,本文件只做"档 → 本端承载类 / 样式"的映射。
  */
 const RADIUS_CLASS: Record<typeof TOOLTIP_RADIUS_TIER, string> = { md: 'rounded-md' }
 const PADDING_X_CLASS: Record<number, string> = { 12: 'px-3' }
 const PADDING_Y_CLASS: Record<number, string> = { 6: 'py-1.5' }
 const TEXT_CLASS: Record<typeof TOOLTIP_TEXT_TIER, string> = { xs: 'text-xs' }
-const SHADOW_CLASS: Record<typeof TOOLTIP_SHADOW_TIER, string> = { md: 'shadow-md' }
+const SHADOW_CLASS: Record<typeof TOOLTIP_SHADOW_TIER, string> = { md: 'shadow-elevation-md' }
+/**
+ * 原生端 `shadow-elevation-*` 类里的 `var(--shadow-elevation-*)` 无法解析(NativeWind 的
+ * parseBoxShadowValue 判 valid=false,类照旧在、样式为零) ⇒ 同一档再投影成 RN 四元组合并进 style,
+ * 类名保留给能解析 CSS 变量的渲染面(web),两端都不会静默失样式。
+ */
+const SHADOW_ELEVATION: Record<string, RnElevation> = {
+  'shadow-elevation-md': ELEVATION_STEPS.md,
+}
 
 export interface TooltipProps {
   children: ReactNode
@@ -88,6 +96,8 @@ export function Tooltip({ children, content, side = 'top' }: TooltipProps) {
     }
   }, [visible, opacity])
 
+  const shadowClass = SHADOW_CLASS[TOOLTIP_SHADOW_TIER]
+
   const computePosition = (): ViewStyle => {
     if (!rect || !contentSize) return { opacity: 0 }
     const { x, y, width, height } = rect
@@ -122,12 +132,13 @@ export function Tooltip({ children, content, side = 'top' }: TooltipProps) {
             style={[{ position: 'absolute', opacity, maxWidth: MAX_WIDTH }, computePosition()]}
           >
             <View
+              style={SHADOW_ELEVATION[shadowClass]}
               className={cn(
                 'border border-border bg-popover',
                 RADIUS_CLASS[TOOLTIP_RADIUS_TIER],
                 PADDING_X_CLASS[TOOLTIP_PADDING_X_PX],
                 PADDING_Y_CLASS[TOOLTIP_PADDING_Y_PX],
-                SHADOW_CLASS[TOOLTIP_SHADOW_TIER],
+                shadowClass,
               )}
             >
               <Text

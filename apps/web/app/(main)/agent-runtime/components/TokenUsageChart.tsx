@@ -127,7 +127,7 @@ export function TokenUsageChart({ agentId, timeRange, refreshKey }: TokenUsageCh
                     />
                     <div className="w-full bg-primary" style={{ height: `${promptH}%` }} />
                     {hoverIdx === i && (
-                      <div className="absolute -top-2 left-1/2 z-10 -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-md border bg-popover px-2 py-1 text-[10px] shadow">
+                      <div className="absolute -top-2 left-1/2 z-10 -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-md border bg-popover px-2 py-1 text-[10px] shadow-elevation-md">
                         <div>{d.sessionLabel}</div>
                         <div className="text-primary">Prompt: {formatToken(d.prompt)}</div>
                         <div className="text-primary/60">

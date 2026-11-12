@@ -774,7 +774,7 @@ export function AiSidePanelTools() {
                   className={cn(
                     'rounded-sm px-2.5 py-0.5 text-[11px] transition-colors',
                     displayMode === mode
-                      ? 'bg-background font-medium text-foreground shadow-sm'
+                      ? 'bg-background font-medium text-foreground shadow-elevation-sm'
                       : 'text-muted-foreground hover:text-foreground',
                   )}
                 >

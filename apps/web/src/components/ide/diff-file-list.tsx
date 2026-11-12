@@ -449,7 +449,7 @@ function FileRow({
       {menuPos && (
         // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- 右键菜单遮罩点击外部关闭;菜单项按钮提供键盘等价交互
         <div
-          className="fixed z-popover min-w-36 rounded-md border border-border bg-popover py-1 text-label shadow-md"
+          className="fixed z-popover min-w-36 rounded-md border border-border bg-popover py-1 text-label shadow-elevation-md"
           style={{
             left: Math.min(menuPos.x, window.innerWidth - 180),
             top: Math.min(menuPos.y, window.innerHeight - 170),

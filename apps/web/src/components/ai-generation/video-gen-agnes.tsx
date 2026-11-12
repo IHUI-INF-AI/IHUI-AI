@@ -40,7 +40,7 @@ const FRAME_OPTIONS = ['41', '73', '121', '201'] as const
 const RATE_OPTIONS = ['16', '24', '30'] as const
 
 const TEXTAREA_CLS =
-  'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+  'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-elevation-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
 export function VideoGenAgnes() {
   const t = useTranslations('aiGeneration')

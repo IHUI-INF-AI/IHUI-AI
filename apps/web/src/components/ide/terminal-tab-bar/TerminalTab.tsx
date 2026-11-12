@@ -65,7 +65,7 @@ export function TerminalTab({
       className={cn(
         'group flex cursor-pointer items-center gap-1.5 rounded-md px-2.5 py-1 text-label transition-colors',
         isActive
-          ? 'bg-background text-foreground shadow-sm'
+          ? 'bg-background text-foreground shadow-elevation-sm'
           : 'text-muted-foreground hover:bg-background/60 hover:text-foreground',
       )}
       onClick={() => onSelect(session.id)}

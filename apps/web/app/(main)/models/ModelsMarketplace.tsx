@@ -348,7 +348,7 @@ export function ModelsMarketplace({ list, peakWindows = [] }: Props) {
               onClick={() => setViewMode('grid')}
               className={cn(
                 viewMode === 'grid'
-                  ? 'bg-background text-foreground shadow-sm'
+                  ? 'bg-background text-foreground shadow-elevation-sm'
                   : 'text-muted-foreground hover:text-foreground',
               )}
             >
@@ -359,7 +359,7 @@ export function ModelsMarketplace({ list, peakWindows = [] }: Props) {
               onClick={() => setViewMode('list')}
               className={cn(
                 viewMode === 'list'
-                  ? 'bg-background text-foreground shadow-sm'
+                  ? 'bg-background text-foreground shadow-elevation-sm'
                   : 'text-muted-foreground hover:text-foreground',
               )}
             >

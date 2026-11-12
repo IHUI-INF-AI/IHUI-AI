@@ -456,7 +456,7 @@ function DispatchForm({
           onChange={(e) => setGoal(e.target.value)}
           rows={2}
           placeholder={t('taskGoalPlaceholder')}
-          className="w-full resize-none rounded-sm border border-input bg-transparent px-2.5 py-1.5 text-label shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          className="w-full resize-none rounded-sm border border-input bg-transparent px-2.5 py-1.5 text-label shadow-elevation-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </Field>
       <div className="grid grid-cols-2 gap-3">
@@ -522,7 +522,7 @@ function DispatchForm({
           onChange={(e) => setAffectedFilesText(e.target.value)}
           rows={3}
           placeholder={'d:\\path\\to\\file1\nd:\\path\\to\\file2'}
-          className="w-full resize-y rounded-sm border border-input bg-transparent px-2.5 py-1.5 font-mono text-label shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          className="w-full resize-y rounded-sm border border-input bg-transparent px-2.5 py-1.5 font-mono text-label shadow-elevation-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </Field>
       <Field label={t('fields.forbidden')}>
@@ -530,7 +530,7 @@ function DispatchForm({
           value={forbiddenText}
           onChange={(e) => setForbiddenText(e.target.value)}
           rows={2}
-          className="w-full resize-none rounded-sm border border-input bg-transparent px-2.5 py-1.5 text-label shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          className="w-full resize-none rounded-sm border border-input bg-transparent px-2.5 py-1.5 text-label shadow-elevation-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </Field>
       <Field label={t('fields.verifyCommands')}>
@@ -539,7 +539,7 @@ function DispatchForm({
           onChange={(e) => setVerifyCommandsText(e.target.value)}
           rows={2}
           placeholder={'pnpm --filter @ihui/api typecheck'}
-          className="w-full resize-y rounded-sm border border-input bg-transparent px-2.5 py-1.5 font-mono text-label shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          className="w-full resize-y rounded-sm border border-input bg-transparent px-2.5 py-1.5 font-mono text-label shadow-elevation-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </Field>
       <Field label={t('fields.constraints')} required>
@@ -547,7 +547,7 @@ function DispatchForm({
           value={constraints}
           onChange={(e) => setConstraints(e.target.value)}
           rows={2}
-          className="w-full resize-none rounded-sm border border-input bg-transparent px-2.5 py-1.5 text-label shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          className="w-full resize-none rounded-sm border border-input bg-transparent px-2.5 py-1.5 text-label shadow-elevation-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </Field>
       <Field label={t('fields.deliverables')} required>
@@ -555,7 +555,7 @@ function DispatchForm({
           value={deliverables}
           onChange={(e) => setDeliverables(e.target.value)}
           rows={2}
-          className="w-full resize-none rounded-sm border border-input bg-transparent px-2.5 py-1.5 text-label shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          className="w-full resize-none rounded-sm border border-input bg-transparent px-2.5 py-1.5 text-label shadow-elevation-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </Field>
       {/* DAG 编辑器 */}
@@ -835,7 +835,7 @@ function AutoPlanPanel() {
           onChange={(e) => setTask(e.target.value)}
           rows={3}
           placeholder={t('examplePlaceholder')}
-          className="w-full resize-none rounded-sm border border-input bg-transparent px-2.5 py-1.5 text-label shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          className="w-full resize-none rounded-sm border border-input bg-transparent px-2.5 py-1.5 text-label shadow-elevation-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </Field>
       <Field label={t('fields.constraintsOptional')}>

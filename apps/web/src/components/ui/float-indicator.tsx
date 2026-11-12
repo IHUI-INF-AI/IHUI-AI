@@ -39,7 +39,7 @@ import * as React from 'react'
  *  2026-09-17 内边距 2px→4px(px-1 py-1):非激活点 hover 放大 1.25x 会视觉溢出 1.25px,
  *  原 py-0.5 (2px) 缓冲不足,放大点贴/超容器边框;4px 内边距留 2.75px 余量 */
 export const floatIndicatorRailCls =
-  'flex flex-col items-center gap-2 rounded-md border border-border bg-float-indicator-bg px-1 py-1 shadow-sm transition-all duration-300 hover:shadow-md'
+  'flex flex-col items-center gap-2 rounded-md border border-border bg-float-indicator-bg px-1 py-1 shadow-elevation-sm transition-all duration-300 hover:shadow-elevation-md'
 
 /** 非激活节点尺寸:8x8 圆点(2026-09-17 10x10 → 8x8:用户对照原版截图反馈
  *  "原来的未激活态的点哪有这么大",回归原 PageIndicator v10 定稿直径 8) */

@@ -673,7 +673,7 @@ export default function LoginSecurityPage() {
       {/* toast */}
       {toast && (
         <div
-          className={`fixed bottom-6 left-1/2 z-notification -translate-x-1/2 rounded-md px-4 py-2 text-body shadow-md ${
+          className={`fixed bottom-6 left-1/2 z-notification -translate-x-1/2 rounded-md px-4 py-2 text-body shadow-elevation-md ${
             toast === 'ok'
               ? 'bg-foreground text-background'
               : 'bg-destructive text-destructive-foreground'

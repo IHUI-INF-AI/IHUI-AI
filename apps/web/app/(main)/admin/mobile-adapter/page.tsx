@@ -170,7 +170,7 @@ export default function MobileAdapterPage() {
             <CardContent>
               <div className="flex justify-center rounded-md border bg-muted/30 p-3">
                 <div
-                  className="rounded-md border-2 border-primary/30 bg-background shadow-sm transition-all"
+                  className="rounded-md border-2 border-primary/30 bg-background shadow-elevation-sm transition-all"
                   style={{
                     width: Math.min(
                       previewMode === 'mobile' ? 280 : previewMode === 'tablet' ? 380 : 520,

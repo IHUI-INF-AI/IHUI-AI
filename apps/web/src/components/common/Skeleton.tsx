@@ -20,7 +20,7 @@ export function Skeleton({ variant = 'text', count = 1, className }: SkeletonPro
     return (
       <div className={cn('space-y-3', className)}>
         {items.map((i) => (
-          <div key={`skeleton-${i}`} className="rounded-xl border p-3 shadow">
+          <div key={`skeleton-${i}`} className="rounded-xl border p-3 shadow-elevation-md">
             <div className="mb-3 h-4 w-1/3 animate-pulse rounded-xs bg-muted" />
             <div className="space-y-2">
               <div className="h-4 w-full animate-pulse rounded-xs bg-muted" />

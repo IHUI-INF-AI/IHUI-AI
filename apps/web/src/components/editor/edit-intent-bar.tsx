@@ -76,7 +76,7 @@ export function EditIntentBar({
       aria-live="polite"
       data-testid="editor-edit-intent-bar"
       className={cn(
-        'absolute right-3 top-2 z-20 flex max-w-[min(420px,calc(100%-1.5rem))] flex-col gap-1 rounded-sm border border-dashed border-border/60 bg-background/95 px-2 py-1.5 text-[11px] shadow-sm backdrop-blur-sm',
+        'absolute right-3 top-2 z-20 flex max-w-[min(420px,calc(100%-1.5rem))] flex-col gap-1 rounded-sm border border-dashed border-border/60 bg-background/95 px-2 py-1.5 text-[11px] shadow-elevation-sm backdrop-blur-sm',
         className,
       )}
     >

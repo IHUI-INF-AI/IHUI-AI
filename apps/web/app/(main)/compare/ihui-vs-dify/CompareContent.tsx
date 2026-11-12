@@ -77,7 +77,7 @@ export function CompareContent({
       </section>
 
       {/* 对比表格 */}
-      <section className="mt-12 overflow-x-auto ui-card rounded-lg border bg-card shadow-sm">
+      <section className="mt-12 overflow-x-auto ui-card rounded-lg border bg-card shadow-elevation-sm">
         <table className="w-full">
           <thead>
             <tr className="bg-muted/30">

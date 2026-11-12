@@ -33,7 +33,7 @@ const RATIOS = ['1280:720', '720:1280', '1104:832', '832:1104'] as const
 const MODELS = ['gen4_turbo', 'gen3a_turbo'] as const
 
 const TEXTAREA_CLS =
-  'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+  'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-elevation-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
 export function VideoGenRunway() {
   const t = useTranslations('aiGeneration')

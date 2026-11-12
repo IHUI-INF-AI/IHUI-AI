@@ -248,7 +248,7 @@ function DataTable<TData>({
                 value={currentPageSize}
                 onChange={(e) => handlePageSizeChange(Number(e.target.value))}
                 aria-label={labels.perPageCountAriaLabel}
-                className="h-8 rounded-sm border border-input bg-transparent px-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="h-8 rounded-sm border border-input bg-transparent px-2 text-sm shadow-elevation-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 {pageSizeOptions.map((s) => (
                   <option key={s} value={s}>

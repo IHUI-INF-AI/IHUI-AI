@@ -16,6 +16,7 @@ import { AlertTriangle, Check, ChevronDown, Eye, EyeOff, QrCode, X } from 'lucid
 import { getTokens, type AppThemeMode, type AppThemeTokens } from '../../theme/tokens'
 import { TextField } from '../../components/TextField'
 import {
+  ELEVATION_STEPS,
   OAUTH_BRAND_COLORS,
   OAUTH_BUTTON_FOREGROUND,
   rnGeometry,
@@ -1911,16 +1912,12 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       left: 0,
       right: 0,
       zIndex: 20,
-      elevation: 8,
       marginTop: rnSpacing.xs,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: inputBorder,
       backgroundColor: surface,
-      shadowColor: tk.gray.black,
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.12,
-      shadowRadius: 8,
+      ...ELEVATION_STEPS.lg,
     },
     historyItem: {
       paddingVertical: rnSpacing.none,
@@ -2158,13 +2155,8 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     // web 端激活态:bg-card text-foreground shadow-sm(白色卡片背景 + 阴影,非品牌色)
     qrPlatformTabActive: {
       backgroundColor: tk.surface.light,
-      // iOS shadow(对齐 web shadow-sm)
-      shadowColor: tk.gray.black,
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.05,
-      shadowRadius: 2,
-      // Android elevation
-      elevation: 2,
+      // 投影:对齐 web shadow-elevation-sm(唯一源 sm 档)
+      ...ELEVATION_STEPS.sm,
     },
     qrPlatformTabText: {
       fontSize: rnType.label.size,

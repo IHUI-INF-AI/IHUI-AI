@@ -81,7 +81,7 @@ export function WorldsCompare({ onAdopt, currentModel }: WorldsCompareProps) {
             rows={2}
             maxLength={2000}
             disabled={running}
-            className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-elevation-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
           />
         </div>
         <div className="space-y-1.5">

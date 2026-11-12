@@ -184,11 +184,11 @@ export default function VipPage() {
                 key={level.id}
                 className={cn(
                   'relative flex flex-col transition-shadow',
-                  isPopular && 'border-amber-500/50 shadow-lg',
+                  isPopular && 'border-amber-500/50 shadow-elevation-lg',
                 )}
               >
                 {isPopular && (
-                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-md bg-amber-500 px-3 py-1 text-label font-medium text-white shadow">
+                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-md bg-amber-500 px-3 py-1 text-label font-medium text-white shadow-elevation-md">
                     <Sparkles className="mr-1 inline h-3 w-3" />
                     {t('popular')}
                   </span>

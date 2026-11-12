@@ -121,7 +121,7 @@ export default function AdminWithdrawalPage() {
             setStatus(e.target.value as WithdrawalStatus | 'all')
             setPage(1)
           }}
-          className="h-9 rounded-sm border border-input bg-transparent px-2 text-body shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="h-9 rounded-sm border border-input bg-transparent px-2 text-body shadow-elevation-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           <option value="all">{t('statusAll')}</option>
           {STATUS_OPTIONS.map((s) => (

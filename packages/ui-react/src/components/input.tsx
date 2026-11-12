@@ -35,7 +35,7 @@ const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<'input'>>(
       <input
         type={type}
         className={cn(
-          'flex w-full bg-transparent py-1 shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:border-primary disabled:cursor-not-allowed disabled:opacity-50',
+          'flex w-full bg-transparent py-1 shadow-elevation-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:border-primary disabled:cursor-not-allowed disabled:opacity-50',
           HEIGHT_CLASS[INPUT_HEIGHT_PX],
           RADIUS_CLASS[INPUT_RADIUS_TIER],
           BORDER_WIDTH_CLASS[INPUT_BORDER_WIDTH_PX],

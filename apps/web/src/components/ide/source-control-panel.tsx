@@ -333,7 +333,7 @@ export function SourceControlPanel() {
             side="bottom"
             align="start"
             gap={4}
-            className="min-w-[160px] rounded-xl border border-border bg-popover p-1 shadow-md"
+            className="min-w-[160px] rounded-xl border border-border bg-popover p-1 shadow-elevation-md"
           >
             {gitBranches.map((b) => (
               <button

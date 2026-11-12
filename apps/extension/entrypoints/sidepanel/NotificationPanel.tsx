@@ -16,6 +16,7 @@ export default function NotificationPanel() {
   return (
     <>
       <div className="fixed inset-0 bg-black/20 z-[90]" onClick={() => setVisible(false)} />
+      {/* 豁免类别:侧边抽屉左向贴边影(方向性边缘影),非层级投影 */}
       <div
         className="fixed top-0 right-0 bottom-0 w-[300px] max-w-[90vw] bg-card shadow-[-4px_0_16px_rgba(0,0,0,0.08)] z-[100] flex flex-col"
         role="dialog"

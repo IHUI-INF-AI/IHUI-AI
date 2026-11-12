@@ -43,9 +43,9 @@ const PRIORITY_OPTIONS: { value: DispatchPriority; labelKey: string }[] = [
 ]
 
 const selectClass =
-  'flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+  'flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-elevation-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 const textareaClass =
-  'flex min-h-[72px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+  'flex min-h-[72px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-elevation-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 const labelClass = 'mb-1 block text-xs font-medium text-muted-foreground'
 
 function linesToArray(text: string): string[] {

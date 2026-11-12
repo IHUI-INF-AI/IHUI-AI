@@ -31,7 +31,7 @@ const MODELS = [
 ] as const
 
 const TEXTAREA_CLS =
-  'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+  'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-elevation-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
 // OpenAI 原生响应 { choices: [{ message: { content } }] },extractText 不覆盖此顶层结构,需自行提取
 function extractChatText(data: unknown): string {

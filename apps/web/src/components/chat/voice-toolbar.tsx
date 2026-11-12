@@ -226,7 +226,7 @@ export function VoiceToolbar(props: VoiceToolbarProps) {
           <DropdownMenu.Content
             align="end"
             sideOffset={6}
-            className="z-popover w-56 rounded-lg border bg-card p-1 text-card-foreground shadow-md"
+            className="z-popover w-56 rounded-lg border bg-card p-1 text-card-foreground shadow-elevation-md"
           >
             {/* 语音输入:主按钮同款 toggle;用普通 Item + 右侧状态指示方点,与 model-selector 风格一致 */}
             <DropdownMenu.Item

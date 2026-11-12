@@ -241,7 +241,7 @@ export function OrdersTab({
   const orders = data?.list ?? []
 
   const selectClass =
-    'h-8 w-full rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+    'h-8 w-full rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-elevation-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
   const hasSearch =
     search.userId ||
@@ -281,7 +281,7 @@ export function OrdersTab({
             className={cn(
               'rounded-sm px-3 py-1.5 text-body font-medium transition-colors',
               status === tb.value
-                ? 'bg-background text-foreground shadow-sm'
+                ? 'bg-background text-foreground shadow-elevation-sm'
                 : 'text-muted-foreground hover:text-foreground',
             )}
           >

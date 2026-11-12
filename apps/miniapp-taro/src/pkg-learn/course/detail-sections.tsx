@@ -68,6 +68,7 @@ export function CourseActionBar({
   onEnroll: () => void
 }) {
   const { t } = useI18n()
+  // 豁免类别:吸底报名栏向上投影(负 y offset),非层级投影
   return (
     <View className="fixed left-0 right-0 bottom-0 h-[100rpx] bg-card flex flex-row items-center justify-between px-lg shadow-[0_-2rpx_12rpx_var(--color-black-6)]">
       <View className="flex-1 flex flex-row items-baseline">

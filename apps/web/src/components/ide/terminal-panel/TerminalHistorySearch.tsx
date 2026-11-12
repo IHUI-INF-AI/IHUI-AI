@@ -47,7 +47,7 @@ export function TerminalHistorySearch({
   }, [])
 
   return (
-    <div className="absolute left-1/2 top-2 z-30 w-96 -translate-x-1/2 overflow-hidden rounded-md border border-border bg-popover shadow-lg">
+    <div className="absolute left-1/2 top-2 z-30 w-96 -translate-x-1/2 overflow-hidden rounded-md border border-border bg-popover shadow-elevation-lg">
       <div className="flex items-center gap-1.5 px-2 py-1.5">
         <SearchInput
           ref={inputRef}

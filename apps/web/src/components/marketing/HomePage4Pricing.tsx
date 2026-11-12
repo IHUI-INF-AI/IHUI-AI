@@ -110,8 +110,8 @@ export function HomePage4Pricing() {
               <Card
                 className={
                   isRecommended
-                    ? 'relative flex h-full flex-col overflow-hidden rounded-lg border-2 border-brand-accent-deep bg-card p-3 shadow-lg shadow-primary/20 transition-all duration-300 animate-pulse-glow-light group-hover:border-brand-accent-deep group-hover:bg-primary/5'
-                    : 'relative flex h-full flex-col overflow-hidden rounded-lg border border-border bg-card p-3 shadow-sm transition-all duration-300 group-hover:border-primary/40 group-hover:bg-primary/5'
+                    ? 'relative flex h-full flex-col overflow-hidden rounded-lg border-2 border-brand-accent-deep bg-card p-3 shadow-elevation-lg shadow-primary/20 transition-all duration-300 animate-pulse-glow-light group-hover:border-brand-accent-deep group-hover:bg-primary/5'
+                    : 'relative flex h-full flex-col overflow-hidden rounded-lg border border-border bg-card p-3 shadow-elevation-sm transition-all duration-300 group-hover:border-primary/40 group-hover:bg-primary/5'
                 }
               >
                 {/* 卡片顶部渐变高光(所有卡片 hover 时显现) */}
@@ -125,7 +125,7 @@ export function HomePage4Pricing() {
                     {/* 推荐角标是双色系装饰渐变,其前景与 from-primary 同步反转、两态 ≥15:1 无缺陷;
                         换成 from-cta 会把黑→翠绿改成蓝→翠绿,属营销观感决策,不在同源迁移范围内。 */}
                     {/* r5-cta-exempt: 装饰性双色渐变角标,非"品牌实底 + 其上文字"档(判据只认同行或紧邻上行) */}
-                    <span className="inline-flex items-center gap-1 rounded-md bg-gradient-to-r from-primary to-emerald-500 px-2 py-0.5 text-[10px] font-semibold text-primary-foreground shadow-md shadow-primary/30">
+                    <span className="inline-flex items-center gap-1 rounded-md bg-gradient-to-r from-primary to-emerald-500 px-2 py-0.5 text-[10px] font-semibold text-primary-foreground shadow-elevation-md shadow-primary/30">
                       <Sparkles className="h-3 w-3" />
                       {t('recommended')}
                     </span>

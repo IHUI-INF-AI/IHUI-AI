@@ -332,7 +332,7 @@ export const WebViewFrame = React.forwardRef<HTMLDivElement, WebViewFrameProps>(
                   <img
                     src={`data:image/png;base64,${screenshot}`}
                     alt={title ?? url}
-                    className="h-auto w-full rounded-md border border-border shadow-sm"
+                    className="h-auto w-full rounded-md border border-border shadow-elevation-sm"
                   />
                 </div>
               </>

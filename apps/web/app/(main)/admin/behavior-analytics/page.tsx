@@ -80,7 +80,7 @@ function daysAgo(n: number): string {
 }
 
 const inputCls =
-  'h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+  'h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-elevation-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
 export default function BehaviorAnalyticsPage() {
   const locale = useLocale()

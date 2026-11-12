@@ -167,7 +167,7 @@ export function MemberCard() {
                 src={user?.avatar ?? undefined}
                 name={user?.nickname ?? 'U'}
                 size="xl"
-                className="ring-2 ring-background shadow-sm"
+                className="ring-2 ring-background shadow-elevation-sm"
               />
               <Link href="/settings" className="mt-3 text-base font-semibold hover:text-primary">
                 {user?.nickname ?? t('defaultUser')}

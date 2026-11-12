@@ -32,7 +32,7 @@ export const EMPTY_COZE: CozeForm = {
 export const COZE_PAGE_SIZE = 10
 
 export const textareaClass =
-  'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+  'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-elevation-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
 export function buildCozeExportColumns(t: (key: string) => string): ExportColumn[] {
   return [

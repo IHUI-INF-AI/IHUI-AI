@@ -454,7 +454,7 @@ export function Leaderboard({ entries }: Props) {
   return (
     <section
       aria-label={t('leaderboard.label')}
-      className="overflow-hidden rounded-lg border bg-card shadow-sm"
+      className="overflow-hidden rounded-lg border bg-card shadow-elevation-sm"
     >
       {/* 头部 */}
       <div className="flex items-center gap-2 bg-cta/5 px-5 py-3">
@@ -595,7 +595,7 @@ export function Leaderboard({ entries }: Props) {
                 {/* 点击外部关闭 */}
                 {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- 下拉菜单遮罩点击外部关闭;键盘用户通过 Escape/菜单项提供等价交互 */}
                 <div className="fixed inset-0 z-overlay" onClick={() => setShowColMenu(false)} />
-                <div className="absolute right-0 top-full z-popover mt-1 w-40 rounded-md border bg-popover p-1 shadow-md">
+                <div className="absolute right-0 top-full z-popover mt-1 w-40 rounded-md border bg-popover p-1 shadow-elevation-md">
                   <p className="px-2 py-1 text-[9px] uppercase tracking-wide text-muted-foreground">
                     {t('leaderboard.colVisibilityHint')}
                   </p>

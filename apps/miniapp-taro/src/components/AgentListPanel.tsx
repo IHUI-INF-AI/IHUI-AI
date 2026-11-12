@@ -86,7 +86,7 @@ export default function AgentListPanel({
 
   return (
     <View
-      className={isSheet ? 'bg-card ui-card rounded-t-lg shadow-lg' : 'bg-transparent'}
+      className={isSheet ? 'bg-card ui-card rounded-t-lg shadow-elevation-lg' : 'bg-transparent'}
       style={isSheet ? { maxHeight: '50vh' } : undefined}
     >
       {/* RN 共享 AgentScreen 无面板内标题,仅 sheet 形态保留 */}

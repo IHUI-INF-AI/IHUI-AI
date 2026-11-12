@@ -73,7 +73,7 @@ export const ResourceBudget = React.memo(function ResourceBudget({
             />
           </div>
           <div
-            className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 rounded-md bg-popover px-2 py-1 text-[10px] text-popover-foreground opacity-0 shadow-md transition-opacity group-hover/budget:opacity-100"
+            className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 rounded-md bg-popover px-2 py-1 text-[10px] text-popover-foreground opacity-0 shadow-elevation-md transition-opacity group-hover/budget:opacity-100"
             role="tooltip"
             aria-hidden
             data-testid="resource-budget-tooltip"

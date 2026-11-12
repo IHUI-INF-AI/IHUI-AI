@@ -47,7 +47,7 @@ interface BatchLessonData {
 
 const PAGE_SIZE = 10
 const selectClass =
-  'h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+  'h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-elevation-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
 const STATUS_CFG: Record<number, { label: string; cls: string }> = {
   0: { label: '待处理', cls: 'bg-amber-500/10 text-amber-600 dark:text-amber-500' },

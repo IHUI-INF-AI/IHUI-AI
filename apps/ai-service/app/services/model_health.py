@@ -388,6 +388,9 @@ _INITIAL_COVERAGE_MAX = 48
 _CONTEXT_PROBE_CONCURRENCY = 3
 # 判定"请求内容与工具/function 有关"的关键词(400/422 时区分能力缺失与协议错误)。
 _TOOL_KEYWORDS = ("tool", "function", "tools", "functions")
+# 未通过结论的最小复测间隔(小时):防止配成 0 后每轮(30 分钟)都把失败模型重打一遍,
+# 把上游限流打成雪崩;1 小时 = 每两轮一次,足够让修完的上游在当天自愈。
+_MIN_CONTEXT_RETRY_HOURS = 1.0
 
 
 def _env_int(name: str, default: int, minimum: int = 1) -> int:
@@ -416,7 +419,23 @@ def _context_probe_tokens() -> int:
 
 
 def _context_probe_days() -> float:
+    """长上下文结论的复测周期(天),只作用于**已通过**的模型。
+
+    通过的结论稳定,7 天复测一次足够;未通过/未判定的结论不能跟着一起吃
+    7 天 TTL —— 2026-11-12 实测踩过:relay 回环 bug 让 19 个模型在几小时内
+    拿到 `false`/`null`,修完代码后这些结论仍然挂在状态文件里不肯退场,
+    界面就一直显示"长上下文未验证"。所以失败档走 `_context_retry_days()`。
+    """
     return _env_float("MODEL_HEALTH_CONTEXT_PROBE_DAYS", 7.0, minimum=0.0)
+
+
+def _context_retry_days() -> float:
+    """未通过/未判定结论的复测周期(天):默认 1 天,让修完的上游能自己洗白。"""
+    return _env_float(
+        "MODEL_HEALTH_CONTEXT_RETRY_DAYS",
+        1.0,
+        minimum=_MIN_CONTEXT_RETRY_HOURS / 24,
+    )
 
 
 def _context_probes_per_cycle() -> int:
@@ -674,6 +693,53 @@ def _build_context_probe_text(tokens: int) -> tuple[str, str]:
         f"Verification code: {code}"
     )
     return text, code
+
+
+def _aggregate_sse_reply(body: str) -> tuple[str, bool, bool]:
+    """把 SSE 正文聚合成 (可见回复, 是否出现过思考帧, 是否被 max_tokens 截断)。
+
+    长上下文针测只关心"末尾验证码有没有被吐出来",所以只拼 `delta.content`;
+    `reasoning_content` / `reasoning` 单独计数 —— 有思考帧但 content 为空时,
+    说明预算被思考吃光,这次**没判定**而不是"不支持"(实测 hy4-preview、
+    lfm-3-1.7b 就是这种:256 帧思考、可见回复 0)。
+    """
+    parts: list[str] = []
+    saw_reasoning = False
+    truncated = False
+    for line in (body or "").splitlines():
+        stripped = line.strip()
+        if not stripped.startswith("data:"):
+            continue
+        data_str = stripped[5:].strip()
+        if not data_str or data_str == "[DONE]":
+            continue
+        try:
+            chunk = json.loads(data_str)
+        except Exception:
+            continue
+        if not isinstance(chunk, dict) or chunk.get("error"):
+            continue
+        choices = chunk.get("choices")
+        if not isinstance(choices, list) or not choices:
+            continue
+        first = choices[0] if isinstance(choices[0], dict) else {}
+        if first.get("finish_reason") == "length":
+            truncated = True
+        delta = first.get("delta")
+        if not isinstance(delta, dict):
+            continue
+        content = delta.get("content")
+        if isinstance(content, str):
+            parts.append(content)
+        elif isinstance(content, list):
+            parts.extend(
+                str(part.get("text") or "")
+                for part in content
+                if isinstance(part, dict)
+            )
+        if delta.get("reasoning_content") or delta.get("reasoning"):
+            saw_reasoning = True
+    return "".join(parts), saw_reasoning, truncated
 
 
 def _check_context_probe_reply(reply: str, code: str) -> bool:
@@ -1274,23 +1340,30 @@ class ModelHealthService:
             )
 
     async def _run_context_probes(self) -> None:
-        """按「从未测优先 + 超过 N 天」轮转,每轮最多测 budget 个可用模型。
+        """按「从未测优先 + 按结论分档超过 TTL」轮转,每轮最多测 budget 个可用模型。
 
         全新部署或状态清空后,「从未测过」的模型会成片出现:按 3 个/轮要跑一整天,
         让前端挂着一片"长上下文未验证"。所以未显式配置每轮预算时,首轮把预算临时
         提升到覆盖全部未测模型(上限 _INITIAL_COVERAGE_MAX);覆盖完成后自动回落到
         3 个/轮的稳态轮转。针测本身 3 并发,避免 16k 预填充串行拖长首轮。
+
+        TTL 按结论分档(2026-11-12 立):**通过**的结论稳定,7 天复测;
+        **未通过/未判定**只等 `_context_retry_days()`(默认 1 天)。否则一次上游
+        抖动(限流/超时/回环)留下的 false/null 会跟着通过档一起吃 7 天缓存,
+        代码修好了界面上还是"未验证"。
         """
         budget = _context_probes_per_cycle()
         if budget <= 0:
             return
         tokens = _context_probe_tokens()
-        max_age = _context_probe_days() * 86400
+        pass_age = _context_probe_days() * 86400
+        retry_age = _context_retry_days() * 86400
         now = time.time()
         due: list[tuple[float, str]] = []
         for mid, state in list(self._states.items()):
             if state.status != "healthy" or mid not in self._catalog:
                 continue
+            max_age = pass_age if state.context_ok is True else retry_age
             if state.context_checked_at and (now - state.context_checked_at) < max_age:
                 continue
             due.append((state.context_checked_at, mid))
@@ -1638,8 +1711,102 @@ class ModelHealthService:
     async def _probe_context(
         self, target: _ProbeTarget, tokens: int
     ) -> tuple[bool | None, str]:
-        """长上下文针测:填充文本 + 末尾验证码,只让模型输出验证码。"""
+        """长上下文针测:填充文本 + 末尾验证码,只让模型输出验证码。
+
+        两条路径都测(2026-11-12 实测定档):**流式优先**,不通过再用非流式复核,
+        任一通过即判通过。理由是这两条都是真实客户端形态,判决必须按"任一条能拿到
+        验证码"给用户答案,而不是按我们探测代码的顺序:
+        - `workbuddy/deepseek-v4-pro`:非流式 PASS、流式只回 "OK" —— 只测流式会误判;
+        - `workbuddy/kimi-k3-1` / `deepseek-v4-flash`:流式 PASS、非流式也 PASS。
+        两路都拿不到验证码时,若出现过 reasoning 帧(content 被思考吃光)记**未知**,
+        不记"不支持" —— 那只是这次没答完,不是读不进 16k。
+        """
         text, code = _build_context_probe_text(tokens)
+        async with httpx.AsyncClient(
+            timeout=CONTEXT_PROBE_TIMEOUT_S,
+            proxy=target.proxy,
+            follow_redirects=True,
+        ) as client:
+            stream_ok, stream_error, stream_saw_reasoning = await self._context_probe_stream(
+                client, target, text, code
+            )
+            if stream_ok is True:
+                return True, ""
+            non_stream_ok, non_stream_error = await self._context_probe_non_stream(
+                client, target, text, code
+            )
+            if non_stream_ok is True:
+                return True, ""
+            if stream_ok is None and non_stream_ok is None:
+                # 两路都"没判定"(超时/5xx/账户级):保留更具体的那个原因
+                return None, (stream_error or non_stream_error)[:200]
+            if stream_saw_reasoning and non_stream_ok is not True:
+                # 输出预算被思考占用:读没读进 16k 无从判断,记未知而非"不支持"
+                return None, "思考占满输出预算,长上下文未判定"
+            if stream_ok is False and non_stream_ok is False:
+                # 两路都给出明确"没拿到验证码"的判决:才敢记"未通过"
+                return False, (non_stream_error or stream_error)[:200]
+            # 一路判死、另一路没判定:失效方向取"未验证",不给可用模型打错标签
+            return None, (stream_error or non_stream_error)[:200]
+
+    async def _context_probe_stream(
+        self,
+        client: httpx.AsyncClient,
+        target: _ProbeTarget,
+        text: str,
+        code: str,
+    ) -> tuple[bool | None, str, bool]:
+        """流式长上下文针测,返回 (ok, error, 是否出现过 reasoning 帧)。"""
+        payload: dict[str, Any] = {
+            "model": target.upstream_model,
+            "messages": [{"role": "user", "content": text}],
+            "max_tokens": _CONTEXT_PROBE_MAX_TOKENS,
+            "stream": True,
+        }
+        try:
+            async with client.stream(
+                "POST", target.chat_url, headers=target.headers, json=payload
+            ) as resp:
+                status = resp.status_code
+                # 逐行读而不是 aread():探测只关心 content/reasoning 的拼接,
+                # 读全量会把 16k 预填充的完整输出都留在内存里,也没必要等 [DONE]。
+                chunks: list[str] = []
+                async for line in resp.aiter_lines():
+                    chunks.append(line)
+                    if len(chunks) >= 2000:  # 异常上游防护
+                        break
+                body = chr(10).join(chunks)
+            if status in (400, 422) and _needs_stream(body):
+                # 上游明确不支持流式:交给非流式那条路判,这里不表态
+                return None, f"HTTP {status}: 不支持流式", False
+            if status != 200:
+                account_level, _model_level = _classify_error(body, status)
+                unknown = status >= 500 or account_level
+                summary = _redact_secrets(
+                    f"HTTP {status}: {body[:150].replace(chr(10), ' ')}"
+                )
+                return (None if unknown else False), summary[:200], False
+            reply, saw_reasoning, truncated = _aggregate_sse_reply(body)
+            if _check_context_probe_reply(reply, code):
+                return True, "", saw_reasoning
+            if truncated:
+                return None, "输出被 max_tokens 截断,长上下文未判定", saw_reasoning
+            if saw_reasoning and not reply.strip():
+                return None, "只有思考内容、无可见回复", True
+            return False, _redact_secrets(f"回复未包含验证码: {reply[:120]}")[:200], saw_reasoning
+        except httpx.TimeoutException as e:
+            return None, type(e).__name__, False
+        except Exception as e:
+            return None, _redact_secrets(f"{type(e).__name__}: {str(e)[:120]}")[:200], False
+
+    async def _context_probe_non_stream(
+        self,
+        client: httpx.AsyncClient,
+        target: _ProbeTarget,
+        text: str,
+        code: str,
+    ) -> tuple[bool | None, str]:
+        """非流式长上下文针测(老口径,作为流式的复核路)。"""
         payload: dict[str, Any] = {
             "model": target.upstream_model,
             "messages": [{"role": "user", "content": text}],
@@ -1647,64 +1814,55 @@ class ModelHealthService:
             "stream": False,
         }
         try:
-            async with httpx.AsyncClient(
-                timeout=CONTEXT_PROBE_TIMEOUT_S,
-                proxy=target.proxy,
-                follow_redirects=True,
-            ) as client:
+            resp = await client.post(
+                target.chat_url, headers=target.headers, json=payload
+            )
+            if resp.status_code in (400, 422) and _needs_completion_tokens(
+                resp.text or ""
+            ):
+                payload.pop("max_tokens", None)
+                payload["max_completion_tokens"] = _CONTEXT_PROBE_MAX_TOKENS
                 resp = await client.post(
                     target.chat_url, headers=target.headers, json=payload
                 )
-                if resp.status_code in (400, 422) and _needs_completion_tokens(
-                    resp.text or ""
-                ):
-                    payload.pop("max_tokens", None)
-                    payload["max_completion_tokens"] = _CONTEXT_PROBE_MAX_TOKENS
-                    resp = await client.post(
-                        target.chat_url, headers=target.headers, json=payload
-                    )
-                raw = resp.text or ""
-                if resp.status_code != 200:
-                    summary = _redact_secrets(
-                        f"HTTP {resp.status_code}: {raw[:150].replace(chr(10), ' ')}"
-                    )
-                    # 5xx 属上游临时故障;429/401/402/403 属账户级(限流/欠费/鉴权),
-                    # 都只能记"未知",误记成 false 会让前端给模型打上"不支持长上下文"。
-                    account_level, _model_level = _classify_error(
-                        raw, resp.status_code
-                    )
-                    unknown = resp.status_code >= 500 or account_level
-                    return (None if unknown else False), summary[:200]
-                ok, error, _account, _model = _evaluate_200_body(raw)
-                if not ok:
-                    return False, error[:200]
-                try:
-                    data = json.loads(raw)
-                except Exception:
-                    return False, "针测响应无法解析"
-                choices = data.get("choices") if isinstance(data, dict) else None
-                if not isinstance(choices, list) or not choices:
-                    return False, "针测响应 choices 为空"
-                message = (
-                    choices[0].get("message") if isinstance(choices[0], dict) else None
+            raw = resp.text or ""
+            if resp.status_code != 200:
+                summary = _redact_secrets(
+                    f"HTTP {resp.status_code}: {raw[:150].replace(chr(10), ' ')}"
                 )
-                reply = ""
-                if isinstance(message, dict):
-                    content = message.get("content")
-                    if isinstance(content, str):
-                        reply = content
-                    elif isinstance(content, list):
-                        reply = "".join(
-                            str(part.get("text") or "")
-                            for part in content
-                            if isinstance(part, dict)
-                        )
-                if _check_context_probe_reply(reply, code):
-                    return True, ""
-                if choices[0].get("finish_reason") == "length":
-                    # 输出被预算截断(推理模型仍在思考阶段)⇒ 无法判定,不记"不支持"
-                    return None, "输出被 max_tokens 截断,长上下文未判定"
-                return False, _redact_secrets(f"回复未包含验证码: {reply[:120]}")[:200]
+                # 5xx 属上游临时故障;429/401/402/403 属账户级(限流/欠费/鉴权),
+                # 都只能记"未知",误记成 false 会让前端给模型打上"不支持长上下文"。
+                account_level, _model_level = _classify_error(raw, resp.status_code)
+                unknown = resp.status_code >= 500 or account_level
+                return (None if unknown else False), summary[:200]
+            ok, error, _account, _model = _evaluate_200_body(raw)
+            if not ok:
+                return False, error[:200]
+            try:
+                data = json.loads(raw)
+            except Exception:
+                return False, "针测响应无法解析"
+            choices = data.get("choices") if isinstance(data, dict) else None
+            if not isinstance(choices, list) or not choices:
+                return False, "针测响应 choices 为空"
+            message = choices[0].get("message") if isinstance(choices[0], dict) else None
+            reply = ""
+            if isinstance(message, dict):
+                content = message.get("content")
+                if isinstance(content, str):
+                    reply = content
+                elif isinstance(content, list):
+                    reply = "".join(
+                        str(part.get("text") or "")
+                        for part in content
+                        if isinstance(part, dict)
+                    )
+            if _check_context_probe_reply(reply, code):
+                return True, ""
+            if choices[0].get("finish_reason") == "length":
+                # 输出被预算截断(推理模型仍在思考阶段)⇒ 无法判定,不记"不支持"
+                return None, "输出被 max_tokens 截断,长上下文未判定"
+            return False, _redact_secrets(f"回复未包含验证码: {reply[:120]}")[:200]
         except httpx.TimeoutException as e:
             return None, type(e).__name__
         except Exception as e:

@@ -5,7 +5,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Animated, Modal, PanResponder, Pressable, useWindowDimensions, View } from 'react-native'
-import { cn } from '@ihui/design-tokens'
+import { ELEVATION_STEPS, cn } from '@ihui/design-tokens'
 import {
   SHEET_ANIM_DURATION_MS,
   SHEET_CONTENT_GAP_PX,
@@ -95,12 +95,12 @@ export function Sheet({ open, onOpenChange, children, side = 'bottom' }: SheetPr
         <Animated.View
           onStartShouldSetResponder={() => true}
           onResponderRelease={(e) => e.stopPropagation()}
-          style={{ transform: [{ translateY }] }}
+          // 投影走 ELEVATION_STEPS:原生端 shadow-* 类的 var(--shadow-elevation-*) 无法解析,用类会静默失样式
+          style={[{ transform: [{ translateY }] }, ELEVATION_STEPS.lg]}
           className={cn(
             'absolute left-0 right-0 bg-card flex-col',
             CONTENT_GAP_CLASS[SHEET_CONTENT_GAP_PX],
             PADDING_CLASS[SHEET_PADDING_PX],
-            'shadow-lg',
             side === 'bottom'
               ? `bottom-0 ${RADIUS_CLASS[SHEET_RADIUS_TIER].top}`
               : `top-0 ${RADIUS_CLASS[SHEET_RADIUS_TIER].bottom}`,

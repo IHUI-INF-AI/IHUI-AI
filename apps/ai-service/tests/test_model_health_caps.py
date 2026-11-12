@@ -23,6 +23,7 @@ import app.services.model_health as mh
 from app.services.model_health import (
     ModelHealthService,
     ModelProbeState,
+    _aggregate_sse_reply,
     _build_context_probe_text,
     _check_context_probe_reply,
     _judge_tools_response,
@@ -76,6 +77,35 @@ class _FakeStreamClient:
         self._ctx = ctx
 
     def stream(self, *args, **kwargs) -> _FakeStreamContext:
+        return self._ctx
+
+
+
+class _BothClient:
+    """同时支持非流式(post)与流式(stream)的探测客户端桩。
+
+    长上下文针测 2026-11-12 起两路都测(流式优先、非流式复核),桩必须两路都在,
+    否则测出来的是桩的缺陷而不是被测逻辑。
+    """
+
+    def __init__(self, post_resp=None, stream_ctx=None) -> None:
+        self._post = post_resp
+        self._ctx = stream_ctx
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False
+
+    async def post(self, *args, **kwargs):
+        if isinstance(self._post, Exception):
+            raise self._post
+        return self._post
+
+    def stream(self, *args, **kwargs):
+        if isinstance(self._ctx, Exception):
+            raise self._ctx
         return self._ctx
 
 
@@ -323,24 +353,25 @@ def test_check_context_probe_reply():
     assert _check_context_probe_reply("", code) is False
 
 
+def _plain_stream_ctx(content: str, finish_reason: str = "stop") -> _FakeStreamContext:
+    """构造一个"只回纯文本、不含验证码"的流式桩。"""
+    lines = [
+        _sse({"choices": [{"delta": {"content": content}, "finish_reason": None}]}),
+        _sse({"choices": [{"delta": {}, "finish_reason": finish_reason}]}),
+        "data: [DONE]",
+    ]
+    return _FakeStreamContext(200, lines)
+
+
 async def test_context_probe_flags_wrong_reply(monkeypatch):
+    """两路都明确回复"没拿到验证码" ⇒ 判未通过(不能因为一路没判定就放过)。"""
     svc = ModelHealthService()
     resp = _Resp(
         200,
-        json.dumps({"choices": [{"message": {"content": "我不知道"}}]}),
+        json.dumps({"choices": [{"message": {"content": "我不知道"}, "finish_reason": "stop"}]}),
     )
-
-    class _Client:
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *exc):
-            return False
-
-        async def post(self, *args, **kwargs):
-            return resp
-
-    monkeypatch.setattr(mh.httpx, "AsyncClient", lambda **kwargs: _Client())
+    client = _BothClient(post_resp=resp, stream_ctx=_plain_stream_ctx("我不知道"))
+    monkeypatch.setattr(mh.httpx, "AsyncClient", lambda **kwargs: client)
     target = mh._ProbeTarget("alpha", "http://x", {}, None, "m")
     ok, error = await svc._probe_context(target, 500)
     assert ok is False
@@ -352,18 +383,9 @@ async def test_context_probe_account_level_or_5xx_is_unknown(monkeypatch, status
     """限流/上游故障只能记"未知",不能给模型打上"不支持长上下文"。"""
     svc = ModelHealthService()
     resp = _Resp(status_code, '{"error":"rate limit exceeded"}')
-
-    class _Client:
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *exc):
-            return False
-
-        async def post(self, *args, **kwargs):
-            return resp
-
-    monkeypatch.setattr(mh.httpx, "AsyncClient", lambda **kwargs: _Client())
+    stream = _FakeStreamContext(status_code, [], '{"error":"rate limit exceeded"}')
+    client = _BothClient(post_resp=resp, stream_ctx=stream)
+    monkeypatch.setattr(mh.httpx, "AsyncClient", lambda **kwargs: client)
     target = mh._ProbeTarget("alpha", "http://x", {}, None, "m")
     ok, error = await svc._probe_context(target, 500)
     assert ok is None
@@ -379,22 +401,87 @@ async def test_context_probe_truncated_is_unknown(monkeypatch):
             {"choices": [{"message": {"content": ""}, "finish_reason": "length"}]}
         ),
     )
-
-    class _Client:
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *exc):
-            return False
-
-        async def post(self, *args, **kwargs):
-            return resp
-
-    monkeypatch.setattr(mh.httpx, "AsyncClient", lambda **kwargs: _Client())
+    stream = _FakeStreamContext(
+        200,
+        [
+            _sse({"choices": [{"delta": {"reasoning_content": "思考中"}}]}),
+            _sse({"choices": [{"delta": {}, "finish_reason": "length"}]}),
+        ],
+    )
+    client = _BothClient(post_resp=resp, stream_ctx=stream)
+    monkeypatch.setattr(mh.httpx, "AsyncClient", lambda **kwargs: client)
     target = mh._ProbeTarget("alpha", "http://x", {}, None, "m")
     ok, error = await svc._probe_context(target, 500)
     assert ok is None
-    assert "截断" in error
+    assert "未判定" in error or "截断" in error
+
+
+async def test_context_probe_stream_pass_short_circuits_non_stream(monkeypatch):
+    """流式拿到验证码即判通过,不再发非流式请求(省一次 16k 预填充)。"""
+    svc = ModelHealthService()
+    _text, code = _build_context_probe_text(500)
+    stream = _plain_stream_ctx(code)
+    client = _BothClient(post_resp=RuntimeError("不应被调用"), stream_ctx=stream)
+    monkeypatch.setattr(mh.httpx, "AsyncClient", lambda **kwargs: client)
+    target = mh._ProbeTarget("alpha", "http://x", {}, None, "m")
+    ok, error = await svc._probe_context(target, 500)
+    assert ok is True, error
+
+
+async def test_context_probe_non_stream_pass_covers_stream_failure(monkeypatch):
+    """流式只回 "OK"、非流式能答出验证码 ⇒ 判通过(deepseek-v4-pro 的实测形态)。
+
+    这是 2026-11-12 的定档依据:两条都是真实客户端路径,任一条通过即说明
+    模型读得进 16k;只按流式判会把可用模型打成"不支持长上下文"。
+    """
+    svc = ModelHealthService()
+    _text, code = _build_context_probe_text(500)
+    resp = _Resp(
+        200,
+        json.dumps({"choices": [{"message": {"content": code}, "finish_reason": "stop"}]}),
+    )
+    client = _BothClient(post_resp=resp, stream_ctx=_plain_stream_ctx("OK"))
+    monkeypatch.setattr(mh.httpx, "AsyncClient", lambda **kwargs: client)
+    target = mh._ProbeTarget("alpha", "http://x", {}, None, "m")
+    ok, error = await svc._probe_context(target, 500)
+    assert ok is True, error
+
+
+async def test_context_probe_reasoning_only_is_unknown(monkeypatch):
+    """只有思考帧、可见回复为空 ⇒ 未知,不能记成"不支持"(hy4-preview 的实测形态)。"""
+    svc = ModelHealthService()
+    resp = _Resp(
+        200,
+        json.dumps({"choices": [{"message": {"content": ""}, "finish_reason": "stop"}]}),
+    )
+    stream = _FakeStreamContext(
+        200,
+        [
+            _sse({"choices": [{"delta": {"reasoning_content": "读了很久"}}]}),
+            _sse({"choices": [{"delta": {}, "finish_reason": "stop"}]}),
+        ],
+    )
+    client = _BothClient(post_resp=resp, stream_ctx=stream)
+    monkeypatch.setattr(mh.httpx, "AsyncClient", lambda **kwargs: client)
+    target = mh._ProbeTarget("alpha", "http://x", {}, None, "m")
+    ok, _error = await svc._probe_context(target, 500)
+    assert ok is None
+
+
+def test_aggregate_sse_reply_splits_content_and_reasoning():
+    body = chr(10).join(
+        [
+            _sse({"choices": [{"delta": {"reasoning_content": "想"}}]}),
+            _sse({"choices": [{"delta": {"content": "IHUI-"}}]}),
+            _sse({"choices": [{"delta": {"content": "000500-OK"}}]}),
+            _sse({"choices": [{"delta": {}, "finish_reason": "stop"}]}),
+            "data: [DONE]",
+        ]
+    )
+    reply, saw_reasoning, truncated = _aggregate_sse_reply(body)
+    assert reply == "IHUI-000500-OK"
+    assert saw_reasoning is True
+    assert truncated is False
 
 
 # ---------------------------------------------------------------------------
@@ -566,4 +653,40 @@ async def test_context_probe_explicit_budget_keeps_acceleration_off(monkeypatch)
     await svc._run_context_probes()
 
     assert sorted(calls) == ["m0", "m1"], "显式 budget=2 时本轮只测 2 个"
+
+
+async def test_context_probe_failed_conclusion_retests_sooner_than_passed(monkeypatch):
+    """未通过结论不能跟着通过档一起吃 7 天 TTL(2026-11-12 回环事故的教训)。
+
+    事故形态:relay 回环 bug 让 19 个模型拿到 false/null,代码修好后这些结论
+    仍按 7 天缓存不退场,界面一直挂着"长上下文未验证"。所以失败档必须更早复测。
+    """
+    monkeypatch.setenv("MODEL_HEALTH_CONTEXT_PROBES_PER_CYCLE", "10")
+    monkeypatch.setenv("MODEL_HEALTH_CONTEXT_PROBE_TOKENS", "500")
+    monkeypatch.delenv("MODEL_HEALTH_CONTEXT_RETRY_DAYS", raising=False)
+    monkeypatch.setattr(
+        mh, "_build_probe_target", lambda mid, hint: mh._ProbeTarget("alpha", "http://x", {}, None, mid)
+    )
+    now = time.time()
+    svc = ModelHealthService()
+    svc._catalog = {"failed": "alpha", "passed": "alpha"}
+    svc._states = {
+        # 两条都是 2 天前测的:通过的还在 7 天窗口内,失败的已过 1 天重试窗
+        "failed": ModelProbeState(
+            status="healthy", context_ok=False, context_checked_at=now - 2 * 86400
+        ),
+        "passed": ModelProbeState(
+            status="healthy", context_ok=True, context_checked_at=now - 2 * 86400
+        ),
+    }
+    calls: list[str] = []
+
+    async def fake_probe(target, tokens):
+        calls.append(target.upstream_model)
+        return True, ""
+
+    monkeypatch.setattr(svc, "_probe_context", fake_probe)
+    await svc._run_context_probes()
+
+    assert calls == ["failed"], "只该复测未通过的那个,通过的仍在 7 天窗内"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

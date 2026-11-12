@@ -140,7 +140,7 @@ export function QrTab({
                 // 横排 icon+文字会让"App 扫码/企业微信"换行挤压,竖排永不换行
                 'flex flex-col items-center justify-center gap-1 rounded-sm px-1 py-1.5 text-[11px] leading-none transition-colors',
                 active
-                  ? 'bg-card text-foreground shadow-sm font-medium ring-1 ring-border/60'
+                  ? 'bg-card text-foreground shadow-elevation-sm font-medium ring-1 ring-border/60'
                   : 'text-muted-foreground hover:bg-card/60 hover:text-foreground',
               )}
             >

@@ -22,7 +22,7 @@ export function FundsTabs({ tab, setTab, flowType, setFlowType }: Props) {
     cn(
       'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
       active
-        ? 'bg-background text-foreground shadow-sm'
+        ? 'bg-background text-foreground shadow-elevation-sm'
         : 'text-muted-foreground hover:text-foreground',
     )
   return (

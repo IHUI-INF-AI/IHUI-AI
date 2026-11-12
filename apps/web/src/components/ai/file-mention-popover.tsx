@@ -331,7 +331,7 @@ export function FileMentionPopover({
       gap={8}
       overlayId={FILE_MENTION_POPOVER_OVERLAY_ID}
       testId="file-mention-popover"
-      className="flex w-72 flex-col overflow-hidden rounded-xl border border-border bg-popover shadow-md"
+      className="flex w-72 flex-col overflow-hidden rounded-xl border border-border bg-popover shadow-elevation-md"
     >
       <div
         className="flex flex-wrap gap-1 p-1.5 pb-0"

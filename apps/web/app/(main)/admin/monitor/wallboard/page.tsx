@@ -541,6 +541,7 @@ function Panel({
       )}
     >
       <header className="flex shrink-0 items-center gap-2 px-3 pt-2 pb-1">
+        {/* 豁免类别:大屏面板标题色条的状态灯效果光(取 --color-info 同色 8px 扩散,非层级投影) */}
         <span className="h-3 w-[3px] rounded-full bg-info shadow-[0_0_8px_color-mix(in_srgb,var(--color-info)_80%,transparent)]" />
         {icon ? <span className="text-info-text/70">{icon}</span> : null}
         <h2 className="wb-display text-[13px] font-semibold tracking-[0.18em] text-foreground uppercase">
@@ -556,11 +557,11 @@ function Panel({
 function Dot({ tone }: { tone: StatusTone | 'idle' }) {
   const color =
     tone === 'ok'
-      ? 'bg-success shadow-[0_0_6px_color-mix(in_srgb,var(--color-success)_90%,transparent)]'
+      ? 'bg-success shadow-[0_0_6px_color-mix(in_srgb,var(--color-success)_90%,transparent)]' // 豁免类别:大屏状态点灯的 success 取色效果光,非层级投影
       : tone === 'warn'
-        ? 'bg-warning shadow-[0_0_6px_color-mix(in_srgb,var(--color-warning)_90%,transparent)]'
+        ? 'bg-warning shadow-[0_0_6px_color-mix(in_srgb,var(--color-warning)_90%,transparent)]' // 豁免类别:大屏状态点灯的 warning 取色效果光,非层级投影
         : tone === 'bad'
-          ? 'bg-destructive shadow-[0_0_6px_color-mix(in_srgb,var(--color-destructive)_90%,transparent)]'
+          ? 'bg-destructive shadow-[0_0_6px_color-mix(in_srgb,var(--color-destructive)_90%,transparent)]' // 豁免类别:大屏状态点灯的 destructive 取色效果光,非层级投影
           : tone === 'unknown'
             ? 'bg-muted-foreground/60'
             : 'bg-muted-foreground'
@@ -1541,6 +1542,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
         <header className="wb-header sticky top-0 z-20 flex items-center gap-3 bg-shell-panel/90 px-4 py-2 backdrop-blur">
           <div className="wb-hdr-title flex min-w-0 items-center gap-2.5">
             <BackButton />
+            {/* 豁免类别:大屏页头图标的状态灯效果光(取 --color-info 同色 12px 外扩,非层级投影) */}
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm border border-info/40 bg-info/10 shadow-[0_0_12px_color-mix(in_srgb,var(--color-info)_28%,transparent)]">
               <Gauge className="h-4 w-4 text-info-text" />
             </div>
@@ -3539,7 +3541,7 @@ const WALLBOARD_CSS = `
      原先这里写的是 0 8px 26px / black-20(2026-10-18 HUD 改版自创,超规范三倍),
      结果是**不 hover 也带着大投影**,而 hover 的 lift 影只比它大 4px —— 差值读不出来,
      机主两轮"没区别/没立体感"的真正根因就在这条静止影上。投影只该属于浮起态。 */
-  box-shadow: var(--wb-inset), 0 2px 8px var(--color-black-6);
+  box-shadow: var(--wb-inset), var(--shadow-elevation-md);
 }
 .wb-panel.ui-lift:hover {
   box-shadow: var(--wb-inset), var(--lift-shadow);
