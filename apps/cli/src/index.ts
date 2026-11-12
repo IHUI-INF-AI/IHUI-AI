@@ -715,6 +715,17 @@ program
       const jsonMode = resolveJsonMode(opts);
       await runAgentAndExit(effectivePrompt, opts, jsonMode);
     } else {
+      // F-012:无 prompt + 无人工输入档(stdin 不是 TTY,或 --json/非 TTY stdout 已由
+      // resolveJsonMode 判为机器档)时,进 REPL 只会把 banner/ANSI 写进管道并永久等 stdin
+      // —— CI 挂死。该路径判"用法缺失":stderr 打用法、退 2(与"无输入可继续"同档,见
+      // index.ts:1052 的 insufficient 出口);TTY 交互与显式 prompt 完全不受影响。
+      if (resolveJsonMode(opts) || !process.stdin.isTTY) {
+        process.stderr.write(
+          'No prompt provided and stdin is not an interactive terminal: nothing to run.\n',
+        );
+        process.stderr.write(`${program.helpInformation()}\n`);
+        process.exit(2);
+      }
       const cfg = resolveEffectiveConfig({
         cliApiUrl: typeof opts.apiUrl === 'string' ? opts.apiUrl : undefined,
         cliApiKey: typeof opts.apiKey === 'string' ? opts.apiKey : undefined,
