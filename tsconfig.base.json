@@ -20,5 +20,12 @@
     "declarationMap": true,
     "sourceMap": true
   },
-  "exclude": ["node_modules", "dist", ".next", "build", "coverage"]
+  "exclude": [
+    "node_modules",
+    "**/node_modules.*",
+    "dist",
+    ".next",
+    "build",
+    "coverage"
+  ]
 }
