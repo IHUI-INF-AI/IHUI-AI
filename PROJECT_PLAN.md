@@ -12236,12 +12236,8 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 17C. **缺陷普查 CLI F-014** [P2] mcp add 参数面两处漏洞（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-014）
 - [ ] 18C. **缺陷普查 CLI F-015** [P2] serve 的 flush 与信号退出码（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-015）
 - [ ] 20C. **缺陷普查 CLI F-019** [P2] Windows 沙箱兜底超时留下孤儿进程树（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-019）
-- [ ] 23C. **缺陷普查 CLI F-022** [P2] worktree 族绕过统一的 git 封顶出口（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-022）
-- [ ] 24C. **缺陷普查 CLI F-023** [P2] 范围提交在 worktree/子模块内必失败（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-023）
 - [ ] 25C. **缺陷普查 CLI F-024** [P2] execGitCapped 的 stdio 与仓库自家约定相反（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-024）
 - [ ] 26C. **缺陷普查 CLI F-025** [P2] 取消 git 在 POSIX 无效（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-025）
-- [ ] 27C. **缺陷普查 CLI F-026** [P2] GBK 输出被硬解成 UTF-8（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-026）
-- [ ] 28C. **缺陷普查 CLI F-027** [P2] .gitignore 按 UTF-8 读后整文件覆写（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-027）
 - [ ] 29C. **缺陷普查 CLI F-028** [P2] 凭据设置文件非原子写（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-028）
 - [ ] 30C. **缺陷普查 CLI F-029** [P2] checkpoint manifest 非原子 + 一次崩溃让 GC 永久停摆（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-029）
 - [ ] 31C. **缺陷普查 CLI F-030** [P2] prompt-queue 固定 tmp 名、失败全吞、损坏即删（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-030）
@@ -12299,8 +12295,9 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 96C. **缺陷普查 CLI F-098** [P1] 子代理网络与资源限制字段无生产写入方，防护是死代码（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-098）
 - [ ] 97C. **缺陷普查 CLI F-099** [P1] qoder/workbuddy 隔离区恢复缺确认闸且信任 manifest 根/相对路径（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-099）
 - [ ] 98C. **缺陷普查 CLI F-100** [P1] 内嵌页可伪造哨兵 URL → 导出 WorkBuddy 会话 Cookie（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-100）（未判定：Rust 夹具为 helper 级，反向 apply 整笔会把夹具同 hunk 回退，拿不到「夹具保留+旧源码」组合；不计入已修）
+- [ ] 99C. **缺陷普查 CLI F-101** [P1] 读侧 ACL 对子目录/越界 .env 失效（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-101）
+- [ ] 100C. **缺陷普查 CLI F-102** [P1] grep 完全绕过读侧 ACL，且接受任意绝对路径（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-102）
 - [ ] 101C. **缺陷普查 CLI F-103** [P1] MCP stdio NDJSON 跨 chunk 帧被静默丢弃（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-103）
-
 - [ ] 102C. **缺陷普查 CLI F-104** [P2] operator 审批可自批自跑（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-104）
 - [ ] 103C. **缺陷普查 CLI F-105** [P2] 桌面 egress_gate 判定与执行分离、默认 fail-open（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-105）
 - [ ] 104C. **缺陷普查 CLI F-106** [P2] 桌面 git 命令同步阻塞 + 输出无上限 + 只杀单进程（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-106）
@@ -12387,55 +12384,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 113E. **缺陷普查 AIS AIS-113** [P2] 同一 thread 并发 prompt 的状态竞态（检查与置 running 跨 await）（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-113）
 - [ ] 114E. **缺陷普查 AIS AIS-114** [P2] 运行中 interrupt 立即保存半批次 checkpoint（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-114）
 - [ ] 115E. **缺陷普查 AIS AIS-115** [P2] 溢出恢复后的压缩列表未回写调用方（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-115）
-- [ ] 1F. **缺陷普查 XUI XUI-001** [P0] Web 订单详情状态图标取值崩溃（证据 docs/tickets/2026-11/findings-crossui.md#XUI-001）
-- [ ] 2F. **缺陷普查 XUI XUI-002** [P0] 订单详情响应未拆 {order} 包络（RN + 小程序）（证据 docs/tickets/2026-11/findings-crossui.md#XUI-002）
-- [ ] 4F. **缺陷普查 XUI XUI-004** [P0] RN 未登录分支缺注册路由（隐私/协议/换绑/改密）（证据 docs/tickets/2026-11/findings-crossui.md#XUI-004）
-- [ ] 5F. **缺陷普查 XUI XUI-005** [P0] 小程序 UserCard 读恒空存储键导致「请先登录」（证据 docs/tickets/2026-11/findings-crossui.md#XUI-005）
-- [ ] 6F. **缺陷普查 XUI XUI-006** [P0] 小程序清缓存保留键用旧命名 → 清缓存后静默自动登录（证据 docs/tickets/2026-11/findings-crossui.md#XUI-006）
-- [ ] 7F. **缺陷普查 XUI XUI-007** [P0] RN 支付结果页读错包络 → 永远「支付失败」（证据 docs/tickets/2026-11/findings-crossui.md#XUI-007）
-- [ ] 8F. **缺陷普查 XUI XUI-008** [P0] RN 微信支付 mock 分支客户端直通成功（证据 docs/tickets/2026-11/findings-crossui.md#XUI-008）
-- [ ] 9F. **缺陷普查 XUI XUI-009** [P0] 小程序充值未返回 payParams + orderType 默认 0（证据 docs/tickets/2026-11/findings-crossui.md#XUI-009）
-- [ ] 10F. **缺陷普查 XUI XUI-010** [P0] RN 首页 Easing.sin 缺失 → 启动崩溃（证据 docs/tickets/2026-11/findings-crossui.md#XUI-010）
-- [ ] 11F. **缺陷普查 XUI XUI-011** [P0] RN 导航 ref 工厂在小程序垫片缺失 → 模块初始化崩溃（证据 docs/tickets/2026-11/findings-crossui.md#XUI-011）
-- [ ] 12F. **缺陷普查 XUI XUI-012** [P0] RN 登录页命名导入 WebView，垫片只有默认导出（证据 docs/tickets/2026-11/findings-crossui.md#XUI-012）
-- [ ] 13F. **缺陷普查 XUI XUI-013** [P0] rn-compat 的 Clipboard 默认导出形状与消费方不符（证据 docs/tickets/2026-11/findings-crossui.md#XUI-013）
-- [ ] 14F. **缺陷普查 XUI XUI-014** [P0] RN 提现页分/元混用（证据 docs/tickets/2026-11/findings-crossui.md#XUI-014）
-- [ ] 15F. **缺陷普查 XUI XUI-015** [P1] 小程序注销账号路径多一段 /index（证据 docs/tickets/2026-11/findings-crossui.md#XUI-015）
-- [ ] 16F. **缺陷普查 XUI XUI-016** [P1] 小程序退款页 order.amount 未定义（证据 docs/tickets/2026-11/findings-crossui.md#XUI-016）
-- [ ] 17F. **缺陷普查 XUI XUI-017** [P1] 小程序关于页菜单项传对象、全部开 portal（证据 docs/tickets/2026-11/findings-crossui.md#XUI-017）
-- [ ] 18F. **缺陷普查 XUI XUI-018** [P1] 小程序三个入口指向已删除 /pages/tools/*（证据 docs/tickets/2026-11/findings-crossui.md#XUI-018）
-- [ ] 19F. **缺陷普查 XUI XUI-019** [P1] RN 注销二次确认闸门未复位 → 二次点击直接注销（证据 docs/tickets/2026-11/findings-crossui.md#XUI-019）
-- [ ] 21F. **缺陷普查 XUI XUI-021** [P1] 小程序分销字段映射错位（证据 docs/tickets/2026-11/findings-crossui.md#XUI-021）
-- [ ] 37F. **缺陷普查 XUI XUI-037** [P1] 小程序保存相册无 hideLoading（证据 docs/tickets/2026-11/findings-crossui.md#XUI-037）
-- [ ] 38F. **缺陷普查 XUI XUI-038** [P1] 小程序会员支付确认只弹成功（证据 docs/tickets/2026-11/findings-crossui.md#XUI-038）
-- [ ] 39F. **缺陷普查 XUI XUI-039** [P1] 小程序支付成功页用本地 paid 标记（证据 docs/tickets/2026-11/findings-crossui.md#XUI-039）
-- [ ] 40F. **缺陷普查 XUI XUI-042** [P1] 小程序订单列表标题/时间缺失、completed 页签永不命中（证据 docs/tickets/2026-11/findings-crossui.md#XUI-042）
-- [ ] 41F. **缺陷普查 XUI XUI-043** [P1] 小程序换手机号：旧验证码只校验长度不提交（证据 docs/tickets/2026-11/findings-crossui.md#XUI-043）
-- [ ] 42F. **缺陷普查 XUI XUI-044** [P1] 小程序 webview 页 reLaunch 定时器未清理（证据 docs/tickets/2026-11/findings-crossui.md#XUI-044）
-- [ ] 43F. **缺陷普查 XUI XUI-045** [P1] RN 分享页把本地 file:// 当文本分享（证据 docs/tickets/2026-11/findings-crossui.md#XUI-045）
-- [ ] 44F. **缺陷普查 XUI XUI-046** [P1] RN 直播主播页无 teardown、观众数随机（证据 docs/tickets/2026-11/findings-crossui.md#XUI-046）
-- [ ] 45F. **缺陷普查 XUI XUI-047** [P1] RN 分销提现重复提交窗口（证据 docs/tickets/2026-11/findings-crossui.md#XUI-047）
-- [ ] 46F. **缺陷普查 XUI XUI-048** [P1] RN 录音 hook 卸载未清计时器（证据 docs/tickets/2026-11/findings-crossui.md#XUI-048）
-- [ ] 47F. **缺陷普查 XUI XUI-049** [P2] 登录态下重新登录仍停留在登录页（证据 docs/tickets/2026-11/findings-crossui.md#XUI-049）
-- [ ] 48F. **缺陷普查 XUI XUI-050** [P2] rn-compat 图片选择权限硬编码 granted（证据 docs/tickets/2026-11/findings-crossui.md#XUI-050）
-- [ ] 49F. **缺陷普查 XUI XUI-051** [P2] rn-compat 缺 MediaTypeOptions（证据 docs/tickets/2026-11/findings-crossui.md#XUI-051）
-- [ ] 50F. **缺陷普查 XUI XUI-052** [P2] rn-compat MediaLibrary 成员缺失/返回形状不符（证据 docs/tickets/2026-11/findings-crossui.md#XUI-052）
-- [ ] 51F. **缺陷普查 XUI XUI-053** [P2] rn-compat 缺 Linking.openSettings（证据 docs/tickets/2026-11/findings-crossui.md#XUI-053）
-- [ ] 52F. **缺陷普查 XUI XUI-054** [P2] rn-compat expo-file-system 成员缺口（证据 docs/tickets/2026-11/findings-crossui.md#XUI-054）
-- [ ] 53F. **缺陷普查 XUI XUI-055** [P2] rn-compat 多选数量只看 selectionLimit（证据 docs/tickets/2026-11/findings-crossui.md#XUI-055）
-- [ ] 54F. **缺陷普查 XUI XUI-056** [P2] rn-compat 不支持对象形 navigate（证据 docs/tickets/2026-11/findings-crossui.md#XUI-056）
-- [ ] 55F. **缺陷普查 XUI XUI-057** [P2] 小程序语音识别重复 configure 方法（证据 docs/tickets/2026-11/findings-crossui.md#XUI-057）
-- [ ] 57F. **缺陷普查 XUI XUI-059** [P2] RN 端 artifacts 系列 i18n key 缺失（证据 docs/tickets/2026-11/findings-crossui.md#XUI-059）
-- [ ] 58F. **缺陷普查 XUI XUI-060** [P2] login.platformLinuxdo 缺失（证据 docs/tickets/2026-11/findings-crossui.md#XUI-060）
-- [ ] 59F. **缺陷普查 XUI XUI-061** [P2] 模块级 Intl 实例冻结时区（证据 docs/tickets/2026-11/findings-crossui.md#XUI-061）
-- [ ] 61F. **缺陷普查 XUI XUI-063** [P2] 小程序 i18n key 漂移（证据 docs/tickets/2026-11/findings-crossui.md#XUI-063）
-- [ ] 62F. **缺陷普查 XUI XUI-064** [P2] AppTopup 屏未接 texts（证据 docs/tickets/2026-11/findings-crossui.md#XUI-064）
-- [ ] 67F. **缺陷普查 XUI XUI-069** [P2] RN 设备列表请求竞态（证据 docs/tickets/2026-11/findings-crossui.md#XUI-069）
-- [ ] 68F. **缺陷普查 XUI XUI-070** [P2] AiWorld / Purchase / AigcPublish 重复提交与卸载后回调（证据 docs/tickets/2026-11/findings-crossui.md#XUI-070）
-- [ ] 69F. **缺陷普查 XUI XUI-071** [P2] multipart 下载无界缓冲、进度回调在卸载后（证据 docs/tickets/2026-11/findings-crossui.md#XUI-071）
-- [ ] 70F. **缺陷普查 XUI XUI-072** [P2] 小程序课程详情成功与失败 toast 并存（证据 docs/tickets/2026-11/findings-crossui.md#XUI-072）
-- [ ] 71F. **缺陷普查 XUI XUI-073** [P2] 小程序充值失败丢失 orderNo（证据 docs/tickets/2026-11/findings-crossui.md#XUI-073）
-- [ ] 72F. **缺陷普查 XUI XUI-074** [P2] ToolApprovalSheet / ImageAnnotator 键盘与高度处理缺失（证据 docs/tickets/2026-11/findings-crossui.md#XUI-074）
 - [ ] 12G. **缺陷普查 API F-12** [P2] 已支付订单副作用重放与支付回调并发，积分/Outbox 双发（证据 docs/tickets/2026-11/findings-api.md#F-12）
 - [ ] 15G. **缺陷普查 API F-15** [P2] 邀请码占用无 status 条件，同一码并发注册双发奖励（证据 docs/tickets/2026-11/findings-api.md#F-15）
 - [ ] 20G. **缺陷普查 API F-20** [P2] 积分任务「今日/本周」区间用 UTC 午夜解释上海日键，整体错位 8 小时（证据 docs/tickets/2026-11/findings-api.md#F-20）
@@ -12605,7 +12553,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 274G. **缺陷普查 API F-274** [P2] 审计链链尾按 timestamp 取，跨实例时钟偏差/同毫秒取错前驱，链分叉或误报（证据 docs/tickets/2026-11/findings-api.md#F-274）
 - [ ] 275G. **缺陷普查 API F-275** [P3] 审计链哈希输入未覆盖 ip/user_agent/raw_retained，证据列可改写而不破坏链（证据 docs/tickets/2026-11/findings-api.md#F-275）
 - [ ] 276G. **缺陷普查 API F-276** [P1] /v1/3d/generations 及内部 3D 端点：平台腾讯 Key 零计费、user_uuid 可伪造、上游失败当成功、activeJobs（证据 docs/tickets/2026-11/findings-api.md#F-276）
-- [ ] 277G. **缺陷普查 API F-277** [P1] v1-midjourney 与 v1-rerank-moderations 漏挂 requireApiKeyQuota，上游 fetch 无超时（证据 docs/tickets/2026-11/findings-api.md#F-277）
 - [ ] 278G. **缺陷普查 API F-278** [P2] 工作区 recent-workspaces.json 全局共享，browse/recent 绕过 workspace 权限（证据 docs/tickets/2026-11/findings-api.md#F-278）
 - [ ] 279G. **缺陷普查 API F-279** [P2] /v1/files?purpose=batch 输入文件未与 API Key 绑定，且每请求新建 ioredis 仅成功路径 disconnect（证据 docs/tickets/2026-11/findings-api.md#F-279）
 - [ ] 280G. **缺陷普查 API F-280** [P2] /api/workspace/acp/* 三端点为纯 stub：不落库却返回 201/200，workspaceRoot 任意且 prompt/附件正文（证据 docs/tickets/2026-11/findings-api.md#F-280）
@@ -12618,7 +12565,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 289G. **缺陷普查 API F-289** [P2] 公开边缘缓存键不含 Origin，跨源请求会命中同源建立的条目（证据 docs/tickets/2026-11/findings-api.md#F-289）
 - [ ] 290G. **缺陷普查 API F-290** [P3] WS 限流 MAX_PER_WINDOW=30 是死分支，实际恒定放行到 50 条/秒（证据 docs/tickets/2026-11/findings-api.md#F-290）
 - [ ] 291G. **缺陷普查 API F-291** [P3] sse-replay-buffer.registerStream 在 set 之前逐出，满 200 流时误删活跃流缓冲（证据 docs/tickets/2026-11/findings-api.md#F-291）
-- [ ] 292G. **缺陷普查 API F-292** [P1] /v1/responses 全程按 relay 计费，BYOK 用户被二次全额扣费（证据 docs/tickets/2026-11/findings-api.md#F-292）
 - [ ] 293G. **缺陷普查 API F-293** [P2] /v1/messages 与 /v1/responses 工具调用全链路丢失（证据 docs/tickets/2026-11/findings-api.md#F-293）
 - [ ] 294G. **缺陷普查 API F-294** [P2] /v1/responses 的 max_output_tokens 绕过 Key 级 maxTokensPerReq 与 per-model TPM（证据 docs/tickets/2026-11/findings-api.md#F-294）
 - [ ] 295G. **缺陷普查 API F-295** [P2] /v1/messages 流式丢弃 done.finishReason，截断/内容过滤被报成 end_turn（证据 docs/tickets/2026-11/findings-api.md#F-295）
@@ -12993,10 +12939,10 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 727G. **缺陷普查 API F-728** [P2] 失败/中断调用只退金额不退 token，且 v1-responses 把错误文案计入输出 token（证据 docs/tickets/2026-11/findings-api.md#F-728）
 - [ ] 2H. **缺陷普查 SDB SDB-02** [P2] api_subscriptions.order_no 幂等键无唯一约束，先查后插（读副本）可并发重复建订阅（证据 docs/tickets/2026-11/findings-services-db.md#SDB-02）
 - [ ] 〔归:机主收款地址面｜等:—〕 RP-37 `USDT_TRC20_ADDRESS` 仍空:地址值是机主掌握的收款信息(七份 env 备份从未有非空值;同族 `USDT_ERC20_ADDRESS` 早有值),而 sponsor 页 `CryptoDonation.tsx:36` 已硬编码 `TMtTpPEMduWurHLi6Fe8XjfcP5Y5AMMnbG` 并上线(枚 ff5ea30d1c87ee76499b9cd3848145c5f030309a)⇒ 同一信息已交付两处、env 一处为空。校验面已收口:TRON 正则 + `assertUsdtAddressFormat` 两调用点共用,新增 14 例绿(含 ERC20 不误拒/400/500 两失败路径/脏地址不落库);fail-closed 37 例绿。余两格归配置面:① env 填哪个地址(现成 sponsor 值或专用充值地址);② 两套 ERC20 地址(现读 sponsor 值与 env 值前缀不同)收敛为 env 权威。〔结清@2026-10-24/主会话-强制令:校验与失败路径已绿,余为地址值配置格〕
-- [ ] RP-76 **OPPO 传包 API 凭据补取** [P1] （进行中@2026-11-09/主会话）取 Edith 传包 API 凭据 client_id(18 位) / client_secret(64 位),落网盘凭据件、更新机读台账 oppo 块、跑 --self-test 与 token 实测。现状:前次会话 OPPO 登录态掉线,须机主在浏览器手动登录一次,自动登录不可代做;详情页只有 appid + appKey,不等于传包 API 凭据。
-- [ ] RP-77 **小米自动发布接口凭据补取** [P1] （进行中@2026-11-09/主会话）到「自动发布接口」页取开发者邮箱 + 接口私钥,落网盘凭据件并更新机读台账 xiaomi 块。现状:dev.mi.com 自动登录撞风控 :10025,须机主手动登录一次。
-- [ ] RP-78 **versionName 倒退裁决** [P1] （进行中@2026-11-09/主会话）待提交包 0.0.20 / 26110801,应用宝与 OPPO 线上均为 1.0.2 / 102,versionCode 在涨但商店页面看起来像版本倒退;裁决「统一改 1.0.x 后重出包」或「照发」后据此改包体元数据,华为实跑以裁决为前提。
-- [ ] RP-81 **storeconsign 分支合入前脱敏** [P1] （进行中@2026-11-09/主会话）分支 origin/wt/sync-storeconsign-1109 合入 main 前必须脱敏:两份 docs 共 5 处写了真实 APPID/UserID,与该文档自身第 7 节保密规矩冲突;并把第 7 节写死的已失效 D: 网盘路径改为 key-dir 解析引用。落前须复核九项敏感编号 git grep 零命中。
+- [ ] RP-76 **OPPO 传包 API 凭据补取** [P1] （认领已释放@2026-11-12/stale-claim-strip#mwd6mami-0）取 Edith 传包 API 凭据 client_id(18 位) / client_secret(64 位),落网盘凭据件、更新机读台账 oppo 块、跑 --self-test 与 token 实测。现状:前次会话 OPPO 登录态掉线,须机主在浏览器手动登录一次,自动登录不可代做;详情页只有 appid + appKey,不等于传包 API 凭据。
+- [ ] RP-77 **小米自动发布接口凭据补取** [P1] （认领已释放@2026-11-12/stale-claim-strip#mwd6mami-1）到「自动发布接口」页取开发者邮箱 + 接口私钥,落网盘凭据件并更新机读台账 xiaomi 块。现状:dev.mi.com 自动登录撞风控 :10025,须机主手动登录一次。
+- [ ] RP-78 **versionName 倒退裁决** [P1] （认领已释放@2026-11-12/stale-claim-strip#mwd6mami-2）待提交包 0.0.20 / 26110801,应用宝与 OPPO 线上均为 1.0.2 / 102,versionCode 在涨但商店页面看起来像版本倒退;裁决「统一改 1.0.x 后重出包」或「照发」后据此改包体元数据,华为实跑以裁决为前提。
+- [ ] RP-81 **storeconsign 分支合入前脱敏** [P1] （认领已释放@2026-11-12/stale-claim-strip#mwd6mami-3）分支 origin/wt/sync-storeconsign-1109 合入 main 前必须脱敏:两份 docs 共 5 处写了真实 APPID/UserID,与该文档自身第 7 节保密规矩冲突;并把第 7 节写死的已失效 D: 网盘路径改为 key-dir 解析引用。落前须复核九项敏感编号 git grep 零命中。
 <!-- 〔RP-79 裁并锚 @2026-11-03:同号双行 2→1(保留剩余面行,原 git-sync 守卫行全文并入);本行原为 Z-1 重复登记,已被 HEAD 85f1c08855 删除,此处仅作 plan-union-merge 冲突锚,无任务语义〕 -->
 - [x] RP-61 〔千段租约〕 本机=lichunchuan-4d8db25b 段=RP-52~RP-61(取号器专用行:占用面只取本行主键=段尾号 ⇒ 无租约感知的 max+1 落在段外;段内连号自段首起、由持有机取号器递增;段满由取号器另立下一段,占段撞号由 CAS 终止,不是让号自我循环)
   - 已完成 Router 引擎:`packages/shared/src/super-agent/engine.ts` 触发接收/去重/工单状态机/订阅分派/策略裁决,`roles.ts` 派工计划,`packages/shared/src/super-agent/*.test.ts` 单测。

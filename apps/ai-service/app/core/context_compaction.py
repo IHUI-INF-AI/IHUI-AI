@@ -232,6 +232,20 @@ def estimate_tokens(text: str) -> int:
     return _estimate_text_with_image_placeholders(text)
 
 
+def _is_image_part(part: dict[str, Any]) -> bool:
+    """判断 vision part 是否为图片载荷(AIS-016)。
+
+    跨端三家形状都认:
+    - OpenAI:`{"type":"image_url","image_url":{"url":...}}`
+    - Anthropic:`{"type":"image","source":{...}}`
+    - Responses:`{"type":"input_image","image_url":"..."}`
+
+    只判 type(不去解析 url),避免对巨串做任何取值。
+    """
+    ptype = str(part.get("type") or "").strip().lower()
+    return ptype in ("image_url", "image", "input_image")
+
+
 def estimate_messages_tokens(messages: list[dict[str, Any]]) -> int:
     """估算消息列表的 token 数(2026-09-02 跨端对齐)。
 
@@ -241,6 +255,9 @@ def estimate_messages_tokens(messages: list[dict[str, Any]]) -> int:
     - tool 消息若有 tool_call_id,+TOOL_CALL_OVERHEAD_TOKENS
     - content 中的 data:image base64 段按 IMAGE_TOKEN_PLACEHOLDER 占位
     - OpenAI vision list-of-parts 格式逐 part 估 +MESSAGE_OVERHEAD_TOKENS
+    - image_url / image / input_image part(AIS-016):无 text/content 键时按
+      IMAGE_TOKEN_PLACEHOLDER 占位计入 —— 旧实现两者皆空 ⇒ 单图只计 1 个
+      overhead,压缩阈值系统性低估,压缩不触发或压完仍超窗
     """
     total = 0
     for msg in messages:
@@ -255,6 +272,11 @@ def estimate_messages_tokens(messages: list[dict[str, Any]]) -> int:
                 if isinstance(part, dict):
                     text = part.get("text") or str(part.get("content", ""))
                     total += estimate_tokens(text) + MESSAGE_OVERHEAD_TOKENS
+                    # AIS-016:图片 part 的载荷在 image_url/image/input_image 键里,
+                    # 上面取 text/content 全空 ⇒ 图片被当 0 token。这里按共享包
+                    # IMAGE_TOKEN_PLACEHOLDER 补占位(与 data URI 短路同一常量)。
+                    if not text and _is_image_part(part):
+                        total += IMAGE_TOKEN_PLACEHOLDER
         # content 非 str 非 list(如数字)→ 跳过,不贡献任何 token/overhead
         # tool_calls 参数(token 增量,与 TS 一致)
         tool_calls = msg.get("tool_calls")
