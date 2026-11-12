@@ -122,7 +122,13 @@ function resolve(base: string, opts: ResolveOpts = {}): QueueIsolation {
   if (dbName && dbName !== primaryDbName && ISOLATED_DB_PATTERN.test(dbName)) {
     return { queue: joinQueueName(base, dbName), dbName, isolated: true, reason: 'isolated-db' }
   }
-  // 规则 3:主库/远端生产库(如 production、railway)一律原名,零扰动
+  // 规则 3:非主库一律隔离(默认隔离、白名单主库才走原名)。
+  // 修复 F-243:原“原名”分支同时承担“主库”与“未命中关键词的独立非主库”,
+  // 导致 ihui_staging/preview/backup 等非主库名抢主库队列。
+  if (dbName && dbName !== primaryDbName) {
+    return { queue: joinQueueName(base, dbName), dbName, isolated: true, reason: 'isolated-db' }
+  }
+  // 规则 4:主库/远端生产库(如 production、railway)一律原名,零扰动
   return { queue: base, dbName, isolated: false, reason: 'primary' }
 }
 
