@@ -117,6 +117,65 @@ EOF
 fi
 # <<< tag-ancestor-gate (end)
 
+# ─── 生成物拦截(推送侧,--rev 面;2026-11-12 补)──────────────────────────────
+# 立因:pre-commit 只审暂存区,`git commit --no-verify` 整段可绕;而 post-commit 会自动 push
+#   (`.husky/post-commit` → git-push-guard),绕门提交会立刻进远端。本块在推送前用
+#   `remote_sha..local_sha` 复核被推区间的改动面,判据与提交侧同源
+#   (scripts/check-staged-artifacts.mjs 的 judgePath),不新造第二套判据。
+# 范围:只判分支引用(refs/heads/*)。纯 tag 推送已在上面 exit;tag 指向的提交由祖先判据
+#   约束为 origin/main 的祖先(备份 tag 命名空间除外)⇒ 不引入未审提交。
+# 三态:0 = 区间面无生成物;1 = 检出生成物,阻断;2 = 取不到区间面(不报绿,阻断)。
+# 应急:HUSKY_SKIP_STAGED_ARTIFACTS=1(与提交侧同一开关,仅判据确有误报时按)。
+_art_args=""
+_art_ref_n=0
+_art_undetermined=0
+_art_undetermined_why=""
+while IFS=' ' read -r _a_lref _a_lsha _a_rref _a_rsha; do
+  [ -z "$_a_rref" ] && continue
+  case "$_a_lref" in refs/heads/*) : ;; *) continue ;; esac
+  case "$_a_lsha" in ''|*[!0]*) : ;; *) continue ;; esac   # 删分支:不携带任何 blob
+  _art_ref_n=$((_art_ref_n + 1))
+  _a_range=""
+  case "$_a_rsha" in
+    *[!0]*) _a_range="${_a_rsha}..${_a_lsha}" ;;
+    *)
+      # 新分支:相对 origin/main 的合并基点取差集(与 push-scope 新分支推导同源)
+      _a_base="$(git merge-base origin/main "$_a_lsha" 2>/dev/null)"
+      [ -n "$_a_base" ] && _a_range="${_a_base}..${_a_lsha}"
+      ;;
+  esac
+  if [ -z "$_a_range" ]; then
+    _art_undetermined=1
+    _art_undetermined_why="${_art_undetermined_why} ${_a_lref#refs/heads/}(${_a_lsha})"
+    continue
+  fi
+  _art_args="$_art_args --rev $_a_range"
+done <<EOF
+$PUSH_REFS
+EOF
+if [ "$_art_ref_n" -gt 0 ] && [ -n "$_art_args" ]; then
+  # 逐词拆开是刻意:每个 `--rev <range>` 是一对参数(range 内无空格)
+  wscript //nologo scripts/hook-run-hidden.vbs pre-push-artifacts scripts/check-staged-artifacts.mjs $_art_args
+  _art_rc=$?
+  if [ "$_art_rc" -eq 1 ]; then
+    tail -40 .ihui-agent/state/hook-logs/pre-push-artifacts.log >&2 || true
+    printf '%s\n' "❌ 推送区间含生成物,推送已阻止(按出路修提交后重推;日志: .ihui-agent/state/hook-logs/pre-push-artifacts.log)" >&2
+    exit 1
+  elif [ "$_art_rc" -ne 0 ]; then
+    tail -40 .ihui-agent/state/hook-logs/pre-push-artifacts.log >&2 || true
+    printf '%s\n' "❌ 生成物拦截未判定(exit ${_art_rc}:取不到推送区间改动面)⇒ 不报绿,推送已阻止" >&2
+    printf '%s\n' "   应急(确认区间面确实取不到时):HUSKY_SKIP_STAGED_ARTIFACTS=1 git push ..." >&2
+    exit 2
+  else
+    tail -3 .ihui-agent/state/hook-logs/pre-push-artifacts.log >&2 || true
+  fi
+fi
+if [ "$_art_undetermined" -eq 1 ]; then
+  printf '%s\n' "❌ 生成物拦截未判定:以下分支取不到可复核区间(无 origin/main 合并基点):${_art_undetermined_why}" >&2
+  printf '%s\n' "   不报绿:无法证明该推送区间不含生成物。应急:HUSKY_SKIP_STAGED_ARTIFACTS=1 git push ..." >&2
+  exit 2
+fi
+
 # >>> push-receipt-gate (begin) ─────────────────────────────────────────────
 # 提交侧 worker 已对「完整 HEAD 树」跑完 13 门 + 文档数字门 + i18n 审计并签发签名凭据时,
 # 推送侧只做内容寻址校验(tree/commit/远端基线/门脚本 blob/签名)即可放行。

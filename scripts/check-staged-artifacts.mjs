@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
 /**
@@ -26,13 +27,22 @@
  *   - 真违规:命中生成物 → exit 1 + 逐条列出走法与放行出路
  *   - 未判定:取不到索引面(git 失败)→ exit 2 点名,不得报绿
  *
+ * 推送侧(2026-11-12 补,--rev 模式):
+ *   pre-commit 只审暂存区,`git commit --no-verify` 可整段绕过;而 post-commit 会自动 push,
+ *   于是「本地绕门提交 → 立刻进远端」是一条真实通路。pre-push 侧在推送前用
+ *   `git diff <remote_sha>..<local_sha>` 复核被推区间新增/修改的路径,判据与本门同源
+ *   (`judgePath`,不新造第二套),绕门提交在离开本机前被拦下。
+ *
  * 用法:
- *   node scripts/check-staged-artifacts.mjs             # 守门(默认)
+ *   node scripts/check-staged-artifacts.mjs             # 守门(默认,审暂存区)
  *   node scripts/check-staged-artifacts.mjs --report    # 只画像不拦(提交前自查)
  *   node scripts/check-staged-artifacts.mjs --quiet     # 正常时不输出
+ *   node scripts/check-staged-artifacts.mjs --rev origin/main..HEAD   # 审提交区间面(可重复)
  *   HUSKY_SKIP_STAGED_ARTIFACTS=1 git commit ...        # 应急跳过(慎用)
  *
- * 集成位置:.husky/pre-commit → scripts/lib/pre-commit-hook.js 第 0c 步(阻塞)。
+ * 集成位置:
+ *   - .husky/pre-commit → scripts/lib/pre-commit-hook.js 第 0c 步(阻塞)
+ *   - .husky/pre-push   → "--rev <remote_sha>..<local_sha>"(阻塞,防 --no-verify 绕过后推送)
  */
 import { gitRaw } from './lib/face-reader.mjs'
 import { pathToFileURL } from 'node:url'
@@ -140,11 +150,10 @@ function bucketOf(file) {
   return '其他'
 }
 
-/** 判据单元:取索引面(name-status,含新增/修改/重命名;删除侧已由 --diff-filter 排除) */
-function readStagedEntries() {
-  const out = gitRaw(['diff', '--cached', '--name-status', '--diff-filter=ACMR'], ROOT)
+/** 判据单元:解析 `git diff --name-status` 输出(纯函数;重命名取新路径) */
+function parseNameStatus(out) {
   const entries = []
-  for (const raw of out.split('\n')) {
+  for (const raw of String(out).split('\n')) {
     const line = raw.replace(/\r$/, '')
     if (!line.trim()) continue
     const parts = line.split('\t')
@@ -155,6 +164,41 @@ function readStagedEntries() {
     entries.push({ status: status[0], file })
   }
   return entries
+}
+
+/** 判据单元:取索引面(name-status,含新增/修改/重命名;删除侧已由 --diff-filter 排除) */
+function readStagedEntries() {
+  return parseNameStatus(gitRaw(['diff', '--cached', '--name-status', '--diff-filter=ACMR'], ROOT))
+}
+
+/** 判据单元:取提交区间面(推送侧;<range> 形如 `remote_sha..local_sha`) */
+function readRevEntries(range) {
+  return parseNameStatus(gitRaw(['diff', '--name-status', '--diff-filter=ACMR', range], ROOT))
+}
+
+/** 判据单元:命令行解析(纯函数;未知参数按未判定处理,不静默忽略) */
+function parseArgs(argv) {
+  const revs = []
+  let reportOnly = false
+  let quiet = false
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i]
+    if (arg === '--rev') {
+      const range = argv[i + 1]
+      if (!range || range.startsWith('--')) {
+        throw new Error('--rev 缺少 <range> 参数(例:--rev origin/main..HEAD)')
+      }
+      revs.push(range)
+      i += 1
+    } else if (arg === '--report') {
+      reportOnly = true
+    } else if (arg === '--quiet') {
+      quiet = true
+    } else {
+      throw new Error(`未知参数 ${arg}(支持:--report / --quiet / --rev <range>)`)
+    }
+  }
+  return { revs, reportOnly, quiet }
 }
 
 /** 判据单元:总体裁定(纯函数) */
@@ -169,9 +213,9 @@ function judgeStaged(entries) {
   return { violations, buckets, total: entries.length }
 }
 
-function printProfile({ buckets, total }) {
+function printProfile({ buckets, total }, label = '提交') {
   console.log(
-    `${C.dim}本次提交画像:共 ${total} 件 · 源码 ${buckets.源码} · 文档 ${buckets.文档} · 配置 ${buckets.配置} · 其他 ${buckets.其他}${C.reset}`,
+    `${C.dim}本次${label}画像:共 ${total} 件 · 源码 ${buckets.源码} · 文档 ${buckets.文档} · 配置 ${buckets.配置} · 其他 ${buckets.其他}${C.reset}`,
   )
 }
 
@@ -181,28 +225,49 @@ async function main() {
     console.log(`${C.dim}⏭ 生成物拦截(HUSKY_SKIP_STAGED_ARTIFACTS=1 应急跳过)${C.reset}`)
     return 0
   }
-  const reportOnly = args.includes('--report')
-  const quiet = args.includes('--quiet')
+
+  let parsed
+  try {
+    parsed = parseArgs(args)
+  } catch (e) {
+    console.error(`❌ check-staged-artifacts:${e?.message ?? e} —— 未判定(exit 2)`)
+    return 2
+  }
+  const { revs, reportOnly, quiet } = parsed
+  const revMode = revs.length > 0
+  const faceLabel = revMode ? '推送区间' : '提交'
 
   let entries
   try {
-    entries = readStagedEntries()
+    if (revMode) {
+      // 多区间合并去重(同一文件在两条 ref 的区间里都出现时只算一件,画像不重复计数)
+      const merged = new Map()
+      for (const range of revs) {
+        for (const entry of readRevEntries(range)) {
+          if (!merged.has(entry.file)) merged.set(entry.file, entry)
+        }
+      }
+      entries = [...merged.values()]
+    } else {
+      entries = readStagedEntries()
+    }
   } catch (e) {
-    console.error(
-      `❌ check-staged-artifacts:取不到暂存区索引(git diff --cached 失败)—— 未判定(exit 2):${e?.message ?? e}`,
-    )
+    const face = revMode ? `推送区间改动面(${revs.join(' ')})` : '暂存区索引'
+    console.error(`❌ check-staged-artifacts:取不到${face} —— 未判定(exit 2):${e?.message ?? e}`)
     return 2
   }
 
   if (entries.length === 0) {
-    if (!quiet) console.log(`${C.dim}✅ 生成物拦截(暂存区为空)${C.reset}`)
+    if (!quiet) {
+      console.log(`${C.dim}✅ 生成物拦截(${revMode ? '推送区间无改动文件' : '暂存区为空'})${C.reset}`)
+    }
     return 0
   }
 
   const { violations, buckets, total } = judgeStaged(entries)
 
   if (reportOnly) {
-    printProfile({ buckets, total })
+    printProfile({ buckets, total }, faceLabel)
     for (const v of violations) {
       console.log(`${C.yellow}  ⚠ ${v.file}${C.reset} ${C.dim}(${v.reason})${C.reset}`)
     }
@@ -212,13 +277,15 @@ async function main() {
   if (violations.length === 0) {
     if (!quiet) {
       console.log(`${C.green}✅ 生成物拦截:0 件${C.reset}`)
-      printProfile({ buckets, total })
+      printProfile({ buckets, total }, faceLabel)
     }
     return 0
   }
 
   console.log('')
-  console.log(`${C.red}${C.bold}❌ 生成物拦截:暂存区含 ${violations.length} 件不该入库的生成物${C.reset}`)
+  console.log(
+    `${C.red}${C.bold}❌ 生成物拦截:${faceLabel}含 ${violations.length} 件不该入库的生成物${C.reset}`,
+  )
   console.log(`${C.dim}(这些文件不是产品代码,是实验沙箱 / 日志 / 副本;入库会永久加重历史并淹没真实改动)${C.reset}`)
   console.log('')
   const preview = violations.slice(0, 20)
@@ -229,12 +296,21 @@ async function main() {
     console.log(`${C.dim}  ... 还有 ${violations.length - preview.length} 件${C.reset}`)
   }
   console.log('')
-  console.log(`${C.bold}出路(二选一):${C.reset}`)
-  console.log(`  ${C.dim}1) 撤出暂存区:git restore --staged <上面的路径>   (工作区文件保留)${C.reset}`)
-  console.log(`  ${C.dim}2) 确认是一次性产物 ⇒ 删掉或登记进 .gitignore${C.reset}`)
-  console.log(
-    `${C.dim}自查本次到底改了什么:node scripts/check-staged-artifacts.mjs --report${C.reset}`,
-  )
+  if (revMode) {
+    console.log(`${C.bold}出路:${C.reset}`)
+    console.log(`  ${C.dim}1) 生成物还在被推区间的最新提交里:git rm --cached <上面的路径> 后重建提交${C.reset}`)
+    console.log(`  ${C.dim}2) 已沉入历史:用 git rebase -i / git filter-repo 摘除后再推送(勿 amend 已推送提交)${C.reset}`)
+    console.log(
+      `${C.dim}自查推送区间到底改了什么:node scripts/check-staged-artifacts.mjs --report --rev <range>${C.reset}`,
+    )
+  } else {
+    console.log(`${C.bold}出路(二选一):${C.reset}`)
+    console.log(`  ${C.dim}1) 撤出暂存区:git restore --staged <上面的路径>   (工作区文件保留)${C.reset}`)
+    console.log(`  ${C.dim}2) 确认是一次性产物 ⇒ 删掉或登记进 .gitignore${C.reset}`)
+    console.log(
+      `${C.dim}自查本次到底改了什么:node scripts/check-staged-artifacts.mjs --report${C.reset}`,
+    )
+  }
   console.log('')
   return 1
 }
@@ -260,6 +336,10 @@ export const __test__ = {
   judgePath,
   bucketOf,
   judgeStaged,
+  parseNameStatus,
+  parseArgs,
   readStagedEntries,
+  readRevEntries,
   main,
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
