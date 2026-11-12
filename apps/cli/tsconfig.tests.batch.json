@@ -22,5 +22,5 @@
     "tests/permission-lease-digest-flag.test.ts",
     "tests/repl-abort.test.ts"
   ],
-  "exclude": ["node_modules", "dist"]
+  "exclude": ["node_modules", "dist", "**/node_modules.*"]
 }
