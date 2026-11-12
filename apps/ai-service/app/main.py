@@ -1469,6 +1469,15 @@ def create_app() -> FastAPI:
     # 普通登录用户无权读取。
     @app.get("/api/audit/recent", tags=["audit"], response_model=None)
     async def audit_recent(request: Request, limit: int = 100) -> dict[str, Any] | JSONResponse:
+        """最近审计事件(内存环形缓冲,调试用)。
+
+        与 GET /api/audit/logs 的分工(AIS-046;数据源合并待决策,本接口不做合并):
+        - /api/audit/logs: cloud_run 审计面,读持久化的 audit_log_store,
+          支持分页与 actor/action 过滤。
+        - /api/audit/recent: HTTP 写操作审计面,读 audit_service 内存缓冲
+          (_buffer,上限见 _max_buffer),含中间件记录的所有 POST/PATCH/PUT/DELETE。
+        两者存储互不相通,`recent` 只覆盖进程内最近若干条,不替代 `logs` 的持久查询。
+        """
         role_id = getattr(request.state, "role_id", 0) or 0
         if int(role_id) < 1:
             return JSONResponse(
