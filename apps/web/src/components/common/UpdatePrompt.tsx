@@ -229,24 +229,28 @@ export function UpdatePrompt() {
             )}
 
             {status === 'done' && (
-              <div className="flex flex-col gap-2">
-                <div className="flex h-9 items-center justify-center gap-2 rounded-lg bg-success/10 px-4">
+              // w-full:父级是 flex,不给宽度这一列会缩到内容宽 —— 实测按钮行止于 x=757
+              // 而卡片内容右缘 867,右侧空出 110px,倒计时条与按钮跟上方状态条不对齐。
+              <div className="flex w-full flex-col gap-2">
+                <div className="flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-success/10 px-4">
                   <span className="truncate text-body font-medium text-success-text tabular-nums">
                     {t('autoRestartIn', { countdown: restartCountdown })}
                   </span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex w-full items-center gap-2">
+                  {/* 圆角跟卡内状态条/图标容器统一 rounded-lg(8px),旧值 rounded-sm(4px) 在此
+                      8px 圆角体系里读起来像没对齐的直角块 */}
                   <button
                     type="button"
                     onClick={() => void postponeRestart()}
-                    className="h-8 flex-1 rounded-sm border border-border bg-card px-3 text-label font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    className="h-8 flex-1 rounded-lg border border-border bg-card px-3 text-label font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                   >
                     {t('restartLater')}
                   </button>
                   <button
                     type="button"
                     onClick={() => void restartNow()}
-                    className="h-8 flex-1 rounded-sm bg-cta px-3 text-label font-medium text-cta-foreground transition-colors hover:bg-cta/90"
+                    className="h-8 flex-1 rounded-lg bg-cta px-3 text-label font-medium text-cta-foreground transition-colors hover:bg-cta/90"
                   >
                     {t('restartNow')}
                   </button>
