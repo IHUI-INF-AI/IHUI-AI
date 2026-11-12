@@ -15,6 +15,7 @@ import { requireAdmin } from '../../plugins/require-permission.js'
 import { success, error, parseOrThrow } from '../../utils/response.js'
 import { idParamSchema } from './_shared.js'
 import { isUuidString } from '../../utils/uuid.js'
+import { logAction } from '../../services/audit-service.js'
 
 const updateOrderSchema = z.strictObject({
   status: z.enum(['pending', 'paid', 'cancelled', 'refunded']).optional(),
@@ -67,16 +68,24 @@ export const orderRoutes: FastifyPluginAsync = async (server) => {
       return reply
         .status(409)
         .send(
-          error(
-            409,
-            `订单状态为 ${existing.status},已产生资金流,禁止物理删除;请走退款/作废流程`,
-          ),
+          error(409, `订单状态为 ${existing.status},已产生资金流,禁止物理删除;请走退款/作废流程`),
         )
     }
     const [row] = await db.delete(eduOrders).where(eq(eduOrders.id, id)).returning()
     if (!row) return reply.status(404).send(error(404, '订单不存在'))
     // Phase 3: 同步删除统一 orders 表
     await db.delete(orders).where(eq(orders.id, id))
+    // F-130:物理删除是资金凭证的终点,必须留痕(谁、删了哪条、删除前状态)。
+    const ua = request.headers['user-agent']
+    await logAction({
+      userId: request.userId,
+      action: 'order.delete',
+      resourceType: 'order',
+      resourceId: id,
+      details: { status: existing.status },
+      ip: request.ip,
+      userAgent: typeof ua === 'string' ? ua.slice(0, 512) : undefined,
+    })
     return reply.send(success({ id, deleted: Boolean(row) }))
   })
   server.post(
@@ -111,10 +120,7 @@ export const orderRoutes: FastifyPluginAsync = async (server) => {
         .returning()
       if (!row) return reply.status(404).send(error(404, '订单不存在'))
       // Phase 3: 同步发货备注到统一 orders 表
-      await db
-        .update(orders)
-        .set({ remark: mergedRemark, updatedAt: now })
-        .where(eq(orders.id, id))
+      await db.update(orders).set({ remark: mergedRemark, updatedAt: now }).where(eq(orders.id, id))
       return reply.send(success(row))
     },
   )
