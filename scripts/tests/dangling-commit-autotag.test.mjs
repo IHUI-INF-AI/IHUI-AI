@@ -21,7 +21,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import test from 'node:test'
 
-import { __test__ as AT } from '../lib/dangling-commit-autotag.mjs'
+import { __test__ as AT, excludeRemoteBacked } from '../lib/dangling-commit-autotag.mjs'
 import { __test__ as lossGuard } from '../check-commit-loss-guard.mjs'
 import { sweepDanglingCommitAutotag } from '../git-guardian.mjs'
 import { mkScratch } from '../lib/scratch-dir.mjs'
@@ -530,7 +530,7 @@ test('A12 单轮上限:超出记 deferred 交下一轮,绝不静默截断', asyn
   assert.equal(calls.tagged.length, 3)
 })
 
-test('A16 增长闸默认关 ⇒ 零建/零推/零留痕,且不跑门 30a(不触发 30a 的联网补拉)', () => {
+test('A16 增长闸默认关 ⇒ 零建/零推/零留痕,且不跑门 30a(不触发 30a 的联网补拉)', async () => {
   const off = depsOf({ enabled: false, unbacked: [H1, H2] })
   const r = AT.autotagOnce({ ...off.deps, apply: true })
   assert.equal(r.state, 'disabled')
@@ -548,7 +548,7 @@ test('A16 增长闸默认关 ⇒ 零建/零推/零留痕,且不跑门 30a(不触
   assert.equal(AT.autotagEnabled({ [AT.ENABLE_ENV]: '1' }), true)
   // 派发层:关闸时连子进程都不派生(不烧 fsck,也不占 15 分钟节流窗)
   let spawned = 0
-  const sw = sweepDanglingCommitAutotag({
+  const sw = await sweepDanglingCommitAutotag({
     enabled: false,
     tickFile: join(mkScratch('dangling-off-'), 't.json'),
     runner: () => (spawned++, '{}'),
@@ -566,6 +566,40 @@ test('A17 增长闸显式打开 ⇒ 仍能建(反向对照,证明不是把功能
   assert.equal(r.tagged, 1)
   assert.equal(calls.guard, 1, '开闸时必须跑门 30a 取判据')
   assert.deepEqual(calls.tagged.map((t) => t[0]), [AT.tagNameFor(H1)])
+})
+
+// ─── A18 远端备份面(2026-11-12 立):堵"删了又被回灌"的再生源 ────────────────
+// 立因:门 30a 的"未备份"不认"提交已在远端分支"这一维 ⇒ prune 删掉 8,087 枚冗余 tag 后
+// 15 分钟内被本腿原样回灌 8,087 枚(auto-<7位> 名单分毫不差),这就是"本地近一万枚 tag"的再生源。
+test('A18 门清单里已在 remote-tracking refs 的提交 ⇒ 不再打 tag;全被解释掉 ⇒ clean 空转', () => {
+  const { deps, calls } = depsOf({ unbacked: [H1, H2] })
+  const r = AT.autotagOnce({ ...deps, apply: true, remoteReachable: () => new Set([H1]) })
+  assert.equal(r.state, 'tagged')
+  assert.equal(r.unbacked, 2, '账面仍报门清单原枚数,不得悄悄改数')
+  assert.deepEqual(calls.tagged.map((t) => t[1]), [H2], '已在远端的 H1 一枚也不得再打 tag')
+  assert.equal(calls.pushed.length, 1)
+
+  const all = depsOf({ unbacked: [H1, H2] })
+  const r2 = AT.autotagOnce({
+    ...all.deps,
+    apply: true,
+    remoteReachable: () => new Set([H1, H2]),
+  })
+  assert.equal(r2.state, 'clean', '全部已有远端备份 ⇒ 空转,零写零推')
+  assert.equal(r2.tagged, 0)
+  assert.equal(all.calls.tagged.length, 0)
+  assert.equal(all.calls.pushed.length, 0)
+  assert.equal(all.calls.ledger.length, 0)
+})
+
+test('A19 excludeRemoteBacked 纯函数:剔远端可达、保留其余(顺序不漂)', () => {
+  const a = 'a'.repeat(40)
+  const b = 'b'.repeat(40)
+  const c = 'c'.repeat(40)
+  const split = excludeRemoteBacked([a, b, c], new Set([a, c]))
+  assert.deepEqual(split.kept, [b])
+  assert.deepEqual(split.skipped, [a, c])
+  assert.deepEqual(excludeRemoteBacked([], new Set([a])), { kept: [], skipped: [] })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 

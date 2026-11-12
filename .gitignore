@@ -736,3 +736,16 @@ docs/engineering/ai-compliance-readiness-*.md
 .box-agent-scratch/
 # 损坏 node_modules 隔离目录(装机诊断产物,非交付;命名形如 node_modules.damaged-YYYYMMDD)
 apps/mobile-rn/node_modules.damaged-*/
+
+# 工具/代理运行现场(2026-11-12 登记):架构提取与诊断沙箱产物,均非交付源码。
+# 收起后 IDE 源代码管理不再把 9000+ 生成文件当成待提交改动。
+.archify/
+.agent_tmp/
+archify-work/
+archify-*.png
+.ghidra*/
+# 迁移目录的一次性副本(用于对比/回填,真源在 packages/database/drizzle)
+packages/database/drizzle-copy/
+packages/database/drizzle-copy2/
+packages/database/drizzle.copy.config.ts
+.commit-msg.txt

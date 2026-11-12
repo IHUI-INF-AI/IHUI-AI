@@ -1388,7 +1388,7 @@ export async function importAccounts(
  * - 生产机的 API 也会写(它同样在导号),但生产侧不装同步任务 ⇒ 标记只占几字节,零副作用;
  * - 路径可用 `IHUI_POOL_SYNC_DIRTY_FILE` 覆盖(NSSM 服务的 homedir 可能不是用户目录)。
  */
-function markPoolSyncDirty(): void {
+export function markPoolSyncDirty(): void {
   const file =
     process.env['IHUI_POOL_SYNC_DIRTY_FILE'] || join(homedir(), '.wb-switch', 'pool-sync-dirty')
   try {
@@ -1596,6 +1596,9 @@ export async function completeAccountPhone(
 
 // =============================================================================
 // 共享到运营池标记(2026-11-07 立,李总指令)
+// 2026-11-12 机主令改口:所有号池里的号默认同步运营生产 ⇒ 新建行默认 shared=true
+// (schema 默认值 + 库列默认值均已改 true);setAccountShared 现主要用于「显式关闭共享」。
+// 存量不共享行已由批量补齐收口,本函数仍是改该标记的唯一正当出口(含 cred bump + 签到同步)。
 // =============================================================================
 
 export interface SetSharedResult {

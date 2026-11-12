@@ -39,13 +39,19 @@ const SWITCH_MJS = path.join(ROOT, 'scripts', 'switch-client-account.mjs')
  * 每个平台「切号后旧对话还能不能接着用」的结论矩阵(2026-11-10 全平台实测/取证后固化)。
  *
  * 三型:
- *   rebind —— 会话按 uid 绑在本地(全平台只有 Trae 这一型):本器真重绑,
- *              含 SQLCipher 正库解密→改 user_id→重加密→逐页自证。
+ *   rebind —— 会话按 uid 绑在本地(现有两平台:Trae、WorkBuddy):本器真重绑。
+ *              Trae 含 SQLCipher 正库解密→改 user_id→重加密→逐页自证;
+ *              WorkBuddy 见 scripts/lib/workbuddy-chat-carry.mjs(2026-11-12 补)。
  *   local  —— 会话表/记录里**没有账号维度**,切号后历史天然仍在(7 平台实测:
  *              qoder chat_sessions 239 行无账号列、minimax local_runtime_sessions 25 行、
  *              codearts/zcode/opencode session 表同型、loomy IndexedDB 无账号键、codex 按日期分目录)。
  *              另有切前/切后连续性对账兜底(会话条数变了就判 continuity-broken)。
  *   cloud  —— 会话在云端且绑账号、本地 0 字节(仅豆包),本地无迁移路径。
+ *
+ * 2026-11-12 改判:workbuddy 原登记为 local(注在 58 行的旧文案是错的)。本机现读推翻:
+ * workbuddy.db 的 sessions 表**有 user_id 列**,客户端取列表/取详情/做软删全带
+ * `AND (user_id = ? OR user_id = '')` ⇒ 切号只换登录态时旧号会话在新号下查询不命中。
+ * 机主实报「切号没法携带对话记录」正是这一档,已按 rebind 补实现。
  */
 const CHAT_CARRY = Object.freeze({
   trae: { kind: 'rebind', text: '旧号对话会随新号重绑(含加密正库),切完直接接着聊' },
@@ -55,7 +61,12 @@ const CHAT_CARRY = Object.freeze({
   zcode: { kind: 'local', text: '任务/会话在本地 ~/.zcode、不带账号维度,切号后历史仍在' },
   loomy: { kind: 'local', text: '对话在本地 IndexedDB、不带账号维度,切号后历史仍在' },
   opencode: { kind: 'local', text: '会话在本地 opencode.db、不带账号维度,切号后历史仍在' },
-  workbuddy: { kind: 'local', text: '登录态热切生效(10~20ms);对话由客户端本地管理,切号不致丢' },
+  workbuddy: {
+    kind: 'rebind',
+    text:
+      '旧号对话会随新号重绑(会话表 sessions.user_id + spaces + automations + 侧边栏快照分片),' +
+      '切完打开客户端即可看到旧对话;正文按会话 id 存 projects/*.jsonl,不随账号变',
+  },
   codex: { kind: 'local', text: '会话按日期存 ~/.codex/sessions、不带账号维度,切号后历史仍在' },
   doubao: {
     kind: 'cloud',

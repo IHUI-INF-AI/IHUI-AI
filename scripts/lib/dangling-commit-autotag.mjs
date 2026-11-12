@@ -358,6 +358,38 @@ export function defaultLedgerAppend({ root = ROOT } = {}) {
 }
 
 /**
+ * 远端备份面(2026-11-12 立,堵"回灌源")。
+ *
+ * 门 30a 的「未备份」= fsck 悬空 + stash-like 过滤 + 备份 hash/tree 等价 + 同内容副本白名单,
+ * **不含"该提交已在 remote-tracking refs 上"**这一维。于是"提交早已推到 origin 的历史里、
+ * 但本地既不在分支上也不再被 tag 指向"的会被门列成未备份 —— 本腿照着打上 auto-<7位> tag,
+ * 而 `--prune-redundant` 又把这些"提交已在远端"的 tag 当冗余删掉,两边一天内可以来回拉锯。
+ * 实测(2026-11-12):删掉 8,087 枚冗余 tag 后 15 分钟内被原样回灌 8,087 枚,名单分毫不差,
+ * 这正是"本地近一万枚 tag"的再生源。
+ *
+ * 判据仍走零复算:只问 git 一份真值(`rev-list --remotes`),不重写 30a 的 fsck 链;
+ * 取不到这一份真值 ⇒ 退回旧行为(照门清单打),因为"少打"会让真悬空提交失去保活,
+ * 而"多打"只是多几枚可清理的 tag —— 失效方向按 §0.3 选可恢复的那侧。
+ */
+export function defaultRemoteReachable({ root = ROOT } = {}) {
+  const out = gitRaw(['rev-list', '--remotes'], root, { timeout: 180_000 })
+  const reachable = new Set()
+  for (const line of String(out ?? '').split(/\r?\n/)) {
+    const t = line.trim()
+    if (t) reachable.add(t)
+  }
+  return reachable
+}
+
+/** 纯函数:门清单里"已可从任何 remote-tracking ref 到达"的提交 = 已有远端备份,不再重复打 tag。 */
+export function excludeRemoteBacked(oids = [], reachable = new Set()) {
+  const kept = []
+  const skipped = []
+  for (const sha of oids) (reachable.has(sha) ? skipped : kept).push(sha)
+  return { kept, skipped }
+}
+
+/**
  * 一轮保活。`apply=false` 恒为只读预演(一个 tag 也不打、一行留痕也不写、一次推送也不派)。
  * 依赖全部可注入 ⇒ 镜像测试用构造面钉五型行为,不必依赖仓库此刻的悬空存量。
  */
@@ -369,6 +401,7 @@ export function autotagOnce(opts = {}) {
     cap = MAX_PER_ROUND,
     runGuard = defaultRunGuard,
     tagFace = defaultTagFace,
+    remoteReachable = defaultRemoteReachable,
     createTag = defaultCreateTag,
     push = defaultPush,
     ledgerAppend = defaultLedgerAppend,
@@ -443,6 +476,28 @@ export function autotagOnce(opts = {}) {
     return finish({ ...base, state: 'clean' })
   }
 
+  // ①b 远端备份面:门清单里"提交已在 remote-tracking refs 上"的先剔掉(见 excludeRemoteBacked 头注)。
+  let candidates = parsed.unbacked
+  let remoteBacked = 0
+  try {
+    const reachable = remoteReachable({ root })
+    const split = excludeRemoteBacked(parsed.unbacked, reachable)
+    candidates = split.kept
+    remoteBacked = split.skipped.length
+    if (remoteBacked)
+      logger(
+        `ℹ️ 门清单 ${parsed.unbacked.length} 枚中 ${remoteBacked} 枚的提交已在 remote-tracking refs 里(已有远端备份),不重复打 tag`,
+      )
+  } catch (e) {
+    process.stderr.write(
+      `[dangling-autotag] 远端可达集取不到 ⇒ 本轮不过滤"已在远端"(退回旧行为):${String(e?.message ?? e).slice(0, 160)}\n`,
+    )
+  }
+  if (candidates.length === 0) {
+    // 清单全被"已有远端备份"解释掉 ⇒ 没有需要保活的对象,零写盘零推送
+    return finish({ ...base, state: 'clean' })
+  }
+
   // ② 名字面:现读 lost-commit/<name> tag 名集与指向
   let face
   try {
@@ -453,7 +508,7 @@ export function autotagOnce(opts = {}) {
       why: `lost-commit/<name> tag 面取不到:${String(e?.message ?? e).slice(0, 160)}`,
     })
   }
-  const plan = planAutotags({ unbacked: parsed.unbacked, existingTagNames: face.names, cap })
+  const plan = planAutotags({ unbacked: candidates, existingTagNames: face.names, cap })
   const hits = classifyNameHits(plan.conflicts, face.targetOf)
   base.already = hits.already.length
   base.conflicts = hits.colliding.length

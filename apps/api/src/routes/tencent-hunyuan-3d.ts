@@ -84,6 +84,19 @@ interface ActiveJob {
 
 const activeJobs = new Map<string, ActiveJob>()
 
+// F-276:activeJobs 只增不减(任务完成/查询后从不删除),长跑进程内存线性增长。
+// TTL 淘汰:提交时间超过 6h 的条目在每次写入/列举前清掉(3D 任务分钟级即完成)。
+const ACTIVE_JOB_TTL_MS = 6 * 60 * 60 * 1000
+
+function pruneActiveJobs(now: number = Date.now()): void {
+  for (const [jobId, job] of activeJobs) {
+    const submitted = Date.parse(job.submit_time)
+    if (!Number.isFinite(submitted) || now - submitted > ACTIVE_JOB_TTL_MS) {
+      activeJobs.delete(jobId)
+    }
+  }
+}
+
 // ==================== Tencent QueryHunyuanTo3DJob helper ====================
 
 /**
@@ -144,6 +157,8 @@ async function queryTencentJob(jobId: string): Promise<TencentQueryResponse | nu
       method: 'POST',
       headers: authResult.headers,
       body: authResult.body,
+      // F-276:上游挂起时 60s 超时,避免裸 fetch 无限占用连接
+      signal: AbortSignal.timeout(60_000),
     })
     const raw = (await tencentRes.json()) as TencentQueryResponse & {
       Response?: TencentQueryResponse
@@ -175,6 +190,12 @@ export const tencentHunyuan3dRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
+      // F-276:user_uuid 必须等于鉴权主体,防伪造任务归属(冒名提交/归属错乱)
+      if (parsed.data.user_uuid !== request.userId) {
+        return reply.status(403).send(error(403, 'user_uuid 与当前登录身份不一致'))
+      }
+      // F-276:写入前先按 TTL 淘汰过期任务,防 activeJobs 无界增长
+      pruneActiveJobs()
       // 2026-07-21 安全审计加固:用 CSPRNG 替换 Math.random 生成任务 ID
       // 风险:Math.random 可预测 → 攻击者可枚举其他用户的 3D 任务 ID
       const jobIdStub = generateTrackingId('stub')
@@ -253,6 +274,8 @@ export const tencentHunyuan3dRoutes: FastifyPluginAsync = async (server) => {
             method: 'POST',
             headers: authResult.headers,
             body: authResult.body,
+            // F-276:上游挂起时 60s 超时,避免裸 fetch 无限占用连接
+            signal: AbortSignal.timeout(60_000),
           })
           tencentResponse = (await tencentRes.json()) as {
             JobId?: string
@@ -272,9 +295,19 @@ export const tencentHunyuan3dRoutes: FastifyPluginAsync = async (server) => {
             finalJobId = tencentResponse.JobId
           }
         } catch {
-          // 腾讯调用失败 (网络/签名/超时等), 降级到 stub JobId
+          // 腾讯调用失败 (网络/签名/超时等), 记录为 null, 下方按 F-276 规则如实报 502
           tencentResponse = null
         }
+      }
+
+      // F-276:已配置腾讯凭证但提交失败(异常或未返回 JobId)必须如实 502,
+      // 禁止降级 stub 仍返 200 —— 否则上层 /v1/3d/generations 把失败当成功受理并漏损
+      if (hasTencentConfig && !tencentResponse?.JobId) {
+        activeJobs.delete(jobIdStub)
+        const reason = tencentResponse?.ErrorMsg ? `: ${tencentResponse.ErrorMsg}` : ''
+        return reply
+          .status(502)
+          .send(error(502, `腾讯混元 3D SubmitHunyuanTo3DJob 调用失败(未返回 JobId)${reason}`))
       }
 
       const message = hasTencentConfig
@@ -466,6 +499,8 @@ export const tencentHunyuan3dRoutes: FastifyPluginAsync = async (server) => {
   // 5. GET /tencent/hunyuan3d/admin/active-jobs — 真实读取 (R81)
   server.get(`${PREFIX}/admin/active-jobs`, async (_request, reply) => {
     try {
+      // F-276:列举前先按 TTL 淘汰过期任务,防无界 Map 持续膨胀
+      pruneActiveJobs()
       const list: Record<string, ActiveJob & { wait_time_minutes: number }> = {}
       const now = Date.now()
       for (const [jobId, info] of activeJobs.entries()) {

@@ -524,6 +524,36 @@ class KanbanTask:
             "workspaceBranch": self.workspace_branch,
         }
 
+    @classmethod
+    def from_camel_dict(cls, data: dict[str, Any]) -> "KanbanTask":
+        """从 _persist 落盘的 camelCase JSON 反序列化(与 to_camel_dict 对称)。
+
+        AIS-025 启动恢复用:不引入新持久化格式,只读既有记录。
+        缺 id 直接 KeyError(由调用方按坏记录跳过)。
+        """
+        return cls(
+            id=data["id"],
+            agent_id=data.get("agentId") or "",
+            name=data.get("name") or "",
+            status=data.get("status") or "triage",
+            priority=int(data.get("priority") or 0),
+            payload=data.get("payload") or {},
+            description=data.get("description"),
+            result=data.get("result"),
+            scheduled_at=data.get("scheduledAt"),
+            started_at=data.get("startedAt"),
+            completed_at=data.get("completedAt"),
+            error_message=data.get("errorMessage"),
+            dependencies=list(data.get("dependencies") or []),
+            worker_id=data.get("workerId"),
+            created_by=data.get("createdBy"),
+            created_at=data.get("createdAt") or "",
+            updated_at=data.get("updatedAt") or "",
+            timeout_seconds=data.get("timeoutSeconds"),
+            workspace_path=data.get("workspacePath"),
+            workspace_branch=data.get("workspaceBranch"),
+        )
+
 
 @dataclass
 class WorkerPoolConfig:
@@ -714,6 +744,9 @@ class WorkerPool:
             return
         self._started = True
         self._shutdown = False
+        # AIS-025:重启恢复 —— 队列是进程内存态,先把 Redis 里中断态任务接回调度,
+        # 再拉起 worker(否则重启前 todo 永远卡死、in_progress 永远显示在跑)。
+        await self._restore_from_redis()
         for i in range(self.config.max_workers):
             wid = f"worker-{i + 1}"
             now = _now_iso()
@@ -725,6 +758,78 @@ class WorkerPool:
                 last_heartbeat_at=now,
             )
             self._workers.append(asyncio.create_task(self._worker_loop(wid)))
+
+    async def _restore_from_redis(self) -> None:
+        """AIS-025 启动恢复:扫描 kanban:task:* 把重启中断的任务接回调度。
+
+        - status=todo(重启前已入队未执行)⇒ 重新入队执行(本进程内存队列已丢);
+        - status=in_progress(重启前正在执行)⇒ 置 blocked 并按既有 SSE 通道发
+          task_failed(worker 侧 blocked 终态同通道);副作用状态未知,不盲目续跑;
+        - 其余状态(triage 未入队 / 终态)⇒ 不动,不加载进内存。
+
+        best-effort:Redis 不可用/坏记录只告警,绝不阻塞 worker 启动。
+        不引入新持久化格式,读写仍走 _persist 的 camelCase JSON。
+        """
+        if self._redis is None:
+            return
+        try:
+            keys = [k async for k in self._redis.scan_iter(match="kanban:task:*")]
+            # 第一趟:全部解析成内存记录(坏记录单条跳过),供第二趟补载依赖用。
+            records: dict[str, KanbanTask] = {}
+            for key in keys:
+                try:
+                    raw = await self._redis.get(key)
+                    if not raw:
+                        continue
+                    data = _json.loads(raw)
+                    if not isinstance(data, dict):
+                        continue
+                    task = KanbanTask.from_camel_dict(data)
+                    if task.id:
+                        records[task.id] = task
+                except Exception as e:  # noqa: BLE001 — 单条坏记录跳过,不中断整体恢复
+                    logger.warning("[dag_scheduler] 启动恢复跳过 %s: %s", key, e)
+            # 第二趟:接回中断态任务(todo 入队 / in_progress 置 blocked)。
+            restored_todos: list[KanbanTask] = []
+            for task in records.values():
+                if task.id in self._tasks:
+                    continue
+                if task.status == "todo":
+                    self._tasks[task.id] = task
+                    self._seq += 1
+                    await self._queue.put(
+                        (-task.priority, _parse_ts(task.scheduled_at), self._seq, task)
+                    )
+                    restored_todos.append(task)
+                    logger.info(
+                        "[dag_scheduler] 启动恢复:重启前未执行任务 %s 重新入队",
+                        task.id,
+                    )
+                elif task.status == "in_progress":
+                    task.status = "blocked"
+                    task.worker_id = None
+                    task.error_message = "服务重启中断(启动恢复,执行状态未知)"
+                    task.completed_at = _now_iso()
+                    task.updated_at = task.completed_at
+                    self._tasks[task.id] = task
+                    await self._persist(task)
+                    self._emit("task_failed", task)
+                    logger.warning(
+                        "[dag_scheduler] 启动恢复:重启前执行中任务 %s 置 blocked",
+                        task.id,
+                    )
+            # 第三趟:补载被恢复 todo 依赖的终态记录(done/blocked 只读加载、
+            # 不入队)。否则 _check_deps 会把「依赖早已完成」误判成
+            # 「依赖 X 不存在」,把本该执行的任务误伤成 blocked。
+            for task in restored_todos:
+                for dep_id in task.dependencies or []:
+                    if dep_id in self._tasks:
+                        continue
+                    dep = records.get(dep_id)
+                    if dep is not None and dep.status in ("done", "blocked"):
+                        self._tasks[dep_id] = dep
+        except Exception as e:  # noqa: BLE001 — best-effort:扫描失败不阻塞启动
+            logger.warning("[dag_scheduler] 启动恢复扫描失败(不阻塞启动): %s", e)
 
     async def submit(self, task: KanbanTask) -> str:
         """提交任务入队,返回 task_id。shutdown 后拒绝新任务。"""

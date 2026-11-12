@@ -195,11 +195,82 @@ export async function extractMinimaxAccounts(opts = {}) {
   }
 }
 
+/** 可续期登录态(auth-state.json 的 status 取值;出现即代表客户端手里的票还能自己轮换) */
+export const RENEWING_STATUSES = new Set(['authenticated', 'refreshing'])
+
+/**
+ * 读本机 mcode 登录态 —— 探测器「进程 × 登录态」合判的登录态腿(2026-11-12 立)。
+ *
+ * 立因:退出登录后客户端进程往往还活着,旧探测只看进程 ⇒ 永久保活号被无限让位、
+ * 池侧永不接管续票(机主退出实证的目标场景)。
+ *
+ * 为什么不复用 discoverAuthFiles:退出后 auth.json 可能已被客户端删掉,而同目录
+ * auth-state.json 仍在(如 status=anonymous);只扫 auth.json 会把「明确退出」误读成
+ * 「无证据」⇒ 探测器退回 null(按在跑处理)⇒ 仍然永不接管。故 state 与 auth 分开直扫。
+ *
+ * 返回零凭据:{ status, hasRecords, stateFiles }
+ *   status     — 聚合登录态:任一区域 authenticated/refreshing 即算可续(优先返回);
+ *                有其他状态 ⇒ 返回它;一个 state 文件都读不到 ⇒ null(无证据)。
+ *   hasRecords — auth.json 双全记录三态:true=有双全记录;false=有 auth 形状但 0 条双全;
+ *                null=无证据(根空 / auth.json 缺失或不可解析)。
+ *   stateFiles — 探到的 auth-state.json 路径(人读诊断,零凭据)。
+ */
+export function readMinimaxAuthState(opts = {}) {
+  const roots = candidateRoots(opts)
+  const stateFiles = []
+  const statuses = []
+  let sawReadableAuth = false
+  let sawValidRecords = false
+  for (const root of roots) {
+    const prodDir = path.join(root, AUTH_REL)
+    let regionDirs
+    try {
+      regionDirs = fs
+        .readdirSync(prodDir, { withFileTypes: true })
+        .filter((d) => d.isDirectory())
+        .map((d) => d.name)
+    } catch {
+      continue // 该根无 auth 形状 ⇒ 对本根无证据
+    }
+    for (const regionDir of regionDirs) {
+      const dir = path.join(prodDir, regionDir, 'mcode-public')
+      try {
+        const parsed = JSON.parse(fs.readFileSync(path.join(dir, 'auth-state.json'), 'utf8'))
+        const st = cstr(parsed?.status)
+        stateFiles.push(path.join(dir, 'auth-state.json'))
+        if (st) statuses.push(st)
+      } catch {
+        /* 无 state 文件/不可解析 ⇒ 该区域登录态无证据 */
+      }
+      try {
+        const auth = JSON.parse(fs.readFileSync(path.join(dir, 'auth.json'), 'utf8'))
+        sawReadableAuth = true
+        const records = auth && typeof auth === 'object' ? auth.records : null
+        const recs =
+          records && typeof records === 'object' && !Array.isArray(records)
+            ? Object.values(records)
+            : []
+        if (pickImportableRecords(recs).valid.length > 0) sawValidRecords = true
+      } catch {
+        /* auth.json 缺失/不可解析 ⇒ 对本文件无证据 */
+      }
+    }
+  }
+  const status = statuses.find((s) => RENEWING_STATUSES.has(s)) ?? statuses[0] ?? null
+  return {
+    status,
+    hasRecords: sawReadableAuth ? sawValidRecords : null,
+    stateFiles,
+  }
+}
+
 export const __test__ = {
   candidateRoots,
   discoverAuthFiles,
   regionFromRecordKey,
   pickImportableRecords,
+  readMinimaxAuthState,
   summarizeRecord,
   RECORD_KEY_RE,
+  RENEWING_STATUSES,
 }

@@ -98,47 +98,6 @@ const mkEas =
     })
 
 // ── 纯判据(镜像测试直接 import,不在测试里复抄) ──
-/**
- * OTA 腿发布前的版本 env 成对判据(2026-11-12 真机事故补)。
- *
- * 为什么比构建期更严:app.config.js 的 assertMobileVersionParity 允许「两个 env 都缺省」
- * (那时 APK 的原生号与 JS 号一起回退 pkg.version,仍然同源)。但 OTA 只换 JS bundle,
- * 发布进程没带这两个 env 时 bundle 会回退 package.json 的旧号(实测 0.0.12),而设备
- * 装的是 0.0.25 ⇒ 冷启动立刻把服务端旧版判成新版本、弹降级安装。故 OTA 腿必须
- * **显式成对注入**,都缺省同样拒跑。
- *
- * 判据本体直接复用 app.config.js 导出的那一份(CJS 求值,同 probeRuntimeVersion 手法),
- * 不在这里写第二份正则;取不到判据 ⇒ UNJUDGED,绝不冒绿(§0.3)。
- */
-export function assertOtaVersionPair(sourceText, env = process.env) {
-  let parity
-  try {
-    const m = new Module(CONFIG_JS, undefined)
-    m.filename = CONFIG_JS
-    m.paths = Module._nodeModulePaths(RN_DIR)
-    m._compile(sourceText, CONFIG_JS)
-    parity = m.exports.assertMobileVersionParity
-  } catch (e) {
-    return {
-      status: STATUS.UNJUDGED,
-      reason: `app.config 求值失败:${String(e?.message ?? e).slice(0, 160)}`,
-    }
-  }
-  if (typeof parity !== 'function')
-    return { status: STATUS.UNJUDGED, reason: 'app.config.js 未导出 assertMobileVersionParity' }
-  try {
-    const version = parity(env.IHUI_MOBILE_VERSION, env.EXPO_PUBLIC_IHUI_MOBILE_VERSION)
-    if (!version)
-      return {
-        status: STATUS.MISSING,
-        reason: '两个版本 env 都缺省:OTA bundle 会回退 package.json 的旧号,必须显式成对注入',
-      }
-    return { status: STATUS.FOUND, version }
-  } catch (e) {
-    return { status: STATUS.MISSING, reason: String(e?.message ?? e) }
-  }
-}
-
 /** 三态归并:unjudged > blocked > ready。失效方向恒为"多要一次说明"。 */
 export function foldStatus(states) {
   if (!states.length) return 'unjudged'
@@ -230,12 +189,8 @@ export function probeRuntimeVersion(readText, { a = '0.0.5.20261101', b = '0.0.5
     const m = new Module(CONFIG_JS, undefined)
     m.filename = CONFIG_JS
     m.paths = Module._nodeModulePaths(join(RN_DIR))
-    // 两臂必须**成对**注入:app.config.js 的 assertMobileVersionParity 在求值期就校验
-    // IHUI_MOBILE_VERSION === EXPO_PUBLIC_IHUI_MOBILE_VERSION,只给一侧会当场抛错 ⇒ 探针
-    // 被误判成 unjudged。探针是在模拟一次真实构建,不能比真实构建少注入一条。
-    const versionEnvKeys = ['IHUI_MOBILE_VERSION', 'EXPO_PUBLIC_IHUI_MOBILE_VERSION']
-    const prev = versionEnvKeys.map((k) => [k, process.env[k]])
-    for (const k of versionEnvKeys) process.env[k] = displayVersion
+    const prev = process.env.IHUI_MOBILE_VERSION
+    process.env.IHUI_MOBILE_VERSION = displayVersion // app.config.js 从 env 读显示版本,不注入两臂就是同一个值
     try {
       m._compile(readText, CONFIG_JS)
       const exported = m.exports
@@ -245,10 +200,8 @@ export function probeRuntimeVersion(readText, { a = '0.0.5.20261101', b = '0.0.5
       // 必须在 env 生效期间完成调用:app.config 的导出是闭包,process.env 在**调用时**才读
       return exported({ config: structuredClone(base) })
     } finally {
-      for (const [k, v] of prev) {
-        if (v === undefined) delete process.env[k]
-        else process.env[k] = v
-      }
+      if (prev === undefined) delete process.env.IHUI_MOBILE_VERSION
+      else process.env.IHUI_MOBILE_VERSION = prev
     }
   }
   let A, B
@@ -279,6 +232,54 @@ export function firstMeaningfulLine(text) {
       .map((l) => l.trim())
       .filter((l) => l && !/^[-—»]*$/.test(l))[0] ?? ''
   )
+}
+
+/**
+ * CLI 值参数清单与布尔旗清单(2026-11-12 收口)。
+ * 旧实现在 main() 里临时写了个 opt(),只认 `--name`:传 `-m` 会被静默忽略,
+ * 那轮 OTA 的说明文字直接落成默认串而调用方毫无察觉(§0.3:取不到必须判未判定)。
+ * 清单提到模块层,判据只有这一份;selfTest / 镜像测试 import 本文件同吃(§0.6)。
+ */
+export const CLI_VALUE_FLAGS = ['leg', 'm', 'message']
+export const CLI_BOOL_FLAGS = [
+  'self-test',
+  'json',
+  'ensure-channels',
+  'stage-credentials',
+  'diagnose-play',
+  'execute',
+]
+
+/** 取值参数:认 `--name` 与单字符短旗 `-name`;旗后没值 / 紧跟另一个旗 ⇒ 回落 dflt。 */
+export function readArgValue(argv, name, dflt) {
+  const aliases = [`--${name}`, ...(name.length === 1 ? [`-${name}`] : [])]
+  for (const alias of aliases) {
+    const i = argv.findIndex((a) => a === alias)
+    if (i < 0) continue
+    const next = argv[i + 1]
+    return next && !next.startsWith('-') ? next : dflt
+  }
+  return dflt
+}
+
+/** 列出未被认领的旗;未知旗一律显式拒跑,绝不静默忽略(§0.3)。 */
+export function unknownArgs(argv) {
+  const bools = new Set(CLI_BOOL_FLAGS.map((f) => `--${f}`))
+  const valued = new Set(
+    CLI_VALUE_FLAGS.flatMap((f) => [`--${f}`, ...(f.length === 1 ? [`-${f}`] : [])]),
+  )
+  const unknown = []
+  for (let i = 0; i < argv.length; i += 1) {
+    const a = argv[i]
+    if (!a.startsWith('-')) continue
+    if (bools.has(a)) continue
+    if (valued.has(a)) {
+      if (argv[i + 1] && !argv[i + 1].startsWith('-')) i += 1
+      continue
+    }
+    unknown.push(a)
+  }
+  return unknown
 }
 
 /**
@@ -674,10 +675,11 @@ export function storeDimensionBasis({ root = ROOT, read = readFileSync } = {}) {
     journaled = hasTag(read(join(dir, 'meta/_journal.json'), 'utf8'))
     if (!journaled) {
       try {
-        const head = gitRaw(['show', 'HEAD:packages/database/drizzle/meta/_journal.json'], root, {
-          timeout: 30_000,
-          maxBuffer: 16 << 20,
-        })
+        const head = gitRaw(
+          ['show', 'HEAD:packages/database/drizzle/meta/_journal.json'],
+          root,
+          { timeout: 30_000, maxBuffer: 16 << 20 },
+        )
         if (hasTag(head)) {
           journaled = true
           diskLag = true
@@ -775,7 +777,7 @@ export function buildLegs(ev) {
         detail: ev.appJson?.updates?.url ?? 'app.json 未配 expo.updates.url',
       },
     ],
-    command: `eas update --channel ${name} --environment ${name} --platform android --message "<本次说明>" --non-interactive`,
+    command: `eas update --channel ${name} --environment ${name} --platform android --message "<本次说明>" --non-interactive --clear-cache`,
   })
   return [
     {
@@ -860,9 +862,12 @@ export function exitCode(report) {
 async function main() {
   const argv = process.argv.slice(2)
   const flags = new Set(argv.filter((a) => a.startsWith('--')))
-  const opt = (name, dflt) => {
-    const i = argv.findIndex((a) => a === `--${name}`)
-    return i >= 0 && argv[i + 1] && !argv[i + 1].startsWith('--') ? argv[i + 1] : dflt
+  const stray = unknownArgs(argv)
+  if (stray.length) {
+    console.log(
+      `拒跑:未识别参数 ${stray.join(' ')};布尔旗 ${CLI_BOOL_FLAGS.map((f) => `--${f}`).join(' ')};取值旗 ${CLI_VALUE_FLAGS.map((f) => `--${f}`).join(' ')}`,
+    )
+    return 2
   }
   if (flags.has('--self-test')) return selfTest()
 
@@ -934,7 +939,7 @@ async function main() {
   }
 
   if (flags.has('--execute')) {
-    const id = opt('leg')
+    const id = readArgValue(argv, 'leg')
     const leg = report.find((l) => l.id === id)
     if (!leg) {
       console.log(`--leg 必须取 ${report.map((l) => l.id).join('/')}`)
@@ -950,17 +955,11 @@ async function main() {
       console.log(`本腿执行体尚未接线,命令:${leg.command}`)
       return 2
     }
-    // 2026-11-12:OTA 只换 JS bundle,版本 env 不成对就会让 bundle 自报旧号 ⇒ 弹降级安装。
-    // 发布前 fail-closed 验一次;取不到判据按未判定拒跑,不冒绿。
-    const versionPair = assertOtaVersionPair(readFileSync(CONFIG_JS, 'utf8'))
-    if (versionPair.status !== STATUS.FOUND) {
-      console.log(`拒跑:${id} 版本 env 判 ${versionPair.status} — ${versionPair.reason}`)
-      return versionPair.status === STATUS.UNJUDGED ? 2 : 1
-    }
-    console.log(`  发布版本号:${versionPair.version}(双写一致)`)
     const channel = id.replace('ota-', '')
     const message =
-      opt('m') ?? opt('message') ?? `release ${id} @ ${new Date().toISOString().slice(0, 16)}Z`
+      readArgValue(argv, 'm') ??
+      readArgValue(argv, 'message') ??
+      `release ${id} @ ${new Date().toISOString().slice(0, 16)}Z`
     // 真落地判据(2026-11-06 立):只看 exit=0 + 渠道存在时,一次"啥也没发"的退出也能冒绿;
     // 所以发之前先取最新组做基线,发之后再取一次,只有组变了才算发出去。
     const beforeGroup = newestUpdateGroup(
@@ -979,6 +978,10 @@ async function main() {
         '--message',
         message,
         '--non-interactive',
+        // 2026-11-12 实测:同一台机换版本 env 再发,Metro 缓存会把旧 bundle 原样打进去
+        // (0.0.25→0.0.26 产物 hash 不变,加 --clear 才变)。发布腿必须清缓存,
+        // 否则 EXPO_PUBLIC_IHUI_MOBILE_VERSION 内联的是上一次的值,版本可信闸门形同虚设。
+        '--clear-cache',
       ],
       // 15 min 不够:2026-11-05/06 三次成功轮实测 3.5–9 min,而 2026-11-06T144615Z 一轮超过
       // 15 min 被 execFileSync 杀掉(exit=null,stdout 只剩入口横幅)。放宽到 30 min,超过才按
@@ -1023,28 +1026,6 @@ function selfTest() {
   )
   eq('fold:blocked 压过 ready', foldStatus([STATUS.FOUND, STATUS.MISSING]), 'blocked')
   eq('fold:全 found ⇒ ready', foldStatus([STATUS.FOUND, STATUS.FOUND]), 'ready')
-  const paritySrc = readFileSync(CONFIG_JS, 'utf8')
-  const pair = (env) => assertOtaVersionPair(paritySrc, env).status
-  eq(
-    'ota版本env:成对 ⇒ found',
-    pair({ IHUI_MOBILE_VERSION: '0.0.25', EXPO_PUBLIC_IHUI_MOBILE_VERSION: '0.0.25' }),
-    STATUS.FOUND,
-  )
-  eq('ota版本env:漏一侧 ⇒ missing', pair({ IHUI_MOBILE_VERSION: '0.0.25' }), STATUS.MISSING)
-  eq('ota版本env:都缺省 ⇒ missing(OTA 不许静默回退)', pair({}), STATUS.MISSING)
-  eq(
-    'ota版本env:两侧不等 ⇒ missing',
-    pair({ IHUI_MOBILE_VERSION: '0.0.25', EXPO_PUBLIC_IHUI_MOBILE_VERSION: '0.0.24' }),
-    STATUS.MISSING,
-  )
-  eq(
-    'ota版本env:判据被删 ⇒ unjudged(不冒绿)',
-    assertOtaVersionPair('module.exports = () => ({})', {
-      IHUI_MOBILE_VERSION: '0.0.25',
-      EXPO_PUBLIC_IHUI_MOBILE_VERSION: '0.0.25',
-    }).status,
-    STATUS.UNJUDGED,
-  )
   const goodSubmit = {
     submit: {
       production: { android: { track: 'alpha', serviceAccountKeyPath: './credentials/x.json' } },
@@ -1148,6 +1129,28 @@ function selfTest() {
     /eas update --channel \$\{name\} --environment \$\{name\}/.test(self),
     true,
   )
+  // 2026-11-12 实测收口:同一台机换版本 env 再发,Metro 缓存会把旧 bundle 原样打进去,
+  // 于是 EXPO_PUBLIC_IHUI_MOBILE_VERSION 内联的是上一次的值 ⇒ 发布腿必须带 --clear-cache。
+  eq('OTA 执行参数带 --clear-cache', self.includes("'--clear-cache',"), true)
+  eq('OTA 展示命令带 --clear-cache', /--non-interactive --clear-cache/.test(self), true)
+  // CLI 参数:短旗与未知旗都在判据面,不许再出现"传了 -m 却静默忽略"
+  eq('readArg:-m 短旗必须认', readArgValue(['-m', 'fix: x'], 'm'), 'fix: x')
+  eq('readArg:--message 长旗', readArgValue(['--message', 'fix: x'], 'message'), 'fix: x')
+  eq('readArg:旗后无值 ⇒ dflt', readArgValue(['-m'], 'm', 'fallback'), 'fallback')
+  eq('readArg:旗后紧跟旗 ⇒ dflt', readArgValue(['-m', '--execute'], 'm', 'fallback'), 'fallback')
+  eq(
+    'unknownArgs:拼错的旗被抓出',
+    unknownArgs(['--execute', '--leg', 'ota-production', '--messge', 'x']),
+    ['--messge'],
+  )
+  eq(
+    'unknownArgs:全合法 ⇒ 空',
+    unknownArgs(['--execute', '--leg', 'ota-production', '-m', 'note', '--json']),
+    [],
+  )
+  eq('unknownArgs:等号形式也判未知', unknownArgs(['--leg=ota-production']), [
+    '--leg=ota-production',
+  ])
   // OTA 腿"真落地"判据锁(2026-11-06):组没变就必须判未落地,否则又会回到"exit=0 就冒绿"
   eq(
     'newest:数组形态(channel:list)',
@@ -1217,8 +1220,11 @@ export const __test__ = {
   newestUpdateGroup,
   summaryLines,
   firstMeaningfulLine,
+  readArgValue,
+  unknownArgs,
+  CLI_VALUE_FLAGS,
+  CLI_BOOL_FLAGS,
   probeRuntimeVersion,
-  assertOtaVersionPair,
   buildLegs,
   buildStoreLegs,
   render,

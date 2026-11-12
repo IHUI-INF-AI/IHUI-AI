@@ -27,7 +27,8 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { segmentFilePathInside } from '../util/path-guard.js';
-import type { TurnPhase, TurnRecord, WakeCondition } from './turn-lifecycle.js';
+import { isWakeable, type TurnPhase, type TurnRecord, type WakeCondition } from './turn-lifecycle.js';
+import { parseCron } from './cron.js';
 
 /** 目标态。目标是一等实体,不是散在对话里的一句话。 */
 export interface GoalRecord {
@@ -189,8 +190,9 @@ export function listWakeableTurns(now: number): { sessionId: string; turn: TurnR
     const raw = readJson<RuntimeFile>(path.join(dir, name));
     if (!raw || raw.version !== RUNTIME_VERSION) continue;
     for (const t of raw.turns) {
-      if (t.phase !== 'parked' || !t.wake) continue;
-      if (t.wake.notBefore !== undefined && t.wake.notBefore <= now) {
+      // 复用 isWakeable 而非在这里重写判定 —— 漏掉 cron 分支正是本处刚踩的坑
+      // (初版只判 notBefore,cron 周期挂起永远捞不到)。
+      if (isWakeable(t, now)) {
         out.push({ sessionId: raw.sessionId, turn: t });
       }
     }
@@ -202,11 +204,19 @@ export function listWakeableTurns(now: number): { sessionId: string; turn: TurnR
 export function parkUntil(params: {
   reason: WakeCondition['reason'];
   notBefore?: number;
+  /** 周期唤醒表达式(5 段 cron)。给了就按周期算下一次到点。 */
+  cron?: string;
   note?: string;
 }): WakeCondition {
+  // cron 必须在**构造时**校验 —— 非法表达式落库后 isWakeable 只能返回 false,
+  // 那个挂起回合就永久醒不来了,而调用方以为它排上了。
+  if (params.cron !== undefined) {
+    parseCron(params.cron); // 非法时抛 CronParseError
+  }
   return {
     reason: params.reason,
     ...(params.notBefore === undefined ? {} : { notBefore: params.notBefore }),
+    ...(params.cron === undefined ? {} : { cron: params.cron }),
     ...(params.note === undefined ? {} : { note: params.note }),
   };
 }

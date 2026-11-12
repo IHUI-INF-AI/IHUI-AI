@@ -15,9 +15,15 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
 import { createHash } from 'node:crypto'
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync, appendFileSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync, appendFileSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+
+// F-43:包一层 readFileSync 只做调用记录(行为原样透传),断言 payload 不再走同步整读
+vi.mock('node:fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs')>()
+  return { ...actual, readFileSync: vi.fn(actual.readFileSync) }
+})
 
 vi.hoisted(() => {
   process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test'
@@ -304,6 +310,17 @@ describe('Artifact Download API (GET /api/artifacts/:id/download)', () => {
     const res = await get(UUID_TAMPERED, 'html')
     expect(res.statusCode).toBe(500)
     expect(res.json()).toHaveProperty('errorCode', 'CHECKSUM_MISMATCH')
+  })
+
+  it('F-43:payload 走流式读取+分块哈希,不再 readFileSync 同步整读', async () => {
+    const res = await get(UUID_HTML, 'html')
+    expect(res.statusCode).toBe(200)
+    expect(res.body).toBe(HTML_PAYLOAD)
+    const syncReadPaths = vi.mocked(readFileSync).mock.calls.map((c) => String(c[0]))
+    expect(
+      syncReadPaths.some((p) => p.endsWith('.html')),
+      'payload 必须走 createReadStream 流式哈希,禁止 readFileSync 同步阻塞事件循环',
+    ).toBe(false)
   })
 
   // ---------------------------------------------------------------- 枚举 ----

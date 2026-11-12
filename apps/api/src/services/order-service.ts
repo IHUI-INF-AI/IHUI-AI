@@ -31,6 +31,7 @@ import { db } from '../db/index.js'
 import { recordPayment } from './edu-ledger.js'
 import { eq, and, sql } from 'drizzle-orm'
 import {
+  orders,
   outboxEvents,
   pointTransactions,
   eduEnrollment,
@@ -267,11 +268,52 @@ async function applyEduTuitionOrder(order: Order): Promise<void> {
 }
 
 /**
+ * F-12(2026-11-12):已支付订单副作用的「事务 + 行级锁」幂等骨架。
+ *
+ * 支付回调(胜利方 saga)与管理员 complete-saga 并发时,重放侧的「先查后插」会与
+ * 胜利方未提交的 earnPoints/writeToOutbox 交错 ⇒积分/Outbox 各发两次(工单 F-12)。
+ * 工单首选修法是给 point_transactions(reference_id,type) / outbox 加唯一索引 + ON CONFLICT,
+ * 但那必须新增数据库迁移(本单禁增迁移)⇒ 按工单第二修法「整段置于分布式锁/事务内」落地:
+ * 事务内先对 orders 行 FOR UPDATE 抢同一把行锁,把双方的「查 + 写」串行化成恰好一次 ——
+ * 后到者拿到锁时先行者已提交,锁内二次查重必可见(等价于工单的锁/唯一约束语义)。
+ */
+async function lockOrderRow(tx: DbTx, orderNo: string): Promise<void> {
+  await tx.select({ id: orders.id }).from(orders).where(eq(orders.orderNo, orderNo)).for('update')
+}
+
+/** 锁内查重:该订单是否已发放过消费奖励(判据与工单唯一索引 (reference_id,type) 等价) */
+async function hasEarnedPoints(tx: DbTx, orderNo: string): Promise<boolean> {
+  const rows = await tx
+    .select({ id: pointTransactions.id })
+    .from(pointTransactions)
+    .where(and(eq(pointTransactions.referenceId, orderNo), eq(pointTransactions.type, 'earn')))
+    .limit(1)
+  return rows.length > 0
+}
+
+/** 锁内查重:该订单是否已写过 order.paid Outbox 事件(payload 是 jsonb,用 SQL 表达式匹配) */
+async function hasOrderPaidOutbox(tx: DbTx, orderNo: string): Promise<boolean> {
+  const rows = await tx
+    .select({ id: outboxEvents.id })
+    .from(outboxEvents)
+    .where(
+      and(
+        eq(outboxEvents.type, 'order.paid'),
+        sql`${outboxEvents.payload}->>'orderNo' = ${orderNo}`,
+      ),
+    )
+    .limit(1)
+  return rows.length > 0
+}
+
+/**
  * P1-5(2026-08-06):已支付订单副作用重放 —— 崩溃窗口恢复/重试时补执行。
  * 各步骤幂等,可安全重复调用:
  * 1. token 充值:rechargeToken 内部 (related_order_no, op_type) unique 索引拦截重复;
  * 2. 积分发放:先查 point_transactions 是否已有 referenceId=orderNo 的 earn 流水,有则跳过;
  * 3. Outbox:先查 order.paid 事件是否已存在(按 payload->>'orderNo' 匹配),有则跳过。
+ * F-12(2026-11-12):2/3 收进同一事务并先对 orders 行 FOR UPDATE —— 与胜利方 saga 并发
+ * 时靠行锁串行,锁内查重才真正恰好一次(原「事务外先查后插」会与胜利方未提交写入交错)。
  * 任一步失败抛出,由 paymentIdempotency 失败分支释放锁,让回调平台重试。
  */
 async function replayPaidSideEffects(order: Order, tradeNo?: string): Promise<void> {
@@ -284,52 +326,41 @@ async function replayPaidSideEffects(order: Order, tradeNo?: string): Promise<vo
   // ① token 充值(幂等:unique 索引)
   await rechargeIfTokenOrder(order)
 
-  // ② 积分发放(幂等:referenceId 查重)
   const pointsToAward = Math.max(0, Math.floor(order.amount / 100))
-  if (pointsToAward > 0 && order.userId) {
-    const earned = await db
-      .select({ id: pointTransactions.id })
-      .from(pointTransactions)
-      .where(
-        and(eq(pointTransactions.referenceId, order.orderNo), eq(pointTransactions.type, 'earn')),
-      )
-      .limit(1)
-    if (!earned[0]) {
+  await db.transaction(async (tx) => {
+    // F-12:行锁先行 —— 回调(胜利方 saga)与重放双开的串行化点
+    await lockOrderRow(tx, order.orderNo)
+
+    // ② 积分发放(锁内幂等:referenceId 查重,后到者见先行者已提交的流水)
+    if (pointsToAward > 0 && order.userId && !(await hasEarnedPoints(tx, order.orderNo))) {
       await earnPoints(
         order.userId,
         pointsToAward,
         'order_purchase',
         `订单 ${order.orderNo} 消费奖励`,
         order.orderNo,
+        tx,
       )
     }
-  }
 
-  // ③ Outbox 事件(幂等:同 orderNo 的 order.paid 已存在则跳过)
-  // 注意:outbox payload 是 jsonb,drizzle 0.38 不支持点访问嵌套字段,用 SQL 表达式匹配
-  const existing = await db
-    .select({ id: outboxEvents.id })
-    .from(outboxEvents)
-    .where(
-      and(
-        eq(outboxEvents.type, 'order.paid'),
-        sql`${outboxEvents.payload}->>'orderNo' = ${order.orderNo}`,
-      ),
-    )
-    .limit(1)
-  if (!existing[0]) {
-    await writeToOutbox({
-      type: 'order.paid',
-      payload: {
-        orderNo: order.orderNo,
-        userId: order.userId,
-        amount: order.amount,
-        orderType: order.orderType,
-        tradeNo,
-        paidAt: new Date().toISOString(),
-      },
-    })
-  }
+    // ③ Outbox 事件(锁内幂等:同 orderNo 的 order.paid 已存在则跳过)
+    if (!(await hasOrderPaidOutbox(tx, order.orderNo))) {
+      await writeToOutbox(
+        {
+          type: 'order.paid',
+          payload: {
+            orderNo: order.orderNo,
+            userId: order.userId,
+            amount: order.amount,
+            orderType: order.orderType,
+            tradeNo,
+            paidAt: new Date().toISOString(),
+          },
+        },
+        tx,
+      )
+    }
+  })
 }
 
 /** Saga 编排结果。 */
@@ -449,14 +480,22 @@ export async function completeOrderWithSaga(
       name: 'award-points',
       execute: async () => {
         if (pointsToAward <= 0 || !order.userId) return { amount: 0 }
-        const result = await earnPoints(
-          order.userId,
-          pointsToAward,
-          'order_purchase',
-          `订单 ${orderNo} 消费奖励`,
-          orderNo,
-        )
-        return { amount: pointsToAward, transactionId: result.transaction.id }
+        const userId = order.userId
+        // F-12:与重放方同一把订单行锁 + 锁内查重 —— 回调 saga 与 complete-saga 重放并发
+        // 时恰好一方发放;并发重放已先发时本步让位(amount=0,补偿也只撤 saga 自己发的部分)。
+        return db.transaction(async (tx) => {
+          await lockOrderRow(tx, order.orderNo)
+          if (await hasEarnedPoints(tx, orderNo)) return { amount: 0 }
+          const result = await earnPoints(
+            userId,
+            pointsToAward,
+            'order_purchase',
+            `订单 ${orderNo} 消费奖励`,
+            orderNo,
+            tx,
+          )
+          return { amount: pointsToAward, transactionId: result.transaction.id }
+        })
       },
       compensate: async (result) => {
         const r = result as { amount: number; transactionId?: string }
@@ -475,18 +514,26 @@ export async function completeOrderWithSaga(
     {
       name: 'write-outbox-event',
       execute: async () => {
-        await writeToOutbox({
-          type: 'order.paid',
-          payload: {
-            orderNo,
-            userId: order.userId,
-            amount: order.amount,
-            orderType: order.orderType,
-            tradeNo,
-            paidAt: new Date().toISOString(),
-          },
+        // F-12:同一把订单行锁内先查后写 —— 防重放方并发补写第二条 order.paid
+        return db.transaction(async (tx) => {
+          await lockOrderRow(tx, orderNo)
+          if (await hasOrderPaidOutbox(tx, orderNo)) return { written: false }
+          await writeToOutbox(
+            {
+              type: 'order.paid',
+              payload: {
+                orderNo,
+                userId: order.userId,
+                amount: order.amount,
+                orderType: order.orderType,
+                tradeNo,
+                paidAt: new Date().toISOString(),
+              },
+            },
+            tx,
+          )
+          return { written: true }
         })
-        return { written: true }
       },
       compensate: async () => {
         // 补偿：写入补偿事件，通知下游撤销

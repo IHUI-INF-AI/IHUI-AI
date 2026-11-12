@@ -96,6 +96,44 @@ logger = get_logger(__name__)
 # 积分快照 job 错开到 08:10(避开签到 job 的整轮网络窗口)
 _CN_TZ = ZoneInfo("Asia/Shanghai")
 
+
+# ---------------------------------------------------------------------------
+# AIS-045(2026-11-12):手动 task-run 与调度巡检的同账号互斥。
+# 两路(checkin.run_account_task 路由 / _workbuddy_task_sweep 巡检)此前直接调
+# workbuddy_tasks.run_family,同账号并发时会在 claim 窗口撞车(重复领取/重复计分,
+# 上游非全幂等)。统一经 run_family_exclusive 串行,锁 key=(account_id, 自然日):
+# 按账号粒度足以覆盖 kind="all" 与单族巡检的交叉,自然日界限配合下方清理控制
+# 字典规模(陈旧日期键在取锁时顺手删除,防泄漏)。
+# ---------------------------------------------------------------------------
+_WB_FAMILY_LOCKS: dict[tuple[int, str], asyncio.Lock] = {}
+
+
+def _wb_family_lock(account_id: int) -> asyncio.Lock:
+    """取该账号当日的 run_family 互斥锁(顺手清理陈旧日期键,防字典泄漏)。"""
+    today = datetime.now(_CN_TZ).date().isoformat()
+    for stale in [key for key in _WB_FAMILY_LOCKS if key[1] != today]:
+        del _WB_FAMILY_LOCKS[stale]
+    return _WB_FAMILY_LOCKS.setdefault((account_id, today), asyncio.Lock())
+
+
+async def run_family_exclusive(
+    account_id: int,
+    kind: str,
+    jwt: str,
+    device_map: dict[str, Any],
+    *,
+    dry_run: bool,
+) -> dict[str, Any]:
+    """AIS-045:run_family 的唯一进入口 —— 按账号当日互斥串行执行。
+
+    手动(task-run 路由)与调度(_workbuddy_task_sweep)两路都走本函数;
+    workbuddy_tasks.run_family 的参数/返回/异常(含 OutboundPaused → 429 与
+    失败留痕)语义原样不变,仅外层加锁。
+    """
+    async with _wb_family_lock(account_id):
+        return await workbuddy_tasks.run_family(kind, jwt, device_map, dry_run=dry_run)
+
+
 # Server / Client 错误触发冷却的连击阈值(与桌面端一致)
 _ERROR_COOLDOWN_THRESHOLD = 3
 
@@ -242,6 +280,19 @@ def _cron_enabled() -> bool:
     deploy\\scripts\\prod-bundle\\svc\\run-ai.ps1)以「未设置则 true」注入。
     """
     return os.environ.get("CHECKIN_CRON_ENABLED", "false").lower() == "true"
+
+
+def _minimax_server_refresh_enabled() -> bool:
+    """签到侧自轮换 MiniMax refreshToken 的总开关(2026-11-12 立,缺省关)。
+
+    立因:mcode 的 refresh_token 是**轮换型**,续票单源是号池 `refreshOne`
+    (刷前 pullClientSession + 账号级换票锁 + CAS);签到侧这里再轮换一次 =
+    第二个轮换者,与池并发时旧 rt 重放 ⇒ invalid_grant,连败 3 次还会把号摘了。
+    缺省 false = 不自轮换,auth.json 里的票统一由池续、pushPoolSync 推过来;
+    置 CHECKIN_MINIMAX_SERVER_REFRESH=true 恢复旧行为(生产机本就无 auth.json,
+    走不到该分支,不受此门影响)。
+    """
+    return os.environ.get("CHECKIN_MINIMAX_SERVER_REFRESH", "false").lower() == "true"
 
 
 def _job_cron_expr(trigger: Any) -> str:
@@ -1430,8 +1481,13 @@ class CheckinScheduler:
         exp_ms = rec.get("expiresAtMs")
         exp = int(exp_ms / 1000) if isinstance(exp_ms, (int, float)) and exp_ms > 0 else None
         now = int(datetime.now(UTC).timestamp())
-        if (not isinstance(token, str) or not token or exp is None or exp - now < 300) and rec.get(
-            "refreshToken"
+        # 自轮换受 CHECKIN_MINIMAX_SERVER_REFRESH 门控(缺省关,单源在 _minimax_server_refresh_enabled):
+        # 池 refreshOne 是续票单源,这里再刷 = 第二个轮换者,与池并发会互相打废 rt。
+        # 门关时临期票不动 auth.json,等池刷完由 pushPoolSync 推新票过来。
+        if (
+            _minimax_server_refresh_enabled()
+            and (not isinstance(token, str) or not token or exp is None or exp - now < 300)
+            and rec.get("refreshToken")
         ):
             refreshed = await self._refresh_minimax_token(rec)
             if refreshed:
@@ -1818,8 +1874,9 @@ class CheckinScheduler:
             # 反序(旧 growth→activity)要等下一轮(默认 180 分钟)才领,白丢一轮积分。
             for kind in workbuddy_tasks.SWEEP_ORDER:
                 try:
-                    result = await workbuddy_tasks.run_family(
-                        kind, acc["jwt"], device_map, dry_run=dry_run
+                    # AIS-045:与手动 task-run 路由共用同一互斥入口(按账号当日锁)。
+                    result = await run_family_exclusive(
+                        acc["id"], kind, acc["jwt"], device_map, dry_run=dry_run
                     )
                 except OutboundPaused:
                     logger.warning("[checkin_scheduler] WB 任务巡检撞出站暂停,整轮中止")
