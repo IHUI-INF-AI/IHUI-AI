@@ -13,11 +13,46 @@
  * `HostToastLayer` 另写 2000ms、RN 的 FloatBox 再兜底 3000ms ⇒ 同一条提示三处时长不等。
  * 默认值单源 = `@ihui/shared/utils/host-toast` 的 `HOST_TOAST_DEFAULT_DURATION_MS`;
  * 显式 duration 仍原样透传。本端口只做"透传",补默认会让端口层与屏侧走岔。
+ *
+ * 2026-11 增补「旁路订阅」:用户要求「凡 toast 都要在 AI 对话框里留痕」。
+ * 记录点**不放在 20+ 个调用处**(chat.tsx 里逐处加记录必漏),而是收在本端口:
+ * 谁需要留痕谁订阅,不需要的页面(设置/历史等)不订阅 ⇒ 作用域精确,端口层也不认识聊天页。
  */
 import type { OnToast } from '@ihui/types'
+import type { NoticeKind } from '@ihui/shared/chat/notice-log'
 import { showHostToast } from '@ihui/shared/utils/host-toast'
 
+/** 旁路订阅者:收到的是「即将显示的原文 + 语义类型」,与真正上屏的那条完全一致 */
+export type OnToastListener = (message: string, kind: NoticeKind) => void
+
+const listeners = new Set<OnToastListener>()
+
+/**
+ * 订阅 toast 事件,返回取消函数。
+ *
+ * 为什么用 Set 而不是单槽位:同一时刻可能有多个消费方(聊天页留痕、埋点等),
+ * 单槽位后订阅者会把先订阅的挤掉;Set 天然去重(同一函数重复订阅只存一份)。
+ * 为什么必须返回 cleanup:页面来回切换会重复挂载,不退订就会一条 toast 记 N 条。
+ */
+export function subscribeOnToast(fn: OnToastListener): () => void {
+  listeners.add(fn)
+  return () => {
+    listeners.delete(fn)
+  }
+}
+
 export const onToast: OnToast = (message, options) => {
+  const kind: NoticeKind = options?.kind ?? 'info'
+  // 广播必须在真正上屏**之前**且**同步**:留痕是"这条提示出现过"的证据,
+  // 若放在 showHostToast 之后,一旦渲染层抛错就丢了证据。
+  // 订阅者异常逐个吞掉 —— 留痕是旁路能力,绝不能让它的 bug 把用户该看到的提示吃掉。
+  for (const fn of listeners) {
+    try {
+      fn(message, kind)
+    } catch {
+      // 单个订阅者失败不影响其他订阅者,也不影响本条提示
+    }
+  }
   showHostToast(message, options)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

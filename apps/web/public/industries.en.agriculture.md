@@ -202,8 +202,7 @@
   A: Rural land data requires local deployment as required. Data does not leave the county. Compliant with Basic Farmland Protection Regulations.
 
 ### Contact
-- Agriculture industry: agriculture@aizhs.top
-- General business: contact@aizhs.top
+- **Unified contact email: lizong@aizhs.top** — one address for industry solutions, industry material requests and business enquiries. Mention your industry and topic; we reply within 24 hours.
 - Official site: https://aizhs.top
 - GitHub: https://github.com/IHUI-INF-AI/IHUI-AI
 

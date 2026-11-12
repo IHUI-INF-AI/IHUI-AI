@@ -61,13 +61,14 @@ const STAGE_TIMEOUT_LONG_MS = 900_000
 
 /**
  * 红灯能否被写回抹平 —— 只有「漂移态」可以。
- * 造页/造壳那两件的 exit 1 是判据拒绝(缺腿、撞面、端内私有能力),`--apply` 跑一百遍也还是 1;
- * `tokens-miniapp` 的写回实测会把它块外的多行选择器压成一行(破坏 prettier 格式),在写回器改好之前
- * 不能计入可自修档 —— 否则驾驶舱会一路指着一条"越修越脏"的路。
+ * 造页/造壳那两件的 exit 1 是判据拒绝(缺腿、撞面、端内私有能力),`--apply` 跑一百遍也还是 1。
+ * `tokens-miniapp` 曾(2026-10-28 现读)因写回把块外多行选择器压成一行(破坏 prettier)而不能入此档;
+ * 写回器已改为「遮罩与原文等长、命中下标直接切原字节」(sync-miniapp-tokens.mjs 的 W5/W7/W8 断言),
+ * 2026-11-13 实测:注入 --color-primary 漂移后原位写回 → 漂移改回、53 处多行选择器零破坏、逐字节幂等。
+ * 故它现在与其它派生态同步器同档计入机器自修(端内自有档/注释逐字留在原位)。
  */
-const SELF_HEALABLE = new Set(['tokens-rn', 'tokens-rn-css', 'tokens-chrome', 'ui-mirror', 'repair-mirror'])
+const SELF_HEALABLE = new Set(['tokens-rn', 'tokens-rn-css', 'tokens-miniapp', 'tokens-chrome', 'ui-mirror', 'repair-mirror'])
 const HEAL_BLOCKERS = {
-  'tokens-miniapp': '写回会压平块外格式,待修写回器',
   'gen-mirror': '判据拒绝:缺腿/撞面/端内私有能力',
   'land-shells': '判据拒绝:壳三腿不齐或分包容量到顶',
 }

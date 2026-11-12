@@ -983,10 +983,10 @@ function selfTest() {
     MINIAPP_SKIP_PREFIXES.every((p) => !isManagedForMiniapp(`${p}probe`))
   )
   ok(
-    'G4 非色档不在受管族(门不判)也不在跳过表(生成器照搬)⇒ 一张表两职责,不得把表当受管集',
-    !isManagedForMiniapp('--radius-lg') &&
-      !isSkippedForMiniapp('--radius-lg') &&
-      kept.includes('--radius-lg')
+    'G4 非受管、非跳过的通用档(如 --chart-1)生成器照搬保留 ⇒ 一张表两职责,不得把表当受管集(样本曾用 --radius-lg,该档 2026-11-03 起入跳过表:只写 @theme、不写 :root,不再是"非跳过"样本)',
+    !isManagedForMiniapp('--chart-1') &&
+      !isSkippedForMiniapp('--chart-1') &&
+      kept.includes('--chart-1')
   )
 
   const standalone = `:root {

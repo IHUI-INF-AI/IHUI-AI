@@ -63,11 +63,7 @@ const ImportAnalysisDialog = dynamic(
 import { WorkspaceSelector } from '@/components/ai/workspace-selector'
 import { Tooltip, TooltipProvider } from '@/components/feedback'
 import { useChatStore, type ChatMessage } from '@/stores/chat'
-import {
-  AI_PANEL_MAX_WIDTH,
-  AI_PANEL_MIN_WIDTH,
-  useAiPanelStore,
-} from '@/stores/ai-panel'
+import { AI_PANEL_MAX_WIDTH, AI_PANEL_MIN_WIDTH, useAiPanelStore } from '@/stores/ai-panel'
 import { useEnvironmentInfoStore } from '@/stores/environment-info'
 import { useTerminalDockStore } from '@/stores/terminal-dock'
 import { useModeStore } from '@/stores/mode'
@@ -75,6 +71,9 @@ import { useLoginDialogStore } from '@/stores/login-dialog'
 import { getConversation, getConversationHistory, getMessages } from '@ihui/api-client'
 import type { ChatMode } from '@ihui/types'
 import { parsePendingQuestion } from '@/lib/pending-question'
+// 2026-11:新建对话时把「提示留痕」一并归零(与 RN 的 handleDrawerCreateNewChat 同语义),
+// 否则「新建」后还能看到上一个新会话残留的提示。
+import { clearNotices } from '@/lib/notice-log-store'
 // Runtime 插话能力声明落库口(会话元数据 → store)
 import { noteRuntimeCapabilities } from '@/hooks/use-chat/runtime-capabilities'
 import { fetchApi } from '@/lib/api'
@@ -1241,6 +1240,9 @@ export function AISidePanel() {
 
   const handleNewChat = React.useCallback(() => {
     clearMessages()
+    // 留痕:新建对话只是"从当前会话走开",并不删除它 —— 故只清 draft 键(上一个未绑定会话的
+    // 残留),不清当前会话的键,否则就成了"新建一次、抹掉一个历史会话的痕迹"。
+    clearNotices(null)
     setConversationId(null)
     setConversationTitle(null)
     setImportProvenance(null)
@@ -1600,12 +1602,7 @@ export function AISidePanel() {
       }
       const fabPos = useAiPanelStore.getState().floatFabPosition
       if (fabPos) {
-        const nextFab = clampFabPosition(
-          fabPos.x,
-          fabPos.y,
-          window.innerWidth,
-          window.innerHeight,
-        )
+        const nextFab = clampFabPosition(fabPos.x, fabPos.y, window.innerWidth, window.innerHeight)
         if (nextFab.x !== fabPos.x || nextFab.y !== fabPos.y) setFloatFabPosition(nextFab)
       }
     }
@@ -1675,8 +1672,7 @@ export function AISidePanel() {
     // 有动效偏好时先把面板淡出,再切到 FAB 分支:直接 setFloatMinimized 会让整块面板
     // 瞬间消失(硬闪)。焦点接力 effect 依赖 floatMinimized,因此会同步延后到切换之后。
     const reduceMotion =
-      typeof window !== 'undefined' &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
     if (reduceMotion) {
       setFloatMinimized(true)
       return
@@ -1746,36 +1742,36 @@ export function AISidePanel() {
     [],
   )
 
-  const handleSheetSwipeStart = React.useCallback(
-    (e: React.PointerEvent<HTMLElement>) => {
-      // 鼠标只认主键;触摸/触控笔不区分 button
-      if (e.pointerType === 'mouse' && e.button !== 0) return
-      // Portal 里的菜单/弹窗会经 React 树冒泡到 header(见 handleFloatDragStart 同款注释):
-      // 不拦就会在菜单项按下时抢指针,手机端点「⋯ → 最小化」直接失效。
-      if (!e.currentTarget.contains(e.target as Node)) return
-      // 标题栏里的按钮/菜单/输入不参与下拉,否则点「关闭」会变成拖拽
-      const target = e.target as HTMLElement
-      if (target.closest('button, a, input, textarea, [role="menuitem"], [role="dialog"]')) return
-      const el = panelRootRef.current
-      if (!el) return
-      if (swipeTimerRef.current !== null) window.clearTimeout(swipeTimerRef.current)
-      el.style.transition = 'none'
-      swipeRef.current = { pointerId: e.pointerId, startY: e.clientY, dy: 0 }
-      e.currentTarget.setPointerCapture(e.pointerId)
-    },
-    [],
-  )
-
-  const handleSheetSwipeMove = React.useCallback((e: React.PointerEvent<HTMLElement>) => {
-    const swipe = swipeRef.current
-    if (!swipe || swipe.pointerId !== e.pointerId) return
-    const dy = Math.max(0, Math.min(e.clientY - swipe.startY, viewport.height))
-    swipe.dy = dy
+  const handleSheetSwipeStart = React.useCallback((e: React.PointerEvent<HTMLElement>) => {
+    // 鼠标只认主键;触摸/触控笔不区分 button
+    if (e.pointerType === 'mouse' && e.button !== 0) return
+    // Portal 里的菜单/弹窗会经 React 树冒泡到 header(见 handleFloatDragStart 同款注释):
+    // 不拦就会在菜单项按下时抢指针,手机端点「⋯ → 最小化」直接失效。
+    if (!e.currentTarget.contains(e.target as Node)) return
+    // 标题栏里的按钮/菜单/输入不参与下拉,否则点「关闭」会变成拖拽
+    const target = e.target as HTMLElement
+    if (target.closest('button, a, input, textarea, [role="menuitem"], [role="dialog"]')) return
     const el = panelRootRef.current
     if (!el) return
-    el.style.transform = `translate3d(0, ${dy}px, 0)`
-    el.style.opacity = String(Math.max(0.4, 1 - dy / Math.max(240, viewport.height * 0.6)))
-  }, [viewport.height])
+    if (swipeTimerRef.current !== null) window.clearTimeout(swipeTimerRef.current)
+    el.style.transition = 'none'
+    swipeRef.current = { pointerId: e.pointerId, startY: e.clientY, dy: 0 }
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }, [])
+
+  const handleSheetSwipeMove = React.useCallback(
+    (e: React.PointerEvent<HTMLElement>) => {
+      const swipe = swipeRef.current
+      if (!swipe || swipe.pointerId !== e.pointerId) return
+      const dy = Math.max(0, Math.min(e.clientY - swipe.startY, viewport.height))
+      swipe.dy = dy
+      const el = panelRootRef.current
+      if (!el) return
+      el.style.transform = `translate3d(0, ${dy}px, 0)`
+      el.style.opacity = String(Math.max(0.4, 1 - dy / Math.max(240, viewport.height * 0.6)))
+    },
+    [viewport.height],
+  )
 
   const handleSheetSwipeEnd = React.useCallback(
     (e: React.PointerEvent<HTMLElement>) => {
@@ -2368,7 +2364,9 @@ export function AISidePanel() {
             floatMode && 'outline-none',
             // 三态切换动效(见 animations.css):挂载入场 / 档位切换入场 / 最小化退场互斥,
             // 避免两个 transform 动画互相覆盖。
-            leaving ? 'ai-panel-out' : cn(floatMode && 'ai-surface-in-mount', modeFx && 'ai-mode-in'),
+            leaving
+              ? 'ai-panel-out'
+              : cn(floatMode && 'ai-surface-in-mount', modeFx && 'ai-mode-in'),
             floatMode
               ? isMobileSmall
                 ? 'fixed inset-0 z-sticky' // 手机浮窗:全屏覆盖

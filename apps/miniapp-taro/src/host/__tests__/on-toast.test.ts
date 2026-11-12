@@ -4,7 +4,8 @@
 
 /**
  * 小程序 OnToast 端口实现:必须经共享 host-toast 通道落到 Taro.showToast,
- * 且默认时长与端内直呼一致(1500ms),不能包一层同名假转换。
+ * 且默认时长取共享单源(HOST_TOAST_DEFAULT_DURATION_MS,2026-11 收口到 4000ms 对齐 web sonner),
+ * 不能包一层同名假转换。
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -13,6 +14,7 @@ vi.mock('@tarojs/taro', () => ({ default: taro }))
 
 import { bindHostToastToTaro } from '../HostToastLayer'
 import { onToast } from '../on-toast'
+import { HOST_TOAST_DEFAULT_DURATION_MS } from '@ihui/shared/utils/host-toast'
 
 describe('小程序 onToast 端口', () => {
   let unsubscribe: () => void
@@ -28,12 +30,12 @@ describe('小程序 onToast 端口', () => {
     vi.unstubAllGlobals()
   })
 
-  it('success 经共享通道落成标准成功图标,默认 1500ms', () => {
+  it('success 经共享通道落成标准成功图标,默认取共享单源时长', () => {
     onToast('已复制', { kind: 'success' })
     expect(taro.showToast).toHaveBeenCalledWith({
       title: '已复制',
       icon: 'success',
-      duration: 1500,
+      duration: HOST_TOAST_DEFAULT_DURATION_MS,
     })
   })
 
