@@ -14,6 +14,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
+import { writeFileAtomicSync } from '../util/atomic-write.js';
 import { isRecord } from '../util/json.js';
 import {
   assertPathInside,
@@ -81,10 +82,7 @@ export function snapshotRootDir(sessionId: string): string {
 export type SnapshotRootProbe = 'missing' | 'present' | 'unreadable';
 
 /** 快照根三态:不存在、是目录、读不到。读不到不得并进「不存在」。 */
-export function probeSnapshotRoot(
-  baseDir: string,
-  io: { statSync?: typeof fs.statSync } = {},
-): SnapshotRootProbe {
+export function probeSnapshotRoot(baseDir: string, io: { statSync?: typeof fs.statSync } = {}): SnapshotRootProbe {
   const statSync = io.statSync ?? fs.statSync;
   try {
     return statSync(baseDir).isDirectory() ? 'present' : 'unreadable';
@@ -181,8 +179,9 @@ export function copyFilesIntoSnapshot(
   return { files: recorded, skipped };
 }
 
+// F-029:清单走原子写(同目录 tmp + rename)—— 裸 writeFileSync 被杀/磁盘满会留半截 JSON,该目录当场变「损坏」。
 export function writeSnapshotManifest(cpDir: string, meta: CheckpointMeta): void {
-  fs.writeFileSync(path.join(cpDir, 'manifest.json'), JSON.stringify(meta, null, 2), 'utf-8');
+  writeFileAtomicSync(path.join(cpDir, 'manifest.json'), JSON.stringify(meta, null, 2));
 }
 
 /**
@@ -201,19 +200,19 @@ export function unsafeWorkspaceKeyError(workspacePath: string, parsed: unknown):
   return null;
 }
 
-/** 读某快照目录的清单:missing/corrupt 三态由 manifest-integrity 给,本层只接线(onQuarantined 先于 onCorrupt) */export function readSnapshotMeta(
+/** 读某快照目录的清单:missing/corrupt 三态由 manifest-integrity 给,本层只接线(onQuarantined 先于 onCorrupt);F-029:missing 档顺带带出目录 mtime(GC 判据层零 fs,孤儿目录的年龄证据只能由本层量) */export function readSnapshotMeta(
   baseDir: string,
   checkpointId: string,
   hooks: { onCorrupt: (entry: CorruptManifestEntry) => void; onQuarantined?: (entry: CorruptManifestEntry) => void },
-): ManifestReadResult<CheckpointMeta> {
-  // 清单路径是删除/回滚的锚点:根内 + realpath 断言;检查点 id 是内部序列名(含 `@vN`),
-  // 不做 sanitize 改写,否则落盘名与 id 不一致。
+): ManifestReadResult<CheckpointMeta> & { dirMtimeMs?: number } {
+  // 清单路径是删除/回滚的锚点:根内 + realpath 断言;检查点 id 是内部序列名(含 `@vN`)不做 sanitize 改写,否则落盘名与 id 不一致。
   const cpDir = assertPathInside(baseDir, path.join(baseDir, checkpointId), '检查点目录');
-  const manifestPath = path.join(cpDir, 'manifest.json');
-  return readManifestChecked(manifestPath, checkpointId, isCheckpointMeta, (entry) => {
+  const result = readManifestChecked(path.join(cpDir, 'manifest.json'), checkpointId, isCheckpointMeta, (entry) => {
     hooks.onQuarantined?.(entry);
     hooks.onCorrupt(entry);
   });
+  // 清单缺失 = 可能是「拷贝完、写 manifest 前被杀」的孤儿目录;mtime 读不到就不带(判不出年龄 ⇒ 不删)。
+  return result.status === 'missing' ? { ...result, dirMtimeMs: fs.statSync(cpDir, { throwIfNoEntry: false })?.mtimeMs } : result;
 }
 
 // goal-b49 W3:回放/比对(restore/diff + 回放侧 realpath 断言)整体抽到 ./snapshot-replay.ts;

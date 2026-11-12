@@ -28,6 +28,7 @@
 
 import { EventEmitter } from 'node:events';
 import { promises as fs, statSync, type Stats } from 'node:fs';
+import { randomBytes } from 'node:crypto';
 import * as path from 'node:path';
 import * as os from 'node:os';
 // D38 队列交互的编排判据唯一真相源(端内不得手写重排/编辑逻辑,§3 共享层优先)
@@ -311,8 +312,9 @@ export class PromptQueue extends EventEmitter {
    * 行为契约:
    * - 只保存 status === 'pending' 的项(running/completed/cancelled 不持久化)
    * - 保存 counter 以保证重启后 id 单调
-   * - 写入失败不抛错(只 log warn,REPL 退出不应阻塞)
-   * - 文件用原子写入:先写 .tmp 再 rename(防止中途崩溃导致文件损坏)
+   * - 写入失败不抛错(REPL 退出不应阻塞),但必须 warn 到 stderr(F-030)
+   * - 文件用原子写入:先写**独占** tmp 再 rename(防止中途崩溃导致文件损坏;
+   *   tmp 名带 pid + 随机段,两个实例同写也不会互相截断)
    * - 空队列也会写入(清空旧文件)
    *
    * @param persistPath 持久化文件路径(默认 ~/.ihui/state/prompt-queue.json)
@@ -333,15 +335,20 @@ export class PromptQueue extends EventEmitter {
       counter: this.counter,
       pending: pendingItems.map((it) => ({ ...it })),
     };
+    let tmpPath: string | undefined;
     try {
       const dir = path.dirname(persistPath);
       await fs.mkdir(dir, { recursive: true });
-      // 原子写入:先写 .tmp 再 rename
-      const tmpPath = `${persistPath}.tmp`;
+      // 原子写入:先写独占 tmp 再 rename。tmp 名带 pid + 随机段(F-030):
+      // 两实例同启/同退时各写各的 tmp,不会互相截断后 rename 到别人已删的路径。
+      tmpPath = `${persistPath}.${process.pid}.${randomBytes(6).toString('hex')}.tmp`;
       await fs.writeFile(tmpPath, JSON.stringify(payload, null, 2) + '\n', 'utf-8');
       await fs.rename(tmpPath, persistPath);
-    } catch {
-      // 写入失败静默(REPL 退出不应阻塞)
+    } catch (e) {
+      // 失败不阻塞 REPL 退出,但不静默(F-030):清掉本次 tmp,把原因报给 stderr。
+      // 只报错误码/路径,绝不含 prompt 正文(可能含用户隐私)。
+      if (tmpPath) await fs.unlink(tmpPath).catch(() => {});
+      console.warn(`[prompt-queue] 排队记录保存失败(${errCode(e)}),本次排队条目未落盘,路径 ${persistPath}`);
     }
   }
 
@@ -350,7 +357,7 @@ export class PromptQueue extends EventEmitter {
    *
    * 行为契约:
    * - 文件不存在时 no-op(返回 0)
-   * - 文件格式错误时 no-op + 删除损坏文件
+   * - 文件格式错误时 no-op + 把损坏件改名 `.corrupt-<ts>` 隔离(不删,F-030)
    * - 已存在的 id 不重复加载(去重 by id)
    * - 加载后 counter 取 max(当前 counter, 文件 counter)
    * - 加载的 pending 项保持 pending 状态(不入 running)
@@ -371,13 +378,13 @@ export class PromptQueue extends EventEmitter {
     } catch (e) {
       const code = (e as NodeJS.ErrnoException).code;
       if (code) throw new Error(`排队记录读不到,不能把它当成没有再删掉 (${code})`);
-      // JSON 解析失败:文件损坏,删除后返回 0
-      await fs.unlink(persistPath).catch(() => {});
+      // JSON 解析失败:文件损坏 ⇒ 改名隔离,不删(F-030:损坏件是不可复得的现场)
+      await quarantineCorruptFile(persistPath, 'JSON 解析失败');
       return 0;
     }
     if (!parsed || parsed.version !== 1 || !Array.isArray(parsed.pending)) {
-      // 结构不符合:删除后返回 0
-      await fs.unlink(persistPath).catch(() => {});
+      // 结构不符合:同样只隔离,不删
+      await quarantineCorruptFile(persistPath, '结构不符合 version=1 / pending[]');
       return 0;
     }
     // 去重加载:跳过当前已存在的 id
@@ -419,6 +426,26 @@ export class PromptQueue extends EventEmitter {
     } catch {
       // 删除失败静默
     }
+  }
+}
+
+function errCode(e: unknown): string {
+  return (e as NodeJS.ErrnoException | undefined)?.code ?? 'unknown';
+}
+
+/**
+ * 损坏件隔离(F-030):改名 `.corrupt-<ts>` 保留现场,**绝不直接删** ——
+ * 删除不可逆,而残档里可能还留着用户的排队 prompt。隔离失败也只 warn 不删。
+ */
+async function quarantineCorruptFile(persistPath: string, reason: string): Promise<void> {
+  const quarantinePath = `${persistPath}.corrupt-${Date.now()}`;
+  try {
+    await fs.rename(persistPath, quarantinePath);
+    console.warn(`[prompt-queue] 排队记录损坏(${reason}),已隔离到 ${quarantinePath}`);
+  } catch (e) {
+    console.warn(
+      `[prompt-queue] 排队记录损坏(${reason})且隔离失败(${errCode(e)}),原文件保留在 ${persistPath}`,
+    );
   }
 }
 
