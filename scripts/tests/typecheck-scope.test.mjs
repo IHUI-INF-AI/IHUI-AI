@@ -239,3 +239,35 @@ test('T11 出口顺序与措辞:必须在快通道之前,且不得自称 skip', 
   assert.doesNotMatch(seg, /跳过/, '出口文案里出现了"跳过" —— 这是射程之外的通过,不是跳门')
   assert.match(seg, /这不是 skip/, '必须显式说明"这不是 skip"及其证明(否则下一个人仍会当成口子)')
 })
+
+// ─── 2026-11-12:共享 tsconfig 基座漏判(实测假绿)─────────────────────────────
+// 病形:resolveNoTsInputFace 只按 basename /^tsconfig.*\.json$/ 认 TS 输入,
+// packages/tsconfig/base.json 的 basename 是 base.json ⇒ 改它被判「无 TS 输入面」秒过。
+// 实测该基座经 extends 影响 packages/sdk 的 program(tsc --showConfig 的 exclude 被继承),
+// 不是理论口子。判据改走 listTsconfigPaths() 的实扫集合,下面钉行为与接线。
+test('T12 共享 tsconfig 基座(packages/tsconfig/*.json)必须算 TS 输入面,不得秒过', () => {
+  for (const p of [
+    'packages/tsconfig/base.json',
+    'packages/tsconfig/node.json',
+    'packages/tsconfig/nextjs.json',
+  ]) {
+    const out = dryRun([p])
+    assert.doesNotMatch(
+      out,
+      /将运行路线: 无 TS 输入面档/,
+      `改共享基座 ${p} 会改变 tsc program 组成,必须回落原路径,实得:${out}`,
+    )
+  }
+  // 反面对照:同目录的非 tsconfig 文件不得被「目录前缀」误伤,本档射程不变。
+  const doc = dryRun(['docs/PACKAGES.md'])
+  assert.match(doc, /将运行路线: 无 TS 输入面档/, `纯文档面应仍走本档,实得:${doc}`)
+  // 接线钉:判据必须真的查实扫集合,而不是换个 basename 正则继续漏。
+  assert.ok(
+    SRC.includes('cfgSet.has(f)'),
+    '未把 tsconfig 实扫集合接进 TS 输入判据 ⇒ 基座改动仍会被误判',
+  )
+  assert.ok(
+    SRC.includes('new Set(cfgs.map('),
+    '实扫清单未去重成集合 ⇒ 判据形态被改写,本锁须同步',
+  )
+})

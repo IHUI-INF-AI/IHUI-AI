@@ -2984,6 +2984,10 @@ fn dispatch_deep_links(app: &tauri::AppHandle, urls: &[String]) {
     // 唤起动作与投递解耦:即便全部进了 pending,窗口该露脸还是要露脸(用户点了链接就该看到 App)
     if let Some(w) = window {
         log::info!("[window-show] site=deep_link_dispatch trigger=ihui:// 深链抵达 on_open_url(外部浏览器/其他应用唤起,非用户在本机点托盘)");
+        // F-052:Windows 下最小化窗口 show()+set_focus() 不会还原,需先 unminimize
+        if w.is_minimized().unwrap_or(false) {
+            let _ = w.unminimize();
+        }
         let _ = w.show();
         let _ = w.set_focus();
     }
@@ -3950,6 +3954,10 @@ pub fn run() {
             }
             if let Some(window) = app.get_webview_window("main") {
                 log::info!("[window-show] site=single_instance trigger=第二个实例被拉起 ⇒ 插件把已有主窗口唤起(可由双击图标/自启重复触发)");
+                // F-052:Windows 下最小化窗口 show()+set_focus() 不会还原,需先 unminimize
+                if window.is_minimized().unwrap_or(false) {
+                    let _ = window.unminimize();
+                }
                 let _ = window.show();
                 let _ = window.set_focus();
             }
