@@ -98,13 +98,13 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 5130 | `testFiles` |
+| 测试文件 | 5131 | `testFiles` |
 | CI 工作流 | 59 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 363 | `guardianGates` |
 | — blocking | 334 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 21245 | `trackedFiles` |
+| 跟踪文件 | 21246 | `trackedFiles` |
 
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-12。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -2901,7 +2901,7 @@ setext 标题下划线、表格分隔、ASCII 示意图里都是合法内容,只
 **扩面与第二个"半装车"教训(2026-09-24)**:本门原判据只扫 `deploy/**` + `scripts/**`,而"告警邮件正文"的实际出口在 `monitoring/alertbridge/*.cjs` —— 目录不在面内、`.cjs` 扩展名也不在面内,**双重不可见**。现按实测数字扩到含 `monitoring/**` + `.cjs/.mts` + `apps/api/scripts/**`(判定 **375 → 427**,新增命中 0);`packages/**`(+714,唯一命中是 `api-client` 里 POST 自家 `/api/mail/send` 的 `sendMail()`)与 `apps/**` 整体(+3380,命中全是管理员 SMTP 试测端点)**用同一把尺量过之后决定不扩** —— 无证据不扩面,否则第一次真红就是最后一次信任。扩面同时补了原判据的一个空档:R1/R2/R3 只看"有没有走模板",对"**接了唯一出口却自带一份 HTML 版式**"完全盲(与守门 52"恒报 0 其实是扫不到"同型),新增 **R3b** 三段与门(邮件版式标记 ∧ ±10 行内样式指纹 ∧ 本文件确在邮件语境,注释行不计),自检 46 例含四类反例。**另一半才是重点**:判据扩面了而 `stagedTriggers` 没跟上,则"只改 bridge 的提交"在 pre-commit 根本不会唤起本门 —— 半装车,由镜像测试的"装车证明"钉死(触发清单必须含 `monitoring/` 与 `apps/api/scripts/`)。
 ### 同日后续:邮件/告警链的三面收口(2026-09-23,O29)
 守门 81 立项后顺带把同族的三面一起收口,它们的共同点是"**本地全绿、线上要么没样式要么根本没发**":
-1. **运维告警邮件统一出口 = `apps/api/scripts/notify-deploy-failure.ts`**。它已从"CI 专用一次性脚本"扩为通用品牌告警派发器(`--to`/`--title`/`--severity`/`--source`/`--message-file`/`--plain`/`--strict`/`--dry-run`,自动回读 `apps/api/.env` 且**只补缺失、绝不覆盖进程环境变量**;SMTP 优先、Resend 兜底且 payload 必带 `html`)。三个调用方全部改接它:本机 NSSM 部署环 `deploy/win/ihui-deploy.ps1`(删除自拼传输层,降级也只能走同一条通道的 `--plain`)、CI 蓝绿部署、以及凭据巡检 `scripts/check-credential-health.mjs`。**两个实测坑已钉进注释与测试**:① tsx v4 会劫持 `--env-file` 转发给 node,路径不存在时 node 直接 `exit 9` ⇒ 调用方一律不传;② 经 `smtp.qq.com` 中继时 From 的邮箱段必须等于登录账号,否则 550(旧代码把 From 写死成企业域名地址、与 QQ 登录账号不一致 ⇒ SMTP 分支恒被拒、恒回落纯文本 Resend,这正是"邮件没样式"的直接成因)。
+1. **运维告警邮件统一出口 = `apps/api/scripts/notify-deploy-failure.ts`**。它已从"CI 专用一次性脚本"扩为通用品牌告警派发器(`--to`/`--title`/`--severity`/`--source`/`--message-file`/`--plain`/`--strict`/`--dry-run`,自动回读 `apps/api/.env` 且**只补缺失、绝不覆盖进程环境变量**;SMTP 优先、Resend 兜底且 payload 必带 `html`)。三个调用方全部改接它:本机 NSSM 部署环 `deploy/win/ihui-deploy.ps1`(删除自拼传输层,降级也只能走同一条通道的 `--plain`)、CI 蓝绿部署、以及凭据巡检 `scripts/check-credential-health.mjs`。**两个实测坑已钉进注释与测试**:① tsx v4 会劫持 `--env-file` 转发给 node,路径不存在时 node 直接 `exit 9` ⇒ 调用方一律不传;② 经 `smtp.qq.com` 中继时 From 的邮箱段必须等于登录账号,否则 550(旧代码硬编码 `lizong@aizhs.top` 配 QQ 账号 ⇒ SMTP 分支恒被拒、恒回落纯文本 Resend,这正是"邮件没样式"的直接成因)。
 2. **`/api/mail/send` 不再手搓 HTML**,改走 `renderNoticeEmail`;两端点各加 `10 次/分钟/IP` 限流(`/api/mail/*` 公开无鉴权是既定的 Java 兼容契约,故用限流而非鉴权收面)。
 3. **"邮件通道没开"从隐形变响铃**。`apps/api/.env` 缺 `SMTP_ENABLED` 一行 ⇒ 默认 false ⇒ 所有国内域名(qq/163/126/…)的验证码/账单/退款等事务邮件路由到 `'stub'` 且旧代码只 `console.info` 一行、调用方不查 `result.sent`。现改为 `logger.warn` **点名缺哪条配置** + `EmailNotSentReason` 精确联合类型 + `diagnoseMailTransport()`(国内与海外双路皆死时启动期打一行全局 warn);`broadcast-email-service` 的 `sent` 也从"按 `allSettled` fulfilled 计"改为按 `result.sent` 真计(原先群发会报"全部送达"而实际 0 封)。**是否打开 `SMTP_ENABLED` 属生产对外行为变更,由用户拍板,本仓默认仍关。**
 另两处同期根治:**Alertmanager 邮件通道**——实测 Alertmanager **不展开**配置里的 `${VAR}`(写 `${X}` 直接 `not a valid duration`),所以"占位符 + 注释说需 env 注入"的旧配置文件永远发不出信;现改为 `alertmanager.yml.tmpl` + `scripts/render-alertmanager-config.mjs` **先渲染再挂载**,TLS 形态由端口推导、发信账号单占位符同时喂 from/username、密码优先走 `smtp_auth_password_file` 以做到零落盘,渲染产物含凭据故被 `.gitignore` 钉住且渲染器写盘前先 `git check-ignore` 自证。**`POST /v1/messages` 全族**——出站体与 ai-service 的 pydantic 模型三处不齐、且上游每个端点都套 `{code,message,data}` 壳而转发层按裸 JSON 读 ⇒ `messageId` 恒空、`HTTP 200 + code=500` 被当成功、`subscribe` 更是**静默建了一条没有回调地址的死订阅**(不 422);现全部显式映射 + 拆壳,`channel` 收紧为枚举(值域从 `.py` 源码解析做跨语言对账),并把原来挂在**生产从不存在的 `prefix:'/v1'`** 上的假绿用例改到真实挂载点。
