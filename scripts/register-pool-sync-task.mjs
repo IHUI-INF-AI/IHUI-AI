@@ -142,6 +142,71 @@ function buildTaskArgument() {
   return `"${SYNC_SCRIPT}" --if-dirty --apply --quiet --log "${LOG_FILE}"`
 }
 
+// —— COM 兼容层:PowerShell 7 无 ScheduledTasks 模块,改用 Schedule.Service COM(本机实际环境) ——
+function comRegisterScript(nodeExe, arg, interval) {
+  return `
+$ErrorActionPreference='Stop'
+$s=New-Object -ComObject Schedule.Service
+$s.Connect()
+$root=$s.GetFolder('\\')
+$td=$s.NewTask(0)
+$td.RegistrationInfo.Description='号池跨环境双向自动同步(本地<->生产,脏标记驱动)'
+$trig=$td.Triggers.Create(1)
+$trig.StartBoundary=(Get-Date).AddMinutes(1).ToString('yyyy-MM-ddTHH:mm:ss')
+$trig.Repetition.Interval='PT${interval}M'
+$trig.Repetition.Duration='P3650D'
+$trig.Repetition.StopAtDurationEnd=$true
+$act=$td.Actions.Create(0)
+$act.Path='${nodeExe}'
+$act.Arguments='${arg}'
+$act.WorkingDirectory='${ROOT}'
+$user=$env:USERNAME
+$t=$root.RegisterTaskDefinition('IHUI-Pool-Sync', $td, 6, $user, $null, 2)
+$t.Enabled=$true
+Write-Output 'REGISTERED'
+`.trim()
+}
+
+function comQueryScript() {
+  return `
+$ErrorActionPreference='Stop'
+$s=New-Object -ComObject Schedule.Service
+$s.Connect()
+$f=$s.GetFolder('\\')
+$t=$f.GetTask('IHUI-Pool-Sync')
+$act=$t.Definition.Actions.Item(1)
+$stateMap=@{0='Unknown';1='Disabled';2='Queued';3='Ready';4='Running'}
+Write-Output ('STATE='+$stateMap[[int]$t.State])
+Write-Output ('EXEC='+$act.Path)
+Write-Output ('ARGS='+$act.Arguments)
+Write-Output ('LASTRUN='+$t.LastRunTime)
+Write-Output ('LASTRESULT=0x'+('{0:X}' -f [int]$t.LastTaskResult))
+`.trim()
+}
+
+function comUnregisterScript() {
+  return `
+$ErrorActionPreference='Stop'
+$s=New-Object -ComObject Schedule.Service
+$s.Connect()
+$f=$s.GetFolder('\\')
+$f.DeleteTask('IHUI-Pool-Sync', 0)
+Write-Output 'DELETED'
+`.trim()
+}
+
+function comRunNowScript() {
+  return `
+$ErrorActionPreference='Stop'
+$s=New-Object -ComObject Schedule.Service
+$s.Connect()
+$f=$s.GetFolder('\\')
+$t=$f.GetTask('IHUI-Pool-Sync')
+$t.Run($null)
+Write-Output 'STARTED'
+`.trim()
+}
+
 function doRegister(options) {
   if (!fs.existsSync(SYNC_SCRIPT)) {
     process.stderr.write(`❌ 同步脚本不存在: ${SYNC_SCRIPT}\n`)
@@ -176,7 +241,11 @@ $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoi
 Register-ScheduledTask -TaskName ${psQuote(TASK_NAME)} -Action $action -Trigger $trigger -Settings $settings -Description '号池跨环境双向自动同步(本地<->生产,脏标记驱动)' -Force | Out-Null
 Write-Output 'REGISTERED'
 `.trim()
-  const r = ps(script)
+  let r = ps(script)
+  if (!r.ok || !/REGISTERED/.test(r.text)) {
+    // PS7 无 ScheduledTasks 模块:退回 Schedule.Service COM
+    r = ps(comRegisterScript(nodeExe, arg, options.interval))
+  }
   if (!r.ok || !/REGISTERED/.test(r.text)) {
     process.stderr.write(`❌ 注册失败: ${r.text}\n`)
     return 1
@@ -206,7 +275,11 @@ Write-Output ('ARGS=' + $t.Actions[0].Arguments)
 Write-Output ('LASTRUN=' + $i.LastRunTime)
 Write-Output ('LASTRESULT=0x' + ('{0:X}' -f $i.LastTaskResult))
 `.trim()
-  const r = ps(script)
+  let r = ps(script)
+  if (!r.ok) {
+    // PS7 无 ScheduledTasks 模块:退回 Schedule.Service COM
+    r = ps(comQueryScript())
+  }
   if (!r.ok) {
     process.stdout.write(`未安装:计划任务 ${TASK_NAME} 不存在(或查询失败)\n`)
     return 0
@@ -217,9 +290,13 @@ Write-Output ('LASTRESULT=0x' + ('{0:X}' -f $i.LastTaskResult))
 }
 
 function doUnregister() {
-  const r = ps(
+  let r = ps(
     `$ErrorActionPreference='Stop'; Unregister-ScheduledTask -TaskName ${psQuote(TASK_NAME)} -Confirm:$false; Write-Output 'DELETED'`,
   )
+  if (!r.ok) {
+    // PS7 无 ScheduledTasks 模块:退回 Schedule.Service COM
+    r = ps(comUnregisterScript())
+  }
   if (!r.ok) {
     process.stdout.write(`未删除(可能本就不存在): ${r.text}\n`)
     return 0
@@ -229,9 +306,13 @@ function doUnregister() {
 }
 
 function doRunNow() {
-  const r = ps(
+  let r = ps(
     `$ErrorActionPreference='Stop'; Start-ScheduledTask -TaskName ${psQuote(TASK_NAME)}; Write-Output 'STARTED'`,
   )
+  if (!r.ok || !/STARTED/.test(r.text)) {
+    // PS7 无 ScheduledTasks 模块:退回 Schedule.Service COM
+    r = ps(comRunNowScript())
+  }
   if (!r.ok || !/STARTED/.test(r.text)) {
     process.stderr.write(`❌ 触发失败(任务未注册?): ${r.text}\n`)
     return 1
