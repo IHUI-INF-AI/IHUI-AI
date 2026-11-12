@@ -1108,7 +1108,11 @@ goalCmd
           return { stopReason: r.stopReason, assistantText: r.assistantText };
         },
       },
-    );
+    ).catch((e: unknown) => {
+      // 判据非法是**用户输入错误**,不是崩溃 —— 不能让它冒泡到全局 crash handler
+      // (那会打印 "Crash log: ... 请在 GitHub issue 附上",把参数写错说成程序 bug)。
+      errorExit(chalk.red(e instanceof Error ? e.message : String(e)));
+    });
 
     if (res.outcomeKind === 'achieved') process.exitCode = 0;
     else if (res.outcomeKind === 'exhausted' || res.outcomeKind === 'timed-out') process.exitCode = 2;
