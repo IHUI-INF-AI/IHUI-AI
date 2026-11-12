@@ -452,6 +452,130 @@ fn dpapi_unprotect_native(data: &[u8]) -> Result<Vec<u8>, String> {
     }
 }
 
+/// 有界执行子进程:派生 + `try_wait` 轮询 + 超时 `kill()`/`wait()` 回收。
+///
+/// 工单 F-054/F-058:裸 `.output()` 没有超时,外部脚本/第三方 exe 一挂起就把命令线程
+/// 永久占住,超时方还会留下孤儿进程;这里主线程始终持有 `child`,保证超时能真杀掉。
+/// 读管道走独立线程 + 短宽限,避免子进程写满管道缓冲时与 `try_wait` 互等。
+fn run_command_bounded(
+    mut cmd: std::process::Command,
+    timeout: std::time::Duration,
+) -> Result<std::process::Output, String> {
+    cmd.stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped());
+    let mut child = cmd.spawn().map_err(|e| format!("启动子进程失败: {e}"))?;
+    let out_pipe = child.stdout.take();
+    let err_pipe = child.stderr.take();
+
+    let (otx, orx) = std::sync::mpsc::channel::<(Vec<u8>, Option<String>)>();
+    if let Some(mut pipe) = out_pipe {
+        std::thread::spawn(move || {
+            use std::io::Read;
+            let mut buf = Vec::new();
+            let msg = match pipe.read_to_end(&mut buf) {
+                Ok(_) => (buf, None),
+                Err(e) => (Vec::new(), Some(e.to_string())),
+            };
+            let _ = otx.send(msg);
+        });
+    }
+    let (etx, erx) = std::sync::mpsc::channel::<(Vec<u8>, Option<String>)>();
+    if let Some(mut pipe) = err_pipe {
+        std::thread::spawn(move || {
+            use std::io::Read;
+            let mut buf = Vec::new();
+            let msg = match pipe.read_to_end(&mut buf) {
+                Ok(_) => (buf, None),
+                Err(e) => (Vec::new(), Some(e.to_string())),
+            };
+            let _ = etx.send(msg);
+        });
+    }
+
+    let deadline = std::time::Instant::now() + timeout;
+    let mut status: Option<std::process::ExitStatus> = None;
+    let mut wait_error: Option<String> = None;
+    loop {
+        match child.try_wait() {
+            Ok(Some(st)) => {
+                status = Some(st);
+                break;
+            }
+            Ok(None) => {
+                if std::time::Instant::now() >= deadline {
+                    break;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(20));
+            }
+            Err(e) => {
+                wait_error = Some(format!("等待子进程状态失败: {e}"));
+                break;
+            }
+        }
+    }
+    let timed_out = status.is_none() && wait_error.is_none();
+    if status.is_none() {
+        let _ = child.kill();
+        let _ = child.wait();
+    }
+
+    // 进程已退出/已杀掉 ⇒ 管道必然收尾,给一小段宽限而不是继续等满预算。
+    let pipe_deadline = std::time::Instant::now() + std::time::Duration::from_millis(500);
+    let recv_pipe = |rx: &std::sync::mpsc::Receiver<(Vec<u8>, Option<String>)>| {
+        let now = std::time::Instant::now();
+        let budget = if pipe_deadline > now {
+            pipe_deadline - now
+        } else {
+            std::time::Duration::from_millis(0)
+        };
+        rx.recv_timeout(budget).ok()
+    };
+    let mut stdout: Vec<u8> = Vec::new();
+    let mut stderr: Vec<u8> = Vec::new();
+    let mut pipe_error: Option<String> = None;
+    match recv_pipe(&orx) {
+        Some((buf, None)) => stdout = buf,
+        Some((_, Some(e))) => pipe_error = Some(format!("读 stdout 失败: {e}")),
+        None => {
+            if !timed_out && wait_error.is_none() {
+                pipe_error = Some("stdout 通道在宽限内未返回(读线程失联)".into());
+            }
+        }
+    }
+    match recv_pipe(&erx) {
+        Some((buf, None)) => stderr = buf,
+        Some((_, Some(e))) => {
+            if pipe_error.is_none() {
+                pipe_error = Some(format!("读 stderr 失败: {e}"));
+            }
+        }
+        None => {
+            if pipe_error.is_none() && !timed_out && wait_error.is_none() {
+                pipe_error = Some("stderr 通道在宽限内未返回(读线程失联)".into());
+            }
+        }
+    }
+
+    if let Some(e) = wait_error {
+        return Err(e);
+    }
+    if timed_out {
+        return Err(format!(
+            "子进程在 {}ms 内未返回(已强杀)",
+            timeout.as_millis()
+        ));
+    }
+    if let Some(e) = pipe_error {
+        return Err(e);
+    }
+    Ok(std::process::Output {
+        status: status.unwrap(),
+        stdout,
+        stderr,
+    })
+}
+
 #[cfg(windows)]
 fn dpapi_unprotect_powershell(data: &[u8]) -> Result<Vec<u8>, String> {
     let script = format!(
@@ -462,10 +586,10 @@ fn dpapi_unprotect_powershell(data: &[u8]) -> Result<Vec<u8>, String> {
          [Convert]::ToBase64String($o)",
         B64_STD.encode(data)
     );
-    let out = std::process::Command::new("powershell")
-        .args(["-NoProfile", "-NonInteractive", "-Command", &script])
-        .output()
-        .map_err(|e| format!("启动 powershell 失败: {e}"))?;
+    let mut cmd = std::process::Command::new("powershell");
+    cmd.args(["-NoProfile", "-NonInteractive", "-Command", &script]);
+    let out = run_command_bounded(cmd, std::time::Duration::from_secs(20))
+        .map_err(|e| format!("powershell 解保护失败: {e}"))?;
     if !out.status.success() {
         return Err(format!(
             "powershell 退出码 {:?}: {}",
@@ -2696,38 +2820,28 @@ fn audit_sites_present() -> usize {
         .count()
 }
 
-/// 跑一段内建脚本并回收输出。带**真超时**(mpsc + recv_timeout):
+/// 跑一段内建脚本并回收输出。带**真超时**:超时后子进程会被 `kill()`+`wait()` 回收,
+/// 不再像旧实现那样把读线程和 `powershell.exe` 一起漏在后台。
 /// 旧审计脚本正是栽在 powershell 递归枚举整个注册表 hive 上 120s 超时 ETIMEDOUT。
 fn run_ps_capture(script: &str, timeout: std::time::Duration) -> Result<Vec<String>, String> {
-    let owned = script.to_string();
-    let (tx, rx) = std::sync::mpsc::channel();
-    std::thread::spawn(move || {
-        let mut cmd = std::process::Command::new("powershell");
-        cmd.args(["-NoProfile", "-NonInteractive", "-Command", &owned]);
-        // `creation_flags_if_windows` 本身是 #[cfg(windows)] 的 —— 本函数未按平台拆分,
-        // 故这行必须自带 cfg 门,否则 Linux/macOS 编译单元里找不到它(E0425)。
-        // 2026-10-10 真教训:本地 Windows `cargo test` 全绿,CI 三平台才炸。
-        #[cfg(windows)]
-        creation_flags_if_windows(&mut cmd, 0x0800_0000);
-        let _ = tx.send(cmd.output());
-    });
-    match rx.recv_timeout(timeout) {
-        Ok(Ok(out)) if out.status.success() => Ok(String::from_utf8_lossy(&out.stdout)
+    let mut cmd = std::process::Command::new("powershell");
+    cmd.args(["-NoProfile", "-NonInteractive", "-Command", script]);
+    // `creation_flags_if_windows` 本身是 #[cfg(windows)] 的 —— 本函数未按平台拆分,
+    // 故这行必须自带 cfg 门,否则 Linux/macOS 编译单元里找不到它(E0425)。
+    // 2026-10-10 真教训:本地 Windows `cargo test` 全绿,CI 三平台才炸。
+    #[cfg(windows)]
+    creation_flags_if_windows(&mut cmd, 0x0800_0000);
+    let out = run_command_bounded(cmd, timeout)?;
+    if out.status.success() {
+        Ok(String::from_utf8_lossy(&out.stdout)
             .lines()
             .map(|l| l.trim().to_string())
             .filter(|l| !l.is_empty())
-            .collect()),
-        Ok(Ok(out)) => {
-            let err = String::from_utf8_lossy(&out.stderr);
-            let first = err.lines().next().unwrap_or("").chars().take(80).collect::<String>();
-            Err(format!("脚本返回非零: {first}"))
-        }
-        Ok(Err(e)) => Err(format!("无法启动内建脚本: {e}")),
-        // 超时:工作线程被丢弃(脚本进程随宿主退出被系统回收),只降级提示不判红
-        Err(_) => Err(format!(
-            "脚本执行超过 {}s,已放弃(不影响应用层审计结论)",
-            timeout.as_secs()
-        )),
+            .collect())
+    } else {
+        let err = String::from_utf8_lossy(&out.stderr);
+        let first = err.lines().next().unwrap_or("").chars().take(80).collect::<String>();
+        Err(format!("脚本返回非零: {first}"))
     }
 }
 
@@ -3210,7 +3324,7 @@ fn ensure_machine_guid_backup() -> Result<String, String> {
     let mut cmd = std::process::Command::new("powershell");
     cmd.args(["-NoProfile", "-NonInteractive", "-Command", script]);
     creation_flags_if_windows(&mut cmd, 0x0800_0000);
-    match cmd.output() {
+    match run_command_bounded(cmd, std::time::Duration::from_secs(20)) {
         Ok(out) if out.status.success() => {
             let v = String::from_utf8_lossy(&out.stdout).trim().to_string();
             if v.is_empty() {
@@ -3220,7 +3334,7 @@ fn ensure_machine_guid_backup() -> Result<String, String> {
             }
         }
         Ok(_) => Err("读取 MachineGuid 失败(无权限?)".into()),
-        Err(e) => Err(format!("无法启动内建脚本: {e}")),
+        Err(e) => Err(e),
     }
 }
 
@@ -3825,7 +3939,8 @@ fn qoder_umid_identity(install_roots: &[PathBuf]) -> (String, String, String) {
         cmd.stdout(std::process::Stdio::piped());
         cmd.stderr(std::process::Stdio::null());
         creation_flags_if_windows(&mut cmd, 0x0800_0000);
-        if let Ok(out) = cmd.output() {
+        // 第三方 exe 挂起不得永久占住命令线程(F-058):5s 内不返回即强杀。
+        if let Ok(out) = run_command_bounded(cmd, std::time::Duration::from_secs(5)) {
             if !out.status.success() {
                 continue;
             }
@@ -5587,6 +5702,38 @@ mod tests {
         }
     }
 
+
+    // ── 9c. 进程有界执行(F-054/F-058) ──
+
+    #[cfg(windows)]
+    #[test]
+    fn run_command_bounded_returns_output_on_normal_exit() {
+        let mut cmd = std::process::Command::new("cmd");
+        cmd.args(["/C", "echo bounded-ok"]);
+        let out = run_command_bounded(cmd, std::time::Duration::from_secs(10))
+            .expect("短命子进程应正常返回");
+        assert!(out.status.success());
+        assert!(
+            String::from_utf8_lossy(&out.stdout).contains("bounded-ok"),
+            "stdout 应被回收"
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn run_command_bounded_kills_child_and_reports_timeout() {
+        let mut cmd = std::process::Command::new("cmd");
+        // 约 29s 的短命但超预算进程:若未 kill,本测试会被拖住。
+        cmd.args(["/C", "ping -n 30 127.0.0.1 > nul"]);
+        let started = std::time::Instant::now();
+        let err = run_command_bounded(cmd, std::time::Duration::from_millis(300))
+            .expect_err("超时必须返回明确错误,不得用空输出冒充结果");
+        assert!(err.contains("未返回") && err.contains("已强杀"), "超时错误应明确: {err}");
+        assert!(
+            started.elapsed() < std::time::Duration::from_secs(10),
+            "超时路径必须及时返回(kill+wait 不得等待脚本自然结束)"
+        );
+    }
 
     // ── 9d. 真机实测(#[ignore]:显式跑;硬护栏=G:/trae-real-test-backup 备份齐备)──
     // 在本机真实 TRAE 现场(已全量备份)上真跑 UI 按钮同款的**重置本体** reset_device_ids_core

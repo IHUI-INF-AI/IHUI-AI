@@ -31,10 +31,14 @@ def _authorize_session(request: Request, session_id: str) -> None:
     role_id = getattr(request.state, "role_id", 0) or 0
     is_admin = int(role_id) >= 1
     session = agent_runtime._find_session(session_id)
-    if session is not None:
-        owner = getattr(session, "user_id", "") or ""
-        if owner and owner != user_id and not is_admin:
-            raise HTTPException(status_code=403, detail="无权访问他人会话")
+    # AIS-044: 会话取不到即 404;空属主(历史遗留)会话视为不可读,非管理员拒绝。
+    if session is None:
+        raise HTTPException(status_code=404, detail="session not found")
+    owner = getattr(session, "user_id", "") or ""
+    if not owner and not is_admin:
+        raise HTTPException(status_code=404, detail="session not found")
+    if owner and owner != user_id and not is_admin:
+        raise HTTPException(status_code=403, detail="无权访问他人会话")
 
 
 @router.get("", response_model=dict[str, Any])

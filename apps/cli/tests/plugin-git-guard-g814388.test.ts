@@ -78,7 +78,9 @@ describe('G-814388 出口封顶:runGit 等价面(execGitCapped)对 git 派生传
     expect(r.maxBufferBytes).toBeGreaterThan(1024 * 1024); // 高于 Node 默认 1MB,否则大仓 clone 必 ENOBUFS
     expect(r.killSignal).toBe(GIT_KILL_SIGNAL);
     expect(r.windowsHide).toBe(true);
-    expect(r.stdio).toBe('pipe');
+    // F-024:与 git-shared.ts 约定对齐 —— stdin 必须 ignore(Windows 建 stdin 管道会 EBUSY),
+    // stdout/stderr 仍 pipe(输出采集与 maxBuffer 封顶依赖它们)。
+    expect(r.stdio).toEqual(['ignore', 'pipe', 'pipe']);
   });
 
   it('真派生:挂起进程在 timeoutMs 内被杀(GitCommandTimeoutError / code=ETIMEDOUT / 消息点名 killSignal)', () => {

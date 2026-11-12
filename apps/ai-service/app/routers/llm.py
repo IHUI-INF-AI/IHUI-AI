@@ -20,7 +20,7 @@ import os
 import time
 import uuid
 from collections import Counter
-from collections.abc import AsyncIterator, Mapping
+from collections.abc import AsyncIterator, Callable, Mapping
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -7502,7 +7502,15 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                     injections=injection_frames,
                     compaction_info=compaction_info,
                     retry_notice=retry_notices[-1] if retry_notices else None,
-                    usage_detail=_usage_detail,
+                    # AIS-007:这一句在 finally **顶部**求值,而 usage 数据块要等
+                    # 下面那段 finally 才写入 `_usage_detail`(旧实现此处恒为 None)。
+                    # 但 create_task 里传的是**协程**而非 dict —— 实参到协程真正被调度
+                    # 时才求值,本段 finally 是同步的(无 await),而 finally 之后到
+                    # loop 让出控制权给该 task 之间没有任何 await 能插入 ⇒ 到协程开跑时
+                    # `_usage_detail` 必已就位。为 dispose 这个时序脆弱点,这里用一个
+                    # 惰性可调用包住取值,让"取时"显式落在协程体内(与既有
+                    # usage_detail=_usage_detail 语义等价,但不受顺序改动影响)。
+                    usage_detail=_lazy_usage_detail(lambda: _usage_detail),
                     fallback=fallback_records[-1] if fallback_records else None,
                     memory_updates=_mem_updates if _mem_updates else None,
                     steer_applied=steer_applied or None,
@@ -7719,7 +7727,20 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                         "model": accumulated.get("model"),
                         "costUsd": _cost_usd,
                     }
-                yield _sse(SSE_USAGE, _usage_frame)
+                # AIS-006:客户端已断开(_stream_exiting 置位的 GeneratorExit /
+                # CancelledError 路径)时**不得**再 yield —— 那一档客户端已经走了,
+                # 在关闭期 yield 会触发 "async generator ignored GeneratorExit",
+                # 被下面的 except Exception 吞成 warning,既送不出帧又掩盖真实收尾异常。
+                # 与上方 hook 失败补发(_tail_hook_failures 的 `if _stream_exiting`
+                # 分支)同一判据,此处旧实现无条件 yield 与注释宣称相反。
+                if _stream_exiting:
+                    logger.info(
+                        "[usage] 流已退出,计量帧不发送(客户端已断开) model=%s tokens=%s",
+                        accumulated.get("model"),
+                        (_u.get("total_tokens") or _u.get("totalTokens")),
+                    )
+                else:
+                    yield _sse(SSE_USAGE, _usage_frame)
             except GeneratorExit:
                 # 客户端断开/取消:放弃计量帧,保持生成器关闭语义(不吞没 GeneratorExit)
                 raise
@@ -8789,6 +8810,38 @@ def _is_allowed_callback_target(url: str) -> bool:
     )
 
 
+class _LazyUsageDetail:
+    """usageDetail 的"取时延后到协程体内"包装(AIS-007)。
+
+    背景:`gen()` 的 finally **顶部**要 fire 中断回调(客户端断开/取消时必须先把
+    "已到达本进程的半截答案"落库),而同一次 finally **后部**才计算并赋值
+    `_usage_detail`。直接传 `usage_detail=_usage_detail` 在语义上是可行的
+    (create_task 收到的协程到真正被调度才求值实参,而 finally 是同步段,中间无
+    await 可插入),但那是"依赖调度时序"的隐式契约 —— 任何人往 finally 里加一个
+    await,断线落库的用量就重新变 NULL 且无声无息。
+
+    这里把取值显式延到 `_fire_callback` 体内(resolve 在第一个 await 之前同步完成),
+    时序不再依赖"finally 里不许有 await"。仅承载一个零参可调用,不持有引用生命周期。
+    """
+
+    __slots__ = ("_getter",)
+
+    def __init__(self, getter: Callable[[], dict[str, Any] | None]) -> None:
+        self._getter = getter
+
+    def resolve(self) -> dict[str, Any] | None:
+        try:
+            value = self._getter()
+        except Exception:  # noqa: BLE001 - 取不到就按"没有用量"落库,绝不阻塞回调
+            return None
+        return value if isinstance(value, dict) else None
+
+
+def _lazy_usage_detail(getter: Callable[[], dict[str, Any] | None]) -> _LazyUsageDetail:
+    """构造惰性 usageDetail(AIS-007;语义见 `_LazyUsageDetail`)。"""
+    return _LazyUsageDetail(getter)
+
+
 async def _fire_callback(
     url: str,
     payload: dict[str, Any],
@@ -8799,7 +8852,7 @@ async def _fire_callback(
     injections: list[dict[str, Any]] | None = None,
     compaction_info: dict[str, Any] | None = None,
     retry_notice: dict[str, Any] | None = None,
-    usage_detail: dict[str, Any] | None = None,
+    usage_detail: dict[str, Any] | _LazyUsageDetail | None = None,
     fallback: dict[str, Any] | None = None,
     memory_updates: list[str] | None = None,
     steer_applied: list[dict[str, Any]] | None = None,
@@ -8836,6 +8889,11 @@ async def _fire_callback(
     import logging
 
     logger = logging.getLogger(__name__)
+    # AIS-007:惰性 usage_detail —— finally 顶部 fire 的"中断回调"必须先于 usage 计算
+    # 提交任务,而参数在协程体内才该取值。传进来的若是 _LazyUsageDetail 就在这里解引用,
+    # 与普通 dict 同路。
+    if isinstance(usage_detail, _LazyUsageDetail):
+        usage_detail = usage_detail.resolve()
     body = {
         "content": payload.get("content", ""),
         "model": payload.get("model"),

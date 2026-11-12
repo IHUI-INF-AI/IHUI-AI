@@ -196,6 +196,72 @@ fn store_path_in(data_dir: &Path) -> PathBuf {
     data_dir.join(STORE_FILE_NAME)
 }
 
+/// 同目录兄弟路径:在主文件名后直接追加后缀(`.tmp` / `.bak`)。
+///
+/// 为什么不用 `with_extension`:它会把 `.json` 吃掉,产出 `browser-bookmarks.tmp`,
+/// 与既有 `browser-store.json.tmp` 先例不一致,也更容易和别家文件撞名。
+fn sibling_path(path: &Path, suffix: &str) -> PathBuf {
+    let name = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or(STORE_FILE_NAME);
+    path.with_file_name(format!("{name}{suffix}"))
+}
+
+/// 原子落盘:同目录写临时文件 → fsync → rename 覆盖目标。
+///
+/// 先例见 `browser_store.rs::write_now`;这里额外 `sync_all`,避免断电后
+/// rename 生效但内容仍在页缓存里(旧实现 `fs::write` 同样是"半截 JSON"的来源)。
+/// Windows 上目标被占用时 `rename` 会失败,退一步摘掉旧档再重试——最坏只是短暂缺档,
+/// 不会留下写了一半的文件。
+fn write_atomic(path: &Path, bytes: &[u8]) -> Result<(), String> {
+    use std::io::Write;
+
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir)
+            .map_err(|e| format!("创建书签目录失败({}): {e}", dir.display()))?;
+    }
+    let tmp = sibling_path(path, ".tmp");
+    {
+        let mut file = std::fs::File::create(&tmp)
+            .map_err(|e| format!("创建临时书签文件失败({}): {e}", tmp.display()))?;
+        file.write_all(bytes)
+            .map_err(|e| format!("写入临时书签文件失败({}): {e}", tmp.display()))?;
+        file.sync_all()
+            .map_err(|e| format!("刷盘书签文件失败({}): {e}", tmp.display()))?;
+    }
+    match std::fs::rename(&tmp, path) {
+        Ok(()) => Ok(()),
+        Err(err) => {
+            if !path.exists() {
+                let _ = std::fs::remove_file(&tmp);
+                return Err(format!("替换书签文件失败({}): {err}", path.display()));
+            }
+            let _ = std::fs::remove_file(path);
+            // 重试仍失败时**保留** tmp(里面是完整 JSON),避免这一次改动连内容都丢掉。
+            std::fs::rename(&tmp, path).map_err(|e| {
+                format!(
+                    "替换书签文件失败({}),新数据暂存于 {}: {e}",
+                    path.display(),
+                    tmp.display()
+                )
+            })
+        }
+    }
+}
+
+/// 解析失败时把坏档挪到 `<name>.bak`,避免下一次写把它静默覆盖。
+///
+/// 先试 `rename`(原子挪走);目标被占用时退化为复制(原件仍在,但内容已备份)。
+/// 备份本身失败只记日志,不阻断读取——宁可继续跑空数据,也不能让命令报错。
+fn backup_corrupt_file(path: &Path) -> Option<PathBuf> {
+    let bak = sibling_path(path, ".bak");
+    if std::fs::rename(path, &bak).is_ok() {
+        return Some(bak);
+    }
+    std::fs::copy(path, &bak).ok().map(|_| bak)
+}
+
 fn store_path(app: &AppHandle) -> Result<PathBuf, String> {
     let data_dir = app
         .path()
@@ -204,7 +270,8 @@ fn store_path(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(store_path_in(&data_dir))
 }
 
-/// 读 + 归一。文件缺失/损坏一律回退空数据(首次运行属正常形态,不冒泡成错误)。
+/// 读 + 归一。文件缺失回退空数据(首次运行属正常形态,不冒泡成错误);
+/// 损坏则先把坏档另存 `.bak` 再回退空数据,保证数据可人工找回而非静默丢弃。
 fn load_data_from(path: &Path) -> BrowserData {
     let raw = match std::fs::read(path) {
         Ok(bytes) => bytes,
@@ -218,24 +285,26 @@ fn load_data_from(path: &Path) -> BrowserData {
             data
         }
         Err(e) => {
-            log::warn!(
-                "[browser-bookmarks] {} 解析失败({e}),整份回退空数据",
-                path.display()
-            );
+            match backup_corrupt_file(path) {
+                Some(bak) => log::warn!(
+                    "[browser-bookmarks] {} 解析失败({e}),坏档已另存 {},回退空数据",
+                    path.display(),
+                    bak.display()
+                ),
+                None => log::warn!(
+                    "[browser-bookmarks] {} 解析失败({e}),坏档另存 .bak 失败,回退空数据",
+                    path.display()
+                ),
+            }
             BrowserData::default()
         }
     }
 }
 
 fn save_data_to(path: &Path, data: &BrowserData) -> Result<(), String> {
-    if let Some(dir) = path.parent() {
-        std::fs::create_dir_all(dir)
-            .map_err(|e| format!("创建书签目录失败({}): {e}", dir.display()))?;
-    }
     let bytes = serde_json::to_vec_pretty(data)
         .map_err(|e| format!("序列化书签数据失败: {e}"))?;
-    std::fs::write(path, bytes)
-        .map_err(|e| format!("写入书签文件失败({}): {e}", path.display()))
+    write_atomic(path, &bytes)
 }
 
 // ==================== Tauri 命令(薄胶水)====================
@@ -500,5 +569,72 @@ mod tests {
             store_path_in(dir),
             std::path::Path::new("C:/app-data").join(STORE_FILE_NAME)
         );
+    }
+
+    /// 每个用例独占一个临时子目录,退出时清理。
+    fn temp_dir(tag: &str) -> PathBuf {
+        static SEQ: AtomicU64 = AtomicU64::new(0);
+        let dir = std::env::temp_dir().join(format!(
+            "ihui-bookmarks-{tag}-{}-{}",
+            std::process::id(),
+            SEQ.fetch_add(1, Ordering::Relaxed)
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("创建临时目录");
+        dir
+    }
+
+    fn sample_data(url: &str) -> BrowserData {
+        BrowserData {
+            bookmarks: vec![Bookmark {
+                id: "bm-1".into(),
+                url: url.into(),
+                title: "书签".into(),
+                created_at: 1,
+            }],
+            history: vec![HistoryEntry {
+                url: url.into(),
+                title: "历史".into(),
+                visited_at: 2,
+            }],
+        }
+    }
+
+    #[test]
+    fn save_is_atomic_and_leaves_no_tmp_file() {
+        let dir = temp_dir("atomic");
+        let path = store_path_in(&dir);
+
+        save_data_to(&path, &sample_data("https://aizhs.top/")).expect("首次落盘");
+        assert!(path.is_file());
+        assert!(!sibling_path(&path, ".tmp").exists(), "临时文件应已被 rename 掉");
+        assert_eq!(load_data_from(&path).bookmarks.len(), 1);
+
+        // 覆盖已存在文件:内容换掉且同样不留 tmp。
+        save_data_to(&path, &sample_data("http://example.com/")).expect("覆盖落盘");
+        assert!(!sibling_path(&path, ".tmp").exists());
+        let loaded = load_data_from(&path);
+        assert_eq!(loaded.bookmarks.len(), 1);
+        assert_eq!(loaded.bookmarks[0].url, "http://example.com/");
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn corrupt_store_is_backed_up_instead_of_silently_dropped() {
+        let dir = temp_dir("corrupt");
+        let path = store_path_in(&dir);
+        let garbage = b"{ this is not json";
+        std::fs::write(&path, garbage).expect("写入坏档");
+
+        let loaded = load_data_from(&path);
+        assert!(loaded.bookmarks.is_empty());
+        assert!(loaded.history.is_empty());
+
+        let bak = sibling_path(&path, ".bak");
+        assert!(bak.is_file(), "坏档应另存为 {}", bak.display());
+        assert_eq!(std::fs::read(&bak).expect("读备份"), garbage);
+
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

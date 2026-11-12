@@ -9,7 +9,7 @@
 
 import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { spawnSync } from 'node:child_process';
+import { execGit } from './git-shared.js';
 
 /** agent 专属 worktree 分支前缀(唯一分支名 agent-wt-<uuid8>) */
 export const AGENT_BRANCH_PREFIX = 'agent-wt-';
@@ -28,20 +28,24 @@ export interface GitResult {
   stderr: string;
 }
 
-/** 执行 git 命令(spawnSync 直调,非 shell,Windows 兼容) */
-export function runGit(args: string[], cwd: string): GitResult {
-  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-  const r = spawnSync('git', args, {
-    cwd,
-    encoding: 'utf-8',
-    windowsHide: true,
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
+/**
+ * 执行 git 命令(统一走 `git-shared.ts#execGit`:resolveGitBinary 解析 + git-runner 分档预算
+ * (本地 90s / 网络族 120s)+ 10MiB 输出帽 + env 白名单投影 + killSignal)。
+ *
+ * 失败分档一律经 stderr 透出,不得落成"空输出的失败":
+ *  - 超时/输出超限 ⇒ `[git-capped] timeout|output-too-large ...`(且 stdout 已作废,不返回半截内容);
+ *  - git 根本没跑起来(ENOENT/EACCES)⇒ `[git-spawn-error] git 不可用(CODE) ...`。
+ * status 仍是三态语义(0 / 1 / 其它);被杀或没跑起来记 -1(与旧行为一致)。
+ */
+export function runGit(args: string[], cwd: string, opts?: { timeoutMs?: number }): GitResult {
+  const r = execGit(args, cwd, opts?.timeoutMs === undefined ? {} : { timeoutMs: opts.timeoutMs });
   return {
-    ok: r.status === 0,
-    status: typeof r.status === 'number' ? r.status : -1,
-    stdout: typeof r.stdout === 'string' ? r.stdout.trim() : '',
-    stderr: typeof r.stderr === 'string' ? r.stderr.trim() : '',
+    ok: r.exitCode === 0,
+    // 被超时/超输出封顶杀、或 git 根本没跑起来 ⇒ exitCode=null ⇒ 与旧行为一致记 -1
+    status: typeof r.exitCode === 'number' ? r.exitCode : -1,
+    stdout: r.stdout.trim(),
+    // 封顶档/派生失败档的诊断行(`[git-capped]` / `[git-spawn-error]`)已在 stderr 里 ⇒ 调用方可见
+    stderr: r.stderr.trim(),
   };
 }
 
