@@ -98,15 +98,17 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 5136 | `testFiles` |
+| 测试文件 | 5141 | `testFiles` |
 | CI 工作流 | 59 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 363 | `guardianGates` |
 | — blocking | 334 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 21251 | `trackedFiles` |
+| 跟踪文件 | 21274 | `trackedFiles` |
+
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-12。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
+
 <!-- END GENERATED NUMBERS -->
 **一句话口径**:数字一律现读,文档里不写「约 N 个」——那种写法必然腐烂。
 ---
@@ -5468,6 +5470,7 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-13**
 - 🐞 修复:F-20 积分任务日界 / F-23 支付宝退款整数分比较 (9e63bf2ec48)
+
 **2026-11-13**
 - 🐞 修复:AIS-077 知识卡注入面属主裁剪 + AIS-046 审计接口分工说明 (4fa66bc12b9)
 - 🔧 工程/其他:一键切号排序补 4 道变异判据 + 桌面 README 沉淀三层入口 + 补 2 枚并发提交具名追认 (eccf5d6d6fc)
@@ -5491,6 +5494,7 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:偿还 mypy 存量 20 条类型债务(签到引擎族,全为类型收窄无行为变更) (045d8717695)
 - 🐞 修复:tmp-probe-exchg 载荷类型收回 TraeTokenPayload, 消同族类型不兼容 (8352346ead0)
 - 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (b244888ad08)
+
 **2026-11-12**
 - 🔧 工程/其他:check-acp-error-mapping 入属主登记表 unowned 面 (be20c8441f1)
 - 🐞 修复:trae 凭证被拒(1001)按 SessionDead 收口, 预检命中即止不再发 claim (b6001fda949)
@@ -5725,6 +5729,7 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🔧 工程/其他:结清 F-049/F-050/F-051/F-055/F-057/F-059/F-108/F-110 八张缺陷普查工单 (1979716b829)
 - 🐞 修复:结清 F-049/F-050/F-051/F-055/F-057/F-059/F-108/F-110 八张缺陷普查工单 (e9c1ed47a81)
 - 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (184452a399d)
+
 **2026-11-12**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (ab2ff127e8)
 - 🐞 修复:跨环境同步按 email 翻译号池归属,根治 owner_user_id 悬空互推 (e5e2b5d637)
@@ -7517,5 +7522,3 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🔧 工程/其他:结清 F-049/F-050/F-051/F-055/F-057/F-059/F-108/F-110 八张缺陷普查工单 (1979716b829)
 - 🐞 修复:结清 F-049/F-050/F-051/F-055/F-057/F-059/F-108/F-110 八张缺陷普查工单 (e9c1ed47a81)
 - 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (184452a399d)
-| 测试文件 | 5138 | `testFiles` |
-| 跟踪文件 | 21271 | `trackedFiles` |
