@@ -14,7 +14,8 @@ import {
 } from '../services/ai/plot-advisor-service.js'
 
 const enhanceBodySchema = z.object({
-  title: z.transform(emptyToUndefined).pipe(z.string().optional()),
+  // F-437: title 无长度上限会让单请求逼近 Fastify 1MB 上限并放大内存态
+  title: z.transform(emptyToUndefined).pipe(z.string().max(200).optional()),
 })
 
 const enhanceLineBodySchema = z.object({
@@ -34,7 +35,7 @@ export const dramaRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /drama/scripts/:id/enhance — 整体增强（角色一致性 + 节奏分析 + 章节大纲建议）
   server.post('/drama/scripts/:id/enhance', async (request, reply) => {
-    const { id } = z.object({ id: z.string() }).parse(request.params)
+    const { id } = z.object({ id: z.string().min(1).max(200) }).parse(request.params)
     const parsed = enhanceBodySchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
