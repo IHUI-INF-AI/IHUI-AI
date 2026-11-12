@@ -85,10 +85,10 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | ---- | ---- | ------ |
 | 数据库表 | 639 | `dbTables` |
 | schema 文件 | 246 | `dbSchemaFiles` |
-| API 路由 | 4768 | `apiRoutes` |
+| API 路由 | 4771 | `apiRoutes` |
 | 路由文件 | 694 | `apiRouteFiles` |
 | AI 服务路由 | 676 | `aiServiceRoutes` |
-| WebSocket 端点 | 30 | `wsEndpoints` |
+| WebSocket 端点 | 41 | `wsEndpoints` |
 | 入库模型清单 | 100 | `llmModels` |
 | 发布平台 | 38 | `publishPlatforms` |
 | 端应用包 | 9 | `appPackages` |
@@ -98,13 +98,13 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 5109 | `testFiles` |
+| 测试文件 | 5112 | `testFiles` |
 | CI 工作流 | 59 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 362 | `guardianGates` |
 | — blocking | 333 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 21180 | `trackedFiles` |
+| 跟踪文件 | 21184 | `trackedFiles` |
 
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-12。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
