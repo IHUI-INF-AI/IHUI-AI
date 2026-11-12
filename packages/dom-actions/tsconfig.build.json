@@ -8,5 +8,5 @@
     "incremental": false
   },
   "include": ["src/**/*.ts"],
-  "exclude": ["node_modules", "dist", "tests", "src/**/*.test.ts", "src/**/__tests__/**"]
+  "exclude": ["node_modules", "dist", "tests", "src/**/*.test.ts", "src/**/__tests__/**", "**/node_modules.*"]
 }
