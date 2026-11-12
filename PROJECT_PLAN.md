@@ -12240,8 +12240,8 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 12A. **缺陷普查 DG DG-12** [P3] 发布 tag 闸要求整树 porcelain 干净：多会话共享工作树下被他人 WIP 永久阻断（证据 docs/tickets/2026-11/findings-deploy-gates.md#DG-12）
 - [ ] 13A. **缺陷普查 DG DG-13** [P3] 部署门禁失败 → 回滚 → exit 0，按退出码记账的调用方会把失败轮记成成功（证据 docs/tickets/2026-11/findings-deploy-gates.md#DG-13）
 - [ ] 14A. **缺陷普查 DG DG-14** [P3] 元门档是「脚本名正则白名单」：新增门命名不命中即本地零通道，且没有门保证「每门至少一个阻断通道」（证据 docs/tickets/2026-11/findings-deploy-gates.md#DG-14）
-
-
+- [ ] 1B. **缺陷普查 WEB W-01** [P1] 考试倒计时用「每秒自减」而非截止时间戳，后台/锁屏可无限延长考试时间（证据 docs/tickets/2026-11/findings-web.md#W-01）〔2026-11-08 复核:截止戳派生已在主线;`fix/web-findings-1108` 合并仅是把就地实现提取为 `useDeadlineCountdown` 的**重构收敛(行为不变,非缺陷修复)**,后续勿记作本次修掉 W-01〕
+- [ ] 2B. **缺陷普查 WEB W-02** [P2] 管理端在线答题页存在同型倒计时缺陷（证据 docs/tickets/2026-11/findings-web.md#W-02）
 - [ ] 3B. **缺陷普查 WEB W-03** [P3] 退款详情失败时降级为「列表前 100 条匹配」，且静默丢失订单与审核记录（证据 docs/tickets/2026-11/findings-web.md#W-03）
 - [ ] 4B. **缺陷普查 WEB W-04** [P2] 提问弹窗未处理输入法组合态，中文按 Enter 选词会提前提交半截答案（证据 docs/tickets/2026-11/findings-web.md#W-04）
 - [ ] 5B. **缺陷普查 WEB W-05** [P3] 会话组织弹窗的标签输入同样缺少输入法组合态判断（证据 docs/tickets/2026-11/findings-web.md#W-05）
@@ -12249,11 +12249,11 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 7B. **缺陷普查 WEB W-07** [P2] 充值成功页把「支付二维码」和「金额」直接取自 URL 参数，可被构造链接用于支付钓鱼（证据 docs/tickets/2026-11/findings-web.md#W-07）
 - [ ] 1C. **缺陷普查 CLI F-001** [P0] run_tests 在 Windows 恒失败（Node ≥20.12 禁止无 shell 直启 .cmd）（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-001）
 - [ ] 2C. **缺陷普查 CLI F-045** [P0] 远程 capability 仍授予 store:default，同时新的受限通道未被授权（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-045）
-
-
-
-
-
+- [ ] 5C. **缺陷普查 CLI F-004** [P1] POSIX 沙箱超时可能永不返回（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-004）（未判定：POSIX 进程组/管道超时语义在 Windows 不可达，无法起旧红夹具；不计入已修）
+- [ ] 6C. **缺陷普查 CLI F-005** [P1] 会话/子代理状态文件权限位为 0644（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-005）（未判定：POSIX mode 位在 Windows 不可测，需 Unix 文件系统；不计入已修）
+- [ ] 10C. **缺陷普查 CLI F-046** [P1] 冷启动 ihui:// 深链必然丢失（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-046）
+- [ ] 11C. **缺陷普查 CLI F-047** [P1] take_pending_tray_actions 未进 capability，托盘菜单动作永不送达（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-047）
+- [ ] 12C. **缺陷普查 CLI F-053** [P1] 隔离区恢复接受任意目录，落点由被读目录的 manifest 决定（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-053）
 - [ ] 13C. **缺陷普查 CLI F-010** [P2] 错误写 stdout 且紧跟 process.exit（管道下丢输出）（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-010）
 - [ ] 14C. **缺陷普查 CLI F-011** [P2] --json 输出混入非 JSON 行（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-011）
 - [ ] 15C. **缺陷普查 CLI F-012** [P2] 无 prompt 的默认路径忽略 --json/非 TTY，直接进 REPL（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-012）
@@ -12303,15 +12303,15 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 59C. **缺陷普查 CLI F-059** [P3] 快照落地先删后换，失败即旧快照已毁（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-059）
 - [ ] 60C. **缺陷普查 CLI F-060** [P3] Cookie 整串经 IPC 回传前端 + expect 建客户端（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-060）
 - [ ] 61C. **缺陷普查 CLI F-062** [P1] WS 连接未挂 error 监听，单帧即可崩掉 serve 进程（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-062）
-
-
-
-
-
-
-
-
-
+- [ ] 62C. **缺陷普查 CLI F-069** [P1] 插件清单 name 未校验 → 安装落点逃逸，可整目录替换 ~/.ihui（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-069）
+- [ ] 63C. **缺陷普查 CLI F-070** [P1] 卸载 name 零校验 → 递归删除逃逸（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-070）
+- [ ] 64C. **缺陷普查 CLI F-073** [P1] 沙箱命令白名单只看首个 token，shell 元字符直接放行（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-073）
+- [ ] 65C. **缺陷普查 CLI F-074** [P1] 文件访问 ACL 可被 .. / 绝对路径 / 软链绕过（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-074）
+- [ ] 66C. **缺陷普查 CLI F-075** [P1] 出口策略 unjudged 一律不拦（fail-open）（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-075）
+- [ ] 67C. **缺陷普查 CLI F-080** [P1] write_text_file 无大小上限、非原子覆盖（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-080）（未判定：Rust 夹具为 helper 级，反向 apply 整笔会把夹具同 hunk 回退，拿不到「夹具保留+旧源码」组合；不计入已修）
+- [ ] 68C. **缺陷普查 CLI F-087** [P1] LSP initialize 失败后不回收子进程（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-087）
+- [ ] 69C. **缺陷普查 CLI F-088** [P1] 长期记忆整文件重写无锁、非原子（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-088）
+- [ ] 70C. **缺陷普查 CLI F-095** [P1] 回收站恢复信任 manifest 的 relativeTrashPath/originalPath，仓库可控任意文件搬移（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-095）
 - [ ] 71C. **缺陷普查 CLI F-063** [P2] WS 断连不取消在飞回合、发送无背压（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-063）
 - [ ] 72C. **缺陷普查 CLI F-064** [P2] HTTP 请求体无上限、SSE 无背压、无显式超时（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-064）
 - [ ] 73C. **缺陷普查 CLI F-065** [P2] 同会话并发回合共享消息数组，abort 相互覆盖（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-065）
@@ -12336,9 +12336,9 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 92C. **缺陷普查 CLI F-086** [P3] save_window_state 主线程同步写 + lock().unwrap()（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-086）
 - [ ] 93C. **缺陷普查 CLI F-093** [P3] 终端能力判定漏登 TERM 黑名单（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-093）
 - [ ] 94C. **缺陷普查 CLI F-096** [P0] 钩子信任门可被配置文件字段自证绕过 → 克隆仓库即执行任意 shell（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-096）
-
-
-
+- [ ] 95C. **缺陷普查 CLI F-097** [P1] 钩子派发非全局，读取/子代理/MCP 类工具静默绕过（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-097）
+- [ ] 96C. **缺陷普查 CLI F-098** [P1] 子代理网络与资源限制字段无生产写入方，防护是死代码（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-098）
+- [ ] 97C. **缺陷普查 CLI F-099** [P1] qoder/workbuddy 隔离区恢复缺确认闸且信任 manifest 根/相对路径（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-099）
 - [ ] 98C. **缺陷普查 CLI F-100** [P1] 内嵌页可伪造哨兵 URL → 导出 WorkBuddy 会话 Cookie（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-100）（未判定：Rust 夹具为 helper 级，反向 apply 整笔会把夹具同 hunk 回退，拿不到「夹具保留+旧源码」组合；不计入已修）
 - [ ] 99C. **缺陷普查 CLI F-101** [P1] 读侧 ACL 对子目录/越界 .env 失效（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-101）
 - [ ] 100C. **缺陷普查 CLI F-102** [P1] grep 完全绕过读侧 ACL，且接受任意绝对路径（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-102）
@@ -12445,14 +12445,14 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 46E. **缺陷普查 AIS AIS-046** [P2] 审计双数据源 + 成功码不一致（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-046）
 - [ ] 47E. **缺陷普查 AIS AIS-047** [P2] HTTP 写审计无操作主体，落库列也丢 user_id（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-047）
 - [ ] 48E. **缺陷普查 AIS AIS-048** [P2] 路由异常被转成 HTTP 200 + body code:500，并回吐 str(e)（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-048）
-
+- [ ] 58E. **缺陷普查 AIS AIS-058** [P1] 工具超时重试复用已置位 cancel_event，重试必被立即杀死（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-058）
 - [ ] 59E. **缺陷普查 AIS AIS-059** [P2] 空响应/输出截断被上报为 completed（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-059）
 - [ ] 60E. **缺陷普查 AIS AIS-060** [P2] max_iterations 用裸字符串，与枚举判据不一致（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-060）
 - [ ] 61E. **缺陷普查 AIS AIS-061** [P2] 续跑轮绕过 receipts_durable 探测（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-061）
 - [ ] 62E. **缺陷普查 AIS AIS-062** [P2] 只读工具并行批无并发上限（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-062）
 - [ ] 63E. **缺陷普查 AIS AIS-063** [P2] thread.resume 不回写消息历史（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-063）
 - [ ] 64E. **缺陷普查 AIS AIS-064** [P2] 审批等待不响应 cancel/pause（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-064）
-
+- [ ] 65E. **缺陷普查 AIS AIS-065** [P1] 原生 complete 非 ProviderError 异常绕过 fallback；空 choices 当成功（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-065）
 - [ ] 66E. **缺陷普查 AIS AIS-066** [P2] 200 + {"error":...} 被当成功（多 provider）（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-066）
 - [ ] 67E. **缺陷普查 AIS AIS-067** [P2] 原生 complete 业务错误先记 ok 再判定（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-067）
 - [ ] 68E. **缺陷普查 AIS AIS-068** [P2] 流式 error 帧不被识别（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-068）
@@ -12460,20 +12460,20 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 70E. **缺陷普查 AIS AIS-070** [P2] 号池重试无错误类型过滤、无退避（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-070）
 - [ ] 71E. **缺陷普查 AIS AIS-071** [P2] 视频/媒体轮询无总超时（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-071）
 - [ ] 72E. **缺陷普查 AIS AIS-072** [P3] embedding 静默丢向量（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-072）
-
+- [ ] 74E. **缺陷普查 AIS AIS-074** [P1] 交接回顾 IDOR：任意 thread_id 可被摘要（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-074）
 - [ ] 75E. **缺陷普查 AIS AIS-075** [P2] /api/admin/meta-learner 全族无角色校验（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-075）
 - [ ] 76E. **缺陷普查 AIS AIS-076** [P2] AI Skill 调用信任客户端 ownerUuid（借用他人模型配置）（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-076）
 - [ ] 77E. **缺陷普查 AIS AIS-077** [P2] 知识卡片文件无用户命名空间（跨租户读/覆盖）（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-077）
 - [ ] 78E. **缺陷普查 AIS AIS-078** [P2] agent_runtime 空属主会话 fail-open（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-078）
 - [ ] 79E. **缺陷普查 AIS AIS-079** [P3] 用量面缺角色门，自报用量无幂等（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-079）
-
+- [ ] 86E. **缺陷普查 AIS AIS-086** [P1] agent_runtime 取消只改状态，不终止在跑的 graph/SSE（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-086）
 - [ ] 87E. **缺陷普查 AIS AIS-087** [P2] thread.close 的 closed 状态被运行中的 finally 覆盖为 idle（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-087）
 - [ ] 88E. **缺陷普查 AIS AIS-088** [P2] Agent 主循环 total_tokens 只估算输出文本（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-088）
 - [ ] 89E. **缺陷普查 AIS AIS-089** [P2] thread 恢复丢失 approvalPolicies（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-089）
 - [ ] 90E. **缺陷普查 AIS AIS-090** [P2] agent_runtime 异常/断连不写终态（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-090）
 - [ ] 91E. **缺陷普查 AIS AIS-091** [P2] agent.exec(headless) 不复用线程关闭清理，泄漏 watcher/快照（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-091）
-
-
+- [ ] 111E. **缺陷普查 AIS AIS-111** [P1] 上下文压缩后 messages 重新绑定，线程历史丢失本轮（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-111）
+- [ ] 112E. **缺陷普查 AIS AIS-112** [P1] 正常收尾不把最终 assistant 消息写回 messages（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-112）
 - [ ] 113E. **缺陷普查 AIS AIS-113** [P2] 同一 thread 并发 prompt 的状态竞态（检查与置 running 跨 await）（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-113）
 - [ ] 114E. **缺陷普查 AIS AIS-114** [P2] 运行中 interrupt 立即保存半批次 checkpoint（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-114）
 - [ ] 115E. **缺陷普查 AIS AIS-115** [P2] 溢出恢复后的压缩列表未回写调用方（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-115）
@@ -13135,4 +13135,4 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] RP-46 (2026-11-12) **侧边栏新增「财务部」板块 + AI 一键代账 + AI 一键报税(插件形态深绑 AI 对话,实时进度回显)**(进行中@2026-11-12/finance-ai) ai-service 侧新增 ai_bookkeeping/ai_tax_filing 两个 MCP 工具(分阶段执行,过程走既有 tool-call/plan_updated SSE 帧实时回显)+ D09 财务专家包(触发词自动并入工具白名单与执行纪律);web AdminNav 在人事板块行旁增「财务部」入口 + /admin/finance-ai 板块页(一键代账/一键报税卡片,唤起 AISidePanel 自动发起结构化任务指令);miniapp-taro/RN 板块镜像与五语系 i18n 同批。
 
 - [ ] RP-48 (2026-11-12) **一键代账/报税的国标平台自动化腿(RP-46 续)**(进行中@2026-11-12/finance-ai2) ai_bookkeeping/ai_tax_filing 各增 phase=automation 确定性步骤计划器(电子税务局发票底账/银行回单/增值税与所得税申报预填/个税代扣/社保医保客户端,内置浏览器 browser_* 腿+原生客户端 computer_* 腿);submit 红线 manual_gate 默认/user_confirmed 复述确认,"auto" 禁用;前端 send 链真装 financeToolsFor(上轮报告超发认领的那格一并补正);板块页新增平台自动化卡+五语 i18n。
-- [ ] 〔归:逆向对标域｜等:—〕 RK-1 (2026-11-12) **REA 6.4.0 逆向 Qoder/Trae/WorkBuddy → 我方 ACP 协议面补齐**：① 已确证三家本体与 REA 取证（Qoder CN 0.5.6 `G:\Qoder CN\resources\app.asar` 4488 文件/4181 解析/31738 语义节点；Trae CN 3.4.17 `G:\Trae CN\resources\app` 6112 文件/4810 解析/30822 findings/IPC 76 操作·28 字面通道·54 主进程 handler；WorkBuddy 5.11.2 `G:\workbuddy` 已实装，与旧计划「本机无本体」相反，其 `@genie/agent-harness@0.2.0-beta.16` 为可读 TS 构建产物）。② 差距判定结论：三家能力面我方多已具备（沙箱 Job Object+受限令牌 / codebase indexer+embedding / office 预览四级降级 / `durable-session-replay` 游标四态），真缺口是「已有能力未接标准协议名」。③ 已复现并钉住：`apps/cli/src/acp/server.ts` 补 `session/{list,resume,fork,delete}`（SDK 1.3.0 `AGENT_METHODS` 已定义、本仓原仅注册 4/8）+ `x.ai/checkpoint/{list,read,restore}`（`CheckpointManager` 早已完整但零 onRequest）+ `asRpcError`/`rpcMethod` 错误映射（原普通 Error 被 SDK 压成 `-32603 Internal error` 且丢 message）。实现落 `apps/cli/src/acp/session-replay.ts`（薄适配层，判据全在 `packages/shared/src/chat/durable-session-replay.ts`，初版曾自造第二套游标已整份重写）；`apps/cli/src/commands/session.ts` 增幂等 `deleteSession`。④ 自证：`apps/cli/tests/acp-session-replay.test.ts` 16 例 + `acp-session-lifecycle-e2e.test.ts` 6 例（走 SDK `client.connect(agentApp)` 真 method registry）+ `acp-checkpoint-channel.test.ts` 6 例，ACP 相关 **77/77 绿**，`apps/cli` `tsc --noEmit` 0 错。⑤ 收尾补齐（本轮）：`scripts/check-acp-method-registration.mjs` 守门已接 `guardian-runner.mjs` 第 317 项（blocking，stagedTriggers 覆盖 `apps/cli/src/acp/` + `apps/cli/package.json`，`--self-test` 4/4 含成对变异）；守门集合比对又抓出两枚真实漏注册 `session/set_mode`、`session/set_config_option`，已补并各带拒绝路径测试 ⇒ 现读 `session/*` **11/11 全覆盖**（HEAD 原注册 5 个，本轮新增 6 个；另加 `x.ai/checkpoint/{list,read,restore}` 3 个）。⑥ 顺带修掉的既有缺陷：`apps/cli/src/tools/route-tools.ts` 的 `RouteParamSpec.type` 原只声明 `string|number|boolean`，而生成产物 `hr.ts` 的 `approverIds` 是 `"array"` ⇒ `apps/cli` `tsc --noEmit` 在 HEAD 上就红（TS2322）。已扩到与 `ToolParameter` 同域，并补 `items`/`properties` 递归映射（原先 `items` 被静默丢弃，数组元素无任何 schema 约束）。⑦ 顺带补回的清单漂移：`scripts/data/ai-tool-manifests/hr.json` 只有 16 条 spec，而产物 `hr.ts` 有 26 枚 ⇒ 任何人重跑生成器都会静默删掉 10 枚已上线工具（hr_daily_list / hr_leave_balance_get / hr_punch_fix_submit / hr_punch_fix_approve / hr_approval_flow_list / hr_approval_flow_upsert / hr_approval_submit / hr_approval_decide / hr_approval_pending_list / hr_approval_escalate）。已按产物回补，重跑生成器**产出零 diff（幂等）**，26 枚工具全在。⑧ 最终验收（均为实跑）：`apps/cli` `tsc --noEmit` **0 错**；ACP 相关 8 文件 **67/67 绿**；改动面相邻回归（api-bridge / argument-validator / argument-validation-enforce / agent-integration）**83/83 绿**；守门 317 正向 exit 0 + `--self-test` 4/4。⑨ 仍如实记的边界（非任务缺口）：`packages/shared` 相对导入普遍省略 `.js`（全包 396 处，`moduleResolution: Bundler` 下合法），故 `tsc` 直出的 `apps/cli/dist/` 不能独立运行；发布形态走 `scripts/build-npm.mjs`（esbuild 内联 shared 源码）已端到端验证 6/6。archify 架构图仍因技能包缺 `assets/template.html`（`archify doctor` 报 `[missing] Core template`，全仓零命中、生成器亦不在包内）无法产出，已改为可操作诊断 + 原生 SVG 同源交付，不伪造。
+- [ ] 〔归:逆向对标域｜等:—〕 RK-1 (2026-11-12) **REA 6.4.0 逆向 Qoder/Trae/WorkBuddy → 我方 ACP 协议面补齐**：① 已确证三家本体与 REA 取证（Qoder CN 0.5.6 `G:\Qoder CN\resources\app.asar` 4488 文件/4181 解析/31738 语义节点；Trae CN 3.4.17 `G:\Trae CN\resources\app` 6112 文件/4810 解析/30822 findings/IPC 76 操作·28 字面通道·54 主进程 handler；WorkBuddy 5.11.2 `G:\workbuddy` 已实装，与旧计划「本机无本体」相反，其 `@genie/agent-harness@0.2.0-beta.16` 为可读 TS 构建产物）。② 差距判定结论：三家能力面我方多已具备（沙箱 Job Object+受限令牌 / codebase indexer+embedding / office 预览四级降级 / `durable-session-replay` 游标四态），真缺口是「已有能力未接标准协议名」。③ 已复现并钉住：`apps/cli/src/acp/server.ts` 补 `session/{list,resume,fork,delete}`（SDK 1.3.0 `AGENT_METHODS` 已定义、本仓原仅注册 4/8）+ `x.ai/checkpoint/{list,read,restore}`（`CheckpointManager` 早已完整但零 onRequest）+ `asRpcError`/`rpcMethod` 错误映射（原普通 Error 被 SDK 压成 `-32603 Internal error` 且丢 message）。实现落 `apps/cli/src/acp/session-replay.ts`（薄适配层，判据全在 `packages/shared/src/chat/durable-session-replay.ts`，初版曾自造第二套游标已整份重写）；`apps/cli/src/commands/session.ts` 增幂等 `deleteSession`。④ 自证：`apps/cli/tests/acp-session-replay.test.ts` 16 例 + `acp-session-lifecycle-e2e.test.ts` 6 例（走 SDK `client.connect(agentApp)` 真 method registry）+ `acp-checkpoint-channel.test.ts` 6 例，ACP 相关 **77/77 绿**，`apps/cli` `tsc --noEmit` 0 错。⑤ 收尾补齐（本轮）：`scripts/check-acp-method-registration.mjs` 守门已接 `guardian-runner.mjs` 第 317 项（blocking，stagedTriggers 覆盖 `apps/cli/src/acp/` + `apps/cli/package.json`，`--self-test` 4/4 含成对变异）；守门集合比对又抓出两枚真实漏注册 `session/set_mode`、`session/set_config_option`，已补并各带拒绝路径测试 ⇒ 现读 `session/*` **11/11 全覆盖**（HEAD 原注册 5 个，本轮新增 6 个；另加 `x.ai/checkpoint/{list,read,restore}` 3 个）。⑥ 顺带修掉的既有缺陷：`apps/cli/src/tools/route-tools.ts` 的 `RouteParamSpec.type` 原只声明 `string|number|boolean`，而生成产物 `hr.ts` 的 `approverIds` 是 `"array"` ⇒ `apps/cli` `tsc --noEmit` 在 HEAD 上就红（TS2322）。已扩到与 `ToolParameter` 同域，并补 `items`/`properties` 递归映射（原先 `items` 被静默丢弃，数组元素无任何 schema 约束）。⑦ 顺带补回的清单漂移：`scripts/data/ai-tool-manifests/hr.json` 只有 16 条 spec，而产物 `hr.ts` 有 26 枚 ⇒ 任何人重跑生成器都会静默删掉 10 枚已上线工具（hr_daily_list / hr_leave_balance_get / hr_punch_fix_submit / hr_punch_fix_approve / hr_approval_flow_list / hr_approval_flow_upsert / hr_approval_submit / hr_approval_decide / hr_approval_pending_list / hr_approval_escalate）。已按产物回补，重跑生成器**产出零 diff（幂等）**，26 枚工具全在。并为该修复补 `apps/cli/tests/route-tools-params.test.ts` **11 例**（array+items / object+properties / 数组元素是对象 / 嵌套 required / enum 未回归 / pathParams 恒必填 / unwrapEnvelope 四边界），**带变异自证**（删掉 items 映射 ⇒ 2 例立红；恢复后 11/11 全绿）。⑧ 最终验收（均为实跑）：`apps/cli` `tsc --noEmit` **0 错**；ACP 相关 8 文件 **67/67 绿**；改动面相邻回归（api-bridge / argument-validator / argument-validation-enforce / agent-integration / route-tools-params）**94/94 绿**；守门 317 正向 exit 0 + `--self-test` 4/4。⑨ 仍如实记的边界（非任务缺口）：`packages/shared` 相对导入普遍省略 `.js`（全包 396 处，`moduleResolution: Bundler` 下合法），故 `tsc` 直出的 `apps/cli/dist/` 不能独立运行；发布形态走 `scripts/build-npm.mjs`（esbuild 内联 shared 源码）已端到端验证 6/6。archify 架构图仍因技能包缺 `assets/template.html`（`archify doctor` 报 `[missing] Core template`，全仓零命中、生成器亦不在包内）无法产出，已改为可操作诊断 + 原生 SVG 同源交付，不伪造。
