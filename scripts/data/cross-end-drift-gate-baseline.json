@@ -52,7 +52,7 @@
     "tierRnMissingKinds": 25,
     "tierRnForkN": 59,
     "tierRnForkKinds": 22,
-    "tierWebOffN": 225,
+    "tierWebOffN": 228,
     "tierWebOffKinds": 28,
     "tierPending": 9,
     "tierAllowanceExpired": 0,
@@ -66,6 +66,8 @@
     "judgedGapWeb": 1,
     "conversionRefused": 0
   },
-  "advisoryDims": ["doc-stale"],
+  "advisoryDims": [
+    "doc-stale"
+  ],
   "note": "doc-stale(派生文档数字滞后)单列滞后档:不算倒退、不阻断,重跑生成命令即可。"
 }
