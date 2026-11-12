@@ -48,7 +48,10 @@ export function parseForced(value: string | undefined): 'on' | 'off' | 'unset' {
 }
 
 /** 声明"支持全屏"的 TERM 特征:dumb/unknown 与 Emacs/VSCode 内置的无 alt-screen 终端排除。 */
-const UNSUPPORTED_TERM_MARKERS = ['dumb', 'unknown', 'cons25']
+// F-093:补 emacs/eterm/vscode 标记 —— `M-x term`(`TERM=eterm-color`)、`M-x eshell`、
+// VSCode 集成终端等既不保证 alt-screen,也不在原先的 dumb/unknown/cons25 判据内,
+// 误判 supported 会让 `\e[?1049h`/鼠标上报在错终端上刷出乱码或空屏,退出后仍留转义残留。
+const UNSUPPORTED_TERM_MARKERS = ['dumb', 'unknown', 'cons25', 'emacs', 'eterm', 'vscode']
 
 export function termLooksCapable(term: string | undefined): boolean {
   if (term === undefined || term.trim() === '') return false
