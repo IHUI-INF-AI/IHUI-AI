@@ -314,6 +314,13 @@ export async function fetchWithTimeout(
 ): Promise<Response> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
+  // F-51:调用方 signal(如客户端断开的 controller)必须真正传导到出站请求 ——
+  // 此前 options.signal 被本函数换掉后静默丢弃,"中止"只剩"不再发下一次",在途那次仍打满超时。
+  const callerSignal = options.signal ?? undefined
+  if (callerSignal) {
+    if (callerSignal.aborted) controller.abort()
+    else callerSignal.addEventListener('abort', () => controller.abort(), { once: true })
+  }
   // 一趟只算一次事实,决策与事实同源
   const egress = collectEgressFacts(url)
   // G-749(2026-10-03):头与正文的归一提到两侧共用 —— 直连侧此前是裸 fetch 直发
@@ -1164,28 +1171,106 @@ export function volcengineSign(
   }
 }
 
+/**
+ * F-51:火山异步任务轮询的**唯一**上界定义处。
+ *
+ * 改造前是 `maxPolls=60 × intervalMs=5000` + 单次 fetch 超时 60s ⇒ 一趟 HTTP 请求线程
+ * 最坏可挂 60×(5+60)s,且完全不感知客户端断开。现在三层同时生效,任一层到点即停:
+ *   1) `maxTotalMs`:整段轮询的硬 deadline(含每次 sleep 与每次请求);
+ *   2) `requestTimeoutMs`:单次 GetResult 请求超时;
+ *   3) `VOLCENGINE_POLL_MAX_POLLS`:次数上界,由 `maxTotalMs/intervalMs` 推导,避免两处数字漂移。
+ * 最坏占用因此 ≤ maxTotalMs + 一次请求收尾,不再是 60 轮累加。
+ */
+export const VOLCENGINE_POLL_LIMITS = {
+  /** 两次轮询之间的等待 */
+  intervalMs: 5_000,
+  /** 单次 GetResult 请求超时(原 60s) */
+  requestTimeoutMs: 20_000,
+  /** 单次 HTTP 请求内整段轮询的总时长上界(原约 300s+) */
+  maxTotalMs: 120_000,
+} as const
+
+/** 次数上界由总时长推导,与 deadline 双保险。 */
+export const VOLCENGINE_POLL_MAX_POLLS = Math.ceil(
+  VOLCENGINE_POLL_LIMITS.maxTotalMs / VOLCENGINE_POLL_LIMITS.intervalMs,
+)
+
+/** F-51:可被客户端断开提前唤醒的 sleep —— 返回时可能是睡满,也可能是被 abort。 */
+function sleepOrAbort(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    if (signal.aborted) return resolve()
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort)
+      resolve()
+    }, ms)
+    const onAbort = (): void => {
+      clearTimeout(timer)
+      resolve()
+    }
+    signal.addEventListener('abort', onAbort, { once: true })
+  })
+}
+
 export async function pollVolcengineTask(
   accessKey: string,
   secretKey: string,
   reqKey: string,
   taskId: string,
   reply: FastifyReply,
-  maxPolls = 60,
-  intervalMs = 5000,
+  maxPolls = VOLCENGINE_POLL_MAX_POLLS,
+  intervalMs = VOLCENGINE_POLL_LIMITS.intervalMs,
 ): Promise<Record<string, unknown> | null> {
   const pollParams = { Action: 'CVSync2AsyncGetResult', Version: '2022-08-31' }
   const pollBody = { req_key: reqKey, task_id: taskId }
-  for (let i = 0; i < maxPolls; i++) {
-    await new Promise((r) => setTimeout(r, intervalMs))
-    const signed = volcengineSign(pollParams, pollBody, accessKey, secretKey)
-    const resp = await fetchWithTimeout(
-      signed.url,
-      { method: 'POST', headers: signed.headers, body: signed.body },
-      60_000,
+  const startedAt = Date.now()
+  // 客户端断开即中止:同一个 controller 同时管 sleep 与在途请求。
+  const disconnect = new AbortController()
+  const onClose = (): void => {
+    // 响应已写完才 close 属正常结束(轮询期间不 send),只有提前 close 才是客户端断开。
+    if (reply.raw.writableEnded) return
+    disconnect.abort()
+  }
+  reply.raw.once('close', onClose)
+  const stoppedByClient = (): null => {
+    reply.log.warn(
+      { reqKey, taskId, elapsedMs: Date.now() - startedAt },
+      '火山异步任务轮询因客户端断开而中止,不再请求上游',
     )
-    const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
-    const dataBlock = data.data as Record<string, unknown> | undefined
-    if (dataBlock?.status === 'done') return data
+    // 连接已断,不能再写 reply。
+    return null
+  }
+  try {
+    // 监听器注册前连接就已断(close 已发过)时,不让本次轮询空转到上界。
+    if (reply.raw.destroyed) return stoppedByClient()
+    for (let i = 0; i < maxPolls; i++) {
+      const remaining = VOLCENGINE_POLL_LIMITS.maxTotalMs - (Date.now() - startedAt)
+      if (remaining <= 0) break
+      await sleepOrAbort(Math.min(intervalMs, remaining), disconnect.signal)
+      if (disconnect.signal.aborted) return stoppedByClient()
+      const signed = volcengineSign(pollParams, pollBody, accessKey, secretKey)
+      let resp: Response
+      try {
+        resp = await fetchWithTimeout(
+          signed.url,
+          {
+            method: 'POST',
+            headers: signed.headers,
+            body: signed.body,
+            signal: disconnect.signal,
+          },
+          Math.min(VOLCENGINE_POLL_LIMITS.requestTimeoutMs, remaining),
+        )
+      } catch (e) {
+        // 仅"因客户端断开而 abort"在此收束;其余失败(含单次超时)照旧上抛给路由 502。
+        if (disconnect.signal.aborted) return stoppedByClient()
+        throw e
+      }
+      const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
+      const dataBlock = data.data as Record<string, unknown> | undefined
+      if (dataBlock?.status === 'done') return data
+    }
+  } finally {
+    reply.raw.off('close', onClose)
   }
   reply.status(504).send(error(504, '异步任务轮询超时'))
   return null

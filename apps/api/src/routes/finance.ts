@@ -29,6 +29,7 @@ import {
 import { orders } from '@ihui/database'
 import { eq, and, desc, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
+import { LockAcquireError, LockReleaseError } from '../utils/distributed-lock.js'
 
 export const financeRoutes: FastifyPluginAsync = async (server) => {
   const pageLimitQuery = z.object({
@@ -365,7 +366,9 @@ export const financeRoutes: FastifyPluginAsync = async (server) => {
       )
     }
 
-    // 分布式锁防并发重复提现；锁不可用时降级直接执行
+    // 分布式锁防并发重复提现；只有「锁不可用(acquire 失败)」才允许降级直接执行。
+    // F-67:业务异常 / 释放锁失败绝不降级 —— applyWithdrawal 已提交后再跑一次 doApply()
+    // 会插入第二笔提现并重复冻结(partnerTradeNo 由服务端生成，客户端无幂等键)。
     try {
       const flow = await server.distributedLock.withLock(
         `withdrawal:user:${userId}`,
@@ -374,8 +377,27 @@ export const financeRoutes: FastifyPluginAsync = async (server) => {
       )
       return reply.send(success(flow))
     } catch (e) {
-      if ((e as Error & { statusCode?: number }).statusCode) throw e
-      request.log.warn({ err: e, userId }, '分布式锁不可用，降级执行提现')
+      if (e instanceof LockReleaseError) {
+        if (e.businessError !== undefined) {
+          request.log.error(
+            { err: e.cause ?? e, userId },
+            '提现业务失败且分布式锁释放失败：锁残留由 TTL 兜底',
+          )
+          throw e.businessError
+        }
+        // 业务已提交、锁残留由 TTL 兜底：error 级留痕并原样上抛，不得重试/降级
+        request.log.error(
+          { err: e.cause ?? e, userId },
+          '提现已提交但分布式锁释放失败：锁残留由 TTL 兜底，禁止重试/降级执行',
+        )
+        throw e
+      }
+      // 业务异常(含带 statusCode 的校验失败)：原样上抛，绝不降级重跑
+      if (!(e instanceof LockAcquireError)) throw e
+      // 锁争用(如 423)沿用原拒绝语义
+      const acquireCause = e.cause as Error & { statusCode?: number }
+      if (acquireCause?.statusCode) throw acquireCause
+      request.log.warn({ err: acquireCause ?? e, userId }, '分布式锁不可用，降级执行提现')
       const flow = await doApply()
       return reply.send(success(flow))
     }
