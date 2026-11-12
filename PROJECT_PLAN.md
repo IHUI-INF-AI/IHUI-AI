@@ -12408,7 +12408,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 97G. **缺陷普查 API F-97** [P2] /v1/ai/capabilities/invoke 用系统票调 LLM、无计费，且失败伪装成功（证据 docs/tickets/2026-11/findings-api.md#F-97）
 - [ ] 98G. **缺陷普查 API F-98** [P3] 文章详情返回未发布/下线稿件，且对草稿也计浏览（证据 docs/tickets/2026-11/findings-api.md#F-98）
 - [ ] 99G. **缺陷普查 API F-99** [P3] /api/ai/career-advice 裸 fetch 不带凭证 → 必然 401，却把模板当成功返回（证据 docs/tickets/2026-11/findings-api.md#F-99）
-- [ ] 100G. **缺陷普查 API F-100** [P3] skills push/db-sync 串行最多次百次写，pull/db-sync 全量读无上限（N+1 + 无界内存）（证据 docs/tickets/2026-11/findings-api.md#F-100）
 - [ ] 106G. **缺陷普查 API F-106** [P2] 共享声纹无属主：任意登录用户可枚举并删除任意 voiceId（证据 docs/tickets/2026-11/findings-api.md#F-106）
 - [ ] 116G. **缺陷普查 API F-116** [P3] 广播链路无背压检查（bufferedAmount），慢消费者帧堆积；ws-notifications 发送失败不摘线（证据 docs/tickets/2026-11/findings-api.md#F-116）
 - [ ] 118G. **缺陷普查 API F-118** [P2] /azure/{chat,models,embeddings,images} 四个端点漏挂 requireAuth，且 images 完全不扣费（证据 docs/tickets/2026-11/findings-api.md#F-118）
