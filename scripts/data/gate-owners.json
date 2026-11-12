@@ -29,6 +29,10 @@
       "owner": null
     },
     {
+      "script": "check-acp-error-mapping.mjs",
+      "owner": null
+    },
+    {
       "script": "check-adapter-style-parity.mjs",
       "owner": null
     },
