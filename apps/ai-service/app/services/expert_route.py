@@ -128,6 +128,87 @@ EXPERT_PACKS: tuple[ExpertPack, ...] = (
             "or citations that are not present in the gathered material."
         ),
     ),
+    ExpertPack(
+        # 财务部·AI 一键代账(RP-46,2026-11-12 立):触发即自动并入 ai_bookkeeping,
+        # 按 phase 逐段调用 ⇒ 工具卡与 plan 步骤看板在对话里实时显示代账过程与进度。
+        slug="finance-bookkeeping",
+        title="财务代账",
+        terms=(
+            "一键代账",
+            "代账",
+            "一键记账",
+            "做账",
+            "记账凭证",
+            "生成凭证",
+            "试算平衡",
+            "科目余额表",
+            "结账",
+            "登账",
+            "账簿",
+            "bookkeeping",
+        ),
+        tools=(
+            "ai_bookkeeping",
+            "parse_document",
+            "document_tables",
+            "extract_document_assets",
+            "create_artifact",
+            "generate_report",
+        ),
+        hint=(
+            "## Expert pack active: finance-bookkeeping\n"
+            "The user wants AI bookkeeping (一键代账). First gather the period and the source "
+            "transactions (uploads via parse_document/document_tables, or items stated in chat). "
+            "Then call ai_bookkeeping phase by phase: classify -> voucher -> trial_balance -> "
+            "close -> report (or phase=all for the whole chain). After every call, update the "
+            "plan board with the returned progress (phaseIndex/of/next) and show the intermediate "
+            "result to the user before moving on. Never fabricate amounts: trial balance must tie, "
+            "and on VOUCHER_UNBALANCED or TRIAL_UNBALANCED stop and report the diff instead of "
+            "forcing it to balance. Close by linking ai_tax_filing only when the user explicitly "
+            "asks about filing."
+        ),
+    ),
+    ExpertPack(
+        # 财务部·AI 一键报税(RP-46,2026-11-12 立):同上一条回显纪律,草案红线必须转述。
+        slug="tax-filing",
+        title="纳税申报",
+        terms=(
+            "一键报税",
+            "报税",
+            "纳税申报",
+            "申报纳税",
+            "增值税申报",
+            "所得税申报",
+            "个税申报",
+            "申报表",
+            "计税",
+            "税费计算",
+            "缴税",
+            "欠税",
+            "税",  # 财税域特异词:与"月报"这类文档短词同分时让税词族(报税+税)胜出
+            "tax filing",
+            "filing taxes",
+        ),
+        tools=(
+            "ai_tax_filing",
+            "ai_bookkeeping",
+            "parse_document",
+            "document_tables",
+            "create_artifact",
+            "generate_chart",
+        ),
+        hint=(
+            "## Expert pack active: tax-filing\n"
+            "The user wants AI tax filing (一键报税). Gather the taxpayer type and the tax base "
+            "items first (invoice totals, sales, purchases, profit, wage list — ask for missing "
+            "items rather than guessing). Then call ai_tax_filing phase by phase: compute -> "
+            "validate -> draft (or phase=all). Reflect the returned progress in the plan board. "
+            "Always relay the draft disclaimer verbatim: the output is a DRAFT for review by the "
+            "taxpayer and a licensed professional; the tool never files anything externally, and "
+            "any zero/negative finding returned by validate must be surfaced, not smoothed over. "
+            "If the books are not yet prepared, run the finance-bookkeeping flow first."
+        ),
+    ),
 )
 
 
