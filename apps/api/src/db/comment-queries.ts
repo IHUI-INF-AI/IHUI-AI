@@ -27,6 +27,8 @@ interface ListCommentsOpts {
   parentId?: string | null
   page: number
   pageSize: number
+  /** F-483:offset 直传,避免路由层 offset→page 折算把非整页余量抹掉;缺省仍按 page 折算 */
+  offset?: number
   currentUserId?: string
 }
 
@@ -93,7 +95,7 @@ export async function findComments(
       .where(where)
       .orderBy(desc(comments.createdAt))
       .limit(opts.pageSize)
-      .offset((opts.page - 1) * opts.pageSize),
+      .offset(opts.offset ?? (opts.page - 1) * opts.pageSize),
     db
       .select({ count: sql<number>`COUNT(*)` })
       .from(comments)
