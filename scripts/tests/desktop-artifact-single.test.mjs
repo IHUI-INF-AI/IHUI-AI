@@ -37,8 +37,8 @@ const envFor = (over) => {
   return over ? { ...e, ...over } : e
 }
 
-const runHook = (dir, expect, over) =>
-  spawnSync(process.execPath, [HOOK, '--dir', dir, '--expect', expect], {
+const runHook = (dir, expect, over, extraArgs = []) =>
+  spawnSync(process.execPath, [HOOK, '--dir', dir, '--expect', expect, ...extraArgs], {
     encoding: 'utf8',
     windowsHide: true,
     env: envFor(over),
@@ -140,15 +140,23 @@ test(`未豁免时同样多包共存:旧包被删之后缺 sig 仍判红(门的�
   }
 })
 
-test(`${ENV_KEY}=1 不得扩大"不产 nsis 时一个文件都不许删"条款`, () => {
+test(`${ENV_KEY}=1 不得扩大"不产 nsis 时一个文件都不许删"条款:默认判红,显式 --no-artifact-check 才放行`, () => {
   const dir = mkScratch('ihui-artifact-noop-exempt-')
   const others = [OLD, `${OLD}.sig`]
   try {
     seed(dir, others)
-    const r = runHook(dir, CUR, { [ENV_KEY]: '1' })
-    assert.equal(r.status, 0, r.stderr)
+    // F-041 起「没有产物」默认判红 —— 豁免开关只管签名,不得把它变回通过。
+    const red = runHook(dir, CUR, { [ENV_KEY]: '1' })
+    assert.equal(red.status, 1, `缺产物必须判红,实际: ${red.status}\n${red.stdout}\n${red.stderr}`)
+    assert.ok(red.stderr.includes('没有产物'), red.stderr)
+    assert.ok(!`${red.stdout}${red.stderr}`.includes('未签名产物'), '没产 nsis ⇒ 与签名无关,不该报豁免')
     assert.deepEqual(readdirSync(dir).sort(), others.sort(), '不属于本次构建的目录必须原样保留')
-    assert.ok(!`${r.stdout}${r.stderr}`.includes('未签名产物'), '压根没产 nsis ⇒ 与签名无关,不该报豁免')
+
+    // 确需跳过的目标(如 --no-bundle / --bundles app)必须**显式**给旗标,且仍一个文件都不删。
+    const skipped = runHook(dir, CUR, { [ENV_KEY]: '1' }, ['--no-artifact-check'])
+    assert.equal(skipped.status, 0, `显式跳过应放行,实际: ${skipped.status}\n${skipped.stdout}\n${skipped.stderr}`)
+    assert.ok(skipped.stdout.includes('--no-artifact-check'), `跳过必须可审计,实际: ${skipped.stdout}`)
+    assert.deepEqual(readdirSync(dir).sort(), others.sort(), '跳过只免判据,不得删任何文件')
   } finally {
     rmScratch(dir)
   }
