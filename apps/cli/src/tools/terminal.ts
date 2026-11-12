@@ -27,6 +27,7 @@ import { execSandboxed, precheckSandboxedCommand, type SandboxPolicy } from './s
 import { buildFilteredEnv, DEFAULT_BLOCKED_ENV_VARS, TERMINAL_CLI_CREDENTIAL_ALLOWLIST } from '../sandbox/index.js';
 import { loadSettings, type SandboxSettings } from '../commands/settings.js';
 import { killProcessTree } from '../util/kill-tree.js';
+import { createStreamDecoder, resolveLegacyEncoding } from './sandbox/platform/output-encoding.js';
 
 // ==================== 沙箱接入(默认关闭,向后兼容) ====================
 
@@ -204,8 +205,14 @@ function spawnFallback(command: string, cwd: string, _cols: number, _rows: numbe
       killProcessTree(child.pid);
     },
     onData: (cb) => {
-      const h1 = (chunk: Buffer) => cb(chunk.toString('utf-8'));
-      const h2 = (chunk: Buffer) => cb(chunk.toString('utf-8'));
+      // F-026:输出字节不承诺 UTF-8(936 代码页子进程的中文按 GBK 吐)⇒ 硬解 utf-8 会成 U+FFFD。
+      // 复用 output-encoding 的**流式**解码器(整读版 decodeBufferWithFallback 无跨 chunk 状态,
+      // 边界切开的半个字符会被判 U+FFFD):unknown 档把截断的序列攒进 pending 等下一块,
+      // 判不出 UTF-8 才走 legacy 回退链(gb18030/cp932/...)。stdout/stderr 各一份独立状态。
+      const stdoutDecoder = createStreamDecoder(() => resolveLegacyEncoding());
+      const stderrDecoder = createStreamDecoder(() => resolveLegacyEncoding());
+      const h1 = (chunk: Buffer) => cb(stdoutDecoder.write(chunk));
+      const h2 = (chunk: Buffer) => cb(stderrDecoder.write(chunk));
       child.stdout?.on('data', h1);
       child.stderr?.on('data', h2);
       return () => { child.stdout?.off('data', h1); child.stderr?.off('data', h2); };
