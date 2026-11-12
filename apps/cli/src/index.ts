@@ -1077,6 +1077,33 @@ program.addCommand(registryCommand());
 // skills 子命令 — 列出/查看已加载的 skills(从 .ihui/.agents/.claude/.cursor/skills 平面加载)
 // 目标迭代闭环(2026-11-12):反复跑 runToolLoop 直到达成或轮次用尽。
 // 达成判据由用户以正则给出 —— "什么算做完"是业务语义,内置猜测只会按错误标准收敛。
+// 本地工作流编排(2026-11-12):从 JSON 声明跑一组命令,按 needs 拓扑排序、同层并行。
+// 与上面的 `workflows` 子命令不同 —— 那个是**服务端工作流**的客户端(打 API),
+// 本命令跑的是**本地声明的一组命令**(构建脚本的替代品),语义不重叠。
+program
+  .command('flow <declaration>')
+  .description('按 JSON 声明跑本地工作流(依赖拓扑 + 同层并行 + 失败隔离)')
+  .option('--verbose', '打印每步输出')
+  .action(async (declaration: string, opts: { verbose?: boolean }) => {
+    const { runDeclaredWorkflow, WorkflowDeclarationError } = await import('./commands/workflow-run.js');
+    try {
+      const res = await runDeclaredWorkflow({
+        declarationPath: declaration,
+        ...(opts.verbose === true ? { verbose: true } : {}),
+      });
+      console.info(res.succeeded ? chalk.green(`✅ ${res.summary}`) : chalk.red(`❌ ${res.summary}`));
+      if (!res.succeeded) {
+        console.error(chalk.dim(`  失败步骤:${res.failed.join(', ')}`));
+        process.exitCode = 1;
+      }
+    } catch (e) {
+      if (e instanceof WorkflowDeclarationError) {
+        errorExit(chalk.red(e.message));
+      }
+      throw e;
+    }
+  });
+
 const goalCmd = program.command('goal').description('目标迭代:反复执行直到满足判据或轮次用尽');
 
 goalCmd
