@@ -29,7 +29,7 @@
 | 数据 | 340 表 / 144 迁移 / 1300+ API / 5346 测试 / 101 模型 |
 | License | Apache-2.0(商业可用) |
 | 国内镜像 | 无(2026-10-23 起停止对外镜像,代码只托管在 GitHub;旧镜像仓已弃用,勿再引用) |
-| 联系方式 | 微信 `ok502319984` · 邮箱 [REDACTED-EMAIL] |
+| 联系方式 | 微信 `ok502319984` · 邮箱 IHUI-AI@aizhs.top |
 | 一句话 | 一个仓库,干翻 40+ 商业产品 — 9 端 / 101 模型 / LangGraph+MCP+A2A / 340 表 / 1300+ API / Apache 2.0 |
 
 ---
@@ -1424,7 +1424,7 @@ Product Hunt 支持选 4 个 Topics,推荐:
 ### 6. 链接一致
 - GitHub: https://github.com/IHUI-INF-AI/IHUI-AI
 - Demo: https://aizhs.top
-- 邮箱: [REDACTED-EMAIL]
+- 邮箱: IHUI-AI@aizhs.top
 - 微信: ok50319984(国内平台提)
 
 ### 7. 配图版权
