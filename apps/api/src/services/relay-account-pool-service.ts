@@ -1622,12 +1622,18 @@ export interface SetSharedResult {
 export async function setAccountShared(
   accountId: string,
   shared: boolean,
+  actorUserId?: string | null,
 ): Promise<SetSharedResult> {
   const target = shared === true
+  // F-161 属主边界:有操作者时只允许「本人行 or 全局行(owner 为空)」;
+  // 未传操作者的内部/CLI 调用按最小权限收敛为仅全局行。个人行越权 ⇒ 落空 404。
+  const ownerScope = actorUserId
+    ? or(eq(aiRelayAccountPool.ownerUserId, actorUserId), isNull(aiRelayAccountPool.ownerUserId))
+    : isNull(aiRelayAccountPool.ownerUserId)
   const [row] = await dbRead
     .select()
     .from(aiRelayAccountPool)
-    .where(eq(aiRelayAccountPool.id, accountId))
+    .where(and(eq(aiRelayAccountPool.id, accountId), ownerScope))
     .limit(1)
   if (!row) {
     return {
@@ -1656,7 +1662,7 @@ export async function setAccountShared(
       credVersion: sql`${aiRelayAccountPool.credVersion} + 1`,
       updatedAt: new Date(),
     })
-    .where(eq(aiRelayAccountPool.id, row.id))
+    .where(and(eq(aiRelayAccountPool.id, row.id), ownerScope))
     .returning()
   if (!written) {
     return {
