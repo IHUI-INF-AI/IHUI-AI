@@ -772,6 +772,7 @@ export async function loadToolFamilies(): Promise<{ families: ToolFamily[]; load
     ['API_BRIDGE_TOOLS', async () => import('../tools/api-bridge.js')],
     ['HR_TOOLS', async () => import('../tools/hr.js')],
     ['RELAY_TOOLS', async () => import('../tools/relay.js')],
+    ['AI_TASK_TEMPLATE_TOOLS', async () => import('../tools/ai-task-template-tools.js')],
   ];
   for (const [family, loader] of wanted) {
     try {
