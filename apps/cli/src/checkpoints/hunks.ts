@@ -121,7 +121,9 @@ export class HunkCheckpointManager {
   private resolveRel(filePath: string): string {
     const abs = path.isAbsolute(filePath) ? filePath : path.resolve(this.workspacePath, filePath);
     const rel = path.relative(this.workspacePath, abs);
-    if (rel.startsWith('..') || path.isAbsolute(rel)) {
+    // F-139:越界判据按"首段恰为 .." —— 修前 rel.startsWith('..') 会把工作区内
+    // 以两个点开头的合法文件(`..notes.md`)误判成越界,hunk 检查点对它们整体失效。
+    if (rel === '..' || rel.startsWith('..' + path.sep) || path.isAbsolute(rel)) {
       throw new Error(`文件 ${filePath} 不在工作区 ${this.workspacePath} 内`);
     }
     return rel.replace(/\\/g, '/');
