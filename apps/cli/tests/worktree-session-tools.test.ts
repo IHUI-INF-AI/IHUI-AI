@@ -54,9 +54,12 @@ const fake = vi.hoisted(() => ({
 vi.mock('node:child_process', async (importOriginal) => {
   const actual = await importOriginal<typeof ChildProcessModule>()
   const spawnSync = (cmd: string, args: string[]) => {
-    fake.log.push(`${cmd} ${args.join(' ')}`)
+    // F-022:派生出口改走 resolveGitBinary ⇒ 命令名可能是绝对路径。桩按命令名归一匹配,
+    // 裸 'git' 与 'C:\\…\\git.exe' 两种形态都命中(不放宽任何业务判据)。
+    const exe = path.basename(String(cmd)).toLowerCase()
+    fake.log.push(`${exe} ${args.join(' ')}`)
     const reply = (status: number, stdout = '') => ({ status, stdout, stderr: '', pid: 1, output: [], signal: null })
-    if (cmd !== 'git') return reply(0)
+    if (exe !== 'git' && exe !== 'git.exe') return reply(0)
     const [sub, verb] = args
     if (sub === 'rev-parse') return reply(0, 'deadbeefdeadbeef')
     if (sub === 'worktree' && verb === 'add') {

@@ -35,7 +35,12 @@ import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import { requireApiKeyAuth } from '../plugins/api-key-auth.js'
 import { requireCapabilityRules } from '../utils/capability-guard.js'
-import { checkQuota, recordCall, modelToProviderCode } from '../services/relay-billing-service.js'
+import {
+  checkQuota,
+  recordCall,
+  modelToProviderCode,
+  isByokCall,
+} from '../services/relay-billing-service.js'
 // P0-20b 参数覆盖系统转发层集成(2026-08-01 立):转发前应用 applyParamOps
 import { applyParamOpsToBody } from '../services/relay-param-ops-config.js'
 import { error } from '../utils/response.js'
@@ -263,6 +268,11 @@ async function streamResponses(
     sw: Stopwatch
     providerCode?: string
     clientIp?: string
+    /**
+     * F-292:计费口径。BYOK(用户对该 model 配了私有 ai_model_config)时只收平台费,
+     * 不能按中转站原价×倍率再扣一次。缺省 relay 保持旧行为。
+     */
+    mode?: 'relay' | 'byok'
   },
 ): Promise<void> {
   reply.hijack()
@@ -447,6 +457,8 @@ async function streamResponses(
         },
         providerCode: opts.providerCode,
         clientIp: opts.clientIp,
+        // F-292:未传 mode 时 recordCall 会默认 'relay',BYOK 用户被二次全额扣费
+        mode: opts.mode ?? 'relay',
         httpStatus: upstreamHttpStatus ?? undefined,
         ttftMs: ttft ? ttft.latencyMs : undefined,
       }).catch(() => {})
@@ -545,6 +557,17 @@ const v1ResponsesRoutes: FastifyPluginAsync = async (server) => {
         }
       }
 
+      // F-292:与 v1-messages 对齐 —— 用户对该 model 配了私有 ai_model_config 时按 BYOK 计费,
+      // 只收平台费;否则 recordCall 默认 'relay' 会把上游费用再全额扣一遍。
+      let billingMode: 'relay' | 'byok' = 'relay'
+      if (apiKey?.userId) {
+        try {
+          if (await isByokCall(apiKey.userId, model)) billingMode = 'byok'
+        } catch {
+          // isByokCall 失败默认走 relay,不影响主链路
+        }
+      }
+
       // 构造 ai-service OpenAI 格式请求体(max_output_tokens → max_tokens)
       const openaiBody: Record<string, unknown> = { messages, model }
       if (max_output_tokens !== undefined) openaiBody.max_tokens = max_output_tokens
@@ -575,6 +598,7 @@ const v1ResponsesRoutes: FastifyPluginAsync = async (server) => {
           sw,
           providerCode: modelToProviderCode(model),
           clientIp: request.ip,
+          mode: billingMode,
         })
       }
 
@@ -702,6 +726,8 @@ const v1ResponsesRoutes: FastifyPluginAsync = async (server) => {
             metadata: { protocol: 'responses', latencyTrusted: latency.latencyTrusted },
             providerCode: modelToProviderCode(model),
             clientIp: request.ip,
+            // F-292:BYOK 只收平台费
+            mode: billingMode,
             httpStatus: resp.status,
           }).catch((e) => {
             console.error('[v1/responses] recordCall FAIL', e?.message || e)

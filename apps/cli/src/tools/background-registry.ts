@@ -16,6 +16,7 @@
 
 import type { ChildProcess } from 'node:child_process';
 import { killProcessTree } from '../util/kill-tree.js';
+import { createStreamDecoder, resolveLegacyEncoding } from './sandbox/platform/output-encoding.js';
 import * as crypto from 'node:crypto';
 // Worktree 并行隔离层:后台任务结束后自动清理其 worktree
 import { runHook } from '../hooks/index.js';
@@ -663,11 +664,16 @@ export function registerTask(
     // 双窗口捕获(G-937959):每个流同时维护"头窗"(前 30k,运行中视图)与"尾窗"
     // (后 1MiB,终态视图)。上游把全量落文件、读时投影头/尾;我方无全量落盘,
     // 就在捕获层把两个窗口都留住 —— 内存上界 ≈ 旧实现(1MiB 头缓冲)+ 3%(头窗)。
+    // F-026:输出字节不承诺 UTF-8(936 代码页子进程的中文按 GBK 吐)⇒ 硬解 utf-8 会成 U+FFFD。
+    // 复用 output-encoding 的**流式**解码器(整读版无跨 chunk 状态,边界切开的半个字符会判
+    // U+FFFD):unknown 档把截断的多字节序列攒进 pending 等下一块,判不出 UTF-8 才走 legacy
+    // 回退链(gb18030/cp932/...)。stdout/stderr 各一份独立状态。
+    const stdoutDecoder = createStreamDecoder(() => resolveLegacyEncoding());
+    const stderrDecoder = createStreamDecoder(() => resolveLegacyEncoding());
     const capture = (
-      chunk: Buffer,
+      text: string,
       win: { head: string; tail: string; total: number; dropped: number },
     ): typeof win => {
-      const text = chunk.toString('utf-8');
       win.total += text.length;
       // 头窗:只收前 TASK_OUTPUT_RUNNING_BASH_PREFIX_BYTES,之后不再增长
       if (win.head.length < TASK_OUTPUT_RUNNING_BASH_PREFIX_BYTES) {
@@ -686,7 +692,7 @@ export function registerTask(
       return win;
     };
     process.stdout?.on('data', (chunk: Buffer) => {
-      const w = capture(chunk, {
+      const w = capture(stdoutDecoder.write(chunk), {
         head: task.stdoutHead,
         tail: task.stdoutBuf,
         total: task.totalStdoutChars,
@@ -700,7 +706,7 @@ export function registerTask(
       recordHeartbeat(id, task.identity); // 有输出就是"还活着"的证据(模块内按 30s 节流;找账按世代,G-1058645)
     });
     process.stderr?.on('data', (chunk: Buffer) => {
-      const w = capture(chunk, {
+      const w = capture(stderrDecoder.write(chunk), {
         head: task.stderrHead,
         tail: task.stderrBuf,
         total: task.totalStderrChars,

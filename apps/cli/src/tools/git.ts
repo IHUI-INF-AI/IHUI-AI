@@ -135,6 +135,22 @@ const git_add: Tool = {
 };
 
 /**
+ * 解析**真实 git 目录**供临时索引落盘(F-023)。
+ *
+ * 不能直接拼 `join(cwd, '.git', ...)`:链接 worktree 的 `.git` 是**文件**(内容 `gitdir: <main>/.git/worktrees/<name>`),
+ * 往里写会 ENOTDIR。`git rev-parse --absolute-git-dir` 两条路径都对(v2.56 实测):
+ *   - 主仓:`<repo>/.git`;
+ *   - worktree:`<main>/.git/worktrees/<name>`(该 worktree 的真实 index 正住在这里)。
+ *
+ * rev-parse 失败时回退旧形态,保持非仓库场景行为不变。
+ */
+function resolveGitDir(cwd: string): string {
+  const r = execGit(['rev-parse', '--absolute-git-dir'], cwd);
+  const dir = r.exitCode === 0 ? r.stdout.trim() : '';
+  return dir || join(cwd, '.git');
+}
+
+/**
  * 按范围提交(票 07-B,2026-09-30):在**临时 GIT_INDEX_FILE** 上组装提交,全程不替换真实索引。
  *
  * 上游机制对齐(packages/services/src/git/repo/gitCliRepo.ts 的 stagedOnly:true 提交):
@@ -198,7 +214,7 @@ function commitWithTempIndex(message: string, paths: string[], cwd: string): { o
   const parentTree = headR.exitCode === 0 ? headR.stdout.trim() : null;
 
   // 4. 临时索引组装(GIT_INDEX_FILE 只在子进程 env)
-  const tmpIndex = join(cwd, '.git', `index-scope-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+  const tmpIndex = join(resolveGitDir(cwd), `index-scope-${Date.now()}-${Math.random().toString(16).slice(2)}`);
   const withTmp = { extraEnv: { GIT_INDEX_FILE: tmpIndex } };
   const cleanup = (): void => {
     try {

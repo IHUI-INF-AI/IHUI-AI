@@ -35,6 +35,8 @@ logger = logging.getLogger(__name__)
 # 队列缺省档:全串行(票面"串行度可配"的最保守档)+ 每镜像道等待上限
 DEFAULT_QUEUE_CONCURRENCY = 1
 DEFAULT_QUEUE_MAX_PENDING = 100
+# AIS-028: 终态记录上限,超过后淘汰最旧的 succeeded/failed(保留 recent,replay 仅覆盖近期)。
+DEFAULT_QUEUE_MAX_RECORDS = 2000
 
 # 任务终态
 TASK_STATUS = ("queued", "running", "succeeded", "failed")
@@ -225,6 +227,39 @@ class SandboxTaskQueue:
                 "本次提交被明确拒绝;请待队列消化后重试(不静默排队、不丢弃)。"
             )
 
+    def _evict_terminal_if_needed(self) -> None:
+        """AIS-028: 终态记录超过上限时,按入队时间淘汰最旧的 succeeded/failed。
+
+        优先淘汰 succeeded(可重放的是 failed);仅当 succeeded 已清空仍超限时才动 failed。
+        在途(queued/running)记录永不淘汰。
+        """
+        if len(self._tasks) <= DEFAULT_QUEUE_MAX_RECORDS:
+            return
+        over = len(self._tasks) - DEFAULT_QUEUE_MAX_RECORDS
+        terminal = sorted(
+            (r for r in self._tasks.values() if r.status in ("succeeded", "failed")),
+            key=lambda r: r.enqueued_at,
+        )
+        # 先淘汰 succeeded
+        for rec in terminal:
+            if over <= 0:
+                break
+            if rec.status == "succeeded":
+                self._tasks.pop(rec.task_id, None)
+                over -= 1
+        if over <= 0:
+            return
+        # 仍超限:淘汰最旧的 failed(牺牲很久以前的 replay 机会)
+        terminal_failed = sorted(
+            (r for r in self._tasks.values() if r.status == "failed"),
+            key=lambda r: r.enqueued_at,
+        )
+        for rec in terminal_failed:
+            if over <= 0:
+                break
+            self._tasks.pop(rec.task_id, None)
+            over -= 1
+
     def _dispatch(self, record: SandboxTask, lane: _Lane) -> None:
         lane.waiting += 1
         self._handles[record.task_id] = asyncio.create_task(
@@ -256,6 +291,9 @@ class SandboxTaskQueue:
         finally:
             record.ended_at = _now_iso()
             lane.semaphore.release()
+            # AIS-028: 任务句柄用毕即摘,避免 _handles 单调增长(内存/句柄泄漏)。
+            self._handles.pop(record.task_id, None)
+            self._evict_terminal_if_needed()
 
 
 async def _default_executor(record: SandboxTask) -> dict[str, Any]:

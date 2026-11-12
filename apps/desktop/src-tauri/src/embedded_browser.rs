@@ -68,9 +68,11 @@
 //! (内嵌完整 WebView2 运行时,离线可装;安装包 +~127MB)。想瘦身可改
 //! `embedBootstrapper`(+1.8MB,装时联网下运行时)或 `downloadBootstrapper`(默认,最小)。
 
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::collections::hash_map::RandomState;
+use std::hash::{BuildHasher, Hasher};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Mutex;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use tauri::webview::Color;
 use tauri::{
@@ -91,6 +93,17 @@ pub(crate) const TAB_LABEL_PREFIX: &str = "browser-tab-";
 
 /// 哨兵导航 host(RFC 2606 保留 `.invalid`,永不解析;仅作页面→宿主的信号)。
 const SENTINEL_HOST: &str = "browser.ihui.invalid";
+
+/// F-100:哨兵令牌查询参数名。per-webview 随机串,只随注入脚本与
+/// `on_navigation` 闭包流转,不落日志/不写会话状态。
+const SENTINEL_TOKEN_PARAM: &str = "t";
+
+/// F-100:注入脚本里 per-webview 令牌的占位符(建窗时替换成随机串)。
+const SENTINEL_TOKEN_PLACEHOLDER: &str = "__IHUI_SENTINEL_TOKEN__";
+
+/// F-100:签到页登录回跳的兜底地址。发起页不在域名白名单内时一律用它,
+/// 绝不用发起页自身 URL。
+const WB_CHECKIN_RETURN_FALLBACK: &str = "https://aizhs.top/checkin";
 
 /// 工具条总高(标签栏 34 + 工具栏 38);注入脚本内 `${BAR_H}` 语义同值。
 /// 保留为设计常量:工具条高度由注入脚本的 TAB_H+TOOL_H 决定,此处仅作文档锚点。
@@ -147,6 +160,7 @@ const BAR_JS: &str = r#"(function () {
   window.__ihuiBarInstalled = true;
   var TAB_H = 34, TOOL_H = 38, TOTAL = TAB_H + TOOL_H;
   var SENTINEL = 'https://browser.ihui.invalid/';
+  var SENTINEL_TOKEN = '__IHUI_SENTINEL_TOKEN__';
 
   function el(tag, props, text) {
     var e = document.createElement(tag);
@@ -155,7 +169,12 @@ const BAR_JS: &str = r#"(function () {
     return e;
   }
   window.__ihuiNav = function (action, params) {
-    location.href = SENTINEL + action + (params ? ('?' + params) : '');
+    var query = params || '';
+    // F-100:登录动作必须带本 webview 的随机令牌,宿主据此拒绝伪造哨兵导航。
+    if (action === 'wb-checkin-login') {
+      query = query ? (query + '&t=' + SENTINEL_TOKEN) : ('t=' + SENTINEL_TOKEN);
+    }
+    location.href = SENTINEL + action + (query ? ('?' + query) : '');
   };
   function btn(label, title, action, params) {
     var b = el('button', {
@@ -367,6 +386,47 @@ pub enum SentinelAction {
     WbCheckinLogin,
 }
 
+/// 生成一个 per-webview 的随机哨兵令牌(F-100)。
+///
+/// 不引入新依赖:用 `RandomState`(std 内部由 OS 熵播种的 SipHash 密钥)+ 进程内
+/// 自增序号 + 系统时间混合出 128 bit,足以让第三方页无法猜到别的 webview 的令牌。
+fn new_sentinel_token() -> String {
+    static SEQ: AtomicU64 = AtomicU64::new(0);
+    let seq = SEQ.fetch_add(1, Ordering::Relaxed);
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    let mut a = RandomState::new().build_hasher();
+    a.write_u64(seq);
+    a.write_u128(now);
+    let mut b = RandomState::new().build_hasher();
+    b.write_u64(seq ^ 0x9e37_79b9_7f4a_7c15);
+    b.write_u32(std::process::id());
+    b.write_u128(now.rotate_left(17));
+    format!("{:016x}{:016x}", a.finish(), b.finish())
+}
+
+/// 把 per-webview 令牌写进工具条注入脚本(替换占位符)。
+fn bar_js_with_token(token: &str) -> String {
+    BAR_JS.replace(SENTINEL_TOKEN_PLACEHOLDER, token)
+}
+
+/// F-100:哨兵是否允许派发。`wb-checkin-login` 必须带上**本 webview** 的令牌,
+/// 否则伪造导航(任意第三方页直接 `location.href=...`)在 `on_navigation` 即被拒。
+/// 其余哨兵是工具条自用动作,伪造至多触发一次导航,拿不到任何凭据。
+fn sentinel_dispatch_allowed(url: &Url, action: &SentinelAction, token: &str) -> bool {
+    match action {
+        SentinelAction::WbCheckinLogin => {
+            !token.is_empty()
+                && url
+                    .query_pairs()
+                    .any(|(k, v)| k == SENTINEL_TOKEN_PARAM && v.as_ref() == token)
+        }
+        _ => true,
+    }
+}
+
 /// 只有真正的线上签到页(https://aizhs.top/checkin*)才允许驱动 WorkBuddy 浏览器登录。
 /// F-100:哨兵导航只校验 host,任意第三方页都能 `location.href='https://browser.ihui.invalid/wb-checkin-login'`
 /// 触发登录并指定回跳地址 —— 登录看护把 WorkBuddy 真实 Cookie 拼进 `#wb_import=` 导航回
@@ -379,6 +439,33 @@ fn is_trusted_checkin_origin(url: &Url) -> bool {
     // 只认 /checkin 与 /checkin/<子路径>;先前后缀匹配会把 /checkin-evil 也放进来。
     let path = url.path();
     path == "/checkin" || path.starts_with("/checkin/")
+}
+
+/// F-100:回跳域名白名单 —— 只放行 https 且 host 为 `aizhs.top` 或其子域。
+fn is_trusted_return_host(url: &Url) -> bool {
+    if url.scheme() != "https" {
+        return false;
+    }
+    match url.host_str() {
+        Some(h) => h == "aizhs.top" || h.ends_with(".aizhs.top"),
+        None => false,
+    }
+}
+
+/// F-100:由发起页推导回跳基址(去 fragment)。发起页不在域名白名单内 ⇒ 常量兜底,
+/// 绝不把登录结果(Cookie)导航回第三方站点。
+fn sanitize_return_base(url: Option<&Url>) -> String {
+    let Some(u) = url.filter(|u| is_trusted_return_host(u)) else {
+        return WB_CHECKIN_RETURN_FALLBACK.to_string();
+    };
+    let mut u = u.clone();
+    u.set_fragment(None);
+    let base = u.to_string();
+    if base.is_empty() {
+        WB_CHECKIN_RETURN_FALLBACK.to_string()
+    } else {
+        base
+    }
 }
 
 /// 把哨兵 URL 解析成动作;非哨兵(host 不符)返回 `None`。
@@ -663,15 +750,21 @@ fn build_tab_builder(
 ) -> WebviewBuilder<tauri::Wry> {
     let app_for_nav = app.clone();
     let app_for_load = app.clone();
+    // F-100:令牌在建窗时生成,只进入注入脚本与本 webview 的导航拦截闭包。
+    let sentinel_token = new_sentinel_token();
     WebviewBuilder::new(label, WebviewUrl::External(url))
         .user_agent(CHROME_UA)
         .additional_browser_args(WEBVIEW2_BROWSER_ARGS)
         .devtools(true)
         .background_color(Color(0x24, 0x24, 0x24, 0xff))
-        .initialization_script(BAR_JS)
+        .initialization_script(bar_js_with_token(&sentinel_token))
         .initialization_script(PICK_JS)
         .on_navigation(move |url| {
             if let Some(action) = parse_sentinel(url) {
+                if !sentinel_dispatch_allowed(url, &action, &sentinel_token) {
+                    log::warn!("[embedded-browser] 拒绝伪造/缺少令牌的哨兵导航");
+                    return false;
+                }
                 let a = app_for_nav.clone();
                 tauri::async_runtime::spawn(async move {
                     handle_sentinel(a, action).await;
@@ -729,6 +822,8 @@ fn spawn_degraded_window(
         s.next_id
     });
     let app_for_nav = app.clone();
+    // F-100:降级窗同样注入 per-webview 令牌(单 webview 也是独立一条链路)。
+    let sentinel_token = new_sentinel_token();
     tauri::WebviewWindowBuilder::new(
         app,
         BROWSER_WINDOW_LABEL,
@@ -743,10 +838,14 @@ fn spawn_degraded_window(
     .background_color(Color(0x24, 0x24, 0x24, 0xff))
     .user_agent(CHROME_UA)
     .additional_browser_args(WEBVIEW2_BROWSER_ARGS)
-    .initialization_script(BAR_JS)
+    .initialization_script(bar_js_with_token(&sentinel_token))
     .initialization_script(PICK_JS)
     .on_navigation(move |url| {
         if let Some(action) = parse_sentinel(url) {
+            if !sentinel_dispatch_allowed(url, &action, &sentinel_token) {
+                log::warn!("[embedded-browser] 拒绝伪造/缺少令牌的哨兵导航");
+                return false;
+            }
             let a = app_for_nav.clone();
             tauri::async_runtime::spawn(async move {
                 handle_sentinel(a, action).await;
@@ -962,16 +1061,10 @@ async fn handle_sentinel(app: AppHandle, action: SentinelAction) {
                 WB_LOGIN_POLLING.store(false, Ordering::SeqCst);
                 return;
             };
-            // 回跳地址 = 可信签到页当前 URL 去 fragment;不用发起页原始串兜底,
-            // 否则一个被劫持/伪造的页面能把 Cookie 回跳目标带到任意站点。
-            let return_base = trusted_origin
-                .map(|u| {
-                    let mut u = u;
-                    u.set_fragment(None);
-                    u.to_string()
-                })
-                .filter(|s| !s.is_empty())
-                .unwrap_or_else(|| "https://aizhs.top/checkin".to_string());
+            // 回跳地址 = 可信签到页当前 URL 去 fragment;F-100 再经域名白名单
+            // (https + aizhs.top 及其子域)裁决,不在白名单一律退常量 —— 不用
+            // 发起页原始串兜底,否则一个被劫持/伪造的页面能把 Cookie 带回任意站点。
+            let return_base = sanitize_return_base(trusted_origin.as_ref());
             // 降级窗(单 webview)没有"新标签"可开:当前页直接导航去登录页 ——
             // 签到页会被顶掉,但登录完成后看护会把这一页导航回带 #wb_import=
             // 的签到页自然恢复。标签满时同走此退化路。
@@ -1443,6 +1536,73 @@ mod tests {
         assert!(!is_trusted_checkin_origin(&u("http://aizhs.top/checkin")));
         assert!(!is_trusted_checkin_origin(&u("https://aizhs.top/checkin-evil")));
         assert!(!is_trusted_checkin_origin(&u("https://aizhs.top/")));
+    }
+
+    #[test]
+    fn sentinel_token_rejects_forged_wb_checkin_login() {
+        // F-100:没有令牌 / 令牌不符的 wb-checkin-login 一律不派发。
+        let token = "0123456789abcdef0123456789abcdef";
+        assert!(!sentinel_dispatch_allowed(
+            &u("https://browser.ihui.invalid/wb-checkin-login"),
+            &SentinelAction::WbCheckinLogin,
+            token
+        ));
+        assert!(!sentinel_dispatch_allowed(
+            &u("https://browser.ihui.invalid/wb-checkin-login?t=deadbeef"),
+            &SentinelAction::WbCheckinLogin,
+            token
+        ));
+        // 正证:带上本 webview 令牌的合法哨兵
+        assert!(sentinel_dispatch_allowed(
+            &u("https://browser.ihui.invalid/wb-checkin-login?t=0123456789abcdef0123456789abcdef"),
+            &SentinelAction::WbCheckinLogin,
+            token
+        ));
+        // 其它哨兵不需要令牌(伪造至多触发导航,拿不到凭据)
+        assert!(sentinel_dispatch_allowed(
+            &u("https://browser.ihui.invalid/back"),
+            &SentinelAction::Back,
+            token
+        ));
+    }
+
+    #[test]
+    fn return_base_falls_back_for_untrusted_hosts() {
+        // F-100:非白名单(第三方/http/相似后缀)一律常量兜底
+        assert_eq!(sanitize_return_base(None), WB_CHECKIN_RETURN_FALLBACK);
+        for bad in [
+            "https://evil.example/checkin",
+            "http://aizhs.top/checkin",
+            "https://aizhs.top.evil.example/checkin",
+            "https://evil-aizhs.top/checkin",
+        ] {
+            assert_eq!(
+                sanitize_return_base(Some(&u(bad))),
+                WB_CHECKIN_RETURN_FALLBACK,
+                "不该放行: {bad}"
+            );
+        }
+        // 正证:线上签到页(含子域)通过,并去掉 fragment
+        assert_eq!(
+            sanitize_return_base(Some(&u("https://aizhs.top/checkin#wb_import=x"))),
+            "https://aizhs.top/checkin"
+        );
+        assert_eq!(
+            sanitize_return_base(Some(&u("https://www.aizhs.top/checkin?b=1"))),
+            "https://www.aizhs.top/checkin?b=1"
+        );
+    }
+
+    #[test]
+    fn sentinel_token_is_random_and_injected_into_bar_js() {
+        let a = new_sentinel_token();
+        let b = new_sentinel_token();
+        assert_eq!(a.len(), 32);
+        assert!(a.chars().all(|c| c.is_ascii_hexdigit()));
+        assert_ne!(a, b);
+        let js = bar_js_with_token(&a);
+        assert!(js.contains(&a));
+        assert!(!js.contains(SENTINEL_TOKEN_PLACEHOLDER));
     }
 
     #[test]
