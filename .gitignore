@@ -709,3 +709,10 @@ docs/engineering/ai-compliance-readiness-*.md
 .local-changed-files.txt
 .recovered-changes.diff
 .lost-patchid.mjs
+
+# 运行时产物兜底(根治并发污染 2026-11-12):与 .screenshots/.box-agent 同族,登记进忽略层后
+# git status 不再显示为未跟踪,守门 44 从"归属无从判定(exit 2)"落到已忽略,不删他人现场。
+# .box-agent-scratch 本体已在守门 44 白名单(scripts/check-root-dir-clean.mjs:364),此为 gitignore 侧对齐。
+.box-agent-scratch/
+# 损坏 node_modules 隔离目录(装机诊断产物,非交付;命名形如 node_modules.damaged-YYYYMMDD)
+apps/mobile-rn/node_modules.damaged-*/
