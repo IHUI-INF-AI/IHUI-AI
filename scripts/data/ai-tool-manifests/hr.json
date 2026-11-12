@@ -188,11 +188,7 @@
             "type": "string",
             "description": "签到方式",
             "required": true,
-            "enum": [
-              "self",
-              "qrcode",
-              "manual"
-            ]
+            "enum": ["self", "qrcode", "manual"]
           },
           {
             "name": "checkInTimeRaw",
@@ -424,10 +420,7 @@
             "type": "string",
             "description": "审批决定",
             "required": true,
-            "enum": [
-              "approved",
-              "rejected"
-            ]
+            "enum": ["approved", "rejected"]
           },
           {
             "name": "approveRemark",
@@ -548,10 +541,7 @@
             "type": "string",
             "description": "补卡类型 check_in(补签到)/check_out(补签退)",
             "required": true,
-            "enum": [
-              "check_in",
-              "check_out"
-            ]
+            "enum": ["check_in", "check_out"]
           },
           {
             "name": "punchTime",
@@ -631,12 +621,7 @@
             "name": "approverIds",
             "type": "array",
             "description": "有序审批链(审批人 user id 列表)",
-            "required": true,
-            "items": {
-              "name": "item",
-              "type": "string",
-              "description": "审批人 user id(uuid)"
-            }
+            "required": true
           },
           {
             "name": "approverProxyId",
@@ -657,10 +642,7 @@
             "name": "status",
             "type": "string",
             "description": "active/disabled(可选,默认 active)",
-            "enum": [
-              "active",
-              "disabled"
-            ]
+            "enum": ["active", "disabled"]
           }
         ]
       },
@@ -697,10 +679,7 @@
             "type": "string",
             "description": "决策 approved(通过)/rejected(驳回)",
             "required": true,
-            "enum": [
-              "approved",
-              "rejected"
-            ]
+            "enum": ["approved", "rejected"]
           },
           {
             "name": "remark",

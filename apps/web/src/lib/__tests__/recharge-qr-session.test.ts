@@ -64,5 +64,53 @@ describe('充值扫码凭据会话暂存(W-07)', () => {
     expect(formatOrderAmount(undefined)).toBeNull()
     expect(formatOrderAmount(-1)).toBeNull()
   })
+
+  // 行为级钉子:成功页金额/二维码唯一可信源 = 服务端订单(order)与同源 sessionStorage,
+  // 不接受 URL query 里的 amount / codeUrl / payUrl / method(否则可构造链接做支付钓鱼)。
+  it('成功页不读取 URL 里的金额/二维码/支付方式参数,只读 orderNo', () => {
+    const fs = require('node:fs')
+    const path = require('node:path')
+    const success = fs.readFileSync(
+      path.resolve(__dirname, '../../../app/(main)/wallet/recharge/success/PageClient.tsx'),
+      'utf8',
+    )
+    expect(success).toContain("searchParams.get('orderNo')")
+    for (const untrusted of ['amount', 'method', 'codeUrl', 'payUrl']) {
+      expect(success).not.toContain(`searchParams.get('${untrusted}')`)
+      expect(success).not.toContain(`searchParams.get("${untrusted}")`)
+    }
+  })
+
+  it('URL 伪造的金额与二维码不被采信:展示金额与二维码只来自服务端/同源数据', () => {
+    const fs = require('node:fs')
+    const path = require('node:path')
+    const success = fs.readFileSync(
+      path.resolve(__dirname, '../../../app/(main)/wallet/recharge/success/PageClient.tsx'),
+      'utf8',
+    )
+    // 展示金额 = 服务端订单金额(分→元),不接受 URL 传入的明文 amount 字符串
+    expect(success).toMatch(/formatOrderAmount\(order\?\.amount\)/)
+    // 支付方式 = 服务端订单字段白名单映射,不接受 URL method
+    expect(success).toMatch(/normalizePaymentMethod\(order\?\.paymentMethod\)/)
+    // 二维码内容 = 下单页写入 sessionStorage 的同源凭据(readRechargeQr),不接受 URL codeUrl/payUrl
+    expect(success).toMatch(/readRechargeQr\(orderNo\)/)
+    expect(success).toMatch(/method === 'alipay' \? qr\?\.payUrl : method === 'wechat' \? qr\?\.codeUrl/)
+  })
+
+  it('下单页只把 orderNo 写进 URL,二维码凭据不进 URL query', () => {
+    const fs = require('node:fs')
+    const path = require('node:path')
+    for (const rel of [
+      '../../../app/(main)/wallet/recharge/page.tsx',
+      '../../../app/(main)/purchase/TopupTab.tsx',
+    ]) {
+      const src = fs.readFileSync(path.resolve(__dirname, rel), 'utf8')
+      expect(src).toContain('saveRechargeQr')
+      expect(src).not.toContain("params.set('codeUrl'")
+      expect(src).not.toContain("params.set('payUrl'")
+      expect(src).not.toContain("params.set('amount'")
+      expect(src).toMatch(/wallet\/recharge\/success\?orderNo=/)
+    }
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
