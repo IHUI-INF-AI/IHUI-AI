@@ -174,6 +174,34 @@ export const TENANT_BYPASS_PREFIX_PATHS: readonly string[] = [
   // 即严格后,不在这里豁免就等于让这 33 个模型全线 401(2026-11-11 实测:带租户头 200、不带 401)。
   '/v1/',
   '/v1beta/',
+  /**
+   * WebSocket 全族(2026-11-12 立,根因级)。
+   *
+   * 病灶不是"漏登记某一条 /ws 路径",而是**传输层事实**决定的结构性冲突:
+   *   · 租户标识只有两条载体——`X-Tenant-Id` header 或子域名(`tenant.ts:26-46`);
+   *   · 浏览器发起的 WebSocket 握手**无法**自定义 header(WHATWG 规范禁止),凭据只能挂
+   *     query(`?token=`);而域名侧 `api.aizhs.top` 的 `api` 是 `RESERVED_SUBDOMAINS` 成员,
+   *     `resolveTenantIdentifier` 对它恒返回 null ⇒ 严格模式下**任何**浏览器 WS 握手必 401,
+   *     与是否登录无关。
+   * 实测(本机 8802,2026-11-12):`/ws/relay/chat?token=probe`、`/ws/notifications?token=probe`
+   * 均返回 `{"code":401,"message":"多租户严格模式已启用…"}`,而补 `X-Tenant-Id` 头后立刻越过
+   * 该闸(落到 404「租户不存在」)——证明租户层是唯一阻断点,也证明浏览器无解。
+   * 影响面不止本次的号池通道:平台 16 条 WS 路由(/ws/notifications、/ws/agent/stream、
+   * /ws/messages、/ws/tasks/:taskId…)在严格模式下一律不可用。
+   *
+   * 为什么豁免不降低安全性(三条已核事实,不是"大概没问题"):
+   *   1. **免租户 ≠ 免鉴权**:每条 /ws 路由都自带 `wsUpgradeRequiresCredential()` 挡无凭据
+   *      握手 + `wsAuth()` 验签/注销态/并发限速(/ws/relay/chat 见 ws-relay-chat.ts:76-86);
+   *      且 `/ws/` **不在** `AUTH_PUBLIC_PREFIX_PATHS` 里,兜底鉴权闸的语义面不受影响。
+   *   2. **WS 面无租户数据**:`request.tenantId` 在全部 ws-*.ts 中零引用(全仓 grep 证实),
+   *      这些端点按 userId 隔离,不存在"豁免后跨租户串数据"的路径。
+   *   3. **段边界安全**:尾斜杠条目经 `matchesPrefix` 只覆盖 `/ws/` 子段,`/wsXYZ` 不放行。
+   *
+   * 结论:租户隔离套在用户级长连接面上属**维度错配**——它零安全收益,却让整族浏览器 WS
+   * 结构性不可达。故按"免租户、强制自验凭据"口径统一豁免,而非逐条打补丁。
+   * 回归锁:public-paths.test.ts「WS 全族必须免租户、且免租户不免鉴权」逐条钉死。
+   */
+  '/ws/',
   '/api/csrf-token',
   '/api/configs',
   '/api/settings',
