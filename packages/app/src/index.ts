@@ -1391,3 +1391,17 @@ export type {
 } from './features/share-landing/ShareLandingScreen'
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 export { LiveQuickActions } from './features/live-list/LiveQuickActions'
+// 财务部板块共享屏(RP-46 miniapp-taro/RN 镜像,2026-11-12):barrel 供 RN 壳直接 import
+export {
+  FinanceAiHubScreen,
+  AUTOMATION_TARGETS,
+  AUTOMATION_DEFAULT_SELECTED,
+} from './features/finance-ai/FinanceAiHubScreen'
+export type {
+  FinanceAiHubScreenProps,
+  FinanceAiBookkeepingDraft,
+  FinanceAiTaxDraft,
+  FinanceAiAutomationDraft,
+  FinanceAiProgressStep,
+  AutomationTargetId,
+} from './features/finance-ai/FinanceAiHubScreen'

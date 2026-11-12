@@ -8,12 +8,12 @@
 // 改路由请改 RootNavigator.tsx 后重新生成。
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/mobile-rn/scripts/generate-ui-routes.mjs
-// sourceCommit: ff17abfc5567981650cb99b5e547bfb09b997c91
-// inputsSha256: acd0ea16359fbcab34137b677b7eece2dcf6e809af9a44b45ecf43146b1da066
-// input: apps/mobile-rn/src/navigation/RootNavigator.tsx b6557e2307b68b33d35afa07d166d67d48ca3742ca2812f353a73ed8c1c65a05
+// sourceCommit: c75ed05fae9ec2b158cf402107629f02f638a20c
+// inputsSha256: 28b50df46a8380187a783bee863ba32d5777cd41063a194b627df5a88ecfb34f
+// input: apps/mobile-rn/src/navigation/RootNavigator.tsx bab107f81c67f2526bb10191a95ab10f0253f2e3c53fce29c06a0584a35f27cf
 // input: apps/mobile-rn/src/navigation/linking.ts d003573a24de25dea1e7fc9abe5deb78223e68486d626712ebc1ce1721531cd7
 // skipped: unauthedBranchScreens=8(未登录分支 Screen 不入白名单,桥接挂载时不存在)
-// generatedAt: 2026-11-10T02:54:03.804Z
+// generatedAt: 2026-11-12T13:30:01.465Z
 // IHUI-GEN-PIN-END
 
 /** AI 可导航 Screen 条目:name 是 react-navigation 的 screen name(不是 URL 路径) */
@@ -28,7 +28,7 @@ export interface RnUiRouteEntry {
   requiredParams: string[]
 }
 
-/** 全量白名单:前 345 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
+/** 全量白名单:前 346 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
 export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'Main', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Login', tab: false, requiresParams: false, requiredParams: [] },
@@ -166,6 +166,7 @@ export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'AiWorldFavorites', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'AiWorldHistory', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'EduAi', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'FinanceAi', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'EduAiVideoCompose', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Plan', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'PlanDetail', tab: false, requiresParams: true, requiredParams: ['id'] },

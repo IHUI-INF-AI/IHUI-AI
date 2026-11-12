@@ -626,6 +626,7 @@
         "src/pkg-user/fans/index.tsx",
         "src/pkg-user/favorites/index.config.ts",
         "src/pkg-user/favorites/index.tsx",
+        "src/pkg-user/finance-ai-hub/index.tsx",
         "src/pkg-user/following/index.config.ts",
         "src/pkg-user/following/index.tsx",
         "src/pkg-user/identity-verify/index.tsx",
