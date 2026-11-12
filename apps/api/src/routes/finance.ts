@@ -12,7 +12,7 @@ import {
   getBalance,
   rechargeToken,
   deductToken,
-  refundToken,
+  refundTokenDeduct,
   expireToken,
   listTokenFlows,
   listCommissionFlows,
@@ -56,14 +56,38 @@ export const financeRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ sufficient: balance >= minTokens, balance }))
   })
 
+  // F-65(2026-11-13):资金面数量统一口径 —— 必须是正整数且有上限。
+  // 原 `z.coerce.number()` 放行 0 / 负数 / 小数 / NaN:
+  //  · deductToken 的 `token_quantity >= quantity` 对负数恒真,且 `- (-N)` 等于加钱;
+  //  · recharge / commission 同样可被负数写成反向铸币。
+  // 上限 10 亿分(= 1000 万元)远超任何真实单笔流水,只用于兜住 1e18 之类的溢出/滥用值。
+  const MARGIN_QUANTITY_MAX = 1_000_000_000
+  const marginQuantity = z.coerce
+    .number({ error: '数量必须是数字' })
+    .int({ error: '数量必须是整数' })
+    .positive({ error: '数量必须大于 0' })
+    .max(MARGIN_QUANTITY_MAX, { error: `数量不能超过 ${MARGIN_QUANTITY_MAX}` })
+  // F-65:目标账户可由请求参数指定;缺省仍是调用者(与既有文档口径一致)。
+  // 账号归属校验落在各自的业务事实上:recharge/refund 必须与订单归属一致,
+  // refund 另禁止落到操作者本人。
+  const targetUserIdSchema = z.uuid({ error: 'userId 格式不正确' }).optional()
+
   // P1-4 修复:/finance/margin/* 资金操作全部加 admin 权限校验(roleId >= 1),禁止普通用户自助调用
   server.post('/finance/margin/deduct', async (request, reply) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
-    const { quantity, remark } = z
-      .object({ quantity: z.coerce.number(), remark: z.string().optional().default('') })
-      .parse(request.query)
-    const userId = request.userId!
+    const parsed = z
+      .object({
+        quantity: marginQuantity,
+        remark: z.string().optional().default(''),
+        userId: targetUserIdSchema,
+      })
+      .safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { quantity, remark, userId: targetUserId } = parsed.data
+    const userId = targetUserId ?? request.userId!
     const balance = await deductToken(userId, quantity, remark)
     return reply.send(success({ balance }))
   })
@@ -71,13 +95,21 @@ export const financeRoutes: FastifyPluginAsync = async (server) => {
   server.post('/finance/margin/recharge', async (request, reply) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
-    const { quantity, outTradeNo } = z
-      .object({ quantity: z.coerce.number(), outTradeNo: z.string() })
-      .parse(request.query)
-    const userId = request.userId!
+    const parsed = z
+      .object({
+        quantity: marginQuantity,
+        outTradeNo: z.string(),
+        userId: targetUserIdSchema,
+      })
+      .safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { quantity, outTradeNo, userId: targetUserId } = parsed.data
+    const userId = targetUserId ?? request.userId!
     // G8: 补 JOIN orders 校验,确认 outTradeNo 对应已支付订单,堵住"凭任意订单号印钞"漏洞
     const orderRows = await db
-      .select({ status: orders.status, userId: orders.userId })
+      .select({ status: orders.status, userId: orders.userId, amount: orders.amount })
       .from(orders)
       .where(eq(orders.orderNo, outTradeNo))
       .limit(1)
@@ -89,7 +121,11 @@ export const financeRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, `订单状态非已支付(当前: ${order.status})`))
     }
     if (order.userId !== userId) {
-      return reply.status(403).send(error(403, '订单归属与当前用户不匹配'))
+      return reply.status(403).send(error(403, '订单归属与目标账户不匹配'))
+    }
+    // F-65:按订单金额限幅,堵住「0.01 元已支付单充 1e9 token」
+    if (quantity > order.amount) {
+      return reply.status(400).send(error(400, `充值数量不能超过订单金额(${order.amount})`))
     }
     const balance = await rechargeToken(userId, quantity, outTradeNo)
     return reply.send(success({ balance }))
@@ -98,10 +134,18 @@ export const financeRoutes: FastifyPluginAsync = async (server) => {
   server.post('/finance/margin/expire', async (request, reply) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
-    const { quantity, source } = z
-      .object({ quantity: z.coerce.number(), source: z.string().optional().default('到期清零') })
-      .parse(request.query)
-    const userId = request.userId!
+    const parsed = z
+      .object({
+        quantity: marginQuantity,
+        source: z.string().optional().default('到期清零'),
+        userId: targetUserIdSchema,
+      })
+      .safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { quantity, source, userId: targetUserId } = parsed.data
+    const userId = targetUserId ?? request.userId!
     const balance = await expireToken(userId, quantity, source)
     return reply.send(success({ balance }))
   })
@@ -109,15 +153,20 @@ export const financeRoutes: FastifyPluginAsync = async (server) => {
   server.post('/finance/margin/commission', async (request, reply) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
-    const { quantity, invitedUserId, source } = z
+    const parsed = z
       .object({
-        quantity: z.coerce.number(),
-        invitedUserId: z.string().optional().default(''),
+        quantity: marginQuantity,
+        invitedUserId: targetUserIdSchema,
         source: z.string().optional().default('invite'),
       })
-      .parse(request.query)
-    void invitedUserId
-    const userId = request.userId!
+      .safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { quantity, invitedUserId, source } = parsed.data
+    // F-65:invitedUserId 不再被 void —— 它就是佣金要入账的目标账户;
+    // 缺省(不传)仍是调用者,保持既有文档口径。
+    const userId = invitedUserId ?? request.userId!
     const balance = await rechargeToken(userId, quantity, undefined, source)
     return reply.send(success({ balance }))
   })
@@ -125,18 +174,45 @@ export const financeRoutes: FastifyPluginAsync = async (server) => {
   server.post('/finance/margin/refund', async (request, reply) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
-    const { quantity, remark, orderNo } = z
+    // F-64(2026-11-13):退款方向反了 —— 原实现走 rechargeToken(opType=0),
+    // 把 token 加给操作者(管理员)自己,且与原充值共用 (related_order_no, op_type=0)
+    // 幂等键,退款被 23505 静默吞掉(接口成功但什么都没发生)。
+    // 现在:必须显式指定目标账户 + 原单号;目标账户的 token 被扣回(opType=3,
+    // related_order_no=`refund:<orderNo>`),与充值的 opType=0 幂等键互不干扰。
+    const parsed = z
       .object({
-        quantity: z.coerce.number(),
+        quantity: marginQuantity,
+        // 归属校验要落到具体订单上,故单号不再是可选项(缺单号时也无法做幂等)
+        orderNo: z.string().min(1, { error: 'orderNo 必填' }),
         remark: z.string().optional().default(''),
-        orderNo: z.string().optional(),
+        // 拒绝默认操作者:退款目标必须显式指定
+        userId: z.uuid({ error: 'userId 必填且格式正确' }),
       })
-      .parse(request.query)
-    const userId = request.userId!
-    // 2026-08-02 修复:refundToken 签名改为必传 orderNo 做幂等键
-    // admin 手动退款未传 orderNo 时,用 timestamp 兜底(每次调用独立,防 unique 索引冲突)
-    const idemKey = orderNo || `manual_refund:${userId}:${Date.now()}`
-    const balance = await refundToken(userId, quantity, idemKey, remark)
+      .safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { quantity, orderNo, remark, userId: targetUserId } = parsed.data
+    if (targetUserId === request.userId) {
+      return reply.status(400).send(error(400, '退款目标账户不能是操作者本人'))
+    }
+    const orderRows = await db
+      .select({ status: orders.status, userId: orders.userId, amount: orders.amount })
+      .from(orders)
+      .where(eq(orders.orderNo, orderNo))
+      .limit(1)
+    const order = orderRows[0]
+    if (!order) {
+      return reply.status(400).send(error(400, '订单不存在'))
+    }
+    if (order.userId !== targetUserId) {
+      return reply.status(403).send(error(403, '订单归属与目标账户不匹配'))
+    }
+    // F-64:退款扣回不得超过原单金额
+    if (quantity > order.amount) {
+      return reply.status(400).send(error(400, `退款数量不能超过订单金额(${order.amount})`))
+    }
+    const balance = await refundTokenDeduct(targetUserId, quantity, orderNo, remark || undefined)
     return reply.send(success({ balance }))
   })
 
