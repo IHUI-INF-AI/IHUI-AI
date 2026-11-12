@@ -11979,7 +11979,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
   - ④`packages/shared/src/utils/format.ts` 的 `` `${Number.isInteger(k) ? k : k.toFixed(0)}K` `` 使 `1500 → "2K"`、`999999 → "1000K"` 而非 `"1M"`，与同函数 M 分支 `toFixed(1)` 口径不一致。
   - ⑤`packages/shared/src/utils/number-format.ts` 的 `if (n === null || n === undefined || n === 0) return ''` 把真实 0 渲染成空串（`packages/types/src/api-contracts.ts` 明确要求"0 与缺席不可互换"）。
   - ⑥`packages/shared/src/utils/object.ts` 的 `deepClone` 在 `structuredClone` 不可用时走手写递归、丢 `Date`/`Map`/`Set`/`RegExp`；`packages/shared/src/jobs/submission-job.ts` 的 `freezeFormSnapshot` 同样在失败时回退浅拷贝，与注释"不静默吞字段"相悖。
-- [ ] BUG-29 **索引与约束缺失族（四格，合计 157 处）**：123 个外键列无索引、24 处 userId 无 FK、10 个 schema 声明索引无对应 DDL、同一张表两份 DDL 列类型不同。出路=生成一次补齐迁移 + 加 schema/迁移集合对账。(登记@2026-11-05;归属:机主)
   - ①`packages/database/src/schema/**` 列级 `.references(...)` 共 391 个，其中 **123 个所在表无覆盖索引**（PG 不为 FK 自动建索引）⇒ 级联删除与按外键过滤全表扫，典型 `agent_tasks.ruleId/createdBy/updatedBy`、`orders.planId/createdBy/updatedBy`、`commission_flows.orderId`。
   - ②**24 处** `userId: uuid('user_id').notNull()` 无 `.references()`（`user-automations.ts`、`agent-event-triggers`、`agent-rule`、`analytics-events`、`clawdbot`、`exam-extended`、`user-memory`、`webhook-subscriptions` 等）⇒ 删用户留永久孤儿行。
   - ③schema 声明了索引但迁移链无对应 DDL 共 10 处（`chat.ts` 的 `ix_conversation_message_archives_created_at`、`ab-tests.ts` 的 `idx_ab_tests_status`、`agent-state.ts` 的 `agent_multimodal_memory_hash_uniq`、`memory.ts` 的 `uniqueEdge: uniqueIndex('ux_agent_memory_edges')` 等），`drizzle-kit generate` 认为已同步而库内没有。
@@ -12236,7 +12235,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 12A. **缺陷普查 DG DG-12** [P3] 发布 tag 闸要求整树 porcelain 干净：多会话共享工作树下被他人 WIP 永久阻断（证据 docs/tickets/2026-11/findings-deploy-gates.md#DG-12）
 - [ ] 13A. **缺陷普查 DG DG-13** [P3] 部署门禁失败 → 回滚 → exit 0，按退出码记账的调用方会把失败轮记成成功（证据 docs/tickets/2026-11/findings-deploy-gates.md#DG-13）
 - [ ] 14A. **缺陷普查 DG DG-14** [P3] 元门档是「脚本名正则白名单」：新增门命名不命中即本地零通道，且没有门保证「每门至少一个阻断通道」（证据 docs/tickets/2026-11/findings-deploy-gates.md#DG-14）
-- [ ] 1B. **缺陷普查 WEB W-01** [P1] 考试倒计时用「每秒自减」而非截止时间戳，后台/锁屏可无限延长考试时间（证据 docs/tickets/2026-11/findings-web.md#W-01）〔2026-11-08 复核:截止戳派生已在主线;`fix/web-findings-1108` 合并仅是把就地实现提取为 `useDeadlineCountdown` 的**重构收敛(行为不变,非缺陷修复)**,后续勿记作本次修掉 W-01〕
 - [ ] 2B. **缺陷普查 WEB W-02** [P2] 管理端在线答题页存在同型倒计时缺陷（证据 docs/tickets/2026-11/findings-web.md#W-02）
 - [ ] 3B. **缺陷普查 WEB W-03** [P3] 退款详情失败时降级为「列表前 100 条匹配」，且静默丢失订单与审核记录（证据 docs/tickets/2026-11/findings-web.md#W-03）
 - [ ] 4B. **缺陷普查 WEB W-04** [P2] 提问弹窗未处理输入法组合态，中文按 Enter 选词会提前提交半截答案（证据 docs/tickets/2026-11/findings-web.md#W-04）
