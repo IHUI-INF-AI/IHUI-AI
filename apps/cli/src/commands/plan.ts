@@ -121,9 +121,9 @@ function initPlan(workspace: string, name: string | undefined, force: boolean): 
   }
 
   // F-131:原子写(同目录 tmp + rename)—— 修前裸 writeFileSync 在崩溃/磁盘满时
-  // 留半截 plan;--force 覆盖前另留一份 .bak,原内容可寻回。
+  // 留半截 plan;--force 覆盖前另留一份 <file>.bak(旧 .bak 被本次覆盖)。
   if (existsSync(filePath)) {
-    const backupPath = `${filePath}.bak-${fileTimestamp()}`;
+    const backupPath = `${filePath}.bak`;
     try {
       copyFileSync(filePath, backupPath);
       console.info(chalk.dim(`  已备份原 plan: ${backupPath}`));
