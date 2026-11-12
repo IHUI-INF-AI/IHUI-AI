@@ -20,6 +20,16 @@ import { onToast } from '@/host/on-toast'
 
 let warned = false
 
+/**
+ * XUI-012:必须同时提供**命名导出**。
+ *
+ * 消费方按 RN 上游包的形状写 `import { WebView } from 'react-native-webview'`
+ * (`apps/mobile-rn/src/screens/{ArtifactPreview,Login,WebView}Screen.tsx` 三处),
+ * 而本文件修前只有 `export default` —— 命名导入在 ESM 下拿到的是 `undefined`,
+ * 小程序端共享屏一渲染就抛 "Element type is invalid",整屏白。
+ *
+ * 这里让 default 与 named 指向**同一个函数**:两个名字一份实现,不存在第二份行为。
+ */
 export default function WebView({
   source,
   style,
@@ -49,4 +59,7 @@ export default function WebView({
 }
 
 export type WebViewNavigation = Record<string, unknown>
+
+/** XUI-012:命名导出与 default 是同一函数引用(见文件上方 `export default function WebView`)。 */
+export { WebView }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
