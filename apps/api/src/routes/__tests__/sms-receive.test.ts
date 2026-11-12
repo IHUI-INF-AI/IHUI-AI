@@ -27,7 +27,17 @@ const mockConfig = vi.hoisted(() => ({
 }))
 vi.mock('../../config/index.js', () => ({ config: mockConfig }))
 
-vi.mock('@ihui/auth', () => ({ verifyAccessToken: vi.fn() }))
+vi.mock('@ihui/auth', () => ({ verifyAccessToken: vi.fn()   // 2026-11-11:生产 authenticateInner 已改 fail-closed——getTokenBlacklist() 返回 null
+  // 即判 token「已吊销」⇒ 401。测试环境 createBlacklist 内部 new IORedis 恒连不上 ⇒ null
+  // ⇒ 合法 token 被 401。覆盖为内存假黑名单(has 恒 false)。不回退生产 fail-closed 语义。
+  createBlacklist: vi.fn(() => ({
+    async has() {
+      return false
+    },
+    async add() {},
+    async revoke() {},
+  })),
+}))
 
 // auth 链路(2026-10-30 起)自己 new IORedis(config.REDIS_URL) 做吊销名单 + 按用户限流。
 // 上面的 config mock 没给 REDIS_URL ⇒ 落到 tests/setup-env.ts 的兜底值,而那个兜底是

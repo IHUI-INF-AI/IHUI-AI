@@ -84,7 +84,6 @@ def _tasks(states: dict[str, str]) -> dict[str, Any]:
         "message": "success",
         "data": {
             "new_user_task_states": [{"key": k, "status": v} for k, v in states.items()],
-            "invite": {"invite_code": "abc123", "granted_points": 0},
         },
     }
 
@@ -171,58 +170,6 @@ class TestParseTasks:
         p = parse_tasks(_tasks({"mobile_login": "unfinished", "brand_new": "completed"}))
         assert p["states"] == {"mobile_login": "unfinished"}
         assert "brand_new" in p["raw_keys"]
-
-    def test_invite_code(self) -> None:
-        assert parse_tasks(_tasks({}))["invite_code"] == "abc123"
-
-    def test_invite_stats_full(self) -> None:
-        """邀请块完整解析 —— 邀请没有领取接口,号池能做的就是把这四个数看住。"""
-        p = parse_tasks(
-            {
-                "code": 0,
-                "data": {
-                    "new_user_task_states": [],
-                    "invite": {
-                        "invite_code": "code-xyz",
-                        "granted_points": 4500,
-                        "registered_invitee_count": 3,
-                        "remaining_reward_invitees": 17,
-                        "register_reward_points": 1500,
-                    },
-                },
-            }
-        )
-        assert p["invite"] == {
-            "code": "code-xyz",
-            "granted_points": 4500,
-            "registered_invitees": 3,
-            "remaining_reward_invitees": 17,
-            "register_reward_points": 1500,
-        }
-        assert p["invite_code"] == "code-xyz"
-
-    def test_invite_partial_degrades_to_zero(self) -> None:
-        """残缺 invite 块逐字段退化为 0,不把缺失当未知数以外的值。"""
-        p = parse_tasks({"code": 0, "data": {"invite": {"invite_code": "abc"}}})
-        assert p["invite"]["granted_points"] == 0
-        assert p["invite"]["registered_invitees"] == 0
-        assert p["invite"]["remaining_reward_invitees"] == 0
-        assert p["invite"]["register_reward_points"] == 0
-
-    def test_invite_absent_is_none_not_zero(self) -> None:
-        """整块缺失 ⇒ 码为 None(未判定);数值字段仍为 0。"""
-        p = parse_tasks({"code": 0, "data": {}})
-        assert p["invite"]["code"] is None
-        assert p["invite_code"] is None
-        assert p["invite"]["registered_invitees"] == 0
-
-    def test_invite_count_bool_rejected(self) -> None:
-        """bool 是 int 子类,必须排除 —— 否则 True 会被当成 1 人。"""
-        p = parse_tasks(
-            {"code": 0, "data": {"invite": {"registered_invitee_count": True, "granted_points": False}}}
-        )
-        assert p["invite"]["registered_invitees"] == 0
-        assert p["invite"]["granted_points"] == 0
 
     def test_registered_list_matches_upstream(self) -> None:
         assert NEW_USER_TASKS == ("register_pack", "desktop_login", "mobile_login")

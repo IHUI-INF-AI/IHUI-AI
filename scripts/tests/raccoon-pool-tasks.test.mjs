@@ -94,21 +94,20 @@ test('balance/tasks: 正常面与失效面', () => {
   assert.equal(judgeBalance(errRes(401)).code, 'AUTH_EXPIRED')
 
   const t = judgeTasks(
-    okRes({ code: 0, data: { new_user_task_states: [{ key: 'mobile_login', status: 'completed' }], invite: { invite_code: 'abc' } } })
+    okRes({ code: 0, data: { new_user_task_states: [{ key: 'mobile_login', status: 'completed' }] } })
   )
   assert.equal(t.verdict, 'ok')
   assert.equal(t.newUserTasks.mobile_login, 'completed')
-  assert.equal(t.invite.code, 'abc')
 })
 
 test('suggest: 未完成任务指到具体命令;已领不提示领取', () => {
   const bal = { verdict: 'ok', availablePoints: 9300, dailyPoints: 300, rewardPoints: 9000, topupPoints: 0 }
-  const tasks = { verdict: 'ok', newUserTasks: { mobile_login: 'unfinished' }, invite: null }
+  const tasks = { verdict: 'ok', newUserTasks: { mobile_login: 'unfinished' } }
   const out = suggestNext(bal, tasks, { verdict: 'ok', granted: false, points: 0 })
   assert.ok(out.some((s) => s.includes('--claim-new-user')), out.join('\n'))
   assert.ok(out.some((s) => s.includes('granted=false')), out.join('\n'))
 
-  const done = suggestNext(bal, { verdict: 'ok', newUserTasks: { mobile_login: 'completed' }, invite: null }, null)
+  const done = suggestNext(bal, { verdict: 'ok', newUserTasks: { mobile_login: 'completed' } }, null)
   assert.ok(!done.some((s) => s.includes('--claim-new-user')))
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

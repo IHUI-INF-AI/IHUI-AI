@@ -265,6 +265,33 @@
           },
           { "name": "approveRemark", "type": "string", "description": "审批意见(可选)" }
         ]
+      },
+      {
+        "name": "hr_job_list",
+        "description": "列出人事定时任务清单(名字/说明/cron,只读,需 hr:attendance:manage)。",
+        "method": "GET",
+        "path": "/api/hr-jobs"
+      },
+      {
+        "name": "hr_job_run",
+        "description": "手动补跑指定人事定时任务(高危,需 hr:attendance:manage)。",
+        "method": "POST",
+        "path": "/api/hr-jobs/:name/run",
+        "pathParams": [
+          {
+            "name": "name",
+            "type": "string",
+            "description": "任务名 hr.daily.absent / hr.daily.exception / hr.monthly.stats",
+            "required": true
+          }
+        ],
+        "params": [
+          {
+            "name": "date",
+            "type": "string",
+            "description": "业务日 YYYY-MM-DD(可选,缺省=当下;用于补历史某天)"
+          }
+        ]
       }
     ]
   }
