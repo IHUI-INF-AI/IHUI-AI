@@ -183,8 +183,11 @@ function parseCellRef(ref: string): { row: number; column: number } | null {
   const colRaw = m[1]
   if (!colRaw) return null
   const column = colToNumber(colRaw)
-  if (!Number.isFinite(column) || column < 1) return null
-  return { row: Number(m[2]), column }
+  // F-541:xlsx 规格上限是 16384 列(XFD) × 1048576 行,超出会产出 Excel 判损坏的工作簿。
+  if (!Number.isFinite(column) || column < 1 || column > 16384) return null
+  const row = Number(m[2])
+  if (row > 1048576) return null
+  return { row, column }
 }
 
 /** 解析 `A1:C10` 或单格 `B7` 形态区域;非法返回 null。 */

@@ -213,7 +213,8 @@ function xlsxToMarkdown(filePath: string): string {
 
 function formatAsMarkdownTable(title: string, rows: string[][]): string {
   if (rows.length === 0) return `## ${title}\n`
-  const colCount = Math.max(...rows.map((r) => r.length))
+  // F-548:大表时 `Math.max(...rows.map(...))` 实参展开会超 V8 上限抛 RangeError,改 reduce。
+  const colCount = rows.reduce((m, r) => Math.max(m, r.length), 0)
   // 补齐每行列数
   const padded = rows.map((r) => {
     const row = [...r]

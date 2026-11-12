@@ -122,7 +122,7 @@ export const adminApiPlatformRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.get('/api-platform/apps/:id', async (request, reply) => {
-    const { id } = z.object({ id: z.string() }).parse(request.params)
+    const { id } = z.object({ id: z.uuid() }).parse(request.params)
     const [row] = await dbRead
       .select({
         id: developerApiKeys.id,
@@ -159,7 +159,7 @@ export const adminApiPlatformRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.patch('/api-platform/apps/:id', async (request, reply) => {
-    const { id } = z.object({ id: z.string() }).parse(request.params)
+    const { id } = z.object({ id: z.uuid() }).parse(request.params)
     const parsed = updateAppSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -175,7 +175,7 @@ export const adminApiPlatformRoutes: FastifyPluginAsync = async (server) => {
 
   // PATCH /api-platform/apps/:id/status — 状态切换（前端传 0|1，转换为 active|revoked）
   server.patch('/api-platform/apps/:id/status', async (request, reply) => {
-    const { id } = z.object({ id: z.string() }).parse(request.params)
+    const { id } = z.object({ id: z.uuid() }).parse(request.params)
     const b = z.object({ status: z.number().int() }).safeParse(request.body)
     if (!b.success) return reply.status(400).send(error(400, '参数错误'))
     const statusStr = b.data.status === 1 ? 'active' : 'revoked'
@@ -189,7 +189,7 @@ export const adminApiPlatformRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.delete('/api-platform/apps/:id', async (request, reply) => {
-    const { id } = z.object({ id: z.string() }).parse(request.params)
+    const { id } = z.object({ id: z.uuid() }).parse(request.params)
     const [deleted] = await db
       .delete(developerApiKeys)
       .where(eq(developerApiKeys.id, id))
@@ -206,7 +206,7 @@ export const adminApiPlatformRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.get('/api-platform/packages/:id', async (request, reply) => {
-    const { id } = z.object({ id: z.string() }).parse(request.params)
+    const { id } = z.object({ id: z.uuid() }).parse(request.params)
     const [row] = await dbRead.select().from(plans).where(eq(plans.id, id)).limit(1)
     if (!row) return reply.status(404).send(error(404, '套餐不存在'))
     return reply.send(success(row))
@@ -222,7 +222,7 @@ export const adminApiPlatformRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.patch('/api-platform/packages/:id', async (request, reply) => {
-    const { id } = z.object({ id: z.string() }).parse(request.params)
+    const { id } = z.object({ id: z.uuid() }).parse(request.params)
     const parsed = updatePackageSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -233,7 +233,7 @@ export const adminApiPlatformRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.delete('/api-platform/packages/:id', async (request, reply) => {
-    const { id } = z.object({ id: z.string() }).parse(request.params)
+    const { id } = z.object({ id: z.uuid() }).parse(request.params)
     const [deleted] = await db.delete(plans).where(eq(plans.id, id)).returning()
     if (!deleted) return reply.status(404).send(error(404, '套餐不存在'))
     return reply.send(success({ deleted: Boolean(deleted) }))

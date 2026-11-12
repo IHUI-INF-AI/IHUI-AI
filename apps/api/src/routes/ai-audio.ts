@@ -820,6 +820,24 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
   // 7. POST /speaker/register — 注册声纹
   // 2026-10-28 DDoS P2:音频 base64 上限 ~33.3MB(zod MAX_AUDIO_BASE64_LENGTH),显式放开脱离全局 2MiB,
   // 使 zod 校验先于 Fastify 413 生效。
+  // F-106:DashScope 声纹是账号级共享命名空间,本层以 `u{userId}_` 前缀做属主标记
+  // (免迁移方案,归属内嵌 voice_id):register 盖章、list 过滤、compare/delete 校验,
+  // 任意登录用户不再能枚举/删除/覆盖他人声纹。
+  const speakerOwnerPrefix = (userId: string): string => `u${userId}_`
+  const speakerOwned = (userId: string, voiceId: string): boolean =>
+    typeof voiceId === 'string' && voiceId.startsWith(speakerOwnerPrefix(userId))
+  const requireSpeakerOwner = (request: FastifyRequest, reply: FastifyReply, voiceId: string): string | null => {
+    const requesterId = String((request as { userId?: unknown }).userId ?? '')
+    if (!requesterId) {
+      reply.status(401).send(error(401, '需要用户身份'))
+      return null
+    }
+    if (!speakerOwned(requesterId, voiceId)) {
+      reply.status(403).send(error(403, 'voiceId 不属于当前用户'))
+      return null
+    }
+    return requesterId
+  }
   server.post('/speaker/register', { bodyLimit: 34 * 1024 * 1024 }, async (request, reply) => {
     if (!requireDsKey(reply)) return
     if (!(await ensurePointsAvailable(request, reply))) return
@@ -829,6 +847,16 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
       return
     }
     const body = parsed.data
+    const requesterId = String((request as { userId?: unknown }).userId ?? '')
+    if (!requesterId) {
+      reply.status(401).send(error(401, '需要用户身份'))
+      return
+    }
+    // F-106:register 强制归属盖章——非本用户前缀的一律重前缀,杜绝指定任意 voice_id 覆盖他人
+    const rawVoiceId = body.voice_id as string
+    const ownedVoiceId = speakerOwned(requesterId, rawVoiceId)
+      ? rawVoiceId
+      : `${speakerOwnerPrefix(requesterId)}${rawVoiceId}`
     if (!body.audio_url && !body.audio_base64) {
       reply.status(400).send(error(400, '请提供 audio_url 或 audio_base64'))
       return
@@ -838,7 +866,7 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
       model: 'speaker-recognition',
       input: {
         action: 'register',
-        voice_id: body.voice_id,
+        voice_id: ownedVoiceId,
         audio_url: audioUrl,
         sample_rate: body.sample_rate ?? 16000,
       },
@@ -861,7 +889,12 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
       await chargeFlatPoints(request, FLAT_POINTS.voiceprint, '声纹注册扣分', request.id)
       reply.send(
         success({
-          voice_id: output.voice_id ?? body.voice_id,
+          voice_id: speakerOwned(
+            String((request as { userId?: unknown }).userId ?? ''),
+            output.voice_id ?? '',
+          )
+            ? output.voice_id
+            : ownedVoiceId,
           status: output.status ?? 'registered',
         }),
       )
@@ -884,6 +917,8 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
       return
     }
     const body = parsed.data
+    // F-106:compare 只允许比对本用户名下的声纹
+    if (requireSpeakerOwner(request, reply, body.voice_id as string) === null) return
     if (!body.audio_url && !body.audio_base64) {
       reply.status(400).send(error(400, '请提供 audio_url 或 audio_base64'))
       return
@@ -948,7 +983,19 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
       }
       const data = await readOutboundJson(resp)
       const output = (data as { output?: { voices?: unknown[] } }).output ?? {}
-      reply.send(success({ voices: output.voices ?? [], count: (output.voices ?? []).length }))
+      // F-106:list 只暴露本用户名下的声纹(共享命名空间按 `u{userId}_` 前缀隔离)
+      const prefix = speakerOwnerPrefix(String((request as { userId?: unknown }).userId ?? ''))
+      const allVoices = (output.voices ?? []) as Array<unknown>
+      const ownVoices = allVoices.filter((v) => {
+        const vid =
+          typeof v === 'string'
+            ? v
+            : typeof v === 'object' && v !== null && 'voice_id' in (v as Record<string, unknown>)
+              ? String((v as Record<string, unknown>).voice_id ?? '')
+              : ''
+        return vid.startsWith(prefix)
+      })
+      reply.send(success({ voices: ownVoices, count: ownVoices.length }))
     } catch (e) {
       logOutboundFailure(request, e)
       const msg = (e as Error).name === 'AbortError' ? '查询超时' : (e as Error).message
@@ -964,6 +1011,8 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
       reply.status(400).send(error(400, '请提供 voiceId'))
       return
     }
+    // F-106:删除只允许本用户名下的声纹(防跨用户删除他人声纹)
+    if (requireSpeakerOwner(request, reply, voiceId) === null) return
     try {
       const resp = await fetchWithTimeout(
         `${DS_SPEAKER_URL}?action=delete&voice_id=${encodeURIComponent(voiceId)}`,

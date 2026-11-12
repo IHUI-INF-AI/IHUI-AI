@@ -46,6 +46,28 @@ function getAuditLogPath(): string {
 }
 
 /**
+ * F-039:审计日志里住着工具入参与输出 ⇒ 目录 0700、文件 0600。
+ * 只在 POSIX 上判:Windows 没有 POSIX 权限位语义(chmod 只动"只读"标),跳过才是无害的。
+ */
+const AUDIT_DIR_MODE = 0o700;
+const AUDIT_FILE_MODE = 0o600;
+const POSIX_PERMISSIONS = process.platform !== 'win32';
+
+/**
+ * 显式收紧权限位。`mkdirSync`/`appendFileSync` 的 mode **只管新建**,已存在的目录/文件
+ * 一个权限位都不改,所以要在每次写日志时再纠一次偏(顺带覆盖轮转后新落的那一份)。
+ * 收紧失败不掀结论:本次审计已经写成,不能因为纠偏失败把日志本身丢掉。
+ */
+function tightenPermissions(target: string, mode: number): void {
+  if (!POSIX_PERMISSIONS) return;
+  try {
+    fs.chmodSync(target, mode);
+  } catch {
+    /* 读不到/不是自己的文件 ⇒ 留给下一次写日志再纠;审计落盘优先 */
+  }
+}
+
+/**
  * 一次截断的读数(对照组 `tools/mcp-runtime.ts` 的 bytesRead/sizeBytes 形态,G-814409):
  * 四个字段**全是真实量值**,没有一个是恒真 —— `truncated` 由 `bytesRead > sizeBytes` 比较得出
  * (而不是写死 true/false),所以"超长时标 (truncated)、量值可信"这条判据有牙,
@@ -87,7 +109,9 @@ export function auditLog(entry: AuditEntry): void {
 
   const logPath = getAuditLogPath();
   const dir = path.dirname(logPath);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true, mode: AUDIT_DIR_MODE });
+  // F-039:已存在的目录不受 mkdir 的 mode 管束(且 umask 还会削位)⇒ 每次写日志都收紧一次
+  tightenPermissions(dir, AUDIT_DIR_MODE);
 
   const record: AuditEntry = {
     ...entry,
@@ -98,7 +122,10 @@ export function auditLog(entry: AuditEntry): void {
     error: entry.error ? redactSecrets(entry.error) : undefined,
   };
 
-  fs.appendFileSync(logPath, JSON.stringify(record) + '\n', 'utf-8');
+  // F-039:文件 0600。先按路径收紧存量(轮转后新落的那份由下面的 mode 管),再追加 ——
+  // 追加路径每次按当前路径重新打开,所以轮转不会把日志写进已改名的旧 inode。
+  tightenPermissions(logPath, AUDIT_FILE_MODE);
+  fs.appendFileSync(logPath, JSON.stringify(record) + '\n', { encoding: 'utf-8', mode: AUDIT_FILE_MODE });
 }
 
 // ==================== P1-3 Audit log query(查询/过滤审计日志)====================

@@ -165,4 +165,28 @@ export function startRegistryCleanupWorker(connection: Redis): Worker {
   logger.info('[registry-queue] 清理 Worker 已启动')
   return worker
 }
+
+/**
+ * F-523:关闭两个生产者 Queue,与 Worker 的 onClose 对称。
+ * 当前两者共享 server.redisForQueue(BullMQ 按 shared 连接处理,close 不 quit 连接),
+ * 但 Queue 生命周期长于 Fastify,一旦改独立连接即成连接泄漏 —— 显式补上关闭出口。
+ */
+export async function closeRegistryQueues(): Promise<void> {
+  if (registrySyncQueue) {
+    try {
+      await registrySyncQueue.close()
+    } catch {
+      /* ignore — 进程退出中 */
+    }
+    registrySyncQueue = null
+  }
+  if (registryCleanupQueue) {
+    try {
+      await registryCleanupQueue.close()
+    } catch {
+      /* ignore — 进程退出中 */
+    }
+    registryCleanupQueue = null
+  }
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

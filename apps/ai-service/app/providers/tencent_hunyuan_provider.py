@@ -244,12 +244,35 @@ class TencentHunyuanProvider(BaseProvider):
             response = await litellm.acompletion(**call_kwargs)
             final_model = model
             final_usage: dict[str, Any] = {}
+            # AIS-069:流式 tool_calls 与 finish_reason 累积器(此前只取 delta.content,
+            # 模型返回工具调用时被静默丢弃,agent 空转并返回成功)。
+            _acc_tools: dict[int, dict[str, Any]] = {}
+            _finish_reason: str | None = None
             async for chunk in response:
                 if hasattr(chunk, "choices") and chunk.choices:
                     delta = chunk.choices[0].delta
                     token = getattr(delta, "content", None)
                     if token:
                         yield {"type": "chunk", "content": token}
+                    # AIS-069:累积 delta.tool_calls 增量(id/name/arguments 按 index 归并)
+                    for tc in getattr(delta, "tool_calls", None) or []:
+                        idx = getattr(tc, "index", 0) or 0
+                        entry = _acc_tools.setdefault(
+                            idx,
+                            {"id": "", "type": "function", "function": {"name": "", "arguments": ""}},
+                        )
+                        if getattr(tc, "id", None):
+                            entry["id"] = tc.id
+                        fn = getattr(tc, "function", None)
+                        if fn is not None:
+                            if getattr(fn, "name", None):
+                                entry["function"]["name"] = fn.name
+                            if getattr(fn, "arguments", None):
+                                entry["function"]["arguments"] += fn.arguments
+                    # AIS-069:透传最后一个非空 finish_reason
+                    fr = getattr(chunk.choices[0], "finish_reason", None)
+                    if fr:
+                        _finish_reason = str(fr)
                 if hasattr(chunk, "usage") and chunk.usage:
                     try:
                         final_usage = (
@@ -261,12 +284,18 @@ class TencentHunyuanProvider(BaseProvider):
                         logger.debug("hunyuan usage 解析失败,本轮 usage 丢失: %s", exc)
                 if hasattr(chunk, "model") and chunk.model:
                     final_model = chunk.model
-            yield {
+            # AIS-069:done 前先发合并后的 tool_calls 帧(与 OpenAI 原生形态一致)
+            if _acc_tools:
+                yield {"type": "tool_call", "tool_calls": [_acc_tools[i] for i in sorted(_acc_tools)]}
+            done_evt: dict[str, Any] = {
                 "type": "done",
                 "model": final_model,
                 "usage": final_usage,
                 "stub": False,
             }
+            if _finish_reason:
+                done_evt["finishReason"] = _finish_reason
+            yield done_evt
         except Exception as e:
             logger.warning("Tencent Hunyuan LiteLLM 流式调用失败: %s", e)
             yield {
@@ -342,9 +371,15 @@ class TencentHunyuanProvider(BaseProvider):
             raise ProviderError(
                 f"腾讯混元提交视频缺少 TaskId: {str(data)[:200]}", 502
             )
-        # 轮询查询任务至成功(video_url)/失败
+        # AIS-071:轮询加总 deadline(官方视频 p90 55-75 分钟,取 120 分钟兜底),
+        # 此前 while True 无上限,上游任务长期 PENDING/丢单时协程与并发槽永久占用。
+        _poll_deadline = time.monotonic() + 7200
         await asyncio.sleep(5)
         while True:
+            if time.monotonic() > _poll_deadline:
+                raise ProviderError(
+                    f"腾讯混元视频任务 {task_id} 轮询超总时限(120 分钟),放弃", 504
+                )
             qresp = await client.post(
                 f"{self.base_url}/",
                 headers=_htc3_signer(

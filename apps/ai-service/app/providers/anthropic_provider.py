@@ -279,6 +279,15 @@ class AnthropicProvider(BaseProvider):
                     except json.JSONDecodeError:
                         continue
                     etype = event.get("type")
+                    if etype == "error":
+                        # AIS-068:Anthropic 流中 type:"error" 帧(如 overloaded_error),
+                        # 不识别会静默耗尽、网关按成功记账;转 error 事件上抛。
+                        err = event.get("error") or {}
+                        yield {
+                            "type": "error",
+                            "message": f"Anthropic 流式上游错误: {err.get('type', 'unknown')} {str(err.get('message', err))[:300]}",
+                        }
+                        return
                     if etype == "message_start":
                         start_msg = event.get("message") or {}
                         start_usage = start_msg.get("usage")

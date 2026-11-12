@@ -24,6 +24,12 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import { spawnSync, spawn } from 'node:child_process';
 
+/**
+ * 录音默认超时(毫秒)。ffmpeg 卡在设备初始化时不会自己退出,
+ * 没有这条闸整条命令会一直挂着,且半成品 wav 留在临时目录。
+ */
+export const DEFAULT_RECORD_TIMEOUT_MS = 120_000;
+
 /** 录音选项 */
 export interface RecordAudioOptions {
   /** 录音时长(秒,默认 5) */
@@ -34,6 +40,10 @@ export interface RecordAudioOptions {
   sampleRate?: number;
   /** 声道数(默认 1,单声道) */
   channels?: number;
+  /** 录音超时毫秒(默认 DEFAULT_RECORD_TIMEOUT_MS;超时即杀 ffmpeg 并清理半成品) */
+  recordTimeoutMs?: number;
+  /** 取消信号(Ctrl+C 等);abort 时杀 ffmpeg 并按失败收尾 */
+  signal?: AbortSignal;
 }
 
 /** 录音结果 */
@@ -99,6 +109,18 @@ export function checkMicrophoneAvailable(): boolean {
 }
 
 /**
+ * 删除录音半成品:失败(含 ENOENT)一律吞掉 —— 清理是收尾动作,
+ * 不得用清理异常覆盖掉「为什么录音失败」这个真正的结论。
+ */
+function unlinkQuietly(filePath: string): void {
+  try {
+    fs.unlinkSync(filePath);
+  } catch {
+    // 文件不存在或已被别的清理路径删掉
+  }
+}
+
+/**
  * 跨平台录音:调用 ffmpeg 从默认麦克风录制 WAV 音频。
  *
  * ffmpeg 参数:
@@ -140,6 +162,19 @@ export async function recordAudio(opts: RecordAudioOptions = {}): Promise<Record
     outputPath,
   ];
 
+  const timeoutMs = opts.recordTimeoutMs ?? DEFAULT_RECORD_TIMEOUT_MS;
+  const signal = opts.signal;
+  if (signal?.aborted) throw new Error('录音已取消');
+
+  // 预创建为 0600(POSIX;Windows 忽略 mode):ffmpeg 的 -y 覆盖写会保留既有权限位,
+  // 于是整段录音期间文件就不是「同机其他用户可读」的 0644。用 'a' 不会截断已有文件。
+  // 预创建失败不改变主流程:交给 ffmpeg 自己报错(stderr 会带出原因)。
+  try {
+    fs.closeSync(fs.openSync(outputPath, 'a', 0o600));
+  } catch {
+    // 具体原因由 ffmpeg 的失败信息承载
+  }
+
   return new Promise((resolve, reject) => {
     const proc = spawn('ffmpeg', args, {
       windowsHide: true,
@@ -150,29 +185,78 @@ export async function recordAudio(opts: RecordAudioOptions = {}): Promise<Record
     proc.stderr?.on('data', (chunk: Buffer) => {
       stderr += chunk.toString();
     });
+
+    // 只认第一次收尾:超时/取消 kill 之后 close 仍会到达,不得二次 reject 或二次清理
+    let settled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const finish = (fn: () => void): void => {
+      if (settled) return;
+      settled = true;
+      if (timer !== null) {
+        clearTimeout(timer);
+        timer = null;
+      }
+      signal?.removeEventListener('abort', onAbort);
+      fn();
+    };
+    const killAndClean = (): void => {
+      try {
+        proc.kill('SIGKILL');
+      } catch {
+        // 进程可能已退出:kill 抛错不改变"本次录音失败"的结论
+      }
+      unlinkQuietly(outputPath);
+    };
+    function onAbort(): void {
+      killAndClean();
+      finish(() => reject(new Error('录音已取消')));
+    }
+
+    timer = setTimeout(() => {
+      killAndClean();
+      finish(() => reject(new Error(`ffmpeg 录音超时(${timeoutMs / 1000}s),已终止并清理半成品`)));
+    }, timeoutMs);
+
     proc.on('error', (err) => {
-      reject(new Error(`ffmpeg 启动失败: ${err.message}(请确认 ffmpeg 已安装并在 PATH 中)`));
+      unlinkQuietly(outputPath);
+      finish(() => reject(new Error(`ffmpeg 启动失败: ${err.message}(请确认 ffmpeg 已安装并在 PATH 中)`)));
     });
     proc.on('close', (code) => {
       if (code !== 0) {
+        // 非零退出同样可能已写出半截 wav:先清理再 reject,不在 %TEMP% 留用户语音
+        unlinkQuietly(outputPath);
         // Windows dshow 设备名可能不是 "Microphone",给出友好提示
         const hint = platform === 'win32'
           ? '(Windows 下可能需要用 ffmpeg -f dshow -list_devices true -i dummy 查看设备名)'
           : '';
-        reject(new Error(`ffmpeg 录音失败(exit ${code})${hint}\n${stderr.slice(-500)}`));
+        finish(() => reject(new Error(`ffmpeg 录音失败(exit ${code})${hint}\n${stderr.slice(-500)}`)));
         return;
       }
       try {
         const stat = fs.statSync(outputPath);
-        resolve({
+        if (process.platform !== 'win32') {
+          try {
+            fs.chmodSync(outputPath, 0o600);
+          } catch {
+            // 权限位收不了口不改变录音成功的事实(预创建通常已生效)
+          }
+        }
+        finish(() => resolve({
           filePath: outputPath,
           durationSec: duration,
           sizeBytes: stat.size,
-        });
+        }));
       } catch {
-        reject(new Error(`录音文件创建失败: ${outputPath}`));
+        unlinkQuietly(outputPath);
+        finish(() => reject(new Error(`录音文件创建失败: ${outputPath}`)));
       }
     });
+
+    if (signal) {
+      signal.addEventListener('abort', onAbort, { once: true });
+      // 检查与注册之间可能已经 abort
+      if (signal.aborted) onAbort();
+    }
   });
 }
 

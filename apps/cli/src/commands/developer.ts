@@ -640,7 +640,16 @@ async function comparePlayground(
 
   if (asJson) {
     printJson(compareResults);
+    // F-121:全模型失败时退非零 —— 修前 --json 分支直接 return,CI/脚本把"全失败"判成成功
+    if (compareResults.every((r) => r.error !== null)) {
+      process.exitCode = 1;
+    }
     return;
+  }
+
+  // F-121:人读输出同样把"全部失败"记为失败(个别失败仍算成功,由正文逐条点名)
+  if (compareResults.every((r) => r.error !== null)) {
+    process.exitCode = 1;
   }
 
   console.info(chalk.bold(`\n模型对比(${models.length} 个模型)`));

@@ -314,6 +314,8 @@ class KnowledgeRagService {
           eq(knowledgeDoc.ownerUuid, ownerUuid),
           eq(knowledgeDoc.contentHash, contentHash),
           eq(knowledgeDoc.sourceType, CONVERSATION_IMPORT_SOURCE_TYPE),
+          // F-525:写入与检索都按 collection 分区,去重也必须带上集合,否则换集合导入被静默判重。
+          eq(knowledgeDoc.collectionName, collectionName),
           eq(knowledgeDoc.status, 'active'),
         ),
       )

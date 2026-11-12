@@ -172,7 +172,8 @@ function serializeFileVersion(v: FileVersion) {
 // =============================================================================
 
 export const workspaceRoutes: FastifyPluginAsync = async (server) => {
-  const idParam = z.object({ id: z.string() })
+  // F-425::id 最终进 uuid 列,非法字面量直达 SQL 会 22P02 ⇒ 500;收紧为 uuid 形状闸
+  const idParam = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
   /** ACP 会话归属谓词(§5「认证不等于授权」):不存在与不属于本人同形返回 false */
   const ownsAcpSession = async (sessionId: string, userId: string): Promise<boolean> => {

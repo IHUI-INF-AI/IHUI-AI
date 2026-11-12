@@ -65,6 +65,9 @@ import {
 import { acquireUserConcurrencyForResponse } from '../services/user-concurrency-service.js'
 // 渠道直连转发器(2026-09-12 立):公开链路接通渠道路由 + 逐请求 failover
 import { forwardToChannel, pipeChannelStream } from '../services/relay-upstream-forwarder.js'
+// F-178:渠道配额用量回写 —— checkQuota 读 ai_relay_channel_daily_usage,
+// 但 recordUsage 此前在转发层零调用,聚合恒 0 ⇒ 日/月配额永不生效。
+import { recordUsage } from '../services/channel-quota-service.js'
 import type { SelectedChannelKey } from '../services/relay-channel-router.js'
 // /v1 网关专用:ai-service 调用注入系统 access token(2026-09-13 修 jwt_auth 401)
 import { aiServiceSystemFetch } from '../utils/ai-service-fetch.js'
@@ -897,7 +900,18 @@ async function streamChatCompletion(
             httpStatus: stats.httpStatus,
             ttftMs: stats.ttftMs ?? undefined,
             preDeducted: opts.preDeducted ?? null,
-          }).catch(() => {})
+          })
+            .then((call) =>
+              // F-178:每次渠道调用后回写实际 token 与结算成本,让 checkQuota 的
+              // 日/月配额真正有数据可判。recordUsage 内部自捕获失败,不阻塞主链路。
+              recordUsage(
+                fwd.channel.keyPoolId,
+                promptTokens + completionTokens,
+                call.costCents,
+                false,
+              ),
+            )
+            .catch(() => {})
         }
         return // 渠道链路全程接管,不进入 ai-service 分支
       }
@@ -1186,6 +1200,8 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
         .select()
         .from(agents)
         .where(eq(agents.status, 'published'))
+        // F-426:LIMIT/OFFSET 翻页必须有全序,否则同 offset 重复/漏行;createdAt 非唯一,补 PK 兜底
+        .orderBy(desc(agents.createdAt), desc(agents.agentId))
         .limit(safeLimit)
         .offset(safeOffset)
       const data = rows.map(toAgentInfo)
@@ -1282,6 +1298,9 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const { id } = request.params as { id: string }
+      // F-427:同资源 GET /agents/:id 已有的 UUID 形状闸,call 端点此前漏配 ——
+      // 非法字面量直达 uuid 列会 22P02 ⇒ 500,与"不存在"同形失真。
+      if (!isUuidString(id)) return reply.status(404).send(error(404, 'Agent not found'))
       const parsed = agentCallSchema.safeParse(request.body)
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -2209,9 +2228,16 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           clientIp: request.ip,
           httpStatus: resp.status,
           preDeducted: preDeduction,
-        }).catch((e) => {
-          console.error('[v1/chat] recordCall FAIL', e?.message || e)
         })
+          .then((call) =>
+            // F-178:非流式渠道路径同样回写用量;非渠道路径 usedChannel 为空,跳过
+            usedChannel
+              ? recordUsage(usedChannel.keyPoolId, safeTotal, call.costCents, false)
+              : undefined,
+          )
+          .catch((e) => {
+            console.error('[v1/chat] recordCall FAIL', e?.message || e)
+          })
       }
 
       // P0 第二批次响应缓存(2026-07-31 立):未命中时成功响应后写入缓存,下次同样请求直接命中
