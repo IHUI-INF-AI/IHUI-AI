@@ -31,6 +31,7 @@ import {
   listFilesByProject,
   findFileById,
   findFileByIdIncludeTrashed,
+  findFileOwnershipBatch,
   createFile,
   softDeleteFile,
   restoreFile,
@@ -495,13 +496,15 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
     }
 
     // 校验所有文件归属当前用户（且未被删除）
+    // F-79:一次 `id IN (...)` 查询取回全部目标行,再按请求顺序逐项判定(存在性→归属),
+    // 往返次数与文件数无关;403/404 文案与「首个不满足者即整体拒绝、零写入」语义逐字不变。
+    const ownedRows = await findFileOwnershipBatch(parsed.data.fileIds, false)
+    const projectUserByFileId = new Map(ownedRows.map((r) => [r.id, r.projectUserId]))
     for (const fid of parsed.data.fileIds) {
-      const file = await findFileById(fid)
-      if (!file) {
+      if (!projectUserByFileId.has(fid)) {
         return reply.status(404).send(error(404, `文件 ${fid} 不存在或已删除`))
       }
-      const project = await findProjectById(file.projectId)
-      if (!project || project.userId !== userId) {
+      if (projectUserByFileId.get(fid) !== userId) {
         return reply.status(403).send(error(403, '无权操作部分文件'))
       }
     }
@@ -527,13 +530,14 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
     }
 
     // 校验所有文件归属当前用户
+    // F-79:同 batch-delete,一次批量查询完成全部归属校验(含回收站文件)。
+    const ownedRows = await findFileOwnershipBatch(parsed.data.fileIds, true)
+    const projectUserByFileId = new Map(ownedRows.map((r) => [r.id, r.projectUserId]))
     for (const fid of parsed.data.fileIds) {
-      const file = await findFileByIdIncludeTrashed(fid)
-      if (!file) {
+      if (!projectUserByFileId.has(fid)) {
         return reply.status(404).send(error(404, `文件 ${fid} 不存在`))
       }
-      const project = await findProjectById(file.projectId)
-      if (!project || project.userId !== userId) {
+      if (projectUserByFileId.get(fid) !== userId) {
         return reply.status(403).send(error(403, '无权操作部分文件'))
       }
     }
