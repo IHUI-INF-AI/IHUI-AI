@@ -159,11 +159,25 @@ function weekStartOf(dateStr: string): string {
   return d.toISOString().slice(0, 10)
 }
 
-/** 今天 0 点 / 明天 0 点(Date,用于 timestamp 区间比较) */
+/**
+ * 业务日区间 [今天 0 点, 明天 0 点)(Date,用于 timestamptz 区间比较)。
+ *
+ * F-20:修前是 `new Date(today + 'T00:00:00Z')` —— 把**上海日键**当 UTC 日界用。
+ * 于是本文件的"今日任务/签到进度"窗口实际是 UTC 日(北京时间 08:00 才翻页),
+ * 与同文件 `todayString()`(bizDayKey,上海日键)口径不一致:00:00–08:00 之间
+ * 查的是"昨天"的边界,进度恒为 0 / 重复计数。
+ *
+ * 修法不能靠"拼字符串换成 +08:00" —— 那会把时区算术再抄一份(本仓已收口到
+ * utils/biz-day.ts)。这里按日键的日历字段构造 UTC 时刻:上海 00:00 == 前一日 16:00Z。
+ */
 function dayBounds(today: string): { from: Date; to: Date } {
+  const [y, m, d] = today.split('-').map((v) => Number.parseInt(v, 10)) as [number, number, number]
+  const startOfDayUtc = (yy: number, mm: number, dd: number): Date =>
+    new Date(Date.UTC(yy, mm - 1, dd) - 8 * 3600 * 1000)
+  const next = new Date(Date.UTC(y, m - 1, d + 1))
   return {
-    from: new Date(today + 'T00:00:00Z'),
-    to: new Date(shiftDate(today, 1) + 'T00:00:00Z'),
+    from: startOfDayUtc(y, m, d),
+    to: startOfDayUtc(next.getUTCFullYear(), next.getUTCMonth() + 1, next.getUTCDate()),
   }
 }
 
