@@ -15,6 +15,7 @@ import { CUSTOMER_SERVICE_STATUSES } from '@ihui/types'
 import { checkAuth } from '../plugins/auth.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
+import { IHUI_CONTACT_EMAIL } from '../utils/openapi-helpers.js'
 import { db } from '../db/index.js'
 import {
   findCategories,
@@ -165,7 +166,8 @@ export const customerServiceRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // GET /info - 客服联系方式(G-962 B8;mobile-rn CustomerServiceScreen 消费 data)
-  // 配置源待接:库内无客服联系方式表,先读环境变量;未配置时返回空串,不伪造号码/邮箱。
+  // 配置源待接:库内无客服联系方式表,先读环境变量;邮箱未配置时回落到平台统一联系邮箱,
+  // 号码/工作时段未配置时仍返回空串(不伪造电话)。
   server.get(
     '/info',
     { schema: { summary: '客服联系方式', tags: ['customer-service'], response: okResponse } },
@@ -175,7 +177,7 @@ export const customerServiceRoutes: FastifyPluginAsync = async (server) => {
           online: true,
           working: true,
           phone: process.env.CUSTOMER_SERVICE_PHONE ?? '',
-          email: process.env.CUSTOMER_SERVICE_EMAIL ?? '',
+          email: process.env.CUSTOMER_SERVICE_EMAIL?.trim() || IHUI_CONTACT_EMAIL,
           workingHours: process.env.CUSTOMER_SERVICE_WORKING_HOURS ?? '',
         }),
       )

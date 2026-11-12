@@ -33,7 +33,7 @@
         "cross_border"
       ],
       "example_input": "product_type=App\nproduct_name=IHUI AI\ndata_collected=手机号/邮箱/内容/IP/设备\npurposes=注册/服务/统计/营销\nthird_party_sdks=微信/支付宝/友盟\ncross_border=否",
-      "example_output": "## 引言 重视隐私... ## 收集 主动（手机号/邮箱）+ 自动（设备/IP）+ 第三方（微信登录）... ## 使用 注册登录/服务/统计/营销... ## 权利 知情/决定/查询/更正/删除/撤回/投诉... ## 联系 privacy@aizhs.top",
+      "example_output": "## 引言 重视隐私... ## 收集 主动（手机号/邮箱）+ 自动（设备/IP）+ 第三方（微信登录）... ## 使用 注册登录/服务/统计/营销... ## 权利 知情/决定/查询/更正/删除/撤回/投诉... ## 联系 lizong@aizhs.top",
       "tags": ["privacy", "gdpr", "compliance"],
       "difficulty": "advanced",
       "estimated_tokens": 950

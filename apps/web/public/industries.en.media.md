@@ -194,8 +194,7 @@
   A: Multi-modal moderation 99.2% accuracy, false positive < 0.5%, configurable manual review rules.
 
 ### Contact
-- Media industry: media@aizhs.top
-- General business: contact@aizhs.top
+- **Unified contact email: lizong@aizhs.top** — one address for industry solutions, industry material requests and business enquiries. Mention your industry and topic; we reply within 24 hours.
 - Official site: https://aizhs.top
 - GitHub: https://github.com/IHUI-INF-AI/IHUI-AI
 

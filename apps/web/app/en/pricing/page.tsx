@@ -118,7 +118,7 @@ const plans = [
       'Dedicated support',
     ],
     cta: 'Contact Sales',
-    href: 'mailto:contact@aizhs.top',
+    href: 'mailto:lizong@aizhs.top',
     highlight: true,
   },
 ]
@@ -377,7 +377,7 @@ export default function PricingLandingPage() {
                 <Link href="/agents">Sign Up Free</Link>
               </Button>
               <Button asChild variant="outline" size="lg">
-                <a href="mailto:contact@aizhs.top">Talk to Sales</a>
+                <a href="mailto:lizong@aizhs.top">Talk to Sales</a>
               </Button>
             </div>
           </Card>

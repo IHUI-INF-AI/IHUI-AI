@@ -797,7 +797,7 @@ Ollama `http://localhost:11434`、LM Studio `http://localhost:1234`、llama.cpp
 - **到人运维只有一条通道：邮件**。发信一律经
   `apps/api/scripts/notify-deploy-failure.ts`：Resend 端点常量
   `https://api.resend.com/emails`，默认 From
-  `智汇AI <IHUI-AI@aizhs.top>`（`DEFAULT_RESEND_FROM`，其值由 `brandResendFrom` 生成，
+  `智汇AI <lizong@aizhs.top>`（`DEFAULT_RESEND_FROM`，其值由 `brandResendFrom` 生成，
   不手写整串）；显示名由 `email-templates.ts` 的 `BRAND_MAIL_DISPLAY_NAME` 单点决定，
   配置只能改地址段。回落链 SMTP → Resend，且经 `smtp.qq.com` 中继时 From 邮箱段必须等于
   登录账号（判据 = `resolveBrandSmtpFrom`，见下）。

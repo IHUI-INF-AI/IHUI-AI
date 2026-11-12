@@ -172,7 +172,7 @@ const supportCards = [
   {
     title: 'Email Support',
     description: 'Direct support for enterprise customers and integration questions.',
-    href: 'mailto:support@aizhs.top',
+    href: 'mailto:lizong@aizhs.top',
     icon: Mail,
   },
 ]
