@@ -100,7 +100,7 @@ const DialogContent = React.forwardRef<
           //   - max-w-lg + w-full 在小屏会撑满视口减去边距,避免内容溢出
           'fixed left-[50%] top-[50%] z-modal grid w-full ' +
             MAX_WIDTH_CLASS[DIALOG_MAX_WIDTH_TIER] +
-            ' translate-x-[-50%] translate-y-[-50%] gap-3 border bg-background p-3 shadow-lg duration-(--duration-unified) ease-unified data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 min-[640px]:rounded-xl min-[640px]:gap-4',
+            ' translate-x-[-50%] translate-y-[-50%] gap-3 border bg-background p-3 shadow-elevation-lg duration-(--duration-unified) ease-unified data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 min-[640px]:rounded-xl min-[640px]:gap-4',
           className,
         )}
         {...props}

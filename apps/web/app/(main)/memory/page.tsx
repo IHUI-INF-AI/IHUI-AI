@@ -254,7 +254,7 @@ export default function MemoryListPage() {
       </Card>
       {autoMemoryToast && (
         <div
-          className={`fixed right-4 top-4 z-modal rounded-md px-4 py-2 text-body text-white shadow-lg ${autoMemoryToast.type === 'success' ? 'bg-green-600' : 'bg-red-600'}`}
+          className={`fixed right-4 top-4 z-modal rounded-md px-4 py-2 text-body text-white shadow-elevation-lg ${autoMemoryToast.type === 'success' ? 'bg-green-600' : 'bg-red-600'}`}
         >
           {autoMemoryToast.msg}
         </div>

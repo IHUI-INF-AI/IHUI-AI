@@ -47,7 +47,7 @@ import { useConfirm } from '@/hooks/use-confirm'
 
 const PAGE_SIZE = 20
 const selectClass =
-  'h-8 rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+  'h-8 rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-elevation-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 const PROVIDER_OPTIONS = [
   'trae',
   'workbuddy',

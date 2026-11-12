@@ -35,7 +35,7 @@ export function PlazaHeader({ tab, setTab, circlesTotal, asksTotal }: Props) {
           className={cn(
             'flex items-center gap-1.5 rounded-sm px-4 py-1.5 text-body font-medium transition-colors',
             tab === 'circles'
-              ? 'bg-background text-foreground shadow-sm'
+              ? 'bg-background text-foreground shadow-elevation-sm'
               : 'text-muted-foreground hover:text-foreground',
           )}
         >
@@ -50,7 +50,7 @@ export function PlazaHeader({ tab, setTab, circlesTotal, asksTotal }: Props) {
           className={cn(
             'flex items-center gap-1.5 rounded-sm px-4 py-1.5 text-body font-medium transition-colors',
             tab === 'asks'
-              ? 'bg-background text-foreground shadow-sm'
+              ? 'bg-background text-foreground shadow-elevation-sm'
               : 'text-muted-foreground hover:text-foreground',
           )}
         >

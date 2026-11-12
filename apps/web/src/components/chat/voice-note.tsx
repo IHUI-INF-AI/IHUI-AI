@@ -424,7 +424,7 @@ export function VoiceNote({
 
       {open && (
         <div
-          className="z-popover absolute bottom-full left-0 mb-2 w-72 rounded-md border bg-popover p-3 text-popover-foreground shadow-md"
+          className="z-popover absolute bottom-full left-0 mb-2 w-72 rounded-md border bg-popover p-3 text-popover-foreground shadow-elevation-md"
           data-testid="voice-note-panel"
         >
           <div className="mb-2 flex items-center justify-between">

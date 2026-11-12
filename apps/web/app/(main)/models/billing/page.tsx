@@ -194,7 +194,7 @@ export default async function BillingPage() {
               <Card
                 key={p.name}
                 className={
-                  p.highlighted ? 'relative border-brand-accent-deep shadow-md' : 'relative'
+                  p.highlighted ? 'relative border-brand-accent-deep shadow-elevation-md' : 'relative'
                 }
               >
                 {p.highlighted && (

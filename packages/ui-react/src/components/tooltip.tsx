@@ -32,7 +32,7 @@ const RADIUS_CLASS: Record<typeof TOOLTIP_RADIUS_TIER, string> = { md: 'rounded-
 const PADDING_X_CLASS: Record<number, string> = { 12: 'px-3' }
 const PADDING_Y_CLASS: Record<number, string> = { 6: 'py-1.5' }
 const TEXT_CLASS: Record<typeof TOOLTIP_TEXT_TIER, string> = { xs: 'text-xs' }
-const SHADOW_CLASS: Record<typeof TOOLTIP_SHADOW_TIER, string> = { md: 'shadow-md' }
+const SHADOW_CLASS: Record<typeof TOOLTIP_SHADOW_TIER, string> = { md: 'shadow-elevation-md' }
 
 const TooltipProvider = TooltipPrimitive.Provider
 const Tooltip = TooltipPrimitive.Root

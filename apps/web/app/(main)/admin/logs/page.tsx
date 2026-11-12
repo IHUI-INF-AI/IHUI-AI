@@ -163,7 +163,7 @@ export default function AdminLogsPage() {
                 className={cn(
                   'rounded-sm px-2.5 py-1 text-label font-medium transition-colors',
                   statsDays === d
-                    ? 'bg-background text-foreground shadow-sm'
+                    ? 'bg-background text-foreground shadow-elevation-sm'
                     : 'text-muted-foreground hover:text-foreground',
                 )}
               >

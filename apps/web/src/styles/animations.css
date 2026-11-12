@@ -180,6 +180,7 @@
   }
 }
 
+/* 豁免类别:bounce 弹跳关键帧的随动淡影(50% 才出影,是位移的视觉伴随,非层级投影) */
 @keyframes bounce {
   0% {
     box-shadow: none;
@@ -195,6 +196,7 @@
   }
 }
 
+/* 豁免类别:bouncea 小程序版弹跳关键帧的随动淡影(50% 才出影,非层级投影) */
 @keyframes bouncea {
   0% {
     box-shadow: none;
@@ -640,6 +642,7 @@
   }
 }
 
+/* 豁免类别:橙色待处理脉冲光晕的 @keyframes 关键帧(放大时加深橙色外扩),非层级投影 */
 @keyframes pulse-pending {
   0% {
     box-shadow: 0 4rpx 12rpx rgba(255, 165, 0, 0.4);
@@ -651,6 +654,7 @@
   }
 }
 
+/* 豁免类别:橙色按钮脉冲光晕的 @keyframes 关键帧,随缩放加深,非层级投影 */
 @keyframes pulse-btn {
   0% {
     box-shadow: 0px 4rpx 12rpx rgba(255, 165, 0, 0.4);
@@ -696,6 +700,7 @@
   }
 }
 
+/* 豁免类别:紫色呼吸辉光的 @keyframes 关键帧(0 偏移对称外扩),非层级投影 */
 @keyframes shadowPulse {
   0% {
     box-shadow: 0px 0px 6rpx 0px rgba(86, 71, 250, 0.3);
@@ -718,6 +723,7 @@
   }
 }
 
+/* 豁免类别:状态点呼吸动画的 @keyframes 关键帧(透明度与淡影同步呼吸),非层级投影 */
 @keyframes statusPulse {
   0%,
   100% {
@@ -823,6 +829,7 @@
   }
 }
 
+/* 豁免类别:加载器紫色扩散波纹的 @keyframes 关键帧(10px 扩散到透明),非层级投影 */
 @keyframes loaderpulse {
   0% {
     transform: scale(0.8);
@@ -2401,6 +2408,7 @@
 }
 
 /* SSE 连接状态:已连接的呼吸绿点(轻微发光) */
+/* 豁免类别:已连接绿点呼吸光圈的 @keyframes 关键帧(0→3px 扩散到透明),非层级投影 */
 @keyframes connection-connected {
   0%,
   100% {

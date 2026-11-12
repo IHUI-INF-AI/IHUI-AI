@@ -316,6 +316,7 @@
 
 /* ===== 底部发布按钮(对齐 RN submitBtn: bg brand.DEFAULT / 字 16dp→32rpx 600
    surface.light→primary-foreground;圆角按角色档 control→sm) ===== */
+/* 豁免类别:吸底发布栏向上投影(负 y offset),翻转会落到屏外,非层级投影 */
 .cc-footer {
   position: fixed;
   left: 0;

@@ -31,7 +31,7 @@ export function EduSettingsFilter({
     cn(
       tabBase,
       active
-        ? 'bg-background text-foreground shadow-sm'
+        ? 'bg-background text-foreground shadow-elevation-sm'
         : 'text-muted-foreground hover:text-foreground',
     )
   return (

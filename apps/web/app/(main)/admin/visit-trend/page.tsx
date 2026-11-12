@@ -84,7 +84,7 @@ export default function VisitTrendPage() {
               className={cn(
                 'rounded-sm px-2.5 py-1 text-label font-medium transition-colors',
                 granularity === g.value
-                  ? 'bg-background text-foreground shadow-sm'
+                  ? 'bg-background text-foreground shadow-elevation-sm'
                   : 'text-muted-foreground hover:text-foreground',
               )}
             >

@@ -359,7 +359,7 @@ export default function CompareIndexPage() {
             <Link
               key={slug}
               href={`/compare/${slug}`}
-              className="group rounded-lg border bg-card p-3 shadow-sm"
+              className="group rounded-lg border bg-card p-3 shadow-elevation-sm"
             >
               <div className="flex items-center justify-between">
                 <h2 className="text-heading font-semibold">IHUI AI vs {competitor}</h2>
@@ -384,7 +384,7 @@ export default function CompareIndexPage() {
             综合对比表
           </h2>
           <p className="mt-1 text-body text-muted-foreground">7 大平台 12 项指标一目了然</p>
-          <div className="mt-6 overflow-x-auto rounded-lg border bg-card shadow-sm">
+          <div className="mt-6 overflow-x-auto rounded-lg border bg-card shadow-elevation-sm">
             <table className="w-full min-w-[760px]">
               <thead>
                 <tr className="bg-muted/30">

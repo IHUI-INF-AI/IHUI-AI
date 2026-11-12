@@ -403,7 +403,7 @@ export function ConversationList({
   return (
     <>
       {selectedIds.size > 0 && (
-        <div className="sticky top-0 z-20 mb-2 flex flex-wrap items-center gap-1.5 rounded-lg border bg-card p-2 shadow-sm">
+        <div className="sticky top-0 z-20 mb-2 flex flex-wrap items-center gap-1.5 rounded-lg border bg-card p-2 shadow-elevation-sm">
           <Checkbox
             checked={allSelected ? true : someSelected ? 'indeterminate' : false}
             onCheckedChange={(checked) => toggleAll(checked === true)}

@@ -78,7 +78,7 @@
   border: 1rpx solid var(--color-border);
   border-radius: var(--radius-lg);
   overflow: hidden;
-  box-shadow: 0 8rpx 24rpx var(--color-black-6);
+  box-shadow: var(--shadow-elevation-lg);
 }
 .share-rank-card-header {
   display: flex;
@@ -193,7 +193,7 @@
   background: var(--color-card);
   padding: 0;
   animation: shareSlideDown 0.25s ease;
-  box-shadow: 0 8rpx 32rpx var(--color-black-40);
+  box-shadow: var(--shadow-elevation-xl);
 }
 .share-tag-panel-header {
   padding: var(--spacing-md-loose) var(--spacing-md-loose) var(--spacing-sm);

@@ -99,7 +99,7 @@ export function EnvironmentInfoPopover() {
       data-testid="env-info-popover"
       className={cn(
         'absolute top-0 right-0 z-sticky flex flex-col overflow-hidden',
-        'ui-popover rounded-md border border-border bg-popover text-popover-foreground shadow-lg',
+        'ui-popover rounded-md border border-border bg-popover text-popover-foreground shadow-elevation-lg',
         'w-[min(288px,calc(100%-16px))]',
       )}
       role="complementary"

@@ -47,7 +47,7 @@ export function SortableSection({ section, index, onToggle }: SortableSectionPro
       style={style}
       className={cn(
         'flex items-center gap-3 rounded-lg border bg-card px-3 py-2.5 transition-shadow',
-        isDragging && 'shadow-lg',
+        isDragging && 'shadow-elevation-lg',
         !section.enabled && 'opacity-50',
       )}
     >

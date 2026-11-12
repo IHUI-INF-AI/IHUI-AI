@@ -21,7 +21,7 @@ import type { MemoryEntry } from '@ihui/types'
 import { cn } from '@/lib/utils'
 
 const textareaCls =
-  'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-y'
+  'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-elevation-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-y'
 
 export default function MemoryDetailPage() {
   const params = useParams<{ id: string }>()

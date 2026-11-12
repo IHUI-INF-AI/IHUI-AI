@@ -82,7 +82,7 @@ export function AuthShell({
     <div
       className={cn(
         'login-scope relative w-full rounded-xl border border-border bg-card',
-        'shadow-[0_4px_24px_rgba(0,0,0,0.06),0_1px_4px_rgba(0,0,0,0.04)]',
+        'shadow-elevation-lg',
         compact ? 'p-3' : 'p-3',
         className,
       )}

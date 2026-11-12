@@ -63,6 +63,7 @@ export function scrollToSource(ref: string): boolean {
   el.scrollIntoView({ behavior: 'smooth', block: 'start' })
   const prev = el.style.boxShadow
   el.style.transition = 'box-shadow 0.6s ease'
+  // 豁免类别:键盘/跳转落点高亮环,0 模糊硬边扩散,不参与层级档
   el.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.45)'
   window.setTimeout(() => {
     el.style.boxShadow = prev

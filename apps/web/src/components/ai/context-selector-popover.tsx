@@ -60,7 +60,7 @@ export function ContextSelectorPopover({
       align="start"
       gap={8}
       testId="context-selector-popover"
-      className="flex w-80 flex-col overflow-hidden rounded-xl border border-border bg-popover shadow-md"
+      className="flex w-80 flex-col overflow-hidden rounded-xl border border-border bg-popover shadow-elevation-md"
     >
       <div className="flex items-center gap-2 bg-muted/40 px-3 py-2">
         <Hash className="h-4 w-4 shrink-0 text-muted-foreground" />

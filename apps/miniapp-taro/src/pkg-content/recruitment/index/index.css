@@ -169,6 +169,7 @@
   font-weight: 600;
   color: var(--color-warning);
 }
+/* 豁免类别:吸底报名栏向上投影(负 y offset),翻转会落到屏外,非层级投影 */
 .recruit-footer {
   position: fixed;
   bottom: 0;

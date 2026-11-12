@@ -70,7 +70,7 @@ interface CertDetailData {
 }
 
 const selectClass =
-  'h-9 rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+  'h-9 rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-elevation-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
 const LEVEL_VALUES = ['primary', 'intermediate', 'advanced'] as const
 type LevelValue = (typeof LEVEL_VALUES)[number]

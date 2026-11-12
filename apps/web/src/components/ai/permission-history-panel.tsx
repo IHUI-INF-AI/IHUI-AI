@@ -434,7 +434,7 @@ export function PermissionHistoryPanel({
         gap={8}
         testId="permission-history-panel"
         panelRef={panelRef}
-        className="w-[min(320px,calc(100vw-2rem))] rounded-xl border bg-popover p-3 text-popover-foreground shadow-md"
+        className="w-[min(320px,calc(100vw-2rem))] rounded-xl border bg-popover p-3 text-popover-foreground shadow-elevation-md"
       >
         {/* dialog 语义保留在内容层(PortalPanel 不透传 aria 属性与 tabIndex) */}
         <div

@@ -294,7 +294,7 @@ function PolicyEditor({
             value={modelIdsText}
             onChange={(e) => setModelIdsText(e.target.value)}
             rows={4}
-            className="w-full rounded-sm border border-input bg-transparent p-2 text-body shadow-sm focus-visible:border-primary focus-visible:outline-none"
+            className="w-full rounded-sm border border-input bg-transparent p-2 text-body shadow-elevation-sm focus-visible:border-primary focus-visible:outline-none"
           />
           <div className="flex items-center gap-2">
             <span className="text-label text-muted-foreground">{t('allowlistMode')}</span>
@@ -319,7 +319,7 @@ function PolicyEditor({
             value={flagsText}
             onChange={(e) => setFlagsText(e.target.value)}
             rows={4}
-            className="w-full rounded-sm border border-input bg-transparent p-2 text-body shadow-sm focus-visible:border-primary focus-visible:outline-none"
+            className="w-full rounded-sm border border-input bg-transparent p-2 text-body shadow-elevation-sm focus-visible:border-primary focus-visible:outline-none"
           />
           {flagsInvalid ? (
             <p data-testid={`policy-${policyKey}-invalid`} className="text-label text-destructive">

@@ -66,7 +66,7 @@ export function RecordingDrawer({ recordings, onRefresh, onPlay, onDelete }: Rec
         side="bottom"
         align="end"
         gap={4}
-        className="w-80 overflow-hidden rounded-xl border border-border bg-popover shadow-md"
+        className="w-80 overflow-hidden rounded-xl border border-border bg-popover shadow-elevation-md"
       >
         <div className="flex items-center justify-between bg-muted/40 px-2.5 py-1.5">
           <span className="text-[10px] uppercase tracking-wide text-muted-foreground">

@@ -23,7 +23,7 @@ const OUTLINE_LINK_CLASS = [
   BUTTON_WEB_BASE,
   SHARED_BUTTON_BASE_CLASS,
   SHARED_BUTTON_VARIANT_CLASSES.outline,
-  'shadow-sm hover:bg-accent hover:text-accent-foreground',
+  'shadow-elevation-sm hover:bg-accent hover:text-accent-foreground',
   BUTTON_WEB_SIZE_DEFAULT,
 ].join(' ')
 const PRIMARY_LINK_CLASS = [

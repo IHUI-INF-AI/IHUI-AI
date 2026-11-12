@@ -134,7 +134,7 @@ function formatFiredAt(value: string | null): string {
 
 const th = 'px-4 py-2.5 font-medium'
 const selectClass =
-  'h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+  'h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-elevation-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
 export default function ErrorDashboardPage() {
   const t = useTranslations('adminTools')

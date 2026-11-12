@@ -320,13 +320,13 @@ export default function WorkflowDetailPage() {
                 value={editDesc}
                 onChange={(e) => setEditDesc(e.target.value)}
                 rows={2}
-                className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-elevation-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               />
             </div>
             <div className="space-y-2">
               <Label>{t('detail.triggerType')}</Label>
               <Select value={editTrigger} onValueChange={(v) => setEditTrigger(v as TriggerType)}>
-                <SelectTrigger className="h-9 w-full rounded-sm border border-input bg-transparent px-3 py-1 text-body shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+                <SelectTrigger className="h-9 w-full rounded-sm border border-input bg-transparent px-3 py-1 text-body shadow-elevation-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

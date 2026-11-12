@@ -70,10 +70,10 @@ export function StepNode({ data, selected }: NodeProps<Node<StepNodeData>>) {
   return (
     <div
       className={cn(
-        'min-w-[200px] rounded-lg border-2 bg-card px-4 py-3 shadow-sm transition-shadow',
+        'min-w-[200px] rounded-lg border-2 bg-card px-4 py-3 shadow-elevation-sm transition-shadow',
         c.border,
         c.bg,
-        selected && 'shadow-md ring-2 ring-primary/30',
+        selected && 'shadow-elevation-md ring-2 ring-primary/30',
       )}
     >
       {/* 输入连接点(非 trigger 节点) */}

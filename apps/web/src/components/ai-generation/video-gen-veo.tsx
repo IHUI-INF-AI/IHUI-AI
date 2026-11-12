@@ -31,7 +31,7 @@ const ASPECT_RATIOS = ['16:9', '9:16'] as const
 const MODELS = ['veo-3.1-generate-preview', 'veo-3.1-fast-generate-preview'] as const
 
 const TEXTAREA_CLS =
-  'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+  'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-elevation-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
 // Veo(Gemini 视频):POST /gemini/video 返回本地 taskId,用统一 /tasks/:taskId 轮询
 export function VideoGenVeo() {

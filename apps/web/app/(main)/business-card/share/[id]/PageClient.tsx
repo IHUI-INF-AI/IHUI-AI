@@ -143,7 +143,7 @@ export default function CardSharePage() {
         {t('backToList')}
       </Link>
 
-      <div className={cn('rounded-xl p-3 shadow-sm', TPL_STYLES[tpl] ?? TPL_STYLES.minimal)}>
+      <div className={cn('rounded-xl p-3 shadow-elevation-sm', TPL_STYLES[tpl] ?? TPL_STYLES.minimal)}>
         <div className="flex items-start gap-4">
           {card.avatar ? (
             <Image

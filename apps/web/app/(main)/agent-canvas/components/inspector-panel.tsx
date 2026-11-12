@@ -122,7 +122,7 @@ export function InspectorPanel({ node, nodeId, onUpdateParams, onRename }: Inspe
                 value={params.input ?? ''}
                 placeholder="传给该 Agent 的文本输入"
                 onChange={(e) => onUpdateParams(nodeId, { input: e.target.value })}
-                className="h-20 w-full resize-none rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="h-20 w-full resize-none rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-elevation-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               />
             </div>
           </>
@@ -146,7 +146,7 @@ export function InspectorPanel({ node, nodeId, onUpdateParams, onRename }: Inspe
                 value={params.input ?? ''}
                 placeholder={t('toolInputPlaceholder')}
                 onChange={(e) => onUpdateParams(nodeId, { input: e.target.value })}
-                className="h-20 w-full resize-none rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="h-20 w-full resize-none rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-elevation-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               />
             </div>
           </>
@@ -160,7 +160,7 @@ export function InspectorPanel({ node, nodeId, onUpdateParams, onRename }: Inspe
               value={params.prompt ?? ''}
               placeholder={t('promptPlaceholder')}
               onChange={(e) => onUpdateParams(nodeId, { prompt: e.target.value })}
-              className="h-20 w-full resize-none rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="h-20 w-full resize-none rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-elevation-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
           </div>
         )}

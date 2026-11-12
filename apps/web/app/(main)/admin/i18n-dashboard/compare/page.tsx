@@ -53,7 +53,7 @@ export default function I18nComparePage() {
   const entries = data?.entries ?? []
 
   const selectClass =
-    'h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+    'h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-elevation-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-4">

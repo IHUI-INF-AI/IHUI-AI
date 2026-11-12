@@ -182,7 +182,7 @@ export function BatchOperations() {
             }}
             className={`rounded-sm px-3 py-1.5 text-body font-medium transition-colors ${
               tab === 'market'
-                ? 'bg-background text-foreground shadow-sm'
+                ? 'bg-background text-foreground shadow-elevation-sm'
                 : 'text-muted-foreground hover:text-foreground'
             }`}
           >
@@ -197,7 +197,7 @@ export function BatchOperations() {
             }}
             className={`rounded-sm px-3 py-1.5 text-body font-medium transition-colors ${
               tab === 'user'
-                ? 'bg-background text-foreground shadow-sm'
+                ? 'bg-background text-foreground shadow-elevation-sm'
                 : 'text-muted-foreground hover:text-foreground'
             }`}
           >

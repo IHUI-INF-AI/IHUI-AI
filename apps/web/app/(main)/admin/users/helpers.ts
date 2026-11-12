@@ -8,7 +8,7 @@ import type { DeptItem, UsersData } from './types'
 export const PAGE_SIZE = 10
 
 export const selectClass =
-  'h-8 rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+  'h-8 rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-elevation-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
 export { apiOrThrow as api }
 

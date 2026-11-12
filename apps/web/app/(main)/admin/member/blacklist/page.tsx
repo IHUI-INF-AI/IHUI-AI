@@ -50,7 +50,7 @@ interface BlacklistItem {
 }
 
 const selectClass =
-  'h-8 rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+  'h-8 rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-elevation-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 const TYPE_LABEL: Record<BlacklistItem['type'], string> = { user: '用户', ip: 'IP', device: '设备' }
 
 export default function AdminMemberBlacklistPage() {

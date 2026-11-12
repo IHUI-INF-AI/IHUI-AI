@@ -641,7 +641,7 @@ export function SkillLibrary({ onSelect, onClose, onSendToChat }: SkillLibraryPr
             className={cn(
               'shrink-0 rounded-sm px-2 py-1 text-[11px] transition-colors',
               activeTab === tab.key
-                ? 'bg-background text-foreground shadow-sm'
+                ? 'bg-background text-foreground shadow-elevation-sm'
                 : 'text-muted-foreground hover:text-foreground',
             )}
           >

@@ -118,7 +118,7 @@ export default function I18nMissingPage() {
             className={cn(
               'rounded-sm px-3 py-1.5 text-body font-medium transition-colors',
               locale === l.value
-                ? 'bg-background text-foreground shadow-sm'
+                ? 'bg-background text-foreground shadow-elevation-sm'
                 : 'text-muted-foreground hover:text-foreground',
             )}
           >

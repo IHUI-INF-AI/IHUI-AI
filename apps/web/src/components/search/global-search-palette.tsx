@@ -35,7 +35,7 @@ const OVERLAY_CLASS =
   'fixed inset-0 z-popover flex items-start justify-center bg-foreground/25 p-4 pt-[12vh] backdrop-blur-sm'
 
 const PANEL_CLASS =
-  'flex w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-border bg-background shadow-2xl'
+  'flex w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-border bg-background shadow-elevation-xl'
 
 const INPUT_CLASS =
   'w-full border-0 bg-transparent px-4 py-3.5 text-sm text-foreground outline-none placeholder:text-muted-foreground'
