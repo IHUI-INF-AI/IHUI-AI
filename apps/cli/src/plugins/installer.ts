@@ -1274,6 +1274,18 @@ export async function uninstallPlugin(
   const idx = reg.records.findIndex((r) => r.name === name);
   const hadRecord = idx >= 0;
 
+  // F-069/F-070 name 白名单最先判:`..` / 绝对路径等非法形态在碰任何路径/registry 之前就拒,
+  // 不因"registry 里也没有它"而报错信息跑偏(测试②断言 /非法字符/)。
+  assertSafePluginName(name);
+
+  // F-070 卸载前置闸:registry 里没有该 name 的记录就一概不删。
+  // 依据:卸载按 name 删的就是那一个目录,而"装没装过"的权威面是 registry.json。若只看
+  // `installPresence === 'present'`,攻击者只要能把目标目录放到安装根下(同名),就能借一次
+  // 「卸载」清掉任意目录 —— 这正是 F-070 的核心缺口。拒绝排在任何删除动作之前,目录一字节不动。
+  if (!hadRecord) {
+    throw new Error(`未在插件安装记录中找到 "${name}",拒绝卸载(请确认它确实由本工具安装)`);
+  }
+
   const look = opts?.stat ?? fs.statSync;
   const installPath = getPluginInstallPath(name);
   const dataDir = getPluginDataDir(name);
