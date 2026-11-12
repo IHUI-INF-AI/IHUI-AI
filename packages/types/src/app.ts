@@ -30,6 +30,8 @@ export * from './app-engagement.js'
 export * from './app-message.js'
 export * from './app-commerce.js'
 export * from './app-learning.js'
+// SAG2 词法多跳检索「移动工作台」屏形状单源(2026-11-13 立,web↔RN↔miniapp 三端共享)
+export * from './app-sag2.js'
 export * from './app-live.js'
 export * from './app-ai.js'
 export * from './app-content.js'
