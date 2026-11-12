@@ -603,6 +603,21 @@ function extractStreamUsage(line: string): Record<string, unknown> | null {
   return null
 }
 
+/**
+ * workbuddy/* 号池失败时的对外文案:必须分清"没配上游"与"上游/账号失败"。
+ *
+ * 2026-11-12 立:`fwd === null` 的真实含义是**没有渠道也没有号池行**(这个模型
+ * 压根没接通),跟"有渠道但候选全失败"是两件事。旧文案一律说"账号池不可用",
+ * 让运维以为去充值/换号就能好,实际是配置缺失 —— 这正是机主问的"是不是我们没开发好"。
+ */
+function workbuddyNoUpstreamMessage(reason: string): string {
+  const text = (reason || '').trim()
+  if (!text || text === 'no channel configured' || text === 'no channel candidate succeeded') {
+    return 'WorkBuddy 未配置上游渠道(该模型没有可用账号/渠道,属接入缺失,不是账号欠费)'
+  }
+  return `WorkBuddy 上游不可用: ${text}`
+}
+
 // =============================================================================
 // 流式 Chat 补全辅助函数
 // =============================================================================
@@ -910,8 +925,11 @@ async function streamChatCompletion(
 
   // workbuddy/* 的 ai-service 兜底必然回环(ai-service 把 workbuddy/* 路由回本 relay),
   // 号池失败后就地收尾并如实报错,不再兜底 —— 否则 api→ai-service→api 会挂满超时。
+  // 报错文案要分清两种原因,不能一律说成"号池不可用"(2026-11-12):
+  //   无渠道/无号池行 ⇒ 这个模型压根没配上游,是我们没接通;
+  //   有渠道但候选全失败 ⇒ 上游/账号侧问题。
   if (poolFailure && model.startsWith('workbuddy/')) {
-    writeChunk({ content: `[error] WorkBuddy 账号池不可用: ${poolFailure}` }, 'stop')
+    writeChunk({ content: `[error] ${workbuddyNoUpstreamMessage(poolFailure)}` }, 'stop')
     raw.write('data: [DONE]\n\n')
     request.raw.off('close', onClose)
     raw.end()
@@ -1934,7 +1952,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
         if (mode === 'relay' && resolvedModel.startsWith('workbuddy/')) {
           resp = new Response(
             JSON.stringify({
-              error: { message: `WorkBuddy 账号池不可用: ${poolFailure ?? '无可用账号'}` },
+              error: { message: workbuddyNoUpstreamMessage(poolFailure ?? '') },
             }),
             { status: 502, headers: { 'Content-Type': 'application/json' } },
           )
