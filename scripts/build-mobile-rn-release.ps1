@@ -495,6 +495,74 @@ $env:EXPO_PUBLIC_WEB_URL = $Backend.Web
 $env:EXPO_PUBLIC_WS_BASE_URL = $Backend.Ws
 if ($AllowLocalBackend) { Write-Warning 'AllowLocalBackend:本次包的基址含回环地址,只能在配了 adb reverse 的机器上验证' }
 
+# ---- [2.7/5] OTA 配置落地(2026-11-12 根因修复) -----------------------------------
+# android/ 是 expo prebuild 生成物;gradle 期只 merge 现存 AndroidManifest.xml,不会重生成。
+# app.json / app.config.js 早已带 updates.url / runtimeVersion / requestHeaders,但主工作树
+# 出包链路从未重跑 prebuild ⇒ 旧 manifest 恒为 ENABLED=false 且缺 EXPO_UPDATE_URL /
+# EXPO_RUNTIME_VERSION / UPDATES_CONFIGURATION_REQUEST_HEADERS_KEY,产出的包对 eas update
+# 永久静默失效(端侧 isEnabled=false ⇒ 回退内嵌包,账面却一切正常)。
+# 故固定「出包前 prebuild」;不带 --clean 以保住 android/build.gradle 首位腾讯云 maven 镜像
+# 与 gradle.properties 的性能档;prebuild 会重置 app/build.gradle,故紧接着重打两个 patch。
+Write-Host "`n===== [2.7/5] expo prebuild: 把 OTA 配置写进 AndroidManifest =====" -ForegroundColor Cyan
+$env:IHUI_VERSION_CODE = "$VersionCode"
+$env:CI = '1'
+$ExpoCli = Join-Path $RepoRoot 'apps/mobile-rn/node_modules/expo/bin/cli'
+if (-not (Test-Path $ExpoCli)) { throw "expo CLI 入口不存在: $ExpoCli" }
+Push-Location (Join-Path $RepoRoot 'apps/mobile-rn')
+try {
+  & node $ExpoCli prebuild --platform android --no-install
+  if ($LASTEXITCODE -ne 0) { throw "expo prebuild 失败(exit=$LASTEXITCODE)" }
+} finally { Pop-Location }
+
+$OtaManifest = Join-Path $RepoRoot 'apps/mobile-rn/android/app/src/main/AndroidManifest.xml'
+if (-not (Test-Path $OtaManifest)) { throw "prebuild 后仍缺 AndroidManifest.xml: $OtaManifest" }
+$OtaText = Get-Content -Raw -LiteralPath $OtaManifest
+$OtaKeys = @(
+  'expo.modules.updates.EXPO_UPDATE_URL',
+  'expo.modules.updates.EXPO_RUNTIME_VERSION',
+  'expo.modules.updates.UPDATES_CONFIGURATION_REQUEST_HEADERS_KEY'
+)
+foreach ($k in $OtaKeys) {
+  if (-not $OtaText.Contains($k)) {
+    throw "OTA 配置未落地(缺 $k): $OtaManifest —— 拒绝产出无 OTA 能力的包"
+  }
+}
+if ($OtaText -notmatch '(?s)expo\.modules\.updates\.ENABLED[^>]{0,200}android:value="true"') {
+  throw "expo.modules.updates.ENABLED 未置 true: $OtaManifest —— 拒绝产出无 OTA 能力的包"
+}
+$OtaStrings = Join-Path $RepoRoot 'apps/mobile-rn/android/app/src/main/res/values/strings.xml'
+if (-not (Select-String -Path $OtaStrings -Pattern 'expo_runtime_version' -Quiet)) {
+  throw "OTA runtimeVersion 未落地: $OtaStrings —— 拒绝产出无 OTA 能力的包"
+}
+# SDK 57 实测:即使不带 --clean,prebuild 仍会 "Clearing android" 清掉整个 android/,
+# 项目级 build.gradle 里手改的腾讯云镜像必被洗掉;而 dl.google.com / repo.maven.apache.org
+# 本机 000 不可达 ⇒ 不幂等补回,依赖下载阶段直接死(Android release 打包四坑之三)。
+$ProjectGradle = Join-Path $RepoRoot 'apps/mobile-rn/android/build.gradle'
+if (-not (Test-Path $ProjectGradle)) { throw "缺项目级 build.gradle: $ProjectGradle" }
+$GradleText = Get-Content -Raw -LiteralPath $ProjectGradle
+if ($GradleText -notmatch 'mirrors\.cloud\.tencent\.com') {
+  $MirrorLine = "    maven { url 'https://mirrors.cloud.tencent.com/nexus/repository/maven-public/' }"
+  $GradleText = [regex]::Replace(
+    $GradleText,
+    '(?m)^(  repositories \{\r?\n)',
+    '${1}' + $MirrorLine + "`r`n"
+  )
+  [System.IO.File]::WriteAllText($ProjectGradle, $GradleText, (New-Object System.Text.UTF8Encoding($false)))
+}
+if (-not (Select-String -Path $ProjectGradle -Pattern 'mirrors.cloud.tencent.com' -Quiet)) {
+  throw "腾讯云 maven 镜像补回失败: $ProjectGradle —— 拒绝出包(否则依赖下载 000)"
+}
+Write-Host '  ✅ OTA 四项 meta-data + expo_runtime_version + 腾讯云镜像已在位' -ForegroundColor Green
+
+# prebuild 重置了 app/build.gradle 的签名段与 OkHttp 注入,必须重打([1/5] 同款,幂等)。
+Push-Location $RepoRoot
+try {
+  node scripts/patch-rn-release-signing.mjs
+  if ($LASTEXITCODE -ne 0) { throw 'prebuild 后重打 patch-rn-release-signing.mjs 失败' }
+  node scripts/patch-rn-okhttp-http1.mjs
+  if ($LASTEXITCODE -ne 0) { throw 'prebuild 后重打 patch-rn-okhttp-http1.mjs 失败' }
+} finally { Pop-Location }
+
 Write-Host "`n===== [3/5] gradlew assembleRelease + bundleRelease (versionName=$VersionName versionCode=$VersionCode) =====" -ForegroundColor Cyan
 Write-Host "  ABI: $($abiArg -replace '^.*=','')"
 if (-not (Test-Path $Gradle)) { throw "gradlew 不存在: $Gradle (请先 expo prebuild)" }
