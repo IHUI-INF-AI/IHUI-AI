@@ -17,7 +17,6 @@
 
 import type { Tool, ToolResult } from './index.js';
 import { assertSafeFetchUrl, formatSsrfRejection } from '@ihui/shared/utils/ssrf-guard';
-import { runPreToolCall, runPostToolCall } from '../hooks/index.js';
 import {
   assertFetchLiteralEgress,
   EGRESS_BLOCKED_ERROR_TYPE,
@@ -116,16 +115,14 @@ export const fetch_url: Tool = {
     url: { type: 'string', description: '要抓取的 http/https URL' },
   },
   required: ['url'],
-  async execute(args, ctx): Promise<ToolResult> {
+  async execute(args, _ctx): Promise<ToolResult> {
     const url = args.url as string;
     if (!url) return { success: false, output: '', error: '缺少 url 参数' };
     if (!/^https?:\/\//i.test(url)) {
       return { success: false, output: '', error: '仅支持 http/https URL' };
     }
 
-    const preResult = await runPreToolCall('fetch_url', { url }, ctx.signal);
-    if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
-
+    // F-097:preToolCall/postToolCall 由统一执行入口(executeToolCall)派发,这里不再重复调用。
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
@@ -145,12 +142,10 @@ export const fetch_url: Tool = {
           assertFetchLiteralEgress(hopUrl);
         } catch (err) {
           if (!isEgressBlockedError(err)) throw err;
-          runPostToolCall('fetch_url', { error: EGRESS_BLOCKED_ERROR_TYPE }, ctx.signal);
           return egressBlockedResult(err.message);
         }
         const verdict = await assertSafeFetchUrl(target);
         if (!verdict.safe) {
-          runPostToolCall('fetch_url', { error: verdict.code ?? 'ssrf-denied' }, ctx.signal);
           return { success: false, output: '', error: formatSsrfRejection(verdict), errorType: 'ssrf_denied' };
         }
         res = await fetch(target, {
@@ -161,7 +156,6 @@ export const fetch_url: Tool = {
         // Egress-proxy allowlist rejection arrives as a response header (the
         // proxy owns the connection; there is no body to inspect).
         if (isProxyAllowlistBlock(res.headers)) {
-          runPostToolCall('fetch_url', { error: EGRESS_BLOCKED_ERROR_TYPE }, ctx.signal);
           await res.body?.cancel().catch(() => {});
           return egressBlockedResult(proxyAllowlistBlockedMessage(hopUrl.hostname));
         }
@@ -169,7 +163,6 @@ export const fetch_url: Tool = {
         const loc = res.headers.get('location');
         if (!loc) break;
         if (++hops > MAX_REDIRECT_HOPS) {
-          runPostToolCall('fetch_url', { error: 'redirect-limit' }, ctx.signal);
           return { success: false, output: '', error: `重定向超过 ${MAX_REDIRECT_HOPS} 跳,已中止`, errorType: 'redirect_limit' };
         }
         // 相对 Location 也要按当前跳解析后再裁决,不得拿原始字符串猜
@@ -181,7 +174,6 @@ export const fetch_url: Tool = {
       const status = res.status;
 
       if (!res.ok) {
-        runPostToolCall('fetch_url', { status, finalUrl }, ctx.signal);
         return {
           success: false,
           output: '',
@@ -191,16 +183,6 @@ export const fetch_url: Tool = {
 
       const body = await readBodyWithLimit(res, MAX_FETCH_RESPONSE_BYTES);
       if (!body.ok) {
-        runPostToolCall(
-          'fetch_url',
-          {
-            error: 'response_too_large',
-            limitBytes: MAX_FETCH_RESPONSE_BYTES,
-            bytes: body.bytesRead,
-            source: body.source,
-          },
-          ctx.signal,
-        );
         const detail =
           body.source === 'declared'
             ? `Content-Length 声明 ${body.bytesRead} 字节`
@@ -227,12 +209,9 @@ export const fetch_url: Tool = {
         output = output.slice(0, MAX_OUTPUT_CHARS) + '\n...(truncated)';
       }
 
-      runPostToolCall('fetch_url', { status, finalUrl, contentType, outputLen: output.length }, ctx.signal);
-
       const header = `[${status}] ${finalUrl} (${contentType || 'unknown'})\n\n`;
       return { success: true, output: header + output };
     } catch (err) {
-      runPostToolCall('fetch_url', { error: String(err) }, ctx.signal);
       const msg = err instanceof Error ? err.message : String(err);
       if (msg.includes('aborted')) {
         return { success: false, output: '', error: `请求超时(${FETCH_TIMEOUT_MS / 1000}s)` };

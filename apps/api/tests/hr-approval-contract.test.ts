@@ -207,6 +207,8 @@ function seedInstance(opts: {
   status: 'pending' | 'approved' | 'rejected' | 'escalated'
   steps?: Row[]
   dueAt?: Date | null
+  /** 提交时固化的超时升级目标(生产由 submitApproval 写入;escalate 测试按需设置) */
+  escalationApproverSnapshot?: string | null
 }) {
   H.leavesById.set(LEAVE_ID, {
     id: LEAVE_ID,
@@ -219,6 +221,11 @@ function seedInstance(opts: {
     leaveRequestId: LEAVE_ID,
     currentStep: opts.currentStep,
     chainSnapshot: opts.chain,
+    // 快照字段:escalateTimedOut 读提交时刻固化的代理/超时时限/升级目标,
+    // 夹具默认对齐生产提交态(timeoutHours=24、无代理/无升级目标),可按用例覆盖。
+    approverProxySnapshot: null as string | null,
+    timeoutHoursSnapshot: 24,
+    escalationApproverSnapshot: opts.escalationApproverSnapshot ?? null,
     status: opts.status,
     steps: opts.steps ?? [],
     dueAt: opts.dueAt === undefined ? new Date('2026-11-10T00:00:00Z') : opts.dueAt,
@@ -320,6 +327,38 @@ describe('submitApproval · 提交落实例', () => {
     expect(createNotification).toHaveBeenCalledTimes(1)
     expect(createNotification.mock.calls[0]?.[0]?.userId).toBe(APPROVER_A)
     expect(result.notified).toBe(true)
+  })
+
+  it('提交时固化全套快照:链+代理+超时时限+超时升级目标一并写入实例(规则后续改动不影响在飞)', async () => {
+    // solidify 决策(2026-11-12)验收锚:提交即快照 proxy/timeoutHours/escalation 四件套,
+    // 保证提交后规则再改,decide/notify/escalate 全读快照、绝不二次取实时规则。
+    H.reads.leave = [[{ id: LEAVE_ID, leaveType: '事假', totalDays: 5, status: 'pending' }]]
+    H.reads.flow = [
+      [
+        {
+          id: 'f-proxy',
+          leaveType: '事假',
+          minDays: 3,
+          maxDays: 7,
+          status: 'active',
+          deletedAt: null,
+          approverIds: [APPROVER_A],
+          approverProxyId: APPROVER_B, // 链指向 A,代理是 B
+          timeoutHours: 12,
+          escalationApproverId: APPROVER_C,
+        },
+      ],
+    ]
+    const result = await submitApproval({ leaveRequestId: LEAVE_ID })
+    const inserted = H.instanceInserts[0] as Row
+    expect(inserted.chainSnapshot).toEqual([APPROVER_A])
+    expect(inserted.approverProxySnapshot).toBe(APPROVER_B) // 代理固化
+    expect(inserted.timeoutHoursSnapshot).toBe(12) // 超时时限固化(非默认 24)
+    expect(inserted.escalationApproverSnapshot).toBe(APPROVER_C) // 升级目标固化
+    // due_at 由提交时的 timeout_hours_snapshot 折算(12h)
+    expect((result.instance.dueAt as Date).getTime()).toBe(
+      result.instance.submittedAt.getTime() + 12 * 3_600_000,
+    )
   })
 
   it('无匹配规则 → 抛 ApprovalRouteError NO_FLOW,不落实例', async () => {
@@ -491,8 +530,9 @@ describe('escalateTimedOut · 超时升级', () => {
       currentStep: 0,
       status: 'pending',
       dueAt: new Date('2026-11-09T00:00:00Z'), // 已过期
+      escalationApproverSnapshot: APPROVER_C, // 提交时固化的升级目标
     })
-    // escalateTimedOut 先扫 instance 拿 overdue 集,再逐条读 leave + flow
+    // escalateTimedOut 先扫 instance 拿 overdue 集,再读 leave;读快照列,不读 flow。
     H.reads.instance = [[H.instancesById.get(INSTANCE_ID) as Row]]
     H.reads.leave = [[H.leavesById.get(LEAVE_ID) as Row]]
     H.reads.flow = [
@@ -535,6 +575,54 @@ describe('escalateTimedOut · 超时升级', () => {
     const r1 = await escalateTimedOut({ now })
     expect(r1.escalated).toBe(0)
     expect(H.instanceUpdates).toHaveLength(0)
+  })
+
+  it('已 escalated 且再次到点 → 催办:不增长链、不换人、再通知当前升级目标、escalated 计数不增', async () => {
+    seedInstance({
+      chain: [APPROVER_A, APPROVER_B, APPROVER_C],
+      currentStep: 2, // 已升级到 C
+      status: 'escalated',
+      dueAt: new Date('2026-11-09T00:00:00Z'), // 已过期
+    })
+    H.reads.instance = [[H.instancesById.get(INSTANCE_ID) as Row]]
+    H.reads.leave = [[H.leavesById.get(LEAVE_ID) as Row]]
+    H.reads.flow = [
+      [
+        {
+          id: 'f2',
+          leaveType: '事假',
+          minDays: 3,
+          maxDays: 7,
+          status: 'active',
+          deletedAt: null,
+          approverIds: [APPROVER_A, APPROVER_B],
+          timeoutHours: 24,
+          escalationApproverId: APPROVER_C,
+        },
+      ],
+    ]
+    const now = new Date('2026-11-10T00:00:00Z')
+    const result = await escalateTimedOut({ now })
+    expect(result.escalated).toBe(0) // 催办不计入升级数
+    expect(H.instanceUpdates).toHaveLength(1)
+    const updated = H.instanceUpdates[0]
+    // 注意:测试桩的 eq() id 提取不生效,update 返回的是 {...sets, 兜底id},不合并 seed 行。
+    // 故催办用例应断言「显式 set 的字段」:催办分支只 set steps/dueAt/updatedAt,
+    // 绝不 set status/chainSnapshot/currentStep(即不重写这些、不增长链、不换人)。
+    expect(updated).not.toHaveProperty('status') // 没重写状态
+    expect(updated).not.toHaveProperty('chainSnapshot') // 没增长链
+    expect(updated).not.toHaveProperty('currentStep') // 没换人
+    expect(updated?.steps).toBeDefined() // 追加了一条 byTimeout 催办轨迹
+    expect(((updated?.steps as Row[]) ?? []).at(-1)).toMatchObject({
+      action: 'escalated',
+      byTimeout: true,
+      step: 2, // 仍在原升级步(currentStep=2)
+    })
+    // due_at 顺延一个 timeout_hours
+    expect((updated?.dueAt as Date).getTime()).toBe(now.getTime() + 24 * 3_600_000)
+    // 仍通知当前升级目标 C
+    expect(createNotification).toHaveBeenCalledTimes(1)
+    expect(createNotification.mock.calls[0]?.[0]?.userId).toBe(APPROVER_C)
   })
 })
 

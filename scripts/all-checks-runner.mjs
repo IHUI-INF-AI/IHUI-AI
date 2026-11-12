@@ -17,7 +17,8 @@
  *  ② **末尾汇总失败清单并以非零退出码结束** —— 三条结论分开算:失败(rc != 0)/ 未跑完(超时或派生失败)/
  *     通过。"未跑完"绝不并入"通过",也绝不并入"失败"(那是两件不同的事:一条是判据判红,一条是判据
  *     根本没给出结论),但两者都参与退出码。
- *  ③ 子步骤清单是本器唯一的真相源,`--print-steps` 把它按 JSON 吐出来,便于与改前的 `&&` 串链逐条对账
+ *  ③ 子步骤清单是本器唯一的真相源,`--print-steps` 把它按 JSON 吐出来(基础清单 + 2026-11-12
+ *     补接的能力回归钉,见 `CAPABILITY_PIN_CHECKS`),便于与改前的 `&&` 串链逐条对账
  *     (证明"没有为了变绿删掉任何一步"是量出来的,不是声称的)。
  *
  * 取证通道 `--step <序号>=<命令>`:把某一步换成别的命令再跑整条链,用来构造"链条中间某步失败"的现场
@@ -77,6 +78,41 @@ export const CHECK_ALL_STEPS = Object.freeze([
   'node scripts/check-installed-asset-catalog.mjs',
   'pnpm check:benchmark-delivery',
 ])
+
+/**
+ * 能力回归钉注册表(票 F-040)。
+ *
+ * 为什么单列:三份 `apps/desktop/tests/capabilities-*.test.mjs` 早已入库,却既不在
+ * `CHECK_ALL_STEPS` 里、也不被任何 `package.json` / `scripts/**` / workflow 引用 ⇒
+ * 它们锁的 `capabilities/default.json` 配置回归(F-045/F-047/F-061)永久静默。
+ * 这里按 `{ name, path, timeoutMs }` 登记,由 main 排在基础清单之后逐条派生(node 直跑,
+ * 与文件头注释写的运行方式一致),失败同样进 aggregate 汇总。
+ *
+ * 刻意**不**塞进 `CHECK_ALL_STEPS`:那份清单的顺序与下标是既有锚点(A7 钉着第 18 步、
+ * A9 钉着末条),补接只该加行不该挪锚。
+ */
+export const CAPABILITY_PIN_CHECKS = Object.freeze([
+  {
+    name: 'capabilities-allow-open',
+    path: 'apps/desktop/tests/capabilities-allow-open.test.mjs',
+    timeoutMs: 60 * 1000,
+  },
+  {
+    name: 'capabilities-fs-remote-denied',
+    path: 'apps/desktop/tests/capabilities-fs-remote-denied.test.mjs',
+    timeoutMs: 60 * 1000,
+  },
+  {
+    name: 'capabilities-store-scope',
+    path: 'apps/desktop/tests/capabilities-store-scope.test.mjs',
+    timeoutMs: 60 * 1000,
+  },
+])
+
+/** 把能力回归钉转成与既有步骤同形的命令串(供 `--print-steps` 与执行面对账)。 */
+export function capabilityPinCommands(pins = CAPABILITY_PIN_CHECKS) {
+  return pins.map((pin) => `node ${pin.path}`)
+}
 
 /** 单步子上限:默认 25 分钟(全量档里最慢的是逐 blob 取材的那几道门)。 */
 const STEP_TIMEOUT_MS = Number(process.env.IHUI_CHECK_ALL_STEP_TIMEOUT_MS || 25 * 60 * 1000)
@@ -267,7 +303,9 @@ function main() {
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i]
     if (a === '--print-steps') {
-      console.log(JSON.stringify(CHECK_ALL_STEPS, null, 2))
+      // 基础清单 + 能力回归钉(F-040):列举面必须与实际执行面同宽,否则"登记了但没列出来"
+      // 与"根本没登记"在输出上长得一样。
+      console.log(JSON.stringify([...CHECK_ALL_STEPS, ...capabilityPinCommands()], null, 2))
       return 0
     }
     if (a === '--synthetic') return runSynthetic()
@@ -302,6 +340,11 @@ function main() {
     r.overridden = p.overridden
     return r
   })
+  // F-040:能力回归钉接在基础清单之后执行。走同一条 runStep/aggregate 路径 ⇒ 它们判红
+  // 会进"失败清单"并参与退出码,不再是一片没人看的死文件。
+  for (const pin of CAPABILITY_PIN_CHECKS) {
+    results.push(runStep(results.length + 1, `node ${pin.path}`, { timeoutMs: pin.timeoutMs }))
+  }
   for (const line of summaryLines(results, overridden)) console.log(line)
   const agg = aggregate(results)
   return agg.exitCode
@@ -452,7 +495,14 @@ function runSelfTest() {
   return bad === 0 ? 0 : 1
 }
 
-export const __test__ = { runStep, aggregate, summaryLines, applyOverrides, CHECK_ALL_STEPS }
+export const __test__ = {
+  runStep,
+  aggregate,
+  summaryLines,
+  applyOverrides,
+  CHECK_ALL_STEPS,
+  CAPABILITY_PIN_CHECKS,
+}
 
 // AGENTS §22d:CLI 直跑与被 import 双形态必须隔离副作用,且 Windows 反斜杠路径要经 pathToFileURL 归一。
 const isDirectRun =

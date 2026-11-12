@@ -29,6 +29,17 @@ import {
 const BLOCK = 512
 const USTAR_MAGIC = 'ustar'
 
+/**
+ * F-072:归档**本体**上限 —— `verifySkillPackage` 在 `readFileSync` 之前按它先拒,
+ * 否则 512 MB/20000 条配额只能拦"整包已读入内存之后"的展开面。
+ *
+ * 与解析期配额同源(单源仍在 `plugins/archive-quota.ts`):不压缩的 ustar 归档字节
+ * = 展开字节 + 每条目 512 B 头 + 512 B 结束零块,故取展开上限 + 条目上限×2 个块 ——
+ * 既不会误杀"展开面正好卡在配额内"的合法包,也仍然挡掉 GiB 级的炸弹包。
+ */
+export const SKILL_ARCHIVE_MAX_BYTES =
+  INSTALL_COPY_QUOTA.maxExpandedBytes + INSTALL_COPY_QUOTA.maxEntries * BLOCK * 2
+
 export type TarEntryType = 'file' | 'directory' | 'symlink'
 
 export interface TarEntry {

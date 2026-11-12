@@ -30,9 +30,12 @@ import {
  * 规则命中:假别相同 ∧ active ∧ 未软删 ∧ min_days<=total_days ∧(max_days 空 ∨ total_days<max_days),
  * 多条命中取 min_days 最大者(最具体规则优先)。max_days 为 NULL = 无上界。
  *
- * 实例生命周期:提交落 pending(current_step=0 + 链快照 + due_at)→ 逐级 approve 推进
- * → 末步通过回写 hr_leave_request=approved / 任一步 rejected 终止并回写 rejected
- * → 到点未决由 escalateTimedOut 升级(把 escalation_approver_id 追加为快照新的一级并记 byTimeout)。
+ * 实例生命周期:提交落 pending(current_step=0 + 链快照 + 代理快照 + 超时时限快照 + 超时升级目标快照 + due_at)
+ * → 逐级 approve 推进 → 末步通过回写 hr_leave_request=approved / 任一步 rejected 终止并回写 rejected
+ * → 到点未决由 escalateTimedOut 升级(把 escalation_approver_snapshot 追加为快照新的一级并记 byTimeout)。
+ *
+ * 快照固化哲学(2026-11-12 扩):链、代理、超时时限、超时升级目标均在提交时固化到实例,
+ * 规则后续改动不影响在飞实例。decide/escalate/notify 全读快照,绝不二次取实时规则。
  *
  * 说明:表值/类型从 schema 源模块相对导入,使本文件在 barrel 尚未注册新表时即可独立运行与测试。
  */
@@ -112,6 +115,9 @@ export async function submitApproval(input: {
       leaveRequestId: input.leaveRequestId,
       currentStep: 0,
       chainSnapshot: [...flow.approverIds],
+      approverProxySnapshot: flow.approverProxyId ?? null,
+      timeoutHoursSnapshot: flow.timeoutHours,
+      escalationApproverSnapshot: flow.escalationApproverId ?? null,
       status: 'pending',
       steps: [],
       dueAt: computeDueAt(now, flow.timeoutHours),
@@ -170,12 +176,22 @@ async function notifyStepApprover(
         // 取真实请假数据填模板字段(申请人姓名/假别/备注)
         // 字段 key 与小程序「待审批通知」模板(编号8538)实测对齐:name1/time2/thing4/thing6
         const [leave] = await db
-          .select({ leaveType: hrLeaveRequest.leaveType, reason: hrLeaveRequest.reason, employeeId: hrLeaveRequest.employeeId })
+          .select({
+            leaveType: hrLeaveRequest.leaveType,
+            reason: hrLeaveRequest.reason,
+            employeeId: hrLeaveRequest.employeeId,
+          })
           .from(hrLeaveRequest)
           .where(eq(hrLeaveRequest.id, instance.leaveRequestId))
           .limit(1)
         const applicantName = leave?.employeeId
-          ? (await db.select({ name: hrEmployee.name }).from(hrEmployee).where(eq(hrEmployee.id, leave.employeeId)).limit(1))[0]?.name ?? '未知'
+          ? ((
+              await db
+                .select({ name: hrEmployee.name })
+                .from(hrEmployee)
+                .where(eq(hrEmployee.id, leave.employeeId))
+                .limit(1)
+            )[0]?.name ?? '未知')
           : '未知'
         const res = await sendSubscribeMessage(
           openId,
@@ -234,20 +250,14 @@ export async function decideApproval(input: {
   const chain = instance.chainSnapshot
   const step = instance.currentStep
   const currentApprover = chain[step]
-  // 代理审批人:重新路由当前规则取 approver_proxy_id(规则改动不影响已固化的链,只影响代理判定)
-  const leaveRows = await db
-    .select()
-    .from(hrLeaveRequest)
-    .where(eq(hrLeaveRequest.id, instance.leaveRequestId))
-  const leave: HrLeaveRequest | undefined = leaveRows[0]
-  const flow = leave ? await routeApprovalFlow(leave.leaveType, leave.totalDays) : undefined
-  const proxy = flow?.approverProxyId ?? null
+  // 代理审批人:读提交时刻固化的快照(与链同源,规则后续改动不影响在飞实例)
+  const proxy = instance.approverProxySnapshot ?? null
   if (input.approverId !== currentApprover && input.approverId !== proxy) {
     throw new ApprovalRouteError('INVALID_LEAVE', `非当前步审批人: 期望 ${currentApprover ?? '?'}`)
   }
 
   const now = new Date()
-  const timeoutHours = flow?.timeoutHours ?? 24
+  const timeoutHours = instance.timeoutHoursSnapshot
   const steps: HrApprovalStep[] = [...instance.steps]
 
   if (input.action === 'rejected') {
@@ -326,24 +336,38 @@ async function writeBackLeave(
  */
 export async function escalateTimedOut(input: { now?: Date } = {}): Promise<{ escalated: number }> {
   const now = input.now ?? new Date()
+  // 修复:已升级(status='escalated')实例再次到点未决会永久卡死(原扫描只取 pending)。
+  // 改为扫 pending+escalated 两态(与 listMyPendingApprovals 同款 inArray where);终态
+  // approved/rejected 均已写 decidedAt,应用层再按 dueAt<now 过滤到点未决者。
   const overdue = await db
     .select()
     .from(hrApprovalInstance)
-    .where(and(eq(hrApprovalInstance.status, 'pending'), isNull(hrApprovalInstance.decidedAt)))
+    .where(inArray(hrApprovalInstance.status, ['pending', 'escalated']))
   const due = overdue.filter((i) => i.dueAt !== null && i.dueAt.getTime() < now.getTime())
   let escalated = 0
   for (const inst of due) {
-    const leaveRows = await db
-      .select()
-      .from(hrLeaveRequest)
-      .where(eq(hrLeaveRequest.id, inst.leaveRequestId))
-    const leave: HrLeaveRequest | undefined = leaveRows[0]
-    const flow = leave ? await routeApprovalFlow(leave.leaveType, leave.totalDays) : undefined
-    const escTarget = flow?.escalationApproverId ?? null
+    // 升级目标/超时:读提交时刻固化的快照(与链同源,规则后续改动不影响在飞实例)
+    const escTarget = inst.escalationApproverSnapshot ?? null
     const steps: HrApprovalStep[] = [...inst.steps]
     const chain = [...inst.chainSnapshot]
 
-    if (escTarget) {
+    if (inst.status === 'escalated') {
+      // 已升级过、再次到点未决 → 催办:在当前步再记一条 byTimeout 轨迹、顺延 due_at、
+      // 给当前升级目标再发一次通知。数据模型只有单级 escalation_approver_id,无更高权威可升,
+      // 故不再增长链,靠周期性提醒推动决策,避免实例卡死。
+      steps.push({
+        step: inst.currentStep,
+        approverId: inst.chainSnapshot[inst.currentStep] ?? '',
+        action: 'escalated',
+        decidedAt: now.toISOString(),
+        byTimeout: true,
+      })
+      await db
+        .update(hrApprovalInstance)
+        .set({ steps, dueAt: computeDueAt(now, inst.timeoutHoursSnapshot), updatedAt: now })
+        .where(eq(hrApprovalInstance.id, inst.id))
+      await notifyStepApprover(inst, inst.chainSnapshot[inst.currentStep], '请假审批超时升级', now)
+    } else if (escTarget) {
       const newStep = chain.length
       chain.push(escTarget)
       steps.push({
@@ -360,7 +384,7 @@ export async function escalateTimedOut(input: { now?: Date } = {}): Promise<{ es
           currentStep: newStep,
           status: 'escalated',
           steps,
-          dueAt: computeDueAt(now, flow?.timeoutHours ?? 24),
+          dueAt: computeDueAt(now, inst.timeoutHoursSnapshot),
           updatedAt: now,
         })
         .where(eq(hrApprovalInstance.id, inst.id))
@@ -381,7 +405,7 @@ export async function escalateTimedOut(input: { now?: Date } = {}): Promise<{ es
       })
       await db
         .update(hrApprovalInstance)
-        .set({ steps, dueAt: computeDueAt(now, flow?.timeoutHours ?? 24), updatedAt: now })
+        .set({ steps, dueAt: computeDueAt(now, inst.timeoutHoursSnapshot), updatedAt: now })
         .where(eq(hrApprovalInstance.id, inst.id))
     }
   }

@@ -53,6 +53,31 @@ class KnowledgeCardsUnread(Exception):
     """卡片库存在但读不到(EACCES/EIO 等):绝不把它当成"没有"覆盖写。"""
 
 
+class KnowledgeCardsForbidden(Exception):
+    """卡片库属于他人(AIS-077):拒绝覆盖写 / 拒绝读取。
+
+    单独一类而不是复用 `KnowledgeCardsUnread`:前者是"读不到"(IO 故障,可重试),
+    这是"读到了但不属于你"(授权结论,不可重试)—— 混用会让上层把越权当故障重试。
+    """
+
+
+def _existing_owner(cards_path: Path) -> str | None:
+    """读出现有卡库的属主。读不到/形态坏 ⇒ None(与"无主"同义,上层按 fail-closed 判)。"""
+    try:
+        data = json.loads(cards_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(data, list):
+        return None
+    for card in data:
+        if isinstance(card, dict):
+            owner = card.get("owner_user_id")
+            if isinstance(owner, str) and owner:
+                return owner
+            return None
+    return None
+
+
 def slugify(project_id: str) -> str:
     """项目 id → 文件安全 slug:小写、非字母数字折叠为 -,空回退 'project'。"""
     s = re.sub(r"[^a-z0-9]+", "-", str(project_id or "").strip().lower()).strip("-")
@@ -118,6 +143,7 @@ def _build_cards(
     summaries: list[dict[str, Any]],
     *,
     ttl_days: int,
+    owner_user_id: str | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, str]], list[dict[str, Any]]]:
     """源条目 → (卡片, 拒绝, 规范化源记录)。无锚条目一律进 rejected,不产卡。"""
     cards: list[dict[str, Any]] = []
@@ -142,6 +168,10 @@ def _build_cards(
                 "compiled_at": "",  # 写盘前统一盖章
                 "ttl_days": ttl_days,
                 "source_hash": "",  # 写盘前统一盖章
+                # AIS-077:卡库路径只由 workspace_root + slug(project_id) 决定,不含用户维度 ⇒
+                # 同一 workspace 下他人可用 project_id 读到/覆盖这份卡库。属主落在卡片元数据,
+                # 读写两端都按它校验(旧卡无该字段 ⇒ 视为无主,读取侧 fail-closed)。
+                "owner_user_id": owner_user_id,
             }
         )
 
@@ -300,6 +330,7 @@ async def compile_project(
         list(sources.get("codebase") or []),
         list(sources.get("summaries") or []),
         ttl_days=ttl_days,
+        owner_user_id=user_id,
     )
     source_hash = compute_source_hash(raw)
 
@@ -334,6 +365,17 @@ async def compile_project(
     for c in cards:
         c["compiled_at"] = compiled_at
         c["source_hash"] = source_hash
+
+    # AIS-077:写前属主校验 —— 卡库已存在且属主不是当前用户 ⇒ 拒绝覆盖。
+    # 为什么必须在写前(而不是靠读取侧过滤):覆盖是破坏性的,别人的卡库被替换成
+    # 调用方自己的内容后,原属主再也读不回来。旧卡无 owner 字段:仅当调用方也拿不到
+    # 主体(user_id is None,进程内可信调用)时放行,否则一律拒绝(fail-closed)。
+    if cards_exists and not dry_run:
+        prev_owner = _existing_owner(cards_path)
+        if prev_owner != user_id:
+            raise KnowledgeCardsForbidden(
+                f"知识卡库属于 {prev_owner or '(无主)'},拒绝被 {user_id or '(无主体)'} 覆盖"
+            )
 
     wiki_files = 0
     if not dry_run:
@@ -375,8 +417,15 @@ def load_active_cards(
     slug: str | None = None,
     *,
     now: datetime | None = None,
+    owner_user_id: str | None = None,
+    require_owner: bool = False,
 ) -> list[dict[str, Any]]:
-    """读取有效卡片:compiled_at + ttl_days 已过期的卡一律过滤(读取时判活,不落盘删除)。"""
+    """读取有效卡片:compiled_at + ttl_days 已过期的卡一律过滤(读取时判活,不落盘删除)。
+
+    AIS-077 属主裁剪:``require_owner=True`` 时只返回 ``owner_user_id`` 与调用方相等的卡,
+    **无该字段的旧卡一律不可见**(fail-closed —— 漏返回只是功能降级,漏过滤就是跨用户泄漏)。
+    ``require_owner=False`` 保留旧全量语义,只给进程内可信调用方(与 O19 同一条纪律)。
+    """
     base = Path(workspace_root) / _CARDS_SUBDIR
     if not base.exists():
         return []
@@ -400,6 +449,10 @@ def load_active_cards(
             ttl = int(ttl) if isinstance(ttl, (int, float)) else 30
             if compiled is not None and compiled + timedelta(days=ttl) <= now:
                 continue  # TTL 过期 ⇒ 不可见
+            if require_owner:
+                card_owner = card.get("owner_user_id")
+                if not isinstance(card_owner, str) or card_owner != owner_user_id:
+                    continue  # 非属主 / 旧卡无属主 ⇒ 不可见(AIS-077)
             active.append(card)
     return active
 
