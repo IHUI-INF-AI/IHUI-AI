@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { eq, and, desc } from 'drizzle-orm'
+import { eq, and, desc, gte } from 'drizzle-orm'
 import { db } from './index.js'
 import { users, userVips, vipLevels, type User } from '@ihui/database'
 
@@ -52,7 +52,15 @@ export async function findMyMember(userId: string): Promise<MyMemberInfo | undef
       vipStatus: userVips.status,
     })
     .from(users)
-    .leftJoin(userVips, and(eq(userVips.userId, users.id), eq(userVips.status, 1)))
+    // F-357: 与 getMyVip 同口径,join 必须排除已过期(endTime < now)的 VIP 行
+    .leftJoin(
+      userVips,
+      and(
+        eq(userVips.userId, users.id),
+        eq(userVips.status, 1),
+        gte(userVips.endTime, new Date()),
+      ),
+    )
     .leftJoin(vipLevels, eq(userVips.vipLevelId, vipLevels.id))
     .where(eq(users.id, userId))
     .orderBy(desc(userVips.endTime))
@@ -61,7 +69,10 @@ export async function findMyMember(userId: string): Promise<MyMemberInfo | undef
   const row = rows[0]
   if (!row) return undefined
 
-  const hasVip = row.vipEndTime !== null || row.vipLevelValue !== null
+  // F-357: hasVip 按到期时间判定,不再只看字段非空(过期行已被 join 排除,这里再兜一道)
+  const hasVip =
+    (row.vipEndTime !== null && row.vipEndTime.getTime() > Date.now()) ||
+    row.vipLevelValue !== null
   return {
     user: {
       id: row.id,

@@ -1785,6 +1785,13 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       const stored = await findCaptcha(parsed.data.captchaKey)
       if (!stored) return reply.status(400).send(error(400, '验证码不存在或已过期'))
+      // F-596:saveCaptcha 写了 5 分钟 expiresAt,但查询与验证此前都不比较该列,
+      // 只靠每日清理删除 → 有效期语义失效(5min 退化为最长约 24h)。
+      // 过期行同样删除并回 400,与"不存在"同形,避免可预解验证码择时使用。
+      if (stored.expiresAt.getTime() <= Date.now()) {
+        await deleteCaptcha(parsed.data.captchaKey)
+        return reply.status(400).send(error(400, '验证码不存在或已过期'))
+      }
       const ok = verifyCaptcha(stored.code, parsed.data.code)
       await deleteCaptcha(parsed.data.captchaKey)
       if (!ok) return reply.status(400).send(error(400, '验证码错误'))

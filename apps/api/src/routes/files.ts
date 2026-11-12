@@ -804,6 +804,9 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/files/upload/octet',
     {
+      // F-283:octet-stream 由 addContentTypeParser 接管,不显式声明会继承全局 2MiB,
+      // 在 handler 的 100MB 校验前就被静默 413。与同文件 multipart 路由同取单一出口。
+      bodyLimit: FILE_UPLOAD_BODY_LIMIT,
       schema: buildSchema({
         summary: '原始流上传文件',
         description: '通过 application/octet-stream 上传原始二进制流(支持 x-filename 头)',
