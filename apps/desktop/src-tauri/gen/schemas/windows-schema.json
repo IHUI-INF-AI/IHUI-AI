@@ -2457,10 +2457,22 @@
           "markdownDescription": "Enables the checkin_trae_web_login_probe command without any pre-configured scope."
         },
         {
+          "description": "Enables the checkin_workbuddy_web_import command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-checkin-workbuddy-web-import",
+          "markdownDescription": "Enables the checkin_workbuddy_web_import command without any pre-configured scope."
+        },
+        {
           "description": "Enables the checkin_workbuddy_web_login_probe command without any pre-configured scope.",
           "type": "string",
           "const": "allow-checkin-workbuddy-web-login-probe",
           "markdownDescription": "Enables the checkin_workbuddy_web_login_probe command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the checkin_workbuddy_web_login_probe_cookie command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-checkin-workbuddy-web-login-probe-cookie",
+          "markdownDescription": "Enables the checkin_workbuddy_web_login_probe_cookie command without any pre-configured scope."
         },
         {
           "description": "Enables the clear_webview_cache command without any pre-configured scope.",
@@ -3183,10 +3195,22 @@
           "markdownDescription": "Denies the checkin_trae_web_login_probe command without any pre-configured scope."
         },
         {
+          "description": "Denies the checkin_workbuddy_web_import command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-checkin-workbuddy-web-import",
+          "markdownDescription": "Denies the checkin_workbuddy_web_import command without any pre-configured scope."
+        },
+        {
           "description": "Denies the checkin_workbuddy_web_login_probe command without any pre-configured scope.",
           "type": "string",
           "const": "deny-checkin-workbuddy-web-login-probe",
           "markdownDescription": "Denies the checkin_workbuddy_web_login_probe command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the checkin_workbuddy_web_login_probe_cookie command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-checkin-workbuddy-web-login-probe-cookie",
+          "markdownDescription": "Denies the checkin_workbuddy_web_login_probe_cookie command without any pre-configured scope."
         },
         {
           "description": "Denies the clear_webview_cache command without any pre-configured scope.",
