@@ -145,6 +145,7 @@ import { AiWorldEditScreen } from '../screens/AiWorldEditScreen'
 import { AiWorldFavoritesScreen } from '../screens/AiWorldFavoritesScreen'
 import { AiWorldHistoryScreen } from '../screens/AiWorldHistoryScreen'
 import { EduAiHubScreen } from '../screens/EduAiHubScreen'
+import { FinanceAiHubScreen } from '../screens/FinanceAiHubScreen'
 import { EduAiVideoComposeScreen } from '../screens/EduAiVideoComposeScreen'
 import { PlanScreen } from '../screens/PlanScreen'
 import { PlanDetailScreen } from '../screens/PlanDetailScreen'
@@ -570,6 +571,8 @@ export type RootStackParamList = {
   AiWorldFavorites: undefined
   AiWorldHistory: undefined
   EduAi: { tab?: 'aigc' | 'cert' | 'courses' | 'policy' } | undefined
+  /** 财务部板块(RP-46 镜像,2026-11-12):AI 一键代账/一键报税/平台自动化发起台。 */
+  FinanceAi: undefined
   EduAiVideoCompose: undefined
   Plan: undefined
   PlanDetail: { id: string }
@@ -1142,6 +1145,7 @@ function RootNavigatorInner() {
             <RootStack.Screen name="AiWorldFavorites" component={AiWorldFavoritesScreen} />
             <RootStack.Screen name="AiWorldHistory" component={AiWorldHistoryScreen} />
             <RootStack.Screen name="EduAi" component={EduAiHubScreen} />
+            <RootStack.Screen name="FinanceAi" component={FinanceAiHubScreen} />
             <RootStack.Screen name="EduAiVideoCompose" component={EduAiVideoComposeScreen} />
             <RootStack.Screen name="Plan" component={PlanScreen} />
             <RootStack.Screen name="PlanDetail" component={PlanDetailScreen} />
