@@ -176,12 +176,24 @@ export function startAgentServer(core: AgentCore, opts: AgentServerOptions): Pro
           Connection: 'keep-alive',
         });
 
-        const writeEvent = (event: AgentEvent): void => {
-          res.write(`data: ${JSON.stringify(event)}\n\n`);
-        };
-
         const abort = new AbortController();
         req.on('close', () => abort.abort());
+
+        let sseBuffered = 0;
+        const writeEvent = (event: AgentEvent): void => {
+          // F-064:SSE 背压 —— 慢客户端读不动时 res 内部缓冲会无限增长;
+          // 缓冲超过 1 MB 即中止本回合并断开,防单连接打爆内存。
+          sseBuffered += JSON.stringify(event).length + 8;
+          const ok = res.write(`data: ${JSON.stringify(event)}\n\n`);
+          if (ok) sseBuffered = 0;
+          if (sseBuffered > 1024 * 1024) {
+            abort.abort();
+            res.destroy();
+          }
+        };
+        res.on('drain', () => {
+          sseBuffered = 0;
+        });
 
         try {
           const result = await core.sendMessage(text, writeEvent, { sessionId, signal: abort.signal });
@@ -203,12 +215,17 @@ export function startAgentServer(core: AgentCore, opts: AgentServerOptions): Pro
       writeJson(res, 404, 'Not found', null);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      writeJson(res, 500, msg, null);
+      // F-064/F-137:readJsonBody 的 413 超限按其状态码回,不落 500
+      const statusCode = (err as { statusCode?: number }).statusCode;
+      writeJson(res, statusCode === 413 ? 413 : 500, msg, null);
     }
   });
 
   return new Promise((resolve, reject) => {
     server.on('error', reject);
+    // F-064:显式超时 —— 不给默认值留巧合空间;headersTimeout < requestTimeout 是 Node 硬性要求
+    server.requestTimeout = 300_000;
+    server.headersTimeout = 60_000;
     server.listen(opts.port, bindHost, () => {
       // opts.port 可为 0(测试用临时端口),真实端口以 address() 为准
       const address = server.address();
@@ -251,12 +268,43 @@ function writeJson(
   res.end(JSON.stringify(payload));
 }
 
+/** F-064/F-137:请求体字节上限 —— 持 token 的客户端一条巨型 POST 即可把进程内存打满 */
+const MAX_JSON_BODY_BYTES = 1 * 1024 * 1024;
+
 function readJsonBody(req: http.IncomingMessage): Promise<Record<string, unknown>> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
-    req.on('data', (c) => chunks.push(c instanceof Buffer ? c : Buffer.from(c)));
+    // F-064/F-137:累计字节闸 —— 既看 Content-Length(超限提前断),也逐块累计
+    // (防 chunked 传输绕过声明头);超限 reject 413 并销毁连接。
+    let total = 0;
+    let settled = false;
+    const overLimit = (): void => {
+      if (settled) return;
+      settled = true;
+      const err = new Error(`请求体超过 ${MAX_JSON_BODY_BYTES} 字节上限`) as Error & { statusCode?: number };
+      err.statusCode = 413;
+      reject(err);
+      req.destroy();
+    };
+    const declared = Number(req.headers['content-length']);
+    if (Number.isFinite(declared) && declared > MAX_JSON_BODY_BYTES) {
+      overLimit();
+      return;
+    }
+    req.on('data', (c) => {
+      if (settled) return;
+      const buf = c instanceof Buffer ? c : Buffer.from(c);
+      total += buf.length;
+      if (total > MAX_JSON_BODY_BYTES) {
+        overLimit();
+        return;
+      }
+      chunks.push(buf);
+    });
     req.on('error', reject);
     req.on('end', () => {
+      if (settled) return;
+      settled = true;
       const raw = Buffer.concat(chunks).toString('utf-8');
       if (!raw) {
         resolve({});
