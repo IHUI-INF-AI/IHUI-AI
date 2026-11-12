@@ -12267,13 +12267,10 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 60C. **缺陷普查 CLI F-060** [P3] Cookie 整串经 IPC 回传前端 + expect 建客户端（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-060）
 - [ ] 61C. **缺陷普查 CLI F-062** [P1] WS 连接未挂 error 监听，单帧即可崩掉 serve 进程（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-062）
 
-- [ ] 63C. **缺陷普查 CLI F-070** [P1] 卸载 name 零校验 → 递归删除逃逸（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-070）
-- [ ] 65C. **缺陷普查 CLI F-074** [P1] 文件访问 ACL 可被 .. / 绝对路径 / 软链绕过（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-074）
 - [ ] 66C. **缺陷普查 CLI F-075** [P1] 出口策略 unjudged 一律不拦（fail-open）（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-075）
 - [ ] 67C. **缺陷普查 CLI F-080** [P1] write_text_file 无大小上限、非原子覆盖（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-080）（未判定：Rust 夹具为 helper 级，反向 apply 整笔会把夹具同 hunk 回退，拿不到「夹具保留+旧源码」组合；不计入已修）
 - [ ] 68C. **缺陷普查 CLI F-087** [P1] LSP initialize 失败后不回收子进程（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-087）
 - [ ] 69C. **缺陷普查 CLI F-088** [P1] 长期记忆整文件重写无锁、非原子（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-088）
-- [ ] 70C. **缺陷普查 CLI F-095** [P1] 回收站恢复信任 manifest 的 relativeTrashPath/originalPath，仓库可控任意文件搬移（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-095）
 - [ ] 72C. **缺陷普查 CLI F-064** [P2] HTTP 请求体无上限、SSE 无背压、无显式超时（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-064）
 - [ ] 73C. **缺陷普查 CLI F-065** [P2] 同会话并发回合共享消息数组，abort 相互覆盖（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-065）
 - [ ] 74C. **缺陷普查 CLI F-066** [P2] ACP 会话关闭 / SIGINT 不中止在飞 prompt（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-066）
@@ -12295,8 +12292,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 96C. **缺陷普查 CLI F-098** [P1] 子代理网络与资源限制字段无生产写入方，防护是死代码（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-098）
 - [ ] 97C. **缺陷普查 CLI F-099** [P1] qoder/workbuddy 隔离区恢复缺确认闸且信任 manifest 根/相对路径（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-099）
 - [ ] 98C. **缺陷普查 CLI F-100** [P1] 内嵌页可伪造哨兵 URL → 导出 WorkBuddy 会话 Cookie（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-100）（未判定：Rust 夹具为 helper 级，反向 apply 整笔会把夹具同 hunk 回退，拿不到「夹具保留+旧源码」组合；不计入已修）
-- [ ] 99C. **缺陷普查 CLI F-101** [P1] 读侧 ACL 对子目录/越界 .env 失效（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-101）
-- [ ] 100C. **缺陷普查 CLI F-102** [P1] grep 完全绕过读侧 ACL，且接受任意绝对路径（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-102）
 - [ ] 101C. **缺陷普查 CLI F-103** [P1] MCP stdio NDJSON 跨 chunk 帧被静默丢弃（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-103）
 - [ ] 102C. **缺陷普查 CLI F-104** [P2] operator 审批可自批自跑（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-104）
 - [ ] 103C. **缺陷普查 CLI F-105** [P2] 桌面 egress_gate 判定与执行分离、默认 fail-open（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-105）
