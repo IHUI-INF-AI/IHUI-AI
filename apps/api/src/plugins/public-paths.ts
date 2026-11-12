@@ -202,6 +202,29 @@ export const TENANT_BYPASS_PREFIX_PATHS: readonly string[] = [
    * 回归锁:public-paths.test.ts「WS 全族必须免租户、且免租户不免鉴权」逐条钉死。
    */
   '/ws/',
+  /**
+   * 个人号池面(2026-11-12 立,与 `/ws/` 同批实测暴露)。
+   *
+   * 事实:浏览器端**从不携带** `X-Tenant-Id`(全仓 `apps/web` + `packages/api-client`
+   * 零引用该 header),而租户闸只认 header/子域 ⇒ 该面在严格模式下恒定 401。
+   * 实测(本机 8801/8802 双路,带真实 admin 登录态 Bearer):
+   * `GET /api/account-pool/models` → `{"code":401,"message":"多租户严格模式已启用…path=/api/account-pool/models"}`。
+   * 后果不是"某个接口报错",而是**号池模型在选择器里根本拿不到** ⇒ 用户永远选不到号池通道,
+   * 本次接入整条链路在浏览器里等于不存在。
+   *
+   * 为什么整段前缀豁免而不是逐条补:
+   *   · 该前缀下 8 条路由(列表/新增/改/删/签到/状态/概览/模型)全部由 account-pool.ts 的
+   *     插件作用域 `preHandler` 强制登录,逐条补必然在下一次新增端点时再漏一次;
+   *   · 数据维度是 **userId**,不是 tenant:`ai_relay_account_pool` 与
+   *     `ai_relay_account_usage_ledger` 均**无** tenant 列(全表列枚举证实);service 层出现的
+   *     `extractTenantId(token)` 是 **trae 上游 token 里的租户**,与平台多租户无关;
+   *   · 免租户 ≠ 免鉴权:整段仍走登录闸,且该前缀**不在** AUTH_PUBLIC_PREFIX_PATHS,
+   *     兜底鉴权闸的语义面不受影响(与既有的 `/api/settings` 同构:免租户、需登录)。
+   * 段边界:裸前缀经 `matchesPrefix` 只覆盖自身与 `/api/account-pool/…` 子段,
+   * `/api/account-poolXYZ` 不放行。
+   * 回归锁:public-paths.test.ts「个人号池面免租户、且免租户不免鉴权」。
+   */
+  '/api/account-pool',
   '/api/csrf-token',
   '/api/configs',
   '/api/settings',

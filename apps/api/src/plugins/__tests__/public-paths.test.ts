@@ -158,6 +158,64 @@ describe('BUG-4 公开面单一真相源', () => {
     })
 
     /**
+     * 2026-11-12:个人号池面必须免租户(与 WS 全族同批实测暴露)。
+     *
+     * 事故形状(本机 8801 与 8802 双路实测,均带真实 admin 登录态 Bearer):
+     * `GET /api/account-pool/models` → `{"code":401,"message":"多租户严格模式已启用…
+     * path=/api/account-pool/models"}`。浏览器端**从不**携带 X-Tenant-Id(全仓零引用),
+     * 后果是号池模型在选择器里根本拿不到 ⇒ 号池通道整条链路在浏览器里等于不存在。
+     * 数据维度是 userId(两张号池表均无 tenant 列),免租户不损隔离。
+     */
+    describe('个人号池面免租户(2026-11-12)', () => {
+      // 取自 apps/api/src/routes/account-pool.ts 的 server.<verb> 实读(8 条,含参数段形态)
+      const POOL_ROUTES = [
+        '/api/account-pool',
+        '/api/account-pool/models',
+        '/api/account-pool/summary',
+        '/api/account-pool/credential',
+        '/api/account-pool/abc-123',
+        '/api/account-pool/abc-123/status',
+        '/api/account-pool/abc-123/checkin',
+      ]
+
+      it('当前全部号池路由都免租户(逐条,不用前缀蒙过去)', () => {
+        for (const route of POOL_ROUTES) {
+          expect(isTenantBypassPath(route), `${route} 必须免租户`).toBe(true)
+        }
+      })
+
+      it('免租户不免鉴权:号池面绝不能被列为鉴权公开面', () => {
+        // 该面全部端点由 account-pool.ts 的插件作用域 preHandler 强制登录;
+        // 若哪天有人把它也塞进 AUTH_PUBLIC_PREFIX_PATHS,兜底鉴权闸就整族放行。
+        for (const route of POOL_ROUTES) {
+          expect(isAuthPublicPath(route), `${route} 不得进鉴权公开面`).toBe(false)
+        }
+        expect(AUTH_PUBLIC_PREFIX_PATHS).not.toContain('/api/account-pool')
+      })
+
+      it('段边界:不放行 /api/account-poolXYZ 这类同级兄弟路径', () => {
+        expect(isTenantBypassPath('/api/account-poolXYZ')).toBe(false)
+        expect(isTenantBypassPath('/api/account-poolXYZ/models')).toBe(false)
+      })
+
+      // 自维护锁:account-pool.ts 里出现的每条路由字面量都必须被覆盖(新增端点自动纳入)
+      it('account-pool 源码路由字面量全部被租户豁免覆盖(新增端点自动纳入)', () => {
+        const here = dirname(fileURLToPath(import.meta.url))
+        const src = readFileSync(join(here, '..', '..', 'routes', 'account-pool.ts'), 'utf8')
+        const found = new Set<string>()
+        for (const m of src.matchAll(/['"`](\/api\/account-pool[^'"`\s]*)['"`]/g)) {
+          const route = (m[1] ?? '').split('?')[0] ?? ''
+          if (route.length > 0) found.add(route)
+        }
+        // 兜底:扫描面为空说明读路径写错了(假绿五式之「取不到清单即判绿」)
+        expect(found.size).toBeGreaterThanOrEqual(6)
+        for (const route of found) {
+          expect(isTenantBypassPath(route), `源码路由 ${route} 未被租户豁免覆盖`).toBe(true)
+        }
+      })
+    })
+
+    /**
      * 2026-11-12:WS 全族必须免租户。
      *
      * 事故形状(本机 8802 实测):`/ws/relay/chat?token=…`、`/ws/notifications?token=…` 在
