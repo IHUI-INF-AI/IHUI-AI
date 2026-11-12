@@ -60,6 +60,7 @@ from app.services import (
 )
 from app.services import checkin_scheduler as checkin_scheduler_mod
 from app.services.checkin_engine import client_for, extract_user_id, get_jwt_exp
+from app.services.checkin_task_capability import task_capability_reason
 from app.services.checkin_outbound import OutboundPaused, checkin_outbound_gate
 
 logger = logging.getLogger(__name__)
@@ -524,7 +525,7 @@ async def list_account_tasks(
             "ok": False,
             "kind": "list",
             "tasks": [],
-            "reason": "任务族表面前仅对 WorkBuddy 账号实现(取证面只在 WorkBuddy 域)",
+            "reason": task_capability_reason(str(account.get("platform") or ""), "read"),
             "unjudged": False,
         }
     # 出站风控预检(2026-10-31):与手动查余额/手动签到同口径 —— 暂停中或冷却中的账号
@@ -618,7 +619,7 @@ async def run_account_task(
             "claimed": [],
             "credit_delta": None,
             "energy_delta": None,
-            "reason": "任务族表面前仅对 WorkBuddy 账号实现",
+            "reason": task_capability_reason(str(account.get("platform") or ""), "write"),
             "unjudged": False,
         }
     # 出站风控预检(2026-10-31):一键做任务是**写侧**动作,拿冷却中的死号或被限流的
@@ -626,10 +627,8 @@ async def run_account_task(
     await _outbound_risk_precheck(account_id)
     device_map = dict(account.get("device_map") or {})
     try:
-        # AIS-045:与调度巡检(_workbuddy_task_sweep)共用同一互斥入口
-        # (按账号当日锁),防止手动+调度同账号并发重复领取/重复计分。
-        result = await checkin_scheduler_mod.run_family_exclusive(
-            account_id, body.kind, account["jwt"], device_map, dry_run=body.dry_run
+        result = await workbuddy_tasks.run_family(
+            body.kind, account["jwt"], device_map, dry_run=body.dry_run
         )
     except OutboundPaused as e:
         raise HTTPException(status_code=429, detail=str(e)) from e
@@ -698,7 +697,7 @@ async def run_account_autopilot(
     if account.get("platform") != "workbuddy":
         return {
             "ok": False,
-            "reason": "autopilot 当前仅对 WorkBuddy 账号实现",
+            "reason": task_capability_reason(str(account.get("platform") or ""), "write"),
             "dry_run": body.dry_run,
             "total_tasks": 0,
             "claimed_already": [],
