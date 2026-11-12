@@ -110,6 +110,18 @@ export async function attachWsBridge(core: AgentCore, opts: WsBridgeOptions): Pr
   const clients = new Set<WsSocketLike>();
 
   wss.on('connection', (ws, req) => {
+    // F-062:error 必须在任何分支之前挂上 —— Origin/鉴权拒绝路径同样会 return,
+    // 只挂到放行后的连接上时,这些"鉴权前"的连接在 EPIPE/ECONNRESET 时无人接 error,
+    // 会升级成未捕获异常打崩常驻 server。error 后立即清出可写集合并安全关闭。
+    ws.on('error', (err: Error) => {
+      clients.delete(ws);
+      console.warn('[ws-bridge] 连接错误(已隔离该连接):', err.message);
+      try {
+        ws.close(1009, 'MESSAGE_TOO_BIG');
+      } catch {
+        // 对端可能已断开
+      }
+    });
     const url = new URL(req.url ?? '', 'http://localhost');
     const headers = req.headers ?? {};
     // 2026-10-31 安全强化第 10 批:浏览器跨站 WebSocket(CSWSH)不受 CORS 限,唯一
@@ -169,17 +181,6 @@ export async function attachWsBridge(core: AgentCore, opts: WsBridgeOptions): Pr
     });
     ws.on('close', () => {
       clients.delete(ws);
-    });
-    // F-062:超限帧/协议错误必须有人接。ws 的 error 事件无人监听会升级成
-    // 未捕获异常(直接打崩常驻 server),且超限连接必须清出可写集合。
-    ws.on('error', (err: Error) => {
-      clients.delete(ws);
-      console.warn('[ws-bridge] 连接错误(已隔离该连接):', err.message);
-      try {
-        ws.close(1009, 'MESSAGE_TOO_BIG');
-      } catch {
-        // 对端可能已断开
-      }
     });
   });
 
