@@ -6873,3 +6873,5 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 📚 文档:deploy-feedback 自动登记(deploy_outcome;端到端反馈闭环第二切片,O65 自进化系列) (a1678371fb)
 | 跟踪文件 | 21052 | `trackedFiles` |
 > ⚠️ 未判定 1 项:`guardianGates`(runner 里有 1 个重复 id ⇒ 撞号,条目数不可信)
+| 测试文件 | 5018 | `testFiles` |
+| 跟踪文件 | 21065 | `trackedFiles` |

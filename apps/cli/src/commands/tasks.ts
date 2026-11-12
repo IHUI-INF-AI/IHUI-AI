@@ -21,7 +21,8 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import chalk from 'chalk';
 import { t } from '../i18n/index.js';
-import { captureWriteBaseline, commitAtomicWrite } from '../util/atomic-write.js';
+import { captureWriteBaseline, commitAtomicWrite, SymlinkTargetError } from '../util/atomic-write.js';
+import type { WriteBaseline } from '../util/atomic-write.js';
 
 // === 类型 ===
 
@@ -90,23 +91,31 @@ function taskReadCode(error: unknown): string {
   return 'unknown';
 }
 
-function readTasksRaw(p: string): string {
-  const raw = fs.readFileSync(p, 'utf-8');
-  return raw;
+/** 一次读取的产物:解析出的 store + 与它严格同源的磁盘基线(写盘时用它做 stale 冲突检测)。 */
+interface LoadedStore {
+  store: TasksStore;
+  baseline: WriteBaseline;
 }
 
-function loadStore(): TasksStore {
+function loadStore(): LoadedStore {
   const p = getTasksPath();
-  let raw: string;
+  // F-117:基线必须在这里(读盘时)捕获,并与解析所用内容同源。
+  // 若拖到"改完内存、落盘前"才补捕获,比对窗口只剩捕获→rename 的毫秒;
+  // 别人在「本次读」与「补捕获」之间的写入会被当成基线而静默覆盖,nextId 也随之错位。
+  let baseline: WriteBaseline;
   try {
-    raw = fs.readFileSync(p, 'utf-8');
-    raw = readTasksRaw(p);
+    baseline = captureWriteBaseline(p);
   } catch (error) {
     const code = taskReadCode(error);
-    if (code === 'ENOENT' || code === 'ENOTDIR') return { ...EMPTY_STORE };
+    if (code === 'ENOENT' || code === 'ENOTDIR') {
+      return { store: { ...EMPTY_STORE }, baseline: { absPath: p, content: null } };
+    }
+    // 符号链接目标不是"读不到",按原错误码抛给调用方(拒绝穿透链接的口径不变)
+    if (error instanceof SymlinkTargetError) throw error;
     throw new Error(`任务清单读不到,不能把它覆盖成空清单 (${code})`);
   }
-  if (!fs.existsSync(p)) return { ...EMPTY_STORE };
+  const raw = baseline.content;
+  if (raw === null) return { store: { ...EMPTY_STORE }, baseline };
   // 读盘/解析失败一律抛出:绝不能把"读不到"当成"空清单"再整体覆写 ——
   // 那会让用户全部任务静默清零(半截 JSON 会稳定触发这条路径)。
   const parsed = JSON.parse(raw) as Partial<TasksStore> | null;
@@ -114,13 +123,16 @@ function loadStore(): TasksStore {
     throw new Error(`任务库文件损坏(不是对象): ${p}`);
   }
   return {
-    version: 1,
-    workspaces: parsed.workspaces && typeof parsed.workspaces === 'object' ? parsed.workspaces : {},
-    nextId: Number.isFinite(parsed.nextId) && (parsed.nextId ?? 0) > 0 ? parsed.nextId! : 1,
+    store: {
+      version: 1,
+      workspaces: parsed.workspaces && typeof parsed.workspaces === 'object' ? parsed.workspaces : {},
+      nextId: Number.isFinite(parsed.nextId) && (parsed.nextId ?? 0) > 0 ? parsed.nextId! : 1,
+    },
+    baseline,
   };
 }
 
-function saveStore(store: TasksStore): void {
+function saveStore(store: TasksStore, baseline: WriteBaseline): void {
   const p = getTasksPath();
   try {
     fs.readFileSync(p, 'utf-8');
@@ -133,7 +145,8 @@ function saveStore(store: TasksStore): void {
   fs.mkdirSync(path.dirname(p), { recursive: true });
   // 走唯一原子写出口:同目录 tmp + rename(崩溃不留半截 JSON)、落盘前重读基线
   // 做 stale 冲突检测、拒绝穿透符号链接。裸 writeFileSync 三样都没有。
-  commitAtomicWrite(captureWriteBaseline(p), JSON.stringify(store, null, 2) + '\n');
+  // 基线由 loadStore 透传(而不是此处重新捕获),否则并发写入检测形同虚设(F-117)。
+  commitAtomicWrite(baseline, JSON.stringify(store, null, 2) + '\n');
 }
 
 /** 获取(或创建)指定 workspace 的任务容器 */
@@ -152,7 +165,7 @@ function getOrCreateWorkspace(store: TasksStore, workspacePath: string): Workspa
 
 /** 读取指定 workspace 的所有任务(按状态 + 优先级排序) */
 export function listTasks(workspacePath: string): TaskItem[] {
-  const store = loadStore();
+  const { store } = loadStore();
   const ws = store.workspaces[workspacePath];
   if (!ws) return [];
   return sortTasks(ws.tasks);
@@ -185,7 +198,7 @@ export function addTask(
   priority: TaskPriority = 'medium',
 ): TaskItem {
   if (!content.trim()) throw new Error('任务内容不能为空');
-  const store = loadStore();
+  const { store, baseline } = loadStore();
   const ws = getOrCreateWorkspace(store, workspacePath);
   const task: TaskItem = {
     id: String(store.nextId++),
@@ -195,88 +208,88 @@ export function addTask(
     createdAt: new Date().toISOString(),
   };
   ws.tasks.push(task);
-  saveStore(store);
+  saveStore(store, baseline);
   return task;
 }
 
 /** 标记任务完成(id 不存在返回 null) */
 export function markDone(workspacePath: string, id: string): TaskItem | null {
-  const store = loadStore();
+  const { store, baseline } = loadStore();
   const ws = store.workspaces[workspacePath];
   if (!ws) return null;
   const task = ws.tasks.find((t) => t.id === id);
   if (!task) return null;
   task.status = 'completed';
   task.completedAt = new Date().toISOString();
-  saveStore(store);
+  saveStore(store, baseline);
   return task;
 }
 
 /** 标记任务受阻(等待外部条件;id 不存在返回 null) */
 function markBlocked(workspacePath: string, id: string): TaskItem | null {
-  const store = loadStore();
+  const { store, baseline } = loadStore();
   const ws = store.workspaces[workspacePath];
   if (!ws) return null;
   const task = ws.tasks.find((t) => t.id === id);
   if (!task) return null;
   task.status = 'blocked';
   delete task.completedAt;
-  saveStore(store);
+  saveStore(store, baseline);
   return task;
 }
 
 /** 标记任务已取消(不再执行;id 不存在返回 null) */
 function markCancelled(workspacePath: string, id: string): TaskItem | null {
-  const store = loadStore();
+  const { store, baseline } = loadStore();
   const ws = store.workspaces[workspacePath];
   if (!ws) return null;
   const task = ws.tasks.find((t) => t.id === id);
   if (!task) return null;
   task.status = 'cancelled';
   delete task.completedAt;
-  saveStore(store);
+  saveStore(store, baseline);
   return task;
 }
 
 /** 标记任务未完成(撤销 done/cancel/block,回到 pending) */
 export function markUndone(workspacePath: string, id: string): TaskItem | null {
-  const store = loadStore();
+  const { store, baseline } = loadStore();
   const ws = store.workspaces[workspacePath];
   if (!ws) return null;
   const task = ws.tasks.find((t) => t.id === id);
   if (!task) return null;
   task.status = 'pending';
   delete task.completedAt;
-  saveStore(store);
+  saveStore(store, baseline);
   return task;
 }
 
 /** 删除任务 */
 export function removeTask(workspacePath: string, id: string): TaskItem | null {
-  const store = loadStore();
+  const { store, baseline } = loadStore();
   const ws = store.workspaces[workspacePath];
   if (!ws) return null;
   const idx = ws.tasks.findIndex((t) => t.id === id);
   if (idx < 0) return null;
   const [removed] = ws.tasks.splice(idx, 1);
-  saveStore(store);
+  saveStore(store, baseline);
   return removed ?? null;
 }
 
 /** 清空指定 workspace 的所有任务 */
 export function clearTasks(workspacePath: string): number {
-  const store = loadStore();
+  const { store, baseline } = loadStore();
   const ws = store.workspaces[workspacePath];
   if (!ws || ws.tasks.length === 0) return 0;
   const count = ws.tasks.length;
   ws.tasks = [];
-  saveStore(store);
+  saveStore(store, baseline);
   return count;
 }
 
 /** 查看单个任务详情 */
 export function showTask(workspacePath: string, id: string): TaskItem | null {
-  const store = loadStore();
+  const { store } = loadStore();
   const ws = store.workspaces[workspacePath];
   if (!ws) return null;
   return ws.tasks.find((t) => t.id === id) ?? null;
