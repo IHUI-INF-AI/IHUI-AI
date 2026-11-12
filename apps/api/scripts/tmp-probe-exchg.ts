@@ -117,7 +117,8 @@ for (const r of rows) {
   const c = classify(res.text)
   let persisted = ''
   if (okTicket) {
-    let payload: { token?: string; refreshToken?: string; expiresAt?: Date | null } | null = null
+    let payload: import('../src/services/upstream-adapters/trae-protocol.js').TraeTokenPayload | null =
+      null
     try {
       payload = proto.extractTokenPayload(JSON.parse(res.text))
     } catch {}
