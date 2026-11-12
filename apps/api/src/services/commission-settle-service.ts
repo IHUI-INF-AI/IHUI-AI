@@ -19,6 +19,7 @@ import { eq, sql, and, notExists } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { orders, commissionFlows } from '@ihui/database'
 import { createCommissionFlows, type OrderLike, type UserLike } from './commission-service.js'
+import { getBalance } from '../db/commission-queries.js'
 
 export interface CommissionSettleResult {
   scanned: number
@@ -59,13 +60,18 @@ export async function calibrateCommissionSettlement(): Promise<CommissionSettleR
 
   // 2. 对遗漏订单补建佣金流水
   let createdFlows = 0
+  let missedOrders = 0
   for (const order of paidOrdersWithoutCommission) {
     try {
       // 构造 UserLike 和 OrderLike 对象
-      // tokenQuantity 是可选字段，commission-service 内部会在需要时从其他表获取
       // G5: orders.userId 改为 nullable(SET NULL),无 userId 的订单跳过佣金结算
       if (!order.userId) continue
-      const userLike: UserLike = { id: order.userId }
+      // F-409: 与支付回调实时链路同口径,tokenQuantity 必须显式回填,
+      // 否则 calcReturnToken(user.tokenQuantity ?? 0) 恒为 0,普通上级 token 佣金永不补建
+      const userLike: UserLike = {
+        id: order.userId,
+        tokenQuantity: await getBalance(order.userId),
+      }
       const orderLike: OrderLike = {
         id: order.id,
         amount: Number(order.amount),
@@ -75,6 +81,7 @@ export async function calibrateCommissionSettlement(): Promise<CommissionSettleR
 
       // 调用已有的佣金创建逻辑
       const created = await createCommissionFlows(userLike, orderLike)
+      if (created > 0) missedOrders++
       createdFlows += created
     } catch (err) {
       // createCommissionFlows 内部可能因订单无邀请关系而跳过，这是正常行为
@@ -85,9 +92,10 @@ export async function calibrateCommissionSettlement(): Promise<CommissionSettleR
     }
   }
 
+  // F-409: missedOrders 记真实补建到的订单数,不再用扫描数冒充补建数
   return {
     scanned,
-    missedOrders: scanned,
+    missedOrders,
     createdFlows,
     errors,
   }
