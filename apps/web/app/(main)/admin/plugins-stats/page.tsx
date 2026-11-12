@@ -201,7 +201,7 @@ export default function PluginStatsPage() {
                 onClick={() => setDays(d)}
                 className={`rounded-sm px-2.5 py-1 text-label font-medium transition-colors ${
                   days === d
-                    ? 'bg-background text-foreground shadow-sm'
+                    ? 'bg-background text-foreground shadow-elevation-sm'
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >

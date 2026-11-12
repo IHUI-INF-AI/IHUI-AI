@@ -202,7 +202,7 @@ export function ReplyAnnotationLayer({
       {/* 选区「添加注释」入口 + 输入浮层 */}
       {popover && popover.anchor && (
         <div
-          className="absolute z-20 rounded-md border border-border/60 bg-popover p-2 shadow-md"
+          className="absolute z-20 rounded-md border border-border/60 bg-popover p-2 shadow-elevation-md"
           style={{
             left: popover.x,
             top: Math.max(popover.y - 8, 8),

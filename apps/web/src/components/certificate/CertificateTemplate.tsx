@@ -97,7 +97,7 @@ export const CertificateTemplate = React.forwardRef<HTMLDivElement, CertificateT
           data-certificate-root
           data-variant={variant}
           className={cn(
-            'relative w-full max-w-3xl overflow-hidden rounded-lg bg-card text-card-foreground shadow-md print:shadow-none',
+            'relative w-full max-w-3xl overflow-hidden rounded-lg bg-card text-card-foreground shadow-elevation-md print:shadow-none',
             'aspect-[4/3]',
           )}
           style={{ borderColor: 'var(--color-border)' }}

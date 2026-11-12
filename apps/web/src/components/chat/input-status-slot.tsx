@@ -226,7 +226,7 @@ export function InputStatusSlot({
         align="end"
         gap={6}
         testId="input-status-slot-panel"
-        className="flex w-56 flex-col overflow-hidden rounded-xl border border-border bg-popover shadow-md"
+        className="flex w-56 flex-col overflow-hidden rounded-xl border border-border bg-popover shadow-elevation-md"
       >
         {others.map((kind) => {
           const Icon = STATUS_KIND_ICON[kind]

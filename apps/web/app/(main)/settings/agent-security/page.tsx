@@ -231,7 +231,7 @@ export default function AgentSecurityPage() {
 
         {toast && (
           <div
-            className={`fixed right-4 top-4 z-modal rounded-md px-4 py-2 text-body text-white shadow-lg ${toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'}`}
+            className={`fixed right-4 top-4 z-modal rounded-md px-4 py-2 text-body text-white shadow-elevation-lg ${toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'}`}
           >
             {toast.msg}
           </div>

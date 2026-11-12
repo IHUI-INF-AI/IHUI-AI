@@ -106,7 +106,7 @@ export function ViewSwitcher() {
         side="bottom"
         align="start"
         gap={4}
-        className="w-64 rounded-xl border border-border bg-popover p-1 shadow-md"
+        className="w-64 rounded-xl border border-border bg-popover p-1 shadow-elevation-md"
       >
         <div className="px-1 pb-1 pt-0.5">
           <SearchInput

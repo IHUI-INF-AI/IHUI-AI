@@ -101,7 +101,7 @@ export default function WalletPage() {
         </div>
       ) : (
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="min-w-[160px] min-[640px]:min-w-[200px] flex-1 rounded-lg border bg-card p-3 text-card-foreground shadow">
+          <div className="min-w-[160px] min-[640px]:min-w-[200px] flex-1 rounded-lg border bg-card p-3 text-card-foreground shadow-elevation-md">
             <div className="flex items-center justify-between">
               <span className="text-body text-muted-foreground">{t('balance')}</span>
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">

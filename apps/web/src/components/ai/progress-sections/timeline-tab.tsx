@@ -312,7 +312,7 @@ export const TimelineTab = React.memo(function TimelineTab({
               className={cn(
                 'inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-sm px-2 py-0.5 text-[10px] font-medium transition-colors',
                 active
-                  ? 'bg-background text-foreground shadow-sm'
+                  ? 'bg-background text-foreground shadow-elevation-sm'
                   : 'text-muted-foreground/70 hover:bg-accent/40 hover:text-foreground',
               )}
               data-testid={`timeline-tab-${tab.id}`}

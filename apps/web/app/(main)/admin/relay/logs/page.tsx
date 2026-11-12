@@ -30,7 +30,7 @@ import { LogDetailDialog } from './LogDetailDialog'
 
 const PAGE_SIZE = 20
 const selectClass =
-  'h-8 rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+  'h-8 rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-elevation-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
 interface LogRow {
   /** llm_call_logs.id 是 uuid 主键(旧标注 number 是笔误:详情面要拿它拼 URL) */

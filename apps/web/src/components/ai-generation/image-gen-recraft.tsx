@@ -33,7 +33,7 @@ const MODELS = ['recraftv3', 'recraft20b'] as const
 const STYLES = ['realistic_image', 'digital_illustration', 'vector_illustration'] as const
 
 const TEXTAREA_CLS =
-  'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+  'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-elevation-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
 export function ImageGenRecraft() {
   const t = useTranslations('aiGeneration')

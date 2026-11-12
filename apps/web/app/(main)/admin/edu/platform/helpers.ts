@@ -33,7 +33,7 @@ export const fmt = (s?: string | null) =>
     : '-'
 
 export const textareaCls =
-  'flex min-h-[70px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+  'flex min-h-[70px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-elevation-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
 export const EXPORT_COLS: ExportColumn[] = [
   { key: 'id', title: 'ID' },

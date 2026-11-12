@@ -57,6 +57,7 @@
 
 /* ===== 5 种按钮变体(对齐原项目视觉特征) ===== */
 
+/* 豁免类别:蓝色 tint 按钮外发光,非层级投影 */
 /* default 默认 - 普通支付按钮
  * 对齐 ConfirmPurchasePopUp .pay-button:linear-gradient(135deg, #0550d0, #057aff) 蓝色渐变
  * 用 var(--color-info) 蓝色作为主色调 */
@@ -65,6 +66,7 @@
   box-shadow: 0 4rpx 12rpx var(--color-info-tint-strong);
 }
 
+/* 豁免类别:金色 tint 按钮外发光,非层级投影 */
 /* vip VIP 专属 - 金色渐变
  * 对齐 VipPayConfirm 金色渐变(#fbbf24 → warning)
  * 用 var(--color-warning) 金色 */
@@ -73,6 +75,7 @@
   box-shadow: 0 4rpx 12rpx var(--color-warning-tint-strong);
 }
 
+/* 豁免类别:危险色 tint 按钮外发光,非层级投影 */
 /* discount 折扣 - 红色促销
  * 对齐 ConfirmPurchasePopUp .benefit-item.highlight #ff5722 红色
  * 用 var(--color-destructive) 红色 */
@@ -81,6 +84,7 @@
   box-shadow: 0 4rpx 12rpx var(--color-danger-tint-strong);
 }
 
+/* 豁免类别:支付按钮同族彩色投影的中性档,与相邻 tint 变体同尺寸同语义 */
 /* subscription 订阅 - 品牌主色
  * 历史对齐 pay_btn .title #517BFF 紫调;2026 品牌色已改为黑/白(brand.DEFAULT 浅色 #000 / 深色 #FFF),
  * 故订阅按钮用 var(--color-brand) 自适应,阴影同步改为中性黑(清除遗留 indigo #6366f1) */
@@ -89,6 +93,7 @@
   box-shadow: 0 4rpx 12rpx var(--color-black-30);
 }
 
+/* 豁免类别:粉色 tint 按钮外发光,非层级投影 */
 /* gift 礼物 - 粉色
  * 对齐 chart-6 #ec4899 粉色(项目内唯一粉色 CSS 变量) */
 .pp-pay-button--gift {

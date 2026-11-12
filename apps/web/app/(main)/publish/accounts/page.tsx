@@ -280,7 +280,7 @@ export default function AccountsPage() {
             <button
               type="button"
               onClick={() => setQuickScanOpen(true)}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-sm bg-orange-500 px-2.5 py-1 text-label font-semibold text-white shadow-sm transition-colors hover:bg-orange-600"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-sm bg-orange-500 px-2.5 py-1 text-label font-semibold text-white shadow-elevation-sm transition-colors hover:bg-orange-600"
             >
               <QrCode className="h-3.5 w-3.5" />
               <span>{t('accounts.batchScanBtn')}</span>

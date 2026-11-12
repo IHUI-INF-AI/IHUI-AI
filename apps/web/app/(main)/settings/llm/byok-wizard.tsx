@@ -295,7 +295,7 @@ export function ByokWizard() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-6 z-sticky flex items-center gap-2 ui-control rounded-sm bg-emerald-600 px-4 py-3 text-body font-medium text-white shadow-lg transition-colors hover:bg-emerald-700"
+        className="fixed bottom-6 right-6 z-sticky flex items-center gap-2 ui-control rounded-sm bg-emerald-600 px-4 py-3 text-body font-medium text-white shadow-elevation-lg transition-colors hover:bg-emerald-700"
       >
         <Wand2 className="h-4 w-4" />
         {t('trigger')}

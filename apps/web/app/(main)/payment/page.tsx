@@ -69,7 +69,7 @@ export default function PaymentPage() {
               className={cn(
                 'relative flex flex-col transition-colors',
                 plan.highlighted
-                  ? 'border-brand-accent-deep shadow-md min-[1024px]:scale-105'
+                  ? 'border-brand-accent-deep shadow-elevation-md min-[1024px]:scale-105'
                   : 'hover:bg-accent',
               )}
             >

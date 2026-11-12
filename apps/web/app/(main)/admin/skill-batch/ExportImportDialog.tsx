@@ -84,7 +84,7 @@ export function ExportImportDialog({
             onClick={() => setTab('export')}
             className={`flex flex-1 items-center justify-center gap-2 rounded-sm px-3 py-1.5 text-body font-medium transition-colors ${
               tab === 'export'
-                ? 'bg-background text-foreground shadow-sm'
+                ? 'bg-background text-foreground shadow-elevation-sm'
                 : 'text-muted-foreground hover:text-foreground'
             }`}
           >
@@ -96,7 +96,7 @@ export function ExportImportDialog({
             onClick={() => setTab('import')}
             className={`flex flex-1 items-center justify-center gap-2 rounded-sm px-3 py-1.5 text-body font-medium transition-colors ${
               tab === 'import'
-                ? 'bg-background text-foreground shadow-sm'
+                ? 'bg-background text-foreground shadow-elevation-sm'
                 : 'text-muted-foreground hover:text-foreground'
             }`}
           >

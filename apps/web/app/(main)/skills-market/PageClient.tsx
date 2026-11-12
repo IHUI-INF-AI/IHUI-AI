@@ -564,7 +564,7 @@ function SkillDetailDialog({ entry, onClose }: { entry: SkillMarketEntry; onClos
       aria-modal="true"
       aria-label={entry.name}
     >
-      <div className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-lg border bg-card p-5 shadow-lg">
+      <div className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-lg border bg-card p-5 shadow-elevation-lg">
         <div className="flex items-start gap-3">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
             <Wand2 className="h-5 w-5" />

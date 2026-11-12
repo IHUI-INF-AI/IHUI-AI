@@ -55,7 +55,7 @@ interface AppsData {
 
 const PAGE_SIZE = 10
 const selectClass =
-  'h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+  'h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-elevation-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
 const STATUS_CFG: Record<InvoiceAppStatus, { label: string; cls: string }> = {
   pending: { label: '待审核', cls: 'bg-amber-500/10 text-amber-600 dark:text-amber-500' },
@@ -172,7 +172,7 @@ export default function AdminInvoiceApplicationsPage() {
             className={cn(
               'rounded-sm px-3 py-1.5 text-body font-medium transition-colors',
               status === tb.value
-                ? 'bg-background text-foreground shadow-sm'
+                ? 'bg-background text-foreground shadow-elevation-sm'
                 : 'text-muted-foreground hover:text-foreground',
             )}
           >

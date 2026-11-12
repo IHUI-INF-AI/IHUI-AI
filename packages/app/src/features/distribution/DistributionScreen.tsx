@@ -29,7 +29,7 @@ import type {
   DistributionQrSheet,
 } from '../../types'
 
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { ELEVATION_STEPS, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { formatPrice } from '@ihui/shared/utils'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
@@ -625,11 +625,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: rnSpacing.md,
       borderRadius: rnRadius.lg,
       backgroundColor: tk.brand.cta,
-      shadowColor: tk.text.primary,
-      shadowOpacity: 0.2,
-      shadowRadius: 8,
-      shadowOffset: { width: 0, height: 4 },
-      elevation: 6,
+      ...ELEVATION_STEPS.lg,
     },
     serviceFloatInfo: { gap: 1 },
     serviceFloatLabel: { fontSize: rnType.caption.size, color: tk.brand.ctaForeground },

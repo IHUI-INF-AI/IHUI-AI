@@ -140,7 +140,7 @@ export function Drawer({
         aria-modal="true"
         aria-labelledby={title ? titleId : undefined}
         className={cn(
-          'absolute bg-background shadow-lg',
+          'absolute bg-background shadow-elevation-lg',
           sideMap[side],
           isHorizontal
             ? 'animate-in slide-in-from-right duration-(--duration-unified) ease-unified'

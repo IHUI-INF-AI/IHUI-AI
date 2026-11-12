@@ -132,7 +132,7 @@ export function UploadDialog({
             className={cn(
               'flex flex-1 items-center justify-center gap-1.5 rounded-sm px-3 py-1.5 text-body transition-colors',
               mode === 'file'
-                ? 'bg-background font-medium shadow-sm'
+                ? 'bg-background font-medium shadow-elevation-sm'
                 : 'text-muted-foreground hover:text-foreground',
             )}
           >
@@ -145,7 +145,7 @@ export function UploadDialog({
             className={cn(
               'flex flex-1 items-center justify-center gap-1.5 rounded-sm px-3 py-1.5 text-body transition-colors',
               mode === 'text'
-                ? 'bg-background font-medium shadow-sm'
+                ? 'bg-background font-medium shadow-elevation-sm'
                 : 'text-muted-foreground hover:text-foreground',
             )}
           >

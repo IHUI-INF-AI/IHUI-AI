@@ -27,14 +27,14 @@ export function PageSkeleton({ hasHeader = true, className }: PageSkeletonProps)
       )}
       <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 tablet-min-[1024px]:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={`skel-${i}`} className="rounded-xl border p-3 shadow">
+          <div key={`skel-${i}`} className="rounded-xl border p-3 shadow-elevation-md">
             <div className="mb-3 h-10 w-10 animate-pulse rounded-lg bg-muted" />
             <div className="h-6 w-24 animate-pulse rounded bg-muted" />
             <div className="mt-2 h-4 w-16 animate-pulse rounded-xs bg-muted" />
           </div>
         ))}
       </div>
-      <div className="rounded-xl border p-3 shadow">
+      <div className="rounded-xl border p-3 shadow-elevation-md">
         <div className="mb-4 h-5 w-32 animate-pulse rounded bg-muted" />
         <div className="space-y-3">
           {Array.from({ length: 5 }).map((_, i) => (

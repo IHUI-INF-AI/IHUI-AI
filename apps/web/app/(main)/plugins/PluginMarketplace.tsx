@@ -353,7 +353,7 @@ export function PluginMarketplace() {
                 className={cn(
                   'rounded-sm px-2.5 py-1 text-label font-medium transition-colors [&>span]:translate-y-[var(--text-vcenter-offset)]',
                   sort === s
-                    ? 'bg-background text-foreground shadow-sm'
+                    ? 'bg-background text-foreground shadow-elevation-sm'
                     : 'text-muted-foreground hover:text-foreground',
                 )}
               >

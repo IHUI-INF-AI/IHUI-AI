@@ -226,7 +226,7 @@ export const TagsViewSearchButton = React.memo(function TagsViewSearchButton() {
               aria-label={tCommon('searchPlaceholder')}
               className="absolute inset-x-0 top-2 z-popover mx-auto w-[min(640px,calc(100%-2rem))] animate-in fade-in-0 slide-in-from-top duration-(--duration-unified) ease-unified"
             >
-              <div className="ui-popover rounded-md border bg-popover text-popover-foreground shadow-md">
+              <div className="ui-popover rounded-md border bg-popover text-popover-foreground shadow-elevation-md">
                 <SearchBar
                   onSearch={handleSearch}
                   onHistoryClick={handleHistoryClick}
@@ -654,7 +654,7 @@ export function TagsView() {
         <div
           role="menu"
           data-testid="tagsview-context-menu"
-          className="fixed z-popover min-w-[10rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
+          className="fixed z-popover min-w-[10rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-elevation-md"
           style={menuStyle ?? undefined}
         >
           <button

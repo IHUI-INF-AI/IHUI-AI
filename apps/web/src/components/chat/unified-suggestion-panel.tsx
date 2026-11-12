@@ -206,7 +206,7 @@ export function UnifiedSuggestionPanel({
       gap={8}
       overlayId={UNIFIED_SUGGESTION_PANEL_OVERLAY_ID}
       testId="unified-suggestion-panel"
-      className="flex w-96 flex-col overflow-hidden rounded-xl border border-border bg-popover shadow-md"
+      className="flex w-96 flex-col overflow-hidden rounded-xl border border-border bg-popover shadow-elevation-md"
     >
       <SearchInput
         ref={inputRef}

@@ -16,7 +16,7 @@ export const PAGE_SIZE = 10 // admin 列表专用,小于全局 DEFAULT_PAGE_SIZE
 // 注:本地 inputSm 值与 @/lib/form-styles.ts 不同(此处等于 selectClass 完整串),
 // 保留本地定义以维持现有视觉行为。
 export const inputSm =
-  'h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+  'h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-elevation-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
 export const CHANNEL_LABEL: Record<WithdrawalItem['channel'], string> = {
   alipay: 'withdrawals.channel.alipay',

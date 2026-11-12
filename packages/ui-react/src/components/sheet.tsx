@@ -51,7 +51,7 @@ const sheetSideVariants = cva(
   // 2026-07-31 移动端适配:padding/gap 按断点渐进放大
   //   - 默认(移动端):p-3 gap-3,sm(≥375px)及以上:p-3 gap-4
   //   - left/right 在 < sm 时占 w-[90vw] 充分利用移动端视口,sm 起恢复 w-3/4 + max-w-sm
-  `fixed z-modal flex flex-col ${CONTENT_GAP_CLASS[SHEET_CONTENT_GAP_PX]} bg-background ${PADDING_CLASS[SHEET_PADDING_PX]} shadow-lg transition data-[state=closed]:${DURATION_CLASS[SHEET_ANIM_DURATION_MS]} data-[state=open]:${DURATION_CLASS[SHEET_ANIM_DURATION_MS]} ease-unified data-[state=open]:animate-in data-[state=closed]:animate-out min-[640px]:gap-4`,
+  `fixed z-modal flex flex-col ${CONTENT_GAP_CLASS[SHEET_CONTENT_GAP_PX]} bg-background ${PADDING_CLASS[SHEET_PADDING_PX]} shadow-elevation-lg transition data-[state=closed]:${DURATION_CLASS[SHEET_ANIM_DURATION_MS]} data-[state=open]:${DURATION_CLASS[SHEET_ANIM_DURATION_MS]} ease-unified data-[state=open]:animate-in data-[state=closed]:animate-out min-[640px]:gap-4`,
   {
     variants: {
       side: {

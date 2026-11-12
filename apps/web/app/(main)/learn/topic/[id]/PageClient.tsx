@@ -112,7 +112,7 @@ export default function LearnTopicDetailPage() {
             <Tooltip>
               <TooltipTrigger asChild>
                 <span
-                  className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-medium shadow-sm backdrop-blur-sm"
+                  className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-medium shadow-elevation-sm backdrop-blur-sm"
                   aria-label={source === 'premium' ? t('premiumTopic') : t('courseTopic')}
                 >
                   {source === 'premium' ? (

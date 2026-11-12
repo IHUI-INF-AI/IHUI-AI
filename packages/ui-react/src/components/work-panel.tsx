@@ -381,7 +381,7 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
             ref={dropdownRef}
             role="dialog"
             aria-label={labels.favoritesAndHistory}
-            className="absolute right-2 top-11 z-50 flex w-72 flex-col ui-popover rounded-md border border-border bg-popover p-1.5 shadow-md animate-in fade-in-0 zoom-in-95 duration-(--duration-unified) ease-unified"
+            className="absolute right-2 top-11 z-50 flex w-72 flex-col ui-popover rounded-md border border-border bg-popover p-1.5 shadow-elevation-md animate-in fade-in-0 zoom-in-95 duration-(--duration-unified) ease-unified"
           >
             {/* tab 切换 */}
             <div className="flex items-center gap-0.5 px-1 pb-1">
@@ -563,7 +563,7 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
                       className={cn(
                         'group inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-all duration-150',
                         tab.id === activeTabId
-                          ? 'bg-background text-foreground shadow-sm'
+                          ? 'bg-background text-foreground shadow-elevation-sm'
                           : 'text-muted-foreground hover:bg-muted',
                         // P3++:拖动中半透明
                         isDragging && 'opacity-40',
@@ -676,6 +676,7 @@ ToolbarButton.displayName = 'ToolbarButton'
  *  a11y:aria-label 由调用方传入(中英文由 labels 注入) */
 function DropIndicator({ 'aria-label': ariaLabel }: { 'aria-label': string }) {
   return (
+    // 豁免类别:工作面板取色令牌的聚焦效果光
     <div
       role="presentation"
       aria-label={ariaLabel}

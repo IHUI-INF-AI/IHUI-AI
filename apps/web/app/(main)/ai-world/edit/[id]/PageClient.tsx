@@ -110,7 +110,7 @@ export default function AiWorldEditPage() {
 
   const categories = catData?.list ?? []
   const inputClass =
-    'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+    'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-elevation-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
   if (isLoading) {
     return (
@@ -167,7 +167,7 @@ export default function AiWorldEditPage() {
                 id="aw-cat"
                 value={form.categoryId}
                 onChange={(e) => update('categoryId', e.target.value)}
-                className="flex h-9 w-full rounded-sm border border-input bg-transparent px-3 py-1 text-body shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="flex h-9 w-full rounded-sm border border-input bg-transparent px-3 py-1 text-body shadow-elevation-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 <option value="">{t('noCategory')}</option>
                 {categories.map((c: Category) => (

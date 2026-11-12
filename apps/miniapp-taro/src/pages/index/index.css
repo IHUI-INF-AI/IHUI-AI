@@ -239,6 +239,7 @@
 }
 
 .ai-chu-row-active {
+  /* 豁免类别:选中行居中光晕(offset 0 0),是色令牌效果光非层级投影 */
   /* 强调描边取 brandAccent 档(§4 描边不得取墨档;原 var(--color-foreground) 是近黑描边) */
   border-color: var(--color-brand-accent-deep);
   box-shadow: 0 0 10rpx var(--color-black-10);
@@ -265,7 +266,7 @@
   border-radius: var(--radius-xl);
   margin: 10rpx 0;
   overflow: hidden;
-  box-shadow: 0 4rpx 20rpx var(--color-black-8);
+  box-shadow: var(--shadow-elevation-lg);
 }
 
 /* Tab 栏 */
@@ -441,6 +442,7 @@
 }
 
 /* ===== 语音输入动画(对齐原项目 .voice-animation-overlay) ===== */
+/* 豁免类别:语音浮层向上投影(负 y offset),非层级投影 */
 .voice-animation-overlay {
   box-shadow: 0 -4rpx 20rpx var(--color-black-10);
 }

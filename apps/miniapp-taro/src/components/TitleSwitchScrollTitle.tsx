@@ -90,6 +90,7 @@ export default function TitleSwitchScrollTitle(props: TitleSwitchScrollTitleProp
     [subList, onChange],
   )
 
+  // 豁免类别:标题栏贴边细线影(blur 2px + spread -4px 收成硬边),非层级投影
   return (
     <View className="w-full ui-card rounded-b-lg bg-card pb-[24rpx] shadow-[0_4px_2px_-4px_var(--color-black-30)]">
       <View className="w-full px-[56rpx] box-border mb-[36rpx]">

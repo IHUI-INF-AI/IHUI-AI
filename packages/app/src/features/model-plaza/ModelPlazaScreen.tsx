@@ -21,7 +21,7 @@ import type {
   ModelPlazaTypeFilter,
 } from '../../types'
 
-import { rnRadius, rnCssLight, rnSpacing, rnType } from '@ihui/design-tokens'
+import { ELEVATION_STEPS, rnRadius, rnCssLight, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, PressableCard, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -273,22 +273,14 @@ export function ModelPlazaScreen({
   )
 }
 
-/** 对齐 uniapp box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.04) — 胶囊 tab 阴影 */
+/** 胶囊 tab 阴影(唯一源 md 档) */
 const shadowSoft = {
-  shadowColor: baseTokens.gray.black,
-  shadowOffset: { width: 0, height: 1 },
-  shadowOpacity: 0.04,
-  shadowRadius: 4,
-  elevation: 1,
+  ...ELEVATION_STEPS.md,
 }
 
-/** 对齐 uniapp box-shadow: 0 2rpx 12rpx rgba(0,0,0,0.04) — 卡片 / 厂商头部阴影 */
+/** 卡片 / 厂商头部阴影(唯一源 md 档) */
 const shadowCard = {
-  shadowColor: baseTokens.gray.black,
-  shadowOffset: { width: 0, height: 1 },
-  shadowOpacity: 0.04,
-  shadowRadius: 6,
-  elevation: 1,
+  ...ELEVATION_STEPS.md,
 }
 
 function createStyles(tk: AppThemeTokens) {

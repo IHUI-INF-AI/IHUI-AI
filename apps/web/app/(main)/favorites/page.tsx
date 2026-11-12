@@ -104,7 +104,7 @@ export default function FavoritesPage() {
             className={cn(
               'rounded-sm px-3 py-1.5 text-body font-medium transition-colors',
               tab === tabItem.value
-                ? 'bg-background text-foreground shadow-sm'
+                ? 'bg-background text-foreground shadow-elevation-sm'
                 : 'text-muted-foreground hover:text-foreground',
             )}
           >

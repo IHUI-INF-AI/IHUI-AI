@@ -43,7 +43,7 @@ export default function MessageActions({
       </View>
 
       {expanded && (
-        <View className="absolute right-0 top-9 z-10 bg-card rounded-lg shadow-lg py-xs min-w-[240rpx]">
+        <View className="absolute right-0 top-9 z-10 bg-card rounded-lg shadow-elevation-lg py-xs min-w-[240rpx]">
           {/* 与共享屏 spec 同口径:操作位只在给了处理函数时渲染,不挂"点了没反应"的假按钮 */}
           {onMarkRead ? (
             <View

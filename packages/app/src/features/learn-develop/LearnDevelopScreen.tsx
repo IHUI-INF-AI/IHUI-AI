@@ -168,6 +168,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: tk.warning.amber,
+      // 豁免类别:订阅按钮的琥珀色柔光(效果光:色取 warning.amberLight + 零偏移,不是层级投影)
       elevation: 3,
       shadowColor: tk.warning.amberLight,
       shadowOffset: { width: 0, height: 0 },

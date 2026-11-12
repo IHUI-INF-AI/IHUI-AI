@@ -183,12 +183,12 @@ export function WorkflowEditor({ steps, onChange }: Props) {
           panOnDrag={[1, 2]}
           className="bg-background/50"
         >
-          <Controls className="!rounded-md !border !shadow-sm" />
+          <Controls className="!rounded-md !border !shadow-elevation-sm" />
           <MiniMap
             nodeStrokeWidth={2}
             nodeColor="color-mix(in srgb, var(--primary) 15%, transparent)"
             maskColor="color-mix(in srgb, var(--background) 70%, transparent)"
-            className="!rounded-md !border !shadow-sm"
+            className="!rounded-md !border !shadow-elevation-sm"
           />
           <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="var(--border)" />
         </ReactFlow>

@@ -541,7 +541,7 @@ export function SlashCommandPalette({
         gap={8}
         overlayId={SLASH_COMMAND_PALETTE_OVERLAY_ID}
         testId="slash-command-palette"
-        className="w-96 overflow-hidden rounded-xl border border-border bg-popover p-0 shadow-md"
+        className="w-96 overflow-hidden rounded-xl border border-border bg-popover p-0 shadow-elevation-md"
       >
         {content}
       </PortalPanel>
