@@ -605,6 +605,12 @@ outputs/*
 !apps/ai-service/scripts/compaction_eval/outputs/
 !apps/ai-service/scripts/compaction_eval/outputs/**
 
+# Ghidra headless 工作目录(2026-11-12):分析 549MB 原生二进制会产生 GB 级项目缓存与
+# 反编译中间产物,属本地产物不入库。Ghidra 拒绝以点开头的路径段 ⇒ 不能放 .archify/。
+archify-work/ghidra-proj/
+archify-work/ghidra-out/*.log
+archify-work/ghidra-out/*.json
+
 # 商业产出物不入库(2026-09-11 泄密审计):BP/商业计划书等仅本地留存
 output/
 
