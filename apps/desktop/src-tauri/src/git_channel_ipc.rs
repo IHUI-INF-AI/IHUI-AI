@@ -488,57 +488,66 @@ fn index_undetermined(reason: String) -> IndexReply {
 
 /// 工作区文件索引快照（增量）。previous 由前端持回上一次快照 —— 宿主不存会话态，
 /// 重启即失效的索引没有资格叫"增量索引"。目录不下降符号链接/junction（票72④）。
-#[tauri::command]
-pub fn workspace_index_scan(
+///
+/// 遍历是 5 万条上限的 `read_dir`+`metadata` 全同步 I/O，必须先落到 blocking 线程池：
+/// 同步命令会在主线程上跑完整趟，大仓就冻结全部窗口且不可取消（F-055）。
+#[tauri::command(async)]
+pub async fn workspace_index_scan(
     state: tauri::State<'_, GitChannelState>,
     previous: Option<Vec<IndexEntryWire>>,
 ) -> Result<IndexReply, String> {
-    let root = match state.stored_root() {
-        Some(root) => root,
-        None => {
-            return Ok(index_undetermined(format!(
-                "尚未授权工作区根（先调 git_authorize_workspace）；边界：{}",
-                state.boundary_note()
-            )))
+    // 先把宿主状态读完再进闭包：闭包不碰 State，run 完也不跨 await 持有借用。
+    let stored = state.stored_root();
+    let boundary = state.boundary_note();
+    tauri::async_runtime::spawn_blocking(move || {
+        let root = match stored {
+            Some(root) => root,
+            None => {
+                return index_undetermined(format!(
+                    "尚未授权工作区根（先调 git_authorize_workspace）；边界：{boundary}"
+                ))
+            }
+        };
+        let walk = walk_index(Path::new(&root));
+        let (entries, symlink_dirs_skipped, non_utf8_skipped) = match walk {
+            WalkOutcome::Facts { entries, symlink_dirs_skipped, non_utf8_skipped } => {
+                (entries, symlink_dirs_skipped, non_utf8_skipped)
+            }
+            WalkOutcome::Undetermined { kind, reason } => {
+                return index_undetermined(format!("[{}] {}", kind.as_str(), reason))
+            }
+        };
+        let delta = previous.map(|prev| {
+            let mut map = std::collections::BTreeMap::new();
+            for e in prev {
+                map.insert(e.rel, (e.size, e.mtime_ms));
+            }
+            let d: IndexDelta = compute_delta(&map, &entries);
+            DeltaWire {
+                basis: "size+mtime".into(),
+                added: d.added,
+                removed: d.removed,
+                changed: d.changed,
+                unchanged: d.unchanged,
+            }
+        });
+        let total = entries.len();
+        IndexReply {
+            state: "facts".into(),
+            reason: String::new(),
+            root,
+            total,
+            entries: entries
+                .into_iter()
+                .map(|e| IndexEntryWire { rel: e.rel, size: e.size, mtime_ms: e.mtime_ms })
+                .collect(),
+            symlink_dirs_skipped,
+            non_utf8_skipped,
+            delta,
         }
-    };
-    let walk = walk_index(Path::new(&root));
-    let (entries, symlink_dirs_skipped, non_utf8_skipped) = match walk {
-        WalkOutcome::Facts { entries, symlink_dirs_skipped, non_utf8_skipped } => {
-            (entries, symlink_dirs_skipped, non_utf8_skipped)
-        }
-        WalkOutcome::Undetermined { kind, reason } => {
-            return Ok(index_undetermined(format!("[{}] {}", kind.as_str(), reason)))
-        }
-    };
-    let delta = previous.map(|prev| {
-        let mut map = std::collections::BTreeMap::new();
-        for e in prev {
-            map.insert(e.rel, (e.size, e.mtime_ms));
-        }
-        let d: IndexDelta = compute_delta(&map, &entries);
-        DeltaWire {
-            basis: "size+mtime".into(),
-            added: d.added,
-            removed: d.removed,
-            changed: d.changed,
-            unchanged: d.unchanged,
-        }
-    });
-    let total = entries.len();
-    Ok(IndexReply {
-        state: "facts".into(),
-        reason: String::new(),
-        root,
-        total,
-        entries: entries
-            .into_iter()
-            .map(|e| IndexEntryWire { rel: e.rel, size: e.size, mtime_ms: e.mtime_ms })
-            .collect(),
-        symlink_dirs_skipped,
-        non_utf8_skipped,
-        delta,
     })
+    .await
+    .map_err(|e| format!("索引任务异常退出: {e}"))
 }
 
 /// 供测试与后续对账使用：把 kind 的封闭集固定在一处，前端拼错即编译不到。

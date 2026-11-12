@@ -515,8 +515,7 @@ fn execute_items(
             cb(WbProgressEvent { layer, done: idx + 1, total, item: item.path.clone() });
         }
     }
-    let _ = acted;
-    q_layer_from(name, layer, &errors, items.len(), noun)
+    q_layer_from(name, layer, &errors, acted, noun)
 }
 
 /// 历史台账：落在根① reset-history/（pub prune_history 复用,上限 50）。
@@ -1979,6 +1978,64 @@ mod tests {
         assert!(roaming.join("Partitions/p1/Local Storage/m").exists(), "登录态子目录必须保留");
         assert!(roaming.join("Local State").exists(), "Local State 属登录面,维护不动");
         cleanup(&cn, &roaming);
+    }
+
+    fn q_item(full: std::path::PathBuf, label: &str) -> QActionItem {
+        QActionItem {
+            path: label.into(),
+            orig: label.into(),
+            qname: label.into(),
+            action: "delete_file",
+            reason: String::new(),
+            full,
+        }
+    }
+
+    #[test]
+    fn execute_items_counts_only_acted() {
+        let base = std::env::temp_dir().join(format!(
+            "qoder-acted-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&base).unwrap();
+        let ok = base.join("ok.txt");
+        std::fs::write(&ok, "x").unwrap();
+        let missing = base.join("missing.txt");
+        // 一成一败:成功数 1,总数 2,报告不得按总数虚增
+        let rep = execute_items(
+            vec![q_item(ok.clone(), "cn/ok.txt"), q_item(missing.clone(), "cn/missing.txt")],
+            1,
+            "maintenance_clean",
+            "清理",
+            None,
+            None,
+        );
+        assert!(!rep.ok, "{:?}", rep.detail);
+        assert!(rep.detail.contains("已清理 1 项"), "{}", rep.detail);
+        assert!(rep.detail.contains("失败 1 项"), "{}", rep.detail);
+        assert!(!ok.exists(), "成功项应被真删");
+        // 全失败:已删必须为 0,而非条目总数
+        let rep2 = execute_items(
+            vec![q_item(missing.clone(), "cn/missing.txt"), q_item(missing.clone(), "cn/missing2.txt")],
+            1,
+            "maintenance_clean",
+            "清理",
+            None,
+            None,
+        );
+        assert!(!rep2.ok);
+        assert!(rep2.detail.contains("已清理 0 项"), "{}", rep2.detail);
+        assert!(rep2.detail.contains("失败 2 项"), "{}", rep2.detail);
+        // 成功且无错误:计数与实际一致
+        let ok2 = base.join("ok2.txt");
+        std::fs::write(&ok2, "y").unwrap();
+        let rep3 = execute_items(vec![q_item(ok2, "cn/ok2.txt")], 1, "maintenance_clean", "清理", None, None);
+        assert!(rep3.ok);
+        assert!(rep3.detail.contains("已清理 1 项"), "{}", rep3.detail);
+        let _ = std::fs::remove_dir_all(&base);
     }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

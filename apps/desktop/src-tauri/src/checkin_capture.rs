@@ -1846,9 +1846,42 @@ fn kill_trae_processes() -> ResetLayerReport {
 
 /// 判据①:**TRAE 族键** ⇒ 整树删除。覆盖 trae / Trae CN / Trae Work 助手 /
 /// TRAE SOLO CN / icube / ahawork 全部变体(大小写不敏感)。
+///
+/// **精确名单或族名前缀 + 分隔边界**，不再用 `contains("trae")`：
+/// `RegDeleteTreeW` 不可逆，旧判据会把 Traefik 之类任意"名里含 trae"的软件整树删掉（F-108）。
+/// 宁可不删也不误删。
 pub fn is_trae_family_reg_key(name: &str) -> bool {
-    let n = name.to_ascii_lowercase();
-    n.contains("trae") || n.contains("icube") || n.contains("ahawork")
+    let n = name.trim().to_ascii_lowercase();
+    if n.is_empty() {
+        return false;
+    }
+    const EXACT: &[&str] = &[
+        "trae",
+        "trae cn",
+        "trae solo",
+        "trae solo cn",
+        "trae work",
+        "trae work 助手",
+        "traecn",
+        "traesolo",
+        "traework",
+        "icube",
+        "ahawork",
+    ];
+    if EXACT.contains(&n.as_str()) {
+        return true;
+    }
+    // 族名前缀后必须紧跟分隔边界（空格/-/_/./·/括号），故 `Traefik` 不命中。
+    for fam in ["trae", "icube", "ahawork"] {
+        if let Some(rest) = n.strip_prefix(fam) {
+            if let Some(c) = rest.chars().next() {
+                if c.is_whitespace() || matches!(c, '-' | '_' | '.' | '·' | '(' | '（') {
+                    return true;
+                }
+            }
+        }
+    }
+    false
 }
 
 /// 判据②:**厂商容器键** ⇒ **只摘其下的 TRAE 子项,绝不整删容器**。
@@ -1866,6 +1899,21 @@ pub fn is_trae_progid_reg_key(name: &str) -> bool {
     name.to_ascii_lowercase().starts_with("trae")
 }
 
+/// 安装路径交叉校验（F-108 第二道闸）：键下若带明确的安装路径类值，
+/// 而路径里没有任何 TRAE 族名 ⇒ 判为同名无关软件，拒绝整树删除。
+/// 读不到这些值时不否决，仍由族名判据决定。
+#[cfg(windows)]
+fn reg_key_install_path_veto(root: windows::Win32::System::Registry::HKEY, path: &str) -> bool {
+    for value_name in ["InstallLocation", "InstallDir", "DisplayIcon"] {
+        let Some(p) = regutil::read_string(root, path, value_name) else {
+            continue;
+        };
+        let lower = p.to_ascii_lowercase();
+        return !(lower.contains("trae") || lower.contains("icube") || lower.contains("ahawork"));
+    }
+    false
+}
+
 /// 层⑪:注册表 TRAE 族键**发现式**整树删除(保留历史 3 键作兜底)。
 /// 覆盖 HKCU\Software(含厂商容器内子项)与 HKCU\Software\Classes 的协议/文件关联;
 /// HKLM 侧厂商容器需管理员,删不掉记「降级」不判红(MachineGuid 属层⑤职权,不在这里动)。
@@ -1876,6 +1924,8 @@ fn reset_layer_registry() -> ResetLayerReport {
     let mut deleted: Vec<String> = Vec::new();
     let mut degraded: Vec<String> = Vec::new();
     let mut errors: Vec<String> = Vec::new();
+    // 族名命中但安装路径不像 TRAE ⇒ 判为同名无关软件,跳过并如实记账(不误删)。
+    let mut skipped: Vec<String> = Vec::new();
 
     // ① 历史硬编码 3 键:兜底(枚举万一被权限/沙箱挡住时至少还有这层)
     for sk in ["Software\\TRAE", "Software\\TRAE SOLO CN", "Software\\TRAE SOLO"] {
@@ -1892,18 +1942,27 @@ fn reset_layer_registry() -> ResetLayerReport {
     for name in regutil::subkeys(HKEY_CURRENT_USER, "Software") {
         let p = format!("Software\\{name}");
         if is_trae_family_reg_key(&name) {
-            match regutil::delete_tree(HKEY_CURRENT_USER, &p) {
-                Ok(()) => deleted.push(format!("HKCU\\{p}")),
-                Err(e) => errors.push(format!("HKCU\\{p}: win32 {e}")),
+            if reg_key_install_path_veto(HKEY_CURRENT_USER, &p) {
+                skipped.push(format!("HKCU\\{p}"));
+            } else {
+                match regutil::delete_tree(HKEY_CURRENT_USER, &p) {
+                    Ok(()) => deleted.push(format!("HKCU\\{p}")),
+                    Err(e) => errors.push(format!("HKCU\\{p}: win32 {e}")),
+                }
             }
         } else if is_vendor_container_reg_key(&name) {
             for sub in regutil::subkeys(HKEY_CURRENT_USER, &p) {
-                if is_trae_family_reg_key(&sub) {
-                    let q = format!("{p}\\{sub}");
-                    match regutil::delete_tree(HKEY_CURRENT_USER, &q) {
-                        Ok(()) => deleted.push(format!("HKCU\\{q}(厂商容器内)")),
-                        Err(e) => errors.push(format!("HKCU\\{q}: win32 {e}")),
-                    }
+                let q = format!("{p}\\{sub}");
+                if !is_trae_family_reg_key(&sub) {
+                    continue;
+                }
+                if reg_key_install_path_veto(HKEY_CURRENT_USER, &q) {
+                    skipped.push(format!("HKCU\\{q}"));
+                    continue;
+                }
+                match regutil::delete_tree(HKEY_CURRENT_USER, &q) {
+                    Ok(()) => deleted.push(format!("HKCU\\{q}(厂商容器内)")),
+                    Err(e) => errors.push(format!("HKCU\\{q}: win32 {e}")),
                 }
             }
             // 摘完 TRAE 子项后容器已空 ⇒ 连容器一起摘(Trae 是本厂唯一产品时,
@@ -1941,18 +2000,27 @@ fn reset_layer_registry() -> ResetLayerReport {
         for name in regutil::subkeys(HKEY_LOCAL_MACHINE, root_path) {
             let p = format!("{root_path}\\{name}");
             if is_trae_family_reg_key(&name) {
+                if reg_key_install_path_veto(HKEY_LOCAL_MACHINE, &p) {
+                    skipped.push(format!("HKLM\\{p}"));
+                    continue;
+                }
                 match regutil::delete_tree(HKEY_LOCAL_MACHINE, &p) {
                     Ok(()) => deleted.push(format!("HKLM\\{p}")),
                     Err(e) => degraded.push(format!("HKLM\\{p}(win32 {e})")),
                 }
             } else if is_vendor_container_reg_key(&name) {
                 for sub in regutil::subkeys(HKEY_LOCAL_MACHINE, &p) {
-                    if is_trae_family_reg_key(&sub) {
-                        let q = format!("{p}\\{sub}");
-                        match regutil::delete_tree(HKEY_LOCAL_MACHINE, &q) {
-                            Ok(()) => deleted.push(format!("HKLM\\{q}(厂商容器内)")),
-                            Err(e) => degraded.push(format!("HKLM\\{q}(win32 {e})")),
-                        }
+                    let q = format!("{p}\\{sub}");
+                    if !is_trae_family_reg_key(&sub) {
+                        continue;
+                    }
+                    if reg_key_install_path_veto(HKEY_LOCAL_MACHINE, &q) {
+                        skipped.push(format!("HKLM\\{q}"));
+                        continue;
+                    }
+                    match regutil::delete_tree(HKEY_LOCAL_MACHINE, &q) {
+                        Ok(()) => deleted.push(format!("HKLM\\{q}(厂商容器内)")),
+                        Err(e) => degraded.push(format!("HKLM\\{q}(win32 {e})")),
                     }
                 }
             }
@@ -1968,6 +2036,12 @@ fn reset_layer_registry() -> ResetLayerReport {
         detail.push_str(&format!(
             ";需管理员未能删(可提权重跑,不影响应用层干净): {}",
             degraded.join(" | ")
+        ));
+    }
+    if !skipped.is_empty() {
+        detail.push_str(&format!(
+            ";族名命中但安装路径不像 TRAE,按同名无关软件跳过: {}",
+            skipped.join(" | ")
         ));
     }
     let ok = errors.is_empty();
@@ -3058,14 +3132,73 @@ fn atomic_copy_file(src: &Path, dst: &Path) -> std::io::Result<()> {
     std::fs::rename(&tmp, dst)
 }
 
+/// 快照拷贝的深度预算（判据，不是递归保险丝）：TRAE 的 userData 侧正常不超过 10 层。
+const MAX_SNAPSHOT_COPY_DEPTH: usize = 32;
+
+/// 单个目录项的下降判定（纯函数，便于无建链权限的环境直接测判据）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CopyVerdict {
+    Copy,
+    SkipLink,
+    SkipDepth,
+}
+
+/// `is_link` 优先于 `is_dir`：链接（junction/符号链接）一律不跟，
+/// 否则 TRAE 目录内一个指向库外的 junction 会把整棵外部树拷进 app_data，
+/// 成环则无限递归（F-057）。深度只约束目录，文件不受影响。
+fn copy_entry_verdict(is_link: bool, is_dir: bool, depth: usize) -> CopyVerdict {
+    if is_link {
+        return CopyVerdict::SkipLink;
+    }
+    if is_dir && depth >= MAX_SNAPSHOT_COPY_DEPTH {
+        return CopyVerdict::SkipDepth;
+    }
+    CopyVerdict::Copy
+}
+
+/// 元数据是否重解析点。`file_type().is_symlink()` 覆盖符号链接；
+/// Windows 侧再查 FILE_ATTRIBUTE_REPARSE_POINT，把 junction/mount point 一并纳入
+/// （`Metadata::is_dir()` 会跟随它们，单靠它是 F-057 的根因）。
+fn is_reparse_metadata(md: &std::fs::Metadata) -> bool {
+    if md.file_type().is_symlink() {
+        return true;
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::MetadataExt;
+        const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x400;
+        if md.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0 {
+            return true;
+        }
+    }
+    false
+}
+
+/// 路径本身是否为链接/重解析点（用 `symlink_metadata`，不跟随）。
+fn is_link_path(p: &Path) -> bool {
+    std::fs::symlink_metadata(p)
+        .map(|md| is_reparse_metadata(&md))
+        .unwrap_or(false)
+}
+
 fn copy_dir_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
+    copy_dir_recursive_at(src, dst, 0)
+}
+
+fn copy_dir_recursive_at(src: &Path, dst: &Path, depth: usize) -> std::io::Result<()> {
     std::fs::create_dir_all(dst)?;
     for entry in std::fs::read_dir(src)? {
         let entry = entry?;
         let sp = entry.path();
         let dp = dst.join(entry.file_name());
-        if sp.is_dir() {
-            copy_dir_recursive(&sp, &dp)?;
+        let md = std::fs::symlink_metadata(&sp)?;
+        let is_dir = md.is_dir();
+        match copy_entry_verdict(is_reparse_metadata(&md), is_dir, depth + 1) {
+            CopyVerdict::SkipLink | CopyVerdict::SkipDepth => continue,
+            CopyVerdict::Copy => {}
+        }
+        if is_dir {
+            copy_dir_recursive_at(&sp, &dp, depth + 1)?;
         } else {
             std::fs::copy(&sp, &dp)?;
         }
@@ -3077,11 +3210,37 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
 fn copy_mirrored(src_root: &Path, rel: &str, dst_root: &Path) -> std::io::Result<()> {
     let src = src_root.join(rel);
     let dst = dst_root.join(rel);
+    // 顶层路径本身是 junction/符号链接 ⇒ 不跟（restore 侧同一条护栏）。
+    if is_link_path(&src) {
+        return Ok(());
+    }
     if src.is_dir() {
         copy_dir_recursive(&src, &dst)
     } else {
         atomic_copy_file(&src, &dst)
     }
+}
+
+/// 快照落地：旧目录先改名 `.bak-<ts>` → tmp 上位 → 成功后才删 `.bak`；
+/// rename 失败则把 `.bak` 改回原名回滚，并清掉 tmp ——
+/// 旧快照绝不因新快照落地失败而消失，也不留孤儿目录（F-059）。
+fn swap_in_snapshot(profile_dir: &Path, tmp_dir: &Path, backup_dir: &Path) -> std::io::Result<()> {
+    let had_old = profile_dir.exists();
+    if had_old {
+        let _ = std::fs::remove_dir_all(backup_dir);
+        std::fs::rename(profile_dir, backup_dir)?;
+    }
+    if let Err(e) = std::fs::rename(tmp_dir, profile_dir) {
+        if had_old {
+            let _ = std::fs::rename(backup_dir, profile_dir);
+        }
+        let _ = std::fs::remove_dir_all(tmp_dir);
+        return Err(e);
+    }
+    if had_old {
+        let _ = std::fs::remove_dir_all(backup_dir);
+    }
+    Ok(())
 }
 
 /// 9 类备份：整份建在 `<user_id>.checkin-tmp-<pid>` 临时目录，全部成功后 rename 落地。
@@ -3107,13 +3266,19 @@ pub fn snapshot_backup(
     let mut errors = Vec::new();
     for entry in SNAPSHOT_ENTRIES.iter() {
         for rel in entry.paths {
-            if trae_dir.join(rel).exists() {
-                match copy_mirrored(trae_dir, rel, &tmp_dir) {
-                    Ok(()) => copied.push(rel.to_string()),
-                    Err(e) => errors.push(format!("{rel}: {e}")),
-                }
-            } else {
+            let src = trae_dir.join(rel);
+            if !src.exists() {
                 missing.push(rel.to_string());
+                continue;
+            }
+            // 重解析点（junction/符号链接）不跟：既不把库外整棵树拷进来，也不会成环。
+            if is_link_path(&src) {
+                missing.push(rel.to_string());
+                continue;
+            }
+            match copy_mirrored(trae_dir, rel, &tmp_dir) {
+                Ok(()) => copied.push(rel.to_string()),
+                Err(e) => errors.push(format!("{rel}: {e}")),
             }
         }
     }
@@ -3121,12 +3286,17 @@ pub fn snapshot_backup(
         let _ = std::fs::remove_dir_all(&tmp_dir);
         return Err(IpcError::internal(format!("快照备份失败: {}", errors.join("; "))));
     }
-    // 整体原子落地：旧 profile 整换新，不会半新半旧。
-    if profile_dir.exists() {
-        std::fs::remove_dir_all(&profile_dir)
-            .map_err(|e| IpcError::from_io("remove_dir_all", &profile_dir, e))?;
-    }
-    std::fs::rename(&tmp_dir, &profile_dir)
+    // 整体原子落地：旧 profile 先改名备份，新 profile 上位成功后才删备份；
+    // 中途失败则回滚（见 `swap_in_snapshot`）。
+    let backup_dir = profile_dir.with_file_name(format!(
+        "{user_id}.checkin-bak-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis())
+            .unwrap_or(0)
+    ));
+    swap_in_snapshot(&profile_dir, &tmp_dir, &backup_dir)
         .map_err(|e| IpcError::from_io("rename", &profile_dir, e))?;
     log::info!(
         "[checkin-capture] 快照备份 user_id={user_id} copied={} missing={}",
@@ -5233,6 +5403,82 @@ mod tests {
         let _ = std::fs::remove_dir_all(&app);
     }
 
+    /// F-057:快照拷贝不得跟随 junction/符号链接(否则库外整棵树被拷进 app_data、成环则栈溢出),
+    /// 且深度有预算。链接建不出来(无 Developer Mode/管理员)时退化为纯判据断言。
+    #[test]
+    fn snapshot_copy_skips_links_and_caps_depth() {
+        assert_eq!(copy_entry_verdict(true, true, 0), CopyVerdict::SkipLink);
+        assert_eq!(copy_entry_verdict(true, false, 0), CopyVerdict::SkipLink);
+        assert_eq!(
+            copy_entry_verdict(false, true, MAX_SNAPSHOT_COPY_DEPTH),
+            CopyVerdict::SkipDepth
+        );
+        assert_eq!(
+            copy_entry_verdict(false, true, MAX_SNAPSHOT_COPY_DEPTH - 1),
+            CopyVerdict::Copy
+        );
+        assert_eq!(
+            copy_entry_verdict(false, false, MAX_SNAPSHOT_COPY_DEPTH),
+            CopyVerdict::Copy
+        );
+
+        let src = scratch("copy-link-src");
+        let outside = scratch("copy-link-outside");
+        std::fs::write(outside.join("secret.txt"), b"outside").unwrap();
+        std::fs::create_dir_all(src.join("User")).unwrap();
+        std::fs::write(src.join("User/normal.txt"), b"normal").unwrap();
+        #[cfg(windows)]
+        {
+            let link = src.join("User/junction");
+            if std::os::windows::fs::symlink_dir(&outside, &link).is_ok() {
+                assert!(is_link_path(&link), "junction 必须被判为重解析点");
+                let dst = scratch("copy-link-dst");
+                copy_dir_recursive(&src, &dst).unwrap();
+                assert!(dst.join("User/normal.txt").is_file(), "普通文件照常拷贝");
+                assert!(!dst.join("User/junction").exists(), "junction 必须跳过,不得越界拷贝");
+                assert!(!dst.join("User/junction/secret.txt").exists());
+                let _ = std::fs::remove_dir_all(&dst);
+            }
+        }
+        let _ = std::fs::remove_dir_all(&src);
+        let _ = std::fs::remove_dir_all(&outside);
+    }
+
+    /// F-059:新快照 rename 失败时必须回滚旧快照并清掉 tmp,不得"旧已毁、新成孤儿"。
+    #[test]
+    fn snapshot_swap_rolls_back_and_cleans_tmp_on_failure() {
+        let app = scratch("app-swap");
+        let profile = snapshot_profile_dir(&app, "9");
+        std::fs::create_dir_all(&profile).unwrap();
+        std::fs::write(profile.join("machineid"), "old-snapshot").unwrap();
+
+        // tmp 不存在 ⇒ rename(tmp, profile) 必失败(故障注入)
+        let missing_tmp = app.join("9.checkin-tmp-missing");
+        let bak = app.join("9.checkin-bak-test");
+        assert!(swap_in_snapshot(&profile, &missing_tmp, &bak).is_err());
+        assert_eq!(
+            std::fs::read_to_string(profile.join("machineid")).unwrap(),
+            "old-snapshot",
+            "失败后旧快照必须原样回滚"
+        );
+        assert!(!bak.exists(), "回滚后不得残留 .bak");
+        assert!(!missing_tmp.exists(), "失败后不得残留 tmp");
+
+        // 成功路径:新快照上位,旧备份被删
+        let tmp2 = app.join("9.checkin-tmp-new");
+        std::fs::create_dir_all(&tmp2).unwrap();
+        std::fs::write(tmp2.join("machineid"), "new-snapshot").unwrap();
+        let bak2 = app.join("9.checkin-bak-test2");
+        swap_in_snapshot(&profile, &tmp2, &bak2).expect("swap");
+        assert_eq!(
+            std::fs::read_to_string(profile.join("machineid")).unwrap(),
+            "new-snapshot"
+        );
+        assert!(!bak2.exists(), "成功落地后备份必须清掉");
+        assert!(!tmp2.exists());
+        let _ = std::fs::remove_dir_all(&app);
+    }
+
     // ── 9. 全 14 层重置编排（⑤⑦⑧⑨⑩⑫⑬均 flag=false 走 skip 记录,不碰真库/真浏览器/真网卡）──
 
     #[test]
@@ -5985,6 +6231,40 @@ mod tests {
         assert!(is_trae_progid_reg_key("Trae CN.asp"));
         assert!(!is_trae_progid_reg_key(".txt"));
         assert!(!is_trae_progid_reg_key("txtfile"));
+    }
+
+    /// F-108:`contains("trae")` 会把 Traefik 之类同名软件整树删掉(不可逆),
+    /// 族名判据必须是精确名单或"前缀 + 分隔边界"。
+    #[test]
+    fn registry_family_rejects_lookalike_software_names() {
+        for n in [
+            "Traefik",
+            "traefik",
+            "TraeFik Proxy",
+            "traeupdate",
+            "icubex",
+            "ahaworkbench",
+            "Trainline",
+            "Microsoft",
+            "",
+            "   ",
+        ] {
+            assert!(!is_trae_family_reg_key(n), "{n:?} 不得命中 TRAE 族(整树删除不可逆)");
+        }
+        for n in [
+            "Trae",
+            "TRAE",
+            "Trae CN",
+            "Trae-SOLO",
+            "Trae_WORK",
+            "Trae.Work",
+            "Trae Work 助手",
+            "TRAE SOLO CN",
+            "icube",
+            "ahawork",
+        ] {
+            assert!(is_trae_family_reg_key(n), "{n:?} 必须命中 TRAE 族");
+        }
     }
 
     /// 账本抓取:只收"像身份"的旧值,且 4 个点号键一个都不能漏。

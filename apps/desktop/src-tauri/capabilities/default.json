@@ -58,6 +58,7 @@
     "allow-embedded-browser-devtools",
     "allow-toggle-devtools",
     "allow-quit-app",
+    "allow-set-caption-button-theme",
     "allow-restart-app",
     "allow-open-admin-window",
     "allow-start-resize",
