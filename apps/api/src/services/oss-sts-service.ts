@@ -344,7 +344,15 @@ class TencentCosProvider implements OssStsProvider {
         Authorization: authorization,
       },
       body,
+      // F-547:STS 端点抖动不得让 /api/oss/sts 无限挂起。
+      signal: AbortSignal.timeout(10_000),
     })
+
+    // F-547:先判 HTTP 状态再解析,边缘错误页(HTML)不再被归一成「未知失败」。
+    if (!resp.ok) {
+      const errText = (await resp.text()).slice(0, 1024)
+      throw new Error(`腾讯云 STS AssumeRole 失败: HTTP ${resp.status} ${errText}`)
+    }
 
     const result = (await resp.json()) as TencentStsResponse
     const creds = result.Response?.Credentials
@@ -458,9 +466,16 @@ class AwsS3Provider implements OssStsProvider {
         Authorization: authorization,
       },
       body,
+      // F-547:同腾讯分支,10s 硬超时。
+      signal: AbortSignal.timeout(10_000),
     })
 
-    const text = await resp.text()
+    if (!resp.ok) {
+      const errText = (await resp.text()).slice(0, 1024)
+      throw new Error(`AWS STS AssumeRole 失败: HTTP ${resp.status} ${errText}`)
+    }
+
+    const text = (await resp.text()).slice(0, 64 * 1024)
     const parsed = parseAwsStsXml(text)
     if (parsed.error || !parsed.accessKeyId || !parsed.secretAccessKey) {
       throw new Error(`AWS STS AssumeRole 失败: ${parsed.error ?? '响应缺少凭证'}`)
