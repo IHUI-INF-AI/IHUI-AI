@@ -235,6 +235,18 @@ const relayKeyPoolRoutes: FastifyPluginAsync = async (server) => {
         // 计数键名走巡检服务的 CF_KEY 单源,不在路由里复写字面量(§0.6)
         setData.extraMetadata = { ...meta, [CF_KEY]: 0 }
       }
+      // F-338: 管理员显式停用/启用要记录来源,恢复探测不得把手工停用的 Key 自动拉回
+      if (d.isEnabled !== undefined) {
+        const [curMeta] = await dbRead
+          .select({ extraMetadata: aiRelayKeyPool.extraMetadata })
+          .from(aiRelayKeyPool)
+          .where(eq(aiRelayKeyPool.id, p.data.id))
+          .limit(1)
+        if (!curMeta) return reply.status(404).send(error(404, 'Key 不存在'))
+        const base = (curMeta.extraMetadata ?? {}) as Record<string, unknown>
+        const prev = (setData.extraMetadata ?? {}) as Record<string, unknown>
+        setData.extraMetadata = { ...base, ...prev, manualDisabled: d.isEnabled === false }
+      }
       const [updated] = await db
         .update(aiRelayKeyPool)
         .set(setData)
@@ -287,15 +299,25 @@ const relayKeyPoolRoutes: FastifyPluginAsync = async (server) => {
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
     try {
       const [existing] = await dbRead
-        .select({ isEnabled: aiRelayKeyPool.isEnabled })
+        .select({
+          isEnabled: aiRelayKeyPool.isEnabled,
+          extraMetadata: aiRelayKeyPool.extraMetadata,
+        })
         .from(aiRelayKeyPool)
         .where(eq(aiRelayKeyPool.id, p.data.id))
         .limit(1)
       if (!existing) return reply.status(404).send(error(404, 'Key 不存在'))
 
+      const nextEnabled = !existing.isEnabled
+      // F-338: toggle 同属管理员显式操作,与 PUT 共用停用来源标记
+      const meta = (existing.extraMetadata ?? {}) as Record<string, unknown>
       const [updated] = await db
         .update(aiRelayKeyPool)
-        .set({ isEnabled: !existing.isEnabled, updatedAt: new Date() })
+        .set({
+          isEnabled: nextEnabled,
+          extraMetadata: { ...meta, manualDisabled: !nextEnabled },
+          updatedAt: new Date(),
+        })
         .where(eq(aiRelayKeyPool.id, p.data.id))
         .returning({
           id: aiRelayKeyPool.id,

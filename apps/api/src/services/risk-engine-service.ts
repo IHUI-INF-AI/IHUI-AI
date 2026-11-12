@@ -68,6 +68,8 @@ export interface RiskRule {
 /** 命中记录 */
 export interface RiskHit {
   ruleId: string
+  /** F-383: 命中主体(用户 id),供 hitsBySubject 精确索引 */
+  subjectId?: string
   name: string
   action: RiskAction
   score: number
@@ -234,6 +236,7 @@ export class RiskRuleEngine {
 
       const hit: RiskHit = {
         ruleId: rule.ruleId,
+        subjectId: ctx.userId,
         name: rule.name,
         action: rule.action,
         score: rule.score,
@@ -274,7 +277,8 @@ export class RiskRuleEngine {
 
   /** 按 subject 查询历史命中。 */
   hitsBySubject(userId: string, limit = 100): RiskHit[] {
-    return this.hits.filter((h) => h.ruleId.includes(userId)).slice(-limit)
+    // F-383: 按命中主体索引,原先用 ruleId.includes(userId) 恒为空
+    return this.hits.filter((h) => h.subjectId === userId).slice(-limit)
   }
 
   /** 按规则 ID 查询历史命中。 */
@@ -358,8 +362,9 @@ async function persistRiskHits(ctx: RiskContext, hits: RiskHit[]): Promise<void>
       orderNo: pickAny(ctx, 'orderNo'),
       amount: pickAny(ctx, 'amount'),
     }
-    for (const h of hits) {
-      await db.insert(riskHitsTable).values({
+    // F-476: 单条多值 insert,不再逐条串行 await —— 首条失败不再静默吞掉其余命中
+    await db.insert(riskHitsTable).values(
+      hits.map((h) => ({
         userId: ctx.userId ?? null,
         ip: ctx.ip ?? null,
         ruleCode: h.ruleId,
@@ -369,8 +374,8 @@ async function persistRiskHits(ctx: RiskContext, hits: RiskHit[]): Promise<void>
         reason: h.reason,
         hitAt: new Date(h.matchedAt),
         context,
-      })
-    }
+      })),
+    )
   } catch (err) {
     // 表未迁移 / DB 暂不可用 → 内存已由 recordHits 兜底,此处仅记录,不阻塞
     logger.warn('risk-engine: persistRiskHits failed (DB fallback to memory)', {

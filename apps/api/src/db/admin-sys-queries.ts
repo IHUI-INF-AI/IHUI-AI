@@ -49,8 +49,12 @@ export interface ListQuery {
 }
 
 function paginate(query: ListQuery): { page: number; pageSize: number; offset: number } {
-  const page = query.page ?? 1
-  const pageSize = query.pageSize ?? 10
+  // F-642:此前 page/pageSize 原样透传,负值会让 OFFSET 变负报错、超大值会一次性全表载入。
+  // 统一夹到 page>=1、1<=pageSize<=100,并对非有限值(NaN/Infinity)回落到默认。
+  const rawPage = Number.isFinite(query.page) ? (query.page as number) : 1
+  const rawSize = Number.isFinite(query.pageSize) ? (query.pageSize as number) : 10
+  const page = Math.max(1, Math.trunc(rawPage))
+  const pageSize = Math.min(100, Math.max(1, Math.trunc(rawSize)))
   return { page, pageSize, offset: (page - 1) * pageSize }
 }
 

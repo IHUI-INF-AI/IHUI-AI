@@ -42,7 +42,8 @@ export async function findGenerationHistory(
       .select()
       .from(contentGenerationTasks)
       .where(eq(contentGenerationTasks.userId, userId))
-      .orderBy(desc(contentGenerationTasks.createdAt))
+      // F-356: createdAt 同毫秒并列时补 id 兜底,保证 LIMIT/OFFSET 翻页全序稳定
+      .orderBy(desc(contentGenerationTasks.createdAt), desc(contentGenerationTasks.id))
       .limit(pageSize)
       .offset((page - 1) * pageSize),
     dbReadScoped

@@ -172,7 +172,8 @@ const heartbeatSchema = z.object({
   sectionId: z.uuid({ error: '无效的小节 ID' }).nullable().optional(),
   chapterId: z.uuid({ error: '无效的章节 ID' }).nullable().optional(),
   position: z.number().int().min(0),
-  duration: z.number().int().min(0),
+  // F-502:单次心跳时长需设上限,否则一次超大 duration 即可把 integer 列累加溢出(22P03)。
+  duration: z.number().int().min(0).max(120),
 })
 
 const rankingQuerySchema = z.object({
