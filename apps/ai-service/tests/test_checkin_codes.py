@@ -19,10 +19,12 @@ import pytest
 
 from app.services.checkin_codes import (
     ALREADY_CHECKED_IN_CODES,
+    AUTH_REJECTED_CODES,
     PLATFORM_MINIMAX,
     PLATFORM_TRAE,
     PLATFORM_WORKBUDDY,
     is_already_checked_in,
+    is_auth_rejected,
 )
 
 
@@ -83,4 +85,31 @@ class TestTypeGuards:
     def test_unknown_platform_never_matches(self):
         assert is_already_checked_in("some-new-platform", 9095) is False
         assert is_already_checked_in("", 10001) is False
+
+
+class TestAuthRejectedCodes:
+    """「认证被拒」判据(2026-11-12 立,风控零触发):1001 必须被认出来。
+
+    立因:本机 trae 号 2257723987855312 在 2026-11-12 00:18~10:02 被 claim 连续
+    回 9 次 `HTTP 200 + code=1001`(We're sorry, but we are not able to
+    authenticate you),每次都被归成 BusinessError ⇒ 300s 冷却 ⇒ 冷却一过又被
+    重打一次。死票反复打平台鉴权点正是封号前兆,必须识别为凭证失效走永久冷却
+    (新凭证 credVersion 到达时由 clear_open_cooldowns 自动解冻)。
+    """
+
+    def test_trae_1001_is_auth_rejected(self):
+        assert is_auth_rejected(PLATFORM_TRAE, 1001) is True
+
+    @pytest.mark.parametrize("marker", [0, 9095, 1005, 9074, 2])
+    def test_trae_other_codes_not_auth_rejected(self, marker):
+        # 成功码/已签码/额度码/设备码都不得误判成凭证失效
+        assert is_auth_rejected(PLATFORM_TRAE, marker) is False
+
+    @pytest.mark.parametrize("marker", [True, "1001", 1001.0, None])
+    def test_type_guards_hold(self, marker):
+        assert is_auth_rejected(PLATFORM_TRAE, marker) is False
+
+    def test_unknown_platform_registered_empty(self):
+        assert is_auth_rejected("some-new-platform", 1001) is False
+        assert AUTH_REJECTED_CODES.get(PLATFORM_TRAE) == frozenset({1001})
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

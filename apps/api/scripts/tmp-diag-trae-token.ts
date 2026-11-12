@@ -4,7 +4,7 @@ import { config as dotenvConfig } from 'dotenv'
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url))
 const API_DIR = path.resolve(SCRIPT_DIR, '..')
 dotenvConfig({ path: path.resolve(API_DIR, '.env') })
-const { eq, inArray } = await import('drizzle-orm')
+const { eq } = await import('drizzle-orm')
 const { aiRelayAccountPool } = await import('@ihui/database')
 const { decryptField } = await import('../src/utils/crypto.js')
 const { db } = await import('../src/db/index.js')
@@ -23,7 +23,8 @@ for (const r of rows as any[]) {
   const seg = token.split('.')
   if (seg.length >= 2) {
     try {
-      const p = JSON.parse(Buffer.from(seg[1], 'base64url').toString('utf8'))
+      // seg.length >= 2 已保证下标 1 存在,非空断言只收窄类型,不改运行时行为
+      const p = JSON.parse(Buffer.from(seg[1]!, 'base64url').toString('utf8'))
       const pick = (o: any, d = 0): any => {
         if (d > 2) return '…'
         if (Array.isArray(o)) return `[${o.length}]`

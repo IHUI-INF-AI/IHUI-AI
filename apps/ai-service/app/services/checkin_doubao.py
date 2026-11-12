@@ -147,19 +147,20 @@ def parse_detail(body: dict[str, Any] | None) -> dict[str, Any]:
     if not isinstance(body, dict):
         return {"code": None, "checked_in": False, "reward": None, "credits": None, "message": "响应非 JSON"}
     code = body.get("code")
-    data = body.get("data") if isinstance(body.get("data"), dict) else {}
-    tasks = data.get("tasks") if isinstance(data.get("tasks"), list) else []
+    _raw_data = body.get("data")
+    data: dict[str, Any] = _raw_data if isinstance(_raw_data, dict) else {}
+    _raw_tasks = data.get("tasks")
+    tasks: list[Any] = _raw_tasks if isinstance(_raw_tasks, list) else []
     task = next(
         (t for t in tasks if isinstance(t, dict) and t.get("task_kind") == TASK_KIND),
         None,
     )
-    dc = (
-        task.get("daily_checkin")
-        if isinstance(task, dict) and isinstance(task.get("daily_checkin"), dict)
-        else {}
-    )
-    progress = data.get("progress") if isinstance(data.get("progress"), dict) else {}
-    reward = dc.get("reward") if isinstance(dc.get("reward"), dict) else {}
+    _raw_dc = task.get("daily_checkin") if isinstance(task, dict) else None
+    dc: dict[str, Any] = _raw_dc if isinstance(_raw_dc, dict) else {}
+    _raw_progress = data.get("progress")
+    progress: dict[str, Any] = _raw_progress if isinstance(_raw_progress, dict) else {}
+    _raw_reward = dc.get("reward")
+    reward: dict[str, Any] = _raw_reward if isinstance(_raw_reward, dict) else {}
     return {
         "code": code if isinstance(code, int) else None,
         "checked_in": dc.get("checked_in_today") is True,

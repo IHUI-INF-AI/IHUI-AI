@@ -41,7 +41,12 @@
 
 **非目标(明确不做)**:
 - N1 不把签到助手的**用户个人账号**反向塞进运营号池(归属与安全决策,另案);
-- N2 不给 codearts 造签到引擎(华为码道无每日签到活动实证; 号池侧照常转发,签到侧如实跳过);
+- N2 不给 codearts 造签到引擎(华为码道无每日签到活动实证; 号池侧照常转发,签到侧如实跳过)
+  —— **2026-11-12 复核注**:官方帮助中心已上「每日签到得积分」活动页(offers-codeartsagent,
+  10-27 起,入口=码道 IDE/控制台/小程序的「活动福利」),前提"无实证"已不成立;但领取端点
+  未从客户端抓出协议、且池内 2 枚 codearts 会话均已 401 失效 ⇒ 本轮仍维持「不假装同步」
+   (造引擎属新功能,见 PROJECT_PLAN 票);同步地,loomy 每日 5000 为**登录自动发放**(客户端
+  points 面只有 first-login/激活/兑换码,无每日 claim 端点)⇒ 无券可领,映射照旧 null。
 - N3 不改签到引擎的上游协议与风控三件套(错峰/代理/出站闸门),系统账号全额继承;
 - N4 不做签到积分反哺 relay 转发的额度计算(积分归属平台的免费额度,由既有 Quota 查询按需展示)。
 
@@ -191,7 +196,8 @@ api 侧: `UPDATE ai_relay_account_pool SET token_enc=encryptField($token), refre
 | trae | trae | 双向凭证 + 状态全通 |
 | qoder | qoder | 双向凭证(引擎自刷新最活跃,回写价值最大)+ 状态 |
 | workbuddy | workbuddy | 双向凭证 + 状态 |
-| codearts | — | **skipped**: 无每日签到活动实证,不同步不假装 |
+| codearts | — | **skipped**: 每日签到活动官方已有(2026-11-12 复核注见 §2 N2),但领取端点未抓到协议且池内会话均失活 ⇒ 不同步不假装(待票) |
+| zcode | zcode | **2026-11-12 装车**:波谷额度引擎 `checkin_zcode.py`(preview 只读预检 → claim 写,票=zcodejwttoken 经 planToken 过桥);19:05 窗口 + 20:30/22:00 补跑 |
 | (未来)minimax | minimax | 号池加 provider 时只改映射表一处,签到引擎现成 |
 
 ## 7. 触发时机(五处挂钩)

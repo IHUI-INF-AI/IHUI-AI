@@ -36,6 +36,7 @@ import {
   pushPoolSync,
   type CheckinPlatform,
   type PoolAccountState,
+  zcodePlanJwtFromSecrets,
 } from './relay-account-pool-checkin-sync.js'
 import { decryptAccountCredentials } from './relay-account-pool-service.js'
 import { resolveAccountProxyUrl } from './relay-proxy-pool.js'
@@ -529,6 +530,7 @@ export async function reconcileCheckinSync(opts?: {
               cosy: extractCosy(full.extraMetadata),
               deviceKeyPem: pemFromSecrets(creds.secrets, 'deviceKeyPem'),
               devicePubPem: pemFromSecrets(creds.secrets, 'devicePubPem'),
+              planToken: zcodePlanJwtFromSecrets(creds.secrets),
               tokenExpiresAt: full.tokenExpiresAt,
             }),
           )

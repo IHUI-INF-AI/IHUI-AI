@@ -55,6 +55,7 @@ vi.mock('../src/utils/crypto.js', () => ({
   decryptField: (s: string) => (s.startsWith('enc:') ? s.slice(4) : s),
 }))
 vi.mock('../src/services/relay-account-pool-checkin-sync.js', () => ({
+  zcodePlanJwtFromSecrets: () => null,
   buildPoolSyncAccount: (x: unknown) => x,
   checkinPlatformFor: () => null,
   extractCosy: () => null,
