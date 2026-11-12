@@ -16,6 +16,7 @@
  *   - 仅允许 http/https 协议(自身接口固定,无用户可控 URL 跳转)
  *   - 查询关键词经 URL 编码,避免注入
  *   - 不缓存(每次实时查询)
+ *   - 重定向逐跳复校验(redirect:'manual'),响应体有字节闸(F-112)
  */
 
 import type { Tool, ToolResult } from './index.js';
@@ -26,11 +27,64 @@ const SEARCH_ENDPOINT = 'https://html.duckduckgo.com/html/';
 const SEARCH_TIMEOUT_MS = 15_000;
 const MAX_RESULTS = 5;
 const MAX_SNIPPET_CHARS = 300;
+/** 重定向跳数上限:自指 Location 不能把"每跳复校验"拖成死循环 */
+const MAX_REDIRECT_HOPS = 5;
+/**
+ * 响应体硬上限(对齐 fetch_url 的 10 MiB)。
+ *
+ * 量的是下载字节而不是解码后字符:`res.text()` 会把整份 HTML 先吃进内存,
+ * 恶意/异常的超大页面足以把进程撑爆,且模型拿到的"前 5 条结果"来自被撑爆前的截断。
+ */
+export const MAX_SEARCH_RESPONSE_BYTES = 10 * 1024 * 1024;
 
 interface SearchResult {
   title: string;
   url: string;
   snippet: string;
+}
+
+type BodyReadResult =
+  | { ok: true; text: string }
+  /** source 区分"Content-Length 声明超限(未下载)"与"实读超限(已中止)" */
+  | { ok: false; bytesRead: number; source: 'declared' | 'streamed' };
+
+/**
+ * 流式读取响应体并施加字节上限;超限是明确失败,不做静默截断。
+ *
+ * 与 fetch_url 同形态(那边是同一条判据的另一处调用点);本文件只读搜索页,
+ * 不存在把半截正文当全文返回的正当理由,故一律报错。
+ */
+async function readBodyWithLimit(res: Response, limitBytes: number): Promise<BodyReadResult> {
+  const declaredRaw = res.headers?.get?.('content-length') ?? null;
+  const declared = declaredRaw === null ? Number.NaN : Number(declaredRaw);
+  if (Number.isFinite(declared) && declared > limitBytes) {
+    await res.body?.cancel().catch(() => {});
+    return { ok: false, bytesRead: declared, source: 'declared' };
+  }
+  if (!res.body) {
+    // 无流式 body(空响应体)时整份读取,但仍按字节闸判定
+    const text = await res.text();
+    const bytes = Buffer.byteLength(text, 'utf8');
+    if (bytes > limitBytes) return { ok: false, bytesRead: bytes, source: 'streamed' };
+    return { ok: true, text };
+  }
+  const reader = res.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (!value || value.byteLength === 0) continue;
+    total += value.byteLength;
+    if (total > limitBytes) {
+      await reader.cancel().catch(() => {});
+      return { ok: false, bytesRead: total, source: 'streamed' };
+    }
+    chunks.push(value);
+  }
+  // 分块边界可能切开多字节字符,先拼字节再整体解码
+  const buf = Buffer.concat(chunks.map((c) => Buffer.from(c.buffer, c.byteOffset, c.byteLength)));
+  return { ok: true, text: buf.toString('utf8') };
 }
 
 /** HTML 转义还原(只处理搜索结果中常见实体) */
@@ -125,25 +179,48 @@ export const web_search: Tool = {
     }
 
     const searchUrl = `${SEARCH_ENDPOINT}?q=${encodeURIComponent(query)}`;
-    const verdict = await assertSafeFetchUrl(searchUrl);
-    if (!verdict.safe) {
-      const error = formatSsrfRejection(verdict);
-      await runPostToolCall('web_search', { error }, ctx.signal);
-      return { success: false, output: '', error, errorType: 'network' };
-    }
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), SEARCH_TIMEOUT_MS);
 
     try {
-      const res = await fetch(searchUrl, {
-        signal: controller.signal,
-        redirect: 'follow',
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; IHUI-CLI-Agent/1.0)',
-          'Accept': 'text/html,application/xhtml+xml',
-          'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
-        },
-      });
+      // 逐跳手动跟随:每一跳都重新过一次 SSRF 守卫。
+      // redirect:'follow' 下,对端一条 302 就能把已校验的公网 URL 变成未校验的内网请求。
+      let target = searchUrl;
+      let hops = 0;
+      let res: Response;
+      for (;;) {
+        const verdict = await assertSafeFetchUrl(target);
+        if (!verdict.safe) {
+          const error = formatSsrfRejection(verdict);
+          await runPostToolCall('web_search', { error }, ctx.signal);
+          return { success: false, output: '', error, errorType: 'ssrf_denied' };
+        }
+        res = await fetch(target, {
+          signal: controller.signal,
+          redirect: 'manual',
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (compatible; IHUI-CLI-Agent/1.0)',
+            'Accept': 'text/html,application/xhtml+xml',
+            'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+          },
+        });
+        if (res.status < 300 || res.status >= 400) break;
+        const location = res.headers.get('location');
+        if (!location) break;
+        if (++hops > MAX_REDIRECT_HOPS) {
+          await runPostToolCall('web_search', { error: 'redirect-limit' }, ctx.signal);
+          await res.body?.cancel().catch(() => {});
+          return {
+            success: false,
+            output: '',
+            error: `重定向超过 ${MAX_REDIRECT_HOPS} 跳,已中止`,
+            errorType: 'redirect_limit',
+          };
+        }
+        // 相对 Location 按当前跳解析后再裁决,不拿原始字符串猜
+        target = new URL(location, target).toString();
+        await res.body?.cancel().catch(() => {});
+      }
 
       if (!res.ok) {
         await runPostToolCall('web_search', { status: res.status }, ctx.signal);
@@ -155,7 +232,32 @@ export const web_search: Tool = {
         };
       }
 
-      const html = await res.text();
+      const body = await readBodyWithLimit(res, MAX_SEARCH_RESPONSE_BYTES);
+      if (!body.ok) {
+        await runPostToolCall(
+          'web_search',
+          {
+            error: 'response_too_large',
+            limitBytes: MAX_SEARCH_RESPONSE_BYTES,
+            bytes: body.bytesRead,
+            source: body.source,
+          },
+          ctx.signal,
+        );
+        const detail =
+          body.source === 'declared'
+            ? `Content-Length 声明 ${body.bytesRead} 字节`
+            : `已读取 ${body.bytesRead} 字节即中止`;
+        return {
+          success: false,
+          output: '',
+          error:
+            `搜索页响应体超过 ${MAX_SEARCH_RESPONSE_BYTES / 1024 / 1024} MiB 上限(${detail}),` +
+            '已中止,未返回任何结果。',
+          errorType: 'response_too_large',
+        };
+      }
+      const html = body.text;
       const results = parseDuckDuckGoResults(html, MAX_RESULTS);
       await runPostToolCall('web_search', {
         resultCount: results.length,
