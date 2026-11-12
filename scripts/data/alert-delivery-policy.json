@@ -101,11 +101,11 @@
   {
     "id": "stray-root-outflow",
     "prefix": "盘根外流",
-    "cooldownMs": 28800000,
-    "reason": "`盘根外流:项目产物出现在声明白名单之外` 在产物清运/补声明前是持续态,同一批产物逐轮命中;历史 24h 3 封但只有 1 个 alertId(3928e14fcdec)。族级 8h（480 分钟）上限只留首封 + 累计抑制计数,正文仍给最新路径;判据与 severity 不动。",
+    "cooldownMs": 86400000,
+    "reason": "`盘根外流:项目产物出现在声明白名单之外` 在产物清运/补声明前是**持续态**,且 dedupKey 尾缀随 `held`(停摆时长档,4h→8h→…单调升)与 `stray` 计数档变化 ⇒ 每升一档就换一枚新身份,原 8h 族窗对持续态压不住(全历史 86 封,是邮箱长期刷屏头号源)。族级 24h 只留首封 + 累计抑制计数,正文仍给最新路径与计数;**不把红判绿**,盘根卫生判据仍逐轮判红,产物清运/补声明后自然不再触发。",
     "owner": "git-guardian",
-    "reviewBy": "2026-11-16",
-    "evidence": "git-guardian.mjs:2100/2115 / .ihui-agent/state/mail-send-ledger.jsonl 24h 3 封 / 1 个 alertId(3928e14fcdec)"
+    "reviewBy": "2026-11-24",
+    "evidence": ".ihui-agent/state/mail-send-ledger.jsonl 现读: 全历史 86 封 / 多个身份(c075a7f02f4a→3928e14fcdec 持续漂移,3 周未收敛);dedupKey=git-guardian;盘根外流…;<hash> 尾缀随 held/stray 计数档变,每变即新身份,单身份窗与 8h 族窗均压不住;git-guardian.mjs:2344 dedupKey=`stray=${alertCountTier};wtOutside=${alertCountTier};held=${alertHeldTier().tier}`"
   },
   {
     "id": "ops-patrol-red",
