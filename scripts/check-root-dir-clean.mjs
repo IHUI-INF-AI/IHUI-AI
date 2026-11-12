@@ -356,6 +356,12 @@ const ALLOWED_HIDDEN_DIRS = new Set([
   // 这里登记只是把**合法运行态**从存量告警里摘出来,不再每次刷屏。
   '.doc-autoupdate',
   '.deploy.lock',
+  // 2026-11-12 登记:Box-Agent 运行时 scratch 目录($BOX_AGENT_SCRATCH_DIR 落点,内含
+  // ihui-push-*/.archify/ 等运行时一次性产物,实测今日 10:50 由运行时在根重建)。与
+  // `.loomy-attachments`/`.screenshots`/`.runtime` 同类:只登记、不搬不删(搬/删会被运行时
+  // 原地重建)。它以"未跟踪、非忽略"形态让守门 44 在 --staged 面报"无法判定"(exit 2)
+  // ⇒ 批量按 blocking/未判定计 ⇒ 提交被阻。登记即解除 §12e 同型恒红。
+  '.box-agent-scratch',
   // 2026-10-19 登记:README 提交钩子 scripts/auto-update-readme-recent.mjs 的增量基线目录
   // (.doc-autoupdate/last-sha = 上次处理到的 commit,被 git 跟踪、随提交刷新)。与 .env/.DevEnv
   // 同类:合法工具态,只登记"根级存在"形态、不放松任何检测;漏收会使本门 --staged 恒红 ⇒
