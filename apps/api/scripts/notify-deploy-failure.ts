@@ -731,6 +731,15 @@ interface DedupeEntry {
   /** 只存时刻,**刻意不存标题/正文摘要**:状态文件会留在盘上,而告警文案可能带路径、账号、
    *  主机名这类不该二次落盘的东西,去重判定只需要 id + 时间。 */
   ts: number
+  /**
+   * 本键写入时「本次调用」的判定窗口毫秒数(可选:旧状态文件没有此字段)。
+   * 为什么必须带:全仓生产者共用同一份 notify-dedupe-state.json,而各自 --dedupe-hours 不同
+   * (默认 4h / relay-account-keepalive 24h / …)。pruneDedupeState 若按「本次调用窗口」逐出
+   * 所有键,一次 4h 调用就会删掉 24h 生产者仍在 8h~48h 窗口内的键 ⇒ 跨生产者窗口互相踩、
+   * 去重静默失效、每轮照寄。窗口记在键自己身上,逐出时各按各的窗口算,互不干扰。
+   * 可选 = 兼容旧键(无 winMs)⇒ pruneDedupeState 回退到本次 windowMs,行为向后兼容。
+   */
+  winMs?: number
 }
 type DedupeState = Record<string, DedupeEntry>
 
@@ -773,11 +782,17 @@ function decideDedupe(p: DedupeProbe): DedupeDecision {
   return { action: 'send', why: `标识 ${id} 距上次已 ${hoursSince}h,超过窗口`, hoursSince }
 }
 
-/** 逐出老条目:窗口 ×2 之外的都不再参与判定,免得状态文件只增不减 */
+/**
+ * 逐出老条目:**每个键按它自己写入时的窗口** ×2 判定,免得状态文件只增不减。
+ * 为什么不能按「本次调用窗口」一刀切:状态文件被所有生产者共用,一次 4h 调用若把全部键
+ * 都按 4h×2=8h 逐出,会删掉 24h 生产者仍在窗口内(8h~48h)的键 ⇒ 它下一轮又变"首次出现"
+ * ⇒ 去重静默失效、每轮照寄。键自带 winMs 时各按各的窗口;旧键无 winMs 回退本次 windowMs
+ * (向后兼容),既不误删别人,也不改变历史行为。判据(decideDedupe)仍只看本次 windowMs,不动。
+ */
 function pruneDedupeState(state: DedupeState, nowMs: number, windowMs: number): DedupeState {
-  const keepMs = windowMs * 2
   const out: DedupeState = {}
   for (const [k, v] of Object.entries(state)) {
+    const keepMs = (typeof v?.winMs === 'number' && v.winMs > 0 ? v.winMs : windowMs) * 2
     if (typeof v?.ts === 'number' && nowMs - v.ts <= keepMs) out[k] = v
   }
   return out
@@ -1052,7 +1067,16 @@ function parseDedupeState(text: string): { state: DedupeState; problem: string |
   const state: DedupeState = {}
   for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
     const e = v as Partial<DedupeEntry> | null
-    if (e && typeof e.ts === 'number' && Number.isFinite(e.ts)) state[k] = { ts: e.ts }
+    if (e && typeof e.ts === 'number' && Number.isFinite(e.ts)) {
+      // 必须把键自带的 winMs 一起带回:否则重读后 pruneDedupeState 看不到别的生产者的窗口,
+      // 又会把所有键按「本次窗口」逐出 ⇒ 跨生产者窗口互相踩的老问题原样复发(写盘带 winMs
+      // 就等于白写)。旧键没有 winMs(可选字段)就保持不带,逐出时回退到本次 windowMs。
+      const entry: DedupeEntry = { ts: e.ts }
+      if (typeof e.winMs === 'number' && Number.isFinite(e.winMs) && e.winMs > 0) {
+        entry.winMs = e.winMs
+      }
+      state[k] = entry
+    }
   }
   return { state, problem: null }
 }
@@ -1520,8 +1544,14 @@ async function runCore(argv: readonly string[], env: EnvLike, deps: RunDeps): Pr
     }
     if (allOk && alertId !== '') {
       // 只在真送达后记账:投递失败必须让下一轮重试,否则一次网络抖动换来 4 小时静默
+      // 本次 alertId 的 value 带 winMs(=本次窗口):状态文件全仓共用,pruneDedupeState 逐出时
+      // 各按各键自己的窗口算,别的生产者(如 24h)才不会被本次 4h 调用误删 ⇒ 去重不互相踩。
       try {
-        const next = pruneDedupeState({ ...state, [alertId]: { ts: nowMs } }, nowMs, windowMs)
+        const next = pruneDedupeState(
+          { ...state, [alertId]: { ts: nowMs, winMs: windowMs } },
+          nowMs,
+          windowMs,
+        )
         writeState(statePath, JSON.stringify(next, null, 1))
       } catch (e) {
         warnings.push(`去重状态写入失败(不影响本次发送,但下一轮可能重寄): ${errText(e)}`)

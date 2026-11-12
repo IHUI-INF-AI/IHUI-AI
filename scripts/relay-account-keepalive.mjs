@@ -160,6 +160,11 @@ function sendAlertMail(targets) {
         'relay-account-keepalive',
         '--alert-id',
         alertIdOf(row),
+        // 持续保活失败的账号每 6h 重报同一持续态(身份固定 = providerCode+uid),默认 4h 窗
+        // 压不住 ⇒ 24h:每账号每天最多 1 封。正文仍逐条给健康/token/refresh/错误;
+        // 账号恢复后本去重自然不再触发。仅治重报节奏,severity/判据一字未动。
+        '--dedupe-hours',
+        '24',
         '--message-file',
         msgFile,
       ],

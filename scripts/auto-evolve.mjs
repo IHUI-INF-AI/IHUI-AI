@@ -123,7 +123,18 @@ const COST_CAPS_JSON = join(ROOT, 'scripts', 'data', 'cost-caps.json')
 export const COST_LEDGER = join(ROOT, '.ihui-agent', 'state', 'cost-ledger.jsonl')
 export const LEDGER = join(ROOT, '.ihui-agent', 'state', 'auto-evolve-ledger.jsonl')
 export const LOCK_FILE = join(ROOT, '.ihui-agent', 'state', 'auto-evolve.lock')
+/**
+ * 逃生邮件节流状态:单个 JSON map,按 alertId 分键记「上次真送达时刻」。
+ * 为什么改成分键:旧实现 8 处不带身份的 escapeThrottled/markEscape 调用共写同一个 {"at": ms},
+ * 任一类型逃生信都会覆盖别型的时间戳 ⇒ 窗口互相续/断(邮箱刷屏的直接来源之一)。
+ * 为什么单文件而不是「按 alertId 拼文件名」:alertId 含冒号与动态票键,拼进路径有文件名注入面,
+ * 分键(map)既让每个 id 独立计时,又不给 alertId 触碰文件系统的机会。
+ */
 const ESCAPE_TICK = join(ROOT, '.ihui-agent', 'state', 'auto-evolve-escape-tick.json')
+/** 漏传 alertId 时的稳定兜底身份:不与任何具体告警同义,避免「所有调用共写一个键」。 */
+const ESCAPE_DEFAULT_ALERT_ID = '__default__'
+/** budget 是当日恒成立的持续态,单独 24h 窗口;其余逃生邮件是真新故障,保持 1h。 */
+const ESCAPE_BUDGET_ALERT_ID = 'auto-evolve:budget'
 const TMP_DIR = join(ROOT, '.ihui-agent', 'tmp', 'auto-evolve')
 export const PLAN_TASKS = join(ROOT, 'scripts', 'plan-tasks.mjs')
 /** 自治决策候选评估(第 2 期接线):id = ticketKey,由 scripts/autonomy-candidates.mjs 按
@@ -168,8 +179,10 @@ const ESCAPE_MAIL_THROTTLE_MS = 60 * 60 * 1000
 /**
  * budget 逃生邮件单独走 24h 节流(2026-11-11 立,治刷屏):「每日派发预算耗尽 ⇒ 调度器停派至明日」
  * 是**当日恒成立的持续态**,1h 共享节流下它每天能寄 ~4 封(台账 7d 22 封 / 1 个 alertId,同一句文案),
- * 多寄的每一封都不带新信息。独立 tick 文件只吃 budget 一枚 id ⇒ 不动其它逃生邮件(nonprogress /
- * runner-* 是真新故障,保持 1h)。首封当日仍立即出;跨天自然重开。
+ * 多寄的每一封都不带新信息。窗口按 id 区分 ⇒ 不动其它逃生邮件(nonprogress / runner-* 是真新故障,
+ * 保持 1h)。首封当日仍立即出;跨天自然重开。
+ * 2026-11-12:节流状态统一进 ESCAPE_TICK 的单 map(按 id 分键),下面这个旧独立文件**不再写入**,
+ * 仅由 readEscapeTicks 一次性兼容读旧盘面 —— 否则迁移当天会丢掉已在计的 24h 窗口又多寄一封。
  */
 const ESCAPE_BUDGET_THROTTLE_MS = 24 * 60 * 60 * 1000
 const ESCAPE_BUDGET_TICK = join(ROOT, '.ihui-agent', 'state', 'auto-evolve-escape-budget-tick.json')
@@ -1116,28 +1129,74 @@ export function resolveMailTo(envFile = API_ENV) {
   return (quoted ? quoted[1] : raw).trim()
 }
 
-function escapeThrottled(now = Date.now(), alertId = '') {
-  // budget 走独立 24h tick(见 ESCAPE_BUDGET_THROTTLE_MS 头注);其余逃生邮件沿用共享 1h tick。
-  const isBudget = String(alertId || '') === 'auto-evolve:budget'
-  const file = isBudget ? ESCAPE_BUDGET_TICK : ESCAPE_TICK
-  const win = isBudget ? ESCAPE_BUDGET_THROTTLE_MS : ESCAPE_MAIL_THROTTLE_MS
+/**
+ * 读节流 map(带旧盘面平滑迁移),任何 IO/解析失败一律回落空 map ⇒ 放行。
+ * 兼容两类旧格式:① 本文件旧写 {"at": ms} ⇒ 把唯一时间戳迁到稳定默认身份键(不丢数据、
+ *   也不冒充任一真实 id);② 旧独立 ESCAPE_BUDGET_TICK {"at": ms} ⇒ 仅在 map 尚未记过 budget 时
+ *   补进 budget 键(一次性迁移,绝不覆盖新账,也不因旧文件残留反复回填)。
+ * 为什么不抛:节流状态只是辅助记账,解析失败不该影响派单主流程(宁可多寄一封,绝不吞信)。
+ */
+function readEscapeTicks() {
+  const ticks = {}
   try {
-    const last = JSON.parse(readFileSync(file, 'utf8')).at
-    return now - Number(last) < win
+    const raw = JSON.parse(readFileSync(ESCAPE_TICK, 'utf8'))
+    if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+      for (const [k, v] of Object.entries(raw)) {
+        if (k === 'at') continue // 旧格式的唯一时间戳字段,下面单独迁移
+        if (typeof v === 'number' && Number.isFinite(v)) ticks[k] = v
+      }
+      if (
+        typeof raw.at === 'number' &&
+        Number.isFinite(raw.at) &&
+        ticks[ESCAPE_DEFAULT_ALERT_ID] === undefined
+      ) {
+        ticks[ESCAPE_DEFAULT_ALERT_ID] = raw.at
+      }
+    }
   } catch {
-    return false
+    /* 文件不存在 / 半份 JSON / 坏格式 ⇒ 按空 map 放行 */
   }
+  if (ticks[ESCAPE_BUDGET_ALERT_ID] === undefined) {
+    try {
+      const legacy = JSON.parse(readFileSync(ESCAPE_BUDGET_TICK, 'utf8')).at
+      if (typeof legacy === 'number' && Number.isFinite(legacy)) {
+        ticks[ESCAPE_BUDGET_ALERT_ID] = legacy
+      }
+    } catch {
+      /* 旧独立文件不存在 / 坏格式 ⇒ budget 按键缺失照常放行 */
+    }
+  }
+  return ticks
 }
 
-function markEscape(now = Date.now(), alertId = '') {
-  const file = String(alertId || '') === 'auto-evolve:budget' ? ESCAPE_BUDGET_TICK : ESCAPE_TICK
-  mkdirSync(dirname(file), { recursive: true })
-  writeFileSync(file, JSON.stringify({ at: now }), 'utf8')
+/**
+ * 节流判定的唯一判据(纯函数:只吃构造好的 map / 时刻 / 身份,不碰文件与时钟)。
+ * 抽出来是为了让「budget 24h 压住、其它 id 1h 放行、按 id 互不覆盖」可被直接钉住,
+ * 而不必在测试里另抄一份判定(§0.6 判据单源)。判定式与旧实现逐字相同:now - last < win。
+ */
+export function escapeThrottleDecision(ticks, now, alertId) {
+  const id = String(alertId || ESCAPE_DEFAULT_ALERT_ID)
+  const win = id === ESCAPE_BUDGET_ALERT_ID ? ESCAPE_BUDGET_THROTTLE_MS : ESCAPE_MAIL_THROTTLE_MS
+  const last = ticks?.[id]
+  return now - Number(last) < win
+}
+
+function escapeThrottled(now = Date.now(), alertId = ESCAPE_DEFAULT_ALERT_ID) {
+  return escapeThrottleDecision(readEscapeTicks(), now, alertId)
+}
+
+function markEscape(now = Date.now(), alertId = ESCAPE_DEFAULT_ALERT_ID) {
+  // 只写自己那一枚 id 的键:分键后不同类型互不覆盖,窗口不再互相续/断。
+  const ticks = readEscapeTicks()
+  ticks[String(alertId || ESCAPE_DEFAULT_ALERT_ID)] = now
+  mkdirSync(dirname(ESCAPE_TICK), { recursive: true })
+  writeFileSync(ESCAPE_TICK, JSON.stringify(ticks), 'utf8')
 }
 
 /**
  * 逃生邮件:只经 notify-deploy-failure 唯一出口(守门 81);出口不在位/无收件人 ⇒ 打印并
- * 落「未判定」返回 false,绝不冒充已发(§0.3)。
+ * 落「未判定」返回 false,绝不冒充已发(§0.3)。返回 true 只在出口**真送达**时 —— 调用方据此
+ * 才 markEscape,避免一次被 suppress 的尝试吞掉整段节流窗口(详见函数尾的处置标记判定)。
  */
 function sendEscapeMail(gates, alertId, title, bodyText, severity = 'warning') {
   // severity 只加一个可选形参,缺省 'warning' ⇒ 本枚之前那 9 处调用逐字节不变(不趁修 A 改 B)。
@@ -1160,32 +1219,32 @@ function sendEscapeMail(gates, alertId, title, bodyText, severity = 'warning') {
   mkdirSync(TMP_DIR, { recursive: true })
   const msgFile = join(TMP_DIR, `escape-${Date.now()}.md`)
   writeFileSync(msgFile, bodyText, 'utf8')
-  const r = spawnSync(
-    process.execPath,
-    [
-      TSX_ENTRY,
-      MAIL_SCRIPT,
-      '--to',
-      to,
-      '--title',
-      title,
-      '--severity',
-      severity,
-      '--source',
-      'auto-evolve',
-      '--alert-id',
-      alertId,
-      '--message-file',
-      msgFile,
-    ],
-    {
-      stdio: ['ignore', 'pipe', 'pipe'],
-      cwd: ROOT,
-      windowsHide: true,
-      timeout: 60_000,
-      encoding: 'utf8',
-    },
-  )
+  // budget 的本地 tick 是 24h,出口 --alert-id 却只有默认 4h ⇒ 两边语义打架(本地压住期间出口
+  // 仍会放行、或反过来)。显式把出口窗口对齐到 24h;其余调用保持默认窗口逐字不变。
+  const mailArgv = [
+    TSX_ENTRY,
+    MAIL_SCRIPT,
+    '--to',
+    to,
+    '--title',
+    title,
+    '--severity',
+    severity,
+    '--source',
+    'auto-evolve',
+    '--alert-id',
+    alertId,
+    ...(String(alertId || '') === ESCAPE_BUDGET_ALERT_ID ? ['--dedupe-hours', '24'] : []),
+    '--message-file',
+    msgFile,
+  ]
+  const r = spawnSync(process.execPath, mailArgv, {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    cwd: ROOT,
+    windowsHide: true,
+    timeout: 60_000,
+    encoding: 'utf8',
+  })
   try {
     unlinkSync(msgFile)
   } catch {
@@ -1195,6 +1254,15 @@ function sendEscapeMail(gates, alertId, title, bodyText, severity = 'warning') {
     console.error(`⚠️ 逃生邮件投递失败(status=${r.status}):${String(r.stderr ?? '').slice(-200)}`)
     return false
   }
+  // 压住 ≠ 寄出:出口按 --alert-id 窗口 suppress 时 exit 0(与真投递同码),只在 stdout 打
+  // __DISPOSITION__=suppressed。旧写法 status===0 一律当送达 ⇒ 一次根本没寄出的尝试也会推进
+  // 节流 tick,吞掉整段窗口。判定照抄 git-guardian judgeDispatchStdout(§2795)的同型修法:
+  // 明确 delivered 才算送达;suppressed / 其它非投递标记一律不算;读不到标记 fail-open 按旧
+  // 行为当送达(绝不因读不懂输出制造漏报/重复寄)。据此,调用方只在真送达后 markEscape。
+  const m = /^__DISPOSITION__=([a-z]+)\r?$/m.exec(String(r.stdout ?? ''))
+  const kind = m ? m[1] : ''
+  if (kind === 'suppressed') return false
+  if (kind !== '' && kind !== 'delivered') return false
   return true
 }
 
@@ -2645,14 +2713,15 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
       console.log(
         `⏸ 发起腿额度熔断(与生产班次额度不同一桶):${blocked.breaches.join(';')} ⇒ 本轮停转并喊人`,
       )
-      if (!escapeThrottled()) {
-        markEscape()
-        sendEscapeMail(
+      if (!escapeThrottled(undefined, 'auto-evolve:cost-blocked')) {
+        // 先寄后记:出口按 --alert-id 窗口 suppress 时 exit 0,寄前记 tick 会吞掉整段节流窗口。
+        const delivered = sendEscapeMail(
           gates,
           'auto-evolve:cost-blocked',
           '[auto-evolve] 发起腿额度熔断停转(调度器自己的腿在坏)',
           `腿断桶越限:${blocked.breaches.join(';')}(${s})。含义与 session 越限**不同**:这说明派发通路持续失败,不是活儿太多。\n取证:node scripts/check-autonomy-leg-health.mjs(看 A14-executor-face-stall 与 A2-attribution)与台账末行 runner-unavailable 的 why。`,
         )
+        if (delivered) markEscape(undefined, 'auto-evolve:cost-blocked')
       }
       return
     }
@@ -2663,14 +2732,15 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
       const costNote = `${cost.breaches.join(';')} | ${summary}`
       record({ mode: 'dispatch', action: 'cost-breaker-stop', note: costNote })
       console.log(`⏸ 成本熔断:${cost.breaches.join(';')} ⇒ 本轮停转(软停机)`)
-      if (!escapeThrottled()) {
-        markEscape()
-        sendEscapeMail(
+      if (!escapeThrottled(undefined, 'auto-evolve:cost')) {
+        // 先寄后记:出口按 --alert-id 窗口 suppress 时 exit 0,寄前记 tick 会吞掉整段节流窗口。
+        const delivered = sendEscapeMail(
           gates,
           'auto-evolve:cost',
           '[auto-evolve] 成本熔断停转',
           `调度层会话额度越限:${cost.breaches.join(';')}(${summary})。停派至窗口回落;放量属人工阀 budget-cap-change,须人改 scripts/data/cost-caps.json。`,
         )
+        if (delivered) markEscape(undefined, 'auto-evolve:cost')
       }
       return
     }
@@ -2711,14 +2781,15 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
       console.error(
         `⛔ 派发前闸未过(state=${pf.state}):${pf.why}${pf.missing?.length ? `｜不在位:${pf.missing.join(', ')}` : ''}`,
       )
-      if (!escapeThrottled()) {
-        markEscape()
-        sendEscapeMail(
+      if (!escapeThrottled(undefined, 'auto-evolve:runner-preflight')) {
+        // 先寄后记:出口按 --alert-id 窗口 suppress 时 exit 0,寄前记 tick 会吞掉整段节流窗口。
+        const delivered = sendEscapeMail(
           gates,
           'auto-evolve:runner-preflight',
           '[auto-evolve] 自开发发起腿不可用(派发前闸拦停)',
           `判据:scripts/lib/autonomy-runner.mjs preflightSessionRunner\nstate=${pf.state}｜${pf.why}\n逐枚核验:${(pf.checked ?? []).map((c) => `${c.inPlace ? '✓' : '✗'} ${c.token}`).join('\n')}\n出路:改 scripts/data/auto-evolve-gates.json 的 sessionCommandTemplate(仓根写 \${REPO_ROOT} 令牌,别钉盘符),或补齐缺失产物。本轮未派任何票,票面连败计数未受影响。`,
         )
+        if (delivered) markEscape(undefined, 'auto-evolve:runner-preflight')
       }
       process.exitCode = 2
       return
@@ -2795,14 +2866,15 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
       })
       if (s.state === 'no-progress') {
         console.log(`⚠ 结算:票 ${s.ticketKey} 会话自称成功但票行零推进 —— ${s.why}`)
-        if (!escapeThrottled()) {
-          markEscape()
-          sendEscapeMail(
+        if (!escapeThrottled(undefined, 'auto-evolve:no-progress')) {
+          // 先寄后记:出口按 --alert-id 窗口 suppress 时 exit 0,寄前记 tick 会吞掉整段节流窗口。
+          const delivered = sendEscapeMail(
             gates,
             'auto-evolve:no-progress',
             '[auto-evolve] 有票派出去但零推进(会话"成功"不可信)',
             `票键:${s.ticketKey}\n票面:${s.ticketLine}\n判据:${s.why}\n这条不是"票失败"(不计连败、不封票),而是"成功判定过松"的凭据。\n出路:核该会话末轮实际做了什么(日志 .ihui-agent/state/auto-evolve-run.log);若它结构上交付不了(自动会话无提交权),这一族就得改判据 —— 派发的合格线要绑"票行推进 + 绑定票键的提交",而不是 CLI 退出码。`,
           )
+          if (delivered) markEscape(undefined, 'auto-evolve:no-progress')
         }
       }
     }
@@ -2875,9 +2947,9 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
           why: np.why,
         })
         console.log(`⛔ L${ticket.line} ${np.why} ｜ 空转明细:${detail || '(读不到)'}`)
-        if (!escapeThrottled()) {
-          markEscape()
-          sendEscapeMail(
+        if (!escapeThrottled(undefined, `auto-evolve:nonprogress-${np.route}:${key.slice(0, 8)}`)) {
+          // 先寄后记:出口按 --alert-id 窗口 suppress 时 exit 0,寄前记 tick 会吞掉整段节流窗口。
+          const delivered = sendEscapeMail(
             gates,
             `auto-evolve:nonprogress-${np.route}:${key.slice(0, 8)}`,
             `[auto-evolve] 一枚票连续空转已${np.route === 'park' ? '终局停派' : '进冷却'}`,
@@ -2887,6 +2959,7 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
               `  ② 这票本就该人做 ⇒ 把它摘出自动派单面(改标题使白名单不命中,或按「完成即删」结清摘行)。\n` +
               `判据单源 = scripts/lib/autonomy-nonprogress.mjs;档位 = auto-evolve-gates.json 的 rotateAfterAttempts/parkAfterAttempts/parkHardLimit/parkCooldownHours。`,
           )
+          if (delivered) markEscape(undefined, `auto-evolve:nonprogress-${np.route}:${key.slice(0, 8)}`)
         }
       }
     }
@@ -2917,13 +2990,14 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
       record({ mode: dryRun ? 'dryrun' : 'dispatch', action: 'budget-exhausted', note: summary })
       console.log(`⏸ ${summary} ⇒ 预算耗尽,停派`)
       if (!dryRun && !escapeThrottled(undefined, 'auto-evolve:budget')) {
-        markEscape(undefined, 'auto-evolve:budget')
-        sendEscapeMail(
+        // 先寄后记:出口按 --alert-id 窗口 suppress 时 exit 0,寄前记 tick 会吞掉整段节流窗口。
+        const delivered = sendEscapeMail(
           gates,
           'auto-evolve:budget',
           '[auto-evolve] 每日派发预算耗尽',
           `今日已派 ${dispatched} 轮达上限 ${gates.dailyDispatchBudget}。调度器自动停派至明日;若需放量改 auto-evolve-gates.json 的 dailyDispatchBudget。`,
         )
+        if (delivered) markEscape(undefined, 'auto-evolve:budget')
       }
       return
     }
@@ -3019,14 +3093,15 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
         console.log(
           `⛔ L${ticket.line} 命中人工阀「${valve.ruleId}」⇒ enforce 档不派(不重试、不绕行)`,
         )
-        if (!escapeThrottled()) {
-          markEscape()
-          sendEscapeMail(
+        if (!escapeThrottled(undefined, `auto-evolve:valve:${valve.ruleId}`)) {
+          // 先寄后记:出口按 --alert-id 窗口 suppress 时 exit 0,寄前记 tick 会吞掉整段节流窗口。
+          const delivered = sendEscapeMail(
             gates,
             `auto-evolve:valve:${valve.ruleId}`,
             '[auto-evolve] 有票命中人工阀,已停派等人',
             `票:L${ticket.line} ${ticket.text.slice(0, 140)}\n命中规则:${valve.ruleId}\n判据:${valve.reason}\n出路:这一条按清单归机主面(scripts/data/human-valve-list.json),由人执行;或由人把它摘出自动派单面。`,
           )
+          if (delivered) markEscape(undefined, `auto-evolve:valve:${valve.ruleId}`)
         }
         continue
       }
@@ -3211,14 +3286,15 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
         console.error(
           `⛔ 发起腿故障(分型=${res.failureKind ?? res.action},provider-error=${res.providerError ?? '无'},不计票连败、不封票):${res.why}`,
         )
-        if (!escapeThrottled()) {
-          markEscape()
-          sendEscapeMail(
+        if (!escapeThrottled(undefined, `auto-evolve:runner-${res.failureKind ?? 'undetermined'}`)) {
+          // 先寄后记:出口按 --alert-id 窗口 suppress 时 exit 0,寄前记 tick 会吞掉整段节流窗口。
+          const delivered = sendEscapeMail(
             gates,
             `auto-evolve:runner-${res.failureKind ?? 'undetermined'}`,
             `[auto-evolve] 起会话失败已分型为调度器侧(${res.failureKind ?? res.action}),已停派本轮`,
             `票面(未被计入连败):L${ticket.line} ${ticket.text.slice(0, 120)}\n分型:${res.failureKind ?? res.action}｜provider-error=${res.providerError ?? '无'}｜${res.why}\n出路:核 scripts/data/auto-evolve-gates.json 的 sessionCommandTemplate 与 CLI 产物是否在位;本器判据 = scripts/lib/autonomy-runner.mjs。`,
           )
+          if (delivered) markEscape(undefined, `auto-evolve:runner-${res.failureKind ?? 'undetermined'}`)
         }
         process.exitCode = 2
         return
@@ -3244,14 +3320,15 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
             why: `连败 ${streak} 次(阈值 ${gates.failureStreakLimit})`,
           })
           console.log(`⛔ 同票连败 ${streak} 次 ⇒ 封禁至 ${until}`)
-          if (!escapeThrottled()) {
-            markEscape()
-            sendEscapeMail(
+          if (!escapeThrottled(undefined, `auto-evolve:quarantine:${key.slice(0, 8)}`)) {
+            // 先寄后记:出口按 --alert-id 窗口 suppress 时 exit 0,寄前记 tick 会吞掉整段节流窗口。
+            const delivered = sendEscapeMail(
               gates,
               `auto-evolve:quarantine:${key.slice(0, 8)}`,
               '[auto-evolve] 票被自动封禁',
               `票:L${ticket.line} ${ticket.text.slice(0, 120)}\n连败 ${streak} 次(阈值 ${gates.failureStreakLimit}),自动封禁至 ${until}。封禁明细与连败原因见 ${LEDGER};解封等 until 到期或人工摘除 quarantined 行。`,
             )
+            if (delivered) markEscape(undefined, `auto-evolve:quarantine:${key.slice(0, 8)}`)
           }
         }
         return
