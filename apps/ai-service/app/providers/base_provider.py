@@ -124,6 +124,13 @@ class BaseProvider(ABC):
                     f"实际为 {type(data).__name__}",
                     resp.status_code,
                 )
+            # AIS-066:HTTP 200 但响应体带 error(部分 OpenAI 兼容代理/自建网关行为),
+            # 不能当成功返回空回复;有 error 即抛 ProviderError 让上层 fallback/重试。
+            if data.get("error"):
+                raise ProviderError(
+                    f"{self.__class__.__name__} 上游返回错误体: {data['error']}",
+                    resp.status_code,
+                )
             if resp.status_code >= 400:
                 # A25 唯一生产点:上游用 Retry-After(头或体 retry_after 秒数)/
                 # x-should-retry 明示时,信息必须随异常上行,不得在此层丢掉。
