@@ -306,3 +306,42 @@ export function needsAttention(
   }
   return { needed: false };
 }
+
+/**
+ * 把 CLI 循环的 `AgentStopReason` 映射成回合结束原因。
+ *
+ * 为什么要这张表而不是随手 if:
+ *   `AgentStopReason` 是 CLI 循环的封闭集(`apps/cli/src/commands/agent.ts:294`),
+ *   而 `TurnEndReason.kind` 只有四档。映射必须**穷尽**,漏一档就等于把某种终止
+ *   记成了别的性质。
+ *
+ * 分档口径:
+ *   · `end_turn` / `completed` = 模型自己说完了 ⇒ normal;
+ *   · `cancelled` / `canceled` ⇒ cancelled;
+ *   · 其余一律记 `synthetic` —— 它们都不是"模型自己说完",而是外部或判据把回合收掉的。
+ *     这类必须能被后续分析区分出来,否则"正常完成率"会被系统性高估。
+ *     典型:synthetic 档的 detail 里带原 stopReason,便于回溯是哪条判据收的。
+ */
+export type TurnStopReasonLike = string;
+
+const NORMAL_STOPS = new Set(['end_turn', 'completed']);
+const CANCELLED_STOPS = new Set(['cancelled', 'canceled']);
+
+export function endReasonFromStopReason(
+  stopReason: TurnStopReasonLike,
+  detail?: string,
+): TurnEndReason {
+  if (NORMAL_STOPS.has(stopReason)) {
+    return detail === undefined ? { kind: 'normal' } : { kind: 'normal', detail };
+  }
+  if (CANCELLED_STOPS.has(stopReason)) {
+    return detail === undefined ? { kind: 'cancelled' } : { kind: 'cancelled', detail };
+  }
+  // 非"模型自己说完"的一切终止:合成结束,必须带原因。
+  return { kind: 'synthetic', detail: detail ?? `stopped: ${stopReason}` };
+}
+
+/** 判断某个 stopReason 是否算"正常说完"。审计/统计用,不参与状态迁移。 */
+export function isNormalStop(stopReason: TurnStopReasonLike): boolean {
+  return NORMAL_STOPS.has(stopReason);
+}
