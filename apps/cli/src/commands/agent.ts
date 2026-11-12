@@ -334,6 +334,12 @@ export interface AgentResult {
    * 调用方据此可区分「余额不足」与「量不到所以保守拦截」,不必从散文里猜。
    */
   costApproval?: import('../tools/cost-approval.js').CostApproval;
+  /**
+   * 自动复审(2026-11-12):本回合内是否已到"该复审了"的时机。
+   * 只表示**时机到了**,不表示已经审过 —— 真正执行诊断在回合外。
+   * 未开启 `reviewPolicy.enabled` 时该字段恒为 false。
+   */
+  reviewDue?: boolean;
 }
 
 // ==================== P1-5 Headless 多格式输出(实现在 src/headless-format.ts,此处仅 re-export)====================
@@ -349,6 +355,14 @@ import {
   type TurnTransition,
 } from '../acp/turn-lifecycle.js'
 import { decideCostApproval } from '../tools/cost-approval.js'
+import { applyCodeMode, describeCodeMode } from '../tools/code-mode.js'
+import {
+  DEFAULT_REVIEW_POLICY,
+  INITIAL_REVIEW_STATE,
+  shouldReview,
+  type ReviewPolicy,
+  type ReviewState,
+} from '../tools/auto-review.js'
 import { loadSessionRuntime, nextTurnOrdinal, upsertTurn } from '../acp/turn-store.js'
 import type { OutputFormat, HeadlessEvent } from '../headless-format.js'
 
@@ -394,6 +408,12 @@ export interface SetupAgentToolsOptions {
   silent?: boolean;
   /** 危险操作确认回调。REPL 用 inquirer,Agent 用 --allow-dangerous,ACP 默认拒绝。 */
   confirmDangerous?: (tool: Tool, args: Record<string, unknown>) => Promise<boolean>;
+  /**
+   * 受限工具集 profile(2026-11-12)。`read-only` / `no-shell` / `review` / `full`。
+   * 缺省 full(不限制)。**拼错的模式名会抛错,不静默回退全量** ——
+   * 那会把最危险的默认值塞给以为自己被限制的人。
+   */
+  codeMode?: string;
   /**
    * 本会话"有没有能被问到的审批人"这一事实,随 ctx 下发给工具层做**拒绝归因**
    * (见 `ToolContext.approverAvailable`)。缺省 = 不表态(工具层沿用旧归因)。
@@ -646,7 +666,19 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
     }
   }
 
-  const tools = listTools();
+  // 受限工具集裁剪(2026-11-12):在**取工具表这一刻**生效,而不是在调用时拒绝。
+  // 工具不存在于 prompt 里,模型就不会尝试调用 —— 这比事后拒绝更可靠。
+  // 拼错的模式名会抛错(不静默回退全量):把最危险的默认值塞给以为自己被限制的人是更糟的失效。
+  const rawTools = listTools();
+  const codeModeResult = applyCodeMode(rawTools, opts.codeMode);
+  const tools = codeModeResult.allowed;
+  if (codeModeResult.mode.id !== 'full' && !opts.silent) {
+    console.info(
+      chalk.dim(
+        `  ${describeCodeMode(codeModeResult.mode)};已隐藏 ${codeModeResult.blocked.length} 个工具`,
+      ),
+    );
+  }
   // goal-b49/Z1 对账腿(五枚 `get*Extensions` 汇总口的生产调用点):
   // 每个声明名逐个问宿主"你到底有没有消费者",吃不下的逐条摊成 warning 走同一条
   // reportPluginDiagnostics —— 工具名**不**并进工具表、命令名**不**并进 slash 表:
@@ -837,6 +869,11 @@ export interface RunToolLoopOptions {
    * 为什么设计成可选:CLI 单次循环拿不到余额与审批结论;强制作参数会让所有
    * 既有调用方都要改。可选注入既能让需要审批的场景用上,又不破坏现有行为。
    */
+  /**
+   * 自动复审策略(2026-11-12)。**默认关闭** —— 打开会让每次编辑后跑诊断,
+   * 在大仓里会把编辑变成分钟级。开启与否必须由用户显式决定。
+   */
+  reviewPolicy?: ReviewPolicy;
   costApproval?: {
     /** 该动作是否强制审批(来自权限/计费策略) */
     mandatory: boolean;
@@ -1974,6 +2011,11 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
   let budgetLimited = false;
   /** cost-approval 的判定结果(只在传了 opts.costApproval 且触发预算闸时有值)。 */
   let costApprovalVerdict: import('../tools/cost-approval.js').CostApproval | null = null;
+  /** 自动复审的累积状态(跨迭代保持)。 */
+  let reviewState: ReviewState = INITIAL_REVIEW_STATE;
+  const reviewPolicy = opts.reviewPolicy ?? DEFAULT_REVIEW_POLICY;
+  /** 本次回合内是否已触发过一次"该复审了"(回合结束时回传给调用方)。 */
+  let reviewDue = false;
   let lastErrorMessage = '';
   // 回合运行态旁路记录(2026-11-12):与既有 `reservedTurnNumber`(G-633)共用同一套
   // 回合标识,不另建第二份序号。**失败一律吞掉** —— 运行态记录是观测面,
@@ -3016,6 +3058,20 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
           durationMs,
           error: result.error,
         });
+        // 自动复审触发(2026-11-12):旁路,默认关闭。只判"该不该跑",不在此执行诊断本身
+        // —— 诊断要起 tsc/eslint,放在工具循环内会拖住回合。这里只累计状态并把
+        // "该审了"的事实记下,由调用方(ACP/命令层)在回合外执行。
+        {
+          const decision = shouldReview({
+            policy: reviewPolicy,
+            state: reviewState,
+            toolName: call.name,
+            succeeded: result.success,
+            now: Date.now(),
+          });
+          reviewState = decision.nextState;
+          if (decision.review) reviewDue = true;
+        }
         // P3-2 Telemetry:工具调用完成后上报(失败忽略,不影响主流程)
         trackTelemetry('tool_call_completed', {
           toolName: call.name,
@@ -3295,6 +3351,8 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
     ...(outputTokenContinuationsUsed > 0 ? { outputContinuationsUsed: outputTokenContinuationsUsed } : {}),
     // 成本审批判定(只在真的触发预算闸时带,不触发则不带 —— 缺失≠通过)
     ...(costApprovalVerdict ? { costApproval: costApprovalVerdict } : {}),
+    // 自动复审时机(只在开启且真的到点时才带)
+    ...(reviewDue ? { reviewDue: true } : {}),
   };
 }
 
