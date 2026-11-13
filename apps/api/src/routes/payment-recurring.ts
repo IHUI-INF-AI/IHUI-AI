@@ -24,7 +24,7 @@ import { booleanStringSchemaOptional } from '../utils/parse-boolean.js'
 import { buildSchema, swaggerSchemas } from '../utils/swagger.js'
 import { authenticate } from '../plugins/auth.js'
 import { wechatPayContracts, userVips, plans, orders, wxPayNotifications } from '@ihui/database'
-import { placeOrder, completeOrder } from '../services/order-service.js'
+import { placeOrder, completeOrder, activateOrderSubscription } from '../services/order-service.js'
 import {
   scanAndChargeDueContracts,
   chargeOneContractNow,
@@ -667,6 +667,7 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
               : null
 
           if (matchCondition) {
+            let chargeActivation: Awaited<ReturnType<typeof placeOrder>> | undefined
             // P0 资金安全 + 幂等修复(2026-08-02):原实现无事务、无幂等键,
             // 微信回调重试时会重复 placeOrder + completeOrder,导致:
             // (1) 同一笔扣款创建多个订单(订单号不同但都对应同一 outTradeNo);
@@ -709,11 +710,14 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
                   // 原实现 placeOrder/completeOrder 各自开独立事务并先提交，外层
                   // 契约状态 UPDATE 失败时会留下「订单已 paid、契约未推进」的半提交，
                   // 平台重试还会因契约未标记 success 而重复建单/重复发权益。
+                  // F-581: 代扣订单必须写成「API 订阅」单(orderType=6 + productId=plan.id),
+                  // 否则 completeOrder 后无任何激活分支,用户每月被真实扣款却拿不到权益。
                   const order = await placeOrder(
                     {
                       userId: existing.userId,
                       amount: plan.price,
-                      orderType: 1,
+                      orderType: 6,
+                      productId: plan.id,
                       payType: 'wechat',
                       description: `连续包月自动扣款 - ${plan.name}`,
                     },
@@ -730,6 +734,9 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
                       `连续包月订单完成失败(${order.orderNo}): ${completion.reason ?? '未知原因'}`,
                     )
                   }
+                  // 事务内只登记待激活订单;真正激活放事务提交后(外层),
+                  // 避免激活子事务读不到未提交订单,也避免激活失败把已收款订单回滚。
+                  chargeActivation = completion.order ?? order
                 }
               }
 
@@ -744,6 +751,19 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
                 })
                 .where(eq(wechatPayContracts.id, existing.id))
             })
+
+            // F-581: 事务提交后激活订阅(幂等键=orderNo)。激活失败不回滚已收款订单,
+            // 只记 error 供监控/人工补发 —— 与 payment-gateway 支付回调同一收口口径。
+            if (chargeActivation) {
+              try {
+                await activateOrderSubscription(chargeActivation)
+              } catch (ae) {
+                request.log.error(
+                  { err: ae, orderNo: chargeActivation.orderNo },
+                  '连续包月订阅激活失败(已扣款,需人工补发)',
+                )
+              }
+            }
           }
         } else if (isChargeFailEvent) {
           const matchCondition = contractId
