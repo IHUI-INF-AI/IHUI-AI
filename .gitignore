@@ -755,3 +755,6 @@ $BOX_AGENT_SCRATCH_DIR/
 检查Trae登录账号*.md
 推送本地代码到远程仓库*.md
 tmp-*.png
+
+# PowerShell/Windows 系统缓存残留(ModuleAnalysisCache),不进版本库
+**/Microsoft/Windows/PowerShell/

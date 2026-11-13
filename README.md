@@ -5469,6 +5469,9 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-13**
+- 📚 文档:派生产物 changelog + 生成块 trackedFiles 现算同步(21363) (640f4a5a2f)
+
+**2026-11-13**
 - 🐞 修复:并发会话收敛 — shared词包+miniapp远程locale/生成物/ui-routes现算同步 (3ecaac8dac)
 
 **2026-11-13**
