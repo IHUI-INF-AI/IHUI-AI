@@ -225,7 +225,7 @@ export default function SpecialModelsPage() {
           style={{ background: 'var(--color-secondary)' }}
         />
         <View className="relative z-10">
-          <Text className="block text-[length:38rpx] font-bold text-foreground leading-[1.4]">
+          <Text className="block text-heading-sm font-bold text-foreground leading-[1.4]">
             {tt('ai.special.bannerTitle', 'AI 专题聚合')}
           </Text>
           <Text className="block mt-[12rpx] text-label text-muted-foreground leading-[1.5]">
