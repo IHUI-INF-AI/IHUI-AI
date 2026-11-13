@@ -28,7 +28,13 @@
  *   3. 兜底:唯一的回落是 1.c —— 暂存集为空 / 读不到时走 `full`,宁可多跑不可漏跑。
  *
  * 为什么不用"自动提取门扫描的路径":实测 270 门里只有 1 门是纯业务路径,221 门是
- * "业务 + scripts 混合"(都 import scripts/lib 公共库)⇒ 机器分不出来,只能靠命名规范 + 显式清单。
+ * "业务 + scripts 混合"(都 import scripts/lib 公共库)⇒ 机器分不出来,只能靠显式清单。
+ *
+ * 2026-11-14(DG-14):元门档的识别从**脚本名前缀正则**改为**登记表声明**
+ * (`scripts/data/gate-channel-registry.json` 的 `metaGates`)。旧做法是"命名命中即入档",
+ * 后果是新增门只要不叫 check-gate-/check-doc-/… 就永远不在本地跑,而登记表还认为它"已接线"
+ * (DG-14 的零通道缺口)。现在:① 入档必须显式声明;② 漏声明的门由 `check-gate-triggers`
+ * 第二维判红(新门无任何阻断通道 ⇒ 红),存量无通道门逐枚登记在 `uncoveredBaseline` 只减不增。
  */
 
 /** 业务路径:只用于统计 `businessCount` 并在 reason 里说明「业务判据归 CI」(本地仍走 meta)。 */
@@ -61,6 +67,9 @@ const BUSINESS_PATH_RE = /^(apps|packages)\//
  *   console.log(Object.entries(c).filter(([,n])=>n>=3).sort((a,b)=>b[1]-a[1]))"
  */
 import judgementLibs from './judgement-libs.json' with { type: 'json' }
+// DG-14(2026-11-14):元门档声明表 = 通道登记表单源。gate-scope 只消费 `metaGates`,
+// push / required CI 两条通道由 check-gate-triggers 第二维从注册表与 workflow 自动发现。
+import channelRegistry from '../data/gate-channel-registry.json' with { type: 'json' }
 
 const JUDGEMENT_LIBS = new Set(judgementLibs)
 
@@ -76,77 +85,27 @@ const SCHEDULER_LIBS = new Set([
 ])
 
 /**
- * 元门档的门识别规则(按 script 名)。
+ * 元门档登记表(DG-14,2026-11-14)。
  *
- * 口径:**判守门自身健康度 / 仓库状态 / 文档一致性**的门才算元门。
+ * 口径:**判守门自身健康度 / 仓库状态 / 文档一致性**的门才算元门,且必须**逐枚声明** ——
+ * 清单单源 = `scripts/data/gate-channel-registry.json` 的 `metaGates`(对象,键为 script 名,
+ * 值为入档理由)。不再按脚本名前缀猜:命名启发式会让"新增门命名不命中"静默落进零通道。
+ *
  * 判业务代码的门(UI 样式、组件规范、i18n 文案、API 路由等)一律不算。
  * 本机环境状态读数(端口占用 / 轮换留痕 / 锁持有)**算** —— 它判的不是本次改动,而是
  * "这台机器此刻能不能干活",成本在 0.1s 量级;把它排除出 meta 档 = 本地永不跑,
  * 而 CI runner 上没有本机状态可读 ⇒ 两边都没有读数(S-O69 门 280 即此例)。
  *
- * 命名不规范的门不会被误收 —— 它们留在全量档,失效方向是"多跑"。
+ * 新门要进元门档 = 在登记表里加一行(理由必填);不加也没进 push/required CI ⇒
+ * `check-gate-triggers` 第二维判红,不会静默落进"只在报告档"的第三态。
  */
-const META_SCRIPT_RE = new RegExp(
-  '^(' +
-    [
-      'check-gate-', // 守门接线/元数据
-      'check-husky-', // 钩子形态
-      'check-no-conflict-markers', // 冲突标记
-      'check-commit-loss', // 提交丢失(30a)
-      // 280 本机 dev 库口令轮换窗口:只探 8801/8802/8803 端口 + 读 jsonl 末条 ts(实测 0.11s),
-      // 不读任何源码。**必须进元门档**,否则:① 本地 pre-commit 自 2026-10-22 起一律 meta 档,
-      // ② CI runner 上不存在本机 dev 端口 ⇒ 该门在两个档上都拿不到有意义的读数,"装进巡检轮"等于没装
-      //    (S-O69 报的缺陷)。命名刻意给**精确名**而非 `check-dev-` 前缀:清单是白名单,前缀会把
-      // 未来任何同名族的业务门一起拉进 meta 档,稀释 60s 预算。
-      'check-dev-db-rotation-window',
-      // 刻意**不**收 `check-architecture-policy`(103):全仓架构策略存量对账,实测 18.2s,
-      // 判的是存量不是本次改动;改工具代码时它恒为"无关"。要在此刻看:IHUI_GATE_SCOPE=full。
-      'check-watermark', // 水印语法/覆盖(47 查"本次携带的文件",已覆盖本档)
-      // 刻意**不**收 `provenance-ledger`(107):它是"全仓台账存量对账",单轮 58.9s,
-      // 判的是存量而不是本次改动;本次文件的水印完整性已由 47 check-watermark-coverage 覆盖。
-      // 改工具代码时把它拉进来,元门档就永远进不了 60 秒。
-      'check-doc-', // 文档数字/引用
-      'check-root-dir-clean', // 根目录整洁(44)
-      // 2026-11-04 收 267:根护栏清单 ↔ 被审面内容对账。它判的是"规则文件与封条是否同源",
-      // 属"守门自身健康度"这一档;此前不在元门档 ⇒ 本地只跑元门档时它被整体裁掉,
-      // 门 267 的 stagedTriggers 补上 git-guardian 也不会在提交口触发(照旧等部署侧 --check 红)。
-      // 用**精确名**而非 `check-root-` 前缀:后者会把未来同类业务门一并拉进 60s 预算。
-      // 成本:只在射程命中时跑(cat-file 读 4 个 blob,亚秒级),与本次改动无关的提交零开销。
-      'check-root-guard-consistency',
-      'check-staged-', // 暂存面
-      'check-lock-', // 锁清单
-      'check-skip-env-', // 逃生舱承诺
-      'check-direct-run-guard', // 直接运行守卫
-      'check-mjs-syntax', // 语法
-      'check-plan-', // 计划台账
-      // 刻意**不**收 `check-declared-`(127 出站路由):全仓出站路由存量对账,实测 18.3s,
-      // 判的是存量不是本次改动;改 API 路由时它会随 apps/ 一起进全量档。
-      'check-git-', // git 派生纪律
-      'check-ignored-', // 忽略规则
-      'check-tracked-', // 跟踪文件
-      'check-temp-', // 临时落地
-      'check-scratch-', // scratch 根
-      'check-frozen-', // 冻结面
-      'check-forbidden-', // 禁令面
-      'check-adr-', // 架构决策记录
-      'check-agent-', // 代理配置
-      // 2026-11-06 收三条跨端回归尺进元门档(否则本地 pre-commit 一律 meta 档 ⇒ 提交面 advisory
-      // 形同没接)。成本由各自 stagedTriggers 收窄:只有改到跨端真源(共享屏/i18n/台账/基线)才跑,
-      // 与本次改动无关的提交零开销。用**精确名 + 行尾锚**而非 `check-cross-` 前缀,避免把未来
-      // 任何同名族业务门拖进 60s 预算(实测漂移尺全量 36s,只在射程命中时付)。
-      'check-cross-end-parity-drift\\.mjs$', // 302/302p 漂移回归门
-      'check-i18n-cross-end-wording\\.mjs$', // 303/303p 文案漂移门
-      // 304 共享层平台纯度复用 check-shared-layer-duplication.mjs:该脚本原有重复检测门一直走
-      // 全量档,把它整名收进元门档会改变既有门行为 —— 故 S3 只在 push/CI 面跑,不在此处加收。
-    ].join('|') +
-    ')',
-)
+const META_GATES = new Set(Object.keys(channelRegistry.metaGates || {}))
 
 /** 该门是否属于元门档(判守门自身 / 仓库状态 / 文档)。 */
 export function isMetaGate(check) {
   if (!check) return false
   const script = String(check.script || '')
-  return META_SCRIPT_RE.test(script)
+  return META_GATES.has(script)
 }
 
 /**
@@ -209,5 +168,11 @@ export function isSchedulerLib(p) {
   return SCHEDULER_LIBS.has(String(p).replace(/\\/g, '/'))
 }
 
-export const __testing = { BUSINESS_PATH_RE, JUDGEMENT_LIBS, SCHEDULER_LIBS, META_SCRIPT_RE }
+export const __testing = {
+  BUSINESS_PATH_RE,
+  JUDGEMENT_LIBS,
+  SCHEDULER_LIBS,
+  META_GATES,
+  CHANNEL_REGISTRY: channelRegistry,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

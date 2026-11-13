@@ -29,7 +29,6 @@ const GIT = resolveGitBin() || 'git'
 
 // ── T1 判据:五格 verdict(红/绿/存量/免判/锚点缺) + --strict ──
 test('T1 判据:新增无射程 ⇒ 红、摘射程 ⇒ 红、两边都无 ⇒ 存量只报数、info 免判、锚点缺按新增', () => {
-  const j = T.judgeTriggers
   const ok = [
     { id: '1', script: 'a.mjs', stagedTriggers: ['pkg/'] },
     { id: '2', script: 'b.mjs' }, // 新增(锚点无)→ 红
@@ -49,8 +48,15 @@ test('T1 判据:新增无射程 ⇒ 红、摘射程 ⇒ 红、两边都无 ⇒ �
     ['1:ok', '2:new-no-trigger', '3:existing', '4:regressed', '5:exempt-info'],
   )
   assert.equal(r.counts.judges, 4, 'info 不计入判据门')
-  assert.deepEqual(r.newViolations.map((x) => x.id), ['2', '4'])
-  assert.deepEqual(r.red.map((x) => x.id), ['2', '4'], '棘轮档:存量不进红')
+  assert.deepEqual(
+    r.newViolations.map((x) => x.id),
+    ['2', '4'],
+  )
+  assert.deepEqual(
+    r.red.map((x) => x.id),
+    ['2', '4'],
+    '棘轮档:存量不进红',
+  )
   // --strict:存量也进红(全量档,存量归零后才有意义);次序按实现(先新增/退化、后存量),故排序比
   assert.deepEqual(
     T.judgeTriggers({ current: ok, anchor, strict: true })
@@ -99,7 +105,13 @@ test('T3 形状锁:本门在注册表里登记且声明了射程(否则它会先
 test('T4 端到端(scratch 仓):新增门缺射程 ⇒ 1;补上射程 ⇒ 0;摘掉存量射程 ⇒ 1', () => {
   const dir = mkScratch('gtrig-mirror-')
   const run = (args) =>
-    spawnSync(GIT, args, { cwd: dir, encoding: 'utf8', windowsHide: true, timeout: 60000, stdio: ['ignore', 'pipe', 'pipe'] })
+    spawnSync(GIT, args, {
+      cwd: dir,
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 60000,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
   const writeReg = (rows) => {
     mkdirSync(join(dir, 'scripts'), { recursive: true })
     writeFileSync(join(dir, 'scripts', 'guardian-runner.mjs'), `const checks = [\n${rows}\n]\n`)
@@ -111,19 +123,31 @@ test('T4 端到端(scratch 仓):新增门缺射程 ⇒ 1;补上射程 ⇒ 0;摘�
     writeReg(`  { id: '1', label: 'legacy', script: 'a.mjs', args: [], mode: 'blocking' },`)
     run(['add', '-A'])
     run(['commit', '-q', '-m', 'base'])
-    assert.equal(T.report(T.scan({ cwd: dir, face: 'staged' }), { json: true, quiet: true }), 0, '只有存量时应绿')
+    assert.equal(
+      T.report(T.scan({ cwd: dir, face: 'staged' }), { json: true, quiet: true }),
+      0,
+      '只有存量时应绿',
+    )
 
     writeReg(
       `  { id: '1', label: 'legacy', script: 'a.mjs', args: [], mode: 'blocking' },\n` +
         `  { id: '2', label: 'newbie', script: 'b.mjs', args: [], mode: 'blocking' },`,
     )
-    assert.equal(T.report(T.scan({ cwd: dir, face: 'worktree' }), { json: true, quiet: true }), 1, '新增门缺射程必须红')
+    assert.equal(
+      T.report(T.scan({ cwd: dir, face: 'worktree' }), { json: true, quiet: true }),
+      1,
+      '新增门缺射程必须红',
+    )
 
     writeReg(
       `  { id: '1', label: 'legacy', script: 'a.mjs', args: [], mode: 'blocking', stagedTriggers: ['scripts/'] },\n` +
         `  { id: '2', label: 'newbie', script: 'b.mjs', args: [], mode: 'blocking', stagedTriggers: ['pkg/'] },`,
     )
-    assert.equal(T.report(T.scan({ cwd: dir, face: 'worktree' }), { json: true, quiet: true }), 0, '补上射程应绿')
+    assert.equal(
+      T.report(T.scan({ cwd: dir, face: 'worktree' }), { json: true, quiet: true }),
+      0,
+      '补上射程应绿',
+    )
 
     run(['add', '-A'])
     run(['commit', '-q', '-m', 'mid'])
@@ -140,6 +164,26 @@ test('T4 端到端(scratch 仓):新增门缺射程 ⇒ 1;补上射程 ⇒ 0;摘�
     assert.equal(T.report(res, { json: true, quiet: true }), 1)
   } finally {
     rmScratch(dir, { bestEffort: true })
+  }
+})
+
+// ── T6 第二维(DG-14):通道覆盖真的接进本门,且"登记表不在面"不冒充已判 ──
+test('T6 通道维:真仓工作树面判定且新增无通道=0;空 scratch 仓 ⇒ 跳过(不改退出码)', () => {
+  const real = T.scanChannels({ cwd: ROOT, face: 'worktree' })
+  assert.equal(real.status, 'judged', '真仓工作树面应判出通道维')
+  assert.equal(real.counts.newUncovered, 0, `存量门不得被误伤:${JSON.stringify(real.newUncovered)}`)
+  assert.ok(real.counts.registered > 300, `注册门数异常:${real.counts.registered}`)
+  assert.ok(real.counts.meta > 0 && real.counts.push > 0 && real.counts.ciRequired > 0)
+  assert.ok(real.counts.uncovered > 0, '存量无通道门必须实报,不许读成 0')
+
+  // 登记表不在面(scratch 夹具的常态)⇒ skipped:既不判红也不自称已覆盖。
+  const bare = mkScratch('gtrig-nochannel-')
+  try {
+    const skipped = T.scanChannels({ cwd: bare, face: 'worktree' })
+    assert.equal(skipped.status, 'skipped')
+    assert.match(skipped.why, /不在worktree面/)
+  } finally {
+    rmScratch(bare, { bestEffort: true })
   }
 })
 
