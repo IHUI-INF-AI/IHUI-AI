@@ -242,6 +242,11 @@ const envSchema = z.object({
   RESEND_API_KEY: z.string().default(''),
   RESEND_FROM: z.string().default(''),
 
+  // 微信开放平台-移动应用(RN App 内一键登录 /login/wechat,react-native-wechat-lib)。
+  // oauth-providers.ts 现仍直读 process.env,此处声明使 config 也携带;缺失时 /login/wechat 返回 501。
+  WECHAT_MOBILE_APP_ID: z.string().optional().default(''),
+  WECHAT_MOBILE_SECRET: z.string().optional().default(''),
+
   // 微信支付 V3(全部 optional,缺失时降级 mock;wechat-pay.ts 仍直接读 process.env,此处仅校验存在性)
   WX_API_BASE: optionalUrl('https://api.mch.weixin.qq.com'),
   WX_MINI_APPID: z.string().optional().default(''),

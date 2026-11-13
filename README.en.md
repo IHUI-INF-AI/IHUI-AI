@@ -99,6 +99,9 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-13**
+- 🔧 Chore/Other:gitignore 收敛 — ai-service哨兵残留(20枚精确清单)+PowerShell ModuleAnalysisCache缓存 (1a3e665e45)
+
+**2026-11-13**
 - 📚 Docs:派生产物 changelog + 生成块 trackedFiles 现算同步(21363) (640f4a5a2f)
 
 **2026-11-13**
@@ -608,14 +611,6 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 - 🐞 Fix:ui-parity 底部渐变遮罩 waiver —— 量纲读数伪差收口 (2d867a23a9)
 - 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (3a191459c9)
 - 🔧 Chore/Other:违禁桶兜底清扫——HEAD面等条件/待拍板未勾行自动摘除(两道机主禁令的执行器物化,留痕f12-purge;复翻席请同步摘形态,事实内容按各批结清提交保留) (d5299caaba)
-
-**2026-11-11**
-- 🔧 Chore/Other:结清 F-001/F-045/F-096 三条 CLI/桌面 P0(整行删除) (a2c9b5cd61)
-- 🔧 Chore/Other:结清 W-02/W-04/W-05/W-07 WEB缺陷四票(整行删除) (293f570d3c)
-- 🐞 Fix:BUG-29 索引与约束缺失族补齐迁移+对账(结清) (4b53307186)
-- 🔧 Chore/Other:结清 O69/RP-3/RP-4/RP-79 四票(整行删除) (653b4e1b53)
-- 🔧 Chore/Other:结清 Y-25 豆包键源退化档(整行删除) (cfc40787bf)
-- 🚀 Feature/Improvement:键源退化档根治——提取器派生账号级稳定 uid(uid_tt 族) (2d7728faa0)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)

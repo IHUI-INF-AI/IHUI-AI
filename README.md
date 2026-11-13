@@ -5469,6 +5469,9 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-13**
+- 🔧 工程/其他:gitignore 收敛 — ai-service哨兵残留(20枚精确清单)+PowerShell ModuleAnalysisCache缓存 (1a3e665e45)
+
+**2026-11-13**
 - 📚 文档:派生产物 changelog + 生成块 trackedFiles 现算同步(21363) (640f4a5a2f)
 
 **2026-11-13**
