@@ -46,7 +46,7 @@ export default function TeacherCard({
           <View className="flex items-center">
             <Text className="text-body font-medium text-foreground">{name}</Text>
             {title && (
-              <Text className="ml-sm text-badge px-[12rpx] py-[4rpx] rounded bg-primary/10 text-primary">
+              <Text className="ml-sm text-badge px-[12rpx] py-[4rpx] rounded-md bg-primary/10 text-primary">
                 {title}
               </Text>
             )}

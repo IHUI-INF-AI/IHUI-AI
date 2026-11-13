@@ -486,7 +486,7 @@ export default function AgentPage() {
                         {agent.name}
                       </Text>
                       {agent.isVipExclusive && (
-                        <View className="ml-[12rpx] px-[12rpx] py-[8rpx] rounded-sm bg-[var(--color-warning-amber)]">
+                        <View className="ml-[12rpx] px-[12rpx] py-[8rpx] rounded-md bg-[var(--color-warning-amber)]">
                           <Text className="text-badge text-[var(--color-surface-light)] font-semibold">
                             VIP
                           </Text>
@@ -500,7 +500,7 @@ export default function AgentPage() {
                     )}
                     <View className="flex flex-row items-center mt-[16rpx]">
                       {agent.category && agent.category !== 'other' && (
-                        <Text className="text-badge px-[8rpx] py-[2rpx] mr-[12rpx] rounded-sm bg-[var(--color-black-6)] text-[var(--color-muted-foreground)]">
+                        <Text className="text-badge px-[8rpx] py-[2rpx] mr-[12rpx] rounded-md bg-[var(--color-black-6)] text-[var(--color-muted-foreground)]">
                           {t(CATEGORY_KEY[agent.category] ?? 'ai.agentList.categories.other')}
                         </Text>
                       )}

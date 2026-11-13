@@ -131,7 +131,7 @@ export default function AgentListPanel({
                     </Text>
                     {agent.vipType ? (
                       <Text
-                        className={`shrink-0 text-badge px-[12rpx] py-[8rpx] rounded-sm font-semibold ${VIP_TAG_CLASSES[agent.vipType]}`}
+                        className={`shrink-0 text-badge px-[12rpx] py-[8rpx] rounded-md font-semibold ${VIP_TAG_CLASSES[agent.vipType]}`}
                       >
                         {VIP_TAG_LABELS(tt)[agent.vipType]}
                         {agent.vipType === 4 && agent.price
@@ -140,12 +140,12 @@ export default function AgentListPanel({
                       </Text>
                     ) : agent.isVipExclusive ? (
                       /* RN vipBadge: bg warning.DEFAULT / 字 warning-foreground(surface.light) */
-                      <Text className="shrink-0 text-badge px-[12rpx] py-[8rpx] rounded-sm font-semibold bg-[var(--color-warning)] text-[var(--color-warning-foreground)]">
+                      <Text className="shrink-0 text-badge px-[12rpx] py-[8rpx] rounded-md font-semibold bg-[var(--color-warning)] text-[var(--color-warning-foreground)]">
                         VIP
                       </Text>
                     ) : null}
                     {agent.category && (
-                      <Text className="shrink-0 text-badge px-[12rpx] py-[8rpx] rounded-sm bg-[var(--color-black-10)] text-[var(--color-primary)]">
+                      <Text className="shrink-0 text-badge px-[12rpx] py-[8rpx] rounded-md bg-[var(--color-black-10)] text-[var(--color-primary)]">
                         {agent.category}
                       </Text>
                     )}
