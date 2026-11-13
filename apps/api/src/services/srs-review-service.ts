@@ -18,7 +18,6 @@ import { db } from '../db/index.js'
 import { examWrongQuestion, examQuestions } from '@ihui/database'
 import {
   sm2Calculate,
-  createInitialSM2State,
   getDueDateThreshold,
   type SM2State,
 } from './spaced-repetition.js'
@@ -147,22 +146,6 @@ export async function submitReview(
     easeFactor: result.easeFactor,
     repetition: result.repetition,
   }
-}
-
-/** 初始化错题的 SM-2 状态(首次加入错题本时调用,dueDate 置为今天)。 */
-export async function initSRSForWrongQuestion(userId: string, questionId: string) {
-  const initialState = createInitialSM2State()
-  const now = new Date()
-  await db
-    .update(examWrongQuestion)
-    .set({
-      easeFactor: initialState.easeFactor,
-      interval: initialState.interval,
-      repetition: initialState.repetition,
-      dueDate: now,
-      updatedAt: now,
-    })
-    .where(and(eq(examWrongQuestion.userId, userId), eq(examWrongQuestion.questionId, questionId)))
 }
 
 /** 获取复习统计:待复习数 / 已复习数 / 连续天数 / 平均难度因子。 */
