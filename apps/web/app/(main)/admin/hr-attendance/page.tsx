@@ -8,12 +8,23 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
-import { Plus, Users, CalendarClock, BarChart3, ClipboardList, FileText } from 'lucide-react'
+import {
+  Plus,
+  Users,
+  CalendarClock,
+  BarChart3,
+  ClipboardList,
+  FileText,
+  Play,
+  Settings,
+  Calculator,
+} from 'lucide-react'
 
 import { HasPermi } from '@/components/auth/HasPermi'
 import { Button } from '@ihui/ui-react'
 
 import { RESOURCE, PERM, api } from './helpers'
+import { MonthlyTab, SalaryConfigTab, PayrollTab } from './payroll-tabs'
 import type {
   HrDepartment,
   HrEmployee,
@@ -24,7 +35,16 @@ import type {
 } from './types'
 import { BackButton } from '@/components/common'
 
-type TabKey = 'departments' | 'employees' | 'rule' | 'records' | 'stats' | 'leave'
+type TabKey =
+  | 'departments'
+  | 'employees'
+  | 'rule'
+  | 'records'
+  | 'stats'
+  | 'leave'
+  | 'monthly'
+  | 'salaryConfig'
+  | 'payroll'
 
 const inputCls =
   'rounded-md border border-input bg-background px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary'
@@ -41,6 +61,9 @@ export default function HrAttendancePage() {
     { key: 'records', label: t('tabRecords'), icon: <ClipboardList className="h-4 w-4" /> },
     { key: 'stats', label: t('tabStats'), icon: <BarChart3 className="h-4 w-4" /> },
     { key: 'leave', label: t('tabLeave'), icon: <FileText className="h-4 w-4" /> },
+    { key: 'monthly', label: t('tabMonthly'), icon: <Play className="h-4 w-4" /> },
+    { key: 'salaryConfig', label: t('tabSalaryConfig'), icon: <Settings className="h-4 w-4" /> },
+    { key: 'payroll', label: t('tabPayroll'), icon: <Calculator className="h-4 w-4" /> },
   ]
 
   return (
@@ -74,6 +97,9 @@ export default function HrAttendancePage() {
       {tab === 'records' && <RecordsTab t={t} deptId={deptId} setDeptId={setDeptId} />}
       {tab === 'stats' && <StatsTab t={t} deptId={deptId} setDeptId={setDeptId} />}
       {tab === 'leave' && <LeaveTab t={t} />}
+      {tab === 'monthly' && <MonthlyTab t={t} />}
+      {tab === 'salaryConfig' && <SalaryConfigTab t={t} />}
+      {tab === 'payroll' && <PayrollTab t={t} />}
     </div>
   )
 }
