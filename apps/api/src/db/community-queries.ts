@@ -237,16 +237,32 @@ export async function isCircleMember(circleId: string, userId: string): Promise<
 }
 
 /**
- * 按 id 读帖。传 viewer 时叠加可见性过滤(F-335):作者/关注者/管理员/公开帖各有口径;
- * 不传 viewer 保持旧口径(管理端审核、属主编辑/删除等内部路径)。
+ * 按 id 读帖(用户读面)。
+ * 传 viewer 时叠加可见性过滤(F-335):作者/关注者/管理员/公开帖各有口径。
+ * F-176:始终带 status=1 —— 已下架/待审核/已软删的帖子按"不存在"处理(404),
+ * 与列表读档(仅 status=1)对齐。管理端要读已下架行时用 findPostByIdForAdmin。
  */
 export async function findPostById(
   id: string,
   viewer?: PostViewer,
 ): Promise<CirclePost | undefined> {
+  const conds = [eq(circlePosts.id, id), eq(circlePosts.status, 1)]
   const vis = viewer ? postVisibilityCondition(viewer) : undefined
-  const where = vis ? and(eq(circlePosts.id, id), vis) : eq(circlePosts.id, id)
-  const rows = await dbRead.select().from(circlePosts).where(where).limit(1)
+  if (vis) conds.push(vis)
+  const rows = await dbRead
+    .select()
+    .from(circlePosts)
+    .where(and(...conds))
+    .limit(1)
+  return rows[0]
+}
+
+/**
+ * 管理端按 id 读帖(F-176):不过滤 status,管理端审核/软删/评论审计仍可看到已下架内容。
+ * 只有管理端与内部审计路径可以使用本函数,对外读面必须走 findPostById。
+ */
+export async function findPostByIdForAdmin(id: string): Promise<CirclePost | undefined> {
+  const rows = await dbRead.select().from(circlePosts).where(eq(circlePosts.id, id)).limit(1)
   return rows[0]
 }
 
@@ -388,6 +404,11 @@ export async function findAsks(
   return { list, total: Number(totalRows[0]?.count ?? 0) }
 }
 
+/**
+ * 按 id 读问答(用户读面)。
+ * F-176:带 status=1 —— 已下架/已软删的问答按"不存在"处理(404),与列表读档对齐。
+ * 管理端问答详情(admin-asks.ts)自行直查 db,不依赖本函数,故无需另开不过滤变体。
+ */
 export async function findAskById(
   id: string,
 ): Promise<(Ask & { authorName: string | null }) | undefined> {
@@ -410,7 +431,7 @@ export async function findAskById(
     .select(cols)
     .from(asks)
     .leftJoin(users, eq(users.id, asks.userId))
-    .where(eq(asks.id, id))
+    .where(and(eq(asks.id, id), eq(asks.status, 1)))
     .limit(1)
   return rows[0]
 }

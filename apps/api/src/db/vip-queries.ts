@@ -98,17 +98,30 @@ export async function getMyVip(userId: string) {
   return rows[0]
 }
 
+/** VIP 单笔订单可购买的最大期数(与下单入口 zod 上限同源,F-148)。 */
+export const VIP_MAX_QUANTITY = 99
+
 export async function purchaseVip(input: {
   userId: string
   vipLevelId: string
   orderId?: string
   /** 支付成功时刻(订单 paidAt)。权益起算与到期都锚定它,重放不会因“当前时间”漂移。 */
   paidAt?: Date
+  /**
+   * 购买期数(默认 1)。F-148:下单按 quantity 乘价计费,履约必须同乘时长,
+   * 否则买 N 份只发 1 期(=超收)。多期合并为同一张卡,到期时间 = 起算 + durationDays*quantity;
+   * orderId 唯一约束继续保证「同一订单只发一次」,不因多期破坏回调重放幂等。
+   */
+  quantity?: number
 }): Promise<boolean> {
   const level = await findVipLevel(input.vipLevelId)
   if (!level) throw new Error('VIP 等级不存在')
+  const quantity = input.quantity ?? 1
+  if (!Number.isInteger(quantity) || quantity < 1 || quantity > VIP_MAX_QUANTITY) {
+    throw new Error('VIP 购买数量非法')
+  }
   const startTime = input.paidAt ?? new Date()
-  const endTime = new Date(startTime.getTime() + level.durationDays * 86400_000)
+  const endTime = new Date(startTime.getTime() + level.durationDays * quantity * 86400_000)
   // F-689:同一订单只发一张卡。唯一约束 + ON CONFLICT DO NOTHING 让并发/回调重放幂等。
   const rows = await db
     .insert(userVips)
@@ -157,7 +170,13 @@ export async function cancelUserVip(id: string): Promise<number> {
   const remaining = await db
     .select({ id: userVips.id })
     .from(userVips)
-    .where(and(eq(userVips.userId, target.userId), eq(userVips.status, 1), gt(userVips.endTime, new Date())))
+    .where(
+      and(
+        eq(userVips.userId, target.userId),
+        eq(userVips.status, 1),
+        gt(userVips.endTime, new Date()),
+      ),
+    )
     .limit(1)
   if (remaining.length === 0) {
     await db.update(users).set({ isVip: 0 }).where(eq(users.id, target.userId))

@@ -108,6 +108,23 @@ async function embedWithConcurrency(chunks: string[]): Promise<(number[] | null)
 const KEYWORD_CANDIDATE_LIMIT = 2000
 
 /**
+ * F-145:检索侧「只召回 status='active' 文档」的谓词。
+ *
+ * 删除文档 = 软删 `knowledge_doc.status` + 物理删 `knowledge_chunk` 两步。修复前两步
+ * 各自提交,第二步失败会留下「doc 已 deleted、chunk 仍在」的孤儿切片;而 search 只查
+ * chunk 表、从不看 doc.status ⇒ 已删内容继续被注入聊天 prompt(隐私/合规)。向量路与
+ * 关键词路都拼上本谓词后,即便历史数据里残留孤儿 chunk 或删除事务尚未提交,也不会被召回。
+ *
+ * 手写 SQL 而非 drizzle join:向量路本来就是手写 SQL;关键词路沿用同一谓词,不必给
+ * select 增加 join、也不改变既有列投影。
+ */
+export const KNOWLEDGE_ACTIVE_DOC_EXISTS_SQL = `EXISTS (
+  SELECT 1 FROM "zhs_knowledge_doc" AS "d"
+  WHERE "d"."id" = "zhs_knowledge_chunk"."doc_id"
+    AND "d"."status" = 'active'
+)`
+
+/**
  * 导入会话的 knowledge_doc.source_type 取值(2026-10-03 立)。
  *
  * 为什么不复用 'text':会话不是纯文本,是带发言人/时间轴/来源归属的结构化记录。
@@ -429,6 +446,8 @@ class KnowledgeRagService {
           sql`"collection_name" = ${collectionName}`,
           sql`"embedding" IS NOT NULL`,
           sql`"owner_uuid" = ${ownerUuid}`,
+          // F-145:只召回 active 文档的切片(已删文档的残留 chunk 不得进入 RAG)
+          sql.raw(KNOWLEDGE_ACTIVE_DOC_EXISTS_SQL),
         ]
 
         // 1 - (embedding <=> query) 作为 cosine 相似度 score
@@ -489,6 +508,8 @@ class KnowledgeRagService {
     const conditions = [
       eq(knowledgeChunk.collectionName, collectionName),
       eq(knowledgeChunk.ownerUuid, ownerUuid),
+      // F-145:与向量路同口径,已删文档的残留 chunk 不得被关键词路召回
+      sql.raw(KNOWLEDGE_ACTIVE_DOC_EXISTS_SQL),
     ]
     const rows = await db
       .select({
@@ -599,20 +620,25 @@ class KnowledgeRagService {
     return rows
   }
 
-  /** 软删除文档 */
+  /** 软删除文档(F-145:软删状态与物理删 chunk 必须在同一事务内完成) */
   async deleteDoc(docId: number, ownerUuid: string): Promise<boolean> {
-    const rows = await db
-      .select({ id: knowledgeDoc.id })
-      .from(knowledgeDoc)
-      .where(and(eq(knowledgeDoc.id, docId), eq(knowledgeDoc.ownerUuid, ownerUuid)))
-      .limit(1)
-    if (rows.length === 0) return false
-    await db
-      .update(knowledgeDoc)
-      .set({ status: 'deleted', updatedAt: new Date() })
-      .where(eq(knowledgeDoc.id, docId))
-    await db.delete(knowledgeChunk).where(eq(knowledgeChunk.docId, docId))
-    return true
+    // F-145:两步原为各自独立的 `db.update` / `db.delete`,delete(chunk) 失败时 status
+    // 已在库中变成 'deleted'(列表页看不到),但 chunk 仍在 ⇒ 聊天 RAG 继续召回已删内容。
+    // 现在读取 + 两条写操作同事务:任一步失败整体回滚,不会出现半删状态。
+    return db.transaction(async (tx) => {
+      const rows = await tx
+        .select({ id: knowledgeDoc.id })
+        .from(knowledgeDoc)
+        .where(and(eq(knowledgeDoc.id, docId), eq(knowledgeDoc.ownerUuid, ownerUuid)))
+        .limit(1)
+      if (rows.length === 0) return false
+      await tx
+        .update(knowledgeDoc)
+        .set({ status: 'deleted', updatedAt: new Date() })
+        .where(eq(knowledgeDoc.id, docId))
+      await tx.delete(knowledgeChunk).where(eq(knowledgeChunk.docId, docId))
+      return true
+    })
   }
 
   /** 批量删除 */
