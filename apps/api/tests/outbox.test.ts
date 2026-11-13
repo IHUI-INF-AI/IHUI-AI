@@ -4,12 +4,15 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
-const { mockDbInsert, mockDbSelect, mockDbUpdate, mockDbDelete } = vi.hoisted(() => ({
-  mockDbInsert: vi.fn(),
-  mockDbSelect: vi.fn(),
-  mockDbUpdate: vi.fn(),
-  mockDbDelete: vi.fn(),
-}))
+const { mockDbInsert, mockDbSelect, mockDbUpdate, mockDbDelete, mockDbExecute } = vi.hoisted(
+  () => ({
+    mockDbInsert: vi.fn(),
+    mockDbSelect: vi.fn(),
+    mockDbUpdate: vi.fn(),
+    mockDbDelete: vi.fn(),
+    mockDbExecute: vi.fn(),
+  }),
+)
 
 vi.mock('../src/db/index.js', () => ({
   db: {
@@ -17,6 +20,7 @@ vi.mock('../src/db/index.js', () => ({
     select: mockDbSelect,
     update: mockDbUpdate,
     delete: mockDbDelete,
+    execute: mockDbExecute,
   },
 }))
 
@@ -68,8 +72,9 @@ function makeEvent(
   }
 }
 
-/** 配置 select→from→where→orderBy→limit 链 */
+/** 配置认领语句(db.execute 单语句 UPDATE ... SKIP LOCKED RETURNING)返回本批 */
 function mockSelectLimit(rows: unknown[]) {
+  mockDbExecute.mockResolvedValue(rows)
   const limitFn = vi.fn().mockResolvedValue(rows)
   mockDbSelect.mockReturnValue({
     from: vi.fn().mockReturnValue({
@@ -88,9 +93,11 @@ function mockSelectGroupBy(rows: unknown[]) {
   })
 }
 
-/** 配置 update→set→where 链 */
+/** 配置 update→set→where→returning 链(回写判主命中 1 行) */
 function mockUpdateWhere() {
-  const whereFn = vi.fn().mockResolvedValue(undefined)
+  const whereFn = vi.fn().mockReturnValue({
+    returning: vi.fn().mockResolvedValue([{ id: 'evt-1' }]),
+  })
   mockDbUpdate.mockReturnValue({
     set: vi.fn().mockReturnValue({ where: whereFn }),
   })
