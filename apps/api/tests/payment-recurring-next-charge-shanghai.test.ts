@@ -75,12 +75,13 @@ describe('payment-recurring calculateNextChargeTime 按 Asia/Shanghai 日历推�
     }
   })
 
-  it('空周期与未知周期按月,月末溢出与订阅口径一致', () => {
+  it('F-577:空周期与未知周期按月,月末夹取到 2 月最后一天', () => {
     const base = new Date('2026-01-30T22:00:00.000Z') // 上海 2026-01-31 06:00
     for (const zone of HOST_ZONES) {
       process.env.TZ = zone
       const month = calculateNextChargeTime('month', base).toISOString()
-      expect({ zone, month }).toEqual({ zone, month: '2026-03-02T22:00:00.000Z' }) // 上海 3 月 3 日 06:00
+      // 旧实现 setMonth 溢出成 3 月 3 日(2 月整月漏扣);修复后夹到 2 月 28 日 06:00 上海。
+      expect({ zone, month }).toEqual({ zone, month: '2026-02-27T22:00:00.000Z' })
       expect(calculateNextChargeTime(null, base).toISOString()).toBe(month)
       expect(calculateNextChargeTime(undefined, base).toISOString()).toBe(month)
       expect(calculateNextChargeTime('quarter', base).toISOString()).toBe(month)

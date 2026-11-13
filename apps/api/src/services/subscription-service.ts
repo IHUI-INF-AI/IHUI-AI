@@ -374,7 +374,9 @@ const SHANGHAI_UTC_OFFSET_MS = 8 * 60 * 60 * 1000
 
 /**
  * 从 plan.billingPeriod 推断下次扣款时间(在给定基准上按 Asia/Shanghai 日历累加)。
- * 月末溢出与旧实现一致(1 月 31 日 → 3 月 2/3 日,2 月 29 日加一年 → 3 月 1 日)。
+ * F-577: 月末/闰日夹取 —— setUTCMonth/setUTCFullYear 在目标月没有对应日时会溢出到下月
+ * (1 月 31 日 +1 月 → 3 月 2/3 日;2 月 29 日 +1 年 → 3 月 1 日),造成整月漏扣/试用凭空多一月。
+ * 现在先把日置 1 再进位,最后夹回「目标月最后一天」与「原日」的较小值。
  * count 为累加周期数(RP-23:开发者链接到期 = 同一算式 × N,不再另写一份本地日历进位)。
  */
 export function calculateNextChargeTimeFrom(
@@ -383,18 +385,29 @@ export function calculateNextChargeTimeFrom(
   count = 1,
 ): Date {
   const next = new Date(base.getTime() + SHANGHAI_UTC_OFFSET_MS)
+  const originalDay = next.getUTCDate()
   switch (billingPeriod) {
     case 'year':
+      // 先用 1 日占位再进位,避免 2 月 29 日在平年溢出到 3 月 1 日。
+      next.setUTCDate(1)
       next.setUTCFullYear(next.getUTCFullYear() + count)
       break
     case 'week':
+      // 周累加是纯天数加法,不涉及月份天数差异,无需夹取。
       next.setUTCDate(next.getUTCDate() + 7 * count)
-      break
+      return new Date(next.getTime() - SHANGHAI_UTC_OFFSET_MS)
     case 'month':
     default:
+      // 先用 1 日占位再进位,避免 31 日在短月(2/4/6/9/11 月)溢出到下月。
+      next.setUTCDate(1)
       next.setUTCMonth(next.getUTCMonth() + count)
       break
   }
+  // 目标月最后一天 = 下个月第 0 天;夹取到「原日」与它的较小值。
+  const lastDayOfMonth = new Date(
+    Date.UTC(next.getUTCFullYear(), next.getUTCMonth() + 1, 0),
+  ).getUTCDate()
+  next.setUTCDate(Math.min(originalDay, lastDayOfMonth))
   return new Date(next.getTime() - SHANGHAI_UTC_OFFSET_MS)
 }
 
