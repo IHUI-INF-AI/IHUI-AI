@@ -5469,6 +5469,9 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-13**
+- 🔧 工程/其他:README changelog+数字现算同步 + sag2壳注释对齐全键透传 + parity账本刷新 (ca2efb656e)
+
+**2026-11-13**
 - 🐞 修复:共享屏改全键取词(t('sag2Lexical.xxx')),对齐About样板,端壳透传裸t,消packAbsent误报 (b41cb88701)
 
 **2026-11-13**
