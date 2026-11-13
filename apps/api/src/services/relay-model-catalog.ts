@@ -20,14 +20,49 @@ export interface ResolvedModel {
 }
 
 /**
+ * F-626:别名解析进程内 TTL 缓存。
+ * 解析必须读主库(删除/禁用别名只写主库),再叠加短 TTL 缓存压住每请求一次 DB 往返;
+ * 写路径(创建/删除别名)主动失效对应 key,使下线动作即时可见。
+ * 只缓存成功结果(含"无映射"),查询异常不入缓存,不掩盖故障。
+ */
+const ALIAS_CACHE_TTL_MS = 30_000
+const ALIAS_CACHE_MAX = 2_000
+const aliasCache = new Map<string, { value: ResolvedModel | null; expiresAt: number }>()
+
+function aliasCacheKey(providerCode: string, alias: string): string {
+  return `${providerCode}\u0000${alias}`
+}
+
+/** 写路径后失效单个 (providerCode, alias) 缓存。 */
+function invalidateAliasCache(providerCode: string, alias: string): void {
+  aliasCache.delete(aliasCacheKey(providerCode, alias))
+}
+
+/** 防请求侧任意模型名把缓存撑成无界:达上限先清过期项,仍满则淘汰最早插入的一条。 */
+function pruneAliasCache(): void {
+  if (aliasCache.size < ALIAS_CACHE_MAX) return
+  const now = Date.now()
+  for (const [key, entry] of aliasCache) {
+    if (entry.expiresAt <= now) aliasCache.delete(key)
+  }
+  if (aliasCache.size < ALIAS_CACHE_MAX) return
+  const oldest = aliasCache.keys().next()
+  if (typeof oldest.value === 'string') aliasCache.delete(oldest.value)
+}
+
+/**
  * 解析对外别名 → 上游真实模型名。命中返回映射;无映射(或查询异常)返回 null,调用方原样透传。
+ * F-626:走主库 `db`,避免读副本复制延迟窗口内已删除/禁用的别名继续生效。
  */
 export async function resolveModelAlias(
   providerCode: string,
   requestedModel: string,
 ): Promise<ResolvedModel | null> {
+  const cacheKey = aliasCacheKey(providerCode, requestedModel)
+  const cached = aliasCache.get(cacheKey)
+  if (cached && cached.expiresAt > Date.now()) return cached.value
   try {
-    const rows = await dbRead
+    const rows = await db
       .select({
         upstreamModel: aiRelayModelCatalog.upstreamModel,
         displayName: aiRelayModelCatalog.displayName,
@@ -42,8 +77,12 @@ export async function resolveModelAlias(
       )
       .limit(1)
     const row = rows[0]
-    if (!row) return null
-    return { upstreamModel: row.upstreamModel, displayName: row.displayName ?? row.upstreamModel }
+    const value = row
+      ? { upstreamModel: row.upstreamModel, displayName: row.displayName ?? row.upstreamModel }
+      : null
+    pruneAliasCache()
+    aliasCache.set(cacheKey, { value, expiresAt: Date.now() + ALIAS_CACHE_TTL_MS })
+    return value
   } catch (e) {
     logger.warn('[relay-model-catalog] 别名解析失败(降级为原样透传)', {
       providerCode,
@@ -89,6 +128,8 @@ export async function createModelCatalog(
       enabled: input.enabled ?? true,
     })
     .returning()
+  // F-626:新建(或覆盖)别名后立即失效,避免刚建的映射被旧缓存/负缓存挡住。
+  invalidateAliasCache(input.providerCode, input.alias)
   return rows[0] as AiRelayModelCatalog
 }
 
@@ -97,7 +138,13 @@ export async function deleteModelCatalog(id: string): Promise<boolean> {
   const deleted = await db
     .delete(aiRelayModelCatalog)
     .where(eq(aiRelayModelCatalog.id, id))
-    .returning({ id: aiRelayModelCatalog.id })
+    .returning({
+      id: aiRelayModelCatalog.id,
+      providerCode: aiRelayModelCatalog.providerCode,
+      alias: aiRelayModelCatalog.alias,
+    })
+  // F-626:删除写主库,缓存必须同步失效,否则下线动作最多被缓存延长 30s。
+  for (const row of deleted) invalidateAliasCache(row.providerCode, row.alias)
   return deleted.length > 0
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

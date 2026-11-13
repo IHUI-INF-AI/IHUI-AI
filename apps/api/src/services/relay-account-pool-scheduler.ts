@@ -464,6 +464,11 @@ export interface AccountPoolSweepResult {
    */
   keepalive: number
   healthChecked: number
+  /**
+   * 健康检查异常 / 落库失败计数(F-653):这些号既没定级也没落库,不得计入 healthChecked。
+   * 新增可选键,既有消费面不受影响。
+   */
+  healthFailed?: number
   healthRecovered: number
   // O64 checkinReconcile/checkinRetry 两键不得进产出面(2026-10-24 定案 099b843,由
   // apps/api/tests/relay-account-pool-sweep-result.test.ts 三例钉住):①两条分支必须同键集,
@@ -676,7 +681,7 @@ export function hasRenewableCredentialOf(row: {
   refreshTokenEnc?: unknown
   cookiesEnc?: unknown
 }): boolean {
-  return row.refreshTokenEnc != null || row.cookiesEnc != null
+  return (row.refreshTokenEnc ?? null) !== null || (row.cookiesEnc ?? null) !== null
 }
 
 /**
@@ -1118,6 +1123,7 @@ export async function sweepAccountPool(
       refreshSkipped: 0,
       keepalive: 0,
       healthChecked: 0,
+      healthFailed: 0,
       healthRecovered: 0,
       skipped: true,
       refreshExpiresAt: null,
@@ -1141,6 +1147,7 @@ async function runSweepOnce(
     refreshSkipped: 0,
     keepalive: 0,
     healthChecked: 0,
+    healthFailed: 0,
     healthRecovered: 0,
     skipped: false,
     refreshExpiresAt: null,
@@ -1320,7 +1327,6 @@ async function runSweepOnce(
       const outcome = await adapter.checkHealth(ctxOf(row, decryptAccountCredentials(row)), {
         proxyUrl,
       })
-      out.healthChecked++
       const now = new Date()
       // 健康回写同样走 credVersion CAS(SDB-32):checkHealth 是数秒的 HTTP,期间转发层
       // 401 自愈 / 管理面自愈可能已换票并 credVersion+1;旧快照回写会把新票判 down,
@@ -1341,6 +1347,9 @@ async function runSweepOnce(
           and(eq(aiRelayAccountPool.id, row.id), eq(aiRelayAccountPool.credVersion, row.credVersion)),
         )
         .returning({ id: aiRelayAccountPool.id })
+      // 落库调用成功后才计入 healthChecked(F-653):检查异常与 update 抛错都走 catch 计 healthFailed,
+      // 不再虚增「已检查」;CAS 未命中是「已被他人刷新」的正常跳过(下方有 warn),不按落库失败算。
+      out.healthChecked++
       if (applied.length === 0) {
         // 快照之后已有别的路径换票成功 ⇒ 本次结论随旧快照作废(不重试、不覆盖新票)
         logger.warn('[relay-account-pool] 健康回写 CAS 未命中:快照版本已过期,跳过回写', {
@@ -1349,8 +1358,16 @@ async function runSweepOnce(
           snapshotCredVersion: row.credVersion,
         })
       }
-    } catch {
-      /* 单账号检查异常不中断整轮 */
+    } catch (e) {
+      // 单账号检查异常/落库失败不中断整轮,但必须留痕并计入 healthFailed(F-653):
+      // 原先空 catch 让适配器/代理/DB 故障一律无痕,账号长期停在 unknown 无人知。
+      out.healthFailed = (out.healthFailed ?? 0) + 1
+      logger.warn('[relay-account-pool] 健康检查/落库异常(已计入 healthFailed)', {
+        accountId: row.id,
+        providerCode: row.providerCode,
+        uid: row.uid,
+        error: e instanceof Error ? e.message.slice(0, 200) : String(e).slice(0, 200),
+      })
     }
   })
 
