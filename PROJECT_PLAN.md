@@ -12218,7 +12218,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - 2026-11-09 round4 补扫描件与检索热路径：PDF 四级抽取链（自研 `pdf_text` → `pdfium` → `pdfplumber` → 栅格化+OCR，逐级留痕，仅当链上出现 `no-text-layer`/`garbled`/`cid-unsupported` 才追加 `needs-ocr:pdf`，加密件不误导）；`pypdfium2` 进主依赖（零新增安装即可读对象流 PDF）；多跳等价提速（`has_new_candidate` 提前退出 + idf/avgdl 提循环外 + `heapq.nsmallest` + `casefold_tokens` LRU，20k 416→155ms），召回逐条不变由 `tests/test_sag2_index_equiv.py` 以旧实现为参考实现钉住。
 - 2026-11-09 round5 补最后的挂账：OCR 真实引擎中文识别实测（合成退化样本 CER 0–9%，失焦最差；关键实体 6–7/7；两页无文本层 PDF CER 0.0045；端到端扫描件两条查询均 top1；单页 2.4–4.7s 本地 CPU）；规模同口径复测（修正 round3 §5 把「优化前 5k / 优化后 20k·200k」混在一张表的口径错误，改为三档同代码两轮给区间）。新增 `scripts/sag2_ocr_probe.py`（带 caveats 自述口径）与 `tests/test_sag2_ocr_real.py`（有引擎就必须真认字，无引擎/字体 skip）。新登记边界：双栏版面 OCR 串栏（引擎阅读顺序，按 x 聚类切栏风险大于收益，不修）。
 - 2026-11-09 逐轮证据：`docs/benchmark-evidence/2026-11/sag2-round3-20261109.md` / `sag2-round4-20261109.md` / `sag2-round5-20261109.md`；对外口径同步修正 `sag2-public-claims-20261109.md`（规模行 + 禁说句 + 增补边界 + 新增第 9/10 句）与 `sag2-integration-20261109.md`（文末追加 6 条失效表述对账）。
-- [ ] 13A. **缺陷普查 DG DG-13** [P3] 部署门禁失败 → 回滚 → exit 0，按退出码记账的调用方会把失败轮记成成功（证据 docs/tickets/2026-11/findings-deploy-gates.md#DG-13）（进行中@2026-11-13/w1-dg13）
 - [ ] 14A. **缺陷普查 DG DG-14** [P3] 元门档是「脚本名正则白名单」：新增门命名不命中即本地零通道，且没有门保证「每门至少一个阻断通道」（证据 docs/tickets/2026-11/findings-deploy-gates.md#DG-14）
 - [ ] 43D. **缺陷普查 DB DB-35** [P2] 多类敏感字段明文落库（PII 与第三方凭据）（证据 docs/tickets/2026-11/findings-db.md#DB-35）
 - [ ] 175G. **缺陷普查 API F-175** [P2] 技能同步 upsert 无唯一约束，并发 push 产生同 (author_id, slug) 重复行（证据 docs/tickets/2026-11/findings-api.md#F-175）
