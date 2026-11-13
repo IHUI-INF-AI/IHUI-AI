@@ -1,6 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:watermarked
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 'use client'
 
@@ -13,7 +13,13 @@ import { Calculator, Wallet } from 'lucide-react'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { Button } from '@ihui/ui-react'
 
-import { IMPORT_RESOURCE, SETTLE_RESOURCE, PAYROLL_RESOURCE, IMPORT_PERM, PAYROLL_PERM } from './helpers'
+import {
+  IMPORT_RESOURCE,
+  SETTLE_RESOURCE,
+  PAYROLL_RESOURCE,
+  IMPORT_PERM,
+  PAYROLL_PERM,
+} from './helpers'
 import type {
   ImportBatchDetail,
   ImportRow,
@@ -44,10 +50,6 @@ function Badge({ tone, children }: { tone: string; children: React.ReactNode }) 
     </span>
   )
 }
-
-// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
-// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:watermarked
 
 // =============================================================================
 // 批次详情 + 差异裁决
@@ -138,11 +140,7 @@ export function BatchDetail({
 
           <div className="flex items-center gap-2 border-t pt-2">
             <HasPermi code={IMPORT_PERM}>
-              <Button
-                size="sm"
-                disabled={confirming || unresolved.length > 0}
-                onClick={onConfirm}
-              >
+              <Button size="sm" disabled={confirming || unresolved.length > 0} onClick={onConfirm}>
                 {t('confirmWrite')}
               </Button>
             </HasPermi>
@@ -170,11 +168,7 @@ function RowItem({
   pending: boolean
 }) {
   const tone =
-    row.matchStatus === 'matched'
-      ? 'ok'
-      : row.matchStatus === 'conflict'
-        ? 'danger'
-        : 'warn'
+    row.matchStatus === 'matched' ? 'ok' : row.matchStatus === 'conflict' ? 'danger' : 'warn'
   const diffs = row.diffDetail ?? []
   return (
     <tr className="border-t align-top">
@@ -276,11 +270,7 @@ export function SettleTab({
     <section className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <HasPermi code={IMPORT_PERM}>
-          <Button
-            size="sm"
-            disabled={dailyMut.isPending}
-            onClick={() => dailyMut.mutate()}
-          >
+          <Button size="sm" disabled={dailyMut.isPending} onClick={() => dailyMut.mutate()}>
             <Calculator className="h-4 w-4" />
             {t('buildDaily')}
           </Button>
@@ -455,9 +445,7 @@ export function PayrollTab({
                     {Number(r.attendanceDeduction) > 0 ? `-${r.attendanceDeduction}` : '0.00'}
                   </td>
                   <td className="px-2 py-1">
-                    {(
-                      Number(r.insurancePersonal) + Number(r.housingFundPersonal)
-                    ).toFixed(2)}
+                    {(Number(r.insurancePersonal) + Number(r.housingFundPersonal)).toFixed(2)}
                   </td>
                   <td className="px-2 py-1">{r.incomeTax}</td>
                   <td className="px-2 py-1 font-medium text-success">{r.netPay}</td>
@@ -473,3 +461,4 @@ export function PayrollTab({
     </section>
   )
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1,6 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:watermarked
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { createHash } from 'node:crypto'
 import ExcelJS from 'exceljs'
@@ -103,7 +103,16 @@ const HEADER_ALIASES: Record<keyof HrImportParsedFields, readonly string[]> = {
     'checkouttime',
     '打卡时间2',
   ],
-  rawStatus: ['考勤结果', '打卡结果', '考勤状态', '状态', '出勤状态', '异常原因', 'status', 'result'],
+  rawStatus: [
+    '考勤结果',
+    '打卡结果',
+    '考勤状态',
+    '状态',
+    '出勤状态',
+    '异常原因',
+    'status',
+    'result',
+  ],
 }
 
 /** 表头归一化:去空白、全角括号转半角、转小写 */
@@ -185,7 +194,11 @@ export function parseMatrix(matrix: string[][]): {
     }
   }
   if (headerRowIndex < 0 || bestScore === 0) {
-    throw new AppError('无法识别表头,请确认文件包含工号与日期列', 400, 'IMPORT_HEADER_NOT_RECOGNIZED')
+    throw new AppError(
+      '无法识别表头,请确认文件包含工号与日期列',
+      400,
+      'IMPORT_HEADER_NOT_RECOGNIZED',
+    )
   }
 
   const headers = (matrix[headerRowIndex] ?? []).map((h) => h.trim())
@@ -455,8 +468,11 @@ export async function createImportBatch(params: {
  * 逐行匹配并落暂存表。
  * 匹配键:工号(hr_employee.employee_no,唯一索引 uq_hr_emp_no)。
  * 比对对象:同员工同日期的现有 hr_attendance_record。
+ *
+ * 导出(2026-11-13):考勤同步器(attendance-sync)复用本函数落暂存行,
+ * 确保判重/conflict/notFound 口径单一真相源,同步与文件导入不漂移。
  */
-async function matchAndStageRows(
+export async function matchAndStageRows(
   batchId: string,
   rows: HrImportParsedRow[],
   _mapping: HrImportMapping,
@@ -479,7 +495,9 @@ async function matchAndStageRows(
   const empByNo = new Map(employees.map((e) => [e.employeeNo, e]))
 
   // 取回已有打卡记录(同员工 + 日期落在本批范围内)
-  const dateKeys = [...new Set(rows.map((r) => normalizeDateCell(r.parsed.date)).filter(Boolean))] as string[]
+  const dateKeys = [
+    ...new Set(rows.map((r) => normalizeDateCell(r.parsed.date)).filter(Boolean)),
+  ] as string[]
   const empIds = employees.map((e) => e.id)
   const existingRecords =
     empIds.length > 0 && dateKeys.length > 0
@@ -670,7 +688,11 @@ export async function getImportBatchDetail(
   batch: typeof hrImportBatch.$inferSelect
   rows: (typeof hrImportRow.$inferSelect)[]
 }> {
-  const [batch] = await db.select().from(hrImportBatch).where(eq(hrImportBatch.id, batchId)).limit(1)
+  const [batch] = await db
+    .select()
+    .from(hrImportBatch)
+    .where(eq(hrImportBatch.id, batchId))
+    .limit(1)
   if (!batch) throw new AppError('导入批次不存在', 404, 'IMPORT_BATCH_NOT_FOUND')
 
   const limit = Math.min(opts?.limit ?? 500, 2000)
@@ -758,7 +780,11 @@ export async function confirmImportBatch(params: {
 }> {
   const { batchId, operatedBy } = params
 
-  const [batch] = await db.select().from(hrImportBatch).where(eq(hrImportBatch.id, batchId)).limit(1)
+  const [batch] = await db
+    .select()
+    .from(hrImportBatch)
+    .where(eq(hrImportBatch.id, batchId))
+    .limit(1)
   if (!batch) throw new AppError('导入批次不存在', 404, 'IMPORT_BATCH_NOT_FOUND')
   if (batch.status === 'verified') {
     throw new AppError('该批次已确认写入,不可重复确认', 409, 'IMPORT_BATCH_ALREADY_VERIFIED')
@@ -888,7 +914,11 @@ export async function confirmImportBatch(params: {
 
 /** 删除/作废批次(仅未 verified 的批次可作废) */
 export async function discardImportBatch(batchId: string): Promise<void> {
-  const [batch] = await db.select().from(hrImportBatch).where(eq(hrImportBatch.id, batchId)).limit(1)
+  const [batch] = await db
+    .select()
+    .from(hrImportBatch)
+    .where(eq(hrImportBatch.id, batchId))
+    .limit(1)
   if (!batch) throw new AppError('导入批次不存在', 404, 'IMPORT_BATCH_NOT_FOUND')
   if (batch.status === 'verified') {
     throw new AppError('已写入正式考勤的批次不可作废', 409, 'IMPORT_BATCH_VERIFIED')
@@ -908,3 +938,4 @@ export async function assertDepartmentExists(departmentId: string): Promise<void
     .limit(1)
   if (!dept) throw new AppError('部门不存在', 404, 'HR_DEPARTMENT_NOT_FOUND')
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1,6 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:watermarked
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 'use client'
 
@@ -62,7 +62,11 @@ const inputCls =
 function SeverityIcon({ severity }: { severity: string }) {
   const tone = severityTone(severity)
   const cls =
-    tone === 'danger' ? 'text-destructive' : tone === 'warn' ? 'text-warning' : 'text-muted-foreground'
+    tone === 'danger'
+      ? 'text-destructive'
+      : tone === 'warn'
+        ? 'text-warning'
+        : 'text-muted-foreground'
   if (severity === 'blocker') return <AlertTriangle className={`h-4 w-4 ${cls}`} />
   if (severity === 'warn') return <AlertTriangle className={`h-4 w-4 ${cls}`} />
   return <Info className={`h-4 w-4 ${cls}`} />
@@ -150,9 +154,7 @@ export function TodosTab({ t }: { t: ReturnType<typeof useTranslations> }) {
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2 rounded-lg border px-3 py-2">
           <ClipboardCheck className="h-4 w-4 text-primary" />
-          <span className="text-body">
-            {t('todoOpenCount', { count: sum?.open ?? 0 })}
-          </span>
+          <span className="text-body">{t('todoOpenCount', { count: sum?.open ?? 0 })}</span>
         </div>
         {sum && sum.blocker > 0 && (
           <span className="inline-flex items-center gap-1 rounded bg-destructive/10 px-2 py-1 text-label text-destructive">
@@ -195,7 +197,9 @@ export function TodosTab({ t }: { t: ReturnType<typeof useTranslations> }) {
                     <span className="font-medium">{todo.title}</span>
                     {todo.status !== 'open' && (
                       <span className="rounded bg-muted px-1.5 py-0.5 text-label text-muted-foreground">
-                        {todo.status === 'resolved' ? t('todoStatusResolved') : t('todoStatusIgnored')}
+                        {todo.status === 'resolved'
+                          ? t('todoStatusResolved')
+                          : t('todoStatusIgnored')}
                       </span>
                     )}
                   </div>
@@ -329,3 +333,4 @@ export function TodosTab({ t }: { t: ReturnType<typeof useTranslations> }) {
 }
 
 export type { TodoSeverity }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

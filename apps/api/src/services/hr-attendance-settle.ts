@@ -1,6 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:watermarked
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { and, between, eq, inArray, isNull, sql } from 'drizzle-orm'
 
@@ -250,9 +250,7 @@ export async function buildDailyAttendance(params: {
       // 应出勤
       let scheduledMinutes = 0
       if (isWorkday) {
-        scheduledMinutes = shift
-          ? minutesBetweenHm(shift.startTime, shift.endTime)
-          : 480
+        scheduledMinutes = shift ? minutesBetweenHm(shift.startTime, shift.endTime) : 480
       }
 
       // 实出勤
@@ -399,9 +397,7 @@ export async function buildMonthlyAttendance(params: {
   const { periodMonth, departmentId, overwriteSigned = false } = params
   const { start, end } = monthRange(periodMonth)
 
-  const dailyFilters = [
-    between(hrAttendanceDaily.date, start, end),
-  ]
+  const dailyFilters = [between(hrAttendanceDaily.date, start, end)]
   if (departmentId) dailyFilters.push(eq(hrAttendanceDaily.departmentId, departmentId))
   const dailies = await db
     .select()
@@ -454,18 +450,16 @@ export async function buildMonthlyAttendance(params: {
   }
 
   for (const d of dailies) {
-    const cur =
-      byEmp.get(d.employeeId) ??
-      {
-        departmentId: d.departmentId,
-        scheduledDays: 0,
-        actualDays: 0,
-        lateCount: 0,
-        earlyCount: 0,
-        absentDays: 0,
-        otMinutes: 0,
-        otByType: { weekday: 0, weekend: 0, holiday: 0 },
-      }
+    const cur = byEmp.get(d.employeeId) ?? {
+      departmentId: d.departmentId,
+      scheduledDays: 0,
+      actualDays: 0,
+      lateCount: 0,
+      earlyCount: 0,
+      absentDays: 0,
+      otMinutes: 0,
+      otByType: { weekday: 0, weekend: 0, holiday: 0 },
+    }
     // 天数按「有应出勤且实出勤达 8h」折算;此处用分钟/480 保留小数
     if (d.scheduledMinutes > 0) {
       cur.scheduledDays += d.scheduledMinutes / 480
@@ -553,7 +547,13 @@ export async function buildMonthlyAttendance(params: {
     }
   }
 
-  logger.info('月结生成完成', { periodMonth, employees: byEmp.size, inserted, updated, skippedSigned })
+  logger.info('月结生成完成', {
+    periodMonth,
+    employees: byEmp.size,
+    inserted,
+    updated,
+    skippedSigned,
+  })
   return { periodMonth, employees: byEmp.size, inserted, updated, skippedSigned }
 }
 
@@ -566,3 +566,4 @@ export async function assertDepartment(departmentId: string): Promise<void> {
     .limit(1)
   if (!d) throw new AppError('部门不存在', 404, 'HR_DEPARTMENT_NOT_FOUND')
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
