@@ -2227,6 +2227,12 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-13**
+- 🔧 その他:ai-career 页面注释同步(镜像标注) (84932a9c63)
+
+**2026-11-13**
+- 🐞 修正:overlayPlanMeta 取词 common.originalPrice(修命名空间) (bcd0e44d9f)
+
+**2026-11-13**
 - 🚀 機能/改善:微信开放平台移动应用配置(WECHAT_MOBILE_APP_ID/SECRET,RN App一键登录/login/wechat) (7ae66424c1)
 
 **2026-11-13**
@@ -2350,12 +2356,6 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 - 🐞 修正:流式输出显示全链修复(D1-D6)——码点切批/末帧不丢/三端跟底/样式隔离 (4bdc41ba94)
 - 📚 ドキュメント:Y-38 补全取证结论——卡点定死为「无在册 zcode 号」+ 进程未加载引擎 + 判读口径纠正 (5a7680ce7a)
 - 🐞 修正:门 41 补 preserve/ 备份豁免 + 门 263 两处存量 ruff 清偿 (1b33002a4e)
-
-**2026-11-13**
-- 📚 ドキュメント:派生产物同步 (5bb419a575)
-
-**2026-11-13**
-- 🐞 修正:F-20 积分任务日界 / F-23 支付宝退款整数分比较 (9e63bf2ec48)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
