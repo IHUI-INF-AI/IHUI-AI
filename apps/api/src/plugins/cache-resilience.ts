@@ -24,6 +24,14 @@ import { AvalancheGuard, DEFAULT_AVALANCHE_CONFIG } from '../utils/cache-avalanc
 const KEY_PREFIX = 'ihui:cache:'
 
 /**
+ * 预热 loader 注册表默认容量上限。
+ *
+ * `loaders` 只是「预热回调查表用的最近回源函数」,不是长期注册表:key 含用户/订单维度时
+ * 无上限会随历史 key 单调增长,而 value 是捕获调用上下文的闭包,既常驻内存又阻止回收。
+ */
+const DEFAULT_LOADERS_MAX_ENTRIES = 1000
+
+/**
  * 空值哨兵(格①,2026-09-26 立):仅在调用方显式传 `nullTtlSec`(空值 TTL 档位)时写入。
  * 它让"缓存里是空值"与"没有缓存条目"在存储层与观测面都可区分;默认路径**不写**——
  * 未命中不是事实,回填 null 会把"旁路建行(不经 doubleDelete 直接写库)"永久隐身掉。
@@ -213,7 +221,10 @@ export function recheckRequiredPaths(
   return { kind: 'satisfied' }
 }
 
-const cacheResiliencePlugin: FastifyPluginAsync = async (server) => {
+const cacheResiliencePlugin: FastifyPluginAsync<{ loadersMaxEntries?: number }> = async (
+  server,
+  opts,
+) => {
   const breaker: Breaker = {
     state: 'closed',
     failures: 0,
@@ -232,11 +243,32 @@ const cacheResiliencePlugin: FastifyPluginAsync = async (server) => {
   }
 
   // 雪崩防护：TTL 抖动 + 预热调度（bug174）
-  // loaders 保存各 key 的回源函数，供预热回调在过期前主动刷新
+  // loaders 保存各 key 的回源函数，供预热回调在过期前主动刷新。
+  // 它是「按需重建」的缓存,不是长期注册表:容量上限 + LRU 淘汰 + 随 key 释放联动删除,
+  // 被淘汰的 key 只是失去预热能力,下一次 getOrLoad 照常回源并重新登记。
   const loaders = new Map<string, () => Promise<unknown>>()
+  const loadersMaxEntries = Math.max(
+    1,
+    Math.floor(opts.loadersMaxEntries ?? DEFAULT_LOADERS_MAX_ENTRIES),
+  )
+
+  /** 登记 loader 并置为最近使用(MRU);超上限时从 Map 头部淘汰最久未用的一条。 */
+  function registerLoader(key: string, loader: () => Promise<unknown>): void {
+    loaders.delete(key)
+    loaders.set(key, loader)
+    while (loaders.size > loadersMaxEntries) {
+      const oldest = loaders.keys().next()
+      if (oldest.done) break
+      loaders.delete(oldest.value)
+    }
+  }
+
   const avalanche = new AvalancheGuard(DEFAULT_AVALANCHE_CONFIG, (key) => {
     const loader = loaders.get(key)
     if (!loader) return
+    // 与 tick 的 key 追踪删除联动:avalanche.tick() 已摘掉该 key 的过期追踪,loader 先摘除,
+    // 仅当预热成功并重新 register 后才重新登记 —— 预热失败/返回空的 key 不留下常驻闭包。
+    loaders.delete(key)
     // 预热：在过期前异步刷新缓存
     void (async () => {
       try {
@@ -250,6 +282,7 @@ const cacheResiliencePlugin: FastifyPluginAsync = async (server) => {
         const ttl = avalanche.ttl(key)
         await cacheSet(key, ttl, val)
         avalanche.register(key, ttl)
+        registerLoader(key, loader)
       } catch {
         // 预热失败不影响业务，下次 getOrLoad 会正常回源
       }
@@ -400,7 +433,7 @@ const cacheResiliencePlugin: FastifyPluginAsync = async (server) => {
             const jitteredTtl = avalanche.ttl(key, ttlSec)
             await cacheSet(key, jitteredTtl, val)
             avalanche.register(key, jitteredTtl)
-            loaders.set(key, loader as () => Promise<unknown>)
+            registerLoader(key, loader as () => Promise<unknown>)
           }
         }
         // 回填观测面：这次是不是空,落在日志与计数上,不留给下次排查去猜
