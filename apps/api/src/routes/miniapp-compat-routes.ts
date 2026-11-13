@@ -565,8 +565,22 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
         .from(lessonRecords)
         .where(and(...conds))
         .limit(1)
-      const recordId = existing[0]?.id
-      if (recordId) {
+      let recordId = existing[0]?.id
+      if (!recordId) {
+        // F-213:首次观看无历史记录时必须插入,否则进度/时长静默丢失
+        const inserted = await db
+          .insert(lessonRecords)
+          .values({
+            userId,
+            lessonId: parsed.data.lessonId,
+            sectionId: parsed.data.videoId ?? null,
+            lastPosition: parsed.data.position ?? 0,
+            watchDuration: parsed.data.duration ?? 0,
+            status: parsed.data.position ? 1 : 0,
+          })
+          .returning({ id: lessonRecords.id })
+        recordId = inserted[0]!.id
+      } else {
         await db
           .update(lessonRecords)
           .set({
@@ -574,14 +588,14 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
             updatedAt: new Date(),
           })
           .where(eq(lessonRecords.id, recordId))
-        await db.insert(lessonRecordLogs).values({
-          recordId,
-          userId,
-          action: parsed.data.action ?? 'heartbeat',
-          position: parsed.data.position ?? 0,
-          duration: parsed.data.duration ?? 0,
-        })
       }
+      await db.insert(lessonRecordLogs).values({
+        recordId,
+        userId,
+        action: parsed.data.action ?? 'heartbeat',
+        position: parsed.data.position ?? 0,
+        duration: parsed.data.duration ?? 0,
+      })
     }
     return reply.send(success({}))
   })
