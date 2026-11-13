@@ -705,7 +705,8 @@ function readCachedAssets(key: string, outDir: string, now: number): AssetCacheE
  *
  * @param filePath 源文件磁盘路径
  * @param originalName 原始文件名(可选;落盘名常为无后缀 UUID,用于格式判定/字节探测兜底)
- * @param writeToDir 资产落盘目录(路由层传 UPLOAD_DIR,并据此生成公开 URL)
+ * @param writeToDir 资产落盘目录(路由层按源文件可见性传入:公开源文件为 UPLOAD_DIR,
+ *   私有源文件为 uploads/private/assets/<owner>,并据此生成对应 URL)
  */
 export async function extractDocumentAssets(
   filePath: string,
