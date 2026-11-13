@@ -2227,6 +2227,12 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-13**
+- 🐞 修正:并发会话收敛 — shared词包+miniapp远程locale/生成物/ui-routes现算同步 (3ecaac8dac)
+
+**2026-11-13**
+- 🔧 その他:事后追认3笔push区间提交(e04bfc4a/0390eac8/7c9a379d)触受保护面 (093406afec)
+
+**2026-11-13**
 - 🐞 修正:notice-log.test 补 6 处非空断言,消 noUncheckedIndexedAccess TS2532 (949d0173ed)
 
 **2026-11-13**
@@ -2605,12 +2611,6 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 - 🔧 その他:收编停留≥3分钟的未提交改动 (a0b77c846f)
 - 🔧 その他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (5a85fa4cd4)
 - 🔧 その他:ui-routes 生成物按 HEAD 面重跑收口——第三轮收敛落地后守门 105 陈旧义务 (4cebaa4fe4)
-
-**2026-11-13**
-- 🚀 機能/改善:小程序 sag2 词法多跳检索工作台(pkg-ai 路由页 + drawer-nav 导航 + 跨端屏登记 + ota 测试) (1a2ebbe23a)
-
-**2026-11-13**
-- 📚 ドキュメント:多语言 README 派生产物同步 (01bde91ef0)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
