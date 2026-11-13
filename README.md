@@ -5469,6 +5469,9 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-13**
+- 🐞 修复:收敛 push 门3道判红 —— 193 stdio / 300 端点登记 / 303p 文案裁定 (c605db9ade1)
+
+**2026-11-13**
 - 🚀 新功能/改进:跨端功能更新 + DeepSeek UI 逆向复现 + 文档维护 (4b9d379d1a8)
 - 🐞 修复:install-git-hooks 净面构建下默认模式跳过(exit 0) (de317e445d6)
 - 🐞 修复:mobile-rn conversationImport 补 noValidContent 5 语言词包 (50f565629d9)

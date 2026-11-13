@@ -60,6 +60,24 @@ for (const k of [
   delete process.env[k]
 }
 
+// ─── 零弹窗自愈锚点(2026-11-13)────────────────────────────────────────────
+// 事故:IHUI-SilentGuard 被外部会话置为 Disabled 后无法自启,弹窗修复链路整条失守,
+// 用户侧表现为"反反复复、需要一直盯着"。
+// 原则:关键自愈层不得只挂在会自己消失的计划任务上(AGENTS 同条)⇒ 把"任务健康校准"
+// 挂到每次提交:任务缺失→按规范重建 / 被禁用→启用 / 动作被改回直跑控制台→改写回隐藏包装。
+// 语义:detached + windowsHide 后台派发,不占提交等待、不产生可见窗口;任何失败不阻断提交。
+try {
+  const restoreGuard = spawn(
+    process.execPath,
+    [join(__dirname, '..', '..', 'scripts', 'ensure-silent-tasks.mjs'), '--restore-guard'],
+    { cwd: join(__dirname, '..', '..'), detached: true, stdio: 'ignore', windowsHide: true },
+  )
+  restoreGuard.on('error', () => {})
+  restoreGuard.unref()
+} catch {
+  /* 自愈派发失败不影响提交 */
+}
+
 // ⚠ 本机铁律(2026-10-12 实证):Node 派生的 cmd.exe 子进程**必须**显式 stdio,
 //   默认三 pipe 在本机 100% spawnSync EBUSY(-4082)—— A11 那枚 commit 的 post-commit
 //   就是死在这一行:execSync 内部走 cmd.exe,没给 stdio ⇒ 钩子整体崩在 push guard 之前,
@@ -394,9 +412,13 @@ if (process.env.IHUI_PLAN_HEAL_COMMIT !== '1' && process.env.HUSKY_SKIP_PLAN_HEA
 // 这里只做"早一拍发现",让出问题的会话在推送前就看见。
 // 跳过:HUSKY_SKIP_STALE_BASELINE_SENTINEL=1
 if (process.env.HUSKY_SKIP_STALE_BASELINE_SENTINEL !== '1') {
-  runLogged('post-commit-stale-sentinel', 'node scripts/check-stale-baseline-sentinel.mjs --commit HEAD --alarm', {
-    timeout: 120000,
-  })
+  runLogged(
+    'post-commit-stale-sentinel',
+    'node scripts/check-stale-baseline-sentinel.mjs --commit HEAD --alarm',
+    {
+      timeout: 120000,
+    },
+  )
 }
 
 // ─── 10. 跨端登记自动链路 —— web↔RN↔小程序 登记表自动追加(2026-10-25 立)─────────
