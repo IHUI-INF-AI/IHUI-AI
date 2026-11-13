@@ -282,6 +282,29 @@ export function jobErrorsStatus(result: { errors: readonly unknown[] }): 'succes
 }
 
 /**
+ * F-510:阶段失败的错误摘要。
+ *
+ * 子任务原本把异常 catch 成零值,调用方只看到"未抛错"⇒ 记 success。摘要进结构化日志
+ * (任务名/阶段/摘要三格)与上抛异常,让调度器按失败记账(failCount/lastError)。
+ * 截断只作用于单行字段,避免上游原文整块进日志。
+ */
+function jobErrorSummary(err: unknown): string {
+  const text = err instanceof Error ? err.message : String(err)
+  return (text || 'unknown error').slice(0, 300)
+}
+
+/** F-510:把同一任务内多个阶段失败聚合成一条异常,阶段与摘要随消息上抛。 */
+function buildStageFailure(
+  jobName: string,
+  stages: ReadonlyArray<{ stage: string; error: string }>,
+): Error {
+  const detail = stages.map((s) => `${s.stage}: ${s.error}`).join('; ')
+  const err = new Error(`${jobName} failed (${stages.length} stage(s)): ${detail}`)
+  err.name = 'ScheduledJobStageError'
+  return err
+}
+
+/**
  * 启动定时任务 Worker（消费 scheduler 队列的 repeatable jobs）。
  *
  * 多实例部署时，BullMQ 保证每个 delayed job 只被一个 worker 抢占执行，
@@ -729,10 +752,24 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
             return result
           }
           case 'ai-feed-process': {
+            // F-510:任一阶段异常都要留痕并让本任务整体判失败 —— 原实现把异常 catch 成
+            // 零值后照记 success,LLM 全挂时面板仍显示成功。各阶段仍各自 catch(单个
+            // 子任务失败不拖垮同任务其余阶段),但只要有阶段失败,聚合后上抛给调度器
+            // 按失败记账(recordJobExecution('failed') + 队列 failCount/lastError),
+            // 不在这里直接记一次,避免与外层统一失败出口重复计数。
+            const stageFailures: Array<{ stage: string; error: string }> = []
+            const noteStageFailure = (stage: string, err: unknown): void => {
+              const summary = jobErrorSummary(err)
+              stageFailures.push({ stage, error: summary })
+              server.log.error(
+                { jobName: name, stage, error: summary },
+                'ai-feed-process stage failed',
+              )
+            }
             // 1. 先生成当日快照(computeTrendSignals 依赖快照数据,必须先执行)
             //    快照是纯 SQL upsert,几秒完成,串行等待不影响整体耗时
             const snapRes = await generateSnapshot().catch((err) => {
-              server.log.error({ err }, 'generateSnapshot failed in ai-feed-process')
+              noteStageFailure('generateSnapshot', err)
               return { insertedRows: 0 }
             })
             // 2. 三个子任务并行执行,各自独立 catch 防止一个失败拖垮全部
@@ -741,18 +778,21 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
             //    LLM_TRANSLATE_BATCH_SIZE=100);LLM_BATCH_ENABLED=false 时二者内部直接返回 0。
             const [llmRes, transRes, trendRes] = await Promise.all([
               processLlmBatch().catch((err) => {
-                server.log.error({ err }, 'processLlmBatch failed in ai-feed-process')
-                return { processedItems: 0, failed: 0, details: String(err) }
+                noteStageFailure('processLlmBatch', err)
+                return { processedItems: 0, failed: 0, details: jobErrorSummary(err) }
               }),
               translateTitles().catch((err) => {
-                server.log.error({ err }, 'translateTitles failed in ai-feed-process')
-                return { processedItems: 0, failed: 0, details: String(err) }
+                noteStageFailure('translateTitles', err)
+                return { processedItems: 0, failed: 0, details: jobErrorSummary(err) }
               }),
               computeTrendSignals().catch((err) => {
-                server.log.error({ err }, 'computeTrendSignals failed in ai-feed-process')
+                noteStageFailure('computeTrendSignals', err)
                 return { processedItems: 0 }
               }),
             ])
+            if (stageFailures.length > 0) {
+              throw buildStageFailure(name, stageFailures)
+            }
             server.log.info(
               {
                 snapshotRows: snapRes.insertedRows,
@@ -788,25 +828,27 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
             // 存量 LLM 积压抽干(错峰加速):多轮小批量 + 轮间 sleep,
             // 持续抽干缺英文标题/缺分类的存量条目。受 LLM_BATCH_ENABLED 控制,
             // 批大小/轮数/错峰间隔均可由环境变量覆盖。
-            const result = await drainLlmBacklog()
-              .catch((err) => {
-                server.log.error({ err }, 'drainLlmBacklog failed in ai-feed-drain')
-                return {
-                  llmProcessed: 0,
-                  translated: 0,
-                  classifiedFailed: 0,
-                  translateFailed: 0,
-                  iterations: 0,
-                  llmBacklogCleared: false,
-                  translateBacklogCleared: false,
-                  remainingNoLlm: -1,
-                  remainingNoEn: -1,
-                  zeroProgress: true,
-                }
+            // F-510:原实现把异常 catch 成全零 + zeroProgress 后照记 success。现在仍
+            // 合成零值供日志完整输出,但异常必须记住并在锁释放后上抛,由外层统一记
+            // failed(队列 failCount/lastError),不再静默成功。
+            const drained = await drainLlmBacklog()
+              .then((value) => ({ ok: true as const, value }))
+              .catch((err: unknown) => {
+                server.log.error(
+                  { jobName: name, stage: 'drainLlmBacklog', error: jobErrorSummary(err) },
+                  'ai-feed-drain stage failed',
+                )
+                return { ok: false as const, err }
               })
               .finally(async () => {
                 await locker.release(drainLock.name, drainLock.token).catch(() => false)
               })
+            if (!drained.ok) {
+              throw buildStageFailure(name, [
+                { stage: 'drainLlmBacklog', error: jobErrorSummary(drained.err) },
+              ])
+            }
+            const result = drained.value
             server.log.info(
               {
                 llmProcessed: result.llmProcessed,

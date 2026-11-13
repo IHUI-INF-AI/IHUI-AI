@@ -30,6 +30,43 @@ import {
 let scheduledTask: ScheduledTask | null = null
 let running = false
 
+// F-493:上游生图调用必须有硬超时。此前无 AbortSignal ⇒ 渠道挂起(建连成功但不回响应)时
+// 整轮 await 永不返回,`running` 卡在 true,后续每 30s 的扫描全被挡掉,该实例所有 pending
+// 任务永久积压。超时按失败处理(落 failed + 释放租约),迟到响应直接丢弃,不再写成功结果。
+const DEFAULT_IMAGE_TASK_TIMEOUT_MS = 120_000
+
+/** 单次上游生图超时(ms)。测试/排障可用 IMAGE_TASK_TIMEOUT_MS 收紧。 */
+function imageTaskTimeoutMs(): number {
+  const raw = Number(process.env.IMAGE_TASK_TIMEOUT_MS)
+  return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_IMAGE_TASK_TIMEOUT_MS
+}
+
+/**
+ * 带超时的上游生图调用:超时即 abort 并 reject(由调用方按失败落库),
+ * 晚到的上游响应不再回到调用方,因此不会覆盖已落定的 failed 状态。
+ */
+async function forwardImageWithTimeout(
+  req: Parameters<typeof forwardToChannel>[0],
+): Promise<Awaited<ReturnType<typeof forwardToChannel>>> {
+  const timeoutMs = imageTaskTimeoutMs()
+  const controller = new AbortController()
+  let timer: NodeJS.Timeout | undefined
+  try {
+    return await Promise.race([
+      forwardToChannel({ ...req, signal: controller.signal }),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+          controller.abort()
+          reject(new Error(`上游生图超时(${timeoutMs}ms)`))
+        }, timeoutMs)
+        timer.unref()
+      }),
+    ])
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
+}
+
 /** 单次扫描:取 pending 任务,逐个调上游生图并推进状态。 */
 export async function processImageTasks(): Promise<{
   processed: number
@@ -53,7 +90,7 @@ export async function processImageTasks(): Promise<{
         continue
       }
       try {
-        const result = await forwardToChannel({
+        const result = await forwardImageWithTimeout({
           model: task.model,
           endpoint: 'images',
           stream: false,
