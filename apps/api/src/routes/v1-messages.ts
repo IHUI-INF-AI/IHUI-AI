@@ -165,6 +165,9 @@ function upstreamFinishReason(data: UpstreamFinishReasonCarrier): string | null 
 // 流式 Anthropic Messages 输出
 // =============================================================================
 
+/** F-296:上游失败时回给客户端的固定文案(上游原文、request-id、内部地址一律不出响应) */
+const STREAM_UPSTREAM_ERROR_TEXT = 'Upstream service temporarily unavailable, please retry later.'
+
 /**
  * 流式调用 ai-service 上游,逐行解析并转为 Anthropic SSE 事件写出。
  * 模仿 v1-public.ts 的 streamChatCompletion,但输出 Anthropic SSE 格式。
@@ -228,6 +231,16 @@ async function streamAnthropicMessages(
   const onClose = () => controller.abort()
   request.raw.on('close', onClose)
 
+  /** F-296:发 Anthropic 协议级 `event: error` 并终止,不再走 message_delta/message_stop 伪正常收尾 */
+  const writeProtocolError = (clientMessage: string): void => {
+    raw.write(
+      `event: error\ndata: ${JSON.stringify({
+        type: 'error',
+        error: { type: 'api_error', message: clientMessage },
+      })}\n\n`,
+    )
+  }
+
   try {
     const resp = await aiServiceSystemFetch('/api/llm/complete/stream', {
       method: 'POST',
@@ -243,33 +256,13 @@ async function streamAnthropicMessages(
 
     if (!resp.ok || !resp.body) {
       const errText = await resp.text().catch(() => '')
+      // F-296:原文只进日志与计费 errorMessage,绝不进响应体
       streamError = `upstream ${resp.status}: ${errText.slice(0, 200)}`
-      // 发一个 error text block + 结束
-      const errChunk = {
-        id: `chatcmpl-${randomUUID()}`,
-        model: opts.model,
-        choices: [
-          {
-            index: 0,
-            delta: { content: `[error] ${streamError}` },
-            finish_reason: null as string | null,
-          },
-        ],
-      }
-      writeEvents(openAIStreamChunkToAnthropicEvents(errChunk, state), false)
-      // 关闭
-      const stopChunk = {
-        id: `chatcmpl-${randomUUID()}`,
-        model: opts.model,
-        choices: [
-          {
-            index: 0,
-            delta: {},
-            finish_reason: 'stop' as string | null,
-          },
-        ],
-      }
-      writeEvents(openAIStreamChunkToAnthropicEvents(stopChunk, state), false)
+      request.log.warn(
+        { upstreamStatus: resp.status, upstreamBody: errText.slice(0, 500) },
+        '[v1/messages] 流式上游失败,已改发协议级 error 事件',
+      )
+      writeProtocolError(STREAM_UPSTREAM_ERROR_TEXT)
       return
     }
 
@@ -312,22 +305,12 @@ async function streamAnthropicMessages(
       writeEvents(openAIStreamChunkToAnthropicEvents(stopChunk, state))
     }
   } catch (e) {
-    const msg = (e as Error).name === 'AbortError' ? 'client disconnected' : (e as Error).message
-    streamError = msg
-    if (state.messageStarted && state.contentBlockStarted) {
-      // 已开始,补一个 stop 收尾
-      const stopChunk = {
-        id: `chatcmpl-${randomUUID()}`,
-        model: opts.model,
-        choices: [
-          {
-            index: 0,
-            delta: {},
-            finish_reason: 'stop' as string | null,
-          },
-        ],
-      }
-      writeEvents(openAIStreamChunkToAnthropicEvents(stopChunk, state))
+    const isAbort = (e as Error).name === 'AbortError'
+    streamError = isAbort ? 'client disconnected' : (e as Error).message
+    // F-296:异常同样走协议级 error,不再补 message_delta/message_stop 冒充正常结束
+    if (!isAbort) {
+      request.log.warn({ err: e }, '[v1/messages] 流式处理异常,已改发协议级 error 事件')
+      writeProtocolError(STREAM_UPSTREAM_ERROR_TEXT)
     }
   } finally {
     request.raw.off('close', onClose)
