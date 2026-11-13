@@ -131,4 +131,59 @@ export function directSharedUsage(text, sharedName) {
   }
   return aliases.find((a) => new RegExp(`<${a}(?=[\\s/>])`).test(t)) ?? null
 }
+
+/**
+ * 页面从「声明的那一屏所在的共享模块」里渲染了**哪个**符号。
+ *
+ * 2026-11-13 立(port_all_23 B 类拍板)。立因:B 类拆子页(language/theme/avatar/member)是
+ * 真单一源,但它们 import 的不是整屏 `SettingsScreen` 而是**该屏模块导出的一个 section**
+ * (`SettingsLanguageSection` / `SettingsThemeSection` / `AvatarEditor` / `VipLevelsSection`,
+ * 经 `@ihui/rn-app/features/<域>/<屏>` 深路径)。旧 `directSharedUsage` 只认「整屏名 ∧ JSX
+ * 直用」⇒ 这四页判 hand,把整屏 21 键摊给只渲染 1 个 section 的子页 → 假缺口 21/21。
+ *
+ * 放宽到「同模块任一导出符号」后仍必须真渲染(只 import 不渲染不算,失效方向恒为多算手写,
+ * 与 directSharedUsage 同一铁律)。返回值分两档:
+ *   · `{ name, via:'direct' }` —— 渲染的正是整屏本体 ⇒ 调用方照旧记 hosted(分母=整屏)
+ *   · `{ name, via:'section' }` —— 渲染的是 section/子组件 ⇒ 记 section(分母缩到该符号真消费的键)
+ * 这档区分是**防假绿的关键**:section 收 props、t() 在父页时,整屏其它 section 的键绝不能被
+ * 误算成「已还原」。识别「真渲染」用宽松匹配(JSX 标签 `<X` 或作为 prop 值 `=X` / `={X`)——
+ * section 普遍以 `<X ... />` 直用,但也可能作为回调/渲染器传入,漏判会退回假缺口。
+ */
+export function renderedSharedSymbol(text, sharedName, moduleExportNames) {
+  const t = String(text ?? '')
+  const imports = []
+  for (const m of t.matchAll(
+    /import\s+\{([^}]*)\}\s*from\s*['"]@ihui\/rn-app(?:\/([^'"]*))?['"]/g,
+  )) {
+    const path = m[2] ? `/${m[2]}` : ''
+    for (const piece of m[1].split(',')) {
+      const p = piece.trim().replace(/^type\s+/, '')
+      if (!p) continue
+      const [orig, alias] = p.split(/\s+as\s+/).map((s) => s.trim())
+      // 整屏本体:符号名 == 屏名(不论从根 `@ihui/rn-app` 还是深路径导入)
+      if (orig === sharedName) imports.push({ sym: alias || orig, kind: 'screen', path })
+      else imports.push({ sym: alias || orig, kind: 'other', orig, path })
+    }
+  }
+  // 渲染判定:JSX 标签 `<X`,或作为值传递 `=X` / `={X` / ` X,`(渲染器)。宽松但不把「只 import」
+  // 算渲染 —— 那种页连这里都进不来(JSX/值位都搜不到该符号)。
+  const rendered = (sym) =>
+    new RegExp(`<${sym}(?=[\\s/>])`).test(t) || new RegExp(`[=(,]\\s*${sym}\\b`).test(t)
+  // 优先整屏本体(保持 directSharedUsage 原语义)
+  const screenHit = imports.find((i) => i.kind === 'screen' && rendered(i.sym))
+  if (screenHit) return { name: screenHit.sym, via: 'direct' }
+  // 其次:渲染的符号属「该屏模块的导出」⇒ section。moduleExportNames 取不到时退回「深路径
+  // 同文件导入」作近似 —— 深路径 `@ihui/rn-app/features/<域>/<屏>` 的模块就是那一屏的文件。
+  const screenPath = `/${String(sharedName).replace(/\.[jt]sx$/, '')}`
+  const sectionHit = imports.find(
+    (i) =>
+      i.kind === 'other' &&
+      rendered(i.sym) &&
+      (Array.isArray(moduleExportNames)
+        ? moduleExportNames.includes(i.orig)
+        : i.path.endsWith(screenPath)),
+  )
+  if (sectionHit) return { name: sectionHit.sym, via: 'section' }
+  return null
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

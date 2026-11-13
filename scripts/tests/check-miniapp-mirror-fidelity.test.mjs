@@ -343,9 +343,9 @@ test('T18 真仓冒烟(HEAD 面):引壳的页一律不得判成手写,且 hosted
   const res = gate.computeFidelity('head')
   assert.ok(res.hosted > 0, `HEAD 面 hosted 桶为空 ⇒ 承载判据没装车(现读 hosted=${res.hosted})`)
   assert.equal(
-    res.hosted + res.hand + res.other + res.broken,
+    res.hosted + res.hand + res.other + res.broken + (res.section || 0),
     res.pairs,
-    '四形制之和必须等于对数(漏分即有形态没人判)',
+    '形制之和必须等于对数(漏分即有形态没人判;section 为 2026-11-13 B 类新增真单一源形态)',
   )
   const miniapp = cov.collectMiniapp('head')
   const shellRoutes = new Set(
