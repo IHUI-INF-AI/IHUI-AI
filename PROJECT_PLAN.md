@@ -12387,7 +12387,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 662G. **缺陷普查 API F-663** [P2] 财务统计 sum/avg ÷ 100.0（numeric）返回字符串，前端 .toFixed 崩整页（证据 docs/tickets/2026-11/findings-api.md#F-663）
 - [ ] 663G. **缺陷普查 API F-664** [P2] /api/admin/api-usage/top 的 errorRate（avg*100，numeric 字符串）被 .toFixed 调用（证据 docs/tickets/2026-11/findings-api.md#F-664）
 - [ ] 664G. **缺陷普查 API F-665** [P2] /api/admin/performance-dashboard/endpoints 同型 errorRate 崩页，且 avgLatency 未截断（证据 docs/tickets/2026-11/findings-api.md#F-665）
-- [ ] 666G. **缺陷普查 API F-667** [P2] token 计数列 sum(...)::int 溢出：>2,147,483,647 tokens 即 22003 → 500（F-574 只覆盖金额列）（证据 docs/tickets/2026-11/findings-api.md#F-667）
 - [ ] 667G. **缺陷普查 API F-668** [P2] 兑换码 tokenAmount 无上限 + sum(token_amount)::bigint::int → 统计接口 500（证据 docs/tickets/2026-11/findings-api.md#F-668）
 - [ ] 668G. **缺陷普查 API F-669** [P3] agent_settlements 三个 int4 列对 admin 输入无约束：小数被静默取整、超限 500（证据 docs/tickets/2026-11/findings-api.md#F-669）
 - [ ] 671G. **缺陷普查 API F-672** [P2] 管理端参数覆盖（bodyOverride）只在渠道腿生效，账号池腿完全忽略（证据 docs/tickets/2026-11/findings-api.md#F-672）
@@ -12395,7 +12394,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 673G. **缺陷普查 API F-674** [P2] 渠道腿只看 resp.ok 不校验协议体：200 HTML/错误 JSON 也记 key 健康并当成功透传（证据 docs/tickets/2026-11/findings-api.md#F-674）
 - [ ] 674G. **缺陷普查 API F-675** [P2] 异步生图链路零计费，worker 注释与实现相反（证据 docs/tickets/2026-11/findings-api.md#F-675）
 - [ ] 675G. **缺陷普查 API F-676** [P3] 429 的 Retry-After 只有账号池腿采用，渠道腿固定 60s 冷却（证据 docs/tickets/2026-11/findings-api.md#F-676）
-- [ ] 677G. **缺陷普查 API F-678** [P2] 两条腿都吞掉上游状态码：lastHttpStatus 无消费者，4xx/429 一律变 503（证据 docs/tickets/2026-11/findings-api.md#F-678）
 - [ ] 678G. **缺陷普查 API F-679** [P2] 流式计费用字符估算顶掉上游真实 usage（同函数 usage 帧却用真值）（证据 docs/tickets/2026-11/findings-api.md#F-679）
 - [ ] 680G. **缺陷普查 API F-681** [P2] 错题入库从不初始化 SRS 到期日，“今日待复习”对全部用户恒为空（证据 docs/tickets/2026-11/findings-api.md#F-681）
 - [ ] 682G. **缺陷普查 API F-683** [P2] 转码 resolution 参数被静默丢弃，请求 720p/1080p 实际输出原分辨率（证据 docs/tickets/2026-11/findings-api.md#F-683）
@@ -12407,12 +12405,9 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 694G. **缺陷普查 API F-695** [P3] 后台“总用户数”与用户列表 total 口径不一致（已注销用户）（证据 docs/tickets/2026-11/findings-api.md#F-695）
 - [ ] 695G. **缺陷普查 API F-696** [P3] 直播统计 total 含禁用频道，与其余三项口径不一致（证据 docs/tickets/2026-11/findings-api.md#F-696）
 - [ ] 696G. **缺陷普查 API F-697** [P3] 移动端设备分布把全部 distinct User-Agent 拉回进程再分三桶（证据 docs/tickets/2026-11/findings-api.md#F-697）
-- [ ] 707G. **缺陷普查 API F-708** [P2] 分布式锁 watchdog 遇到一次续约异常即永久停表，且不通知持有者（证据 docs/tickets/2026-11/findings-api.md#F-708）
 - [ ] 708G. **缺陷普查 API F-709** [P3] watchdog 以锁名（而非 token）为键：同进程重获取泄漏旧 interval 并误杀新锁续约（证据 docs/tickets/2026-11/findings-api.md#F-709）
-- [ ] 709G. **缺陷普查 API F-710** [P3] mTLS 降级模式下，把链校验失败的证书 CN 当成客户端身份注入（证据 docs/tickets/2026-11/findings-api.md#F-710）
 - [ ] 712G. **缺陷普查 API F-713** [P3] calendar-boundary.toDate 把无时区时间串按本地时区解析，日/周/月边界整体错一天（证据 docs/tickets/2026-11/findings-api.md#F-713）
 - [ ] 713G. **缺陷普查 API F-714** [P3] toAwareUtc 对斜杠格式按本地时区解析，UTC 兜底分支不可达（证据 docs/tickets/2026-11/findings-api.md#F-714）
-- [ ] 714G. **缺陷普查 API F-715** [P3] 死信队列只在 push 时清理：过期死信在 get/list 中仍可见且可重投（证据 docs/tickets/2026-11/findings-api.md#F-715）
 - [ ] 715G. **缺陷普查 API F-716** [P3] readNoProxy 首个已配置变量未命中即 return，注释声称“继续找另一个大小写档位”（证据 docs/tickets/2026-11/findings-api.md#F-716）
 - [ ] 718G. **缺陷普查 API F-719** [P1] 兑换码/单边 token 充值只加 tokenBalance，而准入要求 costBalanceCents≠0 ⇒ 付费充值不可用（证据 docs/tickets/2026-11/findings-api.md#F-719）
 - [ ] 719G. **缺陷普查 API F-720** [P2] Qoder 类积分上游的 credits 不进计费 ⇒ 该维度完全未计费（证据 docs/tickets/2026-11/findings-api.md#F-720）
