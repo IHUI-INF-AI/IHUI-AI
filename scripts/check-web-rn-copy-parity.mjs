@@ -433,6 +433,15 @@ export const ROLE_EXEMPTIONS = [
     reason:
       'web learn/[id] 同屏同键 learn.signUp(PageClient.tsx:288)与 RN 同值;B3 族内比较排除自身,余键 signupCount(:177)/signedUp(:278)取值不同 —— web 同族多值,非 RN 漂移',
   },
+  {
+    rn: 'packages/app/src/features/exam-result/ExamResultScreen.tsx',
+    rnKey: 'common.retry',
+    webKeys: ['eduExamResultPage.retry'],
+    owner: 'web-rn-copy',
+    expires: '2026-12-31',
+    reason:
+      'RN ExamResultScreen 的 common.retry 是成绩页加载失败的重试(ErrorState retryLabel,ExamResultScreen.tsx:54),web eduExamResultPage.retry「重新考试」是整场重考 —— 同字不同义,与上方 ExamScreen common.retry↔eduExamResultPage.retry 同型豁免',
+  },
 ]
 
 /**
