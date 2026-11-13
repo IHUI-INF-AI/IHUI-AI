@@ -206,7 +206,7 @@ function main() {
   const generatedAt = new Date().toISOString()
   let sourceCommit = 'unknown'
   try {
-    sourceCommit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).trim()
+    sourceCommit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
   } catch {
     /* 取不到就写 unknown(钉里字段允许) */
   }
