@@ -113,6 +113,18 @@ export async function handleCallbackEvent(
       for (const [k, v] of processedEventIds) {
         if (v !== null && now - v > IDEMPOTENCY_WINDOW_MS) processedEventIds.delete(k)
       }
+      // F-688:清过期项后仍超额(窗口内洪峰)时按插入顺序淘汰最老的非占位项,
+      // 给去重 Map 一个硬上限,避免条目只增不减、每次 set 都全表扫描。
+      while (processedEventIds.size > 1000) {
+        let evicted = false
+        for (const [k, v] of processedEventIds) {
+          if (v === null) continue // 占位(处理中)不能删,否则并发重投会漏状态更新
+          processedEventIds.delete(k)
+          evicted = true
+          break
+        }
+        if (!evicted) break
+      }
     }
   }
   const releaseOnFailure = (): void => {

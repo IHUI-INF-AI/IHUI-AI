@@ -398,9 +398,9 @@ export const adminMonitoringRoutes: FastifyPluginAsync = async (server) => {
         id: sql<string>`md5(${apiLogs.method} || ${apiLogs.path})`,
         endpoint: apiLogs.path,
         method: apiLogs.method,
-        avgLatency: sql<number>`coalesce(avg(${apiLogs.duration}), 0)`,
+        avgLatency: sql<number>`coalesce(avg(${apiLogs.duration}), 0)::int`,
         calls: count(),
-        errorRate: sql<number>`coalesce(avg(case when ${apiLogs.statusCode} >= 400 then 1 else 0 end) * 100, 0)`,
+        errorRate: sql<number>`coalesce(avg(case when ${apiLogs.statusCode} >= 400 then 1 else 0 end) * 100, 0)::float8`,
       })
       .from(apiLogs)
       .groupBy(apiLogs.method, apiLogs.path)
