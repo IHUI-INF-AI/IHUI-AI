@@ -63,12 +63,8 @@ import {
   deleteExamine,
   approveExamine,
   rejectExamine,
-  findThumb,
-  addThumb,
-  removeThumb,
-  findCollect,
-  addCollect,
-  removeCollect,
+  toggleThumb,
+  toggleCollect,
   recordAgentUse,
   findAgentByBotId,
   findAgentByAgentId,
@@ -839,21 +835,29 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /categories/:categoryId/enable - 启用付费
   // F-361(2026-11-08):付费开关属运营配置,与同资源 DELETE 同判据 requireAdmin。
-  server.post('/categories/:categoryId/enable', { preHandler: requireAdmin }, async (request, reply) => {
-    const { categoryId } = categoryIdParam.parse(request.params)
-    const category = await updateCategory(categoryId, { isPaid: true })
-    if (!category) return reply.status(404).send(error(404, '分类不存在'))
-    return reply.send(success(category))
-  })
+  server.post(
+    '/categories/:categoryId/enable',
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const { categoryId } = categoryIdParam.parse(request.params)
+      const category = await updateCategory(categoryId, { isPaid: true })
+      if (!category) return reply.status(404).send(error(404, '分类不存在'))
+      return reply.send(success(category))
+    },
+  )
 
   // POST /categories/:categoryId/disable - 禁用付费
   // F-361(2026-11-08):与 enable 同一把闸。
-  server.post('/categories/:categoryId/disable', { preHandler: requireAdmin }, async (request, reply) => {
-    const { categoryId } = categoryIdParam.parse(request.params)
-    const category = await updateCategory(categoryId, { isPaid: false })
-    if (!category) return reply.status(404).send(error(404, '分类不存在'))
-    return reply.send(success(category))
-  })
+  server.post(
+    '/categories/:categoryId/disable',
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const { categoryId } = categoryIdParam.parse(request.params)
+      const category = await updateCategory(categoryId, { isPaid: false })
+      if (!category) return reply.status(404).send(error(404, '分类不存在'))
+      return reply.send(success(category))
+    },
+  )
 
   // -------------------------------------------------------------------------
   // categories/cache 分类缓存(Redis,key 前缀:agent:category:cache:*)
@@ -1139,12 +1143,16 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /settlement/cache/force-check - 强制检查缓存
   // 2026-11-08 F-365:缓存运维端点按"读缓存"处理,漏了 admin 闸。
-  server.post('/settlement/cache/force-check', { preHandler: requireAdmin }, async (request, reply) => {
-    const redis = request.server.redis
-    const key = 'settlement:summary'
-    const exists = await redis.exists(key)
-    return reply.send(success({ cached: exists === 1, checked: true }))
-  })
+  server.post(
+    '/settlement/cache/force-check',
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const redis = request.server.redis
+      const key = 'settlement:summary'
+      const exists = await redis.exists(key)
+      return reply.send(success({ cached: exists === 1, checked: true }))
+    },
+  )
 
   // POST /settlement/cache/force-refresh - 强制刷新缓存
   // 2026-11-08 F-365:该端点执行全表 sum(findSettlementSummary)、写共享缓存键,
@@ -1840,12 +1848,10 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const { uuid, botId } = parsed.data
-    const existing = await findThumb(uuid, botId)
-    if (existing) {
-      await removeThumb(uuid, botId)
+    const isThumbs = await toggleThumb(uuid, botId)
+    if (!isThumbs) {
       return reply.send(success({ action: 'remove', isThumbs: false, message: '取消点赞成功' }))
     }
-    await addThumb(uuid, botId)
     return reply.send(success({ action: 'add', isThumbs: true, message: '点赞成功' }))
   })
 
@@ -1855,12 +1861,10 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const { uuid, botId } = parsed.data
-    const existing = await findCollect(uuid, botId)
-    if (existing) {
-      await removeCollect(uuid, botId)
+    const isCollect = await toggleCollect(uuid, botId)
+    if (!isCollect) {
       return reply.send(success({ action: 'remove', isCollect: false, message: '取消收藏成功' }))
     }
-    await addCollect(uuid, botId)
     return reply.send(success({ action: 'add', isCollect: true, message: '收藏成功' }))
   })
 
@@ -2504,48 +2508,50 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     '/cozeZhsApi/agents/token/balance/:userUuid',
     { preHandler: requireAdmin },
     async (request, reply) => {
-    try {
-      const { userUuid } = z.object({ userUuid: z.string().min(1) }).parse(request.params)
-      const parsed = z
-        .object({
-          balance: z.number().optional(),
-          frozen_balance: z.number().optional(),
-          reason: z.string().optional(),
-        })
-        .safeParse(request.body ?? {})
-      if (!parsed.success) {
-        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-      }
-      const { balance, frozen_balance, reason } = parsed.data
-      // 真实 SQL: 尝试 UPDATE user_token_balance, 无表则尝试 zhs_credit_records
-      const setObj: Record<string, unknown> = { updated_at: new Date() }
-      if (balance !== undefined) setObj.balance = balance
-      if (frozen_balance !== undefined) setObj.frozen_balance = frozen_balance
       try {
-        await db.execute(
-          sql`UPDATE user_token_balance SET balance = COALESCE(${balance ?? null}, balance), frozen_balance = COALESCE(${frozen_balance ?? null}, frozen_balance), updated_at = now() WHERE user_uuid = ${userUuid}`,
-        )
-      } catch {
-        // 表不存在时 fallback 写 zhs_credit_records
+        const { userUuid } = z.object({ userUuid: z.string().min(1) }).parse(request.params)
+        const parsed = z
+          .object({
+            balance: z.number().optional(),
+            frozen_balance: z.number().optional(),
+            reason: z.string().optional(),
+          })
+          .safeParse(request.body ?? {})
+        if (!parsed.success) {
+          return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+        }
+        const { balance, frozen_balance, reason } = parsed.data
+        // 真实 SQL: 尝试 UPDATE user_token_balance, 无表则尝试 zhs_credit_records
+        const setObj: Record<string, unknown> = { updated_at: new Date() }
+        if (balance !== undefined) setObj.balance = balance
+        if (frozen_balance !== undefined) setObj.frozen_balance = frozen_balance
         try {
           await db.execute(
-            sql`INSERT INTO zhs_credit_records (user_uuid, change_amount, reason, created_at) VALUES (${userUuid}, ${balance ?? 0}, ${reason ?? 'manual_adjust'}, now())`,
+            sql`UPDATE user_token_balance SET balance = COALESCE(${balance ?? null}, balance), frozen_balance = COALESCE(${frozen_balance ?? null}, frozen_balance), updated_at = now() WHERE user_uuid = ${userUuid}`,
           )
         } catch {
-          // 静默失败, 仍返回 OK 表示已尝试
+          // 表不存在时 fallback 写 zhs_credit_records
+          try {
+            await db.execute(
+              sql`INSERT INTO zhs_credit_records (user_uuid, change_amount, reason, created_at) VALUES (${userUuid}, ${balance ?? 0}, ${reason ?? 'manual_adjust'}, now())`,
+            )
+          } catch {
+            // 静默失败, 仍返回 OK 表示已尝试
+          }
         }
+        return reply.send(
+          success({
+            userUuid,
+            applied: { balance, frozen_balance, reason },
+            message:
+              '余额更新已尝试(若 user_token_balance 表存在则生效, 否则写入 zhs_credit_records 审计)',
+          }),
+        )
+      } catch (e) {
+        return reply
+          .status(500)
+          .send(error(500, `更新 token 余额失败: ${toUserFriendlyMessage(e)}`))
       }
-      return reply.send(
-        success({
-          userUuid,
-          applied: { balance, frozen_balance, reason },
-          message:
-            '余额更新已尝试(若 user_token_balance 表存在则生效, 否则写入 zhs_credit_records 审计)',
-        }),
-      )
-    } catch (e) {
-      return reply.status(500).send(error(500, `更新 token 余额失败: ${toUserFriendlyMessage(e)}`))
-    }
     },
   )
 
