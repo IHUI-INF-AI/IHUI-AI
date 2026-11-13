@@ -12243,11 +12243,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 221G. **缺陷普查 API F-221** [P2] RLS 上下文复位不绑定连接：池化下清不到持值连接，会话变量残值跨请求（证据 docs/tickets/2026-11/findings-api.md#F-221）
 - [ ] 222G. **缺陷普查 API F-222** [P2] 调度器在装配期 await upsertJobScheduler，Redis 不可用时启动永久挂死（证据 docs/tickets/2026-11/findings-api.md#F-222）
 - [ ] 232G. **缺陷普查 API F-232** [P2] VIP 到期降级 is_vip 无条件覆盖 + 全量/N+1，续费用户可被误降级（证据 docs/tickets/2026-11/findings-api.md#F-232）
-- [ ] 241G. **缺陷普查 API F-241** [P2] 组邀请码「一次性」未原子占用，并发可被多把 Key 同时兑换（证据 docs/tickets/2026-11/findings-api.md#F-241）
-- [ ] 242G. **缺陷普查 API F-242** [P3] 每个转发请求全量查一次参数覆盖规则表，无缓存（证据 docs/tickets/2026-11/findings-api.md#F-242）
-- [ ] 247G. **缺陷普查 API F-247** [P2] 客服派单 TOCTOU：判 waiting 后按 sessionId 无条件更新，负载自增在事务外（证据 docs/tickets/2026-11/findings-api.md#F-247）
-- [ ] 248G. **缺陷普查 API F-248** [P2] 取消 VIP 只改 user_vips.status，不回写 users.isVip，被取消用户仍享 VIP 权益（证据 docs/tickets/2026-11/findings-api.md#F-248）
-- [ ] 249G. **缺陷普查 API F-249** [P2] closeSession 无幂等保护，重复关闭重复递减坐席负载（证据 docs/tickets/2026-11/findings-api.md#F-249）
 - [ ] 256G. **缺陷普查 API F-256** [P2] urgent 抢占只改状态不中止执行：槽位释放但任务仍在跑，并发可破上限且 preempted 被覆写 completed（证据 docs/tickets/2026-11/findings-api.md#F-256）
 - [ ] 267G. **缺陷普查 API F-267** [P2] 自愈「依赖修复」命令 pnpm 命中管理员专用闸，100% 以 exitCode 126 失败（证据 docs/tickets/2026-11/findings-api.md#F-267）
 - [ ] 271G. **缺陷普查 API F-271** [P2] 企微 suite 登录绑定只取 open_userid、丢弃 corpId，缺租户维度（证据 docs/tickets/2026-11/findings-api.md#F-271）
@@ -12267,7 +12262,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 303G. **缺陷普查 API F-303** [P2] 定时器回调 persist() 抛错未被捕获 → uncaughtException → process.exit(1)（证据 docs/tickets/2026-11/findings-api.md#F-303）
 - [ ] 304G. **缺陷普查 API F-304** [P3] POST /workspace-ai/permissions/:requestId/resolve 缺属主校验（证据 docs/tickets/2026-11/findings-api.md#F-304）
 - [ ] 305G. **缺陷普查 API F-305** [P3] 会话质量统计：visit_logs 无可用索引，三腿各扫全表且非同一快照（证据 docs/tickets/2026-11/findings-api.md#F-305）
-- [ ] 306G. **缺陷普查 API F-306** [P2] /workspace-ai/agent/run 用系统票调 LLM：无计费/配额/并发上限，上游失败记为 completed（证据 docs/tickets/2026-11/findings-api.md#F-306）——**部分已修** `6cd8bc5e1a`：失败置 failed+error、任务按 userId 归属；计费/配额/并发上限仍待排期
 - [ ] 311G. **缺陷普查 API F-311** [P2] 裂变券未校验“分享人≠领取人”，可自推荐刷 API Key 余额（证据 docs/tickets/2026-11/findings-api.md#F-311）
 - [ ] 319G. **缺陷普查 API F-319** [P2] /payment-record/summary 接受 termId 但只对欠费生效，收入/已缴人数仍是全库/全班历史（证据 docs/tickets/2026-11/findings-api.md#F-319）
 - [ ] 336G. **缺陷普查 API F-336** [P3] GET /circles/:id 与 /posts 对 slug 直接 404，slug 分享链路断裂（证据 docs/tickets/2026-11/findings-api.md#F-336）
@@ -12356,7 +12350,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 576G. **缺陷普查 API F-576** [P3] 充值成功邮件把「token 数」和「分」相加当金额（证据 docs/tickets/2026-11/findings-api.md#F-576）
 - [ ] 577G. **缺陷普查 API F-577** [P2] 月付签约 setMonth(+1) 月末溢出：1/31 签约 → 下次扣款 3/3，2 月整月不扣（证据 docs/tickets/2026-11/findings-api.md#F-577）
 - [ ] 580G. **缺陷普查 API F-581** [P1] 连续包月代扣成功但不发放任何会员权益（证据 docs/tickets/2026-11/findings-api.md#F-581）
-- [ ] 581G. **缺陷普查 API F-582** [P2] 教育账本“事务外读快照 + 绝对值写回”导致已收金额回退（证据 docs/tickets/2026-11/findings-api.md#F-582）
 - [ ] 584G. **缺陷普查 API F-585** [P2] completeOrder 路径不发积分、不写 order.paid outbox（证据 docs/tickets/2026-11/findings-api.md#F-585）
 - [ ] 586G. **缺陷普查 API F-587** [P2] 订阅实例的 orderNo 幂等靠副本读 + 非唯一索引，异常吞成 null（证据 docs/tickets/2026-11/findings-api.md#F-587）
 - [ ] 587G. **缺陷普查 API F-588** [P3] AI 预算 upsert 无唯一约束，并发激活产生重复预算行（证据 docs/tickets/2026-11/findings-api.md#F-588）
