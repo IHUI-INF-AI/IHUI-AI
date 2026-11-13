@@ -34,6 +34,7 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { logger } from '../utils/logger.js'
+import { getProcessRole } from '../utils/process-role.js'
 import { homedir, platform } from 'node:os'
 import {
   basename,
@@ -3760,10 +3761,26 @@ class RoutineManager {
     return agentId
   }
 
-  /** 启动调度器（每 60 秒检查一次 cron 匹配） */
-  startScheduler(): void {
-    if (this.timer) return
+  /**
+   * 启动调度器（每 60 秒检查一次 cron 匹配）。
+   *
+   * F-302:本方法此前在模块体末尾被无条件调用,而 API 与 worker 两个入口
+   * (index.ts / worker-entry.ts)都经 buildServer() 载入本模块 ⇒ 两进程各起一份,
+   * 同一分钟对同一份 routines.json 各触发一次,persist 还整文件互相覆盖。
+   * 现改为只由 API 角色、在 index.ts 的 startBackgroundSchedulers(蓝绿活跃色独占
+   * 判定之后)调用一次;其它角色调用被显式拒绝,同进程重复调用幂等(返回 false)。
+   *
+   * @returns 本次调用是否真的起了一个定时器
+   */
+  startScheduler(): boolean {
+    if (this.timer) return false
+    const role = getProcessRole()
+    if (role !== 'api') {
+      logger.warn('例行程序调度器只在 API 角色启动,本次调用被拒绝', { role })
+      return false
+    }
     this.timer = setInterval(() => this.tick(), 60_000)
+    return true
   }
 
   stopScheduler(): void {
@@ -4411,6 +4428,8 @@ agentLoop.registerTool({
   },
 })
 
-// 启动例行程序调度器
-routineManager.startScheduler()
+// F-302:例行程序调度器不再作为模块级副作用启动。模块被 worker 进程
+// (worker-entry → buildServer)载入时也必须零副作用;唯一启动点 =
+// index.ts 的 startBackgroundSchedulers(API 角色 + 蓝绿活跃色判定之后),
+// 关停相已在 index.ts 的 shutdown 清单里(routineManager.stopScheduler)。
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

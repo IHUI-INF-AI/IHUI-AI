@@ -351,6 +351,12 @@ function startBackgroundSchedulers(server: Awaited<ReturnType<typeof buildServer
   // 启动主动巡逻调度器(P3 #40,60s tick,到点执行 active 的巡检任务)
   startPatrolScheduler()
 
+  // F-302:例行程序调度器的唯一启动点。此前是 workspace-ai-service 的模块级副作用,
+  // worker 进程(worker-entry → buildServer)也跟着起一份 ⇒ 同一 cron 双执行 + 互相覆盖
+  // routines.json。现在只在 API 角色、活跃色判定通过之后启动一次;worker 角色调用会被
+  // RoutineManager.startScheduler 显式拒绝,同进程重复调用幂等。
+  routineManager.startScheduler()
+
   // 预热本机 Qoder chat 桥(2026-10-23):chat 真实端点要求 umid 设备签名,只能由
   // 官方 Agent SDK worker 完成 ⇒ 包成 127.0.0.1 上的 OpenAI 兼容端点常驻。
   // 后台跑不阻塞就绪;未装 Qoder / QODER_BRIDGE_AUTOSTART=false 时静默跳过,
