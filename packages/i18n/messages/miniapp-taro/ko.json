@@ -45,7 +45,7 @@
     "committing": "가져오는 중...({done}/{total})",
     "commitDone": "가져오기 완료: 성공 {imported}, 실패 {failed}",
     "commitFailed": "가져오기 실패: {error}",
-    "noValidContent": "대화에 유효한 내용이 없습니다",
+    "noValidContent": "가져올 수 있는 유효한 내용이 없습니다",
     "historyTitle": "가져오기 기록",
     "historyEmpty": "가져온 기록이 없습니다",
     "historyParsed": "분석",

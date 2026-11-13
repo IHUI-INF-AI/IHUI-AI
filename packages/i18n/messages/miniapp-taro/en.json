@@ -45,7 +45,7 @@
     "committing": "Importing... ({done}/{total})",
     "commitDone": "Import finished: {imported} succeeded, {failed} failed",
     "commitFailed": "Import failed: {error}",
-    "noValidContent": "This conversation has no valid content",
+    "noValidContent": "No importable content found",
     "historyTitle": "Import history",
     "historyEmpty": "No import records yet",
     "historyParsed": "Parsed",

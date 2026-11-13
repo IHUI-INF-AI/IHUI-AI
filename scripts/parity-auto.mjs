@@ -281,6 +281,21 @@ export const STAGES = [
     // **不标 slow**:它内部四把尺实测 26s,比门 128(40~90s)便宜,而它正是"宣布收口前必须过"
     // 的那一维 —— 标 slow 等于把同一个盲区留给下一轮 `--fast`。
   },
+  {
+    id: 'gate-rn-native-screen-gaps',
+    group: 'gate',
+    title: 'RN 原生屏→小程序 承载差集(既有一切对齐器物只覆盖共享屏,本腿补 RN 原生屏盲区)',
+    script: 'report-rn-native-screen-gaps.mjs',
+    args: [],
+    applyArgs: [],
+    tier: null,
+    wt: false,
+    // 立因(2026-11-13 实测):门 237 / gap 报告器 / 裁决台账全部只覆盖共享屏
+    // (packages/app/features),而 apps/mobile-rn/src/screens 里不在共享层的原生屏
+    // (HEAD 面 81 枚)是否该被小程序承载从未被量化;裁决台账整屏判决键=shared 路径,
+    // RN 原生屏结构上进不了台账。本腿把差集持续量出来(covered/not-applicable/unjudged 三桶),
+    // 让盲区可见可派单。只读报告器,tier: null,不判红 —— 真正"该不该承载"归裁决台账与产品。
+  },
 ]
 
 /** 结论行抽取:优先取带结论语义的那行,否则取末行 —— 只做展示,不改任何判定。 */

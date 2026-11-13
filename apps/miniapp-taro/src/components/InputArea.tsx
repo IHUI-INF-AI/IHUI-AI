@@ -912,7 +912,7 @@ export default function InputArea({
               {/* 与 RN `PlusButton`(附件槽位)同字形:lucide Plus */}
               <LineIcon name="plus" size={toUnit(INPUT_AREA_GLYPH_MD_PX)} />
             </View>
-            <Text className="text-[length:18rpx] text-muted-foreground leading-none mt-[4rpx]">
+            <Text className="text-badge text-muted-foreground leading-none mt-[4rpx]">
               {t('messageInput.addFile')}
             </Text>
           </View>
