@@ -63,6 +63,11 @@ export interface RiskRule {
   priority: number
   enabled: boolean
   description: string
+  /**
+   * F-379:求值该规则所必需的上下文字段。
+   * 缺任一字段时规则记为「未判定」(undetermined),不再把缺失当 0 静默放行。
+   */
+  requiredFields?: readonly string[]
 }
 
 /** 命中记录 */
@@ -77,6 +82,15 @@ export interface RiskHit {
   matchedAt: number
 }
 
+/** 未判定记录(F-379:规则所需字段缺失,既不是命中也不是「判定通过」) */
+export interface RiskUndetermined {
+  ruleId: string
+  name: string
+  /** 缺失的上下文字段名 */
+  missingFields: string[]
+  at: number
+}
+
 /** 评估结果 */
 export interface RiskEvaluationResult {
   /** 累加风险评分 */
@@ -85,6 +99,10 @@ export interface RiskEvaluationResult {
   action: RiskAction
   /** 命中的规则列表 */
   hits: RiskHit[]
+  /** 因上下文字段缺失而无法判定的规则(F-379) */
+  undetermined: RiskUndetermined[]
+  /** 未判定规则计数(F-379,便于入口日志/看板聚合) */
+  undeterminedCount: number
 }
 
 /** 大额提现阈值：5 万元 (分) */
@@ -125,6 +143,8 @@ export const DEFAULT_RULES: RiskRule[] = [
     priority: 70,
     enabled: true,
     description: '短时间内多次退款，疑似薅羊毛或欺诈',
+    // F-379:缺次数或窗口 ⇒ 无法判定,不得按 0 视为通过
+    requiredFields: ['recentRefundCount', 'recentRefundWindowSec'],
   },
   {
     ruleId: 'R003_ABNORMAL_IP',
@@ -160,6 +180,9 @@ export const DEFAULT_RULES: RiskRule[] = [
     priority: 72,
     enabled: true,
     description: '大额提现或显著超出历史均值，需人工复核',
+    // F-379:无提现金额 ⇒ 无法判定;avgWithdrawalFen 缺失仅表示「无历史基线」,
+    // 绝对阈值(>=5 万)仍可判定,故不列为必填。
+    requiredFields: ['withdrawalAmountFen'],
   },
 ]
 
@@ -220,11 +243,27 @@ export class RiskRuleEngine {
   evaluateRisk(ctx: RiskContext): RiskEvaluationResult {
     const sorted = this.listRules()
     const hits: RiskHit[] = []
+    const undetermined: RiskUndetermined[] = []
     let totalScore = 0
     let finalAction: RiskAction = 'ALLOW'
 
     for (const rule of sorted) {
       if (!rule.enabled) continue
+
+      // F-379:必填字段缺失 ⇒ 显式「未判定」并计数,不能落进 match 后当作未命中放行
+      const missingFields = (rule.requiredFields ?? []).filter(
+        (key) => ctx[key] === undefined || ctx[key] === null,
+      )
+      if (missingFields.length > 0) {
+        undetermined.push({
+          ruleId: rule.ruleId,
+          name: rule.name,
+          missingFields,
+          at: Date.now(),
+        })
+        continue
+      }
+
       let matched = false
       try {
         matched = rule.match(ctx)
@@ -267,7 +306,13 @@ export class RiskRuleEngine {
       void persistRiskHits(ctx, hits)
     }
 
-    return { totalScore, action: finalAction, hits }
+    return {
+      totalScore,
+      action: finalAction,
+      hits,
+      undetermined,
+      undeterminedCount: undetermined.length,
+    }
   }
 
   /** 持久化本实例的命中的入口(供外部对已有 engine 实例持久化历史,预留)。 */

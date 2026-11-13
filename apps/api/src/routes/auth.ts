@@ -78,10 +78,13 @@ import {
   evaluateLoginRisk,
   evaluateRisk,
   recentRiskHitsByIp,
+  type RiskContext,
+  type RiskEvaluationResult,
 } from '../services/risk-engine-service.js'
 import { verifyTurnstile } from '../services/turnstile-service.js'
 import { db } from '../db/index.js'
-import { userDevices } from '@ihui/database'
+import { userDevices, orders, withdrawalFlows } from '@ihui/database'
+import { and, count, desc, eq, gte } from 'drizzle-orm'
 import {
   recordAuthLoginAttempt,
   recordAuthLoginSuccess,
@@ -363,6 +366,17 @@ type QrLoginState =
 const LOGIN_LAST_IP_KEY = (userId: string): string => `login:last-ip:${userId}`
 const LOGIN_LAST_IP_TTL_SEC = 90 * 24 * 60 * 60
 
+// ── F-379:登录入口补齐 R002/R005 所需字段 ──
+// R002(高频退款)/R005(大额提现)读取的字段此前在登录入口从未赋值 ⇒ 两条规则空转。
+// 这里把「登录时刻的账号行为快照」一并放进上下文:
+//   - recentRefundCount / recentRefundWindowSec:近 24h 已退款订单数(查得无记录即显式 0);
+//   - withdrawalAmountFen:最近一笔提现申请金额;avgWithdrawalFen:已完成提现均值(无历史即显式 0)。
+// 查询失败时保持 undefined ⇒ 引擎记为「未判定」并计数,不得按 0 当作通过。
+const LOGIN_REFUND_WINDOW_SEC = 24 * 60 * 60
+const LOGIN_WITHDRAWAL_SAMPLE_SIZE = 50
+/** withdrawal_flows.status: 2 = completed */
+const WITHDRAWAL_STATUS_COMPLETED = 2
+
 function ipRegionKey(ip: string): string {
   const v4 = /^(\d{1,3}\.\d{1,3})\./.exec(ip)
   if (v4) return v4[1]!
@@ -377,12 +391,64 @@ function headerValue(request: FastifyRequest, name: string): string | undefined 
   return Array.isArray(raw) ? raw[0] : raw
 }
 
+async function attachLoginBehaviorRiskSignals(
+  ctx: RiskContext,
+  request: FastifyRequest,
+  userId: string,
+): Promise<void> {
+  try {
+    const refundSince = new Date(Date.now() - LOGIN_REFUND_WINDOW_SEC * 1000)
+    const rows = await db
+      .select({ c: count() })
+      .from(orders)
+      .where(
+        and(
+          eq(orders.userId, userId),
+          eq(orders.status, 'refunded'),
+          gte(orders.refundTime, refundSince),
+        ),
+      )
+    ctx.recentRefundCount = Number(rows[0]?.c ?? 0)
+    ctx.recentRefundWindowSec = LOGIN_REFUND_WINDOW_SEC
+  } catch (e) {
+    request.log.warn({ err: e }, 'login risk: refund history unavailable (R002 undetermined)')
+  }
+
+  try {
+    const rows = await db
+      .select({ amount: withdrawalFlows.originalAmount, status: withdrawalFlows.status })
+      .from(withdrawalFlows)
+      .where(eq(withdrawalFlows.userId, userId))
+      .orderBy(desc(withdrawalFlows.createdAt))
+      .limit(LOGIN_WITHDRAWAL_SAMPLE_SIZE)
+    ctx.withdrawalAmountFen = rows[0]?.amount ?? 0
+    const completed = rows.filter((r) => r.status === WITHDRAWAL_STATUS_COMPLETED)
+    ctx.avgWithdrawalFen = completed.length
+      ? Math.round(completed.reduce((sum, r) => sum + r.amount, 0) / completed.length)
+      : 0
+  } catch (e) {
+    request.log.warn({ err: e }, 'login risk: withdrawal history unavailable (R005 undetermined)')
+  }
+}
+
+/** F-379:未判定规则必须留痕(计数 + 规则/缺失字段),不能静默当通过。 */
+function logUndeterminedLoginRisk(request: FastifyRequest, risk: RiskEvaluationResult): void {
+  if (!risk.undeterminedCount) return
+  request.log.warn(
+    {
+      undeterminedCount: risk.undeterminedCount,
+      undetermined: risk.undetermined,
+    },
+    '登录风控存在未判定规则(上下文字段缺失，不计为通过)',
+  )
+}
+
 async function buildLoginRiskContext(
   request: FastifyRequest,
   userId: string,
-): Promise<Record<string, unknown>> {
+): Promise<RiskContext> {
   const ip = request.ip
-  const ctx: Record<string, unknown> = {
+  const ctx: RiskContext = {
     userId,
     ip,
     userAgent: headerValue(request, 'user-agent'),
@@ -401,6 +467,7 @@ async function buildLoginRiskContext(
   } catch (e) {
     request.log.warn({ err: e }, 'login risk: last-login-ip lookup failed')
   }
+  await attachLoginBehaviorRiskSignals(ctx, request, userId)
   return ctx
 }
 
@@ -959,6 +1026,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
 
       // 风控评估：异常 IP / 异地登录检测（F-377:补齐 IP 信誉与异地上下文）
       const risk = evaluateLoginRisk(await buildLoginRiskContext(request, String(user.id)))
+      logUndeterminedLoginRisk(request, risk)
       if (risk.action === 'DENY') {
         recordAuthLoginAnomaly('deny')
         request.log.warn({ userId: user.id, ip: request.ip, hits: risk.hits }, '登录被风控拒绝')
@@ -1141,6 +1209,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
 
       // 风控评估（F-377:补齐 IP 信誉与异地上下文）
       const risk = evaluateLoginRisk(await buildLoginRiskContext(request, String(user.id)))
+      logUndeterminedLoginRisk(request, risk)
       if (risk.action === 'DENY') {
         recordAuthLoginAnomaly('deny')
         request.log.warn({ userId: user.id, ip: request.ip, hits: risk.hits }, '登录被风控拒绝')
