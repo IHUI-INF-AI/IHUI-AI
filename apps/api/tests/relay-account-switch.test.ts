@@ -62,7 +62,10 @@ beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), 'relay-switch-'))
   paths = {
     authFile: join(root, 'auth', 'workbuddy-desktop.info'),
-    backupsDir: join(root, 'backups'),
+  // 夹具里的快照子目录刻意不叫 `backups`:PROTECTED_NAMES 的精确等值闸收的是**真备份目录**,
+  // 测试产物借用同名会整条被闸拒删(§5e-1 红了没人能整改的形态:2026-11-14 现读 TEMP 顶层
+  // relay-switch-* 十枚各含一个空 backups/,清扫器每轮 ⛔ 交人核,而那些"人"根本不存在)。
+  backupsDir: join(root, 'switch-profiles'),
   }
   mkdirSync(paths.backupsDir, { recursive: true })
 })
