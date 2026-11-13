@@ -776,6 +776,8 @@ async function streamChatCompletion(
     // ai-service，客户端会先收到渠道的半段内容与 role 帧，再收到 ai-service 又一份
     // role 帧和正文 ⇒ 正文重复/错乱，且首个 role 帧发两次。
     let channelWroteToClient = false
+    /** F-337:本请求已交给流式处理的渠道(成功记录已延后到流结束后,收尾要用它) */
+    let streamedChannel: SelectedChannelKey | null = null
     try {
       // 渠道路径同样应用参数覆盖系统(与 ai-service 路径同源)
       const baseBody: Record<string, unknown> = { messages, model }
@@ -831,9 +833,12 @@ async function streamChatCompletion(
         affinityKey: opts.affinityKey,
         bodyOverride: channelParamOps.body,
         signal: controller.signal,
+        // F-337:流是否正常结束只有读完流才知道 ⇒ 建连阶段不记成功
+        deferStreamSuccess: true,
       })
       if (fwd && fwd.ok) {
         upstreamHttpStatus = fwd.response.status
+        streamedChannel = fwd.channel
         const stats = await pipeChannelStream(fwd.response, {
           // verbatim 转发上游 OpenAI chunk;legacy text 模式改为解析后按 text chunk 重发
           ...(isTextFlavor
@@ -858,6 +863,14 @@ async function streamChatCompletion(
         if (stats.streamError) {
           await recordChannelResult(fwd.channel.keyPoolId, false, null).catch(() => {})
           if (!channelWroteToClient) throw new Error(stats.streamError)
+        } else {
+          // F-337:成功记录已由 deferStreamSuccess 延后到此 —— 流正常读完才算成功,
+          // 否则那记预记成功会把连续失败计数清零,熔断永远打不开。
+          await recordChannelResult(
+            fwd.channel.keyPoolId,
+            true,
+            fwd.latencyTrusted ? fwd.latencyMs : null,
+          ).catch(() => {})
         }
         responseText = stats.responseText
         streamCacheReadTokens = stats.cacheReadTokens
@@ -885,10 +898,19 @@ async function streamChatCompletion(
             ),
           )
         }
-        // 结束帧只发一次(2026-10-23 修):上游自带 finish_reason 且已原样转发时不再补,
-        // 否则客户端收到两个 finish,且 usage 帧被夹在中间、偏离 OpenAI 的 finish → usage → [DONE]。
-        if (!stats.sawFinish)
-          writeChunk(stats.streamError ? { content: `[error] ${stats.streamError}` } : {}, 'stop')
+        // F-337:错误帧必须让客户端看见(error 事件),不得静默补 finish 当成功收尾。
+        // 流已开始 ⇒ 架构上不能再换候选;这里如实发 OpenAI 协议内的 error 帧后终止。
+        if (stats.streamError) {
+          raw.write(
+            `data: ${JSON.stringify({
+              error: { message: stats.streamError, type: 'upstream_stream_error' },
+            })}\n\n`,
+          )
+        } else if (!stats.sawFinish) {
+          // 结束帧只发一次(2026-10-23 修):上游自带 finish_reason 且已原样转发时不再补,
+          // 否则客户端收到两个 finish,且 usage 帧被夹在中间、偏离 OpenAI 的 finish → usage → [DONE]。
+          writeChunk({}, 'stop')
+        }
         raw.write('data: [DONE]\n\n')
         request.raw.off('close', onClose)
         raw.end()
@@ -949,7 +971,13 @@ async function streamChatCompletion(
           (e as Error)?.name === 'AbortError'
             ? 'client disconnected'
             : ((e as Error)?.message ?? 'stream error')
-        if (msg !== 'client disconnected') writeChunk({ content: `[error] ${msg}` }, 'stop')
+        if (msg !== 'client disconnected') {
+          // F-337:成功记录已延后到流结束;流中途抛错(非客户端断开)必须记失败,
+          // 否则这条渠道本次调用在熔断账上完全缺席。
+          if (streamedChannel)
+            await recordChannelResult(streamedChannel.keyPoolId, false, null).catch(() => {})
+          writeChunk({ content: `[error] ${msg}` }, 'stop')
+        }
         raw.write('data: [DONE]\n\n')
         request.raw.off('close', onClose)
         raw.end()
@@ -1167,6 +1195,12 @@ async function streamChatCompletion(
 // =============================================================================
 // 共享处理核引用(v1-gemini 协议入站复用,2026-09-13 立)
 // =============================================================================
+/**
+ * F-337 回归测试入口(仅导出,行为不变):直接驱动渠道流式腿,断言流内错误帧在
+ * 计费 / 熔断 / 客户端通知三处都按失败处理。
+ */
+export const __test__ = { streamChatCompletion }
+
 /** chat/completions 共享处理核签名 */
 export type V1ChatCore = (
   request: FastifyRequest,
