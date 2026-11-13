@@ -11,8 +11,8 @@
  */
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/web/scripts/generate-ui-routes.mjs
-// sourceCommit: 8eee8b4a3cd975c415b8f8cc3a7b3f209caf0743
-// inputsSha256: 2c820f86d34c22532f32f7e6dbaa60e710ed93ac9c0107cd696e29a36c8e8998
+// sourceCommit: fd3cad81c727c2637b6fc59cfaab539315d57afc
+// inputsSha256: 8049566d6d5cd9fa990e37225ef4785bcd7146fc5e3f31c30f608ef88111b70f
 // input: apps/web/app/(auth)/apple/callback/page.tsx f328ceb139ed3b61c0e79bc671e93885a6c1e1b6b7c356febbc97f3255da2075
 // input: apps/web/app/(auth)/callback/page.tsx d17f249c8506951babf768ff47e0800dc7ed191a9c80ddb124142a8520bcd80e
 // input: apps/web/app/(auth)/forgot-password/page.tsx ebf3e4b50c09d9871131b9fbdc5cddb79c0f9c73bc5775c5ce56dd08a0fa2443
@@ -37,7 +37,7 @@
 // input: apps/web/app/(main)/admin/ai-gc/page.tsx 3b7f8ecbd8e10dd4991d13103feb67c03df6956a80c8a56e193cd427d975ec45
 // input: apps/web/app/(main)/admin/ai-metrics/page.tsx 12d76a57252859b0c2f8006a6956ff51f0e908465a73a065c57d8a9b8a3221b4
 // input: apps/web/app/(main)/admin/ai-models/page.tsx 243b5eac76ab87f85f402627f477a2edf328589706005e062069533ce672834f
-// input: apps/web/app/(main)/admin/ai-pricing/page.tsx 245361d5712ace75c12b0005314b2c3899713baaf519a0f132645a6e5a0c449b
+// input: apps/web/app/(main)/admin/ai-pricing/page.tsx 51a71f5aa9b6ddb9b16c885d7a2b2121cb69fa320896bf0e6a459bf6921979fe
 // input: apps/web/app/(main)/admin/ai-skills/page.tsx f7ecefd78d6ced58516553afe7995db1a76223756e45934c7162dae96ce8a79c
 // input: apps/web/app/(main)/admin/ai-world/sites/page.tsx 28b5edf31304cfcf9cbc84fa5da29d297bb66a71911d493ef58bb1d206d99a69
 // input: apps/web/app/(main)/admin/announcements/page.tsx 29100d1d2d2143b909c3f2aab861520ceda9565552681c0bd4bb23c61d774a3f
@@ -217,6 +217,7 @@
 // input: apps/web/app/(main)/admin/message-templates/page.tsx 8a0241e77c4e3573bf3754aa2c58da75171020a8c03731d04a9c053092e13197
 // input: apps/web/app/(main)/admin/meta-learner/page.tsx ff7ff74899336954cd5b84ee731010768a8fd6220da172e9170e36445643ce54
 // input: apps/web/app/(main)/admin/mobile-adapter/page.tsx 33323aa7d1d7284725b2c3b1a983c89082928f0ba705c976755e54752fe7e4eb
+// input: apps/web/app/(main)/admin/model-pricing-console/page.tsx af1d5cb57f40138e5e7f06bde1d4e28ea3d9537e4ba2915f2b755eed7da5ce1a
 // input: apps/web/app/(main)/admin/model-pricing/page.tsx b242133c521cea203bc00caf564b3203d82f72bbd5439f513b52663cba0843e2
 // input: apps/web/app/(main)/admin/monitor/alerts/page.tsx d37aedd862057efd75cd446558a24ed6f31028bb187a5b00112e0823669f0e82
 // input: apps/web/app/(main)/admin/monitor/dashboard/page.tsx 4d40e008b73375e79d42e76f737affeb62ab0c255d0e1ddfa61b6f60948c180e
@@ -243,7 +244,7 @@
 // input: apps/web/app/(main)/admin/oss/files/page.tsx 3a11e031a5a54a86ecedc9befb227a9725e7ae86459eae32f686756e1a3db26d
 // input: apps/web/app/(main)/admin/oss/page.tsx a4099f971b9efa8efaa2c82c23e715d7200839cd1ab4ac59335a3e09d1841011
 // input: apps/web/app/(main)/admin/page.tsx d06b47b76f357b7793b46765028c047c0f7fed0e46761299c05066f2c97c00ac
-// input: apps/web/app/(main)/admin/performance-dashboard/page.tsx fb8b448608242371d0e3432df44d9a9264b75cee33d541ca7d1dd9c11132d0b4
+// input: apps/web/app/(main)/admin/performance-dashboard/page.tsx 412cbfb8bd47094b37c33f7d4a8fd3423e423439ed9e0dea677d27836612439f
 // input: apps/web/app/(main)/admin/permissions/page.tsx c9a5638cb1002713a446d5884c551c0cba798e0921aa10e1595663280eff4a16
 // input: apps/web/app/(main)/admin/plugins-stats/page.tsx b36efe37baccad651720aa053866f52e85871208162242987d026a50a48fd505
 // input: apps/web/app/(main)/admin/point/page.tsx 01bd9f793dc54a1ca0c073590b90fb70b302e8394bb86237c4fd3e22163607bf
@@ -921,7 +922,7 @@
 // input: apps/web/app/(main)/zh-TW/use-cases/ai-translation/page.tsx 527c2d4aa11c0f9caa98c4ed8b3b6db3ed5312b421cf49e83fb204e9a341c646
 // input: apps/web/app/(marketing)/page.tsx 8004f807b187bbd827d227e7bc43dff4efd301968e177cfdf807c1d700681c97
 // input: apps/web/app/(pilot)/shared-pilot/page.tsx 98a7584005179c9990b06f8d1c2bae8d734423b4c4ecc7a24a4f435a22a88cb4
-// input: apps/web/app/e2e-harness/markdown-stream/page.tsx bb6709962fc89b42c92d9c1f56750ecdb12a85bac9bd6add9afdfb15c5f22d5f
+// input: apps/web/app/e2e-harness/markdown-stream/page.tsx da979112451fb93b65b21a631fb27e6c3fcfeb2d8f9a89f7f69d12a52cd98f13
 // input: apps/web/app/en/agents/page.tsx 10b327a0a31a1070ebd2fa5262363dc7788bd1ecfa139540eac3a370d131d68f
 // input: apps/web/app/en/docs/page.tsx 29cce924cad158fdb8d729bc12c5499660cdee254159efe39e506153951e0e0d
 // input: apps/web/app/en/models/page.tsx c803fb9bee56402a15715981b93bbfd515dd1c0095f5143bc6dd1a9557624002
@@ -940,7 +941,7 @@
 // input: apps/web/app/sso/wecom/page.tsx 35efcf616fc264c76204fb3d155f464682cd239b37965652b930391e0e7144b6
 // input: apps/web/app/status/page.tsx d28928c9d285ce3bbf41205bea01abc4d8eadce1762f269615846130b228510e
 // skipped: excludedTopSegments(sso|h5|api)=9 pages; duplicatePaths(保留先扫描到的)=0
-// generatedAt: 2026-11-13T05:56:19.618Z
+// generatedAt: 2026-11-13T16:35:28.991Z
 // IHUI-GEN-PIN-END
 
 export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
@@ -1147,6 +1148,7 @@ export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
   { path: '/admin/meta-learner', param: false, group: 'admin' },
   { path: '/admin/mobile-adapter', param: false, group: 'admin' },
   { path: '/admin/model-pricing', param: false, group: 'admin' },
+  { path: '/admin/model-pricing-console', param: false, group: 'admin' },
   { path: '/admin/monitor/alerts', param: false, group: 'admin' },
   { path: '/admin/monitor/dashboard', param: false, group: 'admin' },
   { path: '/admin/monitor/funnel', param: false, group: 'admin' },
