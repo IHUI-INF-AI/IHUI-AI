@@ -2,7 +2,7 @@
   "version": 1,
   "owner": "cross-end-i18n",
   "expires": "2027-06-30",
-  "generatedAt": "2026-11-06",
+  "generatedAt": "2026-11-13",
   "face": "HEAD",
   "why": "小程序↔RN 同名键文案漂移的存量固化基线(回归制):存量漂移只报数,只有相对基线新增未裁/形态坏/过期/腐烂或已裁净减才在 push 面阻断。",
   "evidence": [
@@ -30,11 +30,11 @@
   },
   "dims": {
     "driftTotal": 32,
-    "cleared": 31,
-    "uncleared": 1,
+    "cleared": 32,
+    "uncleared": 0,
     "invalid": 0,
     "expired": 0,
     "rot": 0
   },
-  "note": "uncleared=1 为既有存量(见台账未裁定项),只报数不阻断;新增漂移必须先补裁定或修文案。"
+  "note": "已裁32/未裁0/腐烂0;conversationImport.noValidContent两端文案已对齐(不漂移),按§0.7摘除其已不漂移的腐烂裁定条目。"
 }

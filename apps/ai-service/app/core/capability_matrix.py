@@ -845,6 +845,17 @@ CAPABILITY_MATRIX: list[dict[str, str]] = [
         "doc_ref": "app/services/checkin_scheduler.py:80",
         "reason_if_off": "每日 00:05/08:05 签到定时任务默认关闭:属会真实写库的副作用,须显式开启",
     },
+    # 2026-11-13 补登记:该默认关 env 由签到侧自轮换开关引入(门 check-capability-matrix
+    # J2 判「台账逃逸:生产能力状态再度不可知」)。按实际读取点 _minimax_server_refresh_enabled 登记。
+    {
+        "key": "checkin_minimax_server_refresh",
+        "env": "CHECKIN_MINIMAX_SERVER_REFRESH",
+        "default": "false",
+        "category": "开关类",
+        "owner_module": "app.services.checkin_scheduler",
+        "doc_ref": "app/services/checkin_scheduler.py:_minimax_server_refresh_enabled",
+        "reason_if_off": "签到侧不自轮换 MiniMax refreshToken(缺省关):轮换型 rt 统一由号池 refreshOne 续票,签到侧再轮换会与池并发致旧 rt 重放 invalid_grant",
+    },
     # ── settings 族(2026-10-31 seat-e2 落 J4 后登记;第四种读取形态,见本文件头注)──
     # 这类条目由 app/core/config.py 的 class Settings 布尔字段承载:大写 env 键经
     # case_sensitive=False 映射进小写字段,读取点是 settings.<字段> 属性访问,代码里
