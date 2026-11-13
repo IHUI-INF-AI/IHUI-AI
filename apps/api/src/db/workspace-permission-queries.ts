@@ -106,31 +106,35 @@ export async function deletePermission(
   workspacePath: string,
 ): Promise<string[]> {
   // 级联清理:规则 + 审计日志 + 主记录
-  await db
-    .delete(workspacePermissionRules)
-    .where(
-      and(
-        eq(workspacePermissionRules.userId, userId),
-        eq(workspacePermissionRules.workspacePath, workspacePath),
-      ),
-    )
-  await db
-    .delete(workspacePermissionAuditLogs)
-    .where(
-      and(
-        eq(workspacePermissionAuditLogs.userId, userId),
-        eq(workspacePermissionAuditLogs.workspacePath, workspacePath),
-      ),
-    )
-  const rows = await db
-    .delete(workspacePermissions)
-    .where(
-      and(
-        eq(workspacePermissions.userId, userId),
-        eq(workspacePermissions.workspacePath, workspacePath),
-      ),
-    )
-    .returning({ id: workspacePermissions.id })
+  // 2026-11-13 修 F-599:三条删除必须在同一事务内 —— 否则主记录删除失败时,
+  // 规则与审计日志已被提交删除且不可恢复,留下"半删"与断裂的审计链。
+  const rows = await db.transaction(async (tx) => {
+    await tx
+      .delete(workspacePermissionRules)
+      .where(
+        and(
+          eq(workspacePermissionRules.userId, userId),
+          eq(workspacePermissionRules.workspacePath, workspacePath),
+        ),
+      )
+    await tx
+      .delete(workspacePermissionAuditLogs)
+      .where(
+        and(
+          eq(workspacePermissionAuditLogs.userId, userId),
+          eq(workspacePermissionAuditLogs.workspacePath, workspacePath),
+        ),
+      )
+    return tx
+      .delete(workspacePermissions)
+      .where(
+        and(
+          eq(workspacePermissions.userId, userId),
+          eq(workspacePermissions.workspacePath, workspacePath),
+        ),
+      )
+      .returning({ id: workspacePermissions.id })
+  })
   return rows.map((r) => r.id)
 }
 
