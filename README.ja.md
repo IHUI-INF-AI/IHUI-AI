@@ -2227,6 +2227,9 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-13**
+- 🐞 修正:共享屏改全键取词(t('sag2Lexical.xxx')),对齐About样板,端壳透传裸t,消packAbsent误报 (b41cb88701)
+
+**2026-11-13**
 - 🔧 その他:UpdatePrompt mandatory 强制更新展示面取证(#5) (de7f3c6a95)
 - 🐞 修正:miniapp-taro 补 sag2Lexical 整块(5语言x58键含bm25/chunks/citations/deep),消mirror-pack-namespace-missing (6cb4440a10)
 - 🐞 修正:miniapp-taro 补 sag2Lexical 整块命名空间(5语言x58键),消 mirror-pack-namespace-missing (4efe4c0b29)
@@ -2629,9 +2632,6 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 - 🐞 修正:偿还 mypy 存量 20 条类型债务(签到引擎族,全为类型收窄无行为变更) (045d871769)
 - 🐞 修正:tmp-probe-exchg 载荷类型收回 TraeTokenPayload, 消同族类型不兼容 (8352346ead)
 - 🔧 その他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (b244888ad0)
-
-**2026-11-13**
-- 📚 ドキュメント:同步多语言 README 派生产物 + 自动更新指针 (f3673b52d1)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
