@@ -4,6 +4,7 @@
 
 import { eq, and, ne, desc, asc, sql, ilike, inArray } from 'drizzle-orm'
 import { db, dbRead } from './index.js'
+import { toSafeAmount } from './commission-queries.js'
 import {
   agents,
   agentCategories,
@@ -319,9 +320,9 @@ export async function findSettlementSummary(): Promise<{
 }> {
   const rows = await dbRead
     .select({
-      totalAmount: sql<number>`coalesce(sum(${agentSettlements.amount}), 0)::int`,
-      settledAmount: sql<number>`coalesce(sum(${agentSettlements.amount}) filter (where ${agentSettlements.status} = 'settled'), 0)::int`,
-      unsettledAmount: sql<number>`coalesce(sum(${agentSettlements.amount}) filter (where ${agentSettlements.status} = 'unsettled'), 0)::int`,
+      totalAmount: sql<number>`coalesce(sum(${agentSettlements.amount}), 0)::bigint`,
+      settledAmount: sql<number>`coalesce(sum(${agentSettlements.amount}) filter (where ${agentSettlements.status} = 'settled'), 0)::bigint`,
+      unsettledAmount: sql<number>`coalesce(sum(${agentSettlements.amount}) filter (where ${agentSettlements.status} = 'unsettled'), 0)::bigint`,
       totalCount: sql<number>`count(*)::int`,
       settledCount: sql<number>`count(*) filter (where ${agentSettlements.status} = 'settled')::int`,
       unsettledCount: sql<number>`count(*) filter (where ${agentSettlements.status} = 'unsettled')::int`,
@@ -329,9 +330,9 @@ export async function findSettlementSummary(): Promise<{
     .from(agentSettlements)
   const r = rows[0]
   return {
-    totalAmount: r?.totalAmount ?? 0,
-    settledAmount: r?.settledAmount ?? 0,
-    unsettledAmount: r?.unsettledAmount ?? 0,
+    totalAmount: toSafeAmount(r?.totalAmount),
+    settledAmount: toSafeAmount(r?.settledAmount),
+    unsettledAmount: toSafeAmount(r?.unsettledAmount),
     totalCount: r?.totalCount ?? 0,
     settledCount: r?.settledCount ?? 0,
     unsettledCount: r?.unsettledCount ?? 0,
@@ -347,8 +348,8 @@ export async function findSettlementByOrder(orderNo: string): Promise<{
 }> {
   const rows = await dbRead
     .select({
-      totalAmount: sql<number>`coalesce(sum(${agentSettlements.amount}), 0)::int`,
-      commissionAmount: sql<number>`coalesce(sum(${agentSettlements.commissionAmount}), 0)::int`,
+      totalAmount: sql<number>`coalesce(sum(${agentSettlements.amount}), 0)::bigint`,
+      commissionAmount: sql<number>`coalesce(sum(${agentSettlements.commissionAmount}), 0)::bigint`,
       count: sql<number>`count(*)::int`,
     })
     .from(agentSettlements)
@@ -356,8 +357,8 @@ export async function findSettlementByOrder(orderNo: string): Promise<{
   const r = rows[0]
   return {
     orderNo,
-    totalAmount: r?.totalAmount ?? 0,
-    commissionAmount: r?.commissionAmount ?? 0,
+    totalAmount: toSafeAmount(r?.totalAmount),
+    commissionAmount: toSafeAmount(r?.commissionAmount),
     count: r?.count ?? 0,
   }
 }

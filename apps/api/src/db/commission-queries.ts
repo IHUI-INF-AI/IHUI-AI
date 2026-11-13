@@ -20,6 +20,26 @@ import {
 import { withAudit, withAuditBoth } from '../utils/audit.js'
 import type { DbTx } from './payment-queries.js'
 
+/**
+ * F-458:金额/数量聚合一律在 SQL 侧强转 `bigint`。
+ *
+ * 聚合结果强转 `int4` 时,累计值越过 int4 上限(≈¥21,474,836.47 分)会抛 22003 → 整个接口 500。
+ * PG 驱动把 int8 解码成字符串,故返回值必须经这里收敛回 number(保持 API 既有契约,
+ * 不让字符串泄漏到前端);极端超出安全整数范围时饱和,而不是静默丢精度或抛错。
+ */
+export function toSafeAmount(value: unknown): number {
+  const parsed =
+    typeof value === 'bigint'
+      ? Number(value)
+      : typeof value === 'string'
+        ? value.trim() === ''
+          ? Number.NaN
+          : Number(value)
+        : value
+  if (typeof parsed !== 'number' || !Number.isFinite(parsed)) return 0
+  return Math.min(Number.MAX_SAFE_INTEGER, Math.max(Number.MIN_SAFE_INTEGER, parsed))
+}
+
 // ============================================================================
 // Token 钱包
 // ============================================================================
@@ -46,12 +66,15 @@ export async function getTokenFlowTotals(
 ): Promise<{ totalEarned: number; totalUsed: number }> {
   const rows = await db
     .select({
-      totalEarned: sql<number>`COALESCE(sum(CASE WHEN ${tokenFlows.opType} IN (0,3,4,5,6) THEN ${tokenFlows.quantity} ELSE 0 END)::int, 0)`,
-      totalUsed: sql<number>`COALESCE(sum(CASE WHEN ${tokenFlows.opType} = 1 THEN ${tokenFlows.quantity} ELSE 0 END)::int, 0)`,
+      totalEarned: sql<number>`COALESCE(sum(CASE WHEN ${tokenFlows.opType} IN (0,3,4,5,6) THEN ${tokenFlows.quantity} ELSE 0 END)::bigint, 0)`,
+      totalUsed: sql<number>`COALESCE(sum(CASE WHEN ${tokenFlows.opType} = 1 THEN ${tokenFlows.quantity} ELSE 0 END)::bigint, 0)`,
     })
     .from(tokenFlows)
     .where(eq(tokenFlows.userId, userId))
-  return { totalEarned: rows[0]?.totalEarned ?? 0, totalUsed: rows[0]?.totalUsed ?? 0 }
+  return {
+    totalEarned: toSafeAmount(rows[0]?.totalEarned),
+    totalUsed: toSafeAmount(rows[0]?.totalUsed),
+  }
 }
 
 export async function ensureMargin(userId: string): Promise<UserMargin> {
@@ -353,8 +376,8 @@ export async function commissionSummary(beneficiaryId: string, windowDays = 7) {
   const windowStart = new Date(Date.now() - windowDays * 86400_000)
   const rows = await db
     .select({
-      totalAmount: sql<number>`coalesce(sum(${commissionFlows.amount}), 0)::int`,
-      totalToken: sql<number>`coalesce(sum(${commissionFlows.token}), 0)::int`,
+      totalAmount: sql<number>`coalesce(sum(${commissionFlows.amount}), 0)::bigint`,
+      totalToken: sql<number>`coalesce(sum(${commissionFlows.token}), 0)::bigint`,
     })
     .from(commissionFlows)
     .where(
@@ -365,8 +388,8 @@ export async function commissionSummary(beneficiaryId: string, windowDays = 7) {
       ),
     )
   return {
-    totalAmount: rows[0]?.totalAmount ?? 0,
-    totalToken: rows[0]?.totalToken ?? 0,
+    totalAmount: toSafeAmount(rows[0]?.totalAmount),
+    totalToken: toSafeAmount(rows[0]?.totalToken),
     commissionDay: windowDays,
   }
 }
@@ -540,16 +563,16 @@ export async function applyWithdrawal(
       // ② 与 availableWithdrawal 同口径:活跃佣金(status=1) - 在途/已完成提现(按毛额占用)。
       //    F-406:必须用 original_amount,否则手续费额度未被占用,可反复提取。
       const comm = await tx
-        .select({ total: sql<number>`coalesce(sum(${commissionFlows.amount}), 0)::int` })
+        .select({ total: sql<number>`coalesce(sum(${commissionFlows.amount}), 0)::bigint` })
         .from(commissionFlows)
         .where(and(eq(commissionFlows.beneficiaryId, input.userId), eq(commissionFlows.status, 1)))
       const wd = await tx
-        .select({ total: sql<number>`coalesce(sum(${withdrawalFlows.originalAmount}), 0)::int` })
+        .select({ total: sql<number>`coalesce(sum(${withdrawalFlows.originalAmount}), 0)::bigint` })
         .from(withdrawalFlows)
         .where(
           and(eq(withdrawalFlows.userId, input.userId), inArray(withdrawalFlows.status, [0, 1, 2])),
         )
-      const available = (comm[0]?.total ?? 0) - (wd[0]?.total ?? 0)
+      const available = toSafeAmount(comm[0]?.total) - toSafeAmount(wd[0]?.total)
       if (input.amount > available) {
         throw Object.assign(new Error('可提现余额不足'), { statusCode: 400 })
       }
@@ -717,31 +740,31 @@ export async function rejectWithdrawal(
 
 export async function withdrawalSummary(userId: string) {
   const completed = await db
-    .select({ total: sql<number>`coalesce(sum(${withdrawalFlows.amount}), 0)::int` })
+    .select({ total: sql<number>`coalesce(sum(${withdrawalFlows.amount}), 0)::bigint` })
     .from(withdrawalFlows)
     .where(and(eq(withdrawalFlows.userId, userId), eq(withdrawalFlows.status, 2)))
   const pending = await db
-    .select({ total: sql<number>`coalesce(sum(${withdrawalFlows.amount}), 0)::int` })
+    .select({ total: sql<number>`coalesce(sum(${withdrawalFlows.amount}), 0)::bigint` })
     .from(withdrawalFlows)
     .where(and(eq(withdrawalFlows.userId, userId), inArray(withdrawalFlows.status, [0, 1])))
   return {
-    totalWithdrawn: completed[0]?.total ?? 0,
-    pendingAmount: pending[0]?.total ?? 0,
+    totalWithdrawn: toSafeAmount(completed[0]?.total),
+    pendingAmount: toSafeAmount(pending[0]?.total),
   }
 }
 
 export async function availableWithdrawal(userId: string): Promise<number> {
   const comm = await db
-    .select({ total: sql<number>`coalesce(sum(${commissionFlows.amount}), 0)::int` })
+    .select({ total: sql<number>`coalesce(sum(${commissionFlows.amount}), 0)::bigint` })
     .from(commissionFlows)
     .where(and(eq(commissionFlows.beneficiaryId, userId), eq(commissionFlows.status, 1)))
   // F-406:在途/已完成提现按毛额(original_amount = 到账额 + 手续费)占用额度,
   // 与 applyWithdrawal 的余额扣减口径一致;按 net amount 求和会把手续费额度留成可提现余额。
   const wd = await db
-    .select({ total: sql<number>`coalesce(sum(${withdrawalFlows.originalAmount}), 0)::int` })
+    .select({ total: sql<number>`coalesce(sum(${withdrawalFlows.originalAmount}), 0)::bigint` })
     .from(withdrawalFlows)
     .where(and(eq(withdrawalFlows.userId, userId), inArray(withdrawalFlows.status, [0, 1, 2])))
-  const available = (comm[0]?.total ?? 0) - (wd[0]?.total ?? 0)
+  const available = toSafeAmount(comm[0]?.total) - toSafeAmount(wd[0]?.total)
   return Math.max(0, available)
 }
 
@@ -825,17 +848,26 @@ export const memberSelect = {
   isVip: users.isVip,
   createdAt: users.createdAt,
   transactionVolume: sql<number>`coalesce((
-    select sum(o.amount)::int from ${orders} o
+    select sum(o.amount)::bigint from ${orders} o
     where o.user_id = "users"."id" and o.status = 'paid'
   ), 0)`,
   commission: sql<number>`coalesce((
-    select sum(cf.amount)::int from ${commissionFlows} cf
+    select sum(cf.amount)::bigint from ${commissionFlows} cf
     where cf.invited_user_id = "users"."id" and cf.status = 1
   ), 0)`,
   orderNum: sql<number>`coalesce((
     select count(*)::int from ${orders} o
     where o.user_id = "users"."id" and o.status = 'paid'
   ), 0)`,
+}
+
+/** F-458:上述两个金额子查询是 bigint(PG 驱动回字符串),统一收敛成 number。 */
+function mapTeamMemberRow(row: TeamMemberRow): TeamMemberRow {
+  return {
+    ...row,
+    transactionVolume: toSafeAmount(row.transactionVolume),
+    commission: toSafeAmount(row.commission),
+  }
 }
 
 /** 团队成员分页列表(直推下级) */
@@ -859,7 +891,10 @@ export async function listTeamMembers(
       .from(users)
       .where(where),
   ])
-  return { items: rows as TeamMemberRow[], total: countRows[0]?.count ?? 0 }
+  return {
+    items: (rows as TeamMemberRow[]).map(mapTeamMemberRow),
+    total: countRows[0]?.count ?? 0,
+  }
 }
 
 /** 成员详情(校验归属:仅当前用户的直推下级可查) */
@@ -872,6 +907,7 @@ export async function getTeamMember(
     .from(users)
     .where(and(eq(users.id, memberId), eq(users.parentId, userId)))
     .limit(1)
-  return (rows[0] as TeamMemberRow | undefined) ?? null
+  const row = rows[0] as TeamMemberRow | undefined
+  return row ? mapTeamMemberRow(row) : null
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
