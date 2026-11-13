@@ -124,6 +124,8 @@ interface NodemailerTransporter {
       contentType: string
     }[]
   }): Promise<unknown>
+  /** 释放连接池句柄(nodemailer 真实 API);发送结束必须调用,否则连接长期占用 */
+  close(): void
 }
 
 interface NodemailerModule {
@@ -132,6 +134,10 @@ interface NodemailerModule {
     port: number
     secure: boolean
     auth?: { user: string; pass: string }
+    /** 以下三个超时是 F-314 的显式上限,否则 nodemailer 默认 600s,上游黑洞时请求被拖住 */
+    connectionTimeout: number
+    greetingTimeout: number
+    socketTimeout: number
   }): NodemailerTransporter
 }
 
@@ -376,26 +382,38 @@ async function sendViaSmtp(mail: OutgoingMail): Promise<SendEmailResult> {
       port: config.SMTP_PORT,
       secure: config.SMTP_PORT === 465,
       auth: config.SMTP_USER ? { user: config.SMTP_USER, pass: config.SMTP_PASS } : undefined,
+      connectionTimeout: 10_000,
+      greetingTimeout: 10_000,
+      socketTimeout: 20_000,
     })
-    // 显示名同样收敛成品牌名:SMTP_FROM 只决定地址段(见 email-templates 的 BRAND_MAIL_DISPLAY_NAME)。
-    // 地址段还必须与登录账号一致,否则 QQ 中继 550 拒信 —— 判据与告警派发器共用
-    // `resolveBrandSmtpFrom`,不在这里另写一份。
-    const from = resolveBrandSmtpFrom(config.SMTP_FROM, config.SMTP_USER)
-    await transporter.sendMail({
-      from,
-      to: mail.to,
-      subject: mail.subject,
-      html: mail.html,
-      text: mail.text,
-      // 内嵌图片:nodemailer 直接吃 Buffer,输出时自己按 cid 生成 Content-ID 头
-      attachments: mail.attachments.map((a) => ({
-        filename: a.filename,
-        content: a.content,
-        cid: a.cid,
-        contentType: a.contentType,
-      })),
-    })
-    return { sent: true, stub: false, provider: 'smtp' }
+    try {
+      // 显示名同样收敛成品牌名:SMTP_FROM 只决定地址段(见 email-templates 的 BRAND_MAIL_DISPLAY_NAME)。
+      // 地址段还必须与登录账号一致,否则 QQ 中继 550 拒信 —— 判据与告警派发器共用
+      // `resolveBrandSmtpFrom`,不在这里另写一份。
+      const from = resolveBrandSmtpFrom(config.SMTP_FROM, config.SMTP_USER)
+      await transporter.sendMail({
+        from,
+        to: mail.to,
+        subject: mail.subject,
+        html: mail.html,
+        text: mail.text,
+        // 内嵌图片:nodemailer 直接吃 Buffer,输出时自己按 cid 生成 Content-ID 头
+        attachments: mail.attachments.map((a) => ({
+          filename: a.filename,
+          content: a.content,
+          cid: a.cid,
+          contentType: a.contentType,
+        })),
+      })
+      return { sent: true, stub: false, provider: 'smtp' }
+    } finally {
+      // 成功/失败都释放句柄;关闭失败不覆盖本次发送结果
+      try {
+        transporter.close()
+      } catch {
+        /* 忽略关闭异常 */
+      }
+    }
   } catch (e) {
     return { sent: false, stub: false, provider: 'smtp', error: (e as Error).message }
   }
@@ -427,6 +445,8 @@ async function sendViaResend(mail: OutgoingMail): Promise<SendEmailResult> {
   try {
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
+      // F-314:显式 10s 超时,否则 undici 默认约 300s,SMTP 兜底迟迟不触发
+      signal: AbortSignal.timeout(10_000),
       headers: {
         Authorization: `Bearer ${config.RESEND_API_KEY}`,
         'Content-Type': 'application/json',

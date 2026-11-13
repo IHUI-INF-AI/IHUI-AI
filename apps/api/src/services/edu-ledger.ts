@@ -118,8 +118,9 @@ export interface ScheduleOutcome {
   /** 该期净额已缴(paid - refund),status 由它算 */
   netPaid: number
   status: string
-  /** 该期是否逾期(逾期天数 > 0) */
+  /** 该期是否逾期(逾期天数 > 0 且未缴清) */
   overdue: boolean
+  /** 逾期天数;已缴清账期恒为 0,避免被"取最大逾期天数"的消费者误用 */
   overdueDays: number
 }
 
@@ -221,6 +222,8 @@ export function deriveEnrollmentLedger(input: LedgerInput): EnrollmentLedger {
     else status = 'pending'
     // 逾期判定独立于 status:部分缴且已过宽限期同样算逾期。
     // 否则"交了一点点"的期次会永久躲开逾期视图,而那恰恰是最该被看见的一档。
+    // 已缴清账期的 overdueDays 归零:否则任何"取最大逾期天数"的消费者都会指向已结清的期次。
+    const settled = s.amountDue > 0 && netPaid >= s.amountDue
     return {
       id: s.id,
       dueDate: s.dueDate,
@@ -229,7 +232,7 @@ export function deriveEnrollmentLedger(input: LedgerInput): EnrollmentLedger {
       netPaid,
       status,
       overdue: overdueDays > 0 && netPaid < s.amountDue,
-      overdueDays,
+      overdueDays: settled ? 0 : overdueDays,
     }
   })
 
