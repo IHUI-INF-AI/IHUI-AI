@@ -12238,7 +12238,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 355G. **缺陷普查 API F-355** [P3] coze_variables 缺 (bot_id, variable_name) 唯一 + create 无查重 + retrieve 无 ORDER （证据 docs/tickets/2026-11/findings-api.md#F-355）
 - [ ] 358G. **缺陷普查 API F-358** [P3] orders 缺 paid_at / created_at 索引，财务与 BI 聚合每次全表扫（证据 docs/tickets/2026-11/findings-api.md#F-358）
 - [ ] 368G. **缺陷普查 API F-368** [P3] relay-channel-router 亲和性清理定时器在模块顶层 if 块内启动，API 与 worker 双跑（证据 docs/tickets/2026-11/findings-api.md#F-368）
-- [ ] 371G. **缺陷普查 API F-371** [P1] 退款只冲订单金额，不回收已发放的 VIP/订阅/配额（证据 docs/tickets/2026-11/findings-api.md#F-371）
+- [ ] 371G. **缺陷普查 API F-371** [P1] 退款只冲订单金额，不回收已发放的 VIP/订阅/配额（证据 docs/tickets/2026-11/findings-api.md#F-371）（进行中@2026-11-13/w2-f371）
 - [ ] 373G. **缺陷普查 API F-373** [P2] 无额度套餐叠加有效期无上限，重复激活可无限延长（证据 docs/tickets/2026-11/findings-api.md#F-373）
 - [ ] 374G. **缺陷普查 API F-374** [P2] subEndAt 缺失被写成 expiresAt: null，折扣变永久（证据 docs/tickets/2026-11/findings-api.md#F-374）
 - [ ] 375G. **缺陷普查 API F-375** [P2] 事务提交后的附属步骤无补偿，成功码下权益缺失（证据 docs/tickets/2026-11/findings-api.md#F-375）
