@@ -27,6 +27,7 @@ import { logger } from '../utils/logger.js'
 import { bizDayKey } from '../utils/biz-day.js'
 import { writeToOutbox } from '../utils/outbox.js'
 import { rechargeToken, deductToken, refundTokenDeduct } from '../db/commission-queries.js'
+import { revokeOrderEntitlements } from './order-entitlement-revoke.js'
 import { db } from '../db/index.js'
 import { recordPayment } from './edu-ledger.js'
 import { eq, and, sql } from 'drizzle-orm'
@@ -37,6 +38,7 @@ import {
   eduEnrollment,
   eduPaymentRecord,
   tokenFlows,
+  commissionFlows,
 } from '@ihui/database'
 import { isNull } from 'drizzle-orm'
 import { calculateTopupBonus } from './topup-discount-service.js'
@@ -756,6 +758,30 @@ async function reclaimTopupBonus(order: Order): Promise<void> {
 }
 
 /**
+ * F-407:退款时按订单将佣金置无效(status=0,不再计入可提现/汇总),并冲减已入账的
+ * token 佣金。冲减复用 refundTokenDeduct(以佣金流水 id 为幂等键,重复退款被拦截);
+ * 失败向上抛出,订单保持 paid 等待重试(与 F-33 本金扣回同语义)。
+ */
+async function revokeOrderCommissions(order: Order): Promise<void> {
+  const flows = await db
+    .select({
+      id: commissionFlows.id,
+      beneficiaryId: commissionFlows.beneficiaryId,
+      token: commissionFlows.token,
+      status: commissionFlows.status,
+    })
+    .from(commissionFlows)
+    .where(eq(commissionFlows.orderId, order.id))
+  if (flows.length === 0) return
+  await db.update(commissionFlows).set({ status: 0 }).where(eq(commissionFlows.orderId, order.id))
+  for (const flow of flows) {
+    if (flow.status === 1 && flow.token > 0 && flow.beneficiaryId) {
+      await refundTokenDeduct(flow.beneficiaryId, flow.token, `comm:${flow.id}`, '退款冲减佣金')
+    }
+  }
+}
+
+/**
  * 状态机：退款完成（由退款流程调用）。
  *
  * 2026-08-02 P0 修复(B2):退款时退还 token 余额(token 充值订单/活动订单)。
@@ -802,11 +828,38 @@ export async function refundOrder(
       throw e
     }
   }
-  if (!alreadyClaimed) {
-    const refundedOrder = await updateOrderStatus(orderNo, 'refunded', 'paid')
-    if (!refundedOrder) {
+  // F-407:本金扣回之后、落 refunded 之前冲减该单佣金 —— 按订单将 commissionFlows 置
+  // status=0(不再计入 availableWithdrawal),并对已入账 token 佣金 refundTokenDeduct 冲减
+  // (幂等键 comm:<flow.id>,重复退款被唯一键拦截)。失败与 F-33 同语义:alreadyClaimed 先
+  // 回 paid 再抛,订单保持 paid 等待重试,绝不出现「钱已退、佣金仍可提现」。
+  try {
+    await revokeOrderCommissions(order)
+  } catch (e) {
+    if (alreadyClaimed) await abortRefund(orderNo)
+    throw e
+  }
+  // F-371:退款必须同步回收已发放权益(VIP / 开发者订阅 / API 订阅配额),
+  // 且「回收权益 + 订单置 refunded + 审计留痕」在同一事务内完成。
+  // 与上面的 token 扣回同语义:任一步失败即整体回滚 —— 非抢占路径订单保持 paid 等待重试,
+  // 抢占路径先解除抢占再抛出,绝不会出现「钱已退、权益还在」的半状态。
+  // 注:金额侧扣回仍走 refundTokenDeduct(行锁 + refund:<orderNo> 唯一键,本身原子且幂等),
+  // 不在这里重写第二套账务;重复退款由订单状态与流水唯一键双重拦截。
+  try {
+    const outcome = await db.transaction(async (tx) => {
+      if (!alreadyClaimed) {
+        const refundedOrder = await updateOrderStatus(orderNo, 'refunded', 'paid', null, tx)
+        if (!refundedOrder) return { ok: false as const }
+      }
+      await revokeOrderEntitlements(order, tx)
+      return { ok: true as const }
+    })
+    if (!outcome.ok) {
       return { success: false, reason: '订单状态已变更,退款未落库' }
     }
+  } catch (e) {
+    // F-09:抢占路径下订单已是 refunded,回收失败必须解除抢占回到 paid 才能重试
+    if (alreadyClaimed) await abortRefund(orderNo)
+    throw e
   }
   // ihui_payment_refund_total:退款状态落库成功后按渠道计数
   recordPaymentRefund(order.paymentMethod ?? 'unknown')
