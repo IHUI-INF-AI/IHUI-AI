@@ -46,6 +46,7 @@ import {
   deleteUserPreference,
 } from '../db/user-preferences-queries.js'
 import * as apiKeysService from '../services/developer-api-keys-service.js'
+import { TOKEN_FLOW_OP } from '../services/relay-billing-service.js'
 
 // =============================================================================
 // Zod schemas
@@ -708,7 +709,7 @@ const developerRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // GET /income — 开发者收入概览(累计收入 / 可提现 / 已提现 / 近 20 条收入明细)
-  // 收入分润用 opType=4(佣金),已提现用 opType=1 且 quantity<0
+  // F-394:分润只认 TOKEN_FLOW_OP.COMMISSION;提现是 CONSUME 里的负号流水,不从收入里混算。
   server.get('/income', async (request, reply) => {
     const userId = request.userId!
 
@@ -724,7 +725,7 @@ const developerRoutes: FastifyPluginAsync = async (server) => {
     const [incomeRow] = await db
       .select({ total: sql<number>`coalesce(sum(${tokenFlows.quantity}), 0)::int` })
       .from(tokenFlows)
-      .where(and(eq(tokenFlows.userId, userId), eq(tokenFlows.opType, 4)))
+      .where(and(eq(tokenFlows.userId, userId), eq(tokenFlows.opType, TOKEN_FLOW_OP.COMMISSION)))
 
     const [withdrawnRow] = await db
       .select({ total: sql<number>`coalesce(sum(-${tokenFlows.quantity}), 0)::int` })
@@ -732,7 +733,7 @@ const developerRoutes: FastifyPluginAsync = async (server) => {
       .where(
         and(
           eq(tokenFlows.userId, userId),
-          eq(tokenFlows.opType, 1),
+          eq(tokenFlows.opType, TOKEN_FLOW_OP.CONSUME),
           sql`${tokenFlows.quantity} < 0`,
         ),
       )
@@ -740,7 +741,7 @@ const developerRoutes: FastifyPluginAsync = async (server) => {
     const rows = await db
       .select()
       .from(tokenFlows)
-      .where(and(eq(tokenFlows.userId, userId), eq(tokenFlows.opType, 4)))
+      .where(and(eq(tokenFlows.userId, userId), eq(tokenFlows.opType, TOKEN_FLOW_OP.COMMISSION)))
       .orderBy(desc(tokenFlows.createdAt))
       .limit(20)
 
@@ -773,7 +774,7 @@ const developerRoutes: FastifyPluginAsync = async (server) => {
 
     const where = and(
       eq(tokenFlows.userId, userId),
-      eq(tokenFlows.opType, 1),
+      eq(tokenFlows.opType, TOKEN_FLOW_OP.CONSUME),
       sql`${tokenFlows.quantity} < 0`,
     )
 
@@ -793,7 +794,7 @@ const developerRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ list, total: countRow?.total ?? 0, page, pageSize }))
   })
 
-  // POST /withdrawals — 发起提现申请(冻结余额 + 记录 opType=1 负向流水)
+  // POST /withdrawals — 发起提现申请(冻结余额 + 记录 CONSUME 负向流水)
   server.post(
     '/withdrawals',
     // 资金型端点补限速(2026-10-27):此前零逐路由配额,可与余额检查并行轰炸
@@ -871,7 +872,7 @@ const developerRoutes: FastifyPluginAsync = async (server) => {
             .insert(tokenFlows)
             .values({
               userId,
-              opType: 1,
+              opType: TOKEN_FLOW_OP.CONSUME,
               quantity: -amount,
               balanceAfter,
               remark: '提现申请',

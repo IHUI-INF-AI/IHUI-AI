@@ -34,7 +34,7 @@
 import { createHash, randomBytes } from 'node:crypto'
 import { extname } from 'node:path'
 import ExcelJS from 'exceljs'
-import { generateFileId, getFileInfo, readFile, saveFile } from './storage-service.js'
+import { deleteFile, generateFileId, getFileInfo, readFile, saveFile } from './storage-service.js'
 import * as storageService from './storage-service.js'
 
 // =============================================================================
@@ -57,6 +57,15 @@ export const MAX_SESSIONS_PER_SUBJECT = 3
 export const MAX_WORKBOOK_OPEN_BYTES = 20 * 1024 * 1024
 /** open 接受的扩展名:只认 exceljs 能解析的 OOXML 工作簿(legacy .xls 不在列)。 */
 export const WORKBOOK_ALLOWED_EXTENSIONS = ['.xlsx', '.xlsm'] as const
+/**
+ * 单会话成功保存的次数上限(F-415)。
+ *
+ * 同一 handle 反复 /save 会反复序列化整本工作簿并落盘;只保留一个版本槽位之后,
+ * 仍要挡住"同一本大档反复重写"这类持续占用,故次数与字节都设硬上限。
+ */
+export const MAX_SAVES_PER_SESSION = 10
+/** 单会话成功写出的累计字节上限(F-415):按**写出量**计,不是占盘量。 */
+export const MAX_SAVED_BYTES_PER_SESSION = 64 * 1024 * 1024
 /** 单次读取区域的最大单元格数(对照件有同类响应尺寸闸,见取证册 §2.1)。 */
 const MAX_RANGE_CELLS = 20_000
 /** 单次写入的最大单元格数。 */
@@ -86,6 +95,8 @@ export type WorkbookErrorCode =
   | 'WORKBOOK_RANGE_TOO_LARGE'
   | 'WORKBOOK_FILE_TOO_LARGE'
   | 'WORKBOOK_SOURCE_CHANGED'
+  | 'WORKBOOK_SAVE_LIMIT_EXCEEDED'
+  | 'WORKBOOK_SAVE_BYTES_EXCEEDED'
   | 'WORKBOOK_UNJUDGED'
 
 /** 统一结果信封:成功 ok=true;失败 ok=false + 具名错误码。 */
@@ -177,6 +188,15 @@ interface WorkbookSession {
   staleFormulaHits: Map<number, StaleFormulaCell>
   lastUsedAt: number
   savedFileIds: string[]
+  /**
+   * 当前保存槽位(F-415):同会话后一次保存覆盖前一次 —— 新档落定后删掉旧槽位文件,
+   * 会话存活期间磁盘上最多只有一份输出。TTL 到期时由 sweep 一并删除。
+   */
+  savedSlotFileId: string | null
+  /** 本会话成功保存次数(F-415 配额)。 */
+  saveCount: number
+  /** 本会话累计成功写出的字节(F-415 配额:按写出量计,覆盖写也计数)。 */
+  savedBytes: number
 }
 
 /** 会话表(进程内;重启即空,句柄随之判「未判定」,不假装能续)。 */
@@ -449,13 +469,33 @@ function removeSession(handle: string): void {
 }
 
 /**
- * 过期清理(TTL):删掉空闲超时的会话。只动进程内会话表,不碰盘上文件。
+ * 丢弃会话名下的输出文件(F-415):会话 TTL 到期后,保存产物随之回收。
+ * 删除失败只说明盘上残留,不能反过来把会话留在表里冒充"还活着"。
+ */
+function discardSessionSavedFiles(s: WorkbookSession): void {
+  const ids = [s.savedSlotFileId, ...s.savedFileIds].filter(
+    (id): id is string => typeof id === 'string' && id.length > 0,
+  )
+  for (const id of new Set(ids)) {
+    try {
+      deleteFile(id)
+    } catch {
+      // 删不掉不影响会话清理结论(会话本身已过期,不做补偿)
+    }
+  }
+  s.savedSlotFileId = null
+  s.savedFileIds = []
+}
+
+/**
+ * 过期清理(TTL):删掉空闲超时的会话,并回收其保存产物。不碰原档文件。
  * 返回清理条数(测试/运维可直接调用;open / 取句柄时也会惰性调用)。
  */
 export function sweepExpiredWorkbookSessions(now: number = Date.now()): number {
   let removed = 0
   for (const [handle, s] of _sessions) {
     if (now - s.lastUsedAt > SESSION_IDLE_TTL_MS) {
+      discardSessionSavedFiles(s)
       removeSession(handle)
       removed++
     }
@@ -707,6 +747,9 @@ export async function openWorkbook(params: {
     staleFormulaHits: new Map<number, StaleFormulaCell>(),
     lastUsedAt: Date.now(),
     savedFileIds: [],
+    savedSlotFileId: null,
+    saveCount: 0,
+    savedBytes: 0,
   }
   _sessions.set(handle, session)
   const bucket = _handlesBySubject.get(subjectId)
@@ -873,6 +916,13 @@ export interface SaveWorkbookData {
  *
  * 三重自证:① 目标 id ≠ 原档 id 且目标当前不存在;② 落盘前复验原档 sha256 与打开时一致;
  * ③ 落盘后再读一次原档并比对 sha256。任一不成立 ⇒ 不落盘/点名,不吞。
+ *
+ * F-415(配额与生命周期):
+ * - 同会话只保留**一份**输出 —— 新档落定后才删上一版槽位文件,写失败不会先毁掉旧版;
+ * - 会话内保存次数(`MAX_SAVES_PER_SESSION`)与累计写出字节(`MAX_SAVED_BYTES_PER_SESSION`)
+ *   都有硬上限,超限具名拒且在落盘前拒;
+ * - 落盘失败 / 自证失败 ⇒ 先删掉这次写出的半成品再报错,不给盘上留残档;
+ * - 输出文件挂在会话上,TTL 到期由 `sweepExpiredWorkbookSessions` 一并回收。
  */
 export async function saveWorkbook(params: {
   subjectId: string
@@ -882,6 +932,21 @@ export async function saveWorkbook(params: {
   const take = takeSession(params?.handle, params?.subjectId)
   if (!take.ok) return take.error
   const s = take.session
+
+  if (s.saveCount >= MAX_SAVES_PER_SESSION) {
+    return fail(
+      'WORKBOOK_SAVE_LIMIT_EXCEEDED',
+      `本会话保存次数已达上限 ${MAX_SAVES_PER_SESSION} 次,请 close 后重新 open 再存`,
+      { saveCount: s.saveCount, limit: MAX_SAVES_PER_SESSION },
+    )
+  }
+  if (s.savedBytes >= MAX_SAVED_BYTES_PER_SESSION) {
+    return fail(
+      'WORKBOOK_SAVE_BYTES_EXCEEDED',
+      `本会话累计保存字节已达上限 ${MAX_SAVED_BYTES_PER_SESSION},请 close 后重新 open 再存`,
+      { savedBytes: s.savedBytes, limit: MAX_SAVED_BYTES_PER_SESSION },
+    )
+  }
 
   const before = readFile(s.sourceFileId)
   if (!before) {
@@ -903,9 +968,21 @@ export async function saveWorkbook(params: {
   }
 
   const buffer = Buffer.from(await s.workbook.xlsx.writeBuffer())
+  if (s.savedBytes + buffer.length > MAX_SAVED_BYTES_PER_SESSION) {
+    return fail(
+      'WORKBOOK_SAVE_BYTES_EXCEEDED',
+      `本次保存 ${buffer.length} 字节会超过本会话累计上限 ${MAX_SAVED_BYTES_PER_SESSION}`,
+      { savedBytes: s.savedBytes, bytes: buffer.length, limit: MAX_SAVED_BYTES_PER_SESSION },
+    )
+  }
 
+  const previousSlot = s.savedSlotFileId
   let newFileId = generateFileId()
-  for (let guard = 0; newFileId === s.sourceFileId || getFileInfo(newFileId); guard++) {
+  for (
+    let guard = 0;
+    newFileId === s.sourceFileId || newFileId === previousSlot || getFileInfo(newFileId);
+    guard++
+  ) {
     if (guard >= 8) {
       return fail('WORKBOOK_UNJUDGED', '新档落点无法确认(重试 8 次仍碰撞),拒绝保存', {
         sourceFileId: s.sourceFileId,
@@ -915,19 +992,37 @@ export async function saveWorkbook(params: {
   }
 
   const name = sanitizeName(params.name, s.sourceName)
-  saveFile(buffer, newFileId, {
-    kind: 'ihui-workbook',
-    ownerId: s.subjectId,
-    name,
-    sourceFileId: s.sourceFileId,
-    savedAt: new Date().toISOString(),
-    protocolVersion: WORKBOOK_PROTOCOL_VERSION,
-  })
+  try {
+    saveFile(buffer, newFileId, {
+      kind: 'ihui-workbook',
+      ownerId: s.subjectId,
+      name,
+      sourceFileId: s.sourceFileId,
+      savedAt: new Date().toISOString(),
+      protocolVersion: WORKBOOK_PROTOCOL_VERSION,
+    })
+  } catch (e) {
+    // 写盘失败可能已落下半截文件 ⇒ 先清掉再报,不给下一位留残档
+    try {
+      deleteFile(newFileId)
+    } catch {
+      // 清理失败不影响"本次保存未成功"的结论
+    }
+    return fail('WORKBOOK_UNJUDGED', '新档落盘失败:已清理半成品,拒绝保存', {
+      sourceFileId: s.sourceFileId,
+      reason: String((e as Error)?.message ?? e),
+    })
+  }
 
   const after = readFile(s.sourceFileId)
   const afterSha = after ? sha256(after) : ''
   if (!after || afterSha !== s.sourceSha256) {
-    // 新档已落,但原档被动过 ⇒ 本层最不该发生的事,必须点名而不是吞下
+    // 新档已落,但原档被动过 ⇒ 本层最不该发生的事,必须点名而不是吞下;半成品先删
+    try {
+      deleteFile(newFileId)
+    } catch {
+      // 删不掉也要如实点名(见 detail.savedFileId)
+    }
     return fail('WORKBOOK_SOURCE_CHANGED', '新档已落,但原档字节与打开时不一致(立即人工核)', {
       sourceFileId: s.sourceFileId,
       openedSha: s.sourceSha256,
@@ -936,7 +1031,19 @@ export async function saveWorkbook(params: {
     })
   }
 
-  s.savedFileIds.push(newFileId)
+  // 覆盖上一版本:新档已确认可读,才删旧槽位 ⇒ 中途失败时旧版仍在
+  if (previousSlot && previousSlot !== newFileId) {
+    try {
+      deleteFile(previousSlot)
+    } catch {
+      // 旧版删不掉不影响本次成功;新档已落,残留留给运维清理
+    }
+  }
+  s.savedSlotFileId = newFileId
+  s.savedFileIds = [newFileId]
+  s.saveCount += 1
+  s.savedBytes += buffer.length
+
   const view = recalcView(s)
   return {
     ok: true,
@@ -993,5 +1100,7 @@ export const __test__ = {
   SESSION_IDLE_TTL_MS,
   MAX_TOUCHED_CELLS,
   MAX_WRITE_CELLS,
+  MAX_SAVES_PER_SESSION,
+  MAX_SAVED_BYTES_PER_SESSION,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

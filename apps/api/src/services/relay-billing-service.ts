@@ -67,6 +67,102 @@ import { currentPrincipalScope } from '../plugins/principal.js'
 import { incrementUsage } from './api-key-share-service.js'
 
 // =============================================================================
+// token_flows 口径单一来源(F-394)
+// =============================================================================
+
+/**
+ * token_flows.op_type 的唯一来源。
+ * 数值与 wallet.ts / commission-queries.ts 既有约定一致,写点/读点禁止再写魔法数字。
+ *
+ * 口径(全仓统一):
+ *  - quantity 的绝对值是本笔变动数量,方向由 opType 表达(1/2/3 为流出,0/4 为入账);
+ *    opType=5(管理员调整)保留调用方给出的正负号;
+ *  - balance_after 恒为「这笔落账之后」的 user_margins.token_quantity,
+ *    不是 API Key 余额,也不是本笔增量。
+ */
+export const TOKEN_FLOW_OP = {
+  RECHARGE: 0,
+  CONSUME: 1,
+  EXPIRE: 2,
+  REFUND: 3,
+  COMMISSION: 4,
+  ADMIN_ADJUST: 5,
+  API_QUOTA: 6,
+} as const
+
+export type TokenFlowOp = (typeof TOKEN_FLOW_OP)[keyof typeof TOKEN_FLOW_OP]
+
+/** 该 opType 是否让钱包余额减少。 */
+function isOutflowOp(opType: number): boolean {
+  return (
+    opType === TOKEN_FLOW_OP.CONSUME ||
+    opType === TOKEN_FLOW_OP.EXPIRE ||
+    opType === TOKEN_FLOW_OP.REFUND
+  )
+}
+
+/** 本笔流水对钱包余额的净影响:入账为正、流出为负、配额计数不计钱。 */
+export function tokenFlowDelta(opType: number, quantity: number): number {
+  if (opType === TOKEN_FLOW_OP.ADMIN_ADJUST) return quantity
+  if (opType === TOKEN_FLOW_OP.API_QUOTA) return 0
+  return isOutflowOp(opType) ? -Math.abs(quantity) : Math.abs(quantity)
+}
+
+export interface TokenFlowAmountRow {
+  opType: number
+  quantity: number
+}
+
+export interface TokenFlowSummary {
+  totalRecharge: number
+  totalConsume: number
+  totalRefund: number
+  totalCommission: number
+  totalAdminAdjust: number
+  netChange: number
+}
+
+/**
+ * 统计出口:按 opType 聚合,与后台资金列表 / 开发者收入看板的聚合口径一致。
+ * 同一张流水表既可能存正号(即时扣费)也可能存负号(提现等),这里按绝对值归一,
+ * 避免汇总被负号流水抵掉(F-394)。
+ */
+export function summarizeTokenFlows(flows: readonly TokenFlowAmountRow[]): TokenFlowSummary {
+  const summary: TokenFlowSummary = {
+    totalRecharge: 0,
+    totalConsume: 0,
+    totalRefund: 0,
+    totalCommission: 0,
+    totalAdminAdjust: 0,
+    netChange: 0,
+  }
+  for (const flow of flows) {
+    const amount = Math.abs(flow.quantity)
+    switch (flow.opType) {
+      case TOKEN_FLOW_OP.RECHARGE:
+        summary.totalRecharge += amount
+        break
+      case TOKEN_FLOW_OP.CONSUME:
+        summary.totalConsume += amount
+        break
+      case TOKEN_FLOW_OP.REFUND:
+        summary.totalRefund += amount
+        break
+      case TOKEN_FLOW_OP.COMMISSION:
+        summary.totalCommission += amount
+        break
+      case TOKEN_FLOW_OP.ADMIN_ADJUST:
+        summary.totalAdminAdjust += flow.quantity
+        break
+      default:
+        break
+    }
+    summary.netChange += tokenFlowDelta(flow.opType, flow.quantity)
+  }
+  return summary
+}
+
+// =============================================================================
 // 类型定义
 // =============================================================================
 
@@ -1627,7 +1723,7 @@ export async function adjustBalance(
  * P0-7 修复(2026-08-05):用户自充 API Key 余额原为无成本直加(adjustBalance),
  * 普通用户可自充任意余额 = 免费无限额度。改为钱包转账:
  * 事务内行锁 user_margins → 扣 token(1 token = 1 cent,与充值汇率一致) →
- * API Key 加余额 → 写 token_flows 流水(opType=4,可审计)。
+ * API Key 加余额 → 写 token_flows 流水(钱包流出 = opType=CONSUME,可审计)。
  *
  * @param tokenDelta / costDeltaCents 必须为正整数(>0)
  * @throws {Error & {statusCode}} 余额不足 400 / Key 不存在 404
@@ -1669,8 +1765,10 @@ export async function rechargeApiKeyFromWallet(
     if (totalTokensNeeded > 0) {
       await tx.insert(tokenFlows).values({
         userId,
-        opType: 4,
-        quantity: totalTokensNeeded,
+        // F-394:钱包 → API Key 是资金流出,不是佣金(opType=4 会被开发者看板算成收入);
+        // 与提现同口径记负号,balanceAfter 仍是钱包落账后的余额。
+        opType: TOKEN_FLOW_OP.CONSUME,
+        quantity: -totalTokensNeeded,
         balanceAfter: newWalletBalance,
         remark: `Relay API Key 充值:${apiKeyId}(token+${tokenDelta}, cost+${costDeltaCents})`,
       })

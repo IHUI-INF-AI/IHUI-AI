@@ -14,6 +14,7 @@ import { db } from '../db/index.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { isUuidString } from '../utils/uuid.js'
+import { TOKEN_FLOW_OP } from '../services/relay-billing-service.js'
 import {
   userMargins,
   tokenFlows,
@@ -149,11 +150,13 @@ export const adminShopRoutes: FastifyPluginAsync = async (server) => {
     const flows = await db
       .select({
         userId: tokenFlows.userId,
-        totalRecharge: sql<number>`coalesce(sum(case when ${tokenFlows.opType} = 0 then ${tokenFlows.quantity} else 0 end), 0)::int`,
-        totalConsume: sql<number>`coalesce(sum(case when ${tokenFlows.opType} = 1 then ${tokenFlows.quantity} else 0 end), 0)::int`,
+        // F-394:口径统一 —— 充值/消耗都按绝对值累计,提现等负号流水不得把消耗合计抵小;
+        // opType 走 TOKEN_FLOW_OP,不再写魔法数字。
+        totalRecharge: sql<number>`coalesce(sum(case when ${tokenFlows.opType} = ${TOKEN_FLOW_OP.RECHARGE} then abs(${tokenFlows.quantity}) else 0 end), 0)::int`,
+        totalConsume: sql<number>`coalesce(sum(case when ${tokenFlows.opType} = ${TOKEN_FLOW_OP.CONSUME} then abs(${tokenFlows.quantity}) else 0 end), 0)::int`,
       })
       .from(tokenFlows)
-      .where(inArray(tokenFlows.opType, [0, 1]))
+      .where(inArray(tokenFlows.opType, [TOKEN_FLOW_OP.RECHARGE, TOKEN_FLOW_OP.CONSUME]))
       .groupBy(tokenFlows.userId)
     const flowMap = new Map(flows.map((f) => [f.userId, f]))
 
