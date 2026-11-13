@@ -186,7 +186,7 @@ export default function ConversationImportPage() {
         rowIds,
         commit: (payload) =>
           commitConversationImport(payload) as Promise<ApiResult<ConversationImportCommitResult>>,
-        emptyContentReason: tt('conversationImport.noValidContent', '会话内没有有效内容'),
+        emptyContentReason: tt('conversationImport.noValidContent', '无可导入的有效内容'),
         onProgress: reportProgress,
       })
       if (outcome.failed > 0) {
