@@ -24,6 +24,24 @@ const PARITY_AUTO = join(ROOT, 'scripts', 'parity-auto.mjs')
 const TABLE = {
   spacingPx: new Set([0, 2, 4, 6, 8, 10, 12, 16, 20, 24, 32, 40, 48, 64]),
   typeSizes: new Set([10, 11, 12, 14, 15, 16, 18, 20, 24, 30]),
+  // 与真仓 loadTierTable() 同形:档名由 TYPE_STEPS 经 cssStepName 派生(15 档)。
+  typeKeys: [
+    'badge',
+    'caption',
+    'label',
+    'body-sm',
+    'body',
+    'strong',
+    'title',
+    'title-lg',
+    'subtitle',
+    'heading',
+    'heading-sm',
+    'headline',
+    'display',
+    'display-xl',
+    'display-lg',
+  ],
 }
 
 function runCli(args = []) {
@@ -107,7 +125,16 @@ test('T8 已接线:parity-auto 的 gate 组必须有本尺(声明与调度同形
   assert.match(src, /check-miniapp-style-tiers\.mjs/, '尺子未登记进 parity-auto 的调度表 ⇒ "造好没装车"')
 })
 
-test('T9 本文件必须是测试本体,不是守门脚本的整文件副本', () => {
+test('T9 2026-11-13 新四档 + body-sm 必须计入 project(档表派生与脱机兜底两条路径都认)', () => {
+  const src = 'className="text-title-lg text-heading-sm text-headline text-display-xl text-body-sm"'
+  const withKeys = tier.scanText(src, TABLE)
+  assert.equal(withKeys.textProject, 5, '真仓路径(档表派生)漏登记新档')
+  const fallback = tier.scanText(src, { ...TABLE, typeKeys: undefined })
+  assert.equal(fallback.textProject, 5, '脱机兜底清单漏登记新档')
+  assert.equal(withKeys.textDefault, 0)
+})
+
+test('T10 本文件必须是测试本体,不是守门脚本的整文件副本', () => {
   const self = readFileSync(fileURLToPath(import.meta.url), 'utf8')
   const target = readFileSync(SCRIPT, 'utf8')
   assert.ok(target.length > self.length, '守门脚本不得比镜像测试还小')

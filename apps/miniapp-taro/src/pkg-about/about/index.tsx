@@ -114,7 +114,7 @@ export default function AboutIndexPage() {
           {/* Hero(对齐 RN styles.hero) */}
           <View className="flex flex-col items-center gap-[16rpx] pt-[16rpx]">
             <Chip icon="sparkles" label={t('about.heroBadge')} />
-            <Text className="block text-center text-[length:56rpx] font-bold text-foreground">
+            <Text className="block text-center text-display-xl text-foreground">
               {t('about.heroTitle')}
             </Text>
             <Text className="block text-center text-body-sm leading-[40rpx] text-muted-foreground">
