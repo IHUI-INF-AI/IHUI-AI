@@ -2227,6 +2227,9 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-13**
+- 🚀 기능/개선:dev-enter/cover 迁共享屏薄壳 + 小程序hand迁移计划文档 (05a4bfa172)
+
+**2026-11-13**
 - 🐞 수정:web-rn-copy-parity 门扩 exam-result 等映射名单 (f1cd5b5c08)
 
 **2026-11-13**
@@ -2316,9 +2319,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 **2026-11-13**
 - 🐞 수정:miniapp-taro 补 sag2Lexical 整块命名空间(5语言x58键),消 mirror-pack-namespace-missing (4efe4c0b29)
-
-**2026-11-13**
-- 🐞 수정:合并后重生成 knip-taro-entries + 补 sag2 镜像承载键(搬运 30 枚,基准侧查无 130 枚未代拟) (657c779919)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
