@@ -17,6 +17,7 @@ import { checkpointAvailabilityEvent } from '@ihui/types'
 // 权限档唯一真源(G-161):授权入参必须先归一再判定,认不出即 400
 import { PERMISSION_MODES, normalizePermissionMode } from '@ihui/types/permission-mode'
 import { authenticate } from '../plugins/auth.js'
+import { recordAuditLog } from '../services/audit-log-service.js'
 import { success, error } from '../utils/response.js'
 import {
   swarmManager,
@@ -53,7 +54,11 @@ import {
   isSafeCheckpointId,
 } from '../services/atomic-rollback.js'
 import { requireAdmin, resolveAdminRoleId, ADMIN_ROLE_ID } from '../plugins/require-permission.js'
-import { getRegisteredWorkspaceRoots, isInsideRoot, realpathOrResolve } from '../utils/workspace-roots.js'
+import {
+  getRegisteredWorkspaceRoots,
+  isInsideRoot,
+  realpathOrResolve,
+} from '../utils/workspace-roots.js'
 
 // F-27:checkpointId 只允许 [A-Za-z0-9_-],拒绝 `..` 与路径分隔符(防越出快照目录任意读写)。
 const checkpointIdSchema = z
@@ -624,11 +629,12 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       }
       let pullRequest: GitStatusSnapshot['pullRequest'] = null
       let pullRequestFetchFailed = false
-      if (hasRemote && branch && githubClient.loadToken()) {
+      if (hasRemote && branch && (await githubClient.hasTokenForUser(request.userId))) {
         try {
           const remote = await githubClient.detectRemote(body.workspacePath)
           if (remote) {
             const prsRaw = await githubClient.listPRs({
+              userId: request.userId,
               owner: remote.owner,
               repo: remote.repo,
               state: 'open',
@@ -864,7 +870,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
           isGithubRepo: !!remote,
           owner: remote?.owner ?? null,
           repo: remote?.repo ?? null,
-          ghConfigured: !!githubClient.loadToken(),
+          ghConfigured: await githubClient.hasTokenForUser(request.userId),
           currentBranch,
           defaultBranch,
         }),
@@ -893,7 +899,8 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
           }),
         ])
         .parse(request.body ?? {})
-      if (!(await isAllowedWorkspace(request, reply, parsed.workspacePath, 'git_worktree_write'))) return
+      if (!(await isAllowedWorkspace(request, reply, parsed.workspacePath, 'git_worktree_write')))
+        return
 
       const listBranches = async () => {
         const raw = await fsBridge.run({
@@ -933,26 +940,41 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       }
       const relativePath = `.ihui-worktrees/${worktreeSlug(parsed.branch)}`
       const created = await fsBridge.run({
-        command: buildWorktreeCmd(['worktree', 'add', relativePath, '-b', parsed.branch, parsed.base]),
+        command: buildWorktreeCmd([
+          'worktree',
+          'add',
+          relativePath,
+          '-b',
+          parsed.branch,
+          parsed.base,
+        ]),
         workspacePath: parsed.workspacePath,
         mode: 'workspace-write',
         timeoutMs: 30_000,
       })
       if (created.exitCode !== 0) {
-        return reply.status(400).send(error(400, (created.stderr || '工作树创建失败').slice(0, 300)))
+        return reply
+          .status(400)
+          .send(error(400, (created.stderr || '工作树创建失败').slice(0, 300)))
       }
       // 本地排除(只改 .git/info/exclude,不动受版本控制的 .gitignore)
       try {
         const excludePath = join(parsed.workspacePath, '.git', 'info', 'exclude')
         const current = existsSync(excludePath) ? readFileSync(excludePath, 'utf8') : ''
         if (!current.split('\n').some((l) => l.trim() === '.ihui-worktrees/')) {
-          appendFileSync(excludePath, `${current.endsWith('\n') || current === '' ? '' : '\n'}.ihui-worktrees/\n`)
+          appendFileSync(
+            excludePath,
+            `${current.endsWith('\n') || current === '' ? '' : '\n'}.ihui-worktrees/\n`,
+          )
         }
       } catch {
         // 排除失败不影响工作树本身可用
       }
       return reply.send(
-        success({ path: join(parsed.workspacePath, '.ihui-worktrees', worktreeSlug(parsed.branch)), branch: parsed.branch }),
+        success({
+          path: join(parsed.workspacePath, '.ihui-worktrees', worktreeSlug(parsed.branch)),
+          branch: parsed.branch,
+        }),
       )
     } catch (e) {
       const msg = e instanceof Error ? e.message : '工作树操作失败'
@@ -965,6 +987,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   server.post('/change-requests', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
+    const userId = request.userId
     try {
       const body = z.object({ workspacePath: z.string().min(1) }).parse(request.body ?? {})
       if (!(await isAllowedWorkspace(request, reply, body.workspacePath, 'change_requests'))) return
@@ -1004,24 +1027,28 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
         }
         return { currentBranch, defaultBranch }
       }
-      const snapshot = await buildChangeRequestSnapshot(
-        {
-          readRemoteUrl: async () => {
-            const raw = await runGit(['remote', '-v'])
-            for (const line of raw.split('\n')) {
-              const m = /^(\S+)\s+(\S+)\s+\((?:fetch|push)\)\s*$/.exec(line.trim())
-              if (m) return m[2] ?? null
-            }
-            return null
-          },
-          detectRepo: () => githubClient.detectRemote(body.workspacePath),
-          readBranches,
-          hasCredentials: () => !!githubClient.loadToken(),
-          listPullRequests: async (repo) =>
-            githubClient.listPRs({ owner: repo.owner, repo: repo.repo, state: 'open' }),
-          listCheckRuns: async (params) => githubClient.listCheckRuns(params),
+      const hasCredentials = await githubClient.hasTokenForUser(userId)
+      const snapshot = await buildChangeRequestSnapshot({
+        readRemoteUrl: async () => {
+          const raw = await runGit(['remote', '-v'])
+          for (const line of raw.split('\n')) {
+            const m = /^(\S+)\s+(\S+)\s+\((?:fetch|push)\)\s*$/.exec(line.trim())
+            if (m) return m[2] ?? null
+          }
+          return null
         },
-      )
+        detectRepo: () => githubClient.detectRemote(body.workspacePath),
+        readBranches,
+        hasCredentials: () => hasCredentials,
+        listPullRequests: async (repo) =>
+          githubClient.listPRs({
+            userId,
+            owner: repo.owner,
+            repo: repo.repo,
+            state: 'open',
+          }),
+        listCheckRuns: async (params) => githubClient.listCheckRuns({ userId, ...params }),
+      })
       return reply.send(success(snapshot))
     } catch (e) {
       const msg = e instanceof Error ? e.message : '变更请求加载失败'
@@ -1031,7 +1058,9 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/github/token', async (request, reply) => {
-    await requireAuth(request, reply)
+    // F-442:令牌是凭据,写动作仅限管理员(复用 requireAdmin,不另造守卫)。
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     if (!request.userId) return
     try {
       const body = z
@@ -1048,12 +1077,19 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       if (!check.ok) {
         return reply.status(400).send(error(400, `GitHub Token 无效(HTTP ${check.status})`))
       }
-      const { homedir } = await import('node:os')
-      const { mkdirSync, writeFileSync } = await import('node:fs')
-      const { join } = await import('node:path')
-      const dir = join(homedir(), '.ihui')
-      mkdirSync(dir, { recursive: true })
-      writeFileSync(join(dir, 'github_token'), body.token.trim(), 'utf-8')
+      // F-442:按 userId 加密落库,不再覆盖全站单文件 `~/.ihui/github_token`。
+      await githubClient.saveTokenForUser(request.userId, body.token)
+      // 留痕:只记操作事实与工作区,绝不落令牌原文。
+      await recordAuditLog({
+        userId: request.userId,
+        action: 'workspace.github_token.set',
+        resourceType: 'github_token',
+        resourceId: request.userId,
+        ip: request.ip,
+        userAgent: request.headers['user-agent']?.slice(0, 512),
+        result: 'success',
+        metadata: { workspacePath: body.workspacePath, source: 'manual' },
+      })
       return reply.send(success({ ok: true }))
     } catch (e) {
       return reply.status(400).send(error(400, (e as Error).message))
@@ -1061,14 +1097,23 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.delete('/github/token', async (request, reply) => {
-    await requireAuth(request, reply)
+    // F-442:删除同为凭据变更,仅限管理员。
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     if (!request.userId) return
     try {
-      const { homedir } = await import('node:os')
-      const { join } = await import('node:path')
-      const { rmSync, existsSync } = await import('node:fs')
-      const file = join(homedir(), '.ihui', 'github_token')
-      if (existsSync(file)) rmSync(file, { force: true })
+      // F-442:只删自己的令牌;无论是否存在都返回成功,不泄露他人是否配置过。
+      await githubClient.clearTokenForUser(request.userId)
+      await recordAuditLog({
+        userId: request.userId,
+        action: 'workspace.github_token.clear',
+        resourceType: 'github_token',
+        resourceId: request.userId,
+        ip: request.ip,
+        userAgent: request.headers['user-agent']?.slice(0, 512),
+        result: 'success',
+        metadata: { source: 'manual' },
+      })
       return reply.send(success({ ok: true }))
     } catch (e) {
       return reply.status(400).send(error(400, (e as Error).message))
@@ -1116,7 +1161,9 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/github/device-token', async (request, reply) => {
-    await requireAuth(request, reply)
+    // F-442:设备码换取到的令牌同样是凭据写动作,仅限管理员。
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     if (!request.userId) return
     const body = z.object({ deviceCode: z.string().min(1) }).parse(request.body ?? {})
     const clientId = process.env.GITHUB_OAUTH_CLIENT_ID ?? ''
@@ -1141,12 +1188,18 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       })
       const json = (await res.json()) as Record<string, unknown>
       if (json.access_token) {
-        const { homedir } = await import('node:os')
-        const { mkdirSync, writeFileSync } = await import('node:fs')
-        const { join } = await import('node:path')
-        const dir = join(homedir(), '.ihui')
-        mkdirSync(dir, { recursive: true })
-        writeFileSync(join(dir, 'github_token'), String(json.access_token), 'utf-8')
+        // F-442:设备码换来的令牌同样只写给当前用户。
+        await githubClient.saveTokenForUser(request.userId, String(json.access_token))
+        await recordAuditLog({
+          userId: request.userId,
+          action: 'workspace.github_token.set',
+          resourceType: 'github_token',
+          resourceId: request.userId,
+          ip: request.ip,
+          userAgent: request.headers['user-agent']?.slice(0, 512),
+          result: 'success',
+          metadata: { source: 'device_oauth' },
+        })
         return reply.send(success({ status: 'ok' }))
       }
       const err = String(json.error ?? '')
@@ -1961,7 +2014,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     try {
-      const pr = await githubClient.createPR(parsed.data)
+      const pr = await githubClient.createPR({ userId: request.userId, ...parsed.data })
       return reply.status(201).send(success(pr))
     } catch (e) {
       return reply.status(400).send(error(400, (e as Error).message))
@@ -1977,7 +2030,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     if (!query.owner || !query.repo)
       return reply.status(400).send(error(400, 'owner 和 repo 不能为空'))
     try {
-      const prs = await githubClient.listPRs(query)
+      const prs = await githubClient.listPRs({ userId: request.userId, ...query })
       return reply.send(success(prs))
     } catch (e) {
       return reply.status(400).send(error(400, (e as Error).message))
@@ -1992,7 +2045,12 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     if (!query.owner || !query.repo)
       return reply.status(400).send(error(400, 'owner 和 repo 不能为空'))
     try {
-      const pr = await githubClient.getPR({ owner: query.owner, repo: query.repo, number })
+      const pr = await githubClient.getPR({
+        userId: request.userId,
+        owner: query.owner,
+        repo: query.repo,
+        number,
+      })
       return reply.send(success(pr))
     } catch (e) {
       return reply.status(400).send(error(400, (e as Error).message))
@@ -2010,6 +2068,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, 'owner/repo/body 不能为空'))
     try {
       const result = await githubClient.addPRComment({
+        userId: request.userId,
         owner: body.owner,
         repo: body.repo,
         number,
@@ -2032,6 +2091,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, 'owner/repo/reviewers 不能为空'))
     try {
       const result = await githubClient.requestReview({
+        userId: request.userId,
         owner: body.owner,
         repo: body.repo,
         number,
@@ -2059,6 +2119,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, 'owner 和 repo 不能为空'))
     try {
       const result = await githubClient.mergePR({
+        userId: request.userId,
         owner: body.owner,
         repo: body.repo,
         number,
@@ -2080,7 +2141,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     if (!query.owner || !query.repo)
       return reply.status(400).send(error(400, 'owner 和 repo 不能为空'))
     try {
-      const issues = await githubClient.listIssues(query)
+      const issues = await githubClient.listIssues({ userId: request.userId, ...query })
       return reply.send(success(issues))
     } catch (e) {
       return reply.status(400).send(error(400, (e as Error).message))

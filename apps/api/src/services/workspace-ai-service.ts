@@ -34,6 +34,7 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { logger } from '../utils/logger.js'
+import { decryptField, encryptField } from '../utils/crypto.js'
 import { getProcessRole } from '../utils/process-role.js'
 import { homedir, platform } from 'node:os'
 import {
@@ -3885,12 +3886,46 @@ export const routineManager = new RoutineManager()
 
 const GITHUB_API_BASE = 'https://api.github.com'
 
+/**
+ * F-442:GitHub 令牌按用户隔离落库(user_preferences,值经 AES-256-GCM 加密),
+ * 不再读写全站共享的 `~/.ihui/github_token`。
+ * group 仅本文件使用,故不扩 USER_PREFERENCE_GROUPS(避免触碰非本工单文件)。
+ */
+const GITHUB_TOKEN_GROUP = 'workspace_github'
+const GITHUB_TOKEN_KEY = 'token'
+
 class GitHubClient {
-  loadToken(): string {
-    const env = process.env.GITHUB_TOKEN ?? ''
-    if (env) return env
-    const file = join(homedir(), '.ihui', 'github_token')
-    return existsSync(file) ? readFileSync(file, 'utf-8').trim() : ''
+  /**
+   * 读取**调用者自己**的令牌。未存过时回落部署级 env(平台令牌,用户不可写),
+   * 绝不回落到任何共享文件或他人记录。
+   */
+  async loadTokenForUser(userId: string): Promise<string> {
+    const { findUserPreferences } = await import('../db/user-preferences-queries.js')
+    const { list } = await findUserPreferences(userId, GITHUB_TOKEN_GROUP)
+    const row = list.find((p) => p.key === GITHUB_TOKEN_KEY)
+    if (row?.value) return decryptField(row.value).trim()
+    return (process.env.GITHUB_TOKEN ?? '').trim()
+  }
+
+  async hasTokenForUser(userId: string): Promise<boolean> {
+    return (await this.loadTokenForUser(userId)).length > 0
+  }
+
+  /** 加密后按 userId 落库;覆盖只影响该用户自己的行。 */
+  async saveTokenForUser(userId: string, token: string): Promise<void> {
+    const { upsertUserPreference } = await import('../db/user-preferences-queries.js')
+    await upsertUserPreference(
+      userId,
+      GITHUB_TOKEN_GROUP,
+      GITHUB_TOKEN_KEY,
+      encryptField(token.trim()),
+    )
+  }
+
+  /** 只删除该用户自己的令牌;返回是否确有一行被删。 */
+  async clearTokenForUser(userId: string): Promise<boolean> {
+    const { deleteUserPreference } = await import('../db/user-preferences-queries.js')
+    return deleteUserPreference(userId, GITHUB_TOKEN_GROUP, GITHUB_TOKEN_KEY)
   }
 
   parseRemote(url: string): { owner: string; repo: string } | null {
@@ -3913,8 +3948,13 @@ class GitHubClient {
     }
   }
 
-  private async api(path: string, method = 'GET', body?: unknown): Promise<unknown> {
-    const token = this.loadToken()
+  private async api(
+    userId: string,
+    path: string,
+    method = 'GET',
+    body?: unknown,
+  ): Promise<unknown> {
+    const token = await this.loadTokenForUser(userId)
     if (!token) throw new Error('未配置 GITHUB_TOKEN')
     const res = await fetch(`${GITHUB_API_BASE}${path}`, {
       method,
@@ -3934,6 +3974,7 @@ class GitHubClient {
   }
 
   async createPR(params: {
+    userId: string
     owner: string
     repo: string
     title: string
@@ -3943,7 +3984,7 @@ class GitHubClient {
     /** D183(2026-09-29):true = 创建 Draft PR(环境信息 popover 一键创建入口) */
     draft?: boolean
   }): Promise<unknown> {
-    return this.api(`/repos/${params.owner}/${params.repo}/pulls`, 'POST', {
+    return this.api(params.userId, `/repos/${params.owner}/${params.repo}/pulls`, 'POST', {
       title: params.title,
       head: params.head,
       base: params.base,
@@ -3952,28 +3993,51 @@ class GitHubClient {
     })
   }
 
-  async listPRs(params: { owner: string; repo: string; state?: string }): Promise<unknown> {
+  async listPRs(params: {
+    userId: string
+    owner: string
+    repo: string
+    state?: string
+  }): Promise<unknown> {
     const state = params.state ?? 'open'
-    return this.api(`/repos/${params.owner}/${params.repo}/pulls?state=${state}&per_page=30`)
+    return this.api(
+      params.userId,
+      `/repos/${params.owner}/${params.repo}/pulls?state=${state}&per_page=30`,
+    )
   }
 
-  async getPR(params: { owner: string; repo: string; number: number }): Promise<unknown> {
-    return this.api(`/repos/${params.owner}/${params.repo}/pulls/${params.number}`)
+  async getPR(params: {
+    userId: string
+    owner: string
+    repo: string
+    number: number
+  }): Promise<unknown> {
+    return this.api(params.userId, `/repos/${params.owner}/${params.repo}/pulls/${params.number}`)
   }
 
   /** F-Forge(2026-11-13):列某 commit 的 CI 检查(check-runs),供变更请求台账汇总。 */
-  async listCheckRuns(params: { owner: string; repo: string; ref: string }): Promise<unknown> {
+  async listCheckRuns(params: {
+    userId: string
+    owner: string
+    repo: string
+    ref: string
+  }): Promise<unknown> {
     const ref = encodeURIComponent(params.ref)
-    return this.api(`/repos/${params.owner}/${params.repo}/commits/${ref}/check-runs?per_page=100`)
+    return this.api(
+      params.userId,
+      `/repos/${params.owner}/${params.repo}/commits/${ref}/check-runs?per_page=100`,
+    )
   }
 
   async addPRComment(params: {
+    userId: string
     owner: string
     repo: string
     number: number
     body: string
   }): Promise<unknown> {
     return this.api(
+      params.userId,
       `/repos/${params.owner}/${params.repo}/issues/${params.number}/comments`,
       'POST',
       {
@@ -3983,12 +4047,14 @@ class GitHubClient {
   }
 
   async requestReview(params: {
+    userId: string
     owner: string
     repo: string
     number: number
     reviewers: string[]
   }): Promise<unknown> {
     return this.api(
+      params.userId,
       `/repos/${params.owner}/${params.repo}/pulls/${params.number}/requested_reviewers`,
       'POST',
       {
@@ -3998,21 +4064,35 @@ class GitHubClient {
   }
 
   async mergePR(params: {
+    userId: string
     owner: string
     repo: string
     number: number
     commitTitle?: string
     mergeMethod?: 'merge' | 'squash' | 'rebase'
   }): Promise<unknown> {
-    return this.api(`/repos/${params.owner}/${params.repo}/pulls/${params.number}/merge`, 'PUT', {
-      commit_title: params.commitTitle,
-      merge_method: params.mergeMethod ?? 'merge',
-    })
+    return this.api(
+      params.userId,
+      `/repos/${params.owner}/${params.repo}/pulls/${params.number}/merge`,
+      'PUT',
+      {
+        commit_title: params.commitTitle,
+        merge_method: params.mergeMethod ?? 'merge',
+      },
+    )
   }
 
-  async listIssues(params: { owner: string; repo: string; state?: string }): Promise<unknown> {
+  async listIssues(params: {
+    userId: string
+    owner: string
+    repo: string
+    state?: string
+  }): Promise<unknown> {
     const state = params.state ?? 'open'
-    return this.api(`/repos/${params.owner}/${params.repo}/issues?state=${state}&per_page=30`)
+    return this.api(
+      params.userId,
+      `/repos/${params.owner}/${params.repo}/issues?state=${state}&per_page=30`,
+    )
   }
 }
 
