@@ -33,7 +33,7 @@ export function PreviewDialog({ onDismiss }: { onDismiss: () => void }) {
           <button
             type="button"
             onClick={onDismiss}
-            className="h-9 w-[120px] rounded-md bg-ink text-sm font-medium text-on-accent hover:opacity-90"
+            className="h-9 w-[120px] rounded-sm bg-ink text-sm font-medium text-on-accent hover:opacity-90"
           >
             继续
           </button>
