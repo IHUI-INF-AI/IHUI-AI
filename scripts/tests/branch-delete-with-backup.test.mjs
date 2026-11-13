@@ -7,7 +7,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execSync, spawnSync } from 'node:child_process'
-import { writeFileSync, mkdirSync } from 'node:fs'
+import { writeFileSync, mkdirSync, existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
@@ -79,7 +79,9 @@ test('端到端(--force):未合并的发布分支删前必有 lost-commit 备份
     const tagged = sh(`git rev-list -n 1 ${tagName}`, dir).trim()
     assert.equal(tagged, tip)
     // ② 分支没了(未合并分支须 --force;默认 -d 的拒绝形态由下一例钉住)
-    assert.throws(() => sh('git rev-parse --verify --quiet refs/heads/release-chunks-assistant', dir))
+    assert.throws(() =>
+      sh('git rev-parse --verify --quiet refs/heads/release-chunks-assistant', dir),
+    )
   } finally {
     rmScratch(dir)
   }
@@ -157,4 +159,50 @@ test('幂等:备份 tag 已存在时照常删(不当作失败);未知参数与�
     rmScratch(dir)
   }
 })
+
+test('删除必留痕:成功删除后必须写 branch-delete-ledger.jsonl(治"手工调用不留痕")', () => {
+  // 立因(2026-11-13):本器此前只打 tag + 删分支、不写任何台账,于是 53 枚实测删除里
+  // 有 3 枚完全没有记录,只能人工回忆补登。留痕依赖调用方自觉就一定会缺,必须在器物里做。
+  const dir = createTempRepo()
+  try {
+    sh('git checkout -q -b feat-ledger', dir)
+    writeFileSync(join(dir, 'l.txt'), 'l\n')
+    sh('git add l.txt', dir)
+    sh('git commit -m c5', dir)
+    sh('git checkout -q main', dir)
+
+    const r = runScript(['feat-ledger', '--force'], dir)
+    assert.equal(
+      r.status,
+      0,
+      `应成功删除,实测 ${r.status}\n${r.stdout}
+${r.stderr}`,
+    )
+
+    const ledgerPath = join(dir, Bdb.BRANCH_DELETE_LEDGER)
+    assert.ok(existsSync(ledgerPath), `留痕文件未生成:${ledgerPath}`)
+    const rows = readFileSync(ledgerPath, 'utf8')
+      .split('\n')
+      .filter(Boolean)
+      .map((l) => JSON.parse(l))
+    assert.equal(rows.length, 1, `应恰好 1 条留痕,实测 ${rows.length}`)
+    assert.equal(rows[0].branch, 'feat-ledger')
+    assert.match(rows[0].tag, /^lost-commit\/branch-feat-ledger-[0-9a-f]{7}$/)
+    assert.match(rows[0].sha, /^[0-9a-f]{40}$/)
+    assert.equal(rows[0].tagPushed, false, '新 tag 必然未上远端,应如实记 false')
+    assert.ok(rows[0].at, '必须有时间戳')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('留痕写不进不得反向阻断删除(tag 已保活,台账是第二层)', () => {
+  // 失效方向锁:若改成"留痕失败就拒删",一次台账故障会升级成无法收口的分支。
+  const ok = Bdb.recordBranchDeletion(
+    { branch: 'x', sha: 'a'.repeat(40), tag: 't' },
+    { root: join(mkScratch('ihui-bdb-ro-'), '..', ' invalid') },
+  )
+  assert.equal(ok, false, '不可写路径应返回 false 而不是抛')
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
