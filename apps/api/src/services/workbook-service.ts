@@ -333,19 +333,29 @@ function parseFormulaRefs(formula: string): {
   return { refs, colRefs, unjudged }
 }
 
-/** 取公式原文(普通式 + 共享式);非公式格返回 null。 */
+/**
+ * 取公式原文(普通式 + 共享式从格的翻译式);非公式格返回 null。
+ *
+ * F-535:共享公式从格的 model 只有 `{ sharedFormula: '<主格地址>', result }`,
+ * 不能把该地址当公式原文返回。`cell.formula` 的 getter 已对从格做 shared→translated
+ * (主格公式按地址位移),故优先取它。
+ */
 function formulaOf(cell: ExcelJS.Cell): string | null {
-  const v = cell.value as unknown
-  if (v && typeof v === 'object') {
-    const o = v as { formula?: unknown; sharedFormula?: unknown }
-    const raw = typeof o.formula === 'string' && o.formula ? o.formula : o.sharedFormula
-    if (typeof raw === 'string' && raw.length > 0) return raw.replace(/^=/, '')
-  }
-  if (cell.type === ExcelJS.ValueType.Formula) {
-    const f = cell.formula
-    if (typeof f === 'string' && f.length > 0) return f.replace(/^=/, '')
-  }
+  const f = cell.formula
+  if (typeof f === 'string' && f.length > 0) return f.replace(/^=/, '')
   return null
+}
+
+/**
+ * 「是否公式格」判据:原文取不到时(如主格缺失无法翻译)仍按 sharedFormula 判公式,
+ * 只用于认定公式身份,绝不把主格地址当公式原文返回(F-535)。
+ */
+function isFormulaCell(cell: ExcelJS.Cell): boolean {
+  if (formulaOf(cell) !== null) return true
+  const v = cell.value as unknown
+  if (!v || typeof v !== 'object') return false
+  const shared = (v as { sharedFormula?: unknown }).sharedFormula
+  return typeof shared === 'string' && shared.length > 0
 }
 
 function sha256(buf: Buffer): string {
@@ -381,16 +391,20 @@ function indexFormulaCells(wb: ExcelJS.Workbook): {
       for (let c = 1; c <= maxCol; c++) {
         const cell = ws.getCell(r, c)
         const formula = formulaOf(cell)
-        if (formula === null) continue
+        // 原文取不到但 sharedFormula 仍在(主格缺失)⇒ 仍是公式格,按扫不动保守判。
+        if (formula === null && !isFormulaCell(cell)) continue
         if (cells.length >= MAX_FORMULA_SCAN_CELLS) {
           truncated = true
           break outer
         }
-        const { refs, colRefs, unjudged } = parseFormulaRefs(formula)
+        const { refs, colRefs, unjudged } =
+          formula === null
+            ? { refs: [], colRefs: [], unjudged: true }
+            : parseFormulaRefs(formula)
         cells.push({
           sheet: ws.name,
           address: addressOf(r, c),
-          formula,
+          formula: formula ?? '',
           refs,
           colRefs,
           unjudged,
@@ -432,6 +446,16 @@ function readCell(cell: ExcelJS.Cell): WorkbookCellRead {
       kind: 'formula',
       value: null,
       formula,
+      state: 'formula-uncomputed',
+      cachedValueWithheld: true,
+    }
+  }
+  if (isFormulaCell(cell)) {
+    // 公式身份确实(sharedFormula 仍在),但原文取不到(主格缺失)⇒ 不回地址冒充公式
+    return {
+      address,
+      kind: 'formula',
+      value: null,
       state: 'formula-uncomputed',
       cachedValueWithheld: true,
     }
@@ -865,7 +889,7 @@ export function writeCells(params: {
     const ref = parseCellRef(String(item?.address ?? ''))
     if (!ref) return fail('WORKBOOK_INVALID_INPUT', `address 形态非法: ${String(item?.address)}`)
     const cell = ws.getCell(ref.row, ref.column)
-    if (formulaOf(cell) !== null) formulaTargets.push(cell.address)
+    if (isFormulaCell(cell)) formulaTargets.push(cell.address)
     const value = item.value
     if (
       value !== null &&

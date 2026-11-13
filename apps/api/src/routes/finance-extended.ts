@@ -509,7 +509,9 @@ export const financeExtendedRoutes: FastifyPluginAsync = async (server) => {
           pendingCount: sql<number>`count(*) FILTER (WHERE ${withdrawalFlows.status} = 0)::int`,
           processingCount: sql<number>`count(*) FILTER (WHERE ${withdrawalFlows.status} = 1)::int`,
           completedCount: sql<number>`count(*) FILTER (WHERE ${withdrawalFlows.status} = 2)::int`,
-          rejectedCount: sql<number>`count(*) FILTER (WHERE ${withdrawalFlows.status} = 3)::int`,
+          // F-457:驳回/失败终态按"非 0/1/2"统计,覆盖现行 3 与旧版商城后台写入的 4,
+          // 四类计数(0/1/2/其它)之和恒等于总数,不再因状态码分裂而缺项。
+          rejectedCount: sql<number>`count(*) FILTER (WHERE ${withdrawalFlows.status} NOT IN (0, 1, 2))::int`,
         })
         .from(withdrawalFlows)
       // 佣金联合统计
