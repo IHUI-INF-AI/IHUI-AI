@@ -85,8 +85,16 @@ function calculateNextChargeTime(
 
 export const __test__ = { calculateNextChargeTime }
 
-async function setUserVipAutoRenew(userId: string, autoRenew: 0 | 1): Promise<void> {
-  await db
+/** 事务句柄(与 payment-queries 的 DbTx 同源):事务内读写必须复用它,不得回落模块级 db。 */
+type TxHandle = Parameters<Parameters<typeof db.transaction>[0]>[0]
+
+async function setUserVipAutoRenew(
+  userId: string,
+  autoRenew: 0 | 1,
+  tx?: TxHandle,
+): Promise<void> {
+  const q = tx ?? db
+  await q
     .update(userVips)
     .set({ autoRenew, updatedAt: new Date() })
     .where(and(eq(userVips.userId, userId), eq(userVips.status, 1)))
@@ -592,7 +600,7 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
               const now = new Date()
               const nextChargeTime = existing.trialEndAt
                 ? new Date(existing.trialEndAt.getTime())
-                : calculateNextChargeTime(await getPlanBillingPeriod(existing.planId))
+                : calculateNextChargeTime(await getPlanBillingPeriod(existing.planId, tx))
 
               // 同步微信侧 contract_expired_time(若已下发,记录到本地用于展示/到期判断)
               const expiredAt = parseContractExpiredTime(
@@ -612,7 +620,7 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
                 })
                 .where(eq(wechatPayContracts.id, existing.id))
 
-              await setUserVipAutoRenew(existing.userId, 1)
+              await setUserVipAutoRenew(existing.userId, 1, tx)
             })
           }
         } else if (isTerminateEvent) {
@@ -648,7 +656,7 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
                 })
                 .where(eq(wechatPayContracts.id, existing.id))
 
-              await setUserVipAutoRenew(existing.userId, 0)
+              await setUserVipAutoRenew(existing.userId, 0, tx)
             })
           }
         } else if (isChargeSuccessEvent) {
@@ -686,7 +694,7 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
                 return
               }
 
-              const billingPeriod = await getPlanBillingPeriod(existing.planId)
+              const billingPeriod = await getPlanBillingPeriod(existing.planId, tx)
               const now = new Date()
 
               if (existing.planId) {
@@ -874,9 +882,13 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
   )
 }
 
-async function getPlanBillingPeriod(planId: string | null): Promise<string | undefined> {
+async function getPlanBillingPeriod(
+  planId: string | null,
+  tx?: TxHandle,
+): Promise<string | undefined> {
   if (!planId) return undefined
-  const [plan] = await db
+  const q = tx ?? db
+  const [plan] = await q
     .select({ billingPeriod: plans.billingPeriod })
     .from(plans)
     .where(eq(plans.id, planId))

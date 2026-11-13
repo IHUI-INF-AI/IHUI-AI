@@ -23,10 +23,10 @@
  * - convertToMarkdownDetailed(path) 返回 { markdown, error? },供路由层给出具体文案
  */
 
-import { existsSync, writeFileSync, mkdirSync } from 'node:fs'
+import { existsSync, writeFileSync, mkdirSync, unlinkSync } from 'node:fs'
 import { readFile, stat } from 'node:fs/promises'
 import { extname, join } from 'node:path'
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { inflateRawSync } from 'node:zlib'
 import mammoth from 'mammoth'
 import * as XLSX from '@e965/xlsx'
@@ -611,10 +611,94 @@ export interface ExtractAssetsResult {
   error?: string
   /** 失败时的 HTTP 状态码(体积超限 413);未给出时路由层沿用 422。 */
   statusCode?: number
+  /** F-413:因条数/累计字节上限只落盘了部分资产时为 true。 */
+  truncated?: boolean
+  /** F-413:截断原因(中文文案,供调用方提示)。 */
+  truncatedReason?: string
 }
 
-/** F-146:资产落盘总量上限(anydoc 已解压,防单请求写出 GB 级资产)。 */
+/** F-146:资产落盘总量默认上限(anydoc 已解压,防单请求写出 GB 级资产)。 */
 const MAX_ASSETS_TOTAL_SIZE = 100 * 1024 * 1024
+
+/** F-413:单次提取资产条数上限(高压缩比文档可造出大量零字节条目)。 */
+const MAX_ASSETS_COUNT = 200
+
+/** F-413:同源(内容 sha256 + 落盘目录)提取结果缓存时长,重复调用直接复用不重复落盘。 */
+const ASSET_CACHE_TTL_MS = 30 * 60 * 1000
+
+/** F-413:提取结果缓存条目上限(过期项清理后仍超出时按写入顺序淘汰)。 */
+const MAX_ASSET_CACHE_ENTRIES = 64
+
+/** F-413:资产提取上限(测试可注入覆盖,生产值见上方常量)。 */
+export interface AssetExtractLimits {
+  maxCount: number
+  maxTotalBytes: number
+  cacheTtlMs: number
+}
+
+const DEFAULT_ASSET_EXTRACT_LIMITS: AssetExtractLimits = {
+  maxCount: MAX_ASSETS_COUNT,
+  maxTotalBytes: MAX_ASSETS_TOTAL_SIZE,
+  cacheTtlMs: ASSET_CACHE_TTL_MS,
+}
+
+let assetExtractLimits: AssetExtractLimits = { ...DEFAULT_ASSET_EXTRACT_LIMITS }
+
+interface AssetCacheEntry {
+  assets: ExtractedAsset[]
+  truncated: boolean
+  truncatedReason?: string
+  expiresAt: number
+}
+
+/** F-413:同源同目录的提取结果缓存(重复调用幂等,不重复生成 UUID 落盘)。 */
+const assetExtractionCache = new Map<string, AssetCacheEntry>()
+
+/** F-413:测试注入上限;传 null 恢复默认。 */
+export function __setAssetExtractLimitsForTests(
+  overrides: Partial<AssetExtractLimits> | null,
+): void {
+  assetExtractLimits = overrides
+    ? { ...DEFAULT_ASSET_EXTRACT_LIMITS, ...overrides }
+    : { ...DEFAULT_ASSET_EXTRACT_LIMITS }
+}
+
+/** F-413:测试复位缓存与上限。 */
+export function __resetAssetExtractStateForTests(): void {
+  assetExtractionCache.clear()
+  assetExtractLimits = { ...DEFAULT_ASSET_EXTRACT_LIMITS }
+}
+
+/** 内容 sha256(幂等/去重键)。 */
+function sha256Hex(data: Buffer): string {
+  return createHash('sha256').update(data).digest('hex')
+}
+
+/** 清理过期缓存,并保证条目数不超过上限。 */
+function pruneAssetExtractionCache(now: number): void {
+  for (const [key, entry] of assetExtractionCache) {
+    if (entry.expiresAt <= now) assetExtractionCache.delete(key)
+  }
+  while (assetExtractionCache.size > MAX_ASSET_CACHE_ENTRIES) {
+    const oldest = assetExtractionCache.keys().next().value
+    if (oldest === undefined) break
+    assetExtractionCache.delete(oldest)
+  }
+}
+
+/** 命中缓存且落盘文件仍在时返回条目;否则清掉该键返回 null。 */
+function readCachedAssets(key: string, outDir: string, now: number): AssetCacheEntry | null {
+  const entry = assetExtractionCache.get(key)
+  if (!entry) return null
+  if (
+    entry.expiresAt <= now ||
+    !entry.assets.every((a) => existsSync(join(outDir, a.filename)))
+  ) {
+    assetExtractionCache.delete(key)
+    return null
+  }
+  return entry
+}
 
 /**
  * 提取文档内嵌图片/对象资产并落盘到 writeToDir。
@@ -661,6 +745,23 @@ export async function extractDocumentAssets(
     return { assets: [], error: `文件读取失败: ${(e as Error).message}` }
   }
 
+  const outDir = writeToDir
+  const sourceHash = sha256Hex(bytes)
+  // F-413:同一源文件(内容 sha256)+ 同一落盘目录重复调用时复用上次结果,不再重新解析/落盘
+  if (outDir) {
+    const cached = readCachedAssets(`${sourceHash}::${outDir}`, outDir, Date.now())
+    if (cached) {
+      logger.info('[markdown-converter] 命中资产提取缓存,复用已落盘文件', {
+        count: cached.assets.length,
+      })
+      return {
+        assets: cached.assets.map((a) => ({ ...a })),
+        truncated: cached.truncated || undefined,
+        truncatedReason: cached.truncatedReason,
+      }
+    }
+  }
+
   // 格式判定:磁盘有后缀优先;否则 formatFromBytes 字节探测;仍 null 回退原始文件名;再空则报错
   let fmt: string | null = null
   if (diskExt) {
@@ -684,31 +785,93 @@ export async function extractDocumentAssets(
   }
 
   const assets = doc.assets ?? []
-  // F-146:解压出来的资产总量也要有上限,超限直接拒绝而不是写盘
-  const totalAssetBytes = assets.reduce((n, a) => n + (a.data?.length ?? 0), 0)
-  if (totalAssetBytes > MAX_ASSETS_TOTAL_SIZE) {
-    const mb = Math.floor(MAX_ASSETS_TOTAL_SIZE / 1024 / 1024)
-    return { assets: [], error: `内嵌资产总大小超过 ${mb}MB 上限`, statusCode: 413 }
-  }
-  const outDir = writeToDir
   if (outDir && !existsSync(outDir)) mkdirSync(outDir, { recursive: true })
 
+  const limits = assetExtractLimits
   const out: ExtractedAsset[] = []
-  for (const a of assets) {
-    const extName = assetExtension(a.mediaType)
-    // 自生成文件名,绝不复用 originPart(其可能含路径穿越载荷)
-    const filename = `${randomUUID()}${extName}`
-    const target = outDir ? join(outDir, filename) : ''
-    if (outDir) writeFileSync(target, a.data)
-    out.push({
-      id: a.id,
-      mediaType: a.mediaType,
-      originPart: a.originPart,
-      extension: extName.replace(/^\./, '') || 'bin',
-      size: a.data?.length ?? 0,
-      filename,
+  /** 本次新写出的文件(失败时逐条清理,不留半份资产)。 */
+  const written: string[] = []
+  /** 内容哈希 -> 文件名,同一文档内完全相同的资产只落盘一次。 */
+  const writtenByHash = new Map<string, string>()
+  let totalBytes = 0
+  let truncated = false
+  let truncatedReason: string | undefined
+  try {
+    for (const a of assets) {
+      const size = a.data?.length ?? 0
+      if (out.length >= limits.maxCount) {
+        truncated = true
+        truncatedReason = `内嵌资产超过 ${limits.maxCount} 条上限,仅提取前 ${out.length} 条`
+        break
+      }
+      if (totalBytes + size > limits.maxTotalBytes) {
+        const mb = Math.floor(limits.maxTotalBytes / 1024 / 1024)
+        truncated = true
+        truncatedReason = `内嵌资产累计超过 ${mb}MB 上限,已停止提取`
+        break
+      }
+      const extName = assetExtension(a.mediaType)
+      // 自生成文件名,绝不复用 originPart(其可能含路径穿越载荷)
+      const dataHash = `${extName}:${sha256Hex(a.data ?? Buffer.alloc(0))}`
+      let filename = writtenByHash.get(dataHash)
+      if (!filename) {
+        filename = `${randomUUID()}${extName}`
+        if (outDir) {
+          const target = join(outDir, filename)
+          writeFileSync(target, a.data)
+          written.push(target)
+        }
+        writtenByHash.set(dataHash, filename)
+      }
+      totalBytes += size
+      out.push({
+        id: a.id,
+        mediaType: a.mediaType,
+        originPart: a.originPart,
+        extension: extName.replace(/^\./, '') || 'bin',
+        size,
+        filename,
+      })
+    }
+  } catch (e) {
+    // F-413:落盘中途失败,清理本次已写文件后再如实报错
+    for (const p of written) {
+      try {
+        unlinkSync(p)
+      } catch {
+        // 清理失败不覆盖原始错误,继续清理其余文件
+      }
+    }
+    logger.error('[markdown-converter] 资产落盘失败,已回滚本次写入', {
+      written: written.length,
+      error: (e as Error).message,
+    })
+    return { assets: [], error: `资产落盘失败: ${(e as Error).message}` }
+  }
+
+  if (truncated) {
+    logger.warn('[markdown-converter] 资产提取超限,已截断', {
+      total: assets.length,
+      accepted: out.length,
+      totalBytes,
+      maxCount: limits.maxCount,
+      maxTotalBytes: limits.maxTotalBytes,
     })
   }
-  return { assets: out }
+  if (outDir) {
+    const now = Date.now()
+    pruneAssetExtractionCache(now)
+    assetExtractionCache.set(`${sourceHash}::${outDir}`, {
+      assets: out.map((a) => ({ ...a })),
+      truncated,
+      truncatedReason,
+      expiresAt: now + limits.cacheTtlMs,
+    })
+  }
+  return {
+    assets: out,
+    truncated: truncated || undefined,
+    truncatedReason,
+  }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -567,23 +567,25 @@ export const financeExtendedRoutes: FastifyPluginAsync = async (server) => {
       if (!existing[0]) return reply.status(404).send(error(404, '提现记录不存在'))
       if (action === 'approve') {
         const flow = existing[0]
-        const currentStatus = flow.status
-        if (currentStatus >= 2) {
-          return reply.status(400).send(error(400, '该记录已完成审批'))
-        }
         // P1 修复(2026-08-06): 审批只改 status 不回退冻结资金,导致 frozen 永久沉淀。
-        // 事务内:① 条件 UPDATE 防并发重复审批 ② 审批通过后冻结资金实际转出(frozen -= amount)。
+        // F-454: 状态迁移收敛为 processing(1)→completed(2) 这一次,且条件 UPDATE 带
+        // status=1 原子闸。原先 status=currentStatus+1 允许人工两步推进(0→1→2),
+        // 每一步都 frozen-=amount ⇒ 同一单二次释放冻结、挪用该用户其它待审单的冻结额。
+        // 现无返回行(并发/已为 2)一律不再释放,返回 409;释放动作与迁移同事务。
+        if (flow.status !== 1) {
+          return reply.status(409).send(error(409, '提现记录状态已变更,无需重复审批'))
+        }
         const row = await db.transaction(async (tx) => {
           const [updated] = await tx
             .update(withdrawalFlows)
             .set({
-              status: currentStatus + 1,
+              status: 2,
               processedAt: new Date(),
               updatedAt: new Date(),
             })
-            .where(and(eq(withdrawalFlows.id, id), eq(withdrawalFlows.status, currentStatus)))
+            .where(and(eq(withdrawalFlows.id, id), eq(withdrawalFlows.status, 1)))
             .returning()
-          if (!updated) return undefined // 并发下状态已变更
+          if (!updated) return undefined // 已被处理:不得再次释放冻结
           // flow.userId 可空(用户删除时 SET NULL),null 时无法更新余额,跳过
           if (flow.userId) {
             const [margin] = await tx
@@ -606,7 +608,7 @@ export const financeExtendedRoutes: FastifyPluginAsync = async (server) => {
           }
           return updated
         })
-        if (!row) return reply.status(400).send(error(400, '该记录已完成审批'))
+        if (!row) return reply.status(409).send(error(409, '提现记录不存在或已被处理'))
         return reply.send(success(row))
       } else {
         const flow = existing[0]
