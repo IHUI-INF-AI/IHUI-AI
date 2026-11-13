@@ -98,13 +98,13 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 5219 | `testFiles` |
+| 测试文件 | 5224 | `testFiles` |
 | CI 工作流 | 59 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 363 | `guardianGates` |
 | — blocking | 334 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 21354 | `trackedFiles` |
+| 跟踪文件 | 21359 | `trackedFiles` |
 
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-13。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -5468,6 +5468,26 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - **已知缺口(deferred 不落盘)**:派发队列是进程内一次性内存队列(无常驻服务、无轮询、无持久化),投递记录要等任务跑完才写表。`dispatch:'async'` 已回 200、后台任务尚未跑完的窗口里若 API 进程崩溃或重启,内存任务与未写入的投递表一并丢失;GitHub 侧已记成功不会重投,进程内一级去重 LRU 也随之消失 ⇒ 该次投递的评审 / 评论回写静默丢失、无法重放、无从对账。当前实现未收口此窗口(积压满触发「就地执行」的兜底只防积压,不防进程退出)。
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-13**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (f1eea10ede3)
+
+**2026-11-13**
+- 🐞 修复:F-164 返佣两级费率组合闸+记账封顶——PATCH 单/双字段非法组合一律 400 且 0 写,recordRelayCommission 每笔之和 ≤ sourceCostCents(level1 先取,余预算给 level2);回归 f-164 测试 17/17 绿;README 生成块随 DN5 用 sync-readme-numbers 官方通道刷新(testFiles 5217→5219/trackedFiles 21352→21354,并修复被吃掉的行首反引号) (8418d437bba)
+- 🔧 工程/其他:生成块数字对齐 HEAD 树现算(testFiles 5218 / trackedFiles 21353)并修复 trackedFiles 断字 (1e5db9591b5)
+- 🔧 工程/其他:结清 164G/171G —— F-164 三级费率组合闸+记账封顶入库, F-171 lessonId 下推 WHERE 入库(证据见配对码提交) (277a22436ab)
+- 🐞 修复:模型映射后复检 allowedModels,堵白名单绕过(低价套餐偷调高价模型) + 回归锁 5/5 (792bb030a61)
+- 🐞 修复:模型映射后复检 allowedModels,堵住白名单绕过 + 回归锁 (6a7113da6d5)
+- 📚 文档:生成块 trackedFiles 对齐 HEAD 面现算(21338→21339) (593905e70db)
+- 🔧 工程/其他:补齐 F-187/F-200 新增文件的溯源水印(守门 47p) (fd8574763b6)
+- 🔧 工程/其他:结清批次34 共5张(F-297/313/314/317/320) (9d25b188cec)
+- 🐞 修复:结清 F-297 编辑写路径会话锁 + F-313 验证码降级读写一致 + F-314 邮件显式超时 + F-317 催费逾期口径 + F-320 巡检失败可观测 (d07c6c267c4)
+- 🔧 工程/其他:结清 F-200 Crew 全失败谎报成功 + F-187 baseUrl SSRF(已修复并测试通过,代码入 a00d16ca08a) (d8b6411950d)
+- 🐞 修复:F-200 Crew 全失败不再谎报成功 + F-187 v2 保存链与 ai-service api_base SSRF 二次校验 (a00d16ca08a)
+- 🚀 新功能/改进:复现 Trae browser 状态查询族 + 补齐 goal/auto-review/asRpcError 验证闭环 (dd21ff31715)
+- 📚 文档:门 41 存量 24 分支逐枚内容级取证 —— 全部必须保留,0 枚可收口 (46542d1d849)
+- 🔧 工程/其他:结清批次33 共5张(F-286/296/307/309/310) (45fea84f70b)
+- 🐞 修复:结清 F-286 迟到释放带归属 + F-296 流式错误协议化 + F-307 并行工具块 + F-309 定价生效时刻 + F-310 券核销共判据 (fce802dd86f)
+
 **2026-11-13**
 - 🔧 工程/其他:收编守护落档产出(2 件,凭落点账本) (a9fd477339f)
 - 🔧 工程/其他:结清 F-184 Hook PATCH 管理员闸（已修复且测试通过） (59bbb11cdf0)
