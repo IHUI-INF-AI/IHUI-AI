@@ -890,7 +890,10 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       const { username, password } = parsed.data
       const ip = request.ip
 
-      const lockRemaining = await getLockRemainingMs(username, ip)
+      // F-556:先解析用户 —— 同一用户的用户名/手机号/邮箱共享同一份锁定配额。
+      const user = await findUserByUsername(username)
+
+      const lockRemaining = await getLockRemainingMs(username, ip, user?.id)
       if (lockRemaining > 0) {
         recordAuthLoginFailed(ip)
         return reply
@@ -904,7 +907,6 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
           )
       }
 
-      const user = await findUserByUsername(username)
       // 等代价校验(防账号枚举,CWE-204):原先的 `!user || !user.passwordHash || !(await
       // verifyPassword(...))` 在"账号不存在"这一支短路掉了 argon2id —— 文案是统一的,
       // 但耗时差几十到几百毫秒,掐表就能列账号。判据与出路见 password-crypto 的
@@ -913,7 +915,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       // `!user.passwordHash` 只做类型收窄(下面透明升级要非空哈希):等代价校验已在
       // 上一行无条件跑过,这里不再产生第二条可分辨的出口。
       if (!user || !user.passwordHash || !passwordMatches) {
-        const remaining = await recordLoginFailure(username, ip)
+        const remaining = await recordLoginFailure(username, ip, user?.id)
         recordAuthLoginFailed(ip)
         if (remaining === 0) {
           const lockDurationMs = ACCOUNT_LOCKOUT_CONFIG.lockDurationSec * 1000
@@ -935,7 +937,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         recordAuthLoginFailed(ip)
         return reply.status(403).send(error(403, '账号已被禁用'))
       }
-      await clearLoginFailures(username, ip)
+      await clearLoginFailures(username, ip, user.id)
       // 2026-10-28 普查发现：本入口此前只 verify 不升级哈希，与 /auth/login 不一致
       // （弱哈希账户若经此路登录就永远升不上 argon2id）。补同一出口调用，三入口行为齐平。
       await transparentlyUpgradePasswordHash({

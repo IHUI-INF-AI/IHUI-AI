@@ -11,6 +11,8 @@
  * 1. 预算控制(budgetRepoFiles 纯函数):
  *    - 按路径首段分组出顶层模块,每模块挑内容最长的 ≤8 个文件
  *    - 单文件截断 8KB,全请求总量截断 ~120KB(超出预算的模块整体跳过)
+ *    - F-531:prompt 总预算按 UTF-8 字节计,文件清单与正文共享同一上限
+ *      (正文优先,清单可截断并标注省略数),最终 prompt 字节数不超过上限
  * 2. LLM 调用 1+1 次(经 ai-service /api/llm/complete,非流式):
  *    - overview:架构综述/技术栈/目录结构解读/模块关系
  *    - 每个重点模块(≤6 个,按采样体积降序)一篇 module 文档:职责/关键文件解读/对外接口/风险点
@@ -33,16 +35,23 @@ import { logger } from './clawdbot/logger.js'
 const MAX_FILE_CHARS = 8 * 1024
 /** 单模块最多采样文件数 */
 const MAX_FILES_PER_MODULE = 8
-/** 全请求总字符预算(~120KB) */
-const MAX_TOTAL_CHARS = 120 * 1024
+/**
+ * F-531:单次 prompt(用户内容)的 UTF-8 字节上限(~120KB)。
+ * 文件清单(路径列表)与抽样正文共享该预算,不再只算正文。
+ */
+export const REPO_WIKI_MAX_PROMPT_BYTES = 120 * 1024
+/** 文件清单预留字节(正文优先,清单至少保留的额度) */
+const LISTING_RESERVE_BYTES = 8 * 1024
+/** 正文采样预算(字符近似;最终由组装时的字节裁剪兜底) */
+const MAX_TOTAL_CHARS = REPO_WIKI_MAX_PROMPT_BYTES - LISTING_RESERVE_BYTES - 8 * 1024
 /** 最多生成模块文档数 */
 const MAX_MODULE_DOCS = 6
 /** LLM 调用超时(120s) */
 const LLM_TIMEOUT_MS = 120_000
 /** 缺省模型(env AI_REPO_WIKI_MODEL 未设时的兜底) */
 const DEFAULT_MODEL = 'gpt-4o-mini'
-/** 目录树最多行数(防超大仓库撑爆 prompt) */
-const MAX_TREE_LINES = 500
+/** 文件清单单条路径最大字符数(超出截断,避免单行吃掉全部清单预算) */
+const MAX_LISTING_PATH_CHARS = 300
 
 // =============================================================================
 // 类型
@@ -351,53 +360,156 @@ export function renderDependencyGraph(edges: RepoWikiModuleEdge[]): string {
 // Prompt 构造(纯函数)
 // =============================================================================
 
-function buildFileTree(files: RepoWikiFile[]): string {
-  return files
-    .map((f) => f.path)
-    .slice(0, MAX_TREE_LINES)
-    .join('\n')
+/** UTF-8 字节数(预算按字节计,中文路径/内容不会被低估) */
+function byteLength(text: string): number {
+  return Buffer.byteLength(text, 'utf8')
 }
 
-function buildOverviewUserContent(
+/** 按 UTF-8 字节上限截断字符串(不切断高位代理) */
+function truncateToBytes(text: string, maxBytes: number): string {
+  if (maxBytes <= 0) return ''
+  if (byteLength(text) <= maxBytes) return text
+  let lo = 0
+  let hi = text.length
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2)
+    if (byteLength(text.slice(0, mid)) <= maxBytes) lo = mid
+    else hi = mid - 1
+  }
+  const last = text.charCodeAt(lo - 1)
+  return text.slice(0, last >= 0xd800 && last <= 0xdbff ? Math.max(0, lo - 1) : lo)
+}
+
+/** 文件清单截断提示(标明省略数) */
+function listingOmittedNote(count: number): string {
+  return `…（文件清单已截断，省略 ${count} 个文件）`
+}
+
+/**
+ * 文件清单(目录树):
+ * - 单条路径超长先截断,避免一行吃掉全部清单预算
+ * - 清单整体受 maxBytes 约束,放不下的部分丢弃并标注省略数
+ */
+function buildFileTree(
+  files: RepoWikiFile[],
+  maxBytes: number,
+): { text: string; omitted: number } {
+  const paths = files.map((f) =>
+    f.path.length > MAX_LISTING_PATH_CHARS
+      ? `${f.path.slice(0, MAX_LISTING_PATH_CHARS)}…`
+      : f.path,
+  )
+  if (paths.length === 0) return { text: '', omitted: 0 }
+
+  const render = (keep: number): { text: string; omitted: number } => {
+    const omitted = paths.length - keep
+    const lines = paths.slice(0, keep)
+    if (omitted > 0) lines.push(listingOmittedNote(omitted))
+    return { text: lines.join('\n'), omitted }
+  }
+
+  if (byteLength(render(paths.length).text) <= maxBytes) return render(paths.length)
+
+  // 二分找到预算内可保留的最大路径条数(省略提示本身也计入预算)
+  let lo = 0
+  let hi = paths.length - 1
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2)
+    if (byteLength(render(mid).text) <= maxBytes) lo = mid
+    else hi = mid - 1
+  }
+  const best = render(lo)
+  return byteLength(best.text) <= maxBytes ? best : { text: '', omitted: paths.length }
+}
+
+/** 正文截断提示 */
+const BODY_TRUNCATION_NOTE = '\n…（内容已按预算截断）'
+
+/**
+ * 按字节预算拼接抽样文件正文(正文/关键文件优先):
+ * - 按模块与文件顺序贪心装入,放不下整份时截断内容并标注
+ * - 预算耗尽后不再追加后续模块,保证结果 ≤ maxBytes
+ */
+function buildSampledContent(
+  modules: RepoWikiModule[],
+  maxBytes: number,
+  withModuleHeading: boolean,
+): string {
+  const blocks: string[] = []
+  let used = 0
+  let stopped = false
+  const tryAppend = (block: string): boolean => {
+    const add = (blocks.length > 0 ? 1 : 0) + byteLength(block)
+    if (used + add > maxBytes) return false
+    blocks.push(block)
+    used += add
+    return true
+  }
+
+  for (const m of modules) {
+    if (stopped) break
+    if (withModuleHeading && !tryAppend(`\n### 模块:${m.name}`)) break
+    for (const f of m.files) {
+      const head = `\n${withModuleHeading ? '####' : '###'} ${f.path}\n\`\`\`\n`
+      const tail = '\n```'
+      if (tryAppend(head + f.content + tail)) continue
+      const available =
+        maxBytes -
+        used -
+        (blocks.length > 0 ? 1 : 0) -
+        byteLength(head) -
+        byteLength(tail) -
+        byteLength(BODY_TRUNCATION_NOTE)
+      if (available > 0) {
+        tryAppend(head + truncateToBytes(f.content, available) + BODY_TRUNCATION_NOTE + tail)
+      }
+      stopped = true
+      break
+    }
+  }
+
+  return blocks.join('\n')
+}
+
+/**
+ * 组装 overview 用户内容(F-531)。
+ * 文件清单与正文共享 maxBytes(UTF-8 字节)预算:正文优先,清单可截断并标注省略数;
+ * 返回值的字节数保证不超过 maxBytes。
+ */
+export function buildOverviewUserContent(
   repoName: string,
   files: RepoWikiFile[],
   budget: RepoWikiBudgetResult,
+  maxBytes: number = REPO_WIKI_MAX_PROMPT_BYTES,
 ): string {
-  const parts: string[] = []
-  parts.push(`仓库名:${repoName}`)
-  parts.push('')
-  parts.push('## 文件清单(目录结构)')
-  parts.push(buildFileTree(files))
-  parts.push('')
-  parts.push('## 各模块抽样文件内容')
-  for (const m of budget.modules) {
-    parts.push('')
-    parts.push(`### 模块:${m.name}`)
-    for (const f of m.files) {
-      parts.push('')
-      parts.push(`#### ${f.path}`)
-      parts.push('```')
-      parts.push(f.content)
-      parts.push('```')
-    }
-  }
-  return parts.join('\n')
+  const header = `仓库名:${repoName}\n\n## 文件清单(目录结构)\n`
+  const bodyHeader = '\n\n## 各模块抽样文件内容'
+  // 清单预留额度(极小上限时按比例收缩),剩余预算全部给正文
+  const listingReserve = Math.min(LISTING_RESERVE_BYTES, Math.floor(maxBytes * 0.2))
+  const bodyBudget = Math.max(
+    0,
+    maxBytes - byteLength(header) - byteLength(bodyHeader) - listingReserve,
+  )
+  const body = buildSampledContent(budget.modules, bodyBudget, true)
+  const listingBudget = Math.max(
+    0,
+    maxBytes - byteLength(header) - byteLength(bodyHeader) - byteLength(body),
+  )
+  const tree = buildFileTree(files, listingBudget)
+  const assembled = header + tree.text + bodyHeader + body
+  // 兜底:极端参数下 header 本身超限时也不突破上限
+  return byteLength(assembled) <= maxBytes ? assembled : truncateToBytes(assembled, maxBytes)
 }
 
-function buildModuleUserContent(repoName: string, m: RepoWikiModule): string {
-  const parts: string[] = []
-  parts.push(`仓库名:${repoName}`)
-  parts.push(`模块名:${m.name}`)
-  parts.push('')
-  parts.push('## 模块内抽样文件内容')
-  for (const f of m.files) {
-    parts.push('')
-    parts.push(`### ${f.path}`)
-    parts.push('```')
-    parts.push(f.content)
-    parts.push('```')
-  }
-  return parts.join('\n')
+function buildModuleUserContent(
+  repoName: string,
+  m: RepoWikiModule,
+  maxBytes: number = REPO_WIKI_MAX_PROMPT_BYTES,
+): string {
+  const header = `仓库名:${repoName}\n模块名:${m.name}\n\n## 模块内抽样文件内容`
+  const body = buildSampledContent([m], Math.max(0, maxBytes - byteLength(header)), false)
+  const assembled = header + body
+  return byteLength(assembled) <= maxBytes ? assembled : truncateToBytes(assembled, maxBytes)
 }
 
 const OVERVIEW_SYSTEM_PROMPT = [

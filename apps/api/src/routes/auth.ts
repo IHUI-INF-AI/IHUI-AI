@@ -958,8 +958,12 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       const { account, password } = parsed.data
       const ip = request.ip
 
+      // F-556:先按标识解析用户 —— 用户名/手机号/邮箱指向同一用户时,失败计数与
+      // 锁定窗口按同一个 userId 归并;解析不到时服务层回退到规范化账号串。
+      const user = await findUserByAccount(account)
+
       // 账号/IP 锁定检查（防密码爆破）
-      const lockRemaining = await getLockRemainingMs(account, ip)
+      const lockRemaining = await getLockRemainingMs(account, ip, user?.id)
       if (lockRemaining > 0) {
         const retryAfterSec = Math.ceil(lockRemaining / 1000)
         recordAuthLoginFailed(ip)
@@ -975,7 +979,6 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
           )
       }
 
-      const user = await findUserByAccount(account)
       // 等代价校验 + 单一失败出口(为什么必须合:见 verifyLoginPassword 的说明)。
       // 原先"账号不存在"是一条独立的短返回:不跑 argon2、文案不带剩余次数、也永不升 429,
       // 于是"这个人存不存在"同时从耗时与响应形状两个面漏出去。
@@ -983,7 +986,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       // 条件里的 `!user.passwordHash` 只做**类型收窄**(下面透明升级要非空哈希):
       // 等代价校验已在上一行无条件跑过,这一格不再产生第二条可分辨的出口。
       if (!user || !user.passwordHash || !ok) {
-        const remaining = await recordLoginFailure(account, ip)
+        const remaining = await recordLoginFailure(account, ip, user?.id)
         if (remaining === 0) {
           recordAuthLoginFailed(ip)
           recordAuthLoginAnomaly('lockout')
@@ -1011,7 +1014,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       }
 
       // 登录成功 → 清空失败计数
-      await clearLoginFailures(account, ip)
+      await clearLoginFailures(account, ip, user.id)
 
       // 2026-07-24 国安级升级:透明升级老 bcrypt 哈希到 argon2id(抗 GPU/ASIC)
       // 登录成功后自动迁移,用户无感知,无需强制重置密码。

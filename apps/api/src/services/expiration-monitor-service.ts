@@ -57,6 +57,9 @@ const TRIGGERED_KEY = 'expmon:canary_triggered'
 const PROCESSED_BUY_KEY = 'expmon:processed:agent_buy'
 const PROCESSED_SETTLEMENT_KEY = 'expmon:processed:agent_settlement'
 
+/** 进程内失败计数兜底（F-559）：失败处理自身写不了 Redis 时，仍要计到一次失败。 */
+let localFailStreak = 0
+
 // ---------- Redis 单例 ----------
 
 let redisClient: Redis | null = null
@@ -265,6 +268,36 @@ async function triggerCanaryRollback(reason: string): Promise<void> {
   }
 }
 
+/**
+ * 失败处理的守卫壳（F-559）。
+ *
+ * 失败处理自身也在 Redis 上跑 INCR/SET：Redis 抖动（尤其 maxRetriesPerRequest:null
+ * 时连接断开、命令长期 pending）会让这些裸 await 把异常抛回调度层，违反「不向调度层
+ * 抛错」契约（BullMQ 重试放大 / worker 槽位被占）。这里整体 try/catch：出错只记
+ * 结构化日志（监控项 + 错误摘要）并计入进程内失败计数，绝不外抛。
+ */
+async function recordFailureSafely(
+  redis: Redis,
+  monitorItem: string,
+  reason: string,
+): Promise<{ triggered: boolean; streak: number }> {
+  try {
+    const result = await recordFailureAndMaybeRollback(redis, reason)
+    localFailStreak = result.streak
+    return result
+  } catch (err) {
+    localFailStreak += 1
+    logger.error('[expiration-monitor] failure handler itself failed, isolated', {
+      monitorItem,
+      reason,
+      errorSummary: err instanceof Error ? err.message : String(err),
+      failStreak: localFailStreak,
+      error: err,
+    })
+    return { triggered: false, streak: localFailStreak }
+  }
+}
+
 // ---------- 主入口 ----------
 
 /**
@@ -272,6 +305,7 @@ async function triggerCanaryRollback(reason: string): Promise<void> {
  *
  * 由 scheduler-worker 每 30s 调用一次。内部捕获所有异常并返回 healthy=false，
  * 不向调度层抛错（避免 BullMQ 重试雪崩）；Canary 回滚在内部自治触发。
+ * 各监控项逐项隔离：某一项检测失败不跳过同轮其余项；失败处理再出错也不外抛。
  */
 export async function startExpirationMonitor(): Promise<ExpirationMonitorResult> {
   const redis = getRedis()
@@ -279,6 +313,9 @@ export async function startExpirationMonitor(): Promise<ExpirationMonitorResult>
 
   let checkedBuy = 0
   let expiredBuy = 0
+  let checkedSettlement = 0
+  let expiredSettlement = 0
+  const failures: Array<{ monitorItem: string; reason: string }> = []
 
   // AgentBuy 检测
   try {
@@ -286,40 +323,45 @@ export async function startExpirationMonitor(): Promise<ExpirationMonitorResult>
     checkedBuy = r.checked
     expiredBuy = r.expired
   } catch (err) {
-    logger.error('[expiration-monitor] detect AgentBuy failed', { error: err })
-    const { triggered, streak } = await recordFailureAndMaybeRollback(
-      redis,
-      `AgentBuy detection error: ${(err as Error).message}`,
-    )
-    return {
-      checkedAgentBuy: checkedBuy,
-      expiredAgentBuy: expiredBuy,
-      checkedAgentSettlement: 0,
-      expiredAgentSettlement: 0,
-      failStreak: streak,
-      canaryTriggered: triggered,
-      healthy: false,
-    }
+    logger.error('[expiration-monitor] detect AgentBuy failed', {
+      monitorItem: 'agent_buy',
+      error: err,
+    })
+    failures.push({
+      monitorItem: 'agent_buy',
+      reason: `AgentBuy detection error: ${err instanceof Error ? err.message : String(err)}`,
+    })
   }
 
-  // AgentSettlement 检测
-  let checkedSettlement = 0
-  let expiredSettlement = 0
+  // AgentSettlement 检测（逐项隔离：前一项失败不影响本项）
   try {
     const r = await detectExpiredAgentSettlement(redis, now)
     checkedSettlement = r.checked
     expiredSettlement = r.expired
   } catch (err) {
-    logger.error('[expiration-monitor] detect AgentSettlement failed', { error: err })
-    const { triggered, streak } = await recordFailureAndMaybeRollback(
+    logger.error('[expiration-monitor] detect AgentSettlement failed', {
+      monitorItem: 'agent_settlement',
+      error: err,
+    })
+    failures.push({
+      monitorItem: 'agent_settlement',
+      reason: `AgentSettlement detection error: ${err instanceof Error ? err.message : String(err)}`,
+    })
+  }
+
+  const [firstFailure] = failures
+  if (firstFailure) {
+    // 失败计数每轮只记一次（与「连续失败 N 轮」的阈值语义保持一致），且处理再出错也不外抛
+    const { triggered, streak } = await recordFailureSafely(
       redis,
-      `AgentSettlement detection error: ${(err as Error).message}`,
+      firstFailure.monitorItem,
+      failures.map((f) => f.reason).join('; '),
     )
     return {
       checkedAgentBuy: checkedBuy,
       expiredAgentBuy: expiredBuy,
-      checkedAgentSettlement: 0,
-      expiredAgentSettlement: 0,
+      checkedAgentSettlement: checkedSettlement,
+      expiredAgentSettlement: expiredSettlement,
       failStreak: streak,
       canaryTriggered: triggered,
       healthy: false,
@@ -328,6 +370,7 @@ export async function startExpirationMonitor(): Promise<ExpirationMonitorResult>
 
   // 检测成功后独立重置缓存状态：即使 Redis 写入失败也不影响本轮健康结论
   await recordSuccess(redis)
+  localFailStreak = 0
   return {
     checkedAgentBuy: checkedBuy,
     expiredAgentBuy: expiredBuy,
