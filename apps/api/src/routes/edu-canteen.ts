@@ -43,6 +43,7 @@ import {
 import { requirePermission, requireAnyPermission } from '../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { sanitizeCsvCell } from '../utils/csv-utils.js'
+import { bizDayKey } from '../utils/biz-day.js'
 import { aiServiceFetch } from '../utils/ai-service-fetch.js'
 import { exportToExcel } from '../services/excel-export-service.js'
 
@@ -69,8 +70,9 @@ const imageField = z
   .min(16, '图片不能为空')
   .max(13 * 1024 * 1024, '图片过大')
 
+/** 采购台账业务日(上海日键);UTC 日会让上海 00:00–08:00 的验收单落到前一天。 */
 function todayStr(): string {
-  return new Date().toISOString().slice(0, 10)
+  return bizDayKey()
 }
 
 /** numeric 列(返回 string)→ number | null。 */
