@@ -2010,6 +2010,11 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   server.post('/github/prs', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
+    // F-444:任意 owner/repo 的读写必须用调用者本人令牌,平台令牌不得代理。
+    if (!(await githubClient.hasOwnTokenForUser(request.userId)))
+      return reply
+        .status(403)
+        .send(error(403, '此接口需要先配置个人 GitHub 令牌(平台令牌不能代理读写他人仓库)'))
     const parsed = createPRSchema.safeParse(request.body)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -2024,6 +2029,11 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   server.get('/github/prs', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
+    // F-444:任意 owner/repo 的读写必须用调用者本人令牌,平台令牌不得代理。
+    if (!(await githubClient.hasOwnTokenForUser(request.userId)))
+      return reply
+        .status(403)
+        .send(error(403, '此接口需要先配置个人 GitHub 令牌(平台令牌不能代理读写他人仓库)'))
     const query = z
       .object({ owner: z.string(), repo: z.string(), state: z.string().optional() })
       .parse(request.query)
@@ -2040,6 +2050,11 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   server.get('/github/prs/:number', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
+    // F-444:任意 owner/repo 的读写必须用调用者本人令牌,平台令牌不得代理。
+    if (!(await githubClient.hasOwnTokenForUser(request.userId)))
+      return reply
+        .status(403)
+        .send(error(403, '此接口需要先配置个人 GitHub 令牌(平台令牌不能代理读写他人仓库)'))
     const { number } = prNumberParam.parse(request.params)
     const query = z.object({ owner: z.string(), repo: z.string() }).parse(request.query)
     if (!query.owner || !query.repo)
@@ -2060,6 +2075,11 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   server.post('/github/prs/:number/comments', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
+    // F-444:任意 owner/repo 的读写必须用调用者本人令牌,平台令牌不得代理。
+    if (!(await githubClient.hasOwnTokenForUser(request.userId)))
+      return reply
+        .status(403)
+        .send(error(403, '此接口需要先配置个人 GitHub 令牌(平台令牌不能代理读写他人仓库)'))
     const { number } = prNumberParam.parse(request.params)
     const body = z
       .object({ owner: z.string(), repo: z.string(), body: z.string() })
@@ -2083,6 +2103,11 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   server.post('/github/prs/:number/reviewers', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
+    // F-444:任意 owner/repo 的读写必须用调用者本人令牌,平台令牌不得代理。
+    if (!(await githubClient.hasOwnTokenForUser(request.userId)))
+      return reply
+        .status(403)
+        .send(error(403, '此接口需要先配置个人 GitHub 令牌(平台令牌不能代理读写他人仓库)'))
     const { number } = prNumberParam.parse(request.params)
     const body = z
       .object({ owner: z.string(), repo: z.string(), reviewers: z.array(z.string()).max(100) })
@@ -2106,6 +2131,11 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   server.put('/github/prs/:number/merge', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
+    // F-444:任意 owner/repo 的读写必须用调用者本人令牌,平台令牌不得代理。
+    if (!(await githubClient.hasOwnTokenForUser(request.userId)))
+      return reply
+        .status(403)
+        .send(error(403, '此接口需要先配置个人 GitHub 令牌(平台令牌不能代理读写他人仓库)'))
     const { number } = prNumberParam.parse(request.params)
     const body = z
       .object({
@@ -2135,6 +2165,11 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   server.get('/github/issues', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
+    // F-444:任意 owner/repo 的读写必须用调用者本人令牌,平台令牌不得代理。
+    if (!(await githubClient.hasOwnTokenForUser(request.userId)))
+      return reply
+        .status(403)
+        .send(error(403, '此接口需要先配置个人 GitHub 令牌(平台令牌不能代理读写他人仓库)'))
     const query = z
       .object({ owner: z.string(), repo: z.string(), state: z.string().optional() })
       .parse(request.query)
