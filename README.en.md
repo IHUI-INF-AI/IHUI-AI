@@ -81,13 +81,13 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 5245 | `testFiles` |
+| 测试文件 | 5250 | `testFiles` |
 | CI 工作流 | 59 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 363 | `guardianGates` |
 | — blocking | 334 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 21382 | `trackedFiles` |
+| 跟踪文件 | 21387 | `trackedFiles` |
 
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-13。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -98,6 +98,10 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-13**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (e2b674edc9f)
+- 🐞 Fix:结清 F-382 OSS 分片会话隔离 + F-388 关键词下推 + F-389 缓存键凭据指纹 + F-393 内容分类归属 + F-396 兑换码 Key 归属 (d8ffac6ef8e)
+
 **2026-11-13**
 - 🐞 Fix:结清 F-392 引导凭据闭环 + F-406 提现手续费扣余额 + F-441 剧情增强并发记账 + F-450 代扣回调单事务 + F-417 xlsx 单趟渲染 (6e80aa927ce)
 
@@ -631,14 +635,6 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 - 🐞 Fix:ui-parity 底部渐变遮罩 waiver —— 量纲读数伪差收口 (2d867a23a9)
 - 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (3a191459c9)
 - 🔧 Chore/Other:违禁桶兜底清扫——HEAD面等条件/待拍板未勾行自动摘除(两道机主禁令的执行器物化,留痕f12-purge;复翻席请同步摘形态,事实内容按各批结清提交保留) (d5299caaba)
-
-**2026-11-11**
-- 🔧 Chore/Other:结清 F-001/F-045/F-096 三条 CLI/桌面 P0(整行删除) (a2c9b5cd61)
-- 🔧 Chore/Other:结清 W-02/W-04/W-05/W-07 WEB缺陷四票(整行删除) (293f570d3c)
-- 🐞 Fix:BUG-29 索引与约束缺失族补齐迁移+对账(结清) (4b53307186)
-- 🔧 Chore/Other:结清 O69/RP-3/RP-4/RP-79 四票(整行删除) (653b4e1b53)
-- 🔧 Chore/Other:结清 Y-25 豆包键源退化档(整行删除) (cfc40787bf)
-- 🚀 Feature/Improvement:键源退化档根治——提取器派生账号级稳定 uid(uid_tt 族) (2d7728faa0)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)

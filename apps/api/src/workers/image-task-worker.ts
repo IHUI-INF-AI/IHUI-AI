@@ -45,8 +45,8 @@ export async function processImageTasks(): Promise<{
     if (pending.length === 0) return { processed: 0, ok: 0, failed: 0 }
     logger.info(`[image-worker] 发现 ${pending.length} 个 pending 任务`)
     for (const task of pending) {
-      // 原子认领:重复投递 / 多副本并发时只有一个 worker 拿到令牌,其余直接跳过,
-      // 不会重复调上游、重复计费(F-48)。
+      // 抢占租约:SET NX + 状态 CAS 在 Redis 内原子完成,重复投递 / 多副本并发时
+      // 只有一个 worker 拿到令牌,其余直接跳过,不会重复调上游、重复计费(F-48/F-492)。
       const claimToken = await claimImageTask(task.id)
       if (!claimToken) {
         logger.debug('[image-worker] 任务已被其他 worker 认领,跳过', { taskId: task.id })
@@ -76,23 +76,28 @@ export async function processImageTasks(): Promise<{
             )
             .filter((u) => u !== '')
           if (urls.length > 0) {
-            await completeImageTask(task.id, urls, claimToken)
-            ok++
+            // 带归属条件写回:租约已过期并被他人重新认领时拒绝落地,不覆写他人结果。
+            if (await completeImageTask(task.id, urls, claimToken)) ok++
+            else
+              logger.warn('[image-worker] 完成写回被拒(租约已易主),结果丢弃', { taskId: task.id })
           } else {
-            await failImageTask(task.id, '上游返回空产出', claimToken)
-            failed++
+            if (await failImageTask(task.id, '上游返回空产出', claimToken)) failed++
+            else
+              logger.warn('[image-worker] 失败写回被拒(租约已易主),结果丢弃', { taskId: task.id })
           }
         } else {
-          await failImageTask(task.id, '上游渠道不可用或返回失败', claimToken)
-          failed++
+          if (await failImageTask(task.id, '上游渠道不可用或返回失败', claimToken)) failed++
+          else logger.warn('[image-worker] 失败写回被拒(租约已易主),结果丢弃', { taskId: task.id })
         }
       } catch (e) {
-        await failImageTask(
+        // 失败释放租约(仅令牌匹配才释放),任务不再卡在 processing,可被重新认领重试。
+        const released = await failImageTask(
           task.id,
           e instanceof Error ? e.message : String(e),
           claimToken,
-        ).catch(() => {})
-        failed++
+        ).catch(() => false)
+        if (released) failed++
+        else logger.warn('[image-worker] 失败写回被拒(租约已易主),结果丢弃', { taskId: task.id })
         logger.warn('[image-worker] 任务处理异常', {
           err: e instanceof Error ? e.message : String(e),
         })
