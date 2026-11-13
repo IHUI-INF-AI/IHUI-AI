@@ -1,5 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
  * F-187 夹具:v2 创建/更新 LLM provider 时,用户自定义 baseUrlOverride 必须过 SSRF 守卫。
@@ -18,7 +19,13 @@ const store = vi.hoisted(() => ({
 }))
 
 vi.mock('../src/db/index.js', () => {
-  const existingRow = { id: 9, userUuid: 'u1', providerCode: 'custom', baseUrl: 'https://api.example.com/v1', apiFormat: 'openai' }
+  const existingRow = {
+    id: 9,
+    userUuid: 'u1',
+    providerCode: 'custom',
+    baseUrl: 'https://api.example.com/v1',
+    apiFormat: 'openai',
+  }
   const makeChain = () => {
     const chain: Record<string, unknown> = {}
     chain.values = (v: Record<string, unknown>) => {
@@ -68,7 +75,12 @@ describe('F-187 v2 provider 保存链 SSRF 守卫', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/llm-providers',
-      payload: { providerCode: 'custom', name: 'x', apiKey: 'sk-test', baseUrlOverride: 'http://169.254.169.254/v1' },
+      payload: {
+        providerCode: 'custom',
+        name: 'x',
+        apiKey: 'sk-test',
+        baseUrlOverride: 'http://169.254.169.254/v1',
+      },
     })
     expect(res.statusCode).toBe(400)
     expect(res.body).toContain('SSRF blocked')
@@ -79,7 +91,12 @@ describe('F-187 v2 provider 保存链 SSRF 守卫', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/llm-providers',
-      payload: { providerCode: 'custom', name: 'x', apiKey: 'sk-test', baseUrlOverride: 'http://127.0.0.1:6379' },
+      payload: {
+        providerCode: 'custom',
+        name: 'x',
+        apiKey: 'sk-test',
+        baseUrlOverride: 'http://127.0.0.1:6379',
+      },
     })
     expect(res.statusCode).toBe(400)
     expect(store.inserted.length).toBe(0)
@@ -99,3 +116,4 @@ describe('F-187 v2 provider 保存链 SSRF 守卫', () => {
     expect(store.updated.length).toBe(0)
   })
 })
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

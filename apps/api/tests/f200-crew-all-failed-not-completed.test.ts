@@ -1,5 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
  * F-200 夹具:Crew 所有 LLM 步骤全部失败时,session 终态不得记 completed、不得返回 success:true。
@@ -18,8 +19,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('../src/db/index.js', () => {
-  const sessionRow = { id: 'sess-f200', user_id: 'user-a', status: 'pending', config: { modelId: 'fixture-model' } }
-  const noop = () => ({ set: () => ({ where: () => Promise.resolve([]) }), where: () => ({ returning: async () => [{ id: 'x' }], limit: async () => [] }), from: () => ({ where: () => ({ limit: async () => [sessionRow] }) }), values: () => Promise.resolve([]), limit: async () => [sessionRow] })
+  const sessionRow = {
+    id: 'sess-f200',
+    user_id: 'user-a',
+    status: 'pending',
+    config: { modelId: 'fixture-model' },
+  }
+  const noop = () => ({
+    set: () => ({ where: () => Promise.resolve([]) }),
+    where: () => ({ returning: async () => [{ id: 'x' }], limit: async () => [] }),
+    from: () => ({ where: () => ({ limit: async () => [sessionRow] }) }),
+    values: () => Promise.resolve([]),
+    limit: async () => [sessionRow],
+  })
   return {
     db: {
       insert: () => noop(),
@@ -47,7 +59,12 @@ import { crewOrchestrator } from '../src/services/crew-orchestrator.js'
 // 私有方法运行时可访问,用 as any 取引用供 spyOn。
 const orch = crewOrchestrator as unknown as {
   updateSessionStatus: (id: string, status: string, result?: string) => Promise<void>
-  updateTaskStatus: (taskId: string, status: string, output?: string, error?: string) => Promise<void>
+  updateTaskStatus: (
+    taskId: string,
+    status: string,
+    output?: string,
+    error?: string,
+  ) => Promise<void>
 }
 
 describe('F-200 Crew 全步骤失败不得谎报成功', () => {
@@ -76,3 +93,4 @@ describe('F-200 Crew 全步骤失败不得谎报成功', () => {
     }
   })
 })
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
