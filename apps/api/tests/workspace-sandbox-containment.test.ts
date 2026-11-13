@@ -16,7 +16,7 @@
  * 模式不进子进程 env(带非敏感键正向对照,证明闸没有把整个 env 削空)。
  * 隔离:真实 mkdtemp 目录(既有先例同形态),不连 PG/Redis,零网络。
  */
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -165,6 +165,64 @@ describe('R8 复评 F1:解释器仅 admin + 路径参数闸 + 同根约束', () 
     } finally {
       rmSync(otherRoot, { recursive: true, force: true })
     }
+  })
+})
+
+describe('F-267 自愈依赖修复的受控授权通道', () => {
+  it('解释器闸本体未放宽:同一 pnpm install 走 execute 仍 126', async () => {
+    const r = await sandboxExecutor.execute({
+      command: 'pnpm install --ignore-scripts --no-frozen-lockfile',
+      workspacePath: scratchRoot,
+    })
+    expect(r.exitCode).toBe(126)
+    expect(r.stderr).toContain('仅管理员可用')
+  })
+
+  it('显式授权缺失/伪造 ⇒ 拒绝执行', async () => {
+    writeFileSync(join(scratchRoot, 'package.json'), '{}', 'utf-8')
+    await expect(
+      sandboxExecutor.installWorkspaceDependencies({
+        workspacePath: scratchRoot,
+        authorization: 'forged' as never,
+      }),
+    ).rejects.toThrow(/未授权的依赖安装调用/)
+  })
+
+  it('根未登记 ⇒ fail-closed(通道不自己放行)', async () => {
+    delete process.env.IHUI_WORKSPACE_ROOTS
+    await expect(
+      sandboxExecutor.installWorkspaceDependencies({
+        workspacePath: scratchRoot,
+        authorization: 'self-healing:dependency-repair',
+      }),
+    ).rejects.toThrow(/未启用/)
+  })
+
+  it('目录不是包根(无 package.json)⇒ 拒绝安装', async () => {
+    await expect(
+      sandboxExecutor.installWorkspaceDependencies({
+        workspacePath: scratchRoot,
+        authorization: 'self-healing:dependency-repair',
+      }),
+    ).rejects.toThrow(/不是包根/)
+  })
+
+  it('合法调用:argv 固定为 install --ignore-scripts --no-frozen-lockfile,cwd 落在包根', async () => {
+    writeFileSync(join(scratchRoot, 'package.json'), '{}', 'utf-8')
+    const seen: Array<{ args: string[]; cwd: string; timeout: number }> = []
+    const result = await sandboxExecutor.installWorkspaceDependencies({
+      workspacePath: scratchRoot,
+      authorization: 'self-healing:dependency-repair',
+      run: async (plan) => {
+        seen.push(plan)
+        return { stdout: 'Already up to date', stderr: '', exitCode: 0 }
+      },
+    })
+    expect(seen).toHaveLength(1)
+    expect(seen[0]?.args).toEqual(['install', '--ignore-scripts', '--no-frozen-lockfile'])
+    expect(seen[0]?.cwd).toBe(realpathSync(scratchRoot))
+    expect(result.exitCode).toBe(0)
+    expect(result.command).toBe('pnpm install --ignore-scripts --no-frozen-lockfile')
   })
 })
 
