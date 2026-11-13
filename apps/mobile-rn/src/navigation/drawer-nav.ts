@@ -11,6 +11,7 @@ import {
   BookOpen,
   Bot,
   Brain,
+  Database,
   BriefcaseBusiness,
   CalendarCheck,
   CalendarDays,
@@ -130,6 +131,7 @@ type DrawerNavRouteName =
   | 'KnowledgeBase'
   | 'KnowledgeBaseList'
   | 'KnowledgeRag'
+  | 'Sag2'
   | 'ChatTools'
   | 'Memory'
   | 'Subagents'
@@ -492,6 +494,13 @@ export const DRAWER_NAV_GROUPS: readonly DrawerNavGroup[] = [
             Icon: BookMarked,
             route: 'KnowledgeRagManage',
             target: { type: 'route', name: 'KnowledgeRagManage' },
+          },
+          // 对齐 web KNOWLEDGE_CHILDREN 的 /sag2(2026-11-13 补:SAG2 词法多跳检索工作台)
+          {
+            labelKey: 'sag2Lexical.title',
+            Icon: Database,
+            route: 'Sag2',
+            target: { type: 'route', name: 'Sag2' },
           },
         ],
       },
