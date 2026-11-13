@@ -88,8 +88,14 @@ const SANCTIONED_RELEASE_BRANCHES = new Set(['desktop-feed', 'origin/desktop-fee
  * 不再是"存在旁支",而是"旁支长期滞留"。两类豁免,都只报数不判红:
  *  - in-flight:分支尖端提交时刻距今 ≤ GRACE_HOURS(默认 48,`IHUI_SINGLE_BRANCH_GRACE_HOURS`
  *    可调)的分支,即"正在路上"的 PR 工作分支;超窗回到判据(合并或删除)。
- *  - backup:`backup/` 与 `ihui-backup/` 前缀(含其 `origin/` 镜像)。§5b 明令禁止删除/清理备份
- *    gitdir 与现场归档,§22 要求备份引用本地+远端双留 —— 门喊"删掉它"等于替人犯 §5b 的禁令。
+ *  - backup:`backup/`、`ihui-backup/` 与 `preserve/` 前缀(含其 `origin/` 镜像)。§5b 明令禁止
+ *    删除/清理备份 gitdir 与现场归档,§22 要求备份引用本地+远端双留 —— 门喊"删掉它"等于替人
+ *    犯 §5b 的禁令。`preserve/` 于 2026-11-13 并入本类:它的提交信息恒为
+ *    `preserve: snapshot uncommitted work in <path>`,即"删 worktree 前把**未提交**工作落库保全",
+ *    与 `backup/` 同为防丢内容的保全引用;此前未纳入 ⇒ 36 枚此类分支长期挂在红名单上,
+ *    而门给出的三条出路(合并/删除/等窗口)对它**一条都不成立**(内容未提交、无从合并;-d 被 git
+ *    拒;-D 违反 §5b),构成 §12f 明令禁止的"恒红门"(一道红在干净 HEAD 上的门 = 全队合法跳门)。
+ *    并入判据 = 备份类,只报数不判红;要清它们须人工确认快照内容已另有归处。
  * 取不到提交时刻 ⇒ **不豁免**(宁误拦,不静默放行;与本门镜像豁免同取向)。
  */
 const GRACE_HOURS_DEFAULT = 48
@@ -100,7 +106,7 @@ const graceHours = (() => {
   return Number.isFinite(n) && n >= 0 ? n : GRACE_HOURS_DEFAULT
 })()
 
-export const BACKUP_REF_PREFIXES = ['backup/', 'ihui-backup/']
+export const BACKUP_REF_PREFIXES = ['backup/', 'ihui-backup/', 'preserve/']
 
 /**
  * 机器人 PR 分支命名空间(2026-10-31 立)。

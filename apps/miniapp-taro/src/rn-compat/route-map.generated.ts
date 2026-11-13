@@ -216,6 +216,7 @@ export const RN_ROUTE_MAP: Record<string, string> = {
   RefundDetail: '/pkg-mirror3/refund-detail/index',
   RefundHistory: '/pkg-shop/order/refund-list',
   Register: '/pages/register/index',
+  Sag2: '/pkg-ai/sag2/index',
   Search: '/pkg-content/search/index',
   SearchHistory: '/pkg-content/search-history/index',
   SecurityAudit: '/pkg-user/security-audit/index',

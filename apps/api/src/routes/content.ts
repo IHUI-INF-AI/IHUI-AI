@@ -368,7 +368,8 @@ export const contentRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const list = await findHelpArticles(parsed.data.category)
+      // 公开端点只允许已发布：草稿正文不得匿名可读（F-173）
+      const list = await findHelpArticles(parsed.data.category, true)
       return reply.send(success({ list }))
     },
   )

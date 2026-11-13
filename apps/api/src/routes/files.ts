@@ -434,7 +434,11 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
       const filePath = resolveDiskPath(file.path)
       const result = await convertToMarkdownDetailed(filePath, file.name)
       if (!result.markdown) {
-        return reply.status(422).send(error(422, result.error ?? '不支持的文件类型或转换失败'))
+        // F-146:体积超限在服务层「读入前」判定,路由层如实透传 413;其余失败仍 422
+        const status = result.statusCode ?? 422
+        return reply
+          .status(status)
+          .send(error(status, result.error ?? '不支持的文件类型或转换失败'))
       }
 
       return reply.send(success({ markdown: result.markdown, fileName: file.name }))
@@ -475,7 +479,9 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
       const filePath = resolveDiskPath(file.path)
       const result = await extractDocumentAssets(filePath, file.name, UPLOAD_DIR)
       if (result.error) {
-        return reply.status(422).send(error(422, result.error))
+        // F-146:体积超限在服务层「读入前」判定,路由层如实透传 413
+        const status = result.statusCode ?? 422
+        return reply.status(status).send(error(status, result.error))
       }
 
       const assets = result.assets.map((a) => ({

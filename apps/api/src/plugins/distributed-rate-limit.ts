@@ -6,6 +6,7 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import fp from 'fastify-plugin'
 import { monitorEventLoopDelay } from 'node:perf_hooks'
 import { normalizeHeader } from '../utils/http-normalize.js'
+import { resolveVerifiedTenantIdForUser } from './tenant.js'
 /**
  * 分布式限流插件。
  *
@@ -84,14 +85,31 @@ declare module 'fastify' {
   }
 }
 
-function extractScope(scope: RateLimitScope, request: FastifyRequest): string {
+/**
+ * F-209：scope 值只由**服务端可信身份**生成，客户端 header 不参与分桶。
+ *
+ * `tenant` 优先级：
+ *   1. 已认证用户 + 其成员校验后的租户（tenant_members 反查）→ `tenant:<id>`
+ *      —— 切 `x-tenant-id` 不会拆桶，也不会落到别人的桶；
+ *   2. 已认证但无租户归属 → `user:<userId>`；
+ *   3. 未认证 → `ip:<ip>`（不采信任何租户 header）。
+ *
+ * 旧实现取 `x-tenant-id` 原始值 ⇒ 每次换 header 就是新桶，限流恒不触发。
+ */
+async function extractScope(scope: RateLimitScope, request: FastifyRequest): Promise<string> {
   switch (scope) {
     case 'ip':
       return `ip:${request.ip}`
     case 'user':
       return `user:${request.userId ?? 'anonymous'}`
-    case 'tenant':
-      return `tenant:${normalizeHeader(request.headers['x-tenant-id']) ?? '0'}`
+    case 'tenant': {
+      if (request.userId) {
+        const verifiedTenantId = await resolveVerifiedTenantIdForUser(request.userId)
+        if (verifiedTenantId) return `tenant:${verifiedTenantId}`
+        return `user:${request.userId}`
+      }
+      return `ip:${request.ip}`
+    }
     case 'api_key':
       return `apikey:${normalizeHeader(request.headers['x-api-key']) ?? 'none'}`
     case 'global':
@@ -133,7 +151,7 @@ const distributedRateLimitPlugin: FastifyPluginAsync = async (server) => {
     if (!rule) {
       return { allowed: true, count: 0, limit: 0, retryAfterMs: 0, remaining: -1, rule: ruleName }
     }
-    const scopeValue = extractScope(rule.scope, request)
+    const scopeValue = await extractScope(rule.scope, request)
     const weight = weights.get(scopeValue) ?? 1
     const loadFactor = computeLoadFactor()
     // 公平限流：按权重放大额度；自适应限流：按负载收紧额度
@@ -257,8 +275,9 @@ const distributedRateLimitPlugin: FastifyPluginAsync = async (server) => {
       if (!result.allowed) {
         // ihui_tenant_ratelimit_total:429 且该规则 scope 为 tenant 时按租户计数
         // (scope 由规则配置决定,无 tenant 规则时恒为 0,属预期口径)
+        // F-209:标签取 tenant.ts 已校验的 request.tenantId,不再采信客户端原始 header。
         if (rules.get(ruleName)?.scope === 'tenant') {
-          server.recordTenantRateLimit(normalizeHeader(request.headers['x-tenant-id']) ?? '0')
+          server.recordTenantRateLimit(request.tenantId ?? '0')
         }
         reply.header('Retry-After', String(Math.ceil(result.retryAfterMs / 1000)))
         reply.header('X-RateLimit-Remaining', '0')
