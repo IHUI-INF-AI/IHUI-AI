@@ -16,8 +16,19 @@
  *
  * 零真实 DB:mock db 的 select/insert。
  */
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterAll, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { randomUUID } from 'node:crypto'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+
+// F-280:workspaceRoot 必须落在「服务端登记根 × 本人登记工作区」内 ⇒ 夹具改用真实临时目录。
+const ACP_ROOT = mkdtempSync(join(tmpdir(), 'ihui-acp-f432-'))
+
+afterAll(() => {
+  rmSync(ACP_ROOT, { recursive: true, force: true })
+})
 
 const h = vi.hoisted(() => ({
   selectResults: [] as Array<Array<{ id: string }>>,
@@ -29,6 +40,12 @@ vi.mock('../src/plugins/auth.js', () => ({
   authenticate: async (request: { userId?: string }) => {
     request.userId = 'user-owner'
   },
+}))
+
+vi.mock('../src/db/workspace-permission-queries.js', () => ({
+  listPermissionsByUser: vi.fn(async () => [
+    { workspacePath: process.env.IHUI_WORKSPACE_ROOTS ?? '' },
+  ]),
 }))
 
 vi.mock('../src/db/index.js', () => ({
@@ -63,7 +80,19 @@ beforeEach(() => {
   h.selectResults = []
   h.insertCalls = []
   h.insertError = null
+  process.env.IHUI_WORKSPACE_ROOTS = ACP_ROOT
 })
+
+/** 建会话并返回 sessionId(F-280:begin/end 只认进程内登记) */
+async function createSession(server: FastifyInstance): Promise<string> {
+  const res = await server.inject({
+    method: 'POST',
+    url: '/api/workspace/acp/sessions',
+    payload: { workspaceRoot: ACP_ROOT },
+  })
+  expect(res.statusCode).toBe(201)
+  return (res.json() as { data: { data: { sessionId: string } } }).data.data.sessionId
+}
 
 describe('F-432 Workspace ACP 会话真落库 + 归属校验', () => {
   it('create:先落 agent_runtime_sessions 再回 201,行内带 userId 与 workspaceRoot', async () => {
@@ -71,7 +100,7 @@ describe('F-432 Workspace ACP 会话真落库 + 归属校验', () => {
     const res = await server.inject({
       method: 'POST',
       url: '/api/workspace/acp/sessions',
-      payload: { workspaceRoot: '/srv/ws/demo' },
+      payload: { workspaceRoot: ACP_ROOT },
     })
     await server.close()
 
@@ -82,7 +111,7 @@ describe('F-432 Workspace ACP 会话真落库 + 归属校验', () => {
       botId: 'workspace-acp',
       userId: 'user-owner',
       status: 'active',
-      metadata: { source: 'workspace-acp', workspaceRoot: '/srv/ws/demo' },
+      metadata: { source: 'workspace-acp', workspaceRoot: ACP_ROOT },
     })
     expect(h.insertCalls[0]?.id).toBe(res.json().data.data.sessionId)
   })
@@ -93,7 +122,7 @@ describe('F-432 Workspace ACP 会话真落库 + 归属校验', () => {
     const res = await server.inject({
       method: 'POST',
       url: '/api/workspace/acp/sessions',
-      payload: { workspaceRoot: '/srv/ws/demo' },
+      payload: { workspaceRoot: ACP_ROOT },
     })
     await server.close()
 
@@ -106,7 +135,7 @@ describe('F-432 Workspace ACP 会话真落库 + 归属校验', () => {
     const server = await buildServer()
     const res = await server.inject({
       method: 'POST',
-      url: '/api/workspace/acp/sessions/not-a-real-session/begin-prompt',
+      url: `/api/workspace/acp/sessions/${randomUUID()}/begin-prompt`,
       payload: { prompt: 'hello' },
     })
     await server.close()
@@ -116,11 +145,11 @@ describe('F-432 Workspace ACP 会话真落库 + 归属校验', () => {
   })
 
   it('begin-prompt:本人会话 → 200 prompt_started', async () => {
-    h.selectResults = [[{ id: 'sess-mine' }]]
     const server = await buildServer()
+    const id = await createSession(server)
     const res = await server.inject({
       method: 'POST',
-      url: '/api/workspace/acp/sessions/sess-mine/begin-prompt',
+      url: `/api/workspace/acp/sessions/${id}/begin-prompt`,
       payload: { prompt: 'hello' },
     })
     await server.close()
@@ -134,7 +163,7 @@ describe('F-432 Workspace ACP 会话真落库 + 归属校验', () => {
     const server = await buildServer()
     const res = await server.inject({
       method: 'POST',
-      url: '/api/workspace/acp/sessions/sess-other/end-prompt',
+      url: `/api/workspace/acp/sessions/${randomUUID()}/end-prompt`,
       payload: {},
     })
     await server.close()
@@ -144,11 +173,11 @@ describe('F-432 Workspace ACP 会话真落库 + 归属校验', () => {
   })
 
   it('end-prompt:本人会话 → 200 prompt_completed', async () => {
-    h.selectResults = [[{ id: 'sess-mine' }]]
     const server = await buildServer()
+    const id = await createSession(server)
     const res = await server.inject({
       method: 'POST',
-      url: '/api/workspace/acp/sessions/sess-mine/end-prompt',
+      url: `/api/workspace/acp/sessions/${id}/end-prompt`,
       payload: {},
     })
     await server.close()
