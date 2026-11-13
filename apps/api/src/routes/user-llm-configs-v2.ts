@@ -1153,42 +1153,61 @@ export const userLlmConfigV2Routes: FastifyPluginAsync = async (server) => {
     const userId = request.userId!
     const groupLabel = String(p.data.id) // 用 id 强转 label 查询冗余
     try {
-      // 先查 group label
-      const groupRes = await db.execute(sql`
-        SELECT id, group_label AS label FROM ai_model_config_groups
-        WHERE id = ${p.data.id} AND user_uuid = ${userId}
-        LIMIT 1
-      `)
-      const groupRows = Array.isArray(groupRes)
-        ? (groupRes as unknown as Array<{ id: number; label: string }>)
-        : ((groupRes as { rows?: Array<{ id: number; label: string }> }).rows ?? [])
-      if (groupRows.length === 0) return reply.status(404).send(error(404, 'group 不存在或无权限'))
-      const label = groupRows[0]?.label ?? groupLabel
+      // F-189 收口(2026-11-13):原实现「先 COUNT 后 DELETE」两步裸走，窗口内并发 PUT
+      // (打标 provider 到本组)或并发 DELETE 会让守卫失效(计数为 0 删成功后,provider
+      // 指向已删组 ⇒ 孤儿)。现把 锁→查组→计数→删组 收进同一事务:
+      //  · pg_advisory_xact_lock(hashtext(userId||':'||label)) 串行化同(user,label)的删组与打标;
+      //  · 组行 FOR UPDATE 防同 id 双删竞态;
+      //  · COUNT/DELETE 同事务,提交即无「计数过后又出现 provider」的悬挂窗口。
+      const outcome = await db.transaction(async (tx) => {
+        await tx.execute(
+          sql`SELECT pg_advisory_xact_lock(hashtext(${userId} || ':llm-group-delete'))`,
+        )
+        const groupRes = await tx.execute(sql`
+          SELECT id, group_label AS label FROM ai_model_config_groups
+          WHERE id = ${p.data.id} AND user_uuid = ${userId}
+          LIMIT 1
+          FOR UPDATE
+        `)
+        const groupRows = Array.isArray(groupRes)
+          ? (groupRes as unknown as Array<{ id: number; label: string }>)
+          : ((groupRes as { rows?: Array<{ id: number; label: string }> }).rows ?? [])
+        if (groupRows.length === 0) return { kind: 'notFound' } as const
+        const label = groupRows[0]?.label ?? groupLabel
+        await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${userId} || ':' || ${label}))`)
 
-      // 检查 group 下是否还有 provider(用独立列 provider_group 查询)
-      const countRes = await db.execute(sql`
-        SELECT COUNT(*)::int AS cnt FROM ai_model_config
-        WHERE owner_uuid = ${userId}
-          AND provider_group = ${label}
-      `)
-      const cntRows = Array.isArray(countRes)
-        ? (countRes as unknown as Array<{ cnt: number }>)
-        : ((countRes as { rows?: Array<{ cnt: number }> }).rows ?? [])
-      const cnt = cntRows[0]?.cnt ?? 0
-      if (cnt > 0) {
-        return reply.status(409).send(error(409, `group 下还有 ${cnt} 个 provider,无法删除`))
+        // 检查 group 下是否还有 provider(用独立列 provider_group 查询,同事务持锁)
+        const countRes = await tx.execute(sql`
+          SELECT COUNT(*)::int AS cnt FROM ai_model_config
+          WHERE owner_uuid = ${userId}
+            AND provider_group = ${label}
+        `)
+        const cntRows = Array.isArray(countRes)
+          ? (countRes as unknown as Array<{ cnt: number }>)
+          : ((countRes as { rows?: Array<{ cnt: number }> }).rows ?? [])
+        const cnt = cntRows[0]?.cnt ?? 0
+        if (cnt > 0) return { kind: 'notEmpty', cnt } as const
+
+        const delRes = await tx.execute(sql`
+          DELETE FROM ai_model_config_groups
+          WHERE id = ${p.data.id} AND user_uuid = ${userId}
+          RETURNING id
+        `)
+        const delRows = Array.isArray(delRes)
+          ? (delRes as unknown as Array<{ id: number }>)
+          : ((delRes as { rows?: Array<{ id: number }> }).rows ?? [])
+        if (delRows.length === 0) return { kind: 'notFound' } as const
+        return { kind: 'ok', id: p.data.id } as const
+      })
+      if (outcome.kind === 'notFound') {
+        return reply.status(404).send(error(404, 'group 不存在或无权限'))
       }
-
-      const delRes = await db.execute(sql`
-        DELETE FROM ai_model_config_groups
-        WHERE id = ${p.data.id} AND user_uuid = ${userId}
-        RETURNING id
-      `)
-      const delRows = Array.isArray(delRes)
-        ? (delRes as unknown as Array<{ id: number }>)
-        : ((delRes as { rows?: Array<{ id: number }> }).rows ?? [])
-      if (delRows.length === 0) return reply.status(404).send(error(404, 'group 不存在或无权限'))
-      return reply.send(success({ id: p.data.id, deleted: delRows.length > 0 }))
+      if (outcome.kind === 'notEmpty') {
+        return reply
+          .status(409)
+          .send(error(409, `group 下还有 ${outcome.cnt} 个 provider,无法删除`))
+      }
+      return reply.send(success({ id: outcome.id, deleted: true }))
     } catch (e) {
       if (isSchemaMissingError(e)) {
         return reply.status(503).send(error(503, SCHEMA_NOT_READY_MSG))
