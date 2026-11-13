@@ -16,6 +16,15 @@ import { parsePagination } from './_shared.js'
 
 const codeParam = z.object({ code: z.string() })
 
+/**
+ * F-635:元 → 整数分。取整只在此处做一次,本地订单、风控额度、网关 total_amount
+ * 全部由这个整数派生,避免 `Math.round(x*100)` 与 `x.toFixed(2)` 在半分边界分叉
+ * (如 0.015 → 本地 2 分而网关 "0.01")。
+ */
+export function yuanToCents(amount: number): number {
+  return Math.round(amount * 100)
+}
+
 const fundRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/fund/ali/pay/create',
@@ -33,7 +42,7 @@ const fundRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, 'amount 必须为正数且不超过 1000000'))
       }
       // F-635:入口一次性归一到分,本地订单/风控/网关三处同源,避免 0.015 本地 2 分而网关 1 分
-      const amountCents = Math.round(body.amount * 100)
+      const amountCents = yuanToCents(body.amount)
       if (amountCents <= 0) {
         return reply.status(400).send(error(400, 'amount 至少为 0.01 元'))
       }
@@ -90,7 +99,7 @@ const fundRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, 'amount 必须为正数且不超过 1000000'))
       }
       // F-635:入口一次性归一到分,本地订单/风控/网关三处同源,避免 0.015 本地 2 分而网关 1 分
-      const amountCents = Math.round(body.amount * 100)
+      const amountCents = yuanToCents(body.amount)
       if (amountCents <= 0) {
         return reply.status(400).send(error(400, 'amount 至少为 0.01 元'))
       }
