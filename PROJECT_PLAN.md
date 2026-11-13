@@ -12238,7 +12238,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 175G. **缺陷普查 API F-175** [P2] 技能同步 upsert 无唯一约束，并发 push 产生同 (author_id, slug) 重复行（证据 docs/tickets/2026-11/findings-api.md#F-175）
 - [ ] 183G. **缺陷普查 API F-183** [P2] 熔断计数器 Redis 读改写非原子，并发下连续失败计数丢失、熔断难触发（证据 docs/tickets/2026-11/findings-api.md#F-183）
 - [ ] 186G. **缺陷普查 API F-186** [P2] BYOK「连通性测试」丢弃用户 apiKey/baseUrl，改用系统身份打平台 Key（证据 docs/tickets/2026-11/findings-api.md#F-186）
-- [ ] 189G. **缺陷普查 API F-189** [P3] LLM 分组重命名不回写 provider_group，删除守卫失效并产生孤儿 provider（证据 docs/tickets/2026-11/findings-api.md#F-189）
 - [ ] 193G. **缺陷普查 API F-193** [P2] /v1/threads/:threadId/runs 把开发者 API Key 当 Bearer 转发给 ai-service，请求恒定 401/502（证据 docs/tickets/2026-11/findings-api.md#F-193）
 - [ ] 194G. **缺陷普查 API F-194** [P2] 模型映射后计费口径不一致：预扣/缓存按 resolvedModel，成功结算按原始 model（证据 docs/tickets/2026-11/findings-api.md#F-194）
 - [ ] 204G. **缺陷普查 API F-204** [P2] Redis 故障时工作区锁静默降级为进程内锁，无 TTL、无跨实例互斥（证据 docs/tickets/2026-11/findings-api.md#F-204）
