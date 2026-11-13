@@ -209,6 +209,9 @@ const ALLOWED_FILES = new Set([
   // 测试临时产物(Pytest quick fail 日志,后台进程持有)
   'tmp-qfr-err.log',
   'tmp-qfr-out.log',
+  // 2026-11-13 显式审批:根目录文档/资源散件(已被.gitignore L766-767忽略,不入库但需豁免门44)
+  'BRIDGE_CAPABILITY_MAP.md',
+  'login-page.png',
 ])
 
 /** 根目录合法目录(monorepo 标准结构 + 运行时目录) */

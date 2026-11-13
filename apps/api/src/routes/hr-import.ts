@@ -1,6 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:watermarked
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
@@ -11,7 +11,11 @@ import {
   resolveImportRow,
   discardImportBatch,
 } from '../services/hr-import.js'
-import { createAnyImportBatch, confirmAnyImportBatch, parseImportKind } from '../services/hr-import-entry.js'
+import {
+  createAnyImportBatch,
+  confirmAnyImportBatch,
+  parseImportKind,
+} from '../services/hr-import-entry.js'
 import { saveFile } from '../services/storage-service.js'
 import { requirePermission } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
@@ -69,7 +73,6 @@ export const hrImportRoutes: FastifyPluginAsync = async (server) => {
       }),
     },
     async (request, reply) => {
-
       const file = await request.file()
       if (!file) {
         reply.status(400).send(error(400, '请上传打卡表文件'))
@@ -80,9 +83,7 @@ export const hrImportRoutes: FastifyPluginAsync = async (server) => {
       const ext = filename.toLowerCase().slice(filename.lastIndexOf('.'))
       if (!IMPORT_ALLOWED_EXTS.includes(ext)) {
         file.file.resume()
-        reply
-          .status(400)
-          .send(error(400, `仅支持 ${IMPORT_ALLOWED_EXTS.join(' / ')} 格式的打卡表`))
+        reply.status(400).send(error(400, `仅支持 ${IMPORT_ALLOWED_EXTS.join(' / ')} 格式的打卡表`))
         return
       }
 
@@ -112,9 +113,7 @@ export const hrImportRoutes: FastifyPluginAsync = async (server) => {
           ? String(periodField.value ?? '')
           : ''
       if (!/^\d{4}-\d{2}$/.test(periodRaw)) {
-        reply
-          .status(400)
-          .send(error(400, '请提供考勤月份 periodMonth(格式 YYYY-MM),例如 2026-11'))
+        reply.status(400).send(error(400, '请提供考勤月份 periodMonth(格式 YYYY-MM),例如 2026-11'))
         return
       }
 
@@ -328,3 +327,4 @@ export const hrImportRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
