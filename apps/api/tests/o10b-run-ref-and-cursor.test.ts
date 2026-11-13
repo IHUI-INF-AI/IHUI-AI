@@ -61,14 +61,19 @@ const LLM_REPLY = {
   content: 'pong',
   usage: { prompt_tokens: 3, completion_tokens: 4, total_tokens: 7 },
 }
-vi.mock('../src/utils/ai-service-fetch.js', () => ({
-  aiServiceFetch: vi.fn(async () => ({
+vi.mock('../src/utils/ai-service-fetch.js', () => {
+  const fakeResponse = async () => ({
     ok: true,
     status: 200,
     json: async () => LLM_REPLY,
     text: async () => '',
-  })),
-}))
+  })
+  // F-193:run 链路改走服务间票据封装 aiServiceSystemFetch,两个出口都给同一份假响应
+  return {
+    aiServiceFetch: vi.fn(fakeResponse),
+    aiServiceSystemFetch: vi.fn(fakeResponse),
+  }
+})
 
 /**
  * 鉴权打桩:凭 `x-test-key-id` 头挑身份(真实现是 Bearer + developer_api_keys 查表)。
@@ -141,7 +146,7 @@ vi.mock('../src/plugins/api-key-auth.js', () => ({
 import v1Assistants from '../src/routes/v1-assistants'
 import v1Batches from '../src/routes/v1-batches'
 import { BATCH_KEY_PREFIX } from '../src/queue/batch-queue'
-import { aiServiceFetch } from '../src/utils/ai-service-fetch'
+import { aiServiceSystemFetch } from '../src/utils/ai-service-fetch'
 
 // =============================================================================
 // 内存假 Redis(只实现本文件路由族用到的命令,语义对齐真 Redis)
@@ -588,7 +593,7 @@ describe('O10c external_id:自带业务键反查 run', () => {
 describe('O17b-⑤ 失败分支句柄回显 + 单条详情句柄', () => {
   it('上游非 2xx → 502 带 run_ref/external_id,句柄真能反查到那条 failed run', async () => {
     const { assistantId, threadId } = await fixtureThread('fail-upstream')
-    vi.mocked(aiServiceFetch).mockResolvedValueOnce({
+    vi.mocked(aiServiceSystemFetch).mockResolvedValueOnce({
       ok: false,
       status: 500,
       json: async () => ({}),
@@ -623,7 +628,7 @@ describe('O17b-⑤ 失败分支句柄回显 + 单条详情句柄', () => {
 
   it('上游回 error 标记 → 502 同样带句柄;未传 external_id 时不带该字段', async () => {
     const { assistantId, threadId } = await fixtureThread('fail-flagged')
-    vi.mocked(aiServiceFetch).mockResolvedValueOnce({
+    vi.mocked(aiServiceSystemFetch).mockResolvedValueOnce({
       ok: true,
       status: 200,
       json: async () => ({ error: true, error_message: 'model rejected the prompt' }),
@@ -642,7 +647,7 @@ describe('O17b-⑤ 失败分支句柄回显 + 单条详情句柄', () => {
 
   it('抛异常 → 503 带句柄(客户端没接住创建响应也找得回)', async () => {
     const { assistantId, threadId } = await fixtureThread('fail-throw')
-    vi.mocked(aiServiceFetch).mockRejectedValueOnce(new Error('connection reset'))
+    vi.mocked(aiServiceSystemFetch).mockRejectedValueOnce(new Error('connection reset'))
 
     const res = await post(`/v1/threads/${threadId}/runs`, { assistant_id: assistantId })
     expect(res.statusCode).toBe(503)

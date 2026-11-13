@@ -17,7 +17,11 @@
  *   解析失败:   一律视为"未知格式的活锁"——不删除、不抢锁
  *             (宁可不抢,不可误删;Redis TTL 保证坏 key 最终自愈)
  *
- * 降级:Redis 不可用时退化为进程内 Map(单实例部署语义一致)。
+ * 降级(F-204):Redis 不可用时退化为进程内 Map。该降级只在单实例下语义一致,
+ * 多实例下不具备跨实例互斥 —— 因此:
+ *   - 每次降级都打 warn 并累加计数(getWorkspaceLockDegradeCount 可观测);
+ *   - 内存锁同样带 TTL(过期自动释放)与 owner(token)校验(非 owner 不能释放/续期);
+ *   - WORKSPACE_LOCK_FAIL_FAST=true 时不再降级,直接抛 WORKSPACE_LOCK_REDIS_UNAVAILABLE。
  */
 import { randomUUID } from 'crypto'
 import IORedis, { type Redis } from 'ioredis'
@@ -135,16 +139,79 @@ function serializeLock(info: WorkspaceLockInfo): string {
   })
 }
 
-/** 进程内降级存储(Redis 不可用时) */
-const memoryLocks = new Map<string, WorkspaceLockInfo>()
+// ---------------------------------------------------------------------------
+// 降级可观测(F-204):Redis 不可用时每次降级 warn + 计数,并提供 fail-fast 开关
+// ---------------------------------------------------------------------------
+let degradeCount = 0
+
+/** 降级累计次数(运维/测试可观测:>0 即说明当前进程正在用进程内锁) */
+export function getWorkspaceLockDegradeCount(): number {
+  return degradeCount
+}
+
+/** 测试隔离:重置降级计数 */
+export function _resetWorkspaceLockDegradeStats(): void {
+  degradeCount = 0
+}
+
+/** fail-fast:显式开启才抛错,默认 false 维持线上历史降级行为(配置见 config.WORKSPACE_LOCK_FAIL_FAST) */
+function isFailFastOnRedisFailure(): boolean {
+  return config.WORKSPACE_LOCK_FAIL_FAST === true
+}
+
+/**
+ * 统一降级出口:计数 + warn 留痕;fail-fast 档直接抛错,不进入内存锁。
+ * 调用方(acquire/renew/release/get/force)在 catch 与"无 Redis 客户端"两处复用。
+ */
+function onRedisUnavailable(operation: string, workspace: string, error: unknown): void {
+  degradeCount++
+  logger.warn('[workspace-lock] redis 不可用,降级为进程内锁(无跨实例互斥)', {
+    operation,
+    workspace,
+    degradeCount,
+    failFast: isFailFastOnRedisFailure(),
+    error,
+  })
+  if (isFailFastOnRedisFailure()) {
+    throw new Error('WORKSPACE_LOCK_REDIS_UNAVAILABLE')
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 进程内降级存储(Redis 不可用时):与 Redis 锁同语义 —— TTL + owner(token) 校验
+// ---------------------------------------------------------------------------
+interface MemoryLockEntry {
+  info: WorkspaceLockInfo
+  /** 过期时刻(秒);到点即失效,由读写路径惰性清理 */
+  expiresAt: number
+}
+
+const memoryLocks = new Map<string, MemoryLockEntry>()
+
+function memoryGet(workspace: string): WorkspaceLockInfo | null {
+  const entry = memoryLocks.get(workspace)
+  if (!entry) return null
+  if (entry.expiresAt <= Date.now() / 1000) {
+    memoryLocks.delete(workspace)
+    return null
+  }
+  return entry.info
+}
 
 function memoryAcquire(workspace: string, holder: string, ttlSec: number): WorkspaceLockInfo {
   const now = Date.now() / 1000
   const existing = memoryLocks.get(workspace)
   if (existing) {
-    if (existing.holder !== holder) throw new Error('LOCK_HELD')
-    existing.heartbeatAt = now
-    return existing
+    if (existing.expiresAt <= now) {
+      memoryLocks.delete(workspace) // 过期自动释放,不再要求 owner 匹配
+    } else if (existing.info.holder !== holder) {
+      throw new Error('LOCK_HELD')
+    } else {
+      // 同 owner 重入/续期:心跳前推并重置 TTL
+      existing.info.heartbeatAt = now
+      existing.expiresAt = now + ttlSec
+      return existing.info
+    }
   }
   const info: WorkspaceLockInfo = {
     workspace,
@@ -153,9 +220,44 @@ function memoryAcquire(workspace: string, holder: string, ttlSec: number): Works
     acquiredAt: now,
     heartbeatAt: now,
   }
-  memoryLocks.set(workspace, info)
-  void ttlSec // 内存模式无 TTL(单进程生命周期)
+  memoryLocks.set(workspace, { info, expiresAt: now + ttlSec })
   return info
+}
+
+/** 释放:仅当前持有者(token = owner 凭证)且未过期时生效 */
+function memoryRelease(workspace: string, token: string): boolean {
+  const entry = memoryLocks.get(workspace)
+  if (!entry) return false
+  if (entry.expiresAt <= Date.now() / 1000) {
+    memoryLocks.delete(workspace) // 已过期,视为无锁,本次释放不成立
+    return false
+  }
+  if (entry.info.token !== token) return false // 非 owner 不得释放
+  memoryLocks.delete(workspace)
+  return true
+}
+
+/** 续期:仅当前持有者且未过期时生效;过期锁不可续命(必须重新抢) */
+function memoryRenew(workspace: string, token: string, ttlSec: number): boolean {
+  const entry = memoryLocks.get(workspace)
+  if (!entry) return false
+  const now = Date.now() / 1000
+  if (entry.expiresAt <= now) {
+    memoryLocks.delete(workspace)
+    return false
+  }
+  if (entry.info.token !== token) return false // 非 owner 不得续期
+  entry.info.heartbeatAt = now
+  entry.expiresAt = now + ttlSec
+  return true
+}
+
+/** 强制释放(admin 运维场景,无视 owner);返回是否释放了一把仍然有效的锁 */
+function memoryForceRelease(workspace: string): boolean {
+  const entry = memoryLocks.get(workspace)
+  if (!entry) return false
+  memoryLocks.delete(workspace)
+  return entry.expiresAt > Date.now() / 1000
 }
 
 /**
@@ -169,7 +271,10 @@ export async function acquireWorkspaceLock(
 ): Promise<WorkspaceLockInfo | null> {
   if (!workspace || !holder) throw new Error('workspace 与 holder 均不能为空')
   const r = getRedis()
-  if (!r) return memoryAcquire(workspace, holder, ttlSec)
+  if (!r) {
+    onRedisUnavailable('acquire', workspace, new Error('redis client unavailable'))
+    return memoryAcquire(workspace, holder, ttlSec)
+  }
   try {
     const raw = await r.get(lockKey(workspace))
     if (raw) {
@@ -204,7 +309,7 @@ export async function acquireWorkspaceLock(
     const ok = await r.set(lockKey(workspace), serializeLock(info), 'EX', ttlSec, 'NX')
     return ok === 'OK' ? info : null
   } catch (e) {
-    logger.warn('[workspace-lock] acquire redis 失败,降级内存锁', { error: e })
+    onRedisUnavailable('acquire', workspace, e)
     try {
       return memoryAcquire(workspace, holder, ttlSec)
     } catch {
@@ -216,12 +321,15 @@ export async function acquireWorkspaceLock(
 /** 查询当前持有者(无锁/查询失败返回 null) */
 export async function getWorkspaceLock(workspace: string): Promise<WorkspaceLockInfo | null> {
   const r = getRedis()
-  if (!r) return memoryLocks.get(workspace) ?? null
+  if (!r) {
+    onRedisUnavailable('get', workspace, new Error('redis client unavailable'))
+    return memoryGet(workspace)
+  }
   try {
     return parseLock(await r.get(lockKey(workspace)), workspace)
   } catch (e) {
-    logger.warn('[workspace-lock] get 失败(视为无锁)', { error: e })
-    return null
+    onRedisUnavailable('get', workspace, e)
+    return memoryGet(workspace)
   }
 }
 
@@ -229,19 +337,14 @@ export async function getWorkspaceLock(workspace: string): Promise<WorkspaceLock
 export async function releaseWorkspaceLock(workspace: string, token: string): Promise<boolean> {
   const r = getRedis()
   if (!r) {
-    const existing = memoryLocks.get(workspace)
-    if (!existing || existing.token !== token) return false
-    memoryLocks.delete(workspace)
-    return true
+    onRedisUnavailable('release', workspace, new Error('redis client unavailable'))
+    return memoryRelease(workspace, token)
   }
   try {
     return Number(await r.eval(RELEASE_LUA, 1, lockKey(workspace), token)) === 1
   } catch (e) {
-    logger.warn('[workspace-lock] release redis 失败,降级内存锁', { error: e })
-    const existing = memoryLocks.get(workspace)
-    if (!existing || existing.token !== token) return false
-    memoryLocks.delete(workspace)
-    return true
+    onRedisUnavailable('release', workspace, e)
+    return memoryRelease(workspace, token)
   }
 }
 
@@ -253,31 +356,29 @@ export async function renewWorkspaceLock(
 ): Promise<boolean> {
   const r = getRedis()
   if (!r) {
-    const existing = memoryLocks.get(workspace)
-    if (!existing || existing.token !== token) return false
-    existing.heartbeatAt = Date.now() / 1000
-    return true
+    onRedisUnavailable('renew', workspace, new Error('redis client unavailable'))
+    return memoryRenew(workspace, token, ttlSec)
   }
   try {
     return Number(await r.eval(RENEW_LUA, 1, lockKey(workspace), token, String(ttlSec))) === 1
   } catch (e) {
-    logger.warn('[workspace-lock] renew redis 失败,降级内存锁', { error: e })
-    const existing = memoryLocks.get(workspace)
-    if (!existing || existing.token !== token) return false
-    existing.heartbeatAt = Date.now() / 1000
-    return true
+    onRedisUnavailable('renew', workspace, e)
+    return memoryRenew(workspace, token, ttlSec)
   }
 }
 
 /** 强制释放(admin 运维场景,无视 token) */
 export async function forceReleaseWorkspaceLock(workspace: string): Promise<boolean> {
   const r = getRedis()
-  if (!r) return memoryLocks.delete(workspace)
+  if (!r) {
+    onRedisUnavailable('force_release', workspace, new Error('redis client unavailable'))
+    return memoryForceRelease(workspace)
+  }
   try {
     return Number(await r.del(lockKey(workspace))) === 1
   } catch (e) {
-    logger.warn('[workspace-lock] force_release redis 失败,降级内存锁', { error: e })
-    return memoryLocks.delete(workspace)
+    onRedisUnavailable('force_release', workspace, e)
+    return memoryForceRelease(workspace)
   }
 }
 

@@ -111,6 +111,11 @@ const envSchema = z.object({
     .transform((v) => (v === '' ? undefined : v))
     .pipe(z.url().optional()),
   REDIS_URL: z.url().default('redis://localhost:8811'),
+  // F-204(2026-11-13):Redis 不可用时工作区锁的降级策略。
+  // false(默认,保持现行为)= 退化为带 TTL/owner 校验的进程内锁,每次降级打 warn 并计数;
+  // true = fail-fast:acquire/renew/release 直接抛 WORKSPACE_LOCK_REDIS_UNAVAILABLE,
+  //        宁可拒绝进入临界区,也不在多实例下假装互斥。
+  WORKSPACE_LOCK_FAIL_FAST: booleanFromString(false),
   // 文件 CDN 域名(可选):上传接口返回的 path 自动加前缀,生产可指向 file.aizhs.top
   // (需 Nginx 反代 /uploads 到本服务;未配置时返回相对路径 /uploads/<id>)
   FILE_CDN_BASE: z.string().optional().default(''),
