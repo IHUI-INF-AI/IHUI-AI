@@ -136,6 +136,77 @@ describe('OTA 状态机:检查 → 下载 → 就绪', () => {
   })
 })
 
+/**
+ * mandatory 状态机取证(2026-11-13 补,#5)。
+ *
+ * #5 给状态机加了 `mandatory` 字段(服务端 isMandatory 驱动),但原有 17 例的
+ * mock 从不返回 `isMandatory`,等于"字段存在却从未验证"。这里钉住:
+ *   ① 默认(后端不标 isMandatory)⇒ mandatory 恒为 false,行为与历史完全一致 —— 这是
+ *     "零副作用"承诺的核心,不接后端的项目永远走顶部横幅可关闭分支;
+ *   ② 后端标 isMandatory=true ⇒ downloading/ready 都要带 mandatory=true,展示面据此
+ *     升级为非关闭全屏阻塞;
+ *   ③ up-to-date / error 等非就绪终态 ⇒ mandatory 复位 false(不残留上一轮的强制标志)。
+ */
+describe('OTA 状态机:mandatory 强制更新标志', () => {
+  beforeEach(() => {
+    h.checkForUpdateAsync.mockReset()
+    h.fetchUpdateAsync.mockReset()
+  })
+
+  it('后端不标 isMandatory ⇒ mandatory 恒 false(默认分支,零副作用)', async () => {
+    h.checkForUpdateAsync.mockResolvedValue({ isAvailable: true })
+    h.fetchUpdateAsync.mockResolvedValue(undefined)
+    const mod = await freshModule()
+    await mod.checkOtaUpdate()
+    expect(mod.otaSnapshot().state).toBe('ready')
+    expect(mod.otaSnapshot().mandatory).toBe(false)
+  })
+
+  it('后端标 isMandatory=true ⇒ downloading/ready 均带 mandatory=true', async () => {
+    h.checkForUpdateAsync.mockResolvedValue({ isAvailable: true, isMandatory: true })
+    let resolveFetch: () => void = () => {}
+    h.fetchUpdateAsync.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveFetch = resolve
+        }),
+    )
+    const mod = await freshModule()
+    const checkPromise = mod.checkOtaUpdate()
+    // 下载阶段就已带强制标志(展示面据此在 downloading 仍走顶部横幅带读条)
+    await vi.waitFor(() => expect(mod.otaSnapshot().state).toBe('downloading'))
+    expect(mod.otaSnapshot().mandatory).toBe(true)
+    resolveFetch()
+    await expect(checkPromise).resolves.toBe('ready')
+    // 就绪后仍保留强制标志 ⇒ 展示面据此把 ready 升级为非关闭全屏阻塞
+    expect(mod.otaSnapshot().state).toBe('ready')
+    expect(mod.otaSnapshot().mandatory).toBe(true)
+  })
+
+  it('up-to-date ⇒ mandatory 复位 false(不残留上一轮强制标志)', async () => {
+    // 先跑一轮强制更新,把 mandatory 置 true
+    h.checkForUpdateAsync.mockResolvedValue({ isAvailable: true, isMandatory: true })
+    h.fetchUpdateAsync.mockResolvedValue(undefined)
+    const mod = await freshModule()
+    await mod.checkOtaUpdate()
+    expect(mod.otaSnapshot().mandatory).toBe(true)
+    // 再查已无更新 ⇒ mandatory 回落 false
+    h.checkForUpdateAsync.mockResolvedValue({ isAvailable: false })
+    await mod.checkOtaUpdate()
+    expect(mod.otaSnapshot().state).toBe('up-to-date')
+    expect(mod.otaSnapshot().mandatory).toBe(false)
+  })
+
+  it('isMandatory 为 null/undefined ⇒ 按未标记处理(false,Boolean 归一)', async () => {
+    h.checkForUpdateAsync.mockResolvedValue({ isAvailable: true, isMandatory: null })
+    h.fetchUpdateAsync.mockResolvedValue(undefined)
+    const mod = await freshModule()
+    await mod.checkOtaUpdate()
+    expect(mod.otaSnapshot().state).toBe('ready')
+    expect(mod.otaSnapshot().mandatory).toBe(false)
+  })
+})
+
 describe('OTA 状态机:提示的一次性关闭与复位', () => {
   beforeEach(() => {
     h.checkForUpdateAsync.mockReset()

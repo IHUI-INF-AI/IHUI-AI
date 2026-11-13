@@ -987,6 +987,11 @@
       "miniapp": "pages/register/index"
     },
     {
+      "shared": "packages/app/src/features/sag2/Sag2Screen.tsx",
+      "rn": "apps/mobile-rn/src/screens/Sag2Screen.tsx",
+      "miniapp": "pkg-ai/sag2/index"
+    },
+    {
       "shared": "packages/app/src/features/search/SearchScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/SearchScreen.tsx",
       "miniapp": "pkg-content/search/index"
