@@ -3911,6 +3911,23 @@ class GitHubClient {
     return (await this.loadTokenForUser(userId)).length > 0
   }
 
+  /**
+   * F-444:只读**调用者自己**的令牌,绝不回落部署级平台令牌。
+   * 接收调用方指定 owner/repo 的读写/合并端点必须过这道闸,
+   * 否则没有个人令牌的用户会拿平台 PAT 代理操作任意他人仓库。
+   */
+  async loadOwnTokenForUser(userId: string): Promise<string> {
+    const { findUserPreferences } = await import('../db/user-preferences-queries.js')
+    const { list } = await findUserPreferences(userId, GITHUB_TOKEN_GROUP)
+    const row = list.find((p) => p.key === GITHUB_TOKEN_KEY)
+    if (row?.value) return decryptField(row.value).trim()
+    return ''
+  }
+
+  async hasOwnTokenForUser(userId: string): Promise<boolean> {
+    return (await this.loadOwnTokenForUser(userId)).length > 0
+  }
+
   /** 加密后按 userId 落库;覆盖只影响该用户自己的行。 */
   async saveTokenForUser(userId: string, token: string): Promise<void> {
     const { upsertUserPreference } = await import('../db/user-preferences-queries.js')
