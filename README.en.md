@@ -81,13 +81,13 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 5205 | `testFiles` |
+| 测试文件 | 5217 | `testFiles` |
 | CI 工作流 | 59 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 363 | `guardianGates` |
 | — blocking | 334 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 21338 | `trackedFiles` |
+| 跟踪文件 | 21351 | `trackedFiles` |
 
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-13。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -98,6 +98,51 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-13**
+- 🔧 Chore/Other:收编守护落档产出(2 件,凭落点账本) (a9fd477339f)
+- 🔧 Chore/Other:结清 F-184 Hook PATCH 管理员闸（已修复且测试通过） (59bbb11cdf0)
+- 🔧 Chore/Other:结清批次32 共5张(F-266/272/273/280/282) (41877ec4b23)
+- 🐞 Fix:结清 F-266 隔离记录清理 + F-272 step-up 一次性兑付 + F-273 地理改 HTTPS + F-280 ACP 会话真实化 + F-282 下载不再假成功 (c4981a39f6b)
+- 🔧 Chore/Other:结清批次31 共5张(F-254/257/258/264/265) (944031157fd)
+- 🐞 Fix:结清 F-254 提及路径闸 + F-257 对公金额校验 + F-258 快照脏重试 + F-264 重建原子切换 + F-265 改动集有界 (e9a9ab4fc96)
+- 🔧 Chore/Other:结清批次30 共5张(F-235/237/239/240/243) (2b4d1f06226)
+- 🐞 Fix:结清 F-235 短信失败退配额 + F-237 错误透传收敛 + F-239 对账 pending 保留 + F-240 在途闸原子 + F-243 队列默认隔离 (5ec188aad63)
+- 🔧 Chore/Other:结清批次28-29 共10张(F-217/218/219/224/225/226/227/231/233/234) (d3691f03a81)
+- 🐞 Fix:结清 F-226 WS 归还唯一 + F-227 限流兜底共享容量 + F-231 对账日界 + F-233 订阅配额 fail-closed + F-234 佣金兜底窗口 (1accd6afc69)
+- 🐞 Fix:结清 F-217 outbox 原子认领 + F-218 密钥字节校验 + F-219 兜底计数淘汰 + F-224 反自动化白名单 + F-225 loader 回收 (19d278d6d95)
+- 🔧 Chore/Other:结清批次24-27 共24张(F-97/130/143/144/145/146/149/151/152/161/148/163/173/176/179/182/197/198/201/202/207/208/209/212) (3ed1fead0ca)
+- 🐞 Fix:结清 F-202 取消终态 + F-207 审计不丢行 + F-208 连接守卫 + F-209 限流桶键 + F-212 偏好批量 (b940eb221b7)
+- 🐞 Fix:结清 F-182 退订回执如实失败 + F-197 OSS 上传地址与闸门 + F-198 转码淘汰杀子进程 + F-201 工作区锁必释放 (d7ca495b2b6)
+- 🐞 Fix:结清 F-148 VIP 数量履约 + F-163 定时任务如实失败 + F-173 帮助文章发布闸 + F-176 下架内容读面 + F-179 Key 解密隔离 (26be82a3357)
+- 🐞 Fix:结清 F-149 报表口径 + F-151 插件统计时区日界 + F-161 号池属主边界 (a1fab3c3f92)
+- 🐞 Fix:结清 F-130 已支付订单禁硬删 + F-146 转换入口体积闸 + F-152 评论软删谓词 (906da6962ce)
+- 🐞 Fix:结清 F-97 能力调用鉴权计费 + F-144 embedding 超时 + F-145 删文档事务 + F-143 补锁 (026ac185ae9)
+- 🔧 Chore/Other:结清批次23 共10张(F-34/51/67/74/78/92/94/96/99/116) (0a7b3e855a0)
+- 🐞 Fix:结清 F-51 生图轮询可中断 + F-67 提现锁降级不重放 (6bbd9f12e65)
+- 🐞 Fix:结清健壮性四张 —— F-34 退款持久补偿、F-78 企业分页、F-99 职业建议如实失败、F-116 WS 背压 (dfeb2b407b0)
+- 🐞 Fix:结清越权/泄露四张 —— F-74 预览归属、F-92 MJ 归属、F-94 知识库公开面、F-96 模型配置属主闸 (a1fb921f08f)
+- 🔧 Chore/Other:README 生成块数字对账 —— 合并后按现算刷新(trackedFiles/testFiles) (218eb8bd670)
+- 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (a7aa681cb65)
+- 🔧 Chore/Other:README 生成块数字对账 —— 合并后按现算刷新(trackedFiles/testFiles) (abebf838eba)
+- 🔧 Chore/Other:登录 Enter 提交流程夹具改用 example.com，避免旧邮箱地址继续留在端侧源码 (e6da768ad7f)
+- 🔧 Chore/Other:移除根目录邮箱排查会话转写稿（含大量已废弃地址，避免误导），并同步 README 数字块 (d04162089ad)
+- 🐞 Fix:小程序语言包派生件按现源头重生成（ch10 联系邮箱收口为 lizong@aizhs.top） (210e0246ffb)
+- 🔧 Chore/Other:结清批次21+22 共11张(AIS-046/063/064/077、F-20/23/44/45/64/65/79) (abdef7a7e3e)
+- 🐞 Fix:F-64/F-65 margin 资金闸与 F-79 工作区批量 N+1 (5abdc48b1f1)
+- 🐞 Fix:F-44/F-45 内存 Map 无回收(任务终态即删 + 请求计数按关闭回收) (9d2d2edbf3c)
+- 📚 Docs:重建 README —— 清掉误入 HEAD 的 6 处冲突标记,数字取 HEAD 现算 (ad18bd41bb5)
+- 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (9748cdedccd)
+- 🐞 Fix:README 联系表去重并把残留旧邮箱收口为 lizong@aizhs.top (203ea00cc74)
+- 📚 Docs:生成块 22 维对账到 HEAD 现算(8 个维度与实际不符) (874a7bebb9d)
+- 📚 Docs:生成块数字对账到 HEAD 现算(testFiles 5130→5135 / trackedFiles 21245→21268) (33739a02868)
+- 🔧 Chore/Other:302p 跨端漂移基线全维刷新(终尖现读,五个变维逐项取证非本区间引入) (a0afd5f9c44)
+- 🔧 Chore/Other:补齐流式修复批 7 个文件的溯源水印(门 47p 欠账清偿) (1cfac3e8a7a)
+- 🔧 Chore/Other:为 1b33002a4ef 补具名追认(门 41 preserve/ 豁免改动缺签名声明) (6d968afc42e)
+- 🔧 Chore/Other:补齐流式修复批的溯源水印与格式规整(门 47p 自愈产物) (3d8a85ed174)
+- 🐞 Fix:流式输出显示全链修复(D1-D6)——码点切批/末帧不丢/三端跟底/样式隔离 (4bdc41ba942)
+- 📚 Docs:Y-38 补全取证结论——卡点定死为「无在册 zcode 号」+ 进程未加载引擎 + 判读口径纠正 (5a7680ce7a5)
+- 🐞 Fix:门 41 补 preserve/ 备份豁免 + 门 263 两处存量 ruff 清偿 (1b33002a4ef)
+
 **2026-11-13**
 - 🐞 Fix:F-20 积分任务日界 / F-23 支付宝退款整数分比较 (9e63bf2ec48)
 
@@ -1175,9 +1220,6 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 - 🐞 Fix:旧底稿整份回退哨兵(提交面报警 + 推送前硬拦) (0de2c0c35a)
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (3fc9d80fe2)
 - 🐞 Fix:门8 method 推断⑤段加块尾守卫——已闭合函数不再向匿名回调裸fetch借POST(修 edu-attendance e2e 假阳性;T5/T6 夹具钉住) (df51ce0ce5)
-
-**2026-11-11**
-- 🔧 Chore/Other:追认i18n跨端门自检1枚 (43a6d76b7e)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
