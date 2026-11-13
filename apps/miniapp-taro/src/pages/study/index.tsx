@@ -108,9 +108,7 @@ export default function StudyIndex() {
             </Text>
           </View>
           <View className="w-[calc(50%_-_8rpx)] flex flex-col items-center p-[28rpx] rounded-lg border border-border bg-card">
-            <Text className="text-headline text-success">
-              {info.continuousDays}
-            </Text>
+            <Text className="text-headline text-success">{info.continuousDays}</Text>
             <Text className="block mt-[16rpx] text-caption text-muted-foreground">
               {t('study.continuousDays')}
             </Text>
