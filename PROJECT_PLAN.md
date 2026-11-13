@@ -12238,7 +12238,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 302G. **缺陷普查 API F-302** [P2] routine 调度器为模块级副作用，API 与 worker 各跑一份 → 同一 cron 双执行（证据 docs/tickets/2026-11/findings-api.md#F-302）
 - [ ] 304G. **缺陷普查 API F-304** [P3] POST /workspace-ai/permissions/:requestId/resolve 缺属主校验（证据 docs/tickets/2026-11/findings-api.md#F-304）
 - [ ] 305G. **缺陷普查 API F-305** [P3] 会话质量统计：visit_logs 无可用索引，三腿各扫全表且非同一快照（证据 docs/tickets/2026-11/findings-api.md#F-305）
-- [ ] 311G. **缺陷普查 API F-311** [P2] 裂变券未校验“分享人≠领取人”，可自推荐刷 API Key 余额（证据 docs/tickets/2026-11/findings-api.md#F-311）
 - [ ] 319G. **缺陷普查 API F-319** [P2] /payment-record/summary 接受 termId 但只对欠费生效，收入/已缴人数仍是全库/全班历史（证据 docs/tickets/2026-11/findings-api.md#F-319）
 - [ ] 336G. **缺陷普查 API F-336** [P3] GET /circles/:id 与 /posts 对 slug 直接 404，slug 分享链路断裂（证据 docs/tickets/2026-11/findings-api.md#F-336）
 - [ ] 337G. **缺陷普查 API F-337** [P2] SSE 内错误帧被当成功：扣输入 token、不熔断、不切候选（证据 docs/tickets/2026-11/findings-api.md#F-337）
@@ -12360,7 +12359,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 671G. **缺陷普查 API F-672** [P2] 管理端参数覆盖（bodyOverride）只在渠道腿生效，账号池腿完全忽略（证据 docs/tickets/2026-11/findings-api.md#F-672）
 - [ ] 672G. **缺陷普查 API F-673** [P2] 非流式 /v1/chat/completions 重建响应：tool_calls/reasoning_content 丢失，finish_reason （证据 docs/tickets/2026-11/findings-api.md#F-673）
 - [ ] 673G. **缺陷普查 API F-674** [P2] 渠道腿只看 resp.ok 不校验协议体：200 HTML/错误 JSON 也记 key 健康并当成功透传（证据 docs/tickets/2026-11/findings-api.md#F-674）
-- [ ] 674G. **缺陷普查 API F-675** [P2] 异步生图链路零计费，worker 注释与实现相反（证据 docs/tickets/2026-11/findings-api.md#F-675）
 - [ ] 675G. **缺陷普查 API F-676** [P3] 429 的 Retry-After 只有账号池腿采用，渠道腿固定 60s 冷却（证据 docs/tickets/2026-11/findings-api.md#F-676）
 - [ ] 678G. **缺陷普查 API F-679** [P2] 流式计费用字符估算顶掉上游真实 usage（同函数 usage 帧却用真值）（证据 docs/tickets/2026-11/findings-api.md#F-679）
 - [ ] 682G. **缺陷普查 API F-683** [P2] 转码 resolution 参数被静默丢弃，请求 720p/1080p 实际输出原分辨率（证据 docs/tickets/2026-11/findings-api.md#F-683）
