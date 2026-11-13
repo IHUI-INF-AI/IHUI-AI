@@ -186,6 +186,8 @@ export interface SwarmAgent {
 
 export interface SwarmPlan {
   swarmId: string
+  /** F-402:属主用户 —— 所有读取/推进/终止入口都按 (swarmId, ownerId) 定位,防跨用户劫持。 */
+  ownerId: string
   task: string
   agents: SwarmAgent[]
   workspacePath: string
@@ -199,6 +201,7 @@ class SwarmManager {
   private plans = new Map<string, SwarmPlan>()
 
   create(params: {
+    ownerId: string
     task: string
     workspacePath: string
     modelId?: string
@@ -227,6 +230,7 @@ class SwarmManager {
     }))
     const plan: SwarmPlan = {
       swarmId,
+      ownerId: params.ownerId,
       task: params.task,
       agents,
       workspacePath: params.workspacePath,
@@ -240,19 +244,23 @@ class SwarmManager {
     return plan
   }
 
-  list(): SwarmPlan[] {
-    return Array.from(this.plans.values())
+  /** F-402:列表只返回该属主的 swarm。 */
+  list(ownerId: string): SwarmPlan[] {
+    return Array.from(this.plans.values()).filter((p) => p.ownerId === ownerId)
   }
 
-  get(swarmId: string): SwarmPlan | null {
-    return this.plans.get(swarmId) ?? null
+  /** F-402:按 (swarmId, ownerId) 定位;非属主视为不存在(null),由路由转 404 防枚举。 */
+  get(swarmId: string, ownerId: string): SwarmPlan | null {
+    const plan = this.plans.get(swarmId)
+    if (!plan || plan.ownerId !== ownerId) return null
+    return plan
   }
 
   /**
    * 执行 swarm：无依赖 agent 并行，有依赖 agent 等待依赖完成后启动。
    */
-  async execute(swarmId: string): Promise<SwarmPlan> {
-    const plan = this.plans.get(swarmId)
+  async execute(swarmId: string, ownerId: string): Promise<SwarmPlan> {
+    const plan = this.get(swarmId, ownerId)
     if (!plan) throw new Error(`Swarm 不存在: ${swarmId}`)
     plan.status = 'executing'
     this.persist(plan)
@@ -291,8 +299,8 @@ class SwarmManager {
     return plan
   }
 
-  cancel(swarmId: string): boolean {
-    const plan = this.plans.get(swarmId)
+  cancel(swarmId: string, ownerId: string): boolean {
+    const plan = this.get(swarmId, ownerId)
     if (!plan) return false
     plan.status = 'failed'
     this.persist(plan)
@@ -1130,14 +1138,7 @@ const SANDBOX_FILE_TOOL_BINARIES = new Set<string>([
  * `./` 前缀的相对路径会被 looksLikePath 跳过。这里改为:除开关项
  * (以 `-` 开头)外,每个参数都按 cwd 相对/绝对路径收敛校验。
  */
-const SANDBOX_OPERAND_ONLY_PATH_BINARIES = new Set<string>([
-  'ls',
-  'dir',
-  'wc',
-  'stat',
-  'test',
-  '[',
-])
+const SANDBOX_OPERAND_ONLY_PATH_BINARIES = new Set<string>(['ls', 'dir', 'wc', 'stat', 'test', '['])
 
 const SANDBOX_BINARY_WHITELIST = new Set<string>([
   'node',
@@ -3960,6 +3961,12 @@ class GitHubClient {
     return this.api(`/repos/${params.owner}/${params.repo}/pulls/${params.number}`)
   }
 
+  /** F-Forge(2026-11-13):列某 commit 的 CI 检查(check-runs),供变更请求台账汇总。 */
+  async listCheckRuns(params: { owner: string; repo: string; ref: string }): Promise<unknown> {
+    const ref = encodeURIComponent(params.ref)
+    return this.api(`/repos/${params.owner}/${params.repo}/commits/${ref}/check-runs?per_page=100`)
+  }
+
   async addPRComment(params: {
     owner: string
     repo: string
@@ -4208,10 +4215,7 @@ class FSBridge {
   }
 
   /** 记录最近工作区(按 userId 隔离,F-278) */
-  addRecent(
-    userId: string,
-    meta: { path: string; name: string; techStack?: string[] },
-  ): void {
+  addRecent(userId: string, meta: { path: string; name: string; techStack?: string[] }): void {
     const file = recentWorkspacesFile(userId)
     const list = readJsonForUpdate<Array<{ path: string; name: string; lastOpened: number }>>(
       file,
@@ -4233,7 +4237,9 @@ class FSBridge {
    * (否则 N 条 recent × 60s 人工审计会把 GET /fs/recent 拖死),但硬 deny 仍被过滤。
    * 未配置权限的条目保留 —— /fs/open 先写 recent 再引导 setup,过滤掉会让首开工作区消失。
    */
-  async loadRecent(userId: string): Promise<Array<{ path: string; name: string; lastOpened: number }>> {
+  async loadRecent(
+    userId: string,
+  ): Promise<Array<{ path: string; name: string; lastOpened: number }>> {
     const list = readJson<Array<{ path: string; name: string; lastOpened: number }>>(
       recentWorkspacesFile(userId),
       [],
