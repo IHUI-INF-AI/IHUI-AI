@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-11-07",
+  "generatedAt": "2026-11-14",
   "note": "门脚本属主登记表。owned 之外的脚本一律显式列在 unowned(值为 null 的含义),供人工裁决;禁止把未登记的门批量填成公共。本表由 2026-11-07 的 scripts/ 清单生成,新增/删除门脚本时必须同步维护。",
   "owners": {
     "commit-hygiene-2026-11-12": {
