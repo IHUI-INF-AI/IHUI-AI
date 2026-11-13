@@ -12233,7 +12233,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 371G. **缺陷普查 API F-371** [P1] 退款只冲订单金额，不回收已发放的 VIP/订阅/配额（证据 docs/tickets/2026-11/findings-api.md#F-371）（进行中@2026-11-13/w2-f371）
 - [ ] 376G. **缺陷普查 API F-376** [P2] 预算告警 6 小时冷却为「先查后异步写」，并发下重复告警（证据 docs/tickets/2026-11/findings-api.md#F-376）
 
-- [ ] 412G. **缺陷普查 API F-412** [P2] extract-assets 把私有文档内嵌图片写入匿名公开目录（证据 docs/tickets/2026-11/findings-api.md#F-412）
 - [ ] 419G. **缺陷普查 API F-419** [P2] 权限授权「读-改-写」非原子，并发撤销可被复活（证据 docs/tickets/2026-11/findings-api.md#F-419）
 - [ ] 434G. **缺陷普查 API F-434** [P2] customer_service_sessions.status 默认值 waiting 与「唯一真相源」枚举互斥（证据 docs/tickets/2026-11/findings-api.md#F-434）
 - [ ] 442G. **缺陷普查 API F-442** [P2] GitHub 令牌为全站单文件，任意登录用户可覆盖/删除（证据 docs/tickets/2026-11/findings-api.md#F-442）
@@ -12259,7 +12258,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 721G. **缺陷普查 API F-722** [P2] 渠道流式“已写出帧后异常”就地 return，跳过结算 ⇒ 预扣永久沉淀、无流水（证据 docs/tickets/2026-11/findings-api.md#F-722）
 - [ ] 723G. **缺陷普查 API F-724** [P2] 限流计数与计费链路脱钩：窗口计数只在两段式 +1，TPM 计数从未写入（证据 docs/tickets/2026-11/findings-api.md#F-724）
 - [ ] 724G. **缺陷普查 API F-725** [P2] 订阅窗口用量只在两段式结算里累加 ⇒ /v1/messages、/v1/responses 永不消耗订阅额度（证据 docs/tickets/2026-11/findings-api.md#F-725）
-- [ ] 725G. **缺陷普查 API F-726** [P2] /v1/messages、/v1/responses 流式计费完全脱离上游 usage（且丢弃 tool/thinking 输出）（证据 docs/tickets/2026-11/findings-api.md#F-726）
 - [ ] 727G. **缺陷普查 API F-728** [P2] 失败/中断调用只退金额不退 token，且 v1-responses 把错误文案计入输出 token（证据 docs/tickets/2026-11/findings-api.md#F-728）
 - [ ] 2H. **缺陷普查 SDB SDB-02** [P2] api_subscriptions.order_no 幂等键无唯一约束，先查后插（读副本）可并发重复建订阅（证据 docs/tickets/2026-11/findings-services-db.md#SDB-02）
 - [ ] 〔归:机主收款地址面｜等:—〕 RP-37 `USDT_TRC20_ADDRESS` 仍空:地址值是机主掌握的收款信息(七份 env 备份从未有非空值;同族 `USDT_ERC20_ADDRESS` 早有值),而 sponsor 页 `CryptoDonation.tsx:36` 已硬编码 `TMtTpPEMduWurHLi6Fe8XjfcP5Y5AMMnbG` 并上线(枚 ff5ea30d1c87ee76499b9cd3848145c5f030309a)⇒ 同一信息已交付两处、env 一处为空。校验面已收口:TRON 正则 + `assertUsdtAddressFormat` 两调用点共用,新增 14 例绿(含 ERC20 不误拒/400/500 两失败路径/脏地址不落库);fail-closed 37 例绿。余两格归配置面:① env 填哪个地址(现成 sponsor 值或专用充值地址);② 两套 ERC20 地址(现读 sponsor 值与 env 值前缀不同)收敛为 env 权威。〔结清@2026-10-24/主会话-强制令:校验与失败路径已绿,余为地址值配置格〕

@@ -217,14 +217,21 @@ async function streamAnthropicMessages(
   ) => {
     for (const ev of events) {
       raw.write(serializeAnthropicSSEEvent(ev))
-      // 累计 text_delta 文本用于计费估算
-      if (ev.type === 'content_block_delta' && ev.delta.type === 'text_delta') {
+      if (ev.type !== 'content_block_delta') continue
+      // 累计真实产出用于"上游没给 usage"时的估算兜底
+      if (ev.delta.type === 'text_delta') {
         // P0 中转站造血能力批次(2026-08-01):记录首 token 时间用于 TTFT
         // 格②(2026-09-26):改为在首 token 处 stop 一次,与总耗时各自独立成样本
         if (ttftSample === null) ttftSample = opts.sw.stop()
         responseText += ev.delta.text
         // F-89:错误文案不计 token(否则上游 500 零产出也会被当成"已产出"而计费)
         if (countTowardBilling) billableCompletionChars += ev.delta.text.length
+      } else if (ev.delta.type === 'input_json_delta') {
+        // F-726:tool_use 入参也是输出 token,旧实现只累计 text_delta ⇒ 纯工具请求几乎零计费
+        if (countTowardBilling) billableCompletionChars += ev.delta.partial_json.length
+      } else if (ev.delta.type === 'thinking_delta') {
+        // F-726:thinking 同样是模型输出,不能从计费口径里漏掉
+        if (countTowardBilling) billableCompletionChars += ev.delta.thinking.length
       }
     }
   }
@@ -322,9 +329,10 @@ async function streamAnthropicMessages(
 
     // P0-5 中转站计费:流式结束后聚合 token 用量写入计费
     if (opts.apiKeyId && opts.userId) {
-      const promptTokens = Math.ceil(opts.promptText.length / 4)
+      // F-726:优先用上游流式 usage 真值(含 cache 字段),缺失才按字符估算
+      const promptTokens = state.usage.inputTokens ?? Math.ceil(opts.promptText.length / 4)
       // F-89:用真实产出文本估算;上游错误文案不计 token
-      const completionTokens = Math.ceil(billableCompletionChars / 4)
+      const completionTokens = state.usage.outputTokens ?? Math.ceil(billableCompletionChars / 4)
       const totalTokens = promptTokens + completionTokens
       // F-89:已产出 token 后中断记 partial(按实际结算),零产出才记 error(免单)
       const status: 'success' | 'partial' | 'error' = streamError
@@ -344,6 +352,9 @@ async function streamAnthropicMessages(
         promptTokens,
         completionTokens,
         totalTokens,
+        // F-726:cache 命中/写入按上游真值计入计费(缺失为 0)
+        cacheReadTokens: state.usage.cacheReadInputTokens,
+        cacheCreationTokens: state.usage.cacheCreationInputTokens,
         latencyMs: latency.latencyMs,
         status,
         errorMessage: streamError,

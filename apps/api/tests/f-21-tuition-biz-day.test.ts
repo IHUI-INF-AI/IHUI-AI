@@ -29,10 +29,7 @@ const mocks = vi.hoisted(() => ({
 
 function chain(rows: Row[]): Record<string, unknown> {
   const c: Record<string, unknown> = {}
-  // F-585:`for` 是 drizzle 的 `FOR UPDATE` 行锁出口 —— order-service 的 lockOrderRow
-  // (F-12 引入)在发积分/写 Outbox 前先锁 orders 行。夹具缺这一档会让
-  // 「completeOrder 补齐积分/Outbox」这条真实链路抛 "for is not a function"。
-  for (const method of ['from', 'where', 'limit', 'orderBy', 'set', 'values', 'returning', 'for']) {
+  for (const method of ['from', 'where', 'limit', 'orderBy', 'set', 'values', 'returning']) {
     c[method] = () => c
   }
   c.then = (resolve: (value: Row[]) => unknown) => Promise.resolve(resolve(rows))
