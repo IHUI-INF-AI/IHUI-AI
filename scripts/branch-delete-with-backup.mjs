@@ -37,17 +37,70 @@
  *          2 = 参数不成立 / 不在 git 仓内
  */
 import { pathToFileURL } from 'node:url'
+import { appendFileSync, mkdirSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
 
 import { gitRaw } from './lib/face-reader.mjs'
 
 const KNOWN_FLAGS = new Set(['--help', '-h', '--force'])
 
+/**
+ * 删除留痕台账(2026-11-13 立,治"手工调用不留痕"的结构性缺口)。
+ *
+ * 立因:本器此前只打 tag + 删分支,**不写任何台账**。于是每次手工调用都是一条无记录
+ * 的删除 —— 2026-11-13 实测:53 枚删除里只有 50 枚落在调用方的临时 jsonl,另 3 枚
+ * (archive/local-plan-prune、fix/ci-gates、fix/cli-atomic-state)完全没有记录,
+ * 只能靠人工回忆补登。留痕若依赖调用方自觉,它一定会缺;必须在器物里做。
+ *
+ * 写 `lost-commit/*` tag 同理:tag 只防 git gc(标签即引用 ⇒ 可达对象不被修剪),
+ * **防不了本机丢失**。所以本器同时把"这枚 tag 还没上远端"写进记录,由
+ * sync-lost-commit-tags.mjs 或人工补齐 —— 不在这里直接 push(§22:推送只归一条链)。
+ *
+ * 失败方向:留痕写不进 ⇒ 只报警不阻断删除(tag 已打,内容已保活;台账是第二层)。
+ * 若反过来"留痕失败就拒删",会把一次台账故障升级成无法收口的分支。
+ */
+export const BRANCH_DELETE_LEDGER = '.ihui-agent/state/branch-delete-ledger.jsonl'
+
+/**
+ * 追加一条删除留痕。永不抛(留痕是第二层保障,不得反向阻断删除)。
+ * @returns {boolean} true = 已写入
+ */
+export function recordBranchDeletion(entry, opts = {}) {
+  const root = opts.root ?? process.cwd()
+  try {
+    const abs = resolve(root, BRANCH_DELETE_LEDGER)
+    mkdirSync(dirname(abs), { recursive: true })
+    appendFileSync(
+      abs,
+      JSON.stringify({
+        at: new Date().toISOString(),
+        branch: String(entry?.branch ?? ''),
+        sha: String(entry?.sha ?? ''),
+        tag: String(entry?.tag ?? ''),
+        force: Boolean(entry?.force),
+        unmerged: Boolean(entry?.unmerged),
+        tagPushed: false,
+      }) + '\n',
+      'utf8',
+    )
+    return true
+  } catch (e) {
+    console.error(
+      `⚠️ 删除留痕写入失败(${String(e?.message ?? e).slice(0, 120)})——` +
+        `tag 已在、内容可复原,本次删除照常;请手工补记:${entry?.branch} ${entry?.tag}`,
+    )
+    return false
+  }
+}
+
 /** 分支名 → tag 名里的安全段:git ref 名不允许的字符全部换成 `-`,并截短防超长 ref。 */
 export function sanitizeBranchForTag(branch) {
-  return String(branch ?? '')
-    .replace(/[^A-Za-z0-9._-]+/g, '-')
-    .replace(/^[-.]+|[-.]+$/g, '')
-    .slice(0, 40) || 'unnamed'
+  return (
+    String(branch ?? '')
+      .replace(/[^A-Za-z0-9._-]+/g, '-')
+      .replace(/^[-.]+|[-.]+$/g, '')
+      .slice(0, 40) || 'unnamed'
+  )
 }
 
 /** 备份 tag 名(短 sha 进名字 ⇒ 唯一、幂等、可审计;lost-commit/* 命名空间由 30a 与 §22 链覆盖)。 */
@@ -71,7 +124,8 @@ function printHelp() {
       '  --force   用 git branch -D(未合并也删);默认 -d(只删已合并)',
       '',
       '流程: ① 解析分支尖 sha → ② 打带注释 tag lost-commit/branch-<净化分支名>-<sha7>',
-      '      (打不上 ⇒ 拒删,exit 1)→ ③ 才删分支。本工具绝不 push;tag 上 origin 由',
+      '      (打不上 ⇒ 拒删,exit 1)→ ③ 才删分支 → ④ 写留痕 .ihui-agent/state/branch-delete-ledger.jsonl',
+      '      (2026-11-13 起:此前不留痕,手工调用实测会造成无记录删除)。本工具绝不 push;tag 上 origin 由',
       '      sync-lost-commit-tags.mjs --auto-push(post-commit 钩子)负责。',
     ].join('\n'),
   )
@@ -92,7 +146,9 @@ export function run(argv) {
   }
   const positional = args.filter((a) => !a.startsWith('-'))
   if (positional.length !== 1 || !positional[0]) {
-    console.error('❌ 需要恰好一个分支名:node scripts/branch-delete-with-backup.mjs <分支名> [--force]')
+    console.error(
+      '❌ 需要恰好一个分支名:node scripts/branch-delete-with-backup.mjs <分支名> [--force]',
+    )
     return 2
   }
   const branch = positional[0]
@@ -106,7 +162,9 @@ export function run(argv) {
     sha = ''
   }
   if (!/^[0-9a-f]{40}$/.test(sha)) {
-    console.log(`ℹ️ 本地分支 ${branch} 不存在(refs/heads 解析不到)—— 无可删,也不需要备份,如实退出 0`)
+    console.log(
+      `ℹ️ 本地分支 ${branch} 不存在(refs/heads 解析不到)—— 无可删,也不需要备份,如实退出 0`,
+    )
     return 0
   }
 
@@ -114,7 +172,11 @@ export function run(argv) {
   const tagName = buildBackupTagName(branch, sha)
   try {
     git([
-      'tag', '-a', tagName, sha, '-m',
+      'tag',
+      '-a',
+      tagName,
+      sha,
+      '-m',
       `删分支备份(§9b):分支 ${branch} 尖 ${sha},由 branch-delete-with-backup.mjs 在删除前打标保活;` +
         `否则分支一删尖端 commit 即悬空,触发丢 commit 防护门。非业务内容。`,
     ])
@@ -125,7 +187,9 @@ export function run(argv) {
       console.log(`✅ 备份已存在(幂等):${tagName} → ${sha.slice(0, 12)}`)
     } else {
       console.error(
-        `❌ 备份 tag 打不上(${String(e?.stderr ?? e?.message ?? e).split('\n')[0].slice(0, 160)})⇒ 拒删分支 ${branch}。` +
+        `❌ 备份 tag 打不上(${String(e?.stderr ?? e?.message ?? e)
+          .split('\n')[0]
+          .slice(0, 160)})⇒ 拒删分支 ${branch}。` +
           `分支原样保留,先修对象库/refs 再重跑;绝不带着"没备份"往下删。`,
       )
       return 1
@@ -135,6 +199,8 @@ export function run(argv) {
   // ③ 备份在位才允许删。
   try {
     git(['branch', force ? '-D' : '-d', branch])
+    // 删除成功即留痕(顺序不可换:先删后记,记录的是既成事实;记失败也只报警不回溯删除)
+    recordBranchDeletion({ branch, sha, tag: tagName, force })
     console.log(`✅ 已删除分支:${branch}(备份 tag ${tagName} 在,尖端 commit 仍可达)`)
     return 0
   } catch (e) {
@@ -160,5 +226,10 @@ if (isDirectRun) {
 }
 
 /** §22c:镜像测试直接 import 判据/构造函数,不得复制一份实现。 */
-export const __test__ = { sanitizeBranchForTag, buildBackupTagName }
+export const __test__ = {
+  sanitizeBranchForTag,
+  buildBackupTagName,
+  recordBranchDeletion,
+  BRANCH_DELETE_LEDGER,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
