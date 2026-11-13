@@ -2227,6 +2227,9 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-13**
+- 🐞 修正:合并后重生成 knip-taro-entries + 补 sag2 镜像承载键(搬运 30 枚,基准侧查无 130 枚未代拟) (657c779919)
+
+**2026-11-13**
 - 🔧 その他:结清批次31 共5张(F-254/257/258/264/265) (944031157f)
 - 🐞 修正:结清 F-254 提及路径闸 + F-257 对公金额校验 + F-258 快照脏重试 + F-264 重建原子切换 + F-265 改动集有界 (e9a9ab4fc9)
 - 🔧 その他:结清批次30 共5张(F-235/237/239/240/243) (2b4d1f0622)
@@ -2582,9 +2585,6 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 **2026-11-13**
 - 🔧 その他:并发会话本地改动落盘(web/api/ai-service/miniapp/mobile-rn/docs/notice-log 等) (7c9a379d40)
-
-**2026-11-13**
-- 📚 ドキュメント:钩子自动维护 Recent updates 派生产物 (891769ad2e)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
