@@ -1939,48 +1939,55 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   }
 
   // POST /atomic-checkpoint — 创建原子快照
-  server.post('/atomic-checkpoint', async (request, reply) => {
-    await requireAuth(request, reply)
-    if (!request.userId) return
-    const parsed = z
-      .object({
-        workspacePath: z.string().min(1),
-        description: z.string().max(500).default('手动快照'),
-      })
-      .safeParse(request.body)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    if (!(await isAllowedWorkspace(request, reply, parsed.data.workspacePath, 'atomic.checkpoint')))
-      return
-    try {
-      const result = await createAtomicCheckpoint(parsed.data.workspacePath, {
-        description: parsed.data.description,
-        tool: 'http',
-      })
-      // 写链成功 ⇒ 别的设备上的同一工作区也应立刻知道"有一个可用检查点"
-      emitCheckpointAvailability(request, {
-        workspacePath: parsed.data.workspacePath,
-        state: 'available',
-        checkpointId: result.meta.id,
-      })
-      return reply.send(
-        success({
-          id: result.meta.id,
-          files: result.meta.files.length,
-          skipped: result.meta.skipped.length,
-        }),
+  // F-554:单次快照最多复制 3000 个文件,必须限流,避免反复调用把工作区磁盘写满。
+  server.post(
+    '/atomic-checkpoint',
+    { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      await requireAuth(request, reply)
+      if (!request.userId) return
+      const parsed = z
+        .object({
+          workspacePath: z.string().min(1),
+          description: z.string().max(500).default('手动快照'),
+        })
+        .safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      if (
+        !(await isAllowedWorkspace(request, reply, parsed.data.workspacePath, 'atomic.checkpoint'))
       )
-    } catch (e) {
-      // 写链失败同样要上报"不可用" —— 否则另一端继续按"可用"行事(D163 的三态纪律)
-      emitCheckpointAvailability(request, {
-        workspacePath: parsed.data.workspacePath,
-        state: 'unavailable',
-        reason: (e as Error).message,
-      })
-      return reply.status(500).send(error(500, (e as Error).message))
-    }
-  })
+        return
+      try {
+        const result = await createAtomicCheckpoint(parsed.data.workspacePath, {
+          description: parsed.data.description,
+          tool: 'http',
+        })
+        // 写链成功 ⇒ 别的设备上的同一工作区也应立刻知道"有一个可用检查点"
+        emitCheckpointAvailability(request, {
+          workspacePath: parsed.data.workspacePath,
+          state: 'available',
+          checkpointId: result.meta.id,
+        })
+        return reply.send(
+          success({
+            id: result.meta.id,
+            files: result.meta.files.length,
+            skipped: result.meta.skipped.length,
+          }),
+        )
+      } catch (e) {
+        // 写链失败同样要上报"不可用" —— 否则另一端继续按"可用"行事(D163 的三态纪律)
+        emitCheckpointAvailability(request, {
+          workspacePath: parsed.data.workspacePath,
+          state: 'unavailable',
+          reason: (e as Error).message,
+        })
+        return reply.status(500).send(error(500, (e as Error).message))
+      }
+    },
+  )
 
   // GET /atomic-checkpoints — 快照列表(仅元信息)
   server.get('/atomic-checkpoints', async (request, reply) => {

@@ -106,6 +106,8 @@ import {
 import { deriveModelCapabilities } from './v1-shared.js'
 import { isUuidString } from '../utils/uuid.js'
 import { FILE_UPLOAD_BODY_LIMIT } from '../config/body-limits.js'
+// F-538:relay 完成链路写会话历史(此前写入口全仓无调用 ⇒ 会话 API 恒空)
+import { recordRelayConversationTurnSafe } from '../services/relay-conversation-service.js'
 
 /** 鉴权后注入 request 的 API Key 上下文(与 AuthenticatedApiKey 结构一致) */
 interface ApiKeyContext {
@@ -1117,7 +1119,26 @@ async function streamChatCompletion(
         httpStatus: upstreamHttpStatus ?? undefined,
         ttftMs: ttft ? ttft.latencyMs : undefined,
         preDeducted: opts.preDeducted ?? null,
-      }).catch(() => {})
+      })
+        .then((call) => {
+          // F-538:流式完成链路接会话历史写入口(幂等键 = llm_call_logs.id)。
+          // 零产出/上游错误不落会话;写入失败只告警,不改变已完成的响应。
+          if (status === 'error' || !call.logId) return
+          recordRelayConversationTurnSafe({
+            userId: opts.userId!,
+            apiKeyId: opts.apiKeyId!,
+            model,
+            promptText: opts.promptText ?? '',
+            responseText,
+            logId: call.logId,
+            promptTokens,
+            completionTokens,
+            totalTokens,
+            costCents: call.costCents,
+            latencyMs: latency.latencyMs,
+          })
+        })
+        .catch(() => {})
     }
   }
 }
@@ -2241,12 +2262,29 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           httpStatus: resp.status,
           preDeducted: preDeduction,
         })
-          .then((call) =>
+          .then((call) => {
+            // F-538:非流式完成链路接会话历史写入口(幂等键 = llm_call_logs.id)。
+            // 写入失败只告警;不得占用/改变本已成功响应的返回路径。
+            if (call.logId) {
+              recordRelayConversationTurnSafe({
+                userId: apiKey.userId,
+                apiKeyId: apiKey.id,
+                model,
+                promptText,
+                responseText: data.content ?? '',
+                logId: call.logId,
+                promptTokens: safePrompt,
+                completionTokens: safeCompletion,
+                totalTokens: safeTotal,
+                costCents: call.costCents,
+                latencyMs: latency.latencyMs,
+              })
+            }
             // F-178:非流式渠道路径同样回写用量;非渠道路径 usedChannel 为空,跳过
-            usedChannel
+            return usedChannel
               ? recordUsage(usedChannel.keyPoolId, safeTotal, call.costCents, false)
-              : undefined,
-          )
+              : undefined
+          })
           .catch((e) => {
             console.error('[v1/chat] recordCall FAIL', e?.message || e)
           })
