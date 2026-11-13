@@ -28,6 +28,11 @@ export interface AnthropicTextBlock {
   text: string
 }
 
+export interface AnthropicThinkingBlock {
+  type: 'thinking'
+  thinking: string
+}
+
 export interface AnthropicToolUseBlock {
   type: 'tool_use'
   id: string
@@ -124,6 +129,56 @@ export interface OpenAIChatRequest {
   metadata?: Record<string, unknown>
 }
 
+/**
+ * 上游 usage(OpenAI 兼容 + Anthropic prompt cache 字段)。
+ * F-726:流式末帧的 usage 是唯一权威口径,cache 字段缺失时才按 estimate 计。
+ */
+export interface OpenAIUsage {
+  prompt_tokens?: number
+  completion_tokens?: number
+  total_tokens?: number
+  prompt_tokens_details?: { cached_tokens?: number }
+  cache_read_input_tokens?: number
+  cache_creation_input_tokens?: number
+}
+
+/** F-726:流式累计的上游 usage 真值;null = 上游没给,由调用方估算兜底 */
+export interface UsageTotals {
+  inputTokens: number | null
+  outputTokens: number | null
+  cacheReadInputTokens: number
+  cacheCreationInputTokens: number
+}
+
+export function createUsageTotals(): UsageTotals {
+  return {
+    inputTokens: null,
+    outputTokens: null,
+    cacheReadInputTokens: 0,
+    cacheCreationInputTokens: 0,
+  }
+}
+
+/** 把一帧 usage 并入累计值(后到的真值覆盖先到的;不会把已有真值降级成 0) */
+export function mergeOpenAIUsage(
+  totals: UsageTotals,
+  usage: OpenAIUsage | null | undefined,
+): void {
+  if (!usage) return
+  if (typeof usage.prompt_tokens === 'number') {
+    totals.inputTokens = Math.max(0, Math.floor(usage.prompt_tokens))
+  }
+  if (typeof usage.completion_tokens === 'number') {
+    totals.outputTokens = Math.max(0, Math.floor(usage.completion_tokens))
+  }
+  const cached = usage.prompt_tokens_details?.cached_tokens ?? 0
+  const cacheRead = Math.max(cached, usage.cache_read_input_tokens ?? 0)
+  if (cacheRead > 0) totals.cacheReadInputTokens = Math.max(0, Math.floor(cacheRead))
+  if (typeof usage.cache_creation_input_tokens === 'number') {
+    totals.cacheCreationInputTokens = Math.max(0, Math.floor(usage.cache_creation_input_tokens))
+  }
+}
+
 export interface OpenAIChatResponse {
   id: string
   object?: string
@@ -142,11 +197,7 @@ export interface OpenAIChatResponse {
     }
     finish_reason: string
   }>
-  usage?: {
-    prompt_tokens?: number
-    completion_tokens?: number
-    total_tokens?: number
-  }
+  usage?: OpenAIUsage
 }
 
 export interface OpenAIChatChunk {
@@ -159,6 +210,8 @@ export interface OpenAIChatChunk {
     delta: {
       role?: string
       content?: string | null
+      /** 上游思维链增量(非标准 OpenAI 字段,导流模型常见) */
+      reasoning_content?: string | null
       tool_calls?: Array<{
         index: number
         id?: string
@@ -168,11 +221,7 @@ export interface OpenAIChatChunk {
     }
     finish_reason: string | null
   }>
-  usage?: {
-    prompt_tokens?: number
-    completion_tokens?: number
-    total_tokens?: number
-  }
+  usage?: OpenAIUsage
 }
 
 // =============================================================================
@@ -190,19 +239,26 @@ export type AnthropicSSEEvent =
         content: []
         stop_reason: null
         stop_sequence: null
-        usage: { input_tokens: number; output_tokens: number }
+        usage: {
+          input_tokens: number
+          output_tokens: number
+          cache_read_input_tokens?: number
+          cache_creation_input_tokens?: number
+        }
       }
     }
   | {
       type: 'content_block_start'
       index: number
-      content_block: AnthropicTextBlock | AnthropicToolUseBlock
+      content_block: AnthropicTextBlock | AnthropicToolUseBlock | AnthropicThinkingBlock
     }
   | {
       type: 'content_block_delta'
       index: number
       delta:
-        { type: 'text_delta'; text: string } | { type: 'input_json_delta'; partial_json: string }
+        | { type: 'text_delta'; text: string }
+        | { type: 'input_json_delta'; partial_json: string }
+        | { type: 'thinking_delta'; thinking: string }
     }
   | { type: 'content_block_stop'; index: number }
   | {
@@ -464,6 +520,10 @@ export interface StreamState {
   currentToolUseName: string
   /** 文本块当前是否打开 */
   textBlockOpen: boolean
+  /** F-726:thinking block 当前是否打开(thinking_delta 用) */
+  thinkingBlockOpen: boolean
+  /** F-726:累计的上游 usage 真值(含 cache 字段);缺失时调用方按字符估算 */
+  usage: UsageTotals
   /** F-307:按 tool_calls[].index 分开维护各自独立的 tool_use block */
   toolBlocks: Map<number, ToolBlockState>
   /** F-295:本流是否已按上游 finish_reason 收尾(路由据此区分"真没发"的补尾) */
@@ -485,6 +545,8 @@ export function createStreamState(model: string): StreamState {
     currentToolUseId: '',
     currentToolUseName: '',
     textBlockOpen: false,
+    thinkingBlockOpen: false,
+    usage: createUsageTotals(),
     toolBlocks: new Map(),
     finished: false,
   }
@@ -508,11 +570,29 @@ export function openAIStreamChunkToAnthropicEvents(
   state: StreamState,
 ): AnthropicSSEEvent[] {
   const events: AnthropicSSEEvent[] = []
+  // F-726:usage 常在无 choices 的末尾帧单独到达,必须先并入状态再决定是否提前 return,
+  // 否则真值永远进不了计费,只能按字符估算。
+  mergeOpenAIUsage(state.usage, chunk.usage)
   const choice = chunk.choices?.[0]
   if (!choice) return events
 
   // 首次:message_start
   if (!state.messageStarted) {
+    const startUsage: {
+      input_tokens: number
+      output_tokens: number
+      cache_read_input_tokens?: number
+      cache_creation_input_tokens?: number
+    } = {
+      input_tokens: state.usage.inputTokens ?? 0,
+      output_tokens: 0,
+    }
+    if (state.usage.cacheReadInputTokens > 0) {
+      startUsage.cache_read_input_tokens = state.usage.cacheReadInputTokens
+    }
+    if (state.usage.cacheCreationInputTokens > 0) {
+      startUsage.cache_creation_input_tokens = state.usage.cacheCreationInputTokens
+    }
     events.push({
       type: 'message_start',
       message: {
@@ -523,7 +603,7 @@ export function openAIStreamChunkToAnthropicEvents(
         content: [],
         stop_reason: null,
         stop_sequence: null,
-        usage: { input_tokens: chunk.usage?.prompt_tokens ?? 0, output_tokens: 0 },
+        usage: startUsage,
       },
     })
     state.messageStarted = true
@@ -531,8 +611,41 @@ export function openAIStreamChunkToAnthropicEvents(
 
   const delta = choice.delta
 
+  // F-726:思维链增量 → Anthropic thinking block(旧实现直接丢弃,输出内容与计费双失)
+  if (typeof delta.reasoning_content === 'string' && delta.reasoning_content.length > 0) {
+    if (!state.thinkingBlockOpen) {
+      // thinking 与文本/工具块互斥:先关闭已开启的文本块并让出 index
+      if (state.textBlockOpen) {
+        events.push({ type: 'content_block_stop', index: state.blockIndex })
+        state.blockIndex += 1
+        state.textBlockOpen = false
+        state.contentBlockStarted = false
+      }
+      events.push({
+        type: 'content_block_start',
+        index: state.blockIndex,
+        content_block: { type: 'thinking', thinking: '' },
+      })
+      state.thinkingBlockOpen = true
+      state.contentBlockStarted = true
+    }
+    events.push({
+      type: 'content_block_delta',
+      index: state.blockIndex,
+      delta: { type: 'thinking_delta', thinking: delta.reasoning_content },
+    })
+    state.outputChars += delta.reasoning_content.length
+  }
+
   // 文本内容
   if (typeof delta.content === 'string' && delta.content.length > 0) {
+    // thinking 块先收尾,文本另起一个 index
+    if (state.thinkingBlockOpen) {
+      events.push({ type: 'content_block_stop', index: state.blockIndex })
+      state.blockIndex += 1
+      state.thinkingBlockOpen = false
+      state.contentBlockStarted = false
+    }
     // 文本块与工具块互斥:先关闭所有已开启的 tool_use block
     const openTools = Array.from(state.toolBlocks.values()).filter((b) => b.started)
     if (openTools.length > 0) {
@@ -569,11 +682,12 @@ export function openAIStreamChunkToAnthropicEvents(
 
       let block = state.toolBlocks.get(toolKey)
       if (!block && hasIdentity) {
-        // 若有未关闭的文本块,先关闭并让出 index
+        // 若有未关闭的文本块/thinking 块,先关闭并让出 index
         if (state.contentBlockStarted && state.toolBlocks.size === 0) {
           events.push({ type: 'content_block_stop', index: state.blockIndex })
           state.blockIndex += 1
           state.textBlockOpen = false
+          state.thinkingBlockOpen = false
           state.contentBlockStarted = false
         }
         block = { blockIndex: state.blockIndex, started: false }
@@ -619,6 +733,11 @@ export function openAIStreamChunkToAnthropicEvents(
     }
     state.toolBlocks.clear()
     state.toolUseStarted = false
+    if (state.thinkingBlockOpen) {
+      events.push({ type: 'content_block_stop', index: state.blockIndex })
+      state.blockIndex += 1
+      state.thinkingBlockOpen = false
+    }
     if (state.textBlockOpen) {
       events.push({ type: 'content_block_stop', index: state.blockIndex })
       state.blockIndex += 1
@@ -632,12 +751,13 @@ export function openAIStreamChunkToAnthropicEvents(
       state.warn?.(`[anthropic-adapter] 未知 finish_reason=${JSON.stringify(choice.finish_reason)},已按 end_turn 兜底`)
     }
     const stopReason = mappedStopReason ?? 'end_turn'
-    // 估算 output_tokens(1 token ≈ 4 字符,与 v1-public 流式估算一致)
+    // F-726:上游给了 output_tokens 就用真值(含 tool_use/thinking),缺失才按字符估算
+    // (1 token ≈ 4 字符,与 v1-public 流式估算一致)
     const estimatedOutputTokens = Math.max(1, Math.ceil(state.outputChars / 4))
     events.push({
       type: 'message_delta',
       delta: { stop_reason: stopReason, stop_sequence: null },
-      usage: { output_tokens: estimatedOutputTokens },
+      usage: { output_tokens: state.usage.outputTokens ?? estimatedOutputTokens },
     })
     events.push({ type: 'message_stop' })
   }
@@ -706,6 +826,8 @@ export function parseUpstreamLineToOpenAIChunk(
       const json = JSON.parse(data) as unknown
       if (typeof json === 'string') return makeTextChunk(json, model, null)
       if (isRecord(json)) {
+        // F-726:usage 可能与内容同帧(末帧),也可能单独成帧,两种都要带出去。
+        const usage = readOpenAIUsage(json.usage)
         // F-295:ai-service 的 `event: done` 帧把上游结束原因放在 finishReason 里。
         // 旧实现没有这一支 ⇒ done 帧被丢弃 ⇒ 路由补 stop ⇒ 截断(length)/内容过滤
         // (content_filter)被洗成 end_turn。这里转成带 finish_reason 的收尾 chunk,
@@ -718,6 +840,7 @@ export function parseUpstreamLineToOpenAIChunk(
                 id: `chatcmpl-${Date.now()}`,
                 model,
                 choices: [{ index: 0, delta: {}, finish_reason: rawFinishReason }],
+                ...(usage ? { usage } : {}),
               }
             : null
         }
@@ -773,11 +896,21 @@ export function parseUpstreamLineToOpenAIChunk(
             ],
           }
         }
-        if (typeof json.content === 'string') return makeTextChunk(json.content, model, null)
-        if (typeof json.token === 'string') return makeTextChunk(json.token, model, null)
+        if (typeof json.content === 'string') return makeTextChunk(json.content, model, null, usage)
+        if (typeof json.token === 'string') return makeTextChunk(json.token, model, null, usage)
         const delta = json.delta as unknown
-        if (isRecord(delta) && typeof delta.content === 'string') {
-          return makeTextChunk(delta.content, model, null)
+        if (isRecord(delta)) {
+          if (typeof delta.content === 'string') {
+            return makeTextChunk(delta.content, model, null, usage)
+          }
+          // reasoning_content / reasoning:思维链增量,不能当 null 丢掉
+          const reasoning =
+            typeof delta.reasoning_content === 'string'
+              ? delta.reasoning_content
+              : typeof delta.reasoning === 'string'
+                ? delta.reasoning
+                : ''
+          if (reasoning) return makeReasoningChunk(reasoning, model, usage)
         }
         const choices = json.choices as unknown
         if (Array.isArray(choices) && choices.length > 0) {
@@ -786,7 +919,12 @@ export function parseUpstreamLineToOpenAIChunk(
             id: `chatcmpl-${Date.now()}`,
             model,
             choices: choices as OpenAIChatChunk['choices'],
+            ...(usage ? { usage } : {}),
           }
+        }
+        // F-726:纯 usage 帧(常见于末帧,choices 为空)——必须产出 chunk 供计费累计
+        if (usage) {
+          return { id: `chatcmpl-${Date.now()}`, model, choices: [], usage }
         }
       }
     } catch {
@@ -797,7 +935,56 @@ export function parseUpstreamLineToOpenAIChunk(
   return null
 }
 
-function makeTextChunk(text: string, model: string, finishReason: string | null): OpenAIChatChunk {
+/**
+ * F-726:从上游帧里读出 usage(只认数值;`'***'` 之类脱敏字符串视为缺失)。
+ * cache 兼容 OpenAI `prompt_tokens_details.cached_tokens` 与 Anthropic 两字段。
+ */
+function readOpenAIUsage(raw: unknown): OpenAIUsage | null {
+  if (!isRecord(raw)) return null
+  const num = (v: unknown): number | undefined =>
+    typeof v === 'number' && Number.isFinite(v) && v >= 0 ? Math.floor(v) : undefined
+  const usage: OpenAIUsage = {}
+  let found = false
+  const prompt = num(raw.prompt_tokens)
+  if (prompt !== undefined) {
+    usage.prompt_tokens = prompt
+    found = true
+  }
+  const completion = num(raw.completion_tokens)
+  if (completion !== undefined) {
+    usage.completion_tokens = completion
+    found = true
+  }
+  const total = num(raw.total_tokens)
+  if (total !== undefined) {
+    usage.total_tokens = total
+    found = true
+  }
+  const details = isRecord(raw.prompt_tokens_details) ? raw.prompt_tokens_details : null
+  const cached = details ? num(details.cached_tokens) : undefined
+  if (cached !== undefined) {
+    usage.prompt_tokens_details = { cached_tokens: cached }
+    found = true
+  }
+  const cacheRead = num(raw.cache_read_input_tokens)
+  if (cacheRead !== undefined) {
+    usage.cache_read_input_tokens = cacheRead
+    found = true
+  }
+  const cacheCreation = num(raw.cache_creation_input_tokens)
+  if (cacheCreation !== undefined) {
+    usage.cache_creation_input_tokens = cacheCreation
+    found = true
+  }
+  return found ? usage : null
+}
+
+function makeTextChunk(
+  text: string,
+  model: string,
+  finishReason: string | null,
+  usage?: OpenAIUsage | null,
+): OpenAIChatChunk {
   return {
     id: `chatcmpl-${Date.now()}`,
     model,
@@ -808,6 +995,26 @@ function makeTextChunk(text: string, model: string, finishReason: string | null)
         finish_reason: finishReason,
       },
     ],
+    ...(usage ? { usage } : {}),
+  }
+}
+
+function makeReasoningChunk(
+  reasoning: string,
+  model: string,
+  usage?: OpenAIUsage | null,
+): OpenAIChatChunk {
+  return {
+    id: `chatcmpl-${Date.now()}`,
+    model,
+    choices: [
+      {
+        index: 0,
+        delta: { reasoning_content: reasoning },
+        finish_reason: null,
+      },
+    ],
+    ...(usage ? { usage } : {}),
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
