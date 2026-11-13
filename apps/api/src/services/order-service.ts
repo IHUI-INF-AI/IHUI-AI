@@ -132,15 +132,15 @@ export async function completeOrder(
       // 竞态:另一并发回调刚把订单标记为 paid,重新查询走幂等路径
       const refetched = await findOrderByNo(orderNo, tx)
       if (refetched && refetched.status === 'paid') {
-        await rechargeIfTokenOrder(refetched)
+        await rechargeIfTokenOrder(refetched, tx)
         return { success: true, order: refetched }
       }
       return { success: false, reason: '订单状态不可完成' }
     }
     // B1: token 充值(幂等:rechargeToken 内部 unique 索引拦截重复回调)
-    await rechargeIfTokenOrder(updated)
+    await rechargeIfTokenOrder(updated, tx)
     // B4: 学费订单(orderType=9)自动入账(幂等:receiptNo=orderNo 查重)
-    await applyEduTuitionOrder(updated)
+    await applyEduTuitionOrder(updated, tx)
     // business_orders_total{type,status="paid"} / business_payments_total{channel,status="success"}:
     // 只在**真实发生的那一次** pending→paid 条件 UPDATE 之后计(上方 `!updated` 的并发竞态
     // 与下面 status 已是 paid 的幂等重放分支都不计)——与 completeOrderWithSaga 里
@@ -154,8 +154,8 @@ export async function completeOrder(
   }
   if (order.status === 'paid') {
     // 幂等重试:订单已支付,重新尝试 token 充值(unique 索引保证幂等)
-    await rechargeIfTokenOrder(order)
-    await applyEduTuitionOrder(order)
+    await rechargeIfTokenOrder(order, tx)
+    await applyEduTuitionOrder(order, tx)
     return { success: true, order }
   }
   return { success: false, reason: `订单状态(${order.status})不可完成` }
@@ -166,16 +166,16 @@ export async function completeOrder(
  * rechargeToken 内部 (related_order_no, op_type) unique 索引拦截重复回调(23505→返回当前余额)。
  * 失败时抛出,由调用方(支付回调)触发 paymentIdempotency.fail 释放锁让平台重试。
  */
-async function rechargeIfTokenOrder(order: Order): Promise<void> {
+async function rechargeIfTokenOrder(order: Order, tx?: DbTx): Promise<void> {
   // 2026-10-30 修:orderType=2 被两义共用 —— payment-queries 的 CreateOrderInput 注释写
   // 「2=token 充值」,而 vip.ts 下单同样传 orderType=2 且 productId=vipLevelId。
   // 原判据只看 orderType,于是「用微信/支付宝买 VIP」会走 rechargeToken(order.amount)
   // 白送等额余额,再叠加 activateOrderSubscription 发卡 ⇒ 付一次钱得两样东西。
   // 判据补 !productId:充值订单是用户自定义金额(productId 为空),VIP/套餐订单必有商品 id。
   if ((order.orderType === 2 || order.orderType === 3) && order.userId && !order.productId) {
-    await rechargeToken(order.userId, order.amount, order.orderNo, '充值')
+    await rechargeToken(order.userId, order.amount, order.orderNo, '充值', tx)
     // P2-20(2026-08-06):充值赠送接线 —— 主充值到账后再发放赠送 token
-    await creditTopupBonus(order)
+    await creditTopupBonus(order, tx)
   }
 }
 
@@ -189,14 +189,14 @@ async function rechargeIfTokenOrder(order: Order): Promise<void> {
  * 未命中赠送档位(actualCredit===实付)时返回 0 不产生流水。
  * @returns 实际赠送的 token 数量(分);无赠送或非 token 充值订单返回 0。
  */
-async function creditTopupBonus(order: Order): Promise<number> {
+async function creditTopupBonus(order: Order, tx?: DbTx): Promise<number> {
   // 2026-10-30:同样补 !productId —— 赠送只属于「自定义金额充值」,VIP 购买不是充值
   if (order.orderType !== 2 || !order.userId || order.productId) return 0
   const amountYuan = order.amount / 100
   const { actualCredit } = await calculateTopupBonus(amountYuan, order.paymentMethod ?? '')
   const bonusCents = Math.round((actualCredit - amountYuan) * 100)
   if (bonusCents <= 0) return 0
-  await rechargeToken(order.userId, bonusCents, `bonus:${order.orderNo}`, '充值赠送')
+  await rechargeToken(order.userId, bonusCents, `bonus:${order.orderNo}`, '充值赠送', tx)
   return bonusCents
 }
 
@@ -209,15 +209,16 @@ async function creditTopupBonus(order: Order): Promise<number> {
  * - 累加:edu_enrollment.paidAmount 条件 UPDATE(deleted_at is null),欠费=max(0,totalFee-paid) 自动收敛。
  * 失败抛出,由调用方(支付回调)触发 paymentIdempotency.fail 释放锁让平台重试。
  */
-async function applyEduTuitionOrder(order: Order): Promise<void> {
+async function applyEduTuitionOrder(order: Order, tx?: DbTx): Promise<void> {
   if (order.orderType !== 9 || !order.userId || !order.productId) return
-  const existing = await db
+  const q = tx ?? db
+  const existing = await q
     .select({ id: eduPaymentRecord.id })
     .from(eduPaymentRecord)
     .where(and(eq(eduPaymentRecord.receiptNo, order.orderNo), isNull(eduPaymentRecord.deletedAt)))
     .limit(1)
   if (existing.length > 0) return
-  const enrollment = await db
+  const enrollment = await q
     .select({
       id: eduEnrollment.id,
       studentId: eduEnrollment.studentId,
@@ -239,19 +240,23 @@ async function applyEduTuitionOrder(order: Order): Promise<void> {
   // (已缴翻倍、欠费变负,而账面一路绿)。现在判重交给数据库的
   // uq_edu_payment_receipt_no:撞号 = 已入账,直接返回,不再累加。
   try {
-    await recordPayment({
-      enrollmentId: enrollmentRow.id,
-      studentId: enrollmentRow.studentId,
-      classId: enrollmentRow.classId,
-      amount: amountYuan,
-      paymentDate: today,
-      paymentMethod: 'wechat',
-      status: 'paid',
-      receiptNo: order.orderNo,
-      remark: `在线支付-学费 ${order.orderNo}`,
-    })
+    await recordPayment(
+      {
+        enrollmentId: enrollmentRow.id,
+        studentId: enrollmentRow.studentId,
+        classId: enrollmentRow.classId,
+        amount: amountYuan,
+        paymentDate: today,
+        paymentMethod: 'wechat',
+        status: 'paid',
+        receiptNo: order.orderNo,
+        remark: `在线支付-学费 ${order.orderNo}`,
+      },
+      tx,
+    )
   } catch (err) {
-    if ((err as { code?: unknown })?.code === '23505') {
+    // 外层事务内 23505 已使事务中止,不能在本层吞掉(否则后续语句全失败),交由外层整体回滚后重试
+    if (!tx && (err as { code?: unknown })?.code === '23505') {
       logger.info('学费订单重复回调已被唯一索引拦下,不再入账', {
         orderNo: order.orderNo,
         enrollmentId: order.productId,

@@ -47,6 +47,20 @@ function updateChain(): { set: ReturnType<typeof vi.fn>; whereMock: ReturnType<t
   return { set, whereMock }
 }
 
+/** 把 drizzle sql`` 片段还原成可读 SQL 文本(F-369:用于断言原子累加表达式)。 */
+function sqlText(value: unknown): string {
+  const chunks = (value as { queryChunks?: unknown[] } | null)?.queryChunks
+  if (!Array.isArray(chunks)) return String(value)
+  return chunks
+    .map((chunk) => {
+      if (typeof chunk === 'number' || typeof chunk === 'string') return String(chunk)
+      const inner = (chunk as { value?: unknown }).value
+      if (Array.isArray(inner)) return inner.join('')
+      return typeof inner === 'string' ? inner : String(inner)
+    })
+    .join('')
+}
+
 /** 构建 db.insert 链:db.insert(table).values(rows).returning() */
 function insertChain(returnValue: unknown): { values: ReturnType<typeof vi.fn> } {
   const returning = vi.fn().mockResolvedValue(returnValue)
@@ -260,10 +274,12 @@ describe('api-subscription-service — API 订阅核心 service', () => {
       expect(result.tokenQuota).toBe(500000)
       // DB-03:余额必须在事务内锁定读取,不能用事务外快照
       expect(mockTxFor).toHaveBeenCalledWith('update')
-      // 验证 update 被调用(token_balance += 500000 → 501000)
-      expect(updateResult.set).toHaveBeenCalledWith(
-        expect.objectContaining({ tokenBalance: 501000 }),
+      // F-369:余额改成数据库侧原子累加表达式,不再写快照+quota 的绝对值
+      const setArg = updateResult.set.mock.calls[0]![0] as Record<string, unknown>
+      expect(sqlText(setArg.tokenBalance)).toBe(
+        'CASE WHEN token_balance = -1 THEN -1 ELSE token_balance + 500000 END',
       )
+      expect(setArg.tokenBalance).not.toBe(501000)
     })
 
     it('无 active Key → 自动创建默认 Key,token_balance = quota', async () => {
@@ -444,7 +460,11 @@ describe('api-subscription-service — API 订阅核心 service', () => {
 
       expect(result.success).toBe(true)
       expect(result.tokenQuota).toBe(8000)
-      expect(updateResult.set).toHaveBeenCalledWith(expect.objectContaining({ tokenBalance: 9000 }))
+      // F-369:原子累加表达式,参数即 quota(不再传快照 1000+8000=9000 的绝对值)
+      const setArg = updateResult.set.mock.calls[0]![0] as Record<string, unknown>
+      expect(sqlText(setArg.tokenBalance)).toBe(
+        'CASE WHEN token_balance = -1 THEN -1 ELSE token_balance + 8000 END',
+      )
     })
 
     // =========================================================================

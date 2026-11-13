@@ -47,7 +47,7 @@ export async function findPrivateLettersForAdmin(params: {
     .from(messagePrivateLetter)
     .leftJoin(users, eq(users.id, messagePrivateLetter.senderId))
     .leftJoin(sql`users u2`, eq(sql`u2.id`, messagePrivateLetter.receiverId))
-    .orderBy(desc(messagePrivateLetter.createdAt))
+    .orderBy(desc(messagePrivateLetter.createdAt), desc(messagePrivateLetter.id))
     .limit(pageSize)
     .offset(offset)
 

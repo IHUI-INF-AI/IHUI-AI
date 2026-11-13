@@ -29,6 +29,7 @@ import {
 import { requireAuth } from '../plugins/require-permission.js'
 import { requireStepUpForTwoFactorUser } from '../services/two-factor-step-up-store.js'
 import { success, error } from '../utils/response.js'
+import { bizDayKey } from '../utils/biz-day.js'
 import { db } from '../db/index.js'
 import { createOrder } from '../db/payment-queries.js'
 import {
@@ -937,7 +938,8 @@ const developerRoutes: FastifyPluginAsync = async (server) => {
       id: o.id,
       invoiceNo: o.orderNo,
       amount: o.amount / 100, // 分 → 元(前端 currencyFmt 直接格式化)
-      period: (o.paidAt ?? o.createdAt).toISOString().slice(0, 7),
+      // 账单月份按上海日归月(F-631):UTC 口径会把每月 1 日 00:00–08:00 的支付记到上月
+      period: bizDayKey(o.paidAt ?? o.createdAt).slice(0, 7),
       status: o.status === 'paid' ? 'paid' : o.status === 'pending' ? 'pending' : 'failed',
       createdAt: o.createdAt.toISOString(),
     }))

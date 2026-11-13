@@ -11,6 +11,33 @@ import { createNotification } from '../db/notification-queries.js'
 import { flattenUntrustedText, sanitizeAlertMessage } from '../utils/alert-text.js'
 
 /**
+ * 进程内已发信标记。
+ * notifications 表无幂等键(也没有去重表),故只能覆盖"同进程内同一 job 重投";
+ * 跨进程重投的站内信/邮件去重属 F-512(需确定性 jobId + 唯一约束),此处不越界建表。
+ */
+const sentEmailKeys = new Set<string>()
+const SENT_EMAIL_KEYS_MAX = 5000
+
+/** 幂等键:优先 job.id(BullMQ 重试时保持不变),缺省时退回业务三元组。 */
+function emailDedupeKey(
+  jobId: string | undefined,
+  userId: string,
+  type: string,
+  title: string,
+): string {
+  return jobId ? `job:${jobId}` : `${userId}:${type}:${title}`
+}
+
+/** 记录已发信;超上限时按插入顺序淘汰最旧一条,防止长期运行无界增长。 */
+function rememberSentEmail(key: string): void {
+  if (sentEmailKeys.size >= SENT_EMAIL_KEYS_MAX) {
+    const oldest = sentEmailKeys.values().next().value
+    if (oldest !== undefined) sentEmailKeys.delete(oldest)
+  }
+  sentEmailKeys.add(key)
+}
+
+/**
  * Notification Worker — 通知处理队列消费者。
  *
  * 职责:
@@ -37,6 +64,18 @@ export function startNotificationWorker(server: FastifyInstance): Worker {
         /* 推送失败不阻塞 */
       }
       if (email) {
+        // F-511:出口失败不再吞掉 —— 发送失败/抛错 ⇒ 结构化 error + 抛出,交 BullMQ 记 failed 并重试。
+        const dedupeKey = emailDedupeKey(job.id, userId, type, title)
+        if (sentEmailKeys.has(dedupeKey)) {
+          // 同一 job 重投(重试/重放)且上次已发成功 ⇒ 跳过,避免重复打扰收件人
+          server.log.info(
+            { jobId: job.id, notificationId: notification.id, userId, channel: 'email' },
+            'notification email already sent, skip',
+          )
+          server.log.info({ jobId: job.id, userId, type, title }, 'notification job processed')
+          return { notificationId: notification.id }
+        }
+        let result: Awaited<ReturnType<typeof sendEmail>>
         try {
           // 「智汇通报」品牌模板:预算告警走信号红工程框,其余走通用通知版式
           const alertSeverity =
@@ -73,15 +112,50 @@ export function startNotificationWorker(server: FastifyInstance): Worker {
                   userName: flattenUntrustedText(userName ?? ''),
                   content: mailContent,
                 })
-          await sendEmail({
+          result = await sendEmail({
             to: email,
             subject: rendered.subject,
             html: rendered.html,
             text: rendered.text,
           })
         } catch (e) {
-          server.log.warn({ err: e, jobId: job.id }, 'notification email failed')
+          const reason = (e as Error)?.message ?? String(e)
+          server.log.error(
+            {
+              err: e,
+              channel: 'email',
+              notificationId: notification.id,
+              userId,
+              jobId: job.id,
+              reason,
+            },
+            'notification email failed',
+          )
+          throw new Error(
+            `notification email failed: channel=email notificationId=${notification.id} ` +
+              `jobId=${job.id ?? 'unknown'} reason=${reason}`,
+          )
         }
+        // stub = 该收件人路由无可用通道(配置缺失),重试不会变好;与 F-36/F-91 同口径不重试。
+        if (!result.sent && !result.stub) {
+          const reason = result.error ?? 'sendEmail returned sent=false'
+          server.log.error(
+            {
+              channel: 'email',
+              notificationId: notification.id,
+              userId,
+              jobId: job.id,
+              provider: result.provider,
+              reason,
+            },
+            'notification email failed',
+          )
+          throw new Error(
+            `notification email failed: channel=email notificationId=${notification.id} ` +
+              `jobId=${job.id ?? 'unknown'} reason=${reason}`,
+          )
+        }
+        if (result.sent) rememberSentEmail(dedupeKey)
       }
       server.log.info({ jobId: job.id, userId, type, title }, 'notification job processed')
       return { notificationId: notification.id }

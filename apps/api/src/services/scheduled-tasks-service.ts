@@ -12,46 +12,94 @@
  *   档关环境变量 `EDU_ATTENDANCE_ABSENT_DISABLED=1`)
  */
 
-import { lt, eq, and } from 'drizzle-orm'
+import { lt, eq, and, inArray } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { agents, agentHeatStats, oauthSessions } from '@ihui/database'
+import { logger } from '../utils/logger.js'
 import { runAbsentAttendance, type AbsentRunResult } from './edu-attendance-absent-job.js'
 
 const INACTIVE_THRESHOLD_DAYS = 180
 const HEAT_RETENTION_DAYS = 90
+/** 单批删除行数上限:积压到百万级时也不让一条 DELETE 物化全部行(F-352)。 */
+const CLEANUP_BATCH_SIZE = 5000
+/** 单轮最多批数:防极端积压把 scheduler worker 一直占住。 */
+const CLEANUP_MAX_BATCHES = 1000
 
 export async function markInactiveAgents(): Promise<{ scanned: number; updated: number }> {
   const cutoff = new Date(Date.now() - INACTIVE_THRESHOLD_DAYS * 24 * 60 * 60 * 1000)
-  const oldAgents = await db
-    .select({ agentId: agents.agentId })
-    .from(agents)
+  // 单条集合 UPDATE,条件内复核 status:不再全量 SELECT + 逐行回写(N+1)。
+  // returning 只取主键用于计数,不回读整行。
+  const rows = await db
+    .update(agents)
+    .set({ status: 'inactive', updatedAt: new Date() })
     .where(and(eq(agents.status, 'published'), lt(agents.updatedAt, cutoff)))
+    .returning({ agentId: agents.agentId })
 
-  let updated = 0
-  for (const a of oldAgents) {
-    await db
-      .update(agents)
-      .set({ status: 'inactive', updatedAt: new Date() })
-      .where(eq(agents.agentId, a.agentId))
-    updated++
+  return { scanned: rows.length, updated: rows.length }
+}
+
+/**
+ * 分批删除:每批最多 CLEANUP_BATCH_SIZE 行,不足即止,最多 CLEANUP_MAX_BATCHES 批。
+ * 失败先记 logger.error(任务名 + 本轮已删数)再抛出,与原实现失败语义一致。
+ */
+async function deleteExpiredInBatches(
+  jobName: string,
+  deleteBatch: () => Promise<number>,
+): Promise<number> {
+  let deleted = 0
+  try {
+    for (let batch = 0; batch < CLEANUP_MAX_BATCHES; batch++) {
+      const rows = await deleteBatch()
+      deleted += rows
+      if (rows < CLEANUP_BATCH_SIZE) break
+    }
+  } catch (error) {
+    logger.error(`${jobName} 分批清理失败`, { jobName, deleted, error })
+    throw error
   }
-
-  return { scanned: oldAgents.length, updated }
+  return deleted
 }
 
 export async function cleanupOldHeatStats(): Promise<{ deleted: number }> {
   const cutoff = new Date(Date.now() - HEAT_RETENTION_DAYS * 24 * 60 * 60 * 1000)
-  const deleted = await db
-    .delete(agentHeatStats)
-    .where(lt(agentHeatStats.createdAt, cutoff))
-    .returning()
-  return { deleted: deleted.length }
+  const deleted = await deleteExpiredInBatches('cleanup-old-heat', async () => {
+    const rows = await db
+      .delete(agentHeatStats)
+      .where(
+        inArray(
+          agentHeatStats.id,
+          db
+            .select({ id: agentHeatStats.id })
+            .from(agentHeatStats)
+            .where(lt(agentHeatStats.createdAt, cutoff))
+            .limit(CLEANUP_BATCH_SIZE),
+        ),
+      )
+      .returning({ id: agentHeatStats.id })
+    return rows.length
+  })
+  return { deleted }
 }
 
 export async function cleanupOauthSessions(): Promise<{ deleted: number }> {
   const now = new Date()
-  const deleted = await db.delete(oauthSessions).where(lt(oauthSessions.expiresAt, now)).returning()
-  return { deleted: deleted.length }
+  const deleted = await deleteExpiredInBatches('oauth-session-cleanup', async () => {
+    const rows = await db
+      .delete(oauthSessions)
+      .where(
+        inArray(
+          oauthSessions.id,
+          db
+            .select({ id: oauthSessions.id })
+            .from(oauthSessions)
+            .where(lt(oauthSessions.expiresAt, now))
+            .limit(CLEANUP_BATCH_SIZE),
+        ),
+      )
+      .returning({ id: oauthSessions.id })
+    return rows.length
+  })
+  return { deleted }
 }
 
 /**

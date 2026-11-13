@@ -74,7 +74,7 @@ export async function findWorkflows(opts: {
       .select()
       .from(workflows)
       .where(ownerCond)
-      .orderBy(desc(workflows.updatedAt))
+      .orderBy(desc(workflows.updatedAt), desc(workflows.id))
       .limit(opts.pageSize)
       .offset((opts.page - 1) * opts.pageSize),
     db.select({ count: sql<number>`COUNT(*)` }).from(workflows).where(ownerCond),
@@ -177,7 +177,7 @@ export async function findInstances(opts: {
       .select()
       .from(workflowInstances)
       .where(where)
-      .orderBy(desc(workflowInstances.createdAt))
+      .orderBy(desc(workflowInstances.createdAt), desc(workflowInstances.id))
       .limit(opts.pageSize)
       .offset((opts.page - 1) * opts.pageSize),
     db
@@ -339,7 +339,7 @@ export async function findLogs(
       .select()
       .from(workflowLogs)
       .where(where)
-      .orderBy(desc(workflowLogs.createdAt))
+      .orderBy(desc(workflowLogs.createdAt), desc(workflowLogs.id))
       .limit(opts.pageSize)
       .offset((opts.page - 1) * opts.pageSize),
     db

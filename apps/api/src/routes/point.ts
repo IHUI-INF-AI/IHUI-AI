@@ -28,6 +28,7 @@ import {
   fallbackPoints,
 } from '../db/point-queries.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
+import { isAppError } from '../errors/AppError.js'
 
 // 通用响应 schema(data 透传)
 const responseSchema = {
@@ -397,8 +398,16 @@ export const adminPointRoutes: FastifyPluginAsync = async (server) => {
       }
       const existing = await findPointById(parsed.data.pointId)
       if (!existing) return reply.status(404).send(error(404, '积分规则不存在'))
-      const result = await updatePointRelations(parsed.data.pointId, parsed.data.channelIds)
-      return reply.send(success(result))
+      try {
+        const result = await updatePointRelations(parsed.data.pointId, parsed.data.channelIds)
+        return reply.send(success(result))
+      } catch (e) {
+        // F-353:渠道校验失败按业务错误回 400,不落到全局 500
+        if (isAppError(e)) {
+          return reply.status(e.statusCode).send(error(e.statusCode, e.message, e.errorCode))
+        }
+        throw e
+      }
     },
   )
 

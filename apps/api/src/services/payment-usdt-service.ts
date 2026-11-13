@@ -99,6 +99,21 @@ const DETECT_MAX_PAGES = 8
 const VERIFY_ERC20_PAGE_SIZE = 100
 const VERIFY_ERC20_MAX_PAGES = 10
 
+/**
+ * F-508:链上 RPC 单次请求超时(毫秒)。
+ * 原先裸 fetch 无 deadline,一次上游抖动就能让分钟级 poll 挂数小时,
+ * 独占 concurrency=1 的 worker。12s 覆盖正常响应,异常时快速失败进入下一轮。
+ */
+const RPC_TIMEOUT_MS = 12_000
+
+/**
+ * F-508:链上 RPC 的唯一出口。signal 在此统一注入,调用方无法漏加;
+ * 超时抛 TimeoutError,按既有错误路径处理(轮询记失败、订单保持 pending 等下轮重试)。
+ */
+async function rpcFetch(url: string, init?: RequestInit): Promise<Response> {
+  return fetch(url, { ...init, signal: AbortSignal.timeout(RPC_TIMEOUT_MS) })
+}
+
 // =============================================================================
 // 充值地址格式校验
 // =============================================================================
@@ -558,6 +573,9 @@ export async function checkUsdtPaymentStatus(orderId: string): Promise<UsdtPayme
       detection = await checkErc20Payment(order.address, expectedAmount, sinceTimestamp)
     }
   } catch (err) {
+    // F-508:RPC 超时不是「链上没付款」,上抛给轮询统计 failed,不能被当作本轮成功;
+    // 订单本身不落 expired,下一轮仍会重查。其它查询失败沿用既有路径(保持 pending)。
+    if (isRpcTimeoutError(err)) throw err
     // SDB-44:链上检测失败/不可用 ≠ 没付款。这里不能落到下面的 expired 分支,
     // 否则一次 API 抖动就把待收款订单写成过期;保留 pending 等下一轮重试。
     console.error(
@@ -623,7 +641,7 @@ async function checkTrc20Payment(
     if (fingerprint) params.set('fingerprint', fingerprint)
     const url = `https://api.trongrid.io/v1/accounts/${address}/transactions/trc20?${params}`
 
-    const response = await fetch(url, { headers })
+    const response = await rpcFetch(url, { headers })
     if (!response.ok) {
       throw new Error(`TronGrid API 返回 ${response.status}`)
     }
@@ -689,7 +707,7 @@ async function checkErc20Payment(
     if (apiKey) params.set('apikey', apiKey)
     const url = `https://api.etherscan.io/api?${params}`
 
-    const response = await fetch(url)
+    const response = await rpcFetch(url)
     if (!response.ok) {
       throw new Error(`Etherscan API 返回 ${response.status}`)
     }
@@ -768,7 +786,7 @@ async function pickUnclaimedCandidate(
  */
 async function fetchTrc20LatestBlock(): Promise<number> {
   const url = 'https://api.trongrid.io/wallet/getnowblock'
-  const response = await fetch(url)
+  const response = await rpcFetch(url)
   if (!response.ok) throw new Error(`TronGrid getnowblock 返回 ${response.status}`)
   const data = (await response.json()) as {
     block_header?: { raw_data?: { number?: number } }
@@ -783,7 +801,7 @@ async function fetchErc20LatestBlock(): Promise<number> {
   const apiKey = process.env.ETHERSCAN_API_KEY
   let url = 'https://api.etherscan.io/api?module=proxy&action=eth_blockNumber'
   if (apiKey) url += `&apikey=${apiKey}`
-  const response = await fetch(url)
+  const response = await rpcFetch(url)
   if (!response.ok) throw new Error(`Etherscan eth_blockNumber 返回 ${response.status}`)
   const data = (await response.json()) as { result?: string }
   if (!data.result) throw new Error('Etherscan eth_blockNumber 响应异常')
@@ -792,6 +810,13 @@ async function fetchErc20LatestBlock(): Promise<number> {
 
 function errReason(err: unknown): string {
   return err instanceof Error ? err.message : String(err)
+}
+
+/** F-508:链上 RPC 超时/中止错误(AbortSignal.timeout 抛出的 DOMException) */
+function isRpcTimeoutError(err: unknown): boolean {
+  if (typeof err !== 'object' || err === null) return false
+  const name = (err as { name?: string }).name
+  return name === 'TimeoutError' || name === 'AbortError'
 }
 
 /**
@@ -832,7 +857,7 @@ async function verifyTrc20OnChain(
   const headers: Record<string, string> = {}
   if (apiKey) headers['TRON-PRO-API-KEY'] = apiKey
 
-  const response = await fetch(url, { headers })
+  const response = await rpcFetch(url, { headers })
   if (!response.ok) throw new Error(`TronGrid 返回 ${response.status}`)
   const data = (await response.json()) as TronGridResponse
   if (!data.success || !data.data) throw new Error('TronGrid 响应异常')
@@ -927,7 +952,7 @@ async function verifyErc20OnChain(
     if (apiKey) params.set('apikey', apiKey)
     const url = `https://api.etherscan.io/api?${params}`
 
-    const response = await fetch(url)
+    const response = await rpcFetch(url)
     if (!response.ok) throw new Error(`Etherscan 返回 ${response.status}`)
     const data = (await response.json()) as EtherscanResponse
 
@@ -1267,6 +1292,7 @@ export async function pollPendingUsdtPayments(batchSize = 50): Promise<PollResul
   let checked = 0
   let confirmed = 0
   let failed = 0
+  let rpcTimeouts = 0
 
   for (const { orderId } of validPending) {
     checked++
@@ -1279,12 +1305,19 @@ export async function pollPendingUsdtPayments(batchSize = 50): Promise<PollResul
         if (r.status === 'confirmed') confirmed++
       }
     } catch (err) {
-      console.error(
+      if (isRpcTimeoutError(err)) rpcTimeouts++
+      console.warn(
         `[usdt-payment] 轮询订单 ${orderId} 失败:`,
         err instanceof Error ? err.message : String(err),
       )
       failed++
     }
+  }
+
+  // F-508:本轮出现链上 RPC 超时 ⇒ 抛错让 BullMQ 记 failed(下轮重试),
+  // 不能返回统计被当作 completed,否则上游挂起时监控一直显示成功。
+  if (rpcTimeouts > 0) {
+    throw new Error(`USDT 轮询本轮 ${rpcTimeouts} 笔订单链上 RPC 超时,等待下一轮重试`)
   }
 
   return { checked, confirmed, failed }

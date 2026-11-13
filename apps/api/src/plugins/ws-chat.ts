@@ -60,7 +60,16 @@ const wsChatMessageSchema = z
   })
   .refine((v) => Object.keys(v).length <= 20, { message: '字段过多' })
 
+/**
+ * F-461:消息收发时刷新 ws-auto-recovery 的活动时间(内存时间戳,轻量、不落库)。
+ * `?.()` 兼容既有测试里只 mock 了 setFastify/registerPlugin 的 manager。
+ */
+const touchActivity = (): void => {
+  getWsAutoRecoveryManager().recordActivity?.()
+}
+
 const send = (socket: WebSocket, obj: unknown): void => {
+  touchActivity()
   try {
     socket.send(JSON.stringify(obj))
   } catch {
@@ -769,6 +778,7 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
         let inboundChain: Promise<void> = Promise.resolve()
 
         socket.on('message', (data: Buffer) => {
+          touchActivity()
           const raw = data.toString()
           if (raw === 'ping') {
             socket.send('pong')
