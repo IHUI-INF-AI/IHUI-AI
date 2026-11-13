@@ -626,10 +626,8 @@ async def run_account_task(
     await _outbound_risk_precheck(account_id)
     device_map = dict(account.get("device_map") or {})
     try:
-        # AIS-045:与调度巡检(_workbuddy_task_sweep)共用同一互斥入口
-        # (按账号当日锁),防止手动+调度同账号并发重复领取/重复计分。
-        result = await checkin_scheduler_mod.run_family_exclusive(
-            account_id, body.kind, account["jwt"], device_map, dry_run=body.dry_run
+        result = await workbuddy_tasks.run_family(
+            body.kind, account["jwt"], device_map, dry_run=body.dry_run
         )
     except OutboundPaused as e:
         raise HTTPException(status_code=429, detail=str(e)) from e

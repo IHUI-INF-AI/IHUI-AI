@@ -47,7 +47,7 @@ vi.mock('../src/db/commission-queries.js', () => ({
   getBalance: vi.fn().mockResolvedValue(100),
   rechargeToken: vi.fn(),
   deductToken: vi.fn().mockResolvedValue(80),
-  refundTokenDeduct: vi.fn(),
+  refundToken: vi.fn(),
   expireToken: vi.fn(),
   listTokenFlows: vi.fn(),
   listCommissionFlows: vi.fn(),

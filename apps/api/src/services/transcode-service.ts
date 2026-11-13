@@ -75,9 +75,6 @@ const childProcesses = new Map<string, ReturnType<typeof spawn>>()
 // 超过 MAX_JOBS 时淘汰最旧的非活跃任务(全活跃则 FIFO 淘汰最早插入的)
 const MAX_JOBS = 1000
 
-// F-198:淘汰/取消/等待退出超时统一收口 —— kill 后等待 close 的上限,超时不无限挂
-const CHILD_EXIT_TIMEOUT_MS = 5000
-
 const UPLOAD_DIR = env.UPLOAD_DIR ?? join(process.cwd(), 'uploads')
 const TRANSCODE_DIR = join(UPLOAD_DIR, 'transcoded')
 
@@ -149,80 +146,14 @@ function getOutputExtension(preset: TranscodePreset): string {
 // 核心转码逻辑
 // =============================================================================
 
-/** 进程是否已退出(exitCode/signalCode 任一落地即视为退出)。 */
-function hasExited(child: ReturnType<typeof spawn>): boolean {
-  return child.exitCode !== null || child.signalCode !== null
-}
-
-function rmOutputDir(outputDir: string): Promise<void> {
-  return rm(outputDir, { recursive: true, force: true })
-    .then(() => undefined)
-    .catch(() => undefined)
-}
-
-/** 上限内未确认退出时兜底:等真正的 close 事件落地后再删目录,避免边写边删。 */
-function cleanupOutputDirAfterExit(outputDir: string, child: ReturnType<typeof spawn>): void {
-  child.once('close', () => {
-    void rmOutputDir(outputDir)
-  })
-}
-
-/**
- * F-198:先 SIGKILL 再等退出(有上限),返回是否已确认退出。
- * 淘汰 / 取消 / 等待退出超时三条路径共用;未确认退出时调用方不得 rm 输出目录。
- */
-async function terminateChild(jobId: string, child: ReturnType<typeof spawn>): Promise<boolean> {
-  if (hasExited(child)) {
-    if (childProcesses.get(jobId) === child) childProcesses.delete(jobId)
-    return true
-  }
-  const exited = new Promise<boolean>((resolve) => {
-    let settled = false
-    const timer = setTimeout(() => {
-      if (settled) return
-      settled = true
-      // 超时仍未退出:不无限等,如实返回未确认
-      resolve(hasExited(child))
-    }, CHILD_EXIT_TIMEOUT_MS)
-    child.once('close', () => {
-      if (settled) return
-      settled = true
-      clearTimeout(timer)
-      resolve(true)
-    })
-  })
-  try {
-    child.kill('SIGKILL')
-  } catch {
-    // 进程可能已退出或信号无法投递,交由下面的退出判定
-  }
-  const ok = await exited
-  if (!ok) {
-    // 等待上限已到仍存活:再补一次 SIGKILL 作为最后努力(仍不无限等)
-    try {
-      child.kill('SIGKILL')
-    } catch {
-      // 忽略
-    }
-  } else if (childProcesses.get(jobId) === child) {
-    childProcesses.delete(jobId)
-  }
-  return ok
-}
-
 /** LRU 淘汰:优先删最旧的非活跃任务(completed/failed/cancelled);全活跃则 FIFO 删最早插入的。 */
-async function evictOldestJob(): Promise<void> {
+function evictOldestJob(): void {
   for (const [id, job] of jobs) {
     if (job.status !== 'pending' && job.status !== 'processing') {
-      const child = childProcesses.get(id)
-      // F-198:先 kill 并等退出,再删 Map 与输出目录(无子进程时视为已退出)
-      const exited = child ? await terminateChild(id, child) : true
       jobs.delete(id)
-      if (exited) {
-        await rmOutputDir(job.outputDir)
-      } else if (child) {
-        cleanupOutputDirAfterExit(job.outputDir, child)
-      }
+      childProcesses.delete(id)
+      // 最佳努力清理输出目录,不阻塞主流程
+      rm(job.outputDir, { recursive: true, force: true }).catch(() => {})
       return
     }
   }
@@ -230,26 +161,10 @@ async function evictOldestJob(): Promise<void> {
   const oldestId = jobs.keys().next().value
   if (oldestId !== undefined) {
     const job = jobs.get(oldestId)
-    const child = childProcesses.get(oldestId)
-    if (job) {
-      // 回收归因先落 expected 并置 cancelled,避免 close 回调把被淘汰任务改写为 failed
-      if (!job.terminationKindLocked) {
-        job.terminationKind = 'expected'
-        job.terminationKindLocked = true
-      }
-      if (job.status === 'pending' || job.status === 'processing') {
-        job.status = 'cancelled'
-        job.completedAt = new Date()
-      }
-    }
-    const exited = child ? await terminateChild(oldestId, child) : true
     jobs.delete(oldestId)
+    childProcesses.delete(oldestId)
     if (job) {
-      if (exited) {
-        await rmOutputDir(job.outputDir)
-      } else if (child) {
-        cleanupOutputDirAfterExit(job.outputDir, child)
-      }
+      rm(job.outputDir, { recursive: true, force: true }).catch(() => {})
     }
   }
 }
@@ -277,7 +192,7 @@ function redactTail(stderr: string, cap: number = REDACT_TAIL_MAX_CHARS): string
 export async function createTranscodeJob(input: TranscodeInput): Promise<TranscodeJob> {
   // P1 修复:内存泄露防护 — 超过 MAX_JOBS 时淘汰最旧任务
   if (jobs.size >= MAX_JOBS) {
-    await evictOldestJob()
+    evictOldestJob()
   }
   const jobId = randomUUID()
   const outputDir = join(TRANSCODE_DIR, jobId)
@@ -325,10 +240,7 @@ export async function startTranscodeJob(jobId: string): Promise<TranscodeJob> {
   return new Promise<TranscodeJob>((resolve, reject) => {
     // FFMPEG_PATH(2026-10-18):nssm SYSTEM 服务不继承交互式会话的 PATH 更新,
     // 靠 PATH 裸找 ffmpeg 在服务形态下不可靠 —— 支持显式二进制路径(env 优先)。
-    const child = spawn(process.env.FFMPEG_PATH || 'ffmpeg', args, {
-      stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
-    })
+    const child = spawn(process.env.FFMPEG_PATH || 'ffmpeg', args, { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true })
     childProcesses.set(jobId, child)
 
     let stderrBuffer = ''
@@ -430,12 +342,20 @@ export async function cancelTranscodeJob(jobId: string): Promise<TranscodeJob | 
     job.terminationKind = 'expected'
     job.terminationKindLocked = true
   }
-  // F-198:kill 并等待退出(上限 5s)后才清理输出目录;超时未退出则改挂 close 后清理
-  const exited = child ? await terminateChild(jobId, child) : true
-  if (exited) {
-    await rmOutputDir(job.outputDir)
-  } else if (child) {
-    cleanupOutputDirAfterExit(job.outputDir, child)
+  if (child) {
+    child.kill('SIGKILL')
+    // 等 close 事件再继续,避免僵尸进程;5s 超时兜底防卡死
+    await new Promise<void>((resolve) => {
+      child.once('close', () => resolve())
+      setTimeout(resolve, 5000)
+    })
+    childProcesses.delete(jobId)
+  }
+  // 清理输出目录
+  try {
+    await rm(job.outputDir, { recursive: true, force: true })
+  } catch {
+    // 忽略清理失败
   }
   return job
 }
@@ -445,9 +365,10 @@ export async function deleteTranscodeJob(jobId: string): Promise<boolean> {
   if (!job) return false
   await cancelTranscodeJob(jobId)
   jobs.delete(jobId)
-  // F-198:cancel 在上限内未确认子进程退出时已挂 close 后清理,此处不得抢先 rm
-  if (!childProcesses.has(jobId)) {
-    await rmOutputDir(job.outputDir)
+  try {
+    await rm(job.outputDir, { recursive: true, force: true })
+  } catch {
+    // 忽略
   }
   return true
 }
@@ -461,10 +382,7 @@ export async function isFfmpegAvailable(): Promise<boolean> {
   if (ffmpegProbeInFlight) return ffmpegProbeInFlight
   const probe = new Promise<boolean>((resolve) => {
     // 与转码主路径同源:FFMPEG_PATH 显式二进制(env 优先),否则 PATH 裸找
-    const child = spawn(process.env.FFMPEG_PATH || 'ffmpeg', ['-version'], {
-      stdio: 'ignore',
-      windowsHide: true,
-    })
+    const child = spawn(process.env.FFMPEG_PATH || 'ffmpeg', ['-version'], { stdio: 'ignore', windowsHide: true })
     child.on('close', (code) => resolve(code === 0))
     child.on('error', () => resolve(false))
   }).finally(() => {

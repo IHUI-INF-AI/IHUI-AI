@@ -62,7 +62,7 @@ const RICH = {
 
 export async function bootHarnessPage(
   page: Page,
-  opts: { mode?: 'smoothness' | 'lifecycle' } = {},
+  opts: { mode?: 'smoothness' | 'lifecycle' | 'tail' } = {},
 ): Promise<void> {
   page.on('console', (msg) => {
     if (msg.type() === 'error' || msg.text().includes('[harness]')) {

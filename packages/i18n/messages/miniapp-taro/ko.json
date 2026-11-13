@@ -7233,5 +7233,23 @@
     "video": {
       "error": "편성 실패"
     }
+  },
+  "financeAi": {
+    "automationPrompt": "[재무부·국가 플랫폼 자동화] 신고/취득 기간 {period}, 제출 게이트 {mode}(manual_gate=제출 직전 단계에서 멈추고 내가 클릭; user_confirmed=대상·기간·납부액 낭독 후 명시 확인해야 제출 실행). ai_tax_filing phase=automation(targets={targets}{portals})으로 단계 계획을 뽑고, 내장 브라우저 도구(browser_*; 이 워크벤치 페이지를 tool-delegate로 실행)로 현재 대화에서 단계별 실행 및 매 단계 진행 보고(몇 번째 대상·몇 번째 단계). 로그인/캡차/얼굴/USB는 일시정지 후 계속; TARGET_NOT_CONNECTED는 연결 안내 후 중단 단계에서 재개; URL 추측 금지·물어보기; 신고 수치는 초안 또는 플랫폼 영수증으로 소급 가능해야 합니다.",
+    "promptBookkeeping": "[재무부 · AI 원클릭 기장] 회계 기간 {period}.",
+    "promptWithPayload": "거래 데이터: {payload}",
+    "promptAskUpload": "자료가 부족하면 먼저 사용자에게 거래 데이터를 요청하거나 대화에서 업로드한 세금계산서·영수증을 해석하세요. 금액을 임의로 조작하지 마세요.",
+    "phaseBookkeeping": "ai_bookkeeping을 classify → voucher → trial_balance → close → report 순서로 단계별로 실행하고, 각 단계 종료 시 진행 상황(전체 5단계 중 N번째)과 결과를 보고하세요. 시산이 맞지 않으면 차이를 그대로 알리고, 맞추려고 숫자를 고치지 마세요.",
+    "promptTaxFiling": "[재무부 · AI 원클릭 세무 신고]",
+    "phaseTaxFiling": "ai_tax_filing을 compute → validate → draft 순서로 단계별로 실행하세요.",
+    "promptTaxDraftNote": "산출물은 신고서 초안이며, 정식 신고에는 납세자와 유자격 전문가의 검토가 필요합니다. 누락 항목은 사용자에게 묻고 임의 기입은 금지입니다. validate 검증 문제는 전 항목 나열하세요.",
+    "fieldPeriod": "신고 기간 {period}",
+    "fieldSales": "매출액 {value}",
+    "fieldOutputTax": "매출 세액 {value}",
+    "fieldInputTax": "매입 세액 {value}",
+    "fieldProfit": "이익 총액 {value}",
+    "taxpayerGeneral": "납세자 유형: 일반 과세자",
+    "taxpayerSmall": "납세자 유형: 간이 과세자",
+    "fieldWages": "급여 명세: {payload}"
   }
 }

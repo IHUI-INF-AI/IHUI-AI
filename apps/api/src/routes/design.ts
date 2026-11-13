@@ -42,17 +42,6 @@ const commentSchema = z.object({
 const previewFallback = new Map<string, DesignPreview[]>()
 /** Redis 不可用时的进程内降级存储:previewId → comments[](最新在头部) */
 const commentFallback = new Map<string, DesignComment[]>()
-/** F-477: 降级存储必须有界,否则 500KB/条预览与任意 previewId 评论会无限常驻 */
-const FALLBACK_MAX_KEYS = 1_000
-const FALLBACK_MAX_ITEMS = 50
-
-function trimFallbackKeys<V>(map: Map<string, V>): void {
-  while (map.size > FALLBACK_MAX_KEYS) {
-    const oldest = map.keys().next().value
-    if (oldest === undefined) break
-    map.delete(oldest)
-  }
-}
 
 function userKey(userId: string): string {
   return `design-preview:${userId}`
@@ -83,9 +72,7 @@ async function writePreviews(
   try {
     await redis.set(key, JSON.stringify(previews))
   } catch {
-    // F-477: 只保留最近 N 条,并按键数裁掉最旧用户,避免降级窗口内内存无界增长
-    previewFallback.set(key, previews.slice(-FALLBACK_MAX_ITEMS))
-    trimFallbackKeys(previewFallback)
+    previewFallback.set(key, previews)
   }
 }
 
@@ -100,9 +87,7 @@ async function pushComment(
   } catch {
     const list = commentFallback.get(key) ?? []
     list.unshift(comment)
-    // F-477: 评论条数与键数都设上限,任意 previewId 不再能无限建键
-    commentFallback.set(key, list.slice(0, FALLBACK_MAX_ITEMS))
-    trimFallbackKeys(commentFallback)
+    commentFallback.set(key, list)
   }
 }
 

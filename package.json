@@ -51,6 +51,7 @@
     "check:provenance": "node scripts/provenance-ledger.mjs",
     "check:exemption-expiry": "node scripts/check-exemption-expiry.mjs --all",
     "check:task-claims": "node scripts/check-task-claims.mjs --check-gate",
+    "check:admin-password-frozen": "node scripts/check-admin-password-frozen.mjs",
     "check:aasa-health": "node scripts/check-aasa-public-health.mjs",
     "check:aasa-health:json": "node scripts/check-aasa-public-health.mjs --json",
     "check:callback-redirect": "node scripts/check-public-path-probe.mjs --callback-redirect",

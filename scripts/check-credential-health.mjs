@@ -1575,7 +1575,7 @@ const BRAND_MAIL_SCRIPT = join(REPO, 'apps', 'api', 'scripts', 'notify-deploy-fa
 /** 正文临时文件目录(§15:临时物一律项目内,已 gitignore) */
 const BRAND_MAIL_MSG_DIR = join(REPO, '.ihui-agent', 'tmp', 'credential-health-notify')
 /** 告警收件人(§5e 运维邮件到人同一地址) */
-const ALERT_EMAIL_TO = 'lizong@aizhs.top'
+const ALERT_EMAIL_TO = '502319984@qq.com'
 /** 派发器单次调用的墙上时钟上限:tsx 冷启 + SMTP 握手(nodemailer 自带 10s 超时)的最坏叠加 */
 const BRAND_MAIL_TIMEOUT_MS = 90_000
 

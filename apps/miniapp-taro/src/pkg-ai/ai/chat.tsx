@@ -965,9 +965,7 @@ export default function ChatPage() {
       const reasoningBatcher = createSmoothDeltaBatcher((d) => {
         setMessages((prev) =>
           prev.map((m, i) =>
-            i === prev.length - 1
-              ? { ...m, reasoning: (m.reasoning || '') + d }
-              : m,
+            i === prev.length - 1 ? { ...m, reasoning: (m.reasoning || '') + d } : m,
           ),
         )
         // D4:思考区流式同样跟滚(此前 reasoning 帧整条不滚,思考长了正文与视口脱节)

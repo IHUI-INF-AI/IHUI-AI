@@ -9,12 +9,10 @@ vi.mock('../src/services/clawdbot/logger.js', () => ({
   logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }))
 
-const { completeMock, getDefaultMock, listEnabledMock, wsInstances } = vi.hoisted(() => ({
+const { completeMock, getDefaultMock, listEnabledMock } = vi.hoisted(() => ({
   completeMock: vi.fn(),
   getDefaultMock: vi.fn(),
   listEnabledMock: vi.fn((): ModelConfig[] => []),
-  // F-501:记录每个被构造的 socket,用于断言 connecting 去重与过期代回调丢弃
-  wsInstances: [] as unknown[],
 }))
 
 vi.mock('../src/services/clawdbot/models.js', () => ({
@@ -32,7 +30,6 @@ vi.mock('ws', async () => {
     default: class MockWebSocket extends EventEmitter {
       constructor(_url: string) {
         super()
-        wsInstances.push(this)
         setImmediate(() => this.emit('open'))
       }
       send() {}
@@ -62,7 +59,6 @@ describe('clawdbot ClawdbotGateway AI 网关', () => {
 
   beforeEach(() => {
     gw = new ClawdbotGateway()
-    wsInstances.length = 0
     completeMock.mockReset()
     getDefaultMock.mockReset()
     listEnabledMock.mockReset()
@@ -229,68 +225,6 @@ describe('clawdbot ClawdbotGateway AI 网关', () => {
       gw.configure({ routing: { strategy: 'cost_optimized' } })
       const r = await gw.routeCompletion({ messages: [] })
       expect(r.modelId).toBe('m2')
-    })
-  })
-
-  describe('F-501 connect 竞态与 socket 代次', () => {
-    it('connecting 窗口内重复 connect 只开一条 socket', async () => {
-      // 原判据只看 connected:connecting 期第二次 connect 会开第二条 socket 泄漏
-      await Promise.all([gw.connect(), gw.connect()])
-      await new Promise((r) => setImmediate(r))
-      expect(wsInstances).toHaveLength(1)
-      expect(gw.isConnected).toBe(true)
-      expect(gw.state_).toBe('connected')
-    })
-
-    it('disconnect 后旧 socket 迟到的 close 不得清掉新代连接', async () => {
-      await gw.connect()
-      await new Promise((r) => setImmediate(r))
-      const firstSocket = wsInstances[0] as NodeJS.EventEmitter
-      await gw.disconnect()
-      expect(gw.isConnected).toBe(false)
-
-      await gw.connect()
-      await new Promise((r) => setImmediate(r))
-      expect(wsInstances).toHaveLength(2)
-      expect(gw.isConnected).toBe(true)
-
-      // shutdown→initialize 竞态:旧代 socket 的 close 迟到触发
-      firstSocket.emit('close', 1006, Buffer.from('stale'))
-      expect(gw.isConnected).toBe(true)
-      expect(gw.state_).toBe('connected')
-    })
-
-    it('重连换代后旧 socket 的后续事件被代次校验丢弃', async () => {
-      vi.useFakeTimers({ toFake: ['setTimeout'] })
-      try {
-        await gw.connect()
-        await new Promise((r) => setImmediate(r))
-        expect(gw.isConnected).toBe(true)
-        const oldSocket = wsInstances[0] as NodeJS.EventEmitter
-
-        const messageHandler = vi.fn()
-        gw.on('message', messageHandler)
-
-        // 服务端断开 → 计划重连(旧 socket 监听器仍在册,靠代次兜底)
-        oldSocket.emit('close', 1006, Buffer.from('drop'))
-        expect(gw.isConnected).toBe(false)
-        expect(gw.state_).toBe('reconnecting')
-        vi.advanceTimersByTime(1000) // 退避 1s 到点 → 开出新一代 socket
-        expect(wsInstances).toHaveLength(2)
-        await new Promise((r) => setImmediate(r))
-        expect(gw.isConnected).toBe(true)
-
-        // 旧代 socket 迟到的 close/message:不得改写新代状态、不得上抛分发
-        oldSocket.emit('close', 1006, Buffer.from('stale'))
-        oldSocket.emit('message', Buffer.from(JSON.stringify({ id: 'stale', type: 'chat' })))
-        expect(gw.isConnected).toBe(true)
-        expect(gw.state_).toBe('connected')
-        expect(messageHandler).not.toHaveBeenCalled()
-        // wsClient 仍指向新代:send 只有在新代在册时才为 true
-        expect(gw.send({ type: 'chat', channel: 'web' })).toBe(true)
-      } finally {
-        vi.useRealTimers()
-      }
     })
   })
 

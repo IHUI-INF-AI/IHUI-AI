@@ -161,8 +161,6 @@ export const APPS = Object.freeze({
     label: 'WorkBuddy',
     // workbuddy.db 的 sessions 90 行 deleted_at 全非空(软删)⇒ 会话面只能取 JSONL 文件族。
     // depth 2 = projects/<项目>/<会话>.jsonl;更深一层是子代理流水(深扫 370 份 vs 两层 91 份),不是独立会话。
-    // 2026-11-12 补:该表确实**有** user_id(客户端取列表时按它过滤),但会账号的会话面是
-    // JSONL 文件族、与 uid 无关 ⇒ 重绑(workbuddy-chat-carry)前后文件集不变,对账面仍按文件钉。
     fileSet: {
       root: '{home}/.workbuddy/projects',
       ext: '.jsonl',

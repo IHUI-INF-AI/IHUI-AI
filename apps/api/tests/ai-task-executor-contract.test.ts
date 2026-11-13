@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { aiTaskTemplate, aiTaskRun } from '@ihui/database'
+import { bizDayKey } from '../src/utils/biz-day.js'
 
 /**
  * AI 编排层执行器契约测试(HR-4,2026-11-11 立):不连库、不真调端点。
@@ -388,7 +389,10 @@ describe('runAiTask 执行契约', () => {
 
   it('用例5:幂等命中 ⇒ skipped=true、caller 未被调用、不落新痕', async () => {
     seedTemplate('幂等', [{ method: 'GET', path: '/a' }])
-    H.existingRuns.add('tpl-1\u0000幂等:2026-11-11') // (templateId, idemKey) 预置命中
+    // 幂等键 = `模板名:<业务日键>`(见 ai-task-executor 的 idemKey)。
+    // 原先这里硬编码 '2026-11-11',过了那天就必然失配 —— 时间炸弹型测试。
+    // 改为按当天业务日键构造(执行器用的是同一个 bizDayKey)。
+    H.existingRuns.add(`tpl-1\u0000幂等:${bizDayKey(new Date())}`)
     const { caller, calls } = makeFakeCaller()
     const outcome = await runAiTask('幂等', caller, { manual: false }) // cron 形态,同窗口键
     expect(outcome.skipped).toBe(true)

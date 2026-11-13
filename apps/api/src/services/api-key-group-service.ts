@@ -14,7 +14,7 @@
  *
  * 读写分离:写用 db,读用 dbRead(参照 relay-billing-service.ts 模式)。
  */
-import { eq, and, gt, sql, inArray, gte } from 'drizzle-orm'
+import { eq, and, sql, inArray, gte } from 'drizzle-orm'
 import { randomBytes } from 'node:crypto'
 import { db, dbRead } from '../db/index.js'
 import {
@@ -290,8 +290,10 @@ export async function acceptInvite(inviteCode: string, apiKeyId: string): Promis
     .limit(1)
 
   if (!invite) throw new Error('邀请码不存在')
+  if (invite.used) throw new Error('邀请码已被使用')
+  if (invite.expiresAt <= new Date()) throw new Error('邀请码已过期')
 
-  // 检查 Key 是否已在其他组(api_key_id 唯一索引作最终防线,提前检查给友好错误)
+  // 检查 Key 是否已在其他组(api_key_id 唯一索引会阻止,但提前检查给友好错误)
   const [existing] = await dbRead
     .select({ id: apiKeyGroupMembers.id })
     .from(apiKeyGroupMembers)
@@ -299,28 +301,16 @@ export async function acceptInvite(inviteCode: string, apiKeyId: string): Promis
     .limit(1)
   if (existing) throw new Error('该 API Key 已在一个分组中(一个 Key 同时只能在一个组)')
 
-  // 原子占用:仅当 used=false 且未过期才置 used=true 并 RETURNING;
-  // 命中 0 行即表示已被并发占用或过期,直接拒绝 —— 杜绝 check-then-act 的 TOCTOU 双兑换。
-  const claimed = await db.transaction(async (tx) => {
-    const rows = await tx
-      .update(apiKeyGroupInvites)
-      .set({ used: true, usedBy: apiKeyId })
-      .where(
-        and(
-          eq(apiKeyGroupInvites.id, invite.id),
-          eq(apiKeyGroupInvites.used, false),
-          gt(apiKeyGroupInvites.expiresAt, new Date()),
-        ),
-      )
-      .returning({ groupId: apiKeyGroupInvites.groupId })
-    if (rows.length === 0) return null
+  // 加入组 + 标记邀请码已使用
+  await db.transaction(async (tx) => {
     await tx
       .insert(apiKeyGroupMembers)
-      .values({ groupId: rows[0].groupId, apiKeyId, role: 'member' })
-    return rows[0]
+      .values({ groupId: invite.groupId, apiKeyId, role: 'member' })
+    await tx
+      .update(apiKeyGroupInvites)
+      .set({ used: true, usedBy: apiKeyId })
+      .where(eq(apiKeyGroupInvites.id, invite.id))
   })
-
-  if (!claimed) throw new Error('邀请码已被使用或已过期')
 }
 
 // =============================================================================

@@ -85,9 +85,9 @@ export function createFinanceAiStyles(tk: AppThemeTokens) {
     targetChip: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: rnSpacing['xs-loose'],
+      gap: 6,
       paddingHorizontal: rnSpacing.sm,
-      paddingVertical: rnSpacing['xs-loose'],
+      paddingVertical: 6,
       borderRadius: rnRadius.md,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.light,
@@ -122,7 +122,7 @@ export function createFinanceAiStyles(tk: AppThemeTokens) {
     progressTitle: { fontSize: rnType.subtitle.size, fontWeight: '700', color: tk.text.primary },
     stepRow: { flexDirection: 'row', alignItems: 'flex-start', gap: rnSpacing.xs },
     stepDot: {
-      marginTop: rnSpacing.xs,
+      marginTop: 4,
       width: 6,
       height: 6,
       borderRadius: 3,

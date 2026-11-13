@@ -1,0 +1,23 @@
+-- © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+-- Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+-- [IHUI-AI-PROVENANCE]:watermarked
+
+-- Migration 20261112230000: 薪资权限点种子(HR-5 第 5 期)
+-- 创建时间: 2026-11-12
+-- 描述: 薪资接口用 hr:payroll:manage 守卫,但该权限点从未入库 ——
+--       结果是非管理员角色永远拿不到薪资权限(403),只有 roleId>=1 的超管能看。
+--       本迁移补两个权限点:读(查工资单) / 写(算薪与状态推进)。
+--       薪资比考勤敏感,刻意与 hr:attendance:* 分开,便于"HR 能算考勤但看不到工资"。
+--
+-- 幂等安全:ON CONFLICT DO NOTHING,可安全重复执行。
+--
+-- 执行方式:
+--   pnpm tsx packages/database/scripts/apply-migration.mjs drizzle/20261112230000_hr_payroll_permission.sql
+
+INSERT INTO "permissions" ("name", "display_name", "resource", "action", "description")
+VALUES
+  ('hr:payroll:view', '人事薪资只读', 'hr:payroll', 'view',
+   '人事薪资读面:月度工资单与计算明细查询'),
+  ('hr:payroll:manage', '人事薪资管理', 'hr:payroll', 'manage',
+   '人事薪资写面:算薪、周期状态推进、工资单重算')
+ON CONFLICT ("name") DO NOTHING;

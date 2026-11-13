@@ -38,13 +38,6 @@ const currentMonth = () => {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
 }
 
-/**
- * 模块级空数组:zustand 选择器的兜底返回值。
- * 必须是**恒定引用**——组件体内 `const EMPTY = []` 每次渲染都新建,等于没兜底,
- * 会以 "Maximum update depth exceeded" 崩整页(2026-11-12 真机实测)。
- */
-const EMPTY_PLAN_STEPS: PlanStep[] = []
-
 const parseJsonOr = (raw: string): unknown[] | null => {
   const text = raw.trim()
   if (!text) return null
@@ -71,18 +64,13 @@ export default function FinanceAiPage() {
   const [taxProfit, setTaxProfit] = React.useState('')
   const [taxWages, setTaxWages] = React.useState('')
 
-  // 进度回显:取当前会话最近一条带 planSteps 的 assistant 消息(与气泡内 inline 卡同源数据)。
-  // 2026-11-12 修复(zustand getSnapshot 无限循环,真机实测 /admin/finance-ai 整页崩到错误边界):
-  // 选择器里 `return []` 每次都造一个新数组 ⇒ zustand 认为快照恒变 ⇒ React commit 阶段反复
-  // forceStoreRerender ⇒ "Maximum update depth exceeded"。改为「先取稳定引用、再兜底常量」:
-  // 命中消息时返回 message.planSteps 本身(与 store 内同一引用,不 clone);未命中返回模块级
-  // 冻结空数组(EMPTY_PLAN_STEPS,见文件顶部),引用恒定。绝不在选择器内构造新对象/数组。
+  // 进度回显:取当前会话最近一条带 planSteps 的 assistant 消息(与气泡内 inline 卡同源数据)
   const planSteps = useChatStore((s) => {
     for (let i = s.messages.length - 1; i >= 0; i--) {
       const m = s.messages[i]
       if (m && m.role === 'assistant' && m.planSteps?.length) return m.planSteps as PlanStep[]
     }
-    return EMPTY_PLAN_STEPS
+    return []
   })
   const isStreaming = useChatStore((s) => s.isStreaming)
   const conversationId = useChatStore((s) => s.conversationId)
@@ -91,9 +79,7 @@ export default function FinanceAiPage() {
     useAiPanelStore.getState().openPanel()
     setBusy(taskId)
     try {
-      // stayOnPage:本页自带 PlanStepsCard 进度看板,发起后必须留在原处继续看阶段回显。
-      // 缺省行为(建会话后 URL 换 /chat)会把刚出现的进度卡连根拔掉 —— 2026-11-12 真机实测。
-      const sent = await sendMessage(prompt, { stayOnPage: true })
+      const sent = await sendMessage(prompt)
       if (!sent) toast.error(t('launchFailed'))
     } finally {
       setBusy(null)
@@ -218,17 +204,13 @@ export default function FinanceAiPage() {
                 placeholder={t('txPh')}
                 className="font-[weight:inherit] w-full resize-y rounded-md border border-input bg-background px-3 py-2 font-mono text-label leading-relaxed focus:outline-none focus:ring-1 focus:ring-primary"
               />
-              <p className="font-[weight:inherit] text-label text-muted-foreground">
-                {t('txHint')}
-              </p>
+              <p className="font-[weight:inherit] text-label text-muted-foreground">{t('txHint')}</p>
             </div>
             <Button size="lg" className="w-full gap-1.5" disabled={busy !== null} onClick={bookOk}>
               <MessageSquare className="h-4 w-4" />
               <span>{busy === 'bookkeeping' ? t('starting') : t('bookkeepingCta')}</span>
             </Button>
-            <p className="font-[weight:inherit] text-label text-muted-foreground">
-              {t('pluginHint')}
-            </p>
+            <p className="font-[weight:inherit] text-label text-muted-foreground">{t('pluginHint')}</p>
           </CardContent>
         </Card>
 
@@ -324,18 +306,14 @@ export default function FinanceAiPage() {
               <MessageSquare className="h-4 w-4" />
               <span>{busy === 'taxFiling' ? t('starting') : t('taxCta')}</span>
             </Button>
-            <p className="font-[weight:inherit] text-label text-muted-foreground">
-              {t('draftNote')}
-            </p>
+            <p className="font-[weight:inherit] text-label text-muted-foreground">{t('draftNote')}</p>
           </CardContent>
         </Card>
       </div>
 
       <div className="space-y-1">
         <AutomationCard busy={busy !== null} onLaunch={launchAutomation} />
-        <p className="font-[weight:inherit] px-1 text-label text-muted-foreground">
-          {t('automationTrust')}
-        </p>
+        <p className="font-[weight:inherit] px-1 text-label text-muted-foreground">{t('automationTrust')}</p>
       </div>
 
       <Card>

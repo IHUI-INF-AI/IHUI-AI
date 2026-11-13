@@ -258,7 +258,8 @@ interface MessageInputProps {
   sendLabel: string
   stopLabel: string
   model: string
-  onModelChange: (model: string) => void
+  /** 第二参 = 模型通道(2026-11-12 立):'pool' = 选中「我的号池」模型 */
+  onModelChange: (model: string, channel?: 'platform' | 'pool') => void
   modelLabel: string
   /** auto 模式下当前对话实际使用的模型(宿主传入),模型按钮据此显示真实模型名 */
   autoResolvedModel?: string

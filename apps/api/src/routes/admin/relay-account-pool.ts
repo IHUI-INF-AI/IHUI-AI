@@ -562,19 +562,6 @@ function upstreamTaskErrorDetail(body: Record<string, unknown> | null): string {
   return detail ? `: ${detail.slice(0, 200)}` : ''
 }
 
-/**
- * F-161 个人池属主边界:按 id 的写操作必须同时命中「主键 + 属主」。
- * 全局行(ownerUserId 为空,运营池)沿用既有口径仍可由任一管理员管理;
- * 个人行仅属主本人可写 —— 他人行在查询条件处即落空,统一按 404 拒绝,
- * 既不泄露账号存在性,也不产生任何写入。
- */
-function ownedAccountWhere(accountId: string, actorUserId: string) {
-  return and(
-    eq(aiRelayAccountPool.id, accountId),
-    or(eq(aiRelayAccountPool.ownerUserId, actorUserId), isNull(aiRelayAccountPool.ownerUserId)),
-  )
-}
-
 const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', requireAdmin)
   // 号池必须公网可用(机主 2026-11-10 永久指令;立据与顺序自证见 _shared 出口注释)。
@@ -657,10 +644,8 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
   server.post('/admin/relay/accounts/:id/share', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, 'id 非法'))
-    const actorUserId = request.userId
-    if (!actorUserId) return reply.status(401).send(error(401, '未登录'))
     try {
-      const r = await setAccountShared(p.data.id, true, actorUserId)
+      const r = await setAccountShared(p.data.id, true)
       if (r.code === 'not_found')
         return reply.status(404).send(error(404, r.message ?? '账号不存在'))
       return reply.send(
@@ -681,10 +666,8 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
   server.post('/admin/relay/accounts/:id/unshare', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, 'id 非法'))
-    const actorUserId = request.userId
-    if (!actorUserId) return reply.status(401).send(error(401, '未登录'))
     try {
-      const r = await setAccountShared(p.data.id, false, actorUserId)
+      const r = await setAccountShared(p.data.id, false)
       if (r.code === 'not_found')
         return reply.status(404).send(error(404, r.message ?? '账号不存在'))
       return reply.send(
@@ -849,8 +832,6 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
     const b = updateBodySchema.safeParse(request.body)
     if (!b.success)
       return reply.status(400).send(error(400, b.error.issues[0]?.message ?? '参数错误'))
-    const actorUserId = request.userId
-    if (!actorUserId) return reply.status(401).send(error(401, '未登录'))
     const patch: Record<string, unknown> = {}
     for (const k of ['name', 'priority', 'weight', 'tempUnschedulable'] as const) {
       if (b.data[k] !== undefined) patch[k] = b.data[k]
@@ -866,7 +847,7 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
           proxyUrl: aiRelayAccountPool.proxyUrl,
         })
         .from(aiRelayAccountPool)
-        .where(ownedAccountWhere(p.data.id, actorUserId))
+        .where(eq(aiRelayAccountPool.id, p.data.id))
         .limit(1)
       if (!existing) return reply.status(404).send(error(404, '账号不存在'))
       // proxyUrl 库内是密文:先解密再与明文入参比较,变更时才重新加密回写。
@@ -886,7 +867,7 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
       const updated = await db
         .update(aiRelayAccountPool)
         .set({ ...changed, updatedAt: new Date() })
-        .where(ownedAccountWhere(p.data.id, actorUserId))
+        .where(eq(aiRelayAccountPool.id, p.data.id))
         .returning({ id: aiRelayAccountPool.id })
       if (updated.length === 0) return reply.status(404).send(error(404, '账号不存在'))
       return reply.send(success({ id: updated[0] ? updated[0].id : p.data.id }))
@@ -900,8 +881,6 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
   server.post('/admin/relay/accounts/:id/toggle', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, 'id 非法'))
-    const actorUserId = request.userId
-    if (!actorUserId) return reply.status(401).send(error(401, '未登录'))
     try {
       const [row] = await dbRead
         .select({
@@ -911,7 +890,7 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
           isEnabled: aiRelayAccountPool.isEnabled,
         })
         .from(aiRelayAccountPool)
-        .where(ownedAccountWhere(p.data.id, actorUserId))
+        .where(eq(aiRelayAccountPool.id, p.data.id))
         .limit(1)
       if (!row) return reply.status(404).send(error(404, '账号不存在'))
       const next = !row.isEnabled
@@ -920,7 +899,7 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
       await db
         .update(aiRelayAccountPool)
         .set({ ...changed, updatedAt: new Date() })
-        .where(ownedAccountWhere(p.data.id, actorUserId))
+        .where(eq(aiRelayAccountPool.id, p.data.id))
       // O64:状态联动推送(号池启用态 = 签到侧调度权威)。推送失败落 pending 待重推,
       // 绝不阻塞 toggle 响应;pending 落库本身再失败只记日志,由对账收敛器兜底。
       const checkinPlatform = checkinPlatformFor(row.providerCode)
@@ -1000,12 +979,10 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/admin/relay/accounts/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, 'id 非法'))
-    const actorUserId = request.userId
-    if (!actorUserId) return reply.status(401).send(error(401, '未登录'))
     try {
       const deleted = await db
         .delete(aiRelayAccountPool)
-        .where(ownedAccountWhere(p.data.id, actorUserId))
+        .where(eq(aiRelayAccountPool.id, p.data.id))
         .returning({
           id: aiRelayAccountPool.id,
           providerCode: aiRelayAccountPool.providerCode,

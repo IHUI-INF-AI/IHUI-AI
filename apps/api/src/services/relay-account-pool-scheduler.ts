@@ -30,11 +30,7 @@
 import { and, eq, gt, isNotNull, isNull, lt, lte, or, inArray, sql } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
 import { aiRelayAccountPool, type AiRelayAccountPool } from '@ihui/database'
-import {
-  decryptAccountCredentials,
-  markPoolSyncDirty,
-  type AccountCredentials,
-} from './relay-account-pool-service.js'
+import { decryptAccountCredentials, type AccountCredentials } from './relay-account-pool-service.js'
 import { tryAcquireSharedLock } from './relay-account-shared-state.js'
 import { encryptField } from '../utils/crypto.js'
 import { logger } from '../utils/logger.js'
@@ -386,14 +382,6 @@ export function keepAliveReviveWhere(before: Date) {
   return and(
     keepAliveForeverCondition(),
     eq(aiRelayAccountPool.tempUnschedulable, true),
-    // 2026-11-12 补「解摘的前提是解摘后真能续上」:
-    // 无 refreshToken 且无 cookie 的号,解摘后既进不了临期刷新(expiringRefreshWhere)、
-    // 也进不了 down 恢复(downRecoveryWhere)——两档候选都要求 recredentialableCondition。
-    // 于是解摘纯属空转:每 6h 写一次库、把 lastErrorMessage 冲成「自动解摘」、白造一次
-    // 跨环境同步,而号依旧 down。判据复用既有单源(§0.6),不另写第二份。
-    // 反例现场:workbuddy 三枚(14f939c3-889b / auto:1421991245… / auto:cb69a7be695d…)
-    // 均 refresh_token_enc IS NULL ∧ cookies_enc IS NULL,上游 401 后永久刷不动。
-    recredentialableCondition(),
     lt(aiRelayAccountPool.updatedAt, sql`${before.toISOString()}::timestamptz`),
   )
 }
@@ -660,23 +648,6 @@ async function maybeReconcileCheckinEnabledState(now: Date): Promise<void> {
  */
 export function recredentialableCondition() {
   return or(isNotNull(aiRelayAccountPool.refreshTokenEnc), isNotNull(aiRelayAccountPool.cookiesEnc))
-}
-
-/**
- * JS 侧镜像:`recredentialableCondition()` 的行级同口径判据(2026-11-12 立)。
- *
- * 为什么要有两份:SQL 谓词用于**候选面筛选**(还没取到行),行级判据用于**已取到一行后
- * 判它能不能续**。二者是同一口径的两个面,不是第二份真相源 —— 与
- * `keepAliveForeverOf` / `keepAliveForeverCondition` 同一模式,由测试锁「读同一组列」。
- *
- * 判据刻意只认这两列:`workbuddy` 适配器 `refreshToken()` 要 `credentials.refreshToken`,
- * `trae` 的 web 号走 cookie→换票;两者皆空 ⇒ 任何平台都刷不动,解摘/重试只会空转。
- */
-export function hasRenewableCredentialOf(row: {
-  refreshTokenEnc?: unknown
-  cookiesEnc?: unknown
-}): boolean {
-  return row.refreshTokenEnc != null || row.cookiesEnc != null
 }
 
 /**
@@ -977,13 +948,9 @@ async function refreshOneLocked(
     // 镜像仲裁 · 刷后 push(2026-11-11 根治"双消费者轮换竞态"②):
     // 池刚换出的新 rt 立刻写回本机客户端副本,客户端下次用票就是新票 —— 客户端不再
     // 持有已被轮换掉的旧 rt,两端始终是同一个消费者序列,上游视角无重放。
-    // 改 await(2026-11-12 实证):原 fire-and-forget 在 keepalive 薄壳里必被
-    // `main().then(process.exit)` 杀掉 —— push 零日志、auth.json 停更,而签到侧
-    // (_sync_minimax_local)的票源就是这份 auth.json,门关后等的就是这次写 ⇒ 明早
-    // 票过期即断签到。刷新本身已落库,await 只阻塞本轮扫尾;桥自带 60s 超时与
-    // 全失败留痕,失败也不影响池内新票。
+    // fire-and-forget,绝不阻塞/绝不影响刷新主流程;失败只留痕。
     if (shouldPushAfterRefresh(row.providerCode, result.token)) {
-      await pushClientSession(
+      void pushClientSession(
         buildPushPayload({
           row: { providerCode: row.providerCode, uid: row.uid, name: row.name, secretsEncDecoded: secretsDecoded },
           token: result.token,
@@ -992,20 +959,12 @@ async function refreshOneLocked(
           refreshExpiresAt: refreshExpiresAt,
           secrets: secretsDecoded,
         }),
-      )
+      ).catch(() => {
+        /* push 自身已兜日志 */
+      })
     }
-    // 换票成功即打脏标记(2026-11-12):跨端同步的"变更触发"原先只接了导入腿,巡检换票
-    // 不置脏 ⇒ 池刷出的新四元组(token/rt/到期/enabled)最迟 2 分钟内到不了另一端;
-    // minimax 这类 rt 轮换型平台上,旧 rt 已被本次刷新作废,不同步 = 对端下次续期
-    // 必然 invalid_grant 直到被摘除。写法同 import 腿:失败静默,不阻断刷新主流程。
-    markPoolSyncDirty()
     return true
   } catch (e) {
-    // 失败也置脏(2026-11-12):刷新失败最常见的真因是「两端凭据已不同步」——尤其 rt
-    // 轮换型平台(trae/qoder/workbuddy)被对端抢先刷过,失败本身就是最强的对账信号。
-    // 立即打标 ⇒ 2 分钟节拍拉回对端新票 ⇒ 下轮重试用对的票,把「连败 3 次误摘除」掐
-    // 在第一次;非同步型失败(上游真坏)的代价只是一次空转预检。
-    markPoolSyncDirty()
     const failures = row.refreshFailureCount + 1
     const shouldRemove = failures >= REFRESH_FAILURE_LIMIT
     // 失败原因必须自己带出来:原先 catch 把异常整个吞掉,只有撞上限那一次才写一句

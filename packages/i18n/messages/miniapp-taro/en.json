@@ -7233,5 +7233,23 @@
     "video": {
       "error": "Compose failed"
     }
+  },
+  "financeAi": {
+    "automationPrompt": "[Finance · national-platform automation] period {period}, submit gate {mode} (manual_gate = stop one step before submit for me to click; user_confirmed = restate target·period·amount and submit only after my explicit yes). Call ai_tax_filing phase=automation(targets={targets}{portals}) to produce the step plan, then execute it step by step in THIS chat with the built-in browser tools (browser_*; page lives in this workbench via tool-delegate), reporting progress after every step (target #, step #). Pause for human steps (login/captcha/face/USB key) and resume after I finish; on TARGET_NOT_CONNECTED guide me to connect, then resume from the blocked step; never guess portal URLs — ask; every filed number must trace to the draft or a platform receipt.",
+    "promptBookkeeping": "[Finance · AI one-click bookkeeping] Period {period}.",
+    "promptWithPayload": "Transactions: {payload}",
+    "promptAskUpload": "If the data below is incomplete, first ask the user for transactions or parse the invoices/bank receipts uploaded in this chat; never invent amounts.",
+    "phaseBookkeeping": "Call ai_bookkeeping phase by phase: classify → voucher → trial_balance → close → report. After each phase, report progress (phase N of 5) and its result. If the trial balance does not tie, state the difference — never adjust numbers just to balance.",
+    "promptTaxFiling": "[Finance · AI one-click tax filing]",
+    "phaseTaxFiling": "Call ai_tax_filing phase by phase: compute → validate → draft.",
+    "promptTaxDraftNote": "Output is a draft return; formal filing needs review by the taxpayer and a licensed professional. Ask for missing items instead of inventing them. List every finding from validate.",
+    "fieldPeriod": "Filing period {period}",
+    "fieldSales": "Sales {value}",
+    "fieldOutputTax": "Output VAT {value}",
+    "fieldInputTax": "Input VAT {value}",
+    "fieldProfit": "Total profit {value}",
+    "taxpayerGeneral": "Taxpayer: general",
+    "taxpayerSmall": "Taxpayer: small-scale",
+    "fieldWages": "Payroll: {payload}"
   }
 }

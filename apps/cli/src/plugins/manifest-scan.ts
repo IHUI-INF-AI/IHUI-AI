@@ -22,6 +22,7 @@ import type {
   PluginDiagnostic,
   PluginDiagnosticCode,
   PluginDiagnosticSeverity,
+  PluginInterfaceDeclaration,
   PluginManifest,
 } from './types.js';
 
@@ -52,6 +53,8 @@ const DIAGNOSTIC_SEVERITY: Record<PluginDiagnosticCode, PluginDiagnosticSeverity
   'plugin-activation-unknown-event': 'warning',
   // goal-b49/Z1:声明被读到但没有运行期消费者 —— 装载仍是成功的,喊的是"这条声明现在不干活"(warning 同训)。
   'plugin-declaration-unconsumed': 'warning',
+  // 接口型工具被拒收(2026-11-13):插件照常装载,拒的只是那一条接口声明 —— 与上面同训,不升档。
+  'plugin-interface-rejected': 'warning',
   // #12 多版本共存三档同为 warning:版本选择是配置意图的结果,选中的那一版照常装载;
   // 被压掉/被禁用的版本仍在盘上,不构成"清单坏了",升档会把正常升级变成启动红旗(§12e)。
   'plugin-version-shadowed': 'warning',
@@ -103,6 +106,15 @@ export function normalizeManifest(raw: PluginManifest, source: string): PluginDe
   if (raw.description !== undefined) def.description = raw.description;
   if (raw.author !== undefined) def.author = raw.author;
   if (Array.isArray(raw.tools)) def.tools = raw.tools.filter((t) => typeof t === 'string');
+  // 接口型工具(2026-11-13):白名单式取值,但**不做字段级校验** —— 磁盘字节不可信,
+  // 校验与拒收判据单源在 `interface-tools.ts#compileDeclaredInterface`(本层只负责"带不带得过去")。
+  // 只收普通对象项:非对象项在这里丢掉会让用户看不到"我写的那条为什么没生效",
+  // 所以保留原样(下面 filter 只挡 null/原始值),由编译层逐条点名拒收。
+  if (Array.isArray(raw.interfaces)) {
+    def.interfaces = raw.interfaces.filter(
+      (item): item is PluginInterfaceDeclaration => !!item && typeof item === 'object' && !Array.isArray(item),
+    );
+  }
   if (Array.isArray(raw.hooks)) def.hooks = raw.hooks.filter((h) => typeof h === 'string');
   if (Array.isArray(raw.commands)) def.commands = raw.commands.filter((c) => typeof c === 'string');
   // G-682:dependencies 必须透传,否则 JSON 清单声明的依赖到不了 registry 的注册前闭包校验

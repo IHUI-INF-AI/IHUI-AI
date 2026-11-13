@@ -87,7 +87,7 @@ export function shouldAttemptAutoLogin(deps: AutoLoginDeps): boolean {
  *   只是此刻问不出答案;下一次冷启动带着同一份 httpOnly cookie 重试即可恢复。
  * - `null`:性质未知(刷新结果被 CAS 丢弃 / 未注入续期实现 / 记录不可得)。
  */
-export type RefreshFailureKind = 'rejected' | 'transient'
+export type RefreshFailureKind = 'rejected' | 'transient' | 'anonymous' | 'rate-limited'
 
 /**
  * 会话提示 Cookie 的名字(2026-10-27 立,下发方与读取方共用同一条)。
@@ -128,6 +128,19 @@ export function classifyRefreshFailureStatus(
   errorCode?: string,
 ): RefreshFailureKind {
   if (errorCode === REFRESH_TOKEN_STALE_ERROR_CODE) return 'transient'
+  // 400 = 请求里压根没有 refreshToken(header/cookie 都没带)。
+  // 语义是「匿名调用」,不是「凭据被否」也不是「服务端抖了」:
+  //   · 判 transient 会让匿名冷启动无限重试 —— 实测真浏览器一次页面加载打出 21 次
+  //     /auth/refresh,撞上 20 次/分钟的限流后 429,整个续期链雪崩;
+  //   · 判 rejected 会走 expireSession(),对匿名访客是空操作,但语义上也过得去。
+  // 这里给第三态:'anonymous' —— 不重试、不清凭据、不判会话死亡,静默收束。
+  if (status === 400 && !errorCode) return 'anonymous'
+  // 429 = 被限流(2026-11-12 实测补):/auth/refresh 是 20 次/分钟。
+  // 判 transient 会让「限流→重试→更限流」自锁:真浏览器实测一次页面加载 21 次 refresh
+  // 全部 200 后转 429,而 429 响应体里没有新 token,前端仍拿旧 token 继续 401,
+  // 于是每个 401 再触发一次 refresh —— 稳定死循环,页面永远停在未登录。
+  // 归 'rate-limited':不判会话死亡(凭据没被否)、但**不得**被当成"可立即重试"。
+  if (status === 429) return 'rate-limited'
   return status === 401 || status === 403 ? 'rejected' : 'transient'
 }
 

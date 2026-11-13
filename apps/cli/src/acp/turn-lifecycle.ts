@@ -1,5 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
  * 回合运行态状态机(长任务闭环的执行侧)。
@@ -35,8 +36,6 @@
  */
 
 /** 回合运行态。取值两两互斥,无交集。 */
-import { nextCronAt } from './cron.js';
-
 export type TurnPhase =
   /** 已创建,正在准备上下文/附件,尚未开始消费模型输出。 */
   | 'prepare'
@@ -79,19 +78,6 @@ export interface WakeCondition {
    * 有值时表示"到点即可重试";无值时必须由外部显式 wake。
    */
   readonly notBefore?: number;
-  /**
-   * 周期唤醒的 cron 表达式(5 段),2026-11-12 加。
-   *
-   * 与 `notBefore` 的分工:
-   *   · `notBefore` = 一次性到点;
-   *   · `cron`      = 周期到点(如"每 30 分钟重试一次")。
-   * 两者同时给时**以 cron 为准**(它表达了"每次触发后还要再排下一次")。
-   *
-   * 注意:本字段只表达"什么时候该醒",**不负责触发** —— 触发面由持有生命周期的
-   * 宿主提供(编辑器轮询 `x.ai/turn/parked`,或未来的常驻服务)。
-   * CLI 是短生命周期进程,自己不响闹钟。
-   */
-  readonly cron?: string;
   /** 唤醒后要做什么的说明(给上层/给人看),不参与判定。 */
   readonly note?: string;
 }
@@ -279,16 +265,6 @@ export function applyTurnTransition(
  */
 export function isWakeable(record: TurnRecord, now: number): boolean {
   if (record.phase !== 'parked' || !record.wake) return false;
-  // cron 优先:周期挂起由 cron 表达式算下一次到点时刻
-  if (record.wake.cron !== undefined) {
-    try {
-      const due = nextCronAt(record.wake.cron, record.updatedAt);
-      return due <= now;
-    } catch {
-      // 表达式非法 ⇒ 不可唤醒(不静默当成"立刻可醒")。调用方应校验后再落库。
-      return false;
-    }
-  }
   if (record.wake.notBefore === undefined) return false;
   return record.wake.notBefore <= now;
 }
@@ -370,3 +346,4 @@ export function endReasonFromStopReason(
 export function isNormalStop(stopReason: TurnStopReasonLike): boolean {
   return NORMAL_STOPS.has(stopReason);
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

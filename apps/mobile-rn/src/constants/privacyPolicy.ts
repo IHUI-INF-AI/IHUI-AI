@@ -21,7 +21,7 @@
 export const PRIVACY_POLICY_TITLE = '隐私政策'
 
 export const PRIVACY_POLICY_COMPANY = '吉林省爱智汇人工智能科技有限公司'
-export const PRIVACY_POLICY_EMAIL = 'lizong@aizhs.top'
+export const PRIVACY_POLICY_EMAIL = 'IHUI-AI@aizhs.top'
 export const PRIVACY_POLICY_PHONE = '19944894487'
 export const PRIVACY_POLICY_ADDRESS = '吉林省长春市高新区益田硅谷公馆二期(益田罗堤悦府)B9栋1801室'
 export const PRIVACY_POLICY_EFFECTIVE_DATE = '2025-06-20'
@@ -148,7 +148,7 @@ export const PRIVACY_POLICY_PARAGRAPHS: readonly PrivacyPolicyParagraph[] = [
   {
     text: '如果您对本政策或我们处理您个人信息的行为有任何疑问、意见或建议,或需要行使您的个人信息权利(包括访问、更正、删除、撤回同意、注销账号等),您可以通过以下方式联系我们:',
   },
-  { text: '1. 客服邮箱:lizong@aizhs.top' },
+  { text: '1. 客服邮箱:IHUI-AI@aizhs.top' },
   { text: '2. 客服电话:19944894487' },
   { text: '3. 在线客服:您可以通过本软件内的在线客服功能与我们联系(包含二维码联系)' },
   { text: '4. 公司地址:吉林省长春市高新区益田硅谷公馆二期(益田罗堤悦府)B9栋1801室' },

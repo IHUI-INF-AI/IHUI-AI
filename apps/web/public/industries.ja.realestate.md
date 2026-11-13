@@ -201,7 +201,8 @@
   A: 12 言語対応 (中英日韓仏独西露阿等)、マイナー言語はカスタム音声必要。
 
 ### 連絡先
-- **統合連絡先メール:lizong@aizhs.top** —— 業界別ソリューション・資料請求・ビジネスはすべてこのアドレスへ。業界と用件をご記入ください。24 時間以内に返信します。
+- 不動産業界: realestate@aizhs.top
+- 汎用窓口: contact@aizhs.top
 - 公式サイト: https://aizhs.top
 - GitHub: https://github.com/IHUI-INF-AI/IHUI-AI
 

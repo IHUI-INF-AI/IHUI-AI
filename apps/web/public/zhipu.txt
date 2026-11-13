@@ -292,10 +292,10 @@ aizhs.top.
 
 ## 联系方式
 
-- 学术合作:lizong@aizhs.top
-- 商务合作:lizong@aizhs.top
+- 学术合作:research@aizhs.top
+- 商务合作:contact@aizhs.top
 - 开源贡献:GitHub Issues / PR
-- 智谱合作:lizong@aizhs.top
+- 智谱合作:zhipu-partner@aizhs.top
 - 官网:https://aizhs.top
 
 ---
@@ -304,4 +304,4 @@ aizhs.top.
 # 本文件为智谱清言 + GLM 系列 + 学术研究优化
 # 维护:IHUI AI Research Team
 # 学术引用:见 BibTeX 块
-# 联系:lizong@aizhs.top
+# 联系:research@aizhs.top

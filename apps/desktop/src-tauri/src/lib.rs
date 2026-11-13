@@ -4883,9 +4883,6 @@ pub fn run() {
             // 这里只留 probe(读内嵌窗 cookie jar + 服务端验证,见 checkin_web_login.rs)。
             checkin_web_login::checkin_workbuddy_web_login_probe,
             checkin_web_login::checkin_workbuddy_web_login_probe_cookie,
-            // F-060:jar 探测路径的入库(探测回包已不含 cookie;cookie 由 Rust
-            // 从内嵌浏览器 cookie jar 现读直 POST 后端,见 checkin_web_login.rs)
-            checkin_web_login::checkin_workbuddy_web_import,
             checkin_capture::checkin_reset_device_ids,
             checkin_capture::checkin_get_public_ip,
             checkin_capture::checkin_one_click_reset,

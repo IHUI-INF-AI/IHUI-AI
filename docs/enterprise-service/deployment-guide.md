@@ -794,7 +794,7 @@ helm rollback ihui <上一版本> -n ihui-app
 
 ## 联系方式
 
-部署问题请联系:**lizong@aizhs.top**(商务)/ 客户专属技术支持群(Enterprise / Custom 档位)。
+部署问题请联系:**sales@aizhs.top**(商务)/ 客户专属技术支持群(Enterprise / Custom 档位)。
 SLA 与故障响应时效详见 [sla-terms.md](./sla-terms.md)。
 
 

@@ -16,8 +16,7 @@
  *    封禁线定在 600 而非早先的 200:2026-09-23 实测用户仅打开一个页面就打出 205 次/分钟
  *    (前端按账号数线性扇出),被封 15 分钟。封禁是不可自助绕过的重处置,
  *    判据线必须落在人类正常使用够不着的位置。
- * 4. 白名单:内网 IP 自动放行;健康检查 UA **只豁免频率统计**,不豁免封禁与扫描器判定
- *    (UA 是纯客户端头,可任意伪造,不能作为放行依据);
+ * 4. 白名单:内网 IP 自动放行;健康检查 UA 自动放行;
  *    监控探针与自助解封面豁免(见 utils/block-exempt-paths.ts)。
  * 5. 路由级开关:routeOptions.config.antiAutomation = { enabled: false } 可关闭。
  *
@@ -82,18 +81,15 @@ function readIntEnv(name: string, fallback: number): number {
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback
 }
 
-/**
- * 健康检查 / 监控 UA 白名单关键词。
- *
- * 仅用于豁免频率统计,不参与任何放行判定 —— UA 是纯客户端头,任何字符串都能伪造,
- * 一旦拿它当放行依据,攻击者只要写 `User-Agent: monitor` 就能连封禁与扫描器判定一起跳过。
- * 故此处不保留 `monitor` / `uptime` 这类通用词(命中面过宽),只留厂商特征明确的探针标识。
- */
+/** 健康检查 / 监控 UA 白名单关键词。 */
 const HEALTH_UA_KEYWORDS = [
   'kube-probe',
   'elb-healthchecker',
+  'prometheus',
   'gthealthcheck',
   'health-check',
+  'uptime',
+  'monitor',
 ] as const
 
 /** 扫描器路径特征(与 anomaly-detector 保持一致语义)。 */
@@ -134,13 +130,12 @@ const antiAutomationPlugin: FastifyPluginAsync = async (server: FastifyInstance)
     const ip = request.ip
     if (!ip) return
 
-    // 内网白名单(服务端视角的事实,不来自客户端头)
+    // 内网白名单
     if (isPrivateIp(ip)) return
 
-    // 健康检查 / 监控 UA 白名单:只做标记,绝不前置 return。
-    // UA 可伪造,它唯一的语义是跳过频率统计(步骤 3);封禁与扫描器判定必须照常执行。
+    // 健康检查 / 监控 UA 白名单
     const ua = request.headers['user-agent'] ?? ''
-    const healthCheckUa = isHealthCheckUa(ua)
+    if (isHealthCheckUa(ua)) return
 
     const path = (request.url.split('?')[0] ?? request.url).toLowerCase()
 
@@ -176,63 +171,58 @@ const antiAutomationPlugin: FastifyPluginAsync = async (server: FastifyInstance)
     //    用户维度单独计数并喂给信誉体系(recordBadEvent → threat-detector),不直接封 IP。
     //    (历史上这里取 max(ipCount, userCount) 判封禁,但 request.userId 在 onRequest
     //     阶段恒未填充 —— authenticate 跑得更晚 —— 所以 userCount 一直是 0,"双轨"实为单轨。)
-    //
-    //    健康检查 UA 的唯一豁免就在这里:不计数、不触发 429/403。
-    //    上面的封禁查询与扫描器判定已经执行过,伪造 UA 换不来任何放行。
-    if (!healthCheckUa) {
-      const threshold = aaCfg?.threshold ?? DEFAULT_THRESHOLD
-      const now = Date.now()
-      const ipCount = await incrCounter(redis, K_FREQ(ip), now, WINDOW_MS)
-      const userId = await resolveUserIdForRate(request)
-      const userCount = userId ? await incrCounter(redis, K_FREQ_USER(userId), now, WINDOW_MS) : 0
-      if (userId && userCount > BLOCK_THRESHOLD) {
-        logger.warn('anti-automation: user-dimension rate exceeded', { ip, userId, userCount })
-        await ipRep.recordBadEvent(ip, 'user-rate-exceeded')
-      }
+    const threshold = aaCfg?.threshold ?? DEFAULT_THRESHOLD
+    const now = Date.now()
+    const ipCount = await incrCounter(redis, K_FREQ(ip), now, WINDOW_MS)
+    const userId = await resolveUserIdForRate(request)
+    const userCount = userId ? await incrCounter(redis, K_FREQ_USER(userId), now, WINDOW_MS) : 0
+    if (userId && userCount > BLOCK_THRESHOLD) {
+      logger.warn('anti-automation: user-dimension rate exceeded', { ip, userId, userCount })
+      await ipRep.recordBadEvent(ip, 'user-rate-exceeded')
+    }
 
-      if (ipCount > BLOCK_THRESHOLD) {
-        // > 阈值:403 + 封禁
-        logger.warn('anti-automation: block threshold exceeded', {
-          ip,
-          userId,
-          ipCount,
-          userCount,
-        })
-        await ipRep.blockIp(ip, RATE_BLOCK_SEC, 'rate-limit-block')
-        reply
-          .status(403)
-          .header('X-Block-Reason', 'rate-limit-block')
-          .header('Retry-After', String(RATE_BLOCK_SEC))
-          .send({ code: 403, message: '请求频率过高,IP 已被临时封禁 15 分钟' })
-        return
-      }
+    if (ipCount > BLOCK_THRESHOLD) {
+      // > 阈值:403 + 封禁
+      logger.warn('anti-automation: block threshold exceeded', {
+        ip,
+        userId,
+        ipCount,
+        userCount,
+      })
+      await ipRep.blockIp(ip, RATE_BLOCK_SEC, 'rate-limit-block')
+      reply
+        .status(403)
+        .header('X-Block-Reason', 'rate-limit-block')
+        .header('Retry-After', String(RATE_BLOCK_SEC))
+        .send({ code: 403, message: '请求频率过高,IP 已被临时封禁 15 分钟' })
+      return
+    }
 
-      if (ipCount > threshold) {
-        // > 挑战阈值:429 + 要求 CAPTCHA
-        const botFlag =
-          isMissingOrShortUserAgent(ua) ||
-          isCurlLike(ua) ||
-          isHeadlessBrowser(ua) ||
-          isBotUserAgent(ua)
-        logger.warn('anti-automation: challenge threshold exceeded', {
-          ip,
-          userId,
-          ipCount,
-          userCount,
-          botFlag,
+    if (ipCount > threshold) {
+      // > 挑战阈值:429 + 要求 CAPTCHA
+      const botFlag =
+        isMissingOrShortUserAgent(ua) ||
+        isCurlLike(ua) ||
+        isHeadlessBrowser(ua) ||
+        isBotUserAgent(ua)
+      logger.warn('anti-automation: challenge threshold exceeded', {
+        ip,
+        userId,
+        ipCount,
+        userCount,
+        botFlag,
+      })
+      reply
+        .status(429)
+        .header('X-Challenge-Required', 'captcha')
+        .header('X-Challenge-Type', botFlag ? 'bot' : 'rate')
+        .header('Retry-After', String(Math.ceil(WINDOW_MS / 1000)))
+        .send({
+          code: 429,
+          message: '请求频率过高,需完成人机验证',
+          challengeEndpoint: '/api/security/challenge',
         })
-        reply
-          .status(429)
-          .header('X-Challenge-Required', 'captcha')
-          .header('X-Challenge-Type', botFlag ? 'bot' : 'rate')
-          .header('Retry-After', String(Math.ceil(WINDOW_MS / 1000)))
-          .send({
-            code: 429,
-            message: '请求频率过高,需完成人机验证',
-            challengeEndpoint: '/api/security/challenge',
-          })
-        return
-      }
+      return
     }
 
     // 4. 自动化标记(仅记录,不阻塞;高分由 anomaly-detector 综合)

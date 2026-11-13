@@ -27,13 +27,7 @@ import { success, error } from '../utils/response.js'
 import { checkAuth } from '../plugins/auth.js'
 import { db, dbRead } from '../db/index.js'
 import { orders, userMargins, tokenFlows, userCoupons, promoCoupons } from '@ihui/database'
-import {
-  assertCouponUsable,
-  calcCouponDiscount,
-  redeemCoupon,
-  refundCoupon,
-  type CouponScope,
-} from '../services/coupon-service.js'
+import { calcCouponDiscount, redeemCoupon, refundCoupon } from '../services/coupon-service.js'
 import { activateOrderSubscription } from '../services/order-service.js'
 
 /** 券不可用原因的对外文案(内部 reason 码 → 用户可读)。 */
@@ -47,16 +41,6 @@ const COUPON_REASON_TEXT: Record<string, string> = {
   not_owner: '优惠券不属于当前用户',
   already_used: '已使用',
   not_unused: '状态不可用',
-  model_not_applicable: '不适用于该模型',
-}
-
-/**
- * 订单业务类型 → 券适用范围(F-310)。
- * orders.orderType:2=VIP / 5=开发者套餐 / 6=API 订阅 / 7=课程 / 8=课程卡。
- * 开发者套餐与 API 订阅属中转站(relay),其余(VIP/课程等)属订阅(subscription)。
- */
-function couponScopeOfOrder(orderType: number): CouponScope {
-  return orderType === 5 || orderType === 6 ? 'relay' : 'subscription'
 }
 
 const availableQuerySchema = z.object({
@@ -114,6 +98,7 @@ export const miniappPayRoutes: FastifyPluginAsync = async (server) => {
       .where(and(eq(userCoupons.userId, userId), eq(userCoupons.status, 'unused')))
       .orderBy(desc(userCoupons.createdAt))
 
+    const now = Date.now()
     const items = rows.map(({ userCoupon, coupon }) => {
       const base = {
         id: userCoupon.id,
@@ -126,10 +111,18 @@ export const miniappPayRoutes: FastifyPluginAsync = async (server) => {
         usable: true,
         reason: '',
       }
-      // 停用/未生效/过期/适用范围与核销走同一判据(assertCouponUsable),不在此另写分支
-      const unusable = assertCouponUsable(coupon, { scope: 'subscription' })
-      if (unusable) {
-        return { ...base, usable: false, reason: COUPON_REASON_TEXT[unusable] ?? unusable }
+      if (!coupon.enabled) {
+        return { ...base, usable: false, reason: COUPON_REASON_TEXT.disabled! }
+      }
+      if (new Date(coupon.startsAt).getTime() > now) {
+        return { ...base, usable: false, reason: COUPON_REASON_TEXT.not_started! }
+      }
+      if (new Date(coupon.expiresAt).getTime() < now) {
+        return { ...base, usable: false, reason: COUPON_REASON_TEXT.expired! }
+      }
+      // 适用范围:支付页结算的是 VIP/课程(subscription 类),relay(中转站)券不适用
+      if (coupon.applicableScope !== 'all' && coupon.applicableScope !== 'subscription') {
+        return { ...base, usable: false, reason: COUPON_REASON_TEXT.scope_not_applicable! }
       }
       const calc = calcCouponDiscount(coupon, spendCents)
       if (calc.reason) {
@@ -227,8 +220,6 @@ export const miniappPayRoutes: FastifyPluginAsync = async (server) => {
     const redeemed = await redeemCoupon(userId, userCouponId, {
       spendCents: basePrice,
       orderId: order.id,
-      // F-310:带订单业务范围,让 applicableScope 在核销入口真正生效
-      scope: couponScopeOfOrder(order.orderType),
     })
     if (!redeemed.success) {
       const reason = COUPON_REASON_TEXT[redeemed.reason ?? ''] ?? redeemed.reason ?? '优惠券不可用'

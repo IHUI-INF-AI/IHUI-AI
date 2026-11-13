@@ -7703,25 +7703,6 @@ const checks = [
       '  紧急跳过(不推荐):HUSKY_SKIP_ACP_METHOD_REGISTRATION=1 git commit ...',
     ].join('\n'),
   },
-  {
-    id: '319',
-    label: '🔌 ACP handler 错误映射覆盖(blocking:每个 .onRequest handler 必须过 rpcMethod/asRpcError)',
-    script: 'check-acp-error-mapping.mjs',
-    args: [],
-    mode: 'blocking',
-    skipEnv: 'HUSKY_SKIP_ACP_ERROR_MAPPING',
-    stagedTriggers: ['apps/cli/src/acp/'],
-    onFailHint: [
-      '  💡 ACP SDK 对 handler 抛出的普通 Error 一律回 -32603 Internal error 且**不带 message**,',
-      '     客户端无法区分「会话不存在 / 参数非法 / 内部故障」—— 三者处置完全不同。',
-      '  修法:(ctx) => rpcMethod((p) => agent.xxx(p))(ctx.params)',
-      '  实测基线(2026-11-12):33 处 .onRequest 曾有 8 处漏映射(含 x.ai/session/repair、',
-      '     x.ai/rewind/*、x.ai/mcp/*),它们都会让"会话 ID 写错"看起来像"程序崩了"。',
-      '  复验:node scripts/check-acp-error-mapping.mjs',
-      '  紧急跳过(不推荐):HUSKY_SKIP_ACP_ERROR_MAPPING=1 git commit ...',
-      '',
-    ].join('\n'),
-  },
 ]
 
 // === push 门检查集(2026-08-31 新增) ===

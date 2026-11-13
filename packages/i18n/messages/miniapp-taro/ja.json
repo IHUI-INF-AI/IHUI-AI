@@ -7233,5 +7233,23 @@
     "video": {
       "error": "編成失敗"
     }
+  },
+  "financeAi": {
+    "automationPrompt": "【財務部・国家プラットフォーム自動化】申告・データ取得期間 {period}、提出ゲート {mode}（manual_gate=提出の一段前で停止し自分がクリック;user_confirmed=対象・期間・納付額を読み上げ明示確認後に提出実行）。ai_tax_filing phase=automation(targets={targets}{portals}) で段取り計画を取得し、内蔵ブラウザツール（browser_*;本ワークベンチのページを tool-delegate 実行）で本対話の中で段階的に実行・毎回進捗報告（第何目標・第何ステップ）。ログイン/CAPTCHA/顔/U盾は停止して自分の操作後に続行。TARGET_NOT_CONNECTED なら接続案内し断点から再開。URL を推測せず必ず質問。申告数値は草案またはプラットフォーム受領書へ遡及できること。",
+    "promptBookkeeping": "【財務部 · AI ワンクリック記帳】会計期間 {period}。",
+    "promptWithPayload": "取引データ：{payload}",
+    "promptAskUpload": "データ不足の場合は、まずユーザーに取引データの提出を依頼するか、会話内でアップロードされた請求書・明細を解析してください。金額を捏造しないこと。",
+    "phaseBookkeeping": "ai_bookkeeping を classify → voucher → trial_balance → close → report の順に段階実行し、各段階終了時に進捗（全 5 段階中第 N 段階）と結果を報告してください。試算が均衡しない場合は差異をそのまま伝え、均衡させるために数値を改変しないでください。",
+    "promptTaxFiling": "【財務部 · AI ワンクリック申告】",
+    "phaseTaxFiling": "ai_tax_filing を compute → validate → draft の順に段階実行してください。",
+    "promptTaxDraftNote": "成果物は申告書ドラフトであり、正式申告には納税者と有資格者の確認が必要です。欠落項目はユーザーに尋ね、捏造は不可。validate が検出した問題はすべて列挙してください。",
+    "fieldPeriod": "申告期間 {period}",
+    "fieldSales": "売上額 {value}",
+    "fieldOutputTax": "売上税額 {value}",
+    "fieldInputTax": "仕入税額 {value}",
+    "fieldProfit": "利益総額 {value}",
+    "taxpayerGeneral": "納税者区分：一般納税者",
+    "taxpayerSmall": "納税者区分：小規模納税者",
+    "fieldWages": "給与表：{payload}"
   }
 }
