@@ -58,10 +58,19 @@ vi.mock('@ihui/database', () => ({
   registryWebhookTriggers: {},
 }))
 
-vi.mock('../src/db/index.js', () => ({
-  db: { insert: mockDbInsert, delete: vi.fn(), update: vi.fn() },
-  dbRead: { select: mockDbReadSelect, execute: vi.fn() },
-}))
+vi.mock('../src/db/index.js', () => {
+  // F-643:判定与写入同在主库事务内,事务句柄与主库共用同一组桩
+  const tx = { select: mockDbReadSelect, insert: mockDbInsert }
+  return {
+    db: {
+      ...tx,
+      delete: vi.fn(),
+      update: vi.fn(),
+      transaction: (fn: (inner: typeof tx) => unknown) => fn(tx),
+    },
+    dbRead: { select: mockDbReadSelect, execute: vi.fn() },
+  }
+})
 
 vi.mock('../src/services/registry-sync/index.js', () => ({
   computePayloadHash: mockComputePayloadHash,

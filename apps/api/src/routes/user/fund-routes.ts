@@ -32,12 +32,17 @@ const fundRoutes: FastifyPluginAsync = async (server) => {
       ) {
         return reply.status(400).send(error(400, 'amount 必须为正数且不超过 1000000'))
       }
+      // F-635:入口一次性归一到分,本地订单/风控/网关三处同源,避免 0.015 本地 2 分而网关 1 分
+      const amountCents = Math.round(body.amount * 100)
+      if (amountCents <= 0) {
+        return reply.status(400).send(error(400, 'amount 至少为 0.01 元'))
+      }
       // P0 风控覆盖(2026-09-06):基金/支付宝资金下单接入风控引擎,DENY 阻断异常资金流入
       const risk = server.riskEngine.evaluateRisk({
         userId: request.userId!,
         ip: request.ip,
         deviceFingerprint: (request.headers['x-device-fingerprint'] as string) ?? undefined,
-        amount: Math.round(body.amount * 100),
+        amount: amountCents,
       })
       if (risk.action === 'DENY') {
         request.log.warn({ userId: request.userId, hits: risk.hits }, '基金下单被风控拒绝')
@@ -46,7 +51,7 @@ const fundRoutes: FastifyPluginAsync = async (server) => {
       const order = await createOrder(
         {
           userId: request.userId!,
-          amount: Math.round(body.amount * 100),
+          amount: amountCents,
           orderType: 0,
           productId: body.productId,
           payType: 'alipay',
@@ -61,7 +66,7 @@ const fundRoutes: FastifyPluginAsync = async (server) => {
       }
       const bizContent = {
         out_trade_no: order.orderNo,
-        total_amount: body.amount.toFixed(2),
+        total_amount: (amountCents / 100).toFixed(2),
         subject: body.description ?? '订单支付',
         product_code: 'FAST_INSTANT_TRADE_PAY',
       }
@@ -84,12 +89,17 @@ const fundRoutes: FastifyPluginAsync = async (server) => {
       ) {
         return reply.status(400).send(error(400, 'amount 必须为正数且不超过 1000000'))
       }
+      // F-635:入口一次性归一到分,本地订单/风控/网关三处同源,避免 0.015 本地 2 分而网关 1 分
+      const amountCents = Math.round(body.amount * 100)
+      if (amountCents <= 0) {
+        return reply.status(400).send(error(400, 'amount 至少为 0.01 元'))
+      }
       // P0 风控覆盖(2026-09-06):基金/支付宝资金下单接入风控引擎,DENY 阻断异常资金流入
       const risk = server.riskEngine.evaluateRisk({
         userId: request.userId!,
         ip: request.ip,
         deviceFingerprint: (request.headers['x-device-fingerprint'] as string) ?? undefined,
-        amount: Math.round(body.amount * 100),
+        amount: amountCents,
       })
       if (risk.action === 'DENY') {
         request.log.warn({ userId: request.userId, hits: risk.hits }, '基金下单被风控拒绝')
@@ -98,7 +108,7 @@ const fundRoutes: FastifyPluginAsync = async (server) => {
       const order = await createOrder(
         {
           userId: request.userId!,
-          amount: Math.round(body.amount * 100),
+          amount: amountCents,
           orderType: 0,
           productId: body.productId,
           payType: 'alipay',
@@ -113,7 +123,7 @@ const fundRoutes: FastifyPluginAsync = async (server) => {
       }
       const bizContent = {
         out_trade_no: order.orderNo,
-        total_amount: body.amount.toFixed(2),
+        total_amount: (amountCents / 100).toFixed(2),
         subject: body.description ?? '订单支付',
         product_code: 'FAST_INSTANT_TRADE_PAY',
       }

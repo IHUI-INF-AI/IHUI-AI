@@ -37,14 +37,31 @@ import { renderLowBalanceEmail, resolveBrandSmtpFrom } from './email-templates.j
  */
 const SMTP_TIMEOUT_MS = 10_000
 
+/**
+ * 解析正整数 env:非法(NaN/Infinity/<=0)一律回退默认值并 log.warn 一次(模块加载期只解析一次)。
+ * 不能用 `||` 兜底:非法值会变成 0 —— 冷却 0 等于每次都发(邮件风暴),阈值 0 等于告警永久失效。
+ */
+function parsePositiveIntEnv(name: string, fallback: number): number {
+  const raw = process.env[name]
+  if (raw === undefined || raw.trim() === '') return fallback
+  const parsed = Number(raw)
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    logger.warn('[mail-notify] 环境变量非法,回退默认值', { name, raw, fallback })
+    return fallback
+  }
+  return parsed
+}
+
 /** 余额不足通知冷却窗口(ms),默认 24h,env LOW_BALANCE_NOTIFY_COOLDOWN_MS 可调 */
-const LOW_BALANCE_NOTIFY_COOLDOWN_MS = Number(
-  process.env.LOW_BALANCE_NOTIFY_COOLDOWN_MS ?? 86400000,
+const LOW_BALANCE_NOTIFY_COOLDOWN_MS = parsePositiveIntEnv(
+  'LOW_BALANCE_NOTIFY_COOLDOWN_MS',
+  86400000,
 )
 
 /** 余额不足阈值(分),默认 1000 分(¥10),env LOW_BALANCE_NOTIFY_THRESHOLD_CENTS 可调 */
-const LOW_BALANCE_NOTIFY_THRESHOLD_CENTS = Number(
-  process.env.LOW_BALANCE_NOTIFY_THRESHOLD_CENTS ?? 1000,
+const LOW_BALANCE_NOTIFY_THRESHOLD_CENTS = parsePositiveIntEnv(
+  'LOW_BALANCE_NOTIFY_THRESHOLD_CENTS',
+  1000,
 )
 
 /** 充值落地页(邮件内建议充值链接前缀),env PUBLIC_API_BASE_URL 可调 */
@@ -241,13 +258,15 @@ export async function checkAndNotifyLowBalance(
     return false
   }
 
-  // 4. 记录冷却(先标记,避免并发重复发送) + 发信(全部收件人合并为一封邮件)
-  lastNotifiedAtByUser.set(userId, now)
-  return sendLowBalanceMail({
+  // 4. 发信(全部收件人合并为一封邮件);仅在发送成功后写冷却 ——
+  //    发送失败不占用冷却窗口,下次扣费仍会重试提醒,避免一次 SMTP 抖动静默 24h。
+  const sent = await sendLowBalanceMail({
     to: emails,
     keyName,
     tokenBalance,
     costBalanceCents,
     thresholdCents: LOW_BALANCE_NOTIFY_THRESHOLD_CENTS,
   })
+  if (sent) lastNotifiedAtByUser.set(userId, now)
+  return sent
 }
