@@ -4,6 +4,7 @@
 
 import { eq, and, or, desc, sql, ilike } from 'drizzle-orm'
 import { db } from './index.js'
+import { asContainsTerm } from '../utils/like-escape.js'
 import { knowledgeBase, type KnowledgeBase } from '@ihui/database'
 
 /**
@@ -22,7 +23,7 @@ export async function findPublishedKnowledge(opts: {
   search?: string
 }): Promise<{ list: KnowledgeBase[]; total: number; page: number; pageSize: number }> {
   const conds = [knowledgePublicVisibilityCond]
-  if (opts.search) conds.push(ilike(knowledgeBase.title, `%${opts.search}%`))
+  if (opts.search) conds.push(ilike(knowledgeBase.title, asContainsTerm(opts.search)))
   const where = and(...conds)
   const [list, totalRows] = await Promise.all([
     db

@@ -4,6 +4,7 @@
 
 import { eq, and, desc, asc, sql, ilike, inArray, gt } from 'drizzle-orm'
 import { db } from './index.js'
+import { asContainsTerm } from '../utils/like-escape.js'
 import {
   resourceCategories,
   resources,
@@ -118,7 +119,7 @@ export async function findResources(
 ): Promise<{ list: Resource[]; total: number; page: number; pageSize: number }> {
   const { page, pageSize, title, categoryId, isPublished, status } = opts
   const conds = []
-  if (title) conds.push(ilike(resources.title, `%${title}%`))
+  if (title) conds.push(ilike(resources.title, asContainsTerm(title)))
   if (categoryId) conds.push(eq(resources.categoryId, categoryId))
   if (isPublished !== undefined) conds.push(eq(resources.isPublished, isPublished))
   if (status !== undefined) conds.push(eq(resources.status, status))
@@ -394,7 +395,7 @@ export async function findProducts(
   const { page, pageSize, resourceId, name, isPublished, status } = opts
   const conds = []
   if (resourceId) conds.push(eq(resourceProducts.resourceId, resourceId))
-  if (name) conds.push(ilike(resourceProducts.name, `%${name}%`))
+  if (name) conds.push(ilike(resourceProducts.name, asContainsTerm(name)))
   if (isPublished !== undefined) conds.push(eq(resourceProducts.isPublished, isPublished))
   if (status !== undefined) conds.push(eq(resourceProducts.status, status))
   const where = conds.length ? and(...conds) : undefined
@@ -505,7 +506,7 @@ export async function findTags(
 ): Promise<{ list: ResourceTag[]; total: number; page: number; pageSize: number }> {
   const { page, pageSize, name, pid, status } = opts
   const conds = []
-  if (name) conds.push(ilike(resourceTags.name, `%${name}%`))
+  if (name) conds.push(ilike(resourceTags.name, asContainsTerm(name)))
   if (pid !== undefined && pid !== null) conds.push(eq(resourceTags.pid, pid))
   if (status !== undefined) conds.push(eq(resourceTags.status, status))
   const where = conds.length ? and(...conds) : undefined

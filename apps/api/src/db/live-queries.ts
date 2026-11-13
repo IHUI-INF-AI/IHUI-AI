@@ -2,8 +2,9 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { eq, and, desc, asc, sql, ilike, inArray } from 'drizzle-orm'
+import { eq, and, desc, asc, sql, ilike, like, inArray } from 'drizzle-orm'
 import { db } from './index.js'
+import { asContainsTerm, escapeLikeChars } from '../utils/like-escape.js'
 import {
   liveCategories,
   liveLecturers,
@@ -103,7 +104,7 @@ export async function findLiveChannels(
   opts: FindLiveChannelsOpts,
 ): Promise<{ list: LiveChannel[]; total: number; page: number; pageSize: number }> {
   const conds = []
-  if (opts.search) conds.push(ilike(liveChannels.title, `%${opts.search}%`))
+  if (opts.search) conds.push(ilike(liveChannels.title, asContainsTerm(opts.search)))
   if (opts.categoryId) conds.push(eq(liveChannels.categoryId, opts.categoryId))
   if (opts.lecturerId) conds.push(eq(liveChannels.lecturerId, opts.lecturerId))
   if (opts.isLive !== undefined) conds.push(eq(liveChannels.isLive, opts.isLive))
@@ -246,7 +247,15 @@ export async function updateLiveChannelStatusByStreamName(
   await db
     .update(liveChannels)
     .set({ isLive })
-    .where(ilike(liveChannels.pushUrl, `%/${streamName}`))
+    .where(
+      and(
+        eq(liveChannels.status, 1),
+        // F-84:streamName 来自腾讯云回调(外部可控)。schema 无独立 stream_name 列,
+        // pushUrl 末段即流名 ⇒ 用转义后的字面后缀做精确匹配,`%`/`_` 不再退化为通配;
+        // 同时限定 status=1,避免已下线的频道被回调批量改写。
+        like(liveChannels.pushUrl, `%/${escapeLikeChars(streamName)}`),
+      ),
+    )
 }
 
 // =============================================================================
@@ -265,7 +274,7 @@ export async function findLecturers(
   opts: FindLecturersOpts,
 ): Promise<{ list: LiveLecturer[]; total: number; page: number; pageSize: number }> {
   const conds = []
-  if (opts.name) conds.push(ilike(liveLecturers.name, `%${opts.name}%`))
+  if (opts.name) conds.push(ilike(liveLecturers.name, asContainsTerm(opts.name)))
   if (opts.status !== undefined) conds.push(eq(liveLecturers.status, opts.status))
   const where = and(...conds)
 
