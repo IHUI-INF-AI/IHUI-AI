@@ -249,10 +249,12 @@ export function keepAliveForeverVerdictOf(
   now: Date,
   clientRunning: boolean | null | undefined,
 ): KeepAliveForeverVerdict {
-  if (clientRunning === true) {
+  /** 单源判据:客户端是否真握着同一枚「轮换型」refresh_token(= 池抢刷会顶号)。 */
+  const renewingClient = hasLocalRenewingClient(row.providerCode ?? '')
+  if (clientRunning === true && renewingClient) {
     return { defer: true, reason: 'client-running-or-unjudged' }
   }
-  if (clientRunning !== false) {
+  if (clientRunning !== false && renewingClient) {
     // 未判定时的默认方向必须是「多让」—— 但它只在「本机客户端手里也握着同一枚轮换型 rt」的
     // 平台上成立(判据单源 = hasLocalRenewingClient,不是 renewalPolicyOf 的开关值):
     // 让位会造成的不可逆损伤只有一种 —— 池抢刷把机主客户端顶下线;反过来,没有客户端握票的
@@ -260,10 +262,13 @@ export function keepAliveForeverVerdictOf(
     // 2026-11-10 现读反例:workbuddy 三枚 forever 号 lastRefreshAt 停在 11-03/11-04,
     // 而探针表只有 trae/qoder/minimax ⇒ 恒 null ⇒ 恒让位 ⇒ token 12-03~12-09 到期后
     // 「安静地整批死亡」,与永久保活档的立因正相反。
-    if (hasLocalRenewingClient(row.providerCode ?? '')) {
-      return { defer: true, reason: 'client-running-or-unjudged' }
-    }
+    return { defer: true, reason: 'client-running-or-unjudged' }
   }
+  // 非轮换型平台(workbuddy/codearts/zcode…):客户端刷新不废池票(非共享轮换型 rt),
+  // 故客户端在跑**不再让位** ⇒ 池离线续期,彻底消除对客户端进程的单点依赖。
+  // 根治立因(2026-11-14):workbuddy forever 号原被上面「clientRunning===true 无条件让位」
+  // 命中,续期全押在「客户端每 10 分钟回灌」那条脆弱腿上 —— 客户端一停/回灌一断即断源
+  // (实测 11-13 两枚 workbuddy 401、会话回灌连续 breach)。改后客户端在不在都由池续期。
   const activeAt = clientActiveAtOf(row)
   if (activeAt !== null && now.getTime() - activeAt.getTime() < CLIENT_ACTIVE_TTL_MS) {
     return { defer: true, reason: 'heartbeat-fresh' }
