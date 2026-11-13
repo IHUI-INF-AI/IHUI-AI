@@ -280,22 +280,62 @@ from ..services.key_pool_selector import KeyPoolSelector
 _UNDECRYPTABLE_REPORTED: set[str] = set()
 
 
-def _try_decrypt_payload(api_key_enc: str) -> tuple[str | None, str | None]:
+def _b64_or_buffer(value: object) -> bytes:
+    """解密三字段(iv/ciphertext/tag)的兼容解码。
+
+    正常形态是 base64 字符串(与 apps/api/src/utils/crypto.ts encryptJSON 的
+    `iv.toString('base64')` 对应)。但真实号池实测(2026-11-12)存在 Node Buffer
+    被整只 JSON 序列化的历史行:`tag` 落库成 `{"type":"Buffer","data":[..]}`,
+    而非 base64 文本 —— 对它直接 base64.b64decode 必抛 TypeError
+    ("argument should be a bytes-like object ... not 'dict'"),导致该 key 被当成
+    "解密失败→视为未配置"整条剔除,号池腿永远不可用(swiftapi 两条即此形态)。
+
+    这里兼容两种形态,统一返回原始字节:
+    - str  → base64 解码(标准路径);
+    - dict {type:'Buffer',data:[int..]} → 按 data 数组逐字节还原;
+    - list → 视作裸字节数组还原。
+    其它形态抛 TypeError 交由调用方按"解密失败"处理。
+    """
+    if isinstance(value, str):
+        return base64.b64decode(value)
+    if isinstance(value, dict):
+        data = value.get("data")
+        if isinstance(data, list):
+            return bytes(bytearray(int(b) & 0xFF for b in data))
+        raise TypeError(f"无法识别的加密字段 dict(键={sorted(value.keys())})")
+    if isinstance(value, list):
+        return bytes(bytearray(int(b) & 0xFF for b in value))
+    raise TypeError(f"加密字段既非 base64 字符串也非 Buffer 数组(实际 {type(value).__name__})")
+
+
+def _try_decrypt_payload(api_key_enc: str | dict[str, Any] | None) -> tuple[str | None, str | None]:
     """解密的唯一实现(纯函数),返回 (plaintext, error)。两者恰有一个非 None。
 
     `plaintext is None 且 error is None` 只在本函数认定"这是明文而非密文"时出现错误,
     故约定:明文路径直接返回 (值, None);解密路径成功返回 (值, None)、失败返回 (None, 原因)。
+
+    `api_key_enc` 接受**未解析的 JSON 字符串**(库直读,ai_model_config / 号池常态),
+    也接受**已解析成 dict 的 payload**(部分驱动会把 JSON 列自动解码,此时 json.loads 会
+    TypeError)。两条入口都收口到同一解密逻辑,不再因形态差异整条 key 崩掉。
     """
-    try:
-        payload = json.loads(api_key_enc)
-        if not (isinstance(payload, dict) and all(k in payload for k in ("iv", "ciphertext", "tag"))):
-            # JSON 解析成功但不是加密 dict(可能是 JSON 字符串带引号)→ 返回解析后的值
+    # 先把输入统一解析成「加密 payload dict」;不是加密 dict 一律按明文早返回
+    if isinstance(api_key_enc, dict):
+        payload: Any = api_key_enc
+    elif not api_key_enc:
+        return None, "api_key_enc 为空"
+    else:
+        try:
+            payload = json.loads(api_key_enc)
+        except (json.JSONDecodeError, TypeError):
+            # 非 JSON 格式,视为明文(同时 strip 首尾引号/空白,防御 seed 脚本引号包裹)
+            return api_key_enc.strip().strip('"').strip("'"), None
+        if not isinstance(payload, dict):
+            # JSON 解析成功但不是加密 dict(可能是 JSON 字符串带引号)
             if isinstance(payload, str):
                 return payload.strip().strip('"').strip("'"), None
             return api_key_enc, None
-    except (json.JSONDecodeError, TypeError):
-        # 非 JSON 格式,视为明文(同时 strip 首尾引号/空白,防御 seed 脚本引号包裹)
-        return api_key_enc.strip().strip('"').strip("'"), None
+        if not all(k in payload for k in ("iv", "ciphertext", "tag")):
+            return api_key_enc, None
 
     key_str = settings.credentials_encryption_key
     if not key_str or len(key_str) < 32:
@@ -304,9 +344,11 @@ def _try_decrypt_payload(api_key_enc: str) -> tuple[str | None, str | None]:
         from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
         key = key_str.encode("utf-8")[:32]
-        iv = base64.b64decode(payload["iv"])
-        ciphertext = base64.b64decode(payload["ciphertext"])
-        tag = base64.b64decode(payload["tag"])
+        assert isinstance(payload, dict)  # 供 mypy:到达此处 payload 必为加密 dict
+        # 三字段统一走 _b64_or_buffer:兼容 base64 文本与 Node Buffer JSON 两种落库形态
+        iv = _b64_or_buffer(payload["iv"])
+        ciphertext = _b64_or_buffer(payload["ciphertext"])
+        tag = _b64_or_buffer(payload["tag"])
         plaintext = AESGCM(key).decrypt(iv, ciphertext + tag, None).decode("utf-8")
         # P0-5m(2026-07-30):strip 首尾引号(防御 seed 脚本把 key 用 JSON.stringify 包裹导致引号残留)
         return plaintext.strip().strip('"').strip("'"), None
@@ -676,6 +718,22 @@ def _normalize_provider_api_base(api_base: str | None) -> str | None:
     except Exception as e:  # noqa: BLE001 - 校验失败降级返回原值
         logger.warning("provider_config 归一失败(降级返回原值): %s", e)
         return api_base
+
+
+def _guard_api_base_ssrf(api_base: str | None) -> None:
+    """F-187: 调用前对 api_base 做解析级 SSRF 二次校验（防 DNS rebinding）。
+
+    保存时 apps/api 侧已过 ssrf-guard，这里在真正发起 litellm 调用前再校验一次，
+    拦住「保存后 DNS 改指内网/云元数据」的 rebinding。不安全 ⇒ 抛 ValueError，
+    由调用方按既有失败路径处理，绝不把内网地址透传给 litellm。
+    """
+    if not api_base:
+        return
+    from app.core.api_base_ssrf import is_safe_api_base
+
+    safe, reason = is_safe_api_base(api_base)
+    if not safe:
+        raise ValueError(f"api_base SSRF blocked: {reason}")
 
 
 def _explicit_provider_code_of(model: str) -> str:
@@ -2900,6 +2958,7 @@ class LLMGateway:
             call_kwargs: dict[str, Any] = {"model": real_model, "messages": trimmed_messages}
             call_kwargs["api_key"] = api_key
             if api_base:
+                _guard_api_base_ssrf(api_base)
                 call_kwargs["api_base"] = api_base
             # 按 provider capability 设默认 timeout(NVIDIA NIM=120s / Cloudflare=60s / 其他=30s)
             # 替代旧硬编码 nvidia 前缀 120s timeout 判断(P0 Phase A)
@@ -4139,11 +4198,13 @@ class LLMGateway:
                 call_kwargs["api_key"] = api_key
             if api_base:
                 # 批58:LLM_PROVIDER_CONFIG_ENABLED on 时经强类型配置归一(去末尾斜杠)
-                call_kwargs["api_base"] = (
+                _base = (
                     _normalize_provider_api_base(api_base)
                     if _llm_provider_config_enabled_from_env()
                     else api_base
                 )
+                _guard_api_base_ssrf(_base)
+                call_kwargs["api_base"] = _base
             call_kwargs.update(kwargs)
             # 批58:Responses header 注入 + 流式装配流选项(默认 off,on 时才追加)
             if _llm_responses_headers_enabled_from_env():

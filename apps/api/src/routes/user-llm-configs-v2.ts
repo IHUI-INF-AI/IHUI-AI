@@ -52,7 +52,7 @@ import { aiServiceSystemFetch } from '../utils/ai-service-fetch.js'
 import { aiModelConfig } from '@ihui/database'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
-import { safeFetch } from '../utils/ssrf-guard.js'
+import { safeFetch, assertSafeFetchUrl } from '../utils/ssrf-guard.js'
 import { normalizeModelId } from '@ihui/shared'
 import { encryptJSON, decryptJSON, isEncryptedPayload } from '../utils/crypto.js'
 import { AppError } from '../errors/AppError.js'
@@ -532,6 +532,13 @@ export const userLlmConfigV2Routes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, '自定义平台必须填写 baseUrl'))
     }
     const baseUrl = data.baseUrlOverride || tpl.baseUrl
+    // F-187: SSRF 防护 — 用户自定义 baseUrl 不得指向内网/云元数据/本机端口(与 v1 对齐)
+    if (data.baseUrlOverride) {
+      const verdict = await assertSafeFetchUrl(data.baseUrlOverride)
+      if (!verdict.safe) {
+        return reply.code(400).send({ error: `baseUrlOverride SSRF blocked: ${verdict.reason}` })
+      }
+    }
     if (!baseUrl) return reply.status(400).send(error(400, 'Base URL 未配置'))
 
     const userId = request.userId!
@@ -585,6 +592,13 @@ export const userLlmConfigV2Routes: FastifyPluginAsync = async (server) => {
 
     const update: Record<string, unknown> = { updatedAt: new Date() }
     if (body.data.name !== undefined) update.name = body.data.name
+    // F-187: SSRF 防护 — 更新链路同样拦截内网/云元数据/本机端口(与 v1 update 对齐)
+    if (body.data.baseUrlOverride !== undefined) {
+      const verdict = await assertSafeFetchUrl(body.data.baseUrlOverride)
+      if (!verdict.safe) {
+        return reply.code(400).send({ error: `baseUrlOverride SSRF blocked: ${verdict.reason}` })
+      }
+    }
     if (body.data.baseUrlOverride !== undefined) update.baseUrl = body.data.baseUrlOverride
     if (body.data.apiFormat !== undefined) update.apiFormat = body.data.apiFormat
     if (body.data.description !== undefined) update.description = body.data.description
@@ -1070,18 +1084,58 @@ export const userLlmConfigV2Routes: FastifyPluginAsync = async (server) => {
     if (body.data.sortOrder !== undefined) sets.push(sql`sort_order = ${body.data.sortOrder}`)
     if (sets.length === 0) return reply.send(success({ id: p.data.id, updated: false, noop: true }))
     try {
-      const res = await db.execute(sql`
-        UPDATE ai_model_config_groups
-        SET ${sql.join(sets, sql`, `)}
-        WHERE id = ${p.data.id} AND user_uuid = ${userId}
-        RETURNING id
-      `)
-      const rows = Array.isArray(res)
-        ? (res as unknown as Array<{ id: number }>)
-        : ((res as { rows?: Array<{ id: number }> }).rows ?? [])
-      if (rows.length === 0) return reply.status(404).send(error(404, 'group 不存在或无权限'))
+      // F-189:分组关系是字符串冗余(组表 group_label ↔ provider 表 provider_group),删除守卫
+      // 按 provider_group = label 计数。重命名只改组表会把守卫算成 0,删除后 provider 成孤儿。
+      // 故 label 变更时在同一事务内级联 provider 行的 provider_group;sort_order-only 不动 provider。
+      const renaming = body.data.label !== undefined
+      const result = await db.transaction(async (tx) => {
+        let oldLabel: string | null = null
+        if (renaming) {
+          const curRes = await tx.execute(sql`
+            SELECT group_label AS label FROM ai_model_config_groups
+            WHERE id = ${p.data.id} AND user_uuid = ${userId}
+            LIMIT 1
+          `)
+          const curRows = Array.isArray(curRes)
+            ? (curRes as unknown as Array<{ label: string | null }>)
+            : ((curRes as { rows?: Array<{ label: string | null }> }).rows ?? [])
+          oldLabel = curRows[0]?.label ?? null
+        }
+        const res = await tx.execute(sql`
+          UPDATE ai_model_config_groups
+          SET ${sql.join(sets, sql`, `)}
+          WHERE id = ${p.data.id} AND user_uuid = ${userId}
+          RETURNING id
+        `)
+        const rows = Array.isArray(res)
+          ? (res as unknown as Array<{ id: number }>)
+          : ((res as { rows?: Array<{ id: number }> }).rows ?? [])
+        if (rows.length === 0) return { groupRows: 0, cascaded: 0 }
+        let cascaded = 0
+        const newLabel = body.data.label
+        if (renaming && newLabel !== undefined && oldLabel !== null && oldLabel !== newLabel) {
+          const casRes = await tx.execute(sql`
+            UPDATE ai_model_config
+            SET provider_group = ${newLabel}, updated_at = NOW()
+            WHERE owner_uuid = ${userId} AND provider_group = ${oldLabel}
+            RETURNING id
+          `)
+          const casRows = Array.isArray(casRes)
+            ? (casRes as unknown as Array<{ id: number }>)
+            : ((casRes as { rows?: Array<{ id: number }> }).rows ?? [])
+          cascaded = casRows.length
+        }
+        return { groupRows: rows.length, cascaded }
+      })
+      if (result.groupRows === 0) return reply.status(404).send(error(404, 'group 不存在或无权限'))
       // updated 由本链 UPDATE … RETURNING 的命中集派生(守门 134),不再回字面量 true。
-      return reply.send(success({ id: p.data.id, updated: rows.length > 0 }))
+      return reply.send(
+        success({
+          id: p.data.id,
+          updated: result.groupRows > 0,
+          cascaded: result.cascaded,
+        }),
+      )
     } catch (e) {
       if (isSchemaMissingError(e)) {
         return reply.status(503).send(error(503, SCHEMA_NOT_READY_MSG))

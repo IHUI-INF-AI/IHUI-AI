@@ -48,7 +48,7 @@ import type {
   V1ChatCompletionResponse,
   V1ModelsResponse,
 } from '@ihui/types'
-import { requireApiKeyAuth, requireApiKeyQuota } from '../plugins/api-key-auth.js'
+import { requireApiKeyAuth, requireApiKeyQuota, checkAllowedModels } from '../plugins/api-key-auth.js'
 import { requireCapability } from '../utils/capability-guard.js'
 import { error, success } from '../utils/response.js'
 // P0-5 中转站计费(2026-07-29 立)
@@ -114,6 +114,7 @@ interface ApiKeyContext {
   key: string
   permissions: string[]
   rateLimit: number
+  allowedModels: string[] | null
 }
 
 // =============================================================================
@@ -1705,6 +1706,17 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
         }
       } catch {
         // 映射解析失败默认走原 model,不影响主链路
+      }
+    }
+
+    // F-385(P1 修):映射后必须复检白名单,防止"白名单只含 model-a → 映射为 model-z → 绕过白名单"。
+    // 仅在 Key 配置了 allowedModels 且实际发生映射时才需复检;未映射时鉴权阶段已查过原 model。
+    if (apiKey?.allowedModels && apiKey.allowedModels.length > 0 && resolvedModel !== model) {
+      const mappedModelCheck = checkAllowedModels(apiKey.allowedModels, resolvedModel)
+      if (!mappedModelCheck.ok) {
+        return reply
+          .status(403)
+          .send(error(403, `映射后模型不在 API Key 白名单:${resolvedModel}`))
       }
     }
 
