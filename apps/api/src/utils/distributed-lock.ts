@@ -22,12 +22,8 @@
 import { randomBytes } from 'node:crypto'
 import type { Redis } from 'ioredis'
 import { AppError } from '../errors/AppError.js'
-import { logger } from './logger.js'
 
 export type LockState = 'ACQUIRED' | 'NOT_ACQUIRED' | 'EXPIRED' | 'RELEASED'
-
-/** 锁丢失原因 (F-708)：`not-owner` = renew 明确返回锁已不属于我；`renew-failed` = 连续异常达到阈值。 */
-export type LockLostReason = 'not-owner' | 'renew-failed'
 
 /** 已获取的锁句柄，提供 release / renew 能力。 */
 export interface AcquiredLock {
@@ -43,11 +39,6 @@ export interface AcquiredLock {
   acquiredAt: number
   /** 预期过期时间戳 (毫秒) */
   expiresAt: number
-  /**
-   * 锁丢失信号 (F-708)：仅在「确认丢失」(`renew` 返回 false) 或 watchdog 连续续约
-   * 失败达到阈值时 abort，`reason` 为 LockLostReason。持有者据此提前终止临界区。
-   */
-  readonly lost: AbortSignal
   /** 释放锁并停止 watchdog */
   release(): Promise<LockState>
   /** 续约，延长 TTL。成功返回 true (锁仍由本持有者持有)。 */
@@ -65,13 +56,6 @@ export interface DistributedLockOptions {
   watchdog?: boolean
   /** watchdog 续约间隔，默认 ttl/3 */
   watchdogIntervalMs?: number
-  /**
-   * watchdog 连续续约异常 (网络/Redis 抖动) 达到该次数才停表并通知，默认 3。
-   * 注意：`renew` 返回 false (锁已不属于我) 属于确定丢失，会立即停表，不受该阈值影响。
-   */
-  maxRenewFailures?: number
-  /** 单次续约超时，默认取 watchdog 续约间隔 (即 ttl/3)，防止挂死 watchdog interval。 */
-  renewTimeoutMs?: number
 }
 
 export class DistributedLockError extends AppError {
@@ -146,32 +130,6 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-/** 续约超时 (F-708)：区别于 Redis 返回的业务错误，watchdog 将其视为「未知」失败。 */
-class LockRenewTimeoutError extends Error {
-  constructor(name: string, timeoutMs: number) {
-    super(`分布式锁续约超时 name=${name} timeoutMs=${timeoutMs}`)
-    this.name = 'LockRenewTimeoutError'
-  }
-}
-
-/** 给任意 promise 加超时，避免 renew 挂死 watchdog interval。 */
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number, name: string): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new LockRenewTimeoutError(name, timeoutMs)), timeoutMs)
-    timer.unref?.()
-    promise.then(
-      (value) => {
-        clearTimeout(timer)
-        resolve(value)
-      },
-      (error: unknown) => {
-        clearTimeout(timer)
-        reject(error)
-      },
-    )
-  })
-}
-
 /**
  * 分布式锁。
  *
@@ -180,8 +138,6 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, name: string): P
 export class DistributedLock {
   private stats = { acquired: 0, released: 0, expired: 0, renewed: 0 }
   private readonly watchdogs = new Map<string, ReturnType<typeof setInterval>>()
-  /** lock → 丢失信号控制器 (F-708)。WeakMap 随锁句柄回收，不参与 F-709 的 watchdog 键设计。 */
-  private readonly lostControllers = new WeakMap<AcquiredLock, AbortController>()
 
   constructor(private readonly redis: Redis) {}
 
@@ -199,16 +155,9 @@ export class DistributedLock {
     const ok = await this.redis.set(name, token, 'PX', ttlMs, 'NX')
     if (ok !== 'OK') return null
     this.stats.acquired++
-    const watchdogIntervalMs = options.watchdogIntervalMs ?? Math.floor(ttlMs / 3)
-    const lock = this.buildLock(
-      name,
-      owner,
-      token,
-      ttlMs,
-      options.renewTimeoutMs ?? watchdogIntervalMs,
-    )
+    const lock = this.buildLock(name, owner, token, ttlMs)
     if (options.watchdog) {
-      this.startWatchdog(lock, watchdogIntervalMs, options.maxRenewFailures ?? 3)
+      this.startWatchdog(lock, options.watchdogIntervalMs ?? Math.floor(ttlMs / 3))
     }
     return lock
   }
@@ -252,19 +201,9 @@ export class DistributedLock {
 
   /**
    * 续约 (需提供获取时返回的 token)。
-   *
-   * @param timeoutMs 单次续约超时，0 = 不限制。超时抛 LockRenewTimeoutError。
    */
-  async renew(name: string, token: string, ttlMs = 5000, timeoutMs = 0): Promise<boolean> {
-    const evalPromise = this.redis.eval(
-      RENEW_SCRIPT,
-      1,
-      name,
-      token,
-      String(ttlMs),
-    ) as Promise<number>
-    const res =
-      timeoutMs > 0 ? await withTimeout(evalPromise, timeoutMs, name) : await evalPromise
+  async renew(name: string, token: string, ttlMs = 5000): Promise<boolean> {
+    const res = (await this.redis.eval(RENEW_SCRIPT, 1, name, token, String(ttlMs))) as number
     if (res === 1) {
       this.stats.renewed++
       return true
@@ -321,85 +260,36 @@ export class DistributedLock {
     return { ...this.stats }
   }
 
-  private buildLock(
-    name: string,
-    owner: string,
-    token: string,
-    ttlMs: number,
-    renewTimeoutMs: number,
-  ): AcquiredLock {
+  private buildLock(name: string, owner: string, token: string, ttlMs: number): AcquiredLock {
     const acquiredAt = Date.now()
-    const lostController = new AbortController()
-    const lock: AcquiredLock = {
+    return {
       name,
       owner,
       token,
       ttlMs,
       acquiredAt,
       expiresAt: acquiredAt + ttlMs,
-      lost: lostController.signal,
       release: () => this.release(name, token),
-      renew: (newTtlMs?: number) =>
-        this.renew(name, token, newTtlMs ?? ttlMs, renewTimeoutMs),
+      renew: (newTtlMs?: number) => this.renew(name, token, newTtlMs ?? ttlMs),
     }
-    this.lostControllers.set(lock, lostController)
-    return lock
   }
 
-  /**
-   * 启动 watchdog：定时续约。
-   *
-   * F-708：`renew` 返回 false 是「锁已不属于我」的确定结论 → 立即停表并通知持有者；
-   * 抛出异常 (网络/Redis 抖动/续约超时) 是「未知」→ 只累计失败次数，连续
-   * maxRenewFailures 次才停表并通知，避免一次抖动就永久放弃续约导致双持有。
-   */
-  private startWatchdog(
-    lock: AcquiredLock,
-    intervalMs: number,
-    maxRenewFailures: number,
-  ): void {
-    let failures = 0
-    const timer = setInterval(() => {
-      void (async () => {
-        try {
-          const ok = await lock.renew(lock.ttlMs)
-          if (ok) {
-            failures = 0
-            return
-          }
+  /** 启动 watchdog：定时续约，锁丢失时自动停止。 */
+  private startWatchdog(lock: AcquiredLock, intervalMs: number): void {
+    const timer = setInterval(async () => {
+      try {
+        const ok = await lock.renew(lock.ttlMs)
+        if (!ok) {
           this.stopWatchdog(lock.name)
           this.stats.expired++
-          this.notifyLost(lock, 'not-owner')
-        } catch (error) {
-          failures++
-          if (failures < maxRenewFailures) {
-            logger.warn('[distributed-lock] watchdog renew 异常，保留续约待重试', {
-              name: lock.name,
-              failures,
-              maxRenewFailures,
-              error,
-            })
-            return
-          }
-          this.stopWatchdog(lock.name)
-          logger.warn('[distributed-lock] watchdog renew 连续异常，停止续约并通知持有者', {
-            name: lock.name,
-            failures,
-            maxRenewFailures,
-            error,
-          })
-          this.notifyLost(lock, 'renew-failed')
         }
-      })()
+      } catch {
+        this.stopWatchdog(lock.name)
+      }
     }, intervalMs)
     // 不阻塞进程退出
     timer.unref?.()
     this.watchdogs.set(lock.name, timer)
-  }
-
-  /** 通知持有者锁已丢失 (AbortSignal)。 */
-  private notifyLost(lock: AcquiredLock, reason: LockLostReason): void {
-    this.lostControllers.get(lock)?.abort(reason)
   }
 
   private stopWatchdog(name: string): void {

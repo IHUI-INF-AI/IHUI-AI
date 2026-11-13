@@ -30,7 +30,6 @@ import {
 import { redactCredentialText } from '../../plugins/log-sanitizer.js'
 import { buildSensitiveKeySet, sanitizeData } from '../../plugins/response-sanitizer.js'
 import { sumRelayCostCentsSql } from '../../services/relay-cost.js'
-import { toSafeCount } from '../../utils/safe-count.js'
 
 const listQuerySchema = paginationSchema.extend({
   userId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
@@ -458,10 +457,9 @@ const relayLogsRoutes: FastifyPluginAsync = async (server) => {
         .select({
           groupKey: groupCol.as('group_key'),
           callCount: sql<number>`count(*)::int`,
-          // F-667:token 合计可能超 int4 上限,聚合只到 bigint,再由 JS 侧归一成 number
-          totalTokens: sql<number>`coalesce(sum(${llmCallLogs.totalTokens}), 0)::bigint`,
-          promptTokens: sql<number>`coalesce(sum(${llmCallLogs.promptTokens}), 0)::bigint`,
-          completionTokens: sql<number>`coalesce(sum(${llmCallLogs.completionTokens}), 0)::bigint`,
+          totalTokens: sql<number>`coalesce(sum(${llmCallLogs.totalTokens}), 0)::bigint::int`,
+          promptTokens: sql<number>`coalesce(sum(${llmCallLogs.promptTokens}), 0)::bigint::int`,
+          completionTokens: sql<number>`coalesce(sum(${llmCallLogs.completionTokens}), 0)::bigint::int`,
           successCount: sql<number>`count(*) filter (where ${llmCallLogs.status} = 'success')::int`,
           errorCount: sql<number>`count(*) filter (where ${llmCallLogs.status} = 'error')::int`,
           avgLatencyMs: sql<number>`coalesce(avg(${llmCallLogs.latencyMs}), 0)::int`,
@@ -477,13 +475,7 @@ const relayLogsRoutes: FastifyPluginAsync = async (server) => {
         success({
           groupBy,
           // ::bigint 由 postgres.js 以字符串返回,统一收口成 number,避免汇总串成字符串。
-          rows: rows.map((r) => ({
-            ...r,
-            totalTokens: toSafeCount(r.totalTokens),
-            promptTokens: toSafeCount(r.promptTokens),
-            completionTokens: toSafeCount(r.completionTokens),
-            totalCostCents: Number(r.totalCostCents),
-          })),
+          rows: rows.map((r) => ({ ...r, totalCostCents: Number(r.totalCostCents) })),
         }),
       )
     } catch (e) {

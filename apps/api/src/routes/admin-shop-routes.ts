@@ -14,7 +14,6 @@ import { db } from '../db/index.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { isUuidString } from '../utils/uuid.js'
-import { toSafeCount } from '../utils/safe-count.js'
 import {
   userMargins,
   tokenFlows,
@@ -147,12 +146,11 @@ export const adminShopRoutes: FastifyPluginAsync = async (server) => {
       .from(userMargins)
       .leftJoin(users, eq(users.id, userMargins.userId))
 
-    // F-667:token 合计可能超 int4 上限,聚合只到 bigint,再由 JS 侧归一成 number
     const flows = await db
       .select({
         userId: tokenFlows.userId,
-        totalRecharge: sql<number>`coalesce(sum(case when ${tokenFlows.opType} = 0 then ${tokenFlows.quantity} else 0 end), 0)::bigint`,
-        totalConsume: sql<number>`coalesce(sum(case when ${tokenFlows.opType} = 1 then ${tokenFlows.quantity} else 0 end), 0)::bigint`,
+        totalRecharge: sql<number>`coalesce(sum(case when ${tokenFlows.opType} = 0 then ${tokenFlows.quantity} else 0 end), 0)::int`,
+        totalConsume: sql<number>`coalesce(sum(case when ${tokenFlows.opType} = 1 then ${tokenFlows.quantity} else 0 end), 0)::int`,
       })
       .from(tokenFlows)
       .where(inArray(tokenFlows.opType, [0, 1]))
@@ -166,8 +164,8 @@ export const adminShopRoutes: FastifyPluginAsync = async (server) => {
         user: r.username ?? r.email ?? r.phone ?? r.userId,
         balance: r.balance,
         frozen: r.frozen,
-        totalRecharge: toSafeCount(f?.totalRecharge),
-        totalConsume: toSafeCount(f?.totalConsume),
+        totalRecharge: f?.totalRecharge ?? 0,
+        totalConsume: f?.totalConsume ?? 0,
         updatedAt: r.updatedAt.toISOString(),
       }
     })

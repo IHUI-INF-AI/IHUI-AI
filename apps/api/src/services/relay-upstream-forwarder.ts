@@ -125,8 +125,6 @@ interface ForwardFailure {
   reason: string
   /** 最后一次上游 HTTP 状态(网络错误时为 undefined) */
   lastHttpStatus?: number
-  /** F-678:429 时上游给出的 Retry-After(原样;供 v1-public 对外透传) */
-  retryAfter?: string
 }
 
 /**
@@ -409,7 +407,6 @@ export async function forwardToChannel(req: UpstreamForwardRequest): Promise<For
 
   let lastError = 'no channel candidate succeeded'
   let lastHttpStatus: number | undefined
-  let lastRetryAfter: string | undefined
 
   // 插件系统(2026-09-17,补强 59):启用插件一次性读取(30s 缓存),
   // upstream_header_inject 在每个候选的请求头合并;读取失败降级为空集(不阻断转发)。
@@ -451,8 +448,6 @@ export async function forwardToChannel(req: UpstreamForwardRequest): Promise<For
 
       if (!resp.ok || !resp.body) {
         lastHttpStatus = resp.status
-        // F-678:429 的 Retry-After 原样留底(上游没给就保持 undefined,不伪造)
-        if (resp.status === 429) lastRetryAfter = resp.headers?.get?.('retry-after') ?? undefined
         lastError = `upstream ${resp.status}`
         // F-618:非 2xx 的 body 必须消费/取消,否则 undici 不归还 socket(失败风暴下连接池耗尽)
         await resp.body?.cancel().catch(() => {})
@@ -494,12 +489,7 @@ export async function forwardToChannel(req: UpstreamForwardRequest): Promise<For
     }
   }
 
-  return {
-    ok: false,
-    reason: lastError,
-    lastHttpStatus,
-    ...(lastRetryAfter ? { retryAfter: lastRetryAfter } : {}),
-  }
+  return { ok: false, reason: lastError, lastHttpStatus }
 }
 
 // =============================================================================

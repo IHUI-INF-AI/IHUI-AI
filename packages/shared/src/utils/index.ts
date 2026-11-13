@@ -14,6 +14,8 @@ export * from './base64'
 export * from './context-attribution'
 // canonical JSON 序列化唯一出口(86F:审计链哈希与导出签名共用,生产面禁止第二份)
 export * from './canonical-json'
+// 有界 JSON 序列化原语(J4,对标 WorkBuddy agent-harness bounded-json:迭代遍历 + 字节/节点/深度三重护栏)
+export * from './bounded-json'
 // 流式感知 JSON 修复唯一实现(2026-11-05 立,对标 Qoder/Trae 的 jsonrepair 依赖,并超越其「只能吃完整字符串」的流式轴)
 export * from './json-repair'
 // 工具调用入参解析唯一出口(2026-11-05 立):归一化任意上游 args 形态 + 增量 function.arguments 流式解析(接 json-repair 的修复/流式能力)
@@ -81,14 +83,8 @@ export { parseSSEChunk, type SSEEvent as ParsedSSEEvent } from './sse-parse'
 // 打字机节拍 + 码点边界切批(D1:代理对不劈)+ 宿主调度探测三端同源;web 侧文件已降级为 re-export wrapper。
 // 显式列举公共符号:本文件的 __test__ 与 chat/stream-error-disposition 的同名符号
 // 经两条 export * 链在包根相撞(TS2308),测试专用符号不该上浮到包接口。
-export {
-  alignSliceToCodePointBoundary,
-  createSmoothDeltaBatcher,
-} from './smooth-delta-batcher'
-export type {
-  SmoothDeltaBatcherOptions,
-  SmoothDeltaBatcher,
-} from './smooth-delta-batcher'
+export { alignSliceToCodePointBoundary, createSmoothDeltaBatcher } from './smooth-delta-batcher'
+export type { SmoothDeltaBatcherOptions, SmoothDeltaBatcher } from './smooth-delta-batcher'
 // 纯文本气泡的行内 Markdown 去标记(无富文本渲染器的宿主共用:首页小窗 / 群聊 / 直播聊天)。
 // 只剥行内符号、不做块级解析 —— 边界与理由见源文件头注。
 export * from './strip-inline-markdown'
