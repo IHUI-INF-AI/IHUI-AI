@@ -74,7 +74,7 @@ export default function AiCareer() {
     <View className="min-h-screen bg-background">
       {/* 对齐 RN header:px 10dp=20rpx / pt 4dp=8rpx pb 8dp=16rpx / 标题 22dp=44rpx w700 */}
       <View className="px-[20rpx] pt-[8rpx] pb-[16rpx] bg-background">
-        <Text className="text-[length:44rpx] font-bold text-foreground">{t('aiCareer.title')}</Text>
+        <Text className="text-headline text-foreground">{t('aiCareer.title')}</Text>
       </View>
       {/* 对齐 RN FlatList contentContainer:padding 16dp=32rpx / paddingBottom 32dp=64rpx;separator 12dp=24rpx */}
       <View className="px-[32rpx] pt-[32rpx] pb-[64rpx]">

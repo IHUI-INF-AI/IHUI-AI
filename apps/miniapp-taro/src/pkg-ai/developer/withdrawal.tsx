@@ -140,7 +140,7 @@ export default function DeveloperWithdrawal() {
             <Text className="text-body text-muted-foreground">
               {t('developer.income.withdrawnYuan')}
             </Text>
-            <Text className="text-[length:56rpx] font-bold text-foreground mt-[16rpx]">
+            <Text className="text-display-xl text-foreground mt-[16rpx]">
               {loading ? '--' : totalAmount}
             </Text>
           </View>
@@ -148,7 +148,7 @@ export default function DeveloperWithdrawal() {
             <Text className="text-body text-muted-foreground">
               {t('developer.income.withdrawn')}
             </Text>
-            <Text className="text-[length:56rpx] font-bold text-foreground mt-[16rpx]">
+            <Text className="text-display-xl text-foreground mt-[16rpx]">
               {loading ? '--' : totalSuccess}
             </Text>
           </View>

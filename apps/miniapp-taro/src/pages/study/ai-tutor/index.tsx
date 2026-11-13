@@ -96,7 +96,7 @@ export default function AiTutor() {
     <ThemeRoot>
       <View className="min-h-screen bg-background">
         <View className="flex flex-row items-center px-[20rpx] pt-[24rpx] pb-[16rpx] gap-[16rpx]">
-          <Text className="text-[length:44rpx] font-semibold text-foreground">AI 助教</Text>
+          <Text className="text-headline font-semibold text-foreground">AI 助教</Text>
         </View>
 
         <View className="flex flex-row px-[20rpx] py-[16rpx] gap-[12rpx]">
