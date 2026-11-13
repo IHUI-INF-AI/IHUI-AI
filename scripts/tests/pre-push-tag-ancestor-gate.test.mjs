@@ -19,7 +19,8 @@
  *   T1 形状锁 —— 判据块必须仍住在钩子原文里;
  *   T2 祖先提交上的备份 tag(lost-commit/*,非祖先提交)⇒ 过(唯一不能破的既有流程);
  *   T3 非祖先提交上的普通 tag ⇒ 拦;
- *   T4 发布 tag(desktop-v*)+ 工作树脏 ⇒ 拦;
+ *   T4 发布 tag 打在发布件已过期的提交上 ⇒ 拦(DG-12 新判据:tag 树 vs HEAD 树逐 blob 对账);
+ *   T4b 发布 tag + 无关脏工作树 ⇒ 放行(DG-12 根治:他人 WIP 不再阻断日常发布);
  *   T5 分支推送 ⇒ 判据不触发(回归,既有行为不变);
  *   T6 annotated tag 解引用后仍按 commit 判祖先 ⇒ 过;
  *   T7 `HUSKY_SKIP_TYPECHECK=1` + 非祖先 tag ⇒ 仍拦(判据必须在 env 判断之前,2026-11-04 解耦);
@@ -27,7 +28,7 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -46,7 +47,10 @@ const END_MARK = '# <<< tag-ancestor-gate'
  */
 function resolveShell() {
   if (!spawnSync('sh', ['-c', 'exit 0'], { stdio: 'ignore' }).error) return 'sh'
-  const r = spawnSync('git', ['--exec-path'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+  const r = spawnSync('git', ['--exec-path'], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
   if (!r.error && r.status === 0) {
     const gitRoot = dirname(dirname(dirname(r.stdout.trim().replaceAll('\\', '/'))))
     for (const rel of ['bin/sh.exe', 'usr/bin/sh.exe']) {
@@ -85,11 +89,15 @@ function runGate(repo, refs, extraEnv = {}) {
 
 /** 派生 git 调用一律显式接管 stdio(AGENTS §12g)。 */
 function git(repo, args) {
-  const r = spawnSync('git', ['-c', 'user.name=fixture', '-c', 'user.email=fixture@example.com', ...args], {
-    cwd: repo,
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
+  const r = spawnSync(
+    'git',
+    ['-c', 'user.name=fixture', '-c', 'user.email=fixture@example.com', ...args],
+    {
+      cwd: repo,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  )
   assert.equal(r.status, 0, `git ${args.join(' ')} 失败:${r.stderr}`)
   return r.stdout.trim()
 }
@@ -97,7 +105,22 @@ function git(repo, args) {
 /**
  * 夹具:bare origin + 工作仓。main=A 已推到 origin;另建 `draft` 分支出一笔未推送的 B。
  * A 是 origin/main 本身(祖先),B 不是 ⇒ 两个方向都能证。
+ * DG-12:仓内必须带真实的发布关键路径四件(钩子按路径 blob 对账;夹具缺路径时
+ * 走的是 HEAD 取不到的 fail-closed 分支,测不到"发布件过期被拦"的正路径)。
  */
+const RELEASE_PATHS = [
+  'apps/desktop/package.json',
+  'apps/cli/package.json',
+  'apps/desktop/src-tauri/tauri.conf.json',
+  'apps/web/src/config/desktop-latest.generated.ts',
+]
+function seedReleaseFiles(work, version) {
+  for (const p of RELEASE_PATHS) {
+    mkdirSync(join(work, dirname(p)), { recursive: true })
+    writeFileSync(join(work, p), JSON.stringify({ name: p, version }) + '\n')
+  }
+}
+
 function makeFixture(t) {
   const dir = mkScratch('ihui-prepush-tag-')
   t.after(() => rmScratch(dir))
@@ -112,7 +135,8 @@ function makeFixture(t) {
   }
   git(work, ['remote', 'add', 'origin', origin])
   writeFileSync(join(work, 'a.txt'), 'a\n')
-  git(work, ['add', 'a.txt'])
+  seedReleaseFiles(work, '0.0.1')
+  git(work, ['add', 'a.txt', ...RELEASE_PATHS])
   git(work, ['commit', '-m', 'A'])
   git(work, ['push', '-u', 'origin', 'main'])
   git(work, ['fetch', 'origin'])
@@ -124,14 +148,34 @@ function makeFixture(t) {
   git(work, ['commit', '-m', 'B'])
   const b = git(work, ['rev-parse', 'HEAD'])
   git(work, ['checkout', 'main'])
-  return { work, a, b }
+  return { work, dir, a, b }
+}
+
+/** 在 main 上追加一笔"发布件升版"提交 C ⇒ HEAD 前移,C 树 ≠ A 树的发布 blob。 */
+function bumpRelease(work) {
+  seedReleaseFiles(work, '0.0.2')
+  git(work, ['add', ...RELEASE_PATHS])
+  git(work, ['commit', '-m', 'C-release-bump'])
+  return git(work, ['rev-parse', 'HEAD'])
 }
 
 test('T1 形状锁:祖先判据必须仍住在钩子原文里', () => {
   assert.ok(BLOCK, '抠不到 tag-ancestor-gate 块(起止标记或结构被改写)')
-  assert.match(BLOCK, /git rev-parse --verify --quiet "refs\/tags\/\$\{_tg_name\}\^\{commit\}"/, '解引用被删/被换')
-  assert.match(BLOCK, /git merge-base --is-ancestor "\$_tg_commit" origin\/main/, '祖先判据被删/被换')
-  assert.match(BLOCK, /git status --porcelain/, '发布 tag 的工作树干净判据被删')
+  assert.match(
+    BLOCK,
+    /git rev-parse --verify --quiet "refs\/tags\/\$\{_tg_name\}\^\{commit\}"/,
+    '解引用被删/被换',
+  )
+  assert.match(
+    BLOCK,
+    /git merge-base --is-ancestor "\$_tg_commit" origin\/main/,
+    '祖先判据被删/被换',
+  )
+  assert.match(
+    BLOCK,
+    /apps\/desktop\/package\.json apps\/cli\/package\.json/,
+    '发布件对账路径清单被删/被换',
+  )
   assert.match(BLOCK, /desktop-v\*\|cli-v\*/, '发布 tag 识别被删')
   assert.match(BLOCK, /lost-commit\/\*\|backup\/\*\|backup-\*/, '§22 备份命名空间豁免被删')
 })
@@ -140,7 +184,10 @@ test('T2 祖先提交上的备份 tag(非祖先提交的 lost-commit)⇒ 过', (
   const { work, a, b } = makeFixture(t)
   // 备份 tag 按定义可以指向非祖先提交:这条是唯一不能破的既有流程
   git(work, ['tag', 'lost-commit/fixture', b])
-  const r = runGate(work, `refs/tags/lost-commit/fixture ${b} refs/tags/lost-commit/fixture ${ZERO}`)
+  const r = runGate(
+    work,
+    `refs/tags/lost-commit/fixture ${b} refs/tags/lost-commit/fixture ${ZERO}`,
+  )
   assert.equal(r.code, 0, `备份 tag 被误拦:${r.stderr}`)
 
   // 普通 tag 指向祖先提交(A = origin/main)也必须过
@@ -157,13 +204,28 @@ test('T3 非祖先提交上的 tag ⇒ 拦', (t) => {
   assert.match(r.stderr, /不在 origin\/main 的祖先链上/)
 })
 
-test('T4 发布 tag + 工作树脏 ⇒ 拦', (t) => {
+test('T4 发布 tag 打在发布件已过期的提交上 ⇒ 拦(DG-12 新判据)', (t) => {
   const { work, a } = makeFixture(t)
+  // main 前进一笔发布件升版 C(保持 C 非祖先:tag 打在旧提交 A 上,两个判据各证各的腿)
+  bumpRelease(work)
   git(work, ['tag', 'desktop-v0.0.1', a])
-  writeFileSync(join(work, 'draft.txt'), 'uncommitted\n')
   const r = runGate(work, `refs/tags/desktop-v0.0.1 ${a} refs/tags/desktop-v0.0.1 ${ZERO}`)
-  assert.equal(r.code, 1, '发布 tag 遇脏工作树必须被拦')
-  assert.match(r.stderr, /工作树不干净/)
+  assert.equal(r.code, 1, 'tag 树上的发布件与 HEAD 不一致必须被拦')
+  assert.match(r.stderr, /发布件与 HEAD 树不一致/)
+})
+
+test('T4b 发布 tag + 无关脏工作树 ⇒ 放行(DG-12 根治:他人 WIP 不再阻断日常发布)', (t) => {
+  const { work } = makeFixture(t)
+  const c = bumpRelease(work)
+  // 复刻真实发布节拍:升版提交先推到 origin/main(tag 提交因此是祖先),HEAD==tag 提交
+  git(work, ['push', 'origin', 'main'])
+  git(work, ['fetch', 'origin'])
+  git(work, ['tag', 'desktop-v0.0.2', c])
+  // 他人/本席未提交的草稿散布各角落 —— 与发布 blob 无关
+  writeFileSync(join(work, 'someone-else-wip.txt'), 'dirty\n')
+  writeFileSync(join(work, 'apps', 'desktop', 'untracked-notes.md'), 'wip\n')
+  const r = runGate(work, `refs/tags/desktop-v0.0.2 ${c} refs/tags/desktop-v0.0.2 ${ZERO}`)
+  assert.equal(r.code, 0, `脏工作树不得阻断 HEAD 上的干净发布 tag:${r.stderr}`)
 })
 
 test('T5 分支推送 ⇒ 判据不触发(既有行为不变)', (t) => {
@@ -181,9 +243,13 @@ test('T6 annotated tag 解引用后仍按 commit 判祖先 ⇒ 过;发布 tag �
   const r = runGate(work, `refs/tags/v-annotated ${tagObj} refs/tags/v-annotated ${ZERO}`)
   assert.equal(r.code, 0, `annotated tag 未解引用 ⇒ 祖先判据被误判:${r.stderr}`)
 
-  git(work, ['tag', 'cli-v0.0.1', a])
-  const r2 = runGate(work, `refs/tags/cli-v0.0.1 ${a} refs/tags/cli-v0.0.1 ${ZERO}`)
-  assert.equal(r2.code, 0, `干净工作树 + 祖先提交的发布 tag 被误拦:${r2.stderr}`)
+  // 发布 tag 打在 origin/main 已含提交上(annotated 解引用后的 commit)。夹具里 A 的 blob
+  //   与 HEAD 的 a.txt 逐字节相同 ⇒ 走"发布 tag 放行 + 不打印拦截"的正路径。
+  git(work, ['tag', '-a', 'cli-v0.0.1', '-m', 'annotated release', a])
+  const cliTagObj = git(work, ['rev-parse', 'refs/tags/cli-v0.0.1'])
+  const r3 = runGate(work, `refs/tags/cli-v0.0.1 ${cliTagObj} refs/tags/cli-v0.0.1 ${ZERO}`)
+  assert.equal(r3.code, 0, `annotated 发布 tag 打在 origin/main 提交上被误拦:${r3.stderr}`)
+  assert.ok(!r3.stderr.includes('tag 推送校验未通过'), '发布 tag 校验输出异常')
 })
 
 test('T7 HUSKY_SKIP_TYPECHECK=1 + 非祖先 tag ⇒ 仍拦(判据必须在 env 判断之前)', (t) => {
@@ -193,19 +259,26 @@ test('T7 HUSKY_SKIP_TYPECHECK=1 + 非祖先 tag ⇒ 仍拦(判据必须在 env �
   const end = lines.findIndex((l) => l.includes(END_MARK))
   const envIf = lines.findIndex((l) => l.includes('HUSKY_SKIP_TYPECHECK:-0'))
   assert.ok(begin >= 0 && end > begin, '判据块起止标记缺失')
-  assert.ok(envIf > end, `tag 判据仍在 HUSKY_SKIP_TYPECHECK 之后(env 行 ${envIf + 1},判据止于 ${end + 1})⇒ 应急阀会重新打开释放面`)
+  assert.ok(
+    envIf > end,
+    `tag 判据仍在 HUSKY_SKIP_TYPECHECK 之后(env 行 ${envIf + 1},判据止于 ${end + 1})⇒ 应急阀会重新打开释放面`,
+  )
 
   // 行为锁:带 env 跑同一段判据,非祖先 tag 照样拦下(env 不得构成旁路)
   const { work, b } = makeFixture(t)
   git(work, ['tag', 'draft-only', b])
-  const r = runGate(work, `refs/tags/draft-only ${b} refs/tags/draft-only ${ZERO}`, { HUSKY_SKIP_TYPECHECK: '1' })
+  const r = runGate(work, `refs/tags/draft-only ${b} refs/tags/draft-only ${ZERO}`, {
+    HUSKY_SKIP_TYPECHECK: '1',
+  })
   assert.equal(r.code, 1, `HUSKY_SKIP_TYPECHECK=1 下非祖先 tag 被放行 ⇒ 判据被旁路:${r.stderr}`)
   assert.match(r.stderr, /不在 origin\/main 的祖先链上/)
 })
 
 test('T8 HUSKY_SKIP_TYPECHECK=1 + 分支推送 ⇒ 判据不触发(与移动前一致)', (t) => {
   const { work, a } = makeFixture(t)
-  const r = runGate(work, `refs/heads/main ${a} refs/heads/main ${ZERO}`, { HUSKY_SKIP_TYPECHECK: '1' })
+  const r = runGate(work, `refs/heads/main ${a} refs/heads/main ${ZERO}`, {
+    HUSKY_SKIP_TYPECHECK: '1',
+  })
   assert.equal(r.code, 0, '分支推送不得被 tag 判据改写')
   assert.ok(!r.stderr.includes('本次只推 tag'), '分支推送不得走进 tag 豁免分支')
   assert.ok(!r.stderr.includes('tag 推送校验未通过'), '分支推送不得触发 tag 校验')
