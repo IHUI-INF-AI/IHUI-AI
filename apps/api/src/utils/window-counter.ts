@@ -204,6 +204,24 @@ export async function acquireOnce(key: string, value: string, ttlMs: number): Pr
   return { acquired: true, existing: null }
 }
 
+/** 释放一次性占位。只用于「占位成功但后续步骤失败,不该把整窗一直占着」——
+ *  例如一次告警派发失败,不能因此把该身份静默 6 小时。删不掉只记日志,不改变调用方结论。 */
+export async function releaseOnce(key: string): Promise<void> {
+  const redis = getRedis()
+  if (redis) {
+    try {
+      // UNLINK = 非阻塞 DEL:释放占位不需要等键空间回收。
+      await redis.unlink(key)
+      return
+    } catch (e) {
+      logger.error('[window-counter] 释放占位失败,回退内存', {
+        error: String((e as Error)?.message ?? e),
+      })
+    }
+  }
+  localOnce.delete(key)
+}
+
 /** 该计数键还剩多少毫秒到期(用于 Retry-After)。键不存在或取不到 ⇒ 按整窗返回。 */
 export async function windowRemainingMs(key: string, windowMs: number): Promise<number> {
   const redis = getRedis()
