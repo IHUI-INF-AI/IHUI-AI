@@ -665,11 +665,18 @@ export function serializeAnthropicSSEEvent(event: AnthropicSSEEvent): string {
  * - Vercel AI SDK: 0:"text"
  * - SSE data: {choices:[{delta:{content}}]} / {delta:{content}} / {content} / {token} / string
  * - SSE data: {"type":"done","finishReason":"..."} → 带 finish_reason 的收尾 chunk(F-295)
+ * - SSE data: {"type":"tool-call-start"...} / {"type":"tool-call-args-delta"...}
+ *   → OpenAI `delta.tool_calls` chunk(F-293)
  * - data: [DONE] → 返回 null
+ *
+ * @param toolIndexRef F-293:同一工具调用的多个 `tool-call-start` 帧需要各自独立的
+ *   tool_calls index(否则 Anthropic 侧会合并成一个块)。调用方按流创建
+ *   `{ next: 0 }` 并复用;缺省时按 0 处理(单工具/纯函数单测)。
  */
 export function parseUpstreamLineToOpenAIChunk(
   line: string,
   model: string,
+  toolIndexRef?: { next: number },
 ): OpenAIChatChunk | null {
   const trimmed = line.trim()
   if (!trimmed || trimmed.startsWith(':')) return null
@@ -713,6 +720,58 @@ export function parseUpstreamLineToOpenAIChunk(
                 choices: [{ index: 0, delta: {}, finish_reason: rawFinishReason }],
               }
             : null
+        }
+        // F-293:工具帧映射。此前这几种帧一律落到函数末尾的 null,流式工具调用整条丢失。
+        // - tool-call-args-delta:逐片入参(对象形态、非增量字符串)。只用来提前开块,
+        //   不把分片序列化后当 partial_json 拼 —— 多段 JSON 拼接后客户端无法解析。
+        // - tool-call-start:聚合后的完整 id/name/args,才是 tool_use 的权威入参。
+        if (json.type === 'tool-call-args-delta') {
+          const id = typeof json.id === 'string' ? json.id : ''
+          const name = typeof json.name === 'string' ? json.name : ''
+          // 续片常只有 args 没有 name;此时开块会得到空 name 的 tool_use,故只认带 name 的帧。
+          if (!name) return null
+          const index = typeof json.index === 'number' ? json.index : 0
+          return {
+            id: `chatcmpl-${Date.now()}`,
+            model,
+            choices: [
+              {
+                index: 0,
+                delta: {
+                  tool_calls: [{ index, id, type: 'function', function: { name, arguments: '' } }],
+                },
+                finish_reason: null,
+              },
+            ],
+          }
+        }
+        if (json.type === 'tool-call-start') {
+          const id = typeof json.toolCallId === 'string' ? json.toolCallId : ''
+          const name = typeof json.toolName === 'string' ? json.toolName : ''
+          const index = toolIndexRef ? toolIndexRef.next++ : 0
+          return {
+            id: `chatcmpl-${Date.now()}`,
+            model,
+            choices: [
+              {
+                index: 0,
+                delta: {
+                  tool_calls: [
+                    {
+                      index,
+                      id,
+                      type: 'function',
+                      function: {
+                        name,
+                        arguments: JSON.stringify(json.args ?? {}),
+                      },
+                    },
+                  ],
+                },
+                finish_reason: null,
+              },
+            ],
+          }
         }
         if (typeof json.content === 'string') return makeTextChunk(json.content, model, null)
         if (typeof json.token === 'string') return makeTextChunk(json.token, model, null)
