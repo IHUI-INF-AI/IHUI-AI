@@ -12292,7 +12292,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 397G. **缺陷普查 API F-397** [P2] 汇率表无唯一约束 + LIMIT 1 无排序 + real 精度（证据 docs/tickets/2026-11/findings-api.md#F-397）
 - [ ] 401G. **缺陷普查 API F-401** [P2] codebase/vector/checkpoints 缺 workspace 权限校验（证据 docs/tickets/2026-11/findings-api.md#F-401）
 - [ ] 402G. **缺陷普查 API F-402** [P2] swarms 无属主模型，任意用户可操作他人 swarm（证据 docs/tickets/2026-11/findings-api.md#F-402）
-- [ ] 404G. **缺陷普查 API F-404** [P1] 返佣基数取「被邀请人钱包总余额」而非本单 token 数，可反复放大（已复核，P1）（证据 docs/tickets/2026-11/findings-api.md#F-404）
+
 - [ ] 407G. **缺陷普查 API F-407** [P2] 退款不冲减佣金，退款单佣金仍可提现（证据 docs/tickets/2026-11/findings-api.md#F-407）
 - [ ] 408G. **缺陷普查 API F-408** [P2] 佣金入钱包不写 token_flows，账实断链（证据 docs/tickets/2026-11/findings-api.md#F-408）
 - [ ] 410G. **缺陷普查 API F-410** [P2] 开发者提现只冻结不扣余额，冻结额仍可被 relay 消费（证据 docs/tickets/2026-11/findings-api.md#F-410）
