@@ -5469,6 +5469,11 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-13**
+- 📚 文档:派生产物 changelog 同步(2026-11-13) (a043340146)
+- 📚 文档:生成块 trackedFiles 对齐 HEAD 面现算(21338→21339) (593905e70d)
+- 📚 文档:门 41 存量 24 分支逐枚内容级取证 —— 全部必须保留,0 枚可收口 (46542d1d84)
+
+**2026-11-13**
 - 🔧 工程/其他:README changelog+数字现算同步 + sag2壳注释对齐全键透传 + parity账本刷新 (ca2efb656e)
 
 **2026-11-13**

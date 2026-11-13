@@ -66,8 +66,8 @@ describe('appendNotice — 追加与去重', () => {
       list = appendNotice(list, notice({ id: `n${i}`, text: `t${i}`, ts: i }))
     }
     expect(list).toHaveLength(NOTICE_LOG_CAP)
-    expect(list[0].id).toBe('n5')
-    expect(list[list.length - 1].id).toBe(`n${NOTICE_LOG_CAP + 4}`)
+    expect(list[0]!.id).toBe('n5')
+    expect(list[list.length - 1]!.id).toBe(`n${NOTICE_LOG_CAP + 4}`)
   })
 })
 
@@ -131,7 +131,7 @@ describe('序列化 / 反序列化', () => {
     })
     const out = parseNoticeLog(raw)
     expect(out).toHaveLength(1)
-    expect(out[0].id).toBe('ok')
+    expect(out[0]!.id).toBe('ok')
   })
 
   it('反序列化结果同样受上限约束(防手改存储撑爆内存)', () => {
@@ -143,7 +143,7 @@ describe('序列化 / 反序列化', () => {
     }))
     const out = parseNoticeLog(JSON.stringify({ v: 1, items }))
     expect(out).toHaveLength(NOTICE_LOG_CAP)
-    expect(out[out.length - 1].id).toBe(`n${NOTICE_LOG_CAP + 9}`)
+    expect(out[out.length - 1]!.id).toBe(`n${NOTICE_LOG_CAP + 9}`)
   })
 })
 
@@ -159,8 +159,8 @@ describe('存储适配器三个薄封装', () => {
     const storage = memoryStorage()
     await saveNoticeLog(storage, 'c1', [notice({ id: 'a', text: '会话一' })])
     await saveNoticeLog(storage, 'c2', [notice({ id: 'b', text: '会话二' })])
-    expect((await loadNoticeLog(storage, 'c1'))[0].text).toBe('会话一')
-    expect((await loadNoticeLog(storage, 'c2'))[0].text).toBe('会话二')
+    expect((await loadNoticeLog(storage, 'c1'))[0]!.text).toBe('会话一')
+    expect((await loadNoticeLog(storage, 'c2'))[0]!.text).toBe('会话二')
   })
 
   it('clear 删键后读回为空', async () => {
